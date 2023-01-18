@@ -1,1 +1,1 @@
-# Lambda Moon Math Library for Rust
+# Lambdaworks - ZK Library for Rust
