@@ -1,6 +1,6 @@
 [workspace]
 
 members = [
-    "lambda-algebra",
-    "lambda-cryptography",
+    "algebra",
+    "crypto",
 ]
