@@ -1,1 +1,1 @@
-# Lambdaworks - ZK Library for Rust
+# LambdaWorks
