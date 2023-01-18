@@ -1,14 +1,7 @@
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+pub mod cyclic_group;
+pub mod elliptic_curve;
+pub mod field_element;
+pub mod field_extension_element;
+pub mod msm;
+pub mod polynomial;
+pub mod config;
