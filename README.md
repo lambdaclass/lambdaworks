@@ -57,7 +57,7 @@
 - Marlin
 - FRI
 
-### Crypto primitives (https://github.com/RustCrypto)
+### [Crypto primitives](https://github.com/RustCrypto)
 - Pseudorandom generator
 - Hashes
 - Blake2
