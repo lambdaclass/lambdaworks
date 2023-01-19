@@ -21,6 +21,7 @@
 - Number theoretic transform
 - Polynomial operations
 - Fast Fourier Transform
+- Montgomery and Barrett
 
 ### Elliptic curve models
 - BLS12-381 (H)
