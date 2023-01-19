@@ -10,6 +10,7 @@
 - PIOP
 - Cryptographic tools
 - Advanced tools: agreggation, recursion, accumulation
+- Protocol
 
 ## Blocks
 ### Finite Field Algebra
@@ -68,3 +69,6 @@
 - ChaCha20
 - Rescue
 - ElGamal
+
+### Protocol
+- Fiat-Shamir
