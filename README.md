@@ -1,5 +1,7 @@
 # LambdaWorks
 
+![image](https://user-images.githubusercontent.com/569014/213577507-a87924c2-f258-4de8-b5fd-c3a789881387.png)
+
 References:
 - [arkworks-rs](https://github.com/arkworks-rs/)
 - [gnark](https://github.com/ConsenSys/gnark)
