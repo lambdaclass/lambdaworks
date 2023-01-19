@@ -60,12 +60,12 @@
 ### Crypto primitives (https://github.com/RustCrypto)
 - Pseudorandom generator
 - Hashes
-1. Blake2
-2. Keccak
-3. Poseidon
-4. Pedersen
+- Blake2
+- Keccak
+- Poseidon
+- Pedersen
 - Encryption schemes
-5. AES
-6. ChaCha20
-7. Rescue
-8. ElGamal
+- AES
+- ChaCha20
+- Rescue
+- ElGamal
