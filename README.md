@@ -16,7 +16,7 @@
 ### Finite Field Algebra
 - Big integer representation
 - Basic algebra: addition, multiplication, subtraction, inversion, square root.
-- Field extensions.
+- Field extensions
 - Number theoretic transform
 - Polynomial operations
 
