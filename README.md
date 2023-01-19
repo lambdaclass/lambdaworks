@@ -1,5 +1,9 @@
 # LambdaWorks
 
+References:
+- [arkworks-rs](https://github.com/arkworks-rs/)
+- [gnark](https://github.com/ConsenSys/gnark)
+
 ## Building blocks
 
 - Finite Field Algebra
