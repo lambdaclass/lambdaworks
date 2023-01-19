@@ -11,6 +11,7 @@
 - Cryptographic tools
 - Advanced tools: agreggation, recursion, accumulation
 - Protocol
+- Gadgets
 
 ## Blocks
 ### Finite Field Algebra
