@@ -1,6 +1,6 @@
 # LambdaWorks
 
-# Building blocks
+## Building blocks
 
 - Finite Field Algebra
 - Elliptic curve models
@@ -11,8 +11,7 @@
 - Cryptographic tools
 - Advanced tools: agreggation, recursion, accumulation
 
-## Submodules
-
+## Blocks
 ### Finite Field Algebra
 - Big integer representation
 - Basic algebra: addition, multiplication, subtraction, inversion, square root.
