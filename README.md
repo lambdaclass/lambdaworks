@@ -16,10 +16,11 @@
 ## Blocks
 ### Finite Field Algebra
 - Big integer representation
-- Basic algebra: addition, multiplication, subtraction, inversion, square root.
+- Basic algebra: addition, multiplication, subtraction, inversion, square root (Tonelli–Shanks)
 - Field extensions
 - Number theoretic transform
 - Polynomial operations
+- Fast Fourier Transform
 
 ### Elliptic curve models
 - BLS12-381 (H)
