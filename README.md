@@ -1,4 +1,5 @@
 # LambdaWorks
+The library for kids who wanna learn how to do SNARKs and learn other cryptographic stuff too.
 
 ![image](https://user-images.githubusercontent.com/569014/213577507-a87924c2-f258-4de8-b5fd-c3a789881387.png)
 
