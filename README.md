@@ -25,7 +25,7 @@ References:
 - PIOP
 - Cryptographic tools
 - Advanced tools: agreggation, recursion, accumulation
-- Protocol
+- Protocols
 - Gadgets
 
 ## Blocks
@@ -90,3 +90,5 @@ References:
 
 ### Protocol
 - Fiat-Shamir
+
+### Gadgets
