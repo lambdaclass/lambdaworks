@@ -5,7 +5,7 @@
 [![Telegram Chat][tg-badge]][tg-url]
 
 [tg-badge]: https://img.shields.io/static/v1?color=green&logo=telegram&label=chat&style=flat&message=join
-[tg-url]: https://t.me/starknet_rs
+[tg-url]: https://t.me/+6jzrsK6qR7w3MTkx
 
 </div>
 
