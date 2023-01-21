@@ -1,7 +1,15 @@
 # LambdaWorks
-The library for kids who wanna learn how to do SNARKs and learn other cryptographic stuff too.
 
-![image](https://user-images.githubusercontent.com/569014/213700498-9fb5996f-630d-45f6-9cbb-247e512c8599.png)
+<div>
+
+[![Telegram Chat][tg-badge]][tg-url]
+
+[tg-badge]: https://img.shields.io/static/v1?color=green&logo=telegram&label=chat&style=flat&message=join
+[tg-url]: https://t.me/starknet_rs
+
+</div>
+
+The library for kids who wanna learn how to do SNARKs and learn other cryptographic stuff too.
 
 References:
 - [arkworks-rs](https://github.com/arkworks-rs/)
