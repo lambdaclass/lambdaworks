@@ -1,11 +1,102 @@
+use super::algebraic_element::*;
 use super::cyclic_group::CyclicBilinearGroup;
-use super::algebraic_element::{AlgebraicElement, NativeU64Modulus};
 use rand::prelude::*;
 use std::ops;
 
+#[derive(Debug, Clone)]
+pub struct NativeU64Modulus<const MODULO: u64>;
 
-type FieldElement<const ORDER: u64> = AlgebraicElement<u64, NativeU64Modulus<ORDER>>;
+impl<const MODULO: u64> AdditionLaw<u64> for NativeU64Modulus<MODULO> {
+    fn add(a: &u64, b: &u64) -> u64 {
+        ((*a as u128 + *b as u128) % MODULO as u128) as u64
+    }
+}
 
+impl<const MODULO: u64> SubtractionLaw<u64> for NativeU64Modulus<MODULO> {
+    fn sub(a: &u64, b: &u64) -> u64 {
+        (((*a as u128 + MODULO as u128) - *b as u128) % MODULO as u128) as u64
+    }
+}
+
+impl<const MODULO: u64> NegationLaw<u64> for NativeU64Modulus<MODULO> {
+    fn neg(a: &u64) -> u64 {
+        MODULO - a
+    }
+}
+
+impl<const MODULO: u64> MultiplicationLaw<u64> for NativeU64Modulus<MODULO> {
+    fn mul(a: &u64, b: &u64) -> u64 {
+        ((*a as u128 * *b as u128) % MODULO as u128) as u64
+    }
+}
+
+impl<const MODULO: u64> DivisionLaw<u64> for NativeU64Modulus<MODULO>
+where
+    NativeU64Modulus<MODULO>: InversionLaw<u64> + MultiplicationLaw<u64>,
+{
+    fn div(a: &u64, b: &u64) -> u64 {
+        Self::mul(a, &Self::inv(b))
+    }
+}
+
+impl<const MODULO: u64> PowerLaw<u64> for NativeU64Modulus<MODULO>
+where
+    NativeU64Modulus<MODULO>: MultiplicationLaw<u64>,
+{
+    fn pow(a: &u64, mut exponent: u128) -> u64 {
+        let mut result = 1;
+        let mut base = a.clone();
+
+        while exponent > 0 {
+            if exponent & 1 == 1 {
+                result = Self::mul(&result, &base);
+            }
+            exponent >>= 1;
+            base = Self::mul(&base, &base);
+        }
+        result
+    }
+}
+
+impl<const MODULO: u64> InversionLaw<u64> for NativeU64Modulus<MODULO>
+where
+    NativeU64Modulus<MODULO>: PowerLaw<u64>,
+{
+    fn inv(a: &u64) -> u64 {
+        assert_ne!(*a, 0, "Cannot invert zero element");
+        Self::pow(a, (MODULO - 2) as u128)
+    }
+}
+
+impl<const MODULO: u64> EqualityLaw<u64> for NativeU64Modulus<MODULO>
+where
+    NativeU64Modulus<MODULO>: Representative<u64>,
+{
+    fn eq(a: &u64, b: &u64) -> bool {
+        Self::representative(a) == Self::representative(b)
+    }
+}
+
+impl<const MODULO: u64> Zero<u64> for NativeU64Modulus<MODULO> {
+    fn zero() -> u64 {
+        0
+    }
+}
+
+impl<const MODULO: u64> One<u64> for NativeU64Modulus<MODULO> {
+    fn one() -> u64 {
+        1
+    }
+}
+
+impl<const MODULO: u64> Representative<u64> for NativeU64Modulus<MODULO> {
+    fn representative(a: &u64) -> u64 {
+        a % MODULO
+    }
+}
+
+pub type FieldElement<const ORDER: u64> = AlgebraicElement<u64, NativeU64Modulus<ORDER>>;
+impl<const ORDER: u64> Copy for FieldElement<ORDER> {}
 
 /// Represents an element in Fp. (E.g: 0, 1, 2 are the elements of F3)
 impl<const ORDER: u64> CyclicBilinearGroup for FieldElement<ORDER> {
@@ -34,8 +125,6 @@ impl<const ORDER: u64> CyclicBilinearGroup for FieldElement<ORDER> {
 
 #[cfg(test)]
 mod tests {
-    use crate::algebraic_element::NativeU64Modulus;
-
     use super::*;
     const ORDER: u64 = 13;
     type FE = AlgebraicElement<u64, NativeU64Modulus<ORDER>>;
@@ -105,12 +194,12 @@ mod tests {
 
     #[test]
     fn pow_2_3() {
-        assert_eq!(FE::from(2), FE::from(8))
+        assert_eq!(FE::from(2).pow(3), FE::from(8))
     }
 
     #[test]
     fn pow_p_minus_1() {
-        assert_eq!(FE::from(2), FE::from(1))
+        assert_eq!(FE::from(2).pow((ORDER - 1) as u128), FE::from(1))
     }
 
     #[test]

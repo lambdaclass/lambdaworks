@@ -147,7 +147,7 @@ impl EllipticCurveElement {
         if *p == Self::neutral_element() || *q == Self::neutral_element() || p == q {
             FEE::new_base(1)
         } else {
-            Self::miller(p, q).pow(TARGET_NORMALIZATION_POWER)
+            Self::miller(p, q).pow(TARGET_NORMALIZATION_POWER as u128)
         }
     }
 
@@ -157,7 +157,7 @@ impl EllipticCurveElement {
     /// The current implementation only works for the elliptic curve with A=1 and B=0
     /// ORDER_P=59. This curve was chosen because it is supersingular.
     fn distorsion_map(p: &Self) -> Self {
-        let t = FEE::new(Polynomial::new_monomial(FE::new(1), 1));
+        let t = FEE::new(Polynomial::new_monomial(FE::from(1), 1));
         Self::new(-&p.x, &p.y * t, p.z.clone())
     }
 }
@@ -290,7 +290,7 @@ mod tests {
     #[test]
     fn operate_with_self_works() {
         let mut point_1 = EllipticCurveElement::generator();
-        point_1 = point_1.operate_with_self(ORDER_R);
+        point_1 = point_1.operate_with_self(ORDER_R as u128);
         assert_eq!(point_1, EllipticCurveElement::neutral_element());
     }
 
@@ -307,11 +307,11 @@ mod tests {
     fn test_weil_pairing() {
         let pa = EllipticCurveElement::new(FEE::new_base(35), FEE::new_base(31), FEE::new_base(1));
         let pb = EllipticCurveElement::new(
-            FEE::new(Polynomial::new(vec![FE::new(24)])),
-            FEE::new(Polynomial::new(vec![FE::new(0), FE::new(31)])),
+            FEE::new(Polynomial::new(vec![FE::from(24)])),
+            FEE::new(Polynomial::new(vec![FE::from(0), FE::from(31)])),
             FEE::new_base(1),
         );
-        let expected_result = FEE::new(Polynomial::new(vec![FE::new(46), FE::new(3)]));
+        let expected_result = FEE::new(Polynomial::new(vec![FE::from(46), FE::from(3)]));
 
         let result_weil = EllipticCurveElement::weil_pairing(&pa, &pb);
         assert_eq!(result_weil, expected_result);
@@ -321,11 +321,11 @@ mod tests {
     fn test_tate_pairing() {
         let pa = EllipticCurveElement::new(FEE::new_base(35), FEE::new_base(31), FEE::new_base(1));
         let pb = EllipticCurveElement::new(
-            FEE::new(Polynomial::new(vec![FE::new(24)])),
-            FEE::new(Polynomial::new(vec![FE::new(0), FE::new(31)])),
+            FEE::new(Polynomial::new(vec![FE::from(24)])),
+            FEE::new(Polynomial::new(vec![FE::from(0), FE::from(31)])),
             FEE::new_base(1),
         );
-        let expected_result = FEE::new(Polynomial::new(vec![FE::new(42), FE::new(19)]));
+        let expected_result = FEE::new(Polynomial::new(vec![FE::from(42), FE::from(19)]));
 
         let result_weil = EllipticCurveElement::tate_pairing(&pa, &pb);
         assert_eq!(result_weil, expected_result);
