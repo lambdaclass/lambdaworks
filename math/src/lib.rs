@@ -5,3 +5,4 @@ pub mod field_extension_element;
 pub mod msm;
 pub mod polynomial;
 pub mod config;
+pub mod algebraic_element;
