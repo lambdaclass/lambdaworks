@@ -1,6 +1,6 @@
 use crate::config::ORDER_R;
 use crate::cyclic_group::CyclicBilinearGroup;
-use crate::field_element::U64FieldElement;
+use crate::field::u64_prime_field::U64FieldElement;
 
 type FE = U64FieldElement<ORDER_R>;
 
@@ -26,7 +26,7 @@ where
     );
     cs.iter()
         .zip(hidings.iter())
-        .map(|(&c, h)| h.operate_with_self(c.value().clone() as u128))
+        .map(|(&c, h)| h.operate_with_self(*c.value() as u128))
         .reduce(|acc, x| acc.operate_with(&x))
         .unwrap_or_else(T::neutral_element)
 }
@@ -87,5 +87,3 @@ mod tests {
         assert_eq!(msm(&c, &hiding), EllipticCurveElement::neutral_element());
     }
 }
-
-

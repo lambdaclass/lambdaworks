@@ -1,9 +1,10 @@
-use super::algebraic_element::*;
-use super::cyclic_group::CyclicBilinearGroup;
+use crate::cyclic_group::CyclicBilinearGroup;
 
+use super::field_element::{FieldElement, FieldOperations};
 
 #[derive(Debug, Clone)]
 pub struct U64PrimeField<const MODULO: u64>;
+pub type U64FieldElement<const ORDER: u64> = FieldElement<U64PrimeField<ORDER>>;
 
 impl<const MODULO: u64> FieldOperations for U64PrimeField<MODULO> {
     type BaseType = u64;
@@ -11,37 +12,44 @@ impl<const MODULO: u64> FieldOperations for U64PrimeField<MODULO> {
     fn add(a: &u64, b: &u64) -> u64 {
         ((*a as u128 + *b as u128) % MODULO as u128) as u64
     }
+
     fn sub(a: &u64, b: &u64) -> u64 {
         (((*a as u128 + MODULO as u128) - *b as u128) % MODULO as u128) as u64
     }
+
     fn neg(a: &u64) -> u64 {
         MODULO - a
     }
+
     fn mul(a: &u64, b: &u64) -> u64 {
         ((*a as u128 * *b as u128) % MODULO as u128) as u64
     }
+
     fn div(a: &u64, b: &u64) -> u64 {
         Self::mul(a, &Self::inv(b))
     }
+
     fn inv(a: &u64) -> u64 {
         assert_ne!(*a, 0, "Cannot invert zero element");
         Self::pow(a, (MODULO - 2) as u128)
     }
+
     fn eq(a: &u64, b: &u64) -> bool {
         Self::representative(a) == Self::representative(b)
     }
+
     fn zero() -> u64 {
         0
     }
+
     fn one() -> u64 {
         1
     }
+
     fn representative(a: &u64) -> u64 {
         a % MODULO
     }
 }
-
-pub type U64FieldElement<const ORDER: u64> = FieldElement<U64PrimeField<ORDER>>;
 
 impl<const ORDER: u64> Copy for U64FieldElement<ORDER> {}
 

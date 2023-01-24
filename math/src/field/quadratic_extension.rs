@@ -1,25 +1,27 @@
 use std::marker::PhantomData;
 
-use crate::{algebraic_element::{FieldOperations, FieldElement}};
+use super::field_element::{FieldElement, FieldOperations};
 
 pub trait HasQuadraticNonResidue<F: FieldOperations> {
     fn residue() -> FieldElement<F>;
 }
 
 #[derive(Debug, Clone)]
-pub struct QuadraticExtensionField<F, Q> 
+pub struct QuadraticExtensionField<F, Q>
 where
     F: FieldOperations,
-    Q: HasQuadraticNonResidue<F>
+    Q: HasQuadraticNonResidue<F>,
 {
     field: PhantomData<F>,
-    non_residue: PhantomData<Q>
+    non_residue: PhantomData<Q>,
 }
+
+pub type QuadraticExtensionFieldElement<F, Q> = FieldElement<QuadraticExtensionField<F, Q>>;
 
 impl<F, Q> FieldOperations for QuadraticExtensionField<F, Q>
 where
-    F: FieldOperations + Clone, 
-    Q: HasQuadraticNonResidue<F> + Clone
+    F: FieldOperations + Clone,
+    Q: HasQuadraticNonResidue<F> + Clone,
 {
     type BaseType = [FieldElement<F>; 2];
 
@@ -27,38 +29,41 @@ where
         [&a[0] + &b[0], &a[1] + &b[1]]
     }
 
-    fn mul(a: &[FieldElement<F>; 2], b: &[FieldElement<F>; 2]) -> [FieldElement<F>; 2]{
+    fn mul(a: &[FieldElement<F>; 2], b: &[FieldElement<F>; 2]) -> [FieldElement<F>; 2] {
         let q = Q::residue();
         // (a0 + a1 t) (b0 + b1 t) = a0 b0 + a1 b1 q + t( a0 b1 + a1 b0 )
-        [&a[0] * &b[0] + &a[1] * &b[1] * q, &a[0] * &b[1] + &a[1] * &b[0]]
+        [
+            &a[0] * &b[0] + &a[1] * &b[1] * q,
+            &a[0] * &b[1] + &a[1] * &b[0],
+        ]
     }
-    
-    fn sub(a: &[FieldElement<F>; 2], b: &[FieldElement<F>; 2]) -> [FieldElement<F>; 2]{
+
+    fn sub(a: &[FieldElement<F>; 2], b: &[FieldElement<F>; 2]) -> [FieldElement<F>; 2] {
         [&a[0] - &b[0], &a[1] - &b[1]]
     }
 
-    fn neg(a: &[FieldElement<F>; 2]) -> [FieldElement<F>; 2]{
+    fn neg(a: &[FieldElement<F>; 2]) -> [FieldElement<F>; 2] {
         [-&a[0], -&a[1]]
     }
 
     fn inv(a: &[FieldElement<F>; 2]) -> [FieldElement<F>; 2] {
         let inv_norm = (a[0].pow(2) - Q::residue() * a[1].pow(2)).inv();
-        [&a[0] * &inv_norm, - &a[1] * inv_norm]
+        [&a[0] * &inv_norm, -&a[1] * inv_norm]
     }
 
-    fn div(a: &[FieldElement<F>; 2], b: &[FieldElement<F>; 2]) -> [FieldElement<F>; 2]{
-        Self::mul(&a, &Self::inv(b))
+    fn div(a: &[FieldElement<F>; 2], b: &[FieldElement<F>; 2]) -> [FieldElement<F>; 2] {
+        Self::mul(a, &Self::inv(b))
     }
 
-    fn eq(a: &[FieldElement<F>; 2], b: &[FieldElement<F>; 2]) -> bool{
+    fn eq(a: &[FieldElement<F>; 2], b: &[FieldElement<F>; 2]) -> bool {
         a[0] == b[0] && a[1] == b[1]
     }
 
-    fn zero() -> [FieldElement<F>; 2]{
+    fn zero() -> [FieldElement<F>; 2] {
         [FieldElement::zero(), FieldElement::zero()]
     }
 
-    fn one() -> [FieldElement<F>; 2]{
+    fn one() -> [FieldElement<F>; 2] {
         [FieldElement::one(), FieldElement::zero()]
     }
 
@@ -67,20 +72,21 @@ where
     }
 }
 
-impl<F: FieldOperations + Clone, Q: HasQuadraticNonResidue<F> + Clone> FieldElement<QuadraticExtensionField<F, Q>>
+impl<F: FieldOperations + Clone, Q: HasQuadraticNonResidue<F> + Clone>
+    FieldElement<QuadraticExtensionField<F, Q>>
 {
     pub fn new_base(a: &FieldElement<F>) -> Self {
         FieldElement::new([a.clone(), FieldElement::<F>::zero()])
     }
 }
 
-pub type QuadraticExtensionFieldElement<F, Q> = FieldElement<QuadraticExtensionField<F, Q>>;
-
-
 #[cfg(test)]
 mod tests {
-    
-    use crate::{field_element::{U64FieldElement, U64PrimeField}, config::ORDER_P};
+
+    use crate::{
+        config::ORDER_P,
+        field::u64_prime_field::{U64FieldElement, U64PrimeField},
+    };
 
     use super::*;
 
@@ -93,9 +99,10 @@ mod tests {
     }
 
     type FE = U64FieldElement<ORDER_P>;
-    type MyFieldExtensionBackend = QuadraticExtensionField<U64PrimeField<ORDER_P>, MyQuadraticNonResidue>;
+    type MyFieldExtensionBackend =
+        QuadraticExtensionField<U64PrimeField<ORDER_P>, MyQuadraticNonResidue>;
     #[allow(clippy::upper_case_acronyms)]
-    type FEE =FieldElement<MyFieldExtensionBackend>;
+    type FEE = FieldElement<MyFieldExtensionBackend>;
 
     #[test]
     fn test_add_1() {
