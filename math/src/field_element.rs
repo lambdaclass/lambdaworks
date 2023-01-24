@@ -3,9 +3,9 @@ use super::cyclic_group::CyclicBilinearGroup;
 
 
 #[derive(Debug, Clone)]
-pub struct NativeU64Modulus<const MODULO: u64>;
+pub struct U64PrimeField<const MODULO: u64>;
 
-impl<const MODULO: u64> Field for NativeU64Modulus<MODULO> {
+impl<const MODULO: u64> Field for U64PrimeField<MODULO> {
     type BaseType = u64;
 
     fn add(a: &u64, b: &u64) -> u64 {
@@ -54,7 +54,7 @@ impl<const MODULO: u64> Field for NativeU64Modulus<MODULO> {
     }
 }
 
-pub type U64FieldElement<const ORDER: u64> = FieldElement<NativeU64Modulus<ORDER>>;
+pub type U64FieldElement<const ORDER: u64> = FieldElement<U64PrimeField<ORDER>>;
 impl<const ORDER: u64> Copy for U64FieldElement<ORDER> {}
 
 /// Represents an element in Fp. (E.g: 0, 1, 2 are the elements of F3)
@@ -86,7 +86,7 @@ impl<const ORDER: u64> CyclicBilinearGroup for U64FieldElement<ORDER> {
 mod tests {
     use super::*;
     const ORDER: u64 = 13;
-    type FE = FieldElement<NativeU64Modulus<ORDER>>;
+    type FE = FieldElement<U64PrimeField<ORDER>>;
 
     #[test]
     fn order_must_small_as_to_not_allow_overflows() {

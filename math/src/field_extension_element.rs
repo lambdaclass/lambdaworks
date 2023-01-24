@@ -7,16 +7,16 @@ pub trait QuadraticNonResidue<F: Field> {
 }
 
 #[derive(Debug, Clone)]
-pub struct QuadraticFieldExtensionBackend<F, Q> 
+pub struct QuadraticExtensionField<F, Q> 
 where
     F: Field,
     Q: QuadraticNonResidue<F>
 {
-    phantom_field: PhantomData<F>,
-    phantom_non_residue: PhantomData<Q>
+    field: PhantomData<F>,
+    non_residue: PhantomData<Q>
 }
 
-impl<F, Q> Field for QuadraticFieldExtensionBackend<F, Q>
+impl<F, Q> Field for QuadraticExtensionField<F, Q>
 where
     F: Field + Clone, 
     Q: QuadraticNonResidue<F> + Clone
@@ -81,7 +81,7 @@ where
     }
 }
 
-impl<F: Field + Clone, Q: QuadraticNonResidue<F> + Clone> FieldElement<QuadraticFieldExtensionBackend<F, Q>>
+impl<F: Field + Clone, Q: QuadraticNonResidue<F> + Clone> FieldElement<QuadraticExtensionField<F, Q>>
 {
     pub fn new_base(a: &FieldElement<F>) -> Self {
         FieldElement::new([a.clone(), FieldElement::<F>::zero()])
@@ -92,20 +92,20 @@ impl<F: Field + Clone, Q: QuadraticNonResidue<F> + Clone> FieldElement<Quadratic
 #[cfg(test)]
 mod tests {
     
-    use crate::{field_element::{U64FieldElement, NativeU64Modulus}, config::ORDER_P};
+    use crate::{field_element::{U64FieldElement, U64PrimeField}, config::ORDER_P};
 
     use super::*;
 
     #[derive(Debug, Clone)]
     struct MyQuadraticNonResidue;
-    impl QuadraticNonResidue<NativeU64Modulus<ORDER_P>> for MyQuadraticNonResidue {
-        fn quadratic_non_residue() -> FieldElement<NativeU64Modulus<ORDER_P>> {
+    impl QuadraticNonResidue<U64PrimeField<ORDER_P>> for MyQuadraticNonResidue {
+        fn quadratic_non_residue() -> FieldElement<U64PrimeField<ORDER_P>> {
             -FieldElement::one()
         }
     }
 
     type FE = U64FieldElement<ORDER_P>;
-    type MyFieldExtensionBackend = QuadraticFieldExtensionBackend<NativeU64Modulus<ORDER_P>, MyQuadraticNonResidue>;
+    type MyFieldExtensionBackend = QuadraticExtensionField<U64PrimeField<ORDER_P>, MyQuadraticNonResidue>;
     #[allow(clippy::upper_case_acronyms)]
     type FEE =FieldElement<MyFieldExtensionBackend>;
 
