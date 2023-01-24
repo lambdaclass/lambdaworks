@@ -24,10 +24,10 @@ type FE = U64FieldElement<ORDER_P>;
 type FEE = QuadraticExtensionFieldElement<U64PrimeField<ORDER_P>, QuadraticNonResidue>;
 
 pub trait EllipticCurve : Clone + Debug {
-    fn a() -> FE;
-    fn b() -> FE;
-    fn generator_affine_x() -> FE;
-    fn generator_affine_y() -> FE;
+    fn a() -> FEE;
+    fn b() -> FEE;
+    fn generator_affine_x() -> FEE;
+    fn generator_affine_y() -> FEE;
     fn embedding_degree() -> u32;
     fn order_r() -> u64;
     fn order_p() -> u64;
@@ -44,20 +44,20 @@ pub trait EllipticCurve : Clone + Debug {
 #[derive(Clone, Debug)]
 pub struct CurrentCurve;
 impl EllipticCurve for CurrentCurve {
-    fn a() -> FE {
-        FE::new(1)
+    fn a() -> FEE {
+        FEE::new_base(&FE::new(1))
     }
 
-    fn b() -> FE {
-        FE::new(0)
+    fn b() -> FEE {
+        FEE::new_base(&FE::new(0))
     }
 
-    fn generator_affine_x() -> FE {
-        FE::new(35)
+    fn generator_affine_x() -> FEE {
+        FEE::new_base(&FE::new(35))
     }
 
-    fn generator_affine_y() -> FE {
-        FE::new(31)
+    fn generator_affine_y() -> FEE {
+        FEE::new_base(&FE::new(31))
     }
 
     fn embedding_degree() -> u32 {
@@ -103,8 +103,8 @@ impl<E: EllipticCurve> EllipticCurveElement<E> {
     fn defining_equation(x: &FEE, y: &FEE, z: &FEE) -> FEE {
         y.pow(2) * z
             - x.pow(3)
-            - FEE::new_base(&E::a()) * x * z.pow(2)
-            - FEE::new_base(&E::b()) * z.pow(3)
+            - E::a() * x * z.pow(2)
+            - E::b() * z.pow(3)
     }
 
     /// Normalize the projective coordinates to obtain affine coordinates
@@ -147,7 +147,7 @@ impl<E: EllipticCurve> EllipticCurveElement<E> {
             }
         } else {
             let numerator = FEE::new_base(&FE::new(3)) * &self.x.pow(2)
-                + FEE::new_base(&E::a());
+                + E::a();
             let denominator = FEE::new_base(&FE::new(2)) * &self.y;
             if denominator == FEE::new_base(&FE::new(0)) {
                 return &q.x - &self.x;
@@ -257,8 +257,8 @@ impl<E: EllipticCurve> CyclicBilinearGroup for EllipticCurveElement<E> {
 
     fn generator() -> Self {
         Self::new(
-            FEE::new_base(&E::generator_affine_x()),
-            FEE::new_base(&E::generator_affine_y()),
+            E::generator_affine_x(),
+            E::generator_affine_y(),
             FEE::new_base(&FE::new(1)),
         )
     }
@@ -304,7 +304,7 @@ impl<E: EllipticCurve> CyclicBilinearGroup for EllipticCurveElement<E> {
                 if u1 != u2 || self.y == FEE::new_base(&FE::new(0)) {
                     Self::neutral_element()
                 } else {
-                    let w = FEE::new_base(&E::a()) * self.z.pow(2)
+                    let w = E::a() * self.z.pow(2)
                         + FEE::new_base(&FE::new(3)) * self.x.pow(2);
                     let s = &self.y * &self.z;
                     let b = &self.x * &self.y * &s;
