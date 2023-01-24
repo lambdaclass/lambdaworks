@@ -1,315 +1,294 @@
 use std::{
-    marker::PhantomData,
     ops::{Add, AddAssign, Div, Mul, Neg, Sub},
 };
 
 #[derive(Debug, Clone)]
-pub struct FieldElement<Set, OperationsBackend> {
-    value: Set,
-    phantom: PhantomData<OperationsBackend>,
+pub struct FieldElement<F: Field> {
+    value: F::BaseType
 }
 
-pub trait Field<Set> {
-    fn add(a: &Set, b: &Set) -> Set;
+pub trait Field {
+    type BaseType;
 
-    fn mul(a: &Set, b: &Set) -> Set;
+    fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType;
 
-    fn pow(a: &Set, exponent: u128) -> Set;
+    fn mul(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType;
 
-    fn sub(a: &Set, b: &Set) -> Set;
+    fn pow(a: &Self::BaseType, exponent: u128) -> Self::BaseType;
 
-    fn neg(a: &Set) -> Set;
+    fn sub(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType;
 
-    fn inv(a: &Set) -> Set;
+    fn neg(a: &Self::BaseType) -> Self::BaseType;
 
-    fn div(a: &Set, b: &Set) -> Set;
+    fn inv(a: &Self::BaseType) -> Self::BaseType;
 
-    fn eq(a: &Set, b: &Set) -> bool;
+    fn div(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType;
 
-    fn zero() -> Set;
+    fn eq(a: &Self::BaseType, b: &Self::BaseType) -> bool;
 
-    fn one() -> Set;
+    fn zero() -> Self::BaseType;
 
-    fn representative(a: &Set) -> Set;
+    fn one() -> Self::BaseType;
+
+    fn representative(a: &Self::BaseType) -> Self::BaseType;
 }
 
 /* From overloading for Algebraic Elements */
-impl<Set, OperationsBackend> From<&Set> for FieldElement<Set, OperationsBackend>
+impl<F> From<&F::BaseType> for FieldElement<F>
 where
-    OperationsBackend: Field<Set>,
+    F::BaseType: Clone,
+    F: Field,
 {
-    fn from(value: &Set) -> Self {
+    fn from(value: &F::BaseType) -> Self {
         Self {
-            value: OperationsBackend::representative(value),
-            phantom: PhantomData,
+            value: value.clone()
         }
     }
 }
 
-impl<Set, OperationsBackend> From<Set> for FieldElement<Set, OperationsBackend>
-where
-    OperationsBackend: Field<Set>,
-{
-    fn from(value: Set) -> Self {
-        Self::from(&value)
-    }
-}
 
 /* Equality operator overloading for Algebraic Elements */
-impl<Set, OperationsBackend> PartialEq<FieldElement<Set, OperationsBackend>>
-    for FieldElement<Set, OperationsBackend>
+impl<F> PartialEq<FieldElement<F>> for FieldElement<F>
 where
-    OperationsBackend: Field<Set>,
+    F: Field,
 {
-    fn eq(&self, other: &FieldElement<Set, OperationsBackend>) -> bool {
-        OperationsBackend::eq(&self.value, &other.value)
+    fn eq(&self, other: &FieldElement<F>) -> bool {
+        F::eq(&self.value, &other.value)
     }
 }
 
-impl<Set, OperationsBackend> Eq for FieldElement<Set, OperationsBackend> where
-    OperationsBackend: Field<Set>
-{
-}
+impl<F> Eq for FieldElement<F> where F: Field {}
 
 /* Addition operator overloading for Algebraic Elements */
-impl<Set, OperationsBackend> Add<&FieldElement<Set, OperationsBackend>>
-    for &FieldElement<Set, OperationsBackend>
+impl<F> Add<&FieldElement<F>> for &FieldElement<F>
 where
-    OperationsBackend: Field<Set>,
+    F: Field,
 {
-    type Output = FieldElement<Set, OperationsBackend>;
+    type Output = FieldElement<F>;
 
-    fn add(self, rhs: &FieldElement<Set, OperationsBackend>) -> Self::Output {
+    fn add(self, rhs: &FieldElement<F>) -> Self::Output {
         Self::Output {
-            value: OperationsBackend::add(&self.value, &rhs.value),
-            phantom: PhantomData,
+            value: F::add(&self.value, &rhs.value),
         }
     }
 }
 
-impl<Set, OperationsBackend> Add<FieldElement<Set, OperationsBackend>>
-    for FieldElement<Set, OperationsBackend>
+impl<F> Add<FieldElement<F>> for FieldElement<F>
 where
-    OperationsBackend: Field<Set>,
+    F: Field,
 {
-    type Output = FieldElement<Set, OperationsBackend>;
+    type Output = FieldElement<F>;
 
-    fn add(self, rhs: FieldElement<Set, OperationsBackend>) -> Self::Output {
+    fn add(self, rhs: FieldElement<F>) -> Self::Output {
         &self + &rhs
     }
 }
 
-impl<Set, OperationsBackend> Add<&FieldElement<Set, OperationsBackend>>
-    for FieldElement<Set, OperationsBackend>
+impl<F> Add<&FieldElement<F>> for FieldElement<F>
 where
-    OperationsBackend: Field<Set>,
+    F: Field,
 {
-    type Output = FieldElement<Set, OperationsBackend>;
+    type Output = FieldElement<F>;
 
-    fn add(self, rhs: &FieldElement<Set, OperationsBackend>) -> Self::Output {
+    fn add(self, rhs: &FieldElement<F>) -> Self::Output {
         &self + rhs
     }
 }
 
-impl<Set, OperationsBackend> Add<FieldElement<Set, OperationsBackend>>
-    for &FieldElement<Set, OperationsBackend>
+impl<F> Add<FieldElement<F>> for &FieldElement<F>
 where
-    OperationsBackend: Field<Set>,
+    F: Field,
 {
-    type Output = FieldElement<Set, OperationsBackend>;
+    type Output = FieldElement<F>;
 
-    fn add(self, rhs: FieldElement<Set, OperationsBackend>) -> Self::Output {
+    fn add(self, rhs: FieldElement<F>) -> Self::Output {
         self + &rhs
     }
 }
 
 /* AddAssign operator overloading for Algebraic Elements */
-impl<Set, OperationsBackend> AddAssign<FieldElement<Set, OperationsBackend>>
-    for FieldElement<Set, OperationsBackend>
+impl<F> AddAssign<FieldElement<F>>
+    for FieldElement<F>
 where
-    OperationsBackend: Field<Set>,
+    F: Field,
 {
-    fn add_assign(&mut self, rhs: FieldElement<Set, OperationsBackend>) {
-        self.value = OperationsBackend::add(&self.value, &rhs.value);
+    fn add_assign(&mut self, rhs: FieldElement<F>) {
+        self.value = F::add(&self.value, &rhs.value);
     }
 }
 
 /* Subtraction operator overloading for Algebraic Elements*/
-impl<Set, OperationsBackend> Sub<&FieldElement<Set, OperationsBackend>>
-    for &FieldElement<Set, OperationsBackend>
+impl<F> Sub<&FieldElement<F>>
+    for &FieldElement<F>
 where
-    OperationsBackend: Field<Set>,
+    F: Field,
 {
-    type Output = FieldElement<Set, OperationsBackend>;
+    type Output = FieldElement<F>;
 
-    fn sub(self, rhs: &FieldElement<Set, OperationsBackend>) -> Self::Output {
+    fn sub(self, rhs: &FieldElement<F>) -> Self::Output {
         Self::Output {
-            value: OperationsBackend::sub(&self.value, &rhs.value),
-            phantom: PhantomData,
+            value: F::sub(&self.value, &rhs.value),
         }
     }
 }
 
-impl<Set, OperationsBackend> Sub<FieldElement<Set, OperationsBackend>>
-    for FieldElement<Set, OperationsBackend>
+impl<F> Sub<FieldElement<F>>
+    for FieldElement<F>
 where
-    OperationsBackend: Field<Set>,
+    F: Field,
 {
-    type Output = FieldElement<Set, OperationsBackend>;
+    type Output = FieldElement<F>;
 
-    fn sub(self, rhs: FieldElement<Set, OperationsBackend>) -> Self::Output {
+    fn sub(self, rhs: FieldElement<F>) -> Self::Output {
         &self - &rhs
     }
 }
 
-impl<Set, OperationsBackend> Sub<&FieldElement<Set, OperationsBackend>>
-    for FieldElement<Set, OperationsBackend>
+impl<F> Sub<&FieldElement<F>>
+    for FieldElement<F>
 where
-    OperationsBackend: Field<Set>,
+    F: Field,
 {
-    type Output = FieldElement<Set, OperationsBackend>;
+    type Output = FieldElement<F>;
 
-    fn sub(self, rhs: &FieldElement<Set, OperationsBackend>) -> Self::Output {
+    fn sub(self, rhs: &FieldElement<F>) -> Self::Output {
         &self - rhs
     }
 }
 
-impl<Set, OperationsBackend> Sub<FieldElement<Set, OperationsBackend>>
-    for &FieldElement<Set, OperationsBackend>
+impl<F> Sub<FieldElement<F>>
+    for &FieldElement<F>
 where
-    OperationsBackend: Field<Set>,
+    F: Field,
 {
-    type Output = FieldElement<Set, OperationsBackend>;
+    type Output = FieldElement<F>;
 
-    fn sub(self, rhs: FieldElement<Set, OperationsBackend>) -> Self::Output {
+    fn sub(self, rhs: FieldElement<F>) -> Self::Output {
         self - &rhs
     }
 }
 
 /* Multiplication operator overloading for Algebraic Elements*/
-impl<Set, OperationsBackend> Mul<&FieldElement<Set, OperationsBackend>>
-    for &FieldElement<Set, OperationsBackend>
+impl<F> Mul<&FieldElement<F>>
+    for &FieldElement<F>
 where
-    OperationsBackend: Field<Set>,
+    F: Field,
 {
-    type Output = FieldElement<Set, OperationsBackend>;
+    type Output = FieldElement<F>;
 
-    fn mul(self, rhs: &FieldElement<Set, OperationsBackend>) -> Self::Output {
+    fn mul(self, rhs: &FieldElement<F>) -> Self::Output {
         Self::Output {
-            value: OperationsBackend::mul(&self.value, &rhs.value),
-            phantom: PhantomData,
+            value: F::mul(&self.value, &rhs.value),
         }
     }
 }
 
-impl<Set, OperationsBackend> Mul<FieldElement<Set, OperationsBackend>>
-    for FieldElement<Set, OperationsBackend>
+impl<F> Mul<FieldElement<F>>
+    for FieldElement<F>
 where
-    OperationsBackend: Field<Set>,
+    F: Field,
 {
-    type Output = FieldElement<Set, OperationsBackend>;
+    type Output = FieldElement<F>;
 
-    fn mul(self, rhs: FieldElement<Set, OperationsBackend>) -> Self::Output {
+    fn mul(self, rhs: FieldElement<F>) -> Self::Output {
         &self * &rhs
     }
 }
 
-impl<Set, OperationsBackend> Mul<&FieldElement<Set, OperationsBackend>>
-    for FieldElement<Set, OperationsBackend>
+impl<F> Mul<&FieldElement<F>>
+    for FieldElement<F>
 where
-    OperationsBackend: Field<Set>,
+    F: Field,
 {
-    type Output = FieldElement<Set, OperationsBackend>;
+    type Output = FieldElement<F>;
 
-    fn mul(self, rhs: &FieldElement<Set, OperationsBackend>) -> Self::Output {
+    fn mul(self, rhs: &FieldElement<F>) -> Self::Output {
         &self * rhs
     }
 }
 
-impl<Set, OperationsBackend> Mul<FieldElement<Set, OperationsBackend>>
-    for &FieldElement<Set, OperationsBackend>
+impl<F> Mul<FieldElement<F>>
+    for &FieldElement<F>
 where
-    OperationsBackend: Field<Set>,
+    F: Field,
 {
-    type Output = FieldElement<Set, OperationsBackend>;
+    type Output = FieldElement<F>;
 
-    fn mul(self, rhs: FieldElement<Set, OperationsBackend>) -> Self::Output {
+    fn mul(self, rhs: FieldElement<F>) -> Self::Output {
         self * &rhs
     }
 }
 
 /* Division operator overloading for Algebraic Elements*/
-impl<Set, OperationsBackend> Div<&FieldElement<Set, OperationsBackend>>
-    for &FieldElement<Set, OperationsBackend>
+impl<F> Div<&FieldElement<F>>
+    for &FieldElement<F>
 where
-    OperationsBackend: Field<Set>,
+    F: Field,
 {
-    type Output = FieldElement<Set, OperationsBackend>;
+    type Output = FieldElement<F>;
 
-    fn div(self, rhs: &FieldElement<Set, OperationsBackend>) -> Self::Output {
+    fn div(self, rhs: &FieldElement<F>) -> Self::Output {
         Self::Output {
-            value: OperationsBackend::div(&self.value, &rhs.value),
-            phantom: PhantomData,
+            value: F::div(&self.value, &rhs.value),
         }
     }
 }
 
-impl<Set, OperationsBackend> Div<FieldElement<Set, OperationsBackend>>
-    for FieldElement<Set, OperationsBackend>
+impl<F> Div<FieldElement<F>>
+    for FieldElement<F>
 where
-    OperationsBackend: Field<Set>,
+    F: Field,
 {
-    type Output = FieldElement<Set, OperationsBackend>;
+    type Output = FieldElement<F>;
 
-    fn div(self, rhs: FieldElement<Set, OperationsBackend>) -> Self::Output {
+    fn div(self, rhs: FieldElement<F>) -> Self::Output {
         &self / &rhs
     }
 }
 
-impl<Set, OperationsBackend> Div<&FieldElement<Set, OperationsBackend>>
-    for FieldElement<Set, OperationsBackend>
+impl<F> Div<&FieldElement<F>>
+    for FieldElement<F>
 where
-    OperationsBackend: Field<Set>,
+    F: Field,
 {
-    type Output = FieldElement<Set, OperationsBackend>;
+    type Output = FieldElement<F>;
 
-    fn div(self, rhs: &FieldElement<Set, OperationsBackend>) -> Self::Output {
+    fn div(self, rhs: &FieldElement<F>) -> Self::Output {
         &self / rhs
     }
 }
 
-impl<Set, OperationsBackend> Div<FieldElement<Set, OperationsBackend>>
-    for &FieldElement<Set, OperationsBackend>
+impl<F> Div<FieldElement<F>>
+    for &FieldElement<F>
 where
-    OperationsBackend: Field<Set>,
+    F: Field,
 {
-    type Output = FieldElement<Set, OperationsBackend>;
+    type Output = FieldElement<F>;
 
-    fn div(self, rhs: FieldElement<Set, OperationsBackend>) -> Self::Output {
+    fn div(self, rhs: FieldElement<F>) -> Self::Output {
         self / &rhs
     }
 }
 
 /* Negation operator overloading for Algebraic Elements*/
-impl<Set, OperationsBackend> Neg for &FieldElement<Set, OperationsBackend>
+impl<F> Neg for &FieldElement<F>
 where
-    OperationsBackend: Field<Set>,
+    F: Field,
 {
-    type Output = FieldElement<Set, OperationsBackend>;
+    type Output = FieldElement<F>;
 
     fn neg(self) -> Self::Output {
         Self::Output {
-            value: OperationsBackend::neg(&self.value),
-            phantom: PhantomData,
+            value: F::neg(&self.value),
         }
     }
 }
 
-impl<Set, OperationsBackend> Neg for FieldElement<Set, OperationsBackend>
+impl<F> Neg for FieldElement<F>
 where
-    OperationsBackend: Field<Set>,
+    F: Field,
 {
-    type Output = FieldElement<Set, OperationsBackend>;
+    type Output = FieldElement<F>;
 
     fn neg(self) -> Self::Output {
         -&self
@@ -317,60 +296,41 @@ where
 }
 
 /* FieldElement general implementation */
-impl<Set, OperationsBackend> FieldElement<Set, OperationsBackend> {
-    pub fn value(&self) -> &Set {
+impl<F> FieldElement<F> 
+where
+    F: Field
+{
+    pub fn new(value: F::BaseType) -> Self {
+        Self {
+            value
+        }
+    }
+    
+    pub fn value(&self) -> &F::BaseType {
         &self.value
     }
-}
 
-/* Inv implementation for Algebraic Elements */
-impl<Set, OperationsBackend> FieldElement<Set, OperationsBackend>
-where
-    OperationsBackend: Field<Set>,
-{
     pub fn inv(&self) -> Self {
         Self {
-            value: OperationsBackend::inv(&self.value),
-            phantom: PhantomData,
+            value: F::inv(&self.value)
         }
     }
-}
 
-/* Pow implementation for Algebraic Elements */
-impl<Set, OperationsBackend> FieldElement<Set, OperationsBackend>
-where
-    OperationsBackend: Field<Set>,
-{
     pub fn pow(&self, exponent: u128) -> Self {
         Self {
-            value: OperationsBackend::pow(&self.value, exponent),
-            phantom: PhantomData,
+            value: F::pow(&self.value, exponent),
         }
     }
-}
 
-/* One implementation for Algebraic Elements */
-impl<Set, OperationsBackend> FieldElement<Set, OperationsBackend>
-where
-    OperationsBackend: Field<Set>,
-{
     pub fn one() -> Self {
         Self {
-            value: OperationsBackend::one(),
-            phantom: PhantomData,
+            value: F::one(),
         }
     }
-}
 
-/* Zero implementation for Algebraic Elements */
-impl<Set, OperationsBackend> FieldElement<Set, OperationsBackend>
-where
-    OperationsBackend: Field<Set>,
-{
     pub fn zero() -> Self {
         Self {
-            value: OperationsBackend::zero(),
-            phantom: PhantomData,
+            value: F::zero()
         }
     }
 }

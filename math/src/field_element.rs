@@ -5,7 +5,9 @@ use super::cyclic_group::CyclicBilinearGroup;
 #[derive(Debug, Clone)]
 pub struct NativeU64Modulus<const MODULO: u64>;
 
-impl<const MODULO: u64> Field<u64> for NativeU64Modulus<MODULO> {
+impl<const MODULO: u64> Field for NativeU64Modulus<MODULO> {
+    type BaseType = u64;
+
     fn add(a: &u64, b: &u64) -> u64 {
         ((*a as u128 + *b as u128) % MODULO as u128) as u64
     }
@@ -52,7 +54,7 @@ impl<const MODULO: u64> Field<u64> for NativeU64Modulus<MODULO> {
     }
 }
 
-pub type U64FieldElement<const ORDER: u64> = FieldElement<u64, NativeU64Modulus<ORDER>>;
+pub type U64FieldElement<const ORDER: u64> = FieldElement<NativeU64Modulus<ORDER>>;
 impl<const ORDER: u64> Copy for U64FieldElement<ORDER> {}
 
 /// Represents an element in Fp. (E.g: 0, 1, 2 are the elements of F3)
@@ -68,7 +70,7 @@ impl<const ORDER: u64> CyclicBilinearGroup for U64FieldElement<ORDER> {
     }
 
     fn operate_with_self(&self, times: u128) -> Self {
-        U64FieldElement::from(times as u64) * *self
+        U64FieldElement::from(&(times as u64)) * *self
     }
 
     fn pairing(&self, other: &Self) -> Self {
@@ -84,7 +86,7 @@ impl<const ORDER: u64> CyclicBilinearGroup for U64FieldElement<ORDER> {
 mod tests {
     use super::*;
     const ORDER: u64 = 13;
-    type FE = FieldElement<u64, NativeU64Modulus<ORDER>>;
+    type FE = FieldElement<NativeU64Modulus<ORDER>>;
 
     #[test]
     fn order_must_small_as_to_not_allow_overflows() {
@@ -94,138 +96,138 @@ mod tests {
 
     #[test]
     fn two_plus_one_is_three() {
-        assert_eq!(FE::from(2) + FE::from(1), FE::from(3));
+        assert_eq!(FE::new(2) + FE::new(1), FE::new(3));
     }
 
     #[test]
     fn max_order_plus_1_is_0() {
-        assert_eq!(FE::from(ORDER - 1) + FE::from(1), FE::from(0));
+        assert_eq!(FE::new(ORDER - 1) + FE::new(1), FE::new(0));
     }
 
     #[test]
     fn when_comparing_13_and_13_they_are_equal() {
-        let a: FE = FE::from(13);
-        let b: FE = FE::from(13);
+        let a: FE = FE::new(13);
+        let b: FE = FE::new(13);
         assert_eq!(a, b);
     }
 
     #[test]
     fn when_comparing_13_and_8_they_are_different() {
-        let a: FE = FE::from(13);
-        let b: FE = FE::from(8);
+        let a: FE = FE::new(13);
+        let b: FE = FE::new(8);
         assert_ne!(a, b);
     }
 
     #[test]
     fn mul_neutral_element() {
-        let a: FE = FE::from(1);
-        let b: FE = FE::from(2);
-        assert_eq!(a * b, FE::from(2));
+        let a: FE = FE::new(1);
+        let b: FE = FE::new(2);
+        assert_eq!(a * b, FE::new(2));
     }
 
     #[test]
     fn mul_2_3_is_6() {
-        let a: FE = FE::from(2);
-        let b: FE = FE::from(3);
-        assert_eq!(a * b, FE::from(6));
+        let a: FE = FE::new(2);
+        let b: FE = FE::new(3);
+        assert_eq!(a * b, FE::new(6));
     }
 
     #[test]
     fn mul_order_minus_1() {
-        let a: FE = FE::from(ORDER - 1);
-        let b: FE = FE::from(ORDER - 1);
-        assert_eq!(a * b, FE::from(1));
+        let a: FE = FE::new(ORDER - 1);
+        let b: FE = FE::new(ORDER - 1);
+        assert_eq!(a * b, FE::new(1));
     }
 
     #[test]
     #[should_panic]
     fn inv_0_error() {
-        FE::from(0).inv();
+        FE::new(0).inv();
     }
 
     #[test]
     fn inv_2() {
-        let a: FE = FE::from(2);
-        assert_eq!(a * a.inv(), FE::from(1));
+        let a: FE = FE::new(2);
+        assert_eq!(a * a.inv(), FE::new(1));
     }
 
     #[test]
     fn pow_2_3() {
-        assert_eq!(FE::from(2).pow(3), FE::from(8))
+        assert_eq!(FE::new(2).pow(3), FE::new(8))
     }
 
     #[test]
     fn pow_p_minus_1() {
-        assert_eq!(FE::from(2).pow((ORDER - 1) as u128), FE::from(1))
+        assert_eq!(FE::new(2).pow((ORDER - 1) as u128), FE::new(1))
     }
 
     #[test]
     fn div_1() {
-        assert_eq!(FE::from(2) / FE::from(1), FE::from(2))
+        assert_eq!(FE::new(2) / FE::new(1), FE::new(2))
     }
 
     #[test]
     fn div_4_2() {
-        assert_eq!(FE::from(4) / FE::from(2), FE::from(2))
+        assert_eq!(FE::new(4) / FE::new(2), FE::new(2))
     }
 
     #[test]
     fn div_4_3() {
-        assert_eq!(FE::from(4) / FE::from(3) * FE::from(3), FE::from(4))
+        assert_eq!(FE::new(4) / FE::new(3) * FE::new(3), FE::new(4))
     }
 
     #[test]
     fn two_plus_its_additive_inv_is_0() {
-        let two = FE::from(2);
+        let two = FE::new(2);
 
-        assert_eq!(two + (-two), FE::from(0))
+        assert_eq!(two + (-two), FE::new(0))
     }
 
     #[test]
     fn four_minus_three_is_1() {
-        let four = FE::from(4);
-        let three = FE::from(3);
+        let four = FE::new(4);
+        let three = FE::new(3);
 
-        assert_eq!(four - three, FE::from(1))
+        assert_eq!(four - three, FE::new(1))
     }
 
     #[test]
     fn zero_minus_1_is_order_minus_1() {
-        let zero = FE::from(0);
-        let one = FE::from(1);
+        let zero = FE::new(0);
+        let one = FE::new(1);
 
-        assert_eq!(zero - one, FE::from(ORDER - 1))
+        assert_eq!(zero - one, FE::new(ORDER - 1))
     }
 
     #[test]
     fn neg_zero_is_zero() {
-        let zero = FE::from(0);
+        let zero = FE::new(0);
 
         assert_eq!(-zero, zero);
     }
 
     #[test]
     fn zero_constructor_returns_zero() {
-        assert_eq!(FE::from(0), FE::from(0));
+        assert_eq!(FE::new(0), FE::new(0));
     }
 
     #[test]
     fn field_element_as_group_element_generator_returns_one() {
-        assert_eq!(FE::generator(), FE::from(1));
+        assert_eq!(FE::generator(), FE::new(1));
     }
 
     #[test]
     fn field_element_as_group_element_multiplication_by_scalar_works_as_multiplication_in_finite_fields(
     ) {
-        let a = FE::from(3);
-        let b = FE::from(12);
+        let a = FE::new(3);
+        let b = FE::new(12);
         assert_eq!(a * b, a.operate_with_self(12));
     }
 
     #[test]
     fn field_element_as_group_element_pairing_works_as_multiplication_in_finite_fields() {
-        let a = FE::from(3);
-        let b = FE::from(12);
+        let a = FE::new(3);
+        let b = FE::new(12);
         assert_eq!(a * b, a.pairing(&b));
     }
 }
