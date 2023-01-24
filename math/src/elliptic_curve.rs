@@ -7,7 +7,9 @@ use crate::field::quadratic_extension::{HasQuadraticNonResidue, QuadraticExtensi
 use crate::field::u64_prime_field::{U64FieldElement, U64PrimeField};
 
 use super::cyclic_group::CyclicBilinearGroup;
+use std::marker::PhantomData;
 use std::ops;
+use std::fmt::Debug;
 
 #[derive(Debug, Clone)]
 pub struct QuadraticNonResidue;
@@ -21,17 +23,68 @@ type FE = U64FieldElement<ORDER_P>;
 #[allow(clippy::upper_case_acronyms)]
 type FEE = QuadraticExtensionFieldElement<U64PrimeField<ORDER_P>, QuadraticNonResidue>;
 
+pub trait EllipticCurve : Clone + Debug {
+    fn a() -> FE;
+    fn b() -> FE;
+    fn generator_affine_x() -> FE;
+    fn generator_affine_y() -> FE;
+    fn embedding_degree() -> u32;
+    fn order_r() -> u64;
+    fn order_p() -> u64;
+
+    fn order_field_extension() -> u64 {
+        Self::order_p().pow(Self::embedding_degree())
+    }
+
+    fn target_normalization_power() -> u64 {
+        (Self::order_field_extension() - 1) / Self::order_r()
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct CurrentCurve;
+impl EllipticCurve for CurrentCurve {
+    fn a() -> FE {
+        FE::new(1)
+    }
+
+    fn b() -> FE {
+        FE::new(0)
+    }
+
+    fn generator_affine_x() -> FE {
+        FE::new(35)
+    }
+
+    fn generator_affine_y() -> FE {
+        FE::new(31)
+    }
+
+    fn embedding_degree() -> u32 {
+        2
+    }
+
+    fn order_r() -> u64 {
+        5
+    }
+
+    fn order_p() -> u64 {
+        59
+    }
+}
+
 /// Represents an elliptic curve point using the projective short Weierstrass form:
 ///   y^2 * z = x^3 + a * x * z^2 + b * z^3
 /// x, y and z variables are field extension elements.
 #[derive(Debug, Clone)]
-pub struct EllipticCurveElement {
+pub struct EllipticCurveElement<E: EllipticCurve> {
     x: FEE,
     y: FEE,
     z: FEE,
+    elliptic_curve: PhantomData<E>
 }
 
-impl EllipticCurveElement {
+impl<E: EllipticCurve> EllipticCurveElement<E> {
     /// Creates an elliptic curve point giving the (x, y, z) coordinates.
     fn new(x: FEE, y: FEE, z: FEE) -> Self {
         assert_eq!(
@@ -42,7 +95,7 @@ impl EllipticCurveElement {
             y,
             z
         );
-        Self { x, y, z }
+        Self { x: x, y: y, z: z, elliptic_curve: PhantomData }
     }
 
     /// Evaluates the short Weierstrass equation at (x, y z).
@@ -50,8 +103,8 @@ impl EllipticCurveElement {
     fn defining_equation(x: &FEE, y: &FEE, z: &FEE) -> FEE {
         y.pow(2) * z
             - x.pow(3)
-            - FEE::new_base(&FE::new(ELLIPTIC_CURVE_A)) * x * z.pow(2)
-            - FEE::new_base(&FE::new(ELLIPTIC_CURVE_B)) * z.pow(3)
+            - FEE::new_base(&E::a()) * x * z.pow(2)
+            - FEE::new_base(&E::b()) * z.pow(3)
     }
 
     /// Normalize the projective coordinates to obtain affine coordinates
@@ -94,7 +147,7 @@ impl EllipticCurveElement {
             }
         } else {
             let numerator = FEE::new_base(&FE::new(3)) * &self.x.pow(2)
-                + FEE::new_base(&FE::new(ELLIPTIC_CURVE_A));
+                + FEE::new_base(&E::a());
             let denominator = FEE::new_base(&FE::new(2)) * &self.y;
             if denominator == FEE::new_base(&FE::new(0)) {
                 return &q.x - &self.x;
@@ -113,7 +166,7 @@ impl EllipticCurveElement {
     fn miller(p: &Self, q: &Self) -> FEE {
         let p = p.affine();
         let q = q.affine();
-        let mut order_r = ORDER_R;
+        let mut order_r = E::order_r();
         let mut bs = vec![];
         while order_r > 0 {
             bs.insert(0, order_r & 1);
@@ -160,7 +213,7 @@ impl EllipticCurveElement {
         if *p == Self::neutral_element() || *q == Self::neutral_element() || p == q {
             FEE::new_base(&FE::new(1))
         } else {
-            Self::miller(p, q).pow(TARGET_NORMALIZATION_POWER as u128)
+            Self::miller(p, q).pow(E::target_normalization_power() as u128)
         }
     }
 
@@ -175,37 +228,37 @@ impl EllipticCurveElement {
     }
 }
 
-impl PartialEq for EllipticCurveElement {
+impl<E: EllipticCurve> PartialEq for EllipticCurveElement<E> {
     fn eq(&self, other: &Self) -> bool {
         // Projective equality relation: first point has to be a multiple of the other
         (&self.x * &other.z == &self.z * &other.x) && (&self.x * &other.y == &self.y * &other.x)
     }
 }
-impl Eq for EllipticCurveElement {}
+impl<E: EllipticCurve> Eq for EllipticCurveElement<E> {}
 
-impl ops::Neg for &EllipticCurveElement {
-    type Output = EllipticCurveElement;
+impl<E: EllipticCurve> ops::Neg for &EllipticCurveElement<E> {
+    type Output = EllipticCurveElement<E>;
 
     fn neg(self) -> Self::Output {
         Self::Output::new(self.x.clone(), -self.y.clone(), self.z.clone())
     }
 }
 
-impl ops::Neg for EllipticCurveElement {
-    type Output = EllipticCurveElement;
+impl<E: EllipticCurve> ops::Neg for EllipticCurveElement<E> {
+    type Output = EllipticCurveElement<E>;
 
     fn neg(self) -> Self::Output {
         -&self
     }
 }
 
-impl CyclicBilinearGroup for EllipticCurveElement {
+impl<E: EllipticCurve> CyclicBilinearGroup for EllipticCurveElement<E> {
     type PairingOutput = FEE;
 
     fn generator() -> Self {
         Self::new(
-            FEE::new_base(&FE::new(GENERATOR_AFFINE_X)),
-            FEE::new_base(&FE::new(GENERATOR_AFFINE_Y)),
+            FEE::new_base(&E::generator_affine_x()),
+            FEE::new_base(&E::generator_affine_y()),
             FEE::new_base(&FE::new(1)),
         )
     }
@@ -251,7 +304,7 @@ impl CyclicBilinearGroup for EllipticCurveElement {
                 if u1 != u2 || self.y == FEE::new_base(&FE::new(0)) {
                     Self::neutral_element()
                 } else {
-                    let w = FEE::new_base(&FE::new(ELLIPTIC_CURVE_A)) * self.z.pow(2)
+                    let w = FEE::new_base(&E::a()) * self.z.pow(2)
                         + FEE::new_base(&FE::new(3)) * self.x.pow(2);
                     let s = &self.y * &self.z;
                     let b = &self.x * &self.y * &s;
@@ -291,7 +344,7 @@ mod tests {
     // This tests only apply for the specific curve found in the configuration file.
     #[test]
     fn create_valid_point_works() {
-        let point = EllipticCurveElement::new(
+        let point = EllipticCurveElement::<CurrentCurve>::new(
             FEE::new_base(&FE::new(35)),
             FEE::new_base(&FE::new(31)),
             FEE::new_base(&FE::new(1)),
@@ -304,7 +357,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn create_invalid_points_panicks() {
-        EllipticCurveElement::new(
+        EllipticCurveElement::<CurrentCurve>::new(
             FEE::new_base(&FE::new(0)),
             FEE::new_base(&FE::new(1)),
             FEE::new_base(&FE::new(1)),
@@ -313,19 +366,19 @@ mod tests {
 
     #[test]
     fn operate_with_self_works() {
-        let mut point_1 = EllipticCurveElement::generator();
+        let mut point_1 = EllipticCurveElement::<CurrentCurve>::generator();
         point_1 = point_1.operate_with_self(ORDER_R as u128);
-        assert_eq!(point_1, EllipticCurveElement::neutral_element());
+        assert_eq!(point_1, EllipticCurveElement::<CurrentCurve>::neutral_element());
     }
 
     #[test]
     fn doubling_a_point_works() {
-        let point = EllipticCurveElement::new(
+        let point = EllipticCurveElement::<CurrentCurve>::new(
             FEE::new_base(&FE::new(35)),
             FEE::new_base(&FE::new(31)),
             FEE::new_base(&FE::new(1)),
         );
-        let expected_result = EllipticCurveElement::new(
+        let expected_result = EllipticCurveElement::<CurrentCurve>::new(
             FEE::new_base(&FE::new(25)),
             FEE::new_base(&FE::new(29)),
             FEE::new_base(&FE::new(1)),
@@ -335,37 +388,37 @@ mod tests {
 
     #[test]
     fn test_weil_pairing() {
-        let pa = EllipticCurveElement::new(
+        let pa = EllipticCurveElement::<CurrentCurve>::new(
             FEE::new_base(&FE::new(35)),
             FEE::new_base(&FE::new(31)),
             FEE::new_base(&FE::new(1)),
         );
-        let pb = EllipticCurveElement::new(
+        let pb = EllipticCurveElement::<CurrentCurve>::new(
             FEE::new([FE::new(24), FE::new(0)]),
             FEE::new([FE::new(0), FE::new(31)]),
             FEE::new_base(&FE::new(1)),
         );
         let expected_result = FEE::new([FE::new(46), FE::new(3)]);
 
-        let result_weil = EllipticCurveElement::weil_pairing(&pa, &pb);
+        let result_weil = EllipticCurveElement::<CurrentCurve>::weil_pairing(&pa, &pb);
         assert_eq!(result_weil, expected_result);
     }
 
     #[test]
     fn test_tate_pairing() {
-        let pa = EllipticCurveElement::new(
+        let pa = EllipticCurveElement::<CurrentCurve>::new(
             FEE::new_base(&FE::new(35)),
             FEE::new_base(&FE::new(31)),
             FEE::new_base(&FE::new(1)),
         );
-        let pb = EllipticCurveElement::new(
+        let pb = EllipticCurveElement::<CurrentCurve>::new(
             FEE::new([FE::new(24), FE::new(0)]),
             FEE::new([FE::new(0), FE::new(31)]),
             FEE::new_base(&FE::new(1)),
         );
         let expected_result = FEE::new([FE::new(42), FE::new(19)]);
 
-        let result_weil = EllipticCurveElement::tate_pairing(&pa, &pb);
+        let result_weil = EllipticCurveElement::<CurrentCurve>::tate_pairing(&pa, &pb);
         assert_eq!(result_weil, expected_result);
     }
 }
