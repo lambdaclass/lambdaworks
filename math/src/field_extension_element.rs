@@ -2,15 +2,15 @@ use std::marker::PhantomData;
 
 use crate::{algebraic_element::{FieldOperations, FieldElement}};
 
-pub trait QuadraticNonResidue<F: FieldOperations> {
-    fn quadratic_non_residue() -> FieldElement<F>;
+pub trait HasQuadraticNonResidue<F: FieldOperations> {
+    fn residue() -> FieldElement<F>;
 }
 
 #[derive(Debug, Clone)]
 pub struct QuadraticExtensionField<F, Q> 
 where
     F: FieldOperations,
-    Q: QuadraticNonResidue<F>
+    Q: HasQuadraticNonResidue<F>
 {
     field: PhantomData<F>,
     non_residue: PhantomData<Q>
@@ -19,7 +19,7 @@ where
 impl<F, Q> FieldOperations for QuadraticExtensionField<F, Q>
 where
     F: FieldOperations + Clone, 
-    Q: QuadraticNonResidue<F> + Clone
+    Q: HasQuadraticNonResidue<F> + Clone
 {
     type BaseType = [FieldElement<F>; 2];
 
@@ -28,7 +28,7 @@ where
     }
 
     fn mul(a: &[FieldElement<F>; 2], b: &[FieldElement<F>; 2]) -> [FieldElement<F>; 2]{
-        let q = Q::quadratic_non_residue();
+        let q = Q::residue();
         // (a0 + a1 t) (b0 + b1 t) = a0 b0 + a1 b1 q + t( a0 b1 + a1 b0 )
         [&a[0] * &b[0] + &a[1] * &b[1] * q, &a[0] * &b[1] + &a[1] * &b[0]]
     }
@@ -42,7 +42,7 @@ where
     }
 
     fn inv(a: &[FieldElement<F>; 2]) -> [FieldElement<F>; 2] {
-        let inv_norm = (a[0].pow(2) - Q::quadratic_non_residue() * a[1].pow(2)).inv();
+        let inv_norm = (a[0].pow(2) - Q::residue() * a[1].pow(2)).inv();
         [&a[0] * &inv_norm, - &a[1] * inv_norm]
     }
 
@@ -67,7 +67,7 @@ where
     }
 }
 
-impl<F: FieldOperations + Clone, Q: QuadraticNonResidue<F> + Clone> FieldElement<QuadraticExtensionField<F, Q>>
+impl<F: FieldOperations + Clone, Q: HasQuadraticNonResidue<F> + Clone> FieldElement<QuadraticExtensionField<F, Q>>
 {
     pub fn new_base(a: &FieldElement<F>) -> Self {
         FieldElement::new([a.clone(), FieldElement::<F>::zero()])
@@ -86,8 +86,8 @@ mod tests {
 
     #[derive(Debug, Clone)]
     struct MyQuadraticNonResidue;
-    impl QuadraticNonResidue<U64PrimeField<ORDER_P>> for MyQuadraticNonResidue {
-        fn quadratic_non_residue() -> FieldElement<U64PrimeField<ORDER_P>> {
+    impl HasQuadraticNonResidue<U64PrimeField<ORDER_P>> for MyQuadraticNonResidue {
+        fn residue() -> FieldElement<U64PrimeField<ORDER_P>> {
             -FieldElement::one()
         }
     }

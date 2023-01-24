@@ -1,7 +1,7 @@
 use crate::{config::{
     ELLIPTIC_CURVE_A, ELLIPTIC_CURVE_B, GENERATOR_AFFINE_X, GENERATOR_AFFINE_Y, ORDER_P, ORDER_R,
     TARGET_NORMALIZATION_POWER,
-}, field_extension_element::{QuadraticNonResidue, QuadraticExtensionField, QuadraticExtensionFieldElement}, algebraic_element::FieldElement, field_element::U64PrimeField};
+}, field_extension_element::{HasQuadraticNonResidue, QuadraticExtensionFieldElement}, algebraic_element::FieldElement, field_element::U64PrimeField};
 
 use super::{
     cyclic_group::CyclicBilinearGroup, field_element::U64FieldElement,
@@ -9,16 +9,16 @@ use super::{
 use std::ops;
 
 #[derive(Debug, Clone)]
-pub struct MyQuadraticNonResidue;
-impl QuadraticNonResidue<U64PrimeField<ORDER_P>> for MyQuadraticNonResidue {
-    fn quadratic_non_residue() -> FieldElement<U64PrimeField<ORDER_P>> {
+pub struct QuadraticNonResidue;
+impl HasQuadraticNonResidue<U64PrimeField<ORDER_P>> for QuadraticNonResidue {
+    fn residue() -> FieldElement<U64PrimeField<ORDER_P>> {
         -FieldElement::one()
     }
 }
 
 type FE = U64FieldElement<ORDER_P>;
 #[allow(clippy::upper_case_acronyms)]
-type FEE =QuadraticExtensionFieldElement<U64PrimeField<ORDER_P>, MyQuadraticNonResidue>;
+type FEE =QuadraticExtensionFieldElement<U64PrimeField<ORDER_P>, QuadraticNonResidue>;
 
 /// Represents an elliptic curve point using the projective short Weierstrass form:
 ///   y^2 * z = x^3 + a * x * z^2 + b * z^3
