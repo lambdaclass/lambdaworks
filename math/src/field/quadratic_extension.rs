@@ -75,8 +75,8 @@ where
 impl<F: FieldOperations + Clone, Q: HasQuadraticNonResidue<F> + Clone>
     FieldElement<QuadraticExtensionField<F, Q>>
 {
-    pub fn new_base(a: &FieldElement<F>) -> Self {
-        FieldElement::new([a.clone(), FieldElement::<F>::zero()])
+    pub fn new_base(a: F::BaseType) -> Self {
+        FieldElement::new([FieldElement::<F>::new(a), FieldElement::<F>::zero()])
     }
 }
 
