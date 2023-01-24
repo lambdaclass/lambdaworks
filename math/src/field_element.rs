@@ -22,7 +22,7 @@ impl<const MODULO: u64> Field<u64> for NativeU64Modulus<MODULO> {
         Self::mul(a, &Self::inv(b))
     }
     fn pow(a: &u64, mut exponent: u128) -> u64 {
-        let mut result = 1;
+        let mut result = Self::one();
         let mut base = a.clone();
 
         while exponent > 0 {
