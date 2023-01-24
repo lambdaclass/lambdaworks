@@ -1,8 +1,8 @@
 use crate::config::ORDER_R;
 use crate::cyclic_group::CyclicBilinearGroup;
-use crate::field_element::FieldElement;
+use crate::field_element::U64FieldElement;
 
-type FE = FieldElement<ORDER_R>;
+type FE = U64FieldElement<ORDER_R>;
 
 /// This function computes the multiscalar multiplication (MSM).
 ///

@@ -4,59 +4,39 @@ use std::{
 };
 
 #[derive(Debug, Clone)]
-pub struct AlgebraicElement<Set, OperationsBackend> {
+pub struct FieldElement<Set, OperationsBackend> {
     value: Set,
     phantom: PhantomData<OperationsBackend>,
 }
 
-pub trait AdditionLaw<Set> {
+pub trait Field<Set> {
     fn add(a: &Set, b: &Set) -> Set;
-}
 
-pub trait MultiplicationLaw<Set> {
     fn mul(a: &Set, b: &Set) -> Set;
-}
 
-pub trait PowerLaw<Set> {
     fn pow(a: &Set, exponent: u128) -> Set;
-}
 
-pub trait SubtractionLaw<Set> {
     fn sub(a: &Set, b: &Set) -> Set;
-}
 
-pub trait NegationLaw<Set> {
     fn neg(a: &Set) -> Set;
-}
 
-pub trait InversionLaw<Set> {
     fn inv(a: &Set) -> Set;
-}
 
-pub trait DivisionLaw<Set> {
     fn div(a: &Set, b: &Set) -> Set;
-}
 
-pub trait EqualityLaw<Set> {
     fn eq(a: &Set, b: &Set) -> bool;
-}
 
-pub trait Zero<Set> {
     fn zero() -> Set;
-}
 
-pub trait One<Set> {
     fn one() -> Set;
-}
 
-pub trait Representative<Set> {
     fn representative(a: &Set) -> Set;
 }
 
 /* From overloading for Algebraic Elements */
-impl<Set, OperationsBackend> From<&Set> for AlgebraicElement<Set, OperationsBackend>
+impl<Set, OperationsBackend> From<&Set> for FieldElement<Set, OperationsBackend>
 where
-    OperationsBackend: Representative<Set>,
+    OperationsBackend: Field<Set>,
 {
     fn from(value: &Set) -> Self {
         Self {
@@ -66,9 +46,9 @@ where
     }
 }
 
-impl<Set, OperationsBackend> From<Set> for AlgebraicElement<Set, OperationsBackend>
+impl<Set, OperationsBackend> From<Set> for FieldElement<Set, OperationsBackend>
 where
-    OperationsBackend: Representative<Set>,
+    OperationsBackend: Field<Set>,
 {
     fn from(value: Set) -> Self {
         Self::from(&value)
@@ -76,30 +56,30 @@ where
 }
 
 /* Equality operator overloading for Algebraic Elements */
-impl<Set, OperationsBackend> PartialEq<AlgebraicElement<Set, OperationsBackend>>
-    for AlgebraicElement<Set, OperationsBackend>
+impl<Set, OperationsBackend> PartialEq<FieldElement<Set, OperationsBackend>>
+    for FieldElement<Set, OperationsBackend>
 where
-    OperationsBackend: EqualityLaw<Set>,
+    OperationsBackend: Field<Set>,
 {
-    fn eq(&self, other: &AlgebraicElement<Set, OperationsBackend>) -> bool {
+    fn eq(&self, other: &FieldElement<Set, OperationsBackend>) -> bool {
         OperationsBackend::eq(&self.value, &other.value)
     }
 }
 
-impl<Set, OperationsBackend> Eq for AlgebraicElement<Set, OperationsBackend> where
-    OperationsBackend: EqualityLaw<Set>
+impl<Set, OperationsBackend> Eq for FieldElement<Set, OperationsBackend> where
+    OperationsBackend: Field<Set>
 {
 }
 
 /* Addition operator overloading for Algebraic Elements */
-impl<Set, OperationsBackend> Add<&AlgebraicElement<Set, OperationsBackend>>
-    for &AlgebraicElement<Set, OperationsBackend>
+impl<Set, OperationsBackend> Add<&FieldElement<Set, OperationsBackend>>
+    for &FieldElement<Set, OperationsBackend>
 where
-    OperationsBackend: AdditionLaw<Set>,
+    OperationsBackend: Field<Set>,
 {
-    type Output = AlgebraicElement<Set, OperationsBackend>;
+    type Output = FieldElement<Set, OperationsBackend>;
 
-    fn add(self, rhs: &AlgebraicElement<Set, OperationsBackend>) -> Self::Output {
+    fn add(self, rhs: &FieldElement<Set, OperationsBackend>) -> Self::Output {
         Self::Output {
             value: OperationsBackend::add(&self.value, &rhs.value),
             phantom: PhantomData,
@@ -107,62 +87,62 @@ where
     }
 }
 
-impl<Set, OperationsBackend> Add<AlgebraicElement<Set, OperationsBackend>>
-    for AlgebraicElement<Set, OperationsBackend>
+impl<Set, OperationsBackend> Add<FieldElement<Set, OperationsBackend>>
+    for FieldElement<Set, OperationsBackend>
 where
-    OperationsBackend: AdditionLaw<Set>,
+    OperationsBackend: Field<Set>,
 {
-    type Output = AlgebraicElement<Set, OperationsBackend>;
+    type Output = FieldElement<Set, OperationsBackend>;
 
-    fn add(self, rhs: AlgebraicElement<Set, OperationsBackend>) -> Self::Output {
+    fn add(self, rhs: FieldElement<Set, OperationsBackend>) -> Self::Output {
         &self + &rhs
     }
 }
 
-impl<Set, OperationsBackend> Add<&AlgebraicElement<Set, OperationsBackend>>
-    for AlgebraicElement<Set, OperationsBackend>
+impl<Set, OperationsBackend> Add<&FieldElement<Set, OperationsBackend>>
+    for FieldElement<Set, OperationsBackend>
 where
-    OperationsBackend: AdditionLaw<Set>,
+    OperationsBackend: Field<Set>,
 {
-    type Output = AlgebraicElement<Set, OperationsBackend>;
+    type Output = FieldElement<Set, OperationsBackend>;
 
-    fn add(self, rhs: &AlgebraicElement<Set, OperationsBackend>) -> Self::Output {
+    fn add(self, rhs: &FieldElement<Set, OperationsBackend>) -> Self::Output {
         &self + rhs
     }
 }
 
-impl<Set, OperationsBackend> Add<AlgebraicElement<Set, OperationsBackend>>
-    for &AlgebraicElement<Set, OperationsBackend>
+impl<Set, OperationsBackend> Add<FieldElement<Set, OperationsBackend>>
+    for &FieldElement<Set, OperationsBackend>
 where
-    OperationsBackend: AdditionLaw<Set>,
+    OperationsBackend: Field<Set>,
 {
-    type Output = AlgebraicElement<Set, OperationsBackend>;
+    type Output = FieldElement<Set, OperationsBackend>;
 
-    fn add(self, rhs: AlgebraicElement<Set, OperationsBackend>) -> Self::Output {
+    fn add(self, rhs: FieldElement<Set, OperationsBackend>) -> Self::Output {
         self + &rhs
     }
 }
 
 /* AddAssign operator overloading for Algebraic Elements */
-impl<Set, OperationsBackend> AddAssign<AlgebraicElement<Set, OperationsBackend>>
-    for AlgebraicElement<Set, OperationsBackend>
+impl<Set, OperationsBackend> AddAssign<FieldElement<Set, OperationsBackend>>
+    for FieldElement<Set, OperationsBackend>
 where
-    OperationsBackend: AdditionLaw<Set>,
+    OperationsBackend: Field<Set>,
 {
-    fn add_assign(&mut self, rhs: AlgebraicElement<Set, OperationsBackend>) {
+    fn add_assign(&mut self, rhs: FieldElement<Set, OperationsBackend>) {
         self.value = OperationsBackend::add(&self.value, &rhs.value);
     }
 }
 
 /* Subtraction operator overloading for Algebraic Elements*/
-impl<Set, OperationsBackend> Sub<&AlgebraicElement<Set, OperationsBackend>>
-    for &AlgebraicElement<Set, OperationsBackend>
+impl<Set, OperationsBackend> Sub<&FieldElement<Set, OperationsBackend>>
+    for &FieldElement<Set, OperationsBackend>
 where
-    OperationsBackend: SubtractionLaw<Set>,
+    OperationsBackend: Field<Set>,
 {
-    type Output = AlgebraicElement<Set, OperationsBackend>;
+    type Output = FieldElement<Set, OperationsBackend>;
 
-    fn sub(self, rhs: &AlgebraicElement<Set, OperationsBackend>) -> Self::Output {
+    fn sub(self, rhs: &FieldElement<Set, OperationsBackend>) -> Self::Output {
         Self::Output {
             value: OperationsBackend::sub(&self.value, &rhs.value),
             phantom: PhantomData,
@@ -170,51 +150,51 @@ where
     }
 }
 
-impl<Set, OperationsBackend> Sub<AlgebraicElement<Set, OperationsBackend>>
-    for AlgebraicElement<Set, OperationsBackend>
+impl<Set, OperationsBackend> Sub<FieldElement<Set, OperationsBackend>>
+    for FieldElement<Set, OperationsBackend>
 where
-    OperationsBackend: SubtractionLaw<Set>,
+    OperationsBackend: Field<Set>,
 {
-    type Output = AlgebraicElement<Set, OperationsBackend>;
+    type Output = FieldElement<Set, OperationsBackend>;
 
-    fn sub(self, rhs: AlgebraicElement<Set, OperationsBackend>) -> Self::Output {
+    fn sub(self, rhs: FieldElement<Set, OperationsBackend>) -> Self::Output {
         &self - &rhs
     }
 }
 
-impl<Set, OperationsBackend> Sub<&AlgebraicElement<Set, OperationsBackend>>
-    for AlgebraicElement<Set, OperationsBackend>
+impl<Set, OperationsBackend> Sub<&FieldElement<Set, OperationsBackend>>
+    for FieldElement<Set, OperationsBackend>
 where
-    OperationsBackend: SubtractionLaw<Set>,
+    OperationsBackend: Field<Set>,
 {
-    type Output = AlgebraicElement<Set, OperationsBackend>;
+    type Output = FieldElement<Set, OperationsBackend>;
 
-    fn sub(self, rhs: &AlgebraicElement<Set, OperationsBackend>) -> Self::Output {
+    fn sub(self, rhs: &FieldElement<Set, OperationsBackend>) -> Self::Output {
         &self - rhs
     }
 }
 
-impl<Set, OperationsBackend> Sub<AlgebraicElement<Set, OperationsBackend>>
-    for &AlgebraicElement<Set, OperationsBackend>
+impl<Set, OperationsBackend> Sub<FieldElement<Set, OperationsBackend>>
+    for &FieldElement<Set, OperationsBackend>
 where
-    OperationsBackend: SubtractionLaw<Set>,
+    OperationsBackend: Field<Set>,
 {
-    type Output = AlgebraicElement<Set, OperationsBackend>;
+    type Output = FieldElement<Set, OperationsBackend>;
 
-    fn sub(self, rhs: AlgebraicElement<Set, OperationsBackend>) -> Self::Output {
+    fn sub(self, rhs: FieldElement<Set, OperationsBackend>) -> Self::Output {
         self - &rhs
     }
 }
 
 /* Multiplication operator overloading for Algebraic Elements*/
-impl<Set, OperationsBackend> Mul<&AlgebraicElement<Set, OperationsBackend>>
-    for &AlgebraicElement<Set, OperationsBackend>
+impl<Set, OperationsBackend> Mul<&FieldElement<Set, OperationsBackend>>
+    for &FieldElement<Set, OperationsBackend>
 where
-    OperationsBackend: MultiplicationLaw<Set>,
+    OperationsBackend: Field<Set>,
 {
-    type Output = AlgebraicElement<Set, OperationsBackend>;
+    type Output = FieldElement<Set, OperationsBackend>;
 
-    fn mul(self, rhs: &AlgebraicElement<Set, OperationsBackend>) -> Self::Output {
+    fn mul(self, rhs: &FieldElement<Set, OperationsBackend>) -> Self::Output {
         Self::Output {
             value: OperationsBackend::mul(&self.value, &rhs.value),
             phantom: PhantomData,
@@ -222,51 +202,51 @@ where
     }
 }
 
-impl<Set, OperationsBackend> Mul<AlgebraicElement<Set, OperationsBackend>>
-    for AlgebraicElement<Set, OperationsBackend>
+impl<Set, OperationsBackend> Mul<FieldElement<Set, OperationsBackend>>
+    for FieldElement<Set, OperationsBackend>
 where
-    OperationsBackend: MultiplicationLaw<Set>,
+    OperationsBackend: Field<Set>,
 {
-    type Output = AlgebraicElement<Set, OperationsBackend>;
+    type Output = FieldElement<Set, OperationsBackend>;
 
-    fn mul(self, rhs: AlgebraicElement<Set, OperationsBackend>) -> Self::Output {
+    fn mul(self, rhs: FieldElement<Set, OperationsBackend>) -> Self::Output {
         &self * &rhs
     }
 }
 
-impl<Set, OperationsBackend> Mul<&AlgebraicElement<Set, OperationsBackend>>
-    for AlgebraicElement<Set, OperationsBackend>
+impl<Set, OperationsBackend> Mul<&FieldElement<Set, OperationsBackend>>
+    for FieldElement<Set, OperationsBackend>
 where
-    OperationsBackend: MultiplicationLaw<Set>,
+    OperationsBackend: Field<Set>,
 {
-    type Output = AlgebraicElement<Set, OperationsBackend>;
+    type Output = FieldElement<Set, OperationsBackend>;
 
-    fn mul(self, rhs: &AlgebraicElement<Set, OperationsBackend>) -> Self::Output {
+    fn mul(self, rhs: &FieldElement<Set, OperationsBackend>) -> Self::Output {
         &self * rhs
     }
 }
 
-impl<Set, OperationsBackend> Mul<AlgebraicElement<Set, OperationsBackend>>
-    for &AlgebraicElement<Set, OperationsBackend>
+impl<Set, OperationsBackend> Mul<FieldElement<Set, OperationsBackend>>
+    for &FieldElement<Set, OperationsBackend>
 where
-    OperationsBackend: MultiplicationLaw<Set>,
+    OperationsBackend: Field<Set>,
 {
-    type Output = AlgebraicElement<Set, OperationsBackend>;
+    type Output = FieldElement<Set, OperationsBackend>;
 
-    fn mul(self, rhs: AlgebraicElement<Set, OperationsBackend>) -> Self::Output {
+    fn mul(self, rhs: FieldElement<Set, OperationsBackend>) -> Self::Output {
         self * &rhs
     }
 }
 
 /* Division operator overloading for Algebraic Elements*/
-impl<Set, OperationsBackend> Div<&AlgebraicElement<Set, OperationsBackend>>
-    for &AlgebraicElement<Set, OperationsBackend>
+impl<Set, OperationsBackend> Div<&FieldElement<Set, OperationsBackend>>
+    for &FieldElement<Set, OperationsBackend>
 where
-    OperationsBackend: DivisionLaw<Set>,
+    OperationsBackend: Field<Set>,
 {
-    type Output = AlgebraicElement<Set, OperationsBackend>;
+    type Output = FieldElement<Set, OperationsBackend>;
 
-    fn div(self, rhs: &AlgebraicElement<Set, OperationsBackend>) -> Self::Output {
+    fn div(self, rhs: &FieldElement<Set, OperationsBackend>) -> Self::Output {
         Self::Output {
             value: OperationsBackend::div(&self.value, &rhs.value),
             phantom: PhantomData,
@@ -274,48 +254,48 @@ where
     }
 }
 
-impl<Set, OperationsBackend> Div<AlgebraicElement<Set, OperationsBackend>>
-    for AlgebraicElement<Set, OperationsBackend>
+impl<Set, OperationsBackend> Div<FieldElement<Set, OperationsBackend>>
+    for FieldElement<Set, OperationsBackend>
 where
-    OperationsBackend: DivisionLaw<Set>,
+    OperationsBackend: Field<Set>,
 {
-    type Output = AlgebraicElement<Set, OperationsBackend>;
+    type Output = FieldElement<Set, OperationsBackend>;
 
-    fn div(self, rhs: AlgebraicElement<Set, OperationsBackend>) -> Self::Output {
+    fn div(self, rhs: FieldElement<Set, OperationsBackend>) -> Self::Output {
         &self / &rhs
     }
 }
 
-impl<Set, OperationsBackend> Div<&AlgebraicElement<Set, OperationsBackend>>
-    for AlgebraicElement<Set, OperationsBackend>
+impl<Set, OperationsBackend> Div<&FieldElement<Set, OperationsBackend>>
+    for FieldElement<Set, OperationsBackend>
 where
-    OperationsBackend: DivisionLaw<Set>,
+    OperationsBackend: Field<Set>,
 {
-    type Output = AlgebraicElement<Set, OperationsBackend>;
+    type Output = FieldElement<Set, OperationsBackend>;
 
-    fn div(self, rhs: &AlgebraicElement<Set, OperationsBackend>) -> Self::Output {
+    fn div(self, rhs: &FieldElement<Set, OperationsBackend>) -> Self::Output {
         &self / rhs
     }
 }
 
-impl<Set, OperationsBackend> Div<AlgebraicElement<Set, OperationsBackend>>
-    for &AlgebraicElement<Set, OperationsBackend>
+impl<Set, OperationsBackend> Div<FieldElement<Set, OperationsBackend>>
+    for &FieldElement<Set, OperationsBackend>
 where
-    OperationsBackend: DivisionLaw<Set>,
+    OperationsBackend: Field<Set>,
 {
-    type Output = AlgebraicElement<Set, OperationsBackend>;
+    type Output = FieldElement<Set, OperationsBackend>;
 
-    fn div(self, rhs: AlgebraicElement<Set, OperationsBackend>) -> Self::Output {
+    fn div(self, rhs: FieldElement<Set, OperationsBackend>) -> Self::Output {
         self / &rhs
     }
 }
 
 /* Negation operator overloading for Algebraic Elements*/
-impl<Set, OperationsBackend> Neg for &AlgebraicElement<Set, OperationsBackend>
+impl<Set, OperationsBackend> Neg for &FieldElement<Set, OperationsBackend>
 where
-    OperationsBackend: NegationLaw<Set>,
+    OperationsBackend: Field<Set>,
 {
-    type Output = AlgebraicElement<Set, OperationsBackend>;
+    type Output = FieldElement<Set, OperationsBackend>;
 
     fn neg(self) -> Self::Output {
         Self::Output {
@@ -325,28 +305,28 @@ where
     }
 }
 
-impl<Set, OperationsBackend> Neg for AlgebraicElement<Set, OperationsBackend>
+impl<Set, OperationsBackend> Neg for FieldElement<Set, OperationsBackend>
 where
-    OperationsBackend: NegationLaw<Set>,
+    OperationsBackend: Field<Set>,
 {
-    type Output = AlgebraicElement<Set, OperationsBackend>;
+    type Output = FieldElement<Set, OperationsBackend>;
 
     fn neg(self) -> Self::Output {
         -&self
     }
 }
 
-/* AlgebraicElement general implementation */
-impl<Set, OperationsBackend> AlgebraicElement<Set, OperationsBackend> {
+/* FieldElement general implementation */
+impl<Set, OperationsBackend> FieldElement<Set, OperationsBackend> {
     pub fn value(&self) -> &Set {
         &self.value
     }
 }
 
 /* Inv implementation for Algebraic Elements */
-impl<Set, OperationsBackend> AlgebraicElement<Set, OperationsBackend>
+impl<Set, OperationsBackend> FieldElement<Set, OperationsBackend>
 where
-    OperationsBackend: InversionLaw<Set>,
+    OperationsBackend: Field<Set>,
 {
     pub fn inv(&self) -> Self {
         Self {
@@ -357,9 +337,9 @@ where
 }
 
 /* Pow implementation for Algebraic Elements */
-impl<Set, OperationsBackend> AlgebraicElement<Set, OperationsBackend>
+impl<Set, OperationsBackend> FieldElement<Set, OperationsBackend>
 where
-    OperationsBackend: PowerLaw<Set>,
+    OperationsBackend: Field<Set>,
 {
     pub fn pow(&self, exponent: u128) -> Self {
         Self {
@@ -370,9 +350,9 @@ where
 }
 
 /* One implementation for Algebraic Elements */
-impl<Set, OperationsBackend> AlgebraicElement<Set, OperationsBackend>
+impl<Set, OperationsBackend> FieldElement<Set, OperationsBackend>
 where
-    OperationsBackend: One<Set>,
+    OperationsBackend: Field<Set>,
 {
     pub fn one() -> Self {
         Self {
@@ -383,9 +363,9 @@ where
 }
 
 /* Zero implementation for Algebraic Elements */
-impl<Set, OperationsBackend> AlgebraicElement<Set, OperationsBackend>
+impl<Set, OperationsBackend> FieldElement<Set, OperationsBackend>
 where
-    OperationsBackend: Zero<Set>,
+    OperationsBackend: Field<Set>,
 {
     pub fn zero() -> Self {
         Self {

@@ -4,12 +4,12 @@ use crate::config::{
 };
 
 use super::{
-    cyclic_group::CyclicBilinearGroup, field_element::FieldElement,
+    cyclic_group::CyclicBilinearGroup, field_element::U64FieldElement,
     field_extension_element::FieldExtensionElement, polynomial::Polynomial,
 };
 use std::ops;
 
-type FE = FieldElement<ORDER_P>;
+type FE = U64FieldElement<ORDER_P>;
 #[allow(clippy::upper_case_acronyms)]
 type FEE = FieldExtensionElement;
 

@@ -1,8 +1,8 @@
 use crate::config::{ORDER_FIELD_EXTENSION, ORDER_P};
-use crate::{field_element::FieldElement, polynomial::Polynomial};
+use crate::{field_element::U64FieldElement, polynomial::Polynomial};
 use std::ops;
 
-type FE = FieldElement<ORDER_P>;
+type FE = U64FieldElement<ORDER_P>;
 
 /// Represents an element in an extension of a prime field
 /// as polynomials modulo a defining polynomial.
