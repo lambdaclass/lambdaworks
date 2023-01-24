@@ -3,18 +3,30 @@ use std::{
 };
 
 #[derive(Debug, Clone)]
-pub struct FieldElement<F: Field> {
+pub struct FieldElement<F: FieldOperations> {
     value: F::BaseType
 }
 
-pub trait Field {
+pub trait FieldOperations {
     type BaseType: Clone;
 
     fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType;
 
     fn mul(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType;
 
-    fn pow(a: &Self::BaseType, exponent: u128) -> Self::BaseType;
+    fn pow(a: &Self::BaseType, mut exponent: u128) -> Self::BaseType {
+        let mut result = Self::one();
+        let mut base = a.clone();
+
+        while exponent > 0 {
+            if exponent & 1 == 1 {
+                result = Self::mul(&result, &base);
+            }
+            exponent >>= 1;
+            base = Self::mul(&base, &base);
+        }
+        result
+    }
 
     fn sub(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType;
 
@@ -37,7 +49,7 @@ pub trait Field {
 impl<F> From<&F::BaseType> for FieldElement<F>
 where
     F::BaseType: Clone,
-    F: Field,
+    F: FieldOperations,
 {
     fn from(value: &F::BaseType) -> Self {
         Self {
@@ -50,19 +62,19 @@ where
 /* Equality operator overloading for Algebraic Elements */
 impl<F> PartialEq<FieldElement<F>> for FieldElement<F>
 where
-    F: Field,
+    F: FieldOperations,
 {
     fn eq(&self, other: &FieldElement<F>) -> bool {
         F::eq(&self.value, &other.value)
     }
 }
 
-impl<F> Eq for FieldElement<F> where F: Field {}
+impl<F> Eq for FieldElement<F> where F: FieldOperations {}
 
 /* Addition operator overloading for Algebraic Elements */
 impl<F> Add<&FieldElement<F>> for &FieldElement<F>
 where
-    F: Field,
+    F: FieldOperations,
 {
     type Output = FieldElement<F>;
 
@@ -75,7 +87,7 @@ where
 
 impl<F> Add<FieldElement<F>> for FieldElement<F>
 where
-    F: Field,
+    F: FieldOperations,
 {
     type Output = FieldElement<F>;
 
@@ -86,7 +98,7 @@ where
 
 impl<F> Add<&FieldElement<F>> for FieldElement<F>
 where
-    F: Field,
+    F: FieldOperations,
 {
     type Output = FieldElement<F>;
 
@@ -97,7 +109,7 @@ where
 
 impl<F> Add<FieldElement<F>> for &FieldElement<F>
 where
-    F: Field,
+    F: FieldOperations,
 {
     type Output = FieldElement<F>;
 
@@ -110,7 +122,7 @@ where
 impl<F> AddAssign<FieldElement<F>>
     for FieldElement<F>
 where
-    F: Field,
+    F: FieldOperations,
 {
     fn add_assign(&mut self, rhs: FieldElement<F>) {
         self.value = F::add(&self.value, &rhs.value);
@@ -121,7 +133,7 @@ where
 impl<F> Sub<&FieldElement<F>>
     for &FieldElement<F>
 where
-    F: Field,
+    F: FieldOperations,
 {
     type Output = FieldElement<F>;
 
@@ -135,7 +147,7 @@ where
 impl<F> Sub<FieldElement<F>>
     for FieldElement<F>
 where
-    F: Field,
+    F: FieldOperations,
 {
     type Output = FieldElement<F>;
 
@@ -147,7 +159,7 @@ where
 impl<F> Sub<&FieldElement<F>>
     for FieldElement<F>
 where
-    F: Field,
+    F: FieldOperations,
 {
     type Output = FieldElement<F>;
 
@@ -159,7 +171,7 @@ where
 impl<F> Sub<FieldElement<F>>
     for &FieldElement<F>
 where
-    F: Field,
+    F: FieldOperations,
 {
     type Output = FieldElement<F>;
 
@@ -172,7 +184,7 @@ where
 impl<F> Mul<&FieldElement<F>>
     for &FieldElement<F>
 where
-    F: Field,
+    F: FieldOperations,
 {
     type Output = FieldElement<F>;
 
@@ -186,7 +198,7 @@ where
 impl<F> Mul<FieldElement<F>>
     for FieldElement<F>
 where
-    F: Field,
+    F: FieldOperations,
 {
     type Output = FieldElement<F>;
 
@@ -198,7 +210,7 @@ where
 impl<F> Mul<&FieldElement<F>>
     for FieldElement<F>
 where
-    F: Field,
+    F: FieldOperations,
 {
     type Output = FieldElement<F>;
 
@@ -210,7 +222,7 @@ where
 impl<F> Mul<FieldElement<F>>
     for &FieldElement<F>
 where
-    F: Field,
+    F: FieldOperations,
 {
     type Output = FieldElement<F>;
 
@@ -223,7 +235,7 @@ where
 impl<F> Div<&FieldElement<F>>
     for &FieldElement<F>
 where
-    F: Field,
+    F: FieldOperations,
 {
     type Output = FieldElement<F>;
 
@@ -237,7 +249,7 @@ where
 impl<F> Div<FieldElement<F>>
     for FieldElement<F>
 where
-    F: Field,
+    F: FieldOperations,
 {
     type Output = FieldElement<F>;
 
@@ -249,7 +261,7 @@ where
 impl<F> Div<&FieldElement<F>>
     for FieldElement<F>
 where
-    F: Field,
+    F: FieldOperations,
 {
     type Output = FieldElement<F>;
 
@@ -261,7 +273,7 @@ where
 impl<F> Div<FieldElement<F>>
     for &FieldElement<F>
 where
-    F: Field,
+    F: FieldOperations,
 {
     type Output = FieldElement<F>;
 
@@ -273,7 +285,7 @@ where
 /* Negation operator overloading for Algebraic Elements*/
 impl<F> Neg for &FieldElement<F>
 where
-    F: Field,
+    F: FieldOperations,
 {
     type Output = FieldElement<F>;
 
@@ -286,7 +298,7 @@ where
 
 impl<F> Neg for FieldElement<F>
 where
-    F: Field,
+    F: FieldOperations,
 {
     type Output = FieldElement<F>;
 
@@ -298,7 +310,7 @@ where
 /* FieldElement general implementation */
 impl<F> FieldElement<F> 
 where
-    F: Field
+    F: FieldOperations
 {
     pub fn new(value: F::BaseType) -> Self {
         Self {

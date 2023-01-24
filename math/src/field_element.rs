@@ -5,7 +5,7 @@ use super::cyclic_group::CyclicBilinearGroup;
 #[derive(Debug, Clone)]
 pub struct U64PrimeField<const MODULO: u64>;
 
-impl<const MODULO: u64> Field for U64PrimeField<MODULO> {
+impl<const MODULO: u64> FieldOperations for U64PrimeField<MODULO> {
     type BaseType = u64;
 
     fn add(a: &u64, b: &u64) -> u64 {
@@ -22,19 +22,6 @@ impl<const MODULO: u64> Field for U64PrimeField<MODULO> {
     }
     fn div(a: &u64, b: &u64) -> u64 {
         Self::mul(a, &Self::inv(b))
-    }
-    fn pow(a: &u64, mut exponent: u128) -> u64 {
-        let mut result = Self::one();
-        let mut base = a.clone();
-
-        while exponent > 0 {
-            if exponent & 1 == 1 {
-                result = Self::mul(&result, &base);
-            }
-            exponent >>= 1;
-            base = Self::mul(&base, &base);
-        }
-        result
     }
     fn inv(a: &u64) -> u64 {
         assert_ne!(*a, 0, "Cannot invert zero element");

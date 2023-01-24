@@ -1,24 +1,24 @@
 use std::marker::PhantomData;
 
-use crate::{algebraic_element::{Field, FieldElement}};
+use crate::{algebraic_element::{FieldOperations, FieldElement}};
 
-pub trait QuadraticNonResidue<F: Field> {
+pub trait QuadraticNonResidue<F: FieldOperations> {
     fn quadratic_non_residue() -> FieldElement<F>;
 }
 
 #[derive(Debug, Clone)]
 pub struct QuadraticExtensionField<F, Q> 
 where
-    F: Field,
+    F: FieldOperations,
     Q: QuadraticNonResidue<F>
 {
     field: PhantomData<F>,
     non_residue: PhantomData<Q>
 }
 
-impl<F, Q> Field for QuadraticExtensionField<F, Q>
+impl<F, Q> FieldOperations for QuadraticExtensionField<F, Q>
 where
-    F: Field + Clone, 
+    F: FieldOperations + Clone, 
     Q: QuadraticNonResidue<F> + Clone
 {
     type BaseType = [FieldElement<F>; 2];
@@ -32,21 +32,7 @@ where
         // (a0 + a1 t) (b0 + b1 t) = a0 b0 + a1 b1 q + t( a0 b1 + a1 b0 )
         [&a[0] * &b[0] + &a[1] * &b[1] * q, &a[0] * &b[1] + &a[1] * &b[0]]
     }
-
-    fn pow(a: &[FieldElement<F>; 2], mut exponent: u128) -> [FieldElement<F>; 2]{
-        let mut result = Self::one();
-        let mut base = a.clone();
-
-        while exponent > 0 {
-            if exponent & 1 == 1 {
-                result = Self::mul(&result, &base);
-            }
-            exponent >>= 1;
-            base = Self::mul(&base, &base);
-        }
-        result
-    }
-
+    
     fn sub(a: &[FieldElement<F>; 2], b: &[FieldElement<F>; 2]) -> [FieldElement<F>; 2]{
         [&a[0] - &b[0], &a[1] - &b[1]]
     }
@@ -81,7 +67,7 @@ where
     }
 }
 
-impl<F: Field + Clone, Q: QuadraticNonResidue<F> + Clone> FieldElement<QuadraticExtensionField<F, Q>>
+impl<F: FieldOperations + Clone, Q: QuadraticNonResidue<F> + Clone> FieldElement<QuadraticExtensionField<F, Q>>
 {
     pub fn new_base(a: &FieldElement<F>) -> Self {
         FieldElement::new([a.clone(), FieldElement::<F>::zero()])
