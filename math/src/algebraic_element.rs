@@ -8,7 +8,7 @@ pub struct FieldElement<F: Field> {
 }
 
 pub trait Field {
-    type BaseType;
+    type BaseType: Clone;
 
     fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType;
 

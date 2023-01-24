@@ -1,21 +1,25 @@
-use crate::algebraic_element::{Field, FieldElement};
 use std::marker::PhantomData;
 
-pub trait QuadraticNonResidue<FieldElement> {
-    fn quadratic_non_residue() -> FieldElement;
+use crate::{algebraic_element::{Field, FieldElement}};
+
+pub trait QuadraticNonResidue<F: Field> {
+    fn quadratic_non_residue() -> FieldElement<F>;
 }
 
 #[derive(Debug, Clone)]
-pub struct QuadraticFieldExtensionBackend<T, F> {
-    phantom1: PhantomData<T>,
-    phantom2: PhantomData<F>
+pub struct QuadraticFieldExtensionBackend<F, Q> 
+where
+    F: Field,
+    Q: QuadraticNonResidue<F>
+{
+    phantom_field: PhantomData<F>,
+    phantom_non_residue: PhantomData<Q>
 }
 
-impl<T, F> Field for QuadraticFieldExtensionBackend<T, F>
+impl<F, Q> Field for QuadraticFieldExtensionBackend<F, Q>
 where
-    FieldElement<F>: Clone,
-    F: Field,
-    T: QuadraticNonResidue<FieldElement<F>>
+    F: Field + Clone, 
+    Q: QuadraticNonResidue<F> + Clone
 {
     type BaseType = [FieldElement<F>; 2];
 
@@ -24,14 +28,14 @@ where
     }
 
     fn mul(a: &[FieldElement<F>; 2], b: &[FieldElement<F>; 2]) -> [FieldElement<F>; 2]{
-        let q = T::quadratic_non_residue();
+        let q = Q::quadratic_non_residue();
         // (a0 + a1 t) (b0 + b1 t) = a0 b0 + a1 b1 q + t( a0 b1 + a1 b0 )
         [&a[0] * &b[0] + &a[1] * &b[1] * q, &a[0] * &b[1] + &a[1] * &b[0]]
     }
 
     fn pow(a: &[FieldElement<F>; 2], mut exponent: u128) -> [FieldElement<F>; 2]{
         let mut result = Self::one();
-        let mut base = (*a).clone();
+        let mut base = a.clone();
 
         while exponent > 0 {
             if exponent & 1 == 1 {
@@ -52,7 +56,7 @@ where
     }
 
     fn inv(a: &[FieldElement<F>; 2]) -> [FieldElement<F>; 2] {
-        let inv_norm = (a[0].pow(2) - T::quadratic_non_residue() * a[1].pow(2)).inv();
+        let inv_norm = (a[0].pow(2) - Q::quadratic_non_residue() * a[1].pow(2)).inv();
         [&a[0] * &inv_norm, - &a[1] * inv_norm]
     }
 
@@ -73,15 +77,11 @@ where
     }
 
     fn representative(a: &[FieldElement<F>; 2]) -> [FieldElement<F>; 2] {
-        (*a).clone()
+        a.clone()
     }
 }
 
-impl<T, F> FieldElement<QuadraticFieldExtensionBackend<T, F>>
-where
-    FieldElement<F>: Clone,
-    F: Field,
-    T: QuadraticNonResidue<FieldElement<F>>
+impl<F: Field + Clone, Q: QuadraticNonResidue<F> + Clone> FieldElement<QuadraticFieldExtensionBackend<F, Q>>
 {
     pub fn new_base(a: &FieldElement<F>) -> Self {
         FieldElement::new([a.clone(), FieldElement::<F>::zero()])
@@ -96,16 +96,16 @@ mod tests {
 
     use super::*;
 
-    #[derive(Debug)]
+    #[derive(Debug, Clone)]
     struct MyQuadraticNonResidue;
-    impl QuadraticNonResidue<U64FieldElement<ORDER_P>> for MyQuadraticNonResidue {
-        fn quadratic_non_residue() -> U64FieldElement<ORDER_P> {
+    impl QuadraticNonResidue<NativeU64Modulus<ORDER_P>> for MyQuadraticNonResidue {
+        fn quadratic_non_residue() -> FieldElement<NativeU64Modulus<ORDER_P>> {
             -FieldElement::one()
         }
     }
-    
+
     type FE = U64FieldElement<ORDER_P>;
-    type MyFieldExtensionBackend = QuadraticFieldExtensionBackend<MyQuadraticNonResidue, NativeU64Modulus<ORDER_P>>;
+    type MyFieldExtensionBackend = QuadraticFieldExtensionBackend<NativeU64Modulus<ORDER_P>, MyQuadraticNonResidue>;
     #[allow(clippy::upper_case_acronyms)]
     type FEE =FieldElement<MyFieldExtensionBackend>;
 

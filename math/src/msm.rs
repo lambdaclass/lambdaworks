@@ -87,3 +87,5 @@ mod tests {
         assert_eq!(msm(&c, &hiding), EllipticCurveElement::neutral_element());
     }
 }
+
+

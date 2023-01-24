@@ -10,14 +10,14 @@ use std::ops;
 
 #[derive(Debug, Clone)]
 pub struct MyQuadraticNonResidue;
-impl QuadraticNonResidue<U64FieldElement<ORDER_P>> for MyQuadraticNonResidue {
-    fn quadratic_non_residue() -> U64FieldElement<ORDER_P> {
+impl QuadraticNonResidue<NativeU64Modulus<ORDER_P>> for MyQuadraticNonResidue {
+    fn quadratic_non_residue() -> FieldElement<NativeU64Modulus<ORDER_P>> {
         -FieldElement::one()
     }
 }
-type FE = U64FieldElement<ORDER_P>;
-type MyFieldExtensionBackend = QuadraticFieldExtensionBackend<MyQuadraticNonResidue, NativeU64Modulus<ORDER_P>>;
 
+type FE = U64FieldElement<ORDER_P>;
+type MyFieldExtensionBackend = QuadraticFieldExtensionBackend<NativeU64Modulus<ORDER_P>, MyQuadraticNonResidue>;
 #[allow(clippy::upper_case_acronyms)]
 type FEE =FieldElement<MyFieldExtensionBackend>;
 
