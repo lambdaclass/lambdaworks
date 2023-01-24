@@ -42,6 +42,7 @@ impl<const MODULO: u64> FieldOperations for U64PrimeField<MODULO> {
 }
 
 pub type U64FieldElement<const ORDER: u64> = FieldElement<U64PrimeField<ORDER>>;
+
 impl<const ORDER: u64> Copy for U64FieldElement<ORDER> {}
 
 /// Represents an element in Fp. (E.g: 0, 1, 2 are the elements of F3)

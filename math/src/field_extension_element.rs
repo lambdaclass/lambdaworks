@@ -74,6 +74,8 @@ impl<F: FieldOperations + Clone, Q: QuadraticNonResidue<F> + Clone> FieldElement
     }
 }
 
+pub type QuadraticExtensionFieldElement<F, Q> = FieldElement<QuadraticExtensionField<F, Q>>;
+
 
 #[cfg(test)]
 mod tests {
