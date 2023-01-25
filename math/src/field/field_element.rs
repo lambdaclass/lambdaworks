@@ -1,12 +1,12 @@
-use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
 use std::fmt::Debug;
+use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
 
 #[derive(Debug, Clone)]
 pub struct FieldElement<F: HasFieldOperations> {
     value: F::BaseType,
 }
 
-pub trait HasFieldOperations : Debug {
+pub trait HasFieldOperations: Debug {
     type BaseType: Clone + Debug;
 
     fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType;
@@ -45,7 +45,6 @@ pub trait HasFieldOperations : Debug {
 
     fn from_u64(x: u64) -> Self::BaseType;
 }
-
 
 /* From overloading for Algebraic Elements */
 impl<F> From<&F::BaseType> for FieldElement<F>

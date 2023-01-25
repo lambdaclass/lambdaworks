@@ -1,9 +1,8 @@
 use crate::field::field_element::{FieldElement, HasFieldOperations};
 
 use super::cyclic_group::CyclicBilinearGroup;
-use std::marker::PhantomData;
 use std::fmt::Debug;
-
+use std::marker::PhantomData;
 
 pub trait HasEllipticCurveOperations: Clone + Debug {
     type BaseField: Clone + Debug + HasFieldOperations;
@@ -32,17 +31,18 @@ pub trait HasEllipticCurveOperations: Clone + Debug {
     }
 
     /// Projective equality relation: `p` has to be a multiple of `q`
-    fn eq(
-        p: &[FieldElement<Self::BaseField>; 3], 
-        q: &[FieldElement<Self::BaseField>; 3]
-    ) -> bool {
+    fn eq(p: &[FieldElement<Self::BaseField>; 3], q: &[FieldElement<Self::BaseField>; 3]) -> bool {
         let (px, py, pz) = (&p[0], &p[1], &p[2]);
         let (qx, qy, qz) = (&q[0], &q[1], &q[2]);
         (px * qz == pz * qx) && (px * qy == py * qx)
     }
 
     fn neutral_element() -> [FieldElement<Self::BaseField>; 3] {
-        [FieldElement::zero(), FieldElement::one(), FieldElement::zero()]
+        [
+            FieldElement::zero(),
+            FieldElement::one(),
+            FieldElement::zero(),
+        ]
     }
 
     fn is_neutral_element(p: &[FieldElement<Self::BaseField>; 3]) -> bool {
@@ -53,14 +53,17 @@ pub trait HasEllipticCurveOperations: Clone + Debug {
     /// of the form (x, y, 1)
     /// Panics if `self` is the point at infinity
     fn affine(p: &[FieldElement<Self::BaseField>; 3]) -> [FieldElement<Self::BaseField>; 3] {
-        assert!(!Self::is_neutral_element(p), "The point at infinity is not affine.");
+        assert!(
+            !Self::is_neutral_element(p),
+            "The point at infinity is not affine."
+        );
         let (x, y, z) = (&p[0], &p[1], &p[2]);
         [x / z, y / z, FieldElement::one()]
     }
 
     fn add(
-        p: &[FieldElement<Self::BaseField>; 3], 
-        q: &[FieldElement<Self::BaseField>; 3]
+        p: &[FieldElement<Self::BaseField>; 3],
+        q: &[FieldElement<Self::BaseField>; 3],
     ) -> [FieldElement<Self::BaseField>; 3] {
         let (px, py, pz) = (&p[0], &p[1], &p[2]);
         let (qx, qy, qz) = (&q[0], &q[1], &q[2]);
@@ -77,8 +80,7 @@ pub trait HasEllipticCurveOperations: Clone + Debug {
                 if u1 != u2 || *py == FieldElement::zero() {
                     Self::neutral_element()
                 } else {
-                    let w = Self::a() * pz.pow(2)
-                        + FieldElement::from(3) * px.pow(2);
+                    let w = Self::a() * pz.pow(2) + FieldElement::from(3) * px.pow(2);
                     let s = py * pz;
                     let b = px * py * &s;
                     let h = w.pow(2) - FieldElement::from(8) * &b;
@@ -109,9 +111,10 @@ pub trait HasEllipticCurveOperations: Clone + Debug {
     fn line(
         p: &[FieldElement<Self::BaseField>; 3],
         r: &[FieldElement<Self::BaseField>; 3],
-        q: &[FieldElement<Self::BaseField>; 3]
+        q: &[FieldElement<Self::BaseField>; 3],
     ) -> FieldElement<Self::BaseField> {
-        assert!(!Self::is_neutral_element(q),
+        assert!(
+            !Self::is_neutral_element(q),
             "q cannot be the point at infinity."
         );
         let (px, py, _) = (&p[0], &p[1], &p[2]);
@@ -153,7 +156,7 @@ pub trait HasEllipticCurveOperations: Clone + Debug {
     /// Other resources can be found at "Pairings for beginners" from Craig Costello, Algorithm 5.1, page 79.
     fn miller(
         p: &[FieldElement<Self::BaseField>; 3],
-        q: &[FieldElement<Self::BaseField>; 3]
+        q: &[FieldElement<Self::BaseField>; 3],
     ) -> FieldElement<Self::BaseField> {
         let p = Self::affine(p);
         let q = Self::affine(q);
@@ -189,7 +192,7 @@ pub trait HasEllipticCurveOperations: Clone + Debug {
     #[allow(unused)]
     fn weil_pairing(
         p: &[FieldElement<Self::BaseField>; 3],
-        q: &[FieldElement<Self::BaseField>; 3]
+        q: &[FieldElement<Self::BaseField>; 3],
     ) -> FieldElement<Self::BaseField> {
         if Self::is_neutral_element(p) || Self::is_neutral_element(q) || Self::eq(p, q) {
             FieldElement::one()
@@ -205,7 +208,7 @@ pub trait HasEllipticCurveOperations: Clone + Debug {
     /// See "Pairing for beginners" from Craig Costello, page 79.
     fn tate_pairing(
         p: &[FieldElement<Self::BaseField>; 3],
-        q: &[FieldElement<Self::BaseField>; 3]
+        q: &[FieldElement<Self::BaseField>; 3],
     ) -> FieldElement<Self::BaseField> {
         if Self::is_neutral_element(p) || Self::is_neutral_element(q) || Self::eq(p, q) {
             FieldElement::one()
@@ -213,20 +216,11 @@ pub trait HasEllipticCurveOperations: Clone + Debug {
             Self::miller(p, q).pow(Self::target_normalization_power() as u128)
         }
     }
-
 }
 
-trait HasDistortionMap: HasEllipticCurveOperations {
-    /// Apply a distorsion map to point `p`.
-    /// This is useful for converting points living in the base field
-    /// to points living in the extension field.
-    /// The current implementation only works for the elliptic curve with A=1 and B=0
-    /// ORDER_P=59. This curve was chosen because it is supersingular.
-    fn distorsion_map(p: &[FieldElement<Self::BaseField>; 3]) -> [FieldElement<Self::BaseField>; 3];
-
-    fn type_1_pairing(p: &[FieldElement<Self::BaseField>; 3], q: &[FieldElement<Self::BaseField>; 3]) -> FieldElement<Self::BaseField> {
-        Self::tate_pairing(p, &Self::distorsion_map(q))
-    }
+pub trait HasDistortionMap: HasEllipticCurveOperations {
+    fn distorsion_map(p: &[FieldElement<Self::BaseField>; 3])
+        -> [FieldElement<Self::BaseField>; 3];
 }
 
 /// Represents an elliptic curve point using the projective short Weierstrass form:
@@ -235,44 +229,54 @@ trait HasDistortionMap: HasEllipticCurveOperations {
 #[derive(Debug, Clone)]
 pub struct EllipticCurveElement<E: HasEllipticCurveOperations> {
     value: [FieldElement<E::BaseField>; 3],
-    elliptic_curve: PhantomData<E>
+    elliptic_curve: PhantomData<E>,
 }
 
 impl<E: HasEllipticCurveOperations> EllipticCurveElement<E> {
     /// Creates an elliptic curve point giving the (x, y, z) coordinates.
-    fn new(x: FieldElement<E::BaseField>,
+    fn new(
+        x: FieldElement<E::BaseField>,
         y: FieldElement<E::BaseField>,
-        z: FieldElement<E::BaseField>) -> Self {
-     assert_eq!(
-         E::defining_equation(&[&x, &y, &z]),
-         FieldElement::zero(),
-         "Point ({:?}, {:?}, {:?}) does not belong to the elliptic curve.",
-         x,
-         y,
-         z
-     );
-     Self { value: [x, y, z], elliptic_curve: PhantomData }
-    }
-
-    fn x(&self) -> &FieldElement<E::BaseField>{
-        &self.value[0]
-    }
-
-    fn y(&self) -> &FieldElement<E::BaseField>{
-        &self.value[1]
-    }
-
-    fn z(&self) -> &FieldElement<E::BaseField>{
-        &self.value[2]
-    }
-
-    fn to_affine(&self) -> Self {
+        z: FieldElement<E::BaseField>,
+    ) -> Self {
+        assert_eq!(
+            E::defining_equation(&[&x, &y, &z]),
+            FieldElement::zero(),
+            "Point ({:?}, {:?}, {:?}) does not belong to the elliptic curve.",
+            x,
+            y,
+            z
+        );
         Self {
-            value: E::affine(&self.value),
-            elliptic_curve: PhantomData
+            value: [x, y, z],
+            elliptic_curve: PhantomData,
         }
     }
 
+    #[allow(unused)]
+    fn x(&self) -> &FieldElement<E::BaseField> {
+        &self.value[0]
+    }
+
+    #[allow(unused)]
+    fn y(&self) -> &FieldElement<E::BaseField> {
+        &self.value[1]
+    }
+
+    #[allow(unused)]
+    fn z(&self) -> &FieldElement<E::BaseField> {
+        &self.value[2]
+    }
+
+    #[allow(unused)]
+    fn to_affine(&self) -> Self {
+        Self {
+            value: E::affine(&self.value),
+            elliptic_curve: PhantomData,
+        }
+    }
+
+    #[allow(unused)]
     fn weil_pairing(&self, other: &Self) -> FieldElement<E::BaseField> {
         E::weil_pairing(&self.value, &other.value)
     }
@@ -290,7 +294,9 @@ impl<E: HasEllipticCurveOperations> PartialEq for EllipticCurveElement<E> {
 
 impl<E: HasEllipticCurveOperations> Eq for EllipticCurveElement<E> {}
 
-impl<E: HasEllipticCurveOperations> CyclicBilinearGroup for EllipticCurveElement<E> {
+impl<E: HasEllipticCurveOperations + HasDistortionMap> CyclicBilinearGroup
+    for EllipticCurveElement<E>
+{
     type PairingOutput = FieldElement<E::BaseField>;
 
     fn generator() -> Self {
@@ -302,9 +308,9 @@ impl<E: HasEllipticCurveOperations> CyclicBilinearGroup for EllipticCurveElement
     }
 
     fn neutral_element() -> Self {
-        Self  {
+        Self {
             value: E::neutral_element(),
-            elliptic_curve: PhantomData
+            elliptic_curve: PhantomData,
         }
     }
 
@@ -313,7 +319,7 @@ impl<E: HasEllipticCurveOperations> CyclicBilinearGroup for EllipticCurveElement
     fn operate_with(&self, other: &Self) -> Self {
         Self {
             value: E::add(&self.value, &other.value),
-            elliptic_curve: PhantomData
+            elliptic_curve: PhantomData,
         }
     }
 
@@ -322,14 +328,22 @@ impl<E: HasEllipticCurveOperations> CyclicBilinearGroup for EllipticCurveElement
     /// Note that a distorsion map is applied to `other` before using the Tate pairing.
     /// So this method can be called with two field extension elements from the base field.
     fn pairing(&self, other: &Self) -> Self::PairingOutput {
-        //Self::tate_pairing(self, &Self::distorsion_map(other))
-        todo!()
+        let [qx, qy, qz] = E::distorsion_map(&other.value);
+        Self::tate_pairing(self, &Self::new(qx, qy, qz))
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{field::{quadratic_extension::{HasQuadraticNonResidue, QuadraticExtensionFieldElement, QuadraticExtensionField}, u64_prime_field::{U64PrimeField, U64FieldElement}}, config::{ORDER_P, ORDER_R}};
+    use crate::{
+        config::{ORDER_P, ORDER_R},
+        field::{
+            quadratic_extension::{
+                HasQuadraticNonResidue, QuadraticExtensionField, QuadraticExtensionFieldElement,
+            },
+            u64_prime_field::{U64FieldElement, U64PrimeField},
+        },
+    };
 
     use super::*;
 
@@ -348,12 +362,12 @@ mod tests {
     pub struct CurrentCurve;
     impl HasEllipticCurveOperations for CurrentCurve {
         type BaseField = QuadraticExtensionField<U64PrimeField<ORDER_P>, QuadraticNonResidue>;
-        
+
         fn a() -> FieldElement<Self::BaseField> {
             FieldElement::from(1)
         }
 
-        fn b() -> FieldElement<Self::BaseField>  {
+        fn b() -> FieldElement<Self::BaseField> {
             FieldElement::from(0)
         }
 
@@ -361,7 +375,7 @@ mod tests {
             FieldElement::from(35)
         }
 
-        fn generator_affine_y() -> FieldElement<Self::BaseField>  {
+        fn generator_affine_y() -> FieldElement<Self::BaseField> {
             FieldElement::from(31)
         }
 
@@ -379,7 +393,9 @@ mod tests {
     }
 
     impl HasDistortionMap for CurrentCurve {
-        fn distorsion_map(p: &[FieldElement<Self::BaseField>; 3]) -> [FieldElement<Self::BaseField>; 3] {
+        fn distorsion_map(
+            p: &[FieldElement<Self::BaseField>; 3],
+        ) -> [FieldElement<Self::BaseField>; 3] {
             let (x, y, z) = (&p[0], &p[1], &p[2]);
             let t = FieldElement::new([FieldElement::zero(), FieldElement::one()]);
             [-x, y * t, z.clone()]
@@ -389,11 +405,8 @@ mod tests {
     // This tests only apply for the specific curve found in the configuration file.
     #[test]
     fn create_valid_point_works() {
-        let point = EllipticCurveElement::<CurrentCurve>::new(
-            FEE::from(35),
-            FEE::from(31),
-            FEE::from(1),
-        );
+        let point =
+            EllipticCurveElement::<CurrentCurve>::new(FEE::from(35), FEE::from(31), FEE::from(1));
         assert_eq!(*point.x(), FEE::new_base(35));
         assert_eq!(*point.y(), FEE::new_base(31));
         assert_eq!(*point.z(), FEE::new_base(1));
@@ -426,7 +439,10 @@ mod tests {
     fn operate_with_self_works_2() {
         let mut point_1 = EllipticCurveElement::<CurrentCurve>::generator();
         point_1 = point_1.operate_with_self(ORDER_R as u128);
-        assert_eq!(point_1, EllipticCurveElement::<CurrentCurve>::neutral_element());
+        assert_eq!(
+            point_1,
+            EllipticCurveElement::<CurrentCurve>::neutral_element()
+        );
     }
 
     #[test]

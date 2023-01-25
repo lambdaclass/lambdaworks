@@ -34,8 +34,15 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{elliptic_curve::{EllipticCurveElement, HasEllipticCurveOperations}, field::{quadratic_extension::{HasQuadraticNonResidue, QuadraticExtensionField}, u64_prime_field::U64PrimeField, field_element::FieldElement}, config::ORDER_P};
-
+    use crate::{
+        config::ORDER_P,
+        elliptic_curve::{EllipticCurveElement, HasDistortionMap, HasEllipticCurveOperations},
+        field::{
+            field_element::FieldElement,
+            quadratic_extension::{HasQuadraticNonResidue, QuadraticExtensionField},
+            u64_prime_field::U64PrimeField,
+        },
+    };
 
     #[derive(Debug, Clone)]
     pub struct QuadraticNonResidue;
@@ -49,12 +56,12 @@ mod tests {
     pub struct CurrentCurve;
     impl HasEllipticCurveOperations for CurrentCurve {
         type BaseField = QuadraticExtensionField<U64PrimeField<ORDER_P>, QuadraticNonResidue>;
-        
+
         fn a() -> FieldElement<Self::BaseField> {
             FieldElement::from(1)
         }
 
-        fn b() -> FieldElement<Self::BaseField>  {
+        fn b() -> FieldElement<Self::BaseField> {
             FieldElement::from(0)
         }
 
@@ -62,7 +69,7 @@ mod tests {
             FieldElement::from(35)
         }
 
-        fn generator_affine_y() -> FieldElement<Self::BaseField>  {
+        fn generator_affine_y() -> FieldElement<Self::BaseField> {
             FieldElement::from(31)
         }
 
@@ -79,11 +86,24 @@ mod tests {
         }
     }
 
+    impl HasDistortionMap for CurrentCurve {
+        fn distorsion_map(
+            p: &[FieldElement<Self::BaseField>; 3],
+        ) -> [FieldElement<Self::BaseField>; 3] {
+            let (x, y, z) = (&p[0], &p[1], &p[2]);
+            let t = FieldElement::new([FieldElement::zero(), FieldElement::one()]);
+            [-x, y * t, z.clone()]
+        }
+    }
+
     #[test]
     fn msm_11_is_1_over_elliptic_curves() {
         let c = [FE::new(1)];
         let hiding = [EllipticCurveElement::<CurrentCurve>::generator()];
-        assert_eq!(msm(&c, &hiding), EllipticCurveElement::<CurrentCurve>::generator());
+        assert_eq!(
+            msm(&c, &hiding),
+            EllipticCurveElement::<CurrentCurve>::generator()
+        );
     }
 
     #[test]
@@ -126,7 +146,7 @@ mod tests {
     #[test]
     fn msm_with_empty_c_is_none_over_elliptic_curves() {
         let c = [];
-        let hiding: [EllipticCurveElement::<CurrentCurve>; 0] = [];
+        let hiding: [EllipticCurveElement<CurrentCurve>; 0] = [];
         assert_eq!(msm(&c, &hiding), EllipticCurveElement::neutral_element());
     }
 }

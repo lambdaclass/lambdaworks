@@ -1,5 +1,5 @@
-use std::marker::PhantomData;
 use std::fmt::Debug;
+use std::marker::PhantomData;
 
 use super::field_element::{FieldElement, HasFieldOperations};
 
@@ -84,7 +84,6 @@ impl<F: HasFieldOperations + Clone, Q: HasQuadraticNonResidue<F> + Clone + Debug
         FieldElement::new([FieldElement::<F>::new(a), FieldElement::<F>::zero()])
     }
 }
-
 
 #[cfg(test)]
 mod tests {
