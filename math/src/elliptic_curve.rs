@@ -1,12 +1,12 @@
-use crate::field::field_element::{FieldElement, FieldOperations};
+use crate::field::field_element::{FieldElement, HasFieldOperations};
 
 use super::cyclic_group::CyclicBilinearGroup;
 use std::marker::PhantomData;
 use std::fmt::Debug;
 
 
-pub trait EllipticCurveOperations: Clone + Debug {
-    type BaseField: Clone + Debug + FieldOperations;
+pub trait HasEllipticCurveOperations: Clone + Debug {
+    type BaseField: Clone + Debug + HasFieldOperations;
 
     fn a() -> FieldElement<Self::BaseField>;
     fn b() -> FieldElement<Self::BaseField>;
@@ -230,12 +230,12 @@ pub trait EllipticCurveOperations: Clone + Debug {
 ///   y^2 * z = x^3 + a * x * z^2 + b * z^3
 /// x, y and z variables are field extension elements.
 #[derive(Debug, Clone)]
-pub struct EllipticCurveElement<E: EllipticCurveOperations> {
+pub struct EllipticCurveElement<E: HasEllipticCurveOperations> {
     value: [FieldElement<E::BaseField>; 3],
     elliptic_curve: PhantomData<E>
 }
 
-impl<E: EllipticCurveOperations> EllipticCurveElement<E> {
+impl<E: HasEllipticCurveOperations> EllipticCurveElement<E> {
     /// Creates an elliptic curve point giving the (x, y, z) coordinates.
     fn new(x: FieldElement<E::BaseField>,
         y: FieldElement<E::BaseField>,
@@ -279,15 +279,15 @@ impl<E: EllipticCurveOperations> EllipticCurveElement<E> {
     }
 }
 
-impl<E: EllipticCurveOperations> PartialEq for EllipticCurveElement<E> {
+impl<E: HasEllipticCurveOperations> PartialEq for EllipticCurveElement<E> {
     fn eq(&self, other: &Self) -> bool {
         E::eq(&self.value, &other.value)
     }
 }
 
-impl<E: EllipticCurveOperations> Eq for EllipticCurveElement<E> {}
+impl<E: HasEllipticCurveOperations> Eq for EllipticCurveElement<E> {}
 
-impl<E: EllipticCurveOperations> CyclicBilinearGroup for EllipticCurveElement<E> {
+impl<E: HasEllipticCurveOperations> CyclicBilinearGroup for EllipticCurveElement<E> {
     type PairingOutput = FieldElement<E::BaseField>;
 
     fn generator() -> Self {
@@ -343,7 +343,7 @@ mod tests {
 
     #[derive(Clone, Debug)]
     pub struct CurrentCurve;
-    impl EllipticCurveOperations for CurrentCurve {
+    impl HasEllipticCurveOperations for CurrentCurve {
         type BaseField = QuadraticExtensionField<U64PrimeField<ORDER_P>, QuadraticNonResidue>;
         
         fn a() -> FieldElement<Self::BaseField> {

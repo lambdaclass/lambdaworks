@@ -1,12 +1,12 @@
 use crate::cyclic_group::CyclicBilinearGroup;
 
-use super::field_element::{FieldElement, FieldOperations};
+use super::field_element::{FieldElement, HasFieldOperations};
 
 #[derive(Debug, Clone)]
 pub struct U64PrimeField<const MODULO: u64>;
 pub type U64FieldElement<const ORDER: u64> = FieldElement<U64PrimeField<ORDER>>;
 
-impl<const MODULO: u64> FieldOperations for U64PrimeField<MODULO> {
+impl<const MODULO: u64> HasFieldOperations for U64PrimeField<MODULO> {
     type BaseType = u64;
 
     fn add(a: &u64, b: &u64) -> u64 {

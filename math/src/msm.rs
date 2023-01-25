@@ -34,7 +34,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{elliptic_curve::{EllipticCurveElement, EllipticCurveOperations}, field::{quadratic_extension::{HasQuadraticNonResidue, QuadraticExtensionField}, u64_prime_field::U64PrimeField, field_element::FieldElement}, config::ORDER_P};
+    use crate::{elliptic_curve::{EllipticCurveElement, HasEllipticCurveOperations}, field::{quadratic_extension::{HasQuadraticNonResidue, QuadraticExtensionField}, u64_prime_field::U64PrimeField, field_element::FieldElement}, config::ORDER_P};
 
 
     #[derive(Debug, Clone)]
@@ -47,7 +47,7 @@ mod tests {
 
     #[derive(Clone, Debug)]
     pub struct CurrentCurve;
-    impl EllipticCurveOperations for CurrentCurve {
+    impl HasEllipticCurveOperations for CurrentCurve {
         type BaseField = QuadraticExtensionField<U64PrimeField<ORDER_P>, QuadraticNonResidue>;
         
         fn a() -> FieldElement<Self::BaseField> {

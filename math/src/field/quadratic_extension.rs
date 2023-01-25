@@ -1,16 +1,16 @@
 use std::marker::PhantomData;
 use std::fmt::Debug;
 
-use super::field_element::{FieldElement, FieldOperations};
+use super::field_element::{FieldElement, HasFieldOperations};
 
-pub trait HasQuadraticNonResidue<F: FieldOperations> {
+pub trait HasQuadraticNonResidue<F: HasFieldOperations> {
     fn residue() -> FieldElement<F>;
 }
 
 #[derive(Debug, Clone)]
 pub struct QuadraticExtensionField<F, Q>
 where
-    F: FieldOperations,
+    F: HasFieldOperations,
     Q: Debug + HasQuadraticNonResidue<F>,
 {
     field: PhantomData<F>,
@@ -19,9 +19,9 @@ where
 
 pub type QuadraticExtensionFieldElement<F, Q> = FieldElement<QuadraticExtensionField<F, Q>>;
 
-impl<F, Q> FieldOperations for QuadraticExtensionField<F, Q>
+impl<F, Q> HasFieldOperations for QuadraticExtensionField<F, Q>
 where
-    F: FieldOperations + Clone,
+    F: HasFieldOperations + Clone,
     Q: Clone + Debug + HasQuadraticNonResidue<F>,
 {
     type BaseType = [FieldElement<F>; 2];
@@ -77,7 +77,7 @@ where
     }
 }
 
-impl<F: FieldOperations + Clone, Q: HasQuadraticNonResidue<F> + Clone + Debug>
+impl<F: HasFieldOperations + Clone, Q: HasQuadraticNonResidue<F> + Clone + Debug>
     FieldElement<QuadraticExtensionField<F, Q>>
 {
     pub fn new_base(a: F::BaseType) -> Self {
