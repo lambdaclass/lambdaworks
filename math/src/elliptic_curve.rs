@@ -214,15 +214,18 @@ pub trait HasEllipticCurveOperations: Clone + Debug {
         }
     }
 
+}
+
+trait HasDistortionMap: HasEllipticCurveOperations {
     /// Apply a distorsion map to point `p`.
     /// This is useful for converting points living in the base field
     /// to points living in the extension field.
     /// The current implementation only works for the elliptic curve with A=1 and B=0
     /// ORDER_P=59. This curve was chosen because it is supersingular.
-    fn distorsion_map(p: &Self) -> Self {
-        todo!()
-        //let t = FieldElement::new([FieldElement::zero(), FieldElement::one()]);
-        //Self::new(-&p.x, &p.y * t, p.z.clone())
+    fn distorsion_map(p: &[FieldElement<Self::BaseField>; 3]) -> [FieldElement<Self::BaseField>; 3];
+
+    fn type_1_pairing(p: &[FieldElement<Self::BaseField>; 3], q: &[FieldElement<Self::BaseField>; 3]) -> FieldElement<Self::BaseField> {
+        Self::tate_pairing(p, &Self::distorsion_map(q))
     }
 }
 
@@ -372,6 +375,14 @@ mod tests {
 
         fn order_p() -> u64 {
             59
+        }
+    }
+
+    impl HasDistortionMap for CurrentCurve {
+        fn distorsion_map(p: &[FieldElement<Self::BaseField>; 3]) -> [FieldElement<Self::BaseField>; 3] {
+            let (x, y, z) = (&p[0], &p[1], &p[2]);
+            let t = FieldElement::new([FieldElement::zero(), FieldElement::one()]);
+            [-x, y * t, z.clone()]
         }
     }
 
