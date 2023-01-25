@@ -68,6 +68,7 @@ References:
 - KZG and variants
 - Hashing
 - Inner product arguments
+- Dory (L)
 
 ### PIOP/PCS
 - Groth16
