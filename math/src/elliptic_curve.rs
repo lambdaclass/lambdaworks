@@ -1,19 +1,12 @@
-use crate::config::{
-    ELLIPTIC_CURVE_A, ELLIPTIC_CURVE_B, GENERATOR_AFFINE_X, GENERATOR_AFFINE_Y, ORDER_P, ORDER_R,
-    TARGET_NORMALIZATION_POWER,
-};
 use crate::field::field_element::{FieldElement, FieldOperations};
-use crate::field::quadratic_extension::{HasQuadraticNonResidue, QuadraticExtensionFieldElement, QuadraticExtensionField};
-use crate::field::u64_prime_field::{U64FieldElement, U64PrimeField};
 
 use super::cyclic_group::CyclicBilinearGroup;
-use std::hash::BuildHasher;
 use std::marker::PhantomData;
 use std::ops;
 use std::fmt::Debug;
 
 
-pub trait EllipticCurveDescription: Clone + Debug {
+pub trait EllipticCurveOperations: Clone + Debug {
     type BaseField: Clone + Debug + FieldOperations;
 
     fn a() -> FieldElement<Self::BaseField>;
@@ -31,59 +24,123 @@ pub trait EllipticCurveDescription: Clone + Debug {
     fn target_normalization_power() -> u64 {
         (Self::order_field_extension() - 1) / Self::order_r()
     }
+
+    /// Evaluates the short Weierstrass equation at (x, y z).
+    /// Useful for checking if (x, y, z) belongs to the elliptic curve.
+    fn defining_equation(p: &[&FieldElement<Self::BaseField>; 3]) -> FieldElement<Self::BaseField> {
+        let (x, y, z) = (p[0], p[1], p[2]);
+        y.pow(2) * z - x.pow(3) - Self::a() * x * z.pow(2) - Self::b() * z.pow(3)
+    }
+
+    fn neutral_element() -> [FieldElement<Self::BaseField>; 3] {
+        [FieldElement::zero(), FieldElement::one(), FieldElement::zero()]
+    }
+
+    fn is_neutral_element(p: &[&FieldElement<Self::BaseField>; 3]) -> bool {
+        let (x, y, z) = (p[0], p[1], p[2]);
+        x == &FieldElement::zero() && y == &FieldElement::one() && z == &FieldElement::zero()
+    }
+
+    /// Normalize the projective coordinates to obtain affine coordinates
+    /// of the form (x, y, 1)
+    /// Panics if `self` is the point at infinity
+    fn affine(p: &[&FieldElement<Self::BaseField>; 3]) -> [FieldElement<Self::BaseField>; 3] {
+        assert!(!Self::is_neutral_element(p), "The point at infinity is not affine.");
+        let (x, y, z) = (p[0], p[1], p[2]);
+        [x / z, y / z, FieldElement::one()]
+    }
+
+    fn add(
+        p: &[&FieldElement<Self::BaseField>; 3], 
+        q: &[&FieldElement<Self::BaseField>; 3]
+    ) -> [FieldElement<Self::BaseField>; 3] {
+        let (px, py, pz) = (p[0], p[1], p[2]);
+        let (qx, qy, qz) = (q[0], q[1], q[2]);
+        if Self::is_neutral_element(q) {
+            [px.clone(), py.clone(), pz.clone()]
+        } else if Self::is_neutral_element(p) {
+            [qx.clone(), qy.clone(), qz.clone()]
+        } else {
+            let u1 = qy * pz;
+            let u2 = py * qz;
+            let v1 = qx * pz;
+            let v2 = px * qz;
+            if v1 == v2 {
+                if u1 != u2 || *py == FieldElement::from(0) {
+                    Self::neutral_element()
+                } else {
+                    let w = Self::a() * pz.pow(2)
+                        + FieldElement::from(3) * px.pow(2);
+                    let s = py * pz;
+                    let b = px * py * &s;
+                    let h = w.pow(2) - FieldElement::from(8) * &b;
+                    let xp = FieldElement::from(2) * &h * &s;
+                    let yp = w * (FieldElement::from(4) * &b - &h)
+                        - FieldElement::from(8) * py.pow(2) * s.pow(2);
+                    let zp = FieldElement::from(8) * s.pow(3);
+                    [xp, yp, zp]
+                }
+            } else {
+                let u = u1 - &u2;
+                let v = v1 - &v2;
+                let w = pz * qz;
+                let a = u.pow(2) * &w - v.pow(3) - FieldElement::from(2) * v.pow(2) * &v2;
+                let xp = &v * &a;
+                let yp = u * (v.pow(2) * v2 - a) - v.pow(3) * u2;
+                let zp = v.pow(3) * w;
+                [xp, yp, zp]
+            }
+        }
+    }
+
 }
 
 /// Represents an elliptic curve point using the projective short Weierstrass form:
 ///   y^2 * z = x^3 + a * x * z^2 + b * z^3
 /// x, y and z variables are field extension elements.
 #[derive(Debug, Clone)]
-pub struct EllipticCurveElement<E: EllipticCurveDescription> {
-    x: FieldElement<E::BaseField>,
-    y: FieldElement<E::BaseField>,
-    z: FieldElement<E::BaseField>,
+pub struct EllipticCurveElement<E: EllipticCurveOperations> {
+    value: [FieldElement<E::BaseField>; 3],
     elliptic_curve: PhantomData<E>
 }
 
-impl<E: EllipticCurveDescription> EllipticCurveElement<E> {
+impl<E: EllipticCurveOperations> EllipticCurveElement<E> {
+    fn x(&self) -> &FieldElement<E::BaseField>{
+        &self.value[0]
+    }
+
+    fn y(&self) -> &FieldElement<E::BaseField>{
+        &self.value[1]
+    }
+
+    fn z(&self) -> &FieldElement<E::BaseField>{
+        &self.value[2]
+    }
+
+    fn to_affine(&self) -> Self {
+        Self {
+            value: E::affine(&[&self.value[0], &self.value[1], &self.value[2]]),
+            elliptic_curve: PhantomData
+        }
+    }
+}
+
+impl<E: EllipticCurveOperations> EllipticCurveElement<E> 
+where EllipticCurveElement<E>: CyclicBilinearGroup
+{
     /// Creates an elliptic curve point giving the (x, y, z) coordinates.
     fn new(x: FieldElement<E::BaseField>,
            y: FieldElement<E::BaseField>,
            z: FieldElement<E::BaseField>) -> Self {
         assert_eq!(
-            Self::defining_equation(&x, &y, &z),
+            E::defining_equation(&[&x, &y, &z]),
             FieldElement::zero(),
             "Point ({:?}, {:?}, {:?}) does not belong to the elliptic curve.",
             x,
             y,
             z
         );
-        Self { x: x, y: y, z: z, elliptic_curve: PhantomData }
-    }
-
-    /// Evaluates the short Weierstrass equation at (x, y z).
-    /// Useful for checking if (x, y, z) belongs to the elliptic curve.
-    fn defining_equation(x: &FieldElement<E::BaseField>,
-                         y: &FieldElement<E::BaseField>,
-                         z: &FieldElement<E::BaseField>) -> FieldElement<E::BaseField> {
-        y.pow(2) * z
-            - x.pow(3)
-            - E::a() * x * z.pow(2)
-            - E::b() * z.pow(3)
-    }
-
-    /// Normalize the projective coordinates to obtain affine coordinates
-    /// of the form (x, y, 1)
-    /// Panics if `self` is the point at infinity
-    fn affine(&self) -> Self {
-        assert!(
-            self != &EllipticCurveElement::neutral_element(),
-            "The point at infinity is not affine."
-        );
-        Self::new(
-            &self.x / &self.z,
-            &self.y / &self.z,
-            FieldElement::one(),
-        )
+        Self { value: [x, y, z], elliptic_curve: PhantomData }
     }
 
     /// Evaluates the line between points `self` and `r` at point `q`
@@ -98,26 +155,26 @@ impl<E: EllipticCurveDescription> EllipticCurveElement<E> {
                 return FieldElement::one();
             }
             if *self == Self::neutral_element() {
-                &q.x - &r.x
+                q.x() - r.x()
             } else {
-                &q.x - &self.x
+                q.x() - self.x()
             }
         } else if self != r {
-            if self.x == r.x {
-                return &q.x - &self.x;
+            if self.x() == r.x() {
+                return q.x() - self.x();
             } else {
-                let l = (&r.y - &self.y) / (&r.x - &self.x);
-                return &q.y - &self.y - l * (&q.x - &self.x);
+                let l = (r.y() - self.y()) / (r.x() - self.x());
+                return q.y() - self.y() - l * (q.x() - self.x());
             }
         } else {
-            let numerator = FieldElement::from(3) * &self.x.pow(2)
+            let numerator = FieldElement::from(3) * &self.x().pow(2)
                 + E::a();
-            let denominator = FieldElement::from(2) * &self.y;
+            let denominator = FieldElement::from(2) * self.y();
             if denominator == FieldElement::from(0) {
-                return &q.x - &self.x;
+                return q.x() - self.x();
             } else {
                 let l = numerator / denominator;
-                return &q.y - &self.y - l * (&q.x - &self.x);
+                return q.y() - self.y() - l * (q.x() - self.x());
             }
         }
     }
@@ -128,8 +185,8 @@ impl<E: EllipticCurveDescription> EllipticCurveElement<E> {
     /// https://www.sagemath.org/files/thesis/hansen-thesis-2009.pdf
     /// Other resources can be found at "Pairings for beginners" from Craig Costello, Algorithm 5.1, page 79.
     fn miller(p: &Self, q: &Self) -> FieldElement<E::BaseField> {
-        let p = p.affine();
-        let q = q.affine();
+        let p = p.to_affine();
+        let q = q.to_affine();
         let mut order_r = E::order_r();
         let mut bs = vec![];
         while order_r > 0 {
@@ -141,14 +198,14 @@ impl<E: EllipticCurveDescription> EllipticCurveElement<E> {
         let mut r = p.clone();
 
         for b in bs[1..].iter() {
-            let s = r.operate_with(&r).affine();
+            let s = r.operate_with(&r).to_affine();
             f = f.pow(2) * (r.line(&r, &q) / s.line(&-(&s), &q));
             r = s;
 
             if *b == 1 {
                 let mut s = r.operate_with(&p);
                 if s != Self::neutral_element() {
-                    s = s.affine();
+                    s = s.to_affine();
                 }
                 f = f * (r.line(&p, &q) / s.line(&-(&s), &q));
                 r = s;
@@ -193,23 +250,23 @@ impl<E: EllipticCurveDescription> EllipticCurveElement<E> {
     }
 }
 
-impl<E: EllipticCurveDescription> PartialEq for EllipticCurveElement<E> {
+impl<E: EllipticCurveOperations> PartialEq for EllipticCurveElement<E> {
     fn eq(&self, other: &Self) -> bool {
         // Projective equality relation: first point has to be a multiple of the other
-        (&self.x * &other.z == &self.z * &other.x) && (&self.x * &other.y == &self.y * &other.x)
+        (self.x() * other.z() == self.z() * other.x()) && (self.x() * other.y() == self.y() * other.x())
     }
 }
-impl<E: EllipticCurveDescription> Eq for EllipticCurveElement<E> {}
+impl<E: EllipticCurveOperations> Eq for EllipticCurveElement<E> {}
 
-impl<E: EllipticCurveDescription> ops::Neg for &EllipticCurveElement<E> {
+impl<E: EllipticCurveOperations> ops::Neg for &EllipticCurveElement<E> {
     type Output = EllipticCurveElement<E>;
 
     fn neg(self) -> Self::Output {
-        Self::Output::new(self.x.clone(), -self.y.clone(), self.z.clone())
+        Self::Output::new(self.x().clone(), -self.y().clone(), self.z().clone())
     }
 }
 
-impl<E: EllipticCurveDescription> ops::Neg for EllipticCurveElement<E> {
+impl<E: EllipticCurveOperations> ops::Neg for EllipticCurveElement<E> {
     type Output = EllipticCurveElement<E>;
 
     fn neg(self) -> Self::Output {
@@ -217,7 +274,7 @@ impl<E: EllipticCurveDescription> ops::Neg for EllipticCurveElement<E> {
     }
 }
 
-impl<E: EllipticCurveDescription> CyclicBilinearGroup for EllipticCurveElement<E> {
+impl<E: EllipticCurveOperations> CyclicBilinearGroup for EllipticCurveElement<E> {
     type PairingOutput = FieldElement<E::BaseField>;
 
     fn generator() -> Self {
@@ -236,23 +293,6 @@ impl<E: EllipticCurveDescription> CyclicBilinearGroup for EllipticCurveElement<E
         )
     }
 
-    fn operate_with_self(&self, times: u128) -> Self {
-        let mut times = times;
-        let mut result = Self::neutral_element();
-        let mut base = self.clone();
-
-        while times > 0 {
-            // times % 2 == 1
-            if times & 1 == 1 {
-                result = result.operate_with(&base);
-            }
-            // times = times / 2
-            times >>= 1;
-            base = base.operate_with(&base);
-        }
-        result
-    }
-
     /// Computes the addition of `self` and `other`.
     /// Taken from Moonmath (Algorithm 7, page 89)
     fn operate_with(&self, other: &Self) -> Self {
@@ -261,29 +301,29 @@ impl<E: EllipticCurveDescription> CyclicBilinearGroup for EllipticCurveElement<E
         } else if *self == Self::neutral_element() {
             other.clone()
         } else {
-            let u1 = &other.y * &self.z;
-            let u2 = &self.y * &other.z;
-            let v1 = &other.x * &self.z;
-            let v2 = &self.x * &other.z;
+            let u1 = other.y() * self.z();
+            let u2 = self.y() * other.z();
+            let v1 = other.x() * self.z();
+            let v2 = self.x() * other.z();
             if v1 == v2 {
-                if u1 != u2 || self.y == FieldElement::from(0) {
+                if u1 != u2 || *self.y() == FieldElement::from(0) {
                     Self::neutral_element()
                 } else {
-                    let w = E::a() * self.z.pow(2)
-                        + FieldElement::from(3) * self.x.pow(2);
-                    let s = &self.y * &self.z;
-                    let b = &self.x * &self.y * &s;
+                    let w = E::a() * self.z().pow(2)
+                        + FieldElement::from(3) * self.x().pow(2);
+                    let s = self.y() * self.z();
+                    let b = self.x() * self.y() * &s;
                     let h = w.pow(2) - FieldElement::from(8) * &b;
                     let xp = FieldElement::from(2) * &h * &s;
                     let yp = w * (FieldElement::from(4) * &b - &h)
-                        - FieldElement::from(8) * self.y.pow(2) * s.pow(2);
+                        - FieldElement::from(8) * self.y().pow(2) * s.pow(2);
                     let zp = FieldElement::from(8) * s.pow(3);
                     Self::new(xp, yp, zp)
                 }
             } else {
                 let u = u1 - &u2;
                 let v = v1 - &v2;
-                let w = &self.z * &other.z;
+                let w = self.z() * other.z();
                 let a = u.pow(2) * &w - v.pow(3) - FieldElement::from(2) * v.pow(2) * &v2;
                 let xp = &v * &a;
                 let yp = u * (v.pow(2) * v2 - a) - v.pow(3) * u2;
@@ -305,6 +345,8 @@ impl<E: EllipticCurveDescription> CyclicBilinearGroup for EllipticCurveElement<E
 
 #[cfg(test)]
 mod tests {
+    use crate::{field::{quadratic_extension::{HasQuadraticNonResidue, QuadraticExtensionFieldElement, QuadraticExtensionField}, u64_prime_field::{U64PrimeField, U64FieldElement}}, config::{ORDER_P, ORDER_R}};
+
     use super::*;
 
     #[derive(Debug, Clone)]
@@ -320,7 +362,7 @@ mod tests {
 
     #[derive(Clone, Debug)]
     pub struct CurrentCurve;
-    impl EllipticCurveDescription for CurrentCurve {
+    impl EllipticCurveOperations for CurrentCurve {
         type BaseField = QuadraticExtensionField<U64PrimeField<ORDER_P>, QuadraticNonResidue>;
         
         fn a() -> FieldElement<Self::BaseField> {
@@ -360,9 +402,9 @@ mod tests {
             FEE::from(31),
             FEE::from(1),
         );
-        assert_eq!(point.x, FEE::new_base(35));
-        assert_eq!(point.y, FEE::new_base(31));
-        assert_eq!(point.z, FEE::new_base(1));
+        assert_eq!(*point.x(), FEE::new_base(35));
+        assert_eq!(*point.y(), FEE::new_base(31));
+        assert_eq!(*point.z(), FEE::new_base(1));
     }
 
     #[test]
@@ -376,7 +418,13 @@ mod tests {
     }
 
     #[test]
-    fn operate_with_self_works() {
+    fn operate_with_self_works_1() {
+        let g = EllipticCurveElement::<CurrentCurve>::generator();
+        assert_eq!(g.operate_with(&g).operate_with(&g), g.operate_with_self(3));
+    }
+
+    #[test]
+    fn operate_with_self_works_2() {
         let mut point_1 = EllipticCurveElement::<CurrentCurve>::generator();
         point_1 = point_1.operate_with_self(ORDER_R as u128);
         assert_eq!(point_1, EllipticCurveElement::<CurrentCurve>::neutral_element());
@@ -394,7 +442,7 @@ mod tests {
             FEE::new_base(29),
             FEE::new_base(1),
         );
-        assert_eq!(point.operate_with_self(2).affine(), expected_result);
+        assert_eq!(point.operate_with_self(2).to_affine(), expected_result);
     }
 
     #[test]

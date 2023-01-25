@@ -34,7 +34,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{elliptic_curve::{EllipticCurveElement, EllipticCurveDescription}, field::{quadratic_extension::{HasQuadraticNonResidue, QuadraticExtensionFieldElement, QuadraticExtensionField}, u64_prime_field::U64PrimeField, field_element::FieldElement}, config::ORDER_P};
+    use crate::{elliptic_curve::{EllipticCurveElement, EllipticCurveOperations}, field::{quadratic_extension::{HasQuadraticNonResidue, QuadraticExtensionField}, u64_prime_field::U64PrimeField, field_element::FieldElement}, config::ORDER_P};
 
 
     #[derive(Debug, Clone)]
@@ -45,12 +45,9 @@ mod tests {
         }
     }
 
-    #[allow(clippy::upper_case_acronyms)]
-    type FEE = QuadraticExtensionFieldElement<U64PrimeField<ORDER_P>, QuadraticNonResidue>;
-
     #[derive(Clone, Debug)]
     pub struct CurrentCurve;
-    impl EllipticCurveDescription for CurrentCurve {
+    impl EllipticCurveOperations for CurrentCurve {
         type BaseField = QuadraticExtensionField<U64PrimeField<ORDER_P>, QuadraticNonResidue>;
         
         fn a() -> FieldElement<Self::BaseField> {
