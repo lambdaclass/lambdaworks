@@ -25,8 +25,8 @@ pub trait HasEllipticCurveOperations: Clone + Debug {
 
     /// Evaluates the short Weierstrass equation at (x, y z).
     /// Useful for checking if (x, y, z) belongs to the elliptic curve.
-    fn defining_equation(p: &[&FieldElement<Self::BaseField>; 3]) -> FieldElement<Self::BaseField> {
-        let (x, y, z) = (p[0], p[1], p[2]);
+    fn defining_equation(p: &[FieldElement<Self::BaseField>; 3]) -> FieldElement<Self::BaseField> {
+        let (x, y, z) = (&p[0], &p[1], &p[2]);
         y.pow(2) * z - x.pow(3) - Self::a() * x * z.pow(2) - Self::b() * z.pow(3)
     }
 
@@ -234,21 +234,15 @@ pub struct EllipticCurveElement<E: HasEllipticCurveOperations> {
 
 impl<E: HasEllipticCurveOperations> EllipticCurveElement<E> {
     /// Creates an elliptic curve point giving the (x, y, z) coordinates.
-    fn new(
-        x: FieldElement<E::BaseField>,
-        y: FieldElement<E::BaseField>,
-        z: FieldElement<E::BaseField>,
-    ) -> Self {
+    fn new(value: [FieldElement<E::BaseField>; 3]) -> Self {
         assert_eq!(
-            E::defining_equation(&[&x, &y, &z]),
+            E::defining_equation(&value),
             FieldElement::zero(),
-            "Point ({:?}, {:?}, {:?}) does not belong to the elliptic curve.",
-            x,
-            y,
-            z
+            "Point ({:?}) does not belong to the elliptic curve.",
+            &value
         );
         Self {
-            value: [x, y, z],
+            value,
             elliptic_curve: PhantomData,
         }
     }
@@ -300,27 +294,21 @@ impl<E: HasEllipticCurveOperations + HasDistortionMap> CyclicBilinearGroup
     type PairingOutput = FieldElement<E::BaseField>;
 
     fn generator() -> Self {
-        Self::new(
+        Self::new([
             E::generator_affine_x(),
             E::generator_affine_y(),
             FieldElement::one(),
-        )
+        ])
     }
 
     fn neutral_element() -> Self {
-        Self {
-            value: E::neutral_element(),
-            elliptic_curve: PhantomData,
-        }
+        Self::new(E::neutral_element())
     }
 
     /// Computes the addition of `self` and `other`.
     /// Taken from Moonmath (Algorithm 7, page 89)
     fn operate_with(&self, other: &Self) -> Self {
-        Self {
-            value: E::add(&self.value, &other.value),
-            elliptic_curve: PhantomData,
-        }
+        Self::new(E::add(&self.value, &other.value))
     }
 
     /// Computes a Type 1 Tate pairing between `self` and `other.
@@ -329,7 +317,7 @@ impl<E: HasEllipticCurveOperations + HasDistortionMap> CyclicBilinearGroup
     /// So this method can be called with two field extension elements from the base field.
     fn pairing(&self, other: &Self) -> Self::PairingOutput {
         let [qx, qy, qz] = E::distorsion_map(&other.value);
-        Self::tate_pairing(self, &Self::new(qx, qy, qz))
+        Self::tate_pairing(self, &Self::new([qx, qy, qz]))
     }
 }
 
@@ -406,7 +394,7 @@ mod tests {
     #[test]
     fn create_valid_point_works() {
         let point =
-            EllipticCurveElement::<CurrentCurve>::new(FEE::from(35), FEE::from(31), FEE::from(1));
+            EllipticCurveElement::<CurrentCurve>::new([FEE::from(35), FEE::from(31), FEE::from(1)]);
         assert_eq!(*point.x(), FEE::new_base(35));
         assert_eq!(*point.y(), FEE::new_base(31));
         assert_eq!(*point.z(), FEE::new_base(1));
@@ -415,11 +403,11 @@ mod tests {
     #[test]
     #[should_panic]
     fn create_invalid_points_panicks() {
-        EllipticCurveElement::<CurrentCurve>::new(
+        EllipticCurveElement::<CurrentCurve>::new([
             FEE::new_base(0),
             FEE::new_base(1),
             FEE::new_base(1),
-        );
+        ]);
     }
 
     #[test]
@@ -447,32 +435,32 @@ mod tests {
 
     #[test]
     fn doubling_a_point_works() {
-        let point = EllipticCurveElement::<CurrentCurve>::new(
+        let point = EllipticCurveElement::<CurrentCurve>::new([
             FEE::new_base(35),
             FEE::new_base(31),
             FEE::new_base(1),
-        );
-        let expected_result = EllipticCurveElement::<CurrentCurve>::new(
+        ]);
+        let expected_result = EllipticCurveElement::<CurrentCurve>::new([
             FEE::new_base(25),
             FEE::new_base(29),
             FEE::new_base(1),
-        );
+        ]);
         assert_eq!(point.operate_with_self(2).to_affine(), expected_result);
     }
 
     #[test]
     fn test_weil_pairing() {
         type FE = U64FieldElement<ORDER_P>;
-        let pa = EllipticCurveElement::<CurrentCurve>::new(
+        let pa = EllipticCurveElement::<CurrentCurve>::new([
             FEE::new_base(35),
             FEE::new_base(31),
             FEE::new_base(1),
-        );
-        let pb = EllipticCurveElement::<CurrentCurve>::new(
+        ]);
+        let pb = EllipticCurveElement::<CurrentCurve>::new([
             FEE::new([FE::new(24), FE::new(0)]),
             FEE::new([FE::new(0), FE::new(31)]),
             FEE::new_base(1),
-        );
+        ]);
         let expected_result = FEE::new([FE::new(46), FE::new(3)]);
 
         let result_weil = EllipticCurveElement::<CurrentCurve>::weil_pairing(&pa, &pb);
@@ -482,16 +470,16 @@ mod tests {
     #[test]
     fn test_tate_pairing() {
         type FE = U64FieldElement<ORDER_P>;
-        let pa = EllipticCurveElement::<CurrentCurve>::new(
+        let pa = EllipticCurveElement::<CurrentCurve>::new([
             FEE::new_base(35),
             FEE::new_base(31),
             FEE::new_base(1),
-        );
-        let pb = EllipticCurveElement::<CurrentCurve>::new(
+        ]);
+        let pb = EllipticCurveElement::<CurrentCurve>::new([
             FEE::new([FE::new(24), FE::new(0)]),
             FEE::new([FE::new(0), FE::new(31)]),
             FEE::new_base(1),
-        );
+        ]);
         let expected_result = FEE::new([FE::new(42), FE::new(19)]);
 
         let result_weil = EllipticCurveElement::<CurrentCurve>::tate_pairing(&pa, &pb);
