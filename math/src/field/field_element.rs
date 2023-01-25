@@ -1,12 +1,13 @@
 use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
+use std::fmt::Debug;
 
 #[derive(Debug, Clone)]
 pub struct FieldElement<F: FieldOperations> {
     value: F::BaseType,
 }
 
-pub trait FieldOperations {
-    type BaseType: Clone;
+pub trait FieldOperations : Debug {
+    type BaseType: Clone + Debug;
 
     fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType;
 
@@ -41,7 +42,10 @@ pub trait FieldOperations {
     fn one() -> Self::BaseType;
 
     fn representative(a: &Self::BaseType) -> Self::BaseType;
+
+    fn from_u64(x: u64) -> Self::BaseType;
 }
+
 
 /* From overloading for Algebraic Elements */
 impl<F> From<&F::BaseType> for FieldElement<F>
@@ -52,6 +56,18 @@ where
     fn from(value: &F::BaseType) -> Self {
         Self {
             value: value.clone(),
+        }
+    }
+}
+
+/* From overloading for U64 */
+impl<F> From<u64> for FieldElement<F>
+where
+    F: FieldOperations,
+{
+    fn from(value: u64) -> Self {
+        Self {
+            value: F::from_u64(value),
         }
     }
 }

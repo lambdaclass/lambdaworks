@@ -49,6 +49,10 @@ impl<const MODULO: u64> FieldOperations for U64PrimeField<MODULO> {
     fn representative(a: &u64) -> u64 {
         a % MODULO
     }
+
+    fn from_u64(x: u64) -> Self::BaseType {
+        x % MODULO
+    }
 }
 
 impl<const ORDER: u64> Copy for U64FieldElement<ORDER> {}

@@ -34,7 +34,53 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::elliptic_curve::{EllipticCurveElement, CurrentCurve};
+    use crate::{elliptic_curve::{EllipticCurveElement, EllipticCurveDescription}, field::{quadratic_extension::{HasQuadraticNonResidue, QuadraticExtensionFieldElement, QuadraticExtensionField}, u64_prime_field::U64PrimeField, field_element::FieldElement}, config::ORDER_P};
+
+
+    #[derive(Debug, Clone)]
+    pub struct QuadraticNonResidue;
+    impl HasQuadraticNonResidue<U64PrimeField<ORDER_P>> for QuadraticNonResidue {
+        fn residue() -> FieldElement<U64PrimeField<ORDER_P>> {
+            -FieldElement::one()
+        }
+    }
+
+    #[allow(clippy::upper_case_acronyms)]
+    type FEE = QuadraticExtensionFieldElement<U64PrimeField<ORDER_P>, QuadraticNonResidue>;
+
+    #[derive(Clone, Debug)]
+    pub struct CurrentCurve;
+    impl EllipticCurveDescription for CurrentCurve {
+        type BaseField = QuadraticExtensionField<U64PrimeField<ORDER_P>, QuadraticNonResidue>;
+        
+        fn a() -> FieldElement<Self::BaseField> {
+            FieldElement::from(1)
+        }
+
+        fn b() -> FieldElement<Self::BaseField>  {
+            FieldElement::from(0)
+        }
+
+        fn generator_affine_x() -> FieldElement<Self::BaseField> {
+            FieldElement::from(35)
+        }
+
+        fn generator_affine_y() -> FieldElement<Self::BaseField>  {
+            FieldElement::from(31)
+        }
+
+        fn embedding_degree() -> u32 {
+            2
+        }
+
+        fn order_r() -> u64 {
+            5
+        }
+
+        fn order_p() -> u64 {
+            59
+        }
+    }
 
     #[test]
     fn msm_11_is_1_over_elliptic_curves() {
