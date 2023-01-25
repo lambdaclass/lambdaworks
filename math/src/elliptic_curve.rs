@@ -5,7 +5,7 @@ use std::fmt::Debug;
 use std::marker::PhantomData;
 
 pub trait HasEllipticCurveOperations: Clone + Debug {
-    type BaseField: Clone + Debug + HasFieldOperations;
+    type BaseField: HasFieldOperations + Clone + Debug;
 
     fn a() -> FieldElement<Self::BaseField>;
     fn b() -> FieldElement<Self::BaseField>;

@@ -11,7 +11,7 @@ pub trait HasQuadraticNonResidue<F: HasFieldOperations> {
 pub struct QuadraticExtensionField<F, Q>
 where
     F: HasFieldOperations,
-    Q: Debug + HasQuadraticNonResidue<F>,
+    Q: HasQuadraticNonResidue<F> + Debug,
 {
     field: PhantomData<F>,
     non_residue: PhantomData<Q>,
