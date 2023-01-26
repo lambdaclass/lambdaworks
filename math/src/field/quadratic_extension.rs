@@ -1,7 +1,8 @@
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
-use super::field_element::{FieldElement, HasFieldOperations};
+use crate::field::element::FieldElement;
+use crate::field::traits::HasFieldOperations;
 
 pub trait HasQuadraticNonResidue<F: HasFieldOperations> {
     fn residue() -> FieldElement<F>;
@@ -90,7 +91,7 @@ mod tests {
 
     use crate::{
         config::ORDER_P,
-        field::u64_prime_field::{U64FieldElement, U64PrimeField},
+        field::fields::u64_prime_field::{U64FieldElement, U64PrimeField},
     };
 
     use super::*;

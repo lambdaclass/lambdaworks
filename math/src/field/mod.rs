@@ -1,3 +1,4 @@
-pub mod field_element;
+pub mod element;
+pub mod fields;
 pub mod quadratic_extension;
-pub mod u64_prime_field;
+pub mod traits;

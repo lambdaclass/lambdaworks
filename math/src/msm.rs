@@ -1,6 +1,6 @@
 use crate::config::ORDER_R;
 use crate::cyclic_group::CyclicBilinearGroup;
-use crate::field::u64_prime_field::U64FieldElement;
+use crate::field::fields::u64_prime_field::U64FieldElement;
 
 type FE = U64FieldElement<ORDER_R>;
 
@@ -36,11 +36,14 @@ mod tests {
     use super::*;
     use crate::{
         config::ORDER_P,
-        elliptic_curve::{EllipticCurveElement, HasDistortionMap, HasEllipticCurveOperations},
+        elliptic_curve::{
+            element::EllipticCurveElement, traits::HasDistortionMap,
+            traits::HasEllipticCurveOperations,
+        },
         field::{
-            field_element::FieldElement,
+            element::FieldElement,
+            fields::u64_prime_field::U64PrimeField,
             quadratic_extension::{HasQuadraticNonResidue, QuadraticExtensionField},
-            u64_prime_field::U64PrimeField,
         },
     };
 

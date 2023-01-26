@@ -1,6 +1,6 @@
 use crate::cyclic_group::CyclicBilinearGroup;
-
-use super::field_element::{FieldElement, HasFieldOperations};
+use crate::field::element::FieldElement;
+use crate::field::traits::HasFieldOperations;
 
 #[derive(Debug, Clone)]
 pub struct U64PrimeField<const MODULO: u64>;
