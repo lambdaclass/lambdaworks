@@ -1,7 +1,16 @@
 # LambdaWorks
-The library for kids who wanna learn how to do SNARKs and learn other cryptographic stuff too.
 
-![image](https://user-images.githubusercontent.com/569014/213577507-a87924c2-f258-4de8-b5fd-c3a789881387.png)
+<div>
+
+[![Telegram Chat][tg-badge]][tg-url]
+
+[tg-badge]: https://img.shields.io/static/v1?color=green&logo=telegram&label=chat&style=flat&message=join
+[tg-url]: https://t.me/+6jzrsK6qR7w3MTkx
+
+</div>
+
+From the heights of these towers of fields, forty centuries of mathematics look down on us. The library for kids who wanna learn how to do SNARKs and learn other cryptographic stuff too.
+
 
 References:
 - [arkworks-rs](https://github.com/arkworks-rs/)
@@ -17,7 +26,7 @@ References:
 - PIOP
 - Cryptographic tools
 - Advanced tools: agreggation, recursion, accumulation
-- Protocol
+- Protocols
 - Gadgets
 
 ## Blocks
@@ -82,3 +91,5 @@ References:
 
 ### Protocol
 - Fiat-Shamir
+
+### Gadgets
