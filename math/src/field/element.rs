@@ -275,6 +275,9 @@ impl<F> FieldElement<F>
 where
     F: HasFieldOperations,
 {
+    // TODO: This uses `F::from_base_type` but is not obvious 
+    // for someone that is implementing the trait HasFieldOperations
+    // over F.
     /// Creates a field element from `value`
     pub fn new(value: F::BaseType) -> Self {
         Self {

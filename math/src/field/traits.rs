@@ -47,6 +47,10 @@ pub trait HasFieldOperations: Debug {
     /// Returns the multiplicative neutral element.
     fn one() -> Self::BaseType;
 
+    // TODO: This are not exactly operations they are constructors
+    // maybe they should be in another trait "HasFieldConstructors", and this trait should
+    // require that one.
+    
     /// Returns the element `x * 1` where 1 is the multiplicative neutral element.
     fn from_u64(x: u64) -> Self::BaseType;
 
