@@ -1,5 +1,4 @@
 use crate::{
-    config::ORDER_P,
     elliptic_curve::traits::{HasDistortionMap, HasEllipticCurveOperations},
     field::{
         element::FieldElement,
@@ -7,6 +6,9 @@ use crate::{
         quadratic_extension::{HasQuadraticNonResidue, QuadraticExtensionField},
     },
 };
+
+const ORDER_P: u64 = 59;
+const ORDER_R: u64 = 5;
 
 #[derive(Debug, Clone)]
 pub struct QuadraticNonResidue;
@@ -42,11 +44,11 @@ impl HasEllipticCurveOperations for CurrentCurve {
     }
 
     fn order_r() -> u64 {
-        5
+        ORDER_R
     }
 
     fn order_p() -> u64 {
-        59
+        ORDER_P
     }
 }
 
@@ -64,7 +66,6 @@ impl HasDistortionMap for CurrentCurve {
 mod tests {
     use crate::cyclic_group::HasCyclicBilinearGroupStructure;
     use crate::{
-        config::{ORDER_P, ORDER_R},
         elliptic_curve::element::EllipticCurveElement,
         field::{
             fields::u64_prime_field::U64FieldElement,

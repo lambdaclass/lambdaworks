@@ -1,7 +1,8 @@
-use crate::config::ORDER_R;
 use crate::cyclic_group::HasCyclicBilinearGroupStructure;
 use crate::field::fields::u64_prime_field::U64FieldElement;
 
+// TODO: FE should be a generic field element. Need to implement BigInt first.
+const ORDER_R: u64 = 5;
 type FE = U64FieldElement<ORDER_R>;
 
 /// This function computes the multiscalar multiplication (MSM).
@@ -35,7 +36,6 @@ where
 mod tests {
     use super::*;
     use crate::{
-        config::ORDER_P,
         elliptic_curve::{
             element::EllipticCurveElement, traits::HasDistortionMap,
             traits::HasEllipticCurveOperations,
@@ -46,6 +46,8 @@ mod tests {
             quadratic_extension::{HasQuadraticNonResidue, QuadraticExtensionField},
         },
     };
+
+    const ORDER_P: u64 = 59;
 
     #[derive(Debug, Clone)]
     pub struct QuadraticNonResidue;

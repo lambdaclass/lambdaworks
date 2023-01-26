@@ -88,11 +88,9 @@ impl<F: HasFieldOperations + Clone, Q: HasQuadraticNonResidue<F> + Clone + Debug
 
 #[cfg(test)]
 mod tests {
+    use crate::field::fields::u64_prime_field::{U64FieldElement, U64PrimeField};
 
-    use crate::{
-        config::ORDER_P,
-        field::fields::u64_prime_field::{U64FieldElement, U64PrimeField},
-    };
+    const ORDER_P: u64 = 59;
 
     use super::*;
 
