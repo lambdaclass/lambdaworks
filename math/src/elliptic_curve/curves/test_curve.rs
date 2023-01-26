@@ -94,19 +94,15 @@ mod tests {
     fn create_valid_point_works() {
         let point =
             EllipticCurveElement::<TestCurve>::new([FEE::from(35), FEE::from(31), FEE::from(1)]);
-        assert_eq!(*point.x(), FEE::new_base(35));
-        assert_eq!(*point.y(), FEE::new_base(31));
-        assert_eq!(*point.z(), FEE::new_base(1));
+        assert_eq!(*point.x(), FEE::from(35));
+        assert_eq!(*point.y(), FEE::from(31));
+        assert_eq!(*point.z(), FEE::from(1));
     }
 
     #[test]
     #[should_panic]
     fn create_invalid_points_panicks() {
-        EllipticCurveElement::<TestCurve>::new([
-            FEE::new_base(0),
-            FEE::new_base(1),
-            FEE::new_base(1),
-        ]);
+        EllipticCurveElement::<TestCurve>::new([FEE::from(0), FEE::from(1), FEE::from(1)]);
     }
 
     #[test]
@@ -134,31 +130,22 @@ mod tests {
 
     #[test]
     fn doubling_a_point_works() {
-        let point = EllipticCurveElement::<TestCurve>::new([
-            FEE::new_base(35),
-            FEE::new_base(31),
-            FEE::new_base(1),
-        ]);
-        let expected_result = EllipticCurveElement::<TestCurve>::new([
-            FEE::new_base(25),
-            FEE::new_base(29),
-            FEE::new_base(1),
-        ]);
+        let point =
+            EllipticCurveElement::<TestCurve>::new([FEE::from(35), FEE::from(31), FEE::from(1)]);
+        let expected_result =
+            EllipticCurveElement::<TestCurve>::new([FEE::from(25), FEE::from(29), FEE::from(1)]);
         assert_eq!(point.operate_with_self(2).to_affine(), expected_result);
     }
 
     #[test]
     fn test_weil_pairing() {
         type FE = U64FieldElement<ORDER_P>;
-        let pa = EllipticCurveElement::<TestCurve>::new([
-            FEE::new_base(35),
-            FEE::new_base(31),
-            FEE::new_base(1),
-        ]);
+        let pa =
+            EllipticCurveElement::<TestCurve>::new([FEE::from(35), FEE::from(31), FEE::from(1)]);
         let pb = EllipticCurveElement::<TestCurve>::new([
             FEE::new([FE::new(24), FE::new(0)]),
             FEE::new([FE::new(0), FE::new(31)]),
-            FEE::new_base(1),
+            FEE::from(1),
         ]);
         let expected_result = FEE::new([FE::new(46), FE::new(3)]);
 
@@ -169,15 +156,12 @@ mod tests {
     #[test]
     fn test_tate_pairing() {
         type FE = U64FieldElement<ORDER_P>;
-        let pa = EllipticCurveElement::<TestCurve>::new([
-            FEE::new_base(35),
-            FEE::new_base(31),
-            FEE::new_base(1),
-        ]);
+        let pa =
+            EllipticCurveElement::<TestCurve>::new([FEE::from(35), FEE::from(31), FEE::from(1)]);
         let pb = EllipticCurveElement::<TestCurve>::new([
             FEE::new([FE::new(24), FE::new(0)]),
             FEE::new([FE::new(0), FE::new(31)]),
-            FEE::new_base(1),
+            FEE::from(1),
         ]);
         let expected_result = FEE::new([FE::new(42), FE::new(19)]);
 

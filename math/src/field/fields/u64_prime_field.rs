@@ -2,6 +2,7 @@ use crate::cyclic_group::HasCyclicBilinearGroupStructure;
 use crate::field::element::FieldElement;
 use crate::field::traits::HasFieldOperations;
 
+/// Type representing prime fields over unsigned 64-bit integers.
 #[derive(Debug, Clone)]
 pub struct U64PrimeField<const MODULO: u64>;
 pub type U64FieldElement<const ORDER: u64> = FieldElement<U64PrimeField<ORDER>>;
@@ -35,7 +36,7 @@ impl<const MODULO: u64> HasFieldOperations for U64PrimeField<MODULO> {
     }
 
     fn eq(a: &u64, b: &u64) -> bool {
-        Self::representative(a) == Self::representative(b)
+        Self::from_u64(*a) == Self::from_u64(*b)
     }
 
     fn zero() -> u64 {
@@ -46,12 +47,12 @@ impl<const MODULO: u64> HasFieldOperations for U64PrimeField<MODULO> {
         1
     }
 
-    fn representative(a: &u64) -> u64 {
-        a % MODULO
+    fn from_u64(x: u64) -> u64 {
+        x % MODULO
     }
 
-    fn from_u64(x: u64) -> Self::BaseType {
-        x % MODULO
+    fn from_base_type(x: u64) -> u64 {
+        Self::from_u64(x)
     }
 }
 
