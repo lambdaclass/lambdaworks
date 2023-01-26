@@ -12,7 +12,19 @@ pub trait CyclicBilinearGroup: Clone {
     /// Applies the group operation `times` times with itself
     /// The operation can be addition or multiplication depending on
     /// the notation of the particular group.
-    fn operate_with_self(&self, times: u128) -> Self;
+    fn operate_with_self(&self, mut exponent: u128) -> Self {
+        let mut result = Self::neutral_element();
+        let mut base = self.clone();
+
+        while exponent > 0 {
+            if exponent & 1 == 1 {
+                result = Self::operate_with(&result, &base);
+            }
+            exponent >>= 1;
+            base = Self::operate_with(&base, &base);
+        }
+        result
+    }
     /// Applies the group operation between `self` and `other`.
     /// Thperation can be addition or multiplication depending on
     /// the notation of the particular group.
