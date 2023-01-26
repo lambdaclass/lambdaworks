@@ -1,4 +1,4 @@
-use crate::cyclic_group::HasCyclicBilinearGroupStructure;
+use crate::cyclic_group::IsCyclicBilinearGroup;
 use crate::field::fields::u64_prime_field::U64FieldElement;
 
 // TODO: FE should be a generic field element. Need to implement BigInt first.
@@ -18,7 +18,7 @@ type FE = U64FieldElement<ORDER_R>;
 /// Panics if `cs` and `hidings` have different lengths.
 pub fn msm<T>(cs: &[FE], hidings: &[T]) -> T
 where
-    T: HasCyclicBilinearGroupStructure,
+    T: IsCyclicBilinearGroup,
 {
     assert_eq!(
         cs.len(),

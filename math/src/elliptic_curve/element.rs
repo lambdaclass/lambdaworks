@@ -1,4 +1,4 @@
-use crate::cyclic_group::HasCyclicBilinearGroupStructure;
+use crate::cyclic_group::IsCyclicBilinearGroup;
 use crate::elliptic_curve::traits::{HasDistortionMap, HasEllipticCurveOperations};
 use crate::field::element::FieldElement;
 use std::fmt::Debug;
@@ -72,7 +72,7 @@ impl<E: HasEllipticCurveOperations> PartialEq for EllipticCurveElement<E> {
 
 impl<E: HasEllipticCurveOperations> Eq for EllipticCurveElement<E> {}
 
-impl<E: HasEllipticCurveOperations + HasDistortionMap> HasCyclicBilinearGroupStructure
+impl<E: HasEllipticCurveOperations + HasDistortionMap> IsCyclicBilinearGroup
     for EllipticCurveElement<E>
 {
     type PairingOutput = FieldElement<E::BaseField>;
@@ -107,7 +107,7 @@ impl<E: HasEllipticCurveOperations + HasDistortionMap> HasCyclicBilinearGroupStr
 
 #[cfg(test)]
 mod tests {
-    use crate::cyclic_group::HasCyclicBilinearGroupStructure;
+    use crate::cyclic_group::IsCyclicBilinearGroup;
     use crate::elliptic_curve::curves::test_curve::{
         QuadraticNonResidue, TestCurve, ORDER_P, ORDER_R,
     };

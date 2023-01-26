@@ -1,4 +1,4 @@
-use crate::cyclic_group::HasCyclicBilinearGroupStructure;
+use crate::cyclic_group::IsCyclicBilinearGroup;
 use crate::field::element::FieldElement;
 use crate::field::traits::HasFieldOperations;
 
@@ -59,7 +59,7 @@ impl<const MODULO: u64> HasFieldOperations for U64PrimeField<MODULO> {
 impl<const ORDER: u64> Copy for U64FieldElement<ORDER> {}
 
 /// Represents an element in Fp. (E.g: 0, 1, 2 are the elements of F3)
-impl<const ORDER: u64> HasCyclicBilinearGroupStructure for U64FieldElement<ORDER> {
+impl<const ORDER: u64> IsCyclicBilinearGroup for U64FieldElement<ORDER> {
     type PairingOutput = Self;
 
     fn generator() -> U64FieldElement<ORDER> {
