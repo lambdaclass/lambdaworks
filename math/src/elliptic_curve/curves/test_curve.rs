@@ -16,24 +16,12 @@ const ORDER_P: u64 = 59;
 /// Order of the subgroup of the curve.
 const ORDER_R: u64 = 5;
 
-/// In F59 the element -1 is not a square. We use this property
-/// to construct a Quadratic Field Extension out of it by adding
-/// its square root.
-#[derive(Debug, Clone)]
-pub struct QuadraticNonResidue;
-impl HasQuadraticNonResidue<U64PrimeField<ORDER_P>> for QuadraticNonResidue {
-    fn residue() -> FieldElement<U64PrimeField<ORDER_P>> {
-        -FieldElement::one()
-    }
-}
-
 /// The description of the curve.
 #[derive(Clone, Debug)]
 pub struct TestCurve;
 impl HasEllipticCurveOperations for TestCurve {
     type BaseField = QuadraticExtensionField<U64PrimeField<ORDER_P>, QuadraticNonResidue>;
 
-    ///
     fn a() -> FieldElement<Self::BaseField> {
         FieldElement::from(1)
     }
@@ -70,6 +58,17 @@ impl HasDistortionMap for TestCurve {
         let (x, y, z) = (&p[0], &p[1], &p[2]);
         let t = FieldElement::new([FieldElement::zero(), FieldElement::one()]);
         [-x, y * t, z.clone()]
+    }
+}
+
+/// In F59 the element -1 is not a square. We use this property
+/// to construct a Quadratic Field Extension out of it by adding
+/// its square root.
+#[derive(Debug, Clone)]
+pub struct QuadraticNonResidue;
+impl HasQuadraticNonResidue<U64PrimeField<ORDER_P>> for QuadraticNonResidue {
+    fn residue() -> FieldElement<U64PrimeField<ORDER_P>> {
+        -FieldElement::one()
     }
 }
 
