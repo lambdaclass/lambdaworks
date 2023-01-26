@@ -5,8 +5,8 @@ use std::fmt::Debug;
 use std::marker::PhantomData;
 
 /// Represents an elliptic curve point using the projective short Weierstrass form:
-///   y^2 * z = x^3 + a * x * z^2 + b * z^3
-/// x, y and z variables are field extension elements.
+/// y^2 * z = x^3 + a * x * z^2 + b * z^3,
+/// where `x`, `y` and `z` variables are field elements.
 #[derive(Debug, Clone)]
 pub struct EllipticCurveElement<E: HasEllipticCurveOperations> {
     value: [FieldElement<E::BaseField>; 3],
@@ -14,7 +14,7 @@ pub struct EllipticCurveElement<E: HasEllipticCurveOperations> {
 }
 
 impl<E: HasEllipticCurveOperations> EllipticCurveElement<E> {
-    /// Creates an elliptic curve point giving the (x, y, z) coordinates.
+    /// Creates an elliptic curve point giving the projective [x: y: z] coordinates.
     pub fn new(value: [FieldElement<E::BaseField>; 3]) -> Self {
         assert_eq!(
             E::defining_equation(&value),
@@ -28,22 +28,24 @@ impl<E: HasEllipticCurveOperations> EllipticCurveElement<E> {
         }
     }
 
-    #[allow(unused)]
+    /// Returns the `x` coordinate of the point.
     pub fn x(&self) -> &FieldElement<E::BaseField> {
         &self.value[0]
     }
 
-    #[allow(unused)]
+    /// Returns the `y` coordinate of the point.
     pub fn y(&self) -> &FieldElement<E::BaseField> {
         &self.value[1]
     }
 
-    #[allow(unused)]
+    /// Returns the `z` coordinate of the point.
     pub fn z(&self) -> &FieldElement<E::BaseField> {
         &self.value[2]
     }
 
-    #[allow(unused)]
+    /// Creates the same point in affine coordinates. That is,
+    /// returns [x / z: y / z: 1] where `self` is [x: y: z].
+    /// Panics if `self` is the point at infinity.
     pub fn to_affine(&self) -> Self {
         Self {
             value: E::affine(&self.value),
@@ -51,11 +53,12 @@ impl<E: HasEllipticCurveOperations> EllipticCurveElement<E> {
         }
     }
 
-    #[allow(unused)]
+    /// Returns the Weil pairing between `self` and `other`.
     pub fn weil_pairing(&self, other: &Self) -> FieldElement<E::BaseField> {
         E::weil_pairing(&self.value, &other.value)
     }
 
+    /// Returns the Tate pairing between `self` and `other`.
     pub fn tate_pairing(&self, other: &Self) -> FieldElement<E::BaseField> {
         E::tate_pairing(&self.value, &other.value)
     }
@@ -87,7 +90,7 @@ impl<E: HasEllipticCurveOperations + HasDistortionMap> HasCyclicBilinearGroupStr
     }
 
     /// Computes the addition of `self` and `other`.
-    /// Taken from Moonmath (Algorithm 7, page 89)
+    /// Taken from "Moonmath" (Algorithm 7, page 89)
     fn operate_with(&self, other: &Self) -> Self {
         Self::new(E::add(&self.value, &other.value))
     }

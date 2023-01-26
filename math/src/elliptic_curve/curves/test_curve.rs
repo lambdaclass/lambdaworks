@@ -1,3 +1,6 @@
+/// Example curve taken from the book "Pairing for beginners", page 57.
+/// Defines the basic constants needed to describe a curve in the short Weierstrass form.
+/// This small curve has only 5 elements.
 use crate::{
     elliptic_curve::traits::{HasDistortionMap, HasEllipticCurveOperations},
     field::{
@@ -7,9 +10,15 @@ use crate::{
     },
 };
 
+/// Order of the base field (e.g.: order of the coordinates)
 const ORDER_P: u64 = 59;
+
+/// Order of the subgroup of the curve.
 const ORDER_R: u64 = 5;
 
+/// In F59 the element -1 is not a square. We use this property
+/// to construct a Quadratic Field Extension out of it by adding
+/// its square root.
 #[derive(Debug, Clone)]
 pub struct QuadraticNonResidue;
 impl HasQuadraticNonResidue<U64PrimeField<ORDER_P>> for QuadraticNonResidue {
@@ -18,11 +27,13 @@ impl HasQuadraticNonResidue<U64PrimeField<ORDER_P>> for QuadraticNonResidue {
     }
 }
 
+/// The description of the curve.
 #[derive(Clone, Debug)]
-pub struct CurrentCurve;
-impl HasEllipticCurveOperations for CurrentCurve {
+pub struct TestCurve;
+impl HasEllipticCurveOperations for TestCurve {
     type BaseField = QuadraticExtensionField<U64PrimeField<ORDER_P>, QuadraticNonResidue>;
 
+    ///
     fn a() -> FieldElement<Self::BaseField> {
         FieldElement::from(1)
     }
@@ -52,7 +63,7 @@ impl HasEllipticCurveOperations for CurrentCurve {
     }
 }
 
-impl HasDistortionMap for CurrentCurve {
+impl HasDistortionMap for TestCurve {
     fn distorsion_map(
         p: &[FieldElement<Self::BaseField>; 3],
     ) -> [FieldElement<Self::BaseField>; 3] {
@@ -82,7 +93,7 @@ mod tests {
     #[test]
     fn create_valid_point_works() {
         let point =
-            EllipticCurveElement::<CurrentCurve>::new([FEE::from(35), FEE::from(31), FEE::from(1)]);
+            EllipticCurveElement::<TestCurve>::new([FEE::from(35), FEE::from(31), FEE::from(1)]);
         assert_eq!(*point.x(), FEE::new_base(35));
         assert_eq!(*point.y(), FEE::new_base(31));
         assert_eq!(*point.z(), FEE::new_base(1));
@@ -91,7 +102,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn create_invalid_points_panicks() {
-        EllipticCurveElement::<CurrentCurve>::new([
+        EllipticCurveElement::<TestCurve>::new([
             FEE::new_base(0),
             FEE::new_base(1),
             FEE::new_base(1),
@@ -100,35 +111,35 @@ mod tests {
 
     #[test]
     fn equality_works() {
-        let g = EllipticCurveElement::<CurrentCurve>::generator();
+        let g = EllipticCurveElement::<TestCurve>::generator();
         let g2 = g.operate_with(&g);
         assert_ne!(&g2, &g);
     }
 
     #[test]
     fn operate_with_self_works_1() {
-        let g = EllipticCurveElement::<CurrentCurve>::generator();
+        let g = EllipticCurveElement::<TestCurve>::generator();
         assert_eq!(g.operate_with(&g).operate_with(&g), g.operate_with_self(3));
     }
 
     #[test]
     fn operate_with_self_works_2() {
-        let mut point_1 = EllipticCurveElement::<CurrentCurve>::generator();
+        let mut point_1 = EllipticCurveElement::<TestCurve>::generator();
         point_1 = point_1.operate_with_self(ORDER_R as u128);
         assert_eq!(
             point_1,
-            EllipticCurveElement::<CurrentCurve>::neutral_element()
+            EllipticCurveElement::<TestCurve>::neutral_element()
         );
     }
 
     #[test]
     fn doubling_a_point_works() {
-        let point = EllipticCurveElement::<CurrentCurve>::new([
+        let point = EllipticCurveElement::<TestCurve>::new([
             FEE::new_base(35),
             FEE::new_base(31),
             FEE::new_base(1),
         ]);
-        let expected_result = EllipticCurveElement::<CurrentCurve>::new([
+        let expected_result = EllipticCurveElement::<TestCurve>::new([
             FEE::new_base(25),
             FEE::new_base(29),
             FEE::new_base(1),
@@ -139,38 +150,38 @@ mod tests {
     #[test]
     fn test_weil_pairing() {
         type FE = U64FieldElement<ORDER_P>;
-        let pa = EllipticCurveElement::<CurrentCurve>::new([
+        let pa = EllipticCurveElement::<TestCurve>::new([
             FEE::new_base(35),
             FEE::new_base(31),
             FEE::new_base(1),
         ]);
-        let pb = EllipticCurveElement::<CurrentCurve>::new([
+        let pb = EllipticCurveElement::<TestCurve>::new([
             FEE::new([FE::new(24), FE::new(0)]),
             FEE::new([FE::new(0), FE::new(31)]),
             FEE::new_base(1),
         ]);
         let expected_result = FEE::new([FE::new(46), FE::new(3)]);
 
-        let result_weil = EllipticCurveElement::<CurrentCurve>::weil_pairing(&pa, &pb);
+        let result_weil = EllipticCurveElement::<TestCurve>::weil_pairing(&pa, &pb);
         assert_eq!(result_weil, expected_result);
     }
 
     #[test]
     fn test_tate_pairing() {
         type FE = U64FieldElement<ORDER_P>;
-        let pa = EllipticCurveElement::<CurrentCurve>::new([
+        let pa = EllipticCurveElement::<TestCurve>::new([
             FEE::new_base(35),
             FEE::new_base(31),
             FEE::new_base(1),
         ]);
-        let pb = EllipticCurveElement::<CurrentCurve>::new([
+        let pb = EllipticCurveElement::<TestCurve>::new([
             FEE::new([FE::new(24), FE::new(0)]),
             FEE::new([FE::new(0), FE::new(31)]),
             FEE::new_base(1),
         ]);
         let expected_result = FEE::new([FE::new(42), FE::new(19)]);
 
-        let result_weil = EllipticCurveElement::<CurrentCurve>::tate_pairing(&pa, &pb);
+        let result_weil = EllipticCurveElement::<TestCurve>::tate_pairing(&pa, &pb);
         assert_eq!(result_weil, expected_result);
     }
 }

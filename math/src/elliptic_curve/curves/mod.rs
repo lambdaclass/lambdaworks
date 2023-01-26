@@ -1,1 +1,1 @@
-pub mod example;
+pub mod test_curve;

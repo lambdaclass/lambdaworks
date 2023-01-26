@@ -2,27 +2,47 @@ use crate::field::element::FieldElement;
 use crate::field::traits::HasFieldOperations;
 use std::fmt::Debug;
 
+/// Trait to add elliptic curves behaviour to a struct.
+/// We use the short Weierstrass form equation: `y^2 = x^3 + a * x  + b`.
 pub trait HasEllipticCurveOperations: Clone + Debug {
     type BaseField: HasFieldOperations + Clone + Debug;
 
+    /// `a` coefficient for the equation `y^2 = x^3 + a * x  + b`.
     fn a() -> FieldElement<Self::BaseField>;
+
+    /// `b` coefficient for the equation  `y^2 = x^3 + a * x  + b`.
     fn b() -> FieldElement<Self::BaseField>;
+
+    /// `x` component of the generator (x, y) in affine form.
     fn generator_affine_x() -> FieldElement<Self::BaseField>;
+
+    /// `y` component of the generator (x, y) in affine form.
     fn generator_affine_y() -> FieldElement<Self::BaseField>;
+
+    /// The embedding degree of the curve. This is the minimum integer `k`
+    /// for which `order_r` divides `order_p.pow(k) - 1`.
     fn embedding_degree() -> u32;
+
+    /// Order of the subgroup of the curve (e.g.: number of elements in
+    /// the subgroup of the curve).
     fn order_r() -> u64;
+
+    /// Order of the base field (e.g.: order of the field where `a` and `b` are defined).
     fn order_p() -> u64;
 
+    /// Order of the field extension where the entire `order_r` torsion
+    /// group lives.
     fn order_field_extension() -> u64 {
         Self::order_p().pow(Self::embedding_degree())
     }
 
+    /// Normalization power for the Tate pairing.
     fn target_normalization_power() -> u64 {
         (Self::order_field_extension() - 1) / Self::order_r()
     }
 
     /// Evaluates the short Weierstrass equation at (x, y z).
-    /// Useful for checking if (x, y, z) belongs to the elliptic curve.
+    /// Used for checking if [x: y: z] belongs to the elliptic curve.
     fn defining_equation(p: &[FieldElement<Self::BaseField>; 3]) -> FieldElement<Self::BaseField> {
         let (x, y, z) = (&p[0], &p[1], &p[2]);
         y.pow(2) * z - x.pow(3) - Self::a() * x * z.pow(2) - Self::b() * z.pow(3)
@@ -35,6 +55,7 @@ pub trait HasEllipticCurveOperations: Clone + Debug {
         (px * qz == pz * qx) && (px * qy == py * qx)
     }
 
+    /// The point at infinity.
     fn neutral_element() -> [FieldElement<Self::BaseField>; 3] {
         [
             FieldElement::zero(),
@@ -43,12 +64,13 @@ pub trait HasEllipticCurveOperations: Clone + Debug {
         ]
     }
 
+    /// Check if a projective point `p` is the point at inifinity.
     fn is_neutral_element(p: &[FieldElement<Self::BaseField>; 3]) -> bool {
         Self::eq(p, &Self::neutral_element())
     }
 
-    /// Normalize the projective coordinates to obtain affine coordinates
-    /// of the form (x, y, 1)
+    /// Returns the normalized projective coordinates to obtain "affine" coordinates
+    /// of the form [x: y: 1]
     /// Panics if `self` is the point at infinity
     fn affine(p: &[FieldElement<Self::BaseField>; 3]) -> [FieldElement<Self::BaseField>; 3] {
         assert!(
@@ -59,6 +81,8 @@ pub trait HasEllipticCurveOperations: Clone + Debug {
         [x / z, y / z, FieldElement::one()]
     }
 
+    /// Returns the sum of projective points `p` and `q`
+    /// Taken from "Moonmath" (Algorithm 7, page 89)
     fn add(
         p: &[FieldElement<Self::BaseField>; 3],
         q: &[FieldElement<Self::BaseField>; 3],
@@ -101,6 +125,7 @@ pub trait HasEllipticCurveOperations: Clone + Debug {
         }
     }
 
+    /// Returns the additive inverse of the projective point `p`
     fn neg(p: &[FieldElement<Self::BaseField>; 3]) -> [FieldElement<Self::BaseField>; 3] {
         [p[0].clone(), -&p[1], p[2].clone()]
     }
@@ -216,6 +241,8 @@ pub trait HasEllipticCurveOperations: Clone + Debug {
     }
 }
 
+/// Trait to add distortion maps to Elliptic Curves.
+/// Typically used to support type I pairings.
 pub trait HasDistortionMap: HasEllipticCurveOperations {
     fn distorsion_map(p: &[FieldElement<Self::BaseField>; 3])
         -> [FieldElement<Self::BaseField>; 3];

@@ -58,8 +58,8 @@ mod tests {
     }
 
     #[derive(Clone, Debug)]
-    pub struct CurrentCurve;
-    impl HasEllipticCurveOperations for CurrentCurve {
+    pub struct TestCurve;
+    impl HasEllipticCurveOperations for TestCurve {
         type BaseField = QuadraticExtensionField<U64PrimeField<ORDER_P>, QuadraticNonResidue>;
 
         fn a() -> FieldElement<Self::BaseField> {
@@ -91,7 +91,7 @@ mod tests {
         }
     }
 
-    impl HasDistortionMap for CurrentCurve {
+    impl HasDistortionMap for TestCurve {
         fn distorsion_map(
             p: &[FieldElement<Self::BaseField>; 3],
         ) -> [FieldElement<Self::BaseField>; 3] {
@@ -104,10 +104,10 @@ mod tests {
     #[test]
     fn msm_11_is_1_over_elliptic_curves() {
         let c = [FE::new(1)];
-        let hiding = [EllipticCurveElement::<CurrentCurve>::generator()];
+        let hiding = [EllipticCurveElement::<TestCurve>::generator()];
         assert_eq!(
             msm(&c, &hiding),
-            EllipticCurveElement::<CurrentCurve>::generator()
+            EllipticCurveElement::<TestCurve>::generator()
         );
     }
 
@@ -121,7 +121,7 @@ mod tests {
     #[test]
     fn msm_23_is_6_over_elliptic_curves() {
         let c = [FE::new(3)];
-        let g = EllipticCurveElement::<CurrentCurve>::generator();
+        let g = EllipticCurveElement::<TestCurve>::generator();
         let hiding = [g.operate_with_self(2)];
         assert_eq!(msm(&c, &hiding), g.operate_with_self(6));
     }
@@ -136,7 +136,7 @@ mod tests {
     #[test]
     fn msm_with_c_2_3_hiding_3_4_is_18_over_elliptic_curves() {
         let c = [FE::new(2), FE::new(3)];
-        let g = EllipticCurveElement::<CurrentCurve>::generator();
+        let g = EllipticCurveElement::<TestCurve>::generator();
         let hiding = [g.operate_with_self(3), g.operate_with_self(4)];
         assert_eq!(msm(&c, &hiding), g.operate_with_self(18));
     }
@@ -151,7 +151,7 @@ mod tests {
     #[test]
     fn msm_with_empty_c_is_none_over_elliptic_curves() {
         let c = [];
-        let hiding: [EllipticCurveElement<CurrentCurve>; 0] = [];
+        let hiding: [EllipticCurveElement<TestCurve>; 0] = [];
         assert_eq!(msm(&c, &hiding), EllipticCurveElement::neutral_element());
     }
 }
