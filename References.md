@@ -1,7 +1,7 @@
 # References
 
 ## GPU
-- [Yrrid and MatterLabs combined solution for MSM](https://github.com/matter-labs/z-prize-msm-gpu-combined
+- [Yrrid and MatterLabs combined solution for MSM](https://github.com/matter-labs/z-prize-msm-gpu-combined)
 - [FFT library](https://developer.nvidia.com/cufft)
 - [snarks with GPU](https://github.com/MariusVanDerWijden/gpusnarks)
 
