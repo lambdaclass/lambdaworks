@@ -1,5 +1,5 @@
 use crate::config::ORDER_R;
-use crate::cyclic_group::CyclicBilinearGroup;
+use crate::cyclic_group::HasCyclicBilinearGroupStructure;
 use crate::field::fields::u64_prime_field::U64FieldElement;
 
 type FE = U64FieldElement<ORDER_R>;
@@ -17,7 +17,7 @@ type FE = U64FieldElement<ORDER_R>;
 /// Panics if `cs` and `hidings` have different lengths.
 pub fn msm<T>(cs: &[FE], hidings: &[T]) -> T
 where
-    T: CyclicBilinearGroup,
+    T: HasCyclicBilinearGroupStructure,
 {
     assert_eq!(
         cs.len(),

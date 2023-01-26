@@ -62,7 +62,7 @@ impl HasDistortionMap for CurrentCurve {
 
 #[cfg(test)]
 mod tests {
-    use crate::cyclic_group::CyclicBilinearGroup;
+    use crate::cyclic_group::HasCyclicBilinearGroupStructure;
     use crate::{
         config::{ORDER_P, ORDER_R},
         elliptic_curve::element::EllipticCurveElement,
