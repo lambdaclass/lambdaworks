@@ -1,5 +1,7 @@
 # LambdaWorks
 
+From the heights of these towers of fields, forty centuries of mathematics look down on us.
+
 <div>
 
 [![Telegram Chat][tg-badge]][tg-url]
