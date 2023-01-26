@@ -93,3 +93,13 @@ References:
 - Fiat-Shamir
 
 ### Gadgets
+
+If you use ```Lambdaworks``` libraries in your research projects, please cite them using the following template:
+```
+@software{Lambdaworks,
+  author={Lambdaworks contributors},
+  title={Lambdaworks},
+  url={https://github.com/lambdaclass/lambdaworks},
+  year={2023}
+}
+```
