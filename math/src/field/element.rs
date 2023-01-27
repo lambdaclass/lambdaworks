@@ -1,52 +1,14 @@
+use crate::field::traits::HasFieldOperations;
 use std::fmt::Debug;
 use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
 
+/// A field element with operations algorithms defined in `F`
 #[derive(Debug, Clone)]
 pub struct FieldElement<F: HasFieldOperations> {
     value: F::BaseType,
 }
 
-pub trait HasFieldOperations: Debug {
-    type BaseType: Clone + Debug;
-
-    fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType;
-
-    fn mul(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType;
-
-    fn pow(a: &Self::BaseType, mut exponent: u128) -> Self::BaseType {
-        let mut result = Self::one();
-        let mut base = a.clone();
-
-        while exponent > 0 {
-            if exponent & 1 == 1 {
-                result = Self::mul(&result, &base);
-            }
-            exponent >>= 1;
-            base = Self::mul(&base, &base);
-        }
-        result
-    }
-
-    fn sub(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType;
-
-    fn neg(a: &Self::BaseType) -> Self::BaseType;
-
-    fn inv(a: &Self::BaseType) -> Self::BaseType;
-
-    fn div(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType;
-
-    fn eq(a: &Self::BaseType, b: &Self::BaseType) -> bool;
-
-    fn zero() -> Self::BaseType;
-
-    fn one() -> Self::BaseType;
-
-    fn representative(a: &Self::BaseType) -> Self::BaseType;
-
-    fn from_u64(x: u64) -> Self::BaseType;
-}
-
-/* From overloading for Algebraic Elements */
+/// From overloading for field elements
 impl<F> From<&F::BaseType> for FieldElement<F>
 where
     F::BaseType: Clone,
@@ -59,7 +21,7 @@ where
     }
 }
 
-/* From overloading for U64 */
+/// From overloading for U64
 impl<F> From<u64> for FieldElement<F>
 where
     F: HasFieldOperations,
@@ -71,7 +33,7 @@ where
     }
 }
 
-/* Equality operator overloading for Algebraic Elements */
+/// Equality operator overloading for field elements
 impl<F> PartialEq<FieldElement<F>> for FieldElement<F>
 where
     F: HasFieldOperations,
@@ -83,7 +45,7 @@ where
 
 impl<F> Eq for FieldElement<F> where F: HasFieldOperations {}
 
-/* Addition operator overloading for Algebraic Elements */
+/// Addition operator overloading for field elements
 impl<F> Add<&FieldElement<F>> for &FieldElement<F>
 where
     F: HasFieldOperations,
@@ -130,7 +92,7 @@ where
     }
 }
 
-/* AddAssign operator overloading for Algebraic Elements */
+/// AddAssign operator overloading for field elements
 impl<F> AddAssign<FieldElement<F>> for FieldElement<F>
 where
     F: HasFieldOperations,
@@ -140,7 +102,7 @@ where
     }
 }
 
-/* Subtraction operator overloading for Algebraic Elements*/
+/// Subtraction operator overloading for field elements*/
 impl<F> Sub<&FieldElement<F>> for &FieldElement<F>
 where
     F: HasFieldOperations,
@@ -187,7 +149,7 @@ where
     }
 }
 
-/* Multiplication operator overloading for Algebraic Elements*/
+/// Multiplication operator overloading for field elements*/
 impl<F> Mul<&FieldElement<F>> for &FieldElement<F>
 where
     F: HasFieldOperations,
@@ -234,7 +196,7 @@ where
     }
 }
 
-/* Division operator overloading for Algebraic Elements*/
+/// Division operator overloading for field elements*/
 impl<F> Div<&FieldElement<F>> for &FieldElement<F>
 where
     F: HasFieldOperations,
@@ -281,7 +243,7 @@ where
     }
 }
 
-/* Negation operator overloading for Algebraic Elements*/
+/// Negation operator overloading for field elements*/
 impl<F> Neg for &FieldElement<F>
 where
     F: HasFieldOperations,
@@ -306,35 +268,48 @@ where
     }
 }
 
-/* FieldElement general implementation */
+/// FieldElement general implementation
+/// Most of this is delegated to the trait `F` that
+/// implements the field operations.
 impl<F> FieldElement<F>
 where
     F: HasFieldOperations,
 {
+    // TODO: This uses `F::from_base_type` but is not obvious 
+    // for someone that is implementing the trait HasFieldOperations
+    // over F.
+    /// Creates a field element from `value`
     pub fn new(value: F::BaseType) -> Self {
-        Self { value }
+        Self {
+            value: F::from_base_type(value),
+        }
     }
 
+    /// Returns the underlying `value`
     pub fn value(&self) -> &F::BaseType {
         &self.value
     }
 
+    /// Returns the multiplicative inverse of `self`
     pub fn inv(&self) -> Self {
         Self {
             value: F::inv(&self.value),
         }
     }
 
+    /// Returns `self` raised to the power of `exponent`
     pub fn pow(&self, exponent: u128) -> Self {
         Self {
             value: F::pow(&self.value, exponent),
         }
     }
 
+    /// Returns the multiplicative neutral element of the field.
     pub fn one() -> Self {
         Self { value: F::one() }
     }
 
+    /// Returns the additive neutral element of the field.
     pub fn zero() -> Self {
         Self { value: F::zero() }
     }

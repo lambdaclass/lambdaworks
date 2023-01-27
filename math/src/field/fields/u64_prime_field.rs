@@ -1,7 +1,8 @@
-use crate::cyclic_group::CyclicBilinearGroup;
+use crate::cyclic_group::IsCyclicBilinearGroup;
+use crate::field::element::FieldElement;
+use crate::field::traits::HasFieldOperations;
 
-use super::field_element::{FieldElement, HasFieldOperations};
-
+/// Type representing prime fields over unsigned 64-bit integers.
 #[derive(Debug, Clone)]
 pub struct U64PrimeField<const MODULO: u64>;
 pub type U64FieldElement<const ORDER: u64> = FieldElement<U64PrimeField<ORDER>>;
@@ -35,7 +36,7 @@ impl<const MODULO: u64> HasFieldOperations for U64PrimeField<MODULO> {
     }
 
     fn eq(a: &u64, b: &u64) -> bool {
-        Self::representative(a) == Self::representative(b)
+        Self::from_u64(*a) == Self::from_u64(*b)
     }
 
     fn zero() -> u64 {
@@ -46,19 +47,19 @@ impl<const MODULO: u64> HasFieldOperations for U64PrimeField<MODULO> {
         1
     }
 
-    fn representative(a: &u64) -> u64 {
-        a % MODULO
+    fn from_u64(x: u64) -> u64 {
+        x % MODULO
     }
 
-    fn from_u64(x: u64) -> Self::BaseType {
-        x % MODULO
+    fn from_base_type(x: u64) -> u64 {
+        Self::from_u64(x)
     }
 }
 
 impl<const ORDER: u64> Copy for U64FieldElement<ORDER> {}
 
 /// Represents an element in Fp. (E.g: 0, 1, 2 are the elements of F3)
-impl<const ORDER: u64> CyclicBilinearGroup for U64FieldElement<ORDER> {
+impl<const ORDER: u64> IsCyclicBilinearGroup for U64FieldElement<ORDER> {
     type PairingOutput = Self;
 
     fn generator() -> U64FieldElement<ORDER> {

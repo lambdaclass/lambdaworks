@@ -1,7 +1,8 @@
-use crate::config::ORDER_R;
-use crate::cyclic_group::CyclicBilinearGroup;
-use crate::field::u64_prime_field::U64FieldElement;
+use crate::cyclic_group::IsCyclicBilinearGroup;
+use crate::field::fields::u64_prime_field::U64FieldElement;
 
+// TODO: FE should be a generic field element. Need to implement BigInt first.
+const ORDER_R: u64 = 5;
 type FE = U64FieldElement<ORDER_R>;
 
 /// This function computes the multiscalar multiplication (MSM).
@@ -17,7 +18,7 @@ type FE = U64FieldElement<ORDER_R>;
 /// Panics if `cs` and `hidings` have different lengths.
 pub fn msm<T>(cs: &[FE], hidings: &[T]) -> T
 where
-    T: CyclicBilinearGroup,
+    T: IsCyclicBilinearGroup,
 {
     assert_eq!(
         cs.len(),
@@ -35,14 +36,18 @@ where
 mod tests {
     use super::*;
     use crate::{
-        config::ORDER_P,
-        elliptic_curve::{EllipticCurveElement, HasDistortionMap, HasEllipticCurveOperations},
+        elliptic_curve::{
+            element::EllipticCurveElement, traits::HasDistortionMap,
+            traits::HasEllipticCurveOperations,
+        },
         field::{
-            field_element::FieldElement,
+            element::FieldElement,
+            fields::u64_prime_field::U64PrimeField,
             quadratic_extension::{HasQuadraticNonResidue, QuadraticExtensionField},
-            u64_prime_field::U64PrimeField,
         },
     };
+
+    const ORDER_P: u64 = 59;
 
     #[derive(Debug, Clone)]
     pub struct QuadraticNonResidue;
@@ -53,8 +58,8 @@ mod tests {
     }
 
     #[derive(Clone, Debug)]
-    pub struct CurrentCurve;
-    impl HasEllipticCurveOperations for CurrentCurve {
+    pub struct TestCurve;
+    impl HasEllipticCurveOperations for TestCurve {
         type BaseField = QuadraticExtensionField<U64PrimeField<ORDER_P>, QuadraticNonResidue>;
 
         fn a() -> FieldElement<Self::BaseField> {
@@ -86,7 +91,7 @@ mod tests {
         }
     }
 
-    impl HasDistortionMap for CurrentCurve {
+    impl HasDistortionMap for TestCurve {
         fn distorsion_map(
             p: &[FieldElement<Self::BaseField>; 3],
         ) -> [FieldElement<Self::BaseField>; 3] {
@@ -99,10 +104,10 @@ mod tests {
     #[test]
     fn msm_11_is_1_over_elliptic_curves() {
         let c = [FE::new(1)];
-        let hiding = [EllipticCurveElement::<CurrentCurve>::generator()];
+        let hiding = [EllipticCurveElement::<TestCurve>::generator()];
         assert_eq!(
             msm(&c, &hiding),
-            EllipticCurveElement::<CurrentCurve>::generator()
+            EllipticCurveElement::<TestCurve>::generator()
         );
     }
 
@@ -116,7 +121,7 @@ mod tests {
     #[test]
     fn msm_23_is_6_over_elliptic_curves() {
         let c = [FE::new(3)];
-        let g = EllipticCurveElement::<CurrentCurve>::generator();
+        let g = EllipticCurveElement::<TestCurve>::generator();
         let hiding = [g.operate_with_self(2)];
         assert_eq!(msm(&c, &hiding), g.operate_with_self(6));
     }
@@ -131,7 +136,7 @@ mod tests {
     #[test]
     fn msm_with_c_2_3_hiding_3_4_is_18_over_elliptic_curves() {
         let c = [FE::new(2), FE::new(3)];
-        let g = EllipticCurveElement::<CurrentCurve>::generator();
+        let g = EllipticCurveElement::<TestCurve>::generator();
         let hiding = [g.operate_with_self(3), g.operate_with_self(4)];
         assert_eq!(msm(&c, &hiding), g.operate_with_self(18));
     }
@@ -146,7 +151,7 @@ mod tests {
     #[test]
     fn msm_with_empty_c_is_none_over_elliptic_curves() {
         let c = [];
-        let hiding: [EllipticCurveElement<CurrentCurve>; 0] = [];
+        let hiding: [EllipticCurveElement<TestCurve>; 0] = [];
         assert_eq!(msm(&c, &hiding), EllipticCurveElement::neutral_element());
     }
 }

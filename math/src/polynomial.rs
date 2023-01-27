@@ -1,4 +1,4 @@
-use super::field::u64_prime_field::U64FieldElement;
+use super::field::fields::u64_prime_field::U64FieldElement;
 use std::ops;
 
 /// Represents the polynomial c_0 + c_1 * X + c_2 * X^2 + ... + c_n * X^n
