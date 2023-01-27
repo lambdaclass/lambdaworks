@@ -45,7 +45,7 @@ pub trait HasEllipticCurveOperations: Clone + Debug {
     /// Used for checking if [x: y: z] belongs to the elliptic curve.
     fn defining_equation(p: &[FieldElement<Self::BaseField>; 3]) -> FieldElement<Self::BaseField> {
         let (x, y, z) = (&p[0], &p[1], &p[2]);
-        y.pow(2) * z - x.pow(3) - Self::a() * x * z.pow(2) - Self::b() * z.pow(3)
+        y.pow(2_u16) * z - x.pow(3_u16) - Self::a() * x * z.pow(2_u16) - Self::b() * z.pow(3_u16)
     }
 
     /// Projective equality relation: `p` has to be a multiple of `q`
@@ -102,24 +102,25 @@ pub trait HasEllipticCurveOperations: Clone + Debug {
                 if u1 != u2 || *py == FieldElement::zero() {
                     Self::neutral_element()
                 } else {
-                    let w = Self::a() * pz.pow(2) + FieldElement::from(3) * px.pow(2);
+                    let w = Self::a() * pz.pow(2_u16) + FieldElement::from(3) * px.pow(2_u16);
                     let s = py * pz;
                     let b = px * py * &s;
-                    let h = w.pow(2) - FieldElement::from(8) * &b;
+                    let h = w.pow(2_u16) - FieldElement::from(8) * &b;
                     let xp = FieldElement::from(2) * &h * &s;
                     let yp = w * (FieldElement::from(4) * &b - &h)
-                        - FieldElement::from(8) * py.pow(2) * s.pow(2);
-                    let zp = FieldElement::from(8) * s.pow(3);
+                        - FieldElement::from(8) * py.pow(2_u16) * s.pow(2_u16);
+                    let zp = FieldElement::from(8) * s.pow(3_u16);
                     [xp, yp, zp]
                 }
             } else {
                 let u = u1 - &u2;
                 let v = v1 - &v2;
                 let w = pz * qz;
-                let a = u.pow(2) * &w - v.pow(3) - FieldElement::from(2) * v.pow(2) * &v2;
+                let a =
+                    u.pow(2_u16) * &w - v.pow(3_u16) - FieldElement::from(2) * v.pow(2_u16) * &v2;
                 let xp = &v * &a;
-                let yp = u * (v.pow(2) * v2 - a) - v.pow(3) * u2;
-                let zp = v.pow(3) * w;
+                let yp = u * (v.pow(2_u16) * v2 - a) - v.pow(3_u16) * u2;
+                let zp = v.pow(3_u16) * w;
                 [xp, yp, zp]
             }
         }
@@ -161,7 +162,7 @@ pub trait HasEllipticCurveOperations: Clone + Debug {
                 return qy - py - l * (qx - px);
             }
         } else {
-            let numerator = FieldElement::from(3) * &px.pow(2) + Self::a();
+            let numerator = FieldElement::from(3) * &px.pow(2_u16) + Self::a();
             let denominator = FieldElement::from(2) * py;
             if denominator == FieldElement::zero() {
                 return qx - px;
@@ -195,7 +196,7 @@ pub trait HasEllipticCurveOperations: Clone + Debug {
 
         for b in bs[1..].iter() {
             let s = Self::affine(&Self::add(&r, &r));
-            f = f.pow(2) * (Self::line(&r, &r, &q) / Self::line(&s, &Self::neg(&s), &q));
+            f = f.pow(2_u16) * (Self::line(&r, &r, &q) / Self::line(&s, &Self::neg(&s), &q));
             r = s;
 
             if *b == 1 {
@@ -236,7 +237,7 @@ pub trait HasEllipticCurveOperations: Clone + Debug {
         if Self::is_neutral_element(p) || Self::is_neutral_element(q) || Self::eq(p, q) {
             FieldElement::one()
         } else {
-            Self::miller(p, q).pow(Self::target_normalization_power() as u128)
+            Self::miller(p, q).pow(Self::target_normalization_power())
         }
     }
 }

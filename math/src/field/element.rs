@@ -1,4 +1,5 @@
 use crate::field::traits::HasFieldOperations;
+use crate::unsigned_integer::IsUnsignedInteger;
 use std::fmt::Debug;
 use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
 
@@ -295,7 +296,10 @@ where
     }
 
     /// Returns `self` raised to the power of `exponent`
-    pub fn pow(&self, exponent: u128) -> Self {
+    pub fn pow<T>(&self, exponent: T) -> Self
+    where
+        T: IsUnsignedInteger<T>,
+    {
         Self {
             value: F::pow(&self.value, exponent),
         }

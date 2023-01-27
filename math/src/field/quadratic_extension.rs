@@ -13,7 +13,7 @@ pub trait HasQuadraticNonResidue<F: HasFieldOperations> {
 
 /// A general quadratic extension field over `F`
 /// with quadratic non residue `Q::residue()`
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct QuadraticExtensionField<F, Q>
 where
     F: HasFieldOperations,
@@ -62,7 +62,7 @@ where
     /// Returns the multiplicative inverse of `a`
     /// This uses the equality `(a0 + a1 * t) * (a0 - a1 * t) = a0.pow(2) - a1.pow(2) * Q::residue()`
     fn inv(a: &[FieldElement<F>; 2]) -> [FieldElement<F>; 2] {
-        let inv_norm = (a[0].pow(2) - Q::residue() * a[1].pow(2)).inv();
+        let inv_norm = (a[0].pow(2_u64) - Q::residue() * a[1].pow(2_u64)).inv();
         [&a[0] * &inv_norm, -&a[1] * inv_norm]
     }
 
@@ -189,7 +189,7 @@ mod tests {
     #[test]
     fn test_pow_1() {
         let a = FEE::new([FE::new(0), FE::new(3)]);
-        let b = 5;
+        let b: u64 = 5;
         let expected_result = FEE::new([FE::new(0), FE::new(7)]);
         assert_eq!(a.pow(b), expected_result);
     }
@@ -197,7 +197,7 @@ mod tests {
     #[test]
     fn test_pow_2() {
         let a = FEE::new([FE::new(12), FE::new(5)]);
-        let b = 8;
+        let b: u64 = 8;
         let expected_result = FEE::new([FE::new(52), FE::new(35)]);
         assert_eq!(a.pow(b), expected_result);
     }

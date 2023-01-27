@@ -3,7 +3,7 @@ use crate::field::element::FieldElement;
 use crate::field::traits::HasFieldOperations;
 
 /// Type representing prime fields over unsigned 64-bit integers.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct U64PrimeField<const MODULO: u64>;
 pub type U64FieldElement<const ORDER: u64> = FieldElement<U64PrimeField<ORDER>>;
 
@@ -32,7 +32,7 @@ impl<const MODULO: u64> HasFieldOperations for U64PrimeField<MODULO> {
 
     fn inv(a: &u64) -> u64 {
         assert_ne!(*a, 0, "Cannot invert zero element");
-        Self::pow(a, (MODULO - 2) as u128)
+        Self::pow(a, MODULO - 2)
     }
 
     fn eq(a: &u64, b: &u64) -> bool {
@@ -154,12 +154,12 @@ mod tests {
 
     #[test]
     fn pow_2_3() {
-        assert_eq!(FE::new(2).pow(3), FE::new(8))
+        assert_eq!(FE::new(2).pow(3_u64), FE::new(8))
     }
 
     #[test]
     fn pow_p_minus_1() {
-        assert_eq!(FE::new(2).pow((ORDER - 1) as u128), FE::new(1))
+        assert_eq!(FE::new(2).pow(ORDER - 1), FE::new(1))
     }
 
     #[test]
