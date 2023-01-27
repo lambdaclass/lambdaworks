@@ -78,6 +78,7 @@ If you use ```Lambdaworks``` libraries in your research projects, please cite th
 - KZG and variants
 - Hashing
 - Inner product arguments
+- Dory (L)
 
 ### PIOP/PCS
 - Groth16
