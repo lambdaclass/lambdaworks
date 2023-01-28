@@ -103,18 +103,10 @@ impl<const ORDER: u64> IsCyclicBilinearGroup for U64FieldElement<ORDER> {
 
 #[cfg(test)]
 mod tests {
-    use std::ops::{BitAnd, Shl, Shr};
-
     use super::*;
     use test_case::test_case;
     const ORDER: u64 = 13;
     type FE = FieldElement<U64PrimeField<ORDER>>;
-
-    #[test]
-    fn order_must_small_as_to_not_allow_overflows() {
-        // ORDER*ORDER < u128::MAX
-        assert!(ORDER <= u64::MAX.into());
-    }
 
     #[test]
     fn two_plus_one_is_three() {
