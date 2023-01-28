@@ -50,11 +50,21 @@ pub trait HasFieldOperations: Debug {
     // TODO: This are not exactly operations they are constructors
     // maybe they should be in another trait "HasFieldConstructors", and this trait should
     // require that one.
-    
+
     /// Returns the element `x * 1` where 1 is the multiplicative neutral element.
     fn from_u64(x: u64) -> Self::BaseType;
 
     /// Takes as input an element of BaseType and returns the internal representation
     /// of that element in the field.
     fn from_base_type(x: Self::BaseType) -> Self::BaseType;
+}
+
+pub trait IsLinearField: HasFieldOperations {
+    fn shr(a: &Self::BaseType, n: usize) -> Self::BaseType;
+
+    fn shl(a: &Self::BaseType, n: usize) -> Self::BaseType;
+
+    fn and(a: &Self::BaseType, mask: usize) -> usize;
+
+    fn bit_size() -> usize;
 }
