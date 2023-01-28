@@ -1,6 +1,8 @@
 use crate::field::traits::HasFieldOperations;
 use std::fmt::Debug;
-use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
+use std::ops::{Add, AddAssign, BitAnd, Div, Mul, Neg, Shl, Shr, Sub};
+
+use super::traits::IsLinearField;
 
 /// A field element with operations algorithms defined in `F`
 #[derive(Debug, Clone)]
@@ -8,7 +10,7 @@ pub struct FieldElement<F: HasFieldOperations> {
     value: F::BaseType,
 }
 
-/// From overloading for field elements
+/* From overloading for Algebraic Elements */
 impl<F> From<&F::BaseType> for FieldElement<F>
 where
     F::BaseType: Clone,
@@ -92,7 +94,81 @@ where
     }
 }
 
-/// AddAssign operator overloading for field elements
+impl<F> Shl<usize> for FieldElement<F>
+where
+    F: IsLinearField,
+{
+    type Output = FieldElement<F>;
+
+    fn shl(self, rhs: usize) -> Self::Output {
+        Self::Output {
+            value: F::shl(&self.value, rhs),
+        }
+    }
+}
+
+impl<F> Shl<usize> for &FieldElement<F>
+where
+    F: IsLinearField,
+{
+    type Output = FieldElement<F>;
+
+    fn shl(self, rhs: usize) -> Self::Output {
+        Self::Output {
+            value: F::shl(&self.value, rhs),
+        }
+    }
+}
+
+impl<F> Shr<usize> for FieldElement<F>
+where
+    F: IsLinearField,
+{
+    type Output = FieldElement<F>;
+
+    fn shr(self, rhs: usize) -> Self::Output {
+        Self::Output {
+            value: F::shr(&self.value, rhs),
+        }
+    }
+}
+
+impl<F> Shr<usize> for &FieldElement<F>
+where
+    F: IsLinearField,
+{
+    type Output = FieldElement<F>;
+
+    fn shr(self, rhs: usize) -> Self::Output {
+        Self::Output {
+            value: F::shr(&self.value, rhs),
+        }
+    }
+}
+
+impl<F> BitAnd<usize> for &FieldElement<F>
+where
+    F: IsLinearField,
+{
+    type Output = usize;
+
+    fn bitand(self, mask: usize) -> Self::Output {
+        F::and(&self.value, mask)
+    }
+}
+
+impl<F> BitAnd<usize> for FieldElement<F>
+where
+    F: IsLinearField,
+{
+    type Output = usize;
+
+    fn bitand(self, mask: usize) -> usize {
+        F::and(&self.value, mask)
+    }
+}
+
+/* AddAssign operator overloading for Algebraic Elements */
 impl<F> AddAssign<FieldElement<F>> for FieldElement<F>
 where
     F: HasFieldOperations,
@@ -275,7 +351,7 @@ impl<F> FieldElement<F>
 where
     F: HasFieldOperations,
 {
-    // TODO: This uses `F::from_base_type` but is not obvious 
+    // TODO: This uses `F::from_base_type` but is not obvious
     // for someone that is implementing the trait HasFieldOperations
     // over F.
     /// Creates a field element from `value`
@@ -312,5 +388,14 @@ where
     /// Returns the additive neutral element of the field.
     pub fn zero() -> Self {
         Self { value: F::zero() }
+    }
+}
+
+impl<F> FieldElement<F>
+where
+    F: IsLinearField,
+{
+    pub fn bit_size() -> usize {
+        F::bit_size()
     }
 }
