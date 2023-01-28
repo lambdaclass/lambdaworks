@@ -1,6 +1,6 @@
 use crate::cyclic_group::IsCyclicBilinearGroup;
 use crate::field::element::FieldElement;
-use crate::field::traits::HasFieldOperations;
+use crate::field::traits::{HasFieldOperations, IsLinearField};
 
 /// Type representing prime fields over unsigned 64-bit integers.
 #[derive(Debug, Clone)]
@@ -56,6 +56,24 @@ impl<const MODULO: u64> HasFieldOperations for U64PrimeField<MODULO> {
     }
 }
 
+impl<const MODULO: u64> IsLinearField for U64PrimeField<MODULO> {
+    fn bit_size() -> usize {
+        (Self::BaseType::BITS - (MODULO - 1).leading_zeros()) as usize
+    }
+
+    fn shr(a: &Self::BaseType, n: usize) -> Self::BaseType {
+        a >> n
+    }
+
+    fn shl(a: &Self::BaseType, n: usize) -> Self::BaseType {
+        a << n
+    }
+
+    fn and(a: &Self::BaseType, mask: usize) -> usize {
+        (*a as usize) & mask
+    }
+}
+
 impl<const ORDER: u64> Copy for U64FieldElement<ORDER> {}
 
 /// Represents an element in Fp. (E.g: 0, 1, 2 are the elements of F3)
@@ -85,7 +103,10 @@ impl<const ORDER: u64> IsCyclicBilinearGroup for U64FieldElement<ORDER> {
 
 #[cfg(test)]
 mod tests {
+    use std::ops::{BitAnd, Shl, Shr};
+
     use super::*;
+    use test_case::test_case;
     const ORDER: u64 = 13;
     type FE = FieldElement<U64PrimeField<ORDER>>;
 
@@ -230,5 +251,49 @@ mod tests {
         let a = FE::new(3);
         let b = FE::new(12);
         assert_eq!(a * b, a.pairing(&b));
+    }
+
+    #[test_case(8.into(), 1, 4.into())]
+    #[test_case(8.into(), 2, 2.into())]
+    #[test_case(8.into(), 3, 1.into())]
+    #[test_case(8.into(), 4, 0.into())]
+    #[test_case(17.into(), 1, 8.into())]
+    fn shr(
+        f: FieldElement<U64PrimeField<32>>,
+        shift: usize,
+        expected: FieldElement<U64PrimeField<32>>,
+    ) {
+        assert_eq!(f >> shift, expected)
+    }
+
+    #[test_case(8.into(), 1, 16.into())]
+    #[test_case(8.into(), 2, 32.into())]
+    #[test_case(8.into(), 3, 64.into())]
+    #[test_case(8.into(), 4, 128.into())]
+    #[test_case(17.into(), 1, 34.into())]
+    fn shl(
+        f: FieldElement<U64PrimeField<32>>,
+        shift: usize,
+        expected: FieldElement<U64PrimeField<32>>,
+    ) {
+        assert_eq!(f << shift, expected)
+    }
+
+    #[test_case(0b000010.into(), 0b000011, 0b000010)]
+    #[test_case(0b000011.into(), 0b000001, 0b000001)]
+    #[test_case(0b111111.into(), 0b101010, 0b101010)]
+    #[test_case(0b010101.into(), 0b101010, 0b000000)]
+    #[test_case(0b010101.into(), 0b010101, 0b010101)]
+    fn and(f: FieldElement<U64PrimeField<64>>, mask: usize, expected: usize) {
+        assert_eq!(f & mask, expected)
+    }
+
+    #[test]
+    fn bit_size() {
+        assert_eq!(FieldElement::<U64PrimeField<2>>::bit_size(), 1);
+        assert_eq!(FieldElement::<U64PrimeField<3>>::bit_size(), 2);
+        assert_eq!(FieldElement::<U64PrimeField<4>>::bit_size(), 2);
+        assert_eq!(FieldElement::<U64PrimeField<5>>::bit_size(), 3);
+        assert_eq!(FieldElement::<U64PrimeField<42>>::bit_size(), 6);
     }
 }
