@@ -10,7 +10,7 @@ pub struct FieldElement<F: HasFieldOperations> {
     value: F::BaseType,
 }
 
-/* From overloading for Algebraic Elements */
+/// From overloading for field elements
 impl<F> From<&F::BaseType> for FieldElement<F>
 where
     F::BaseType: Clone,
