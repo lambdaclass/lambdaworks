@@ -107,10 +107,14 @@ impl<E: HasEllipticCurveOperations + HasDistortionMap> IsCyclicBilinearGroup
 
 #[cfg(test)]
 mod tests {
+    use crypto_bigint::U384;
+
     use crate::cyclic_group::IsCyclicBilinearGroup;
     use crate::elliptic_curve::curves::test_curve::{
-        QuadraticNonResidue, TestCurve, ORDER_P, ORDER_R,
+        QuadraticNonResidue as QuadraticNonResidue1, TestCurve, ORDER_P, ORDER_R,
     };
+    use crate::elliptic_curve::curves::test_curve_2::TestCurve2;
+    use crate::field::element::FieldElement;
     use crate::field::fields::u64_prime_field::U64PrimeField;
     use crate::{
         elliptic_curve::element::EllipticCurveElement,
@@ -121,7 +125,7 @@ mod tests {
     };
 
     #[allow(clippy::upper_case_acronyms)]
-    type FEE = QuadraticExtensionFieldElement<U64PrimeField<ORDER_P>, QuadraticNonResidue>;
+    type FEE = QuadraticExtensionFieldElement<U64PrimeField<ORDER_P>, QuadraticNonResidue1>;
 
     // This tests only apply for the specific curve found in the configuration file.
     #[test]
@@ -201,5 +205,25 @@ mod tests {
 
         let result_weil = EllipticCurveElement::<TestCurve>::tate_pairing(&pa, &pb);
         assert_eq!(result_weil, expected_result);
+    }
+
+    #[test]
+    fn operate_with_self_works_with_test_curve_2() {
+        let mut point_1 = EllipticCurveElement::<TestCurve2>::generator();
+        point_1 = point_1.operate_with_self(15);
+
+        let expected_result = EllipticCurveElement::<TestCurve2>::new([
+                FieldElement::new([
+                    FieldElement::new(U384::from_be_hex("0000000000000000000000000000000000000000000000000000000000000007b8ee59e422e702458174c18eb3302e17")),
+                    FieldElement::new(U384::from_be_hex("000000000000000000000000000000000000000000000000000000000000001395065adef5a6a5457f1ea600b5a3e4fb"))
+                ]),
+                FieldElement::new([
+                        FieldElement::new(U384::from_be_hex("000000000000000000000000000000000000000000000000000000000000000e29d5b15c42124cd8f05d3c8500451c33")),
+                        FieldElement::new(U384::from_be_hex("000000000000000000000000000000000000000000000000000000000000000e836ef62db0a47a63304b67c0de69b140"))
+                ]),
+                FieldElement::one()
+            ]);
+
+        assert_eq!(point_1, expected_result);
     }
 }

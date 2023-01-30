@@ -1,11 +1,14 @@
 use crate::field::element::FieldElement;
 use crate::field::traits::HasFieldOperations;
+use crate::unsigned_integer::IsUnsignedInteger;
 use std::fmt::Debug;
 
 /// Trait to add elliptic curves behaviour to a struct.
 /// We use the short Weierstrass form equation: `y^2 = x^3 + a * x  + b`.
 pub trait HasEllipticCurveOperations: Clone + Debug {
     type BaseField: HasFieldOperations + Clone + Debug;
+    type UIntOrders: IsUnsignedInteger;
+    /// The type used to store order_p and order_r.
 
     /// `a` coefficient for the equation `y^2 = x^3 + a * x  + b`.
     fn a() -> FieldElement<Self::BaseField>;
@@ -25,21 +28,17 @@ pub trait HasEllipticCurveOperations: Clone + Debug {
 
     /// Order of the subgroup of the curve (e.g.: number of elements in
     /// the subgroup of the curve).
-    fn order_r() -> u64;
+    fn order_r() -> Self::UIntOrders;
 
     /// Order of the base field (e.g.: order of the field where `a` and `b` are defined).
-    fn order_p() -> u64;
+    fn order_p() -> Self::UIntOrders;
 
-    /// Order of the field extension where the entire `order_r` torsion
-    /// group lives.
-    fn order_field_extension() -> u64 {
-        Self::order_p().pow(Self::embedding_degree())
-    }
-
-    /// Normalization power for the Tate pairing.
-    fn target_normalization_power() -> u64 {
-        (Self::order_field_extension() - 1) / Self::order_r()
-    }
+    /// The big-endian bit representation of the normalization power for the Tate pairing.
+    /// This is computed as:
+    ///  (order_p.pow(embedding_degree) - 1) / order_r
+    /// TODO: This is only used for the Tate pairing and will disappear. Something ideas like
+    /// the ones on this paper (https://eprint.iacr.org/2020/875.pdf) will be implemented.
+    fn target_normalization_power() -> Vec<u64>;
 
     /// Evaluates the short Weierstrass equation at (x, y z).
     /// Used for checking if [x: y: z] belongs to the elliptic curve.
@@ -186,9 +185,13 @@ pub trait HasEllipticCurveOperations: Clone + Debug {
         let q = Self::affine(q);
         let mut order_r = Self::order_r();
         let mut bs = vec![];
-        while order_r > 0 {
-            bs.insert(0, order_r & 1);
-            order_r >>= 1;
+
+        // TODO: this function compares with UnsignedInt that contain zeros and ones.
+        // This unsigned ints might be 384 bit long or more. An idea to optimize this is
+        // implementing a method for UnsignedInt that iterates over its bit representation.
+        while order_r > Self::UIntOrders::from(0) {
+            bs.insert(0, order_r & Self::UIntOrders::from(1));
+            order_r = order_r >> 1;
         }
 
         let mut f = FieldElement::one();
@@ -199,7 +202,7 @@ pub trait HasEllipticCurveOperations: Clone + Debug {
             f = f.pow(2_u16) * (Self::line(&r, &r, &q) / Self::line(&s, &Self::neg(&s), &q));
             r = s;
 
-            if *b == 1 {
+            if *b == Self::UIntOrders::from(1) {
                 let mut s = Self::add(&r, &p);
                 if s != Self::neutral_element() {
                     s = Self::affine(&s);
@@ -237,7 +240,27 @@ pub trait HasEllipticCurveOperations: Clone + Debug {
         if Self::is_neutral_element(p) || Self::is_neutral_element(q) || Self::eq(p, q) {
             FieldElement::one()
         } else {
-            Self::miller(p, q).pow(Self::target_normalization_power())
+            let mut base = Self::miller(p, q);
+            let bit_representation_exponent = Self::target_normalization_power();
+            let mut pow = FieldElement::one();
+
+            // This is computes the power of base raised to the target_normalization_power
+            for (index, limb) in bit_representation_exponent.iter().rev().enumerate() {
+                let mut limb = *limb;
+                for _bit in 1..=16 {
+                    if limb & 1 == 1 {
+                        pow = &pow * &base;
+                    }
+                    base = &base * &base;
+                    let finished = (index == bit_representation_exponent.len() - 1) && (limb == 0);
+                    if !finished {
+                        limb >>= 1;
+                    } else {
+                        break;
+                    }
+                }
+            }
+            pow
         }
     }
 }

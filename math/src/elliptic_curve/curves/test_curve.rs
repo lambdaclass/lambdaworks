@@ -21,6 +21,7 @@ pub const ORDER_R: u64 = 5;
 pub struct TestCurve;
 impl HasEllipticCurveOperations for TestCurve {
     type BaseField = QuadraticExtensionField<U64PrimeField<ORDER_P>, QuadraticNonResidue>;
+    type UIntOrders = u64;
 
     fn a() -> FieldElement<Self::BaseField> {
         FieldElement::from(1)
@@ -42,12 +43,16 @@ impl HasEllipticCurveOperations for TestCurve {
         2
     }
 
-    fn order_r() -> u64 {
+    fn order_r() -> Self::UIntOrders {
         ORDER_R
     }
 
-    fn order_p() -> u64 {
+    fn order_p() -> Self::UIntOrders {
         ORDER_P
+    }
+
+    fn target_normalization_power() -> Vec<u64> {
+        vec![0x00000000000002b8]
     }
 }
 

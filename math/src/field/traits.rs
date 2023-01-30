@@ -24,8 +24,8 @@ pub trait HasFieldOperations: Debug + Clone {
             if exponent & T::from(1) == T::from(1) {
                 result = Self::mul(&result, &base);
             }
-            exponent = exponent >> 1;
             base = Self::mul(&base, &base);
+            exponent = exponent >> 1;
         }
         result
     }

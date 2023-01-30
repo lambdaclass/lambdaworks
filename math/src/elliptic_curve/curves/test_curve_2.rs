@@ -1,0 +1,96 @@
+use crypto_bigint::U384;
+
+/// Example curve taken from the book "Pairing for beginners", page 57.
+/// Defines the basic constants needed to describe a curve in the short Weierstrass form.
+/// This small curve has only 5 elements.
+use crate::{
+    elliptic_curve::traits::{HasDistortionMap, HasEllipticCurveOperations},
+    field::{
+        element::FieldElement,
+        fields::u384_prime_field::{HasU384Constant, U384PrimeField},
+        quadratic_extension::{HasQuadraticNonResidue, QuadraticExtensionField},
+    },
+};
+
+/// Order of the base field (e.g.: order of the coordinates)
+const fn order_p() -> U384 {
+    U384::from_be_hex("00000000000000000000000000000000000000000000000000000000000000150b4c0967215604b841bb57053fcb86cf")
+}
+
+/// Order of the subgroup of the curve.
+const fn order_r() -> U384 {
+    U384::from_be_hex("0000000000000000000000000000000000000000000000000000000000000000000000040a065fb5a76390de709fb229")
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct ModP;
+impl HasU384Constant for ModP {
+    const VALUE: U384 = order_p(); //U384::from_be_hex("0x150b4c0967215604b841bb57053fcb86cf");
+}
+
+/// The description of the curve.
+#[derive(Clone, Debug)]
+pub struct TestCurve2;
+impl HasEllipticCurveOperations for TestCurve2 {
+    type BaseField = QuadraticExtensionField<U384PrimeField<ModP>, QuadraticNonResidue>;
+    type UIntOrders = U384;
+
+    fn a() -> FieldElement<Self::BaseField> {
+        FieldElement::from(0)
+    }
+
+    fn b() -> FieldElement<Self::BaseField> {
+        FieldElement::from(1)
+    }
+
+    fn generator_affine_x() -> FieldElement<Self::BaseField> {
+        FieldElement::new([
+            FieldElement::new(U384::from_be_hex("00000000000000000000000000000000000000000000000000000000000000021acedb641ca6d0f8b60148123a999801")),
+            FieldElement::new(U384::from_be_hex("0000000000000000000000000000000000000000000000000000000000000014d34d94f7de312859a8a0d9dbc67159d3"))
+        ])
+    }
+
+    fn generator_affine_y() -> FieldElement<Self::BaseField> {
+        FieldElement::new([
+            FieldElement::new(U384::from_be_hex("0000000000000000000000000000000000000000000000000000000000000002ac53e77afe8d841c8eb660761c4b873a")),
+            FieldElement::new(U384::from_be_hex("00000000000000000000000000000000000000000000000000000000000000108a9e1c5514b0921cd5781a7f71130142"))
+        ])
+    }
+
+    fn embedding_degree() -> u32 {
+        2
+    }
+
+    fn order_r() -> Self::UIntOrders {
+        order_r()
+    }
+
+    fn order_p() -> Self::UIntOrders {
+        order_p()
+    }
+
+    fn target_normalization_power() -> Vec<u64> {
+        vec![0x00000000000002b8]
+    }
+}
+
+impl HasDistortionMap for TestCurve2 {
+    fn distorsion_map(
+        p: &[FieldElement<Self::BaseField>; 3],
+    ) -> [FieldElement<Self::BaseField>; 3] {
+        let (x, y, z) = (&p[0], &p[1], &p[2]);
+        let t = FieldElement::new([FieldElement::zero(), FieldElement::one()]);
+        [-x, y * t, z.clone()]
+    }
+}
+
+/// In F59 the element -1 is not a square. We use this property
+/// to construct a Quadratic Field Extension out of it by adding
+/// its square root.
+#[derive(Debug, Clone)]
+pub struct QuadraticNonResidue;
+impl HasQuadraticNonResidue<U384PrimeField<ModP>> for QuadraticNonResidue {
+    fn residue() -> FieldElement<U384PrimeField<ModP>> {
+        -FieldElement::one()
+    }
+}
