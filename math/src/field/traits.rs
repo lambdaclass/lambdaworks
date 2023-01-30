@@ -15,7 +15,7 @@ pub trait HasFieldOperations: Debug + Clone {
     /// Returns`a` raised to the power of `exponent`.
     fn pow<T>(a: &Self::BaseType, mut exponent: T) -> Self::BaseType
     where
-        T: IsUnsignedInteger<T>,
+        T: IsUnsignedInteger,
     {
         let mut result = Self::one();
         let mut base = a.clone();

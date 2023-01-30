@@ -298,7 +298,7 @@ where
     /// Returns `self` raised to the power of `exponent`
     pub fn pow<T>(&self, exponent: T) -> Self
     where
-        T: IsUnsignedInteger<T>,
+        T: IsUnsignedInteger,
     {
         Self {
             value: F::pow(&self.value, exponent),
