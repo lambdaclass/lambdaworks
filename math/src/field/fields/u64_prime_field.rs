@@ -71,7 +71,7 @@ impl<const ORDER: u64> IsCyclicBilinearGroup for U64FieldElement<ORDER> {
     }
 
     fn operate_with_self(&self, times: u128) -> Self {
-        U64FieldElement::from(&(times as u64)) * *self
+        U64FieldElement::from((times % (ORDER as u128)) as u64) * *self
     }
 
     fn pairing(&self, other: &Self) -> Self {
