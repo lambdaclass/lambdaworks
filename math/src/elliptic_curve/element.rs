@@ -119,8 +119,8 @@ mod tests {
     use crate::{
         elliptic_curve::element::EllipticCurveElement,
         field::{
+            extensions::quadratic::QuadraticExtensionFieldElement,
             fields::u64_prime_field::U64FieldElement,
-            quadratic_extension::QuadraticExtensionFieldElement,
         },
     };
 

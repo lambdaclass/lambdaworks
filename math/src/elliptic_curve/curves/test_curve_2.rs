@@ -7,8 +7,8 @@ use crate::{
     elliptic_curve::traits::{HasDistortionMap, HasEllipticCurveOperations},
     field::{
         element::FieldElement,
+        extensions::quadratic::{HasQuadraticNonResidue, QuadraticExtensionField},
         fields::u384_prime_field::{HasU384Constant, U384PrimeField},
-        quadratic_extension::{HasQuadraticNonResidue, QuadraticExtensionField},
     },
 };
 
