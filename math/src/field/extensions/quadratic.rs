@@ -1,8 +1,16 @@
 use std::fmt::Debug;
 use std::marker::PhantomData;
-
 use crate::field::element::FieldElement;
 use crate::field::traits::HasFieldOperations;
+
+/// A general quadratic extension field over `F`
+/// with quadratic non residue `Q::residue()`
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct QuadraticExtensionField<T> {
+    phantom: PhantomData<T>,
+}
+
+pub type QuadraticExtensionFieldElement<T> = FieldElement<QuadraticExtensionField<T>>;
 
 /// Trait to fix a quadratic non residue.
 /// Used to construct a quadratic extension field by adding
@@ -13,16 +21,7 @@ pub trait HasQuadraticNonResidue {
     fn residue() -> FieldElement<Self::BaseField>;
 }
 
-/// A general quadratic extension field over `F`
-/// with quadratic non residue `Q::residue()`
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ExtensionField<T> {
-    phantom: PhantomData<T>,
-}
-
-pub type ExtensionFieldElement<T> = FieldElement<ExtensionField<T>>;
-
-impl<Q> HasFieldOperations for ExtensionField<Q>
+impl<Q> HasFieldOperations for QuadraticExtensionField<Q>
 where
     Q: Clone + Debug + HasQuadraticNonResidue,
 {
@@ -127,7 +126,7 @@ mod tests {
     }
 
     type FE = U64FieldElement<ORDER_P>;
-    type MyFieldExtensionBackend = ExtensionField<MyQuadraticNonResidue>;
+    type MyFieldExtensionBackend = QuadraticExtensionField<MyQuadraticNonResidue>;
     #[allow(clippy::upper_case_acronyms)]
     type FEE = FieldElement<MyFieldExtensionBackend>;
 

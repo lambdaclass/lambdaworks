@@ -118,12 +118,12 @@ mod tests {
     use crate::{
         elliptic_curve::element::EllipticCurveElement,
         field::{
-            extensions::quadratic::ExtensionFieldElement, fields::u64_prime_field::U64FieldElement,
+            extensions::quadratic::QuadraticExtensionFieldElement, fields::u64_prime_field::U64FieldElement,
         },
     };
 
     #[allow(clippy::upper_case_acronyms)]
-    type FEE = ExtensionFieldElement<TestCurveQuadraticNonResidue>;
+    type FEE = QuadraticExtensionFieldElement<TestCurveQuadraticNonResidue>;
 
     // This tests only apply for the specific curve found in the configuration file.
     #[test]

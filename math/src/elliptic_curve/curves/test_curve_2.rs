@@ -7,7 +7,7 @@ use crate::{
     elliptic_curve::traits::{HasDistortionMap, HasEllipticCurveOperations},
     field::{
         element::FieldElement,
-        extensions::quadratic::{ExtensionField, HasQuadraticNonResidue},
+        extensions::{quadratic::{HasQuadraticNonResidue, QuadraticExtensionField}},
         fields::u384_prime_field::{HasU384Constant, U384PrimeField},
     },
 };
@@ -45,7 +45,7 @@ impl HasQuadraticNonResidue for TestCurve2QuadraticNonResidue {
 #[derive(Clone, Debug)]
 pub struct TestCurve2;
 impl HasEllipticCurveOperations for TestCurve2 {
-    type BaseField = ExtensionField<TestCurve2QuadraticNonResidue>;
+    type BaseField = QuadraticExtensionField<TestCurve2QuadraticNonResidue>;
     type UIntOrders = U384;
 
     fn a() -> FieldElement<Self::BaseField> {
