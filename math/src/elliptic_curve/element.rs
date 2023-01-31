@@ -111,21 +111,19 @@ mod tests {
 
     use crate::cyclic_group::IsCyclicBilinearGroup;
     use crate::elliptic_curve::curves::test_curve::{
-        QuadraticNonResidue as QuadraticNonResidue1, TestCurve, ORDER_P, ORDER_R,
+        TestCurve, TestCurveQuadraticNonResidue, ORDER_P, ORDER_R,
     };
     use crate::elliptic_curve::curves::test_curve_2::TestCurve2;
     use crate::field::element::FieldElement;
-    use crate::field::fields::u64_prime_field::U64PrimeField;
     use crate::{
         elliptic_curve::element::EllipticCurveElement,
         field::{
-            extensions::quadratic::QuadraticExtensionFieldElement,
-            fields::u64_prime_field::U64FieldElement,
+            extensions::quadratic::ExtensionFieldElement, fields::u64_prime_field::U64FieldElement,
         },
     };
 
     #[allow(clippy::upper_case_acronyms)]
-    type FEE = QuadraticExtensionFieldElement<U64PrimeField<ORDER_P>, QuadraticNonResidue1>;
+    type FEE = ExtensionFieldElement<TestCurveQuadraticNonResidue>;
 
     // This tests only apply for the specific curve found in the configuration file.
     #[test]

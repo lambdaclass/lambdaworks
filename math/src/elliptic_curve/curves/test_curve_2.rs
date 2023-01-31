@@ -7,7 +7,7 @@ use crate::{
     elliptic_curve::traits::{HasDistortionMap, HasEllipticCurveOperations},
     field::{
         element::FieldElement,
-        extensions::quadratic::{HasQuadraticNonResidue, QuadraticExtensionField},
+        extensions::quadratic::{ExtensionField, HasQuadraticNonResidue},
         fields::u384_prime_field::{HasU384Constant, U384PrimeField},
     },
 };
@@ -28,11 +28,24 @@ impl HasU384Constant for ModP {
     const VALUE: U384 = order_p(); //U384::from_be_hex("0x150b4c0967215604b841bb57053fcb86cf");
 }
 
+/// In F59 the element -1 is not a square. We use this property
+/// to construct a Quadratic Field Extension out of it by adding
+/// its square root.
+#[derive(Debug, Clone)]
+pub struct TestCurve2QuadraticNonResidue;
+impl HasQuadraticNonResidue for TestCurve2QuadraticNonResidue {
+    type BaseField = U384PrimeField<ModP>;
+
+    fn residue() -> FieldElement<U384PrimeField<ModP>> {
+        -FieldElement::one()
+    }
+}
+
 /// The description of the curve.
 #[derive(Clone, Debug)]
 pub struct TestCurve2;
 impl HasEllipticCurveOperations for TestCurve2 {
-    type BaseField = QuadraticExtensionField<U384PrimeField<ModP>, QuadraticNonResidue>;
+    type BaseField = ExtensionField<TestCurve2QuadraticNonResidue>;
     type UIntOrders = U384;
 
     fn a() -> FieldElement<Self::BaseField> {
@@ -81,16 +94,5 @@ impl HasDistortionMap for TestCurve2 {
         let (x, y, z) = (&p[0], &p[1], &p[2]);
         let t = FieldElement::new([FieldElement::zero(), FieldElement::one()]);
         [-x, y * t, z.clone()]
-    }
-}
-
-/// In F59 the element -1 is not a square. We use this property
-/// to construct a Quadratic Field Extension out of it by adding
-/// its square root.
-#[derive(Debug, Clone)]
-pub struct QuadraticNonResidue;
-impl HasQuadraticNonResidue<U384PrimeField<ModP>> for QuadraticNonResidue {
-    fn residue() -> FieldElement<U384PrimeField<ModP>> {
-        -FieldElement::one()
     }
 }

@@ -7,33 +7,32 @@ use crate::field::traits::HasFieldOperations;
 /// Trait to fix a quadratic non residue.
 /// Used to construct a quadratic extension field by adding
 /// a square root of `residue()`.
-pub trait HasQuadraticNonResidue<F: HasFieldOperations> {
-    fn residue() -> FieldElement<F>;
+pub trait HasQuadraticNonResidue {
+    type BaseField: HasFieldOperations;
+
+    fn residue() -> FieldElement<Self::BaseField>;
 }
 
 /// A general quadratic extension field over `F`
 /// with quadratic non residue `Q::residue()`
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct QuadraticExtensionField<F, Q>
-where
-    F: HasFieldOperations,
-    Q: HasQuadraticNonResidue<F> + Debug,
-{
-    field: PhantomData<F>,
-    non_residue: PhantomData<Q>,
+pub struct ExtensionField<T> {
+    phantom: PhantomData<T>,
 }
 
-pub type QuadraticExtensionFieldElement<F, Q> = FieldElement<QuadraticExtensionField<F, Q>>;
+pub type ExtensionFieldElement<T> = FieldElement<ExtensionField<T>>;
 
-impl<F, Q> HasFieldOperations for QuadraticExtensionField<F, Q>
+impl<Q> HasFieldOperations for ExtensionField<Q>
 where
-    F: HasFieldOperations + Clone,
-    Q: Clone + Debug + HasQuadraticNonResidue<F>,
+    Q: Clone + Debug + HasQuadraticNonResidue,
 {
-    type BaseType = [FieldElement<F>; 2];
+    type BaseType = [FieldElement<Q::BaseField>; 2];
 
     /// Returns the component wise addition of `a` and `b`
-    fn add(a: &[FieldElement<F>; 2], b: &[FieldElement<F>; 2]) -> [FieldElement<F>; 2] {
+    fn add(
+        a: &[FieldElement<Q::BaseField>; 2],
+        b: &[FieldElement<Q::BaseField>; 2],
+    ) -> [FieldElement<Q::BaseField>; 2] {
         [&a[0] + &b[0], &a[1] + &b[1]]
     }
 
@@ -41,7 +40,10 @@ where
     /// equation:
     /// (a0 + a1 * t) * (b0 + b1 * t) = a0 * b0 + a1 * b1 * Q::residue() + (a0 * b1 + a1 * b0) * t
     /// where `t.pow(2)` equals `Q::residue()`.
-    fn mul(a: &[FieldElement<F>; 2], b: &[FieldElement<F>; 2]) -> [FieldElement<F>; 2] {
+    fn mul(
+        a: &[FieldElement<Q::BaseField>; 2],
+        b: &[FieldElement<Q::BaseField>; 2],
+    ) -> [FieldElement<Q::BaseField>; 2] {
         let q = Q::residue();
         [
             &a[0] * &b[0] + &a[1] * &b[1] * q,
@@ -50,39 +52,45 @@ where
     }
 
     /// Returns the component wise subtraction of `a` and `b`
-    fn sub(a: &[FieldElement<F>; 2], b: &[FieldElement<F>; 2]) -> [FieldElement<F>; 2] {
+    fn sub(
+        a: &[FieldElement<Q::BaseField>; 2],
+        b: &[FieldElement<Q::BaseField>; 2],
+    ) -> [FieldElement<Q::BaseField>; 2] {
         [&a[0] - &b[0], &a[1] - &b[1]]
     }
 
     /// Returns the component wise negation of `a`
-    fn neg(a: &[FieldElement<F>; 2]) -> [FieldElement<F>; 2] {
+    fn neg(a: &[FieldElement<Q::BaseField>; 2]) -> [FieldElement<Q::BaseField>; 2] {
         [-&a[0], -&a[1]]
     }
 
     /// Returns the multiplicative inverse of `a`
     /// This uses the equality `(a0 + a1 * t) * (a0 - a1 * t) = a0.pow(2) - a1.pow(2) * Q::residue()`
-    fn inv(a: &[FieldElement<F>; 2]) -> [FieldElement<F>; 2] {
+    fn inv(a: &[FieldElement<Q::BaseField>; 2]) -> [FieldElement<Q::BaseField>; 2] {
         let inv_norm = (a[0].pow(2_u64) - Q::residue() * a[1].pow(2_u64)).inv();
         [&a[0] * &inv_norm, -&a[1] * inv_norm]
     }
 
     /// Returns the division of `a` and `b`
-    fn div(a: &[FieldElement<F>; 2], b: &[FieldElement<F>; 2]) -> [FieldElement<F>; 2] {
+    fn div(
+        a: &[FieldElement<Q::BaseField>; 2],
+        b: &[FieldElement<Q::BaseField>; 2],
+    ) -> [FieldElement<Q::BaseField>; 2] {
         Self::mul(a, &Self::inv(b))
     }
 
     /// Returns a boolean indicating whether `a` and `b` are equal component wise.
-    fn eq(a: &[FieldElement<F>; 2], b: &[FieldElement<F>; 2]) -> bool {
+    fn eq(a: &[FieldElement<Q::BaseField>; 2], b: &[FieldElement<Q::BaseField>; 2]) -> bool {
         a[0] == b[0] && a[1] == b[1]
     }
 
     /// Returns the additive neutral element of the field extension.
-    fn zero() -> [FieldElement<F>; 2] {
+    fn zero() -> [FieldElement<Q::BaseField>; 2] {
         [FieldElement::zero(), FieldElement::zero()]
     }
 
     /// Returns the multiplicative neutral element of the field extension.
-    fn one() -> [FieldElement<F>; 2] {
+    fn one() -> [FieldElement<Q::BaseField>; 2] {
         [FieldElement::one(), FieldElement::zero()]
     }
 
@@ -95,7 +103,7 @@ where
     /// of that element in the field.
     /// Note: for this case this is simply the identity, because the components
     /// already have correct representations.
-    fn from_base_type(x: [FieldElement<F>; 2]) -> [FieldElement<F>; 2] {
+    fn from_base_type(x: [FieldElement<Q::BaseField>; 2]) -> [FieldElement<Q::BaseField>; 2] {
         x
     }
 }
@@ -110,15 +118,16 @@ mod tests {
 
     #[derive(Debug, Clone)]
     struct MyQuadraticNonResidue;
-    impl HasQuadraticNonResidue<U64PrimeField<ORDER_P>> for MyQuadraticNonResidue {
+    impl HasQuadraticNonResidue for MyQuadraticNonResidue {
+        type BaseField = U64PrimeField<ORDER_P>;
+
         fn residue() -> FieldElement<U64PrimeField<ORDER_P>> {
             -FieldElement::one()
         }
     }
 
     type FE = U64FieldElement<ORDER_P>;
-    type MyFieldExtensionBackend =
-        QuadraticExtensionField<U64PrimeField<ORDER_P>, MyQuadraticNonResidue>;
+    type MyFieldExtensionBackend = ExtensionField<MyQuadraticNonResidue>;
     #[allow(clippy::upper_case_acronyms)]
     type FEE = FieldElement<MyFieldExtensionBackend>;
 
