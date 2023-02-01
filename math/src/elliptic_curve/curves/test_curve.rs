@@ -5,7 +5,7 @@ use crate::{
     elliptic_curve::traits::{HasDistortionMap, HasEllipticCurveOperations},
     field::{
         element::FieldElement,
-        extensions::{quadratic::{HasQuadraticNonResidue, QuadraticExtensionField}},
+        extensions::quadratic::{HasQuadraticNonResidue, QuadraticExtensionField},
         fields::u64_prime_field::U64PrimeField,
     },
 };

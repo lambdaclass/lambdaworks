@@ -1,7 +1,7 @@
-use std::fmt::Debug;
-use std::marker::PhantomData;
 use crate::field::element::FieldElement;
 use crate::field::traits::HasFieldOperations;
+use std::fmt::Debug;
+use std::marker::PhantomData;
 
 /// A general cubic extension field over `F`
 /// with cubic non residue `Q::residue()`
@@ -18,9 +18,10 @@ pub type CubicExtensionFieldElement<T> = FieldElement<CubicExtensionField<T>>;
 pub trait HasCubicNonResidue {
     type BaseField: HasFieldOperations;
 
+    /// This function must return an element that is not a cube in Fp,
+    /// that is, a cubic non-residue.
     fn residue() -> FieldElement<Self::BaseField>;
 }
-
 
 impl<Q> HasFieldOperations for CubicExtensionField<Q>
 where
@@ -65,9 +66,18 @@ where
     }
 
     /// Returns the multiplicative inverse of `a`
-    /// This uses the equality `(a0 + a1 * t) * (a0 - a1 * t) = a0.pow(2) - a1.pow(2) * Q::residue()`
     fn inv(a: &[FieldElement<Q::BaseField>; 3]) -> [FieldElement<Q::BaseField>; 3] {
-        todo!()
+        let three = FieldElement::from(3_u64);
+        let d = a[0].pow(3_u64)
+            + a[1].pow(3_u64) * Q::residue()
+            + a[2].pow(3_u64) * Q::residue().pow(2_u64)
+            - three * &a[0] * &a[1] * &a[2] * Q::residue();
+        let inv = d.inv();
+        [
+            (a[0].pow(2_u64) - &a[1] * &a[2] * Q::residue()) * &inv,
+            (-&a[0] * &a[1] + a[2].pow(2_u64) * Q::residue()) * &inv,
+            (-&a[0] * &a[2] + a[1].pow(2_u64)) * &inv,
+        ]
     }
 
     /// Returns the division of `a` and `b`
@@ -85,17 +95,29 @@ where
 
     /// Returns the additive neutral element of the field extension.
     fn zero() -> [FieldElement<Q::BaseField>; 3] {
-        [FieldElement::zero(), FieldElement::zero(), FieldElement::zero()]
+        [
+            FieldElement::zero(),
+            FieldElement::zero(),
+            FieldElement::zero(),
+        ]
     }
 
     /// Returns the multiplicative neutral element of the field extension.
     fn one() -> [FieldElement<Q::BaseField>; 3] {
-        [FieldElement::one(), FieldElement::zero(), FieldElement::zero()]
+        [
+            FieldElement::one(),
+            FieldElement::zero(),
+            FieldElement::zero(),
+        ]
     }
 
     /// Returns the element `x * 1` where 1 is the multiplicative neutral element.
     fn from_u64(x: u64) -> Self::BaseType {
-        [FieldElement::from(x), FieldElement::zero(), FieldElement::zero()]
+        [
+            FieldElement::from(x),
+            FieldElement::zero(),
+            FieldElement::zero(),
+        ]
     }
 
     /// Takes as input an element of BaseType and returns the internal representation
@@ -111,7 +133,7 @@ where
 mod tests {
     use crate::field::fields::u64_prime_field::{U64FieldElement, U64PrimeField};
 
-    const ORDER_P: u64 = 59;
+    const ORDER_P: u64 = 13;
 
     use super::*;
 
@@ -121,7 +143,7 @@ mod tests {
         type BaseField = U64PrimeField<ORDER_P>;
 
         fn residue() -> FieldElement<U64PrimeField<ORDER_P>> {
-            -FieldElement::one()
+            -FieldElement::from(11)
         }
     }
 
@@ -129,4 +151,11 @@ mod tests {
     type MyFieldExtensionBackend = CubicExtensionField<MyCubicNonResidue>;
     #[allow(clippy::upper_case_acronyms)]
     type FEE = FieldElement<MyFieldExtensionBackend>;
+
+    #[test]
+    fn test_inv_1() {
+        let a = FEE::new([FE::new(1), FE::new(0), FE::new(1)]);
+        let expected_result = FEE::new([FE::new(8), FE::new(3), FE::new(5)]);
+        assert_eq!(a.inv(), expected_result);
+    }
 }

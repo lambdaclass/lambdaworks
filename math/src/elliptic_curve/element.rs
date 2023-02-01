@@ -9,7 +9,7 @@ use std::marker::PhantomData;
 /// where `x`, `y` and `z` variables are field elements.
 #[derive(Debug, Clone)]
 pub struct EllipticCurveElement<E: HasEllipticCurveOperations> {
-    value: [FieldElement<E::BaseField>; 3],
+    pub value: [FieldElement<E::BaseField>; 3],
     elliptic_curve: PhantomData<E>,
 }
 
@@ -118,7 +118,8 @@ mod tests {
     use crate::{
         elliptic_curve::element::EllipticCurveElement,
         field::{
-            extensions::quadratic::QuadraticExtensionFieldElement, fields::u64_prime_field::U64FieldElement,
+            extensions::quadratic::QuadraticExtensionFieldElement,
+            fields::u64_prime_field::U64FieldElement,
         },
     };
 

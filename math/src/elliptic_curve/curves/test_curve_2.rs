@@ -1,16 +1,12 @@
-use crypto_bigint::U384;
-
-/// Example curve taken from the book "Pairing for beginners", page 57.
-/// Defines the basic constants needed to describe a curve in the short Weierstrass form.
-/// This small curve has only 5 elements.
 use crate::{
     elliptic_curve::traits::{HasDistortionMap, HasEllipticCurveOperations},
     field::{
         element::FieldElement,
-        extensions::{quadratic::{HasQuadraticNonResidue, QuadraticExtensionField}},
+        extensions::quadratic::{HasQuadraticNonResidue, QuadraticExtensionField},
         fields::u384_prime_field::{HasU384Constant, U384PrimeField},
     },
 };
+use crypto_bigint::U384;
 
 /// Order of the base field (e.g.: order of the coordinates)
 const fn order_p() -> U384 {
@@ -25,7 +21,7 @@ const fn order_r() -> U384 {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ModP;
 impl HasU384Constant for ModP {
-    const VALUE: U384 = order_p(); //U384::from_be_hex("0x150b4c0967215604b841bb57053fcb86cf");
+    const VALUE: U384 = order_p();
 }
 
 /// In F59 the element -1 is not a square. We use this property
@@ -83,7 +79,7 @@ impl HasEllipticCurveOperations for TestCurve2 {
     }
 
     fn target_normalization_power() -> Vec<u64> {
-        vec![0x00000000000002b8]
+        todo!()
     }
 }
 

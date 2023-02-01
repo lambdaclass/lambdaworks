@@ -1,7 +1,7 @@
-use std::fmt::Debug;
-use std::marker::PhantomData;
 use crate::field::element::FieldElement;
 use crate::field::traits::HasFieldOperations;
+use std::fmt::Debug;
+use std::marker::PhantomData;
 
 /// A general quadratic extension field over `F`
 /// with quadratic non residue `Q::residue()`
