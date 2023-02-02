@@ -1,12 +1,12 @@
 use crate::field::element::FieldElement;
-use crate::field::traits::HasFieldOperations;
+use crate::field::traits::IsField;
 use crate::unsigned_integer::IsUnsignedInteger;
 use std::fmt::Debug;
 
 /// Trait to add elliptic curves behaviour to a struct.
 /// We use the short Weierstrass form equation: `y^2 = x^3 + a * x  + b`.
-pub trait HasEllipticCurveOperations: Clone + Debug {
-    type BaseField: HasFieldOperations + Clone + Debug;
+pub trait IsEllipticCurve: Clone + Debug {
+    type BaseField: IsField + Clone + Debug;
     type UIntOrders: IsUnsignedInteger;
     /// The type used to store order_p and order_r.
 
@@ -263,7 +263,7 @@ pub trait HasEllipticCurveOperations: Clone + Debug {
 
 /// Trait to add distortion maps to Elliptic Curves.
 /// Typically used to support type I pairings.
-pub trait HasDistortionMap: HasEllipticCurveOperations {
+pub trait HasDistortionMap: IsEllipticCurve {
     fn distorsion_map(p: &[FieldElement<Self::BaseField>; 3])
         -> [FieldElement<Self::BaseField>; 3];
 }

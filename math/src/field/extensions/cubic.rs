@@ -1,5 +1,5 @@
 use crate::field::element::FieldElement;
-use crate::field::traits::HasFieldOperations;
+use crate::field::traits::IsField;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
@@ -16,14 +16,14 @@ pub type CubicExtensionFieldElement<T> = FieldElement<CubicExtensionField<T>>;
 /// Used to construct a cubic extension field by adding
 /// a square root of `residue()`.
 pub trait HasCubicNonResidue {
-    type BaseField: HasFieldOperations;
+    type BaseField: IsField;
 
     /// This function must return an element that is not a cube in Fp,
     /// that is, a cubic non-residue.
     fn residue() -> FieldElement<Self::BaseField>;
 }
 
-impl<Q> HasFieldOperations for CubicExtensionField<Q>
+impl<Q> IsField for CubicExtensionField<Q>
 where
     Q: Clone + Debug + HasCubicNonResidue,
 {

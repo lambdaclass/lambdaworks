@@ -1,5 +1,5 @@
 use crate::{
-    elliptic_curve::traits::HasEllipticCurveOperations,
+    elliptic_curve::traits::IsEllipticCurve,
     field::{
         element::FieldElement,
         extensions::{
@@ -70,7 +70,7 @@ type LevelThreeField = QuadraticExtensionField<LevelThreeResidue>;
 /// The description of the curve.
 #[derive(Clone, Debug)]
 pub struct BLS12381Curve;
-impl HasEllipticCurveOperations for BLS12381Curve {
+impl IsEllipticCurve for BLS12381Curve {
     type BaseField = LevelThreeField;
     type UIntOrders = U384;
 

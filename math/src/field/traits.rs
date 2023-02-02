@@ -2,7 +2,7 @@ use crate::unsigned_integer::IsUnsignedInteger;
 use std::fmt::Debug;
 
 /// Trait to add field behaviour to a struct.
-pub trait HasFieldOperations: Debug + Clone {
+pub trait IsField: Debug + Clone {
     /// The underlying base type for representing elements from the field.
     type BaseType: Clone + Debug;
 

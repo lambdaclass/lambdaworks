@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use std::marker::PhantomData;
 
 use crate::field::element::FieldElement;
-use crate::field::traits::HasFieldOperations;
+use crate::field::traits::IsField;
 
 pub trait HasU384Constant: Debug + Clone + Eq + PartialEq {
     const VALUE: U384;
@@ -17,7 +17,7 @@ pub struct U384PrimeField<MODULO: HasU384Constant> {
 
 pub type U384FieldElement<ORDER> = FieldElement<U384PrimeField<ORDER>>;
 
-impl<MODULO: HasU384Constant> HasFieldOperations for U384PrimeField<MODULO> {
+impl<MODULO: HasU384Constant> IsField for U384PrimeField<MODULO> {
     type BaseType = U384;
 
     fn add(a: &U384, b: &U384) -> U384 {

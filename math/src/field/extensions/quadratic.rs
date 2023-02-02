@@ -1,5 +1,5 @@
 use crate::field::element::FieldElement;
-use crate::field::traits::HasFieldOperations;
+use crate::field::traits::IsField;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
@@ -16,12 +16,12 @@ pub type QuadraticExtensionFieldElement<T> = FieldElement<QuadraticExtensionFiel
 /// Used to construct a quadratic extension field by adding
 /// a square root of `residue()`.
 pub trait HasQuadraticNonResidue {
-    type BaseField: HasFieldOperations;
+    type BaseField: IsField;
 
     fn residue() -> FieldElement<Self::BaseField>;
 }
 
-impl<Q> HasFieldOperations for QuadraticExtensionField<Q>
+impl<Q> IsField for QuadraticExtensionField<Q>
 where
     Q: Clone + Debug + HasQuadraticNonResidue,
 {

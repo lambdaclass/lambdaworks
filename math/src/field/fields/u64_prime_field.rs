@@ -1,13 +1,13 @@
 use crate::cyclic_group::{HasPairing, IsCyclicGroup};
 use crate::field::element::FieldElement;
-use crate::field::traits::HasFieldOperations;
+use crate::field::traits::IsField;
 
 /// Type representing prime fields over unsigned 64-bit integers.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct U64PrimeField<const MODULO: u64>;
 pub type U64FieldElement<const ORDER: u64> = FieldElement<U64PrimeField<ORDER>>;
 
-impl<const MODULO: u64> HasFieldOperations for U64PrimeField<MODULO> {
+impl<const MODULO: u64> IsField for U64PrimeField<MODULO> {
     type BaseType = u64;
 
     fn add(a: &u64, b: &u64) -> u64 {

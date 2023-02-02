@@ -1,5 +1,5 @@
 use super::field::element::FieldElement;
-use crate::field::traits::HasFieldOperations;
+use crate::field::traits::IsField;
 use std::ops;
 
 /// Represents the polynomial c_0 + c_1 * X + c_2 * X^2 + ... + c_n * X^n
@@ -9,7 +9,7 @@ pub struct Polynomial<FE> {
     coefficients: Vec<FE>,
 }
 
-impl<F: HasFieldOperations> Polynomial<FieldElement<F>> {
+impl<F: IsField> Polynomial<FieldElement<F>> {
     /// Creates a new polynomial with the given coefficients
     pub fn new(coefficients: Vec<FieldElement<F>>) -> Self {
         // Removes trailing zero coefficients at the end
@@ -141,9 +141,7 @@ impl<F: HasFieldOperations> Polynomial<FieldElement<F>> {
     }
 }
 
-impl<F: HasFieldOperations> ops::Add<&Polynomial<FieldElement<F>>>
-    for &Polynomial<FieldElement<F>>
-{
+impl<F: IsField> ops::Add<&Polynomial<FieldElement<F>>> for &Polynomial<FieldElement<F>> {
     type Output = Polynomial<FieldElement<F>>;
 
     fn add(self, a_polynomial: &Polynomial<FieldElement<F>>) -> Self::Output {
@@ -156,7 +154,7 @@ impl<F: HasFieldOperations> ops::Add<&Polynomial<FieldElement<F>>>
     }
 }
 
-impl<F: HasFieldOperations> ops::Add<Polynomial<FieldElement<F>>> for Polynomial<FieldElement<F>> {
+impl<F: IsField> ops::Add<Polynomial<FieldElement<F>>> for Polynomial<FieldElement<F>> {
     type Output = Polynomial<FieldElement<F>>;
 
     fn add(self, a_polynomial: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
@@ -164,7 +162,7 @@ impl<F: HasFieldOperations> ops::Add<Polynomial<FieldElement<F>>> for Polynomial
     }
 }
 
-impl<F: HasFieldOperations> ops::Add<&Polynomial<FieldElement<F>>> for Polynomial<FieldElement<F>> {
+impl<F: IsField> ops::Add<&Polynomial<FieldElement<F>>> for Polynomial<FieldElement<F>> {
     type Output = Polynomial<FieldElement<F>>;
 
     fn add(self, a_polynomial: &Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
@@ -172,14 +170,14 @@ impl<F: HasFieldOperations> ops::Add<&Polynomial<FieldElement<F>>> for Polynomia
     }
 }
 
-impl<F: HasFieldOperations> ops::Add<Polynomial<FieldElement<F>>> for &Polynomial<FieldElement<F>> {
+impl<F: IsField> ops::Add<Polynomial<FieldElement<F>>> for &Polynomial<FieldElement<F>> {
     type Output = Polynomial<FieldElement<F>>;
 
     fn add(self, a_polynomial: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
         self + &a_polynomial
     }
 }
-impl<F: HasFieldOperations> ops::Neg for Polynomial<FieldElement<F>> {
+impl<F: IsField> ops::Neg for Polynomial<FieldElement<F>> {
     type Output = Polynomial<FieldElement<F>>;
 
     fn neg(self) -> Polynomial<FieldElement<F>> {
@@ -187,7 +185,7 @@ impl<F: HasFieldOperations> ops::Neg for Polynomial<FieldElement<F>> {
     }
 }
 
-impl<F: HasFieldOperations> ops::Sub<Polynomial<FieldElement<F>>> for Polynomial<FieldElement<F>> {
+impl<F: IsField> ops::Sub<Polynomial<FieldElement<F>>> for Polynomial<FieldElement<F>> {
     type Output = Polynomial<FieldElement<F>>;
 
     fn sub(self, substrahend: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
@@ -195,7 +193,7 @@ impl<F: HasFieldOperations> ops::Sub<Polynomial<FieldElement<F>>> for Polynomial
     }
 }
 
-impl<F: HasFieldOperations> ops::Div<Polynomial<FieldElement<F>>> for Polynomial<FieldElement<F>> {
+impl<F: IsField> ops::Div<Polynomial<FieldElement<F>>> for Polynomial<FieldElement<F>> {
     type Output = Polynomial<FieldElement<F>>;
 
     fn div(self, dividend: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
@@ -203,7 +201,7 @@ impl<F: HasFieldOperations> ops::Div<Polynomial<FieldElement<F>>> for Polynomial
     }
 }
 
-impl<F: HasFieldOperations> ops::Mul<Polynomial<FieldElement<F>>> for Polynomial<FieldElement<F>> {
+impl<F: IsField> ops::Mul<Polynomial<FieldElement<F>>> for Polynomial<FieldElement<F>> {
     type Output = Polynomial<FieldElement<F>>;
     fn mul(self, dividend: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
         self.mul_with_ref(&dividend)

@@ -1,5 +1,5 @@
 use crate::cyclic_group::IsCyclicGroup;
-use crate::elliptic_curve::traits::HasEllipticCurveOperations;
+use crate::elliptic_curve::traits::IsEllipticCurve;
 use crate::field::element::FieldElement;
 use std::fmt::Debug;
 use std::marker::PhantomData;
@@ -8,12 +8,12 @@ use std::marker::PhantomData;
 /// y^2 * z = x^3 + a * x * z^2 + b * z^3,
 /// where `x`, `y` and `z` variables are field elements.
 #[derive(Debug, Clone)]
-pub struct EllipticCurveElement<E: HasEllipticCurveOperations> {
+pub struct EllipticCurveElement<E: IsEllipticCurve> {
     pub value: [FieldElement<E::BaseField>; 3],
     elliptic_curve: PhantomData<E>,
 }
 
-impl<E: HasEllipticCurveOperations> EllipticCurveElement<E> {
+impl<E: IsEllipticCurve> EllipticCurveElement<E> {
     /// Creates an elliptic curve point giving the projective [x: y: z] coordinates.
     pub fn new(value: [FieldElement<E::BaseField>; 3]) -> Self {
         assert_eq!(
@@ -64,15 +64,15 @@ impl<E: HasEllipticCurveOperations> EllipticCurveElement<E> {
     }
 }
 
-impl<E: HasEllipticCurveOperations> PartialEq for EllipticCurveElement<E> {
+impl<E: IsEllipticCurve> PartialEq for EllipticCurveElement<E> {
     fn eq(&self, other: &Self) -> bool {
         E::eq(&self.value, &other.value)
     }
 }
 
-impl<E: HasEllipticCurveOperations> Eq for EllipticCurveElement<E> {}
+impl<E: IsEllipticCurve> Eq for EllipticCurveElement<E> {}
 
-impl<E: HasEllipticCurveOperations> IsCyclicGroup for EllipticCurveElement<E> {
+impl<E: IsEllipticCurve> IsCyclicGroup for EllipticCurveElement<E> {
     type PairingOutput = FieldElement<E::BaseField>;
 
     fn generator() -> Self {
