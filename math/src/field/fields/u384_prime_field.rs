@@ -1,4 +1,4 @@
-use crypto_bigint::{NonZero, Wrapping, U384};
+use crypto_bigint::{Checked, NonZero, Word, Wrapping, U384, U768};
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
@@ -33,7 +33,22 @@ impl<MODULO: HasU384Constant> IsField for U384PrimeField<MODULO> {
     }
 
     fn mul(a: &U384, b: &U384) -> U384 {
-        (Wrapping(*a) * Wrapping(*b)).0 % NonZero::new(MODULO::VALUE).unwrap()
+        let mut a_limbs_double_precision: [Word; 12] = [0; 12];
+        a_limbs_double_precision[..6].copy_from_slice(a.as_words());
+        let a = U768::from(a_limbs_double_precision);
+
+        let mut b_limbs_double_precision: [Word; 12] = [0; 12];
+        b_limbs_double_precision[..6].copy_from_slice(b.as_words());
+        let b = U768::from(b_limbs_double_precision);
+
+        let mut mod_limbs_double_precision: [Word; 12] = [0; 12];
+        mod_limbs_double_precision[..6].copy_from_slice(&MODULO::VALUE.to_words());
+        let modulo = U768::from(mod_limbs_double_precision);
+
+        let result = (Checked::new(a) * Checked::new(b)).0.unwrap() % NonZero::new(modulo).unwrap();
+        let mut result_words: [Word; 6] = [0; 6];
+        result_words.copy_from_slice(&result.to_words()[..6]);
+        U384::from(result_words)
     }
 
     fn div(a: &U384, b: &U384) -> U384 {
@@ -193,5 +208,23 @@ mod tests {
         let zero = FE::from(0);
 
         assert_eq!(-zero, zero);
+    }
+
+    #[derive(Debug, Clone, Eq, PartialEq)]
+    struct ModP;
+    impl HasU384Constant for ModP {
+        const VALUE: U384 = U384::from_be_hex("1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab");
+    }
+
+    fn new_field_element(a_hex: &str) -> U384FieldElement<ModP> {
+        let padded_a_hex = String::from_utf8(vec![b'0'; 96 - a_hex.len()]).unwrap() + &a_hex;
+        FieldElement::new(U384::from_be_hex(&padded_a_hex))
+    }
+
+    #[test]
+    fn test_big_numbers() {
+        let y = new_field_element("7acf6e49cc000ff53b06ee1d27056734019c0a1edfa16684da41ebb0c56750f73bc1b0eae4c6c241808a5e485af0ba0");
+        let y2 = new_field_element("955318e3b9b4e806ba0ac178662fc6879f48785d418ae2bbe861c23d09f0e60701061e29fbecfa8d8780679f44dadda");
+        assert_eq!(y.pow(2_u64), y2);
     }
 }

@@ -67,6 +67,23 @@ impl HasQuadraticNonResidue for LevelThreeResidue {
 
 type LevelThreeField = QuadraticExtensionField<LevelThreeResidue>;
 
+impl FieldElement<LevelThreeField> {
+    fn new_base(a_hex: &str) -> Self {
+        let padded_a_hex = String::from_utf8(vec![b'0'; 96 - a_hex.len()]).unwrap() + a_hex;
+        Self::new([
+            FieldElement::new([
+                FieldElement::new([
+                    FieldElement::new(U384::from_be_hex(&padded_a_hex)),
+                    FieldElement::zero(),
+                ]),
+                FieldElement::zero(),
+                FieldElement::zero(),
+            ]),
+            FieldElement::zero(),
+        ])
+    }
+}
+
 /// The description of the curve.
 #[derive(Clone, Debug)]
 pub struct BLS12381Curve;
@@ -83,26 +100,13 @@ impl IsEllipticCurve for BLS12381Curve {
     }
 
     fn generator_affine_x() -> FieldElement<Self::BaseField> {
-        FieldElement::new([
-            FieldElement::new([
-                FieldElement::new([FieldElement::new(U384::from_be_hex("3685416753713387016781088315183077757961620795782546409894578378688607592378376318836054947676345821548104185464507")), FieldElement::zero()]),
-                FieldElement::zero(),
-                FieldElement::zero(),
-            ]),
-            FieldElement::zero(),
-        ])
+        FieldElement::new_base("17f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb")
     }
 
     fn generator_affine_y() -> FieldElement<Self::BaseField> {
-        FieldElement::new([
-            FieldElement::new([
-                FieldElement::new([FieldElement::new(U384::from_be_hex("1339506544944476473020471379941921221584933875938349620426543736416511423956333506472724655353366534992391756441569")), FieldElement::zero()]),
-                FieldElement::zero(),
-                FieldElement::zero(),
-            ]),
-            FieldElement::zero(),
-        ])
+        FieldElement::new_base("8b3f481e3aaa0f1a09e30ed741d8ae4fcf5e095d5d00af600db18cb2c04b3edd03cc744a2888ae40caa232946c5e7e1")
     }
+
     fn order_r() -> Self::UIntOrders {
         order_r()
     }
@@ -182,5 +186,34 @@ impl IsEllipticCurve for BLS12381Curve {
             0x25f98630e68bfb24,
             0xc0bcb9b55df57510,
         ]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        cyclic_group::IsCyclicGroup, elliptic_curve::element::EllipticCurveElement,
+        field::element::FieldElement,
+    };
+
+    use super::BLS12381Curve;
+
+    fn point_1() -> EllipticCurveElement<BLS12381Curve> {
+        let x = FieldElement::new_base("36bb494facde72d0da5c770c4b16d9b2d45cfdc27604a25a1a80b020798e5b0dbd4c6d939a8f8820f042a29ce552ee5");
+        let y = FieldElement::new_base("7acf6e49cc000ff53b06ee1d27056734019c0a1edfa16684da41ebb0c56750f73bc1b0eae4c6c241808a5e485af0ba0");
+        EllipticCurveElement::new([x, y, FieldElement::one()])
+    }
+
+    fn point_1_times_5() -> EllipticCurveElement<BLS12381Curve> {
+        let x = FieldElement::new_base("32bcce7e71eb50384918e0c9809f73bde357027c6bf15092dd849aa0eac274d43af4c68a65fb2cda381734af5eecd5c");
+        let y = FieldElement::new_base("11e48467b19458aabe7c8a42dc4b67d7390fdf1e150534caadddc7e6f729d8890b68a5ea6885a21b555186452b954d88");
+        EllipticCurveElement::new([x, y, FieldElement::one()])
+    }
+
+    #[test]
+    fn test_1() {
+        let point_1 = point_1();
+        let point_1_times_5 = point_1_times_5();
+        assert_eq!(point_1.operate_with_self(5), point_1_times_5);
     }
 }
