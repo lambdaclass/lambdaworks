@@ -35,15 +35,15 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::elliptic_curve::{curves::test_curve::TestCurve, element::EllipticCurveElement};
+    use crate::elliptic_curve::{curves::test_curve_1::TestCurve1, element::EllipticCurveElement};
 
     #[test]
     fn msm_11_is_1_over_elliptic_curves() {
         let c = [FE::new(1)];
-        let hiding = [EllipticCurveElement::<TestCurve>::generator()];
+        let hiding = [EllipticCurveElement::<TestCurve1>::generator()];
         assert_eq!(
             msm(&c, &hiding),
-            EllipticCurveElement::<TestCurve>::generator()
+            EllipticCurveElement::<TestCurve1>::generator()
         );
     }
 
@@ -57,7 +57,7 @@ mod tests {
     #[test]
     fn msm_23_is_6_over_elliptic_curves() {
         let c = [FE::new(3)];
-        let g = EllipticCurveElement::<TestCurve>::generator();
+        let g = EllipticCurveElement::<TestCurve1>::generator();
         let hiding = [g.operate_with_self(2)];
         assert_eq!(msm(&c, &hiding), g.operate_with_self(6));
     }
@@ -72,7 +72,7 @@ mod tests {
     #[test]
     fn msm_with_c_2_3_hiding_3_4_is_18_over_elliptic_curves() {
         let c = [FE::new(2), FE::new(3)];
-        let g = EllipticCurveElement::<TestCurve>::generator();
+        let g = EllipticCurveElement::<TestCurve1>::generator();
         let hiding = [g.operate_with_self(3), g.operate_with_self(4)];
         assert_eq!(msm(&c, &hiding), g.operate_with_self(18));
     }
@@ -87,7 +87,7 @@ mod tests {
     #[test]
     fn msm_with_empty_c_is_none_over_elliptic_curves() {
         let c = [];
-        let hiding: [EllipticCurveElement<TestCurve>; 0] = [];
+        let hiding: [EllipticCurveElement<TestCurve1>; 0] = [];
         assert_eq!(msm(&c, &hiding), EllipticCurveElement::neutral_element());
     }
 }

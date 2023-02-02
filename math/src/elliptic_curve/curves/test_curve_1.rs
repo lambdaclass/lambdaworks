@@ -31,8 +31,8 @@ impl HasQuadraticNonResidue for TestCurveQuadraticNonResidue {
 
 /// The description of the curve.
 #[derive(Clone, Debug)]
-pub struct TestCurve;
-impl HasEllipticCurveOperations for TestCurve {
+pub struct TestCurve1;
+impl HasEllipticCurveOperations for TestCurve1 {
     type BaseField = QuadraticExtensionField<TestCurveQuadraticNonResidue>;
     type UIntOrders = u64;
 
@@ -65,7 +65,7 @@ impl HasEllipticCurveOperations for TestCurve {
     }
 }
 
-impl HasDistortionMap for TestCurve {
+impl HasDistortionMap for TestCurve1 {
     fn distorsion_map(
         p: &[FieldElement<Self::BaseField>; 3],
     ) -> [FieldElement<Self::BaseField>; 3] {
