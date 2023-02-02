@@ -22,10 +22,6 @@ pub trait HasEllipticCurveOperations: Clone + Debug {
     /// `y` component of the generator (x, y) in affine form.
     fn generator_affine_y() -> FieldElement<Self::BaseField>;
 
-    /// The embedding degree of the curve. This is the minimum integer `k`
-    /// for which `order_r` divides `order_p.pow(k) - 1`.
-    fn embedding_degree() -> u32;
-
     /// Order of the subgroup of the curve (e.g.: number of elements in
     /// the subgroup of the curve).
     fn order_r() -> Self::UIntOrders;

@@ -1,4 +1,4 @@
-use crate::cyclic_group::IsCyclicBilinearGroup;
+use crate::cyclic_group::{HasPairing, IsCyclicGroup};
 use crate::field::element::FieldElement;
 use crate::field::traits::HasFieldOperations;
 
@@ -59,7 +59,7 @@ impl<const MODULO: u64> HasFieldOperations for U64PrimeField<MODULO> {
 impl<const ORDER: u64> Copy for U64FieldElement<ORDER> {}
 
 /// Represents an element in Fp. (E.g: 0, 1, 2 are the elements of F3)
-impl<const ORDER: u64> IsCyclicBilinearGroup for U64FieldElement<ORDER> {
+impl<const ORDER: u64> IsCyclicGroup for U64FieldElement<ORDER> {
     type PairingOutput = Self;
 
     fn generator() -> U64FieldElement<ORDER> {
@@ -74,12 +74,20 @@ impl<const ORDER: u64> IsCyclicBilinearGroup for U64FieldElement<ORDER> {
         U64FieldElement::from((times % (ORDER as u128)) as u64) * *self
     }
 
-    fn pairing(&self, other: &Self) -> Self {
-        *self * *other
-    }
-
     fn operate_with(&self, other: &Self) -> Self {
         *self + *other
+    }
+}
+
+struct U64FieldPairing<const ORDER: u64>;
+
+impl<const ORDER: u64> HasPairing for U64FieldPairing<ORDER> {
+    type LhsGroup = U64FieldElement<ORDER>;
+    type RhsGroup = U64FieldElement<ORDER>;
+    type OutputGroup = U64FieldElement<ORDER>;
+
+    fn pairing(a: &Self::LhsGroup, b: &Self::RhsGroup) -> Self::OutputGroup {
+        a * b
     }
 }
 
@@ -229,6 +237,6 @@ mod tests {
     fn field_element_as_group_element_pairing_works_as_multiplication_in_finite_fields() {
         let a = FE::new(3);
         let b = FE::new(12);
-        assert_eq!(a * b, a.pairing(&b));
+        assert_eq!(a * b, U64FieldPairing::pairing(&a, &b));
     }
 }

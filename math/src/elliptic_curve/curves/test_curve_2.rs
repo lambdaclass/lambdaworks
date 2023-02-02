@@ -66,10 +66,6 @@ impl HasEllipticCurveOperations for TestCurve2 {
         ])
     }
 
-    fn embedding_degree() -> u32 {
-        2
-    }
-
     fn order_r() -> Self::UIntOrders {
         order_r()
     }

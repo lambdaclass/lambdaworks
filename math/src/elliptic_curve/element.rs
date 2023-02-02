@@ -1,5 +1,5 @@
-use crate::cyclic_group::IsCyclicBilinearGroup;
-use crate::elliptic_curve::traits::{HasDistortionMap, HasEllipticCurveOperations};
+use crate::cyclic_group::IsCyclicGroup;
+use crate::elliptic_curve::traits::HasEllipticCurveOperations;
 use crate::field::element::FieldElement;
 use std::fmt::Debug;
 use std::marker::PhantomData;
@@ -72,9 +72,7 @@ impl<E: HasEllipticCurveOperations> PartialEq for EllipticCurveElement<E> {
 
 impl<E: HasEllipticCurveOperations> Eq for EllipticCurveElement<E> {}
 
-impl<E: HasEllipticCurveOperations + HasDistortionMap> IsCyclicBilinearGroup
-    for EllipticCurveElement<E>
-{
+impl<E: HasEllipticCurveOperations> IsCyclicGroup for EllipticCurveElement<E> {
     type PairingOutput = FieldElement<E::BaseField>;
 
     fn generator() -> Self {
@@ -94,22 +92,13 @@ impl<E: HasEllipticCurveOperations + HasDistortionMap> IsCyclicBilinearGroup
     fn operate_with(&self, other: &Self) -> Self {
         Self::new(E::add(&self.value, &other.value))
     }
-
-    /// Computes a Type 1 Tate pairing between `self` and `other.
-    /// See "Pairing for beginners" from Craig Costello, section 4.2 Pairing types, page 58.
-    /// Note that a distorsion map is applied to `other` before using the Tate pairing.
-    /// So this method can be called with two field extension elements from the base field.
-    fn pairing(&self, other: &Self) -> Self::PairingOutput {
-        let [qx, qy, qz] = E::distorsion_map(&other.value);
-        Self::tate_pairing(self, &Self::new([qx, qy, qz]))
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use crypto_bigint::U384;
 
-    use crate::cyclic_group::IsCyclicBilinearGroup;
+    use crate::cyclic_group::IsCyclicGroup;
     use crate::elliptic_curve::curves::test_curve::{
         TestCurve, TestCurveQuadraticNonResidue, ORDER_P, ORDER_R,
     };

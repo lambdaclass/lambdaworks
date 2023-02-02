@@ -52,10 +52,6 @@ impl HasEllipticCurveOperations for TestCurve {
         FieldElement::from(31)
     }
 
-    fn embedding_degree() -> u32 {
-        2
-    }
-
     fn order_r() -> Self::UIntOrders {
         ORDER_R
     }
