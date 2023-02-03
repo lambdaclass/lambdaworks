@@ -10,3 +10,8 @@ rand = "0.8.5"
 
 [dev-dependencies]
 test-case = "2.2.2"
+criterion = "0.3"
+
+[[bench]]
+name = "msm"
+harness = false
