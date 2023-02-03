@@ -1,3 +1,4 @@
+use crate::unsigned_integer::UnsignedInteger384 as U384;
 use crate::{
     elliptic_curve::traits::{HasDistortionMap, IsEllipticCurve},
     field::{
@@ -6,7 +7,6 @@ use crate::{
         fields::u384_prime_field::{HasU384Constant, U384PrimeField},
     },
 };
-use crate::unsigned_integer::UnsignedInteger384 as U384;
 
 const fn order_r() -> U384 {
     U384::from_const("00000000000000000000000000000000000000000000000000000000000000150b4c0967215604b841bb57053fcb86cf")
@@ -15,7 +15,6 @@ const fn order_r() -> U384 {
 const fn order_p() -> U384 {
     U384::from_const("0000000000000000000000000000000000000000000000000000000000000000000000040a065fb5a76390de709fb229")
 }
-
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ModP;
@@ -54,14 +53,14 @@ impl IsEllipticCurve for TestCurve2 {
     fn generator_affine_x() -> FieldElement<Self::BaseField> {
         FieldElement::new([
             FieldElement::new(U384::from("21acedb641ca6d0f8b60148123a999801")),
-            FieldElement::new(U384::from("14d34d94f7de312859a8a0d9dbc67159d3"))
+            FieldElement::new(U384::from("14d34d94f7de312859a8a0d9dbc67159d3")),
         ])
     }
 
     fn generator_affine_y() -> FieldElement<Self::BaseField> {
         FieldElement::new([
             FieldElement::new(U384::from("2ac53e77afe8d841c8eb660761c4b873a")),
-            FieldElement::new(U384::from("108a9e1c5514b0921cd5781a7f71130142"))
+            FieldElement::new(U384::from("108a9e1c5514b0921cd5781a7f71130142")),
         ])
     }
 

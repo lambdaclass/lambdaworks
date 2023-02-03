@@ -1,3 +1,4 @@
+use crate::unsigned_integer::UnsignedInteger384 as U384;
 use crate::{
     elliptic_curve::traits::IsEllipticCurve,
     field::{
@@ -9,7 +10,6 @@ use crate::{
         fields::u384_prime_field::{HasU384Constant, U384PrimeField},
     },
 };
-use crate::unsigned_integer::UnsignedInteger384 as U384;
 
 /// Order of the base field (e.g.: order of the coordinates)
 const fn order_p() -> U384 {
@@ -77,10 +77,7 @@ impl FieldElement<Order12ExtensionField> {
     pub fn new_base(a_hex: &str) -> Self {
         Self::new([
             FieldElement::new([
-                FieldElement::new([
-                    FieldElement::new(U384::from(a_hex)),
-                    FieldElement::zero(),
-                ]),
+                FieldElement::new([FieldElement::new(U384::from(a_hex)), FieldElement::zero()]),
                 FieldElement::zero(),
                 FieldElement::zero(),
             ]),
