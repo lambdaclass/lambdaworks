@@ -96,7 +96,7 @@ impl<E: IsEllipticCurve> IsCyclicGroup for EllipticCurveElement<E> {
 
 #[cfg(test)]
 mod tests {
-    use crypto_bigint::U384;
+    use crate::unsigned_integer::UnsignedInteger384 as U384;
 
     use crate::cyclic_group::IsCyclicGroup;
     use crate::elliptic_curve::curves::test_curve_1::{
@@ -202,12 +202,12 @@ mod tests {
 
         let expected_result = EllipticCurveElement::<TestCurve2>::new([
                 FieldElement::new([
-                    FieldElement::new(U384::from_be_hex("0000000000000000000000000000000000000000000000000000000000000007b8ee59e422e702458174c18eb3302e17")),
-                    FieldElement::new(U384::from_be_hex("000000000000000000000000000000000000000000000000000000000000001395065adef5a6a5457f1ea600b5a3e4fb"))
+                    FieldElement::new(U384::from("7b8ee59e422e702458174c18eb3302e17")),
+                    FieldElement::new(U384::from("1395065adef5a6a5457f1ea600b5a3e4fb"))
                 ]),
                 FieldElement::new([
-                        FieldElement::new(U384::from_be_hex("000000000000000000000000000000000000000000000000000000000000000e29d5b15c42124cd8f05d3c8500451c33")),
-                        FieldElement::new(U384::from_be_hex("000000000000000000000000000000000000000000000000000000000000000e836ef62db0a47a63304b67c0de69b140"))
+                        FieldElement::new(U384::from("e29d5b15c42124cd8f05d3c8500451c33")),
+                        FieldElement::new(U384::from("e836ef62db0a47a63304b67c0de69b140"))
                 ]),
                 FieldElement::one()
             ]);

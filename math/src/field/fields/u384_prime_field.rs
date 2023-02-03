@@ -1,9 +1,9 @@
-use crypto_bigint::{Checked, NonZero, Word, Wrapping, U384, U768};
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
 use crate::field::element::FieldElement;
 use crate::field::traits::IsField;
+use crate::unsigned_integer::UnsignedInteger384 as U384;
 
 pub trait HasU384Constant: Debug + Clone + Eq + PartialEq {
     const VALUE: U384;
@@ -21,34 +21,19 @@ impl<MODULO: HasU384Constant> IsField for U384PrimeField<MODULO> {
     type BaseType = U384;
 
     fn add(a: &U384, b: &U384) -> U384 {
-        a.add_mod(b, &MODULO::VALUE)
+        U384::add_mod(a, b, &MODULO::VALUE)
     }
 
     fn sub(a: &U384, b: &U384) -> U384 {
-        a.sub_mod(b, &MODULO::VALUE)
+        U384::sub_mod(a, b, &MODULO::VALUE)
     }
 
     fn neg(a: &U384) -> U384 {
-        a.neg_mod(&MODULO::VALUE)
+        U384::neg_mod(a, &MODULO::VALUE)
     }
 
     fn mul(a: &U384, b: &U384) -> U384 {
-        let mut a_limbs_double_precision: [Word; 12] = [0; 12];
-        a_limbs_double_precision[..6].copy_from_slice(a.as_words());
-        let a = U768::from(a_limbs_double_precision);
-
-        let mut b_limbs_double_precision: [Word; 12] = [0; 12];
-        b_limbs_double_precision[..6].copy_from_slice(b.as_words());
-        let b = U768::from(b_limbs_double_precision);
-
-        let mut mod_limbs_double_precision: [Word; 12] = [0; 12];
-        mod_limbs_double_precision[..6].copy_from_slice(&MODULO::VALUE.to_words());
-        let modulo = U768::from(mod_limbs_double_precision);
-
-        let result = (Checked::new(a) * Checked::new(b)).0.unwrap() % NonZero::new(modulo).unwrap();
-        let mut result_words: [Word; 6] = [0; 6];
-        result_words.copy_from_slice(&result.to_words()[..6]);
-        U384::from(result_words)
+        U384::mul_mod(a, b, &MODULO::VALUE)
     }
 
     fn div(a: &U384, b: &U384) -> U384 {
@@ -56,9 +41,9 @@ impl<MODULO: HasU384Constant> IsField for U384PrimeField<MODULO> {
     }
 
     fn inv(a: &U384) -> U384 {
-        assert_ne!(*a, U384::from_u16(0), "Cannot invert zero element");
-        let exponent = Wrapping(MODULO::VALUE) - Wrapping(U384::from_u16(2));
-        Self::pow(a, exponent.0)
+        assert_ne!(*a, U384::from(0_u8), "Cannot invert zero element");
+        let exponent = MODULO::VALUE - U384::from(2_u8);
+        Self::pow(a, exponent)
     }
 
     fn eq(a: &U384, b: &U384) -> bool {
@@ -66,23 +51,21 @@ impl<MODULO: HasU384Constant> IsField for U384PrimeField<MODULO> {
     }
 
     fn zero() -> U384 {
-        U384::from_u16(0)
+        U384::from(0_u8)
     }
 
     fn one() -> U384 {
-        U384::from_u16(1)
+        U384::from(1_u8)
     }
 
     fn from_u64(x: u64) -> U384 {
-        U384::from_u64(x) % NonZero::new(MODULO::VALUE).unwrap()
+        U384::from(x) % MODULO::VALUE
     }
 
     fn from_base_type(x: U384) -> U384 {
-        x % NonZero::new(MODULO::VALUE).unwrap()
+        x % MODULO::VALUE
     }
 }
-
-impl<ORDER: HasU384Constant> Copy for U384FieldElement<ORDER> {}
 
 #[cfg(test)]
 mod tests {
@@ -93,7 +76,7 @@ mod tests {
     #[derive(Debug, Clone, Eq, PartialEq)]
     struct Mod13;
     impl HasU384Constant for Mod13 {
-        const VALUE: U384 = U384::from_u16(ORDER);
+        const VALUE: U384 = U384::from_const("00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000d");
     }
 
     type FE = FieldElement<U384PrimeField<Mod13>>;
@@ -152,7 +135,7 @@ mod tests {
     #[test]
     fn inv_2() {
         let a: FE = FE::from(2);
-        assert_eq!(a * a.inv(), FE::from(1));
+        assert_eq!(&a * a.inv(), FE::from(1));
     }
 
     #[test]
@@ -184,7 +167,7 @@ mod tests {
     fn two_plus_its_additive_inv_is_0() {
         let two = FE::from(2);
 
-        assert_eq!(two + (-two), FE::from(0))
+        assert_eq!(&two + (-&two), FE::from(0))
     }
 
     #[test]
@@ -207,24 +190,19 @@ mod tests {
     fn neg_zero_is_zero() {
         let zero = FE::from(0);
 
-        assert_eq!(-zero, zero);
+        assert_eq!(-&zero, zero);
     }
 
     #[derive(Debug, Clone, Eq, PartialEq)]
     struct ModP;
     impl HasU384Constant for ModP {
-        const VALUE: U384 = U384::from_be_hex("1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab");
-    }
-
-    fn new_field_element(a_hex: &str) -> U384FieldElement<ModP> {
-        let padded_a_hex = String::from_utf8(vec![b'0'; 96 - a_hex.len()]).unwrap() + &a_hex;
-        FieldElement::new(U384::from_be_hex(&padded_a_hex))
+        const VALUE: U384 = U384::from_const("1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab");
     }
 
     #[test]
     fn test_big_numbers() {
-        let y = new_field_element("7acf6e49cc000ff53b06ee1d27056734019c0a1edfa16684da41ebb0c56750f73bc1b0eae4c6c241808a5e485af0ba0");
-        let y2 = new_field_element("955318e3b9b4e806ba0ac178662fc6879f48785d418ae2bbe861c23d09f0e60701061e29fbecfa8d8780679f44dadda");
+        let y = FieldElement::<U384PrimeField<ModP>>::new(U384::from("7acf6e49cc000ff53b06ee1d27056734019c0a1edfa16684da41ebb0c56750f73bc1b0eae4c6c241808a5e485af0ba0"));
+        let y2 = FieldElement::<U384PrimeField<ModP>>::new(U384::from("955318e3b9b4e806ba0ac178662fc6879f48785d418ae2bbe861c23d09f0e60701061e29fbecfa8d8780679f44dadda"));
         assert_eq!(y.pow(2_u64), y2);
     }
 }
