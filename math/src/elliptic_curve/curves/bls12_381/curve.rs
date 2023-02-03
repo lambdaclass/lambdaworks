@@ -1,90 +1,9 @@
+use crate::elliptic_curve::curves::bls12_381::field_extension::{order_p, order_r, ModP};
 use crate::unsigned_integer::UnsignedInteger384 as U384;
 use crate::{
     elliptic_curve::traits::IsEllipticCurve,
-    field::{
-        element::FieldElement,
-        extensions::{
-            cubic::{CubicExtensionField, HasCubicNonResidue},
-            quadratic::{HasQuadraticNonResidue, QuadraticExtensionField},
-        },
-        fields::u384_prime_field::{HasU384Constant, U384PrimeField},
-    },
+    field::{element::FieldElement, fields::u384_prime_field::U384PrimeField},
 };
-
-/// Order of the base field (e.g.: order of the coordinates)
-const fn order_p() -> U384 {
-    U384::from_const("1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab")
-}
-
-/// Order of the subgroup of the curve.
-const fn order_r() -> U384 {
-    U384::from_const("0000000000000000000000000000000073eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001")
-}
-
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct ModP;
-impl HasU384Constant for ModP {
-    const VALUE: U384 = order_p();
-}
-
-#[derive(Debug, Clone)]
-pub struct LevelOneResidue;
-impl HasQuadraticNonResidue for LevelOneResidue {
-    type BaseField = U384PrimeField<ModP>;
-
-    fn residue() -> FieldElement<U384PrimeField<ModP>> {
-        -FieldElement::one()
-    }
-}
-
-type LevelOneField = QuadraticExtensionField<LevelOneResidue>;
-
-#[derive(Debug, Clone)]
-pub struct LevelTwoResidue;
-impl HasCubicNonResidue for LevelTwoResidue {
-    type BaseField = LevelOneField;
-
-    fn residue() -> FieldElement<LevelOneField> {
-        FieldElement::new([FieldElement::from(1), FieldElement::from(1)])
-    }
-}
-
-type LevelTwoField = CubicExtensionField<LevelTwoResidue>;
-
-#[derive(Debug, Clone)]
-pub struct LevelThreeResidue;
-impl HasQuadraticNonResidue for LevelThreeResidue {
-    type BaseField = LevelTwoField;
-
-    fn residue() -> FieldElement<LevelTwoField> {
-        FieldElement::new([
-            FieldElement::zero(),
-            FieldElement::one(),
-            FieldElement::zero(),
-        ])
-    }
-}
-
-pub type Order12ExtensionField = QuadraticExtensionField<LevelThreeResidue>;
-
-impl FieldElement<U384PrimeField<ModP>> {
-    pub fn new_base(a_hex: &str) -> Self {
-        Self::new(U384::from(a_hex))
-    }
-}
-
-impl FieldElement<Order12ExtensionField> {
-    pub fn new_base(a_hex: &str) -> Self {
-        Self::new([
-            FieldElement::new([
-                FieldElement::new([FieldElement::new(U384::from(a_hex)), FieldElement::zero()]),
-                FieldElement::zero(),
-                FieldElement::zero(),
-            ]),
-            FieldElement::zero(),
-        ])
-    }
-}
 
 /// The description of the curve.
 #[derive(Clone, Debug)]
@@ -201,22 +120,59 @@ mod tests {
 
     use super::BLS12381Curve;
 
+    type FEE = FieldElement<U384PrimeField<ModP>>;
+
     fn point_1() -> EllipticCurveElement<BLS12381Curve> {
-        let x = FieldElement::<U384PrimeField<ModP>>::new_base("36bb494facde72d0da5c770c4b16d9b2d45cfdc27604a25a1a80b020798e5b0dbd4c6d939a8f8820f042a29ce552ee5");
-        let y = FieldElement::<U384PrimeField<ModP>>::new_base("7acf6e49cc000ff53b06ee1d27056734019c0a1edfa16684da41ebb0c56750f73bc1b0eae4c6c241808a5e485af0ba0");
+        let x = FEE::new_base("36bb494facde72d0da5c770c4b16d9b2d45cfdc27604a25a1a80b020798e5b0dbd4c6d939a8f8820f042a29ce552ee5");
+        let y = FEE::new_base("7acf6e49cc000ff53b06ee1d27056734019c0a1edfa16684da41ebb0c56750f73bc1b0eae4c6c241808a5e485af0ba0");
+        EllipticCurveElement::new([x, y, FieldElement::one()])
+    }
+
+    fn point_2() -> EllipticCurveElement<BLS12381Curve> {
+        let x = FEE::new_base("10cd31f0d0bc539a7322ba3f3523364c6f82001f2ca859a8349f0109a1497365cdaeda13d7cb872e7a3b72906c7c8579");
+        let y = FEE::new_base("122fa2aa688cabfb11582271850bb150cf9fd5c9883b4cc37b1b03cd54081c331107beb6da392db87b3f9954e199b7d1");
         EllipticCurveElement::new([x, y, FieldElement::one()])
     }
 
     fn point_1_times_5() -> EllipticCurveElement<BLS12381Curve> {
-        let x = FieldElement::<U384PrimeField<ModP>>::new_base("32bcce7e71eb50384918e0c9809f73bde357027c6bf15092dd849aa0eac274d43af4c68a65fb2cda381734af5eecd5c");
-        let y = FieldElement::<U384PrimeField<ModP>>::new_base("11e48467b19458aabe7c8a42dc4b67d7390fdf1e150534caadddc7e6f729d8890b68a5ea6885a21b555186452b954d88");
+        let x = FEE::new_base("32bcce7e71eb50384918e0c9809f73bde357027c6bf15092dd849aa0eac274d43af4c68a65fb2cda381734af5eecd5c");
+        let y = FEE::new_base("11e48467b19458aabe7c8a42dc4b67d7390fdf1e150534caadddc7e6f729d8890b68a5ea6885a21b555186452b954d88");
         EllipticCurveElement::new([x, y, FieldElement::one()])
     }
 
     #[test]
-    fn test_1() {
+    fn adding_five_times_point_1_works() {
         let point_1 = point_1();
         let point_1_times_5 = point_1_times_5();
         assert_eq!(point_1.operate_with_self(5), point_1_times_5);
+    }
+
+    // This tests only apply for the specific curve found in the configuration file.
+    #[test]
+    fn create_valid_point_works() {
+        let p = point_1();
+        assert_eq!(*p.x(), FEE::new_base("36bb494facde72d0da5c770c4b16d9b2d45cfdc27604a25a1a80b020798e5b0dbd4c6d939a8f8820f042a29ce552ee5"));
+        assert_eq!(*p.y(), FEE::new_base("7acf6e49cc000ff53b06ee1d27056734019c0a1edfa16684da41ebb0c56750f73bc1b0eae4c6c241808a5e485af0ba0"));
+        assert_eq!(*p.z(), FEE::new_base("1"));
+    }
+
+    #[test]
+    #[should_panic]
+    fn create_invalid_points_panicks() {
+        EllipticCurveElement::<BLS12381Curve>::new([FEE::from(0), FEE::from(1), FEE::from(1)]);
+    }
+
+    #[test]
+    fn equality_works() {
+        let g = EllipticCurveElement::<BLS12381Curve>::generator();
+        let g2 = g.operate_with(&g);
+        assert_ne!(&g2, &g);
+        assert_eq!(&g, &g);
+    }
+
+    #[test]
+    fn operate_with_self_works_1() {
+        let g = EllipticCurveElement::<BLS12381Curve>::generator();
+        assert_eq!(g.operate_with(&g).operate_with(&g), g.operate_with_self(3));
     }
 }

@@ -136,6 +136,7 @@ mod tests {
         let g = EllipticCurveElement::<TestCurve1>::generator();
         let g2 = g.operate_with(&g);
         assert_ne!(&g2, &g);
+        assert_eq!(&g, &g);
     }
 
     #[test]
