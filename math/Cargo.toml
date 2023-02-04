@@ -13,5 +13,5 @@ test-case = "2.2.2"
 criterion = "0.3"
 
 [[bench]]
-name = "msm"
+name = "benchmark"
 harness = false
