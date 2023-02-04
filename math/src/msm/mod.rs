@@ -80,9 +80,9 @@ mod tests {
 
     type FE = FieldElement<U64PrimeField<ORDER_P>>;
 
-    #[test_case(pippenger::Pippenger::new(1))]
-    #[test_case(pippenger::Pippenger::new(2))]
-    #[test_case(pippenger::Pippenger::new(4))]
+    #[test_case(pippenger::Pippenger::new(1).unwrap())]
+    #[test_case(pippenger::Pippenger::new(2).unwrap())]
+    #[test_case(pippenger::Pippenger::new(4).unwrap())]
     #[test_case(naive::Naive)]
     fn msm_11_is_1_over_elliptic_curves(
         msm: impl MSM<U64PrimeField<ORDER_P>, EllipticCurveElement<CurrentCurve>>,
@@ -95,9 +95,9 @@ mod tests {
         );
     }
 
-    #[test_case(pippenger::Pippenger::new(1))]
-    #[test_case(pippenger::Pippenger::new(2))]
-    #[test_case(pippenger::Pippenger::new(4))]
+    #[test_case(pippenger::Pippenger::new(1).unwrap())]
+    #[test_case(pippenger::Pippenger::new(2).unwrap())]
+    #[test_case(pippenger::Pippenger::new(4).unwrap())]
     #[test_case(naive::Naive)]
     fn msm_23_is_6_over_field_elements(
         msm: impl MSM<U64PrimeField<ORDER_P>, FieldElement<U64PrimeField<ORDER_P>>>,
@@ -107,9 +107,9 @@ mod tests {
         assert_eq!(msm.msm(&c, &hiding), FE::new(6));
     }
 
-    #[test_case(pippenger::Pippenger::new(1))]
-    #[test_case(pippenger::Pippenger::new(2))]
-    #[test_case(pippenger::Pippenger::new(4))]
+    #[test_case(pippenger::Pippenger::new(1).unwrap())]
+    #[test_case(pippenger::Pippenger::new(2).unwrap())]
+    #[test_case(pippenger::Pippenger::new(4).unwrap())]
     #[test_case(naive::Naive)]
     fn msm_23_is_6_over_elliptic_curves(
         msm: impl MSM<U64PrimeField<ORDER_P>, EllipticCurveElement<CurrentCurve>>,
@@ -120,9 +120,9 @@ mod tests {
         assert_eq!(msm.msm(&c, &hiding), g.operate_with_self(6));
     }
 
-    #[test_case(pippenger::Pippenger::new(1))]
-    #[test_case(pippenger::Pippenger::new(2))]
-    #[test_case(pippenger::Pippenger::new(4))]
+    #[test_case(pippenger::Pippenger::new(1).unwrap())]
+    #[test_case(pippenger::Pippenger::new(2).unwrap())]
+    #[test_case(pippenger::Pippenger::new(4).unwrap())]
     #[test_case(naive::Naive)]
     fn msm_with_c_2_3_hiding_3_4_is_18_over_field_elements(
         msm: impl MSM<U64PrimeField<ORDER_P>, FieldElement<U64PrimeField<ORDER_P>>>,
@@ -132,9 +132,9 @@ mod tests {
         assert_eq!(msm.msm(&c, &hiding), FE::new(18));
     }
 
-    #[test_case(pippenger::Pippenger::new(1))]
-    #[test_case(pippenger::Pippenger::new(2))]
-    #[test_case(pippenger::Pippenger::new(4))]
+    #[test_case(pippenger::Pippenger::new(1).unwrap())]
+    #[test_case(pippenger::Pippenger::new(2).unwrap())]
+    #[test_case(pippenger::Pippenger::new(4).unwrap())]
     #[test_case(naive::Naive)]
     fn msm_with_c_2_3_hiding_3_4_is_18_over_elliptic_curves(
         msm: impl MSM<U64PrimeField<ORDER_P>, EllipticCurveElement<CurrentCurve>>,
@@ -145,9 +145,9 @@ mod tests {
         assert_eq!(msm.msm(&c, &hiding), g.operate_with_self(18));
     }
 
-    #[test_case(pippenger::Pippenger::new(1))]
-    #[test_case(pippenger::Pippenger::new(2))]
-    #[test_case(pippenger::Pippenger::new(4))]
+    #[test_case(pippenger::Pippenger::new(1).unwrap())]
+    #[test_case(pippenger::Pippenger::new(2).unwrap())]
+    #[test_case(pippenger::Pippenger::new(4).unwrap())]
     #[test_case(naive::Naive)]
     fn msm_with_empty_input_over_field_elements(
         msm: impl MSM<U64PrimeField<ORDER_P>, FieldElement<U64PrimeField<ORDER_P>>>,
@@ -157,9 +157,9 @@ mod tests {
         assert_eq!(msm.msm(&c, &hiding), FE::new(0));
     }
 
-    #[test_case(pippenger::Pippenger::new(1))]
-    #[test_case(pippenger::Pippenger::new(2))]
-    #[test_case(pippenger::Pippenger::new(4))]
+    #[test_case(pippenger::Pippenger::new(1).unwrap())]
+    #[test_case(pippenger::Pippenger::new(2).unwrap())]
+    #[test_case(pippenger::Pippenger::new(4).unwrap())]
     #[test_case(naive::Naive)]
     fn msm_with_empty_c_is_none_over_elliptic_curves(
         msm: impl MSM<U64PrimeField<ORDER_P>, EllipticCurveElement<CurrentCurve>>,

@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 rand = "0.8.5"
+thiserror = "1.0.38"
 
 [dev-dependencies]
 test-case = "2.2.2"
