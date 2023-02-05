@@ -59,7 +59,7 @@ pub trait HasFieldOperations: Debug {
     fn from_base_type(x: Self::BaseType) -> Self::BaseType;
 }
 
-pub trait IsLinearField {
+pub trait SizedField {
     type BaseType;
 
     fn and(a: &Self::BaseType, mask: usize) -> usize;

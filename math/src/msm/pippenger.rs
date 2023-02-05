@@ -6,7 +6,7 @@ use crate::{
     cyclic_group::IsCyclicBilinearGroup,
     field::{
         element::FieldElement,
-        traits::{HasFieldOperations, IsLinearField},
+        traits::{HasFieldOperations, SizedField},
     },
 };
 
@@ -39,7 +39,7 @@ impl Pippenger {
 impl<F, G> MSM<F, G> for Pippenger
 where
     G: IsCyclicBilinearGroup,
-    F: HasFieldOperations + IsLinearField<BaseType = <F as HasFieldOperations>::BaseType>,
+    F: HasFieldOperations + SizedField<BaseType = <F as HasFieldOperations>::BaseType>,
     <F as HasFieldOperations>::BaseType: Shr<usize, Output = <F as HasFieldOperations>::BaseType>, // TODO(jsign): remove `as`
 {
     fn msm(&self, ks: &[FieldElement<F>], ps: &[G]) -> G {

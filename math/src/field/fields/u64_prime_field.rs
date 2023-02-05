@@ -1,6 +1,6 @@
 use crate::cyclic_group::IsCyclicBilinearGroup;
 use crate::field::element::FieldElement;
-use crate::field::traits::{HasFieldOperations, IsLinearField};
+use crate::field::traits::{HasFieldOperations, SizedField};
 
 /// Type representing prime fields over unsigned 64-bit integers.
 #[derive(Debug, Clone)]
@@ -56,7 +56,7 @@ impl<const MODULO: u64> HasFieldOperations for U64PrimeField<MODULO> {
     }
 }
 
-impl<const MODULO: u64> IsLinearField for U64PrimeField<MODULO> {
+impl<const MODULO: u64> SizedField for U64PrimeField<MODULO> {
     type BaseType = u64;
 
     fn num_bits() -> usize {

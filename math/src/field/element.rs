@@ -2,7 +2,7 @@ use crate::field::traits::HasFieldOperations;
 use std::fmt::Debug;
 use std::ops::{Add, AddAssign, BitAnd, Div, Mul, Neg, Shl, Shr, Sub};
 
-use super::traits::IsLinearField;
+use super::traits::SizedField;
 
 /// A field element with operations algorithms defined in `F`
 #[derive(Debug, Clone)]
@@ -152,7 +152,7 @@ where
 
 impl<F> BitAnd<usize> for &FieldElement<F>
 where
-    F: HasFieldOperations + IsLinearField<BaseType = <F as HasFieldOperations>::BaseType>,
+    F: HasFieldOperations + SizedField<BaseType = <F as HasFieldOperations>::BaseType>,
 {
     type Output = usize;
 
@@ -163,7 +163,7 @@ where
 
 impl<F> BitAnd<usize> for FieldElement<F>
 where
-    F: HasFieldOperations + IsLinearField<BaseType = <F as HasFieldOperations>::BaseType>,
+    F: HasFieldOperations + SizedField<BaseType = <F as HasFieldOperations>::BaseType>,
 {
     type Output = usize;
 
@@ -397,7 +397,7 @@ where
 
 impl<F> FieldElement<F>
 where
-    F: HasFieldOperations + IsLinearField,
+    F: HasFieldOperations + SizedField,
 {
     pub fn num_bits() -> usize {
         F::num_bits()
