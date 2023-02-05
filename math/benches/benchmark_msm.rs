@@ -55,7 +55,7 @@ pub fn msm_with_size(c: &mut Criterion, msm_size: usize) {
             BenchmarkId::new("pippenger", format!("({}, {})", msm_size, *window_size)),
             window_size,
             |b, window_size| {
-                let msm = pippenger::Pippenger::new(*window_size);
+                let msm = pippenger::Pippenger::new(*window_size).unwrap();
                 b.iter(|| {
                     msm.msm(s, h);
                 })
