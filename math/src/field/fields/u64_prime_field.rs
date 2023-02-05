@@ -90,12 +90,6 @@ mod tests {
     type FE = FieldElement<U64PrimeField<ORDER>>;
 
     #[test]
-    fn order_must_small_as_to_not_allow_overflows() {
-        // ORDER*ORDER < u128::MAX
-        assert!(ORDER <= u64::MAX.into());
-    }
-
-    #[test]
     fn two_plus_one_is_three() {
         assert_eq!(FE::new(2) + FE::new(1), FE::new(3));
     }
