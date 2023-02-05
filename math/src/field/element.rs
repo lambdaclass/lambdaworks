@@ -395,7 +395,7 @@ impl<F> FieldElement<F>
 where
     F: IsLinearField,
 {
-    pub fn bit_size() -> usize {
-        F::bit_size()
+    pub fn num_bits() -> usize {
+        F::num_bits()
     }
 }

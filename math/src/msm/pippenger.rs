@@ -44,7 +44,7 @@ where
         );
 
         // The number of windows of size `s` is ceil(lambda/s).
-        let num_windows = (F::bit_size() + self.window_size - 1) / self.window_size;
+        let num_windows = (F::num_bits() + self.window_size - 1) / self.window_size;
 
         // We define `buckets` outside of the loop so we only have to allocate once, and reuse it.
         //

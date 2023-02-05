@@ -66,5 +66,5 @@ pub trait IsLinearField: HasFieldOperations {
 
     fn and(a: &Self::BaseType, mask: usize) -> usize;
 
-    fn bit_size() -> usize;
+    fn num_bits() -> usize;
 }

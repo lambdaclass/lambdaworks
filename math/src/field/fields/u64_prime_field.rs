@@ -57,7 +57,7 @@ impl<const MODULO: u64> HasFieldOperations for U64PrimeField<MODULO> {
 }
 
 impl<const MODULO: u64> IsLinearField for U64PrimeField<MODULO> {
-    fn bit_size() -> usize {
+    fn num_bits() -> usize {
         (Self::BaseType::BITS - (MODULO - 1).leading_zeros()) as usize
     }
 
@@ -282,10 +282,10 @@ mod tests {
 
     #[test]
     fn bit_size() {
-        assert_eq!(FieldElement::<U64PrimeField<2>>::bit_size(), 1);
-        assert_eq!(FieldElement::<U64PrimeField<3>>::bit_size(), 2);
-        assert_eq!(FieldElement::<U64PrimeField<4>>::bit_size(), 2);
-        assert_eq!(FieldElement::<U64PrimeField<5>>::bit_size(), 3);
-        assert_eq!(FieldElement::<U64PrimeField<42>>::bit_size(), 6);
+        assert_eq!(FieldElement::<U64PrimeField<2>>::num_bits(), 1);
+        assert_eq!(FieldElement::<U64PrimeField<3>>::num_bits(), 2);
+        assert_eq!(FieldElement::<U64PrimeField<4>>::num_bits(), 2);
+        assert_eq!(FieldElement::<U64PrimeField<5>>::num_bits(), 3);
+        assert_eq!(FieldElement::<U64PrimeField<42>>::num_bits(), 6);
     }
 }
