@@ -96,7 +96,7 @@ where
 
 impl<F> Shl<usize> for FieldElement<F>
 where
-    F: IsLinearField,
+    F: HasFieldOperations + IsLinearField<BaseType = <F as HasFieldOperations>::BaseType>,
 {
     type Output = FieldElement<F>;
 
@@ -109,7 +109,7 @@ where
 
 impl<F> Shl<usize> for &FieldElement<F>
 where
-    F: IsLinearField,
+    F: HasFieldOperations + IsLinearField<BaseType = <F as HasFieldOperations>::BaseType>,
 {
     type Output = FieldElement<F>;
 
@@ -122,7 +122,7 @@ where
 
 impl<F> Shr<usize> for FieldElement<F>
 where
-    F: IsLinearField,
+    F: HasFieldOperations + IsLinearField<BaseType = <F as HasFieldOperations>::BaseType>,
 {
     type Output = FieldElement<F>;
 
@@ -135,7 +135,7 @@ where
 
 impl<F> Shr<usize> for &FieldElement<F>
 where
-    F: IsLinearField,
+    F: HasFieldOperations + IsLinearField<BaseType = <F as HasFieldOperations>::BaseType>,
 {
     type Output = FieldElement<F>;
 
@@ -148,7 +148,7 @@ where
 
 impl<F> BitAnd<usize> for &FieldElement<F>
 where
-    F: IsLinearField,
+    F: HasFieldOperations + IsLinearField<BaseType = <F as HasFieldOperations>::BaseType>,
 {
     type Output = usize;
 
@@ -159,7 +159,7 @@ where
 
 impl<F> BitAnd<usize> for FieldElement<F>
 where
-    F: IsLinearField,
+    F: HasFieldOperations + IsLinearField<BaseType = <F as HasFieldOperations>::BaseType>,
 {
     type Output = usize;
 
@@ -393,7 +393,7 @@ where
 
 impl<F> FieldElement<F>
 where
-    F: IsLinearField,
+    F: HasFieldOperations + IsLinearField,
 {
     pub fn num_bits() -> usize {
         F::num_bits()

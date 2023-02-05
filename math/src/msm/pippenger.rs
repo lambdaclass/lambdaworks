@@ -2,7 +2,10 @@ use thiserror::Error;
 
 use crate::{
     cyclic_group::IsCyclicBilinearGroup,
-    field::{element::FieldElement, traits::IsLinearField},
+    field::{
+        element::FieldElement,
+        traits::{HasFieldOperations, IsLinearField},
+    },
 };
 
 use super::MSM;
@@ -34,7 +37,7 @@ impl Pippenger {
 impl<F, G> MSM<F, G> for Pippenger
 where
     G: IsCyclicBilinearGroup,
-    F: IsLinearField,
+    F: HasFieldOperations + IsLinearField<BaseType = <F as HasFieldOperations>::BaseType>,
 {
     fn msm(&self, ks: &[FieldElement<F>], ps: &[G]) -> G {
         assert_eq!(

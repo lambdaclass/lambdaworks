@@ -1,6 +1,6 @@
 use crate::cyclic_group::IsCyclicBilinearGroup;
 use crate::field::element::FieldElement;
-use crate::field::traits::IsLinearField;
+use crate::field::traits::{HasFieldOperations, IsLinearField};
 
 pub mod naive;
 pub mod pippenger;
@@ -8,7 +8,7 @@ pub mod pippenger;
 pub trait MSM<F, G>
 where
     G: IsCyclicBilinearGroup,
-    F: IsLinearField,
+    F: HasFieldOperations + IsLinearField,
 {
     fn msm(&self, ks: &[FieldElement<F>], ps: &[G]) -> G;
 }

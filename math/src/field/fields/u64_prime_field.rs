@@ -57,6 +57,8 @@ impl<const MODULO: u64> HasFieldOperations for U64PrimeField<MODULO> {
 }
 
 impl<const MODULO: u64> IsLinearField for U64PrimeField<MODULO> {
+    type BaseType = u64;
+
     fn num_bits() -> usize {
         (Self::BaseType::BITS - (MODULO - 1).leading_zeros()) as usize
     }

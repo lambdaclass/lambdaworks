@@ -59,7 +59,9 @@ pub trait HasFieldOperations: Debug {
     fn from_base_type(x: Self::BaseType) -> Self::BaseType;
 }
 
-pub trait IsLinearField: HasFieldOperations {
+pub trait IsLinearField {
+    type BaseType;
+
     fn shr(a: &Self::BaseType, n: usize) -> Self::BaseType;
 
     fn shl(a: &Self::BaseType, n: usize) -> Self::BaseType;
