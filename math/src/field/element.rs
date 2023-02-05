@@ -96,52 +96,56 @@ where
 
 impl<F> Shl<usize> for FieldElement<F>
 where
-    F: HasFieldOperations + IsLinearField<BaseType = <F as HasFieldOperations>::BaseType>,
+    F: HasFieldOperations,
+    F::BaseType: Shl<usize, Output = F::BaseType>,
 {
     type Output = FieldElement<F>;
 
     fn shl(self, rhs: usize) -> Self::Output {
         Self::Output {
-            value: F::shl(&self.value, rhs),
+            value: self.value << rhs,
         }
     }
 }
 
 impl<F> Shl<usize> for &FieldElement<F>
 where
-    F: HasFieldOperations + IsLinearField<BaseType = <F as HasFieldOperations>::BaseType>,
+    F: HasFieldOperations,
+    F::BaseType: Shl<usize, Output = F::BaseType>,
 {
     type Output = FieldElement<F>;
 
     fn shl(self, rhs: usize) -> Self::Output {
         Self::Output {
-            value: F::shl(&self.value, rhs),
+            value: self.value.clone() << rhs,
         }
     }
 }
 
 impl<F> Shr<usize> for FieldElement<F>
 where
-    F: HasFieldOperations + IsLinearField<BaseType = <F as HasFieldOperations>::BaseType>,
+    F: HasFieldOperations,
+    F::BaseType: Shr<usize, Output = F::BaseType>,
 {
     type Output = FieldElement<F>;
 
     fn shr(self, rhs: usize) -> Self::Output {
         Self::Output {
-            value: F::shr(&self.value, rhs),
+            value: self.value >> rhs,
         }
     }
 }
 
 impl<F> Shr<usize> for &FieldElement<F>
 where
-    F: HasFieldOperations + IsLinearField<BaseType = <F as HasFieldOperations>::BaseType>,
+    F: HasFieldOperations,
+    F::BaseType: Shr<usize, Output = F::BaseType>,
 {
     type Output = FieldElement<F>;
 
     fn shr(self, rhs: usize) -> Self::Output {
         Self::Output {
-            value: F::shr(&self.value, rhs),
+            value: self.value.clone() >> rhs,
         }
     }
 }

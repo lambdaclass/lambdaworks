@@ -62,10 +62,6 @@ pub trait HasFieldOperations: Debug {
 pub trait IsLinearField {
     type BaseType;
 
-    fn shr(a: &Self::BaseType, n: usize) -> Self::BaseType;
-
-    fn shl(a: &Self::BaseType, n: usize) -> Self::BaseType;
-
     fn and(a: &Self::BaseType, mask: usize) -> usize;
 
     fn num_bits() -> usize;

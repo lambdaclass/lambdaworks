@@ -63,14 +63,6 @@ impl<const MODULO: u64> IsLinearField for U64PrimeField<MODULO> {
         (Self::BaseType::BITS - (MODULO - 1).leading_zeros()) as usize
     }
 
-    fn shr(a: &Self::BaseType, n: usize) -> Self::BaseType {
-        a >> n
-    }
-
-    fn shl(a: &Self::BaseType, n: usize) -> Self::BaseType {
-        a << n
-    }
-
     fn and(a: &Self::BaseType, mask: usize) -> usize {
         (*a as usize) & mask
     }
