@@ -128,12 +128,6 @@ mod tests {
         EllipticCurveElement::new([x, y, FieldElement::one()])
     }
 
-    fn point_2() -> EllipticCurveElement<BLS12381Curve> {
-        let x = FEE::new_base("10cd31f0d0bc539a7322ba3f3523364c6f82001f2ca859a8349f0109a1497365cdaeda13d7cb872e7a3b72906c7c8579");
-        let y = FEE::new_base("122fa2aa688cabfb11582271850bb150cf9fd5c9883b4cc37b1b03cd54081c331107beb6da392db87b3f9954e199b7d1");
-        EllipticCurveElement::new([x, y, FieldElement::one()])
-    }
-
     fn point_1_times_5() -> EllipticCurveElement<BLS12381Curve> {
         let x = FEE::new_base("32bcce7e71eb50384918e0c9809f73bde357027c6bf15092dd849aa0eac274d43af4c68a65fb2cda381734af5eecd5c");
         let y = FEE::new_base("11e48467b19458aabe7c8a42dc4b67d7390fdf1e150534caadddc7e6f729d8890b68a5ea6885a21b555186452b954d88");
