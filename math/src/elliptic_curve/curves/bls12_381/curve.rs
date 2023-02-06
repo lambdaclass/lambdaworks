@@ -1,9 +1,6 @@
 use crate::elliptic_curve::curves::bls12_381::field_extension::{order_p, order_r};
-use crate::unsigned_integer::unsigned_integer::U384;
-use crate::{
-    elliptic_curve::traits::IsEllipticCurve,
-    field::{element::FieldElement},
-};
+use crate::unsigned_integer::element::U384;
+use crate::{elliptic_curve::traits::IsEllipticCurve, field::element::FieldElement};
 
 use super::field_extension::BLS12381PrimeField;
 

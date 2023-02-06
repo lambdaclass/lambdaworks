@@ -1,5 +1,7 @@
-use crate::field::fields::u384_prime_field::{IsMontgomeryConfiguration, MontgomeryBackendPrimeField};
-use crate::unsigned_integer::unsigned_integer::U384;
+use crate::field::fields::u384_prime_field::{
+    IsMontgomeryConfiguration, MontgomeryBackendPrimeField,
+};
+use crate::unsigned_integer::element::U384;
 use crate::{
     elliptic_curve::traits::{HasDistortionMap, IsEllipticCurve},
     field::{
@@ -7,9 +9,6 @@ use crate::{
         extensions::quadratic::{HasQuadraticNonResidue, QuadraticExtensionField},
     },
 };
-
-
-
 
 /// Order of the base field (e.g.: order of the coordinates)
 pub const fn order_p() -> U384 {
@@ -21,10 +20,9 @@ pub const fn order_p() -> U384 {
 /// Order of the subgroup of the curve.
 pub const fn order_r() -> U384 {
     U384 {
-        limbs: [0, 0, 0, 21, 814035971192784056, 4736475113166964431]
+        limbs: [0, 0, 0, 21, 814035971192784056, 4736475113166964431],
     }
 }
-
 
 // FPBLS12381
 #[derive(Clone, Debug)]
@@ -39,7 +37,7 @@ impl IsMontgomeryConfiguration<6> for BLS12381FieldConfig {
             8632934651105793861,
             6865905132761471162,
             17002214543764226050,
-            8505329371266088957
+            8505329371266088957,
         ],
     };
     const R2: U384 = U384 {
@@ -49,13 +47,12 @@ impl IsMontgomeryConfiguration<6> for BLS12381FieldConfig {
             7488229067341005760,
             10224657059481499349,
             754043588434789617,
-            17644856173732828998
+            17644856173732828998,
         ],
     };
 }
 
 type TestCurve2PrimeField = MontgomeryBackendPrimeField<6, BLS12381FieldConfig>;
-
 
 /// In F59 the element -1 is not a square. We use this property
 /// to construct a Quadratic Field Extension out of it by adding

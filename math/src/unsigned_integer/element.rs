@@ -68,7 +68,7 @@ impl<const NUM_LIMBS: usize> Add<&UnsignedInteger<NUM_LIMBS>> for &UnsignedInteg
     type Output = UnsignedInteger<NUM_LIMBS>;
 
     fn add(self, other: &UnsignedInteger<NUM_LIMBS>) -> UnsignedInteger<NUM_LIMBS> {
-        let (result, overflow) = UnsignedInteger::add(&self, other);
+        let (result, overflow) = UnsignedInteger::add(self, other);
         assert!(!overflow, "UnsignedInteger addition overflow.");
         result
     }
@@ -104,7 +104,7 @@ impl<const NUM_LIMBS: usize> Sub<&UnsignedInteger<NUM_LIMBS>> for &UnsignedInteg
     type Output = UnsignedInteger<NUM_LIMBS>;
 
     fn sub(self, other: &UnsignedInteger<NUM_LIMBS>) -> UnsignedInteger<NUM_LIMBS> {
-        let (result, overflow) = UnsignedInteger::sub(&self, other);
+        let (result, overflow) = UnsignedInteger::sub(self, other);
         assert!(!overflow, "UnsignedInteger subtraction overflow.");
         result
     }
@@ -279,7 +279,7 @@ impl<const NUM_LIMBS: usize> BitAnd for UnsignedInteger<NUM_LIMBS> {
     type Output = Self;
     fn bitand(self, rhs: Self) -> Self::Output {
         let mut limbs = [0; NUM_LIMBS];
-        for i in 0..6 {
+        for i in 0..NUM_LIMBS {
             limbs[i] = self.limbs[i] & rhs.limbs[i];
         }
         Self { limbs }
@@ -348,7 +348,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
             for j in (0..NUM_LIMBS).rev() {
                 let mut k = i + j;
                 if k >= NUM_LIMBS - 1 {
-                    k = k - (NUM_LIMBS - 1);
+                    k -= (NUM_LIMBS - 1);
                     let uv = (lo[k] as u128) + (a.limbs[j] as u128) * (b.limbs[i] as u128) + carry;
                     carry = uv >> 64;
                     // Casting u128 to u64 takes modulo 2^{64}
@@ -412,7 +412,7 @@ impl MontgomeryAlgorithms {
             for j in (0..(NUM_LIMBS - 1)).rev() {
                 cs = t[j] as u128 + m * (q.limbs[j] as u128) + c;
                 c = cs >> 64;
-                t[j+1] = ((cs << 64) >> 64) as u64;
+                t[j + 1] = ((cs << 64) >> 64) as u64;
             }
 
             // (C,t[N-1]) := t[N] + C
@@ -421,12 +421,12 @@ impl MontgomeryAlgorithms {
             t[0] = ((cs << 64) >> 64) as u64;
 
             // t[N] := t[N+1] + C
-            t_extra[1] = t_extra[0] + c as u64;            
+            t_extra[1] = t_extra[0] + c as u64;
         }
         let mut result = UnsignedInteger { limbs: t };
-        
+
         let overflow = t_extra[0] > 0;
-        // TODO: assuming the integer represented by 
+        // TODO: assuming the integer represented by
         // [t_extra[1], t[0], ..., t[NUM_LIMBS - 1]] is at most
         // 2q in any case.
         if overflow || result > *q {
@@ -435,8 +435,6 @@ impl MontgomeryAlgorithms {
         result
     }
 }
-
-
 
 #[cfg(test)]
 mod tests {
@@ -1058,13 +1056,10 @@ mod tests {
         let r_mod_m = U384::from("58dfb0e1b3dd5e674bdcde4f42eb5533b8759d33");
         let mp: u64 = 16085280245840369887; // negative of the inverse of `m` modulo 2^{64}
         let c = U384::from("8d65cdee621682815d59f465d2641eea8a1274dc");
-        assert_eq!(
-            MontgomeryAlgorithms::cios(&x, &r_mod_m, &m, &mp),
-            c
-        );
+        assert_eq!(MontgomeryAlgorithms::cios(&x, &r_mod_m, &m, &mp), c);
     }
- 
-/*
+
+    /*
        #[test]
        fn montgomery_multiplication_works_1() {
            let x = U384::from("05ed176deb0e80b4deb7718cdaa075165f149c");

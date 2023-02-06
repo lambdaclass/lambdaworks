@@ -186,25 +186,25 @@ mod tests {
         let result_weil = EllipticCurveElement::<TestCurve1>::tate_pairing(&pa, &pb);
         assert_eq!(result_weil, expected_result);
     }
-/*
-    #[test]
-    fn operate_with_self_works_with_test_curve_2() {
-        let mut point_1 = EllipticCurveElement::<TestCurve2>::generator();
-        point_1 = point_1.operate_with_self(15);
+    /*
+        #[test]
+        fn operate_with_self_works_with_test_curve_2() {
+            let mut point_1 = EllipticCurveElement::<TestCurve2>::generator();
+            point_1 = point_1.operate_with_self(15);
 
-        let expected_result = EllipticCurveElement::<TestCurve2>::new([
-            FieldElement::new([
-                FieldElement::new(U384::from("7b8ee59e422e702458174c18eb3302e17")),
-                FieldElement::new(U384::from("1395065adef5a6a5457f1ea600b5a3e4fb")),
-            ]),
-            FieldElement::new([
-                FieldElement::new(U384::from("e29d5b15c42124cd8f05d3c8500451c33")),
-                FieldElement::new(U384::from("e836ef62db0a47a63304b67c0de69b140")),
-            ]),
-            FieldElement::one(),
-        ]);
+            let expected_result = EllipticCurveElement::<TestCurve2>::new([
+                FieldElement::new([
+                    FieldElement::new(U384::from("7b8ee59e422e702458174c18eb3302e17")),
+                    FieldElement::new(U384::from("1395065adef5a6a5457f1ea600b5a3e4fb")),
+                ]),
+                FieldElement::new([
+                    FieldElement::new(U384::from("e29d5b15c42124cd8f05d3c8500451c33")),
+                    FieldElement::new(U384::from("e836ef62db0a47a63304b67c0de69b140")),
+                ]),
+                FieldElement::one(),
+            ]);
 
-        assert_eq!(point_1, expected_result);
-    }
-*/
+            assert_eq!(point_1, expected_result);
+        }
+    */
 }

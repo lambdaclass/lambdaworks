@@ -1,6 +1,9 @@
-use std::marker::PhantomData;
+use crate::{
+    field::traits::IsField,
+    unsigned_integer::element::{MontgomeryAlgorithms, UnsignedInteger},
+};
 use std::fmt::Debug;
-use crate::{unsigned_integer::unsigned_integer::{UnsignedInteger, MontgomeryAlgorithms}, field::traits::IsField};
+use std::marker::PhantomData;
 
 pub trait IsMontgomeryConfiguration<const NUM_LIMBS: usize> {
     const MODULUS: UnsignedInteger<NUM_LIMBS>;
@@ -78,12 +81,7 @@ where
     }
 
     fn from_u64(x: u64) -> Self::BaseType {
-        MontgomeryAlgorithms::cios(
-            &UnsignedInteger::from_u64(x),
-            &C::R2,
-            &C::MODULUS,
-            &C::MP,
-        )
+        MontgomeryAlgorithms::cios(&UnsignedInteger::from_u64(x), &C::R2, &C::MODULUS, &C::MP)
     }
 
     fn from_base_type(x: Self::BaseType) -> Self::BaseType {
@@ -91,10 +89,9 @@ where
     }
 }
 
-
 #[cfg(test)]
 mod tests {
-    use crate::{unsigned_integer::unsigned_integer::UnsignedInteger, field::element::FieldElement};
+    use crate::{field::element::FieldElement, unsigned_integer::element::UnsignedInteger};
 
     use super::{IsMontgomeryConfiguration, MontgomeryBackendPrimeField};
     const NUM_LIMBS: usize = 6;
@@ -135,7 +132,14 @@ mod tests {
         };
         const MP: u64 = 16085280245840369887;
         const R: UnsignedInteger<NUM_LIMBS> = UnsignedInteger {
-            limbs: [0, 0, 0, 1491054817, 12960619100389563983, 4822041506656656691],
+            limbs: [
+                0,
+                0,
+                0,
+                1491054817,
+                12960619100389563983,
+                4822041506656656691,
+            ],
         };
         const R2: UnsignedInteger<NUM_LIMBS> = UnsignedInteger {
             limbs: [0, 0, 0, 362264696, 173086217205162856, 7848132598488868435],
@@ -146,17 +150,29 @@ mod tests {
     type FP1Element = FieldElement<FP1>;
     #[test]
     fn montgomery_backend_multiplication_works_1() {
-        let x = FP1Element::new(UnsignedInteger::from("05ed176deb0e80b4deb7718cdaa075165f149c"));
-        let y = FP1Element::new(UnsignedInteger::from("5f103b0bd4397d4df560eb559f38353f80eeb6"));
-        let c = FP1Element::new(UnsignedInteger::from("73d23e8d462060dc23d5c15c00fc432d95621a3c"));
+        let x = FP1Element::new(UnsignedInteger::from(
+            "05ed176deb0e80b4deb7718cdaa075165f149c",
+        ));
+        let y = FP1Element::new(UnsignedInteger::from(
+            "5f103b0bd4397d4df560eb559f38353f80eeb6",
+        ));
+        let c = FP1Element::new(UnsignedInteger::from(
+            "73d23e8d462060dc23d5c15c00fc432d95621a3c",
+        ));
         assert_eq!(x * y, c);
     }
 
     #[test]
     fn montgomery_backend_multiplication_works_2() {
-        let x = FP1Element::new(UnsignedInteger::from("05ed176deb0e80b4deb7718cdaa075165f149c"));
-        let y = FP1Element::new(UnsignedInteger::from("5f103b0bd4397d4df560eb559f38353f80eeb6"));
-        let c = FP1Element::new(UnsignedInteger::from("64fd5279bf47fe02d4185ce279d8aa55e00352"));
+        let x = FP1Element::new(UnsignedInteger::from(
+            "05ed176deb0e80b4deb7718cdaa075165f149c",
+        ));
+        let y = FP1Element::new(UnsignedInteger::from(
+            "5f103b0bd4397d4df560eb559f38353f80eeb6",
+        ));
+        let c = FP1Element::new(UnsignedInteger::from(
+            "64fd5279bf47fe02d4185ce279d8aa55e00352",
+        ));
         assert_eq!(x + y, c);
     }
 
@@ -183,21 +199,28 @@ mod tests {
         };
     }
 
-
     type FP2 = MontgomeryBackendPrimeField<6, MontgomeryConfigP2>;
     type FP2Element = FieldElement<FP2>;
     #[test]
     fn montgomery_backend_addition_works_1() {
-        let x = FP2Element::new(UnsignedInteger::from("05ed176deb0e80b4deb7718cdaa075165f149c"));
-        let y = FP2Element::new(UnsignedInteger::from("5f103b0bd4397d4df560eb559f38353f80eeb6"));
-        let c = FP2Element::new(UnsignedInteger::from("64fd5279bf47fe02d4185ce279d8aa55e00352"));
+        let x = FP2Element::new(UnsignedInteger::from(
+            "05ed176deb0e80b4deb7718cdaa075165f149c",
+        ));
+        let y = FP2Element::new(UnsignedInteger::from(
+            "5f103b0bd4397d4df560eb559f38353f80eeb6",
+        ));
+        let c = FP2Element::new(UnsignedInteger::from(
+            "64fd5279bf47fe02d4185ce279d8aa55e00352",
+        ));
         assert_eq!(x + y, c);
     }
 
     #[test]
     fn montgomery_backend_multiplication_works_4() {
         let x = FP2Element::one();
-        let y = FP2Element::new(UnsignedInteger::from("5f103b0bd4397d4df560eb559f38353f80eeb6"));
+        let y = FP2Element::new(UnsignedInteger::from(
+            "5f103b0bd4397d4df560eb559f38353f80eeb6",
+        ));
         assert_eq!(&y * x, y);
     }
 }
