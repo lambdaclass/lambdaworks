@@ -12,47 +12,25 @@ use crate::{
 
 /// Order of the base field (e.g.: order of the coordinates)
 pub const fn order_p() -> U384 {
-    U384 {
-        limbs: [0, 0, 0, 0, 17348059061, 12061643512074973737],
-    }
+    U384::from("150b4c0967215604b841bb57053fcb86cf")
 }
 
 /// Order of the subgroup of the curve.
 pub const fn order_r() -> U384 {
-    U384 {
-        limbs: [0, 0, 0, 21, 814035971192784056, 4736475113166964431],
-    }
+    U384::from("40a065fb5a76390de709fb229")
 }
 
 // FPBLS12381
 #[derive(Clone, Debug)]
-pub struct BLS12381FieldConfig;
-impl IsMontgomeryConfiguration<6> for BLS12381FieldConfig {
+pub struct TestCurve2MontgomeryConfig;
+impl IsMontgomeryConfiguration for TestCurve2MontgomeryConfig {
     const MODULUS: U384 = order_p();
-    const MP: u64 = 9940570264628428797;
-    const R: U384 = U384 {
-        limbs: [
-            1582556514881692819,
-            6631298214892334189,
-            8632934651105793861,
-            6865905132761471162,
-            17002214543764226050,
-            8505329371266088957,
-        ],
-    };
-    const R2: U384 = U384 {
-        limbs: [
-            1267921511277847466,
-            11130996698012816685,
-            7488229067341005760,
-            10224657059481499349,
-            754043588434789617,
-            17644856173732828998,
-        ],
-    };
+    const MP: u64 = 1901108026836139985;
+    const R: U384 = U384::from("451603d3cf2be8bd1207ccda8007fd659");
+    const R2: U384 = U384::from("f60e53d42ca85ba186067660c4f2daa94");
 }
 
-type TestCurve2PrimeField = MontgomeryBackendPrimeField<6, BLS12381FieldConfig>;
+type TestCurve2PrimeField = MontgomeryBackendPrimeField<TestCurve2MontgomeryConfig>;
 
 /// In F59 the element -1 is not a square. We use this property
 /// to construct a Quadratic Field Extension out of it by adding

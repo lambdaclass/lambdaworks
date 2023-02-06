@@ -42,23 +42,7 @@ impl<const NUM_LIMBS: usize> From<u16> for UnsignedInteger<NUM_LIMBS> {
 
 impl<const NUM_LIMBS: usize> From<&str> for UnsignedInteger<NUM_LIMBS> {
     fn from(hex_str: &str) -> Self {
-        let mut limbs = [0u64; NUM_LIMBS];
-        let hex_length = hex_str.len();
-        assert!(hex_length <= 16 * NUM_LIMBS, "The given hex string corresponds to an unsigned integer greater than the maximum allowed (2^{}-1).", NUM_LIMBS);
-        for i in 0..NUM_LIMBS {
-            let from_index = if hex_length > (i + 1) * 16 {
-                hex_length - (i + 1) * 16
-            } else {
-                0
-            };
-            let to_index = hex_length - i * 16;
-            limbs[NUM_LIMBS - 1 - i] =
-                u64::from_str_radix(&hex_str[from_index..to_index], 16).unwrap();
-            if from_index == 0 {
-                break;
-            }
-        }
-        UnsignedInteger { limbs }
+        Self::from(hex_str)
     }
 }
 
@@ -293,6 +277,41 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         UnsignedInteger { limbs }
     }
 
+    pub const fn from_u128(value: u128) -> Self {
+        let mut limbs = [0u64; NUM_LIMBS];
+        limbs[NUM_LIMBS - 1] = value as u64;
+        limbs[NUM_LIMBS - 2] = (value >> 64) as u64;
+        UnsignedInteger { limbs }
+    }
+
+    pub const fn from(value: &str) -> Self {
+        let mut result = [0u64; NUM_LIMBS];
+        let mut limb = 0;
+        let mut limb_index = NUM_LIMBS - 1;
+        let mut shift = 0;
+        let value = value.as_bytes();
+        let mut i: usize = value.len();
+        while i > 0 {
+            i -= 1;
+            limb |= match value[i] {
+                c @ b'0'..=b'9' => (c as u64 - '0' as u64) << shift,
+                c @ b'a'..=b'f' => (c as u64 - 'a' as u64 + 10) << shift,
+                c @ b'A'..=b'F' => (c as u64 - 'A' as u64 + 10) << shift,
+                _ => {panic!("Malformed hex expression.")},
+            };
+            shift += 4;
+            if shift == 64 && limb_index > 0 {
+                result[limb_index] = limb;
+                limb = 0;
+                limb_index -= 1;
+                shift = 0;
+            }
+        }
+        result[limb_index] = limb;
+
+        UnsignedInteger { limbs: result }
+    }
+
     pub fn add(
         a: &UnsignedInteger<NUM_LIMBS>,
         b: &UnsignedInteger<NUM_LIMBS>,
@@ -371,70 +390,6 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
 
 impl<const NUM_LIMBS: usize> IsUnsignedInteger for UnsignedInteger<NUM_LIMBS> {}
 
-pub struct MontgomeryAlgorithms;
-impl MontgomeryAlgorithms {
-    pub fn cios<const NUM_LIMBS: usize>(
-        a: &UnsignedInteger<NUM_LIMBS>,
-        b: &UnsignedInteger<NUM_LIMBS>,
-        q: &UnsignedInteger<NUM_LIMBS>,
-        mp: &u64,
-    ) -> UnsignedInteger<NUM_LIMBS> {
-        let mut t = [0_u64; NUM_LIMBS];
-        let mut t_extra = [0_u64; 2];
-        for i in (0..NUM_LIMBS).rev() {
-            // C := 0
-            let mut c: u128 = 0;
-
-            // for j=0 to N-1
-            //    (C,t[j]) := t[j] + a[j]*b[i] + C
-            let mut cs: u128;
-            for j in (0..NUM_LIMBS).rev() {
-                cs = t[j] as u128 + (a.limbs[j] as u128) * (b.limbs[i] as u128) + c;
-                c = cs >> 64;
-                t[j] = ((cs << 64) >> 64) as u64;
-            }
-
-            // (t[N+1],t[N]) := t[N] + C
-            cs = (t_extra[1] as u128) + c;
-            t_extra[0] = (cs >> 64) as u64;
-            t_extra[1] = ((cs << 64) >> 64) as u64;
-
-            let mut c: u128;
-
-            // m := t[0]*q'[0] mod D
-            let m = ((t[NUM_LIMBS - 1] as u128 * *mp as u128) << 64) >> 64;
-
-            // (C,_) := t[0] + m*q[0]
-            c = (t[NUM_LIMBS - 1] as u128 + m * (q.limbs[NUM_LIMBS - 1] as u128)) >> 64;
-
-            // for j=1 to N-1
-            //    (C,t[j-1]) := t[j] + m*q[j] + C
-            for j in (0..(NUM_LIMBS - 1)).rev() {
-                cs = t[j] as u128 + m * (q.limbs[j] as u128) + c;
-                c = cs >> 64;
-                t[j + 1] = ((cs << 64) >> 64) as u64;
-            }
-
-            // (C,t[N-1]) := t[N] + C
-            cs = (t_extra[1] as u128) + c;
-            c = cs >> 64;
-            t[0] = ((cs << 64) >> 64) as u64;
-
-            // t[N] := t[N+1] + C
-            t_extra[1] = t_extra[0] + c as u64;
-        }
-        let mut result = UnsignedInteger { limbs: t };
-
-        let overflow = t_extra[0] > 0;
-        // TODO: assuming the integer represented by
-        // [t_extra[1], t[0], ..., t[NUM_LIMBS - 1]] is at most
-        // 2q in any case.
-        if overflow || result > *q {
-            (result, _) = UnsignedInteger::sub(&result, q);
-        }
-        result
-    }
-}
 
 #[cfg(test)]
 mod tests {
@@ -444,25 +399,25 @@ mod tests {
 
     #[test]
     fn construct_new_integer_from_u128_1() {
-        let a = U384::from(1_u64);
+        let a = U384::from_u64(1_u64);
         assert_eq!(a.limbs, [0, 0, 0, 0, 0, 1]);
     }
 
     #[test]
     fn construct_new_integer_from_u128_2() {
-        let a = U384::from(u64::MAX as u128);
+        let a = U384::from_u64(u64::MAX);
         assert_eq!(a.limbs, [0, 0, 0, 0, 0, u64::MAX]);
     }
 
     #[test]
     fn construct_new_integer_from_u128_3() {
-        let a = U384::from(u128::MAX);
+        let a = U384::from_u128(u128::MAX);
         assert_eq!(a.limbs, [0, 0, 0, 0, u64::MAX, u64::MAX]);
     }
 
     #[test]
     fn construct_new_integer_from_u128_4() {
-        let a = U384::from(276371540478856090688472252609570374439_u128);
+        let a = U384::from_u128(276371540478856090688472252609570374439);
         assert_eq!(
             a.limbs,
             [0, 0, 0, 0, 14982131230017065096, 14596400355126379303]
@@ -638,17 +593,17 @@ mod tests {
 
     #[test]
     fn add_two_384_bit_integers_1() {
-        let a = U384::from(2_u64);
-        let b = U384::from(5_u64);
-        let c = U384::from(7_u64);
+        let a = U384::from_u64(2);
+        let b = U384::from_u64(5);
+        let c = U384::from_u64(7);
         assert_eq!(a + b, c);
     }
 
     #[test]
     fn add_two_384_bit_integers_2() {
-        let a = U384::from(334_u64);
-        let b = U384::from(666_u64);
-        let c = U384::from(1000_u64);
+        let a = U384::from_u64(334);
+        let b = U384::from_u64(666);
+        let c = U384::from_u64(1000);
         assert_eq!(a + b, c);
     }
 
@@ -746,17 +701,17 @@ mod tests {
 
     #[test]
     fn sub_two_384_bit_integers_1() {
-        let a = U384::from(2_u64);
-        let b = U384::from(5_u64);
-        let c = U384::from(7_u64);
+        let a = U384::from_u64(2);
+        let b = U384::from_u64(5);
+        let c = U384::from_u64(7);
         assert_eq!(c - a, b);
     }
 
     #[test]
     fn sub_two_384_bit_integers_2() {
-        let a = U384::from(334_u64);
-        let b = U384::from(666_u64);
-        let c = U384::from(1000_u64);
+        let a = U384::from_u64(334);
+        let b = U384::from_u64(666);
+        let c = U384::from_u64(1000);
         assert_eq!(c - a, b);
     }
 
@@ -824,9 +779,9 @@ mod tests {
 
     #[test]
     fn sub_two_384_bit_integers_11_without_overflow() {
-        let a = U384::from(334_u64);
-        let b_expected = U384::from(666_u64);
-        let c = U384::from(1000_u64);
+        let a = U384::from_u64(334);
+        let b_expected = U384::from_u64(666);
+        let c = U384::from_u64(1000);
         let (b, overflow) = U384::sub(&c, &a);
         assert!(!overflow);
         assert_eq!(b_expected, b);
@@ -834,9 +789,9 @@ mod tests {
 
     #[test]
     fn sub_two_384_bit_integers_11_with_overflow() {
-        let a = U384::from(334_u64);
+        let a = U384::from_u64(334);
         let b_expected = U384::from("fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd66");
-        let c = U384::from(1000_u64);
+        let c = U384::from_u64(1000);
         let (b, overflow) = U384::sub(&a, &c);
         assert!(overflow);
         assert_eq!(b_expected, b);
@@ -844,13 +799,13 @@ mod tests {
 
     #[test]
     fn partial_order_works() {
-        assert!(U384::from(10_u64) <= U384::from(10_u64));
-        assert!(U384::from(1_u64) < U384::from(2_u64));
-        assert!(!(U384::from(2_u64) < U384::from(1_u64)));
+        assert!(U384::from_u64(10) <= U384::from_u64(10));
+        assert!(U384::from_u64(1) < U384::from_u64(2));
+        assert!(!(U384::from_u64(2) < U384::from_u64(1)));
 
-        assert!(U384::from(10_u64) >= U384::from(10_u64));
-        assert!(U384::from(2_u64) > U384::from(1_u64));
-        assert!(!(U384::from(1_u64) > U384::from(2_u64)));
+        assert!(U384::from_u64(10) >= U384::from_u64(10));
+        assert!(U384::from_u64(2) > U384::from_u64(1));
+        assert!(!(U384::from_u64(1) > U384::from_u64(2)));
 
         let a = U384::from("92977527a0f8ba00d18c1b2f1900d965d4a70e5f5f54468ffb2d4d41519385f24b078a0e7d0281d5ad0c36724dc4233");
         let c = U384::from("d99244c0f4a20348f44b33b288fe57bb99323f09e135c631a80e01b452e68dd6ad3315e5776b713af4a2d7f5f9a2a75");
@@ -859,10 +814,10 @@ mod tests {
         assert!(&a >= &a);
         assert!(!(&a < &a));
         assert!(!(&a > &a));
-        assert!(&a < &(&a + U384::from(1_u64)));
-        assert!(!(&a > &(&a + U384::from(1_u64))));
-        assert!(&a + U384::from(1_u64) > a);
-        assert!(!((&a + U384::from(1_u64)) < a));
+        assert!(&a < &(&a + U384::from_u64(1)));
+        assert!(!(&a > &(&a + U384::from_u64(1))));
+        assert!(&a + U384::from_u64(1) > a);
+        assert!(!((&a + U384::from_u64(1)) < a));
         assert!(&a <= &c);
         assert!(!(&a >= &c));
         assert!(&a < &c);
@@ -876,9 +831,9 @@ mod tests {
 
     #[test]
     fn mul_two_384_bit_integers_works_1() {
-        let a = U384::from(3_u64);
-        let b = U384::from(8_u64);
-        let c = U384::from(3 * 8_u64);
+        let a = U384::from_u64(3);
+        let b = U384::from_u64(8);
+        let c = U384::from_u64(3 * 8);
         assert_eq!(a * b, c);
     }
 
@@ -930,8 +885,8 @@ mod tests {
 
     #[test]
     fn shift_left_on_384_bit_integer_works_2() {
-        let a = U384::from(1_u64);
-        let b = U384::from(1_u128 << 64);
+        let a = U384::from_u64(1);
+        let b = U384::from_u128(1_u128 << 64);
         assert_eq!(a << 64, b);
     }
 
@@ -1029,55 +984,4 @@ mod tests {
         assert_eq!(&a >> 64 * 2, b);
     }
 
-    #[test]
-    fn montgomery_multiplication_works_0() {
-        let x = U384::from(11_u64);
-        let y = U384::from(10_u64);
-        let m = U384::from(23_u64); //
-        let mp: u64 = 3208129404123400281; // negative of the inverse of `m` modulo 2^{64}.
-        let c = U384::from(13_u64); // x * y * (r^{-1}) % m, where r = 2^{64 * 6} and r^{-1} mod m = 2.
-        assert_eq!(MontgomeryAlgorithms::cios(&x, &y, &m, &mp), c);
-    }
-
-    #[test]
-    fn montgomery_multiplication_works_1() {
-        let x = U384::from("05ed176deb0e80b4deb7718cdaa075165f149c");
-        let y = U384::from("5f103b0bd4397d4df560eb559f38353f80eeb6");
-        let m = U384::from("cdb061954fdd36e5176f50dbdcfd349570a29ce1"); // this is prime
-        let mp: u64 = 16085280245840369887; // negative of the inverse of `m` modulo 2^{64}
-        let c = U384::from("8d65cdee621682815d59f465d2641eea8a1274dc"); // x * y * (r^{-1}) % m, where r = 2^{64 * 6}
-        assert_eq!(MontgomeryAlgorithms::cios(&x, &y, &m, &mp), c);
-    }
-
-    #[test]
-    fn montgomery_multiplication_works_2() {
-        let x = U384::from("8d65cdee621682815d59f465d2641eea8a1274dc");
-        let m = U384::from("cdb061954fdd36e5176f50dbdcfd349570a29ce1"); // this is prime
-        let r_mod_m = U384::from("58dfb0e1b3dd5e674bdcde4f42eb5533b8759d33");
-        let mp: u64 = 16085280245840369887; // negative of the inverse of `m` modulo 2^{64}
-        let c = U384::from("8d65cdee621682815d59f465d2641eea8a1274dc");
-        assert_eq!(MontgomeryAlgorithms::cios(&x, &r_mod_m, &m, &mp), c);
-    }
-
-    /*
-       #[test]
-       fn montgomery_multiplication_works_1() {
-           let x = U384::from("05ed176deb0e80b4deb7718cdaa075165f149c");
-           let y = U384::from("5f103b0bd4397d4df560eb559f38353f80eeb6");
-           let m = U384::from("cdb061954fdd36e5176f50dbdcfd349570a29ce1"); // this is prime
-           let mp: u64 = 16085280245840369887; // negative of the inverse of `m` modulo 2^{64}
-           let c = U384::from("8d65cdee621682815d59f465d2641eea8a1274dc"); // x * y * (r^{-1}) % m, where r = 2^{64 * 6}
-           assert_eq!(U384::mul_montgomery(&x, &y, &m, &mp), c);
-       }
-
-       #[test]
-       fn montgomery_multiplication_works_2() {
-           let x = U384::from("8d65cdee621682815d59f465d2641eea8a1274dc");
-           let m = U384::from("cdb061954fdd36e5176f50dbdcfd349570a29ce1"); // this is prime
-           let r_mod_m = U384::from("58dfb0e1b3dd5e674bdcde4f42eb5533b8759d33");
-           let mp: u64 = 16085280245840369887; // negative of the inverse of `m` modulo 2^{64}
-           let c = U384::from("8d65cdee621682815d59f465d2641eea8a1274dc");
-           assert_eq!(U384::mul_montgomery(&x, &r_mod_m, &m, &mp), c);
-       }
-    */
 }

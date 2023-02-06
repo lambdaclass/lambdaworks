@@ -10,61 +10,25 @@ use crate::unsigned_integer::element::U384;
 
 /// Order of the base field (e.g.: order of the coordinates)
 pub const fn order_p() -> U384 {
-    U384 {
-        limbs: [
-            1873798617647539866,
-            5412103778470702295,
-            7239337960414712511,
-            7435674573564081700,
-            2210141511517208575,
-            13402431016077863595,
-        ],
-    }
+    U384::from("1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab")
 }
 
 /// Order of the subgroup of the curve.
 pub const fn order_r() -> U384 {
-    U384 {
-        limbs: [
-            0,
-            0,
-            8353516859464449352,
-            3691218898639771653,
-            6034159408538082302,
-            18446744069414584321,
-        ],
-    }
+    U384::from("73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001")
 }
 
 // FPBLS12381
 #[derive(Clone, Debug)]
 pub struct BLS12381FieldConfig;
-impl IsMontgomeryConfiguration<6> for BLS12381FieldConfig {
+impl IsMontgomeryConfiguration for BLS12381FieldConfig {
     const MODULUS: U384 = order_p();
     const MP: u64 = 9940570264628428797;
-    const R: U384 = U384 {
-        limbs: [
-            1582556514881692819,
-            6631298214892334189,
-            8632934651105793861,
-            6865905132761471162,
-            17002214543764226050,
-            8505329371266088957,
-        ],
-    };
-    const R2: U384 = U384 {
-        limbs: [
-            1267921511277847466,
-            11130996698012816685,
-            7488229067341005760,
-            10224657059481499349,
-            754043588434789617,
-            17644856173732828998,
-        ],
-    };
+    const R: U384 = U384::from("15f65ec3fa80e4935c071a97a256ec6d77ce5853705257455f48985753c758baebf4000bc40c0002760900000002fffd");
+    const R2: U384 = U384::from("11988fe592cae3aa9a793e85b519952d67eb88a9939d83c08de5476c4c95b6d50a76e6a609d104f1f4df1f341c341746");
 }
 
-pub type BLS12381PrimeField = MontgomeryBackendPrimeField<6, BLS12381FieldConfig>;
+pub type BLS12381PrimeField = MontgomeryBackendPrimeField<BLS12381FieldConfig>;
 
 #[derive(Debug, Clone)]
 pub struct LevelOneResidue;
