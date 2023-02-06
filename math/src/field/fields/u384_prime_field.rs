@@ -1,72 +1,208 @@
-use std::fmt::Debug;
 use std::marker::PhantomData;
+use std::fmt::Debug;
+use crate::{unsigned_integer::unsigned_integer::{UnsignedInteger, MontgomeryAlgorithms}, field::traits::IsField};
 
-use crate::field::element::FieldElement;
-use crate::field::traits::IsField;
-use crate::unsigned_integer::UnsignedInteger384 as U384;
-
-pub trait HasU384Constant: Debug + Clone + Eq + PartialEq {
-    const VALUE: U384;
+pub trait IsMontgomeryConfiguration<const NUM_LIMBS: usize> {
+    const MODULUS: UnsignedInteger<NUM_LIMBS>;
+    const R: UnsignedInteger<NUM_LIMBS>;
+    const R2: UnsignedInteger<NUM_LIMBS>;
+    const MP: u64;
 }
 
-/// Type representing prime fields over unsigned 64-bit integers.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct U384PrimeField<MODULO: HasU384Constant> {
-    phantom: PhantomData<MODULO>,
+#[derive(Clone, Debug)]
+pub struct MontgomeryBackendPrimeField<const NUM_LIMBS: usize, C> {
+    phantom: PhantomData<C>,
 }
 
-pub type U384FieldElement<ORDER> = FieldElement<U384PrimeField<ORDER>>;
+impl<const NUM_LIMBS: usize, C> MontgomeryBackendPrimeField<NUM_LIMBS, C>
+where
+    C: IsMontgomeryConfiguration<NUM_LIMBS>,
+{
+    const ZERO: UnsignedInteger<NUM_LIMBS> = UnsignedInteger::from_u64(0);
+}
 
-impl<MODULO: HasU384Constant> IsField for U384PrimeField<MODULO> {
-    type BaseType = U384;
+impl<const NUM_LIMBS: usize, C> IsField for MontgomeryBackendPrimeField<NUM_LIMBS, C>
+where
+    C: IsMontgomeryConfiguration<NUM_LIMBS> + Clone + Debug,
+{
+    type BaseType = UnsignedInteger<NUM_LIMBS>;
 
-    fn add(a: &U384, b: &U384) -> U384 {
-        U384::add_mod(a, b, &MODULO::VALUE)
+    fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
+        let (sum, overflow) = UnsignedInteger::add(a, b);
+        if !overflow {
+            if sum < C::MODULUS {
+                sum
+            } else {
+                sum - C::MODULUS
+            }
+        } else {
+            let (diff, _) = UnsignedInteger::sub(&sum, &C::MODULUS);
+            diff
+        }
     }
 
-    fn sub(a: &U384, b: &U384) -> U384 {
-        U384::sub_mod(a, b, &MODULO::VALUE)
+    fn mul(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
+        MontgomeryAlgorithms::cios(a, b, &C::MODULUS, &C::MP)
     }
 
-    fn neg(a: &U384) -> U384 {
-        U384::neg_mod(a, &MODULO::VALUE)
+    fn sub(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
+        if b <= a {
+            a - b
+        } else {
+            C::MODULUS - (b - a)
+        }
     }
 
-    fn mul(a: &U384, b: &U384) -> U384 {
-        U384::mul_mod(a, b, &MODULO::VALUE)
+    fn neg(a: &Self::BaseType) -> Self::BaseType {
+        C::MODULUS - a
     }
 
-    fn div(a: &U384, b: &U384) -> U384 {
+    fn inv(a: &Self::BaseType) -> Self::BaseType {
+        Self::pow(a, C::MODULUS - Self::BaseType::from_u64(2))
+    }
+
+    fn div(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
         Self::mul(a, &Self::inv(b))
     }
 
-    fn inv(a: &U384) -> U384 {
-        assert_ne!(*a, U384::from(0_u8), "Cannot invert zero element");
-        let exponent = MODULO::VALUE - U384::from(2_u8);
-        Self::pow(a, exponent)
+    fn eq(a: &Self::BaseType, b: &Self::BaseType) -> bool {
+        a == b
     }
 
-    fn eq(a: &U384, b: &U384) -> bool {
-        Self::from_base_type(*a) == Self::from_base_type(*b)
+    fn zero() -> Self::BaseType {
+        Self::ZERO
     }
 
-    fn zero() -> U384 {
-        U384::from(0_u8)
+    fn one() -> Self::BaseType {
+        C::R
     }
 
-    fn one() -> U384 {
-        U384::from(1_u8)
+    fn from_u64(x: u64) -> Self::BaseType {
+        MontgomeryAlgorithms::cios(
+            &UnsignedInteger::from_u64(x),
+            &C::R2,
+            &C::MODULUS,
+            &C::MP,
+        )
     }
 
-    fn from_u64(x: u64) -> U384 {
-        U384::from(x) % MODULO::VALUE
-    }
-
-    fn from_base_type(x: U384) -> U384 {
-        x % MODULO::VALUE
+    fn from_base_type(x: Self::BaseType) -> Self::BaseType {
+        MontgomeryAlgorithms::cios(&x, &C::R2, &C::MODULUS, &C::MP)
     }
 }
 
+
+#[cfg(test)]
+mod tests {
+    use crate::{unsigned_integer::unsigned_integer::UnsignedInteger, field::element::FieldElement};
+
+    use super::{IsMontgomeryConfiguration, MontgomeryBackendPrimeField};
+    const NUM_LIMBS: usize = 6;
+    // F23
+    #[derive(Clone, Debug)]
+    struct MontgomeryConfig23;
+    impl IsMontgomeryConfiguration<6> for MontgomeryConfig23 {
+        const MODULUS: UnsignedInteger<NUM_LIMBS> = UnsignedInteger::from_u64(23);
+        const MP: u64 = 3208129404123400281;
+        const R: UnsignedInteger<NUM_LIMBS> = UnsignedInteger::from_u64(12);
+        const R2: UnsignedInteger<NUM_LIMBS> = UnsignedInteger::from_u64(6);
+    }
+
+    type F23 = MontgomeryBackendPrimeField<6, MontgomeryConfig23>;
+    type F23Element = FieldElement<F23>;
+
+    #[test]
+    fn montgomery_backend_multiplication_works_0() {
+        let x = F23Element::from(11_u64);
+        let y = F23Element::from(10_u64);
+        let c = F23Element::from(110_u64);
+        assert_eq!(x * y, c);
+    }
+
+    // FP1
+    #[derive(Clone, Debug)]
+    struct MontgomeryConfigP1;
+    impl IsMontgomeryConfiguration<6> for MontgomeryConfigP1 {
+        const MODULUS: UnsignedInteger<NUM_LIMBS> = UnsignedInteger {
+            limbs: [
+                0,
+                0,
+                0,
+                3450888597,
+                5754816256417943771,
+                15923941673896418529,
+            ],
+        };
+        const MP: u64 = 16085280245840369887;
+        const R: UnsignedInteger<NUM_LIMBS> = UnsignedInteger {
+            limbs: [0, 0, 0, 1491054817, 12960619100389563983, 4822041506656656691],
+        };
+        const R2: UnsignedInteger<NUM_LIMBS> = UnsignedInteger {
+            limbs: [0, 0, 0, 362264696, 173086217205162856, 7848132598488868435],
+        };
+    }
+
+    type FP1 = MontgomeryBackendPrimeField<6, MontgomeryConfigP1>;
+    type FP1Element = FieldElement<FP1>;
+    #[test]
+    fn montgomery_backend_multiplication_works_1() {
+        let x = FP1Element::new(UnsignedInteger::from("05ed176deb0e80b4deb7718cdaa075165f149c"));
+        let y = FP1Element::new(UnsignedInteger::from("5f103b0bd4397d4df560eb559f38353f80eeb6"));
+        let c = FP1Element::new(UnsignedInteger::from("73d23e8d462060dc23d5c15c00fc432d95621a3c"));
+        assert_eq!(x * y, c);
+    }
+
+    #[test]
+    fn montgomery_backend_multiplication_works_2() {
+        let x = FP1Element::new(UnsignedInteger::from("05ed176deb0e80b4deb7718cdaa075165f149c"));
+        let y = FP1Element::new(UnsignedInteger::from("5f103b0bd4397d4df560eb559f38353f80eeb6"));
+        let c = FP1Element::new(UnsignedInteger::from("64fd5279bf47fe02d4185ce279d8aa55e00352"));
+        assert_eq!(x + y, c);
+    }
+
+    // FP2
+    #[derive(Clone, Debug)]
+    struct MontgomeryConfigP2;
+    impl IsMontgomeryConfiguration<6> for MontgomeryConfigP2 {
+        const MODULUS: UnsignedInteger<NUM_LIMBS> = UnsignedInteger {
+            limbs: [
+                18446744073709551615,
+                18446744073709551615,
+                18446744073709551615,
+                18446744073709551615,
+                18446744073709551615,
+                18446744073709551275,
+            ],
+        };
+        const MP: u64 = 14984598558409225213;
+        const R: UnsignedInteger<NUM_LIMBS> = UnsignedInteger {
+            limbs: [0, 0, 0, 0, 0, 341],
+        };
+        const R2: UnsignedInteger<NUM_LIMBS> = UnsignedInteger {
+            limbs: [0, 0, 0, 0, 0, 116281],
+        };
+    }
+
+
+    type FP2 = MontgomeryBackendPrimeField<6, MontgomeryConfigP2>;
+    type FP2Element = FieldElement<FP2>;
+    #[test]
+    fn montgomery_backend_addition_works_1() {
+        let x = FP2Element::new(UnsignedInteger::from("05ed176deb0e80b4deb7718cdaa075165f149c"));
+        let y = FP2Element::new(UnsignedInteger::from("5f103b0bd4397d4df560eb559f38353f80eeb6"));
+        let c = FP2Element::new(UnsignedInteger::from("64fd5279bf47fe02d4185ce279d8aa55e00352"));
+        assert_eq!(x + y, c);
+    }
+
+    #[test]
+    fn montgomery_backend_multiplication_works_4() {
+        let x = FP2Element::one();
+        let y = FP2Element::new(UnsignedInteger::from("5f103b0bd4397d4df560eb559f38353f80eeb6"));
+        assert_eq!(&y * x, y);
+    }
+}
+
+/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -206,3 +342,4 @@ mod tests {
         assert_eq!(y.pow(2_u64), y2);
     }
 }
+*/

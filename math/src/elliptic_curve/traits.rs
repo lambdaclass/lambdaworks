@@ -1,6 +1,6 @@
 use crate::field::element::FieldElement;
 use crate::field::traits::IsField;
-use crate::unsigned_integer::IsUnsignedInteger;
+use crate::unsigned_integer::traits::IsUnsignedInteger;
 use std::fmt::Debug;
 
 /// Trait to add elliptic curves behaviour to a struct.

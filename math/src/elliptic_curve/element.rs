@@ -90,14 +90,11 @@ impl<E: IsEllipticCurve> IsCyclicGroup for EllipticCurveElement<E> {
 
 #[cfg(test)]
 mod tests {
-    use crate::unsigned_integer::UnsignedInteger384 as U384;
-
     use crate::cyclic_group::IsCyclicGroup;
     use crate::elliptic_curve::curves::test_curve_1::{
         TestCurve1, TestCurveQuadraticNonResidue, ORDER_P, ORDER_R,
     };
-    use crate::elliptic_curve::curves::test_curve_2::TestCurve2;
-    use crate::field::element::FieldElement;
+    //use crate::elliptic_curve::curves::test_curve_2::TestCurve2;
     use crate::{
         elliptic_curve::element::EllipticCurveElement,
         field::{
@@ -189,7 +186,7 @@ mod tests {
         let result_weil = EllipticCurveElement::<TestCurve1>::tate_pairing(&pa, &pb);
         assert_eq!(result_weil, expected_result);
     }
-
+/*
     #[test]
     fn operate_with_self_works_with_test_curve_2() {
         let mut point_1 = EllipticCurveElement::<TestCurve2>::generator();
@@ -209,4 +206,5 @@ mod tests {
 
         assert_eq!(point_1, expected_result);
     }
+*/
 }

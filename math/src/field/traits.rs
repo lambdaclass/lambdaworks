@@ -1,4 +1,4 @@
-use crate::unsigned_integer::IsUnsignedInteger;
+use crate::unsigned_integer::traits::IsUnsignedInteger;
 use std::fmt::Debug;
 
 /// Trait to add field behaviour to a struct.

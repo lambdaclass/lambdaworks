@@ -1,26 +1,61 @@
-use crate::unsigned_integer::UnsignedInteger384 as U384;
+use crate::field::fields::u384_prime_field::{IsMontgomeryConfiguration, MontgomeryBackendPrimeField};
+use crate::unsigned_integer::unsigned_integer::U384;
 use crate::{
     elliptic_curve::traits::{HasDistortionMap, IsEllipticCurve},
     field::{
         element::FieldElement,
         extensions::quadratic::{HasQuadraticNonResidue, QuadraticExtensionField},
-        fields::u384_prime_field::{HasU384Constant, U384PrimeField},
     },
 };
 
-const fn order_r() -> U384 {
-    U384::from_const("00000000000000000000000000000000000000000000000000000000000000150b4c0967215604b841bb57053fcb86cf")
+
+
+
+/// Order of the base field (e.g.: order of the coordinates)
+pub const fn order_p() -> U384 {
+    U384 {
+        limbs: [0, 0, 0, 0, 17348059061, 12061643512074973737],
+    }
 }
 
-const fn order_p() -> U384 {
-    U384::from_const("0000000000000000000000000000000000000000000000000000000000000000000000040a065fb5a76390de709fb229")
+/// Order of the subgroup of the curve.
+pub const fn order_r() -> U384 {
+    U384 {
+        limbs: [0, 0, 0, 21, 814035971192784056, 4736475113166964431]
+    }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct ModP;
-impl HasU384Constant for ModP {
-    const VALUE: U384 = U384::from_const("00000000000000000000000000000000000000000000000000000000000000150b4c0967215604b841bb57053fcb86cf");
+
+// FPBLS12381
+#[derive(Clone, Debug)]
+pub struct BLS12381FieldConfig;
+impl IsMontgomeryConfiguration<6> for BLS12381FieldConfig {
+    const MODULUS: U384 = order_p();
+    const MP: u64 = 9940570264628428797;
+    const R: U384 = U384 {
+        limbs: [
+            1582556514881692819,
+            6631298214892334189,
+            8632934651105793861,
+            6865905132761471162,
+            17002214543764226050,
+            8505329371266088957
+        ],
+    };
+    const R2: U384 = U384 {
+        limbs: [
+            1267921511277847466,
+            11130996698012816685,
+            7488229067341005760,
+            10224657059481499349,
+            754043588434789617,
+            17644856173732828998
+        ],
+    };
 }
+
+type TestCurve2PrimeField = MontgomeryBackendPrimeField<6, BLS12381FieldConfig>;
+
 
 /// In F59 the element -1 is not a square. We use this property
 /// to construct a Quadratic Field Extension out of it by adding
@@ -28,9 +63,9 @@ impl HasU384Constant for ModP {
 #[derive(Debug, Clone)]
 pub struct TestCurve2QuadraticNonResidue;
 impl HasQuadraticNonResidue for TestCurve2QuadraticNonResidue {
-    type BaseField = U384PrimeField<ModP>;
+    type BaseField = TestCurve2PrimeField;
 
-    fn residue() -> FieldElement<U384PrimeField<ModP>> {
+    fn residue() -> FieldElement<TestCurve2PrimeField> {
         -FieldElement::one()
     }
 }

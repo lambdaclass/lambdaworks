@@ -1,15 +1,17 @@
-use crate::elliptic_curve::curves::bls12_381::field_extension::{order_p, order_r, ModP};
-use crate::unsigned_integer::UnsignedInteger384 as U384;
+use crate::elliptic_curve::curves::bls12_381::field_extension::{order_p, order_r};
+use crate::unsigned_integer::unsigned_integer::U384;
 use crate::{
     elliptic_curve::traits::IsEllipticCurve,
-    field::{element::FieldElement, fields::u384_prime_field::U384PrimeField},
+    field::{element::FieldElement},
 };
+
+use super::field_extension::BLS12381PrimeField;
 
 /// The description of the curve.
 #[derive(Clone, Debug)]
 pub struct BLS12381Curve;
 impl IsEllipticCurve for BLS12381Curve {
-    type BaseField = U384PrimeField<ModP>;
+    type BaseField = BLS12381PrimeField;
     type UIntOrders = U384;
 
     fn a() -> FieldElement<Self::BaseField> {
@@ -120,7 +122,7 @@ mod tests {
 
     use super::BLS12381Curve;
 
-    type FEE = FieldElement<U384PrimeField<ModP>>;
+    type FEE = FieldElement<BLS12381PrimeField>;
 
     fn point_1() -> EllipticCurveElement<BLS12381Curve> {
         let x = FEE::new_base("36bb494facde72d0da5c770c4b16d9b2d45cfdc27604a25a1a80b020798e5b0dbd4c6d939a8f8820f042a29ce552ee5");
