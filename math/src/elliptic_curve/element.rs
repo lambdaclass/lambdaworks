@@ -2,7 +2,6 @@ use crate::cyclic_group::IsCyclicGroup;
 use crate::elliptic_curve::traits::IsEllipticCurve;
 use crate::field::element::FieldElement;
 use std::fmt::Debug;
-use std::marker::PhantomData;
 
 /// Represents an elliptic curve point using the projective short Weierstrass form:
 /// y^2 * z = x^3 + a * x * z^2 + b * z^3,
@@ -10,7 +9,6 @@ use std::marker::PhantomData;
 #[derive(Debug, Clone)]
 pub struct EllipticCurveElement<E: IsEllipticCurve> {
     pub value: [FieldElement<E::BaseField>; 3],
-    elliptic_curve: PhantomData<E>,
 }
 
 impl<E: IsEllipticCurve> EllipticCurveElement<E> {
@@ -22,10 +20,7 @@ impl<E: IsEllipticCurve> EllipticCurveElement<E> {
             "Point ({:?}) does not belong to the elliptic curve.",
             &value
         );
-        Self {
-            value,
-            elliptic_curve: PhantomData,
-        }
+        Self { value }
     }
 
     /// Returns the `x` coordinate of the point.
@@ -49,7 +44,6 @@ impl<E: IsEllipticCurve> EllipticCurveElement<E> {
     pub fn to_affine(&self) -> Self {
         Self {
             value: E::affine(&self.value),
-            elliptic_curve: PhantomData,
         }
     }
 
