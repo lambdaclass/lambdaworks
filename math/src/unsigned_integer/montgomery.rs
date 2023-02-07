@@ -3,7 +3,7 @@ use super::element::UnsignedInteger;
 
 pub struct MontgomeryAlgorithms;
 impl MontgomeryAlgorithms {
-    pub fn cios<const NUM_LIMBS: usize>(
+    pub const fn cios<const NUM_LIMBS: usize>(
         a: &UnsignedInteger<NUM_LIMBS>,
         b: &UnsignedInteger<NUM_LIMBS>,
         q: &UnsignedInteger<NUM_LIMBS>,
@@ -11,14 +11,18 @@ impl MontgomeryAlgorithms {
     ) -> UnsignedInteger<NUM_LIMBS> {
         let mut t = [0_u64; NUM_LIMBS];
         let mut t_extra = [0_u64; 2];
-        for i in (0..NUM_LIMBS).rev() {
+        let mut i: usize = NUM_LIMBS;
+        while i > 0 {
+            i -= 1;
             // C := 0
             let mut c: u128 = 0;
 
             // for j=0 to N-1
             //    (C,t[j]) := t[j] + a[j]*b[i] + C
             let mut cs: u128;
-            for j in (0..NUM_LIMBS).rev() {
+            let mut j: usize = NUM_LIMBS;
+            while j > 0 {
+                j -= 1;
                 cs = t[j] as u128 + (a.limbs[j] as u128) * (b.limbs[i] as u128) + c;
                 c = cs >> 64;
                 t[j] = ((cs << 64) >> 64) as u64;
@@ -39,7 +43,9 @@ impl MontgomeryAlgorithms {
 
             // for j=1 to N-1
             //    (C,t[j-1]) := t[j] + m*q[j] + C
-            for j in (0..(NUM_LIMBS - 1)).rev() {
+            let mut j: usize = NUM_LIMBS - 1;
+            while j > 0 {
+                j -= 1;
                 cs = t[j] as u128 + m * (q.limbs[j] as u128) + c;
                 c = cs >> 64;
                 t[j + 1] = ((cs << 64) >> 64) as u64;
@@ -59,7 +65,7 @@ impl MontgomeryAlgorithms {
         // TODO: assuming the integer represented by
         // [t_extra[1], t[0], ..., t[NUM_LIMBS - 1]] is at most
         // 2q in any case.
-        if overflow || result > *q {
+        if overflow || UnsignedInteger::const_le(q, &result) {
             (result, _) = UnsignedInteger::sub(&result, q);
         }
         result

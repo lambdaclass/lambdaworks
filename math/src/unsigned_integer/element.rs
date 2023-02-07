@@ -312,6 +312,19 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         UnsignedInteger { limbs: result }
     }
 
+    pub const fn const_le(a: &UnsignedInteger<NUM_LIMBS>, b: &UnsignedInteger<NUM_LIMBS>) -> bool {
+        let mut i = 0;
+        while i < NUM_LIMBS {
+            if a.limbs[i] < b.limbs[i] {
+                return true;
+            } else if a.limbs[i] > b.limbs[i] {
+                return false;
+            }
+        i += 1;
+        }
+        return false;
+    }
+
     pub fn add(
         a: &UnsignedInteger<NUM_LIMBS>,
         b: &UnsignedInteger<NUM_LIMBS>,
@@ -328,7 +341,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
 
     /// Multi-precision subtraction.
     /// Adapted from Algorithm 14.9 of "Handbook of Applied Cryptography" (https://cacr.uwaterloo.ca/hac/)
-    pub fn sub(
+    pub const fn sub(
         a: &UnsignedInteger<NUM_LIMBS>,
         b: &UnsignedInteger<NUM_LIMBS>,
     ) -> (UnsignedInteger<NUM_LIMBS>, bool) {
@@ -336,7 +349,9 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         // 1.
         let mut carry = 0i128;
         // 2.
-        for i in (0..NUM_LIMBS).rev() {
+        let mut i: usize = NUM_LIMBS;
+        while i > 0 {
+            i -= 1;
             let c: i128 = a.limbs[i] as i128 - b.limbs[i] as i128 + carry;
             // Casting i128 to u64 drops the most significant bits of i128,
             // which effectively computes residue modulo 2^{64}
