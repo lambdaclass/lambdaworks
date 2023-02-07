@@ -60,7 +60,7 @@ where
 
     fn neg(a: &Self::BaseType) -> Self::BaseType {
         if a == &Self::ZERO {
-            a.clone()
+            *a
         } else {
             C::MODULUS - a
         }
