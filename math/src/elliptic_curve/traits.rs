@@ -132,7 +132,7 @@ pub trait IsEllipticCurve: Clone + Debug {
         r: &[FieldElement<Self::BaseField>; 3],
         q: &[FieldElement<Self::BaseField>; 3],
     ) -> FieldElement<Self::BaseField> {
-        assert!(
+        debug_assert!(
             !Self::is_neutral_element(q),
             "q cannot be the point at infinity."
         );

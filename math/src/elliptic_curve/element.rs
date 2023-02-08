@@ -14,7 +14,7 @@ pub struct EllipticCurveElement<E: IsEllipticCurve> {
 impl<E: IsEllipticCurve> EllipticCurveElement<E> {
     /// Creates an elliptic curve point giving the projective [x: y: z] coordinates.
     pub fn new(value: [FieldElement<E::BaseField>; 3]) -> Self {
-        assert_eq!(
+        debug_assert_eq!(
             E::defining_equation(&value),
             FieldElement::zero(),
             "Point ({:?}) does not belong to the elliptic curve.",

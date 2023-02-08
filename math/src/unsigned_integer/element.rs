@@ -324,7 +324,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
             }
             i += 1;
         }
-        return false;
+        false
     }
 
     pub fn add(
