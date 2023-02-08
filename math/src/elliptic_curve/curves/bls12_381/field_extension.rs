@@ -24,7 +24,6 @@ pub struct BLS12381FieldConfig;
 impl IsMontgomeryConfiguration for BLS12381FieldConfig {
     const MODULUS: U384 = order_p();
     const MP: u64 = 9940570264628428797;
-    const R: U384 = U384::from("15f65ec3fa80e4935c071a97a256ec6d77ce5853705257455f48985753c758baebf4000bc40c0002760900000002fffd");
     const R2: U384 = U384::from("11988fe592cae3aa9a793e85b519952d67eb88a9939d83c08de5476c4c95b6d50a76e6a609d104f1f4df1f341c341746");
 }
 

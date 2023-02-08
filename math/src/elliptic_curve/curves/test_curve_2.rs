@@ -26,7 +26,6 @@ pub struct TestCurve2MontgomeryConfig;
 impl IsMontgomeryConfiguration for TestCurve2MontgomeryConfig {
     const MODULUS: U384 = order_p();
     const MP: u64 = 1901108026836139985;
-    const R: U384 = U384::from("451603d3cf2be8bd1207ccda8007fd659");
     const R2: U384 = U384::from("f60e53d42ca85ba186067660c4f2daa94");
 }
 

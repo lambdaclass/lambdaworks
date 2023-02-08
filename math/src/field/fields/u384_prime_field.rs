@@ -9,7 +9,6 @@ use std::marker::PhantomData;
 
 pub trait IsMontgomeryConfiguration {
     const MODULUS: U384;
-    const R: U384;
     const R2: U384;
     const MP: u64;
 }
@@ -87,7 +86,7 @@ where
     }
 
     fn one() -> Self::BaseType {
-        C::R
+        Self::from_u64(1)
     }
 
     fn from_u64(x: u64) -> Self::BaseType {
@@ -111,7 +110,6 @@ mod tests {
     impl IsMontgomeryConfiguration for MontgomeryConfig23 {
         const MODULUS: U384 = UnsignedInteger::from_u64(23);
         const MP: u64 = 3208129404123400281;
-        const R: U384 = UnsignedInteger::from_u64(12);
         const R2: U384 = UnsignedInteger::from_u64(6);
     }
 
@@ -255,16 +253,6 @@ mod tests {
             ],
         };
         const MP: u64 = 16085280245840369887;
-        const R: U384 = UnsignedInteger {
-            limbs: [
-                0,
-                0,
-                0,
-                1491054817,
-                12960619100389563983,
-                4822041506656656691,
-            ],
-        };
         const R2: U384 = UnsignedInteger {
             limbs: [0, 0, 0, 362264696, 173086217205162856, 7848132598488868435],
         };
@@ -315,9 +303,6 @@ mod tests {
             ],
         };
         const MP: u64 = 14984598558409225213;
-        const R: U384 = UnsignedInteger {
-            limbs: [0, 0, 0, 0, 0, 341],
-        };
         const R2: U384 = UnsignedInteger {
             limbs: [0, 0, 0, 0, 0, 116281],
         };

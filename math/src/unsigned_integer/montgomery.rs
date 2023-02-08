@@ -76,7 +76,6 @@ impl MontgomeryAlgorithms {
 mod tests {
     use crate::unsigned_integer::{element::U384, montgomery::MontgomeryAlgorithms};
 
-
     #[test]
     fn montgomery_multiplication_works_0() {
         let x = U384::from_u64(11_u64);
