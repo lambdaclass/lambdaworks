@@ -7,6 +7,10 @@ use crate::{
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
+
+/// This trait is necessary for us to be able to use unsigned integer types bigger than
+/// `u128` (the biggest native `unit`) as constant generics.
+/// This trait should be removed when Rust supports this feature.
 pub trait IsMontgomeryConfiguration {
     const MODULUS: U384;
     const R2: U384;
