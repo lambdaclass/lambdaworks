@@ -38,6 +38,11 @@ impl<E: IsEllipticCurve> EllipticCurveElement<E> {
         &self.value[2]
     }
 
+    /// Returns a tuple [x, y, z] with the coordinates of the point.
+    pub fn coordinates(&self) -> &[FieldElement<E::BaseField>; 3] {
+        &self.value
+    }
+
     /// Creates the same point in affine coordinates. That is,
     /// returns [x / z: y / z: 1] where `self` is [x: y: z].
     /// Panics if `self` is the point at infinity.
@@ -208,5 +213,20 @@ mod tests {
         ]);
 
         assert_eq!(point_1, expected_result);
+    }
+
+    #[test]
+    fn coordinate_getters_work() {
+        let x = FEE::from(35);
+        let y = FEE::from(31);
+        let z = FEE::from(1);
+        let point = EllipticCurveElement::<TestCurve1>::new([x.clone(), y.clone(), z.clone()]);
+        let coordinates = point.coordinates();
+        assert_eq!(&x, point.x());
+        assert_eq!(&y, point.y());
+        assert_eq!(&z, point.z());
+        assert_eq!(x, coordinates[0]);
+        assert_eq!(y, coordinates[1]);
+        assert_eq!(z, coordinates[2]);
     }
 }
