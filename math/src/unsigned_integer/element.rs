@@ -297,7 +297,9 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
                 c @ b'0'..=b'9' => (c as u64 - '0' as u64) << shift,
                 c @ b'a'..=b'f' => (c as u64 - 'a' as u64 + 10) << shift,
                 c @ b'A'..=b'F' => (c as u64 - 'A' as u64 + 10) << shift,
-                _ => {panic!("Malformed hex expression.")},
+                _ => {
+                    panic!("Malformed hex expression.")
+                }
             };
             shift += 4;
             if shift == 64 && limb_index > 0 {
@@ -320,7 +322,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
             } else if a.limbs[i] > b.limbs[i] {
                 return false;
             }
-        i += 1;
+            i += 1;
         }
         return false;
     }
@@ -404,7 +406,6 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
 }
 
 impl<const NUM_LIMBS: usize> IsUnsignedInteger for UnsignedInteger<NUM_LIMBS> {}
-
 
 #[cfg(test)]
 mod tests {
@@ -998,5 +999,4 @@ mod tests {
         let b = U384::from("5322c128ec84081b6c376c108ebd7fd36bbd44f71ee5e6ad6bcb3dd1c52");
         assert_eq!(&a >> 64 * 2, b);
     }
-
 }

@@ -1,12 +1,10 @@
 use crate::unsigned_integer::element::U384;
 use crate::{
-    field::traits::IsField,
+    field::traits::IsField, unsigned_integer::element::UnsignedInteger,
     unsigned_integer::montgomery::MontgomeryAlgorithms,
-    unsigned_integer::element::UnsignedInteger
 };
 use std::fmt::Debug;
 use std::marker::PhantomData;
-
 
 /// This trait is necessary for us to be able to use unsigned integer types bigger than
 /// `u128` (the biggest native `unit`) as constant generics.
@@ -67,7 +65,6 @@ where
         } else {
             C::MODULUS - a
         }
-        
     }
 
     fn inv(a: &Self::BaseType) -> Self::BaseType {
@@ -104,7 +101,10 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{field::element::FieldElement, unsigned_integer::element::{UnsignedInteger, U384}};
+    use crate::{
+        field::element::FieldElement,
+        unsigned_integer::element::{UnsignedInteger, U384},
+    };
 
     use super::{IsMontgomeryConfiguration, MontgomeryBackendPrimeField};
 
@@ -128,16 +128,21 @@ mod tests {
         assert_eq!(x * y, c);
     }
 
-
     const ORDER: usize = 23;
     #[test]
     fn two_plus_one_is_three() {
-        assert_eq!(F23Element::from(2) + F23Element::from(1), F23Element::from(3));
+        assert_eq!(
+            F23Element::from(2) + F23Element::from(1),
+            F23Element::from(3)
+        );
     }
 
     #[test]
     fn max_order_plus_1_is_0() {
-        assert_eq!(F23Element::from((ORDER - 1) as u64) + F23Element::from(1), F23Element::from(0));
+        assert_eq!(
+            F23Element::from((ORDER - 1) as u64) + F23Element::from(1),
+            F23Element::from(0)
+        );
     }
 
     #[test]
@@ -199,17 +204,26 @@ mod tests {
 
     #[test]
     fn div_1() {
-        assert_eq!(F23Element::from(2) / F23Element::from(1), F23Element::from(2))
+        assert_eq!(
+            F23Element::from(2) / F23Element::from(1),
+            F23Element::from(2)
+        )
     }
 
     #[test]
     fn div_4_2() {
-        assert_eq!(F23Element::from(4) / F23Element::from(2), F23Element::from(2))
+        assert_eq!(
+            F23Element::from(4) / F23Element::from(2),
+            F23Element::from(2)
+        )
     }
 
     #[test]
     fn div_4_3() {
-        assert_eq!(F23Element::from(4) / F23Element::from(3) * F23Element::from(3), F23Element::from(4))
+        assert_eq!(
+            F23Element::from(4) / F23Element::from(3) * F23Element::from(3),
+            F23Element::from(4)
+        )
     }
 
     #[test]

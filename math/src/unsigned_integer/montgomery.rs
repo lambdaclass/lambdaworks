@@ -1,6 +1,5 @@
 use super::element::UnsignedInteger;
 
-
 pub struct MontgomeryAlgorithms;
 impl MontgomeryAlgorithms {
     pub const fn cios<const NUM_LIMBS: usize>(

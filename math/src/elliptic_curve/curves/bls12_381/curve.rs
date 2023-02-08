@@ -5,7 +5,8 @@ use crate::{elliptic_curve::traits::IsEllipticCurve, field::element::FieldElemen
 use super::field_extension::BLS12381PrimeField;
 
 /// Order of the subgroup of the curve.
-const BLS12381_MAIN_SUBGROUP_ORDER: U384 = U384::from("73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001");
+const BLS12381_MAIN_SUBGROUP_ORDER: U384 =
+    U384::from("73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001");
 
 /// The description of the curve.
 #[derive(Clone, Debug)]
