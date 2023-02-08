@@ -11,10 +11,10 @@ use crate::{
 };
 
 /// Order of the base field (e.g.: order of the coordinates)
-pub const ORDER_P: u64 = 59;
+pub const TEST_CURVE_1_PRIME_FIELD_ORDER: u64 = 59;
 
 /// Order of the subgroup of the curve.
-pub const ORDER_R: u64 = 5;
+pub const TEST_CURVE_1_MAIN_SUBGROUP_ORDER: u64 = 5;
 
 /// In F59 the element -1 is not a square. We use this property
 /// to construct a Quadratic Field Extension out of it by adding
@@ -22,9 +22,9 @@ pub const ORDER_R: u64 = 5;
 #[derive(Debug, Clone)]
 pub struct TestCurveQuadraticNonResidue;
 impl HasQuadraticNonResidue for TestCurveQuadraticNonResidue {
-    type BaseField = U64PrimeField<ORDER_P>;
+    type BaseField = U64PrimeField<TEST_CURVE_1_PRIME_FIELD_ORDER>;
 
-    fn residue() -> FieldElement<U64PrimeField<ORDER_P>> {
+    fn residue() -> FieldElement<U64PrimeField<TEST_CURVE_1_PRIME_FIELD_ORDER>> {
         -FieldElement::one()
     }
 }
@@ -53,11 +53,11 @@ impl IsEllipticCurve for TestCurve1 {
     }
 
     fn order_r() -> Self::UIntOrders {
-        ORDER_R
+        TEST_CURVE_1_MAIN_SUBGROUP_ORDER
     }
 
     fn order_p() -> Self::UIntOrders {
-        ORDER_P
+        TEST_CURVE_1_PRIME_FIELD_ORDER
     }
 
     fn target_normalization_power() -> Vec<u64> {

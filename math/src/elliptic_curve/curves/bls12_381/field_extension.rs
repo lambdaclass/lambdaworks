@@ -8,21 +8,13 @@ use crate::field::{
 };
 use crate::unsigned_integer::element::U384;
 
-/// Order of the base field (e.g.: order of the coordinates)
-pub const fn order_p() -> U384 {
-    U384::from("1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab")
-}
-
-/// Order of the subgroup of the curve.
-pub const fn order_r() -> U384 {
-    U384::from("73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001")
-}
+pub const BLS12381_PRIME_FIELD_ORDER: U384 = U384::from("1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab");
 
 // FPBLS12381
 #[derive(Clone, Debug)]
 pub struct BLS12381FieldConfig;
 impl IsMontgomeryConfiguration for BLS12381FieldConfig {
-    const MODULUS: U384 = order_p();
+    const MODULUS: U384 = BLS12381_PRIME_FIELD_ORDER;
     const MP: u64 = 9940570264628428797;
     const R2: U384 = U384::from("11988fe592cae3aa9a793e85b519952d67eb88a9939d83c08de5476c4c95b6d50a76e6a609d104f1f4df1f341c341746");
 }

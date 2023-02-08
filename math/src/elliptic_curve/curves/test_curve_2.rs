@@ -11,20 +11,16 @@ use crate::{
 };
 
 /// Order of the base field (e.g.: order of the coordinates)
-pub const fn order_p() -> U384 {
-    U384::from("150b4c0967215604b841bb57053fcb86cf")
-}
+pub const TEST_CURVE_2_PRIME_FIELD_ORDER: U384 = U384::from("150b4c0967215604b841bb57053fcb86cf");
 
 /// Order of the subgroup of the curve.
-pub const fn order_r() -> U384 {
-    U384::from("40a065fb5a76390de709fb229")
-}
+pub const TEST_CURVE_2_MAIN_SUBGROUP_ORDER: U384 = U384::from("40a065fb5a76390de709fb229");
 
 // FPBLS12381
 #[derive(Clone, Debug)]
 pub struct TestCurve2MontgomeryConfig;
 impl IsMontgomeryConfiguration for TestCurve2MontgomeryConfig {
-    const MODULUS: U384 = order_p();
+    const MODULUS: U384 = TEST_CURVE_2_PRIME_FIELD_ORDER;
     const MP: u64 = 1901108026836139985;
     const R2: U384 = U384::from("f60e53d42ca85ba186067660c4f2daa94");
 }
@@ -74,11 +70,11 @@ impl IsEllipticCurve for TestCurve2 {
     }
 
     fn order_r() -> Self::UIntOrders {
-        order_r()
+        TEST_CURVE_2_MAIN_SUBGROUP_ORDER
     }
 
     fn order_p() -> Self::UIntOrders {
-        order_p()
+        TEST_CURVE_2_PRIME_FIELD_ORDER
     }
 
     fn target_normalization_power() -> Vec<u64> {

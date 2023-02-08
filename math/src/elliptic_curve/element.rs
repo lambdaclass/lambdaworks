@@ -92,7 +92,7 @@ impl<E: IsEllipticCurve> IsCyclicGroup for EllipticCurveElement<E> {
 mod tests {
     use crate::cyclic_group::IsCyclicGroup;
     use crate::elliptic_curve::curves::test_curve_1::{
-        TestCurve1, TestCurveQuadraticNonResidue, ORDER_P, ORDER_R,
+        TestCurve1, TestCurveQuadraticNonResidue, TEST_CURVE_1_PRIME_FIELD_ORDER, TEST_CURVE_1_MAIN_SUBGROUP_ORDER,
     };
     use crate::elliptic_curve::curves::test_curve_2::TestCurve2;
     use crate::field::element::FieldElement;
@@ -142,7 +142,7 @@ mod tests {
     #[test]
     fn operate_with_self_works_2() {
         let mut point_1 = EllipticCurveElement::<TestCurve1>::generator();
-        point_1 = point_1.operate_with_self(ORDER_R as u128);
+        point_1 = point_1.operate_with_self(TEST_CURVE_1_MAIN_SUBGROUP_ORDER as u128);
         assert_eq!(
             point_1,
             EllipticCurveElement::<TestCurve1>::neutral_element()
@@ -160,7 +160,7 @@ mod tests {
 
     #[test]
     fn test_weil_pairing() {
-        type FE = U64FieldElement<ORDER_P>;
+        type FE = U64FieldElement<TEST_CURVE_1_PRIME_FIELD_ORDER>;
         let pa =
             EllipticCurveElement::<TestCurve1>::new([FEE::from(35), FEE::from(31), FEE::from(1)]);
         let pb = EllipticCurveElement::<TestCurve1>::new([
@@ -176,7 +176,7 @@ mod tests {
 
     #[test]
     fn test_tate_pairing() {
-        type FE = U64FieldElement<ORDER_P>;
+        type FE = U64FieldElement<TEST_CURVE_1_PRIME_FIELD_ORDER>;
         let pa =
             EllipticCurveElement::<TestCurve1>::new([FEE::from(35), FEE::from(31), FEE::from(1)]);
         let pb = EllipticCurveElement::<TestCurve1>::new([

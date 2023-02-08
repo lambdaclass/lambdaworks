@@ -1,8 +1,11 @@
-use crate::elliptic_curve::curves::bls12_381::field_extension::{order_p, order_r};
+use crate::elliptic_curve::curves::bls12_381::field_extension::BLS12381_PRIME_FIELD_ORDER;
 use crate::unsigned_integer::element::U384;
 use crate::{elliptic_curve::traits::IsEllipticCurve, field::element::FieldElement};
 
 use super::field_extension::BLS12381PrimeField;
+
+/// Order of the subgroup of the curve.
+const BLS12381_MAIN_SUBGROUP_ORDER: U384 = U384::from("73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001");
 
 /// The description of the curve.
 #[derive(Clone, Debug)]
@@ -28,11 +31,11 @@ impl IsEllipticCurve for BLS12381Curve {
     }
 
     fn order_r() -> Self::UIntOrders {
-        order_r()
+        BLS12381_MAIN_SUBGROUP_ORDER
     }
 
     fn order_p() -> Self::UIntOrders {
-        order_p()
+        BLS12381_PRIME_FIELD_ORDER
     }
 
     fn target_normalization_power() -> Vec<u64> {
@@ -140,7 +143,6 @@ mod tests {
         assert_eq!(point_1.operate_with_self(5), point_1_times_5);
     }
 
-    // This tests only apply for the specific curve found in the configuration file.
     #[test]
     fn create_valid_point_works() {
         let p = point_1();
