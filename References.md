@@ -49,3 +49,4 @@
 - [Starks arithmetization-2](https://medium.com/starkware/arithmetization-ii-403c3b3f4355)
 - [Low-degree testing](https://medium.com/starkware/low-degree-testing-f7614f5172db)
 - [Winterfell](https://github.com/facebook/winterfell)
+- [Anatomy of a Starks](https://neptune.cash/learn/stark-anatomy/fri/)
