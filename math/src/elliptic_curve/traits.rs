@@ -1,11 +1,14 @@
 use crate::field::element::FieldElement;
-use crate::field::traits::HasFieldOperations;
+use crate::field::traits::IsField;
+use crate::unsigned_integer::traits::IsUnsignedInteger;
 use std::fmt::Debug;
 
 /// Trait to add elliptic curves behaviour to a struct.
 /// We use the short Weierstrass form equation: `y^2 = x^3 + a * x  + b`.
-pub trait HasEllipticCurveOperations: Clone + Debug {
-    type BaseField: HasFieldOperations + Clone + Debug;
+pub trait IsEllipticCurve: Clone + Debug {
+    type BaseField: IsField + Clone + Debug;
+    type UIntOrders: IsUnsignedInteger;
+    /// The type used to store order_p and order_r.
 
     /// `a` coefficient for the equation `y^2 = x^3 + a * x  + b`.
     fn a() -> FieldElement<Self::BaseField>;
@@ -19,33 +22,25 @@ pub trait HasEllipticCurveOperations: Clone + Debug {
     /// `y` component of the generator (x, y) in affine form.
     fn generator_affine_y() -> FieldElement<Self::BaseField>;
 
-    /// The embedding degree of the curve. This is the minimum integer `k`
-    /// for which `order_r` divides `order_p.pow(k) - 1`.
-    fn embedding_degree() -> u32;
-
     /// Order of the subgroup of the curve (e.g.: number of elements in
     /// the subgroup of the curve).
-    fn order_r() -> u64;
+    fn order_r() -> Self::UIntOrders;
 
     /// Order of the base field (e.g.: order of the field where `a` and `b` are defined).
-    fn order_p() -> u64;
+    fn order_p() -> Self::UIntOrders;
 
-    /// Order of the field extension where the entire `order_r` torsion
-    /// group lives.
-    fn order_field_extension() -> u64 {
-        Self::order_p().pow(Self::embedding_degree())
-    }
-
-    /// Normalization power for the Tate pairing.
-    fn target_normalization_power() -> u64 {
-        (Self::order_field_extension() - 1) / Self::order_r()
-    }
+    /// The big-endian bit representation of the normalization power for the Tate pairing.
+    /// This is computed as:
+    ///  (order_p.pow(embedding_degree) - 1) / order_r
+    /// TODO: This is only used for the Tate pairing and will disappear. Something ideas like
+    /// the ones on this paper (https://eprint.iacr.org/2020/875.pdf) will be implemented.
+    fn target_normalization_power() -> Vec<u64>;
 
     /// Evaluates the short Weierstrass equation at (x, y z).
     /// Used for checking if [x: y: z] belongs to the elliptic curve.
     fn defining_equation(p: &[FieldElement<Self::BaseField>; 3]) -> FieldElement<Self::BaseField> {
         let (x, y, z) = (&p[0], &p[1], &p[2]);
-        y.pow(2) * z - x.pow(3) - Self::a() * x * z.pow(2) - Self::b() * z.pow(3)
+        y.pow(2_u16) * z - x.pow(3_u16) - Self::a() * x * z.pow(2_u16) - Self::b() * z.pow(3_u16)
     }
 
     /// Projective equality relation: `p` has to be a multiple of `q`
@@ -102,24 +97,25 @@ pub trait HasEllipticCurveOperations: Clone + Debug {
                 if u1 != u2 || *py == FieldElement::zero() {
                     Self::neutral_element()
                 } else {
-                    let w = Self::a() * pz.pow(2) + FieldElement::from(3) * px.pow(2);
+                    let w = Self::a() * pz.pow(2_u16) + FieldElement::from(3) * px.pow(2_u16);
                     let s = py * pz;
                     let b = px * py * &s;
-                    let h = w.pow(2) - FieldElement::from(8) * &b;
+                    let h = w.pow(2_u16) - FieldElement::from(8) * &b;
                     let xp = FieldElement::from(2) * &h * &s;
                     let yp = w * (FieldElement::from(4) * &b - &h)
-                        - FieldElement::from(8) * py.pow(2) * s.pow(2);
-                    let zp = FieldElement::from(8) * s.pow(3);
+                        - FieldElement::from(8) * py.pow(2_u16) * s.pow(2_u16);
+                    let zp = FieldElement::from(8) * s.pow(3_u16);
                     [xp, yp, zp]
                 }
             } else {
                 let u = u1 - &u2;
                 let v = v1 - &v2;
                 let w = pz * qz;
-                let a = u.pow(2) * &w - v.pow(3) - FieldElement::from(2) * v.pow(2) * &v2;
+                let a =
+                    u.pow(2_u16) * &w - v.pow(3_u16) - FieldElement::from(2) * v.pow(2_u16) * &v2;
                 let xp = &v * &a;
-                let yp = u * (v.pow(2) * v2 - a) - v.pow(3) * u2;
-                let zp = v.pow(3) * w;
+                let yp = u * (v.pow(2_u16) * v2 - a) - v.pow(3_u16) * u2;
+                let zp = v.pow(3_u16) * w;
                 [xp, yp, zp]
             }
         }
@@ -136,7 +132,8 @@ pub trait HasEllipticCurveOperations: Clone + Debug {
         r: &[FieldElement<Self::BaseField>; 3],
         q: &[FieldElement<Self::BaseField>; 3],
     ) -> FieldElement<Self::BaseField> {
-        assert!(
+        // TODO: Improve error handling.
+        debug_assert!(
             !Self::is_neutral_element(q),
             "q cannot be the point at infinity."
         );
@@ -161,7 +158,7 @@ pub trait HasEllipticCurveOperations: Clone + Debug {
                 return qy - py - l * (qx - px);
             }
         } else {
-            let numerator = FieldElement::from(3) * &px.pow(2) + Self::a();
+            let numerator = FieldElement::from(3) * &px.pow(2_u16) + Self::a();
             let denominator = FieldElement::from(2) * py;
             if denominator == FieldElement::zero() {
                 return qx - px;
@@ -185,9 +182,13 @@ pub trait HasEllipticCurveOperations: Clone + Debug {
         let q = Self::affine(q);
         let mut order_r = Self::order_r();
         let mut bs = vec![];
-        while order_r > 0 {
-            bs.insert(0, order_r & 1);
-            order_r >>= 1;
+
+        // TODO: this function compares with UnsignedInt that contain zeros and ones.
+        // This unsigned ints might be 384 bit long or more. An idea to optimize this is
+        // implementing a method for UnsignedInt that iterates over its bit representation.
+        while order_r > Self::UIntOrders::from(0) {
+            bs.insert(0, order_r & Self::UIntOrders::from(1));
+            order_r = order_r >> 1;
         }
 
         let mut f = FieldElement::one();
@@ -195,10 +196,10 @@ pub trait HasEllipticCurveOperations: Clone + Debug {
 
         for b in bs[1..].iter() {
             let s = Self::affine(&Self::add(&r, &r));
-            f = f.pow(2) * (Self::line(&r, &r, &q) / Self::line(&s, &Self::neg(&s), &q));
+            f = f.pow(2_u16) * (Self::line(&r, &r, &q) / Self::line(&s, &Self::neg(&s), &q));
             r = s;
 
-            if *b == 1 {
+            if *b == Self::UIntOrders::from(1) {
                 let mut s = Self::add(&r, &p);
                 if s != Self::neutral_element() {
                     s = Self::affine(&s);
@@ -236,14 +237,34 @@ pub trait HasEllipticCurveOperations: Clone + Debug {
         if Self::is_neutral_element(p) || Self::is_neutral_element(q) || Self::eq(p, q) {
             FieldElement::one()
         } else {
-            Self::miller(p, q).pow(Self::target_normalization_power() as u128)
+            let mut base = Self::miller(p, q);
+            let bit_representation_exponent = Self::target_normalization_power();
+            let mut pow = FieldElement::one();
+
+            // This is computes the power of base raised to the target_normalization_power
+            for (index, limb) in bit_representation_exponent.iter().rev().enumerate() {
+                let mut limb = *limb;
+                for _bit in 1..=16 {
+                    if limb & 1 == 1 {
+                        pow = &pow * &base;
+                    }
+                    base = &base * &base;
+                    let finished = (index == bit_representation_exponent.len() - 1) && (limb == 0);
+                    if !finished {
+                        limb >>= 1;
+                    } else {
+                        break;
+                    }
+                }
+            }
+            pow
         }
     }
 }
 
 /// Trait to add distortion maps to Elliptic Curves.
 /// Typically used to support type I pairings.
-pub trait HasDistortionMap: HasEllipticCurveOperations {
+pub trait HasDistortionMap: IsEllipticCurve {
     fn distorsion_map(p: &[FieldElement<Self::BaseField>; 3])
         -> [FieldElement<Self::BaseField>; 3];
 }

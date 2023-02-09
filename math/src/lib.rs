@@ -3,3 +3,4 @@ pub mod elliptic_curve;
 pub mod field;
 pub mod msm;
 pub mod polynomial;
+pub mod unsigned_integer;
