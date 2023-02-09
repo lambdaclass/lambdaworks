@@ -123,6 +123,7 @@ mod tests {
 
     use super::BLS12381Curve;
 
+    #[allow(clippy::upper_case_acronyms)]
     type FEE = FieldElement<BLS12381PrimeField>;
 
     fn point_1() -> EllipticCurveElement<BLS12381Curve> {
