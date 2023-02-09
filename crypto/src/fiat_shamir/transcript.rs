@@ -1,66 +1,70 @@
+use sha3::{Digest, Sha3_256};
 
-
-pub trait IsHashFunction {
-    fn hash(&self, bytes: &Vec<u8>) -> [u8; 1];
+struct Transcript {
+    data: Vec<u8>,
 }
 
-struct Transcript<T: IsHashFunction> {
-    hash_function: T,
-    data: Vec<u8>
-}
-
-impl<T: IsHashFunction> Transcript<T> {
-    fn new(hash_function: T) -> Self {
-        Self {
-            hash_function: hash_function,
-            data: Vec::new()
-        }
+impl Transcript {
+    #[allow(unused)]
+    fn new() -> Self {
+        Self { data: Vec::new() }
     }
 
+    #[allow(unused)]
     fn append(&mut self, new_data: &Vec<u8>) {
         self.data.append(&mut new_data.clone());
     }
 
-    fn challenge(&mut self) {
-        self.data = self.hash_function.hash(&self.data).to_vec();
+    #[allow(unused)]
+    fn challenge(&mut self) -> [u8; 32] {
+        let mut hasher = Sha3_256::new();
+        hasher.update(&self.data);
+        let mut result = [0_u8; 32];
+        result.copy_from_slice(&hasher.finalize());
+        self.data = result.to_vec();
+        result
     }
 }
 
-
 #[cfg(test)]
 mod tests {
-    use crate::fiat_shamir::transcript;
-
     use super::*;
-
-    struct DummyHash2;
-    impl IsHashFunction for DummyHash2 {
-        fn hash(&self, bytes: &Vec<u8>) -> [u8; 1] {
-            [bytes.iter().fold(0, |acc, &x| (acc ^ x))]
-        }
-    }
 
     #[test]
     fn basic_challenge() {
-        let mut transcript = Transcript::new(DummyHash2);
-        
+        let mut transcript = Transcript::new();
+
         let point_a: Vec<u8> = vec![0xFF, 0xAB];
         let point_b: Vec<u8> = vec![0xDD, 0x8C, 0x9D];
 
         transcript.append(&point_a); // point_a
         transcript.append(&point_b); // point_a + point_b
 
-        transcript.challenge(); // Hash(point_a  + point_b)
+        let challenge1 = transcript.challenge(); // Hash(point_a  + point_b)
 
-        assert_eq!(transcript.data, [0x98]);
+        assert_eq!(
+            challenge1,
+            [
+                0x30, 0xfc, 0x05, 0x69, 0x13, 0x60, 0xe0, 0xbd, 0xa0, 0x6a, 0x0b, 0x5f, 0x5f, 0xf5,
+                0xa6, 0x3a, 0x67, 0x48, 0x62, 0x9c, 0x90, 0x8f, 0xef, 0x25, 0x2c, 0x8f, 0x8b, 0x9e,
+                0xb8, 0xd2, 0xce, 0x43
+            ]
+        );
 
-        let point_c: Vec<u8> = vec![0xFF, 0xAB]; 
-        let point_d: Vec<u8> = vec![0xDD, 0x8C, 0x9D]; 
+        let point_c: Vec<u8> = vec![0xFF, 0xAB];
+        let point_d: Vec<u8> = vec![0xDD, 0x8C, 0x9D];
 
         transcript.append(&point_c); // Hash(point_a  + point_b) + point_c
         transcript.append(&point_d); // Hash(point_a  + point_b) + point_c + point_d
 
-        transcript.challenge(); // Hash(Hash(point_a  + point_b) + point_c + point_d)
-        assert_eq!(transcript.data, [0x0]);
+        let challenge2 = transcript.challenge(); // Hash(Hash(point_a  + point_b) + point_c + point_d)
+        assert_eq!(
+            challenge2,
+            [
+                0x51, 0x50, 0x15, 0xd7, 0xe3, 0x59, 0x5a, 0x19, 0x58, 0xc9, 0x8e, 0xf4, 0x36, 0xb5,
+                0xf7, 0xea, 0x36, 0x62, 0x16, 0xfa, 0x6b, 0xfb, 0x7a, 0xe6, 0x38, 0xa8, 0xc4, 0x59,
+                0x79, 0x1b, 0x54, 0xe3
+            ]
+        );
     }
 }

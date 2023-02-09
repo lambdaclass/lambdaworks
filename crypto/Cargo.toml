@@ -8,5 +8,8 @@ edition = "2021"
 [dependencies.lambdaworks-math]
 path = "../math"
 
+[dependencies]
+sha3 = "0.10.6"
+
 [dependencies.rand]
 version = "0.8"
