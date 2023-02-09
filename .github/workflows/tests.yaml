@@ -72,5 +72,4 @@ jobs:
         with:
             toolchain: stable
             components: clippy
-      - run: apt install -y clang libclang1 libssl-dev
       - run: make clippy
