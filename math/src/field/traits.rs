@@ -1,7 +1,8 @@
+use crate::unsigned_integer::traits::IsUnsignedInteger;
 use std::fmt::Debug;
 
 /// Trait to add field behaviour to a struct.
-pub trait HasFieldOperations: Debug {
+pub trait IsField: Debug + Clone {
     /// The underlying base type for representing elements from the field.
     type BaseType: Clone + Debug;
 
@@ -12,16 +13,19 @@ pub trait HasFieldOperations: Debug {
     fn mul(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType;
 
     /// Returns`a` raised to the power of `exponent`.
-    fn pow(a: &Self::BaseType, mut exponent: u128) -> Self::BaseType {
+    fn pow<T>(a: &Self::BaseType, mut exponent: T) -> Self::BaseType
+    where
+        T: IsUnsignedInteger,
+    {
         let mut result = Self::one();
         let mut base = a.clone();
 
-        while exponent > 0 {
-            if exponent & 1 == 1 {
+        while exponent > T::from(0) {
+            if exponent & T::from(1) == T::from(1) {
                 result = Self::mul(&result, &base);
             }
-            exponent >>= 1;
             base = Self::mul(&base, &base);
+            exponent = exponent >> 1;
         }
         result
     }
@@ -46,10 +50,6 @@ pub trait HasFieldOperations: Debug {
 
     /// Returns the multiplicative neutral element.
     fn one() -> Self::BaseType;
-
-    // TODO: This are not exactly operations they are constructors
-    // maybe they should be in another trait "HasFieldConstructors", and this trait should
-    // require that one.
 
     /// Returns the element `x * 1` where 1 is the multiplicative neutral element.
     fn from_u64(x: u64) -> Self::BaseType;

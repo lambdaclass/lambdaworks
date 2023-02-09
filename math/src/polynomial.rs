@@ -1,50 +1,48 @@
-use super::field::fields::u64_prime_field::U64FieldElement;
+use super::field::element::FieldElement;
+use crate::field::traits::IsField;
 use std::ops;
 
 /// Represents the polynomial c_0 + c_1 * X + c_2 * X^2 + ... + c_n * X^n
 /// as a vector of coefficients `[c_0, c_1, ... , c_n]`
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Polynomial<const ORDER: u64> {
-    coefficients: Vec<U64FieldElement<ORDER>>,
+pub struct Polynomial<FE> {
+    coefficients: Vec<FE>,
 }
 
-impl<const ORDER: u64> Polynomial<ORDER> {
+impl<F: IsField> Polynomial<FieldElement<F>> {
     /// Creates a new polynomial with the given coefficients
-    pub fn new(coefficients: Vec<U64FieldElement<ORDER>>) -> Self {
+    pub fn new(coefficients: Vec<FieldElement<F>>) -> Self {
         // Removes trailing zero coefficients at the end
         let mut unpadded_coefficients = coefficients
             .into_iter()
             .rev()
-            .skip_while(|x| *x == U64FieldElement::new(0))
-            .collect::<Vec<U64FieldElement<ORDER>>>();
+            .skip_while(|x| *x == FieldElement::zero())
+            .collect::<Vec<FieldElement<F>>>();
         unpadded_coefficients.reverse();
         Polynomial {
             coefficients: unpadded_coefficients,
         }
     }
 
-    pub fn new_monomial(coefficient: U64FieldElement<ORDER>, degree: usize) -> Self {
-        let mut coefficients = vec![U64FieldElement::new(0); degree];
+    pub fn new_monomial(coefficient: FieldElement<F>, degree: usize) -> Self {
+        let mut coefficients = vec![FieldElement::zero(); degree];
         coefficients.push(coefficient);
         Self::new(coefficients)
     }
 
     pub fn zero() -> Self {
-        Self::new(Vec::<U64FieldElement<ORDER>>::new())
+        Self::new(Vec::<FieldElement<F>>::new())
     }
 
-    pub fn interpolate(
-        xs: &[U64FieldElement<ORDER>],
-        ys: &[U64FieldElement<ORDER>],
-    ) -> Polynomial<ORDER> {
+    pub fn interpolate(xs: &[FieldElement<F>], ys: &[FieldElement<F>]) -> Self {
         let mut result = Polynomial::zero();
 
         for (i, y) in ys.iter().enumerate() {
-            let mut y_term = Polynomial::new(vec![*y]);
+            let mut y_term = Polynomial::new(vec![y.clone()]);
             for (j, x) in xs.iter().enumerate() {
                 if i != j {
-                    let denominator = Polynomial::new(vec![U64FieldElement::new(1) / (xs[i] - *x)]);
-                    let numerator = Polynomial::new(vec![-*x, U64FieldElement::new(1)]);
+                    let denominator = Polynomial::new(vec![FieldElement::one() / (&xs[i] - x)]);
+                    let numerator = Polynomial::new(vec![-x, FieldElement::one()]);
                     y_term = y_term.mul_with_ref(&(numerator * denominator));
                 }
             }
@@ -53,13 +51,11 @@ impl<const ORDER: u64> Polynomial<ORDER> {
         result
     }
 
-    pub fn evaluate(&self, x: U64FieldElement<ORDER>) -> U64FieldElement<ORDER> {
+    pub fn evaluate(&self, x: FieldElement<F>) -> FieldElement<F> {
         self.coefficients
             .iter()
             .enumerate()
-            .fold(U64FieldElement::new(0), |acc, (i, &c)| {
-                acc + c * x.pow(i as u128)
-            })
+            .fold(FieldElement::zero(), |acc, (i, c)| acc + c * x.pow(i))
     }
 
     pub fn degree(&self) -> usize {
@@ -70,11 +66,11 @@ impl<const ORDER: u64> Polynomial<ORDER> {
         }
     }
 
-    pub fn leading_coefficient(&self) -> U64FieldElement<ORDER> {
+    pub fn leading_coefficient(&self) -> FieldElement<F> {
         if let Some(coefficient) = self.coefficients.last() {
-            *coefficient
+            coefficient.clone()
         } else {
-            U64FieldElement::new(0)
+            FieldElement::zero()
         }
     }
 
@@ -82,24 +78,21 @@ impl<const ORDER: u64> Polynomial<ORDER> {
     /// \[c_0, c_1, c_2, ..., c_n\]
     /// that represents the polynomial
     /// c_0 + c_1 * X + c_2 * X^2 + ... + c_n * X^n
-    pub fn coefficients(&self) -> &[U64FieldElement<ORDER>] {
+    pub fn coefficients(&self) -> &[FieldElement<F>] {
         &self.coefficients
     }
 
     /// Pads polynomial representations with minimum number of zeros to match lengths.
-    fn pad_with_zero_coefficients(
-        pa: &Polynomial<ORDER>,
-        pb: &Polynomial<ORDER>,
-    ) -> (Polynomial<ORDER>, Polynomial<ORDER>) {
+    fn pad_with_zero_coefficients(pa: &Self, pb: &Self) -> (Self, Self) {
         let mut pa = pa.clone();
         let mut pb = pb.clone();
 
         if pa.coefficients.len() > pb.coefficients.len() {
             pb.coefficients
-                .resize(pa.coefficients.len(), U64FieldElement::new(0));
+                .resize(pa.coefficients.len(), FieldElement::zero());
         } else {
             pa.coefficients
-                .resize(pb.coefficients.len(), U64FieldElement::new(0));
+                .resize(pb.coefficients.len(), FieldElement::zero());
         }
         (pa, pb)
     }
@@ -112,10 +105,10 @@ impl<const ORDER: u64> Polynomial<ORDER> {
             (Polynomial::zero(), self)
         } else {
             let mut n = self;
-            let mut q: Vec<U64FieldElement<ORDER>> = vec![U64FieldElement::new(0); n.degree() + 1];
+            let mut q: Vec<FieldElement<F>> = vec![FieldElement::zero(); n.degree() + 1];
             while n != Polynomial::zero() && n.degree() >= dividend.degree() {
                 let new_coefficient = n.leading_coefficient() / dividend.leading_coefficient();
-                q[n.degree() - dividend.degree()] = new_coefficient;
+                q[n.degree() - dividend.degree()] = new_coefficient.clone();
                 let d = dividend.mul_with_ref(&Polynomial::new_monomial(
                     new_coefficient,
                     n.degree() - dividend.degree(),
@@ -133,14 +126,14 @@ impl<const ORDER: u64> Polynomial<ORDER> {
 
     pub fn mul_with_ref(&self, factor: &Self) -> Self {
         let degree = self.degree() + factor.degree();
-        let mut coefficients = vec![U64FieldElement::new(0); degree + 1];
+        let mut coefficients = vec![FieldElement::zero(); degree + 1];
 
         if self.coefficients.is_empty() || factor.coefficients.is_empty() {
-            Polynomial::new(vec![U64FieldElement::new(0)])
+            Polynomial::new(vec![FieldElement::zero()])
         } else {
             for i in 0..=factor.degree() {
                 for j in 0..=self.degree() {
-                    coefficients[i + j] += factor.coefficients[i] * self.coefficients[j];
+                    coefficients[i + j] += &factor.coefficients[i] * &self.coefficients[j];
                 }
             }
             Polynomial::new(coefficients)
@@ -148,85 +141,88 @@ impl<const ORDER: u64> Polynomial<ORDER> {
     }
 }
 
-impl<const ORDER: u64> ops::Add<&Polynomial<ORDER>> for &Polynomial<ORDER> {
-    type Output = Polynomial<ORDER>;
+impl<F: IsField> ops::Add<&Polynomial<FieldElement<F>>> for &Polynomial<FieldElement<F>> {
+    type Output = Polynomial<FieldElement<F>>;
 
-    fn add(self, a_polynomial: &Polynomial<ORDER>) -> Self::Output {
+    fn add(self, a_polynomial: &Polynomial<FieldElement<F>>) -> Self::Output {
         let (pa, pb) = Polynomial::pad_with_zero_coefficients(self, a_polynomial);
         let iter_coeff_pa = pa.coefficients.iter();
         let iter_coeff_pb = pb.coefficients.iter();
-        let new_coefficients = iter_coeff_pa.zip(iter_coeff_pb).map(|(&x, &y)| x + y);
+        let new_coefficients = iter_coeff_pa.zip(iter_coeff_pb).map(|(x, y)| x + y);
 
         Polynomial::new(new_coefficients.collect())
     }
 }
 
-impl<const ORDER: u64> ops::Add<Polynomial<ORDER>> for Polynomial<ORDER> {
-    type Output = Polynomial<ORDER>;
+impl<F: IsField> ops::Add<Polynomial<FieldElement<F>>> for Polynomial<FieldElement<F>> {
+    type Output = Polynomial<FieldElement<F>>;
 
-    fn add(self, a_polynomial: Polynomial<ORDER>) -> Polynomial<ORDER> {
+    fn add(self, a_polynomial: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
         &self + &a_polynomial
     }
 }
 
-impl<const ORDER: u64> ops::Add<&Polynomial<ORDER>> for Polynomial<ORDER> {
-    type Output = Polynomial<ORDER>;
+impl<F: IsField> ops::Add<&Polynomial<FieldElement<F>>> for Polynomial<FieldElement<F>> {
+    type Output = Polynomial<FieldElement<F>>;
 
-    fn add(self, a_polynomial: &Polynomial<ORDER>) -> Polynomial<ORDER> {
+    fn add(self, a_polynomial: &Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
         &self + a_polynomial
     }
 }
 
-impl<const ORDER: u64> ops::Add<Polynomial<ORDER>> for &Polynomial<ORDER> {
-    type Output = Polynomial<ORDER>;
+impl<F: IsField> ops::Add<Polynomial<FieldElement<F>>> for &Polynomial<FieldElement<F>> {
+    type Output = Polynomial<FieldElement<F>>;
 
-    fn add(self, a_polynomial: Polynomial<ORDER>) -> Polynomial<ORDER> {
+    fn add(self, a_polynomial: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
         self + &a_polynomial
     }
 }
-impl<const ORDER: u64> ops::Neg for Polynomial<ORDER> {
-    type Output = Polynomial<ORDER>;
+impl<F: IsField> ops::Neg for Polynomial<FieldElement<F>> {
+    type Output = Polynomial<FieldElement<F>>;
 
-    fn neg(self) -> Polynomial<ORDER> {
-        Polynomial::new(self.coefficients.iter().map(|&x| -x).collect())
+    fn neg(self) -> Polynomial<FieldElement<F>> {
+        Polynomial::new(self.coefficients.iter().map(|x| -x).collect())
     }
 }
 
-impl<const ORDER: u64> ops::Sub<Polynomial<ORDER>> for Polynomial<ORDER> {
-    type Output = Polynomial<ORDER>;
+impl<F: IsField> ops::Sub<Polynomial<FieldElement<F>>> for Polynomial<FieldElement<F>> {
+    type Output = Polynomial<FieldElement<F>>;
 
-    fn sub(self, substrahend: Polynomial<ORDER>) -> Polynomial<ORDER> {
+    fn sub(self, substrahend: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
         self + (-substrahend)
     }
 }
 
-impl<const ORDER: u64> ops::Div<Polynomial<ORDER>> for Polynomial<ORDER> {
-    type Output = Polynomial<ORDER>;
+impl<F: IsField> ops::Div<Polynomial<FieldElement<F>>> for Polynomial<FieldElement<F>> {
+    type Output = Polynomial<FieldElement<F>>;
 
-    fn div(self, dividend: Polynomial<ORDER>) -> Polynomial<ORDER> {
+    fn div(self, dividend: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
         self.div_with_ref(&dividend)
     }
 }
 
-impl<const ORDER: u64> ops::Mul<Polynomial<ORDER>> for Polynomial<ORDER> {
-    type Output = Polynomial<ORDER>;
-    fn mul(self, dividend: Polynomial<ORDER>) -> Polynomial<ORDER> {
+impl<F: IsField> ops::Mul<Polynomial<FieldElement<F>>> for Polynomial<FieldElement<F>> {
+    type Output = Polynomial<FieldElement<F>>;
+    fn mul(self, dividend: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
         self.mul_with_ref(&dividend)
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::field::fields::u64_prime_field::U64PrimeField;
+
     // Some of these tests work when the finite field has order greater than 2.
     use super::*;
     const ORDER: u64 = 23;
-    type FE = U64FieldElement<ORDER>;
+    type F = U64PrimeField<ORDER>;
+    type FE = FieldElement<F>;
 
-    fn polynomial_a() -> Polynomial<ORDER> {
+    fn polynomial_a() -> Polynomial<FE> {
         Polynomial::new(vec![FE::new(1), FE::new(2), FE::new(3)])
     }
 
-    fn polynomial_minus_a() -> Polynomial<ORDER> {
+    fn polynomial_minus_a() -> Polynomial<FE> {
         Polynomial::new(vec![
             FE::new(ORDER - 1),
             FE::new(ORDER - 2),
@@ -234,15 +230,15 @@ mod tests {
         ])
     }
 
-    fn polynomial_b() -> Polynomial<ORDER> {
+    fn polynomial_b() -> Polynomial<FE> {
         Polynomial::new(vec![FE::new(3), FE::new(4), FE::new(5)])
     }
 
-    fn polynomial_a_plus_b() -> Polynomial<ORDER> {
+    fn polynomial_a_plus_b() -> Polynomial<FE> {
         Polynomial::new(vec![FE::new(4), FE::new(6), FE::new(8)])
     }
 
-    fn polynomial_b_minus_a() -> Polynomial<ORDER> {
+    fn polynomial_b_minus_a() -> Polynomial<FE> {
         Polynomial::new(vec![FE::new(2), FE::new(2), FE::new(2)])
     }
 

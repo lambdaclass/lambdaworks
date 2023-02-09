@@ -1,6 +1,6 @@
 use std::ops::Mul;
 
-pub trait IsCyclicBilinearGroup: Clone {
+pub trait IsCyclicGroup: Clone {
     type PairingOutput: Mul<Output = Self::PairingOutput> + PartialEq + Eq;
     /// Returns a generator of the group. Every element of the group
     /// has to be of the form `operate_with_self(generator(), k)` for some `k`.
@@ -32,7 +32,12 @@ pub trait IsCyclicBilinearGroup: Clone {
     /// Thperation can be addition or multiplication depending on
     /// the notation of the particular group.
     fn operate_with(&self, other: &Self) -> Self;
+}
 
-    /// A bilinear map.
-    fn pairing(&self, other: &Self) -> Self::PairingOutput;
+pub trait HasPairing {
+    type LhsGroup;
+    type RhsGroup;
+    type OutputGroup;
+
+    fn pairing(a: &Self::LhsGroup, b: &Self::RhsGroup) -> Self::OutputGroup;
 }
