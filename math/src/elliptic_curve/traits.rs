@@ -152,19 +152,19 @@ pub trait IsEllipticCurve: Clone + Debug {
             }
         } else if !Self::eq(p, r) {
             if px == rx {
-                return qx - px;
+                qx - px
             } else {
                 let l = (ry - py) / (rx - px);
-                return qy - py - l * (qx - px);
+                qy - py - l * (qx - px)
             }
         } else {
             let numerator = FieldElement::from(3) * &px.pow(2_u16) + Self::a();
             let denominator = FieldElement::from(2) * py;
             if denominator == FieldElement::zero() {
-                return qx - px;
+                qx - px
             } else {
                 let l = numerator / denominator;
-                return qy - py - l * (qx - px);
+                qy - py - l * (qx - px)
             }
         }
     }
