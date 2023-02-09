@@ -15,7 +15,7 @@
 - [Dusk Network](https://github.com/dusk-network/plonk/tree/master/src/fft)
 - [gnark's Plonk](https://github.com/ConsenSys/gnark/tree/master/backend/plonk)
 - [PlonkUp](https://eprint.iacr.org/2022/086.pdf)
-
+- [PlonkByHand 1](https://research.metastate.dev/plonk-by-hand-part-1/)
 
 ## Groth16
 - [Proof forgery](https://medium.com/ppio/how-to-generate-a-groth16-proof-for-forgery-9f857b0dcafd)
