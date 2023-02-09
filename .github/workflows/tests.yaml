@@ -1,6 +1,8 @@
-on: [push, pull_request]
-
-name: check & tests
+name: Lambdaworks build checks
+on: push
+concurrency: 
+  group: ${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
 
 jobs:
   check:
