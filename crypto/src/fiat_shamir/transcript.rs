@@ -11,8 +11,8 @@ impl Transcript {
     }
 
     #[allow(unused)]
-    fn append(&mut self, new_data: &Vec<u8>) {
-        self.data.append(&mut new_data.clone());
+    fn append(&mut self, new_data: &[u8]) {
+        self.data.append(&mut new_data.to_owned());
     }
 
     #[allow(unused)]
