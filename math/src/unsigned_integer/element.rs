@@ -241,6 +241,8 @@ impl<const NUM_LIMBS: usize> Shr<usize> for &UnsignedInteger<NUM_LIMBS> {
             Self::Output { limbs }
         } else {
             limbs[a] = self.limbs[0] >> b;
+            // Clippy solution is complicated in this case
+            #[allow(clippy::needless_range_loop)]
             for i in (a + 1)..NUM_LIMBS {
                 limbs[i] = (self.limbs[i - a - 1] << (64 - b)) | (self.limbs[i - a] >> b);
             }
@@ -263,6 +265,8 @@ impl<const NUM_LIMBS: usize> BitAnd for UnsignedInteger<NUM_LIMBS> {
     type Output = Self;
     fn bitand(self, rhs: Self) -> Self::Output {
         let mut limbs = [0; NUM_LIMBS];
+        // Clippy solution is complicated in this case
+        #[allow(clippy::needless_range_loop)]
         for i in 0..NUM_LIMBS {
             limbs[i] = self.limbs[i] & rhs.limbs[i];
         }
