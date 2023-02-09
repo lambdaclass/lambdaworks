@@ -1,7 +1,7 @@
 use lambdaworks_math::field;
 
 /// Interface to Collision Resistant Hashes.
-pub trait CryptoHash<F>
+pub trait IsCryptoHash<F>
 where
     F: field::traits::IsField,
 {
