@@ -5,9 +5,6 @@ pub trait IsHashFunction {
 }
 
 struct Transcript<T: IsHashFunction> {
-    // Función de hash
-    // Tiene que saber "bind" / "append"
-    // Tiene que saber "compute" / correr hash
     hash_function: T,
     data: Vec<u8>
 }
