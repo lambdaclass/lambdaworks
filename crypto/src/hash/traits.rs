@@ -9,10 +9,10 @@ where
     // with non-hardcoded parameters.
 
     /// Hashes a field element into one. Also known as one to one hashing.
-    fn hash_one(input: field::element::FieldElement<F>) -> field::element::FieldElement<F>;
+    fn hash_one(&self, input: field::element::FieldElement<F>) -> field::element::FieldElement<F>;
 
     /// Hashes two field elements into one. Also known as two to one hashing.
-    fn hash_two(
+    fn hash_two(&self,
         left: field::element::FieldElement<F>,
         right: field::element::FieldElement<F>,
     ) -> field::element::FieldElement<F>;
