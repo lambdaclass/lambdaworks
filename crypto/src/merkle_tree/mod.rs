@@ -176,8 +176,7 @@ mod tests {
             build_tree_node(FE::new(4)),
             build_tree_node(FE::new(6)),
             build_tree_node(FE::new(8)),
-        ]
-        .to_vec();
+        ];
 
         for (leaf, expected_leaf) in hashed_leafs.iter().zip(list_of_nodes) {
             assert_eq!(leaf.borrow().hash, expected_leaf.borrow_mut().hash);
@@ -192,8 +191,7 @@ mod tests {
         let mut hashed_leafs =
             hash_leafs(&[FE::new(1), FE::new(2), FE::new(3), FE::new(4)], &hasher);
         let level_one_nodes = hash_level(&mut hashed_leafs, &hasher);
-        let expected_list_of_nodes =
-            [build_tree_node(FE::new(6)), build_tree_node(FE::new(14))].to_vec();
+        let expected_list_of_nodes = [build_tree_node(FE::new(6)), build_tree_node(FE::new(14))];
 
         for (node, expected_node) in level_one_nodes.iter().zip(expected_list_of_nodes) {
             assert_eq!(node.borrow().hash, expected_node.borrow().hash);
@@ -261,7 +259,7 @@ mod tests {
     #[test]
     fn verify_a_proof_over_value_that_belongs_to_a_given_merkle_tree() {
         let merkle_tree = MerkleTree::build(
-            &[FE::new(1), FE::new(2), FE::new(3), FE::new(4), FE::new(5)].to_vec(),
+            &[FE::new(1), FE::new(2), FE::new(3), FE::new(4), FE::new(5)],
             TestHasher,
         );
         let proof = merkle_tree.get_proof(FE::new(2)).unwrap();
