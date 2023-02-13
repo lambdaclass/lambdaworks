@@ -29,11 +29,11 @@ pub fn cooley_tukey<F: IsField>(
 
 #[cfg(test)]
 mod test {
-    use crate::field::fields::u64_prime_field::U64PrimeField;
+    use crate::field::fields::u64_prime_field::U64FieldElement;
 
     use super::*;
     const MODULUS: u64 = 13;
-    type FE = FieldElement<U64PrimeField<MODULUS>>;
+    type FE = U64FieldElement<MODULUS>;
 
     /// test case generated with <https://www.nayuki.io/page/number-theoretic-transform-integer-dft>
     #[test]
