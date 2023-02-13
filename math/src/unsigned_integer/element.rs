@@ -135,17 +135,12 @@ impl<const NUM_LIMBS: usize> Mul<&UnsignedInteger<NUM_LIMBS>> for &UnsignedInteg
                 t = NUM_LIMBS - 1 - i;
             }
         }
-        assert!(
-            n + t + 1 < NUM_LIMBS,
-            "UnsignedInteger multiplication overflow."
-        );
 
         // 1.
         let mut limbs = [0u64; NUM_LIMBS];
         // 2.
+        let mut carry = 0u128;
         for i in 0..=t {
-            // 2.1
-            let mut carry = 0u128;
             // 2.2
             for j in 0..=n {
                 let uv = (limbs[NUM_LIMBS - 1 - (i + j)] as u128)
@@ -155,9 +150,13 @@ impl<const NUM_LIMBS: usize> Mul<&UnsignedInteger<NUM_LIMBS>> for &UnsignedInteg
                 carry = uv >> 64;
                 limbs[NUM_LIMBS - 1 - (i + j)] = uv as u64;
             }
-            // 2.3
-            limbs[NUM_LIMBS - 1 - (i + n + 1)] = carry as u64;
+            if i + n + 1 < NUM_LIMBS {
+                // 2.3
+                limbs[NUM_LIMBS - 1 - (i + n + 1)] = carry as u64;
+                carry = 0;
+            }
         }
+        debug_assert!(carry == 0, "UnsignedInteger multiplication overflow.");
         // 3.
         Self::Output { limbs }
     }
@@ -881,6 +880,16 @@ mod tests {
             "375342999dab7f52f4010c4abc2e18b55218015931a55d6053ac39e86e2a47d6b1cb95f41680",
         );
         assert_eq!(a * b, c);
+    }
+
+    #[test]
+    fn mul_two_384_bit_integers_works_5() {
+        let a = U384::from("7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8");
+        let b = U384::from("2");
+        let c_expected = U384::from(
+            "fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0",
+        );
+        assert_eq!(a * b, c_expected);
     }
 
     #[test]
