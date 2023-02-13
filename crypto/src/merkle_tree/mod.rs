@@ -168,7 +168,7 @@ mod tests {
     #[test]
     fn create_merkle_tree_leafs_from_a_set_of_field_elemnts() {
         let hashed_leafs = hash_leafs(
-            &[FE::new(1), FE::new(2), FE::new(3), FE::new(4)].to_vec(),
+            &[FE::new(1), FE::new(2), FE::new(3), FE::new(4)],
             &TestHasher,
         );
         let list_of_nodes = [
@@ -189,10 +189,8 @@ mod tests {
     #[test]
     fn apply_hash_level_to_a_set_of_leafs() {
         let hasher = TestHasher;
-        let mut hashed_leafs = hash_leafs(
-            &[FE::new(1), FE::new(2), FE::new(3), FE::new(4)].to_vec(),
-            &hasher,
-        );
+        let mut hashed_leafs =
+            hash_leafs(&[FE::new(1), FE::new(2), FE::new(3), FE::new(4)], &hasher);
         let level_one_nodes = hash_level(&mut hashed_leafs, &hasher);
         let expected_list_of_nodes =
             [build_tree_node(FE::new(6)), build_tree_node(FE::new(14))].to_vec();
@@ -227,7 +225,7 @@ mod tests {
     #[test]
     fn build_merkle_tree_from_an_even_set_of_leafs() {
         let merkle_tree = MerkleTree::build(
-            &[FE::new(1), FE::new(2), FE::new(3), FE::new(4)].to_vec(),
+            &[FE::new(1), FE::new(2), FE::new(3), FE::new(4)],
             TestHasher,
         );
         assert_eq!(merkle_tree.root.borrow().hash, FE::new(20));
@@ -236,7 +234,7 @@ mod tests {
     #[test]
     fn build_merkle_tree_from_an_odd_set_of_leafs() {
         let merkle_tree = MerkleTree::build(
-            &[FE::new(1), FE::new(2), FE::new(3), FE::new(4), FE::new(5)].to_vec(),
+            &[FE::new(1), FE::new(2), FE::new(3), FE::new(4), FE::new(5)],
             TestHasher,
         );
         assert_eq!(merkle_tree.root.borrow().hash, FE::new(60));
@@ -245,7 +243,7 @@ mod tests {
     #[test]
     fn create_a_proof_over_value_that_belongs_to_a_given_merkle_tree() {
         let merkle_tree = MerkleTree::build(
-            &[FE::new(1), FE::new(2), FE::new(3), FE::new(4), FE::new(5)].to_vec(),
+            &[FE::new(1), FE::new(2), FE::new(3), FE::new(4), FE::new(5)],
             TestHasher,
         );
         let proof = &merkle_tree.get_proof(FE::new(2)).unwrap();
@@ -268,6 +266,6 @@ mod tests {
         );
         let proof = merkle_tree.get_proof(FE::new(2)).unwrap();
 
-        assert!(proof.verify(merkle_tree.get_root_hash().clone()));
+        assert!(proof.verify(merkle_tree.get_root_hash()));
     }
 }
