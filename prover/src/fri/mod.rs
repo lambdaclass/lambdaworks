@@ -2,7 +2,7 @@ use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::fields::u64_prime_field::U64PrimeField;
 use lambdaworks_math::polynomial::Polynomial;
 
-const ORDER: u64 = 101;
+const ORDER: u64 = 293;
 pub type F = U64PrimeField<ORDER>;
 pub type FE = FieldElement<F>;
 
@@ -34,22 +34,10 @@ pub fn fold(
     ret
 }
 
-pub fn hello() {
-    let p = Polynomial::new(&[FE::new(1), FE::new(2), FE::new(3)]);
-
-    println!("Hello world");
-    println!("{p:?}");
-}
-
 #[cfg(test)]
 mod tests {
-    use super::FE;
+    use super::{fold, FieldElement, F, FE};
     use lambdaworks_math::polynomial::Polynomial;
-
-    #[test]
-    fn test_hello() {
-        super::hello();
-    }
 
     #[test]
     fn test_fold() {
@@ -61,8 +49,19 @@ mod tests {
             FE::new(3),
             FE::new(5),
         ]);
-        let beta = super::FieldElement::<super::F>::new(4);
-        let p1 = super::fold(&p0, &beta);
-        assert_eq!(p1, Polynomial::new(&[FE::new(7), FE::new(30), FE::new(23),]));
+        let beta = FieldElement::<F>::new(4);
+        let p1 = fold(&p0, &beta);
+        assert_eq!(
+            p1,
+            Polynomial::new(&[FE::new(7), FE::new(30), FE::new(23),])
+        );
+
+        let gamma = FieldElement::<F>::new(3);
+        let p2 = fold(&p1, &gamma);
+        assert_eq!(p2, Polynomial::new(&[FE::new(97), FE::new(23),]));
+
+        let delta = FieldElement::<F>::new(2);
+        let p3 = fold(&p2, &delta);
+        assert_eq!(p3, Polynomial::new(&[FE::new(143)]));
     }
 }
