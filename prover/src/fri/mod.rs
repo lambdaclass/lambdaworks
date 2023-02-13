@@ -1,4 +1,3 @@
-use itertools::Itertools;
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::fields::u64_prime_field::U64PrimeField;
 use lambdaworks_math::polynomial::Polynomial;
@@ -30,11 +29,11 @@ pub fn fold(
     println!("even: {even_coef:?}");
     println!("odd: {odd_coef:?}");
 
-    Polynomial::new(vec![FE::new(1), FE::new(2), FE::new(3)])
+    Polynomial::new(&[FE::new(1), FE::new(2), FE::new(3)])
 }
 
 pub fn hello() {
-    let p = Polynomial::new(vec![FE::new(1), FE::new(2), FE::new(3)]);
+    let p = Polynomial::new(&[FE::new(1), FE::new(2), FE::new(3)]);
 
     println!("Hello world");
     println!("{p:?}");
@@ -42,8 +41,8 @@ pub fn hello() {
 
 #[cfg(test)]
 mod tests {
-    use lambdaworks_math::polynomial::Polynomial;
     use super::FE;
+    use lambdaworks_math::polynomial::Polynomial;
 
     #[test]
     fn test_hello() {
@@ -52,13 +51,9 @@ mod tests {
 
     #[test]
     fn test_fold() {
-        let p = Polynomial::new(vec![FE::new(1), FE::new(2), FE::new(3)]);
+        let p = Polynomial::new(&[FE::new(1), FE::new(2), FE::new(3)]);
         let beta = super::FieldElement::<super::F>::new(21);
 
-        let _ = super::fold(
-            &p,
-            &beta
-        );
-
+        let _ = super::fold(&p, &beta);
     }
 }
