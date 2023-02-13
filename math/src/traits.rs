@@ -1,4 +1,6 @@
-/// A trait for converting an element to its byte representation.
+/// A trait for converting an element to and from its byte representation and
+/// for getting an element from its byte representation in big-endian or
+/// little-endian order.
 pub trait ByteConversion {
     /// Returns the byte representation of the element in big-endian order.
     fn to_bytes_be(&self) -> Vec<u8>;
