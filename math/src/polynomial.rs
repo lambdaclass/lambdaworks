@@ -16,7 +16,7 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
         let mut unpadded_coefficients = coefficients
             .iter()
             .rev()
-            .skip_while(|x| **x == FieldElement::zero())
+            .skip_while(|x| x.is_zero())
             .cloned()
             .collect::<Vec<FieldElement<F>>>();
         unpadded_coefficients.reverse();
