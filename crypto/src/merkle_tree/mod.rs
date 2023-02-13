@@ -36,8 +36,7 @@ impl<F: IsField, H: IsCryptoHash<F> + Clone> MerkleTree<F, H> {
             .iter()
             .find(|node| node.borrow().hash == hashed_value)
         {
-            let mut merkle_path: Vec<TreeNode<F>> = Vec::new();
-            merkle_path = build_merkle_path(leaf.clone(), &mut merkle_path).to_vec();
+            let merkle_path = build_merkle_path(leaf.clone(), &mut Vec::new());
 
             return Some(Proof {
                 value,
@@ -107,14 +106,14 @@ fn build_parent<F: IsField, H: IsCryptoHash<F>>(
 fn build_merkle_path<F: IsField>(
     node: TreeNode<F>,
     merkle_path: &mut Vec<TreeNode<F>>,
-) -> &Vec<TreeNode<F>> {
+) -> Vec<TreeNode<F>> {
     merkle_path.push(node.clone());
 
     if let Some(parent) = node.borrow().parent.clone() {
-        return build_merkle_path(parent, merkle_path);
+        return build_merkle_path(parent, merkle_path).to_vec();
     }
 
-    merkle_path
+    merkle_path.to_vec()
 }
 
 pub struct Proof<F: IsField, H: IsCryptoHash<F>> {
