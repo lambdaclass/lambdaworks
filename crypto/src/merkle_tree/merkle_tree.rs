@@ -1,6 +1,6 @@
-use std::{cell::RefCell, rc::Rc};
 use crate::hash::traits::IsCryptoHash;
 use lambdaworks_math::field::{element::FieldElement, traits::IsField};
+use std::{cell::RefCell, rc::Rc};
 
 pub struct MerkleTree<F: IsField, H: IsCryptoHash<F>> {
     leafs: Vec<TreeNode<F>>,
@@ -17,11 +17,11 @@ impl<F: IsField, H: IsCryptoHash<F>> MerkleTree<F, H> {
             level = hash_level(&mut level, &hasher);
         }
 
-        return MerkleTree {
+        MerkleTree {
             leafs,
             root: level[0].clone(),
             hasher,
-        };
+        }
     }
 
     pub fn get_root_hash(self) -> FieldElement<F> {
@@ -42,7 +42,7 @@ impl<F: IsField, H: IsCryptoHash<F>> MerkleTree<F, H> {
             return Some(Proof { value, merkle_path });
         }
 
-        return None;
+        None
     }
 }
 
@@ -81,10 +81,10 @@ fn build_parent<F: IsField, H: IsCryptoHash<F>>(
     left.borrow_mut().sibiling = Some(right.clone());
     left.borrow_mut().parent = Some(parent.clone());
 
-    right.borrow_mut().sibiling = Some(left.clone());
+    right.borrow_mut().sibiling = Some(left);
     right.borrow_mut().parent = Some(parent.clone());
 
-    return parent;
+    parent
 }
 
 fn build_merkle_path<F: IsField>(
