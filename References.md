@@ -15,7 +15,7 @@
 - [Dusk Network](https://github.com/dusk-network/plonk/tree/master/src/fft)
 - [gnark's Plonk](https://github.com/ConsenSys/gnark/tree/master/backend/plonk)
 - [PlonkUp](https://eprint.iacr.org/2022/086.pdf)
-
+- [PlonkByHand 1](https://research.metastate.dev/plonk-by-hand-part-1/)
 
 ## Groth16
 - [Proof forgery](https://medium.com/ppio/how-to-generate-a-groth16-proof-for-forgery-9f857b0dcafd)
@@ -37,3 +37,16 @@
 
 ## Lookup Tables
 - [Caulk](https://github.com/caulk-crypto/caulk)
+
+## Starks
+- [DeepFRI](https://eprint.iacr.org/2019/336.pdf)
+- [FRI](https://eccc.weizmann.ac.il/report/2017/134/)
+- [Starks](https://starkware.co/wp-content/uploads/2022/05/STARK-paper.pdf)
+- [EthStark](https://eprint.iacr.org/2021/582.pdf)
+- [Starks-101](https://starkware.co/stark-101/)
+- [Starks-101-Github](https://github.com/starkware-industries/stark101)
+- [Starks arithmetization-1](https://medium.com/starkware/arithmetization-i-15c046390862)
+- [Starks arithmetization-2](https://medium.com/starkware/arithmetization-ii-403c3b3f4355)
+- [Low-degree testing](https://medium.com/starkware/low-degree-testing-f7614f5172db)
+- [Winterfell](https://github.com/facebook/winterfell)
+- [Anatomy of a Stark](https://neptune.cash/learn/stark-anatomy/fri/)
