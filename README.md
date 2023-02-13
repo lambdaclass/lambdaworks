@@ -11,10 +11,6 @@
 
 From the heights of these towers of fields, forty centuries of mathematics look down on us. The library for kids who wanna learn how to do SNARKs and learn other cryptographic stuff too.
 
-References:
-- [arkworks-rs](https://github.com/arkworks-rs/)
-- [gnark](https://github.com/ConsenSys/gnark)
-
 If you use ```Lambdaworks``` libraries in your research projects, please cite them using the following template:
 ```
 @software{Lambdaworks,
