@@ -7,7 +7,9 @@ struct Transcript {
 impl Transcript {
     #[allow(unused)]
     fn new() -> Self {
-        Self { hasher: Sha3_256::new() }
+        Self {
+            hasher: Sha3_256::new(),
+        }
     }
 
     #[allow(unused)]
