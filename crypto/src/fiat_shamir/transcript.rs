@@ -6,7 +6,7 @@ pub struct Transcript {
 
 impl Transcript {
     #[allow(unused)]
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             hasher: Sha3_256::new(),
         }

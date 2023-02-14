@@ -6,7 +6,7 @@ pub struct FriCommitment<F: IsField, H: IsCryptoHash<F>> {
     pub poly: Polynomial<FE>,
     pub domain: Vec<FE>,
     pub evaluation: Vec<FE>,
-    pub merkle_tree: MerkleTree<F, H>, // TODO!
+    pub merkle_tree: MerkleTree<F, H>,
 }
 
 pub type FriCommitmentVec<F, H> = Vec<FriCommitment<F, H>>;

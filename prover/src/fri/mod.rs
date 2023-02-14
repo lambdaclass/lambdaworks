@@ -3,6 +3,8 @@ mod fri_decommit;
 mod fri_functions;
 mod fri_merkle_tree;
 
+use crate::fri::fri_commitment::FriCommitmentVec;
+use crate::fri::fri_functions::next_fri_layer;
 use crate::fri::fri_merkle_tree::FriTestHasher;
 use fri_commitment::FriCommitment; //, FriCommitmentVec};
 pub use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
@@ -43,50 +45,53 @@ pub fn fri_commitment(
     }
 }
 
-/*
-pub fn fri(p0: &mut Polynomial<FieldElement<F>>, domain_0: &[FE])
--> FriCommitmentVec {
-    let fri_commitment_list = FriCommitmentVec::new();
+pub fn fri(
+    p_0: &mut Polynomial<FieldElement<F>>,
+    domain_0: &[FE],
+) -> FriCommitmentVec<F, FriTestHasher> {
+    let mut fri_commitment_list = FriCommitmentVec::new();
+    let mut transcript = Transcript::new();
+
+    let evaluation_0 = p_0.evaluate_slice(domain_0);
+    let merkle_tree = MerkleTree::build(&evaluation_0, FriTestHasher);
     let commitment_0 = FriCommitment {
-        poly: p0.clone(),
-        domain: Vec::from(domain_0),
-        evaluation: Vec::new(), // calcular evaluation @@@@
-        merkle_tree: String::new(), // TODO!
+        poly: p_0.clone(),
+        domain: domain_0.to_vec(),
+        evaluation: evaluation_0.to_vec(),
+        merkle_tree,
     };
-    // TODO@@@ append root of the merkle tree to the transcript
+
+    // last poly of the list
+    let mut last_poly: Polynomial<FE> = p_0.clone();
+    // last domain of the list
+    let mut last_domain: Vec<FE> = domain_0.to_vec();
+
     // first evaluation in the list
     fri_commitment_list.push(commitment_0);
-    let mut degree = p0.degree();
+    let mut degree = p_0.degree();
+
+    // TODO@@@ append root of the merkle tree to the transcript
 
     while degree > 0 {
         // sample beta:
-        // beta = transcript.challenge();
+        // TODO! let beta = transcript.challenge();
+        let beta = FE::new(5);
 
-        let (ret_poly, ret_next_domain, ret_evaluation) =
-        next_fri_layer(
-            poly: // last poly of the list
-            domain: // last domain of the list
-            beta: @@@@,
-        );
+        let (p_i, domain_i, evaluation_i) = next_fri_layer(&last_poly, &last_domain, &beta);
 
+        let commitment_i = fri_commitment(&p_i, &domain_i, &evaluation_i, &mut transcript);
 
-        let commitment_i = fri_commitment(
-            ret_poly,
-            ret_next_domain,
-            ret_evaluation,
-            // merkle_tree0: ... TODO!!! from evaluation
-        );
+        fri_commitment_list.push(commitment_i);
+        degree = p_i.degree();
 
-        degree = commitment_i.poly.degree();
+        last_poly = p_i.clone();
+        last_domain = domain_i.clone();
 
         // TODO
         // append root of merkle tree to transcript
 
-        fri_commitment_list.push(commitment_i);
+        // TODO
+        // append last value of the polynomial to the trasncript
     }
-
-    // append last value of the polynomial to the trasncript
-
     fri_commitment_list
 }
-*/
