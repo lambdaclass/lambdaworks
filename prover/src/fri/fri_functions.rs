@@ -39,7 +39,7 @@ pub fn next_fri_layer(
 ) -> (Polynomial<FE>, Vec<FE>, Vec<FE>) {
     let ret_poly = fold_polynomial(poly, beta);
     let ret_next_domain = next_domain(domain);
-    let ret_evaluation = ret_poly.evaluate_vec(&ret_next_domain);
+    let ret_evaluation = ret_poly.evaluate_slice(&ret_next_domain);
     (ret_poly, ret_next_domain, ret_evaluation)
 }
 
