@@ -64,7 +64,7 @@ impl IsEllipticCurve for TestCurve2 {
         ])
     }
 
-    fn create_affine_point(
+    fn create_point_from_affine(
         x: FieldElement<Self::BaseField>,
         y: FieldElement<Self::BaseField>,
     ) -> Self::PointRepresentation {

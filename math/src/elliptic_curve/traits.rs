@@ -19,7 +19,7 @@ pub trait IsEllipticCurve {
 
     /// Returns an affine point.
     // TODO: Return a result when the point does not belong to the curve.
-    fn create_affine_point(
+    fn create_point_from_affine(
         x: FieldElement<Self::BaseField>,
         y: FieldElement<Self::BaseField>,
     ) -> Self::PointRepresentation;
