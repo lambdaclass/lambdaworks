@@ -110,7 +110,7 @@ where
     F: IsField,
 {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
-        iter.fold(Self::zero(), |a, b| a + b)
+        iter.fold(Self::zero(), |augend, addend| augend + addend)
     }
 }
 
