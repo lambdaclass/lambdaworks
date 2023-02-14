@@ -2,16 +2,33 @@ use lambdaworks_math::polynomial::Polynomial;
 use winterfell::{
     crypto::hashers::Blake3_256,
     math::{fields::f128::BaseElement, FieldElement, StarkField},
+    prover::constraints::CompositionPoly,
     Air, AirContext, Assertion, AuxTraceRandElements, ByteWriter, EvaluationFrame, FieldExtension,
     ProofOptions, Prover, Serializable, StarkProof, Trace, TraceInfo, TraceTable,
     TransitionConstraintDegree,
 };
 
-use winterfell::prover::build_trace_commitment_f;
-use winterfell::prover::channel::ProverChannel;
-use winterfell::prover::constraints::ConstraintEvaluator;
-use winterfell::prover::domain::StarkDomain;
-use winterfell::prover::trace::commitment::TraceCommitment;
+use winterfell::prover::{
+    build_trace_commitment_f, channel::ProverChannel, constraints::ConstraintEvaluator,
+    domain::StarkDomain, trace::commitment::TraceCommitment,
+};
+
+fn get_coefficients<E: StarkField>(poly: CompositionPoly<E>) -> Vec<E> {
+    let data = poly.into_columns();
+
+    let num_columns = data.len();
+    let column_len = data[0].len();
+
+    let mut coeffs = Vec::with_capacity(num_columns * column_len);
+
+    for i in 0..column_len {
+        for j in 0..num_columns {
+            coeffs.push(data[j][i]);
+        }
+    }
+
+    coeffs
+}
 
 // fn get_composition_poly<A, E, F>(
 fn get_composition_poly<A, E>(
@@ -27,9 +44,7 @@ where
 {
     let mut pub_inputs_bytes = Vec::new();
     pub_inputs.write_into(&mut pub_inputs_bytes);
-
     let mut channel = ProverChannel::<A, E, Blake3_256<E>>::new(&air, pub_inputs_bytes);
-
     let domain = StarkDomain::new(&air);
 
     // extend the main execution trace and build a Merkle tree from the extended trace
@@ -66,9 +81,26 @@ where
 mod tests {
     use super::*;
 
+    #[test]
+    fn test_get_coefficients() {
+        let coeffs = (0u128..16).map(BaseElement::new).collect::<Vec<_>>();
+        let poly = CompositionPoly::new(coeffs.clone(), 2);
+        let coeffs_res = get_coefficients(poly);
+
+        assert_eq!(coeffs, coeffs_res);
+    }
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // This test is made for the following computation, taken from the winterfell README:
-    //    This computation starts with an element in a finite field and then, for the specified number of steps,
-    //    cubes the element and adds value 42 to it.
+    //    "This computation starts with an element in a finite field and then, for the specified number of steps,
+    //    cubes the element and adds value 42 to it"
+    //
+    // The test setup consists of the following:
+    //     * Creating a trace of the computation
+    //     * Implementing an AIR of the computation
+    //
+    // TODO: Check that the obtained polynomial is correct.
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////
     #[test]
     fn test_composition_poly_simple_computation() {
         pub fn build_do_work_trace(start: BaseElement, n: usize) -> TraceTable<BaseElement> {
