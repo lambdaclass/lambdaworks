@@ -1,5 +1,7 @@
 use super::field_extension::BLS12377PrimeField;
 use crate::elliptic_curve::short_weierstrass::curves::bls12_377::field_extension::BLS12377_PRIME_FIELD_ORDER;
+use crate::elliptic_curve::short_weierstrass::element::ProjectivePoint;
+use crate::elliptic_curve::traits::IsEllipticCurve;
 use crate::unsigned_integer::element::U384;
 use crate::{
     elliptic_curve::short_weierstrass::traits::IsShortWeierstrass, field::element::FieldElement,
@@ -12,8 +14,28 @@ const BLS12377_MAIN_SUBGROUP_ORDER: U384 =
 /// The description of the curve.
 #[derive(Clone, Debug)]
 pub struct BLS12377Curve;
-impl IsShortWeierstrass for BLS12377Curve {
+
+impl IsEllipticCurve for BLS12377Curve {
     type BaseField = BLS12377PrimeField;
+    type PointRepresentation = ProjectivePoint<Self>;
+
+    fn generator() -> Self::PointRepresentation {
+        ProjectivePoint::new([
+            FieldElement::<Self::BaseField>::new_base("8848defe740a67c8fc6225bf87ff5485951e2caa9d41bb188282c8bd37cb5cd5481512ffcd394eeab9b16eb21be9ef"),
+            FieldElement::<Self::BaseField>::new_base("1914a69c5102eff1f674f5d30afeec4bd7fb348ca3e52d96d182ad44fb82305c2fe3d3634a9591afd82de55559c8ea6"),
+            FieldElement::one()
+        ])
+    }
+
+    fn create_affine_point(
+        x: FieldElement<Self::BaseField>,
+        y: FieldElement<Self::BaseField>,
+    ) -> Self::PointRepresentation {
+        ProjectivePoint::new([x, y, FieldElement::one()])
+    }
+}
+
+impl IsShortWeierstrass for BLS12377Curve {
     type UIntOrders = U384;
 
     fn a() -> FieldElement<Self::BaseField> {
@@ -22,14 +44,6 @@ impl IsShortWeierstrass for BLS12377Curve {
 
     fn b() -> FieldElement<Self::BaseField> {
         FieldElement::from(1)
-    }
-
-    fn generator_affine_x() -> FieldElement<Self::BaseField> {
-        FieldElement::<Self::BaseField>::new_base("8848defe740a67c8fc6225bf87ff5485951e2caa9d41bb188282c8bd37cb5cd5481512ffcd394eeab9b16eb21be9ef")
-    }
-
-    fn generator_affine_y() -> FieldElement<Self::BaseField> {
-        FieldElement::<Self::BaseField>::new_base("1914a69c5102eff1f674f5d30afeec4bd7fb348ca3e52d96d182ad44fb82305c2fe3d3634a9591afd82de55559c8ea6")
     }
 
     fn order_r() -> Self::UIntOrders {
@@ -58,7 +72,7 @@ impl IsShortWeierstrass for BLS12377Curve {
 mod tests {
     use super::*;
     use crate::{
-        cyclic_group::IsCyclicGroup, elliptic_curve::short_weierstrass::element::ProjectivePoint,
+        cyclic_group::IsGroup, elliptic_curve::short_weierstrass::element::ProjectivePoint,
         field::element::FieldElement,
     };
 
@@ -102,7 +116,7 @@ mod tests {
 
     #[test]
     fn equality_works() {
-        let g = ProjectivePoint::<BLS12377Curve>::generator();
+        let g = BLS12377Curve::generator();
         let g2 = g.operate_with(&g);
         assert_ne!(&g2, &g);
         assert_eq!(&g, &g);
@@ -110,7 +124,7 @@ mod tests {
 
     #[test]
     fn operate_with_self_works_1() {
-        let g = ProjectivePoint::<BLS12377Curve>::generator();
+        let g = BLS12377Curve::generator();
         assert_eq!(g.operate_with(&g).operate_with(&g), g.operate_with_self(3));
     }
 }

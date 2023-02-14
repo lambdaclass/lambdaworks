@@ -1,4 +1,4 @@
-use crate::cyclic_group::IsCyclicGroup;
+use crate::cyclic_group::IsGroup;
 use crate::elliptic_curve::short_weierstrass::traits::IsShortWeierstrass;
 use crate::field::element::FieldElement;
 use std::fmt::Debug;
@@ -72,15 +72,7 @@ impl<E: IsShortWeierstrass> PartialEq for ProjectivePoint<E> {
 
 impl<E: IsShortWeierstrass> Eq for ProjectivePoint<E> {}
 
-impl<E: IsShortWeierstrass> IsCyclicGroup for ProjectivePoint<E> {
-    fn generator() -> Self {
-        Self::new([
-            E::generator_affine_x(),
-            E::generator_affine_y(),
-            FieldElement::one(),
-        ])
-    }
-
+impl<E: IsShortWeierstrass> IsGroup for ProjectivePoint<E> {
     fn neutral_element() -> Self {
         Self::new(E::neutral_element())
     }
@@ -94,7 +86,7 @@ impl<E: IsShortWeierstrass> IsCyclicGroup for ProjectivePoint<E> {
 
 #[cfg(test)]
 mod tests {
-    use crate::cyclic_group::IsCyclicGroup;
+    use crate::cyclic_group::IsGroup;
     use crate::elliptic_curve::short_weierstrass::curves::test_curve_1::{
         TestCurve1, TestCurveQuadraticNonResidue, TEST_CURVE_1_MAIN_SUBGROUP_ORDER,
         TEST_CURVE_1_PRIME_FIELD_ORDER,
@@ -103,6 +95,7 @@ mod tests {
     use crate::field::element::FieldElement;
     use crate::unsigned_integer::element::U384;
     //use crate::elliptic_curve::curves::test_curve_2::TestCurve2;
+    use crate::elliptic_curve::traits::IsEllipticCurve;
     use crate::{
         elliptic_curve::short_weierstrass::element::ProjectivePoint,
         field::{
@@ -132,7 +125,7 @@ mod tests {
 
     #[test]
     fn equality_works() {
-        let g = ProjectivePoint::<TestCurve1>::generator();
+        let g = TestCurve1::generator();
         let g2 = g.operate_with(&g);
         assert_ne!(&g2, &g);
         assert_eq!(&g, &g);
@@ -140,13 +133,13 @@ mod tests {
 
     #[test]
     fn operate_with_self_works_1() {
-        let g = ProjectivePoint::<TestCurve1>::generator();
+        let g = TestCurve1::generator();
         assert_eq!(g.operate_with(&g).operate_with(&g), g.operate_with_self(3));
     }
 
     #[test]
     fn operate_with_self_works_2() {
-        let mut point_1 = ProjectivePoint::<TestCurve1>::generator();
+        let mut point_1 = TestCurve1::generator();
         point_1 = point_1.operate_with_self(TEST_CURVE_1_MAIN_SUBGROUP_ORDER as u128);
         assert_eq!(point_1, ProjectivePoint::<TestCurve1>::neutral_element());
     }
@@ -192,7 +185,7 @@ mod tests {
 
     #[test]
     fn operate_with_self_works_with_test_curve_2() {
-        let mut point_1 = ProjectivePoint::<TestCurve2>::generator();
+        let mut point_1 = TestCurve2::generator();
         point_1 = point_1.operate_with_self(15);
 
         let expected_result = ProjectivePoint::<TestCurve2>::new([
