@@ -84,13 +84,13 @@ mod tests {
     fn point_1() -> ProjectivePoint<BLS12377Curve> {
         let x = FEE::new_base("134e4cc122cb62a06767fb98e86f2d5f77e2a12fefe23bb0c4c31d1bd5348b88d6f5e5dee2b54db4a2146cc9f249eea");
         let y = FEE::new_base("17949c29effee7a9f13f69b1c28eccd78c1ed12b47068836473481ff818856594fd9c1935e3d9e621901a2d500257a2");
-        BLS12377Curve::create_point_from_affine(x, y)
+        BLS12377Curve::create_affine_point(x, y)
     }
 
     fn point_1_times_5() -> ProjectivePoint<BLS12377Curve> {
         let x = FEE::new_base("3c852d5aab73fbb51e57fbf5a0a8b5d6513ec922b2611b7547bfed74cba0dcdfc3ad2eac2733a4f55d198ec82b9964");
         let y = FEE::new_base("a71425e68e55299c64d7eada9ae9c3fb87a9626b941d17128b64685fc07d0e635f3c3a512903b4e0a43e464045967b");
-        BLS12377Curve::create_point_from_affine(x, y)
+        BLS12377Curve::create_affine_point(x, y)
     }
 
     #[test]
@@ -111,7 +111,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn create_invalid_points_panics() {
-        BLS12377Curve::create_point_from_affine(FEE::from(1), FEE::from(1));
+        BLS12377Curve::create_affine_point(FEE::from(1), FEE::from(1));
     }
 
     #[test]
