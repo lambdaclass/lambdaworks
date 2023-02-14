@@ -29,7 +29,7 @@ pub fn cooley_tukey<F: IsField>(
 
 #[cfg(test)]
 mod test {
-    use crate::field::fields::u64_prime_field::U64FieldElement;
+    use crate::{field::fields::u64_prime_field::U64FieldElement, polynomial::Polynomial};
 
     use super::*;
     const MODULUS: u64 = 13;
@@ -38,11 +38,14 @@ mod test {
     /// test case generated with <https://www.nayuki.io/page/number-theoretic-transform-integer-dft>
     #[test]
     fn test_cooley_tukey() {
-        let coeffs = vec![FE::new(6), FE::new(0), FE::new(10), FE::new(7)];
+        let poly = Polynomial::new([6, 0, 10, 7].map(FE::from).to_vec());
         let omega = FE::from(8);
 
-        let result = cooley_tukey(coeffs, omega, MODULUS);
-        let expected = vec![FE::new(10), FE::new(5), FE::new(9), FE::new(0)];
+        let twiddles_iter = (0..poly.coefficients().len() as u64).map(|i| omega.pow(i));
+
+        let expected: Vec<FE> = twiddles_iter.map(|x| poly.evaluate(x)).collect();
+        let result = cooley_tukey(poly.coefficients().to_owned(), omega, MODULUS);
+
         assert_eq!(result, expected);
     }
 }
