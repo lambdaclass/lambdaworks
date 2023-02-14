@@ -73,8 +73,6 @@ impl<E: IsEllipticCurve> PartialEq for EllipticCurveElement<E> {
 impl<E: IsEllipticCurve> Eq for EllipticCurveElement<E> {}
 
 impl<E: IsEllipticCurve> IsCyclicGroup for EllipticCurveElement<E> {
-    type PairingOutput = FieldElement<E::BaseField>;
-
     fn generator() -> Self {
         Self::new([
             E::generator_affine_x(),
