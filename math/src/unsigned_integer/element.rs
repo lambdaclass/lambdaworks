@@ -435,7 +435,7 @@ impl<const NUM_LIMBS: usize> ByteConversion for UnsignedInteger<NUM_LIMBS> {
 
     fn from_bytes_be(bytes: &[u8]) -> Result<Self, ByteConversionError> {
         let mut limbs = Vec::with_capacity(NUM_LIMBS);
-        bytes.chunks_exact(8).rev().try_for_each(|chunk| {
+        bytes.chunks_exact(8).try_for_each(|chunk| {
             let limb = u64::from_be_bytes(
                 chunk
                     .try_into()
