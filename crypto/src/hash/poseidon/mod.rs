@@ -14,13 +14,15 @@ pub struct Poseidon<F: IsField> {
     phantom: std::marker::PhantomData<F>,
 }
 
+/// Implements hashing for BLS 12381's field.
+/// Alpha = 5 and parameters are predefined for secure implementations
 impl IsCryptoHash<BLS12381PrimeField> for Poseidon<BLS12381PrimeField> {
     fn hash_one(
         input: FieldElement<BLS12381PrimeField>,
     ) -> Result<FieldElement<BLS12381PrimeField>, String> {
         let params = Parameters::for_one_element()
             .expect("Error loading parameters for hashing one element");
-        Self::hash(vec![input], &params)
+        Self::hash(vec![input], &params, 5)
     }
 
     fn hash_two(
@@ -30,7 +32,7 @@ impl IsCryptoHash<BLS12381PrimeField> for Poseidon<BLS12381PrimeField> {
         let params = Parameters::for_two_elements()
             .expect("Error loading parameters for hashing two elements");
 
-        Self::hash(vec![left, right], &params)
+        Self::hash(vec![left, right], &params, 5)
     }
 }
 
@@ -44,13 +46,19 @@ where
         }
     }
 
-    fn sbox(n_rounds_f: usize, n_rounds_p: usize, state: &mut [FieldElement<F>], i: usize) {
+    fn sbox(
+        n_rounds_f: usize,
+        n_rounds_p: usize,
+        state: &mut [FieldElement<F>],
+        i: usize,
+        alpha: u32,
+    ) {
         if i < n_rounds_f / 2 || i >= n_rounds_f / 2 + n_rounds_p {
             for current_state in state.iter_mut() {
-                *current_state = current_state.pow(5u32);
+                *current_state = current_state.pow(alpha);
             }
         } else {
-            state[0] = state[0].pow(5u32);
+            state[0] = state[0].pow(alpha);
         }
     }
 
@@ -67,7 +75,11 @@ where
         new_state.clone()
     }
 
-    fn hash(inp: Vec<FieldElement<F>>, params: &Parameters<F>) -> Result<FieldElement<F>, String> {
+    fn hash(
+        inp: Vec<FieldElement<F>>,
+        params: &Parameters<F>,
+        alpha: u32,
+    ) -> Result<FieldElement<F>, String> {
         let t = inp.len() + 1;
         if inp.is_empty() || inp.len() >= params.n_partial_rounds - 1 {
             return Err("Wrong inputs length".to_string());
@@ -78,7 +90,13 @@ where
 
         for i in 0..(params.n_full_rounds + params.n_partial_rounds) {
             Self::ark(&mut state, &params.round_constants, i * t);
-            Self::sbox(params.n_full_rounds, params.n_partial_rounds, &mut state, i);
+            Self::sbox(
+                params.n_full_rounds,
+                params.n_partial_rounds,
+                &mut state,
+                i,
+                alpha,
+            );
             state = Self::mix(&state, &params.mds_matrix);
         }
 
