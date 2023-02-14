@@ -11,3 +11,8 @@ thiserror = "1.0.38"
 
 [dev-dependencies]
 proptest = "1.1.0"
+criterion = "0.4"
+
+[[bench]]
+name = "field"
+harness = false
