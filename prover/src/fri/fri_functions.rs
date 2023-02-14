@@ -28,15 +28,6 @@ fn next_domain(input: &[FE]) -> Vec<FE> {
     ret
 }
 
-fn next_layer(poly: &Polynomial<FE>, domain: &[FE]) -> Vec<FE> {
-    let length = domain.len() / 2;
-    let mut ret = Vec::with_capacity(length);
-    for v in domain.iter() {
-        ret.push(poly.evaluate(v));
-    }
-    ret
-}
-
 /// Returns:
 /// * new polynomoial folded with FRI protocol
 /// * new domain
@@ -48,13 +39,13 @@ pub fn next_fri_layer(
 ) -> (Polynomial<FE>, Vec<FE>, Vec<FE>) {
     let ret_poly = fold_polynomial(poly, beta);
     let ret_next_domain = next_domain(domain);
-    let ret_evaluation = next_layer(&ret_poly, &ret_next_domain);
+    let ret_evaluation = ret_poly.evaluate_vec(&ret_next_domain);
     (ret_poly, ret_next_domain, ret_evaluation)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{fold_polynomial, next_domain, next_fri_layer, next_layer, FE};
+    use super::{fold_polynomial, next_domain, next_fri_layer, FE};
     use lambdaworks_math::polynomial::Polynomial;
 
     #[test]
@@ -107,23 +98,6 @@ mod tests {
 
         let ret_next_domain_3 = next_domain(&ret_next_domain_2);
         assert_eq!(ret_next_domain_3, &[FE::new(56)]);
-    }
-
-    #[test]
-    fn test_next_layer() {
-        let p0 = Polynomial::new(&[
-            FE::new(3),
-            FE::new(1),
-            FE::new(2),
-            FE::new(7),
-            FE::new(3),
-            FE::new(5),
-        ]);
-
-        let domain = [FE::new(5), FE::new(9)];
-        let eval = next_layer(&p0, &domain);
-
-        assert_eq!(eval, [FE::new(267), FE::new(249)]);
     }
 
     #[test]
