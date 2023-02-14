@@ -31,7 +31,7 @@ impl<const MODULUS: u64> IsField for U64PrimeField<MODULUS> {
     }
 
     fn inv(a: &u64) -> u64 {
-        assert_ne!(*a, 0, "Cannot invert zero element");
+        debug_assert_ne!(*a, 0, "Cannot invert zero element");
         Self::pow(a, MODULUS - 2)
     }
 

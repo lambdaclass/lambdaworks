@@ -20,7 +20,7 @@ pub fn msm<T>(cs: &[FE], hidings: &[T]) -> T
 where
     T: IsCyclicGroup,
 {
-    assert_eq!(
+    debug_assert_eq!(
         cs.len(),
         hidings.len(),
         "Slices `cs` and `hidings` must be of the same length to compute `msm`."

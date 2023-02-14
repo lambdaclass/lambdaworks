@@ -68,7 +68,7 @@ pub trait IsEllipticCurve: Clone + Debug {
     /// of the form [x: y: 1]
     /// Panics if `self` is the point at infinity
     fn affine(p: &[FieldElement<Self::BaseField>; 3]) -> [FieldElement<Self::BaseField>; 3] {
-        assert!(
+        debug_assert!(
             !Self::is_neutral_element(p),
             "The point at infinity is not affine."
         );
