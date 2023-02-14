@@ -1,4 +1,10 @@
-pub fn log2(n: usize) -> u64 {
-    assert!(n.is_power_of_two(), "n must be a power of two");
-    n.trailing_zeros() as u64
+use super::errors::FFTError;
+
+pub fn log2(n: usize) -> Result<u64, FFTError> {
+    if !n.is_power_of_two() {
+        return Err(FFTError::InvalidOrder(
+            "The order of polynomial should a be power of 2".to_string(),
+        ));
+    }
+    Ok(n.trailing_zeros() as u64)
 }

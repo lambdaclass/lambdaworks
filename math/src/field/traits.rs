@@ -1,4 +1,4 @@
-use crate::unsigned_integer::traits::IsUnsignedInteger;
+use crate::{fft::errors::FFTError, unsigned_integer::traits::IsUnsignedInteger};
 use std::fmt::Debug;
 
 use super::element::FieldElement;
@@ -16,12 +16,24 @@ pub trait TwoAdicField: IsField {
     const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: Self::BaseType;
     const GENERATOR: Self::BaseType;
 
-    /// Returns the root of unity of order 2^`k.
-    fn get_root_of_unity(k: u64) -> FieldElement<Self> {
+    /// Returns the root of unity of order 2^`n.
+    fn get_root_of_unity(k: u64) -> Result<FieldElement<Self>, FFTError> {
         let two_adic_primitive_root_of_unity =
             FieldElement::new(Self::TWO_ADIC_PRIMITVE_ROOT_OF_UNITY);
+        if k == 0 {
+            return Err(FFTError::RootOfUnityError(
+                "Cannot get root of unity for k = 0".to_string(),
+                k,
+            ));
+        }
+        if k > Self::TWO_ADICITY {
+            return Err(FFTError::RootOfUnityError(
+                "Order cannot exceed 2^{Self::TWO_ADICITY}".to_string(),
+                k,
+            ));
+        }
         let power = 1u64 << (Self::TWO_ADICITY - k);
-        two_adic_primitive_root_of_unity.pow(power)
+        Ok(two_adic_primitive_root_of_unity.pow(power))
     }
 }
 

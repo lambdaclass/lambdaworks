@@ -3,18 +3,20 @@ use crate::field::{
     traits::{IsField, TwoAdicField},
 };
 
-use super::helpers::log2;
+use super::{errors::FFTError, helpers::log2};
 
-pub fn fft<F: IsField + TwoAdicField>(coeffs: Vec<FieldElement<F>>) -> Vec<FieldElement<F>> {
-    let omega = F::get_root_of_unity(log2(coeffs.len()));
-    cooley_tukey(coeffs, omega)
+pub fn fft<F: IsField + TwoAdicField>(
+    coeffs: Vec<FieldElement<F>>,
+) -> Result<Vec<FieldElement<F>>, FFTError> {
+    let omega = F::get_root_of_unity(log2(coeffs.len())?)?;
+    Ok(cooley_tukey(coeffs, omega))
 }
 
 pub fn inverse_fft<F: IsField + TwoAdicField>(
     evaluations: Vec<FieldElement<F>>,
-) -> Vec<FieldElement<F>> {
-    let omega = F::get_root_of_unity(log2(evaluations.len()));
-    inverse_cooley_tukey(evaluations, omega)
+) -> Result<Vec<FieldElement<F>>, FFTError> {
+    let omega = F::get_root_of_unity(log2(evaluations.len())?)?;
+    Ok(inverse_cooley_tukey(evaluations, omega))
 }
 
 fn cooley_tukey<F: IsField>(
@@ -22,7 +24,6 @@ fn cooley_tukey<F: IsField>(
     omega: FieldElement<F>,
 ) -> Vec<FieldElement<F>> {
     let n = coeffs.len();
-    assert!(n.is_power_of_two(), "n should be power of two");
     if n == 1 {
         return coeffs;
     }
@@ -33,7 +34,7 @@ fn cooley_tukey<F: IsField>(
         cooley_tukey(coeffs_even, omega.clone()),
         cooley_tukey(coeffs_odd, omega.clone()),
     );
-    let mut y = vec![FieldElement::one(); n];
+    let mut y = vec![FieldElement::zero(); n];
     for i in 0..n / 2 {
         let a = y_even[i].clone();
         let b = omega.pow(i) * y_odd[i].clone();
@@ -57,7 +58,7 @@ pub fn inverse_cooley_tukey<F: IsField>(
 }
 
 #[cfg(test)]
-mod test {
+mod fft_test {
     use crate::field::test_fields::u64_test_field::U64TestField;
     use crate::polynomial::Polynomial;
 
@@ -68,10 +69,10 @@ mod test {
     #[test]
     fn test_fft_should_return_correct_polynomial_values() {
         let poly = Polynomial::new(&[6, 0, 10, 7].map(FeFft::from));
-        let omega = U64TestField::get_root_of_unity(log2(poly.coefficients().len()));
+        let omega =
+            U64TestField::get_root_of_unity(log2(poly.coefficients().len()).unwrap()).unwrap();
         let twiddles_iter = (0..poly.coefficients().len() as u64).map(|i| omega.pow(i));
-
-        let result = fft(poly.coefficients().to_vec());
+        let result = fft(poly.coefficients().to_vec()).unwrap();
         let expected: Vec<FeFft> = twiddles_iter.map(|x| poly.evaluate(x)).collect();
         assert_eq!(result, expected);
     }
@@ -79,14 +80,15 @@ mod test {
     #[test]
     fn test_inverse_fft() {
         let poly = Polynomial::new(&[6, 0, 10, 7].map(FeFft::from));
-        let omega = U64TestField::get_root_of_unity(log2(poly.coefficients().len()));
+        let omega =
+            U64TestField::get_root_of_unity(log2(poly.coefficients().len()).unwrap()).unwrap();
         let twiddles_iter = (0..poly.coefficients().len() as u64).map(|i| omega.pow(i));
 
-        let result = fft(poly.coefficients().to_vec());
+        let result = fft(poly.coefficients().to_vec()).unwrap();
         let expected: Vec<FeFft> = twiddles_iter.map(|x| poly.evaluate(x)).collect();
         assert_eq!(result, expected);
 
-        let recovered_poly = inverse_fft(result);
+        let recovered_poly = inverse_fft(result).unwrap();
         assert_eq!(recovered_poly, poly.coefficients());
     }
 }
