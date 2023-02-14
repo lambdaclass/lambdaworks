@@ -7,3 +7,12 @@ edition = "2021"
 
 [dependencies]
 rand = "0.8.5"
+
+[dev-dependencies.criterion]
+version = "0.4"
+features = ["async_futures"]
+
+[dev-dependencies.pprof]
+version = "0.11"
+features = ["criterion", "flamegraph", "frame-pointer"]
+default-features = false
