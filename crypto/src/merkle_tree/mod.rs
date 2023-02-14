@@ -7,7 +7,7 @@ use std::{cell::RefCell, rc::Rc};
 
 pub struct MerkleTree<F: IsField, H: IsCryptoHash<F>> {
     leafs: Vec<TreeNode<F>>,
-    root: TreeNode<F>,
+    pub root: TreeNode<F>,
     hasher: H,
 }
 
@@ -165,7 +165,7 @@ pub struct Proof<F: IsField, H: IsCryptoHash<F>> {
     hasher: H,
 }
 
-type TreeNode<F> = Rc<RefCell<Node<F>>>;
+pub type TreeNode<F> = Rc<RefCell<Node<F>>>;
 
 fn build_tree_node<F: IsField>(hash: FieldElement<F>) -> TreeNode<F> {
     Rc::new(RefCell::new(Node {
@@ -176,8 +176,8 @@ fn build_tree_node<F: IsField>(hash: FieldElement<F>) -> TreeNode<F> {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-struct Node<F: IsField> {
-    hash: FieldElement<F>,
+pub struct Node<F: IsField> {
+    pub hash: FieldElement<F>,
     parent: Option<TreeNode<F>>,
     sibiling: Option<TreeNode<F>>,
 }

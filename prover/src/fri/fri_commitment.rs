@@ -1,25 +1,12 @@
 pub use super::{Polynomial, F, FE};
-use lambdaworks_crypto::{hash::traits::IsCryptoHash, merkle_tree};
+use lambdaworks_crypto::{hash::traits::IsCryptoHash, merkle_tree::MerkleTree};
+use lambdaworks_math::field::traits::IsField;
 
-pub struct FriCommitment {
+pub struct FriCommitment<F: IsField, H: IsCryptoHash<F>> {
     pub poly: Polynomial<FE>,
     pub domain: Vec<FE>,
     pub evaluation: Vec<FE>,
-    pub merkle_tree: String, // TODO!
+    pub merkle_tree: MerkleTree<F, H>, // TODO!
 }
 
-pub type FriCommitmentVec = Vec<FriCommitment>;
-
-// TODO!!!!
-#[derive(Clone)]
-struct TestHasher;
-
-impl IsCryptoHash<F> for TestHasher {
-    fn hash_one(&self, input: FE) -> FE {
-        input + input
-    }
-
-    fn hash_two(&self, left: FE, right: FE) -> FE {
-        left + right
-    }
-}
+pub type FriCommitmentVec<F, H> = Vec<FriCommitment<F, H>>;

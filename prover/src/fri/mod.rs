@@ -1,8 +1,12 @@
 mod fri_commitment;
 mod fri_decommit;
 mod fri_functions;
+mod fri_merkle_tree;
 
-use fri_commitment::{FriCommitment, FriCommitmentVec};
+use crate::fri::fri_merkle_tree::FriTestHasher;
+use fri_commitment::FriCommitment; //, FriCommitmentVec};
+pub use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
+use lambdaworks_crypto::merkle_tree::MerkleTree;
 use lambdaworks_math::field::{element::FieldElement, fields::u64_prime_field::U64PrimeField};
 pub use lambdaworks_math::polynomial::Polynomial;
 
@@ -19,23 +23,24 @@ pub fn fri_commitment(
     p_i: &Polynomial<FieldElement<F>>,
     domain_i: &[FE],
     evaluation_i: &[FE],
-    // merkle_tree0: ...
-    // transcript
-) -> FriCommitment {
+    transcript: &mut Transcript,
+) -> FriCommitment<F, FriTestHasher> {
     // Merkle tree:
     //     - ret_evaluation
     //     - root
     //     - hasher
-    // Create a new merkle tree with ret_evaluation
+    // Create a new merkle tree with evaluation_i
+    let merkle_tree = MerkleTree::build(&evaluation_i, FriTestHasher);
+    let root = merkle_tree.root.borrow().hash;
+    // TODO @@@ let bytes = root.as_bytes();
+    //transcript.append(bytes);
 
-    //let tree: merkle_tree::MerkleTree<FE, TestHasher>;
-    let ret = FriCommitment {
+    FriCommitment {
         poly: p_i.clone(),
-        domain: Vec::new(),
-        evaluation: Vec::new(),
-        merkle_tree: String::new(), // TODO!
-    };
-    ret
+        domain: domain_i.to_vec(),
+        evaluation: evaluation_i.to_vec(),
+        merkle_tree,
+    }
 }
 
 /*

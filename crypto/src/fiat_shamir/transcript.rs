@@ -1,6 +1,6 @@
 use sha3::{Digest, Sha3_256};
 
-struct Transcript {
+pub struct Transcript {
     hasher: Sha3_256,
 }
 
@@ -13,12 +13,12 @@ impl Transcript {
     }
 
     #[allow(unused)]
-    fn append(&mut self, new_data: &[u8]) {
+    pub fn append(&mut self, new_data: &[u8]) {
         self.hasher.update(&mut new_data.to_owned());
     }
 
     #[allow(unused)]
-    fn challenge(&mut self) -> [u8; 32] {
+    pub fn challenge(&mut self) -> [u8; 32] {
         let mut result_hash = [0_u8; 32];
         result_hash.copy_from_slice(&self.hasher.finalize_reset());
         self.hasher.update(result_hash);
