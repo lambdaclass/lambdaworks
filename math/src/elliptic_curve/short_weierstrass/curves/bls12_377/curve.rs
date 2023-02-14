@@ -27,7 +27,7 @@ impl IsEllipticCurve for BLS12377Curve {
         ])
     }
 
-    fn create_point_from_affine(
+    fn create_affine_point(
         x: FieldElement<Self::BaseField>,
         y: FieldElement<Self::BaseField>,
     ) -> Self::PointRepresentation {
