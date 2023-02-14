@@ -420,7 +420,7 @@ mod tests {
     #[test]
     fn construct_new_integer_from_u128_1() {
         let a = U384::from_u64(1_u64);
-        debug_assert_eq!(a.limbs, [0, 0, 0, 0, 0, 1]);
+        assert_eq!(a.limbs, [0, 0, 0, 0, 0, 1]);
     }
 
     #[test]
