@@ -49,9 +49,11 @@ pub fn inverse_cooley_tukey<F: IsField>(
 ) -> Vec<FieldElement<F>> {
     let n = evaluations.len();
     let inverse_n = FieldElement::from(n as u64).inv();
-    let inverse_omega = inverse_n * omega.inv();
-    assert!(n.is_power_of_two(), "n should be power of two");
+    let inverse_omega = omega.inv();
     cooley_tukey(evaluations, inverse_omega)
+        .into_iter()
+        .map(|coeff| coeff * inverse_n.to_owned())
+        .collect()
 }
 
 #[cfg(test)]
