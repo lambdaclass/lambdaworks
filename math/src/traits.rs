@@ -11,8 +11,12 @@ pub trait ByteConversion {
     fn to_bytes_le(&self) -> Result<Vec<u8>, ByteConversionError>;
 
     /// Returns the element from its byte representation in big-endian order.
-    fn from_bytes_be(bytes: &[u8]) -> Result<Self, ByteConversionError> where Self: std::marker::Sized;
+    fn from_bytes_be(bytes: &[u8]) -> Result<Self, ByteConversionError>
+    where
+        Self: std::marker::Sized;
 
     /// Returns the element from its byte representation in little-endian order.
-    fn from_bytes_le(bytes: &[u8]) -> Result<Self, ByteConversionError> where Self: std::marker::Sized;
+    fn from_bytes_le(bytes: &[u8]) -> Result<Self, ByteConversionError>
+    where
+        Self: std::marker::Sized;
 }
