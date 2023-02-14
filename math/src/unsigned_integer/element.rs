@@ -136,6 +136,11 @@ impl<const NUM_LIMBS: usize> Mul<&UnsignedInteger<NUM_LIMBS>> for &UnsignedInteg
             }
         }
 
+        assert!(
+            n + t < NUM_LIMBS,
+            "UnsignedInteger multiplication overflow."
+        );
+
         // 1.
         let mut limbs = [0u64; NUM_LIMBS];
         // 2.
@@ -156,7 +161,7 @@ impl<const NUM_LIMBS: usize> Mul<&UnsignedInteger<NUM_LIMBS>> for &UnsignedInteg
                 carry = 0;
             }
         }
-        debug_assert!(carry == 0, "UnsignedInteger multiplication overflow.");
+        assert!(carry == 0, "UnsignedInteger multiplication overflow.");
         // 3.
         Self::Output { limbs }
     }
