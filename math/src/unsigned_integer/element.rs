@@ -1,6 +1,7 @@
 use std::convert::From;
 use std::ops::{Add, BitAnd, Mul, Shl, Shr, Sub};
 
+use crate::errors::ByteConversionError;
 use crate::traits::ByteConversion;
 use crate::unsigned_integer::traits::IsUnsignedInteger;
 
@@ -413,44 +414,61 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
 impl<const NUM_LIMBS: usize> IsUnsignedInteger for UnsignedInteger<NUM_LIMBS> {}
 
 impl<const NUM_LIMBS: usize> ByteConversion for UnsignedInteger<NUM_LIMBS> {
-    fn to_bytes_be(&self) -> Vec<u8> {
-        self.limbs
+    fn to_bytes_be(&self) -> Result<Vec<u8>, ByteConversionError> {
+        let bytes = self
+            .limbs
             .iter()
             .flat_map(|limb| limb.to_be_bytes())
-            .collect()
+            .collect();
+        Ok(bytes)
     }
 
-    fn to_bytes_le(&self) -> Vec<u8> {
-        self.limbs
+    fn to_bytes_le(&self) -> Result<Vec<u8>, ByteConversionError> {
+        let bytes = self
+            .limbs
             .iter()
             .rev()
             .flat_map(|limb| limb.to_le_bytes())
-            .collect()
+            .collect();
+        Ok(bytes)
     }
 
-    // FIXME: To remove this unwraps we need to handle these errors and update
-    // the trait definition.
-    fn from_bytes_be(bytes: &[u8]) -> Self {
-        let limbs: [u64; NUM_LIMBS] = bytes
-            .chunks_exact(8)
-            .map(|chunk| u64::from_be_bytes(chunk.try_into().unwrap()))
-            .collect::<Vec<u64>>()
+    fn from_bytes_be(bytes: &[u8]) -> Result<Self, ByteConversionError> {
+        let mut limbs = Vec::with_capacity(NUM_LIMBS);
+        bytes.chunks_exact(8).rev().try_for_each(|chunk| {
+            let limb = u64::from_be_bytes(
+                chunk
+                    .try_into()
+                    .map_err(|_| ByteConversionError::FromBEBytesError)?,
+            );
+            limbs.push(limb);
+            Ok::<_, ByteConversionError>(())
+        })?;
+
+        let limbs: [u64; NUM_LIMBS] = limbs
             .try_into()
-            .unwrap();
-        Self { limbs }
+            .map_err(|_| ByteConversionError::FromBEBytesError)?;
+
+        Ok(Self { limbs })
     }
 
-    // FIXME: To remove this unwraps we need to handle these errors and update
-    // the trait definition.
-    fn from_bytes_le(bytes: &[u8]) -> Self {
-        let limbs: [u64; NUM_LIMBS] = bytes
-            .chunks_exact(8)
-            .rev()
-            .map(|chunk| u64::from_le_bytes(chunk.try_into().unwrap()))
-            .collect::<Vec<u64>>()
+    fn from_bytes_le(bytes: &[u8]) -> Result<Self, ByteConversionError> {
+        let mut limbs = Vec::with_capacity(NUM_LIMBS);
+        bytes.chunks_exact(8).rev().try_for_each(|chunk| {
+            let limb = u64::from_le_bytes(
+                chunk
+                    .try_into()
+                    .map_err(|_| ByteConversionError::FromLEBytesError)?,
+            );
+            limbs.push(limb);
+            Ok::<_, ByteConversionError>(())
+        })?;
+
+        let limbs: [u64; NUM_LIMBS] = limbs
             .try_into()
-            .unwrap();
-        Self { limbs }
+            .map_err(|_| ByteConversionError::FromLEBytesError)?;
+
+        Ok(Self { limbs })
     }
 }
 
@@ -1055,7 +1073,7 @@ mod tests {
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
         ];
 
-        assert_eq!(number.to_bytes_be(), expected_bytes);
+        assert_eq!(number.to_bytes_be().unwrap(), expected_bytes);
     }
 
     #[test]
@@ -1066,7 +1084,7 @@ mod tests {
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ];
 
-        assert_eq!(number.to_bytes_le(), expected_bytes);
+        assert_eq!(number.to_bytes_le().unwrap(), expected_bytes);
     }
 
     #[test]
@@ -1077,7 +1095,7 @@ mod tests {
         ];
         let expected_number = U384::from_u64(1);
 
-        assert_eq!(U384::from_bytes_be(&bytes), expected_number);
+        assert_eq!(U384::from_bytes_be(&bytes).unwrap(), expected_number);
     }
 
     #[test]
@@ -1088,6 +1106,6 @@ mod tests {
         ];
         let expected_number = U384::from_u64(1);
 
-        assert_eq!(U384::from_bytes_le(&bytes), expected_number);
+        assert_eq!(U384::from_bytes_le(&bytes).unwrap(), expected_number);
     }
 }
