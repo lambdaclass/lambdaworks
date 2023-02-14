@@ -52,11 +52,15 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
         result
     }
 
-    pub fn evaluate(&self, x: FieldElement<F>) -> FieldElement<F> {
+    pub fn evaluate(&self, x: &FieldElement<F>) -> FieldElement<F> {
         self.coefficients
             .iter()
             .enumerate()
             .fold(FieldElement::zero(), |acc, (i, c)| acc + c * x.pow(i))
+    }
+
+    pub fn evaluate_vec(&self, input: &[FieldElement<F>]) -> Vec<FieldElement<F>> {
+        input.iter().map(|x| self.evaluate(x)).collect()
     }
 
     pub fn degree(&self) -> usize {
@@ -84,7 +88,7 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
     }
 
     /// Pads polynomial representations with minimum number of zeros to match lengths.
-    fn pad_with_zero_coefficients(pa: &Self, pb: &Self) -> (Self, Self) {
+    pub fn pad_with_zero_coefficients(pa: &Self, pb: &Self) -> (Self, Self) {
         let mut pa = pa.clone();
         let mut pb = pb.clone();
 
@@ -376,7 +380,15 @@ mod tests {
     fn evaluate_constant_polynomial_returns_constant() {
         let three = FE::new(3);
         let p = Polynomial::new(&[three]);
-        assert_eq!(p.evaluate(FE::new(10)), three);
+        assert_eq!(p.evaluate(&FE::new(10)), three);
+    }
+
+    #[test]
+    fn evaluate_vec() {
+        let three = FE::new(3);
+        let p = Polynomial::new(&[three]);
+        let ret = p.evaluate_vec(&[FE::new(10), FE::new(15)]);
+        assert_eq!(ret, [three, three]);
     }
 
     #[test]
@@ -390,7 +402,7 @@ mod tests {
     #[test]
     fn zero_poly_evals_0_in_3() {
         assert_eq!(
-            Polynomial::new_monomial(FE::new(0), 0).evaluate(FE::new(3)),
+            Polynomial::new_monomial(FE::new(0), 0).evaluate(&FE::new(3)),
             FE::new(0)
         );
     }
@@ -400,7 +412,7 @@ mod tests {
         let two = FE::new(2);
         let four = FE::new(4);
         let p = Polynomial::new_monomial(two, 1);
-        assert_eq!(p.evaluate(two), four);
+        assert_eq!(p.evaluate(&two), four);
     }
 
     #[test]
@@ -408,13 +420,13 @@ mod tests {
         let two = FE::new(2);
         let eight = FE::new(8);
         let p = Polynomial::new_monomial(two, 2);
-        assert_eq!(p.evaluate(two), eight);
+        assert_eq!(p.evaluate(&two), eight);
     }
 
     #[test]
     fn evaluate_3_term_polynomial() {
         let p = Polynomial::new(&[FE::new(3), -FE::new(2), FE::new(4)]);
-        assert_eq!(p.evaluate(FE::new(2)), FE::new(15));
+        assert_eq!(p.evaluate(&FE::new(2)), FE::new(15));
     }
 
     #[test]
@@ -426,21 +438,21 @@ mod tests {
             (FE::new(2) - FE::new(4)) * (FE::new(1) / (FE::new(2) - FE::new(4))),
             FE::new(1)
         );
-        assert_eq!(interpolating.evaluate(FE::new(2)), FE::new(1));
-        assert_eq!(interpolating.evaluate(FE::new(4)), FE::new(0));
+        assert_eq!(interpolating.evaluate(&FE::new(2)), FE::new(1));
+        assert_eq!(interpolating.evaluate(&FE::new(4)), FE::new(0));
     }
 
     #[test]
     fn interpolate_x_2_y_3() {
         let p = Polynomial::interpolate(&[FE::new(2)], &[FE::new(3)]);
-        assert_eq!(FE::new(3), p.evaluate(FE::new(2)));
+        assert_eq!(FE::new(3), p.evaluate(&FE::new(2)));
     }
 
     #[test]
     fn interpolate_x_0_2_y_3_4() {
         let p = Polynomial::interpolate(&[FE::new(0), FE::new(2)], &[FE::new(3), FE::new(4)]);
-        assert_eq!(FE::new(3), p.evaluate(FE::new(0)));
-        assert_eq!(FE::new(4), p.evaluate(FE::new(2)));
+        assert_eq!(FE::new(3), p.evaluate(&FE::new(0)));
+        assert_eq!(FE::new(4), p.evaluate(&FE::new(2)));
     }
 
     #[test]
@@ -450,22 +462,22 @@ mod tests {
             &[FE::new(10), FE::new(19), FE::new(43)],
         );
 
-        assert_eq!(FE::new(10), p.evaluate(FE::new(2)));
-        assert_eq!(FE::new(19), p.evaluate(FE::new(5)));
-        assert_eq!(FE::new(43), p.evaluate(FE::new(7)));
+        assert_eq!(FE::new(10), p.evaluate(&FE::new(2)));
+        assert_eq!(FE::new(19), p.evaluate(&FE::new(5)));
+        assert_eq!(FE::new(43), p.evaluate(&FE::new(7)));
     }
 
     #[test]
     fn interpolate_x_0_0_y_1_1() {
         let p = Polynomial::interpolate(&[FE::new(0), FE::new(1)], &[FE::new(0), FE::new(1)]);
 
-        assert_eq!(FE::new(0), p.evaluate(FE::new(0)));
-        assert_eq!(FE::new(1), p.evaluate(FE::new(1)));
+        assert_eq!(FE::new(0), p.evaluate(&FE::new(0)));
+        assert_eq!(FE::new(1), p.evaluate(&FE::new(1)));
     }
 
     #[test]
     fn interpolate_x_0_y_0() {
         let p = Polynomial::interpolate(&[FE::new(0)], &[FE::new(0)]);
-        assert_eq!(FE::new(0), p.evaluate(FE::new(0)));
+        assert_eq!(FE::new(0), p.evaluate(&FE::new(0)));
     }
 }
