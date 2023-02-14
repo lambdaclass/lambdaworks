@@ -59,7 +59,7 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
             .fold(FieldElement::zero(), |acc, (i, c)| acc + c * x.pow(i))
     }
 
-    pub fn evaluate_vec(&self, input: &[FieldElement<F>]) -> Vec<FieldElement<F>> {
+    pub fn evaluate_slice(&self, input: &[FieldElement<F>]) -> Vec<FieldElement<F>> {
         input.iter().map(|x| self.evaluate(x)).collect()
     }
 
@@ -384,10 +384,10 @@ mod tests {
     }
 
     #[test]
-    fn evaluate_vec() {
+    fn evaluate_slice() {
         let three = FE::new(3);
         let p = Polynomial::new(&[three]);
-        let ret = p.evaluate_vec(&[FE::new(10), FE::new(15)]);
+        let ret = p.evaluate_slice(&[FE::new(10), FE::new(15)]);
         assert_eq!(ret, [three, three]);
     }
 
