@@ -1473,7 +1473,6 @@ mod tests_u256 {
         assert_eq!(a * b, c_expected);
         */
 
-        
         // Passing
         let a = U256::from("15bf61fcf53a3f0ae1e8e555d");
         let b = U256::from("cbbc474761bb7995ff54e25fa5d5d0cde405e9f");
