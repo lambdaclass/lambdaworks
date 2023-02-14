@@ -65,7 +65,7 @@ impl Parameters<BLS12381PrimeField> {
     ) -> Result<PoseidonConstants, String> {
         let round_constants = round_constants_csv
             .split(',')
-            .map(FieldElement::<BLS12381PrimeField>::new_base)
+            .map(|c| FieldElement::<BLS12381PrimeField>::new_base(c.trim()))
             .collect();
 
         let mut mds_matrix = vec![];
@@ -73,7 +73,7 @@ impl Parameters<BLS12381PrimeField> {
         for line in mds_constants_csv.lines() {
             let matrix_line = line
                 .split(',')
-                .map(FieldElement::<BLS12381PrimeField>::new_base)
+                .map(|c| FieldElement::<BLS12381PrimeField>::new_base(c.trim()))
                 .collect();
 
             mds_matrix.push(matrix_line);

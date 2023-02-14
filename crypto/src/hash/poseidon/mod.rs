@@ -55,7 +55,10 @@ where
     ) {
         if i < n_rounds_f / 2 || i >= n_rounds_f / 2 + n_rounds_p {
             for current_state in state.iter_mut() {
-                *current_state = current_state.pow(alpha);
+                let aux = current_state.clone();
+                *current_state = current_state.pow(2u32);
+                *current_state = current_state.pow(2u32);
+                *current_state = current_state.clone().mul(aux);
             }
         } else {
             state[0] = state[0].pow(alpha);
@@ -118,9 +121,12 @@ mod tests {
         //    a
         //);
 
-        Poseidon::hash_one(a.clone()).unwrap();
-        Poseidon::hash_one(b.clone()).unwrap();
+        let v = Poseidon::hash_one(a.clone()).unwrap();
+        println!("{:?}", v);
+        let v = Poseidon::hash_one(b.clone()).unwrap();
+        println!("{:?}", v);
 
-        Poseidon::hash_two(a, b).unwrap();
+        let v = Poseidon::hash_two(a, b).unwrap();
+        println!("{:?}", v);
     }
 }
