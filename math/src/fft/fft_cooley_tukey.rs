@@ -6,54 +6,54 @@ use crate::field::{
 use super::{errors::FFTError, helpers::log2};
 
 pub fn fft<F: IsField + TwoAdicField>(
-    coeffs: Vec<FieldElement<F>>,
+    coeffs: &[FieldElement<F>],
 ) -> Result<Vec<FieldElement<F>>, FFTError> {
     let omega = F::get_root_of_unity(log2(coeffs.len())?)?;
-    Ok(cooley_tukey(coeffs, omega))
+    Ok(cooley_tukey(coeffs, &omega))
 }
 
 pub fn inverse_fft<F: IsField + TwoAdicField>(
-    evaluations: Vec<FieldElement<F>>,
+    evaluations: &[FieldElement<F>],
 ) -> Result<Vec<FieldElement<F>>, FFTError> {
     let omega = F::get_root_of_unity(log2(evaluations.len())?)?;
     Ok(inverse_cooley_tukey(evaluations, omega))
 }
 
 fn cooley_tukey<F: IsField>(
-    coeffs: Vec<FieldElement<F>>,
-    omega: FieldElement<F>,
+    coeffs: &[FieldElement<F>],
+    omega: &FieldElement<F>,
 ) -> Vec<FieldElement<F>> {
     let n = coeffs.len();
     if n == 1 {
-        return coeffs;
+        return coeffs.to_vec();
     }
     let coeffs_even: Vec<FieldElement<F>> = coeffs.iter().step_by(2).cloned().collect();
     let coeffs_odd: Vec<FieldElement<F>> = coeffs.iter().skip(1).step_by(2).cloned().collect();
 
     let (y_even, y_odd) = (
-        cooley_tukey(coeffs_even, omega.clone()),
-        cooley_tukey(coeffs_odd, omega.clone()),
+        cooley_tukey(&coeffs_even, omega),
+        cooley_tukey(&coeffs_odd, omega),
     );
     let mut y = vec![FieldElement::zero(); n];
     for i in 0..n / 2 {
-        let a = y_even[i].clone();
-        let b = omega.pow(i) * y_odd[i].clone();
-        y[i] = a.clone() + b.clone();
+        let a = &y_even[i];
+        let b = &(omega.pow(i) * &y_odd[i]);
+        y[i] = a + b;
         y[i + n / 2] = a - b;
     }
     y
 }
 
 pub fn inverse_cooley_tukey<F: IsField>(
-    evaluations: Vec<FieldElement<F>>,
+    evaluations: &[FieldElement<F>],
     omega: FieldElement<F>,
 ) -> Vec<FieldElement<F>> {
     let n = evaluations.len();
     let inverse_n = FieldElement::from(n as u64).inv();
     let inverse_omega = omega.inv();
-    cooley_tukey(evaluations, inverse_omega)
-        .into_iter()
-        .map(|coeff| coeff * inverse_n.to_owned())
+    cooley_tukey(evaluations, &inverse_omega)
+        .iter()
+        .map(|coeff| coeff * &inverse_n)
         .collect()
 }
 
@@ -75,7 +75,7 @@ mod fft_test {
         // max_exp cannot be multiple of 64.
     }
     prop_compose! {
-        fn field_vec(max_exp: u8)(pow in powers_of_two(max_exp)) -> Vec<FE> {
+        fn field_vec(max_exp: u8)(_pow in powers_of_two(max_exp)) -> Vec<FE> {
             todo!()
         }
     }
@@ -98,7 +98,7 @@ mod fft_test {
             let poly = Polynomial::new(&coeffs[..]);
             let omega = F::get_root_of_unity(log2(poly.coefficients().len()).unwrap()).unwrap();
 
-            let result = fft(poly.coefficients().to_vec()).unwrap();
+            let result = fft(poly.coefficients()).unwrap();
 
             let twiddles_iter = (0..poly.coefficients().len() as u64).map(|i| omega.pow(i));
             let expected: Vec<FE> = twiddles_iter.map(|x| poly.evaluate(x)).collect();
@@ -113,9 +113,9 @@ mod fft_test {
         fn test_ifft_composed_fft_is_identity(coeffs in gen_vec_strategy(1024)) {
             let poly = Polynomial::new(&coeffs[..]);
 
-            let result = fft(poly.coefficients().to_vec()).unwrap();
+            let result = fft(poly.coefficients()).unwrap();
 
-            let recovered_poly = inverse_fft(result).unwrap();
+            let recovered_poly = inverse_fft(&result).unwrap();
 
             assert_eq!(recovered_poly, poly.coefficients());
         }
