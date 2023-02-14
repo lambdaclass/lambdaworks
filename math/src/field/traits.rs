@@ -3,17 +3,24 @@ use std::fmt::Debug;
 
 use super::element::FieldElement;
 
-// Trait to define necessary parameters for a close field related to FFT.
+/// Trait to define necessary parameters for FFT-friendly Fields.
+/// Two-Adic fields are ones whose order is of the form  $2^n k + 1$.
+/// Here $n$ is usually called the *two-adicity* of the field. The
+/// reason we care about it is that in an $n$-adic field there are $2^j$-roots
+/// of unity for every `j` between 1 and n which is needed to do Fast Fourier.
+/// A two-adic primitive root of unity is a number w that satisfies w^(2^n) = 1
+/// and w^(j) != 1 for every j below 2^n. With this primitive root we can generate
+/// any other root of unity we need to perform FFT.
 pub trait TwoAdicField: IsField {
     const TWO_ADICITY: u64;
     const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: Self::BaseType;
     const GENERATOR: Self::BaseType;
 
-    /// Returns the root of unity of order 2^`n.
-    fn get_root_of_unity(n: u64) -> FieldElement<Self> {
+    /// Returns the root of unity of order 2^`k.
+    fn get_root_of_unity(k: u64) -> FieldElement<Self> {
         let two_adic_primitive_root_of_unity =
             FieldElement::new(Self::TWO_ADIC_PRIMITVE_ROOT_OF_UNITY);
-        let power = 1u64 << (Self::TWO_ADICITY - n);
+        let power = 1u64 << (Self::TWO_ADICITY - k);
         two_adic_primitive_root_of_unity.pow(power)
     }
 }
