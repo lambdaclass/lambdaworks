@@ -4,7 +4,7 @@ pub mod element;
 pub mod extensions;
 /// Implementation of particular cases of fields.
 pub mod fields;
-/// Common behaviour for field elements.
-pub mod traits;
 /// Field for test purposes.
 pub(crate) mod test_fields;
+/// Common behaviour for field elements.
+pub mod traits;
