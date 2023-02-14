@@ -110,7 +110,7 @@ mod tests {
     // This tests only apply for the specific curve found in the configuration file.
     #[test]
     fn create_valid_point_works() {
-        let point = TestCurve1::create_affine_point(FEE::from(35), FEE::from(31));
+        let point = TestCurve1::create_point_from_affine(FEE::from(35), FEE::from(31));
         assert_eq!(*point.x(), FEE::from(35));
         assert_eq!(*point.y(), FEE::from(31));
         assert_eq!(*point.z(), FEE::from(1));
@@ -119,7 +119,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn create_invalid_points_panics() {
-        TestCurve1::create_affine_point(FEE::from(0), FEE::from(1));
+        TestCurve1::create_point_from_affine(FEE::from(0), FEE::from(1));
     }
 
     #[test]
@@ -145,16 +145,16 @@ mod tests {
 
     #[test]
     fn doubling_a_point_works() {
-        let point = TestCurve1::create_affine_point(FEE::from(35), FEE::from(31));
-        let expected_result = TestCurve1::create_affine_point(FEE::from(25), FEE::from(29));
+        let point = TestCurve1::create_point_from_affine(FEE::from(35), FEE::from(31));
+        let expected_result = TestCurve1::create_point_from_affine(FEE::from(25), FEE::from(29));
         assert_eq!(point.operate_with_self(2).to_affine(), expected_result);
     }
 
     #[test]
     fn test_weil_pairing() {
         type FE = U64FieldElement<TEST_CURVE_1_PRIME_FIELD_ORDER>;
-        let pa = TestCurve1::create_affine_point(FEE::from(35), FEE::from(31));
-        let pb = TestCurve1::create_affine_point(
+        let pa = TestCurve1::create_point_from_affine(FEE::from(35), FEE::from(31));
+        let pb = TestCurve1::create_point_from_affine(
             FEE::new([FE::new(24), FE::new(0)]),
             FEE::new([FE::new(0), FE::new(31)]),
         );
@@ -167,8 +167,8 @@ mod tests {
     #[test]
     fn test_tate_pairing() {
         type FE = U64FieldElement<TEST_CURVE_1_PRIME_FIELD_ORDER>;
-        let pa = TestCurve1::create_affine_point(FEE::from(35), FEE::from(31));
-        let pb = TestCurve1::create_affine_point(
+        let pa = TestCurve1::create_point_from_affine(FEE::from(35), FEE::from(31));
+        let pb = TestCurve1::create_point_from_affine(
             FEE::new([FE::new(24), FE::new(0)]),
             FEE::new([FE::new(0), FE::new(31)]),
         );
@@ -183,7 +183,7 @@ mod tests {
         let mut point_1 = TestCurve2::generator();
         point_1 = point_1.operate_with_self(15);
 
-        let expected_result = TestCurve2::create_affine_point(
+        let expected_result = TestCurve2::create_point_from_affine(
             FieldElement::new([
                 FieldElement::new(U384::from("7b8ee59e422e702458174c18eb3302e17")),
                 FieldElement::new(U384::from("1395065adef5a6a5457f1ea600b5a3e4fb")),
@@ -202,7 +202,7 @@ mod tests {
         let x = FEE::from(35);
         let y = FEE::from(31);
         let z = FEE::from(1);
-        let point = TestCurve1::create_affine_point(x.clone(), y.clone());
+        let point = TestCurve1::create_point_from_affine(x.clone(), y.clone());
         let coordinates = point.coordinates();
         assert_eq!(&x, point.x());
         assert_eq!(&y, point.y());
