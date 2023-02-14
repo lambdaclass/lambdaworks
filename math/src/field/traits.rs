@@ -1,6 +1,23 @@
 use crate::unsigned_integer::traits::IsUnsignedInteger;
 use std::fmt::Debug;
 
+use super::element::FieldElement;
+
+// Trait to define necessary parameters for a close field related to FFT.
+pub trait TwoAdicField: IsField {
+    const TWO_ADICITY: u64;
+    const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: Self::BaseType;
+    const GENERATOR: Self::BaseType;
+
+    /// Returns the root of unity of order 2^`n.
+    fn get_root_of_unity(n: u64) -> FieldElement<Self> {
+        let two_adic_primitive_root_of_unity =
+            FieldElement::new(Self::TWO_ADIC_PRIMITVE_ROOT_OF_UNITY);
+        let power = 1u64 << (Self::TWO_ADICITY - n);
+        two_adic_primitive_root_of_unity.pow(power)
+    }
+}
+
 /// Trait to add field behaviour to a struct.
 pub trait IsField: Debug + Clone {
     /// The underlying base type for representing elements from the field.
