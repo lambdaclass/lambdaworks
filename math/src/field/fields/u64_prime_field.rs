@@ -60,8 +60,6 @@ impl<const MODULUS: u64> Copy for U64FieldElement<MODULUS> {}
 
 /// Represents an element in Fp. (E.g: 0, 1, 2 are the elements of F3)
 impl<const MODULUS: u64> IsCyclicGroup for U64FieldElement<MODULUS> {
-    type PairingOutput = Self;
-
     fn generator() -> U64FieldElement<MODULUS> {
         U64FieldElement::one()
     }
