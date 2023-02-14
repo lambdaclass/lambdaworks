@@ -2,7 +2,7 @@
 /// Defines the basic constants needed to describe a curve in the short Weierstrass form.
 /// This small curve has only 5 elements.
 use crate::{
-    elliptic_curve::traits::{HasDistortionMap, IsEllipticCurve},
+    elliptic_curve::short_weierstrass::traits::{HasDistortionMap, IsEllipticCurve},
     field::{
         element::FieldElement,
         extensions::quadratic::{HasQuadraticNonResidue, QuadraticExtensionField},

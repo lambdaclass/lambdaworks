@@ -1,5 +1,5 @@
 use crate::cyclic_group::IsCyclicGroup;
-use crate::elliptic_curve::traits::IsEllipticCurve;
+use crate::elliptic_curve::short_weierstrass::traits::IsEllipticCurve;
 use crate::field::element::FieldElement;
 use std::fmt::Debug;
 
@@ -95,16 +95,16 @@ impl<E: IsEllipticCurve> IsCyclicGroup for EllipticCurveElement<E> {
 #[cfg(test)]
 mod tests {
     use crate::cyclic_group::IsCyclicGroup;
-    use crate::elliptic_curve::curves::test_curve_1::{
+    use crate::elliptic_curve::short_weierstrass::curves::test_curve_1::{
         TestCurve1, TestCurveQuadraticNonResidue, TEST_CURVE_1_MAIN_SUBGROUP_ORDER,
         TEST_CURVE_1_PRIME_FIELD_ORDER,
     };
-    use crate::elliptic_curve::curves::test_curve_2::TestCurve2;
+    use crate::elliptic_curve::short_weierstrass::curves::test_curve_2::TestCurve2;
     use crate::field::element::FieldElement;
     use crate::unsigned_integer::element::U384;
     //use crate::elliptic_curve::curves::test_curve_2::TestCurve2;
     use crate::{
-        elliptic_curve::element::EllipticCurveElement,
+        elliptic_curve::short_weierstrass::element::EllipticCurveElement,
         field::{
             extensions::quadratic::QuadraticExtensionFieldElement,
             fields::u64_prime_field::U64FieldElement,

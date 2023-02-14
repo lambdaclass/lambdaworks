@@ -1,4 +1,3 @@
-
 pub trait IsCyclicGroup: Clone {
     /// Returns a generator of the group. Every element of the group
     /// has to be of the form `operate_with_self(generator(), k)` for some `k`.

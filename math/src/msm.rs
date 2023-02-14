@@ -35,7 +35,9 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::elliptic_curve::{curves::test_curve_1::TestCurve1, element::EllipticCurveElement};
+    use crate::elliptic_curve::short_weierstrass::{
+        curves::test_curve_1::TestCurve1, element::EllipticCurveElement,
+    };
 
     #[test]
     fn msm_11_is_1_over_elliptic_curves() {

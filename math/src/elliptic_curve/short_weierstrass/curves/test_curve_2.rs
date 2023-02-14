@@ -3,7 +3,7 @@ use crate::field::fields::u384_prime_field::{
 };
 use crate::unsigned_integer::element::U384;
 use crate::{
-    elliptic_curve::traits::{HasDistortionMap, IsEllipticCurve},
+    elliptic_curve::short_weierstrass::traits::{HasDistortionMap, IsEllipticCurve},
     field::{
         element::FieldElement,
         extensions::quadratic::{HasQuadraticNonResidue, QuadraticExtensionField},

@@ -1,6 +1,8 @@
-use crate::elliptic_curve::curves::bls12_381::field_extension::BLS12381_PRIME_FIELD_ORDER;
+use crate::elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::BLS12381_PRIME_FIELD_ORDER;
 use crate::unsigned_integer::element::U384;
-use crate::{elliptic_curve::traits::IsEllipticCurve, field::element::FieldElement};
+use crate::{
+    elliptic_curve::short_weierstrass::traits::IsEllipticCurve, field::element::FieldElement,
+};
 
 use super::field_extension::BLS12381PrimeField;
 
@@ -117,7 +119,8 @@ impl IsEllipticCurve for BLS12381Curve {
 mod tests {
     use super::*;
     use crate::{
-        cyclic_group::IsCyclicGroup, elliptic_curve::element::EllipticCurveElement,
+        cyclic_group::IsCyclicGroup,
+        elliptic_curve::short_weierstrass::element::EllipticCurveElement,
         field::element::FieldElement,
     };
 

@@ -1,7 +1,9 @@
 use super::field_extension::BLS12377PrimeField;
-use crate::elliptic_curve::curves::bls12_377::field_extension::BLS12377_PRIME_FIELD_ORDER;
+use crate::elliptic_curve::short_weierstrass::curves::bls12_377::field_extension::BLS12377_PRIME_FIELD_ORDER;
 use crate::unsigned_integer::element::U384;
-use crate::{elliptic_curve::traits::IsEllipticCurve, field::element::FieldElement};
+use crate::{
+    elliptic_curve::short_weierstrass::traits::IsEllipticCurve, field::element::FieldElement,
+};
 
 /// Order of the subgroup of the curve.
 const BLS12377_MAIN_SUBGROUP_ORDER: U384 =
@@ -56,7 +58,8 @@ impl IsEllipticCurve for BLS12377Curve {
 mod tests {
     use super::*;
     use crate::{
-        cyclic_group::IsCyclicGroup, elliptic_curve::element::EllipticCurveElement,
+        cyclic_group::IsCyclicGroup,
+        elliptic_curve::short_weierstrass::element::EllipticCurveElement,
         field::element::FieldElement,
     };
 
