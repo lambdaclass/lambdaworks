@@ -55,8 +55,10 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
     pub fn evaluate(&self, x: FieldElement<F>) -> FieldElement<F> {
         self.coefficients
             .iter()
-            .enumerate()
-            .fold(FieldElement::zero(), |acc, (i, c)| acc + c * x.pow(i))
+            .rev()
+            .fold(FieldElement::zero(), |acc, coeff| {
+                acc * x.to_owned() + coeff
+            })
     }
 
     pub fn degree(&self) -> usize {
