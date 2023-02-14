@@ -7,7 +7,7 @@ use super::element::FieldElement;
 /// Two-Adic fields are ones whose order is of the form  $2^n k + 1$.
 /// Here $n$ is usually called the *two-adicity* of the field. The
 /// reason we care about it is that in an $n$-adic field there are $2^j$-roots
-/// of unity for every `j` between 1 and n which is needed to do Fast Fourier.
+/// of unity for every `j` between 1 and n, which is needed to do Fast Fourier.
 /// A two-adic primitive root of unity is a number w that satisfies w^(2^n) = 1
 /// and w^(j) != 1 for every j below 2^n. With this primitive root we can generate
 /// any other root of unity we need to perform FFT.
