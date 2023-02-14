@@ -898,13 +898,45 @@ mod tests {
     }
 
     #[test]
-    fn mul_two_384_bit_integers_works_5_hi_lo() {
+    #[should_panic]
+    fn mul_two_384_bit_integers_works_6() {
+        let a = U384::from("800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000");
+        let b = U384::from("2");
+        let _c = a * b;
+    }
+
+    #[test]
+    fn mul_two_384_bit_integers_works_7_hi_lo() {
+        let a = U384::from("04050753dd7c0b06c404633016f87040");
+        let b = U384::from("dc3830be041b3b4476445fcad3dac0f6f3a53e4ba12da");
+        let hi_expected = U384::from("0");
+        let lo_expected = U384::from(
+            "375342999dab7f52f4010c4abc2e18b55218015931a55d6053ac39e86e2a47d6b1cb95f41680",
+        );
+        let (hi, lo) = U384::mul(&a, &b);
+        assert_eq!(hi, hi_expected);
+        assert_eq!(lo, lo_expected);
+    }
+
+    #[test]
+    fn mul_two_384_bit_integers_works_8_hi_lo() {
         let a = U384::from("5e2d939b602a50911232731d04fe6f40c05f97da0602307099fb991f9b414e2d52bef130349ec18db1a0215ea6caf76");
         let b = U384::from("3f3ad1611ab58212f92a2484e9560935b9ac4615fe61cfed1a4861e193a74d20c94f9f88d8b2cc089543c3f699969d9");
         let hi_expected = U384::from(
             "1742daad9c7861dd3499e7ece65467e337937b27e20d641b225bfe00323d33ed62715654eadc092b057a5f19f2ad6c",
         );
         let lo_expected = U384::from("9969c0417b9304d9c16b046c860447d3533999e16710d2e90a44959a168816c015ffb44b987e8cbb82bd46b08d9e2106");
+        let (hi, lo) = U384::mul(&a, &b);
+        assert_eq!(hi, hi_expected);
+        assert_eq!(lo, lo_expected);
+    }
+
+    #[test]
+    fn mul_two_384_bit_integers_works_9_hi_lo() {
+        let a = U384::from("800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000");
+        let b = U384::from("2");
+        let hi_expected = U384::from("1");
+        let lo_expected = U384::from("0");
         let (hi, lo) = U384::mul(&a, &b);
         assert_eq!(hi, hi_expected);
         assert_eq!(lo, lo_expected);
