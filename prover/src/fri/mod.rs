@@ -1,4 +1,5 @@
 mod fri_commitment;
+mod fri_decommit;
 mod fri_functions;
 
 use fri_commitment::{FriCommitment, FriCommitmentVec};
@@ -71,12 +72,16 @@ pub fn fri(p0: &mut Polynomial<FieldElement<F>>, domain_0: &[FE])
             // merkle_tree0: ... TODO!!! from evaluation
         );
 
+        degree = commitment_i.poly.degree();
+
         // TODO
         // append root of merkle tree to transcript
 
-        degree = commitment_i.poly.degree();
         fri_commitment_list.push(commitment_i);
     }
+
+    // append last value of the polynomial to the trasncript
+
     fri_commitment_list
 }
 */
