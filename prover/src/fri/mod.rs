@@ -11,19 +11,14 @@ fn fold_polynomial(
     beta: &FieldElement<F>,
 ) -> Polynomial<FieldElement<F>> {
     let coef = poly.coefficients();
-    let even_coef: Vec<FieldElement<F>> = coef
-        .iter()
-        .enumerate()
-        .filter(|(pos, _)| pos % 2 == 0)
-        .map(|(_pos, v)| *v)
-        .collect();
+    let even_coef: Vec<FieldElement<F>> = coef.iter().step_by(2).cloned().collect();
 
     // odd coeficients of poly are multiplied by beta
     let odd_coef_mul_beta: Vec<FieldElement<F>> = coef
         .iter()
-        .enumerate()
-        .filter(|(pos, _)| pos % 2 == 1)
-        .map(|(_pos, v)| (*v) * beta)
+        .skip(1)
+        .step_by(2)
+        .map(|v| (*v) * beta)
         .collect();
 
     let (even_poly, odd_poly) = Polynomial::pad_with_zero_coefficients(
