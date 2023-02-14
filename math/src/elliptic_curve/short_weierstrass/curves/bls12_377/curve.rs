@@ -2,7 +2,7 @@ use super::field_extension::BLS12377PrimeField;
 use crate::elliptic_curve::short_weierstrass::curves::bls12_377::field_extension::BLS12377_PRIME_FIELD_ORDER;
 use crate::unsigned_integer::element::U384;
 use crate::{
-    elliptic_curve::short_weierstrass::traits::IsEllipticCurve, field::element::FieldElement,
+    elliptic_curve::short_weierstrass::traits::IsShortWeierstrass, field::element::FieldElement,
 };
 
 /// Order of the subgroup of the curve.
@@ -12,7 +12,7 @@ const BLS12377_MAIN_SUBGROUP_ORDER: U384 =
 /// The description of the curve.
 #[derive(Clone, Debug)]
 pub struct BLS12377Curve;
-impl IsEllipticCurve for BLS12377Curve {
+impl IsShortWeierstrass for BLS12377Curve {
     type BaseField = BLS12377PrimeField;
     type UIntOrders = U384;
 
@@ -58,8 +58,7 @@ impl IsEllipticCurve for BLS12377Curve {
 mod tests {
     use super::*;
     use crate::{
-        cyclic_group::IsCyclicGroup,
-        elliptic_curve::short_weierstrass::element::EllipticCurveElement,
+        cyclic_group::IsCyclicGroup, elliptic_curve::short_weierstrass::element::ProjectivePoint,
         field::element::FieldElement,
     };
 
@@ -68,16 +67,16 @@ mod tests {
     #[allow(clippy::upper_case_acronyms)]
     type FEE = FieldElement<BLS12377PrimeField>;
 
-    fn point_1() -> EllipticCurveElement<BLS12377Curve> {
+    fn point_1() -> ProjectivePoint<BLS12377Curve> {
         let x = FEE::new_base("134e4cc122cb62a06767fb98e86f2d5f77e2a12fefe23bb0c4c31d1bd5348b88d6f5e5dee2b54db4a2146cc9f249eea");
         let y = FEE::new_base("17949c29effee7a9f13f69b1c28eccd78c1ed12b47068836473481ff818856594fd9c1935e3d9e621901a2d500257a2");
-        EllipticCurveElement::new([x, y, FieldElement::one()])
+        ProjectivePoint::new([x, y, FieldElement::one()])
     }
 
-    fn point_1_times_5() -> EllipticCurveElement<BLS12377Curve> {
+    fn point_1_times_5() -> ProjectivePoint<BLS12377Curve> {
         let x = FEE::new_base("3c852d5aab73fbb51e57fbf5a0a8b5d6513ec922b2611b7547bfed74cba0dcdfc3ad2eac2733a4f55d198ec82b9964");
         let y = FEE::new_base("a71425e68e55299c64d7eada9ae9c3fb87a9626b941d17128b64685fc07d0e635f3c3a512903b4e0a43e464045967b");
-        EllipticCurveElement::new([x, y, FieldElement::one()])
+        ProjectivePoint::new([x, y, FieldElement::one()])
     }
 
     #[test]
@@ -98,12 +97,12 @@ mod tests {
     #[test]
     #[should_panic]
     fn create_invalid_points_panicks() {
-        EllipticCurveElement::<BLS12377Curve>::new([FEE::from(1), FEE::from(1), FEE::from(1)]);
+        ProjectivePoint::<BLS12377Curve>::new([FEE::from(1), FEE::from(1), FEE::from(1)]);
     }
 
     #[test]
     fn equality_works() {
-        let g = EllipticCurveElement::<BLS12377Curve>::generator();
+        let g = ProjectivePoint::<BLS12377Curve>::generator();
         let g2 = g.operate_with(&g);
         assert_ne!(&g2, &g);
         assert_eq!(&g, &g);
@@ -111,7 +110,7 @@ mod tests {
 
     #[test]
     fn operate_with_self_works_1() {
-        let g = EllipticCurveElement::<BLS12377Curve>::generator();
+        let g = ProjectivePoint::<BLS12377Curve>::generator();
         assert_eq!(g.operate_with(&g).operate_with(&g), g.operate_with_self(3));
     }
 }

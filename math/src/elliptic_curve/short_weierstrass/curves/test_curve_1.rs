@@ -2,7 +2,7 @@
 /// Defines the basic constants needed to describe a curve in the short Weierstrass form.
 /// This small curve has only 5 elements.
 use crate::{
-    elliptic_curve::short_weierstrass::traits::{HasDistortionMap, IsEllipticCurve},
+    elliptic_curve::short_weierstrass::traits::{HasDistortionMap, IsShortWeierstrass},
     field::{
         element::FieldElement,
         extensions::quadratic::{HasQuadraticNonResidue, QuadraticExtensionField},
@@ -32,7 +32,7 @@ impl HasQuadraticNonResidue for TestCurveQuadraticNonResidue {
 /// The description of the curve.
 #[derive(Clone, Debug)]
 pub struct TestCurve1;
-impl IsEllipticCurve for TestCurve1 {
+impl IsShortWeierstrass for TestCurve1 {
     type BaseField = QuadraticExtensionField<TestCurveQuadraticNonResidue>;
     type UIntOrders = u64;
 

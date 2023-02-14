@@ -3,7 +3,7 @@ use crate::field::fields::u384_prime_field::{
 };
 use crate::unsigned_integer::element::U384;
 use crate::{
-    elliptic_curve::short_weierstrass::traits::{HasDistortionMap, IsEllipticCurve},
+    elliptic_curve::short_weierstrass::traits::{HasDistortionMap, IsShortWeierstrass},
     field::{
         element::FieldElement,
         extensions::quadratic::{HasQuadraticNonResidue, QuadraticExtensionField},
@@ -43,7 +43,7 @@ impl HasQuadraticNonResidue for TestCurve2QuadraticNonResidue {
 /// The description of the curve.
 #[derive(Clone, Debug)]
 pub struct TestCurve2;
-impl IsEllipticCurve for TestCurve2 {
+impl IsShortWeierstrass for TestCurve2 {
     type BaseField = QuadraticExtensionField<TestCurve2QuadraticNonResidue>;
     type UIntOrders = U384;
 

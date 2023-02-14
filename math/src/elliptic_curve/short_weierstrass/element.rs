@@ -1,5 +1,5 @@
 use crate::cyclic_group::IsCyclicGroup;
-use crate::elliptic_curve::short_weierstrass::traits::IsEllipticCurve;
+use crate::elliptic_curve::short_weierstrass::traits::IsShortWeierstrass;
 use crate::field::element::FieldElement;
 use std::fmt::Debug;
 
@@ -7,11 +7,11 @@ use std::fmt::Debug;
 /// y^2 * z = x^3 + a * x * z^2 + b * z^3,
 /// where `x`, `y` and `z` variables are field elements.
 #[derive(Debug, Clone)]
-pub struct EllipticCurveElement<E: IsEllipticCurve> {
+pub struct ProjectivePoint<E: IsShortWeierstrass> {
     pub value: [FieldElement<E::BaseField>; 3],
 }
 
-impl<E: IsEllipticCurve> EllipticCurveElement<E> {
+impl<E: IsShortWeierstrass> ProjectivePoint<E> {
     /// Creates an elliptic curve point giving the projective [x: y: z] coordinates.
     pub fn new(value: [FieldElement<E::BaseField>; 3]) -> Self {
         // TODO: Improve error handling.
@@ -64,15 +64,15 @@ impl<E: IsEllipticCurve> EllipticCurveElement<E> {
     }
 }
 
-impl<E: IsEllipticCurve> PartialEq for EllipticCurveElement<E> {
+impl<E: IsShortWeierstrass> PartialEq for ProjectivePoint<E> {
     fn eq(&self, other: &Self) -> bool {
         E::eq(&self.value, &other.value)
     }
 }
 
-impl<E: IsEllipticCurve> Eq for EllipticCurveElement<E> {}
+impl<E: IsShortWeierstrass> Eq for ProjectivePoint<E> {}
 
-impl<E: IsEllipticCurve> IsCyclicGroup for EllipticCurveElement<E> {
+impl<E: IsShortWeierstrass> IsCyclicGroup for ProjectivePoint<E> {
     fn generator() -> Self {
         Self::new([
             E::generator_affine_x(),
@@ -104,7 +104,7 @@ mod tests {
     use crate::unsigned_integer::element::U384;
     //use crate::elliptic_curve::curves::test_curve_2::TestCurve2;
     use crate::{
-        elliptic_curve::short_weierstrass::element::EllipticCurveElement,
+        elliptic_curve::short_weierstrass::element::ProjectivePoint,
         field::{
             extensions::quadratic::QuadraticExtensionFieldElement,
             fields::u64_prime_field::U64FieldElement,
@@ -118,7 +118,7 @@ mod tests {
     #[test]
     fn create_valid_point_works() {
         let point =
-            EllipticCurveElement::<TestCurve1>::new([FEE::from(35), FEE::from(31), FEE::from(1)]);
+            ProjectivePoint::<TestCurve1>::new([FEE::from(35), FEE::from(31), FEE::from(1)]);
         assert_eq!(*point.x(), FEE::from(35));
         assert_eq!(*point.y(), FEE::from(31));
         assert_eq!(*point.z(), FEE::from(1));
@@ -127,12 +127,12 @@ mod tests {
     #[test]
     #[should_panic]
     fn create_invalid_points_panicks() {
-        EllipticCurveElement::<TestCurve1>::new([FEE::from(0), FEE::from(1), FEE::from(1)]);
+        ProjectivePoint::<TestCurve1>::new([FEE::from(0), FEE::from(1), FEE::from(1)]);
     }
 
     #[test]
     fn equality_works() {
-        let g = EllipticCurveElement::<TestCurve1>::generator();
+        let g = ProjectivePoint::<TestCurve1>::generator();
         let g2 = g.operate_with(&g);
         assert_ne!(&g2, &g);
         assert_eq!(&g, &g);
@@ -140,67 +140,62 @@ mod tests {
 
     #[test]
     fn operate_with_self_works_1() {
-        let g = EllipticCurveElement::<TestCurve1>::generator();
+        let g = ProjectivePoint::<TestCurve1>::generator();
         assert_eq!(g.operate_with(&g).operate_with(&g), g.operate_with_self(3));
     }
 
     #[test]
     fn operate_with_self_works_2() {
-        let mut point_1 = EllipticCurveElement::<TestCurve1>::generator();
+        let mut point_1 = ProjectivePoint::<TestCurve1>::generator();
         point_1 = point_1.operate_with_self(TEST_CURVE_1_MAIN_SUBGROUP_ORDER as u128);
-        assert_eq!(
-            point_1,
-            EllipticCurveElement::<TestCurve1>::neutral_element()
-        );
+        assert_eq!(point_1, ProjectivePoint::<TestCurve1>::neutral_element());
     }
 
     #[test]
     fn doubling_a_point_works() {
         let point =
-            EllipticCurveElement::<TestCurve1>::new([FEE::from(35), FEE::from(31), FEE::from(1)]);
+            ProjectivePoint::<TestCurve1>::new([FEE::from(35), FEE::from(31), FEE::from(1)]);
         let expected_result =
-            EllipticCurveElement::<TestCurve1>::new([FEE::from(25), FEE::from(29), FEE::from(1)]);
+            ProjectivePoint::<TestCurve1>::new([FEE::from(25), FEE::from(29), FEE::from(1)]);
         assert_eq!(point.operate_with_self(2).to_affine(), expected_result);
     }
 
     #[test]
     fn test_weil_pairing() {
         type FE = U64FieldElement<TEST_CURVE_1_PRIME_FIELD_ORDER>;
-        let pa =
-            EllipticCurveElement::<TestCurve1>::new([FEE::from(35), FEE::from(31), FEE::from(1)]);
-        let pb = EllipticCurveElement::<TestCurve1>::new([
+        let pa = ProjectivePoint::<TestCurve1>::new([FEE::from(35), FEE::from(31), FEE::from(1)]);
+        let pb = ProjectivePoint::<TestCurve1>::new([
             FEE::new([FE::new(24), FE::new(0)]),
             FEE::new([FE::new(0), FE::new(31)]),
             FEE::from(1),
         ]);
         let expected_result = FEE::new([FE::new(46), FE::new(3)]);
 
-        let result_weil = EllipticCurveElement::<TestCurve1>::weil_pairing(&pa, &pb);
+        let result_weil = ProjectivePoint::<TestCurve1>::weil_pairing(&pa, &pb);
         assert_eq!(result_weil, expected_result);
     }
 
     #[test]
     fn test_tate_pairing() {
         type FE = U64FieldElement<TEST_CURVE_1_PRIME_FIELD_ORDER>;
-        let pa =
-            EllipticCurveElement::<TestCurve1>::new([FEE::from(35), FEE::from(31), FEE::from(1)]);
-        let pb = EllipticCurveElement::<TestCurve1>::new([
+        let pa = ProjectivePoint::<TestCurve1>::new([FEE::from(35), FEE::from(31), FEE::from(1)]);
+        let pb = ProjectivePoint::<TestCurve1>::new([
             FEE::new([FE::new(24), FE::new(0)]),
             FEE::new([FE::new(0), FE::new(31)]),
             FEE::from(1),
         ]);
         let expected_result = FEE::new([FE::new(42), FE::new(19)]);
 
-        let result_weil = EllipticCurveElement::<TestCurve1>::tate_pairing(&pa, &pb);
+        let result_weil = ProjectivePoint::<TestCurve1>::tate_pairing(&pa, &pb);
         assert_eq!(result_weil, expected_result);
     }
 
     #[test]
     fn operate_with_self_works_with_test_curve_2() {
-        let mut point_1 = EllipticCurveElement::<TestCurve2>::generator();
+        let mut point_1 = ProjectivePoint::<TestCurve2>::generator();
         point_1 = point_1.operate_with_self(15);
 
-        let expected_result = EllipticCurveElement::<TestCurve2>::new([
+        let expected_result = ProjectivePoint::<TestCurve2>::new([
             FieldElement::new([
                 FieldElement::new(U384::from("7b8ee59e422e702458174c18eb3302e17")),
                 FieldElement::new(U384::from("1395065adef5a6a5457f1ea600b5a3e4fb")),
@@ -220,7 +215,7 @@ mod tests {
         let x = FEE::from(35);
         let y = FEE::from(31);
         let z = FEE::from(1);
-        let point = EllipticCurveElement::<TestCurve1>::new([x.clone(), y.clone(), z.clone()]);
+        let point = ProjectivePoint::<TestCurve1>::new([x.clone(), y.clone(), z.clone()]);
         let coordinates = point.coordinates();
         assert_eq!(&x, point.x());
         assert_eq!(&y, point.y());
