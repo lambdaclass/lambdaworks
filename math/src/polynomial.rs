@@ -11,12 +11,13 @@ pub struct Polynomial<FE> {
 
 impl<F: IsField> Polynomial<FieldElement<F>> {
     /// Creates a new polynomial with the given coefficients
-    pub fn new(coefficients: Vec<FieldElement<F>>) -> Self {
+    pub fn new(coefficients: &[FieldElement<F>]) -> Self {
         // Removes trailing zero coefficients at the end
         let mut unpadded_coefficients = coefficients
-            .into_iter()
+            .iter()
             .rev()
-            .skip_while(|x| *x == FieldElement::zero())
+            .skip_while(|x| **x == FieldElement::zero())
+            .cloned()
             .collect::<Vec<FieldElement<F>>>();
         unpadded_coefficients.reverse();
         Polynomial {
@@ -27,22 +28,22 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
     pub fn new_monomial(coefficient: FieldElement<F>, degree: usize) -> Self {
         let mut coefficients = vec![FieldElement::zero(); degree];
         coefficients.push(coefficient);
-        Self::new(coefficients)
+        Self::new(&coefficients)
     }
 
     pub fn zero() -> Self {
-        Self::new(Vec::<FieldElement<F>>::new())
+        Self::new(&[])
     }
 
     pub fn interpolate(xs: &[FieldElement<F>], ys: &[FieldElement<F>]) -> Self {
         let mut result = Polynomial::zero();
 
         for (i, y) in ys.iter().enumerate() {
-            let mut y_term = Polynomial::new(vec![y.clone()]);
+            let mut y_term = Polynomial::new(&[y.clone()]);
             for (j, x) in xs.iter().enumerate() {
                 if i != j {
-                    let denominator = Polynomial::new(vec![FieldElement::one() / (&xs[i] - x)]);
-                    let numerator = Polynomial::new(vec![-x, FieldElement::one()]);
+                    let denominator = Polynomial::new(&[FieldElement::one() / (&xs[i] - x)]);
+                    let numerator = Polynomial::new(&[-x, FieldElement::one()]);
                     y_term = y_term.mul_with_ref(&(numerator * denominator));
                 }
             }
@@ -115,7 +116,7 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
                 ));
                 n = n - d;
             }
-            (Polynomial::new(q), n)
+            (Polynomial::new(&q), n)
         }
     }
 
@@ -129,14 +130,14 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
         let mut coefficients = vec![FieldElement::zero(); degree + 1];
 
         if self.coefficients.is_empty() || factor.coefficients.is_empty() {
-            Polynomial::new(vec![FieldElement::zero()])
+            Polynomial::new(&[FieldElement::zero()])
         } else {
             for i in 0..=factor.degree() {
                 for j in 0..=self.degree() {
                     coefficients[i + j] += &factor.coefficients[i] * &self.coefficients[j];
                 }
             }
-            Polynomial::new(coefficients)
+            Polynomial::new(&coefficients)
         }
     }
 }
@@ -149,8 +150,8 @@ impl<F: IsField> ops::Add<&Polynomial<FieldElement<F>>> for &Polynomial<FieldEle
         let iter_coeff_pa = pa.coefficients.iter();
         let iter_coeff_pb = pb.coefficients.iter();
         let new_coefficients = iter_coeff_pa.zip(iter_coeff_pb).map(|(x, y)| x + y);
-
-        Polynomial::new(new_coefficients.collect())
+        let new_coefficients_vec = new_coefficients.collect::<Vec<FieldElement<F>>>();
+        Polynomial::new(&new_coefficients_vec)
     }
 }
 
@@ -181,7 +182,12 @@ impl<F: IsField> ops::Neg for Polynomial<FieldElement<F>> {
     type Output = Polynomial<FieldElement<F>>;
 
     fn neg(self) -> Polynomial<FieldElement<F>> {
-        Polynomial::new(self.coefficients.iter().map(|x| -x).collect())
+        let neg = self
+            .coefficients
+            .iter()
+            .map(|x| -x)
+            .collect::<Vec<FieldElement<F>>>();
+        Polynomial::new(&neg)
     }
 }
 
@@ -219,27 +225,23 @@ mod tests {
     type FE = FieldElement<F>;
 
     fn polynomial_a() -> Polynomial<FE> {
-        Polynomial::new(vec![FE::new(1), FE::new(2), FE::new(3)])
+        Polynomial::new(&[FE::new(1), FE::new(2), FE::new(3)])
     }
 
     fn polynomial_minus_a() -> Polynomial<FE> {
-        Polynomial::new(vec![
-            FE::new(ORDER - 1),
-            FE::new(ORDER - 2),
-            FE::new(ORDER - 3),
-        ])
+        Polynomial::new(&[FE::new(ORDER - 1), FE::new(ORDER - 2), FE::new(ORDER - 3)])
     }
 
     fn polynomial_b() -> Polynomial<FE> {
-        Polynomial::new(vec![FE::new(3), FE::new(4), FE::new(5)])
+        Polynomial::new(&[FE::new(3), FE::new(4), FE::new(5)])
     }
 
     fn polynomial_a_plus_b() -> Polynomial<FE> {
-        Polynomial::new(vec![FE::new(4), FE::new(6), FE::new(8)])
+        Polynomial::new(&[FE::new(4), FE::new(6), FE::new(8)])
     }
 
     fn polynomial_b_minus_a() -> Polynomial<FE> {
-        Polynomial::new(vec![FE::new(2), FE::new(2), FE::new(2)])
+        Polynomial::new(&[FE::new(2), FE::new(2), FE::new(2)])
     }
 
     #[test]
@@ -254,22 +256,22 @@ mod tests {
 
     #[test]
     fn add_5_to_0_is_5() {
-        let p1 = Polynomial::new(vec![FE::new(5)]);
-        let p2 = Polynomial::new(vec![FE::new(0)]);
-        assert_eq!(p1 + p2, Polynomial::new(vec![FE::new(5)]));
+        let p1 = Polynomial::new(&[FE::new(5)]);
+        let p2 = Polynomial::new(&[FE::new(0)]);
+        assert_eq!(p1 + p2, Polynomial::new(&[FE::new(5)]));
     }
 
     #[test]
     fn add_0_to_5_is_5() {
-        let p1 = Polynomial::new(vec![FE::new(5)]);
-        let p2 = Polynomial::new(vec![FE::new(0)]);
-        assert_eq!(p2 + p1, Polynomial::new(vec![FE::new(5)]));
+        let p1 = Polynomial::new(&[FE::new(5)]);
+        let p2 = Polynomial::new(&[FE::new(0)]);
+        assert_eq!(p2 + p1, Polynomial::new(&[FE::new(5)]));
     }
 
     #[test]
     fn negating_0_returns_0() {
-        let p1 = Polynomial::new(vec![FE::new(0)]);
-        assert_eq!(-p1, Polynomial::new(vec![FE::new(0)]));
+        let p1 = Polynomial::new(&[FE::new(0)]);
+        assert_eq!(-p1, Polynomial::new(&[FE::new(0)]));
     }
 
     #[test]
@@ -284,9 +286,9 @@ mod tests {
 
     #[test]
     fn substracting_5_5_gives_0() {
-        let p1 = Polynomial::new(vec![FE::new(5)]);
-        let p2 = Polynomial::new(vec![FE::new(5)]);
-        let p3 = Polynomial::new(vec![FE::new(0)]);
+        let p1 = Polynomial::new(&[FE::new(5)]);
+        let p2 = Polynomial::new(&[FE::new(5)]);
+        let p3 = Polynomial::new(&[FE::new(0)]);
         assert_eq!(p1 - p2, p3);
     }
 
@@ -297,66 +299,66 @@ mod tests {
 
     #[test]
     fn constructor_removes_zeros_at_the_end_of_polynomial() {
-        let p1 = Polynomial::new(vec![FE::new(3), FE::new(4), FE::new(0)]);
-        assert_eq!(p1.coefficients, vec![FE::new(3), FE::new(4)]);
+        let p1 = Polynomial::new(&[FE::new(3), FE::new(4), FE::new(0)]);
+        assert_eq!(p1.coefficients, &[FE::new(3), FE::new(4)]);
     }
 
     #[test]
     fn pad_with_zero_coefficients_returns_polynomials_with_zeros_until_matching_size() {
-        let p1 = Polynomial::new(vec![FE::new(3), FE::new(4)]);
-        let p2 = Polynomial::new(vec![FE::new(3)]);
+        let p1 = Polynomial::new(&[FE::new(3), FE::new(4)]);
+        let p2 = Polynomial::new(&[FE::new(3)]);
 
-        assert_eq!(p2.coefficients, vec![FE::new(3)]);
+        assert_eq!(p2.coefficients, &[FE::new(3)]);
         let (pp1, pp2) = Polynomial::pad_with_zero_coefficients(&p1, &p2);
         assert_eq!(pp1, p1);
-        assert_eq!(pp2.coefficients, vec![FE::new(3), FE::new(0)]);
+        assert_eq!(pp2.coefficients, &[FE::new(3), FE::new(0)]);
     }
 
     #[test]
     fn multiply_5_and_0_is_0() {
-        let p1 = Polynomial::new(vec![FE::new(5)]);
-        let p2 = Polynomial::new(vec![FE::new(0)]);
-        assert_eq!(p1 * p2, Polynomial::new(vec![FE::new(0)]));
+        let p1 = Polynomial::new(&[FE::new(5)]);
+        let p2 = Polynomial::new(&[FE::new(0)]);
+        assert_eq!(p1 * p2, Polynomial::new(&[FE::new(0)]));
     }
 
     #[test]
     fn multiply_0_and_x_is_0() {
-        let p1 = Polynomial::new(vec![FE::new(0)]);
-        let p2 = Polynomial::new(vec![FE::new(0), FE::new(1)]);
-        assert_eq!(p1 * p2, Polynomial::new(vec![FE::new(0)]));
+        let p1 = Polynomial::new(&[FE::new(0)]);
+        let p2 = Polynomial::new(&[FE::new(0), FE::new(1)]);
+        assert_eq!(p1 * p2, Polynomial::new(&[FE::new(0)]));
     }
 
     #[test]
     fn multiply_2_by_3_is_6() {
-        let p1 = Polynomial::new(vec![FE::new(2)]);
-        let p2 = Polynomial::new(vec![FE::new(3)]);
-        assert_eq!(p1 * p2, Polynomial::new(vec![FE::new(6)]));
+        let p1 = Polynomial::new(&[FE::new(2)]);
+        let p2 = Polynomial::new(&[FE::new(3)]);
+        assert_eq!(p1 * p2, Polynomial::new(&[FE::new(6)]));
     }
 
     #[test]
     fn multiply_2xx_3x_3_times_x_4() {
-        let p1 = Polynomial::new(vec![FE::new(3), FE::new(3), FE::new(2)]);
-        let p2 = Polynomial::new(vec![FE::new(4), FE::new(1)]);
+        let p1 = Polynomial::new(&[FE::new(3), FE::new(3), FE::new(2)]);
+        let p2 = Polynomial::new(&[FE::new(4), FE::new(1)]);
         assert_eq!(
             p1 * p2,
-            Polynomial::new(vec![FE::new(12), FE::new(15), FE::new(11), FE::new(2)])
+            Polynomial::new(&[FE::new(12), FE::new(15), FE::new(11), FE::new(2)])
         );
     }
 
     #[test]
     fn multiply_x_4_times_2xx_3x_3() {
-        let p1 = Polynomial::new(vec![FE::new(3), FE::new(3), FE::new(2)]);
-        let p2 = Polynomial::new(vec![FE::new(4), FE::new(1)]);
+        let p1 = Polynomial::new(&[FE::new(3), FE::new(3), FE::new(2)]);
+        let p2 = Polynomial::new(&[FE::new(4), FE::new(1)]);
         assert_eq!(
             p2 * p1,
-            Polynomial::new(vec![FE::new(12), FE::new(15), FE::new(11), FE::new(2)])
+            Polynomial::new(&[FE::new(12), FE::new(15), FE::new(11), FE::new(2)])
         );
     }
 
     #[test]
     fn division_works() {
-        let p1 = Polynomial::new(vec![FE::new(1), FE::new(3)]);
-        let p2 = Polynomial::new(vec![FE::new(1), FE::new(3)]);
+        let p1 = Polynomial::new(&[FE::new(1), FE::new(3)]);
+        let p2 = Polynomial::new(&[FE::new(1), FE::new(3)]);
         let p3 = p1.mul_with_ref(&p2);
         assert_eq!(p3 / p2, p1);
     }
@@ -365,15 +367,15 @@ mod tests {
     fn division_by_zero_degree_polynomial_works() {
         let four = FE::new(4);
         let two = FE::new(2);
-        let p1 = Polynomial::new(vec![four, four]);
-        let p2 = Polynomial::new(vec![two]);
-        assert_eq!(Polynomial::new(vec![two, two]), p1 / p2);
+        let p1 = Polynomial::new(&[four, four]);
+        let p2 = Polynomial::new(&[two]);
+        assert_eq!(Polynomial::new(&[two, two]), p1 / p2);
     }
 
     #[test]
     fn evaluate_constant_polynomial_returns_constant() {
         let three = FE::new(3);
-        let p = Polynomial::new(vec![three]);
+        let p = Polynomial::new(&[three]);
         assert_eq!(p.evaluate(FE::new(10)), three);
     }
 
@@ -381,7 +383,7 @@ mod tests {
     fn create_degree_0_new_monomial() {
         assert_eq!(
             Polynomial::new_monomial(FE::new(3), 0),
-            Polynomial::new(vec![FE::new(3)])
+            Polynomial::new(&[FE::new(3)])
         );
     }
 
@@ -411,14 +413,14 @@ mod tests {
 
     #[test]
     fn evaluate_3_term_polynomial() {
-        let p = Polynomial::new(vec![FE::new(3), -FE::new(2), FE::new(4)]);
+        let p = Polynomial::new(&[FE::new(3), -FE::new(2), FE::new(4)]);
         assert_eq!(p.evaluate(FE::new(2)), FE::new(15));
     }
 
     #[test]
     fn simple_interpolating_polynomial_by_hand_works() {
-        let denominator = Polynomial::new(vec![FE::new(1) / (FE::new(2) - FE::new(4))]);
-        let numerator = Polynomial::new(vec![-FE::new(4), FE::new(1)]);
+        let denominator = Polynomial::new(&[FE::new(1) / (FE::new(2) - FE::new(4))]);
+        let numerator = Polynomial::new(&[-FE::new(4), FE::new(1)]);
         let interpolating = numerator * denominator;
         assert_eq!(
             (FE::new(2) - FE::new(4)) * (FE::new(1) / (FE::new(2) - FE::new(4))),
