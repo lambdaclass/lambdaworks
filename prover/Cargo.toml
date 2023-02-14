@@ -8,4 +8,7 @@ edition = "2021"
 [dependencies.lambdaworks-math]
 path = "../math"
 
+[dependencies.lambdaworks-crypto]
+path = "../crypto"
+
 [dependencies]
