@@ -22,7 +22,9 @@ type PoseidonConstants = (
 );
 
 pub struct Parameters<F: IsField> {
-    pub s_boxes: usize,
+    pub rate: usize,
+    pub capacity: usize,
+    pub alpha: u32,
     /// Full Rounds
     pub n_full_rounds: usize,
     /// Partial rounds
@@ -37,7 +39,9 @@ impl Parameters<BLS12381PrimeField> {
         let mds_constants_csv = include_str!("t3/mds_matrix.csv");
         let (round_constants, mds_matrix) = Self::parse(round_constants_csv, mds_constants_csv)?;
         Ok(Parameters {
-            s_boxes: 80,
+            rate: 2,
+            capacity:1,
+            alpha:5,
             n_full_rounds: 8,
             n_partial_rounds: 56,
             round_constants,
@@ -51,7 +55,9 @@ impl Parameters<BLS12381PrimeField> {
         let (round_constants, mds_matrix) = Self::parse(round_constants_csv, mds_constants_csv)?;
 
         Ok(Parameters {
-            s_boxes: 72,
+            rate: 1,
+            capacity:1,
+            alpha:5,
             n_full_rounds: 8,
             n_partial_rounds: 56,
             round_constants,

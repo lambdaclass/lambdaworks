@@ -6,33 +6,31 @@ use lambdaworks_math::{
     elliptic_curve::curves::bls12_381::field_extension::BLS12381PrimeField,
     field::{element::FieldElement, traits::IsField},
 };
-use std::ops::{Add, Mul};
+use std::{ops::{Add, Mul}};
 
 mod parameters;
+mod test_helper;
 
 pub struct Poseidon<F: IsField> {
-    phantom: std::marker::PhantomData<F>,
+    pub params: Parameters<F>,
+    pub state: Vec<FieldElement<F>>,
+    pub offset: usize,
 }
 
 /// Implements hashing for BLS 12381's field.
 /// Alpha = 5 and parameters are predefined for secure implementations
-impl IsCryptoHash<BLS12381PrimeField> for Poseidon<BLS12381PrimeField> {
+impl<F:IsField> IsCryptoHash<F> for Poseidon<F> {
     fn hash_one(
-        input: FieldElement<BLS12381PrimeField>,
-    ) -> Result<FieldElement<BLS12381PrimeField>, String> {
-        let params = Parameters::for_one_element()
-            .expect("Error loading parameters for hashing one element");
-        Self::hash(vec![input], &params, 5)
+        input: FieldElement<F>,
+    ) -> Result<FieldElement<F>, String> {
+        self.hash(vec![input], &params)
     }
 
     fn hash_two(
         left: FieldElement<BLS12381PrimeField>,
         right: FieldElement<BLS12381PrimeField>,
     ) -> Result<FieldElement<BLS12381PrimeField>, String> {
-        let params = Parameters::for_two_elements()
-            .expect("Error loading parameters for hashing two elements");
-
-        Self::hash(vec![left, right], &params, 5)
+        Self::hash(vec![left, right], &params)
     }
 }
 
@@ -40,6 +38,14 @@ impl<F> Poseidon<F>
 where
     F: IsField,
 {
+    pub fn new(params: Parameters<F>) -> Self  {
+        Poseidon {
+            offset: 0,
+            params,
+            state: vec![FieldElement::zero(); params.rate + params.capacity],
+        }
+    }
+
     fn ark(state: &mut Vec<FieldElement<F>>, round_constants: &[FieldElement<F>], round: usize) {
         for i in 0..state.len() {
             state[i] += round_constants[round + i].clone();
@@ -55,10 +61,7 @@ where
     ) {
         if i < n_rounds_f / 2 || i >= n_rounds_f / 2 + n_rounds_p {
             for current_state in state.iter_mut() {
-                let aux = current_state.clone();
-                *current_state = current_state.pow(2u32);
-                *current_state = current_state.pow(2u32);
-                *current_state = current_state.clone().mul(aux);
+                *current_state = current_state.pow(alpha);
             }
         } else {
             state[0] = state[0].pow(alpha);
@@ -78,12 +81,12 @@ where
         new_state.clone()
     }
 
-    fn hash(
+    fn permute(
+        &self,
         inp: Vec<FieldElement<F>>,
-        params: &Parameters<F>,
-        alpha: u32,
     ) -> Result<FieldElement<F>, String> {
         let t = inp.len() + 1;
+        let params = self.params;
         if inp.is_empty() || inp.len() >= params.n_partial_rounds - 1 {
             return Err("Wrong inputs length".to_string());
         }
@@ -98,13 +101,64 @@ where
                 params.n_partial_rounds,
                 &mut state,
                 i,
-                alpha,
+                params.alpha,
             );
             state = Self::mix(&state, &params.mds_matrix);
         }
 
         Ok(state[0].clone())
     }
+
+    fn ensure_permuted(&mut self) {
+        // offset should be <= rate, so really testing for equality
+        if self.offset >= self.params.rate {
+            self.permute(self.state);
+            self.offset = 0;
+        }
+    }
+
+    pub fn absorb(&mut self, input: &FieldElement<F>) {
+        self.ensure_permuted();
+        self.state[self.offset] += input.clone();
+        self.offset += 1;
+    }
+
+    pub fn squeeze(&mut self) -> FieldElement<F> {
+        self.ensure_permuted();
+        let result = self.state[self.offset];
+        self.offset += 1;
+        result
+    }
+
+    pub fn hash(&self, inputs: &[FieldElement<F>]) -> Result<Vec<FieldElement<F>>, String>
+    where
+        F: IsField,
+    {
+        if inputs.len() == 0 {
+            return Err("Empty inputs".to_string());
+        }
+        let n_remaining = inputs.len() % self.params.rate;
+        if n_remaining != 0 {
+            return Err(format!(
+                "Input length {} must be a multiple of the hash rate {}",
+                inputs.len(),
+                self.params.rate
+            )
+            .to_string());
+        }
+    
+        for input in inputs {
+            self.absorb(input);
+        }
+
+        let mut result = vec![FieldElement::zero(); self.params.rate];
+        
+        for i in 0..self.params.rate {
+            result[i] = self.squeeze();
+        }
+        Ok(result)
+    }
+    
 }
 
 #[cfg(test)]
@@ -122,11 +176,8 @@ mod tests {
         //);
 
         let v = Poseidon::hash_one(a.clone()).unwrap();
-        println!("{:?}", v);
         let v = Poseidon::hash_one(b.clone()).unwrap();
-        println!("{:?}", v);
 
         let v = Poseidon::hash_two(a, b).unwrap();
-        println!("{:?}", v);
     }
 }
