@@ -1,5 +1,4 @@
-use lambdaworks_math::field::element::FieldElement;
-use lambdaworks_math::field::fields::u64_prime_field::U64PrimeField;
+use lambdaworks_math::field::{element::FieldElement, fields::u64_prime_field::U64PrimeField};
 use lambdaworks_math::polynomial::Polynomial;
 
 const ORDER: u64 = 293;
