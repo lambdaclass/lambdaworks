@@ -1,12 +1,13 @@
 use super::traits::IsCryptoHash;
 use lambdaworks_math::{
-    cyclic_group::IsCyclicGroup,
+    cyclic_group::IsGroup,
     elliptic_curve::{
         self,
         short_weierstrass::{
             curves::bls12_381::{curve::BLS12381Curve, field_extension::BLS12381PrimeField},
             element::ProjectivePoint,
         },
+        traits::IsEllipticCurve,
     },
     field::{self, element::FieldElement, traits::IsField},
     traits::ByteConversion,
@@ -22,7 +23,7 @@ const INPUT_SIZE_IN_BITS: usize = WINDOW_SIZE * NUM_WINDOWS;
 const HALF_INPUT_SIZE_BITS: usize = INPUT_SIZE_IN_BITS / 2;
 
 pub fn random_point(rng: &mut rand::rngs::ThreadRng) -> Point {
-    Point::generator().operate_with_self(rand::Rng::gen::<u128>(rng))
+    BLS12381Curve::generator().operate_with_self(rand::Rng::gen::<u128>(rng))
 }
 
 // TODO: this function should be replaced with the trait method once it is implemented.
@@ -70,6 +71,12 @@ where
 }
 
 impl IsCryptoHash<BLS12381PrimeField> for Pedersen<BLS12381Curve> {
+    fn new() -> Self {
+        Self {
+            parameters: Self::create_generators(&mut rand::thread_rng()),
+        }
+    }
+
     fn hash_one(&self, input: FE) -> FE {
         // Compute sum of h_i^{m_i} for all i.
         let bits = to_bits(input);
