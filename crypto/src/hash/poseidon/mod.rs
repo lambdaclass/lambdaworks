@@ -182,7 +182,7 @@ mod tests {
             TestFieldElement::new(U384::from("0")),
         ];
         poseidon.ark(&mut state, 0);
-        let expected = [
+        let _expected = [
             TestFieldElement::new(U384::from(
                 "10187801339791605336251748402605479409606566396373491958667041943798551150218",
             )),
