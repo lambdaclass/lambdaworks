@@ -77,7 +77,20 @@ impl IsCryptoHash<BLS12381PrimeField> for Pedersen<BLS12381Curve>
         left: FE,
         right: FE,
     ) -> FE {
-        todo!()
+        let left_input_bytes = left.value().to_bytes_be().unwrap();
+        let right_input_bytes = right.value().to_bytes_be().unwrap();
+        let mut buffer = vec![0u8; (HALF_INPUT_SIZE_BITS + HALF_INPUT_SIZE_BITS) / 8];
+
+        buffer
+            .iter_mut()
+            .zip(left_input_bytes.iter().chain(right_input_bytes.iter()))
+            .for_each(|(b, l_b)| *b = *l_b);
+
+        let base_type_value = U384::from_bytes_be(&buffer).unwrap();
+        let new_input_value = BLS12381PrimeField::from_base_type(base_type_value);
+        let new_input = FE::from(&new_input_value);
+
+        self.hash_one(new_input)
     }
 }
 
