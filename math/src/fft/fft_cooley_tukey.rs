@@ -99,7 +99,7 @@ mod fft_test {
             let result = fft(poly.coefficients()).unwrap();
 
             let twiddles_iter = (0..poly.coefficients().len() as u64).map(|i| omega.pow(i));
-            let expected: Vec<FE> = twiddles_iter.map(|x| poly.evaluate(x)).collect();
+            let expected: Vec<FE> = twiddles_iter.map(|x| poly.evaluate(&x)).collect();
 
             prop_assert_eq!(result, expected);
         }
