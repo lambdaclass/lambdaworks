@@ -8,6 +8,11 @@ edition = "2021"
 [dependencies]
 rand = "0.8.5"
 
+thiserror = "1.0.38"
+
+[dev-dependencies]
+proptest = "1.1.0"
+
 [dev-dependencies.criterion]
 version = "0.4"
 features = ["async_futures"]
@@ -16,3 +21,7 @@ features = ["async_futures"]
 version = "0.11"
 features = ["criterion", "flamegraph", "frame-pointer"]
 default-features = false
+
+[[bench]]
+name = "benchmark_polynomial"
+harness = false
