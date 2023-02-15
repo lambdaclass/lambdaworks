@@ -74,23 +74,22 @@ impl<F: IsField, H: IsCryptoHash<F> + Clone> MerkleTree<F, H> {
     pub fn get_proof_by_pos(&self, pos: usize, value: FieldElement<F>) -> Option<Proof<F, H>> {
         let hash_leaf = self.hasher.hash_one(value.clone());
 
-        if let Some(leaf) = self.leafs.get(pos){
+        if let Some(leaf) = self.leafs.get(pos) {
             if hash_leaf != leaf.borrow().hash {
                 return None;
             }
-            
+
             let merkle_path = build_merkle_path(leaf.clone(), &mut Vec::new());
 
             return Some(Proof {
                 value,
                 merkle_path,
                 hasher: self.hasher.clone(),
-            });   
+            });
         }
 
         None
     }
-
 
     pub fn verify(proof: &Proof<F, H>, root_hash: FieldElement<F>) -> bool {
         let mut hashed_value = proof.hasher.hash_one(proof.value.clone());
