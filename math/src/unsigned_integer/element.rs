@@ -1153,10 +1153,9 @@ mod tests_u384 {
     }
 }
 
+#[cfg(test)]
 mod tests_u256 {
-    use super::*;
-    const NUM_LIMBS: usize = 4;
-    type U256 = UnsignedInteger<NUM_LIMBS>;
+    use crate::unsigned_integer::element::U256;
 
     #[test]
     fn construct_new_integer_from_u64_1() {
