@@ -1,3 +1,4 @@
+use lambdaworks_math::field::element;
 use lambdaworks_math::polynomial::Polynomial;
 use winterfell::{
     crypto::hashers::Blake3_256,
@@ -13,6 +14,8 @@ use winterfell::prover::{
     domain::StarkDomain, trace::commitment::TraceCommitment,
 };
 
+/// Given a CompositionPoly from winterfell, extract its coefficients
+/// as a vector.
 fn get_coefficients<E: StarkField>(poly: CompositionPoly<E>) -> Vec<E> {
     let data = poly.into_columns();
 
@@ -30,41 +33,38 @@ fn get_coefficients<E: StarkField>(poly: CompositionPoly<E>) -> Vec<E> {
     coeffs
 }
 
-// fn get_composition_poly<A, E, F>(
-fn get_composition_poly<A, E>(
+///
+fn get_composition_poly<A>(
     air: A,
-    trace: TraceTable<E>,
+    trace: TraceTable<BaseElement>,
     pub_inputs: A::PublicInputs,
-) -> Result<(), ()>
-// ) -> Polynomial<F>
+) -> Vec<u128>
 where
-    A: Air<BaseField = E>,
-    E: StarkField,
-    //F: FieldElement,
+    A: Air<BaseField = BaseElement>,
 {
     let mut pub_inputs_bytes = Vec::new();
     pub_inputs.write_into(&mut pub_inputs_bytes);
-    let mut channel = ProverChannel::<A, E, Blake3_256<E>>::new(&air, pub_inputs_bytes);
+    let mut channel =
+        ProverChannel::<A, BaseElement, Blake3_256<BaseElement>>::new(&air, pub_inputs_bytes);
     let domain = StarkDomain::new(&air);
 
     // extend the main execution trace and build a Merkle tree from the extended trace
-    let (main_trace_lde, main_trace_tree, _main_trace_polys) =
-        build_trace_commitment_f::<E, E, Blake3_256<E>>(trace.main_segment(), &domain);
+    let (main_trace_lde, main_trace_tree, _main_trace_polys) = build_trace_commitment_f::<
+        BaseElement,
+        BaseElement,
+        Blake3_256<BaseElement>,
+    >(trace.main_segment(), &domain);
 
     // commit to the LDE of the main trace by writing the root of its Merkle tree into
     // the channel
     channel.commit_trace(*main_trace_tree.root());
 
-    // initialize trace commitment and trace polynomial table structs with the main trace
-    // data; for multi-segment traces these structs will be used as accumulators of all
-    // trace segments
     let trace_commitment = TraceCommitment::new(
         main_trace_lde,
         main_trace_tree,
         domain.trace_to_lde_blowup(),
     );
 
-    // let mut trace_polys: TracePolyTable<BaseElement> = TracePolyTable::new(main_trace_polys);
     let aux_trace_rand_elements = AuxTraceRandElements::new();
     let constraint_coeffs = channel.get_constraint_composition_coeffs();
     let evaluator = ConstraintEvaluator::new(&air, aux_trace_rand_elements, constraint_coeffs);
@@ -72,9 +72,10 @@ where
 
     let composition_poly = constraint_evaluations.into_poly().unwrap();
 
-    println!("COMPOSITION POLYNOMIAL: {:?}", composition_poly);
-
-    Ok(())
+    get_coefficients(composition_poly)
+        .iter()
+        .map(|c| c.0)
+        .collect::<Vec<_>>()
 }
 
 #[cfg(test)]
@@ -222,7 +223,7 @@ mod tests {
         let start = BaseElement::new(3);
         let n = 8;
 
-        // Build the execution trace and get the result from the last step.
+        // Build the execution trace and .
         let trace = build_do_work_trace(start, n);
         let pub_inputs = PublicInputs {
             start: trace.get(0, 0),
@@ -241,6 +242,29 @@ mod tests {
 
         let air = WorkAir::new(trace.get_info(), pub_inputs.clone(), options);
 
-        assert!(get_composition_poly(air, trace, pub_inputs).is_ok());
+        // this coefficients should be checked correctly
+        let expected_coeffs = vec![
+            73805846515134368521942875729025268850u128,
+            251094867283236114961184226859763993364,
+            24104107408363517664638843184319555199,
+            235849850267413452314892506985835977650,
+            90060524782298155599732670785320526321,
+            191672218871615916423281291477102427646,
+            266219015768353823155348590781060058741,
+            323575369761999186385729504758291491620,
+            11584578295884344582449562404474773268,
+            210204873954083390997653826263858894919,
+            255852687493109162976897695176505210663,
+            263909750263371532307415443077776653137,
+            270439831904630486671154877882097540335,
+            295423943150257863151191255913349696708,
+            305657170959297052488312417688653377091,
+            170130930667860970428731413388750994520,
+        ];
+
+        assert_eq!(
+            get_composition_poly(air, trace, pub_inputs),
+            expected_coeffs
+        );
     }
 }
