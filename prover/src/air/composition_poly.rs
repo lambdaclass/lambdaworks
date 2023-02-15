@@ -21,7 +21,7 @@ const M: u128 = 340282366920938463463374557953744961537;
 /// Given a CompositionPoly from winterfell, extract its coefficients
 /// as a vector.
 #[allow(dead_code)]
-fn get_coefficients<E: StarkField>(poly: CompositionPoly<E>) -> Vec<E> {
+pub(crate) fn get_coefficients<E: StarkField>(poly: CompositionPoly<E>) -> Vec<E> {
     let data = poly.into_columns();
 
     let num_columns = data.len();
@@ -41,7 +41,7 @@ fn get_coefficients<E: StarkField>(poly: CompositionPoly<E>) -> Vec<E> {
 /// Given a trace and an air defined with winterfell data structures, outputs
 /// a vector of u128 representing the coefficients of the composition polynomial.
 #[allow(dead_code)]
-fn get_composition_poly<A>(
+pub(crate) fn get_composition_poly<A>(
     air: A,
     trace: TraceTable<BaseElement>,
     pub_inputs: A::PublicInputs,
