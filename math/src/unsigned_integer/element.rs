@@ -1152,10 +1152,9 @@ mod tests_u384 {
         assert_eq!(U384::from_bytes_le(&bytes).unwrap(), expected_number);
     }
 }
-
 #[cfg(test)]
 mod tests_u256 {
-    use super::*;
+    use super::UnsignedInteger;
     const NUM_LIMBS: usize = 4;
     type U256 = UnsignedInteger<NUM_LIMBS>;
 
