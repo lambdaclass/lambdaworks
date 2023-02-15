@@ -1,12 +1,8 @@
-use lambdaworks_math::field::element;
-use lambdaworks_math::polynomial::Polynomial;
 use winterfell::{
     crypto::hashers::Blake3_256,
-    math::{fields::f128::BaseElement, FieldElement, StarkField},
+    math::{fields::f128::BaseElement, StarkField},
     prover::constraints::CompositionPoly,
-    Air, AirContext, Assertion, AuxTraceRandElements, ByteWriter, EvaluationFrame, FieldExtension,
-    ProofOptions, Prover, Serializable, StarkProof, Trace, TraceInfo, TraceTable,
-    TransitionConstraintDegree,
+    Air, AuxTraceRandElements, Serializable, Trace, TraceTable,
 };
 
 use winterfell::prover::{
@@ -33,7 +29,8 @@ fn get_coefficients<E: StarkField>(poly: CompositionPoly<E>) -> Vec<E> {
     coeffs
 }
 
-///
+/// Given a trace and an air defined with winterfell data structres, outputs
+/// a vector of u128 representing the coefficients of the composition polynomial.
 fn get_composition_poly<A>(
     air: A,
     trace: TraceTable<BaseElement>,
