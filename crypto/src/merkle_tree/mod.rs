@@ -309,6 +309,28 @@ mod tests {
     }
 
     #[test]
+    fn create_a_proof_over_value_that_belongs_to_a_given_merkle_tree_when_given_the_leaf_position()
+    {
+        let merkle_tree = MerkleTree::<U64PF, TestHasher>::build(&[
+            FE::new(1),
+            FE::new(2),
+            FE::new(3),
+            FE::new(4),
+            FE::new(5),
+        ]);
+        let proof = &merkle_tree.get_proof_by_pos(1, FE::new(2)).unwrap();
+        let expected_hash = &[
+            build_tree_node(FE::new(4)),
+            build_tree_node(FE::new(6)),
+            build_tree_node(FE::new(7)),
+            build_tree_node(FE::new(8)),
+        ];
+        for (key, elem) in expected_hash.iter().enumerate() {
+            assert_eq!(proof.merkle_path[key].borrow().hash, elem.borrow().hash);
+        }
+    }
+
+    #[test]
     fn verify_a_proof_over_value_that_belongs_to_a_given_merkle_tree() {
         let merkle_tree = MerkleTree::<U64PF, TestHasher>::build(&[
             FE::new(1),
