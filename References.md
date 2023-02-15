@@ -50,3 +50,4 @@
 - [Low-degree testing](https://medium.com/starkware/low-degree-testing-f7614f5172db)
 - [Winterfell](https://github.com/facebook/winterfell)
 - [Anatomy of a Stark](https://neptune.cash/learn/stark-anatomy/fri/)
+- [DEEP FRI video](https://www.youtube.com/watch?v=txo_kPSn59Y&list=PLcIyXLwiPilWvjvNkhMn283LV370Pk5CT&index=6)

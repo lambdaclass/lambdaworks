@@ -1,7 +1,4 @@
-use std::ops::Mul;
-
 pub trait IsCyclicGroup: Clone {
-    type PairingOutput: Mul<Output = Self::PairingOutput> + PartialEq + Eq;
     /// Returns a generator of the group. Every element of the group
     /// has to be of the form `operate_with_self(generator(), k)` for some `k`.
     fn generator() -> Self;
