@@ -1,6 +1,8 @@
 use std::convert::From;
 use std::ops::{Add, BitAnd, Mul, Shl, Shr, Sub};
 
+use crate::errors::ByteConversionError;
+use crate::traits::ByteConversion;
 use crate::unsigned_integer::traits::IsUnsignedInteger;
 
 use std::fmt::Debug;
@@ -415,6 +417,61 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
 }
 
 impl<const NUM_LIMBS: usize> IsUnsignedInteger for UnsignedInteger<NUM_LIMBS> {}
+
+impl<const NUM_LIMBS: usize> ByteConversion for UnsignedInteger<NUM_LIMBS> {
+    fn to_bytes_be(&self) -> Vec<u8> {
+        self.limbs
+            .iter()
+            .flat_map(|limb| limb.to_be_bytes())
+            .collect()
+    }
+
+    fn to_bytes_le(&self) -> Vec<u8> {
+        self.limbs
+            .iter()
+            .rev()
+            .flat_map(|limb| limb.to_le_bytes())
+            .collect()
+    }
+
+    fn from_bytes_be(bytes: &[u8]) -> Result<Self, ByteConversionError> {
+        let mut limbs = Vec::with_capacity(NUM_LIMBS);
+        bytes.chunks_exact(8).try_for_each(|chunk| {
+            let limb = u64::from_be_bytes(
+                chunk
+                    .try_into()
+                    .map_err(|_| ByteConversionError::FromBEBytesError)?,
+            );
+            limbs.push(limb);
+            Ok::<_, ByteConversionError>(())
+        })?;
+
+        let limbs: [u64; NUM_LIMBS] = limbs
+            .try_into()
+            .map_err(|_| ByteConversionError::FromBEBytesError)?;
+
+        Ok(Self { limbs })
+    }
+
+    fn from_bytes_le(bytes: &[u8]) -> Result<Self, ByteConversionError> {
+        let mut limbs = Vec::with_capacity(NUM_LIMBS);
+        bytes.chunks_exact(8).rev().try_for_each(|chunk| {
+            let limb = u64::from_le_bytes(
+                chunk
+                    .try_into()
+                    .map_err(|_| ByteConversionError::FromLEBytesError)?,
+            );
+            limbs.push(limb);
+            Ok::<_, ByteConversionError>(())
+        })?;
+
+        let limbs: [u64; NUM_LIMBS] = limbs
+            .try_into()
+            .map_err(|_| ByteConversionError::FromLEBytesError)?;
+
+        Ok(Self { limbs })
+    }
+}
 
 #[cfg(test)]
 mod tests_u384 {
@@ -1049,6 +1106,50 @@ mod tests_u384 {
         let a = U384::from("5322c128ec84081b6c376c108ebd7fd36bbd44f71ee5e6ad6bcb3dd1c5265bd7db75c90b2665a0826d17600f0e9");
         let b = U384::from("5322c128ec84081b6c376c108ebd7fd36bbd44f71ee5e6ad6bcb3dd1c52");
         assert_eq!(&a >> (64 * 2), b);
+    }
+
+    #[test]
+    fn to_be_bytes_works() {
+        let number = U384::from_u64(1);
+        let expected_bytes = vec![
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        ];
+
+        assert_eq!(number.to_bytes_be(), expected_bytes);
+    }
+
+    #[test]
+    fn to_le_bytes_works() {
+        let number = U384::from_u64(1);
+        let expected_bytes = vec![
+            1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ];
+
+        assert_eq!(number.to_bytes_le(), expected_bytes);
+    }
+
+    #[test]
+    fn from_bytes_be_works() {
+        let bytes = vec![
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        ];
+        let expected_number = U384::from_u64(1);
+
+        assert_eq!(U384::from_bytes_be(&bytes).unwrap(), expected_number);
+    }
+
+    #[test]
+    fn from_bytes_le_works() {
+        let bytes = vec![
+            1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ];
+        let expected_number = U384::from_u64(1);
+
+        assert_eq!(U384::from_bytes_le(&bytes).unwrap(), expected_number);
     }
 }
 
