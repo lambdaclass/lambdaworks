@@ -2,8 +2,12 @@ use crate::cyclic_group::{HasPairing, IsCyclicGroup};
 use crate::field::element::FieldElement;
 use crate::field::traits::IsField;
 
+#[cfg(feature = "arbitrary")]
+use arbitrary::Arbitrary;
+
 /// Type representing prime fields over unsigned 64-bit integers.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "arbitrary", derive(Arbitrary))]
 pub struct U64PrimeField<const MODULUS: u64>;
 pub type U64FieldElement<const MODULUS: u64> = FieldElement<U64PrimeField<MODULUS>>;
 

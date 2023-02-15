@@ -1,10 +1,16 @@
 use crate::unsigned_integer::traits::IsUnsignedInteger;
 use std::fmt::Debug;
 
+#[cfg(feature = "arbitrary")]
+use arbitrary::Arbitrary;
+
 /// Trait to add field behaviour to a struct.
 pub trait IsField: Debug + Clone {
     /// The underlying base type for representing elements from the field.
+    #[cfg(not(feature = "arbitrary"))]
     type BaseType: Clone + Debug;
+    #[cfg(feature = "arbitrary")]
+    type BaseType: Clone + Debug + for<'a> Arbitrary<'a>;
 
     /// Returns the sum of `a` and `b`.
     fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType;

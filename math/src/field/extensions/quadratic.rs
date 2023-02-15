@@ -3,9 +3,13 @@ use crate::field::traits::IsField;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
+#[cfg(feature = "arbitrary")]
+use arbitrary::Arbitrary;
+
 /// A general quadratic extension field over `F`
 /// with quadratic non residue `Q::residue()`
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "arbitrary", derive(Arbitrary))]
 pub struct QuadraticExtensionField<T> {
     phantom: PhantomData<T>,
 }
@@ -16,7 +20,10 @@ pub type QuadraticExtensionFieldElement<T> = FieldElement<QuadraticExtensionFiel
 /// Used to construct a quadratic extension field by adding
 /// a square root of `residue()`.
 pub trait HasQuadraticNonResidue {
+    #[cfg(not(feature = "arbitrary"))]
     type BaseField: IsField;
+    #[cfg(feature = "arbitrary")]
+    type BaseField: IsField + for<'a> Arbitrary<'a>;
 
     fn residue() -> FieldElement<Self::BaseField>;
 }

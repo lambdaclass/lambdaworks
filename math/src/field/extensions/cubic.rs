@@ -3,9 +3,13 @@ use crate::field::traits::IsField;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
+#[cfg(feature = "arbitrary")]
+use arbitrary::Arbitrary;
+
 /// A general cubic extension field over `F`
 /// with cubic non residue `Q::residue()`
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "arbitrary", derive(Arbitrary))]
 pub struct CubicExtensionField<T> {
     phantom: PhantomData<T>,
 }
@@ -16,7 +20,10 @@ pub type CubicExtensionFieldElement<T> = FieldElement<CubicExtensionField<T>>;
 /// Used to construct a cubic extension field by adding
 /// a square root of `residue()`.
 pub trait HasCubicNonResidue {
+    #[cfg(not(feature = "arbitrary"))]
     type BaseField: IsField;
+    #[cfg(feature = "arbitrary")]
+    type BaseField: IsField + for<'a> Arbitrary<'a>;
 
     /// This function must return an element that is not a cube in Fp,
     /// that is, a cubic non-residue.

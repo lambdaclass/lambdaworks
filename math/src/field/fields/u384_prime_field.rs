@@ -6,6 +6,9 @@ use crate::{
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
+#[cfg(feature = "arbitrary")]
+use arbitrary::Arbitrary;
+
 /// This trait is necessary for us to be able to use unsigned integer types bigger than
 /// `u128` (the biggest native `unit`) as constant generics.
 /// This trait should be removed when Rust supports this feature.
@@ -16,6 +19,7 @@ pub trait IsMontgomeryConfiguration {
 }
 
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "arbitrary", derive(Arbitrary))]
 pub struct MontgomeryBackendPrimeField<C> {
     phantom: PhantomData<C>,
 }

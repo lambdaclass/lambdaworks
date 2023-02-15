@@ -3,8 +3,12 @@ use crate::unsigned_integer::traits::IsUnsignedInteger;
 use std::fmt::Debug;
 use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
 
+#[cfg(feature = "arbitrary")]
+use arbitrary::Arbitrary;
+
 /// A field element with operations algorithms defined in `F`
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "arbitrary", derive(Arbitrary))]
 pub struct FieldElement<F: IsField> {
     value: F::BaseType,
 }
