@@ -8,3 +8,7 @@ edition = "2021"
 [dependencies]
 rand = "0.8.5"
 thiserror = "1.0"
+arbitrary = { version = "1", features = ["derive"], optional = true }
+
+[features]
+arbitrary = ["dep:arbitrary"]

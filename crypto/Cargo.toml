@@ -4,6 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[dependencies.arbitrary]
+version = "1"
+features = ["derive"]
+optional = true
 
 [dependencies.lambdaworks-math]
 path = "../math"
@@ -13,3 +17,6 @@ sha3 = "0.10.6"
 
 [dependencies.rand]
 version = "0.8"
+
+[features]
+arbitrary = ["dep:arbitrary"]
