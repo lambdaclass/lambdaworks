@@ -11,12 +11,12 @@ use super::element::FieldElement;
 /// A two-adic primitive root of unity is a number w that satisfies w^(2^n) = 1
 /// and w^(j) != 1 for every j below 2^n. With this primitive root we can generate
 /// any other root of unity we need to perform FFT.
-pub trait TwoAdicField: IsField {
+pub trait IsTwoAdicField: IsField {
     const TWO_ADICITY: u64;
     const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: Self::BaseType;
     const GENERATOR: Self::BaseType;
 
-    /// Returns the primitive root of unity of order 2^k.
+    /// Returns the root of unity of order 2^`n.
     fn get_root_of_unity(k: u64) -> Result<FieldElement<Self>, FFTError> {
         let two_adic_primitive_root_of_unity =
             FieldElement::new(Self::TWO_ADIC_PRIMITVE_ROOT_OF_UNITY);

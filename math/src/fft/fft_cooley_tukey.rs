@@ -1,18 +1,18 @@
 use crate::field::{
     element::FieldElement,
-    traits::{IsField, TwoAdicField},
+    traits::{IsField, IsTwoAdicField},
 };
 
 use super::{errors::FFTError, helpers::log2};
 
-pub fn fft<F: IsField + TwoAdicField>(
+pub fn fft<F: IsField + IsTwoAdicField>(
     coeffs: &[FieldElement<F>],
 ) -> Result<Vec<FieldElement<F>>, FFTError> {
     let omega = F::get_root_of_unity(log2(coeffs.len())?)?;
     Ok(cooley_tukey(coeffs, &omega))
 }
 
-pub fn inverse_fft<F: IsField + TwoAdicField>(
+pub fn inverse_fft<F: IsField + IsTwoAdicField>(
     evaluations: &[FieldElement<F>],
 ) -> Result<Vec<FieldElement<F>>, FFTError> {
     let omega = F::get_root_of_unity(log2(evaluations.len())?)?;
