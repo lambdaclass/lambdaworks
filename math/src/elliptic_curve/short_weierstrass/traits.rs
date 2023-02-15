@@ -71,7 +71,7 @@ pub trait IsShortWeierstrass: IsEllipticCurve + Clone + Debug {
 
     /// Returns the sum of projective points `p` and `q`
     /// Taken from "Moonmath" (Algorithm 7, page 89)
-    fn add(
+    fn add_weierstrass(
         p: &[FieldElement<Self::BaseField>; 3],
         q: &[FieldElement<Self::BaseField>; 3],
     ) -> [FieldElement<Self::BaseField>; 3] {
@@ -188,12 +188,12 @@ pub trait IsShortWeierstrass: IsEllipticCurve + Clone + Debug {
         let mut r = p.clone();
 
         for b in bs[1..].iter() {
-            let s = Self::affine(&Self::add(&r, &r));
+            let s = Self::affine(&Self::add_weierstrass(&r, &r));
             f = f.pow(2_u16) * (Self::line(&r, &r, &q) / Self::line(&s, &Self::neg(&s), &q));
             r = s;
 
             if *b == Self::UIntOrders::from(1) {
-                let mut s = Self::add(&r, &p);
+                let mut s = Self::add_weierstrass(&r, &p);
                 if s != Self::neutral_element() {
                     s = Self::affine(&s);
                 }

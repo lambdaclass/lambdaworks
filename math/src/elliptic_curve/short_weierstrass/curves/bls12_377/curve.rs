@@ -1,6 +1,6 @@
 use super::field_extension::BLS12377PrimeField;
 use crate::elliptic_curve::short_weierstrass::curves::bls12_377::field_extension::BLS12377_PRIME_FIELD_ORDER;
-use crate::elliptic_curve::short_weierstrass::element::ProjectivePoint;
+use crate::elliptic_curve::projective_point::ProjectivePoint;
 use crate::elliptic_curve::traits::IsEllipticCurve;
 use crate::unsigned_integer::element::U384;
 use crate::{
@@ -32,6 +32,13 @@ impl IsEllipticCurve for BLS12377Curve {
         y: FieldElement<Self::BaseField>,
     ) -> Self::PointRepresentation {
         ProjectivePoint::new([x, y, FieldElement::one()])
+    }
+
+    fn add(
+        p: &Self::PointRepresentation,
+        q: &Self::PointRepresentation,
+    ) -> Self::PointRepresentation {
+        Self::PointRepresentation::new(Self::add_weierstrass(p.coordinates(), q.coordinates()))
     }
 }
 
@@ -72,7 +79,7 @@ impl IsShortWeierstrass for BLS12377Curve {
 mod tests {
     use super::*;
     use crate::{
-        cyclic_group::IsGroup, elliptic_curve::short_weierstrass::element::ProjectivePoint,
+        cyclic_group::IsGroup, elliptic_curve::projective_point::ProjectivePoint,
         field::element::FieldElement,
     };
 

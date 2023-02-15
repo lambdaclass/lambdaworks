@@ -23,6 +23,13 @@ pub trait IsEllipticCurve {
         x: FieldElement<Self::BaseField>,
         y: FieldElement<Self::BaseField>,
     ) -> Self::PointRepresentation;
+
+    /// Returns the sum of projective points `p` and `q`
+    /// Taken from "Moonmath" (Algorithm 7, page 89)
+    fn add(
+        p: &Self::PointRepresentation,
+        q: &Self::PointRepresentation,
+    ) -> Self::PointRepresentation;
 }
 
 pub trait HasPairing {

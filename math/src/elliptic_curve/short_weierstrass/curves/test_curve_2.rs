@@ -1,4 +1,4 @@
-use crate::elliptic_curve::short_weierstrass::element::ProjectivePoint;
+use crate::elliptic_curve::projective_point::ProjectivePoint;
 use crate::elliptic_curve::traits::IsEllipticCurve;
 use crate::field::fields::u384_prime_field::{
     IsMontgomeryConfiguration, MontgomeryBackendPrimeField,
@@ -69,6 +69,13 @@ impl IsEllipticCurve for TestCurve2 {
         y: FieldElement<Self::BaseField>,
     ) -> Self::PointRepresentation {
         ProjectivePoint::new([x, y, FieldElement::one()])
+    }
+
+    fn add(
+        p: &Self::PointRepresentation,
+        q: &Self::PointRepresentation,
+    ) -> Self::PointRepresentation {
+        Self::PointRepresentation::new(Self::add_weierstrass(p.coordinates(), q.coordinates()))
     }
 }
 

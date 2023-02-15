@@ -4,9 +4,9 @@
 use crate::{
     elliptic_curve::{
         short_weierstrass::{
-            element::ProjectivePoint,
             traits::{HasDistortionMap, IsShortWeierstrass},
         },
+        projective_point::ProjectivePoint,
         traits::IsEllipticCurve,
     },
     field::{
@@ -57,7 +57,15 @@ impl IsEllipticCurve for TestCurve1 {
     ) -> Self::PointRepresentation {
         ProjectivePoint::new([x, y, FieldElement::one()])
     }
+
+    fn add(
+        p: &Self::PointRepresentation,
+        q: &Self::PointRepresentation,
+    ) -> Self::PointRepresentation {
+        Self::PointRepresentation::new(Self::add_weierstrass(p.coordinates(), q.coordinates()))
+    }
 }
+
 
 impl IsShortWeierstrass for TestCurve1 {
     type UIntOrders = u64;
