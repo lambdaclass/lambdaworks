@@ -1,8 +1,5 @@
 use lambdaworks_math::{
-    field::{
-        element::FieldElement,
-        fields::u128_prime_field::{U128FieldElement, U128PrimeField},
-    },
+    field::{element::FieldElement, fields::u128_prime_field::U128FieldElement},
     polynomial::Polynomial,
     unsigned_integer::element::U128,
 };
@@ -23,6 +20,7 @@ const M: u128 = 340282366920938463463374557953744961537;
 
 /// Given a CompositionPoly from winterfell, extract its coefficients
 /// as a vector.
+#[allow(dead_code)]
 fn get_coefficients<E: StarkField>(poly: CompositionPoly<E>) -> Vec<E> {
     let data = poly.into_columns();
 
@@ -32,8 +30,8 @@ fn get_coefficients<E: StarkField>(poly: CompositionPoly<E>) -> Vec<E> {
     let mut coeffs = Vec::with_capacity(num_columns * column_len);
 
     for i in 0..column_len {
-        for j in 0..num_columns {
-            coeffs.push(data[j][i]);
+        for coeff_col in data.iter().take(num_columns) {
+            coeffs.push(coeff_col[i]);
         }
     }
 
@@ -42,6 +40,7 @@ fn get_coefficients<E: StarkField>(poly: CompositionPoly<E>) -> Vec<E> {
 
 /// Given a trace and an air defined with winterfell data structures, outputs
 /// a vector of u128 representing the coefficients of the composition polynomial.
+#[allow(dead_code)]
 fn get_composition_poly<A>(
     air: A,
     trace: TraceTable<BaseElement>,
