@@ -2,9 +2,13 @@ use super::field::element::FieldElement;
 use crate::field::traits::IsField;
 use std::ops;
 
+#[cfg(feature = "arbitrary")]
+use arbitrary::Arbitrary;
+
 /// Represents the polynomial c_0 + c_1 * X + c_2 * X^2 + ... + c_n * X^n
 /// as a vector of coefficients `[c_0, c_1, ... , c_n]`
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "arbitrary", derive(Arbitrary))]
 pub struct Polynomial<FE> {
     coefficients: Vec<FE>,
 }
