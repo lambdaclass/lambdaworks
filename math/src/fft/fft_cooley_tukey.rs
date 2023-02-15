@@ -101,7 +101,7 @@ mod fft_test {
             let twiddles_iter = (0..poly.coefficients().len() as u64).map(|i| omega.pow(i));
             let expected: Vec<FE> = twiddles_iter.map(|x| poly.evaluate(x)).collect();
 
-            assert_eq!(result, expected);
+            prop_assert_eq!(result, expected);
         }
     }
     proptest! {
@@ -111,7 +111,7 @@ mod fft_test {
             let result = fft(&coeffs).unwrap();
             let recovered_poly = inverse_fft(&result).unwrap();
 
-            assert_eq!(recovered_poly, coeffs);
+            prop_assert_eq!(recovered_poly, coeffs);
         }
     }
 
@@ -121,7 +121,7 @@ mod fft_test {
         fn test_fft_panics_on_non_power_of_two(coeffs in unsuitable_field_vec(8)) {
             let result = fft(&coeffs);
 
-            assert!(matches!(result, Err(FFTError::InvalidOrder(_))));
+            prop_assert!(matches!(result, Err(FFTError::InvalidOrder(_))));
         }
     }
     proptest! {
@@ -130,7 +130,7 @@ mod fft_test {
         fn test_fft_constant_poly(elem in field_element()) {
             let result = fft(&[elem]);
 
-            assert!(matches!(result, Err(FFTError::RootOfUnityError(_, k)) if k == 0));
+            prop_assert!(matches!(result, Err(FFTError::RootOfUnityError(_, k)) if k == 0));
         }
     }
 }
