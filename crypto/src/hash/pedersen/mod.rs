@@ -6,7 +6,8 @@ use lambdaworks_math::{
         curves::bls12_381::{curve::BLS12381Curve, field_extension::BLS12381PrimeField},
     },
     field::{self, element::FieldElement, traits::IsField},
-    traits::ByteConversion, unsigned_integer::element::U384,
+    traits::ByteConversion,
+    unsigned_integer::element::U384,
 };
 
 type FE = field::element::FieldElement<BLS12381PrimeField>;
@@ -24,34 +25,39 @@ pub fn random_point(rng: &mut rand::rngs::ThreadRng) -> Point {
 // TODO: this function should be replaced with the trait method once it is implemented.
 pub fn random_field_element<F>(rng: &mut rand::rngs::ThreadRng) -> FieldElement<F>
 where
-    F: field::traits::IsField, 
+    F: field::traits::IsField,
 {
     FieldElement::<F>::from(rand::Rng::gen::<u64>(rng))
 }
 
 pub struct Pedersen<E>
 where
-    E: elliptic_curve::traits::IsEllipticCurve
+    E: elliptic_curve::traits::IsEllipticCurve,
 {
     parameters: Vec<Vec<FieldElement<E::BaseField>>>,
 }
 
-impl<E> Pedersen<E> where E: elliptic_curve::traits::IsEllipticCurve
+impl<E> Pedersen<E>
+where
+    E: elliptic_curve::traits::IsEllipticCurve,
 {
     pub fn new(rng: &mut rand::rngs::ThreadRng) -> Self {
-        Self { parameters: Self::create_generators(rng) }
+        Self {
+            parameters: Self::create_generators(rng),
+        }
     }
 
-    fn create_generators(rng: &mut rand::rngs::ThreadRng) -> Vec<Vec<FieldElement<E::BaseField>>> 
-    {
+    fn create_generators(rng: &mut rand::rngs::ThreadRng) -> Vec<Vec<FieldElement<E::BaseField>>> {
         (0..NUM_WINDOWS)
             .into_iter()
             .map(|_| Self::generator_powers(WINDOW_SIZE, rng))
             .collect()
     }
 
-    fn generator_powers(num_powers: usize, rng: &mut rand::rngs::ThreadRng) -> Vec<FieldElement<E::BaseField>>
-    {
+    fn generator_powers(
+        num_powers: usize,
+        rng: &mut rand::rngs::ThreadRng,
+    ) -> Vec<FieldElement<E::BaseField>> {
         let base = random_field_element::<E::BaseField>(rng);
         (0..num_powers)
             .into_iter()
@@ -60,13 +66,11 @@ impl<E> Pedersen<E> where E: elliptic_curve::traits::IsEllipticCurve
     }
 }
 
-impl IsCryptoHash<BLS12381PrimeField> for Pedersen<BLS12381Curve>
-{
+impl IsCryptoHash<BLS12381PrimeField> for Pedersen<BLS12381Curve> {
     fn hash_one(&self, input: FE) -> FE {
         // Compute sum of h_i^{m_i} for all i.
         let bits = to_bits(input);
-        bits
-            .chunks(WINDOW_SIZE)
+        bits.chunks(WINDOW_SIZE)
             .zip(&self.parameters)
             .map(|(bits, generator_powers)| {
                 let mut encoded = FE::zero();
@@ -77,16 +81,12 @@ impl IsCryptoHash<BLS12381PrimeField> for Pedersen<BLS12381Curve>
                 }
                 encoded
             })
-            // This last step is the same as doing .sum() but std::iter::Sum is 
+            // This last step is the same as doing .sum() but std::iter::Sum is
             // not implemented for FieldElement yet.
             .fold(FE::zero(), |acc, x| acc + x)
     }
 
-    fn hash_two(
-        &self,
-        left: FE,
-        right: FE,
-    ) -> FE {
+    fn hash_two(&self, left: FE, right: FE) -> FE {
         let left_input_bytes = left.value().to_bytes_be().unwrap();
         let right_input_bytes = right.value().to_bytes_be().unwrap();
         let mut buffer = vec![0u8; (HALF_INPUT_SIZE_BITS + HALF_INPUT_SIZE_BITS) / 8];
@@ -104,8 +104,7 @@ impl IsCryptoHash<BLS12381PrimeField> for Pedersen<BLS12381Curve>
     }
 }
 
-fn to_bits(felt: FE) -> Vec<bool> 
-{
+fn to_bits(felt: FE) -> Vec<bool> {
     let felt_bytes = felt.value().to_bytes_be().unwrap();
     let mut bits = Vec::with_capacity(felt_bytes.len() * 8);
     for byte in felt_bytes {
