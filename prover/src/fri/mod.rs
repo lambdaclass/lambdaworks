@@ -89,9 +89,10 @@ pub fn fri(
 
         // TODO
         // append root of merkle tree to transcript
-
-        // TODO
-        // append last value of the polynomial to the trasncript
     }
+
+    // TODO
+    // append last value of the polynomial to the trasncript
+
     fri_commitment_list
 }
