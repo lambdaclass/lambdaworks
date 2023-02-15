@@ -2,6 +2,10 @@ use crate::hash::traits::IsCryptoHash;
 use lambdaworks_math::field::{element::FieldElement, traits::IsField};
 use std::{cell::RefCell, rc::Rc};
 
+#[cfg(feature = "arbitrary")]
+use arbitrary::Arbitrary;
+
+#[cfg_attr(feature = "arbitrary", derive(Arbitrary))]
 pub struct MerkleTree<F: IsField, H: IsCryptoHash<F>> {
     leafs: Vec<TreeNode<F>>,
     root: TreeNode<F>,
@@ -133,6 +137,7 @@ fn build_tree_node<F: IsField>(hash: FieldElement<F>) -> TreeNode<F> {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "arbitrary", derive(Arbitrary))]
 struct Node<F: IsField> {
     hash: FieldElement<F>,
     parent: Option<TreeNode<F>>,
