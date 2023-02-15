@@ -7,6 +7,9 @@ use crate::unsigned_integer::traits::IsUnsignedInteger;
 
 use std::fmt::Debug;
 
+#[cfg(feature = "arbitrary")]
+use arbitrary::Arbitrary;
+
 pub type U384 = UnsignedInteger<6>;
 pub type U256 = UnsignedInteger<4>;
 
@@ -16,6 +19,7 @@ pub type U256 = UnsignedInteger<4>;
 /// That is, the array `[a_n, ..., a_0]` represents the
 /// integer 2^{64 * n} * a_n + ... + 2^{64} * a_1 + a_0.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "arbitrary", derive(Arbitrary))]
 pub struct UnsignedInteger<const NUM_LIMBS: usize> {
     pub limbs: [u64; NUM_LIMBS],
 }

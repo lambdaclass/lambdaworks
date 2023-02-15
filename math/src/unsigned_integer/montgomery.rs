@@ -1,5 +1,9 @@
 use super::element::UnsignedInteger;
 
+#[cfg(feature = "arbitrary")]
+use arbitrary::Arbitrary;
+
+#[cfg_attr(feature = "arbitrary", derive(Arbitrary))]
 pub struct MontgomeryAlgorithms;
 impl MontgomeryAlgorithms {
     pub const fn cios<const NUM_LIMBS: usize>(
