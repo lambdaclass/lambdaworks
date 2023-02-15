@@ -8,10 +8,14 @@ use crate::field::{
 };
 use crate::unsigned_integer::element::U384;
 
+#[cfg(feature = "arbitrary")]
+use arbitrary::Arbitrary;
+
 pub const BLS12381_PRIME_FIELD_ORDER: U384 = U384::from("1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab");
 
 // FPBLS12381
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "arbitrary", derive(Arbitrary))]
 pub struct BLS12381FieldConfig;
 impl IsMontgomeryConfiguration for BLS12381FieldConfig {
     const MODULUS: U384 = BLS12381_PRIME_FIELD_ORDER;
@@ -22,6 +26,7 @@ impl IsMontgomeryConfiguration for BLS12381FieldConfig {
 pub type BLS12381PrimeField = MontgomeryBackendPrimeField<BLS12381FieldConfig>;
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "arbitrary", derive(Arbitrary))]
 pub struct LevelOneResidue;
 impl HasQuadraticNonResidue for LevelOneResidue {
     type BaseField = BLS12381PrimeField;
@@ -34,6 +39,7 @@ impl HasQuadraticNonResidue for LevelOneResidue {
 type LevelOneField = QuadraticExtensionField<LevelOneResidue>;
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "arbitrary", derive(Arbitrary))]
 pub struct LevelTwoResidue;
 impl HasCubicNonResidue for LevelTwoResidue {
     type BaseField = LevelOneField;
@@ -46,6 +52,7 @@ impl HasCubicNonResidue for LevelTwoResidue {
 type LevelTwoField = CubicExtensionField<LevelTwoResidue>;
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "arbitrary", derive(Arbitrary))]
 pub struct LevelThreeResidue;
 impl HasQuadraticNonResidue for LevelThreeResidue {
     type BaseField = LevelTwoField;

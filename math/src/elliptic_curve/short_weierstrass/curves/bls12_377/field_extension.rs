@@ -4,10 +4,14 @@ use crate::field::{
 };
 use crate::unsigned_integer::element::U384;
 
+#[cfg(feature = "arbitrary")]
+use arbitrary::Arbitrary;
+
 pub const BLS12377_PRIME_FIELD_ORDER: U384 = U384::from("1ae3a4617c510eac63b05c06ca1493b1a22d9f300f5138f1ef3622fba094800170b5d44300000008508c00000000001");
 
 // FPBLS12377
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "arbitrary", derive(Arbitrary))]
 pub struct BLS12377FieldConfig;
 impl IsMontgomeryConfiguration for BLS12377FieldConfig {
     const MODULUS: U384 = BLS12377_PRIME_FIELD_ORDER;

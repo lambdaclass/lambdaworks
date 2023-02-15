@@ -10,6 +10,9 @@ use crate::{
     },
 };
 
+#[cfg(feature = "arbitrary")]
+use arbitrary::Arbitrary;
+
 /// Order of the base field (e.g.: order of the coordinates)
 pub const TEST_CURVE_2_PRIME_FIELD_ORDER: U384 = U384::from("150b4c0967215604b841bb57053fcb86cf");
 
@@ -18,6 +21,7 @@ pub const TEST_CURVE_2_MAIN_SUBGROUP_ORDER: U384 = U384::from("40a065fb5a76390de
 
 // FPBLS12381
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "arbitrary", derive(Arbitrary))]
 pub struct TestCurve2MontgomeryConfig;
 impl IsMontgomeryConfiguration for TestCurve2MontgomeryConfig {
     const MODULUS: U384 = TEST_CURVE_2_PRIME_FIELD_ORDER;
@@ -31,6 +35,7 @@ type TestCurve2PrimeField = MontgomeryBackendPrimeField<TestCurve2MontgomeryConf
 /// to construct a Quadratic Field Extension out of it by adding
 /// its square root.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "arbitrary", derive(Arbitrary))]
 pub struct TestCurve2QuadraticNonResidue;
 impl HasQuadraticNonResidue for TestCurve2QuadraticNonResidue {
     type BaseField = TestCurve2PrimeField;
@@ -42,6 +47,7 @@ impl HasQuadraticNonResidue for TestCurve2QuadraticNonResidue {
 
 /// The description of the curve.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "arbitrary", derive(Arbitrary))]
 pub struct TestCurve2;
 impl IsShortWeierstrass for TestCurve2 {
     type BaseField = QuadraticExtensionField<TestCurve2QuadraticNonResidue>;

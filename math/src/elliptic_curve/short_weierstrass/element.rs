@@ -3,10 +3,14 @@ use crate::elliptic_curve::short_weierstrass::traits::IsShortWeierstrass;
 use crate::field::element::FieldElement;
 use std::fmt::Debug;
 
+#[cfg(feature = "arbitrary")]
+use arbitrary::Arbitrary;
+
 /// Represents an elliptic curve point using the projective short Weierstrass form:
 /// y^2 * z = x^3 + a * x * z^2 + b * z^3,
 /// where `x`, `y` and `z` variables are field elements.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "arbitrary", derive(Arbitrary))]
 pub struct ProjectivePoint<E: IsShortWeierstrass> {
     pub value: [FieldElement<E::BaseField>; 3],
 }

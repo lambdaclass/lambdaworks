@@ -5,12 +5,16 @@ use crate::{
     elliptic_curve::short_weierstrass::traits::IsShortWeierstrass, field::element::FieldElement,
 };
 
+#[cfg(feature = "arbitrary")]
+use arbitrary::Arbitrary;
+
 /// Order of the subgroup of the curve.
 const BLS12377_MAIN_SUBGROUP_ORDER: U384 =
     U384::from("12ab655e9a2ca55660b44d1e5c37b00159aa76fed00000010a11800000000001");
 
 /// The description of the curve.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "arbitrary", derive(Arbitrary))]
 pub struct BLS12377Curve;
 impl IsShortWeierstrass for BLS12377Curve {
     type BaseField = BLS12377PrimeField;

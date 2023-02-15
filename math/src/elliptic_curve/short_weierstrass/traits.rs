@@ -3,12 +3,17 @@ use crate::field::traits::IsField;
 use crate::unsigned_integer::traits::IsUnsignedInteger;
 use std::fmt::Debug;
 
+#[cfg(feature = "arbitrary")]
+use arbitrary::Arbitrary;
 /// Trait to add elliptic curves behaviour to a struct.
 /// We use the short Weierstrass form equation: `y^2 = x^3 + a * x  + b`.
 pub trait IsShortWeierstrass: Clone + Debug {
     /// BaseField is the field used for each of the coordinates of a point p
     /// belonging to the curve.
+    #[cfg(not(feature = "arbitrary"))]
     type BaseField: IsField + Clone + Debug;
+    #[cfg(feature = "arbitrary")]
+    type BaseField: IsField + Clone + Debug + for<'a> Arbitrary<'a>;
 
     /// The type used to store order_p and order_r.
     type UIntOrders: IsUnsignedInteger;

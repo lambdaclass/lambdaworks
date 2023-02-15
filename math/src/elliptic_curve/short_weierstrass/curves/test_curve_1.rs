@@ -10,6 +10,9 @@ use crate::{
     },
 };
 
+#[cfg(feature = "arbitrary")]
+use arbitrary::Arbitrary;
+
 /// Order of the base field (e.g.: order of the coordinates)
 pub const TEST_CURVE_1_PRIME_FIELD_ORDER: u64 = 59;
 
@@ -20,6 +23,7 @@ pub const TEST_CURVE_1_MAIN_SUBGROUP_ORDER: u64 = 5;
 /// to construct a Quadratic Field Extension out of it by adding
 /// its square root.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "arbitrary", derive(Arbitrary))]
 pub struct TestCurveQuadraticNonResidue;
 impl HasQuadraticNonResidue for TestCurveQuadraticNonResidue {
     type BaseField = U64PrimeField<TEST_CURVE_1_PRIME_FIELD_ORDER>;
@@ -31,6 +35,7 @@ impl HasQuadraticNonResidue for TestCurveQuadraticNonResidue {
 
 /// The description of the curve.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "arbitrary", derive(Arbitrary))]
 pub struct TestCurve1;
 impl IsShortWeierstrass for TestCurve1 {
     type BaseField = QuadraticExtensionField<TestCurveQuadraticNonResidue>;
