@@ -118,7 +118,7 @@ mod tests {
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////
     #[test]
     fn test_composition_poly_simple_computation() {
-        pub fn build_do_work_trace(start: BaseElement, n: usize) -> TraceTable<BaseElement> {
+        fn build_do_work_trace(start: BaseElement, n: usize) -> TraceTable<BaseElement> {
             // Instantiate the trace with a given width and length; this will allocate all
             // required memory for the trace
             let trace_width = 1;
@@ -141,7 +141,7 @@ mod tests {
 
         // Public inputs for our computation will consist of the starting value and the end result.
         #[derive(Clone)]
-        pub struct PublicInputs {
+        struct PublicInputs {
             start: BaseElement,
             result: BaseElement,
         }
@@ -157,7 +157,7 @@ mod tests {
         // For a specific instance of our computation, we'll keep track of the public inputs and
         // the computation's context which we'll build in the constructor. The context is used
         // internally by the Winterfell prover/verifier when interpreting this AIR.
-        pub struct WorkAir {
+        struct WorkAir {
             context: AirContext<BaseElement>,
             start: BaseElement,
             result: BaseElement,
@@ -277,8 +277,8 @@ mod tests {
             170130930667860970428731413388750994520,
         ]
         .into_iter()
-        .map(|c| U128::from_u128(c))
-        .map(|c| lambdaworks_math::field::element::FieldElement::new(c))
+        .map(U128::from_u128)
+        .map(lambdaworks_math::field::element::FieldElement::new)
         .collect::<Vec<_>>();
 
         let expected_poly = Polynomial::new(&expected_coeffs);
