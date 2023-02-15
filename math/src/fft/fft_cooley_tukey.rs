@@ -70,8 +70,9 @@ mod fft_test {
     type FE = FieldElement<F>;
 
     prop_compose! {
-        fn powers_of_two(max_exp: u8)(exp in 2..max_exp) -> usize { 1 << exp }
+        fn powers_of_two(max_exp: u8)(exp in 1..max_exp) -> usize { 1 << exp }
         // max_exp cannot be multiple of the bits that represent a usize, generally 64 or 32.
+        // also it can't exceed the test field's two-adicity.
     }
     prop_compose! {
         fn field_element()(num in any::<u64>()) -> FE { FE::from(num) }
@@ -79,6 +80,12 @@ mod fft_test {
     prop_compose! {
         fn field_vec(max_exp: u8)(elem in field_element(), size in powers_of_two(max_exp)) -> Vec<FE> {
             vec![elem; size]
+        }
+    }
+    prop_compose! {
+        // non-power-of-two sized vector
+        fn unsuitable_field_vec(max_exp: u8)(elem in field_element(), size in powers_of_two(max_exp)) -> Vec<FE> {
+            vec![elem; size + 1]
         }
     }
 
@@ -98,7 +105,6 @@ mod fft_test {
             assert_eq!(result, expected);
         }
     }
-
     proptest! {
         // Property-based test that ensures IFFT is the inverse operation of FFT.
         #[test]
@@ -110,6 +116,26 @@ mod fft_test {
             let recovered_poly = inverse_fft(&result).unwrap();
 
             assert_eq!(recovered_poly, poly.coefficients());
+        }
+    }
+
+    proptest! {
+        // Property-based test that ensures FFT won't work with a non-power-of-two polynomial.
+        #[test]
+        fn test_fft_panics_on_non_power_of_two(coeffs in unsuitable_field_vec(8)) {
+            let poly = Polynomial::new(&coeffs[..]);
+            let result = fft(poly.coefficients());
+
+            assert!(matches!(result, Err(FFTError::InvalidOrder(_))));
+        }
+    }
+    proptest! {
+        // Property-based test that ensures FFT won't work with a degree 0 polynomial.
+        #[test]
+        fn test_fft_constant_poly(elem in field_element()) {
+            let result = fft(&[elem]);
+
+            assert!(matches!(result, Err(FFTError::RootOfUnityError(_, k)) if k == 0));
         }
     }
 }
