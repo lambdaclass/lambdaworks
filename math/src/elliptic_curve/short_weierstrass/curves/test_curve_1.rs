@@ -2,7 +2,13 @@
 /// Defines the basic constants needed to describe a curve in the short Weierstrass form.
 /// This small curve has only 5 elements.
 use crate::{
-    elliptic_curve::short_weierstrass::traits::{HasDistortionMap, IsShortWeierstrass},
+    elliptic_curve::{
+        short_weierstrass::{
+            element::ProjectivePoint,
+            traits::{HasDistortionMap, IsShortWeierstrass},
+        },
+        traits::IsEllipticCurve,
+    },
     field::{
         element::FieldElement,
         extensions::quadratic::{HasQuadraticNonResidue, QuadraticExtensionField},
@@ -32,8 +38,28 @@ impl HasQuadraticNonResidue for TestCurveQuadraticNonResidue {
 /// The description of the curve.
 #[derive(Clone, Debug)]
 pub struct TestCurve1;
-impl IsShortWeierstrass for TestCurve1 {
+
+impl IsEllipticCurve for TestCurve1 {
     type BaseField = QuadraticExtensionField<TestCurveQuadraticNonResidue>;
+    type PointRepresentation = ProjectivePoint<Self>;
+
+    fn generator() -> Self::PointRepresentation {
+        ProjectivePoint::new([
+            FieldElement::from(35),
+            FieldElement::from(31),
+            FieldElement::one(),
+        ])
+    }
+
+    fn create_point_from_affine(
+        x: FieldElement<Self::BaseField>,
+        y: FieldElement<Self::BaseField>,
+    ) -> Self::PointRepresentation {
+        ProjectivePoint::new([x, y, FieldElement::one()])
+    }
+}
+
+impl IsShortWeierstrass for TestCurve1 {
     type UIntOrders = u64;
 
     fn a() -> FieldElement<Self::BaseField> {
@@ -42,14 +68,6 @@ impl IsShortWeierstrass for TestCurve1 {
 
     fn b() -> FieldElement<Self::BaseField> {
         FieldElement::from(0)
-    }
-
-    fn generator_affine_x() -> FieldElement<Self::BaseField> {
-        FieldElement::from(35)
-    }
-
-    fn generator_affine_y() -> FieldElement<Self::BaseField> {
-        FieldElement::from(31)
     }
 
     fn order_r() -> Self::UIntOrders {

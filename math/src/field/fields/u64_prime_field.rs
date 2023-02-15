@@ -1,4 +1,5 @@
-use crate::cyclic_group::{HasPairing, IsCyclicGroup};
+use crate::cyclic_group::IsGroup;
+use crate::elliptic_curve::traits::HasPairing;
 use crate::field::element::FieldElement;
 use crate::field::traits::IsField;
 
@@ -59,11 +60,7 @@ impl<const MODULUS: u64> IsField for U64PrimeField<MODULUS> {
 impl<const MODULUS: u64> Copy for U64FieldElement<MODULUS> {}
 
 /// Represents an element in Fp. (E.g: 0, 1, 2 are the elements of F3)
-impl<const MODULUS: u64> IsCyclicGroup for U64FieldElement<MODULUS> {
-    fn generator() -> U64FieldElement<MODULUS> {
-        U64FieldElement::one()
-    }
-
+impl<const MODULUS: u64> IsGroup for U64FieldElement<MODULUS> {
     fn neutral_element() -> U64FieldElement<MODULUS> {
         U64FieldElement::zero()
     }
@@ -210,11 +207,6 @@ mod tests {
     #[test]
     fn zero_constructor_returns_zero() {
         assert_eq!(FE::new(0), FE::new(0));
-    }
-
-    #[test]
-    fn field_element_as_group_element_generator_returns_one() {
-        assert_eq!(FE::generator(), FE::new(1));
     }
 
     #[test]

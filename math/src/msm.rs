@@ -1,4 +1,4 @@
-use crate::cyclic_group::IsCyclicGroup;
+use crate::cyclic_group::IsGroup;
 use crate::field::fields::u64_prime_field::U64FieldElement;
 
 // TODO: FE should be a generic field element. Need to implement BigInt first.
@@ -18,7 +18,7 @@ type FE = U64FieldElement<ORDER_R>;
 /// Panics if `cs` and `hidings` have different lengths.
 pub fn msm<T>(cs: &[FE], hidings: &[T]) -> T
 where
-    T: IsCyclicGroup,
+    T: IsGroup,
 {
     assert_eq!(
         cs.len(),
@@ -38,12 +38,13 @@ mod tests {
     use crate::elliptic_curve::short_weierstrass::{
         curves::test_curve_1::TestCurve1, element::ProjectivePoint,
     };
+    use crate::elliptic_curve::traits::IsEllipticCurve;
 
     #[test]
     fn msm_11_is_1_over_elliptic_curves() {
         let c = [FE::new(1)];
-        let hiding = [ProjectivePoint::<TestCurve1>::generator()];
-        assert_eq!(msm(&c, &hiding), ProjectivePoint::<TestCurve1>::generator());
+        let hiding = [TestCurve1::generator()];
+        assert_eq!(msm(&c, &hiding), TestCurve1::generator());
     }
 
     #[test]
@@ -56,7 +57,7 @@ mod tests {
     #[test]
     fn msm_23_is_6_over_elliptic_curves() {
         let c = [FE::new(3)];
-        let g = ProjectivePoint::<TestCurve1>::generator();
+        let g = TestCurve1::generator();
         let hiding = [g.operate_with_self(2)];
         assert_eq!(msm(&c, &hiding), g.operate_with_self(6));
     }
@@ -71,7 +72,7 @@ mod tests {
     #[test]
     fn msm_with_c_2_3_hiding_3_4_is_18_over_elliptic_curves() {
         let c = [FE::new(2), FE::new(3)];
-        let g = ProjectivePoint::<TestCurve1>::generator();
+        let g = TestCurve1::generator();
         let hiding = [g.operate_with_self(3), g.operate_with_self(4)];
         assert_eq!(msm(&c, &hiding), g.operate_with_self(18));
     }
