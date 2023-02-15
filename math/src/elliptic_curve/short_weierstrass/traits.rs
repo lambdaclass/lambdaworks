@@ -5,10 +5,13 @@ use std::fmt::Debug;
 
 /// Trait to add elliptic curves behaviour to a struct.
 /// We use the short Weierstrass form equation: `y^2 = x^3 + a * x  + b`.
-pub trait IsEllipticCurve: Clone + Debug {
+pub trait IsShortWeierstrass: Clone + Debug {
+    /// BaseField is the field used for each of the coordinates of a point p
+    /// belonging to the curve.
     type BaseField: IsField + Clone + Debug;
-    type UIntOrders: IsUnsignedInteger;
+
     /// The type used to store order_p and order_r.
+    type UIntOrders: IsUnsignedInteger;
 
     /// `a` coefficient for the equation `y^2 = x^3 + a * x  + b`.
     fn a() -> FieldElement<Self::BaseField>;
@@ -264,7 +267,8 @@ pub trait IsEllipticCurve: Clone + Debug {
 
 /// Trait to add distortion maps to Elliptic Curves.
 /// Typically used to support type I pairings.
-pub trait HasDistortionMap: IsEllipticCurve {
+/// For more info look into page 56 of "Pairings for beginners".
+pub trait HasDistortionMap: IsShortWeierstrass {
     fn distorsion_map(p: &[FieldElement<Self::BaseField>; 3])
         -> [FieldElement<Self::BaseField>; 3];
 }
