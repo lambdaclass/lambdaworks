@@ -77,6 +77,11 @@ where
 
 #[cfg(test)]
 mod tests {
+    use winterfell::{
+        math::FieldElement, AirContext, Assertion, ByteWriter, EvaluationFrame, FieldExtension,
+        ProofOptions, TraceInfo, TransitionConstraintDegree,
+    };
+
     use super::*;
 
     #[test]
