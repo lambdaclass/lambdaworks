@@ -1761,7 +1761,9 @@ mod tests_u256 {
         let bytes = vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1];
         let expected_number = U256::from_u64(1);
         assert_eq!(U256::from_bytes_be(&bytes).unwrap(), expected_number);
-    }    #[test]
+    }
+    
+    #[test]
     fn from_bytes_le_works() {
         let bytes = vec![1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
         let expected_number = U256::from_u64(1);
