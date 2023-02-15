@@ -1175,16 +1175,13 @@ mod tests_u256 {
         let a = U256::from_u128(u128::MAX);
         assert_eq!(a.limbs, [0, 0, u64::MAX, u64::MAX]);
     }
- 
+
     #[test]
     fn construct_new_integer_from_u128_4() {
         let a = U256::from_u128(276371540478856090688472252609570374439);
-        assert_eq!(
-            a.limbs,
-            [ 0, 0, 14982131230017065096, 14596400355126379303]
-        );
+        assert_eq!(a.limbs, [0, 0, 14982131230017065096, 14596400355126379303]);
     }
- 
+
     #[test]
     fn construct_new_integer_from_hex_1() {
         let a = U256::from("1");
@@ -1194,25 +1191,25 @@ mod tests_u256 {
     #[test]
     fn construct_new_integer_from_hex_2() {
         let a = U256::from("f");
-        assert_eq!(a.limbs, [ 0, 0, 0, 15]);
+        assert_eq!(a.limbs, [0, 0, 0, 15]);
     }
 
     #[test]
     fn construct_new_integer_from_hex_3() {
         let a = U256::from("10000000000000000");
-        assert_eq!(a.limbs, [ 0, 0, 1, 0]);
+        assert_eq!(a.limbs, [0, 0, 1, 0]);
     }
 
     #[test]
     fn construct_new_integer_from_hex_4() {
         let a = U256::from("a0000000000000000");
-        assert_eq!(a.limbs, [ 0, 0, 10, 0]);
+        assert_eq!(a.limbs, [0, 0, 10, 0]);
     }
 
     #[test]
     fn construct_new_integer_from_hex_5() {
         let a = U256::from("ffffffffffffffffff");
-        assert_eq!(a.limbs, [ 0, 0, 255, u64::MAX]);
+        assert_eq!(a.limbs, [0, 0, 255, u64::MAX]);
     }
 
     #[test]
@@ -1226,7 +1223,7 @@ mod tests_u256 {
         let a = U256::from("2b20aaa5cf482b239e2897a787faf4660cc95597854beb2");
         assert_eq!(
             a.limbs,
-            [     
+            [
                 0,
                 194229460750598834,
                 4171047363999149894,
@@ -1234,7 +1231,7 @@ mod tests_u256 {
             ]
         );
     }
- 
+
     #[test]
     fn construct_new_integer_from_hex_8() {
         let a = U256::from("2B20AAA5CF482B239E2897A787FAF4660CC95597854BEB235F6144D9E91F4B14");
@@ -1249,12 +1246,11 @@ mod tests_u256 {
         );
     }
 
-    
     #[test]
     fn equality_works_1() {
         let a = U256::from("1");
         let b = U256 {
-            limbs: [ 0, 0, 0, 1],
+            limbs: [0, 0, 0, 1],
         };
         assert_eq!(a, b);
     }
@@ -1262,7 +1258,7 @@ mod tests_u256 {
     fn equality_works_2() {
         let a = U256::from("f");
         let b = U256 {
-            limbs: [ 0, 0, 0, 15],
+            limbs: [0, 0, 0, 15],
         };
         assert_eq!(a, b);
     }
@@ -1271,7 +1267,7 @@ mod tests_u256 {
     fn equality_works_3() {
         let a = U256::from("10000000000000000");
         let b = U256 {
-            limbs: [ 0, 0, 1, 0],
+            limbs: [0, 0, 1, 0],
         };
         assert_eq!(a, b);
     }
@@ -1316,7 +1312,7 @@ mod tests_u256 {
         };
         assert_eq!(a, b);
     }
-    
+
     #[test]
     fn equality_works_8() {
         let a = U256::from("2B20AAA5CF482B239E2897A787FAF4660CC95597854BEB235F6144D9E91F4B14");
@@ -1330,7 +1326,7 @@ mod tests_u256 {
         };
         assert_eq!(a, b);
     }
-    
+
     #[test]
     fn equality_works_9() {
         let a = U256::from("fffffff");
@@ -1392,21 +1388,15 @@ mod tests_u256 {
         let c = U256::from("18273ad8fb08f554adffdf9a1809f91daf81e50b31d");
         assert_eq!(a + b, c);
     }
-    
+
     #[test]
     fn add_two_256_bit_integers_7() {
-        let a = U256::from(
-            "10d3bc05496380cfe27bf5d97ddb99ac95eb5ecfbd3907eadf877a4c2dfa05f6",
-        );
-        let b = U256::from(
-            "0866aef803c92bf02e85c7fad0eccb4881c59825e499fa22f98e1a8fefed4cd9",
-        );
-        let c = U256::from(
-            "193a6afd4d2cacc01101bdd44ec864f517b0f6f5a1d3020dd91594dc1de752cf",
-        );
+        let a = U256::from("10d3bc05496380cfe27bf5d97ddb99ac95eb5ecfbd3907eadf877a4c2dfa05f6");
+        let b = U256::from("0866aef803c92bf02e85c7fad0eccb4881c59825e499fa22f98e1a8fefed4cd9");
+        let c = U256::from("193a6afd4d2cacc01101bdd44ec864f517b0f6f5a1d3020dd91594dc1de752cf");
         assert_eq!(a + b, c);
     }
-    
+
     #[test]
     fn add_two_256_bit_integers_8() {
         let a = U256::from("07df9c74fa9d5aafa74a87dbbf93215659d8a3e1706d4b06de9512284802580f");
@@ -1427,7 +1417,8 @@ mod tests_u256 {
     fn add_two_256_bit_integers_10() {
         let a = U256::from("07df9c74fa9d5aafa74a87dbbf93215659d8a3e1706d4b06de9512284802580f");
         let b = U256::from("d515e54973f0643a6a9957579c1f84020a6a91d5d5f27b75401c7538d2c9ea9c");
-        let c_expected = U256::from("dcf581be6e8dbeea11e3df335bb2a558644335b7465fc67c1eb187611acc42ab");
+        let c_expected =
+            U256::from("dcf581be6e8dbeea11e3df335bb2a558644335b7465fc67c1eb187611acc42ab");
         let (c, overflow) = U256::add(&a, &b);
         assert_eq!(c, c_expected);
         assert!(!overflow);
@@ -1437,7 +1428,8 @@ mod tests_u256 {
     fn add_two_256_bit_integers_11() {
         let a = U256::from("92977527a0f8ba00d18c1b2f1900d965d4a70e5f5f54468ffb2d4d41519385f2");
         let b = U256::from("46facf9953a9494822bf18836ffd7e55c48b30aa81e17fa1ace0b473015307e4");
-        let c_expected = U256::from("d99244c0f4a20348f44b33b288fe57bb99323f09e135c631a80e01b452e68dd6");
+        let c_expected =
+            U256::from("d99244c0f4a20348f44b33b288fe57bb99323f09e135c631a80e01b452e68dd6");
         let (c, overflow) = U256::add(&a, &b);
         assert_eq!(c, c_expected);
         assert!(!overflow);
@@ -1447,7 +1439,8 @@ mod tests_u256 {
     fn add_two_256_bit_integers_12_with_overflow() {
         let a = U256::from("b07bc844363dd56467d9ebdd5929e9bb34a8e2577db77df6cf8f2ac45bd3d0bc");
         let b = U256::from("cbbc474761bb7995ff54e25fa5d30295604fe3545d0cde405e72d8c0acebb119");
-        let c_expected = U256::from("7c380f8b97f94efa672ece3cfefcec5094f8c5abdac45c372e02038508bf81d5");
+        let c_expected =
+            U256::from("7c380f8b97f94efa672ece3cfefcec5094f8c5abdac45c372e02038508bf81d5");
         let (c, overflow) = U256::add(&a, &b);
         assert_eq!(c, c_expected);
         assert!(overflow);
@@ -1503,15 +1496,9 @@ mod tests_u256 {
 
     #[test]
     fn sub_two_256_bit_integers_7() {
-        let a = U256::from(
-            "9b4000dccf01a010e196154a1b998408f949d734389626ba97cb3331ee87e01d",
-        );
-        let b = U256::from(
-            "5d26ae1b34c78bdf4cefb2b0b553473f887bc0f1ac03d36861c2e75e01656cbc",
-        );
-        let c = U256::from(
-            "f866aef803c92bf02e85c7fad0eccb4881c59825e499fa22f98e1a8fefed4cd9",
-        );
+        let a = U256::from("9b4000dccf01a010e196154a1b998408f949d734389626ba97cb3331ee87e01d");
+        let b = U256::from("5d26ae1b34c78bdf4cefb2b0b553473f887bc0f1ac03d36861c2e75e01656cbc");
+        let c = U256::from("f866aef803c92bf02e85c7fad0eccb4881c59825e499fa22f98e1a8fefed4cd9");
         assert_eq!(c - a, b);
     }
 
@@ -1544,13 +1531,14 @@ mod tests_u256 {
     #[test]
     fn sub_two_256_bit_integers_11_with_overflow() {
         let a = U256::from_u64(334);
-        let b_expected = U256::from("fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd66");
+        let b_expected =
+            U256::from("fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd66");
         let c = U256::from_u64(1000);
         let (b, overflow) = U256::sub(&a, &c);
         assert!(overflow);
         assert_eq!(b_expected, b);
     }
- 
+
     #[test]
     fn partial_order_works() {
         assert!(U256::from_u64(10) <= U256::from_u64(10));
@@ -1582,7 +1570,7 @@ mod tests_u256 {
         assert!(&c > &a);
         assert!(a < c);
     }
-    
+
     #[test]
     fn mul_two_256_bit_integers_works_1() {
         let a = U256::from_u64(3);
@@ -1609,7 +1597,7 @@ mod tests_u256 {
 
     #[test]
     fn mul_two_256_bit_integers_works_4() {
-        /* 
+        /*
         // Failig
         let a = U256::from("15bf61fcf53a3f0ae1e8e555d");
         let b = U256::from("cbbc474761bb7995ff54e25fa5d5d0cde405e9f");
@@ -1623,31 +1611,28 @@ mod tests_u256 {
         // Passing
         let a = U256::from("15bf61fcf53a3f0ae1e8e555d");
         let b = U256::from("cbbc474761bb7995ff54e25fa5d5d0cde405e9f");
-        let c_expected = U256::from(
-            "114ec14db0c80d30b7dcb9c45948ef04cc149e612cb544f447b146553aff2ac3",
-        );
+        let c_expected =
+            U256::from("114ec14db0c80d30b7dcb9c45948ef04cc149e612cb544f447b146553aff2ac3");
 
         let (overflow, c) = U256::mul(&a, &b);
 
-
         assert_eq!(c, c_expected);
         assert_eq!(overflow, U256::from("0"));
-        
-
     }
 
     #[test]
     fn mul_two_256_bit_integers_works_5_hi_lo() {
- 
         let a = U256::from("8e2d939b602a50911232731d04fe6f40c05f97da0602307099fb991f9b414e2d");
         let b = U256::from("7f3ad1611ab58212f92a2484e9560935b9ac4615fe61cfed1a4861e193a74d20");
-        let hi_expected = U256::from("46A946D6A984FE6507DE6B8D1354256D7A7BAE4283404733BDC876A264BCE5EE");
-        let lo_expected = U256::from("43F24263F10930EBE3EA0307466C19B13B9C7DBA6B3F7604B7F32FB0E3084EA0");
+        let hi_expected =
+            U256::from("46A946D6A984FE6507DE6B8D1354256D7A7BAE4283404733BDC876A264BCE5EE");
+        let lo_expected =
+            U256::from("43F24263F10930EBE3EA0307466C19B13B9C7DBA6B3F7604B7F32FB0E3084EA0");
         let (hi, lo) = U256::mul(&a, &b);
         assert_eq!(hi, hi_expected);
         assert_eq!(lo, lo_expected);
     }
-  
+
     #[test]
     fn shift_left_on_256_bit_integer_works_1() {
         let a = U256::from("1");
@@ -1675,30 +1660,28 @@ mod tests_u256 {
         let b = U256::from("391550a64ada11154fcf2c716b0cf9fe940");
         assert_eq!(a << 6, b);
     }
-    
+
     #[test]
     fn shift_left_on_256_bit_integer_works_5() {
         let a = U256::from("a8390aa99bead76bc0093b1bc1a8101f5ce");
         let b = U256::from("72155337d5aed7801276378350203eb9c0000000000000000000000000000000");
         assert_eq!(&a << 125, b);
     }
-    
+
     #[test]
     fn shift_left_on_256_bit_integer_works_6() {
         let a = U256::from("2ed786ab132f0b5b0cacd385dd51de3a");
-        let b = U256::from(
-            "2ed786ab132f0b5b0cacd385dd51de3a00000000000000000000000000000000",
-        );
+        let b = U256::from("2ed786ab132f0b5b0cacd385dd51de3a00000000000000000000000000000000");
         assert_eq!(&a << (64 * 2), b);
     }
-    
+
     #[test]
     fn shift_left_on_256_bit_integer_works_7() {
         let a = U256::from("90823e0bd707f");
         let b = U256::from("90823e0bd707f000000000000000000000000000000000000000000000000");
         assert_eq!(&a << (64 * 3), b);
     }
-    
+
     #[test]
     fn shift_right_on_256_bit_integer_works_1() {
         let a = U256::from("1");
@@ -1719,38 +1702,37 @@ mod tests_u256 {
         let b = U256::from("391550a64ada11154fcf2c716b0cf9fe940");
         assert_eq!(b >> 6, a);
     }
-    
+
     #[test]
     fn shift_right_on_256_bit_integer_works_4() {
-        let a = U256::from("390aa99bead76bc0093b1bc1a8101f5ce");                                                     
+        let a = U256::from("390aa99bead76bc0093b1bc1a8101f5ce");
         let b = U256::from("72155337d5aed7801276378350203eb9c0000000000000000000000000000000");
         assert_eq!(&b >> 125, a);
     }
-    
+
     #[test]
-    fn shift_right_on_256_bit_integer_works_5() {                                    
-        let a = U256::from("ba6ab46f9a9a2f20e4061b67ce4d8c3da98091cf990d7b14ef47ffe27370abbd");                
+    fn shift_right_on_256_bit_integer_works_5() {
+        let a = U256::from("ba6ab46f9a9a2f20e4061b67ce4d8c3da98091cf990d7b14ef47ffe27370abbd");
         let b = U256::from("174d568df35345e41c80c36cf9c");
         assert_eq!(a >> 151, b);
     }
-    
+
     #[test]
     fn shift_right_on_256_bit_integer_works_6() {
-        let a =                                                       
-            U256::from("076c075d2f65e39b9ecdde8bf6f8c94241962ce0f557b7739673200c777152eb");
+        let a = U256::from("076c075d2f65e39b9ecdde8bf6f8c94241962ce0f557b7739673200c777152eb");
         let b = U256::from("ed80eba5ecbc7373d9bbd17edf19284832c59c");
         assert_eq!(&a >> 99, b);
     }
-    
+
     #[test]
-    fn shift_right_on_256_bit_integer_works_7() {                                       
+    fn shift_right_on_256_bit_integer_works_7() {
         let a = U256::from("6a9ce35d8940a5ebd29604ce9a182ade76f03f7e9965760b84a8cfd1d3dd2e61");
         let b = U256::from("6a9ce35d8940a5eb");
         assert_eq!(&a >> (64 * 3), b);
     }
-    
+
     #[test]
-    fn shift_right_on_256_bit_integer_works_8() {                                                                                                         
+    fn shift_right_on_256_bit_integer_works_8() {
         let a = U256::from("5322c128ec84081b6c376c108ebd7fd36bbd44f71ee5e6ad6bcb3dd1c5265bd7");
         let b = U256::from("5322c128ec84081b6c376c108ebd7fd3");
         assert_eq!(&a >> (64 * 2), b);
