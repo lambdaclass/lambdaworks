@@ -414,23 +414,19 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
 impl<const NUM_LIMBS: usize> IsUnsignedInteger for UnsignedInteger<NUM_LIMBS> {}
 
 impl<const NUM_LIMBS: usize> ByteConversion for UnsignedInteger<NUM_LIMBS> {
-    fn to_bytes_be(&self) -> Result<Vec<u8>, ByteConversionError> {
-        let bytes = self
-            .limbs
+    fn to_bytes_be(&self) -> Vec<u8> {
+        self.limbs
             .iter()
             .flat_map(|limb| limb.to_be_bytes())
-            .collect();
-        Ok(bytes)
+            .collect()
     }
 
-    fn to_bytes_le(&self) -> Result<Vec<u8>, ByteConversionError> {
-        let bytes = self
-            .limbs
+    fn to_bytes_le(&self) -> Vec<u8> {
+        self.limbs
             .iter()
             .rev()
             .flat_map(|limb| limb.to_le_bytes())
-            .collect();
-        Ok(bytes)
+            .collect()
     }
 
     fn from_bytes_be(bytes: &[u8]) -> Result<Self, ByteConversionError> {
@@ -1073,7 +1069,7 @@ mod tests {
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
         ];
 
-        assert_eq!(number.to_bytes_be().unwrap(), expected_bytes);
+        assert_eq!(number.to_bytes_be(), expected_bytes);
     }
 
     #[test]
@@ -1084,7 +1080,7 @@ mod tests {
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ];
 
-        assert_eq!(number.to_bytes_le().unwrap(), expected_bytes);
+        assert_eq!(number.to_bytes_le(), expected_bytes);
     }
 
     #[test]
