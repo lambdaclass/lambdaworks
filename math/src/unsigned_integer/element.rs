@@ -8,7 +8,6 @@ use crate::unsigned_integer::traits::IsUnsignedInteger;
 use std::fmt::Debug;
 
 pub type U384 = UnsignedInteger<6>;
-pub type U256 = UnsignedInteger<4>;
 
 /// A big unsigned integer in base 2^{64} represented
 /// as fixed-size array `limbs` of `u64` components.
