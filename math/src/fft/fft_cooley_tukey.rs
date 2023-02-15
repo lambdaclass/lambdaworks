@@ -93,7 +93,6 @@ mod fft_test {
         // Property-based test that ensures FFT gives same result as a naive polynomial evaluation.
         #[test]
         fn test_fft_matches_naive_evaluation(coeffs in field_vec(8)) {
-
             let poly = Polynomial::new(&coeffs[..]);
             let omega = F::get_root_of_unity(log2(poly.coefficients().len()).unwrap()).unwrap();
 
@@ -109,13 +108,10 @@ mod fft_test {
         // Property-based test that ensures IFFT is the inverse operation of FFT.
         #[test]
         fn test_ifft_composed_fft_is_identity(coeffs in field_vec(8)) {
-            let poly = Polynomial::new(&coeffs[..]);
-
-            let result = fft(poly.coefficients()).unwrap();
-
+            let result = fft(&coeffs).unwrap();
             let recovered_poly = inverse_fft(&result).unwrap();
 
-            assert_eq!(recovered_poly, poly.coefficients());
+            assert_eq!(recovered_poly, coeffs);
         }
     }
 
@@ -123,8 +119,7 @@ mod fft_test {
         // Property-based test that ensures FFT won't work with a non-power-of-two polynomial.
         #[test]
         fn test_fft_panics_on_non_power_of_two(coeffs in unsuitable_field_vec(8)) {
-            let poly = Polynomial::new(&coeffs[..]);
-            let result = fft(poly.coefficients());
+            let result = fft(&coeffs);
 
             assert!(matches!(result, Err(FFTError::InvalidOrder(_))));
         }
