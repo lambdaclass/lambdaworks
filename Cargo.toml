@@ -4,14 +4,3 @@ members = [
     "math",
     "crypto",
 ]
-
-[profile.bench]
-opt-level = 3
-debug = false
-rpath = false
-lto = "thin"
-incremental = true
-debug-assertions = false
-
-
-

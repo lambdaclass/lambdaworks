@@ -57,7 +57,7 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
             .iter()
             .rev()
             .fold(FieldElement::zero(), |acc, coeff| {
-                acc * x.to_owned() + coeff
+                acc * x + coeff
             })
     }
 
