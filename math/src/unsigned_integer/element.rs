@@ -1153,6 +1153,7 @@ mod tests_u384 {
     }
 }
 
+#[cfg(test)]
 mod tests_u256 {
     use super::*;
     const NUM_LIMBS: usize = 4;
