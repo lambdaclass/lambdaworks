@@ -1609,8 +1609,7 @@ mod tests_u256 {
 
     #[test]
     fn mul_two_256_bit_integers_works_4() {
-        /* 
-        // Failig
+        
         let a = U256::from("15bf61fcf53a3f0ae1e8e555d");
         let b = U256::from("cbbc474761bb7995ff54e25fa5d5d0cde405e9f");
         let c_expected = U256::from(
@@ -1618,22 +1617,7 @@ mod tests_u256 {
         );
 
         assert_eq!(a * b, c_expected);
-        */
-
-        // Passing
-        let a = U256::from("15bf61fcf53a3f0ae1e8e555d");
-        let b = U256::from("cbbc474761bb7995ff54e25fa5d5d0cde405e9f");
-        let c_expected = U256::from(
-            "114ec14db0c80d30b7dcb9c45948ef04cc149e612cb544f447b146553aff2ac3",
-        );
-
-        let (overflow, c) = U256::mul(&a, &b);
-
-
-        assert_eq!(c, c_expected);
-        assert_eq!(overflow, U256::from("0"));
         
-
     }
 
     #[test]
