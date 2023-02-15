@@ -1,4 +1,4 @@
-use crate::cyclic_group::IsCyclicGroup;
+use crate::cyclic_group::IsGroup;
 use crate::elliptic_curve::short_weierstrass::traits::IsShortWeierstrass;
 use crate::field::element::FieldElement;
 use std::fmt::Debug;
@@ -72,15 +72,7 @@ impl<E: IsShortWeierstrass> PartialEq for ProjectivePoint<E> {
 
 impl<E: IsShortWeierstrass> Eq for ProjectivePoint<E> {}
 
-impl<E: IsShortWeierstrass> IsCyclicGroup for ProjectivePoint<E> {
-    fn generator() -> Self {
-        Self::new([
-            E::generator_affine_x(),
-            E::generator_affine_y(),
-            FieldElement::one(),
-        ])
-    }
-
+impl<E: IsShortWeierstrass> IsGroup for ProjectivePoint<E> {
     fn neutral_element() -> Self {
         Self::new(E::neutral_element())
     }
@@ -94,7 +86,7 @@ impl<E: IsShortWeierstrass> IsCyclicGroup for ProjectivePoint<E> {
 
 #[cfg(test)]
 mod tests {
-    use crate::cyclic_group::IsCyclicGroup;
+    use crate::cyclic_group::IsGroup;
     use crate::elliptic_curve::short_weierstrass::curves::test_curve_1::{
         TestCurve1, TestCurveQuadraticNonResidue, TEST_CURVE_1_MAIN_SUBGROUP_ORDER,
         TEST_CURVE_1_PRIME_FIELD_ORDER,
@@ -103,6 +95,7 @@ mod tests {
     use crate::field::element::FieldElement;
     use crate::unsigned_integer::element::U384;
     //use crate::elliptic_curve::curves::test_curve_2::TestCurve2;
+    use crate::elliptic_curve::traits::IsEllipticCurve;
     use crate::{
         elliptic_curve::short_weierstrass::element::ProjectivePoint,
         field::{
@@ -117,8 +110,7 @@ mod tests {
     // This tests only apply for the specific curve found in the configuration file.
     #[test]
     fn create_valid_point_works() {
-        let point =
-            ProjectivePoint::<TestCurve1>::new([FEE::from(35), FEE::from(31), FEE::from(1)]);
+        let point = TestCurve1::create_point_from_affine(FEE::from(35), FEE::from(31));
         assert_eq!(*point.x(), FEE::from(35));
         assert_eq!(*point.y(), FEE::from(31));
         assert_eq!(*point.z(), FEE::from(1));
@@ -126,13 +118,13 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn create_invalid_points_panicks() {
-        ProjectivePoint::<TestCurve1>::new([FEE::from(0), FEE::from(1), FEE::from(1)]);
+    fn create_invalid_points_panics() {
+        TestCurve1::create_point_from_affine(FEE::from(0), FEE::from(1));
     }
 
     #[test]
     fn equality_works() {
-        let g = ProjectivePoint::<TestCurve1>::generator();
+        let g = TestCurve1::generator();
         let g2 = g.operate_with(&g);
         assert_ne!(&g2, &g);
         assert_eq!(&g, &g);
@@ -140,35 +132,32 @@ mod tests {
 
     #[test]
     fn operate_with_self_works_1() {
-        let g = ProjectivePoint::<TestCurve1>::generator();
+        let g = TestCurve1::generator();
         assert_eq!(g.operate_with(&g).operate_with(&g), g.operate_with_self(3));
     }
 
     #[test]
     fn operate_with_self_works_2() {
-        let mut point_1 = ProjectivePoint::<TestCurve1>::generator();
+        let mut point_1 = TestCurve1::generator();
         point_1 = point_1.operate_with_self(TEST_CURVE_1_MAIN_SUBGROUP_ORDER as u128);
         assert_eq!(point_1, ProjectivePoint::<TestCurve1>::neutral_element());
     }
 
     #[test]
     fn doubling_a_point_works() {
-        let point =
-            ProjectivePoint::<TestCurve1>::new([FEE::from(35), FEE::from(31), FEE::from(1)]);
-        let expected_result =
-            ProjectivePoint::<TestCurve1>::new([FEE::from(25), FEE::from(29), FEE::from(1)]);
+        let point = TestCurve1::create_point_from_affine(FEE::from(35), FEE::from(31));
+        let expected_result = TestCurve1::create_point_from_affine(FEE::from(25), FEE::from(29));
         assert_eq!(point.operate_with_self(2).to_affine(), expected_result);
     }
 
     #[test]
     fn test_weil_pairing() {
         type FE = U64FieldElement<TEST_CURVE_1_PRIME_FIELD_ORDER>;
-        let pa = ProjectivePoint::<TestCurve1>::new([FEE::from(35), FEE::from(31), FEE::from(1)]);
-        let pb = ProjectivePoint::<TestCurve1>::new([
+        let pa = TestCurve1::create_point_from_affine(FEE::from(35), FEE::from(31));
+        let pb = TestCurve1::create_point_from_affine(
             FEE::new([FE::new(24), FE::new(0)]),
             FEE::new([FE::new(0), FE::new(31)]),
-            FEE::from(1),
-        ]);
+        );
         let expected_result = FEE::new([FE::new(46), FE::new(3)]);
 
         let result_weil = ProjectivePoint::<TestCurve1>::weil_pairing(&pa, &pb);
@@ -178,12 +167,11 @@ mod tests {
     #[test]
     fn test_tate_pairing() {
         type FE = U64FieldElement<TEST_CURVE_1_PRIME_FIELD_ORDER>;
-        let pa = ProjectivePoint::<TestCurve1>::new([FEE::from(35), FEE::from(31), FEE::from(1)]);
-        let pb = ProjectivePoint::<TestCurve1>::new([
+        let pa = TestCurve1::create_point_from_affine(FEE::from(35), FEE::from(31));
+        let pb = TestCurve1::create_point_from_affine(
             FEE::new([FE::new(24), FE::new(0)]),
             FEE::new([FE::new(0), FE::new(31)]),
-            FEE::from(1),
-        ]);
+        );
         let expected_result = FEE::new([FE::new(42), FE::new(19)]);
 
         let result_weil = ProjectivePoint::<TestCurve1>::tate_pairing(&pa, &pb);
@@ -192,10 +180,10 @@ mod tests {
 
     #[test]
     fn operate_with_self_works_with_test_curve_2() {
-        let mut point_1 = ProjectivePoint::<TestCurve2>::generator();
+        let mut point_1 = TestCurve2::generator();
         point_1 = point_1.operate_with_self(15);
 
-        let expected_result = ProjectivePoint::<TestCurve2>::new([
+        let expected_result = TestCurve2::create_point_from_affine(
             FieldElement::new([
                 FieldElement::new(U384::from("7b8ee59e422e702458174c18eb3302e17")),
                 FieldElement::new(U384::from("1395065adef5a6a5457f1ea600b5a3e4fb")),
@@ -204,8 +192,7 @@ mod tests {
                 FieldElement::new(U384::from("e29d5b15c42124cd8f05d3c8500451c33")),
                 FieldElement::new(U384::from("e836ef62db0a47a63304b67c0de69b140")),
             ]),
-            FieldElement::one(),
-        ]);
+        );
 
         assert_eq!(point_1, expected_result);
     }
@@ -215,7 +202,7 @@ mod tests {
         let x = FEE::from(35);
         let y = FEE::from(31);
         let z = FEE::from(1);
-        let point = ProjectivePoint::<TestCurve1>::new([x.clone(), y.clone(), z.clone()]);
+        let point = TestCurve1::create_point_from_affine(x.clone(), y.clone());
         let coordinates = point.coordinates();
         assert_eq!(&x, point.x());
         assert_eq!(&y, point.y());
