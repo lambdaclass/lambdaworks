@@ -1,3 +1,11 @@
+use lambdaworks_math::{
+    field::{
+        element::FieldElement,
+        fields::u128_prime_field::{U128FieldElement, U128PrimeField},
+    },
+    polynomial::Polynomial,
+    unsigned_integer::element::U128,
+};
 use winterfell::{
     crypto::hashers::Blake3_256,
     math::{fields::f128::BaseElement, StarkField},
@@ -9,6 +17,9 @@ use winterfell::prover::{
     build_trace_commitment_f, channel::ProverChannel, constraints::ConstraintEvaluator,
     domain::StarkDomain, trace::commitment::TraceCommitment,
 };
+
+// Taken from winterfell, this is the modulus of a Starkfield
+const M: u128 = 340282366920938463463374557953744961537;
 
 /// Given a CompositionPoly from winterfell, extract its coefficients
 /// as a vector.
@@ -29,13 +40,13 @@ fn get_coefficients<E: StarkField>(poly: CompositionPoly<E>) -> Vec<E> {
     coeffs
 }
 
-/// Given a trace and an air defined with winterfell data structres, outputs
+/// Given a trace and an air defined with winterfell data structures, outputs
 /// a vector of u128 representing the coefficients of the composition polynomial.
 fn get_composition_poly<A>(
     air: A,
     trace: TraceTable<BaseElement>,
     pub_inputs: A::PublicInputs,
-) -> Vec<u128>
+) -> Polynomial<U128FieldElement<M>>
 where
     A: Air<BaseField = BaseElement>,
 {
@@ -69,10 +80,12 @@ where
 
     let composition_poly = constraint_evaluations.into_poly().unwrap();
 
-    get_coefficients(composition_poly)
+    let coeffs: Vec<U128FieldElement<M>> = get_coefficients(composition_poly)
         .iter()
-        .map(|c| c.0)
-        .collect::<Vec<_>>()
+        .map(|c| FieldElement::new(U128::from_u128(c.0)))
+        .collect();
+
+    Polynomial::new(coeffs)
 }
 
 #[cfg(test)]
@@ -94,7 +107,7 @@ mod tests {
     }
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // This test is made for the following computation, taken from the winterfell README:
+    // This test is made for the following computation, taken from the winterfell README example:
     //    "This computation starts with an element in a finite field and then, for the specified number of steps,
     //    cubes the element and adds value 42 to it"
     //
@@ -244,7 +257,8 @@ mod tests {
 
         let air = WorkAir::new(trace.get_info(), pub_inputs.clone(), options);
 
-        // this coefficients should be checked correctly
+        // TODO: this coefficients should be checked correctly to know 
+        // the test is really passing
         let expected_coeffs = vec![
             73805846515134368521942875729025268850u128,
             251094867283236114961184226859763993364,
@@ -262,11 +276,14 @@ mod tests {
             295423943150257863151191255913349696708,
             305657170959297052488312417688653377091,
             170130930667860970428731413388750994520,
-        ];
+        ]
+        .into_iter()
+        .map(|c| U128::from_u128(c))
+        .map(|c| lambdaworks_math::field::element::FieldElement::new(c))
+        .collect();
 
-        assert_eq!(
-            get_composition_poly(air, trace, pub_inputs),
-            expected_coeffs
-        );
+        let expected_poly = Polynomial::new(expected_coeffs);
+
+        assert_eq!(get_composition_poly(air, trace, pub_inputs), expected_poly);
     }
 }
