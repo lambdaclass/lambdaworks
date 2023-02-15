@@ -7,6 +7,7 @@ where
 {
     // TODO: Add a `new` method to generalize the creation of a hash function
     // with non-hardcoded parameters.
+    fn new() -> Self;
 
     /// Hashes a field element into one. Also known as one to one hashing.
     fn hash_one(&self, input: field::element::FieldElement<F>) -> field::element::FieldElement<F>;
