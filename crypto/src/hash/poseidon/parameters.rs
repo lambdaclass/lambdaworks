@@ -15,7 +15,6 @@ pub struct Parameters<F: IsField> {
     pub mds_matrix: Vec<Vec<FieldElement<F>>>,
 }
 
-
 /// Implements hashing for BLS 12381's field.
 /// Alpha = 5 and parameters are predefined for secure implementations
 impl Parameters<BLS12381PrimeField> {
