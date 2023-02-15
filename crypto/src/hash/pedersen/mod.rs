@@ -2,8 +2,7 @@ use super::traits::IsCryptoHash;
 use lambdaworks_math::{
     cyclic_group::IsCyclicGroup,
     elliptic_curve::{
-        self,
-        curves::bls12_381::{curve::BLS12381Curve, field_extension::BLS12381PrimeField},
+        self, short_weierstrass::{curves::bls12_381::{field_extension::BLS12381PrimeField, curve::BLS12381Curve}, element::ProjectivePoint},
     },
     field::{self, element::FieldElement, traits::IsField},
     traits::ByteConversion,
@@ -11,7 +10,7 @@ use lambdaworks_math::{
 };
 
 type FE = field::element::FieldElement<BLS12381PrimeField>;
-type Point = elliptic_curve::element::EllipticCurveElement<BLS12381Curve>;
+type Point = ProjectivePoint<BLS12381Curve>;
 
 const WINDOW_SIZE: usize = 4;
 const NUM_WINDOWS: usize = 96;
@@ -32,14 +31,14 @@ where
 
 pub struct Pedersen<E>
 where
-    E: elliptic_curve::traits::IsEllipticCurve,
+    E: elliptic_curve::short_weierstrass::traits::IsShortWeierstrass,
 {
     parameters: Vec<Vec<FieldElement<E::BaseField>>>,
 }
 
 impl<E> Pedersen<E>
 where
-    E: elliptic_curve::traits::IsEllipticCurve,
+    E: elliptic_curve::short_weierstrass::traits::IsShortWeierstrass,
 {
     pub fn new(rng: &mut rand::rngs::ThreadRng) -> Self {
         Self {
@@ -87,8 +86,8 @@ impl IsCryptoHash<BLS12381PrimeField> for Pedersen<BLS12381Curve> {
     }
 
     fn hash_two(&self, left: FE, right: FE) -> FE {
-        let left_input_bytes = left.value().to_bytes_be().unwrap();
-        let right_input_bytes = right.value().to_bytes_be().unwrap();
+        let left_input_bytes = left.value().to_bytes_be();
+        let right_input_bytes = right.value().to_bytes_be();
         let mut buffer = vec![0u8; (HALF_INPUT_SIZE_BITS + HALF_INPUT_SIZE_BITS) / 8];
 
         buffer
@@ -105,7 +104,7 @@ impl IsCryptoHash<BLS12381PrimeField> for Pedersen<BLS12381Curve> {
 }
 
 fn to_bits(felt: FE) -> Vec<bool> {
-    let felt_bytes = felt.value().to_bytes_be().unwrap();
+    let felt_bytes = felt.value().to_bytes_be();
     let mut bits = Vec::with_capacity(felt_bytes.len() * 8);
     for byte in felt_bytes {
         for i in 0..8 {
