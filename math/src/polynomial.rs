@@ -6,7 +6,7 @@ use std::ops;
 /// as a vector of coefficients `[c_0, c_1, ... , c_n]`
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Polynomial<FE> {
-    coefficients: Vec<FE>,
+    pub coefficients: Vec<FE>,
 }
 
 impl<F: IsField> Polynomial<FieldElement<F>> {

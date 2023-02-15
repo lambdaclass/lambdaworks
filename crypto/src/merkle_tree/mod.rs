@@ -6,7 +6,7 @@ use lambdaworks_math::{
 use std::{cell::RefCell, rc::Rc};
 
 pub struct MerkleTree<F: IsField, H: IsCryptoHash<F>> {
-    leafs: Vec<TreeNode<F>>,
+    pub leafs: Vec<TreeNode<F>>,
     pub root: TreeNode<F>,
     hasher: H,
 }
