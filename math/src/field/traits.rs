@@ -16,7 +16,7 @@ pub trait IsTwoAdicField: IsField {
     const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: Self::BaseType;
     const GENERATOR: Self::BaseType;
 
-    /// Returns the root of unity of order 2^`n.
+    /// Returns the primitive root of unity of order 2^k.
     fn get_root_of_unity(k: u64) -> Result<FieldElement<Self>, FFTError> {
         let two_adic_primitive_root_of_unity =
             FieldElement::new(Self::TWO_ADIC_PRIMITVE_ROOT_OF_UNITY);
