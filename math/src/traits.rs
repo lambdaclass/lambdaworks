@@ -5,10 +5,10 @@ use crate::errors::ByteConversionError;
 /// little-endian order.
 pub trait ByteConversion {
     /// Returns the byte representation of the element in big-endian order.
-    fn to_bytes_be(&self) -> Result<Vec<u8>, ByteConversionError>;
+    fn to_bytes_be(&self) -> Vec<u8>;
 
     /// Returns the byte representation of the element in little-endian order.
-    fn to_bytes_le(&self) -> Result<Vec<u8>, ByteConversionError>;
+    fn to_bytes_le(&self) -> Vec<u8>;
 
     /// Returns the element from its byte representation in big-endian order.
     fn from_bytes_be(bytes: &[u8]) -> Result<Self, ByteConversionError>
