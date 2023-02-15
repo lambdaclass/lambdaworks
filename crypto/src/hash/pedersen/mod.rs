@@ -2,7 +2,11 @@ use super::traits::IsCryptoHash;
 use lambdaworks_math::{
     cyclic_group::IsCyclicGroup,
     elliptic_curve::{
-        self, short_weierstrass::{curves::bls12_381::{field_extension::BLS12381PrimeField, curve::BLS12381Curve}, element::ProjectivePoint},
+        self,
+        short_weierstrass::{
+            curves::bls12_381::{curve::BLS12381Curve, field_extension::BLS12381PrimeField},
+            element::ProjectivePoint,
+        },
     },
     field::{self, element::FieldElement, traits::IsField},
     traits::ByteConversion,
