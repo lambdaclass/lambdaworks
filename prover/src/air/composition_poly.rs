@@ -85,7 +85,7 @@ where
         .map(|c| FieldElement::new(U128::from_u128(c.0)))
         .collect();
 
-    Polynomial::new(coeffs)
+    Polynomial::new(&coeffs)
 }
 
 #[cfg(test)]
@@ -257,7 +257,7 @@ mod tests {
 
         let air = WorkAir::new(trace.get_info(), pub_inputs.clone(), options);
 
-        // TODO: this coefficients should be checked correctly to know 
+        // TODO: this coefficients should be checked correctly to know
         // the test is really passing
         let expected_coeffs = vec![
             73805846515134368521942875729025268850u128,
@@ -280,9 +280,9 @@ mod tests {
         .into_iter()
         .map(|c| U128::from_u128(c))
         .map(|c| lambdaworks_math::field::element::FieldElement::new(c))
-        .collect();
+        .collect::<Vec<_>>();
 
-        let expected_poly = Polynomial::new(expected_coeffs);
+        let expected_poly = Polynomial::new(&expected_coeffs);
 
         assert_eq!(get_composition_poly(air, trace, pub_inputs), expected_poly);
     }
