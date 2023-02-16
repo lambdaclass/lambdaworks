@@ -12,4 +12,4 @@ nix-shell:
 	nix-shell
 
 benchmark:
-	cargo bench
+	cargo criterion

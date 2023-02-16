@@ -102,6 +102,12 @@ If you use ```Lambdaworks``` libraries in your research projects, please cite th
 
 ## 📊 Benchmarks
 
+To run the benchmarks you will need `cargo-criterion`, to install do:
+
+```
+cargo install cargo-criterion
+```
+
 Run the complete benchmark suite with:
 
 ```bash
@@ -111,5 +117,7 @@ make benchmark
 Run a specific benchmark suite with `cargo`, for example to run the one for `field`:
 
 ```bash
-cargo bench --bench field
+cargo criterion --bench field
 ```
+
+You can check the generated HTML report in `target/criterion/reports/index.html`
