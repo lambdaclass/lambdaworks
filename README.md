@@ -99,3 +99,17 @@ If you use ```Lambdaworks``` libraries in your research projects, please cite th
 - Fiat-Shamir
 
 ### Gadgets
+
+## 📊 Benchmarks
+
+Run the complete benchmark suite with:
+
+```bash
+make benchmark
+```
+
+Run a specific benchmark suite with `cargo`, for example to run the one for `field`:
+
+```bash
+cargo bench --bench field
+```
