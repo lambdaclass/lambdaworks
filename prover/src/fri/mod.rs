@@ -33,9 +33,11 @@ pub fn fri_commitment(
     //     - hasher
     // Create a new merkle tree with evaluation_i
     let merkle_tree = FriMerkleTree::build(&evaluation_i);
+   
+    // append the root of the merkle tree to the transcript
     let root = merkle_tree.root.borrow().hash;
-    // TODO @@@ let bytes = root.as_bytes();
-    //transcript.append(bytes);
+    let root_bytes = (*root.value()).to_be_bytes();
+    transcript.append(&root_bytes);
 
     FriCommitment {
         poly: p_i.clone(),
@@ -51,6 +53,12 @@ pub fn fri(p_0: &mut Polynomial<FieldElement<F>>, domain_0: &[FE]) -> FriCommitm
 
     let evaluation_0 = p_0.evaluate_slice(domain_0);
     let merkle_tree = FriMerkleTree::build(&evaluation_0);
+
+    // append the root of the merkle tree to the transcript
+    let root = merkle_tree.root.borrow().hash;
+    let root_bytes = (*root.value()).to_be_bytes();
+    transcript.append(&root_bytes);
+
     let commitment_0 = FriCommitment {
         poly: p_0.clone(),
         domain: domain_0.to_vec(),
@@ -67,7 +75,7 @@ pub fn fri(p_0: &mut Polynomial<FieldElement<F>>, domain_0: &[FE]) -> FriCommitm
     fri_commitment_list.push(commitment_0);
     let mut degree = p_0.degree();
 
-    // TODO@@@ append root of the merkle tree to the transcript
+    let mut last_coef = last_poly.coefficients.get(0).unwrap();
 
     while degree > 0 {
         // sample beta:
@@ -78,18 +86,24 @@ pub fn fri(p_0: &mut Polynomial<FieldElement<F>>, domain_0: &[FE]) -> FriCommitm
 
         let commitment_i = fri_commitment(&p_i, &domain_i, &evaluation_i, &mut transcript);
 
+        // append root of merkle tree to transcript
+        let tree = &commitment_i.merkle_tree;
+        let root = tree.root.borrow().hash;
+        let root_bytes = (*root.value()).to_be_bytes();
+        transcript.append(&root_bytes);
+
+
         fri_commitment_list.push(commitment_i);
         degree = p_i.degree();
 
         last_poly = p_i.clone();
+        last_coef = last_poly.coefficients.get(0).unwrap();
         last_domain = domain_i.clone();
-
-        // TODO
-        // append root of merkle tree to transcript
     }
 
-    // TODO
     // append last value of the polynomial to the trasncript
+    let last_coef_bytes = (*last_coef.value()).to_be_bytes();
+    transcript.append(&last_coef_bytes);
 
     fri_commitment_list
 }
