@@ -71,6 +71,26 @@ impl<F: IsField, H: IsCryptoHash<F> + Clone> MerkleTree<F, H> {
         None
     }
 
+    pub fn get_proof_by_pos(&self, pos: usize, value: &FieldElement<F>) -> Option<Proof<F, H>> {
+        let hash_leaf = self.hasher.hash_one(value.clone());
+
+        if let Some(leaf) = self.leafs.get(pos) {
+            if hash_leaf != leaf.borrow().hash {
+                return None;
+            }
+
+            let merkle_path = build_merkle_path(leaf.clone(), &mut Vec::new());
+
+            return Some(Proof {
+                value: value.clone(),
+                merkle_path,
+                hasher: self.hasher.clone(),
+            });
+        }
+
+        None
+    }
+
     pub fn verify(proof: &Proof<F, H>, root_hash: FieldElement<F>) -> bool {
         let mut hashed_value = proof.hasher.hash_one(proof.value.clone());
 
@@ -277,6 +297,28 @@ mod tests {
             FE::new(5),
         ]);
         let proof = &merkle_tree.get_proof(FE::new(2)).unwrap();
+        let expected_hash = &[
+            build_tree_node(FE::new(4)),
+            build_tree_node(FE::new(6)),
+            build_tree_node(FE::new(7)),
+            build_tree_node(FE::new(8)),
+        ];
+        for (key, elem) in expected_hash.iter().enumerate() {
+            assert_eq!(proof.merkle_path[key].borrow().hash, elem.borrow().hash);
+        }
+    }
+
+    #[test]
+    fn create_a_proof_over_value_that_belongs_to_a_given_merkle_tree_when_given_the_leaf_position()
+    {
+        let merkle_tree = MerkleTree::<U64PF, TestHasher>::build(&[
+            FE::new(1),
+            FE::new(2),
+            FE::new(3),
+            FE::new(4),
+            FE::new(5),
+        ]);
+        let proof = &merkle_tree.get_proof_by_pos(1, &FE::new(2)).unwrap();
         let expected_hash = &[
             build_tree_node(FE::new(4)),
             build_tree_node(FE::new(6)),
