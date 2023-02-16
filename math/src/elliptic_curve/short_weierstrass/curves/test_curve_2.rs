@@ -5,7 +5,7 @@ use crate::field::fields::u384_prime_field::{
 };
 use crate::unsigned_integer::element::U384;
 use crate::{
-    elliptic_curve::short_weierstrass::traits::{HasDistortionMap, IsShortWeierstrass},
+    elliptic_curve::short_weierstrass::traits::IsShortWeierstrass,
     field::{
         element::FieldElement,
         extensions::quadratic::{HasQuadraticNonResidue, QuadraticExtensionField},
@@ -79,15 +79,5 @@ impl IsShortWeierstrass for TestCurve2 {
 
     fn b() -> FieldElement<Self::BaseField> {
         FieldElement::from(1)
-    }
-}
-
-impl HasDistortionMap for TestCurve2 {
-    fn distorsion_map(
-        p: &[FieldElement<Self::BaseField>; 3],
-    ) -> [FieldElement<Self::BaseField>; 3] {
-        let (x, y, z) = (&p[0], &p[1], &p[2]);
-        let t = FieldElement::new([FieldElement::zero(), FieldElement::one()]);
-        [-x, y * t, z.clone()]
     }
 }

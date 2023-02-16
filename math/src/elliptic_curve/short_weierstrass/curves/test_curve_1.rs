@@ -3,11 +3,7 @@
 /// This small curve has only 5 elements.
 use crate::{
     elliptic_curve::{
-        short_weierstrass::{
-            pairing::HasTypeIPairing,
-            point::ShortWeierstrassProjectivePoint,
-            traits::{HasDistortionMap, IsShortWeierstrass},
-        },
+        short_weierstrass::{point::ShortWeierstrassProjectivePoint, traits::IsShortWeierstrass},
         traits::IsEllipticCurve,
     },
     field::{
@@ -69,27 +65,5 @@ impl IsShortWeierstrass for TestCurve1 {
 
     fn b() -> FieldElement<Self::BaseField> {
         FieldElement::from(0)
-    }
-}
-
-impl HasTypeIPairing for TestCurve1 {
-    type UIntOrders = u64;
-
-    fn order_r() -> Self::UIntOrders {
-        TEST_CURVE_1_MAIN_SUBGROUP_ORDER
-    }
-
-    fn target_normalization_power() -> Vec<u64> {
-        vec![0x00000000000002b8]
-    }
-}
-
-impl HasDistortionMap for TestCurve1 {
-    fn distorsion_map(
-        p: &[FieldElement<Self::BaseField>; 3],
-    ) -> [FieldElement<Self::BaseField>; 3] {
-        let (x, y, z) = (&p[0], &p[1], &p[2]);
-        let t = FieldElement::new([FieldElement::zero(), FieldElement::one()]);
-        [-x, y * t, z.clone()]
     }
 }

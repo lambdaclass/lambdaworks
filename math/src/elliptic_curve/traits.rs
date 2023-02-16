@@ -24,11 +24,3 @@ pub trait IsEllipticCurve {
         y: FieldElement<Self::BaseField>,
     ) -> Self::PointRepresentation;
 }
-
-pub trait HasPairing {
-    type LhsGroup;
-    type RhsGroup;
-    type OutputGroup;
-
-    fn pairing(a: &Self::LhsGroup, b: &Self::RhsGroup) -> Self::OutputGroup;
-}

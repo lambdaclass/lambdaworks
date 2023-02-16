@@ -1,5 +1,4 @@
 use crate::cyclic_group::IsGroup;
-use crate::elliptic_curve::traits::HasPairing;
 use crate::field::element::FieldElement;
 use crate::field::traits::IsField;
 
@@ -71,18 +70,6 @@ impl<const MODULUS: u64> IsGroup for U64FieldElement<MODULUS> {
 
     fn operate_with(&self, other: &Self) -> Self {
         *self + *other
-    }
-}
-
-struct U64FieldPairing<const MODULUS: u64>;
-
-impl<const MODULUS: u64> HasPairing for U64FieldPairing<MODULUS> {
-    type LhsGroup = U64FieldElement<MODULUS>;
-    type RhsGroup = U64FieldElement<MODULUS>;
-    type OutputGroup = U64FieldElement<MODULUS>;
-
-    fn pairing(a: &Self::LhsGroup, b: &Self::RhsGroup) -> Self::OutputGroup {
-        a * b
     }
 }
 
@@ -215,12 +202,5 @@ mod tests {
         let a = FE::new(3);
         let b = FE::new(12);
         assert_eq!(a * b, a.operate_with_self(12));
-    }
-
-    #[test]
-    fn field_element_as_group_element_pairing_works_as_multiplication_in_finite_fields() {
-        let a = FE::new(3);
-        let b = FE::new(12);
-        assert_eq!(a * b, U64FieldPairing::pairing(&a, &b));
     }
 }

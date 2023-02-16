@@ -18,11 +18,3 @@ pub trait IsShortWeierstrass: IsEllipticCurve + Clone + Debug {
         y.pow(2_u16) * z - x.pow(3_u16) - Self::a() * x * z.pow(2_u16) - Self::b() * z.pow(3_u16)
     }
 }
-
-/// Trait to add distortion maps to Elliptic Curves.
-/// Typically used to support type I pairings.
-/// For more info look into page 56 of "Pairings for beginners".
-pub trait HasDistortionMap: IsShortWeierstrass {
-    fn distorsion_map(p: &[FieldElement<Self::BaseField>; 3])
-        -> [FieldElement<Self::BaseField>; 3];
-}

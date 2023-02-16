@@ -64,7 +64,8 @@ mod tests {
         TEST_CURVE_1_PRIME_FIELD_ORDER,
     };
     use crate::elliptic_curve::short_weierstrass::curves::test_curve_2::TestCurve2;
-    use crate::elliptic_curve::short_weierstrass::pairing::HasTypeIPairing;
+    use crate::elliptic_curve::short_weierstrass::pairings::tate::tate_pairing;
+    use crate::elliptic_curve::short_weierstrass::pairings::weil::weil_pairing;
     use crate::field::element::FieldElement;
     use crate::field::fields::u64_prime_field::U64FieldElement;
     use crate::unsigned_integer::element::U384;
@@ -128,7 +129,7 @@ mod tests {
         );
         let expected_result = FEE::new([FE::new(46), FE::new(3)]);
 
-        let result_weil = TestCurve1::weil_pairing(&pa, &pb);
+        let result_weil = weil_pairing(&TEST_CURVE_1_MAIN_SUBGROUP_ORDER, &pa, &pb);
         assert_eq!(result_weil, expected_result);
     }
 
@@ -142,7 +143,12 @@ mod tests {
         );
         let expected_result = FEE::new([FE::new(42), FE::new(19)]);
 
-        let result_weil = TestCurve1::tate_pairing(&pa, &pb);
+        let result_weil = tate_pairing(
+            &TEST_CURVE_1_MAIN_SUBGROUP_ORDER,
+            vec![0x00000000000002b8],
+            &pa,
+            &pb,
+        );
         assert_eq!(result_weil, expected_result);
     }
 
