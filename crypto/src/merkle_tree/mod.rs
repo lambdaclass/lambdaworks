@@ -1,7 +1,9 @@
 use crate::hash::traits::IsCryptoHash;
 use lambdaworks_math::{
     elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::BLS12381PrimeField,
-    field::{element::FieldElement, traits::IsField, fields::u64_prime_field::U64PrimeField},
+    errors::ByteConversionError,
+    field::{element::FieldElement, fields::u64_prime_field::U64PrimeField, traits::IsField},
+    traits::ByteConversion,
 };
 use std::{cell::RefCell, rc::Rc};
 
@@ -11,7 +13,7 @@ pub struct MerkleTree<F: IsField, H: IsCryptoHash<F>> {
     hasher: H,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DefaultHasher;
 
 impl<F: IsField> IsCryptoHash<F> for DefaultHasher {
@@ -150,9 +152,8 @@ fn build_merkle_path<F: IsField>(
     node: TreeNode<F>,
     merkle_path: &mut Vec<TreeNode<F>>,
 ) -> Vec<TreeNode<F>> {
-    merkle_path.push(node.clone());
-
     if let Some(parent) = node.borrow().parent.clone() {
+        merkle_path.push(node.clone());
         return build_merkle_path(parent, merkle_path).to_vec();
     }
 
@@ -165,52 +166,62 @@ pub struct Proof<F: IsField, H: IsCryptoHash<F>> {
     hasher: H,
 }
 
-
-
 pub type F = U64PrimeField<0xFFFF_FFFF_0000_0001_u64>;
 pub type FE = FieldElement<F>;
 
 impl Proof<F, DefaultHasher> {
-    pub fn as_bytes(&self) -> Vec<[u8; 8]> {
-        let mut buffer = Vec::new();
-        buffer.push(self.value.value().to_be_bytes());
+    pub fn as_bytes(&self) -> Vec<u8> {
+        let mut buffer: Vec<u8> = Vec::new();
 
+        for val in self.value.value().to_be_bytes().iter() {
+            buffer.push(*val);
+        }
         for value in self.merkle_path.iter() {
             let hash = value.borrow().hash;
-            buffer.push(hash.value().to_be_bytes());
+
+            for val in hash.value().to_be_bytes().iter() {
+                buffer.push(*val);
+            }
             if let Some(sibiling) = value.borrow().sibiling.clone() {
-                buffer.push(sibiling.borrow().hash.value().to_be_bytes());
+                for val in sibiling.borrow().hash.value().to_be_bytes().iter() {
+                    buffer.push(*val);
+                }
             }
         }
 
-        return buffer
+        buffer.to_vec()
     }
 
+    pub fn from_bytes(values: &[u8]) -> Result<Proof<F, DefaultHasher>, ByteConversionError> {
+        let mut fields = Vec::new();
 
-    pub fn from_bytes(values: Vec<[u8; 8]> ) -> Proof<F, DefaultHasher>{
-        let merkle_path = values[..values.len()-2]
-                                                                        .chunks(2)
-                                                                        .map(|chunk| 
-                                                                            build_node(FE::from_bytes_be(chunk[0]), chunk[1].from_bytes_be())
-                                                                        ).collect();
-                                                                        
-        Proof{value: values[values.len()-1].fr, merkle_path, hasher: DefaultHasher}
+        for elem in values[..values.len()].chunks(8) {
+            let field = FE::from_bytes_be(elem)?;
+            fields.push(field);
+        }
+
+        let merkle_path = fields[1..fields.len()]
+            .chunks(2)
+            .map(|chunks| build_node(chunks[0], chunks[1]))
+            .collect();
+
+        Ok(Proof {
+            value: fields[0],
+            merkle_path,
+            hasher: DefaultHasher,
+        })
     }
-
 }
-    
-
 
 fn build_node<F: IsField>(value: FieldElement<F>, sibiling: FieldElement<F>) -> TreeNode<F> {
-    let mut tree_node = build_tree_node(value);
-    let mut sibiling = build_tree_node(sibiling);
-    
+    let tree_node = build_tree_node(value);
+    let sibiling = build_tree_node(sibiling);
+
     tree_node.borrow_mut().sibiling = Some(sibiling.clone());
     sibiling.borrow_mut().sibiling = Some(tree_node.clone());
 
-    tree_node    
+    tree_node
 }
-
 
 type TreeNode<F> = Rc<RefCell<Node<F>>>;
 
@@ -348,7 +359,6 @@ mod tests {
             build_tree_node(FE::new(4)),
             build_tree_node(FE::new(6)),
             build_tree_node(FE::new(7)),
-            build_tree_node(FE::new(8)),
         ];
         for (key, elem) in expected_hash.iter().enumerate() {
             assert_eq!(proof.merkle_path[key].borrow().hash, elem.borrow().hash);
@@ -370,7 +380,6 @@ mod tests {
             build_tree_node(FE::new(4)),
             build_tree_node(FE::new(6)),
             build_tree_node(FE::new(7)),
-            build_tree_node(FE::new(8)),
         ];
         for (key, elem) in expected_hash.iter().enumerate() {
             assert_eq!(proof.merkle_path[key].borrow().hash, elem.borrow().hash);
@@ -387,6 +396,27 @@ mod tests {
             FE::new(5),
         ]);
         let proof = merkle_tree.get_proof(FE::new(2)).unwrap();
+
+        assert!(MerkleTree::verify(&proof, merkle_tree.get_root_hash()));
+    }
+
+    type U64P = U64PrimeField<0xFFFF_FFFF_0000_0001_u64>;
+    type U64FE = FieldElement<U64P>;
+
+    #[test]
+    fn test() {
+        let merkle_tree =
+            MerkleTree::<U64PrimeField<0xFFFF_FFFF_0000_0001_u64>, DefaultHasher>::build(&[
+                U64FE::new(1),
+                U64FE::new(2),
+                U64FE::new(3),
+                U64FE::new(4),
+                U64FE::new(5),
+            ]);
+
+        let proof = merkle_tree.get_proof(U64FE::new(2)).unwrap();
+        let serialize_proof = proof.as_bytes();
+        let proof = Proof::from_bytes(&serialize_proof).unwrap();
 
         assert!(MerkleTree::verify(&proof, merkle_tree.get_root_hash()));
     }
