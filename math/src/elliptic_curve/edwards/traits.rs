@@ -3,7 +3,7 @@ use crate::field::element::FieldElement;
 use crate::field::fields::u64_prime_field::U64PrimeField;
 use std::fmt::Debug;
 
-use super::element::EdwardsProjectivePoint;
+use super::point::EdwardsProjectivePoint;
 
 /// Trait to add elliptic curves behaviour to a struct.
 pub trait IsEdwards: IsEllipticCurve + Clone + Debug {
@@ -59,7 +59,7 @@ impl IsEdwards for TinyJubJubEdwards {
 mod tests {
     use crate::{
         cyclic_group::IsGroup,
-        elliptic_curve::edwards::{element::EdwardsProjectivePoint, traits::TinyJubJubEdwards},
+        elliptic_curve::edwards::{point::EdwardsProjectivePoint, traits::TinyJubJubEdwards},
         field::element::FieldElement,
     };
 

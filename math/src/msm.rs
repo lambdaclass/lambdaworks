@@ -36,7 +36,7 @@ where
 mod tests {
     use super::*;
     use crate::elliptic_curve::short_weierstrass::curves::test_curve_1::TestCurve1;
-    use crate::elliptic_curve::short_weierstrass::element::ShortWeierstrassProjectivePoint;
+    use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
     use crate::elliptic_curve::traits::IsEllipticCurve;
 
     #[test]

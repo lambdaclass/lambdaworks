@@ -1,2 +1,2 @@
-pub mod element;
+pub mod point;
 pub mod traits;

@@ -1,6 +1,6 @@
 use crate::{
     cyclic_group::IsGroup,
-    elliptic_curve::{projective_point::ProjectivePoint, traits::IsEllipticCurve},
+    elliptic_curve::{point::ProjectivePoint, traits::IsEllipticCurve},
     field::element::FieldElement,
 };
 

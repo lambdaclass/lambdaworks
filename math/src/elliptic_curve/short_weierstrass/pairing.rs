@@ -3,7 +3,7 @@ use crate::{
     unsigned_integer::traits::IsUnsignedInteger,
 };
 
-use super::{element::ShortWeierstrassProjectivePoint, traits::IsShortWeierstrass};
+use super::{point::ShortWeierstrassProjectivePoint, traits::IsShortWeierstrass};
 
 pub trait HasTypeIPairing {
     type UIntOrders: IsUnsignedInteger;

@@ -1,5 +1,5 @@
 use super::field_extension::BLS12377PrimeField;
-use crate::elliptic_curve::short_weierstrass::element::ShortWeierstrassProjectivePoint;
+use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
 use crate::elliptic_curve::traits::IsEllipticCurve;
 use crate::{
     elliptic_curve::short_weierstrass::traits::IsShortWeierstrass, field::element::FieldElement,

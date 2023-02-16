@@ -4,8 +4,8 @@
 use crate::{
     elliptic_curve::{
         short_weierstrass::{
-            element::ShortWeierstrassProjectivePoint,
             pairing::HasTypeIPairing,
+            point::ShortWeierstrassProjectivePoint,
             traits::{HasDistortionMap, IsShortWeierstrass},
         },
         traits::IsEllipticCurve,
