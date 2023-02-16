@@ -28,9 +28,11 @@ impl<const MODULUS: u64> IsField for U64PrimeField<MODULUS> {
         ((*a as u128 * *b as u128) % MODULUS as u128) as u64
     }
 
-    fn div(a: &u64, b: &u64) -> Result<u64, FieldError> {
-        let inv_b = Self::inv(b)?;
-        Ok(Self::mul(a, &inv_b))
+    fn div(a: &u64, b: &u64) -> u64 {
+        match Self::inv(b) {
+            Ok(b_inv) => Self::mul(a, &b_inv),
+            Err(FieldError::DivisionByZero) => panic!("Division by zero"),
+        }
     }
 
     fn inv(a: &u64) -> Result<u64, FieldError> {
@@ -169,7 +171,13 @@ mod tests {
         let expected = FE::new(2);
         let actual = FE::new(2) / FE::new(1);
 
-        assert_eq!(actual.unwrap(), expected);
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    #[should_panic]
+    fn div_2_0() {
+        let _actual = FE::new(2) / FE::new(0);
     }
 
     #[test]
@@ -177,7 +185,7 @@ mod tests {
         let expected = FE::new(2);
         let actual = FE::new(4) / FE::new(2);
 
-        assert_eq!(actual.unwrap(), expected);
+        assert_eq!(actual, expected);
         
     }
 
@@ -187,7 +195,7 @@ mod tests {
         let b = FE::new(3);
         let c = FE::new(3);
         let actual_result = a / b;
-        assert_eq!(actual_result.unwrap() * c, FE::new(4))
+        assert_eq!(actual_result * c, FE::new(4))
     }
 
     #[test]

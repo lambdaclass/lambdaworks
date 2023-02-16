@@ -42,7 +42,7 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
             let mut y_term = Polynomial::new(&[y.clone()]);
             for (j, x) in xs.iter().enumerate() {
                 if i != j {
-                    let denominator = Polynomial::new(&[(FieldElement::one() / (&xs[i] - x)).unwrap()]);
+                    let denominator = Polynomial::new(&[FieldElement::one() / (&xs[i] - x)]);
                     let numerator = Polynomial::new(&[-x, FieldElement::one()]);
                     y_term = y_term.mul_with_ref(&(numerator * denominator));
                 }
@@ -114,7 +114,7 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
             let mut n = self;
             let mut q: Vec<FieldElement<F>> = vec![FieldElement::zero(); n.degree() + 1];
             while n != Polynomial::zero() && n.degree() >= dividend.degree() {
-                let new_coefficient = (n.leading_coefficient() / dividend.leading_coefficient()).unwrap();
+                let new_coefficient = n.leading_coefficient() / dividend.leading_coefficient();
                 q[n.degree() - dividend.degree()] = new_coefficient.clone();
                 let d = dividend.mul_with_ref(&Polynomial::new_monomial(
                     new_coefficient,
@@ -433,11 +433,11 @@ mod tests {
 
     #[test]
     fn simple_interpolating_polynomial_by_hand_works() {
-        let denominator = Polynomial::new(&[(FE::new(1) / (FE::new(2) - FE::new(4))).unwrap()]);
+        let denominator = Polynomial::new(&[FE::new(1) / (FE::new(2) - FE::new(4))]);
         let numerator = Polynomial::new(&[-FE::new(4), FE::new(1)]);
         let interpolating = numerator * denominator;
         assert_eq!(
-            (FE::new(2) - FE::new(4)) * ((FE::new(1) / (FE::new(2) - FE::new(4))).unwrap()),
+            (FE::new(2) - FE::new(4)) * (FE::new(1) / (FE::new(2) - FE::new(4))),
             FE::new(1)
         );
         assert_eq!(interpolating.evaluate(&FE::new(2)), FE::new(1));

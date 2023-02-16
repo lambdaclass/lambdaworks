@@ -76,9 +76,11 @@ where
         Ok(Self::pow(a, C::MODULUS - Self::BaseType::from_u64(2)))
     }
 
-    fn div(a: &Self::BaseType, b: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
-        let inv_b = Self::inv(b)?;
-        Ok(Self::mul(a, &inv_b))
+    fn div(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
+        match Self::inv(b) {
+            Ok(b_inv) => Self::mul(a, &b_inv),
+            Err(FieldError::DivisionByZero) => panic!("Division by zero"),
+        }
     }
 
     fn eq(a: &Self::BaseType, b: &Self::BaseType) -> bool {
@@ -212,15 +214,22 @@ mod tests {
         let expected = F23Element::from(2);
         let actual = F23Element::from(2) / F23Element::from(1);
 
-        assert_eq!(actual.unwrap(), expected);
+        assert_eq!(actual, expected);
     }
+
+    #[test]
+    #[should_panic]
+    fn div_2_0() {
+        let _actual = F23Element::from(2) / F23Element::from(0);
+    }
+
 
     #[test]
     fn div_4_2() {
         let expected = F23Element::from(2);
         let actual = F23Element::from(4) / F23Element::from(2);
 
-        assert_eq!(actual.unwrap(), expected);
+        assert_eq!(actual, expected);
     }
 
     #[test]
@@ -230,7 +239,7 @@ mod tests {
         let c = F23Element::from(3);
         let actual_result = a / b;
         assert_eq!(
-            actual_result.unwrap() * c,
+            actual_result * c,
             F23Element::from(4)
         )
     }

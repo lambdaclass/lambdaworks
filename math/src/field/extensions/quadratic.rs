@@ -75,9 +75,11 @@ where
     fn div(
         a: &[FieldElement<Q::BaseField>; 2],
         b: &[FieldElement<Q::BaseField>; 2],
-    ) -> Result<[FieldElement<Q::BaseField>; 2], FieldError> {
-        let inv_b = Self::inv(b)?;
-        Ok(Self::mul(a, &inv_b))
+    ) -> [FieldElement<Q::BaseField>; 2] {
+        match Self::inv(b) {
+            Ok(inv_b) => Self::mul(a, &inv_b),
+            Err(FieldError::DivisionByZero) => panic!("Division by zero!"),
+        }
     }
 
     /// Returns a boolean indicating whether `a` and `b` are equal component wise.
@@ -186,7 +188,7 @@ mod tests {
         let b = FEE::new([-FE::new(2), FE::new(8)]);
         let expected_result = FEE::new([FE::new(42), FE::new(19)]);
         let actual_result = a / b;
-        assert_eq!(actual_result.unwrap(), expected_result);
+        assert_eq!(actual_result, expected_result);
     }
 
     #[test]
@@ -195,7 +197,7 @@ mod tests {
         let b = FEE::new([-FE::new(4), FE::new(2)]);
         let expected_result = FEE::new([FE::new(4), FE::new(45)]);
         let actual_result = a / b;
-        assert_eq!(actual_result.unwrap(), expected_result);
+        assert_eq!(actual_result, expected_result);
     }
 
     #[test]

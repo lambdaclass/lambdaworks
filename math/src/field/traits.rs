@@ -77,7 +77,7 @@ pub trait IsField: Debug + Clone {
     fn inv(a: &Self::BaseType) -> Result<Self::BaseType, FieldError>;
 
     /// Returns the division of `a` and `b`.
-    fn div(a: &Self::BaseType, b: &Self::BaseType) -> Result<Self::BaseType, FieldError>;
+    fn div(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType;
 
     /// Returns a boolean indicating whether `a` and `b` are equal or not.
     fn eq(a: &Self::BaseType, b: &Self::BaseType) -> bool;

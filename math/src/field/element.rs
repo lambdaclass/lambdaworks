@@ -203,11 +203,12 @@ impl<F> Div<&FieldElement<F>> for &FieldElement<F>
 where
     F: IsField,
 {
-    type Output = Result<FieldElement<F>, FieldError>;
+    type Output = FieldElement<F>;
 
-    fn div(self, rhs: &FieldElement<F>) -> Result<FieldElement<F>, FieldError> {
-        let value = F::div(&self.value, &rhs.value)?;
-        Ok(FieldElement { value })
+    fn div(self, rhs: &FieldElement<F>) -> Self::Output {
+        Self::Output {
+            value: F::div(&self.value, &rhs.value),
+        }
     }
 }
 
@@ -215,7 +216,7 @@ impl<F> Div<FieldElement<F>> for FieldElement<F>
 where
     F: IsField,
 {
-    type Output = Result<FieldElement<F>, FieldError>;
+    type Output = FieldElement<F>;
 
     fn div(self, rhs: FieldElement<F>) -> Self::Output {
         &self / &rhs
@@ -226,7 +227,7 @@ impl<F> Div<&FieldElement<F>> for FieldElement<F>
 where
     F: IsField,
 {
-    type Output =Result<FieldElement<F>, FieldError>;
+    type Output = FieldElement<F>;
 
     fn div(self, rhs: &FieldElement<F>) -> Self::Output {
         &self / rhs
@@ -237,7 +238,7 @@ impl<F> Div<FieldElement<F>> for &FieldElement<F>
 where
     F: IsField,
 {
-    type Output = Result<FieldElement<F>, FieldError>;
+    type Output = FieldElement<F>;
 
     fn div(self, rhs: FieldElement<F>) -> Self::Output {
         self / &rhs
