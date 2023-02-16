@@ -1,12 +1,10 @@
-pub use super::{Polynomial, F, FE};
-use lambdaworks_crypto::{hash::traits::IsCryptoHash, merkle_tree::MerkleTree};
-use lambdaworks_math::field::traits::IsField;
+pub use super::{FriMerkleTree, Polynomial, F, FE};
 
-pub struct FriCommitment<F: IsField, H: IsCryptoHash<F>> {
+pub struct FriCommitment<FE> {
     pub poly: Polynomial<FE>,
     pub domain: Vec<FE>,
     pub evaluation: Vec<FE>,
-    pub merkle_tree: MerkleTree<F, H>,
+    pub merkle_tree: FriMerkleTree,
 }
 
-pub type FriCommitmentVec<F, H> = Vec<FriCommitment<F, H>>;
+pub type FriCommitmentVec<FE> = Vec<FriCommitment<FE>>;

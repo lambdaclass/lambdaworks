@@ -1,11 +1,11 @@
-use super::F;
+use super::FE;
 use crate::fri::fri_commitment::FriCommitmentVec;
 pub use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 
 // verifier chooses a randomness and get the index where
 // they want to evaluate the poly
 pub fn fri_decommit_layers(
-    commit: &FriCommitmentVec<F, FriTestHasher>,
+    commit: &FriCommitmentVec<FE>,
     index_to_verify: usize,
     transcript: &mut Transcript,
 ) {
