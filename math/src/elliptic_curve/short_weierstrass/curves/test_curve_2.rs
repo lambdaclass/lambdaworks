@@ -1,3 +1,5 @@
+use crate::elliptic_curve::short_weierstrass::element::ProjectivePoint;
+use crate::elliptic_curve::traits::IsEllipticCurve;
 use crate::field::fields::u384_prime_field::{
     IsMontgomeryConfiguration, MontgomeryBackendPrimeField,
 };
@@ -43,8 +45,34 @@ impl HasQuadraticNonResidue for TestCurve2QuadraticNonResidue {
 /// The description of the curve.
 #[derive(Clone, Debug)]
 pub struct TestCurve2;
-impl IsShortWeierstrass for TestCurve2 {
+
+impl IsEllipticCurve for TestCurve2 {
     type BaseField = QuadraticExtensionField<TestCurve2QuadraticNonResidue>;
+    type PointRepresentation = ProjectivePoint<Self>;
+
+    fn generator() -> Self::PointRepresentation {
+        ProjectivePoint::new([
+            FieldElement::new([
+                FieldElement::new(U384::from("21acedb641ca6d0f8b60148123a999801")),
+                FieldElement::new(U384::from("14d34d94f7de312859a8a0d9dbc67159d3")),
+            ]),
+            FieldElement::new([
+                FieldElement::new(U384::from("2ac53e77afe8d841c8eb660761c4b873a")),
+                FieldElement::new(U384::from("108a9e1c5514b0921cd5781a7f71130142")),
+            ]),
+            FieldElement::one(),
+        ])
+    }
+
+    fn create_point_from_affine(
+        x: FieldElement<Self::BaseField>,
+        y: FieldElement<Self::BaseField>,
+    ) -> Self::PointRepresentation {
+        ProjectivePoint::new([x, y, FieldElement::one()])
+    }
+}
+
+impl IsShortWeierstrass for TestCurve2 {
     type UIntOrders = U384;
 
     fn a() -> FieldElement<Self::BaseField> {
@@ -53,20 +81,6 @@ impl IsShortWeierstrass for TestCurve2 {
 
     fn b() -> FieldElement<Self::BaseField> {
         FieldElement::from(1)
-    }
-
-    fn generator_affine_x() -> FieldElement<Self::BaseField> {
-        FieldElement::new([
-            FieldElement::new(U384::from("21acedb641ca6d0f8b60148123a999801")),
-            FieldElement::new(U384::from("14d34d94f7de312859a8a0d9dbc67159d3")),
-        ])
-    }
-
-    fn generator_affine_y() -> FieldElement<Self::BaseField> {
-        FieldElement::new([
-            FieldElement::new(U384::from("2ac53e77afe8d841c8eb660761c4b873a")),
-            FieldElement::new(U384::from("108a9e1c5514b0921cd5781a7f71130142")),
-        ])
     }
 
     fn order_r() -> Self::UIntOrders {
