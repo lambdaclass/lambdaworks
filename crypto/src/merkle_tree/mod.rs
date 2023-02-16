@@ -41,28 +41,59 @@ impl<F: IsField, H: IsCryptoHash<F> + Clone> MerkleTree<F, H> {
 
     pub fn get_proof(&self, value: &FieldElement<F>) -> Option<Proof<F, H>> {
         let hashed_leaf = self.hasher.hash_one(value.clone());
-        if let Some(mut current) = self
+
+        if let Some(mut pos) = self
             .get_leafs()
             .iter()
             .position(|leaf| *leaf == hashed_leaf)
         {
-            current += self.nodes.len() / 2;
-            let mut merkle_path = Vec::new();
+            pos += self.nodes.len() / 2;
 
-            while current != ROOT {
-                merkle_path.push((self.nodes[sibling_index(current)].clone(), current % 2 == 0));
-                current = parent_index(current);
-            }
+            let merkle_path = self.build_merkle_path(pos);
 
-            return Some(Proof {
-                value: value.clone(),
-                merkle_path,
-                hasher: self.hasher.clone(),
-            });
+            return self.create_proof(merkle_path, value);
         }
+
         None
     }
 
+    pub fn get_proof_by_pos(&self, pos: usize, value: FieldElement<F>) -> Option<Proof<F, H>> {
+        let hashed_leaf = self.hasher.hash_one(value.clone());
+
+        let pos = pos + self.nodes.len() / 2;
+
+        if self.nodes[pos] != hashed_leaf {
+            return None;
+        }
+
+        let merkle_path = self.build_merkle_path(pos);
+
+        self.create_proof(merkle_path, &value)
+    }
+
+    fn create_proof(
+        &self,
+        merkle_path: Vec<(FieldElement<F>, bool)>,
+        value: &FieldElement<F>,
+    ) -> Option<Proof<F, H>> {
+        Some(Proof {
+            value: value.clone(),
+            merkle_path,
+            hasher: self.hasher.clone(),
+        })
+    }
+
+    fn build_merkle_path(&self, pos: usize) -> Vec<(FieldElement<F>, bool)> {
+        let mut merkle_path = Vec::new();
+        let mut pos = pos;
+
+        while pos != ROOT {
+            merkle_path.push((self.nodes[sibling_index(pos)].clone(), pos % 2 == 0));
+            pos = parent_index(pos);
+        }
+
+        merkle_path
+    }
     pub fn verify(proof: &Proof<F, H>, root_hash: FieldElement<F>) -> bool {
         let mut hashed_value = proof.hasher.hash_one(proof.value.clone());
 
@@ -264,6 +295,29 @@ mod tests {
     }
 
     // | 8 | 7 | 1 | 6 | 1 | 7 | 7 | 2 | 4 | 6 | 8 | 10 | 10 | 10 | 10 |
+    #[test]
+    fn create_a_proof_over_value_that_belongs_to_a_given_merkle_tree_when_given_the_leaf_position()
+    {
+        let merkle_tree = MerkleTree::<U64PF, TestHasher>::build(&[
+            FE::new(1),
+            FE::new(2),
+            FE::new(3),
+            FE::new(4),
+            FE::new(5),
+        ]);
+        let proof = &merkle_tree.get_proof_by_pos(1, FE::new(2)).unwrap();
+        for ((node, _), expected_node) in
+            proof
+                .merkle_path
+                .iter()
+                .zip(&[FE::new(2), FE::new(1), FE::new(1)])
+        {
+            assert_eq!(node, expected_node);
+        }
+
+        assert!(MerkleTree::verify(&proof, merkle_tree.root));
+    }
+
     #[test]
     fn verify_a_proof_over_value_that_belongs_to_a_given_merkle_tree() {
         let merkle_tree = MerkleTree::<U64PF, TestHasher>::build(&[
