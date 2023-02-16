@@ -3,11 +3,157 @@ use lambdaworks_math::{
     elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::BLS12381PrimeField,
     field::{element::FieldElement, traits::IsField},
 };
-use std::{cell::RefCell, rc::Rc};
 
 pub struct MerkleTree<F: IsField, H: IsCryptoHash<F>> {
-    leafs: Vec<TreeNode<F>>,
-    root: TreeNode<F>,
+    pub root: FieldElement<F>,
+    nodes: Vec<FieldElement<F>>,
+    hasher: H,
+}
+
+const ROOT: usize = 0;
+
+impl<F: IsField, H: IsCryptoHash<F> + Clone> MerkleTree<F, H> {
+    pub fn build(values: &[FieldElement<F>]) -> MerkleTree<F, H> {
+        let hasher = H::new();
+        let mut nodes: Vec<FieldElement<F>> = hash_leafs(values, &hasher);
+
+        //The leaf must be a power of 2 set
+        nodes = complete_until_power_of_two(&mut nodes);
+
+        //There lenght of leafs minus one inner nodes in the merkle tree
+        let mut inner_nodes = vec![FieldElement::zero(); nodes.len() - 1];
+        inner_nodes.extend(nodes);
+
+        //Build the inner nodes of the tree
+        let nodes = build(&mut inner_nodes, ROOT, &hasher);
+
+        MerkleTree {
+            root: nodes[ROOT].clone(),
+            nodes,
+            hasher,
+        }
+    }
+
+    fn get_leafs(&self) -> Vec<FieldElement<F>> {
+        let leaves_start = self.nodes.len() / 2;
+        Vec::from(&self.nodes[leaves_start..])
+    }
+
+    pub fn get_proof(&self, value: &FieldElement<F>) -> Option<Proof<F, H>> {
+        let hashed_leaf = self.hasher.hash_one(value.clone());
+        if let Some(mut current) = self
+            .get_leafs()
+            .iter()
+            .position(|leaf| *leaf == hashed_leaf)
+        {
+            current += self.nodes.len() / 2;
+            let mut merkle_path = Vec::new();
+
+            while current != ROOT {
+                merkle_path.push((self.nodes[sibling_index(current)].clone(), current % 2 == 0));
+                current = parent_index(current);
+            }
+
+            return Some(Proof {
+                value: value.clone(),
+                merkle_path,
+                hasher: self.hasher.clone(),
+            });
+        }
+        None
+    }
+
+    pub fn verify(proof: &Proof<F, H>, root_hash: FieldElement<F>) -> bool {
+        let mut hashed_value = proof.hasher.hash_one(proof.value.clone());
+
+        for (sibiling_node, is_left) in proof.merkle_path.iter().rev() {
+            if *is_left {
+                hashed_value = proof.hasher.hash_two(hashed_value, sibiling_node.clone());
+            } else {
+                hashed_value = proof.hasher.hash_two(sibiling_node.clone(), hashed_value);
+            }
+        }
+
+        root_hash == hashed_value
+    }
+}
+
+fn sibling_index(node_index: usize) -> usize {
+    if node_index % 2 == 0 {
+        node_index - 1
+    } else {
+        node_index + 1
+    }
+}
+
+fn parent_index(node_index: usize) -> usize {
+    if node_index % 2 == 0 {
+        (node_index - 1) / 2
+    } else {
+        node_index / 2
+    }
+}
+fn hash_leafs<F: IsField, H: IsCryptoHash<F>>(
+    values: &[FieldElement<F>],
+    hasher: &H,
+) -> Vec<FieldElement<F>> {
+    values
+        .iter()
+        .map(|val| hasher.hash_one(val.clone()))
+        .collect()
+}
+
+// The list of values is completed repeating the last value to a power of two length
+fn complete_until_power_of_two<F: IsField>(
+    values: &mut Vec<FieldElement<F>>,
+) -> Vec<FieldElement<F>> {
+    while !is_power_of_two(values.len()) {
+        values.push(values[values.len() - 1].clone())
+    }
+    values.to_vec()
+}
+
+fn is_power_of_two(x: usize) -> bool {
+    (x != 0) && ((x & (x - 1)) == 0)
+}
+
+fn build<F: IsField, H: IsCryptoHash<F>>(
+    nodes: &mut Vec<FieldElement<F>>,
+    parent_index: usize,
+    hasher: &H,
+) -> Vec<FieldElement<F>> {
+    if is_leaf(nodes.len(), parent_index) {
+        return nodes.to_vec();
+    }
+
+    let left_child_index = left_child_index(parent_index);
+    let right_child_index = right_child_index(parent_index);
+
+    let mut nodes = build(nodes, left_child_index, hasher);
+    nodes = build(&mut nodes, right_child_index, hasher);
+
+    nodes[parent_index] = hasher.hash_two(
+        nodes[left_child_index].clone(),
+        nodes[right_child_index].clone(),
+    );
+    nodes
+}
+
+fn is_leaf(lenght: usize, node_index: usize) -> bool {
+    (node_index >= (lenght / 2)) && node_index < lenght
+}
+
+fn left_child_index(parent_index: usize) -> usize {
+    parent_index * 2 + 1
+}
+
+fn right_child_index(parent_index: usize) -> usize {
+    parent_index * 2 + 2
+}
+
+pub struct Proof<F: IsField, H: IsCryptoHash<F>> {
+    value: FieldElement<F>,
+    merkle_path: Vec<(FieldElement<F>, bool)>,
     hasher: H,
 }
 
@@ -29,138 +175,6 @@ impl<F: IsField> IsCryptoHash<F> for DefaultHasher {
 }
 
 pub type MerkleTreeDefault = MerkleTree<BLS12381PrimeField, DefaultHasher>;
-
-impl<F: IsField, H: IsCryptoHash<F> + Clone> MerkleTree<F, H> {
-    pub fn build(values: &[FieldElement<F>]) -> MerkleTree<F, H> {
-        let hasher = H::new();
-        let mut leafs: Vec<TreeNode<F>> = hash_leafs(values, &hasher);
-        let mut level: Vec<TreeNode<F>> = hash_level(&mut leafs, &hasher);
-
-        while level.len() > 1 {
-            level = hash_level(&mut level, &hasher);
-        }
-
-        MerkleTree {
-            leafs,
-            root: level[0].clone(),
-            hasher,
-        }
-    }
-
-    pub fn get_root_hash(&self) -> FieldElement<F> {
-        self.root.borrow().hash.clone()
-    }
-
-    pub fn get_proof(&self, value: FieldElement<F>) -> Option<Proof<F, H>> {
-        let hashed_value = self.hasher.hash_one(value.clone());
-
-        if let Some(leaf) = self
-            .leafs
-            .iter()
-            .find(|node| node.borrow().hash == hashed_value)
-        {
-            let merkle_path = build_merkle_path(leaf.clone(), &mut Vec::new());
-
-            return Some(Proof {
-                value,
-                merkle_path,
-                hasher: self.hasher.clone(),
-            });
-        }
-
-        None
-    }
-
-    pub fn verify(proof: &Proof<F, H>, root_hash: FieldElement<F>) -> bool {
-        let mut hashed_value = proof.hasher.hash_one(proof.value.clone());
-
-        for node in proof.merkle_path.iter() {
-            if let Some(sibiling) = &node.borrow().sibiling {
-                hashed_value = proof
-                    .hasher
-                    .hash_two(hashed_value, sibiling.borrow().hash.clone());
-            }
-        }
-        hashed_value == root_hash
-    }
-}
-
-fn hash_leafs<F: IsField, H: IsCryptoHash<F>>(
-    values: &[FieldElement<F>],
-    hasher: &H,
-) -> Vec<TreeNode<F>> {
-    values
-        .iter()
-        .map(|value| build_tree_node(hasher.hash_one(value.clone())))
-        .collect()
-}
-
-fn hash_level<F: IsField, H: IsCryptoHash<F>>(
-    values: &mut Vec<TreeNode<F>>,
-    hasher: &H,
-) -> Vec<TreeNode<F>> {
-    if values.len() % 2 != 0 {
-        values.push(values[values.len() - 1].clone());
-    }
-
-    values
-        .chunks(2)
-        .map(|chunk| build_parent(chunk[0].clone(), chunk[1].clone(), hasher))
-        .collect()
-}
-
-fn build_parent<F: IsField, H: IsCryptoHash<F>>(
-    left: TreeNode<F>,
-    right: TreeNode<F>,
-    hasher: &H,
-) -> TreeNode<F> {
-    let parent_hash = hasher.hash_two(left.borrow().hash.clone(), right.borrow().hash.clone());
-    let parent = build_tree_node(parent_hash);
-
-    left.borrow_mut().sibiling = Some(right.clone());
-    left.borrow_mut().parent = Some(parent.clone());
-
-    right.borrow_mut().sibiling = Some(left);
-    right.borrow_mut().parent = Some(parent.clone());
-
-    parent
-}
-
-fn build_merkle_path<F: IsField>(
-    node: TreeNode<F>,
-    merkle_path: &mut Vec<TreeNode<F>>,
-) -> Vec<TreeNode<F>> {
-    merkle_path.push(node.clone());
-
-    if let Some(parent) = node.borrow().parent.clone() {
-        return build_merkle_path(parent, merkle_path).to_vec();
-    }
-
-    merkle_path.to_vec()
-}
-
-pub struct Proof<F: IsField, H: IsCryptoHash<F>> {
-    value: FieldElement<F>,
-    merkle_path: Vec<TreeNode<F>>,
-    hasher: H,
-}
-
-type TreeNode<F> = Rc<RefCell<Node<F>>>;
-
-fn build_tree_node<F: IsField>(hash: FieldElement<F>) -> TreeNode<F> {
-    Rc::new(RefCell::new(Node {
-        hash,
-        parent: None,
-        sibiling: None,
-    }))
-}
-
-#[derive(Clone, Debug, PartialEq)]
-struct Node<F: IsField> {
-    hash: FieldElement<F>,
-    parent: Option<TreeNode<F>>,
-    sibiling: Option<TreeNode<F>>,
-}
 
 #[cfg(test)]
 mod tests {
@@ -190,71 +204,53 @@ mod tests {
     }
 
     #[test]
-    fn create_merkle_tree_leafs_from_a_set_of_field_elemnts() {
+    fn hash_leafs_from_a_list_of_field_elemnts() {
         let hashed_leafs = hash_leafs(
             &[FE::new(1), FE::new(2), FE::new(3), FE::new(4)],
             &TestHasher,
         );
-        let list_of_nodes = [
-            build_tree_node(FE::new(2)),
-            build_tree_node(FE::new(4)),
-            build_tree_node(FE::new(6)),
-            build_tree_node(FE::new(8)),
+
+        let list_of_nodes = &[FE::new(2), FE::new(4), FE::new(6), FE::new(8)];
+
+        for (leaf, expected_leaf) in hashed_leafs.iter().zip(list_of_nodes) {
+            assert_eq!(leaf, expected_leaf);
+        }
+    }
+
+    #[test]
+    fn complete_the_length_of_a_list_of_fields_elemnts_to_be_a_power_of_two() {
+        let mut values = [FE::new(2), FE::new(4), FE::new(6), FE::new(8), FE::new(10)].to_vec();
+        let hashed_leafs = complete_until_power_of_two(&mut values);
+
+        let list_of_nodes = &[
+            FE::new(2),
+            FE::new(4),
+            FE::new(6),
+            FE::new(8),
+            FE::new(10),
+            FE::new(10),
+            FE::new(10),
+            FE::new(10),
         ];
 
         for (leaf, expected_leaf) in hashed_leafs.iter().zip(list_of_nodes) {
-            assert_eq!(leaf.borrow().hash, expected_leaf.borrow_mut().hash);
-            assert_eq!(leaf.borrow().parent, None);
-            assert_eq!(leaf.borrow().sibiling, None);
+            assert_eq!(leaf, expected_leaf);
         }
     }
 
+    //| 10 | 3 | 7 | 1 | 2 | 3 | 4 |
     #[test]
-    fn apply_hash_level_to_a_set_of_leafs() {
-        let hasher = TestHasher;
-        let mut hashed_leafs =
-            hash_leafs(&[FE::new(1), FE::new(2), FE::new(3), FE::new(4)], &hasher);
-        let level_one_nodes = hash_level(&mut hashed_leafs, &hasher);
-        let expected_list_of_nodes = [build_tree_node(FE::new(6)), build_tree_node(FE::new(14))];
-
-        for (node, expected_node) in level_one_nodes.iter().zip(expected_list_of_nodes) {
-            assert_eq!(node.borrow().hash, expected_node.borrow().hash);
-        }
-
-        for (pos, leaf) in hashed_leafs.iter().enumerate() {
-            let sibiling_pos;
-            let parent_pos;
-
-            if pos % 2 == 0 {
-                sibiling_pos = pos + 1;
-                parent_pos = pos / 2;
-            } else {
-                sibiling_pos = pos - 1;
-                parent_pos = (pos - 1) / 2;
-            }
-
-            assert_eq!(
-                leaf.borrow().sibiling.as_ref().unwrap().borrow().hash,
-                hashed_leafs[sibiling_pos].borrow().hash
-            );
-            assert_eq!(
-                leaf.borrow().parent.as_ref().unwrap().borrow().hash,
-                level_one_nodes[parent_pos].borrow().hash
-            );
-        }
-    }
-
-    #[test]
-    fn build_merkle_tree_from_an_even_set_of_leafs() {
+    fn build_merkle_tree_from_a_power_of_two_list_of_values() {
         let merkle_tree = MerkleTree::<U64PF, TestHasher>::build(&[
             FE::new(1),
             FE::new(2),
             FE::new(3),
             FE::new(4),
         ]);
-        assert_eq!(merkle_tree.root.borrow().hash, FE::new(20));
+        assert_eq!(merkle_tree.root, FE::new(20));
     }
 
+    // | 8 | 7 | 1 | 6 | 1 | 7 | 7 | 2 | 4 | 6 | 8 | 10 | 10 | 10 | 10 |
     #[test]
     fn build_merkle_tree_from_an_odd_set_of_leafs() {
         let merkle_tree = MerkleTree::<U64PF, TestHasher>::build(&[
@@ -264,30 +260,10 @@ mod tests {
             FE::new(4),
             FE::new(5),
         ]);
-        assert_eq!(merkle_tree.root.borrow().hash, FE::new(60));
+        assert_eq!(merkle_tree.root, FE::new(8));
     }
 
-    #[test]
-    fn create_a_proof_over_value_that_belongs_to_a_given_merkle_tree() {
-        let merkle_tree = MerkleTree::<U64PF, TestHasher>::build(&[
-            FE::new(1),
-            FE::new(2),
-            FE::new(3),
-            FE::new(4),
-            FE::new(5),
-        ]);
-        let proof = &merkle_tree.get_proof(FE::new(2)).unwrap();
-        let expected_hash = &[
-            build_tree_node(FE::new(4)),
-            build_tree_node(FE::new(6)),
-            build_tree_node(FE::new(7)),
-            build_tree_node(FE::new(8)),
-        ];
-        for (key, elem) in expected_hash.iter().enumerate() {
-            assert_eq!(proof.merkle_path[key].borrow().hash, elem.borrow().hash);
-        }
-    }
-
+    // | 8 | 7 | 1 | 6 | 1 | 7 | 7 | 2 | 4 | 6 | 8 | 10 | 10 | 10 | 10 |
     #[test]
     fn verify_a_proof_over_value_that_belongs_to_a_given_merkle_tree() {
         let merkle_tree = MerkleTree::<U64PF, TestHasher>::build(&[
@@ -297,8 +273,18 @@ mod tests {
             FE::new(4),
             FE::new(5),
         ]);
-        let proof = merkle_tree.get_proof(FE::new(2)).unwrap();
 
-        assert!(MerkleTree::verify(&proof, merkle_tree.get_root_hash()));
+        let proof = merkle_tree.get_proof(&FE::new(2)).unwrap();
+
+        for ((node, _), expected_node) in
+            proof
+                .merkle_path
+                .iter()
+                .zip(&[FE::new(2), FE::new(1), FE::new(1)])
+        {
+            assert_eq!(node, expected_node);
+        }
+
+        assert!(MerkleTree::verify(&proof, merkle_tree.root));
     }
 }
