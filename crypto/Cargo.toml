@@ -10,6 +10,7 @@ path = "../math"
 
 [dependencies]
 sha3 = "0.10.6"
+thiserror = "1.0"
 
 [dependencies.rand]
 version = "0.8"

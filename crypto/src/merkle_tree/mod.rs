@@ -1,4 +1,4 @@
-use crate::hash::traits::IsCryptoHash;
+use crate::{errors::HashError, hash::traits::IsCryptoHash};
 use lambdaworks_math::{
     elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::BLS12381PrimeField,
     field::{element::FieldElement, traits::IsField},
@@ -19,12 +19,16 @@ impl<F: IsField> IsCryptoHash<F> for DefaultHasher {
         DefaultHasher
     }
 
-    fn hash_one(&self, input: FieldElement<F>) -> FieldElement<F> {
-        &input + &input
+    fn hash_one(&self, input: FieldElement<F>) -> Result<FieldElement<F>, HashError> {
+        Ok(&input + &input)
     }
 
-    fn hash_two(&self, left: FieldElement<F>, right: FieldElement<F>) -> FieldElement<F> {
-        left + right
+    fn hash_two(
+        &self,
+        left: FieldElement<F>,
+        right: FieldElement<F>,
+    ) -> Result<FieldElement<F>, HashError> {
+        Ok(left + right)
     }
 }
 
@@ -52,7 +56,7 @@ impl<F: IsField, H: IsCryptoHash<F> + Clone> MerkleTree<F, H> {
     }
 
     pub fn get_proof(&self, value: FieldElement<F>) -> Option<Proof<F, H>> {
-        let hashed_value = self.hasher.hash_one(value.clone());
+        let hashed_value = self.hasher.hash_one(value.clone()).unwrap();
 
         if let Some(leaf) = self
             .leafs
@@ -72,7 +76,7 @@ impl<F: IsField, H: IsCryptoHash<F> + Clone> MerkleTree<F, H> {
     }
 
     pub fn get_proof_by_pos(&self, pos: usize, value: &FieldElement<F>) -> Option<Proof<F, H>> {
-        let hash_leaf = self.hasher.hash_one(value.clone());
+        let hash_leaf = self.hasher.hash_one(value.clone()).unwrap();
 
         if let Some(leaf) = self.leafs.get(pos) {
             if hash_leaf != leaf.borrow().hash {
@@ -92,13 +96,14 @@ impl<F: IsField, H: IsCryptoHash<F> + Clone> MerkleTree<F, H> {
     }
 
     pub fn verify(proof: &Proof<F, H>, root_hash: FieldElement<F>) -> bool {
-        let mut hashed_value = proof.hasher.hash_one(proof.value.clone());
+        let mut hashed_value = proof.hasher.hash_one(proof.value.clone()).unwrap();
 
         for node in proof.merkle_path.iter() {
             if let Some(sibiling) = &node.borrow().sibiling {
                 hashed_value = proof
                     .hasher
-                    .hash_two(hashed_value, sibiling.borrow().hash.clone());
+                    .hash_two(hashed_value, sibiling.borrow().hash.clone())
+                    .unwrap();
             }
         }
         hashed_value == root_hash
@@ -111,7 +116,7 @@ fn hash_leafs<F: IsField, H: IsCryptoHash<F>>(
 ) -> Vec<TreeNode<F>> {
     values
         .iter()
-        .map(|value| build_tree_node(hasher.hash_one(value.clone())))
+        .map(|value| build_tree_node(hasher.hash_one(value.clone()).unwrap()))
         .collect()
 }
 
@@ -134,7 +139,9 @@ fn build_parent<F: IsField, H: IsCryptoHash<F>>(
     right: TreeNode<F>,
     hasher: &H,
 ) -> TreeNode<F> {
-    let parent_hash = hasher.hash_two(left.borrow().hash.clone(), right.borrow().hash.clone());
+    let parent_hash = hasher
+        .hash_two(left.borrow().hash.clone(), right.borrow().hash.clone())
+        .unwrap();
     let parent = build_tree_node(parent_hash);
 
     left.borrow_mut().sibiling = Some(right.clone());
@@ -196,12 +203,12 @@ mod tests {
     struct TestHasher;
 
     impl IsCryptoHash<U64PF> for TestHasher {
-        fn hash_one(&self, input: FE) -> FE {
-            input + input
+        fn hash_one(&self, input: FE) -> Result<FE, HashError> {
+            Ok(input + input)
         }
 
-        fn hash_two(&self, left: FE, right: FE) -> FE {
-            left + right
+        fn hash_two(&self, left: FE, right: FE) -> Result<FE, HashError> {
+            Ok(left + right)
         }
 
         fn new() -> TestHasher {
