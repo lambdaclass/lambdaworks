@@ -4,7 +4,7 @@
 use crate::{
     elliptic_curve::{
         short_weierstrass::{point::ShortWeierstrassProjectivePoint, traits::IsShortWeierstrass},
-        traits::{EllipticCurveError, IsEllipticCurve},
+        traits::IsEllipticCurve,
     },
     field::{
         element::FieldElement,
@@ -46,18 +46,6 @@ impl IsEllipticCurve for TestCurve1 {
             FieldElement::from(31),
             FieldElement::one(),
         ])
-    }
-
-    fn create_point_from_affine(
-        x: FieldElement<Self::BaseField>,
-        y: FieldElement<Self::BaseField>,
-    ) -> Result<Self::PointRepresentation, EllipticCurveError> {
-        let coordinates = [x, y, FieldElement::one()];
-        if Self::defining_equation(&coordinates) != FieldElement::zero() {
-            Err(EllipticCurveError::InvalidPoint)
-        } else {
-            Ok(Self::PointRepresentation::new(coordinates))
-        }
     }
 }
 

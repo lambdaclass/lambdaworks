@@ -1,6 +1,9 @@
 use crate::{
     cyclic_group::IsGroup,
-    elliptic_curve::{point::ProjectivePoint, traits::IsEllipticCurve},
+    elliptic_curve::{
+        point::ProjectivePoint,
+        traits::{EllipticCurveError, FromAffine, IsEllipticCurve},
+    },
     field::element::FieldElement,
 };
 
@@ -46,6 +49,20 @@ impl<E: IsEllipticCurve> EdwardsProjectivePoint<E> {
 impl<E: IsEllipticCurve> PartialEq for EdwardsProjectivePoint<E> {
     fn eq(&self, other: &Self) -> bool {
         self.0 == other.0
+    }
+}
+
+impl<E: IsEdwards> FromAffine<E::BaseField> for EdwardsProjectivePoint<E> {
+    fn from_affine(
+        x: FieldElement<E::BaseField>,
+        y: FieldElement<E::BaseField>,
+    ) -> Result<Self, crate::elliptic_curve::traits::EllipticCurveError> {
+        let coordinates = [x, y, FieldElement::one()];
+        if E::defining_equation(&coordinates) != FieldElement::zero() {
+            Err(EllipticCurveError::InvalidPoint)
+        } else {
+            Ok(EdwardsProjectivePoint::new(coordinates))
+        }
     }
 }
 

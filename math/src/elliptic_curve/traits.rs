@@ -17,7 +17,7 @@ pub trait IsEllipticCurve {
     /// The representation of the point. For example it can be projective
     /// coordinates, affine coordinates, XYZZ, depending on the curve and its
     /// possible optimizations.
-    type PointRepresentation: IsGroup;
+    type PointRepresentation: IsGroup + FromAffine<Self::BaseField>;
 
     /// Returns the generator of the main subgroup.
     fn generator() -> Self::PointRepresentation;
@@ -26,5 +26,11 @@ pub trait IsEllipticCurve {
     fn create_point_from_affine(
         x: FieldElement<Self::BaseField>,
         y: FieldElement<Self::BaseField>,
-    ) -> Result<Self::PointRepresentation, EllipticCurveError>;
+    ) -> Result<Self::PointRepresentation, EllipticCurveError> {
+        Self::PointRepresentation::from_affine(x, y)
+    }
+}
+
+pub trait FromAffine<F: IsField>: Sized {
+    fn from_affine(x: FieldElement<F>, y: FieldElement<F>) -> Result<Self, EllipticCurveError>;
 }

@@ -1,5 +1,5 @@
 use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
-use crate::elliptic_curve::traits::{EllipticCurveError, IsEllipticCurve};
+use crate::elliptic_curve::traits::IsEllipticCurve;
 use crate::field::fields::u384_prime_field::{
     IsMontgomeryConfiguration, MontgomeryBackendPrimeField,
 };
@@ -62,18 +62,6 @@ impl IsEllipticCurve for TestCurve2 {
             ]),
             FieldElement::one(),
         ])
-    }
-
-    fn create_point_from_affine(
-        x: FieldElement<Self::BaseField>,
-        y: FieldElement<Self::BaseField>,
-    ) -> Result<Self::PointRepresentation, EllipticCurveError> {
-        let coordinates = [x, y, FieldElement::one()];
-        if Self::defining_equation(&coordinates) != FieldElement::zero() {
-            Err(EllipticCurveError::InvalidPoint)
-        } else {
-            Ok(Self::PointRepresentation::new(coordinates))
-        }
     }
 }
 

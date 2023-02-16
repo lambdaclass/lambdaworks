@@ -1,6 +1,9 @@
 use crate::{
     cyclic_group::IsGroup,
-    elliptic_curve::{point::ProjectivePoint, traits::IsEllipticCurve},
+    elliptic_curve::{
+        point::ProjectivePoint,
+        traits::{EllipticCurveError, FromAffine, IsEllipticCurve},
+    },
     field::element::FieldElement,
 };
 
@@ -56,6 +59,20 @@ impl<E: IsEllipticCurve> PartialEq for ShortWeierstrassProjectivePoint<E> {
 }
 
 impl<E: IsEllipticCurve> Eq for ShortWeierstrassProjectivePoint<E> {}
+
+impl<E: IsShortWeierstrass> FromAffine<E::BaseField> for ShortWeierstrassProjectivePoint<E> {
+    fn from_affine(
+        x: FieldElement<E::BaseField>,
+        y: FieldElement<E::BaseField>,
+    ) -> Result<Self, crate::elliptic_curve::traits::EllipticCurveError> {
+        let coordinates = [x, y, FieldElement::one()];
+        if E::defining_equation(&coordinates) != FieldElement::zero() {
+            Err(EllipticCurveError::InvalidPoint)
+        } else {
+            Ok(ShortWeierstrassProjectivePoint::new(coordinates))
+        }
+    }
+}
 
 impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
     /// The point at infinity.

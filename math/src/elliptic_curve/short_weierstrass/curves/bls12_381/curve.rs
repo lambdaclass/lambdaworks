@@ -1,5 +1,5 @@
 use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
-use crate::elliptic_curve::traits::{EllipticCurveError, IsEllipticCurve};
+use crate::elliptic_curve::traits::IsEllipticCurve;
 use crate::{
     elliptic_curve::short_weierstrass::traits::IsShortWeierstrass, field::element::FieldElement,
 };
@@ -21,18 +21,6 @@ impl IsEllipticCurve for BLS12381Curve {
             FieldElement::one()
         ])
     }
-
-    fn create_point_from_affine(
-        x: FieldElement<Self::BaseField>,
-        y: FieldElement<Self::BaseField>,
-    ) -> Result<Self::PointRepresentation, EllipticCurveError> {
-        let coordinates = [x, y, FieldElement::one()];
-        if Self::defining_equation(&coordinates) != FieldElement::zero() {
-            Err(EllipticCurveError::InvalidPoint)
-        } else {
-            Ok(Self::PointRepresentation::new(coordinates))
-        }
-    }
 }
 
 impl IsShortWeierstrass for BLS12381Curve {
@@ -48,7 +36,10 @@ impl IsShortWeierstrass for BLS12381Curve {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{cyclic_group::IsGroup, field::element::FieldElement};
+    use crate::{
+        cyclic_group::IsGroup, elliptic_curve::traits::EllipticCurveError,
+        field::element::FieldElement,
+    };
 
     use super::BLS12381Curve;
 
