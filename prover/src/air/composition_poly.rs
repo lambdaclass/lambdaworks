@@ -38,12 +38,12 @@ pub(crate) fn get_coefficients<E: StarkField>(poly: CompositionPoly<E>) -> Vec<E
     coeffs
 }
 
-/// Given a trace and an air defined with winterfell data structures, outputs
-/// a vector of u128 representing the coefficients of the composition polynomial.
+/// Given a trace and an AIR defined with winterfell data structures, outputs
+/// a Polynomial lambdaworks native data structure.
 #[allow(dead_code)]
 pub(crate) fn get_composition_poly<A>(
     air: A,
-    trace: TraceTable<BaseElement>,
+    trace: TraceTable<A::BaseField>,
     pub_inputs: A::PublicInputs,
 ) -> Polynomial<U128FieldElement<M>>
 where
@@ -52,7 +52,7 @@ where
     let mut pub_inputs_bytes = Vec::new();
     pub_inputs.write_into(&mut pub_inputs_bytes);
     let mut channel =
-        ProverChannel::<A, BaseElement, Blake3_256<BaseElement>>::new(&air, pub_inputs_bytes);
+        ProverChannel::<A, A::BaseField, Blake3_256<A::BaseField>>::new(&air, pub_inputs_bytes);
     let domain = StarkDomain::new(&air);
 
     // extend the main execution trace and build a Merkle tree from the extended trace
