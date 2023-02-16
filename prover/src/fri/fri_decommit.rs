@@ -31,7 +31,9 @@ pub fn fri_decommit_layers(
     let last = commit.last().unwrap();
     let last_evaluation = last.poly.coefficients[0];
 
-    // @@@ TODO insert last_evaluation in transcript
+    // insert last_evaluation in transcript
+    let last_evaluation_bytes = (*last_evaluation.value()).to_be_bytes();
+    transcript.append(&last_evaluation_bytes);
 }
 
 // Integration test:
