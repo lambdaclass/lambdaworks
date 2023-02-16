@@ -1,6 +1,5 @@
 use super::F;
 use crate::fri::fri_commitment::FriCommitmentVec;
-use crate::fri::fri_merkle_tree::FriTestHasher;
 pub use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 
 // verifier chooses a randomness and get the index where
@@ -33,8 +32,6 @@ pub fn fri_decommit_layers(
     let last_evaluation = last.poly.coefficients[0];
 
     // @@@ TODO insert last_evaluation in transcript
-
-
 }
 
 // Integration test:

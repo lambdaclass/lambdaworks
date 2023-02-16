@@ -11,7 +11,7 @@ pub struct MerkleTree<F: IsField, H: IsCryptoHash<F>> {
     hasher: H,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DefaultHasher;
 
 impl<F: IsField> IsCryptoHash<F> for DefaultHasher {

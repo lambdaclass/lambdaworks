@@ -1,19 +1,22 @@
 mod fri_commitment;
-mod fri_decommit;
+//mod fri_decommit;
 mod fri_functions;
 mod fri_merkle_tree;
 
 use crate::fri::fri_commitment::{FriCommitment, FriCommitmentVec};
 use crate::fri::fri_functions::next_fri_layer;
-use crate::fri::fri_merkle_tree::FriTestHasher;
-pub use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
-use lambdaworks_crypto::merkle_tree::MerkleTree;
-use lambdaworks_math::field::{element::FieldElement, fields::u64_prime_field::U64PrimeField};
-pub use lambdaworks_math::polynomial::Polynomial;
+pub use lambdaworks_crypto::{fiat_shamir::transcript::Transcript, merkle_tree::MerkleTree};
+pub use lambdaworks_math::{
+    field::{element::FieldElement, fields::u64_prime_field::U64PrimeField},
+    polynomial::Polynomial,
+};
 
 const ORDER: u64 = 293;
 pub type F = U64PrimeField<ORDER>;
 pub type FE = FieldElement<F>;
+
+
+/* 
 
 /// # Params
 ///
@@ -95,3 +98,4 @@ pub fn fri(
 
     fri_commitment_list
 }
+*/
