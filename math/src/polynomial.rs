@@ -65,10 +65,6 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
         input.iter().map(|x| self.evaluate(x)).collect()
     }
 
-    pub fn evaluate_slice(&self, input: &[FieldElement<F>]) -> Vec<FieldElement<F>> {
-        input.iter().map(|x| self.evaluate(x)).collect()
-    }
-
     pub fn degree(&self) -> usize {
         if self.coefficients.is_empty() {
             0
