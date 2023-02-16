@@ -1,15 +1,11 @@
+use crate::elliptic_curve::traits::IsEllipticCurve;
 use crate::field::element::FieldElement;
-use crate::field::traits::IsField;
 use crate::unsigned_integer::traits::IsUnsignedInteger;
 use std::fmt::Debug;
 
 /// Trait to add elliptic curves behaviour to a struct.
 /// We use the short Weierstrass form equation: `y^2 = x^3 + a * x  + b`.
-pub trait IsShortWeierstrass: Clone + Debug {
-    /// BaseField is the field used for each of the coordinates of a point p
-    /// belonging to the curve.
-    type BaseField: IsField + Clone + Debug;
-
+pub trait IsShortWeierstrass: IsEllipticCurve + Clone + Debug {
     /// The type used to store order_p and order_r.
     type UIntOrders: IsUnsignedInteger;
 
@@ -18,12 +14,6 @@ pub trait IsShortWeierstrass: Clone + Debug {
 
     /// `b` coefficient for the equation  `y^2 = x^3 + a * x  + b`.
     fn b() -> FieldElement<Self::BaseField>;
-
-    /// `x` component of the generator (x, y) in affine form.
-    fn generator_affine_x() -> FieldElement<Self::BaseField>;
-
-    /// `y` component of the generator (x, y) in affine form.
-    fn generator_affine_y() -> FieldElement<Self::BaseField>;
 
     /// Order of the subgroup of the curve (e.g.: number of elements in
     /// the subgroup of the curve).
