@@ -7,6 +7,7 @@ use crate::fri::fri_commitment::{FriCommitment, FriCommitmentVec};
 use crate::fri::fri_functions::next_fri_layer;
 pub use crate::fri::fri_merkle_tree::FriMerkleTree;
 pub use lambdaworks_crypto::{fiat_shamir::transcript::Transcript, merkle_tree::MerkleTree};
+use lambdaworks_math::traits::ByteConversion;
 pub use lambdaworks_math::{
     field::{element::FieldElement, fields::u64_prime_field::U64PrimeField},
     polynomial::Polynomial,
@@ -33,7 +34,7 @@ pub fn fri_commitment(
     //     - hasher
     // Create a new merkle tree with evaluation_i
     let merkle_tree = FriMerkleTree::build(&evaluation_i);
-   
+
     // append the root of the merkle tree to the transcript
     let root = merkle_tree.root.borrow().hash;
     let root_bytes = (*root.value()).to_be_bytes();
@@ -79,9 +80,8 @@ pub fn fri(p_0: &mut Polynomial<FieldElement<F>>, domain_0: &[FE]) -> FriCommitm
 
     while degree > 0 {
         // sample beta:
-        // TODO! let beta = transcript.challenge();
-        let beta = FE::new(5);
-
+        let beta_bytes = transcript.challenge();
+        let beta = FE::from_bytes_be(&beta_bytes).unwrap();
         let (p_i, domain_i, evaluation_i) = next_fri_layer(&last_poly, &last_domain, &beta);
 
         let commitment_i = fri_commitment(&p_i, &domain_i, &evaluation_i, &mut transcript);
@@ -91,7 +91,6 @@ pub fn fri(p_0: &mut Polynomial<FieldElement<F>>, domain_0: &[FE]) -> FriCommitm
         let root = tree.root.borrow().hash;
         let root_bytes = (*root.value()).to_be_bytes();
         transcript.append(&root_bytes);
-
 
         fri_commitment_list.push(commitment_i);
         degree = p_i.degree();
