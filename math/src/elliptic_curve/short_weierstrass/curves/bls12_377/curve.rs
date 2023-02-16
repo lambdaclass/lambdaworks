@@ -1,6 +1,6 @@
 use super::field_extension::BLS12377PrimeField;
 use crate::elliptic_curve::short_weierstrass::curves::bls12_377::field_extension::BLS12377_PRIME_FIELD_ORDER;
-use crate::elliptic_curve::projective_point::ProjectivePoint;
+use crate::elliptic_curve::short_weierstrass::element::ShortWeierstrassProjectivePoint;
 use crate::elliptic_curve::traits::IsEllipticCurve;
 use crate::unsigned_integer::element::U384;
 use crate::{
@@ -17,10 +17,10 @@ pub struct BLS12377Curve;
 
 impl IsEllipticCurve for BLS12377Curve {
     type BaseField = BLS12377PrimeField;
-    type PointRepresentation = ProjectivePoint<Self>;
+    type PointRepresentation = ShortWeierstrassProjectivePoint<Self>;
 
     fn generator() -> Self::PointRepresentation {
-        ProjectivePoint::new([
+        Self::PointRepresentation::new([
             FieldElement::<Self::BaseField>::new_base("8848defe740a67c8fc6225bf87ff5485951e2caa9d41bb188282c8bd37cb5cd5481512ffcd394eeab9b16eb21be9ef"),
             FieldElement::<Self::BaseField>::new_base("1914a69c5102eff1f674f5d30afeec4bd7fb348ca3e52d96d182ad44fb82305c2fe3d3634a9591afd82de55559c8ea6"),
             FieldElement::one()
@@ -31,14 +31,9 @@ impl IsEllipticCurve for BLS12377Curve {
         x: FieldElement<Self::BaseField>,
         y: FieldElement<Self::BaseField>,
     ) -> Self::PointRepresentation {
-        ProjectivePoint::new([x, y, FieldElement::one()])
-    }
-
-    fn add(
-        p: &Self::PointRepresentation,
-        q: &Self::PointRepresentation,
-    ) -> Self::PointRepresentation {
-        Self::PointRepresentation::new(Self::add_weierstrass(p.coordinates(), q.coordinates()))
+        let coordinates = [x, y, FieldElement::one()];
+        assert_eq!(Self::defining_equation(&coordinates), FieldElement::zero());
+        Self::PointRepresentation::new(coordinates)
     }
 }
 
@@ -78,23 +73,20 @@ impl IsShortWeierstrass for BLS12377Curve {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        cyclic_group::IsGroup, elliptic_curve::projective_point::ProjectivePoint,
-        field::element::FieldElement,
-    };
+    use crate::{cyclic_group::IsGroup, field::element::FieldElement};
 
     use super::BLS12377Curve;
 
     #[allow(clippy::upper_case_acronyms)]
     type FEE = FieldElement<BLS12377PrimeField>;
 
-    fn point_1() -> ProjectivePoint<BLS12377Curve> {
+    fn point_1() -> ShortWeierstrassProjectivePoint<BLS12377Curve> {
         let x = FEE::new_base("134e4cc122cb62a06767fb98e86f2d5f77e2a12fefe23bb0c4c31d1bd5348b88d6f5e5dee2b54db4a2146cc9f249eea");
         let y = FEE::new_base("17949c29effee7a9f13f69b1c28eccd78c1ed12b47068836473481ff818856594fd9c1935e3d9e621901a2d500257a2");
         BLS12377Curve::create_point_from_affine(x, y)
     }
 
-    fn point_1_times_5() -> ProjectivePoint<BLS12377Curve> {
+    fn point_1_times_5() -> ShortWeierstrassProjectivePoint<BLS12377Curve> {
         let x = FEE::new_base("3c852d5aab73fbb51e57fbf5a0a8b5d6513ec922b2611b7547bfed74cba0dcdfc3ad2eac2733a4f55d198ec82b9964");
         let y = FEE::new_base("a71425e68e55299c64d7eada9ae9c3fb87a9626b941d17128b64685fc07d0e635f3c3a512903b4e0a43e464045967b");
         BLS12377Curve::create_point_from_affine(x, y)

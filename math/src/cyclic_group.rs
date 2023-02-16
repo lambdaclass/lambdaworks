@@ -1,4 +1,3 @@
-
 pub trait IsGroup: Clone + PartialEq + Eq {
     /// Returns the neutral element of the group. The equality
     /// `neutral_element().operate_with(g) == g` must hold

@@ -1,153 +1,79 @@
-use crate::elliptic_curve::projective_point::ProjectivePoint;
-use crate::elliptic_curve::traits::IsEllipticCurve;
-use crate::field::element::FieldElement;
-use crate::field::fields::u64_prime_field::U64PrimeField;
-use crate::unsigned_integer::traits::IsUnsignedInteger;
-use std::fmt::Debug;
+use crate::{
+    cyclic_group::IsGroup,
+    elliptic_curve::{projective_point::ProjectivePoint, traits::IsEllipticCurve},
+    field::element::FieldElement,
+};
 
-/// Trait to add elliptic curves behaviour to a struct.
-pub trait IsEdwards: IsEllipticCurve + Clone + Debug {
-    /// The type used to store order_p and order_r.
-    type UIntOrders: IsUnsignedInteger;
+use super::traits::IsEdwards;
 
-    fn a() -> FieldElement<Self::BaseField>;
+#[derive(Clone, Debug)]
+pub struct EdwardsProjectivePoint<E: IsEllipticCurve>(ProjectivePoint<E>);
 
-    fn d() -> FieldElement<Self::BaseField>;
-
-    /// Order of the subgroup of the curve (e.g.: number of elements in
-    /// the subgroup of the curve).
-    fn order_r() -> Self::UIntOrders;
-
-    /// Order of the base field (e.g.: order of the field where `a` and `b` are defined).
-    fn order_p() -> Self::UIntOrders;
-
-    /// Evaluates the short Weierstrass equation at (x, y z).
-    /// Used for checking if [x: y: z] belongs to the elliptic curve.
-    fn defining_equation(p: &[FieldElement<Self::BaseField>; 3]) -> FieldElement<Self::BaseField> {
-        assert_ne!(Self::a(), FieldElement::zero()); // This could be a test
-        assert_ne!(Self::d(), FieldElement::zero());
-        assert_ne!(Self::a(), Self::d());
-
-        let (x, y, z) = (&p[0], &p[1], &p[2]);
-        Self::a() * x.pow(2_u16) + y.pow(2_u16) - z.pow(2_u16) - Self::d() * x.pow(2_u16) * y.pow(2_u16)
+impl<E: IsEllipticCurve> EdwardsProjectivePoint<E> {
+    /// Creates an elliptic curve point giving the projective [x: y: z] coordinates.
+    pub fn new(value: [FieldElement<E::BaseField>; 3]) -> Self {
+        Self(ProjectivePoint::new(value))
     }
 
-    /// Projective equality relation: `p` has to be a multiple of `q`
-    fn eq(p: &[FieldElement<Self::BaseField>; 3], q: &[FieldElement<Self::BaseField>; 3]) -> bool {
-        let (px, py, pz) = (&p[0], &p[1], &p[2]);
-        let (qx, qy, qz) = (&q[0], &q[1], &q[2]);
-        (px * qz == pz * qx) && (px * qy == py * qx)
+    /// Returns the `x` coordinate of the point.
+    pub fn x(&self) -> &FieldElement<E::BaseField> {
+        self.0.x()
     }
 
+    /// Returns the `y` coordinate of the point.
+    pub fn y(&self) -> &FieldElement<E::BaseField> {
+        self.0.y()
+    }
+
+    /// Returns the `z` coordinate of the point.
+    pub fn z(&self) -> &FieldElement<E::BaseField> {
+        self.0.z()
+    }
+
+    /// Returns a tuple [x, y, z] with the coordinates of the point.
+    pub fn coordinates(&self) -> &[FieldElement<E::BaseField>; 3] {
+        self.0.coordinates()
+    }
+
+    /// Creates the same point in affine coordinates. That is,
+    /// returns [x / z: y / z: 1] where `self` is [x: y: z].
+    /// Panics if `self` is the point at infinity.
+    pub fn to_affine(&self) -> Self {
+        Self(self.0.to_affine())
+    }
+}
+
+impl<E: IsEllipticCurve> PartialEq for EdwardsProjectivePoint<E> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
+impl<E: IsEllipticCurve> Eq for EdwardsProjectivePoint<E> {}
+
+impl<E: IsEdwards> IsGroup for EdwardsProjectivePoint<E> {
     /// The point at infinity.
-    fn neutral_element() -> [FieldElement<Self::BaseField>; 3] {
-        [
+    fn neutral_element() -> Self {
+        Self::new([
             FieldElement::zero(),
             FieldElement::one(),
             FieldElement::zero(),
-        ]
+        ])
     }
 
-    /// Check if a projective point `p` is the point at inifinity.
-    fn is_neutral_element(p: &[FieldElement<Self::BaseField>; 3]) -> bool {
-        Self::eq(p, &Self::neutral_element())
-    }
-
-    /// Returns the normalized projective coordinates to obtain "affine" coordinates
-    /// of the form [x: y: 1]
-    /// Panics if `self` is the point at infinity
-    fn affine(p: &[FieldElement<Self::BaseField>; 3]) -> [FieldElement<Self::BaseField>; 3] {
-        assert!(
-            !Self::is_neutral_element(p),
-            "The point at infinity is not affine."
-        );
-        let (x, y, z) = (&p[0], &p[1], &p[2]);
-        [x / z, y / z, FieldElement::one()]
-    }
-
-    /// Returns the sum of projective points `p` and `q`
+    /// Computes the addition of `self` and `other`.
     /// Taken from "Moonmath" (Algorithm 7, page 89)
-    fn add_edwards(
-        p: &[FieldElement<Self::BaseField>; 3],
-        q: &[FieldElement<Self::BaseField>; 3],
-    ) -> [FieldElement<Self::BaseField>; 3] {
+    fn operate_with(&self, other: &Self) -> Self {
         // TODO: Remove repeated operations
-        let [x1, y1, _] = Self::affine(p);
-        let [x2, y2, _] = Self::affine(q);
-        
+        let [x1, y1, _] = self.to_affine().coordinates().clone();
+        let [x2, y2, _] = other.to_affine().coordinates().clone();
+
         let num_s1 = &x1 * &y2 + &y1 * &x2;
-        let den_s1 = FieldElement::one() + Self::d() * &x1 * &x2 * &y1 * &y2;
+        let den_s1 = FieldElement::one() + E::d() * &x1 * &x2 * &y1 * &y2;
 
-        let num_s2 = &y1 * &y2 - Self::a() * &x1 * &x2;
-        let den_s2 = FieldElement::one() - Self::d() * &x1 * &x2 * &y1 * &y2;
+        let num_s2 = &y1 * &y2 - E::a() * &x1 * &x2;
+        let den_s2 = FieldElement::one() - E::d() * x1 * x2 * y1 * y2;
 
-        [num_s1 / den_s1, num_s2 / den_s2, FieldElement::one()]
-    }
-
-    /// Returns the additive inverse of the projective point `p`
-    fn neg(p: &[FieldElement<Self::BaseField>; 3]) -> [FieldElement<Self::BaseField>; 3] {
-        todo!()
-    }
-}
-
-
-/// Taken from moonmath manual page 97
-#[derive(Debug, Clone)]
-pub struct TinyJubJubEdwards;
-
-impl IsEllipticCurve for TinyJubJubEdwards {
-    type BaseField = U64PrimeField<13>;
-    type PointRepresentation = ProjectivePoint<Self>;
-
-    fn generator() -> Self::PointRepresentation {
-        todo!()
-    }
-
-    fn create_point_from_affine(
-            x: FieldElement<Self::BaseField>,
-            y: FieldElement<Self::BaseField>,
-        ) -> Self::PointRepresentation {
-        todo!()
-    }
-
-    fn add(
-        p: &Self::PointRepresentation,
-        q: &Self::PointRepresentation,
-    ) -> Self::PointRepresentation {
-        Self::PointRepresentation::new(Self::add_edwards(p.coordinates(), q.coordinates()))
-    }
-}
-
-impl IsEdwards for TinyJubJubEdwards {
-    type UIntOrders = u64;
-
-    fn a() -> FieldElement<Self::BaseField> {
-        FieldElement::from(3)
-    }
-
-    fn d() -> FieldElement<Self::BaseField> {
-        FieldElement::from(8)
-    }
-
-    fn order_r() -> Self::UIntOrders {
-        todo!()
-    }
-
-    fn order_p() -> Self::UIntOrders {
-        13
-    }
-}
-
-
-#[cfg(test)]
-mod tests {
-    use crate::{elliptic_curve::{edwards::element::TinyJubJubEdwards, projective_point::ProjectivePoint}, field::element::FieldElement, cyclic_group::IsGroup};
-
-    #[test]
-    fn sum_works() {
-        let p = ProjectivePoint::<TinyJubJubEdwards>::new([FieldElement::from(5), FieldElement::from(5), FieldElement::from(1)]);
-        let q = ProjectivePoint::<TinyJubJubEdwards>::new([FieldElement::from(8), FieldElement::from(5), FieldElement::from(1)]);
-        let expected = ProjectivePoint::<TinyJubJubEdwards>::new([FieldElement::from(0), FieldElement::from(1), FieldElement::from(1)]);
-        assert_eq!(p.operate_with(&q), expected);
+        Self::new([num_s1 / den_s1, num_s2 / den_s2, FieldElement::one()])
     }
 }

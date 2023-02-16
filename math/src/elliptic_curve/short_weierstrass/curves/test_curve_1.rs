@@ -4,9 +4,9 @@
 use crate::{
     elliptic_curve::{
         short_weierstrass::{
+            element::ShortWeierstrassProjectivePoint,
             traits::{HasDistortionMap, IsShortWeierstrass},
         },
-        projective_point::ProjectivePoint,
         traits::IsEllipticCurve,
     },
     field::{
@@ -41,10 +41,10 @@ pub struct TestCurve1;
 
 impl IsEllipticCurve for TestCurve1 {
     type BaseField = QuadraticExtensionField<TestCurveQuadraticNonResidue>;
-    type PointRepresentation = ProjectivePoint<Self>;
+    type PointRepresentation = ShortWeierstrassProjectivePoint<Self>;
 
     fn generator() -> Self::PointRepresentation {
-        ProjectivePoint::new([
+        Self::PointRepresentation::new([
             FieldElement::from(35),
             FieldElement::from(31),
             FieldElement::one(),
@@ -55,17 +55,11 @@ impl IsEllipticCurve for TestCurve1 {
         x: FieldElement<Self::BaseField>,
         y: FieldElement<Self::BaseField>,
     ) -> Self::PointRepresentation {
-        ProjectivePoint::new([x, y, FieldElement::one()])
-    }
-
-    fn add(
-        p: &Self::PointRepresentation,
-        q: &Self::PointRepresentation,
-    ) -> Self::PointRepresentation {
-        Self::PointRepresentation::new(Self::add_weierstrass(p.coordinates(), q.coordinates()))
+        let coordinates = [x, y, FieldElement::one()];
+        assert_eq!(Self::defining_equation(&coordinates), FieldElement::zero());
+        Self::PointRepresentation::new(coordinates)
     }
 }
-
 
 impl IsShortWeierstrass for TestCurve1 {
     type UIntOrders = u64;

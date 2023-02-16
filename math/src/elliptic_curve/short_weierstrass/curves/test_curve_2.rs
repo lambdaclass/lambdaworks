@@ -1,4 +1,4 @@
-use crate::elliptic_curve::projective_point::ProjectivePoint;
+use crate::elliptic_curve::short_weierstrass::element::ShortWeierstrassProjectivePoint;
 use crate::elliptic_curve::traits::IsEllipticCurve;
 use crate::field::fields::u384_prime_field::{
     IsMontgomeryConfiguration, MontgomeryBackendPrimeField,
@@ -48,10 +48,10 @@ pub struct TestCurve2;
 
 impl IsEllipticCurve for TestCurve2 {
     type BaseField = QuadraticExtensionField<TestCurve2QuadraticNonResidue>;
-    type PointRepresentation = ProjectivePoint<Self>;
+    type PointRepresentation = ShortWeierstrassProjectivePoint<Self>;
 
     fn generator() -> Self::PointRepresentation {
-        ProjectivePoint::new([
+        Self::PointRepresentation::new([
             FieldElement::new([
                 FieldElement::new(U384::from("21acedb641ca6d0f8b60148123a999801")),
                 FieldElement::new(U384::from("14d34d94f7de312859a8a0d9dbc67159d3")),
@@ -68,14 +68,7 @@ impl IsEllipticCurve for TestCurve2 {
         x: FieldElement<Self::BaseField>,
         y: FieldElement<Self::BaseField>,
     ) -> Self::PointRepresentation {
-        ProjectivePoint::new([x, y, FieldElement::one()])
-    }
-
-    fn add(
-        p: &Self::PointRepresentation,
-        q: &Self::PointRepresentation,
-    ) -> Self::PointRepresentation {
-        Self::PointRepresentation::new(Self::add_weierstrass(p.coordinates(), q.coordinates()))
+        Self::PointRepresentation::new([x, y, FieldElement::one()])
     }
 }
 

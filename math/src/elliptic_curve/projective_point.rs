@@ -1,14 +1,6 @@
-use crate::cyclic_group::IsGroup;
-use crate::elliptic_curve::edwards::element::TinyJubJubEdwards;
 use crate::elliptic_curve::traits::IsEllipticCurve;
 use crate::field::element::FieldElement;
-use crate::elliptic_curve::short_weierstrass::curves::bls12_377::curve::BLS12377Curve;
-use crate::elliptic_curve::short_weierstrass::curves::bls12_381::curve::BLS12381Curve;
-use crate::elliptic_curve::short_weierstrass::curves::test_curve_1::TestCurve1;
-use crate::elliptic_curve::short_weierstrass::curves::test_curve_2::TestCurve2;
 use std::fmt::Debug;
-
-use super::short_weierstrass::traits::IsShortWeierstrass;
 
 /// Represents an elliptic curve point using the projective short Weierstrass form:
 /// y^2 * z = x^3 + a * x * z^2 + b * z^3,
@@ -64,58 +56,21 @@ impl<E: IsEllipticCurve> PartialEq for ProjectivePoint<E> {
 
 impl<E: IsEllipticCurve> Eq for ProjectivePoint<E> {}
 
-impl<E: IsShortWeierstrass> IsGroup for ProjectivePoint<E> {
-    /// The point at infinity.
-    fn neutral_element() -> ProjectivePoint<E> {
-        Self::new([
-            FieldElement::zero(),
-            FieldElement::one(),
-            FieldElement::zero(),
-        ])
-    }
-
-    /// Computes the addition of `self` and `other`.
-    /// Taken from "Moonmath" (Algorithm 7, page 89)
-    fn operate_with(&self, other: &Self) -> Self {
-        Self::new(E::add_weierstrass(self.coordinates(), other.coordinates()))
-    }
-}
-
-impl IsGroup for ProjectivePoint<TinyJubJubEdwards> {
-    /// The point at infinity.
-    fn neutral_element() -> ProjectivePoint<TinyJubJubEdwards> {
-        Self::new([
-            FieldElement::zero(),
-            FieldElement::one(),
-            FieldElement::zero(),
-        ])
-    }
-
-    /// Computes the addition of `self` and `other`.
-    /// Taken from "Moonmath" (Algorithm 7, page 89)
-    fn operate_with(&self, other: &Self) -> Self {
-        TinyJubJubEdwards::add(self, other)
-    }
-}
-
-
 #[cfg(test)]
 mod tests {
     use crate::cyclic_group::IsGroup;
     use crate::elliptic_curve::short_weierstrass::curves::test_curve_1::{
-        TestCurve1, TestCurveQuadraticNonResidue, TEST_CURVE_1_MAIN_SUBGROUP_ORDER
+        TestCurve1, TestCurveQuadraticNonResidue, TEST_CURVE_1_MAIN_SUBGROUP_ORDER,
+        TEST_CURVE_1_PRIME_FIELD_ORDER,
     };
     use crate::elliptic_curve::short_weierstrass::curves::test_curve_2::TestCurve2;
+    use crate::elliptic_curve::short_weierstrass::pairing::{tate_pairing, weil_pairing};
     use crate::field::element::FieldElement;
+    use crate::field::fields::u64_prime_field::U64FieldElement;
     use crate::unsigned_integer::element::U384;
     //use crate::elliptic_curve::curves::test_curve_2::TestCurve2;
     use crate::elliptic_curve::traits::IsEllipticCurve;
-    use crate::{
-        elliptic_curve::projective_point::ProjectivePoint,
-        field::{
-            extensions::quadratic::QuadraticExtensionFieldElement,
-        },
-    };
+    use crate::field::extensions::quadratic::QuadraticExtensionFieldElement;
 
     #[allow(clippy::upper_case_acronyms)]
     type FEE = QuadraticExtensionFieldElement<TestCurveQuadraticNonResidue>;
@@ -153,7 +108,7 @@ mod tests {
     fn operate_with_self_works_2() {
         let mut point_1 = TestCurve1::generator();
         point_1 = point_1.operate_with_self(TEST_CURVE_1_MAIN_SUBGROUP_ORDER as u128);
-        assert_eq!(point_1, ProjectivePoint::<TestCurve1>::neutral_element());
+        assert!(point_1.is_neutral_element());
     }
 
     #[test]
@@ -163,7 +118,6 @@ mod tests {
         assert_eq!(point.operate_with_self(2).to_affine(), expected_result);
     }
 
-/* 
     #[test]
     fn test_weil_pairing() {
         type FE = U64FieldElement<TEST_CURVE_1_PRIME_FIELD_ORDER>;
@@ -174,7 +128,7 @@ mod tests {
         );
         let expected_result = FEE::new([FE::new(46), FE::new(3)]);
 
-        let result_weil = ProjectivePoint::<TestCurve1>::weil_pairing(&pa, &pb);
+        let result_weil = weil_pairing(&pa, &pb);
         assert_eq!(result_weil, expected_result);
     }
 
@@ -188,10 +142,10 @@ mod tests {
         );
         let expected_result = FEE::new([FE::new(42), FE::new(19)]);
 
-        let result_weil = ProjectivePoint::<TestCurve1>::tate_pairing(&pa, &pb);
+        let result_weil = tate_pairing(&pa, &pb);
         assert_eq!(result_weil, expected_result);
     }
-*/
+
     #[test]
     fn operate_with_self_works_with_test_curve_2() {
         let mut point_1 = TestCurve2::generator();
