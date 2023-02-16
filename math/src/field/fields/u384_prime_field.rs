@@ -71,16 +71,13 @@ where
     fn inv(a: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
         if a == &Self::ZERO {
             return Err(FieldError::DivisionByZero);
-            // panic!("Division by zero error.")
         }
         Ok(Self::pow(a, C::MODULUS - Self::BaseType::from_u64(2)))
     }
 
     fn div(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
-        match Self::inv(b) {
-            Ok(b_inv) => Self::mul(a, &b_inv),
-            Err(FieldError::DivisionByZero) => panic!("Division by zero"),
-        }
+        let inv_b = Self::inv(b).expect("Division by zero!");
+        Self::mul(a, &inv_b)
     }
 
     fn eq(a: &Self::BaseType, b: &Self::BaseType) -> bool {

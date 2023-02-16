@@ -24,10 +24,8 @@ impl<const MODULUS: u64> IsField for U64TestField<MODULUS> {
     }
 
     fn div(a: &u64, b: &u64) -> u64 {
-        match Self::inv(b) {
-            Ok(b_inv) => Self::mul(a, &b_inv),
-            Err(FieldError::DivisionByZero) => panic!("Division by zero"),
-        }
+        let inv_b = Self::inv(b).expect("Division by zero!");
+        Self::mul(a, &inv_b)
     }
 
     fn inv(a: &u64) -> Result<u64, FieldError> {

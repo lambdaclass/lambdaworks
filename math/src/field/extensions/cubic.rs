@@ -86,10 +86,8 @@ where
         a: &[FieldElement<Q::BaseField>; 3],
         b: &[FieldElement<Q::BaseField>; 3],
     ) -> [FieldElement<Q::BaseField>; 3] {
-        match Self::inv(b) {
-            Ok(inv_b) => Self::mul(a, &inv_b),
-            Err(FieldError::DivisionByZero) => panic!("Division by zero!"),
-        }
+        let inv_b = Self::inv(b).expect("Division by zero!");
+        Self::mul(a, &inv_b)
     }
 
     /// Returns a boolean indicating whether `a` and `b` are equal component wise.
