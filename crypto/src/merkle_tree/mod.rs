@@ -169,6 +169,9 @@ pub struct Proof<F: IsField, H: IsCryptoHash<F>> {
 pub type F = U64PrimeField<0xFFFF_FFFF_0000_0001_u64>;
 pub type FE = FieldElement<F>;
 
+
+pub type U64MerkleTree = MerkleTree<F, DefaultHasher>;
+
 impl Proof<F, DefaultHasher> {
     pub fn as_bytes(&self) -> Vec<u8> {
         let mut buffer: Vec<u8> = Vec::new();
