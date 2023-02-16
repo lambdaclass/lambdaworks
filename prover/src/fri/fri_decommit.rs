@@ -11,8 +11,9 @@ pub fn fri_decommit_layers(
     transcript: &mut Transcript,
 ) {
     let mut index = index_to_verify;
-    // de cada componente del commit, voy al merkle tree y
-    // me quedo con el elemento que corresponde
+
+    // with every element of the commit, we look for that one in
+    // the merkle tree and get the corresponding element
     for commit_i in commit {
         let length_i = commit_i.domain.len();
         index = index % length_i;
@@ -36,3 +37,12 @@ pub fn fri_decommit_layers(
 
 }
 
+// Integration test:
+// * get an arbitrary polynomial
+// * have a domain containing roots of the unity (# is power of two)
+// p = 65_537
+// * apply FRI commitment
+// * apply FRI decommitment
+// assert:
+// * evaluations of the polynomials coincide with calculations from the decommitment
+// * show a fail example: with a monomial
