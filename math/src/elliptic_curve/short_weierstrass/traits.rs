@@ -1,14 +1,10 @@
 use crate::elliptic_curve::traits::IsEllipticCurve;
 use crate::field::element::FieldElement;
-use crate::unsigned_integer::traits::IsUnsignedInteger;
 use std::fmt::Debug;
 
 /// Trait to add elliptic curves behaviour to a struct.
 /// We use the short Weierstrass form equation: `y^2 = x^3 + a * x  + b`.
 pub trait IsShortWeierstrass: IsEllipticCurve + Clone + Debug {
-    /// The type used to store order_p and order_r.
-    type UIntOrders: IsUnsignedInteger;
-
     /// `a` coefficient for the equation `y^2 = x^3 + a * x  + b`.
     fn a() -> FieldElement<Self::BaseField>;
 

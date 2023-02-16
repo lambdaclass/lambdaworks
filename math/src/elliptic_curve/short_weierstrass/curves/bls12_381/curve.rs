@@ -1,6 +1,5 @@
 use crate::elliptic_curve::short_weierstrass::element::ShortWeierstrassProjectivePoint;
 use crate::elliptic_curve::traits::IsEllipticCurve;
-use crate::unsigned_integer::element::U384;
 use crate::{
     elliptic_curve::short_weierstrass::traits::IsShortWeierstrass, field::element::FieldElement,
 };
@@ -34,8 +33,6 @@ impl IsEllipticCurve for BLS12381Curve {
 }
 
 impl IsShortWeierstrass for BLS12381Curve {
-    type UIntOrders = U384;
-
     fn a() -> FieldElement<Self::BaseField> {
         FieldElement::from(0)
     }

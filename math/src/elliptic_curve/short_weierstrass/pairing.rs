@@ -1,4 +1,7 @@
-use crate::{cyclic_group::IsGroup, field::element::FieldElement, unsigned_integer::traits::IsUnsignedInteger};
+use crate::{
+    cyclic_group::IsGroup, field::element::FieldElement,
+    unsigned_integer::traits::IsUnsignedInteger,
+};
 
 use super::{element::ShortWeierstrassProjectivePoint, traits::IsShortWeierstrass};
 

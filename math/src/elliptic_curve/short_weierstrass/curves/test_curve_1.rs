@@ -5,7 +5,8 @@ use crate::{
     elliptic_curve::{
         short_weierstrass::{
             element::ShortWeierstrassProjectivePoint,
-            traits::{HasDistortionMap, IsShortWeierstrass}, pairing::HasTypeIPairing,
+            pairing::HasTypeIPairing,
+            traits::{HasDistortionMap, IsShortWeierstrass},
         },
         traits::IsEllipticCurve,
     },
@@ -62,8 +63,6 @@ impl IsEllipticCurve for TestCurve1 {
 }
 
 impl IsShortWeierstrass for TestCurve1 {
-    type UIntOrders = u64;
-
     fn a() -> FieldElement<Self::BaseField> {
         FieldElement::from(1)
     }
@@ -72,7 +71,6 @@ impl IsShortWeierstrass for TestCurve1 {
         FieldElement::from(0)
     }
 }
-
 
 impl HasTypeIPairing for TestCurve1 {
     type UIntOrders = u64;

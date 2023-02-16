@@ -73,8 +73,6 @@ impl IsEllipticCurve for TestCurve2 {
 }
 
 impl IsShortWeierstrass for TestCurve2 {
-    type UIntOrders = U384;
-
     fn a() -> FieldElement<Self::BaseField> {
         FieldElement::from(0)
     }
