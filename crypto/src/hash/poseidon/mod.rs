@@ -35,7 +35,7 @@ impl IsCryptoHash<BLS12381PrimeField> for Poseidon<BLS12381PrimeField> {
 
     fn new() -> Self {
         Poseidon {
-            params: Parameters::with_t3()
+            params: Parameters::with_t2()
                 .expect("Error loading parameters for Posedon BLS12381 hasher"),
         }
     }
@@ -45,7 +45,7 @@ impl<F> Poseidon<F>
 where
     F: IsField,
 {
-    pub fn new(params: Parameters<F>) -> Self {
+    pub fn new_with_params(params: Parameters<F>) -> Self {
         Poseidon { params }
     }
 
@@ -143,6 +143,7 @@ where
 
 #[cfg(test)]
 mod tests {
+
     use lambdaworks_math::{
         field::fields::u384_prime_field::{IsMontgomeryConfiguration, MontgomeryBackendPrimeField},
         unsigned_integer::element::U384,
@@ -201,7 +202,7 @@ mod tests {
             TestFieldElement::new(U384::from_u64(98)),
             TestFieldElement::new(U384::from_u64(0)),
         ];
-        let poseidon = Poseidon::new(load_test_parameters().unwrap());
+        let poseidon = Poseidon::new_with_params(load_test_parameters().unwrap());
 
         poseidon.ark(&mut state, 0);
         let expected = [
@@ -232,7 +233,7 @@ mod tests {
             )),
         ];
 
-        let poseidon = Poseidon::new(load_test_parameters().unwrap());
+        let poseidon = Poseidon::new_with_params(load_test_parameters().unwrap());
 
         poseidon.mix(&mut state);
 
@@ -252,19 +253,18 @@ mod tests {
 
     #[test]
     fn test_hash() {
-        let poseidon = Poseidon::new(load_test_parameters().unwrap());
+        let poseidon: Poseidon<BLS12381PrimeField> = Poseidon::new();
 
-        let state = [
-            TestFieldElement::new(U384::from_u64(7)),
-            TestFieldElement::new(U384::from_u64(98)),
-        ];
+        let a = FieldElement::one();
+        let b = FieldElement::zero();
 
-        poseidon.hash(&state).unwrap();
+        poseidon.hash_one(a.clone());
+        poseidon.hash_two(a, b);
     }
 
     #[test]
     fn test_permutation() {
-        let poseidon = Poseidon::new(load_test_parameters().unwrap());
+        let poseidon = Poseidon::new_with_params(load_test_parameters().unwrap());
 
         let mut state = [
             TestFieldElement::new(U384::from_u64(7)),
