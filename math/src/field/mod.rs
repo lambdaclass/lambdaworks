@@ -8,3 +8,5 @@ pub mod fields;
 pub(crate) mod test_fields;
 /// Common behaviour for field elements.
 pub mod traits;
+// Implementation of errors
+pub mod errors;

@@ -1,5 +1,6 @@
 use crate::field::traits::IsField;
 use crate::unsigned_integer::traits::IsUnsignedInteger;
+use crate::field::errors::FieldError;
 use std::fmt::Debug;
 use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
 
@@ -202,12 +203,11 @@ impl<F> Div<&FieldElement<F>> for &FieldElement<F>
 where
     F: IsField,
 {
-    type Output = FieldElement<F>;
+    type Output = Result<FieldElement<F>, FieldError>;
 
-    fn div(self, rhs: &FieldElement<F>) -> Self::Output {
-        Self::Output {
-            value: F::div(&self.value, &rhs.value),
-        }
+    fn div(self, rhs: &FieldElement<F>) -> Result<FieldElement<F>, FieldError> {
+        let value = F::div(&self.value, &rhs.value)?;
+        Ok(FieldElement { value })
     }
 }
 
@@ -215,7 +215,7 @@ impl<F> Div<FieldElement<F>> for FieldElement<F>
 where
     F: IsField,
 {
-    type Output = FieldElement<F>;
+    type Output = Result<FieldElement<F>, FieldError>;
 
     fn div(self, rhs: FieldElement<F>) -> Self::Output {
         &self / &rhs
@@ -226,7 +226,7 @@ impl<F> Div<&FieldElement<F>> for FieldElement<F>
 where
     F: IsField,
 {
-    type Output = FieldElement<F>;
+    type Output =Result<FieldElement<F>, FieldError>;
 
     fn div(self, rhs: &FieldElement<F>) -> Self::Output {
         &self / rhs
@@ -237,7 +237,7 @@ impl<F> Div<FieldElement<F>> for &FieldElement<F>
 where
     F: IsField,
 {
-    type Output = FieldElement<F>;
+    type Output = Result<FieldElement<F>, FieldError>;
 
     fn div(self, rhs: FieldElement<F>) -> Self::Output {
         self / &rhs
@@ -289,10 +289,10 @@ where
     }
 
     /// Returns the multiplicative inverse of `self`
-    pub fn inv(&self) -> Self {
-        Self {
-            value: F::inv(&self.value),
-        }
+    pub fn inv(&self) -> Result<Self, FieldError> {
+        let value = F::inv(&self.value)?;
+        Ok(Self {value})
+        
     }
 
     /// Returns `self` raised to the power of `exponent`

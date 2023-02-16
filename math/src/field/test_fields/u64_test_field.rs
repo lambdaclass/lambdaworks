@@ -1,4 +1,5 @@
 use crate::field::traits::{IsField, IsTwoAdicField};
+use crate::field::errors::FieldError;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct U64TestField<const MODULUS: u64>;
@@ -22,13 +23,16 @@ impl<const MODULUS: u64> IsField for U64TestField<MODULUS> {
         ((*a as u128 * *b as u128) % MODULUS as u128) as u64
     }
 
-    fn div(a: &u64, b: &u64) -> u64 {
-        Self::mul(a, &Self::inv(b))
+    fn div(a: &u64, b: &u64) -> Result<u64, FieldError> {
+        let inv_b = Self::inv(b)?;
+        Ok(Self::mul(a, &inv_b))
     }
 
-    fn inv(a: &u64) -> u64 {
-        assert_ne!(*a, 0, "Cannot invert zero element");
-        Self::pow(a, MODULUS - 2)
+    fn inv(a: &u64) -> Result<u64, FieldError> {
+        if *a == 0 {
+            return Err(FieldError::DivisionByZero);
+        }
+        Ok(Self::pow(a, MODULUS - 2))
     }
 
     fn eq(a: &u64, b: &u64) -> bool {
