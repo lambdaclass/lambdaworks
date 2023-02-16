@@ -50,7 +50,7 @@ impl<E: IsEllipticCurve> PartialEq for ProjectivePoint<E> {
     fn eq(&self, other: &Self) -> bool {
         let [px, py, pz] = self.coordinates();
         let [qx, qy, qz] = other.coordinates();
-        (px * qz == pz * qx) && (px * qy == py * qx)
+        (px * qz == pz * qx) && (py * qz == qy * pz)
     }
 }
 

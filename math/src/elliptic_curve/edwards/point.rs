@@ -74,7 +74,7 @@ impl<E: IsEdwards> IsGroup for EdwardsProjectivePoint<E> {
         Self::new([
             FieldElement::zero(),
             FieldElement::one(),
-            FieldElement::zero(),
+            FieldElement::one(),
         ])
     }
 
@@ -92,5 +92,89 @@ impl<E: IsEdwards> IsGroup for EdwardsProjectivePoint<E> {
         let den_s2 = FieldElement::one() - E::d() * x1 * x2 * y1 * y2;
 
         Self::new([num_s1 / den_s1, num_s2 / den_s2, FieldElement::one()])
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        cyclic_group::IsGroup,
+        elliptic_curve::{
+            edwards::{curves::tiny_jub_jub::TinyJubJubEdwards, point::EdwardsProjectivePoint},
+            traits::{EllipticCurveError, IsEllipticCurve},
+        },
+        field::element::FieldElement,
+    };
+
+    fn create_point(x: u64, y: u64) -> EdwardsProjectivePoint<TinyJubJubEdwards> {
+        TinyJubJubEdwards::create_point_from_affine(FieldElement::from(x), FieldElement::from(y))
+            .unwrap()
+    }
+
+    #[test]
+    fn create_valid_point_works() {
+        let p = TinyJubJubEdwards::create_point_from_affine(
+            FieldElement::from(5),
+            FieldElement::from(5),
+        )
+        .unwrap();
+        assert_eq!(p.x(), &FieldElement::from(5));
+        assert_eq!(p.y(), &FieldElement::from(5));
+        assert_eq!(p.z(), &FieldElement::from(1));
+    }
+
+    #[test]
+    fn create_invalid_point_returns_invalid_point_error() {
+        let result = TinyJubJubEdwards::create_point_from_affine(
+            FieldElement::from(5),
+            FieldElement::from(4),
+        );
+        assert_eq!(result.unwrap_err(), EllipticCurveError::InvalidPoint);
+    }
+
+    #[test]
+    fn operate_with_works_for_points_in_tiny_jub_jub() {
+        let p = EdwardsProjectivePoint::<TinyJubJubEdwards>::new([
+            FieldElement::from(5),
+            FieldElement::from(5),
+            FieldElement::from(1),
+        ]);
+        let q = EdwardsProjectivePoint::<TinyJubJubEdwards>::new([
+            FieldElement::from(8),
+            FieldElement::from(5),
+            FieldElement::from(1),
+        ]);
+        let expected = EdwardsProjectivePoint::<TinyJubJubEdwards>::new([
+            FieldElement::from(0),
+            FieldElement::from(1),
+            FieldElement::from(1),
+        ]);
+        assert_eq!(p.operate_with(&q), expected);
+    }
+
+    #[test]
+    fn operate_with_works_and_cycles_in_tiny_jub_jub() {
+        let g = create_point(12, 11);
+        assert_eq!(g.operate_with_self(0), create_point(0, 1));
+        assert_eq!(g.operate_with_self(1), create_point(12, 11));
+        assert_eq!(g.operate_with_self(2), create_point(8, 5));
+        assert_eq!(g.operate_with_self(3), create_point(11, 6));
+        assert_eq!(g.operate_with_self(4), create_point(6, 9));
+        assert_eq!(g.operate_with_self(5), create_point(10, 0));
+        assert_eq!(g.operate_with_self(6), create_point(6, 4));
+        assert_eq!(g.operate_with_self(7), create_point(11, 7));
+        assert_eq!(g.operate_with_self(8), create_point(8, 8));
+        assert_eq!(g.operate_with_self(9), create_point(12, 2));
+        assert_eq!(g.operate_with_self(10), create_point(0, 12));
+        assert_eq!(g.operate_with_self(11), create_point(1, 2));
+        assert_eq!(g.operate_with_self(12), create_point(5, 8));
+        assert_eq!(g.operate_with_self(13), create_point(2, 7));
+        assert_eq!(g.operate_with_self(14), create_point(7, 4));
+        assert_eq!(g.operate_with_self(15), create_point(3, 0));
+        assert_eq!(g.operate_with_self(16), create_point(7, 9));
+        assert_eq!(g.operate_with_self(17), create_point(2, 6));
+        assert_eq!(g.operate_with_self(18), create_point(5, 5));
+        assert_eq!(g.operate_with_self(19), create_point(1, 11));
+        assert_eq!(g.operate_with_self(20), create_point(0, 1));
     }
 }
