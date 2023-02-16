@@ -2,6 +2,7 @@ use crate::cyclic_group::IsGroup;
 use crate::elliptic_curve::traits::HasPairing;
 use crate::field::element::FieldElement;
 use crate::field::traits::IsField;
+use crate::field::errors::FieldError;
 
 /// Type representing prime fields over unsigned 64-bit integers.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -27,13 +28,16 @@ impl<const MODULUS: u64> IsField for U64PrimeField<MODULUS> {
         ((*a as u128 * *b as u128) % MODULUS as u128) as u64
     }
 
-    fn div(a: &u64, b: &u64) -> u64 {
-        Self::mul(a, &Self::inv(b))
+    fn div(a: &u64, b: &u64) -> Result<u64, FieldError> {
+        let inv_b = Self::inv(b)?;
+        Ok(Self::mul(a, &inv_b))
     }
 
-    fn inv(a: &u64) -> u64 {
-        assert_ne!(*a, 0, "Cannot invert zero element");
-        Self::pow(a, MODULUS - 2)
+    fn inv(a: &u64) -> Result<u64, FieldError> {
+        if *a == 0 {
+            return Err(FieldError::DivisionByZero);
+        }
+        Ok(Self::pow(a, MODULUS - 2))
     }
 
     fn eq(a: &u64, b: &u64) -> bool {
@@ -138,15 +142,16 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
+    
     fn inv_0_error() {
-        FE::new(0).inv();
+        let result = FE::new(0).inv();
+        assert!(matches!(result, Err(FieldError::DivisionByZero)));
     }
 
     #[test]
     fn inv_2() {
         let a: FE = FE::new(2);
-        assert_eq!(a * a.inv(), FE::new(1));
+        assert_eq!(a * a.inv().unwrap(), FE::new(1));
     }
 
     #[test]
@@ -161,17 +166,28 @@ mod tests {
 
     #[test]
     fn div_1() {
-        assert_eq!(FE::new(2) / FE::new(1), FE::new(2))
+        let expected = FE::new(2);
+        let actual = FE::new(2) / FE::new(1);
+
+        assert_eq!(actual.unwrap(), expected);
     }
 
     #[test]
     fn div_4_2() {
-        assert_eq!(FE::new(4) / FE::new(2), FE::new(2))
+        let expected = FE::new(2);
+        let actual = FE::new(4) / FE::new(2);
+
+        assert_eq!(actual.unwrap(), expected);
+        
     }
 
     #[test]
     fn div_4_3() {
-        assert_eq!(FE::new(4) / FE::new(3) * FE::new(3), FE::new(4))
+        let a = FE::new(4);
+        let b = FE::new(3);
+        let c = FE::new(3);
+        let actual_result = a / b;
+        assert_eq!(actual_result.unwrap() * c, FE::new(4))
     }
 
     #[test]

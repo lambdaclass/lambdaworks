@@ -5,6 +5,7 @@ use crate::{
 };
 use std::fmt::Debug;
 use std::marker::PhantomData;
+use crate::field::errors::FieldError;
 
 /// This trait is necessary for us to be able to use unsigned integer types bigger than
 /// `u128` (the biggest native `unit`) as constant generics.
@@ -67,15 +68,17 @@ where
         }
     }
 
-    fn inv(a: &Self::BaseType) -> Self::BaseType {
+    fn inv(a: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
         if a == &Self::ZERO {
-            panic!("Division by zero error.")
+            return Err(FieldError::DivisionByZero);
+            // panic!("Division by zero error.")
         }
-        Self::pow(a, C::MODULUS - Self::BaseType::from_u64(2))
+        Ok(Self::pow(a, C::MODULUS - Self::BaseType::from_u64(2)))
     }
 
-    fn div(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
-        Self::mul(a, &Self::inv(b))
+    fn div(a: &Self::BaseType, b: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
+        let inv_b = Self::inv(b)?;
+        Ok(Self::mul(a, &inv_b))
     }
 
     fn eq(a: &Self::BaseType, b: &Self::BaseType) -> bool {
@@ -104,7 +107,9 @@ mod tests {
     use crate::{
         field::element::FieldElement,
         unsigned_integer::element::{UnsignedInteger, U384},
+        field::errors::FieldError,
     };
+
 
     use super::{IsMontgomeryConfiguration, MontgomeryBackendPrimeField};
 
@@ -181,15 +186,15 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
     fn inv_0_error() {
-        F23Element::from(0).inv();
+        let result = F23Element::from(0).inv();
+        assert!(matches!(result, Err(FieldError::DivisionByZero)));
     }
 
     #[test]
     fn inv_2() {
         let a: F23Element = F23Element::from(2);
-        assert_eq!(&a * a.inv(), F23Element::from(1));
+        assert_eq!(&a * a.inv().unwrap(), F23Element::from(1));
     }
 
     #[test]
@@ -204,24 +209,28 @@ mod tests {
 
     #[test]
     fn div_1() {
-        assert_eq!(
-            F23Element::from(2) / F23Element::from(1),
-            F23Element::from(2)
-        )
+        let expected = F23Element::from(2);
+        let actual = F23Element::from(2) / F23Element::from(1);
+
+        assert_eq!(actual.unwrap(), expected);
     }
 
     #[test]
     fn div_4_2() {
-        assert_eq!(
-            F23Element::from(4) / F23Element::from(2),
-            F23Element::from(2)
-        )
+        let expected = F23Element::from(2);
+        let actual = F23Element::from(4) / F23Element::from(2);
+
+        assert_eq!(actual.unwrap(), expected);
     }
 
     #[test]
     fn div_4_3() {
+        let a = F23Element::from(4);
+        let b = F23Element::from(3);
+        let c = F23Element::from(3);
+        let actual_result = a / b;
         assert_eq!(
-            F23Element::from(4) / F23Element::from(3) * F23Element::from(3),
+            actual_result.unwrap() * c,
             F23Element::from(4)
         )
     }

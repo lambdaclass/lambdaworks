@@ -1,5 +1,6 @@
 use crate::field::element::FieldElement;
 use crate::field::traits::IsField;
+use crate::field::errors::FieldError;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
@@ -66,26 +67,27 @@ where
     }
 
     /// Returns the multiplicative inverse of `a`
-    fn inv(a: &[FieldElement<Q::BaseField>; 3]) -> [FieldElement<Q::BaseField>; 3] {
+    fn inv(a: &[FieldElement<Q::BaseField>; 3]) -> Result<[FieldElement<Q::BaseField>; 3], FieldError> {
         let three = FieldElement::from(3_u64);
         let d = a[0].pow(3_u64)
             + a[1].pow(3_u64) * Q::residue()
             + a[2].pow(3_u64) * Q::residue().pow(2_u64)
             - three * &a[0] * &a[1] * &a[2] * Q::residue();
-        let inv = d.inv();
-        [
+        let inv = d.inv()?;
+        Ok([
             (a[0].pow(2_u64) - &a[1] * &a[2] * Q::residue()) * &inv,
             (-&a[0] * &a[1] + a[2].pow(2_u64) * Q::residue()) * &inv,
             (-&a[0] * &a[2] + a[1].pow(2_u64)) * &inv,
-        ]
+        ])
     }
 
     /// Returns the division of `a` and `b`
     fn div(
         a: &[FieldElement<Q::BaseField>; 3],
         b: &[FieldElement<Q::BaseField>; 3],
-    ) -> [FieldElement<Q::BaseField>; 3] {
-        Self::mul(a, &Self::inv(b))
+    ) -> Result<[FieldElement<Q::BaseField>; 3], FieldError> {
+        let inv_b = Self::inv(b)?;
+        Ok(Self::mul(a, &inv_b))
     }
 
     /// Returns a boolean indicating whether `a` and `b` are equal component wise.
@@ -205,7 +207,8 @@ mod tests {
         let a = FEE::new([FE::new(0), FE::new(3), FE::new(2)]);
         let b = FEE::new([-FE::new(2), FE::new(8), FE::new(5)]);
         let expected_result = FEE::new([FE::new(12), FE::new(6), FE::new(1)]);
-        assert_eq!(a / b, expected_result);
+        let actual_result = a / b;
+        assert_eq!(actual_result.unwrap(), expected_result);
     }
 
     #[test]
@@ -213,7 +216,8 @@ mod tests {
         let a = FEE::new([FE::new(12), FE::new(5), FE::new(4)]);
         let b = FEE::new([-FE::new(4), FE::new(2), FE::new(2)]);
         let expected_result = FEE::new([FE::new(3), FE::new(8), FE::new(11)]);
-        assert_eq!(a / b, expected_result);
+        let actual_result = a / b;
+        assert_eq!(actual_result.unwrap(), expected_result);
     }
 
     #[test]
@@ -236,13 +240,13 @@ mod tests {
     fn test_inv() {
         let a = FEE::new([FE::new(12), FE::new(5), FE::new(3)]);
         let expected_result = FEE::new([FE::new(2), FE::new(2), FE::new(3)]);
-        assert_eq!(a.inv(), expected_result);
+        assert_eq!(a.inv().unwrap(), expected_result);
     }
 
     #[test]
     fn test_inv_1() {
         let a = FEE::new([FE::new(1), FE::new(0), FE::new(1)]);
         let expected_result = FEE::new([FE::new(8), FE::new(3), FE::new(5)]);
-        assert_eq!(a.inv(), expected_result);
+        assert_eq!(a.inv().unwrap(), expected_result);
     }
 }

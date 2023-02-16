@@ -50,10 +50,10 @@ pub fn inverse_cooley_tukey<F: IsField>(
 ) -> Vec<FieldElement<F>> {
     let n = evaluations.len();
     let inverse_n = FieldElement::from(n as u64).inv();
-    let inverse_omega = omega.inv();
+    let inverse_omega = omega.inv().unwrap();
     cooley_tukey(evaluations, &inverse_omega)
         .iter()
-        .map(|coeff| coeff * &inverse_n)
+        .map(|coeff| coeff * inverse_n.as_ref().unwrap())
         .collect()
 }
 

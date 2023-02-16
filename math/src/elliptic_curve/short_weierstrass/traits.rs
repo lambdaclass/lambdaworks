@@ -66,7 +66,7 @@ pub trait IsShortWeierstrass: IsEllipticCurve + Clone + Debug {
             "The point at infinity is not affine."
         );
         let (x, y, z) = (&p[0], &p[1], &p[2]);
-        [x / z, y / z, FieldElement::one()]
+        [(x / z).unwrap(), (y / z).unwrap(), FieldElement::one()]
     }
 
     /// Returns the sum of projective points `p` and `q`
@@ -148,7 +148,7 @@ pub trait IsShortWeierstrass: IsEllipticCurve + Clone + Debug {
                 qx - px
             } else {
                 let l = (ry - py) / (rx - px);
-                qy - py - l * (qx - px)
+                qy - py - l.unwrap() * (qx - px)
             }
         } else {
             let numerator = FieldElement::from(3) * &px.pow(2_u16) + Self::a();
@@ -157,7 +157,7 @@ pub trait IsShortWeierstrass: IsEllipticCurve + Clone + Debug {
                 qx - px
             } else {
                 let l = numerator / denominator;
-                qy - py - l * (qx - px)
+                qy - py - l.unwrap() * (qx - px)
             }
         }
     }
@@ -189,7 +189,7 @@ pub trait IsShortWeierstrass: IsEllipticCurve + Clone + Debug {
 
         for b in bs[1..].iter() {
             let s = Self::affine(&Self::add(&r, &r));
-            f = f.pow(2_u16) * (Self::line(&r, &r, &q) / Self::line(&s, &Self::neg(&s), &q));
+            f = f.pow(2_u16) * (Self::line(&r, &r, &q) / Self::line(&s, &Self::neg(&s), &q)).unwrap();
             r = s;
 
             if *b == Self::UIntOrders::from(1) {
@@ -197,7 +197,7 @@ pub trait IsShortWeierstrass: IsEllipticCurve + Clone + Debug {
                 if s != Self::neutral_element() {
                     s = Self::affine(&s);
                 }
-                f = f * (Self::line(&r, &p, &q) / Self::line(&s, &Self::neg(&s), &q));
+                f = f * (Self::line(&r, &p, &q) / Self::line(&s, &Self::neg(&s), &q)).unwrap();
                 r = s;
             }
         }
@@ -217,7 +217,7 @@ pub trait IsShortWeierstrass: IsEllipticCurve + Clone + Debug {
             let numerator = Self::miller(p, q);
             let denominator = Self::miller(q, p);
             let result = numerator / denominator;
-            -result
+            -result.unwrap()
         }
     }
 

@@ -2,6 +2,7 @@ use crate::{fft::errors::FFTError, unsigned_integer::traits::IsUnsignedInteger};
 use std::fmt::Debug;
 
 use super::element::FieldElement;
+use super::errors::FieldError;
 
 /// Trait to define necessary parameters for FFT-friendly Fields.
 /// Two-Adic fields are ones whose order is of the form  $2^n k + 1$.
@@ -73,10 +74,10 @@ pub trait IsField: Debug + Clone {
     fn neg(a: &Self::BaseType) -> Self::BaseType;
 
     /// Returns the multiplicative inverse of `a`.
-    fn inv(a: &Self::BaseType) -> Self::BaseType;
+    fn inv(a: &Self::BaseType) -> Result<Self::BaseType, FieldError>;
 
     /// Returns the division of `a` and `b`.
-    fn div(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType;
+    fn div(a: &Self::BaseType, b: &Self::BaseType) -> Result<Self::BaseType, FieldError>;
 
     /// Returns a boolean indicating whether `a` and `b` are equal or not.
     fn eq(a: &Self::BaseType, b: &Self::BaseType) -> bool;
