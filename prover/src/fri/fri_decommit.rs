@@ -45,3 +45,34 @@ pub fn fri_decommit_layers(
 // assert:
 // * evaluations of the polynomials coincide with calculations from the decommitment
 // * show a fail example: with a monomial
+
+#[cfg(test)]
+mod tests {
+    use crate::fri::U64PrimeField;
+    use lambdaworks_math::field::element::FieldElement;
+    use std::collections::HashSet;
+    const PRIME_GENERATOR: (u64, u64) = (0xFFFF_FFFF_0000_0001_u64, 2717_u64);
+    pub type F = U64PrimeField<{ PRIME_GENERATOR.0 }>;
+    pub type FE_goldilocks = FieldElement<F>;
+
+    #[test]
+    fn test() {
+        let subgroup_size = 1024_u64;
+        let generator_field = FE_goldilocks::new(PRIME_GENERATOR.1);
+        let exp = (PRIME_GENERATOR.0 - 1) / subgroup_size;
+        let generator_of_subgroup = generator_field.pow(exp);
+        let mut numbers = HashSet::new();
+
+        let mut i = 0;
+        for exp in 0..1024_u64 {
+            i += 1;
+            let ret = generator_of_subgroup.pow(exp);
+            numbers.insert(ret.value().clone());
+            println!("{ret:?}");
+        }
+
+        let count = numbers.len();
+        println!("count: {count}");
+        println!("iter: {i}");
+    }
+}
