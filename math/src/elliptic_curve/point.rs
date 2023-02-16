@@ -70,7 +70,7 @@ mod tests {
     use crate::field::fields::u64_prime_field::U64FieldElement;
     use crate::unsigned_integer::element::U384;
     //use crate::elliptic_curve::curves::test_curve_2::TestCurve2;
-    use crate::elliptic_curve::traits::IsEllipticCurve;
+    use crate::elliptic_curve::traits::{EllipticCurveError, IsEllipticCurve};
     use crate::field::extensions::quadratic::QuadraticExtensionFieldElement;
 
     #[allow(clippy::upper_case_acronyms)]
@@ -79,16 +79,16 @@ mod tests {
     // This tests only apply for the specific curve found in the configuration file.
     #[test]
     fn create_valid_point_works() {
-        let point = TestCurve1::create_point_from_affine(FEE::from(35), FEE::from(31));
+        let point = TestCurve1::create_point_from_affine(FEE::from(35), FEE::from(31)).unwrap();
         assert_eq!(*point.x(), FEE::from(35));
         assert_eq!(*point.y(), FEE::from(31));
         assert_eq!(*point.z(), FEE::from(1));
     }
 
     #[test]
-    #[should_panic]
     fn create_invalid_points_panics() {
-        TestCurve1::create_point_from_affine(FEE::from(0), FEE::from(1));
+        let a = TestCurve1::create_point_from_affine(FEE::from(0), FEE::from(1));
+        assert_eq!(EllipticCurveError::InvalidPoint, a.unwrap_err());
     }
 
     #[test]
@@ -114,19 +114,21 @@ mod tests {
 
     #[test]
     fn doubling_a_point_works() {
-        let point = TestCurve1::create_point_from_affine(FEE::from(35), FEE::from(31));
-        let expected_result = TestCurve1::create_point_from_affine(FEE::from(25), FEE::from(29));
+        let point = TestCurve1::create_point_from_affine(FEE::from(35), FEE::from(31)).unwrap();
+        let expected_result =
+            TestCurve1::create_point_from_affine(FEE::from(25), FEE::from(29)).unwrap();
         assert_eq!(point.operate_with_self(2).to_affine(), expected_result);
     }
 
     #[test]
     fn test_weil_pairing() {
         type FE = U64FieldElement<TEST_CURVE_1_PRIME_FIELD_ORDER>;
-        let pa = TestCurve1::create_point_from_affine(FEE::from(35), FEE::from(31));
+        let pa = TestCurve1::create_point_from_affine(FEE::from(35), FEE::from(31)).unwrap();
         let pb = TestCurve1::create_point_from_affine(
             FEE::new([FE::new(24), FE::new(0)]),
             FEE::new([FE::new(0), FE::new(31)]),
-        );
+        )
+        .unwrap();
         let expected_result = FEE::new([FE::new(46), FE::new(3)]);
 
         let result_weil = weil_pairing(&TEST_CURVE_1_MAIN_SUBGROUP_ORDER, &pa, &pb);
@@ -136,11 +138,12 @@ mod tests {
     #[test]
     fn test_tate_pairing() {
         type FE = U64FieldElement<TEST_CURVE_1_PRIME_FIELD_ORDER>;
-        let pa = TestCurve1::create_point_from_affine(FEE::from(35), FEE::from(31));
+        let pa = TestCurve1::create_point_from_affine(FEE::from(35), FEE::from(31)).unwrap();
         let pb = TestCurve1::create_point_from_affine(
             FEE::new([FE::new(24), FE::new(0)]),
             FEE::new([FE::new(0), FE::new(31)]),
-        );
+        )
+        .unwrap();
         let expected_result = FEE::new([FE::new(42), FE::new(19)]);
 
         let result_weil = tate_pairing(
@@ -166,7 +169,8 @@ mod tests {
                 FieldElement::new(U384::from("e29d5b15c42124cd8f05d3c8500451c33")),
                 FieldElement::new(U384::from("e836ef62db0a47a63304b67c0de69b140")),
             ]),
-        );
+        )
+        .unwrap();
 
         assert_eq!(point_1, expected_result);
     }
@@ -176,7 +180,7 @@ mod tests {
         let x = FEE::from(35);
         let y = FEE::from(31);
         let z = FEE::from(1);
-        let point = TestCurve1::create_point_from_affine(x.clone(), y.clone());
+        let point = TestCurve1::create_point_from_affine(x.clone(), y.clone()).unwrap();
         let coordinates = point.coordinates();
         assert_eq!(&x, point.x());
         assert_eq!(&y, point.y());

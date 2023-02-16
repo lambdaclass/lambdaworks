@@ -1,5 +1,5 @@
 use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
-use crate::elliptic_curve::traits::IsEllipticCurve;
+use crate::elliptic_curve::traits::{EllipticCurveError, IsEllipticCurve};
 use crate::{
     elliptic_curve::short_weierstrass::traits::IsShortWeierstrass, field::element::FieldElement,
 };
@@ -25,10 +25,13 @@ impl IsEllipticCurve for BLS12381Curve {
     fn create_point_from_affine(
         x: FieldElement<Self::BaseField>,
         y: FieldElement<Self::BaseField>,
-    ) -> Self::PointRepresentation {
+    ) -> Result<Self::PointRepresentation, EllipticCurveError> {
         let coordinates = [x, y, FieldElement::one()];
-        assert_eq!(Self::defining_equation(&coordinates), FieldElement::zero());
-        Self::PointRepresentation::new(coordinates)
+        if Self::defining_equation(&coordinates) != FieldElement::zero() {
+            Err(EllipticCurveError::InvalidPoint)
+        } else {
+            Ok(Self::PointRepresentation::new(coordinates))
+        }
     }
 }
 
@@ -55,13 +58,13 @@ mod tests {
     fn point_1() -> ShortWeierstrassProjectivePoint<BLS12381Curve> {
         let x = FEE::new_base("36bb494facde72d0da5c770c4b16d9b2d45cfdc27604a25a1a80b020798e5b0dbd4c6d939a8f8820f042a29ce552ee5");
         let y = FEE::new_base("7acf6e49cc000ff53b06ee1d27056734019c0a1edfa16684da41ebb0c56750f73bc1b0eae4c6c241808a5e485af0ba0");
-        BLS12381Curve::create_point_from_affine(x, y)
+        BLS12381Curve::create_point_from_affine(x, y).unwrap()
     }
 
     fn point_1_times_5() -> ShortWeierstrassProjectivePoint<BLS12381Curve> {
         let x = FEE::new_base("32bcce7e71eb50384918e0c9809f73bde357027c6bf15092dd849aa0eac274d43af4c68a65fb2cda381734af5eecd5c");
         let y = FEE::new_base("11e48467b19458aabe7c8a42dc4b67d7390fdf1e150534caadddc7e6f729d8890b68a5ea6885a21b555186452b954d88");
-        BLS12381Curve::create_point_from_affine(x, y)
+        BLS12381Curve::create_point_from_affine(x, y).unwrap()
     }
 
     #[test]
@@ -80,9 +83,11 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
-    fn create_invalid_points_panics() {
-        BLS12381Curve::create_point_from_affine(FEE::from(0), FEE::from(1));
+    fn create_invalid_points_returns_an_error() {
+        assert_eq!(
+            BLS12381Curve::create_point_from_affine(FEE::from(0), FEE::from(1)),
+            Err(EllipticCurveError::InvalidPoint)
+        );
     }
 
     #[test]

@@ -4,6 +4,11 @@ use crate::{
 };
 use std::fmt::Debug;
 
+#[derive(Debug, PartialEq, Eq)]
+pub enum EllipticCurveError {
+    InvalidPoint,
+}
+
 pub trait IsEllipticCurve {
     /// BaseField is the field used for each of the coordinates of a point p
     /// belonging to the curve.
@@ -18,9 +23,8 @@ pub trait IsEllipticCurve {
     fn generator() -> Self::PointRepresentation;
 
     /// Returns an affine point.
-    // TODO: Return a result when the point does not belong to the curve.
     fn create_point_from_affine(
         x: FieldElement<Self::BaseField>,
         y: FieldElement<Self::BaseField>,
-    ) -> Self::PointRepresentation;
+    ) -> Result<Self::PointRepresentation, EllipticCurveError>;
 }

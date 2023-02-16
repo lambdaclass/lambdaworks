@@ -1,7 +1,7 @@
 use crate::{
     elliptic_curve::{
         edwards::{point::EdwardsProjectivePoint, traits::IsEdwards},
-        traits::IsEllipticCurve,
+        traits::{EllipticCurveError, IsEllipticCurve},
     },
     field::{element::FieldElement, fields::u64_prime_field::U64PrimeField},
 };
@@ -15,14 +15,23 @@ impl IsEllipticCurve for TinyJubJubEdwards {
     type PointRepresentation = EdwardsProjectivePoint<Self>;
 
     fn generator() -> Self::PointRepresentation {
-        Self::create_point_from_affine(FieldElement::from(8), FieldElement::from(5))
+        Self::PointRepresentation::new([
+            FieldElement::from(8),
+            FieldElement::from(5),
+            FieldElement::one(),
+        ])
     }
 
     fn create_point_from_affine(
         x: FieldElement<Self::BaseField>,
         y: FieldElement<Self::BaseField>,
-    ) -> Self::PointRepresentation {
-        Self::PointRepresentation::new([x, y, FieldElement::one()])
+    ) -> Result<Self::PointRepresentation, EllipticCurveError> {
+        let coordinates = [x, y, FieldElement::one()];
+        if Self::defining_equation(&coordinates) != FieldElement::zero() {
+            Err(EllipticCurveError::InvalidPoint)
+        } else {
+            Ok(Self::PointRepresentation::new(coordinates))
+        }
     }
 }
 
