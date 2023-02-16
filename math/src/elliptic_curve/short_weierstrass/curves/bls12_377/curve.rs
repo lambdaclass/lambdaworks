@@ -1,15 +1,10 @@
 use super::field_extension::BLS12377PrimeField;
-use crate::elliptic_curve::short_weierstrass::curves::bls12_377::field_extension::BLS12377_PRIME_FIELD_ORDER;
 use crate::elliptic_curve::short_weierstrass::element::ShortWeierstrassProjectivePoint;
 use crate::elliptic_curve::traits::IsEllipticCurve;
 use crate::unsigned_integer::element::U384;
 use crate::{
     elliptic_curve::short_weierstrass::traits::IsShortWeierstrass, field::element::FieldElement,
 };
-
-/// Order of the subgroup of the curve.
-const BLS12377_MAIN_SUBGROUP_ORDER: U384 =
-    U384::from("12ab655e9a2ca55660b44d1e5c37b00159aa76fed00000010a11800000000001");
 
 /// The description of the curve.
 #[derive(Clone, Debug)]
@@ -47,28 +42,8 @@ impl IsShortWeierstrass for BLS12377Curve {
     fn b() -> FieldElement<Self::BaseField> {
         FieldElement::from(1)
     }
-
-    fn order_r() -> Self::UIntOrders {
-        BLS12377_MAIN_SUBGROUP_ORDER
-    }
-
-    fn order_p() -> Self::UIntOrders {
-        BLS12377_PRIME_FIELD_ORDER
-    }
-
-    fn target_normalization_power() -> Vec<u64> {
-        vec![
-            0x0026ba558ae9562a,
-            0xddd88d99a6f6a829,
-            0xfbb36b00e1dcc40c,
-            0x8c505634fae2e189,
-            0xd693e8c36676bd09,
-            0xa0f3622fba094800,
-            0x2e16ba8860000000,
-            0x0000000000000000,
-        ]
-    }
 }
+
 
 #[cfg(test)]
 mod tests {

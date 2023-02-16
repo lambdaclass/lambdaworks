@@ -82,18 +82,6 @@ impl IsShortWeierstrass for TestCurve2 {
     fn b() -> FieldElement<Self::BaseField> {
         FieldElement::from(1)
     }
-
-    fn order_r() -> Self::UIntOrders {
-        TEST_CURVE_2_MAIN_SUBGROUP_ORDER
-    }
-
-    fn order_p() -> Self::UIntOrders {
-        TEST_CURVE_2_PRIME_FIELD_ORDER
-    }
-
-    fn target_normalization_power() -> Vec<u64> {
-        todo!()
-    }
 }
 
 impl HasDistortionMap for TestCurve2 {
