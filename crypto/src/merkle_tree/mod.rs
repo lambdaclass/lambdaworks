@@ -315,7 +315,7 @@ mod tests {
             assert_eq!(node, expected_node);
         }
 
-        assert!(MerkleTree::verify(&proof, merkle_tree.root));
+        assert!(MerkleTree::verify(proof, merkle_tree.root));
     }
 
     #[test]
