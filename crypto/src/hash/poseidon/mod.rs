@@ -1,9 +1,13 @@
 /// Poseidon implementation for curve BLS12381
 use self::parameters::Parameters;
 
-use super::traits::IsCryptoHash;
-use lambdaworks_math::field::{element::FieldElement, traits::IsField};
+use lambdaworks_math::{
+    elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::BLS12381PrimeField,
+    field::{element::FieldElement, traits::IsField},
+};
 use std::ops::{Add, Mul};
+
+use super::traits::IsCryptoHash;
 
 mod parameters;
 
@@ -11,15 +15,29 @@ pub struct Poseidon<F: IsField> {
     params: Parameters<F>,
 }
 
-impl<F: IsField> IsCryptoHash<F> for Poseidon<F> {
-    fn hash_one(&self, input: FieldElement<F>) -> FieldElement<F> {
+impl IsCryptoHash<BLS12381PrimeField> for Poseidon<BLS12381PrimeField> {
+    fn hash_one(
+        &self,
+        input: FieldElement<BLS12381PrimeField>,
+    ) -> FieldElement<BLS12381PrimeField> {
         // return first element of the state (unwraps to be removed after trait changes to return Result<>)
         self.hash(&[input]).unwrap().first().unwrap().clone()
     }
 
-    fn hash_two(&self, left: FieldElement<F>, right: FieldElement<F>) -> FieldElement<F> {
+    fn hash_two(
+        &self,
+        left: FieldElement<BLS12381PrimeField>,
+        right: FieldElement<BLS12381PrimeField>,
+    ) -> FieldElement<BLS12381PrimeField> {
         // return first element of the state (unwraps to be removed after trait changes to return Result<>)
         self.hash(&[left, right]).unwrap().first().unwrap().clone()
+    }
+
+    fn new() -> Self {
+        Poseidon {
+            params: Parameters::with_t3()
+                .expect("Error loading parameters for Posedon BLS12381 hasher"),
+        }
     }
 }
 
@@ -177,7 +195,7 @@ mod tests {
     }
 
     #[test]
-    fn test_poseidon_bls() {
+    fn test_poseidon_s128b_t() {
         let mut state = [
             TestFieldElement::new(U384::from_u64(7)),
             TestFieldElement::new(U384::from_u64(98)),
@@ -230,6 +248,18 @@ mod tests {
             )),
         ];
         assert_eq!(state, expected);
+    }
+
+    #[test]
+    fn test_hash() {
+        let poseidon = Poseidon::new(load_test_parameters().unwrap());
+
+        let state = [
+            TestFieldElement::new(U384::from_u64(7)),
+            TestFieldElement::new(U384::from_u64(98)),
+        ];
+
+        poseidon.hash(&state).unwrap();
     }
 
     #[test]
