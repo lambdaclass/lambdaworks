@@ -47,94 +47,63 @@ pub fn next_fri_layer(
 mod tests {
     use super::{fold_polynomial, next_domain, next_fri_layer, FE};
     use lambdaworks_math::polynomial::Polynomial;
+    use parameterized_test;
 
-    #[test]
-    fn test_fold() {
-        let p0 = Polynomial::new(&[
-            FE::new(3),
-            FE::new(1),
-            FE::new(2),
-            FE::new(7),
-            FE::new(3),
-            FE::new(5),
-        ]);
-        let beta = FE::new(4);
+    parameterized_test::create! { fold, (p0, beta, expected_p1), {
         let p1 = fold_polynomial(&p0, &beta);
-        assert_eq!(
-            p1,
-            Polynomial::new(&[FE::new(7), FE::new(30), FE::new(23),])
-        );
-
-        let gamma = FE::new(3);
-        let p2 = fold_polynomial(&p1, &gamma);
-        assert_eq!(p2, Polynomial::new(&[FE::new(97), FE::new(23),]));
-
-        let delta = FE::new(2);
-        let p3 = fold_polynomial(&p2, &delta);
-        assert_eq!(p3, Polynomial::new(&[FE::new(143)]));
-        assert_eq!(p3.degree(), 0);
+        assert_eq!(p1, expected_p1);
+    }}
+    fold! {
+        first_fold: (poly(&[3, 1, 2, 7, 3, 5,]),    // p0
+                     FE::new(4),                    // beta
+                     poly(&[7, 30, 23,])),          // p1
+        second_fold: (poly(&[7, 30, 23,]),          // same p1
+                      FE::new(3),                   // gamma
+                      poly(&[97, 23,])),            // p2
+        third_fold: (poly(&[97, 23,]),              // same p2
+                     FE::new(2),                    // delta
+                     poly(&[143,])),                // p3
     }
 
-    #[test]
-    fn test_next_domain() {
-        let input = [
-            FE::new(5),
-            FE::new(7),
-            FE::new(13),
-            FE::new(20),
-            FE::new(1),
-            FE::new(1),
-            FE::new(1),
-            FE::new(1),
-        ];
-        let ret_next_domain = next_domain(&input);
-        assert_eq!(
-            ret_next_domain,
-            &[FE::new(25), FE::new(49), FE::new(169), FE::new(107),]
-        );
-
-        let ret_next_domain_2 = next_domain(&ret_next_domain);
-        assert_eq!(ret_next_domain_2, &[FE::new(39), FE::new(57)]);
-
-        let ret_next_domain_3 = next_domain(&ret_next_domain_2);
-        assert_eq!(ret_next_domain_3, &[FE::new(56)]);
+    parameterized_test::create! { next_domain, (input_domain, expected_ret_domain), {
+        let ret_next_domain = next_domain(&input_domain);
+        assert_eq!(ret_next_domain, expected_ret_domain);
+    }}
+    next_domain! {
+        first: (domain(&[5, 7, 13, 20, 1, 1, 1, 1,]),     // Input domain
+                domain(&[25, 49, 169, 107,])),            // Expected next domain
+        second: (domain(&[25, 49, 169, 107,]),            // Same as previous result
+                 domain(&[39, 57])),                      // Expected next domain
+        third: (domain(&[39, 57]),                        // Third iteration
+                domain(&[56])),                           // Expected final result
     }
 
-    #[test]
-    fn text_next_fri_layer() {
-        let p0 = Polynomial::new(&[
-            FE::new(3),
-            FE::new(1),
-            FE::new(2),
-            FE::new(7),
-            FE::new(3),
-            FE::new(5),
-        ]);
-        let beta = FE::new(4);
-        let input_domain = [
-            FE::new(5),
-            FE::new(7),
-            FE::new(13),
-            FE::new(20),
-            FE::new(1),
-            FE::new(1),
-            FE::new(1),
-            FE::new(1),
-        ];
+    parameterized_test::create! { next_fri_layer, ((p0, beta, input_domain), (expected_p1, expected_domain, expected_evaluation)), {
 
         let (p1, ret_next_domain, ret_evaluation) = next_fri_layer(&p0, &input_domain, &beta);
 
-        assert_eq!(
-            p1,
-            Polynomial::new(&[FE::new(7), FE::new(30), FE::new(23),])
-        );
-        assert_eq!(
-            ret_next_domain,
-            &[FE::new(25), FE::new(49), FE::new(169), FE::new(107),]
-        );
-        assert_eq!(
-            ret_evaluation,
-            &[FE::new(189), FE::new(151), FE::new(93), FE::new(207),]
-        );
+        assert_eq!(p1, expected_p1);
+        assert_eq!(ret_next_domain, expected_domain);
+        assert_eq!(ret_evaluation, expected_evaluation);
+    }}
+    next_fri_layer! {
+        basic_case: ((poly(&[3, 1, 2, 7, 3, 5,]),               // Input poly
+                      FE::new(4),                               // Beta
+                      domain(&[5, 7, 13, 20, 1, 1, 1, 1])),     // Input Domain
+                     (poly(&[7, 30, 23,]),                      // Expected poly
+                      domain(&[25, 49, 169, 107,]),             // Expected return domain
+                      domain(&[189, 151, 93, 207,]))),          // Expected return evaluation
+    }
+
+    // Helper functions for shortest declarations
+    fn poly(coefficients: &[u64]) -> Polynomial<FE> {
+        Polynomial::new(&domain(coefficients))
+    }
+
+    fn domain(coefficients: &[u64]) -> Vec<FE> {
+        coefficients
+            .iter()
+            .map(|f| FE::new(*f))
+            .collect::<Vec<FE>>()
     }
 }

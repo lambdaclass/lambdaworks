@@ -12,3 +12,6 @@ path = "../math"
 path = "../crypto"
 
 [dependencies]
+
+[dev-dependencies]
+parameterized_test = "0.2.1"
