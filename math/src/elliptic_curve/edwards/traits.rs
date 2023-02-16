@@ -1,9 +1,6 @@
 use crate::elliptic_curve::traits::IsEllipticCurve;
 use crate::field::element::FieldElement;
-use crate::field::fields::u64_prime_field::U64PrimeField;
 use std::fmt::Debug;
-
-use super::point::EdwardsProjectivePoint;
 
 /// Trait to add elliptic curves behaviour to a struct.
 pub trait IsEdwards: IsEllipticCurve + Clone + Debug {
@@ -25,41 +22,13 @@ pub trait IsEdwards: IsEllipticCurve + Clone + Debug {
     }
 }
 
-/// Taken from moonmath manual page 97
-#[derive(Debug, Clone)]
-pub struct TinyJubJubEdwards;
-
-impl IsEllipticCurve for TinyJubJubEdwards {
-    type BaseField = U64PrimeField<13>;
-    type PointRepresentation = EdwardsProjectivePoint<Self>;
-
-    fn generator() -> Self::PointRepresentation {
-        Self::create_point_from_affine(FieldElement::from(8), FieldElement::from(5))
-    }
-
-    fn create_point_from_affine(
-        x: FieldElement<Self::BaseField>,
-        y: FieldElement<Self::BaseField>,
-    ) -> Self::PointRepresentation {
-        Self::PointRepresentation::new([x, y, FieldElement::one()])
-    }
-}
-
-impl IsEdwards for TinyJubJubEdwards {
-    fn a() -> FieldElement<Self::BaseField> {
-        FieldElement::from(3)
-    }
-
-    fn d() -> FieldElement<Self::BaseField> {
-        FieldElement::from(8)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use crate::{
         cyclic_group::IsGroup,
-        elliptic_curve::edwards::{point::EdwardsProjectivePoint, traits::TinyJubJubEdwards},
+        elliptic_curve::edwards::{
+            curves::tiny_jub_jub::TinyJubJubEdwards, point::EdwardsProjectivePoint,
+        },
         field::element::FieldElement,
     };
 
