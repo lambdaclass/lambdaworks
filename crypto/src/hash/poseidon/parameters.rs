@@ -22,8 +22,8 @@ impl Parameters<BLS12381PrimeField> {
     // sage generate_params_poseidon.sage 1 0 381 3 5 128
     // Params: n=381, t=3, alpha=5, M=128, R_F=8, R_P=56
     pub fn with_t3() -> Result<Parameters<BLS12381PrimeField>, String> {
-        let round_constants_csv = include_str!("t3/round_constants.csv");
-        let mds_constants_csv = include_str!("t3/mds_matrix.csv");
+        let round_constants_csv = include_str!("bls12381/t3/round_constants.csv");
+        let mds_constants_csv = include_str!("bls12381/t3/mds_matrix.csv");
 
         let (round_constants, mds_matrix) = Self::parse(round_constants_csv, mds_constants_csv)?;
         Ok(Parameters {
@@ -41,8 +41,8 @@ impl Parameters<BLS12381PrimeField> {
     // sage generate_params_poseidon.sage 1 0 381 2 5 128
     // Params: n=381, t=2, alpha=5, M=128, R_F=8, R_P=56
     pub fn with_t2() -> Result<Parameters<BLS12381PrimeField>, String> {
-        let round_constants_csv = include_str!("t2/round_constants.csv");
-        let mds_constants_csv = include_str!("t2/mds_matrix.csv");
+        let round_constants_csv = include_str!("bls12381/t2/round_constants.csv");
+        let mds_constants_csv = include_str!("bls12381/t2/mds_matrix.csv");
 
         let (round_constants, mds_matrix) = Self::parse(round_constants_csv, mds_constants_csv)?;
 
