@@ -129,7 +129,6 @@ mod tests {
         }
     }
 
-
     #[test]
     fn serialize_proof_and_deserialize_using_le_it_get_a_consistent_proof() {
         let merkle_path = [
