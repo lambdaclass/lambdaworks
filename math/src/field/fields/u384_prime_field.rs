@@ -109,7 +109,6 @@ mod tests {
         field::errors::FieldError,
     };
 
-
     use super::{IsMontgomeryConfiguration, MontgomeryBackendPrimeField};
 
     // F23
