@@ -1,3 +1,5 @@
+use crate::field::element::FieldElement;
+use crate::traits::ByteConversion;
 use crate::unsigned_integer::element::U384;
 use crate::{
     field::traits::IsField, unsigned_integer::element::UnsignedInteger,
@@ -99,10 +101,36 @@ where
     }
 }
 
+impl<C> ByteConversion for FieldElement<MontgomeryBackendPrimeField<C>>
+where
+    C: IsMontgomeryConfiguration + Clone + Debug,
+{
+    fn to_bytes_be(&self) -> Vec<u8> {
+        MontgomeryAlgorithms::cios(self.value(), &U384::from_u64(1), &C::MODULUS, &C::MP)
+            .to_bytes_be()
+    }
+
+    fn to_bytes_le(&self) -> Vec<u8> {
+        MontgomeryAlgorithms::cios(self.value(), &U384::from_u64(1), &C::MODULUS, &C::MP)
+            .to_bytes_le()
+    }
+
+    fn from_bytes_be(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError> {
+        let value = U384::from_bytes_be(bytes)?;
+        Ok(Self::new(value))
+    }
+
+    fn from_bytes_le(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError> {
+        let value = U384::from_bytes_le(bytes)?;
+        Ok(Self::new(value))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{
         field::element::FieldElement,
+        traits::ByteConversion,
         unsigned_integer::element::{UnsignedInteger, U384},
     };
 
@@ -350,5 +378,45 @@ mod tests {
             "5f103b0bd4397d4df560eb559f38353f80eeb6",
         ));
         assert_eq!(&y * x, y);
+    }
+
+    #[test]
+    fn to_bytes_from_bytes_be_is_the_identity() {
+        let x = FP2Element::new(UnsignedInteger::from(
+            "5f103b0bd4397d4df560eb559f38353f80eeb6",
+        ));
+        assert_eq!(FP2Element::from_bytes_be(&x.to_bytes_be()).unwrap(), x);
+    }
+
+    #[test]
+    fn from_bytes_to_bytes_be_is_the_identity_for_one() {
+        let bytes = vec![
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        ];
+        assert_eq!(
+            FP2Element::from_bytes_be(&bytes).unwrap().to_bytes_be(),
+            bytes
+        );
+    }
+
+    #[test]
+    fn to_bytes_from_bytes_le_is_the_identity() {
+        let x = FP2Element::new(UnsignedInteger::from(
+            "5f103b0bd4397d4df560eb559f38353f80eeb6",
+        ));
+        assert_eq!(FP2Element::from_bytes_le(&x.to_bytes_le()).unwrap(), x);
+    }
+
+    #[test]
+    fn from_bytes_to_bytes_le_is_the_identity_for_one() {
+        let bytes = vec![
+            1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ];
+        assert_eq!(
+            FP2Element::from_bytes_le(&bytes).unwrap().to_bytes_le(),
+            bytes
+        );
     }
 }
