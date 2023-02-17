@@ -20,7 +20,7 @@ impl<F: IsField, H: IsCryptoHash<F> + Clone> MerkleTree<F, H> {
         //The leaf must be a power of 2 set
         nodes = complete_until_power_of_two(&mut nodes);
 
-        //There lenght of leaves minus one inner nodes in the merkle tree
+        //The length of leaves minus one inner node in the merkle tree
         let mut inner_nodes = vec![FieldElement::zero(); nodes.len() - 1];
         inner_nodes.extend(nodes);
 
@@ -125,7 +125,7 @@ mod tests {
     #[test]
     // expected | 10 | 3 | 7 | 1 | 2 | 3 | 4 |
     fn build_merkle_tree_from_a_power_of_two_list_of_values() {
-        let values: Vec<FE> = (1..5).map(|val| FE::new(val)).collect();
+        let values: Vec<FE> = (1..5).map(FE::new).collect();
         let merkle_tree = MerkleTree::<U64PF, DefaultHasher>::build(&values);
         assert_eq!(merkle_tree.root, FE::new(20));
     }
@@ -133,7 +133,7 @@ mod tests {
     #[test]
     // expected | 8 | 7 | 1 | 6 | 1 | 7 | 7 | 2 | 4 | 6 | 8 | 10 | 10 | 10 | 10 |
     fn build_merkle_tree_from_an_odd_set_of_leaves() {
-        let values: Vec<FE> = (1..6).map(|val| FE::new(val)).collect();
+        let values: Vec<FE> = (1..6).map(FE::new).collect();
         let merkle_tree = MerkleTree::<U64PF, DefaultHasher>::build(&values);
         assert_eq!(merkle_tree.root, FE::new(8));
     }
@@ -142,7 +142,7 @@ mod tests {
     // expected | 8 | 7 | 1 | 6 | 1 | 7 | 7 | 2 | 4 | 6 | 8 | 10 | 10 | 10 | 10 |
     fn create_a_proof_over_value_that_belongs_to_a_given_merkle_tree_when_given_the_leaf_position()
     {
-        let values: Vec<FE> = (1..6).map(|val| FE::new(val)).collect();
+        let values: Vec<FE> = (1..6).map(FE::new).collect();
         let merkle_tree = MerkleTree::<U64PF, DefaultHasher>::build(&values);
         let proof = &merkle_tree.get_proof_by_pos(1, FE::new(2)).unwrap();
         assert_merkle_path(&proof.merkle_path, &[FE::new(2), FE::new(1), FE::new(1)]);
@@ -152,7 +152,7 @@ mod tests {
     #[test]
     // expected | 2 | 1 | 1 |
     fn verify_a_proof_over_value_that_belongs_to_a_given_merkle_tree() {
-        let values: Vec<FE> = (1..6).map(|val| FE::new(val)).collect();
+        let values: Vec<FE> = (1..6).map(FE::new).collect();
         let merkle_tree = MerkleTree::<U64PF, DefaultHasher>::build(&values);
 
         let proof = merkle_tree.get_proof(&FE::new(2)).unwrap();

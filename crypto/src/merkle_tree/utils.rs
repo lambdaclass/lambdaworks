@@ -2,6 +2,16 @@ use lambdaworks_math::field::{element::FieldElement, traits::IsField};
 
 use crate::hash::traits::IsCryptoHash;
 
+pub fn hash_leaves<F: IsField, H: IsCryptoHash<F>>(
+    values: &[FieldElement<F>],
+    hasher: &H,
+) -> Vec<FieldElement<F>> {
+    values
+        .iter()
+        .map(|val| hasher.hash_one(val.clone()))
+        .collect()
+}
+
 pub fn sibling_index(node_index: usize) -> usize {
     if node_index % 2 == 0 {
         node_index - 1
@@ -16,16 +26,6 @@ pub fn parent_index(node_index: usize) -> usize {
     } else {
         node_index / 2
     }
-}
-
-pub fn hash_leaves<F: IsField, H: IsCryptoHash<F>>(
-    values: &[FieldElement<F>],
-    hasher: &H,
-) -> Vec<FieldElement<F>> {
-    values
-        .iter()
-        .map(|val| hasher.hash_one(val.clone()))
-        .collect()
 }
 
 // The list of values is completed repeating the last value to a power of two length
@@ -91,7 +91,7 @@ mod tests {
     #[test]
     // expected |2|4|6|8|
     fn hash_leaves_from_a_list_of_field_elemnts() {
-        let values: Vec<FE> = (1..5).map(|val| FE::new(val)).collect();
+        let values: Vec<FE> = (1..5).map(FE::new).collect();
         let hashed_leaves = hash_leaves(&values, &DefaultHasher);
         let list_of_nodes = &[FE::new(2), FE::new(4), FE::new(6), FE::new(8)];
         for (leaf, expected_leaf) in hashed_leaves.iter().zip(list_of_nodes) {
@@ -101,8 +101,8 @@ mod tests {
 
     #[test]
     // expected |1|2|3|4|5|5|5|5|
-    fn complete_the_length_of_a_list_of_fields_elemnts_to_be_a_power_of_two() {
-        let mut values: Vec<FE> = (1..6).map(|val| FE::new(val)).collect();
+    fn complete_the_length_of_a_list_of_fields_elements_to_be_a_power_of_two() {
+        let mut values: Vec<FE> = (1..6).map(FE::new).collect();
         let hashed_leaves = complete_until_power_of_two(&mut values);
 
         let mut expected_leaves = (1..6).map(|val| FE::new(val)).collect::<Vec<FE>>();
@@ -118,7 +118,7 @@ mod tests {
     #[test]
     // expected |10|10|13|3|7|11|2|1|2|3|4|5|6|7|8|
     fn compleate_a_merkle_tree_from_a_set_of_leaves() {
-        let leaves: Vec<FE> = (1..9).map(|val| FE::new(val)).collect();
+        let leaves: Vec<FE> = (1..9).map(FE::new).collect();
 
         let mut nodes = vec![FE::zero(); leaves.len() - 1];
         nodes.extend(leaves);

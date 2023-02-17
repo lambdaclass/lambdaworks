@@ -55,7 +55,7 @@ mod tests {
 
     #[test]
     fn create_a_merkle_tree_with_10000_elements_and_verify_that_an_element_is_part_of_it() {
-        let values: Vec<U64FE> = (1..10000).map(|val| U64FE::new(val)).collect();
+        let values: Vec<U64FE> = (1..10000).map(U64FE::new).collect();
         let merkle_tree = U64MerkleTree::build(&values);
         let proof = merkle_tree.get_proof(&U64FE::new(9350)).unwrap();
         assert!(U64MerkleTree::verify(&proof, merkle_tree.root));

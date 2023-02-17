@@ -114,7 +114,7 @@ mod tests {
         .to_vec();
         let original_proof = U64Proof {
             hasher: DefaultHasher,
-            merkle_path: merkle_path.clone(),
+            merkle_path,
             value: U64FE::new(1),
         };
         let serialize_proof = original_proof.to_bytes_be();
