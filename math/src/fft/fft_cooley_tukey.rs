@@ -104,6 +104,26 @@ mod fft_test {
             prop_assert_eq!(result, expected);
         }
     }
+
+    //FIXME test not passing
+    proptest! {
+        // Property-based test that ensures FFT with coset gives same result as a naive polynomial evaluation.
+        #[test]
+        fn test_fft_with_coset_matches_naive_evaluation(coeffs in field_vec(8)) {
+            let poly = Polynomial::new(&coeffs[..]);
+
+            let offset = FE::new(2);
+            let scaled_poly = poly.scale(&offset);
+            let result = fft(scaled_poly.coefficients()).unwrap();
+
+            let omega = F::get_root_of_unity(log2(poly.coefficients().len()).unwrap()).unwrap();
+            let twiddles_iter = (0..poly.coefficients().len() as u64).map(|i| omega.pow(i));
+            let expected: Vec<FE> = twiddles_iter.map(|x| poly.evaluate(&x)).collect();
+
+            prop_assert_eq!(result, expected);
+        }
+    }
+
     proptest! {
         // Property-based test that ensures IFFT is the inverse operation of FFT.
         #[test]
