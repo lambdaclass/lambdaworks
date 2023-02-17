@@ -112,13 +112,13 @@ cargo install cargo-criterion
 Run the complete benchmark suite with:
 
 ```bash
-make benchmark
+make benchmarks
 ```
 
 Run a specific benchmark suite with `cargo`, for example to run the one for `field`:
 
 ```bash
-cargo criterion --bench field
+make benchmark BENCHMARK=field
 ```
 
 You can check the generated HTML report in `target/criterion/reports/index.html`
