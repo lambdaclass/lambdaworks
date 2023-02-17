@@ -97,7 +97,6 @@ where
 }
 
 #[cfg(test)]
-
 mod tests {
 
     use lambdaworks_math::traits::ByteConversion;
@@ -105,7 +104,7 @@ mod tests {
     use crate::merkle_tree::{proof::Proof, DefaultHasher, U64Proof, U64FE};
 
     #[test]
-    fn serialize_proof_and_deserialize_it_get_a_consistent_proof() {
+    fn serialize_proof_and_deserialize_using_be_it_get_a_consistent_proof() {
         let merkle_path = [
             (U64FE::new(2), true),
             (U64FE::new(1), false),
@@ -119,6 +118,33 @@ mod tests {
         };
         let serialize_proof = original_proof.to_bytes_be();
         let proof: U64Proof = Proof::from_bytes_be(&serialize_proof).unwrap();
+
+        assert_eq!(original_proof.value, proof.value);
+
+        for ((o_node, o_is_left), (node, is_left)) in
+            original_proof.merkle_path.iter().zip(proof.merkle_path)
+        {
+            assert_eq!(*o_node, node);
+            assert_eq!(*o_is_left, is_left);
+        }
+    }
+
+
+    #[test]
+    fn serialize_proof_and_deserialize_using_le_it_get_a_consistent_proof() {
+        let merkle_path = [
+            (U64FE::new(2), true),
+            (U64FE::new(1), false),
+            (U64FE::new(1), false),
+        ]
+        .to_vec();
+        let original_proof = U64Proof {
+            hasher: DefaultHasher,
+            merkle_path,
+            value: U64FE::new(1),
+        };
+        let serialize_proof = original_proof.to_bytes_le();
+        let proof: U64Proof = Proof::from_bytes_le(&serialize_proof).unwrap();
 
         assert_eq!(original_proof.value, proof.value);
 
