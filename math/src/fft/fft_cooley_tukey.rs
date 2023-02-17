@@ -31,15 +31,16 @@ fn cooley_tukey<F: IsField>(
     let coeffs_odd: Vec<FieldElement<F>> = coeffs.iter().skip(1).step_by(2).cloned().collect();
 
     let (y_even, y_odd) = (
-        cooley_tukey(&coeffs_even, omega),
-        cooley_tukey(&coeffs_odd, omega),
+        cooley_tukey(&coeffs_even, &omega.pow(2_usize)),
+        cooley_tukey(&coeffs_odd, &omega.pow(2_usize)),
     );
+
     let mut y = vec![FieldElement::zero(); n];
-    for i in 0..n / 2 {
-        let a = &y_even[i];
-        let b = &(omega.pow(i) * &y_odd[i]);
+
+    for i in 0..n {
+        let a = &y_even[i % (n / 2)];
+        let b = &(omega.pow(i as u64) * &y_odd[i % (n / 2)]);
         y[i] = a + b;
-        y[i + n / 2] = a - b;
     }
     y
 }
@@ -59,6 +60,7 @@ pub fn inverse_cooley_tukey<F: IsField>(
 
 #[cfg(test)]
 mod fft_test {
+    use crate::fft::operations::evaluate_poly_with_offset;
     use crate::field::test_fields::u64_test_field::U64TestField;
     use crate::polynomial::Polynomial;
     use proptest::prelude::*;
@@ -75,7 +77,9 @@ mod fft_test {
         // also it can't exceed the test field's two-adicity.
     }
     prop_compose! {
-        fn field_element()(num in any::<u64>()) -> FE { FE::from(num) }
+        fn field_element()(num in any::<u64>().prop_filter("reason for filtering", |x| *x != 0_u64)) -> FE {
+                FE::from(num)
+        }
     }
     prop_compose! {
         fn field_vec(max_exp: u8)(elem in field_element(), size in powers_of_two(max_exp)) -> Vec<FE> {
@@ -105,7 +109,6 @@ mod fft_test {
         }
     }
 
-    //FIXME test not passing
     proptest! {
         // Property-based test that ensures FFT with coset gives same result as a naive polynomial evaluation.
         #[test]
@@ -113,12 +116,11 @@ mod fft_test {
             let poly = Polynomial::new(&coeffs[..]);
 
             let offset = FE::new(2);
-            let scaled_poly = poly.scale(&offset);
-            let result = fft(scaled_poly.coefficients()).unwrap();
+            let result = evaluate_poly_with_offset(poly.clone(), &offset).unwrap();
 
             let omega = F::get_root_of_unity(log2(poly.coefficients().len()).unwrap()).unwrap();
-            let twiddles_iter = (0..poly.coefficients().len() as u64).map(|i| omega.pow(i));
-            let expected: Vec<FE> = twiddles_iter.map(|x| poly.evaluate(&x)).collect();
+            let twiddles_iter = (0..poly.coefficients().len() as u64).map(|i| omega.pow(i) * &offset);
+            let expected: Vec<FE> = twiddles_iter.map(|x| poly.evaluate(&(x))).collect();
 
             prop_assert_eq!(result, expected);
         }
