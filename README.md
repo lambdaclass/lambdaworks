@@ -118,7 +118,7 @@ make benchmarks
 Run a specific benchmark suite with `cargo`, for example to run the one for `field`:
 
 ```bash
-make benchmark BENCHMARK=field
+make benchmark BENCH=field
 ```
 
 You can check the generated HTML report in `target/criterion/reports/index.html`
