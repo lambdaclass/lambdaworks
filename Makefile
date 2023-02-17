@@ -16,4 +16,4 @@ benchmarks:
 
 # BENCHMARK should be one of the [[bench]] names in Cargo.toml
 benchmark:
-	cargo criterion --bench ${BENCHMARK}
+	cargo criterion --bench ${BENC}
