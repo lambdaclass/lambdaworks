@@ -8,8 +8,6 @@ pub trait IsEdwards: IsEllipticCurve + Clone + Debug {
 
     fn d() -> FieldElement<Self::BaseField>;
 
-    /// Evaluates the short Weierstrass equation at (x, y z).
-    /// Used for checking if [x: y: z] belongs to the elliptic curve.
     fn defining_equation(p: &[FieldElement<Self::BaseField>; 3]) -> FieldElement<Self::BaseField> {
         let (x, y, z) = (&p[0], &p[1], &p[2]);
         (Self::a() * x.pow(2_u16) + y.pow(2_u16)) * z.pow(2_u16)
