@@ -1,6 +1,9 @@
-use crate::cyclic_group::{HasPairing, IsCyclicGroup};
+use crate::cyclic_group::IsGroup;
+use crate::elliptic_curve::traits::HasPairing;
+use crate::errors::ByteConversionError::{FromBEBytesError, FromLEBytesError};
 use crate::field::element::FieldElement;
 use crate::field::traits::IsField;
+use crate::traits::ByteConversion;
 
 /// Type representing prime fields over unsigned 64-bit integers.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -59,13 +62,7 @@ impl<const MODULUS: u64> IsField for U64PrimeField<MODULUS> {
 impl<const MODULUS: u64> Copy for U64FieldElement<MODULUS> {}
 
 /// Represents an element in Fp. (E.g: 0, 1, 2 are the elements of F3)
-impl<const MODULUS: u64> IsCyclicGroup for U64FieldElement<MODULUS> {
-    type PairingOutput = Self;
-
-    fn generator() -> U64FieldElement<MODULUS> {
-        U64FieldElement::one()
-    }
-
+impl<const MODULUS: u64> IsGroup for U64FieldElement<MODULUS> {
     fn neutral_element() -> U64FieldElement<MODULUS> {
         U64FieldElement::zero()
     }
@@ -76,6 +73,26 @@ impl<const MODULUS: u64> IsCyclicGroup for U64FieldElement<MODULUS> {
 
     fn operate_with(&self, other: &Self) -> Self {
         *self + *other
+    }
+}
+
+impl<const MODULUS: u64> ByteConversion for U64FieldElement<MODULUS> {
+    fn to_bytes_be(&self) -> Vec<u8> {
+        u64::to_be_bytes(*self.value()).into()
+    }
+
+    fn to_bytes_le(&self) -> Vec<u8> {
+        u64::to_le_bytes(*self.value()).into()
+    }
+
+    fn from_bytes_be(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError> {
+        let bytes: [u8; 8] = bytes.try_into().map_err(|_| FromBEBytesError)?;
+        Ok(Self::from(u64::from_be_bytes(bytes)))
+    }
+
+    fn from_bytes_le(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError> {
+        let bytes: [u8; 8] = bytes.try_into().map_err(|_| FromLEBytesError)?;
+        Ok(Self::from(u64::from_le_bytes(bytes)))
     }
 }
 
@@ -215,11 +232,6 @@ mod tests {
     }
 
     #[test]
-    fn field_element_as_group_element_generator_returns_one() {
-        assert_eq!(FE::generator(), FE::new(1));
-    }
-
-    #[test]
     fn field_element_as_group_element_multiplication_by_scalar_works_as_multiplication_in_finite_fields(
     ) {
         let a = FE::new(3);
@@ -232,5 +244,29 @@ mod tests {
         let a = FE::new(3);
         let b = FE::new(12);
         assert_eq!(a * b, U64FieldPairing::pairing(&a, &b));
+    }
+
+    #[test]
+    fn to_bytes_from_bytes_be_is_the_identity() {
+        let x = FE::new(12345);
+        assert_eq!(FE::from_bytes_be(&x.to_bytes_be()).unwrap(), x);
+    }
+
+    #[test]
+    fn from_bytes_to_bytes_be_is_the_identity_for_one() {
+        let bytes = vec![0, 0, 0, 0, 0, 0, 0, 1];
+        assert_eq!(FE::from_bytes_be(&bytes).unwrap().to_bytes_be(), bytes);
+    }
+
+    #[test]
+    fn to_bytes_from_bytes_le_is_the_identity() {
+        let x = FE::new(12345);
+        assert_eq!(FE::from_bytes_le(&x.to_bytes_le()).unwrap(), x);
+    }
+
+    #[test]
+    fn from_bytes_to_bytes_le_is_the_identity_for_one() {
+        let bytes = vec![1, 0, 0, 0, 0, 0, 0, 0];
+        assert_eq!(FE::from_bytes_le(&bytes).unwrap().to_bytes_le(), bytes);
     }
 }

@@ -1,6 +1,4 @@
-/// Implementation of particular cases of elliptic curves.
-pub mod curves;
-/// Implementation of EllipticCurveElement, a generic projective point in a curve.
-pub mod element;
-/// Common behaviour for Elliptic curves.
+pub mod edwards;
+pub mod montgomery;
+pub mod short_weierstrass;
 pub mod traits;

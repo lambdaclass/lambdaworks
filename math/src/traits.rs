@@ -1,3 +1,5 @@
+use crate::errors::ByteConversionError;
+
 /// A trait for converting an element to and from its byte representation and
 /// for getting an element from its byte representation in big-endian or
 /// little-endian order.
@@ -9,8 +11,12 @@ pub trait ByteConversion {
     fn to_bytes_le(&self) -> Vec<u8>;
 
     /// Returns the element from its byte representation in big-endian order.
-    fn from_bytes_be(bytes: &[u8]) -> Self;
+    fn from_bytes_be(bytes: &[u8]) -> Result<Self, ByteConversionError>
+    where
+        Self: std::marker::Sized;
 
     /// Returns the element from its byte representation in little-endian order.
-    fn from_bytes_le(bytes: &[u8]) -> Self;
+    fn from_bytes_le(bytes: &[u8]) -> Result<Self, ByteConversionError>
+    where
+        Self: std::marker::Sized;
 }
