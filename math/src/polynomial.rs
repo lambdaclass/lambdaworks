@@ -146,6 +146,18 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
             Polynomial::new(&coefficients)
         }
     }
+
+    pub fn scale(&self, factor: &FieldElement<F>) -> Self {
+        let scaled_coefficients = self
+            .coefficients
+            .iter()
+            .enumerate()
+            .map(|(i, coeff)| factor.pow(i) * coeff)
+            .collect();
+        Self {
+            coefficients: scaled_coefficients,
+        }
+    }
 }
 
 impl<F: IsField> ops::Add<&Polynomial<FieldElement<F>>> for &Polynomial<FieldElement<F>> {
