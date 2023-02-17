@@ -1,16 +1,17 @@
+use crypto::hashers::Blake3_256;
 use lambdaworks_math::{
     field::{element::FieldElement, fields::u128_prime_field::U128FieldElement},
     polynomial::Polynomial,
     unsigned_integer::element::U128,
 };
-use winterfell::{
-    crypto::hashers::Blake3_256,
-    math::{fields::f128::BaseElement, StarkField},
-    prover::constraints::CompositionPoly,
-    Air, AuxTraceRandElements, Serializable, Trace, TraceTable,
+use math::StarkField;
+use prover::{
+    constraints::CompositionPoly, Air, AuxTraceRandElements, Serializable, Trace, TraceTable,
 };
 
-use winterfell::prover::{
+use giza_air::ProcessorAir;
+use giza_core::Felt;
+use prover::{
     build_trace_commitment_f, channel::ProverChannel, constraints::ConstraintEvaluator,
     domain::StarkDomain, trace::commitment::TraceCommitment,
 };
@@ -47,7 +48,7 @@ pub(crate) fn get_composition_poly<A>(
     pub_inputs: A::PublicInputs,
 ) -> Polynomial<U128FieldElement<M>>
 where
-    A: Air<BaseField = BaseElement>,
+    A: Air<BaseField = Felt>,
 {
     let mut pub_inputs_bytes = Vec::new();
     pub_inputs.write_into(&mut pub_inputs_bytes);
@@ -57,9 +58,9 @@ where
 
     // extend the main execution trace and build a Merkle tree from the extended trace
     let (main_trace_lde, main_trace_tree, _main_trace_polys) = build_trace_commitment_f::<
-        BaseElement,
-        BaseElement,
-        Blake3_256<BaseElement>,
+        A::BaseField,
+        A::BaseField,
+        Blake3_256<A::BaseField>,
     >(trace.main_segment(), &domain);
 
     // commit to the LDE of the main trace by writing the root of its Merkle tree into
@@ -94,7 +95,7 @@ mod tests {
 
     #[test]
     fn test_get_coefficients() {
-        let coeffs = (0u128..16).map(BaseElement::new).collect::<Vec<_>>();
+        let coeffs = (0u128..16).map(Felt::new).collect::<Vec<_>>();
         let poly = CompositionPoly::new(coeffs.clone(), 2);
         let coeffs_res = get_coefficients(poly);
 
