@@ -23,4 +23,4 @@ flamegraphs:
 
 # BENCHMARK should be one of the [[bench]] names in Cargo.toml
 flamegraph:
-	cargo bench --features benchmark_flamegraph --bench ${BENCHMARK} -- --profile-time=5
+	cargo bench --features benchmark_flamegraph --bench ${BENCH} -- --profile-time=5
