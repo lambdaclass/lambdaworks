@@ -409,13 +409,12 @@ mod tests {
         assert!(MerkleTree::verify(&proof, merkle_tree.root));
     }
 
-
     #[test]
     fn create_a_merkle_tree_with_100000_elements_and_verify_that_an_element_is_part_of_it() {
-
         let values: Vec<U64FE> = (1..100000).map(|val| U64FE::new(val)).collect();
 
-        let merkle_tree = MerkleTree::<U64PrimeField<0xFFFF_FFFF_0000_0001_u64>, DefaultHasher>::build(&values);
+        let merkle_tree =
+            MerkleTree::<U64PrimeField<0xFFFF_FFFF_0000_0001_u64>, DefaultHasher>::build(&values);
 
         let proof = merkle_tree.get_proof(&U64FE::new(9350)).unwrap();
 
