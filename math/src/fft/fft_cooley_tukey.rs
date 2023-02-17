@@ -5,6 +5,16 @@ use crate::field::{
 
 use super::{errors::FFTError, helpers::log2};
 
+pub fn fft_with_blowup<F: IsField + IsTwoAdicField>(
+    coeffs: &[FieldElement<F>],
+    blowup_factor: usize,
+) -> Result<Vec<FieldElement<F>>, FFTError> {
+    let domain_size = coeffs.len() * blowup_factor;
+    let mut padded_coeffs = coeffs.to_vec();
+    padded_coeffs.resize(domain_size, FieldElement::zero());
+    fft(&padded_coeffs[..])
+}
+
 pub fn fft<F: IsField + IsTwoAdicField>(
     coeffs: &[FieldElement<F>],
 ) -> Result<Vec<FieldElement<F>>, FFTError> {

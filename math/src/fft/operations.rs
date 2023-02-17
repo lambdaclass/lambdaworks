@@ -8,7 +8,7 @@ use crate::{
 
 use super::{
     errors::FFTError,
-    fft_cooley_tukey::{fft, inverse_fft},
+    fft_cooley_tukey::{fft, fft_with_blowup, inverse_fft},
 };
 
 pub fn evaluate_poly<F: IsField + IsTwoAdicField>(
@@ -26,9 +26,10 @@ pub fn interpolate_poly<F: IsField + IsTwoAdicField>(
 pub fn evaluate_poly_with_offset<F: IsField + IsTwoAdicField>(
     polynomial: &Polynomial<FieldElement<F>>,
     offset: &FieldElement<F>,
+    blowup_factor: usize,
 ) -> Result<Vec<FieldElement<F>>, FFTError> {
     let scaled_polynomial = polynomial.scale(offset);
-    fft(scaled_polynomial.coefficients())
+    fft_with_blowup(scaled_polynomial.coefficients(), blowup_factor)
 }
 
 #[cfg(test)]
@@ -85,13 +86,17 @@ mod fft_test {
     proptest! {
         // Property-based test that ensures FFT with coset gives same result as a naive polynomial evaluation.
         #[test]
-        fn test_fft_with_coset_matches_naive_evaluation(coeffs in field_vec(8), offset in offset()) {
-            let poly = Polynomial::new(&coeffs[..]);
-            let result = evaluate_poly_with_offset(&poly, &offset).unwrap();
+        fn test_fft_with_coset_matches_naive_evaluation(coeffs in field_vec(8), blowup_factor in powers_of_two(3)) {
+            let domain_size = coeffs.len() * blowup_factor;
 
-            let omega = F::get_root_of_unity(log2(poly.coefficients().len()).unwrap()).unwrap();
-            let twiddles_iter = (0..poly.coefficients().len() as u64).map(|i| omega.pow(i) * &offset);
-            let expected: Vec<FE> = twiddles_iter.map(|x| poly.evaluate(&x)).collect();
+            let poly = Polynomial::new(&coeffs[..]);
+
+            let offset = FE::new(2);
+            let result = evaluate_poly_with_offset(&poly, &offset, blowup_factor).unwrap();
+
+            let omega = F::get_root_of_unity(log2(domain_size).unwrap()).unwrap();
+            let twiddles_iter = (0..domain_size as u64).map(|i| omega.pow(i) * &offset);
+            let expected: Vec<FE> = twiddles_iter.map(|x| poly.evaluate(&(x))).collect();
 
             prop_assert_eq!(result, expected);
         }
