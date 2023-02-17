@@ -19,6 +19,7 @@ pub struct Parameters<F: IsField> {
 /// Alpha = 5 and parameters are predefined for secure implementations
 impl Parameters<BLS12381PrimeField> {
     // t = 3 means width of input is 2
+    // sage generate_params_poseidon.sage 1 0 381 3 5 128
     // Params: n=381, t=3, alpha=5, M=128, R_F=8, R_P=56
     pub fn with_t3() -> Result<Parameters<BLS12381PrimeField>, String> {
         let round_constants_csv = include_str!("t3/round_constants.csv");
@@ -36,7 +37,8 @@ impl Parameters<BLS12381PrimeField> {
         })
     }
 
-    // t = 2 means width of input is 1
+    // t = 2 means width of input size is 1
+    // sage generate_params_poseidon.sage 1 0 381 2 5 128
     // Params: n=381, t=2, alpha=5, M=128, R_F=8, R_P=56
     pub fn with_t2() -> Result<Parameters<BLS12381PrimeField>, String> {
         let round_constants_csv = include_str!("t2/round_constants.csv");

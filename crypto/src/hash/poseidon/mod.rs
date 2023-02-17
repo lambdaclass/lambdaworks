@@ -141,9 +141,11 @@ where
     }
 }
 
+// Test values and parameters are taken from https://github.com/keep-starknet-strange/poseidon-rs/blob/f01ff35ab4dca63a9d6feb7ff3f46c9b04b28b04/src/permutation.rs#L136
+// (values are parsed from decimals and have been converted to hex in our mod)
+// The field that these tests use is defined below, and parameters are stored under /s128b
 #[cfg(test)]
 mod tests {
-
     use lambdaworks_math::{
         field::fields::u384_prime_field::{IsMontgomeryConfiguration, MontgomeryBackendPrimeField},
         unsigned_integer::element::U384,
