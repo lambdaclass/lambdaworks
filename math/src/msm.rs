@@ -35,9 +35,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::elliptic_curve::short_weierstrass::{
-        curves::test_curve_1::TestCurve1, element::ProjectivePoint,
-    };
+    use crate::elliptic_curve::short_weierstrass::curves::test_curve_1::TestCurve1;
+    use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
     use crate::elliptic_curve::traits::IsEllipticCurve;
 
     #[test]
@@ -87,7 +86,10 @@ mod tests {
     #[test]
     fn msm_with_empty_c_is_none_over_elliptic_curves() {
         let c = [];
-        let hiding: [ProjectivePoint<TestCurve1>; 0] = [];
-        assert_eq!(msm(&c, &hiding), ProjectivePoint::neutral_element());
+        let hiding: [ShortWeierstrassProjectivePoint<TestCurve1>; 0] = [];
+        assert_eq!(
+            msm(&c, &hiding),
+            ShortWeierstrassProjectivePoint::neutral_element()
+        );
     }
 }

@@ -1,11 +1,11 @@
-use crate::elliptic_curve::short_weierstrass::element::ProjectivePoint;
+use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
 use crate::elliptic_curve::traits::IsEllipticCurve;
 use crate::field::fields::u384_prime_field::{
     IsMontgomeryConfiguration, MontgomeryBackendPrimeField,
 };
 use crate::unsigned_integer::element::U384;
 use crate::{
-    elliptic_curve::short_weierstrass::traits::{HasDistortionMap, IsShortWeierstrass},
+    elliptic_curve::short_weierstrass::traits::IsShortWeierstrass,
     field::{
         element::FieldElement,
         extensions::quadratic::{HasQuadraticNonResidue, QuadraticExtensionField},
@@ -48,10 +48,10 @@ pub struct TestCurve2;
 
 impl IsEllipticCurve for TestCurve2 {
     type BaseField = QuadraticExtensionField<TestCurve2QuadraticNonResidue>;
-    type PointRepresentation = ProjectivePoint<Self>;
+    type PointRepresentation = ShortWeierstrassProjectivePoint<Self>;
 
     fn generator() -> Self::PointRepresentation {
-        ProjectivePoint::new([
+        Self::PointRepresentation::new([
             FieldElement::new([
                 FieldElement::new(U384::from("21acedb641ca6d0f8b60148123a999801")),
                 FieldElement::new(U384::from("14d34d94f7de312859a8a0d9dbc67159d3")),
@@ -63,45 +63,14 @@ impl IsEllipticCurve for TestCurve2 {
             FieldElement::one(),
         ])
     }
-
-    fn create_point_from_affine(
-        x: FieldElement<Self::BaseField>,
-        y: FieldElement<Self::BaseField>,
-    ) -> Self::PointRepresentation {
-        ProjectivePoint::new([x, y, FieldElement::one()])
-    }
 }
 
 impl IsShortWeierstrass for TestCurve2 {
-    type UIntOrders = U384;
-
     fn a() -> FieldElement<Self::BaseField> {
         FieldElement::from(0)
     }
 
     fn b() -> FieldElement<Self::BaseField> {
         FieldElement::from(1)
-    }
-
-    fn order_r() -> Self::UIntOrders {
-        TEST_CURVE_2_MAIN_SUBGROUP_ORDER
-    }
-
-    fn order_p() -> Self::UIntOrders {
-        TEST_CURVE_2_PRIME_FIELD_ORDER
-    }
-
-    fn target_normalization_power() -> Vec<u64> {
-        todo!()
-    }
-}
-
-impl HasDistortionMap for TestCurve2 {
-    fn distorsion_map(
-        p: &[FieldElement<Self::BaseField>; 3],
-    ) -> [FieldElement<Self::BaseField>; 3] {
-        let (x, y, z) = (&p[0], &p[1], &p[2]);
-        let t = FieldElement::new([FieldElement::zero(), FieldElement::one()]);
-        [-x, y * t, z.clone()]
     }
 }
