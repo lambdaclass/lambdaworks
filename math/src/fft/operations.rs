@@ -18,9 +18,9 @@ pub fn evaluate_poly<F: IsField + IsTwoAdicField>(
 }
 
 pub fn interpolate_poly<F: IsField + IsTwoAdicField>(
-    polynomial: &Polynomial<FieldElement<F>>,
+    evaluation_points: &[FieldElement<F>],
 ) -> Result<Vec<FieldElement<F>>, FFTError> {
-    inverse_fft(polynomial.coefficients())
+    inverse_fft(evaluation_points)
 }
 
 pub fn evaluate_poly_with_offset<F: IsField + IsTwoAdicField>(
@@ -51,7 +51,9 @@ mod fft_test {
         // also it can't exceed the test field's two-adicity.
     }
     prop_compose! {
-        fn field_element()(num in any::<u64>().prop_filter("Avoid null polynomial", |x| x != &0_u64)) -> FE { FE::from(num) }
+        fn field_element()(num in any::<u64>().prop_filter("Avoid null polynomial", |x| x != &0)) -> FE {
+            FE::from(num)
+        }
     }
     prop_compose! {
         fn offset()(num in 1..MODULUS - 1) -> FE { FE::from(num) }
@@ -107,23 +109,10 @@ mod fft_test {
         #[test]
         fn test_ifft_composed_fft_is_identity(coeffs in field_vec(8)) {
             let poly_to_evaluate = Polynomial::new(&coeffs[..]);
-            let coeffs_result = evaluate_poly(&poly_to_evaluate).unwrap();
+            let evaluation_result = evaluate_poly(&poly_to_evaluate).unwrap();
 
-            let poly_to_interpolate = Polynomial::new(&coeffs_result);
-            let recovered_coefficients = interpolate_poly(&poly_to_interpolate).unwrap();
-
+            let recovered_coefficients = interpolate_poly(&evaluation_result).unwrap();
             prop_assert_eq!(recovered_coefficients, coeffs);
-        }
-    }
-
-    proptest! {
-        // Property-based test that ensures IFFT is the inverse operation of FFT.
-        #[test]
-        fn test_ift_composed_fft_is_identity(coeffs in field_vec(8)) {
-            let result = fft(&coeffs).unwrap();
-            let recovered_poly = inverse_fft(&result).unwrap();
-
-            prop_assert_eq!(recovered_poly, coeffs);
         }
     }
 
