@@ -1,7 +1,9 @@
 use crate::hash::traits::IsCryptoHash;
 use lambdaworks_math::{
     elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::BLS12381PrimeField,
-    field::{element::FieldElement, traits::IsField},
+    errors::ByteConversionError,
+    field::{element::FieldElement, fields::u64_prime_field::U64PrimeField, traits::IsField},
+    traits::ByteConversion,
 };
 
 pub struct MerkleTree<F: IsField, H: IsCryptoHash<F>> {
@@ -188,7 +190,51 @@ pub struct Proof<F: IsField, H: IsCryptoHash<F>> {
     hasher: H,
 }
 
-#[derive(Debug)]
+pub type F = U64PrimeField<0xFFFF_FFFF_0000_0001_u64>;
+pub type FE = FieldElement<F>;
+
+pub type U64MerkleTree = MerkleTree<F, DefaultHasher>;
+
+impl Proof<F, DefaultHasher> {
+    pub fn as_bytes(&self) -> Vec<u8> {
+        let mut buffer: Vec<u8> = Vec::new();
+
+        for val in self.value.value().to_be_bytes().iter() {
+            buffer.push(*val);
+        }
+
+        for (value, is_left) in self.merkle_path.iter() {
+            for val in value.value().to_be_bytes().iter() {
+                buffer.push(*val);
+            }
+
+            if *is_left {
+                buffer.push(1);
+            } else {
+                buffer.push(0);
+            }
+        }
+
+        buffer.to_vec()
+    }
+
+    pub fn from_bytes(values: &[u8]) -> Result<Proof<F, DefaultHasher>, ByteConversionError> {
+        let mut merkle_path = Vec::new();
+
+        for elem in values[8..].chunks(9) {
+            let field = FE::from_bytes_be(&elem[..elem.len() - 1])?;
+            merkle_path.push((field, elem[elem.len() - 1] == 1));
+        }
+
+        Ok(Proof {
+            value: FE::from_bytes_be(&values[..8])?,
+            merkle_path,
+            hasher: DefaultHasher,
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct DefaultHasher;
 
 impl<F: IsField> IsCryptoHash<F> for DefaultHasher {
@@ -338,6 +384,27 @@ mod tests {
         {
             assert_eq!(node, expected_node);
         }
+
+        assert!(MerkleTree::verify(&proof, merkle_tree.root));
+    }
+
+    type U64P = U64PrimeField<0xFFFF_FFFF_0000_0001_u64>;
+    type U64FE = FieldElement<U64P>;
+
+    #[test]
+    fn test() {
+        let merkle_tree =
+            MerkleTree::<U64PrimeField<0xFFFF_FFFF_0000_0001_u64>, DefaultHasher>::build(&[
+                U64FE::new(1),
+                U64FE::new(2),
+                U64FE::new(3),
+                U64FE::new(4),
+                U64FE::new(5),
+            ]);
+
+        let proof = merkle_tree.get_proof(&U64FE::new(2)).unwrap();
+        let serialize_proof = proof.as_bytes();
+        let proof = Proof::from_bytes(&serialize_proof).unwrap();
 
         assert!(MerkleTree::verify(&proof, merkle_tree.root));
     }
