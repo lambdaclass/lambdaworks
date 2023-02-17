@@ -99,11 +99,11 @@ impl<F: IsField, H: IsCryptoHash<F> + Clone> MerkleTree<F, H> {
     pub fn verify(proof: &Proof<F, H>, root_hash: FieldElement<F>) -> bool {
         let mut hashed_value = proof.hasher.hash_one(proof.value.clone());
 
-        for (sibiling_node, is_left) in proof.merkle_path.iter().rev() {
+        for (sibling_node, is_left) in proof.merkle_path.iter().rev() {
             if *is_left {
-                hashed_value = proof.hasher.hash_two(hashed_value, sibiling_node.clone());
+                hashed_value = proof.hasher.hash_two(hashed_value, sibling_node.clone());
             } else {
-                hashed_value = proof.hasher.hash_two(sibiling_node.clone(), hashed_value);
+                hashed_value = proof.hasher.hash_two(sibling_node.clone(), hashed_value);
             }
         }
 
