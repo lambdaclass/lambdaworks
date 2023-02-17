@@ -45,7 +45,7 @@ mod tests {
 
     #[test]
     fn test() {
-        let values: Vec<U64FE> = (1..6).map(|val| U64FE::new(val)).collect();
+        let values: Vec<U64FE> = (1..6).map(U64FE::new).collect();
         let merkle_tree = U64MerkleTree::build(&values);
         let proof = merkle_tree.get_proof(&U64FE::new(2)).unwrap();
         let serialize_proof = proof.to_bytes_be();

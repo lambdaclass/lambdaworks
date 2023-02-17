@@ -105,7 +105,7 @@ mod tests {
         let mut values: Vec<FE> = (1..6).map(FE::new).collect();
         let hashed_leaves = complete_until_power_of_two(&mut values);
 
-        let mut expected_leaves = (1..6).map(|val| FE::new(val)).collect::<Vec<FE>>();
+        let mut expected_leaves = (1..6).map(FE::new).collect::<Vec<FE>>();
         expected_leaves.extend(&[FE::new(5); 3]);
 
         for (leaf, expected_leaves) in hashed_leaves.iter().zip(expected_leaves) {
