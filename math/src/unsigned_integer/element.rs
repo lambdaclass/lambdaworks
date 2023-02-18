@@ -139,7 +139,7 @@ impl<const NUM_LIMBS: usize> Mul<&UnsignedInteger<NUM_LIMBS>> for &UnsignedInteg
             }
         }
         debug_assert!(
-            n + t + 1 < NUM_LIMBS,
+            n + t < NUM_LIMBS,
             "UnsignedInteger multiplication overflow."
         );
 
