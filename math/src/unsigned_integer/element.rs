@@ -475,8 +475,8 @@ impl<const NUM_LIMBS: usize> ByteConversion for UnsignedInteger<NUM_LIMBS> {
 
 #[cfg(test)]
 mod tests_u384 {
-    use crate::unsigned_integer::element::U384;
     use crate::traits::ByteConversion;
+    use crate::unsigned_integer::element::U384;
 
     #[test]
     fn construct_new_integer_from_u64_1() {
@@ -1152,11 +1152,10 @@ mod tests_u384 {
     }
 }
 
-#[cfg(test)]  
+#[cfg(test)]
 mod tests_u256 {
-    use crate::unsigned_integer::element::U256;
     use crate::traits::ByteConversion;
-
+    use crate::unsigned_integer::element::U256;
 
     #[test]
     fn construct_new_integer_from_u64_1() {
@@ -1599,9 +1598,8 @@ mod tests_u256 {
     fn mul_two_256_bit_integers_works_4() {
         let a = U256::from("15bf61fcf53a3f0ae1e8e555d");
         let b = U256::from("cbbc474761bb7995ff54e25fa5d5d0cde405e9f");
-        let c_expected = U256::from(
-            "114ec14db0c80d30b7dcb9c45948ef04cc149e612cb544f447b146553aff2ac3",
-        );
+        let c_expected =
+            U256::from("114ec14db0c80d30b7dcb9c45948ef04cc149e612cb544f447b146553aff2ac3");
         assert_eq!(a * b, c_expected);
     }
 
@@ -1726,7 +1724,10 @@ mod tests_u256 {
     #[test]
     fn to_be_bytes_works() {
         let number = U256::from_u64(1);
-        let expected_bytes = vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1];
+        let expected_bytes = vec![
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 1,
+        ];
 
         assert_eq!(number.to_bytes_be(), expected_bytes);
     }
@@ -1734,21 +1735,30 @@ mod tests_u256 {
     #[test]
     fn to_le_bytes_works() {
         let number = U256::from_u64(1);
-        let expected_bytes = vec![1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        let expected_bytes = vec![
+            1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0,
+        ];
 
         assert_eq!(number.to_bytes_le(), expected_bytes);
     }
 
     #[test]
     fn from_bytes_be_works() {
-        let bytes = vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1];
+        let bytes = vec![
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 1,
+        ];
         let expected_number = U256::from_u64(1);
         assert_eq!(U256::from_bytes_be(&bytes).unwrap(), expected_number);
     }
-    
+
     #[test]
     fn from_bytes_le_works() {
-        let bytes = vec![1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        let bytes = vec![
+            1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0,
+        ];
         let expected_number = U256::from_u64(1);
         assert_eq!(U256::from_bytes_le(&bytes).unwrap(), expected_number);
     }
