@@ -2,7 +2,10 @@
 /// Defines the basic constants needed to describe a curve in the short Weierstrass form.
 /// This small curve has only 5 elements.
 use crate::{
-    elliptic_curve::traits::{HasDistortionMap, IsEllipticCurve},
+    elliptic_curve::{
+        short_weierstrass::{point::ShortWeierstrassProjectivePoint, traits::IsShortWeierstrass},
+        traits::IsEllipticCurve,
+    },
     field::{
         element::FieldElement,
         extensions::quadratic::{HasQuadraticNonResidue, QuadraticExtensionField},
@@ -32,45 +35,26 @@ impl HasQuadraticNonResidue for TestCurveQuadraticNonResidue {
 /// The description of the curve.
 #[derive(Clone, Debug)]
 pub struct TestCurve1;
+
 impl IsEllipticCurve for TestCurve1 {
     type BaseField = QuadraticExtensionField<TestCurveQuadraticNonResidue>;
-    type UIntOrders = u64;
+    type PointRepresentation = ShortWeierstrassProjectivePoint<Self>;
 
+    fn generator() -> Self::PointRepresentation {
+        Self::PointRepresentation::new([
+            FieldElement::from(35),
+            FieldElement::from(31),
+            FieldElement::one(),
+        ])
+    }
+}
+
+impl IsShortWeierstrass for TestCurve1 {
     fn a() -> FieldElement<Self::BaseField> {
         FieldElement::from(1)
     }
 
     fn b() -> FieldElement<Self::BaseField> {
         FieldElement::from(0)
-    }
-
-    fn generator_affine_x() -> FieldElement<Self::BaseField> {
-        FieldElement::from(35)
-    }
-
-    fn generator_affine_y() -> FieldElement<Self::BaseField> {
-        FieldElement::from(31)
-    }
-
-    fn order_r() -> Self::UIntOrders {
-        TEST_CURVE_1_MAIN_SUBGROUP_ORDER
-    }
-
-    fn order_p() -> Self::UIntOrders {
-        TEST_CURVE_1_PRIME_FIELD_ORDER
-    }
-
-    fn target_normalization_power() -> Vec<u64> {
-        vec![0x00000000000002b8]
-    }
-}
-
-impl HasDistortionMap for TestCurve1 {
-    fn distorsion_map(
-        p: &[FieldElement<Self::BaseField>; 3],
-    ) -> [FieldElement<Self::BaseField>; 3] {
-        let (x, y, z) = (&p[0], &p[1], &p[2]);
-        let t = FieldElement::new([FieldElement::zero(), FieldElement::one()]);
-        [-x, y * t, z.clone()]
     }
 }
