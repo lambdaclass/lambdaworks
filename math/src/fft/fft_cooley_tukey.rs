@@ -1,6 +1,7 @@
 use crate::field::{
     element::FieldElement,
     traits::{IsField, IsTwoAdicField},
+    errors::FieldError,
 };
 
 use super::{errors::FFTError, helpers::log2};
@@ -16,7 +17,11 @@ pub fn inverse_fft<F: IsField + IsTwoAdicField>(
     evaluations: &[FieldElement<F>],
 ) -> Result<Vec<FieldElement<F>>, FFTError> {
     let omega = F::get_root_of_unity(log2(evaluations.len())?)?;
-    Ok(inverse_cooley_tukey(evaluations, omega))
+    let result = match inverse_cooley_tukey(evaluations, omega) {
+        Ok(result ) => result,
+        Err(err) => return Err(FFTError::FieldError(err)),
+    };
+    Ok(result)
 }
 
 fn cooley_tukey<F: IsField>(
@@ -47,14 +52,15 @@ fn cooley_tukey<F: IsField>(
 pub fn inverse_cooley_tukey<F: IsField>(
     evaluations: &[FieldElement<F>],
     omega: FieldElement<F>,
-) -> Vec<FieldElement<F>> {
+) -> Result<Vec<FieldElement<F>>, FieldError> {
     let n = evaluations.len();
-    let inverse_n = FieldElement::from(n as u64).inv();
-    let inverse_omega = omega.inv().unwrap();
-    cooley_tukey(evaluations, &inverse_omega)
+    let inverse_n = FieldElement::from(n as u64).inv()?;
+    let inverse_omega = omega.inv()?;
+    Ok(cooley_tukey(evaluations, &inverse_omega)
         .iter()
-        .map(|coeff| coeff * inverse_n.as_ref().unwrap())
+        .map(|coeff| coeff * &inverse_n)
         .collect()
+    )
 }
 
 #[cfg(test)]
