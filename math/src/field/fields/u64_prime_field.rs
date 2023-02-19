@@ -3,6 +3,8 @@ use crate::errors::ByteConversionError::{FromBEBytesError, FromLEBytesError};
 use crate::field::element::FieldElement;
 use crate::field::traits::IsField;
 use crate::traits::ByteConversion;
+use rand::distributions::{Distribution, Standard};
+use rand::Rng;
 
 /// Type representing prime fields over unsigned 64-bit integers.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -92,6 +94,15 @@ impl<const MODULUS: u64> ByteConversion for U64FieldElement<MODULUS> {
     fn from_bytes_le(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError> {
         let bytes: [u8; 8] = bytes.try_into().map_err(|_| FromLEBytesError)?;
         Ok(Self::from(u64::from_le_bytes(bytes)))
+    }
+}
+
+// Implements the Distribution trait on type U64FieldElement<MODULUS> for Standard in order to allow random generation.
+
+impl<const MODULUS: u64> Distribution<U64FieldElement<MODULUS>> for Standard {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> U64FieldElement<MODULUS> {
+        let x: u64 = rng.gen_range(1..MODULUS);
+        U64FieldElement::from(x)
     }
 }
 
@@ -248,5 +259,76 @@ mod tests {
     fn from_bytes_to_bytes_le_is_the_identity_for_one() {
         let bytes = vec![1, 0, 0, 0, 0, 0, 0, 0];
         assert_eq!(FE::from_bytes_le(&bytes).unwrap().to_bytes_le(), bytes);
+    }
+
+    #[test]
+    fn generate_random_using_rng_generator_and_check_if_normal_distribution() {
+        let mut rng = rand::thread_rng();
+        const LOCAL_MODULUS: u64 = 1663;
+        type FEx = FieldElement<U64PrimeField<LOCAL_MODULUS>>;
+
+        // repeat test n times to observe the statistical behaviour
+        let n: u64 = 100;
+
+        let mut sigma_probs: [f64; 4] = [0.0; 4];
+
+        for _ in 0..n {
+            // Generate a rand distribution of field elements
+            const N_SAMPLES: usize = 200000;
+            let mut rand_dist: [FEx; N_SAMPLES] = [FEx::zero(); N_SAMPLES];
+
+            for i in &mut rand_dist {
+                *i = rng.gen();
+            }
+
+            // Generate histogram where columns are field elements
+            let mut hist: [u64; (LOCAL_MODULUS - 1) as usize] = [0; (LOCAL_MODULUS - 1) as usize];
+
+            for i in 0..=(rand_dist.len() - 1) {
+                hist[(*rand_dist[i].value() - 1) as usize] += 1;
+            }
+
+            // Compute arithmetic average of histogram columns values
+            let mut avg: u64 = 0;
+
+            for i in hist {
+                avg += i;
+            }
+            avg = avg / (hist.len() as u64);
+
+            // Compute standard deviation of histogram columns
+            let mut std_dev: f64 = 0.0;
+
+            for i in hist {
+                std_dev += ((i as f64) - (avg as f64)).powf(2.0) as f64;
+            }
+
+            std_dev = (std_dev / (hist.len() as f64)).sqrt();
+
+            // Count sigma event occurences
+            let mut sigmas_counters: [u64; 4] = [0; 4];
+
+            for i in hist {
+                let dev_hist_col = ((i as f64) - (avg as f64)).abs();
+
+                match dev_hist_col {
+                    dev if dev < std_dev => sigmas_counters[0] += 1,
+                    dev if dev < (std_dev * 2.0) => sigmas_counters[1] += 1,
+                    dev if dev < (std_dev * 3.0) => sigmas_counters[2] += 1,
+                    dev if dev > (std_dev * 3.0) => sigmas_counters[3] += 1,
+                    _ => panic!("invalid num"),
+                }
+            }
+
+            // Compute probability of occurence of a sigma event
+            for i in 0..sigmas_counters.len() {
+                sigma_probs[i] += (sigmas_counters[i] as f64) / (LOCAL_MODULUS as f64);
+            }
+        }
+
+        // Assert sigma probs 68.2% +/-(1%), 27.2% +/-(1%) , 4.2% +/- (0.5%), 0.2% aprox
+        assert!((67.2 < sigma_probs[0]) && sigma_probs[0] < 69.2);
+        assert!((26.2 < sigma_probs[1]) && sigma_probs[1] < 28.2);
+        assert!((3.7 < sigma_probs[2]) && sigma_probs[2] < 4.7);
     }
 }

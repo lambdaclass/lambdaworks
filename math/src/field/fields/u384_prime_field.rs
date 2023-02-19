@@ -5,6 +5,8 @@ use crate::{
     field::traits::IsField, unsigned_integer::element::UnsignedInteger,
     unsigned_integer::montgomery::MontgomeryAlgorithms,
 };
+use rand::distributions::{Distribution, Standard};
+use rand::Rng;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
@@ -123,6 +125,48 @@ where
     fn from_bytes_le(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError> {
         let value = U384::from_bytes_le(bytes)?;
         Ok(Self::new(value))
+    }
+}
+
+// Implements the Distribution trait on type FieldElement<MontgomeryBackendPrimeField<C>> for Standard in order to allow random generation.
+
+impl<C> Distribution<FieldElement<MontgomeryBackendPrimeField<C>>> for Standard
+where
+    C: IsMontgomeryConfiguration + Clone + Debug,
+{
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> FieldElement<MontgomeryBackendPrimeField<C>> {
+        let mut rand_limbs: [u64; 6] = [0; 6];
+        let mut is_msl: bool = true; //is Most Significative Limb of MODULUS
+
+        for i in 0..rand_limbs.len() {
+            match C::MODULUS.limbs[i] {
+                mod_limb if (mod_limb == 0) && is_msl => rand_limbs[i] = 0,
+                mod_limb if (i == 5) && is_msl => rand_limbs[i] = rng.gen_range(1..mod_limb),
+                mod_limb if is_msl => {
+                    rand_limbs[i] = rng.gen_range(0..=mod_limb);
+                    is_msl = false;
+                }
+                _ if (i == 5) => {
+                    if rand_limbs == [0; 6] {
+                        //to avoid 0 in the generation set
+                        rand_limbs[i] = rng.gen_range(1..=u64::MAX);
+                    } else {
+                        rand_limbs[i] = rng.gen_range(0..=u64::MAX);
+                    }
+                }
+                _ => rand_limbs[i] = rng.gen_range(0..=u64::MAX),
+            }
+        }
+
+        let mut rand_hex: String = "".to_string();
+
+        for i in rand_limbs {
+            rand_hex.push_str(&format!("{:0>16X}", i));
+        }
+
+        let integer: U384 = U384::from(&rand_hex);
+
+        FieldElement::new(integer)
     }
 }
 
@@ -284,6 +328,17 @@ mod tests {
         assert_eq!(-&zero, zero);
     }
 
+    #[test]
+    fn gen_random_for_f23() {
+        for _ in 0..1000 {
+            let rand: F23Element = rand::random();
+            assert!(
+                (&MontgomeryConfig23::MODULUS > rand.value())
+                    && (rand.value() > &U384::from_u64(0))
+            );
+        }
+    }
+
     // FP1
     #[derive(Clone, Debug)]
     struct MontgomeryConfigP1;
@@ -320,6 +375,7 @@ mod tests {
 
     type FP1 = MontgomeryBackendPrimeField<MontgomeryConfigP1>;
     type FP1Element = FieldElement<FP1>;
+
     #[test]
     fn montgomery_prime_field_multiplication_works_0() {
         let x = FP1Element::new(UnsignedInteger::from(
@@ -332,6 +388,17 @@ mod tests {
             "73d23e8d462060dc23d5c15c00fc432d95621a3c",
         ));
         assert_eq!(x * y, c);
+    }
+
+    #[test]
+    fn gen_random_for_fp1() {
+        for _ in 0..1000 {
+            let rand: FP1Element = rand::random();
+            assert!(
+                (&MontgomeryConfigP1::MODULUS > rand.value())
+                    && (rand.value() > &U384::from_u64(0))
+            );
+        }
     }
 
     // FP2
@@ -418,5 +485,16 @@ mod tests {
             FP2Element::from_bytes_le(&bytes).unwrap().to_bytes_le(),
             bytes
         );
+    }
+
+    #[test]
+    fn gen_random_for_fp2() {
+        for _ in 0..10000 {
+            let rand: FP2Element = rand::random();
+            assert!(
+                (&MontgomeryConfigP2::MODULUS > rand.value())
+                    && (rand.value() > &U384::from_u64(0))
+            );
+        }
     }
 }
