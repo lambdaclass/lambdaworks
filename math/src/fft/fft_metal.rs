@@ -4,6 +4,7 @@ use metal::{CommandQueue, Device, Library};
 const FFT_LIB_DATA: &[u8] = include_bytes!("metal/fft.metallib");
 
 pub struct FFTMetalState {
+    pub device: Device,
     pub library: Library,
     pub command_queue: CommandQueue,
 }
@@ -19,6 +20,7 @@ impl FFTMetalState {
         let command_queue = device.new_command_queue();
 
         Ok(FFTMetalState {
+            device,
             library,
             command_queue,
         })
