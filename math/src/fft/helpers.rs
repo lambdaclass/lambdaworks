@@ -8,3 +8,7 @@ pub fn log2(n: usize) -> Result<u64, FFTError> {
     }
     Ok(n.trailing_zeros() as u64)
 }
+
+pub fn void_ptr<T>(v: &T) -> *const core::ffi::c_void {
+    v as *const T as *const core::ffi::c_void
+}
