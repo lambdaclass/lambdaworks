@@ -5,7 +5,7 @@ use super::{errors::FFTError, helpers::void_ptr};
 
 const TWIDDLE_LIB_DATA: &[u8] = include_bytes!("metal/fft.metallib");
 
-/// Generates `2^k` twiddle factors for a field of 'modulus' using the GPU via Metal.
+/// Generates `2^k` twiddle factors for a field of `modulus` using the GPU via Metal.
 pub fn gen_twiddles<F>(k: u64, modulus: u64, metal_device: Option<Device>) -> Result<Vec<FieldElement<F>>, FFTError> 
 where
     F: IsTwoAdicField
@@ -47,7 +47,11 @@ where
 
     let grid_size = MTLSize::new(result_length, 1, 1);
 
-    let thread_count = pipeline.max_total_threads_per_threadgroup() / pipeline.thread_execution_width();
+    let thread_count = {
+        let max = pipeline.max_total_threads_per_threadgroup();
+        let width = pipeline.thread_execution_width();
+        (max / width) * width
+    };
     let threads_per_threadgroup = MTLSize::new(thread_count, 1, 1);
 
     compute_encoder.dispatch_threads(grid_size, threads_per_threadgroup);
