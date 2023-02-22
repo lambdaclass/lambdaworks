@@ -1,13 +1,10 @@
 use lambdaworks_math::{
     field::{
         element::FieldElement,
-        fields::{
-            u128_prime_field::U128FieldElement,
-            u384_prime_field::{IsMontgomeryConfiguration, MontgomeryBackendPrimeField},
-        },
+        fields::u384_prime_field::{IsMontgomeryConfiguration, MontgomeryBackendPrimeField},
     },
     polynomial::Polynomial,
-    unsigned_integer::element::{U128, U384},
+    unsigned_integer::element::U384,
 };
 use winterfell::{
     crypto::hashers::Blake3_256,
@@ -75,9 +72,9 @@ where
 
     // extend the main execution trace and build a Merkle tree from the extended trace
     let (main_trace_lde, main_trace_tree, _main_trace_polys) = build_trace_commitment_f::<
-        BaseElement,
-        BaseElement,
-        Blake3_256<BaseElement>,
+        A::BaseField,
+        A::BaseField,
+        Blake3_256<A::BaseField>,
     >(trace.main_segment(), &domain);
 
     // commit to the LDE of the main trace by writing the root of its Merkle tree into
@@ -98,8 +95,8 @@ where
     let composition_poly = constraint_evaluations.into_poly().unwrap();
 
     let coeffs: Vec<U384FieldElement> = get_coefficients(composition_poly)
-        .iter()
-        .map(|c| FieldElement::new(U128::from_u128(c.0)))
+        .into_iter()
+        .map(|c| U384FieldElement::from(&U384::from(&c.to_string())))
         .collect();
 
     Polynomial::new(&coeffs)
@@ -158,7 +155,7 @@ mod tests {
 
         // TODO: this coefficients should be checked correctly to know
         // the test is really passing
-        let expected_coeffs = vec![
+        let expected_coeffs: Vec<U384FieldElement> = vec![
             73805846515134368521942875729025268850u128,
             251094867283236114961184226859763993364,
             24104107408363517664638843184319555199,
@@ -177,13 +174,15 @@ mod tests {
             170130930667860970428731413388750994520,
         ]
         .into_iter()
-        .map(U128::from_u128)
-        .map(lambdaworks_math::field::element::FieldElement::new)
-        .collect::<Vec<_>>();
+        .map(BaseElement::new)
+        .map(|c| U384FieldElement::from(&U384::from(&c.to_string())))
+        .collect();
 
         let expected_poly = Polynomial::new(&expected_coeffs);
 
-        assert_eq!(get_composition_poly(air, trace, pub_inputs), expected_poly);
+        let result_poly = get_composition_poly(air, trace, pub_inputs);
+
+        assert_eq!(result_poly, expected_poly);
     }
 }
 
