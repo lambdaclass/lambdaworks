@@ -172,6 +172,8 @@ where
 
 #[cfg(test)]
 mod tests {
+    use rand::{rngs::ThreadRng, Rng};
+
     use crate::{
         field::element::FieldElement,
         traits::ByteConversion,
@@ -394,6 +396,8 @@ mod tests {
     fn gen_random_for_fp1() {
         for _ in 0..1000 {
             let rand: FP1Element = rand::random();
+            let mut rng:ThreadRng = rand::thread_rng();
+            let rand: FP1Element = rng.gen();
             assert!(
                 (&MontgomeryConfigP1::MODULUS > rand.value())
                     && (rand.value() > &U384::from_u64(0))
