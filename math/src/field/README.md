@@ -39,7 +39,7 @@ fn do_something_with_fe<F>(x: FieldElement<F>)
 }
 ```
 ## How to create a new Field
-If you want to use your own field, for example to optimize an operation, you can do that by implementing the `IsField` trait for your own zero-sized struct:
+If you want to create your own field, for example to optimize an operation, you can do that by implementing the `IsField` trait for your own zero-sized struct:
 
 ```rust
 struct MyCustomField;
