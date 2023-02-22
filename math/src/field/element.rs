@@ -1,7 +1,10 @@
 use crate::field::traits::IsField;
 use crate::unsigned_integer::traits::IsUnsignedInteger;
-use std::{fmt::Debug, hash::{Hash, Hasher}};
 use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
+use std::{
+    fmt::Debug,
+    hash::{Hash, Hasher},
+};
 
 /// A field element with operations algorithms defined in `F`
 #[derive(Debug, Clone)]
@@ -46,7 +49,10 @@ where
 
 impl<F> Eq for FieldElement<F> where F: IsField {}
 
-impl<F> Hash for FieldElement<F> where F: IsField {
+impl<F> Hash for FieldElement<F>
+where
+    F: IsField,
+{
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.value.hash(state);
     }
