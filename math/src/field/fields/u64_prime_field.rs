@@ -1,5 +1,4 @@
 use crate::cyclic_group::IsGroup;
-use crate::elliptic_curve::traits::HasPairing;
 use crate::errors::ByteConversionError::{FromBEBytesError, FromLEBytesError};
 use crate::field::element::FieldElement;
 use crate::field::traits::IsField;
@@ -34,7 +33,7 @@ impl<const MODULUS: u64> IsField for U64PrimeField<MODULUS> {
     }
 
     fn inv(a: &u64) -> u64 {
-        assert_ne!(*a, 0, "Cannot invert zero element");
+        debug_assert_ne!(*a, 0, "Cannot invert zero element");
         Self::pow(a, MODULUS - 2)
     }
 
@@ -93,18 +92,6 @@ impl<const MODULUS: u64> ByteConversion for U64FieldElement<MODULUS> {
     fn from_bytes_le(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError> {
         let bytes: [u8; 8] = bytes.try_into().map_err(|_| FromLEBytesError)?;
         Ok(Self::from(u64::from_le_bytes(bytes)))
-    }
-}
-
-struct U64FieldPairing<const MODULUS: u64>;
-
-impl<const MODULUS: u64> HasPairing for U64FieldPairing<MODULUS> {
-    type LhsGroup = U64FieldElement<MODULUS>;
-    type RhsGroup = U64FieldElement<MODULUS>;
-    type OutputGroup = U64FieldElement<MODULUS>;
-
-    fn pairing(a: &Self::LhsGroup, b: &Self::RhsGroup) -> Self::OutputGroup {
-        a * b
     }
 }
 
@@ -237,13 +224,6 @@ mod tests {
         let a = FE::new(3);
         let b = FE::new(12);
         assert_eq!(a * b, a.operate_with_self(12));
-    }
-
-    #[test]
-    fn field_element_as_group_element_pairing_works_as_multiplication_in_finite_fields() {
-        let a = FE::new(3);
-        let b = FE::new(12);
-        assert_eq!(a * b, U64FieldPairing::pairing(&a, &b));
     }
 
     #[test]
