@@ -172,7 +172,6 @@ where
 
 #[cfg(test)]
 mod tests {
-
     use crate::{
         field::element::FieldElement,
         traits::ByteConversion,
