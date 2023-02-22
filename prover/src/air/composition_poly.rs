@@ -105,6 +105,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use simple_computation_test_utils::*;
     use winterfell::{FieldExtension, ProofOptions};
 
     #[test]
@@ -129,8 +130,6 @@ mod tests {
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////
     #[test]
     fn test_composition_poly_simple_computation() {
-        use simple_computation_test_utils::*;
-
         let start = BaseElement::new(3);
         let n = 8;
 
@@ -183,6 +182,35 @@ mod tests {
         let result_poly = get_composition_poly(air, trace, pub_inputs);
 
         assert_eq!(result_poly, expected_poly);
+    }
+
+    #[test]
+    fn test_prove() {
+        let start = BaseElement::new(3);
+        let n = 8;
+
+        // Build the execution trace and .
+        let trace = build_do_work_trace(start, n);
+        let pub_inputs = PublicInputs {
+            start: trace.get(0, 0),
+            result: trace.get(0, trace.length() - 1),
+        };
+
+        // Define proof options; these will be enough for ~96-bit security level.
+        let options = ProofOptions::new(
+            32, // number of queries
+            8,  // blowup factor
+            0,  // grinding factor
+            FieldExtension::None,
+            8,   // FRI folding factor
+            128, // FRI max remainder length
+        );
+
+        let air = WorkAir::new(trace.get_info(), pub_inputs.clone(), options);
+
+        let ret_prove = crate::prove(air, trace, pub_inputs);
+
+        println!("{ret_prove:?}");
     }
 }
 
