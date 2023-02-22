@@ -10,25 +10,13 @@ use winterfell::{
     Air, AuxTraceRandElements, Serializable, Trace, TraceTable,
 };
 
-
+use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::{
     field::fields::u384_prime_field::{IsMontgomeryConfiguration, MontgomeryBackendPrimeField},
     unsigned_integer::element::U384,
 };
-use lambdaworks_math::field::element::FieldElement;
 
-use lambdaworks_math::field::traits::IsField;
-#[derive(Clone, Debug)]
-pub struct MontgomeryConfig;
-impl IsMontgomeryConfiguration for MontgomeryConfig {
-    const MODULUS: U384 =
-        U384::from("800000000000011000000000000000000000000000000000000000000000001");
-    const MP: u64 = 18446744073709551615;
-    const R2: U384 =
-        U384::from("38e5f79873c0a6df47d84f8363000187545706677ffcc06cc7177d1406df18e");
-}
-const PRIME_GENERATOR_MONTGOMERY: U384 = U384::from("3");
-type U384PrimeField = MontgomeryBackendPrimeField<MontgomeryConfig>;
+type U384PrimeField = MontgomeryBackendPrimeField<crate::air::composition_poly::MontgomeryConfig>;
 type U384FieldElement = FieldElement<U384PrimeField>;
 const MODULUS_MINUS_1: U384 =
     U384::from("800000000000011000000000000000000000000000000000000000000000000");
@@ -59,18 +47,28 @@ pub struct StarkProof {
     // TODO: fill this when we know what a proof entails
 }
 
+pub use lambdaworks_crypto::merkle_tree::{DefaultHasher, MerkleTree};
+pub type FriMerkleTree = MerkleTree<U384PrimeField, DefaultHasher>;
+
 pub fn prove<A>(air: A, trace: TraceTable<A::BaseField>, pub_inputs: A::PublicInputs) -> StarkProof
 where
     A: Air<BaseField = BaseElement>,
 {
     // * Generate composition polynomials using Winterfell
-    let result_poly = get_composition_poly(air, trace, pub_inputs);
+    let mut result_poly = get_composition_poly(air, trace, pub_inputs);
+
+    // * Generate Coset
+    let roots_of_unity = crate::generate_vec_roots(1024, 1);
 
     // * Do Reed-Solomon on the trace and composition polynomials using some blowup factor
-        // * Generate Coset
+    let result_poly_lde = result_poly.evaluate_slice(roots_of_unity.as_slice());
 
     // * Commit to both polynomials using a Merkle Tree
+    let commited_poly_lde = FriMerkleTree::build(result_poly_lde.as_slice());
+
     // * Do FRI on the composition polynomials
+    let lde_fri_commitment = crate::fri::fri(&mut result_poly, roots_of_unity);
+
     // * Sample q_1, ..., q_m using Fiat-Shamir
     // * For every q_i, do FRI decommitment
     // * For every trace polynomial t_i, provide the evaluations on every q_i, q_i * g, q_i * g^2

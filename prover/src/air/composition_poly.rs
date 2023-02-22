@@ -210,8 +210,6 @@ mod tests {
 
         let ret_prove = crate::prove(air, trace, pub_inputs);
 
-        let roots_of_unit = crate::generate_vec_roots(1024, 1);
-
         println!("{ret_prove:?}");
     }
 }
