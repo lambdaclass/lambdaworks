@@ -1,7 +1,13 @@
 use lambdaworks_math::{
-    field::{element::FieldElement, fields::u128_prime_field::U128FieldElement},
+    field::{
+        element::FieldElement,
+        fields::{
+            u128_prime_field::U128FieldElement,
+            u384_prime_field::{IsMontgomeryConfiguration, MontgomeryBackendPrimeField},
+        },
+    },
     polynomial::Polynomial,
-    unsigned_integer::element::U128,
+    unsigned_integer::element::{U128, U384},
 };
 use winterfell::{
     crypto::hashers::Blake3_256,
@@ -15,8 +21,20 @@ use winterfell::prover::{
     domain::StarkDomain, trace::commitment::TraceCommitment,
 };
 
-// Taken from winterfell, this is the modulus of a Starkfield
-const M: u128 = 340282366920938463463374557953744961537;
+// // Taken from winterfell, this is the modulus of a Starkfield
+// const M: u128 = 340282366920938463463374557953744961537;
+
+#[derive(Clone, Debug)]
+pub struct MontgomeryConfig;
+impl IsMontgomeryConfiguration for MontgomeryConfig {
+    const MODULUS: U384 =
+        U384::from("800000000000011000000000000000000000000000000000000000000000001");
+    const MP: u64 = 18446744073709551615;
+    const R2: U384 = U384::from("38e5f79873c0a6df47d84f8363000187545706677ffcc06cc7177d1406df18e");
+}
+
+type U384PrimeField = MontgomeryBackendPrimeField<MontgomeryConfig>;
+type U384FieldElement = FieldElement<U384PrimeField>;
 
 /// Given a CompositionPoly from winterfell, extract its coefficients
 /// as a vector.
@@ -45,7 +63,7 @@ pub(crate) fn get_composition_poly<A>(
     air: A,
     trace: TraceTable<A::BaseField>,
     pub_inputs: A::PublicInputs,
-) -> Polynomial<U128FieldElement<M>>
+) -> Polynomial<U384FieldElement>
 where
     A: Air<BaseField = BaseElement>,
 {
@@ -79,7 +97,7 @@ where
 
     let composition_poly = constraint_evaluations.into_poly().unwrap();
 
-    let coeffs: Vec<U128FieldElement<M>> = get_coefficients(composition_poly)
+    let coeffs: Vec<U384FieldElement> = get_coefficients(composition_poly)
         .iter()
         .map(|c| FieldElement::new(U128::from_u128(c.0)))
         .collect();
