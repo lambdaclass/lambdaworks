@@ -31,7 +31,7 @@ impl HasQuadraticNonResidue for LevelOneResidue {
     }
 }
 
-type LevelOneField = QuadraticExtensionField<LevelOneResidue>;
+pub type LevelOneField = QuadraticExtensionField<LevelOneResidue>;
 
 #[derive(Debug, Clone)]
 pub struct LevelTwoResidue;
