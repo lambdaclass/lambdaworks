@@ -2,6 +2,13 @@ use super::element::UnsignedInteger;
 
 pub struct MontgomeryAlgorithms;
 impl MontgomeryAlgorithms {
+
+    /// Compute CIOS multiplication of `a` * `b`
+    /// `q` is the group order or modules
+    /// `mp` is the inverse of q
+    /// Notice CIOS stands for Coarsely Integrated Operand Scanning
+    /// For more information see section 2.3.2 of Tolga Acar's thesis
+    /// https://www.microsoft.com/en-us/research/wp-content/uploads/1998/06/97Acar.pdf
     pub const fn cios<const NUM_LIMBS: usize>(
         a: &UnsignedInteger<NUM_LIMBS>,
         b: &UnsignedInteger<NUM_LIMBS>,

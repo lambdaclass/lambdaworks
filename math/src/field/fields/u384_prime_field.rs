@@ -17,6 +17,15 @@ pub trait IsMontgomeryConfiguration {
     const MP: u64;
 }
 
+// num_limbs should be the twice the amount we use for the field
+const fn r2<const NUM_LIMBS: usize>(
+    modulus: UnsignedInteger<NUM_LIMBS>
+) -> UnsignedInteger<NUM_LIMBS>{
+    // 2**(384 * 2) % MODULUS
+    modulus.const_shl(384*2)
+    //modulus.const_div_rem()
+}
+
 #[derive(Clone, Debug)]
 pub struct MontgomeryBackendPrimeField<C> {
     phantom: PhantomData<C>,

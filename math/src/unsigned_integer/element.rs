@@ -121,8 +121,6 @@ impl<const NUM_LIMBS: usize> Sub<UnsignedInteger<NUM_LIMBS>> for &UnsignedIntege
     }
 }
 
-// impl Mul
-
 /// Multi-precision multiplication.
 /// Algorithm 14.12 of "Handbook of Applied Cryptography" (https://cacr.uwaterloo.ca/hac/)
 impl<const NUM_LIMBS: usize> Mul<&UnsignedInteger<NUM_LIMBS>> for &UnsignedInteger<NUM_LIMBS> {
@@ -193,30 +191,11 @@ impl<const NUM_LIMBS: usize> Mul<UnsignedInteger<NUM_LIMBS>> for &UnsignedIntege
     }
 }
 
-// impl Shl
-
 impl<const NUM_LIMBS: usize> Shl<usize> for &UnsignedInteger<NUM_LIMBS> {
     type Output = UnsignedInteger<NUM_LIMBS>;
 
     fn shl(self, times: usize) -> UnsignedInteger<NUM_LIMBS> {
-        debug_assert!(
-            times < 64 * NUM_LIMBS,
-            "UnsignedInteger shift left overflows."
-        );
-        let mut limbs = [0u64; NUM_LIMBS];
-        let (a, b) = (times / 64, times % 64);
-
-        if b == 0 {
-            limbs[..(NUM_LIMBS - a)].copy_from_slice(&self.limbs[a..]);
-            Self::Output { limbs }
-        } else {
-            limbs[NUM_LIMBS - 1 - a] = self.limbs[NUM_LIMBS - 1] << b;
-            for i in (a + 1)..NUM_LIMBS {
-                limbs[NUM_LIMBS - 1 - i] = (self.limbs[NUM_LIMBS - 1 - i + a] << b)
-                    | (self.limbs[NUM_LIMBS - i + a] >> (64 - b));
-            }
-            Self::Output { limbs }
-        }
+        self.const_shl(times)
     }
 }
 
@@ -281,6 +260,7 @@ impl<const NUM_LIMBS: usize> BitAnd for UnsignedInteger<NUM_LIMBS> {
 }
 
 impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
+
     pub const fn from_u64(value: u64) -> Self {
         let mut limbs = [0u64; NUM_LIMBS];
         limbs[NUM_LIMBS - 1] = value;
@@ -337,6 +317,33 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         false
     }
 
+    pub const fn const_shl(self, times: usize) -> Self {
+        debug_assert!(
+            times < 64 * NUM_LIMBS,
+            "UnsignedInteger shift left overflows."
+        );
+        let mut limbs = [0u64; NUM_LIMBS];
+        let (a, b) = (times / 64, times % 64);
+
+        if b == 0 {
+            let mut i = 0;
+            while i < NUM_LIMBS - a {
+                limbs[i] = self.limbs[a + i];
+                i += 1;
+            }
+            Self { limbs }
+        } else {
+            limbs[NUM_LIMBS - 1 - a] = self.limbs[NUM_LIMBS - 1] << b;
+            let mut i = a + 1;
+            while i < NUM_LIMBS {
+                limbs[NUM_LIMBS - 1 - i] = (self.limbs[NUM_LIMBS - 1 - i + a] << b) |
+                                          (self.limbs[NUM_LIMBS - i + a] >> (64 - b));
+                i += 1;
+            }            
+            Self { limbs }
+        }
+    }
+
     pub fn add(
         a: &UnsignedInteger<NUM_LIMBS>,
         b: &UnsignedInteger<NUM_LIMBS>,
@@ -379,38 +386,36 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
     /// Multi-precision multiplication.
     /// Adapted from Algorithm 14.12 of "Handbook of Applied Cryptography" (https://cacr.uwaterloo.ca/hac/)
     #[allow(unused)]
-    fn mul(
+    pub const fn mul(
         a: &UnsignedInteger<NUM_LIMBS>,
         b: &UnsignedInteger<NUM_LIMBS>,
     ) -> (UnsignedInteger<NUM_LIMBS>, UnsignedInteger<NUM_LIMBS>) {
-        // 1.
         let mut hi = [0u64; NUM_LIMBS];
         let mut lo = [0u64; NUM_LIMBS];
-        // 2.
-        for i in (0..NUM_LIMBS).rev() {
-            // 2.1
+        // Const functions don't support for loops so we use whiles
+        // this is equivalent to:
+        // for i in (0..NUM_LIMBS).rev()
+        let mut i = NUM_LIMBS;
+        while i > 0 {
+            i -= 1;
             let mut carry = 0u128;
-            // 2.2
-            for j in (0..NUM_LIMBS).rev() {
+            let mut j = NUM_LIMBS;
+            while j > 0 {
+                j -= 1;
                 let mut k = i + j;
                 if k >= NUM_LIMBS - 1 {
                     k -= (NUM_LIMBS - 1);
                     let uv = (lo[k] as u128) + (a.limbs[j] as u128) * (b.limbs[i] as u128) + carry;
                     carry = uv >> 64;
-                    // Casting u128 to u64 takes modulo 2^{64}
                     lo[k] = uv as u64;
                 } else {
-                    let uv =
-                        (hi[k + 1] as u128) + (a.limbs[j] as u128) * (b.limbs[i] as u128) + carry;
+                    let uv = (hi[k + 1] as u128) + (a.limbs[j] as u128) * (b.limbs[i] as u128) + carry;
                     carry = uv >> 64;
-                    // Casting u128 to u64 takes modulo 2^{64}
                     hi[k + 1] = uv as u64;
                 }
             }
-            // 2.3
             hi[i] = carry as u64;
         }
-        // 3.
         (Self { limbs: hi }, Self { limbs: lo })
     }
 }
