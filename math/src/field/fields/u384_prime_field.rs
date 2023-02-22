@@ -172,7 +172,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use rand::{rngs::ThreadRng, Rng};
 
     use crate::{
         field::element::FieldElement,

@@ -294,13 +294,13 @@ mod tests {
             for i in hist {
                 avg += i;
             }
-            avg = avg / (hist.len() as u64);
+            avg /= hist.len() as u64;
 
             // Compute standard deviation of histogram columns
             let mut std_dev: f64 = 0.0;
 
             for i in hist {
-                std_dev += ((i as f64) - (avg as f64)).powf(2.0) as f64;
+                std_dev += ((i as f64) - (avg as f64)).powf(2.0);
             }
 
             std_dev = (std_dev / (hist.len() as f64)).sqrt();
