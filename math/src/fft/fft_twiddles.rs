@@ -1,5 +1,5 @@
 use crate::field::{element::FieldElement, traits::IsTwoAdicField};
-use metal::{Device, FunctionConstantValues, MTLDataType, MTLResourceOptions, MTLSize};
+use metal::{Device, MTLResourceOptions, MTLSize};
 
 use super::{errors::FFTError, helpers::void_ptr};
 
@@ -33,7 +33,7 @@ where
 
     // the field's modulus and omega will be passed with a buffer to the kernel for now
     // (every two-adic field should be implemented in its own Metal shader).
-    // a buffer was chosen instead of a function constant because the latter don't support 
+    // a buffer was chosen instead of a function constant because the latter don't support
     // 64 bit integers.
     let modulus_buffer = metal_device.new_buffer_with_data(
         void_ptr(&modulus),
