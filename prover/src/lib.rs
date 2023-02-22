@@ -33,10 +33,11 @@ type U384FieldElement = FieldElement<U384PrimeField>;
 const MODULUS_MINUS_1: U384 =
     U384::from("800000000000011000000000000000000000000000000000000000000000000");
 
-fn generate_vec_roots(subgroup_size: u64) -> Vec<U384FieldElement> {
+pub fn generate_vec_roots(subgroup_size: u64, coset_factor: u64) -> Vec<U384FieldElement> {
     let MODULUS_MINUS_1_FIELD: U384FieldElement = U384FieldElement::new(MODULUS_MINUS_1);
     let subgroup_size_u384: U384FieldElement = subgroup_size.into();
     let generator_field: U384FieldElement = 3.into();
+    let coset_factor_u384: U384FieldElement = coset_factor.into();
 
     let exp = (MODULUS_MINUS_1_FIELD) / subgroup_size_u384;
     let exp_384 = *exp.value();
@@ -46,7 +47,7 @@ fn generate_vec_roots(subgroup_size: u64) -> Vec<U384FieldElement> {
     let mut numbers = Vec::new();
 
     for exp in 0..subgroup_size {
-        let ret = generator_of_subgroup.pow(exp);
+        let ret = generator_of_subgroup.pow(exp) * &coset_factor_u384;
         numbers.push(ret.clone());
     }
 
@@ -66,6 +67,8 @@ where
     let result_poly = get_composition_poly(air, trace, pub_inputs);
 
     // * Do Reed-Solomon on the trace and composition polynomials using some blowup factor
+        // * Generate Coset
+
     // * Commit to both polynomials using a Merkle Tree
     // * Do FRI on the composition polynomials
     // * Sample q_1, ..., q_m using Fiat-Shamir
