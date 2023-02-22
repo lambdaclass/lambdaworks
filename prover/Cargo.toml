@@ -15,4 +15,5 @@ winter-utils = { package = "winter-utils", git = "https://github.com/maxgillett/
 winterfell = { package = "winter-verifier", git = "https://github.com/maxgillett/winterfell", rev = "0aad6a5", default-features = false }
 giza-core = { path = "../../giza/core" }
 giza-air = { path = "../../giza/air" }
+giza-prover = { path = "../../giza/prover" }
 runner = { package = "giza-runner", path = "../../giza/runner", version = "0.1" }

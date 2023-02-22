@@ -100,13 +100,15 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     use super::*;
-    use winterfell::{FieldExtension, ProofOptions};
+    use winterfell::FieldExtension;
 
     #[test]
     fn test_cairo_air() {
-        use giza_air::{ProcessorAir, PublicInputs};
-        use runner::{Memory, Program};
+        use giza_air::{ProcessorAir, ProofOptions, PublicInputs};
+        use runner::{ExecutionTrace, Memory, Program};
 
         //  %builtins output
         //  from starkware.cairo.common.serialize import serialize_word
@@ -120,38 +122,48 @@ mod tests {
         //      return ()
         //  end
         //  */
-        let instrs: Vec<Felt> = vec![
-            Felt::from(0x400380007ffc7ffdu64),
-            Felt::from(0x482680017ffc8000u64),
-            Felt::from(1u64),
-            Felt::from(0x208b7fff7fff7ffeu64),
-            Felt::from(0x480680017fff8000u64),
-            Felt::from(10u64),
-            Felt::from(0x48307fff7fff8000u64),
-            Felt::from(0x48507fff7fff8000u64),
-            Felt::from(0x48307ffd7fff8000u64),
-            Felt::from(0x480a7ffd7fff8000u64),
-            Felt::from(0x48127ffb7fff8000u64),
-            Felt::from(0x1104800180018000u64),
-            -Felt::from(11u64),
-            Felt::from(0x48127ff87fff8000u64),
-            Felt::from(0x1104800180018000u64),
-            -Felt::from(14u64),
-            Felt::from(0x48127ff67fff8000u64),
-            Felt::from(0x1104800180018000u64),
-            -Felt::from(17u64),
-            //Felt::from(0x208b7fff7fff7ffeu64),
-            Felt::from(0x10780017fff7fffu64), // infinite loop
-        ];
+        // let instrs: Vec<Felt> = vec![
+        //     Felt::from(0x400380007ffc7ffdu64),
+        //     Felt::from(0x482680017ffc8000u64),
+        //     Felt::from(1u64),
+        //     Felt::from(0x208b7fff7fff7ffeu64),
+        //     Felt::from(0x480680017fff8000u64),
+        //     Felt::from(10u64),
+        //     Felt::from(0x48307fff7fff8000u64),
+        //     Felt::from(0x48507fff7fff8000u64),
+        //     Felt::from(0x48307ffd7fff8000u64),
+        //     Felt::from(0x480a7ffd7fff8000u64),
+        //     Felt::from(0x48127ffb7fff8000u64),
+        //     Felt::from(0x1104800180018000u64),
+        //     -Felt::from(11u64),
+        //     Felt::from(0x48127ff87fff8000u64),
+        //     Felt::from(0x1104800180018000u64),
+        //     -Felt::from(14u64),
+        //     Felt::from(0x48127ff67fff8000u64),
+        //     Felt::from(0x1104800180018000u64),
+        //     -Felt::from(17u64),
+        //     //Felt::from(0x208b7fff7fff7ffeu64),
+        //     Felt::from(0x10780017fff7fffu64), // infinite loop
+        // ];
 
-        let mut mem = Memory::new(instrs);
-        mem.write_pub(Felt::from(21u32), Felt::from(41u32)); // beginning of output
-        mem.write_pub(Felt::from(22u32), Felt::from(44u32)); // end of output
-        mem.write_pub(Felt::from(23u32), Felt::from(44u32)); // end of program
+        // let mut mem = Memory::new(instrs);
+        // mem.write_pub(Felt::from(21u32), Felt::from(41u32)); // beginning of output
+        // mem.write_pub(Felt::from(22u32), Felt::from(44u32)); // end of output
+        // mem.write_pub(Felt::from(23u32), Felt::from(44u32)); // end of program
 
-        // run the program to create an execution trace
-        let mut program = Program::new(&mut mem, 5, 24);
-        let trace = program.execute().unwrap();
+        // // run the program to create an execution trace
+        // let mut program = Program::new(&mut mem, 5, 24);
+        let trace = ExecutionTrace::from_file(
+            PathBuf::from("src/air/test/program.json"),
+            PathBuf::from("src/air/test/trace.bin"),
+            PathBuf::from("src/air/test/memory.bin"),
+            Some(3),
+        );
+
+        // generate the proof of execution
+        let proof_options = ProofOptions::with_proof_options(None, None, None, None, None);
+        let (proof, pub_inputs) = giza_prover::prove_trace(trace, &proof_options).unwrap();
+        let proof_bytes = proof.to_bytes();
 
         // println!("TRACE: {:?}", trace);
 
