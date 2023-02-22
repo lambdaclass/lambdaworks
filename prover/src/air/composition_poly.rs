@@ -12,6 +12,7 @@ use winterfell::{
     Air, AuxTraceRandElements, Matrix, Serializable, Trace, TraceTable,
 };
 
+use crate::errors::ProverError;
 use winterfell::prover::{
     build_trace_commitment_f, channel::ProverChannel, constraints::ConstraintEvaluator,
     domain::StarkDomain, trace::commitment::TraceCommitment,
@@ -61,11 +62,11 @@ pub(crate) fn winter_2_lambda_felts(coeffs: Matrix<BaseElement>) -> Vec<U384Fiel
 /// a tuple of lambdaworks Polynomial data structure:
 /// (composition_polynomial, trace_polynomial)
 #[allow(dead_code)]
-pub fn get_composition_poly<A>(
+pub fn get_cp_and_tp<A>(
     air: A,
     trace: TraceTable<A::BaseField>,
     pub_inputs: A::PublicInputs,
-) -> (Polynomial<U384FieldElement>, Polynomial<U384FieldElement>)
+) -> Result<(Polynomial<U384FieldElement>, Polynomial<U384FieldElement>), ProverError>
 where
     A: Air<BaseField = BaseElement>,
 {
@@ -99,11 +100,14 @@ where
     let evaluator = ConstraintEvaluator::new(&air, aux_trace_rand_elements, constraint_coeffs);
     let constraint_evaluations = evaluator.evaluate(trace_commitment.trace_table(), &domain);
 
-    let composition_poly = constraint_evaluations.into_poly().unwrap().data;
+    let composition_poly = constraint_evaluations
+        .into_poly()
+        .map_err(|e| ProverError::CompositionPolyError(e))?
+        .data;
 
     let cp_coeffs: Vec<U384FieldElement> = winter_2_lambda_felts(composition_poly);
 
-    (Polynomial::new(&cp_coeffs), Polynomial::new(&tp_coeffs))
+    Ok((Polynomial::new(&cp_coeffs), Polynomial::new(&tp_coeffs)))
 }
 
 #[cfg(test)]
@@ -202,7 +206,7 @@ mod tests {
         let expected_cp = Polynomial::new(&expected_cp_coeffs);
         let expected_tp = Polynomial::new(&expected_tp_coeffs);
 
-        let (result_cp, result_tp) = get_composition_poly(air, trace, pub_inputs);
+        let (result_cp, result_tp) = get_cp_and_tp(air, trace, pub_inputs).unwrap();
 
         // assert polynomials are ok
         assert_eq!(result_cp, expected_cp);
