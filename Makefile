@@ -10,3 +10,6 @@ docker-shell:
 
 nix-shell:
 	nix-shell
+
+benchmark:
+	cargo criterion
