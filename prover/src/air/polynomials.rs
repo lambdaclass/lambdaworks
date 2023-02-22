@@ -126,8 +126,8 @@ mod tests {
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // This test is made for the following computation, taken from the winterfell README example:
-    //    "This computation starts with an element in a finite field and then, for the specified number of steps,
-    //    cubes the element and adds value 42 to it"
+    //    "This computation starts with an element in a finite field and then, for the specified number
+    //    of steps, cubes the element and adds value 42 to it"
     //
     // The test setup consists of the following:
     //     * Creating a trace of the computation
@@ -136,7 +136,7 @@ mod tests {
     // TODO: Check that the obtained polynomial is correct.
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////
     #[test]
-    fn test_composition_poly_simple_computation() {
+    fn test_cp_and_tp_simple_computation() {
         use simple_computation_test_utils::*;
 
         let start = BaseElement::new(3);

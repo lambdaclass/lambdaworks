@@ -1,1 +1,1 @@
-mod composition_poly;
+mod polynomials;
