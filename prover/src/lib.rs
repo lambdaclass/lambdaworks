@@ -10,6 +10,49 @@ use winterfell::{
     Air, AuxTraceRandElements, Serializable, Trace, TraceTable,
 };
 
+
+use lambdaworks_math::{
+    field::fields::u384_prime_field::{IsMontgomeryConfiguration, MontgomeryBackendPrimeField},
+    unsigned_integer::element::U384,
+};
+use lambdaworks_math::field::element::FieldElement;
+
+use lambdaworks_math::field::traits::IsField;
+#[derive(Clone, Debug)]
+pub struct MontgomeryConfig;
+impl IsMontgomeryConfiguration for MontgomeryConfig {
+    const MODULUS: U384 =
+        U384::from("800000000000011000000000000000000000000000000000000000000000001");
+    const MP: u64 = 18446744073709551615;
+    const R2: U384 =
+        U384::from("38e5f79873c0a6df47d84f8363000187545706677ffcc06cc7177d1406df18e");
+}
+const PRIME_GENERATOR_MONTGOMERY: U384 = U384::from("3");
+type U384PrimeField = MontgomeryBackendPrimeField<MontgomeryConfig>;
+type U384FieldElement = FieldElement<U384PrimeField>;
+const MODULUS_MINUS_1: U384 =
+    U384::from("800000000000011000000000000000000000000000000000000000000000000");
+
+fn generate_vec_roots(subgroup_size: u64) -> Vec<U384FieldElement> {
+    let MODULUS_MINUS_1_FIELD: U384FieldElement = U384FieldElement::new(MODULUS_MINUS_1);
+    let subgroup_size_u384: U384FieldElement = subgroup_size.into();
+    let generator_field: U384FieldElement = 3.into();
+
+    let exp = (MODULUS_MINUS_1_FIELD) / subgroup_size_u384;
+    let exp_384 = *exp.value();
+
+    let generator_of_subgroup = generator_field.pow(exp_384);
+
+    let mut numbers = Vec::new();
+
+    for exp in 0..subgroup_size {
+        let ret = generator_of_subgroup.pow(exp);
+        numbers.push(ret.clone());
+    }
+
+    numbers
+}
+
 #[derive(Debug)]
 pub struct StarkProof {
     // TODO: fill this when we know what a proof entails
