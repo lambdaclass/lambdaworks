@@ -15,7 +15,7 @@ pub type U256 = UnsignedInteger<4>;
 /// The most significant bit is in the left-most position.
 /// That is, the array `[a_n, ..., a_0]` represents the
 /// integer 2^{64 * n} * a_n + ... + 2^{64} * a_1 + a_0.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct UnsignedInteger<const NUM_LIMBS: usize> {
     pub limbs: [u64; NUM_LIMBS],
 }
@@ -56,7 +56,7 @@ impl<const NUM_LIMBS: usize> Add<&UnsignedInteger<NUM_LIMBS>> for &UnsignedInteg
 
     fn add(self, other: &UnsignedInteger<NUM_LIMBS>) -> UnsignedInteger<NUM_LIMBS> {
         let (result, overflow) = UnsignedInteger::add(self, other);
-        assert!(!overflow, "UnsignedInteger addition overflow.");
+        debug_assert!(!overflow, "UnsignedInteger addition overflow.");
         result
     }
 }
@@ -138,8 +138,7 @@ impl<const NUM_LIMBS: usize> Mul<&UnsignedInteger<NUM_LIMBS>> for &UnsignedInteg
                 t = NUM_LIMBS - 1 - i;
             }
         }
-
-        assert!(
+        debug_assert!(
             n + t < NUM_LIMBS,
             "UnsignedInteger multiplication overflow."
         );
@@ -200,7 +199,7 @@ impl<const NUM_LIMBS: usize> Shl<usize> for &UnsignedInteger<NUM_LIMBS> {
     type Output = UnsignedInteger<NUM_LIMBS>;
 
     fn shl(self, times: usize) -> UnsignedInteger<NUM_LIMBS> {
-        assert!(
+        debug_assert!(
             times < 64 * NUM_LIMBS,
             "UnsignedInteger shift left overflows."
         );
@@ -235,7 +234,7 @@ impl<const NUM_LIMBS: usize> Shr<usize> for &UnsignedInteger<NUM_LIMBS> {
     type Output = UnsignedInteger<NUM_LIMBS>;
 
     fn shr(self, times: usize) -> UnsignedInteger<NUM_LIMBS> {
-        assert!(
+        debug_assert!(
             times < 64 * NUM_LIMBS,
             "UnsignedInteger shift right overflows."
         );
