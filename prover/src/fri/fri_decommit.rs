@@ -5,11 +5,7 @@ use lambdaworks_math::traits::ByteConversion;
 
 // verifier chooses a randomness and get the index where
 // they want to evaluate the poly
-pub fn fri_decommit_layers(
-    commit: &FriCommitmentVec<FE>,
-    index_to_verify: usize,
-    transcript: &mut Transcript,
-) {
+pub fn fri_decommit_layers(commit: &FriCommitmentVec<FE>, index_to_verify: usize) {
     let mut index = index_to_verify;
 
     // with every element of the commit, we look for that one in
@@ -24,17 +20,15 @@ pub fn fri_decommit_layers(
         let index_sym = (index + length_i / 2) % length_i;
         let evaluation_i_sym = commit_i.evaluation[index_sym].clone();
         let auth_path_sym = commit_i.merkle_tree.get_proof(evaluation_i_sym).unwrap();
-
-        // @@@ TODO! insert in transcript
     }
 
     // send the last element of the polynomial
     let last = commit.last().unwrap();
     let last_evaluation = last.poly.coefficients[0].clone();
 
-    // insert last_evaluation in transcript
     let last_evaluation_bytes = (*last_evaluation.value()).to_bytes_be();
-    transcript.append(&last_evaluation_bytes);
+
+    // TDOO ⚠️⚠️⚠️⚠️ @@@@@ return auth_path and auth_path_sym @@@@@ ⚠️⚠️⚠️⚠️
 }
 
 // Integration test:

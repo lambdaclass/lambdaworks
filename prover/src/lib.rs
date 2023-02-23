@@ -83,10 +83,11 @@ where
 
     // * Sample q_1, ..., q_m using Fiat-Shamir
     // let q_1 = transcript.challenge();
+    // @@@@@@@@@@@@@@@@@@@@@@
     let q_1: usize = rand::random();
 
     // * For every q_i, do FRI decommitment
-    let decommitment = fri_decommit_layers(&lde_fri_commitment, q_1, &mut transcript);
+    let decommitment = fri_decommit_layers(&lde_fri_commitment, q_1);
 
     // * For every trace polynomial t_i, provide the evaluations on every q_i, q_i * g, q_i * g^2
     let evaluation_points = vec![
@@ -115,7 +116,7 @@ where
 - Fri layer polys evaluations (in the q_i's and -q_i's)
 */
 
-pub fn verify() {}
+pub fn verify(proof: StarkProof) {}
 
 #[cfg(test)]
 mod tests {

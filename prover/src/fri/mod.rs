@@ -13,10 +13,7 @@ pub use lambdaworks_math::{
     polynomial::Polynomial,
 };
 
-const ORDER: u64 = 293;
-// pub type F = U64PrimeField<ORDER>;
 pub type F = crate::air::polynomials::U384PrimeField;
-// pub type FE = FieldElement<F>;
 pub type FE = crate::air::polynomials::U384FieldElement;
 
 /// # Params
