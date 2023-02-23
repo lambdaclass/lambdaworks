@@ -148,7 +148,7 @@ where
                 }
                 _ if (i == 5) => {
                     if rand_limbs == [0; 6] {
-                        //to avoid 0 in the generation set
+                        //to avoid 0 val in the generation set
                         rand_limbs[i] = rng.gen_range(1..=u64::MAX);
                     } else {
                         rand_limbs[i] = rng.gen_range(0..=u64::MAX);
