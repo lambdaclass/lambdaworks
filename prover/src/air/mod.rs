@@ -1,2 +1,2 @@
-pub mod polynomials;
 pub mod errors;
+pub mod polynomials;

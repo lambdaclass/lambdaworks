@@ -27,8 +27,8 @@ impl IsMontgomeryConfiguration for MontgomeryConfig {
     const R2: U384 = U384::from("38e5f79873c0a6df47d84f8363000187545706677ffcc06cc7177d1406df18e");
 }
 
-type U384PrimeField = MontgomeryBackendPrimeField<MontgomeryConfig>;
-type U384FieldElement = FieldElement<U384PrimeField>;
+pub type U384PrimeField = MontgomeryBackendPrimeField<MontgomeryConfig>;
+pub type U384FieldElement = FieldElement<U384PrimeField>;
 
 /// Given a CompositionPoly from winterfell, extract its coefficients
 /// as a vector.

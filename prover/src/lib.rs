@@ -2,6 +2,8 @@ pub mod air;
 pub mod fri;
 
 use air::polynomials::get_cp_and_tp;
+use fri::fri_decommit::fri_decommit_layers;
+use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::polynomial::Polynomial;
 use winterfell::{
     crypto::hashers::Blake3_256,
@@ -54,6 +56,7 @@ pub fn prove<A>(air: A, trace: TraceTable<A::BaseField>, pub_inputs: A::PublicIn
 where
     A: Air<BaseField = BaseElement>,
 {
+    let mut transcript = Transcript::new();
     // * Generate composition polynomials using Winterfell
     let (mut composition_poly, mut trace_poly) = get_cp_and_tp(air, trace, pub_inputs).unwrap();
 
@@ -67,10 +70,16 @@ where
     let commited_poly_lde = FriMerkleTree::build(composition_poly_lde.as_slice());
 
     // * Do FRI on the composition polynomials
-    let lde_fri_commitment = crate::fri::fri(&mut composition_poly, roots_of_unity);
+    let lde_fri_commitment = crate::fri::fri(&mut composition_poly, &roots_of_unity);
 
     // * Sample q_1, ..., q_m using Fiat-Shamir
+    // let q_1 = transcript.challenge();
+    // TODO: Do this with Fiat Shamir
+    let q_1: usize = rand::random();
+
     // * For every q_i, do FRI decommitment
+    let decommitment = fri_decommit_layers(&lde_fri_commitment, q_1, &mut transcript);
+
     // * For every trace polynomial t_i, provide the evaluations on every q_i, q_i * g, q_i * g^2
 
     StarkProof {}

@@ -9,7 +9,7 @@ fn fold_polynomial(poly: &Polynomial<FE>, beta: &FE) -> Polynomial<FE> {
         .iter()
         .skip(1)
         .step_by(2)
-        .map(|v| (*v) * beta)
+        .map(|v| (v.clone()) * beta)
         .collect();
 
     let (even_poly, odd_poly) = Polynomial::pad_with_zero_coefficients(

@@ -1,5 +1,5 @@
 mod fri_commitment;
-mod fri_decommit;
+pub mod fri_decommit;
 mod fri_functions;
 mod fri_merkle_tree;
 
@@ -14,8 +14,10 @@ pub use lambdaworks_math::{
 };
 
 const ORDER: u64 = 293;
-pub type F = U64PrimeField<ORDER>;
-pub type FE = FieldElement<F>;
+// pub type F = U64PrimeField<ORDER>;
+pub type F = crate::air::polynomials::U384PrimeField;
+// pub type FE = FieldElement<F>;
+pub type FE = crate::air::polynomials::U384FieldElement;
 
 /// # Params
 ///
@@ -36,8 +38,8 @@ pub fn fri_commitment(
     let merkle_tree = FriMerkleTree::build(&evaluation_i);
 
     // append the root of the merkle tree to the transcript
-    let root = merkle_tree.root.borrow().hash;
-    let root_bytes = (*root.value()).to_be_bytes();
+    let root = merkle_tree.root.borrow().hash.clone();
+    let root_bytes = (*root.value()).to_bytes_be();
     transcript.append(&root_bytes);
 
     FriCommitment {
@@ -56,8 +58,8 @@ pub fn fri(p_0: &mut Polynomial<FieldElement<F>>, domain_0: &[FE]) -> FriCommitm
     let merkle_tree = FriMerkleTree::build(&evaluation_0);
 
     // append the root of the merkle tree to the transcript
-    let root = merkle_tree.root.borrow().hash;
-    let root_bytes = (*root.value()).to_be_bytes();
+    let root = merkle_tree.root.borrow().hash.clone();
+    let root_bytes = (*root.value()).to_bytes_be();
     transcript.append(&root_bytes);
 
     let commitment_0 = FriCommitment {
@@ -88,8 +90,8 @@ pub fn fri(p_0: &mut Polynomial<FieldElement<F>>, domain_0: &[FE]) -> FriCommitm
 
         // append root of merkle tree to transcript
         let tree = &commitment_i.merkle_tree;
-        let root = tree.root.borrow().hash;
-        let root_bytes = (*root.value()).to_be_bytes();
+        let root = tree.root.borrow().hash.clone();
+        let root_bytes = (*root.value()).to_bytes_be();
         transcript.append(&root_bytes);
 
         fri_commitment_list.push(commitment_i);
@@ -101,7 +103,7 @@ pub fn fri(p_0: &mut Polynomial<FieldElement<F>>, domain_0: &[FE]) -> FriCommitm
     }
 
     // append last value of the polynomial to the trasncript
-    let last_coef_bytes = (*last_coef.value()).to_be_bytes();
+    let last_coef_bytes = (*last_coef.value()).to_bytes_be();
     transcript.append(&last_coef_bytes);
 
     fri_commitment_list
