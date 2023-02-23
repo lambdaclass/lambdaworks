@@ -317,6 +317,27 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         false
     }
 
+    pub const fn rem_by_substractions(
+        self, 
+        modulus: &UnsignedInteger<NUM_LIMBS>) -> UnsignedInteger<NUM_LIMBS>{
+
+        let mut rem = self;
+
+        let mut tmp_rem = UnsignedInteger {
+            limbs: [0;NUM_LIMBS]
+        };
+    
+        let mut underflow = false;
+
+        while !underflow {
+            (tmp_rem, underflow) = UnsignedInteger::sub(&rem, modulus);
+            if !underflow {
+                rem = tmp_rem;
+            }
+        }
+        rem
+    }
+
     pub const fn const_shl(self, times: usize) -> Self {
         debug_assert!(
             times < 64 * NUM_LIMBS,
@@ -344,22 +365,25 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         }
     }
 
-    pub fn add(
+    pub const fn add(
         a: &UnsignedInteger<NUM_LIMBS>,
         b: &UnsignedInteger<NUM_LIMBS>,
     ) -> (UnsignedInteger<NUM_LIMBS>, bool) {
         let mut limbs = [0u64; NUM_LIMBS];
         let mut carry = 0u128;
-        for i in (0..NUM_LIMBS).rev() {
-            let c: u128 = a.limbs[i] as u128 + b.limbs[i] as u128 + carry;
-            limbs[i] = c as u64;
+        let mut i = NUM_LIMBS;
+        while i > 0 {
+            let c: u128 = a.limbs[i-1] as u128 + b.limbs[i-1] as u128 + carry;
+            limbs[i-1] = c as u64;
             carry = c >> 64;
+            i -= 1;
         }
         (UnsignedInteger { limbs }, carry > 0)
     }
 
     /// Multi-precision subtraction.
     /// Adapted from Algorithm 14.9 of "Handbook of Applied Cryptography" (https://cacr.uwaterloo.ca/hac/)
+    /// Returns the results and a flag that is set if the substraction underflowed
     pub const fn sub(
         a: &UnsignedInteger<NUM_LIMBS>,
         b: &UnsignedInteger<NUM_LIMBS>,
@@ -482,6 +506,24 @@ mod tests_u384 {
     use super::*;
     const NUM_LIMBS: usize = 6;
     type U384 = UnsignedInteger<NUM_LIMBS>;
+
+    #[test]
+    fn rem_substractions_4_2_is_0() {
+        let a = U384::from_u64(4);
+        let b = U384::from_u64(2);
+        let result = a.rem_by_substractions(&b);
+        let expected_result = U384::from_u64(0);
+        assert_eq!(result, expected_result);
+    }
+
+    #[test]
+    fn rem_substractions_5_2_is_1() {
+        let a = U384::from_u64(5);
+        let b = U384::from_u64(2);
+        let result = a.rem_by_substractions(&b);
+        let expected_result = U384::from_u64(1);
+        assert_eq!(result, expected_result);
+    }
 
     #[test]
     fn construct_new_integer_from_u64_1() {
@@ -868,8 +910,8 @@ mod tests_u384 {
         let a = U384::from_u64(334);
         let b_expected = U384::from_u64(666);
         let c = U384::from_u64(1000);
-        let (b, overflow) = U384::sub(&c, &a);
-        assert!(!overflow);
+        let (b, underflow) = U384::sub(&c, &a);
+        assert!(!underflow);
         assert_eq!(b_expected, b);
     }
 
@@ -878,8 +920,8 @@ mod tests_u384 {
         let a = U384::from_u64(334);
         let b_expected = U384::from("fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd66");
         let c = U384::from_u64(1000);
-        let (b, overflow) = U384::sub(&a, &c);
-        assert!(overflow);
+        let (b, underflow) = U384::sub(&a, &c);
+        assert!(underflow);
         assert_eq!(b_expected, b);
     }
 

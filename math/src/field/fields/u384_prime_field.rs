@@ -16,15 +16,22 @@ pub trait IsMontgomeryConfiguration {
     const R2: U384;
     const MP: u64;
 }
-
+/*
 // num_limbs should be the twice the amount we use for the field
 const fn r2<const NUM_LIMBS: usize>(
     modulus: UnsignedInteger<NUM_LIMBS>
 ) -> UnsignedInteger<NUM_LIMBS>{
     // 2**(384 * 2) % MODULUS
-    modulus.const_shl(384*2)
-    //modulus.const_div_rem()
-}
+    //This should be NUM_LIMBS * 2. We just make it big right now
+    // This covers up to 1024over 768 bytes integers,  integers
+
+    const REQUIRED_SIZE: usize = 64;
+    let two = UnsignedInteger::<REQUIRED_SIZE>::from("2");
+    
+    // We need type conversions here
+    // let result_limbs = two.const_shl(384*2).rem_by_substractions(&modulus).limbs;
+    
+} */
 
 #[derive(Clone, Debug)]
 pub struct MontgomeryBackendPrimeField<C> {
@@ -138,7 +145,7 @@ where
 #[cfg(test)]
 mod tests {
     use crate::{
-        field::element::FieldElement,
+        field::{element::FieldElement},
         traits::ByteConversion,
         unsigned_integer::element::{UnsignedInteger, U384},
     };
@@ -153,6 +160,15 @@ mod tests {
         const MP: u64 = 3208129404123400281;
         const R2: U384 = UnsignedInteger::from_u64(6);
     }
+
+    /*
+    #[test]
+    fn r2_is_6_for_23_on_u384(){
+        const MODULUS: U384 = UnsignedInteger::from_u64(23);
+        const R2: U384 = UnsignedInteger::from_u64(6);
+
+        assert_eq!(r2(MODULUS),R2);
+    }*/
 
     type F23 = MontgomeryBackendPrimeField<MontgomeryConfig23>;
     type F23Element = FieldElement<F23>;
