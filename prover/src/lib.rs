@@ -1,7 +1,7 @@
 pub mod air;
 pub mod fri;
 
-use air::composition_poly::get_composition_poly;
+use air::polynomials::get_cp_and_tp;
 use lambdaworks_math::polynomial::Polynomial;
 use winterfell::{
     crypto::hashers::Blake3_256,
@@ -16,7 +16,7 @@ use lambdaworks_math::{
     unsigned_integer::element::U384,
 };
 
-type U384PrimeField = MontgomeryBackendPrimeField<crate::air::composition_poly::MontgomeryConfig>;
+type U384PrimeField = MontgomeryBackendPrimeField<crate::air::polynomials::MontgomeryConfig>;
 type U384FieldElement = FieldElement<U384PrimeField>;
 const MODULUS_MINUS_1: U384 =
     U384::from("800000000000011000000000000000000000000000000000000000000000000");
@@ -55,19 +55,19 @@ where
     A: Air<BaseField = BaseElement>,
 {
     // * Generate composition polynomials using Winterfell
-    let mut result_poly = get_composition_poly(air, trace, pub_inputs);
+    let (mut composition_poly, mut trace_poly) = get_cp_and_tp(air, trace, pub_inputs).unwrap();
 
     // * Generate Coset
     let roots_of_unity = crate::generate_vec_roots(1024, 1);
 
     // * Do Reed-Solomon on the trace and composition polynomials using some blowup factor
-    let result_poly_lde = result_poly.evaluate_slice(roots_of_unity.as_slice());
+    let composition_poly_lde = composition_poly.evaluate_slice(roots_of_unity.as_slice());
 
     // * Commit to both polynomials using a Merkle Tree
-    let commited_poly_lde = FriMerkleTree::build(result_poly_lde.as_slice());
+    let commited_poly_lde = FriMerkleTree::build(composition_poly_lde.as_slice());
 
     // * Do FRI on the composition polynomials
-    let lde_fri_commitment = crate::fri::fri(&mut result_poly, roots_of_unity);
+    let lde_fri_commitment = crate::fri::fri(&mut composition_poly, roots_of_unity);
 
     // * Sample q_1, ..., q_m using Fiat-Shamir
     // * For every q_i, do FRI decommitment

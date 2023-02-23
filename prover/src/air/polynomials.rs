@@ -9,17 +9,14 @@ use lambdaworks_math::{
 use winterfell::{
     crypto::hashers::Blake3_256,
     math::{fields::f128::BaseElement, StarkField},
-    prover::constraints::CompositionPoly,
-    Air, AuxTraceRandElements, Serializable, Trace, TraceTable,
+    Air, AuxTraceRandElements, Matrix, Serializable, Trace, TraceTable,
 };
 
+use super::errors::ProverError;
 use winterfell::prover::{
     build_trace_commitment_f, channel::ProverChannel, constraints::ConstraintEvaluator,
     domain::StarkDomain, trace::commitment::TraceCommitment,
 };
-
-// // Taken from winterfell, this is the modulus of a Starkfield
-// const M: u128 = 340282366920938463463374557953744961537;
 
 #[derive(Clone, Debug)]
 pub struct MontgomeryConfig;
@@ -36,8 +33,8 @@ type U384FieldElement = FieldElement<U384PrimeField>;
 /// Given a CompositionPoly from winterfell, extract its coefficients
 /// as a vector.
 #[allow(dead_code)]
-pub(crate) fn get_coefficients<E: StarkField>(poly: CompositionPoly<E>) -> Vec<E> {
-    let data = poly.into_columns();
+pub(crate) fn get_coefficients<E: StarkField>(matrix_poly: Matrix<E>) -> Vec<E> {
+    let data = matrix_poly.into_columns();
 
     let num_columns = data.len();
     let column_len = data[0].len();
@@ -53,14 +50,23 @@ pub(crate) fn get_coefficients<E: StarkField>(poly: CompositionPoly<E>) -> Vec<E
     coeffs
 }
 
-/// Given a trace and an AIR defined with winterfell data structures, outputs
-/// a Polynomial lambdaworks native data structure.
 #[allow(dead_code)]
-pub(crate) fn get_composition_poly<A>(
+pub(crate) fn winter_2_lambda_felts(coeffs: Matrix<BaseElement>) -> Vec<U384FieldElement> {
+    get_coefficients(coeffs)
+        .into_iter()
+        .map(|c| U384FieldElement::from(&U384::from(&c.to_string())))
+        .collect()
+}
+
+/// Given a trace and an AIR defined with winterfell data structures, outputs
+/// a tuple of lambdaworks Polynomial data structure:
+/// (composition_polynomial, trace_polynomial)
+#[allow(dead_code)]
+pub fn get_cp_and_tp<A>(
     air: A,
     trace: TraceTable<A::BaseField>,
     pub_inputs: A::PublicInputs,
-) -> Polynomial<U384FieldElement>
+) -> Result<(Polynomial<U384FieldElement>, Polynomial<U384FieldElement>), ProverError>
 where
     A: Air<BaseField = BaseElement>,
 {
@@ -71,11 +77,13 @@ where
     let domain = StarkDomain::new(&air);
 
     // extend the main execution trace and build a Merkle tree from the extended trace
-    let (main_trace_lde, main_trace_tree, _main_trace_polys) = build_trace_commitment_f::<
+    let (main_trace_lde, main_trace_tree, main_trace_polys) = build_trace_commitment_f::<
         A::BaseField,
         A::BaseField,
         Blake3_256<A::BaseField>,
     >(trace.main_segment(), &domain);
+
+    let tp_coeffs = winter_2_lambda_felts(main_trace_polys);
 
     // commit to the LDE of the main trace by writing the root of its Merkle tree into
     // the channel
@@ -92,35 +100,35 @@ where
     let evaluator = ConstraintEvaluator::new(&air, aux_trace_rand_elements, constraint_coeffs);
     let constraint_evaluations = evaluator.evaluate(trace_commitment.trace_table(), &domain);
 
-    let composition_poly = constraint_evaluations.into_poly().unwrap();
+    let composition_poly = constraint_evaluations
+        .into_poly()
+        .map_err(|e| ProverError::CompositionPolyError(e))?
+        .data;
 
-    let coeffs: Vec<U384FieldElement> = get_coefficients(composition_poly)
-        .into_iter()
-        .map(|c| U384FieldElement::from(&U384::from(&c.to_string())))
-        .collect();
+    let cp_coeffs: Vec<U384FieldElement> = winter_2_lambda_felts(composition_poly);
 
-    Polynomial::new(&coeffs)
+    Ok((Polynomial::new(&cp_coeffs), Polynomial::new(&tp_coeffs)))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use simple_computation_test_utils::*;
-    use winterfell::{FieldExtension, ProofOptions};
+    use winterfell::{prover::constraints::CompositionPoly, FieldExtension, ProofOptions};
 
     #[test]
     fn test_get_coefficients() {
         let coeffs = (0u128..16).map(BaseElement::new).collect::<Vec<_>>();
         let poly = CompositionPoly::new(coeffs.clone(), 2);
-        let coeffs_res = get_coefficients(poly);
+        let coeffs_res = get_coefficients(poly.data);
 
         assert_eq!(coeffs, coeffs_res);
     }
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // This test is made for the following computation, taken from the winterfell README example:
-    //    "This computation starts with an element in a finite field and then, for the specified number of steps,
-    //    cubes the element and adds value 42 to it"
+    //    "This computation starts with an element in a finite field and then, for the specified number
+    //    of steps, cubes the element and adds value 42 to it"
     //
     // The test setup consists of the following:
     //     * Creating a trace of the computation
@@ -129,7 +137,7 @@ mod tests {
     // TODO: Check that the obtained polynomial is correct.
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////
     #[test]
-    fn test_composition_poly_simple_computation() {
+    fn test_cp_and_tp_simple_computation() {
         let start = BaseElement::new(3);
         let n = 8;
 
@@ -154,7 +162,7 @@ mod tests {
 
         // TODO: this coefficients should be checked correctly to know
         // the test is really passing
-        let expected_coeffs: Vec<U384FieldElement> = vec![
+        let expected_cp_coeffs: Vec<U384FieldElement> = vec![
             73805846515134368521942875729025268850u128,
             251094867283236114961184226859763993364,
             24104107408363517664638843184319555199,
@@ -177,11 +185,31 @@ mod tests {
         .map(|c| U384FieldElement::from(&U384::from(&c.to_string())))
         .collect();
 
-        let expected_poly = Polynomial::new(&expected_coeffs);
+        // TODO: this coefficients should be checked correctly to know
+        // the test is really passing
+        let expected_tp_coeffs: Vec<U384FieldElement> = vec![
+            191794735525862843530824769197527107708,
+            223814277178031177559040503778682093811,
+            330061736062598381779522724430379788786,
+            311785526618037647669831294599779434990,
+            318268825200495925654723848557842782850,
+            60163512837320141687261149502403704415,
+            299361964383055940508518867517619087030,
+            306443623720228722390524190138235769635,
+        ]
+        .into_iter()
+        .map(BaseElement::new)
+        .map(|c| U384FieldElement::from(&U384::from(&c.to_string())))
+        .collect();
 
-        let result_poly = get_composition_poly(air, trace, pub_inputs);
+        let expected_cp = Polynomial::new(&expected_cp_coeffs);
+        let expected_tp = Polynomial::new(&expected_tp_coeffs);
 
-        assert_eq!(result_poly, expected_poly);
+        let (result_cp, result_tp) = get_cp_and_tp(air, trace, pub_inputs).unwrap();
+
+        // assert polynomials are ok
+        assert_eq!(result_cp, expected_cp);
+        assert_eq!(result_tp, expected_tp);
     }
 
     #[test]

@@ -1,1 +1,2 @@
-pub mod composition_poly;
+pub mod polynomials;
+pub mod errors;
