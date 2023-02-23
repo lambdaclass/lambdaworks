@@ -326,9 +326,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
 
         let mut rem = self;
 
-        let mut tmp_rem = UnsignedInteger {
-            limbs: [0;NUM_LIMBS]
-        };
+        let mut tmp_rem;
     
         let mut underflow = false;
 
