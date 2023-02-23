@@ -155,26 +155,26 @@ mod tests {
     #[test]
     fn operate_with_works_and_cycles_in_tiny_jub_jub() {
         let g = create_point(12, 11);
-        assert_eq!(g.operate_with_self(0), create_point(0, 1));
-        assert_eq!(g.operate_with_self(1), create_point(12, 11));
-        assert_eq!(g.operate_with_self(2), create_point(8, 5));
-        assert_eq!(g.operate_with_self(3), create_point(11, 6));
-        assert_eq!(g.operate_with_self(4), create_point(6, 9));
-        assert_eq!(g.operate_with_self(5), create_point(10, 0));
-        assert_eq!(g.operate_with_self(6), create_point(6, 4));
-        assert_eq!(g.operate_with_self(7), create_point(11, 7));
-        assert_eq!(g.operate_with_self(8), create_point(8, 8));
-        assert_eq!(g.operate_with_self(9), create_point(12, 2));
-        assert_eq!(g.operate_with_self(10), create_point(0, 12));
-        assert_eq!(g.operate_with_self(11), create_point(1, 2));
-        assert_eq!(g.operate_with_self(12), create_point(5, 8));
-        assert_eq!(g.operate_with_self(13), create_point(2, 7));
-        assert_eq!(g.operate_with_self(14), create_point(7, 4));
-        assert_eq!(g.operate_with_self(15), create_point(3, 0));
-        assert_eq!(g.operate_with_self(16), create_point(7, 9));
-        assert_eq!(g.operate_with_self(17), create_point(2, 6));
-        assert_eq!(g.operate_with_self(18), create_point(5, 5));
-        assert_eq!(g.operate_with_self(19), create_point(1, 11));
-        assert_eq!(g.operate_with_self(20), create_point(0, 1));
+        assert_eq!(g.operate_with_self(0_u16), create_point(0, 1));
+        assert_eq!(g.operate_with_self(1_u16), create_point(12, 11));
+        assert_eq!(g.operate_with_self(2_u16), create_point(8, 5));
+        assert_eq!(g.operate_with_self(3_u16), create_point(11, 6));
+        assert_eq!(g.operate_with_self(4_u16), create_point(6, 9));
+        assert_eq!(g.operate_with_self(5_u16), create_point(10, 0));
+        assert_eq!(g.operate_with_self(6_u16), create_point(6, 4));
+        assert_eq!(g.operate_with_self(7_u16), create_point(11, 7));
+        assert_eq!(g.operate_with_self(8_u16), create_point(8, 8));
+        assert_eq!(g.operate_with_self(9_u16), create_point(12, 2));
+        assert_eq!(g.operate_with_self(10_u16), create_point(0, 12));
+        assert_eq!(g.operate_with_self(11_u16), create_point(1, 2));
+        assert_eq!(g.operate_with_self(12_u16), create_point(5, 8));
+        assert_eq!(g.operate_with_self(13_u16), create_point(2, 7));
+        assert_eq!(g.operate_with_self(14_u16), create_point(7, 4));
+        assert_eq!(g.operate_with_self(15_u16), create_point(3, 0));
+        assert_eq!(g.operate_with_self(16_u16), create_point(7, 9));
+        assert_eq!(g.operate_with_self(17_u16), create_point(2, 6));
+        assert_eq!(g.operate_with_self(18_u16), create_point(5, 5));
+        assert_eq!(g.operate_with_self(19_u16), create_point(1, 11));
+        assert_eq!(g.operate_with_self(20_u16), create_point(0, 1));
     }
 }

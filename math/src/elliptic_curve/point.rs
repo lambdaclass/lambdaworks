@@ -102,7 +102,7 @@ mod tests {
     #[test]
     fn operate_with_self_works_1() {
         let g = TestCurve1::generator();
-        assert_eq!(g.operate_with(&g).operate_with(&g), g.operate_with_self(3));
+        assert_eq!(g.operate_with(&g).operate_with(&g), g.operate_with_self(3_u16));
     }
 
     #[test]
@@ -117,7 +117,7 @@ mod tests {
         let point = TestCurve1::create_point_from_affine(FEE::from(35), FEE::from(31)).unwrap();
         let expected_result =
             TestCurve1::create_point_from_affine(FEE::from(25), FEE::from(29)).unwrap();
-        assert_eq!(point.operate_with_self(2).to_affine(), expected_result);
+        assert_eq!(point.operate_with_self(2_u16).to_affine(), expected_result);
     }
 
     #[test]
@@ -158,7 +158,7 @@ mod tests {
     #[test]
     fn operate_with_self_works_with_test_curve_2() {
         let mut point_1 = TestCurve2::generator();
-        point_1 = point_1.operate_with_self(15);
+        point_1 = point_1.operate_with_self(15_u16);
 
         let expected_result = TestCurve2::create_point_from_affine(
             FieldElement::new([

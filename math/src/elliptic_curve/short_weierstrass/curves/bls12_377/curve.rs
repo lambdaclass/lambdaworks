@@ -61,7 +61,7 @@ mod tests {
     fn adding_five_times_point_1_works() {
         let point_1 = point_1();
         let point_1_times_5 = point_1_times_5();
-        assert_eq!(point_1.operate_with_self(5), point_1_times_5);
+        assert_eq!(point_1.operate_with_self(5_u16), point_1_times_5);
     }
 
     #[test]
@@ -91,6 +91,6 @@ mod tests {
     #[test]
     fn operate_with_self_works_1() {
         let g = BLS12377Curve::generator();
-        assert_eq!(g.operate_with(&g).operate_with(&g), g.operate_with_self(3));
+        assert_eq!(g.operate_with(&g).operate_with(&g), g.operate_with_self(3_u16));
     }
 }
