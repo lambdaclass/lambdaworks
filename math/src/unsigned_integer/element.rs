@@ -317,6 +317,9 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         false
     }
 
+    /// Rem calculated by substractions
+    // This is inefficient, and could be improved by another method
+    // It's only used in to help build Montgomery backends in compilation time
     pub const fn rem_by_substractions(
         self, 
         modulus: &UnsignedInteger<NUM_LIMBS>) -> UnsignedInteger<NUM_LIMBS>{
