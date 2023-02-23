@@ -8,7 +8,7 @@ use crate::{
 };
 
 /// Evaluates the Self::line between points `p` and `r` at point `q`
-fn line<E: IsShortWeierstrass>(
+pub fn line<E: IsShortWeierstrass>(
     p: &ShortWeierstrassProjectivePoint<E>,
     r: &ShortWeierstrassProjectivePoint<E>,
     q: &ShortWeierstrassProjectivePoint<E>,

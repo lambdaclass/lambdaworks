@@ -102,7 +102,10 @@ mod tests {
     #[test]
     fn operate_with_self_works_1() {
         let g = TestCurve1::generator();
-        assert_eq!(g.operate_with(&g).operate_with(&g), g.operate_with_self(3_u16));
+        assert_eq!(
+            g.operate_with(&g).operate_with(&g),
+            g.operate_with_self(3_u16)
+        );
     }
 
     #[test]

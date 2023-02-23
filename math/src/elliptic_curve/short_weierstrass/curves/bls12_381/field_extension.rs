@@ -39,7 +39,10 @@ impl HasCubicNonResidue for LevelTwoResidue {
     type BaseField = LevelOneField;
 
     fn residue() -> FieldElement<LevelOneField> {
-        FieldElement::new([FieldElement::from(1), FieldElement::from(1)])
+        FieldElement::new([
+            FieldElement::new(U384::from("1040ab3263eff0206ef148d1ea0f4c069eca8f3318332bb7a07e83a49a2e99d6932b7fff2ed47fffd43f5fffffffcaab")),
+            FieldElement::new(U384::from("9c066b7d58ff679dc2a5ee4593c60d0c5acbc51db51e707c6b24efc5c825c4d8b807fff827f7fffe5bf9fffffffe000"))
+        ])
     }
 }
 
@@ -76,6 +79,39 @@ impl FieldElement<Order12ExtensionField> {
                 FieldElement::zero(),
             ]),
             FieldElement::zero(),
+        ])
+    }
+
+    pub fn new_from_coefficients(coefficients: &[&str; 12]) -> Self {
+        FieldElement::<Order12ExtensionField>::new([
+            FieldElement::new([
+                FieldElement::new([
+                    FieldElement::new(U384::from(coefficients[0])),
+                    FieldElement::new(U384::from(coefficients[1])),
+                ]),
+                FieldElement::new([
+                    FieldElement::new(U384::from(coefficients[2])),
+                    FieldElement::new(U384::from(coefficients[3])),
+                ]),
+                FieldElement::new([
+                    FieldElement::new(U384::from(coefficients[4])),
+                    FieldElement::new(U384::from(coefficients[5])),
+                ]),
+            ]),
+            FieldElement::new([
+                FieldElement::new([
+                    FieldElement::new(U384::from(coefficients[6])),
+                    FieldElement::new(U384::from(coefficients[7])),
+                ]),
+                FieldElement::new([
+                    FieldElement::new(U384::from(coefficients[8])),
+                    FieldElement::new(U384::from(coefficients[9])),
+                ]),
+                FieldElement::new([
+                    FieldElement::new(U384::from(coefficients[10])),
+                    FieldElement::new(U384::from(coefficients[11])),
+                ]),
+            ]),
         ])
     }
 }

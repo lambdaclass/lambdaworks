@@ -49,7 +49,7 @@ impl IsShortWeierstrass for BLS12381TwistCurve {
 impl ShortWeierstrassProjectivePoint<BLS12381TwistCurve> {
     /// Map ψ: E_twist(𝔽p²) -> E(𝔽p¹²).
     /// Returns affine coordinates (x, y)
-    fn to_fp12_affine(&self) -> [FieldElement<Order12ExtensionField>; 2] {
+    pub fn to_fp12_affine(&self) -> [FieldElement<Order12ExtensionField>; 2] {
         if self.is_neutral_element() {
             [FieldElement::zero(), FieldElement::one()]
         } else {
@@ -86,13 +86,18 @@ mod tests {
         cyclic_group::IsGroup,
         elliptic_curve::{
             short_weierstrass::{
-                curves::{bls12_381::field_extension::{BLS12381PrimeField, LevelOneField, BLS12381_PRIME_FIELD_ORDER}, bls12_377::field_extension::BLS12377_PRIME_FIELD_ORDER},
+                curves::{
+                    bls12_377::field_extension::BLS12377_PRIME_FIELD_ORDER,
+                    bls12_381::field_extension::{
+                        BLS12381PrimeField, LevelOneField, BLS12381_PRIME_FIELD_ORDER,
+                    },
+                },
                 traits::IsShortWeierstrass,
             },
             traits::IsEllipticCurve,
         },
         field::element::FieldElement,
-        unsigned_integer::element::{U384, U256},
+        unsigned_integer::element::{U256, U384},
     };
 
     use super::BLS12381TwistCurve;
