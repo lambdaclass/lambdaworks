@@ -6,10 +6,26 @@ members = [
     "prover",
 ]
 
-[patch."https://github.com/maxgillett/winterfell"]
-prover = { package = "winter-prover", path = "../maxgillet_winterfell/winterfell/prover", version = "0.4" }
-crypto = { package = "winter-crypto", path = "../maxgillet_winterfell/winterfell/crypto", version = "0.4" }
-math = { package = "winter-math", path = "../maxgillet_winterfell/winterfell/math", version = "0.4" }
-winter-utils = { package = "winter-utils", path = "../maxgillet_winterfell/winterfell/utils/core" }
-winter-air = { package = "winter-air", path = "../maxgillet_winterfell/winterfell/air", version = "0.4" }
-winterfell = { package = "winter-verifier", path = "../maxgillet_winterfell/winterfell/verifier", version = "0.4" }
+# [patch."https://github.com/maxgillett/winterfell"]
+# prover = { package = "winter-prover", path = "../maxgillet_winterfell/winterfell/prover", version = "0.4" }
+# crypto = { package = "winter-crypto", path = "../maxgillet_winterfell/winterfell/crypto", version = "0.4" }
+# math = { package = "winter-math", path = "../maxgillet_winterfell/winterfell/math", version = "0.4" }
+# winter-utils = { package = "winter-utils", path = "../maxgillet_winterfell/winterfell/utils/core" }
+# winter-air = { package = "winter-air", path = "../maxgillet_winterfell/winterfell/air", version = "0.4" }
+# winterfell = { package = "winter-verifier", path = "../maxgillet_winterfell/winterfell/verifier", version = "0.4" }
+
+[patch."https://github.com/zerosync/winterfell"]
+prover = { package = "winter-prover", path = "../giza_zerosync/winterfell/prover", version = "0.4" }
+math = { package = "winter-math", path = "../giza_zerosync/winterfell/math", version = "0.4" }
+winter-utils = { package = "winter-utils", path = "../giza_zerosync/winterfell/utils/core" }
+winter-air = { package = "winter-air", path = "../giza_zerosync/winterfell/air", version = "0.4" }
+winter-verifier = { package = "winter-verifier", path = "../giza_zerosync/winterfell/verifier", version = "0.4" }
+crypto = { package = "winter-crypto", path = "../giza_zerosync/winterfell/crypto", version = "0.4" }
+
+# [patch."https://github.com/maxgillett/winterfell"]
+# math = { package = "winter-math", git = "https://github.com/zerosync/winterfell", version = "0.4", default-features = false }
+# winter-utils = { package = "winter-utils", git = "https://github.com/zerosync/winterfell", version = "0.4", default-features = false }
+# prover = { package = "winter-prover", git = "https://github.com/zerosync/winterfell", version = "0.4" }
+# winter-air = { package = "winter-air", git = "https://github.com/zerosync/winterfell", version = "0.4" }
+# crypto = { package = "winter-crypto", git = "https://github.com/zerosync/winterfell", version = "0.4" }
+# winterfell = { package = "winter-verifier", git = "https://github.com/zerosync/winterfell", version = "0.4" }
