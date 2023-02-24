@@ -55,9 +55,10 @@ pub trait IsField: Debug + Clone {
     {
         let mut result = Self::one();
         let mut base = a.clone();
-
-        while exponent > T::from(0) {
-            if exponent & T::from(1) == T::from(1) {
+        let zero = T::from(0);
+        let one = T::from(1);
+        while exponent > zero {
+            if exponent & one == one {
                 result = Self::mul(&result, &base);
             }
             base = Self::mul(&base, &base);

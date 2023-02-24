@@ -40,8 +40,8 @@ impl HasCubicNonResidue for LevelTwoResidue {
 
     fn residue() -> FieldElement<LevelOneField> {
         FieldElement::new([
-            FieldElement::new(U384::from("1040ab3263eff0206ef148d1ea0f4c069eca8f3318332bb7a07e83a49a2e99d6932b7fff2ed47fffd43f5fffffffcaab")),
-            FieldElement::new(U384::from("9c066b7d58ff679dc2a5ee4593c60d0c5acbc51db51e707c6b24efc5c825c4d8b807fff827f7fffe5bf9fffffffe000"))
+            FieldElement::new(U384::from("d0088f51cbff34d258dd3db21a5d66bb23ba5c279c2895fb39869507b587b120f55ffff58a9ffffdcff7fffffffd556")),
+            FieldElement::new(U384::from("d0088f51cbff34d258dd3db21a5d66bb23ba5c279c2895fb39869507b587b120f55ffff58a9ffffdcff7fffffffd555"))
         ])
     }
 }
@@ -82,7 +82,7 @@ impl FieldElement<Order12ExtensionField> {
         ])
     }
 
-    pub fn new_from_coefficients(coefficients: &[&str; 12]) -> Self {
+    pub fn from_coefficients(coefficients: &[&str; 12]) -> Self {
         FieldElement::<Order12ExtensionField>::new([
             FieldElement::new([
                 FieldElement::new([

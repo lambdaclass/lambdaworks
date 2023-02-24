@@ -1,8 +1,9 @@
 use crate::{
     cyclic_group::IsGroup,
     elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint,
-    elliptic_curve::short_weierstrass::traits::IsShortWeierstrass, field::element::FieldElement,
-    unsigned_integer::element::U256,
+    elliptic_curve::short_weierstrass::traits::IsShortWeierstrass,
+    field::element::FieldElement,
+    unsigned_integer::element::{UnsignedInteger, U256},
 };
 
 use super::{
@@ -11,80 +12,12 @@ use super::{
 
 const PRIME_R: U256 =
     U256::from("73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001");
-const NORMALIZATION_POWER: &[u64] = &[
-    0x0000000002ee1db5,
-    0xdcc825b7e1bda9c0,
-    0x496a1c0a89ee0193,
-    0xd4977b3f7d4507d0,
-    0x7363baa13f8d14a9,
-    0x17848517badc3a43,
-    0xd1073776ab353f2c,
-    0x30698e8cc7deada9,
-    0xc0aadff5e9cfee9a,
-    0x074e43b9a660835c,
-    0xc872ee83ff3a0f0f,
-    0x1c0ad0d6106feaf4,
-    0xe347aa68ad49466f,
-    0xa927e7bb93753318,
-    0x07a0dce2630d9aa4,
-    0xb113f414386b0e88,
-    0x19328148978e2b0d,
-    0xd39099b86e1ab656,
-    0xd2670d93e4d7acdd,
-    0x350da5359bc73ab6,
-    0x1a0c5bf24c374693,
-    0xc49f570bcd2b01f3,
-    0x077ffb10bf24dde4,
-    0x1064837f27611212,
-    0x596bc293c8d4c01f,
-    0x25118790f4684d0b,
-    0x9c40a68eb74bb22a,
-    0x40ee7169cdc10412,
-    0x96532fef459f1243,
-    0x8dfc8e2886ef965e,
-    0x61a474c5c85b0129,
-    0x127a1b5ad0463434,
-    0x724538411d1676a5,
-    0x3b5a62eb34c05739,
-    0x334f46c02c3f0bd0,
-    0xc55d3109cd15948d,
-    0x0a1fad20044ce6ad,
-    0x4c6bec3ec03ef195,
-    0x92004cedd556952c,
-    0x6d8823b19dadd7c2,
-    0x498345c6e5308f1c,
-    0x511291097db60b17,
-    0x49bf9b71a9f9e010,
-    0x0418a3ef0bc62775,
-    0x1bbd81367066bca6,
-    0xa4c1b6dcfc5cceb7,
-    0x3fc56947a403577d,
-    0xfa9e13c24ea820b0,
-    0x9c1d9f7c31759c36,
-    0x35de3f7a36399917,
-    0x08e88adce8817745,
-    0x6c49637fd7961be1,
-    0xa4c7e79fb02faa73,
-    0x2e2f3ec2bea83d19,
-    0x6283313492caa9d4,
-    0xaff1c910e9622d2a,
-    0x73f62537f2701aae,
-    0xf6539314043f7bbc,
-    0xe5b78c7869aeb218,
-    0x1a67e49eeed2161d,
-    0xaf3f881bd88592d7,
-    0x67f67c4717489119,
-    0x226c2f011d4cab80,
-    0x3e9d71650a6f8069,
-    0x8e2f8491d12191a0,
-    0x4406fbc8fbd5f489,
-    0x25f98630e68bfb24,
-    0xc0bcb9b55df57510,
-];
+const NORMALIZATION_POWER: UnsignedInteger<68> = UnsignedInteger::from("2ee1db5dcc825b7e1bda9c0496a1c0a89ee0193d4977b3f7d4507d07363baa13f8d14a917848517badc3a43d1073776ab353f2c30698e8cc7deada9c0aadff5e9cfee9a074e43b9a660835cc872ee83ff3a0f0f1c0ad0d6106feaf4e347aa68ad49466fa927e7bb9375331807a0dce2630d9aa4b113f414386b0e8819328148978e2b0dd39099b86e1ab656d2670d93e4d7acdd350da5359bc73ab61a0c5bf24c374693c49f570bcd2b01f3077ffb10bf24dde41064837f27611212596bc293c8d4c01f25118790f4684d0b9c40a68eb74bb22a40ee7169cdc1041296532fef459f12438dfc8e2886ef965e61a474c5c85b0129127a1b5ad0463434724538411d1676a53b5a62eb34c05739334f46c02c3f0bd0c55d3109cd15948d0a1fad20044ce6ad4c6bec3ec03ef19592004cedd556952c6d8823b19dadd7c2498345c6e5308f1c511291097db60b1749bf9b71a9f9e0100418a3ef0bc627751bbd81367066bca6a4c1b6dcfc5cceb73fc56947a403577dfa9e13c24ea820b09c1d9f7c31759c3635de3f7a3639991708e88adce88177456c49637fd7961be1a4c7e79fb02faa732e2f3ec2bea83d196283313492caa9d4aff1c910e9622d2a73f62537f2701aaef6539314043f7bbce5b78c7869aeb2181a67e49eeed2161daf3f881bd88592d767f67c4717489119226c2f011d4cab803e9d71650a6f80698e2f8491d12191a04406fbc8fbd5f48925f98630e68bfb24c0bcb9b55df57510");
 
+#[allow(unused)]
 fn miller(
-    p: &ShortWeierstrassProjectivePoint<BLS12381Curve>,
     q: &ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
+    p: &ShortWeierstrassProjectivePoint<BLS12381Curve>,
 ) -> FieldElement<Order12ExtensionField> {
     let mut r = q.clone();
     let mut f = FieldElement::<Order12ExtensionField>::one();
@@ -108,37 +41,19 @@ fn miller(
     f
 }
 
+#[allow(unused)]
 fn final_exponentiation(
     base: &FieldElement<Order12ExtensionField>,
 ) -> FieldElement<Order12ExtensionField> {
-    let bit_representation_exponent = NORMALIZATION_POWER;
-    let mut pow = FieldElement::one();
-    let mut base = base.clone();
-
-    // This is computes the power of base raised to the target_normalization_power
-    for (index, limb) in bit_representation_exponent.iter().rev().enumerate() {
-        let mut limb = *limb;
-        for _bit in 1..=16 {
-            if limb & 1 == 1 {
-                pow = &pow * &base;
-            }
-            base = &base * &base;
-            let finished = (index == bit_representation_exponent.len() - 1) && (limb == 0);
-            if !finished {
-                limb >>= 1;
-            } else {
-                break;
-            }
-        }
-    }
-    pow
+    base.pow(NORMALIZATION_POWER)
 }
 
+#[allow(unused)]
 fn ate(
     p: &ShortWeierstrassProjectivePoint<BLS12381Curve>,
     q: &ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
 ) -> FieldElement<Order12ExtensionField> {
-    let base = miller(p, q);
+    let base = miller(q, p);
     final_exponentiation(&base)
 }
 
@@ -215,107 +130,167 @@ mod tests {
 
     use super::*;
 
+    type Fp12E = FieldElement<Order12ExtensionField>;
+
     #[test]
     fn final_exp() {
-        /*
-        let base = FieldElement::<Order12ExtensionField>::new([
-            FieldElement::new([
-                FieldElement::new([FieldElement::one(), FieldElement::one()]),
-                FieldElement::new([FieldElement::one(), FieldElement::one()]),
-                FieldElement::new([FieldElement::one(), FieldElement::one()])
-            ]),
-            FieldElement::new([
-                FieldElement::new([FieldElement::one(), FieldElement::one()]),
-                FieldElement::new([FieldElement::one(), FieldElement::one()]),
-                FieldElement::new([FieldElement::one(), FieldElement::one()])
-            ])
-        ]);
-
-        let base_square = FieldElement::<Order12ExtensionField>::new([
-            FieldElement::new([
-                FieldElement::new([FieldElement::new(U384::from("680447a8e5ff9a692c6e9ed90d2eb35d91dd2e13ce144afd9cc34a83dac3d8907aaffffac54ffffee7fbfffffffeaac")), FieldElement::new(U384::from("680447a8e5ff9a692c6e9ed90d2eb35d91dd2e13ce144afd9cc34a83dac3d8907aaffffac54ffffee7fbfffffffeaae"))]),
-                FieldElement::new([FieldElement::new(U384::from("1380cd6fab1fecf3b854bdc8b278c1a18b5978a3b6a3ce0f8d649df8b904b89b1700ffff04feffffcb7f3fffffffc001")), FieldElement::new(U384::from("1380cd6fab1fecf3b854bdc8b278c1a18b5978a3b6a3ce0f8d649df8b904b89b1700ffff04feffffcb7f3fffffffc007"))]),
-                FieldElement::new([FieldElement::new(U384::from("680447a8e5ff9a692c6e9ed90d2eb35d91dd2e13ce144afd9cc34a83dac3d8907aaffffac54ffffee7fbfffffffeaab")), FieldElement::new(U384::from("680447a8e5ff9a692c6e9ed90d2eb35d91dd2e13ce144afd9cc34a83dac3d8907aaffffac54ffffee7fbfffffffeab5"))])
-            ]),
-            FieldElement::new([
-                FieldElement::new([FieldElement::new(U384::from("5")), FieldElement::new(U384::from("1"))]),
-                FieldElement::new([FieldElement::new(U384::from("d0088f51cbff34d258dd3db21a5d66bb23ba5c279c2895fb39869507b587b120f55ffff58a9ffffdcff7fffffffd556")), FieldElement::new(U384::from("d0088f51cbff34d258dd3db21a5d66bb23ba5c279c2895fb39869507b587b120f55ffff58a9ffffdcff7fffffffd55e"))]),
-                FieldElement::new([FieldElement::new(U384::from("0")), FieldElement::new(U384::from("c"))])
-            ])
-        ]);
-        */
-        // Original sage
-        // 0x680447a8e5ff9a692c6e9ed90d2eb35d91dd2e13ce144afd9cc34a83dac3d8907aaffffac54ffffee7fbfffffffeaac
-        // 0x680447a8e5ff9a692c6e9ed90d2eb35d91dd2e13ce144afd9cc34a83dac3d8907aaffffac54ffffee7fbfffffffeaae
-        // 0x5
-        // 0x1
-        // 0x1380cd6fab1fecf3b854bdc8b278c1a18b5978a3b6a3ce0f8d649df8b904b89b1700ffff04feffffcb7f3fffffffc001
-        // 0x1380cd6fab1fecf3b854bdc8b278c1a18b5978a3b6a3ce0f8d649df8b904b89b1700ffff04feffffcb7f3fffffffc007
-        // 0xd0088f51cbff34d258dd3db21a5d66bb23ba5c279c2895fb39869507b587b120f55ffff58a9ffffdcff7fffffffd556
-        // 0xd0088f51cbff34d258dd3db21a5d66bb23ba5c279c2895fb39869507b587b120f55ffff58a9ffffdcff7fffffffd55e
-        // 0x680447a8e5ff9a692c6e9ed90d2eb35d91dd2e13ce144afd9cc34a83dac3d8907aaffffac54ffffee7fbfffffffeaab
-        // 0x680447a8e5ff9a692c6e9ed90d2eb35d91dd2e13ce144afd9cc34a83dac3d8907aaffffac54ffffee7fbfffffffeab5
-        // 0x0
-        // 0xc
-
-        // Reordenado
-        // 0x680447a8e5ff9a692c6e9ed90d2eb35d91dd2e13ce144afd9cc34a83dac3d8907aaffffac54ffffee7fbfffffffeaac
-        // 0x680447a8e5ff9a692c6e9ed90d2eb35d91dd2e13ce144afd9cc34a83dac3d8907aaffffac54ffffee7fbfffffffeaae
-        // 0x1380cd6fab1fecf3b854bdc8b278c1a18b5978a3b6a3ce0f8d649df8b904b89b1700ffff04feffffcb7f3fffffffc001
-        // 0x1380cd6fab1fecf3b854bdc8b278c1a18b5978a3b6a3ce0f8d649df8b904b89b1700ffff04feffffcb7f3fffffffc007
-        // 0x680447a8e5ff9a692c6e9ed90d2eb35d91dd2e13ce144afd9cc34a83dac3d8907aaffffac54ffffee7fbfffffffeaab
-        // 0x680447a8e5ff9a692c6e9ed90d2eb35d91dd2e13ce144afd9cc34a83dac3d8907aaffffac54ffffee7fbfffffffeab5
-        // 0x5
-        // 0x1
-        // 0xd0088f51cbff34d258dd3db21a5d66bb23ba5c279c2895fb39869507b587b120f55ffff58a9ffffdcff7fffffffd556
-        // 0xd0088f51cbff34d258dd3db21a5d66bb23ba5c279c2895fb39869507b587b120f55ffff58a9ffffdcff7fffffffd55e
-        // 0x0
-        // 0xc
-
-        //assert_eq!(base.pow(2_u16), base_square);
-        //assert_eq!(
-        //    final_exponentiation(&FieldElement::one()),
-        //    FieldElement::one()
-        //);
-
-        assert_eq!(
-            FieldElement::<Order12ExtensionField>::one().pow(2_u16),
-            FieldElement::one()
-        );
-        assert_eq!(
-            FieldElement::new_from_coefficients(&[
-                "1", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0"
-            ]),
-            FieldElement::one()
-        );
-        assert_eq!(
-            FieldElement::new_from_coefficients(&[
-                "0", "0", "1", "0", "0", "0", "0", "0", "0", "0", "0", "0"
-            ])
-            .pow(2_u16),
-            FieldElement::new_from_coefficients(&[
-                "0", "0", "0", "0", "1", "0", "0", "0", "0", "0", "0", "0"
-            ]),
-        );
-        assert_eq!(
-            FieldElement::new_from_coefficients(&["0", "1", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0"]).pow(2_u16),
-            FieldElement::new_from_coefficients(&["1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaaa", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0"]),
-        );
-        assert_eq!(
-            FieldElement::new_from_coefficients(&[
-                "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0"
-            ])
-            .pow(2_u16),
-            FieldElement::new_from_coefficients(&[
-                "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0"
-            ]),
-        );
-
-        //FieldElement::new_from_coefficients(["0", "1", ])
+        let one = FieldElement::<Order12ExtensionField>::one();
+        assert_eq!(final_exponentiation(&one), one);
     }
 
     #[test]
-    fn ate_pairing() {
+    fn element_squared_1() {
+        // base = 1 + u + (1 + u)v + (1 + u)v^2 + ((1+u) + (1 + u)v + (1+ u)v^2)w
+        let element_ones =
+            Fp12E::from_coefficients(&["1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1"]);
+        let element_ones_squared =
+            Fp12E::from_coefficients(&["5", "7", "3", "9", "1", "b", "4", "8", "2", "a", "0", "c"]);
+        assert_eq!(element_ones.pow(2_u16), element_ones_squared);
+    }
+
+    #[test]
+    fn element_squared_2() {
+        let element_sequence =
+            Fp12E::from_coefficients(&["1", "2", "5", "6", "9", "a", "3", "4", "7", "8", "b", "c"]);
+
+        let element_sequence_squared = Fp12E::from_coefficients(&[
+            "d0088f51cbff34d258dd3db21a5d66bb23ba5c279c2895fb39869507b587b120f55ffff58a9ffffdcff7fffffffd61d",
+            "d0088f51cbff34d258dd3db21a5d66bb23ba5c279c2895fb39869507b587b120f55ffff58a9ffffdcff7fffffffd66f",
+            "d0088f51cbff34d258dd3db21a5d66bb23ba5c279c2895fb39869507b587b120f55ffff58a9ffffdcff7fffffffd62a",
+            "d0088f51cbff34d258dd3db21a5d66bb23ba5c279c2895fb39869507b587b120f55ffff58a9ffffdcff7fffffffd6b0",
+            "d0088f51cbff34d258dd3db21a5d66bb23ba5c279c2895fb39869507b587b120f55ffff58a9ffffdcff7fffffffd597",
+            "d0088f51cbff34d258dd3db21a5d66bb23ba5c279c2895fb39869507b587b120f55ffff58a9ffffdcff7fffffffd6c1",
+            "e0",
+            "142",
+            "a1",
+            "167",
+            "1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaa5d",
+            "16c"
+        ]);
+
+        assert_eq!(element_sequence.pow(2_u16), element_sequence_squared);
+    }
+
+    #[test]
+    fn element_to_normalization_power() {
+        // assert_eq!(element_ones.pow(2_u16), element_ones_squared);
+
+        let element_sequence =
+            Fp12E::from_coefficients(&["1", "2", "5", "6", "9", "a", "3", "4", "7", "8", "b", "c"]);
+
+        let element_sequence_raised_to_r_power = Fp12E::from_coefficients(&[
+            "6751a492e8604c0297d3015aa840ffa8cf0b1a83adbe144534ed6d99f1ee590fb64e22372146945234d4971e7c59967",
+            "af30d65fed6acbfc731d26214f026ca04a67db45fd922f258a9df0971b9fe9035b617f520ec8fadfe81ed99bb4b4f35",
+            "10c69fc56477cbcbd2ceceee631bdf5338f50d2351ecdf4de33aa35ef0418ee0d0acbebb93be3f45f6c3a80bf720faed",
+            "18035639e29b2ee19db64be512621da650aabd7e6779fd66eff1a899e39e677bd4029fee33c450fdc3046a48adbfea5f",
+            "1825c8059c53e9113a66905fdc082e7c8b4f69dc8dff62d521dd65a0c58e46fb3e0ed8c9ec341d83b037d2a90352d9cf",
+            "f32b1f2c72faf5f55e2d2d59225f145b8505162a540ad4e89793e984f3fd98c5de40af7fbd4a6c1c9a59bdb430d2c1c",
+            "6f98212c1e50d84414f0a3acebdcfc28bd4488782b57e478ab11db99c65df0877b829c177dddfa2f92e1b69bb8dc16c",
+            "19b12e43ad1dfae439b0fb9bd338ca54ce46c3638c697cb0f09a28245595ed4b8163691c9adcb706b71680cfe994b806",
+            "1a5cc2e093b6bf5c862aaf588881eaba3f510d7ad8e045c2da78a90a1b3b4ac20457771b35187a4f6d35bfe77eb503f",
+            "b7ccba6d35d79d7734a7c256d05811145786b2a1d89e960540cc3472ba2c7f55b2dcf54234ea21a3f103d2472938dfe",
+            "139f6b151f9ffaedc70eee88cfb298f701f732288674f399b3b1d1e0e71fb981adfcd74397954e591b557646f22f6585",
+            "188f6adb85a0caabc76e27b0ce1ec4b4c6d63568e6e0e73114f54b1be5c93a74f413f44c3b2aa1114e61062267a2b52e"
+        ]);
+
+        assert_eq!(
+            final_exponentiation(&element_sequence),
+            element_sequence_raised_to_r_power
+        );
+    }
+
+    #[test]
+    fn inverse_of_u_plus_one() {
+        let z =
+            Fp12E::from_coefficients(&["0", "0", "1", "0", "0", "0", "0", "0", "0", "0", "0", "0"])
+                .pow(3_u16);
+        let one_plus_u =
+            Fp12E::from_coefficients(&["1", "1", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0"]);
+        assert_eq!(z * one_plus_u, FieldElement::one());
+    }
+
+    #[test]
+    fn to_fp12_affine_computes_correctly() {
+        let g = BLS12381TwistCurve::generator();
+        let expectedx = Fp12E::from_coefficients(&[
+            "0",
+            "0",
+            "24aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02b4510b647ae3d1770bac0326a805bbefd48056c8c121bdb8",
+            "13e02b6052719f607dacd3a088274f65596bd0d09920b61ab5da61bbdc7f5049334cf11213945d57e5ac7d055d042b7e",
+            "0",
+            "0",
+            "0",
+            "0",
+            "0",
+            "0",
+            "0",
+            "0"
+        ]);
+        let expectedy = Fp12E::from_coefficients(&[
+            "0",
+            "0",
+            "0",
+            "0",
+            "0",
+            "0",
+            "0",
+            "0",
+            "ce5d527727d6e118cc9cdc6da2e351aadfd9baa8cbdd3a76d429a695160d12c923ac9cc3baca289e193548608b82801",
+            "606c4a02ea734cc32acd2b02bc28b99cb3e287e85a763af267492ab572e99ab3f370d275cec1da1aaa9075ff05f79be",
+            "0",
+            "0"
+        ]);
+        let [g_to_fp12_x, g_to_fp12_y] = g.to_fp12_affine();
+        assert_eq!(g_to_fp12_x, expectedx);
+        assert_eq!(g_to_fp12_y, expectedy);
+    }
+
+    #[test]
+    fn test_line_1() {
+        let g1 = BLS12381Curve::generator();
+        let g2 = BLS12381TwistCurve::generator();
+        let expected = Fp12E::from_coefficients(&[
+            "8b3f481e3aaa0f1a09e30ed741d8ae4fcf5e095d5d00af600db18cb2c04b3edd03cc744a2888ae40caa232946c5e7e1",
+            "0",
+            "0",
+            "0",
+            "0",
+            "0",
+            "11bfe7fb8923ace27a0692871443365b3e5e0dd7ef388153c5bb27d923a3dedb6b9f9cbfd022a8eb913e281a830fac9c",
+            "13d0fab25f0e7099c6ffaa8ddd3cb036f5c35df322a9359ff8f98a4f5c6a84c50b6007c296eafda2ffa2d20b253a6633",
+            "4c208bdb300097927393e963768099390a3f9d581d8828070e39167384e44fdaf716fa49d68b0bdf431a2f53189c109",
+            "546ca700477f9c2f9def9691be2f7e6eaa0f1474cb64c53ce3b4d4da03cbdac75933b5468ab4b88cf058f147ba2cda9",
+            "0",
+            "0"
+        ]);
+        assert_eq!(line(&g2, &g2, &g1), expected);
+    }
+
+    #[test]
+    fn test_line_2() {
+        let g1 = BLS12381Curve::generator();
+        let g2 = BLS12381TwistCurve::generator();
+        let g2_times_5 = g2.operate_with_self(5_u16);
+        let expected = Fp12E::from_coefficients(&[
+            "8b3f481e3aaa0f1a09e30ed741d8ae4fcf5e095d5d00af600db18cb2c04b3edd03cc744a2888ae40caa232946c5e7e1",
+            "0",
+            "0",
+            "0",
+            "0",
+            "0",
+            "c61af5cbff75e6cdd8100b22636ec410a1cb914a599775a29590dd2c48af1f18a71e120fb72ddc7c1ca57ce58a8670f",
+            "4b7599ae8879affcb68f23ac23ddc7316f81013a2caa8925f33fe978f19ce00effd7e5bd6b51e2d9723e66fd897e125",
+            "449f41bddfdc54476c92f4249f1ce75a9693eb8f0b34ba3c57de3edaa29ba069f0d97376eadb1be6c5a5dfdf595302b",
+            "ebf57b77d5ffe1476a8c8c0f0e0e73e8d32f070c89f09e465cb39312463bc42768c6028a481fb8ba2f5d2a95cd4eedb",
+            "0",
+            "0"
+        ]);
+        assert_eq!(line(&g2, &g2_times_5, &g1), expected);
+    }
+
+/*
+    #[test]
+    fn ate_pairing_bilinearity() {
         let p = BLS12381Curve::generator().to_affine();
         let q = BLS12381TwistCurve::generator().to_affine();
         let a = U384::from_u64(2);
@@ -330,21 +305,5 @@ mod tests {
         )
         // e(a*P, b*Q) = e(a*b*P, Q) = e(P, a*b*Q)
     }
+ */
 }
-/*
-0000000000000000000000000000000017f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb
-0000000000000000000000000000000008b3f481e3aaa0f1a09e30ed741d8ae4fcf5e095d5d00af600db18cb2c04b3edd03cc744a2888ae40caa232946c5e7e1
-
-00000000000000000000000000000000024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02b4510b647ae3d1770bac0326a805bbefd48056c8c121bdb8
-0000000000000000000000000000000013e02b6052719f607dacd3a088274f65596bd0d09920b61ab5da61bbdc7f5049334cf11213945d57e5ac7d055d042b7e
-000000000000000000000000000000000ce5d527727d6e118cc9cdc6da2e351aadfd9baa8cbdd3a76d429a695160d12c923ac9cc3baca289e193548608b82801
-000000000000000000000000000000000606c4a02ea734cc32acd2b02bc28b99cb3e287e85a763af267492ab572e99ab3f370d275cec1da1aaa9075ff05f79be
-
-0000000000000000000000000000000017f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb
-0000000000000000000000000000000008b3f481e3aaa0f1a09e30ed741d8ae4fcf5e095d5d00af600db18cb2c04b3edd03cc744a2888ae40caa232946c5e7e1
-
-00000000000000000000000000000000024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02b4510b647ae3d1770bac0326a805bbefd48056c8c121bdb8
-0000000000000000000000000000000013e02b6052719f607dacd3a088274f65596bd0d09920b61ab5da61bbdc7f5049334cf11213945d57e5ac7d055d042b7e
-000000000000000000000000000000000ce5d527727d6e118cc9cdc6da2e351aadfd9baa8cbdd3a76d429a695160d12c923ac9cc3baca289e193548608b82801
-000000000000000000000000000000000606c4a02ea734cc32acd2b02bc28b99cb3e287e85a763af267492ab572e99ab3f370d275cec1da1aaa9075ff05f79be
-*/
