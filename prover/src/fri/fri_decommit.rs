@@ -1,12 +1,28 @@
 use super::FE;
-use crate::fri::fri_commitment::FriCommitmentVec;
+use crate::{fri::fri_commitment::FriCommitmentVec, U384FieldElement, U384PrimeField};
 pub use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
-use lambdaworks_math::traits::ByteConversion;
+use lambdaworks_crypto::{
+    hash::traits::IsCryptoHash,
+    merkle_tree::{DefaultHasher, Proof},
+};
+use lambdaworks_math::{field::traits::IsField, traits::ByteConversion};
 
 // verifier chooses a randomness and get the index where
 // they want to evaluate the poly
-pub fn fri_decommit_layers(commit: &FriCommitmentVec<FE>, index_to_verify: usize) {
+// TODO: encapsulate the return type of this function in a struct.
+pub fn fri_decommit_layers(
+    commit: &FriCommitmentVec<FE>,
+    index_to_verify: usize,
+) -> (
+    Vec<(
+        Proof<U384PrimeField, DefaultHasher>,
+        Proof<U384PrimeField, DefaultHasher>,
+    )>,
+    U384FieldElement,
+) {
     let mut index = index_to_verify;
+
+    let mut ret = vec![];
 
     // with every element of the commit, we look for that one in
     // the merkle tree and get the corresponding element
@@ -20,15 +36,15 @@ pub fn fri_decommit_layers(commit: &FriCommitmentVec<FE>, index_to_verify: usize
         let index_sym = (index + length_i / 2) % length_i;
         let evaluation_i_sym = commit_i.evaluation[index_sym].clone();
         let auth_path_sym = commit_i.merkle_tree.get_proof(evaluation_i_sym).unwrap();
+
+        ret.push((auth_path, auth_path_sym));
     }
 
     // send the last element of the polynomial
     let last = commit.last().unwrap();
     let last_evaluation = last.poly.coefficients[0].clone();
 
-    let last_evaluation_bytes = (*last_evaluation.value()).to_bytes_be();
-
-    // TDOO ⚠️⚠️⚠️⚠️ @@@@@ return auth_path and auth_path_sym @@@@@ ⚠️⚠️⚠️⚠️
+    return (ret, last_evaluation);
 }
 
 // Integration test:

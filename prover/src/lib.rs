@@ -54,8 +54,15 @@ pub struct StarkQueryProof {
     pub trace_lde_poly_evaluations: Vec<U384FieldElement>,
     /// Merkle paths for the trace polynomial evaluations
     pub trace_lde_poly_inclusion_proofs: Vec<Proof<U384PrimeField, DefaultHasher>>,
+    pub composition_poly_lde_evaluations: Vec<U384FieldElement>,
 
-    composition_poly_root: U384FieldElement,
+    // composition_poly_root: U384FieldElement,
+    pub fri_layers_merkle_roots: Vec<U384FieldElement>,
+    pub fri_layers_merkle_proofs: Vec<(
+        Proof<U384PrimeField, DefaultHasher>,
+        Proof<U384PrimeField, DefaultHasher>,
+    )>,
+    pub last_fri_layer_evaluation: U384FieldElement,
 }
 
 pub type StarkProof = Vec<StarkQueryProof>;
@@ -63,31 +70,55 @@ pub type StarkProof = Vec<StarkQueryProof>;
 pub use lambdaworks_crypto::merkle_tree::{DefaultHasher, MerkleTree};
 pub type FriMerkleTree = MerkleTree<U384PrimeField, DefaultHasher>;
 
+pub fn fibonacci_trace(initial_values: [U384FieldElement; 2]) -> Vec<U384FieldElement> {
+    let mut ret = vec![];
+
+    ret.push(initial_values[0].clone());
+    ret.push(initial_values[1].clone());
+
+    for i in 2..32 {
+        ret.push(ret[i - 1].clone() + ret[i - 2].clone());
+    }
+
+    ret
+}
+
 pub fn prove<A>(
-    air: A,
-    trace: TraceTable<A::BaseField>,
-    pub_inputs: A::PublicInputs,
+    // air: A,
+    // trace: TraceTable<A::BaseField>,
+    // pub_inputs: A::PublicInputs,
+    pub_inputs: [U384FieldElement; 2],
 ) -> StarkQueryProof
 where
     A: Air<BaseField = BaseElement>,
 {
     let mut transcript = Transcript::new();
     // * Generate composition polynomials using Winterfell
-    let (mut composition_poly, mut trace_poly) = get_cp_and_tp(air, trace, pub_inputs).unwrap();
+    // let (mut composition_poly, mut trace_poly) = get_cp_and_tp(air, trace, pub_inputs).unwrap();
 
     // * Generate Coset
-    let (roots_of_unity, primitive_root) = crate::generate_vec_roots(1024, 1);
+    let (roots_of_unity, _primitive_root) = crate::generate_vec_roots(32, 1);
+    let (lde_roots_of_unity, lde_primitive_root) = crate::generate_vec_roots(1024, 1);
+
+    let trace = fibonacci_trace(pub_inputs);
+    let mut trace_poly = Polynomial::interpolate(&roots_of_unity, &trace);
+
+    let mut composition_poly = Polynomial::new(&vec![
+        -U384FieldElement::new(U384::from("1")),
+        -U384FieldElement::new(U384::from("1")),
+        U384FieldElement::new(U384::from("1")),
+    ]);
 
     // * Do Reed-Solomon on the trace and composition polynomials using some blowup factor
-    let composition_poly_lde = composition_poly.evaluate_slice(roots_of_unity.as_slice());
-    let trace_poly_lde = trace_poly.evaluate_slice(roots_of_unity.as_slice());
+    let composition_poly_lde = composition_poly.evaluate_slice(lde_roots_of_unity.as_slice());
+    let trace_poly_lde = trace_poly.evaluate_slice(lde_roots_of_unity.as_slice());
 
     // * Commit to both polynomials using a Merkle Tree
     let composition_poly_lde_merkle_tree = FriMerkleTree::build(composition_poly_lde.as_slice());
     let trace_poly_lde_merkle_tree = FriMerkleTree::build(&trace_poly_lde.as_slice());
 
     // * Do FRI on the composition polynomials
-    let lde_fri_commitment = crate::fri::fri(&mut composition_poly, &roots_of_unity);
+    let lde_fri_commitment = crate::fri::fri(&mut composition_poly, &lde_roots_of_unity);
 
     // * Sample q_1, ..., q_m using Fiat-Shamir
     // let q_1 = transcript.challenge();
@@ -95,17 +126,20 @@ where
     let q_1: usize = 2;
 
     // * For every q_i, do FRI decommitment
-    let decommitment = fri_decommit_layers(&lde_fri_commitment, q_1);
+    let (fri_layers_merkle_proofs, last_fri_layer_evaluation) =
+        fri_decommit_layers(&lde_fri_commitment, q_1);
 
     // * For every trace polynomial t_i, provide the evaluations on every q_i, q_i * g, q_i * g^2
     // TODO: Check the evaluation points corresponding to our program (it's not fibonacci).
     let evaluation_points = vec![
         U384FieldElement::from(q_1 as u64),
-        U384FieldElement::from(q_1 as u64) * primitive_root.clone(),
-        U384FieldElement::from(q_1 as u64) * primitive_root.pow(2_usize),
+        U384FieldElement::from(q_1 as u64) * lde_primitive_root.clone(),
+        U384FieldElement::from(q_1 as u64) * lde_primitive_root.pow(2_usize),
     ];
 
     let trace_lde_poly_evaluations = trace_poly.evaluate_slice(&evaluation_points);
+    let composition_poly_lde_evaluations =
+        composition_poly.evaluate_slice(&[evaluation_points[0].clone()]);
 
     let mut merkle_paths = vec![];
 
@@ -126,29 +160,25 @@ where
     );
 
     let trace_root = trace_poly_lde_merkle_tree.root.borrow().clone().hash;
-    let composition_poly_root = composition_poly_lde_merkle_tree.root.borrow().clone().hash;
+    // let composition_poly_root = composition_poly_lde_merkle_tree.root.borrow().clone().hash;
+
+    let fri_layers_merkle_roots: Vec<U384FieldElement> = lde_fri_commitment
+        .iter()
+        .map(|fri_commitment| fri_commitment.merkle_tree.root.borrow().hash.clone())
+        .collect();
 
     StarkQueryProof {
         trace_lde_poly_root: trace_root,
         trace_lde_poly_evaluations,
         trace_lde_poly_inclusion_proofs: merkle_paths,
-
-        composition_poly_root,
+        composition_poly_lde_evaluations: composition_poly_lde_evaluations,
+        fri_layers_merkle_proofs: fri_layers_merkle_proofs,
+        fri_layers_merkle_roots: fri_layers_merkle_roots,
+        last_fri_layer_evaluation: last_fri_layer_evaluation,
+        // composition_poly_root,
     }
 }
 
-/*
-- Trace merkle tree root
-- Composition poly merkle tree root
-- Fri Layers merkle tree roots
-- Trace Polys merkle paths
-- Composition poly merkle paths
-- Fri layer polys evaluations (in the q_i's and -q_i's)
-*/
-
-/*
-    - Check merkle paths for trace poly lde evaluations
-*/
 pub fn verify(proof: StarkQueryProof) -> bool {
     let trace_poly_root = proof.trace_lde_poly_root;
 
@@ -156,20 +186,25 @@ pub fn verify(proof: StarkQueryProof) -> bool {
     let q_1: u64 = 2;
     let (_roots_of_unity, primitive_root) = crate::generate_vec_roots(1024, 1);
     // TODO: This is hardcoded, it should not be.
-    let evaluation_points = vec![
-        U384FieldElement::from(q_1),
-        U384FieldElement::from(q_1) * primitive_root.clone(),
-        U384FieldElement::from(q_1) * primitive_root.pow(2_usize),
-    ];
 
-    for (merkle_proof, evaluation_point) in proof
-        .trace_lde_poly_inclusion_proofs
-        .iter()
-        .zip(evaluation_points)
-    {
-        if merkle_proof.value != evaluation_point || !merkle_proof.verify(trace_poly_root.clone()) {
+    let evaluations = proof.trace_lde_poly_evaluations;
+
+    // TODO: These could be multiple evaluations depending on how many q_i are sample with Fiat Shamir
+    let composition_poly_lde_evaluation = proof.composition_poly_lde_evaluations[0].clone();
+
+    if composition_poly_lde_evaluation != &evaluations[2] - &evaluations[1] - &evaluations[0] {
+        return false;
+    }
+
+    // TODO: Check evaluation is the correct one.
+    for merkle_proof in proof.trace_lde_poly_inclusion_proofs {
+        if !merkle_proof.verify(trace_poly_root.clone()) {
             return false;
         }
+
+        // if !(composition_poly.evaluate(evaluation_point) == merkle_proof.value) {
+        //     return false;
+        // }
     }
 
     return true;
