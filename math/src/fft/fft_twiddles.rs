@@ -99,8 +99,8 @@ mod tests {
         let omega = F::get_root_of_unity(log2(K)?)?;
         let mut twiddles = vec![FieldElement::zero(); K];
 
-        for i in 0..K - 1 {
-            twiddles[i] = omega.pow(i as u64);
+        for (i, twiddle) in twiddles.iter_mut().enumerate() {
+            *twiddle = omega.pow(i as u64);
         }
 
         Ok(twiddles)
