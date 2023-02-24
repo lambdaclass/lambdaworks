@@ -134,60 +134,15 @@ mod tests {
     use std::path::PathBuf;
 
     use giza_air::{FieldExtension, HashFunction};
-    use lambdaworks_math::unsigned_integer::element::U128;
-    use math::fields::f128::BaseElement;
     use winter_air::ProofOptions;
 
     use super::*;
 
     #[test]
     fn test_cairo_air() {
-        use giza_air::{ProcessorAir, ProofOptions, PublicInputs};
+        use giza_air::{ProcessorAir, ProofOptions};
         use runner::ExecutionTrace;
 
-        //  %builtins output
-        //  from starkware.cairo.common.serialize import serialize_word
-        //  func main{output_ptr : felt*}():
-        //      tempvar x = 10
-        //      tempvar y = x + x
-        //      tempvar z = y * y + x
-        //      serialize_word(x)
-        //      serialize_word(y)
-        //      serialize_word(z)
-        //      return ()
-        //  end
-        //  */
-        // let instrs: Vec<Felt> = vec![
-        //     Felt::from(0x400380007ffc7ffdu64),
-        //     Felt::from(0x482680017ffc8000u64),
-        //     Felt::from(1u64),
-        //     Felt::from(0x208b7fff7fff7ffeu64),
-        //     Felt::from(0x480680017fff8000u64),
-        //     Felt::from(10u64),
-        //     Felt::from(0x48307fff7fff8000u64),
-        //     Felt::from(0x48507fff7fff8000u64),
-        //     Felt::from(0x48307ffd7fff8000u64),
-        //     Felt::from(0x480a7ffd7fff8000u64),
-        //     Felt::from(0x48127ffb7fff8000u64),
-        //     Felt::from(0x1104800180018000u64),
-        //     -Felt::from(11u64),
-        //     Felt::from(0x48127ff87fff8000u64),
-        //     Felt::from(0x1104800180018000u64),
-        //     -Felt::from(14u64),
-        //     Felt::from(0x48127ff67fff8000u64),
-        //     Felt::from(0x1104800180018000u64),
-        //     -Felt::from(17u64),
-        //     //Felt::from(0x208b7fff7fff7ffeu64),
-        //     Felt::from(0x10780017fff7fffu64), // infinite loop
-        // ];
-
-        // let mut mem = Memory::new(instrs);
-        // mem.write_pub(Felt::from(21u32), Felt::from(41u32)); // beginning of output
-        // mem.write_pub(Felt::from(22u32), Felt::from(44u32)); // end of output
-        // mem.write_pub(Felt::from(23u32), Felt::from(44u32)); // end of program
-
-        // // run the program to create an execution trace
-        // let mut program = Program::new(&mut mem, 5, 24);
         let trace = ExecutionTrace::from_file(
             PathBuf::from("src/air/test/program.json"),
             PathBuf::from("src/air/test/trace.bin"),
@@ -214,14 +169,14 @@ mod tests {
         assert_eq!(get_composition_poly(air, trace, pub_inputs), expected_poly);
     }
 
-    // #[test]
-    // fn test_get_coefficients() {
-    //     let coeffs = (0u128..16).map(Felt::new).collect::<Vec<_>>();
-    //     let poly = CompositionPoly::new(coeffs.clone(), 2);
-    //     let coeffs_res = get_coefficients(poly);
+    #[test]
+    fn test_get_coefficients() {
+        let coeffs = (0u128..16).map(Felt::from).collect::<Vec<_>>();
+        let poly = CompositionPoly::new(coeffs.clone(), 2);
+        let coeffs_res = get_coefficients(poly);
 
-    //     assert_eq!(coeffs, coeffs_res);
-    // }
+        assert_eq!(coeffs, coeffs_res);
+    }
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // This test is made for the following computation, taken from the winterfell README example:
@@ -293,8 +248,6 @@ mod tests {
 
 #[cfg(test)]
 pub(crate) mod simple_computation_test_utils {
-    use giza_air::EvaluationFrame;
-    use math::fields::f128::BaseElement;
     use math::FieldElement;
     use winter_air::{
         AirContext, Assertion, DefaultEvaluationFrame, ProofOptions, TraceInfo,
