@@ -90,19 +90,6 @@ impl<F: IsField, H: IsCryptoHash<F> + Clone> MerkleTree<F, H> {
 
         None
     }
-
-    pub fn verify(proof: &Proof<F, H>, root_hash: FieldElement<F>) -> bool {
-        let mut hashed_value = proof.hasher.hash_one(proof.value.clone());
-
-        for node in proof.merkle_path.iter() {
-            if let Some(sibiling) = &node.borrow().sibiling {
-                hashed_value = proof
-                    .hasher
-                    .hash_two(hashed_value, sibiling.borrow().hash.clone());
-            }
-        }
-        hashed_value == root_hash
-    }
 }
 
 fn hash_leafs<F: IsField, H: IsCryptoHash<F>>(
@@ -159,10 +146,26 @@ fn build_merkle_path<F: IsField>(
     merkle_path.to_vec()
 }
 
+#[derive(Debug)]
 pub struct Proof<F: IsField, H: IsCryptoHash<F>> {
-    value: FieldElement<F>,
+    pub value: FieldElement<F>,
     merkle_path: Vec<TreeNode<F>>,
     hasher: H,
+}
+
+impl<F: IsField, H: IsCryptoHash<F>> Proof<F, H> {
+    pub fn verify(&self, root_hash: FieldElement<F>) -> bool {
+        let mut hashed_value = self.hasher.hash_one(self.value.clone());
+
+        for node in self.merkle_path.iter() {
+            if let Some(sibiling) = &node.borrow().sibiling {
+                hashed_value = self
+                    .hasher
+                    .hash_two(hashed_value, sibiling.borrow().hash.clone());
+            }
+        }
+        hashed_value == root_hash
+    }
 }
 
 pub type TreeNode<F> = Rc<RefCell<Node<F>>>;
