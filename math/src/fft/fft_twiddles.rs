@@ -39,7 +39,6 @@ where
     // (every two-adic field should be implemented in its own Metal shader).
     // a buffer was chosen instead of a function constant because the latter don't support
     // 64 bit integers.
-    //let modulus = [modulus];
     let modulus_buffer = metal_device.new_buffer_with_data(
         void_ptr(&modulus),
         basetype_size,
@@ -100,7 +99,7 @@ mod tests {
         let omega = F::get_root_of_unity(log2(K)?)?;
         let mut twiddles = vec![FieldElement::zero(); K];
 
-        for i in 0..K {
+        for i in 0..K - 1 {
             twiddles[i] = omega.pow(i as u64);
         }
 
