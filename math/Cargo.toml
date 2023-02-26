@@ -11,3 +11,13 @@ thiserror = "1.0.38"
 
 [dev-dependencies]
 proptest = "1.1.0"
+criterion = "0.4"
+const-random = "0.1.15"
+
+[[bench]]
+name = "all_benchmarks"
+harness = false
+
+[[bench]]
+name = "field_benchmarks"
+harness = false

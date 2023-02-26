@@ -1,5 +1,10 @@
 name: Lambdaworks build checks
-on: push
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ '*' ]
+
 concurrency: 
   group: ${{ github.head_ref || github.run_id }}
   cancel-in-progress: true

@@ -1,8 +1,13 @@
-pub trait IsGroup: Clone {
+pub trait IsGroup: Clone + PartialEq + Eq {
     /// Returns the neutral element of the group. The equality
     /// `neutral_element().operate_with(g) == g` must hold
     /// for every group element `g`.
     fn neutral_element() -> Self;
+
+    /// Check if an element the neutral element.
+    fn is_neutral_element(&self) -> bool {
+        self == &Self::neutral_element()
+    }
 
     /// Applies the group operation `times` times with itself
     /// The operation can be addition or multiplication depending on

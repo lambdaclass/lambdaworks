@@ -15,7 +15,7 @@ pub type U256 = UnsignedInteger<4>;
 /// The most significant bit is in the left-most position.
 /// That is, the array `[a_n, ..., a_0]` represents the
 /// integer 2^{64 * n} * a_n + ... + 2^{64} * a_1 + a_0.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct UnsignedInteger<const NUM_LIMBS: usize> {
     pub limbs: [u64; NUM_LIMBS],
 }
@@ -56,7 +56,7 @@ impl<const NUM_LIMBS: usize> Add<&UnsignedInteger<NUM_LIMBS>> for &UnsignedInteg
 
     fn add(self, other: &UnsignedInteger<NUM_LIMBS>) -> UnsignedInteger<NUM_LIMBS> {
         let (result, overflow) = UnsignedInteger::add(self, other);
-        assert!(!overflow, "UnsignedInteger addition overflow.");
+        debug_assert!(!overflow, "UnsignedInteger addition overflow.");
         result
     }
 }
@@ -138,8 +138,7 @@ impl<const NUM_LIMBS: usize> Mul<&UnsignedInteger<NUM_LIMBS>> for &UnsignedInteg
                 t = NUM_LIMBS - 1 - i;
             }
         }
-
-        assert!(
+        debug_assert!(
             n + t < NUM_LIMBS,
             "UnsignedInteger multiplication overflow."
         );
@@ -200,7 +199,7 @@ impl<const NUM_LIMBS: usize> Shl<usize> for &UnsignedInteger<NUM_LIMBS> {
     type Output = UnsignedInteger<NUM_LIMBS>;
 
     fn shl(self, times: usize) -> UnsignedInteger<NUM_LIMBS> {
-        assert!(
+        debug_assert!(
             times < 64 * NUM_LIMBS,
             "UnsignedInteger shift left overflows."
         );
@@ -235,7 +234,7 @@ impl<const NUM_LIMBS: usize> Shr<usize> for &UnsignedInteger<NUM_LIMBS> {
     type Output = UnsignedInteger<NUM_LIMBS>;
 
     fn shr(self, times: usize) -> UnsignedInteger<NUM_LIMBS> {
-        assert!(
+        debug_assert!(
             times < 64 * NUM_LIMBS,
             "UnsignedInteger shift right overflows."
         );
@@ -475,9 +474,8 @@ impl<const NUM_LIMBS: usize> ByteConversion for UnsignedInteger<NUM_LIMBS> {
 
 #[cfg(test)]
 mod tests_u384 {
-    use super::*;
-    const NUM_LIMBS: usize = 6;
-    type U384 = UnsignedInteger<NUM_LIMBS>;
+    use crate::traits::ByteConversion;
+    use crate::unsigned_integer::element::U384;
 
     #[test]
     fn construct_new_integer_from_u64_1() {
@@ -1152,11 +1150,11 @@ mod tests_u384 {
         assert_eq!(U384::from_bytes_le(&bytes).unwrap(), expected_number);
     }
 }
+
 #[cfg(test)]
 mod tests_u256 {
-    use super::UnsignedInteger;
-    const NUM_LIMBS: usize = 4;
-    type U256 = UnsignedInteger<NUM_LIMBS>;
+    use crate::traits::ByteConversion;
+    use crate::unsigned_integer::element::U256;
 
     #[test]
     fn construct_new_integer_from_u64_1() {
@@ -1597,27 +1595,11 @@ mod tests_u256 {
 
     #[test]
     fn mul_two_256_bit_integers_works_4() {
-        /*
-        // Failig
-        let a = U256::from("15bf61fcf53a3f0ae1e8e555d");
-        let b = U256::from("cbbc474761bb7995ff54e25fa5d5d0cde405e9f");
-        let c_expected = U256::from(
-            "114ec14db0c80d30b7dcb9c45948ef04cc149e612cb544f447b146553aff2ac3",
-        );
-
-        assert_eq!(a * b, c_expected);
-        */
-
-        // Passing
         let a = U256::from("15bf61fcf53a3f0ae1e8e555d");
         let b = U256::from("cbbc474761bb7995ff54e25fa5d5d0cde405e9f");
         let c_expected =
             U256::from("114ec14db0c80d30b7dcb9c45948ef04cc149e612cb544f447b146553aff2ac3");
-
-        let (overflow, c) = U256::mul(&a, &b);
-
-        assert_eq!(c, c_expected);
-        assert_eq!(overflow, U256::from("0"));
+        assert_eq!(a * b, c_expected);
     }
 
     #[test]
@@ -1736,5 +1718,47 @@ mod tests_u256 {
         let a = U256::from("5322c128ec84081b6c376c108ebd7fd36bbd44f71ee5e6ad6bcb3dd1c5265bd7");
         let b = U256::from("5322c128ec84081b6c376c108ebd7fd3");
         assert_eq!(&a >> (64 * 2), b);
+    }
+
+    #[test]
+    fn to_be_bytes_works() {
+        let number = U256::from_u64(1);
+        let expected_bytes = vec![
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 1,
+        ];
+
+        assert_eq!(number.to_bytes_be(), expected_bytes);
+    }
+
+    #[test]
+    fn to_le_bytes_works() {
+        let number = U256::from_u64(1);
+        let expected_bytes = vec![
+            1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0,
+        ];
+
+        assert_eq!(number.to_bytes_le(), expected_bytes);
+    }
+
+    #[test]
+    fn from_bytes_be_works() {
+        let bytes = vec![
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 1,
+        ];
+        let expected_number = U256::from_u64(1);
+        assert_eq!(U256::from_bytes_be(&bytes).unwrap(), expected_number);
+    }
+
+    #[test]
+    fn from_bytes_le_works() {
+        let bytes = vec![
+            1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0,
+        ];
+        let expected_number = U256::from_u64(1);
+        assert_eq!(U256::from_bytes_le(&bytes).unwrap(), expected_number);
     }
 }
