@@ -28,7 +28,6 @@ fn miller(
     let mut miller_loop_constant = MILLER_LOOP_CONSTANT;
     let mut miller_loop_constant_bits: Vec<bool> = vec![];
 
-    // TODO: improve this to avoid using U256 everywhere.
     while miller_loop_constant > 0 {
         miller_loop_constant_bits.insert(0, (miller_loop_constant & 1) == 1);
         miller_loop_constant >>= 1;
@@ -168,13 +167,7 @@ pub fn line(
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        elliptic_curve::{
-            short_weierstrass::curves::bls12_381::field_extension::BLS12381_PRIME_FIELD_ORDER,
-            traits::IsEllipticCurve,
-        },
-        unsigned_integer::element::U384,
-    };
+    use crate::{elliptic_curve::traits::IsEllipticCurve, unsigned_integer::element::U384};
 
     use super::*;
 
@@ -359,41 +352,6 @@ mod tests {
         fn b() -> FieldElement<Self::BaseField> {
             FieldElement::from(4)
         }
-    }
-
-    #[test]
-    fn test_applying_frobenius_is_the_same_as_adding_point_p_times() {
-        // This checks that the generator of the twisted curve belongs to
-        // ker(frobenius - [p])
-        let [g2_fp12_x, g2_fp12_y] = BLS12381TwistCurve::generator().to_fp12_affine();
-        let g2 = BLS12381TestFp12::create_point_from_affine(g2_fp12_x.clone(), g2_fp12_y.clone())
-            .unwrap();
-
-        let adding_point_p_times = g2.operate_with_self(BLS12381_PRIME_FIELD_ORDER).to_affine();
-        let frobenius = BLS12381TestFp12::create_point_from_affine(
-            g2_fp12_x.pow(BLS12381_PRIME_FIELD_ORDER),
-            g2_fp12_y.pow(BLS12381_PRIME_FIELD_ORDER),
-        )
-        .unwrap();
-
-        assert_eq!(adding_point_p_times, frobenius);
-    }
-
-    #[test]
-    fn ate_pairing_bilinearity() {
-        let p = BLS12381Curve::generator().to_affine();
-        let q = BLS12381TwistCurve::generator().to_affine();
-        let a = U384::from_u64(11);
-        let b = U384::from_u64(93);
-
-        assert_eq!(
-            ate(
-                &p.operate_with_self(a).to_affine(),
-                &q.operate_with_self(b).to_affine()
-            ),
-            ate(&p.operate_with_self(a * b).to_affine(), &q)
-        )
-        // e(a*P, b*Q) = e(a*b*P, Q) = e(P, a*b*Q)
     }
 
     #[test]

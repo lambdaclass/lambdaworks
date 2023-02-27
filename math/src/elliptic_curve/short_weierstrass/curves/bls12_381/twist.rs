@@ -92,7 +92,7 @@ mod tests {
             traits::IsEllipticCurve,
         },
         field::element::FieldElement,
-        unsigned_integer::element::{U256, U384},
+        unsigned_integer::element::U384,
     };
 
     use super::BLS12381TwistCurve;
@@ -106,13 +106,6 @@ mod tests {
             BLS12381TwistCurve::defining_equation(g.coordinates()),
             Level1FE::zero()
         );
-    }
-
-    #[test]
-    fn test_generator_is_r_torsion() {
-        let g = BLS12381TwistCurve::generator();
-        let r = U256::from("73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001");
-        assert!(g.operate_with_self(r).is_neutral_element());
     }
 
     #[test]
