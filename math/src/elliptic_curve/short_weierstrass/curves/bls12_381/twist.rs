@@ -6,7 +6,7 @@ use crate::{
     elliptic_curve::short_weierstrass::traits::IsShortWeierstrass, field::element::FieldElement,
 };
 
-use super::field_extension::{LevelOneField, Order12ExtensionField};
+use super::field_extension::{Degree12ExtensionField, Degree2ExtensionField};
 
 const GENERATOR_X_0: U384 = U384::from("024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02b4510b647ae3d1770bac0326a805bbefd48056c8c121bdb8");
 const GENERATOR_X_1: U384 = U384::from("13e02b6052719f607dacd3a088274f65596bd0d09920b61ab5da61bbdc7f5049334cf11213945d57e5ac7d055d042b7e");
@@ -18,7 +18,7 @@ const GENERATOR_Y_1: U384 = U384::from("0606c4a02ea734cc32acd2b02bc28b99cb3e287e
 pub struct BLS12381TwistCurve;
 
 impl IsEllipticCurve for BLS12381TwistCurve {
-    type BaseField = LevelOneField;
+    type BaseField = Degree2ExtensionField;
     type PointRepresentation = ShortWeierstrassProjectivePoint<Self>;
 
     fn generator() -> Self::PointRepresentation {
@@ -49,7 +49,7 @@ impl IsShortWeierstrass for BLS12381TwistCurve {
 impl ShortWeierstrassProjectivePoint<BLS12381TwistCurve> {
     /// Map ψ: E_twist(𝔽p²) -> E(𝔽p¹²).
     /// Returns affine coordinates (x, y)
-    pub fn to_fp12_affine(&self) -> [FieldElement<Order12ExtensionField>; 2] {
+    pub fn to_fp12_affine(&self) -> [FieldElement<Degree12ExtensionField>; 2] {
         if self.is_neutral_element() {
             [FieldElement::zero(), FieldElement::one()]
         } else {
@@ -86,7 +86,7 @@ mod tests {
         cyclic_group::IsGroup,
         elliptic_curve::{
             short_weierstrass::{
-                curves::bls12_381::field_extension::{BLS12381PrimeField, LevelOneField},
+                curves::bls12_381::field_extension::{BLS12381PrimeField, Degree2ExtensionField},
                 traits::IsShortWeierstrass,
             },
             traits::IsEllipticCurve,
@@ -97,7 +97,7 @@ mod tests {
 
     use super::BLS12381TwistCurve;
     type Level0FE = FieldElement<BLS12381PrimeField>;
-    type Level1FE = FieldElement<LevelOneField>;
+    type Level1FE = FieldElement<Degree2ExtensionField>;
 
     #[test]
     fn create_generator() {

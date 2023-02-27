@@ -31,14 +31,14 @@ impl HasQuadraticNonResidue for LevelOneResidue {
     }
 }
 
-pub type LevelOneField = QuadraticExtensionField<LevelOneResidue>;
+pub type Degree2ExtensionField = QuadraticExtensionField<LevelOneResidue>;
 
 #[derive(Debug, Clone)]
 pub struct LevelTwoResidue;
 impl HasCubicNonResidue for LevelTwoResidue {
-    type BaseField = LevelOneField;
+    type BaseField = Degree2ExtensionField;
 
-    fn residue() -> FieldElement<LevelOneField> {
+    fn residue() -> FieldElement<Degree2ExtensionField> {
         FieldElement::new([
             FieldElement::new(U384::from("d0088f51cbff34d258dd3db21a5d66bb23ba5c279c2895fb39869507b587b120f55ffff58a9ffffdcff7fffffffd556")),
             FieldElement::new(U384::from("d0088f51cbff34d258dd3db21a5d66bb23ba5c279c2895fb39869507b587b120f55ffff58a9ffffdcff7fffffffd555"))
@@ -46,14 +46,14 @@ impl HasCubicNonResidue for LevelTwoResidue {
     }
 }
 
-type LevelTwoField = CubicExtensionField<LevelTwoResidue>;
+pub type Degree6ExtensionField = CubicExtensionField<LevelTwoResidue>;
 
 #[derive(Debug, Clone)]
 pub struct LevelThreeResidue;
 impl HasQuadraticNonResidue for LevelThreeResidue {
-    type BaseField = LevelTwoField;
+    type BaseField = Degree6ExtensionField;
 
-    fn residue() -> FieldElement<LevelTwoField> {
+    fn residue() -> FieldElement<Degree6ExtensionField> {
         FieldElement::new([
             FieldElement::zero(),
             FieldElement::one(),
@@ -62,7 +62,7 @@ impl HasQuadraticNonResidue for LevelThreeResidue {
     }
 }
 
-pub type Order12ExtensionField = QuadraticExtensionField<LevelThreeResidue>;
+pub type Degree12ExtensionField = QuadraticExtensionField<LevelThreeResidue>;
 
 impl FieldElement<BLS12381PrimeField> {
     pub fn new_base(a_hex: &str) -> Self {
@@ -70,20 +70,32 @@ impl FieldElement<BLS12381PrimeField> {
     }
 }
 
-impl FieldElement<Order12ExtensionField> {
+impl FieldElement<Degree2ExtensionField> {
+    pub fn new_base(a_hex: &str) -> Self {
+        Self::new([FieldElement::new(U384::from(a_hex)), FieldElement::zero()])
+    }
+}
+
+impl FieldElement<Degree6ExtensionField> {
     pub fn new_base(a_hex: &str) -> Self {
         Self::new([
-            FieldElement::new([
-                FieldElement::new([FieldElement::new(U384::from(a_hex)), FieldElement::zero()]),
-                FieldElement::zero(),
-                FieldElement::zero(),
-            ]),
+            FieldElement::new([FieldElement::new(U384::from(a_hex)), FieldElement::zero()]),
+            FieldElement::zero(),
+            FieldElement::zero(),
+        ])
+    }
+}
+
+impl FieldElement<Degree12ExtensionField> {
+    pub fn new_base(a_hex: &str) -> Self {
+        Self::new([
+            FieldElement::<Degree6ExtensionField>::new_base(a_hex),
             FieldElement::zero(),
         ])
     }
 
     pub fn from_coefficients(coefficients: &[&str; 12]) -> Self {
-        FieldElement::<Order12ExtensionField>::new([
+        FieldElement::<Degree12ExtensionField>::new([
             FieldElement::new([
                 FieldElement::new([
                     FieldElement::new(U384::from(coefficients[0])),

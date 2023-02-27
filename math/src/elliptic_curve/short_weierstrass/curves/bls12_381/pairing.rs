@@ -1,23 +1,30 @@
 use super::{
-    curve::BLS12381Curve, field_extension::Order12ExtensionField, twist::BLS12381TwistCurve,
+    curve::BLS12381Curve,
+    field_extension::{Degree12ExtensionField, Degree2ExtensionField},
+    twist::BLS12381TwistCurve,
 };
 use crate::{
     cyclic_group::IsGroup,
-    elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint,
-    elliptic_curve::short_weierstrass::traits::IsShortWeierstrass, field::element::FieldElement,
+    elliptic_curve::short_weierstrass::traits::IsShortWeierstrass,
+    elliptic_curve::short_weierstrass::{
+        curves::bls12_381::field_extension::Degree6ExtensionField,
+        point::ShortWeierstrassProjectivePoint,
+    },
+    field::element::FieldElement,
     unsigned_integer::element::UnsignedInteger,
 };
 
 const MILLER_LOOP_CONSTANT: u64 = 0xd201000000010000; // This is equal to the frobenius trace minus one.
-const NORMALIZATION_POWER: UnsignedInteger<68> = UnsignedInteger::from("2ee1db5dcc825b7e1bda9c0496a1c0a89ee0193d4977b3f7d4507d07363baa13f8d14a917848517badc3a43d1073776ab353f2c30698e8cc7deada9c0aadff5e9cfee9a074e43b9a660835cc872ee83ff3a0f0f1c0ad0d6106feaf4e347aa68ad49466fa927e7bb9375331807a0dce2630d9aa4b113f414386b0e8819328148978e2b0dd39099b86e1ab656d2670d93e4d7acdd350da5359bc73ab61a0c5bf24c374693c49f570bcd2b01f3077ffb10bf24dde41064837f27611212596bc293c8d4c01f25118790f4684d0b9c40a68eb74bb22a40ee7169cdc1041296532fef459f12438dfc8e2886ef965e61a474c5c85b0129127a1b5ad0463434724538411d1676a53b5a62eb34c05739334f46c02c3f0bd0c55d3109cd15948d0a1fad20044ce6ad4c6bec3ec03ef19592004cedd556952c6d8823b19dadd7c2498345c6e5308f1c511291097db60b1749bf9b71a9f9e0100418a3ef0bc627751bbd81367066bca6a4c1b6dcfc5cceb73fc56947a403577dfa9e13c24ea820b09c1d9f7c31759c3635de3f7a3639991708e88adce88177456c49637fd7961be1a4c7e79fb02faa732e2f3ec2bea83d196283313492caa9d4aff1c910e9622d2a73f62537f2701aaef6539314043f7bbce5b78c7869aeb2181a67e49eeed2161daf3f881bd88592d767f67c4717489119226c2f011d4cab803e9d71650a6f80698e2f8491d12191a04406fbc8fbd5f48925f98630e68bfb24c0bcb9b55df57510");
 
+// https://eprint.iacr.org/2020/875.pdf Paper final exponentiation
+// Algorithm 9.2 page 212 Topics in computational number theory
 #[allow(unused)]
 fn miller(
     q: &ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
     p: &ShortWeierstrassProjectivePoint<BLS12381Curve>,
-) -> FieldElement<Order12ExtensionField> {
+) -> FieldElement<Degree12ExtensionField> {
     let mut r = q.clone();
-    let mut f = FieldElement::<Order12ExtensionField>::one();
+    let mut f = FieldElement::<Degree12ExtensionField>::one();
     let mut miller_loop_constant = MILLER_LOOP_CONSTANT;
     let mut miller_loop_constant_bits: Vec<bool> = vec![];
 
@@ -41,20 +48,55 @@ fn miller(
     f.inv()
 }
 
+fn frobenius_square(
+    f: &FieldElement<Degree12ExtensionField>,
+) -> FieldElement<Degree12ExtensionField> {
+    let [a, b] = f.value();
+    let w_raised_to_p_squared_minus_one = FieldElement::<Degree6ExtensionField>::new_base("1a0111ea397fe699ec02408663d4de85aa0d857d89759ad4897d29650fb85f9b409427eb4f49fffd8bfd00000000aaad");
+    let omega_3 = FieldElement::<Degree2ExtensionField>::new_base("1a0111ea397fe699ec02408663d4de85aa0d857d89759ad4897d29650fb85f9b409427eb4f49fffd8bfd00000000aaac");
+    let omega_3_squared = FieldElement::<Degree2ExtensionField>::new_base(
+        "5f19672fdf76ce51ba69c6076a0f77eaddb3a93be6f89688de17d813620a00022e01fffffffefffe",
+    );
+
+    let [a0, a1, a2] = a.value();
+    let [b0, b1, b2] = b.value();
+
+    let f0 = FieldElement::new([a0.clone(), a1 * &omega_3, a2 * &omega_3_squared]);
+    let f1 = FieldElement::new([b0.clone(), b1 * omega_3, b2 * omega_3_squared]);
+
+    FieldElement::new([f0, f1 * w_raised_to_p_squared_minus_one])
+}
+
 #[allow(unused)]
 fn final_exponentiation(
-    base: &FieldElement<Order12ExtensionField>,
-) -> FieldElement<Order12ExtensionField> {
-    base.pow(NORMALIZATION_POWER)
+    base: &FieldElement<Degree12ExtensionField>,
+) -> FieldElement<Degree12ExtensionField> {
+    const PHI_DIVIDED_BY_R: UnsignedInteger<20> = UnsignedInteger::from("f686b3d807d01c0bd38c3195c899ed3cde88eeb996ca394506632528d6a9a2f230063cf081517f68f7764c28b6f8ae5a72bce8d63cb9f827eca0ba621315b2076995003fc77a17988f8761bdc51dc2378b9039096d1b767f17fcbde783765915c97f36c6f18212ed0b283ed237db421d160aeb6a1e79983774940996754c8c71a2629b0dea236905ce937335d5b68fa9912aae208ccf1e516c3f438e3ba79");
+
+    let f1 = base.conjugate() * base.inv();
+    let f2 = frobenius_square(&f1) * f1;
+    f2.pow(PHI_DIVIDED_BY_R)
 }
 
 #[allow(unused)]
 fn ate(
     p: &ShortWeierstrassProjectivePoint<BLS12381Curve>,
     q: &ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
-) -> FieldElement<Order12ExtensionField> {
-    let base = miller(q, p);
-    final_exponentiation(&base)
+) -> FieldElement<Degree12ExtensionField> {
+    batch_ate(&[(p, q)])
+}
+
+fn batch_ate(
+    pairs: &[(
+        &ShortWeierstrassProjectivePoint<BLS12381Curve>,
+        &ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
+    )],
+) -> FieldElement<Degree12ExtensionField> {
+    let mut result = FieldElement::one();
+    for (p, q) in pairs {
+        result = result * miller(q, p);
+    }
+    final_exponentiation(&result)
 }
 
 /// Evaluates the Self::line between points `p` and `r` at point `q`
@@ -62,7 +104,7 @@ pub fn line(
     p: &ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
     r: &ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
     q: &ShortWeierstrassProjectivePoint<BLS12381Curve>,
-) -> FieldElement<Order12ExtensionField> {
+) -> FieldElement<Degree12ExtensionField> {
     // TODO: Improve error handling.
     debug_assert!(
         !q.is_neutral_element(),
@@ -71,7 +113,7 @@ pub fn line(
     let [px, py] = p.to_fp12_affine();
     let [rx, ry] = r.to_fp12_affine();
     let [qx_fp, qy_fp, _] = q.coordinates().clone();
-    let qx = FieldElement::<Order12ExtensionField>::new([
+    let qx = FieldElement::<Degree12ExtensionField>::new([
         FieldElement::new([
             FieldElement::new([qx_fp, FieldElement::zero()]),
             FieldElement::zero(),
@@ -79,7 +121,7 @@ pub fn line(
         ]),
         FieldElement::zero(),
     ]);
-    let qy = FieldElement::<Order12ExtensionField>::new([
+    let qy = FieldElement::<Degree12ExtensionField>::new([
         FieldElement::new([
             FieldElement::new([qy_fp, FieldElement::zero()]),
             FieldElement::zero(),
@@ -87,7 +129,7 @@ pub fn line(
         ]),
         FieldElement::zero(),
     ]);
-    let a_of_curve = FieldElement::<Order12ExtensionField>::new([
+    let a_of_curve = FieldElement::<Degree12ExtensionField>::new([
         FieldElement::new([
             FieldElement::new([BLS12381Curve::a(), FieldElement::zero()]),
             FieldElement::zero(),
@@ -136,11 +178,11 @@ mod tests {
 
     use super::*;
 
-    type Fp12E = FieldElement<Order12ExtensionField>;
+    type Fp12E = FieldElement<Degree12ExtensionField>;
 
     #[test]
     fn final_exp() {
-        let one = FieldElement::<Order12ExtensionField>::one();
+        let one = FieldElement::<Degree12ExtensionField>::one();
         assert_eq!(final_exponentiation(&one), one);
     }
 
@@ -297,7 +339,7 @@ mod tests {
     #[derive(Clone, Debug)]
     struct BLS12381TestFp12;
     impl IsEllipticCurve for BLS12381TestFp12 {
-        type BaseField = Order12ExtensionField;
+        type BaseField = Degree12ExtensionField;
         type PointRepresentation = ShortWeierstrassProjectivePoint<Self>;
 
         fn generator() -> Self::PointRepresentation {
@@ -352,5 +394,22 @@ mod tests {
             ate(&p.operate_with_self(a * b).to_affine(), &q)
         )
         // e(a*P, b*Q) = e(a*b*P, Q) = e(P, a*b*Q)
+    }
+
+    #[test]
+    fn batch_ate_pairing_bilinearity() {
+        let p = BLS12381Curve::generator().to_affine();
+        let q = BLS12381TwistCurve::generator().to_affine();
+        let a = U384::from_u64(11);
+        let b = U384::from_u64(93);
+
+        let result = batch_ate(&[
+            (
+                &p.operate_with_self(a).to_affine(),
+                &q.operate_with_self(b).to_affine(),
+            ),
+            (&p.operate_with_self(a * b).to_affine(), &q.neg()),
+        ]);
+        assert_eq!(result, FieldElement::one());
     }
 }

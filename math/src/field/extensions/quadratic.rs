@@ -21,6 +21,16 @@ pub trait HasQuadraticNonResidue {
     fn residue() -> FieldElement<Self::BaseField>;
 }
 
+impl<Q> FieldElement<QuadraticExtensionField<Q>>
+where
+    Q: Clone + Debug + HasQuadraticNonResidue,
+{
+    pub fn conjugate(&self) -> Self {
+        let [a, b] = self.value();
+        Self::new([a.clone(), -b])
+    }
+}
+
 impl<Q> IsField for QuadraticExtensionField<Q>
 where
     Q: Clone + Debug + HasQuadraticNonResidue,
@@ -222,5 +232,12 @@ mod tests {
         let a = FEE::new([FE::new(12), FE::new(5)]);
         let expected_result = FEE::new([FE::new(28), FE::new(8)]);
         assert_eq!(a.inv(), expected_result);
+    }
+
+    #[test]
+    fn test_conjugate() {
+        let a = FEE::new([FE::new(12), FE::new(5)]);
+        let expected_result = FEE::new([FE::new(12), -FE::new(5)]);
+        assert_eq!(a.conjugate(), expected_result);
     }
 }
