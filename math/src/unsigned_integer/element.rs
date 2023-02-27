@@ -411,16 +411,20 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         a: &UnsignedInteger<NUM_LIMBS>,
         b: &UnsignedInteger<NUM_LIMBS>,
     ) -> (UnsignedInteger<NUM_LIMBS>, UnsignedInteger<NUM_LIMBS>) {
+        // 1.
         let mut hi = [0u64; NUM_LIMBS];
         let mut lo = [0u64; NUM_LIMBS];
         // Const functions don't support for loops so we use whiles
         // this is equivalent to:
         // for i in (0..NUM_LIMBS).rev()
+        // 2.
         let mut i = NUM_LIMBS;
         while i > 0 {
             i -= 1;
+            // 2.1
             let mut carry = 0u128;
             let mut j = NUM_LIMBS;
+            // 2.2
             while j > 0 {
                 j -= 1;
                 let mut k = i + j;
@@ -428,16 +432,20 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
                     k -= (NUM_LIMBS - 1);
                     let uv = (lo[k] as u128) + (a.limbs[j] as u128) * (b.limbs[i] as u128) + carry;
                     carry = uv >> 64;
+                    // Casting u128 to u64 takes modulo 2^{64}
                     lo[k] = uv as u64;
                 } else {
                     let uv =
                         (hi[k + 1] as u128) + (a.limbs[j] as u128) * (b.limbs[i] as u128) + carry;
                     carry = uv >> 64;
+                    // Casting u128 to u64 takes modulo 2^{64}
                     hi[k + 1] = uv as u64;
                 }
             }
+            // 2.3
             hi[i] = carry as u64;
         }
+        // 3.
         (Self { limbs: hi }, Self { limbs: lo })
     }
 }
