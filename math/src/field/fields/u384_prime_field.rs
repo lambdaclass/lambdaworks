@@ -45,7 +45,7 @@ const fn compute_r2_parameter(modulus: &U384) -> U384 {
     }
     let mut c = U384::from_u64(1).const_shl(l);
 
-    // Double `c` and reduce modulo `mudulus` until getting
+    // Double `c` and reduce modulo `modulus` until getting
     // `2^{2 * number_limbs * word_size}` mod `modulus`
     let mut i: usize = 1;
     while i <= 2 * number_limbs * word_size - l {
