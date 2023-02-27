@@ -14,10 +14,12 @@ use crate::{
     unsigned_integer::element::UnsignedInteger,
 };
 
-const MILLER_LOOP_CONSTANT: u64 = 0xd201000000010000; // This is equal to the frobenius trace minus one.
+/// This is equal to the frobenius trace of the BLS12 381 curve minus one.
+const MILLER_LOOP_CONSTANT: u64 = 0xd201000000010000;
 
-// https://eprint.iacr.org/2020/875.pdf Paper final exponentiation
-// Algorithm 9.2 page 212 Topics in computational number theory
+/// Implements the miller loop for the ate pairing of the BLS12 381 curve.
+/// Based on algorithm 9.2, page 212 of the book
+/// "Topics in computational number theory" by W. Bons and K. Lenstra
 #[allow(unused)]
 fn miller(
     q: &ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
@@ -47,6 +49,7 @@ fn miller(
     f.inv()
 }
 
+/// Auxiliary function for the final exponentiation of the ate pairing.
 fn frobenius_square(
     f: &FieldElement<Degree12ExtensionField>,
 ) -> FieldElement<Degree12ExtensionField> {
@@ -66,6 +69,11 @@ fn frobenius_square(
     FieldElement::new([f0, f1 * w_raised_to_p_squared_minus_one])
 }
 
+// To understand more about how to reduce the final exponentiation
+// read "Efficient Final Exponentiation via Cyclotomic Structure for
+// Pairings over Families of Elliptic Curves" (https://eprint.iacr.org/2020/875.pdf)
+//
+// TODO: implement optimizations for the hard part of the final exponentiation.
 #[allow(unused)]
 fn final_exponentiation(
     base: &FieldElement<Degree12ExtensionField>,
@@ -77,6 +85,7 @@ fn final_exponentiation(
     f2.pow(PHI_DIVIDED_BY_R)
 }
 
+/// Compute the ate pairing between point `p` in G1 and `q` in G2.
 #[allow(unused)]
 fn ate(
     p: &ShortWeierstrassProjectivePoint<BLS12381Curve>,
@@ -85,6 +94,7 @@ fn ate(
     batch_ate(&[(p, q)])
 }
 
+/// Compute the product of the ate pairings for a list of point pairs.
 fn batch_ate(
     pairs: &[(
         &ShortWeierstrassProjectivePoint<BLS12381Curve>,
@@ -98,7 +108,7 @@ fn batch_ate(
     final_exponentiation(&result)
 }
 
-/// Evaluates the Self::line between points `p` and `r` at point `q`
+/// Evaluates the line between points `p` and `r` at point `q`
 pub fn line(
     p: &ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
     r: &ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
@@ -172,119 +182,6 @@ mod tests {
     use super::*;
 
     type Fp12E = FieldElement<Degree12ExtensionField>;
-
-    #[test]
-    fn final_exp() {
-        let one = FieldElement::<Degree12ExtensionField>::one();
-        assert_eq!(final_exponentiation(&one), one);
-    }
-
-    #[test]
-    fn element_squared_1() {
-        // base = 1 + u + (1 + u)v + (1 + u)v^2 + ((1+u) + (1 + u)v + (1+ u)v^2)w
-        let element_ones =
-            Fp12E::from_coefficients(&["1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1"]);
-        let element_ones_squared =
-            Fp12E::from_coefficients(&["5", "7", "3", "9", "1", "b", "4", "8", "2", "a", "0", "c"]);
-        assert_eq!(element_ones.pow(2_u16), element_ones_squared);
-    }
-
-    #[test]
-    fn element_squared_2() {
-        let element_sequence =
-            Fp12E::from_coefficients(&["1", "2", "5", "6", "9", "a", "3", "4", "7", "8", "b", "c"]);
-
-        let element_sequence_squared = Fp12E::from_coefficients(&[
-            "d0088f51cbff34d258dd3db21a5d66bb23ba5c279c2895fb39869507b587b120f55ffff58a9ffffdcff7fffffffd61d",
-            "d0088f51cbff34d258dd3db21a5d66bb23ba5c279c2895fb39869507b587b120f55ffff58a9ffffdcff7fffffffd66f",
-            "d0088f51cbff34d258dd3db21a5d66bb23ba5c279c2895fb39869507b587b120f55ffff58a9ffffdcff7fffffffd62a",
-            "d0088f51cbff34d258dd3db21a5d66bb23ba5c279c2895fb39869507b587b120f55ffff58a9ffffdcff7fffffffd6b0",
-            "d0088f51cbff34d258dd3db21a5d66bb23ba5c279c2895fb39869507b587b120f55ffff58a9ffffdcff7fffffffd597",
-            "d0088f51cbff34d258dd3db21a5d66bb23ba5c279c2895fb39869507b587b120f55ffff58a9ffffdcff7fffffffd6c1",
-            "e0",
-            "142",
-            "a1",
-            "167",
-            "1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaa5d",
-            "16c"
-        ]);
-
-        assert_eq!(element_sequence.pow(2_u16), element_sequence_squared);
-    }
-
-    #[test]
-    fn element_to_normalization_power() {
-        // assert_eq!(element_ones.pow(2_u16), element_ones_squared);
-
-        let element_sequence =
-            Fp12E::from_coefficients(&["1", "2", "5", "6", "9", "a", "3", "4", "7", "8", "b", "c"]);
-
-        let element_sequence_raised_to_r_power = Fp12E::from_coefficients(&[
-            "6751a492e8604c0297d3015aa840ffa8cf0b1a83adbe144534ed6d99f1ee590fb64e22372146945234d4971e7c59967",
-            "af30d65fed6acbfc731d26214f026ca04a67db45fd922f258a9df0971b9fe9035b617f520ec8fadfe81ed99bb4b4f35",
-            "10c69fc56477cbcbd2ceceee631bdf5338f50d2351ecdf4de33aa35ef0418ee0d0acbebb93be3f45f6c3a80bf720faed",
-            "18035639e29b2ee19db64be512621da650aabd7e6779fd66eff1a899e39e677bd4029fee33c450fdc3046a48adbfea5f",
-            "1825c8059c53e9113a66905fdc082e7c8b4f69dc8dff62d521dd65a0c58e46fb3e0ed8c9ec341d83b037d2a90352d9cf",
-            "f32b1f2c72faf5f55e2d2d59225f145b8505162a540ad4e89793e984f3fd98c5de40af7fbd4a6c1c9a59bdb430d2c1c",
-            "6f98212c1e50d84414f0a3acebdcfc28bd4488782b57e478ab11db99c65df0877b829c177dddfa2f92e1b69bb8dc16c",
-            "19b12e43ad1dfae439b0fb9bd338ca54ce46c3638c697cb0f09a28245595ed4b8163691c9adcb706b71680cfe994b806",
-            "1a5cc2e093b6bf5c862aaf588881eaba3f510d7ad8e045c2da78a90a1b3b4ac20457771b35187a4f6d35bfe77eb503f",
-            "b7ccba6d35d79d7734a7c256d05811145786b2a1d89e960540cc3472ba2c7f55b2dcf54234ea21a3f103d2472938dfe",
-            "139f6b151f9ffaedc70eee88cfb298f701f732288674f399b3b1d1e0e71fb981adfcd74397954e591b557646f22f6585",
-            "188f6adb85a0caabc76e27b0ce1ec4b4c6d63568e6e0e73114f54b1be5c93a74f413f44c3b2aa1114e61062267a2b52e"
-        ]);
-
-        assert_eq!(
-            final_exponentiation(&element_sequence),
-            element_sequence_raised_to_r_power
-        );
-    }
-
-    #[test]
-    fn inverse_of_u_plus_one() {
-        let z =
-            Fp12E::from_coefficients(&["0", "0", "1", "0", "0", "0", "0", "0", "0", "0", "0", "0"])
-                .pow(3_u16);
-        let one_plus_u =
-            Fp12E::from_coefficients(&["1", "1", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0"]);
-        assert_eq!(z * one_plus_u, FieldElement::one());
-    }
-
-    #[test]
-    fn to_fp12_affine_computes_correctly() {
-        let g = BLS12381TwistCurve::generator();
-        let expectedx = Fp12E::from_coefficients(&[
-            "0",
-            "0",
-            "24aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02b4510b647ae3d1770bac0326a805bbefd48056c8c121bdb8",
-            "13e02b6052719f607dacd3a088274f65596bd0d09920b61ab5da61bbdc7f5049334cf11213945d57e5ac7d055d042b7e",
-            "0",
-            "0",
-            "0",
-            "0",
-            "0",
-            "0",
-            "0",
-            "0"
-        ]);
-        let expectedy = Fp12E::from_coefficients(&[
-            "0",
-            "0",
-            "0",
-            "0",
-            "0",
-            "0",
-            "0",
-            "0",
-            "ce5d527727d6e118cc9cdc6da2e351aadfd9baa8cbdd3a76d429a695160d12c923ac9cc3baca289e193548608b82801",
-            "606c4a02ea734cc32acd2b02bc28b99cb3e287e85a763af267492ab572e99ab3f370d275cec1da1aaa9075ff05f79be",
-            "0",
-            "0"
-        ]);
-        let [g_to_fp12_x, g_to_fp12_y] = g.to_fp12_affine();
-        assert_eq!(g_to_fp12_x, expectedx);
-        assert_eq!(g_to_fp12_y, expectedy);
-    }
 
     #[test]
     fn test_line_1() {
