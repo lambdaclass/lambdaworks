@@ -32,6 +32,7 @@ pub fn inverse_fft<F: IsField + IsTwoAdicField>(
 /// In-Place Radix-2 NR DIT FFT algorithm over a slice of two-adic field elements.
 /// It's required that the twiddle factors are in bit-reverse order. Else this function will not
 /// return fourier transformed values.
+/// Also the input size needs to be a power of two.
 ///
 /// Performs a fast fourier transform with the next attributes:
 /// - In-Place: an auxiliary vector of data isn't needed for the algorithm.
