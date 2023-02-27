@@ -146,7 +146,7 @@ fn build_merkle_path<F: IsField>(
     merkle_path.to_vec()
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Proof<F: IsField, H: IsCryptoHash<F>> {
     pub value: FieldElement<F>,
     merkle_path: Vec<TreeNode<F>>,

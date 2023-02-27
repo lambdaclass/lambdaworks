@@ -2,9 +2,10 @@ pub mod air;
 pub mod fri;
 
 use air::polynomials::get_cp_and_tp;
-use fri::fri_decommit::fri_decommit_layers;
+use fri::fri_decommit::{fri_decommit_layers, FriDecommitment};
 use lambdaworks_crypto::{fiat_shamir::transcript::Transcript, merkle_tree::Proof};
 use lambdaworks_math::polynomial::Polynomial;
+use thiserror::__private::AsDynError;
 use winterfell::{
     crypto::hashers::Blake3_256,
     math::{fields::f128::BaseElement, StarkField},
@@ -47,7 +48,7 @@ pub fn generate_vec_roots(
     (numbers, generator_of_subgroup)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct StarkQueryProof {
     // TODO: fill this when we know what a proof entails
     pub trace_lde_poly_root: U384FieldElement,
@@ -58,11 +59,12 @@ pub struct StarkQueryProof {
 
     // composition_poly_root: U384FieldElement,
     pub fri_layers_merkle_roots: Vec<U384FieldElement>,
-    pub fri_layers_merkle_proofs: Vec<(
-        Proof<U384PrimeField, DefaultHasher>,
-        Proof<U384PrimeField, DefaultHasher>,
-    )>,
-    pub last_fri_layer_evaluation: U384FieldElement,
+    // pub fri_layers_merkle_proofs: Vec<(
+    //     Proof<U384PrimeField, DefaultHasher>,
+    //     Proof<U384PrimeField, DefaultHasher>,
+    // )>,
+    // pub last_fri_layer_evaluation: U384FieldElement,
+    pub fri_decommitment: FriDecommitment,
 }
 
 pub type StarkProof = Vec<StarkQueryProof>;
@@ -92,7 +94,7 @@ pub fn prove<A>(
 where
     A: Air<BaseField = BaseElement>,
 {
-    let mut transcript = Transcript::new();
+    // let mut transcript = Transcript::new();
     // * Generate composition polynomials using Winterfell
     // let (mut composition_poly, mut trace_poly) = get_cp_and_tp(air, trace, pub_inputs).unwrap();
 
@@ -126,11 +128,9 @@ where
     let q_1: usize = 2;
 
     // * For every q_i, do FRI decommitment
-    let (fri_layers_merkle_proofs, last_fri_layer_evaluation) =
-        fri_decommit_layers(&lde_fri_commitment, q_1);
+    let fri_decommitment = fri_decommit_layers(&lde_fri_commitment, q_1);
 
     // * For every trace polynomial t_i, provide the evaluations on every q_i, q_i * g, q_i * g^2
-    // TODO: Check the evaluation points corresponding to our program (it's not fibonacci).
     let evaluation_points = vec![
         U384FieldElement::from(q_1 as u64),
         U384FieldElement::from(q_1 as u64) * lde_primitive_root.clone(),
@@ -172,10 +172,8 @@ where
         trace_lde_poly_evaluations,
         trace_lde_poly_inclusion_proofs: merkle_paths,
         composition_poly_lde_evaluations: composition_poly_lde_evaluations,
-        fri_layers_merkle_proofs: fri_layers_merkle_proofs,
         fri_layers_merkle_roots: fri_layers_merkle_roots,
-        last_fri_layer_evaluation: last_fri_layer_evaluation,
-        // composition_poly_root,
+        fri_decommitment: fri_decommitment,
     }
 }
 
@@ -185,30 +183,77 @@ pub fn verify(proof: StarkQueryProof) -> bool {
     // TODO: Use Fiat Shamir
     let q_1: u64 = 2;
     let (_roots_of_unity, primitive_root) = crate::generate_vec_roots(1024, 1);
-    // TODO: This is hardcoded, it should not be.
-
     let evaluations = proof.trace_lde_poly_evaluations;
 
-    // TODO: These could be multiple evaluations depending on how many q_i are sample with Fiat Shamir
+    // TODO: These could be multiple evaluations depending on how many q_i are sampled with Fiat Shamir
     let composition_poly_lde_evaluation = proof.composition_poly_lde_evaluations[0].clone();
 
     if composition_poly_lde_evaluation != &evaluations[2] - &evaluations[1] - &evaluations[0] {
         return false;
     }
 
-    // TODO: Check evaluation is the correct one.
     for merkle_proof in proof.trace_lde_poly_inclusion_proofs {
         if !merkle_proof.verify(trace_poly_root.clone()) {
             return false;
         }
-
-        // if !(composition_poly.evaluate(evaluation_point) == merkle_proof.value) {
-        //     return false;
-        // }
     }
+
+    // FRI VERIFYING BEGINS HERE
+
+    // // composition_poly_root: U384FieldElement,
+    // pub fri_layers_merkle_roots: Vec<U384FieldElement>,
+    // pub fri_layers_merkle_proofs: Vec<(
+    //     Proof<U384PrimeField, DefaultHasher>,
+    //     Proof<U384PrimeField, DefaultHasher>,
+    // )>,
+    // pub last_fri_layer_evaluation: U384FieldElement,
+
+    for (index, (fri_layer_merkle_root, (fri_layer_auth_path, fri_layer_auth_path_symmetric))) in
+        proof
+            .fri_layers_merkle_roots
+            .iter()
+            .zip(proof.fri_decommitment.layer_merkle_paths)
+            .enumerate()
+    {
+        if !fri_layer_auth_path.verify(fri_layer_merkle_root.clone()) {
+            return false;
+        }
+
+        if !fri_layer_auth_path_symmetric.verify(fri_layer_merkle_root.clone()) {
+            return false;
+        }
+
+        // TODO: use Fiat Shamir
+        let beta: u64 = 2;
+
+        let (previous_auth_path, previous_auth_path_symmetric) =
+            proof.fri_decommitment.layer_merkle_paths[index - 1];
+        // let (next_auth_path, next_auth_path_symmetric) = proof.fri_decommitment.layer_merkle_paths.iter().peekable().peek().unwrap();
+
+        // let v = (previous_auth_path.value + previous_auth_path_symmetric.value) / U384FieldElement::new(U384::from("2"))
+        // + U384FieldElement::new(U384::from_u64(beta)) * (previous_auth_path.value - previous_auth_path_symmetric.value) /
+        // (U384FieldElement::new(U384::from("2")) * );
+    }
+
+    // For each fri layer merkle proof check:
+    // That each merkle path verifies
+
+    // Sample beta with fiat shamir
+    // Compute v = [P_i(z_i) + P_i(-z_i)] / 2 + beta * [P_i(z_i) - P_i(-z_i)] / (2 * z_i)
+    // Where P_i is the folded polynomial of the i-th fiat shamir round
+    // z_i is obtained from the first z (that was derived through fiat-shamir) through a known calculation
+    // The calculation is, given the index, index % length_of_evaluation_domain
+
+    // Check that v = P_{i+1}(z_i)
 
     return true;
 }
+
+// TODOS after basic fibonacci works:
+// - Add Fiat Shamir
+// - Add Zerofiers
+// - Instead of returning a bool, make an error type encoding each possible failure in the verifying pipeline so failures give more info.
+// - Unhardcode polynomials, use Winterfell AIR
 
 #[cfg(test)]
 mod tests {

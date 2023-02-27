@@ -5,24 +5,30 @@ use lambdaworks_crypto::{
     hash::traits::IsCryptoHash,
     merkle_tree::{DefaultHasher, Proof},
 };
-use lambdaworks_math::{field::traits::IsField, traits::ByteConversion};
+use lambdaworks_math::{
+    field::traits::IsField, traits::ByteConversion, unsigned_integer::element::U384,
+};
+
+#[derive(Debug, Clone)]
+pub struct FriDecommitment {
+    pub layer_merkle_paths: Vec<(
+        Proof<U384PrimeField, DefaultHasher>,
+        Proof<U384PrimeField, DefaultHasher>,
+    )>,
+    pub last_layer_evaluation: U384FieldElement,
+}
 
 // verifier chooses a randomness and get the index where
 // they want to evaluate the poly
 // TODO: encapsulate the return type of this function in a struct.
+// This returns a list of authentication paths for evaluations on points and their symmetric counterparts.
 pub fn fri_decommit_layers(
     commit: &FriCommitmentVec<FE>,
     index_to_verify: usize,
-) -> (
-    Vec<(
-        Proof<U384PrimeField, DefaultHasher>,
-        Proof<U384PrimeField, DefaultHasher>,
-    )>,
-    U384FieldElement,
-) {
+) -> FriDecommitment {
     let mut index = index_to_verify;
 
-    let mut ret = vec![];
+    let mut layer_merkle_paths = vec![];
 
     // with every element of the commit, we look for that one in
     // the merkle tree and get the corresponding element
@@ -37,14 +43,17 @@ pub fn fri_decommit_layers(
         let evaluation_i_sym = commit_i.evaluation[index_sym].clone();
         let auth_path_sym = commit_i.merkle_tree.get_proof(evaluation_i_sym).unwrap();
 
-        ret.push((auth_path, auth_path_sym));
+        layer_merkle_paths.push((auth_path, auth_path_sym));
     }
 
     // send the last element of the polynomial
     let last = commit.last().unwrap();
     let last_evaluation = last.poly.coefficients[0].clone();
 
-    return (ret, last_evaluation);
+    return FriDecommitment {
+        layer_merkle_paths: layer_merkle_paths,
+        last_layer_evaluation: last_evaluation,
+    };
 }
 
 // Integration test:
