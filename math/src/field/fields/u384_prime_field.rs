@@ -9,9 +9,8 @@ use crate::{
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
-
 /// Computes `- modulus^{-1} mod 2^{64}`
-/// This algorithm is given  by Doussé and Kaliski in
+/// This algorithm is given  by Dussé and Kaliski Jr. in
 /// "S. R. Dussé and B. S. Kaliski Jr. A cryptographic library for the Motorola
 /// DSP56000. In I. Damgård, editor, Advances in Cryptology – EUROCRYPT’90,
 /// volume 473 of Lecture Notes in Computer Science, pages 230–244. Springer,
@@ -31,12 +30,42 @@ const fn compute_mu_parameter(modulus: &U384) -> u64 {
     y.wrapping_neg()
 }
 
+
+const fn compute_r2_parameter(modulus: &U384) -> U384 {
+    let number_limbs = 6;
+    let word_size = 64;
+    let mut l: usize = 0;
+    let zero = U384::from_u64(0);
+    // Define `c` as the largest power of 2 smaller than `modulus`
+    while l < number_limbs * word_size {
+        if U384::const_ne(&modulus.const_shr(l), &zero) {
+            break;
+        }
+        l += 1;
+    }
+    let mut c = U384::from_u64(1).const_shl(l);
+
+    // Double `c` and reduce modulo `mudulus` until getting 
+    // `2^{2 * number_limbs * word_size}` mod `modulus`
+    let mut i: usize = 1;
+    while i <= 2 * number_limbs * word_size - l {
+        let (double_c, overflow) = U384::add(&c, &c);
+        c = if U384::const_le(modulus, &double_c) || overflow {
+            U384::sub(&double_c, modulus).0
+        } else {
+            double_c
+        };
+        i += 1;
+    }
+    c
+}
+
 /// This trait is necessary for us to be able to use unsigned integer types bigger than
 /// `u128` (the biggest native `unit`) as constant generics.
 /// This trait should be removed when Rust supports this feature.
 pub trait IsMontgomeryConfiguration {
     const MODULUS: U384;
-    const R2: U384;
+    const R2: U384 = compute_r2_parameter(&Self::MODULUS);
     const MP: u64 = compute_mu_parameter(&Self::MODULUS);
 }
 
@@ -153,7 +182,10 @@ where
 #[cfg(test)]
 mod tests {
     use crate::{
-        field::{element::FieldElement, fields::u384_prime_field::compute_mu_parameter},
+        field::{
+            element::FieldElement,
+            fields::u384_prime_field::{compute_mu_parameter, compute_r2_parameter},
+        },
         traits::ByteConversion,
         unsigned_integer::element::{UnsignedInteger, U384},
     };
@@ -204,12 +236,59 @@ mod tests {
         assert_eq!(mu, expected_mu);
     }
 
+    #[test]
+    fn test_compute_r2_parameter_1() {
+        let modulus = U384 {
+            limbs: [0, 0, 0, 0, 0, 23],
+        };
+        let r2 = compute_r2_parameter(&modulus);
+        let expected_r2 = U384::from_u64(6);
+        assert_eq!(r2, expected_r2);
+    }
+
+    #[test]
+    fn test_compute_r2_parameter_2() {
+        let modulus = U384 {
+            limbs: [
+                0,
+                0,
+                0,
+                3450888597,
+                5754816256417943771,
+                15923941673896418529,
+            ],
+        };
+        let r2 = compute_r2_parameter(&modulus);
+        let expected_r2 = U384 {
+            limbs: [0, 0, 0, 362264696, 173086217205162856, 7848132598488868435],
+        };
+        assert_eq!(r2, expected_r2);
+    }
+
+    #[test]
+    fn test_compute_r2_parameter_3() {
+        let modulus = U384 {
+            limbs: [
+                18446744073709551615,
+                18446744073709551615,
+                18446744073709551615,
+                18446744073709551615,
+                18446744073709551615,
+                18446744073709551275,
+            ],
+        };
+        let r2 = compute_r2_parameter(&modulus);
+        let expected_r2 = U384 {
+            limbs: [0, 0, 0, 0, 0, 116281],
+        };
+        assert_eq!(r2, expected_r2);
+    }
+
     // F23
     #[derive(Clone, Debug)]
     struct MontgomeryConfig23;
     impl IsMontgomeryConfiguration for MontgomeryConfig23 {
         const MODULUS: U384 = UnsignedInteger::from_u64(23);
-        const R2: U384 = UnsignedInteger::from_u64(6);
     }
 
     type F23 = MontgomeryBackendPrimeField<MontgomeryConfig23>;
@@ -365,9 +444,6 @@ mod tests {
                 15923941673896418529,
             ],
         };
-        const R2: U384 = UnsignedInteger {
-            limbs: [0, 0, 0, 362264696, 173086217205162856, 7848132598488868435],
-        };
     }
 
     #[test]
@@ -413,9 +489,6 @@ mod tests {
                 18446744073709551615,
                 18446744073709551275,
             ],
-        };
-        const R2: U384 = UnsignedInteger {
-            limbs: [0, 0, 0, 0, 0, 116281],
         };
     }
 
