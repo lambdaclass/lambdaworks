@@ -38,31 +38,28 @@ pub fn polynomial_benchmark(c: &mut Criterion) {
         bench.iter(|| black_box(&x_poly) + black_box(&y_poly));
     });
 
-    // The ones below can't be done because reference operations are not implemented and not having
-    // references causes E0507 because FnMut closure tries to move because Polynomial does not implement Copy
-    //
-    // group.bench_function("neg", |bench| {
-    //     let x_poly = Polynomial::new(&gen_fe_vec());
-    //     bench.iter(|| - black_box(&x_poly));
-    // });
+    group.bench_function("neg", |bench| {
+        let x_poly = Polynomial::new(&gen_fe_vec());
+        bench.iter(|| -black_box(x_poly.clone()));
+    });
 
-    // group.bench_function("sub", |bench| {
-    //     let x_poly = Polynomial::new(&gen_fe_vec());
-    //     let y_poly = Polynomial::new(&gen_fe_vec());
-    //     bench.iter(|| black_box(&x_poly) - black_box(&y_poly));
-    // });
+    group.bench_function("sub", |bench| {
+        let x_poly = Polynomial::new(&gen_fe_vec());
+        let y_poly = Polynomial::new(&gen_fe_vec());
+        bench.iter(|| black_box(x_poly.clone()) - black_box(y_poly.clone()));
+    });
 
-    // group.bench_function("mul", |bench| {
-    //     let x_poly = Polynomial::new(&gen_fe_vec());
-    //     let y_poly = Polynomial::new(&gen_fe_vec());
-    //     bench.iter(|| black_box(&x_poly) + black_box(&y_poly));
-    // });
+    group.bench_function("mul", |bench| {
+        let x_poly = Polynomial::new(&gen_fe_vec());
+        let y_poly = Polynomial::new(&gen_fe_vec());
+        bench.iter(|| black_box(x_poly.clone()) + black_box(y_poly.clone()));
+    });
 
-    // group.bench_function("div", |bench| {
-    //     let x_poly = Polynomial::new(&gen_fe_vec());
-    //     let y_poly = Polynomial::new(&gen_fe_vec());
-    //     bench.iter(|| black_box(&x_poly) + black_box(&y_poly));
-    // });
+    group.bench_function("div", |bench| {
+        let x_poly = Polynomial::new(&gen_fe_vec());
+        let y_poly = Polynomial::new(&gen_fe_vec());
+        bench.iter(|| black_box(x_poly.clone()) + black_box(y_poly.clone()));
+    });
 }
 
 fn gen_fe_vec() -> Vec<FE> {
