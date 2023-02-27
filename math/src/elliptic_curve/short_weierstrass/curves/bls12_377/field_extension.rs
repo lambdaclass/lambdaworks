@@ -11,7 +11,6 @@ pub const BLS12377_PRIME_FIELD_ORDER: U384 = U384::from("1ae3a4617c510eac63b05c0
 pub struct BLS12377FieldConfig;
 impl IsMontgomeryConfiguration for BLS12377FieldConfig {
     const MODULUS: U384 = BLS12377_PRIME_FIELD_ORDER;
-    const MP: u64 = 9586122913090633727;
     const R2: U384 = U384::from("6dfccb1e914b88837e92f041790bf9bfdf7d03827dc3ac22a5f11162d6b46d0329fcaab00431b1b786686c9400cd22");
 }
 

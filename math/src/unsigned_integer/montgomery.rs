@@ -2,7 +2,6 @@ use super::element::UnsignedInteger;
 
 pub struct MontgomeryAlgorithms;
 impl MontgomeryAlgorithms {
-
     /// Compute CIOS multiplication of `a` * `b`
     /// `q` is the group order or modules
     /// `mp` is the inverse of q

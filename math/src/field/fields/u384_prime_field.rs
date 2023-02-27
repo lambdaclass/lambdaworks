@@ -5,8 +5,31 @@ use crate::{
     field::traits::IsField, unsigned_integer::element::UnsignedInteger,
     unsigned_integer::montgomery::MontgomeryAlgorithms,
 };
+
 use std::fmt::Debug;
 use std::marker::PhantomData;
+
+
+/// Computes `- modulus^{-1} mod 2^{64}`
+/// This algorithm is given  by Doussé and Kaliski in
+/// "S. R. Dussé and B. S. Kaliski Jr. A cryptographic library for the Motorola
+/// DSP56000. In I. Damgård, editor, Advances in Cryptology – EUROCRYPT’90,
+/// volume 473 of Lecture Notes in Computer Science, pages 230–244. Springer,
+/// Heidelberg, May 1991."
+const fn compute_mu_parameter(modulus: &U384) -> u64 {
+    let mut y = 1;
+    let word_size = 64;
+    let mut i: usize = 2;
+    while i <= word_size {
+        let (_, lo) = U384::mul(modulus, &U384::from_u64(y));
+        let least_significant_limb = lo.limbs[5];
+        if (least_significant_limb << (word_size - i)) >> (word_size - i) != 1 {
+            y += 1 << (i - 1);
+        }
+        i += 1;
+    }
+    y.wrapping_neg()
+}
 
 /// This trait is necessary for us to be able to use unsigned integer types bigger than
 /// `u128` (the biggest native `unit`) as constant generics.
@@ -14,24 +37,8 @@ use std::marker::PhantomData;
 pub trait IsMontgomeryConfiguration {
     const MODULUS: U384;
     const R2: U384;
-    const MP: u64;
+    const MP: u64 = compute_mu_parameter(&Self::MODULUS);
 }
-/*
-// num_limbs should be the twice the amount we use for the field
-const fn r2<const NUM_LIMBS: usize>(
-    modulus: UnsignedInteger<NUM_LIMBS>
-) -> UnsignedInteger<NUM_LIMBS>{
-    // 2**(384 * 2) % MODULUS
-    //This should be NUM_LIMBS * 2. We just make it big right now
-    // This covers up to 1024over 768 bytes integers,  integers
-
-    const REQUIRED_SIZE: usize = 64;
-    let two = UnsignedInteger::<REQUIRED_SIZE>::from("2");
-    
-    // We need type conversions here
-    // let result_limbs = two.const_shl(384*2).rem_by_substractions(&modulus).limbs;
-    
-} */
 
 #[derive(Clone, Debug)]
 pub struct MontgomeryBackendPrimeField<C> {
@@ -142,33 +149,68 @@ where
     }
 }
 
+
 #[cfg(test)]
 mod tests {
     use crate::{
-        field::{element::FieldElement},
+        field::{element::FieldElement, fields::u384_prime_field::compute_mu_parameter},
         traits::ByteConversion,
         unsigned_integer::element::{UnsignedInteger, U384},
     };
 
     use super::{IsMontgomeryConfiguration, MontgomeryBackendPrimeField};
 
+    #[test]
+    fn test_compute_mu_parameter_1() {
+        let modulus = U384 {
+            limbs: [0, 0, 0, 0, 0, 23],
+        };
+        let mu = compute_mu_parameter(&modulus);
+        let expected_mu: u64 = 3208129404123400281;
+        assert_eq!(mu, expected_mu);
+    }
+
+    #[test]
+    fn test_compute_mu_parameter_2() {
+        let modulus = U384 {
+            limbs: [
+                0,
+                0,
+                0,
+                3450888597,
+                5754816256417943771,
+                15923941673896418529,
+            ],
+        };
+        let mu = compute_mu_parameter(&modulus);
+        let expected_mu: u64 = 16085280245840369887;
+        assert_eq!(mu, expected_mu);
+    }
+
+    #[test]
+    fn test_compute_mu_parameter_3() {
+        let modulus = U384 {
+            limbs: [
+                18446744073709551615,
+                18446744073709551615,
+                18446744073709551615,
+                18446744073709551615,
+                18446744073709551615,
+                18446744073709551275,
+            ],
+        };
+        let mu = compute_mu_parameter(&modulus);
+        let expected_mu: u64 = 14984598558409225213;
+        assert_eq!(mu, expected_mu);
+    }
+
     // F23
     #[derive(Clone, Debug)]
     struct MontgomeryConfig23;
     impl IsMontgomeryConfiguration for MontgomeryConfig23 {
         const MODULUS: U384 = UnsignedInteger::from_u64(23);
-        const MP: u64 = 3208129404123400281;
         const R2: U384 = UnsignedInteger::from_u64(6);
     }
-
-    /*
-    #[test]
-    fn r2_is_6_for_23_on_u384(){
-        const MODULUS: U384 = UnsignedInteger::from_u64(23);
-        const R2: U384 = UnsignedInteger::from_u64(6);
-
-        assert_eq!(r2(MODULUS),R2);
-    }*/
 
     type F23 = MontgomeryBackendPrimeField<MontgomeryConfig23>;
     type F23Element = FieldElement<F23>;
@@ -323,7 +365,6 @@ mod tests {
                 15923941673896418529,
             ],
         };
-        const MP: u64 = 16085280245840369887;
         const R2: U384 = UnsignedInteger {
             limbs: [0, 0, 0, 362264696, 173086217205162856, 7848132598488868435],
         };
@@ -373,7 +414,6 @@ mod tests {
                 18446744073709551275,
             ],
         };
-        const MP: u64 = 14984598558409225213;
         const R2: U384 = UnsignedInteger {
             limbs: [0, 0, 0, 0, 0, 116281],
         };

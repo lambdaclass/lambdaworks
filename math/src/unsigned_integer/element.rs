@@ -213,26 +213,7 @@ impl<const NUM_LIMBS: usize> Shr<usize> for &UnsignedInteger<NUM_LIMBS> {
     type Output = UnsignedInteger<NUM_LIMBS>;
 
     fn shr(self, times: usize) -> UnsignedInteger<NUM_LIMBS> {
-        debug_assert!(
-            times < 64 * NUM_LIMBS,
-            "UnsignedInteger shift right overflows."
-        );
-
-        let mut limbs = [0u64; NUM_LIMBS];
-        let (a, b) = (times / 64, times % 64);
-
-        if b == 0 {
-            limbs[a..NUM_LIMBS].copy_from_slice(&self.limbs[..(NUM_LIMBS - a)]);
-            Self::Output { limbs }
-        } else {
-            limbs[a] = self.limbs[0] >> b;
-            // Clippy solution is complicated in this case
-            #[allow(clippy::needless_range_loop)]
-            for i in (a + 1)..NUM_LIMBS {
-                limbs[i] = (self.limbs[i - a - 1] << (64 - b)) | (self.limbs[i - a] >> b);
-            }
-            Self::Output { limbs }
-        }
+        self.const_shr(times)
     }
 }
 
@@ -260,7 +241,6 @@ impl<const NUM_LIMBS: usize> BitAnd for UnsignedInteger<NUM_LIMBS> {
 }
 
 impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
-
     pub const fn from_u64(value: u64) -> Self {
         let mut limbs = [0u64; NUM_LIMBS];
         limbs[NUM_LIMBS - 1] = value;
@@ -304,6 +284,17 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         UnsignedInteger { limbs: result }
     }
 
+    pub const fn const_ne(a: &UnsignedInteger<NUM_LIMBS>, b: &UnsignedInteger<NUM_LIMBS>) -> bool {
+        let mut i = 0;
+        while i < NUM_LIMBS {
+            if a.limbs[i] != b.limbs[i] {
+                return true;
+            }
+            i += 1;
+        }
+        false
+    }
+
     pub const fn const_le(a: &UnsignedInteger<NUM_LIMBS>, b: &UnsignedInteger<NUM_LIMBS>) -> bool {
         let mut i = 0;
         while i < NUM_LIMBS {
@@ -315,28 +306,6 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
             i += 1;
         }
         false
-    }
-
-    /// Rem calculated by substractions
-    // This is inefficient, and could be improved by another method
-    // It's only used in to help build Montgomery backends in compilation time
-    pub const fn rem_by_substractions(
-        self, 
-        modulus: &UnsignedInteger<NUM_LIMBS>) -> UnsignedInteger<NUM_LIMBS>{
-
-        let mut rem = self;
-
-        let mut tmp_rem;
-    
-        let mut underflow = false;
-
-        while !underflow {
-            (tmp_rem, underflow) = UnsignedInteger::sub(&rem, modulus);
-            if !underflow {
-                rem = tmp_rem;
-            }
-        }
-        rem
     }
 
     pub const fn const_shl(self, times: usize) -> Self {
@@ -358,10 +327,37 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
             limbs[NUM_LIMBS - 1 - a] = self.limbs[NUM_LIMBS - 1] << b;
             let mut i = a + 1;
             while i < NUM_LIMBS {
-                limbs[NUM_LIMBS - 1 - i] = (self.limbs[NUM_LIMBS - 1 - i + a] << b) |
-                                          (self.limbs[NUM_LIMBS - i + a] >> (64 - b));
+                limbs[NUM_LIMBS - 1 - i] = (self.limbs[NUM_LIMBS - 1 - i + a] << b)
+                    | (self.limbs[NUM_LIMBS - i + a] >> (64 - b));
                 i += 1;
-            }            
+            }
+            Self { limbs }
+        }
+    }
+
+    pub const fn const_shr(self, times: usize) -> UnsignedInteger<NUM_LIMBS> {
+        debug_assert!(
+            times < 64 * NUM_LIMBS,
+            "UnsignedInteger shift right overflows."
+        );
+
+        let mut limbs = [0u64; NUM_LIMBS];
+        let (a, b) = (times / 64, times % 64);
+
+        if b == 0 {
+            let mut i = 0;
+            while i < NUM_LIMBS - a {
+                limbs[a + i] = self.limbs[i];
+                i += 1;
+            }
+            Self { limbs }
+        } else {
+            limbs[a] = self.limbs[0] >> b;
+            let mut i = a + 1;
+            while i < NUM_LIMBS {
+                limbs[i] = (self.limbs[i - a - 1] << (64 - b)) | (self.limbs[i - a] >> b);
+                i += 1;
+            }
             Self { limbs }
         }
     }
@@ -374,8 +370,8 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         let mut carry = 0u128;
         let mut i = NUM_LIMBS;
         while i > 0 {
-            let c: u128 = a.limbs[i-1] as u128 + b.limbs[i-1] as u128 + carry;
-            limbs[i-1] = c as u64;
+            let c: u128 = a.limbs[i - 1] as u128 + b.limbs[i - 1] as u128 + carry;
+            limbs[i - 1] = c as u64;
             carry = c >> 64;
             i -= 1;
         }
@@ -434,7 +430,8 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
                     carry = uv >> 64;
                     lo[k] = uv as u64;
                 } else {
-                    let uv = (hi[k + 1] as u128) + (a.limbs[j] as u128) * (b.limbs[i] as u128) + carry;
+                    let uv =
+                        (hi[k + 1] as u128) + (a.limbs[j] as u128) * (b.limbs[i] as u128) + carry;
                     carry = uv >> 64;
                     hi[k + 1] = uv as u64;
                 }
@@ -507,24 +504,6 @@ mod tests_u384 {
     use super::*;
     const NUM_LIMBS: usize = 6;
     type U384 = UnsignedInteger<NUM_LIMBS>;
-
-    #[test]
-    fn rem_substractions_4_2_is_0() {
-        let a = U384::from_u64(4);
-        let b = U384::from_u64(2);
-        let result = a.rem_by_substractions(&b);
-        let expected_result = U384::from_u64(0);
-        assert_eq!(result, expected_result);
-    }
-
-    #[test]
-    fn rem_substractions_5_2_is_1() {
-        let a = U384::from_u64(5);
-        let b = U384::from_u64(2);
-        let result = a.rem_by_substractions(&b);
-        let expected_result = U384::from_u64(1);
-        assert_eq!(result, expected_result);
-    }
 
     #[test]
     fn construct_new_integer_from_u64_1() {
@@ -718,6 +697,29 @@ mod tests_u384 {
         let a = U384::from("ffff000000000000");
         let b = U384::from("ffff000000100000");
         assert_ne!(a, b);
+    }
+
+    #[test]
+    fn const_ne_works_1() {
+        let a = U384::from("ffff000000000000");
+        let b = U384::from("ffff000000100000");
+        assert!(U384::const_ne(&a, &b));
+    }
+
+    #[test]
+    fn const_ne_works_2() {
+        let a = U384::from("140f5177b90b4f96b61bb8ccb4f298ad2b20aaa5cf482b239e2897a787faf4660cc95597854beb235f6144d9e91f4b14");
+        let b = U384 {
+            limbs: [
+                1445463580056702870,
+                13122285128622708909,
+                3107671372009581347,
+                11396525602857743462,
+                921361708038744867,
+                6872850209053821716,
+            ],
+        };
+        assert!(!U384::const_ne(&a, &b));
     }
 
     #[test]
