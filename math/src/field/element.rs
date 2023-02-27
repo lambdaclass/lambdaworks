@@ -20,7 +20,7 @@ where
 {
     fn from(value: &F::BaseType) -> Self {
         Self {
-            value: value.clone(),
+            value: F::from_base_type(value.clone()),
         }
     }
 }
