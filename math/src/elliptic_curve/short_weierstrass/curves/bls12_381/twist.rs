@@ -86,12 +86,7 @@ mod tests {
         cyclic_group::IsGroup,
         elliptic_curve::{
             short_weierstrass::{
-                curves::{
-                    bls12_377::field_extension::BLS12377_PRIME_FIELD_ORDER,
-                    bls12_381::field_extension::{
-                        BLS12381PrimeField, LevelOneField, BLS12381_PRIME_FIELD_ORDER,
-                    },
-                },
+                curves::bls12_381::field_extension::{BLS12381PrimeField, LevelOneField},
                 traits::IsShortWeierstrass,
             },
             traits::IsEllipticCurve,

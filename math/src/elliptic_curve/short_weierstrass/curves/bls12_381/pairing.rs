@@ -1,16 +1,14 @@
-use crate::{
-    cyclic_group::IsGroup,
-    elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint,
-    elliptic_curve::short_weierstrass::traits::IsShortWeierstrass,
-    field::element::FieldElement,
-    unsigned_integer::element::{UnsignedInteger, U256},
-};
 use super::{
     curve::BLS12381Curve, field_extension::Order12ExtensionField, twist::BLS12381TwistCurve,
 };
+use crate::{
+    cyclic_group::IsGroup,
+    elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint,
+    elliptic_curve::short_weierstrass::traits::IsShortWeierstrass, field::element::FieldElement,
+    unsigned_integer::element::UnsignedInteger,
+};
 
-const PRIME_R: U256 =
-    U256::from("73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001");
+const MILLER_LOOP_CONSTANT: u64 = 0xd201000000010000; // This is equal to the frobenius trace minus one.
 const NORMALIZATION_POWER: UnsignedInteger<68> = UnsignedInteger::from("2ee1db5dcc825b7e1bda9c0496a1c0a89ee0193d4977b3f7d4507d07363baa13f8d14a917848517badc3a43d1073776ab353f2c30698e8cc7deada9c0aadff5e9cfee9a074e43b9a660835cc872ee83ff3a0f0f1c0ad0d6106feaf4e347aa68ad49466fa927e7bb9375331807a0dce2630d9aa4b113f414386b0e8819328148978e2b0dd39099b86e1ab656d2670d93e4d7acdd350da5359bc73ab61a0c5bf24c374693c49f570bcd2b01f3077ffb10bf24dde41064837f27611212596bc293c8d4c01f25118790f4684d0b9c40a68eb74bb22a40ee7169cdc1041296532fef459f12438dfc8e2886ef965e61a474c5c85b0129127a1b5ad0463434724538411d1676a53b5a62eb34c05739334f46c02c3f0bd0c55d3109cd15948d0a1fad20044ce6ad4c6bec3ec03ef19592004cedd556952c6d8823b19dadd7c2498345c6e5308f1c511291097db60b1749bf9b71a9f9e0100418a3ef0bc627751bbd81367066bca6a4c1b6dcfc5cceb73fc56947a403577dfa9e13c24ea820b09c1d9f7c31759c3635de3f7a3639991708e88adce88177456c49637fd7961be1a4c7e79fb02faa732e2f3ec2bea83d196283313492caa9d4aff1c910e9622d2a73f62537f2701aaef6539314043f7bbce5b78c7869aeb2181a67e49eeed2161daf3f881bd88592d767f67c4717489119226c2f011d4cab803e9d71650a6f80698e2f8491d12191a04406fbc8fbd5f48925f98630e68bfb24c0bcb9b55df57510");
 
 #[allow(unused)]
@@ -20,17 +18,17 @@ fn miller(
 ) -> FieldElement<Order12ExtensionField> {
     let mut r = q.clone();
     let mut f = FieldElement::<Order12ExtensionField>::one();
-    let mut order_r = PRIME_R;
-    let mut order_r_bits: Vec<bool> = vec![];
+    let mut miller_loop_constant = MILLER_LOOP_CONSTANT;
+    let mut miller_loop_constant_bits: Vec<bool> = vec![];
 
     // TODO: improve this to avoid using U256 everywhere.
-    while order_r > U256::from_u64(0) {
-        order_r_bits.insert(0, (order_r & U256::from_u64(1)) == U256::from_u64(1));
-        order_r = order_r >> 1;
+    while miller_loop_constant > 0 {
+        miller_loop_constant_bits.insert(0, (miller_loop_constant & 1) == 1);
+        miller_loop_constant >>= 1;
     }
 
-    for bit in order_r_bits[1..].iter() {
-        f = f.pow(2_u64) * line(&r, &r, &p);
+    for bit in miller_loop_constant_bits[1..].iter() {
+        f = f.pow(2_u64) * line(&r, &r, p);
         r = r.operate_with(&r).to_affine();
         if *bit {
             f = f * line(&r, q, p);
@@ -40,7 +38,7 @@ fn miller(
             }
         }
     }
-    f
+    f.inv()
 }
 
 #[allow(unused)]
@@ -128,7 +126,13 @@ pub fn line(
 
 #[cfg(test)]
 mod tests {
-    use crate::{elliptic_curve::{traits::IsEllipticCurve, short_weierstrass::curves::bls12_381::field_extension::BLS12381_PRIME_FIELD_ORDER}, unsigned_integer::element::U384, field::extensions::quadratic::QuadraticExtensionField};
+    use crate::{
+        elliptic_curve::{
+            short_weierstrass::curves::bls12_381::field_extension::BLS12381_PRIME_FIELD_ORDER,
+            traits::IsEllipticCurve,
+        },
+        unsigned_integer::element::U384,
+    };
 
     use super::*;
 
@@ -295,7 +299,7 @@ mod tests {
     impl IsEllipticCurve for BLS12381TestFp12 {
         type BaseField = Order12ExtensionField;
         type PointRepresentation = ShortWeierstrassProjectivePoint<Self>;
-    
+
         fn generator() -> Self::PointRepresentation {
             Self::PointRepresentation::new([
                 FieldElement::<Self::BaseField>::new_base("17f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb"),
@@ -304,29 +308,31 @@ mod tests {
             ])
         }
     }
-    
+
     impl IsShortWeierstrass for BLS12381TestFp12 {
         fn a() -> FieldElement<Self::BaseField> {
             FieldElement::from(0)
         }
-    
+
         fn b() -> FieldElement<Self::BaseField> {
             FieldElement::from(4)
         }
     }
-    
+
     #[test]
     fn test_applying_frobenius_is_the_same_as_adding_point_p_times() {
         // This checks that the generator of the twisted curve belongs to
         // ker(frobenius - [p])
         let [g2_fp12_x, g2_fp12_y] = BLS12381TwistCurve::generator().to_fp12_affine();
-        let g2 = BLS12381TestFp12::create_point_from_affine(g2_fp12_x.clone(), g2_fp12_y.clone()).unwrap();
-        
+        let g2 = BLS12381TestFp12::create_point_from_affine(g2_fp12_x.clone(), g2_fp12_y.clone())
+            .unwrap();
+
         let adding_point_p_times = g2.operate_with_self(BLS12381_PRIME_FIELD_ORDER).to_affine();
         let frobenius = BLS12381TestFp12::create_point_from_affine(
             g2_fp12_x.pow(BLS12381_PRIME_FIELD_ORDER),
-            g2_fp12_y.pow(BLS12381_PRIME_FIELD_ORDER)
-        ).unwrap();
+            g2_fp12_y.pow(BLS12381_PRIME_FIELD_ORDER),
+        )
+        .unwrap();
 
         assert_eq!(adding_point_p_times, frobenius);
     }
@@ -335,8 +341,8 @@ mod tests {
     fn ate_pairing_bilinearity() {
         let p = BLS12381Curve::generator().to_affine();
         let q = BLS12381TwistCurve::generator().to_affine();
-        let a = U384::from_u64(2);
-        let b = U384::from_u64(2);
+        let a = U384::from_u64(11);
+        let b = U384::from_u64(93);
 
         assert_eq!(
             ate(
