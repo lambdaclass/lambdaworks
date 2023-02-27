@@ -39,9 +39,9 @@ pub fn inverse_fft<F: IsField + IsTwoAdicField>(
 /// - NR: natural to reverse order, meaning that the input is naturally ordered and the output will
 /// be bit-reversed ordered.
 /// - DIT: decimation in time
-fn in_place_nr_2radix_fft<F>(input: &mut Vec<FieldElement<F>>, twiddles: &[FieldElement<F>])
+fn in_place_nr_2radix_fft<F>(input: &mut [FieldElement<F>], twiddles: &[FieldElement<F>])
 where
-    F: IsTwoAdicField
+    F: IsTwoAdicField,
 {
     // divide input in groups, starting with 1, duplicating the number of groups in each stage.
     let mut group_count = 1;
@@ -55,15 +55,15 @@ where
     while group_count < input.len() {
         for group in 0..group_count - 1 {
             let first_in_group = group * group_size;
-            let last_in_group = first_in_group + group_size/2 - 1;
+            let last_in_group = first_in_group + group_size / 2 - 1;
 
             for i in first_in_group..=last_in_group {
                 let w = &twiddles[group];
-                let y0 = &input[i] + w * &input[i + group_size/2];
-                let y1 = &input[i] - w * &input[i + group_size/2];
+                let y0 = &input[i] + w * &input[i + group_size / 2];
+                let y1 = &input[i] - w * &input[i + group_size / 2];
 
                 input[i] = y0;
-                input[i + group_size/2] = y1;
+                input[i + group_size / 2] = y1;
             }
         }
 
