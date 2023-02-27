@@ -165,7 +165,7 @@ mod tests {
     use giza_air::{FieldExtension, HashFunction, ProcessorAir};
     use runner::ExecutionTrace;
     use std::path::PathBuf;
-    use winter_prover::constraints::CompositionPoly;
+    use winter_prover::{constraints::CompositionPoly, TraceTable};
 
     #[test]
     fn test_cairo_air() {
@@ -191,7 +191,7 @@ mod tests {
         let res = get_cp_and_tps(air, trace, pub_inputs);
 
         // TODO: Just asserting is_ok(), we should make the calculations about the coefficients of all the involved
-        // polynomials for the test.
+        // polynomials for the test and then assert they are correct.
         assert!(res.is_ok());
     }
 
@@ -217,15 +217,24 @@ mod tests {
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////
     #[test]
     fn test_composition_poly_simple_computation() {
-        use simple_computation_test_utils::*;
+        use fibonacci_computation_test_utils::*;
 
-        let start = Felt::from(3u64);
-        let n = 8;
+        // Build the execution trace
+        let t = vec![vec![
+            Felt::from(1u64),
+            Felt::from(1u64),
+            Felt::from(2u64),
+            Felt::from(3u64),
+            Felt::from(5u64),
+            Felt::from(8u64),
+            Felt::from(13u64),
+            Felt::from(21u64),
+        ]];
 
-        // Build the execution trace and .
-        let trace = build_do_work_trace(start, n);
+        let trace = TraceTable::init(t);
         let pub_inputs = PublicInputs {
-            start: trace.get(0, 0),
+            a0: trace.get(0, 0),
+            a1: trace.get(0, 1),
             result: trace.get(0, trace.length() - 1),
         };
 
@@ -240,59 +249,40 @@ mod tests {
             128, // FRI max remainder length
         );
 
-        let air = WorkAir::new(trace.get_info(), pub_inputs.clone(), options);
+        let air = FibAir::new(trace.get_info(), pub_inputs.clone(), options);
 
         let res = get_cp_and_tps(air, trace, pub_inputs);
 
         // TODO: Just asserting is_ok(), we should make the calculations about the coefficients of all the involved
-        // polynomials for the test.
+        // polynomials for the test and then assert they are correct.
         assert!(res.is_ok());
     }
 }
 
 #[cfg(test)]
-pub(crate) mod simple_computation_test_utils {
+pub(crate) mod fibonacci_computation_test_utils {
     use math::FieldElement;
     use winter_air::{
         AirContext, Assertion, DefaultEvaluationFrame, ProofOptions, TraceInfo,
         TransitionConstraintDegree,
     };
-    use winter_prover::{ByteWriter, TraceTable};
+    use winter_prover::ByteWriter;
 
     use super::*;
-
-    pub(crate) fn build_do_work_trace(start: Felt, n: usize) -> TraceTable<Felt> {
-        // Instantiate the trace with a given width and length; this will allocate all
-        // required memory for the trace
-        let trace_width = 1;
-        let mut trace = TraceTable::new(trace_width, n);
-
-        // Fill the trace with data; the first closure initializes the first state of the
-        // computation; the second closure computes the next state of the computation based
-        // on its current state.
-        trace.fill(
-            |state| {
-                state[0] = start;
-            },
-            |_, state| {
-                state[0] = state[0].exp(3u32.into()) + Felt::from(42u64);
-            },
-        );
-
-        trace
-    }
 
     // Public inputs for our computation will consist of the starting value and the end result.
     #[derive(Clone)]
     pub(crate) struct PublicInputs {
-        pub start: Felt,
+        pub a0: Felt,
+        pub a1: Felt,
         pub result: Felt,
     }
 
     // We need to describe how public inputs can be converted to bytes.
     impl Serializable for PublicInputs {
         fn write_into<W: ByteWriter>(&self, target: &mut W) {
-            target.write(self.start);
+            target.write(self.a0);
+            target.write(self.a1);
             target.write(self.result);
         }
     }
@@ -300,13 +290,14 @@ pub(crate) mod simple_computation_test_utils {
     // For a specific instance of our computation, we'll keep track of the public inputs and
     // the computation's context which we'll build in the constructor. The context is used
     // internally by the Winterfell prover/verifier when interpreting this AIR.
-    pub(crate) struct WorkAir {
+    pub(crate) struct FibAir {
         context: AirContext<Felt>,
-        start: Felt,
+        a0: Felt,
+        a1: Felt,
         result: Felt,
     }
 
-    impl Air for WorkAir {
+    impl Air for FibAir {
         // First, we'll specify which finite field to use for our computation, and also how
         // the public inputs must look like.
         type BaseField = Felt;
@@ -326,16 +317,17 @@ pub(crate) mod simple_computation_test_utils {
             // the expected degree of the constraint. If the expected and actual degrees of the
             // constraints don't match, an error will be thrown in the debug mode, but in release
             // mode, an invalid proof will be generated which will not be accepted by any verifier.
-            let degrees = vec![TransitionConstraintDegree::new(3)];
+            let degrees = vec![TransitionConstraintDegree::new(4)];
 
             // We also need to specify the exact number of assertions we will place against the
             // execution trace. This number must be the same as the number of items in a vector
             // returned from the get_assertions() method below.
-            let num_assertions = 2;
+            let num_assertions = 3;
 
-            WorkAir {
+            FibAir {
                 context: AirContext::new(trace_info, degrees, num_assertions, options),
-                start: pub_inputs.start,
+                a0: pub_inputs.a0,
+                a1: pub_inputs.a1,
                 result: pub_inputs.result,
             }
         }
@@ -352,11 +344,12 @@ pub(crate) mod simple_computation_test_utils {
         ) {
             // First, we'll read the current state, and use it to compute the expected next state
             let current_state = &frame.current()[0];
-            let next_state = current_state.exp(3u32.into()) + E::from(42u32);
+            let next_state = &frame.next()[0];
+            let fib_state = *current_state + *next_state;
 
             // Then, we'll subtract the expected next state from the actual next state; this will
             // evaluate to zero if and only if the expected and actual states are the same.
-            result[0] = (frame.next()[0] - next_state).into();
+            result[0] = (frame.next_n(2)[0] - fib_state).into();
         }
 
         // Here, we'll define a set of assertions about the execution trace which must be satisfied
@@ -367,7 +360,8 @@ pub(crate) mod simple_computation_test_utils {
             // starting value, and at the last step it must be equal to the result.
             let last_step = self.trace_length() - 1;
             vec![
-                Assertion::single(0, 0, self.start),
+                Assertion::single(0, 0, self.a0),
+                Assertion::single(0, 1, self.a1),
                 Assertion::single(0, last_step, self.result),
             ]
         }
