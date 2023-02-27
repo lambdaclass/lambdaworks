@@ -149,6 +149,13 @@ mod tests {
     type F23Element = FieldElement<F23>;
 
     #[test]
+    fn from_base_type_works() {
+        let x = F23Element::from(&U384::from_u64(1));
+        let expected_value = U384::from_u64(12);
+        assert_eq!(x.value(), &expected_value);
+    }
+
+    #[test]
     fn montgomery_backend_multiplication_works_0() {
         let x = F23Element::from(11_u64);
         let y = F23Element::from(10_u64);
