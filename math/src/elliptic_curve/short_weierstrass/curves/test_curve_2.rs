@@ -23,8 +23,6 @@ pub const TEST_CURVE_2_MAIN_SUBGROUP_ORDER: U384 = U384::from("40a065fb5a76390de
 pub struct TestCurve2MontgomeryConfig;
 impl IsMontgomeryConfiguration for TestCurve2MontgomeryConfig {
     const MODULUS: U384 = TEST_CURVE_2_PRIME_FIELD_ORDER;
-    const MP: u64 = 1901108026836139985;
-    const R2: U384 = U384::from("f60e53d42ca85ba186067660c4f2daa94");
 }
 
 type TestCurve2PrimeField = MontgomeryBackendPrimeField<TestCurve2MontgomeryConfig>;
