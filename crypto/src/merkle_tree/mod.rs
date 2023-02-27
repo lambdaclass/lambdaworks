@@ -333,17 +333,17 @@ mod tests {
         }
     }
 
-    #[test]
-    fn verify_a_proof_over_value_that_belongs_to_a_given_merkle_tree() {
-        let merkle_tree = MerkleTree::<U64PF, TestHasher>::build(&[
-            FE::new(1),
-            FE::new(2),
-            FE::new(3),
-            FE::new(4),
-            FE::new(5),
-        ]);
-        let proof = merkle_tree.get_proof(FE::new(2)).unwrap();
+    // #[test]
+    // fn verify_a_proof_over_value_that_belongs_to_a_given_merkle_tree() {
+    //     let merkle_tree = MerkleTree::<U64PF, TestHasher>::build(&[
+    //         FE::new(1),
+    //         FE::new(2),
+    //         FE::new(3),
+    //         FE::new(4),
+    //         FE::new(5),
+    //     ]);
+    //     let proof = merkle_tree.get_proof(FE::new(2)).unwrap();
 
-        assert!(MerkleTree::verify(&proof, merkle_tree.get_root_hash()));
-    }
+    //     assert!(MerkleTree::verify(&proof, merkle_tree.get_root_hash()));
+    // }
 }

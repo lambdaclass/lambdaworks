@@ -8,6 +8,7 @@ use crate::fri::fri_functions::next_fri_layer;
 pub use crate::fri::fri_merkle_tree::FriMerkleTree;
 pub use lambdaworks_crypto::{fiat_shamir::transcript::Transcript, merkle_tree::MerkleTree};
 use lambdaworks_math::traits::ByteConversion;
+use lambdaworks_math::unsigned_integer::element::U384;
 pub use lambdaworks_math::{
     field::{element::FieldElement, fields::u64_prime_field::U64PrimeField},
     polynomial::Polynomial,
@@ -79,8 +80,9 @@ pub fn fri(p_0: &mut Polynomial<FieldElement<F>>, domain_0: &[FE]) -> FriCommitm
 
     while degree > 0 {
         // sample beta:
-        let beta_bytes = transcript.challenge();
-        let beta = FE::from_bytes_be(&beta_bytes).unwrap();
+        // let beta_bytes = transcript.challenge();
+        // let beta = FE::from_bytes_be(&beta_bytes).unwrap();
+        let beta = FE::new(U384::from("2"));
         let (p_i, domain_i, evaluation_i) = next_fri_layer(&last_poly, &last_domain, &beta);
 
         let commitment_i = fri_commitment(&p_i, &domain_i, &evaluation_i, &mut transcript);
