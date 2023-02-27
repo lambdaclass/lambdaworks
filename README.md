@@ -31,7 +31,7 @@ If you use ```Lambdaworks``` libraries in your research projects, please cite th
 - Polynomial commitment schemes
 - PIOP
 - Cryptographic tools
-- Advanced tools: agreggation, recursion, accumulation
+- Advanced tools: aggregation, recursion, accumulation
 - Protocols
 - Gadgets
 

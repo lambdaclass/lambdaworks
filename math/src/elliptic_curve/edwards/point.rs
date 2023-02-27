@@ -44,6 +44,12 @@ impl<E: IsEllipticCurve> EdwardsProjectivePoint<E> {
     pub fn to_affine(&self) -> Self {
         Self(self.0.to_affine())
     }
+
+    /// Returns the additive inverse of the projective point `p`
+    pub fn neg(&self) -> Self {
+        let [px, py, pz] = self.coordinates();
+        Self::new([-px, py.clone(), pz.clone()])
+    }
 }
 
 impl<E: IsEllipticCurve> PartialEq for EdwardsProjectivePoint<E> {
@@ -79,7 +85,7 @@ impl<E: IsEdwards> IsGroup for EdwardsProjectivePoint<E> {
     }
 
     /// Computes the addition of `self` and `other`.
-    /// Taken from "Moonmath" (Algorithm 7, page 89)
+    /// Taken from "Moonmath" (Eq 5.38, page 97)
     fn operate_with(&self, other: &Self) -> Self {
         // TODO: Remove repeated operations
         let [x1, y1, _] = self.to_affine().coordinates().clone();
@@ -150,6 +156,15 @@ mod tests {
             FieldElement::from(1),
         ]);
         assert_eq!(p.operate_with(&q), expected);
+    }
+
+    #[test]
+    fn test_negation_in_edwards() {
+        let a = create_point(5, 5);
+        let b = create_point(13 - 5, 5);
+
+        assert_eq!(a.neg(), b);
+        assert!(a.operate_with(&b).is_neutral_element());
     }
 
     #[test]

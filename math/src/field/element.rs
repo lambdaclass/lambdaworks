@@ -1,12 +1,28 @@
 use crate::field::traits::IsField;
 use crate::unsigned_integer::traits::IsUnsignedInteger;
-use std::fmt::Debug;
 use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
+use std::{
+    fmt::Debug,
+    hash::{Hash, Hasher},
+};
 
 /// A field element with operations algorithms defined in `F`
 #[derive(Debug, Clone)]
 pub struct FieldElement<F: IsField> {
     value: F::BaseType,
+}
+
+/// From overloading for field elements
+impl<F> From<&F::BaseType> for FieldElement<F>
+where
+    F::BaseType: Clone,
+    F: IsField,
+{
+    fn from(value: &F::BaseType) -> Self {
+        Self {
+            value: F::from_base_type(value.clone()),
+        }
+    }
 }
 
 /// From overloading for U64
@@ -32,6 +48,15 @@ where
 }
 
 impl<F> Eq for FieldElement<F> where F: IsField {}
+
+impl<F> Hash for FieldElement<F>
+where
+    F: IsField,
+{
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.value.hash(state);
+    }
+}
 
 /// Addition operator overloading for field elements
 impl<F> Add<&FieldElement<F>> for &FieldElement<F>
