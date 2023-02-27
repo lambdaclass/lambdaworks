@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 rand = "0.8.5"
 lambdaworks-math = { path = "../math" }
+thiserror = "1.0.38"
 # prover = { package = "winter-prover", git = "https://github.com/maxgillett/winterfell", rev = "0aad6a5", version = "0.4", features = ["concurrent"], default-features = false }
 # math = { package = "winter-math", git = "https://github.com/maxgillett/winterfell", rev = "0aad6a5", version = "0.4", default-features = false }
 # crypto = { package = "winter-crypto", git = "https://github.com/maxgillett/winterfell", rev = "0aad6a5", version = "0.4", features = ["concurrent"] }
@@ -24,3 +25,4 @@ winter-air = { package = "winter-air", git = "https://github.com/zerosync/winter
 crypto = { package = "winter-crypto", git = "https://github.com/zerosync/winterfell", version = "0.4", features = ["concurrent"] }
 winter-utils = { package = "winter-utils", git = "https://github.com/zerosync/winterfell", default-features = false }
 winter-verifier = { package = "winter-verifier", git = "https://github.com/zerosync/winterfell", default-features = false }
+
