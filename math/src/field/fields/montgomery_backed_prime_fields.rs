@@ -1,6 +1,5 @@
 use crate::field::element::FieldElement;
 use crate::traits::ByteConversion;
-use crate::unsigned_integer::element::U384;
 use crate::{
     field::traits::IsField, unsigned_integer::element::UnsignedInteger,
     unsigned_integer::montgomery::MontgomeryAlgorithms,
@@ -8,32 +7,36 @@ use crate::{
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
+pub type U384PrimeField<C> = MontgomeryBackendPrimeField<C, 6>;
+pub type U256PrimeField<C> = MontgomeryBackendPrimeField<C, 4>;
+
 /// This trait is necessary for us to be able to use unsigned integer types bigger than
 /// `u128` (the biggest native `unit`) as constant generics.
 /// This trait should be removed when Rust supports this feature.
-pub trait IsMontgomeryConfiguration {
-    const MODULUS: U384;
-    const R2: U384;
+
+pub trait IsMontgomeryConfiguration<const NUM_LIMBS: usize> {
+    const MODULUS: UnsignedInteger<NUM_LIMBS>;
+    const R2: UnsignedInteger<NUM_LIMBS>;
     const MP: u64;
 }
 
 #[derive(Clone, Debug)]
-pub struct MontgomeryBackendPrimeField<C> {
+pub struct MontgomeryBackendPrimeField<C, const NUM_LIMBS: usize> {
     phantom: PhantomData<C>,
 }
 
-impl<C> MontgomeryBackendPrimeField<C>
+impl<C, const NUM_LIMBS: usize> MontgomeryBackendPrimeField<C, NUM_LIMBS>
 where
-    C: IsMontgomeryConfiguration,
+    C: IsMontgomeryConfiguration<NUM_LIMBS>,
 {
-    const ZERO: U384 = UnsignedInteger::from_u64(0);
+    const ZERO: UnsignedInteger<NUM_LIMBS> = UnsignedInteger::from_u64(0);
 }
 
-impl<C> IsField for MontgomeryBackendPrimeField<C>
+impl<C, const NUM_LIMBS: usize> IsField for MontgomeryBackendPrimeField<C, NUM_LIMBS>
 where
-    C: IsMontgomeryConfiguration + Clone + Debug,
+    C: IsMontgomeryConfiguration<NUM_LIMBS> + Clone + Debug,
 {
-    type BaseType = U384;
+    type BaseType = UnsignedInteger<NUM_LIMBS>;
 
     fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
         let (sum, overflow) = UnsignedInteger::add(a, b);
@@ -101,51 +104,61 @@ where
     }
 }
 
-impl<C> ByteConversion for FieldElement<MontgomeryBackendPrimeField<C>>
+impl<C, const NUM_LIMBS: usize> ByteConversion
+    for FieldElement<MontgomeryBackendPrimeField<C, NUM_LIMBS>>
 where
-    C: IsMontgomeryConfiguration + Clone + Debug,
+    C: IsMontgomeryConfiguration<NUM_LIMBS> + Clone + Debug,
 {
     fn to_bytes_be(&self) -> Vec<u8> {
-        MontgomeryAlgorithms::cios(self.value(), &U384::from_u64(1), &C::MODULUS, &C::MP)
-            .to_bytes_be()
+        MontgomeryAlgorithms::cios(
+            self.value(),
+            &UnsignedInteger::from_u64(1),
+            &C::MODULUS,
+            &C::MP,
+        )
+        .to_bytes_be()
     }
 
     fn to_bytes_le(&self) -> Vec<u8> {
-        MontgomeryAlgorithms::cios(self.value(), &U384::from_u64(1), &C::MODULUS, &C::MP)
-            .to_bytes_le()
+        MontgomeryAlgorithms::cios(
+            self.value(),
+            &UnsignedInteger::from_u64(1),
+            &C::MODULUS,
+            &C::MP,
+        )
+        .to_bytes_le()
     }
 
     fn from_bytes_be(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError> {
-        let value = U384::from_bytes_be(bytes)?;
+        let value = UnsignedInteger::from_bytes_be(bytes)?;
         Ok(Self::new(value))
     }
 
     fn from_bytes_le(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError> {
-        let value = U384::from_bytes_le(bytes)?;
+        let value = UnsignedInteger::from_bytes_le(bytes)?;
         Ok(Self::new(value))
     }
 }
 
 #[cfg(test)]
-mod tests {
-    use crate::{
-        field::element::FieldElement,
-        traits::ByteConversion,
-        unsigned_integer::element::{UnsignedInteger, U384},
+mod tests_u384_prime_fields {
+    use crate::field::element::FieldElement;
+    use crate::field::fields::montgomery_backed_prime_fields::{
+        IsMontgomeryConfiguration, U384PrimeField,
     };
+    use crate::traits::ByteConversion;
+    use crate::unsigned_integer::element::UnsignedInteger;
+    use crate::unsigned_integer::element::U384;
 
-    use super::{IsMontgomeryConfiguration, MontgomeryBackendPrimeField};
-
-    // F23
     #[derive(Clone, Debug)]
-    struct MontgomeryConfig23;
-    impl IsMontgomeryConfiguration for MontgomeryConfig23 {
+    struct MontgomeryConfiguration23;
+    impl IsMontgomeryConfiguration<6> for MontgomeryConfiguration23 {
         const MODULUS: U384 = UnsignedInteger::from_u64(23);
         const MP: u64 = 3208129404123400281;
         const R2: U384 = UnsignedInteger::from_u64(6);
     }
 
-    type F23 = MontgomeryBackendPrimeField<MontgomeryConfig23>;
+    type F23 = U384PrimeField<MontgomeryConfiguration23>;
     type F23Element = FieldElement<F23>;
 
     #[test]
@@ -287,7 +300,7 @@ mod tests {
     // FP1
     #[derive(Clone, Debug)]
     struct MontgomeryConfigP1;
-    impl IsMontgomeryConfiguration for MontgomeryConfigP1 {
+    impl IsMontgomeryConfiguration<6> for MontgomeryConfigP1 {
         const MODULUS: U384 = UnsignedInteger {
             limbs: [
                 0,
@@ -318,7 +331,7 @@ mod tests {
         assert_eq!(x + y, c);
     }
 
-    type FP1 = MontgomeryBackendPrimeField<MontgomeryConfigP1>;
+    type FP1 = U384PrimeField<MontgomeryConfigP1>;
     type FP1Element = FieldElement<FP1>;
     #[test]
     fn montgomery_prime_field_multiplication_works_0() {
@@ -337,7 +350,7 @@ mod tests {
     // FP2
     #[derive(Clone, Debug)]
     struct MontgomeryConfigP2;
-    impl IsMontgomeryConfiguration for MontgomeryConfigP2 {
+    impl IsMontgomeryConfiguration<6> for MontgomeryConfigP2 {
         const MODULUS: U384 = UnsignedInteger {
             limbs: [
                 18446744073709551615,
@@ -354,7 +367,7 @@ mod tests {
         };
     }
 
-    type FP2 = MontgomeryBackendPrimeField<MontgomeryConfigP2>;
+    type FP2 = U384PrimeField<MontgomeryConfigP2>;
     type FP2Element = FieldElement<FP2>;
 
     #[test]
@@ -420,3 +433,6 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+mod tests_u256_prime_fields {}

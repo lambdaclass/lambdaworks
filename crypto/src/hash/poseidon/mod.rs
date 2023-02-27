@@ -147,7 +147,9 @@ where
 #[cfg(test)]
 mod tests {
     use lambdaworks_math::{
-        field::fields::u384_prime_field::{IsMontgomeryConfiguration, MontgomeryBackendPrimeField},
+        field::fields::montgomery_backed_prime_fields::{
+            IsMontgomeryConfiguration, U384PrimeField,
+        },
         unsigned_integer::element::U384,
     };
 
@@ -155,7 +157,7 @@ mod tests {
 
     #[derive(Clone, Debug)]
     pub struct TestFieldConfig;
-    impl IsMontgomeryConfiguration for TestFieldConfig {
+    impl IsMontgomeryConfiguration<6> for TestFieldConfig {
         const MODULUS: U384 =
             U384::from("2000000000000080000000000000000000000000000000000000000000000001");
         const MP: u64 = 18446744073709551615u64;
@@ -163,7 +165,7 @@ mod tests {
             U384::from("C0000FFFFCFFFF800000000C0001FFFFFFFFBFFFF80000000140001FFFFE00");
     }
 
-    pub type PoseidonTestField = MontgomeryBackendPrimeField<TestFieldConfig>;
+    pub type PoseidonTestField = U384PrimeField<TestFieldConfig>;
     type TestFieldElement = FieldElement<PoseidonTestField>;
 
     pub fn load_test_parameters() -> Result<Parameters<PoseidonTestField>, String> {

@@ -1,6 +1,6 @@
 use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
 use crate::elliptic_curve::traits::IsEllipticCurve;
-use crate::field::fields::u384_prime_field::{
+use crate::field::fields::montgomery_backed_prime_fields::{
     IsMontgomeryConfiguration, MontgomeryBackendPrimeField,
 };
 use crate::unsigned_integer::element::U384;
@@ -21,13 +21,13 @@ pub const TEST_CURVE_2_MAIN_SUBGROUP_ORDER: U384 = U384::from("40a065fb5a76390de
 // FPBLS12381
 #[derive(Clone, Debug)]
 pub struct TestCurve2MontgomeryConfig;
-impl IsMontgomeryConfiguration for TestCurve2MontgomeryConfig {
+impl IsMontgomeryConfiguration<6> for TestCurve2MontgomeryConfig {
     const MODULUS: U384 = TEST_CURVE_2_PRIME_FIELD_ORDER;
     const MP: u64 = 1901108026836139985;
     const R2: U384 = U384::from("f60e53d42ca85ba186067660c4f2daa94");
 }
 
-type TestCurve2PrimeField = MontgomeryBackendPrimeField<TestCurve2MontgomeryConfig>;
+type TestCurve2PrimeField = MontgomeryBackendPrimeField<TestCurve2MontgomeryConfig, 6>;
 
 /// In F59 the element -1 is not a square. We use this property
 /// to construct a Quadratic Field Extension out of it by adding
