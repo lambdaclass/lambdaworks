@@ -29,7 +29,7 @@ pub fn inverse_fft<F: IsField + IsTwoAdicField>(
     Ok(inverse_cooley_tukey(evaluations, omega))
 }
 
-/// In-Place Radix-2 NR DIT FFT algorithm on a slice of type `E` elements.
+/// In-Place Radix-2 NR DIT FFT algorithm over a slice of two-adic field elements.
 /// It's required that the twiddle factors are in bit-reverse order. Else this function will not
 /// return fourier transformed values.
 ///
@@ -39,7 +39,7 @@ pub fn inverse_fft<F: IsField + IsTwoAdicField>(
 /// - NR: natural to reverse order, meaning that the input is naturally ordered and the output will
 /// be bit-reversed ordered.
 /// - DIT: decimation in time
-fn in_place_nr_2radix_fft<F>(input: &mut [FieldElement<F>], twiddles: &[FieldElement<F>])
+fn in_place_nr_2radix_ntt<F>(input: &mut [FieldElement<F>], twiddles: &[FieldElement<F>])
 where
     F: IsTwoAdicField,
 {
