@@ -30,7 +30,7 @@ const fn compute_mu_parameter(modulus: &U384) -> u64 {
     y.wrapping_neg()
 }
 
-
+/// Computes 2^{384 * 2} modulo `modulus`
 const fn compute_r2_parameter(modulus: &U384) -> U384 {
     let number_limbs = 6;
     let word_size = 64;
@@ -45,7 +45,7 @@ const fn compute_r2_parameter(modulus: &U384) -> U384 {
     }
     let mut c = U384::from_u64(1).const_shl(l);
 
-    // Double `c` and reduce modulo `mudulus` until getting 
+    // Double `c` and reduce modulo `mudulus` until getting
     // `2^{2 * number_limbs * word_size}` mod `modulus`
     let mut i: usize = 1;
     while i <= 2 * number_limbs * word_size - l {
@@ -66,7 +66,7 @@ const fn compute_r2_parameter(modulus: &U384) -> U384 {
 pub trait IsMontgomeryConfiguration {
     const MODULUS: U384;
     const R2: U384 = compute_r2_parameter(&Self::MODULUS);
-    const MP: u64 = compute_mu_parameter(&Self::MODULUS);
+    const MU: u64 = compute_mu_parameter(&Self::MODULUS);
 }
 
 #[derive(Clone, Debug)]
@@ -102,7 +102,7 @@ where
     }
 
     fn mul(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
-        MontgomeryAlgorithms::cios(a, b, &C::MODULUS, &C::MP)
+        MontgomeryAlgorithms::cios(a, b, &C::MODULUS, &C::MU)
     }
 
     fn sub(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
@@ -145,11 +145,11 @@ where
     }
 
     fn from_u64(x: u64) -> Self::BaseType {
-        MontgomeryAlgorithms::cios(&UnsignedInteger::from_u64(x), &C::R2, &C::MODULUS, &C::MP)
+        MontgomeryAlgorithms::cios(&UnsignedInteger::from_u64(x), &C::R2, &C::MODULUS, &C::MU)
     }
 
     fn from_base_type(x: Self::BaseType) -> Self::BaseType {
-        MontgomeryAlgorithms::cios(&x, &C::R2, &C::MODULUS, &C::MP)
+        MontgomeryAlgorithms::cios(&x, &C::R2, &C::MODULUS, &C::MU)
     }
 }
 
@@ -158,12 +158,12 @@ where
     C: IsMontgomeryConfiguration + Clone + Debug,
 {
     fn to_bytes_be(&self) -> Vec<u8> {
-        MontgomeryAlgorithms::cios(self.value(), &U384::from_u64(1), &C::MODULUS, &C::MP)
+        MontgomeryAlgorithms::cios(self.value(), &U384::from_u64(1), &C::MODULUS, &C::MU)
             .to_bytes_be()
     }
 
     fn to_bytes_le(&self) -> Vec<u8> {
-        MontgomeryAlgorithms::cios(self.value(), &U384::from_u64(1), &C::MODULUS, &C::MP)
+        MontgomeryAlgorithms::cios(self.value(), &U384::from_u64(1), &C::MODULUS, &C::MU)
             .to_bytes_le()
     }
 
@@ -177,7 +177,6 @@ where
         Ok(Self::new(value))
     }
 }
-
 
 #[cfg(test)]
 mod tests {
