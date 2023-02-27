@@ -206,30 +206,30 @@ mod tests {
     fn operate_with_works_and_cycles_in_tiny_jub_jub() {
         let g = create_point(9, 2);
         assert_eq!(
-            g.operate_with_self(0),
+            g.operate_with_self(0_u16),
             MontgomeryProjectivePoint::neutral_element()
         );
-        assert_eq!(g.operate_with_self(1), create_point(9, 2));
-        assert_eq!(g.operate_with_self(2), create_point(7, 12));
-        assert_eq!(g.operate_with_self(3), create_point(10, 3));
-        assert_eq!(g.operate_with_self(4), create_point(8, 12));
-        assert_eq!(g.operate_with_self(5), create_point(1, 9));
-        assert_eq!(g.operate_with_self(6), create_point(5, 1));
-        assert_eq!(g.operate_with_self(7), create_point(4, 9));
-        assert_eq!(g.operate_with_self(8), create_point(2, 9));
-        assert_eq!(g.operate_with_self(9), create_point(3, 5));
-        assert_eq!(g.operate_with_self(10), create_point(0, 0));
-        assert_eq!(g.operate_with_self(11), create_point(3, 8));
-        assert_eq!(g.operate_with_self(12), create_point(2, 4));
-        assert_eq!(g.operate_with_self(13), create_point(4, 4));
-        assert_eq!(g.operate_with_self(14), create_point(5, 12));
-        assert_eq!(g.operate_with_self(15), create_point(1, 4));
-        assert_eq!(g.operate_with_self(16), create_point(8, 1));
-        assert_eq!(g.operate_with_self(17), create_point(10, 10));
-        assert_eq!(g.operate_with_self(18), create_point(7, 1));
-        assert_eq!(g.operate_with_self(19), create_point(9, 11));
+        assert_eq!(g.operate_with_self(1_u16), create_point(9, 2));
+        assert_eq!(g.operate_with_self(2_u16), create_point(7, 12));
+        assert_eq!(g.operate_with_self(3_u16), create_point(10, 3));
+        assert_eq!(g.operate_with_self(4_u16), create_point(8, 12));
+        assert_eq!(g.operate_with_self(5_u16), create_point(1, 9));
+        assert_eq!(g.operate_with_self(6_u16), create_point(5, 1));
+        assert_eq!(g.operate_with_self(7_u16), create_point(4, 9));
+        assert_eq!(g.operate_with_self(8_u16), create_point(2, 9));
+        assert_eq!(g.operate_with_self(9_u16), create_point(3, 5));
+        assert_eq!(g.operate_with_self(10_u16), create_point(0, 0));
+        assert_eq!(g.operate_with_self(11_u16), create_point(3, 8));
+        assert_eq!(g.operate_with_self(12_u16), create_point(2, 4));
+        assert_eq!(g.operate_with_self(13_u16), create_point(4, 4));
+        assert_eq!(g.operate_with_self(14_u16), create_point(5, 12));
+        assert_eq!(g.operate_with_self(15_u16), create_point(1, 4));
+        assert_eq!(g.operate_with_self(16_u16), create_point(8, 1));
+        assert_eq!(g.operate_with_self(17_u16), create_point(10, 10));
+        assert_eq!(g.operate_with_self(18_u16), create_point(7, 1));
+        assert_eq!(g.operate_with_self(19_u16), create_point(9, 11));
         assert_eq!(
-            g.operate_with_self(20),
+            g.operate_with_self(20_u16),
             MontgomeryProjectivePoint::neutral_element()
         );
     }
