@@ -23,9 +23,13 @@ use lambdaworks_math::{
 };
 
 type U384PrimeField = MontgomeryBackendPrimeField<crate::air::polynomials::MontgomeryConfig>;
+
 type U384FieldElement = FieldElement<U384PrimeField>;
-const MODULUS_MINUS_1: U384 =
-    U384::from("800000000000011000000000000000000000000000000000000000000000000");
+
+const MODULUS_MINUS_1: U384 = U384::sub(&crate::air::polynomials::MontgomeryConfig::MODULUS, &U384::from("1")).0;
+
+const ORDER_OF_ROOTS_OF_UNITY_TRACE: u64 = 4;
+const ORDER_OF_ROOTS_OF_UNITY_FOR_LDE: u64 = 16;
 
 pub fn generate_vec_roots(
     subgroup_size: u64,
@@ -77,12 +81,12 @@ pub use lambdaworks_crypto::merkle_tree::DefaultHasher;
 pub type FriMerkleTree = MerkleTree<U384PrimeField, DefaultHasher>;
 
 pub fn fibonacci_trace(initial_values: [U384FieldElement; 2]) -> Vec<U384FieldElement> {
-    let mut ret = vec![];
+    let mut ret: Vec<U384FieldElement>  = vec![];
 
     ret.push(initial_values[0].clone());
     ret.push(initial_values[1].clone());
 
-    for i in 2..32 {
+    for i in 2..(ORDER_OF_ROOTS_OF_UNITY_TRACE as usize) {
         ret.push(ret[i - 1].clone() + ret[i - 2].clone());
     }
 
@@ -103,10 +107,13 @@ pub fn prove(
     // let (mut composition_poly, mut trace_poly) = get_cp_and_tp(air, trace, pub_inputs).unwrap();
 
     // * Generate Coset
-    let (roots_of_unity, primitive_root) = crate::generate_vec_roots(32, 1);
-    let (lde_roots_of_unity, lde_primitive_root) = crate::generate_vec_roots(1024, 1);
+
+    let (roots_of_unity, primitive_root) = crate::generate_vec_roots(ORDER_OF_ROOTS_OF_UNITY_TRACE, 1);
+    let (lde_roots_of_unity, lde_primitive_root) = crate::generate_vec_roots(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE, 1);
 
     let trace = fibonacci_trace(pub_inputs);
+
+    
     let mut trace_poly = Polynomial::interpolate(&roots_of_unity, &trace);
 
     let mut composition_poly = get_composition_poly(trace_poly.clone(), &primitive_root);
@@ -160,12 +167,12 @@ pub fn prove(
     );
     merkle_paths.push(
         trace_poly_lde_merkle_tree
-            .get_proof_by_pos(q_1 + (1024 / 32), trace_lde_poly_evaluations[1].clone())
+            .get_proof_by_pos(q_1 + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE) as usize, trace_lde_poly_evaluations[1].clone())
             .unwrap(),
     );
     merkle_paths.push(
         trace_poly_lde_merkle_tree
-            .get_proof_by_pos(q_1 + (1024 / 32) * 2, trace_lde_poly_evaluations[2].clone())
+            .get_proof_by_pos(q_1 + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE) as usize * 2, trace_lde_poly_evaluations[2].clone())
             .unwrap(),
     );
 

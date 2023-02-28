@@ -22,7 +22,7 @@ use winterfell::prover::{
 pub struct MontgomeryConfig;
 impl IsMontgomeryConfiguration for MontgomeryConfig {
     const MODULUS: U384 =
-        U384::from("800000000000011000000000000000000000000000000000000000000000001");
+        U384::from("17");
 }
 
 pub type U384PrimeField = MontgomeryBackendPrimeField<MontgomeryConfig>;
