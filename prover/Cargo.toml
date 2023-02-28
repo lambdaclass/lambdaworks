@@ -11,3 +11,6 @@ lambdaworks-math = { path = "../math" }
 lambdaworks-crypto = { path = "../crypto"}
 winterfell = { git = "https://github.com/lambdaclass/winterfell", branch = "make-apis-public" }
 thiserror = "1.0.38"
+
+[dev-dependencies]
+parameterized_test = "0.2.1"
