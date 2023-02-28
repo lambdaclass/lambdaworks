@@ -122,3 +122,25 @@ make benchmark BENCH=field
 ```
 
 You can check the generated HTML report in `target/criterion/reports/index.html`
+
+## 📈 Flamegraphs
+
+### Generating a flamegraph for a specific benchmark
+
+To generate a flamegraph for a specific benchmark, run:
+
+```bash
+make flamegraph BENCH=bench_name
+```
+
+You can check the generated flamegraph in `target/criterion/`
+
+### Generating a flamegraph for all benchmarks
+
+To generate a flamegraph for all benchmarks, run:
+
+```bash
+make flamegraphs
+```
+
+You can check the generated flamegraphs in `target/criterion/`

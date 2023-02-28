@@ -13,6 +13,7 @@ thiserror = "1.0.38"
 proptest = "1.1.0"
 criterion = "0.4"
 const-random = "0.1.15"
+pprof = { version = "0.11", features = ["criterion", "flamegraph", "frame-pointer"], default_features = false }
 
 [[bench]]
 name = "all_benchmarks"
@@ -21,3 +22,6 @@ harness = false
 [[bench]]
 name = "field_benchmarks"
 harness = false
+
+[features]
+benchmark_flamegraph = []

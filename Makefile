@@ -17,3 +17,10 @@ benchmarks:
 # BENCHMARK should be one of the [[bench]] names in Cargo.toml
 benchmark:
 	cargo criterion --bench ${BENCH}
+
+flamegraphs:
+	cargo bench --features benchmark_flamegraph --bench all_benchmarks -- --profile-time=5
+
+# BENCHMARK should be one of the [[bench]] names in Cargo.toml
+flamegraph:
+	cargo bench --features benchmark_flamegraph --bench ${BENCH} -- --profile-time=5
