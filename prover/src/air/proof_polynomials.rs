@@ -49,6 +49,7 @@ pub(crate) fn get_cp_coeffs<E: StarkField>(matrix_poly: Matrix<E>) -> Vec<E> {
 }
 
 #[allow(dead_code)]
+/// Converts a giza Felt slice into a vector of U384FieldElements
 pub(crate) fn giza2lambda_felts(coeffs: &[Felt]) -> Vec<U384FieldElement> {
     coeffs
         .iter()
@@ -57,6 +58,8 @@ pub(crate) fn giza2lambda_felts(coeffs: &[Felt]) -> Vec<U384FieldElement> {
 }
 
 #[allow(dead_code)]
+/// Given a giza TracePolyTable storing trace polynomials, gives a vector of lambdaworks Polynomial
+/// native type.
 pub(crate) fn giza2lambda_tp(polys: TracePolyTable<Felt>) -> Vec<Polynomial<U384FieldElement>> {
     let polys_iter = polys.main_trace_polys();
     let mut lambda_polys: Vec<Polynomial<U384FieldElement>> = Vec::with_capacity(polys_iter.len());
@@ -70,7 +73,8 @@ pub(crate) fn giza2lambda_tp(polys: TracePolyTable<Felt>) -> Vec<Polynomial<U384
 }
 
 /// Given a trace and an AIR defined with winterfell data structures, outputs
-/// a Polynomial lambdaworks native data structure.
+/// a Polynomial representing the composition polynomial of the AIR and a vector
+/// of Polynomials representing trace polynomials.
 #[allow(dead_code)]
 pub(crate) fn get_cp_and_tps<A, T>(
     air: A,
