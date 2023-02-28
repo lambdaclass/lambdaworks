@@ -5,13 +5,12 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[dependencies.lambdaworks-math]
-path = "../math"
-
-[dependencies.lambdaworks-crypto]
-path = "../crypto"
-
 [dependencies]
+rand = "0.8.5"
+lambdaworks-math = { path = "../math" }
+lambdaworks-crypto = { path = "../crypto"}
+winterfell = { git = "https://github.com/lambdaclass/winterfell", branch = "make-apis-public" }
+thiserror = "1.0.38"
 
 [dev-dependencies]
 parameterized_test = "0.2.1"

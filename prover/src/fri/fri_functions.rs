@@ -9,7 +9,7 @@ fn fold_polynomial(poly: &Polynomial<FE>, beta: &FE) -> Polynomial<FE> {
         .iter()
         .skip(1)
         .step_by(2)
-        .map(|v| (*v) * beta)
+        .map(|v| (v.clone()) * beta)
         .collect();
 
     let (even_poly, odd_poly) = Polynomial::pad_with_zero_coefficients(
@@ -39,7 +39,9 @@ pub fn next_fri_layer(
 ) -> (Polynomial<FE>, Vec<FE>, Vec<FE>) {
     let ret_poly = fold_polynomial(poly, beta);
     let ret_next_domain = next_domain(domain);
+    println!("NEXT DOMAIN: {:?}", ret_next_domain[2]);
     let ret_evaluation = ret_poly.evaluate_slice(&ret_next_domain);
+    println!("NEXT EVALUATION: {:?}", ret_evaluation[2]);
     (ret_poly, ret_next_domain, ret_evaluation)
 }
 
@@ -47,6 +49,7 @@ pub fn next_fri_layer(
 mod tests {
     use super::{fold_polynomial, next_domain, next_fri_layer, FE};
     use lambdaworks_math::polynomial::Polynomial;
+    use lambdaworks_math::unsigned_integer::element::U384;
     use parameterized_test;
 
     parameterized_test::create! { fold, (p0, beta, expected_p1), {
@@ -55,13 +58,13 @@ mod tests {
     }}
     fold! {
         first_fold: (poly(&[3, 1, 2, 7, 3, 5,]),    // p0
-                     FE::new(4),                    // beta
+                     FE::new(U384::from_u64(4)),    // beta
                      poly(&[7, 30, 23,])),          // p1
         second_fold: (poly(&[7, 30, 23,]),          // same p1
-                      FE::new(3),                   // gamma
+                      FE::new(U384::from_u64(3)),   // gamma
                       poly(&[97, 23,])),            // p2
         third_fold: (poly(&[97, 23,]),              // same p2
-                     FE::new(2),                    // delta
+                     FE::new(U384::from_u64(2)),    // delta
                      poly(&[143,])),                // p3
     }
 
@@ -79,16 +82,14 @@ mod tests {
     }
 
     parameterized_test::create! { next_fri_layer, ((p0, beta, input_domain), (expected_p1, expected_domain, expected_evaluation)), {
-
         let (p1, ret_next_domain, ret_evaluation) = next_fri_layer(&p0, &input_domain, &beta);
-
         assert_eq!(p1, expected_p1);
         assert_eq!(ret_next_domain, expected_domain);
         assert_eq!(ret_evaluation, expected_evaluation);
     }}
     next_fri_layer! {
         basic_case: ((poly(&[3, 1, 2, 7, 3, 5,]),               // Input poly
-                      FE::new(4),                               // Beta
+                      FE::new(U384::from_u64(3)),               // Beta
                       domain(&[5, 7, 13, 20, 1, 1, 1, 1])),     // Input Domain
                      (poly(&[7, 30, 23,]),                      // Expected poly
                       domain(&[25, 49, 169, 107,]),             // Expected return domain
@@ -103,7 +104,7 @@ mod tests {
     fn domain(coefficients: &[u64]) -> Vec<FE> {
         coefficients
             .iter()
-            .map(|f| FE::new(*f))
+            .map(|f| FE::new(U384::from_u64(*f)))
             .collect::<Vec<FE>>()
     }
 }

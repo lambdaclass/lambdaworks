@@ -5,7 +5,7 @@
 [![Telegram Chat][tg-badge]][tg-url]
 
 [tg-badge]: https://img.shields.io/static/v1?color=green&logo=telegram&label=chat&style=flat&message=join
-[tg-url]: https://t.me/+6jzrsK6qR7w3MTkx
+[tg-url]: https://t.me/+98Whlzql7Hs0MDZh
 
 </div>
 
@@ -99,3 +99,25 @@ If you use ```Lambdaworks``` libraries in your research projects, please cite th
 - Fiat-Shamir
 
 ### Gadgets
+
+## 📊 Benchmarks
+
+To run the benchmarks you will need `cargo-criterion`, to install do:
+
+```
+cargo install cargo-criterion
+```
+
+Run the complete benchmark suite with:
+
+```bash
+make benchmark
+```
+
+Run a specific benchmark suite with `cargo`, for example to run the one for `field`:
+
+```bash
+cargo criterion --bench field
+```
+
+You can check the generated HTML report in `target/criterion/reports/index.html`

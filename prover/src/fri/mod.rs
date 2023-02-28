@@ -1,5 +1,5 @@
 mod fri_commitment;
-mod fri_decommit;
+pub mod fri_decommit;
 mod fri_functions;
 mod fri_merkle_tree;
 
@@ -8,14 +8,14 @@ use crate::fri::fri_functions::next_fri_layer;
 pub use crate::fri::fri_merkle_tree::FriMerkleTree;
 pub use lambdaworks_crypto::{fiat_shamir::transcript::Transcript, merkle_tree::MerkleTree};
 use lambdaworks_math::traits::ByteConversion;
+use lambdaworks_math::unsigned_integer::element::U384;
 pub use lambdaworks_math::{
     field::{element::FieldElement, fields::u64_prime_field::U64PrimeField},
     polynomial::Polynomial,
 };
 
-const ORDER: u64 = 293;
-pub type F = U64PrimeField<ORDER>;
-pub type FE = FieldElement<F>;
+pub type F = crate::air::polynomials::U384PrimeField;
+pub type FE = crate::air::polynomials::U384FieldElement;
 
 /// # Params
 ///
@@ -36,8 +36,8 @@ pub fn fri_commitment(
     let merkle_tree = FriMerkleTree::build(&evaluation_i);
 
     // append the root of the merkle tree to the transcript
-    let root = merkle_tree.root.borrow().hash;
-    let root_bytes = (*root.value()).to_be_bytes();
+    let root = merkle_tree.root.borrow().hash.clone();
+    let root_bytes = (*root.value()).to_bytes_be();
     transcript.append(&root_bytes);
 
     FriCommitment {
@@ -56,8 +56,8 @@ pub fn fri(p_0: &mut Polynomial<FieldElement<F>>, domain_0: &[FE]) -> FriCommitm
     let merkle_tree = FriMerkleTree::build(&evaluation_0);
 
     // append the root of the merkle tree to the transcript
-    let root = merkle_tree.root.borrow().hash;
-    let root_bytes = (*root.value()).to_be_bytes();
+    let root = merkle_tree.root.borrow().hash.clone();
+    let root_bytes = (*root.value()).to_bytes_be();
     transcript.append(&root_bytes);
 
     let commitment_0 = FriCommitment {
@@ -80,16 +80,17 @@ pub fn fri(p_0: &mut Polynomial<FieldElement<F>>, domain_0: &[FE]) -> FriCommitm
 
     while degree > 0 {
         // sample beta:
-        let beta_bytes = transcript.challenge();
-        let beta = FE::from_bytes_be(&beta_bytes).unwrap();
+        // let beta_bytes = transcript.challenge();
+        // let beta = FE::from_bytes_be(&beta_bytes).unwrap();
+        let beta = FE::new(U384::from("2"));
         let (p_i, domain_i, evaluation_i) = next_fri_layer(&last_poly, &last_domain, &beta);
 
         let commitment_i = fri_commitment(&p_i, &domain_i, &evaluation_i, &mut transcript);
 
         // append root of merkle tree to transcript
         let tree = &commitment_i.merkle_tree;
-        let root = tree.root.borrow().hash;
-        let root_bytes = (*root.value()).to_be_bytes();
+        let root = tree.root.borrow().hash.clone();
+        let root_bytes = (*root.value()).to_bytes_be();
         transcript.append(&root_bytes);
 
         fri_commitment_list.push(commitment_i);
@@ -101,7 +102,7 @@ pub fn fri(p_0: &mut Polynomial<FieldElement<F>>, domain_0: &[FE]) -> FriCommitm
     }
 
     // append last value of the polynomial to the trasncript
-    let last_coef_bytes = (*last_coef.value()).to_be_bytes();
+    let last_coef_bytes = (*last_coef.value()).to_bytes_be();
     transcript.append(&last_coef_bytes);
 
     fri_commitment_list
