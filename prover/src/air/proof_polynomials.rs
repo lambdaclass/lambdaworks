@@ -51,7 +51,7 @@ pub(crate) fn get_cp_coeffs<E: StarkField>(matrix_poly: Matrix<E>) -> Vec<E> {
 #[allow(dead_code)]
 pub(crate) fn giza2lambda_felts(coeffs: &[Felt]) -> Vec<U384FieldElement> {
     coeffs
-        .into_iter()
+        .iter()
         .map(|c| U384FieldElement::from(&U384::from(&c.to_string())))
         .collect()
 }
@@ -150,7 +150,7 @@ where
 
     let composition_poly = constraint_evaluations
         .into_poly()
-        .map_err(|e| ProverError::CompositionPolyError(e))?
+        .map_err(ProverError::CompositionPolyError)?
         .data;
 
     let giza_cp_coeffs: Vec<Felt> = get_cp_coeffs(composition_poly);
