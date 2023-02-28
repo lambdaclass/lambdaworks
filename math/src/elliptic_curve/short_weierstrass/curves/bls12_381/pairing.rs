@@ -87,7 +87,7 @@ fn final_exponentiation(
 
 /// Compute the ate pairing between point `p` in G1 and `q` in G2.
 #[allow(unused)]
-fn ate(
+pub fn ate(
     p: &ShortWeierstrassProjectivePoint<BLS12381Curve>,
     q: &ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
 ) -> FieldElement<Degree12ExtensionField> {
@@ -95,7 +95,7 @@ fn ate(
 }
 
 /// Compute the product of the ate pairings for a list of point pairs.
-fn batch_ate(
+pub fn batch_ate(
     pairs: &[(
         &ShortWeierstrassProjectivePoint<BLS12381Curve>,
         &ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
@@ -224,31 +224,6 @@ mod tests {
             "0"
         ]);
         assert_eq!(line(&g2, &g2_times_5, &g1), expected);
-    }
-
-    #[derive(Clone, Debug)]
-    struct BLS12381TestFp12;
-    impl IsEllipticCurve for BLS12381TestFp12 {
-        type BaseField = Degree12ExtensionField;
-        type PointRepresentation = ShortWeierstrassProjectivePoint<Self>;
-
-        fn generator() -> Self::PointRepresentation {
-            Self::PointRepresentation::new([
-                FieldElement::<Self::BaseField>::new_base("17f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb"),
-                FieldElement::<Self::BaseField>::new_base("8b3f481e3aaa0f1a09e30ed741d8ae4fcf5e095d5d00af600db18cb2c04b3edd03cc744a2888ae40caa232946c5e7e1"),
-                FieldElement::one()
-            ])
-        }
-    }
-
-    impl IsShortWeierstrass for BLS12381TestFp12 {
-        fn a() -> FieldElement<Self::BaseField> {
-            FieldElement::from(0)
-        }
-
-        fn b() -> FieldElement<Self::BaseField> {
-            FieldElement::from(4)
-        }
     }
 
     #[test]
