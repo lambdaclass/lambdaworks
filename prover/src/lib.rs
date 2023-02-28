@@ -301,6 +301,7 @@ pub fn verify(proof: StarkQueryProof) -> bool {
 // TODOS after basic fibonacci works:
 // - Add Fiat Shamir
 // - Add Zerofiers
+// - Check last evaluation point
 // - Instead of returning a bool, make an error type encoding each possible failure in the verifying pipeline so failures give more info.
 // - Unhardcode polynomials, use Winterfell AIR
 // - Coset evaluation
