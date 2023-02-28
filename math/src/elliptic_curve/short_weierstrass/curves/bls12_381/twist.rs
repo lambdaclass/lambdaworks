@@ -47,32 +47,30 @@ impl IsShortWeierstrass for BLS12381TwistCurve {
 }
 
 impl ShortWeierstrassProjectivePoint<BLS12381TwistCurve> {
-    /// Map ψ: E_twist(𝔽p²) -> E(𝔽p¹²).
-    /// Returns affine coordinates (x, y)
-    pub fn to_fp12_affine(&self) -> [FieldElement<Degree12ExtensionField>; 2] {
+    /// This function is related to the map ψ: E_twist(𝔽p²) -> E(𝔽p¹²).
+    /// Given an affine point G in E_twist(𝔽p²) returns x, y such that
+    /// ψ(G) = (x', y', 1) with x' = x * x'' and y' = y * y''
+    /// for some x'', y'' in 𝔽p².
+    /// This is meant only to be used in the miller loop of the
+    /// ate pairing before the final exponentiation.
+    /// This is because elements in 𝔽p² raised to that
+    /// power are 1 and so the final result of the ate pairing
+    /// doens't depend on having this function output the exact
+    /// values of x' and y'. And it is enough to work with x and y.
+    pub fn to_fp12_unnormalized(&self) -> [FieldElement<Degree12ExtensionField>; 2] {
         if self.is_neutral_element() {
             [FieldElement::zero(), FieldElement::one()]
         } else {
-            let [qx, qy, qz] = self.coordinates();
+            let [qx, qy, _] = self.coordinates();
 
-            // [0, qx / qz, 0, 0, 0, 0]
             let result_x = FieldElement::new([
-                FieldElement::new([
-                    FieldElement::zero(),
-                    qx.clone() / qz.clone(),
-                    FieldElement::zero(),
-                ]),
+                FieldElement::new([FieldElement::zero(), qx.clone(), FieldElement::zero()]),
                 FieldElement::zero(),
             ]);
 
-            // [0, 0, 0, 0, qy / qz, 0]
             let result_y = FieldElement::new([
                 FieldElement::zero(),
-                FieldElement::new([
-                    FieldElement::zero(),
-                    qy.clone() / qz.clone(),
-                    FieldElement::zero(),
-                ]),
+                FieldElement::new([FieldElement::zero(), qy.clone(), FieldElement::zero()]),
             ]);
 
             [result_x, result_y]

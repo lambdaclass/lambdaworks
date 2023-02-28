@@ -119,8 +119,8 @@ pub fn line(
         !q.is_neutral_element(),
         "q cannot be the point at infinity."
     );
-    let [px, py] = p.to_fp12_affine();
-    let [rx, ry] = r.to_fp12_affine();
+    let [px, py] = p.to_fp12_unnormalized();
+    let [rx, ry] = r.to_fp12_unnormalized();
     let [qx_fp, qy_fp, _] = q.coordinates().clone();
     let qx = FieldElement::<Degree12ExtensionField>::new([
         FieldElement::new([
@@ -208,7 +208,7 @@ mod tests {
     fn test_line_2() {
         let g1 = BLS12381Curve::generator();
         let g2 = BLS12381TwistCurve::generator();
-        let g2_times_5 = g2.operate_with_self(5_u16);
+        let g2_times_5 = g2.operate_with_self(5_u16).to_affine();
         let expected = Fp12E::from_coefficients(&[
             "8b3f481e3aaa0f1a09e30ed741d8ae4fcf5e095d5d00af600db18cb2c04b3edd03cc744a2888ae40caa232946c5e7e1",
             "0",

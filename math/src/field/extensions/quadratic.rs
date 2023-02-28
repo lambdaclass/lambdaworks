@@ -54,10 +54,10 @@ where
         b: &[FieldElement<Q::BaseField>; 2],
     ) -> [FieldElement<Q::BaseField>; 2] {
         let q = Q::residue();
-        [
-            &a[0] * &b[0] + &a[1] * &b[1] * q,
-            &a[0] * &b[1] + &a[1] * &b[0],
-        ]
+        let a0b0 = &a[0] * &b[0];
+        let a1b1 = &a[1] * &b[1];
+        let z = (&a[0] + &a[1]) * (&b[0] + &b[1]);
+        [&a0b0 + &a1b1 * q, z - a0b0 - a1b1]
     }
 
     /// Returns the component wise subtraction of `a` and `b`

@@ -179,7 +179,7 @@ mod tests {
     }
 
     #[test]
-    fn to_fp12_affine_computes_correctly() {
+    fn to_fp12_unnormalized_computes_correctly() {
         let g = BLS12381TwistCurve::generator();
         let expectedx = Fp12E::from_coefficients(&[
             "0",
@@ -209,7 +209,7 @@ mod tests {
             "0",
             "0"
         ]);
-        let [g_to_fp12_x, g_to_fp12_y] = g.to_fp12_affine();
+        let [g_to_fp12_x, g_to_fp12_y] = g.to_fp12_unnormalized();
         assert_eq!(g_to_fp12_x, expectedx);
         assert_eq!(g_to_fp12_y, expectedy);
     }
