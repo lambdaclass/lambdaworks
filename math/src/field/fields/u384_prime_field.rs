@@ -154,15 +154,9 @@ where
 
     // TO DO: Add tests for representatives
     fn representative(x: Self::BaseType) -> Self::BaseType {
-        MontgomeryAlgorithms::cios(
-            &x, 
-            &U384::from_u64(1), 
-            &C::MODULUS, 
-            &C::MU
-        )
+        MontgomeryAlgorithms::cios(&x, &U384::from_u64(1), &C::MODULUS, &C::MU)
     }
 }
-
 
 impl<C> ByteConversion for FieldElement<MontgomeryBackendPrimeField<C>>
 where

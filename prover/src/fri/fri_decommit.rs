@@ -34,9 +34,7 @@ pub fn fri_decommit_layers(
     for commit_i in commit {
         let length_i = commit_i.domain.len();
         index = index % length_i;
-        println!("DECOMMIT DOMAIN LENGTH: {} INDEX: {}", length_i, index);
         let evaluation_i = commit_i.evaluation[index].clone();
-        println!("EVALUATION I: {:?}", evaluation_i);
         let auth_path = commit_i.merkle_tree.get_proof(&evaluation_i).unwrap();
 
         // symmetrical element

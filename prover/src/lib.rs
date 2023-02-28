@@ -28,7 +28,11 @@ type U384FieldElement = FieldElement<U384PrimeField>;
 
 // const MODULUS_MINUS_1: U384 = U384::from("10");
 
-const MODULUS_MINUS_1: U384 = U384::sub(&crate::air::polynomials::MontgomeryConfig::MODULUS, &U384::from("1")).0;
+const MODULUS_MINUS_1: U384 = U384::sub(
+    &crate::air::polynomials::MontgomeryConfig::MODULUS,
+    &U384::from("1"),
+)
+.0;
 
 const ORDER_OF_ROOTS_OF_UNITY_TRACE: u64 = 4;
 const ORDER_OF_ROOTS_OF_UNITY_FOR_LDE: u64 = 16;
@@ -37,10 +41,9 @@ pub fn generate_vec_roots(
     subgroup_size: u64,
     coset_factor: u64,
 ) -> (Vec<U384FieldElement>, U384FieldElement) {
-
     let MODULUS_MINUS_1_FIELD: U384FieldElement = U384FieldElement::new(MODULUS_MINUS_1);
     let subgroup_size_u384: U384FieldElement = subgroup_size.into();
-    
+
     let generator_field: U384FieldElement = 3.into();
     let coset_factor_u384: U384FieldElement = coset_factor.into();
 
@@ -62,20 +65,12 @@ pub fn generate_vec_roots(
 
 #[derive(Debug, Clone)]
 pub struct StarkQueryProof {
-    // TODO: fill this when we know what a proof entails
     pub trace_lde_poly_root: U384FieldElement,
     pub trace_lde_poly_evaluations: Vec<U384FieldElement>,
     /// Merkle paths for the trace polynomial evaluations
     pub trace_lde_poly_inclusion_proofs: Vec<Proof<U384PrimeField, DefaultHasher>>,
     pub composition_poly_lde_evaluations: Vec<U384FieldElement>,
-
-    // composition_poly_root: U384FieldElement,
     pub fri_layers_merkle_roots: Vec<U384FieldElement>,
-    // pub fri_layers_merkle_proofs: Vec<(
-    //     Proof<U384PrimeField, DefaultHasher>,
-    //     Proof<U384PrimeField, DefaultHasher>,
-    // )>,
-    // pub last_fri_layer_evaluation: U384FieldElement,
     pub fri_decommitment: FriDecommitment,
 }
 
@@ -86,7 +81,7 @@ pub use lambdaworks_crypto::merkle_tree::DefaultHasher;
 pub type FriMerkleTree = MerkleTree<U384PrimeField, DefaultHasher>;
 
 pub fn fibonacci_trace(initial_values: [U384FieldElement; 2]) -> Vec<U384FieldElement> {
-    let mut ret: Vec<U384FieldElement>  = vec![];
+    let mut ret: Vec<U384FieldElement> = vec![];
 
     ret.push(initial_values[0].clone());
     ret.push(initial_values[1].clone());
@@ -113,13 +108,14 @@ pub fn prove(
 
     // * Generate Coset
 
-    let (roots_of_unity, primitive_root) = crate::generate_vec_roots(ORDER_OF_ROOTS_OF_UNITY_TRACE, 1);
+    let (roots_of_unity, primitive_root) =
+        crate::generate_vec_roots(ORDER_OF_ROOTS_OF_UNITY_TRACE, 1);
 
-    let (lde_roots_of_unity, lde_primitive_root) = crate::generate_vec_roots(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE, 1);
+    let (lde_roots_of_unity, lde_primitive_root) =
+        crate::generate_vec_roots(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE, 1);
 
     let trace = fibonacci_trace(pub_inputs);
 
-    
     let mut trace_poly = Polynomial::interpolate(&roots_of_unity, &trace);
 
     let mut composition_poly = get_composition_poly(trace_poly.clone(), &primitive_root);
@@ -133,14 +129,6 @@ pub fn prove(
     let trace_poly_lde_merkle_tree = FriMerkleTree::build(&trace_poly_lde.as_slice());
 
     // * Do FRI on the composition polynomials
-
-    let mut composition_poly: Polynomial<U384FieldElement> = 
-        Polynomial { coefficients: [
-            U384FieldElement::one(),
-            U384FieldElement::zero(),
-            U384FieldElement::one(),
-            U384FieldElement::one()].to_vec() };
-
     let lde_fri_commitment = crate::fri::fri(&mut composition_poly, &lde_roots_of_unity);
 
     // * Sample q_1, ..., q_m using Fiat-Shamir
@@ -181,12 +169,19 @@ pub fn prove(
     );
     merkle_paths.push(
         trace_poly_lde_merkle_tree
-            .get_proof_by_pos(q_1 + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE) as usize, trace_lde_poly_evaluations[1].clone())
+            .get_proof_by_pos(
+                q_1 + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE) as usize,
+                trace_lde_poly_evaluations[1].clone(),
+            )
             .unwrap(),
     );
     merkle_paths.push(
         trace_poly_lde_merkle_tree
-            .get_proof_by_pos(q_1 + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE) as usize * 2, trace_lde_poly_evaluations[2].clone())
+            .get_proof_by_pos(
+                q_1 + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE) as usize
+                    * 2,
+                trace_lde_poly_evaluations[2].clone(),
+            )
             .unwrap(),
     );
 
@@ -228,17 +223,17 @@ pub fn verify(proof: StarkQueryProof) -> bool {
 
     // TODO: Use Fiat Shamir
     let q_1: u64 = 4;
-    
-    let (_roots_of_unity, mut primitive_root) = crate::generate_vec_roots(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE, 1);
+
+    let (_roots_of_unity, mut primitive_root) =
+        crate::generate_vec_roots(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE, 1);
     let evaluations = proof.trace_lde_poly_evaluations;
 
     // TODO: These could be multiple evaluations depending on how many q_i are sampled with Fiat Shamir
     let composition_poly_lde_evaluation = proof.composition_poly_lde_evaluations[0].clone();
 
-    /*
     if composition_poly_lde_evaluation != &evaluations[2] - &evaluations[1] - &evaluations[0] {
         return false;
-    } */
+    }
 
     for merkle_proof in proof.trace_lde_poly_inclusion_proofs {
         if !merkle_proof.verify(trace_poly_root.clone()) {
@@ -268,7 +263,7 @@ pub fn verify(proof: StarkQueryProof) -> bool {
         }
 
         // TODO: use Fiat Shamir
-        let beta: u64 = 3;
+        let beta: u64 = 4;
 
         let (previous_auth_path, previous_auth_path_symmetric) = match proof
             .fri_decommitment
@@ -279,13 +274,7 @@ pub fn verify(proof: StarkQueryProof) -> bool {
             None => return false,
         };
 
-        // index = index % (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / (2_u64.pow(layer_number as u32)));
         let evaluation_point = primitive_root.pow(index);
-
-        println!("LAYER NUMBER: {}", layer_number);
-        println!("PRIMITIVE ROOT: {:?}", primitive_root);
-        println!("INDEX: {:?}", index);
-        println!("EVALUATION POINT: {:?}", evaluation_point);
 
         let v = (previous_auth_path.clone().value + previous_auth_path_symmetric.clone().value)
             / U384FieldElement::new(U384::from("2"))
@@ -294,11 +283,6 @@ pub fn verify(proof: StarkQueryProof) -> bool {
                 / (U384FieldElement::new(U384::from("2")) * evaluation_point);
 
         primitive_root = primitive_root.pow(2_usize);
-
-        println!("BEFORE LAST CHECK");
-
-        println!("V: {:?}", v);
-        println!("FRI LAYER AUTH PATH VALUE; {:?}", fri_layer_auth_path.value);
 
         if v != fri_layer_auth_path.value {
             return false;

@@ -93,7 +93,7 @@ pub trait IsField: Debug + Clone {
     /// Takes as input an element of BaseType and returns the internal representation
     /// of that element in the field.
     fn from_base_type(x: Self::BaseType) -> Self::BaseType;
-    
+
     // Returns the representative of the value stored
     fn representative(a: Self::BaseType) -> Self::BaseType;
 }
