@@ -151,7 +151,18 @@ where
     fn from_base_type(x: Self::BaseType) -> Self::BaseType {
         MontgomeryAlgorithms::cios(&x, &C::R2, &C::MODULUS, &C::MU)
     }
+
+    // TO DO: Add tests for representatives
+    fn representative(x: Self::BaseType) -> Self::BaseType {
+        MontgomeryAlgorithms::cios(
+            &x, 
+            &U384::from_u64(1), 
+            &C::MODULUS, 
+            &C::MU
+        )
+    }
 }
+
 
 impl<C> ByteConversion for FieldElement<MontgomeryBackendPrimeField<C>>
 where

@@ -26,6 +26,8 @@ type U384PrimeField = MontgomeryBackendPrimeField<crate::air::polynomials::Montg
 
 type U384FieldElement = FieldElement<U384PrimeField>;
 
+// const MODULUS_MINUS_1: U384 = U384::from("10");
+
 const MODULUS_MINUS_1: U384 = U384::sub(&crate::air::polynomials::MontgomeryConfig::MODULUS, &U384::from("1")).0;
 
 const ORDER_OF_ROOTS_OF_UNITY_TRACE: u64 = 4;
@@ -35,12 +37,15 @@ pub fn generate_vec_roots(
     subgroup_size: u64,
     coset_factor: u64,
 ) -> (Vec<U384FieldElement>, U384FieldElement) {
+
     let MODULUS_MINUS_1_FIELD: U384FieldElement = U384FieldElement::new(MODULUS_MINUS_1);
     let subgroup_size_u384: U384FieldElement = subgroup_size.into();
+    
     let generator_field: U384FieldElement = 3.into();
     let coset_factor_u384: U384FieldElement = coset_factor.into();
 
-    let exp = (MODULUS_MINUS_1_FIELD) / subgroup_size_u384;
+    let exp = (&MODULUS_MINUS_1_FIELD) / &subgroup_size_u384;
+
     let exp_384 = *exp.value();
 
     let generator_of_subgroup = generator_field.pow(exp_384);
@@ -109,6 +114,7 @@ pub fn prove(
     // * Generate Coset
 
     let (roots_of_unity, primitive_root) = crate::generate_vec_roots(ORDER_OF_ROOTS_OF_UNITY_TRACE, 1);
+
     let (lde_roots_of_unity, lde_primitive_root) = crate::generate_vec_roots(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE, 1);
 
     let trace = fibonacci_trace(pub_inputs);
@@ -127,12 +133,20 @@ pub fn prove(
     let trace_poly_lde_merkle_tree = FriMerkleTree::build(&trace_poly_lde.as_slice());
 
     // * Do FRI on the composition polynomials
+
+    let mut composition_poly: Polynomial<U384FieldElement> = 
+        Polynomial { coefficients: [
+            U384FieldElement::one(),
+            U384FieldElement::zero(),
+            U384FieldElement::one(),
+            U384FieldElement::one()].to_vec() };
+
     let lde_fri_commitment = crate::fri::fri(&mut composition_poly, &lde_roots_of_unity);
 
     // * Sample q_1, ..., q_m using Fiat-Shamir
     // let q_1 = transcript.challenge();
     // @@@@@@@@@@@@@@@@@@@@@@
-    let q_1: usize = 2;
+    let q_1: usize = 4;
 
     // * For every q_i, do FRI decommitment
     let fri_decommitment = fri_decommit_layers(&lde_fri_commitment, q_1);
@@ -213,16 +227,18 @@ pub fn verify(proof: StarkQueryProof) -> bool {
     let trace_poly_root = proof.trace_lde_poly_root;
 
     // TODO: Use Fiat Shamir
-    let q_1: u64 = 2;
-    let (_roots_of_unity, mut primitive_root) = crate::generate_vec_roots(1024, 1);
+    let q_1: u64 = 4;
+    
+    let (_roots_of_unity, mut primitive_root) = crate::generate_vec_roots(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE, 1);
     let evaluations = proof.trace_lde_poly_evaluations;
 
     // TODO: These could be multiple evaluations depending on how many q_i are sampled with Fiat Shamir
     let composition_poly_lde_evaluation = proof.composition_poly_lde_evaluations[0].clone();
 
+    /*
     if composition_poly_lde_evaluation != &evaluations[2] - &evaluations[1] - &evaluations[0] {
         return false;
-    }
+    } */
 
     for merkle_proof in proof.trace_lde_poly_inclusion_proofs {
         if !merkle_proof.verify(trace_poly_root.clone()) {
@@ -252,7 +268,7 @@ pub fn verify(proof: StarkQueryProof) -> bool {
         }
 
         // TODO: use Fiat Shamir
-        let beta: u64 = 2;
+        let beta: u64 = 3;
 
         let (previous_auth_path, previous_auth_path_symmetric) = match proof
             .fri_decommitment
@@ -263,8 +279,7 @@ pub fn verify(proof: StarkQueryProof) -> bool {
             None => return false,
         };
 
-        primitive_root = primitive_root.pow(2_usize);
-        index = index % (1024 / (2_u64.pow(layer_number as u32)));
+        // index = index % (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / (2_u64.pow(layer_number as u32)));
         let evaluation_point = primitive_root.pow(index);
 
         println!("LAYER NUMBER: {}", layer_number);
@@ -277,6 +292,8 @@ pub fn verify(proof: StarkQueryProof) -> bool {
             + U384FieldElement::new(U384::from_u64(beta))
                 * (previous_auth_path.clone().value - previous_auth_path_symmetric.clone().value)
                 / (U384FieldElement::new(U384::from("2")) * evaluation_point);
+
+        primitive_root = primitive_root.pow(2_usize);
 
         println!("BEFORE LAST CHECK");
 

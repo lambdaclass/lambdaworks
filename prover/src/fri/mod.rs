@@ -56,6 +56,10 @@ pub fn fri(p_0: &mut Polynomial<FieldElement<F>>, domain_0: &[FE]) -> FriCommitm
     let mut transcript = Transcript::new();
 
     let evaluation_0 = p_0.evaluate_slice(domain_0);
+
+    let d0: Vec<_> = domain_0.iter().map(|x| x.representative()).collect();
+
+    println!("d0: {:?}", d0);
     let merkle_tree = FriMerkleTree::build(&evaluation_0);
 
     // append the root of the merkle tree to the transcript
@@ -85,7 +89,8 @@ pub fn fri(p_0: &mut Polynomial<FieldElement<F>>, domain_0: &[FE]) -> FriCommitm
         // sample beta:
         // let beta_bytes = transcript.challenge();
         // let beta = FE::from_bytes_be(&beta_bytes).unwrap();
-        let beta = FE::new(U384::from("2"));
+        let beta = FE::new(U384::from("3"));
+
         let (p_i, domain_i, evaluation_i) = next_fri_layer(&last_poly, &last_domain, &beta);
 
         let commitment_i = fri_commitment(&p_i, &domain_i, &evaluation_i, &mut transcript);

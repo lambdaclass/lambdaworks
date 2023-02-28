@@ -300,6 +300,11 @@ where
         &self.value
     }
 
+    // Returns the representative of the value stored
+    pub fn representative(&self) -> F::BaseType {
+        F::representative(self.value.clone())
+    }
+
     /// Returns the multiplicative inverse of `self`
     pub fn inv(&self) -> Self {
         Self {
