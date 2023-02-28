@@ -1,9 +1,9 @@
 use crate::field::traits::{IsField, IsTwoAdicField};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct U64TestField<const MODULUS: u64>;
+pub struct U64Field<const MODULUS: u64>;
 
-impl<const MODULUS: u64> IsField for U64TestField<MODULUS> {
+impl<const MODULUS: u64> IsField for U64Field<MODULUS> {
     type BaseType = u64;
 
     fn add(a: &u64, b: &u64) -> u64 {
@@ -52,7 +52,10 @@ impl<const MODULUS: u64> IsField for U64TestField<MODULUS> {
     }
 }
 
-impl<const MODULUS: u64> IsTwoAdicField for U64TestField<MODULUS> {
+pub type U64TestField = U64Field<18446744069414584321>;
+
+// These params correspond to the 18446744069414584321 modulus.
+impl IsTwoAdicField for U64TestField {
     const TWO_ADICITY: u64 = 32;
     const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: u64 = 1753635133440165772;
     const GENERATOR: u64 = 7;
