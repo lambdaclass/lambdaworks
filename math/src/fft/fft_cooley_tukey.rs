@@ -54,6 +54,7 @@ where
     // (group size).
 
     while group_count < input.len() {
+        #[allow(clippy::needless_range_loop)] // the suggestion would obfuscate a bit the algorithm
         for group in 0..group_count - 1 {
             let first_in_group = group * group_size;
             let last_in_group = first_in_group + group_size / 2 - 1;
