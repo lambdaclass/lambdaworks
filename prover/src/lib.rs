@@ -5,7 +5,8 @@ use std::primitive;
 
 use air::polynomials::get_cp_and_tp;
 use fri::fri_decommit::{fri_decommit_layers, FriDecommitment};
-use lambdaworks_crypto::{fiat_shamir::transcript::Transcript, merkle_tree::Proof};
+use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
+use lambdaworks_crypto::merkle_tree::proof::Proof;
 use lambdaworks_math::polynomial::{self, Polynomial};
 use thiserror::__private::AsDynError;
 use winterfell::{
@@ -71,7 +72,8 @@ pub struct StarkQueryProof {
 
 pub type StarkProof = Vec<StarkQueryProof>;
 
-pub use lambdaworks_crypto::merkle_tree::{DefaultHasher, MerkleTree};
+pub use lambdaworks_crypto::merkle_tree::merkle::MerkleTree;
+pub use lambdaworks_crypto::merkle_tree::DefaultHasher;
 pub type FriMerkleTree = MerkleTree<U384PrimeField, DefaultHasher>;
 
 pub fn fibonacci_trace(initial_values: [U384FieldElement; 2]) -> Vec<U384FieldElement> {
@@ -153,26 +155,26 @@ pub fn prove(
 
     merkle_paths.push(
         trace_poly_lde_merkle_tree
-            .get_proof_by_pos(q_1, &trace_lde_poly_evaluations[0])
+            .get_proof_by_pos(q_1, trace_lde_poly_evaluations[0].clone())
             .unwrap(),
     );
     merkle_paths.push(
         trace_poly_lde_merkle_tree
-            .get_proof_by_pos(q_1 + (1024 / 32), &trace_lde_poly_evaluations[1])
+            .get_proof_by_pos(q_1 + (1024 / 32), trace_lde_poly_evaluations[1].clone())
             .unwrap(),
     );
     merkle_paths.push(
         trace_poly_lde_merkle_tree
-            .get_proof_by_pos(q_1 + (1024 / 32) * 2, &trace_lde_poly_evaluations[2])
+            .get_proof_by_pos(q_1 + (1024 / 32) * 2, trace_lde_poly_evaluations[2].clone())
             .unwrap(),
     );
 
-    let trace_root = trace_poly_lde_merkle_tree.root.borrow().clone().hash;
+    let trace_root = trace_poly_lde_merkle_tree.root.clone();
     // let composition_poly_root = composition_poly_lde_merkle_tree.root.borrow().clone().hash;
 
     let fri_layers_merkle_roots: Vec<U384FieldElement> = lde_fri_commitment
         .iter()
-        .map(|fri_commitment| fri_commitment.merkle_tree.root.borrow().hash.clone())
+        .map(|fri_commitment| fri_commitment.merkle_tree.root.clone())
         .collect();
 
     StarkQueryProof {

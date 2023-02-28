@@ -3,10 +3,7 @@
 /// This small curve has only 5 elements.
 use crate::{
     elliptic_curve::{
-        short_weierstrass::{
-            element::ProjectivePoint,
-            traits::{HasDistortionMap, IsShortWeierstrass},
-        },
+        short_weierstrass::{point::ShortWeierstrassProjectivePoint, traits::IsShortWeierstrass},
         traits::IsEllipticCurve,
     },
     field::{
@@ -41,54 +38,23 @@ pub struct TestCurve1;
 
 impl IsEllipticCurve for TestCurve1 {
     type BaseField = QuadraticExtensionField<TestCurveQuadraticNonResidue>;
-    type PointRepresentation = ProjectivePoint<Self>;
+    type PointRepresentation = ShortWeierstrassProjectivePoint<Self>;
 
     fn generator() -> Self::PointRepresentation {
-        ProjectivePoint::new([
+        Self::PointRepresentation::new([
             FieldElement::from(35),
             FieldElement::from(31),
             FieldElement::one(),
         ])
     }
-
-    fn create_point_from_affine(
-        x: FieldElement<Self::BaseField>,
-        y: FieldElement<Self::BaseField>,
-    ) -> Self::PointRepresentation {
-        ProjectivePoint::new([x, y, FieldElement::one()])
-    }
 }
 
 impl IsShortWeierstrass for TestCurve1 {
-    type UIntOrders = u64;
-
     fn a() -> FieldElement<Self::BaseField> {
         FieldElement::from(1)
     }
 
     fn b() -> FieldElement<Self::BaseField> {
         FieldElement::from(0)
-    }
-
-    fn order_r() -> Self::UIntOrders {
-        TEST_CURVE_1_MAIN_SUBGROUP_ORDER
-    }
-
-    fn order_p() -> Self::UIntOrders {
-        TEST_CURVE_1_PRIME_FIELD_ORDER
-    }
-
-    fn target_normalization_power() -> Vec<u64> {
-        vec![0x00000000000002b8]
-    }
-}
-
-impl HasDistortionMap for TestCurve1 {
-    fn distorsion_map(
-        p: &[FieldElement<Self::BaseField>; 3],
-    ) -> [FieldElement<Self::BaseField>; 3] {
-        let (x, y, z) = (&p[0], &p[1], &p[2]);
-        let t = FieldElement::new([FieldElement::zero(), FieldElement::one()]);
-        [-x, y * t, z.clone()]
     }
 }

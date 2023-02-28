@@ -1,10 +1,9 @@
 use super::FE;
 use crate::{fri::fri_commitment::FriCommitmentVec, U384FieldElement, U384PrimeField};
 pub use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
-use lambdaworks_crypto::{
-    hash::traits::IsCryptoHash,
-    merkle_tree::{DefaultHasher, Proof},
-};
+use lambdaworks_crypto::{hash::traits::IsCryptoHash, merkle_tree::DefaultHasher};
+
+use lambdaworks_crypto::merkle_tree::proof::Proof;
 use lambdaworks_math::{
     field::traits::IsField, traits::ByteConversion, unsigned_integer::element::U384,
 };
@@ -38,12 +37,12 @@ pub fn fri_decommit_layers(
         println!("DECOMMIT DOMAIN LENGTH: {} INDEX: {}", length_i, index);
         let evaluation_i = commit_i.evaluation[index].clone();
         println!("EVALUATION I: {:?}", evaluation_i);
-        let auth_path = commit_i.merkle_tree.get_proof(evaluation_i).unwrap();
+        let auth_path = commit_i.merkle_tree.get_proof(&evaluation_i).unwrap();
 
         // symmetrical element
         let index_sym = (index + length_i / 2) % length_i;
         let evaluation_i_sym = commit_i.evaluation[index_sym].clone();
-        let auth_path_sym = commit_i.merkle_tree.get_proof(evaluation_i_sym).unwrap();
+        let auth_path_sym = commit_i.merkle_tree.get_proof(&evaluation_i_sym).unwrap();
 
         layer_merkle_paths.push((auth_path, auth_path_sym));
     }

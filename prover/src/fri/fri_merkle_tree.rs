@@ -1,5 +1,6 @@
 pub use super::{Polynomial, F, FE};
-pub use lambdaworks_crypto::merkle_tree::{DefaultHasher, MerkleTree};
+pub use lambdaworks_crypto::merkle_tree::merkle::MerkleTree;
+pub use lambdaworks_crypto::merkle_tree::DefaultHasher;
 
 pub type FriMerkleTree = MerkleTree<F, DefaultHasher>;
 

@@ -3,6 +3,7 @@
 <div>
 
 [![Telegram Chat][tg-badge]][tg-url]
+[![codecov](https://img.shields.io/codecov/c/github/lambdaclass/lambdaworks)](https://codecov.io/gh/lambdaclass/lambdaworks)
 
 [tg-badge]: https://img.shields.io/static/v1?color=green&logo=telegram&label=chat&style=flat&message=join
 [tg-url]: https://t.me/+98Whlzql7Hs0MDZh
@@ -30,7 +31,7 @@ If you use ```Lambdaworks``` libraries in your research projects, please cite th
 - Polynomial commitment schemes
 - PIOP
 - Cryptographic tools
-- Advanced tools: agreggation, recursion, accumulation
+- Advanced tools: aggregation, recursion, accumulation
 - Protocols
 - Gadgets
 
@@ -111,13 +112,13 @@ cargo install cargo-criterion
 Run the complete benchmark suite with:
 
 ```bash
-make benchmark
+make benchmarks
 ```
 
 Run a specific benchmark suite with `cargo`, for example to run the one for `field`:
 
 ```bash
-cargo criterion --bench field
+make benchmark BENCH=field
 ```
 
 You can check the generated HTML report in `target/criterion/reports/index.html`

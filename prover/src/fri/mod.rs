@@ -3,10 +3,13 @@ pub mod fri_decommit;
 mod fri_functions;
 mod fri_merkle_tree;
 
+use std::borrow::Borrow;
+
 use crate::fri::fri_commitment::{FriCommitment, FriCommitmentVec};
 use crate::fri::fri_functions::next_fri_layer;
 pub use crate::fri::fri_merkle_tree::FriMerkleTree;
-pub use lambdaworks_crypto::{fiat_shamir::transcript::Transcript, merkle_tree::MerkleTree};
+pub use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
+pub use lambdaworks_crypto::merkle_tree::merkle::MerkleTree;
 use lambdaworks_math::traits::ByteConversion;
 use lambdaworks_math::unsigned_integer::element::U384;
 pub use lambdaworks_math::{
@@ -36,7 +39,7 @@ pub fn fri_commitment(
     let merkle_tree = FriMerkleTree::build(&evaluation_i);
 
     // append the root of the merkle tree to the transcript
-    let root = merkle_tree.root.borrow().hash.clone();
+    let root = merkle_tree.root.clone();
     let root_bytes = (*root.value()).to_bytes_be();
     transcript.append(&root_bytes);
 
@@ -56,7 +59,7 @@ pub fn fri(p_0: &mut Polynomial<FieldElement<F>>, domain_0: &[FE]) -> FriCommitm
     let merkle_tree = FriMerkleTree::build(&evaluation_0);
 
     // append the root of the merkle tree to the transcript
-    let root = merkle_tree.root.borrow().hash.clone();
+    let root = merkle_tree.root.clone();
     let root_bytes = (*root.value()).to_bytes_be();
     transcript.append(&root_bytes);
 
@@ -89,7 +92,7 @@ pub fn fri(p_0: &mut Polynomial<FieldElement<F>>, domain_0: &[FE]) -> FriCommitm
 
         // append root of merkle tree to transcript
         let tree = &commitment_i.merkle_tree;
-        let root = tree.root.borrow().hash.clone();
+        let root = tree.root.clone();
         let root_bytes = (*root.value()).to_bytes_be();
         transcript.append(&root_bytes);
 
