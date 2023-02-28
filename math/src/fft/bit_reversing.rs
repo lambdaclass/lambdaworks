@@ -1,4 +1,4 @@
-fn in_place_bit_reverse_permute<E>(input: &mut [E]) {
+pub(crate) fn in_place_bit_reverse_permute<E>(input: &mut [E]) {
     for i in 0..input.len() {
         let bit_reversed_index = i.reverse_bits() >> (usize::BITS - input.len().trailing_zeros());
         if bit_reversed_index > i {
