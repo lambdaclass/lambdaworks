@@ -102,7 +102,7 @@ pub fn prove(
 // where
 //     A: Air<BaseField = BaseElement>,
 {
-    // let mut transcript = Transcript::new();
+    let transcript = &mut Transcript::new();
     // * Generate composition polynomials using Winterfell
     // let (mut composition_poly, mut trace_poly) = get_cp_and_tp(air, trace, pub_inputs).unwrap();
 
@@ -116,20 +116,19 @@ pub fn prove(
 
     let trace = fibonacci_trace(pub_inputs);
 
-    let mut trace_poly = Polynomial::interpolate(&roots_of_unity, &trace);
+    let trace_poly = Polynomial::interpolate(&roots_of_unity, &trace);
 
     let mut composition_poly = get_composition_poly(trace_poly.clone(), &primitive_root);
 
     // * Do Reed-Solomon on the trace and composition polynomials using some blowup factor
-    let composition_poly_lde = composition_poly.evaluate_slice(lde_roots_of_unity.as_slice());
     let trace_poly_lde = trace_poly.evaluate_slice(lde_roots_of_unity.as_slice());
 
     // * Commit to both polynomials using a Merkle Tree
-    let composition_poly_lde_merkle_tree = FriMerkleTree::build(composition_poly_lde.as_slice());
     let trace_poly_lde_merkle_tree = FriMerkleTree::build(&trace_poly_lde.as_slice());
 
     // * Do FRI on the composition polynomials
-    let lde_fri_commitment = crate::fri::fri(&mut composition_poly, &lde_roots_of_unity);
+    let lde_fri_commitment =
+        crate::fri::fri(&mut composition_poly, &lde_roots_of_unity, transcript);
 
     // * Sample q_1, ..., q_m using Fiat-Shamir
     // let q_1 = transcript.challenge();
@@ -186,7 +185,6 @@ pub fn prove(
     );
 
     let trace_root = trace_poly_lde_merkle_tree.root.clone();
-    // let composition_poly_root = composition_poly_lde_merkle_tree.root.borrow().clone().hash;
 
     let fri_layers_merkle_roots: Vec<U384FieldElement> = lde_fri_commitment
         .iter()
@@ -221,9 +219,6 @@ fn get_composition_poly(
 pub fn verify(proof: StarkQueryProof) -> bool {
     let trace_poly_root = proof.trace_lde_poly_root;
 
-    // TODO: Use Fiat Shamir
-    let q_1: u64 = 4;
-
     let (_roots_of_unity, mut primitive_root) =
         crate::generate_vec_roots(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE, 1);
     let evaluations = proof.trace_lde_poly_evaluations;
@@ -242,7 +237,7 @@ pub fn verify(proof: StarkQueryProof) -> bool {
     }
 
     // FRI VERIFYING BEGINS HERE
-    let mut index = q_1;
+    let decommitment_index: u64 = 4;
 
     for (
         layer_number,
@@ -274,7 +269,7 @@ pub fn verify(proof: StarkQueryProof) -> bool {
             None => return false,
         };
 
-        let evaluation_point = primitive_root.pow(index);
+        let evaluation_point = primitive_root.pow(decommitment_index);
 
         let v = (previous_auth_path.clone().value + previous_auth_path_symmetric.clone().value)
             / U384FieldElement::new(U384::from("2"))
