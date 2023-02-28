@@ -168,34 +168,6 @@ mod tests {
     use winter_prover::{constraints::CompositionPoly, TraceTable};
 
     #[test]
-    fn test_cairo_air() {
-        let trace = ExecutionTrace::from_file(
-            PathBuf::from("src/air/test/program.json"),
-            PathBuf::from("src/air/test/trace.bin"),
-            PathBuf::from("src/air/test/memory.bin"),
-            Some(3),
-        );
-
-        // generate the proof of execution
-        let proof_options =
-            giza_air::ProofOptions::with_proof_options(None, None, None, None, None);
-        let (_proof, pub_inputs) = giza_prover::prove_trace(trace.clone(), &proof_options).unwrap();
-        // let proof_bytes = proof.to_bytes();
-
-        let air = ProcessorAir::new(
-            trace.clone().get_info(),
-            pub_inputs.clone(),
-            proof_options.into_inner(),
-        );
-
-        let res = get_cp_and_tps(air, trace, pub_inputs);
-
-        // TODO: Just asserting is_ok(), we should make the calculations about the coefficients of all the involved
-        // polynomials for the test and then assert they are correct.
-        assert!(res.is_ok());
-    }
-
-    #[test]
     fn test_get_coefficients() {
         let coeffs = (0u128..16).map(Felt::from).collect::<Vec<_>>();
         let poly = CompositionPoly::new(coeffs.clone(), 2);
@@ -204,17 +176,16 @@ mod tests {
         assert_eq!(coeffs, coeffs_res);
     }
 
-    //////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // This test is made for the following computation, taken from the winterfell README example:
-    //    "This computation starts with an element in a finite field and then, for the specified number of steps,
-    //    cubes the element and adds value 42 to it"
-    //
-    // The test setup consists of the following:
-    //     * Creating a trace of the computation
-    //     * Implementing an AIR of the computation
-    //
-    // TODO: Check that the obtained polynomial is correct.
-    //////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    #[test]
+    fn test_fibonacci_computation_verification() {
+        use fibonacci_computation_test_utils::*;
+
+        let (res, proof) = prove_work();
+        let verification = verify_work(Felt::from(1u64), Felt::from(1u64), res, proof);
+
+        assert!(verification.is_ok());
+    }
+
     #[test]
     fn test_composition_poly_simple_computation() {
         use fibonacci_computation_test_utils::*;
@@ -257,16 +228,46 @@ mod tests {
         // polynomials for the test and then assert they are correct.
         assert!(res.is_ok());
     }
+
+    #[test]
+    fn test_cairo_air() {
+        let trace = ExecutionTrace::from_file(
+            PathBuf::from("src/air/test/program.json"),
+            PathBuf::from("src/air/test/trace.bin"),
+            PathBuf::from("src/air/test/memory.bin"),
+            Some(3),
+        );
+
+        // generate the proof of execution
+        let proof_options =
+            giza_air::ProofOptions::with_proof_options(None, None, None, None, None);
+        let (_proof, pub_inputs) = giza_prover::prove_trace(trace.clone(), &proof_options).unwrap();
+        // let proof_bytes = proof.to_bytes();
+
+        let air = ProcessorAir::new(
+            trace.clone().get_info(),
+            pub_inputs.clone(),
+            proof_options.into_inner(),
+        );
+
+        let res = get_cp_and_tps(air, trace, pub_inputs);
+
+        // TODO: Just asserting is_ok(), we should make the calculations about the coefficients of all the involved
+        // polynomials for the test and then assert they are correct.
+        assert!(res.is_ok());
+    }
 }
 
 #[cfg(test)]
 pub(crate) mod fibonacci_computation_test_utils {
+    use giza_air::{EvaluationFrame, FieldExtension, HashFunction};
+    use giza_prover::StarkProof;
     use math::FieldElement;
     use winter_air::{
-        AirContext, Assertion, DefaultEvaluationFrame, ProofOptions, TraceInfo,
-        TransitionConstraintDegree,
+        AirContext, Assertion, ProofOptions, Table, TraceInfo, TransitionConstraintDegree,
     };
-    use winter_prover::ByteWriter;
+    use winter_prover::{ByteWriter, Prover, TraceTable};
+    use winter_utils::TableReader;
 
     use super::*;
 
@@ -287,6 +288,75 @@ pub(crate) mod fibonacci_computation_test_utils {
         }
     }
 
+    /// Contains rows of the execution trace
+    #[derive(Debug, Clone)]
+    pub struct FibEvaluationFrame<E: FieldElement> {
+        table: Table<E>, // row-major indexing
+    }
+
+    // FIBONACCI EVALUATION FRAME
+    // ================================================================================================
+
+    impl<E: FieldElement> EvaluationFrame<E> for FibEvaluationFrame<E> {
+        // CONSTRUCTORS
+        // --------------------------------------------------------------------------------------------
+        fn new<A: Air>(air: &A) -> Self {
+            let num_cols = air.trace_layout().main_trace_width();
+            let num_rows = Self::num_rows();
+            FibEvaluationFrame {
+                table: Table::new(num_rows, num_cols),
+            }
+        }
+
+        fn from_table(table: Table<E>) -> Self {
+            Self { table }
+        }
+
+        // ROW MUTATORS
+        // --------------------------------------------------------------------------------------------
+        fn read_from<R: TableReader<E>>(
+            &mut self,
+            data: R,
+            step: usize,
+            offset: usize,
+            blowup: usize,
+        ) {
+            let trace_len = data.num_rows();
+            for (row, row_idx) in self.table.rows_mut().zip(Self::offsets().into_iter()) {
+                for col_idx in 0..data.num_cols() {
+                    row[col_idx + offset] =
+                        data.get(col_idx, (step + row_idx * blowup) % trace_len);
+                }
+            }
+        }
+
+        // ROW ACCESSORS
+        // --------------------------------------------------------------------------------------------
+        fn row<'a>(&'a self, row_idx: usize) -> &'a [E] {
+            &self.table.get_row(row_idx)
+        }
+
+        fn to_table(&self) -> Table<E> {
+            self.table.clone()
+        }
+
+        fn offsets() -> &'static [usize] {
+            &[0, 1, 2]
+        }
+    }
+
+    impl<E: FieldElement> FibEvaluationFrame<E> {
+        pub fn current<'a>(&'a self) -> &'a [E] {
+            &self.table.get_row(0)
+        }
+        pub fn next<'a>(&'a self) -> &'a [E] {
+            &self.table.get_row(1)
+        }
+        pub fn next_2<'a>(&'a self) -> &'a [E] {
+            &self.table.get_row(2)
+        }
+    }
+
     // For a specific instance of our computation, we'll keep track of the public inputs and
     // the computation's context which we'll build in the constructor. The context is used
     // internally by the Winterfell prover/verifier when interpreting this AIR.
@@ -302,8 +372,8 @@ pub(crate) mod fibonacci_computation_test_utils {
         // the public inputs must look like.
         type BaseField = Felt;
         type PublicInputs = PublicInputs;
-        type Frame<E: FieldElement> = DefaultEvaluationFrame<E>;
-        type AuxFrame<E: FieldElement> = DefaultEvaluationFrame<E>;
+        type Frame<E: FieldElement> = FibEvaluationFrame<E>;
+        type AuxFrame<E: FieldElement> = FibEvaluationFrame<E>;
 
         // Here, we'll construct a new instance of our computation which is defined by 3 parameters:
         // starting value, number of steps, and the end result. Another way to think about it is
@@ -324,8 +394,11 @@ pub(crate) mod fibonacci_computation_test_utils {
             // returned from the get_assertions() method below.
             let num_assertions = 3;
 
+            let mut air_context = AirContext::new(trace_info, degrees, num_assertions, options);
+            air_context = air_context.set_num_transition_exemptions(2);
+
             FibAir {
-                context: AirContext::new(trace_info, degrees, num_assertions, options),
+                context: air_context,
                 a0: pub_inputs.a0,
                 a1: pub_inputs.a1,
                 result: pub_inputs.result,
@@ -338,18 +411,18 @@ pub(crate) mod fibonacci_computation_test_utils {
         // value. The `frame` parameter will contain current and next states of the computation.
         fn evaluate_transition<E: math::FieldElement + From<Self::BaseField>>(
             &self,
-            frame: &DefaultEvaluationFrame<E>,
+            frame: &FibEvaluationFrame<E>,
             _periodic_values: &[E],
             result: &mut [E],
         ) {
             // First, we'll read the current state, and use it to compute the expected next state
-            let current_state = &frame.current()[0];
-            let next_state = &frame.next()[0];
-            let fib_state = *current_state + *next_state;
+            let a0 = &frame.current()[0];
+            let a1 = &frame.next()[0];
+            let a2 = *a0 + *a1;
 
             // Then, we'll subtract the expected next state from the actual next state; this will
             // evaluate to zero if and only if the expected and actual states are the same.
-            result[0] = (frame.next_n(2)[0] - fib_state).into();
+            result[0] = (frame.next_2()[0] - a2).into();
         }
 
         // Here, we'll define a set of assertions about the execution trace which must be satisfied
@@ -370,6 +443,86 @@ pub(crate) mod fibonacci_computation_test_utils {
         // the context of the computation.
         fn context(&self) -> &AirContext<Self::BaseField> {
             &self.context
+        }
+    }
+
+    struct FibProver {
+        options: ProofOptions,
+    }
+
+    impl FibProver {
+        pub fn new(options: ProofOptions) -> Self {
+            Self { options }
+        }
+    }
+
+    // When implementing Prover trait we set the `Air` associated type to the AIR of the
+    // computation we defined previously, and set the `Trace` associated type to `TraceTable`
+    // struct as we don't need to define a custom trace for our computation.
+    impl Prover for FibProver {
+        type BaseField = Felt;
+        type Air = FibAir;
+        type Trace = TraceTable<Self::BaseField>;
+
+        // Our public inputs consist of the first and last value in the execution trace.
+        fn get_pub_inputs(&self, trace: &Self::Trace) -> PublicInputs {
+            let last_step = trace.length() - 1;
+            PublicInputs {
+                a0: trace.get(0, 0),
+                a1: trace.get(0, 1),
+                result: trace.get(0, last_step),
+            }
+        }
+
+        fn options(&self) -> &ProofOptions {
+            &self.options
+        }
+    }
+
+    pub fn prove_work() -> (Felt, StarkProof) {
+        // We'll just hard-code the parameters here for this example.
+        let t = vec![vec![
+            Felt::from(1u64),
+            Felt::from(1u64),
+            Felt::from(2u64),
+            Felt::from(3u64),
+            Felt::from(5u64),
+            Felt::from(8u64),
+            Felt::from(13u64),
+            Felt::from(21u64),
+        ]];
+
+        let trace = TraceTable::init(t);
+
+        let result = trace.get(0, trace.length() - 1);
+
+        // Define proof options; these will be enough for ~96-bit security level.
+        let options = winter_air::ProofOptions::new(
+            32, // number of queries
+            8,  // blowup factor
+            0,  // grinding factor
+            HashFunction::Blake2s_256,
+            FieldExtension::None,
+            8,   // FRI folding factor
+            128, // FRI max remainder length
+        );
+
+        // Instantiate the prover and generate the proof.
+        let prover = FibProver::new(options);
+        let proof = prover.prove(trace).unwrap();
+
+        (result, proof)
+    }
+
+    pub fn verify_work(a0: Felt, a1: Felt, result: Felt, proof: StarkProof) -> Result<(), ()> {
+        // The number of steps and options are encoded in the proof itself, so we
+        // don't need to pass them explicitly to the verifier.
+        let pub_inputs = PublicInputs { a0, a1, result };
+        match winter_verifier::verify::<FibAir>(proof, pub_inputs) {
+            // The verication passed
+            Ok(_) => Ok(()),
+            // The verication did not pass
+            Err(_) => Err(()),
         }
     }
 }

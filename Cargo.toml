@@ -7,9 +7,9 @@ members = [
 ]
 
 [patch."https://github.com/zerosync/winterfell"]
-prover = { package = "winter-prover", git = "https://github.com/entropidelic/winterfell", branch = "lambdaworks-mod", default-features = false }
-math = { package = "winter-math", git = "https://github.com/entropidelic/winterfell", branch = "lambdaworks-mod", default-features = false }
-winter-utils = { package = "winter-utils", git = "https://github.com/entropidelic/winterfell", branch = "lambdaworks-mod", default-features = false }
-winter-air = { package = "winter-air", git = "https://github.com/entropidelic/winterfell", branch = "lambdaworks-mod", default-features = false }
-winter-verifier = { package = "winter-verifier", git = "https://github.com/entropidelic/winterfell", branch = "lambdaworks-mod", default-features = false }
-crypto = { package = "winter-crypto", git = "https://github.com/entropidelic/winterfell", branch = "lambdaworks-mod", default-features = false }
+prover = { package = "winter-prover", git = "https://github.com/entropidelic/winterfell", branch = "lambdaworks-mod" }
+math = { package = "winter-math", git = "https://github.com/entropidelic/winterfell", branch = "lambdaworks-mod" }
+winter-utils = { package = "winter-utils", git = "https://github.com/entropidelic/winterfell", branch = "lambdaworks-mod" }
+winter-air = { package = "winter-air", git = "https://github.com/entropidelic/winterfell", branch = "lambdaworks-mod" }
+winter-verifier = { package = "winter-verifier", git = "https://github.com/entropidelic/winterfell", branch = "lambdaworks-mod" }
+crypto = { package = "winter-crypto", git = "https://github.com/entropidelic/winterfell", branch = "lambdaworks-mod" }
