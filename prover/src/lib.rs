@@ -24,12 +24,9 @@ impl IsMontgomeryConfiguration for MontgomeryConfig {
 pub type PrimeField = MontgomeryBackendPrimeField<MontgomeryConfig>;
 pub type FE = FieldElement<PrimeField>;
 
-const MODULUS_MINUS_1: U384 = U384::sub(
-    &MontgomeryConfig::MODULUS,
-    &U384::from("1"),
-).0;
+const MODULUS_MINUS_1: U384 = U384::sub(&MontgomeryConfig::MODULUS, &U384::from("1")).0;
 
-/// Subgroup generator to generate the roots of unity 
+/// Subgroup generator to generate the roots of unity
 const FIELD_SUBGROUP_GENERATOR: u64 = 3;
 
 // DEFINITION OF CONSTANTS
@@ -48,15 +45,11 @@ pub fn generate_primitive_root(subgroup_size: u64) -> FE {
 }
 
 /// This functions takes a roots of unity and a coset factor
-/// If coset_factor is 1, it's just expanding the roots of unity 
+/// If coset_factor is 1, it's just expanding the roots of unity
 /// w ^ 0, w ^ 1, w ^ 2 .... w ^ n-1
 /// If coset_factor is h
 /// h * w ^ 0, h * w ^ 1 .... h * w ^ n-1
-pub fn generate_roots_of_unity_coset(
-    coset_factor: u64,
-    primitive_root: &FE,
-) -> Vec<FE> {
-
+pub fn generate_roots_of_unity_coset(coset_factor: u64, primitive_root: &FE) -> Vec<FE> {
     let coset_factor: FE = coset_factor.into();
 
     let mut numbers = vec![coset_factor.clone()];
@@ -116,8 +109,7 @@ pub fn prove(
     // * Generate Coset
 
     let trace_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_TRACE);
-    let trace_roots_of_unity =
-        generate_roots_of_unity_coset(1, &trace_primitive_root);
+    let trace_roots_of_unity = generate_roots_of_unity_coset(1, &trace_primitive_root);
 
     let lde_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE);
     let lde_roots_of_unity = generate_roots_of_unity_coset(1, &lde_primitive_root);
@@ -137,9 +129,8 @@ pub fn prove(
     // @@@@@@@@@@@@@@@@@@@@@@
     let q_1: usize = 4;
 
-
     // START EVALUATION POINTS BLOCK
-    // This depends on the AIR 
+    // This depends on the AIR
     // It's related to the non FRI verification
 
     // These are evaluations over the trace polynomial
@@ -154,18 +145,18 @@ pub fn prove(
             .get_proof_by_pos(q_1, trace_lde_poly_evaluations[0].clone())
             .unwrap(),
         trace_poly_lde_merkle_tree
-        .get_proof_by_pos(
-            q_1 + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE) as usize,
-            trace_lde_poly_evaluations[1].clone(),
-        )
-        .unwrap(),
+            .get_proof_by_pos(
+                q_1 + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE) as usize,
+                trace_lde_poly_evaluations[1].clone(),
+            )
+            .unwrap(),
         trace_poly_lde_merkle_tree
-        .get_proof_by_pos(
-            q_1 + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE) as usize
-                * 2,
-            trace_lde_poly_evaluations[2].clone(),
-        )
-        .unwrap()
+            .get_proof_by_pos(
+                q_1 + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE) as usize
+                    * 2,
+                trace_lde_poly_evaluations[2].clone(),
+            )
+            .unwrap(),
     ];
 
     // These are evaluations over the composition polynomial
@@ -177,7 +168,6 @@ pub fn prove(
 
     // END EVALUATION BLOCK
 
-    
     // * Do FRI on the composition polynomials
     let lde_fri_commitment =
         crate::fri::fri(&mut composition_poly, &lde_roots_of_unity, transcript);
@@ -212,14 +202,8 @@ pub fn prove(
     }
 }
 
-fn get_composition_poly(
-    trace_poly: Polynomial<FE>,
-    root_of_unity: &FE,
-) -> Polynomial<FE> {
-    let w_squared_x = Polynomial::new(&[
-        FE::zero(),
-        root_of_unity * root_of_unity,
-    ]);
+fn get_composition_poly(trace_poly: Polynomial<FE>, root_of_unity: &FE) -> Polynomial<FE> {
+    let w_squared_x = Polynomial::new(&[FE::zero(), root_of_unity * root_of_unity]);
     let w_x = Polynomial::new(&[FE::zero(), root_of_unity.clone()]);
 
     polynomial::compose(&trace_poly, &w_squared_x)
@@ -228,7 +212,6 @@ fn get_composition_poly(
 }
 
 pub fn verify(proof: &StarkQueryProof) -> bool {
-
     let transcript = &mut Transcript::new();
 
     let trace_poly_root = &proof.trace_lde_poly_root;
@@ -237,9 +220,12 @@ pub fn verify(proof: &StarkQueryProof) -> bool {
     // TODO: These could be multiple evaluations depending on how many q_i are sampled with Fiat Shamir
     let composition_polynomial_evaluation_from_prover = &proof.composition_poly_lde_evaluations[0];
 
-    let composition_polynomial_evaluation_from_trace = &trace_evaluation[2] - &trace_evaluation[1] - &trace_evaluation[0];
+    let composition_polynomial_evaluation_from_trace =
+        &trace_evaluation[2] - &trace_evaluation[1] - &trace_evaluation[0];
 
-    if *composition_polynomial_evaluation_from_prover != composition_polynomial_evaluation_from_trace {
+    if *composition_polynomial_evaluation_from_prover
+        != composition_polynomial_evaluation_from_trace
+    {
         return false;
     }
 
@@ -249,12 +235,19 @@ pub fn verify(proof: &StarkQueryProof) -> bool {
         }
     }
 
-    fri_verify(&proof.fri_layers_merkle_roots,&proof.fri_decommitment, transcript)
+    fri_verify(
+        &proof.fri_layers_merkle_roots,
+        &proof.fri_decommitment,
+        transcript,
+    )
 }
 
 /// Performs FRI verification for some decommitment
-pub fn fri_verify(fri_layers_merkle_roots: &[FE], fri_decommitment: &FriDecommitment,  _transcript: &mut Transcript) -> bool {
-
+pub fn fri_verify(
+    fri_layers_merkle_roots: &[FE],
+    fri_decommitment: &FriDecommitment,
+    _transcript: &mut Transcript,
+) -> bool {
     // For each fri layer merkle proof check:
     // That each merkle path verifies
 
@@ -270,14 +263,13 @@ pub fn fri_verify(fri_layers_merkle_roots: &[FE], fri_decommitment: &FriDecommit
 
     let mut lde_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE);
 
-    // For each (merkle_root, merkle_auth_path) / fold 
+    // For each (merkle_root, merkle_auth_path) / fold
     // With the auth path containining the element that the
     // path proves it's existance
     for (
         layer_number,
         (fri_layer_merkle_root, (fri_layer_auth_path, fri_layer_auth_path_symmetric)),
-    ) in 
-        fri_layers_merkle_roots
+    ) in fri_layers_merkle_roots
         .iter()
         .zip(fri_decommitment.layer_merkle_paths.iter())
         .enumerate()
@@ -296,26 +288,22 @@ pub fn fri_verify(fri_layers_merkle_roots: &[FE], fri_decommitment: &FriDecommit
         // TODO: use Fiat Shamir
         let beta: u64 = 4;
 
-        let (previous_auth_path, previous_auth_path_symmetric) =
-                fri_decommitment
-                .layer_merkle_paths
-                .get(layer_number - 1)
-                // TODO: Check at the start of the FRI operation
-                // if layer_merkle_paths has the right amount of elements
-                .unwrap();
+        let (previous_auth_path, previous_auth_path_symmetric) = fri_decommitment
+            .layer_merkle_paths
+            .get(layer_number - 1)
+            // TODO: Check at the start of the FRI operation
+            // if layer_merkle_paths has the right amount of elements
+            .unwrap();
 
-        // evaluation point = w ^ i in the Stark literature 
+        // evaluation point = w ^ i in the Stark literature
         let evaluation_point = lde_primitive_root.pow(decommitment_index);
-    
-        // v is the calculated element for the 
+
+        // v is the calculated element for the
         // co linearity check
         let two = &FE::new(U384::from("2"));
         let beta = FE::new(U384::from_u64(beta));
-        let v = 
-            (&previous_auth_path.value + &previous_auth_path_symmetric.value) 
-                / two
-            + 
-            beta * (&previous_auth_path.value - &previous_auth_path_symmetric.value)
+        let v = (&previous_auth_path.value + &previous_auth_path_symmetric.value) / two
+            + beta * (&previous_auth_path.value - &previous_auth_path_symmetric.value)
                 / (two * evaluation_point);
 
         lde_primitive_root = lde_primitive_root.pow(2_usize);
@@ -326,7 +314,6 @@ pub fn fri_verify(fri_layers_merkle_roots: &[FE], fri_decommitment: &FriDecommit
     }
     true
 }
-
 
 // TODOS after basic fibonacci works:
 // - Add Fiat Shamir
@@ -341,14 +328,11 @@ mod tests {
     use crate::{verify, FE};
 
     use super::prove;
-    use lambdaworks_math::{unsigned_integer::element::U384};
+    use lambdaworks_math::unsigned_integer::element::U384;
 
     #[test]
     fn test_prove() {
-        let result = prove([
-            FE::new(U384::from("1")),
-            FE::new(U384::from("1")),
-        ]);
+        let result = prove([FE::new(U384::from("1")), FE::new(U384::from("1"))]);
         assert!(verify(&result));
     }
 }

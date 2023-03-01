@@ -1,7 +1,7 @@
 use super::FE;
 use crate::{fri::fri_commitment::FriCommitmentVec, PrimeField};
 pub use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
-use lambdaworks_crypto::{merkle_tree::DefaultHasher};
+use lambdaworks_crypto::merkle_tree::DefaultHasher;
 
 use lambdaworks_crypto::merkle_tree::proof::Proof;
 

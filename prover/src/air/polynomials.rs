@@ -1,7 +1,4 @@
-use lambdaworks_math::{
-    polynomial::Polynomial,
-    unsigned_integer::element::U384,
-};
+use lambdaworks_math::{polynomial::Polynomial, unsigned_integer::element::U384};
 use winterfell::{
     crypto::hashers::Blake3_256,
     math::{fields::f128::BaseElement, StarkField},
