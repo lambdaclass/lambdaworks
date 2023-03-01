@@ -1,20 +1,10 @@
 pub mod air;
 pub mod fri;
 
-use std::primitive;
-
-use air::polynomials::get_cp_and_tp;
 use fri::fri_decommit::{fri_decommit_layers, FriDecommitment};
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_crypto::merkle_tree::proof::Proof;
 use lambdaworks_math::polynomial::{self, Polynomial};
-use thiserror::__private::AsDynError;
-use winterfell::{
-    crypto::hashers::Blake3_256,
-    math::{fields::f128::BaseElement, StarkField},
-    prover::constraints::CompositionPoly,
-    Air, AuxTraceRandElements, Serializable, Trace, TraceTable,
-};
 
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::{
@@ -142,7 +132,7 @@ pub fn prove(
     let trace_poly_lde = trace_poly.evaluate_slice(lde_roots_of_unity.as_slice());
 
     // * Commit to both polynomials using a Merkle Tree
-    let trace_poly_lde_merkle_tree = FriMerkleTree::build(&trace_poly_lde.as_slice());
+    let trace_poly_lde_merkle_tree = FriMerkleTree::build(trace_poly_lde.as_slice());
 
     // * Do FRI on the composition polynomials
     let lde_fri_commitment =
@@ -177,32 +167,26 @@ pub fn prove(
     let trace_lde_poly_evaluations = trace_poly.evaluate_slice(&evaluation_points);
     let composition_poly_lde_evaluation = composition_poly.evaluate(&evaluation_points[0]);
 
-    let mut merkle_paths = vec![];
-
-    merkle_paths.push(
+    let merkle_paths = vec![
         trace_poly_lde_merkle_tree
             .get_proof_by_pos(q_1, trace_lde_poly_evaluations[0].clone())
             .unwrap(),
-    );
-    merkle_paths.push(
         trace_poly_lde_merkle_tree
-            .get_proof_by_pos(
-                q_1 + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE) as usize,
-                trace_lde_poly_evaluations[1].clone(),
-            )
-            .unwrap(),
-    );
-    merkle_paths.push(
+        .get_proof_by_pos(
+            q_1 + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE) as usize,
+            trace_lde_poly_evaluations[1].clone(),
+        )
+        .unwrap(),
         trace_poly_lde_merkle_tree
-            .get_proof_by_pos(
-                q_1 + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE) as usize
-                    * 2,
-                trace_lde_poly_evaluations[2].clone(),
-            )
-            .unwrap(),
-    );
+        .get_proof_by_pos(
+            q_1 + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE) as usize
+                * 2,
+            trace_lde_poly_evaluations[2].clone(),
+        )
+        .unwrap()
+    ];
 
-    let trace_root = trace_poly_lde_merkle_tree.root.clone();
+    let trace_root = trace_poly_lde_merkle_tree.root;
 
     let fri_layers_merkle_roots: Vec<FE> = lde_fri_commitment
         .iter()
@@ -214,8 +198,8 @@ pub fn prove(
         trace_lde_poly_evaluations,
         trace_lde_poly_inclusion_proofs: merkle_paths,
         composition_poly_lde_evaluations: vec![composition_poly_lde_evaluation],
-        fri_layers_merkle_roots: fri_layers_merkle_roots,
-        fri_decommitment: fri_decommitment,
+        fri_layers_merkle_roots,
+        fri_decommitment,
     }
 }
 
@@ -223,11 +207,11 @@ fn get_composition_poly(
     trace_poly: Polynomial<FE>,
     root_of_unity: &FE,
 ) -> Polynomial<FE> {
-    let w_squared_x = Polynomial::new(&vec![
+    let w_squared_x = Polynomial::new(&[
         FE::zero(),
         root_of_unity * root_of_unity,
     ]);
-    let w_x = Polynomial::new(&vec![FE::zero(), root_of_unity.clone()]);
+    let w_x = Polynomial::new(&[FE::zero(), root_of_unity.clone()]);
 
     polynomial::compose(&trace_poly, &w_squared_x)
         - polynomial::compose(&trace_poly, &w_x)
@@ -331,7 +315,7 @@ pub fn fri_verify(fri_layers_merkle_roots: &[FE], fri_decommitment: &FriDecommit
             return false;
         }
     }
-    return true;
+    true
 }
 
 
@@ -348,8 +332,7 @@ mod tests {
     use crate::{verify, FE};
 
     use super::prove;
-    use lambdaworks_math::{field::element::FieldElement, unsigned_integer::element::U384};
-    use winterfell::{FieldExtension, ProofOptions};
+    use lambdaworks_math::{unsigned_integer::element::U384};
 
     #[test]
     fn test_prove() {

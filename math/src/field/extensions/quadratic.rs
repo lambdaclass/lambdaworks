@@ -106,7 +106,7 @@ where
         x
     }
 
-    fn representative(x: Self::BaseType) -> Self::BaseType {
+    fn representative(_x: Self::BaseType) -> Self::BaseType {
         todo!()
     }
 }

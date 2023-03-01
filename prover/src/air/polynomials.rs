@@ -1,8 +1,4 @@
 use lambdaworks_math::{
-    field::{
-        element::FieldElement,
-        fields::u384_prime_field::{IsMontgomeryConfiguration, MontgomeryBackendPrimeField},
-    },
     polynomial::Polynomial,
     unsigned_integer::element::U384,
 };
@@ -92,7 +88,7 @@ where
 
     let composition_poly = constraint_evaluations
         .into_poly()
-        .map_err(|e| ProverError::CompositionPolyError(e))?
+        .map_err(ProverError::CompositionPolyError)?
         .data;
 
     let cp_coeffs: Vec<FE> = winter_2_lambda_felts(composition_poly);
