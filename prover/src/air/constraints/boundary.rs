@@ -38,7 +38,7 @@ impl<F: IsField> BoundaryConstraints<FieldElement<F>> {
 
     pub(crate) fn get_boundary_poly_domain(
         &self,
-        trace_domain: Vec<FieldElement<F>>,
+        trace_domain: &[FieldElement<F>],
     ) -> Vec<FieldElement<F>> {
         let mut domain = Vec::with_capacity(self.constraints.len());
         for step in self.get_steps().into_iter() {

@@ -3,7 +3,7 @@ pub mod fri;
 
 use std::primitive;
 
-use air::polynomials::get_cp_and_tp;
+use air::{constraints::boundary::BoundaryConstraints, polynomials::get_cp_and_tp};
 use fri::fri_decommit::{fri_decommit_layers, FriDecommitment};
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_crypto::merkle_tree::proof::Proof;
@@ -218,6 +218,20 @@ fn get_composition_poly(trace_poly: Polynomial<FE>, root_of_unity: &FE) -> Polyn
     polynomial::compose(&trace_poly, &w_squared_x)
         - polynomial::compose(&trace_poly, &w_x)
         - trace_poly
+}
+
+fn get_boundary_quotient(
+    constraints: BoundaryConstraints<FE>,
+    col: usize,
+    trace_poly: Polynomial<FE>,
+    trace_domain: &[FE],
+) -> Polynomial<FE> {
+    let domain = constraints.get_boundary_poly_domain(trace_domain);
+    let values = constraints.get_values(col);
+
+    let poly = Polynomial::interpolate(&domain, &values);
+
+    trace_poly - poly
 }
 
 pub fn verify(proof: &StarkQueryProof) -> bool {
