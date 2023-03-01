@@ -126,47 +126,29 @@ pub fn prove(
 
     let trace_poly = Polynomial::interpolate(&trace_roots_of_unity, &trace);
 
-    let mut composition_poly = get_composition_poly(trace_poly.clone(), &trace_primitive_root);
-
     // * Do Reed-Solomon on the trace and composition polynomials using some blowup factor
     let trace_poly_lde = trace_poly.evaluate_slice(lde_roots_of_unity.as_slice());
 
     // * Commit to both polynomials using a Merkle Tree
     let trace_poly_lde_merkle_tree = FriMerkleTree::build(trace_poly_lde.as_slice());
 
-    // * Do FRI on the composition polynomials
-    let lde_fri_commitment =
-        crate::fri::fri(&mut composition_poly, &lde_roots_of_unity, transcript);
-
     // * Sample q_1, ..., q_m using Fiat-Shamir
     // let q_1 = transcript.challenge();
     // @@@@@@@@@@@@@@@@@@@@@@
     let q_1: usize = 4;
 
-    // * For every q_i, do FRI decommitment
-    let fri_decommitment = fri_decommit_layers(&lde_fri_commitment, q_1);
 
-    /*
-        IMPORTANT NOTE:
-        When we commit to the trace polynomial, let's call it f, we commit to an LDE of it.
-        On the other hand, the fibonacci constraint (and in general, any constraint) related to f applies
-        only using non-LDE roots of unity.
-        In this case, the constraint is f(w^2 x) - f(w x) - f(x), where w is a 2^n root of unity.
-        But for the commitment we use g, a 2^{nb} root of unity (b is the blowup factor).
-        When we sample a value x to evaluate the trace polynomial on, it has to be a 2^{nb} root of unity,
-        so with fiat-shamir we sample a random index in that range.
-        When we provide evaluations, we provide them for x*(w^2), x*w and x.
-    */
+    // START EVALUATION POINTS BLOCK
+    // This depends on the AIR 
+    // It's related to the non FRI verification
 
+    // These are evaluations over the trace polynomial
     let evaluation_points = vec![
         lde_primitive_root.pow(q_1),
         lde_primitive_root.pow(q_1) * &trace_primitive_root,
         lde_primitive_root.pow(q_1) * (&trace_primitive_root * &trace_primitive_root),
     ];
-
     let trace_lde_poly_evaluations = trace_poly.evaluate_slice(&evaluation_points);
-    let composition_poly_lde_evaluation = composition_poly.evaluate(&evaluation_points[0]);
-
     let merkle_paths = vec![
         trace_poly_lde_merkle_tree
             .get_proof_by_pos(q_1, trace_lde_poly_evaluations[0].clone())
@@ -186,7 +168,34 @@ pub fn prove(
         .unwrap()
     ];
 
+    // These are evaluations over the composition polynomial
+    let mut composition_poly = get_composition_poly(trace_poly.clone(), &trace_primitive_root);
+    let composition_poly_lde_evaluation = composition_poly.evaluate(&evaluation_points[0]);
+
+    // This is needed to check  the element is in the root
     let trace_root = trace_poly_lde_merkle_tree.root;
+
+    // END EVALUATION BLOCK
+
+    
+    // * Do FRI on the composition polynomials
+    let lde_fri_commitment =
+        crate::fri::fri(&mut composition_poly, &lde_roots_of_unity, transcript);
+
+    // * For every q_i, do FRI decommitment
+    let fri_decommitment = fri_decommit_layers(&lde_fri_commitment, q_1);
+
+    /*
+        IMPORTANT NOTE:
+        When we commit to the trace polynomial, let's call it f, we commit to an LDE of it.
+        On the other hand, the fibonacci constraint (and in general, any constraint) related to f applies
+        only using non-LDE roots of unity.
+        In this case, the constraint is f(w^2 x) - f(w x) - f(x), where w is a 2^n root of unity.
+        But for the commitment we use g, a 2^{nb} root of unity (b is the blowup factor).
+        When we sample a value x to evaluate the trace polynomial on, it has to be a 2^{nb} root of unity,
+        so with fiat-shamir we sample a random index in that range.
+        When we provide evaluations, we provide them for x*(w^2), x*w and x.
+    */
 
     let fri_layers_merkle_roots: Vec<FE> = lde_fri_commitment
         .iter()
