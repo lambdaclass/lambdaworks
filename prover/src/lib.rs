@@ -62,7 +62,6 @@ pub fn generate_primitive_root(subgroup_size: u64) -> FE {
 /// w ^ 0, w ^ 1, w ^ 2 .... w ^ n-1
 /// If coset_factor is h
 /// h * w ^ 0, h * w ^ 1 .... h * w ^ n-1
-// doesn't need to return the primitive root w ^ 1
 pub fn generate_roots_of_unity_coset(
     coset_factor: u64,
     primitive_root: &FE,
