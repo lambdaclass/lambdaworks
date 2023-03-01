@@ -63,10 +63,10 @@ impl<E: IsMontgomery> FromAffine<E::BaseField> for MontgomeryProjectivePoint<E> 
         x: FieldElement<E::BaseField>,
         y: FieldElement<E::BaseField>,
     ) -> Result<Self, crate::elliptic_curve::traits::EllipticCurveError> {
-        let coordinates = [x, y, FieldElement::one()];
-        if E::defining_equation(&coordinates) != FieldElement::zero() {
+        if E::defining_equation(&x, &y) != FieldElement::zero() {
             Err(EllipticCurveError::InvalidPoint)
         } else {
+            let coordinates = [x, y, FieldElement::one()];
             Ok(MontgomeryProjectivePoint::new(coordinates))
         }
     }
