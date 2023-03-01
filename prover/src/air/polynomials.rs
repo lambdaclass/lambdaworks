@@ -12,7 +12,7 @@ use winterfell::{
     Air, AuxTraceRandElements, Matrix, Serializable, Trace, TraceTable,
 };
 
-use crate::U384FieldElement;
+use crate::FE;
 
 use super::errors::ProverError;
 use winterfell::prover::{
@@ -41,10 +41,10 @@ pub(crate) fn get_coefficients<E: StarkField>(matrix_poly: Matrix<E>) -> Vec<E> 
 }
 
 #[allow(dead_code)]
-pub(crate) fn winter_2_lambda_felts(coeffs: Matrix<BaseElement>) -> Vec<U384FieldElement> {
+pub(crate) fn winter_2_lambda_felts(coeffs: Matrix<BaseElement>) -> Vec<FE> {
     get_coefficients(coeffs)
         .into_iter()
-        .map(|c| U384FieldElement::from(&U384::from(&c.to_string())))
+        .map(|c| FE::from(&U384::from(&c.to_string())))
         .collect()
 }
 
@@ -56,7 +56,7 @@ pub fn get_cp_and_tp<A>(
     air: A,
     trace: TraceTable<A::BaseField>,
     pub_inputs: A::PublicInputs,
-) -> Result<(Polynomial<U384FieldElement>, Polynomial<U384FieldElement>), ProverError>
+) -> Result<(Polynomial<FE>, Polynomial<FE>), ProverError>
 where
     A: Air<BaseField = BaseElement>,
 {
@@ -95,7 +95,7 @@ where
         .map_err(|e| ProverError::CompositionPolyError(e))?
         .data;
 
-    let cp_coeffs: Vec<U384FieldElement> = winter_2_lambda_felts(composition_poly);
+    let cp_coeffs: Vec<FE> = winter_2_lambda_felts(composition_poly);
 
     Ok((Polynomial::new(&cp_coeffs), Polynomial::new(&tp_coeffs)))
 }
@@ -152,7 +152,7 @@ where
 
 //         // TODO: this coefficients should be checked correctly to know
 //         // the test is really passing
-//         let expected_cp_coeffs: Vec<U384FieldElement> = vec![
+//         let expected_cp_coeffs: Vec<FE> = vec![
 //             73805846515134368521942875729025268850u128,
 //             251094867283236114961184226859763993364,
 //             24104107408363517664638843184319555199,
@@ -172,12 +172,12 @@ where
 //         ]
 //         .into_iter()
 //         .map(BaseElement::new)
-//         .map(|c| U384FieldElement::from(&U384::from(&c.to_string())))
+//         .map(|c| FE::from(&U384::from(&c.to_string())))
 //         .collect();
 
 //         // TODO: this coefficients should be checked correctly to know
 //         // the test is really passing
-//         let expected_tp_coeffs: Vec<U384FieldElement> = vec![
+//         let expected_tp_coeffs: Vec<FE> = vec![
 //             191794735525862843530824769197527107708,
 //             223814277178031177559040503778682093811,
 //             330061736062598381779522724430379788786,
@@ -189,7 +189,7 @@ where
 //         ]
 //         .into_iter()
 //         .map(BaseElement::new)
-//         .map(|c| U384FieldElement::from(&U384::from(&c.to_string())))
+//         .map(|c| FE::from(&U384::from(&c.to_string())))
 //         .collect();
 
 //         let expected_cp = Polynomial::new(&expected_cp_coeffs);

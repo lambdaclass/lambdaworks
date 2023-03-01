@@ -1,5 +1,5 @@
 use super::FE;
-use crate::{fri::fri_commitment::FriCommitmentVec, U384PrimeField};
+use crate::{fri::fri_commitment::FriCommitmentVec, PrimeField};
 pub use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_crypto::{hash::traits::IsCryptoHash, merkle_tree::DefaultHasher};
 
@@ -11,8 +11,8 @@ use lambdaworks_math::{
 #[derive(Debug, Clone)]
 pub struct FriDecommitment {
     pub layer_merkle_paths: Vec<(
-        Proof<U384PrimeField, DefaultHasher>,
-        Proof<U384PrimeField, DefaultHasher>,
+        Proof<PrimeField, DefaultHasher>,
+        Proof<PrimeField, DefaultHasher>,
     )>,
     pub last_layer_evaluation: FE,
 }

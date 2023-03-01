@@ -31,8 +31,8 @@ impl IsMontgomeryConfiguration for MontgomeryConfig {
         U384::from("11");
 }
 
-pub type U384PrimeField = MontgomeryBackendPrimeField<MontgomeryConfig>;
-pub type U384FieldElement = FieldElement<U384PrimeField>;
+pub type PrimeField = MontgomeryBackendPrimeField<MontgomeryConfig>;
+pub type FE = FieldElement<PrimeField>;
 
 const MODULUS_MINUS_1: U384 = U384::sub(
     &MontgomeryConfig::MODULUS,
@@ -49,12 +49,12 @@ const ORDER_OF_ROOTS_OF_UNITY_FOR_LDE: u64 = 16;
 pub fn generate_vec_roots(
     subgroup_size: u64,
     coset_factor: u64,
-) -> (Vec<U384FieldElement>, U384FieldElement) {
-    let MODULUS_MINUS_1_FIELD: U384FieldElement = U384FieldElement::new(MODULUS_MINUS_1);
-    let subgroup_size_u384: U384FieldElement = subgroup_size.into();
+) -> (Vec<FE>, FE) {
+    let MODULUS_MINUS_1_FIELD: FE = FE::new(MODULUS_MINUS_1);
+    let subgroup_size_u384: FE = subgroup_size.into();
 
-    let generator_field: U384FieldElement = 3.into();
-    let coset_factor_u384: U384FieldElement = coset_factor.into();
+    let generator_field: FE = 3.into();
+    let coset_factor_u384: FE = coset_factor.into();
 
     let exp = (&MODULUS_MINUS_1_FIELD) / &subgroup_size_u384;
 
@@ -74,12 +74,12 @@ pub fn generate_vec_roots(
 
 #[derive(Debug, Clone)]
 pub struct StarkQueryProof {
-    pub trace_lde_poly_root: U384FieldElement,
-    pub trace_lde_poly_evaluations: Vec<U384FieldElement>,
+    pub trace_lde_poly_root: FE,
+    pub trace_lde_poly_evaluations: Vec<FE>,
     /// Merkle paths for the trace polynomial evaluations
-    pub trace_lde_poly_inclusion_proofs: Vec<Proof<U384PrimeField, DefaultHasher>>,
-    pub composition_poly_lde_evaluations: Vec<U384FieldElement>,
-    pub fri_layers_merkle_roots: Vec<U384FieldElement>,
+    pub trace_lde_poly_inclusion_proofs: Vec<Proof<PrimeField, DefaultHasher>>,
+    pub composition_poly_lde_evaluations: Vec<FE>,
+    pub fri_layers_merkle_roots: Vec<FE>,
     pub fri_decommitment: FriDecommitment,
 }
 
@@ -87,10 +87,10 @@ pub type StarkProof = Vec<StarkQueryProof>;
 
 pub use lambdaworks_crypto::merkle_tree::merkle::MerkleTree;
 pub use lambdaworks_crypto::merkle_tree::DefaultHasher;
-pub type FriMerkleTree = MerkleTree<U384PrimeField, DefaultHasher>;
+pub type FriMerkleTree = MerkleTree<PrimeField, DefaultHasher>;
 
-pub fn fibonacci_trace(initial_values: [U384FieldElement; 2]) -> Vec<U384FieldElement> {
-    let mut ret: Vec<U384FieldElement> = vec![];
+pub fn fibonacci_trace(initial_values: [FE; 2]) -> Vec<FE> {
+    let mut ret: Vec<FE> = vec![];
 
     ret.push(initial_values[0].clone());
     ret.push(initial_values[1].clone());
@@ -106,7 +106,7 @@ pub fn prove(
     // air: A,
     // trace: TraceTable<A::BaseField>,
     // pub_inputs: A::PublicInputs,
-    pub_inputs: [U384FieldElement; 2],
+    pub_inputs: [FE; 2],
 ) -> StarkQueryProof
 // where
 //     A: Air<BaseField = BaseElement>,
@@ -195,7 +195,7 @@ pub fn prove(
 
     let trace_root = trace_poly_lde_merkle_tree.root.clone();
 
-    let fri_layers_merkle_roots: Vec<U384FieldElement> = lde_fri_commitment
+    let fri_layers_merkle_roots: Vec<FE> = lde_fri_commitment
         .iter()
         .map(|fri_commitment| fri_commitment.merkle_tree.root.clone())
         .collect();
@@ -211,14 +211,14 @@ pub fn prove(
 }
 
 fn get_composition_poly(
-    trace_poly: Polynomial<U384FieldElement>,
-    root_of_unity: &U384FieldElement,
-) -> Polynomial<U384FieldElement> {
+    trace_poly: Polynomial<FE>,
+    root_of_unity: &FE,
+) -> Polynomial<FE> {
     let w_squared_x = Polynomial::new(&vec![
-        U384FieldElement::zero(),
+        FE::zero(),
         root_of_unity * root_of_unity,
     ]);
-    let w_x = Polynomial::new(&vec![U384FieldElement::zero(), root_of_unity.clone()]);
+    let w_x = Polynomial::new(&vec![FE::zero(), root_of_unity.clone()]);
 
     polynomial::compose(&trace_poly, &w_squared_x)
         - polynomial::compose(&trace_poly, &w_x)
@@ -289,10 +289,10 @@ pub fn verify(proof: StarkQueryProof) -> bool {
         // v is the calculated element for the 
         // co linearity check
         let v = (previous_auth_path.clone().value + previous_auth_path_symmetric.clone().value)
-            / U384FieldElement::new(U384::from("2"))
-            + U384FieldElement::new(U384::from_u64(beta))
+            / FE::new(U384::from("2"))
+            + FE::new(U384::from_u64(beta))
                 * (previous_auth_path.clone().value - previous_auth_path_symmetric.clone().value)
-                / (U384FieldElement::new(U384::from("2")) * evaluation_point);
+                / (FE::new(U384::from("2")) * evaluation_point);
 
         primitive_root = primitive_root.pow(2_usize);
 
@@ -325,7 +325,7 @@ pub fn verify(proof: StarkQueryProof) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use crate::{verify, U384FieldElement};
+    use crate::{verify, FE};
 
     use super::prove;
     use lambdaworks_math::{field::element::FieldElement, unsigned_integer::element::U384};
@@ -334,8 +334,8 @@ mod tests {
     #[test]
     fn test_prove() {
         let result = prove([
-            U384FieldElement::new(U384::from("1")),
-            U384FieldElement::new(U384::from("1")),
+            FE::new(U384::from("1")),
+            FE::new(U384::from("1")),
         ]);
         assert!(verify(result));
     }
