@@ -10,6 +10,14 @@ impl<F: IsField> BoundaryConstraint<FieldElement<F>> {
     pub(crate) fn new(col: usize, step: usize, value: FieldElement<F>) -> Self {
         Self { col, step, value }
     }
+
+    pub(crate) fn new_simple(step: usize, value: FieldElement<F>) -> Self {
+        Self {
+            col: 0,
+            step,
+            value,
+        }
+    }
 }
 
 pub(crate) struct BoundaryConstraints<FE> {

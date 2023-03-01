@@ -232,6 +232,7 @@ fn get_boundary_quotient(
     let poly = Polynomial::interpolate(&domain, &values);
 
     trace_poly - poly
+    // TODO: Divide by zerofier
 }
 
 pub fn verify(proof: &StarkQueryProof) -> bool {
@@ -348,15 +349,42 @@ pub fn fri_verify(
 
 #[cfg(test)]
 mod tests {
-    use crate::{verify, FE};
+    use crate::{
+        air::constraints::boundary::{BoundaryConstraint, BoundaryConstraints},
+        verify, FE,
+    };
 
-    use super::prove;
+    use super::*;
     use lambdaworks_math::{field::element::FieldElement, unsigned_integer::element::U384};
-    use winterfell::{FieldExtension, ProofOptions};
 
     #[test]
     fn test_prove() {
         let result = prove([FE::new(U384::from("1")), FE::new(U384::from("1"))]);
         assert!(verify(&result));
+    }
+
+    #[test]
+    fn test_get_boundary_quotient() {
+        // Build boundary constraints
+        let const1 = BoundaryConstraint::new_simple(0, FE::new(U384::from("1")));
+        let const2 = BoundaryConstraint::new_simple(1, FE::new(U384::from("1")));
+        let boundary_constraints = BoundaryConstraints::from_constraints(vec![const1, const2]);
+
+        // Build trace polynomial
+        let pub_inputs = [FE::new(U384::from("1")), FE::new(U384::from("1"))];
+        let trace = fibonacci_trace(pub_inputs);
+        let trace_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_TRACE);
+        let trace_roots_of_unity = generate_roots_of_unity_coset(1, &trace_primitive_root);
+        let trace_poly = Polynomial::interpolate(&trace_roots_of_unity, &trace);
+
+        // Test get_boundary_quotient
+        let boundary_quotient = get_boundary_quotient(
+            boundary_constraints,
+            0,
+            trace_poly.clone(),
+            &trace_roots_of_unity,
+        );
+
+        assert_eq!(boundary_quotient, trace_poly);
     }
 }
