@@ -6,7 +6,7 @@ pub type FriMerkleTree = MerkleTree<F, DefaultHasher>;
 
 // #[cfg(test)]
 // mod tests {
-//     use super::{FriMerkleTree, FE};
+// use super::{FriMerkleTree};
 
 //     #[test]
 //     fn build_merkle_tree_from_an_even_set_of_leafs() {
