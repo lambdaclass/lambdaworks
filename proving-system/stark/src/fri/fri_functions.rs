@@ -1,11 +1,19 @@
-use super::{Polynomial, FE};
+use lambdaworks_math::field::{element::FieldElement, traits::IsField};
 
-fn fold_polynomial(poly: &Polynomial<FE>, beta: &FE) -> Polynomial<FE> {
+use super::Polynomial;
+
+fn fold_polynomial<F>(
+    poly: &Polynomial<FieldElement<F>>,
+    beta: &FieldElement<F>,
+) -> Polynomial<FieldElement<F>>
+where
+    F: IsField,
+{
     let coef = poly.coefficients();
-    let even_coef: Vec<FE> = coef.iter().step_by(2).cloned().collect();
+    let even_coef: Vec<FieldElement<F>> = coef.iter().step_by(2).cloned().collect();
 
     // odd coeficients of poly are multiplied by beta
-    let odd_coef_mul_beta: Vec<FE> = coef
+    let odd_coef_mul_beta: Vec<FieldElement<F>> = coef
         .iter()
         .skip(1)
         .step_by(2)
@@ -19,7 +27,10 @@ fn fold_polynomial(poly: &Polynomial<FE>, beta: &FE) -> Polynomial<FE> {
     even_poly + odd_poly
 }
 
-fn next_domain(input: &[FE]) -> Vec<FE> {
+fn next_domain<F>(input: &[FieldElement<F>]) -> Vec<FieldElement<F>>
+where
+    F: IsField,
+{
     let length = input.len() / 2;
     let mut ret = Vec::with_capacity(length);
     for v in input.iter().take(length) {
@@ -32,11 +43,18 @@ fn next_domain(input: &[FE]) -> Vec<FE> {
 /// * new polynomoial folded with FRI protocol
 /// * new domain
 /// * evaluations of the polynomial
-pub fn next_fri_layer(
-    poly: &Polynomial<FE>,
-    domain: &[FE],
-    beta: &FE,
-) -> (Polynomial<FE>, Vec<FE>, Vec<FE>) {
+pub fn next_fri_layer<F>(
+    poly: &Polynomial<FieldElement<F>>,
+    domain: &[FieldElement<F>],
+    beta: &FieldElement<F>,
+) -> (
+    Polynomial<FieldElement<F>>,
+    Vec<FieldElement<F>>,
+    Vec<FieldElement<F>>,
+)
+where
+    F: IsField,
+{
     let ret_poly = fold_polynomial(poly, beta);
     let ret_next_domain = next_domain(domain);
     let ret_evaluation = ret_poly.evaluate_slice(&ret_next_domain);
@@ -45,7 +63,11 @@ pub fn next_fri_layer(
 
 // #[cfg(test)]
 // mod tests {
-//     use super::{fold_polynomial, next_domain, next_fri_layer, FE};
+//     use super::{fold_polynomial, next_domain, next_fri_layer};
+//     use lambdaworks_math::field::fields::u64_prime_field::U64PrimeField;
+//     use lambdaworks_math::field::element::FieldElement;
+//     const MODULUS: u64 = 13;
+//     type FE = FieldElement<U64PrimeField<MODULUS>>;
 //     use lambdaworks_math::polynomial::Polynomial;
 
 //     #[test]

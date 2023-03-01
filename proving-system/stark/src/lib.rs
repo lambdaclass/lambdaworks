@@ -92,10 +92,7 @@ pub fn fibonacci_trace(initial_values: [FE; 2]) -> Vec<FE> {
     ret
 }
 
-pub fn prove(
-    pub_inputs: [FE; 2],
-) -> StarkQueryProof
-{
+pub fn prove(pub_inputs: [FE; 2]) -> StarkQueryProof {
     let transcript = &mut Transcript::new();
 
     // * Generate Coset
