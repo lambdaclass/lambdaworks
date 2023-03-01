@@ -22,20 +22,29 @@ use lambdaworks_math::{
     unsigned_integer::element::U384,
 };
 
-type U384PrimeField = MontgomeryBackendPrimeField<crate::air::polynomials::MontgomeryConfig>;
+// DEFINITION OF THE USED FIELD
+#[derive(Clone, Debug)]
+pub struct MontgomeryConfig;
+impl IsMontgomeryConfiguration for MontgomeryConfig {
+    const MODULUS: U384 =
+        // hex 17
+        U384::from("11");
+}
 
-type U384FieldElement = FieldElement<U384PrimeField>;
-
-// const MODULUS_MINUS_1: U384 = U384::from("10");
+pub type U384PrimeField = MontgomeryBackendPrimeField<MontgomeryConfig>;
+pub type U384FieldElement = FieldElement<U384PrimeField>;
 
 const MODULUS_MINUS_1: U384 = U384::sub(
-    &crate::air::polynomials::MontgomeryConfig::MODULUS,
+    &MontgomeryConfig::MODULUS,
     &U384::from("1"),
-)
-.0;
+).0;
+
+// DEFINITION OF CONSTANTS
 
 const ORDER_OF_ROOTS_OF_UNITY_TRACE: u64 = 4;
 const ORDER_OF_ROOTS_OF_UNITY_FOR_LDE: u64 = 16;
+
+// DEFINITION OF FUNCTIONS
 
 pub fn generate_vec_roots(
     subgroup_size: u64,

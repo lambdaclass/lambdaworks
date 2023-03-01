@@ -17,8 +17,8 @@ pub use lambdaworks_math::{
     polynomial::Polynomial,
 };
 
-pub type F = crate::air::polynomials::U384PrimeField;
-pub type FE = crate::air::polynomials::U384FieldElement;
+pub type F = crate::U384PrimeField;
+pub type FE = crate::U384FieldElement;
 
 /// # Params
 ///

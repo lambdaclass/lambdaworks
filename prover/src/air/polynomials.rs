@@ -12,22 +12,13 @@ use winterfell::{
     Air, AuxTraceRandElements, Matrix, Serializable, Trace, TraceTable,
 };
 
+use crate::U384FieldElement;
+
 use super::errors::ProverError;
 use winterfell::prover::{
     build_trace_commitment_f, channel::ProverChannel, constraints::ConstraintEvaluator,
     domain::StarkDomain, trace::commitment::TraceCommitment,
 };
-
-#[derive(Clone, Debug)]
-pub struct MontgomeryConfig;
-impl IsMontgomeryConfiguration for MontgomeryConfig {
-    const MODULUS: U384 =
-        // hex 17
-        U384::from("11");
-}
-
-pub type U384PrimeField = MontgomeryBackendPrimeField<MontgomeryConfig>;
-pub type U384FieldElement = FieldElement<U384PrimeField>;
 
 /// Given a CompositionPoly from winterfell, extract its coefficients
 /// as a vector.
