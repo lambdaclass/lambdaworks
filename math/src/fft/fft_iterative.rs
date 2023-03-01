@@ -28,11 +28,11 @@ where
         #[allow(clippy::needless_range_loop)] // the suggestion would obfuscate a bit the algorithm
         for group in 0..group_count {
             let first_in_group = group * group_size;
-            let last_in_next_group = first_in_group + group_size / 2;
+            let first_in_next_group = first_in_group + group_size / 2;
 
             let w = &twiddles[group]; // a twiddle factor is used per group
 
-            for i in first_in_group..last_in_next_group {
+            for i in first_in_group..first_in_next_group {
                 let y0 = &input[i] + w * &input[i + group_size / 2];
                 let y1 = &input[i] - w * &input[i + group_size / 2];
 
