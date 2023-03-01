@@ -102,7 +102,7 @@ mod tests {
         let g = BLS12381TwistCurve::generator();
         let [x, y, _] = g.coordinates();
         assert_eq!(
-            BLS12381TwistCurve::defining_equation(&x, &y),
+            BLS12381TwistCurve::defining_equation(x, y),
             Level1FE::zero()
         );
     }

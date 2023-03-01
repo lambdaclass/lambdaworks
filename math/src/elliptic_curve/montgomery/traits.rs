@@ -10,7 +10,10 @@ pub trait IsMontgomery: IsEllipticCurve + Clone + Debug {
 
     /// Evaluates the short Weierstrass equation at (x, y z).
     /// Used for checking if [x: y: z] belongs to the elliptic curve.
-    fn defining_equation(x: &FieldElement<Self::BaseField>, y: &FieldElement<Self::BaseField>) -> FieldElement<Self::BaseField> {
+    fn defining_equation(
+        x: &FieldElement<Self::BaseField>,
+        y: &FieldElement<Self::BaseField>,
+    ) -> FieldElement<Self::BaseField> {
         (Self::b() * y.pow(2_u16)) - (x.pow(3_u16) + Self::a() * x.pow(2_u16) + x)
     }
 }
