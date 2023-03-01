@@ -239,6 +239,9 @@ pub fn verify(proof: StarkQueryProof) -> bool {
     // FRI VERIFYING BEGINS HERE
     let decommitment_index: u64 = 4;
 
+    // For each (merkle_root, merkle_auth_path)
+    // With the auth path containining the element that the
+    // path proves it's existance
     for (
         layer_number,
         (fri_layer_merkle_root, (fri_layer_auth_path, fri_layer_auth_path_symmetric)),
@@ -247,6 +250,8 @@ pub fn verify(proof: StarkQueryProof) -> bool {
         .iter()
         .zip(proof.fri_decommitment.layer_merkle_paths.iter())
         .enumerate()
+        // Since we always derive the current layer from the previous layer
+        // We start with the second one, skipping the first, so previous is layer is the first one
         .skip(1)
     {
         if !fri_layer_auth_path.verify(fri_layer_merkle_root.clone()) {
@@ -260,17 +265,20 @@ pub fn verify(proof: StarkQueryProof) -> bool {
         // TODO: use Fiat Shamir
         let beta: u64 = 4;
 
-        let (previous_auth_path, previous_auth_path_symmetric) = match proof
-            .fri_decommitment
-            .layer_merkle_paths
-            .get(layer_number - 1)
-        {
-            Some(previous) => previous,
-            None => return false,
-        };
+        let (previous_auth_path, previous_auth_path_symmetric) =
+            proof
+                .fri_decommitment
+                .layer_merkle_paths
+                .get(layer_number - 1)
+                // TODO: Check at the start of the FRI operation
+                // if layer_merkle_paths has the right amount of elements
+                .unwrap();
 
+        // evaluation point = w ^ i in the Stark literature 
         let evaluation_point = primitive_root.pow(decommitment_index);
-
+    
+        // v is the calculated element for the 
+        // co linearity check
         let v = (previous_auth_path.clone().value + previous_auth_path_symmetric.clone().value)
             / U384FieldElement::new(U384::from("2"))
             + U384FieldElement::new(U384::from_u64(beta))

@@ -1,5 +1,5 @@
 use super::FE;
-use crate::{fri::fri_commitment::FriCommitmentVec, U384FieldElement, U384PrimeField};
+use crate::{fri::fri_commitment::FriCommitmentVec, U384PrimeField};
 pub use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_crypto::{hash::traits::IsCryptoHash, merkle_tree::DefaultHasher};
 
@@ -14,7 +14,7 @@ pub struct FriDecommitment {
         Proof<U384PrimeField, DefaultHasher>,
         Proof<U384PrimeField, DefaultHasher>,
     )>,
-    pub last_layer_evaluation: U384FieldElement,
+    pub last_layer_evaluation: FE,
 }
 
 // verifier chooses a randomness and get the index where
