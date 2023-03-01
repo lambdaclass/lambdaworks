@@ -288,11 +288,14 @@ pub fn verify(proof: StarkQueryProof) -> bool {
     
         // v is the calculated element for the 
         // co linearity check
-        let v = (previous_auth_path.clone().value + previous_auth_path_symmetric.clone().value)
-            / FE::new(U384::from("2"))
-            + FE::new(U384::from_u64(beta))
-                * (previous_auth_path.clone().value - previous_auth_path_symmetric.clone().value)
-                / (FE::new(U384::from("2")) * evaluation_point);
+        let two = &FE::new(U384::from("2"));
+        let beta = FE::new(U384::from_u64(beta));
+        let v = 
+            (&previous_auth_path.value + &previous_auth_path_symmetric.value) 
+                / two
+            + 
+            beta * (&previous_auth_path.value - &previous_auth_path_symmetric.value)
+                / (two * evaluation_point);
 
         primitive_root = primitive_root.pow(2_usize);
 
