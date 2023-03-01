@@ -11,7 +11,7 @@ use crate::field::{element::FieldElement, traits::IsTwoAdicField};
 /// - NR: natural to reverse order, meaning that the input is naturally ordered and the output will
 /// be bit-reversed ordered.
 /// - DIT: decimation in time
-fn in_place_nr_2radix_ntt<F>(input: &mut [FieldElement<F>], twiddles: &[FieldElement<F>])
+pub fn in_place_nr_2radix_ntt<F>(input: &mut [FieldElement<F>], twiddles: &[FieldElement<F>])
 where
     F: IsTwoAdicField,
 {
@@ -26,12 +26,13 @@ where
 
     while group_count < input.len() {
         #[allow(clippy::needless_range_loop)] // the suggestion would obfuscate a bit the algorithm
-        for group in 0..group_count - 1 {
+        for group in 0..group_count {
             let first_in_group = group * group_size;
-            let last_in_group = first_in_group + group_size / 2 - 1;
+            let last_in_next_group = first_in_group + group_size / 2;
 
-            for i in first_in_group..=last_in_group {
-                let w = &twiddles[group];
+            let w = &twiddles[group]; // a twiddle factor is used per group
+
+            for i in first_in_group..last_in_next_group {
                 let y0 = &input[i] + w * &input[i + group_size / 2];
                 let y1 = &input[i] - w * &input[i + group_size / 2];
 
@@ -39,7 +40,6 @@ where
                 input[i + group_size / 2] = y1;
             }
         }
-
         group_count *= 2;
         group_size /= 2;
     }
@@ -56,7 +56,7 @@ where
 /// - RN: reverse to natural order, meaning that the input is bit-reversed ordered and the output will
 /// be naturally ordered.
 /// - DIT: decimation in time
-fn in_place_rn_2radix_fft<F>(input: &mut [FieldElement<F>], twiddles: &[FieldElement<F>])
+pub fn in_place_rn_2radix_ntt<F>(input: &mut [FieldElement<F>], twiddles: &[FieldElement<F>])
 where
     F: IsTwoAdicField,
 {
@@ -73,18 +73,85 @@ where
         let step_to_next = 2 * group_count; // next butterfly in the group
         let step_to_last = step_to_next * (group_size / 2 - 1);
 
-        for group in 0..group_count - 1 {
+        for group in 0..group_count {
             for i in (group..=group + step_to_last).step_by(step_to_next) {
-                let w = &twiddles[group * group_count / 2];
-                let y0 = &input[i] + w * &input[i + group_size];
-                let y1 = &input[i] - w * &input[i + group_size];
+                let w = &twiddles[group * group_size / 2];
+                let y0 = &input[i] + w * &input[i + group_count];
+                let y1 = &input[i] - w * &input[i + group_count];
 
                 input[i] = y0;
-                input[i + group_size] = y1;
+                input[i + group_count] = y1;
             }
         }
-
         group_count *= 2;
         group_size /= 2;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::fft::bit_reversing::in_place_bit_reverse_permute;
+    use crate::fft::helpers::log2;
+    use crate::field::test_fields::u64_test_field::U64TestField;
+    use crate::polynomial::Polynomial;
+    use proptest::prelude::*;
+
+    use super::*;
+
+    const MODULUS: u64 = 0xFFFFFFFF00000001;
+    type F = U64TestField<MODULUS>;
+    type FE = FieldElement<F>;
+
+    prop_compose! {
+        fn powers_of_two(max_exp: u8)(exp in 1..max_exp) -> usize { 1 << exp }
+        // max_exp cannot be multiple of the bits that represent a usize, generally 64 or 32.
+        // also it can't exceed the test field's two-adicity.
+    }
+    prop_compose! {
+        fn field_element()(num in any::<u64>().prop_filter("Avoid null polynomial", |x| x != &0)) -> FE {
+            FE::from(num)
+        }
+    }
+    prop_compose! {
+        fn field_vec(max_exp: u8)(elem in field_element(), size in powers_of_two(max_exp)) -> Vec<FE> {
+            vec![elem; size]
+        }
+    }
+
+    proptest! {
+        // Property-based test that ensures NR Radix-2 NTT gives same result as a naive polynomial evaluation.
+        #[test]
+        fn test_nr_2radix_ntt_matches_naive_eval(coeffs in field_vec(8)) {
+            let omega = F::get_root_of_unity(log2(coeffs.len()).unwrap()).unwrap();
+            let mut twiddles = (0..coeffs.len() as u64).map(|i| omega.pow(i)).collect::<Vec<FE>>();
+
+            let poly = Polynomial::new(&coeffs[..]);
+            let expected: Vec<FE> = twiddles.iter().map(|x| poly.evaluate(&x)).collect();
+
+            in_place_bit_reverse_permute(&mut twiddles[..]);
+
+            let mut result = coeffs.clone();
+            in_place_nr_2radix_ntt(&mut result, &twiddles[..]);
+            in_place_bit_reverse_permute(&mut result);
+
+            prop_assert_eq!(result, expected);
+        }
+    }
+    proptest! {
+        // Property-based test that ensures RN Radix-2 NTT gives same result as a naive polynomial evaluation.
+        #[test]
+        fn test_rn_2radix_ntt_matches_naive_eval(coeffs in field_vec(8)) {
+            let omega = F::get_root_of_unity(log2(coeffs.len()).unwrap()).unwrap();
+            let twiddles = (0..coeffs.len() as u64).map(|i| omega.pow(i)).collect::<Vec<FE>>();
+
+            let poly = Polynomial::new(&coeffs[..]);
+            let expected: Vec<FE> = twiddles.iter().map(|x| poly.evaluate(&x)).collect();
+
+            let mut result = coeffs.clone();
+            in_place_bit_reverse_permute(&mut result[..]);
+            in_place_rn_2radix_ntt(&mut result, &twiddles[..]);
+
+            prop_assert_eq!(result, expected);
+        }
     }
 }
