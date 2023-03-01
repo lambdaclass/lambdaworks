@@ -239,14 +239,14 @@ pub fn verify(proof: &StarkQueryProof) -> bool {
     let transcript = &mut Transcript::new();
 
     let trace_poly_root = &proof.trace_lde_poly_root;
-    let evaluations = &proof.trace_lde_poly_evaluations;
+    let trace_evaluation = &proof.trace_lde_poly_evaluations;
 
     // TODO: These could be multiple evaluations depending on how many q_i are sampled with Fiat Shamir
-    let composition_poly_lde_evaluation_from_prover = &proof.composition_poly_lde_evaluations[0];
+    let composition_polynomial_evaluation_from_prover = &proof.composition_poly_lde_evaluations[0];
 
-    let composition_polynomial_evaluation_calculated = &evaluations[2] - &evaluations[1] - &evaluations[0];
+    let composition_polynomial_evaluation_from_trace = &trace_evaluation[2] - &trace_evaluation[1] - &trace_evaluation[0];
 
-    if *composition_poly_lde_evaluation_from_prover != composition_polynomial_evaluation_calculated {
+    if *composition_polynomial_evaluation_from_prover != composition_polynomial_evaluation_from_trace {
         return false;
     }
 
