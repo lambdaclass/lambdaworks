@@ -234,39 +234,59 @@ fn get_composition_poly(
         - trace_poly
 }
 
-pub fn verify(proof: StarkQueryProof) -> bool {
-    let trace_poly_root = proof.trace_lde_poly_root;
+pub fn verify(proof: &StarkQueryProof) -> bool {
 
-    let mut lde_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE);
+    let transcript = &mut Transcript::new();
 
-    let evaluations = proof.trace_lde_poly_evaluations;
+    let trace_poly_root = &proof.trace_lde_poly_root;
+    let evaluations = &proof.trace_lde_poly_evaluations;
 
     // TODO: These could be multiple evaluations depending on how many q_i are sampled with Fiat Shamir
-    let composition_poly_lde_evaluation = proof.composition_poly_lde_evaluations[0].clone();
+    let composition_poly_lde_evaluation_from_prover = &proof.composition_poly_lde_evaluations[0];
 
-    if composition_poly_lde_evaluation != &evaluations[2] - &evaluations[1] - &evaluations[0] {
+    let composition_polynomial_evaluation_calculated = &evaluations[2] - &evaluations[1] - &evaluations[0];
+
+    if *composition_poly_lde_evaluation_from_prover != composition_polynomial_evaluation_calculated {
         return false;
     }
 
-    for merkle_proof in proof.trace_lde_poly_inclusion_proofs {
+    for merkle_proof in &proof.trace_lde_poly_inclusion_proofs {
         if !merkle_proof.verify(trace_poly_root.clone()) {
             return false;
         }
     }
 
-    // FRI VERIFYING BEGINS HERE
+    fri_verify(&proof.fri_layers_merkle_roots,&proof.fri_decommitment, transcript)
+}
+
+/// Performs FRI verification for some decommitment
+pub fn fri_verify(fri_layers_merkle_roots: &[FE], fri_decommitment: &FriDecommitment,  _transcript: &mut Transcript) -> bool {
+
+    // For each fri layer merkle proof check:
+    // That each merkle path verifies
+
+    // Sample beta with fiat shamir
+    // Compute v = [P_i(z_i) + P_i(-z_i)] / 2 + beta * [P_i(z_i) - P_i(-z_i)] / (2 * z_i)
+    // Where P_i is the folded polynomial of the i-th fiat shamir round
+    // z_i is obtained from the first z (that was derived through fiat-shamir) through a known calculation
+    // The calculation is, given the index, index % length_of_evaluation_domain
+
+    // Check that v = P_{i+1}(z_i)
+
     let decommitment_index: u64 = 4;
 
-    // For each (merkle_root, merkle_auth_path)
+    let mut lde_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE);
+
+    // For each (merkle_root, merkle_auth_path) / fold 
     // With the auth path containining the element that the
     // path proves it's existance
     for (
         layer_number,
         (fri_layer_merkle_root, (fri_layer_auth_path, fri_layer_auth_path_symmetric)),
-    ) in proof
-        .fri_layers_merkle_roots
+    ) in 
+        fri_layers_merkle_roots
         .iter()
-        .zip(proof.fri_decommitment.layer_merkle_paths.iter())
+        .zip(fri_decommitment.layer_merkle_paths.iter())
         .enumerate()
         // Since we always derive the current layer from the previous layer
         // We start with the second one, skipping the first, so previous is layer is the first one
@@ -284,8 +304,7 @@ pub fn verify(proof: StarkQueryProof) -> bool {
         let beta: u64 = 4;
 
         let (previous_auth_path, previous_auth_path_symmetric) =
-            proof
-                .fri_decommitment
+                fri_decommitment
                 .layer_merkle_paths
                 .get(layer_number - 1)
                 // TODO: Check at the start of the FRI operation
@@ -312,20 +331,9 @@ pub fn verify(proof: StarkQueryProof) -> bool {
             return false;
         }
     }
-
-    // For each fri layer merkle proof check:
-    // That each merkle path verifies
-
-    // Sample beta with fiat shamir
-    // Compute v = [P_i(z_i) + P_i(-z_i)] / 2 + beta * [P_i(z_i) - P_i(-z_i)] / (2 * z_i)
-    // Where P_i is the folded polynomial of the i-th fiat shamir round
-    // z_i is obtained from the first z (that was derived through fiat-shamir) through a known calculation
-    // The calculation is, given the index, index % length_of_evaluation_domain
-
-    // Check that v = P_{i+1}(z_i)
-
     return true;
 }
+
 
 // TODOS after basic fibonacci works:
 // - Add Fiat Shamir
@@ -349,6 +357,6 @@ mod tests {
             FE::new(U384::from("1")),
             FE::new(U384::from("1")),
         ]);
-        assert!(verify(result));
+        assert!(verify(&result));
     }
 }
