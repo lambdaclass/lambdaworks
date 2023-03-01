@@ -3,5 +3,5 @@
 members = [
     "math",
     "crypto",
-    "prover",
+    "stark",
 ]
