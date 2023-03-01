@@ -49,7 +49,6 @@ const ORDER_OF_ROOTS_OF_UNITY_FOR_LDE: u64 = 16;
 
 // DEFINITION OF FUNCTIONS
 
-
 /// This functions takes a roots of unity and a coset factor
 /// If coset_factor is 1, it's just expanding the roots of unity 
 /// w ^ 0, w ^ 1, w ^ 2 .... w ^ n-1
@@ -62,16 +61,14 @@ pub fn generate_roots_of_unity_coset(
 ) -> (Vec<FE>, FE) {
 
     let modulus_minus_1_field: FE = FE::new(MODULUS_MINUS_1);
-    let subgroup_size_u384: FE = root_of_unity_size.into();
+    let subgroup_size: FE = root_of_unity_size.into();
 
     let generator_field: FE = FIELD_SUBGROUP_GENERATOR.into();
     let coset_factor_u384: FE = coset_factor.into();
 
-    let exp = (&modulus_minus_1_field) / &subgroup_size_u384;
-
-    let exp_384 = *exp.value();
-
-    let generator_of_subgroup = generator_field.pow(exp_384);
+    let exp = (&modulus_minus_1_field) / &subgroup_size;
+    
+    let generator_of_subgroup = generator_field.pow(*exp.value());
 
     let mut numbers = Vec::new();
 
