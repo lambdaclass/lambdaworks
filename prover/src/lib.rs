@@ -1,4 +1,3 @@
-pub mod air;
 pub mod fri;
 
 use fri::fri_decommit::{fri_decommit_layers, FriDecommitment};
@@ -94,20 +93,12 @@ pub fn fibonacci_trace(initial_values: [FE; 2]) -> Vec<FE> {
 }
 
 pub fn prove(
-    // air: A,
-    // trace: TraceTable<A::BaseField>,
-    // pub_inputs: A::PublicInputs,
     pub_inputs: [FE; 2],
 ) -> StarkQueryProof
-// where
-//     A: Air<BaseField = BaseElement>,
 {
     let transcript = &mut Transcript::new();
-    // * Generate composition polynomials using Winterfell
-    // let (mut composition_poly, mut trace_poly) = get_cp_and_tp(air, trace, pub_inputs).unwrap();
 
     // * Generate Coset
-
     let trace_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_TRACE);
     let trace_roots_of_unity = generate_roots_of_unity_coset(1, &trace_primitive_root);
 

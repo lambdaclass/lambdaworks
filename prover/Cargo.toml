@@ -9,5 +9,4 @@ edition = "2021"
 rand = "0.8.5"
 lambdaworks-math = { path = "../math" }
 lambdaworks-crypto = { path = "../crypto"}
-winterfell = { git = "https://github.com/lambdaclass/winterfell", branch = "make-apis-public" }
 thiserror = "1.0.38"
