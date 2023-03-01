@@ -18,7 +18,7 @@ pub struct MontgomeryConfig;
 impl IsMontgomeryConfiguration for MontgomeryConfig {
     const MODULUS: U384 =
         // hex 17
-        U384::from("11");
+        U384::from("800000000000011000000000000000000000000000000000000000000000001");
 }
 
 pub type PrimeField = MontgomeryBackendPrimeField<MontgomeryConfig>;
@@ -31,8 +31,8 @@ const FIELD_SUBGROUP_GENERATOR: u64 = 3;
 
 // DEFINITION OF CONSTANTS
 
-const ORDER_OF_ROOTS_OF_UNITY_TRACE: u64 = 4;
-const ORDER_OF_ROOTS_OF_UNITY_FOR_LDE: u64 = 16;
+const ORDER_OF_ROOTS_OF_UNITY_TRACE: u64 = 32;
+const ORDER_OF_ROOTS_OF_UNITY_FOR_LDE: u64 = 1024;
 
 // DEFINITION OF FUNCTIONS
 
@@ -41,7 +41,7 @@ pub fn generate_primitive_root(subgroup_size: u64) -> FE {
     let subgroup_size: FE = subgroup_size.into();
     let generator_field: FE = FIELD_SUBGROUP_GENERATOR.into();
     let exp = (&modulus_minus_1_field) / &subgroup_size;
-    generator_field.pow(*exp.value())
+    generator_field.pow(exp.representative())
 }
 
 /// This functions takes a roots of unity and a coset factor
