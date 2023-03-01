@@ -39,6 +39,9 @@ const MODULUS_MINUS_1: U384 = U384::sub(
     &U384::from("1"),
 ).0;
 
+/// Subgroup generator to generate the roots of unity 
+const FIELD_SUBGROUP_GENERATOR: u64 = 3;
+
 // DEFINITION OF CONSTANTS
 
 const ORDER_OF_ROOTS_OF_UNITY_TRACE: u64 = 4;
@@ -46,17 +49,25 @@ const ORDER_OF_ROOTS_OF_UNITY_FOR_LDE: u64 = 16;
 
 // DEFINITION OF FUNCTIONS
 
-pub fn generate_vec_roots(
-    subgroup_size: u64,
+
+/// This functions takes a roots of unity and a coset factor
+/// If coset_factor is 1, it's just expanding the roots of unity 
+/// w ^ 0, w ^ 1, w ^ 2 .... w ^ n-1
+/// If coset_factor is h
+/// h * w ^ 0, h * w ^ 1 .... h * w ^ n-1
+// doesn't need to return the primitive root w ^ 1
+pub fn generate_roots_of_unity_coset(
+    root_of_unity_size: u64,
     coset_factor: u64,
 ) -> (Vec<FE>, FE) {
-    let MODULUS_MINUS_1_FIELD: FE = FE::new(MODULUS_MINUS_1);
-    let subgroup_size_u384: FE = subgroup_size.into();
 
-    let generator_field: FE = 3.into();
+    let modulus_minus_1_field: FE = FE::new(MODULUS_MINUS_1);
+    let subgroup_size_u384: FE = root_of_unity_size.into();
+
+    let generator_field: FE = FIELD_SUBGROUP_GENERATOR.into();
     let coset_factor_u384: FE = coset_factor.into();
 
-    let exp = (&MODULUS_MINUS_1_FIELD) / &subgroup_size_u384;
+    let exp = (&modulus_minus_1_field) / &subgroup_size_u384;
 
     let exp_384 = *exp.value();
 
@@ -64,7 +75,7 @@ pub fn generate_vec_roots(
 
     let mut numbers = Vec::new();
 
-    for exp in 0..subgroup_size {
+    for exp in 0..root_of_unity_size {
         let ret = generator_of_subgroup.pow(exp) * &coset_factor_u384;
         numbers.push(ret.clone());
     }
@@ -118,10 +129,10 @@ pub fn prove(
     // * Generate Coset
 
     let (roots_of_unity, primitive_root) =
-        crate::generate_vec_roots(ORDER_OF_ROOTS_OF_UNITY_TRACE, 1);
+        generate_roots_of_unity_coset(ORDER_OF_ROOTS_OF_UNITY_TRACE, 1);
 
     let (lde_roots_of_unity, lde_primitive_root) =
-        crate::generate_vec_roots(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE, 1);
+        generate_roots_of_unity_coset(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE, 1);
 
     let trace = fibonacci_trace(pub_inputs);
 
@@ -229,7 +240,7 @@ pub fn verify(proof: StarkQueryProof) -> bool {
     let trace_poly_root = proof.trace_lde_poly_root;
 
     let (_roots_of_unity, mut primitive_root) =
-        crate::generate_vec_roots(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE, 1);
+        generate_roots_of_unity_coset(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE, 1);
     let evaluations = proof.trace_lde_poly_evaluations;
 
     // TODO: These could be multiple evaluations depending on how many q_i are sampled with Fiat Shamir
