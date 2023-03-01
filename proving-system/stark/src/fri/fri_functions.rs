@@ -43,6 +43,8 @@ where
 /// * new polynomoial folded with FRI protocol
 /// * new domain
 /// * evaluations of the polynomial
+// TODO: Remove this
+#[allow(clippy::type_complexity)]
 pub fn next_fri_layer<F>(
     poly: &Polynomial<FieldElement<F>>,
     domain: &[FieldElement<F>],

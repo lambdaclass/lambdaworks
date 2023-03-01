@@ -148,7 +148,7 @@ pub fn prove(pub_inputs: [FE; 2]) -> StarkQueryProof {
     ];
 
     // These are evaluations over the composition polynomial
-    let mut composition_poly = get_composition_poly(trace_poly.clone(), &trace_primitive_root);
+    let mut composition_poly = get_composition_poly(trace_poly, &trace_primitive_root);
     let composition_poly_lde_evaluation = composition_poly.evaluate(&evaluation_points[0]);
 
     // This is needed to check  the element is in the root
