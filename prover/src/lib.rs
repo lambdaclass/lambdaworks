@@ -49,6 +49,14 @@ const ORDER_OF_ROOTS_OF_UNITY_FOR_LDE: u64 = 16;
 
 // DEFINITION OF FUNCTIONS
 
+pub fn generate_primitive_root(subgroup_size: u64) -> FE {
+    let modulus_minus_1_field: FE = FE::new(MODULUS_MINUS_1);
+    let subgroup_size: FE = subgroup_size.into();
+    let generator_field: FE = FIELD_SUBGROUP_GENERATOR.into();
+    let exp = (&modulus_minus_1_field) / &subgroup_size;
+    generator_field.pow(*exp.value())
+}
+
 /// This functions takes a roots of unity and a coset factor
 /// If coset_factor is 1, it's just expanding the roots of unity 
 /// w ^ 0, w ^ 1, w ^ 2 .... w ^ n-1
@@ -56,28 +64,21 @@ const ORDER_OF_ROOTS_OF_UNITY_FOR_LDE: u64 = 16;
 /// h * w ^ 0, h * w ^ 1 .... h * w ^ n-1
 // doesn't need to return the primitive root w ^ 1
 pub fn generate_roots_of_unity_coset(
-    root_of_unity_size: u64,
     coset_factor: u64,
-) -> (Vec<FE>, FE) {
+    primitive_root: &FE,
+) -> Vec<FE> {
 
-    let modulus_minus_1_field: FE = FE::new(MODULUS_MINUS_1);
-    let subgroup_size: FE = root_of_unity_size.into();
+    let coset_factor: FE = coset_factor.into();
 
-    let generator_field: FE = FIELD_SUBGROUP_GENERATOR.into();
-    let coset_factor_u384: FE = coset_factor.into();
-
-    let exp = (&modulus_minus_1_field) / &subgroup_size;
-    
-    let generator_of_subgroup = generator_field.pow(*exp.value());
-
-    let mut numbers = Vec::new();
-
-    for exp in 0..root_of_unity_size {
-        let ret = generator_of_subgroup.pow(exp) * &coset_factor_u384;
-        numbers.push(ret.clone());
+    let mut numbers = vec![coset_factor.clone()];
+    let mut exp: u64 = 1;
+    let mut next_root = primitive_root.pow(exp) * &coset_factor;
+    while next_root != coset_factor {
+        numbers.push(next_root);
+        exp += 1;
+        next_root = primitive_root.pow(exp) * &coset_factor;
     }
-
-    (numbers, generator_of_subgroup)
+    numbers
 }
 
 #[derive(Debug, Clone)]
@@ -125,17 +126,18 @@ pub fn prove(
 
     // * Generate Coset
 
-    let (roots_of_unity, primitive_root) =
-        generate_roots_of_unity_coset(ORDER_OF_ROOTS_OF_UNITY_TRACE, 1);
+    let trace_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_TRACE);
+    let trace_roots_of_unity =
+        generate_roots_of_unity_coset(1, &trace_primitive_root);
 
-    let (lde_roots_of_unity, lde_primitive_root) =
-        generate_roots_of_unity_coset(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE, 1);
+    let lde_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE);
+    let lde_roots_of_unity = generate_roots_of_unity_coset(1, &lde_primitive_root);
 
     let trace = fibonacci_trace(pub_inputs);
 
-    let trace_poly = Polynomial::interpolate(&roots_of_unity, &trace);
+    let trace_poly = Polynomial::interpolate(&trace_roots_of_unity, &trace);
 
-    let mut composition_poly = get_composition_poly(trace_poly.clone(), &primitive_root);
+    let mut composition_poly = get_composition_poly(trace_poly.clone(), &trace_primitive_root);
 
     // * Do Reed-Solomon on the trace and composition polynomials using some blowup factor
     let trace_poly_lde = trace_poly.evaluate_slice(lde_roots_of_unity.as_slice());
@@ -169,8 +171,8 @@ pub fn prove(
 
     let evaluation_points = vec![
         lde_primitive_root.pow(q_1),
-        lde_primitive_root.pow(q_1) * &primitive_root,
-        lde_primitive_root.pow(q_1) * (&primitive_root * &primitive_root),
+        lde_primitive_root.pow(q_1) * &trace_primitive_root,
+        lde_primitive_root.pow(q_1) * (&trace_primitive_root * &trace_primitive_root),
     ];
 
     let trace_lde_poly_evaluations = trace_poly.evaluate_slice(&evaluation_points);
@@ -236,8 +238,8 @@ fn get_composition_poly(
 pub fn verify(proof: StarkQueryProof) -> bool {
     let trace_poly_root = proof.trace_lde_poly_root;
 
-    let (_roots_of_unity, mut primitive_root) =
-        generate_roots_of_unity_coset(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE, 1);
+    let mut lde_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE);
+
     let evaluations = proof.trace_lde_poly_evaluations;
 
     // TODO: These could be multiple evaluations depending on how many q_i are sampled with Fiat Shamir
@@ -292,7 +294,7 @@ pub fn verify(proof: StarkQueryProof) -> bool {
                 .unwrap();
 
         // evaluation point = w ^ i in the Stark literature 
-        let evaluation_point = primitive_root.pow(decommitment_index);
+        let evaluation_point = lde_primitive_root.pow(decommitment_index);
     
         // v is the calculated element for the 
         // co linearity check
@@ -305,7 +307,7 @@ pub fn verify(proof: StarkQueryProof) -> bool {
             beta * (&previous_auth_path.value - &previous_auth_path_symmetric.value)
                 / (two * evaluation_point);
 
-        primitive_root = primitive_root.pow(2_usize);
+        lde_primitive_root = lde_primitive_root.pow(2_usize);
 
         if v != fri_layer_auth_path.value {
             return false;
