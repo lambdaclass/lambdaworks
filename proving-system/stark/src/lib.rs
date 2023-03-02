@@ -336,7 +336,7 @@ pub fn fri_verify(
         }
 
         // On the last iteration, also check the provided last evaluation point.
-        if layer_number == fri_layers_merkle_roots.len() {
+        if layer_number == fri_layers_merkle_roots.len() - 1 {
             let last_evaluation_point = &offset * lde_primitive_root.pow(decommitment_index);
 
             let last_v = (&fri_layer_auth_path.value + &fri_layer_auth_path_symmetric.value) / two
