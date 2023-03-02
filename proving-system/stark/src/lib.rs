@@ -7,20 +7,20 @@ use lambdaworks_math::polynomial::{self, Polynomial};
 
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::{
-    field::fields::u384_prime_field::{IsMontgomeryConfiguration, MontgomeryBackendPrimeField},
+    field::fields::montgomery_backed_prime_fields::{IsMontgomeryConfiguration, U384PrimeField},
     unsigned_integer::element::U384,
 };
 
 // DEFINITION OF THE USED FIELD
 #[derive(Clone, Debug)]
 pub struct MontgomeryConfig;
-impl IsMontgomeryConfiguration for MontgomeryConfig {
+impl IsMontgomeryConfiguration<6> for MontgomeryConfig {
     const MODULUS: U384 =
         // hex 17
         U384::from("800000000000011000000000000000000000000000000000000000000000001");
 }
 
-pub type PrimeField = MontgomeryBackendPrimeField<MontgomeryConfig>;
+pub type PrimeField = U384PrimeField<MontgomeryConfig>;
 pub type FE = FieldElement<PrimeField>;
 
 const MODULUS_MINUS_1: U384 = U384::sub(&MontgomeryConfig::MODULUS, &U384::from("1")).0;

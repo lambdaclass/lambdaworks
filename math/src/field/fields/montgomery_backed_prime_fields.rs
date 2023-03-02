@@ -10,14 +10,65 @@ use std::marker::PhantomData;
 pub type U384PrimeField<C> = MontgomeryBackendPrimeField<C, 6>;
 pub type U256PrimeField<C> = MontgomeryBackendPrimeField<C, 4>;
 
+
+/// Computes `- modulus^{-1} mod 2^{64}`
+/// This algorithm is given  by Dussé and Kaliski Jr. in
+/// "S. R. Dussé and B. S. Kaliski Jr. A cryptographic library for the Motorola
+/// DSP56000. In I. Damgård, editor, Advances in Cryptology – EUROCRYPT’90,
+/// volume 473 of Lecture Notes in Computer Science, pages 230–244. Springer,
+/// Heidelberg, May 1991."
+const fn compute_mu_parameter<const NUM_LIMBS: usize>( modulus: &UnsignedInteger<NUM_LIMBS>) -> u64 {
+    let mut y = 1;
+    let word_size = 64;
+    let mut i: usize = 2;
+    while i <= word_size {
+        let (_, lo) = UnsignedInteger::mul(modulus, &UnsignedInteger::from_u64(y));
+        let least_significant_limb = lo.limbs[NUM_LIMBS-1];
+        if (least_significant_limb << (word_size - i)) >> (word_size - i) != 1 {
+            y += 1 << (i - 1);
+        }
+        i += 1;
+    }
+    y.wrapping_neg()
+}
+
+/// Computes 2^{384 * 2} modulo `modulus`
+const fn compute_r2_parameter<const NUM_LIMBS: usize>(modulus: &UnsignedInteger<NUM_LIMBS>) -> UnsignedInteger<NUM_LIMBS> {
+    let word_size = 64;
+    let mut l: usize = 0;
+    let zero = UnsignedInteger::from_u64(0);
+    // Define `c` as the largest power of 2 smaller than `modulus`
+    while l < NUM_LIMBS * word_size {
+        if UnsignedInteger::const_ne(&modulus.const_shr(l), &zero) {
+            break;
+        }
+        l += 1;
+    }
+    let mut c = UnsignedInteger::from_u64(1).const_shl(l);
+
+    // Double `c` and reduce modulo `modulus` until getting
+    // `2^{2 * number_limbs * word_size}` mod `modulus`
+    let mut i: usize = 1;
+    while i <= 2 * NUM_LIMBS * word_size - l {
+        let (double_c, overflow) = UnsignedInteger::add(&c, &c);
+        c = if UnsignedInteger::const_le(modulus, &double_c) || overflow {
+            UnsignedInteger::sub(&double_c, modulus).0
+        } else {
+            double_c
+        };
+        i += 1;
+    }
+    c
+}
+
 /// This trait is necessary for us to be able to use unsigned integer types bigger than
 /// `u128` (the biggest native `unit`) as constant generics.
 /// This trait should be removed when Rust supports this feature.
 
 pub trait IsMontgomeryConfiguration<const NUM_LIMBS: usize> {
     const MODULUS: UnsignedInteger<NUM_LIMBS>;
-    const R2: UnsignedInteger<NUM_LIMBS>;
-    const MP: u64;
+    const R2: UnsignedInteger<NUM_LIMBS> = compute_r2_parameter(&Self::MODULUS);
+    const MU: u64 = compute_mu_parameter(&Self::MODULUS);
 }
 
 #[derive(Clone, Debug)]
@@ -53,7 +104,7 @@ where
     }
 
     fn mul(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
-        MontgomeryAlgorithms::cios(a, b, &C::MODULUS, &C::MP)
+        MontgomeryAlgorithms::cios(a, b, &C::MODULUS, &C::MU)
     }
 
     fn sub(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
@@ -96,11 +147,16 @@ where
     }
 
     fn from_u64(x: u64) -> Self::BaseType {
-        MontgomeryAlgorithms::cios(&UnsignedInteger::from_u64(x), &C::R2, &C::MODULUS, &C::MP)
+        MontgomeryAlgorithms::cios(&UnsignedInteger::from_u64(x), &C::R2, &C::MODULUS, &C::MU)
     }
 
     fn from_base_type(x: Self::BaseType) -> Self::BaseType {
-        MontgomeryAlgorithms::cios(&x, &C::R2, &C::MODULUS, &C::MP)
+        MontgomeryAlgorithms::cios(&x, &C::R2, &C::MODULUS, &C::MU)
+    }
+
+    // TO DO: Add tests for representatives
+    fn representative(x: Self::BaseType) -> Self::BaseType {
+        MontgomeryAlgorithms::cios(&x, &UnsignedInteger::from_u64(1), &C::MODULUS, &C::MU)
     }
 }
 
@@ -114,7 +170,7 @@ where
             self.value(),
             &UnsignedInteger::from_u64(1),
             &C::MODULUS,
-            &C::MP,
+            &C::MU,
         )
         .to_bytes_be()
     }
@@ -124,7 +180,7 @@ where
             self.value(),
             &UnsignedInteger::from_u64(1),
             &C::MODULUS,
-            &C::MP,
+            &C::MU,
         )
         .to_bytes_le()
     }
@@ -154,8 +210,8 @@ mod tests_u384_prime_fields {
     struct U384MontgomeryConfiguration23;
     impl IsMontgomeryConfiguration<6> for U384MontgomeryConfiguration23 {
         const MODULUS: U384 = UnsignedInteger::from_u64(23);
-        const MP: u64 = 3208129404123400281;
-        const R2: U384 = UnsignedInteger::from_u64(6);
+        //const MP: u64 = 3208129404123400281;
+        //const R2: U384 = UnsignedInteger::from_u64(6);
     }
 
     type U384F23 = U384PrimeField<U384MontgomeryConfiguration23>;
@@ -314,10 +370,10 @@ mod tests_u384_prime_fields {
                 15923941673896418529,
             ],
         };
-        const MP: u64 = 16085280245840369887;
-        const R2: U384 = UnsignedInteger {
-            limbs: [0, 0, 0, 362264696, 173086217205162856, 7848132598488868435],
-        };
+        //const MP: u64 = 16085280245840369887;
+        //const R2: U384 = UnsignedInteger {
+        //    limbs: [0, 0, 0, 362264696, 173086217205162856, 7848132598488868435],
+        //};
     }
 
     type U384FP1 = U384PrimeField<U384MontgomeryConfigP1>;
@@ -365,10 +421,10 @@ mod tests_u384_prime_fields {
                 18446744073709551275,
             ],
         };
-        const MP: u64 = 14984598558409225213;
-        const R2: U384 = UnsignedInteger {
-            limbs: [0, 0, 0, 0, 0, 116281],
-        };
+        //const MP: u64 = 14984598558409225213;
+        //const R2: U384 = UnsignedInteger {
+        //    limbs: [0, 0, 0, 0, 0, 116281],
+        //};
     }
 
     type U384FP2 = U384PrimeField<U384MontgomeryConfigP2>;
@@ -452,8 +508,8 @@ mod tests_u256_prime_fields {
     struct U256MontgomeryConfiguration29;
     impl IsMontgomeryConfiguration<4> for U256MontgomeryConfiguration29 {
         const MODULUS: U256 = UnsignedInteger::from_u64(29);
-        const MP: u64 = 14630176334321368523;
-        const R2: U256 = UnsignedInteger::from_u64(24);
+        //const MP: u64 = 14630176334321368523;
+        //const R2: U256 = UnsignedInteger::from_u64(24);
     }
 
     type U256F29 = U256PrimeField<U256MontgomeryConfiguration29>;
@@ -610,15 +666,15 @@ mod tests_u256_prime_fields {
                 15723111795979912613,
             ],
         };
-        const MP: u64 = 13870950301186631123;
-        const R2: U256 = UnsignedInteger {
-            limbs: [
-                3199,
-                7378261192024362008,
-                10023267389842517467,
-                17706296746204571208,
-            ],
-        };
+        //const MP: u64 = 13870950301186631123;
+        //const R2: U256 = UnsignedInteger {
+        //    limbs: [
+        //        3199,
+        //        7378261192024362008,
+        //        10023267389842517467,
+        //        17706296746204571208,
+        //    ],
+        //};
     }
 
     type U256FP1 = U256PrimeField<U256MontgomeryConfigP1>;
@@ -664,10 +720,10 @@ mod tests_u256_prime_fields {
                 18446744073709551427,
             ],
         };
-        const MP: u64 = 11907422100489763477;
-        const R2: U256 = UnsignedInteger {
-            limbs: [0, 0, 0, 35721],
-        };
+        //const MP: u64 = 11907422100489763477;
+        //const R2: U256 = UnsignedInteger {
+        //    limbs: [0, 0, 0, 35721],
+        //};
     }
 
     type FP2 = U256PrimeField<MontgomeryConfigP2>;
