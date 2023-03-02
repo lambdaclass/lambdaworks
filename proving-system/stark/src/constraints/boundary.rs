@@ -57,7 +57,6 @@ impl<F: IsField> BoundaryConstraints<FieldElement<F>> {
     ) -> Vec<FieldElement<F>> {
         let mut domain = Vec::with_capacity(self.constraints.len());
         for step in self.get_steps().into_iter() {
-            // TODO: Handle Option from get()
             let domain_point = primitive_root.pow(step);
             domain.push(domain_point.clone());
         }
