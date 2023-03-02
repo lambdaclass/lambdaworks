@@ -8,7 +8,7 @@ use crate::hash::traits::IsCryptoHash;
 use self::{merkle::MerkleTree, proof::Proof};
 
 pub mod merkle;
-mod proof;
+pub mod proof;
 mod utils;
 
 pub type U64F = U64PrimeField<0xFFFF_FFFF_0000_0001_u64>;
