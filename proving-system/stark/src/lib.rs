@@ -224,16 +224,16 @@ fn get_zerofier(primitive_root: &FE, root_order: usize) -> Polynomial<FE> {
 fn get_boundary_quotient(
     constraints: BoundaryConstraints<FE>,
     col: usize,
+    primitive_root: &FE,
     trace_poly: &Polynomial<FE>,
-    trace_domain: &[FE],
 ) -> Polynomial<FE> {
-    let domain = constraints.get_boundary_poly_domain(trace_domain);
+    let domain = constraints.get_boundary_roots_of_unity(primitive_root);
     let values = constraints.get_values(col);
+    let zerofier = constraints.get_zerofier(primitive_root);
 
     let poly = Polynomial::interpolate(&domain, &values);
 
-    trace_poly.clone() - poly
-    // TODO: Divide by zerofier
+    (trace_poly.clone() - poly).div(zerofier)
 }
 
 pub fn verify(proof: &StarkQueryProof) -> bool {
@@ -371,6 +371,7 @@ mod tests {
         assert!(verify(&result));
     }
 
+    #[test]
     fn zerofier_is_the_correct_one() {
         let primitive_root = generate_primitive_root(8);
         let zerofier = get_zerofier(&primitive_root, 8);
@@ -400,16 +401,20 @@ mod tests {
         let trace_poly = Polynomial::interpolate(&trace_roots_of_unity, &trace);
 
         // Build boundary polynomial
-        let domain = boundary_constraints.get_boundary_poly_domain(&trace_roots_of_unity);
+        let domain = boundary_constraints.get_boundary_roots_of_unity(&trace_primitive_root);
         let values = boundary_constraints.get_values(0);
         let boundary_poly = Polynomial::interpolate(&domain, &values);
+        let zerofier = boundary_constraints.get_zerofier(&trace_primitive_root);
 
         // Test get_boundary_quotient
         let boundary_quotient =
-            get_boundary_quotient(boundary_constraints, 0, &trace_poly, &trace_roots_of_unity);
+            get_boundary_quotient(boundary_constraints, 0, &trace_primitive_root, &trace_poly);
 
         // TODO: Assert equality with the correct polynomial
-        assert_eq!(boundary_quotient, trace_poly - boundary_poly);
+        assert_eq!(
+            boundary_quotient,
+            (trace_poly - boundary_poly).div(zerofier)
+        );
     }
 }
 

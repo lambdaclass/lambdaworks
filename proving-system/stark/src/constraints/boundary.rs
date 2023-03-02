@@ -1,4 +1,9 @@
-use lambdaworks_math::field::{element::FieldElement, traits::IsField};
+use std::task::Poll;
+
+use lambdaworks_math::{
+    field::{element::FieldElement, traits::IsField},
+    polynomial::Polynomial,
+};
 
 #[allow(dead_code)]
 pub(crate) struct BoundaryConstraint<FE> {
@@ -48,14 +53,14 @@ impl<F: IsField> BoundaryConstraints<FieldElement<F>> {
         steps
     }
 
-    pub(crate) fn get_boundary_poly_domain(
+    pub(crate) fn get_boundary_roots_of_unity(
         &self,
-        trace_domain: &[FieldElement<F>],
+        primitive_root: &FieldElement<F>,
     ) -> Vec<FieldElement<F>> {
         let mut domain = Vec::with_capacity(self.constraints.len());
         for step in self.get_steps().into_iter() {
             // TODO: Handle Option from get()
-            let domain_point = trace_domain.get(step).unwrap();
+            let domain_point = primitive_root.pow(step);
             domain.push(domain_point.clone());
         }
 
@@ -69,5 +74,19 @@ impl<F: IsField> BoundaryConstraints<FieldElement<F>> {
         }
 
         values
+    }
+
+    pub(crate) fn get_zerofier(
+        &self,
+        primitive_root: &FieldElement<F>,
+    ) -> Polynomial<FieldElement<F>> {
+        let mut zerofier = Polynomial::new_monomial(FieldElement::one(), 0);
+        for step in self.get_steps().into_iter() {
+            let binomial = Polynomial::new(&[-primitive_root.pow(step), FieldElement::one()]);
+            // TODO: Implement the MulAssign trait for Polynomials?
+            zerofier = zerofier * binomial;
+        }
+
+        zerofier
     }
 }
