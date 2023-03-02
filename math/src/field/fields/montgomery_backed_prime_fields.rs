@@ -599,46 +599,25 @@ mod tests_u256_prime_fields {
     }
 
     // FP1
-    //TODO, buil a test using SAGE
-
-    /*Python helper to work with limbs
-
-    def from_limbs(limbs):
-        uint=0
-        for i in range(len(limbs)):
-            index = len(limbs) - i -1
-            uint = uint + (limbs[index] << (64*i))
-        return uint
-
-    def from_uint(uint,n_limbs):
-        limbs = []
-        for i in range(n_limbs):
-            index = n_limbs - i -1
-            mask = (pow(2,64) -1) << (64*index)
-            limbs.append((uint & mask) >> 64*index)
-        return limbs
-     */
     #[derive(Clone, Debug)]
     struct U256MontgomeryConfigP1;
     impl IsMontgomeryConfiguration<4> for U256MontgomeryConfigP1 {
         const MODULUS: U256 = UnsignedInteger {
             limbs: [
-                63,
-                3026140964809723730,
-                7835788046214001203,
-                16962966595042587443,
+                8366,
+                8155137382671976874,
+                227688614771682406,
+                15723111795979912613,
             ],
-            //396487151739502753262805464559750051512474188475143212544819
         };
-        const MP: u64 = 8665272125093150725;
+        const MP: u64 = 13870950301186631123;
         const R2: U256 = UnsignedInteger {
             limbs: [
-                7,
-                9694576771155704591,
-                15518527791430854876,
-                15195315649472397251,
+                3199,
+                7378261192024362008,
+                10023267389842517467,
+                17706296746204571208,
             ],
-            //[7, 9694576771155704591, 15518527791430854876, 15195315649472397251]
         };
     }
 
@@ -648,116 +627,117 @@ mod tests_u256_prime_fields {
     #[test]
     fn montgomery_prime_field_addition_works_0() {
         let x = U256FP1Element::new(UnsignedInteger::from(
-            "05ed176deb0e80b4deb7718cdaa075165f149c",
+            "93e712950bf3fe589aa030562a44b1cec66b09192c4bcf705a5",
         ));
         let y = U256FP1Element::new(UnsignedInteger::from(
-            "5f103b0bd4397d4df560eb559f38353f80eeb6",
+            "10a712235c1f6b4172a1e35da6aef1a7ec6b09192c4bb88cfa5",
         ));
         let c = U256FP1Element::new(UnsignedInteger::from(
-            "64fd5279bf47fe02d4185ce279d8aa55e00352",
+            "a48e24b86813699a0d4213b3d0f3a376b2d61232589787fd54a",
         ));
         assert_eq!(x + y, c);
     }
 
-    /*
-    MAKE TEST PASS, USE SAGE MATH
     #[test]
     fn montgomery_prime_field_multiplication_works_0() {
         let x = U256FP1Element::new(UnsignedInteger::from(
-            "05ed176deb0e80b4deb7718cdaa075165f149c",
+            "93e712950bf3fe589aa030562a44b1cec66b09192c4bcf705a5",
         ));
         let y = U256FP1Element::new(UnsignedInteger::from(
-            "5f103b0bd4397d4df560eb559f38353f80eeb6",
+            "10a712235c1f6b4172a1e35da6aef1a7ec6b09192c4bb88cfa5",
         ));
         let c = U256FP1Element::new(UnsignedInteger::from(
-            "73d23e8d462060dc23d5c15c00fc432d95621a3c",
+            "7808e74c3208d9a66791ef9cc15a46acc9951ee312102684021",
         ));
         assert_eq!(x * y, c);
     }
-    */
-    /*
-       // FP2
-       #[derive(Clone, Debug)]
-       struct MontgomeryConfigP2;
-       impl IsMontgomeryConfiguration<4> for MontgomeryConfigP2 {
-           const MODULUS: U256 = UnsignedInteger {
-               limbs: [
-                   18446744073709551615,
-                   18446744073709551615,
-                   18446744073709551615,
-                   18446744073709551275,
-               ],
-           };
-           const MP: u64 = 14984598558409225213;
-           const R2: U256 = UnsignedInteger {
-               limbs: [0, 0, 0, 116281],
-           };
-       }
 
-       type FP2 = U256PrimeField<MontgomeryConfigP2>;
-       type FP2Element = FieldElement<FP2>;
+    // FP2
+    #[derive(Clone, Debug)]
+    struct MontgomeryConfigP2;
+    impl IsMontgomeryConfiguration<4> for MontgomeryConfigP2 {
+        const MODULUS: U256 = UnsignedInteger {
+            limbs: [
+                18446744073709551615,
+                18446744073709551615,
+                18446744073709551615,
+                18446744073709551427,
+            ],
+        };
+        const MP: u64 = 11907422100489763477;
+        const R2: U256 = UnsignedInteger {
+            limbs: [0, 0, 0, 35721],
+        };
+    }
 
-       #[test]
-       fn montgomery_prime_field_addition_works_1() {
-           let x = FP2Element::new(UnsignedInteger::from(
-               "05ed176deb0e80b4deb7718cdaa075165f149c",
-           ));
-           let y = FP2Element::new(UnsignedInteger::from(
-               "5f103b0bd4397d4df560eb559f38353f80eeb6",
-           ));
-           let c = FP2Element::new(UnsignedInteger::from(
-               "64fd5279bf47fe02d4185ce279d8aa55e00352",
-           ));
-           assert_eq!(x + y, c);
-       }
+    type FP2 = U256PrimeField<MontgomeryConfigP2>;
+    type FP2Element = FieldElement<FP2>;
 
-       #[test]
-       fn montgomery_prime_field_multiplication_works_1() {
-           let x = FP2Element::one();
-           let y = FP2Element::new(UnsignedInteger::from(
-               "5f103b0bd4397d4df560eb559f38353f80eeb6",
-           ));
-           assert_eq!(&y * x, y);
-       }
+    #[test]
+    fn montgomery_prime_field_addition_works_1() {
+        let x = FP2Element::new(UnsignedInteger::from(
+            "acbbb7ca01c65cfffffc72815b397fff9ab130ad53a5ffffffb8f21b207dfedf",
+        ));
+        let y = FP2Element::new(UnsignedInteger::from(
+            "d65ddbe509d3fffff21f494c588cbdbfe43e929b0543e3ffffffffffffffff43",
+        ));
+        let c = FP2Element::new(UnsignedInteger::from(
+            "831993af0b9a5cfff21bbbcdb3c63dbf7eefc34858e9e3ffffb8f21b207dfedf",
+        ));
+        assert_eq!(x + y, c);
+    }
 
-       #[test]
-       fn to_bytes_from_bytes_be_is_the_identity() {
-           let x = FP2Element::new(UnsignedInteger::from(
-               "5f103b0bd4397d4df560eb559f38353f80eeb6",
-           ));
-           assert_eq!(FP2Element::from_bytes_be(&x.to_bytes_be()).unwrap(), x);
-       }
+    #[test]
+    fn montgomery_prime_field_multiplication_works_1() {
+        let x = FP2Element::new(UnsignedInteger::from(
+            "acbbb7ca01c65cfffffc72815b397fff9ab130ad53a5ffffffb8f21b207dfedf",
+        ));
+        let y = FP2Element::new(UnsignedInteger::from(
+            "d65ddbe509d3fffff21f494c588cbdbfe43e929b0543e3ffffffffffffffff43",
+        ));
+        let c = FP2Element::new(UnsignedInteger::from(
+            "2b1e80d553ecab2e4d41eb53c4c8ad89ebacac6cf6b91dcf2213f311093aa05d",
+        ));
+        assert_eq!(&y * x, c);
+    }
 
-       #[test]
-       fn from_bytes_to_bytes_be_is_the_identity_for_one() {
-           let bytes = vec![
-               0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-               0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-           ];
-           assert_eq!(
-               FP2Element::from_bytes_be(&bytes).unwrap().to_bytes_be(),
-               bytes
-           );
-       }
+    #[test]
+    fn to_bytes_from_bytes_be_is_the_identity() {
+        let x = FP2Element::new(UnsignedInteger::from(
+            "5f103b0bd4397d4df560eb559f38353f80eeb6",
+        ));
+        assert_eq!(FP2Element::from_bytes_be(&x.to_bytes_be()).unwrap(), x);
+    }
 
-       #[test]
-       fn to_bytes_from_bytes_le_is_the_identity() {
-           let x = FP2Element::new(UnsignedInteger::from(
-               "5f103b0bd4397d4df560eb559f38353f80eeb6",
-           ));
-           assert_eq!(FP2Element::from_bytes_le(&x.to_bytes_le()).unwrap(), x);
-       }
+    #[test]
+    fn from_bytes_to_bytes_be_is_the_identity_for_one() {
+        let bytes = vec![
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 1,
+        ];
+        assert_eq!(
+            FP2Element::from_bytes_be(&bytes).unwrap().to_bytes_be(),
+            bytes
+        );
+    }
 
-       #[test]
-       fn from_bytes_to_bytes_le_is_the_identity_for_one() {
-           let bytes = vec![
-               1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-               0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-           ];
-           assert_eq!(
-               FP2Element::from_bytes_le(&bytes).unwrap().to_bytes_le(),
-               bytes
-           );
-       }
-    */
+    #[test]
+    fn to_bytes_from_bytes_le_is_the_identity() {
+        let x = FP2Element::new(UnsignedInteger::from(
+            "5f103b0bd4397d4df560eb559f38353f80eeb6",
+        ));
+        assert_eq!(FP2Element::from_bytes_le(&x.to_bytes_le()).unwrap(), x);
+    }
+
+    #[test]
+    fn from_bytes_to_bytes_le_is_the_identity_for_one() {
+        let bytes = vec![
+            1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 
+        ];
+        assert_eq!(
+            FP2Element::from_bytes_le(&bytes).unwrap().to_bytes_le(),
+            bytes
+        );
+    }
 }
