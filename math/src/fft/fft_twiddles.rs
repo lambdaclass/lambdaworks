@@ -12,7 +12,6 @@ const TWIDDLE_LIB_DATA: &[u8] = include_bytes!("metal/fft.metallib");
 /// Generates `K` twiddle factors for a **u64**-field of `modulus` using the GPU via Metal.
 /// `K` should be a power of two.
 pub fn gen_twiddles<F, const K: usize>(
-    modulus: u64,
     metal_device: Option<Device>,
 ) -> Result<[FieldElement<F>; K], FFTError>
 where
@@ -35,16 +34,6 @@ where
 
     let basetype_size = std::mem::size_of::<F::BaseType>() as u64;
 
-    // the field's modulus and omega will be passed with a buffer to the kernel for now
-    // (every two-adic field should be implemented in its own Metal shader).
-    // a buffer was chosen instead of a function constant because the latter don't support
-    // 64 bit integers.
-    let modulus_buffer = metal_device.new_buffer_with_data(
-        void_ptr(&modulus),
-        basetype_size,
-        MTLResourceOptions::StorageModeShared,
-    );
-
     let omega = F::get_root_of_unity(log2(K)?)?;
     let omega_buffer = metal_device.new_buffer_with_data(
         void_ptr(&omega),
@@ -61,9 +50,8 @@ where
     let compute_encoder = command_buffer.new_compute_command_encoder();
 
     compute_encoder.set_compute_pipeline_state(&pipeline);
-    compute_encoder.set_buffer(0, Some(&modulus_buffer), 0);
-    compute_encoder.set_buffer(1, Some(&omega_buffer), 0);
-    compute_encoder.set_buffer(2, Some(&result_buffer), 0);
+    compute_encoder.set_buffer(0, Some(&omega_buffer), 0);
+    compute_encoder.set_buffer(1, Some(&result_buffer), 0);
 
     // SIMD group size:
     let threads = pipeline.thread_execution_width();
@@ -79,18 +67,17 @@ where
     command_buffer.wait_until_completed();
 
     // FIXME: A shared (or managed) vector should be returned instead to avoid this unsafe.
-    let results = unsafe { *(result_buffer.contents() as *const [u64; K]) };
-    Ok(results.map(FieldElement::from))
+    let results = unsafe { *(result_buffer.contents() as *const [u32; K]) };
+    Ok(results.map(|x| FieldElement::from(x as u64)))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::field::test_fields::u64_test_field::U64TestField;
+    use crate::field::test_fields::u32_test_field::U32TestField;
 
-    const MODULUS: u64 = 0xFFFFFFFF00000001;
     const K: usize = 4;
-    type F = U64TestField<MODULUS>;
+    type F = U32TestField;
 
     fn gen_twiddles_cpu<F, const K: usize>() -> Result<Vec<FieldElement<F>>, FFTError>
     where
@@ -109,7 +96,7 @@ mod tests {
     #[test]
     fn test_gpu_twiddles_match_cpu() {
         let cpu_twiddles = gen_twiddles_cpu::<F, K>().unwrap();
-        let gpu_twiddles = gen_twiddles::<F, K>(MODULUS, None).unwrap().to_vec();
+        let gpu_twiddles = gen_twiddles::<F, K>(None).unwrap().to_vec();
 
         assert_eq!(cpu_twiddles, gpu_twiddles);
     }

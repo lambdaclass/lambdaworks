@@ -14,7 +14,7 @@ const PRIMES: [u64; 39] = [
 ];
 
 const MODULUS: u64 = PRIMES[const_random!(usize) % PRIMES.len()];
-type FE = FieldElement<U64TestField<MODULUS>>;
+type FE = FieldElement<U64TestField>;
 
 pub fn fft_benchmark(c: &mut Criterion) {
     c.bench_function("fft", |bench| {
