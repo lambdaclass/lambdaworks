@@ -10,20 +10,19 @@ use std::marker::PhantomData;
 pub type U384PrimeField<C> = MontgomeryBackendPrimeField<C, 6>;
 pub type U256PrimeField<C> = MontgomeryBackendPrimeField<C, 4>;
 
-
 /// Computes `- modulus^{-1} mod 2^{64}`
 /// This algorithm is given  by Dussé and Kaliski Jr. in
 /// "S. R. Dussé and B. S. Kaliski Jr. A cryptographic library for the Motorola
 /// DSP56000. In I. Damgård, editor, Advances in Cryptology – EUROCRYPT’90,
 /// volume 473 of Lecture Notes in Computer Science, pages 230–244. Springer,
 /// Heidelberg, May 1991."
-const fn compute_mu_parameter<const NUM_LIMBS: usize>( modulus: &UnsignedInteger<NUM_LIMBS>) -> u64 {
+const fn compute_mu_parameter<const NUM_LIMBS: usize>(modulus: &UnsignedInteger<NUM_LIMBS>) -> u64 {
     let mut y = 1;
     let word_size = 64;
     let mut i: usize = 2;
     while i <= word_size {
         let (_, lo) = UnsignedInteger::mul(modulus, &UnsignedInteger::from_u64(y));
-        let least_significant_limb = lo.limbs[NUM_LIMBS-1];
+        let least_significant_limb = lo.limbs[NUM_LIMBS - 1];
         if (least_significant_limb << (word_size - i)) >> (word_size - i) != 1 {
             y += 1 << (i - 1);
         }
@@ -33,7 +32,9 @@ const fn compute_mu_parameter<const NUM_LIMBS: usize>( modulus: &UnsignedInteger
 }
 
 /// Computes 2^{384 * 2} modulo `modulus`
-const fn compute_r2_parameter<const NUM_LIMBS: usize>(modulus: &UnsignedInteger<NUM_LIMBS>) -> UnsignedInteger<NUM_LIMBS> {
+const fn compute_r2_parameter<const NUM_LIMBS: usize>(
+    modulus: &UnsignedInteger<NUM_LIMBS>,
+) -> UnsignedInteger<NUM_LIMBS> {
     let word_size = 64;
     let mut l: usize = 0;
     let zero = UnsignedInteger::from_u64(0);
@@ -789,7 +790,7 @@ mod tests_u256_prime_fields {
     fn from_bytes_to_bytes_le_is_the_identity_for_one() {
         let bytes = vec![
             1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 
+            0, 0, 0,
         ];
         assert_eq!(
             FP2Element::from_bytes_le(&bytes).unwrap().to_bytes_le(),
