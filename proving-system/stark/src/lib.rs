@@ -8,6 +8,7 @@ use lambdaworks_crypto::merkle_tree::proof::Proof;
 use lambdaworks_math::polynomial::{self, Polynomial};
 
 use lambdaworks_math::field::element::FieldElement;
+use lambdaworks_math::traits::ByteConversion;
 use lambdaworks_math::{
     field::fields::u384_prime_field::{IsMontgomeryConfiguration, MontgomeryBackendPrimeField},
     unsigned_integer::element::U384,
@@ -201,11 +202,10 @@ fn get_composition_poly(trace_poly: Polynomial<FE>, root_of_unity: &FE) -> Polyn
         - trace_poly
 }
 
-#[allow(dead_code)]
 fn get_boundary_quotient(
     constraints: BoundaryConstraints<FE>,
     col: usize,
-    trace_poly: Polynomial<FE>,
+    trace_poly: &Polynomial<FE>,
     trace_domain: &[FE],
 ) -> Polynomial<FE> {
     let domain = constraints.get_boundary_poly_domain(trace_domain);
@@ -213,7 +213,7 @@ fn get_boundary_quotient(
 
     let poly = Polynomial::interpolate(&domain, &values);
 
-    trace_poly - poly
+    trace_poly.clone() - poly
     // TODO: Divide by zerofier
 }
 
@@ -340,22 +340,47 @@ mod tests {
     #[test]
     fn test_get_boundary_quotient() {
         // Build boundary constraints
-        let const1 = BoundaryConstraint::new_simple(0, FE::new(U384::from("1")));
-        let const2 = BoundaryConstraint::new_simple(1, FE::new(U384::from("1")));
-        let boundary_constraints = BoundaryConstraints::from_constraints(vec![const1, const2]);
+        let a0 = BoundaryConstraint::new_simple(0, FE::new(U384::from("1")));
+        let a1 = BoundaryConstraint::new_simple(1, FE::new(U384::from("1")));
+        let result = BoundaryConstraint::new_simple(7, FE::new(U384::from("15")));
+
+        let boundary_constraints = BoundaryConstraints::from_constraints(vec![a0, a1, result]);
 
         // Build trace polynomial
         let pub_inputs = [FE::new(U384::from("1")), FE::new(U384::from("1"))];
-        let trace = fibonacci_trace(pub_inputs);
-        let trace_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_TRACE);
+        let trace = test_utils::fibonacci_trace(pub_inputs, 8);
+        let trace_primitive_root = generate_primitive_root(8);
         let trace_roots_of_unity = generate_roots_of_unity_coset(1, &trace_primitive_root);
         let trace_poly = Polynomial::interpolate(&trace_roots_of_unity, &trace);
 
+        // Build boundary polynomial
+        let domain = boundary_constraints.get_boundary_poly_domain(&trace_roots_of_unity);
+        let values = boundary_constraints.get_values(0);
+        let boundary_poly = Polynomial::interpolate(&domain, &values);
+
         // Test get_boundary_quotient
         let boundary_quotient =
-            get_boundary_quotient(boundary_constraints, 0, trace_poly, &trace_roots_of_unity);
+            get_boundary_quotient(boundary_constraints, 0, &trace_poly, &trace_roots_of_unity);
 
         // TODO: Assert equality with the correct polynomial
-        assert!(Some(boundary_quotient).is_some());
+        assert_eq!(boundary_quotient, trace_poly - boundary_poly);
+    }
+}
+
+#[cfg(test)]
+mod test_utils {
+    use super::*;
+
+    pub(crate) fn fibonacci_trace(initial_values: [FE; 2], iters: usize) -> Vec<FE> {
+        let mut ret: Vec<FE> = vec![];
+
+        ret.push(initial_values[0].clone());
+        ret.push(initial_values[1].clone());
+
+        for i in 2..iters {
+            ret.push(ret[i - 1].clone() + ret[i - 2].clone());
+        }
+
+        ret
     }
 }
