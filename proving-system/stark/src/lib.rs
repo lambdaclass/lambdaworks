@@ -35,6 +35,9 @@ const FIELD_SUBGROUP_GENERATOR: u64 = 3;
 const ORDER_OF_ROOTS_OF_UNITY_TRACE: u64 = 32;
 const ORDER_OF_ROOTS_OF_UNITY_FOR_LDE: u64 = 1024;
 
+// We are using 3 as the offset as it's our field's generator.
+const COSET_OFFSET: u64 = 3;
+
 // DEFINITION OF FUNCTIONS
 
 pub fn generate_primitive_root(subgroup_size: u64) -> FE {
@@ -102,14 +105,14 @@ pub fn prove(pub_inputs: [FE; 2]) -> StarkQueryProof {
     let trace_roots_of_unity = generate_roots_of_unity_coset(1, &trace_primitive_root);
 
     let lde_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE);
-    let lde_roots_of_unity = generate_roots_of_unity_coset(1, &lde_primitive_root);
+    let lde_roots_of_unity_coset = generate_roots_of_unity_coset(COSET_OFFSET, &lde_primitive_root);
 
     let trace = fibonacci_trace(pub_inputs);
 
     let trace_poly = Polynomial::interpolate(&trace_roots_of_unity, &trace);
 
     // * Do Reed-Solomon on the trace and composition polynomials using some blowup factor
-    let trace_poly_lde = trace_poly.evaluate_slice(lde_roots_of_unity.as_slice());
+    let trace_poly_lde = trace_poly.evaluate_slice(lde_roots_of_unity_coset.as_slice());
 
     // * Commit to both polynomials using a Merkle Tree
     let trace_poly_lde_merkle_tree = FriMerkleTree::build(trace_poly_lde.as_slice());
@@ -123,11 +126,13 @@ pub fn prove(pub_inputs: [FE; 2]) -> StarkQueryProof {
     // This depends on the AIR
     // It's related to the non FRI verification
 
+    let offset = FE::from(COSET_OFFSET);
+
     // These are evaluations over the trace polynomial
     let evaluation_points = vec![
-        lde_primitive_root.pow(q_1),
-        lde_primitive_root.pow(q_1) * &trace_primitive_root,
-        lde_primitive_root.pow(q_1) * (&trace_primitive_root * &trace_primitive_root),
+        &offset * lde_primitive_root.pow(q_1),
+        &offset * lde_primitive_root.pow(q_1) * &trace_primitive_root,
+        &offset * lde_primitive_root.pow(q_1) * (&trace_primitive_root * &trace_primitive_root),
     ];
     let trace_lde_poly_evaluations = trace_poly.evaluate_slice(&evaluation_points);
     let merkle_paths = vec![
@@ -160,7 +165,7 @@ pub fn prove(pub_inputs: [FE; 2]) -> StarkQueryProof {
 
     // * Do FRI on the composition polynomials
     let lde_fri_commitment =
-        crate::fri::fri(&mut composition_poly, &lde_roots_of_unity, transcript);
+        crate::fri::fri(&mut composition_poly, &lde_roots_of_unity_coset, transcript);
 
     // * For every q_i, do FRI decommitment
     let fri_decommitment = fri_decommit_layers(&lde_fri_commitment, q_1);
@@ -233,9 +238,12 @@ pub fn verify(proof: &StarkQueryProof) -> bool {
         ORDER_OF_ROOTS_OF_UNITY_TRACE as usize,
     );
 
+    let offset = FE::from(COSET_OFFSET);
+    let evaluation_point = &lde_primitive_root.pow(q_1) * &offset;
+
     let composition_polynomial_evaluation_from_trace =
         (&trace_evaluation[2] - &trace_evaluation[1] - &trace_evaluation[0])
-            / zerofier.evaluate(&lde_primitive_root.pow(q_1));
+            / zerofier.evaluate(&evaluation_point);
 
     if *composition_polynomial_evaluation_from_prover
         != composition_polynomial_evaluation_from_trace
@@ -309,8 +317,9 @@ pub fn fri_verify(
             // if layer_merkle_paths has the right amount of elements
             .unwrap();
 
-        // evaluation point = w ^ i in the Stark literature
-        let evaluation_point = lde_primitive_root.pow(decommitment_index);
+        let offset = FE::from(COSET_OFFSET);
+        // evaluation point = offset * w ^ i in the Stark literature
+        let evaluation_point = &offset * lde_primitive_root.pow(decommitment_index);
 
         // v is the calculated element for the
         // co linearity check
