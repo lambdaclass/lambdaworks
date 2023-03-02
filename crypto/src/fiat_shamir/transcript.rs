@@ -5,7 +5,7 @@ pub struct Transcript {
 }
 
 impl Transcript {
-    #[allow(unused)]
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self {
             hasher: Sha3_256::new(),

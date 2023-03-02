@@ -1,13 +1,11 @@
 mod fri_commitment;
 pub mod fri_decommit;
 mod fri_functions;
-mod fri_merkle_tree;
-
-use std::borrow::Borrow;
 
 use crate::fri::fri_commitment::{FriCommitment, FriCommitmentVec};
 use crate::fri::fri_functions::next_fri_layer;
-pub use crate::fri::fri_merkle_tree::FriMerkleTree;
+pub use lambdaworks_crypto::merkle_tree::DefaultHasher;
+pub type FriMerkleTree = MerkleTree<F, DefaultHasher>;
 pub use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 pub use lambdaworks_crypto::merkle_tree::merkle::MerkleTree;
 use lambdaworks_math::traits::ByteConversion;
@@ -36,7 +34,7 @@ pub fn fri_commitment(
     //     - root
     //     - hasher
     // Create a new merkle tree with evaluation_i
-    let merkle_tree = FriMerkleTree::build(&evaluation_i);
+    let merkle_tree = FriMerkleTree::build(evaluation_i);
 
     // append the root of the merkle tree to the transcript
     let root = merkle_tree.root.clone();

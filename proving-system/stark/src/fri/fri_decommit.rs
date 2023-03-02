@@ -1,12 +1,9 @@
 use super::FE;
 use crate::{fri::fri_commitment::FriCommitmentVec, PrimeField};
 pub use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
-use lambdaworks_crypto::{hash::traits::IsCryptoHash, merkle_tree::DefaultHasher};
+use lambdaworks_crypto::merkle_tree::DefaultHasher;
 
 use lambdaworks_crypto::merkle_tree::proof::Proof;
-use lambdaworks_math::{
-    field::traits::IsField, traits::ByteConversion, unsigned_integer::element::U384,
-};
 
 #[derive(Debug, Clone)]
 pub struct FriDecommitment {
@@ -33,7 +30,7 @@ pub fn fri_decommit_layers(
     // the merkle tree and get the corresponding element
     for commit_i in commit {
         let length_i = commit_i.domain.len();
-        index = index % length_i;
+        index %= length_i;
         let evaluation_i = commit_i.evaluation[index].clone();
         let auth_path = commit_i.merkle_tree.get_proof(&evaluation_i).unwrap();
 
@@ -49,10 +46,10 @@ pub fn fri_decommit_layers(
     let last = commit.last().unwrap();
     let last_evaluation = last.poly.coefficients[0].clone();
 
-    return FriDecommitment {
-        layer_merkle_paths: layer_merkle_paths,
+    FriDecommitment {
+        layer_merkle_paths,
         last_layer_evaluation: last_evaluation,
-    };
+    }
 }
 
 // Integration test:
@@ -72,12 +69,12 @@ mod tests {
     use std::collections::HashSet;
     const PRIME_GENERATOR: (u64, u64) = (0xFFFF_FFFF_0000_0001_u64, 2717_u64);
     pub type F = U64PrimeField<{ PRIME_GENERATOR.0 }>;
-    pub type FE_goldilocks = FieldElement<F>;
+    pub type FeGoldilocks = FieldElement<F>;
 
     #[test]
     fn test() {
         let subgroup_size = 1024_u64;
-        let generator_field = FE_goldilocks::new(PRIME_GENERATOR.1);
+        let generator_field = FeGoldilocks::new(PRIME_GENERATOR.1);
         let exp = (PRIME_GENERATOR.0 - 1) / subgroup_size;
         let generator_of_subgroup = generator_field.pow(exp);
         let mut numbers = HashSet::new();
@@ -86,7 +83,7 @@ mod tests {
         for exp in 0..1024_u64 {
             i += 1;
             let ret = generator_of_subgroup.pow(exp);
-            numbers.insert(ret.value().clone());
+            numbers.insert(*ret.value());
             println!("{ret:?}");
         }
 

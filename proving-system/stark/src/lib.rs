@@ -1,20 +1,11 @@
-pub mod air;
+pub mod constraints;
 pub mod fri;
 
-use std::primitive;
-
-use air::{constraints::boundary::BoundaryConstraints, polynomials::get_cp_and_tp};
+use constraints::boundary::BoundaryConstraints;
 use fri::fri_decommit::{fri_decommit_layers, FriDecommitment};
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_crypto::merkle_tree::proof::Proof;
 use lambdaworks_math::polynomial::{self, Polynomial};
-use thiserror::__private::AsDynError;
-use winterfell::{
-    crypto::hashers::Blake3_256,
-    math::{fields::f128::BaseElement, StarkField},
-    prover::constraints::CompositionPoly,
-    Air, AuxTraceRandElements, Serializable, Trace, TraceTable,
-};
 
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::{
@@ -28,7 +19,7 @@ pub struct MontgomeryConfig;
 impl IsMontgomeryConfiguration for MontgomeryConfig {
     const MODULUS: U384 =
         // hex 17
-        U384::from("11");
+        U384::from("800000000000011000000000000000000000000000000000000000000000001");
 }
 
 pub type PrimeField = MontgomeryBackendPrimeField<MontgomeryConfig>;
@@ -41,8 +32,8 @@ const FIELD_SUBGROUP_GENERATOR: u64 = 3;
 
 // DEFINITION OF CONSTANTS
 
-const ORDER_OF_ROOTS_OF_UNITY_TRACE: u64 = 4;
-const ORDER_OF_ROOTS_OF_UNITY_FOR_LDE: u64 = 16;
+const ORDER_OF_ROOTS_OF_UNITY_TRACE: u64 = 32;
+const ORDER_OF_ROOTS_OF_UNITY_FOR_LDE: u64 = 1024;
 
 // DEFINITION OF FUNCTIONS
 
@@ -51,7 +42,7 @@ pub fn generate_primitive_root(subgroup_size: u64) -> FE {
     let subgroup_size: FE = subgroup_size.into();
     let generator_field: FE = FIELD_SUBGROUP_GENERATOR.into();
     let exp = (&modulus_minus_1_field) / &subgroup_size;
-    generator_field.pow(*exp.value())
+    generator_field.pow(exp.representative())
 }
 
 /// This functions takes a roots of unity and a coset factor
@@ -103,21 +94,10 @@ pub fn fibonacci_trace(initial_values: [FE; 2]) -> Vec<FE> {
     ret
 }
 
-pub fn prove(
-    // air: A,
-    // trace: TraceTable<A::BaseField>,
-    // pub_inputs: A::PublicInputs,
-    pub_inputs: [FE; 2],
-) -> StarkQueryProof
-// where
-//     A: Air<BaseField = BaseElement>,
-{
+pub fn prove(pub_inputs: [FE; 2]) -> StarkQueryProof {
     let transcript = &mut Transcript::new();
-    // * Generate composition polynomials using Winterfell
-    // let (mut composition_poly, mut trace_poly) = get_cp_and_tp(air, trace, pub_inputs).unwrap();
 
     // * Generate Coset
-
     let trace_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_TRACE);
     let trace_roots_of_unity = generate_roots_of_unity_coset(1, &trace_primitive_root);
 
@@ -128,22 +108,59 @@ pub fn prove(
 
     let trace_poly = Polynomial::interpolate(&trace_roots_of_unity, &trace);
 
-    let mut composition_poly = get_composition_poly(trace_poly.clone(), &trace_primitive_root);
-
     // * Do Reed-Solomon on the trace and composition polynomials using some blowup factor
     let trace_poly_lde = trace_poly.evaluate_slice(lde_roots_of_unity.as_slice());
 
     // * Commit to both polynomials using a Merkle Tree
-    let trace_poly_lde_merkle_tree = FriMerkleTree::build(&trace_poly_lde.as_slice());
-
-    // * Do FRI on the composition polynomials
-    let lde_fri_commitment =
-        crate::fri::fri(&mut composition_poly, &lde_roots_of_unity, transcript);
+    let trace_poly_lde_merkle_tree = FriMerkleTree::build(trace_poly_lde.as_slice());
 
     // * Sample q_1, ..., q_m using Fiat-Shamir
     // let q_1 = transcript.challenge();
     // @@@@@@@@@@@@@@@@@@@@@@
     let q_1: usize = 4;
+
+    // START EVALUATION POINTS BLOCK
+    // This depends on the AIR
+    // It's related to the non FRI verification
+
+    // These are evaluations over the trace polynomial
+    let evaluation_points = vec![
+        lde_primitive_root.pow(q_1),
+        lde_primitive_root.pow(q_1) * &trace_primitive_root,
+        lde_primitive_root.pow(q_1) * (&trace_primitive_root * &trace_primitive_root),
+    ];
+    let trace_lde_poly_evaluations = trace_poly.evaluate_slice(&evaluation_points);
+    let merkle_paths = vec![
+        trace_poly_lde_merkle_tree
+            .get_proof_by_pos(q_1, trace_lde_poly_evaluations[0].clone())
+            .unwrap(),
+        trace_poly_lde_merkle_tree
+            .get_proof_by_pos(
+                q_1 + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE) as usize,
+                trace_lde_poly_evaluations[1].clone(),
+            )
+            .unwrap(),
+        trace_poly_lde_merkle_tree
+            .get_proof_by_pos(
+                q_1 + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE) as usize
+                    * 2,
+                trace_lde_poly_evaluations[2].clone(),
+            )
+            .unwrap(),
+    ];
+
+    // These are evaluations over the composition polynomial
+    let mut composition_poly = get_composition_poly(trace_poly, &trace_primitive_root);
+    let composition_poly_lde_evaluation = composition_poly.evaluate(&evaluation_points[0]);
+
+    // This is needed to check  the element is in the root
+    let trace_root = trace_poly_lde_merkle_tree.root;
+
+    // END EVALUATION BLOCK
+
+    // * Do FRI on the composition polynomials
+    let lde_fri_commitment =
+        crate::fri::fri(&mut composition_poly, &lde_roots_of_unity, transcript);
 
     // * For every q_i, do FRI decommitment
     let fri_decommitment = fri_decommit_layers(&lde_fri_commitment, q_1);
@@ -160,42 +177,6 @@ pub fn prove(
         When we provide evaluations, we provide them for x*(w^2), x*w and x.
     */
 
-    let evaluation_points = vec![
-        lde_primitive_root.pow(q_1),
-        lde_primitive_root.pow(q_1) * &trace_primitive_root,
-        lde_primitive_root.pow(q_1) * (&trace_primitive_root * &trace_primitive_root),
-    ];
-
-    let trace_lde_poly_evaluations = trace_poly.evaluate_slice(&evaluation_points);
-    let composition_poly_lde_evaluation = composition_poly.evaluate(&evaluation_points[0]);
-
-    let mut merkle_paths = vec![];
-
-    merkle_paths.push(
-        trace_poly_lde_merkle_tree
-            .get_proof_by_pos(q_1, trace_lde_poly_evaluations[0].clone())
-            .unwrap(),
-    );
-    merkle_paths.push(
-        trace_poly_lde_merkle_tree
-            .get_proof_by_pos(
-                q_1 + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE) as usize,
-                trace_lde_poly_evaluations[1].clone(),
-            )
-            .unwrap(),
-    );
-    merkle_paths.push(
-        trace_poly_lde_merkle_tree
-            .get_proof_by_pos(
-                q_1 + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE) as usize
-                    * 2,
-                trace_lde_poly_evaluations[2].clone(),
-            )
-            .unwrap(),
-    );
-
-    let trace_root = trace_poly_lde_merkle_tree.root.clone();
-
     let fri_layers_merkle_roots: Vec<FE> = lde_fri_commitment
         .iter()
         .map(|fri_commitment| fri_commitment.merkle_tree.root.clone())
@@ -206,14 +187,14 @@ pub fn prove(
         trace_lde_poly_evaluations,
         trace_lde_poly_inclusion_proofs: merkle_paths,
         composition_poly_lde_evaluations: vec![composition_poly_lde_evaluation],
-        fri_layers_merkle_roots: fri_layers_merkle_roots,
-        fri_decommitment: fri_decommitment,
+        fri_layers_merkle_roots,
+        fri_decommitment,
     }
 }
 
 fn get_composition_poly(trace_poly: Polynomial<FE>, root_of_unity: &FE) -> Polynomial<FE> {
-    let w_squared_x = Polynomial::new(&vec![FE::zero(), root_of_unity * root_of_unity]);
-    let w_x = Polynomial::new(&vec![FE::zero(), root_of_unity.clone()]);
+    let w_squared_x = Polynomial::new(&[FE::zero(), root_of_unity * root_of_unity]);
+    let w_x = Polynomial::new(&[FE::zero(), root_of_unity.clone()]);
 
     polynomial::compose(&trace_poly, &w_squared_x)
         - polynomial::compose(&trace_poly, &w_x)
@@ -336,7 +317,7 @@ pub fn fri_verify(
             return false;
         }
     }
-    return true;
+    true
 }
 
 // TODOS after basic fibonacci works:
@@ -349,13 +330,13 @@ pub fn fri_verify(
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::{
-        air::constraints::boundary::{BoundaryConstraint, BoundaryConstraints},
+        constraints::boundary::{BoundaryConstraint, BoundaryConstraints},
         verify, FE,
     };
 
-    use super::*;
-    use lambdaworks_math::{field::element::FieldElement, unsigned_integer::element::U384};
+    use lambdaworks_math::unsigned_integer::element::U384;
 
     #[test]
     fn test_prove() {
