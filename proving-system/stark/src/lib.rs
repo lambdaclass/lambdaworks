@@ -223,7 +223,7 @@ fn get_zerofier(primitive_root: &FE, root_order: usize) -> Polynomial<FE> {
 
 #[allow(dead_code)]
 fn get_boundary_quotient(
-    constraints: BoundaryConstraints<FE>,
+    constraints: &BoundaryConstraints<FE>,
     col: usize,
     primitive_root: &FE,
     trace_poly: &Polynomial<FE>,
@@ -409,7 +409,7 @@ mod tests {
 
         // Test get_boundary_quotient
         let boundary_quotient =
-            get_boundary_quotient(boundary_constraints, 0, &trace_primitive_root, &trace_poly);
+            get_boundary_quotient(&boundary_constraints, 0, &trace_primitive_root, &trace_poly);
 
         assert_eq!(
             boundary_quotient,
