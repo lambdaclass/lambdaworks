@@ -6,8 +6,6 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-use super::traits::IsPrimeField;
-
 /// A field element with operations algorithms defined in `F`
 #[derive(Debug, Clone)]
 pub struct FieldElement<F: IsField> {
@@ -302,6 +300,11 @@ where
         &self.value
     }
 
+    // Returns the representative of the value stored
+    pub fn representative(&self) -> F::BaseType {
+        F::representative(self.value.clone())
+    }
+
     /// Returns the multiplicative inverse of `self`
     pub fn inv(&self) -> Self {
         Self {
@@ -327,15 +330,5 @@ where
     /// Returns the additive neutral element of the field.
     pub fn zero() -> Self {
         Self { value: F::zero() }
-    }
-}
-
-impl<F> FieldElement<F>
-where
-    F: IsPrimeField,
-
-{
-    pub fn to_basetype(&self) -> F::BaseType {
-        F::to_basetype(self)
     }
 }
