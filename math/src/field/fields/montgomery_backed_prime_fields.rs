@@ -211,8 +211,6 @@ mod tests_u384_prime_fields {
     struct U384MontgomeryConfiguration23;
     impl IsMontgomeryConfiguration<6> for U384MontgomeryConfiguration23 {
         const MODULUS: U384 = UnsignedInteger::from_u64(23);
-        //const MP: u64 = 3208129404123400281;
-        //const R2: U384 = UnsignedInteger::from_u64(6);
     }
 
     type U384F23 = U384PrimeField<U384MontgomeryConfiguration23>;
@@ -501,8 +499,6 @@ mod tests_u256_prime_fields {
     struct U256MontgomeryConfiguration29;
     impl IsMontgomeryConfiguration<4> for U256MontgomeryConfiguration29 {
         const MODULUS: U256 = UnsignedInteger::from_u64(29);
-        //const MP: u64 = 14630176334321368523;
-        //const R2: U256 = UnsignedInteger::from_u64(24);
     }
 
     type U256F29 = U256PrimeField<U256MontgomeryConfiguration29>;
