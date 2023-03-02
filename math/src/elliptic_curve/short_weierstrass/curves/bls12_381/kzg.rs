@@ -84,16 +84,14 @@ impl<const MAXIMUM_DEGREE: usize> KZG<MAXIMUM_DEGREE> {
         let g2 = &self.srs.powers_secondary_group[0];
         let alpha_g2 = &self.srs.powers_secondary_group[1];
 
-        let e1 = ate(
-            &p_commitment
+        let e = batch_ate(&[
+            (&p_commitment
                 .operate_with(&(g1.operate_with_self(opening.value.representative())).neg()).to_affine(),
-            &g2.to_affine(),
-        );
-        let e2 = ate(
-            &opening.proof.to_affine(),
-            &(alpha_g2.operate_with(&(g2.operate_with_self(x.representative())).neg())).to_affine(),
-        );
-        e1 == e2
+            &g2.to_affine()),
+            (&opening.proof.neg().to_affine(),
+            &(alpha_g2.operate_with(&(g2.operate_with_self(x.representative())).neg())).to_affine()),
+        ]);
+        e == FieldElement::one()
     }
 }
 
