@@ -411,7 +411,6 @@ mod tests {
         let boundary_quotient =
             get_boundary_quotient(boundary_constraints, 0, &trace_primitive_root, &trace_poly);
 
-        // TODO: Assert equality with the correct polynomial
         assert_eq!(
             boundary_quotient,
             (trace_poly - boundary_poly).div(zerofier)
