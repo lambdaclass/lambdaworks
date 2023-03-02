@@ -158,9 +158,6 @@ mod tests {
     impl IsMontgomeryConfiguration for TestFieldConfig {
         const MODULUS: U384 =
             U384::from("2000000000000080000000000000000000000000000000000000000000000001");
-        const MP: u64 = 18446744073709551615u64;
-        const R2: U384 =
-            U384::from("C0000FFFFCFFFF800000000C0001FFFFFFFFBFFFF80000000140001FFFFE00");
     }
 
     pub type PoseidonTestField = MontgomeryBackendPrimeField<TestFieldConfig>;

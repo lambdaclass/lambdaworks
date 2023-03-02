@@ -29,6 +29,12 @@
 - [Rust crypto bigint](https://github.com/RustCrypto/crypto-bigint)
 - [Cairo felt](https://github.com/lambdaclass/cairo-rs/blob/main/felt/src/lib.rs)
 
+## Elliptic curves
+- [Pairing-friendly curves](https://members.loria.fr/AGuillevic/pairing-friendly-curves/)
+- [Taxonomy of elliptic curves](https://eprint.iacr.org/2006/372)
+- [Ristretto](https://ristretto.group/)
+- [Double ODD](https://doubleodd.group/)
+
 ## Halo2
 - [Halo2's poly](https://github.com/zcash/halo2/tree/main/halo2_proofs/src/poly)
 
