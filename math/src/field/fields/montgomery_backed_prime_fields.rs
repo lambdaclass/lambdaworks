@@ -371,10 +371,6 @@ mod tests_u384_prime_fields {
                 15923941673896418529,
             ],
         };
-        //const MP: u64 = 16085280245840369887;
-        //const R2: U384 = UnsignedInteger {
-        //    limbs: [0, 0, 0, 362264696, 173086217205162856, 7848132598488868435],
-        //};
     }
 
     type U384FP1 = U384PrimeField<U384MontgomeryConfigP1>;
@@ -422,10 +418,6 @@ mod tests_u384_prime_fields {
                 18446744073709551275,
             ],
         };
-        //const MP: u64 = 14984598558409225213;
-        //const R2: U384 = UnsignedInteger {
-        //    limbs: [0, 0, 0, 0, 0, 116281],
-        //};
     }
 
     type U384FP2 = U384PrimeField<U384MontgomeryConfigP2>;
@@ -667,15 +659,6 @@ mod tests_u256_prime_fields {
                 15723111795979912613,
             ],
         };
-        //const MP: u64 = 13870950301186631123;
-        //const R2: U256 = UnsignedInteger {
-        //    limbs: [
-        //        3199,
-        //        7378261192024362008,
-        //        10023267389842517467,
-        //        17706296746204571208,
-        //    ],
-        //};
     }
 
     type U256FP1 = U256PrimeField<U256MontgomeryConfigP1>;
@@ -721,10 +704,6 @@ mod tests_u256_prime_fields {
                 18446744073709551427,
             ],
         };
-        //const MP: u64 = 11907422100489763477;
-        //const R2: U256 = UnsignedInteger {
-        //    limbs: [0, 0, 0, 35721],
-        //};
     }
 
     type FP2 = U256PrimeField<MontgomeryConfigP2>;
