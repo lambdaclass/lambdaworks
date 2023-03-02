@@ -1,5 +1,5 @@
 /// In-place bit-reverse permutation algorithm. Requires input length to be a power of two.
-pub(crate) fn in_place_bit_reverse_permute<E>(input: &mut [E]) {
+pub fn in_place_bit_reverse_permute<E>(input: &mut [E]) {
     for i in 0..input.len() {
         let bit_reversed_index = reverse_index(&i, input.len());
         if bit_reversed_index > i {
