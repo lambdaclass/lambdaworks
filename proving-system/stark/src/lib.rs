@@ -8,7 +8,6 @@ use lambdaworks_crypto::merkle_tree::proof::Proof;
 use lambdaworks_math::polynomial::{self, Polynomial};
 
 use lambdaworks_math::field::element::FieldElement;
-use lambdaworks_math::traits::ByteConversion;
 use lambdaworks_math::{
     field::fields::u384_prime_field::{IsMontgomeryConfiguration, MontgomeryBackendPrimeField},
     unsigned_integer::element::U384,
