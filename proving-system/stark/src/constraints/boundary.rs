@@ -42,7 +42,7 @@ impl<F: IsField> BoundaryConstraints<FieldElement<F>> {
     pub(crate) fn get_steps(&self) -> Vec<usize> {
         let mut steps = Vec::with_capacity(self.constraints.len());
         for constraint in self.constraints.iter() {
-            steps.push(constraint.step.clone());
+            steps.push(constraint.step);
         }
 
         steps

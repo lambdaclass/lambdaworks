@@ -352,12 +352,8 @@ mod tests {
         let trace_poly = Polynomial::interpolate(&trace_roots_of_unity, &trace);
 
         // Test get_boundary_quotient
-        let boundary_quotient = get_boundary_quotient(
-            boundary_constraints,
-            0,
-            trace_poly.clone(),
-            &trace_roots_of_unity,
-        );
+        let boundary_quotient =
+            get_boundary_quotient(boundary_constraints, 0, trace_poly, &trace_roots_of_unity);
 
         // TODO: Assert equality with the correct polynomial
         assert!(Some(boundary_quotient).is_some());
