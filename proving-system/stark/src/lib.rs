@@ -221,6 +221,7 @@ fn get_zerofier(primitive_root: &FE, root_order: usize) -> Polynomial<FE> {
     roots_of_unity_vanishing_polynomial.div(exceptions_to_vanishing_polynomial)
 }
 
+#[allow(dead_code)]
 fn get_boundary_quotient(
     constraints: BoundaryConstraints<FE>,
     col: usize,
