@@ -326,15 +326,29 @@ pub fn fri_verify(
         let two = &FE::new(U384::from("2"));
         let beta = FE::new(U384::from_u64(beta));
         let v = (&previous_auth_path.value + &previous_auth_path_symmetric.value) / two
-            + beta * (&previous_auth_path.value - &previous_auth_path_symmetric.value)
-                / (two * evaluation_point);
+            + &beta * (&previous_auth_path.value - &previous_auth_path_symmetric.value)
+                / (two * &evaluation_point);
 
         lde_primitive_root = lde_primitive_root.pow(2_usize);
 
         if v != fri_layer_auth_path.value {
             return false;
         }
+
+        // On the last iteration, also check the provided last evaluation point.
+        if layer_number == fri_layers_merkle_roots.len() {
+            let last_evaluation_point = &offset * lde_primitive_root.pow(decommitment_index);
+
+            let last_v = (&fri_layer_auth_path.value + &fri_layer_auth_path_symmetric.value) / two
+                + beta * (&fri_layer_auth_path.value - &fri_layer_auth_path_symmetric.value)
+                    / (two * &last_evaluation_point);
+
+            if last_v != fri_decommitment.last_layer_evaluation {
+                return false;
+            }
+        }
     }
+
     true
 }
 
