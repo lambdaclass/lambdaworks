@@ -95,7 +95,6 @@ impl<const MODULUS: u64> ByteConversion for U64FieldElement<MODULUS> {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
