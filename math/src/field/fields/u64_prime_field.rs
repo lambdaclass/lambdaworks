@@ -1,7 +1,7 @@
 use crate::cyclic_group::IsGroup;
 use crate::errors::ByteConversionError::{FromBEBytesError, FromLEBytesError};
 use crate::field::element::FieldElement;
-use crate::field::traits::IsField;
+use crate::field::traits::{IsField, IsPrimeField};
 use crate::traits::ByteConversion;
 
 /// Type representing prime fields over unsigned 64-bit integers.
@@ -88,6 +88,12 @@ impl<const MODULUS: u64> ByteConversion for U64FieldElement<MODULUS> {
     fn from_bytes_le(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError> {
         let bytes: [u8; 8] = bytes.try_into().map_err(|_| FromLEBytesError)?;
         Ok(Self::from(u64::from_le_bytes(bytes)))
+    }
+}
+
+impl<const MODULUS: u64> IsPrimeField for U64PrimeField<MODULUS> {
+    fn to_basetype(x: &FieldElement<Self>) -> Self::BaseType {
+        todo!()
     }
 }
 

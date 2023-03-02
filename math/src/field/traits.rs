@@ -95,3 +95,7 @@ pub trait IsField: Debug + Clone {
     /// of that element in the field.
     fn from_base_type(x: Self::BaseType) -> Self::BaseType;
 }
+
+pub trait IsPrimeField: IsField {
+    fn to_basetype(x: &FieldElement<Self>) -> Self::BaseType;
+}
