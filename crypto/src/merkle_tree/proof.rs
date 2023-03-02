@@ -5,10 +5,27 @@ use lambdaworks_math::{
     traits::ByteConversion,
 };
 
+#[derive(Debug, Clone)]
 pub struct Proof<F: IsField, H: IsCryptoHash<F>> {
     pub value: FieldElement<F>,
     pub merkle_path: Vec<(FieldElement<F>, bool)>,
     pub hasher: H,
+}
+
+impl<F: IsField, H: IsCryptoHash<F>> Proof<F, H> {
+    pub fn verify(&self, root_hash: FieldElement<F>) -> bool {
+        let mut hashed_value = self.hasher.hash_one(self.value.clone());
+
+        for (sibling_node, is_left) in self.merkle_path.iter().rev() {
+            if *is_left {
+                hashed_value = self.hasher.hash_two(hashed_value, sibling_node.clone());
+            } else {
+                hashed_value = self.hasher.hash_two(sibling_node.clone(), hashed_value);
+            }
+        }
+
+        root_hash == hashed_value
+    }
 }
 
 impl<F, H> ByteConversion for Proof<F, H>
