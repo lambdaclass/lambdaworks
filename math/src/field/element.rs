@@ -20,7 +20,7 @@ where
 {
     fn from(value: &F::BaseType) -> Self {
         Self {
-            value: value.clone(),
+            value: F::from_base_type(value.clone()),
         }
     }
 }
@@ -298,6 +298,11 @@ where
     /// Returns the underlying `value`
     pub fn value(&self) -> &F::BaseType {
         &self.value
+    }
+
+    // Returns the representative of the value stored
+    pub fn representative(&self) -> F::BaseType {
+        F::representative(self.value.clone())
     }
 
     /// Returns the multiplicative inverse of `self`
