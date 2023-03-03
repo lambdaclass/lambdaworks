@@ -1,8 +1,8 @@
 pub mod constraints;
 pub mod fri;
 
-use constraints::boundary::BoundaryConstraints;
-use std::ops::Div;
+use constraints::boundary::{BoundaryConstraint, BoundaryConstraints};
+use std::ops::{Div, Mul};
 
 use fri::fri_decommit::{fri_decommit_layers, FriDecommitment};
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
@@ -123,6 +123,8 @@ pub fn prove(pub_inputs: [FE; 2]) -> StarkQueryProof {
     // let q_1 = transcript.challenge();
     // @@@@@@@@@@@@@@@@@@@@@@
     let q_1: usize = 4;
+    let alpha_bc = FE::from(2);
+    let alpha_t = FE::from(3);
 
     // START EVALUATION POINTS BLOCK
     // This depends on the AIR
@@ -157,7 +159,8 @@ pub fn prove(pub_inputs: [FE; 2]) -> StarkQueryProof {
     ];
 
     // These are evaluations over the composition polynomial
-    let mut composition_poly = get_composition_poly(trace_poly, &trace_primitive_root);
+    let mut composition_poly =
+        get_composition_poly(trace_poly, &trace_primitive_root, &[alpha_t, alpha_bc]);
     let composition_poly_lde_evaluation = composition_poly.evaluate(&evaluation_points[0]);
 
     // This is needed to check  the element is in the root
@@ -199,16 +202,33 @@ pub fn prove(pub_inputs: [FE; 2]) -> StarkQueryProof {
     }
 }
 
-fn get_composition_poly(trace_poly: Polynomial<FE>, primitive_root: &FE) -> Polynomial<FE> {
+fn get_composition_poly(
+    trace_poly: Polynomial<FE>,
+    primitive_root: &FE,
+    random_coeffs: &[FE; 2],
+) -> Polynomial<FE> {
     let w_squared_x = Polynomial::new(&[FE::zero(), primitive_root * primitive_root]);
     let w_x = Polynomial::new(&[FE::zero(), primitive_root.clone()]);
 
-    let composition_poly_without_zerofier = polynomial::compose(&trace_poly, &w_squared_x)
+    // Hard-coded fibonacci transition constraints
+    let transition_poly = polynomial::compose(&trace_poly, &w_squared_x)
         - polynomial::compose(&trace_poly, &w_x)
-        - trace_poly;
-
+        - trace_poly.clone();
     let zerofier = get_zerofier(primitive_root, ORDER_OF_ROOTS_OF_UNITY_TRACE as usize);
-    composition_poly_without_zerofier.div(zerofier)
+
+    let transition_quotient = transition_poly.div(zerofier);
+
+    // Hard-coded fibonacci boundary constraints
+    let a0_constraint = BoundaryConstraint::new_simple(0, FE::from(1));
+    let a1_constraint = BoundaryConstraint::new_simple(1, FE::from(1));
+    let boundary_constraints =
+        BoundaryConstraints::from_constraints(vec![a0_constraint, a1_constraint]);
+
+    let boundary_quotient =
+        get_boundary_quotient(&boundary_constraints, 0, primitive_root, &trace_poly);
+
+    transition_quotient.mul(random_coeffs[0].clone())
+        + boundary_quotient.mul(random_coeffs[1].clone())
 }
 
 fn get_zerofier(primitive_root: &FE, root_order: usize) -> Polynomial<FE> {
@@ -221,7 +241,6 @@ fn get_zerofier(primitive_root: &FE, root_order: usize) -> Polynomial<FE> {
     roots_of_unity_vanishing_polynomial.div(exceptions_to_vanishing_polynomial)
 }
 
-#[allow(dead_code)]
 fn get_boundary_quotient(
     constraints: &BoundaryConstraints<FE>,
     col: usize,
@@ -248,6 +267,8 @@ pub fn verify(proof: &StarkQueryProof) -> bool {
 
     // TODO: Fiat-Shamir
     let q_1: usize = 4;
+    let alpha_bc = FE::from(2);
+    let alpha_t = FE::from(3);
 
     let trace_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_TRACE);
     let lde_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE);
@@ -260,8 +281,9 @@ pub fn verify(proof: &StarkQueryProof) -> bool {
     let evaluation_point = &lde_primitive_root.pow(q_1) * &offset;
 
     let composition_polynomial_evaluation_from_trace =
-        (&trace_evaluation[2] - &trace_evaluation[1] - &trace_evaluation[0])
-            / zerofier.evaluate(&evaluation_point);
+        ((&trace_evaluation[2] - &trace_evaluation[1] - &trace_evaluation[0])
+            / zerofier.evaluate(&evaluation_point))
+            * alpha_t;
 
     if *composition_polynomial_evaluation_from_prover
         != composition_polynomial_evaluation_from_trace
