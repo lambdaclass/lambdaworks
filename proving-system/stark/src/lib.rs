@@ -325,7 +325,7 @@ mod tests {
     }
 
     #[test]
-    fn hack_verify_1() {
+    fn should_fail_verify_if_evaluations_are_not_in_merkle_tree() {
 
         let mut bad_proof = prove([FE::new(U384::from("1")), FE::new(U384::from("1"))]);
 
@@ -338,36 +338,19 @@ mod tests {
     }
 
     #[test]
-    fn hack_verify_2_electric_boogaloo() {
-        let proof = bad_prover_2([FE::new(U384::from("1")), FE::new(U384::from("1"))]);
-
+    fn should_fail_verify_if_point_returned_is_one_of_different_index() {
+        let proof = bad_index_prover([FE::new(U384::from("1")), FE::new(U384::from("1"))]);
         assert!(!verify(&proof));
     }
 
     #[test]
-    fn hack_really_bad() {
+    fn should_fail_if_trace_is_only_one_number_for_fibonacci() {
         let proof = bad_trace_prover([FE::new(U384::from("1")), FE::new(U384::from("1"))]);
 
         assert!(!verify(&proof));
     }
 
-    pub fn bad_trace(initial_values: [FE; 2]) -> Vec<FE> {
-        let mut ret: Vec<FE> = vec![];
-    
-        ret.push(initial_values[0].clone());
-        ret.push(initial_values[1].clone());
-        // Here I wanted to do
-        ret.push(&ret[3].clone() + &ret[3].clone());
-
-    
-        for i in 3..(ORDER_OF_ROOTS_OF_UNITY_TRACE as usize) {
-            ret.push(FE::new(U384::from("DEADBEEF")));
-        }
-    
-        ret
-    }
-
-    pub fn bad_prover_2(pub_inputs: [FE; 2]) -> StarkQueryProof {
+    pub fn bad_index_prover(pub_inputs: [FE; 2]) -> StarkQueryProof {
         let transcript = &mut Transcript::new();
     
         // * Generate Coset
@@ -377,7 +360,7 @@ mod tests {
         let lde_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE);
         let lde_roots_of_unity = generate_roots_of_unity_coset(1, &lde_primitive_root);
     
-        let trace = bad_trace(pub_inputs);
+        let trace = fibonacci_trace(pub_inputs);
 
         let trace_poly = Polynomial::interpolate(&trace_roots_of_unity, &trace);
     
@@ -445,18 +428,6 @@ mod tests {
         // * For every q_i, do FRI decommitment
         let fri_decommitment = fri_decommit_layers(&lde_fri_commitment, q_1);
     
-        /*
-            IMPORTANT NOTE:
-            When we commit to the trace polynomial, let's call it f, we commit to an LDE of it.
-            On the other hand, the fibonacci constraint (and in general, any constraint) related to f applies
-            only using non-LDE roots of unity.
-            In this case, the constraint is f(w^2 x) - f(w x) - f(x), where w is a 2^n root of unity.
-            But for the commitment we use g, a 2^{nb} root of unity (b is the blowup factor).
-            When we sample a value x to evaluate the trace polynomial on, it has to be a 2^{nb} root of unity,
-            so with fiat-shamir we sample a random index in that range.
-            When we provide evaluations, we provide them for x*(w^2), x*w and x.
-        */
-    
         let fri_layers_merkle_roots: Vec<FE> = lde_fri_commitment
             .iter()
             .map(|fri_commitment| fri_commitment.merkle_tree.root.clone())
@@ -472,11 +443,9 @@ mod tests {
         }
     }
 
-    pub fn really_bad_trace(initial_values: [FE; 2]) -> Vec<FE> {
+    pub fn bad_trace(initial_values: [FE; 2]) -> Vec<FE> {
         let mut ret: Vec<FE> = vec![];
     
-        //ret.push(initial_values[0].clone());
-        //ret.push(initial_values[1].clone());
         for i in 0..(ORDER_OF_ROOTS_OF_UNITY_TRACE as usize) {
             ret.push(FE::new(U384::from("DEADBEEF")));
         }
@@ -494,7 +463,8 @@ mod tests {
         let lde_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE);
         let lde_roots_of_unity = generate_roots_of_unity_coset(1, &lde_primitive_root);
     
-        let trace = really_bad_trace(pub_inputs);
+        // MALICIOUS MOVE: Use a bad trace
+        let trace = bad_trace(pub_inputs);
 
         let trace_poly = Polynomial::interpolate(&trace_roots_of_unity, &trace);
     
@@ -504,9 +474,7 @@ mod tests {
         // * Commit to both polynomials using a Merkle Tree
         let trace_poly_lde_merkle_tree = FriMerkleTree::build(trace_poly_lde.as_slice());
 
-        // Silly prover has no clue of what point I'm passing, so I can swap them
-        // TO DO: Be more evil
-
+        // MALICIOUS MOVE: Swap the q_1
         let q_1: usize = 7;
     
         // START EVALUATION POINTS BLOCK
@@ -562,18 +530,6 @@ mod tests {
         // * For every q_i, do FRI decommitment
         let fri_decommitment = fri_decommit_layers(&lde_fri_commitment, q_1);
     
-        /*
-            IMPORTANT NOTE:
-            When we commit to the trace polynomial, let's call it f, we commit to an LDE of it.
-            On the other hand, the fibonacci constraint (and in general, any constraint) related to f applies
-            only using non-LDE roots of unity.
-            In this case, the constraint is f(w^2 x) - f(w x) - f(x), where w is a 2^n root of unity.
-            But for the commitment we use g, a 2^{nb} root of unity (b is the blowup factor).
-            When we sample a value x to evaluate the trace polynomial on, it has to be a 2^{nb} root of unity,
-            so with fiat-shamir we sample a random index in that range.
-            When we provide evaluations, we provide them for x*(w^2), x*w and x.
-        */
-    
         let fri_layers_merkle_roots: Vec<FE> = lde_fri_commitment
             .iter()
             .map(|fri_commitment| fri_commitment.merkle_tree.root.clone())
@@ -588,5 +544,4 @@ mod tests {
             fri_decommitment,
         }
     }
-
 }
