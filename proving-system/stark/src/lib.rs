@@ -481,7 +481,6 @@ mod tests {
 
         let trace_lde_poly_evaluations = trace_poly.evaluate_slice(&evaluation_points);
 
-        // Silly verifier trusts I'm using the same point as he is
         let merkle_paths = vec![
             trace_poly_lde_merkle_tree
                 .get_proof_by_pos(q_1, trace_lde_poly_evaluations[0].clone())
