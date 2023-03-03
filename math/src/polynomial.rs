@@ -6,7 +6,7 @@ use std::ops;
 /// as a vector of coefficients `[c_0, c_1, ... , c_n]`
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Polynomial<FE> {
-    coefficients: Vec<FE>,
+    pub coefficients: Vec<FE>,
 }
 
 impl<F: IsField> Polynomial<FieldElement<F>> {
@@ -160,6 +160,32 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
     }
 }
 
+// TODO: This is not an optimal implementation, it should use FFT to interpolate.
+pub fn compose<F>(
+    poly_1: &Polynomial<FieldElement<F>>,
+    poly_2: &Polynomial<FieldElement<F>>,
+) -> Polynomial<FieldElement<F>>
+where
+    F: IsField,
+{
+    let max_degree: u64 = (poly_1.degree() * poly_2.degree()) as u64;
+
+    let mut interpolation_points = vec![];
+    for i in 0_u64..max_degree + 1 {
+        interpolation_points.push(FieldElement::<F>::from(i));
+    }
+
+    let values: Vec<_> = interpolation_points
+        .iter()
+        .map(|value| {
+            let intermediate_value = poly_2.evaluate(value);
+            poly_1.evaluate(&intermediate_value)
+        })
+        .collect();
+
+    Polynomial::interpolate(interpolation_points.as_slice(), values.as_slice())
+}
+
 impl<F: IsField> ops::Add<&Polynomial<FieldElement<F>>> for &Polynomial<FieldElement<F>> {
     type Output = Polynomial<FieldElement<F>>;
 
@@ -229,6 +255,21 @@ impl<F: IsField> ops::Mul<Polynomial<FieldElement<F>>> for Polynomial<FieldEleme
     type Output = Polynomial<FieldElement<F>>;
     fn mul(self, dividend: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
         self.mul_with_ref(&dividend)
+    }
+}
+
+impl<F: IsField> ops::Mul<FieldElement<F>> for Polynomial<FieldElement<F>> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn mul(self, multiplicand: FieldElement<F>) -> Polynomial<FieldElement<F>> {
+        let new_coefficients = self
+            .coefficients
+            .iter()
+            .map(|value| value * &multiplicand)
+            .collect();
+        Polynomial {
+            coefficients: new_coefficients,
+        }
     }
 }
 
@@ -493,5 +534,15 @@ mod tests {
     fn interpolate_x_0_y_0() {
         let p = Polynomial::interpolate(&[FE::new(0)], &[FE::new(0)]);
         assert_eq!(FE::new(0), p.evaluate(&FE::new(0)));
+    }
+
+    #[test]
+    fn composition_works() {
+        let p = Polynomial::new(&[FE::new(0), FE::new(2)]);
+        let q = Polynomial::new(&[FE::new(0), FE::new(0), FE::new(1)]);
+        assert_eq!(
+            compose(&p, &q),
+            Polynomial::new(&[FE::new(0), FE::new(0), FE::new(2)])
+        );
     }
 }
