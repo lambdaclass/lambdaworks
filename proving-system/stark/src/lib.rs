@@ -363,9 +363,7 @@ mod tests {
         // * Commit to both polynomials using a Merkle Tree
         let trace_poly_lde_merkle_tree = FriMerkleTree::build(trace_poly_lde.as_slice());
 
-        // Silly prover has no clue of what point I'm passing, so I can swap them
-        // TO DO: Be more evil
-
+        // MALICIOUS MOVE: Use a bad trace
         let q_1: usize = 1;
     
         // START EVALUATION POINTS BLOCK
@@ -467,7 +465,6 @@ mod tests {
         // * Commit to both polynomials using a Merkle Tree
         let trace_poly_lde_merkle_tree = FriMerkleTree::build(trace_poly_lde.as_slice());
 
-        // MALICIOUS MOVE: Swap the q_1
         let q_1: usize = 7;
     
         // START EVALUATION POINTS BLOCK
