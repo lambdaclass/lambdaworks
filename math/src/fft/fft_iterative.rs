@@ -127,9 +127,9 @@ mod tests {
             in_place_bit_reverse_permute(&mut twiddles[..]); // required for NR
 
             let poly = Polynomial::new(&coeffs[..]);
-            let expected: Vec<FE> = twiddles.iter().map(|x| poly.evaluate(&x)).collect();
+            let expected: Vec<FE> = twiddles.iter().map(|x| poly.evaluate(x)).collect();
 
-            let mut result = coeffs.clone();
+            let mut result = coeffs;
             in_place_nr_2radix_ntt(&mut result, &twiddles[..]);
             in_place_bit_reverse_permute(&mut result);
 
@@ -144,9 +144,9 @@ mod tests {
             let twiddles = (0..coeffs.len() as u64).map(|i| root.pow(i)).collect::<Vec<FE>>();
 
             let poly = Polynomial::new(&coeffs[..]);
-            let expected: Vec<FE> = twiddles.iter().map(|x| poly.evaluate(&x)).collect();
+            let expected: Vec<FE> = twiddles.iter().map(|x| poly.evaluate(x)).collect();
 
-            let mut result = coeffs.clone();
+            let mut result = coeffs;
             in_place_bit_reverse_permute(&mut result[..]);
             in_place_rn_2radix_ntt(&mut result, &twiddles[..]);
 

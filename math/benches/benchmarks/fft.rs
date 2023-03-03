@@ -32,7 +32,7 @@ pub fn ntt_benchmarks(c: &mut Criterion) {
 
         // the objective is to bench ordered NTT, including twiddles generation
         group.bench_with_input(
-            format!("iterative_nr_2radix_2^{}_coeffs", pow),
+            format!("iterative_nr_2radix_2^{pow}_coeffs"),
             &coeffs,
             |bench, coeffs| {
                 bench.iter(|| {
@@ -47,7 +47,7 @@ pub fn ntt_benchmarks(c: &mut Criterion) {
             },
         );
         group.bench_with_input(
-            format!("iterative_rn_2radix_2^{}_coeffs", pow),
+            format!("iterative_rn_2radix_2^{pow}_coeffs"),
             &coeffs,
             |bench, coeffs| {
                 bench.iter(|| {
@@ -64,17 +64,17 @@ pub fn ntt_benchmarks(c: &mut Criterion) {
 
         // fft() and ifft() implicitly calculate a root and twiddles.
         group.bench_with_input(
-            format!("recursive_forward_2^{}_coeffs", pow),
+            format!("recursive_forward_2^{pow}_coeffs"),
             &coeffs,
             |bench, coeffs| {
-                bench.iter(|| fft(&coeffs));
+                bench.iter(|| fft(coeffs));
             },
         );
         group.bench_with_input(
-            format!("recursive_inverse_2^{}_coeffs", pow),
+            format!("recursive_inverse_2^{pow}_coeffs"),
             &evals,
             |bench, evals| {
-                bench.iter(|| inverse_fft(&evals));
+                bench.iter(|| inverse_fft(evals));
             },
         );
     }
