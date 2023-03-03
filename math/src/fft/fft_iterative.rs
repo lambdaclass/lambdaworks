@@ -7,7 +7,7 @@ use crate::field::{element::FieldElement, traits::IsTwoAdicField};
 ///
 /// Performs a fast fourier transform with the next attributes:
 /// - In-Place: an auxiliary vector of data isn't needed for the algorithm.
-/// - Radix-2: two elements are operated on by the same thread
+/// - Radix-2: the algorithm halves the problem size log(n) times.
 /// - NR: natural to reverse order, meaning that the input is naturally ordered and the output will
 /// be bit-reversed ordered.
 /// - DIT: decimation in time
@@ -52,7 +52,7 @@ where
 ///
 /// Performs a fast fourier transform with the next attributes:
 /// - In-Place: an auxiliary vector of data isn't needed for storing the results.
-/// - Radix-2: two elements are operated on by the same thread
+/// - Radix-2: the algorithm halves the problem size log(n) times.
 /// - RN: reverse to natural order, meaning that the input is bit-reversed ordered and the output will
 /// be naturally ordered.
 /// - DIT: decimation in time
@@ -122,13 +122,12 @@ mod tests {
         // Property-based test that ensures NR Radix-2 NTT gives same result as a naive polynomial evaluation.
         #[test]
         fn test_nr_2radix_ntt_matches_naive_eval(coeffs in field_vec(8)) {
-            let omega = F::get_root_of_unity(log2(coeffs.len()).unwrap()).unwrap();
-            let mut twiddles = (0..coeffs.len() as u64).map(|i| omega.pow(i)).collect::<Vec<FE>>();
+            let root = F::get_root_of_unity(log2(coeffs.len()).unwrap()).unwrap();
+            let mut twiddles = (0..coeffs.len() as u64).map(|i| root.pow(i)).collect::<Vec<FE>>();
+            in_place_bit_reverse_permute(&mut twiddles[..]); // required for NR
 
             let poly = Polynomial::new(&coeffs[..]);
             let expected: Vec<FE> = twiddles.iter().map(|x| poly.evaluate(&x)).collect();
-
-            in_place_bit_reverse_permute(&mut twiddles[..]);
 
             let mut result = coeffs.clone();
             in_place_nr_2radix_ntt(&mut result, &twiddles[..]);
@@ -141,8 +140,8 @@ mod tests {
         // Property-based test that ensures RN Radix-2 NTT gives same result as a naive polynomial evaluation.
         #[test]
         fn test_rn_2radix_ntt_matches_naive_eval(coeffs in field_vec(8)) {
-            let omega = F::get_root_of_unity(log2(coeffs.len()).unwrap()).unwrap();
-            let twiddles = (0..coeffs.len() as u64).map(|i| omega.pow(i)).collect::<Vec<FE>>();
+            let root = F::get_root_of_unity(log2(coeffs.len()).unwrap()).unwrap();
+            let twiddles = (0..coeffs.len() as u64).map(|i| root.pow(i)).collect::<Vec<FE>>();
 
             let poly = Polynomial::new(&coeffs[..]);
             let expected: Vec<FE> = twiddles.iter().map(|x| poly.evaluate(&x)).collect();

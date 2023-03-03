@@ -10,8 +10,8 @@ const MODULUS: u64 = 0xFFFFFFFF00000001;
 type F = U64BenchField<MODULUS>;
 type FE = FieldElement<F>;
 
-fn gen_coeffs(pow_size: usize) -> Vec<FE> {
-    let mut result = Vec::with_capacity(1 << pow_size);
+fn gen_coeffs(pow: usize) -> Vec<FE> {
+    let mut result = Vec::with_capacity(1 << pow);
     for _ in 0..result.capacity() {
         result.push(FE::new(random()));
     }
