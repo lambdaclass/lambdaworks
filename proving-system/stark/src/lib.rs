@@ -206,17 +206,10 @@ pub fn verify(proof: &StarkQueryProof) -> bool {
     let trace_evaluation = &proof.trace_lde_poly_evaluations;
 
     // TODO: These could be multiple evaluations depending on how many q_i are sampled with Fiat Shamir
-    let mut composition_polynomial_evaluation_from_prover = &proof.composition_poly_lde_evaluations[0];
+    let composition_polynomial_evaluation_from_prover = &proof.composition_poly_lde_evaluations[0];
 
-    let mut composition_polynomial_evaluation_from_trace =
+    let composition_polynomial_evaluation_from_trace =
         &trace_evaluation[2] - &trace_evaluation[1] - &trace_evaluation[0];
-
-    let a = composition_polynomial_evaluation_from_prover.representative();
-    let b = composition_polynomial_evaluation_from_trace.representative();
-
-    if trace_evaluation[0] != proof.trace_lde_poly_inclusion_proofs[0].value {
-        return false;
-    }
 
     if *composition_polynomial_evaluation_from_prover
         != composition_polynomial_evaluation_from_trace
