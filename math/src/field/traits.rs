@@ -1,5 +1,5 @@
 use crate::{fft::errors::FFTError, unsigned_integer::traits::IsUnsignedInteger};
-use std::fmt::Debug;
+use std::{fmt::Debug, hash::Hash};
 
 use super::element::FieldElement;
 
@@ -40,7 +40,7 @@ pub trait IsTwoAdicField: IsField {
 /// Trait to add field behaviour to a struct.
 pub trait IsField: Debug + Clone {
     /// The underlying base type for representing elements from the field.
-    type BaseType: Clone + Debug;
+    type BaseType: Clone + Debug + Hash;
 
     /// Returns the sum of `a` and `b`.
     fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType;
@@ -93,4 +93,7 @@ pub trait IsField: Debug + Clone {
     /// Takes as input an element of BaseType and returns the internal representation
     /// of that element in the field.
     fn from_base_type(x: Self::BaseType) -> Self::BaseType;
+
+    // Returns the representative of the value stored
+    fn representative(a: Self::BaseType) -> Self::BaseType;
 }

@@ -7,7 +7,7 @@ use rand::distributions::{Distribution, Standard};
 use rand::Rng;
 
 /// Type representing prime fields over unsigned 64-bit integers.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct U64PrimeField<const MODULUS: u64>;
 pub type U64FieldElement<const MODULUS: u64> = FieldElement<U64PrimeField<MODULUS>>;
 
@@ -35,7 +35,7 @@ impl<const MODULUS: u64> IsField for U64PrimeField<MODULUS> {
     }
 
     fn inv(a: &u64) -> u64 {
-        assert_ne!(*a, 0, "Cannot invert zero element");
+        debug_assert_ne!(*a, 0, "Cannot invert zero element");
         Self::pow(a, MODULUS - 2)
     }
 
@@ -57,6 +57,10 @@ impl<const MODULUS: u64> IsField for U64PrimeField<MODULUS> {
 
     fn from_base_type(x: u64) -> u64 {
         Self::from_u64(x)
+    }
+
+    fn representative(x: u64) -> u64 {
+        x
     }
 }
 

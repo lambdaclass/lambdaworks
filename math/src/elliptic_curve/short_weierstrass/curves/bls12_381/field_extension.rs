@@ -4,7 +4,9 @@ use crate::field::{
         cubic::{CubicExtensionField, HasCubicNonResidue},
         quadratic::{HasQuadraticNonResidue, QuadraticExtensionField},
     },
-    fields::u384_prime_field::{IsMontgomeryConfiguration, MontgomeryBackendPrimeField},
+    fields::montgomery_backed_prime_fields::{
+        IsMontgomeryConfiguration, MontgomeryBackendPrimeField,
+    },
 };
 use crate::unsigned_integer::element::U384;
 
@@ -13,13 +15,11 @@ pub const BLS12381_PRIME_FIELD_ORDER: U384 = U384::from("1a0111ea397fe69a4b1ba7b
 // FPBLS12381
 #[derive(Clone, Debug)]
 pub struct BLS12381FieldConfig;
-impl IsMontgomeryConfiguration for BLS12381FieldConfig {
+impl IsMontgomeryConfiguration<6> for BLS12381FieldConfig {
     const MODULUS: U384 = BLS12381_PRIME_FIELD_ORDER;
-    const MP: u64 = 9940570264628428797;
-    const R2: U384 = U384::from("11988fe592cae3aa9a793e85b519952d67eb88a9939d83c08de5476c4c95b6d50a76e6a609d104f1f4df1f341c341746");
 }
 
-pub type BLS12381PrimeField = MontgomeryBackendPrimeField<BLS12381FieldConfig>;
+pub type BLS12381PrimeField = MontgomeryBackendPrimeField<BLS12381FieldConfig, 6>;
 
 #[derive(Debug, Clone)]
 pub struct LevelOneResidue;

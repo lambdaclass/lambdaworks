@@ -106,7 +106,7 @@ mod tests {
         let hashed_leaves = complete_until_power_of_two(&mut values);
 
         let mut expected_leaves = (1..6).map(FE::new).collect::<Vec<FE>>();
-        expected_leaves.extend(&[FE::new(5); 3]);
+        expected_leaves.extend([FE::new(5); 3]);
 
         for (leaf, expected_leaves) in hashed_leaves.iter().zip(expected_leaves) {
             assert_eq!(*leaf, expected_leaves);
