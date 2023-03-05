@@ -4,6 +4,8 @@ use crate::{
     field::traits::IsField, unsigned_integer::element::UnsignedInteger,
     unsigned_integer::montgomery::MontgomeryAlgorithms,
 };
+use rand::distributions::{Distribution, Standard};
+use rand::Rng;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
@@ -197,6 +199,52 @@ where
     }
 }
 
+impl<C, const NUM_LIMBS: usize>
+    Distribution<FieldElement<MontgomeryBackendPrimeField<C, NUM_LIMBS>>> for Standard
+where
+    C: IsMontgomeryConfiguration<NUM_LIMBS> + Clone + Debug,
+{
+    fn sample<R: Rng + ?Sized>(
+        &self,
+        rng: &mut R,
+    ) -> FieldElement<MontgomeryBackendPrimeField<C, NUM_LIMBS>> {
+        let mut rand_limbs: [u64; NUM_LIMBS] = [0; NUM_LIMBS];
+        let mut is_msl: bool = true; //is Most Significative Limb of MODULUS
+
+        for i in 0..NUM_LIMBS {
+            match C::MODULUS.limbs[i] {
+                mod_limb if (mod_limb == 0) && is_msl => rand_limbs[i] = 0,
+                mod_limb if (i == (NUM_LIMBS - 1)) && is_msl => {
+                    rand_limbs[i] = rng.gen_range(1..mod_limb)
+                }
+                mod_limb if is_msl => {
+                    rand_limbs[i] = rng.gen_range(0..=mod_limb);
+                    is_msl = false;
+                }
+                _ if (i == 5) => {
+                    if rand_limbs == [0; NUM_LIMBS] {
+                        //to avoid 0 in the generation set
+                        rand_limbs[i] = rng.gen_range(1..=u64::MAX);
+                    } else {
+                        rand_limbs[i] = rng.gen_range(0..=u64::MAX);
+                    }
+                }
+                _ => rand_limbs[i] = rng.gen_range(0..=u64::MAX),
+            }
+        }
+
+        let mut rand_hex: String = "".to_string();
+
+        for i in rand_limbs {
+            rand_hex.push_str(&format!("{i:0>16X}"));
+        }
+
+        let integer: UnsignedInteger<NUM_LIMBS> = UnsignedInteger::from(&rand_hex);
+
+        FieldElement::new(integer)
+    }
+}
+
 #[cfg(test)]
 mod tests_u384_prime_fields {
     use crate::field::element::FieldElement;
@@ -355,6 +403,17 @@ mod tests_u384_prime_fields {
         assert_eq!(-&zero, zero);
     }
 
+    #[test]
+    fn gen_random_for_f23() {
+        for _ in 0..1000 {
+            let rand: U384F23Element = rand::random();
+            assert!(
+                (&U384MontgomeryConfiguration23::MODULUS > rand.value())
+                    && (rand.value() > &U384::from_u64(0))
+            );
+        }
+    }
+
     // FP1
     #[derive(Clone, Debug)]
     struct U384MontgomeryConfigP1;
@@ -400,6 +459,17 @@ mod tests_u384_prime_fields {
             "73d23e8d462060dc23d5c15c00fc432d95621a3c",
         ));
         assert_eq!(x * y, c);
+    }
+
+    #[test]
+    fn gen_random_for_fp1() {
+        for _ in 0..1000 {
+            let rand: U384FP1Element = rand::random();
+            assert!(
+                (&U384MontgomeryConfigP1::MODULUS > rand.value())
+                    && (rand.value() > &U384::from_u64(0))
+            );
+        }
     }
 
     // FP2
@@ -482,6 +552,17 @@ mod tests_u384_prime_fields {
             U384FP2Element::from_bytes_le(&bytes).unwrap().to_bytes_le(),
             bytes
         );
+    }
+
+    #[test]
+    fn gen_random_for_fp2() {
+        for _ in 0..10000 {
+            let rand: U384FP2Element = rand::random();
+            assert!(
+                (&U384MontgomeryConfigP2::MODULUS > rand.value())
+                    && (rand.value() > &U384::from_u64(0))
+            );
+        }
     }
 }
 
@@ -643,6 +724,17 @@ mod tests_u256_prime_fields {
         assert_eq!(-&zero, zero);
     }
 
+    #[test]
+    fn gen_random_for_f29() {
+        for _ in 0..1000 {
+            let rand: U256F29Element = rand::random();
+            assert!(
+                (&U256MontgomeryConfiguration29::MODULUS > rand.value())
+                    && (rand.value() > &U256::from_u64(0))
+            );
+        }
+    }
+
     // FP1
     #[derive(Clone, Debug)]
     struct U256MontgomeryConfigP1;
@@ -688,10 +780,21 @@ mod tests_u256_prime_fields {
         assert_eq!(x * y, c);
     }
 
+    #[test]
+    fn gen_random_for_fp1() {
+        for _ in 0..1000 {
+            let rand: U256FP1Element = rand::random();
+            assert!(
+                (&U256MontgomeryConfigP1::MODULUS > rand.value())
+                    && (rand.value() > &U256::from_u64(0))
+            );
+        }
+    }
+
     // FP2
     #[derive(Clone, Debug)]
-    struct MontgomeryConfigP2;
-    impl IsMontgomeryConfiguration<4> for MontgomeryConfigP2 {
+    struct U256MontgomeryConfigP2;
+    impl IsMontgomeryConfiguration<4> for U256MontgomeryConfigP2 {
         const MODULUS: U256 = UnsignedInteger {
             limbs: [
                 18446744073709551615,
@@ -702,18 +805,18 @@ mod tests_u256_prime_fields {
         };
     }
 
-    type FP2 = U256PrimeField<MontgomeryConfigP2>;
-    type FP2Element = FieldElement<FP2>;
+    type U256FP2 = U256PrimeField<U256MontgomeryConfigP2>;
+    type U256FP2Element = FieldElement<U256FP2>;
 
     #[test]
     fn montgomery_prime_field_addition_works_1() {
-        let x = FP2Element::new(UnsignedInteger::from(
+        let x = U256FP2Element::new(UnsignedInteger::from(
             "acbbb7ca01c65cfffffc72815b397fff9ab130ad53a5ffffffb8f21b207dfedf",
         ));
-        let y = FP2Element::new(UnsignedInteger::from(
+        let y = U256FP2Element::new(UnsignedInteger::from(
             "d65ddbe509d3fffff21f494c588cbdbfe43e929b0543e3ffffffffffffffff43",
         ));
-        let c = FP2Element::new(UnsignedInteger::from(
+        let c = U256FP2Element::new(UnsignedInteger::from(
             "831993af0b9a5cfff21bbbcdb3c63dbf7eefc34858e9e3ffffb8f21b207dfedf",
         ));
         assert_eq!(x + y, c);
@@ -721,13 +824,13 @@ mod tests_u256_prime_fields {
 
     #[test]
     fn montgomery_prime_field_multiplication_works_1() {
-        let x = FP2Element::new(UnsignedInteger::from(
+        let x = U256FP2Element::new(UnsignedInteger::from(
             "acbbb7ca01c65cfffffc72815b397fff9ab130ad53a5ffffffb8f21b207dfedf",
         ));
-        let y = FP2Element::new(UnsignedInteger::from(
+        let y = U256FP2Element::new(UnsignedInteger::from(
             "d65ddbe509d3fffff21f494c588cbdbfe43e929b0543e3ffffffffffffffff43",
         ));
-        let c = FP2Element::new(UnsignedInteger::from(
+        let c = U256FP2Element::new(UnsignedInteger::from(
             "2b1e80d553ecab2e4d41eb53c4c8ad89ebacac6cf6b91dcf2213f311093aa05d",
         ));
         assert_eq!(&y * x, c);
@@ -735,10 +838,10 @@ mod tests_u256_prime_fields {
 
     #[test]
     fn to_bytes_from_bytes_be_is_the_identity() {
-        let x = FP2Element::new(UnsignedInteger::from(
+        let x = U256FP2Element::new(UnsignedInteger::from(
             "5f103b0bd4397d4df560eb559f38353f80eeb6",
         ));
-        assert_eq!(FP2Element::from_bytes_be(&x.to_bytes_be()).unwrap(), x);
+        assert_eq!(U256FP2Element::from_bytes_be(&x.to_bytes_be()).unwrap(), x);
     }
 
     #[test]
@@ -748,17 +851,17 @@ mod tests_u256_prime_fields {
             0, 0, 1,
         ];
         assert_eq!(
-            FP2Element::from_bytes_be(&bytes).unwrap().to_bytes_be(),
+            U256FP2Element::from_bytes_be(&bytes).unwrap().to_bytes_be(),
             bytes
         );
     }
 
     #[test]
     fn to_bytes_from_bytes_le_is_the_identity() {
-        let x = FP2Element::new(UnsignedInteger::from(
+        let x = U256FP2Element::new(UnsignedInteger::from(
             "5f103b0bd4397d4df560eb559f38353f80eeb6",
         ));
-        assert_eq!(FP2Element::from_bytes_le(&x.to_bytes_le()).unwrap(), x);
+        assert_eq!(U256FP2Element::from_bytes_le(&x.to_bytes_le()).unwrap(), x);
     }
 
     #[test]
@@ -768,8 +871,19 @@ mod tests_u256_prime_fields {
             0, 0, 0,
         ];
         assert_eq!(
-            FP2Element::from_bytes_le(&bytes).unwrap().to_bytes_le(),
+            U256FP2Element::from_bytes_le(&bytes).unwrap().to_bytes_le(),
             bytes
         );
+    }
+
+    #[test]
+    fn gen_random_for_fp2() {
+        for _ in 0..1000 {
+            let rand: U256FP2Element = rand::random();
+            assert!(
+                (&U256MontgomeryConfigP2::MODULUS > rand.value())
+                    && (rand.value() > &U256::from_u64(0))
+            );
+        }
     }
 }
