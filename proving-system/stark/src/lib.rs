@@ -420,6 +420,14 @@ mod tests {
     }
 
     #[test]
+    fn test_wrong_boundary_constraints_does_not_verify() {
+        // The first public input is set to 2, this should not verify because our constraints are hard-coded
+        // to assert this first element is 1.
+        let result = prove([FE::new(U384::from("2")), FE::new(U384::from("1"))]);
+        assert!(!verify(&result));
+    }
+
+    #[test]
     fn zerofier_is_the_correct_one() {
         let primitive_root = generate_primitive_root(8);
         let zerofier = get_zerofier(&primitive_root, 8);
