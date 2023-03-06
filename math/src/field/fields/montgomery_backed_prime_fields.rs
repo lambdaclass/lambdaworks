@@ -795,4 +795,20 @@ mod tests_u256_prime_fields {
         let f2 = U256F29Element::new(f1.representative());
         assert_eq!(f1, f2);
     }
+
+    #[test]
+    fn creating_a_field_element_from_hex_works_1() {
+        let a = U256FP1Element::from_hex("eb235f6144d9e91f4b14");
+        let b = U256FP1Element::new(U256 {
+            limbs: [0, 0, 60195, 6872850209053821716],
+        });
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn creating_a_field_element_from_hex_works() {
+        let a = U256F29Element::from_hex("aa");
+        let b = U256F29Element::from(25);
+        assert_eq!(a, b);
+    }
 }
