@@ -1,7 +1,7 @@
 use crate::cyclic_group::IsGroup;
 use crate::errors::ByteConversionError::{FromBEBytesError, FromLEBytesError};
 use crate::field::element::FieldElement;
-use crate::field::traits::IsField;
+use crate::field::traits::{IsField, IsPrimeField};
 use crate::traits::ByteConversion;
 
 /// Type representing prime fields over unsigned 64-bit integers.
@@ -56,13 +56,17 @@ impl<const MODULUS: u64> IsField for U64PrimeField<MODULUS> {
     fn from_base_type(x: u64) -> u64 {
         Self::from_u64(x)
     }
+}
+
+impl<const MODULUS: u64> Copy for U64FieldElement<MODULUS> {}
+
+impl<const MODULUS: u64> IsPrimeField for U64PrimeField<MODULUS> {
+    type RepresentativeType = u64;
 
     fn representative(x: u64) -> u64 {
         x
     }
 }
-
-impl<const MODULUS: u64> Copy for U64FieldElement<MODULUS> {}
 
 /// Represents an element in Fp. (E.g: 0, 1, 2 are the elements of F3)
 impl<const MODULUS: u64> IsGroup for U64FieldElement<MODULUS> {
