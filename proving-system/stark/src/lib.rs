@@ -303,9 +303,6 @@ pub fn verify(proof: &StarkQueryProof) -> bool {
         q_1 + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE) as usize * 2,
     ];
 
-    // We are checking here against values, we should check against indices.
-    // Now, if we check against indices, do we care about the value?
-    // I feel like the answer is yes, but IDK?
     for (merkle_proof, (index, value)) in proof
         .trace_lde_poly_inclusion_proofs
         .iter()
