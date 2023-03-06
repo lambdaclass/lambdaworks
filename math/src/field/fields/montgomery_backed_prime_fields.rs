@@ -164,8 +164,8 @@ where
     type RepresentativeType = Self::BaseType;
 
     // TO DO: Add tests for representatives
-    fn representative(x: Self::BaseType) -> Self::BaseType {
-        MontgomeryAlgorithms::cios(&x, &UnsignedInteger::from_u64(1), &C::MODULUS, &C::MU)
+    fn representative(x: &Self::BaseType) -> Self::BaseType {
+        MontgomeryAlgorithms::cios(x, &UnsignedInteger::from_u64(1), &C::MODULUS, &C::MU)
     }
 }
 

@@ -63,8 +63,8 @@ impl<const MODULUS: u64> Copy for U64FieldElement<MODULUS> {}
 impl<const MODULUS: u64> IsPrimeField for U64PrimeField<MODULUS> {
     type RepresentativeType = u64;
 
-    fn representative(x: u64) -> u64 {
-        x
+    fn representative(x: &u64) -> u64 {
+        *x
     }
 }
 

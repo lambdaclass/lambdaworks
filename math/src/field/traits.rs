@@ -100,5 +100,5 @@ pub trait IsPrimeField: IsField {
     type RepresentativeType: IsUnsignedInteger;
 
     // Returns the representative of the value stored
-    fn representative(a: Self::BaseType) -> Self::RepresentativeType;
+    fn representative(a: &Self::BaseType) -> Self::RepresentativeType;
 }

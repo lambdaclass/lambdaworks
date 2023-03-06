@@ -344,6 +344,6 @@ where
 impl<F: IsPrimeField> FieldElement<F> {
     // Returns the representative of the value stored
     pub fn representative(&self) -> F::RepresentativeType {
-        F::representative(self.value.clone())
+        F::representative(self.value())
     }
 }
