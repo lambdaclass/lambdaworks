@@ -75,7 +75,7 @@ where
     fn from_bytes_be(bytes: &[u8]) -> Result<Self, ByteConversionError> {
         let mut merkle_path = Vec::new();
 
-        for elem in bytes[0..].chunks(9) {
+        for elem in bytes[..].chunks(9) {
             let field = FieldElement::from_bytes_be(&elem[..elem.len() - 1])?;
             merkle_path.push((field, elem[elem.len() - 1] == 1));
         }
@@ -90,7 +90,7 @@ where
     fn from_bytes_le(bytes: &[u8]) -> Result<Self, ByteConversionError> {
         let mut merkle_path = Vec::new();
 
-        for elem in bytes[0..].chunks(9) {
+        for elem in bytes[..].chunks(9) {
             let field = FieldElement::from_bytes_le(&elem[..elem.len() - 1])?;
             merkle_path.push((field, elem[elem.len() - 1] == 1));
         }
