@@ -1,15 +1,15 @@
 /// In-place bit-reverse permutation algorithm. Requires input length to be a power of two.
 pub fn in_place_bit_reverse_permute<E>(input: &mut [E]) {
     for i in 0..input.len() {
-        let bit_reversed_index = reverse_index(&i, input.len());
+        let bit_reversed_index = reverse_index(&i, input.len() as u64);
         if bit_reversed_index > i {
             input.swap(i, bit_reversed_index);
         }
     }
 }
 
-/// Reverses the `count` first bits of `i`
-fn reverse_index(i: &usize, count: usize) -> usize {
+/// Reverses the `log2(count)` first bits of `i`
+pub fn reverse_index(i: &usize, count: u64) -> usize {
     i.reverse_bits() >> (usize::BITS - count.trailing_zeros())
 }
 
@@ -22,7 +22,7 @@ mod test {
     fn bit_reverse_permutation_works() {
         let mut reversed: Vec<usize> = Vec::with_capacity(16);
         for i in 0..reversed.capacity() {
-            reversed.push(reverse_index(&i, reversed.capacity()));
+            reversed.push(reverse_index(&i, reversed.capacity() as u64));
         }
         assert_eq!(
             reversed[..],

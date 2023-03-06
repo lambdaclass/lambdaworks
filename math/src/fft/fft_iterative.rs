@@ -4,6 +4,7 @@ use crate::field::{element::FieldElement, traits::IsTwoAdicField};
 /// It's required that the twiddle factors are in bit-reverse order. Else this function will not
 /// return fourier transformed values.
 /// Also the input size needs to be a power of two.
+/// It's recommended to use the current safe abstractions instead of this function.
 ///
 /// Performs a fast fourier transform with the next attributes:
 /// - In-Place: an auxiliary vector of data isn't needed for the algorithm.
@@ -11,7 +12,7 @@ use crate::field::{element::FieldElement, traits::IsTwoAdicField};
 /// - NR: natural to reverse order, meaning that the input is naturally ordered and the output will
 /// be bit-reversed ordered.
 /// - DIT: decimation in time
-pub fn in_place_nr_2radix_fft<F>(input: &mut [FieldElement<F>], twiddles: &[FieldElement<F>])
+pub(crate) fn in_place_nr_2radix_fft<F>(input: &mut [FieldElement<F>], twiddles: &[FieldElement<F>])
 where
     F: IsTwoAdicField,
 {
@@ -49,6 +50,7 @@ where
 /// It's required that the twiddle factors are naturally ordered (so w[i] = w^i). Else this
 /// function will not return fourier transformed values.
 /// Also the input size needs to be a power of two.
+/// It's recommended to use the current safe abstractions instead of this function.
 ///
 /// Performs a fast fourier transform with the next attributes:
 /// - In-Place: an auxiliary vector of data isn't needed for storing the results.
@@ -56,7 +58,7 @@ where
 /// - RN: reverse to natural order, meaning that the input is bit-reversed ordered and the output will
 /// be naturally ordered.
 /// - DIT: decimation in time
-pub fn in_place_rn_2radix_fft<F>(input: &mut [FieldElement<F>], twiddles: &[FieldElement<F>])
+pub(crate) fn in_place_rn_2radix_fft<F>(input: &mut [FieldElement<F>], twiddles: &[FieldElement<F>])
 where
     F: IsTwoAdicField,
 {
