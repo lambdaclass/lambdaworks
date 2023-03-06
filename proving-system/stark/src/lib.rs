@@ -324,6 +324,7 @@ pub fn fri_verify(
     let decommitment_index: u64 = 4;
 
     let mut lde_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE);
+    let mut offset = FE::from(COSET_OFFSET);
 
     // For each (merkle_root, merkle_auth_path) / fold
     // With the auth path containining the element that the
@@ -357,7 +358,6 @@ pub fn fri_verify(
             // if layer_merkle_paths has the right amount of elements
             .unwrap();
 
-        let offset = FE::from(COSET_OFFSET);
         // evaluation point = offset * w ^ i in the Stark literature
         let evaluation_point = &offset * lde_primitive_root.pow(decommitment_index);
 
@@ -370,6 +370,7 @@ pub fn fri_verify(
                 / (two * evaluation_point);
 
         lde_primitive_root = lde_primitive_root.pow(2_usize);
+        offset = offset.pow(2_usize);
 
         if v != fri_layer_auth_path.value {
             return false;
