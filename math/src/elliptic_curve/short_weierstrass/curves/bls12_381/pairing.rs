@@ -6,13 +6,34 @@ use super::{
 use crate::{
     cyclic_group::IsGroup,
     elliptic_curve::short_weierstrass::traits::IsShortWeierstrass,
-    elliptic_curve::short_weierstrass::{
+    elliptic_curve::{short_weierstrass::{
         curves::bls12_381::field_extension::Degree6ExtensionField,
         point::ShortWeierstrassProjectivePoint,
-    },
+    }, traits::IsPairing},
     field::element::FieldElement,
     unsigned_integer::element::UnsignedInteger,
 };
+
+pub struct BLS12381AtePairing;
+impl IsPairing for BLS12381AtePairing {
+    type G1 = ShortWeierstrassProjectivePoint<BLS12381Curve>;
+    type G2 = ShortWeierstrassProjectivePoint<BLS12381TwistCurve>;
+    type OutputField = Degree12ExtensionField;
+
+    /// Compute the product of the ate pairings for a list of point pairs.
+    fn compute_batch(
+        pairs: &[(
+            &Self::G1,
+            &Self::G2,
+        )],
+    ) -> FieldElement<Self::OutputField> {
+        let mut result = FieldElement::one();
+        for (p, q) in pairs {
+            result = result * miller(q, p);
+        }
+        final_exponentiation(&result)
+    }
+}
 
 /// This is equal to the frobenius trace of the BLS12 381 curve minus one.
 const MILLER_LOOP_CONSTANT: u64 = 0xd201000000010000;
@@ -83,29 +104,6 @@ fn final_exponentiation(
     let f1 = base.conjugate() * base.inv();
     let f2 = frobenius_square(&f1) * f1;
     f2.pow(PHI_DIVIDED_BY_R)
-}
-
-/// Compute the ate pairing between point `p` in G1 and `q` in G2.
-#[allow(unused)]
-pub fn ate(
-    p: &ShortWeierstrassProjectivePoint<BLS12381Curve>,
-    q: &ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
-) -> FieldElement<Degree12ExtensionField> {
-    batch_ate(&[(p, q)])
-}
-
-/// Compute the product of the ate pairings for a list of point pairs.
-pub fn batch_ate(
-    pairs: &[(
-        &ShortWeierstrassProjectivePoint<BLS12381Curve>,
-        &ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
-    )],
-) -> FieldElement<Degree12ExtensionField> {
-    let mut result = FieldElement::one();
-    for (p, q) in pairs {
-        result = result * miller(q, p);
-    }
-    final_exponentiation(&result)
 }
 
 /// Evaluates the line between points `p` and `r` at point `q`
@@ -233,7 +231,7 @@ mod tests {
         let a = U384::from_u64(11);
         let b = U384::from_u64(93);
 
-        let result = batch_ate(&[
+        let result = BLS12381AtePairing::compute_batch(&[
             (
                 &p.operate_with_self(a).to_affine(),
                 &q.operate_with_self(b).to_affine(),

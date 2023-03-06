@@ -1,5 +1,4 @@
 use crate::cyclic_group::IsGroup;
-use crate::field::fields::u64_prime_field::U64FieldElement;
 use crate::unsigned_integer::traits::IsUnsignedInteger;
 
 /// This function computes the multiscalar multiplication (MSM).
@@ -35,6 +34,7 @@ mod tests {
     use crate::elliptic_curve::short_weierstrass::curves::test_curve_1::TestCurve1;
     use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
     use crate::elliptic_curve::traits::IsEllipticCurve;
+    use crate::field::fields::u64_prime_field::U64FieldElement;
 
     const ORDER_R: u64 = 5;
     type FE = U64FieldElement<ORDER_R>;

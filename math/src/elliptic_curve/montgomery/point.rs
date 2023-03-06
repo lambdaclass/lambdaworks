@@ -44,12 +44,6 @@ impl<E: IsEllipticCurve> MontgomeryProjectivePoint<E> {
     pub fn to_affine(&self) -> Self {
         Self(self.0.to_affine())
     }
-
-    /// Returns the additive inverse of the projective point `p`
-    pub fn neg(&self) -> Self {
-        let [px, py, pz] = self.coordinates();
-        Self::new([px.clone(), -py, pz.clone()])
-    }
 }
 
 impl<E: IsEllipticCurve> PartialEq for MontgomeryProjectivePoint<E> {
@@ -131,6 +125,12 @@ impl<E: IsMontgomery> IsGroup for MontgomeryProjectivePoint<E> {
                 Self::new([new_x, new_y, FieldElement::one()])
             }
         }
+    }
+
+    /// Returns the additive inverse of the projective point `p`
+    fn neg(&self) -> Self {
+        let [px, py, pz] = self.coordinates();
+        Self::new([px.clone(), -py, pz.clone()])
     }
 }
 

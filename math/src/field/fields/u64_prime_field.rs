@@ -56,10 +56,6 @@ impl<const MODULUS: u64> IsField for U64PrimeField<MODULUS> {
     fn from_base_type(x: u64) -> u64 {
         Self::from_u64(x)
     }
-
-    fn representative(x: u64) -> u64 {
-        x
-    }
 }
 
 impl<const MODULUS: u64> Copy for U64FieldElement<MODULUS> {}
@@ -72,6 +68,10 @@ impl<const MODULUS: u64> IsGroup for U64FieldElement<MODULUS> {
 
     fn operate_with(&self, other: &Self) -> Self {
         *self + *other
+    }
+
+    fn neg(&self) -> Self {
+        -self
     }
 }
 
