@@ -1,6 +1,5 @@
 use crate::field::traits::IsField;
 use crate::unsigned_integer::traits::IsUnsignedInteger;
-use std::fmt::Debug;
 use std::iter::Sum;
 use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
 use std::{
