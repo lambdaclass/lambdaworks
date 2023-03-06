@@ -163,7 +163,6 @@ where
 {
     type RepresentativeType = Self::BaseType;
 
-    // TO DO: Add tests for representatives
     fn representative(x: &Self::BaseType) -> Self::BaseType {
         MontgomeryAlgorithms::cios(x, &UnsignedInteger::from_u64(1), &C::MODULUS, &C::MU)
     }
@@ -779,5 +778,21 @@ mod tests_u256_prime_fields {
             FP2Element::from_bytes_le(&bytes).unwrap().to_bytes_le(),
             bytes
         );
+    }
+
+    #[test]
+    fn creating_a_field_element_from_its_representative_returns_the_same_element_1() {
+        let change = U256::from_u64(1);
+        let f1 = U256FP1Element::new(U256MontgomeryConfigP1::MODULUS + change);
+        let f2 = U256FP1Element::new(f1.representative());
+        assert_eq!(f1, f2);
+    }
+
+    #[test]
+    fn creating_a_field_element_from_its_representative_returns_the_same_element_2() {
+        let change = U256::from_u64(27);
+        let f1 = U256F29Element::new(U256MontgomeryConfiguration29::MODULUS + change);
+        let f2 = U256F29Element::new(f1.representative());
+        assert_eq!(f1, f2);
     }
 }
