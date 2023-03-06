@@ -29,7 +29,9 @@ impl IsPairing for BLS12381AtePairing {
     ) -> FieldElement<Self::OutputField> {
         let mut result = FieldElement::one();
         for (p, q) in pairs {
-            result = result * miller(q, p);
+            let p = p.to_affine();
+            let q = q.to_affine();
+            result = result * miller(&q, &p);
         }
         final_exponentiation(&result)
     }
