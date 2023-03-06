@@ -50,6 +50,10 @@ impl<const MODULUS: u64> IsField for U64TestField<MODULUS> {
     fn from_base_type(x: u64) -> u64 {
         Self::from_u64(x)
     }
+
+    fn representative(x: u64) -> u64 {
+        x
+    }
 }
 
 impl<const MODULUS: u64> IsTwoAdicField for U64TestField<MODULUS> {

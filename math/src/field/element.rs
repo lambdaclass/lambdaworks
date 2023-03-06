@@ -3,6 +3,10 @@ use crate::unsigned_integer::traits::IsUnsignedInteger;
 use std::fmt::Debug;
 use std::iter::Sum;
 use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
+use std::{
+    fmt::Debug,
+    hash::{Hash, Hasher},
+};
 
 /// A field element with operations algorithms defined in `F`
 #[derive(Debug, Clone)]
@@ -18,7 +22,7 @@ where
 {
     fn from(value: &F::BaseType) -> Self {
         Self {
-            value: value.clone(),
+            value: F::from_base_type(value.clone()),
         }
     }
 }
@@ -46,6 +50,15 @@ where
 }
 
 impl<F> Eq for FieldElement<F> where F: IsField {}
+
+impl<F> Hash for FieldElement<F>
+where
+    F: IsField,
+{
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.value.hash(state);
+    }
+}
 
 /// Addition operator overloading for field elements
 impl<F> Add<&FieldElement<F>> for &FieldElement<F>
@@ -297,6 +310,11 @@ where
     /// Returns the underlying `value`
     pub fn value(&self) -> &F::BaseType {
         &self.value
+    }
+
+    // Returns the representative of the value stored
+    pub fn representative(&self) -> F::BaseType {
+        F::representative(self.value.clone())
     }
 
     /// Returns the multiplicative inverse of `self`

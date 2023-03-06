@@ -21,6 +21,16 @@ pub trait HasQuadraticNonResidue {
     fn residue() -> FieldElement<Self::BaseField>;
 }
 
+impl<Q> FieldElement<QuadraticExtensionField<Q>>
+where
+    Q: Clone + Debug + HasQuadraticNonResidue,
+{
+    pub fn conjugate(&self) -> Self {
+        let [a, b] = self.value();
+        Self::new([a.clone(), -b])
+    }
+}
+
 impl<Q> IsField for QuadraticExtensionField<Q>
 where
     Q: Clone + Debug + HasQuadraticNonResidue,
@@ -44,10 +54,10 @@ where
         b: &[FieldElement<Q::BaseField>; 2],
     ) -> [FieldElement<Q::BaseField>; 2] {
         let q = Q::residue();
-        [
-            &a[0] * &b[0] + &a[1] * &b[1] * q,
-            &a[0] * &b[1] + &a[1] * &b[0],
-        ]
+        let a0b0 = &a[0] * &b[0];
+        let a1b1 = &a[1] * &b[1];
+        let z = (&a[0] + &a[1]) * (&b[0] + &b[1]);
+        [&a0b0 + &a1b1 * q, z - a0b0 - a1b1]
     }
 
     /// Returns the component wise subtraction of `a` and `b`
@@ -104,6 +114,10 @@ where
     /// already have correct representations.
     fn from_base_type(x: [FieldElement<Q::BaseField>; 2]) -> [FieldElement<Q::BaseField>; 2] {
         x
+    }
+
+    fn representative(_x: Self::BaseType) -> Self::BaseType {
+        todo!()
     }
 }
 
@@ -222,5 +236,12 @@ mod tests {
         let a = FEE::new([FE::new(12), FE::new(5)]);
         let expected_result = FEE::new([FE::new(28), FE::new(8)]);
         assert_eq!(a.inv(), expected_result);
+    }
+
+    #[test]
+    fn test_conjugate() {
+        let a = FEE::new([FE::new(12), FE::new(5)]);
+        let expected_result = FEE::new([FE::new(12), -FE::new(5)]);
+        assert_eq!(a.conjugate(), expected_result);
     }
 }

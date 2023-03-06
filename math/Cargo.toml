@@ -15,5 +15,13 @@ criterion = "0.4"
 const-random = "0.1.15"
 
 [[bench]]
-name = "field"
+name = "all_benchmarks"
+harness = false
+
+[[bench]]
+name = "field_benchmarks"
+harness = false
+
+[[bench]]
+name = "fft_benchmarks"
 harness = false

@@ -20,7 +20,7 @@ pub fn msm<T>(cs: &[FE], hidings: &[T]) -> T
 where
     T: IsGroup,
 {
-    assert_eq!(
+    debug_assert_eq!(
         cs.len(),
         hidings.len(),
         "Slices `cs` and `hidings` must be of the same length to compute `msm`."
@@ -57,8 +57,8 @@ mod tests {
     fn msm_23_is_6_over_elliptic_curves() {
         let c = [FE::new(3)];
         let g = TestCurve1::generator();
-        let hiding = [g.operate_with_self(2)];
-        assert_eq!(msm(&c, &hiding), g.operate_with_self(6));
+        let hiding = [g.operate_with_self(2_u16)];
+        assert_eq!(msm(&c, &hiding), g.operate_with_self(6_u16));
     }
 
     #[test]
@@ -72,8 +72,8 @@ mod tests {
     fn msm_with_c_2_3_hiding_3_4_is_18_over_elliptic_curves() {
         let c = [FE::new(2), FE::new(3)];
         let g = TestCurve1::generator();
-        let hiding = [g.operate_with_self(3), g.operate_with_self(4)];
-        assert_eq!(msm(&c, &hiding), g.operate_with_self(18));
+        let hiding = [g.operate_with_self(3_u16), g.operate_with_self(4_u16)];
+        assert_eq!(msm(&c, &hiding), g.operate_with_self(18_u16));
     }
 
     #[test]

@@ -1,5 +1,5 @@
 use const_random::const_random;
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{black_box, Criterion};
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::fields::u64_prime_field::U64FieldElement;
 
@@ -11,7 +11,7 @@ const PRIMES: [u64; 39] = [
     1398269, 2976221, 3021377, 6972593, 13466917, 20996011, 24036583, 25964951, 30402457,
 ];
 
-fn u64_benchmark(c: &mut Criterion) {
+pub fn u64_benchmark(c: &mut Criterion) {
     const MODULUS: u64 = PRIMES[const_random!(usize) % PRIMES.len()];
     let mut group = c.benchmark_group("u64");
 
@@ -56,6 +56,3 @@ fn u64_benchmark(c: &mut Criterion) {
         bench.iter(|| black_box(x) == black_box(y));
     });
 }
-
-criterion_group!(benches, u64_benchmark);
-criterion_main!(benches);

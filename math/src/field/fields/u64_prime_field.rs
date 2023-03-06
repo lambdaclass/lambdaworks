@@ -5,7 +5,7 @@ use crate::field::traits::IsField;
 use crate::traits::ByteConversion;
 
 /// Type representing prime fields over unsigned 64-bit integers.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct U64PrimeField<const MODULUS: u64>;
 pub type U64FieldElement<const MODULUS: u64> = FieldElement<U64PrimeField<MODULUS>>;
 
@@ -33,7 +33,7 @@ impl<const MODULUS: u64> IsField for U64PrimeField<MODULUS> {
     }
 
     fn inv(a: &u64) -> u64 {
-        assert_ne!(*a, 0, "Cannot invert zero element");
+        debug_assert_ne!(*a, 0, "Cannot invert zero element");
         Self::pow(a, MODULUS - 2)
     }
 
@@ -56,6 +56,10 @@ impl<const MODULUS: u64> IsField for U64PrimeField<MODULUS> {
     fn from_base_type(x: u64) -> u64 {
         Self::from_u64(x)
     }
+
+    fn representative(x: u64) -> u64 {
+        x
+    }
 }
 
 impl<const MODULUS: u64> Copy for U64FieldElement<MODULUS> {}
@@ -64,10 +68,6 @@ impl<const MODULUS: u64> Copy for U64FieldElement<MODULUS> {}
 impl<const MODULUS: u64> IsGroup for U64FieldElement<MODULUS> {
     fn neutral_element() -> U64FieldElement<MODULUS> {
         U64FieldElement::zero()
-    }
-
-    fn operate_with_self(&self, times: u128) -> Self {
-        U64FieldElement::from((times % (MODULUS as u128)) as u64) * *self
     }
 
     fn operate_with(&self, other: &Self) -> Self {
@@ -223,7 +223,7 @@ mod tests {
     ) {
         let a = FE::new(3);
         let b = FE::new(12);
-        assert_eq!(a * b, a.operate_with_self(12));
+        assert_eq!(a * b, a.operate_with_self(12_u16));
     }
 
     #[test]
