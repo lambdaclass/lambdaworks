@@ -5,6 +5,11 @@ use lambdaworks_math::{
     traits::ByteConversion,
 };
 
+/// Stores a merkle path to some leaf.
+/// Internally, the necessary hashes are stored from root to leaf in the
+/// `merkle_path` field, in such a way that, if the merkle tree is of height `n`, the
+/// `i`-th element of `merkle_path` is the sibling node in the `n - 1 - i`-th check
+/// when verifying.
 #[derive(Debug, Clone)]
 pub struct Proof<F: IsField, H: IsCryptoHash<F>> {
     pub merkle_path: Vec<FieldElement<F>>,
