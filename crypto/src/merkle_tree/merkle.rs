@@ -57,15 +57,8 @@ impl<F: IsField, H: IsCryptoHash<F> + Clone> MerkleTree<F, H> {
         None
     }
 
-    pub fn get_proof_by_pos(&self, pos: usize, value: FieldElement<F>) -> Option<Proof<F, H>> {
-        let hashed_leaf = self.hasher.hash_one(value);
-
+    pub fn get_proof_by_pos(&self, pos: usize) -> Option<Proof<F, H>> {
         let pos = pos + self.nodes.len() / 2;
-
-        if self.nodes[pos] != hashed_leaf {
-            return None;
-        }
-
         let merkle_path = self.build_merkle_path(pos);
 
         self.create_proof(merkle_path)

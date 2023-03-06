@@ -129,20 +129,16 @@ pub fn prove(pub_inputs: [FE; 2]) -> StarkQueryProof {
     ];
     let trace_lde_poly_evaluations = trace_poly.evaluate_slice(&evaluation_points);
     let merkle_paths = vec![
-        trace_poly_lde_merkle_tree
-            .get_proof_by_pos(q_1, trace_lde_poly_evaluations[0].clone())
-            .unwrap(),
+        trace_poly_lde_merkle_tree.get_proof_by_pos(q_1).unwrap(),
         trace_poly_lde_merkle_tree
             .get_proof_by_pos(
                 q_1 + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE) as usize,
-                trace_lde_poly_evaluations[1].clone(),
             )
             .unwrap(),
         trace_poly_lde_merkle_tree
             .get_proof_by_pos(
                 q_1 + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE) as usize
                     * 2,
-                trace_lde_poly_evaluations[2].clone(),
             )
             .unwrap(),
     ];

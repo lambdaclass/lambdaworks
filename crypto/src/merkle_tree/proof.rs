@@ -169,7 +169,7 @@ mod tests {
     {
         let values: Vec<FE> = (1..6).map(FE::new).collect();
         let merkle_tree = MerkleTree::<U64PF, DefaultHasher>::build(&values);
-        let proof = &merkle_tree.get_proof_by_pos(1, FE::new(2)).unwrap();
+        let proof = &merkle_tree.get_proof_by_pos(1).unwrap();
         assert_merkle_path(&proof.merkle_path, &[FE::new(2), FE::new(1), FE::new(1)]);
         // assert!(MerkleTree::verify(proof, merkle_tree.root));
         assert!(proof.verify(&merkle_tree.root, &FE::new(2)));
