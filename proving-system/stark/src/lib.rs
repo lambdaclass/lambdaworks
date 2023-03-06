@@ -1,5 +1,7 @@
 pub mod fri;
 
+use std::ops::Div;
+
 use fri::fri_decommit::{fri_decommit_layers, FriDecommitment};
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_crypto::merkle_tree::proof::Proof;
@@ -32,6 +34,9 @@ const FIELD_SUBGROUP_GENERATOR: u64 = 3;
 
 const ORDER_OF_ROOTS_OF_UNITY_TRACE: u64 = 32;
 const ORDER_OF_ROOTS_OF_UNITY_FOR_LDE: u64 = 1024;
+
+// We are using 3 as the offset as it's our field's generator.
+const COSET_OFFSET: u64 = 3;
 
 // DEFINITION OF FUNCTIONS
 
@@ -100,14 +105,14 @@ pub fn prove(pub_inputs: [FE; 2]) -> StarkQueryProof {
     let trace_roots_of_unity = generate_roots_of_unity_coset(1, &trace_primitive_root);
 
     let lde_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE);
-    let lde_roots_of_unity = generate_roots_of_unity_coset(1, &lde_primitive_root);
+    let lde_roots_of_unity_coset = generate_roots_of_unity_coset(COSET_OFFSET, &lde_primitive_root);
 
     let trace = fibonacci_trace(pub_inputs);
 
     let trace_poly = Polynomial::interpolate(&trace_roots_of_unity, &trace);
 
     // * Do Reed-Solomon on the trace and composition polynomials using some blowup factor
-    let trace_poly_lde = trace_poly.evaluate_slice(lde_roots_of_unity.as_slice());
+    let trace_poly_lde = trace_poly.evaluate_slice(lde_roots_of_unity_coset.as_slice());
 
     // * Commit to both polynomials using a Merkle Tree
     let trace_poly_lde_merkle_tree = FriMerkleTree::build(trace_poly_lde.as_slice());
@@ -121,11 +126,13 @@ pub fn prove(pub_inputs: [FE; 2]) -> StarkQueryProof {
     // This depends on the AIR
     // It's related to the non FRI verification
 
+    let offset = FE::from(COSET_OFFSET);
+
     // These are evaluations over the trace polynomial
     let evaluation_points = vec![
-        lde_primitive_root.pow(q_1),
-        lde_primitive_root.pow(q_1) * &trace_primitive_root,
-        lde_primitive_root.pow(q_1) * (&trace_primitive_root * &trace_primitive_root),
+        &offset * lde_primitive_root.pow(q_1),
+        &offset * lde_primitive_root.pow(q_1) * &trace_primitive_root,
+        &offset * lde_primitive_root.pow(q_1) * (&trace_primitive_root * &trace_primitive_root),
     ];
     let trace_lde_poly_evaluations = trace_poly.evaluate_slice(&evaluation_points);
     let merkle_paths = vec![
@@ -154,7 +161,7 @@ pub fn prove(pub_inputs: [FE; 2]) -> StarkQueryProof {
 
     // * Do FRI on the composition polynomials
     let lde_fri_commitment =
-        crate::fri::fri(&mut composition_poly, &lde_roots_of_unity, transcript);
+        crate::fri::fri(&mut composition_poly, &lde_roots_of_unity_coset, transcript);
 
     // * For every q_i, do FRI decommitment
     let fri_decommitment = fri_decommit_layers(&lde_fri_commitment, q_1);
@@ -186,13 +193,26 @@ pub fn prove(pub_inputs: [FE; 2]) -> StarkQueryProof {
     }
 }
 
-fn get_composition_poly(trace_poly: Polynomial<FE>, root_of_unity: &FE) -> Polynomial<FE> {
-    let w_squared_x = Polynomial::new(&[FE::zero(), root_of_unity * root_of_unity]);
-    let w_x = Polynomial::new(&[FE::zero(), root_of_unity.clone()]);
+fn get_composition_poly(trace_poly: Polynomial<FE>, primitive_root: &FE) -> Polynomial<FE> {
+    let w_squared_x = Polynomial::new(&[FE::zero(), primitive_root * primitive_root]);
+    let w_x = Polynomial::new(&[FE::zero(), primitive_root.clone()]);
 
-    polynomial::compose(&trace_poly, &w_squared_x)
+    let composition_poly_without_zerofier = polynomial::compose(&trace_poly, &w_squared_x)
         - polynomial::compose(&trace_poly, &w_x)
-        - trace_poly
+        - trace_poly;
+
+    let zerofier = get_zerofier(primitive_root, ORDER_OF_ROOTS_OF_UNITY_TRACE as usize);
+    composition_poly_without_zerofier.div(zerofier)
+}
+
+fn get_zerofier(primitive_root: &FE, root_order: usize) -> Polynomial<FE> {
+    let roots_of_unity_vanishing_polynomial =
+        Polynomial::new_monomial(FE::one(), root_order) - Polynomial::new(&[FE::one()]);
+    let exceptions_to_vanishing_polynomial =
+        Polynomial::new(&[-primitive_root.pow(root_order - 2), FE::one()])
+            * Polynomial::new(&[-primitive_root.pow(root_order - 1), FE::one()]);
+
+    roots_of_unity_vanishing_polynomial.div(exceptions_to_vanishing_polynomial)
 }
 
 pub fn verify(proof: &StarkQueryProof) -> bool {
@@ -204,8 +224,22 @@ pub fn verify(proof: &StarkQueryProof) -> bool {
     // TODO: These could be multiple evaluations depending on how many q_i are sampled with Fiat Shamir
     let composition_polynomial_evaluation_from_prover = &proof.composition_poly_lde_evaluations[0];
 
+    // TODO: Fiat-Shamir
+    let q_1: usize = 4;
+
+    let trace_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_TRACE);
+    let lde_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE);
+    let zerofier = get_zerofier(
+        &trace_primitive_root,
+        ORDER_OF_ROOTS_OF_UNITY_TRACE as usize,
+    );
+
+    let offset = FE::from(COSET_OFFSET);
+    let evaluation_point = &lde_primitive_root.pow(q_1) * &offset;
+
     let composition_polynomial_evaluation_from_trace =
-        &trace_evaluations[2] - &trace_evaluations[1] - &trace_evaluations[0];
+        (&trace_evaluations[2] - &trace_evaluations[1] - &trace_evaluations[0])
+            / zerofier.evaluate(&evaluation_point);
 
     if *composition_polynomial_evaluation_from_prover
         != composition_polynomial_evaluation_from_trace
@@ -261,6 +295,7 @@ pub fn fri_verify(
     let decommitment_index: u64 = 4;
 
     let mut lde_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE);
+    let mut offset = FE::from(COSET_OFFSET);
 
     // For each (merkle_root, merkle_auth_path) / fold
     // With the auth path containining the element that the
@@ -323,29 +358,44 @@ pub fn fri_verify(
             // if layer_merkle_paths has the right amount of elements
             .unwrap();
 
-        // evaluation point = w ^ i in the Stark literature
-        let evaluation_point = lde_primitive_root.pow(decommitment_index);
+        // evaluation point = offset * w ^ i in the Stark literature
+        let evaluation_point = &offset * lde_primitive_root.pow(decommitment_index);
 
         // v is the calculated element for the
         // co linearity check
         let two = &FE::new(U384::from("2"));
         let beta = FE::new(U384::from_u64(beta));
         let v = (previous_auth_path_evaluation + previous_path_evaluation_symmetric) / two
-            + beta * (previous_auth_path_evaluation - previous_path_evaluation_symmetric)
+            + &beta * (previous_auth_path_evaluation - previous_path_evaluation_symmetric)
                 / (two * evaluation_point);
 
         lde_primitive_root = lde_primitive_root.pow(2_usize);
+        offset = offset.pow(2_usize);
 
         if v != *auth_path_evaluation {
             return false;
         }
+
+        // On the last iteration, also check the provided last evaluation point.
+        if layer_number == fri_layers_merkle_roots.len() - 1 {
+            let last_evaluation_point = &offset * lde_primitive_root.pow(decommitment_index);
+
+            let last_v = (auth_path_evaluation + auth_path_evaluation_symmetric) / two
+                + &beta * (auth_path_evaluation - auth_path_evaluation_symmetric)
+                    / (two * &last_evaluation_point);
+
+            if last_v != fri_decommitment.last_layer_evaluation {
+                return false;
+            }
+        }
     }
+
     true
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{verify, FE};
+    use crate::{generate_primitive_root, get_zerofier, verify, FE};
 
     use super::prove;
     use lambdaworks_math::unsigned_integer::element::U384;
@@ -354,5 +404,18 @@ mod tests {
     fn test_prove() {
         let result = prove([FE::new(U384::from("1")), FE::new(U384::from("1"))]);
         assert!(verify(&result));
+    }
+
+    #[test]
+    fn zerofier_is_the_correct_one() {
+        let primitive_root = generate_primitive_root(8);
+        let zerofier = get_zerofier(&primitive_root, 8);
+
+        for i in 0_usize..6_usize {
+            assert_eq!(zerofier.evaluate(&primitive_root.pow(i)), FE::zero());
+        }
+
+        assert_ne!(zerofier.evaluate(&primitive_root.pow(6_usize)), FE::zero());
+        assert_ne!(zerofier.evaluate(&primitive_root.pow(7_usize)), FE::zero());
     }
 }
