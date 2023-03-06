@@ -58,12 +58,11 @@ impl<F: IsField> BoundaryConstraints<FieldElement<F>> {
     }
 
     pub(crate) fn get_values(&self, col: usize) -> Vec<FieldElement<F>> {
-        let mut values = Vec::with_capacity(self.constraints.len());
-        for constraint in self.constraints.iter().filter(|c| c.col == col) {
-            values.push(constraint.value.clone());
-        }
-
-        values
+        self.constraints
+            .iter()
+            .filter(|c| c.col == col)
+            .map(|c| c.value.clone())
+            .collect()
     }
 
     pub(crate) fn get_zerofier(
