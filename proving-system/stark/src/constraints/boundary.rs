@@ -48,13 +48,10 @@ impl<F: IsField> BoundaryConstraints<FieldElement<F>> {
         &self,
         primitive_root: &FieldElement<F>,
     ) -> Vec<FieldElement<F>> {
-        let mut domain = Vec::with_capacity(self.constraints.len());
-        for step in self.get_steps().into_iter() {
-            let domain_point = primitive_root.pow(step);
-            domain.push(domain_point.clone());
-        }
-
-        domain
+        self.get_steps()
+            .into_iter()
+            .map(|s| primitive_root.pow(s))
+            .collect()
     }
 
     pub(crate) fn get_values(&self, col: usize) -> Vec<FieldElement<F>> {
