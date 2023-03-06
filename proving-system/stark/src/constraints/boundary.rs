@@ -3,6 +3,11 @@ use lambdaworks_math::{
     polynomial::Polynomial,
 };
 
+/// Represents a boundary constraint that must hold in an execution
+/// trace:
+///   * col: The column of the trace where the constraint must hold
+///   * step: The step (or row) of the trace where the constraint must hold
+///   * value: The value the constraint must have in that column and step
 pub(crate) struct BoundaryConstraint<FE> {
     col: usize,
     step: usize,
@@ -15,6 +20,7 @@ impl<F: IsField> BoundaryConstraint<FieldElement<F>> {
         Self { col, step, value }
     }
 
+    /// Used for creating boundary constraints for a trace with only one column
     pub(crate) fn new_simple(step: usize, value: FieldElement<F>) -> Self {
         Self {
             col: 0,
@@ -24,6 +30,8 @@ impl<F: IsField> BoundaryConstraint<FieldElement<F>> {
     }
 }
 
+/// Data structure that stores all the boundary constraints that must
+/// hold for the execution trace
 pub(crate) struct BoundaryConstraints<FE> {
     constraints: Vec<BoundaryConstraint<FE>>,
 }
@@ -36,15 +44,20 @@ impl<F: IsField> BoundaryConstraints<FieldElement<F>> {
         }
     }
 
+    /// To instantiate from a vector of BoundaryConstraint elements
     pub(crate) fn from_constraints(constraints: Vec<BoundaryConstraint<FieldElement<F>>>) -> Self {
         Self { constraints }
     }
 
+    /// Returns all the steps where boundary conditions exist
     pub(crate) fn steps(&self) -> Vec<usize> {
         self.constraints.iter().map(|c| c.step).collect()
     }
 
-    pub(crate) fn get_boundary_roots_of_unity(
+    /// Given the primitive root of some domain, returns the domain values corresponding
+    /// to the steps where the boundary conditions hold. This is useful when interpolating
+    /// the boundary conditions, since we must know the x values
+    pub(crate) fn generate_roots_of_unity(
         &self,
         primitive_root: &FieldElement<F>,
     ) -> Vec<FieldElement<F>> {
@@ -54,6 +67,8 @@ impl<F: IsField> BoundaryConstraints<FieldElement<F>> {
             .collect()
     }
 
+    /// Given a trace column, gives all the values the trace must be equal to where
+    /// the boundary constraints hold
     pub(crate) fn values(&self, col: usize) -> Vec<FieldElement<F>> {
         self.constraints
             .iter()
@@ -62,6 +77,12 @@ impl<F: IsField> BoundaryConstraints<FieldElement<F>> {
             .collect()
     }
 
+    /// Computes the zerofier of the boundary quotient. The result is the
+    /// multiplication of each binomial that evaluates to zero in the domain
+    /// values where the boundary constraints must hold.
+    ///
+    /// Example: If there are boundary conditions in the third and fifth steps,
+    /// then the zerofier will be (x - w^3) * (x - w^5)
     pub(crate) fn compute_zerofier(
         &self,
         primitive_root: &FieldElement<F>,

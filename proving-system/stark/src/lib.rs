@@ -247,7 +247,7 @@ fn compute_boundary_quotient(
     primitive_root: &FE,
     trace_poly: &Polynomial<FE>,
 ) -> Polynomial<FE> {
-    let domain = constraints.get_boundary_roots_of_unity(primitive_root);
+    let domain = constraints.generate_roots_of_unity(primitive_root);
     let values = constraints.values(col);
     let zerofier = constraints.compute_zerofier(primitive_root);
 
@@ -458,7 +458,7 @@ mod tests {
         let trace_poly = Polynomial::interpolate(&trace_roots_of_unity, &trace);
 
         // Build boundary polynomial
-        let domain = boundary_constraints.get_boundary_roots_of_unity(&trace_primitive_root);
+        let domain = boundary_constraints.generate_roots_of_unity(&trace_primitive_root);
         let values = boundary_constraints.values(0);
         let boundary_poly = Polynomial::interpolate(&domain, &values);
         let zerofier = boundary_constraints.compute_zerofier(&trace_primitive_root);
