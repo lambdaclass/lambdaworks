@@ -280,10 +280,20 @@ pub fn verify(proof: &StarkQueryProof) -> bool {
     let offset = FE::from(COSET_OFFSET);
     let evaluation_point = &lde_primitive_root.pow(q_1) * &offset;
 
-    let composition_polynomial_evaluation_from_trace =
-        ((&trace_evaluation[2] - &trace_evaluation[1] - &trace_evaluation[0])
-            / zerofier.evaluate(&evaluation_point))
-            * alpha_t;
+    // TODO: This is done to get the boundary zerofier - It should not be made like this
+    let a0_constraint = BoundaryConstraint::new_simple(0, FE::from(1));
+    let a1_constraint = BoundaryConstraint::new_simple(1, FE::from(1));
+    let boundary_constraints =
+        BoundaryConstraints::from_constraints(vec![a0_constraint, a1_constraint]);
+    let boundary_zerofier = boundary_constraints.get_zerofier(&trace_primitive_root);
+
+    let composition_polynomial_evaluation_from_trace = ((&trace_evaluation[2]
+        - &trace_evaluation[1]
+        - &trace_evaluation[0])
+        / zerofier.evaluate(&evaluation_point))
+        * alpha_t
+        + ((&trace_evaluation[0] - FE::from(1)) / boundary_zerofier.evaluate(&evaluation_point))
+            * alpha_bc;
 
     if *composition_polynomial_evaluation_from_prover
         != composition_polynomial_evaluation_from_trace
