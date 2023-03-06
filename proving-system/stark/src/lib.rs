@@ -11,20 +11,20 @@ use lambdaworks_math::polynomial::{self, Polynomial};
 
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::{
-    field::fields::u384_prime_field::{IsMontgomeryConfiguration, MontgomeryBackendPrimeField},
+    field::fields::montgomery_backed_prime_fields::{IsMontgomeryConfiguration, U384PrimeField},
     unsigned_integer::element::U384,
 };
 
 // DEFINITION OF THE USED FIELD
 #[derive(Clone, Debug)]
 pub struct MontgomeryConfig;
-impl IsMontgomeryConfiguration for MontgomeryConfig {
+impl IsMontgomeryConfiguration<6> for MontgomeryConfig {
     const MODULUS: U384 =
         // hex 17
         U384::from("800000000000011000000000000000000000000000000000000000000000001");
 }
 
-pub type PrimeField = MontgomeryBackendPrimeField<MontgomeryConfig>;
+pub type PrimeField = U384PrimeField<MontgomeryConfig>;
 pub type FE = FieldElement<PrimeField>;
 
 const MODULUS_MINUS_1: U384 = U384::sub(&MontgomeryConfig::MODULUS, &U384::from("1")).0;
@@ -376,8 +376,8 @@ pub fn fri_verify(
         let two = &FE::new(U384::from("2"));
         let beta = FE::new(U384::from_u64(beta));
         let v = (&previous_auth_path.value + &previous_auth_path_symmetric.value) / two
-            + beta * (&previous_auth_path.value - &previous_auth_path_symmetric.value)
-                / (two * evaluation_point);
+            + &beta * (&previous_auth_path.value - &previous_auth_path_symmetric.value)
+                / (two * &evaluation_point);
 
         lde_primitive_root = lde_primitive_root.pow(2_usize);
         offset = offset.pow(2_usize);
@@ -385,7 +385,21 @@ pub fn fri_verify(
         if v != fri_layer_auth_path.value {
             return false;
         }
+
+        // On the last iteration, also check the provided last evaluation point.
+        if layer_number == fri_layers_merkle_roots.len() - 1 {
+            let last_evaluation_point = &offset * lde_primitive_root.pow(decommitment_index);
+
+            let last_v = (&fri_layer_auth_path.value + &fri_layer_auth_path_symmetric.value) / two
+                + beta * (&fri_layer_auth_path.value - &fri_layer_auth_path_symmetric.value)
+                    / (two * &last_evaluation_point);
+
+            if last_v != fri_decommitment.last_layer_evaluation {
+                return false;
+            }
+        }
     }
+
     true
 }
 
@@ -394,7 +408,7 @@ mod tests {
     use super::*;
     use crate::{
         constraints::boundary::{BoundaryConstraint, BoundaryConstraints},
-        verify, FE,
+        generate_primitive_root, get_zerofier, verify, FE,
     };
 
     use lambdaworks_math::unsigned_integer::element::U384;
