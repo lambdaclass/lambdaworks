@@ -11,6 +11,7 @@ pub struct FriDecommitment {
         Proof<PrimeField, DefaultHasher>,
         Proof<PrimeField, DefaultHasher>,
     )>,
+    pub layer_evaluations: Vec<(FE, FE)>,
     pub last_layer_evaluation: FE,
 }
 
@@ -25,6 +26,7 @@ pub fn fri_decommit_layers(
     let mut index = index_to_verify;
 
     let mut layer_merkle_paths = vec![];
+    let mut layer_evaluations = vec![];
 
     // with every element of the commit, we look for that one in
     // the merkle tree and get the corresponding element
@@ -40,6 +42,7 @@ pub fn fri_decommit_layers(
         let auth_path_sym = commit_i.merkle_tree.get_proof(&evaluation_i_sym).unwrap();
 
         layer_merkle_paths.push((auth_path, auth_path_sym));
+        layer_evaluations.push((evaluation_i, evaluation_i_sym));
     }
 
     // send the last element of the polynomial
@@ -48,6 +51,7 @@ pub fn fri_decommit_layers(
 
     FriDecommitment {
         layer_merkle_paths,
+        layer_evaluations,
         last_layer_evaluation: last_evaluation,
     }
 }

@@ -203,13 +203,13 @@ pub fn verify(proof: &StarkQueryProof) -> bool {
     let transcript = &mut Transcript::new();
 
     let trace_poly_root = &proof.trace_lde_poly_root;
-    let trace_evaluation = &proof.trace_lde_poly_evaluations;
+    let trace_evaluations = &proof.trace_lde_poly_evaluations;
 
     // TODO: These could be multiple evaluations depending on how many q_i are sampled with Fiat Shamir
     let composition_polynomial_evaluation_from_prover = &proof.composition_poly_lde_evaluations[0];
 
     let composition_polynomial_evaluation_from_trace =
-        &trace_evaluation[2] - &trace_evaluation[1] - &trace_evaluation[0];
+        &trace_evaluations[2] - &trace_evaluations[1] - &trace_evaluations[0];
 
     if *composition_polynomial_evaluation_from_prover
         != composition_polynomial_evaluation_from_trace
@@ -217,8 +217,12 @@ pub fn verify(proof: &StarkQueryProof) -> bool {
         return false;
     }
 
-    for merkle_proof in &proof.trace_lde_poly_inclusion_proofs {
-        if !merkle_proof.verify(trace_poly_root.clone()) {
+    for (merkle_proof, value) in proof
+        .trace_lde_poly_inclusion_proofs
+        .iter()
+        .zip(trace_evaluations)
+    {
+        if !merkle_proof.verify(trace_poly_root, value) {
             return false;
         }
     }
@@ -256,28 +260,41 @@ pub fn fri_verify(
     // path proves it's existance
     for (
         layer_number,
-        (fri_layer_merkle_root, (fri_layer_auth_path, fri_layer_auth_path_symmetric)),
+        (
+            fri_layer_merkle_root,
+            (
+                (fri_layer_auth_path, fri_layer_auth_path_symmetric),
+                (auth_path_evaluation, auth_path_evaluation_symmetric),
+            ),
+        ),
     ) in fri_layers_merkle_roots
         .iter()
-        .zip(fri_decommitment.layer_merkle_paths.iter())
+        .zip(
+            fri_decommitment
+                .layer_merkle_paths
+                .iter()
+                .zip(fri_decommitment.layer_evaluations.iter()),
+        )
         .enumerate()
         // Since we always derive the current layer from the previous layer
         // We start with the second one, skipping the first, so previous is layer is the first one
         .skip(1)
     {
-        if !fri_layer_auth_path.verify(fri_layer_merkle_root.clone()) {
+        if !fri_layer_auth_path.verify(fri_layer_merkle_root, auth_path_evaluation) {
             return false;
         }
 
-        if !fri_layer_auth_path_symmetric.verify(fri_layer_merkle_root.clone()) {
+        if !fri_layer_auth_path_symmetric
+            .verify(fri_layer_merkle_root, auth_path_evaluation_symmetric)
+        {
             return false;
         }
 
         // TODO: use Fiat Shamir
         let beta: u64 = 4;
 
-        let (previous_auth_path, previous_auth_path_symmetric) = fri_decommitment
-            .layer_merkle_paths
+        let (previous_auth_path_evaluation, previous_path_evaluation_symmetric) = fri_decommitment
+            .layer_evaluations
             .get(layer_number - 1)
             // TODO: Check at the start of the FRI operation
             // if layer_merkle_paths has the right amount of elements
@@ -290,13 +307,13 @@ pub fn fri_verify(
         // co linearity check
         let two = &FE::new(U384::from("2"));
         let beta = FE::new(U384::from_u64(beta));
-        let v = (&previous_auth_path.value + &previous_auth_path_symmetric.value) / two
-            + beta * (&previous_auth_path.value - &previous_auth_path_symmetric.value)
+        let v = (previous_auth_path_evaluation + previous_path_evaluation_symmetric) / two
+            + beta * (previous_auth_path_evaluation - previous_path_evaluation_symmetric)
                 / (two * evaluation_point);
 
         lde_primitive_root = lde_primitive_root.pow(2_usize);
 
-        if v != fri_layer_auth_path.value {
+        if v != *auth_path_evaluation {
             return false;
         }
     }
