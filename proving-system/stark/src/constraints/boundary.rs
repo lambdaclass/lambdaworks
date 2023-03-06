@@ -3,15 +3,14 @@ use lambdaworks_math::{
     polynomial::Polynomial,
 };
 
-#[allow(dead_code)]
 pub(crate) struct BoundaryConstraint<FE> {
     col: usize,
     step: usize,
     value: FE,
 }
 
-#[allow(dead_code)]
 impl<F: IsField> BoundaryConstraint<FieldElement<F>> {
+    #[allow(dead_code)]
     pub(crate) fn new(col: usize, step: usize, value: FieldElement<F>) -> Self {
         Self { col, step, value }
     }
@@ -25,13 +24,12 @@ impl<F: IsField> BoundaryConstraint<FieldElement<F>> {
     }
 }
 
-#[allow(dead_code)]
 pub(crate) struct BoundaryConstraints<FE> {
     constraints: Vec<BoundaryConstraint<FE>>,
 }
 
-#[allow(dead_code)]
 impl<F: IsField> BoundaryConstraints<FieldElement<F>> {
+    #[allow(dead_code)]
     pub(crate) fn new() -> Self {
         Self {
             constraints: Vec::<BoundaryConstraint<FieldElement<F>>>::new(),
