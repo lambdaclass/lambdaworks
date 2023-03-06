@@ -21,8 +21,8 @@ fn gen_coeffs(pow: usize) -> Vec<FE> {
     result
 }
 
-pub fn ntt_benchmarks(c: &mut Criterion) {
-    let mut group = c.benchmark_group("ntt");
+pub fn fft_benchmarks(c: &mut Criterion) {
+    let mut group = c.benchmark_group("fft");
     group.sample_size(10); // it becomes too slow with the default of 100
 
     for pow in 20..=24 {
@@ -30,7 +30,7 @@ pub fn ntt_benchmarks(c: &mut Criterion) {
         let evals = fft(&coeffs).unwrap();
         group.throughput(criterion::Throughput::Elements(1 << pow)); // info for criterion
 
-        // the objective is to bench ordered NTT, including twiddles generation
+        // the objective is to bench ordered FFT, including twiddles generation
         group.bench_with_input(
             format!("iterative_nr_2radix_2^{pow}_coeffs"),
             &coeffs,
@@ -42,7 +42,7 @@ pub fn ntt_benchmarks(c: &mut Criterion) {
                         .map(|i| root.pow(i))
                         .collect::<Vec<FE>>();
                     in_place_bit_reverse_permute(&mut twiddles);
-                    in_place_nr_2radix_ntt(&mut coeffs[..], &twiddles[..]);
+                    in_place_nr_2radix_fft(&mut coeffs[..], &twiddles[..]);
                 });
             },
         );
@@ -57,7 +57,7 @@ pub fn ntt_benchmarks(c: &mut Criterion) {
                         .map(|i| root.pow(i))
                         .collect::<Vec<FE>>();
                     in_place_bit_reverse_permute(&mut coeffs);
-                    in_place_rn_2radix_ntt(&mut coeffs[..], &twiddles[..]);
+                    in_place_rn_2radix_fft(&mut coeffs[..], &twiddles[..]);
                 });
             },
         );

@@ -11,7 +11,7 @@ use crate::field::{element::FieldElement, traits::IsTwoAdicField};
 /// - NR: natural to reverse order, meaning that the input is naturally ordered and the output will
 /// be bit-reversed ordered.
 /// - DIT: decimation in time
-pub fn in_place_nr_2radix_ntt<F>(input: &mut [FieldElement<F>], twiddles: &[FieldElement<F>])
+pub fn in_place_nr_2radix_fft<F>(input: &mut [FieldElement<F>], twiddles: &[FieldElement<F>])
 where
     F: IsTwoAdicField,
 {
@@ -56,7 +56,7 @@ where
 /// - RN: reverse to natural order, meaning that the input is bit-reversed ordered and the output will
 /// be naturally ordered.
 /// - DIT: decimation in time
-pub fn in_place_rn_2radix_ntt<F>(input: &mut [FieldElement<F>], twiddles: &[FieldElement<F>])
+pub fn in_place_rn_2radix_fft<F>(input: &mut [FieldElement<F>], twiddles: &[FieldElement<F>])
 where
     F: IsTwoAdicField,
 {
@@ -119,9 +119,9 @@ mod tests {
     }
 
     proptest! {
-        // Property-based test that ensures NR Radix-2 NTT gives same result as a naive polynomial evaluation.
+        // Property-based test that ensures NR Radix-2 FFT gives same result as a naive polynomial evaluation.
         #[test]
-        fn test_nr_2radix_ntt_matches_naive_eval(coeffs in field_vec(8)) {
+        fn test_nr_2radix_fft_matches_naive_eval(coeffs in field_vec(8)) {
             let root = F::get_root_of_unity(log2(coeffs.len()).unwrap()).unwrap();
             let mut twiddles = (0..coeffs.len() as u64).map(|i| root.pow(i)).collect::<Vec<FE>>();
             in_place_bit_reverse_permute(&mut twiddles[..]); // required for NR
@@ -130,16 +130,16 @@ mod tests {
             let expected: Vec<FE> = twiddles.iter().map(|x| poly.evaluate(x)).collect();
 
             let mut result = coeffs;
-            in_place_nr_2radix_ntt(&mut result, &twiddles[..]);
+            in_place_nr_2radix_fft(&mut result, &twiddles[..]);
             in_place_bit_reverse_permute(&mut result);
 
             prop_assert_eq!(result, expected);
         }
     }
     proptest! {
-        // Property-based test that ensures RN Radix-2 NTT gives same result as a naive polynomial evaluation.
+        // Property-based test that ensures RN Radix-2 fft gives same result as a naive polynomial evaluation.
         #[test]
-        fn test_rn_2radix_ntt_matches_naive_eval(coeffs in field_vec(8)) {
+        fn test_rn_2radix_fft_matches_naive_eval(coeffs in field_vec(8)) {
             let root = F::get_root_of_unity(log2(coeffs.len()).unwrap()).unwrap();
             let twiddles = (0..coeffs.len() as u64).map(|i| root.pow(i)).collect::<Vec<FE>>();
 
@@ -148,7 +148,7 @@ mod tests {
 
             let mut result = coeffs;
             in_place_bit_reverse_permute(&mut result[..]);
-            in_place_rn_2radix_ntt(&mut result, &twiddles[..]);
+            in_place_rn_2radix_fft(&mut result, &twiddles[..]);
 
             prop_assert_eq!(result, expected);
         }

@@ -4,7 +4,7 @@ mod benchmarks;
 
 fn run_all_benchmarks(c: &mut Criterion) {
     benchmarks::field::u64_benchmark(c);
-    benchmarks::fft::ntt_benchmarks(c);
+    benchmarks::fft::fft_benchmarks(c);
 }
 
 criterion_group!(benches, run_all_benchmarks);
