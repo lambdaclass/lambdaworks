@@ -99,7 +99,7 @@ pub fn fibonacci_trace(initial_values: [FE; 2]) -> Vec<FE> {
     ret
 }
 
-pub fn prove(pub_inputs: [FE; 2]) -> StarkQueryProof {
+pub fn prove(trace: &[FE]) -> StarkQueryProof {
     let transcript = &mut Transcript::new();
 
     // * Generate Coset
@@ -109,9 +109,7 @@ pub fn prove(pub_inputs: [FE; 2]) -> StarkQueryProof {
     let lde_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE);
     let lde_roots_of_unity_coset = generate_roots_of_unity_coset(COSET_OFFSET, &lde_primitive_root);
 
-    let trace = fibonacci_trace(pub_inputs);
-
-    let trace_poly = Polynomial::interpolate(&trace_roots_of_unity, &trace);
+    let trace_poly = Polynomial::interpolate(&trace_roots_of_unity, trace);
 
     // * Do Reed-Solomon on the trace and composition polynomials using some blowup factor
     let trace_poly_lde = trace_poly.evaluate_slice(lde_roots_of_unity_coset.as_slice());
@@ -456,7 +454,8 @@ mod tests {
 
     #[test]
     fn test_prove() {
-        let result = prove([FE::new(U384::from("1")), FE::new(U384::from("1"))]);
+        let trace = fibonacci_trace([FE::new(U384::from("1")), FE::new(U384::from("1"))]);
+        let result = prove(&trace);
         assert!(verify(&result));
     }
 
@@ -464,7 +463,8 @@ mod tests {
     fn test_wrong_boundary_constraints_does_not_verify() {
         // The first public input is set to 2, this should not verify because our constraints are hard-coded
         // to assert this first element is 1.
-        let result = prove([FE::new(U384::from("2")), FE::new(U384::from("1"))]);
+        let trace = fibonacci_trace([FE::new(U384::from("2")), FE::new(U384::from("3"))]);
+        let result = prove(&trace);
         assert!(!verify(&result));
     }
 
