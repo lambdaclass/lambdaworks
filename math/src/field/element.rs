@@ -343,7 +343,7 @@ where
 
 impl<F> FieldElement<F>
 where
-    F: IsPrimeField
+    F: IsPrimeField,
 {
     // Returns the representative of the value stored
     pub fn representative(&self) -> F::BaseUnsignedType {

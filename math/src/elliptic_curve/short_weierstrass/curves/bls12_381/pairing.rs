@@ -6,10 +6,13 @@ use super::{
 use crate::{
     cyclic_group::IsGroup,
     elliptic_curve::short_weierstrass::traits::IsShortWeierstrass,
-    elliptic_curve::{short_weierstrass::{
-        curves::bls12_381::field_extension::Degree6ExtensionField,
-        point::ShortWeierstrassProjectivePoint,
-    }, traits::IsPairing},
+    elliptic_curve::{
+        short_weierstrass::{
+            curves::bls12_381::field_extension::Degree6ExtensionField,
+            point::ShortWeierstrassProjectivePoint,
+        },
+        traits::IsPairing,
+    },
     field::element::FieldElement,
     unsigned_integer::element::UnsignedInteger,
 };
@@ -21,12 +24,7 @@ impl IsPairing for BLS12381AtePairing {
     type OutputField = Degree12ExtensionField;
 
     /// Compute the product of the ate pairings for a list of point pairs.
-    fn compute_batch(
-        pairs: &[(
-            &Self::G1,
-            &Self::G2,
-        )],
-    ) -> FieldElement<Self::OutputField> {
+    fn compute_batch(pairs: &[(&Self::G1, &Self::G2)]) -> FieldElement<Self::OutputField> {
         let mut result = FieldElement::one();
         for (p, q) in pairs {
             let p = p.to_affine();

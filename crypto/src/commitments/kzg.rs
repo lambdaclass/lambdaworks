@@ -1,14 +1,11 @@
-use std::marker::PhantomData;
 use lambdaworks_math::{
     cyclic_group::IsGroup,
-    elliptic_curve::{traits::{IsPairing}},
-    field::{
-        element::FieldElement,
-        traits::IsPrimeField,
-    },
+    elliptic_curve::traits::IsPairing,
+    field::{element::FieldElement, traits::IsPrimeField},
     msm::msm,
     polynomial::Polynomial,
 };
+use std::marker::PhantomData;
 
 struct Opening<F: IsPrimeField, P: IsPairing> {
     value: FieldElement<F>,
@@ -21,6 +18,7 @@ struct StructuredReferenceString<const MAXIMUM_DEGREE: usize, P: IsPairing> {
 }
 
 impl<const MAXIMUM_DEGREE: usize, P: IsPairing> StructuredReferenceString<MAXIMUM_DEGREE, P> {
+    #[allow(unused)]
     pub fn new(powers_main_group: &[P::G1], powers_secondary_group: &[P::G2; 2]) -> Self {
         Self {
             powers_main_group: powers_main_group.into(),
@@ -31,14 +29,21 @@ impl<const MAXIMUM_DEGREE: usize, P: IsPairing> StructuredReferenceString<MAXIMU
 
 struct KateZaveruchaGoldberg<const MAXIMUM_DEGREE: usize, F: IsPrimeField, P: IsPairing> {
     srs: StructuredReferenceString<MAXIMUM_DEGREE, P>,
-    phantom: PhantomData<F>
+    phantom: PhantomData<F>,
 }
 
-impl<const MAXIMUM_DEGREE: usize, F: IsPrimeField, P: IsPairing> KateZaveruchaGoldberg<MAXIMUM_DEGREE, F, P> {
+impl<const MAXIMUM_DEGREE: usize, F: IsPrimeField, P: IsPairing>
+    KateZaveruchaGoldberg<MAXIMUM_DEGREE, F, P>
+{
+    #[allow(unused)]
     fn new(srs: StructuredReferenceString<MAXIMUM_DEGREE, P>) -> Self {
-        Self { srs , phantom: PhantomData }
+        Self {
+            srs,
+            phantom: PhantomData,
+        }
     }
 
+    #[allow(unused)]
     fn commit(&self, p: &Polynomial<FieldElement<F>>) -> P::G1 {
         let coefficients: Vec<F::BaseUnsignedType> = p
             .coefficients
@@ -51,6 +56,7 @@ impl<const MAXIMUM_DEGREE: usize, F: IsPrimeField, P: IsPairing> KateZaveruchaGo
         )
     }
 
+    #[allow(unused)]
     fn open(&self, x: &FieldElement<F>, p: &Polynomial<FieldElement<F>>) -> Opening<F, P> {
         let value = p.evaluate(x);
         let numerator = p + Polynomial::new_monomial(-&value, 0);
@@ -60,17 +66,22 @@ impl<const MAXIMUM_DEGREE: usize, F: IsPrimeField, P: IsPairing> KateZaveruchaGo
         Opening { value, proof }
     }
 
+    #[allow(unused)]
     fn verify(&self, opening: &Opening<F, P>, x: &FieldElement<F>, p_commitment: &P::G1) -> bool {
         let g1 = &self.srs.powers_main_group[0];
         let g2 = &self.srs.powers_secondary_group[0];
         let alpha_g2 = &self.srs.powers_secondary_group[1];
 
         let e = P::compute_batch(&[
-            (&p_commitment
-                .operate_with(&(g1.operate_with_self(opening.value.representative())).neg()),
-            g2),
-            (&opening.proof.neg(),
-            &(alpha_g2.operate_with(&(g2.operate_with_self(x.representative())).neg()))),
+            (
+                &p_commitment
+                    .operate_with(&(g1.operate_with_self(opening.value.representative())).neg()),
+                g2,
+            ),
+            (
+                &opening.proof.neg(),
+                &(alpha_g2.operate_with(&(g2.operate_with_self(x.representative())).neg())),
+            ),
         ]);
         e == FieldElement::one()
     }
@@ -81,36 +92,41 @@ mod tests {
     use lambdaworks_math::{
         cyclic_group::IsGroup,
         elliptic_curve::{
-            short_weierstrass::{curves::bls12_381::{
-                curve::BLS12381Curve, twist::BLS12381TwistCurve, pairing::BLS12381AtePairing,
-            }, point::ShortWeierstrassProjectivePoint},
+            short_weierstrass::{
+                curves::bls12_381::{
+                    curve::BLS12381Curve, pairing::BLS12381AtePairing, twist::BLS12381TwistCurve,
+                },
+                point::ShortWeierstrassProjectivePoint,
+            },
             traits::IsEllipticCurve,
         },
-        field::{element::FieldElement, fields::u384_prime_field::{IsMontgomeryConfiguration, MontgomeryBackendPrimeField}},
+        field::{
+            element::FieldElement,
+            fields::montgomery_backed_prime_fields::{
+                IsMontgomeryConfiguration, MontgomeryBackendPrimeField,
+            },
+        },
         polynomial::Polynomial,
-        unsigned_integer::element::U384,
+        unsigned_integer::element::U256,
     };
 
-    use super::{StructuredReferenceString, KateZaveruchaGoldberg as KZG};
+    use super::{KateZaveruchaGoldberg as KZG, StructuredReferenceString};
     use rand::Rng;
 
     #[derive(Clone, Debug)]
     pub struct FrConfig;
-    impl IsMontgomeryConfiguration for FrConfig {
-        // TODO: use U256 when available
-        const MODULUS: U384 =
-            U384::from("73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001");
+    impl IsMontgomeryConfiguration<4> for FrConfig {
+        const MODULUS: U256 =
+            U256::from("73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001");
     }
-    
+
     type G1 = ShortWeierstrassProjectivePoint<BLS12381Curve>;
-    pub type FrElement = FieldElement<MontgomeryBackendPrimeField<FrConfig>>;
+    pub type FrElement = FieldElement<MontgomeryBackendPrimeField<FrConfig, 4>>;
 
     fn create_srs() -> StructuredReferenceString<100, BLS12381AtePairing> {
         let mut rng = rand::thread_rng();
-        let toxic_waste = FrElement::new(U384 {
+        let toxic_waste = FrElement::new(U256 {
             limbs: [
-                0_u64,
-                0_u64,
                 rng.gen::<u64>(),
                 rng.gen::<u64>(),
                 rng.gen::<u64>(),

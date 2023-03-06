@@ -1,4 +1,5 @@
 use crate::field::element::FieldElement;
+use crate::field::traits::IsPrimeField;
 use crate::traits::ByteConversion;
 use crate::{
     field::traits::IsField, unsigned_integer::element::UnsignedInteger,
@@ -154,6 +155,13 @@ where
     fn from_base_type(x: Self::BaseType) -> Self::BaseType {
         MontgomeryAlgorithms::cios(&x, &C::R2, &C::MODULUS, &C::MU)
     }
+}
+
+impl<C, const NUM_LIMBS: usize> IsPrimeField for MontgomeryBackendPrimeField<C, NUM_LIMBS>
+where
+    C: IsMontgomeryConfiguration<NUM_LIMBS> + Clone + Debug,
+{
+    type BaseUnsignedType = Self::BaseType;
 
     // TO DO: Add tests for representatives
     fn representative(x: Self::BaseType) -> Self::BaseType {

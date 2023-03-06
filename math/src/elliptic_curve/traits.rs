@@ -41,19 +41,11 @@ pub trait IsPairing {
     type OutputField: IsField;
 
     /// Compute the product of the pairings for a list of point pairs.
-    fn compute_batch(
-        pairs: &[(
-            &Self::G1,
-            &Self::G2,
-        )],
-    ) -> FieldElement<Self::OutputField>;
+    fn compute_batch(pairs: &[(&Self::G1, &Self::G2)]) -> FieldElement<Self::OutputField>;
 
     /// Compute the ate pairing between point `p` in G1 and `q` in G2.
     #[allow(unused)]
-    fn compute(
-        p: &Self::G1,
-        q: &Self::G2,
-    ) -> FieldElement<Self::OutputField> {
+    fn compute(p: &Self::G1, q: &Self::G2) -> FieldElement<Self::OutputField> {
         Self::compute_batch(&[(p, q)])
     }
 }
