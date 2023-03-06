@@ -50,6 +50,10 @@ impl<const MODULUS: u64> IsField for U64Field<MODULUS> {
     fn from_base_type(x: u64) -> u64 {
         Self::from_u64(x)
     }
+
+    fn representative(x: u64) -> u64 {
+        x
+    }
 }
 
 pub type U64TestField = U64Field<18446744069414584321>;
