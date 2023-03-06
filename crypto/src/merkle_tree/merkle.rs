@@ -64,19 +64,19 @@ impl<F: IsField, H: IsCryptoHash<F> + Clone> MerkleTree<F, H> {
         self.create_proof(merkle_path)
     }
 
-    fn create_proof(&self, merkle_path: Vec<(FieldElement<F>, bool)>) -> Option<Proof<F, H>> {
+    fn create_proof(&self, merkle_path: Vec<FieldElement<F>>) -> Option<Proof<F, H>> {
         Some(Proof {
             merkle_path,
             hasher: self.hasher.clone(),
         })
     }
 
-    fn build_merkle_path(&self, pos: usize) -> Vec<(FieldElement<F>, bool)> {
+    fn build_merkle_path(&self, pos: usize) -> Vec<FieldElement<F>> {
         let mut merkle_path = Vec::new();
         let mut pos = pos;
 
         while pos != ROOT {
-            merkle_path.push((self.nodes[sibling_index(pos)].clone(), pos % 2 == 0));
+            merkle_path.push(self.nodes[sibling_index(pos)].clone());
             pos = parent_index(pos);
         }
 

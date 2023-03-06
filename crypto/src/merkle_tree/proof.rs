@@ -5,22 +5,34 @@ use lambdaworks_math::{
     traits::ByteConversion,
 };
 
+/// Stores a merkle path to some leaf.
+/// Internally, the necessary hashes are stored from root to leaf in the
+/// `merkle_path` field, in such a way that, if the merkle tree is of height `n`, the
+/// `i`-th element of `merkle_path` is the sibling node in the `n - 1 - i`-th check
+/// when verifying.
 #[derive(Debug, Clone)]
 pub struct Proof<F: IsField, H: IsCryptoHash<F>> {
-    pub merkle_path: Vec<(FieldElement<F>, bool)>,
+    pub merkle_path: Vec<FieldElement<F>>,
     pub hasher: H,
 }
 
 impl<F: IsField, H: IsCryptoHash<F>> Proof<F, H> {
-    pub fn verify(&self, root_hash: &FieldElement<F>, value: &FieldElement<F>) -> bool {
+    pub fn verify(
+        &self,
+        root_hash: &FieldElement<F>,
+        mut index: usize,
+        value: &FieldElement<F>,
+    ) -> bool {
         let mut hashed_value = self.hasher.hash_one(value.clone());
 
-        for (sibling_node, is_left) in self.merkle_path.iter().rev() {
-            if *is_left {
+        for sibling_node in self.merkle_path.iter().rev() {
+            if index % 2 == 0 {
                 hashed_value = self.hasher.hash_two(hashed_value, sibling_node.clone());
             } else {
                 hashed_value = self.hasher.hash_two(sibling_node.clone(), hashed_value);
             }
+
+            index >>= 1;
         }
 
         root_hash == &hashed_value
@@ -37,15 +49,9 @@ where
     fn to_bytes_be(&self) -> Vec<u8> {
         let mut buffer: Vec<u8> = Vec::new();
 
-        for (value, is_left) in self.merkle_path.iter() {
+        for value in self.merkle_path.iter() {
             for val in value.to_bytes_be().iter() {
                 buffer.push(*val);
-            }
-
-            if *is_left {
-                buffer.push(1);
-            } else {
-                buffer.push(0);
             }
         }
 
@@ -56,15 +62,9 @@ where
     fn to_bytes_le(&self) -> Vec<u8> {
         let mut buffer: Vec<u8> = Vec::new();
 
-        for (value, is_left) in self.merkle_path.iter() {
+        for value in self.merkle_path.iter() {
             for val in value.to_bytes_le().iter() {
                 buffer.push(*val);
-            }
-
-            if *is_left {
-                buffer.push(1);
-            } else {
-                buffer.push(0);
             }
         }
 
@@ -75,9 +75,9 @@ where
     fn from_bytes_be(bytes: &[u8]) -> Result<Self, ByteConversionError> {
         let mut merkle_path = Vec::new();
 
-        for elem in bytes[0..].chunks(9) {
-            let field = FieldElement::from_bytes_be(&elem[..elem.len() - 1])?;
-            merkle_path.push((field, elem[elem.len() - 1] == 1));
+        for elem in bytes[0..].chunks(8) {
+            let field = FieldElement::from_bytes_be(elem)?;
+            merkle_path.push(field);
         }
 
         Ok(Proof {
@@ -90,9 +90,9 @@ where
     fn from_bytes_le(bytes: &[u8]) -> Result<Self, ByteConversionError> {
         let mut merkle_path = Vec::new();
 
-        for elem in bytes[0..].chunks(9) {
-            let field = FieldElement::from_bytes_le(&elem[..elem.len() - 1])?;
-            merkle_path.push((field, elem[elem.len() - 1] == 1));
+        for elem in bytes[0..].chunks(8) {
+            let field = FieldElement::from_bytes_le(elem)?;
+            merkle_path.push(field);
         }
 
         Ok(Proof {
@@ -119,12 +119,7 @@ mod tests {
 
     #[test]
     fn serialize_proof_and_deserialize_using_be_it_get_a_consistent_proof() {
-        let merkle_path = [
-            (U64FE::new(2), true),
-            (U64FE::new(1), false),
-            (U64FE::new(1), false),
-        ]
-        .to_vec();
+        let merkle_path = [U64FE::new(2), U64FE::new(1), U64FE::new(1)].to_vec();
         let original_proof = U64Proof {
             hasher: DefaultHasher,
             merkle_path,
@@ -132,22 +127,14 @@ mod tests {
         let serialize_proof = original_proof.to_bytes_be();
         let proof: U64Proof = Proof::from_bytes_be(&serialize_proof).unwrap();
 
-        for ((o_node, o_is_left), (node, is_left)) in
-            original_proof.merkle_path.iter().zip(proof.merkle_path)
-        {
+        for (o_node, node) in original_proof.merkle_path.iter().zip(proof.merkle_path) {
             assert_eq!(*o_node, node);
-            assert_eq!(*o_is_left, is_left);
         }
     }
 
     #[test]
     fn serialize_proof_and_deserialize_using_le_it_get_a_consistent_proof() {
-        let merkle_path = [
-            (U64FE::new(2), true),
-            (U64FE::new(1), false),
-            (U64FE::new(1), false),
-        ]
-        .to_vec();
+        let merkle_path = [U64FE::new(2), U64FE::new(1), U64FE::new(1)].to_vec();
         let original_proof = U64Proof {
             hasher: DefaultHasher,
             merkle_path,
@@ -155,11 +142,8 @@ mod tests {
         let serialize_proof = original_proof.to_bytes_le();
         let proof: U64Proof = Proof::from_bytes_le(&serialize_proof).unwrap();
 
-        for ((o_node, o_is_left), (node, is_left)) in
-            original_proof.merkle_path.iter().zip(proof.merkle_path)
-        {
+        for (o_node, node) in original_proof.merkle_path.iter().zip(proof.merkle_path) {
             assert_eq!(*o_node, node);
-            assert_eq!(*o_is_left, is_left);
         }
     }
 
@@ -171,8 +155,7 @@ mod tests {
         let merkle_tree = MerkleTree::<U64PF, DefaultHasher>::build(&values);
         let proof = &merkle_tree.get_proof_by_pos(1).unwrap();
         assert_merkle_path(&proof.merkle_path, &[FE::new(2), FE::new(1), FE::new(1)]);
-        // assert!(MerkleTree::verify(proof, merkle_tree.root));
-        assert!(proof.verify(&merkle_tree.root, &FE::new(2)));
+        assert!(proof.verify(&merkle_tree.root, 1, &FE::new(2)));
     }
 
     #[test]
@@ -184,7 +167,7 @@ mod tests {
         let proof = merkle_tree.get_proof(&FE::new(2)).unwrap();
         assert_merkle_path(&proof.merkle_path, &[FE::new(2), FE::new(1), FE::new(1)]);
 
-        assert!(proof.verify(&merkle_tree.root, &FE::new(2)));
+        assert!(proof.verify(&merkle_tree.root, 1, &FE::new(2)));
     }
 
     #[test]
@@ -194,7 +177,7 @@ mod tests {
         let proof = merkle_tree.get_proof(&U64FE::new(2)).unwrap();
         let serialize_proof = proof.to_bytes_be();
         let proof: U64Proof = Proof::from_bytes_be(&serialize_proof).unwrap();
-        assert!(proof.verify(&merkle_tree.root, &U64FE::new(2)));
+        assert!(proof.verify(&merkle_tree.root, 1, &U64FE::new(2)));
     }
 
     #[test]
@@ -202,11 +185,11 @@ mod tests {
         let values: Vec<U64FE> = (1..10000).map(U64FE::new).collect();
         let merkle_tree = U64MerkleTree::build(&values);
         let proof = merkle_tree.get_proof(&U64FE::new(9350)).unwrap();
-        assert!(proof.verify(&merkle_tree.root, &U64FE::new(9350)));
+        assert!(proof.verify(&merkle_tree.root, 9349, &U64FE::new(9350)));
     }
 
-    fn assert_merkle_path(values: &[(FE, bool)], expected_values: &[FE]) {
-        for ((node, _), expected_node) in values.iter().zip(expected_values) {
+    fn assert_merkle_path(values: &[FE], expected_values: &[FE]) {
+        for (node, expected_node) in values.iter().zip(expected_values) {
             assert_eq!(node, expected_node);
         }
     }

@@ -295,12 +295,20 @@ pub fn verify(proof: &StarkQueryProof) -> bool {
         return false;
     }
 
-    for (merkle_proof, value) in proof
+    let q_1: usize = 4;
+
+    let trace_evaluation_point_indexes = vec![
+        q_1,
+        q_1 + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE) as usize,
+        q_1 + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE) as usize * 2,
+    ];
+
+    for (merkle_proof, (index, value)) in proof
         .trace_lde_poly_inclusion_proofs
         .iter()
-        .zip(trace_evaluations)
+        .zip(trace_evaluation_point_indexes.iter().zip(trace_evaluations))
     {
-        if !merkle_proof.verify(trace_poly_root, value) {
+        if !merkle_proof.verify(trace_poly_root, *index, value) {
             return false;
         }
     }
@@ -359,13 +367,29 @@ pub fn fri_verify(
         // We start with the second one, skipping the first, so previous is layer is the first one
         .skip(1)
     {
-        if !fri_layer_auth_path.verify(fri_layer_merkle_root, auth_path_evaluation) {
+        // This is the current layer's evaluation domain length. We need it to know what the decommitment index for the current
+        // layer is, so we can check the merkle paths at the right index.
+        let current_layer_domain_length = ORDER_OF_ROOTS_OF_UNITY_FOR_LDE as usize >> layer_number;
+
+        let layer_evaluation_index: usize =
+            decommitment_index as usize % current_layer_domain_length;
+        if !fri_layer_auth_path.verify(
+            fri_layer_merkle_root,
+            layer_evaluation_index,
+            auth_path_evaluation,
+        ) {
             return false;
         }
 
-        if !fri_layer_auth_path_symmetric
-            .verify(fri_layer_merkle_root, auth_path_evaluation_symmetric)
-        {
+        let layer_evaluation_index_symmetric: usize = (decommitment_index as usize
+            + current_layer_domain_length)
+            % current_layer_domain_length;
+
+        if !fri_layer_auth_path_symmetric.verify(
+            fri_layer_merkle_root,
+            layer_evaluation_index_symmetric,
+            auth_path_evaluation_symmetric,
+        ) {
             return false;
         }
 
@@ -388,7 +412,7 @@ pub fn fri_verify(
         let beta = FE::new(U384::from_u64(beta));
         let v = (previous_auth_path_evaluation + previous_path_evaluation_symmetric) / two
             + &beta * (previous_auth_path_evaluation - previous_path_evaluation_symmetric)
-                / (two * &evaluation_point);
+                / (two * evaluation_point);
 
         lde_primitive_root = lde_primitive_root.pow(2_usize);
         offset = offset.pow(2_usize);
@@ -402,7 +426,7 @@ pub fn fri_verify(
             let last_evaluation_point = &offset * lde_primitive_root.pow(decommitment_index);
 
             let last_v = (auth_path_evaluation + auth_path_evaluation_symmetric) / two
-                + beta * (auth_path_evaluation - auth_path_evaluation_symmetric)
+                + &beta * (auth_path_evaluation - auth_path_evaluation_symmetric)
                     / (two * &last_evaluation_point);
 
             if last_v != fri_decommitment.last_layer_evaluation {
