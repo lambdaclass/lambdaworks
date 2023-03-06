@@ -160,7 +160,7 @@ pub fn prove(pub_inputs: [FE; 2]) -> StarkQueryProof {
 
     // These are evaluations over the composition polynomial
     let mut composition_poly =
-        get_composition_poly(trace_poly, &trace_primitive_root, &[alpha_t, alpha_bc]);
+        compute_composition_poly(trace_poly, &trace_primitive_root, &[alpha_t, alpha_bc]);
     let composition_poly_lde_evaluation = composition_poly.evaluate(&evaluation_points[0]);
 
     // This is needed to check  the element is in the root
@@ -202,7 +202,7 @@ pub fn prove(pub_inputs: [FE; 2]) -> StarkQueryProof {
     }
 }
 
-fn get_composition_poly(
+fn compute_composition_poly(
     trace_poly: Polynomial<FE>,
     primitive_root: &FE,
     random_coeffs: &[FE; 2],
@@ -214,7 +214,7 @@ fn get_composition_poly(
     let transition_poly = polynomial::compose(&trace_poly, &w_squared_x)
         - polynomial::compose(&trace_poly, &w_x)
         - trace_poly.clone();
-    let zerofier = get_zerofier(primitive_root, ORDER_OF_ROOTS_OF_UNITY_TRACE as usize);
+    let zerofier = compute_zerofier(primitive_root, ORDER_OF_ROOTS_OF_UNITY_TRACE as usize);
 
     let transition_quotient = transition_poly.div(zerofier);
 
@@ -225,13 +225,13 @@ fn get_composition_poly(
         BoundaryConstraints::from_constraints(vec![a0_constraint, a1_constraint]);
 
     let boundary_quotient =
-        get_boundary_quotient(&boundary_constraints, 0, primitive_root, &trace_poly);
+        compute_boundary_quotient(&boundary_constraints, 0, primitive_root, &trace_poly);
 
     transition_quotient.mul(random_coeffs[0].clone())
         + boundary_quotient.mul(random_coeffs[1].clone())
 }
 
-fn get_zerofier(primitive_root: &FE, root_order: usize) -> Polynomial<FE> {
+fn compute_zerofier(primitive_root: &FE, root_order: usize) -> Polynomial<FE> {
     let roots_of_unity_vanishing_polynomial =
         Polynomial::new_monomial(FE::one(), root_order) - Polynomial::new(&[FE::one()]);
     let exceptions_to_vanishing_polynomial =
@@ -241,15 +241,15 @@ fn get_zerofier(primitive_root: &FE, root_order: usize) -> Polynomial<FE> {
     roots_of_unity_vanishing_polynomial.div(exceptions_to_vanishing_polynomial)
 }
 
-fn get_boundary_quotient(
+fn compute_boundary_quotient(
     constraints: &BoundaryConstraints<FE>,
     col: usize,
     primitive_root: &FE,
     trace_poly: &Polynomial<FE>,
 ) -> Polynomial<FE> {
     let domain = constraints.get_boundary_roots_of_unity(primitive_root);
-    let values = constraints.get_values(col);
-    let zerofier = constraints.get_zerofier(primitive_root);
+    let values = constraints.values(col);
+    let zerofier = constraints.compute_zerofier(primitive_root);
 
     let poly = Polynomial::interpolate(&domain, &values);
 
@@ -272,7 +272,7 @@ pub fn verify(proof: &StarkQueryProof) -> bool {
 
     let trace_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_TRACE);
     let lde_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE);
-    let zerofier = get_zerofier(
+    let zerofier = compute_zerofier(
         &trace_primitive_root,
         ORDER_OF_ROOTS_OF_UNITY_TRACE as usize,
     );
@@ -285,7 +285,7 @@ pub fn verify(proof: &StarkQueryProof) -> bool {
     let a1_constraint = BoundaryConstraint::new_simple(1, FE::from(1));
     let boundary_constraints =
         BoundaryConstraints::from_constraints(vec![a0_constraint, a1_constraint]);
-    let boundary_zerofier = boundary_constraints.get_zerofier(&trace_primitive_root);
+    let boundary_zerofier = boundary_constraints.compute_zerofier(&trace_primitive_root);
 
     let composition_polynomial_evaluation_from_trace = ((&trace_evaluation[2]
         - &trace_evaluation[1]
@@ -407,8 +407,9 @@ pub fn fri_verify(
 mod tests {
     use super::*;
     use crate::{
+        compute_zerofier,
         constraints::boundary::{BoundaryConstraint, BoundaryConstraints},
-        generate_primitive_root, get_zerofier, verify, FE,
+        generate_primitive_root, verify, FE,
     };
 
     use lambdaworks_math::unsigned_integer::element::U384;
@@ -430,7 +431,7 @@ mod tests {
     #[test]
     fn zerofier_is_the_correct_one() {
         let primitive_root = generate_primitive_root(8);
-        let zerofier = get_zerofier(&primitive_root, 8);
+        let zerofier = compute_zerofier(&primitive_root, 8);
 
         for i in 0_usize..6_usize {
             assert_eq!(zerofier.evaluate(&primitive_root.pow(i)), FE::zero());
@@ -458,13 +459,13 @@ mod tests {
 
         // Build boundary polynomial
         let domain = boundary_constraints.get_boundary_roots_of_unity(&trace_primitive_root);
-        let values = boundary_constraints.get_values(0);
+        let values = boundary_constraints.values(0);
         let boundary_poly = Polynomial::interpolate(&domain, &values);
-        let zerofier = boundary_constraints.get_zerofier(&trace_primitive_root);
+        let zerofier = boundary_constraints.compute_zerofier(&trace_primitive_root);
 
         // Test get_boundary_quotient
         let boundary_quotient =
-            get_boundary_quotient(&boundary_constraints, 0, &trace_primitive_root, &trace_poly);
+            compute_boundary_quotient(&boundary_constraints, 0, &trace_primitive_root, &trace_poly);
 
         assert_eq!(
             boundary_quotient,

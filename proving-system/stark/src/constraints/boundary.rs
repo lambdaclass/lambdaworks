@@ -40,7 +40,7 @@ impl<F: IsField> BoundaryConstraints<FieldElement<F>> {
         Self { constraints }
     }
 
-    pub(crate) fn get_steps(&self) -> Vec<usize> {
+    pub(crate) fn steps(&self) -> Vec<usize> {
         self.constraints.iter().map(|c| c.step).collect()
     }
 
@@ -48,13 +48,13 @@ impl<F: IsField> BoundaryConstraints<FieldElement<F>> {
         &self,
         primitive_root: &FieldElement<F>,
     ) -> Vec<FieldElement<F>> {
-        self.get_steps()
+        self.steps()
             .into_iter()
             .map(|s| primitive_root.pow(s))
             .collect()
     }
 
-    pub(crate) fn get_values(&self, col: usize) -> Vec<FieldElement<F>> {
+    pub(crate) fn values(&self, col: usize) -> Vec<FieldElement<F>> {
         self.constraints
             .iter()
             .filter(|c| c.col == col)
@@ -62,12 +62,12 @@ impl<F: IsField> BoundaryConstraints<FieldElement<F>> {
             .collect()
     }
 
-    pub(crate) fn get_zerofier(
+    pub(crate) fn compute_zerofier(
         &self,
         primitive_root: &FieldElement<F>,
     ) -> Polynomial<FieldElement<F>> {
         let mut zerofier = Polynomial::new_monomial(FieldElement::one(), 0);
-        for step in self.get_steps().into_iter() {
+        for step in self.steps().into_iter() {
             let binomial = Polynomial::new(&[-primitive_root.pow(step), FieldElement::one()]);
             // TODO: Implement the MulAssign trait for Polynomials?
             zerofier = zerofier * binomial;
@@ -101,7 +101,7 @@ mod test {
 
         let expected_zerofier = a0_zerofier * a1_zerofier * res_zerofier;
 
-        let zerofier = constraints.get_zerofier(&primitive_root);
+        let zerofier = constraints.compute_zerofier(&primitive_root);
 
         assert_eq!(expected_zerofier, zerofier);
     }
