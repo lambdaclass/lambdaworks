@@ -8,10 +8,12 @@ pub trait IsEdwards: IsEllipticCurve + Clone + Debug {
 
     fn d() -> FieldElement<Self::BaseField>;
 
-    fn defining_equation(p: &[FieldElement<Self::BaseField>; 3]) -> FieldElement<Self::BaseField> {
-        let (x, y, z) = (&p[0], &p[1], &p[2]);
-        (Self::a() * x.pow(2_u16) + y.pow(2_u16)) * z.pow(2_u16)
-            - z.pow(4_u16)
+    fn defining_equation(
+        x: &FieldElement<Self::BaseField>,
+        y: &FieldElement<Self::BaseField>,
+    ) -> FieldElement<Self::BaseField> {
+        (Self::a() * x.pow(2_u16) + y.pow(2_u16))
+            - FieldElement::one()
             - Self::d() * x.pow(2_u16) * y.pow(2_u16)
     }
 }

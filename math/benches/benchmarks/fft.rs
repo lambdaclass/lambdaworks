@@ -1,47 +1,83 @@
-use const_random::const_random;
-use criterion::{black_box, Criterion};
-use lambdaworks_math::fft::fft_cooley_tukey::{fft, inverse_fft};
-use lambdaworks_math::field::element::FieldElement;
-use lambdaworks_math::field::test_fields::u64_test_field::U64TestField;
-use rand::Rng;
+use criterion::Criterion;
+use lambdaworks_math::{
+    fft::fft_cooley_tukey::{fft, inverse_fft},
+    field::test_fields::u64_test_field::U64TestField,
+};
+use lambdaworks_math::{
+    fft::{bit_reversing::*, fft_iterative::*},
+    field::{element::FieldElement, traits::IsTwoAdicField},
+};
+use rand::random;
 
-// Mersenne prime numbers
-// https://www.math.utah.edu/~pa/math/mersenne.html
-const PRIMES: [u64; 39] = [
-    13, 17, 19, 31, 61, 89, 107, 127, 521, 607, 1279, 2203, 2281, 3217, 4253, 4423, 9689, 9941,
-    11213, 19937, 21701, 23209, 44497, 86243, 110503, 132049, 216091, 756839, 859433, 1257787,
-    1398269, 2976221, 3021377, 6972593, 13466917, 20996011, 24036583, 25964951, 30402457,
-];
+const MODULUS: u64 = 0xFFFFFFFF00000001;
+type F = U64TestField<MODULUS>;
+type FE = FieldElement<F>;
 
-const MODULUS: u64 = PRIMES[const_random!(usize) % PRIMES.len()];
-type FE = FieldElement<U64TestField<MODULUS>>;
-
-pub fn fft_benchmark(c: &mut Criterion) {
-    c.bench_function("fft", |bench| {
-        let mut rng = rand::thread_rng();
-        let coeffs_size = 1 << rng.gen_range(1..8);
-        let mut coeffs: Vec<FE> = vec![];
-
-        for _ in 0..coeffs_size {
-            coeffs.push(FE::new(rng.gen_range(1..=u64::MAX)));
-        }
-
-        bench.iter(|| fft(black_box(&coeffs)));
-    });
+fn gen_coeffs(pow: usize) -> Vec<FE> {
+    let mut result = Vec::with_capacity(1 << pow);
+    for _ in 0..result.capacity() {
+        result.push(FE::new(random()));
+    }
+    result
 }
 
-pub fn inverse_fft_benchmark(c: &mut Criterion) {
-    c.bench_function("inverse_fft", |bench| {
-        let mut rng = rand::thread_rng();
-        let coeffs_size = 1 << rng.gen_range(1..8);
-        let mut coeffs: Vec<FE> = vec![];
+pub fn fft_benchmarks(c: &mut Criterion) {
+    let mut group = c.benchmark_group("fft");
+    group.sample_size(10); // it becomes too slow with the default of 100
 
-        for _ in 0..coeffs_size {
-            coeffs.push(FE::new(rng.gen_range(1..=u64::MAX)));
-        }
+    for pow in 20..=24 {
+        let coeffs = gen_coeffs(pow);
+        let evals = fft(&coeffs).unwrap();
+        group.throughput(criterion::Throughput::Elements(1 << pow)); // info for criterion
 
-        let evaluations = fft(&coeffs).unwrap();
+        // the objective is to bench ordered FFT, including twiddles generation
+        group.bench_with_input(
+            format!("iterative_nr_2radix_2^{pow}_coeffs"),
+            &coeffs,
+            |bench, coeffs| {
+                bench.iter(|| {
+                    let mut coeffs = coeffs.clone();
+                    let root = F::get_root_of_unity(coeffs.len().trailing_zeros() as u64).unwrap();
+                    let mut twiddles = (0..coeffs.len() as u64)
+                        .map(|i| root.pow(i))
+                        .collect::<Vec<FE>>();
+                    in_place_bit_reverse_permute(&mut twiddles);
+                    in_place_nr_2radix_fft(&mut coeffs[..], &twiddles[..]);
+                });
+            },
+        );
+        group.bench_with_input(
+            format!("iterative_rn_2radix_2^{pow}_coeffs"),
+            &coeffs,
+            |bench, coeffs| {
+                bench.iter(|| {
+                    let mut coeffs = coeffs.clone();
+                    let root = F::get_root_of_unity(coeffs.len().trailing_zeros() as u64).unwrap();
+                    let twiddles = (0..coeffs.len() as u64)
+                        .map(|i| root.pow(i))
+                        .collect::<Vec<FE>>();
+                    in_place_bit_reverse_permute(&mut coeffs);
+                    in_place_rn_2radix_fft(&mut coeffs[..], &twiddles[..]);
+                });
+            },
+        );
 
-        bench.iter(|| inverse_fft(black_box(&evaluations)));
-    });
+        // fft() and ifft() implicitly calculate a root and twiddles.
+        group.bench_with_input(
+            format!("recursive_forward_2^{pow}_coeffs"),
+            &coeffs,
+            |bench, coeffs| {
+                bench.iter(|| fft(coeffs));
+            },
+        );
+        group.bench_with_input(
+            format!("recursive_inverse_2^{pow}_coeffs"),
+            &evals,
+            |bench, evals| {
+                bench.iter(|| inverse_fft(evals));
+            },
+        );
+    }
+
+    group.finish();
 }
