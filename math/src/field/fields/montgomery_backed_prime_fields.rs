@@ -7,69 +7,14 @@ use crate::{
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
-pub type U384PrimeField<C> = MontgomeryBackendPrimeField<C, 6>;
-pub type U256PrimeField<C> = MontgomeryBackendPrimeField<C, 4>;
-
-/// Computes `- modulus^{-1} mod 2^{64}`
-/// This algorithm is given  by Dussé and Kaliski Jr. in
-/// "S. R. Dussé and B. S. Kaliski Jr. A cryptographic library for the Motorola
-/// DSP56000. In I. Damgård, editor, Advances in Cryptology – EUROCRYPT’90,
-/// volume 473 of Lecture Notes in Computer Science, pages 230–244. Springer,
-/// Heidelberg, May 1991."
-const fn compute_mu_parameter<const NUM_LIMBS: usize>(modulus: &UnsignedInteger<NUM_LIMBS>) -> u64 {
-    let mut y = 1;
-    let word_size = 64;
-    let mut i: usize = 2;
-    while i <= word_size {
-        let (_, lo) = UnsignedInteger::mul(modulus, &UnsignedInteger::from_u64(y));
-        let least_significant_limb = lo.limbs[NUM_LIMBS - 1];
-        if (least_significant_limb << (word_size - i)) >> (word_size - i) != 1 {
-            y += 1 << (i - 1);
-        }
-        i += 1;
-    }
-    y.wrapping_neg()
-}
-
-/// Computes 2^{384 * 2} modulo `modulus`
-const fn compute_r2_parameter<const NUM_LIMBS: usize>(
-    modulus: &UnsignedInteger<NUM_LIMBS>,
-) -> UnsignedInteger<NUM_LIMBS> {
-    let word_size = 64;
-    let mut l: usize = 0;
-    let zero = UnsignedInteger::from_u64(0);
-    // Define `c` as the largest power of 2 smaller than `modulus`
-    while l < NUM_LIMBS * word_size {
-        if UnsignedInteger::const_ne(&modulus.const_shr(l), &zero) {
-            break;
-        }
-        l += 1;
-    }
-    let mut c = UnsignedInteger::from_u64(1).const_shl(l);
-
-    // Double `c` and reduce modulo `modulus` until getting
-    // `2^{2 * number_limbs * word_size}` mod `modulus`
-    let mut i: usize = 1;
-    while i <= 2 * NUM_LIMBS * word_size - l {
-        let (double_c, overflow) = UnsignedInteger::add(&c, &c);
-        c = if UnsignedInteger::const_le(modulus, &double_c) || overflow {
-            UnsignedInteger::sub(&double_c, modulus).0
-        } else {
-            double_c
-        };
-        i += 1;
-    }
-    c
-}
+pub type U384PrimeField<M> = MontgomeryBackendPrimeField<M, 6>;
+pub type U256PrimeField<M> = MontgomeryBackendPrimeField<M, 4>;
 
 /// This trait is necessary for us to be able to use unsigned integer types bigger than
 /// `u128` (the biggest native `unit`) as constant generics.
 /// This trait should be removed when Rust supports this feature.
-
-pub trait IsMontgomeryConfiguration<const NUM_LIMBS: usize> {
-    const MODULUS: UnsignedInteger<NUM_LIMBS>;
-    const R2: UnsignedInteger<NUM_LIMBS> = compute_r2_parameter(&Self::MODULUS);
-    const MU: u64 = compute_mu_parameter(&Self::MODULUS);
+pub trait IsModulus<U> {
+    const MODULUS: U;
 }
 
 #[derive(Clone, Debug)]
@@ -77,42 +22,96 @@ pub struct MontgomeryBackendPrimeField<C, const NUM_LIMBS: usize> {
     phantom: PhantomData<C>,
 }
 
-impl<C, const NUM_LIMBS: usize> MontgomeryBackendPrimeField<C, NUM_LIMBS>
+impl<M, const NUM_LIMBS: usize> MontgomeryBackendPrimeField<M, NUM_LIMBS>
 where
-    C: IsMontgomeryConfiguration<NUM_LIMBS>,
+    M: IsModulus<UnsignedInteger<NUM_LIMBS>>,
 {
+    const R2: UnsignedInteger<NUM_LIMBS> = Self::compute_r2_parameter(&M::MODULUS);
+    const MU: u64 = Self::compute_mu_parameter(&M::MODULUS);
     const ZERO: UnsignedInteger<NUM_LIMBS> = UnsignedInteger::from_u64(0);
+
+    /// Computes `- modulus^{-1} mod 2^{64}`
+    /// This algorithm is given  by Dussé and Kaliski Jr. in
+    /// "S. R. Dussé and B. S. Kaliski Jr. A cryptographic library for the Motorola
+    /// DSP56000. In I. Damgård, editor, Advances in Cryptology – EUROCRYPT’90,
+    /// volume 473 of Lecture Notes in Computer Science, pages 230–244. Springer,
+    /// Heidelberg, May 1991."
+    const fn compute_mu_parameter(modulus: &UnsignedInteger<NUM_LIMBS>) -> u64 {
+        let mut y = 1;
+        let word_size = 64;
+        let mut i: usize = 2;
+        while i <= word_size {
+            let (_, lo) = UnsignedInteger::mul(modulus, &UnsignedInteger::from_u64(y));
+            let least_significant_limb = lo.limbs[NUM_LIMBS - 1];
+            if (least_significant_limb << (word_size - i)) >> (word_size - i) != 1 {
+                y += 1 << (i - 1);
+            }
+            i += 1;
+        }
+        y.wrapping_neg()
+    }
+
+    /// Computes 2^{384 * 2} modulo `modulus`
+    const fn compute_r2_parameter(
+        modulus: &UnsignedInteger<NUM_LIMBS>,
+    ) -> UnsignedInteger<NUM_LIMBS> {
+        let word_size = 64;
+        let mut l: usize = 0;
+        let zero = UnsignedInteger::from_u64(0);
+        // Define `c` as the largest power of 2 smaller than `modulus`
+        while l < NUM_LIMBS * word_size {
+            if UnsignedInteger::const_ne(&modulus.const_shr(l), &zero) {
+                break;
+            }
+            l += 1;
+        }
+        let mut c = UnsignedInteger::from_u64(1).const_shl(l);
+
+        // Double `c` and reduce modulo `modulus` until getting
+        // `2^{2 * number_limbs * word_size}` mod `modulus`
+        let mut i: usize = 1;
+        while i <= 2 * NUM_LIMBS * word_size - l {
+            let (double_c, overflow) = UnsignedInteger::add(&c, &c);
+            c = if UnsignedInteger::const_le(modulus, &double_c) || overflow {
+                UnsignedInteger::sub(&double_c, modulus).0
+            } else {
+                double_c
+            };
+            i += 1;
+        }
+        c
+    }
 }
 
-impl<C, const NUM_LIMBS: usize> IsField for MontgomeryBackendPrimeField<C, NUM_LIMBS>
+impl<M, const NUM_LIMBS: usize> IsField for MontgomeryBackendPrimeField<M, NUM_LIMBS>
 where
-    C: IsMontgomeryConfiguration<NUM_LIMBS> + Clone + Debug,
+    M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug,
 {
     type BaseType = UnsignedInteger<NUM_LIMBS>;
 
     fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
         let (sum, overflow) = UnsignedInteger::add(a, b);
         if !overflow {
-            if sum < C::MODULUS {
+            if sum < M::MODULUS {
                 sum
             } else {
-                sum - C::MODULUS
+                sum - M::MODULUS
             }
         } else {
-            let (diff, _) = UnsignedInteger::sub(&sum, &C::MODULUS);
+            let (diff, _) = UnsignedInteger::sub(&sum, &M::MODULUS);
             diff
         }
     }
 
     fn mul(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
-        MontgomeryAlgorithms::cios(a, b, &C::MODULUS, &C::MU)
+        MontgomeryAlgorithms::cios(a, b, &M::MODULUS, &Self::MU)
     }
 
     fn sub(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
         if b <= a {
             a - b
         } else {
-            C::MODULUS - (b - a)
+            M::MODULUS - (b - a)
         }
     }
 
@@ -120,7 +119,7 @@ where
         if a == &Self::ZERO {
             *a
         } else {
-            C::MODULUS - a
+            M::MODULUS - a
         }
     }
 
@@ -128,7 +127,7 @@ where
         if a == &Self::ZERO {
             panic!("Division by zero error.")
         }
-        Self::pow(a, C::MODULUS - Self::BaseType::from_u64(2))
+        Self::pow(a, M::MODULUS - Self::BaseType::from_u64(2))
     }
 
     fn div(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
@@ -148,30 +147,35 @@ where
     }
 
     fn from_u64(x: u64) -> Self::BaseType {
-        MontgomeryAlgorithms::cios(&UnsignedInteger::from_u64(x), &C::R2, &C::MODULUS, &C::MU)
+        MontgomeryAlgorithms::cios(
+            &UnsignedInteger::from_u64(x),
+            &Self::R2,
+            &M::MODULUS,
+            &Self::MU,
+        )
     }
 
     fn from_base_type(x: Self::BaseType) -> Self::BaseType {
-        MontgomeryAlgorithms::cios(&x, &C::R2, &C::MODULUS, &C::MU)
+        MontgomeryAlgorithms::cios(&x, &Self::R2, &M::MODULUS, &Self::MU)
     }
 
     // TO DO: Add tests for representatives
     fn representative(x: Self::BaseType) -> Self::BaseType {
-        MontgomeryAlgorithms::cios(&x, &UnsignedInteger::from_u64(1), &C::MODULUS, &C::MU)
+        MontgomeryAlgorithms::cios(&x, &UnsignedInteger::from_u64(1), &M::MODULUS, &Self::MU)
     }
 }
 
-impl<C, const NUM_LIMBS: usize> ByteConversion
-    for FieldElement<MontgomeryBackendPrimeField<C, NUM_LIMBS>>
+impl<M, const NUM_LIMBS: usize> ByteConversion
+    for FieldElement<MontgomeryBackendPrimeField<M, NUM_LIMBS>>
 where
-    C: IsMontgomeryConfiguration<NUM_LIMBS> + Clone + Debug,
+    M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug,
 {
     fn to_bytes_be(&self) -> Vec<u8> {
         MontgomeryAlgorithms::cios(
             self.value(),
             &UnsignedInteger::from_u64(1),
-            &C::MODULUS,
-            &C::MU,
+            &M::MODULUS,
+            &MontgomeryBackendPrimeField::<M, NUM_LIMBS>::MU,
         )
         .to_bytes_be()
     }
@@ -180,8 +184,8 @@ where
         MontgomeryAlgorithms::cios(
             self.value(),
             &UnsignedInteger::from_u64(1),
-            &C::MODULUS,
-            &C::MU,
+            &M::MODULUS,
+            &MontgomeryBackendPrimeField::<M, NUM_LIMBS>::MU,
         )
         .to_bytes_le()
     }
@@ -200,16 +204,14 @@ where
 #[cfg(test)]
 mod tests_u384_prime_fields {
     use crate::field::element::FieldElement;
-    use crate::field::fields::montgomery_backed_prime_fields::{
-        IsMontgomeryConfiguration, U384PrimeField,
-    };
+    use crate::field::fields::montgomery_backed_prime_fields::{IsModulus, U384PrimeField};
     use crate::traits::ByteConversion;
     use crate::unsigned_integer::element::UnsignedInteger;
     use crate::unsigned_integer::element::U384;
 
     #[derive(Clone, Debug)]
     struct U384MontgomeryConfiguration23;
-    impl IsMontgomeryConfiguration<6> for U384MontgomeryConfiguration23 {
+    impl IsModulus<U384> for U384MontgomeryConfiguration23 {
         const MODULUS: U384 = UnsignedInteger::from_u64(23);
     }
 
@@ -358,7 +360,7 @@ mod tests_u384_prime_fields {
     // FP1
     #[derive(Clone, Debug)]
     struct U384MontgomeryConfigP1;
-    impl IsMontgomeryConfiguration<6> for U384MontgomeryConfigP1 {
+    impl IsModulus<U384> for U384MontgomeryConfigP1 {
         const MODULUS: U384 = UnsignedInteger {
             limbs: [
                 0,
@@ -405,7 +407,7 @@ mod tests_u384_prime_fields {
     // FP2
     #[derive(Clone, Debug)]
     struct U384MontgomeryConfigP2;
-    impl IsMontgomeryConfiguration<6> for U384MontgomeryConfigP2 {
+    impl IsModulus<U384> for U384MontgomeryConfigP2 {
         const MODULUS: U384 = UnsignedInteger {
             limbs: [
                 18446744073709551615,
@@ -488,16 +490,14 @@ mod tests_u384_prime_fields {
 #[cfg(test)]
 mod tests_u256_prime_fields {
     use crate::field::element::FieldElement;
-    use crate::field::fields::montgomery_backed_prime_fields::{
-        IsMontgomeryConfiguration, U256PrimeField,
-    };
+    use crate::field::fields::montgomery_backed_prime_fields::{IsModulus, U256PrimeField};
     use crate::traits::ByteConversion;
     use crate::unsigned_integer::element::UnsignedInteger;
     use crate::unsigned_integer::element::U256;
 
     #[derive(Clone, Debug)]
     struct U256MontgomeryConfiguration29;
-    impl IsMontgomeryConfiguration<4> for U256MontgomeryConfiguration29 {
+    impl IsModulus<U256> for U256MontgomeryConfiguration29 {
         const MODULUS: U256 = UnsignedInteger::from_u64(29);
     }
 
@@ -646,7 +646,7 @@ mod tests_u256_prime_fields {
     // FP1
     #[derive(Clone, Debug)]
     struct U256MontgomeryConfigP1;
-    impl IsMontgomeryConfiguration<4> for U256MontgomeryConfigP1 {
+    impl IsModulus<U256> for U256MontgomeryConfigP1 {
         const MODULUS: U256 = UnsignedInteger {
             limbs: [
                 8366,
@@ -691,7 +691,7 @@ mod tests_u256_prime_fields {
     // FP2
     #[derive(Clone, Debug)]
     struct MontgomeryConfigP2;
-    impl IsMontgomeryConfiguration<4> for MontgomeryConfigP2 {
+    impl IsModulus<U256> for MontgomeryConfigP2 {
         const MODULUS: U256 = UnsignedInteger {
             limbs: [
                 18446744073709551615,

@@ -1,7 +1,7 @@
 use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
 use crate::elliptic_curve::traits::IsEllipticCurve;
 use crate::field::fields::montgomery_backed_prime_fields::{
-    IsMontgomeryConfiguration, MontgomeryBackendPrimeField,
+    IsModulus, MontgomeryBackendPrimeField,
 };
 use crate::unsigned_integer::element::U384;
 use crate::{
@@ -21,7 +21,7 @@ pub const TEST_CURVE_2_MAIN_SUBGROUP_ORDER: U384 = U384::from("40a065fb5a76390de
 // FPBLS12381
 #[derive(Clone, Debug)]
 pub struct TestCurve2MontgomeryConfig;
-impl IsMontgomeryConfiguration<6> for TestCurve2MontgomeryConfig {
+impl IsModulus<U384> for TestCurve2MontgomeryConfig {
     const MODULUS: U384 = TEST_CURVE_2_PRIME_FIELD_ORDER;
 }
 

@@ -147,9 +147,7 @@ where
 #[cfg(test)]
 mod tests {
     use lambdaworks_math::{
-        field::fields::montgomery_backed_prime_fields::{
-            IsMontgomeryConfiguration, U384PrimeField,
-        },
+        field::fields::montgomery_backed_prime_fields::{IsModulus, U384PrimeField},
         unsigned_integer::element::U384,
     };
 
@@ -157,7 +155,7 @@ mod tests {
 
     #[derive(Clone, Debug)]
     pub struct TestFieldConfig;
-    impl IsMontgomeryConfiguration<6> for TestFieldConfig {
+    impl IsModulus<U384> for TestFieldConfig {
         const MODULUS: U384 =
             U384::from("2000000000000080000000000000000000000000000000000000000000000001");
     }

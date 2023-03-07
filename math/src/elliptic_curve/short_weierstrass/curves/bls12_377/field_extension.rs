@@ -1,8 +1,6 @@
 use crate::field::{
     element::FieldElement,
-    fields::montgomery_backed_prime_fields::{
-        IsMontgomeryConfiguration, MontgomeryBackendPrimeField,
-    },
+    fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
 };
 use crate::unsigned_integer::element::U384;
 
@@ -11,7 +9,7 @@ pub const BLS12377_PRIME_FIELD_ORDER: U384 = U384::from("1ae3a4617c510eac63b05c0
 // FPBLS12377
 #[derive(Clone, Debug)]
 pub struct BLS12377FieldConfig;
-impl IsMontgomeryConfiguration<6> for BLS12377FieldConfig {
+impl IsModulus<U384> for BLS12377FieldConfig {
     const MODULUS: U384 = BLS12377_PRIME_FIELD_ORDER;
 }
 
