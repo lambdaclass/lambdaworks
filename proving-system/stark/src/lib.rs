@@ -2,6 +2,7 @@ pub mod constraints;
 pub mod fri;
 
 use constraints::boundary::{BoundaryConstraint, BoundaryConstraints};
+use std::cmp::max;
 use std::ops::{Div, Mul};
 
 use fri::fri_decommit::{fri_decommit_layers, FriDecommitment};
@@ -130,37 +131,53 @@ pub fn prove(trace: &[FE]) -> StarkQueryProof {
 
     let offset = FE::from(COSET_OFFSET);
 
-    // These are evaluations over the trace polynomial
-    let evaluation_points = vec![
-        &offset * lde_primitive_root.pow(q_1),
-        &offset * lde_primitive_root.pow(q_1) * &trace_primitive_root,
-        &offset * lde_primitive_root.pow(q_1) * (&trace_primitive_root * &trace_primitive_root),
-    ];
-    let trace_lde_poly_evaluations = trace_poly.evaluate_slice(&evaluation_points);
-    let merkle_paths = vec![
-        trace_poly_lde_merkle_tree.get_proof_by_pos(q_1).unwrap(),
-        trace_poly_lde_merkle_tree
-            .get_proof_by_pos(
-                q_1 + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE) as usize,
-            )
-            .unwrap(),
-        trace_poly_lde_merkle_tree
-            .get_proof_by_pos(
-                q_1 + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE) as usize
-                    * 2,
-            )
-            .unwrap(),
+    // These are evaluations over the composition polynomial
+    let (mut constraint_composition_poly_even, mut constraint_composition_poly_odd) =
+        compute_composition_polys(trace_poly, &trace_primitive_root);
+
+    let z = FE::from(3);
+    let z_squared = &z * &z;
+
+    // Sample z outside trace and cosets
+    // Provide evaluations for H_1, H_2 and trace polynomials to recover C_1 and C_2
+
+    let constraint_composition_polynomials_evaluations = vec![
+        constraint_composition_poly_even.evaluate(&z_squared),
+        constraint_composition_poly_odd.evaluate(&z_squared),
     ];
 
-    // These are evaluations over the composition polynomial
-    let mut composition_poly =
-        compute_composition_poly(trace_poly, &trace_primitive_root, &[alpha_t, alpha_bc]);
-    let composition_poly_lde_evaluation = composition_poly.evaluate(&evaluation_points[0]);
+    // These are evaluations over the trace polynomial
+    let trace_evaluation_points = vec![
+        z,
+        z * &trace_primitive_root,
+        z * (&trace_primitive_root * &trace_primitive_root),
+    ];
+
+    let trace_lde_poly_evaluations = trace_poly.evaluate_slice(&trace_evaluation_points);
+    // We don't provide merkle paths anymore because the DEEP composition poly will check these evaluations are correct
+    // let merkle_paths = vec![
+    //     trace_poly_lde_merkle_tree.get_proof_by_pos(q_1).unwrap(),
+    //     trace_poly_lde_merkle_tree
+    //         .get_proof_by_pos(
+    //             q_1 + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE) as usize,
+    //         )
+    //         .unwrap(),
+    //     trace_poly_lde_merkle_tree
+    //         .get_proof_by_pos(
+    //             q_1 + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE) as usize
+    //                 * 2,
+    //         )
+    //         .unwrap(),
+    // ];
+
+    // let composition_poly_lde_evaluation = composition_poly.evaluate(&evaluation_points[0]);
 
     // This is needed to check  the element is in the root
     let trace_root = trace_poly_lde_merkle_tree.root;
 
     // END EVALUATION BLOCK
+
+    // Compute DEEP composition polynomial and FRI commit to it.
 
     // * Do FRI on the composition polynomials
     let lde_fri_commitment =
@@ -196,11 +213,17 @@ pub fn prove(trace: &[FE]) -> StarkQueryProof {
     }
 }
 
-fn compute_composition_poly(
+fn compute_composition_polys(
     trace_poly: Polynomial<FE>,
     primitive_root: &FE,
-    random_coeffs: &[FE; 2],
-) -> Polynomial<FE> {
+) -> (Polynomial<FE>, Polynomial<FE>) {
+    // Compute H here
+    // For this:
+    // - Sample alphas and betas
+    // - Compute D and `D_i`s
+    // Split H into H_1 and H_2
+    // Return (H_1, H_2)
+
     let w_squared_x = Polynomial::new(&[FE::zero(), primitive_root * primitive_root]);
     let w_x = Polynomial::new(&[FE::zero(), primitive_root.clone()]);
 
@@ -221,8 +244,32 @@ fn compute_composition_poly(
     let boundary_quotient =
         compute_boundary_quotient(&boundary_constraints, 0, primitive_root, &trace_poly);
 
-    transition_quotient.mul(random_coeffs[0].clone())
-        + boundary_quotient.mul(random_coeffs[1].clone())
+    let alpha_1 = FE::one();
+    let alpha_2 = FE::one();
+    let beta_1 = FE::one();
+    let beta_2 = FE::one();
+
+    let maximum_degree = nearest_power_of_two(max(
+        transition_quotient.degree(),
+        boundary_quotient.degree(),
+    ));
+
+    let d_1 = transition_quotient.degree() - maximum_degree;
+    let d_2 = boundary_quotient.degree() - maximum_degree;
+
+    let constraint_composition_poly = transition_quotient.mul(
+        Polynomial::new_monomial(alpha_1, maximum_degree - d_1)
+            + Polynomial::new_monomial(beta_1, 0),
+    ) + boundary_quotient.mul(
+        Polynomial::new_monomial(alpha_2, maximum_degree - d_2)
+            + Polynomial::new_monomial(beta_2, 0),
+    );
+
+    constraint_composition_poly.even_odd_decomposition()
+}
+
+fn nearest_power_of_two(value: usize) -> usize {
+    (value as f32).log2().ceil() as usize + 1
 }
 
 fn compute_zerofier(primitive_root: &FE, root_order: usize) -> Polynomial<FE> {
