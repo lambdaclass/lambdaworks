@@ -20,12 +20,12 @@ pub const TEST_CURVE_2_MAIN_SUBGROUP_ORDER: U384 = U384::from("40a065fb5a76390de
 
 // FPBLS12381
 #[derive(Clone, Debug)]
-pub struct TestCurve2MontgomeryConfig;
-impl IsModulus<U384> for TestCurve2MontgomeryConfig {
+pub struct TestCurve2Modulus;
+impl IsModulus<U384> for TestCurve2Modulus {
     const MODULUS: U384 = TEST_CURVE_2_PRIME_FIELD_ORDER;
 }
 
-type TestCurve2PrimeField = MontgomeryBackendPrimeField<TestCurve2MontgomeryConfig, 6>;
+type TestCurve2PrimeField = MontgomeryBackendPrimeField<TestCurve2Modulus, 6>;
 
 /// In F59 the element -1 is not a square. We use this property
 /// to construct a Quadratic Field Extension out of it by adding

@@ -154,13 +154,13 @@ mod tests {
     use super::*;
 
     #[derive(Clone, Debug)]
-    pub struct TestFieldConfig;
-    impl IsModulus<U384> for TestFieldConfig {
+    pub struct TestFieldModulus;
+    impl IsModulus<U384> for TestFieldModulus {
         const MODULUS: U384 =
             U384::from("2000000000000080000000000000000000000000000000000000000000000001");
     }
 
-    pub type PoseidonTestField = U384PrimeField<TestFieldConfig>;
+    pub type PoseidonTestField = U384PrimeField<TestFieldModulus>;
     type TestFieldElement = FieldElement<PoseidonTestField>;
 
     pub fn load_test_parameters() -> Result<Parameters<PoseidonTestField>, String> {

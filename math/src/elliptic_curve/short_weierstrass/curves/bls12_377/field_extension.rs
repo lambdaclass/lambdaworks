@@ -8,12 +8,12 @@ pub const BLS12377_PRIME_FIELD_ORDER: U384 = U384::from("1ae3a4617c510eac63b05c0
 
 // FPBLS12377
 #[derive(Clone, Debug)]
-pub struct BLS12377FieldConfig;
-impl IsModulus<U384> for BLS12377FieldConfig {
+pub struct BLS12377FieldModulus;
+impl IsModulus<U384> for BLS12377FieldModulus {
     const MODULUS: U384 = BLS12377_PRIME_FIELD_ORDER;
 }
 
-pub type BLS12377PrimeField = MontgomeryBackendPrimeField<BLS12377FieldConfig, 6>;
+pub type BLS12377PrimeField = MontgomeryBackendPrimeField<BLS12377FieldModulus, 6>;
 
 impl FieldElement<BLS12377PrimeField> {
     pub fn new_base(a_hex: &str) -> Self {

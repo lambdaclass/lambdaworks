@@ -210,12 +210,12 @@ mod tests_u384_prime_fields {
     use crate::unsigned_integer::element::U384;
 
     #[derive(Clone, Debug)]
-    struct U384MontgomeryConfiguration23;
-    impl IsModulus<U384> for U384MontgomeryConfiguration23 {
+    struct U384Modulus23;
+    impl IsModulus<U384> for U384Modulus23 {
         const MODULUS: U384 = UnsignedInteger::from_u64(23);
     }
 
-    type U384F23 = U384PrimeField<U384MontgomeryConfiguration23>;
+    type U384F23 = U384PrimeField<U384Modulus23>;
     type U384F23Element = FieldElement<U384F23>;
 
     #[test]
@@ -359,8 +359,8 @@ mod tests_u384_prime_fields {
 
     // FP1
     #[derive(Clone, Debug)]
-    struct U384MontgomeryConfigP1;
-    impl IsModulus<U384> for U384MontgomeryConfigP1 {
+    struct U384ModulusP1;
+    impl IsModulus<U384> for U384ModulusP1 {
         const MODULUS: U384 = UnsignedInteger {
             limbs: [
                 0,
@@ -373,7 +373,7 @@ mod tests_u384_prime_fields {
         };
     }
 
-    type U384FP1 = U384PrimeField<U384MontgomeryConfigP1>;
+    type U384FP1 = U384PrimeField<U384ModulusP1>;
     type U384FP1Element = FieldElement<U384FP1>;
 
     #[test]
@@ -406,8 +406,8 @@ mod tests_u384_prime_fields {
 
     // FP2
     #[derive(Clone, Debug)]
-    struct U384MontgomeryConfigP2;
-    impl IsModulus<U384> for U384MontgomeryConfigP2 {
+    struct U384ModulusP2;
+    impl IsModulus<U384> for U384ModulusP2 {
         const MODULUS: U384 = UnsignedInteger {
             limbs: [
                 18446744073709551615,
@@ -420,7 +420,7 @@ mod tests_u384_prime_fields {
         };
     }
 
-    type U384FP2 = U384PrimeField<U384MontgomeryConfigP2>;
+    type U384FP2 = U384PrimeField<U384ModulusP2>;
     type U384FP2Element = FieldElement<U384FP2>;
 
     #[test]
@@ -496,12 +496,12 @@ mod tests_u256_prime_fields {
     use crate::unsigned_integer::element::U256;
 
     #[derive(Clone, Debug)]
-    struct U256MontgomeryConfiguration29;
-    impl IsModulus<U256> for U256MontgomeryConfiguration29 {
+    struct U256Modulus29;
+    impl IsModulus<U256> for U256Modulus29 {
         const MODULUS: U256 = UnsignedInteger::from_u64(29);
     }
 
-    type U256F29 = U256PrimeField<U256MontgomeryConfiguration29>;
+    type U256F29 = U256PrimeField<U256Modulus29>;
     type U256F29Element = FieldElement<U256F29>;
 
     #[test]
@@ -645,8 +645,8 @@ mod tests_u256_prime_fields {
 
     // FP1
     #[derive(Clone, Debug)]
-    struct U256MontgomeryConfigP1;
-    impl IsModulus<U256> for U256MontgomeryConfigP1 {
+    struct U256ModulusP1;
+    impl IsModulus<U256> for U256ModulusP1 {
         const MODULUS: U256 = UnsignedInteger {
             limbs: [
                 8366,
@@ -657,7 +657,7 @@ mod tests_u256_prime_fields {
         };
     }
 
-    type U256FP1 = U256PrimeField<U256MontgomeryConfigP1>;
+    type U256FP1 = U256PrimeField<U256ModulusP1>;
     type U256FP1Element = FieldElement<U256FP1>;
 
     #[test]
@@ -690,8 +690,8 @@ mod tests_u256_prime_fields {
 
     // FP2
     #[derive(Clone, Debug)]
-    struct MontgomeryConfigP2;
-    impl IsModulus<U256> for MontgomeryConfigP2 {
+    struct ModulusP2;
+    impl IsModulus<U256> for ModulusP2 {
         const MODULUS: U256 = UnsignedInteger {
             limbs: [
                 18446744073709551615,
@@ -702,7 +702,7 @@ mod tests_u256_prime_fields {
         };
     }
 
-    type FP2 = U256PrimeField<MontgomeryConfigP2>;
+    type FP2 = U256PrimeField<ModulusP2>;
     type FP2Element = FieldElement<FP2>;
 
     #[test]
