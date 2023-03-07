@@ -18,8 +18,8 @@ pub trait IsModulus<U> {
 }
 
 #[derive(Clone, Debug)]
-pub struct MontgomeryBackendPrimeField<C, const NUM_LIMBS: usize> {
-    phantom: PhantomData<C>,
+pub struct MontgomeryBackendPrimeField<M, const NUM_LIMBS: usize> {
+    phantom: PhantomData<M>,
 }
 
 impl<M, const NUM_LIMBS: usize> MontgomeryBackendPrimeField<M, NUM_LIMBS>
