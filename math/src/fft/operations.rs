@@ -11,6 +11,73 @@ use super::{
     fft_cooley_tukey::{fft, fft_with_blowup, inverse_fft},
 };
 
+pub fn fast_multiply<F: IsField + IsTwoAdicField>(
+    multiplicand: u64,
+    multiplier: u64,
+) -> Result<FieldElement<F>, FFTError> {
+    let mut multiplicand_digits: Vec<u64> = Vec::new();
+    let mut multiplier_digits: Vec<u64> = Vec::new();
+
+    let mut multiplicand = multiplicand;
+    let mut multiplier = multiplier;
+
+    // This step will iterate over the number digits in reverse order
+    // The number 1234 will produce the vector with digits: [4, 3, 2, 1]
+    // FIXME: This should be a helper function
+    while multiplicand != 0 {
+        multiplicand_digits.push(multiplicand % 10);
+        multiplicand /= 10;
+    }
+
+    while multiplier != 0 {
+        multiplier_digits.push(multiplier % 10);
+        multiplier /= 10;
+    }
+
+    // Parse the digits of both numbers to get a vector of field elements
+    // These elements will be the coeffcients of the polynomial to evaluate using FFT.
+    let coefficients_multiplicand = multiplicand_digits
+        .iter()
+        .map(|a| FieldElement::from(*a))
+        .collect::<Vec<FieldElement<F>>>();
+
+    let coefficients_multiplier = multiplier_digits
+        .iter()
+        .map(|a| FieldElement::from(*a))
+        .collect::<Vec<FieldElement<F>>>();
+
+    let multiplicand_evaluation_result = evaluate_poly_with_offset(
+        &Polynomial::new(&coefficients_multiplicand),
+        &FieldElement::one(),
+        2,
+    )?;
+    let multiplier_evaluation_result = evaluate_poly_with_offset(
+        &Polynomial::new(&coefficients_multiplier),
+        &FieldElement::one(),
+        2,
+    )?;
+
+    // Multiply the evaluations of both polynomials and then apply the inverse FFT
+    // to get the original result of the multiplication
+    // This works since:
+    // FFT(c) = FFT(a).FFT(b)
+    // IFFT(FFT(c)) = IFFT(FFT(a).FFT(b))
+    // c = a.b
+    let evaluation_points_multplication_result = multiplicand_evaluation_result
+        .iter()
+        .zip(multiplier_evaluation_result.iter())
+        .map(|(_a, _b)| _a * _b)
+        .collect::<Vec<FieldElement<F>>>();
+    let coeffs_multiplication_result =
+        interpolate_poly(&evaluation_points_multplication_result).unwrap();
+
+    // Evaluate the polynomial to get the original result from the new polynomial
+    let h = Polynomial::new(&coeffs_multiplication_result);
+    let result = h.evaluate(&FieldElement::from(10));
+
+    Ok(result)
+}
+
 pub fn evaluate_poly<F: IsField + IsTwoAdicField>(
     polynomial: &Polynomial<FieldElement<F>>,
 ) -> Result<Vec<FieldElement<F>>, FFTError> {
@@ -68,6 +135,14 @@ mod fft_test {
         fn unsuitable_field_vec(max_exp: u8)(elem in field_element(), size in powers_of_two(max_exp)) -> Vec<FE> {
             vec![elem; size + 1]
         }
+    }
+
+    #[test]
+    fn test_fast_multiply() {
+        assert_eq!(
+            fast_multiply::<F>(1234, 5678).unwrap(),
+            FieldElement::from(7006652)
+        );
     }
 
     proptest! {
