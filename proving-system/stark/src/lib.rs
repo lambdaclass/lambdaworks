@@ -459,7 +459,6 @@ mod tests {
 
     #[test]
     fn should_fail_verify_if_evaluations_are_not_in_merkle_tree() {
-
         let trace = fibonacci_trace([FE::new(U384::from("1")), FE::new(U384::from("1"))]);
         let mut bad_proof = prove(&trace);
 
