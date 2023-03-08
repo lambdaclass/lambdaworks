@@ -638,6 +638,34 @@ mod tests {
             (trace_poly - boundary_poly).div(zerofier)
         );
     }
+
+    #[test]
+    fn test_transcript_to_field() {
+        use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
+        let transcript = &mut Transcript::new();
+
+        let vec_bytes: Vec<u8> = vec![2, 3, 5, 7, 8];
+        transcript.append(&vec_bytes);
+
+        let ret_value = transcript.challenge();
+        println!("{ret_value:?}");
+
+        let ret_value_8: [u8; 8] = [
+            ret_value[0],
+            ret_value[1],
+            ret_value[2],
+            ret_value[3],
+            ret_value[4],
+            ret_value[5],
+            ret_value[6],
+            ret_value[7],
+        ];
+        let ret_value_u64 = u64::from_be_bytes(ret_value_8);
+
+        use super::*;
+        let f = FE::from(ret_value_u64);
+        println!("{f:?}");
+    }
 }
 
 #[cfg(test)]
