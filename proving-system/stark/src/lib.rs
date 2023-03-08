@@ -120,9 +120,9 @@ pub fn prove(trace: &[FE]) -> StarkQueryProof {
     // * Sample q_1, ..., q_m using Fiat-Shamir
     // let q_1 = transcript.challenge();
     // @@@@@@@@@@@@@@@@@@@@@@
-    let q_1: usize = 4;
-    let alpha_bc = FE::from(2);
-    let alpha_t = FE::from(3);
+    let q_1: usize = transcript_to_usize(transcript);
+    let alpha_bc = transcript_to_field(transcript);
+    let alpha_t = transcript_to_field(transcript);
 
     // START EVALUATION POINTS BLOCK
     // This depends on the AIR
@@ -668,6 +668,18 @@ fn transcript_to_field(transcript: &mut Transcript) -> FE {
     let ret_value_u64 = u64::from_be_bytes(ret_value_8);
     let f = FE::from(ret_value_u64);
     f
+}
+
+fn transcript_to_usize(transcript: &mut Transcript) -> usize {
+    const CANT_BYTES_USIZE: usize = (usize::BITS / 8) as usize;
+    let ret_value = transcript.challenge();
+    let mut ret = Vec::with_capacity(CANT_BYTES_USIZE);
+    for i in 0..CANT_BYTES_USIZE {
+        ret.push(ret_value[i]);
+    }
+
+    let result: [u8; CANT_BYTES_USIZE] =  ret.try_into().unwrap();
+    usize::from_be_bytes(result)
 }
 
 #[cfg(test)]
