@@ -28,8 +28,8 @@ pub fn evaluate_poly_with_offset<F: IsField + IsTwoAdicField>(
     offset: &FieldElement<F>,
     blowup_factor: usize,
 ) -> Result<Vec<FieldElement<F>>, FFTError> {
-    //let scaled_polynomial = polynomial.scale(offset);
-    fft_with_blowup(polynomial.coefficients(), offset, blowup_factor)
+    let scaled_polynomial = polynomial.scale(offset);
+    fft_with_blowup(scaled_polynomial.coefficients(), blowup_factor)
 }
 
 #[cfg(test)]
@@ -46,7 +46,7 @@ mod fft_test {
     type FE = FieldElement<F>;
 
     prop_compose! {
-        fn powers_of_two(max_exp: u8)(exp in 2..max_exp) -> usize { 1 << exp }
+        fn powers_of_two(max_exp: u8)(exp in 1..max_exp) -> usize { 1 << exp }
         // max_exp cannot be multiple of the bits that represent a usize, generally 64 or 32.
         // also it can't exceed the test field's two-adicity.
     }
@@ -93,7 +93,7 @@ mod fft_test {
 
             let poly = Polynomial::new(&coeffs[..]);
 
-            let offset = FE::from(F::GENERATOR);
+            let offset = FE::new(2);
             let result = evaluate_poly_with_offset(&poly, &offset, blowup_factor).unwrap();
 
             let omega = F::get_root_of_unity(log2(domain_size).unwrap()).unwrap();
