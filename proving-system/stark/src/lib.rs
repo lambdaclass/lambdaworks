@@ -118,7 +118,7 @@ pub fn prove(trace: &[FE]) -> StarkQueryProof {
     let trace_poly_lde_merkle_tree = FriMerkleTree::build(trace_poly_lde.as_slice());
 
     // * Sample q_1, ..., q_m using Fiat-Shamir
-    let q_1: usize = transcript_to_usize(transcript);
+    let q_1: usize = transcript_to_usize(transcript) % ORDER_OF_ROOTS_OF_UNITY_FOR_LDE as usize;
     let alpha_bc = transcript_to_field(transcript);
     let alpha_t = transcript_to_field(transcript);
 
@@ -139,13 +139,15 @@ pub fn prove(trace: &[FE]) -> StarkQueryProof {
         trace_poly_lde_merkle_tree.get_proof_by_pos(q_1).unwrap(),
         trace_poly_lde_merkle_tree
             .get_proof_by_pos(
-                q_1 + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE) as usize,
+                (q_1 + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE) as usize)
+                    % ORDER_OF_ROOTS_OF_UNITY_FOR_LDE as usize,
             )
             .unwrap(),
         trace_poly_lde_merkle_tree
             .get_proof_by_pos(
-                q_1 + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE) as usize
-                    * 2,
+                (q_1 + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE) as usize
+                    * 2)
+                    % ORDER_OF_ROOTS_OF_UNITY_FOR_LDE as usize,
             )
             .unwrap(),
     ];
@@ -258,7 +260,7 @@ pub fn verify(proof: &StarkQueryProof) -> bool {
     let composition_polynomial_evaluation_from_prover = &proof.composition_poly_lde_evaluations[0];
 
     // TODO: Fiat-Shamir
-    let q_1: usize = transcript_to_usize(transcript);
+    let q_1: usize = transcript_to_usize(transcript) % ORDER_OF_ROOTS_OF_UNITY_FOR_LDE as usize;
     let alpha_bc = transcript_to_field(transcript);
     let alpha_t = transcript_to_field(transcript);
 
