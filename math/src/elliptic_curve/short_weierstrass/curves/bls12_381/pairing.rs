@@ -19,12 +19,12 @@ use crate::{
 
 pub struct BLS12381AtePairing;
 impl IsPairing for BLS12381AtePairing {
-    type G1 = ShortWeierstrassProjectivePoint<BLS12381Curve>;
-    type G2 = ShortWeierstrassProjectivePoint<BLS12381TwistCurve>;
+    type G1Point = ShortWeierstrassProjectivePoint<BLS12381Curve>;
+    type G2Point = ShortWeierstrassProjectivePoint<BLS12381TwistCurve>;
     type OutputField = Degree12ExtensionField;
 
     /// Compute the product of the ate pairings for a list of point pairs.
-    fn compute_batch(pairs: &[(&Self::G1, &Self::G2)]) -> FieldElement<Self::OutputField> {
+    fn compute_batch(pairs: &[(&Self::G1Point, &Self::G2Point)]) -> FieldElement<Self::OutputField> {
         let mut result = FieldElement::one();
         for (p, q) in pairs {
             let p = p.to_affine();
