@@ -1,7 +1,16 @@
-use crate::{fft::errors::FFTError, unsigned_integer::traits::IsUnsignedInteger};
+use crate::{fft::{errors::FFTError, bit_reversing::reverse_index}, unsigned_integer::traits::IsUnsignedInteger};
 use std::{fmt::Debug, hash::Hash};
 
 use super::element::FieldElement;
+
+/// Represents different configurations that powers of roots of unity can be in. Some of these may
+/// be necessary for FFT (as twiddle factors).
+pub enum RootsConfig {
+    Natural,            // w^0, w^1, w^2...
+    NaturalInversed,    // w^0, w^-1, w^-2...
+    BitReverse,         // same as first but exponents are bit-reversed.
+    BitReverseInversed, // same as above but exponents are negated.
+}
 
 /// Trait to define necessary parameters for FFT-friendly Fields.
 /// Two-Adic fields are ones whose order is of the form  $2^n k + 1$.
@@ -16,24 +25,46 @@ pub trait IsTwoAdicField: IsField {
     const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: Self::BaseType;
     const GENERATOR: Self::BaseType;
 
-    /// Returns the primitive root of unity of order 2^k.
-    fn get_root_of_unity(k: u64) -> Result<FieldElement<Self>, FFTError> {
+    /// Returns the primitive root of unity of order $2^{order}$.
+    fn get_root_of_unity(order: u64) -> Result<FieldElement<Self>, FFTError> {
         let two_adic_primitive_root_of_unity =
             FieldElement::new(Self::TWO_ADIC_PRIMITVE_ROOT_OF_UNITY);
-        if k == 0 {
+        if order == 0 {
             return Err(FFTError::RootOfUnityError(
-                "Cannot get root of unity for k = 0".to_string(),
-                k,
+                "Cannot get root of unity for order = 0".to_string(),
+                order,
             ));
         }
-        if k > Self::TWO_ADICITY {
+        if order > Self::TWO_ADICITY {
             return Err(FFTError::RootOfUnityError(
                 "Order cannot exceed 2^{Self::TWO_ADICITY}".to_string(),
-                k,
+                order,
             ));
         }
-        let power = 1u64 << (Self::TWO_ADICITY - k);
+        let power = 1u64 << (Self::TWO_ADICITY - order);
         Ok(two_adic_primitive_root_of_unity.pow(power))
+    }
+
+    /// Returns a `Vec` of the powers of this field's `n`th root of unity in some configuration
+    /// `config`. For example, in a `Natural` config this would yield: w^0, w^1, w^2...
+    fn get_powers_of_root(n: u64, count: usize, config: RootsConfig) -> Result<Vec<FieldElement<Self>>, FFTError> {
+        let root = Self::get_root_of_unity(n)?;
+
+        let calc = |i| match config {
+            RootsConfig::Natural => root.pow(i),
+            RootsConfig::NaturalInversed => root.pow(i).inv(),
+            RootsConfig::BitReverse => root.pow(reverse_index(&i, count as u64)),
+            RootsConfig::BitReverseInversed => root.pow(reverse_index(&i, count as u64)).inv(),
+        };
+
+        let results = (0..count).map(|i| calc(i));
+        Ok(results.collect())
+    }
+
+
+    /// Returns 2^n / 2 twiddle factors for FFT in some configuration `config`.
+    fn get_twiddles(order: u64, config: RootsConfig) -> Result<Vec<FieldElement<Self>>, FFTError> {
+        Self::get_powers_of_root(order, 1 << (order - 1), config)
     }
 }
 
@@ -97,4 +128,30 @@ pub trait IsField: Debug + Clone {
 
     // Returns the representative of the value stored
     fn representative(a: Self::BaseType) -> Self::BaseType;
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        fft::bit_reversing::in_place_bit_reverse_permute,
+        field::test_fields::u64_test_field::U64TestField,
+    };
+    use proptest::prelude::*;
+
+    use super::*;
+
+    const MODULUS: u64 = 0xFFFFFFFF00000001;
+    type F = U64TestField<MODULUS>;
+
+    proptest! {
+        #[test]
+        fn test_gen_twiddles_bit_reversed_validity(n in 1..8_u64) {
+            let twiddles = F::get_twiddles(n, RootsConfig::Natural).unwrap();
+            let mut twiddles_to_reorder = F::get_twiddles(n, RootsConfig::BitReverse).unwrap();
+            in_place_bit_reverse_permute(&mut twiddles_to_reorder[..]); // so now should be naturally
+                                                                        // ordered
+
+            prop_assert_eq!(twiddles, twiddles_to_reorder);
+        }
+    }
 }
