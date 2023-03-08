@@ -70,7 +70,6 @@ pub fn generate_roots_of_unity_coset(coset_factor: u64, primitive_root: &FE) -> 
 
 #[derive(Debug, Clone)]
 pub struct StarkQueryProof {
-    pub trace_lde_poly_root: FE,
     pub trace_ood_evaluations: Vec<FE>,
     pub composition_poly_evaluations: Vec<FE>,
     pub fri_layers_merkle_roots: Vec<FE>,
@@ -108,32 +107,30 @@ pub fn prove(trace: &[FE]) -> StarkQueryProof {
 
     let trace_poly = Polynomial::interpolate(&trace_roots_of_unity, trace);
 
-    // * Do Reed-Solomon on the trace and composition polynomials using some blowup factor
-    let trace_poly_lde = trace_poly.evaluate_slice(lde_roots_of_unity_coset.as_slice());
-
-    // * Commit to both polynomials using a Merkle Tree
-    let trace_poly_lde_merkle_tree = FriMerkleTree::build(trace_poly_lde.as_slice());
-
     // * Sample q_1, ..., q_m using Fiat-Shamir
     // let q_1 = transcript.challenge();
     // @@@@@@@@@@@@@@@@@@@@@@
     let q_1: usize = 4;
 
-    // These are evaluations over the composition polynomial
+    // In the literature, these are H_1 and H_2, which satisfy
+    // H(X) = H_1(X^2) + X * H_2(X^2)
     let (composition_poly_even, composition_poly_odd) =
         compute_composition_polys(&trace_poly, &trace_primitive_root);
 
+    // TODO: Fiat-Shamir
+    // z is the Out of domain evaluation point used in Deep FRI. It needs to be a point outside
+    // of both the roots of unity and its corresponding coset used for the lde commitment.
     let z = FE::from(3);
     let z_squared = &z * &z;
 
-    // Sample z outside trace and cosets
-    // Provide evaluations for H_1, H_2 and trace polynomials to recover C_1 and C_2
-
+    // Evaluate H_1 and H_2 in z^2.
     let composition_poly_evaluations = vec![
         composition_poly_even.evaluate(&z_squared),
         composition_poly_odd.evaluate(&z_squared),
     ];
 
+    // The points z, (w * z), and (w^2 * z) needed by the verifier for the evaluation
+    // consistency check.
     let trace_evaluation_points = vec![
         z.clone(),
         z.clone() * &trace_primitive_root,
@@ -142,12 +139,9 @@ pub fn prove(trace: &[FE]) -> StarkQueryProof {
 
     let trace_ood_evaluations = trace_poly.evaluate_slice(&trace_evaluation_points);
 
-    // This is needed to check  the element is in the root
-    let trace_root = trace_poly_lde_merkle_tree.root;
-
     // END EVALUATION BLOCK
 
-    // Compute DEEP composition polynomial and FRI commit to it.
+    // Compute DEEP composition polynomial so we can commit to it using FRI.
     let mut deep_composition_poly = compute_deep_composition_poly(
         &trace_poly,
         &composition_poly_even,
@@ -184,7 +178,6 @@ pub fn prove(trace: &[FE]) -> StarkQueryProof {
         .collect();
 
     StarkQueryProof {
-        trace_lde_poly_root: trace_root,
         trace_ood_evaluations,
         composition_poly_evaluations,
         fri_layers_merkle_roots,
@@ -192,16 +185,15 @@ pub fn prove(trace: &[FE]) -> StarkQueryProof {
     }
 }
 
+/// Given the trace polynomial and a primitive root, returns the deep FRI composition polynomial
+/// `H`, split into its even and odd parts `H_1` and `H_2`. In the fibonacci example, `H` is the following
+/// `H(X)` = `C_1(X) (alpha_1 * X^(D - D_1) + beta_1) + C_2(X) (alpha_2 X^(D - D_2) + beta_2)`, where `C_1`
+/// is the boundary constraint polynomial and `C_2` is the transition constraint polynomial and the alphas
+/// and betas are provided by the verifier (a.k.a. sampled using Fiat-Shamir).
 fn compute_composition_polys(
     trace_poly: &Polynomial<FE>,
     primitive_root: &FE,
 ) -> (Polynomial<FE>, Polynomial<FE>) {
-    // Compute H here
-    // For this:
-    // - Sample alphas and betas
-    // - Compute D and `D_i`s
-    // Split H into H_1 and H_2
-    // Return (H_1, H_2)
     let transition_quotient = compute_transition_quotient(primitive_root, trace_poly);
 
     // Hard-coded fibonacci boundary constraints
@@ -235,6 +227,9 @@ fn compute_composition_polys(
     constraint_composition_poly.even_odd_decomposition()
 }
 
+/// Returns the transition quotient polynomial that encodes what valid computation means.
+/// In the fibonacci example, this is the polynomial `t(w^2 * X) - t(w * X) - t(X)` divided by
+/// its zerofier (we call it quotient because of the division by the zerofier).
 fn compute_transition_quotient(primitive_root: &FE, trace_poly: &Polynomial<FE>) -> Polynomial<FE> {
     let w_squared_x = Polynomial::new(&[FE::zero(), primitive_root * primitive_root]);
     let w_x = Polynomial::new(&[FE::zero(), primitive_root.clone()]);
@@ -248,6 +243,9 @@ fn compute_transition_quotient(primitive_root: &FE, trace_poly: &Polynomial<FE>)
     transition_poly.div(zerofier)
 }
 
+/// Returns the evaluation of the transition quotient polynomial on the provided ood evaluation point
+/// required by DEEP FRI. This function is used by the verifier to check consistency between the trace
+/// and the composition polynomial.
 fn compute_transition_quotient_ood_evaluation(
     primitive_root: &FE,
     trace_poly_ood_evaluations: &[FE],
@@ -286,6 +284,9 @@ fn compute_boundary_quotient(
     (trace_poly.clone() - poly).div(zerofier)
 }
 
+/// Returns the evaluation of the boundary constraint quotient polynomial on the provided ood evaluation point
+/// required by DEEP FRI. This function is used by the verifier to check consistency between the trace
+/// and the composition polynomial.
 fn compute_boundary_quotient_ood_evaluation(
     constraints: &BoundaryConstraints<FE>,
     col: usize,
@@ -303,6 +304,9 @@ fn compute_boundary_quotient_ood_evaluation(
         / zerofier.evaluate(ood_evaluation_point)
 }
 
+/// Returns the DEEP composition polynomial that the prover then commits to using
+/// FRI. This polynomial is a linear combination of the trace polynomial and the
+/// composition polynomial, with coefficients sampled by the verifier (i.e. using Fiat-Shamir).
 fn compute_deep_composition_poly(
     trace_poly: &Polynomial<FE>,
     even_composition_poly: &Polynomial<FE>,
@@ -396,6 +400,7 @@ pub fn verify(proof: &StarkQueryProof) -> bool {
     // This is information that should come from the trace, we are hardcoding it in this case though.
     let d_2: usize = 1;
 
+    // TODO: Fiat-Shamir
     let alpha_1 = FE::one();
     let alpha_2 = FE::one();
     let beta_1 = FE::one();
