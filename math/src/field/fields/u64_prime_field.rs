@@ -101,7 +101,7 @@ impl<const MODULUS: u64> ByteConversion for U64FieldElement<MODULUS> {
 
 impl<const MODULUS: u64> Distribution<U64FieldElement<MODULUS>> for Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> U64FieldElement<MODULUS> {
-        let x: u64 = rng.gen_range(1..MODULUS);
+        let x: u64 = rng.gen_range(0..MODULUS);
         U64FieldElement::from(x)
     }
 }
@@ -282,10 +282,10 @@ mod tests {
             }
 
             // Generate histogram where columns are field elements
-            let mut hist: [u64; (LOCAL_MODULUS - 1) as usize] = [0; (LOCAL_MODULUS - 1) as usize];
+            let mut hist: [u64; (LOCAL_MODULUS) as usize] = [0; (LOCAL_MODULUS) as usize];
 
             for i in 0..=(rand_dist.len() - 1) {
-                hist[(*rand_dist[i].value() - 1) as usize] += 1;
+                hist[*rand_dist[i].value() as usize] += 1;
             }
 
             // Compute arithmetic average of histogram columns values

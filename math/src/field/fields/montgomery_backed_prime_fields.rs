@@ -209,42 +209,20 @@ where
         rng: &mut R,
     ) -> FieldElement<MontgomeryBackendPrimeField<C, NUM_LIMBS>> {
         let mut rand_limbs: [u64; NUM_LIMBS] = [0; NUM_LIMBS];
-        let mut is_msl: bool = true; //is Most Significative Limb of MODULUS
-        let mut is_msl_max: bool = false; //is already generated limbs max in the generation set
+        let mut roll_to_max: bool = false;
+        let mut max_gen_lsl: u64; //Max generable least significative limb
 
-        for i in 0..NUM_LIMBS {
-            match C::MODULUS.limbs[i] {
-                mod_limb if (mod_limb == 0) && is_msl => rand_limbs[i] = 0,
-                mod_limb if (i == (NUM_LIMBS - 1)) && is_msl => {
-                    rand_limbs[i] = rng.gen_range(1..mod_limb);
-                }
-                mod_limb if is_msl => {
-                    rand_limbs[i] = rng.gen_range(0..=mod_limb);
-                    if rand_limbs[i] == mod_limb {
-                        is_msl_max = true;
-                    }
-                    is_msl = false;
-                }
-                mod_limb if is_msl_max => {
-                    //edge case if former limb is max
-                    if i == (NUM_LIMBS - 1) {
-                        rand_limbs[i] = rng.gen_range(0..mod_limb);
-                    } else {
-                        rand_limbs[i] = rng.gen_range(0..=mod_limb);
-                    }
-                    if rand_limbs[i] < mod_limb {
-                        is_msl_max = false;
-                    }
-                }
-                _ if (i == (NUM_LIMBS - 1)) => {
-                    if rand_limbs == [0; NUM_LIMBS] {
-                        //edge case if all generated limbs are 0
-                        rand_limbs[i] = rng.gen_range(1..=u64::MAX);
-                    } else {
-                        rand_limbs[i] = rng.gen_range(0..=u64::MAX);
-                    }
-                }
-                _ => rand_limbs[i] = rng.gen_range(0..=u64::MAX),
+        for (i, rand_limb) in rand_limbs.iter_mut().enumerate().take(NUM_LIMBS) {
+            if !roll_to_max {
+                max_gen_lsl = if i != NUM_LIMBS - 1 {
+                    C::MODULUS.limbs[i]
+                } else {
+                    C::MODULUS.limbs[i] - 1
+                };
+                *rand_limb = rng.gen_range(0..=max_gen_lsl);
+                roll_to_max = *rand_limb != C::MODULUS.limbs[i];
+            } else {
+                *rand_limb = rng.gen_range(0..=u64::MAX);
             }
         }
 
@@ -424,7 +402,7 @@ mod tests_u384_prime_fields {
             let rand: U384F23Element = rand::random();
             assert!(
                 (&U384MontgomeryConfiguration23::MODULUS > rand.value())
-                    && (rand.value() > &U384::from_u64(0))
+                    && (rand.value() >= &U384::from_u64(0))
             );
         }
     }
@@ -482,7 +460,7 @@ mod tests_u384_prime_fields {
             let rand: U384FP1Element = rand::random();
             assert!(
                 (&U384MontgomeryConfigP1::MODULUS > rand.value())
-                    && (rand.value() > &U384::from_u64(0))
+                    && (rand.value() >= &U384::from_u64(0))
             );
         }
     }
@@ -575,7 +553,7 @@ mod tests_u384_prime_fields {
             let rand: U384FP2Element = rand::random();
             assert!(
                 (&U384MontgomeryConfigP2::MODULUS > rand.value())
-                    && (rand.value() > &U384::from_u64(0))
+                    && (rand.value() >= &U384::from_u64(0))
             );
         }
     }
@@ -745,7 +723,7 @@ mod tests_u256_prime_fields {
             let rand: U256F29Element = rand::random();
             assert!(
                 (&U256MontgomeryConfiguration29::MODULUS > rand.value())
-                    && (rand.value() > &U256::from_u64(0))
+                    && (rand.value() >= &U256::from_u64(0))
             );
         }
     }
@@ -801,7 +779,7 @@ mod tests_u256_prime_fields {
             let rand: U256FP1Element = rand::random();
             assert!(
                 (&U256MontgomeryConfigP1::MODULUS > rand.value())
-                    && (rand.value() > &U256::from_u64(0))
+                    && (rand.value() >= &U256::from_u64(0))
             );
         }
     }
@@ -897,7 +875,7 @@ mod tests_u256_prime_fields {
             let rand: U256FP2Element = rand::random();
             assert!(
                 (&U256MontgomeryConfigP2::MODULUS > rand.value())
-                    && (rand.value() > &U256::from_u64(0))
+                    && (rand.value() >= &U256::from_u64(0))
             );
         }
     }
