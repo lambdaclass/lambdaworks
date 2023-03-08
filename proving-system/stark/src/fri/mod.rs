@@ -6,10 +6,10 @@ use crate::fri::fri_commitment::{FriCommitment, FriCommitmentVec};
 use crate::fri::fri_functions::next_fri_layer;
 pub use lambdaworks_crypto::merkle_tree::DefaultHasher;
 pub type FriMerkleTree = MerkleTree<F, DefaultHasher>;
+use super::transcript_to_field;
 pub use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 pub use lambdaworks_crypto::merkle_tree::merkle::MerkleTree;
 use lambdaworks_math::traits::ByteConversion;
-use lambdaworks_math::unsigned_integer::element::U384;
 pub use lambdaworks_math::{
     field::{element::FieldElement, fields::u64_prime_field::U64PrimeField},
     polynomial::Polynomial,
@@ -84,9 +84,7 @@ pub fn fri(
 
     while degree > 0 {
         // sample beta:
-        // let beta_bytes = transcript.challenge();
-        // let beta = FE::from_bytes_be(&beta_bytes).unwrap();
-        let beta = FE::new(U384::from("4"));
+        let beta = transcript_to_field(transcript);
 
         let (p_i, domain_i, evaluation_i) = next_fri_layer(&last_poly, &last_domain, &beta);
 

@@ -118,8 +118,6 @@ pub fn prove(trace: &[FE]) -> StarkQueryProof {
     let trace_poly_lde_merkle_tree = FriMerkleTree::build(trace_poly_lde.as_slice());
 
     // * Sample q_1, ..., q_m using Fiat-Shamir
-    // let q_1 = transcript.challenge();
-    // @@@@@@@@@@@@@@@@@@@@@@
     let q_1: usize = transcript_to_usize(transcript);
     let alpha_bc = transcript_to_field(transcript);
     let alpha_t = transcript_to_field(transcript);
@@ -260,9 +258,9 @@ pub fn verify(proof: &StarkQueryProof) -> bool {
     let composition_polynomial_evaluation_from_prover = &proof.composition_poly_lde_evaluations[0];
 
     // TODO: Fiat-Shamir
-    let q_1: usize = 4;
-    let alpha_bc = FE::from(2);
-    let alpha_t = FE::from(3);
+    let q_1: usize = transcript_to_usize(transcript);
+    let alpha_bc = transcript_to_field(transcript);
+    let alpha_t = transcript_to_field(transcript);
 
     let trace_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_TRACE);
     let lde_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE);
@@ -295,8 +293,6 @@ pub fn verify(proof: &StarkQueryProof) -> bool {
         return false;
     }
 
-    let q_1: usize = 4;
-
     let trace_evaluation_point_indexes = vec![
         q_1,
         q_1 + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE) as usize,
@@ -324,7 +320,7 @@ pub fn verify(proof: &StarkQueryProof) -> bool {
 pub fn fri_verify(
     fri_layers_merkle_roots: &[FE],
     fri_decommitment: &FriDecommitment,
-    _transcript: &mut Transcript,
+    transcript: &mut Transcript,
 ) -> bool {
     // For each fri layer merkle proof check:
     // That each merkle path verifies
@@ -337,7 +333,7 @@ pub fn fri_verify(
 
     // Check that v = P_{i+1}(z_i)
 
-    let decommitment_index: u64 = 4;
+    let decommitment_index = transcript_to_usize(transcript);
 
     let mut lde_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE);
     let mut offset = FE::from(COSET_OFFSET);
@@ -371,8 +367,7 @@ pub fn fri_verify(
         // layer is, so we can check the merkle paths at the right index.
         let current_layer_domain_length = ORDER_OF_ROOTS_OF_UNITY_FOR_LDE as usize >> layer_number;
 
-        let layer_evaluation_index: usize =
-            decommitment_index as usize % current_layer_domain_length;
+        let layer_evaluation_index = decommitment_index % current_layer_domain_length;
         if !fri_layer_auth_path.verify(
             fri_layer_merkle_root,
             layer_evaluation_index,
@@ -381,9 +376,8 @@ pub fn fri_verify(
             return false;
         }
 
-        let layer_evaluation_index_symmetric: usize = (decommitment_index as usize
-            + current_layer_domain_length)
-            % current_layer_domain_length;
+        let layer_evaluation_index_symmetric =
+            (decommitment_index + current_layer_domain_length) % current_layer_domain_length;
 
         if !fri_layer_auth_path_symmetric.verify(
             fri_layer_merkle_root,
@@ -393,8 +387,8 @@ pub fn fri_verify(
             return false;
         }
 
-        // TODO: use Fiat Shamir
-        let beta: u64 = 4;
+        // TODO: Fiat Shamir
+        let beta = transcript_to_usize(transcript);
 
         let (previous_auth_path_evaluation, previous_path_evaluation_symmetric) = fri_decommitment
             .layer_evaluations
@@ -409,7 +403,7 @@ pub fn fri_verify(
         // v is the calculated element for the
         // co linearity check
         let two = &FE::new(U384::from("2"));
-        let beta = FE::new(U384::from_u64(beta));
+        let beta = FE::new(U384::from_u64(beta as u64));
         let v = (previous_auth_path_evaluation + previous_path_evaluation_symmetric) / two
             + &beta * (previous_auth_path_evaluation - previous_path_evaluation_symmetric)
                 / (two * evaluation_point);
@@ -653,7 +647,7 @@ mod tests {
 }
 
 // TODO: change this to use more bits
-fn transcript_to_field(transcript: &mut Transcript) -> FE {
+pub fn transcript_to_field(transcript: &mut Transcript) -> FE {
     let ret_value = transcript.challenge();
     let ret_value_8: [u8; 8] = [
         ret_value[0],
@@ -678,7 +672,7 @@ fn transcript_to_usize(transcript: &mut Transcript) -> usize {
         ret.push(ret_value[i]);
     }
 
-    let result: [u8; CANT_BYTES_USIZE] =  ret.try_into().unwrap();
+    let result: [u8; CANT_BYTES_USIZE] = ret.try_into().unwrap();
     usize::from_be_bytes(result)
 }
 
