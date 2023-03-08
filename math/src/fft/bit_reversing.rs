@@ -45,9 +45,6 @@ mod test {
         let mut edge_case = [0];
 
         in_place_bit_reverse_permute(&mut edge_case[..]);
-        assert_eq!(
-            edge_case[..],
-            [0]
-        );
+        assert_eq!(edge_case[..], [0]);
     }
 }

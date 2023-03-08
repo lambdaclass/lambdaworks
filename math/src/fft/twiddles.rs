@@ -2,7 +2,7 @@ use crate::field::{element::FieldElement, traits::IsTwoAdicField};
 
 use super::{bit_reversing::reverse_index, errors::FFTError};
 
-/// Sequentially generates 2^k twiddle factors of a `F` two-adic field in natural order, this is,
+/// Sequentially generates 2^k / 2 twiddle factors of a `F` two-adic field in natural order, this is,
 /// w^0, w^1, w^2...
 pub fn gen_twiddles_natural<F: IsTwoAdicField>(k: u64) -> Result<Vec<FieldElement<F>>, FFTError> {
     let root = F::get_root_of_unity(k)?;
@@ -10,7 +10,7 @@ pub fn gen_twiddles_natural<F: IsTwoAdicField>(k: u64) -> Result<Vec<FieldElemen
     Ok((0..length).map(|i| root.pow(i)).collect())
 }
 
-/// Sequentially generates 2^k twiddle factors of a `F` two-adic field in bit-reversed order.
+/// Sequentially generates 2^k / 2 twiddle factors of a `F` two-adic field in bit-reversed order.
 pub fn gen_twiddles_bit_reversed<F: IsTwoAdicField>(
     k: u64,
 ) -> Result<Vec<FieldElement<F>>, FFTError> {
@@ -21,7 +21,7 @@ pub fn gen_twiddles_bit_reversed<F: IsTwoAdicField>(
         .collect())
 }
 
-/// Sequentially generates 2^k inversed twiddle factors of a `F` two-adic field in natural order,
+/// Sequentially generates 2^k / 2 inversed twiddle factors of a `F` two-adic field in natural order,
 /// this is, w^0, w^-1, w^-2...
 pub fn gen_inversed_twiddles_natural<F: IsTwoAdicField>(
     k: u64,
@@ -31,7 +31,7 @@ pub fn gen_inversed_twiddles_natural<F: IsTwoAdicField>(
     Ok((0..length).map(|i| root.pow(i).inv()).collect())
 }
 
-/// Sequentially generates 2^k inversed twiddle factors of a `F` two-adic field in bit-reversed order.
+/// Sequentially generates 2^k / 2 inversed twiddle factors of a `F` two-adic field in bit-reversed order.
 pub fn gen_inversed_twiddles_bit_reversed<F: IsTwoAdicField>(
     k: u64,
 ) -> Result<Vec<FieldElement<F>>, FFTError> {
