@@ -6,7 +6,7 @@ use super::{bit_reversing::reverse_index, errors::FFTError};
 /// w^0, w^1, w^2...
 pub fn gen_twiddles_natural<F: IsTwoAdicField>(k: u64) -> Result<Vec<FieldElement<F>>, FFTError> {
     let root = F::get_root_of_unity(k)?;
-    let length: u64 = 1 << k;
+    let length: u64 = 1 << (k - 1);
     Ok((0..length).map(|i| root.pow(i)).collect())
 }
 
@@ -15,7 +15,7 @@ pub fn gen_twiddles_bit_reversed<F: IsTwoAdicField>(
     k: u64,
 ) -> Result<Vec<FieldElement<F>>, FFTError> {
     let root = F::get_root_of_unity(k)?;
-    let length = 1 << k;
+    let length = 1 << (k - 1);
     Ok((0..length)
         .map(|i| root.pow(reverse_index(&i, length as u64) as u64))
         .collect())
@@ -27,7 +27,7 @@ pub fn gen_inversed_twiddles_natural<F: IsTwoAdicField>(
     k: u64,
 ) -> Result<Vec<FieldElement<F>>, FFTError> {
     let root = F::get_root_of_unity(k)?;
-    let length: u64 = 1 << k;
+    let length: u64 = 1 << (k - 1);
     Ok((0..length).map(|i| root.pow(i).inv()).collect())
 }
 
@@ -36,7 +36,7 @@ pub fn gen_inversed_twiddles_bit_reversed<F: IsTwoAdicField>(
     k: u64,
 ) -> Result<Vec<FieldElement<F>>, FFTError> {
     let root = F::get_root_of_unity(k)?;
-    let length = 1 << k;
+    let length = 1 << (k - 1);
     Ok((0..length)
         .map(|i| root.pow(reverse_index(&i, length as u64) as u64).inv())
         .collect())

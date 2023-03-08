@@ -8,9 +8,13 @@ pub fn in_place_bit_reverse_permute<E>(input: &mut [E]) {
     }
 }
 
-/// Reverses the `log2(count)` first bits of `i`
-pub fn reverse_index(i: &usize, count: u64) -> usize {
-    i.reverse_bits() >> (usize::BITS - count.trailing_zeros())
+/// Reverses the `log2(size)` first bits of `i`
+pub fn reverse_index(i: &usize, size: u64) -> usize {
+    if size == 1 {
+        *i
+    } else {
+        i.reverse_bits() >> (usize::BITS - size.trailing_zeros())
+    }
 }
 
 #[cfg(test)]
