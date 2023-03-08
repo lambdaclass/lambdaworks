@@ -501,7 +501,7 @@ mod tests {
         // * Commit to both polynomials using a Merkle Tree
         let trace_poly_lde_merkle_tree = FriMerkleTree::build(trace_poly_lde.as_slice());
 
-        // MALICIOUS MOVE: Use a bad trace
+        // MALICIOUS MOVE: Change queried point
         let q_1: usize = 1;
 
         // START EVALUATION POINTS BLOCK
