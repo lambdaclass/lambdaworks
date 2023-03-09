@@ -344,6 +344,7 @@ where
     }
 }
 
+<<<<<<< HEAD
 impl<F: IsPrimeField> FieldElement<F> {
     // Returns the representative of the value stored
     pub fn representative(&self) -> F::RepresentativeType {
@@ -370,6 +371,9 @@ where
 }
 
 #[cfg(test)]
+=======
+
+>>>>>>> 354bcf5 (test sum for fieldElement)
 #[cfg(test)]
 mod tests {
 
