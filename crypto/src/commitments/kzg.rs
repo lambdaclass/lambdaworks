@@ -12,9 +12,11 @@ pub struct Opening<F: IsPrimeField, G1Point: IsGroup> {
     proof: G1Point,
 }
 
+
+#[derive(Clone)]
 pub struct StructuredReferenceString<const MAXIMUM_DEGREE: usize, G1Point, G2Point> {
-    powers_main_group: Vec<G1Point>,
-    powers_secondary_group: [G2Point; 2],
+    pub powers_main_group: Vec<G1Point>,
+    pub powers_secondary_group: [G2Point; 2],
 }
 
 impl<const MAXIMUM_DEGREE: usize, G1Point, G2Point> StructuredReferenceString<MAXIMUM_DEGREE, G1Point, G2Point>
@@ -49,7 +51,7 @@ impl<const MAXIMUM_DEGREE: usize, F: IsPrimeField, P: IsPairing>
 
     #[allow(unused)]
     pub fn commit(&self, p: &Polynomial<FieldElement<F>>) -> P::G1Point {
-        let coefficients: Vec<F::BaseUnsignedType> = p
+        let coefficients: Vec<F::RepresentativeType> = p
             .coefficients
             .iter()
             .map(|coefficient| coefficient.representative())
