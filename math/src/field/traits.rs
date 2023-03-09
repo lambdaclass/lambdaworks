@@ -68,6 +68,19 @@ pub trait IsTwoAdicField: IsField {
         Ok(results.collect())
     }
 
+    /// Returns a `Vec` of the powers of this field's `n`th root of unity, scaled `offset` times,
+    /// in a Natural configuration.
+    fn get_powers_of_root_coset(
+        n: u64,
+        count: usize,
+        offset: &FieldElement<Self>,
+    ) -> Result<Vec<FieldElement<Self>>, FFTError> {
+        let root = Self::get_root_of_unity(n)?;
+        let results = (0..count).map(|i| root.pow(i) * offset);
+
+        Ok(results.collect())
+    }
+
     /// Returns 2^n / 2 twiddle factors for FFT in some configuration `config`.
     fn get_twiddles(order: u64, config: RootsConfig) -> Result<Vec<FieldElement<Self>>, FFTError> {
         Self::get_powers_of_root(order, (1 << order) / 2, config)

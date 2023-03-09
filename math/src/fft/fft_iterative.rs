@@ -58,6 +58,7 @@ where
 /// - RN: reverse to natural order, meaning that the input is bit-reversed ordered and the output will
 /// be naturally ordered.
 /// - DIT: decimation in time
+#[allow(dead_code)]
 pub(crate) fn in_place_rn_2radix_fft<F>(input: &mut [FieldElement<F>], twiddles: &[FieldElement<F>])
 where
     F: IsTwoAdicField,
