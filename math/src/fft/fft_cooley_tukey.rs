@@ -1,10 +1,11 @@
-use crate::field::{element::FieldElement, traits::{IsTwoAdicField, RootsConfig}};
+use crate::field::{
+    element::FieldElement,
+    traits::{IsTwoAdicField, RootsConfig},
+};
 
 use super::{
-    bit_reversing::in_place_bit_reverse_permute,
-    errors::FFTError,
-    fft_iterative::in_place_nr_2radix_fft,
-    helpers::log2,
+    bit_reversing::in_place_bit_reverse_permute, errors::FFTError,
+    fft_iterative::in_place_nr_2radix_fft, helpers::log2,
 };
 
 /// Executes Fast Fourier Transform over elements of a two-adic finite field `F` in a coset. Usually used for

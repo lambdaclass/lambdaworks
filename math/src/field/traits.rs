@@ -1,4 +1,7 @@
-use crate::{fft::{errors::FFTError, bit_reversing::reverse_index}, unsigned_integer::traits::IsUnsignedInteger};
+use crate::{
+    fft::{bit_reversing::reverse_index, errors::FFTError},
+    unsigned_integer::traits::IsUnsignedInteger,
+};
 use std::{fmt::Debug, hash::Hash};
 
 use super::element::FieldElement;
@@ -47,7 +50,11 @@ pub trait IsTwoAdicField: IsField {
 
     /// Returns a `Vec` of the powers of this field's `n`th root of unity in some configuration
     /// `config`. For example, in a `Natural` config this would yield: w^0, w^1, w^2...
-    fn get_powers_of_root(n: u64, count: usize, config: RootsConfig) -> Result<Vec<FieldElement<Self>>, FFTError> {
+    fn get_powers_of_root(
+        n: u64,
+        count: usize,
+        config: RootsConfig,
+    ) -> Result<Vec<FieldElement<Self>>, FFTError> {
         let root = Self::get_root_of_unity(n)?;
 
         let calc = |i| match config {
@@ -60,7 +67,6 @@ pub trait IsTwoAdicField: IsField {
         let results = (0..count).map(calc);
         Ok(results.collect())
     }
-
 
     /// Returns 2^n / 2 twiddle factors for FFT in some configuration `config`.
     fn get_twiddles(order: u64, config: RootsConfig) -> Result<Vec<FieldElement<Self>>, FFTError> {
