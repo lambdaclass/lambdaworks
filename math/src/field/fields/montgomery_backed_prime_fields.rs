@@ -212,12 +212,12 @@ where
         let mut roll_to_max: bool = false;
         let mod_min_one = C::MODULUS - UnsignedInteger::from_u64(1_u64);
 
-        for (i, rand_limb) in rand_limbs.iter_mut().enumerate().take(NUM_LIMBS) {
+        for i in 0..NUM_LIMBS {
             if !roll_to_max {
-                *rand_limb = rng.gen_range(0..=mod_min_one.limbs[i]);
-                roll_to_max = *rand_limb != mod_min_one.limbs[i];
+                rand_limbs[i] = rng.gen_range(0..=mod_min_one.limbs[i]);
+                roll_to_max = rand_limbs[i] != mod_min_one.limbs[i];
             } else {
-                *rand_limb = rng.gen_range(0..=u64::MAX);
+                rand_limbs[i] = rng.gen_range(0..=u64::MAX);
             }
         }
 
