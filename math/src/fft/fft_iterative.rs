@@ -12,7 +12,7 @@ use crate::field::{element::FieldElement, traits::IsTwoAdicField};
 /// - NR: natural to reverse order, meaning that the input is naturally ordered and the output will
 /// be bit-reversed ordered.
 /// - DIT: decimation in time
-pub(crate) fn in_place_nr_2radix_fft<F>(input: &mut [FieldElement<F>], twiddles: &[FieldElement<F>])
+pub fn in_place_nr_2radix_fft<F>(input: &mut [FieldElement<F>], twiddles: &[FieldElement<F>])
 where
     F: IsTwoAdicField,
 {
@@ -59,7 +59,7 @@ where
 /// be naturally ordered.
 /// - DIT: decimation in time
 #[allow(dead_code)]
-pub(crate) fn in_place_rn_2radix_fft<F>(input: &mut [FieldElement<F>], twiddles: &[FieldElement<F>])
+pub fn in_place_rn_2radix_fft<F>(input: &mut [FieldElement<F>], twiddles: &[FieldElement<F>])
 where
     F: IsTwoAdicField,
 {
