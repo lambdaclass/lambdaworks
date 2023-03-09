@@ -57,14 +57,14 @@ pub trait IsTwoAdicField: IsField {
             RootsConfig::BitReverseInversed => root.pow(reverse_index(&i, count as u64)).inv(),
         };
 
-        let results = (0..count).map(|i| calc(i));
+        let results = (0..count).map(calc);
         Ok(results.collect())
     }
 
 
     /// Returns 2^n / 2 twiddle factors for FFT in some configuration `config`.
     fn get_twiddles(order: u64, config: RootsConfig) -> Result<Vec<FieldElement<Self>>, FFTError> {
-        Self::get_powers_of_root(order, 1 << (order - 1), config)
+        Self::get_powers_of_root(order, (1 << order) / 2, config)
     }
 }
 
