@@ -221,9 +221,7 @@ where
             }
         }
 
-        let integer: UnsignedInteger<NUM_LIMBS> = UnsignedInteger { limbs: rand_limbs };
-
-        FieldElement::new(integer)
+        FieldElement::new(UnsignedInteger { limbs: rand_limbs })
     }
 }
 
