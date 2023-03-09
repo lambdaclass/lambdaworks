@@ -210,17 +210,12 @@ where
     ) -> FieldElement<MontgomeryBackendPrimeField<C, NUM_LIMBS>> {
         let mut rand_limbs: [u64; NUM_LIMBS] = [0; NUM_LIMBS];
         let mut roll_to_max: bool = false;
-        let mut max_gen_lsl: u64; //Max generable least significative limb
+        let mod_min_one = C::MODULUS - UnsignedInteger::from_u64(1_u64);
 
         for (i, rand_limb) in rand_limbs.iter_mut().enumerate().take(NUM_LIMBS) {
             if !roll_to_max {
-                max_gen_lsl = if i != NUM_LIMBS - 1 {
-                    C::MODULUS.limbs[i]
-                } else {
-                    C::MODULUS.limbs[i] - 1
-                };
-                *rand_limb = rng.gen_range(0..=max_gen_lsl);
-                roll_to_max = *rand_limb != C::MODULUS.limbs[i];
+                *rand_limb = rng.gen_range(0..=mod_min_one.limbs[i]);
+                roll_to_max = *rand_limb != mod_min_one.limbs[i];
             } else {
                 *rand_limb = rng.gen_range(0..=u64::MAX);
             }
