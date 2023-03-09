@@ -212,6 +212,7 @@ where
         let mut roll_to_max: bool = false;
         let mod_min_one = C::MODULUS - UnsignedInteger::from_u64(1_u64);
 
+        #[allow(clippy::all)] //Lint imposed by clippy makes code harder to read.
         for i in 0..NUM_LIMBS {
             if !roll_to_max {
                 rand_limbs[i] = rng.gen_range(0..=mod_min_one.limbs[i]);
