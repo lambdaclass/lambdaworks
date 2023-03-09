@@ -97,8 +97,8 @@ pub trait IsField: Debug + Clone {
 }
 
 pub trait IsPrimeField: IsField {
-    type BaseUnsignedType: IsUnsignedInteger;
+    type RepresentativeType: IsUnsignedInteger;
 
     // Returns the representative of the value stored
-    fn representative(a: Self::BaseType) -> Self::BaseUnsignedType;
+    fn representative(a: &Self::BaseType) -> Self::RepresentativeType;
 }
