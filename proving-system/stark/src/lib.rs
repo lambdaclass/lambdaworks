@@ -662,20 +662,20 @@ pub fn transcript_to_field(transcript: &mut Transcript) -> FE {
         ret_value[7],
     ];
     let ret_value_u64 = u64::from_be_bytes(ret_value_8);
-    let f = FE::from(ret_value_u64);
-    f
+    FE::from(ret_value_u64)
 }
 
 fn transcript_to_usize(transcript: &mut Transcript) -> usize {
     const CANT_BYTES_USIZE: usize = (usize::BITS / 8) as usize;
     let ret_value = transcript.challenge();
-    let mut ret = Vec::with_capacity(CANT_BYTES_USIZE);
-    for i in 0..CANT_BYTES_USIZE {
-        ret.push(ret_value[i]);
-    }
-
-    let result: [u8; CANT_BYTES_USIZE] = ret.try_into().unwrap();
-    usize::from_be_bytes(result)
+    usize::from_be_bytes(
+        ret_value
+            .into_iter()
+            .take(CANT_BYTES_USIZE)
+            .collect::<Vec<u8>>()
+            .try_into()
+            .unwrap(),
+    )
 }
 
 #[cfg(test)]
