@@ -221,13 +221,7 @@ where
             }
         }
 
-        let mut rand_hex: String = "".to_string();
-
-        for i in rand_limbs {
-            rand_hex.push_str(&format!("{i:0>16X}"));
-        }
-
-        let integer: UnsignedInteger<NUM_LIMBS> = UnsignedInteger::from(&rand_hex);
+        let integer: UnsignedInteger<NUM_LIMBS> = UnsignedInteger { limbs: rand_limbs };
 
         FieldElement::new(integer)
     }
