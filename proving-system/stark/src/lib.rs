@@ -12,6 +12,7 @@ use lambdaworks_math::polynomial::{self, Polynomial};
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::{
     field::fields::montgomery_backed_prime_fields::{IsModulus, U384PrimeField},
+    traits::ByteConversion,
     unsigned_integer::element::U384,
 };
 
@@ -264,6 +265,22 @@ pub fn verify(proof: &StarkQueryProof) -> bool {
     let alpha_bc = transcript_to_field(transcript);
     let alpha_t = transcript_to_field(transcript);
 
+    // construct vector of betas
+    let mut beta_list = Vec::new();
+    for merkle_roots in &proof.fri_layers_merkle_roots {
+        let root = merkle_roots.clone();
+        let root_bytes = (*root.value()).to_bytes_be();
+        transcript.append(&root_bytes);
+        let current_line = line!();
+
+        let beta = transcript_to_field(transcript);
+        beta_list.push(beta);
+    }
+
+    let last_evaluation = &proof.fri_decommitment.last_layer_evaluation;
+    let last_evaluation_bytes = (*last_evaluation.value()).to_bytes_be();
+    transcript.append(&last_evaluation_bytes);
+
     let trace_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_TRACE);
     let lde_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE);
     let zerofier = compute_zerofier(
@@ -390,7 +407,8 @@ pub fn fri_verify(
         }
 
         // TODO: Fiat Shamir
-        let beta = transcript_to_usize(transcript);
+        let beta = transcript_to_field(transcript);
+
 
         let (previous_auth_path_evaluation, previous_path_evaluation_symmetric) = fri_decommitment
             .layer_evaluations
@@ -405,7 +423,6 @@ pub fn fri_verify(
         // v is the calculated element for the
         // co linearity check
         let two = &FE::new(U384::from("2"));
-        let beta = FE::new(U384::from_u64(beta as u64));
         let v = (previous_auth_path_evaluation + previous_path_evaluation_symmetric) / two
             + &beta * (previous_auth_path_evaluation - previous_path_evaluation_symmetric)
                 / (two * evaluation_point);
