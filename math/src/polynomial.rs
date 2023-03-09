@@ -1,6 +1,6 @@
 use super::field::element::FieldElement;
 use crate::{
-    fft::{errors::FFTError, fft_cooley_tukey::*},
+    fft::{abstractions::*, errors::FFTError},
     field::traits::{IsField, IsTwoAdicField},
 };
 use std::ops;
