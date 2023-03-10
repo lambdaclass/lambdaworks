@@ -25,6 +25,11 @@ impl IsModulus<U384> for Modulus {
         U384::from("800000000000011000000000000000000000000000000000000000000000001");
 }
 
+pub struct ProofConfig {
+    pub count_queries: usize,
+    pub blowup_factor: usize,
+}
+
 pub type PrimeField = U384PrimeField<Modulus>;
 pub type FE = FieldElement<PrimeField>;
 
@@ -100,8 +105,9 @@ pub fn fibonacci_trace(initial_values: [FE; 2]) -> Vec<FE> {
     ret
 }
 
-pub fn prove(trace: &[FE]) -> StarkQueryProof {
+pub fn prove(trace: &[FE], proof_config: &ProofConfig) -> StarkProof {
     let transcript = &mut Transcript::new();
+    let mut ret = StarkProof::new();
 
     // * Generate Coset
     let trace_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_TRACE);
@@ -142,61 +148,68 @@ pub fn prove(trace: &[FE]) -> StarkQueryProof {
 
     // * Sample q_1, ..., q_m using Fiat-Shamir
     let q_1: usize = transcript_to_usize(transcript) % ORDER_OF_ROOTS_OF_UNITY_FOR_LDE as usize;
-    // These are evaluations over the trace polynomial
-    // TODO @@@ this should be refactored
-    let evaluation_points = vec![
-        &offset * lde_primitive_root.pow(q_1),
-        &offset * lde_primitive_root.pow(q_1) * &trace_primitive_root,
-        &offset * lde_primitive_root.pow(q_1) * (&trace_primitive_root * &trace_primitive_root),
-    ];
-    let trace_lde_poly_evaluations = trace_poly.evaluate_slice(&evaluation_points);
-    let merkle_paths = vec![
-        trace_poly_lde_merkle_tree.get_proof_by_pos(q_1).unwrap(),
-        trace_poly_lde_merkle_tree
-            .get_proof_by_pos(
-                (q_1 + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE) as usize)
-                    % ORDER_OF_ROOTS_OF_UNITY_FOR_LDE as usize,
-            )
-            .unwrap(),
-        trace_poly_lde_merkle_tree
-            .get_proof_by_pos(
-                (q_1 + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE) as usize
-                    * 2)
-                    % ORDER_OF_ROOTS_OF_UNITY_FOR_LDE as usize,
-            )
-            .unwrap(),
-    ];
 
-    let composition_poly_lde_evaluation = composition_poly.evaluate(&evaluation_points[0]);
+    for i in 0..proof_config.count_queries {
+        // These are evaluations over the trace polynomial
+        // TODO @@@ this should be refactored
+        let evaluation_points = vec![
+            &offset * lde_primitive_root.pow(q_1),
+            &offset * lde_primitive_root.pow(q_1) * &trace_primitive_root,
+            &offset * lde_primitive_root.pow(q_1) * (&trace_primitive_root * &trace_primitive_root),
+        ];
+        let trace_lde_poly_evaluations = trace_poly.evaluate_slice(&evaluation_points);
+        let merkle_paths = vec![
+            trace_poly_lde_merkle_tree.get_proof_by_pos(q_1).unwrap(),
+            trace_poly_lde_merkle_tree
+                .get_proof_by_pos(
+                    (q_1 + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE)
+                        as usize)
+                        % ORDER_OF_ROOTS_OF_UNITY_FOR_LDE as usize,
+                )
+                .unwrap(),
+            trace_poly_lde_merkle_tree
+                .get_proof_by_pos(
+                    (q_1 + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE)
+                        as usize
+                        * 2)
+                        % ORDER_OF_ROOTS_OF_UNITY_FOR_LDE as usize,
+                )
+                .unwrap(),
+        ];
 
-    // * For every q_i, do FRI decommitment
-    let fri_decommitment = fri_decommit_layers(&lde_fri_commitment, q_1);
+        let composition_poly_lde_evaluation = composition_poly.evaluate(&evaluation_points[0]);
 
-    /*
-        IMPORTANT NOTE:
-        When we commit to the trace polynomial, let's call it f, we commit to an LDE of it.
-        On the other hand, the fibonacci constraint (and in general, any constraint) related to f applies
-        only using non-LDE roots of unity.
-        In this case, the constraint is f(w^2 x) - f(w x) - f(x), where w is a 2^n root of unity.
-        But for the commitment we use g, a 2^{nb} root of unity (b is the blowup factor).
-        When we sample a value x to evaluate the trace polynomial on, it has to be a 2^{nb} root of unity,
-        so with fiat-shamir we sample a random index in that range.
-        When we provide evaluations, we provide them for x*(w^2), x*w and x.
-    */
+        // * For every q_i, do FRI decommitment
+        let fri_decommitment = fri_decommit_layers(&lde_fri_commitment, q_1);
 
-    let fri_layers_merkle_roots: Vec<FE> = lde_fri_commitment
-        .iter()
-        .map(|fri_commitment| fri_commitment.merkle_tree.root.clone())
-        .collect();
+        /*
+            IMPORTANT NOTE:
+            When we commit to the trace polynomial, let's call it f, we commit to an LDE of it.
+            On the other hand, the fibonacci constraint (and in general, any constraint) related to f applies
+            only using non-LDE roots of unity.
+            In this case, the constraint is f(w^2 x) - f(w x) - f(x), where w is a 2^n root of unity.
+            But for the commitment we use g, a 2^{nb} root of unity (b is the blowup factor).
+            When we sample a value x to evaluate the trace polynomial on, it has to be a 2^{nb} root of unity,
+            so with fiat-shamir we sample a random index in that range.
+            When we provide evaluations, we provide them for x*(w^2), x*w and x.
+        */
 
-    StarkQueryProof {
-        trace_lde_poly_root: trace_root,
-        trace_lde_poly_evaluations,
-        trace_lde_poly_inclusion_proofs: merkle_paths,
-        composition_poly_lde_evaluations: vec![composition_poly_lde_evaluation],
-        fri_layers_merkle_roots,
-        fri_decommitment,
+        let fri_layers_merkle_roots: Vec<FE> = lde_fri_commitment
+            .iter()
+            .map(|fri_commitment| fri_commitment.merkle_tree.root.clone())
+            .collect();
+
+        ret.push(StarkQueryProof {
+            trace_lde_poly_root: trace_root.clone(), // TODO: do not repear trace_root in proof
+            trace_lde_poly_evaluations,
+            trace_lde_poly_inclusion_proofs: merkle_paths,
+            composition_poly_lde_evaluations: vec![composition_poly_lde_evaluation],
+            fri_layers_merkle_roots,
+            fri_decommitment,
+        });
     }
+
+    ret
 }
 
 fn compute_composition_poly(
@@ -253,18 +266,12 @@ fn compute_boundary_quotient(
     (trace_poly.clone() - poly).div(zerofier)
 }
 
-pub fn verify(proof: &StarkQueryProof) -> bool {
+pub fn verify(stark_proof: &StarkProof) -> bool {
     let transcript = &mut Transcript::new();
-
-    let trace_poly_root = &proof.trace_lde_poly_root;
-    let trace_evaluations = &proof.trace_lde_poly_evaluations;
-
-    // TODO: These could be multiple evaluations depending on how many q_i are sampled with Fiat Shamir
-    let composition_polynomial_evaluation_from_prover = &proof.composition_poly_lde_evaluations[0];
-
     let alpha_bc = transcript_to_field(transcript);
     let alpha_t = transcript_to_field(transcript);
 
+    let proof = &stark_proof[0];
     // construct vector of betas
     let mut beta_list = Vec::new();
     let count_betas = proof.fri_layers_merkle_roots.len() - 1;
@@ -285,6 +292,27 @@ pub fn verify(proof: &StarkQueryProof) -> bool {
 
     // TODO: Fiat-Shamir
     let q_1: usize = transcript_to_usize(transcript) % ORDER_OF_ROOTS_OF_UNITY_FOR_LDE as usize;
+
+    let mut result = true;
+    for proof_i in stark_proof {
+        // this is done in constant time
+        result &= verify_query(proof_i, &beta_list, &alpha_bc, &alpha_t, q_1);
+    }
+    result
+}
+
+pub fn verify_query(
+    proof: &StarkQueryProof,
+    beta_list: &[FE],
+    alpha_bc: &FE,
+    alpha_t: &FE,
+    q_1: usize,
+) -> bool {
+    let trace_poly_root = &proof.trace_lde_poly_root;
+    let trace_evaluations = &proof.trace_lde_poly_evaluations;
+
+    // TODO: These could be multiple evaluations depending on how many q_i are sampled with Fiat Shamir
+    let composition_polynomial_evaluation_from_prover = &proof.composition_poly_lde_evaluations[0];
 
     let trace_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_TRACE);
     let lde_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE);
@@ -336,7 +364,7 @@ pub fn verify(proof: &StarkQueryProof) -> bool {
     fri_verify(
         &proof.fri_layers_merkle_roots,
         &proof.fri_decommitment,
-        &beta_list,
+        beta_list,
         q_1,
     )
 }
@@ -473,8 +501,13 @@ mod tests {
 
     #[test]
     fn test_prove() {
+        let proof_config = super::ProofConfig {
+            count_queries: 30,
+            blowup_factor: 4,
+        };
+
         let trace = fibonacci_trace([FE::new(U384::from("1")), FE::new(U384::from("1"))]);
-        let result = prove(&trace);
+        let result = prove(&trace, &proof_config);
         assert!(verify(&result));
     }
 
@@ -610,8 +643,13 @@ mod tests {
     fn test_wrong_boundary_constraints_does_not_verify() {
         // The first public input is set to 2, this should not verify because our constraints are hard-coded
         // to assert this first element is 1.
+        let proof_config = super::ProofConfig {
+            count_queries: 30,
+            blowup_factor: 4,
+        };
+
         let trace = fibonacci_trace([FE::new(U384::from("2")), FE::new(U384::from("3"))]);
-        let result = prove(&trace);
+        let result = prove(&trace, &proof_config);
         assert!(!verify(&result));
     }
 
