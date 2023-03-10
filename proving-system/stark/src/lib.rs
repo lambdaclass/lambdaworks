@@ -146,30 +146,31 @@ pub fn prove(trace: &[FE], proof_config: &ProofConfig) -> StarkProof {
     let lde_fri_commitment =
         crate::fri::fri(&mut composition_poly, &lde_roots_of_unity_coset, transcript);
 
-    // * Sample q_1, ..., q_m using Fiat-Shamir
-    let q_1: usize = transcript_to_usize(transcript) % ORDER_OF_ROOTS_OF_UNITY_FOR_LDE as usize;
-
-    for i in 0..proof_config.count_queries {
+    for _i in 0..proof_config.count_queries {
         // These are evaluations over the trace polynomial
         // TODO @@@ this should be refactored
+        // * Sample q_1, ..., q_m using Fiat-Shamir
+        let q_i: usize = transcript_to_usize(transcript) % ORDER_OF_ROOTS_OF_UNITY_FOR_LDE as usize;
+        transcript.append(&q_i.to_be_bytes());
+
         let evaluation_points = vec![
-            &offset * lde_primitive_root.pow(q_1),
-            &offset * lde_primitive_root.pow(q_1) * &trace_primitive_root,
-            &offset * lde_primitive_root.pow(q_1) * (&trace_primitive_root * &trace_primitive_root),
+            &offset * lde_primitive_root.pow(q_i),
+            &offset * lde_primitive_root.pow(q_i) * &trace_primitive_root,
+            &offset * lde_primitive_root.pow(q_i) * (&trace_primitive_root * &trace_primitive_root),
         ];
         let trace_lde_poly_evaluations = trace_poly.evaluate_slice(&evaluation_points);
         let merkle_paths = vec![
-            trace_poly_lde_merkle_tree.get_proof_by_pos(q_1).unwrap(),
+            trace_poly_lde_merkle_tree.get_proof_by_pos(q_i).unwrap(),
             trace_poly_lde_merkle_tree
                 .get_proof_by_pos(
-                    (q_1 + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE)
+                    (q_i + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE)
                         as usize)
                         % ORDER_OF_ROOTS_OF_UNITY_FOR_LDE as usize,
                 )
                 .unwrap(),
             trace_poly_lde_merkle_tree
                 .get_proof_by_pos(
-                    (q_1 + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE)
+                    (q_i + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE)
                         as usize
                         * 2)
                         % ORDER_OF_ROOTS_OF_UNITY_FOR_LDE as usize,
@@ -180,7 +181,7 @@ pub fn prove(trace: &[FE], proof_config: &ProofConfig) -> StarkProof {
         let composition_poly_lde_evaluation = composition_poly.evaluate(&evaluation_points[0]);
 
         // * For every q_i, do FRI decommitment
-        let fri_decommitment = fri_decommit_layers(&lde_fri_commitment, q_1);
+        let fri_decommitment = fri_decommit_layers(&lde_fri_commitment, q_i);
 
         /*
             IMPORTANT NOTE:
@@ -291,12 +292,13 @@ pub fn verify(stark_proof: &StarkProof) -> bool {
     transcript.append(&last_evaluation_bytes);
 
     // TODO: Fiat-Shamir
-    let q_1: usize = transcript_to_usize(transcript) % ORDER_OF_ROOTS_OF_UNITY_FOR_LDE as usize;
-
     let mut result = true;
     for proof_i in stark_proof {
+        let q_i: usize = transcript_to_usize(transcript) % ORDER_OF_ROOTS_OF_UNITY_FOR_LDE as usize;
+        transcript.append(&q_i.to_be_bytes());
+
         // this is done in constant time
-        result &= verify_query(proof_i, &beta_list, &alpha_bc, &alpha_t, q_1);
+        result &= verify_query(proof_i, &beta_list, &alpha_bc, &alpha_t, q_i);
     }
     result
 }
