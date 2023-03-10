@@ -92,14 +92,14 @@ where
 mod tests {
     use crate::fft::bit_reversing::in_place_bit_reverse_permute;
     use crate::fft::helpers::log2;
-    use crate::field::test_fields::u64_test_field::U64TestField;
+    use crate::field::test_fields::u64_test_field::U64Field;
     use crate::polynomial::Polynomial;
     use proptest::prelude::*;
 
     use super::*;
 
     const MODULUS: u64 = 0xFFFFFFFF00000001;
-    type F = U64TestField<MODULUS>;
+    type F = U64Field<MODULUS>;
     type FE = FieldElement<F>;
 
     prop_compose! {

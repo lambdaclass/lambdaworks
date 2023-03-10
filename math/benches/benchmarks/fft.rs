@@ -1,7 +1,7 @@
 use criterion::Criterion;
 use lambdaworks_math::{
     fft::fft_cooley_tukey::{fft, inverse_fft},
-    field::test_fields::u64_test_field::U64TestField,
+    field::test_fields::u64_test_field::U64Field,
 };
 use lambdaworks_math::{
     fft::{bit_reversing::*, fft_iterative::*},
@@ -10,7 +10,7 @@ use lambdaworks_math::{
 use rand::random;
 
 const MODULUS: u64 = 0xFFFFFFFF00000001;
-type F = U64TestField<MODULUS>;
+type F = U64Field<MODULUS>;
 type FE = FieldElement<F>;
 
 fn gen_coeffs(pow: usize) -> Vec<FE> {

@@ -51,10 +51,6 @@ impl<const MODULUS: u32> IsField for U32Field<MODULUS> {
     fn from_base_type(x: u32) -> u32 {
         x % MODULUS
     }
-
-    fn representative(x: u32) -> u32 {
-        x
-    }
 }
 
 // 15 * 2^27 + 1;
