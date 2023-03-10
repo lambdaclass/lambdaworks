@@ -275,11 +275,10 @@ pub fn verify(proof: &StarkQueryProof) -> bool {
         transcript.append(&root_bytes);
 
         if i < count_betas {
-            let beta = transcript_to_field(transcript);    
+            let beta = transcript_to_field(transcript);
             beta_list.push(beta);
         }
         i += 1;
-
     }
 
     let last_evaluation = &proof.fri_decommitment.last_layer_evaluation;
@@ -340,7 +339,7 @@ pub fn verify(proof: &StarkQueryProof) -> bool {
         &proof.fri_layers_merkle_roots,
         &proof.fri_decommitment,
         &beta_list,
-        q_1
+        q_1,
     )
 }
 
@@ -361,7 +360,6 @@ pub fn fri_verify(
     // The calculation is, given the index, index % length_of_evaluation_domain
 
     // Check that v = P_{i+1}(z_i)
-
 
     let mut lde_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE);
     let mut offset = FE::from(COSET_OFFSET);
@@ -419,7 +417,6 @@ pub fn fri_verify(
         // TODO: Fiat Shamir
         let beta = beta_list[index].clone();
         index += 1;
-
 
         let (previous_auth_path_evaluation, previous_path_evaluation_symmetric) = fri_decommitment
             .layer_evaluations
