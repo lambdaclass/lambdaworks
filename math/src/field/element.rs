@@ -1,4 +1,6 @@
 use crate::field::traits::IsField;
+use crate::unsigned_integer::element::UnsignedInteger;
+use crate::unsigned_integer::montgomery::MontgomeryAlgorithms;
 use crate::unsigned_integer::traits::IsUnsignedInteger;
 use std::iter::Sum;
 use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
@@ -6,6 +8,11 @@ use std::{
     fmt::Debug,
     hash::{Hash, Hasher},
 };
+
+use super::fields::montgomery_backed_prime_fields::{
+    IsModulus, MontgomeryBackendPrimeField,
+};
+use super::traits::IsPrimeField;
 
 /// A field element with operations algorithms defined in `F`
 #[derive(Debug, Clone)]
@@ -311,11 +318,6 @@ where
         &self.value
     }
 
-    // Returns the representative of the value stored
-    pub fn representative(&self) -> F::BaseType {
-        F::representative(self.value.clone())
-    }
-
     /// Returns the multiplicative inverse of `self`
     pub fn inv(&self) -> Self {
         Self {
@@ -341,5 +343,25 @@ where
     /// Returns the additive neutral element of the field.
     pub fn zero() -> Self {
         Self { value: F::zero() }
+    }
+}
+
+impl<F: IsPrimeField> FieldElement<F> {
+    // Returns the representative of the value stored
+    pub fn representative(&self) -> F::RepresentativeType {
+        F::representative(self.value())
+    }
+}
+
+impl<M, const NUM_LIMBS: usize> FieldElement<MontgomeryBackendPrimeField<M, NUM_LIMBS>>
+where
+    M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug,
+{
+    #[allow(unused)]
+    pub const fn from_hex(hex: &str) -> Self {
+        let integer = UnsignedInteger::<NUM_LIMBS>::from(hex);
+        Self {
+            value: MontgomeryAlgorithms::cios(&integer, &MontgomeryBackendPrimeField::<M, NUM_LIMBS>::R2, &M::MODULUS, &MontgomeryBackendPrimeField::<M, NUM_LIMBS>::MU),
+        }
     }
 }
