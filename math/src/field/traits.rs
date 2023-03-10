@@ -26,7 +26,6 @@ pub enum RootsConfig {
 pub trait IsTwoAdicField: IsField {
     const TWO_ADICITY: u64;
     const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: Self::BaseType;
-    const GENERATOR: Self::BaseType;
 
     /// Returns a primitive root of unity of order $2^{order}$.
     fn get_primitive_root_of_unity(order: u64) -> Result<FieldElement<Self>, FFTError> {
