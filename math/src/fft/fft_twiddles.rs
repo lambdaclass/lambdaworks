@@ -60,7 +60,7 @@ where
     // then the amount of groups should be the minimum that make K fit:
     let thread_group_count = MTLSize::new((K as u64 + threads - 1) / threads, 1, 1);
 
-    compute_encoder.dispatch_threads(thread_group_size, thread_group_count);
+    compute_encoder.dispatch_thread_groups(thread_group_count, thread_group_size);
     compute_encoder.end_encoding();
 
     command_buffer.commit();
