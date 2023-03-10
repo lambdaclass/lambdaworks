@@ -44,12 +44,6 @@ impl<E: IsEllipticCurve> EdwardsProjectivePoint<E> {
     pub fn to_affine(&self) -> Self {
         Self(self.0.to_affine())
     }
-
-    /// Returns the additive inverse of the projective point `p`
-    pub fn neg(&self) -> Self {
-        let [px, py, pz] = self.coordinates();
-        Self::new([-px, py.clone(), pz.clone()])
-    }
 }
 
 impl<E: IsEllipticCurve> PartialEq for EdwardsProjectivePoint<E> {
@@ -98,6 +92,12 @@ impl<E: IsEdwards> IsGroup for EdwardsProjectivePoint<E> {
         let den_s2 = FieldElement::one() - E::d() * x1 * x2 * y1 * y2;
 
         Self::new([num_s1 / den_s1, num_s2 / den_s2, FieldElement::one()])
+    }
+
+    /// Returns the additive inverse of the projective point `p`
+    fn neg(&self) -> Self {
+        let [px, py, pz] = self.coordinates();
+        Self::new([-px, py.clone(), pz.clone()])
     }
 }
 
