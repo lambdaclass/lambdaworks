@@ -208,8 +208,8 @@ fn compute_composition_poly(
     let w_x = Polynomial::new(&[FE::zero(), primitive_root.clone()]);
 
     // Hard-coded fibonacci transition constraints
-    let transition_poly = polynomial::compose(&trace_poly, &w_squared_x)
-        - polynomial::compose(&trace_poly, &w_x)
+    let transition_poly = polynomial::compose(trace_poly, &w_squared_x)
+        - polynomial::compose(trace_poly, &w_x)
         - trace_poly.clone();
     let zerofier = compute_zerofier(primitive_root, ORDER_OF_ROOTS_OF_UNITY_TRACE as usize);
 
@@ -222,7 +222,7 @@ fn compute_composition_poly(
         BoundaryConstraints::from_constraints(vec![a0_constraint, a1_constraint]);
 
     let boundary_quotient =
-        compute_boundary_quotient(&boundary_constraints, 0, primitive_root, &trace_poly);
+        compute_boundary_quotient(&boundary_constraints, 0, primitive_root, trace_poly);
 
     transition_quotient.mul(random_coeffs[0].clone())
         + boundary_quotient.mul(random_coeffs[1].clone())
@@ -268,8 +268,7 @@ pub fn verify(proof: &StarkQueryProof) -> bool {
     // construct vector of betas
     let mut beta_list = Vec::new();
     let count_betas = proof.fri_layers_merkle_roots.len() - 1;
-    let mut i = 0_usize;
-    for merkle_roots in &proof.fri_layers_merkle_roots {
+    for (i, merkle_roots) in proof.fri_layers_merkle_roots.iter().enumerate() {
         let root = merkle_roots.clone();
         let root_bytes = (*root.value()).to_bytes_be();
         transcript.append(&root_bytes);
@@ -278,7 +277,6 @@ pub fn verify(proof: &StarkQueryProof) -> bool {
             let beta = transcript_to_field(transcript);
             beta_list.push(beta);
         }
-        i += 1;
     }
 
     let last_evaluation = &proof.fri_decommitment.last_layer_evaluation;
@@ -367,14 +365,16 @@ pub fn fri_verify(
     // For each (merkle_root, merkle_auth_path) / fold
     // With the auth path containining the element that the
     // path proves it's existance
-    let mut index = 0_usize;
     for (
-        layer_number,
+        index,
         (
-            fri_layer_merkle_root,
+            layer_number,
             (
-                (fri_layer_auth_path, fri_layer_auth_path_symmetric),
-                (auth_path_evaluation, auth_path_evaluation_symmetric),
+                fri_layer_merkle_root,
+                (
+                    (fri_layer_auth_path, fri_layer_auth_path_symmetric),
+                    (auth_path_evaluation, auth_path_evaluation_symmetric),
+                ),
             ),
         ),
     ) in fri_layers_merkle_roots
@@ -389,6 +389,7 @@ pub fn fri_verify(
         // Since we always derive the current layer from the previous layer
         // We start with the second one, skipping the first, so previous is layer is the first one
         .skip(1)
+        .enumerate()
     {
         // This is the current layer's evaluation domain length. We need it to know what the decommitment index for the current
         // layer is, so we can check the merkle paths at the right index.
@@ -416,7 +417,6 @@ pub fn fri_verify(
 
         // TODO: Fiat Shamir
         let beta = beta_list[index].clone();
-        index += 1;
 
         let (previous_auth_path_evaluation, previous_path_evaluation_symmetric) = fri_decommitment
             .layer_evaluations
