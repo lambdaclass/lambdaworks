@@ -1,7 +1,8 @@
-pub mod constraints;
+pub mod air;
 pub mod fri;
 
-use constraints::boundary::{BoundaryConstraint, BoundaryConstraints};
+use air::constraints::boundary::{BoundaryConstraint, BoundaryConstraints};
+use air::Air;
 use std::ops::{Div, Mul};
 
 use fri::fri_decommit::{fri_decommit_layers, FriDecommitment};
@@ -95,7 +96,7 @@ pub fn fibonacci_trace(initial_values: [FE; 2]) -> Vec<FE> {
     ret
 }
 
-pub fn prove(trace: &[FE]) -> StarkQueryProof {
+pub fn prove<A: Air>(trace: &[FE], air: A) -> StarkQueryProof {
     let transcript = &mut Transcript::new();
 
     // * Generate Coset
@@ -106,17 +107,31 @@ pub fn prove(trace: &[FE]) -> StarkQueryProof {
     let lde_roots_of_unity_coset = generate_roots_of_unity_coset(COSET_OFFSET, &lde_primitive_root);
 
     let trace_poly = Polynomial::interpolate(&trace_roots_of_unity, trace);
+    let lde_trace = trace_poly.evaluate_slice(&lde_roots_of_unity_coset);
 
-    // In the literature, these are H_1 and H_2, which satisfy
-    // H(X) = H_1(X^2) + X * H_2(X^2)
-    let (composition_poly_even, composition_poly_odd) =
-        compute_composition_polys(&trace_poly, &trace_primitive_root);
+    // // In the literature, these are H_1 and H_2, which satisfy
+    // // H(X) = H_1(X^2) + X * H_2(X^2)
+    // let (composition_poly_even, composition_poly_odd) =
+    //     compute_composition_polys(&trace_poly, &trace_primitive_root);
 
     // TODO: Fiat-Shamir
     // z is the Out of domain evaluation point used in Deep FRI. It needs to be a point outside
     // of both the roots of unity and its corresponding coset used for the lde commitment.
     let z = FE::from(3);
     let z_squared = &z * &z;
+
+    // **********
+
+    // Get coefficients from Fiat-Shamir
+
+    // Create evaluation table
+    let evaluator = ConstraintEvaluator::new(&air, constraint_coeffs);
+    let constraint_evaluations = evaluator.evaluate(&lde_trace, &lde_roots_of_unity_coset);
+
+    // Get composition poly
+    let composition_poly = constraint_evaluations.into_poly();
+
+    // **********
 
     // Evaluate H_1 and H_2 in z^2.
     let composition_poly_evaluations = vec![
