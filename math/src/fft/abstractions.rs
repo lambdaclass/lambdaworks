@@ -21,7 +21,7 @@ pub fn fft_with_blowup<F: IsTwoAdicField>(
     let mut results = coeffs.to_vec();
     results.resize(domain_size, FieldElement::zero());
 
-    in_place_nr_2radix_fft(&mut results[..], &twiddles[..]);
+    in_place_nr_2radix_fft(&mut results, &twiddles);
     in_place_bit_reverse_permute(&mut results);
 
     Ok(results)

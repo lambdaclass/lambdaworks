@@ -46,7 +46,7 @@ pub fn fft_benchmarks(c: &mut Criterion) {
                     let mut coeffs = coeffs.clone();
                     let twiddles = F::get_twiddles(pow as u64, RootsConfig::Natural).unwrap();
                     in_place_bit_reverse_permute(&mut coeffs);
-                    in_place_rn_2radix_fft(&mut coeffs[..], &twiddles[..]);
+                    in_place_rn_2radix_fft(&mut coeffs, &twiddles);
                 });
             },
         );
