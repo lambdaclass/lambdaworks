@@ -1,0 +1,141 @@
+use crate::cyclic_group::IsGroup;
+use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
+use crate::elliptic_curve::traits::IsEllipticCurve;
+use crate::unsigned_integer::element::U384;
+use crate::{
+    elliptic_curve::short_weierstrass::traits::IsShortWeierstrass, field::element::FieldElement,
+};
+
+use super::field_extension::{Degree12ExtensionField, Degree2ExtensionField};
+
+const GENERATOR_X_0: U384 = U384::from("024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02b4510b647ae3d1770bac0326a805bbefd48056c8c121bdb8");
+const GENERATOR_X_1: U384 = U384::from("13e02b6052719f607dacd3a088274f65596bd0d09920b61ab5da61bbdc7f5049334cf11213945d57e5ac7d055d042b7e");
+const GENERATOR_Y_0: U384 = U384::from("0ce5d527727d6e118cc9cdc6da2e351aadfd9baa8cbdd3a76d429a695160d12c923ac9cc3baca289e193548608b82801");
+const GENERATOR_Y_1: U384 = U384::from("0606c4a02ea734cc32acd2b02bc28b99cb3e287e85a763af267492ab572e99ab3f370d275cec1da1aaa9075ff05f79be");
+
+/// The description of the curve.
+#[derive(Clone, Debug)]
+pub struct BLS12381TwistCurve;
+
+impl IsEllipticCurve for BLS12381TwistCurve {
+    type BaseField = Degree2ExtensionField;
+    type PointRepresentation = ShortWeierstrassProjectivePoint<Self>;
+
+    fn generator() -> Self::PointRepresentation {
+        Self::PointRepresentation::new([
+            FieldElement::new([
+                FieldElement::new(GENERATOR_X_0),
+                FieldElement::new(GENERATOR_X_1),
+            ]),
+            FieldElement::new([
+                FieldElement::new(GENERATOR_Y_0),
+                FieldElement::new(GENERATOR_Y_1),
+            ]),
+            FieldElement::one(),
+        ])
+    }
+}
+
+impl IsShortWeierstrass for BLS12381TwistCurve {
+    fn a() -> FieldElement<Self::BaseField> {
+        FieldElement::zero()
+    }
+
+    fn b() -> FieldElement<Self::BaseField> {
+        FieldElement::new([FieldElement::from(4), FieldElement::from(4)])
+    }
+}
+
+impl ShortWeierstrassProjectivePoint<BLS12381TwistCurve> {
+    /// This function is related to the map ψ: E_twist(𝔽p²) -> E(𝔽p¹²).
+    /// Given an affine point G in E_twist(𝔽p²) returns x, y such that
+    /// ψ(G) = (x', y', 1) with x' = x * x'' and y' = y * y''
+    /// for some x'', y'' in 𝔽p².
+    /// This is meant only to be used in the miller loop of the
+    /// ate pairing before the final exponentiation.
+    /// This is because elements in 𝔽p² raised to that
+    /// power are 1 and so the final result of the ate pairing
+    /// doens't depend on having this function output the exact
+    /// values of x' and y'. And it is enough to work with x and y.
+    pub fn to_fp12_unnormalized(&self) -> [FieldElement<Degree12ExtensionField>; 2] {
+        if self.is_neutral_element() {
+            [FieldElement::zero(), FieldElement::one()]
+        } else {
+            let [qx, qy, _] = self.coordinates();
+
+            let result_x = FieldElement::new([
+                FieldElement::new([FieldElement::zero(), qx.clone(), FieldElement::zero()]),
+                FieldElement::zero(),
+            ]);
+
+            let result_y = FieldElement::new([
+                FieldElement::zero(),
+                FieldElement::new([FieldElement::zero(), qy.clone(), FieldElement::zero()]),
+            ]);
+
+            [result_x, result_y]
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        cyclic_group::IsGroup,
+        elliptic_curve::{
+            short_weierstrass::{
+                curves::bls12_381::field_extension::{BLS12381PrimeField, Degree2ExtensionField},
+                traits::IsShortWeierstrass,
+            },
+            traits::IsEllipticCurve,
+        },
+        field::element::FieldElement,
+        unsigned_integer::element::U384,
+    };
+
+    use super::BLS12381TwistCurve;
+    type Level0FE = FieldElement<BLS12381PrimeField>;
+    type Level1FE = FieldElement<Degree2ExtensionField>;
+
+    #[test]
+    fn create_generator() {
+        let g = BLS12381TwistCurve::generator();
+        let [x, y, _] = g.coordinates();
+        assert_eq!(
+            BLS12381TwistCurve::defining_equation(x, y),
+            Level1FE::zero()
+        );
+    }
+
+    #[test]
+    fn add_points() {
+        let px = Level1FE::new([
+            Level0FE::new(U384::from("97798b4a61ac301bbee71e36b5174e2f4adfe3e1729bdae1fcc9965ae84181be373aa80414823eed694f1270014012d")),
+            Level0FE::new(U384::from("c9852cc6e61868966249aec153b50b29b3c22409f4c7880fd13121981c103c8ef84d9ea29b552431360e82cf69219fa"))
+        ]);
+        let py = Level1FE::new([
+            Level0FE::new(U384::from("16cb3a60f3fa52c8273aceeb94c4c7303e8074aa9eedec7355bbb1e8cceedd4ec1497f573f62822140377b8e339619ed")),
+            Level0FE::new(U384::from("1cd919b08afe06bebe9adf6223a55868a6fd8b77efc5c67b60fff39be36e9b44b7f10db16827c83b43ad2dad1947778"))
+        ]);
+        let qx = Level1FE::new([
+            Level0FE::new(U384::from("b6bce994c23f6505131a5f6d4ce4ba30f5dab726780bef00517585cab02e17f4d015b26eeaff376dc236af26c0210f1")),
+            Level0FE::new(U384::from("163163e71fdd96a84b6a24d3e7cd9d7c0f06961e6fe8b7ec9b27bef1dbef5cbaf557563f725229fc79814a294c0b8511"))
+        ]);
+        let qy = Level1FE::new([
+            Level0FE::new(U384::from("1c6afffac96cd457b4ac797e5cef6951c83bb328737f57df44ba0cc513d499f736816877a6cf87f1359e79d10151e14")),
+            Level0FE::new(U384::from("79e40e569c20182726c148ca72a6e862d03317a2cf75cd19c2be36e29e03da70acbefbfa7a4c4e1c088bf94ae6ba6ce"))
+        ]);
+        let expectedx = Level1FE::new([
+            Level0FE::new(U384::from("63f209cd306e632cc91089bd6b3bb02a6679fd02931a6e2292976589426dfdff9366829d5f45d982413e8b9514e8965")),
+            Level0FE::new(U384::from("11aae43845fcb3e633217c2851889cddb939a3d2ddf00a64e4e0a723c362dff2caabc640a1095ac5be4075d4f7edf17f"))
+        ]);
+        let expectedy = Level1FE::new([
+            Level0FE::new(U384::from("83e21ca01826bca9221373faf03132b80128c24760c639b44bd7e0b6c11537ef239c01d31a25a58c7f67fb16df0234b")),
+            Level0FE::new(U384::from("f45243fd699bba6c6ca644ad8070f7812e4987fb2c91f64139a293958ed373814ef7317c11c3496cd93b88871f5d2c7"))
+        ]);
+        let p = BLS12381TwistCurve::create_point_from_affine(px, py).unwrap();
+        let q = BLS12381TwistCurve::create_point_from_affine(qx, qy).unwrap();
+        let expected = BLS12381TwistCurve::create_point_from_affine(expectedx, expectedy).unwrap();
+        assert_eq!(p.operate_with(&q), expected);
+    }
+}

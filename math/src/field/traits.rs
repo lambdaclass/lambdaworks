@@ -55,9 +55,10 @@ pub trait IsField: Debug + Clone {
     {
         let mut result = Self::one();
         let mut base = a.clone();
-
-        while exponent > T::from(0) {
-            if exponent & T::from(1) == T::from(1) {
+        let zero = T::from(0);
+        let one = T::from(1);
+        while exponent > zero {
+            if exponent & one == one {
                 result = Self::mul(&result, &base);
             }
             base = Self::mul(&base, &base);
@@ -93,7 +94,11 @@ pub trait IsField: Debug + Clone {
     /// Takes as input an element of BaseType and returns the internal representation
     /// of that element in the field.
     fn from_base_type(x: Self::BaseType) -> Self::BaseType;
+}
+
+pub trait IsPrimeField: IsField {
+    type RepresentativeType: IsUnsignedInteger;
 
     // Returns the representative of the value stored
-    fn representative(a: Self::BaseType) -> Self::BaseType;
+    fn representative(a: &Self::BaseType) -> Self::RepresentativeType;
 }

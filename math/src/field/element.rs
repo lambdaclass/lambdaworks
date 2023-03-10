@@ -1,10 +1,18 @@
 use crate::field::traits::IsField;
+use crate::unsigned_integer::element::UnsignedInteger;
+use crate::unsigned_integer::montgomery::MontgomeryAlgorithms;
 use crate::unsigned_integer::traits::IsUnsignedInteger;
+use std::iter::Sum;
 use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
 use std::{
     fmt::Debug,
     hash::{Hash, Hasher},
 };
+
+use super::fields::montgomery_backed_prime_fields::{
+    IsMontgomeryConfiguration, MontgomeryBackendPrimeField,
+};
+use super::traits::IsPrimeField;
 
 /// A field element with operations algorithms defined in `F`
 #[derive(Debug, Clone)]
@@ -112,6 +120,16 @@ where
 {
     fn add_assign(&mut self, rhs: FieldElement<F>) {
         self.value = F::add(&self.value, &rhs.value);
+    }
+}
+
+/// Sum operator for field elements
+impl<F> Sum<FieldElement<F>> for FieldElement<F>
+where
+    F: IsField,
+{
+    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+        iter.fold(Self::zero(), |augend, addend| augend + addend)
     }
 }
 
@@ -300,11 +318,6 @@ where
         &self.value
     }
 
-    // Returns the representative of the value stored
-    pub fn representative(&self) -> F::BaseType {
-        F::representative(self.value.clone())
-    }
-
     /// Returns the multiplicative inverse of `self`
     pub fn inv(&self) -> Self {
         Self {
@@ -330,5 +343,25 @@ where
     /// Returns the additive neutral element of the field.
     pub fn zero() -> Self {
         Self { value: F::zero() }
+    }
+}
+
+impl<F: IsPrimeField> FieldElement<F> {
+    // Returns the representative of the value stored
+    pub fn representative(&self) -> F::RepresentativeType {
+        F::representative(self.value())
+    }
+}
+
+impl<C, const NUM_LIMBS: usize> FieldElement<MontgomeryBackendPrimeField<C, NUM_LIMBS>>
+where
+    C: IsMontgomeryConfiguration<NUM_LIMBS> + Clone + Debug,
+{
+    #[allow(unused)]
+    pub const fn from_hex(hex: &str) -> Self {
+        let integer = UnsignedInteger::<NUM_LIMBS>::from(hex);
+        Self {
+            value: MontgomeryAlgorithms::cios(&integer, &C::R2, &C::MODULUS, &C::MU),
+        }
     }
 }

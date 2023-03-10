@@ -45,10 +45,14 @@ where
         a: &[FieldElement<Q::BaseField>; 3],
         b: &[FieldElement<Q::BaseField>; 3],
     ) -> [FieldElement<Q::BaseField>; 3] {
+        let v0 = &a[0] * &b[0];
+        let v1 = &a[1] * &b[1];
+        let v2 = &a[2] * &b[2];
+
         [
-            &a[0] * &b[0] + &a[1] * &b[2] * Q::residue() + &a[2] * &b[1] * Q::residue(),
-            &a[0] * &b[1] + &a[1] * &b[0] + &a[2] * &b[2] * Q::residue(),
-            &a[0] * &b[2] + &a[2] * &b[0] + &a[1] * &b[1],
+            &v0 + Q::residue() * ((&a[1] + &a[2]) * (&b[1] + &b[2]) - &v1 - &v2),
+            (&a[0] + &a[1]) * (&b[0] + &b[1]) - &v0 - &v1 + Q::residue() * &v2,
+            (&a[0] + &a[2]) * (&b[0] + &b[2]) - v0 + v1 - v2,
         ]
     }
 
@@ -68,6 +72,7 @@ where
     /// Returns the multiplicative inverse of `a`
     fn inv(a: &[FieldElement<Q::BaseField>; 3]) -> [FieldElement<Q::BaseField>; 3] {
         let three = FieldElement::from(3_u64);
+
         let d = a[0].pow(3_u64)
             + a[1].pow(3_u64) * Q::residue()
             + a[2].pow(3_u64) * Q::residue().pow(2_u64)
@@ -126,10 +131,6 @@ where
     /// already have correct representations.
     fn from_base_type(x: [FieldElement<Q::BaseField>; 3]) -> [FieldElement<Q::BaseField>; 3] {
         x
-    }
-
-    fn representative(_x: Self::BaseType) -> Self::BaseType {
-        todo!()
     }
 }
 
