@@ -143,6 +143,7 @@ pub fn prove(trace: &[FE]) -> StarkQueryProof {
     // * Sample q_1, ..., q_m using Fiat-Shamir
     let q_1: usize = transcript_to_usize(transcript) % ORDER_OF_ROOTS_OF_UNITY_FOR_LDE as usize;
     // These are evaluations over the trace polynomial
+    // TODO @@@ this should be refactored
     let evaluation_points = vec![
         &offset * lde_primitive_root.pow(q_1),
         &offset * lde_primitive_root.pow(q_1) * &trace_primitive_root,
@@ -261,26 +262,35 @@ pub fn verify(proof: &StarkQueryProof) -> bool {
     // TODO: These could be multiple evaluations depending on how many q_i are sampled with Fiat Shamir
     let composition_polynomial_evaluation_from_prover = &proof.composition_poly_lde_evaluations[0];
 
-    // TODO: Fiat-Shamir
-    let q_1: usize = transcript_to_usize(transcript) % ORDER_OF_ROOTS_OF_UNITY_FOR_LDE as usize;
     let alpha_bc = transcript_to_field(transcript);
     let alpha_t = transcript_to_field(transcript);
 
     // construct vector of betas
     let mut beta_list = Vec::new();
+    let count_betas = proof.fri_layers_merkle_roots.len() - 1;
+    let mut i = 0_usize;
     for merkle_roots in &proof.fri_layers_merkle_roots {
         let root = merkle_roots.clone();
         let root_bytes = (*root.value()).to_bytes_be();
         transcript.append(&root_bytes);
         let current_line = line!();
 
-        let beta = transcript_to_field(transcript);
-        beta_list.push(beta);
+        if i < count_betas {
+            let beta = transcript_to_field(transcript);
+
+    
+            beta_list.push(beta);
+        }
+        i += 1;
+
     }
 
     let last_evaluation = &proof.fri_decommitment.last_layer_evaluation;
     let last_evaluation_bytes = (*last_evaluation.value()).to_bytes_be();
     transcript.append(&last_evaluation_bytes);
+
+    // TODO: Fiat-Shamir
+    let q_1: usize = transcript_to_usize(transcript) % ORDER_OF_ROOTS_OF_UNITY_FOR_LDE as usize;
 
     let trace_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_TRACE);
     let lde_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE);
