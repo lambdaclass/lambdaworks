@@ -168,7 +168,7 @@ where
     type RepresentativeType = Self::BaseType;
 
     fn representative(x: &Self::BaseType) -> Self::RepresentativeType {
-        MontgomeryAlgorithms::cios(&x, &UnsignedInteger::from_u64(1), &M::MODULUS, &Self::MU)
+        MontgomeryAlgorithms::cios(x, &UnsignedInteger::from_u64(1), &M::MODULUS, &Self::MU)
     }
 }
 

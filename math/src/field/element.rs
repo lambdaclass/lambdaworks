@@ -9,9 +9,7 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-use super::fields::montgomery_backed_prime_fields::{
-    IsModulus, MontgomeryBackendPrimeField,
-};
+use super::fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField};
 use super::traits::IsPrimeField;
 
 /// A field element with operations algorithms defined in `F`
@@ -361,7 +359,12 @@ where
     pub const fn from_hex(hex: &str) -> Self {
         let integer = UnsignedInteger::<NUM_LIMBS>::from(hex);
         Self {
-            value: MontgomeryAlgorithms::cios(&integer, &MontgomeryBackendPrimeField::<M, NUM_LIMBS>::R2, &M::MODULUS, &MontgomeryBackendPrimeField::<M, NUM_LIMBS>::MU),
+            value: MontgomeryAlgorithms::cios(
+                &integer,
+                &MontgomeryBackendPrimeField::<M, NUM_LIMBS>::R2,
+                &M::MODULUS,
+                &MontgomeryBackendPrimeField::<M, NUM_LIMBS>::MU,
+            ),
         }
     }
 }
