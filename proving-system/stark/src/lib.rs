@@ -118,8 +118,6 @@ pub fn prove(trace: &[FE]) -> StarkQueryProof {
     // * Commit to both polynomials using a Merkle Tree
     let trace_poly_lde_merkle_tree = FriMerkleTree::build(trace_poly_lde.as_slice());
 
-    // * Sample q_1, ..., q_m using Fiat-Shamir
-    let q_1: usize = transcript_to_usize(transcript) % ORDER_OF_ROOTS_OF_UNITY_FOR_LDE as usize;
     let alpha_bc = transcript_to_field(transcript);
     let alpha_t = transcript_to_field(transcript);
 
@@ -129,6 +127,21 @@ pub fn prove(trace: &[FE]) -> StarkQueryProof {
 
     let offset = FE::from(COSET_OFFSET);
 
+    // This is needed to check  the element is in the root
+    let trace_root = trace_poly_lde_merkle_tree.root.clone();
+
+    // END EVALUATION BLOCK
+
+    // These are evaluations over the composition polynomial
+    let mut composition_poly =
+        compute_composition_poly(&trace_poly, &trace_primitive_root, &[alpha_t, alpha_bc]);
+
+    // * Do FRI on the composition polynomials
+    let lde_fri_commitment =
+        crate::fri::fri(&mut composition_poly, &lde_roots_of_unity_coset, transcript);
+
+    // * Sample q_1, ..., q_m using Fiat-Shamir
+    let q_1: usize = transcript_to_usize(transcript) % ORDER_OF_ROOTS_OF_UNITY_FOR_LDE as usize;
     // These are evaluations over the trace polynomial
     let evaluation_points = vec![
         &offset * lde_primitive_root.pow(q_1),
@@ -153,19 +166,7 @@ pub fn prove(trace: &[FE]) -> StarkQueryProof {
             .unwrap(),
     ];
 
-    // These are evaluations over the composition polynomial
-    let mut composition_poly =
-        compute_composition_poly(trace_poly, &trace_primitive_root, &[alpha_t, alpha_bc]);
     let composition_poly_lde_evaluation = composition_poly.evaluate(&evaluation_points[0]);
-
-    // This is needed to check  the element is in the root
-    let trace_root = trace_poly_lde_merkle_tree.root;
-
-    // END EVALUATION BLOCK
-
-    // * Do FRI on the composition polynomials
-    let lde_fri_commitment =
-        crate::fri::fri(&mut composition_poly, &lde_roots_of_unity_coset, transcript);
 
     // * For every q_i, do FRI decommitment
     let fri_decommitment = fri_decommit_layers(&lde_fri_commitment, q_1);
@@ -198,7 +199,7 @@ pub fn prove(trace: &[FE]) -> StarkQueryProof {
 }
 
 fn compute_composition_poly(
-    trace_poly: Polynomial<FE>,
+    trace_poly: &Polynomial<FE>,
     primitive_root: &FE,
     random_coeffs: &[FE; 2],
 ) -> Polynomial<FE> {
