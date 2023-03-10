@@ -152,10 +152,6 @@ impl IsField for P448GoldilocksPrimeField {
         Self::weak_reduce(&mut x);
         x
     }
-
-    fn representative(x: U56x8) -> U56x8 {
-        x
-    }
 }
 
 impl P448GoldilocksPrimeField {
