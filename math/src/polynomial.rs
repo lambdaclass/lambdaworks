@@ -624,7 +624,7 @@ mod fft_test {
         #[test]
         fn test_fft_matches_naive_evaluation(poly in poly(8)) {
             let order = log2(poly.coefficients().len()).unwrap();
-            let twiddles = F::get_powers_of_root(order, poly.coefficients.len(), RootsConfig::Natural).unwrap();
+            let twiddles = F::get_powers_of_primitive_root(order, poly.coefficients.len(), RootsConfig::Natural).unwrap();
 
             let fft_eval = poly.evaluate_fft().unwrap();
             let naive_eval = poly.evaluate_slice(&twiddles[..]);
@@ -637,7 +637,7 @@ mod fft_test {
         #[test]
         fn test_fft_coset_matches_naive_evaluation(poly in poly(8), offset in offset(), blowup_factor in powers_of_two(4)) {
             let order = log2(poly.coefficients().len() * blowup_factor).unwrap();
-            let twiddles = F::get_powers_of_root_coset(order, poly.coefficients.len() * blowup_factor, &offset).unwrap();
+            let twiddles = F::get_powers_of_primitive_root_coset(order, poly.coefficients.len() * blowup_factor, &offset).unwrap();
 
             let fft_eval = poly.evaluate_offset_fft(&offset, blowup_factor).unwrap();
             let naive_eval = poly.evaluate_slice(&twiddles[..]);

@@ -28,8 +28,8 @@ pub trait IsTwoAdicField: IsField {
     const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: Self::BaseType;
     const GENERATOR: Self::BaseType;
 
-    /// Returns the primitive root of unity of order $2^{order}$.
-    fn get_root_of_unity(order: u64) -> Result<FieldElement<Self>, FFTError> {
+    /// Returns a primitive root of unity of order $2^{order}$.
+    fn get_primitive_root_of_unity(order: u64) -> Result<FieldElement<Self>, FFTError> {
         let two_adic_primitive_root_of_unity =
             FieldElement::new(Self::TWO_ADIC_PRIMITVE_ROOT_OF_UNITY);
         if order == 0 {
@@ -48,14 +48,14 @@ pub trait IsTwoAdicField: IsField {
         Ok(two_adic_primitive_root_of_unity.pow(power))
     }
 
-    /// Returns a `Vec` of the powers of this field's `n`th root of unity in some configuration
+    /// Returns a `Vec` of the powers of a `n`th primitive root of unity in some configuration
     /// `config`. For example, in a `Natural` config this would yield: w^0, w^1, w^2...
-    fn get_powers_of_root(
+    fn get_powers_of_primitive_root(
         n: u64,
         count: usize,
         config: RootsConfig,
     ) -> Result<Vec<FieldElement<Self>>, FFTError> {
-        let root = Self::get_root_of_unity(n)?;
+        let root = Self::get_primitive_root_of_unity(n)?;
 
         let calc = |i| match config {
             RootsConfig::Natural => root.pow(i),
@@ -68,22 +68,24 @@ pub trait IsTwoAdicField: IsField {
         Ok(results.collect())
     }
 
-    /// Returns a `Vec` of the powers of this field's `n`th root of unity, scaled `offset` times,
+    /// Returns a `Vec` of the powers of a `n`th primitive root of unity, scaled `offset` times,
     /// in a Natural configuration.
-    fn get_powers_of_root_coset(
+    fn get_powers_of_primitive_root_coset(
         n: u64,
         count: usize,
         offset: &FieldElement<Self>,
     ) -> Result<Vec<FieldElement<Self>>, FFTError> {
-        let root = Self::get_root_of_unity(n)?;
+        let root = Self::get_primitive_root_of_unity(n)?;
         let results = (0..count).map(|i| root.pow(i) * offset);
 
         Ok(results.collect())
     }
 
-    /// Returns 2^n / 2 twiddle factors for FFT in some configuration `config`.
+    /// Returns 2^`order` / 2 twiddle factors for FFT in some configuration `config`.
+    /// Twiddle factors are powers of a primitive root of unity of the field, used for FFT
+    /// computations. FFT only requires the first half of all the powers
     fn get_twiddles(order: u64, config: RootsConfig) -> Result<Vec<FieldElement<Self>>, FFTError> {
-        Self::get_powers_of_root(order, (1 << order) / 2, config)
+        Self::get_powers_of_primitive_root(order, (1 << order) / 2, config)
     }
 }
 

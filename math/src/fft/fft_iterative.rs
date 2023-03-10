@@ -125,7 +125,7 @@ mod tests {
         // Property-based test that ensures NR Radix-2 FFT gives same result as a naive polynomial evaluation.
         #[test]
         fn test_nr_2radix_fft_matches_naive_eval(coeffs in field_vec(8)) {
-            let root = F::get_root_of_unity(log2(coeffs.len()).unwrap()).unwrap();
+            let root = F::get_primitive_root_of_unity(log2(coeffs.len()).unwrap()).unwrap();
             let mut twiddles = (0..coeffs.len() as u64).map(|i| root.pow(i)).collect::<Vec<FE>>();
             in_place_bit_reverse_permute(&mut twiddles[..]); // required for NR
 
@@ -143,7 +143,7 @@ mod tests {
         // Property-based test that ensures RN Radix-2 fft gives same result as a naive polynomial evaluation.
         #[test]
         fn test_rn_2radix_fft_matches_naive_eval(coeffs in field_vec(8)) {
-            let root = F::get_root_of_unity(log2(coeffs.len()).unwrap()).unwrap();
+            let root = F::get_primitive_root_of_unity(log2(coeffs.len()).unwrap()).unwrap();
             let twiddles = (0..coeffs.len() as u64).map(|i| root.pow(i)).collect::<Vec<FE>>();
 
             let poly = Polynomial::new(&coeffs[..]);
