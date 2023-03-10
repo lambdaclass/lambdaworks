@@ -306,7 +306,7 @@ pub fn verify_query(
     beta_list: &[FE],
     alpha_bc: &FE,
     alpha_t: &FE,
-    q_1: usize,
+    q_i: usize,
 ) -> bool {
     let trace_poly_root = &proof.trace_lde_poly_root;
     let trace_evaluations = &proof.trace_lde_poly_evaluations;
@@ -322,7 +322,7 @@ pub fn verify_query(
     );
 
     let offset = FE::from(COSET_OFFSET);
-    let evaluation_point = &lde_primitive_root.pow(q_1) * &offset;
+    let evaluation_point = &lde_primitive_root.pow(q_i) * &offset;
 
     // TODO: This is done to get the boundary zerofier - It should not be made like this
     let a0_constraint = BoundaryConstraint::new_simple(0, FE::from(1));
@@ -346,9 +346,9 @@ pub fn verify_query(
     }
 
     let trace_evaluation_point_indexes = vec![
-        q_1,
-        q_1 + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE) as usize,
-        q_1 + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE) as usize * 2,
+        q_i,
+        q_i + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE) as usize,
+        q_i + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE) as usize * 2,
     ];
 
     for (merkle_proof, (index, value)) in proof
@@ -365,7 +365,7 @@ pub fn verify_query(
         &proof.fri_layers_merkle_roots,
         &proof.fri_decommitment,
         beta_list,
-        q_1,
+        q_i,
     )
 }
 
