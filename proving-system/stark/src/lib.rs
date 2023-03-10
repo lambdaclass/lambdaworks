@@ -273,12 +273,9 @@ pub fn verify(proof: &StarkQueryProof) -> bool {
         let root = merkle_roots.clone();
         let root_bytes = (*root.value()).to_bytes_be();
         transcript.append(&root_bytes);
-        let current_line = line!();
 
         if i < count_betas {
-            let beta = transcript_to_field(transcript);
-
-    
+            let beta = transcript_to_field(transcript);    
             beta_list.push(beta);
         }
         i += 1;
@@ -342,7 +339,8 @@ pub fn verify(proof: &StarkQueryProof) -> bool {
     fri_verify(
         &proof.fri_layers_merkle_roots,
         &proof.fri_decommitment,
-        transcript,
+        &beta_list,
+        q_1
     )
 }
 
@@ -350,7 +348,8 @@ pub fn verify(proof: &StarkQueryProof) -> bool {
 pub fn fri_verify(
     fri_layers_merkle_roots: &[FE],
     fri_decommitment: &FriDecommitment,
-    transcript: &mut Transcript,
+    beta_list: &[FE],
+    decommitment_index: usize,
 ) -> bool {
     // For each fri layer merkle proof check:
     // That each merkle path verifies
@@ -363,7 +362,6 @@ pub fn fri_verify(
 
     // Check that v = P_{i+1}(z_i)
 
-    let decommitment_index = transcript_to_usize(transcript);
 
     let mut lde_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE);
     let mut offset = FE::from(COSET_OFFSET);
@@ -371,6 +369,7 @@ pub fn fri_verify(
     // For each (merkle_root, merkle_auth_path) / fold
     // With the auth path containining the element that the
     // path proves it's existance
+    let mut index = 0_usize;
     for (
         layer_number,
         (
@@ -418,7 +417,8 @@ pub fn fri_verify(
         }
 
         // TODO: Fiat Shamir
-        let beta = transcript_to_field(transcript);
+        let beta = beta_list[index].clone();
+        index += 1;
 
 
         let (previous_auth_path_evaluation, previous_path_evaluation_symmetric) = fri_decommitment
