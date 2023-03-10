@@ -81,3 +81,10 @@ pub fn fft_benchmarks(c: &mut Criterion) {
 
     group.finish();
 }
+
+pub fn fast_multiplication_benchmarks(c: &mut Criterion) {
+    let mut group = c.benchmark_group("Fast multiplication comparison");
+    group.sample_size(10);
+
+    for n in (10..u128::MAX).step_by(10000) {}
+}
