@@ -22,5 +22,5 @@ pub type G1Point = <Pairing as IsPairing>::G1Point;
 pub type G2Point = <Pairing as IsPairing>::G2Point;
 pub const MAXIMUM_DEGREE: usize = 10;
 pub type KZG<const MAXIMUM_DEGREE: usize> = KateZaveruchaGoldberg<MAXIMUM_DEGREE, FrField, Pairing>;
-pub const ROOT_UNITY : FrElement = FrElement::from_hex("2b337de1c8c14f22ec9b9e2f96afef3652627366f8170a0a948dad4ac1bd5e80"); // 5 ** ((R - 1) / 8) mod R
+pub const ROOT_UNITY : FrElement = FrElement::from_hex("8d51ccce760304d0ec030002760300000001000000000000"); // order 4
 pub type SRS = StructuredReferenceString<MAXIMUM_DEGREE, G1Point, G2Point>;
