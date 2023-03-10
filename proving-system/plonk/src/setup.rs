@@ -2,11 +2,14 @@ use lambdaworks_math::{elliptic_curve::{short_weierstrass::curves::bls12_381::{p
 use lambdaworks_crypto::commitments::kzg::{KateZaveruchaGoldberg, StructuredReferenceString};
 use lambdaworks_math::{polynomial::Polynomial, field::{element::FieldElement, fields::montgomery_backed_prime_fields::{U256PrimeField, IsMontgomeryConfiguration}}, unsigned_integer::element::U256};
 
-use crate::config::{FrElement, G1Point, G2Point, KZG, FrField, FrConfig, ROOT_UNITY, SRS};
+use crate::config::{FrElement, G1Point, G2Point, KZG, FrField, FrConfig, ORDER_4_ROOT_UNITY, SRS, ORDER_R_MINUS_1_ROOT_UNITY};
+
+type VariableID = u64;
 
 pub struct Circuit {
-    number_public_inputs: u64,
-    number_private_inputs: u64
+    pub number_public_inputs: u64,
+    pub number_private_inputs: u64,
+    pub number_internal_variables: u64
 }
 
 impl Circuit {
@@ -18,30 +21,37 @@ impl Circuit {
             Polynomial::new(&[FrElement::zero(), FrElement::one()])
         )
     }
+}
 
-    pub fn get_common_preprocessed_input(&self) -> CommonPreprocessedInput {
-        CommonPreprocessedInput {
+pub struct CommonPreprocessedInput {
+    Ql: Vec<FrElement>,
+    Qr: Vec<FrElement>,
+    Qo: Vec<FrElement>,
+    Qm: Vec<FrElement>,
+    Qc: Vec<FrElement>,
+
+    S1: Vec<FrElement>,
+    S2: Vec<FrElement>,
+    S3: Vec<FrElement>
+}
+
+impl CommonPreprocessedInput {
+    pub fn for_this(c: &Circuit) -> CommonPreprocessedInput {
+        let w = ORDER_4_ROOT_UNITY;
+        let u = ORDER_R_MINUS_1_ROOT_UNITY;
+
+        Self {
             Ql: vec![-FrElement::one(), -FrElement::one(), FrElement::zero(), FrElement::one()],
             Qr: vec![FrElement::zero(), FrElement::zero(), FrElement::zero(), -FrElement::one()],
             Qo: vec![FrElement::zero(), FrElement::zero(), -FrElement::one(), FrElement::zero()],
             Qm: vec![FrElement::zero(), FrElement::zero(), FrElement::one(), FrElement::zero()],
             Qc: vec![FrElement::zero(), FrElement::zero(), FrElement::zero(), FrElement::zero()],
-            S1: vec![FrElement::zero(), FrElement::zero(), FrElement::zero(), FrElement::zero()],
-            S2: vec![FrElement::zero(), FrElement::zero(), FrElement::zero(), FrElement::zero()],
-            S3: vec![FrElement::zero(), FrElement::zero(), FrElement::zero(), FrElement::zero()],
+
+            S1: vec![u.pow(2_u64) * w.pow(3_u64), u.pow(0_u64) * w.pow(3_u64), u.pow(0_u64) * w.pow(0_u64), u.pow(0_u64) * w.pow(1_u64)],
+            S2: vec![u.pow(0_u64) * w.pow(2_u64), u.pow(1_u64) * w.pow(0_u64), u.pow(1_u64) * w.pow(2_u64), u.pow(2_u64) * w.pow(2_u64)],
+            S3: vec![u.pow(1_u64) * w.pow(1_u64), u.pow(2_u64) * w.pow(0_u64), u.pow(1_u64) * w.pow(3_u64), u.pow(2_u64) * w.pow(1_u64)],
         }
     }
-}
-
-pub struct CommonPreprocessedInput {
-    Qm: Vec<FrElement>,
-    Ql: Vec<FrElement>,
-    Qr: Vec<FrElement>,
-    Qo: Vec<FrElement>,
-    Qc: Vec<FrElement>,
-    S1: Vec<FrElement>,
-    S2: Vec<FrElement>,
-    S3: Vec<FrElement>
 }
 
 pub struct VerificationKey<G1Point> {
@@ -50,11 +60,17 @@ pub struct VerificationKey<G1Point> {
     Qr: G1Point,
     Qo: G1Point,
     Qc: G1Point,
+
     S1: G1Point,
     S2: G1Point,
     S3: G1Point,
 }
 
+fn build_permutation(
+    circuit: &Circuit,
+) -> Vec<VariableID> {
+    todo!()
+}
 
 #[allow(unused)]
 fn setup<const MAXIMUM_DEGREE: usize, P: IsPairing> (
@@ -62,8 +78,8 @@ fn setup<const MAXIMUM_DEGREE: usize, P: IsPairing> (
     circuit: &Circuit
 ) -> VerificationKey<G1Point> {
     let kzg = KZG::new(srs.clone());
-    let common_input = circuit.get_common_preprocessed_input();
-    let base: Vec<FrElement> = (0..4).map(|exp| ROOT_UNITY.pow(exp as u64)).collect();
+    let common_input = CommonPreprocessedInput::for_this(&circuit);
+    let base: Vec<FrElement> = (0..4).map(|exp| ORDER_4_ROOT_UNITY.pow(exp as u64)).collect();
 
     VerificationKey {
         Qm: kzg.commit(&Polynomial::interpolate(&base, &common_input.Qm)),
@@ -71,6 +87,7 @@ fn setup<const MAXIMUM_DEGREE: usize, P: IsPairing> (
         Qr: kzg.commit(&Polynomial::interpolate(&base, &common_input.Qr)),
         Qo: kzg.commit(&Polynomial::interpolate(&base, &common_input.Qo)),
         Qc: kzg.commit(&Polynomial::interpolate(&base, &common_input.Qc)),
+
         S1: kzg.commit(&Polynomial::interpolate(&base, &common_input.S1)),
         S2: kzg.commit(&Polynomial::interpolate(&base, &common_input.S2)),
         S3: kzg.commit(&Polynomial::interpolate(&base, &common_input.S3)),
@@ -98,7 +115,7 @@ mod tests {
     #[test]
     fn setup_works_for_simple_circuit() {
         let srs = test_srs();
-        let circuit = Circuit { number_public_inputs: 2, number_private_inputs: 1 };
+        let circuit = Circuit { number_public_inputs: 2, number_private_inputs: 1, number_internal_variables: 1 };
 
         let vk = setup::<4, BLS12381AtePairing>(&srs, &circuit);
 
@@ -119,9 +136,26 @@ mod tests {
             FpElement::from_hex("46ee4efd3e8b919c8df3bfc949b495ade2be8228bc524974eef94041a517cdbc74fb31e1998746201f683b12afa4519"),
         ).unwrap();
 
+        let expected_S1 = BLS12381Curve::create_point_from_affine(
+            FpElement::from_hex("187ee12de08728650d18912aa9fe54863922a9eeb37e34ff43041f1d039f00028ad2cdf23705e6f6ab7ea9406535c1b0"),
+            FpElement::from_hex("4f29051990de0d12b38493992845d9abcb48ef18239eca8b8228618c78ec371d39917bc0d45cf6dc4f79bd64baa9ae2")
+        ).unwrap();
+        let expected_S2 = BLS12381Curve::create_point_from_affine(
+            FpElement::from_hex("167c0384025887c01ea704234e813842a4acef7d765c3a94a5442ca685b4fc1d1b425ba7786a7413bd4a7d6a1eb5a35a"),
+            FpElement::from_hex("12b644100c5d00af27c121806c4779f88e840ff3fdac44124b8175a303d586c4d910486f909b37dda1505c485f053da1")
+        ).unwrap();
+        let expected_S3 = BLS12381Curve::create_point_from_affine(
+            FpElement::from_hex("188fb6dba3cf5af8a7f6a44d935bb3dd2083a5beb4c020f581739ebc40659c824a4ca8279cf7d852decfbca572e4fa0e"),
+            FpElement::from_hex("d84d52582fd95bfa7672f7cef9dd4d0b1b4a54d33f244fdb97df71c7d45fd5c5329296b633c9ed23b8475ee47b9d99")
+        ).unwrap();
+
         assert_eq!(vk.Ql, expected_Ql);
         assert_eq!(vk.Qr, expected_Qr);
         assert_eq!(vk.Qo, expected_Qo);
         assert_eq!(vk.Qm, expected_Qm);
+
+        assert_eq!(vk.S1, expected_S1);
+        assert_eq!(vk.S2, expected_S2);
+        assert_eq!(vk.S3, expected_S3);
     }
 }

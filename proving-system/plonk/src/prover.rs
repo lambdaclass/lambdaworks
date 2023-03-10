@@ -1,5 +1,5 @@
 use lambdaworks_crypto::{commitments::kzg::{StructuredReferenceString, KateZaveruchaGoldberg}, fiat_shamir::transcript::{self, Transcript}};
-use lambdaworks_math::{elliptic_curve::{short_weierstrass::curves::bls12_381::{pairing::BLS12381AtePairing}, traits::IsPairing}, field::{element::FieldElement, fields::montgomery_backed_prime_fields::{U256PrimeField, IsMontgomeryConfiguration, MontgomeryBackendPrimeField}}, unsigned_integer::element::{UnsignedInteger, U256}};
+use lambdaworks_math::{elliptic_curve::{short_weierstrass::curves::bls12_381::{pairing::BLS12381AtePairing}, traits::IsPairing}, field::{element::FieldElement, fields::montgomery_backed_prime_fields::{U256PrimeField, IsMontgomeryConfiguration, MontgomeryBackendPrimeField}}, unsigned_integer::element::{UnsignedInteger, U256}, polynomial::Polynomial};
 use lambdaworks_math::traits::ByteConversion;
 use crate::{setup::{VerificationKey, Circuit}, config::{G1Point, FrElement, MAXIMUM_DEGREE, KZG, G2Point}};
 
@@ -32,12 +32,12 @@ struct Proof {
 }
 
 fn round_1(
-    circuit: Circuit,
-    key: VerificationKey<G1Point>,
-    srs: StructuredReferenceString<MAXIMUM_DEGREE, G1Point, G2Point>
+    circuit: &Circuit,
+    key: &VerificationKey<G1Point>,
+    srs: &StructuredReferenceString<MAXIMUM_DEGREE, G1Point, G2Point>
 ) -> (G1Point, G1Point, G1Point) {
     let (a_polynomial, b_polynomial, c_polynomial) = circuit.get_program_trace_polynomials();
-    let kzg = KZG::new(srs);
+    let kzg = KZG::new(srs.clone());
     
     let a_1 = kzg.commit(&a_polynomial);
     let b_1 = kzg.commit(&b_polynomial);
@@ -53,7 +53,7 @@ fn prove(
 ) {
     let mut transcript = Transcript::new();
 
-    let (a_1, b_1, c_1) = round_1(circuit, key, srs);
+    let (a_1, b_1, c_1) = round_1(&circuit, &key, &srs);
     transcript.append(&a_1.to_bytes_be());
     transcript.append(&b_1.to_bytes_be());
     transcript.append(&c_1.to_bytes_be());
