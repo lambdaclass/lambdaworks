@@ -10,3 +10,11 @@ rand = "0.8.5"
 lambdaworks-math = { path = "../../math" }
 lambdaworks-crypto = { path = "../../crypto"}
 thiserror = "1.0.38"
+uniffi = { version = "0.23.0" }
+
+[build-dependencies]
+uniffi = { version = "0.23.0", features = [ "build" ] }
+
+[lib]
+crate-type = ["cdylib"]
+name = "lambdaworks_stark"
