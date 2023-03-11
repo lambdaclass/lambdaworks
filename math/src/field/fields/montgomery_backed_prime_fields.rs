@@ -906,6 +906,4 @@ mod tests_u256_prime_fields {
         let b = U256F29Element::from(25);
         assert_eq!(a, b);
     }
-
-
 }
