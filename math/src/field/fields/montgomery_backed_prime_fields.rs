@@ -876,6 +876,7 @@ mod tests_u256_prime_fields {
     }
 
     #[test]
+
     fn creating_a_field_element_from_its_representative_returns_the_same_element_1() {
         let change = U256::from_u64(1);
         let f1 = U256FP1Element::new(U256MontgomeryConfigP1::MODULUS + change);
