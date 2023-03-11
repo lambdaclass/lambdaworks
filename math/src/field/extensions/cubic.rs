@@ -132,10 +132,6 @@ where
     fn from_base_type(x: [FieldElement<Q::BaseField>; 3]) -> [FieldElement<Q::BaseField>; 3] {
         x
     }
-
-    fn representative(_x: Self::BaseType) -> Self::BaseType {
-        todo!()
-    }
 }
 
 #[cfg(test)]

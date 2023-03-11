@@ -1,4 +1,5 @@
 use crate::field::element::FieldElement;
+use crate::field::traits::IsPrimeField;
 use crate::traits::ByteConversion;
 use crate::{
     field::traits::IsField, unsigned_integer::element::UnsignedInteger,
@@ -156,10 +157,16 @@ where
     fn from_base_type(x: Self::BaseType) -> Self::BaseType {
         MontgomeryAlgorithms::cios(&x, &C::R2, &C::MODULUS, &C::MU)
     }
+}
 
-    // TO DO: Add tests for representatives
-    fn representative(x: Self::BaseType) -> Self::BaseType {
-        MontgomeryAlgorithms::cios(&x, &UnsignedInteger::from_u64(1), &C::MODULUS, &C::MU)
+impl<C, const NUM_LIMBS: usize> IsPrimeField for MontgomeryBackendPrimeField<C, NUM_LIMBS>
+where
+    C: IsMontgomeryConfiguration<NUM_LIMBS> + Clone + Debug,
+{
+    type RepresentativeType = Self::BaseType;
+
+    fn representative(x: &Self::BaseType) -> Self::BaseType {
+        MontgomeryAlgorithms::cios(x, &UnsignedInteger::from_u64(1), &C::MODULUS, &C::MU)
     }
 }
 
@@ -867,4 +874,38 @@ mod tests_u256_prime_fields {
             );
         }
     }
+
+    #[test]
+    fn creating_a_field_element_from_its_representative_returns_the_same_element_1() {
+        let change = U256::from_u64(1);
+        let f1 = U256FP1Element::new(U256MontgomeryConfigP1::MODULUS + change);
+        let f2 = U256FP1Element::new(f1.representative());
+        assert_eq!(f1, f2);
+    }
+
+    #[test]
+    fn creating_a_field_element_from_its_representative_returns_the_same_element_2() {
+        let change = U256::from_u64(27);
+        let f1 = U256F29Element::new(U256MontgomeryConfiguration29::MODULUS + change);
+        let f2 = U256F29Element::new(f1.representative());
+        assert_eq!(f1, f2);
+    }
+
+    #[test]
+    fn creating_a_field_element_from_hex_works_1() {
+        let a = U256FP1Element::from_hex("eb235f6144d9e91f4b14");
+        let b = U256FP1Element::new(U256 {
+            limbs: [0, 0, 60195, 6872850209053821716],
+        });
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn creating_a_field_element_from_hex_works() {
+        let a = U256F29Element::from_hex("aa");
+        let b = U256F29Element::from(25);
+        assert_eq!(a, b);
+    }
+
+
 }
