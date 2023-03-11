@@ -275,6 +275,7 @@ mod tests {
         for _ in 0..n {
             // Generate a rand distribution of field elements
             const N_SAMPLES: usize = 200000;
+
             let mut rand_dist: [FEx; N_SAMPLES] = [FEx::zero(); N_SAMPLES];
 
             for i in &mut rand_dist {
@@ -289,12 +290,7 @@ mod tests {
             }
 
             // Compute arithmetic average of histogram columns values
-            let mut avg: u64 = 0;
-
-            for i in hist {
-                avg += i;
-            }
-            avg /= hist.len() as u64;
+            let avg: u64 = hist.iter().sum::<u64>() / hist.len() as u64;
 
             // Compute standard deviation of histogram columns
             let mut std_dev: f64 = 0.0;
@@ -325,7 +321,9 @@ mod tests {
                 sigma_probs[i] += (sigmas_counters[i] as f64) / (LOCAL_MODULUS as f64);
             }
         }
-
+        dbg!(sigma_probs[0]);
+        dbg!(sigma_probs[1]);
+        dbg!(sigma_probs[2]);
         // Assert sigma probs 68.2% +/-(1%), 27.2% +/-(1%) , 4.2% +/- (0.5%), 0.2% aprox
         assert!((67.2 < sigma_probs[0]) && sigma_probs[0] < 69.2);
         assert!((26.2 < sigma_probs[1]) && sigma_probs[1] < 28.2);
