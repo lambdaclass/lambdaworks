@@ -8,14 +8,14 @@ pub struct ConstraintEvaluationTable {
 }
 
 impl ConstraintEvaluationTable {
-    fn new(n_cols: usize, domain: &[FE], divisors: Vec<Polynomial<FE>>) -> Self {
+    pub fn new(n_cols: usize, domain: &[FE], divisors: &Vec<Polynomial<FE>>) -> Self {
         let col = Vec::with_capacity(domain.len());
 
         let evaluations = vec![col; n_cols];
 
         ConstraintEvaluationTable {
             evaluations,
-            divisors,
+            divisors: divisors.clone(),
             trace_length: domain.len(),
         }
     }

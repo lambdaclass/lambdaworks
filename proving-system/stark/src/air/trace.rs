@@ -1,7 +1,7 @@
 use crate::FE;
 
 pub struct TraceTable {
-    table: Vec<Vec<FE>>,
+    pub table: Vec<Vec<FE>>,
 }
 
 impl TraceTable {
