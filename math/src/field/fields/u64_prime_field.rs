@@ -259,6 +259,14 @@ mod tests {
         let change = 1;
         let f1 = FE::new(MODULUS + change);
         let f2 = FE::new(f1.representative());
+        println!(
+            "test f1: {:?},
+            test {:?},
+            f1 reprensentative {:?}",
+            f1,
+            FE::new(40 * MODULUS),
+            FE::new(MODULUS).representative()
+        );
         assert_eq!(f1, f2);
     }
 
