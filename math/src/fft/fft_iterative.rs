@@ -98,8 +98,7 @@ mod tests {
 
     use super::*;
 
-    const MODULUS: u64 = 0xFFFFFFFF00000001;
-    type F = U64TestField<MODULUS>;
+    type F = U64TestField;
     type FE = FieldElement<F>;
 
     prop_compose! {
