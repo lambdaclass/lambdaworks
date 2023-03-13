@@ -11,23 +11,23 @@ use lambdaworks_math::polynomial::{self, Polynomial};
 
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::{
-    field::fields::montgomery_backed_prime_fields::{IsMontgomeryConfiguration, U384PrimeField},
+    field::fields::montgomery_backed_prime_fields::{IsModulus, U384PrimeField},
     unsigned_integer::element::U384,
 };
 
 // DEFINITION OF THE USED FIELD
 #[derive(Clone, Debug)]
-pub struct MontgomeryConfig;
-impl IsMontgomeryConfiguration<6> for MontgomeryConfig {
+pub struct Modulus;
+impl IsModulus<U384> for Modulus {
     const MODULUS: U384 =
         // hex 17
         U384::from("800000000000011000000000000000000000000000000000000000000000001");
 }
 
-pub type PrimeField = U384PrimeField<MontgomeryConfig>;
+pub type PrimeField = U384PrimeField<Modulus>;
 pub type FE = FieldElement<PrimeField>;
 
-const MODULUS_MINUS_1: U384 = U384::sub(&MontgomeryConfig::MODULUS, &U384::from("1")).0;
+const MODULUS_MINUS_1: U384 = U384::sub(&Modulus::MODULUS, &U384::from("1")).0;
 
 /// Subgroup generator to generate the roots of unity
 const FIELD_SUBGROUP_GENERATOR: u64 = 3;
