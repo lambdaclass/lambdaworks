@@ -1,28 +1,46 @@
-use crate::{field::{fields::montgomery_backed_prime_fields::{IsMontgomeryConfiguration, U256PrimeField}, traits::IsTwoAdicField}, unsigned_integer::element::{U256, UnsignedInteger}};
+use crate::{
+    field::{
+        fields::montgomery_backed_prime_fields::{IsMontgomeryConfiguration, U256PrimeField},
+        traits::IsTwoAdicField,
+    },
+    unsigned_integer::element::{UnsignedInteger, U256},
+};
 
 #[derive(Clone, Debug)]
 pub struct U256MontgomeryConfigTwoAdic;
 impl IsMontgomeryConfiguration<4> for U256MontgomeryConfigTwoAdic {
-    const MODULUS: U256 = U256::from("800000000000011000000000000000000000000000000000000000000000001");
+    const MODULUS: U256 =
+        U256::from("800000000000011000000000000000000000000000000000000000000000001");
 }
 
 impl IsTwoAdicField for U256MontgomeryTwoAdicPrimeField {
     // FIXME this field should be removed in the future.
     const GENERATOR: U256 = U256::from_u64(0);
     const TWO_ADICITY: u64 = 48;
-    const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: U256 = UnsignedInteger { limbs: [576121567191165924, 15127218762267548430, 975514089257028844, 10161174971974087894] };
+    const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: U256 = UnsignedInteger {
+        limbs: [
+            219038664817244121,
+            2879838607450979157,
+            15244050560987562958,
+            16338897044258952332,
+        ],
+    };
 }
 
 pub type U256MontgomeryTwoAdicPrimeField = U256PrimeField<U256MontgomeryConfigTwoAdic>;
 
 #[cfg(test)]
 mod u256_two_adic_prime_field_tests {
-    use crate::{polynomial::Polynomial, fft::{operations::evaluate_poly, errors::FFTError}, field::{traits::IsTwoAdicField, element::FieldElement}};
     use super::U256MontgomeryTwoAdicPrimeField;
+    use crate::{
+        fft::{errors::FFTError, operations::evaluate_poly},
+        field::{element::FieldElement, traits::IsTwoAdicField},
+        polynomial::Polynomial,
+    };
 
     type F = U256MontgomeryTwoAdicPrimeField;
     type FE = FieldElement<F>;
-    
+
     // FIXME this should be removed to
     fn log2(n: usize) -> Result<u64, FFTError> {
         if !n.is_power_of_two() {
@@ -32,8 +50,8 @@ mod u256_two_adic_prime_field_tests {
         }
         Ok(n.trailing_zeros() as u64)
     }
-    
-    #[test] 
+
+    #[test]
     fn test() {
         let coeffs = vec![FE::one(); 4];
         let poly = Polynomial::new(&coeffs);
