@@ -2,7 +2,7 @@ pub mod constraints;
 pub mod fri;
 
 use constraints::boundary::{BoundaryConstraint, BoundaryConstraints};
-use lambdaworks_math::field::traits::IsField;
+use lambdaworks_math::field::traits::IsTwoAdicField;
 use std::ops::{Div, Mul};
 
 use fri::fri_decommit::{fri_decommit_layers, FriDecommitment};
@@ -27,26 +27,13 @@ pub struct ProofConfig {
 pub type PrimeField = U256MontgomeryTwoAdicPrimeField;
 pub type FE = FieldElement<PrimeField>;
 
-/// Subgroup generator to generate the roots of unity
-const FIELD_SUBGROUP_GENERATOR: u64 = 3;
-
 // DEFINITION OF CONSTANTS
 
-const ORDER_OF_ROOTS_OF_UNITY_TRACE: u64 = 32;
-const ORDER_OF_ROOTS_OF_UNITY_FOR_LDE: u64 = 1024;
+const ORDER_OF_ROOTS_OF_UNITY_TRACE: usize = 32;
+const ORDER_OF_ROOTS_OF_UNITY_FOR_LDE: usize = 1024;
 
 // We are using 3 as the offset as it's our field's generator.
 const COSET_OFFSET: u64 = 3;
-
-// DEFINITION OF FUNCTIONS
-
-pub fn generate_primitive_root(subgroup_size: u64) -> FE {
-    let modulus_minus_1_field: FE = FE::new(PrimeField::neg(&U256::from("1")));
-    let subgroup_size: FE = subgroup_size.into();
-    let generator_field: FE = FIELD_SUBGROUP_GENERATOR.into();
-    let exp = (&modulus_minus_1_field) / &subgroup_size;
-    generator_field.pow(exp.representative())
-}
 
 /// This functions takes a roots of unity and a coset factor
 /// If coset_factor is 1, it's just expanding the roots of unity
@@ -92,7 +79,7 @@ pub fn fibonacci_trace(initial_values: [FE; 2]) -> Vec<FE> {
     ret.push(initial_values[0].clone());
     ret.push(initial_values[1].clone());
 
-    for i in 2..(ORDER_OF_ROOTS_OF_UNITY_TRACE as usize) {
+    for i in 2..(ORDER_OF_ROOTS_OF_UNITY_TRACE) {
         ret.push(ret[i - 1].clone() + ret[i - 2].clone());
     }
 
@@ -104,10 +91,16 @@ pub fn prove(trace: &[FE], proof_config: &ProofConfig) -> StarkProof {
     let mut query_list = Vec::<StarkQueryProof>::new();
 
     // * Generate Coset
-    let trace_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_TRACE);
+    let trace_primitive_root = PrimeField::get_primitive_root_of_unity(
+        ORDER_OF_ROOTS_OF_UNITY_TRACE.trailing_zeros() as u64,
+    )
+    .unwrap();
     let trace_roots_of_unity = generate_roots_of_unity_coset(1, &trace_primitive_root);
 
-    let lde_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE);
+    let lde_primitive_root = PrimeField::get_primitive_root_of_unity(
+        ORDER_OF_ROOTS_OF_UNITY_FOR_LDE.trailing_zeros() as u64,
+    )
+    .unwrap();
     let lde_roots_of_unity_coset = generate_roots_of_unity_coset(COSET_OFFSET, &lde_primitive_root);
 
     let trace_poly = Polynomial::interpolate(&trace_roots_of_unity, trace);
@@ -149,7 +142,7 @@ pub fn prove(trace: &[FE], proof_config: &ProofConfig) -> StarkProof {
         // These are evaluations over the trace polynomial
         // TODO @@@ this should be refactored
         // * Sample q_1, ..., q_m using Fiat-Shamir
-        let q_i: usize = transcript_to_usize(transcript) % ORDER_OF_ROOTS_OF_UNITY_FOR_LDE as usize;
+        let q_i: usize = transcript_to_usize(transcript) % ORDER_OF_ROOTS_OF_UNITY_FOR_LDE;
         transcript.append(&q_i.to_be_bytes());
 
         let evaluation_points = vec![
@@ -162,17 +155,14 @@ pub fn prove(trace: &[FE], proof_config: &ProofConfig) -> StarkProof {
             trace_poly_lde_merkle_tree.get_proof_by_pos(q_i).unwrap(),
             trace_poly_lde_merkle_tree
                 .get_proof_by_pos(
-                    (q_i + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE)
-                        as usize)
-                        % ORDER_OF_ROOTS_OF_UNITY_FOR_LDE as usize,
+                    (q_i + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE))
+                        % ORDER_OF_ROOTS_OF_UNITY_FOR_LDE,
                 )
                 .unwrap(),
             trace_poly_lde_merkle_tree
                 .get_proof_by_pos(
-                    (q_i + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE)
-                        as usize
-                        * 2)
-                        % ORDER_OF_ROOTS_OF_UNITY_FOR_LDE as usize,
+                    (q_i + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE) * 2)
+                        % ORDER_OF_ROOTS_OF_UNITY_FOR_LDE,
                 )
                 .unwrap(),
         ];
@@ -221,7 +211,7 @@ fn compute_composition_poly(
     let transition_poly = polynomial::compose(trace_poly, &w_squared_x)
         - polynomial::compose(trace_poly, &w_x)
         - trace_poly.clone();
-    let zerofier = compute_zerofier(primitive_root, ORDER_OF_ROOTS_OF_UNITY_TRACE as usize);
+    let zerofier = compute_zerofier(primitive_root, ORDER_OF_ROOTS_OF_UNITY_TRACE);
 
     let transition_quotient = transition_poly.div(zerofier);
 
@@ -293,7 +283,7 @@ pub fn verify(stark_proof: &StarkProof) -> bool {
     // TODO: Fiat-Shamir
     let mut result = true;
     for proof_i in &stark_proof.query_list {
-        let q_i: usize = transcript_to_usize(transcript) % ORDER_OF_ROOTS_OF_UNITY_FOR_LDE as usize;
+        let q_i: usize = transcript_to_usize(transcript) % ORDER_OF_ROOTS_OF_UNITY_FOR_LDE;
         transcript.append(&q_i.to_be_bytes());
 
         // this is done in constant time
@@ -324,12 +314,16 @@ pub fn verify_query(
     // TODO: These could be multiple evaluations depending on how many q_i are sampled with Fiat Shamir
     let composition_polynomial_evaluation_from_prover = &proof.composition_poly_lde_evaluations[0];
 
-    let trace_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_TRACE);
-    let lde_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE);
-    let zerofier = compute_zerofier(
-        &trace_primitive_root,
-        ORDER_OF_ROOTS_OF_UNITY_TRACE as usize,
-    );
+    let trace_primitive_root = PrimeField::get_primitive_root_of_unity(
+        ORDER_OF_ROOTS_OF_UNITY_TRACE.trailing_zeros() as u64,
+    )
+    .unwrap();
+    let lde_primitive_root = PrimeField::get_primitive_root_of_unity(
+        ORDER_OF_ROOTS_OF_UNITY_FOR_LDE.trailing_zeros() as u64,
+    )
+    .unwrap();
+
+    let zerofier = compute_zerofier(&trace_primitive_root, ORDER_OF_ROOTS_OF_UNITY_TRACE);
 
     let offset = FE::from(COSET_OFFSET);
     let evaluation_point = &lde_primitive_root.pow(q_i) * &offset;
@@ -357,8 +351,8 @@ pub fn verify_query(
 
     let trace_evaluation_point_indexes = vec![
         q_i,
-        q_i + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE) as usize,
-        q_i + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE) as usize * 2,
+        q_i + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE),
+        q_i + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE) * 2,
     ];
 
     for (merkle_proof, (index, value)) in proof
@@ -397,7 +391,10 @@ pub fn fri_verify(
 
     // Check that v = P_{i+1}(z_i)
 
-    let mut lde_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE);
+    let mut lde_primitive_root = PrimeField::get_primitive_root_of_unity(
+        ORDER_OF_ROOTS_OF_UNITY_FOR_LDE.trailing_zeros() as u64,
+    )
+    .unwrap();
     let mut offset = FE::from(COSET_OFFSET);
 
     // For each (merkle_root, merkle_auth_path) / fold
@@ -431,7 +428,7 @@ pub fn fri_verify(
     {
         // This is the current layer's evaluation domain length. We need it to know what the decommitment index for the current
         // layer is, so we can check the merkle paths at the right index.
-        let current_layer_domain_length = ORDER_OF_ROOTS_OF_UNITY_FOR_LDE as usize >> layer_number;
+        let current_layer_domain_length = ORDER_OF_ROOTS_OF_UNITY_FOR_LDE >> layer_number;
 
         let layer_evaluation_index = decommitment_index % current_layer_domain_length;
         if !fri_layer_auth_path.verify(
@@ -503,7 +500,7 @@ mod tests {
     use crate::{
         compute_zerofier,
         constraints::boundary::{BoundaryConstraint, BoundaryConstraints},
-        generate_primitive_root, verify, FE,
+        verify, FE,
     };
 
     use super::prove;
@@ -559,10 +556,16 @@ mod tests {
         let transcript = &mut Transcript::new();
 
         // * Generate Coset
-        let trace_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_TRACE);
+        let trace_primitive_root = PrimeField::get_primitive_root_of_unity(
+            ORDER_OF_ROOTS_OF_UNITY_TRACE.trailing_zeros() as u64,
+        )
+        .unwrap();
         let trace_roots_of_unity = generate_roots_of_unity_coset(1, &trace_primitive_root);
 
-        let lde_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE);
+        let lde_primitive_root = PrimeField::get_primitive_root_of_unity(
+            ORDER_OF_ROOTS_OF_UNITY_FOR_LDE.trailing_zeros() as u64,
+        )
+        .unwrap();
         let lde_roots_of_unity = generate_roots_of_unity_coset(1, &lde_primitive_root);
 
         let trace_poly = Polynomial::interpolate(&trace_roots_of_unity, trace);
@@ -593,15 +596,12 @@ mod tests {
             trace_poly_lde_merkle_tree.get_proof_by_pos(q_1).unwrap(),
             trace_poly_lde_merkle_tree
                 .get_proof_by_pos(
-                    q_1 + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE)
-                        as usize,
+                    q_1 + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE),
                 )
                 .unwrap(),
             trace_poly_lde_merkle_tree
                 .get_proof_by_pos(
-                    q_1 + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE)
-                        as usize
-                        * 2,
+                    q_1 + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE) * 2,
                 )
                 .unwrap(),
         ];
@@ -653,7 +653,7 @@ mod tests {
         ret.push(initial_values[1].clone());
 
         for i in 2..(ORDER_OF_ROOTS_OF_UNITY_TRACE) {
-            ret.push(FE::new(U256::from_u64(i)));
+            ret.push(FE::new(U256::from_u64(i as u64)));
         }
 
         ret
@@ -675,7 +675,7 @@ mod tests {
 
     #[test]
     fn zerofier_is_the_correct_one() {
-        let primitive_root = generate_primitive_root(8);
+        let primitive_root = PrimeField::get_primitive_root_of_unity(3).unwrap();
         let zerofier = compute_zerofier(&primitive_root, 8);
 
         for i in 0_usize..6_usize {
@@ -698,7 +698,7 @@ mod tests {
         // Build trace polynomial
         let pub_inputs = [FE::new(U256::from("1")), FE::new(U256::from("1"))];
         let trace = test_utils::fibonacci_trace(pub_inputs, 8);
-        let trace_primitive_root = generate_primitive_root(8);
+        let trace_primitive_root = PrimeField::get_primitive_root_of_unity(3).unwrap();
         let trace_roots_of_unity = generate_roots_of_unity_coset(1, &trace_primitive_root);
         let trace_poly = Polynomial::interpolate(&trace_roots_of_unity, &trace);
 
