@@ -8,10 +8,10 @@ use lambdaworks_math::{
 ///   * col: The column of the trace where the constraint must hold
 ///   * step: The step (or row) of the trace where the constraint must hold
 ///   * value: The value the constraint must have in that column and step
-pub struct BoundaryConstraint<FE> {
+pub struct BoundaryConstraint<F: IsField> {
     col: usize,
     step: usize,
-    value: FE,
+    value: FieldElement<F>,
 }
 
 impl<F: IsField> BoundaryConstraint<FieldElement<F>> {
@@ -32,8 +32,8 @@ impl<F: IsField> BoundaryConstraint<FieldElement<F>> {
 
 /// Data structure that stores all the boundary constraints that must
 /// hold for the execution trace
-pub struct BoundaryConstraints<FE> {
-    constraints: Vec<BoundaryConstraint<FE>>,
+pub struct BoundaryConstraints<F: IsField> {
+    constraints: Vec<BoundaryConstraint<FieldElement<F>>>,
 }
 
 impl<F: IsField> BoundaryConstraints<FieldElement<F>> {

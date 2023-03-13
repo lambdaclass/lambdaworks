@@ -1,25 +1,21 @@
-use lambdaworks_math::polynomial::Polynomial;
-
-use crate::FE;
-
-use self::{constraints::boundary::BoundaryConstraints, context::AirContext, trace::TraceTable};
-use crate::air::frame::EvaluationFrame;
+use self::{
+    constraints::boundary::BoundaryConstraints, context::AirContext, frame::Frame,
+    trace::TraceTable,
+};
+use lambdaworks_math::{
+    field::{element::FieldElement, traits::IsField},
+    polynomial::Polynomial,
+};
 
 pub mod constraints;
 pub mod context;
 pub mod frame;
 pub mod trace;
 
-pub trait Air {
-    type Frame: EvaluationFrame;
-
+pub trait AIR<F: IsField> {
     fn new(trace: TraceTable, context: AirContext) -> Self;
-
-    fn boundary_constraints(&self) -> BoundaryConstraints<FE>;
-
-    fn compute_transition(&self, frame: Self::Frame) -> Vec<FE>;
-
-    fn transition_divisors(&self) -> Vec<Polynomial<FE>>;
-
+    fn compute_transition(&self, frame: &Frame<F>) -> Vec<FieldElement<F>>;
+    fn compute_boundary_constraints(&self) -> BoundaryConstraints<FieldElement<F>>;
+    fn transition_divisors(&self) -> Vec<Polynomial<FieldElement<F>>>;
     fn context(&self) -> AirContext;
 }

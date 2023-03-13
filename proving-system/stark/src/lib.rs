@@ -2,7 +2,8 @@ pub mod air;
 pub mod fri;
 
 use air::constraints::boundary::{BoundaryConstraint, BoundaryConstraints};
-use air::Air;
+use air::constraints::evaluator::ConstraintEvaluator;
+use air::AIR;
 use std::ops::{Div, Mul};
 
 use fri::fri_decommit::{fri_decommit_layers, FriDecommitment};
@@ -10,6 +11,7 @@ use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::polynomial::{self, Polynomial};
 
 use lambdaworks_math::field::element::FieldElement;
+use lambdaworks_math::field::traits::IsField;
 use lambdaworks_math::{
     field::fields::montgomery_backed_prime_fields::{IsMontgomeryConfiguration, U384PrimeField},
     unsigned_integer::element::U384,
@@ -96,7 +98,7 @@ pub fn fibonacci_trace(initial_values: [FE; 2]) -> Vec<FE> {
     ret
 }
 
-pub fn prove<A: Air>(trace: &[FE], air: A) -> StarkQueryProof {
+pub fn prove<F: IsField, A: AIR<F>>(trace: &[FE], air: A) -> StarkQueryProof {
     let transcript = &mut Transcript::new();
 
     // * Generate Coset
@@ -125,7 +127,7 @@ pub fn prove<A: Air>(trace: &[FE], air: A) -> StarkQueryProof {
     // Get coefficients from Fiat-Shamir
 
     // Create evaluation table
-    let evaluator = ConstraintEvaluator::new(&air, constraint_coeffs);
+    let evaluator = ConstraintEvaluator::new(&air, trace_poly, trace_primitive_root);
     let constraint_evaluations = evaluator.evaluate(&lde_trace, &lde_roots_of_unity_coset);
 
     // Get composition poly

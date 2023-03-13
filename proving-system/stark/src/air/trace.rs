@@ -1,11 +1,12 @@
-use crate::FE;
+use lambdaworks_math::field::{element::FieldElement, traits::IsField};
 
-pub struct TraceTable {
-    pub table: Vec<Vec<FE>>,
+pub struct TraceTable<F: IsField> {
+    pub table: Vec<FieldElement<F>>,
+    pub num_cols: usize,
 }
 
-impl TraceTable {
-    fn new(rows: Vec<Vec<FE>>) -> Self {
-        Self { table: rows }
+impl<F: IsField> TraceTable {
+    fn new(table: Vec<FieldElement<F>>, num_cols: usize) -> Self {
+        Self { table, num_cols }
     }
 }
