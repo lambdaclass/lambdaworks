@@ -658,7 +658,6 @@ mod test_utils {
     }
 }
 
-
 #[derive(Debug, thiserror::Error)]
 pub enum ArithmeticError {
     #[error("Integer overflow on an operation with {a} and {b}")]
