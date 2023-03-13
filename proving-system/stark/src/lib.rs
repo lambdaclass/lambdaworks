@@ -657,3 +657,19 @@ mod test_utils {
         ret
     }
 }
+
+
+#[derive(Debug, thiserror::Error)]
+pub enum ArithmeticError {
+    #[error("Integer overflow on an operation with {a} and {b}")]
+    IntegerOverflow { a: u64, b: u64 },
+}
+
+fn add(a: u64, b: u64) -> Result<u64> {
+    a.checked_add(b)
+        .ok_or(ArithmeticError::IntegerOverflow { a, b })
+}
+
+type Result<T, E = ArithmeticError> = std::result::Result<T, E>;
+
+uniffi::include_scaffolding!("lambdaworks_stark");

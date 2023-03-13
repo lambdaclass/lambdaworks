@@ -1,3 +1,10 @@
+[Error]
+enum ArithmeticError {
+  "IntegerOverflow",
+};
+
 namespace lambdaworks_stark {
+  [Throws=ArithmeticError]
+  u64 add(u64 a, u64 b);
 
 };
