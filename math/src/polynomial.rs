@@ -161,6 +161,30 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
             coefficients: scaled_coefficients,
         }
     }
+
+    /// For the given polynomial, returns a tuple `(even, odd)` of polynomials
+    /// with the even and odd coefficients respectively.
+    /// Note that `even` and `odd` ARE NOT actually even/odd polynomials themselves.
+    ///
+    /// Example: if poly = 3 X^3 + X^2 + 2X + 1, then
+    /// `poly.even_odd_decomposition = (even, odd)` with
+    /// `even` = X + 1 and `odd` = 3X + 1.
+    ///
+    /// In general, the decomposition satisfies the following:
+    /// `poly(x)` = `even(x^2)` + X * `odd(x^2)`
+    pub fn even_odd_decomposition(&self) -> (Self, Self) {
+        let coef = self.coefficients();
+        let even_coef: Vec<FieldElement<F>> = coef.iter().step_by(2).cloned().collect();
+
+        // odd coeficients of poly are multiplied by beta
+        let odd_coef_mul_beta: Vec<FieldElement<F>> =
+            coef.iter().skip(1).step_by(2).cloned().collect();
+
+        Polynomial::pad_with_zero_coefficients(
+            &Polynomial::new(&even_coef),
+            &Polynomial::new(&odd_coef_mul_beta),
+        )
+    }
 }
 
 impl<F: IsTwoAdicField> Polynomial<FieldElement<F>> {
