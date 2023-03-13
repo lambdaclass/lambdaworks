@@ -1,3 +1,5 @@
+use lambdaworks_math::polynomial::Polynomial;
+
 use crate::FE;
 
 use self::{constraints::boundary::BoundaryConstraints, context::AirContext, trace::TraceTable};
@@ -16,6 +18,8 @@ pub trait Air {
     fn boundary_constraints(&self) -> BoundaryConstraints<FE>;
 
     fn compute_transition(&self, frame: Self::Frame) -> Vec<FE>;
+
+    fn transition_divisors(&self) -> Vec<Polynomial<FE>>;
 
     fn context(&self) -> AirContext;
 }
