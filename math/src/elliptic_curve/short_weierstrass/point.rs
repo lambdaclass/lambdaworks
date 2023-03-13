@@ -4,7 +4,8 @@ use crate::{
         point::ProjectivePoint,
         traits::{EllipticCurveError, FromAffine, IsEllipticCurve},
     },
-    field::element::FieldElement, traits::ByteConversion,
+    field::element::FieldElement,
+    traits::ByteConversion,
 };
 
 use super::traits::IsShortWeierstrass;
@@ -130,7 +131,7 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
 impl<E> ByteConversion for ShortWeierstrassProjectivePoint<E>
 where
     E: IsShortWeierstrass,
-    FieldElement<E::BaseField> : ByteConversion
+    FieldElement<E::BaseField>: ByteConversion,
 {
     fn to_bytes_be(&self) -> Vec<u8> {
         let [x, y, _] = self.to_affine().coordinates().clone();

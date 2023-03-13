@@ -12,17 +12,17 @@ pub struct Opening<F: IsPrimeField, G1Point: IsGroup> {
     proof: G1Point,
 }
 
-
 #[derive(Clone)]
 pub struct StructuredReferenceString<const MAXIMUM_DEGREE: usize, G1Point, G2Point> {
     pub powers_main_group: Vec<G1Point>,
     pub powers_secondary_group: [G2Point; 2],
 }
 
-impl<const MAXIMUM_DEGREE: usize, G1Point, G2Point> StructuredReferenceString<MAXIMUM_DEGREE, G1Point, G2Point>
+impl<const MAXIMUM_DEGREE: usize, G1Point, G2Point>
+    StructuredReferenceString<MAXIMUM_DEGREE, G1Point, G2Point>
 where
     G1Point: IsGroup,
-    G2Point: IsGroup
+    G2Point: IsGroup,
 {
     #[allow(unused)]
     pub fn new(powers_main_group: &[G1Point], powers_secondary_group: &[G2Point; 2]) -> Self {
@@ -63,7 +63,11 @@ impl<const MAXIMUM_DEGREE: usize, F: IsPrimeField, P: IsPairing>
     }
 
     #[allow(unused)]
-    pub fn open(&self, x: &FieldElement<F>, p: &Polynomial<FieldElement<F>>) -> Opening<F, P::G1Point> {
+    pub fn open(
+        &self,
+        x: &FieldElement<F>,
+        p: &Polynomial<FieldElement<F>>,
+    ) -> Opening<F, P::G1Point> {
         let value = p.evaluate(x);
         let numerator = p + Polynomial::new_monomial(-&value, 0);
         let denominator = Polynomial::new(&[-x, FieldElement::one()]);
@@ -73,7 +77,12 @@ impl<const MAXIMUM_DEGREE: usize, F: IsPrimeField, P: IsPairing>
     }
 
     #[allow(unused)]
-    pub fn verify(&self, opening: &Opening<F, P::G1Point>, x: &FieldElement<F>, p_commitment: &P::G1Point) -> bool {
+    pub fn verify(
+        &self,
+        opening: &Opening<F, P::G1Point>,
+        x: &FieldElement<F>,
+        p_commitment: &P::G1Point,
+    ) -> bool {
         let g1 = &self.srs.powers_main_group[0];
         let g2 = &self.srs.powers_secondary_group[0];
         let alpha_g2 = &self.srs.powers_secondary_group[1];
@@ -133,7 +142,11 @@ mod tests {
     type FrElement = FieldElement<FrField>;
     type KZG = KateZaveruchaGoldberg<100, FrField, BLS12381AtePairing>;
 
-    fn create_srs() -> StructuredReferenceString<100, <BLS12381AtePairing as IsPairing>::G1Point, <BLS12381AtePairing as IsPairing>::G2Point> {
+    fn create_srs() -> StructuredReferenceString<
+        100,
+        <BLS12381AtePairing as IsPairing>::G1Point,
+        <BLS12381AtePairing as IsPairing>::G2Point,
+    > {
         let mut rng = rand::thread_rng();
         let toxic_waste = FrElement::new(U256 {
             limbs: [

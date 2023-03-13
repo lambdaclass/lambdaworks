@@ -1,55 +1,171 @@
-use lambdaworks_math::{elliptic_curve::{short_weierstrass::curves::bls12_381::{pairing::BLS12381AtePairing}, traits::IsPairing}, cyclic_group::IsGroup};
 use lambdaworks_crypto::commitments::kzg::{KateZaveruchaGoldberg, StructuredReferenceString};
-use lambdaworks_math::{polynomial::Polynomial, field::{element::FieldElement, fields::montgomery_backed_prime_fields::{U256PrimeField, IsMontgomeryConfiguration}}, unsigned_integer::element::U256};
+use lambdaworks_math::{
+    cyclic_group::IsGroup,
+    elliptic_curve::{
+        short_weierstrass::curves::bls12_381::pairing::BLS12381AtePairing, traits::IsPairing,
+    },
+};
+use lambdaworks_math::{
+    field::{
+        element::FieldElement,
+        fields::montgomery_backed_prime_fields::{IsMontgomeryConfiguration, U256PrimeField},
+    },
+    polynomial::Polynomial,
+    unsigned_integer::element::U256,
+};
 
-use crate::config::{FrElement, G1Point, G2Point, KZG, FrField, FrConfig, ORDER_4_ROOT_UNITY, SRS, ORDER_R_MINUS_1_ROOT_UNITY};
+use crate::config::{
+    FrConfig, FrElement, FrField, G1Point, G2Point, KZG, NUMBER_CONSTRAINTS, ORDER_4_ROOT_UNITY,
+    ORDER_R_MINUS_1_ROOT_UNITY, SRS,
+};
 
 type VariableID = u64;
 
+// TODO: implement getters
 pub struct Circuit {
     pub number_public_inputs: u64,
     pub number_private_inputs: u64,
-    pub number_internal_variables: u64
+    pub number_internal_variables: u64,
+}
+
+// TODO: implement getters
+pub struct Witness {
+    pub a: Vec<FrElement>,
+    pub b: Vec<FrElement>,
+    pub c: Vec<FrElement>,
 }
 
 impl Circuit {
     // TODO: This should execute the program and return the trace.
-    pub fn get_program_trace_polynomials(&self) -> (Polynomial<FrElement>, Polynomial<FrElement>, Polynomial<FrElement>) {
-        (
-            Polynomial::new(&[FrElement::zero(), FrElement::one()]),
-            Polynomial::new(&[FrElement::zero(), FrElement::one()]),
-            Polynomial::new(&[FrElement::zero(), FrElement::one()])
-        )
+    pub fn get_witness(&self) -> Witness {
+        Witness {
+            a: vec![
+                FrElement::from(2_u64),
+                FrElement::from(4_u64),
+                FrElement::from(2_u64),
+                FrElement::from(4_u64),
+            ],
+            b: vec![
+                FrElement::zero(),
+                FrElement::one(),
+                FrElement::from(2_u64),
+                FrElement::from(4_u64),
+            ],
+            c: vec![
+                FrElement::zero(),
+                FrElement::one(),
+                FrElement::from(4_u64),
+                FrElement::from(0_u64),
+            ],
+        }
     }
 }
 
+// TODO: implement getters
 pub struct CommonPreprocessedInput {
-    Ql: Vec<FrElement>,
-    Qr: Vec<FrElement>,
-    Qo: Vec<FrElement>,
-    Qm: Vec<FrElement>,
-    Qc: Vec<FrElement>,
+    pub number_constraints: usize,
+    pub domain: Vec<FrElement>,
 
-    S1: Vec<FrElement>,
-    S2: Vec<FrElement>,
-    S3: Vec<FrElement>
+    pub Ql: Polynomial<FrElement>,
+    pub Qr: Polynomial<FrElement>,
+    pub Qo: Polynomial<FrElement>,
+    pub Qm: Polynomial<FrElement>,
+    pub Qc: Polynomial<FrElement>,
+
+    pub S1_monomial: Polynomial<FrElement>,
+    pub S2_monomial: Polynomial<FrElement>,
+    pub S3_monomial: Polynomial<FrElement>,
+
+    pub S1_lagrange: Vec<FrElement>,
+    pub S2_lagrange: Vec<FrElement>,
+    pub S3_lagrange: Vec<FrElement>,
 }
 
 impl CommonPreprocessedInput {
     pub fn for_this(c: &Circuit) -> CommonPreprocessedInput {
         let w = ORDER_4_ROOT_UNITY;
         let u = ORDER_R_MINUS_1_ROOT_UNITY;
+        let domain = (1..4).fold(vec![FrElement::one()], |mut acc, x| {
+            acc.push(acc.last().unwrap() * ORDER_4_ROOT_UNITY);
+            acc
+        });
+
+        let S1_lagrange = vec![
+            u.pow(2_u64) * w.pow(3_u64),
+            u.pow(0_u64) * w.pow(3_u64),
+            u.pow(0_u64) * w.pow(0_u64),
+            u.pow(0_u64) * w.pow(1_u64),
+        ];
+        let S2_lagrange = vec![
+            u.pow(0_u64) * w.pow(2_u64),
+            u.pow(1_u64) * w.pow(0_u64),
+            u.pow(1_u64) * w.pow(2_u64),
+            u.pow(2_u64) * w.pow(2_u64),
+        ];
+        let S3_lagrange = vec![
+            u.pow(1_u64) * w.pow(1_u64),
+            u.pow(2_u64) * w.pow(0_u64),
+            u.pow(1_u64) * w.pow(3_u64),
+            u.pow(2_u64) * w.pow(1_u64),
+        ];
 
         Self {
-            Ql: vec![-FrElement::one(), -FrElement::one(), FrElement::zero(), FrElement::one()],
-            Qr: vec![FrElement::zero(), FrElement::zero(), FrElement::zero(), -FrElement::one()],
-            Qo: vec![FrElement::zero(), FrElement::zero(), -FrElement::one(), FrElement::zero()],
-            Qm: vec![FrElement::zero(), FrElement::zero(), FrElement::one(), FrElement::zero()],
-            Qc: vec![FrElement::zero(), FrElement::zero(), FrElement::zero(), FrElement::zero()],
+            number_constraints: NUMBER_CONSTRAINTS,
+            domain: domain.clone(),
 
-            S1: vec![u.pow(2_u64) * w.pow(3_u64), u.pow(0_u64) * w.pow(3_u64), u.pow(0_u64) * w.pow(0_u64), u.pow(0_u64) * w.pow(1_u64)],
-            S2: vec![u.pow(0_u64) * w.pow(2_u64), u.pow(1_u64) * w.pow(0_u64), u.pow(1_u64) * w.pow(2_u64), u.pow(2_u64) * w.pow(2_u64)],
-            S3: vec![u.pow(1_u64) * w.pow(1_u64), u.pow(2_u64) * w.pow(0_u64), u.pow(1_u64) * w.pow(3_u64), u.pow(2_u64) * w.pow(1_u64)],
+            Ql: Polynomial::interpolate(
+                &domain,
+                &[
+                    -FrElement::one(),
+                    -FrElement::one(),
+                    FrElement::zero(),
+                    FrElement::one(),
+                ],
+            ),
+            Qr: Polynomial::interpolate(
+                &domain,
+                &[
+                    FrElement::zero(),
+                    FrElement::zero(),
+                    FrElement::zero(),
+                    -FrElement::one(),
+                ],
+            ),
+            Qo: Polynomial::interpolate(
+                &domain,
+                &[
+                    FrElement::zero(),
+                    FrElement::zero(),
+                    -FrElement::one(),
+                    FrElement::zero(),
+                ],
+            ),
+            Qm: Polynomial::interpolate(
+                &domain,
+                &[
+                    FrElement::zero(),
+                    FrElement::zero(),
+                    FrElement::one(),
+                    FrElement::zero(),
+                ],
+            ),
+            Qc: Polynomial::interpolate(
+                &domain,
+                &[
+                    FrElement::zero(),
+                    FrElement::zero(),
+                    FrElement::zero(),
+                    FrElement::zero(),
+                ],
+            ),
+
+            S1_monomial: Polynomial::interpolate(&domain, &S1_lagrange),
+            S2_monomial: Polynomial::interpolate(&domain, &S2_lagrange),
+            S3_monomial: Polynomial::interpolate(&domain, &S3_lagrange),
+
+            S1_lagrange: S1_lagrange,
+            S2_lagrange: S2_lagrange,
+            S3_lagrange: S3_lagrange,
         }
     }
 }
@@ -66,56 +182,48 @@ pub struct VerificationKey<G1Point> {
     S3: G1Point,
 }
 
-fn build_permutation(
-    circuit: &Circuit,
-) -> Vec<VariableID> {
+fn build_permutation(circuit: &Circuit) -> Vec<VariableID> {
     todo!()
 }
 
 #[allow(unused)]
-fn setup<const MAXIMUM_DEGREE: usize, P: IsPairing> (
+fn setup<const MAXIMUM_DEGREE: usize, P: IsPairing>(
     srs: &SRS,
-    circuit: &Circuit
+    circuit: &Circuit,
 ) -> VerificationKey<G1Point> {
     let kzg = KZG::new(srs.clone());
     let common_input = CommonPreprocessedInput::for_this(&circuit);
-    let base: Vec<FrElement> = (0..4).map(|exp| ORDER_4_ROOT_UNITY.pow(exp as u64)).collect();
 
     VerificationKey {
-        Qm: kzg.commit(&Polynomial::interpolate(&base, &common_input.Qm)),
-        Ql: kzg.commit(&Polynomial::interpolate(&base, &common_input.Ql)),
-        Qr: kzg.commit(&Polynomial::interpolate(&base, &common_input.Qr)),
-        Qo: kzg.commit(&Polynomial::interpolate(&base, &common_input.Qo)),
-        Qc: kzg.commit(&Polynomial::interpolate(&base, &common_input.Qc)),
+        Qm: kzg.commit(&common_input.Qm),
+        Ql: kzg.commit(&common_input.Ql),
+        Qr: kzg.commit(&common_input.Qr),
+        Qo: kzg.commit(&common_input.Qo),
+        Qc: kzg.commit(&common_input.Qc),
 
-        S1: kzg.commit(&Polynomial::interpolate(&base, &common_input.S1)),
-        S2: kzg.commit(&Polynomial::interpolate(&base, &common_input.S2)),
-        S3: kzg.commit(&Polynomial::interpolate(&base, &common_input.S3)),
+        S1: kzg.commit(&common_input.S1_monomial),
+        S2: kzg.commit(&common_input.S2_monomial),
+        S3: kzg.commit(&common_input.S3_monomial),
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use lambdaworks_math::elliptic_curve::{short_weierstrass::curves::bls12_381::{curve::BLS12381Curve, twist::BLS12381TwistCurve}, traits::IsEllipticCurve};
+    use lambdaworks_math::elliptic_curve::{
+        short_weierstrass::curves::bls12_381::{curve::BLS12381Curve, twist::BLS12381TwistCurve},
+        traits::IsEllipticCurve,
+    };
 
-    use crate::config::{Pairing, FpElement};
     use super::*;
-
-    fn test_srs() -> SRS {
-        let s = FrElement::from(2);
-        let g1: G1Point = <BLS12381Curve as IsEllipticCurve>::generator();
-        let g2: G2Point = <BLS12381TwistCurve as IsEllipticCurve>::generator();
-
-        let powers_main_group: Vec<G1Point> = (0..4).map(|exp| g1.operate_with_self(s.pow(exp as u64).representative())).collect(); 
-        let powers_secondary_group = [g2.clone(), g2.operate_with_self(s.representative())];
-
-        SRS::new(&powers_main_group, &powers_secondary_group)
-    }
+    use crate::{
+        config::{FpElement, Pairing},
+        test_utils::{test_circuit, test_srs},
+    };
 
     #[test]
     fn setup_works_for_simple_circuit() {
         let srs = test_srs();
-        let circuit = Circuit { number_public_inputs: 2, number_private_inputs: 1, number_internal_variables: 1 };
+        let circuit = test_circuit();
 
         let vk = setup::<4, BLS12381AtePairing>(&srs, &circuit);
 
