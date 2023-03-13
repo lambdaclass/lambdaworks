@@ -532,12 +532,16 @@ mod tests {
     #[test]
     fn should_fail_verify_if_evaluations_are_not_in_merkle_tree() {
         let trace = fibonacci_trace([FE::new(U384::from("1")), FE::new(U384::from("1"))]);
-        let mut bad_proof = prove(&trace);
+        let proof_config = super::ProofConfig {
+            count_queries: 30,
+            blowup_factor: 4,
+        };
+        let mut bad_proof = prove(&trace, &proof_config);
 
-        bad_proof.composition_poly_lde_evaluations[0] = FE::new(U384::from("5"));
-        bad_proof.trace_lde_poly_evaluations[0] = FE::new(U384::from("0"));
-        bad_proof.trace_lde_poly_evaluations[1] = FE::new(U384::from("4"));
-        bad_proof.trace_lde_poly_evaluations[2] = FE::new(U384::from("9"));
+        bad_proof.query_list[0].composition_poly_lde_evaluations[0] = FE::new(U384::from("5"));
+        bad_proof.query_list[0].trace_lde_poly_evaluations[0] = FE::new(U384::from("0"));
+        bad_proof.query_list[0].trace_lde_poly_evaluations[1] = FE::new(U384::from("4"));
+        bad_proof.query_list[0].trace_lde_poly_evaluations[2] = FE::new(U384::from("9"));
 
         assert!(!verify(&bad_proof));
     }
@@ -552,10 +556,14 @@ mod tests {
     #[test]
     fn should_fail_if_trace_is_only_one_number_for_fibonacci() {
         let trace = bad_trace([FE::new(U384::from("1")), FE::new(U384::from("1"))]);
-        let bad_proof = prove(&trace);
+        let proof_config = super::ProofConfig {
+            count_queries: 30,
+            blowup_factor: 4,
+        };
+        let bad_proof = prove(&trace, &proof_config);
         assert!(!verify(&bad_proof));
     }
-    pub fn bad_index_prover(trace: &[FE]) -> StarkQueryProof {
+    pub fn bad_index_prover(trace: &[FE]) -> StarkProof {
         let transcript = &mut Transcript::new();
 
         // * Generate Coset
@@ -611,7 +619,7 @@ mod tests {
 
         // These are evaluations over the composition polynomial
         let mut composition_poly =
-            compute_composition_poly(trace_poly, &trace_primitive_root, &[alpha_t, alpha_bc]);
+            compute_composition_poly(&trace_poly, &trace_primitive_root, &[alpha_t, alpha_bc]);
         let composition_poly_lde_evaluation = composition_poly.evaluate(&evaluation_points[0]);
 
         // This is needed to check  the element is in the root
@@ -634,13 +642,15 @@ mod tests {
             .map(|fri_commitment| fri_commitment.merkle_tree.root.clone())
             .collect();
 
-        StarkQueryProof {
+        StarkProof {
             trace_lde_poly_root: trace_root,
-            trace_lde_poly_evaluations,
-            trace_lde_poly_inclusion_proofs: merkle_paths,
-            composition_poly_lde_evaluations: vec![composition_poly_lde_evaluation],
             fri_layers_merkle_roots,
-            fri_decommitment,
+            query_list: vec![StarkQueryProof {
+                trace_lde_poly_evaluations,
+                trace_lde_poly_inclusion_proofs: merkle_paths,
+                composition_poly_lde_evaluations: vec![composition_poly_lde_evaluation],
+                fri_decommitment,
+            }],
         }
     }
 
