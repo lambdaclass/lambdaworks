@@ -3,7 +3,7 @@
 
 [[kernel]]
 void radix2_dit_butterfly(
-    device uint32_t* input [[ buffer(0) ]]
+    device uint32_t* input [[ buffer(0) ]],
     constant uint32_t* twiddles [[ buffer(1) ]],
     uint32_t group_count [[ threadgroups_per_grid ]],
     uint32_t i [[ thread_position_in_grid ]],
@@ -17,8 +17,11 @@ void radix2_dit_butterfly(
   Fp a = input[i];
   Fp b = input[i + distance];
 
-  input[i]            = a + w*b // --\/--
-  input[i + distance] = a - w*b // --/\--
+  Fp y0 = a + w*b;
+  Fp y1 = a - w*b;
+
+  input[i]            = y0.asUInt32(); // --\/--
+  input[i + distance] = y1.asUInt32(); // --/\--
 }
 
 kernel void gen_twiddles(

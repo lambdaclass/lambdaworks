@@ -43,7 +43,7 @@ impl FFTMetalState {
             .new_compute_pipeline_state_with_function(&butterfly_kernel)
             .map_err(FFTError::MetalPipelineError)?;
 
-        let basetype_size = std::mem::size_of::<F::BaseType>();
+        let basetype_size = std::mem::size_of::<u32>();
 
         let input = input.map(|elem| elem.value().clone());
         let input_buffer = self.device.new_buffer_with_data(
@@ -129,6 +129,9 @@ mod tests {
         let mut result = metal_state.execute_fft(coeffs).unwrap();
         in_place_bit_reverse_permute(&mut result);
 
-        assert_eq!(result, expected);
+        dbg!(result);
+        dbg!(expected);
+
+        assert!(false);
     }
 }
