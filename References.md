@@ -34,6 +34,7 @@
 - [Taxonomy of elliptic curves](https://eprint.iacr.org/2006/372)
 - [Ristretto](https://ristretto.group/)
 - [Double ODD](https://doubleodd.group/)
+- [Hashing to elliptic curves](https://datatracker.ietf.org/doc/id/draft-irtf-cfrg-hash-to-curve-06.html#name-hashing-to-a-finite-field)
 
 ## Halo2
 - [Halo2's poly](https://github.com/zcash/halo2/tree/main/halo2_proofs/src/poly)
