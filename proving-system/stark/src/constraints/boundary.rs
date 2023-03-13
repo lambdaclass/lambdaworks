@@ -100,7 +100,7 @@ impl<F: IsField> BoundaryConstraints<FieldElement<F>> {
 
 #[cfg(test)]
 mod test {
-    use lambdaworks_math::unsigned_integer::element::U384;
+    use lambdaworks_math::unsigned_integer::element::U256;
 
     use crate::{generate_primitive_root, FE};
 
@@ -108,9 +108,9 @@ mod test {
 
     #[test]
     fn zerofier_is_the_correct_one() {
-        let a0 = BoundaryConstraint::new_simple(0, FE::new(U384::from("1")));
-        let a1 = BoundaryConstraint::new_simple(1, FE::new(U384::from("1")));
-        let result = BoundaryConstraint::new_simple(7, FE::new(U384::from("32")));
+        let a0 = BoundaryConstraint::new_simple(0, FE::new(U256::from("1")));
+        let a1 = BoundaryConstraint::new_simple(1, FE::new(U256::from("1")));
+        let result = BoundaryConstraint::new_simple(7, FE::new(U256::from("32")));
 
         let constraints = BoundaryConstraints::from_constraints(vec![a0, a1, result]);
 

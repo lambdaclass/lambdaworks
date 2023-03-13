@@ -2,6 +2,7 @@ pub mod constraints;
 pub mod fri;
 
 use constraints::boundary::{BoundaryConstraint, BoundaryConstraints};
+use lambdaworks_math::field::traits::IsField;
 use std::ops::{Div, Mul};
 
 use fri::fri_decommit::{fri_decommit_layers, FriDecommitment};
@@ -11,29 +12,20 @@ use lambdaworks_math::polynomial::{self, Polynomial};
 
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::{
-    field::fields::montgomery_backed_prime_fields::{IsModulus, U384PrimeField},
-    traits::ByteConversion,
-    unsigned_integer::element::U384,
+    field::fields::fft_friendly::u256_two_adic_prime_field::U256MontgomeryTwoAdicPrimeField,
+    traits::ByteConversion, unsigned_integer::element::U256,
 };
 
 // DEFINITION OF THE USED FIELD
 #[derive(Clone, Debug)]
-pub struct Modulus;
-impl IsModulus<U384> for Modulus {
-    const MODULUS: U384 =
-        // hex 17
-        U384::from("800000000000011000000000000000000000000000000000000000000000001");
-}
 
 pub struct ProofConfig {
     pub count_queries: usize,
     pub blowup_factor: usize,
 }
 
-pub type PrimeField = U384PrimeField<Modulus>;
+pub type PrimeField = U256MontgomeryTwoAdicPrimeField;
 pub type FE = FieldElement<PrimeField>;
-
-const MODULUS_MINUS_1: U384 = U384::sub(&Modulus::MODULUS, &U384::from("1")).0;
 
 /// Subgroup generator to generate the roots of unity
 const FIELD_SUBGROUP_GENERATOR: u64 = 3;
@@ -49,7 +41,7 @@ const COSET_OFFSET: u64 = 3;
 // DEFINITION OF FUNCTIONS
 
 pub fn generate_primitive_root(subgroup_size: u64) -> FE {
-    let modulus_minus_1_field: FE = FE::new(MODULUS_MINUS_1);
+    let modulus_minus_1_field: FE = FE::new(PrimeField::neg(&U256::from("1")));
     let subgroup_size: FE = subgroup_size.into();
     let generator_field: FE = FIELD_SUBGROUP_GENERATOR.into();
     let exp = (&modulus_minus_1_field) / &subgroup_size;
@@ -476,7 +468,7 @@ pub fn fri_verify(
 
         // v is the calculated element for the
         // co linearity check
-        let two = &FE::new(U384::from("2"));
+        let two = &FE::new(U256::from("2"));
         let v = (previous_auth_path_evaluation + previous_path_evaluation_symmetric) / two
             + &beta * (previous_auth_path_evaluation - previous_path_evaluation_symmetric)
                 / (two * evaluation_point);
@@ -515,7 +507,7 @@ mod tests {
     };
 
     use super::prove;
-    use lambdaworks_math::unsigned_integer::element::U384;
+    use lambdaworks_math::unsigned_integer::element::U256;
 
     #[test]
     fn test_prove() {
@@ -524,38 +516,38 @@ mod tests {
             blowup_factor: 4,
         };
 
-        let trace = fibonacci_trace([FE::new(U384::from("1")), FE::new(U384::from("1"))]);
+        let trace = fibonacci_trace([FE::new(U256::from("1")), FE::new(U256::from("1"))]);
         let result = prove(&trace, &proof_config);
         assert!(verify(&result));
     }
 
     #[test]
     fn should_fail_verify_if_evaluations_are_not_in_merkle_tree() {
-        let trace = fibonacci_trace([FE::new(U384::from("1")), FE::new(U384::from("1"))]);
+        let trace = fibonacci_trace([FE::new(U256::from("1")), FE::new(U256::from("1"))]);
         let proof_config = super::ProofConfig {
             count_queries: 30,
             blowup_factor: 4,
         };
         let mut bad_proof = prove(&trace, &proof_config);
 
-        bad_proof.query_list[0].composition_poly_lde_evaluations[0] = FE::new(U384::from("5"));
-        bad_proof.query_list[0].trace_lde_poly_evaluations[0] = FE::new(U384::from("0"));
-        bad_proof.query_list[0].trace_lde_poly_evaluations[1] = FE::new(U384::from("4"));
-        bad_proof.query_list[0].trace_lde_poly_evaluations[2] = FE::new(U384::from("9"));
+        bad_proof.query_list[0].composition_poly_lde_evaluations[0] = FE::new(U256::from("5"));
+        bad_proof.query_list[0].trace_lde_poly_evaluations[0] = FE::new(U256::from("0"));
+        bad_proof.query_list[0].trace_lde_poly_evaluations[1] = FE::new(U256::from("4"));
+        bad_proof.query_list[0].trace_lde_poly_evaluations[2] = FE::new(U256::from("9"));
 
         assert!(!verify(&bad_proof));
     }
 
     #[test]
     fn should_fail_verify_if_point_returned_is_one_of_different_index() {
-        let trace = fibonacci_trace([FE::new(U384::from("1")), FE::new(U384::from("1"))]);
+        let trace = fibonacci_trace([FE::new(U256::from("1")), FE::new(U256::from("1"))]);
         let proof = bad_index_prover(&trace);
         assert!(!verify(&proof));
     }
 
     #[test]
     fn should_fail_if_trace_is_only_one_number_for_fibonacci() {
-        let trace = bad_trace([FE::new(U384::from("1")), FE::new(U384::from("1"))]);
+        let trace = bad_trace([FE::new(U256::from("1")), FE::new(U256::from("1"))]);
         let proof_config = super::ProofConfig {
             count_queries: 30,
             blowup_factor: 4,
@@ -661,7 +653,7 @@ mod tests {
         ret.push(initial_values[1].clone());
 
         for i in 2..(ORDER_OF_ROOTS_OF_UNITY_TRACE) {
-            ret.push(FE::new(U384::from_u64(i)));
+            ret.push(FE::new(U256::from_u64(i)));
         }
 
         ret
@@ -676,7 +668,7 @@ mod tests {
             blowup_factor: 4,
         };
 
-        let trace = fibonacci_trace([FE::new(U384::from("2")), FE::new(U384::from("3"))]);
+        let trace = fibonacci_trace([FE::new(U256::from("2")), FE::new(U256::from("3"))]);
         let result = prove(&trace, &proof_config);
         assert!(!verify(&result));
     }
@@ -697,14 +689,14 @@ mod tests {
     #[test]
     fn test_get_boundary_quotient() {
         // Build boundary constraints
-        let a0 = BoundaryConstraint::new_simple(0, FE::new(U384::from("1")));
-        let a1 = BoundaryConstraint::new_simple(1, FE::new(U384::from("1")));
-        let result = BoundaryConstraint::new_simple(7, FE::new(U384::from("15")));
+        let a0 = BoundaryConstraint::new_simple(0, FE::new(U256::from("1")));
+        let a1 = BoundaryConstraint::new_simple(1, FE::new(U256::from("1")));
+        let result = BoundaryConstraint::new_simple(7, FE::new(U256::from("15")));
 
         let boundary_constraints = BoundaryConstraints::from_constraints(vec![a0, a1, result]);
 
         // Build trace polynomial
-        let pub_inputs = [FE::new(U384::from("1")), FE::new(U384::from("1"))];
+        let pub_inputs = [FE::new(U256::from("1")), FE::new(U256::from("1"))];
         let trace = test_utils::fibonacci_trace(pub_inputs, 8);
         let trace_primitive_root = generate_primitive_root(8);
         let trace_roots_of_unity = generate_roots_of_unity_coset(1, &trace_primitive_root);
