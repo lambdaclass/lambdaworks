@@ -15,6 +15,7 @@ impl IsModulus<U256> for U256MontgomeryConfigTwoAdic {
 
 impl IsTwoAdicField for U256MontgomeryTwoAdicPrimeField {
     const TWO_ADICITY: u64 = 48;
+    // Change this line for a new function like `from_limbs`.
     const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: U256 = UnsignedInteger {
         limbs: [
             219038664817244121,
