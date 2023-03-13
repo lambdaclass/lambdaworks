@@ -32,7 +32,7 @@ impl<F: IsField> BoundaryConstraint<FieldElement<F>> {
 
 /// Data structure that stores all the boundary constraints that must
 /// hold for the execution trace
-pub(crate) struct BoundaryConstraints<FE> {
+pub struct BoundaryConstraints<FE> {
     constraints: Vec<BoundaryConstraint<FE>>,
 }
 

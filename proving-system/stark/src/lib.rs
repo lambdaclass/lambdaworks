@@ -1,3 +1,4 @@
+pub mod air;
 pub mod constraints;
 pub mod fri;
 
