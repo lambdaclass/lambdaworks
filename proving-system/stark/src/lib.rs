@@ -317,6 +317,7 @@ fn compute_deep_composition_poly(
     let gamma_2 = FE::one();
     let gamma_3 = FE::one();
     let gamma_4 = FE::one();
+    let gamma_5 = FE::one();
 
     let first_term = (trace_poly.clone()
         - Polynomial::new_monomial(trace_poly.evaluate(ood_evaluation_point), 0))
@@ -330,6 +331,14 @@ fn compute_deep_composition_poly(
         / (Polynomial::new_monomial(FE::one(), 1)
             - Polynomial::new_monomial(ood_evaluation_point * primitive_root, 0));
 
+    let third_term = (trace_poly.clone()
+        - Polynomial::new_monomial(
+            trace_poly.evaluate(&(ood_evaluation_point * primitive_root * primitive_root)),
+            0,
+        ))
+        / (Polynomial::new_monomial(FE::one(), 1)
+            - Polynomial::new_monomial(ood_evaluation_point * primitive_root * primitive_root, 0));
+
     // Evaluate in X^2
     let even_composition_poly = polynomial::compose(
         even_composition_poly,
@@ -340,19 +349,23 @@ fn compute_deep_composition_poly(
         &Polynomial::new_monomial(FE::one(), 2),
     );
 
-    let third_term = (even_composition_poly.clone()
+    let fourth_term = (even_composition_poly.clone()
         - Polynomial::new_monomial(
             even_composition_poly.evaluate(&ood_evaluation_point.clone()),
             0,
         ))
         / (Polynomial::new_monomial(FE::one(), 1)
             - Polynomial::new_monomial(ood_evaluation_point * ood_evaluation_point, 0));
-    let fourth_term = (odd_composition_poly.clone()
+    let fifth_term = (odd_composition_poly.clone()
         - Polynomial::new_monomial(odd_composition_poly.evaluate(ood_evaluation_point), 0))
         / (Polynomial::new_monomial(FE::one(), 1)
             - Polynomial::new_monomial(ood_evaluation_point * ood_evaluation_point, 0));
 
-    first_term * gamma_1 + second_term * gamma_2 + third_term * gamma_3 + fourth_term * gamma_4
+    first_term * gamma_1
+        + second_term * gamma_2
+        + third_term * gamma_3
+        + fourth_term * gamma_4
+        + fifth_term * gamma_5
 }
 
 pub fn verify(proof: &StarkQueryProof) -> bool {
