@@ -382,9 +382,6 @@ mod tests {
         assert_eq!(
             (0..n)
                 .map(|x| { FieldElement::<U64TestField<MODULUS>>::from(x) })
-                .collect::<Vec<_>>()
-                .iter()
-                .cloned()
                 .sum::<FieldElement<U64TestField<MODULUS>>>()
                 .value,
             ((n - 1) as f64 / 2. * ((n - 1) as f64 + 1.)) as u64 % MODULUS
@@ -398,9 +395,6 @@ mod tests {
         assert_eq!(
             (0..n)
                 .map(|x| { FieldElement::<U64TestField<MODULUS>>::from(x) })
-                .collect::<Vec<_>>()
-                .iter()
-                .cloned()
                 .sum::<FieldElement<U64TestField<MODULUS>>>()
                 .value,
             0
