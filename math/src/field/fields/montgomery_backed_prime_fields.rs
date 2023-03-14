@@ -210,18 +210,18 @@ where
     }
 }
 
-impl<C, const NUM_LIMBS: usize>
-    Distribution<FieldElement<MontgomeryBackendPrimeField<C, NUM_LIMBS>>> for Standard
+impl<M, const NUM_LIMBS: usize>
+    Distribution<FieldElement<MontgomeryBackendPrimeField<M, NUM_LIMBS>>> for Standard
 where
-    C: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug,
+    M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug,
 {
     fn sample<R: Rng + ?Sized>(
         &self,
         rng: &mut R,
-    ) -> FieldElement<MontgomeryBackendPrimeField<C, NUM_LIMBS>> {
+    ) -> FieldElement<MontgomeryBackendPrimeField<M, NUM_LIMBS>> {
         let mut rand_limbs: [u64; NUM_LIMBS] = [0; NUM_LIMBS];
         let mut roll_to_max: bool = false;
-        let mod_min_one = C::MODULUS - UnsignedInteger::from_u64(1_u64);
+        let mod_min_one = M::MODULUS - UnsignedInteger::from_u64(1_u64);
 
         #[allow(clippy::all)] //Lint imposed by clippy makes code harder to read.
         for i in 0..NUM_LIMBS {
@@ -398,7 +398,7 @@ mod tests_u384_prime_fields {
         for _ in 0..1000 {
             let rand: U384F23Element = rand::random();
             assert!(
-                (&U384MontgomeryConfiguration23::MODULUS > rand.value())
+                (&U384Modulus23::MODULUS > rand.value())
                     && (rand.value() >= &U384::from_u64(0))
             );
         }
@@ -456,7 +456,7 @@ mod tests_u384_prime_fields {
         for _ in 0..1000 {
             let rand: U384FP1Element = rand::random();
             assert!(
-                (&U384MontgomeryConfigP1::MODULUS > rand.value())
+                (&U384ModulusP1::MODULUS > rand.value())
                     && (rand.value() >= &U384::from_u64(0))
             );
         }
@@ -549,7 +549,7 @@ mod tests_u384_prime_fields {
         for _ in 0..1000 {
             let rand: U384FP2Element = rand::random();
             assert!(
-                (&U384MontgomeryConfigP2::MODULUS > rand.value())
+                (&U384ModulusP2::MODULUS > rand.value())
                     && (rand.value() >= &U384::from_u64(0))
             );
         }
@@ -717,7 +717,7 @@ mod tests_u256_prime_fields {
         for _ in 0..1000 {
             let rand: U256F29Element = rand::random();
             assert!(
-                (&U256MontgomeryConfiguration29::MODULUS > rand.value())
+                (&U256Modulus29::MODULUS > rand.value())
                     && (rand.value() >= &U256::from_u64(0))
             );
         }
@@ -773,7 +773,7 @@ mod tests_u256_prime_fields {
         for _ in 0..1000 {
             let rand: U256FP1Element = rand::random();
             assert!(
-                (&U256MontgomeryConfigP1::MODULUS > rand.value())
+                (&U256ModulusP1::MODULUS > rand.value())
                     && (rand.value() >= &U256::from_u64(0))
             );
         }
@@ -793,8 +793,8 @@ mod tests_u256_prime_fields {
         };
     }
 
-    type FP2 = U256PrimeField<ModulusP2>;
-    type FP2Element = FieldElement<FP2>;
+    type U256FP2 = U256PrimeField<ModulusP2>;
+    type U256FP2Element = FieldElement<U256FP2>;
 
     #[test]
     fn montgomery_prime_field_addition_works_1() {
@@ -869,7 +869,7 @@ mod tests_u256_prime_fields {
         for _ in 0..1000 {
             let rand: U256FP2Element = rand::random();
             assert!(
-                (&U256MontgomeryConfigP2::MODULUS > rand.value())
+                (&ModulusP2::MODULUS > rand.value())
                     && (rand.value() >= &U256::from_u64(0))
             );
         }
