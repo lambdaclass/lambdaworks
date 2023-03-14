@@ -79,6 +79,10 @@ impl<const MODULUS: u64> IsGroup for U64FieldElement<MODULUS> {
     fn operate_with(&self, other: &Self) -> Self {
         *self + *other
     }
+
+    fn neg(&self) -> Self {
+        -self
+    }
 }
 
 impl<const MODULUS: u64> ByteConversion for U64FieldElement<MODULUS> {
