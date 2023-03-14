@@ -16,9 +16,6 @@ use lambdaworks_math::{
     traits::ByteConversion, unsigned_integer::element::U256,
 };
 
-// DEFINITION OF THE USED FIELD
-#[derive(Clone, Debug)]
-
 pub struct ProofConfig {
     pub count_queries: usize,
     pub blowup_factor: usize,
@@ -86,6 +83,7 @@ pub fn fibonacci_trace(initial_values: [FE; 2]) -> Vec<FE> {
     ret
 }
 
+// FIXME remove unwrap() calls and return errors
 pub fn prove(trace: &[FE], proof_config: &ProofConfig) -> StarkProof {
     let transcript = &mut Transcript::new();
     let mut query_list = Vec::<StarkQueryProof>::new();
@@ -95,6 +93,7 @@ pub fn prove(trace: &[FE], proof_config: &ProofConfig) -> StarkProof {
         ORDER_OF_ROOTS_OF_UNITY_TRACE.trailing_zeros() as u64,
     )
     .unwrap();
+
     let trace_roots_of_unity = generate_roots_of_unity_coset(1, &trace_primitive_root);
 
     let lde_primitive_root = PrimeField::get_primitive_root_of_unity(
@@ -391,6 +390,7 @@ pub fn fri_verify(
 
     // Check that v = P_{i+1}(z_i)
 
+    // FIXME remove unwrap()
     let mut lde_primitive_root = PrimeField::get_primitive_root_of_unity(
         ORDER_OF_ROOTS_OF_UNITY_FOR_LDE.trailing_zeros() as u64,
     )
