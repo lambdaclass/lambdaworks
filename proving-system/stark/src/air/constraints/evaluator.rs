@@ -12,7 +12,7 @@ use super::{boundary::BoundaryConstraints, evaluation_table::ConstraintEvaluatio
 
 pub struct ConstraintEvaluator<'a, A: AIR<F>, F: IsField> {
     air: &'a A,
-    boundary_constraints: BoundaryConstraints<FieldElement<F>>,
+    boundary_constraints: BoundaryConstraints<F>,
     trace_poly: Polynomial<FieldElement<F>>,
     primitive_root: FieldElement<F>,
 }
@@ -59,19 +59,28 @@ impl<'a, A: AIR<F>, F: IsField> ConstraintEvaluator<'a, A, F> {
         let values = boundary_constraints.values(0);
 
         let max_degree =
-            self.trace_poly.degree() * self.air.context().transition_degrees.iter().max();
+            self.trace_poly.degree() * self.air.context().transition_degrees.iter().max().unwrap();
 
         let max_degree_power_of_two = next_power_of_two(max_degree);
 
         let boundary_poly = self.trace_poly - Polynomial::interpolate(&domain, &values);
+
+        let alpha = FE::one();
+        let beta = FE::one();
+
+        let alpha_and_beta_coefficients = vec![(alpha, beta)];
 
         // Iterate over trace and domain and compute transitions
         for (i, d) in lde_domain.iter().enumerate() {
             let frame = Frame::read_from_trace(&lde_trace, i);
 
             let evaluations = self.air.compute_transition(&frame);
-            let evaluations =
-                self.compute_transition_evaluations(evaluations, max_degree_power_of_two, d);
+            let evaluations = self.compute_transition_evaluations(
+                evaluations.as_slice(),
+                alpha_and_beta_coefficients.as_slice(),
+                max_degree_power_of_two,
+                d,
+            );
 
             let alpha = FE::one();
             let beta = FE::one();
@@ -94,23 +103,29 @@ impl<'a, A: AIR<F>, F: IsField> ConstraintEvaluator<'a, A, F> {
 
     fn compute_transition_evaluations(
         &self,
-        evaluations: Vec<FieldElement<F>>,
+        evaluations: &[FieldElement<F>],
+        alpha_and_beta_coefficients: &[(FieldElement<F>, FieldElement<F>)],
         // composition_coeffs: (FieldElement<F>, FieldElement<F>),
         max_degree: u64,
-        x: FieldElement<F>,
+        x: &FieldElement<F>,
     ) -> Vec<FieldElement<F>> {
         let transition_degrees = self.air.context().transition_degrees;
 
         // TODO: Fiat-Shamir
-        let alpha = FE::one();
-        let beta = FE::one();
+        // let alpha = FE::one();
+        // let beta = FE::one();
 
         let divisors = self.air.transition_divisors();
 
-        let evaluations = Vec::new();
-        for (eval, degree, div) in evaluations.iter().zip(transition_degrees).zip(divisors) {
-            let numerator = eval * (alpha * x.pow(max_degree - degree) + beta);
-            let result = numerator / div.evaluate(x);
+        let mut evaluations = Vec::new();
+        for (((eval, degree), div), (alpha, beta)) in evaluations
+            .iter()
+            .zip(transition_degrees)
+            .zip(divisors)
+            .zip(alpha_and_beta_coefficients)
+        {
+            let numerator = eval * (alpha * x.pow(max_degree - (degree as u64)) + beta);
+            let result = numerator / div.evaluate(&x);
             evaluations.push(result);
         }
 

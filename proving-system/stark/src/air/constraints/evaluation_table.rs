@@ -10,7 +10,7 @@ pub struct ConstraintEvaluationTable<F: IsField> {
     trace_length: usize,
 }
 
-impl<F: IsField> ConstraintEvaluationTable {
+impl<F: IsField> ConstraintEvaluationTable<F> {
     pub fn new(n_cols: usize, domain: &[FE], divisors: &Vec<Polynomial<FieldElement<F>>>) -> Self {
         let col = Vec::with_capacity(domain.len());
 

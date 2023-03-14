@@ -35,10 +35,10 @@ impl<F: IsField> Frame<F> {
         &[0, 1, 2]
     }
 
-    pub fn read_from_trace(trace: &TraceTable, step: usize) -> Self {
+    pub fn read_from_trace(trace: &TraceTable<F>, step: usize) -> Self {
         let mut data = Vec::new();
         for offset in Self::offsets().iter() {
-            data.push(trace[step + offset])
+            data.push(trace.table[step + offset])
         }
 
         Self::new(data, 1)

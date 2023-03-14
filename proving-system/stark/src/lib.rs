@@ -4,6 +4,7 @@ pub mod fri;
 use air::constraints::boundary::{BoundaryConstraint, BoundaryConstraints};
 use air::constraints::evaluator::ConstraintEvaluator;
 use air::AIR;
+use fri::F;
 use std::ops::{Div, Mul};
 
 use fri::fri_decommit::{fri_decommit_layers, FriDecommitment};
@@ -285,7 +286,7 @@ fn compute_zerofier(primitive_root: &FE, root_order: usize) -> Polynomial<FE> {
 }
 
 fn compute_boundary_quotient(
-    constraints: &BoundaryConstraints<FE>,
+    constraints: &BoundaryConstraints<F>,
     col: usize,
     primitive_root: &FE,
     trace_poly: &Polynomial<FE>,
@@ -303,7 +304,7 @@ fn compute_boundary_quotient(
 /// required by DEEP FRI. This function is used by the verifier to check consistency between the trace
 /// and the composition polynomial.
 fn compute_boundary_quotient_ood_evaluation(
-    constraints: &BoundaryConstraints<FE>,
+    constraints: &BoundaryConstraints<F>,
     col: usize,
     primitive_root: &FE,
     trace_poly_ood_evaluation: &FE,

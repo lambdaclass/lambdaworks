@@ -14,7 +14,7 @@ pub struct BoundaryConstraint<F: IsField> {
     value: FieldElement<F>,
 }
 
-impl<F: IsField> BoundaryConstraint<FieldElement<F>> {
+impl<F: IsField> BoundaryConstraint<F> {
     #[allow(dead_code)]
     pub fn new(col: usize, step: usize, value: FieldElement<F>) -> Self {
         Self { col, step, value }
@@ -33,19 +33,19 @@ impl<F: IsField> BoundaryConstraint<FieldElement<F>> {
 /// Data structure that stores all the boundary constraints that must
 /// hold for the execution trace
 pub struct BoundaryConstraints<F: IsField> {
-    constraints: Vec<BoundaryConstraint<FieldElement<F>>>,
+    constraints: Vec<BoundaryConstraint<F>>,
 }
 
-impl<F: IsField> BoundaryConstraints<FieldElement<F>> {
+impl<F: IsField> BoundaryConstraints<F> {
     #[allow(dead_code)]
     pub fn new() -> Self {
         Self {
-            constraints: Vec::<BoundaryConstraint<FieldElement<F>>>::new(),
+            constraints: Vec::<BoundaryConstraint<F>>::new(),
         }
     }
 
     /// To instantiate from a vector of BoundaryConstraint elements
-    pub fn from_constraints(constraints: Vec<BoundaryConstraint<FieldElement<F>>>) -> Self {
+    pub fn from_constraints(constraints: Vec<BoundaryConstraint<F>>) -> Self {
         Self { constraints }
     }
 
