@@ -6,7 +6,7 @@ pub struct TraceTable<F: IsField> {
 }
 
 impl<F: IsField> TraceTable<F> {
-    fn new(table: Vec<FieldElement<F>>, num_cols: usize) -> Self {
+    pub fn new(table: Vec<FieldElement<F>>, num_cols: usize) -> Self {
         Self { table, num_cols }
     }
 }

@@ -1,14 +1,9 @@
-use std::intrinsics::mir::Field;
-
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsField},
     polynomial::Polynomial,
 };
 
-use crate::{
-    air::{frame::Frame, trace::TraceTable, AIR},
-    FE,
-};
+use crate::air::{frame::Frame, trace::TraceTable, AIR};
 
 use super::{boundary::BoundaryConstraints, evaluation_table::ConstraintEvaluationTable};
 

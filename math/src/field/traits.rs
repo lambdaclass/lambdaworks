@@ -1,4 +1,6 @@
-use crate::{fft::errors::FFTError, unsigned_integer::traits::IsUnsignedInteger};
+use crate::{
+    fft::errors::FFTError, traits::ByteConversion, unsigned_integer::traits::IsUnsignedInteger,
+};
 use std::{fmt::Debug, hash::Hash};
 
 use super::element::FieldElement;

@@ -5,30 +5,26 @@ mod fri_functions;
 use crate::fri::fri_commitment::{FriCommitment, FriCommitmentVec};
 use crate::fri::fri_functions::next_fri_layer;
 pub use lambdaworks_crypto::merkle_tree::DefaultHasher;
-pub type FriMerkleTree = MerkleTree<F, DefaultHasher>;
+pub type FriMerkleTree<F: IsField> = MerkleTree<F, DefaultHasher>;
 pub use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 pub use lambdaworks_crypto::merkle_tree::merkle::MerkleTree;
-use lambdaworks_math::traits::ByteConversion;
-use lambdaworks_math::unsigned_integer::element::U384;
+use lambdaworks_math::field::traits::IsField;
 pub use lambdaworks_math::{
     field::{element::FieldElement, fields::u64_prime_field::U64PrimeField},
     polynomial::Polynomial,
 };
-
-pub type F = crate::PrimeField;
-pub type FE = crate::FE;
 
 /// # Params
 ///
 /// p_0,
 /// original domain,
 /// evaluation.
-pub fn fri_commitment(
+pub fn fri_commitment<F: IsField>(
     p_i: &Polynomial<FieldElement<F>>,
-    domain_i: &[FE],
-    evaluation_i: &[FE],
+    domain_i: &[FieldElement<F>],
+    evaluation_i: &[FieldElement<F>],
     transcript: &mut Transcript,
-) -> FriCommitment<FE> {
+) -> FriCommitment<F> {
     // Merkle tree:
     //     - ret_evaluation
     //     - root
@@ -49,11 +45,11 @@ pub fn fri_commitment(
     }
 }
 
-pub fn fri(
+pub fn fri<F: IsField>(
     p_0: &mut Polynomial<FieldElement<F>>,
-    domain_0: &[FE],
+    domain_0: &[FieldElement<F>],
     transcript: &mut Transcript,
-) -> FriCommitmentVec<FE> {
+) -> FriCommitmentVec<F> {
     let mut fri_commitment_list = FriCommitmentVec::new();
     let evaluation_0 = p_0.evaluate_slice(domain_0);
 
@@ -72,9 +68,9 @@ pub fn fri(
     };
 
     // last poly of the list
-    let mut last_poly: Polynomial<FE> = p_0.clone();
+    let mut last_poly: Polynomial<FieldElement<F>> = p_0.clone();
     // last domain of the list
-    let mut last_domain: Vec<FE> = domain_0.to_vec();
+    let mut last_domain: Vec<FieldElement<F>> = domain_0.to_vec();
 
     // first evaluation in the list
     fri_commitment_list.push(commitment_0);
@@ -86,7 +82,7 @@ pub fn fri(
         // sample beta:
         // let beta_bytes = transcript.challenge();
         // let beta = FE::from_bytes_be(&beta_bytes).unwrap();
-        let beta = FE::new(U384::from("4"));
+        let beta = FieldElement::from(4);
 
         let (p_i, domain_i, evaluation_i) = next_fri_layer(&last_poly, &last_domain, &beta);
 

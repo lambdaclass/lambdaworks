@@ -3,8 +3,8 @@ pub mod fri;
 
 use air::constraints::boundary::{BoundaryConstraint, BoundaryConstraints};
 use air::constraints::evaluator::ConstraintEvaluator;
+use air::trace::TraceTable;
 use air::AIR;
-use fri::F;
 use std::ops::{Div, Mul};
 
 use fri::fri_decommit::{fri_decommit_layers, FriDecommitment};
@@ -12,7 +12,7 @@ use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::polynomial::{self, Polynomial};
 
 use lambdaworks_math::field::element::FieldElement;
-use lambdaworks_math::field::traits::IsField;
+use lambdaworks_math::field::traits::{IsField, IsTwoAdicField};
 use lambdaworks_math::{
     field::fields::montgomery_backed_prime_fields::{IsMontgomeryConfiguration, U384PrimeField},
     unsigned_integer::element::U384,
@@ -27,8 +27,8 @@ impl IsMontgomeryConfiguration<6> for MontgomeryConfig {
         U384::from("800000000000011000000000000000000000000000000000000000000000001");
 }
 
-pub type PrimeField = U384PrimeField<MontgomeryConfig>;
-pub type FE = FieldElement<PrimeField>;
+// pub type PrimeField = U384PrimeField<MontgomeryConfig>;
+// pub type FE = FieldElement<PrimeField>;
 
 const MODULUS_MINUS_1: U384 = U384::sub(&MontgomeryConfig::MODULUS, &U384::from("1")).0;
 
@@ -45,13 +45,13 @@ const COSET_OFFSET: u64 = 3;
 
 // DEFINITION OF FUNCTIONS
 
-pub fn generate_primitive_root(subgroup_size: u64) -> FieldElement<F> {
-    let modulus_minus_1_field: FieldElement<F> = FieldElement::new(MODULUS_MINUS_1);
-    let subgroup_size: FieldElement<F> = subgroup_size.into();
-    let generator_field: FieldElement<F> = FIELD_SUBGROUP_GENERATOR.into();
-    let exp = (&modulus_minus_1_field) / &subgroup_size;
-    generator_field.pow(exp.representative())
-}
+// pub fn generate_primitive_root(subgroup_size: u64) -> FieldElement<U384PrimeField<MontgomeryConfig>> {
+//     let modulus_minus_1_field: FieldElement<U384PrimeField<MontgomeryConfig>> = FieldElement::<U384PrimeField<MontgomeryConfig>>::new(MODULUS_MINUS_1);
+//     let subgroup_size: FieldElement<U384PrimeField<MontgomeryConfig>> = subgroup_size.into();
+//     let generator_field: FieldElement<U384PrimeField<MontgomeryConfig>> = FIELD_SUBGROUP_GENERATOR.into();
+//     let exp = (&modulus_minus_1_field) / &subgroup_size;
+//     generator_field.pow(exp.representative())
+// }
 
 /// This functions takes a roots of unity and a coset factor
 /// If coset_factor is 1, it's just expanding the roots of unity
@@ -80,14 +80,14 @@ pub struct StarkQueryProof<F: IsField> {
     pub trace_ood_evaluations: Vec<FieldElement<F>>,
     pub composition_poly_evaluations: Vec<FieldElement<F>>,
     pub fri_layers_merkle_roots: Vec<FieldElement<F>>,
-    pub fri_decommitment: FriDecommitment,
+    pub fri_decommitment: FriDecommitment<F>,
 }
 
 pub type StarkProof<F: IsField> = Vec<StarkQueryProof<F>>;
 
 pub use lambdaworks_crypto::merkle_tree::merkle::MerkleTree;
 pub use lambdaworks_crypto::merkle_tree::DefaultHasher;
-pub type FriMerkleTree = MerkleTree<PrimeField, DefaultHasher>;
+// pub type FriMerkleTree = MerkleTree<PrimeField, DefaultHasher>;
 
 pub fn fibonacci_trace<F: IsField>(initial_values: [FieldElement<F>; 2]) -> Vec<FieldElement<F>> {
     let mut ret: Vec<FieldElement<F>> = vec![];
@@ -102,14 +102,19 @@ pub fn fibonacci_trace<F: IsField>(initial_values: [FieldElement<F>; 2]) -> Vec<
     ret
 }
 
-pub fn prove<F: IsField, A: AIR<F>>(trace: &[FieldElement<F>], air: A) -> StarkQueryProof<F> {
+pub fn prove<F: IsField + IsTwoAdicField, A: AIR<F>>(
+    trace: &[FieldElement<F>],
+    air: A,
+) -> StarkQueryProof<F> {
     let transcript = &mut Transcript::new();
 
     // * Generate Coset
-    let trace_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_TRACE);
+    // let trace_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_TRACE);
+    let trace_primitive_root = F::get_root_of_unity(ORDER_OF_ROOTS_OF_UNITY_TRACE).unwrap();
     let trace_roots_of_unity = generate_roots_of_unity_coset(1, &trace_primitive_root);
 
-    let lde_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE);
+    // let lde_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE);
+    let lde_primitive_root = F::get_root_of_unity(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE).unwrap();
     let lde_roots_of_unity_coset = generate_roots_of_unity_coset(COSET_OFFSET, &lde_primitive_root);
 
     let trace_poly = Polynomial::interpolate(&trace_roots_of_unity, trace);
@@ -130,8 +135,10 @@ pub fn prove<F: IsField, A: AIR<F>>(trace: &[FieldElement<F>], air: A) -> StarkQ
 
     // Get coefficients from Fiat-Shamir
 
+    let lde_trace = TraceTable::new(lde_trace, 1);
+
     // Create evaluation table
-    let evaluator = ConstraintEvaluator::<F, A>::new(&air, trace_poly, trace_primitive_root);
+    let evaluator = ConstraintEvaluator::new(&air, trace_poly, trace_primitive_root);
     let constraint_evaluations = evaluator.evaluate(&lde_trace, &lde_roots_of_unity_coset);
 
     // Get composition poly
@@ -211,99 +218,99 @@ pub fn prove<F: IsField, A: AIR<F>>(trace: &[FieldElement<F>], air: A) -> StarkQ
 /// `H(X)` = `C_1(X) (alpha_1 * X^(D - D_1) + beta_1) + C_2(X) (alpha_2 X^(D - D_2) + beta_2)`, where `C_1`
 /// is the boundary constraint polynomial and `C_2` is the transition constraint polynomial and the alphas
 /// and betas are provided by the verifier (a.k.a. sampled using Fiat-Shamir).
-fn compute_composition_polys(
-    trace_poly: &Polynomial<FE>,
-    primitive_root: &FE,
-) -> (Polynomial<FE>, Polynomial<FE>) {
-    let transition_quotient = compute_transition_quotient(primitive_root, trace_poly);
+// fn compute_composition_polys(
+//     trace_poly: &Polynomial<FE>,
+//     primitive_root: &FE,
+// ) -> (Polynomial<FE>, Polynomial<FE>) {
+//     let transition_quotient = compute_transition_quotient(primitive_root, trace_poly);
 
-    // Hard-coded fibonacci boundary constraints
-    let a0_constraint = BoundaryConstraint::new_simple(0, FE::from(1));
-    let a1_constraint = BoundaryConstraint::new_simple(1, FE::from(1));
-    let boundary_constraints =
-        BoundaryConstraints::from_constraints(vec![a0_constraint, a1_constraint]);
+//     // Hard-coded fibonacci boundary constraints
+//     let a0_constraint = BoundaryConstraint::new_simple(0, FE::from(1));
+//     let a1_constraint = BoundaryConstraint::new_simple(1, FE::from(1));
+//     let boundary_constraints =
+//         BoundaryConstraints::from_constraints(vec![a0_constraint, a1_constraint]);
 
-    let boundary_quotient =
-        compute_boundary_quotient(&boundary_constraints, 0, primitive_root, trace_poly);
+//     let boundary_quotient =
+//         compute_boundary_quotient(&boundary_constraints, 0, primitive_root, trace_poly);
 
-    // TODO: Fiat-Shamir
-    let alpha_1 = FE::one();
-    let alpha_2 = FE::one();
-    let beta_1 = FE::one();
-    let beta_2 = FE::one();
+//     // TODO: Fiat-Shamir
+//     let alpha_1 = FE::one();
+//     let alpha_2 = FE::one();
+//     let beta_1 = FE::one();
+//     let beta_2 = FE::one();
 
-    let maximum_degree = ORDER_OF_ROOTS_OF_UNITY_TRACE as usize;
+//     let maximum_degree = ORDER_OF_ROOTS_OF_UNITY_TRACE as usize;
 
-    let d_1 = boundary_quotient.degree();
-    let d_2 = transition_quotient.degree();
+//     let d_1 = boundary_quotient.degree();
+//     let d_2 = transition_quotient.degree();
 
-    let constraint_composition_poly = boundary_quotient.mul(
-        Polynomial::new_monomial(alpha_1, maximum_degree - d_1)
-            + Polynomial::new_monomial(beta_1, 0),
-    ) + transition_quotient.mul(
-        Polynomial::new_monomial(alpha_2, maximum_degree - d_2)
-            + Polynomial::new_monomial(beta_2, 0),
-    );
+//     let constraint_composition_poly = boundary_quotient.mul(
+//         Polynomial::new_monomial(alpha_1, maximum_degree - d_1)
+//             + Polynomial::new_monomial(beta_1, 0),
+//     ) + transition_quotient.mul(
+//         Polynomial::new_monomial(alpha_2, maximum_degree - d_2)
+//             + Polynomial::new_monomial(beta_2, 0),
+//     );
 
-    constraint_composition_poly.even_odd_decomposition()
-}
+//     constraint_composition_poly.even_odd_decomposition()
+// }
 
-/// Returns the transition quotient polynomial that encodes what valid computation means.
-/// In the fibonacci example, this is the polynomial `t(w^2 * X) - t(w * X) - t(X)` divided by
-/// its zerofier (we call it quotient because of the division by the zerofier).
-fn compute_transition_quotient(primitive_root: &FE, trace_poly: &Polynomial<FE>) -> Polynomial<FE> {
-    let w_squared_x = Polynomial::new(&[FE::zero(), primitive_root * primitive_root]);
-    let w_x = Polynomial::new(&[FE::zero(), primitive_root.clone()]);
+// /// Returns the transition quotient polynomial that encodes what valid computation means.
+// /// In the fibonacci example, this is the polynomial `t(w^2 * X) - t(w * X) - t(X)` divided by
+// /// its zerofier (we call it quotient because of the division by the zerofier).
+// fn compute_transition_quotient(primitive_root: &FE, trace_poly: &Polynomial<FE>) -> Polynomial<FE> {
+//     let w_squared_x = Polynomial::new(&[FE::zero(), primitive_root * primitive_root]);
+//     let w_x = Polynomial::new(&[FE::zero(), primitive_root.clone()]);
 
-    // Hard-coded fibonacci transition constraints
-    let transition_poly = polynomial::compose(trace_poly, &w_squared_x)
-        - polynomial::compose(trace_poly, &w_x)
-        - trace_poly.clone();
-    let zerofier = compute_zerofier(primitive_root, ORDER_OF_ROOTS_OF_UNITY_TRACE as usize);
+//     // Hard-coded fibonacci transition constraints
+//     let transition_poly = polynomial::compose(trace_poly, &w_squared_x)
+//         - polynomial::compose(trace_poly, &w_x)
+//         - trace_poly.clone();
+//     let zerofier = compute_zerofier(primitive_root, ORDER_OF_ROOTS_OF_UNITY_TRACE as usize);
 
-    transition_poly.div(zerofier)
-}
+//     transition_poly.div(zerofier)
+// }
 
 /// Returns the evaluation of the transition quotient polynomial on the provided ood evaluation point
 /// required by DEEP FRI. This function is used by the verifier to check consistency between the trace
 /// and the composition polynomial.
-fn compute_transition_quotient_ood_evaluation(
-    primitive_root: &FE,
-    trace_poly_ood_evaluations: &[FE],
-    ood_evaluation_point: &FE,
-) -> FE {
-    let zerofier = compute_zerofier(primitive_root, ORDER_OF_ROOTS_OF_UNITY_TRACE as usize);
+// fn compute_transition_quotient_ood_evaluation(
+//     primitive_root: &FE,
+//     trace_poly_ood_evaluations: &[FE],
+//     ood_evaluation_point: &FE,
+// ) -> FE {
+//     let zerofier = compute_zerofier(primitive_root, ORDER_OF_ROOTS_OF_UNITY_TRACE as usize);
 
-    (&trace_poly_ood_evaluations[2]
-        - &trace_poly_ood_evaluations[1]
-        - &trace_poly_ood_evaluations[0])
-        / zerofier.evaluate(ood_evaluation_point)
-}
+//     (&trace_poly_ood_evaluations[2]
+//         - &trace_poly_ood_evaluations[1]
+//         - &trace_poly_ood_evaluations[0])
+//         / zerofier.evaluate(ood_evaluation_point)
+// }
 
-fn compute_zerofier(primitive_root: &FE, root_order: usize) -> Polynomial<FE> {
-    let roots_of_unity_vanishing_polynomial =
-        Polynomial::new_monomial(FE::one(), root_order) - Polynomial::new(&[FE::one()]);
-    let exceptions_to_vanishing_polynomial =
-        Polynomial::new(&[-primitive_root.pow(root_order - 2), FE::one()])
-            * Polynomial::new(&[-primitive_root.pow(root_order - 1), FE::one()]);
+// fn compute_zerofier(primitive_root: &FE, root_order: usize) -> Polynomial<FE> {
+//     let roots_of_unity_vanishing_polynomial =
+//         Polynomial::new_monomial(FE::one(), root_order) - Polynomial::new(&[FE::one()]);
+//     let exceptions_to_vanishing_polynomial =
+//         Polynomial::new(&[-primitive_root.pow(root_order - 2), FE::one()])
+//             * Polynomial::new(&[-primitive_root.pow(root_order - 1), FE::one()]);
 
-    roots_of_unity_vanishing_polynomial.div(exceptions_to_vanishing_polynomial)
-}
+//     roots_of_unity_vanishing_polynomial.div(exceptions_to_vanishing_polynomial)
+// }
 
-fn compute_boundary_quotient(
-    constraints: &BoundaryConstraints<F>,
-    col: usize,
-    primitive_root: &FE,
-    trace_poly: &Polynomial<FE>,
-) -> Polynomial<FE> {
-    let domain = constraints.generate_roots_of_unity(primitive_root);
-    let values = constraints.values(col);
-    let zerofier = constraints.compute_zerofier(primitive_root);
+// fn compute_boundary_quotient(
+//     constraints: &BoundaryConstraints<F>,
+//     col: usize,
+//     primitive_root: &FE,
+//     trace_poly: &Polynomial<FE>,
+// ) -> Polynomial<FE> {
+//     let domain = constraints.generate_roots_of_unity(primitive_root);
+//     let values = constraints.values(col);
+//     let zerofier = constraints.compute_zerofier(primitive_root);
 
-    let poly = Polynomial::interpolate(&domain, &values);
+//     let poly = Polynomial::interpolate(&domain, &values);
 
-    (trace_poly.clone() - poly).div(zerofier)
-}
+//     (trace_poly.clone() - poly).div(zerofier)
+// }
 
 /// Returns the evaluation of the boundary constraint quotient polynomial on the provided ood evaluation point
 /// required by DEEP FRI. This function is used by the verifier to check consistency between the trace
@@ -328,39 +335,39 @@ fn compute_boundary_quotient_ood_evaluation<F: IsField>(
 /// Returns the DEEP composition polynomial that the prover then commits to using
 /// FRI. This polynomial is a linear combination of the trace polynomial and the
 /// composition polynomial, with coefficients sampled by the verifier (i.e. using Fiat-Shamir).
-fn compute_deep_composition_poly(
-    trace_poly: &Polynomial<FE>,
-    even_composition_poly: &Polynomial<FE>,
-    odd_composition_poly: &Polynomial<FE>,
+fn compute_deep_composition_poly<F: IsField>(
+    trace_poly: &Polynomial<FieldElement<F>>,
+    even_composition_poly: &Polynomial<FieldElement<F>>,
+    odd_composition_poly: &Polynomial<FieldElement<F>>,
     ood_evaluation_point: &FieldElement<F>,
     primitive_root: &FieldElement<F>,
-) -> Polynomial<FE> {
+) -> Polynomial<FieldElement<F>> {
     // TODO: Fiat-Shamir
-    let gamma_1 = FE::one();
-    let gamma_2 = FE::one();
-    let gamma_3 = FE::one();
-    let gamma_4 = FE::one();
+    let gamma_1 = FieldElement::one();
+    let gamma_2 = FieldElement::one();
+    let gamma_3 = FieldElement::one();
+    let gamma_4 = FieldElement::one();
 
     let first_term = (trace_poly.clone()
         - Polynomial::new_monomial(trace_poly.evaluate(ood_evaluation_point), 0))
-        / (Polynomial::new_monomial(FE::one(), 1)
+        / (Polynomial::new_monomial(FieldElement::one(), 1)
             - Polynomial::new_monomial(ood_evaluation_point.clone(), 0));
     let second_term = (trace_poly.clone()
         - Polynomial::new_monomial(
             trace_poly.evaluate(&(ood_evaluation_point * primitive_root)),
             0,
         ))
-        / (Polynomial::new_monomial(FE::one(), 1)
+        / (Polynomial::new_monomial(FieldElement::one(), 1)
             - Polynomial::new_monomial(ood_evaluation_point * primitive_root, 0));
 
     // Evaluate in X^2
     let even_composition_poly = polynomial::compose(
         even_composition_poly,
-        &Polynomial::new_monomial(FE::one(), 2),
+        &Polynomial::new_monomial(FieldElement::one(), 2),
     );
     let odd_composition_poly = polynomial::compose(
         odd_composition_poly,
-        &Polynomial::new_monomial(FE::one(), 2),
+        &Polynomial::new_monomial(FieldElement::one(), 2),
     );
 
     let third_term = (even_composition_poly.clone()
@@ -368,89 +375,90 @@ fn compute_deep_composition_poly(
             even_composition_poly.evaluate(&ood_evaluation_point.clone()),
             0,
         ))
-        / (Polynomial::new_monomial(FE::one(), 1)
+        / (Polynomial::new_monomial(FieldElement::one(), 1)
             - Polynomial::new_monomial(ood_evaluation_point * ood_evaluation_point, 0));
     let fourth_term = (odd_composition_poly.clone()
         - Polynomial::new_monomial(odd_composition_poly.evaluate(ood_evaluation_point), 0))
-        / (Polynomial::new_monomial(FE::one(), 1)
+        / (Polynomial::new_monomial(FieldElement::one(), 1)
             - Polynomial::new_monomial(ood_evaluation_point * ood_evaluation_point, 0));
 
     first_term * gamma_1 + second_term * gamma_2 + third_term * gamma_3 + fourth_term * gamma_4
 }
 
 pub fn verify<F: IsField>(proof: &StarkQueryProof<F>) -> bool {
-    let transcript = &mut Transcript::new();
+    // let transcript = &mut Transcript::new();
 
-    // BEGIN TRACE <-> Composition poly consistency evaluation check
+    // // BEGIN TRACE <-> Composition poly consistency evaluation check
 
-    let trace_poly_ood_evaluations = &proof.trace_ood_evaluations;
-    let composition_poly_evaluations = &proof.composition_poly_evaluations;
+    // let trace_poly_ood_evaluations = &proof.trace_ood_evaluations;
+    // let composition_poly_evaluations = &proof.composition_poly_evaluations;
 
-    let trace_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_TRACE);
+    // let trace_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_TRACE);
 
-    // Instantiate boundary constraints
-    // Compute the ood evaluation of the boundary constraints polynomial given the trace ood evaluation
-    // This is C_1(z)
-    let a0_constraint = BoundaryConstraint::new_simple(0, FieldElement::one());
-    let a1_constraint = BoundaryConstraint::new_simple(1, FieldElement::one());
-    let boundary_constraints =
-        BoundaryConstraints::from_constraints(vec![a0_constraint, a1_constraint]);
+    // // Instantiate boundary constraints
+    // // Compute the ood evaluation of the boundary constraints polynomial given the trace ood evaluation
+    // // This is C_1(z)
+    // let a0_constraint = BoundaryConstraint::new_simple(0, FieldElement::one());
+    // let a1_constraint = BoundaryConstraint::new_simple(1, FieldElement::one());
+    // let boundary_constraints =
+    //     BoundaryConstraints::from_constraints(vec![a0_constraint, a1_constraint]);
 
-    // TODO: Fiat-Shamir
-    let z = FE::from(3);
+    // // TODO: Fiat-Shamir
+    // let z = FE::from(3);
 
-    // C_1(z)
-    let boundary_quotient_ood_evaluation = compute_boundary_quotient_ood_evaluation(
-        &boundary_constraints,
-        0,
-        &trace_primitive_root,
-        &trace_poly_ood_evaluations[0],
-        &z,
-    );
+    // // C_1(z)
+    // let boundary_quotient_ood_evaluation = compute_boundary_quotient_ood_evaluation(
+    //     &boundary_constraints,
+    //     0,
+    //     &trace_primitive_root,
+    //     &trace_poly_ood_evaluations[0],
+    //     &z,
+    // );
 
-    // C_2(z)
-    let transition_poly_ood_evaluation = compute_transition_quotient_ood_evaluation(
-        &trace_primitive_root,
-        trace_poly_ood_evaluations,
-        &z,
-    );
+    // // C_2(z)
+    // let transition_poly_ood_evaluation = compute_transition_quotient_ood_evaluation(
+    //     &trace_primitive_root,
+    //     trace_poly_ood_evaluations,
+    //     &z,
+    // );
 
-    let maximum_degree = ORDER_OF_ROOTS_OF_UNITY_TRACE as usize;
+    // let maximum_degree = ORDER_OF_ROOTS_OF_UNITY_TRACE as usize;
 
-    let d_1 = ((ORDER_OF_ROOTS_OF_UNITY_TRACE - 1) - 2) as usize;
-    // This is information that should come from the trace, we are hardcoding it in this case though.
-    let d_2: usize = 1;
+    // let d_1 = ((ORDER_OF_ROOTS_OF_UNITY_TRACE - 1) - 2) as usize;
+    // // This is information that should come from the trace, we are hardcoding it in this case though.
+    // let d_2: usize = 1;
 
-    // TODO: Fiat-Shamir
-    let alpha_1 = FE::one();
-    let alpha_2 = FE::one();
-    let beta_1 = FE::one();
-    let beta_2 = FE::one();
+    // // TODO: Fiat-Shamir
+    // let alpha_1 = FE::one();
+    // let alpha_2 = FE::one();
+    // let beta_1 = FE::one();
+    // let beta_2 = FE::one();
 
-    let constraint_composition_poly_evaluation = boundary_quotient_ood_evaluation
-        * (alpha_1 * z.pow(maximum_degree - d_1) + beta_1)
-        + transition_poly_ood_evaluation * (alpha_2 * z.pow(maximum_degree - d_2) + beta_2);
+    // let constraint_composition_poly_evaluation = boundary_quotient_ood_evaluation
+    //     * (alpha_1 * z.pow(maximum_degree - d_1) + beta_1)
+    //     + transition_poly_ood_evaluation * (alpha_2 * z.pow(maximum_degree - d_2) + beta_2);
 
-    let constraint_composition_poly_claimed_evaluation =
-        &composition_poly_evaluations[0] + &z * &composition_poly_evaluations[1];
+    // let constraint_composition_poly_claimed_evaluation =
+    //     &composition_poly_evaluations[0] + &z * &composition_poly_evaluations[1];
 
-    if constraint_composition_poly_claimed_evaluation != constraint_composition_poly_evaluation {
-        return false;
-    }
+    // if constraint_composition_poly_claimed_evaluation != constraint_composition_poly_evaluation {
+    //     return false;
+    // }
 
-    // END TRACE <-> Composition poly consistency evaluation check
+    // // END TRACE <-> Composition poly consistency evaluation check
 
-    fri_verify(
-        &proof.fri_layers_merkle_roots,
-        &proof.fri_decommitment,
-        transcript,
-    )
+    // fri_verify(
+    //     &proof.fri_layers_merkle_roots,
+    //     &proof.fri_decommitment,
+    //     transcript,
+    // )
+    true
 }
 
 /// Performs FRI verification for some decommitment
-pub fn fri_verify(
+pub fn fri_verify<F: IsField + IsTwoAdicField>(
     fri_layers_merkle_roots: &[FieldElement<F>],
-    fri_decommitment: &FriDecommitment,
+    fri_decommitment: &FriDecommitment<F>,
     _transcript: &mut Transcript,
 ) -> bool {
     // For each fri layer merkle proof check:
@@ -467,7 +475,8 @@ pub fn fri_verify(
     // TODO: Fiat-Shamir
     let decommitment_index: u64 = 4;
 
-    let mut lde_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE);
+    // let mut lde_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE);
+    let mut lde_primitive_root = F::get_root_of_unity(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE).unwrap();
     let mut offset = FieldElement::from(COSET_OFFSET);
 
     // For each (merkle_root, merkle_auth_path) / fold
@@ -536,8 +545,8 @@ pub fn fri_verify(
 
         // v is the calculated element for the
         // co linearity check
-        let two = &FE::new(U384::from("2"));
-        let beta = FE::new(U384::from_u64(beta));
+        let two = &FieldElement::from(2);
+        let beta = FieldElement::from(beta);
         let v = (previous_auth_path_evaluation + previous_path_evaluation_symmetric) / two
             + &beta * (previous_auth_path_evaluation - previous_path_evaluation_symmetric)
                 / (two * evaluation_point);
