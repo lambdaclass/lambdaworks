@@ -100,21 +100,21 @@ impl<F: IsField> BoundaryConstraints<FieldElement<F>> {
 
 #[cfg(test)]
 mod test {
-    use lambdaworks_math::unsigned_integer::element::U384;
+    use lambdaworks_math::{field::traits::IsTwoAdicField, unsigned_integer::element::U256};
 
-    use crate::{generate_primitive_root, FE};
+    use crate::{PrimeField, FE};
 
     use super::*;
 
     #[test]
     fn zerofier_is_the_correct_one() {
-        let a0 = BoundaryConstraint::new_simple(0, FE::new(U384::from("1")));
-        let a1 = BoundaryConstraint::new_simple(1, FE::new(U384::from("1")));
-        let result = BoundaryConstraint::new_simple(7, FE::new(U384::from("32")));
+        let a0 = BoundaryConstraint::new_simple(0, FE::new(U256::from("1")));
+        let a1 = BoundaryConstraint::new_simple(1, FE::new(U256::from("1")));
+        let result = BoundaryConstraint::new_simple(7, FE::new(U256::from("32")));
 
         let constraints = BoundaryConstraints::from_constraints(vec![a0, a1, result]);
 
-        let primitive_root = generate_primitive_root(8);
+        let primitive_root = PrimeField::get_primitive_root_of_unity(3).unwrap();
 
         let a0_zerofier = Polynomial::new(&[-FE::one(), FE::one()]);
         let a1_zerofier = Polynomial::new(&[-primitive_root.pow(1u32), FE::one()]);
