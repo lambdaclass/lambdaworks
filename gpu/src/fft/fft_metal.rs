@@ -66,8 +66,10 @@ impl FFTMetalState {
 
         let mut group_count = 1_u64;
         let mut group_size = input.len() as u64;
+        let mut should_continue = true;
 
-        while group_count < input.len() as u64 {
+        while should_continue {
+            should_continue = false; 
             let group_size_buffer = self.device.new_buffer_with_data(
                 void_ptr(&group_size),
                 basetype_size as u64,
@@ -88,6 +90,9 @@ impl FFTMetalState {
 
             command_buffer.commit();
             command_buffer.wait_until_completed();
+
+            let results = unsafe { *(input_buffer.contents() as *const [u64; K]) };
+            dbg!(results);
 
             group_count *= 2;
             group_size /= 2;
