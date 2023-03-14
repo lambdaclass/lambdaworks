@@ -36,6 +36,7 @@
 - [Double ODD](https://doubleodd.group/)
 - [Banderwagon](https://hackmd.io/@6iQDuIePQjyYBqDChYw_jg/BJBNcv9fq)
 - [Subgroup check via Tate](https://forum.zcashcommunity.com/t/subgroup-membership-testing-on-elliptic-curves-via-the-tate-pairing/42963)
+
 ## Halo2
 - [Halo2's poly](https://github.com/zcash/halo2/tree/main/halo2_proofs/src/poly)
 
