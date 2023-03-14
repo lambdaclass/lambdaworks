@@ -1,5 +1,6 @@
 use lambdaworks_math::field::{element::FieldElement, traits::IsField};
 
+#[derive(Clone)]
 pub struct TraceTable<F: IsField> {
     pub table: Vec<FieldElement<F>>,
     pub num_cols: usize,

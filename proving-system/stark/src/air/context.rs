@@ -1,9 +1,12 @@
+#[derive(Clone)]
 pub struct AirContext {
     pub options: ProofOptions,
-    trace_info: (usize, usize),
-    transition_degrees: Vec<usize>,
-    num_assertions: usize,
-    num_transition_constraints: usize,
+    pub trace_length: usize,
+    pub trace_info: (usize, usize),
+    pub transition_degrees: Vec<usize>,
+    pub transition_exemptions: Vec<usize>,
+    pub num_assertions: usize,
+    pub num_transition_constraints: usize,
 }
 
 impl AirContext {
@@ -16,6 +19,7 @@ impl AirContext {
     }
 }
 
+#[derive(Clone)]
 pub struct ProofOptions {
     pub(crate) blowup_factor: u8,
 }

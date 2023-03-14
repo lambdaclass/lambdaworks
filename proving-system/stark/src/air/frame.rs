@@ -32,6 +32,7 @@ impl<F: IsField> Frame<F> {
     }
 
     pub fn offsets() -> &'static [usize] {
+        // TODO: Generalize
         &[0, 1, 2]
     }
 
@@ -42,7 +43,7 @@ impl<F: IsField> Frame<F> {
         // the frame from the trace.
         let trace_len = trace.table.len();
         for frame_row_idx in Self::offsets().iter() {
-            data.push(trace.table[step + (frame_row_idx * blowup as usize) % trace_len].clone())
+            data.push(trace.table[(step + (frame_row_idx * blowup as usize)) % trace_len].clone())
         }
 
         Self::new(data, 1)

@@ -13,9 +13,7 @@ pub struct ConstraintEvaluationTable<F: IsField> {
 impl<F: IsField> ConstraintEvaluationTable<F> {
     // pub fn new(n_cols: usize, domain: &[FE], divisors: &[Polynomial<FieldElement<F>>]) -> Self {
     pub fn new(n_cols: usize, domain: &[FieldElement<F>]) -> Self {
-        let col = Vec::with_capacity(domain.len());
-
-        let evaluations = vec![col; n_cols];
+        let evaluations = Vec::with_capacity(domain.len());
 
         ConstraintEvaluationTable {
             evaluations,

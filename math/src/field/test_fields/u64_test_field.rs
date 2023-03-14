@@ -1,4 +1,4 @@
-use crate::field::traits::{IsField, IsTwoAdicField};
+use crate::field::traits::{IsField, IsPrimeField, IsTwoAdicField};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct U64TestField<const MODULUS: u64>;
@@ -50,14 +50,17 @@ impl<const MODULUS: u64> IsField for U64TestField<MODULUS> {
     fn from_base_type(x: u64) -> u64 {
         Self::from_u64(x)
     }
+}
 
-    fn representative(x: u64) -> u64 {
-        x
+impl<const MODULUS: u64> IsPrimeField for U64TestField<MODULUS> {
+    type RepresentativeType = u64;
+
+    fn representative(x: &u64) -> u64 {
+        *x
     }
 }
 
 impl<const MODULUS: u64> IsTwoAdicField for U64TestField<MODULUS> {
     const TWO_ADICITY: u64 = 32;
     const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: u64 = 1753635133440165772;
-    const GENERATOR: u64 = 7;
 }

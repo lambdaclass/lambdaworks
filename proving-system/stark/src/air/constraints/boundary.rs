@@ -100,7 +100,7 @@ impl<F: IsField> BoundaryConstraints<F> {
 
 #[cfg(test)]
 mod test {
-    use lambdaworks_math::unsigned_integer::element::U384;
+    use lambdaworks_math::{field::traits::IsTwoAdicField, unsigned_integer::element::U256};
 
     use crate::FE;
 

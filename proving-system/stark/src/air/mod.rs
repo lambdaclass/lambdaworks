@@ -14,11 +14,13 @@ pub mod context;
 pub mod frame;
 pub mod trace;
 
-pub trait AIR<F: IsField>: Clone {
-    fn new(trace: TraceTable<F>, context: AirContext) -> Self;
-    fn compute_transition(&self, frame: &Frame<F>) -> Vec<FieldElement<F>>;
-    fn compute_boundary_constraints(&self) -> BoundaryConstraints<F>;
-    fn transition_divisors(&self) -> Vec<Polynomial<FieldElement<F>>>;
+pub trait AIR: Clone {
+    type Field: IsField;
+
+    fn new(trace: TraceTable<Self::Field>, context: AirContext) -> Self;
+    fn compute_transition(&self, frame: &Frame<Self::Field>) -> Vec<FieldElement<Self::Field>>;
+    fn compute_boundary_constraints(&self) -> BoundaryConstraints<Self::Field>;
+    fn transition_divisors(&self) -> Vec<Polynomial<FieldElement<Self::Field>>>;
     fn context(&self) -> AirContext;
     fn options(&self) -> ProofOptions {
         self.context().options

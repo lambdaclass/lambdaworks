@@ -6,6 +6,7 @@ use air::constraints::evaluator::ConstraintEvaluator;
 use air::trace::TraceTable;
 use air::AIR;
 use fri::fri;
+use lambdaworks_math::field::traits::IsTwoAdicField;
 use lambdaworks_math::traits::ByteConversion;
 
 use fri::fri_decommit::{fri_decommit_layers, FriDecommitment};
@@ -13,22 +14,15 @@ use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::polynomial::{self, Polynomial};
 
 use lambdaworks_math::field::element::FieldElement;
-use lambdaworks_math::field::traits::{IsField, IsTwoAdicField};
-use lambdaworks_math::{
-    field::fields::montgomery_backed_prime_fields::{IsMontgomeryConfiguration, U384PrimeField},
-    unsigned_integer::element::U384,
-};
+use lambdaworks_math::field::fields::fft_friendly::u256_two_adic_prime_field::U256MontgomeryTwoAdicPrimeField;
+use lambdaworks_math::field::traits::IsField;
 
-// DEFINITION OF THE USED FIELD
-#[derive(Clone, Debug)]
-pub struct MontgomeryConfig;
-impl IsMontgomeryConfiguration<6> for MontgomeryConfig {
-    const MODULUS: U384 =
-        // hex 17
-        U384::from("800000000000011000000000000000000000000000000000000000000000001");
+pub struct ProofConfig {
+    pub count_queries: usize,
+    pub blowup_factor: usize,
 }
 
-pub type PrimeField = U384PrimeField<MontgomeryConfig>;
+pub type PrimeField = U256MontgomeryTwoAdicPrimeField;
 pub type FE = FieldElement<PrimeField>;
 
 // DEFINITION OF CONSTANTS
@@ -79,11 +73,14 @@ pub struct StarkQueryProof<F: IsField> {
     pub fri_decommitment: FriDecommitment<F>,
 }
 
-pub type StarkProof<F> = Vec<StarkQueryProof<F>>;
+pub struct StarkProof<F: IsField> {
+    pub trace_lde_poly_root: FieldElement<F>,
+    pub fri_layers_merkle_roots: Vec<FieldElement<F>>,
+    pub query_list: Vec<StarkQueryProof<F>>,
+}
 
 pub use lambdaworks_crypto::merkle_tree::merkle::MerkleTree;
 pub use lambdaworks_crypto::merkle_tree::DefaultHasher;
-// pub type FriMerkleTree = MerkleTree<PrimeField, DefaultHasher>;
 
 pub fn fibonacci_trace<F: IsField>(initial_values: [FieldElement<F>; 2]) -> Vec<FieldElement<F>> {
     let mut ret: Vec<FieldElement<F>> = vec![];
@@ -98,7 +95,7 @@ pub fn fibonacci_trace<F: IsField>(initial_values: [FieldElement<F>; 2]) -> Vec<
     ret
 }
 
-pub fn prove<F: IsField + IsTwoAdicField, A: AIR<F>>(
+pub fn prove<F: IsField + IsTwoAdicField, A: AIR + AIR<Field = F>>(
     trace: &[FieldElement<F>],
     air: A,
 ) -> StarkQueryProof<F>
@@ -106,15 +103,28 @@ where
     FieldElement<F>: ByteConversion,
 {
     let transcript = &mut Transcript::new();
+    // let mut query_list = Vec::<StarkQueryProof>::new();
 
     // * Generate Coset
-    // let trace_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_TRACE);
-    let trace_primitive_root = F::get_root_of_unity(ORDER_OF_ROOTS_OF_UNITY_TRACE).unwrap();
-    let trace_roots_of_unity = generate_roots_of_unity_coset(1, &trace_primitive_root);
+    let trace_primitive_root =
+        F::get_primitive_root_of_unity(air.context().trace_length as u64).unwrap();
 
-    // let lde_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE);
-    let lde_primitive_root = F::get_root_of_unity(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE).unwrap();
-    let lde_roots_of_unity_coset = generate_roots_of_unity_coset(COSET_OFFSET, &lde_primitive_root);
+    let root_order = air.context().trace_length.trailing_zeros();
+    let trace_roots_of_unity = F::get_powers_of_primitive_root_coset(
+        root_order as u64,
+        air.context().trace_length,
+        &FieldElement::<F>::one(),
+    )
+    .unwrap();
+
+    let lde_root_order =
+        (air.context().trace_length * air.options().blowup_factor as usize).trailing_zeros();
+    let lde_roots_of_unity_coset = F::get_powers_of_primitive_root_coset(
+        lde_root_order as u64,
+        air.context().trace_length * air.options().blowup_factor as usize,
+        &FieldElement::<F>::from(COSET_OFFSET),
+    )
+    .unwrap();
 
     let trace_poly = Polynomial::interpolate(&trace_roots_of_unity, trace);
     let lde_trace = trace_poly.evaluate_slice(&lde_roots_of_unity_coset);
@@ -143,8 +153,6 @@ where
     // Get composition poly
     let composition_poly =
         constraint_evaluations.compute_composition_poly(&lde_roots_of_unity_coset);
-
-    // **********
 
     let (composition_poly_even, composition_poly_odd) = composition_poly.even_odd_decomposition();
     // Evaluate H_1 and H_2 in z^2.
@@ -204,12 +212,14 @@ where
         .map(|fri_commitment| fri_commitment.merkle_tree.root.clone())
         .collect();
 
-    StarkQueryProof {
+    let ret = StarkQueryProof {
         trace_ood_evaluations,
         composition_poly_evaluations,
         fri_layers_merkle_roots,
         fri_decommitment,
-    }
+    };
+
+    ret
 }
 
 /// Given the trace polynomial and a primitive root, returns the deep FRI composition polynomial
@@ -475,19 +485,23 @@ pub fn fri_verify<F: IsField + IsTwoAdicField>(
     let decommitment_index: u64 = 4;
 
     // let mut lde_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE);
-    let mut lde_primitive_root = F::get_root_of_unity(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE).unwrap();
+    let mut lde_primitive_root =
+        F::get_primitive_root_of_unity(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE).unwrap();
     let mut offset = FieldElement::from(COSET_OFFSET);
 
     // For each (merkle_root, merkle_auth_path) / fold
     // With the auth path containining the element that the
     // path proves it's existance
     for (
-        layer_number,
+        index,
         (
-            fri_layer_merkle_root,
+            layer_number,
             (
-                (fri_layer_auth_path, fri_layer_auth_path_symmetric),
-                (auth_path_evaluation, auth_path_evaluation_symmetric),
+                fri_layer_merkle_root,
+                (
+                    (fri_layer_auth_path, fri_layer_auth_path_symmetric),
+                    (auth_path_evaluation, auth_path_evaluation_symmetric),
+                ),
             ),
         ),
     ) in fri_layers_merkle_roots
@@ -502,35 +516,35 @@ pub fn fri_verify<F: IsField + IsTwoAdicField>(
         // Since we always derive the current layer from the previous layer
         // We start with the second one, skipping the first, so previous is layer is the first one
         .skip(1)
+        .enumerate()
     {
         // This is the current layer's evaluation domain length. We need it to know what the decommitment index for the current
         // layer is, so we can check the merkle paths at the right index.
-        let current_layer_domain_length = ORDER_OF_ROOTS_OF_UNITY_FOR_LDE as usize >> layer_number;
+        let current_layer_domain_length = ORDER_OF_ROOTS_OF_UNITY_FOR_LDE >> layer_number;
 
-        let layer_evaluation_index: usize =
-            decommitment_index as usize % current_layer_domain_length;
+        let layer_evaluation_index = decommitment_index % current_layer_domain_length;
         if !fri_layer_auth_path.verify(
             fri_layer_merkle_root,
-            layer_evaluation_index,
+            layer_evaluation_index as usize,
             auth_path_evaluation,
         ) {
             return false;
         }
 
-        let layer_evaluation_index_symmetric: usize = (decommitment_index as usize
-            + current_layer_domain_length)
-            % current_layer_domain_length;
+        let layer_evaluation_index_symmetric =
+            (decommitment_index + current_layer_domain_length) % current_layer_domain_length;
 
         if !fri_layer_auth_path_symmetric.verify(
             fri_layer_merkle_root,
-            layer_evaluation_index_symmetric,
+            layer_evaluation_index_symmetric as usize,
             auth_path_evaluation_symmetric,
         ) {
             return false;
         }
 
-        // TODO: use Fiat Shamir
-        let beta: u64 = 4;
+        // TODO: Fiat Shamir
+        // let beta = beta_list[index].clone();
+        let beta = 1;
 
         let (previous_auth_path_evaluation, previous_path_evaluation_symmetric) = fri_decommitment
             .layer_evaluations
@@ -577,16 +591,106 @@ pub fn fri_verify<F: IsField + IsTwoAdicField>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{verify, FE};
+    use crate::{
+        air::{
+            constraints::boundary::BoundaryConstraint,
+            context::{AirContext, ProofOptions},
+        },
+        verify, PrimeField, FE,
+    };
     use air::constraints::boundary::BoundaryConstraints;
 
     use super::prove;
-    use lambdaworks_math::unsigned_integer::element::{UnsignedInteger, U384};
+    use lambdaworks_math::unsigned_integer::element::{UnsignedInteger, U256, U384};
+
+    #[derive(Clone)]
+    pub struct FibonacciAIR {
+        context: AirContext,
+        trace: TraceTable<PrimeField>,
+    }
+
+    impl AIR for FibonacciAIR {
+        type Field = PrimeField;
+
+        fn new(trace: TraceTable<Self::Field>, context: air::context::AirContext) -> Self {
+            Self {
+                context: context,
+                trace: trace,
+            }
+        }
+
+        fn compute_transition(
+            &self,
+            frame: &air::frame::Frame<Self::Field>,
+        ) -> Vec<FieldElement<Self::Field>> {
+            let first_row = frame.get_row(0);
+            let second_row = frame.get_row(1);
+            let third_row = frame.get_row(2);
+
+            vec![third_row[0].clone() - second_row[0].clone() - first_row[0].clone()]
+        }
+
+        fn compute_boundary_constraints(&self) -> BoundaryConstraints<Self::Field> {
+            let a0 = BoundaryConstraint::new_simple(0, FieldElement::<Self::Field>::one());
+            let a1 = BoundaryConstraint::new_simple(1, FieldElement::<Self::Field>::one());
+            let result = BoundaryConstraint::new_simple(7, FieldElement::<Self::Field>::from(21));
+
+            BoundaryConstraints::from_constraints(vec![a0, a1, result])
+        }
+
+        fn transition_divisors(&self) -> Vec<Polynomial<FieldElement<Self::Field>>> {
+            let one_field = FieldElement::<Self::Field>::one();
+            let roots_of_unity = Self::Field::get_powers_of_primitive_root_coset(
+                self.context().trace_length as u64,
+                self.context().trace_length,
+                &one_field,
+            )
+            .unwrap();
+
+            let mut result = vec![];
+
+            for index in 0..self.context().num_transition_constraints {
+                result.push(Polynomial::new_monomial(one_field.clone(), 0));
+
+                for exemption_index in self.context().transition_exemptions {
+                    result[index] = result[index].clone()
+                        * (Polynomial::new_monomial(one_field.clone(), 1)
+                            - Polynomial::new_monomial(roots_of_unity[exemption_index].clone(), 0));
+                }
+            }
+
+            result
+        }
+
+        fn context(&self) -> air::context::AirContext {
+            self.context.clone()
+        }
+    }
 
     #[test]
     fn test_prove() {
-        let trace = fibonacci_trace([FE::new(U384::from("1")), FE::new(U384::from("1"))]);
-        let result = prove(&trace);
+        let trace = fibonacci_trace([FE::new(U256::from("1")), FE::new(U256::from("1"))]);
+
+        let context = AirContext {
+            options: ProofOptions { blowup_factor: 2 },
+            trace_length: 32,
+            trace_info: (32, 1),
+            transition_degrees: vec![1],
+            transition_exemptions: vec![30, 31],
+            num_assertions: 3,
+            num_transition_constraints: 1,
+        };
+
+        let trace = TraceTable {
+            table: trace,
+            num_cols: 1,
+        };
+
+        let fibonacci_air = FibonacciAIR::new(trace, context);
+
+        let trace = fibonacci_trace([FE::new(U256::from("1")), FE::new(U256::from("1"))]);
+
+        let result = prove(&trace, fibonacci_air);
         assert!(verify(&result));
     }
 

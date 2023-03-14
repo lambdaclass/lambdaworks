@@ -7,14 +7,14 @@ use crate::air::{frame::Frame, trace::TraceTable, AIR};
 
 use super::{boundary::BoundaryConstraints, evaluation_table::ConstraintEvaluationTable};
 
-pub struct ConstraintEvaluator<F: IsField, A: AIR<F>> {
+pub struct ConstraintEvaluator<F: IsField, A: AIR> {
     air: A,
     boundary_constraints: BoundaryConstraints<F>,
     trace_poly: Polynomial<FieldElement<F>>,
     primitive_root: FieldElement<F>,
 }
 
-impl<F: IsField, A: AIR<F>> ConstraintEvaluator<F, A> {
+impl<F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
     pub fn new(
         air: &A,
         trace_poly: &Polynomial<FieldElement<F>>,
