@@ -32,4 +32,6 @@ pub trait IsGroup: Clone + PartialEq + Eq {
     /// The operation can be addition or multiplication depending on
     /// the notation of the particular group.
     fn operate_with(&self, other: &Self) -> Self;
+
+    fn neg(&self) -> Self;
 }

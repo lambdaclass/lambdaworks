@@ -63,5 +63,4 @@ impl<const MODULUS: u64> IsPrimeField for U64TestField<MODULUS> {
 impl<const MODULUS: u64> IsTwoAdicField for U64TestField<MODULUS> {
     const TWO_ADICITY: u64 = 32;
     const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: u64 = 1753635133440165772;
-    const GENERATOR: u64 = 7;
 }
