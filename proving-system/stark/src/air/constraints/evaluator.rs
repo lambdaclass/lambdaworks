@@ -1,3 +1,5 @@
+use std::intrinsics::mir::Field;
+
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsField},
     polynomial::Polynomial,
@@ -10,14 +12,14 @@ use crate::{
 
 use super::{boundary::BoundaryConstraints, evaluation_table::ConstraintEvaluationTable};
 
-pub struct ConstraintEvaluator<'a, A: AIR<F>, F: IsField> {
+pub struct ConstraintEvaluator<'a, F: IsField, A: AIR<F>> {
     air: &'a A,
     boundary_constraints: BoundaryConstraints<F>,
     trace_poly: Polynomial<FieldElement<F>>,
     primitive_root: FieldElement<F>,
 }
 
-impl<'a, A: AIR<F>, F: IsField> ConstraintEvaluator<'a, A, F> {
+impl<'a, F: IsField, A: AIR<F>> ConstraintEvaluator<'a, F, A> {
     pub fn new(
         air: &A,
         trace_poly: Polynomial<FieldElement<F>>,
@@ -35,17 +37,9 @@ impl<'a, A: AIR<F>, F: IsField> ConstraintEvaluator<'a, A, F> {
 
     pub fn evaluate(
         &self,
-        lde_trace: TraceTable<F>,
-        lde_domain: Vec<FieldElement<F>>,
+        lde_trace: &TraceTable<F>,
+        lde_domain: &[FieldElement<F>],
     ) -> ConstraintEvaluationTable<F> {
-        // Get all divisors in a vector
-        // The first divisors appearing in the vector will be transition ones
-        // and the last the one from the boundary constraints.
-        // divisors.push(
-        //     self.boundary_constraints
-        //         .compute_zerofier(&self.primitive_root),
-        // );
-
         // Initialize evaluation table
         let mut evaluation_table = ConstraintEvaluationTable::new(
             self.air.context().num_transition_constraints() + 1,
@@ -58,36 +52,40 @@ impl<'a, A: AIR<F>, F: IsField> ConstraintEvaluator<'a, A, F> {
         // Hard-coded for fibonacci -> trace has one column, hence col value is 0.
         let values = boundary_constraints.values(0);
 
-        let max_degree =
-            self.trace_poly.degree() * self.air.context().transition_degrees.iter().max().unwrap();
+        let max_degree = self.trace_poly.degree()
+            * self
+                .air
+                .context()
+                .transition_degrees()
+                .iter()
+                .max()
+                .unwrap();
 
-        let max_degree_power_of_two = next_power_of_two(max_degree);
+        let max_degree_power_of_two = next_power_of_two(max_degree as u64);
 
         let boundary_poly = self.trace_poly - Polynomial::interpolate(&domain, &values);
 
-        let alpha = FE::one();
-        let beta = FE::one();
+        let alpha = FieldElement::one();
+        let beta = FieldElement::one();
 
         let alpha_and_beta_coefficients = vec![(alpha, beta)];
+        let blowup_factor = self.air.blowup_factor();
 
         // Iterate over trace and domain and compute transitions
         for (i, d) in lde_domain.iter().enumerate() {
-            let frame = Frame::read_from_trace(&lde_trace, i);
+            let frame = Frame::read_from_trace(&lde_trace, i, blowup_factor);
 
             let evaluations = self.air.compute_transition(&frame);
             let evaluations = self.compute_transition_evaluations(
-                evaluations.as_slice(),
+                &evaluations,
                 alpha_and_beta_coefficients.as_slice(),
                 max_degree_power_of_two,
                 d,
             );
 
-            let alpha = FE::one();
-            let beta = FE::one();
-
             // Append evaluation for boundary constraints
             let boundary_evaluation = boundary_poly.evaluate(d)
-                * (alpha * d.pow(max_degree - boundary_poly.degree() + beta));
+                * (alpha * d.pow(max_degree - boundary_poly.degree()) + beta);
 
             let boundary_zerofier = self
                 .boundary_constraints
@@ -109,11 +107,7 @@ impl<'a, A: AIR<F>, F: IsField> ConstraintEvaluator<'a, A, F> {
         max_degree: u64,
         x: &FieldElement<F>,
     ) -> Vec<FieldElement<F>> {
-        let transition_degrees = self.air.context().transition_degrees;
-
-        // TODO: Fiat-Shamir
-        // let alpha = FE::one();
-        // let beta = FE::one();
+        let transition_degrees = self.air.context().transition_degrees();
 
         let divisors = self.air.transition_divisors();
 

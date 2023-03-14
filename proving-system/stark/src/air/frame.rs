@@ -35,10 +35,14 @@ impl<F: IsField> Frame<F> {
         &[0, 1, 2]
     }
 
-    pub fn read_from_trace(trace: &TraceTable<F>, step: usize) -> Self {
+    pub fn read_from_trace(trace: &TraceTable<F>, step: usize, blowup: u8) -> Self {
         let mut data = Vec::new();
-        for offset in Self::offsets().iter() {
-            data.push(trace.table[step + offset])
+
+        // Get trace length to apply module with it when getting elements of
+        // the frame from the trace.
+        let trace_len = trace.table.len();
+        for frame_row_idx in Self::offsets().iter() {
+            data.push(trace.table[step + (frame_row_idx * blowup as usize) % trace_len])
         }
 
         Self::new(data, 1)

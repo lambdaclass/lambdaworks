@@ -1,5 +1,7 @@
 use self::{
-    constraints::boundary::BoundaryConstraints, context::AirContext, frame::Frame,
+    constraints::boundary::BoundaryConstraints,
+    context::{AirContext, ProofOptions},
+    frame::Frame,
     trace::TraceTable,
 };
 use lambdaworks_math::{
@@ -18,4 +20,10 @@ pub trait AIR<F: IsField> {
     fn compute_boundary_constraints(&self) -> BoundaryConstraints<F>;
     fn transition_divisors(&self) -> Vec<Polynomial<FieldElement<F>>>;
     fn context(&self) -> AirContext;
+    fn options(&self) -> ProofOptions {
+        self.context().options
+    }
+    fn blowup_factor(&self) -> u8 {
+        self.options().blowup_factor
+    }
 }

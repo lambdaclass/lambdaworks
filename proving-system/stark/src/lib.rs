@@ -45,10 +45,10 @@ const COSET_OFFSET: u64 = 3;
 
 // DEFINITION OF FUNCTIONS
 
-pub fn generate_primitive_root(subgroup_size: u64) -> FE {
-    let modulus_minus_1_field: FE = FE::new(MODULUS_MINUS_1);
-    let subgroup_size: FE = subgroup_size.into();
-    let generator_field: FE = FIELD_SUBGROUP_GENERATOR.into();
+pub fn generate_primitive_root(subgroup_size: u64) -> FieldElement<F> {
+    let modulus_minus_1_field: FieldElement<F> = FieldElement::new(MODULUS_MINUS_1);
+    let subgroup_size: FieldElement<F> = subgroup_size.into();
+    let generator_field: FieldElement<F> = FIELD_SUBGROUP_GENERATOR.into();
     let exp = (&modulus_minus_1_field) / &subgroup_size;
     generator_field.pow(exp.representative())
 }
@@ -58,8 +58,11 @@ pub fn generate_primitive_root(subgroup_size: u64) -> FE {
 /// w ^ 0, w ^ 1, w ^ 2 .... w ^ n-1
 /// If coset_factor is h
 /// h * w ^ 0, h * w ^ 1 .... h * w ^ n-1
-pub fn generate_roots_of_unity_coset(coset_factor: u64, primitive_root: &FE) -> Vec<FE> {
-    let coset_factor: FE = coset_factor.into();
+pub fn generate_roots_of_unity_coset<F: IsField>(
+    coset_factor: u64,
+    primitive_root: &FieldElement<F>,
+) -> Vec<FieldElement<F>> {
+    let coset_factor: FieldElement<F> = coset_factor.into();
 
     let mut numbers = vec![coset_factor.clone()];
     let mut exp: u64 = 1;
@@ -73,21 +76,21 @@ pub fn generate_roots_of_unity_coset(coset_factor: u64, primitive_root: &FE) -> 
 }
 
 #[derive(Debug, Clone)]
-pub struct StarkQueryProof {
-    pub trace_ood_evaluations: Vec<FE>,
-    pub composition_poly_evaluations: Vec<FE>,
-    pub fri_layers_merkle_roots: Vec<FE>,
+pub struct StarkQueryProof<F: IsField> {
+    pub trace_ood_evaluations: Vec<FieldElement<F>>,
+    pub composition_poly_evaluations: Vec<FieldElement<F>>,
+    pub fri_layers_merkle_roots: Vec<FieldElement<F>>,
     pub fri_decommitment: FriDecommitment,
 }
 
-pub type StarkProof = Vec<StarkQueryProof>;
+pub type StarkProof<F: IsField> = Vec<StarkQueryProof<F>>;
 
 pub use lambdaworks_crypto::merkle_tree::merkle::MerkleTree;
 pub use lambdaworks_crypto::merkle_tree::DefaultHasher;
 pub type FriMerkleTree = MerkleTree<PrimeField, DefaultHasher>;
 
-pub fn fibonacci_trace(initial_values: [FE; 2]) -> Vec<FE> {
-    let mut ret: Vec<FE> = vec![];
+pub fn fibonacci_trace<F: IsField>(initial_values: [FieldElement<F>; 2]) -> Vec<FieldElement<F>> {
+    let mut ret: Vec<FieldElement<F>> = vec![];
 
     ret.push(initial_values[0].clone());
     ret.push(initial_values[1].clone());
@@ -99,7 +102,7 @@ pub fn fibonacci_trace(initial_values: [FE; 2]) -> Vec<FE> {
     ret
 }
 
-pub fn prove<F: IsField, A: AIR<F>>(trace: &[FE], air: A) -> StarkQueryProof {
+pub fn prove<F: IsField, A: AIR<F>>(trace: &[FieldElement<F>], air: A) -> StarkQueryProof<F> {
     let transcript = &mut Transcript::new();
 
     // * Generate Coset
@@ -120,7 +123,7 @@ pub fn prove<F: IsField, A: AIR<F>>(trace: &[FE], air: A) -> StarkQueryProof {
     // TODO: Fiat-Shamir
     // z is the Out of domain evaluation point used in Deep FRI. It needs to be a point outside
     // of both the roots of unity and its corresponding coset used for the lde commitment.
-    let z = FE::from(3);
+    let z = FieldElement::from(3);
     let z_squared = &z * &z;
 
     // **********
@@ -128,14 +131,16 @@ pub fn prove<F: IsField, A: AIR<F>>(trace: &[FE], air: A) -> StarkQueryProof {
     // Get coefficients from Fiat-Shamir
 
     // Create evaluation table
-    let evaluator = ConstraintEvaluator::new(&air, trace_poly, trace_primitive_root);
+    let evaluator = ConstraintEvaluator::<F, A>::new(&air, trace_poly, trace_primitive_root);
     let constraint_evaluations = evaluator.evaluate(&lde_trace, &lde_roots_of_unity_coset);
 
     // Get composition poly
-    let composition_poly = constraint_evaluations.into_poly();
+    let composition_poly =
+        constraint_evaluations.compute_composition_poly(&lde_roots_of_unity_coset);
 
     // **********
 
+    let (composition_poly_even, composition_poly_odd) = composition_poly.even_odd_decomposition();
     // Evaluate H_1 and H_2 in z^2.
     let composition_poly_evaluations = vec![
         composition_poly_even.evaluate(&z_squared),
@@ -188,7 +193,7 @@ pub fn prove<F: IsField, A: AIR<F>>(trace: &[FE], air: A) -> StarkQueryProof {
         When we provide evaluations, we provide them for x*(w^2), x*w and x.
     */
 
-    let fri_layers_merkle_roots: Vec<FE> = lde_fri_commitment
+    let fri_layers_merkle_roots: Vec<FieldElement<F>> = lde_fri_commitment
         .iter()
         .map(|fri_commitment| fri_commitment.merkle_tree.root.clone())
         .collect();
@@ -303,13 +308,13 @@ fn compute_boundary_quotient(
 /// Returns the evaluation of the boundary constraint quotient polynomial on the provided ood evaluation point
 /// required by DEEP FRI. This function is used by the verifier to check consistency between the trace
 /// and the composition polynomial.
-fn compute_boundary_quotient_ood_evaluation(
+fn compute_boundary_quotient_ood_evaluation<F: IsField>(
     constraints: &BoundaryConstraints<F>,
     col: usize,
-    primitive_root: &FE,
-    trace_poly_ood_evaluation: &FE,
-    ood_evaluation_point: &FE,
-) -> FE {
+    primitive_root: &FieldElement<F>,
+    trace_poly_ood_evaluation: &FieldElement<F>,
+    ood_evaluation_point: &FieldElement<F>,
+) -> FieldElement<F> {
     let domain = constraints.generate_roots_of_unity(primitive_root);
     let values = constraints.values(col);
     let zerofier = constraints.compute_zerofier(primitive_root);
@@ -327,8 +332,8 @@ fn compute_deep_composition_poly(
     trace_poly: &Polynomial<FE>,
     even_composition_poly: &Polynomial<FE>,
     odd_composition_poly: &Polynomial<FE>,
-    ood_evaluation_point: &FE,
-    primitive_root: &FE,
+    ood_evaluation_point: &FieldElement<F>,
+    primitive_root: &FieldElement<F>,
 ) -> Polynomial<FE> {
     // TODO: Fiat-Shamir
     let gamma_1 = FE::one();
@@ -373,7 +378,7 @@ fn compute_deep_composition_poly(
     first_term * gamma_1 + second_term * gamma_2 + third_term * gamma_3 + fourth_term * gamma_4
 }
 
-pub fn verify(proof: &StarkQueryProof) -> bool {
+pub fn verify<F: IsField>(proof: &StarkQueryProof<F>) -> bool {
     let transcript = &mut Transcript::new();
 
     // BEGIN TRACE <-> Composition poly consistency evaluation check
@@ -386,8 +391,8 @@ pub fn verify(proof: &StarkQueryProof) -> bool {
     // Instantiate boundary constraints
     // Compute the ood evaluation of the boundary constraints polynomial given the trace ood evaluation
     // This is C_1(z)
-    let a0_constraint = BoundaryConstraint::new_simple(0, FE::from(1));
-    let a1_constraint = BoundaryConstraint::new_simple(1, FE::from(1));
+    let a0_constraint = BoundaryConstraint::new_simple(0, FieldElement::one());
+    let a1_constraint = BoundaryConstraint::new_simple(1, FieldElement::one());
     let boundary_constraints =
         BoundaryConstraints::from_constraints(vec![a0_constraint, a1_constraint]);
 
@@ -444,7 +449,7 @@ pub fn verify(proof: &StarkQueryProof) -> bool {
 
 /// Performs FRI verification for some decommitment
 pub fn fri_verify(
-    fri_layers_merkle_roots: &[FE],
+    fri_layers_merkle_roots: &[FieldElement<F>],
     fri_decommitment: &FriDecommitment,
     _transcript: &mut Transcript,
 ) -> bool {
@@ -463,7 +468,7 @@ pub fn fri_verify(
     let decommitment_index: u64 = 4;
 
     let mut lde_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE);
-    let mut offset = FE::from(COSET_OFFSET);
+    let mut offset = FieldElement::from(COSET_OFFSET);
 
     // For each (merkle_root, merkle_auth_path) / fold
     // With the auth path containining the element that the
