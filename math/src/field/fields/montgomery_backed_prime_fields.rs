@@ -398,8 +398,7 @@ mod tests_u384_prime_fields {
         for _ in 0..1000 {
             let rand: U384F23Element = rand::random();
             assert!(
-                (&U384Modulus23::MODULUS > rand.value())
-                    && (rand.value() >= &U384::from_u64(0))
+                (&U384Modulus23::MODULUS > rand.value()) && (rand.value() >= &U384::from_u64(0))
             );
         }
     }
@@ -456,8 +455,7 @@ mod tests_u384_prime_fields {
         for _ in 0..1000 {
             let rand: U384FP1Element = rand::random();
             assert!(
-                (&U384ModulusP1::MODULUS > rand.value())
-                    && (rand.value() >= &U384::from_u64(0))
+                (&U384ModulusP1::MODULUS > rand.value()) && (rand.value() >= &U384::from_u64(0))
             );
         }
     }
@@ -549,8 +547,7 @@ mod tests_u384_prime_fields {
         for _ in 0..1000 {
             let rand: U384FP2Element = rand::random();
             assert!(
-                (&U384ModulusP2::MODULUS > rand.value())
-                    && (rand.value() >= &U384::from_u64(0))
+                (&U384ModulusP2::MODULUS > rand.value()) && (rand.value() >= &U384::from_u64(0))
             );
         }
     }
@@ -717,8 +714,7 @@ mod tests_u256_prime_fields {
         for _ in 0..1000 {
             let rand: U256F29Element = rand::random();
             assert!(
-                (&U256Modulus29::MODULUS > rand.value())
-                    && (rand.value() >= &U256::from_u64(0))
+                (&U256Modulus29::MODULUS > rand.value()) && (rand.value() >= &U256::from_u64(0))
             );
         }
     }
@@ -773,8 +769,7 @@ mod tests_u256_prime_fields {
         for _ in 0..1000 {
             let rand: U256FP1Element = rand::random();
             assert!(
-                (&U256ModulusP1::MODULUS > rand.value())
-                    && (rand.value() >= &U256::from_u64(0))
+                (&U256ModulusP1::MODULUS > rand.value()) && (rand.value() >= &U256::from_u64(0))
             );
         }
     }
@@ -868,10 +863,7 @@ mod tests_u256_prime_fields {
     fn gen_random_for_fp2() {
         for _ in 0..1000 {
             let rand: U256FP2Element = rand::random();
-            assert!(
-                (&ModulusP2::MODULUS > rand.value())
-                    && (rand.value() >= &U256::from_u64(0))
-            );
+            assert!((&ModulusP2::MODULUS > rand.value()) && (rand.value() >= &U256::from_u64(0)));
         }
     }
 
