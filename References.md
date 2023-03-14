@@ -46,7 +46,7 @@
 ## Lookup Tables
 - [Caulk Poc Implementation](https://github.com/caulk-crypto/caulk)
 - [Caulk Paper](https://eprint.iacr.org/2022/621.pdf)
-- [Plook Up Paper](https://eprint.iacr.org/2020/315.pdfx)
+- [Plook Up Paper](https://eprint.iacr.org/2020/315.pdf)
 
 ## Starks
 - [DeepFRI](https://eprint.iacr.org/2019/336.pdf)
