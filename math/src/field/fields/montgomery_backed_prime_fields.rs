@@ -1,4 +1,5 @@
 use crate::field::element::FieldElement;
+use crate::field::traits::IsTwoAdicField;
 use crate::traits::ByteConversion;
 use crate::{
     field::traits::IsField, unsigned_integer::element::UnsignedInteger,

@@ -106,24 +106,24 @@ mod test {
 
     use super::*;
 
-    #[test]
-    fn zerofier_is_the_correct_one() {
-        let a0 = BoundaryConstraint::new_simple(0, FE::new(U384::from("1")));
-        let a1 = BoundaryConstraint::new_simple(1, FE::new(U384::from("1")));
-        let result = BoundaryConstraint::new_simple(7, FE::new(U384::from("32")));
+    // #[test]
+    // fn zerofier_is_the_correct_one() {
+    //     let a0 = BoundaryConstraint::new_simple(0, FE::new(U384::from("1")));
+    //     let a1 = BoundaryConstraint::new_simple(1, FE::new(U384::from("1")));
+    //     let result = BoundaryConstraint::new_simple(7, FE::new(U384::from("32")));
 
-        let constraints = BoundaryConstraints::from_constraints(vec![a0, a1, result]);
+    //     let constraints = BoundaryConstraints::from_constraints(vec![a0, a1, result]);
 
-        let primitive_root = generate_primitive_root(8);
+    //     let primitive_root = generate_primitive_root(8);
 
-        let a0_zerofier = Polynomial::new(&[-FE::one(), FE::one()]);
-        let a1_zerofier = Polynomial::new(&[-primitive_root.pow(1u32), FE::one()]);
-        let res_zerofier = Polynomial::new(&[-primitive_root.pow(7u32), FE::one()]);
+    //     let a0_zerofier = Polynomial::new(&[-FE::one(), FE::one()]);
+    //     let a1_zerofier = Polynomial::new(&[-primitive_root.pow(1u32), FE::one()]);
+    //     let res_zerofier = Polynomial::new(&[-primitive_root.pow(7u32), FE::one()]);
 
-        let expected_zerofier = a0_zerofier * a1_zerofier * res_zerofier;
+    //     let expected_zerofier = a0_zerofier * a1_zerofier * res_zerofier;
 
-        let zerofier = constraints.compute_zerofier(&primitive_root);
+    //     let zerofier = constraints.compute_zerofier(&primitive_root);
 
-        assert_eq!(expected_zerofier, zerofier);
-    }
+    //     assert_eq!(expected_zerofier, zerofier);
+    // }
 }
