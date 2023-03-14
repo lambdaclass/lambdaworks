@@ -91,10 +91,10 @@ impl FFTMetalState {
 
 #[cfg(test)]
 mod tests {
-    use crate::fft::bit_reversing::in_place_bit_reverse_permute;
-    use crate::fft::helpers::log2;
-    use crate::field::test_fields::u64_test_field::U32TestField;
-    use crate::polynomial::Polynomial;
+    use lambdaworks_math::{
+        fft::bit_reversing::in_place_bit_reverse_permute,
+        field::test_fields::u64_test_field::U32TestField, polynomial::Polynomial,
+    };
 
     use super::*;
 
@@ -117,7 +117,7 @@ mod tests {
         ]
         .map(FE::from);
 
-        let root = F::get_root_of_unity(log2(coeffs.len()).unwrap()).unwrap();
+        let root = F::get_primitive_root_of_unity(3).unwrap();
         let mut twiddles = (0..coeffs.len() as u64)
             .map(|i| root.pow(i))
             .collect::<Vec<FE>>();

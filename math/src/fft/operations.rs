@@ -76,7 +76,7 @@ mod fft_test {
             let poly = Polynomial::new(&coeffs[..]);
             let result = evaluate_poly(&poly).unwrap();
 
-            let omega = F::get_root_of_unity(log2(poly.coefficients().len()).unwrap()).unwrap();
+            let omega = F::get_primitive_root_of_unity(log2(poly.coefficients().len()).unwrap()).unwrap();
             let twiddles_iter = (0..poly.coefficients().len() as u64).map(|i| omega.pow(i));
             let expected: Vec<FE> = twiddles_iter.map(|x| poly.evaluate(&x)).collect();
 
@@ -95,7 +95,7 @@ mod fft_test {
             let offset = FE::new(2);
             let result = evaluate_poly_with_offset(&poly, &offset, blowup_factor).unwrap();
 
-            let omega = F::get_root_of_unity(log2(domain_size).unwrap()).unwrap();
+            let omega = F::get_primitive_root_of_unity(log2(domain_size).unwrap()).unwrap();
             let twiddles_iter = (0..domain_size as u64).map(|i| omega.pow(i) * &offset);
             let expected: Vec<FE> = twiddles_iter.map(|x| poly.evaluate(&(x))).collect();
 

@@ -60,5 +60,4 @@ pub type U32TestField = U32Field<2013265921>;
 impl IsTwoAdicField for U32TestField {
     const TWO_ADICITY: u64 = 27;
     const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: u32 = 440532289;
-    const GENERATOR: u32 = 31;
 }

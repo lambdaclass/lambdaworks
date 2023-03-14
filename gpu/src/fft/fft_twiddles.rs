@@ -32,7 +32,7 @@ where
 
     let basetype_size = std::mem::size_of::<F::BaseType>() as u64;
 
-    let omega = F::get_root_of_unity(log2(K)?)?;
+    let omega = F::get_primitive_root_of_unity(log2(K)?)?;
     let omega_buffer = metal_device.new_buffer_with_data(
         void_ptr(&omega),
         basetype_size,
@@ -81,7 +81,7 @@ mod tests {
     where
         F: IsTwoAdicField,
     {
-        let omega = F::get_root_of_unity(log2(K)?)?;
+        let omega = F::get_primitive_root_of_unity(log2(K)?)?;
         let mut twiddles = vec![FieldElement::zero(); K];
 
         for (i, twiddle) in twiddles.iter_mut().enumerate() {

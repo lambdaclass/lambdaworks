@@ -9,9 +9,7 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-use super::fields::montgomery_backed_prime_fields::{
-    IsMontgomeryConfiguration, MontgomeryBackendPrimeField,
-};
+use super::fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField};
 use super::traits::IsPrimeField;
 
 /// A field element with operations algorithms defined in `F`
@@ -353,15 +351,53 @@ impl<F: IsPrimeField> FieldElement<F> {
     }
 }
 
-impl<C, const NUM_LIMBS: usize> FieldElement<MontgomeryBackendPrimeField<C, NUM_LIMBS>>
+impl<M, const NUM_LIMBS: usize> FieldElement<MontgomeryBackendPrimeField<M, NUM_LIMBS>>
 where
-    C: IsMontgomeryConfiguration<NUM_LIMBS> + Clone + Debug,
+    M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug,
 {
     #[allow(unused)]
     pub const fn from_hex(hex: &str) -> Self {
         let integer = UnsignedInteger::<NUM_LIMBS>::from(hex);
         Self {
-            value: MontgomeryAlgorithms::cios(&integer, &C::R2, &C::MODULUS, &C::MU),
+            value: MontgomeryAlgorithms::cios(
+                &integer,
+                &MontgomeryBackendPrimeField::<M, NUM_LIMBS>::R2,
+                &M::MODULUS,
+                &MontgomeryBackendPrimeField::<M, NUM_LIMBS>::MU,
+            ),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use crate::field::element::FieldElement;
+    use crate::field::test_fields::u64_test_field::U64Field;
+
+    #[test]
+    fn test_std_iter_sum_field_element() {
+        let n = 164;
+        const MODULUS: u64 = 15;
+        assert_eq!(
+            (0..n)
+                .map(|x| { FieldElement::<U64Field<MODULUS>>::from(x) })
+                .sum::<FieldElement<U64Field<MODULUS>>>()
+                .value,
+            ((n - 1) as f64 / 2. * ((n - 1) as f64 + 1.)) as u64 % MODULUS
+        );
+    }
+
+    #[test]
+    fn test_std_iter_sum_field_element_zero_length() {
+        let n = 0;
+        const MODULUS: u64 = 15;
+        assert_eq!(
+            (0..n)
+                .map(|x| { FieldElement::<U64Field<MODULUS>>::from(x) })
+                .sum::<FieldElement<U64Field<MODULUS>>>()
+                .value,
+            0
+        );
     }
 }

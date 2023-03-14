@@ -1,9 +1,6 @@
 use criterion::Criterion;
 use lambdaworks_math::{
-    fft::fft_cooley_tukey::{fft, inverse_fft},
-    field::test_fields::u64_test_field::U64Field,
-};
-use lambdaworks_math::{
+    field::{test_fields::u64_test_field::U64Field, traits::RootsConfig},
     fft::{bit_reversing::*, fft_iterative::*},
     field::{element::FieldElement, traits::IsTwoAdicField},
 };
@@ -27,7 +24,6 @@ pub fn fft_benchmarks(c: &mut Criterion) {
 
     for pow in 20..=24 {
         let coeffs = gen_coeffs(pow);
-        let evals = fft(&coeffs).unwrap();
         group.throughput(criterion::Throughput::Elements(1 << pow)); // info for criterion
 
         // the objective is to bench ordered FFT, including twiddles generation
@@ -37,12 +33,8 @@ pub fn fft_benchmarks(c: &mut Criterion) {
             |bench, coeffs| {
                 bench.iter(|| {
                     let mut coeffs = coeffs.clone();
-                    let root = F::get_root_of_unity(coeffs.len().trailing_zeros() as u64).unwrap();
-                    let mut twiddles = (0..coeffs.len() as u64)
-                        .map(|i| root.pow(i))
-                        .collect::<Vec<FE>>();
-                    in_place_bit_reverse_permute(&mut twiddles);
-                    in_place_nr_2radix_fft(&mut coeffs[..], &twiddles[..]);
+                    let twiddles = F::get_twiddles(pow as u64, RootsConfig::BitReverse).unwrap();
+                    in_place_nr_2radix_fft(&mut coeffs, &twiddles);
                 });
             },
         );
@@ -52,29 +44,10 @@ pub fn fft_benchmarks(c: &mut Criterion) {
             |bench, coeffs| {
                 bench.iter(|| {
                     let mut coeffs = coeffs.clone();
-                    let root = F::get_root_of_unity(coeffs.len().trailing_zeros() as u64).unwrap();
-                    let twiddles = (0..coeffs.len() as u64)
-                        .map(|i| root.pow(i))
-                        .collect::<Vec<FE>>();
+                    let twiddles = F::get_twiddles(pow as u64, RootsConfig::Natural).unwrap();
                     in_place_bit_reverse_permute(&mut coeffs);
-                    in_place_rn_2radix_fft(&mut coeffs[..], &twiddles[..]);
+                    in_place_rn_2radix_fft(&mut coeffs, &twiddles);
                 });
-            },
-        );
-
-        // fft() and ifft() implicitly calculate a root and twiddles.
-        group.bench_with_input(
-            format!("recursive_forward_2^{pow}_coeffs"),
-            &coeffs,
-            |bench, coeffs| {
-                bench.iter(|| fft(coeffs));
-            },
-        );
-        group.bench_with_input(
-            format!("recursive_inverse_2^{pow}_coeffs"),
-            &evals,
-            |bench, evals| {
-                bench.iter(|| inverse_fft(evals));
             },
         );
     }
