@@ -213,7 +213,7 @@ where
 impl<C, const NUM_LIMBS: usize>
     Distribution<FieldElement<MontgomeryBackendPrimeField<C, NUM_LIMBS>>> for Standard
 where
-    C: IsMontgomeryConfiguration<NUM_LIMBS> + Clone + Debug,
+    C: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug,
 {
     fn sample<R: Rng + ?Sized>(
         &self,
