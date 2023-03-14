@@ -3,25 +3,24 @@
 
 [[kernel]]
 void radix2_dit_butterfly(
-    device uint32_t* input [[ buffer(0) ]],
-    constant uint32_t* twiddles [[ buffer(1) ]],
-    uint32_t group_count [[ threadgroups_per_grid ]],
-    uint32_t i [[ thread_position_in_grid ]],
+    device uint64_t* input [[ buffer(0) ]],
+    constant uint64_t* twiddles [[ buffer(1) ]],
+    constant uint64_t& group_size [[ buffer(2) ]],
+    uint32_t pos_in_group [[ thread_position_in_threadgroup ]],
     uint32_t group [[ threadgroup_position_in_grid ]],
-    uint32_t butterflies [[ grid_size ]] // one butterfly per thread.
+    uint32_t global_tid [[ thread_position_in_grid ]]
 )
 {
-  uint32_t distance = butterflies / group_count;
+  uint32_t i = group * group_size + pos_in_group;
+  uint32_t distance = group_size / 2;
+  //uint32_t i = group * group_size + (global_tid % distance); // extracted from ministark
 
   Fp w = twiddles[group];
   Fp a = input[i];
   Fp b = input[i + distance];
 
-  Fp y0 = a + w*b;
-  Fp y1 = a - w*b;
-
-  input[i]            = y0.asUInt32(); // --\/--
-  input[i + distance] = y1.asUInt32(); // --/\--
+  input[i]             = (a + w*b).asUInt32(); // --\/--
+  input[i + distance]  = (a - w*b).asUInt32(); // --/\--
 }
 
 kernel void gen_twiddles(
