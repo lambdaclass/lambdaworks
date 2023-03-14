@@ -1,4 +1,6 @@
 use crate::field::traits::IsField;
+use crate::unsigned_integer::element::UnsignedInteger;
+use crate::unsigned_integer::montgomery::MontgomeryAlgorithms;
 use crate::unsigned_integer::traits::IsUnsignedInteger;
 use std::iter::Sum;
 use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
@@ -7,6 +9,7 @@ use std::{
     hash::{Hash, Hasher},
 };
 
+use super::fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField};
 use super::traits::IsPrimeField;
 
 /// A field element with operations algorithms defined in `F`
@@ -341,12 +344,60 @@ where
     }
 }
 
-impl<F> FieldElement<F>
-where
-    F: IsPrimeField,
-{
+impl<F: IsPrimeField> FieldElement<F> {
     // Returns the representative of the value stored
-    pub fn representative(&self) -> F::BaseUnsignedType {
-        F::representative(self.value.clone())
+    pub fn representative(&self) -> F::RepresentativeType {
+        F::representative(self.value())
+    }
+}
+
+impl<M, const NUM_LIMBS: usize> FieldElement<MontgomeryBackendPrimeField<M, NUM_LIMBS>>
+where
+    M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug,
+{
+    #[allow(unused)]
+    pub const fn from_hex(hex: &str) -> Self {
+        let integer = UnsignedInteger::<NUM_LIMBS>::from(hex);
+        Self {
+            value: MontgomeryAlgorithms::cios(
+                &integer,
+                &MontgomeryBackendPrimeField::<M, NUM_LIMBS>::R2,
+                &M::MODULUS,
+                &MontgomeryBackendPrimeField::<M, NUM_LIMBS>::MU,
+            ),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use crate::field::element::FieldElement;
+    use crate::field::test_fields::u64_test_field::U64TestField;
+
+    #[test]
+    fn test_std_iter_sum_field_element() {
+        let n = 164;
+        const MODULUS: u64 = 15;
+        assert_eq!(
+            (0..n)
+                .map(|x| { FieldElement::<U64TestField<MODULUS>>::from(x) })
+                .sum::<FieldElement<U64TestField<MODULUS>>>()
+                .value,
+            ((n - 1) as f64 / 2. * ((n - 1) as f64 + 1.)) as u64 % MODULUS
+        );
+    }
+
+    #[test]
+    fn test_std_iter_sum_field_element_zero_length() {
+        let n = 0;
+        const MODULUS: u64 = 15;
+        assert_eq!(
+            (0..n)
+                .map(|x| { FieldElement::<U64TestField<MODULUS>>::from(x) })
+                .sum::<FieldElement<U64TestField<MODULUS>>>()
+                .value,
+            0
+        );
     }
 }

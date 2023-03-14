@@ -45,7 +45,7 @@ impl<const MAXIMUM_DEGREE: usize, F: IsPrimeField, P: IsPairing>
 
     #[allow(unused)]
     fn commit(&self, p: &Polynomial<FieldElement<F>>) -> P::G1 {
-        let coefficients: Vec<F::BaseUnsignedType> = p
+        let coefficients: Vec<F::RepresentativeType> = p
             .coefficients
             .iter()
             .map(|coefficient| coefficient.representative())
@@ -103,7 +103,7 @@ mod tests {
         field::{
             element::FieldElement,
             fields::montgomery_backed_prime_fields::{
-                IsMontgomeryConfiguration, MontgomeryBackendPrimeField,
+                IsModulus, MontgomeryBackendPrimeField,
             },
         },
         polynomial::Polynomial,
@@ -115,7 +115,7 @@ mod tests {
 
     #[derive(Clone, Debug)]
     pub struct FrConfig;
-    impl IsMontgomeryConfiguration<4> for FrConfig {
+    impl IsModulus<U256> for FrConfig {
         const MODULUS: U256 =
             U256::from("73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001");
     }

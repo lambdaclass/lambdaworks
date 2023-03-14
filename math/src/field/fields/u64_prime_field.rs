@@ -1,7 +1,7 @@
 use crate::cyclic_group::IsGroup;
 use crate::errors::ByteConversionError::{FromBEBytesError, FromLEBytesError};
 use crate::field::element::FieldElement;
-use crate::field::traits::IsField;
+use crate::field::traits::{IsField, IsPrimeField};
 use crate::traits::ByteConversion;
 
 /// Type representing prime fields over unsigned 64-bit integers.
@@ -59,6 +59,14 @@ impl<const MODULUS: u64> IsField for U64PrimeField<MODULUS> {
 }
 
 impl<const MODULUS: u64> Copy for U64FieldElement<MODULUS> {}
+
+impl<const MODULUS: u64> IsPrimeField for U64PrimeField<MODULUS> {
+    type RepresentativeType = u64;
+
+    fn representative(x: &u64) -> u64 {
+        *x
+    }
+}
 
 /// Represents an element in Fp. (E.g: 0, 1, 2 are the elements of F3)
 impl<const MODULUS: u64> IsGroup for U64FieldElement<MODULUS> {
@@ -248,5 +256,21 @@ mod tests {
     fn from_bytes_to_bytes_le_is_the_identity_for_one() {
         let bytes = vec![1, 0, 0, 0, 0, 0, 0, 0];
         assert_eq!(FE::from_bytes_le(&bytes).unwrap().to_bytes_le(), bytes);
+    }
+
+    #[test]
+    fn creating_a_field_element_from_its_representative_returns_the_same_element_1() {
+        let change = 1;
+        let f1 = FE::new(MODULUS + change);
+        let f2 = FE::new(f1.representative());
+        assert_eq!(f1, f2);
+    }
+
+    #[test]
+    fn creating_a_field_element_from_its_representative_returns_the_same_element_2() {
+        let change = 8;
+        let f1 = FE::new(MODULUS + change);
+        let f2 = FE::new(f1.representative());
+        assert_eq!(f1, f2);
     }
 }

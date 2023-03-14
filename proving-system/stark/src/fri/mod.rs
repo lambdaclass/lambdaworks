@@ -6,10 +6,10 @@ use crate::fri::fri_commitment::{FriCommitment, FriCommitmentVec};
 use crate::fri::fri_functions::next_fri_layer;
 pub use lambdaworks_crypto::merkle_tree::DefaultHasher;
 pub type FriMerkleTree = MerkleTree<F, DefaultHasher>;
+use super::transcript_to_field;
 pub use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 pub use lambdaworks_crypto::merkle_tree::merkle::MerkleTree;
 use lambdaworks_math::traits::ByteConversion;
-use lambdaworks_math::unsigned_integer::element::U384;
 pub use lambdaworks_math::{
     field::{element::FieldElement, fields::u64_prime_field::U64PrimeField},
     polynomial::Polynomial,
@@ -27,7 +27,6 @@ pub fn fri_commitment(
     p_i: &Polynomial<FieldElement<F>>,
     domain_i: &[FE],
     evaluation_i: &[FE],
-    transcript: &mut Transcript,
 ) -> FriCommitment<FE> {
     // Merkle tree:
     //     - ret_evaluation
@@ -35,11 +34,6 @@ pub fn fri_commitment(
     //     - hasher
     // Create a new merkle tree with evaluation_i
     let merkle_tree = FriMerkleTree::build(evaluation_i);
-
-    // append the root of the merkle tree to the transcript
-    let root = merkle_tree.root.clone();
-    let root_bytes = (*root.value()).to_bytes_be();
-    transcript.append(&root_bytes);
 
     FriCommitment {
         poly: p_i.clone(),
@@ -84,13 +78,11 @@ pub fn fri(
 
     while degree > 0 {
         // sample beta:
-        // let beta_bytes = transcript.challenge();
-        // let beta = FE::from_bytes_be(&beta_bytes).unwrap();
-        let beta = FE::new(U384::from("4"));
+        let beta = transcript_to_field(transcript);
 
         let (p_i, domain_i, evaluation_i) = next_fri_layer(&last_poly, &last_domain, &beta);
 
-        let commitment_i = fri_commitment(&p_i, &domain_i, &evaluation_i, transcript);
+        let commitment_i = fri_commitment(&p_i, &domain_i, &evaluation_i);
 
         // append root of merkle tree to transcript
         let tree = &commitment_i.merkle_tree;
