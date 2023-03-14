@@ -5,10 +5,11 @@ mod fri_functions;
 use crate::fri::fri_commitment::{FriCommitment, FriCommitmentVec};
 use crate::fri::fri_functions::next_fri_layer;
 pub use lambdaworks_crypto::merkle_tree::DefaultHasher;
-pub type FriMerkleTree<F: IsField> = MerkleTree<F, DefaultHasher>;
+pub type FriMerkleTree<F> = MerkleTree<F, DefaultHasher>;
 pub use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 pub use lambdaworks_crypto::merkle_tree::merkle::MerkleTree;
 use lambdaworks_math::field::traits::IsField;
+use lambdaworks_math::traits::ByteConversion;
 pub use lambdaworks_math::{
     field::{element::FieldElement, fields::u64_prime_field::U64PrimeField},
     polynomial::Polynomial,
@@ -24,7 +25,10 @@ pub fn fri_commitment<F: IsField>(
     domain_i: &[FieldElement<F>],
     evaluation_i: &[FieldElement<F>],
     transcript: &mut Transcript,
-) -> FriCommitment<F> {
+) -> FriCommitment<F>
+where
+    FieldElement<F>: ByteConversion,
+{
     // Merkle tree:
     //     - ret_evaluation
     //     - root
@@ -34,7 +38,7 @@ pub fn fri_commitment<F: IsField>(
 
     // append the root of the merkle tree to the transcript
     let root = merkle_tree.root.clone();
-    let root_bytes = (*root.value()).to_bytes_be();
+    let root_bytes = root.to_bytes_be();
     transcript.append(&root_bytes);
 
     FriCommitment {
@@ -49,7 +53,10 @@ pub fn fri<F: IsField>(
     p_0: &mut Polynomial<FieldElement<F>>,
     domain_0: &[FieldElement<F>],
     transcript: &mut Transcript,
-) -> FriCommitmentVec<F> {
+) -> FriCommitmentVec<F>
+where
+    FieldElement<F>: ByteConversion,
+{
     let mut fri_commitment_list = FriCommitmentVec::new();
     let evaluation_0 = p_0.evaluate_slice(domain_0);
 
@@ -57,7 +64,7 @@ pub fn fri<F: IsField>(
 
     // append the root of the merkle tree to the transcript
     let root = merkle_tree.root.clone();
-    let root_bytes = (*root.value()).to_bytes_be();
+    let root_bytes = root.to_bytes_be();
     transcript.append(&root_bytes);
 
     let commitment_0 = FriCommitment {
@@ -91,7 +98,7 @@ pub fn fri<F: IsField>(
         // append root of merkle tree to transcript
         let tree = &commitment_i.merkle_tree;
         let root = tree.root.clone();
-        let root_bytes = (*root.value()).to_bytes_be();
+        let root_bytes = root.to_bytes_be();
         transcript.append(&root_bytes);
 
         fri_commitment_list.push(commitment_i);
@@ -103,7 +110,7 @@ pub fn fri<F: IsField>(
     }
 
     // append last value of the polynomial to the trasncript
-    let last_coef_bytes = (*last_coef.value()).to_bytes_be();
+    let last_coef_bytes = last_coef.to_bytes_be();
     transcript.append(&last_coef_bytes);
 
     fri_commitment_list

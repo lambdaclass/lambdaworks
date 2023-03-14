@@ -1,11 +1,12 @@
 pub mod air;
 pub mod fri;
 
-use air::constraints::boundary::{BoundaryConstraint, BoundaryConstraints};
+use air::constraints::boundary::BoundaryConstraints;
 use air::constraints::evaluator::ConstraintEvaluator;
 use air::trace::TraceTable;
 use air::AIR;
-use std::ops::{Div, Mul};
+use fri::fri;
+use lambdaworks_math::traits::ByteConversion;
 
 use fri::fri_decommit::{fri_decommit_layers, FriDecommitment};
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
@@ -27,13 +28,8 @@ impl IsMontgomeryConfiguration<6> for MontgomeryConfig {
         U384::from("800000000000011000000000000000000000000000000000000000000000001");
 }
 
-// pub type PrimeField = U384PrimeField<MontgomeryConfig>;
-// pub type FE = FieldElement<PrimeField>;
-
-const MODULUS_MINUS_1: U384 = U384::sub(&MontgomeryConfig::MODULUS, &U384::from("1")).0;
-
-/// Subgroup generator to generate the roots of unity
-const FIELD_SUBGROUP_GENERATOR: u64 = 3;
+pub type PrimeField = U384PrimeField<MontgomeryConfig>;
+pub type FE = FieldElement<PrimeField>;
 
 // DEFINITION OF CONSTANTS
 
@@ -83,7 +79,7 @@ pub struct StarkQueryProof<F: IsField> {
     pub fri_decommitment: FriDecommitment<F>,
 }
 
-pub type StarkProof<F: IsField> = Vec<StarkQueryProof<F>>;
+pub type StarkProof<F> = Vec<StarkQueryProof<F>>;
 
 pub use lambdaworks_crypto::merkle_tree::merkle::MerkleTree;
 pub use lambdaworks_crypto::merkle_tree::DefaultHasher;
@@ -105,7 +101,10 @@ pub fn fibonacci_trace<F: IsField>(initial_values: [FieldElement<F>; 2]) -> Vec<
 pub fn prove<F: IsField + IsTwoAdicField, A: AIR<F>>(
     trace: &[FieldElement<F>],
     air: A,
-) -> StarkQueryProof<F> {
+) -> StarkQueryProof<F>
+where
+    FieldElement<F>: ByteConversion,
+{
     let transcript = &mut Transcript::new();
 
     // * Generate Coset
@@ -138,7 +137,7 @@ pub fn prove<F: IsField + IsTwoAdicField, A: AIR<F>>(
     let lde_trace = TraceTable::new(lde_trace, 1);
 
     // Create evaluation table
-    let evaluator = ConstraintEvaluator::new(&air, trace_poly, trace_primitive_root);
+    let evaluator = ConstraintEvaluator::new(&air, &trace_poly, &trace_primitive_root);
     let constraint_evaluations = evaluator.evaluate(&lde_trace, &lde_roots_of_unity_coset);
 
     // Get composition poly
@@ -176,7 +175,7 @@ pub fn prove<F: IsField + IsTwoAdicField, A: AIR<F>>(
     );
 
     // * Do FRI on the composition polynomials
-    let lde_fri_commitment = crate::fri::fri(
+    let lde_fri_commitment = fri(
         &mut deep_composition_poly,
         &lde_roots_of_unity_coset,
         transcript,

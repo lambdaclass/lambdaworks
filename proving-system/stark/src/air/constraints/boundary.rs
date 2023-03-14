@@ -102,7 +102,7 @@ impl<F: IsField> BoundaryConstraints<F> {
 mod test {
     use lambdaworks_math::unsigned_integer::element::U384;
 
-    use crate::{generate_primitive_root, FE};
+    use crate::FE;
 
     use super::*;
 

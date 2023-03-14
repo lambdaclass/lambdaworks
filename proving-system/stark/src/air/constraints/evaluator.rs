@@ -7,26 +7,26 @@ use crate::air::{frame::Frame, trace::TraceTable, AIR};
 
 use super::{boundary::BoundaryConstraints, evaluation_table::ConstraintEvaluationTable};
 
-pub struct ConstraintEvaluator<'a, F: IsField, A: AIR<F>> {
-    air: &'a A,
+pub struct ConstraintEvaluator<F: IsField, A: AIR<F>> {
+    air: A,
     boundary_constraints: BoundaryConstraints<F>,
     trace_poly: Polynomial<FieldElement<F>>,
     primitive_root: FieldElement<F>,
 }
 
-impl<'a, F: IsField, A: AIR<F>> ConstraintEvaluator<'a, F, A> {
+impl<F: IsField, A: AIR<F>> ConstraintEvaluator<F, A> {
     pub fn new(
         air: &A,
-        trace_poly: Polynomial<FieldElement<F>>,
-        primitive_root: FieldElement<F>,
+        trace_poly: &Polynomial<FieldElement<F>>,
+        primitive_root: &FieldElement<F>,
     ) -> Self {
         let boundary_constraints = air.compute_boundary_constraints();
 
         Self {
-            air,
+            air: air.clone(),
             boundary_constraints,
-            trace_poly,
-            primitive_root,
+            trace_poly: trace_poly.clone(),
+            primitive_root: primitive_root.clone(),
         }
     }
 
@@ -41,7 +41,7 @@ impl<'a, F: IsField, A: AIR<F>> ConstraintEvaluator<'a, F, A> {
             &lde_domain,
         );
 
-        let boundary_constraints = self.boundary_constraints;
+        let boundary_constraints = &self.boundary_constraints;
         let domain = boundary_constraints.generate_roots_of_unity(&self.primitive_root);
 
         // Hard-coded for fibonacci -> trace has one column, hence col value is 0.
@@ -58,20 +58,20 @@ impl<'a, F: IsField, A: AIR<F>> ConstraintEvaluator<'a, F, A> {
 
         let max_degree_power_of_two = next_power_of_two(max_degree as u64);
 
-        let boundary_poly = self.trace_poly - Polynomial::interpolate(&domain, &values);
+        let boundary_poly = &self.trace_poly - &Polynomial::interpolate(&domain, &values);
 
         let alpha = FieldElement::one();
         let beta = FieldElement::one();
 
-        let alpha_and_beta_coefficients = vec![(alpha, beta)];
+        let alpha_and_beta_coefficients = vec![(alpha.clone(), beta.clone())];
         let blowup_factor = self.air.blowup_factor();
 
         // Iterate over trace and domain and compute transitions
         for (i, d) in lde_domain.iter().enumerate() {
             let frame = Frame::read_from_trace(&lde_trace, i, blowup_factor);
 
-            let evaluations = self.air.compute_transition(&frame);
-            let evaluations = self.compute_transition_evaluations(
+            let mut evaluations = self.air.compute_transition(&frame);
+            evaluations = self.compute_transition_evaluations(
                 &evaluations,
                 alpha_and_beta_coefficients.as_slice(),
                 max_degree_power_of_two,
@@ -80,7 +80,7 @@ impl<'a, F: IsField, A: AIR<F>> ConstraintEvaluator<'a, F, A> {
 
             // Append evaluation for boundary constraints
             let boundary_evaluation = boundary_poly.evaluate(d)
-                * (alpha * d.pow(max_degree - boundary_poly.degree()) + beta);
+                * (&alpha * d.pow(max_degree - boundary_poly.degree()) + &beta);
 
             let boundary_zerofier = self
                 .boundary_constraints
@@ -106,7 +106,7 @@ impl<'a, F: IsField, A: AIR<F>> ConstraintEvaluator<'a, F, A> {
 
         let divisors = self.air.transition_divisors();
 
-        let mut evaluations = Vec::new();
+        let mut ret = Vec::new();
         for (((eval, degree), div), (alpha, beta)) in evaluations
             .iter()
             .zip(transition_degrees)
@@ -115,10 +115,10 @@ impl<'a, F: IsField, A: AIR<F>> ConstraintEvaluator<'a, F, A> {
         {
             let numerator = eval * (alpha * x.pow(max_degree - (degree as u64)) + beta);
             let result = numerator / div.evaluate(&x);
-            evaluations.push(result);
+            ret.push(result);
         }
 
-        evaluations
+        ret
     }
 }
 

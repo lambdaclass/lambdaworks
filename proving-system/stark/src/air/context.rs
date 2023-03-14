@@ -12,7 +12,7 @@ impl AirContext {
     }
 
     pub fn transition_degrees(&self) -> Vec<usize> {
-        self.transition_degrees
+        self.transition_degrees.clone()
     }
 }
 

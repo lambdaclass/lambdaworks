@@ -14,7 +14,7 @@ pub mod context;
 pub mod frame;
 pub mod trace;
 
-pub trait AIR<F: IsField> {
+pub trait AIR<F: IsField>: Clone {
     fn new(trace: TraceTable<F>, context: AirContext) -> Self;
     fn compute_transition(&self, frame: &Frame<F>) -> Vec<FieldElement<F>>;
     fn compute_boundary_constraints(&self) -> BoundaryConstraints<F>;

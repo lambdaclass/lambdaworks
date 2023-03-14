@@ -1,4 +1,3 @@
-use lambdaworks_crypto::merkle_tree::DefaultHasher;
 use lambdaworks_math::field::{element::FieldElement, traits::IsField};
 
 pub use super::{FriMerkleTree, Polynomial};
@@ -10,4 +9,4 @@ pub struct FriCommitment<F: IsField> {
     pub merkle_tree: FriMerkleTree<F>,
 }
 
-pub type FriCommitmentVec<F: IsField> = Vec<FriCommitment<F>>;
+pub type FriCommitmentVec<F> = Vec<FriCommitment<F>>;

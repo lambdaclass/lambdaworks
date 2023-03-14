@@ -259,10 +259,31 @@ impl<F: IsField> ops::Neg for Polynomial<FieldElement<F>> {
     }
 }
 
+impl<F: IsField> ops::Neg for &Polynomial<FieldElement<F>> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn neg(self) -> Polynomial<FieldElement<F>> {
+        let neg = self
+            .coefficients
+            .iter()
+            .map(|x| -x)
+            .collect::<Vec<FieldElement<F>>>();
+        Polynomial::new(&neg)
+    }
+}
+
 impl<F: IsField> ops::Sub<Polynomial<FieldElement<F>>> for Polynomial<FieldElement<F>> {
     type Output = Polynomial<FieldElement<F>>;
 
     fn sub(self, substrahend: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+        self + (-substrahend)
+    }
+}
+
+impl<F: IsField> ops::Sub<&Polynomial<FieldElement<F>>> for &Polynomial<FieldElement<F>> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn sub(self, substrahend: &Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
         self + (-substrahend)
     }
 }
