@@ -1,4 +1,8 @@
-use super::errors::FFTError;
+use lambdaworks_math::fft::errors::FFTError;
+
+pub fn void_ptr<T>(v: &T) -> *const core::ffi::c_void {
+    v as *const T as *const core::ffi::c_void
+}
 
 pub fn log2(n: usize) -> Result<u64, FFTError> {
     if !n.is_power_of_two() {

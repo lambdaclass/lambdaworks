@@ -1,12 +1,10 @@
-use crate::field::{element::FieldElement, traits::IsTwoAdicField};
+use lambdaworks_math::field::{element::FieldElement, traits::IsTwoAdicField};
 use metal::{Device, MTLResourceOptions, MTLSize};
 
-use super::{
-    errors::FFTError,
-    helpers::{log2, void_ptr},
-};
+use super::helpers::{log2, void_ptr};
+use lambdaworks_math::fft::errors::FFTError;
 
-const TWIDDLE_LIB_DATA: &[u8] = include_bytes!("metal/fft.metallib");
+const TWIDDLE_LIB_DATA: &[u8] = include_bytes!("../metal/fft.metallib");
 
 // WARN: the K const is temporary, in the future this will return a vector of variable size K.
 /// Generates `K` twiddle factors for a **u64**-field of `modulus` using the GPU via Metal.
@@ -60,7 +58,7 @@ where
     // then the amount of groups should be the minimum that make K fit:
     let thread_group_count = MTLSize::new((K as u64 + threads - 1) / threads, 1, 1);
 
-    compute_encoder.dispatch_thread_groups(thread_group_count, thread_group_size);
+    compute_encoder.dispatch_threads(thread_group_size, thread_group_count);
     compute_encoder.end_encoding();
 
     command_buffer.commit();
@@ -74,7 +72,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::field::test_fields::u32_test_field::U32TestField;
+    use lambdaworks_math::field::test_fields::u32_test_field::U32TestField;
 
     const K: usize = 4;
     type F = U32TestField;

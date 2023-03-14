@@ -1,10 +1,11 @@
-use crate::fft::bit_reversing::in_place_bit_reverse_permute;
-use crate::field::{element::FieldElement, traits::IsTwoAdicField};
+use lambdaworks_math::fft::bit_reversing::in_place_bit_reverse_permute;
+use lambdaworks_math::field::{element::FieldElement, traits::IsTwoAdicField};
 
-use super::{errors::FFTError, fft_twiddles::gen_twiddles, helpers::void_ptr};
+use super::{fft_twiddles::gen_twiddles, helpers::void_ptr};
+use lambdaworks_math::fft::errors::FFTError;
 use metal::{CommandQueue, Device, Library, MTLResourceOptions, MTLSize};
 
-const FFT_LIB_DATA: &[u8] = include_bytes!("metal/fft.metallib");
+const FFT_LIB_DATA: &[u8] = include_bytes!("../metal/fft.metallib");
 
 pub struct FFTMetalState {
     pub device: Device,
@@ -113,7 +114,8 @@ mod tests {
             9823592358,
             98239283599,
             1391831318,
-        ].map(FE::from);
+        ]
+        .map(FE::from);
 
         let root = F::get_root_of_unity(log2(coeffs.len()).unwrap()).unwrap();
         let mut twiddles = (0..coeffs.len() as u64)
