@@ -31,10 +31,12 @@ impl FFTMetalState {
         })
     }
 
-    pub fn execute_fft<F: IsTwoAdicField, const K: usize>(
+    pub fn execute_fft<F: IsTwoAdicField>(
         &self,
-        input: &[FieldElement<F>; K],
-    ) -> Result<[FieldElement<F>; K], FFTError> {
+        input: &[FieldElement<F>],
+    ) -> Result<Vec<FieldElement<F>>, FFTError> {
+        let order = input.len().trailing_zeros() as u64;
+
         let butterfly_kernel = self
             .library
             .get_function("radix2_dit_butterfly", None)
@@ -47,28 +49,33 @@ impl FFTMetalState {
 
         let basetype_size = std::mem::size_of::<u32>();
 
-        let input = input.clone().map(|elem| elem.value().clone());
-        let input_buffer = self.device.new_buffer_with_data(
-            unsafe { mem::transmute(input.as_ptr()) }, // reinterprets into a void pointer
-            (input.len() * basetype_size) as u64,
-            MTLResourceOptions::StorageModeShared,
-        );
+        let input_buffer = {
+            let input: Vec<_> = input.iter().map(|elem| elem.value()).cloned().collect();
+            // without that .cloned() the UB monster is summoned, not sure why.
+            self.device.new_buffer_with_data(
+                unsafe { mem::transmute(input.as_ptr()) }, // reinterprets into a void pointer
+                (input.len() * basetype_size) as u64,
+                MTLResourceOptions::StorageModeShared,
+            )
+        };
 
-        let twiddles = F::get_twiddles(
-            K.trailing_zeros() as u64,
-            lambdaworks_math::field::traits::RootsConfig::BitReverse,
-        )?
-        .into_iter()
-        .map(|elem| elem.value().clone())
-        .collect::<Vec<F::BaseType>>();
+        let twiddles_buffer = {
+            let twiddles: Vec<_> = F::get_twiddles(
+                order,
+                lambdaworks_math::field::traits::RootsConfig::BitReverse,
+            )?
+            .iter()
+            .map(|elem| elem.value().clone())
+            .collect();
 
-        let twiddles_buffer = self.device.new_buffer_with_data(
-            unsafe { mem::transmute(twiddles.as_ptr()) }, // reinterprets into a void pointer
-            (twiddles.len() * basetype_size) as u64,
-            MTLResourceOptions::StorageModeShared,
-        );
+            self.device.new_buffer_with_data(
+                unsafe { mem::transmute(twiddles.as_ptr()) }, // reinterprets into a void pointer
+                (twiddles.len() * basetype_size) as u64,
+                MTLResourceOptions::StorageModeShared,
+            )
+        };
 
-        let mut group_count = 1_u64;
+        let mut group_count = 1u64;
         let mut group_size = input.len() as u64;
 
         while group_count < input.len() as u64 {
@@ -96,8 +103,15 @@ impl FFTMetalState {
             group_count *= 2;
             group_size /= 2;
         }
-        let results = unsafe { *(input_buffer.contents() as *const [u32; K]) };
-        Ok(results.map(|x| FieldElement::from(x as u64)))
+
+        let results_ptr = input_buffer.contents() as *const F::BaseType;
+        let results_len = input_buffer.length() as usize / mem::size_of::<F::BaseType>();
+        let results_slice = unsafe { std::slice::from_raw_parts(results_ptr, results_len) };
+
+        Ok(results_slice
+            .iter()
+            .map(FieldElement::from)
+            .collect())
     }
 }
 
@@ -134,7 +148,7 @@ mod tests {
 
         let metal_state = FFTMetalState::new(None).unwrap();
 
-        let mut result = metal_state.execute_fft(&coeffs).unwrap();
+        let mut result = metal_state.execute_fft::<F>(&coeffs).unwrap();
         in_place_bit_reverse_permute(&mut result);
 
         assert_eq!(&result[..], &expected[..]);
