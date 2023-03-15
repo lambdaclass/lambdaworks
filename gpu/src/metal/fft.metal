@@ -13,7 +13,6 @@ void radix2_dit_butterfly(
 {
   uint32_t i = group * group_size + pos_in_group;
   uint32_t distance = group_size / 2;
-  //uint32_t i = group * group_size + (global_tid % distance); // extracted from ministark
 
   Fp w = twiddles[group];
   Fp a = input[i];
