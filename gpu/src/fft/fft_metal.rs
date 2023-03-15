@@ -51,7 +51,7 @@ impl FFTMetalState {
         let input_buffer = self.device.new_buffer_with_data(
             unsafe { mem::transmute(input.as_ptr()) },
             (input.len() * basetype_size) as u64,
-            MTLResourceOptions::StorageModeShared,
+            MTLResourceOptions::CPUCacheModeDefaultCache,
         );
 
         let twiddles = F::get_twiddles(
@@ -65,7 +65,7 @@ impl FFTMetalState {
         let twiddles_buffer = self.device.new_buffer_with_data(
             unsafe { mem::transmute(twiddles.as_ptr()) },
             (twiddles.len() * basetype_size) as u64,
-            MTLResourceOptions::StorageModeShared,
+            MTLResourceOptions::CPUCacheModeDefaultCache,
         );
 
         let mut group_count = 1_u64;
@@ -137,9 +137,6 @@ mod tests {
         let mut result = metal_state.execute_fft(&coeffs).unwrap();
         in_place_bit_reverse_permute(&mut result);
 
-        dbg!(result);
-        dbg!(expected);
-
-        assert!(false);
+        assert_eq!(&result[..], &expected[..]);
     }
 }
