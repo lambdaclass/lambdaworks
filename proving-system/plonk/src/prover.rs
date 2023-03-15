@@ -147,13 +147,13 @@ fn round_3(
     let alpha_1 = Polynomial::new_monomial(alpha.clone(), 0);
     let beta_x_k1 = Polynomial::new_monomial(beta * k1, 1);
     let beta_x_k2 = Polynomial::new_monomial(beta * k2, 1);
-    let z_x_w_coefficients: Vec<FrElement> = polynomial_z
+    let z_x_omega_coefficients: Vec<FrElement> = polynomial_z
         .coefficients()
         .iter()
         .enumerate()
         .map(|(i, x)| x * &domain[i])
         .collect();
-    let z_x_w = Polynomial::new(&z_x_w_coefficients);
+    let z_x_omega = Polynomial::new(&z_x_omega_coefficients);
     let mut e1 = vec![FrElement::zero(); domain.len()];
     e1[0] = FrElement::one();
     let l1 = Polynomial::interpolate(&domain, &e1);
@@ -170,7 +170,7 @@ fn round_3(
     let p_constraints = a * b * Qm + a * Ql + b * Qr + c * Qo + Qc;
     let f = (a + beta_x + &gamma_1) * (b + beta_x_k1 + &gamma_1) * (c + beta_x_k2 + &gamma_1);
     let g = (a + &beta_1 * S1 + &gamma_1) * (b + &beta_1 * S2 + &gamma_1) * (c + beta_1 * S3 + gamma_1);
-    let p_permutation_1 = g * z_x_w - f * z;
+    let p_permutation_1 = g * z_x_omega - f * z; // TODO: Paper says this term is minus the term found on gnark. This doesn't affect the protocol.
     let p_permutation_2 = (z - one) * &l1;
 
     let p = ((p_permutation_2 * &alpha_1) + p_permutation_1) * alpha_1 + p_constraints;
@@ -223,6 +223,93 @@ fn round_4(
     let s2_value = common_preprocesed_input.S2_monomial.evaluate(zeta);
     let z_value = polynomial_z.evaluate(&(zeta * omega));
     (a_value, b_value, c_value, s1_value, s2_value, z_value)
+}
+
+fn round_5(
+    common_preprocesed_input: &CommonPreprocessedInput,
+    kzg: &KZG,
+    polynomial_a: &Polynomial<FrElement>,
+    polynomial_b: &Polynomial<FrElement>,
+    polynomial_c: &Polynomial<FrElement>,
+    polynomial_z: &Polynomial<FrElement>,
+    t_lo: &Polynomial<FrElement>,
+    t_mid: &Polynomial<FrElement>,
+    t_hi: &Polynomial<FrElement>,
+    alpha: &FrElement,
+    beta: &FrElement,
+    gamma: &FrElement,
+    zeta: &FrElement,
+    upsilon: &FrElement,
+    a_value: &FrElement,
+    b_value: &FrElement,
+    c_value: &FrElement,
+    s1_value: &FrElement,
+    s2_value: &FrElement,
+    z_value: &FrElement,
+) -> (G1Point, G1Point) {
+    let n = common_preprocesed_input.number_constraints; // TODO: Is this the correct value?
+
+    let a_value_1 = Polynomial::new_monomial(a_value.clone(), 0);
+    let b_value_1 = Polynomial::new_monomial(b_value.clone(), 0);
+    let c_value_1 = Polynomial::new_monomial(c_value.clone(), 0);
+    let s1_value_1 = Polynomial::new_monomial(s1_value.clone(), 0);
+    let s2_value_1 = Polynomial::new_monomial(s2_value.clone(), 0);
+    let z_omega_value_1 = Polynomial::new_monomial(z_value.clone(), 0);
+    
+    let domain = &common_preprocesed_input.domain;
+    let mut e1 = vec![FrElement::zero(); domain.len()];
+    e1[0] = FrElement::one();
+    let l1 = Polynomial::interpolate(&domain, &e1);
+
+    let z = polynomial_z;
+  
+    let k1 = ORDER_R_MINUS_1_ROOT_UNITY;
+    let k2 = &k1 * &k1;
+    let k1_1 = Polynomial::new_monomial(k1, 0);
+    let k2_1 = Polynomial::new_monomial(k2, 0);
+    let one = Polynomial::new_monomial(FrElement::one(), 0);
+
+    let zeta_1 = Polynomial::new_monomial(zeta.clone(), 0);
+    let alpha_1 = Polynomial::new_monomial(alpha.clone(), 0);
+    let beta_1 = Polynomial::new_monomial(beta.clone(), 0);
+    let gamma_1 = Polynomial::new_monomial(gamma.clone(), 0);
+
+    let Zh = Polynomial::new_monomial(FrElement::one(), n) - &one;
+
+    let Qm = &common_preprocesed_input.Qm;
+    let Ql = &common_preprocesed_input.Ql;
+    let Qr = &common_preprocesed_input.Qr;
+    let Qo = &common_preprocesed_input.Qo;
+    let Qc = &common_preprocesed_input.Qc;
+    let S1 = &common_preprocesed_input.S1_monomial;
+    let S2 = &common_preprocesed_input.S2_monomial;
+    let S3 = &common_preprocesed_input.S3_monomial;
+
+    let zeta_raised_n = Polynomial::new_monomial(zeta.pow(n + 2), 0); // TODO: Paper says n and 2n, but Gnark uses n+2 and 2n+4 (see the TODO(*))
+    let zeta_raised_2n = Polynomial::new_monomial(zeta.pow(2 * n + 4), 0);
+
+    let r_1 = &a_value_1 * &b_value_1 * Qm + &a_value_1 * Ql + &b_value_1 * Qr + &c_value_1 * Qo + Qc; // TODO paper says PI(z), but GNark does this.
+    let r_2_1 = (&a_value_1 + &beta_1 * &zeta_1 + &gamma_1) * (&b_value_1 + &beta_1 * k1_1 * &zeta_1 + &gamma_1) * (&c_value_1 + &beta_1 * k2_1 * &zeta_1 + &gamma_1) * polynomial_z;
+    let r_2_2 = (&a_value_1 + &beta_1 * &s1_value_1 + &gamma_1) * (&b_value_1 + &beta_1 * &s2_value_1 + &gamma_1) * (&c_value_1 + beta_1 * S3 + gamma_1) * &z_omega_value_1;
+    let r_3 = (z - &one) * l1.evaluate(zeta);
+    let r_4 = (t_lo + zeta_raised_n * t_mid + zeta_raised_2n * t_hi) * Zh.evaluate(zeta);
+    let r = r_1 + &alpha_1 * (-r_2_1 + r_2_2) + &alpha_1 * &alpha_1  * r_3 - r_4; // TODO: Paper says second term is minus the term found on gnark. This doesn't affect the protocol.
+
+    let w_zeta_den = Polynomial::new(&[-zeta, FrElement::one()]);
+    let w_zeta_num = r + (polynomial_a - a_value_1) * upsilon.clone() + (polynomial_b - b_value_1) * upsilon.pow(2_u64) + (polynomial_c - c_value_1) * upsilon.pow(3_u64) + (S1 - s1_value_1) * upsilon.pow(4_u64) + (S2 - s2_value_1) * upsilon.pow(5_u64);
+    //let w_zeta = w_zeta_num / w_zeta_den;
+    let (w_zeta, remainder) = w_zeta_num.long_division_with_remainder(&w_zeta_den);
+    assert_eq!(remainder, Polynomial::zero(), "w_zeta_den does not divide w_zeta_num");
+
+    let w_zeta_omega_num = polynomial_z - &z_omega_value_1;
+    let w_zeta_omega_den = Polynomial::new(&[-zeta * ORDER_4_ROOT_UNITY, FrElement::one()]);
+    let (w_zeta_omega, remainder) = w_zeta_omega_num.long_division_with_remainder(&w_zeta_omega_den);
+    assert_eq!(remainder, Polynomial::zero());
+
+    let w_zeta_1 = kzg.commit(&w_zeta);
+    let w_zeta_omega_1 = kzg.commit(&w_zeta_omega);
+
+    (w_zeta_1, w_zeta_omega_1)
 }
 
 fn prove(
@@ -279,6 +366,31 @@ fn prove(
         &polynomial_z,
         &zeta,
     );
+
+    // Round 5
+    let upsilon = FrElement::from_bytes_be(&transcript.challenge()).unwrap();
+    let (w_zeta_1, w_zeta_omega_1) = round_5(
+        &common_preprocesed_input,
+        &kzg,
+        &polynomial_a,
+        &polynomial_b,
+        &polynomial_c,
+        &polynomial_z,
+        &t_lo,
+        &t_mid,
+        &t_hi,
+        &alpha,
+        &beta,
+        &gamma,
+        &zeta,
+        &upsilon,
+        &a_value,
+        &b_value,
+        &c_value,
+        &s1_value,
+        &s2_value,
+        &z_value,
+    );
 }
 
 #[cfg(test)]
@@ -314,6 +426,11 @@ mod tests {
 
     fn zeta() -> FrElement {
         FrElement::from_hex("2a4040abb941ee5e2a42602a7a60d282a430a4cf099fa3bb0ba8f4da628ec59a")
+    }
+
+    fn upsilon() -> FrElement {
+        // TODO: put the correct value
+        FrElement::from_hex("1")
     }
 
     #[test]
@@ -430,5 +547,63 @@ mod tests {
         assert_eq!(z_value, expected_z_value);
         assert_eq!(s1_value, expected_s1_value);
         assert_eq!(s2_value, expected_s2_value);
+    }
+
+    #[test]
+    fn test_round_5() {
+        let test_circuit = test_circuit();
+        let witness = test_circuit.get_witness();
+        let common_preprocesed_input = CommonPreprocessedInput::for_this(&test_circuit);
+        let srs = test_srs();
+        let kzg = KZG::new(srs);
+
+        let (_, _, _, polynomial_a, polynomial_b, polynomial_c) =
+            round_1(&witness, &common_preprocesed_input, &kzg);
+        let (_, polynomial_z) = round_2(&witness, &common_preprocesed_input, &kzg, &beta(), &gamma());
+
+        let (_, _, _, t_lo, t_mid, t_hi) = round_3(
+            &witness,
+            &common_preprocesed_input,
+            &kzg,
+            &polynomial_a,
+            &polynomial_b,
+            &polynomial_c,
+            &polynomial_z,
+            &alpha(),
+            &beta(),
+            &gamma(),
+        );
+
+        let (a_value, b_value, c_value, s1_value, s2_value, z_value) = round_4(
+            &common_preprocesed_input,
+            &polynomial_a,
+            &polynomial_b,
+            &polynomial_c,
+            &polynomial_z,
+            &zeta(),
+        );
+
+        let (w_zeta_1, w_zeta_omega_1) = round_5(
+            &common_preprocesed_input,
+            &kzg,
+            &polynomial_a,
+            &polynomial_b,
+            &polynomial_c,
+            &polynomial_z,
+            &t_lo,
+            &t_mid,
+            &t_hi,
+            &alpha(),
+            &beta(),
+            &gamma(),
+            &zeta(),
+            &upsilon(),
+            &a_value,
+            &b_value,
+            &c_value,
+            &s1_value,
+            &s2_value,
+            &z_value,
+        );
     }
 }
