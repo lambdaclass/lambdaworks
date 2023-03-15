@@ -310,14 +310,9 @@ pub fn verify<F: IsField + IsTwoAdicField, A: AIR + AIR<Field = F>>(
         - boundary_interpolating_polynomial.evaluate(&z))
         / boundary_zerofier.evaluate(&z);
 
-    println!("MAX DEGREE POWER OF TWO {}", max_degree_power_of_two);
+    // TODO: 31 is hardcoded here because we need to fix the way we take degrees anyway
     boundary_quotient_ood_evaluation = boundary_quotient_ood_evaluation
         * (&boundary_alpha * z.pow(max_degree_power_of_two - 31) + &boundary_beta);
-
-    println!(
-        "BOUNDARY QUOTIENT VERIFIER OOD EVALUATION {:?}",
-        boundary_quotient_ood_evaluation
-    );
 
     let transition_ood_frame_evaluations = air.compute_transition(trace_poly_ood_frame_evaluations);
 
@@ -335,7 +330,7 @@ pub fn verify<F: IsField + IsTwoAdicField, A: AIR + AIR<Field = F>>(
         &z,
     );
 
-    let composition_poly_ood_evaluation = boundary_quotient_ood_evaluation
+    let composition_poly_ood_evaluation = &boundary_quotient_ood_evaluation
         + c_i_evaluations
             .iter()
             .fold(FieldElement::<F>::zero(), |acc, evaluation| {
