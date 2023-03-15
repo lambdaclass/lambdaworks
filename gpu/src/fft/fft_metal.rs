@@ -49,7 +49,7 @@ impl FFTMetalState {
 
         let input = input.clone().map(|elem| elem.value().clone());
         let input_buffer = self.device.new_buffer_with_data(
-            unsafe { mem::transmute(input.as_ptr()) },
+            unsafe { mem::transmute(input.as_ptr()) }, // reinterprets into a void pointer
             (input.len() * basetype_size) as u64,
             MTLResourceOptions::CPUCacheModeDefaultCache,
         );
@@ -63,7 +63,7 @@ impl FFTMetalState {
         .collect::<Vec<F::BaseType>>();
 
         let twiddles_buffer = self.device.new_buffer_with_data(
-            unsafe { mem::transmute(twiddles.as_ptr()) },
+            unsafe { mem::transmute(twiddles.as_ptr()) }, // reinterprets into a void pointer
             (twiddles.len() * basetype_size) as u64,
             MTLResourceOptions::CPUCacheModeDefaultCache,
         );
