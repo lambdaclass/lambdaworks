@@ -52,6 +52,25 @@ impl<F: IsField> Frame<F> {
         Self::new(data, 1)
     }
 
+    pub fn get_trace_evaluations(
+        trace_polys: &[Polynomial<FieldElement<F>>],
+        x: &FieldElement<F>,
+        frame_offsets: &[usize],
+        primitive_root: &FieldElement<F>,
+    ) -> Vec<Vec<FieldElement<F>>> {
+        let mut data = vec![];
+        let evaluation_points: Vec<FieldElement<F>> = frame_offsets
+            .into_iter()
+            .map(|offset| x * primitive_root.pow(*offset))
+            .collect();
+
+        for poly in trace_polys {
+            data.push(poly.evaluate_slice(&evaluation_points));
+        }
+
+        data
+    }
+
     /// Returns the Out of Domain Frame for the given trace polynomials, out of domain evaluation point (called `z` in the literature),
     /// frame offsets given by the AIR and primitive root used for interpolating the trace polynomials.
     /// An out of domain frame is nothing more than the evaluation of the trace polynomials in the points required by the
@@ -65,15 +84,7 @@ impl<F: IsField> Frame<F> {
         frame_offsets: &[usize],
         primitive_root: &FieldElement<F>,
     ) -> Self {
-        let mut data = vec![];
-        let evaluation_points: Vec<FieldElement<F>> = frame_offsets
-            .into_iter()
-            .map(|offset| z * primitive_root.pow(*offset))
-            .collect();
-
-        for poly in trace_polys {
-            data.push(poly.evaluate_slice(&evaluation_points));
-        }
+        let data = Self::get_trace_evaluations(trace_polys, z, frame_offsets, primitive_root);
 
         Self {
             data: data.into_iter().flatten().collect(),

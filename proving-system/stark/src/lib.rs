@@ -217,7 +217,8 @@ where
 /// Returns the DEEP composition polynomial that the prover then commits to using
 /// FRI. This polynomial is a linear combination of the trace polynomial and the
 /// composition polynomial, with coefficients sampled by the verifier (i.e. using Fiat-Shamir).
-fn compute_deep_composition_poly<F: IsField>(
+fn compute_deep_composition_poly<A: AIR, F: IsField>(
+    air: A,
     trace_poly: &Polynomial<FieldElement<F>>,
     even_composition_poly: &Polynomial<FieldElement<F>>,
     odd_composition_poly: &Polynomial<FieldElement<F>>,
@@ -229,18 +230,39 @@ fn compute_deep_composition_poly<F: IsField>(
     let gamma_2 = FieldElement::one();
     let gamma_3 = FieldElement::one();
     let gamma_4 = FieldElement::one();
+    let gamma_5 = FieldElement::one();
+    let trace_terms_coeffs = [gamma_1, gamma_2, gamma_3];
 
-    let first_term = (trace_poly.clone()
-        - Polynomial::new_monomial(trace_poly.evaluate(ood_evaluation_point), 0))
-        / (Polynomial::new_monomial(FieldElement::one(), 1)
-            - Polynomial::new_monomial(ood_evaluation_point.clone(), 0));
-    let second_term = (trace_poly.clone()
-        - Polynomial::new_monomial(
-            trace_poly.evaluate(&(ood_evaluation_point * primitive_root)),
-            0,
-        ))
-        / (Polynomial::new_monomial(FieldElement::one(), 1)
-            - Polynomial::new_monomial(ood_evaluation_point * primitive_root, 0));
+    // TODO: The frame_offsets argument is hard-coded for fibonacci here
+    let trace_evaluations = Frame::get_trace_evaluations(
+        &[trace_poly.clone()],
+        &ood_evaluation_point,
+        &[0, 1, 2],
+        primitive_root,
+    );
+
+    // TODO: Hard-coded for fibonacci. We take the first element because there is only one
+    // transition constraint
+    let trace_terms = Polynomial::zero();
+    for (coeff, eval) in trace_evaluations[0].iter().zip(trace_terms_coeffs) {
+        let poly = (trace_poly.clone() - Polynomial::new_monomial(trace_poly.evaluate(&eval), 0))
+            / (Polynomial::new_monomial(FieldElement::one(), 1)
+                - Polynomial::new_monomial(eval, 0));
+
+        trace_terms = trace_terms + poly;
+    }
+
+    // let first_term = (trace_poly.clone()
+    //     - Polynomial::new_monomial(trace_poly.evaluate(ood_evaluation_point), 0))
+    //     / (Polynomial::new_monomial(FieldElement::one(), 1)
+    //         - Polynomial::new_monomial(ood_evaluation_point.clone(), 0));
+    // let second_term = (trace_poly.clone()
+    //     - Polynomial::new_monomial(
+    //         trace_poly.evaluate(&(ood_evaluation_point * primitive_root)),
+    //         0,
+    //     ))
+    //     / (Polynomial::new_monomial(FieldElement::one(), 1)
+    //         - Polynomial::new_monomial(ood_evaluation_point * primitive_root, 0));
 
     // Evaluate in X^2
     let even_composition_poly = polynomial::compose(
@@ -252,14 +274,15 @@ fn compute_deep_composition_poly<F: IsField>(
         &Polynomial::new_monomial(FieldElement::one(), 2),
     );
 
-    let third_term = (even_composition_poly.clone()
+    let even_composition_poly_term = (even_composition_poly.clone()
         - Polynomial::new_monomial(
             even_composition_poly.evaluate(&ood_evaluation_point.clone()),
             0,
         ))
         / (Polynomial::new_monomial(FieldElement::one(), 1)
             - Polynomial::new_monomial(ood_evaluation_point * ood_evaluation_point, 0));
-    let fourth_term = (odd_composition_poly.clone()
+
+    let odd_composition_poly_term = (odd_composition_poly.clone()
         - Polynomial::new_monomial(odd_composition_poly.evaluate(ood_evaluation_point), 0))
         / (Polynomial::new_monomial(FieldElement::one(), 1)
             - Polynomial::new_monomial(ood_evaluation_point * ood_evaluation_point, 0));
