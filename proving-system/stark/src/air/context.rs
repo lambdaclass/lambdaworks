@@ -4,6 +4,12 @@ pub struct AirContext {
     pub trace_length: usize,
     pub trace_info: (usize, usize),
     pub transition_degrees: Vec<usize>,
+    /// This is a vector with the indices of all the rows that constitute
+    /// an evaluation frame. Note that, because of how we write all constraints
+    /// in one method (`compute_transitions`), this vector needs to include the
+    /// offsets that are needed to compute EVERY transition constraint, even if some
+    /// constraints don't use all of the indexes in said offsets.
+    pub transition_offsets: Vec<usize>,
     pub transition_exemptions: Vec<usize>,
     pub num_assertions: usize,
     pub num_transition_constraints: usize,

@@ -5,7 +5,7 @@ use lambdaworks_math::{
 
 use crate::air::{frame::Frame, trace::TraceTable, AIR};
 
-use super::{boundary::BoundaryConstraints, evaluation_table::ConstraintEvaluationTable};
+use super::{boundary::BoundaryConstraints, evaluation_table::ConstraintEvaluationTable, helpers};
 
 pub struct ConstraintEvaluator<F: IsField, A: AIR> {
     air: A,
@@ -30,12 +30,14 @@ impl<F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
         }
     }
 
+    // TODO: This does not work for multiple columns
     pub fn evaluate(
         &self,
         lde_trace: &TraceTable<F>,
         lde_domain: &[FieldElement<F>],
+        alpha_and_beta_transition_coefficients: &[(FieldElement<F>, FieldElement<F>)],
+        alpha_and_beta_boundary_coefficients: (&FieldElement<F>, &FieldElement<F>),
     ) -> ConstraintEvaluationTable<F> {
-        // Initialize evaluation table
         let mut evaluation_table = ConstraintEvaluationTable::new(
             self.air.context().num_transition_constraints() + 1,
             &lde_domain,
@@ -44,6 +46,7 @@ impl<F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
         let boundary_constraints = &self.boundary_constraints;
         let domain = boundary_constraints.generate_roots_of_unity(&self.primitive_root);
 
+        // TODO: Unhardcode this
         // Hard-coded for fibonacci -> trace has one column, hence col value is 0.
         let values = boundary_constraints.values(0);
 
@@ -56,31 +59,35 @@ impl<F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
                 .max()
                 .unwrap();
 
-        let max_degree_power_of_two = next_power_of_two(max_degree as u64);
+        let max_degree_power_of_two = helpers::next_power_of_two(max_degree as u64);
 
         let boundary_poly = &self.trace_poly - &Polynomial::interpolate(&domain, &values);
 
-        let alpha = FieldElement::one();
-        let beta = FieldElement::one();
+        let (boundary_alpha, boundary_beta) = alpha_and_beta_boundary_coefficients;
 
-        let alpha_and_beta_coefficients = vec![(alpha.clone(), beta.clone())];
         let blowup_factor = self.air.blowup_factor();
 
         // Iterate over trace and domain and compute transitions
         for (i, d) in lde_domain.iter().enumerate() {
-            let frame = Frame::read_from_trace(&lde_trace, i, blowup_factor);
+            let frame = Frame::read_from_trace(
+                &lde_trace,
+                i,
+                blowup_factor,
+                &self.air.context().transition_offsets,
+            );
 
             let mut evaluations = self.air.compute_transition(&frame);
-            evaluations = self.compute_transition_evaluations(
+            evaluations = Self::compute_transition_evaluations(
+                &self.air,
                 &evaluations,
-                alpha_and_beta_coefficients.as_slice(),
+                alpha_and_beta_transition_coefficients,
                 max_degree_power_of_two,
                 d,
             );
 
             // Append evaluation for boundary constraints
             let boundary_evaluation = boundary_poly.evaluate(d)
-                * (&alpha * d.pow(max_degree - boundary_poly.degree()) + &beta);
+                * (boundary_alpha * d.pow(max_degree - boundary_poly.degree()) + boundary_beta);
 
             let boundary_zerofier = self
                 .boundary_constraints
@@ -94,17 +101,26 @@ impl<F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
         evaluation_table
     }
 
-    fn compute_transition_evaluations(
-        &self,
+    /// Given `evaluations` C_i(x) of the trace polynomial composed with the constraint
+    /// polynomial at certain points, computes the following evaluations and returns them:
+    ///
+    /// C_i(x) (alpha_i * x^(D - D_i) + beta_i)
+    ///
+    /// This method is called in two different scenarios. The first is when the prover
+    /// is building these evaluations to compute the composition and DEEP composition polynomials.
+    /// The second one is when the verifier needs to check the consistency between the trace and
+    /// the composition polynomial. In that case the `evaluations` are over an *out of domain* frame
+    /// (in the fibonacci example they are evaluations on the points `z`, `zg`, `zg^2`).
+    pub fn compute_transition_evaluations(
+        air: &A,
         evaluations: &[FieldElement<F>],
         alpha_and_beta_coefficients: &[(FieldElement<F>, FieldElement<F>)],
-        // composition_coeffs: (FieldElement<F>, FieldElement<F>),
         max_degree: u64,
         x: &FieldElement<F>,
     ) -> Vec<FieldElement<F>> {
-        let transition_degrees = self.air.context().transition_degrees();
+        let transition_degrees = air.context().transition_degrees();
 
-        let divisors = self.air.transition_divisors();
+        let divisors = air.transition_divisors();
 
         let mut ret = Vec::new();
         for (((eval, degree), div), (alpha, beta)) in evaluations
@@ -119,13 +135,5 @@ impl<F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
         }
 
         ret
-    }
-}
-
-fn next_power_of_two(n: u64) -> u64 {
-    if n <= 1 {
-        1
-    } else {
-        (u64::MAX >> (n - 1).leading_zeros()) + 1
     }
 }

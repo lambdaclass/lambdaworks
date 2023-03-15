@@ -6,18 +6,15 @@ use lambdaworks_math::{
 pub struct ConstraintEvaluationTable<F: IsField> {
     // Inner vectors are rows
     pub evaluations: Vec<Vec<FieldElement<F>>>,
-    // divisors: Vec<Polynomial<FieldElement<F>>>,
     trace_length: usize,
 }
 
 impl<F: IsField> ConstraintEvaluationTable<F> {
-    // pub fn new(n_cols: usize, domain: &[FE], divisors: &[Polynomial<FieldElement<F>>]) -> Self {
     pub fn new(n_cols: usize, domain: &[FieldElement<F>]) -> Self {
         let evaluations = Vec::with_capacity(domain.len());
 
         ConstraintEvaluationTable {
             evaluations,
-            // divisors: divisors.to_vec(),
             trace_length: domain.len(),
         }
     }
