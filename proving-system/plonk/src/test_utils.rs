@@ -16,7 +16,7 @@ pub fn test_srs() -> SRS {
     let g1: G1Point = <BLS12381Curve as IsEllipticCurve>::generator();
     let g2: G2Point = <BLS12381TwistCurve as IsEllipticCurve>::generator();
 
-    let powers_main_group: Vec<G1Point> = (0..4)
+    let powers_main_group: Vec<G1Point> = (0..24)
         .map(|exp| g1.operate_with_self(s.pow(exp as u64).representative()))
         .collect();
     let powers_secondary_group = [g2.clone(), g2.operate_with_self(s.representative())];

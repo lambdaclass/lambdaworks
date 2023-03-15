@@ -89,17 +89,19 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
         &self.coefficients
     }
 
+    pub fn pad_with_zero_coefficients_to_length(pa: &mut Self, n: usize) {
+        pa.coefficients.resize(n, FieldElement::zero());
+    }
+
     /// Pads polynomial representations with minimum number of zeros to match lengths.
     pub fn pad_with_zero_coefficients(pa: &Self, pb: &Self) -> (Self, Self) {
         let mut pa = pa.clone();
         let mut pb = pb.clone();
 
         if pa.coefficients.len() > pb.coefficients.len() {
-            pb.coefficients
-                .resize(pa.coefficients.len(), FieldElement::zero());
+            Self::pad_with_zero_coefficients_to_length(&mut pb, pa.coefficients.len());
         } else {
-            pa.coefficients
-                .resize(pb.coefficients.len(), FieldElement::zero());
+            Self::pad_with_zero_coefficients_to_length(&mut pa, pb.coefficients.len());
         }
         (pa, pb)
     }

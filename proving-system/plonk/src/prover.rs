@@ -3,26 +3,13 @@ use crate::{
         FrElement, G1Point, G2Point, KZG, MAXIMUM_DEGREE, ORDER_4_ROOT_UNITY,
         ORDER_R_MINUS_1_ROOT_UNITY,
     },
-    setup::{Circuit, CommonPreprocessedInput, VerificationKey, Witness},
+    setup::{Circuit, CommonPreprocessedInput, Witness},
 };
 use lambdaworks_crypto::{
-    commitments::kzg::{KateZaveruchaGoldberg, StructuredReferenceString},
-    fiat_shamir::transcript::{self, Transcript},
+    commitments::kzg::StructuredReferenceString, fiat_shamir::transcript::Transcript,
 };
 use lambdaworks_math::traits::ByteConversion;
-use lambdaworks_math::{
-    elliptic_curve::{
-        short_weierstrass::curves::bls12_381::pairing::BLS12381AtePairing, traits::IsPairing,
-    },
-    field::{
-        element::FieldElement,
-        fields::montgomery_backed_prime_fields::{
-            IsMontgomeryConfiguration, MontgomeryBackendPrimeField, U256PrimeField,
-        },
-    },
-    polynomial::{self, Polynomial},
-    unsigned_integer::element::{UnsignedInteger, U256},
-};
+use lambdaworks_math::{field::element::FieldElement, polynomial::Polynomial};
 
 struct Proof {
     // Round 1
@@ -101,9 +88,9 @@ fn round_2(
     let S3 = &common_preprocesed_input.S3_lagrange;
 
     let k1 = ORDER_R_MINUS_1_ROOT_UNITY;
-    let k2 = ORDER_R_MINUS_1_ROOT_UNITY * &k1;
+    let k2 = &k1 * &k1;
 
-    for i in 1..n {
+    for i in 0..n - 1 {
         let a_i = &witness.a[i];
         let b_i = &witness.b[i];
         let c_i = &witness.c[i];
@@ -145,6 +132,7 @@ fn round_3(
     let a = polynomial_a;
     let b = polynomial_b;
     let c = polynomial_c;
+
     let n = common_preprocesed_input.number_constraints;
     let k1 = ORDER_R_MINUS_1_ROOT_UNITY;
     let k2 = ORDER_R_MINUS_1_ROOT_UNITY * &k1;
@@ -179,23 +167,32 @@ fn round_3(
     let S2 = &common_preprocesed_input.S2_monomial;
     let S3 = &common_preprocesed_input.S3_monomial;
 
-    let p_constraints = (a * b * Qm + a * Ql + b * Qr + c * Qo + Qc);
-    let p_permutation_1_1 =
-        (a + beta_x + &gamma_1) * (b + beta_x_k1 + &gamma_1) * (c + beta_x_k2 + &gamma_1) * z;
-    let p_permutation_1_2 = (a + &beta_1 * S1 + &gamma_1)
-        * (b * &beta_1 * S2 + &gamma_1)
-        * (c + beta_1 * S3 + gamma_1)
-        * z_x_w;
-    let p_permutation_2 = (z - one) * l1;
-    let p = p_constraints
-        + &alpha_1 * (p_permutation_1_1 - p_permutation_1_2)
-        + &alpha_1 * &alpha_1 * p_permutation_2;
+    let p_constraints = a * b * Qm + a * Ql + b * Qr + c * Qo + Qc;
+    let f = (a + beta_x + &gamma_1) * (b + beta_x_k1 + &gamma_1) * (c + beta_x_k2 + &gamma_1);
+    let g =
+        (a + &beta_1 * S1 + &gamma_1) * (b + &beta_1 * S2 + &gamma_1) * (c + beta_1 * S3 + gamma_1);
+    let p_permutation_1 = g * z_x_w - f * z;
+    let p_permutation_2 = (z - one) * &l1;
 
-    let t = p / Zh;
+    let p = p_constraints + &alpha_1 * p_permutation_1 + &alpha_1 * &alpha_1 * p_permutation_2;
 
-    let t_lo = Polynomial::new(&t.coefficients[..n]);
-    let t_mid = Polynomial::new(&t.coefficients[n..2 * n]);
-    let t_hi = Polynomial::new(&t.coefficients[2 * n..]);
+    let mut t = p / Zh;
+
+    // (*) TODO: This is written this way to cross validate with `gnark`.
+    // But it's different from what the paper describes
+    // https://eprint.iacr.org/2019/953.pdf page 29
+    // In particular, this way `t` is different from
+    // `t_lo + t_mid * X^n + t_hi * X^{2n} (see TODO (**) below)
+    Polynomial::pad_with_zero_coefficients_to_length(&mut t, 3 * (n + 2));
+    let t_lo = Polynomial::new(&t.coefficients[..n + 2]);
+    let t_mid = Polynomial::new(&t.coefficients[n + 2..2 * (n + 2)]);
+    let t_hi = Polynomial::new(&t.coefficients[2 * (n + 2)..3 * (n + 2)]);
+
+    // // (**) TODO: Shouldn't this pass? Failing now
+    // let xn = Polynomial::new_monomial(FrElement::one(), n);
+    // let t_expected = &t_lo + &t_mid * &xn + &t_hi * &xn * &xn;
+    // let t = Polynomial::new(&t.coefficients); // trim zeroes
+    // assert_eq!(t, t_expected);
 
     let t_lo_1 = kzg.commit(&t_lo);
     let t_mid_1 = kzg.commit(&t_mid);
@@ -211,7 +208,14 @@ fn round_4(
     polynomial_c: &Polynomial<FrElement>,
     polynomial_z: &Polynomial<FrElement>,
     zeta: &FrElement,
-) -> (FrElement, FrElement, FrElement, FrElement, FrElement, FrElement) {
+) -> (
+    FrElement,
+    FrElement,
+    FrElement,
+    FrElement,
+    FrElement,
+    FrElement,
+) {
     let omega = ORDER_4_ROOT_UNITY;
     let a_value = polynomial_a.evaluate(zeta);
     let b_value = polynomial_b.evaluate(zeta);
@@ -266,12 +270,32 @@ fn prove(
 
     // Round 4
     let zeta = FrElement::from_bytes_be(&transcript.challenge()).unwrap();
-    let (a_value, b_value, c_value, s1_value, s2_value, z_value) = round_4(&common_preprocesed_input, &polynomial_a, &polynomial_b, &polynomial_c, &polynomial_z, &zeta);
+    let (a_value, b_value, c_value, s1_value, s2_value, z_value) = round_4(
+        &common_preprocesed_input,
+        &polynomial_a,
+        &polynomial_b,
+        &polynomial_c,
+        &polynomial_z,
+        &zeta,
+    );
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::test_utils::{test_circuit, test_srs};
+    use lambdaworks_math::{
+        cyclic_group::IsGroup,
+        elliptic_curve::{
+            short_weierstrass::{
+                curves::bls12_381::curve::BLS12381Curve, point::ShortWeierstrassProjectivePoint,
+            },
+            traits::IsEllipticCurve,
+        },
+    };
+
+    use crate::{
+        config::FpElement,
+        test_utils::{test_circuit, test_srs},
+    };
 
     use super::*;
 
@@ -282,7 +306,22 @@ mod tests {
         let common_preprocesed_input = CommonPreprocessedInput::for_this(&test_circuit);
         let srs = test_srs();
         let kzg = KZG::new(srs);
-        round_1(&witness, &common_preprocesed_input, &kzg);
+        let (a_1, b_1, c_1, _, _, _) = round_1(&witness, &common_preprocesed_input, &kzg);
+        let a_1_expected = BLS12381Curve::create_point_from_affine(
+            FpElement::from_hex("17f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb"),
+            FpElement::from_hex("114d1d6855d545a8aa7d76c8cf2e21f267816aef1db507c96655b9d5caac42364e6f38ba0ecb751bad54dcd6b939c2ca"),
+        ).unwrap();
+        let b_1_expected = BLS12381Curve::create_point_from_affine(
+            FpElement::from_hex("44ed7c3ed015c6a39c350cd06d03b48d3e1f5eaf7a256c5b6203886e6e78cd9b76623d163da4dfb0f2491e7cc06408"),
+            FpElement::from_hex("14c4464d2556fdfdc8e31068ef8d953608e511569a236c825f2ddab4fe04af03aba29e38b9b2b6221243124d235f4c67"),
+        ).unwrap();
+        let c_1_expected = BLS12381Curve::create_point_from_affine(
+            FpElement::from_hex("7726dc031bd26122395153ca428d5e6dea0a64c1f9b3b1bb2f2508a5eb6ea0ea0363294fad3160858bc87e46d3422fd"),
+            FpElement::from_hex("8db0c15bfd77df7fe66284c3b04e6043eaba99ef6a845d4f7255fd0da95f2fb8e474df2e7f8e1a38829f7a9612a9b87"),
+        ).unwrap();
+        assert_eq!(a_1, a_1_expected);
+        assert_eq!(b_1, b_1_expected);
+        assert_eq!(c_1, c_1_expected);
     }
 
     #[test]
@@ -292,9 +331,61 @@ mod tests {
         let common_preprocesed_input = CommonPreprocessedInput::for_this(&test_circuit);
         let srs = test_srs();
         let kzg = KZG::new(srs);
-        // TODO: put gnark challenges
-        let beta = FrElement::one();
-        let gamma = FrElement::one();
-        round_2(&witness, &common_preprocesed_input, &kzg, &beta, &gamma);
+        let beta =
+            FrElement::from_hex("bdda7414bdf5bf42b77cbb3af4a82f32ec7622dd6c71575bede021e6e4609d4");
+        let gamma =
+            FrElement::from_hex("58f6690d9b36e62e4a0aef27612819288df2a3ff5bf01597cf06779503f51583");
+        let (z_1, _) = round_2(&witness, &common_preprocesed_input, &kzg, &beta, &gamma);
+        let z_1_expected = BLS12381Curve::create_point_from_affine(
+            FpElement::from_hex("3e8322968c3496cf1b5786d4d71d158a646ec90c14edf04e758038e1f88dcdfe8443fcecbb75f3074a872a380391742"),
+            FpElement::from_hex("11eac40d09796ff150004e7b858d83ddd9fe995dced0b3fbd7535d6e361729b25d488799da61fdf1d7b5022684053327"),
+        ).unwrap();
+        assert_eq!(z_1, z_1_expected);
+    }
+
+    #[test]
+    fn test_round_3() {
+        // This test is subject to TODO (**) above.
+        let test_circuit = test_circuit();
+        let witness = test_circuit.get_witness();
+        let common_preprocesed_input = CommonPreprocessedInput::for_this(&test_circuit);
+        let srs = test_srs();
+        let kzg = KZG::new(srs);
+
+        let beta =
+            FrElement::from_hex("bdda7414bdf5bf42b77cbb3af4a82f32ec7622dd6c71575bede021e6e4609d4");
+        let gamma =
+            FrElement::from_hex("58f6690d9b36e62e4a0aef27612819288df2a3ff5bf01597cf06779503f51583");
+        let alpha =
+            FrElement::from_hex("583cfb0df2ef98f2131d717bc6aadd571c5302597c135cab7c00435817bf6e50");
+        let (_, _, _, polynomial_a, polynomial_b, polynomial_c) =
+            round_1(&witness, &common_preprocesed_input, &kzg);
+        let (_, polynomial_z) = round_2(&witness, &common_preprocesed_input, &kzg, &beta, &gamma);
+        let (t_lo_1, t_mid_1, t_hi_1, t_lo, t_mid, t_hi) = round_3(
+            &witness,
+            &common_preprocesed_input,
+            &kzg,
+            &polynomial_a,
+            &polynomial_b,
+            &polynomial_c,
+            &polynomial_z,
+            &alpha,
+            &beta,
+            &gamma,
+        );
+
+        let t_lo_1_expected = BLS12381Curve::create_point_from_affine(
+            FpElement::from_hex("9f511a769e77e87537b0749d65f467532fbf0f9dc1bcc912c333741be9d0a613f61e5fe595996964646ce30794701e5"),
+            FpElement::from_hex("89fd6bb571323912210517237d6121144fc01ba2756f47c12c9cc94fc9197313867d68530f152dc8d447f10fcf75a6c"),
+        ).unwrap();
+        let t_mid_1_expected = BLS12381Curve::create_point_from_affine(
+            FpElement::from_hex("f96d8a93f3f5be2ab2819891f41c9f883cacea63da423e6ed1701765fcd659fc11e056a48c554f5df3a9c6603d48ca8"),
+            FpElement::from_hex("14fa74fa049b7276007b739f3b8cfeac09e8cfabd4f858b6b99798c81124c34851960bebda90133cb03c981c08c8b6d3"),
+        ).unwrap();
+        let t_hi_1_expected = ShortWeierstrassProjectivePoint::<BLS12381Curve>::neutral_element();
+
+        assert_eq!(t_lo_1, t_lo_1_expected);
+        assert_eq!(t_mid_1, t_mid_1_expected);
+        assert_eq!(t_hi_1, t_hi_1_expected);
     }
 }

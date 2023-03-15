@@ -46,16 +46,16 @@ impl Circuit {
                 FrElement::from(4_u64),
             ],
             b: vec![
-                FrElement::zero(),
-                FrElement::one(),
+                FrElement::from(2_u64),
+                FrElement::from(2_u64),
                 FrElement::from(2_u64),
                 FrElement::from(4_u64),
             ],
             c: vec![
-                FrElement::zero(),
-                FrElement::one(),
+                FrElement::from(2_u64),
+                FrElement::from(2_u64),
                 FrElement::from(4_u64),
-                FrElement::from(0_u64),
+                FrElement::from(2_u64),
             ],
         }
     }
@@ -152,8 +152,8 @@ impl CommonPreprocessedInput {
             Qc: Polynomial::interpolate(
                 &domain,
                 &[
-                    FrElement::zero(),
-                    FrElement::zero(),
+                    FrElement::from(2_u64), // TODO: this should be filled in by the prover
+                    FrElement::from(4_u64), // TODO: this should be filled in by the prover
                     FrElement::zero(),
                     FrElement::zero(),
                 ],
