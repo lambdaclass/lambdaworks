@@ -1,8 +1,6 @@
-use lambdaworks_math::fft::bit_reversing::in_place_bit_reverse_permute;
 use lambdaworks_math::field::{element::FieldElement, traits::IsTwoAdicField};
-use lambdaworks_math::polynomial::Polynomial;
 
-use super::{fft_twiddles::gen_twiddles, helpers::void_ptr};
+use super::helpers::void_ptr;
 use lambdaworks_math::fft::errors::FFTError;
 use metal::{CommandQueue, Device, Library, MTLResourceOptions, MTLSize};
 
@@ -45,7 +43,7 @@ impl FFTMetalState {
             .new_compute_pipeline_state_with_function(&butterfly_kernel)
             .map_err(FFTError::MetalPipelineError)?;
 
-        let basetype_size = std::mem::size_of::<u64>();
+        let basetype_size = std::mem::size_of::<u32>();
 
         let input = input.clone().map(|elem| elem.value().clone());
         let input_buffer = self.device.new_buffer_with_data(
@@ -69,7 +67,7 @@ impl FFTMetalState {
         let mut should_continue = true;
 
         while should_continue {
-            should_continue = false; 
+            should_continue = false;
             let group_size_buffer = self.device.new_buffer_with_data(
                 void_ptr(&group_size),
                 basetype_size as u64,
@@ -91,13 +89,13 @@ impl FFTMetalState {
             command_buffer.commit();
             command_buffer.wait_until_completed();
 
-            let results = unsafe { *(input_buffer.contents() as *const [u64; K]) };
+            let results = unsafe { *(input_buffer.contents() as *const [u32; K]) };
             dbg!(results);
 
             group_count *= 2;
             group_size /= 2;
         }
-        let results = unsafe { *(input_buffer.contents() as *const [u64; K]) };
+        let results = unsafe { *(input_buffer.contents() as *const [u32; K]) };
         Ok(results.map(|x| FieldElement::from(x as u64)))
     }
 }
@@ -106,7 +104,7 @@ impl FFTMetalState {
 mod tests {
     use lambdaworks_math::{
         fft::bit_reversing::in_place_bit_reverse_permute,
-        field::test_fields::u64_test_field::U32TestField, polynomial::Polynomial,
+        field::test_fields::u32_test_field::U32TestField, polynomial::Polynomial,
     };
 
     use super::*;
@@ -141,6 +139,6 @@ mod tests {
         dbg!(result);
         dbg!(expected);
 
-        assert!(false);
+        // assert!(false);
     }
 }

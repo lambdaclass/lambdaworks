@@ -3,9 +3,9 @@
 
 [[kernel]]
 void radix2_dit_butterfly(
-    device uint64_t* input [[ buffer(0) ]],
-    constant uint64_t* twiddles [[ buffer(1) ]],
-    constant uint64_t& group_size [[ buffer(2) ]],
+    device uint32_t* input [[ buffer(0) ]],
+    constant uint32_t* twiddles [[ buffer(1) ]],
+    constant uint32_t& group_size [[ buffer(2) ]],
     uint32_t pos_in_group [[ thread_position_in_threadgroup ]],
     uint32_t group [[ threadgroup_position_in_grid ]],
     uint32_t global_tid [[ thread_position_in_grid ]]
