@@ -26,3 +26,4 @@ clean:
 ## Compiles the .dylib and generates a python wrapper
 build.lib.py:
 	cargo run --release --bin lambdaworks-stark generate proving-system/stark/src/lambdaworks_stark.udl --language python --out-dir target/python/ --no-format
+	cp target/release/deps/liblambdaworks_stark.dylib target/python/liblambdaworks.dylib

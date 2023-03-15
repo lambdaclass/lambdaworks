@@ -10,13 +10,14 @@ rand = "0.8.5"
 lambdaworks-math = { path = "../../math" }
 lambdaworks-crypto = { path = "../../crypto"}
 thiserror = "1.0.38"
-uniffi = { version = "0.23.0" ,features = ["cli"]}
+uniffi = { git = "https://github.com/mhammond/uniffi-rs", branch = "traits-types" ,features = ["cli"]}
 
 [build-dependencies]
-uniffi = { version = "0.23.0", features = [ "build", "cli" ] }
+uniffi = { git = "https://github.com/mhammond/uniffi-rs", branch = "traits-types", features = [ "build", "cli" ] }
+#version = "0.23.0", 
 
 [dev-dependencies]
-uniffi = { version = "0.23.0", features = ["bindgen-tests", "cli"]}
+uniffi = { git = "https://github.com/mhammond/uniffi-rs", branch = "traits-types", features = ["bindgen-tests", "cli"]}
 
 [lib]
 crate-type = ["lib", "cdylib"]
