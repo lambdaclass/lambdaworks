@@ -1,3 +1,5 @@
+use std::mem;
+
 use lambdaworks_math::field::{element::FieldElement, traits::IsTwoAdicField};
 
 use super::helpers::void_ptr;
@@ -47,7 +49,7 @@ impl FFTMetalState {
 
         let input = input.clone().map(|elem| elem.value().clone());
         let input_buffer = self.device.new_buffer_with_data(
-            void_ptr(&input),
+            unsafe { mem::transmute(input.as_ptr()) },
             (input.len() * basetype_size) as u64,
             MTLResourceOptions::StorageModeShared,
         );
@@ -55,19 +57,21 @@ impl FFTMetalState {
         let twiddles = F::get_twiddles(
             K.trailing_zeros() as u64,
             lambdaworks_math::field::traits::RootsConfig::BitReverse,
-        )?;
+        )?
+        .into_iter()
+        .map(|elem| elem.value().clone())
+        .collect::<Vec<F::BaseType>>();
+
         let twiddles_buffer = self.device.new_buffer_with_data(
-            void_ptr(&twiddles),
+            unsafe { mem::transmute(twiddles.as_ptr()) },
             (twiddles.len() * basetype_size) as u64,
             MTLResourceOptions::StorageModeShared,
         );
 
         let mut group_count = 1_u64;
         let mut group_size = input.len() as u64;
-        let mut should_continue = true;
 
-        while should_continue {
-            should_continue = false;
+        while group_count < input.len() as u64 {
             let group_size_buffer = self.device.new_buffer_with_data(
                 void_ptr(&group_size),
                 basetype_size as u64,
@@ -88,9 +92,6 @@ impl FFTMetalState {
 
             command_buffer.commit();
             command_buffer.wait_until_completed();
-
-            let results = unsafe { *(input_buffer.contents() as *const [u32; K]) };
-            dbg!(results);
 
             group_count *= 2;
             group_size /= 2;
@@ -139,6 +140,6 @@ mod tests {
         dbg!(result);
         dbg!(expected);
 
-        // assert!(false);
+        assert!(false);
     }
 }
