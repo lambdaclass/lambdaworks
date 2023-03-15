@@ -169,12 +169,11 @@ fn round_3(
 
     let p_constraints = a * b * Qm + a * Ql + b * Qr + c * Qo + Qc;
     let f = (a + beta_x + &gamma_1) * (b + beta_x_k1 + &gamma_1) * (c + beta_x_k2 + &gamma_1);
-    let g =
-        (a + &beta_1 * S1 + &gamma_1) * (b + &beta_1 * S2 + &gamma_1) * (c + beta_1 * S3 + gamma_1);
+    let g = (a + &beta_1 * S1 + &gamma_1) * (b + &beta_1 * S2 + &gamma_1) * (c + beta_1 * S3 + gamma_1);
     let p_permutation_1 = g * z_x_w - f * z;
     let p_permutation_2 = (z - one) * &l1;
 
-    let p = p_constraints + &alpha_1 * p_permutation_1 + &alpha_1 * &alpha_1 * p_permutation_2;
+    let p = ((p_permutation_2 * &alpha_1) + p_permutation_1) * alpha_1 + p_constraints;
 
     let mut t = p / Zh;
 
@@ -231,7 +230,9 @@ fn prove(
     common_preprocesed_input: &CommonPreprocessedInput,
     srs: &StructuredReferenceString<MAXIMUM_DEGREE, G1Point, G2Point>,
 ) {
+    // TODO: use strong Fiat-Shamir
     let mut transcript = Transcript::new();
+
     let kzg = KZG::new(srs.clone());
     let witness = circuit.get_witness();
 
@@ -299,6 +300,22 @@ mod tests {
 
     use super::*;
 
+    fn alpha() -> FrElement {
+        FrElement::from_hex("583cfb0df2ef98f2131d717bc6aadd571c5302597c135cab7c00435817bf6e50")
+    }
+
+    fn beta() -> FrElement {
+        FrElement::from_hex("bdda7414bdf5bf42b77cbb3af4a82f32ec7622dd6c71575bede021e6e4609d4")
+    }
+
+    fn gamma() -> FrElement {
+        FrElement::from_hex("58f6690d9b36e62e4a0aef27612819288df2a3ff5bf01597cf06779503f51583")
+    }
+
+    fn zeta() -> FrElement {
+        FrElement::from_hex("2a4040abb941ee5e2a42602a7a60d282a430a4cf099fa3bb0ba8f4da628ec59a")
+    }
+
     #[test]
     fn test_round_1() {
         let test_circuit = test_circuit();
@@ -331,11 +348,8 @@ mod tests {
         let common_preprocesed_input = CommonPreprocessedInput::for_this(&test_circuit);
         let srs = test_srs();
         let kzg = KZG::new(srs);
-        let beta =
-            FrElement::from_hex("bdda7414bdf5bf42b77cbb3af4a82f32ec7622dd6c71575bede021e6e4609d4");
-        let gamma =
-            FrElement::from_hex("58f6690d9b36e62e4a0aef27612819288df2a3ff5bf01597cf06779503f51583");
-        let (z_1, _) = round_2(&witness, &common_preprocesed_input, &kzg, &beta, &gamma);
+
+        let (z_1, _) = round_2(&witness, &common_preprocesed_input, &kzg, &beta(), &gamma());
         let z_1_expected = BLS12381Curve::create_point_from_affine(
             FpElement::from_hex("3e8322968c3496cf1b5786d4d71d158a646ec90c14edf04e758038e1f88dcdfe8443fcecbb75f3074a872a380391742"),
             FpElement::from_hex("11eac40d09796ff150004e7b858d83ddd9fe995dced0b3fbd7535d6e361729b25d488799da61fdf1d7b5022684053327"),
@@ -352,16 +366,10 @@ mod tests {
         let srs = test_srs();
         let kzg = KZG::new(srs);
 
-        let beta =
-            FrElement::from_hex("bdda7414bdf5bf42b77cbb3af4a82f32ec7622dd6c71575bede021e6e4609d4");
-        let gamma =
-            FrElement::from_hex("58f6690d9b36e62e4a0aef27612819288df2a3ff5bf01597cf06779503f51583");
-        let alpha =
-            FrElement::from_hex("583cfb0df2ef98f2131d717bc6aadd571c5302597c135cab7c00435817bf6e50");
         let (_, _, _, polynomial_a, polynomial_b, polynomial_c) =
             round_1(&witness, &common_preprocesed_input, &kzg);
-        let (_, polynomial_z) = round_2(&witness, &common_preprocesed_input, &kzg, &beta, &gamma);
-        let (t_lo_1, t_mid_1, t_hi_1, t_lo, t_mid, t_hi) = round_3(
+        let (_, polynomial_z) = round_2(&witness, &common_preprocesed_input, &kzg, &beta(), &gamma());
+        let (t_lo_1, t_mid_1, t_hi_1, _, _, _) = round_3(
             &witness,
             &common_preprocesed_input,
             &kzg,
@@ -369,9 +377,9 @@ mod tests {
             &polynomial_b,
             &polynomial_c,
             &polynomial_z,
-            &alpha,
-            &beta,
-            &gamma,
+            &alpha(),
+            &beta(),
+            &gamma(),
         );
 
         let t_lo_1_expected = BLS12381Curve::create_point_from_affine(
@@ -387,5 +395,40 @@ mod tests {
         assert_eq!(t_lo_1, t_lo_1_expected);
         assert_eq!(t_mid_1, t_mid_1_expected);
         assert_eq!(t_hi_1, t_hi_1_expected);
+    }
+
+    #[test]
+    fn test_round_4() {
+        let test_circuit = test_circuit();
+        let witness = test_circuit.get_witness();
+        let common_preprocesed_input = CommonPreprocessedInput::for_this(&test_circuit);
+        let srs = test_srs();
+        let kzg = KZG::new(srs);
+
+        let (_, _, _, polynomial_a, polynomial_b, polynomial_c) =
+            round_1(&witness, &common_preprocesed_input, &kzg);
+        let (_, polynomial_z) = round_2(&witness, &common_preprocesed_input, &kzg, &beta(), &gamma());
+
+        let (a_value, b_value, c_value, s1_value, s2_value, z_value) = round_4(
+            &common_preprocesed_input,
+            &polynomial_a,
+            &polynomial_b,
+            &polynomial_c,
+            &polynomial_z,
+            &zeta(),
+        );
+        let expected_a_value = FrElement::from_hex("2c090a95b57f1f493b7b747bba34fef7772fd72f97d718ed69549641a823eb2e");
+        let expected_b_value = FrElement::from_hex("5975959d91369ba4e7a03c6ae94b7fe98e8b61b7bf9af63c8ae0759e17ac0c7e");
+        let expected_c_value = FrElement::from_hex("6bf31edeb4344b7d2df2cb1bd40b4d13e182d9cb09f89591fa043c1a34b4a93");
+        let expected_z_value = FrElement::from_hex("38e2ec8e7c3dab29e2b8e9c8ea152914b8fe4612e91f2902c80238efcf21f4ee");
+        let expected_s1_value = FrElement::from_hex("472f66db4fb6947d9ed9808241fe82324bc08aa2a54be93179db8e564e1137d4");
+        let expected_s2_value = FrElement::from_hex("5588f1239c24efe0538868d0f716984e69c6980e586864f615e4b0621fdc6f81");
+
+        assert_eq!(a_value, expected_a_value);
+        assert_eq!(b_value, expected_b_value);
+        assert_eq!(c_value, expected_c_value);
+        assert_eq!(z_value, expected_z_value);
+        assert_eq!(s1_value, expected_s1_value);
+        assert_eq!(s2_value, expected_s2_value);
     }
 }
