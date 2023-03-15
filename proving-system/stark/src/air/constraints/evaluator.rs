@@ -67,6 +67,21 @@ impl<F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
 
         let blowup_factor = self.air.blowup_factor();
 
+        let z = FieldElement::<F>::from(3);
+        let mut boundary_evaluation_test = boundary_poly.evaluate(&z)
+            * (boundary_alpha * &z.pow(max_degree - boundary_poly.degree()) + boundary_beta);
+
+        let boundary_zerofier = self
+            .boundary_constraints
+            .compute_zerofier(&self.primitive_root);
+
+        boundary_evaluation_test = boundary_evaluation_test / boundary_zerofier.evaluate(&z);
+
+        println!(
+            "BOUNDARY ACTUAL EVALUATION IN Z: {:?}",
+            boundary_evaluation_test
+        );
+
         // Iterate over trace and domain and compute transitions
         for (i, d) in lde_domain.iter().enumerate() {
             let frame = Frame::read_from_trace(

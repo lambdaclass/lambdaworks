@@ -122,11 +122,6 @@ where
     let trace_poly = Polynomial::interpolate(&trace_roots_of_unity, trace);
     let lde_trace = trace_poly.evaluate_slice(&lde_roots_of_unity_coset);
 
-    // // In the literature, these are H_1 and H_2, which satisfy
-    // // H(X) = H_1(X^2) + X * H_2(X^2)
-    // let (composition_poly_even, composition_poly_odd) =
-    //     compute_composition_polys(&trace_poly, &trace_primitive_root);
-
     // TODO: Fiat-Shamir
     // z is the Out of domain evaluation point used in Deep FRI. It needs to be a point outside
     // of both the roots of unity and its corresponding coset used for the lde commitment.
@@ -302,10 +297,27 @@ pub fn verify<F: IsField + IsTwoAdicField, A: AIR + AIR<Field = F>>(
     let boundary_interpolating_polynomial = &Polynomial::interpolate(&domain, &values);
     let boundary_zerofier = boundary_constraints.compute_zerofier(&trace_primitive_root);
 
+    let boundary_alpha = FieldElement::<F>::one();
+    let boundary_beta = FieldElement::<F>::one();
+
+    let max_degree =
+        air.context().trace_length * air.context().transition_degrees().iter().max().unwrap();
+
+    let max_degree_power_of_two = helpers::next_power_of_two(max_degree as u64);
+
     // TODO: This is assuming one column
-    let boundary_quotient_ood_evaluation = (&trace_poly_ood_frame_evaluations.get_row(0)[0]
+    let mut boundary_quotient_ood_evaluation = (&trace_poly_ood_frame_evaluations.get_row(0)[0]
         - boundary_interpolating_polynomial.evaluate(&z))
         / boundary_zerofier.evaluate(&z);
+
+    println!("MAX DEGREE POWER OF TWO {}", max_degree_power_of_two);
+    boundary_quotient_ood_evaluation = boundary_quotient_ood_evaluation
+        * (&boundary_alpha * z.pow(max_degree_power_of_two - 31) + &boundary_beta);
+
+    println!(
+        "BOUNDARY QUOTIENT VERIFIER OOD EVALUATION {:?}",
+        boundary_quotient_ood_evaluation
+    );
 
     let transition_ood_frame_evaluations = air.compute_transition(trace_poly_ood_frame_evaluations);
 
@@ -314,11 +326,6 @@ pub fn verify<F: IsField + IsTwoAdicField, A: AIR + AIR<Field = F>>(
     let beta = FieldElement::one();
 
     let alpha_and_beta_transition_coefficients = vec![(alpha.clone(), beta.clone())];
-
-    let max_degree =
-        air.context().trace_length * air.context().transition_degrees().iter().max().unwrap();
-
-    let max_degree_power_of_two = helpers::next_power_of_two(max_degree as u64);
 
     let c_i_evaluations = ConstraintEvaluator::compute_transition_evaluations(
         air,
