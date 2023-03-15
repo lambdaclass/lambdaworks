@@ -247,6 +247,8 @@ fn round_5(
     s2_value: &FrElement,
     z_value: &FrElement,
 ) -> (G1Point, G1Point) {
+    // dbg!(&a_value, &b_value, &c_value, &s1_value, &s2_value, &z_value);
+
     let n = common_preprocesed_input.number_constraints; // TODO: Is this the correct value?
 
     let a_value_1 = Polynomial::new_monomial(a_value.clone(), 0);
@@ -287,13 +289,21 @@ fn round_5(
 
     let zeta_raised_n = Polynomial::new_monomial(zeta.pow(n + 2), 0); // TODO: Paper says n and 2n, but Gnark uses n+2 and 2n+4 (see the TODO(*))
     let zeta_raised_2n = Polynomial::new_monomial(zeta.pow(2 * n + 4), 0);
+    dbg!((&a_value_1 + &beta_1 * &s1_value_1 + &gamma_1) * (&b_value_1 + &beta_1 * &s2_value_1 + &gamma_1) *  &z_omega_value_1 );
 
+    dbg!(
+        (z.clone() * l1.evaluate(zeta)) * &alpha_1 * &alpha_1 +
+        ((&a_value_1 + &beta_1 * &s1_value_1 + &gamma_1) * (&b_value_1 + &beta_1 * &s2_value_1 + &gamma_1) *  &z_omega_value_1 * S3 - z * (&a_value_1 + &beta_1 * &zeta_1 + &gamma_1) * (&b_value_1 + &beta_1 * &k1_1 * &zeta_1 + &gamma_1) * (&c_value_1 + &beta_1 * &k2_1 * &zeta_1 + &gamma_1)) * &alpha_1 +
+        &a_value_1 * &b_value_1 * Qm + &a_value_1 * Ql + &b_value_1 * Qr + &c_value_1 * Qo + Qc
+    );
     let r_1 = &a_value_1 * &b_value_1 * Qm + &a_value_1 * Ql + &b_value_1 * Qr + &c_value_1 * Qo + Qc; // TODO paper says PI(z), but GNark does this.
-    let r_2_1 = (&a_value_1 + &beta_1 * &zeta_1 + &gamma_1) * (&b_value_1 + &beta_1 * k1_1 * &zeta_1 + &gamma_1) * (&c_value_1 + &beta_1 * k2_1 * &zeta_1 + &gamma_1) * polynomial_z;
+    let r_2_1 = (&a_value_1 + &beta_1 * &zeta_1 + &gamma_1) * (&b_value_1 + &beta_1 * k1_1 * &zeta_1 + &gamma_1) * (&c_value_1 + &beta_1 * &k2_1 * &zeta_1 + &gamma_1) * polynomial_z;
     let r_2_2 = (&a_value_1 + &beta_1 * &s1_value_1 + &gamma_1) * (&b_value_1 + &beta_1 * &s2_value_1 + &gamma_1) * (&c_value_1 + beta_1 * S3 + gamma_1) * &z_omega_value_1;
     let r_3 = (z - &one) * l1.evaluate(zeta);
     let r_4 = (t_lo + zeta_raised_n * t_mid + zeta_raised_2n * t_hi) * Zh.evaluate(zeta);
+    dbg!(&r_1 + &alpha_1 * (-&r_2_1 + &r_2_2) + &alpha_1 * &alpha_1  * &r_3);
     let r = r_1 + &alpha_1 * (-r_2_1 + r_2_2) + &alpha_1 * &alpha_1  * r_3 - r_4; // TODO: Paper says second term is minus the term found on gnark. This doesn't affect the protocol.
+
 
     let w_zeta_den = Polynomial::new(&[-zeta, FrElement::one()]);
     let w_zeta_num = r + (polynomial_a - a_value_1) * upsilon.clone() + (polynomial_b - b_value_1) * upsilon.pow(2_u64) + (polynomial_c - c_value_1) * upsilon.pow(3_u64) + (S1 - s1_value_1) * upsilon.pow(4_u64) + (S2 - s2_value_1) * upsilon.pow(5_u64);
@@ -317,7 +327,7 @@ fn prove(
     common_preprocesed_input: &CommonPreprocessedInput,
     srs: &StructuredReferenceString<MAXIMUM_DEGREE, G1Point, G2Point>,
 ) {
-    // TODO: use strong Fiat-Shamir
+    // TODO: use strong Fiat-Shamir (e.g.: add public inputs and statement)
     let mut transcript = Transcript::new();
 
     let kzg = KZG::new(srs.clone());
@@ -366,6 +376,9 @@ fn prove(
         &polynomial_z,
         &zeta,
     );
+
+    // TODO: Should we append something to the transcript here? This step does not return any commitment.
+    // But the next step receives a new challenge `upsilon`
 
     // Round 5
     let upsilon = FrElement::from_bytes_be(&transcript.challenge()).unwrap();
@@ -583,6 +596,15 @@ mod tests {
             &zeta(),
         );
 
+        let expected_w_zeta_1 = BLS12381Curve::create_point_from_affine(
+            FpElement::from_hex("fa6250b80a418f0548b132ac264ff9915b2076c0c2548da9316ae19ffa35bbcf905d9f02f9274739608045ef83a4757"),
+            FpElement::from_hex("17713ade2dbd66e923d4092a5d2da98202959dd65a15e9f7791fab3c0dd08788aa9b4a1cb21d04e0c43bd29225472145"),
+        ).unwrap();
+        //let expected_w_zeta_omega_1 = BLS12381Curve::create_point_from_affine(
+        //    FpElement::from_hex(""),
+        //    FpElement::from_hex(""),
+        //).unwrap();
+
         let (w_zeta_1, w_zeta_omega_1) = round_5(
             &common_preprocesed_input,
             &kzg,
@@ -605,5 +627,6 @@ mod tests {
             &s2_value,
             &z_value,
         );
+        assert_eq!(w_zeta_1, expected_w_zeta_1);
     }
 }
