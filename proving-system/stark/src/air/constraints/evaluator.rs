@@ -93,7 +93,7 @@ impl<F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
                 .boundary_constraints
                 .compute_zerofier(&self.primitive_root);
 
-            // evaluations.push(boundary_evaluation / boundary_zerofier.evaluate(d));
+            evaluations.push(boundary_evaluation / boundary_zerofier.evaluate(d));
 
             evaluation_table.evaluations.push(evaluations);
         }
