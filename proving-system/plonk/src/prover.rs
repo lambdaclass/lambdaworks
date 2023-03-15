@@ -345,7 +345,7 @@ mod tests {
 
     #[test]
     fn test_round_3() {
-        // This test is subject to TODO (**) above.
+        // This test is subject to TODO (*) above.
         let test_circuit = test_circuit();
         let witness = test_circuit.get_witness();
         let common_preprocesed_input = CommonPreprocessedInput::for_this(&test_circuit);
