@@ -18,7 +18,7 @@ mod test {
     fn lambdaworks_py_test() {
         pyo3::prepare_freethreaded_python();
         Python::with_gil(|py| {
-            let module = PyModule::new(py, "My Module");
+            let module = PyModule::new(py, "lambdaworks_py");
             assert!(crate::lambdaworks_py(py, module.unwrap()).is_ok());
         });
     }
