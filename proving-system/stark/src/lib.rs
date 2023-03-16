@@ -313,9 +313,10 @@ pub fn verify<F: IsField + IsTwoAdicField, A: AIR + AIR<Field = F>>(
         - boundary_interpolating_polynomial.evaluate(&z))
         / boundary_zerofier.evaluate(&z);
 
-    // TODO: 31 is hardcoded here because we need to fix the way we take degrees anyway
     boundary_quotient_ood_evaluation = boundary_quotient_ood_evaluation
-        * (&boundary_alpha * z.pow(max_degree_power_of_two - 31) + &boundary_beta);
+        * (&boundary_alpha
+            * z.pow(max_degree_power_of_two - (air.context().trace_length as u64 - 1))
+            + &boundary_beta);
 
     let transition_ood_frame_evaluations = air.compute_transition(trace_poly_ood_frame_evaluations);
 
