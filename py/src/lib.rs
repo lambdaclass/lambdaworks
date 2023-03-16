@@ -58,7 +58,7 @@ fn prove(trace: &PyList, proof_config: &ProofConfig) -> PyResult<StarkProof> {
         v
     };
 
-    Ok(StarkProof(lambdaworks_stark::prove(
+    Ok(StarkProof(lambdaworks_stark::prover::prove(
         &trace,
         &proof_config.0,
     )))
@@ -66,7 +66,7 @@ fn prove(trace: &PyList, proof_config: &ProofConfig) -> PyResult<StarkProof> {
 
 #[pyfunction]
 fn verify(stark_proof: &StarkProof) -> bool {
-    lambdaworks_stark::verify(&stark_proof.0)
+    lambdaworks_stark::verifier::verify(&stark_proof.0)
 }
 
 #[pymodule]
