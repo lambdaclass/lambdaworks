@@ -104,7 +104,9 @@ impl<F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
     /// Given `evaluations` C_i(x) of the trace polynomial composed with the constraint
     /// polynomial at a certain point `x`, computes the following evaluations and returns them:
     ///
-    /// C_i(x) (alpha_i * x^(D - D_i) + beta_i)
+    /// C_i(x) (alpha_i * x^(D - D_i) + beta_i) / (Z_i(x))
+    ///
+    /// where Z is the zerofier of the `i`-th transition constraint polynomial.
     ///
     /// This method is called in two different scenarios. The first is when the prover
     /// is building these evaluations to compute the composition and DEEP composition polynomials.

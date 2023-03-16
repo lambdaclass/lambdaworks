@@ -101,11 +101,10 @@ where
     let transcript = &mut Transcript::new();
     // let mut query_list = Vec::<StarkQueryProof>::new();
 
-    // * Generate Coset
-    let trace_primitive_root =
-        F::get_primitive_root_of_unity(air.context().trace_length as u64).unwrap();
-
     let root_order = air.context().trace_length.trailing_zeros();
+    // * Generate Coset
+    let trace_primitive_root = F::get_primitive_root_of_unity(root_order as u64).unwrap();
+
     let trace_roots_of_unity = F::get_powers_of_primitive_root_coset(
         root_order as u64,
         air.context().trace_length,
@@ -128,7 +127,7 @@ where
     // TODO: Fiat-Shamir
     // z is the Out of domain evaluation point used in Deep FRI. It needs to be a point outside
     // of both the roots of unity and its corresponding coset used for the lde commitment.
-    let z = FieldElement::from(3);
+    let z = FieldElement::from(10);
     let z_squared = &z * &z;
 
     let lde_trace = TraceTable::new(lde_trace, 1);
@@ -289,7 +288,7 @@ pub fn verify<F: IsField + IsTwoAdicField, A: AIR + AIR<Field = F>>(
     let boundary_constraints = air.compute_boundary_constraints();
 
     // TODO: Fiat-Shamir
-    let z = FieldElement::<F>::from(3);
+    let z = FieldElement::<F>::from(10);
 
     // C_1(z)
     let domain = boundary_constraints.generate_roots_of_unity(&trace_primitive_root);
@@ -504,16 +503,20 @@ mod tests {
     use air::constraints::boundary::BoundaryConstraints;
 
     use super::prove;
-    use lambdaworks_math::unsigned_integer::element::{UnsignedInteger, U256, U384};
+    use lambdaworks_math::{
+        field::fields::u64_prime_field::{U64FieldElement, U64PrimeField, F17, FE17},
+        unsigned_integer::element::U256,
+    };
 
     #[derive(Clone)]
     pub struct FibonacciAIR {
         context: AirContext,
-        trace: TraceTable<PrimeField>,
+        trace: TraceTable<F17>,
     }
 
     impl AIR for FibonacciAIR {
-        type Field = PrimeField;
+        // type Field = PrimeField;
+        type Field = F17;
 
         fn new(trace: TraceTable<Self::Field>, context: air::context::AirContext) -> Self {
             Self {
@@ -542,23 +545,22 @@ mod tests {
         }
 
         fn transition_divisors(&self) -> Vec<Polynomial<FieldElement<Self::Field>>> {
-            let one_field = FieldElement::<Self::Field>::one();
+            let offset = FieldElement::<Self::Field>::from(COSET_OFFSET);
             let roots_of_unity = Self::Field::get_powers_of_primitive_root_coset(
-                self.context().trace_length as u64,
+                self.context().trace_length.trailing_zeros() as u64,
                 self.context().trace_length,
-                // TODO: Add coset evaluation
-                &one_field,
+                &offset,
             )
             .unwrap();
 
             let mut result = vec![];
 
             for index in 0..self.context().num_transition_constraints {
-                result.push(Polynomial::new_monomial(one_field.clone(), 0));
+                result.push(Polynomial::new_monomial(offset.clone(), 0));
 
                 for exemption_index in self.context().transition_exemptions {
                     result[index] = result[index].clone()
-                        * (Polynomial::new_monomial(one_field.clone(), 1)
+                        * (Polynomial::new_monomial(offset.clone(), 1)
                             - Polynomial::new_monomial(roots_of_unity[exemption_index].clone(), 0));
                 }
             }
@@ -573,7 +575,7 @@ mod tests {
 
     #[test]
     fn test_prove() {
-        let trace = fibonacci_trace([FE::new(U256::from("1")), FE::new(U256::from("1"))], 4);
+        let trace = fibonacci_trace([FE17::new(1), FE17::new(1)], 4);
 
         let context = AirContext {
             options: ProofOptions { blowup_factor: 2 },
