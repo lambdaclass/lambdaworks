@@ -9,3 +9,7 @@ except ArithmeticError.IntegerOverflow:
 
 assert add(2, 4) == 6
 assert add(4, 8) == 12
+
+number = get_number()
+
+assert number.neg() == -2

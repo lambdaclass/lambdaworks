@@ -4,6 +4,8 @@ pub mod fri;
 use constraints::boundary::{BoundaryConstraint, BoundaryConstraints};
 use std::ops::{Div, Mul};
 
+use std::sync::Arc;
+
 use fri::fri_decommit::{fri_decommit_layers, FriDecommitment};
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_crypto::merkle_tree::proof::Proof;
@@ -676,6 +678,10 @@ impl Negable for Number{
     fn neg(&self) -> i64 {
         return -(self.n as i64);
     }
+}
+
+fn get_number() -> Arc<dyn Negable> {
+    return Arc::new(Number{n: 2});
 }
 
 fn add(a: u64, b: u64) -> Result<u64> {
