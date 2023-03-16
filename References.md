@@ -34,6 +34,8 @@
 - [Taxonomy of elliptic curves](https://eprint.iacr.org/2006/372)
 - [Ristretto](https://ristretto.group/)
 - [Double ODD](https://doubleodd.group/)
+- [Banderwagon](https://hackmd.io/@6iQDuIePQjyYBqDChYw_jg/BJBNcv9fq)
+- [Subgroup check via Tate](https://forum.zcashcommunity.com/t/subgroup-membership-testing-on-elliptic-curves-via-the-tate-pairing/42963)
 - [Hashing to elliptic curves](https://datatracker.ietf.org/doc/id/draft-irtf-cfrg-hash-to-curve-06.html#name-hashing-to-a-finite-field)
 
 ## Halo2
@@ -43,7 +45,9 @@
 - [Pairings or bilinear maps](https://alinush.github.io/2022/12/31/pairings-or-bilinear-maps.html)
 
 ## Lookup Tables
-- [Caulk](https://github.com/caulk-crypto/caulk)
+- [Caulk Poc Implementation](https://github.com/caulk-crypto/caulk)
+- [Caulk Paper](https://eprint.iacr.org/2022/621.pdf)
+- [Plook Up Paper](https://eprint.iacr.org/2020/315.pdf)
 
 ## Starks
 - [DeepFRI](https://eprint.iacr.org/2019/336.pdf)
