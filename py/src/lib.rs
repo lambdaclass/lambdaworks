@@ -1,6 +1,6 @@
-use pyo3::prelude::*;
-
 use lambdaworks_math::unsigned_integer::element::U256 as U256Internal;
+use lambdaworks_stark::FE;
+use pyo3::prelude::*;
 
 #[pyclass]
 pub struct U256(U256Internal);
@@ -13,9 +13,21 @@ impl U256 {
     }
 }
 
+#[pyclass]
+pub struct FieldElement(FE);
+
+#[pymethods]
+impl FieldElement {
+    #[new]
+    pub fn new(value: &U256) -> Self {
+        Self(FE::new(value.0))
+    }
+}
+
 #[pymodule]
 fn lambdaworks_py(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<U256>()?;
+    m.add_class::<FieldElement>()?;
     Ok(())
 }
 
