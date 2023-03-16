@@ -1,14 +1,25 @@
 use pyo3::prelude::*;
 
-/// Formats the sum of two numbers as string.
-#[pyfunction]
-fn sum_as_string(a: usize, b: usize) -> PyResult<String> {
-    Ok((a + b).to_string())
+#[pyclass]
+pub struct U384([u64; 6]);
+
+#[pymodule]
+fn lambdaworks_py(_py: Python, m: &PyModule) -> PyResult<()> {
+    m.add_class::<U384>()?;
+    Ok(())
 }
 
-/// A Python module implemented in Rust.
-#[pymodule]
-fn py(_py: Python, m: &PyModule) -> PyResult<()> {
-    m.add_function(wrap_pyfunction!(sum_as_string, m)?)?;
-    Ok(())
+#[cfg(test)]
+mod test {
+    use pyo3::prelude::*;
+    use pyo3::Python;
+
+    #[test]
+    fn lambdaworks_py_test() {
+        pyo3::prepare_freethreaded_python();
+        Python::with_gil(|py| {
+            let module = PyModule::new(py, "My Module");
+            assert!(crate::lambdaworks_py(py, module.unwrap()).is_ok());
+        });
+    }
 }
