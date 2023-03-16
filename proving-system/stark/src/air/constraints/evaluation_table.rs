@@ -3,6 +3,7 @@ use lambdaworks_math::{
     polynomial::Polynomial,
 };
 
+#[derive(Clone, Debug)]
 pub struct ConstraintEvaluationTable<F: IsField> {
     // Inner vectors are rows
     pub evaluations: Vec<Vec<FieldElement<F>>>,

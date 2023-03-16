@@ -102,7 +102,7 @@ impl<F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
     }
 
     /// Given `evaluations` C_i(x) of the trace polynomial composed with the constraint
-    /// polynomial at certain points, computes the following evaluations and returns them:
+    /// polynomial at a certain point `x`, computes the following evaluations and returns them:
     ///
     /// C_i(x) (alpha_i * x^(D - D_i) + beta_i)
     ///

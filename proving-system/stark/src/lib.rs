@@ -75,13 +75,16 @@ pub struct StarkProof<F: IsField> {
 pub use lambdaworks_crypto::merkle_tree::merkle::MerkleTree;
 pub use lambdaworks_crypto::merkle_tree::DefaultHasher;
 
-pub fn fibonacci_trace<F: IsField>(initial_values: [FieldElement<F>; 2]) -> Vec<FieldElement<F>> {
+pub fn fibonacci_trace<F: IsField>(
+    initial_values: [FieldElement<F>; 2],
+    trace_length: usize,
+) -> Vec<FieldElement<F>> {
     let mut ret: Vec<FieldElement<F>> = vec![];
 
     ret.push(initial_values[0].clone());
     ret.push(initial_values[1].clone());
 
-    for i in 2..(ORDER_OF_ROOTS_OF_UNITY_TRACE as usize) {
+    for i in 2..(trace_length) {
         ret.push(ret[i - 1].clone() + ret[i - 2].clone());
     }
 
@@ -384,7 +387,6 @@ pub fn fri_verify<F: IsField + IsTwoAdicField>(
     // TODO: Fiat-Shamir
     let decommitment_index: u64 = 4;
 
-    // let mut lde_primitive_root = generate_primitive_root(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE);
     let mut lde_primitive_root =
         F::get_primitive_root_of_unity(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE).unwrap();
     let mut offset = FieldElement::from(COSET_OFFSET);
@@ -543,6 +545,7 @@ mod tests {
             let roots_of_unity = Self::Field::get_powers_of_primitive_root_coset(
                 self.context().trace_length as u64,
                 self.context().trace_length,
+                // TODO: Add coset evaluation
                 &one_field,
             )
             .unwrap();
@@ -569,27 +572,25 @@ mod tests {
 
     #[test]
     fn test_prove() {
-        let trace = fibonacci_trace([FE::new(U256::from("1")), FE::new(U256::from("1"))]);
+        let trace = fibonacci_trace([FE::new(U256::from("1")), FE::new(U256::from("1"))], 4);
 
         let context = AirContext {
             options: ProofOptions { blowup_factor: 2 },
-            trace_length: 32,
-            trace_info: (32, 1),
+            trace_length: trace.len(),
+            trace_info: (trace.len(), 1),
             transition_degrees: vec![1],
-            transition_exemptions: vec![30, 31],
+            transition_exemptions: vec![trace.len() - 2, trace.len() - 1],
             transition_offsets: vec![0, 1, 2],
             num_assertions: 3,
             num_transition_constraints: 1,
         };
 
-        let trace = TraceTable {
-            table: trace,
+        let trace_table = TraceTable {
+            table: trace.clone(),
             num_cols: 1,
         };
 
-        let fibonacci_air = FibonacciAIR::new(trace, context);
-
-        let trace = fibonacci_trace([FE::new(U256::from("1")), FE::new(U256::from("1"))]);
+        let fibonacci_air = FibonacciAIR::new(trace_table, context);
 
         let result = prove(&trace, &fibonacci_air);
         assert!(verify(&result, &fibonacci_air));
