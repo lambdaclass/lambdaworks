@@ -1,7 +1,17 @@
 use pyo3::prelude::*;
 
+use lambdaworks_math::unsigned_integer::element;
+
 #[pyclass]
-pub struct U384([u64; 6]);
+pub struct U384(element::U384);
+
+#[pymethods]
+impl U384 {
+    #[new]
+    pub fn new(value: &str) -> PyResult<Self> {
+        Ok(Self(element::U384::from(value)))
+    }
+}
 
 #[pymodule]
 fn lambdaworks_py(_py: Python, m: &PyModule) -> PyResult<()> {
