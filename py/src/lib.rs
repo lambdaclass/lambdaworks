@@ -1,21 +1,21 @@
 use pyo3::prelude::*;
 
-use lambdaworks_math::unsigned_integer::element;
+use lambdaworks_math::unsigned_integer::element::U256 as U256Internal;
 
 #[pyclass]
-pub struct U384(element::U384);
+pub struct U256(U256Internal);
 
 #[pymethods]
-impl U384 {
+impl U256 {
     #[new]
     pub fn new(value: &str) -> PyResult<Self> {
-        Ok(Self(element::U384::from(value)))
+        Ok(Self(U256Internal::from(value)))
     }
 }
 
 #[pymodule]
 fn lambdaworks_py(_py: Python, m: &PyModule) -> PyResult<()> {
-    m.add_class::<U384>()?;
+    m.add_class::<U256>()?;
     Ok(())
 }
 
