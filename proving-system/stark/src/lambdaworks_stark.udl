@@ -8,3 +8,8 @@ namespace lambdaworks_stark {
   u64 add(u64 a, u64 b);
 
 };
+
+[Trait]
+interface Negable {
+    i64 neg();
+};

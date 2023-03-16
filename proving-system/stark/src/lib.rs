@@ -664,6 +664,20 @@ pub enum ArithmeticError {
     IntegerOverflow { a: u64, b: u64 },
 }
 
+pub trait Negable: Send + Sync  {
+    fn neg(&self) -> i64;
+}
+
+pub struct Number{
+    pub n: u64
+}
+
+impl Negable for Number{
+    fn neg(&self) -> i64 {
+        return -(self.n as i64);
+    }
+}
+
 fn add(a: u64, b: u64) -> Result<u64> {
     a.checked_add(b)
         .ok_or(ArithmeticError::IntegerOverflow { a, b })
