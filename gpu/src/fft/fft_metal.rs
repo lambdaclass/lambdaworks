@@ -108,10 +108,7 @@ impl FFTMetalState {
         let results_len = input_buffer.length() as usize / mem::size_of::<F::BaseType>();
         let results_slice = unsafe { std::slice::from_raw_parts(results_ptr, results_len) };
 
-        Ok(results_slice
-            .iter()
-            .map(FieldElement::from)
-            .collect())
+        Ok(results_slice.iter().map(FieldElement::from).collect())
     }
 }
 
@@ -121,36 +118,45 @@ mod tests {
         fft::bit_reversing::in_place_bit_reverse_permute,
         field::test_fields::u32_test_field::U32TestField, polynomial::Polynomial,
     };
+    use proptest::prelude::*;
 
     use super::*;
 
     type F = U32TestField;
     type FE = FieldElement<F>;
 
-    // Property-based test that ensures NR Radix-2 FFT gives same result as a naive polynomial evaluation.
-    #[test]
-    fn test_metal_fft_matches_naive_eval() {
-        // random:
-        let coeffs = [
-            3924592,
-            923482529,
-            82348923529,
-            9235825395,
-            9235823905238,
-            9823592358,
-            98239283599,
-            1391831318,
-        ]
-        .map(FE::from);
+    prop_compose! {
+        fn powers_of_two(max_exp: u8)(exp in 1..max_exp) -> usize { 1 << exp }
+        // max_exp cannot be multiple of the bits that represent a usize, generally 64 or 32.
+        // also it can't exceed the test field's two-adicity.
+    }
+    prop_compose! {
+        fn field_element()(num in any::<u64>().prop_filter("Avoid null polynomial", |x| x != &0)) -> FE {
+            FE::from(num)
+        }
+    }
+    prop_compose! {
+        fn field_vec(max_exp: u8)(elem in field_element(), size in powers_of_two(max_exp)) -> Vec<FE> {
+            vec![elem; size]
+        }
+    }
+    prop_compose! {
+        fn poly(max_exp: u8)(coeffs in field_vec(max_exp)) -> Polynomial<FE> {
+            Polynomial::new(&coeffs)
+        }
+    }
 
-        let poly = Polynomial::new(&coeffs[..]);
-        let expected = poly.evaluate_fft().unwrap();
+    proptest! {
+        // Property-based test that ensures NR Radix-2 FFT gives same result as a naive polynomial evaluation.
+        #[test]
+        fn test_metal_fft_matches_naive_eval(poly in poly(8)) {
+            let expected = poly.evaluate_fft().unwrap();
 
-        let metal_state = FFTMetalState::new(None).unwrap();
+            let metal_state = FFTMetalState::new(None).unwrap();
+            let mut result = metal_state.execute_fft::<F>(poly.coefficients()).unwrap();
+            in_place_bit_reverse_permute(&mut result);
 
-        let mut result = metal_state.execute_fft::<F>(&coeffs).unwrap();
-        in_place_bit_reverse_permute(&mut result);
-
-        assert_eq!(&result[..], &expected[..]);
+            assert_eq!(&result[..], &expected[..]);
+        }
     }
 }
