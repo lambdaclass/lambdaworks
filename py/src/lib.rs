@@ -22,6 +22,10 @@ impl FieldElement {
     pub fn new(value: &U256) -> Self {
         Self(FE::new(value.0))
     }
+
+    fn __add__(&self, other: &Self) -> Self {
+        Self(&self.0 + &other.0)
+    }
 }
 
 #[pymodule]
