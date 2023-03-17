@@ -13,6 +13,8 @@ impl IsModulus<U256> for U256MontgomeryConfigTwoAdic {
         U256::from("800000000000011000000000000000000000000000000000000000000000001");
 }
 
+pub type U256MontgomeryTwoAdicPrimeField = U256PrimeField<U256MontgomeryConfigTwoAdic>;
+
 impl IsTwoAdicField for U256MontgomeryTwoAdicPrimeField {
     const TWO_ADICITY: u64 = 48;
     // Change this line for a new function like `from_limbs`.
@@ -25,8 +27,6 @@ impl IsTwoAdicField for U256MontgomeryTwoAdicPrimeField {
         ],
     };
 }
-
-pub type U256MontgomeryTwoAdicPrimeField = U256PrimeField<U256MontgomeryConfigTwoAdic>;
 
 #[cfg(test)]
 mod u256_two_adic_prime_field_tests {
