@@ -7,6 +7,8 @@ use lambdaworks_math::{
 };
 use std::marker::PhantomData;
 
+use super::traits::IsCommitmentScheme;
+
 pub struct Opening<F: IsPrimeField, G1Point: IsGroup> {
     value: FieldElement<F>,
     proof: G1Point,
@@ -38,8 +40,7 @@ pub struct KateZaveruchaGoldberg<const MAXIMUM_DEGREE: usize, F: IsPrimeField, P
     phantom: PhantomData<F>,
 }
 
-impl<const MAXIMUM_DEGREE: usize, F: IsPrimeField, P: IsPairing>
-    KateZaveruchaGoldberg<MAXIMUM_DEGREE, F, P>
+impl<const MAXIMUM_DEGREE: usize, F: IsPrimeField, P: IsPairing> KateZaveruchaGoldberg<MAXIMUM_DEGREE, F, P>
 {
     #[allow(unused)]
     pub fn new(srs: StructuredReferenceString<MAXIMUM_DEGREE, P::G1Point, P::G2Point>) -> Self {
@@ -48,9 +49,16 @@ impl<const MAXIMUM_DEGREE: usize, F: IsPrimeField, P: IsPairing>
             phantom: PhantomData,
         }
     }
+}
+
+impl<const MAXIMUM_DEGREE: usize, F: IsPrimeField, P: IsPairing> IsCommitmentScheme<F> for
+    KateZaveruchaGoldberg<MAXIMUM_DEGREE, F, P>
+{
+    type Hiding = P::G1Point;
+    type Opening = Opening<F, P::G1Point>;
 
     #[allow(unused)]
-    pub fn commit(&self, p: &Polynomial<FieldElement<F>>) -> P::G1Point {
+    fn commit(&self, p: &Polynomial<FieldElement<F>>) -> P::G1Point {
         let coefficients: Vec<F::RepresentativeType> = p
             .coefficients
             .iter()
@@ -63,7 +71,7 @@ impl<const MAXIMUM_DEGREE: usize, F: IsPrimeField, P: IsPairing>
     }
 
     #[allow(unused)]
-    pub fn open(
+    fn open(
         &self,
         x: &FieldElement<F>,
         p: &Polynomial<FieldElement<F>>,
@@ -77,7 +85,7 @@ impl<const MAXIMUM_DEGREE: usize, F: IsPrimeField, P: IsPairing>
     }
 
     #[allow(unused)]
-    pub fn verify(
+    fn verify(
         &self,
         opening: &Opening<F, P::G1Point>,
         x: &FieldElement<F>,
@@ -125,7 +133,7 @@ mod tests {
         unsigned_integer::element::U256,
     };
 
-    use crate::commitments::kzg::Opening;
+    use crate::commitments::traits::IsCommitmentScheme;
 
     use super::{KateZaveruchaGoldberg, StructuredReferenceString};
     use rand::Rng;

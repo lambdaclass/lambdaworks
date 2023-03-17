@@ -1,23 +1,16 @@
-use lambdaworks_crypto::commitments::kzg::{KateZaveruchaGoldberg, StructuredReferenceString};
+
+use lambdaworks_crypto::commitments::{kzg::{StructuredReferenceString, KateZaveruchaGoldberg}, traits::IsCommitmentScheme};
 use lambdaworks_math::{
-    cyclic_group::IsGroup,
     elliptic_curve::{
-        short_weierstrass::curves::bls12_381::pairing::BLS12381AtePairing, traits::IsPairing,
-    },
+        traits::IsPairing,
+    }, field::{traits::IsField, element::FieldElement},
 };
 use lambdaworks_math::{
-    field::{
-        element::FieldElement,
-        fields::montgomery_backed_prime_fields::{IsMontgomeryConfiguration, U256PrimeField},
-    },
     polynomial::Polynomial,
-    unsigned_integer::element::U256,
 };
 
-use crate::config::{
-    FrConfig, FrElement, FrField, G1Point, G2Point, KZG, NUMBER_CONSTRAINTS, ORDER_4_ROOT_UNITY,
-    ORDER_R_MINUS_1_ROOT_UNITY, SRS,
-};
+use crate::test_utils::{ORDER_4_ROOT_UNITY, ORDER_R_MINUS_1_ROOT_UNITY, NUMBER_CONSTRAINTS};
+
 
 type VariableID = u64;
 
@@ -29,145 +22,58 @@ pub struct Circuit {
 }
 
 // TODO: implement getters
-pub struct Witness {
-    pub a: Vec<FrElement>,
-    pub b: Vec<FrElement>,
-    pub c: Vec<FrElement>,
+pub struct Witness<F: IsField> {
+    pub a: Vec<FieldElement<F>>,
+    pub b: Vec<FieldElement<F>>,
+    pub c: Vec<FieldElement<F>>,
 }
 
 impl Circuit {
     // TODO: This should execute the program and return the trace.
-    pub fn get_witness(&self) -> Witness {
+    pub fn get_witness<F: IsField>(&self) -> Witness<F> {
         Witness {
             a: vec![
-                FrElement::from(2_u64),
-                FrElement::from(4_u64),
-                FrElement::from(2_u64),
-                FrElement::from(4_u64),
+                FieldElement::from(2_u64),
+                FieldElement::from(4_u64),
+                FieldElement::from(2_u64),
+                FieldElement::from(4_u64),
             ],
             b: vec![
-                FrElement::from(2_u64),
-                FrElement::from(2_u64),
-                FrElement::from(2_u64),
-                FrElement::from(4_u64),
+                FieldElement::from(2_u64),
+                FieldElement::from(2_u64),
+                FieldElement::from(2_u64),
+                FieldElement::from(4_u64),
             ],
             c: vec![
-                FrElement::from(2_u64),
-                FrElement::from(2_u64),
-                FrElement::from(4_u64),
-                FrElement::from(2_u64),
+                FieldElement::from(2_u64),
+                FieldElement::from(2_u64),
+                FieldElement::from(4_u64),
+                FieldElement::from(2_u64),
             ],
         }
     }
 }
 
 // TODO: implement getters
-pub struct CommonPreprocessedInput {
+pub struct CommonPreprocessedInput<F: IsField> {
     pub number_constraints: usize,
-    pub domain: Vec<FrElement>,
+    pub domain: Vec<FieldElement<F>>,
+    pub order_4_root_unity: FieldElement<F>,
+    pub order_r_minus_1_root_unity: FieldElement<F>,
 
-    pub Ql: Polynomial<FrElement>,
-    pub Qr: Polynomial<FrElement>,
-    pub Qo: Polynomial<FrElement>,
-    pub Qm: Polynomial<FrElement>,
-    pub Qc: Polynomial<FrElement>,
+    pub Ql: Polynomial<FieldElement<F>>,
+    pub Qr: Polynomial<FieldElement<F>>,
+    pub Qo: Polynomial<FieldElement<F>>,
+    pub Qm: Polynomial<FieldElement<F>>,
+    pub Qc: Polynomial<FieldElement<F>>,
 
-    pub S1_monomial: Polynomial<FrElement>,
-    pub S2_monomial: Polynomial<FrElement>,
-    pub S3_monomial: Polynomial<FrElement>,
+    pub S1_monomial: Polynomial<FieldElement<F>>,
+    pub S2_monomial: Polynomial<FieldElement<F>>,
+    pub S3_monomial: Polynomial<FieldElement<F>>,
 
-    pub S1_lagrange: Vec<FrElement>,
-    pub S2_lagrange: Vec<FrElement>,
-    pub S3_lagrange: Vec<FrElement>,
-}
-
-impl CommonPreprocessedInput {
-    pub fn for_this(c: &Circuit) -> CommonPreprocessedInput {
-        let w = ORDER_4_ROOT_UNITY;
-        let u = ORDER_R_MINUS_1_ROOT_UNITY;
-        let domain = (1..4).fold(vec![FrElement::one()], |mut acc, x| {
-            acc.push(acc.last().unwrap() * ORDER_4_ROOT_UNITY);
-            acc
-        });
-
-        let S1_lagrange = vec![
-            u.pow(2_u64) * w.pow(3_u64),
-            u.pow(0_u64) * w.pow(3_u64),
-            u.pow(0_u64) * w.pow(0_u64),
-            u.pow(0_u64) * w.pow(1_u64),
-        ];
-        let S2_lagrange = vec![
-            u.pow(0_u64) * w.pow(2_u64),
-            u.pow(1_u64) * w.pow(0_u64),
-            u.pow(1_u64) * w.pow(2_u64),
-            u.pow(2_u64) * w.pow(2_u64),
-        ];
-        let S3_lagrange = vec![
-            u.pow(1_u64) * w.pow(1_u64),
-            u.pow(2_u64) * w.pow(0_u64),
-            u.pow(1_u64) * w.pow(3_u64),
-            u.pow(2_u64) * w.pow(1_u64),
-        ];
-
-        Self {
-            number_constraints: NUMBER_CONSTRAINTS,
-            domain: domain.clone(),
-
-            Ql: Polynomial::interpolate(
-                &domain,
-                &[
-                    -FrElement::one(),
-                    -FrElement::one(),
-                    FrElement::zero(),
-                    FrElement::one(),
-                ],
-            ),
-            Qr: Polynomial::interpolate(
-                &domain,
-                &[
-                    FrElement::zero(),
-                    FrElement::zero(),
-                    FrElement::zero(),
-                    -FrElement::one(),
-                ],
-            ),
-            Qo: Polynomial::interpolate(
-                &domain,
-                &[
-                    FrElement::zero(),
-                    FrElement::zero(),
-                    -FrElement::one(),
-                    FrElement::zero(),
-                ],
-            ),
-            Qm: Polynomial::interpolate(
-                &domain,
-                &[
-                    FrElement::zero(),
-                    FrElement::zero(),
-                    FrElement::one(),
-                    FrElement::zero(),
-                ],
-            ),
-            Qc: Polynomial::interpolate(
-                &domain,
-                &[
-                    FrElement::from(2_u64), // TODO: this should be filled in by the prover
-                    FrElement::from(4_u64), // TODO: this should be filled in by the prover
-                    FrElement::zero(),
-                    FrElement::zero(),
-                ],
-            ),
-
-            S1_monomial: Polynomial::interpolate(&domain, &S1_lagrange),
-            S2_monomial: Polynomial::interpolate(&domain, &S2_lagrange),
-            S3_monomial: Polynomial::interpolate(&domain, &S3_lagrange),
-
-            S1_lagrange: S1_lagrange,
-            S2_lagrange: S2_lagrange,
-            S3_lagrange: S3_lagrange,
-        }
-    }
+    pub S1_lagrange: Vec<FieldElement<F>>,
+    pub S2_lagrange: Vec<FieldElement<F>>,
+    pub S3_lagrange: Vec<FieldElement<F>>,
 }
 
 pub struct VerificationKey<G1Point> {
@@ -187,45 +93,44 @@ fn build_permutation(circuit: &Circuit) -> Vec<VariableID> {
 }
 
 #[allow(unused)]
-fn setup<const MAXIMUM_DEGREE: usize, P: IsPairing>(
-    srs: &SRS,
+fn setup<F: IsField, CS: IsCommitmentScheme<F>>(
+    common_input: &CommonPreprocessedInput<F>,
+    commitment_scheme: &CS,
     circuit: &Circuit,
-) -> VerificationKey<G1Point> {
-    let kzg = KZG::new(srs.clone());
-    let common_input = CommonPreprocessedInput::for_this(&circuit);
-
+) -> VerificationKey<CS::Hiding> {
     VerificationKey {
-        Qm: kzg.commit(&common_input.Qm),
-        Ql: kzg.commit(&common_input.Ql),
-        Qr: kzg.commit(&common_input.Qr),
-        Qo: kzg.commit(&common_input.Qo),
-        Qc: kzg.commit(&common_input.Qc),
+        Qm: commitment_scheme.commit(&common_input.Qm),
+        Ql: commitment_scheme.commit(&common_input.Ql),
+        Qr: commitment_scheme.commit(&common_input.Qr),
+        Qo: commitment_scheme.commit(&common_input.Qo),
+        Qc: commitment_scheme.commit(&common_input.Qc),
 
-        S1: kzg.commit(&common_input.S1_monomial),
-        S2: kzg.commit(&common_input.S2_monomial),
-        S3: kzg.commit(&common_input.S3_monomial),
+        S1: commitment_scheme.commit(&common_input.S1_monomial),
+        S2: commitment_scheme.commit(&common_input.S2_monomial),
+        S3: commitment_scheme.commit(&common_input.S3_monomial),
     }
 }
 
 #[cfg(test)]
 mod tests {
     use lambdaworks_math::elliptic_curve::{
-        short_weierstrass::curves::bls12_381::{curve::BLS12381Curve, twist::BLS12381TwistCurve},
+        short_weierstrass::curves::bls12_381::{curve::BLS12381Curve, pairing::BLS12381AtePairing},
         traits::IsEllipticCurve,
     };
 
     use super::*;
     use crate::{
-        config::{FpElement, Pairing},
-        test_utils::{test_circuit, test_srs},
+        test_utils::{FpElement, test_circuit, test_srs, test_common_preprocessed_input, FrField, KZG},
     };
 
     #[test]
     fn setup_works_for_simple_circuit() {
         let srs = test_srs();
         let circuit = test_circuit();
+        let common_input = test_common_preprocessed_input();
+        let kzg = KZG::new(srs);
 
-        let vk = setup::<4, BLS12381AtePairing>(&srs, &circuit);
+        let vk = setup::<FrField, KZG>(&common_input, &kzg, &circuit);
 
         let expected_Ql = BLS12381Curve::create_point_from_affine(
             FpElement::from_hex("1492341357755e31a6306abf3237f84f707ded7cb526b8ffd40901746234ef27f12bc91ef638e4977563db208b765f12"),
