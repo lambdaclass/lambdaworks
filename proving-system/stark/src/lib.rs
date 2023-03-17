@@ -561,15 +561,15 @@ mod tests {
                     Polynomial::new_monomial(
                         FieldElement::<Self::Field>::one(),
                         roots_of_unity_order as usize,
-                    ) - Polynomial::new_monomial(-FieldElement::<Self::Field>::one(), 0);
+                    ) - Polynomial::new_monomial(FieldElement::<Self::Field>::one(), 0);
 
                 let mut exemptions_polynomial =
                     Polynomial::new_monomial(FieldElement::<Self::Field>::one(), 0);
 
                 for exemption_index in self.context().transition_exemptions {
                     exemptions_polynomial = exemptions_polynomial
-                        * Polynomial::new_monomial(FieldElement::<Self::Field>::one(), 1)
-                        - Polynomial::new_monomial(roots_of_unity[exemption_index].clone(), 0);
+                        * (Polynomial::new_monomial(FieldElement::<Self::Field>::one(), 1)
+                            - Polynomial::new_monomial(roots_of_unity[exemption_index].clone(), 0));
                 }
 
                 result.push(roots_of_unity_vanishing_polynomial / exemptions_polynomial);
