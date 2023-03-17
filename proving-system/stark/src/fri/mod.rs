@@ -89,7 +89,7 @@ where
         // sample beta:
         // let beta_bytes = transcript.challenge();
         // let beta = FE::from_bytes_be(&beta_bytes).unwrap();
-        let beta = FieldElement::from(4);
+        let beta = FieldElement::from(1);
 
         let (p_i, domain_i, evaluation_i) = next_fri_layer(&last_poly, &last_domain, &beta);
 

@@ -28,8 +28,6 @@ pub type FE = FieldElement<PrimeField>;
 
 // DEFINITION OF CONSTANTS
 
-const ORDER_OF_ROOTS_OF_UNITY_FOR_LDE: u64 = 1024;
-
 // We are using 3 as the offset as it's our field's generator.
 const COSET_OFFSET: u64 = 3;
 
@@ -307,14 +305,16 @@ pub fn verify<F: IsField + IsTwoAdicField, A: AIR + AIR<Field = F>>(
     let max_degree_power_of_two = helpers::next_power_of_two(max_degree as u64);
 
     // TODO: This is assuming one column
-    let mut boundary_quotient_ood_evaluation = (&trace_poly_ood_frame_evaluations.get_row(0)[0]
-        - boundary_interpolating_polynomial.evaluate(&z))
-        / boundary_zerofier.evaluate(&z);
+    let mut boundary_quotient_ood_evaluation = &trace_poly_ood_frame_evaluations.get_row(0)[0]
+        - boundary_interpolating_polynomial.evaluate(&z);
 
     boundary_quotient_ood_evaluation = boundary_quotient_ood_evaluation
         * (&boundary_alpha
             * z.pow(max_degree_power_of_two - (air.context().trace_length as u64 - 1))
             + &boundary_beta);
+
+    boundary_quotient_ood_evaluation =
+        boundary_quotient_ood_evaluation / boundary_zerofier.evaluate(&z);
 
     let transition_ood_frame_evaluations = air.compute_transition(trace_poly_ood_frame_evaluations);
 
@@ -342,26 +342,19 @@ pub fn verify<F: IsField + IsTwoAdicField, A: AIR + AIR<Field = F>>(
     let composition_poly_claimed_ood_evaluation =
         &composition_poly_evaluations[0] + &z * &composition_poly_evaluations[1];
 
-    println!(
-        "COMPOSITION POLY CLAIMED OOD EVALUATION {:?}",
-        composition_poly_claimed_ood_evaluation
-    );
-    println!(
-        "COMPOSITION POLY ACTUAL OOD EVALUATION {:?}",
-        composition_poly_ood_evaluation
-    );
-
-    println!("BEFORE CONSISTENCY CHECK");
     if composition_poly_claimed_ood_evaluation != composition_poly_ood_evaluation {
         return false;
     }
-    println!("AFTER CONSISTENCY CHECK");
 
     // // END TRACE <-> Composition poly consistency evaluation check
+
+    let lde_root_order =
+        (air.context().trace_length * air.options().blowup_factor as usize).trailing_zeros();
 
     fri_verify(
         &proof.fri_layers_merkle_roots,
         &proof.fri_decommitment,
+        lde_root_order,
         transcript,
     )
 }
@@ -370,6 +363,7 @@ pub fn verify<F: IsField + IsTwoAdicField, A: AIR + AIR<Field = F>>(
 pub fn fri_verify<F: IsField + IsTwoAdicField>(
     fri_layers_merkle_roots: &[FieldElement<F>],
     fri_decommitment: &FriDecommitment<F>,
+    lde_root_order: u32,
     _transcript: &mut Transcript,
 ) -> bool {
     // For each fri layer merkle proof check:
@@ -386,8 +380,8 @@ pub fn fri_verify<F: IsField + IsTwoAdicField>(
     // TODO: Fiat-Shamir
     let decommitment_index: u64 = 4;
 
-    let mut lde_primitive_root =
-        F::get_primitive_root_of_unity(ORDER_OF_ROOTS_OF_UNITY_FOR_LDE).unwrap();
+    let mut lde_primitive_root = F::get_primitive_root_of_unity(lde_root_order as u64).unwrap();
+
     let mut offset = FieldElement::from(COSET_OFFSET);
 
     // For each (merkle_root, merkle_auth_path) / fold
@@ -421,7 +415,7 @@ pub fn fri_verify<F: IsField + IsTwoAdicField>(
     {
         // This is the current layer's evaluation domain length. We need it to know what the decommitment index for the current
         // layer is, so we can check the merkle paths at the right index.
-        let current_layer_domain_length = ORDER_OF_ROOTS_OF_UNITY_FOR_LDE >> layer_number;
+        let current_layer_domain_length = (2_u64.pow(lde_root_order) as u64) >> layer_number;
 
         let layer_evaluation_index = decommitment_index % current_layer_domain_length;
         if !fri_layer_auth_path.verify(
@@ -510,13 +504,13 @@ mod tests {
     #[derive(Clone)]
     pub struct FibonacciAIR {
         context: AirContext,
-        // trace: TraceTable<PrimeField>,
-        trace: TraceTable<F17>,
+        trace: TraceTable<PrimeField>,
+        // trace: TraceTable<F17>,
     }
 
     impl AIR for FibonacciAIR {
-        // type Field = PrimeField;
-        type Field = F17;
+        type Field = PrimeField;
+        // type Field = F17;
 
         fn new(trace: TraceTable<Self::Field>, context: air::context::AirContext) -> Self {
             Self {
@@ -539,7 +533,7 @@ mod tests {
         fn compute_boundary_constraints(&self) -> BoundaryConstraints<Self::Field> {
             let a0 = BoundaryConstraint::new_simple(0, FieldElement::<Self::Field>::one());
             let a1 = BoundaryConstraint::new_simple(1, FieldElement::<Self::Field>::one());
-            let result = BoundaryConstraint::new_simple(7, FieldElement::<Self::Field>::from(21));
+            let result = BoundaryConstraint::new_simple(3, FieldElement::<Self::Field>::from(3));
 
             BoundaryConstraints::from_constraints(vec![a0, a1, result])
         }
@@ -585,8 +579,8 @@ mod tests {
 
     #[test]
     fn test_prove() {
-        let trace = fibonacci_trace([FE17::new(1), FE17::new(1)], 4);
-        // let trace = fibonacci_trace([FE::from(1), FE::from(1)], 4);
+        // let trace = fibonacci_trace([FE17::new(1), FE17::new(1)], 4);
+        let trace = fibonacci_trace([FE::from(1), FE::from(1)], 4);
 
         let context = AirContext {
             options: ProofOptions { blowup_factor: 2 },
