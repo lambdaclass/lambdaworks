@@ -1,7 +1,9 @@
 use lambdaworks_stark::FE;
 use lambdaworks_stark::ProofConfig;
+use lambdaworks_stark::StarkProof;
 
 use pyo3::*;
+use pyo3::types::*;
 
 use crate::math::unsigned_integer::element::PyU256;
 
@@ -33,4 +35,30 @@ impl PyProofConfig {
             blowup_factor,
         })
     }
+}
+
+#[pyclass]
+pub struct PyStarkProof(StarkProof);
+
+#[pyfunction]
+pub fn prove(trace: &PyList, proof_config: &PyProofConfig) -> PyResult<PyStarkProof> {
+    // FIXME is there a better way of taking a list of FieldElements as parameters?
+    let trace = {
+        let mut v: Vec<FE> = Vec::with_capacity(trace.len());
+        for pyelem in trace {
+            let fe = PyFieldElement::extract(pyelem)?;
+            v.push(fe.0);
+        }
+        v
+    };
+
+    Ok(PyStarkProof(lambdaworks_stark::prover::prove(
+        &trace,
+        &proof_config.0,
+    )))
+}
+
+#[pyfunction]
+pub fn verify(stark_proof: &PyStarkProof) -> bool {
+    lambdaworks_stark::verifier::verify(&stark_proof.0)
 }
