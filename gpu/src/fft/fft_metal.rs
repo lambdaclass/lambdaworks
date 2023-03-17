@@ -75,34 +75,35 @@ impl FFTMetalState {
             )
         };
 
-        let mut group_count = 1u64;
-        let mut group_size = input.len() as u64;
+        let command_buffer = self.command_queue.new_command_buffer();
+        let compute_encoder = command_buffer.new_compute_command_encoder();
 
-        while group_count < input.len() as u64 {
+        compute_encoder.set_compute_pipeline_state(&pipeline);
+        compute_encoder.set_buffer(0, Some(&input_buffer), 0);
+        compute_encoder.set_buffer(1, Some(&twiddles_buffer), 0);
+
+        for stage in 0..order {
+            let group_count = stage + 1;
+            let group_size = input.len() as u64 / (1 << stage);
+
             let group_size_buffer = self.device.new_buffer_with_data(
                 void_ptr(&group_size),
                 basetype_size as u64,
                 MTLResourceOptions::StorageModeShared,
             );
-            let command_buffer = self.command_queue.new_command_buffer();
-            let compute_encoder = command_buffer.new_compute_command_encoder();
 
-            compute_encoder.set_compute_pipeline_state(&pipeline);
-            compute_encoder.set_buffer(0, Some(&input_buffer), 0);
-            compute_encoder.set_buffer(1, Some(&twiddles_buffer), 0);
             compute_encoder.set_buffer(2, Some(&group_size_buffer), 0);
 
             let threadgroup_size = MTLSize::new(group_size / 2, 1, 1);
             let threadgroup_count = MTLSize::new(group_count, 1, 1);
+
             compute_encoder.dispatch_thread_groups(threadgroup_count, threadgroup_size);
-            compute_encoder.end_encoding();
-
-            command_buffer.commit();
-            command_buffer.wait_until_completed();
-
-            group_count *= 2;
-            group_size /= 2;
         }
+
+        compute_encoder.end_encoding();
+
+        command_buffer.commit();
+        command_buffer.wait_until_completed();
 
         let results_ptr = input_buffer.contents() as *const F::BaseType;
         let results_len = input_buffer.length() as usize / mem::size_of::<F::BaseType>();
