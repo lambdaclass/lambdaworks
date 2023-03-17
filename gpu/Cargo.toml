@@ -10,3 +10,4 @@ metal = "0.24.0"
 lambdaworks-math = { path = "../math" }
 lambdaworks-crypto = { path = "../crypto"}
 proptest = "1.1.0"
+objc = "0.2.7"

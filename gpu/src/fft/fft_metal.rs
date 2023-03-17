@@ -157,17 +157,21 @@ mod tests {
         // Property-based test that ensures NR Radix-2 FFT gives same result as a naive polynomial evaluation.
         #[test]
         fn test_metal_fft_matches_sequential(poly in poly(8)) {
-            let order = poly.coefficients().len().trailing_zeros() as u64;
-            let expected = poly.evaluate_fft().unwrap();
+            objc::rc::autoreleasepool(|| {
+                let order = poly.coefficients().len().trailing_zeros() as u64;
+                let expected = poly.evaluate_fft().unwrap();
 
-            let metal_state = FFTMetalState::new(None).unwrap();
-            let twiddles: Vec<_> = F::get_twiddles(order, RootsConfig::BitReverse).unwrap();
-            let command_buff_encoder = metal_state.setup("radix2_dit_butterfly", &twiddles).unwrap();
+                let metal_state = FFTMetalState::new(None).unwrap();
+                let twiddles: Vec<_> = F::get_twiddles(order, RootsConfig::BitReverse).unwrap();
+                let command_buff_encoder = metal_state.setup("radix2_dit_butterfly", &twiddles).unwrap();
 
-            let mut result = metal_state.execute(poly.coefficients(), command_buff_encoder).unwrap();
-            in_place_bit_reverse_permute(&mut result);
+                let mut result = metal_state.execute(poly.coefficients(), command_buff_encoder).unwrap();
+                in_place_bit_reverse_permute(&mut result);
 
-            assert_eq!(&result[..], &expected[..]);
+                prop_assert_eq!(&result[..], &expected[..]);
+
+                Ok(())
+            }).unwrap();
         }
     }
 }
