@@ -38,11 +38,37 @@ pub fn metal_fft_benchmarks(c: &mut Criterion) {
                             F::get_twiddles(order as u64, RootsConfig::BitReverse).unwrap();
                         let fft_metal = FFTMetalState::new(None).unwrap();
                         let command_buff_encoder =
-                            fft_metal.setup("radix2_dit_butterfly", &twiddles).unwrap();
+                            fft_metal.setup_fft("radix2_dit_butterfly", &twiddles).unwrap();
 
-                        let mut result = fft_metal.execute(&coeffs, command_buff_encoder).unwrap();
+                        let mut result = fft_metal.execute_fft(&coeffs, command_buff_encoder).unwrap();
 
                         in_place_bit_reverse_permute(&mut result);
+                    });
+                });
+            },
+        );
+    }
+
+    group.finish();
+}
+
+pub fn metal_fft_twiddles_benchmarks(c: &mut Criterion) {
+    let mut group = c.benchmark_group("metal_fft");
+    group.sample_size(10); // it becomes too slow with the default of 100
+
+    for order in 2..=4 {
+        group.throughput(criterion::Throughput::Elements(1 << order)); // info for criterion
+
+        // the objective is to bench ordered FFT, including twiddles generation and Metal setup
+        group.bench_with_input(
+            format!("parallel_twiddle_factors_2^({order}-1)_elems"),
+            &order,
+            |bench, order| {
+                bench.iter(|| {
+                    // TODO: autoreleaspool hurts perf. by 2-3%. Search for an alternative
+                    objc::rc::autoreleasepool(|| {
+                        let metal_state = FFTMetalState::new(None).unwrap();
+                        let _gpu_twiddles = metal_state.gen_twiddles::<F>(*order).unwrap();
                     });
                 });
             },

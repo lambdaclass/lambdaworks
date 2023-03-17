@@ -22,7 +22,8 @@ void radix2_dit_butterfly(
   input[i + distance]  = (a - w*b).asUInt32(); // --/\--
 }
 
-kernel void gen_twiddles(
+[[kernel]]
+void calc_twiddle(
     constant uint32_t& _omega [[ buffer(0) ]],
     device uint32_t* result  [[ buffer(1) ]],
     uint index [[ thread_position_in_grid ]]

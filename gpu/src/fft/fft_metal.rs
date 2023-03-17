@@ -31,7 +31,7 @@ impl FFTMetalState {
         })
     }
 
-    pub fn setup<F: IsTwoAdicField>(
+    pub fn setup_fft<F: IsTwoAdicField>(
         &self,
         kernel: &str,
         twiddles: &[FieldElement<F>],
@@ -66,7 +66,7 @@ impl FFTMetalState {
         Ok((command_buffer, compute_encoder))
     }
 
-    pub fn execute<F: IsTwoAdicField>(
+    pub fn execute_fft<F: IsTwoAdicField>(
         &self,
         input: &[FieldElement<F>],
         (command_buffer, compute_encoder): (
@@ -112,6 +112,67 @@ impl FFTMetalState {
 
         let results_ptr = input_buffer.contents() as *const F::BaseType;
         let results_len = input_buffer.length() as usize / basetype_size;
+        let results_slice = unsafe { std::slice::from_raw_parts(results_ptr, results_len) };
+
+        Ok(results_slice.iter().map(FieldElement::from).collect())
+    }
+
+    pub fn gen_twiddles<F: IsTwoAdicField>(
+        &self,
+        order: u64,
+    ) -> Result<Vec<FieldElement<F>>, FFTError> {
+        let twiddles_kernel = self
+            .library
+            .get_function("calc_twiddle", None)
+            .map_err(FFTError::MetalFunctionError)?;
+
+        let pipeline = self
+            .device
+            .new_compute_pipeline_state_with_function(&twiddles_kernel)
+            .map_err(FFTError::MetalPipelineError)?;
+
+        let basetype_size = std::mem::size_of::<F::BaseType>();
+
+        let omega_buffer = {
+            let omega = F::get_primitive_root_of_unity(order)?;
+            let omega = [omega.value().clone()];
+
+            self.device.new_buffer_with_data(
+                unsafe { mem::transmute(omega.as_ptr()) }, // reinterprets into a void pointer
+                basetype_size as u64,
+                MTLResourceOptions::StorageModeShared,
+            )
+        };
+
+        let result_len = (1u64 << order) / 2;
+        let result_buffer = self.device.new_buffer(
+            result_len * basetype_size as u64,
+            MTLResourceOptions::StorageModeShared,
+        );
+
+        let command_queue = self.device.new_command_queue();
+        let command_buffer = command_queue.new_command_buffer();
+        let compute_encoder = command_buffer.new_compute_command_encoder();
+
+        compute_encoder.set_compute_pipeline_state(&pipeline);
+        compute_encoder.set_buffer(0, Some(&omega_buffer), 0);
+        compute_encoder.set_buffer(1, Some(&result_buffer), 0);
+
+        // SIMD group size:
+        let threads = pipeline.thread_execution_width();
+        // the idea is to have a SIMD per threadgroup, so:
+        let thread_group_size = MTLSize::new(threads, 1, 1);
+        // then the amount of groups should be the minimum that make `order` fit:
+        let thread_group_count = MTLSize::new((result_len + threads - 1) / threads, 1, 1);
+
+        compute_encoder.dispatch_thread_groups(thread_group_size, thread_group_count);
+        compute_encoder.end_encoding();
+
+        command_buffer.commit();
+        command_buffer.wait_until_completed();
+
+        let results_ptr = result_buffer.contents() as *const F::BaseType;
+        let results_len = result_buffer.length() as usize / basetype_size;
         let results_slice = unsafe { std::slice::from_raw_parts(results_ptr, results_len) };
 
         Ok(results_slice.iter().map(FieldElement::from).collect())
@@ -162,14 +223,29 @@ mod tests {
                 let expected = poly.evaluate_fft().unwrap();
 
                 let metal_state = FFTMetalState::new(None).unwrap();
-                let twiddles: Vec<_> = F::get_twiddles(order, RootsConfig::BitReverse).unwrap();
-                let command_buff_encoder = metal_state.setup("radix2_dit_butterfly", &twiddles).unwrap();
+                let twiddles = F::get_twiddles(order, RootsConfig::BitReverse).unwrap();
+                let command_buff_encoder = metal_state.setup_fft("radix2_dit_butterfly", &twiddles).unwrap();
 
-                let mut result = metal_state.execute(poly.coefficients(), command_buff_encoder).unwrap();
+                let mut result = metal_state.execute_fft(poly.coefficients(), command_buff_encoder).unwrap();
                 in_place_bit_reverse_permute(&mut result);
 
                 prop_assert_eq!(&result[..], &expected[..]);
 
+                Ok(())
+            }).unwrap();
+        }
+    }
+
+    proptest! {
+        #[test]
+        fn test_gpu_twiddles_match_cpu(order in powers_of_two(4)) {
+            objc::rc::autoreleasepool(|| {
+                let cpu_twiddles = F::get_twiddles(order as u64, RootsConfig::Natural).unwrap();
+
+                let metal_state = FFTMetalState::new(None).unwrap();
+                let gpu_twiddles = metal_state.gen_twiddles::<F>(order as u64).unwrap();
+
+                prop_assert_eq!(cpu_twiddles, gpu_twiddles);
                 Ok(())
             }).unwrap();
         }
