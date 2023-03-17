@@ -97,7 +97,7 @@ where
         let tree = &commitment_i.merkle_tree;
         let root = tree.root.clone();
         let root_bytes = root.to_bytes_be();
-        transcript.append(&root_bytes);
+        // transcript.append(&root_bytes);
 
         fri_commitment_list.push(commitment_i);
         degree = p_i.degree();

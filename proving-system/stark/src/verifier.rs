@@ -112,6 +112,7 @@ where
     // construct vector of betas
     let mut beta_list = Vec::new();
     let count_betas = proof.fri_layers_merkle_roots.len() - 1;
+
     for (i, merkle_roots) in proof.fri_layers_merkle_roots.iter().enumerate() {
         let root = merkle_roots.clone();
         let root_bytes = root.to_bytes_be();
