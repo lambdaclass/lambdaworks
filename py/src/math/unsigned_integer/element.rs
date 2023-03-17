@@ -12,9 +12,3 @@ impl PyU256 {
         Ok(Self(U256::from(value)))
     }
 }
-
-pub fn module(py: Python) -> PyResult<&PyModule> {
-    let m = PyModule::new(py, "element")?;
-    m.add_class::<PyU256>()?;
-    Ok(m)
-}

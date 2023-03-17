@@ -65,8 +65,8 @@ fn verify(stark_proof: &StarkProof) -> bool {
 }
 
 #[pymodule]
-fn lambdaworks_py(py: Python, m: &PyModule) -> PyResult<()> {
-    m.add_submodule(math::module(py)?)?;
+fn lambdaworks_py(_py: Python, m: &PyModule) -> PyResult<()> {
+    m.add_class::<PyU256>()?;
     m.add_class::<FieldElement>()?;
     m.add_class::<ProofConfig>()?;
     m.add_function(wrap_pyfunction!(prove, m)?)?;
