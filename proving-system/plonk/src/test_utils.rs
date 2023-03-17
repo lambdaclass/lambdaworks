@@ -82,19 +82,19 @@ pub fn test_common_preprocessed_input() -> CommonPreprocessedInput<FrField> {
         acc
     });
 
-    let S1_lagrange = vec![
+    let s1_lagrange = vec![
         u.pow(2_u64) * w.pow(3_u64),
         u.pow(0_u64) * w.pow(3_u64),
         u.pow(0_u64) * w.pow(0_u64),
         u.pow(0_u64) * w.pow(1_u64),
     ];
-    let S2_lagrange = vec![
+    let s2_lagrange = vec![
         u.pow(0_u64) * w.pow(2_u64),
         u.pow(1_u64) * w.pow(0_u64),
         u.pow(1_u64) * w.pow(2_u64),
         u.pow(2_u64) * w.pow(2_u64),
     ];
-    let S3_lagrange = vec![
+    let s3_lagrange = vec![
         u.pow(1_u64) * w.pow(1_u64),
         u.pow(2_u64) * w.pow(0_u64),
         u.pow(1_u64) * w.pow(3_u64),
@@ -102,12 +102,12 @@ pub fn test_common_preprocessed_input() -> CommonPreprocessedInput<FrField> {
     ];
 
     CommonPreprocessedInput {
-        number_constraints: NUMBER_CONSTRAINTS,
-        order_4_root_unity: ORDER_4_ROOT_UNITY,
-        order_r_minus_1_root_unity: ORDER_R_MINUS_1_ROOT_UNITY,
+        n: NUMBER_CONSTRAINTS,
+        omega: ORDER_4_ROOT_UNITY,
+        k1: ORDER_R_MINUS_1_ROOT_UNITY,
         domain: domain.clone(),
 
-        Ql: Polynomial::interpolate(
+        ql: Polynomial::interpolate(
             &domain,
             &[
                 -FieldElement::one(),
@@ -116,7 +116,7 @@ pub fn test_common_preprocessed_input() -> CommonPreprocessedInput<FrField> {
                 FieldElement::one(),
             ],
         ),
-        Qr: Polynomial::interpolate(
+        qr: Polynomial::interpolate(
             &domain,
             &[
                 FieldElement::zero(),
@@ -125,7 +125,7 @@ pub fn test_common_preprocessed_input() -> CommonPreprocessedInput<FrField> {
                 -FieldElement::one(),
             ],
         ),
-        Qo: Polynomial::interpolate(
+        qo: Polynomial::interpolate(
             &domain,
             &[
                 FieldElement::zero(),
@@ -134,7 +134,7 @@ pub fn test_common_preprocessed_input() -> CommonPreprocessedInput<FrField> {
                 FieldElement::zero(),
             ],
         ),
-        Qm: Polynomial::interpolate(
+        qm: Polynomial::interpolate(
             &domain,
             &[
                 FieldElement::zero(),
@@ -143,7 +143,7 @@ pub fn test_common_preprocessed_input() -> CommonPreprocessedInput<FrField> {
                 FieldElement::zero(),
             ],
         ),
-        Qc: Polynomial::interpolate(
+        qc: Polynomial::interpolate(
             &domain,
             &[
                 FieldElement::from(2_u64), // TODO: this should be filled in by the prover
@@ -153,12 +153,12 @@ pub fn test_common_preprocessed_input() -> CommonPreprocessedInput<FrField> {
             ],
         ),
 
-        S1_monomial: Polynomial::interpolate(&domain, &S1_lagrange),
-        S2_monomial: Polynomial::interpolate(&domain, &S2_lagrange),
-        S3_monomial: Polynomial::interpolate(&domain, &S3_lagrange),
+        s1: Polynomial::interpolate(&domain, &s1_lagrange),
+        s2: Polynomial::interpolate(&domain, &s2_lagrange),
+        s3: Polynomial::interpolate(&domain, &s3_lagrange),
 
-        S1_lagrange: S1_lagrange,
-        S2_lagrange: S2_lagrange,
-        S3_lagrange: S3_lagrange,
+        s1_lagrange: s1_lagrange,
+        s2_lagrange: s2_lagrange,
+        s3_lagrange: s3_lagrange,
     }
 }
