@@ -1,28 +1,14 @@
 mod math;
+mod proving_systems;
 
 use crate::math::unsigned_integer::element::PyU256;
+use crate::proving_systems::stark::FieldElement;
 
 use lambdaworks_stark::{ProofConfig as ProofConfigInternal, StarkProof as StarkProofInternal, FE};
 
 use pyo3::prelude::*;
 use pyo3::types::*;
 use pyo3::wrap_pyfunction;
-
-#[pyclass]
-#[derive(Clone)]
-pub struct FieldElement(FE);
-
-#[pymethods]
-impl FieldElement {
-    #[new]
-    pub fn new(value: &PyU256) -> Self {
-        Self(FE::new(value.0))
-    }
-
-    fn __add__(&self, other: &Self) -> Self {
-        Self(&self.0 + &other.0)
-    }
-}
 
 #[pyclass]
 pub struct ProofConfig(ProofConfigInternal);
