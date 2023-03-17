@@ -8,7 +8,7 @@ use crate::{
 use lambdaworks_crypto::{
     commitments::kzg::StructuredReferenceString, fiat_shamir::transcript::Transcript,
 };
-use lambdaworks_math::traits::ByteConversion;
+use lambdaworks_math::{traits::ByteConversion, unsigned_integer::element::U256};
 use lambdaworks_math::{field::element::FieldElement, polynomial::Polynomial};
 
 struct Proof {
@@ -247,8 +247,6 @@ fn round_5(
     s2_value: &FrElement,
     z_value: &FrElement,
 ) -> (G1Point, G1Point) {
-    // dbg!(&a_value, &b_value, &c_value, &s1_value, &s2_value, &z_value);
-
     let n = common_preprocesed_input.number_constraints; // TODO: Is this the correct value?
 
     let a_value_1 = Polynomial::new_monomial(a_value.clone(), 0);
@@ -289,24 +287,22 @@ fn round_5(
 
     let zeta_raised_n = Polynomial::new_monomial(zeta.pow(n + 2), 0); // TODO: Paper says n and 2n, but Gnark uses n+2 and 2n+4 (see the TODO(*))
     let zeta_raised_2n = Polynomial::new_monomial(zeta.pow(2 * n + 4), 0);
-    dbg!((&a_value_1 + &beta_1 * &s1_value_1 + &gamma_1) * (&b_value_1 + &beta_1 * &s2_value_1 + &gamma_1) *  &z_omega_value_1 );
-
-    dbg!(
-        (z.clone() * l1.evaluate(zeta)) * &alpha_1 * &alpha_1 +
-        ((&a_value_1 + &beta_1 * &s1_value_1 + &gamma_1) * (&b_value_1 + &beta_1 * &s2_value_1 + &gamma_1) *  &z_omega_value_1 * S3 - z * (&a_value_1 + &beta_1 * &zeta_1 + &gamma_1) * (&b_value_1 + &beta_1 * &k1_1 * &zeta_1 + &gamma_1) * (&c_value_1 + &beta_1 * &k2_1 * &zeta_1 + &gamma_1)) * &alpha_1 +
-        &a_value_1 * &b_value_1 * Qm + &a_value_1 * Ql + &b_value_1 * Qr + &c_value_1 * Qo + Qc
-    );
+    
     let r_1 = &a_value_1 * &b_value_1 * Qm + &a_value_1 * Ql + &b_value_1 * Qr + &c_value_1 * Qo + Qc; // TODO paper says PI(z), but GNark does this.
     let r_2_1 = (&a_value_1 + &beta_1 * &zeta_1 + &gamma_1) * (&b_value_1 + &beta_1 * k1_1 * &zeta_1 + &gamma_1) * (&c_value_1 + &beta_1 * &k2_1 * &zeta_1 + &gamma_1) * polynomial_z;
     let r_2_2 = (&a_value_1 + &beta_1 * &s1_value_1 + &gamma_1) * (&b_value_1 + &beta_1 * &s2_value_1 + &gamma_1) * (&c_value_1 + beta_1 * S3 + gamma_1) * &z_omega_value_1;
     let r_3 = (z - &one) * l1.evaluate(zeta);
     let r_4 = (t_lo + zeta_raised_n * t_mid + zeta_raised_2n * t_hi) * Zh.evaluate(zeta);
-    dbg!(&r_1 + &alpha_1 * (-&r_2_1 + &r_2_2) + &alpha_1 * &alpha_1  * &r_3);
     let r = r_1 + &alpha_1 * (-r_2_1 + r_2_2) + &alpha_1 * &alpha_1  * r_3 - r_4; // TODO: Paper says second term is minus the term found on gnark. This doesn't affect the protocol.
 
-
     let w_zeta_den = Polynomial::new(&[-zeta, FrElement::one()]);
-    let w_zeta_num = r + (polynomial_a - a_value_1) * upsilon.clone() + (polynomial_b - b_value_1) * upsilon.pow(2_u64) + (polynomial_c - c_value_1) * upsilon.pow(3_u64) + (S1 - s1_value_1) * upsilon.pow(4_u64) + (S2 - s2_value_1) * upsilon.pow(5_u64);
+    let w_zeta_num_1 = (polynomial_a - a_value_1) * upsilon.clone();
+    let w_zeta_num_2 = (polynomial_b - b_value_1) * upsilon.pow(2_u64);
+    let w_zeta_num_3 = (polynomial_c - c_value_1) * upsilon.pow(3_u64);
+    let w_zeta_num_4 = (S1 - s1_value_1) * upsilon.pow(4_u64);
+    let w_zeta_num_5 = (S2 - s2_value_1) * upsilon.pow(5_u64);
+
+    let w_zeta_num = r + w_zeta_num_1 + w_zeta_num_2 + w_zeta_num_3 + w_zeta_num_4 + w_zeta_num_5;
     //let w_zeta = w_zeta_num / w_zeta_den;
     let (w_zeta, remainder) = w_zeta_num.long_division_with_remainder(&w_zeta_den);
     assert_eq!(remainder, Polynomial::zero(), "w_zeta_den does not divide w_zeta_num");
@@ -320,6 +316,104 @@ fn round_5(
     let w_zeta_omega_1 = kzg.commit(&w_zeta_omega);
 
     (w_zeta_1, w_zeta_omega_1)
+}
+
+fn round_5_gnark(
+    common_preprocesed_input: &CommonPreprocessedInput,
+    kzg: &KZG,
+    polynomial_a: &Polynomial<FrElement>,
+    polynomial_b: &Polynomial<FrElement>,
+    polynomial_c: &Polynomial<FrElement>,
+    polynomial_z: &Polynomial<FrElement>,
+    t_lo: &Polynomial<FrElement>,
+    t_mid: &Polynomial<FrElement>,
+    t_hi: &Polynomial<FrElement>,
+    alpha: &FrElement,
+    beta: &FrElement,
+    gamma: &FrElement,
+    zeta: &FrElement,
+    upsilon: &FrElement,
+    a_value: &FrElement,
+    b_value: &FrElement,
+    c_value: &FrElement,
+    s1_value: &FrElement,
+    s2_value: &FrElement,
+    z_value: &FrElement,
+) {
+    let n = common_preprocesed_input.number_constraints; // TODO: Is this the correct value?
+
+    let a_value_1 = &Polynomial::new_monomial(a_value.clone(), 0);
+    let b_value_1 = &Polynomial::new_monomial(b_value.clone(), 0);
+    let c_value_1 = &Polynomial::new_monomial(c_value.clone(), 0);
+    let s1_value_1 = &Polynomial::new_monomial(s1_value.clone(), 0);
+    let s2_value_1 = &Polynomial::new_monomial(s2_value.clone(), 0);
+    let z_omega_value_1 = &Polynomial::new_monomial(z_value.clone(), 0);
+
+    let domain = &common_preprocesed_input.domain;
+    let mut e1 = vec![FrElement::zero(); domain.len()];
+    e1[0] = FrElement::one();
+    let l1 = &Polynomial::interpolate(&domain, &e1);
+
+    let z = polynomial_z;
+
+    let k1 = &ORDER_R_MINUS_1_ROOT_UNITY;
+    let k2 = &(k1 * k1);
+    let k1_1 = &Polynomial::new_monomial(k1.clone(), 0);
+    let k2_1 = &Polynomial::new_monomial(k2.clone(), 0);
+    let one = &Polynomial::new_monomial(FrElement::one(), 0);
+
+    let zeta_1 = &Polynomial::new_monomial(zeta.clone(), 0);
+    let alpha_1 = &Polynomial::new_monomial(alpha.clone(), 0);
+    let beta_1 = &Polynomial::new_monomial(beta.clone(), 0);
+    let gamma_1 = &Polynomial::new_monomial(gamma.clone(), 0);
+
+    let Zh = Polynomial::new_monomial(FrElement::one(), n) - one;
+
+    let Qm = &common_preprocesed_input.Qm;
+    let Ql = &common_preprocesed_input.Ql;
+    let Qr = &common_preprocesed_input.Qr;
+    let Qo = &common_preprocesed_input.Qo;
+    let Qc = &common_preprocesed_input.Qc;
+    let S1 = &common_preprocesed_input.S1_monomial;
+    let S2 = &common_preprocesed_input.S2_monomial;
+    let S3 = &common_preprocesed_input.S3_monomial;
+
+    let zeta_raised_n = Polynomial::new_monomial(zeta.pow(n + 2), 0); // TODO: Paper says n and 2n, but Gnark uses n+2 and 2n+4 (see the TODO(*))
+    let zeta_raised_2n = Polynomial::new_monomial(zeta.pow(2 * n + 4), 0);
+    // α²*L₁(ζ)*Z(X)
+    // + α*( (l(ζ)+β*s1(ζ)+γ)*(r(ζ)+β*s2(ζ)+γ)*Z(μζ)*s3(X) - Z(X)*(l(ζ)+β*id1(ζ)+γ)*(r(ζ)+β*id2(ζ)+γ)*(o(ζ)+β*id3(ζ)+γ))
+    // + l(ζ)*Ql(X) + l(ζ)r(ζ)*Qm(X) + r(ζ)*Qr(X) + o(ζ)*Qo(X) + Qk(X)
+
+    // s1 dbg!((a_value_1 + beta_1 * s1_value_1 + gamma_1) * (b_value_1 + beta_1 * s2_value_1 + gamma_1) * z_omega_value_1 * beta_1);
+    // s2 dbg!(- (a_value_1 + beta_1 * zeta_1 + gamma_1) * (b_value_1 + beta_1 * k1_1 * zeta_1 + gamma_1) * (c_value_1 + beta_1 * k2_1 * zeta_1 + gamma_1));
+    // s2 * Z 
+    let s1_go = (a_value_1 + beta_1 * s1_value_1 + gamma_1) * (b_value_1 + beta_1 * s2_value_1 + gamma_1) * z_omega_value_1 * beta_1;
+    let s2_go = - (a_value_1 + beta_1 * zeta_1 + gamma_1) * (b_value_1 + beta_1 * k1_1 * zeta_1 + gamma_1) * (c_value_1 + beta_1 * k2_1 * zeta_1 + gamma_1);
+    let l1_go = (zeta.pow(n) - FrElement::one()) / (zeta - FrElement::one()); // Does this make sense?
+    let lagrangeZeta_go = alpha_1 * alpha_1 * l1_go * FrElement::new(U256::from_u64(n as u64)).inv();
+    
+    dbg!(&s1_go);
+    dbg!(&s2_go);
+    dbg!(&lagrangeZeta_go);
+
+    //dbg!(l1.evaluate(zeta)); // L1(z)
+    //dbg!((zeta.pow(n) - FrElement::one()) / (zeta - FrElement::one())); // The computation done in gnark
+    //dbg!(zeta.pow(n - 1) / (zeta - FrElement::one())); // The computation in gnark code
+    //dbg!((zeta.pow(n + 1) - FrElement::one()) / (zeta - FrElement::one())); // La igualdad que dice el paper
+
+    // Dicnen que L₁ = (ζⁿ⁻¹)/(ζ-1)
+    // Esto es lo que calcula Gnark como (1/n)*α²*L₁(ζ)
+    dbg!(alpha_1 * alpha_1 * FrElement::new(U256::from_u64(n as u64)).inv() * ((zeta.pow(n) - FrElement::one()) / (zeta - FrElement::one())));
+
+
+    let r_lin_1 = z.clone() * l1.evaluate(zeta);
+    let r_lin_2_1 = (a_value_1 + beta_1 * s1_value_1 + gamma_1) * (b_value_1 + beta_1 * s2_value_1 + gamma_1) * z_omega_value_1 * S3 * beta_1; // Agregar beta?
+    let r_lin_2_2 = z * (a_value_1 + beta_1 * zeta_1 + gamma_1) * (b_value_1 + beta_1 * k1_1 * zeta_1 + gamma_1) * (c_value_1 + beta_1 * k2_1 * zeta_1 + gamma_1);
+    let r_lin_3 = a_value_1 * Ql + b_value_1 * Qr + a_value_1 * b_value_1 * Qm + Qo * c_value_1 + Qc;
+    let r_lin = alpha_1 * alpha_1 * r_lin_1 + alpha_1 * (r_lin_2_1 - r_lin_2_2) + r_lin_3;
+
+    //dbg!(a_value_1, b_value_1, c_value_1, alpha, beta, gamma, zeta, z_omega_value_1);
+    //dbg!(r_lin);
 }
 
 fn prove(
@@ -442,8 +536,7 @@ mod tests {
     }
 
     fn upsilon() -> FrElement {
-        // TODO: put the correct value
-        FrElement::from_hex("1")
+        FrElement::from_hex("2d15959489a2a8e44693221ca7cbdcab15253d6bae9fd7fe0664cff02fe4f1cf")
     }
 
     #[test]
@@ -628,5 +721,73 @@ mod tests {
             &z_value,
         );
         assert_eq!(w_zeta_1, expected_w_zeta_1);
+    }
+
+    #[test]
+    fn test_round_5_gnark() {
+        let test_circuit = test_circuit();
+        let witness = test_circuit.get_witness();
+        let common_preprocesed_input = CommonPreprocessedInput::for_this(&test_circuit);
+        let srs = test_srs();
+        let kzg = KZG::new(srs);
+
+        let (_, _, _, polynomial_a, polynomial_b, polynomial_c) =
+            round_1(&witness, &common_preprocesed_input, &kzg);
+        let (_, polynomial_z) = round_2(&witness, &common_preprocesed_input, &kzg, &beta(), &gamma());
+
+        let (_, _, _, t_lo, t_mid, t_hi) = round_3(
+            &witness,
+            &common_preprocesed_input,
+            &kzg,
+            &polynomial_a,
+            &polynomial_b,
+            &polynomial_c,
+            &polynomial_z,
+            &alpha(),
+            &beta(),
+            &gamma(),
+        );
+
+        let (a_value, b_value, c_value, s1_value, s2_value, z_value) = round_4(
+            &common_preprocesed_input,
+            &polynomial_a,
+            &polynomial_b,
+            &polynomial_c,
+            &polynomial_z,
+            &zeta(),
+        );
+
+        let expected_w_zeta_1 = BLS12381Curve::create_point_from_affine(
+            FpElement::from_hex("fa6250b80a418f0548b132ac264ff9915b2076c0c2548da9316ae19ffa35bbcf905d9f02f9274739608045ef83a4757"),
+            FpElement::from_hex("17713ade2dbd66e923d4092a5d2da98202959dd65a15e9f7791fab3c0dd08788aa9b4a1cb21d04e0c43bd29225472145"),
+        ).unwrap();
+        //let expected_w_zeta_omega_1 = BLS12381Curve::create_point_from_affine(
+        //    FpElement::from_hex(""),
+        //    FpElement::from_hex(""),
+        //).unwrap();
+
+        round_5_gnark(
+            &common_preprocesed_input,
+            &kzg,
+            &polynomial_a,
+            &polynomial_b,
+            &polynomial_c,
+            &polynomial_z,
+            &t_lo,
+            &t_mid,
+            &t_hi,
+            &alpha(),
+            &beta(),
+            &gamma(),
+            &zeta(),
+            &upsilon(),
+            &a_value,
+            &b_value,
+            &c_value,
+            &s1_value,
+            &s2_value,
+            &z_value,
+        );
+        let h = 0;
     }
 }
