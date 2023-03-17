@@ -20,7 +20,6 @@ fn gen_coeffs(pow: usize) -> Vec<FE> {
 
 pub fn metal_fft_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("metal_fft");
-    //group.sample_size(10); // it becomes too slow with the default of 100
 
     for order in 20..=24 {
         let coeffs = gen_coeffs(order);
@@ -32,15 +31,19 @@ pub fn metal_fft_benchmarks(c: &mut Criterion) {
             &coeffs,
             |bench, coeffs| {
                 bench.iter(|| {
-                    let coeffs = coeffs.clone();
-                    let twiddles = F::get_twiddles(order as u64, RootsConfig::BitReverse).unwrap();
-                    let fft_metal = FFTMetalState::new(None).unwrap();
-                    let command_buff_encoder =
-                        fft_metal.setup("radix2_dit_butterfly", &twiddles).unwrap();
+                    // TODO: autoreleaspool hurts perf. by 2-3%. Search for an alternative
+                    objc::rc::autoreleasepool(|| {
+                        let coeffs = coeffs.clone();
+                        let twiddles =
+                            F::get_twiddles(order as u64, RootsConfig::BitReverse).unwrap();
+                        let fft_metal = FFTMetalState::new(None).unwrap();
+                        let command_buff_encoder =
+                            fft_metal.setup("radix2_dit_butterfly", &twiddles).unwrap();
 
-                    let mut result = fft_metal.execute(&coeffs, command_buff_encoder).unwrap();
+                        let mut result = fft_metal.execute(&coeffs, command_buff_encoder).unwrap();
 
-                    in_place_bit_reverse_permute(&mut result);
+                        in_place_bit_reverse_permute(&mut result);
+                    });
                 });
             },
         );
