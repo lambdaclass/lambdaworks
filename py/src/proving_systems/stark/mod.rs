@@ -4,8 +4,9 @@ use pyo3::*;
 
 use crate::math::unsigned_integer::element::PyU256;
 
+#[pyclass(name = "FieldElement")]
 #[derive(Clone)]
-pub struct FieldElement(pub FE);
+pub struct PyFieldElement(pub FE);
 
 #[pymethods]
 impl FieldElement {
