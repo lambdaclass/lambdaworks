@@ -1,11 +1,14 @@
-use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
+use lambdaworks_crypto::fiat_shamir::transcript::{self, Transcript};
 use lambdaworks_math::{
     field::{
         element::FieldElement,
         traits::{IsField, IsTwoAdicField},
     },
     polynomial::Polynomial,
+    traits::ByteConversion,
 };
+
+use crate::{transcript_to_field, transcript_to_usize, StarkProof};
 
 use super::{
     air::{
@@ -17,9 +20,12 @@ use super::{
 };
 
 pub fn verify<F: IsField + IsTwoAdicField, A: AIR + AIR<Field = F>>(
-    proof: &StarkQueryProof<F>,
+    proof: &StarkProof<F>,
     air: &A,
-) -> bool {
+) -> bool
+where
+    FieldElement<F>: ByteConversion,
+{
     let transcript = &mut Transcript::new();
 
     // BEGIN TRACE <-> Composition poly consistency evaluation check
@@ -36,6 +42,9 @@ pub fn verify<F: IsField + IsTwoAdicField, A: AIR + AIR<Field = F>>(
 
     // TODO: Fiat-Shamir
     let z = FieldElement::<F>::from(2);
+    // TODO: The reason this is commented is we can't just call this function, we have to make sure that the result
+    // is not either a root of unity or an element of the lde coset.
+    // let z = transcript_to_field(transcript);
 
     // C_1(z)
     let domain = boundary_constraints.generate_roots_of_unity(&trace_primitive_root);
@@ -46,8 +55,11 @@ pub fn verify<F: IsField + IsTwoAdicField, A: AIR + AIR<Field = F>>(
     let boundary_interpolating_polynomial = &Polynomial::interpolate(&domain, &values);
     let boundary_zerofier = boundary_constraints.compute_zerofier(&trace_primitive_root);
 
-    let boundary_alpha = FieldElement::<F>::one();
-    let boundary_beta = FieldElement::<F>::one();
+    let boundary_alpha = transcript_to_field(transcript);
+    let boundary_beta = transcript_to_field(transcript);
+    // TODO: these are hardcoded to one column, there should be one alpha and beta per column
+    let alpha = transcript_to_field(transcript);
+    let beta = transcript_to_field(transcript);
 
     let max_degree =
         air.context().trace_length * air.context().transition_degrees().iter().max().unwrap();
@@ -67,10 +79,6 @@ pub fn verify<F: IsField + IsTwoAdicField, A: AIR + AIR<Field = F>>(
         boundary_quotient_ood_evaluation / boundary_zerofier.evaluate(&z);
 
     let transition_ood_frame_evaluations = air.compute_transition(trace_poly_ood_frame_evaluations);
-
-    // TODO: Fiat-Shamir
-    let alpha = FieldElement::one();
-    let beta = FieldElement::one();
 
     let alpha_and_beta_transition_coefficients = vec![(alpha.clone(), beta.clone())];
 
@@ -101,21 +109,57 @@ pub fn verify<F: IsField + IsTwoAdicField, A: AIR + AIR<Field = F>>(
     let lde_root_order =
         (air.context().trace_length * air.options().blowup_factor as usize).trailing_zeros();
 
-    fri_verify(
-        &proof.fri_layers_merkle_roots,
-        &proof.fri_decommitment,
-        lde_root_order,
-        transcript,
-    )
+    // construct vector of betas
+    let mut beta_list = Vec::new();
+    let count_betas = proof.fri_layers_merkle_roots.len() - 1;
+    for (i, merkle_roots) in proof.fri_layers_merkle_roots.iter().enumerate() {
+        let root = merkle_roots.clone();
+        let root_bytes = root.to_bytes_be();
+        transcript.append(&root_bytes);
+
+        if i < count_betas {
+            let beta = transcript_to_field(transcript);
+            beta_list.push(beta);
+        }
+    }
+
+    let first_proof = &proof.query_list[0];
+
+    let last_evaluation = &first_proof.fri_decommitment.last_layer_evaluation;
+    let last_evaluation_bytes = last_evaluation.to_bytes_be();
+    transcript.append(&last_evaluation_bytes);
+
+    let mut result = true;
+    for proof_i in &proof.query_list {
+        let last_evaluation = &proof_i.fri_decommitment.last_layer_evaluation;
+        let last_evaluation_bytes = last_evaluation.to_bytes_be();
+        transcript.append(&last_evaluation_bytes);
+
+        let q_i: usize = transcript_to_usize(transcript) % (2_usize.pow(lde_root_order) as usize);
+        transcript.append(&q_i.to_be_bytes());
+
+        let fri_decommitment = &proof_i.fri_decommitment;
+
+        // this is done in constant time
+        result &= verify_query(
+            &proof.fri_layers_merkle_roots,
+            &beta_list,
+            q_i,
+            fri_decommitment,
+            lde_root_order,
+        );
+    }
+    result
 }
 
-/// Performs FRI verification for some decommitment
-pub fn fri_verify<F: IsField + IsTwoAdicField>(
+pub fn verify_query<F: IsField + IsTwoAdicField>(
     fri_layers_merkle_roots: &[FieldElement<F>],
+    beta_list: &[FieldElement<F>],
+    q_i: usize,
     fri_decommitment: &FriDecommitment<F>,
     lde_root_order: u32,
-    _transcript: &mut Transcript,
 ) -> bool {
+    let mut lde_primitive_root = F::get_primitive_root_of_unity(lde_root_order as u64).unwrap();
     // For each fri layer merkle proof check:
     // That each merkle path verifies
 
@@ -126,13 +170,6 @@ pub fn fri_verify<F: IsField + IsTwoAdicField>(
     // The calculation is, given the index, index % length_of_evaluation_domain
 
     // Check that v = P_{i+1}(z_i)
-
-    // TODO: Fiat-Shamir
-    let decommitment_index: u64 = 4;
-
-    let mut lde_primitive_root = F::get_primitive_root_of_unity(lde_root_order as u64).unwrap();
-
-    let mut offset = FieldElement::from(COSET_OFFSET);
 
     // For each (merkle_root, merkle_auth_path) / fold
     // With the auth path containining the element that the
@@ -165,31 +202,30 @@ pub fn fri_verify<F: IsField + IsTwoAdicField>(
     {
         // This is the current layer's evaluation domain length. We need it to know what the decommitment index for the current
         // layer is, so we can check the merkle paths at the right index.
-        let current_layer_domain_length = (2_u64.pow(lde_root_order) as u64) >> layer_number;
+        let current_layer_domain_length = 2_u64.pow(lde_root_order) as usize >> layer_number;
 
-        let layer_evaluation_index = decommitment_index % current_layer_domain_length;
+        let layer_evaluation_index: usize = q_i as usize % current_layer_domain_length;
+
         if !fri_layer_auth_path.verify(
             fri_layer_merkle_root,
-            layer_evaluation_index as usize,
+            layer_evaluation_index,
             auth_path_evaluation,
         ) {
             return false;
         }
 
-        let layer_evaluation_index_symmetric =
-            (decommitment_index + current_layer_domain_length) % current_layer_domain_length;
+        let layer_evaluation_index_symmetric: usize =
+            (q_i as usize + current_layer_domain_length) % current_layer_domain_length;
 
         if !fri_layer_auth_path_symmetric.verify(
             fri_layer_merkle_root,
-            layer_evaluation_index_symmetric as usize,
+            layer_evaluation_index_symmetric,
             auth_path_evaluation_symmetric,
         ) {
             return false;
         }
 
-        // TODO: Fiat Shamir
-        // let beta = beta_list[index].clone();
-        let beta = 1;
+        let beta = beta_list[index].clone();
 
         let (previous_auth_path_evaluation, previous_path_evaluation_symmetric) = fri_decommitment
             .layer_evaluations
@@ -199,12 +235,12 @@ pub fn fri_verify<F: IsField + IsTwoAdicField>(
             .unwrap();
 
         // evaluation point = offset * w ^ i in the Stark literature
-        let evaluation_point = &offset * lde_primitive_root.pow(decommitment_index);
+        let mut offset = FieldElement::<F>::from(COSET_OFFSET);
+        let evaluation_point = &offset * lde_primitive_root.pow(q_i);
 
         // v is the calculated element for the
         // co linearity check
-        let two = &FieldElement::from(2);
-        let beta = FieldElement::from(beta);
+        let two = &FieldElement::<F>::from(2);
         let v = (previous_auth_path_evaluation + previous_path_evaluation_symmetric) / two
             + &beta * (previous_auth_path_evaluation - previous_path_evaluation_symmetric)
                 / (two * evaluation_point);
@@ -218,7 +254,7 @@ pub fn fri_verify<F: IsField + IsTwoAdicField>(
 
         // On the last iteration, also check the provided last evaluation point.
         if layer_number == fri_layers_merkle_roots.len() - 1 {
-            let last_evaluation_point = &offset * lde_primitive_root.pow(decommitment_index);
+            let last_evaluation_point = &offset * lde_primitive_root.pow(q_i);
 
             let last_v = (auth_path_evaluation + auth_path_evaluation_symmetric) / two
                 + &beta * (auth_path_evaluation - auth_path_evaluation_symmetric)

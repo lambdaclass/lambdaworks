@@ -8,6 +8,8 @@ use lambdaworks_math::{
     traits::ByteConversion,
 };
 
+use crate::{transcript_to_field, transcript_to_usize, StarkProof};
+
 use super::{
     air::{constraints::evaluator::ConstraintEvaluator, frame::Frame, trace::TraceTable, AIR},
     fri::{fri, fri_decommit::fri_decommit_layers},
@@ -18,12 +20,12 @@ use super::{
 pub fn prove<F: IsField + IsTwoAdicField, A: AIR + AIR<Field = F>>(
     trace: &[FieldElement<F>],
     air: &A,
-) -> StarkQueryProof<F>
+) -> StarkProof<F>
 where
     FieldElement<F>: ByteConversion,
 {
     let transcript = &mut Transcript::new();
-    // let mut query_list = Vec::<StarkQueryProof>::new();
+    let mut query_list = Vec::<StarkQueryProof<F>>::new();
 
     let root_order = air.context().trace_length.trailing_zeros();
     // * Generate Coset
@@ -52,6 +54,10 @@ where
     // z is the Out of domain evaluation point used in Deep FRI. It needs to be a point outside
     // of both the roots of unity and its corresponding coset used for the lde commitment.
     let z = FieldElement::from(2);
+
+    // TODO: The reason this is commented is we can't just call this function, we have to make sure that the result
+    // is not either a root of unity or an element of the lde coset.
+    // let z = transcript_to_field(transcript);
     let z_squared = &z * &z;
 
     let lde_trace = TraceTable::new(lde_trace, 1);
@@ -60,15 +66,17 @@ where
     let evaluator = ConstraintEvaluator::new(air, &trace_poly, &trace_primitive_root);
 
     // TODO: Fiat-Shamir
-    let alpha = FieldElement::one();
-    let beta = FieldElement::one();
+    let alpha_boundary = transcript_to_field(transcript);
+    let beta_boundary = transcript_to_field(transcript);
+    let alpha = transcript_to_field(transcript);
+    let beta = transcript_to_field(transcript);
 
-    let alpha_and_beta_transition_coefficients = vec![(alpha.clone(), beta.clone())];
+    let alpha_and_beta_transition_coefficients = vec![(alpha, beta)];
     let constraint_evaluations = evaluator.evaluate(
         &lde_trace,
         &lde_roots_of_unity_coset,
         &alpha_and_beta_transition_coefficients,
-        (&alpha, &beta),
+        (&alpha_boundary, &beta_boundary),
     );
 
     // Get composition poly
@@ -107,37 +115,36 @@ where
         transcript,
     );
 
-    // TODO: Fiat-Shamir
-    let fri_decommitment_index: usize = 4;
+    let fri_layers_merkle_roots: Vec<FieldElement<F>> = lde_fri_commitment
+        .iter()
+        .map(|fri_commitment| fri_commitment.merkle_tree.root.clone())
+        .collect();
 
-    // * For every q_i, do FRI decommitment
-    let fri_decommitment = fri_decommit_layers(&lde_fri_commitment, fri_decommitment_index);
+    for _i in 0..air.context().options.fri_number_of_queries {
+        // * Sample q_1, ..., q_m using Fiat-Shamir
+        let q_i: usize = transcript_to_usize(transcript) % 2_usize.pow(lde_root_order as u32);
+        transcript.append(&q_i.to_be_bytes());
 
-    /*
-        IMPORTANT NOTE:
-        When we commit to the trace polynomial, let's call it f, we commit to an LDE of it.
-        On the other hand, the fibonacci constraint (and in general, any constraint) related to f applies
-        only using non-LDE roots of unity.
-        In this case, the constraint is f(w^2 x) - f(w x) - f(x), where w is a 2^n root of unity.
-        But for the commitment we use g, a 2^{nb} root of unity (b is the blowup factor).
-        When we sample a value x to evaluate the trace polynomial on, it has to be a 2^{nb} root of unity,
-        so with fiat-shamir we sample a random index in that range.
-        When we provide evaluations, we provide them for x*(w^2), x*w and x.
-    */
+        // * For every q_i, do FRI decommitment
+        let fri_decommitment = fri_decommit_layers(&lde_fri_commitment, q_i);
+
+        query_list.push(StarkQueryProof {
+            fri_layers_merkle_roots: fri_layers_merkle_roots.clone(),
+            fri_decommitment,
+        });
+    }
 
     let fri_layers_merkle_roots: Vec<FieldElement<F>> = lde_fri_commitment
         .iter()
         .map(|fri_commitment| fri_commitment.merkle_tree.root.clone())
         .collect();
 
-    let ret = StarkQueryProof {
+    StarkProof {
+        fri_layers_merkle_roots,
         trace_ood_frame_evaluations,
         composition_poly_evaluations,
-        fri_layers_merkle_roots,
-        fri_decommitment,
-    };
-
-    ret
+        query_list,
+    }
 }
 
 /// Returns the DEEP composition polynomial that the prover then commits to using

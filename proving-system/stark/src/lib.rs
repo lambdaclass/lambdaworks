@@ -6,6 +6,7 @@ use air::frame::Frame;
 
 use fri::fri_decommit::FriDecommitment;
 
+use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::fields::fft_friendly::u256_two_adic_prime_field::U256MontgomeryTwoAdicPrimeField;
 use lambdaworks_math::field::traits::IsField;
@@ -23,17 +24,46 @@ pub type FE = FieldElement<PrimeField>;
 // We are using 3 as the offset as it's our field's generator.
 const COSET_OFFSET: u64 = 3;
 
+// TODO: change this to use more bits
+pub fn transcript_to_field<F: IsField>(transcript: &mut Transcript) -> FieldElement<F> {
+    let ret_value = transcript.challenge();
+    let ret_value_8: [u8; 8] = [
+        ret_value[0],
+        ret_value[1],
+        ret_value[2],
+        ret_value[3],
+        ret_value[4],
+        ret_value[5],
+        ret_value[6],
+        ret_value[7],
+    ];
+    let ret_value_u64 = u64::from_be_bytes(ret_value_8);
+    FieldElement::from(ret_value_u64)
+}
+
+pub fn transcript_to_usize(transcript: &mut Transcript) -> usize {
+    const CANT_BYTES_USIZE: usize = (usize::BITS / 8) as usize;
+    let ret_value = transcript.challenge();
+    usize::from_be_bytes(
+        ret_value
+            .into_iter()
+            .take(CANT_BYTES_USIZE)
+            .collect::<Vec<u8>>()
+            .try_into()
+            .unwrap(),
+    )
+}
+
 #[derive(Debug, Clone)]
 pub struct StarkQueryProof<F: IsField> {
-    pub trace_ood_frame_evaluations: Frame<F>,
-    pub composition_poly_evaluations: Vec<FieldElement<F>>,
     pub fri_layers_merkle_roots: Vec<FieldElement<F>>,
     pub fri_decommitment: FriDecommitment<F>,
 }
 
 pub struct StarkProof<F: IsField> {
-    pub trace_lde_poly_root: FieldElement<F>,
     pub fri_layers_merkle_roots: Vec<FieldElement<F>>,
+    pub trace_ood_frame_evaluations: Frame<F>,
+    pub composition_poly_evaluations: Vec<FieldElement<F>>,
     pub query_list: Vec<StarkQueryProof<F>>,
 }
 
@@ -148,7 +178,10 @@ mod tests {
         let trace = fibonacci_trace([FE::from(1), FE::from(1)], 4);
 
         let context = AirContext {
-            options: ProofOptions { blowup_factor: 2 },
+            options: ProofOptions {
+                blowup_factor: 2,
+                fri_number_of_queries: 1,
+            },
             trace_length: trace.len(),
             trace_info: (trace.len(), 1),
             transition_degrees: vec![1],
