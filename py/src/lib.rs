@@ -3,32 +3,19 @@ mod proving_systems;
 
 use crate::math::unsigned_integer::element::PyU256;
 use crate::proving_systems::stark::PyFieldElement;
+use crate::proving_systems::stark::PyProofConfig;
 
-use lambdaworks_stark::{ProofConfig as ProofConfigInternal, StarkProof as StarkProofInternal, FE};
+use lambdaworks_stark::{StarkProof as StarkProofInternal, FE};
 
 use pyo3::prelude::*;
 use pyo3::types::*;
 use pyo3::wrap_pyfunction;
 
 #[pyclass]
-pub struct ProofConfig(ProofConfigInternal);
-
-#[pymethods]
-impl ProofConfig {
-    #[new]
-    pub fn new(count_queries: usize, blowup_factor: usize) -> Self {
-        Self(ProofConfigInternal {
-            count_queries,
-            blowup_factor,
-        })
-    }
-}
-
-#[pyclass]
 pub struct StarkProof(StarkProofInternal);
 
 #[pyfunction]
-fn prove(trace: &PyList, proof_config: &ProofConfig) -> PyResult<StarkProof> {
+fn prove(trace: &PyList, proof_config: &PyProofConfig) -> PyResult<StarkProof> {
     // FIXME is there a better way of taking a list of FieldElements as parameters?
     let trace = {
         let mut v: Vec<FE> = Vec::with_capacity(trace.len());
@@ -54,7 +41,7 @@ fn verify(stark_proof: &StarkProof) -> bool {
 fn lambdaworks_py(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<PyU256>()?;
     m.add_class::<PyFieldElement>()?;
-    m.add_class::<ProofConfig>()?;
+    m.add_class::<PyProofConfig>()?;
     m.add_function(wrap_pyfunction!(prove, m)?)?;
     m.add_function(wrap_pyfunction!(verify, m)?)?;
     Ok(())
