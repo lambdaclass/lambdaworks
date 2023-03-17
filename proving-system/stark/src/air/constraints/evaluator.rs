@@ -87,7 +87,9 @@ impl<F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
 
             // Append evaluation for boundary constraints
             let boundary_evaluation = boundary_poly.evaluate(d)
-                * (boundary_alpha * d.pow(max_degree - boundary_poly.degree()) + boundary_beta);
+                * (boundary_alpha
+                    * d.pow(max_degree_power_of_two - (boundary_poly.degree() as u64))
+                    + boundary_beta);
 
             let boundary_zerofier = self
                 .boundary_constraints

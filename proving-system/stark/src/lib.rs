@@ -281,8 +281,8 @@ pub fn verify<F: IsField + IsTwoAdicField, A: AIR + AIR<Field = F>>(
     // These are H_1(z^2) and H_2(z^2)
     let composition_poly_evaluations = &proof.composition_poly_evaluations;
 
-    let trace_primitive_root =
-        F::get_primitive_root_of_unity(air.context().trace_length as u64).unwrap();
+    let root_order = air.context().trace_length.trailing_zeros();
+    let trace_primitive_root = F::get_primitive_root_of_unity(root_order as u64).unwrap();
 
     let boundary_constraints = air.compute_boundary_constraints();
 
