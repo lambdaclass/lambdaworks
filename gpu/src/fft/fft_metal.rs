@@ -31,15 +31,14 @@ impl FFTMetalState {
         })
     }
 
-    pub fn execute_fft<F: IsTwoAdicField>(
+    pub fn setup<F: IsTwoAdicField>(
         &self,
-        input: &[FieldElement<F>],
-    ) -> Result<Vec<FieldElement<F>>, FFTError> {
-        let order = input.len().trailing_zeros() as u64;
-
+        kernel: &str,
+        twiddles: &[FieldElement<F>],
+    ) -> Result<(&metal::CommandBufferRef, &metal::ComputeCommandEncoderRef), FFTError> {
         let butterfly_kernel = self
             .library
-            .get_function("radix2_dit_butterfly", None)
+            .get_function(kernel, None)
             .map_err(FFTError::MetalFunctionError)?;
 
         let pipeline = self
@@ -49,24 +48,8 @@ impl FFTMetalState {
 
         let basetype_size = std::mem::size_of::<u32>();
 
-        let input_buffer = {
-            let input: Vec<_> = input.iter().map(|elem| elem.value()).cloned().collect();
-            // without that .cloned() the UB monster is summoned, not sure why.
-            self.device.new_buffer_with_data(
-                unsafe { mem::transmute(input.as_ptr()) }, // reinterprets into a void pointer
-                (input.len() * basetype_size) as u64,
-                MTLResourceOptions::StorageModeShared,
-            )
-        };
-
         let twiddles_buffer = {
-            let twiddles: Vec<_> = F::get_twiddles(
-                order,
-                lambdaworks_math::field::traits::RootsConfig::BitReverse,
-            )?
-            .iter()
-            .map(|elem| elem.value().clone())
-            .collect();
+            let twiddles: Vec<_> = twiddles.iter().map(|elem| elem.value().clone()).collect();
 
             self.device.new_buffer_with_data(
                 unsafe { mem::transmute(twiddles.as_ptr()) }, // reinterprets into a void pointer
@@ -79,8 +62,32 @@ impl FFTMetalState {
         let compute_encoder = command_buffer.new_compute_command_encoder();
 
         compute_encoder.set_compute_pipeline_state(&pipeline);
-        compute_encoder.set_buffer(0, Some(&input_buffer), 0);
         compute_encoder.set_buffer(1, Some(&twiddles_buffer), 0);
+
+        Ok((command_buffer, compute_encoder))
+    }
+
+    pub fn execute<F: IsTwoAdicField>(
+        &self,
+        input: &[FieldElement<F>],
+        (command_buffer, compute_encoder): (
+            &metal::CommandBufferRef,
+            &metal::ComputeCommandEncoderRef,
+        ),
+    ) -> Result<Vec<FieldElement<F>>, FFTError> {
+        let order = input.len().trailing_zeros() as u64;
+        let basetype_size = std::mem::size_of::<u32>();
+
+        let input_buffer = {
+            let input: Vec<_> = input.iter().map(|elem| elem.value()).cloned().collect();
+            // without that .cloned() the UB monster is summoned, not sure why.
+            self.device.new_buffer_with_data(
+                unsafe { mem::transmute(input.as_ptr()) }, // reinterprets into a void pointer
+                (input.len() * basetype_size) as u64,
+                MTLResourceOptions::StorageModeShared,
+            )
+        };
+        compute_encoder.set_buffer(0, Some(&input_buffer), 0);
 
         for stage in 0..order {
             let group_count = stage + 1;
@@ -99,7 +106,6 @@ impl FFTMetalState {
 
             compute_encoder.dispatch_thread_groups(threadgroup_count, threadgroup_size);
         }
-
         compute_encoder.end_encoding();
 
         command_buffer.commit();
@@ -117,7 +123,8 @@ impl FFTMetalState {
 mod tests {
     use lambdaworks_math::{
         fft::bit_reversing::in_place_bit_reverse_permute,
-        field::test_fields::u32_test_field::U32TestField, polynomial::Polynomial,
+        field::{test_fields::u32_test_field::U32TestField, traits::RootsConfig},
+        polynomial::Polynomial,
     };
     use proptest::prelude::*;
 
@@ -151,10 +158,14 @@ mod tests {
         // Property-based test that ensures NR Radix-2 FFT gives same result as a naive polynomial evaluation.
         #[test]
         fn test_metal_fft_matches_naive_eval(poly in poly(8)) {
+            let order = poly.coefficients().len().trailing_zeros() as u64;
             let expected = poly.evaluate_fft().unwrap();
 
             let metal_state = FFTMetalState::new(None).unwrap();
-            let mut result = metal_state.execute_fft::<F>(poly.coefficients()).unwrap();
+            let twiddles: Vec<_> = F::get_twiddles(order, RootsConfig::BitReverse).unwrap();
+            let command_buff_encoder = metal_state.setup("radix2_dit_butterfly", &twiddles).unwrap();
+
+            let mut result = metal_state.execute(poly.coefficients(), command_buff_encoder).unwrap();
             in_place_bit_reverse_permute(&mut result);
 
             assert_eq!(&result[..], &expected[..]);
