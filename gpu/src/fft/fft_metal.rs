@@ -156,7 +156,7 @@ mod tests {
     proptest! {
         // Property-based test that ensures NR Radix-2 FFT gives same result as a naive polynomial evaluation.
         #[test]
-        fn test_metal_fft_matches_naive_eval(poly in poly(8)) {
+        fn test_metal_fft_matches_sequential(poly in poly(8)) {
             let order = poly.coefficients().len().trailing_zeros() as u64;
             let expected = poly.evaluate_fft().unwrap();
 
