@@ -46,10 +46,9 @@ impl FFTMetalState {
             .new_compute_pipeline_state_with_function(&butterfly_kernel)
             .map_err(FFTError::MetalPipelineError)?;
 
-        let basetype_size = std::mem::size_of::<u32>();
-
         let twiddles_buffer = {
             let twiddles: Vec<_> = twiddles.iter().map(|elem| elem.value().clone()).collect();
+            let basetype_size = std::mem::size_of::<F::BaseType>();
 
             self.device.new_buffer_with_data(
                 unsafe { mem::transmute(twiddles.as_ptr()) }, // reinterprets into a void pointer
@@ -76,7 +75,7 @@ impl FFTMetalState {
         ),
     ) -> Result<Vec<FieldElement<F>>, FFTError> {
         let order = input.len().trailing_zeros() as u64;
-        let basetype_size = std::mem::size_of::<u32>();
+        let basetype_size = std::mem::size_of::<F::BaseType>();
 
         let input_buffer = {
             let input: Vec<_> = input.iter().map(|elem| elem.value()).cloned().collect();
