@@ -28,7 +28,6 @@ pub type FE = FieldElement<PrimeField>;
 
 // DEFINITION OF CONSTANTS
 
-const ORDER_OF_ROOTS_OF_UNITY_TRACE: u64 = 32;
 const ORDER_OF_ROOTS_OF_UNITY_FOR_LDE: u64 = 1024;
 
 // We are using 3 as the offset as it's our field's generator.
@@ -127,7 +126,7 @@ where
     // TODO: Fiat-Shamir
     // z is the Out of domain evaluation point used in Deep FRI. It needs to be a point outside
     // of both the roots of unity and its corresponding coset used for the lde commitment.
-    let z = FieldElement::from(10);
+    let z = FieldElement::from(2);
     let z_squared = &z * &z;
 
     let lde_trace = TraceTable::new(lde_trace, 1);
@@ -288,7 +287,7 @@ pub fn verify<F: IsField + IsTwoAdicField, A: AIR + AIR<Field = F>>(
     let boundary_constraints = air.compute_boundary_constraints();
 
     // TODO: Fiat-Shamir
-    let z = FieldElement::<F>::from(10);
+    let z = FieldElement::<F>::from(2);
 
     // C_1(z)
     let domain = boundary_constraints.generate_roots_of_unity(&trace_primitive_root);
@@ -511,6 +510,7 @@ mod tests {
     #[derive(Clone)]
     pub struct FibonacciAIR {
         context: AirContext,
+        // trace: TraceTable<PrimeField>,
         trace: TraceTable<F17>,
     }
 
@@ -545,24 +545,34 @@ mod tests {
         }
 
         fn transition_divisors(&self) -> Vec<Polynomial<FieldElement<Self::Field>>> {
-            let offset = FieldElement::<Self::Field>::from(COSET_OFFSET);
+            let roots_of_unity_order = self.context().trace_length.trailing_zeros();
             let roots_of_unity = Self::Field::get_powers_of_primitive_root_coset(
-                self.context().trace_length.trailing_zeros() as u64,
+                roots_of_unity_order as u64,
                 self.context().trace_length,
-                &offset,
+                &FieldElement::<Self::Field>::one(),
             )
             .unwrap();
 
             let mut result = vec![];
 
-            for index in 0..self.context().num_transition_constraints {
-                result.push(Polynomial::new_monomial(offset.clone(), 0));
+            for _ in 0..self.context().num_transition_constraints {
+                // X^(roots_of_unity_order) - 1
+                let roots_of_unity_vanishing_polynomial =
+                    Polynomial::new_monomial(
+                        FieldElement::<Self::Field>::one(),
+                        roots_of_unity_order as usize,
+                    ) - Polynomial::new_monomial(-FieldElement::<Self::Field>::one(), 0);
+
+                let mut exemptions_polynomial =
+                    Polynomial::new_monomial(FieldElement::<Self::Field>::one(), 0);
 
                 for exemption_index in self.context().transition_exemptions {
-                    result[index] = result[index].clone()
-                        * (Polynomial::new_monomial(offset.clone(), 1)
-                            - Polynomial::new_monomial(roots_of_unity[exemption_index].clone(), 0));
+                    exemptions_polynomial = exemptions_polynomial
+                        * Polynomial::new_monomial(FieldElement::<Self::Field>::one(), 1)
+                        - Polynomial::new_monomial(roots_of_unity[exemption_index].clone(), 0);
                 }
+
+                result.push(roots_of_unity_vanishing_polynomial / exemptions_polynomial);
             }
 
             result
@@ -576,6 +586,7 @@ mod tests {
     #[test]
     fn test_prove() {
         let trace = fibonacci_trace([FE17::new(1), FE17::new(1)], 4);
+        // let trace = fibonacci_trace([FE::from(1), FE::from(1)], 4);
 
         let context = AirContext {
             options: ProofOptions { blowup_factor: 2 },
