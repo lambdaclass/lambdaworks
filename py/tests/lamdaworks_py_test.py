@@ -2,6 +2,11 @@ import unittest
 
 from lambdaworks_py import *
 
+# FIXME Why this does not work?
+# from lambdaworks_py.math.unsigned_integer.elements import U256
+
+U256 = math.unsigned_integer.element.U256
+
 class TestU256(unittest.TestCase):
     def test_constructor(self):
         """

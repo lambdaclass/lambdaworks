@@ -1,17 +1,12 @@
-use lambdaworks_math::unsigned_integer::element::U256 as U256Internal;
+mod math;
+
+use crate::math::unsigned_integer::element::PyU256;
+
 use lambdaworks_stark::{ProofConfig as ProofConfigInternal, StarkProof as StarkProofInternal, FE};
-use pyo3::{prelude::*, types::PyList};
 
-#[pyclass]
-pub struct U256(U256Internal);
-
-#[pymethods]
-impl U256 {
-    #[new]
-    pub fn new(value: &str) -> PyResult<Self> {
-        Ok(Self(U256Internal::from(value)))
-    }
-}
+use pyo3::prelude::*;
+use pyo3::types::*;
+use pyo3::wrap_pyfunction;
 
 #[pyclass]
 #[derive(Clone)]
@@ -20,7 +15,7 @@ pub struct FieldElement(FE);
 #[pymethods]
 impl FieldElement {
     #[new]
-    pub fn new(value: &U256) -> Self {
+    pub fn new(value: &PyU256) -> Self {
         Self(FE::new(value.0))
     }
 
@@ -70,8 +65,8 @@ fn verify(stark_proof: &StarkProof) -> bool {
 }
 
 #[pymodule]
-fn lambdaworks_py(_py: Python, m: &PyModule) -> PyResult<()> {
-    m.add_class::<U256>()?;
+fn lambdaworks_py(py: Python, m: &PyModule) -> PyResult<()> {
+    m.add_submodule(math::module(py)?)?;
     m.add_class::<FieldElement>()?;
     m.add_class::<ProofConfig>()?;
     m.add_function(wrap_pyfunction!(prove, m)?)?;
