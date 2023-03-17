@@ -9,5 +9,13 @@ edition = "2021"
 metal = "0.24.0"
 lambdaworks-math = { path = "../math" }
 lambdaworks-crypto = { path = "../crypto"}
+rand = "0.8.5"
+
+[dev-dependencies]
 proptest = "1.1.0"
 objc = "0.2.7"
+criterion = "0.4.0"
+
+[[bench]]
+name = "metal_benchmarks"
+harness = false

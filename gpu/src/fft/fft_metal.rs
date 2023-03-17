@@ -154,7 +154,7 @@ mod tests {
     }
 
     proptest! {
-        // Property-based test that ensures NR Radix-2 FFT gives same result as a naive polynomial evaluation.
+        // Property-based test that ensures Metal parallel FFT gives same result as a sequential one.
         #[test]
         fn test_metal_fft_matches_sequential(poly in poly(8)) {
             objc::rc::autoreleasepool(|| {
