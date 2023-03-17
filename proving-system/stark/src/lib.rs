@@ -589,7 +589,6 @@ mod tests {
             transition_degrees: vec![1],
             transition_exemptions: vec![trace.len() - 2, trace.len() - 1],
             transition_offsets: vec![0, 1, 2],
-            num_assertions: 3,
             num_transition_constraints: 1,
         };
 
