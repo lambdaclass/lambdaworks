@@ -2,7 +2,7 @@ mod math;
 mod proving_systems;
 
 use crate::math::unsigned_integer::element::PyU256;
-use crate::proving_systems::stark::FieldElement;
+use crate::proving_systems::stark::PyFieldElement;
 
 use lambdaworks_stark::{ProofConfig as ProofConfigInternal, StarkProof as StarkProofInternal, FE};
 
@@ -33,7 +33,7 @@ fn prove(trace: &PyList, proof_config: &ProofConfig) -> PyResult<StarkProof> {
     let trace = {
         let mut v: Vec<FE> = Vec::with_capacity(trace.len());
         for pyelem in trace {
-            let fe = FieldElement::extract(pyelem)?;
+            let fe = PyFieldElement::extract(pyelem)?;
             v.push(fe.0);
         }
         v
@@ -53,7 +53,7 @@ fn verify(stark_proof: &StarkProof) -> bool {
 #[pymodule]
 fn lambdaworks_py(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<PyU256>()?;
-    m.add_class::<FieldElement>()?;
+    m.add_class::<PyFieldElement>()?;
     m.add_class::<ProofConfig>()?;
     m.add_function(wrap_pyfunction!(prove, m)?)?;
     m.add_function(wrap_pyfunction!(verify, m)?)?;

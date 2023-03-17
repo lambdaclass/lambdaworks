@@ -9,7 +9,7 @@ use crate::math::unsigned_integer::element::PyU256;
 pub struct PyFieldElement(pub FE);
 
 #[pymethods]
-impl FieldElement {
+impl PyFieldElement {
     #[new]
     pub fn new(value: &PyU256) -> Self {
         Self(FE::new(value.0))
