@@ -1,4 +1,3 @@
-use lambdaworks_math::field::{element::FieldElement, traits::IsTwoAdicField};
 use metal::MTLResourceOptions;
 
 use crate::abstractions::errors::MetalError;
@@ -71,33 +70,5 @@ impl MetalState {
         }
 
         (command_buffer, command_encoder)
-    }
-
-    pub fn setup_for_fft<F: IsTwoAdicField>(
-        &self,
-        twiddles: &[FieldElement<F>],
-    ) -> Result<(&metal::CommandBufferRef, &metal::ComputeCommandEncoderRef), MetalError> {
-        let butterfly_kernel = self
-            .library
-            .get_function("radix2_dit_butterfly", None)
-            .map_err(MetalError::MetalFunctionError)?;
-
-        let pipeline = self
-            .device
-            .new_compute_pipeline_state_with_function(&butterfly_kernel)
-            .map_err(MetalError::MetalPipelineError)?;
-
-        let twiddles_buffer = {
-            let twiddles: Vec<_> = twiddles.iter().map(|elem| elem.value().clone()).collect();
-            let basetype_size = std::mem::size_of::<F::BaseType>();
-
-            self.device.new_buffer_with_data(
-                unsafe { mem::transmute(twiddles.as_ptr()) }, // reinterprets into a void pointer
-                (twiddles.len() * basetype_size) as u64,
-                MTLResourceOptions::StorageModeShared,
-            )
-        };
-
-        todo!()
     }
 }
