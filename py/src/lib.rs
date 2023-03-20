@@ -1,14 +1,14 @@
+mod crypto;
 mod math;
 mod merkle_tree;
 mod proving_systems;
-mod crypto;
 
 use crate::math::unsigned_integer::element::PyU256;
+use crate::merkle_tree::merkle::{PyU64FE, PyU64MerkleTree};
 use crate::proving_systems::stark;
 use crate::proving_systems::stark::PyFieldElement;
 use crate::proving_systems::stark::PyProofConfig;
 use crate::proving_systems::stark::PyStarkProof;
-use crate::merkle_tree::merkle::{PyU64FE, PyU64MerkleTree};
 
 use pyo3::prelude::*;
 use pyo3::wrap_pyfunction;
