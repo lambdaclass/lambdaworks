@@ -2,10 +2,10 @@ mod math;
 mod proving_systems;
 
 use crate::math::unsigned_integer::element::PyU256;
+use crate::proving_systems::stark;
 use crate::proving_systems::stark::PyFieldElement;
 use crate::proving_systems::stark::PyProofConfig;
 use crate::proving_systems::stark::PyStarkProof;
-use crate::proving_systems::stark;
 
 use pyo3::prelude::*;
 use pyo3::wrap_pyfunction;
