@@ -1,4 +1,4 @@
-use lambdaworks_crypto::fiat_shamir::transcript::{self, Transcript};
+use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::{
     field::{
         element::FieldElement,
@@ -16,7 +16,7 @@ use super::{
         AIR,
     },
     fri::fri_decommit::FriDecommitment,
-    StarkQueryProof, COSET_OFFSET,
+    COSET_OFFSET,
 };
 
 pub fn verify<F: IsField + IsTwoAdicField, A: AIR + AIR<Field = F>>(
