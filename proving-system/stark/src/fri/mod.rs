@@ -79,6 +79,13 @@ where
     let mut degree = p_0.degree();
 
     let mut last_coef = last_poly.coefficients.get(0).unwrap();
+    let mut i = 0;
+
+    println!(
+        "STEP: {}; POLY COEF: {:?}; DEGREE: {}",
+        i, last_poly, degree
+    );
+    i += 1;
 
     while degree > 0 {
         let beta = transcript_to_field(transcript);
@@ -97,6 +104,11 @@ where
         degree = p_i.degree();
 
         last_poly = p_i.clone();
+        println!(
+            "STEP: {}; POLY COEF: {:?}; DEGREE: {}",
+            i, last_poly, degree
+        );
+        i += 1;
         last_coef = last_poly.coefficients.get(0).unwrap();
         last_domain = domain_i.clone();
     }

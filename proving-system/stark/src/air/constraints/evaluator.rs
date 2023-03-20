@@ -63,6 +63,10 @@ impl<F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
 
         let boundary_poly = &self.trace_poly - &Polynomial::interpolate(&domain, &values);
 
+        let boundary_zerofier = self
+            .boundary_constraints
+            .compute_zerofier(&self.primitive_root);
+
         let (boundary_alpha, boundary_beta) = alpha_and_beta_boundary_coefficients;
 
         let blowup_factor = self.air.blowup_factor();
@@ -85,17 +89,15 @@ impl<F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
                 d,
             );
 
+            let boundary_poly_degree = boundary_poly.degree() - boundary_zerofier.degree();
+
             // Append evaluation for boundary constraints
-            let boundary_evaluation = boundary_poly.evaluate(d)
-                * (boundary_alpha
-                    * d.pow(max_degree_power_of_two - (boundary_poly.degree() as u64))
+            let mut boundary_evaluation = boundary_poly.evaluate(d) / boundary_zerofier.evaluate(d);
+            boundary_evaluation = boundary_evaluation
+                * (boundary_alpha * d.pow(max_degree_power_of_two - (boundary_poly_degree as u64))
                     + boundary_beta);
 
-            let boundary_zerofier = self
-                .boundary_constraints
-                .compute_zerofier(&self.primitive_root);
-
-            evaluations.push(boundary_evaluation / boundary_zerofier.evaluate(d));
+            evaluations.push(boundary_evaluation);
 
             evaluation_table.evaluations.push(evaluations);
         }
@@ -133,8 +135,10 @@ impl<F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
             .zip(divisors)
             .zip(alpha_and_beta_coefficients)
         {
-            let numerator = eval * (alpha * x.pow(max_degree - (degree as u64)) + beta);
-            let result = numerator / div.evaluate(x);
+            let zerofied_eval = eval / div.evaluate(x);
+            let zerofied_degree = degree - div.degree();
+            let result =
+                zerofied_eval * (alpha * x.pow(max_degree - (zerofied_degree as u64)) + beta);
             ret.push(result);
         }
 

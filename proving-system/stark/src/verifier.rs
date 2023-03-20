@@ -66,16 +66,15 @@ where
     let max_degree_power_of_two = helpers::next_power_of_two(max_degree as u64);
 
     // TODO: This is assuming one column
+    let boundary_degree = (air.context().trace_length - boundary_zerofier.degree()) as u64 - 1;
     let mut boundary_quotient_ood_evaluation = &trace_poly_ood_frame_evaluations.get_row(0)[0]
         - boundary_interpolating_polynomial.evaluate(&z);
 
-    boundary_quotient_ood_evaluation = boundary_quotient_ood_evaluation
-        * (&boundary_alpha
-            * z.pow(max_degree_power_of_two - (air.context().trace_length as u64 - 1))
-            + &boundary_beta);
-
     boundary_quotient_ood_evaluation =
         boundary_quotient_ood_evaluation / boundary_zerofier.evaluate(&z);
+
+    boundary_quotient_ood_evaluation = boundary_quotient_ood_evaluation
+        * (&boundary_alpha * z.pow(max_degree_power_of_two - boundary_degree) + &boundary_beta);
 
     let transition_ood_frame_evaluations = air.compute_transition(trace_poly_ood_frame_evaluations);
 
@@ -100,6 +99,7 @@ where
         &composition_poly_evaluations[0] + &z * &composition_poly_evaluations[1];
 
     if composition_poly_claimed_ood_evaluation != composition_poly_ood_evaluation {
+        println!("COMPOSITION POLY FAILED");
         return false;
     }
 
@@ -207,6 +207,7 @@ pub fn verify_query<F: IsField + IsTwoAdicField>(
             layer_evaluation_index,
             auth_path_evaluation,
         ) {
+            println!("FRI LAYER AUTH PATH FAILED");
             return false;
         }
 
@@ -218,6 +219,7 @@ pub fn verify_query<F: IsField + IsTwoAdicField>(
             layer_evaluation_index_symmetric,
             auth_path_evaluation_symmetric,
         ) {
+            println!("FRI LAYER AUTH PATH SYMMETRIC FAILED");
             return false;
         }
 
@@ -244,6 +246,7 @@ pub fn verify_query<F: IsField + IsTwoAdicField>(
         offset = offset.pow(2_usize);
 
         if v != *auth_path_evaluation {
+            println!("CO LINEARITY CHECK FAILED");
             return false;
         }
 
@@ -256,6 +259,7 @@ pub fn verify_query<F: IsField + IsTwoAdicField>(
                     / (two * &last_evaluation_point);
 
             if last_v != fri_decommitment.last_layer_evaluation {
+                println!("LAST EVAL POINT FAILED");
                 return false;
             }
         }
