@@ -80,7 +80,7 @@ where
 
     let transition_ood_frame_evaluations = air.compute_transition(trace_poly_ood_frame_evaluations);
 
-    let alpha_and_beta_transition_coefficients = vec![(alpha.clone(), beta.clone())];
+    let alpha_and_beta_transition_coefficients = vec![(alpha, beta)];
 
     let c_i_evaluations = ConstraintEvaluator::compute_transition_evaluations(
         air,
@@ -130,7 +130,7 @@ where
         let last_evaluation_bytes = last_evaluation.to_bytes_be();
         transcript.append(&last_evaluation_bytes);
 
-        let q_i: usize = transcript_to_usize(transcript) % (2_usize.pow(lde_root_order) as usize);
+        let q_i: usize = transcript_to_usize(transcript) % (2_usize.pow(lde_root_order));
         transcript.append(&q_i.to_be_bytes());
 
         let fri_decommitment = &proof_i.fri_decommitment;
@@ -201,7 +201,7 @@ pub fn verify_query<F: IsField + IsTwoAdicField>(
         // layer is, so we can check the merkle paths at the right index.
         let current_layer_domain_length = 2_u64.pow(lde_root_order) as usize >> layer_number;
 
-        let layer_evaluation_index: usize = q_i as usize % current_layer_domain_length;
+        let layer_evaluation_index = q_i % current_layer_domain_length;
 
         if !fri_layer_auth_path.verify(
             fri_layer_merkle_root,
@@ -211,8 +211,8 @@ pub fn verify_query<F: IsField + IsTwoAdicField>(
             return false;
         }
 
-        let layer_evaluation_index_symmetric: usize =
-            (q_i as usize + current_layer_domain_length) % current_layer_domain_length;
+        let layer_evaluation_index_symmetric =
+            (q_i + current_layer_domain_length) % current_layer_domain_length;
 
         if !fri_layer_auth_path_symmetric.verify(
             fri_layer_merkle_root,

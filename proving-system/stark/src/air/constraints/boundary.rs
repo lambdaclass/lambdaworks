@@ -32,6 +32,7 @@ impl<F: IsField> BoundaryConstraint<F> {
 
 /// Data structure that stores all the boundary constraints that must
 /// hold for the execution trace
+#[derive(Default)]
 pub struct BoundaryConstraints<F: IsField> {
     constraints: Vec<BoundaryConstraint<F>>,
 }
@@ -102,7 +103,7 @@ impl<F: IsField> BoundaryConstraints<F> {
 mod test {
     use lambdaworks_math::field::traits::IsTwoAdicField;
 
-    use crate::{PrimeField, FE};
+    use crate::PrimeField;
 
     use super::*;
 
@@ -127,7 +128,7 @@ mod test {
         // P_1(x) = (x - w^1)
         let a1_zerofier = Polynomial::new(&[-primitive_root.pow(1u32), one.clone()]);
         // P_res(x) = (x - w^7)
-        let res_zerofier = Polynomial::new(&[-primitive_root.pow(7u32), one.clone()]);
+        let res_zerofier = Polynomial::new(&[-primitive_root.pow(7u32), one]);
 
         let expected_zerofier = a0_zerofier * a1_zerofier * res_zerofier;
 

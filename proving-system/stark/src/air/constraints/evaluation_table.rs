@@ -7,11 +7,11 @@ use lambdaworks_math::{
 pub struct ConstraintEvaluationTable<F: IsField> {
     // Inner vectors are rows
     pub evaluations: Vec<Vec<FieldElement<F>>>,
-    trace_length: usize,
+    pub trace_length: usize,
 }
 
 impl<F: IsField> ConstraintEvaluationTable<F> {
-    pub fn new(n_cols: usize, domain: &[FieldElement<F>]) -> Self {
+    pub fn new(_n_cols: usize, domain: &[FieldElement<F>]) -> Self {
         let evaluations = Vec::with_capacity(domain.len());
 
         ConstraintEvaluationTable {

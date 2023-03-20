@@ -122,7 +122,7 @@ where
 
     for _i in 0..air.context().options.fri_number_of_queries {
         // * Sample q_1, ..., q_m using Fiat-Shamir
-        let q_i: usize = transcript_to_usize(transcript) % 2_usize.pow(lde_root_order as u32);
+        let q_i: usize = transcript_to_usize(transcript) % 2_usize.pow(lde_root_order);
         transcript.append(&q_i.to_be_bytes());
 
         // * For every q_i, do FRI decommitment

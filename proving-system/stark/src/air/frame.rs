@@ -67,7 +67,7 @@ impl<F: IsField> Frame<F> {
     ) -> Self {
         let mut data = vec![];
         let evaluation_points: Vec<FieldElement<F>> = frame_offsets
-            .into_iter()
+            .iter()
             .map(|offset| z * primitive_root.pow(*offset))
             .collect();
 

@@ -40,7 +40,7 @@ impl<F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
     ) -> ConstraintEvaluationTable<F> {
         let mut evaluation_table = ConstraintEvaluationTable::new(
             self.air.context().num_transition_constraints() + 1,
-            &lde_domain,
+            lde_domain,
         );
 
         let boundary_constraints = &self.boundary_constraints;
@@ -70,7 +70,7 @@ impl<F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
         // Iterate over trace and domain and compute transitions
         for (i, d) in lde_domain.iter().enumerate() {
             let frame = Frame::read_from_trace(
-                &lde_trace,
+                lde_trace,
                 i,
                 blowup_factor,
                 &self.air.context().transition_offsets,
@@ -134,7 +134,7 @@ impl<F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
             .zip(alpha_and_beta_coefficients)
         {
             let numerator = eval * (alpha * x.pow(max_degree - (degree as u64)) + beta);
-            let result = numerator / div.evaluate(&x);
+            let result = numerator / div.evaluate(x);
             ret.push(result);
         }
 

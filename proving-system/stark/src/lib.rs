@@ -73,14 +73,7 @@ pub use lambdaworks_crypto::merkle_tree::DefaultHasher;
 #[cfg(test)]
 mod tests {
     use lambdaworks_math::field::traits::IsTwoAdicField;
-    use lambdaworks_math::{
-        field::{
-            element::FieldElement,
-            fields::u64_prime_field::{U64FieldElement, U64PrimeField, F17, FE17},
-        },
-        polynomial::Polynomial,
-        unsigned_integer::element::U256,
-    };
+    use lambdaworks_math::{field::element::FieldElement, polynomial::Polynomial};
 
     use crate::{
         air::{
@@ -99,7 +92,7 @@ mod tests {
     #[derive(Clone)]
     pub struct FibonacciAIR {
         context: AirContext,
-        trace: TraceTable<PrimeField>,
+        pub trace: TraceTable<PrimeField>,
         // trace: TraceTable<F17>,
     }
 
@@ -108,10 +101,7 @@ mod tests {
         // type Field = F17;
 
         fn new(trace: TraceTable<Self::Field>, context: air::context::AirContext) -> Self {
-            Self {
-                context: context,
-                trace: trace,
-            }
+            Self { context, trace }
         }
 
         fn compute_transition(
