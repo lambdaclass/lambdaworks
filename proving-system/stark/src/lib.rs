@@ -26,32 +26,16 @@ const COSET_OFFSET: u64 = 3;
 
 // TODO: change this to use more bits
 pub fn transcript_to_field<F: IsField>(transcript: &mut Transcript) -> FieldElement<F> {
-    let ret_value = transcript.challenge();
-    let ret_value_8: [u8; 8] = [
-        ret_value[0],
-        ret_value[1],
-        ret_value[2],
-        ret_value[3],
-        ret_value[4],
-        ret_value[5],
-        ret_value[6],
-        ret_value[7],
-    ];
-    let ret_value_u64 = u64::from_be_bytes(ret_value_8);
-    FieldElement::from(ret_value_u64)
+    let value: u64 = u64::from_be_bytes(transcript.challenge()[..8].try_into().unwrap());
+    FieldElement::from(value)
 }
 
 pub fn transcript_to_usize(transcript: &mut Transcript) -> usize {
     const CANT_BYTES_USIZE: usize = (usize::BITS / 8) as usize;
-    let ret_value = transcript.challenge();
-    usize::from_be_bytes(
-        ret_value
-            .into_iter()
-            .take(CANT_BYTES_USIZE)
-            .collect::<Vec<u8>>()
-            .try_into()
-            .unwrap(),
-    )
+    let value = transcript.challenge()[..CANT_BYTES_USIZE]
+        .try_into()
+        .unwrap();
+    usize::from_be_bytes(value)
 }
 
 #[derive(Debug, Clone)]
