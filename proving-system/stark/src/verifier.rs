@@ -1,30 +1,120 @@
-use super::constraints::boundary::{BoundaryConstraint, BoundaryConstraints};
-use super::fri::fri_decommit::FriDecommitment;
-use super::utils::compute_zerofier;
-use super::{
-    transcript_to_field, transcript_to_usize, PrimeField, StarkProof, StarkQueryProof,
-    COSET_OFFSET, FE, ORDER_OF_ROOTS_OF_UNITY_FOR_LDE, ORDER_OF_ROOTS_OF_UNITY_TRACE,
-};
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::{
-    field::traits::IsTwoAdicField, traits::ByteConversion, unsigned_integer::element::U256,
+    field::{
+        element::FieldElement,
+        traits::{IsField, IsTwoAdicField},
+    },
+    polynomial::Polynomial,
+    traits::ByteConversion,
 };
 
-pub fn verify(stark_proof: &StarkProof) -> bool {
-    let fri_layers_merkle_roots = &stark_proof.fri_layers_merkle_roots;
-    let trace_lde_poly_root = &stark_proof.trace_lde_poly_root;
+use crate::{transcript_to_field, transcript_to_usize, StarkProof};
 
+use super::{
+    air::{
+        constraints::{evaluator::ConstraintEvaluator, helpers},
+        AIR,
+    },
+    fri::fri_decommit::FriDecommitment,
+    COSET_OFFSET,
+};
+
+pub fn verify<F: IsField + IsTwoAdicField, A: AIR + AIR<Field = F>>(
+    proof: &StarkProof<F>,
+    air: &A,
+) -> bool
+where
+    FieldElement<F>: ByteConversion,
+{
     let transcript = &mut Transcript::new();
-    let alpha_bc = transcript_to_field(transcript);
-    let alpha_t = transcript_to_field(transcript);
 
-    let proof = &stark_proof.query_list[0];
+    // BEGIN TRACE <-> Composition poly consistency evaluation check
+
+    let trace_poly_ood_frame_evaluations = &proof.trace_ood_frame_evaluations;
+
+    // These are H_1(z^2) and H_2(z^2)
+    let composition_poly_evaluations = &proof.composition_poly_evaluations;
+
+    let root_order = air.context().trace_length.trailing_zeros();
+    let trace_primitive_root = F::get_primitive_root_of_unity(root_order as u64).unwrap();
+
+    let boundary_constraints = air.compute_boundary_constraints();
+
+    // TODO: Fiat-Shamir
+    let z = FieldElement::<F>::from(2);
+    // TODO: The reason this is commented is we can't just call this function, we have to make sure that the result
+    // is not either a root of unity or an element of the lde coset.
+    // let z = transcript_to_field(transcript);
+
+    let domain = boundary_constraints.generate_roots_of_unity(&trace_primitive_root);
+    // TODO: this assumes one column
+    let values = boundary_constraints.values(0);
+
+    // The boundary constraint polynomial is trace - this polynomial below.
+    let boundary_interpolating_polynomial = &Polynomial::interpolate(&domain, &values);
+    let boundary_zerofier = boundary_constraints.compute_zerofier(&trace_primitive_root);
+
+    let boundary_alpha = transcript_to_field(transcript);
+    let boundary_beta = transcript_to_field(transcript);
+    // TODO: these are hardcoded to one column, there should be one alpha and beta per column
+    let alpha = transcript_to_field(transcript);
+    let beta = transcript_to_field(transcript);
+
+    let max_degree =
+        air.context().trace_length * air.context().transition_degrees().iter().max().unwrap();
+
+    let max_degree_power_of_two = helpers::next_power_of_two(max_degree as u64);
+
+    // TODO: This is assuming one column
+    let mut boundary_quotient_ood_evaluation = &trace_poly_ood_frame_evaluations.get_row(0)[0]
+        - boundary_interpolating_polynomial.evaluate(&z);
+
+    boundary_quotient_ood_evaluation = boundary_quotient_ood_evaluation
+        * (&boundary_alpha
+            * z.pow(max_degree_power_of_two - (air.context().trace_length as u64 - 1))
+            + &boundary_beta);
+
+    boundary_quotient_ood_evaluation =
+        boundary_quotient_ood_evaluation / boundary_zerofier.evaluate(&z);
+
+    let transition_ood_frame_evaluations = air.compute_transition(trace_poly_ood_frame_evaluations);
+
+    let alpha_and_beta_transition_coefficients = vec![(alpha, beta)];
+
+    let c_i_evaluations = ConstraintEvaluator::compute_constraint_composition_poly_evaluations(
+        air,
+        &transition_ood_frame_evaluations,
+        &alpha_and_beta_transition_coefficients,
+        max_degree_power_of_two,
+        &z,
+    );
+
+    let composition_poly_ood_evaluation = &boundary_quotient_ood_evaluation
+        + c_i_evaluations
+            .iter()
+            .fold(FieldElement::<F>::zero(), |acc, evaluation| {
+                acc + evaluation
+            });
+
+    let composition_poly_claimed_ood_evaluation =
+        &composition_poly_evaluations[0] + &z * &composition_poly_evaluations[1];
+
+    if composition_poly_claimed_ood_evaluation != composition_poly_ood_evaluation {
+        return false;
+    }
+
+    // // END TRACE <-> Composition poly consistency evaluation check
+
+    let lde_root_order =
+        (air.context().trace_length * air.options().blowup_factor as usize).trailing_zeros();
+
     // construct vector of betas
     let mut beta_list = Vec::new();
-    let count_betas = fri_layers_merkle_roots.len() - 1;
-    for (i, merkle_roots) in fri_layers_merkle_roots.iter().enumerate() {
+    let count_betas = proof.fri_layers_merkle_roots.len() - 1;
+
+    for (i, merkle_roots) in proof.fri_layers_merkle_roots.iter().enumerate() {
         let root = merkle_roots.clone();
-        let root_bytes = (*root.value()).to_bytes_be();
+        let root_bytes = root.to_bytes_be();
         transcript.append(&root_bytes);
 
         if i < count_betas {
@@ -33,110 +123,39 @@ pub fn verify(stark_proof: &StarkProof) -> bool {
         }
     }
 
-    let last_evaluation = &proof.fri_decommitment.last_layer_evaluation;
-    let last_evaluation_bytes = (*last_evaluation.value()).to_bytes_be();
-    transcript.append(&last_evaluation_bytes);
-
-    // TODO: Fiat-Shamir
     let mut result = true;
-    for proof_i in &stark_proof.query_list {
-        let q_i: usize = transcript_to_usize(transcript) % ORDER_OF_ROOTS_OF_UNITY_FOR_LDE;
+    for proof_i in &proof.query_list {
+        let last_evaluation = &proof_i.fri_decommitment.last_layer_evaluation;
+        let last_evaluation_bytes = last_evaluation.to_bytes_be();
+        transcript.append(&last_evaluation_bytes);
+
+        let q_i: usize = transcript_to_usize(transcript) % (2_usize.pow(lde_root_order));
         transcript.append(&q_i.to_be_bytes());
+
+        let fri_decommitment = &proof_i.fri_decommitment;
 
         // this is done in constant time
         result &= verify_query(
-            proof_i,
-            trace_lde_poly_root,
-            fri_layers_merkle_roots,
+            &proof.fri_layers_merkle_roots,
             &beta_list,
-            &alpha_bc,
-            &alpha_t,
             q_i,
+            fri_decommitment,
+            lde_root_order,
         );
     }
     result
 }
 
-pub fn verify_query(
-    proof: &StarkQueryProof,
-    trace_lde_poly_root: &FE,
-    fri_layers_merkle_roots: &[FE],
-    beta_list: &[FE],
-    alpha_bc: &FE,
-    alpha_t: &FE,
+pub fn verify_query<F: IsField + IsTwoAdicField>(
+    fri_layers_merkle_roots: &[FieldElement<F>],
+    beta_list: &[FieldElement<F>],
     q_i: usize,
+    fri_decommitment: &FriDecommitment<F>,
+    lde_root_order: u32,
 ) -> bool {
-    let trace_evaluations = &proof.trace_lde_poly_evaluations;
+    let mut lde_primitive_root = F::get_primitive_root_of_unity(lde_root_order as u64).unwrap();
+    let mut offset = FieldElement::<F>::from(COSET_OFFSET);
 
-    // TODO: These could be multiple evaluations depending on how many q_i are sampled with Fiat Shamir
-    let composition_polynomial_evaluation_from_prover = &proof.composition_poly_lde_evaluations[0];
-
-    let trace_primitive_root = PrimeField::get_primitive_root_of_unity(
-        ORDER_OF_ROOTS_OF_UNITY_TRACE.trailing_zeros() as u64,
-    )
-    .unwrap();
-    let lde_primitive_root = PrimeField::get_primitive_root_of_unity(
-        ORDER_OF_ROOTS_OF_UNITY_FOR_LDE.trailing_zeros() as u64,
-    )
-    .unwrap();
-
-    let zerofier = compute_zerofier(&trace_primitive_root, ORDER_OF_ROOTS_OF_UNITY_TRACE);
-
-    let offset = FE::from(COSET_OFFSET);
-    let evaluation_point = &lde_primitive_root.pow(q_i) * &offset;
-
-    // TODO: This is done to get the boundary zerofier - It should not be made like this
-    let a0_constraint = BoundaryConstraint::new_simple(0, FE::from(1));
-    let a1_constraint = BoundaryConstraint::new_simple(1, FE::from(1));
-    let boundary_constraints =
-        BoundaryConstraints::from_constraints(vec![a0_constraint, a1_constraint]);
-    let boundary_zerofier = boundary_constraints.compute_zerofier(&trace_primitive_root);
-
-    let composition_polynomial_evaluation_from_trace = ((&trace_evaluations[2]
-        - &trace_evaluations[1]
-        - &trace_evaluations[0])
-        / zerofier.evaluate(&evaluation_point))
-        * alpha_t
-        + ((&trace_evaluations[0] - FE::from(1)) / boundary_zerofier.evaluate(&evaluation_point))
-            * alpha_bc;
-
-    if *composition_polynomial_evaluation_from_prover
-        != composition_polynomial_evaluation_from_trace
-    {
-        return false;
-    }
-
-    let trace_evaluation_point_indexes = vec![
-        q_i,
-        q_i + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE),
-        q_i + (ORDER_OF_ROOTS_OF_UNITY_FOR_LDE / ORDER_OF_ROOTS_OF_UNITY_TRACE) * 2,
-    ];
-
-    for (merkle_proof, (index, value)) in proof
-        .trace_lde_poly_inclusion_proofs
-        .iter()
-        .zip(trace_evaluation_point_indexes.iter().zip(trace_evaluations))
-    {
-        if !merkle_proof.verify(trace_lde_poly_root, *index, value) {
-            return false;
-        }
-    }
-
-    fri_verify(
-        fri_layers_merkle_roots,
-        &proof.fri_decommitment,
-        beta_list,
-        q_i,
-    )
-}
-
-/// Performs FRI verification for some decommitment
-pub fn fri_verify(
-    fri_layers_merkle_roots: &[FE],
-    fri_decommitment: &FriDecommitment,
-    beta_list: &[FE],
-    decommitment_index: usize,
-) -> bool {
     // For each fri layer merkle proof check:
     // That each merkle path verifies
 
@@ -147,13 +166,6 @@ pub fn fri_verify(
     // The calculation is, given the index, index % length_of_evaluation_domain
 
     // Check that v = P_{i+1}(z_i)
-
-    // FIXME remove unwrap()
-    let mut lde_primitive_root = PrimeField::get_primitive_root_of_unity(
-        ORDER_OF_ROOTS_OF_UNITY_FOR_LDE.trailing_zeros() as u64,
-    )
-    .unwrap();
-    let mut offset = FE::from(COSET_OFFSET);
 
     // For each (merkle_root, merkle_auth_path) / fold
     // With the auth path containining the element that the
@@ -186,9 +198,10 @@ pub fn fri_verify(
     {
         // This is the current layer's evaluation domain length. We need it to know what the decommitment index for the current
         // layer is, so we can check the merkle paths at the right index.
-        let current_layer_domain_length = ORDER_OF_ROOTS_OF_UNITY_FOR_LDE >> layer_number;
+        let current_layer_domain_length = 2_u64.pow(lde_root_order) as usize >> layer_number;
 
-        let layer_evaluation_index = decommitment_index % current_layer_domain_length;
+        let layer_evaluation_index = q_i % current_layer_domain_length;
+
         if !fri_layer_auth_path.verify(
             fri_layer_merkle_root,
             layer_evaluation_index,
@@ -198,7 +211,7 @@ pub fn fri_verify(
         }
 
         let layer_evaluation_index_symmetric =
-            (decommitment_index + current_layer_domain_length) % current_layer_domain_length;
+            (q_i + current_layer_domain_length) % current_layer_domain_length;
 
         if !fri_layer_auth_path_symmetric.verify(
             fri_layer_merkle_root,
@@ -208,7 +221,6 @@ pub fn fri_verify(
             return false;
         }
 
-        // TODO: Fiat Shamir
         let beta = beta_list[index].clone();
 
         let (previous_auth_path_evaluation, previous_path_evaluation_symmetric) = fri_decommitment
@@ -219,11 +231,11 @@ pub fn fri_verify(
             .unwrap();
 
         // evaluation point = offset * w ^ i in the Stark literature
-        let evaluation_point = &offset * lde_primitive_root.pow(decommitment_index);
+        let evaluation_point = &offset * lde_primitive_root.pow(q_i);
 
         // v is the calculated element for the
         // co linearity check
-        let two = &FE::new(U256::from("2"));
+        let two = &FieldElement::<F>::from(2);
         let v = (previous_auth_path_evaluation + previous_path_evaluation_symmetric) / two
             + &beta * (previous_auth_path_evaluation - previous_path_evaluation_symmetric)
                 / (two * evaluation_point);
@@ -237,7 +249,7 @@ pub fn fri_verify(
 
         // On the last iteration, also check the provided last evaluation point.
         if layer_number == fri_layers_merkle_roots.len() - 1 {
-            let last_evaluation_point = &offset * lde_primitive_root.pow(decommitment_index);
+            let last_evaluation_point = &offset * lde_primitive_root.pow(q_i);
 
             let last_v = (auth_path_evaluation + auth_path_evaluation_symmetric) / two
                 + &beta * (auth_path_evaluation - auth_path_evaluation_symmetric)
