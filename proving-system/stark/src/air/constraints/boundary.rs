@@ -32,6 +32,7 @@ impl<F: IsField> BoundaryConstraint<F> {
 
 /// Data structure that stores all the boundary constraints that must
 /// hold for the execution trace
+#[derive(Default)]
 pub struct BoundaryConstraints<F: IsField> {
     constraints: Vec<BoundaryConstraint<F>>,
 }
@@ -87,9 +88,9 @@ impl<F: IsField> BoundaryConstraints<F> {
         &self,
         primitive_root: &FieldElement<F>,
     ) -> Polynomial<FieldElement<F>> {
-        let mut zerofier = Polynomial::new_monomial(FieldElement::one(), 0);
+        let mut zerofier = Polynomial::new_monomial(FieldElement::<F>::one(), 0);
         for step in self.steps().into_iter() {
-            let binomial = Polynomial::new(&[-primitive_root.pow(step), FieldElement::one()]);
+            let binomial = Polynomial::new(&[-primitive_root.pow(step), FieldElement::<F>::one()]);
             // TODO: Implement the MulAssign trait for Polynomials?
             zerofier = zerofier * binomial;
         }
@@ -100,30 +101,39 @@ impl<F: IsField> BoundaryConstraints<F> {
 
 #[cfg(test)]
 mod test {
-    use lambdaworks_math::{field::traits::IsTwoAdicField, unsigned_integer::element::U256};
+    use lambdaworks_math::field::traits::IsTwoAdicField;
 
-    use crate::FE;
+    use crate::PrimeField;
 
     use super::*;
 
-    // #[test]
-    // fn zerofier_is_the_correct_one() {
-    //     let a0 = BoundaryConstraint::new_simple(0, FE::new(U384::from("1")));
-    //     let a1 = BoundaryConstraint::new_simple(1, FE::new(U384::from("1")));
-    //     let result = BoundaryConstraint::new_simple(7, FE::new(U384::from("32")));
+    #[test]
+    fn zerofier_is_the_correct_one() {
+        let one = FieldElement::<PrimeField>::one();
 
-    //     let constraints = BoundaryConstraints::from_constraints(vec![a0, a1, result]);
+        // Fibonacci constraints:
+        //   * a0 = 1
+        //   * a1 = 1
+        //   * a7 = 32
+        let a0 = BoundaryConstraint::new_simple(0, one.clone());
+        let a1 = BoundaryConstraint::new_simple(1, one.clone());
+        let result = BoundaryConstraint::new_simple(7, FieldElement::<PrimeField>::from(32));
 
-    //     let primitive_root = generate_primitive_root(8);
+        let constraints = BoundaryConstraints::from_constraints(vec![a0, a1, result]);
 
-    //     let a0_zerofier = Polynomial::new(&[-FE::one(), FE::one()]);
-    //     let a1_zerofier = Polynomial::new(&[-primitive_root.pow(1u32), FE::one()]);
-    //     let res_zerofier = Polynomial::new(&[-primitive_root.pow(7u32), FE::one()]);
+        let primitive_root = PrimeField::get_primitive_root_of_unity(3).unwrap();
 
-    //     let expected_zerofier = a0_zerofier * a1_zerofier * res_zerofier;
+        // P_0(x) = (x - 1)
+        let a0_zerofier = Polynomial::new(&[-one.clone(), one.clone()]);
+        // P_1(x) = (x - w^1)
+        let a1_zerofier = Polynomial::new(&[-primitive_root.pow(1u32), one.clone()]);
+        // P_res(x) = (x - w^7)
+        let res_zerofier = Polynomial::new(&[-primitive_root.pow(7u32), one]);
 
-    //     let zerofier = constraints.compute_zerofier(&primitive_root);
+        let expected_zerofier = a0_zerofier * a1_zerofier * res_zerofier;
 
-    //     assert_eq!(expected_zerofier, zerofier);
-    // }
+        let zerofier = constraints.compute_zerofier(&primitive_root);
+
+        assert_eq!(expected_zerofier, zerofier);
+    }
 }

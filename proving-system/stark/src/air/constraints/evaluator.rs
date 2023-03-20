@@ -40,7 +40,7 @@ impl<F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
     ) -> ConstraintEvaluationTable<F> {
         let mut evaluation_table = ConstraintEvaluationTable::new(
             self.air.context().num_transition_constraints() + 1,
-            &lde_domain,
+            lde_domain,
         );
 
         let boundary_constraints = &self.boundary_constraints;
@@ -70,14 +70,14 @@ impl<F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
         // Iterate over trace and domain and compute transitions
         for (i, d) in lde_domain.iter().enumerate() {
             let frame = Frame::read_from_trace(
-                &lde_trace,
+                lde_trace,
                 i,
                 blowup_factor,
                 &self.air.context().transition_offsets,
             );
 
             let mut evaluations = self.air.compute_transition(&frame);
-            evaluations = Self::compute_transition_evaluations(
+            evaluations = Self::compute_constraint_composition_poly_evaluations(
                 &self.air,
                 &evaluations,
                 alpha_and_beta_transition_coefficients,
@@ -87,7 +87,9 @@ impl<F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
 
             // Append evaluation for boundary constraints
             let boundary_evaluation = boundary_poly.evaluate(d)
-                * (boundary_alpha * d.pow(max_degree - boundary_poly.degree()) + boundary_beta);
+                * (boundary_alpha
+                    * d.pow(max_degree_power_of_two - (boundary_poly.degree() as u64))
+                    + boundary_beta);
 
             let boundary_zerofier = self
                 .boundary_constraints
@@ -102,16 +104,18 @@ impl<F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
     }
 
     /// Given `evaluations` C_i(x) of the trace polynomial composed with the constraint
-    /// polynomial at certain points, computes the following evaluations and returns them:
+    /// polynomial at a certain point `x`, computes the following evaluations and returns them:
     ///
-    /// C_i(x) (alpha_i * x^(D - D_i) + beta_i)
+    /// C_i(x) (alpha_i * x^(D - D_i) + beta_i) / (Z_i(x))
+    ///
+    /// where Z is the zerofier of the `i`-th transition constraint polynomial.
     ///
     /// This method is called in two different scenarios. The first is when the prover
     /// is building these evaluations to compute the composition and DEEP composition polynomials.
     /// The second one is when the verifier needs to check the consistency between the trace and
     /// the composition polynomial. In that case the `evaluations` are over an *out of domain* frame
     /// (in the fibonacci example they are evaluations on the points `z`, `zg`, `zg^2`).
-    pub fn compute_transition_evaluations(
+    pub fn compute_constraint_composition_poly_evaluations(
         air: &A,
         evaluations: &[FieldElement<F>],
         alpha_and_beta_coefficients: &[(FieldElement<F>, FieldElement<F>)],
@@ -130,7 +134,7 @@ impl<F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
             .zip(alpha_and_beta_coefficients)
         {
             let numerator = eval * (alpha * x.pow(max_degree - (degree as u64)) + beta);
-            let result = numerator / div.evaluate(&x);
+            let result = numerator / div.evaluate(x);
             ret.push(result);
         }
 

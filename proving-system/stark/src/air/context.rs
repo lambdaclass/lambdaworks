@@ -11,7 +11,6 @@ pub struct AirContext {
     /// constraints don't use all of the indexes in said offsets.
     pub transition_offsets: Vec<usize>,
     pub transition_exemptions: Vec<usize>,
-    pub num_assertions: usize,
     pub num_transition_constraints: usize,
 }
 
@@ -28,4 +27,5 @@ impl AirContext {
 #[derive(Clone)]
 pub struct ProofOptions {
     pub(crate) blowup_factor: u8,
+    pub fri_number_of_queries: u8,
 }
