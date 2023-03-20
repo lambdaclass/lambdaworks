@@ -35,6 +35,7 @@ where
     }
 }
 
+#[derive(Clone)]
 pub struct KateZaveruchaGoldberg<const MAXIMUM_DEGREE: usize, F: IsPrimeField, P: IsPairing> {
     srs: StructuredReferenceString<MAXIMUM_DEGREE, P::G1Point, P::G2Point>,
     phantom: PhantomData<F>,

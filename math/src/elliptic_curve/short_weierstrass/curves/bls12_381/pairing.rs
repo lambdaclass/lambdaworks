@@ -17,6 +17,7 @@ use crate::{
     unsigned_integer::element::UnsignedInteger,
 };
 
+#[derive(Clone)]
 pub struct BLS12381AtePairing;
 impl IsPairing for BLS12381AtePairing {
     type G1Point = ShortWeierstrassProjectivePoint<BLS12381Curve>;

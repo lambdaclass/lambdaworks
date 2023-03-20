@@ -37,7 +37,7 @@ pub struct Proof<F: IsField, CS: IsCommitmentScheme<F>> {
     pub w_zeta_1: CS::Hiding,  // [W_ζ(X)]₁ (commitment to the opening proof polynomial)
     pub w_zeta_omega_1: CS::Hiding, // [W_ζω(X)]₁ (commitment to the opening proof polynomial)
     pub partial_p_zeta: FieldElement<F>,
-    pub partial_t_zeta: FieldElement<F>
+    pub t_zeta: FieldElement<F>
 }
 
 pub struct Prover<F: IsField, CS: IsCommitmentScheme<F>> {
@@ -87,7 +87,7 @@ struct Round5Result<F: IsField, Hiding> {
     w_zeta_1: Hiding,
     w_zeta_omega_1: Hiding,
     partial_p_zeta: FieldElement<F>,
-    partial_t_zeta: FieldElement<F>
+    t_zeta: FieldElement<F>
 }
 
 impl<F, CS> Prover<F, CS>
@@ -262,8 +262,8 @@ where
         // Folded evaluations
         let mut folded_eval = FieldElement::zero();
         let partial_p_zeta = partial_p.evaluate(zeta);
-        let partial_t_zeta = partial_t.evaluate(zeta);
-        folded_eval = folded_eval + &partial_t_zeta;
+        let t_zeta = partial_t.evaluate(zeta);
+        folded_eval = folded_eval + &t_zeta;
         folded_eval = folded_eval + (upsilon.pow(1_u64) * &partial_p_zeta);
         folded_eval = folded_eval + (upsilon.pow(2_u64) * p_a.evaluate(zeta));
         folded_eval = folded_eval + (upsilon.pow(3_u64) * p_b.evaluate(zeta));
@@ -280,7 +280,7 @@ where
         let w_zeta_1 = self.commitment_scheme.commit(&p_w_z);
         let w_zeta_omega_1 = self.commitment_scheme.commit(&p_w_z_omega);
 
-        Round5Result {w_zeta_1, w_zeta_omega_1, partial_p_zeta, partial_t_zeta}
+        Round5Result {w_zeta_1, w_zeta_omega_1, partial_p_zeta, t_zeta}
     }
 
     #[allow(unused)]
@@ -362,7 +362,7 @@ where
             w_zeta_1: round_5.w_zeta_1,
             w_zeta_omega_1: round_5.w_zeta_omega_1,
             partial_p_zeta: round_5.partial_p_zeta,
-            partial_t_zeta: round_5.partial_t_zeta
+            t_zeta: round_5.t_zeta
     }
 }
 }
