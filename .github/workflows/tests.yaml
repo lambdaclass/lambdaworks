@@ -20,7 +20,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --reinstall build-essential
+          sudo apt-get install --reinstall g++
 
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
