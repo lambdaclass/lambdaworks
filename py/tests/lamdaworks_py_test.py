@@ -2,11 +2,6 @@ import unittest
 
 from lambdaworks_py import *
 
-# FIXME Why this does not work?
-# from lambdaworks_py.math.unsigned_integer.elements import U256
-
-U256 = math.unsigned_integer.element.U256
-
 class TestU256(unittest.TestCase):
     def test_constructor(self):
         """
@@ -30,7 +25,7 @@ class TestFibonacci(unittest.TestCase):
     def test_prove(self):
         trace = self.__class__._fibonacci_trace(FieldElement(U256("1")), FieldElement(U256("1")))
 
-        proof_config = ProofConfig(count_queries=30, blowup_factor=4)
+        proof_config = StarkProofConfig(count_queries=30, blowup_factor=4)
         result = prove(trace, proof_config)
 
         self.assertTrue(verify(result))
