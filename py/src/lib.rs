@@ -7,6 +7,7 @@ use crate::proving_systems::stark;
 use crate::proving_systems::stark::PyFieldElement;
 use crate::proving_systems::stark::PyProofConfig;
 use crate::proving_systems::stark::PyStarkProof;
+use crate::merkle_tree::merkle::{PyU64FE, PyU64MerkleTree};
 
 use pyo3::prelude::*;
 use pyo3::wrap_pyfunction;
@@ -17,6 +18,8 @@ fn lambdaworks_py(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<PyFieldElement>()?;
     m.add_class::<PyProofConfig>()?;
     m.add_class::<PyStarkProof>()?;
+    m.add_class::<PyU64MerkleTree>()?;
+    m.add_class::<PyU64FE>()?;
     m.add_function(wrap_pyfunction!(stark::prove, m)?)?;
     m.add_function(wrap_pyfunction!(stark::verify, m)?)?;
     Ok(())

@@ -29,7 +29,10 @@ class TestFibonacci(unittest.TestCase):
         result = prove(trace, proof_config)
 
         self.assertTrue(verify(result))
-    
+
+class TestMerkleTree(unittest.TestCase):
+    def test_constructor(self):
+        self.assertTrue(U64MerkleTree([U64FE(1)]))
 
 if __name__ == '__main__':
     unittest.main()
