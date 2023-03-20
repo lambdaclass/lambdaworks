@@ -41,7 +41,8 @@ pub struct KateZaveruchaGoldberg<const MAXIMUM_DEGREE: usize, F: IsPrimeField, P
     phantom: PhantomData<F>,
 }
 
-impl<const MAXIMUM_DEGREE: usize, F: IsPrimeField, P: IsPairing> KateZaveruchaGoldberg<MAXIMUM_DEGREE, F, P>
+impl<const MAXIMUM_DEGREE: usize, F: IsPrimeField, P: IsPairing>
+    KateZaveruchaGoldberg<MAXIMUM_DEGREE, F, P>
 {
     #[allow(unused)]
     pub fn new(srs: StructuredReferenceString<MAXIMUM_DEGREE, P::G1Point, P::G2Point>) -> Self {
@@ -52,8 +53,8 @@ impl<const MAXIMUM_DEGREE: usize, F: IsPrimeField, P: IsPairing> KateZaveruchaGo
     }
 }
 
-impl<const MAXIMUM_DEGREE: usize, F: IsPrimeField, P: IsPairing> IsCommitmentScheme<F> for
-    KateZaveruchaGoldberg<MAXIMUM_DEGREE, F, P>
+impl<const MAXIMUM_DEGREE: usize, F: IsPrimeField, P: IsPairing> IsCommitmentScheme<F>
+    for KateZaveruchaGoldberg<MAXIMUM_DEGREE, F, P>
 {
     type Hiding = P::G1Point;
     type Opening = Opening<F, P::G1Point>;
@@ -72,11 +73,7 @@ impl<const MAXIMUM_DEGREE: usize, F: IsPrimeField, P: IsPairing> IsCommitmentSch
     }
 
     #[allow(unused)]
-    fn open(
-        &self,
-        x: &FieldElement<F>,
-        p: &Polynomial<FieldElement<F>>,
-    ) -> Opening<F, P::G1Point> {
+    fn open(&self, x: &FieldElement<F>, p: &Polynomial<FieldElement<F>>) -> Opening<F, P::G1Point> {
         let value = p.evaluate(x);
         let numerator = p + Polynomial::new_monomial(-&value, 0);
         let denominator = Polynomial::new(&[-x, FieldElement::one()]);

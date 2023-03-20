@@ -1,14 +1,11 @@
 use std::marker::PhantomData;
 
-use crate::{
-    setup::{Circuit, CommonPreprocessedInput, Witness},
-};
+use crate::setup::{Circuit, CommonPreprocessedInput, Witness};
 use lambdaworks_crypto::{
-     fiat_shamir::transcript::Transcript, commitments::traits::IsCommitmentScheme,
+    commitments::traits::IsCommitmentScheme, fiat_shamir::transcript::Transcript,
 };
-use lambdaworks_math::{traits::ByteConversion, field::traits::IsField};
 use lambdaworks_math::{field::element::FieldElement, polynomial::Polynomial};
-
+use lambdaworks_math::{field::traits::IsField, traits::ByteConversion};
 
 #[allow(unused)]
 pub struct Proof<F: IsField, CS: IsCommitmentScheme<F>> {
@@ -26,25 +23,23 @@ pub struct Proof<F: IsField, CS: IsCommitmentScheme<F>> {
     pub t_hi_1: CS::Hiding, // [t_hi(x)]₁ (commitment to t_hi(X), the high chunk of the quotient polynomial t(X))
 
     // Round 4
-    pub a_zeta: FieldElement<F>,         // Evaluation of a(X) at evaluation challenge ζ
-    pub b_zeta: FieldElement<F>,         // Evaluation of b(X) at evaluation challenge ζ
-    pub c_zeta: FieldElement<F>,         // Evaluation of c(X) at evaluation challenge ζ
+    pub a_zeta: FieldElement<F>, // Evaluation of a(X) at evaluation challenge ζ
+    pub b_zeta: FieldElement<F>, // Evaluation of b(X) at evaluation challenge ζ
+    pub c_zeta: FieldElement<F>, // Evaluation of c(X) at evaluation challenge ζ
     pub s1_zeta: FieldElement<F>, // Evaluation of the first permutation polynomial S_σ1(X) at evaluation challenge ζ
     pub s2_zeta: FieldElement<F>, // Evaluation of the second permutation polynomial S_σ2(X) at evaluation challenge ζ
     pub z_zeta_omega: FieldElement<F>, // Evaluation of the shifted permutation polynomial z(X) at the shifted evaluation challenge ζω
 
     // Round 5
-    pub w_zeta_1: CS::Hiding,  // [W_ζ(X)]₁ (commitment to the opening proof polynomial)
+    pub w_zeta_1: CS::Hiding, // [W_ζ(X)]₁ (commitment to the opening proof polynomial)
     pub w_zeta_omega_1: CS::Hiding, // [W_ζω(X)]₁ (commitment to the opening proof polynomial)
     pub partial_p_zeta: FieldElement<F>,
-    pub t_zeta: FieldElement<F>
+    pub t_zeta: FieldElement<F>,
 }
 
 pub struct Prover<F: IsField, CS: IsCommitmentScheme<F>> {
     commitment_scheme: CS,
-    order_4_root_unity: FieldElement<F>,
-    order_r_minus_1_root_unity: FieldElement<F>,
-    phantom: PhantomData<F>
+    phantom: PhantomData<F>,
 }
 
 struct Round1Result<F: IsField, Hiding> {
@@ -60,7 +55,7 @@ struct Round2Result<F: IsField, Hiding> {
     z_1: Hiding,
     p_z: Polynomial<FieldElement<F>>,
     beta: FieldElement<F>,
-    gamma: FieldElement<F>
+    gamma: FieldElement<F>,
 }
 
 struct Round3Result<F: IsField, Hiding> {
@@ -70,7 +65,7 @@ struct Round3Result<F: IsField, Hiding> {
     p_t_lo: Polynomial<FieldElement<F>>,
     p_t_mid: Polynomial<FieldElement<F>>,
     p_t_hi: Polynomial<FieldElement<F>>,
-    alpha: FieldElement<F>
+    alpha: FieldElement<F>,
 }
 
 struct Round4Result<F: IsField> {
@@ -80,14 +75,14 @@ struct Round4Result<F: IsField> {
     s1_zeta: FieldElement<F>,
     s2_zeta: FieldElement<F>,
     z_zeta_omega: FieldElement<F>,
-    zeta: FieldElement<F>
+    zeta: FieldElement<F>,
 }
 
 struct Round5Result<F: IsField, Hiding> {
     w_zeta_1: Hiding,
     w_zeta_omega_1: Hiding,
     partial_p_zeta: FieldElement<F>,
-    t_zeta: FieldElement<F>
+    t_zeta: FieldElement<F>,
 }
 
 impl<F, CS> Prover<F, CS>
@@ -95,11 +90,14 @@ where
     F: IsField,
     CS: IsCommitmentScheme<F>,
     FieldElement<F>: ByteConversion,
-    CS::Hiding: ByteConversion
+    CS::Hiding: ByteConversion,
 {
     #[allow(unused)]
-    pub fn new(commitment_scheme: CS, order_4_root_unity: FieldElement<F>, order_r_minus_1_root_unity: FieldElement<F>) -> Self {
-        Self {commitment_scheme: commitment_scheme, phantom: PhantomData, order_4_root_unity: order_4_root_unity, order_r_minus_1_root_unity: order_r_minus_1_root_unity}
+    pub fn new(commitment_scheme: CS) -> Self {
+        Self {
+            commitment_scheme: commitment_scheme,
+            phantom: PhantomData,
+        }
     }
 
     fn round_1(
@@ -117,27 +115,42 @@ where
         let b_1 = self.commitment_scheme.commit(&p_b);
         let c_1 = self.commitment_scheme.commit(&p_c);
 
-        Round1Result { a_1, b_1, c_1, p_a, p_b, p_c }
+        Round1Result {
+            a_1,
+            b_1,
+            c_1,
+            p_a,
+            p_b,
+            p_c,
+        }
     }
 
     fn round_2(
         &self,
         witness: &Witness<F>,
-        CommonPreprocessedInput {n, domain, s1_lagrange, s2_lagrange, s3_lagrange, ..}: &CommonPreprocessedInput<F>,
+        CommonPreprocessedInput {
+            n,
+            domain,
+            s1_lagrange,
+            s2_lagrange,
+            s3_lagrange,
+            k1,
+            ..
+        }: &CommonPreprocessedInput<F>,
         beta: &FieldElement<F>,
         gamma: &FieldElement<F>,
     ) -> Round2Result<F, CS::Hiding> {
         let mut coefficients: Vec<FieldElement<F>> = vec![FieldElement::one()];
         let (s1, s2, s3) = (&s1_lagrange, &s2_lagrange, &s3_lagrange);
 
-        let k1 = &self.order_r_minus_1_root_unity;
         let k2 = k1 * k1;
 
         let lp = |w: &FieldElement<F>, eta: &FieldElement<F>| w + beta * eta + gamma;
 
         for i in 0..n - 1 {
             let (a_i, b_i, c_i) = (&witness.a[i], &witness.b[i], &witness.c[i]);
-            let num = lp(&a_i, &domain[i]) * lp(&b_i, &(&domain[i] * k1)) * lp(&c_i, &(&domain[i] * &k2));
+            let num =
+                lp(&a_i, &domain[i]) * lp(&b_i, &(&domain[i] * k1)) * lp(&c_i, &(&domain[i] * &k2));
             let den = lp(&a_i, &s1[i]) * lp(&b_i, &s2[i]) * lp(&c_i, &s3[i]);
             let new_factor = num / den;
             let new_term = coefficients.last().unwrap() * &new_factor;
@@ -146,18 +159,38 @@ where
 
         let p_z = Polynomial::interpolate(domain, &coefficients);
         let z_1 = self.commitment_scheme.commit(&p_z);
-        Round2Result { z_1: z_1, p_z: p_z, beta: beta.clone(), gamma: gamma.clone() }
+        Round2Result {
+            z_1: z_1,
+            p_z: p_z,
+            beta: beta.clone(),
+            gamma: gamma.clone(),
+        }
     }
 
     fn round_3(
         &self,
-        CommonPreprocessedInput { ql, qr, qo, qm, qc, s1, s2, s3, n, k1, domain, ..}: &CommonPreprocessedInput<F>,
+        CommonPreprocessedInput {
+            ql,
+            qr,
+            qo,
+            qm,
+            qc,
+            s1,
+            s2,
+            s3,
+            n,
+            k1,
+            domain,
+            ..
+        }: &CommonPreprocessedInput<F>,
         public_input: &[FieldElement<F>],
-        Round1Result {p_a, p_b, p_c, ..}: &Round1Result<F, CS::Hiding>,
-        Round2Result {p_z, beta, gamma, ..}: &Round2Result<F, CS::Hiding>,
-        alpha: &FieldElement<F>
+        Round1Result { p_a, p_b, p_c, .. }: &Round1Result<F, CS::Hiding>,
+        Round2Result {
+            p_z, beta, gamma, ..
+        }: &Round2Result<F, CS::Hiding>,
+        alpha: &FieldElement<F>,
     ) -> Round3Result<F, CS::Hiding> {
-        let k2 = &self.order_r_minus_1_root_unity * k1;
+        let k2 = k1 * k1;
 
         let one = Polynomial::new_monomial(FieldElement::one(), 0);
         let p_x = &Polynomial::new_monomial(FieldElement::one(), 1);
@@ -178,7 +211,9 @@ where
         let p_pi = Polynomial::interpolate(&domain, &p_pi_y);
 
         let p_constraints = p_a * p_b * qm + p_a * ql + p_b * qr + p_c * qo + qc + p_pi;
-        let f = (p_a + p_x * beta + gamma) * (p_b + p_x * beta * k1 + gamma) * (p_c + p_x * beta * k2 + gamma);
+        let f = (p_a + p_x * beta + gamma)
+            * (p_b + p_x * beta * k1 + gamma)
+            * (p_c + p_x * beta * k2 + gamma);
         let g = (p_a + s1 * beta + gamma) * (p_b + s2 * beta + gamma) * (p_c + s3 * beta + gamma);
         let p_permutation_1 = g * z_x_omega - f * p_z; // TODO: Paper says this term is minus the term found on gnark. This doesn't affect the protocol.
         let p_permutation_2 = (p_z - one) * &l1;
@@ -198,14 +233,22 @@ where
         let t_mid_1 = self.commitment_scheme.commit(&p_t_mid);
         let t_hi_1 = self.commitment_scheme.commit(&p_t_hi);
 
-        Round3Result { t_lo_1: t_lo_1, t_mid_1: t_mid_1, t_hi_1: t_hi_1, p_t_lo: p_t_lo, p_t_mid: p_t_mid, p_t_hi: p_t_hi, alpha: alpha.clone() }
+        Round3Result {
+            t_lo_1: t_lo_1,
+            t_mid_1: t_mid_1,
+            t_hi_1: t_hi_1,
+            p_t_lo: p_t_lo,
+            p_t_mid: p_t_mid,
+            p_t_hi: p_t_hi,
+            alpha: alpha.clone(),
+        }
     }
 
     fn round_4(
         &self,
-        CommonPreprocessedInput {s1, s2, omega, .. }: &CommonPreprocessedInput<F>,
-        Round1Result {p_a, p_b, p_c, ..}: &Round1Result<F, CS::Hiding>,
-        Round2Result {p_z, ..}: &Round2Result<F, CS::Hiding>,
+        CommonPreprocessedInput { s1, s2, omega, .. }: &CommonPreprocessedInput<F>,
+        Round1Result { p_a, p_b, p_c, .. }: &Round1Result<F, CS::Hiding>,
+        Round2Result { p_z, .. }: &Round2Result<F, CS::Hiding>,
         zeta: &FieldElement<F>,
     ) -> Round4Result<F> {
         let a_zeta = p_a.evaluate(zeta);
@@ -214,17 +257,57 @@ where
         let s1_zeta = s1.evaluate(zeta);
         let s2_zeta = s2.evaluate(zeta);
         let z_zeta_omega = p_z.evaluate(&(zeta * omega));
-        Round4Result {a_zeta: a_zeta, b_zeta: b_zeta, c_zeta: c_zeta, s1_zeta: s1_zeta, s2_zeta: s2_zeta, z_zeta_omega: z_zeta_omega, zeta: zeta.clone()}
+        Round4Result {
+            a_zeta: a_zeta,
+            b_zeta: b_zeta,
+            c_zeta: c_zeta,
+            s1_zeta: s1_zeta,
+            s2_zeta: s2_zeta,
+            z_zeta_omega: z_zeta_omega,
+            zeta: zeta.clone(),
+        }
     }
 
     fn round_5(
         &self,
-        CommonPreprocessedInput { ql, qr, qo, qm, qc, s1, s2, s3, n, k1, domain, omega, ..}: &CommonPreprocessedInput<F>,
+        CommonPreprocessedInput {
+            ql,
+            qr,
+            qo,
+            qm,
+            qc,
+            s1,
+            s2,
+            s3,
+            n,
+            k1,
+            domain,
+            omega,
+            ..
+        }: &CommonPreprocessedInput<F>,
         public_input: &[FieldElement<F>],
-        Round1Result {p_a, p_b, p_c, ..}: &Round1Result<F, CS::Hiding>,
-        Round2Result {p_z, beta, gamma, ..}: &Round2Result<F, CS::Hiding>,
-        Round3Result { t_lo_1, t_mid_1, t_hi_1, p_t_lo, p_t_mid, p_t_hi, alpha }: &Round3Result<F, CS::Hiding>,
-        Round4Result {a_zeta, b_zeta, c_zeta, s1_zeta, s2_zeta, z_zeta_omega, zeta}: &Round4Result<F>,
+        Round1Result { p_a, p_b, p_c, .. }: &Round1Result<F, CS::Hiding>,
+        Round2Result {
+            p_z, beta, gamma, ..
+        }: &Round2Result<F, CS::Hiding>,
+        Round3Result {
+            t_lo_1,
+            t_mid_1,
+            t_hi_1,
+            p_t_lo,
+            p_t_mid,
+            p_t_hi,
+            alpha,
+        }: &Round3Result<F, CS::Hiding>,
+        Round4Result {
+            a_zeta,
+            b_zeta,
+            c_zeta,
+            s1_zeta,
+            s2_zeta,
+            z_zeta_omega,
+            zeta,
+        }: &Round4Result<F>,
         upsilon: &FieldElement<F>,
     ) -> Round5Result<F, CS::Hiding> {
         // Precompute variables
@@ -232,13 +315,22 @@ where
         let zeta_raised_n = Polynomial::new_monomial(zeta.pow(n + 2), 0); // TODO: Paper says n and 2n, but Gnark uses n+2 and 2n+4 (see the TODO(*))
         let zeta_raised_2n = Polynomial::new_monomial(zeta.pow(2 * n + 4), 0);
 
-        let l1_zeta = (zeta.pow(*n as u64) - FieldElement::one()) / (zeta - FieldElement::one()) / FieldElement::from(*n as u64);
+        let l1_zeta = (zeta.pow(*n as u64) - FieldElement::one())
+            / (zeta - FieldElement::one())
+            / FieldElement::from(*n as u64);
 
         // This is called linearized polynomial in Gnark
         let mut partial_p = qm * a_zeta * b_zeta + a_zeta * ql + b_zeta * qr + c_zeta * qo + qc;
 
-        let r_2_1 = (a_zeta + beta * zeta + gamma) * (b_zeta + beta * k1 * zeta + gamma) * (c_zeta + beta * &k2 * zeta + gamma) * p_z;
-        let r_2_2 = (a_zeta + beta * s1_zeta + gamma) * (b_zeta + beta * s2_zeta + gamma) * beta * z_zeta_omega * s3;
+        let r_2_1 = (a_zeta + beta * zeta + gamma)
+            * (b_zeta + beta * k1 * zeta + gamma)
+            * (c_zeta + beta * &k2 * zeta + gamma)
+            * p_z;
+        let r_2_2 = (a_zeta + beta * s1_zeta + gamma)
+            * (b_zeta + beta * s2_zeta + gamma)
+            * beta
+            * z_zeta_omega
+            * s3;
         partial_p = partial_p + (r_2_2 - r_2_1) * alpha;
 
         let r_3 = p_z * l1_zeta;
@@ -274,13 +366,19 @@ where
         // dividePolyByXMinusA calcula (f(x)-f(a))/(x-a)
         // Division by x minus
         let p_w_z = (folded_poly - folded_eval) / Polynomial::new(&[-zeta, FieldElement::one()]);
-        let z_shifted = (p_z - z_zeta_omega) / Polynomial::new(&[-zeta * omega, FieldElement::one()]);
+        let z_shifted =
+            (p_z - z_zeta_omega) / Polynomial::new(&[-zeta * omega, FieldElement::one()]);
         let p_w_z_omega = z_shifted;
 
         let w_zeta_1 = self.commitment_scheme.commit(&p_w_z);
         let w_zeta_omega_1 = self.commitment_scheme.commit(&p_w_z_omega);
 
-        Round5Result {w_zeta_1, w_zeta_omega_1, partial_p_zeta, t_zeta}
+        Round5Result {
+            w_zeta_1,
+            w_zeta_omega_1,
+            partial_p_zeta,
+            t_zeta,
+        }
     }
 
     #[allow(unused)]
@@ -315,7 +413,7 @@ where
             &public_input,
             &round_1,
             &round_2,
-            &alpha
+            &alpha,
         );
         transcript.append(&round_3.t_lo_1.to_bytes_be());
         transcript.append(&round_3.t_mid_1.to_bytes_be());
@@ -323,12 +421,7 @@ where
 
         // Round 4
         let zeta = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
-        let round_4 = self.round_4(
-            &common_preprocesed_input,
-            &round_1,
-            &round_2,
-            &zeta,
-        );
+        let round_4 = self.round_4(&common_preprocesed_input, &round_1, &round_2, &zeta);
 
         // TODO: Should we append something to the transcript here? This step does not return any commitment.
         // But the next step receives a new challenge `upsilon`
@@ -342,7 +435,7 @@ where
             &round_2,
             &round_3,
             &round_4,
-            &upsilon
+            &upsilon,
         );
 
         Proof {
@@ -362,11 +455,10 @@ where
             w_zeta_1: round_5.w_zeta_1,
             w_zeta_omega_1: round_5.w_zeta_omega_1,
             partial_p_zeta: round_5.partial_p_zeta,
-            t_zeta: round_5.t_zeta
+            t_zeta: round_5.t_zeta,
+        }
     }
 }
-}
-
 
 #[cfg(test)]
 mod tests {
@@ -382,12 +474,13 @@ mod tests {
 
     use crate::{
         test_utils::FpElement,
-        test_utils::{test_circuit, test_srs, FrElement, ORDER_4_ROOT_UNITY, ORDER_R_MINUS_1_ROOT_UNITY, KZG, test_common_preprocessed_input},
+        test_utils::{
+            test_circuit, test_common_preprocessed_input, test_srs, FrElement, KZG,
+            ORDER_4_ROOT_UNITY, ORDER_R_MINUS_1_ROOT_UNITY,
+        },
     };
 
     use super::*;
-
-
 
     fn alpha() -> FrElement {
         FrElement::from_hex("583cfb0df2ef98f2131d717bc6aadd571c5302597c135cab7c00435817bf6e50")
@@ -416,7 +509,7 @@ mod tests {
         let common_preprocesed_input = test_common_preprocessed_input();
         let srs = test_srs();
         let kzg = KZG::new(srs);
-        let prover = Prover::new(kzg, ORDER_4_ROOT_UNITY, ORDER_R_MINUS_1_ROOT_UNITY);
+        let prover = Prover::new(kzg);
         let round_1 = prover.round_1(&witness, &common_preprocesed_input);
         let a_1_expected = BLS12381Curve::create_point_from_affine(
             FpElement::from_hex("17f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb"),
@@ -442,7 +535,7 @@ mod tests {
         let common_preprocesed_input = test_common_preprocessed_input();
         let srs = test_srs();
         let kzg = KZG::new(srs);
-        let prover = Prover::new(kzg, ORDER_4_ROOT_UNITY, ORDER_R_MINUS_1_ROOT_UNITY);
+        let prover = Prover::new(kzg);
 
         let result_2 = prover.round_2(&witness, &common_preprocesed_input, &beta(), &gamma());
         let z_1_expected = BLS12381Curve::create_point_from_affine(
@@ -460,7 +553,7 @@ mod tests {
         let srs = test_srs();
         let kzg = KZG::new(srs);
         let public_input = vec![FieldElement::from(2_u64), FieldElement::from(4)];
-        let prover = Prover::new(kzg, ORDER_4_ROOT_UNITY, ORDER_R_MINUS_1_ROOT_UNITY);
+        let prover = Prover::new(kzg);
         let round_1 = prover.round_1(&witness, &common_preprocesed_input);
         let round_2 = prover.round_2(&witness, &common_preprocesed_input, &beta(), &gamma());
         let round_3 = prover.round_3(
@@ -468,7 +561,7 @@ mod tests {
             &public_input,
             &round_1,
             &round_2,
-            &alpha()
+            &alpha(),
         );
 
         let t_lo_1_expected = BLS12381Curve::create_point_from_affine(
@@ -493,23 +586,24 @@ mod tests {
         let common_preprocesed_input = test_common_preprocessed_input();
         let srs = test_srs();
         let kzg = KZG::new(srs);
-        let prover = Prover::new(kzg, ORDER_4_ROOT_UNITY, ORDER_R_MINUS_1_ROOT_UNITY);
+        let prover = Prover::new(kzg);
 
         let round_1 = prover.round_1(&witness, &common_preprocesed_input);
         let round_2 = prover.round_2(&witness, &common_preprocesed_input, &beta(), &gamma());
 
-        let round_4 = prover.round_4(
-            &common_preprocesed_input,
-            &round_1,
-            &round_2,
-            &zeta(),
-        );
-        let expected_a_value = FrElement::from_hex("2c090a95b57f1f493b7b747bba34fef7772fd72f97d718ed69549641a823eb2e");
-        let expected_b_value = FrElement::from_hex("5975959d91369ba4e7a03c6ae94b7fe98e8b61b7bf9af63c8ae0759e17ac0c7e");
-        let expected_c_value = FrElement::from_hex("6bf31edeb4344b7d2df2cb1bd40b4d13e182d9cb09f89591fa043c1a34b4a93");
-        let expected_z_value = FrElement::from_hex("38e2ec8e7c3dab29e2b8e9c8ea152914b8fe4612e91f2902c80238efcf21f4ee");
-        let expected_s1_value = FrElement::from_hex("472f66db4fb6947d9ed9808241fe82324bc08aa2a54be93179db8e564e1137d4");
-        let expected_s2_value = FrElement::from_hex("5588f1239c24efe0538868d0f716984e69c6980e586864f615e4b0621fdc6f81");
+        let round_4 = prover.round_4(&common_preprocesed_input, &round_1, &round_2, &zeta());
+        let expected_a_value =
+            FrElement::from_hex("2c090a95b57f1f493b7b747bba34fef7772fd72f97d718ed69549641a823eb2e");
+        let expected_b_value =
+            FrElement::from_hex("5975959d91369ba4e7a03c6ae94b7fe98e8b61b7bf9af63c8ae0759e17ac0c7e");
+        let expected_c_value =
+            FrElement::from_hex("6bf31edeb4344b7d2df2cb1bd40b4d13e182d9cb09f89591fa043c1a34b4a93");
+        let expected_z_value =
+            FrElement::from_hex("38e2ec8e7c3dab29e2b8e9c8ea152914b8fe4612e91f2902c80238efcf21f4ee");
+        let expected_s1_value =
+            FrElement::from_hex("472f66db4fb6947d9ed9808241fe82324bc08aa2a54be93179db8e564e1137d4");
+        let expected_s2_value =
+            FrElement::from_hex("5588f1239c24efe0538868d0f716984e69c6980e586864f615e4b0621fdc6f81");
 
         assert_eq!(round_4.a_zeta, expected_a_value);
         assert_eq!(round_4.b_zeta, expected_b_value);
@@ -528,7 +622,7 @@ mod tests {
         let kzg = KZG::new(srs);
         let public_input = vec![FieldElement::from(2_u64), FieldElement::from(4)];
 
-        let prover = Prover::new(kzg, ORDER_4_ROOT_UNITY, ORDER_R_MINUS_1_ROOT_UNITY);
+        let prover = Prover::new(kzg);
 
         let round_1 = prover.round_1(&witness, &common_preprocesed_input);
         let round_2 = prover.round_2(&witness, &common_preprocesed_input, &beta(), &gamma());
@@ -541,12 +635,7 @@ mod tests {
             &alpha(),
         );
 
-        let round_4 = prover.round_4(
-            &common_preprocesed_input,
-            &round_1,
-            &round_2,
-            &zeta(),
-        );
+        let round_4 = prover.round_4(&common_preprocesed_input, &round_1, &round_2, &zeta());
 
         let expected_w_zeta_1 = BLS12381Curve::create_point_from_affine(
             FpElement::from_hex("fa6250b80a418f0548b132ac264ff9915b2076c0c2548da9316ae19ffa35bbcf905d9f02f9274739608045ef83a4757"),
@@ -564,7 +653,7 @@ mod tests {
             &round_2,
             &round_3,
             &round_4,
-            &upsilon()
+            &upsilon(),
         );
         assert_eq!(round_5.w_zeta_1, expected_w_zeta_1);
         assert_eq!(round_5.w_zeta_omega_1, expected_w_zeta_omega_1);

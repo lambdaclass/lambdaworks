@@ -1,10 +1,9 @@
-
-use lambdaworks_crypto::commitments::{traits::IsCommitmentScheme};
-use lambdaworks_math::{field::{traits::IsField, element::FieldElement}};
-use lambdaworks_math::{polynomial::Polynomial};
-
-type FE<F> = FieldElement<F>;
-type PFE<F> = Polynomial<FE<F>>;
+use lambdaworks_crypto::commitments::traits::IsCommitmentScheme;
+use lambdaworks_math::polynomial::Polynomial;
+use lambdaworks_math::{
+    cyclic_group::IsGroup,
+    field::{element::FieldElement, traits::IsField},
+};
 
 // TODO: implement getters
 pub struct Circuit {
@@ -15,9 +14,9 @@ pub struct Circuit {
 
 // TODO: implement getters
 pub struct Witness<F: IsField> {
-    pub a: Vec<FE<F>>,
-    pub b: Vec<FE<F>>,
-    pub c: Vec<FE<F>>,
+    pub a: Vec<FieldElement<F>>,
+    pub b: Vec<FieldElement<F>>,
+    pub c: Vec<FieldElement<F>>,
 }
 
 impl Circuit {
@@ -48,68 +47,72 @@ impl Circuit {
 
 // TODO: implement getters
 pub struct CommonPreprocessedInput<F: IsField> {
-    pub n: usize, /// Number of constraints
-    pub domain: Vec<FE<F>>,
-    pub omega: FE<F>, // Order 4 root unity
-    pub k1: FE<F>,                 // Order R minus one root unity
+    pub n: usize,
+    /// Number of constraints
+    pub domain: Vec<FieldElement<F>>,
+    pub omega: FieldElement<F>, // Order 4 root unity
+    pub k1: FieldElement<F>,    // Order R minus one root unity
 
-    pub ql: PFE<F>,
-    pub qr: PFE<F>,
-    pub qo: PFE<F>,
-    pub qm: PFE<F>,
-    pub qc: PFE<F>,
+    pub ql: Polynomial<FieldElement<F>>,
+    pub qr: Polynomial<FieldElement<F>>,
+    pub qo: Polynomial<FieldElement<F>>,
+    pub qm: Polynomial<FieldElement<F>>,
+    pub qc: Polynomial<FieldElement<F>>,
 
-    pub s1: PFE<F>,
-    pub s2: PFE<F>,
-    pub s3: PFE<F>,
+    pub s1: Polynomial<FieldElement<F>>,
+    pub s2: Polynomial<FieldElement<F>>,
+    pub s3: Polynomial<FieldElement<F>>,
 
-    pub s1_lagrange: Vec<FE<F>>,
-    pub s2_lagrange: Vec<FE<F>>,
-    pub s3_lagrange: Vec<FE<F>>,
+    pub s1_lagrange: Vec<FieldElement<F>>,
+    pub s2_lagrange: Vec<FieldElement<F>>,
+    pub s3_lagrange: Vec<FieldElement<F>>,
 }
 
 #[allow(unused)]
 pub struct VerificationKey<G1Point> {
-    qm: G1Point,
-    ql: G1Point,
-    qr: G1Point,
-    qo: G1Point,
-    qc: G1Point,
+    pub qm_1: G1Point,
+    pub ql_1: G1Point,
+    pub qr_1: G1Point,
+    pub qo_1: G1Point,
+    pub qc_1: G1Point,
 
-    s1: G1Point,
-    s2: G1Point,
-    s3: G1Point,
+    pub s1_1: G1Point,
+    pub s2_1: G1Point,
+    pub s3_1: G1Point,
+
+    pub g1: G1Point,
 }
 
 #[allow(unused)]
-fn setup<F: IsField, CS: IsCommitmentScheme<F>>(
+pub fn setup<F: IsField, CS: IsCommitmentScheme<F>>(
     common_input: &CommonPreprocessedInput<F>,
     commitment_scheme: &CS,
     circuit: &Circuit,
 ) -> VerificationKey<CS::Hiding> {
     VerificationKey {
-        qm: commitment_scheme.commit(&common_input.qm),
-        ql: commitment_scheme.commit(&common_input.ql),
-        qr: commitment_scheme.commit(&common_input.qr),
-        qo: commitment_scheme.commit(&common_input.qo),
-        qc: commitment_scheme.commit(&common_input.qc),
+        qm_1: commitment_scheme.commit(&common_input.qm),
+        ql_1: commitment_scheme.commit(&common_input.ql),
+        qr_1: commitment_scheme.commit(&common_input.qr),
+        qo_1: commitment_scheme.commit(&common_input.qo),
+        qc_1: commitment_scheme.commit(&common_input.qc),
 
-        s1: commitment_scheme.commit(&common_input.s1),
-        s2: commitment_scheme.commit(&common_input.s2),
-        s3: commitment_scheme.commit(&common_input.s3),
+        s1_1: commitment_scheme.commit(&common_input.s1),
+        s2_1: commitment_scheme.commit(&common_input.s2),
+        s3_1: commitment_scheme.commit(&common_input.s3),
+
+        g1: commitment_scheme.commit(&Polynomial::new(&[FieldElement::one()])),
     }
 }
 
 #[cfg(test)]
 mod tests {
     use lambdaworks_math::elliptic_curve::{
-        short_weierstrass::curves::bls12_381::{curve::BLS12381Curve},
-        traits::IsEllipticCurve,
+        short_weierstrass::curves::bls12_381::curve::BLS12381Curve, traits::IsEllipticCurve,
     };
 
     use super::*;
-    use crate::{
-        test_utils::{FpElement, test_circuit, test_srs, test_common_preprocessed_input, FrField, KZG},
+    use crate::test_utils::{
+        test_circuit, test_common_preprocessed_input, test_srs, FpElement, FrField, KZG,
     };
 
     #[test]
@@ -151,13 +154,13 @@ mod tests {
             FpElement::from_hex("d84d52582fd95bfa7672f7cef9dd4d0b1b4a54d33f244fdb97df71c7d45fd5c5329296b633c9ed23b8475ee47b9d99")
         ).unwrap();
 
-        assert_eq!(vk.ql, expected_ql);
-        assert_eq!(vk.qr, expected_qr);
-        assert_eq!(vk.qo, expected_qo);
-        assert_eq!(vk.qm, expected_qm);
+        assert_eq!(vk.ql_1, expected_ql);
+        assert_eq!(vk.qr_1, expected_qr);
+        assert_eq!(vk.qo_1, expected_qo);
+        assert_eq!(vk.qm_1, expected_qm);
 
-        assert_eq!(vk.s1, expected_s1);
-        assert_eq!(vk.s2, expected_s2);
-        assert_eq!(vk.s3, expected_s3);
+        assert_eq!(vk.s1_1, expected_s1);
+        assert_eq!(vk.s2_1, expected_s2);
+        assert_eq!(vk.s3_1, expected_s3);
     }
 }

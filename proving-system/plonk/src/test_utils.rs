@@ -1,28 +1,22 @@
+use crate::setup::{Circuit, CommonPreprocessedInput};
 use lambdaworks_crypto::commitments::kzg::StructuredReferenceString;
 use lambdaworks_math::{
     cyclic_group::IsGroup,
     elliptic_curve::{
-        short_weierstrass::curves::bls12_381::{curve::BLS12381Curve, twist::BLS12381TwistCurve, field_extension::BLS12381PrimeField},
+        short_weierstrass::curves::bls12_381::{
+            curve::BLS12381Curve, field_extension::BLS12381PrimeField, twist::BLS12381TwistCurve,
+        },
         traits::IsEllipticCurve,
-    }, field::{element::FieldElement, fields::montgomery_backed_prime_fields::U256PrimeField}, polynomial::Polynomial,
-};
-use crate::{
-    setup::{Circuit, CommonPreprocessedInput},
+    },
+    field::{element::FieldElement, fields::montgomery_backed_prime_fields::U256PrimeField},
+    polynomial::Polynomial,
 };
 // TODO: Generalize
 
-use lambdaworks_crypto::commitments::kzg::{KateZaveruchaGoldberg};
+use lambdaworks_crypto::commitments::kzg::KateZaveruchaGoldberg;
 use lambdaworks_math::{
-    elliptic_curve::{
-        short_weierstrass::curves::bls12_381::{
-            pairing::BLS12381AtePairing,
-        },
-    },
-    field::{
-        fields::montgomery_backed_prime_fields::{
-            IsMontgomeryConfiguration,
-        },
-    },
+    elliptic_curve::short_weierstrass::curves::bls12_381::pairing::BLS12381AtePairing,
+    field::fields::montgomery_backed_prime_fields::IsMontgomeryConfiguration,
     unsigned_integer::element::U256,
 };
 
@@ -45,9 +39,9 @@ pub type Pairing = BLS12381AtePairing;
 pub const MAXIMUM_DEGREE: usize = 10;
 pub type KZG = KateZaveruchaGoldberg<MAXIMUM_DEGREE, FrField, Pairing>;
 pub const NUMBER_CONSTRAINTS: usize = 4;
-pub const ORDER_4_ROOT_UNITY: FrElement = FrElement::from_hex("8d51ccce760304d0ec030002760300000001000000000000"); // order 4
+pub const ORDER_4_ROOT_UNITY: FrElement =
+    FrElement::from_hex("8d51ccce760304d0ec030002760300000001000000000000"); // order 4
 pub const ORDER_R_MINUS_1_ROOT_UNITY: FrElement = FrElement::from_hex("7");
-
 
 type G1Point = <BLS12381Curve as IsEllipticCurve>::PointRepresentation;
 type G2Point = <BLS12381TwistCurve as IsEllipticCurve>::PointRepresentation;
@@ -57,7 +51,6 @@ pub fn test_srs() -> StructuredReferenceString<10, G1Point, G2Point> {
     let g1 = <BLS12381Curve as IsEllipticCurve>::generator();
     let g2 = <BLS12381TwistCurve as IsEllipticCurve>::generator();
 
-    
     let powers_main_group: Vec<G1Point> = (0..24)
         .map(|exp| g1.operate_with_self(s.pow(exp as u64).representative()))
         .collect();
