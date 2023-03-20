@@ -1,9 +1,9 @@
-use lambdaworks_stark::FE;
 use lambdaworks_stark::ProofConfig;
 use lambdaworks_stark::StarkProof;
+use lambdaworks_stark::FE;
 
-use pyo3::*;
 use pyo3::types::*;
+use pyo3::*;
 
 use crate::math::unsigned_integer::element::PyU256;
 
