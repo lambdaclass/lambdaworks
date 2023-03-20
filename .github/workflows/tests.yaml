@@ -18,7 +18,9 @@ jobs:
         uses: actions/checkout@v3
         
       - name: Install dependencies
-        run: sudo apt install -y g++
+        run: |
+          sudo apt-get update
+          sudo apt-get install --reinstall build-essential
 
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
