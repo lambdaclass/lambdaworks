@@ -77,7 +77,7 @@ impl<F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
             );
 
             let mut evaluations = self.air.compute_transition(&frame);
-            evaluations = Self::compute_transition_evaluations(
+            evaluations = Self::compute_constraint_composition_poly_evaluations(
                 &self.air,
                 &evaluations,
                 alpha_and_beta_transition_coefficients,
@@ -115,7 +115,7 @@ impl<F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
     /// The second one is when the verifier needs to check the consistency between the trace and
     /// the composition polynomial. In that case the `evaluations` are over an *out of domain* frame
     /// (in the fibonacci example they are evaluations on the points `z`, `zg`, `zg^2`).
-    pub fn compute_transition_evaluations(
+    pub fn compute_constraint_composition_poly_evaluations(
         air: &A,
         evaluations: &[FieldElement<F>],
         alpha_and_beta_coefficients: &[(FieldElement<F>, FieldElement<F>)],

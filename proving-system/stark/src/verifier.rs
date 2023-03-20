@@ -81,7 +81,7 @@ where
 
     let alpha_and_beta_transition_coefficients = vec![(alpha, beta)];
 
-    let c_i_evaluations = ConstraintEvaluator::compute_transition_evaluations(
+    let c_i_evaluations = ConstraintEvaluator::compute_constraint_composition_poly_evaluations(
         air,
         &transition_ood_frame_evaluations,
         &alpha_and_beta_transition_coefficients,
