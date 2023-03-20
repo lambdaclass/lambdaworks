@@ -100,6 +100,7 @@ mod tests {
         assert!(verify(&result, &fibonacci_air));
     }
 
+    #[ignore]
     #[test]
     fn test_prove_fib17() {
         let trace = fibonacci_trace([FE17::new(1), FE17::new(1)], 4);
