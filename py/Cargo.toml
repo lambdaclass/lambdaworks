@@ -12,3 +12,4 @@ crate-type = ["cdylib"]
 pyo3 = "0.18.1"
 lambdaworks-math = { path = "../math" }
 lambdaworks-stark = { path = "../proving-system/stark" }
+lambdaworks-crypto = { path = "../crypto" }

@@ -1,4 +1,5 @@
 mod math;
+mod merkle_tree;
 
 use crate::math::unsigned_integer::element::PyU256;
 
