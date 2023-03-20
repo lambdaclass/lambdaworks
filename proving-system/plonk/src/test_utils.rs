@@ -146,8 +146,8 @@ pub fn test_common_preprocessed_input() -> CommonPreprocessedInput<FrField> {
         qc: Polynomial::interpolate(
             &domain,
             &[
-                FieldElement::from(2_u64), // TODO: this should be filled in by the prover
-                FieldElement::from(4_u64), // TODO: this should be filled in by the prover
+                FieldElement::from(0_u64), // TODO: this should be filled in by the prover
+                FieldElement::from(0_u64), // TODO: this should be filled in by the prover
                 FieldElement::zero(),
                 FieldElement::zero(),
             ],

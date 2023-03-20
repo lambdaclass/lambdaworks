@@ -143,6 +143,7 @@ where
     fn round_3(
         &self,
         CommonPreprocessedInput { ql, qr, qo, qm, qc, s1, s2, s3, n, k1, domain, ..}: &CommonPreprocessedInput<F>,
+        public_input: &[FieldElement<F>],
         Round1Result {p_a, p_b, p_c, ..}: &Round1Result<F, CS::Hiding>,
         Round2Result {p_z, beta, gamma, ..}: &Round2Result<F, CS::Hiding>,
         alpha: &FieldElement<F>
@@ -163,8 +164,11 @@ where
         let mut e1 = vec![FieldElement::zero(); domain.len()];
         e1[0] = FieldElement::one();
         let l1 = Polynomial::interpolate(&domain, &e1);
+        let mut p_pi_y = public_input.to_vec();
+        p_pi_y.append(&mut vec![FieldElement::zero(); n - public_input.len()]);
+        let p_pi = Polynomial::interpolate(&domain, &p_pi_y);
 
-        let p_constraints = p_a * p_b * qm + p_a * ql + p_b * qr + p_c * qo + qc;
+        let p_constraints = p_a * p_b * qm + p_a * ql + p_b * qr + p_c * qo + qc + p_pi;
         let f = (p_a + p_x * beta + gamma) * (p_b + p_x * beta * k1 + gamma) * (p_c + p_x * beta * k2 + gamma);
         let g = (p_a + s1 * beta + gamma) * (p_b + s2 * beta + gamma) * (p_c + s3 * beta + gamma);
         let p_permutation_1 = g * z_x_omega - f * p_z; // TODO: Paper says this term is minus the term found on gnark. This doesn't affect the protocol.
@@ -172,7 +176,9 @@ where
 
         let p = ((&p_permutation_2 * alpha) + p_permutation_1) * alpha + p_constraints;
 
-        let mut t = p / zh;
+        //let mut t = p / zh;
+        let (mut t, remainder) = p.long_division_with_remainder(&zh);
+        assert_eq!(remainder, Polynomial::zero());
 
         Polynomial::pad_with_zero_coefficients_to_length(&mut t, 3 * (n + 2));
         let p_t_lo = Polynomial::new(&t.coefficients[..n + 2]);
@@ -204,59 +210,74 @@ where
 
     fn round_5(
         &self,
-        CommonPreprocessedInput { ql, qr, qo, qm, qc, s1, s2, s3, n, k1, domain, ..}: &CommonPreprocessedInput<F>,
+        CommonPreprocessedInput { ql, qr, qo, qm, qc, s1, s2, s3, n, k1, domain, omega, ..}: &CommonPreprocessedInput<F>,
+        public_input: &[FieldElement<F>],
         Round1Result {p_a, p_b, p_c, ..}: &Round1Result<F, CS::Hiding>,
         Round2Result {p_z, beta, gamma, ..}: &Round2Result<F, CS::Hiding>,
         Round3Result { t_lo_1, t_mid_1, t_hi_1, p_t_lo, p_t_mid, p_t_hi, alpha }: &Round3Result<F, CS::Hiding>,
         Round4Result {a_z, b_z, c_z, s1_z, s2_z, z_z_omega, zeta}: &Round4Result<F>,
         upsilon: &FieldElement<F>,
     ) -> (CS::Hiding, CS::Hiding) {
-        let mut e1 = vec![FieldElement::zero(); domain.len()];
-        e1[0] = FieldElement::one();
-        let l1 = Polynomial::interpolate(&domain, &e1);
-    
+        // Precompute variables
         let k2 = k1 * k1;
-        let one = FieldElement::one();
-
-        let zh = Polynomial::new_monomial(FieldElement::one(), *n) - &one;
-
         let zeta_raised_n = Polynomial::new_monomial(zeta.pow(n + 2), 0); // TODO: Paper says n and 2n, but Gnark uses n+2 and 2n+4 (see the TODO(*))
         let zeta_raised_2n = Polynomial::new_monomial(zeta.pow(2 * n + 4), 0);
-        
-        let r_1 = qm * a_z * b_z + a_z * ql + b_z * qr + c_z * qo + qc; // TODO paper says PI(z), but GNark does this.
+
+        let l1_replacement_z = (zeta.pow(*n as u64) - FieldElement::one()) / (zeta - FieldElement::one());
+
+        // Compute linearized polynomial
+        let mut lin_poly = Polynomial::zero();
+        lin_poly = lin_poly + qm * a_z * b_z + a_z * ql + b_z * qr + c_z * qo + qc;
+
         let r_2_1 = (a_z + beta * zeta + gamma) * (b_z + beta * k1 * zeta + gamma) * (c_z + beta * &k2 * zeta + gamma) * p_z;
-        let r_2_2 = (a_z + beta * s1_z + gamma) * (b_z + beta * s2_z + gamma) * (c_z + beta * s3 + gamma) * z_z_omega;
-        let r_3 = (p_z - &one) * l1.evaluate(zeta);
-        let r_4 = (p_t_lo + zeta_raised_n * p_t_mid + zeta_raised_2n * p_t_hi) * zh.evaluate(zeta);
-        let r = r_1 + alpha * (-r_2_1 + r_2_2) + alpha * alpha * r_3 - r_4; // TODO: Paper says second term is minus the term found on gnark. This doesn't affect the protocol.
+        let r_2_2 = (a_z + beta * s1_z + gamma) * (b_z + beta * s2_z + gamma) * beta * z_z_omega * s3;
+        lin_poly = lin_poly + (r_2_2 - r_2_1) * alpha;
 
-        let w_zeta_den = Polynomial::new(&[-zeta, FieldElement::one()]);
-        let w_zeta_num_1 = (p_a - a_z) * upsilon.clone();
-        let w_zeta_num_2 = (p_b - b_z) * upsilon.pow(2_u64);
-        let w_zeta_num_3 = (p_c - c_z) * upsilon.pow(3_u64);
-        let w_zeta_num_4 = (s1 - s1_z) * upsilon.pow(4_u64);
-        let w_zeta_num_5 = (s2 - s2_z) * upsilon.pow(5_u64);
+        let r_3 = p_z * l1_replacement_z;
+        lin_poly = lin_poly + (r_3 * (alpha * alpha / FieldElement::from(*n as u64)));
 
-        let w_zeta_num = r + w_zeta_num_1 + w_zeta_num_2 + w_zeta_num_3 + w_zeta_num_4 + w_zeta_num_5;
-        //let w_zeta = w_zeta_num / w_zeta_den;
-        let (w_zeta, remainder) = w_zeta_num.long_division_with_remainder(&w_zeta_den);
-        assert_eq!(remainder, Polynomial::zero(), "w_zeta_den does not divide w_zeta_num");
+        // Folded H
+        let folded_h = p_t_lo + zeta_raised_n * p_t_mid + zeta_raised_2n * p_t_hi;
 
-        let w_zeta_omega_num = p_z - z_z_omega;
-        let w_zeta_omega_den = Polynomial::new(&[-zeta * self.order_4_root_unity.clone(), FieldElement::one()]);
-        let (w_zeta_omega, remainder) = w_zeta_omega_num.long_division_with_remainder(&w_zeta_omega_den);
-        assert_eq!(remainder, Polynomial::zero());
+        // Batch opening single point
+        // Folded polynomials
+        // polynomials = foldedH, linearizdPolynomialCanonical (r con X), bwliop (a), bwriop (b), bwoiop (c), pk.S1, pk.S2
+        let mut folded_poly = Polynomial::zero();
+        folded_poly = folded_poly + &folded_h;
+        folded_poly = folded_poly + (upsilon.pow(1_u64) * &lin_poly);
+        folded_poly = folded_poly + (upsilon.pow(2_u64) * p_a);
+        folded_poly = folded_poly + (upsilon.pow(3_u64) * p_b);
+        folded_poly = folded_poly + (upsilon.pow(4_u64) * p_c);
+        folded_poly = folded_poly + (upsilon.pow(5_u64) * s1);
+        folded_poly = folded_poly + (upsilon.pow(6_u64) * s2);
 
-        let w_zeta_1 = self.commitment_scheme.commit(&w_zeta);
-        let w_zeta_omega_1 = self.commitment_scheme.commit(&w_zeta_omega);
+        // Folded evaluations
+        let mut folded_eval = FieldElement::zero();
+        folded_eval = folded_eval + folded_h.evaluate(zeta);
+        folded_eval = folded_eval + (upsilon.pow(1_u64) * lin_poly.evaluate(zeta));
+        folded_eval = folded_eval + (upsilon.pow(2_u64) * p_a.evaluate(zeta));
+        folded_eval = folded_eval + (upsilon.pow(3_u64) * p_b.evaluate(zeta));
+        folded_eval = folded_eval + (upsilon.pow(4_u64) * p_c.evaluate(zeta));
+        folded_eval = folded_eval + (upsilon.pow(5_u64) * s1.evaluate(zeta));
+        folded_eval = folded_eval + (upsilon.pow(6_u64) * s2.evaluate(zeta));
 
-        (w_zeta_1, w_zeta_omega_1)
+        // dividePolyByXMinusA calcula (f(x)-f(a))/(x-a)
+        // Division by x minus
+        let p_w_z = (folded_poly - folded_eval) / Polynomial::new(&[-zeta, FieldElement::one()]);
+        let z_shifted = (p_z - z_z_omega) / Polynomial::new(&[-zeta * omega, FieldElement::one()]);
+        let p_w_z_omega = z_shifted;
+
+        let w_z_1 = self.commitment_scheme.commit(&p_w_z);
+        let w_z_omega = self.commitment_scheme.commit(&p_w_z_omega);
+
+        (w_z_1, w_z_omega)
     }
 
     #[allow(unused)]
     fn prove(
         &self,
         circuit: &Circuit,
+        public_input: &[FieldElement<F>],
         common_preprocesed_input: &CommonPreprocessedInput<F>,
     ) {
         // TODO: use strong Fiat-Shamir (e.g.: add public inputs and statement)
@@ -281,6 +302,7 @@ where
         let alpha = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
         let round_3 = self.round_3(
             &common_preprocesed_input,
+            &public_input,
             &round_1,
             &round_2,
             &alpha
@@ -305,6 +327,7 @@ where
         let upsilon = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
         let (w_zeta_1, w_zeta_omega_1) = self.round_5(
             &common_preprocesed_input,
+            &public_input,
             &round_1,
             &round_2,
             &round_3,
@@ -401,17 +424,18 @@ mod tests {
 
     #[test]
     fn test_round_3() {
-        // This test is subject to TODO (*) above.
         let test_circuit = test_circuit();
         let witness = test_circuit.get_witness();
         let common_preprocesed_input = test_common_preprocessed_input();
         let srs = test_srs();
         let kzg = KZG::new(srs);
+        let public_input = vec![FieldElement::from(2_u64), FieldElement::from(4)];
         let prover = Prover::new(kzg, ORDER_4_ROOT_UNITY, ORDER_R_MINUS_1_ROOT_UNITY);
         let round_1 = prover.round_1(&witness, &common_preprocesed_input);
         let round_2 = prover.round_2(&witness, &common_preprocesed_input, &beta(), &gamma());
         let round_3 = prover.round_3(
             &common_preprocesed_input,
+            &public_input,
             &round_1,
             &round_2,
             &alpha()
@@ -472,6 +496,8 @@ mod tests {
         let common_preprocesed_input = test_common_preprocessed_input();
         let srs = test_srs();
         let kzg = KZG::new(srs);
+        let public_input = vec![FieldElement::from(2_u64), FieldElement::from(4)];
+
         let prover = Prover::new(kzg, ORDER_4_ROOT_UNITY, ORDER_R_MINUS_1_ROOT_UNITY);
 
         let round_1 = prover.round_1(&witness, &common_preprocesed_input);
@@ -479,6 +505,7 @@ mod tests {
 
         let round_3 = prover.round_3(
             &common_preprocesed_input,
+            &public_input,
             &round_1,
             &round_2,
             &alpha(),
@@ -495,13 +522,14 @@ mod tests {
             FpElement::from_hex("fa6250b80a418f0548b132ac264ff9915b2076c0c2548da9316ae19ffa35bbcf905d9f02f9274739608045ef83a4757"),
             FpElement::from_hex("17713ade2dbd66e923d4092a5d2da98202959dd65a15e9f7791fab3c0dd08788aa9b4a1cb21d04e0c43bd29225472145"),
         ).unwrap();
-        //let expected_w_zeta_omega_1 = BLS12381Curve::create_point_from_affine(
-        //    FpElement::from_hex(""),
-        //    FpElement::from_hex(""),
-        //).unwrap();
+        let expected_w_zeta_omega_1 = BLS12381Curve::create_point_from_affine(
+            FpElement::from_hex("4484f08f8eaccf28bab8ee9539e6e7f4059cb1ce77b9b18e9e452f387163dc0b845f4874bf6445399e650d362799ff5"),
+            FpElement::from_hex("1254347a0fa2ac856917825a5cff5f9583d39a52edbc2be5bb10fabd0c04d23019bcb963404345743120310fd734a61a"),
+        ).unwrap();
 
-        let (w_zeta_1, _) = prover.round_5(
+        let (w_zeta_1, w_zeta_omega_1) = prover.round_5(
             &common_preprocesed_input,
+            &public_input,
             &round_1,
             &round_2,
             &round_3,
@@ -509,5 +537,6 @@ mod tests {
             &upsilon()
         );
         assert_eq!(w_zeta_1, expected_w_zeta_1);
+        assert_eq!(w_zeta_omega_1, expected_w_zeta_omega_1);
     }
 }
