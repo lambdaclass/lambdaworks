@@ -11,34 +11,36 @@ use lambdaworks_math::{field::element::FieldElement, polynomial::Polynomial};
 
 
 #[allow(unused)]
-struct Proof<F: IsField, CS: IsCommitmentScheme<F>> {
+pub struct Proof<F: IsField, CS: IsCommitmentScheme<F>> {
     // Round 1
-    a_1: CS::Hiding, // [a(x)]₁ (commitment to left wire polynomial)
-    b_1: CS::Hiding, // [b(x)]₁ (commitment to right wire polynomial)
-    c_1: CS::Hiding, // [c(x)]₁ (commitment to output wire polynomial)
+    pub a_1: CS::Hiding, // [a(x)]₁ (commitment to left wire polynomial)
+    pub b_1: CS::Hiding, // [b(x)]₁ (commitment to right wire polynomial)
+    pub c_1: CS::Hiding, // [c(x)]₁ (commitment to output wire polynomial)
 
     // Round 2
-    z_1: CS::Hiding, // [z(x)]₁ (commitment to permutation polynomial)
+    pub z_1: CS::Hiding, // [z(x)]₁ (commitment to permutation polynomial)
 
     // Round 3
-    t_lo_1: CS::Hiding, // [t_lo(x)]₁ (commitment to t_lo(X), the low chunk of the quotient polynomial t(X))
-    t_mid_1: CS::Hiding, // [t_mid(x)]₁ (commitment to t_mid(X), the middle chunk of the quotient polynomial t(X))
-    t_hi_1: CS::Hiding, // [t_hi(x)]₁ (commitment to t_hi(X), the high chunk of the quotient polynomial t(X))
+    pub t_lo_1: CS::Hiding, // [t_lo(x)]₁ (commitment to t_lo(X), the low chunk of the quotient polynomial t(X))
+    pub t_mid_1: CS::Hiding, // [t_mid(x)]₁ (commitment to t_mid(X), the middle chunk of the quotient polynomial t(X))
+    pub t_hi_1: CS::Hiding, // [t_hi(x)]₁ (commitment to t_hi(X), the high chunk of the quotient polynomial t(X))
 
     // Round 4
-    a_eval: FieldElement<F>,         // Evaluation of a(X) at evaluation challenge ζ
-    b_eval: FieldElement<F>,         // Evaluation of b(X) at evaluation challenge ζ
-    c_eval: FieldElement<F>,         // Evaluation of c(X) at evaluation challenge ζ
-    s1_eval: FieldElement<F>, // Evaluation of the first permutation polynomial S_σ1(X) at evaluation challenge ζ
-    s2_eval: FieldElement<F>, // Evaluation of the second permutation polynomial S_σ2(X) at evaluation challenge ζ
-    z_shifted_eval: FieldElement<F>, // Evaluation of the shifted permutation polynomial z(X) at the shifted evaluation challenge ζω
+    pub a_zeta: FieldElement<F>,         // Evaluation of a(X) at evaluation challenge ζ
+    pub b_zeta: FieldElement<F>,         // Evaluation of b(X) at evaluation challenge ζ
+    pub c_zeta: FieldElement<F>,         // Evaluation of c(X) at evaluation challenge ζ
+    pub s1_zeta: FieldElement<F>, // Evaluation of the first permutation polynomial S_σ1(X) at evaluation challenge ζ
+    pub s2_zeta: FieldElement<F>, // Evaluation of the second permutation polynomial S_σ2(X) at evaluation challenge ζ
+    pub z_zeta_omega: FieldElement<F>, // Evaluation of the shifted permutation polynomial z(X) at the shifted evaluation challenge ζω
 
     // Round 5
-    w_z_1: CS::Hiding,  // [W_ζ(X)]₁ (commitment to the opening proof polynomial)
-    w_zw_1: CS::Hiding, // [W_ζω(X)]₁ (commitment to the opening proof polynomial)
+    pub w_zeta_1: CS::Hiding,  // [W_ζ(X)]₁ (commitment to the opening proof polynomial)
+    pub w_zeta_omega_1: CS::Hiding, // [W_ζω(X)]₁ (commitment to the opening proof polynomial)
+    pub partial_p_zeta: FieldElement<F>,
+    pub partial_t_zeta: FieldElement<F>
 }
 
-struct Prover<F: IsField, CS: IsCommitmentScheme<F>> {
+pub struct Prover<F: IsField, CS: IsCommitmentScheme<F>> {
     commitment_scheme: CS,
     order_4_root_unity: FieldElement<F>,
     order_r_minus_1_root_unity: FieldElement<F>,
@@ -72,13 +74,20 @@ struct Round3Result<F: IsField, Hiding> {
 }
 
 struct Round4Result<F: IsField> {
-    a_z: FieldElement<F>,
-    b_z: FieldElement<F>,
-    c_z: FieldElement<F>,
-    s1_z: FieldElement<F>,
-    s2_z: FieldElement<F>,
-    z_z_omega: FieldElement<F>,
+    a_zeta: FieldElement<F>,
+    b_zeta: FieldElement<F>,
+    c_zeta: FieldElement<F>,
+    s1_zeta: FieldElement<F>,
+    s2_zeta: FieldElement<F>,
+    z_zeta_omega: FieldElement<F>,
     zeta: FieldElement<F>
+}
+
+struct Round5Result<F: IsField, Hiding> {
+    w_zeta_1: Hiding,
+    w_zeta_omega_1: Hiding,
+    partial_p_zeta: FieldElement<F>,
+    partial_t_zeta: FieldElement<F>
 }
 
 impl<F, CS> Prover<F, CS>
@@ -89,7 +98,7 @@ where
     CS::Hiding: ByteConversion
 {
     #[allow(unused)]
-    fn new(commitment_scheme: CS, order_4_root_unity: FieldElement<F>, order_r_minus_1_root_unity: FieldElement<F>) -> Self {
+    pub fn new(commitment_scheme: CS, order_4_root_unity: FieldElement<F>, order_r_minus_1_root_unity: FieldElement<F>) -> Self {
         Self {commitment_scheme: commitment_scheme, phantom: PhantomData, order_4_root_unity: order_4_root_unity, order_r_minus_1_root_unity: order_r_minus_1_root_unity}
     }
 
@@ -199,13 +208,13 @@ where
         Round2Result {p_z, ..}: &Round2Result<F, CS::Hiding>,
         zeta: &FieldElement<F>,
     ) -> Round4Result<F> {
-        let a_z = p_a.evaluate(zeta);
-        let b_z = p_b.evaluate(zeta);
-        let c_z = p_c.evaluate(zeta);
-        let s1_z = s1.evaluate(zeta);
-        let s2_z = s2.evaluate(zeta);
-        let z_z_omega = p_z.evaluate(&(zeta * omega));
-        Round4Result {a_z: a_z, b_z: b_z, c_z: c_z, s1_z: s1_z, s2_z: s2_z, z_z_omega: z_z_omega, zeta: zeta.clone()}
+        let a_zeta = p_a.evaluate(zeta);
+        let b_zeta = p_b.evaluate(zeta);
+        let c_zeta = p_c.evaluate(zeta);
+        let s1_zeta = s1.evaluate(zeta);
+        let s2_zeta = s2.evaluate(zeta);
+        let z_zeta_omega = p_z.evaluate(&(zeta * omega));
+        Round4Result {a_zeta: a_zeta, b_zeta: b_zeta, c_zeta: c_zeta, s1_zeta: s1_zeta, s2_zeta: s2_zeta, z_zeta_omega: z_zeta_omega, zeta: zeta.clone()}
     }
 
     fn round_5(
@@ -215,36 +224,35 @@ where
         Round1Result {p_a, p_b, p_c, ..}: &Round1Result<F, CS::Hiding>,
         Round2Result {p_z, beta, gamma, ..}: &Round2Result<F, CS::Hiding>,
         Round3Result { t_lo_1, t_mid_1, t_hi_1, p_t_lo, p_t_mid, p_t_hi, alpha }: &Round3Result<F, CS::Hiding>,
-        Round4Result {a_z, b_z, c_z, s1_z, s2_z, z_z_omega, zeta}: &Round4Result<F>,
+        Round4Result {a_zeta, b_zeta, c_zeta, s1_zeta, s2_zeta, z_zeta_omega, zeta}: &Round4Result<F>,
         upsilon: &FieldElement<F>,
-    ) -> (CS::Hiding, CS::Hiding) {
+    ) -> Round5Result<F, CS::Hiding> {
         // Precompute variables
         let k2 = k1 * k1;
         let zeta_raised_n = Polynomial::new_monomial(zeta.pow(n + 2), 0); // TODO: Paper says n and 2n, but Gnark uses n+2 and 2n+4 (see the TODO(*))
         let zeta_raised_2n = Polynomial::new_monomial(zeta.pow(2 * n + 4), 0);
 
-        let l1_replacement_z = (zeta.pow(*n as u64) - FieldElement::one()) / (zeta - FieldElement::one());
+        let l1_zeta = (zeta.pow(*n as u64) - FieldElement::one()) / (zeta - FieldElement::one()) / FieldElement::from(*n as u64);
 
-        // Compute linearized polynomial
-        let mut lin_poly = Polynomial::zero();
-        lin_poly = lin_poly + qm * a_z * b_z + a_z * ql + b_z * qr + c_z * qo + qc;
+        // This is called linearized polynomial in Gnark
+        let mut partial_p = qm * a_zeta * b_zeta + a_zeta * ql + b_zeta * qr + c_zeta * qo + qc;
 
-        let r_2_1 = (a_z + beta * zeta + gamma) * (b_z + beta * k1 * zeta + gamma) * (c_z + beta * &k2 * zeta + gamma) * p_z;
-        let r_2_2 = (a_z + beta * s1_z + gamma) * (b_z + beta * s2_z + gamma) * beta * z_z_omega * s3;
-        lin_poly = lin_poly + (r_2_2 - r_2_1) * alpha;
+        let r_2_1 = (a_zeta + beta * zeta + gamma) * (b_zeta + beta * k1 * zeta + gamma) * (c_zeta + beta * &k2 * zeta + gamma) * p_z;
+        let r_2_2 = (a_zeta + beta * s1_zeta + gamma) * (b_zeta + beta * s2_zeta + gamma) * beta * z_zeta_omega * s3;
+        partial_p = partial_p + (r_2_2 - r_2_1) * alpha;
 
-        let r_3 = p_z * l1_replacement_z;
-        lin_poly = lin_poly + (r_3 * (alpha * alpha / FieldElement::from(*n as u64)));
+        let r_3 = p_z * l1_zeta;
+        partial_p = partial_p + (r_3 * alpha * alpha);
 
-        // Folded H
-        let folded_h = p_t_lo + zeta_raised_n * p_t_mid + zeta_raised_2n * p_t_hi;
+        // This is called FoldedH in Gnark
+        let partial_t = p_t_lo + zeta_raised_n * p_t_mid + zeta_raised_2n * p_t_hi;
 
         // Batch opening single point
         // Folded polynomials
         // polynomials = foldedH, linearizdPolynomialCanonical (r con X), bwliop (a), bwriop (b), bwoiop (c), pk.S1, pk.S2
         let mut folded_poly = Polynomial::zero();
-        folded_poly = folded_poly + &folded_h;
-        folded_poly = folded_poly + (upsilon.pow(1_u64) * &lin_poly);
+        folded_poly = folded_poly + &partial_t;
+        folded_poly = folded_poly + (upsilon.pow(1_u64) * &partial_p);
         folded_poly = folded_poly + (upsilon.pow(2_u64) * p_a);
         folded_poly = folded_poly + (upsilon.pow(3_u64) * p_b);
         folded_poly = folded_poly + (upsilon.pow(4_u64) * p_c);
@@ -253,8 +261,10 @@ where
 
         // Folded evaluations
         let mut folded_eval = FieldElement::zero();
-        folded_eval = folded_eval + folded_h.evaluate(zeta);
-        folded_eval = folded_eval + (upsilon.pow(1_u64) * lin_poly.evaluate(zeta));
+        let partial_p_zeta = partial_p.evaluate(zeta);
+        let partial_t_zeta = partial_t.evaluate(zeta);
+        folded_eval = folded_eval + &partial_t_zeta;
+        folded_eval = folded_eval + (upsilon.pow(1_u64) * &partial_p_zeta);
         folded_eval = folded_eval + (upsilon.pow(2_u64) * p_a.evaluate(zeta));
         folded_eval = folded_eval + (upsilon.pow(3_u64) * p_b.evaluate(zeta));
         folded_eval = folded_eval + (upsilon.pow(4_u64) * p_c.evaluate(zeta));
@@ -264,22 +274,22 @@ where
         // dividePolyByXMinusA calcula (f(x)-f(a))/(x-a)
         // Division by x minus
         let p_w_z = (folded_poly - folded_eval) / Polynomial::new(&[-zeta, FieldElement::one()]);
-        let z_shifted = (p_z - z_z_omega) / Polynomial::new(&[-zeta * omega, FieldElement::one()]);
+        let z_shifted = (p_z - z_zeta_omega) / Polynomial::new(&[-zeta * omega, FieldElement::one()]);
         let p_w_z_omega = z_shifted;
 
-        let w_z_1 = self.commitment_scheme.commit(&p_w_z);
-        let w_z_omega = self.commitment_scheme.commit(&p_w_z_omega);
+        let w_zeta_1 = self.commitment_scheme.commit(&p_w_z);
+        let w_zeta_omega_1 = self.commitment_scheme.commit(&p_w_z_omega);
 
-        (w_z_1, w_z_omega)
+        Round5Result {w_zeta_1, w_zeta_omega_1, partial_p_zeta, partial_t_zeta}
     }
 
     #[allow(unused)]
-    fn prove(
+    pub fn prove(
         &self,
         circuit: &Circuit,
         public_input: &[FieldElement<F>],
         common_preprocesed_input: &CommonPreprocessedInput<F>,
-    ) {
+    ) -> Proof<F, CS> {
         // TODO: use strong Fiat-Shamir (e.g.: add public inputs and statement)
         let mut transcript = Transcript::new();
         let witness = circuit.get_witness();
@@ -325,7 +335,7 @@ where
 
         // Round 5
         let upsilon = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
-        let (w_zeta_1, w_zeta_omega_1) = self.round_5(
+        let round_5 = self.round_5(
             &common_preprocesed_input,
             &public_input,
             &round_1,
@@ -334,7 +344,27 @@ where
             &round_4,
             &upsilon
         );
+
+        Proof {
+            a_1: round_1.a_1,
+            b_1: round_1.b_1,
+            c_1: round_1.c_1,
+            z_1: round_2.z_1,
+            t_lo_1: round_3.t_lo_1,
+            t_mid_1: round_3.t_mid_1,
+            t_hi_1: round_3.t_hi_1,
+            a_zeta: round_4.a_zeta,
+            b_zeta: round_4.b_zeta,
+            c_zeta: round_4.c_zeta,
+            s1_zeta: round_4.s1_zeta,
+            s2_zeta: round_4.s2_zeta,
+            z_zeta_omega: round_4.z_zeta_omega,
+            w_zeta_1: round_5.w_zeta_1,
+            w_zeta_omega_1: round_5.w_zeta_omega_1,
+            partial_p_zeta: round_5.partial_p_zeta,
+            partial_t_zeta: round_5.partial_t_zeta
     }
+}
 }
 
 
@@ -481,12 +511,12 @@ mod tests {
         let expected_s1_value = FrElement::from_hex("472f66db4fb6947d9ed9808241fe82324bc08aa2a54be93179db8e564e1137d4");
         let expected_s2_value = FrElement::from_hex("5588f1239c24efe0538868d0f716984e69c6980e586864f615e4b0621fdc6f81");
 
-        assert_eq!(round_4.a_z, expected_a_value);
-        assert_eq!(round_4.b_z, expected_b_value);
-        assert_eq!(round_4.c_z, expected_c_value);
-        assert_eq!(round_4.z_z_omega, expected_z_value);
-        assert_eq!(round_4.s1_z, expected_s1_value);
-        assert_eq!(round_4.s2_z, expected_s2_value);
+        assert_eq!(round_4.a_zeta, expected_a_value);
+        assert_eq!(round_4.b_zeta, expected_b_value);
+        assert_eq!(round_4.c_zeta, expected_c_value);
+        assert_eq!(round_4.z_zeta_omega, expected_z_value);
+        assert_eq!(round_4.s1_zeta, expected_s1_value);
+        assert_eq!(round_4.s2_zeta, expected_s2_value);
     }
 
     #[test]
@@ -527,7 +557,7 @@ mod tests {
             FpElement::from_hex("1254347a0fa2ac856917825a5cff5f9583d39a52edbc2be5bb10fabd0c04d23019bcb963404345743120310fd734a61a"),
         ).unwrap();
 
-        let (w_zeta_1, w_zeta_omega_1) = prover.round_5(
+        let round_5 = prover.round_5(
             &common_preprocesed_input,
             &public_input,
             &round_1,
@@ -536,7 +566,7 @@ mod tests {
             &round_4,
             &upsilon()
         );
-        assert_eq!(w_zeta_1, expected_w_zeta_1);
-        assert_eq!(w_zeta_omega_1, expected_w_zeta_omega_1);
+        assert_eq!(round_5.w_zeta_1, expected_w_zeta_1);
+        assert_eq!(round_5.w_zeta_omega_1, expected_w_zeta_omega_1);
     }
 }

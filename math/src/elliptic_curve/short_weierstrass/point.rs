@@ -134,10 +134,14 @@ where
     FieldElement<E::BaseField>: ByteConversion,
 {
     fn to_bytes_be(&self) -> Vec<u8> {
-        let [x, y, _] = self.to_affine().coordinates().clone();
+        // TODO: these can be more efficiet.
+        // E.g: Store the x value, the bit to indicate y.
+        let [x, y, z] = self.coordinates();
         let mut x_bytes = x.to_bytes_be();
         let mut y_bytes = y.to_bytes_le();
+        let mut z_bytes = z.to_bytes_le();
         x_bytes.append(&mut y_bytes);
+        x_bytes.append(&mut z_bytes);
         x_bytes
     }
 
