@@ -18,7 +18,7 @@ impl MetalState {
             .unwrap_or(metal::Device::system_default().ok_or(MetalError::MetalDeviceNotFound())?);
 
         let library = device
-            .new_library_with_data(LIB_DATA)
+            .new_library_with_data(LIB_DATA) // TODO: allow different files
             .map_err(MetalError::MetalLibraryError)?;
         let queue = device.new_command_queue();
 

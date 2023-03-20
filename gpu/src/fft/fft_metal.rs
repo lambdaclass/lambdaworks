@@ -2,12 +2,75 @@ use std::mem;
 
 use lambdaworks_math::field::{element::FieldElement, traits::IsTwoAdicField};
 
-use super::helpers::void_ptr;
+use crate::abstractions::{errors::MetalError, metal::MetalState};
+
+use super::helpers::{log2, void_ptr};
 use lambdaworks_math::fft::errors::FFTError;
 use metal::{CommandQueue, Device, Library, MTLResourceOptions, MTLSize};
 
 const FFT_LIB_DATA: &[u8] = include_bytes!("../metal/fft.metallib");
 
+pub struct FFTMetal {
+    state: MetalState,
+    pipeline: metal::ComputePipelineState,
+}
+
+impl FFTMetal {
+    pub fn new(device: Option<metal::Device>) -> Result<Self, MetalError> {
+        let state = MetalState::new(device)?;
+        let pipeline = state.setup_pipeline("radix2_dit_butterfly")?;
+        // TODO: pipeline will be changed depending on the operation that will be executed.
+
+        Ok(Self { state, pipeline })
+    }
+
+    pub fn execute<F: IsTwoAdicField>(
+        &self,
+        input: &[FieldElement<F>],
+        twiddles: &[FieldElement<F>],
+    ) -> Result<Vec<FieldElement<F>>, FFTError> {
+        let input_buffer = self.state.alloc_buffer(input);
+        let twiddles_buffer = self.state.alloc_buffer(twiddles);
+        // TODO: twiddle factors security (right now anything can be passed as twiddle factors)
+
+        let (command_buffer, command_encoder) = self
+            .state
+            .setup_command(&self.pipeline, &[&input_buffer, &twiddles_buffer]);
+
+        let order = log2(input.len())?;
+        let basetype_size = core::mem::size_of::<u32>();
+        for stage in 0..order {
+            let group_count = stage + 1;
+            let group_size = input.len() as u64 / (1 << stage);
+
+            // TODO: consider changing for function constant or `set_bytes()`
+            let group_size_buffer = self.state.device.new_buffer_with_data(
+                void_ptr(&group_size),
+                basetype_size as u64,
+                MTLResourceOptions::StorageModeShared,
+            );
+
+            command_encoder.set_buffer(2, Some(&group_size_buffer), 0);
+
+            let threadgroup_size = MTLSize::new(group_size / 2, 1, 1);
+            let threadgroup_count = MTLSize::new(group_count, 1, 1);
+
+            command_encoder.dispatch_thread_groups(threadgroup_count, threadgroup_size);
+        }
+        command_encoder.end_encoding();
+
+        command_buffer.commit();
+        command_buffer.wait_until_completed();
+
+        let results_ptr = input_buffer.contents() as *const F::BaseType;
+        let results_len = input_buffer.length() as usize / basetype_size;
+        let results_slice = unsafe { std::slice::from_raw_parts(results_ptr, results_len) };
+
+        Ok(results_slice.iter().map(FieldElement::from).collect())
+    }
+}
+
+// FIXME: this is deprecated
 pub struct FFTMetalState {
     pub device: Device,
     pub library: Library,
@@ -219,14 +282,12 @@ mod tests {
         #[test]
         fn test_metal_fft_matches_sequential(poly in poly(8)) {
             objc::rc::autoreleasepool(|| {
-                let order = poly.coefficients().len().trailing_zeros() as u64;
                 let expected = poly.evaluate_fft().unwrap();
+                let order = poly.coefficients().len().trailing_zeros() as u64;
 
-                let metal_state = FFTMetalState::new(None).unwrap();
+                let metal = FFTMetal::new(None).unwrap();
                 let twiddles = F::get_twiddles(order, RootsConfig::BitReverse).unwrap();
-                let command_buff_encoder = metal_state.setup_fft("radix2_dit_butterfly", &twiddles).unwrap();
-
-                let mut result = metal_state.execute_fft(poly.coefficients(), command_buff_encoder).unwrap();
+                let mut result = metal.execute(poly.coefficients(), &twiddles).unwrap();
                 in_place_bit_reverse_permute(&mut result);
 
                 prop_assert_eq!(&result[..], &expected[..]);
