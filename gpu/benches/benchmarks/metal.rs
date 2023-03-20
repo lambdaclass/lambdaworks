@@ -37,10 +37,13 @@ pub fn metal_fft_benchmarks(c: &mut Criterion) {
                         let twiddles =
                             F::get_twiddles(order as u64, RootsConfig::BitReverse).unwrap();
                         let fft_metal = FFTMetalState::new(None).unwrap();
-                        let command_buff_encoder =
-                            fft_metal.setup_fft("radix2_dit_butterfly", &twiddles).unwrap();
+                        let command_buff_encoder = fft_metal
+                            .setup_fft("radix2_dit_butterfly", &twiddles)
+                            .unwrap();
 
-                        let mut result = fft_metal.execute_fft(&coeffs, command_buff_encoder).unwrap();
+                        let mut result = fft_metal
+                            .execute_fft(&coeffs, command_buff_encoder)
+                            .unwrap();
 
                         in_place_bit_reverse_permute(&mut result);
                     });
