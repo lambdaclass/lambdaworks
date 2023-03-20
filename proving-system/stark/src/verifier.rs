@@ -124,12 +124,6 @@ where
         }
     }
 
-    let first_proof = &proof.query_list[0];
-
-    let last_evaluation = &first_proof.fri_decommitment.last_layer_evaluation;
-    let last_evaluation_bytes = last_evaluation.to_bytes_be();
-    transcript.append(&last_evaluation_bytes);
-
     let mut result = true;
     for proof_i in &proof.query_list {
         let last_evaluation = &proof_i.fri_decommitment.last_layer_evaluation;
@@ -161,6 +155,8 @@ pub fn verify_query<F: IsField + IsTwoAdicField>(
     lde_root_order: u32,
 ) -> bool {
     let mut lde_primitive_root = F::get_primitive_root_of_unity(lde_root_order as u64).unwrap();
+    let mut offset = FieldElement::<F>::from(COSET_OFFSET);
+
     // For each fri layer merkle proof check:
     // That each merkle path verifies
 
@@ -236,7 +232,6 @@ pub fn verify_query<F: IsField + IsTwoAdicField>(
             .unwrap();
 
         // evaluation point = offset * w ^ i in the Stark literature
-        let mut offset = FieldElement::<F>::from(COSET_OFFSET);
         let evaluation_point = &offset * lde_primitive_root.pow(q_i);
 
         // v is the calculated element for the

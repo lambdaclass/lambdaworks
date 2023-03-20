@@ -25,7 +25,6 @@ pub fn fri_commitment<F: IsField>(
     p_i: &Polynomial<FieldElement<F>>,
     domain_i: &[FieldElement<F>],
     evaluation_i: &[FieldElement<F>],
-    transcript: &mut Transcript,
 ) -> FriCommitment<F>
 where
     FieldElement<F>: ByteConversion,
@@ -36,11 +35,6 @@ where
     //     - hasher
     // Create a new merkle tree with evaluation_i
     let merkle_tree = FriMerkleTree::build(evaluation_i);
-
-    // append the root of the merkle tree to the transcript
-    let root = merkle_tree.root.clone();
-    let root_bytes = root.to_bytes_be();
-    transcript.append(&root_bytes);
 
     FriCommitment {
         poly: p_i.clone(),
@@ -91,13 +85,13 @@ where
 
         let (p_i, domain_i, evaluation_i) = next_fri_layer(&last_poly, &last_domain, &beta);
 
-        let commitment_i = fri_commitment(&p_i, &domain_i, &evaluation_i, transcript);
+        let commitment_i = fri_commitment(&p_i, &domain_i, &evaluation_i);
 
         // append root of merkle tree to transcript
         let tree = &commitment_i.merkle_tree;
         let root = tree.root.clone();
         let root_bytes = root.to_bytes_be();
-        // transcript.append(&root_bytes);
+        transcript.append(&root_bytes);
 
         fri_commitment_list.push(commitment_i);
         degree = p_i.degree();
