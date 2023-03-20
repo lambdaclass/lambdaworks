@@ -58,7 +58,7 @@ impl<F: IsField> Frame<F> {
         frame_offsets: &[usize],
         primitive_root: &FieldElement<F>,
     ) -> Vec<Vec<FieldElement<F>>> {
-        let mut data = vec![];
+        let mut data = Vec::with_capacity(trace_polys.len());
         let evaluation_points: Vec<FieldElement<F>> = frame_offsets
             .into_iter()
             .map(|offset| x * primitive_root.pow(*offset))

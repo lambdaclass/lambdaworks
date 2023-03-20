@@ -123,6 +123,10 @@ where
         }
     }
 
+    // START DUMMY CHALLENGES
+    let _: Vec<_> = (0..2).map(|_| transcript.challenge()).collect();
+    // END DUMMY CHALLENGES
+
     let mut result = true;
     for proof_i in &proof.query_list {
         let last_evaluation = &proof_i.fri_decommitment.last_layer_evaluation;
