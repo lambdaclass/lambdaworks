@@ -20,8 +20,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install gobjc++
-          sudo apt-get install gobjc
+          sudo apt-get install build-essential gobjc gobjc++ gnustep gnustep-devel libgnustep-base-dev
 
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
