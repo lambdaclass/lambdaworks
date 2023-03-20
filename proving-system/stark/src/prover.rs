@@ -65,7 +65,6 @@ where
     // Create evaluation table
     let evaluator = ConstraintEvaluator::new(air, &trace_poly, &trace_primitive_root);
 
-    // TODO: Fiat-Shamir
     let alpha_boundary = transcript_to_field(transcript);
     let beta_boundary = transcript_to_field(transcript);
     let alpha = transcript_to_field(transcript);

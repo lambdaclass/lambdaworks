@@ -177,12 +177,11 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
         let even_coef: Vec<FieldElement<F>> = coef.iter().step_by(2).cloned().collect();
 
         // odd coeficients of poly are multiplied by beta
-        let odd_coef_mul_beta: Vec<FieldElement<F>> =
-            coef.iter().skip(1).step_by(2).cloned().collect();
+        let odd_coef: Vec<FieldElement<F>> = coef.iter().skip(1).step_by(2).cloned().collect();
 
         Polynomial::pad_with_zero_coefficients(
             &Polynomial::new(&even_coef),
-            &Polynomial::new(&odd_coef_mul_beta),
+            &Polynomial::new(&odd_coef),
         )
     }
 }

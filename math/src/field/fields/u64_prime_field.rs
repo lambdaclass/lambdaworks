@@ -14,7 +14,6 @@ pub type FE17 = U64FieldElement<17>;
 
 impl IsTwoAdicField for F17 {
     const TWO_ADICITY: u64 = 4;
-    // Change this line for a new function like `from_limbs`.
     const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: u64 = 3;
 }
 
