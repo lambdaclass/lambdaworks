@@ -152,7 +152,7 @@ With what we discussed above, showing that the constraints are satisfied is equi
 
 To show $H$ is a polynomial we are going to use the `FRI` protocol, which we treat as a black box. For all we care, a `FRI` proof will verify if what we committed to is indeed a polynomial. Thus, the prover will provide a `FRI` commitment to `H`, and if it passes, the verifier will be convinced that the constraints are satisfied.
 
-There is one catch here though: how does the verifier know that `FRI` was applied to `H` and not any other polynomial? For this we need to add an additional step to the proving system. 
+There is one catch here though: how does the verifier know that `FRI` was applied to `H` and not any other polynomial? For this we need to add an additional step to the protocol. 
 
 
 ## Consistency check
