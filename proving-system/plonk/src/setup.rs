@@ -88,7 +88,7 @@ pub fn setup<F: IsField, CS: IsCommitmentScheme<F>>(
     common_input: &CommonPreprocessedInput<F>,
     commitment_scheme: &CS,
     circuit: &Circuit,
-) -> VerificationKey<CS::Hiding> {
+) -> VerificationKey<CS::Commitment> {
     VerificationKey {
         qm_1: commitment_scheme.commit(&common_input.qm),
         ql_1: commitment_scheme.commit(&common_input.ql),

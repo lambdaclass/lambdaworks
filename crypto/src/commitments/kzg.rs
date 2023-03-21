@@ -9,10 +9,6 @@ use std::marker::PhantomData;
 
 use super::traits::IsCommitmentScheme;
 
-pub struct Opening<F: IsPrimeField, G1Point: IsGroup> {
-    value: FieldElement<F>,
-    proof: G1Point,
-}
 
 #[derive(Clone)]
 pub struct StructuredReferenceString<const MAXIMUM_DEGREE: usize, G1Point, G2Point> {
@@ -56,11 +52,10 @@ impl<const MAXIMUM_DEGREE: usize, F: IsPrimeField, P: IsPairing>
 impl<const MAXIMUM_DEGREE: usize, F: IsPrimeField, P: IsPairing> IsCommitmentScheme<F>
     for KateZaveruchaGoldberg<MAXIMUM_DEGREE, F, P>
 {
-    type Hiding = P::G1Point;
-    type Opening = Opening<F, P::G1Point>;
+    type Commitment = P::G1Point;
 
     #[allow(unused)]
-    fn commit(&self, p: &Polynomial<FieldElement<F>>) -> P::G1Point {
+    fn commit(&self, p: &Polynomial<FieldElement<F>>) -> Self::Commitment {
         let coefficients: Vec<F::RepresentativeType> = p
             .coefficients
             .iter()
@@ -73,21 +68,21 @@ impl<const MAXIMUM_DEGREE: usize, F: IsPrimeField, P: IsPairing> IsCommitmentSch
     }
 
     #[allow(unused)]
-    fn open(&self, x: &FieldElement<F>, p: &Polynomial<FieldElement<F>>) -> Opening<F, P::G1Point> {
+    fn open(&self, x: &FieldElement<F>, y: &FieldElement<F>, p: &Polynomial<FieldElement<F>>) -> Self::Commitment {
         let value = p.evaluate(x);
         let numerator = p + Polynomial::new_monomial(-&value, 0);
         let denominator = Polynomial::new(&[-x, FieldElement::one()]);
         let proof = self.commit(&(numerator / denominator));
-
-        Opening { value, proof }
+        proof
     }
 
     #[allow(unused)]
     fn verify(
         &self,
-        opening: &Opening<F, P::G1Point>,
         x: &FieldElement<F>,
-        p_commitment: &P::G1Point,
+        y: &FieldElement<F>,
+        p_commitment: &Self::Commitment,
+        proof: &Self::Commitment,
     ) -> bool {
         let g1 = &self.srs.powers_main_group[0];
         let g2 = &self.srs.powers_secondary_group[0];
@@ -96,15 +91,45 @@ impl<const MAXIMUM_DEGREE: usize, F: IsPrimeField, P: IsPairing> IsCommitmentSch
         let e = P::compute_batch(&[
             (
                 &p_commitment
-                    .operate_with(&(g1.operate_with_self(opening.value.representative())).neg()),
+                    .operate_with(&(g1.operate_with_self(y.representative())).neg()),
                 g2,
             ),
             (
-                &opening.proof.neg(),
+                &proof.neg(),
                 &(alpha_g2.operate_with(&(g2.operate_with_self(x.representative())).neg())),
             ),
         ]);
         e == FieldElement::one()
+    }
+
+    fn open_batch(&self, x: &FieldElement<F>, ys: &[FieldElement<F>], polynomials: &[Polynomial<FieldElement<F>>], upsilon: &FieldElement<F>) -> Self::Commitment {
+        let acc_polynomial = polynomials.iter().rev().fold(Polynomial::zero(), |acc, polynomial| {
+            acc * upsilon.to_owned() + polynomial
+        });
+
+        let acc_y = ys.iter().rev().fold(FieldElement::zero(), |acc, y| {
+            acc * upsilon.to_owned() + y
+        });
+    
+        self.open(&x, &acc_y, &acc_polynomial)
+    }
+
+    fn verify_batch(
+        &self,
+        x: &FieldElement<F>,
+        ys: &[FieldElement<F>],
+        p_commitments: &[Self::Commitment],
+        proof: &Self::Commitment,
+        upsilon: &FieldElement<F>
+    ) -> bool {
+        let acc_commitment = p_commitments.iter().rev().fold(P::G1Point::neutral_element(), |acc, point| {
+            acc.operate_with_self(upsilon.to_owned().representative()).operate_with(point)
+        });
+
+        let acc_y = ys.iter().rev().fold(FieldElement::zero(), |acc, y| {
+            acc * upsilon.to_owned() + y
+        });
+        self.verify(x, &acc_y, &acc_commitment, proof)
     }
 }
 
@@ -182,9 +207,10 @@ mod tests {
         let p = Polynomial::<FrElement>::new(&[FieldElement::one(), FieldElement::one()]);
         let p_commitment: <BLS12381AtePairing as IsPairing>::G1Point = kzg.commit(&p);
         let x = -FieldElement::one();
-        let opening = kzg.open(&x, &p);
-        assert_eq!(opening.value, FieldElement::zero());
-        assert_eq!(opening.proof, BLS12381Curve::generator());
-        assert!(kzg.verify(&opening, &x, &p_commitment));
+        let y = p.evaluate(&x);
+        let proof = kzg.open(&x, &y, &p);
+        assert_eq!(y, FieldElement::zero());
+        assert_eq!(proof, BLS12381Curve::generator());
+        assert!(kzg.verify(&x, &y, &p_commitment, &proof));
     }
 }

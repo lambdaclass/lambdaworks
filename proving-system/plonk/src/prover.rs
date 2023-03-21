@@ -10,17 +10,17 @@ use lambdaworks_math::{field::traits::IsField, traits::ByteConversion};
 #[allow(unused)]
 pub struct Proof<F: IsField, CS: IsCommitmentScheme<F>> {
     // Round 1
-    pub a_1: CS::Hiding, // [a(x)]₁ (commitment to left wire polynomial)
-    pub b_1: CS::Hiding, // [b(x)]₁ (commitment to right wire polynomial)
-    pub c_1: CS::Hiding, // [c(x)]₁ (commitment to output wire polynomial)
+    pub a_1: CS::Commitment, // [a(x)]₁ (commitment to left wire polynomial)
+    pub b_1: CS::Commitment, // [b(x)]₁ (commitment to right wire polynomial)
+    pub c_1: CS::Commitment, // [c(x)]₁ (commitment to output wire polynomial)
 
     // Round 2
-    pub z_1: CS::Hiding, // [z(x)]₁ (commitment to permutation polynomial)
+    pub z_1: CS::Commitment, // [z(x)]₁ (commitment to permutation polynomial)
 
     // Round 3
-    pub t_lo_1: CS::Hiding, // [t_lo(x)]₁ (commitment to t_lo(X), the low chunk of the quotient polynomial t(X))
-    pub t_mid_1: CS::Hiding, // [t_mid(x)]₁ (commitment to t_mid(X), the middle chunk of the quotient polynomial t(X))
-    pub t_hi_1: CS::Hiding, // [t_hi(x)]₁ (commitment to t_hi(X), the high chunk of the quotient polynomial t(X))
+    pub t_lo_1: CS::Commitment, // [t_lo(x)]₁ (commitment to t_lo(X), the low chunk of the quotient polynomial t(X))
+    pub t_mid_1: CS::Commitment, // [t_mid(x)]₁ (commitment to t_mid(X), the middle chunk of the quotient polynomial t(X))
+    pub t_hi_1: CS::Commitment, // [t_hi(x)]₁ (commitment to t_hi(X), the high chunk of the quotient polynomial t(X))
 
     // Round 4
     pub a_zeta: FieldElement<F>, // Evaluation of a(X) at evaluation challenge ζ
@@ -31,8 +31,8 @@ pub struct Proof<F: IsField, CS: IsCommitmentScheme<F>> {
     pub z_zeta_omega: FieldElement<F>, // Evaluation of the shifted permutation polynomial z(X) at the shifted evaluation challenge ζω
 
     // Round 5
-    pub w_zeta_1: CS::Hiding, // [W_ζ(X)]₁ (commitment to the opening proof polynomial)
-    pub w_zeta_omega_1: CS::Hiding, // [W_ζω(X)]₁ (commitment to the opening proof polynomial)
+    pub w_zeta_1: CS::Commitment, // [W_ζ(X)]₁ (commitment to the opening proof polynomial)
+    pub w_zeta_omega_1: CS::Commitment, // [W_ζω(X)]₁ (commitment to the opening proof polynomial)
     pub p_non_constant_zeta: FieldElement<F>,
     pub t_zeta: FieldElement<F>,
 }
@@ -90,7 +90,7 @@ where
     F: IsField,
     CS: IsCommitmentScheme<F>,
     FieldElement<F>: ByteConversion,
-    CS::Hiding: ByteConversion,
+    CS::Commitment: ByteConversion,
 {
     #[allow(unused)]
     pub fn new(commitment_scheme: CS) -> Self {
@@ -104,7 +104,7 @@ where
         &self,
         witness: &Witness<F>,
         common_preprocesed_input: &CommonPreprocessedInput<F>,
-    ) -> Round1Result<F, CS::Hiding> {
+    ) -> Round1Result<F, CS::Commitment> {
         let domain = &common_preprocesed_input.domain;
 
         let p_a = Polynomial::interpolate(&domain, &witness.a);
@@ -139,7 +139,7 @@ where
         }: &CommonPreprocessedInput<F>,
         beta: &FieldElement<F>,
         gamma: &FieldElement<F>,
-    ) -> Round2Result<F, CS::Hiding> {
+    ) -> Round2Result<F, CS::Commitment> {
         let mut coefficients: Vec<FieldElement<F>> = vec![FieldElement::one()];
         let (s1, s2, s3) = (&s1_lagrange, &s2_lagrange, &s3_lagrange);
 
@@ -184,12 +184,12 @@ where
             ..
         }: &CommonPreprocessedInput<F>,
         public_input: &[FieldElement<F>],
-        Round1Result { p_a, p_b, p_c, .. }: &Round1Result<F, CS::Hiding>,
+        Round1Result { p_a, p_b, p_c, .. }: &Round1Result<F, CS::Commitment>,
         Round2Result {
             p_z, beta, gamma, ..
-        }: &Round2Result<F, CS::Hiding>,
+        }: &Round2Result<F, CS::Commitment>,
         alpha: &FieldElement<F>,
-    ) -> Round3Result<F, CS::Hiding> {
+    ) -> Round3Result<F, CS::Commitment> {
         let k2 = k1 * k1;
 
         let one = Polynomial::new_monomial(FieldElement::one(), 0);
@@ -247,8 +247,8 @@ where
     fn round_4(
         &self,
         CommonPreprocessedInput { s1, s2, omega, .. }: &CommonPreprocessedInput<F>,
-        Round1Result { p_a, p_b, p_c, .. }: &Round1Result<F, CS::Hiding>,
-        Round2Result { p_z, .. }: &Round2Result<F, CS::Hiding>,
+        Round1Result { p_a, p_b, p_c, .. }: &Round1Result<F, CS::Commitment>,
+        Round2Result { p_z, .. }: &Round2Result<F, CS::Commitment>,
         zeta: &FieldElement<F>,
     ) -> Round4Result<F> {
         let a_zeta = p_a.evaluate(zeta);
@@ -286,10 +286,10 @@ where
             ..
         }: &CommonPreprocessedInput<F>,
         public_input: &[FieldElement<F>],
-        Round1Result { p_a, p_b, p_c, .. }: &Round1Result<F, CS::Hiding>,
+        Round1Result { p_a, p_b, p_c, .. }: &Round1Result<F, CS::Commitment>,
         Round2Result {
             p_z, beta, gamma, ..
-        }: &Round2Result<F, CS::Hiding>,
+        }: &Round2Result<F, CS::Commitment>,
         Round3Result {
             t_lo_1,
             t_mid_1,
@@ -298,7 +298,7 @@ where
             p_t_mid,
             p_t_hi,
             alpha,
-        }: &Round3Result<F, CS::Hiding>,
+        }: &Round3Result<F, CS::Commitment>,
         Round4Result {
             a_zeta,
             b_zeta,
@@ -309,7 +309,7 @@ where
             zeta,
         }: &Round4Result<F>,
         upsilon: &FieldElement<F>,
-    ) -> Round5Result<F, CS::Hiding> {
+    ) -> Round5Result<F, CS::Commitment> {
         // Precompute variables
         let k2 = k1 * k1;
         let zeta_raised_n = Polynomial::new_monomial(zeta.pow(n + 2), 0); // TODO: Paper says n and 2n, but Gnark uses n+2 and 2n+4 (see the TODO(*))
@@ -336,48 +336,25 @@ where
         let r_3 = p_z * l1_zeta;
         p_non_constant = p_non_constant + (r_3 * alpha * alpha);
 
-        // This is called FoldedH in Gnark
         let partial_t = p_t_lo + zeta_raised_n * p_t_mid + zeta_raised_2n * p_t_hi;
 
-        // Batch opening single point
-        // Folded polynomials
-        // polynomials = foldedH, linearizdPolynomialCanonical (r con X), bwliop (a), bwriop (b), bwoiop (c), pk.S1, pk.S2
-        let mut folded_poly = Polynomial::zero();
-        folded_poly = folded_poly + &partial_t;
-        folded_poly = folded_poly + (upsilon.pow(1_u64) * &p_non_constant);
-        folded_poly = folded_poly + (upsilon.pow(2_u64) * p_a);
-        folded_poly = folded_poly + (upsilon.pow(3_u64) * p_b);
-        folded_poly = folded_poly + (upsilon.pow(4_u64) * p_c);
-        folded_poly = folded_poly + (upsilon.pow(5_u64) * s1);
-        folded_poly = folded_poly + (upsilon.pow(6_u64) * s2);
+        // TODO: Refactor to remove clones.
+        let polynomials = vec![partial_t, p_non_constant, p_a.clone(), p_b.clone(), p_c.clone(), s1.clone(), s2.clone()];
+        let ys: Vec<FieldElement<F>> = polynomials.iter().map(|p| p.evaluate(zeta)).collect();
+        let w_zeta_1 = self.commitment_scheme.open_batch(
+            zeta,
+            &ys,
+            &polynomials,
+            upsilon
+        );
 
-        // Folded evaluations
-        let mut folded_poly_zeta = FieldElement::zero();
-        let p_non_constant_zeta = p_non_constant.evaluate(zeta);
-        let t_zeta = partial_t.evaluate(zeta);
-        folded_poly_zeta = folded_poly_zeta + &t_zeta;
-        folded_poly_zeta = folded_poly_zeta + (upsilon.pow(1_u64) * &p_non_constant_zeta);
-        folded_poly_zeta = folded_poly_zeta + (upsilon.pow(2_u64) * p_a.evaluate(zeta));
-        folded_poly_zeta = folded_poly_zeta + (upsilon.pow(3_u64) * p_b.evaluate(zeta));
-        folded_poly_zeta = folded_poly_zeta + (upsilon.pow(4_u64) * p_c.evaluate(zeta));
-        folded_poly_zeta = folded_poly_zeta + (upsilon.pow(5_u64) * s1.evaluate(zeta));
-        folded_poly_zeta = folded_poly_zeta + (upsilon.pow(6_u64) * s2.evaluate(zeta));
-
-        // dividePolyByXMinusA calcula (f(x)-f(a))/(x-a)
-        // Division by x minus
-        let p_w_z = (folded_poly - folded_poly_zeta) / Polynomial::new(&[-zeta, FieldElement::one()]);
-        let z_shifted =
-            (p_z - z_zeta_omega) / Polynomial::new(&[-zeta * omega, FieldElement::one()]);
-        let p_w_z_omega = z_shifted;
-
-        let w_zeta_1 = self.commitment_scheme.commit(&p_w_z);
-        let w_zeta_omega_1 = self.commitment_scheme.commit(&p_w_z_omega);
+        let w_zeta_omega_1 = self.commitment_scheme.open(&(zeta * omega), z_zeta_omega, p_z);
 
         Round5Result {
-            w_zeta_1,
-            w_zeta_omega_1,
-            p_non_constant_zeta,
-            t_zeta,
+            w_zeta_1: w_zeta_1,
+            w_zeta_omega_1: w_zeta_omega_1,
+            p_non_constant_zeta: ys[1].clone(),
+            t_zeta: ys[0].clone(),
         }
     }
 

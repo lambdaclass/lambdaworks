@@ -1,6 +1,5 @@
+use std::borrow::BorrowMut;
 use std::marker::PhantomData;
-
-use lambdaworks_crypto::commitments::kzg::Opening;
 use lambdaworks_crypto::commitments::traits::IsCommitmentScheme;
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::cyclic_group::IsGroup;
@@ -39,7 +38,7 @@ impl<F: IsField, CS: IsCommitmentScheme<F>> Verifier<F, CS> {
     where
         F: IsField,
         CS: IsCommitmentScheme<F>,
-        CS::Hiding: ByteConversion,
+        CS::Commitment: ByteConversion,
         FieldElement<F>: ByteConversion,
     {
         let mut transcript = Transcript::new();
@@ -67,12 +66,12 @@ impl<F: IsField, CS: IsCommitmentScheme<F>> Verifier<F, CS> {
         circuit: &Circuit,
         public_input: &[FieldElement<F>],
         input: &CommonPreprocessedInput<F>,
-        vk: &VerificationKey<CS::Hiding>,
+        vk: &VerificationKey<CS::Commitment>,
     ) -> bool
     where
         F: IsPrimeField,
         CS: IsCommitmentScheme<F>,
-        CS::Hiding: ByteConversion + IsGroup,
+        CS::Commitment: ByteConversion + IsGroup,
         FieldElement<F>: ByteConversion,
     {
         // TODO: First three steps are validations: belonging to main subgroup, belonging to prime field.
@@ -153,39 +152,24 @@ impl<F: IsField, CS: IsCommitmentScheme<F>> Verifier<F, CS> {
 
         non_constant_p_1 = non_constant_p_1.operate_with(&second_term);
 
-        // Commitment of folded polynomials
-        let mut f_1 = partial_t_1;
-        f_1 = f_1.operate_with(&non_constant_p_1.operate_with_self(upsilon.representative()));
-        f_1 = f_1.operate_with(&p.a_1.operate_with_self(upsilon.pow(2_u64).representative()));
-        f_1 = f_1.operate_with(&p.b_1.operate_with_self(upsilon.pow(3_u64).representative()));
-        f_1 = f_1.operate_with(&p.c_1.operate_with_self(upsilon.pow(4_u64).representative()));
-        f_1 = f_1.operate_with(
-            &vk.s1_1
-                .operate_with_self(upsilon.pow(5_u64).representative()),
-        );
-        f_1 = f_1.operate_with(
-            &vk.s2_1
-                .operate_with_self(upsilon.pow(6_u64).representative()),
+        let ys = [p.t_zeta.clone(), p.p_non_constant_zeta.clone(), p.a_zeta.clone(), p.b_zeta.clone(), p.c_zeta.clone(), p.s1_zeta.clone(), p.s2_zeta.clone()];
+        let commitments = [partial_t_1, non_constant_p_1, p.a_1.clone(), p.b_1.clone(), p.c_1.clone(), vk.s1_1.clone(), vk.s2_1.clone()];
+        let batch_openings_check = self.commitment_scheme.verify_batch(
+            &zeta,
+            &ys,
+            &commitments,
+            &p.w_zeta_1,
+            &upsilon
         );
 
-        // Commitment of folded polynomials evaluations at z.
-        let mut e_1_coefficient = p.t_zeta.clone();
-        e_1_coefficient = e_1_coefficient + &p.p_non_constant_zeta * &upsilon;
-        e_1_coefficient = e_1_coefficient + &p.a_zeta * &upsilon.pow(2_u64);
-        e_1_coefficient = e_1_coefficient + &p.b_zeta * &upsilon.pow(3_u64);
-        e_1_coefficient = e_1_coefficient + &p.c_zeta * &upsilon.pow(4_u64);
-        e_1_coefficient = e_1_coefficient + &p.s1_zeta * &upsilon.pow(5_u64);
-        e_1_coefficient = e_1_coefficient + &p.s2_zeta * &upsilon.pow(6_u64);
-        let e_1 = vk.g1.operate_with_self(e_1_coefficient.representative());
+        let single_opening_check = self.commitment_scheme.verify(
+            &(zeta * &input.omega),
+            &p.z_zeta_omega,
+            &p.z_1,
+            &p.w_zeta_omega_1
+        );
 
-        // Check relationship between commitments
-        // w * (x - zeta) = folded_poly - folded_poly_zeta
-        // This checks all the openings at the same time: a(zeta), b(zeta), c(zeta), s1(zeta), s2(zeta), t(zeta), p_non_constant(zeta)
-        // This can be checked using the hidings:
-        // e([w]_1, [x - zeta]_2) = e([f]_1 - [e]_1, [1]_2)
-        
-
-        check_constraints
+        check_constraints && batch_openings_check && single_opening_check
     }
 }
 
