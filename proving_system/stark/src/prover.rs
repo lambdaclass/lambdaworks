@@ -14,6 +14,7 @@ use super::{
     air::{constraints::evaluator::ConstraintEvaluator, frame::Frame, trace::TraceTable, AIR},
     fri::{fri, fri_decommit::fri_decommit_layers},
     StarkQueryProof,
+    sample_z_ood
 };
 
 // FIXME remove unwrap() calls and return errors
@@ -53,11 +54,8 @@ where
     // TODO: Fiat-Shamir
     // z is the Out of domain evaluation point used in Deep FRI. It needs to be a point outside
     // of both the roots of unity and its corresponding coset used for the lde commitment.
-    let z = FieldElement::from(2);
+    let z = sample_z_ood(&lde_roots_of_unity_coset, &trace_roots_of_unity, transcript);
 
-    // TODO: The reason this is commented is we can't just call this function, we have to make sure that the result
-    // is not either a root of unity or an element of the lde coset.
-    // let z = transcript_to_field(transcript);
     let z_squared = &z * &z;
 
     let lde_trace = TraceTable::new(lde_trace, 1);
@@ -79,6 +77,7 @@ where
     );
 
     // Get composition poly
+    println!("// Get composition poly");
     let composition_poly =
         constraint_evaluations.compute_composition_poly(&lde_roots_of_unity_coset);
 
