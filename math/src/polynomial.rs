@@ -2,6 +2,7 @@ use super::field::element::FieldElement;
 use crate::{
     fft::{abstractions::*, errors::FFTError},
     field::traits::{IsField, IsTwoAdicField},
+    helpers,
 };
 use std::ops;
 
@@ -211,7 +212,6 @@ impl<F: IsTwoAdicField> Polynomial<FieldElement<F>> {
     }
 }
 
-// TODO: This is not an optimal implementation, it should use FFT to interpolate.
 pub fn compose<F>(
     poly_1: &Polynomial<FieldElement<F>>,
     poly_2: &Polynomial<FieldElement<F>>,
@@ -235,6 +235,32 @@ where
         .collect();
 
     Polynomial::interpolate(interpolation_points.as_slice(), values.as_slice())
+}
+
+pub fn compose_fft<F>(
+    poly_1: &Polynomial<FieldElement<F>>,
+    poly_2: &Polynomial<FieldElement<F>>,
+) -> Polynomial<FieldElement<F>>
+where
+    F: IsTwoAdicField,
+{
+    let max_degree: u64 = (poly_1.degree() * poly_2.degree()) as u64;
+    let max_degree_power_of_two = helpers::next_power_of_two(max_degree as u64);
+
+    let mut interpolation_points = vec![];
+    for i in 0_u64..max_degree_power_of_two {
+        interpolation_points.push(FieldElement::<F>::from(i));
+    }
+
+    let values: Vec<_> = interpolation_points
+        .iter()
+        .map(|value| {
+            let intermediate_value = poly_2.evaluate(value);
+            poly_1.evaluate(&intermediate_value)
+        })
+        .collect();
+
+    Polynomial::interpolate_fft(values.as_slice()).unwrap()
 }
 
 impl<F: IsField> ops::Add<&Polynomial<FieldElement<F>>> for &Polynomial<FieldElement<F>> {

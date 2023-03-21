@@ -30,6 +30,12 @@ where
     let root_order = air.context().trace_length.trailing_zeros();
     // * Generate Coset
     let trace_primitive_root = F::get_primitive_root_of_unity(root_order as u64).unwrap();
+    let trace_roots_of_unity = F::get_powers_of_primitive_root_coset(
+        root_order as u64,
+        air.context().trace_length,
+        &FieldElement::<F>::one(),
+    )
+    .unwrap();
 
     let lde_root_order =
         (air.context().trace_length * air.options().blowup_factor as usize).trailing_zeros();

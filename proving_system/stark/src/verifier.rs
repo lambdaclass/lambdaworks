@@ -4,6 +4,7 @@ use lambdaworks_math::{
         element::FieldElement,
         traits::{IsField, IsTwoAdicField},
     },
+    helpers,
     polynomial::Polynomial,
     traits::ByteConversion,
 };
@@ -11,10 +12,7 @@ use lambdaworks_math::{
 use crate::{transcript_to_field, transcript_to_usize, StarkProof};
 
 use super::{
-    air::{
-        constraints::{evaluator::ConstraintEvaluator, helpers},
-        AIR,
-    },
+    air::{constraints::evaluator::ConstraintEvaluator, AIR},
     fri::fri_decommit::FriDecommitment,
     sample_z_ood,
 };
