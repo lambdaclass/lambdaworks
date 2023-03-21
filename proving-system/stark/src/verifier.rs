@@ -106,9 +106,15 @@ where
     let lde_root_order =
         (air.context().trace_length * air.options().blowup_factor as usize).trailing_zeros();
 
-    // START DUMMY CHALLENGES
-    let n_challenges = air.context().transition_offsets.len() * air.context().trace_columns + 2;
-    (0..n_challenges).for_each(|_| {
+    // We have to make the call to `transcript.challenge()` a number of times since we need
+    // the transcript to be in the same state as the one in the prover at this stage.
+    // The prover samples coefficients when building the deep composition polynomial. These
+    // sampling is not done in the verifier hence we need to make this dummy calls.
+    // There will be one call for each trace term in the deep composition polynomial + 2 from
+    // the even and ood terms of the H(x) polynomial.
+    let deep_poly_challenges =
+        air.context().transition_offsets.len() * air.context().trace_columns + 2;
+    (0..deep_poly_challenges).for_each(|_| {
         transcript.challenge();
     });
     // END DUMMY CHALLENGES
