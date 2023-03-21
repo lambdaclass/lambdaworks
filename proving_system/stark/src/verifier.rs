@@ -117,7 +117,6 @@ where
     (0..deep_poly_challenges).for_each(|_| {
         transcript.challenge();
     });
-    // END DUMMY CHALLENGES
 
     // construct vector of betas
     let mut beta_list = Vec::new();
