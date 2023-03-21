@@ -161,6 +161,29 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
             coefficients: scaled_coefficients,
         }
     }
+
+    /// For the given polynomial, returns a tuple `(even, odd)` of polynomials
+    /// with the even and odd coefficients respectively.
+    /// Note that `even` and `odd` ARE NOT actually even/odd polynomials themselves.
+    ///
+    /// Example: if poly = 3 X^3 + X^2 + 2X + 1, then
+    /// `poly.even_odd_decomposition = (even, odd)` with
+    /// `even` = X + 1 and `odd` = 3X + 1.
+    ///
+    /// In general, the decomposition satisfies the following:
+    /// `poly(x)` = `even(x^2)` + X * `odd(x^2)`
+    pub fn even_odd_decomposition(&self) -> (Self, Self) {
+        let coef = self.coefficients();
+        let even_coef: Vec<FieldElement<F>> = coef.iter().step_by(2).cloned().collect();
+
+        // odd coeficients of poly are multiplied by beta
+        let odd_coef: Vec<FieldElement<F>> = coef.iter().skip(1).step_by(2).cloned().collect();
+
+        Polynomial::pad_with_zero_coefficients(
+            &Polynomial::new(&even_coef),
+            &Polynomial::new(&odd_coef),
+        )
+    }
 }
 
 impl<F: IsTwoAdicField> Polynomial<FieldElement<F>> {
@@ -263,10 +286,31 @@ impl<F: IsField> ops::Neg for Polynomial<FieldElement<F>> {
     }
 }
 
+impl<F: IsField> ops::Neg for &Polynomial<FieldElement<F>> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn neg(self) -> Polynomial<FieldElement<F>> {
+        let neg = self
+            .coefficients
+            .iter()
+            .map(|x| -x)
+            .collect::<Vec<FieldElement<F>>>();
+        Polynomial::new(&neg)
+    }
+}
+
 impl<F: IsField> ops::Sub<Polynomial<FieldElement<F>>> for Polynomial<FieldElement<F>> {
     type Output = Polynomial<FieldElement<F>>;
 
     fn sub(self, substrahend: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+        self + (-substrahend)
+    }
+}
+
+impl<F: IsField> ops::Sub<&Polynomial<FieldElement<F>>> for &Polynomial<FieldElement<F>> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn sub(self, substrahend: &Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
         self + (-substrahend)
     }
 }

@@ -1,10 +1,12 @@
-pub use super::{FriMerkleTree, Polynomial, F, FE};
+use lambdaworks_math::field::{element::FieldElement, traits::IsField};
 
-pub struct FriCommitment<FE> {
-    pub poly: Polynomial<FE>,
-    pub domain: Vec<FE>,
-    pub evaluation: Vec<FE>,
-    pub merkle_tree: FriMerkleTree,
+pub use super::{FriMerkleTree, Polynomial};
+
+pub struct FriCommitment<F: IsField> {
+    pub poly: Polynomial<FieldElement<F>>,
+    pub domain: Vec<FieldElement<F>>,
+    pub evaluation: Vec<FieldElement<F>>,
+    pub merkle_tree: FriMerkleTree<F>,
 }
 
-pub type FriCommitmentVec<FE> = Vec<FriCommitment<FE>>;
+pub type FriCommitmentVec<F> = Vec<FriCommitment<F>>;
