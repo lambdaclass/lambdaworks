@@ -31,6 +31,7 @@ jobs:
 
       - name: Run cargo check
         run: |
+          export CFLAGS="`gnustep-config --objc-flags` `gnustep-config --objc-libs` Fraction.m -o Fraction"
           cargo check
 
       #- name: Run cargo check
