@@ -1,7 +1,11 @@
-use lambdaworks_crypto::merkle_tree::{MerkleTreeDefault, U64MerkleTree, U64FE};
+use lambdaworks_crypto::merkle_tree::{MerkleTreeDefault, U64MerkleTree, U64FE, U64Proof};
 use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::BLS12381PrimeField;
 use lambdaworks_math::field::element::FieldElement;
 use pyo3::{prelude::*, types::{PyList, PyInt}};
+
+#[pyclass(name="U64Proof")]
+#[derive(Clone)]
+pub struct PyU64Proof(U64Proof);
 
 #[pyclass(name = "BLS12381PrimeField")]
 #[derive(Clone)]
@@ -35,6 +39,12 @@ impl PyU64MerkleTree {
             v
         };
         Ok(PyU64MerkleTree(U64MerkleTree::build(values.as_slice())))
+    }
+
+    pub fn get_proof(&self, pyvalue: &PyAny) -> PyResult<U64Proof> {
+        let value = PyU64FE::extract(&pyvalue)?;
+
+        Ok(self.0.get_proof(&value.0).unwrap())
     }
 }
 
