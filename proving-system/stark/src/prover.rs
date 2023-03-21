@@ -13,7 +13,7 @@ use crate::{transcript_to_field, transcript_to_usize, StarkProof};
 use super::{
     air::{constraints::evaluator::ConstraintEvaluator, frame::Frame, trace::TraceTable, AIR},
     fri::{fri, fri_decommit::fri_decommit_layers},
-    StarkQueryProof, COSET_OFFSET,
+    StarkQueryProof,
 };
 
 // FIXME remove unwrap() calls and return errors
@@ -43,7 +43,7 @@ where
     let lde_roots_of_unity_coset = F::get_powers_of_primitive_root_coset(
         lde_root_order as u64,
         air.context().trace_length * air.options().blowup_factor as usize,
-        &FieldElement::<F>::from(COSET_OFFSET),
+        &FieldElement::<F>::from(air.options().coset_offset),
     )
     .unwrap();
 

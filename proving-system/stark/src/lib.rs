@@ -19,11 +19,6 @@ pub struct ProofConfig {
 pub type PrimeField = U256MontgomeryTwoAdicPrimeField;
 pub type FE = FieldElement<PrimeField>;
 
-// DEFINITION OF CONSTANTS
-
-// We are using 3 as the offset as it's our field's generator.
-const COSET_OFFSET: u64 = 3;
-
 // TODO: change this to use more bits
 pub fn transcript_to_field<F: IsField>(transcript: &mut Transcript) -> FieldElement<F> {
     let value: u64 = u64::from_be_bytes(transcript.challenge()[..8].try_into().unwrap());
@@ -80,6 +75,7 @@ mod tests {
             options: ProofOptions {
                 blowup_factor: 2,
                 fri_number_of_queries: 1,
+                coset_offset: 3,
             },
             trace_length: trace.len(),
             trace_info: (trace.len(), 1),
@@ -108,6 +104,7 @@ mod tests {
             options: ProofOptions {
                 blowup_factor: 2,
                 fri_number_of_queries: 1,
+                coset_offset: 3,
             },
             trace_length: trace.len(),
             trace_info: (trace.len(), 1),
