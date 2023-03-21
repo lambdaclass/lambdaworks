@@ -46,7 +46,16 @@ impl MetalState {
         Ok(pipeline)
     }
 
-    pub fn alloc_buffer<T>(&self, data: &[T]) -> metal::Buffer {
+    pub fn alloc_buffer<T>(&self, length: usize) -> metal::Buffer {
+        let size = mem::size_of::<T>();
+
+        self.device.new_buffer(
+            (length * size) as u64,
+            MTLResourceOptions::StorageModeShared, // TODO: use managed mode
+        )
+    }
+
+    pub fn alloc_buffer_data<T>(&self, data: &[T]) -> metal::Buffer {
         let size = mem::size_of::<T>();
 
         self.device.new_buffer_with_data(
@@ -72,11 +81,11 @@ impl MetalState {
         (command_buffer, command_encoder)
     }
 
-    pub fn retrieve_contents<T>(buffer: &metal::Buffer) -> &[T] {
+    pub fn retrieve_contents<T: Clone>(buffer: &metal::Buffer) -> Vec<T> {
         let ptr = buffer.contents() as *const T;
         let len = buffer.length() as usize / mem::size_of::<T>();
         let slice = unsafe { std::slice::from_raw_parts(ptr, len) };
 
-        slice.to_owned()
+        slice.to_vec()
     }
 }

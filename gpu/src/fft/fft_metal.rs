@@ -1,248 +1,102 @@
-use std::mem;
-
 use lambdaworks_math::field::{element::FieldElement, traits::IsTwoAdicField};
 
-use crate::abstractions::{errors::MetalError, metal::MetalState};
+use crate::{abstractions::metal::MetalState, fft::errors::FFTMetalError};
 
 use super::helpers::{log2, void_ptr};
-use lambdaworks_math::fft::errors::FFTError;
-use metal::{CommandQueue, Device, Library, MTLResourceOptions, MTLSize};
+use lambdaworks_math::fft::bit_reversing::in_place_bit_reverse_permute;
+use metal::{MTLResourceOptions, MTLSize};
 
-const FFT_LIB_DATA: &[u8] = include_bytes!("../metal/fft.metallib");
-
-pub struct FFTMetal {
+/// Executes parallel ordered FFT over a slice of two-adic field elements, in Metal.
+/// Twiddle factors are required to be in bit-reverse order.
+///
+/// "Ordered" means that the input is required to be in natural order, and the output will be
+/// in this order too. Natural order means that input[i] corresponds to the i-th coefficient,
+/// as opposed to bit-reverse order in which input[bit_rev(i)] corresponds to the i-th
+/// coefficient.
+pub fn fft<F: IsTwoAdicField>(
+    input: &[FieldElement<F>],
+    twiddles: &[FieldElement<F>],
     state: MetalState,
-    pipeline: metal::ComputePipelineState,
-}
+) -> Result<Vec<FieldElement<F>>, FFTMetalError> {
+    let pipeline = state
+        .setup_pipeline("radix2_dit_butterfly")
+        .map_err(FFTMetalError::Metal)?;
 
-impl FFTMetal {
-    pub fn new(device: Option<metal::Device>) -> Result<Self, MetalError> {
-        let state = MetalState::new(device)?;
-        let pipeline = state.setup_pipeline("radix2_dit_butterfly")?;
-        // TODO: pipeline will be changed depending on the operation that will be executed.
+    let input_buffer = state.alloc_buffer_data(input);
+    let twiddles_buffer = state.alloc_buffer_data(twiddles);
+    // TODO: twiddle factors security (right now anything can be passed as twiddle factors)
 
-        Ok(Self { state, pipeline })
-    }
+    let (command_buffer, command_encoder) =
+        state.setup_command(&pipeline, &[&input_buffer, &twiddles_buffer]);
 
-    pub fn execute<F: IsTwoAdicField>(
-        &self,
-        input: &[FieldElement<F>],
-        twiddles: &[FieldElement<F>],
-    ) -> Result<Vec<FieldElement<F>>, FFTError> {
-        let input_buffer = self.state.alloc_buffer(input);
-        let twiddles_buffer = self.state.alloc_buffer(twiddles);
-        // TODO: twiddle factors security (right now anything can be passed as twiddle factors)
+    let order = log2(input.len()).map_err(FFTMetalError::FFT)?;
+    let basetype_size = core::mem::size_of::<u32>();
+    for stage in 0..order {
+        let group_count = stage + 1;
+        let group_size = input.len() as u64 / (1 << stage);
 
-        let (command_buffer, command_encoder) = self
-            .state
-            .setup_command(&self.pipeline, &[&input_buffer, &twiddles_buffer]);
-
-        let order = log2(input.len())?;
-        let basetype_size = core::mem::size_of::<u32>();
-        for stage in 0..order {
-            let group_count = stage + 1;
-            let group_size = input.len() as u64 / (1 << stage);
-
-            // TODO: consider changing for function constant or `set_bytes()`
-            let group_size_buffer = self.state.device.new_buffer_with_data(
-                void_ptr(&group_size),
-                basetype_size as u64,
-                MTLResourceOptions::StorageModeShared,
-            );
-
-            command_encoder.set_buffer(2, Some(&group_size_buffer), 0);
-
-            let threadgroup_size = MTLSize::new(group_size / 2, 1, 1);
-            let threadgroup_count = MTLSize::new(group_count, 1, 1);
-
-            command_encoder.dispatch_thread_groups(threadgroup_count, threadgroup_size);
-        }
-        command_encoder.end_encoding();
-
-        command_buffer.commit();
-        command_buffer.wait_until_completed();
-
-        let results = MetalState::retrieve_contents(&input_buffer);
-        Ok(results.iter().map(FieldElement::from).collect())
-    }
-}
-
-// FIXME: this is deprecated
-pub struct FFTMetalState {
-    pub device: Device,
-    pub library: Library,
-    pub command_queue: CommandQueue,
-}
-
-impl FFTMetalState {
-    pub fn new(device: Option<Device>) -> Result<Self, FFTError> {
-        let device: Device =
-            device.unwrap_or(Device::system_default().ok_or(FFTError::MetalDeviceNotFound())?);
-
-        let library = device
-            .new_library_with_data(FFT_LIB_DATA)
-            .map_err(FFTError::MetalLibraryError)?;
-        let command_queue = device.new_command_queue();
-
-        Ok(FFTMetalState {
-            device,
-            library,
-            command_queue,
-        })
-    }
-
-    pub fn setup_fft<F: IsTwoAdicField>(
-        &self,
-        kernel: &str,
-        twiddles: &[FieldElement<F>],
-    ) -> Result<(&metal::CommandBufferRef, &metal::ComputeCommandEncoderRef), FFTError> {
-        let butterfly_kernel = self
-            .library
-            .get_function(kernel, None)
-            .map_err(FFTError::MetalFunctionError)?;
-
-        let pipeline = self
-            .device
-            .new_compute_pipeline_state_with_function(&butterfly_kernel)
-            .map_err(FFTError::MetalPipelineError)?;
-
-        let twiddles_buffer = {
-            let twiddles: Vec<_> = twiddles.iter().map(|elem| elem.value().clone()).collect();
-            let basetype_size = std::mem::size_of::<F::BaseType>();
-
-            self.device.new_buffer_with_data(
-                unsafe { mem::transmute(twiddles.as_ptr()) }, // reinterprets into a void pointer
-                (twiddles.len() * basetype_size) as u64,
-                MTLResourceOptions::StorageModeShared,
-            )
-        };
-
-        let command_buffer = self.command_queue.new_command_buffer();
-        let compute_encoder = command_buffer.new_compute_command_encoder();
-
-        compute_encoder.set_compute_pipeline_state(&pipeline);
-        compute_encoder.set_buffer(1, Some(&twiddles_buffer), 0);
-
-        Ok((command_buffer, compute_encoder))
-    }
-
-    pub fn execute_fft<F: IsTwoAdicField>(
-        &self,
-        input: &[FieldElement<F>],
-        (command_buffer, compute_encoder): (
-            &metal::CommandBufferRef,
-            &metal::ComputeCommandEncoderRef,
-        ),
-    ) -> Result<Vec<FieldElement<F>>, FFTError> {
-        let order = input.len().trailing_zeros() as u64;
-        let basetype_size = std::mem::size_of::<F::BaseType>();
-
-        let input_buffer = {
-            let input: Vec<_> = input.iter().map(|elem| elem.value()).cloned().collect();
-            // without that .cloned() the UB monster is summoned, not sure why.
-            self.device.new_buffer_with_data(
-                unsafe { mem::transmute(input.as_ptr()) }, // reinterprets into a void pointer
-                (input.len() * basetype_size) as u64,
-                MTLResourceOptions::StorageModeShared,
-            )
-        };
-        compute_encoder.set_buffer(0, Some(&input_buffer), 0);
-
-        for stage in 0..order {
-            let group_count = stage + 1;
-            let group_size = input.len() as u64 / (1 << stage);
-
-            let group_size_buffer = self.device.new_buffer_with_data(
-                void_ptr(&group_size),
-                basetype_size as u64,
-                MTLResourceOptions::StorageModeShared,
-            );
-
-            compute_encoder.set_buffer(2, Some(&group_size_buffer), 0);
-
-            let threadgroup_size = MTLSize::new(group_size / 2, 1, 1);
-            let threadgroup_count = MTLSize::new(group_count, 1, 1);
-
-            compute_encoder.dispatch_thread_groups(threadgroup_count, threadgroup_size);
-        }
-        compute_encoder.end_encoding();
-
-        command_buffer.commit();
-        command_buffer.wait_until_completed();
-
-        let results_ptr = input_buffer.contents() as *const F::BaseType;
-        let results_len = input_buffer.length() as usize / basetype_size;
-        let results_slice = unsafe { std::slice::from_raw_parts(results_ptr, results_len) };
-
-        Ok(results_slice.iter().map(FieldElement::from).collect())
-    }
-
-    pub fn gen_twiddles<F: IsTwoAdicField>(
-        &self,
-        order: u64,
-    ) -> Result<Vec<FieldElement<F>>, FFTError> {
-        let twiddles_kernel = self
-            .library
-            .get_function("calc_twiddle", None)
-            .map_err(FFTError::MetalFunctionError)?;
-
-        let pipeline = self
-            .device
-            .new_compute_pipeline_state_with_function(&twiddles_kernel)
-            .map_err(FFTError::MetalPipelineError)?;
-
-        let basetype_size = std::mem::size_of::<F::BaseType>();
-
-        let omega_buffer = {
-            let omega = F::get_primitive_root_of_unity(order)?;
-            let omega = [omega.value().clone()];
-
-            self.device.new_buffer_with_data(
-                unsafe { mem::transmute(omega.as_ptr()) }, // reinterprets into a void pointer
-                basetype_size as u64,
-                MTLResourceOptions::StorageModeShared,
-            )
-        };
-
-        let result_len = (1u64 << order) / 2;
-        let result_buffer = self.device.new_buffer(
-            result_len * basetype_size as u64,
+        // TODO: consider changing for function constant or `set_bytes()`
+        let group_size_buffer = state.device.new_buffer_with_data(
+            void_ptr(&group_size),
+            basetype_size as u64,
             MTLResourceOptions::StorageModeShared,
         );
 
-        let command_queue = self.device.new_command_queue();
-        let command_buffer = command_queue.new_command_buffer();
-        let compute_encoder = command_buffer.new_compute_command_encoder();
+        command_encoder.set_buffer(2, Some(&group_size_buffer), 0);
 
-        compute_encoder.set_compute_pipeline_state(&pipeline);
-        compute_encoder.set_buffer(0, Some(&omega_buffer), 0);
-        compute_encoder.set_buffer(1, Some(&result_buffer), 0);
+        let threadgroup_size = MTLSize::new(group_size / 2, 1, 1);
+        let threadgroup_count = MTLSize::new(group_count, 1, 1);
 
-        // SIMD group size:
-        let threads = pipeline.thread_execution_width();
-        // the idea is to have a SIMD per threadgroup, so:
-        let thread_group_size = MTLSize::new(threads, 1, 1);
-        // then the amount of groups should be the minimum that make `order` fit:
-        let thread_group_count = MTLSize::new((result_len + threads - 1) / threads, 1, 1);
-
-        compute_encoder.dispatch_thread_groups(thread_group_size, thread_group_count);
-        compute_encoder.end_encoding();
-
-        command_buffer.commit();
-        command_buffer.wait_until_completed();
-
-        let results_ptr = result_buffer.contents() as *const F::BaseType;
-        let results_len = result_buffer.length() as usize / basetype_size;
-        let results_slice = unsafe { std::slice::from_raw_parts(results_ptr, results_len) };
-
-        Ok(results_slice.iter().map(FieldElement::from).collect())
+        command_encoder.dispatch_thread_groups(threadgroup_count, threadgroup_size);
     }
+    command_encoder.end_encoding();
+
+    command_buffer.commit();
+    command_buffer.wait_until_completed();
+
+    let mut result = MetalState::retrieve_contents(&input_buffer);
+    in_place_bit_reverse_permute(&mut result); // TODO: implement this in metal.
+    Ok(result.iter().map(FieldElement::from).collect())
+}
+
+pub fn gen_twiddles<F: IsTwoAdicField>(
+    order: u64,
+    state: MetalState,
+) -> Result<Vec<FieldElement<F>>, FFTMetalError> {
+    let len = (1 << order) / 2;
+
+    let pipeline = state
+        .setup_pipeline("calc_twiddle")
+        .map_err(FFTMetalError::Metal)?;
+
+    let root_buffer = {
+        let root = F::get_primitive_root_of_unity(order).map_err(FFTMetalError::FFT)?;
+        let data = [root.value().clone()];
+        state.alloc_buffer_data(&data)
+    };
+
+    let result_buffer = state.alloc_buffer::<F::BaseType>(len);
+
+    let (command_buffer, command_encoder) =
+        state.setup_command(&pipeline, &[&root_buffer, &result_buffer]);
+
+    let grid_size = MTLSize::new(len as u64, 1, 1);
+    let threadgroup_size = MTLSize::new(pipeline.max_total_threads_per_threadgroup(), 1, 1);
+
+    command_encoder.dispatch_threads(grid_size, threadgroup_size);
+    command_encoder.end_encoding();
+
+    command_buffer.commit();
+    command_buffer.wait_until_completed();
+
+    let result = MetalState::retrieve_contents(&result_buffer);
+    Ok(result.iter().map(FieldElement::from).collect())
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::abstractions::metal::MetalState;
     use lambdaworks_math::{
-        fft::bit_reversing::in_place_bit_reverse_permute,
         field::{test_fields::u32_test_field::U32TestField, traits::RootsConfig},
         polynomial::Polynomial,
     };
@@ -282,10 +136,9 @@ mod tests {
                 let expected = poly.evaluate_fft().unwrap();
                 let order = poly.coefficients().len().trailing_zeros() as u64;
 
-                let metal = FFTMetal::new(None).unwrap();
+                let metal_state = MetalState::new(None).unwrap();
                 let twiddles = F::get_twiddles(order, RootsConfig::BitReverse).unwrap();
-                let mut result = metal.execute(poly.coefficients(), &twiddles).unwrap();
-                in_place_bit_reverse_permute(&mut result);
+                let result = fft(poly.coefficients(), &twiddles, metal_state).unwrap();
 
                 prop_assert_eq!(&result[..], &expected[..]);
 
@@ -300,8 +153,8 @@ mod tests {
             objc::rc::autoreleasepool(|| {
                 let cpu_twiddles = F::get_twiddles(order as u64, RootsConfig::Natural).unwrap();
 
-                let metal_state = FFTMetalState::new(None).unwrap();
-                let gpu_twiddles = metal_state.gen_twiddles::<F>(order as u64).unwrap();
+                let metal_state = MetalState::new(None).unwrap();
+                let gpu_twiddles = gen_twiddles::<F>(order as u64, metal_state).unwrap();
 
                 prop_assert_eq!(cpu_twiddles, gpu_twiddles);
                 Ok(())
