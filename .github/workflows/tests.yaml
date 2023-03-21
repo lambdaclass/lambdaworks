@@ -31,8 +31,8 @@ jobs:
 
       - name: Run cargo check
         uses: actions-rs/cargo@v1
-        use-cross: true
         with:
+          use-cross: true
           command: check
 
   coverage:
