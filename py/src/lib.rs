@@ -1,6 +1,7 @@
 mod math;
 mod merkle_tree;
 mod proving_systems;
+mod crypto;
 
 use crate::math::unsigned_integer::element::PyU256;
 use crate::proving_systems::stark;
