@@ -1,7 +1,6 @@
 use criterion::Criterion;
-use lambdaworks_gpu::fft::fft_metal::*;
+use lambdaworks_gpu::{abstractions::metal::MetalState, fft::fft_metal::*};
 use lambdaworks_math::{
-    fft::bit_reversing::in_place_bit_reverse_permute,
     field::{element::FieldElement, traits::IsTwoAdicField},
     field::{test_fields::u32_test_field::U32TestField, traits::RootsConfig},
 };
@@ -34,18 +33,11 @@ pub fn metal_fft_benchmarks(c: &mut Criterion) {
                     // TODO: autoreleaspool hurts perf. by 2-3%. Search for an alternative
                     objc::rc::autoreleasepool(|| {
                         let coeffs = coeffs.clone();
+                        let metal_state = MetalState::new(None).unwrap();
                         let twiddles =
                             F::get_twiddles(order as u64, RootsConfig::BitReverse).unwrap();
-                        let fft_metal = FFTMetalState::new(None).unwrap();
-                        let command_buff_encoder = fft_metal
-                            .setup_fft("radix2_dit_butterfly", &twiddles)
-                            .unwrap();
 
-                        let mut result = fft_metal
-                            .execute_fft(&coeffs, command_buff_encoder)
-                            .unwrap();
-
-                        in_place_bit_reverse_permute(&mut result);
+                        fft(&coeffs, &twiddles, metal_state).unwrap();
                     });
                 });
             },
@@ -70,8 +62,8 @@ pub fn metal_fft_twiddles_benchmarks(c: &mut Criterion) {
                 bench.iter(|| {
                     // TODO: autoreleaspool hurts perf. by 2-3%. Search for an alternative
                     objc::rc::autoreleasepool(|| {
-                        let metal_state = FFTMetalState::new(None).unwrap();
-                        let _gpu_twiddles = metal_state.gen_twiddles::<F>(*order).unwrap();
+                        let metal_state = MetalState::new(None).unwrap();
+                        gen_twiddles::<F>(*order, metal_state).unwrap();
                     });
                 });
             },
