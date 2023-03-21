@@ -30,7 +30,7 @@ jobs:
           command: check
 
   coverage:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     env:
       CARGO_TERM_COLOR: always
     steps:
@@ -72,7 +72,7 @@ jobs:
           args: --all -- --check
 
   clippy:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v3
       - uses: actions-rs/toolchain@v1
