@@ -4,7 +4,9 @@ use crate::{abstractions::metal::MetalState, fft::errors::FFTMetalError};
 
 use super::helpers::{log2, void_ptr};
 use lambdaworks_math::fft::bit_reversing::in_place_bit_reverse_permute;
-use metal::{MTLResourceOptions, MTLSize};
+use metal::MTLSize;
+
+use core::mem;
 
 /// Executes parallel ordered FFT over a slice of two-adic field elements, in Metal.
 /// Twiddle factors are required to be in bit-reverse order.
@@ -30,23 +32,18 @@ pub fn fft<F: IsTwoAdicField>(
         state.setup_command(&pipeline, &[&input_buffer, &twiddles_buffer]);
 
     let order = log2(input.len()).map_err(FFTMetalError::FFT)?;
-    let basetype_size = core::mem::size_of::<u32>();
     for stage in 0..order {
         let group_count = stage + 1;
         let group_size = input.len() as u64 / (1 << stage);
 
-        // TODO: consider changing for function constant or `set_bytes()`
-        let group_size_buffer = state.device.new_buffer_with_data(
+        command_encoder.set_bytes(
+            2,
+            mem::size_of::<F::BaseType>() as u64,
             void_ptr(&group_size),
-            basetype_size as u64,
-            MTLResourceOptions::StorageModeShared,
         );
-
-        command_encoder.set_buffer(2, Some(&group_size_buffer), 0);
 
         let threadgroup_size = MTLSize::new(group_size / 2, 1, 1);
         let threadgroup_count = MTLSize::new(group_count, 1, 1);
-
         command_encoder.dispatch_thread_groups(threadgroup_count, threadgroup_size);
     }
     command_encoder.end_encoding();
