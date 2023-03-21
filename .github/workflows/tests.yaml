@@ -12,15 +12,10 @@ concurrency:
 jobs:
   check:
     name: Check
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
-        
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install build-essential gobjc gobjc++ gnustep gnustep-devel gnustep-base-common libgnustep-base-dev
 
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
@@ -30,15 +25,9 @@ jobs:
           override: true
 
       - name: Run cargo check
-        run: |
-          export CFLAGS="`gnustep-config --objc-flags`"
-          cargo check
-
-      #- name: Run cargo check
-      #  uses: actions-rs/cargo@v1
-      #  with:
-      #    use-cross: true
-      #    command: check
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
 
   coverage:
     runs-on: ubuntu-latest
