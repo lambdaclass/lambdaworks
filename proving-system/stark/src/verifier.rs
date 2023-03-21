@@ -99,7 +99,6 @@ where
         &composition_poly_evaluations[0] + &z * &composition_poly_evaluations[1];
 
     if composition_poly_claimed_ood_evaluation != composition_poly_ood_evaluation {
-        println!("COMPOSITION POLY FAILED");
         return false;
     }
 
@@ -207,7 +206,6 @@ pub fn verify_query<F: IsField + IsTwoAdicField>(
             layer_evaluation_index,
             auth_path_evaluation,
         ) {
-            println!("FRI LAYER AUTH PATH FAILED");
             return false;
         }
 
@@ -219,7 +217,6 @@ pub fn verify_query<F: IsField + IsTwoAdicField>(
             layer_evaluation_index_symmetric,
             auth_path_evaluation_symmetric,
         ) {
-            println!("FRI LAYER AUTH PATH SYMMETRIC FAILED");
             return false;
         }
 
@@ -246,7 +243,6 @@ pub fn verify_query<F: IsField + IsTwoAdicField>(
         offset = offset.pow(2_usize);
 
         if v != *auth_path_evaluation {
-            println!("CO LINEARITY CHECK FAILED");
             return false;
         }
 
@@ -259,7 +255,6 @@ pub fn verify_query<F: IsField + IsTwoAdicField>(
                     / (two * &last_evaluation_point);
 
             if last_v != fri_decommitment.last_layer_evaluation {
-                println!("LAST EVAL POINT FAILED");
                 return false;
             }
         }
