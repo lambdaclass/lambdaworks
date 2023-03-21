@@ -47,7 +47,7 @@ pub trait IsTwoAdicField: IsField {
         Ok(two_adic_primitive_root_of_unity.pow(power))
     }
 
-    /// Returns a `Vec` of the powers of a `n`th primitive root of unity in some configuration
+    /// Returns a `Vec` of the powers of a `2^n`th primitive root of unity in some configuration
     /// `config`. For example, in a `Natural` config this would yield: w^0, w^1, w^2...
     fn get_powers_of_primitive_root(
         n: u64,
@@ -67,7 +67,7 @@ pub trait IsTwoAdicField: IsField {
         Ok(results.collect())
     }
 
-    /// Returns a `Vec` of the powers of a `n`th primitive root of unity, scaled `offset` times,
+    /// Returns a `Vec` of the powers of a `2^n`th primitive root of unity, scaled `offset` times,
     /// in a Natural configuration.
     fn get_powers_of_primitive_root_coset(
         n: u64,

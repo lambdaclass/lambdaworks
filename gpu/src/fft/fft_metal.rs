@@ -59,6 +59,7 @@ pub fn fft<F: IsTwoAdicField>(
     Ok(result.iter().map(FieldElement::from).collect())
 }
 
+/// Generates 2^{`order`} naturally-ordered twiddle factors in parallel, in Metal.
 pub fn gen_twiddles<F: IsTwoAdicField>(
     order: u64,
     state: MetalState,
