@@ -150,7 +150,7 @@ mod tests {
 
     proptest! {
         #[test]
-        fn test_gpu_twiddles_match_cpu(order in powers_of_two(4)) {
+        fn test_gpu_twiddles_match_cpu(order in 1..16) {
             objc::rc::autoreleasepool(|| {
                 let cpu_twiddles = F::get_twiddles(order as u64, RootsConfig::Natural).unwrap();
 
