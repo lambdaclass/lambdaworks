@@ -5,5 +5,4 @@ multilingual = false
 src = "src"
 title = "stark_docs"
 
-[output.html]
-mathjax-support = true
+[preprocessor.katex]
