@@ -33,7 +33,7 @@ pub struct Proof<F: IsField, CS: IsCommitmentScheme<F>> {
     // Round 5
     pub w_zeta_1: CS::Hiding, // [W_ζ(X)]₁ (commitment to the opening proof polynomial)
     pub w_zeta_omega_1: CS::Hiding, // [W_ζω(X)]₁ (commitment to the opening proof polynomial)
-    pub partial_p_zeta: FieldElement<F>,
+    pub p_non_constant_zeta: FieldElement<F>,
     pub t_zeta: FieldElement<F>,
 }
 
@@ -81,7 +81,7 @@ struct Round4Result<F: IsField> {
 struct Round5Result<F: IsField, Hiding> {
     w_zeta_1: Hiding,
     w_zeta_omega_1: Hiding,
-    partial_p_zeta: FieldElement<F>,
+    p_non_constant_zeta: FieldElement<F>,
     t_zeta: FieldElement<F>,
 }
 
@@ -320,7 +320,7 @@ where
             / FieldElement::from(*n as u64);
 
         // This is called linearized polynomial in Gnark
-        let mut partial_p = qm * a_zeta * b_zeta + a_zeta * ql + b_zeta * qr + c_zeta * qo + qc;
+        let mut p_non_constant = qm * a_zeta * b_zeta + a_zeta * ql + b_zeta * qr + c_zeta * qo + qc;
 
         let r_2_1 = (a_zeta + beta * zeta + gamma)
             * (b_zeta + beta * k1 * zeta + gamma)
@@ -331,10 +331,10 @@ where
             * beta
             * z_zeta_omega
             * s3;
-        partial_p = partial_p + (r_2_2 - r_2_1) * alpha;
+        p_non_constant = p_non_constant + (r_2_2 - r_2_1) * alpha;
 
         let r_3 = p_z * l1_zeta;
-        partial_p = partial_p + (r_3 * alpha * alpha);
+        p_non_constant = p_non_constant + (r_3 * alpha * alpha);
 
         // This is called FoldedH in Gnark
         let partial_t = p_t_lo + zeta_raised_n * p_t_mid + zeta_raised_2n * p_t_hi;
@@ -344,7 +344,7 @@ where
         // polynomials = foldedH, linearizdPolynomialCanonical (r con X), bwliop (a), bwriop (b), bwoiop (c), pk.S1, pk.S2
         let mut folded_poly = Polynomial::zero();
         folded_poly = folded_poly + &partial_t;
-        folded_poly = folded_poly + (upsilon.pow(1_u64) * &partial_p);
+        folded_poly = folded_poly + (upsilon.pow(1_u64) * &p_non_constant);
         folded_poly = folded_poly + (upsilon.pow(2_u64) * p_a);
         folded_poly = folded_poly + (upsilon.pow(3_u64) * p_b);
         folded_poly = folded_poly + (upsilon.pow(4_u64) * p_c);
@@ -352,20 +352,20 @@ where
         folded_poly = folded_poly + (upsilon.pow(6_u64) * s2);
 
         // Folded evaluations
-        let mut folded_eval = FieldElement::zero();
-        let partial_p_zeta = partial_p.evaluate(zeta);
+        let mut folded_poly_zeta = FieldElement::zero();
+        let p_non_constant_zeta = p_non_constant.evaluate(zeta);
         let t_zeta = partial_t.evaluate(zeta);
-        folded_eval = folded_eval + &t_zeta;
-        folded_eval = folded_eval + (upsilon.pow(1_u64) * &partial_p_zeta);
-        folded_eval = folded_eval + (upsilon.pow(2_u64) * p_a.evaluate(zeta));
-        folded_eval = folded_eval + (upsilon.pow(3_u64) * p_b.evaluate(zeta));
-        folded_eval = folded_eval + (upsilon.pow(4_u64) * p_c.evaluate(zeta));
-        folded_eval = folded_eval + (upsilon.pow(5_u64) * s1.evaluate(zeta));
-        folded_eval = folded_eval + (upsilon.pow(6_u64) * s2.evaluate(zeta));
+        folded_poly_zeta = folded_poly_zeta + &t_zeta;
+        folded_poly_zeta = folded_poly_zeta + (upsilon.pow(1_u64) * &p_non_constant_zeta);
+        folded_poly_zeta = folded_poly_zeta + (upsilon.pow(2_u64) * p_a.evaluate(zeta));
+        folded_poly_zeta = folded_poly_zeta + (upsilon.pow(3_u64) * p_b.evaluate(zeta));
+        folded_poly_zeta = folded_poly_zeta + (upsilon.pow(4_u64) * p_c.evaluate(zeta));
+        folded_poly_zeta = folded_poly_zeta + (upsilon.pow(5_u64) * s1.evaluate(zeta));
+        folded_poly_zeta = folded_poly_zeta + (upsilon.pow(6_u64) * s2.evaluate(zeta));
 
         // dividePolyByXMinusA calcula (f(x)-f(a))/(x-a)
         // Division by x minus
-        let p_w_z = (folded_poly - folded_eval) / Polynomial::new(&[-zeta, FieldElement::one()]);
+        let p_w_z = (folded_poly - folded_poly_zeta) / Polynomial::new(&[-zeta, FieldElement::one()]);
         let z_shifted =
             (p_z - z_zeta_omega) / Polynomial::new(&[-zeta * omega, FieldElement::one()]);
         let p_w_z_omega = z_shifted;
@@ -376,7 +376,7 @@ where
         Round5Result {
             w_zeta_1,
             w_zeta_omega_1,
-            partial_p_zeta,
+            p_non_constant_zeta,
             t_zeta,
         }
     }
@@ -454,7 +454,7 @@ where
             z_zeta_omega: round_4.z_zeta_omega,
             w_zeta_1: round_5.w_zeta_1,
             w_zeta_omega_1: round_5.w_zeta_omega_1,
-            partial_p_zeta: round_5.partial_p_zeta,
+            p_non_constant_zeta: round_5.p_non_constant_zeta,
             t_zeta: round_5.t_zeta,
         }
     }

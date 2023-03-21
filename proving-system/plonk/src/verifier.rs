@@ -92,18 +92,19 @@ impl<F: IsField, CS: IsCommitmentScheme<F>> Verifier<F, CS> {
             / FieldElement::from(input.n as u64);
         let p_pi_zeta = Polynomial::interpolate(&input.domain, &p_pi_y).evaluate(&zeta);
 
-        let mut p_remaining = &alpha
+        let mut p_constant_zeta = &alpha
             * &p.z_zeta_omega
             * (&p.c_zeta + &gamma)
             * (&p.a_zeta + &beta * &p.s1_zeta + &gamma)
             * (&p.b_zeta + &beta * &p.s2_zeta + &gamma);
-        p_remaining = p_remaining - &l1_zeta * &alpha * &alpha;
-        p_remaining = p_remaining + p_pi_zeta;
+        p_constant_zeta = p_constant_zeta - &l1_zeta * &alpha * &alpha;
+        p_constant_zeta = p_constant_zeta + p_pi_zeta;
 
-        let p_zeta = p_remaining + &p.partial_p_zeta;
+        let p_zeta = p_constant_zeta + &p.p_non_constant_zeta;
 
         let check_constraints = p_zeta - (&zh_zeta * &p.t_zeta) == FieldElement::zero();
 
+        // Compute commitment of partial evaluation of t (p = zh * t)
         let partial_t_1 = p
             .t_lo_1
             .operate_with(
@@ -115,20 +116,23 @@ impl<F: IsField, CS: IsCommitmentScheme<F>> Verifier<F, CS> {
                     .operate_with_self(zeta.pow(2 * input.n + 4).representative()),
             );
 
+        // Compute commitment of partial evaluation of p (p = zh * t)
+        // Operations constraints
         // + l(ζ)*Ql(X) + l(ζ)r(ζ)*Qm(X) + r(ζ)*Qr(X) + o(ζ)*Qo(X) + Qk(X)
-        let mut partial_p_1 = vk
+        let mut non_constant_p_1 = vk
             .qm_1
             .operate_with_self((&p.a_zeta * &p.b_zeta).representative());
-        partial_p_1 =
-            partial_p_1.operate_with(&vk.ql_1.operate_with_self(p.a_zeta.representative()));
-        partial_p_1 =
-            partial_p_1.operate_with(&vk.qr_1.operate_with_self(p.b_zeta.representative()));
-        partial_p_1 =
-            partial_p_1.operate_with(&vk.qo_1.operate_with_self(p.c_zeta.representative()));
-        partial_p_1 = partial_p_1.operate_with(&vk.qc_1);
+        non_constant_p_1 =
+            non_constant_p_1.operate_with(&vk.ql_1.operate_with_self(p.a_zeta.representative()));
+        non_constant_p_1 =
+            non_constant_p_1.operate_with(&vk.qr_1.operate_with_self(p.b_zeta.representative()));
+        non_constant_p_1 =
+            non_constant_p_1.operate_with(&vk.qo_1.operate_with_self(p.c_zeta.representative()));
+        non_constant_p_1 = non_constant_p_1.operate_with(&vk.qc_1);
 
+        // Copy constraints
         // α²*L₁(ζ)*Z(X)
-        partial_p_1 = partial_p_1.operate_with(
+        non_constant_p_1 = non_constant_p_1.operate_with(
             &p.z_1
                 .operate_with_self((&alpha * &alpha * l1_zeta).representative()),
         );
@@ -147,10 +151,11 @@ impl<F: IsField, CS: IsCommitmentScheme<F>> Verifier<F, CS> {
             .operate_with(&vk.s3_1.operate_with_self(s3_coefficient.representative()))
             .operate_with_self(alpha.representative());
 
-        partial_p_1 = partial_p_1.operate_with(&second_term);
+        non_constant_p_1 = non_constant_p_1.operate_with(&second_term);
 
+        // Commitment of folded polynomials
         let mut f_1 = partial_t_1;
-        f_1 = f_1.operate_with(&partial_p_1.operate_with_self(upsilon.representative()));
+        f_1 = f_1.operate_with(&non_constant_p_1.operate_with_self(upsilon.representative()));
         f_1 = f_1.operate_with(&p.a_1.operate_with_self(upsilon.pow(2_u64).representative()));
         f_1 = f_1.operate_with(&p.b_1.operate_with_self(upsilon.pow(3_u64).representative()));
         f_1 = f_1.operate_with(&p.c_1.operate_with_self(upsilon.pow(4_u64).representative()));
@@ -163,15 +168,22 @@ impl<F: IsField, CS: IsCommitmentScheme<F>> Verifier<F, CS> {
                 .operate_with_self(upsilon.pow(6_u64).representative()),
         );
 
+        // Commitment of folded polynomials evaluations at z.
         let mut e_1_coefficient = p.t_zeta.clone();
-        e_1_coefficient = e_1_coefficient + &p.partial_p_zeta * &upsilon;
+        e_1_coefficient = e_1_coefficient + &p.p_non_constant_zeta * &upsilon;
         e_1_coefficient = e_1_coefficient + &p.a_zeta * &upsilon.pow(2_u64);
         e_1_coefficient = e_1_coefficient + &p.b_zeta * &upsilon.pow(3_u64);
         e_1_coefficient = e_1_coefficient + &p.c_zeta * &upsilon.pow(4_u64);
         e_1_coefficient = e_1_coefficient + &p.s1_zeta * &upsilon.pow(5_u64);
         e_1_coefficient = e_1_coefficient + &p.s2_zeta * &upsilon.pow(6_u64);
-
         let e_1 = vk.g1.operate_with_self(e_1_coefficient.representative());
+
+        // Check relationship between commitments
+        // w * (x - zeta) = folded_poly - folded_poly_zeta
+        // This checks all the openings at the same time: a(zeta), b(zeta), c(zeta), s1(zeta), s2(zeta), t(zeta), p_non_constant(zeta)
+        // This can be checked using the hidings:
+        // e([w]_1, [x - zeta]_2) = e([f]_1 - [e]_1, [1]_2)
+        
 
         check_constraints
     }
