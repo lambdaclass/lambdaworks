@@ -24,8 +24,8 @@ void radix2_dit_butterfly(
 
 [[kernel]]
 void calc_twiddle(
-    constant uint32_t& _omega [[ buffer(0) ]],
-    device uint32_t* result  [[ buffer(1) ]],
+    device uint32_t* result  [[ buffer(0) ]],
+    constant uint32_t& _omega [[ buffer(1) ]],
     uint index [[ thread_position_in_grid ]]
 )
 {

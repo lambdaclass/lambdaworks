@@ -67,16 +67,12 @@ pub fn gen_twiddles<F: IsTwoAdicField>(
         .setup_pipeline("calc_twiddle")
         .map_err(FFTMetalError::Metal)?;
 
-    let root_buffer = {
-        let root = F::get_primitive_root_of_unity(order).map_err(FFTMetalError::FFT)?;
-        let data = [root.value().clone()];
-        state.alloc_buffer_data(&data)
-    };
-
     let result_buffer = state.alloc_buffer::<F::BaseType>(len);
 
-    let (command_buffer, command_encoder) =
-        state.setup_command(&pipeline, &[&root_buffer, &result_buffer]);
+    let (command_buffer, command_encoder) = state.setup_command(&pipeline, &[&result_buffer]);
+
+    let root = F::get_primitive_root_of_unity(order).map_err(FFTMetalError::FFT)?;
+    command_encoder.set_bytes(1, mem::size_of::<F::BaseType>() as u64, void_ptr(&root));
 
     let grid_size = MTLSize::new(len as u64, 1, 1);
     let threadgroup_size = MTLSize::new(pipeline.max_total_threads_per_threadgroup(), 1, 1);
