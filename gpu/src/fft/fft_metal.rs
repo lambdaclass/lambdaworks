@@ -62,11 +62,8 @@ impl FFTMetal {
         command_buffer.commit();
         command_buffer.wait_until_completed();
 
-        let results_ptr = input_buffer.contents() as *const F::BaseType;
-        let results_len = input_buffer.length() as usize / basetype_size;
-        let results_slice = unsafe { std::slice::from_raw_parts(results_ptr, results_len) };
-
-        Ok(results_slice.iter().map(FieldElement::from).collect())
+        let results = MetalState::retrieve_contents(&input_buffer);
+        Ok(results.iter().map(FieldElement::from).collect())
     }
 }
 

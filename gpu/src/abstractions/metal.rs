@@ -71,4 +71,12 @@ impl MetalState {
 
         (command_buffer, command_encoder)
     }
+
+    pub fn retrieve_contents<T>(buffer: &metal::Buffer) -> &[T] {
+        let ptr = buffer.contents() as *const T;
+        let len = buffer.length() as usize / mem::size_of::<T>();
+        let slice = unsafe { std::slice::from_raw_parts(ptr, len) };
+
+        slice.to_owned()
+    }
 }
