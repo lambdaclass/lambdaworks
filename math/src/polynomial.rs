@@ -245,7 +245,7 @@ where
     F: IsTwoAdicField,
 {
     let max_degree: u64 = (poly_1.degree() * poly_2.degree()) as u64;
-    let max_degree_power_of_two = helpers::next_power_of_two(max_degree as u64);
+    let max_degree_power_of_two = helpers::next_power_of_two(max_degree);
 
     let mut interpolation_points = vec![];
     for i in 0_u64..max_degree_power_of_two {
