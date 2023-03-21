@@ -13,7 +13,7 @@ use crate::{transcript_to_field, transcript_to_usize, StarkProof};
 use super::{
     air::{constraints::evaluator::ConstraintEvaluator, frame::Frame, trace::TraceTable, AIR},
     fri::{fri, fri_decommit::fri_decommit_layers},
-    StarkQueryProof, COSET_OFFSET,
+    StarkQueryProof,
 };
 
 // FIXME remove unwrap() calls and return errors
@@ -43,7 +43,7 @@ where
     let lde_roots_of_unity_coset = F::get_powers_of_primitive_root_coset(
         lde_root_order as u64,
         air.context().trace_length * air.options().blowup_factor as usize,
-        &FieldElement::<F>::from(COSET_OFFSET),
+        &FieldElement::<F>::from(air.options().coset_offset),
     )
     .unwrap();
 
@@ -153,8 +153,6 @@ where
 /// composition polynomial, with coefficients sampled by the verifier (i.e. using Fiat-Shamir).
 fn compute_deep_composition_poly<A: AIR, F: IsField>(
     air: &A,
-    // TODO: This should be generalized for a list of trace polynomials in the case there is
-    // more than one trace column.
     trace_polys: &[Polynomial<FieldElement<F>>],
     even_composition_poly: &Polynomial<FieldElement<F>>,
     odd_composition_poly: &Polynomial<FieldElement<F>>,

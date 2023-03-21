@@ -16,7 +16,6 @@ use super::{
         AIR,
     },
     fri::fri_decommit::FriDecommitment,
-    COSET_OFFSET,
 };
 
 pub fn verify<F: IsField + IsTwoAdicField, A: AIR + AIR<Field = F>>(
@@ -66,16 +65,15 @@ where
     let max_degree_power_of_two = helpers::next_power_of_two(max_degree as u64);
 
     // TODO: This is assuming one column
+    let boundary_degree = (air.context().trace_length - boundary_zerofier.degree()) as u64 - 1;
     let mut boundary_quotient_ood_evaluation = &trace_poly_ood_frame_evaluations.get_row(0)[0]
         - boundary_interpolating_polynomial.evaluate(&z);
 
-    boundary_quotient_ood_evaluation = boundary_quotient_ood_evaluation
-        * (&boundary_alpha
-            * z.pow(max_degree_power_of_two - (air.context().trace_length as u64 - 1))
-            + &boundary_beta);
-
     boundary_quotient_ood_evaluation =
         boundary_quotient_ood_evaluation / boundary_zerofier.evaluate(&z);
+
+    boundary_quotient_ood_evaluation = boundary_quotient_ood_evaluation
+        * (&boundary_alpha * z.pow(max_degree_power_of_two - boundary_degree) + &boundary_beta);
 
     let transition_ood_frame_evaluations = air.compute_transition(trace_poly_ood_frame_evaluations);
 
@@ -148,6 +146,7 @@ where
             q_i,
             fri_decommitment,
             lde_root_order,
+            air.options().coset_offset,
         );
     }
     result
@@ -159,9 +158,10 @@ pub fn verify_query<F: IsField + IsTwoAdicField>(
     q_i: usize,
     fri_decommitment: &FriDecommitment<F>,
     lde_root_order: u32,
+    coset_offset: u64,
 ) -> bool {
     let mut lde_primitive_root = F::get_primitive_root_of_unity(lde_root_order as u64).unwrap();
-    let mut offset = FieldElement::<F>::from(COSET_OFFSET);
+    let mut offset = FieldElement::<F>::from(coset_offset);
 
     // For each fri layer merkle proof check:
     // That each merkle path verifies
