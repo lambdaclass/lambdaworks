@@ -1,10 +1,10 @@
-use lambdaworks_crypto::fiat_shamir::transcript::{self, Transcript};
+use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::{
     field::{
         element::FieldElement,
         traits::{IsField, IsTwoAdicField},
     },
-    polynomial::{self, Polynomial},
+    polynomial::Polynomial,
     traits::ByteConversion,
 };
 
@@ -100,7 +100,8 @@ where
 
     // Compute DEEP composition polynomial so we can commit to it using FRI.
     let mut deep_composition_poly = compute_deep_composition_poly(
-        &trace_poly,
+        air,
+        &[trace_poly],
         &composition_poly_even,
         &composition_poly_odd,
         &z,
@@ -122,7 +123,7 @@ where
 
     for _i in 0..air.context().options.fri_number_of_queries {
         // * Sample q_1, ..., q_m using Fiat-Shamir
-        let q_i: usize = transcript_to_usize(transcript) % 2_usize.pow(lde_root_order);
+        let q_i = transcript_to_usize(transcript) % 2_usize.pow(lde_root_order);
         transcript.append(&q_i.to_be_bytes());
 
         // * For every q_i, do FRI decommitment
@@ -150,43 +151,42 @@ where
 /// Returns the DEEP composition polynomial that the prover then commits to using
 /// FRI. This polynomial is a linear combination of the trace polynomial and the
 /// composition polynomial, with coefficients sampled by the verifier (i.e. using Fiat-Shamir).
-fn compute_deep_composition_poly<F: IsField>(
+fn compute_deep_composition_poly<A: AIR, F: IsField>(
+    air: &A,
     // TODO: This should be generalized for a list of trace polynomials in the case there is
     // more than one trace column.
-    trace_poly: &Polynomial<FieldElement<F>>,
+    trace_polys: &[Polynomial<FieldElement<F>>],
     even_composition_poly: &Polynomial<FieldElement<F>>,
     odd_composition_poly: &Polynomial<FieldElement<F>>,
     ood_evaluation_point: &FieldElement<F>,
     primitive_root: &FieldElement<F>,
     transcript: &mut Transcript,
 ) -> Polynomial<FieldElement<F>> {
-    // TODO: The frame_offsets argument (&[0, 1, 2]) is hard-coded for fibonacci here
-    let frame_offsets = [0, 1, 2];
+    let transition_offsets = air.context().transition_offsets;
+    // Get the number of trace terms the DEEP composition poly will have.
+    // One coefficient will be sampled for each of them.
+    let n_trace_terms = transition_offsets.len() * trace_polys.len();
 
-    let trace_term_coeffs = vec![transcript_to_field::<F>(transcript); frame_offsets.len()];
+    let mut trace_term_coeffs = Vec::with_capacity(n_trace_terms);
+    for _ in 0..n_trace_terms {
+        trace_term_coeffs.push(transcript_to_field::<F>(transcript));
+    }
 
-    // TODO: Fiat-Shamir
-    // let gamma_1 = FieldElement::<F>::one();
-    // let gamma_2 = FieldElement::<F>::one();
-    // let gamma_3 = FieldElement::<F>::one();
-    let gamma_4 = FieldElement::<F>::one();
-    let gamma_5 = FieldElement::<F>::one();
-    // let trace_term_coeffs = vec![gamma_1, gamma_2, gamma_3];
+    let gamma_even = transcript_to_field::<F>(transcript);
+    let gamma_odd = transcript_to_field::<F>(transcript);
 
     let trace_evaluations = Frame::get_trace_evaluations(
-        &[trace_poly.clone()],
-        &ood_evaluation_point,
-        &frame_offsets,
+        trace_polys,
+        ood_evaluation_point,
+        &transition_offsets,
         primitive_root,
     );
 
-    // TODO: Hard-coded for fibonacci. We take the first element in  `trace_evaluations` because there is
-    // only one transition constraint, but could be more for an arbitrary computation
     let mut trace_terms = Polynomial::zero();
-    for trace_evaluation in trace_evaluations {
+    for (trace_evaluation, trace_poly) in trace_evaluations.iter().zip(trace_polys) {
         for (eval, coeff) in trace_evaluation.iter().zip(&trace_term_coeffs) {
             let poly = (trace_poly.clone()
-                - Polynomial::new_monomial(trace_poly.evaluate(&eval), 0))
+                - Polynomial::new_monomial(trace_poly.evaluate(eval), 0))
                 / (Polynomial::new_monomial(FieldElement::<F>::one(), 1)
                     - Polynomial::new_monomial(eval.clone(), 0));
 
@@ -207,5 +207,5 @@ fn compute_deep_composition_poly<F: IsField>(
         / (Polynomial::new_monomial(FieldElement::one(), 1)
             - Polynomial::new_monomial(ood_evaluation_point * ood_evaluation_point, 0));
 
-    trace_terms + even_composition_poly_term * gamma_4 + odd_composition_poly_term * gamma_5
+    trace_terms + even_composition_poly_term * gamma_even + odd_composition_poly_term * gamma_odd
 }

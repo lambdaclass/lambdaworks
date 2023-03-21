@@ -108,6 +108,13 @@ where
     let lde_root_order =
         (air.context().trace_length * air.options().blowup_factor as usize).trailing_zeros();
 
+    // START DUMMY CHALLENGES
+    let n_challenges = air.context().transition_offsets.len() * air.context().trace_columns + 2;
+    (0..n_challenges).for_each(|_| {
+        transcript.challenge();
+    });
+    // END DUMMY CHALLENGES
+
     // construct vector of betas
     let mut beta_list = Vec::new();
     let count_betas = proof.fri_layers_merkle_roots.len() - 1;
@@ -123,17 +130,13 @@ where
         }
     }
 
-    // START DUMMY CHALLENGES
-    let _: Vec<_> = (0..2).map(|_| transcript.challenge()).collect();
-    // END DUMMY CHALLENGES
-
     let mut result = true;
     for proof_i in &proof.query_list {
         let last_evaluation = &proof_i.fri_decommitment.last_layer_evaluation;
         let last_evaluation_bytes = last_evaluation.to_bytes_be();
         transcript.append(&last_evaluation_bytes);
 
-        let q_i: usize = transcript_to_usize(transcript) % (2_usize.pow(lde_root_order));
+        let q_i = transcript_to_usize(transcript) % (2_usize.pow(lde_root_order));
         transcript.append(&q_i.to_be_bytes());
 
         let fri_decommitment = &proof_i.fri_decommitment;

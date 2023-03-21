@@ -92,22 +92,22 @@ mod tests {
     fn test_prove_fib() {
         let trace = fibonacci_trace([FE::from(1), FE::from(1)], 4);
 
+        let trace_table = TraceTable {
+            table: trace.clone(),
+            num_cols: 1,
+        };
+
         let context = AirContext {
             options: ProofOptions {
                 blowup_factor: 2,
                 fri_number_of_queries: 1,
             },
             trace_length: trace.len(),
-            trace_info: (trace.len(), 1),
+            trace_columns: trace_table.num_cols,
             transition_degrees: vec![1],
             transition_exemptions: vec![trace.len() - 2, trace.len() - 1],
             transition_offsets: vec![0, 1, 2],
             num_transition_constraints: 1,
-        };
-
-        let trace_table = TraceTable {
-            table: trace.clone(),
-            num_cols: 1,
         };
 
         let fibonacci_air = FibonacciAIR::new(trace_table, context);
@@ -120,22 +120,22 @@ mod tests {
     fn test_prove_fib17() {
         let trace = fibonacci_trace([FE17::new(1), FE17::new(1)], 4);
 
+        let trace_table = TraceTable {
+            table: trace.clone(),
+            num_cols: 1,
+        };
+
         let context = AirContext {
             options: ProofOptions {
                 blowup_factor: 2,
                 fri_number_of_queries: 1,
             },
             trace_length: trace.len(),
-            trace_info: (trace.len(), 1),
+            trace_columns: trace_table.num_cols,
             transition_degrees: vec![1],
             transition_exemptions: vec![trace.len() - 2, trace.len() - 1],
             transition_offsets: vec![0, 1, 2],
             num_transition_constraints: 1,
-        };
-
-        let trace_table = TraceTable {
-            table: trace.clone(),
-            num_cols: 1,
         };
 
         let fibonacci_air = Fibonacci17AIR::new(trace_table, context);
