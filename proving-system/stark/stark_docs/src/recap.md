@@ -58,7 +58,7 @@ Use the fibonacci example as your go-to for understanding all the moving parts; 
 
 ## Step by step walkthrough
 
-Below we go through a step by step explanation of a STARK prover. We will assume the trace of the fibonacci sequence mentioned above; it consists of of only one column of length $2^n$. In this case, we'll take `n=3`. The trace looks like this
+Below we go through a step by step explanation of a STARK prover. We will assume the trace of the fibonacci sequence mentioned above; it consists of only one column of length $2^n$. In this case, we'll take `n=3`. The trace looks like this
 
 | a_i    | 
 | ------ |
