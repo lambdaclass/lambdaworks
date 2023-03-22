@@ -21,6 +21,12 @@ pub struct UnsignedInteger<const NUM_LIMBS: usize> {
     pub limbs: [u64; NUM_LIMBS],
 }
 
+impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
+    pub fn from_limbs(limbs: [u64; NUM_LIMBS]) -> Self {
+        Self { limbs }
+    }
+}
+
 impl<const NUM_LIMBS: usize> From<u128> for UnsignedInteger<NUM_LIMBS> {
     fn from(value: u128) -> Self {
         let mut limbs = [0u64; NUM_LIMBS];
@@ -511,7 +517,15 @@ impl<const NUM_LIMBS: usize> ByteConversion for UnsignedInteger<NUM_LIMBS> {
 #[cfg(test)]
 mod tests_u384 {
     use crate::traits::ByteConversion;
-    use crate::unsigned_integer::element::U384;
+    use crate::unsigned_integer::element::{UnsignedInteger, U384};
+
+    #[test]
+    fn construct_new_integer_from_limbs() {
+        let a: U384 = UnsignedInteger {
+            limbs: [0, 1, 2, 3, 4, 5],
+        };
+        assert_eq!(U384::from_limbs([0, 1, 2, 3, 4, 5]), a);
+    }
 
     #[test]
     fn construct_new_integer_from_u64_1() {
@@ -1213,7 +1227,15 @@ mod tests_u384 {
 #[cfg(test)]
 mod tests_u256 {
     use crate::traits::ByteConversion;
-    use crate::unsigned_integer::element::U256;
+    use crate::unsigned_integer::element::{UnsignedInteger, U256};
+
+    #[test]
+    fn construct_new_integer_from_limbs() {
+        let a: U256 = UnsignedInteger {
+            limbs: [0, 1, 2, 3],
+        };
+        assert_eq!(U256::from_limbs([0, 1, 2, 3]), a);
+    }
 
     #[test]
     fn construct_new_integer_from_u64_1() {
