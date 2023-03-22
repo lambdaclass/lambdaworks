@@ -1,5 +1,5 @@
 use crate::crypto::merkle_tree::proof::PyU64Proof;
-use lambdaworks_crypto::merkle_tree::{MerkleTreeDefault, U64MerkleTree, U64Proof, U64FE};
+use lambdaworks_crypto::merkle_tree::{MerkleTreeDefault, U64MerkleTree, U64FE};
 use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::BLS12381PrimeField;
 use lambdaworks_math::field::element::FieldElement;
 use pyo3::{
@@ -14,6 +14,12 @@ pub struct PyBLS12381PrimeFieldElement(FieldElement<BLS12381PrimeField>);
 #[pyclass(name = "U64FE")]
 #[derive(Clone)]
 pub struct PyU64FE(U64FE);
+
+impl From<PyU64FE> for U64FE {
+    fn from(py_u64fe: PyU64FE) -> Self {
+        py_u64fe.0
+    }
+}
 
 #[pymethods]
 impl PyU64FE {

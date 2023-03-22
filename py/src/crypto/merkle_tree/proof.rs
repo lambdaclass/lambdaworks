@@ -1,4 +1,4 @@
-use lambdaworks_crypto::merkle_tree::{U64Proof, U64FE};
+use lambdaworks_crypto::merkle_tree::U64Proof;
 
 use lambdaworks_math::traits::ByteConversion;
 
@@ -6,11 +6,7 @@ use pyo3::types::*;
 use pyo3::*;
 
 use crate::math::errors::PyByteConversionError;
-
-// FIXME delete this and use Mfachal's implementation.
-#[pyclass(name = "U64FE")]
-#[derive(Clone)]
-pub struct PyU64FE(U64FE);
+use crate::merkle_tree::merkle::PyU64FE;
 
 #[pyclass(name = "U64Proof")]
 pub struct PyU64Proof(U64Proof);
@@ -23,8 +19,8 @@ impl From<U64Proof> for PyU64Proof {
 
 #[pymethods]
 impl PyU64Proof {
-    pub fn verify(&self, root_hash: &PyU64FE, index: usize, value: &PyU64FE) -> bool {
-        self.0.verify(&root_hash.0, index, &value.0)
+    pub fn verify(&self, root_hash: PyU64FE, index: usize, value: PyU64FE) -> bool {
+        self.0.verify(&root_hash.into(), index, &value.into())
     }
 
     pub fn to_bytes_be(&self, py: Python) -> PyObject {
