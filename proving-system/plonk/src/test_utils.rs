@@ -1,4 +1,4 @@
-use crate::setup::{Circuit, CommonPreprocessedInput};
+use crate::setup::{Circuit, CommonPreprocessedInput, Witness};
 use lambdaworks_crypto::commitments::kzg::StructuredReferenceString;
 use lambdaworks_math::{
     cyclic_group::IsGroup,
@@ -46,7 +46,7 @@ pub const ORDER_R_MINUS_1_ROOT_UNITY: FrElement = FrElement::from_hex("7");
 type G1Point = <BLS12381Curve as IsEllipticCurve>::PointRepresentation;
 type G2Point = <BLS12381TwistCurve as IsEllipticCurve>::PointRepresentation;
 
-pub fn test_srs() -> StructuredReferenceString<10, G1Point, G2Point> {
+pub fn test_srs_1() -> StructuredReferenceString<10, G1Point, G2Point> {
     let s = FrElement::from(2);
     let g1 = <BLS12381Curve as IsEllipticCurve>::generator();
     let g2 = <BLS12381TwistCurve as IsEllipticCurve>::generator();
@@ -59,7 +59,7 @@ pub fn test_srs() -> StructuredReferenceString<10, G1Point, G2Point> {
     StructuredReferenceString::new(&powers_main_group, &powers_secondary_group)
 }
 
-pub fn test_circuit() -> Circuit {
+pub fn test_circuit_1() -> Circuit {
     Circuit {
         number_public_inputs: 2,
         number_private_inputs: 1,
@@ -67,7 +67,7 @@ pub fn test_circuit() -> Circuit {
     }
 }
 
-pub fn test_common_preprocessed_input() -> CommonPreprocessedInput<FrField> {
+pub fn test_common_preprocessed_input_1() -> CommonPreprocessedInput<FrField> {
     let w = ORDER_4_ROOT_UNITY;
     let u = ORDER_R_MINUS_1_ROOT_UNITY;
     let domain = (1..4).fold(vec![FieldElement::one()], |mut acc, _| {
@@ -153,5 +153,28 @@ pub fn test_common_preprocessed_input() -> CommonPreprocessedInput<FrField> {
         s1_lagrange,
         s2_lagrange,
         s3_lagrange,
+    }
+}
+
+pub fn test_witness_1() -> Witness<FrField> {
+    Witness {
+        a: vec![
+            FrElement::from(2_u64),
+            FrElement::from(4_u64),
+            FrElement::from(2_u64),
+            FrElement::from(4_u64),
+        ],
+        b: vec![
+            FrElement::from(2_u64),
+            FrElement::from(2_u64),
+            FrElement::from(2_u64),
+            FrElement::from(4_u64),
+        ],
+        c: vec![
+            FrElement::from(2_u64),
+            FrElement::from(2_u64),
+            FrElement::from(4_u64),
+            FrElement::from(2_u64),
+        ],
     }
 }
