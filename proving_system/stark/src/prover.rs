@@ -50,7 +50,7 @@ where
     let trace_poly = Polynomial::interpolate(&trace_roots_of_unity, trace);
     let lde_trace = trace_poly.evaluate_slice(&lde_roots_of_unity_coset);
 
-    // TODO: Fiat-Shamir
+    // Fiat-Shamir
     // z is the Out of domain evaluation point used in Deep FRI. It needs to be a point outside
     // of both the roots of unity and its corresponding coset used for the lde commitment.
     let z = sample_z_ood(&lde_roots_of_unity_coset, &trace_roots_of_unity, transcript);
