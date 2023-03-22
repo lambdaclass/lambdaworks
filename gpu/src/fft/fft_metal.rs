@@ -1,4 +1,4 @@
-use std::mem;
+use core::ffi;
 
 use lambdaworks_math::field::{element::FieldElement, traits::IsTwoAdicField};
 
@@ -51,7 +51,7 @@ impl FFTMetalState {
             let basetype_size = std::mem::size_of::<F::BaseType>();
 
             self.device.new_buffer_with_data(
-                unsafe { mem::transmute(twiddles.as_ptr()) }, // reinterprets into a void pointer
+                twiddles.as_ptr() as *const ffi::c_void,
                 (twiddles.len() * basetype_size) as u64,
                 MTLResourceOptions::StorageModeShared,
             )
@@ -81,7 +81,7 @@ impl FFTMetalState {
             let input: Vec<_> = input.iter().map(|elem| elem.value()).cloned().collect();
             // without that .cloned() the UB monster is summoned, not sure why.
             self.device.new_buffer_with_data(
-                unsafe { mem::transmute(input.as_ptr()) }, // reinterprets into a void pointer
+                input.as_ptr() as *const ffi::c_void,
                 (input.len() * basetype_size) as u64,
                 MTLResourceOptions::StorageModeShared,
             )
@@ -113,6 +113,8 @@ impl FFTMetalState {
         let results_ptr = input_buffer.contents() as *const F::BaseType;
         let results_len = input_buffer.length() as usize / basetype_size;
         let results_slice = unsafe { std::slice::from_raw_parts(results_ptr, results_len) };
+        // creates a slice from the contents of the buffer (pointed to by a void ptr).
+        // the memory will be copied on the next .collect() call.
 
         Ok(results_slice.iter().map(FieldElement::from).collect())
     }
@@ -138,7 +140,7 @@ impl FFTMetalState {
             let omega = [omega.value().clone()];
 
             self.device.new_buffer_with_data(
-                unsafe { mem::transmute(omega.as_ptr()) }, // reinterprets into a void pointer
+                omega.as_ptr() as *const ffi::c_void,
                 basetype_size as u64,
                 MTLResourceOptions::StorageModeShared,
             )
@@ -174,6 +176,8 @@ impl FFTMetalState {
         let results_ptr = result_buffer.contents() as *const F::BaseType;
         let results_len = result_buffer.length() as usize / basetype_size;
         let results_slice = unsafe { std::slice::from_raw_parts(results_ptr, results_len) };
+        // creates a slice from the contents of the buffer (pointed to by a void ptr).
+        // the memory will be copied on the next .collect() call.
 
         Ok(results_slice.iter().map(FieldElement::from).collect())
     }
