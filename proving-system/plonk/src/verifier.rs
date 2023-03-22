@@ -180,7 +180,7 @@ mod tests {
     };
 
     #[test]
-    fn test_verifier() {
+    fn test_happy_path() {
         let test_circuit = test_circuit();
         let common_preprocesed_input = test_common_preprocessed_input();
         let srs = test_srs();

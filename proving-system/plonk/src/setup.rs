@@ -78,8 +78,6 @@ pub struct VerificationKey<G1Point> {
     pub s1_1: G1Point,
     pub s2_1: G1Point,
     pub s3_1: G1Point,
-
-    pub g1: G1Point,
 }
 
 #[allow(unused)]
@@ -98,8 +96,6 @@ pub fn setup<F: IsField, CS: IsCommitmentScheme<F>>(
         s1_1: commitment_scheme.commit(&common_input.s1),
         s2_1: commitment_scheme.commit(&common_input.s2),
         s3_1: commitment_scheme.commit(&common_input.s3),
-
-        g1: commitment_scheme.commit(&Polynomial::new(&[FieldElement::one()])),
     }
 }
 
