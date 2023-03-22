@@ -12,7 +12,8 @@ concurrency:
 jobs:
   check:
     name: Check
-    runs-on: ubuntu-latest
+    # This is temporary and it should be change to ubuntu when we add the conditional compilation for gpu crate
+    runs-on: macos-latest
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
@@ -30,7 +31,8 @@ jobs:
           command: check
 
   coverage:
-    runs-on: ubuntu-latest
+    # This is temporary and it should be change to ubuntu when we add the conditional compilation for gpu crate
+    runs-on: macos-latest
     env:
       CARGO_TERM_COLOR: always
     steps:
@@ -72,7 +74,8 @@ jobs:
           args: --all -- --check
 
   clippy:
-    runs-on: ubuntu-latest
+    # This is temporary and it should be change to ubuntu when we add the conditional compilation for gpu crate
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v3
       - uses: actions-rs/toolchain@v1
