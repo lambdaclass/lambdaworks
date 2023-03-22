@@ -3,6 +3,6 @@
 members = [
     "math",
     "crypto",
-    "proving-system/stark",
+    "proving_system/stark",
     "gpu",
 ]

@@ -6,16 +6,16 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-metal = "0.24.0"
 lambdaworks-math = { path = "../math" }
 lambdaworks-crypto = { path = "../crypto"}
 thiserror = "1.0.38"
 rand = "0.8.5"
+metal = "0.24.0"
 
 [dev-dependencies]
 proptest = "1.1.0"
-objc = "0.2.7"
 criterion = "0.4.0"
+objc = "0.2.7"
 
 [[bench]]
 name = "metal_benchmarks"
