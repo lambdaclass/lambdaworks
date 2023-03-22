@@ -622,7 +622,7 @@ mod tests {
 #[cfg(test)]
 mod fft_test {
     use crate::fft::helpers::log2;
-    use crate::field::test_fields::u64_test_field::U64Field;
+    use crate::field::test_fields::u64_test_field::U64TestField;
     use crate::field::traits::RootsConfig;
     use proptest::prelude::*;
 
@@ -630,7 +630,7 @@ mod fft_test {
 
     // FFT related tests
     const MODULUS: u64 = 0xFFFFFFFF00000001;
-    type F = U64Field<MODULUS>;
+    type F = U64TestField<MODULUS>;
     type FE = FieldElement<F>;
 
     prop_compose! {

@@ -158,14 +158,14 @@ pub trait IsPrimeField: IsField {
 mod tests {
     use crate::{
         fft::bit_reversing::in_place_bit_reverse_permute,
-        field::test_fields::u64_test_field::U64Field,
+        field::test_fields::u64_test_field::U64TestField,
     };
     use proptest::prelude::*;
 
     use super::*;
 
     const MODULUS: u64 = 0xFFFFFFFF00000001;
-    type F = U64Field<MODULUS>;
+    type F = U64TestField<MODULUS>;
 
     proptest! {
         #[test]
