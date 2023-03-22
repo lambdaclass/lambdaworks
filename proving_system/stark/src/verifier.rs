@@ -16,7 +16,7 @@ use super::{
         AIR,
     },
     fri::fri_decommit::FriDecommitment,
-    sample_z_ood
+    sample_z_ood,
 };
 
 pub fn verify<F: IsField + IsTwoAdicField, A: AIR + AIR<Field = F>>(
@@ -51,11 +51,10 @@ where
     )
     .unwrap();
 
-    // TODO: Fiat-Shamir
-    // we have to make sure that the result is not either 
+    // Fiat-Shamir
+    // we have to make sure that the result is not either
     // a root of unity or an element of the lde coset.
     let z = sample_z_ood(&lde_roots_of_unity_coset, &domain, transcript);
-
 
     // TODO: this assumes one column
     let values = boundary_constraints.values(0);

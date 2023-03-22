@@ -13,8 +13,7 @@ use crate::{transcript_to_field, transcript_to_usize, StarkProof};
 use super::{
     air::{constraints::evaluator::ConstraintEvaluator, frame::Frame, trace::TraceTable, AIR},
     fri::{fri, fri_decommit::fri_decommit_layers},
-    StarkQueryProof,
-    sample_z_ood
+    sample_z_ood, StarkQueryProof,
 };
 
 // FIXME remove unwrap() calls and return errors
