@@ -18,8 +18,8 @@ pub trait AIR: Clone {
     type Field: IsField;
 
     fn new(trace: TraceTable<Self::Field>, context: AirContext) -> Self;
+    fn boundary_constraints(&self) -> BoundaryConstraints<Self::Field>;
     fn compute_transition(&self, frame: &Frame<Self::Field>) -> Vec<FieldElement<Self::Field>>;
-    fn compute_boundary_constraints(&self) -> BoundaryConstraints<Self::Field>;
     fn transition_divisors(&self) -> Vec<Polynomial<FieldElement<Self::Field>>>;
     fn context(&self) -> AirContext;
     fn options(&self) -> ProofOptions {

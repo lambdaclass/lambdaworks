@@ -180,7 +180,7 @@ mod test_utils {
             vec![third_row[0].clone() - second_row[0].clone() - first_row[0].clone()]
         }
 
-        fn compute_boundary_constraints(&self) -> BoundaryConstraints<Self::Field> {
+        fn boundary_constraints(&self) -> BoundaryConstraints<Self::Field> {
             let a0 = BoundaryConstraint::new_simple(0, FieldElement::<Self::Field>::one());
             let a1 = BoundaryConstraint::new_simple(1, FieldElement::<Self::Field>::one());
             let result = BoundaryConstraint::new_simple(3, FieldElement::<Self::Field>::from(3));
@@ -251,7 +251,7 @@ mod test_utils {
             vec![third_row[0] - second_row[0] - first_row[0]]
         }
 
-        fn compute_boundary_constraints(&self) -> BoundaryConstraints<Self::Field> {
+        fn boundary_constraints(&self) -> BoundaryConstraints<Self::Field> {
             let a0 = BoundaryConstraint::new_simple(0, FieldElement::<Self::Field>::one());
             let a1 = BoundaryConstraint::new_simple(1, FieldElement::<Self::Field>::one());
             let result = BoundaryConstraint::new_simple(3, FieldElement::<Self::Field>::from(3));
