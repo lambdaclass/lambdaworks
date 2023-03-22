@@ -4,20 +4,23 @@ pub struct Transcript {
     hasher: Sha3_256,
 }
 
+impl Default for Transcript {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Transcript {
-    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self {
             hasher: Sha3_256::new(),
         }
     }
 
-    #[allow(unused)]
     pub fn append(&mut self, new_data: &[u8]) {
         self.hasher.update(&mut new_data.to_owned());
     }
 
-    #[allow(unused)]
     pub fn challenge(&mut self) -> [u8; 32] {
         let mut result_hash = [0_u8; 32];
         result_hash.copy_from_slice(&self.hasher.finalize_reset());
