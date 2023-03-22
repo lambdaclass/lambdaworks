@@ -72,8 +72,7 @@ impl<const MAXIMUM_DEGREE: usize, F: IsPrimeField, P: IsPairing> IsCommitmentSch
         let value = p.evaluate(x);
         let numerator = p + Polynomial::new_monomial(-&value, 0);
         let denominator = Polynomial::new(&[-x, FieldElement::one()]);
-        let proof = self.commit(&(numerator / denominator));
-        proof
+        self.commit(&(numerator / denominator))
     }
 
     #[allow(unused)]
@@ -111,7 +110,7 @@ impl<const MAXIMUM_DEGREE: usize, F: IsPrimeField, P: IsPairing> IsCommitmentSch
             acc * upsilon.to_owned() + y
         });
     
-        self.open(&x, &acc_y, &acc_polynomial)
+        self.open(x, &acc_y, &acc_polynomial)
     }
 
     fn verify_batch(

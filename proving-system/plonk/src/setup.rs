@@ -1,7 +1,6 @@
 use lambdaworks_crypto::commitments::traits::IsCommitmentScheme;
 use lambdaworks_math::polynomial::Polynomial;
 use lambdaworks_math::{
-    cyclic_group::IsGroup,
     field::{element::FieldElement, traits::IsField},
 };
 

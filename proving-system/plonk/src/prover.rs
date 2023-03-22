@@ -95,7 +95,7 @@ where
     #[allow(unused)]
     pub fn new(commitment_scheme: CS) -> Self {
         Self {
-            commitment_scheme: commitment_scheme,
+            commitment_scheme,
             phantom: PhantomData,
         }
     }
@@ -107,9 +107,9 @@ where
     ) -> Round1Result<F, CS::Commitment> {
         let domain = &common_preprocesed_input.domain;
 
-        let p_a = Polynomial::interpolate(&domain, &witness.a);
-        let p_b = Polynomial::interpolate(&domain, &witness.b);
-        let p_c = Polynomial::interpolate(&domain, &witness.c);
+        let p_a = Polynomial::interpolate(domain, &witness.a);
+        let p_b = Polynomial::interpolate(domain, &witness.b);
+        let p_c = Polynomial::interpolate(domain, &witness.c);
 
         let a_1 = self.commitment_scheme.commit(&p_a);
         let b_1 = self.commitment_scheme.commit(&p_b);
@@ -150,8 +150,8 @@ where
         for i in 0..n - 1 {
             let (a_i, b_i, c_i) = (&witness.a[i], &witness.b[i], &witness.c[i]);
             let num =
-                lp(&a_i, &domain[i]) * lp(&b_i, &(&domain[i] * k1)) * lp(&c_i, &(&domain[i] * &k2));
-            let den = lp(&a_i, &s1[i]) * lp(&b_i, &s2[i]) * lp(&c_i, &s3[i]);
+                lp(a_i, &domain[i]) * lp(b_i, &(&domain[i] * k1)) * lp(c_i, &(&domain[i] * &k2));
+            let den = lp(a_i, &s1[i]) * lp(b_i, &s2[i]) * lp(c_i, &s3[i]);
             let new_factor = num / den;
             let new_term = coefficients.last().unwrap() * &new_factor;
             coefficients.push(new_term);
@@ -160,8 +160,8 @@ where
         let p_z = Polynomial::interpolate(domain, &coefficients);
         let z_1 = self.commitment_scheme.commit(&p_z);
         Round2Result {
-            z_1: z_1,
-            p_z: p_z,
+            z_1,
+            p_z,
             beta: beta.clone(),
             gamma: gamma.clone(),
         }
@@ -205,10 +205,10 @@ where
         let z_x_omega = Polynomial::new(&z_x_omega_coefficients);
         let mut e1 = vec![FieldElement::zero(); domain.len()];
         e1[0] = FieldElement::one();
-        let l1 = Polynomial::interpolate(&domain, &e1);
+        let l1 = Polynomial::interpolate(domain, &e1);
         let mut p_pi_y = public_input.to_vec();
         p_pi_y.append(&mut vec![FieldElement::zero(); n - public_input.len()]);
-        let p_pi = Polynomial::interpolate(&domain, &p_pi_y);
+        let p_pi = Polynomial::interpolate(domain, &p_pi_y);
 
         let p_constraints = p_a * p_b * qm + p_a * ql + p_b * qr + p_c * qo + qc + p_pi;
         let f = (p_a + p_x * beta + gamma)
@@ -234,12 +234,12 @@ where
         let t_hi_1 = self.commitment_scheme.commit(&p_t_hi);
 
         Round3Result {
-            t_lo_1: t_lo_1,
-            t_mid_1: t_mid_1,
-            t_hi_1: t_hi_1,
-            p_t_lo: p_t_lo,
-            p_t_mid: p_t_mid,
-            p_t_hi: p_t_hi,
+            t_lo_1,
+            t_mid_1,
+            t_hi_1,
+            p_t_lo,
+            p_t_mid,
+            p_t_hi,
             alpha: alpha.clone(),
         }
     }
@@ -258,12 +258,12 @@ where
         let s2_zeta = s2.evaluate(zeta);
         let z_zeta_omega = p_z.evaluate(&(zeta * omega));
         Round4Result {
-            a_zeta: a_zeta,
-            b_zeta: b_zeta,
-            c_zeta: c_zeta,
-            s1_zeta: s1_zeta,
-            s2_zeta: s2_zeta,
-            z_zeta_omega: z_zeta_omega,
+            a_zeta,
+            b_zeta,
+            c_zeta,
+            s1_zeta,
+            s2_zeta,
+            z_zeta_omega,
             zeta: zeta.clone(),
         }
     }
@@ -281,23 +281,19 @@ where
             s3,
             n,
             k1,
-            domain,
             omega,
             ..
         }: &CommonPreprocessedInput<F>,
-        public_input: &[FieldElement<F>],
         Round1Result { p_a, p_b, p_c, .. }: &Round1Result<F, CS::Commitment>,
         Round2Result {
             p_z, beta, gamma, ..
         }: &Round2Result<F, CS::Commitment>,
         Round3Result {
-            t_lo_1,
-            t_mid_1,
-            t_hi_1,
             p_t_lo,
             p_t_mid,
             p_t_hi,
             alpha,
+            ..
         }: &Round3Result<F, CS::Commitment>,
         Round4Result {
             a_zeta,
@@ -351,8 +347,8 @@ where
         let w_zeta_omega_1 = self.commitment_scheme.open(&(zeta * omega), z_zeta_omega, p_z);
 
         Round5Result {
-            w_zeta_1: w_zeta_1,
-            w_zeta_omega_1: w_zeta_omega_1,
+            w_zeta_1,
+            w_zeta_omega_1,
             p_non_constant_zeta: ys[1].clone(),
             t_zeta: ys[0].clone(),
         }
@@ -370,7 +366,7 @@ where
         let witness = circuit.get_witness();
 
         // Round 1
-        let round_1 = self.round_1(&witness, &common_preprocesed_input);
+        let round_1 = self.round_1(&witness, common_preprocesed_input);
         transcript.append(&round_1.a_1.to_bytes_be());
         transcript.append(&round_1.b_1.to_bytes_be());
         transcript.append(&round_1.c_1.to_bytes_be());
@@ -380,14 +376,14 @@ where
         let beta = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
         let gamma = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
 
-        let round_2 = self.round_2(&witness, &common_preprocesed_input, &beta, &gamma);
+        let round_2 = self.round_2(&witness, common_preprocesed_input, &beta, &gamma);
         transcript.append(&round_2.z_1.to_bytes_be());
 
         // Round 3
         let alpha = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
         let round_3 = self.round_3(
-            &common_preprocesed_input,
-            &public_input,
+            common_preprocesed_input,
+            public_input,
             &round_1,
             &round_2,
             &alpha,
@@ -398,7 +394,7 @@ where
 
         // Round 4
         let zeta = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
-        let round_4 = self.round_4(&common_preprocesed_input, &round_1, &round_2, &zeta);
+        let round_4 = self.round_4(common_preprocesed_input, &round_1, &round_2, &zeta);
 
         // TODO: Should we append something to the transcript here? This step does not return any commitment.
         // But the next step receives a new challenge `upsilon`
@@ -406,8 +402,7 @@ where
         // Round 5
         let upsilon = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
         let round_5 = self.round_5(
-            &common_preprocesed_input,
-            &public_input,
+            common_preprocesed_input,
             &round_1,
             &round_2,
             &round_3,
@@ -453,7 +448,6 @@ mod tests {
         test_utils::FpElement,
         test_utils::{
             test_circuit, test_common_preprocessed_input, test_srs, FrElement, KZG,
-            ORDER_4_ROOT_UNITY, ORDER_R_MINUS_1_ROOT_UNITY,
         },
     };
 
@@ -625,7 +619,6 @@ mod tests {
 
         let round_5 = prover.round_5(
             &common_preprocesed_input,
-            &public_input,
             &round_1,
             &round_2,
             &round_3,

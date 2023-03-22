@@ -1,4 +1,3 @@
-use std::borrow::BorrowMut;
 use std::marker::PhantomData;
 use lambdaworks_crypto::commitments::traits::IsCommitmentScheme;
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
@@ -9,7 +8,7 @@ use lambdaworks_math::polynomial::Polynomial;
 use lambdaworks_math::traits::ByteConversion;
 
 use crate::prover::Proof;
-use crate::setup::{Circuit, CommonPreprocessedInput, VerificationKey};
+use crate::setup::{CommonPreprocessedInput, VerificationKey};
 
 struct Verifier<F: IsField, CS: IsCommitmentScheme<F>> {
     commitment_scheme: CS,
@@ -20,7 +19,7 @@ impl<F: IsField, CS: IsCommitmentScheme<F>> Verifier<F, CS> {
     #[allow(unused)]
     pub fn new(commitment_scheme: CS) -> Self {
         Self {
-            commitment_scheme: commitment_scheme,
+            commitment_scheme,
             phantom: PhantomData,
         }
     }
@@ -28,13 +27,7 @@ impl<F: IsField, CS: IsCommitmentScheme<F>> Verifier<F, CS> {
     fn compute_challenges(
         &self,
         p: &Proof<F, CS>,
-    ) -> (
-        FieldElement<F>,
-        FieldElement<F>,
-        FieldElement<F>,
-        FieldElement<F>,
-        FieldElement<F>,
-    )
+    ) -> [FieldElement<F>; 5]
     where
         F: IsField,
         CS: IsCommitmentScheme<F>,
@@ -57,13 +50,13 @@ impl<F: IsField, CS: IsCommitmentScheme<F>> Verifier<F, CS> {
 
         let zeta = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
         let upsilon = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
-        (beta, gamma, alpha, zeta, upsilon)
+        [beta, gamma, alpha, zeta, upsilon]
     }
 
+    #[allow(unused)]
     fn verify(
         &self,
         p: &Proof<F, CS>,
-        circuit: &Circuit,
         public_input: &[FieldElement<F>],
         input: &CommonPreprocessedInput<F>,
         vk: &VerificationKey<CS::Commitment>,
@@ -75,7 +68,7 @@ impl<F: IsField, CS: IsCommitmentScheme<F>> Verifier<F, CS> {
         FieldElement<F>: ByteConversion,
     {
         // TODO: First three steps are validations: belonging to main subgroup, belonging to prime field.
-        let (beta, gamma, alpha, zeta, upsilon) = self.compute_challenges(p);
+        let [beta, gamma, alpha, zeta, upsilon] = self.compute_challenges(p);
         let zh_zeta = zeta.pow(input.n) - FieldElement::one();
         let mut p_pi_y = public_input.to_vec();
         p_pi_y.append(&mut vec![
@@ -97,7 +90,7 @@ impl<F: IsField, CS: IsCommitmentScheme<F>> Verifier<F, CS> {
             * (&p.a_zeta + &beta * &p.s1_zeta + &gamma)
             * (&p.b_zeta + &beta * &p.s2_zeta + &gamma);
         p_constant_zeta = p_constant_zeta - &l1_zeta * &alpha * &alpha;
-        p_constant_zeta = p_constant_zeta + p_pi_zeta;
+        p_constant_zeta += p_pi_zeta;
 
         let p_zeta = p_constant_zeta + &p.p_non_constant_zeta;
 
@@ -173,6 +166,8 @@ impl<F: IsField, CS: IsCommitmentScheme<F>> Verifier<F, CS> {
     }
 }
 
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -180,8 +175,7 @@ mod tests {
         prover::Prover,
         setup::setup,
         test_utils::{
-            test_circuit, test_common_preprocessed_input, test_srs, FrElement, KZG,
-            ORDER_4_ROOT_UNITY, ORDER_R_MINUS_1_ROOT_UNITY,
+            test_circuit, test_common_preprocessed_input, test_srs, KZG,
         },
     };
 
@@ -201,7 +195,6 @@ mod tests {
         let verifier = Verifier::new(kzg.clone());
         assert!(verifier.verify(
             &proof,
-            &test_circuit,
             &public_input,
             &common_preprocesed_input,
             &verifying_key

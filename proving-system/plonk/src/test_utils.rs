@@ -70,7 +70,7 @@ pub fn test_circuit() -> Circuit {
 pub fn test_common_preprocessed_input() -> CommonPreprocessedInput<FrField> {
     let w = ORDER_4_ROOT_UNITY;
     let u = ORDER_R_MINUS_1_ROOT_UNITY;
-    let domain = (1..4).fold(vec![FieldElement::one()], |mut acc, x| {
+    let domain = (1..4).fold(vec![FieldElement::one()], |mut acc, _| {
         acc.push(acc.last().unwrap() * ORDER_4_ROOT_UNITY);
         acc
     });
@@ -150,8 +150,8 @@ pub fn test_common_preprocessed_input() -> CommonPreprocessedInput<FrField> {
         s2: Polynomial::interpolate(&domain, &s2_lagrange),
         s3: Polynomial::interpolate(&domain, &s3_lagrange),
 
-        s1_lagrange: s1_lagrange,
-        s2_lagrange: s2_lagrange,
-        s3_lagrange: s3_lagrange,
+        s1_lagrange,
+        s2_lagrange,
+        s3_lagrange,
     }
 }
