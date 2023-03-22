@@ -21,7 +21,6 @@ pub type FE = FieldElement<PrimeField>;
 
 // TODO: change this to use more bits
 pub fn transcript_to_field<F: IsField>(transcript: &mut Transcript) -> FieldElement<F> {
-    println!("transcript_to_field");
     let value: u64 = u64::from_be_bytes(transcript.challenge()[..8].try_into().unwrap());
     FieldElement::from(value)
 }
@@ -39,7 +38,6 @@ pub fn sample_z_ood<F: IsField>(
     trace_roots_of_unity: &[FieldElement<F>],
     transcript: &mut Transcript,
 ) -> FieldElement<F> {
-    println!("sample_z_ood");
     loop {
         let value: FieldElement<F> = transcript_to_field(transcript);
         if !lde_roots_of_unity_coset.iter().any(|x| x == &value)

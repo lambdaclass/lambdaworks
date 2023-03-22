@@ -76,7 +76,6 @@ where
     );
 
     // Get composition poly
-    println!("// Get composition poly");
     let composition_poly =
         constraint_evaluations.compute_composition_poly(&lde_roots_of_unity_coset);
 
