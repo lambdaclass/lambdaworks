@@ -1,1 +1,1 @@
-mod proof;
+pub mod proof;

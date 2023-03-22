@@ -13,7 +13,13 @@ use crate::math::errors::PyByteConversionError;
 pub struct PyU64FE(U64FE);
 
 #[pyclass(name = "U64Proof")]
-struct PyU64Proof(U64Proof);
+pub struct PyU64Proof(U64Proof);
+
+impl From<U64Proof> for PyU64Proof {
+    fn from(proof: U64Proof) -> Self {
+        Self(proof)
+    }
+}
 
 #[pymethods]
 impl PyU64Proof {
