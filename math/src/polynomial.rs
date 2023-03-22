@@ -254,7 +254,7 @@ where
 
     let values: Vec<_> = poly_2_evaluations
         .iter()
-        .map(|value| poly_1.evaluate(&value))
+        .map(|value| poly_1.evaluate(value))
         .collect();
 
     Polynomial::interpolate_fft(values.as_slice()).unwrap()
