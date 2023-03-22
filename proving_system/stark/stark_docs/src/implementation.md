@@ -34,17 +34,18 @@ Let's start with the `new()` method. The implementation is trivial, but it shoul
 * `AirContext`: A struct that bundles STARK parameters and trace properties for a particular execution of a computation.
 
     ```rust
-    #[derive(Clone)]
     pub struct AirContext {
-    pub options: ProofOptions,
-    pub trace_length: usize,
-    pub trace_colums: usize,
-    pub transition_degrees: Vec<usize>,
-    pub transition_offsets: Vec<usize>,
-    pub transition_exemptions: Vec<usize>,
-    pub num_transition_constraints: usize,
+        pub options: ProofOptions,
+        pub trace_length: usize,
+        pub trace_colums: usize,
+        pub transition_degrees: Vec<usize>,
+        pub transition_offsets: Vec<usize>,
+        pub transition_exemptions: Vec<usize>,
+        pub num_transition_constraints: usize,
     }
     ```
+    * **options**: Holds a `ProofOptions` struct. Parameters for the generation of the proof are held here.
+    * **trace_length**: Stores the number of steps of the particular computation.
 
 
 
