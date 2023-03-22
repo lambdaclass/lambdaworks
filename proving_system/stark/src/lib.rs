@@ -33,6 +33,21 @@ pub fn transcript_to_usize(transcript: &mut Transcript) -> usize {
     usize::from_be_bytes(value)
 }
 
+pub fn sample_z_ood<F: IsField>(
+    lde_roots_of_unity_coset: &[FieldElement<F>],
+    trace_roots_of_unity: &[FieldElement<F>],
+    transcript: &mut Transcript,
+) -> FieldElement<F> {
+    loop {
+        let value: FieldElement<F> = transcript_to_field(transcript);
+        if !lde_roots_of_unity_coset.iter().any(|x| x == &value)
+            && !trace_roots_of_unity.iter().any(|x| x == &value)
+        {
+            return value;
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct StarkQueryProof<F: IsField> {
     pub fri_layers_merkle_roots: Vec<FieldElement<F>>,
