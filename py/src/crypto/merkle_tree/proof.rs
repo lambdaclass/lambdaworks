@@ -1,7 +1,11 @@
 use lambdaworks_crypto::merkle_tree::{U64Proof, U64FE};
 
 use lambdaworks_math::traits::ByteConversion;
+
+use pyo3::types::*;
 use pyo3::*;
+
+use crate::math::errors::PyByteConversionError;
 
 // FIXME delete this and use Mfachal's implementation.
 #[pyclass(name = "U64FE")]
@@ -17,19 +21,23 @@ impl PyU64Proof {
         self.0.verify(&root_hash.0, index, &value.0)
     }
 
-    pub fn to_bytes_be(&self) -> Vec<u8> {
-        self.0.to_bytes_be()
-    }
-    pub fn to_bytes_le(&self) -> Vec<u8> {
-        self.0.to_bytes_le()
+    pub fn to_bytes_be(&self, py: Python) -> PyObject {
+        PyBytes::new(py, &self.0.to_bytes_be()).into()
     }
 
-    fn from_bytes_be(bytes: &[u8]) -> PyResult<Self> {
-        let inner = U64Proof::from_bytes_be(bytes)?;
+    pub fn to_bytes_le(&self, py: Python) -> PyObject {
+        PyBytes::new(py, &self.0.to_bytes_le()).into()
+    }
+
+    #[staticmethod]
+    fn from_bytes_be(bytes: &PyBytes) -> Result<Self, PyByteConversionError> {
+        let inner = U64Proof::from_bytes_be(bytes.as_bytes())?;
         Ok(Self(inner))
     }
 
-    // fn from_bytes_le(bytes: &[u8]) -> PyResult<Self> {
-    //     todo!()
-    // }
+    #[staticmethod]
+    fn from_bytes_le(bytes: &PyBytes) -> Result<Self, PyByteConversionError> {
+        let inner = U64Proof::from_bytes_le(bytes.as_bytes())?;
+        Ok(Self(inner))
+    }
 }
