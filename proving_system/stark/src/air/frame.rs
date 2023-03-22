@@ -49,7 +49,7 @@ impl<F: IsField> Frame<F> {
             data.push(trace.table[(step + (frame_row_idx * blowup as usize)) % trace_len].clone())
         }
 
-        Self::new(data, 1)
+        Self::new(data, trace.num_cols)
     }
 
     /// Returns the Out of Domain Frame for the given trace polynomials, out of domain evaluation point (called `z` in the literature),

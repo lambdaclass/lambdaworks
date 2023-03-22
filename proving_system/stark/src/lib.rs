@@ -68,7 +68,7 @@ pub use lambdaworks_crypto::merkle_tree::DefaultHasher;
 mod tests {
     use lambdaworks_math::field::fields::u64_prime_field::FE17;
 
-    use crate::test_utils::{Fibonacci17AIR, FibonacciAIR};
+    use crate::test_utils::{Fibonacci17AIR, Fibonacci2ColsAIR, FibonacciAIR};
 
     use crate::{
         air::{
@@ -107,7 +107,7 @@ mod tests {
 
         let fibonacci_air = FibonacciAIR::new(trace_table, context);
 
-        let result = prove(&trace, &fibonacci_air);
+        let result = prove(&fibonacci_air);
         assert!(verify(&result, &fibonacci_air));
     }
 
@@ -137,7 +137,36 @@ mod tests {
 
         let fibonacci_air = Fibonacci17AIR::new(trace_table, context);
 
-        let result = prove(&trace, &fibonacci_air);
+        let result = prove(&fibonacci_air);
+        assert!(verify(&result, &fibonacci_air));
+    }
+
+    #[test]
+    fn test_prove_fib_2_cols() {
+        let trace = fibonacci_trace([FE::from(1), FE::from(1)], 4);
+
+        let context = AirContext {
+            options: ProofOptions {
+                blowup_factor: 2,
+                fri_number_of_queries: 1,
+                coset_offset: 3,
+            },
+            trace_length: trace.len(),
+            trace_info: (trace.len(), 1),
+            transition_degrees: vec![1],
+            transition_exemptions: vec![trace.len() - 2, trace.len() - 1],
+            transition_offsets: vec![0, 1, 2],
+            num_transition_constraints: 1,
+        };
+
+        let trace_table = TraceTable {
+            table: trace.clone(),
+            num_cols: 2,
+        };
+
+        let fibonacci_air = Fibonacci2ColsAIR::new(trace_table, context);
+
+        let result = prove(&fibonacci_air);
         assert!(verify(&result, &fibonacci_air));
     }
 }
@@ -237,6 +266,10 @@ mod test_utils {
             result
         }
 
+        fn trace(&self) -> TraceTable<Self::Field> {
+            self.trace.clone()
+        }
+
         fn context(&self) -> air::context::AirContext {
             self.context.clone()
         }
@@ -306,6 +339,84 @@ mod test_utils {
             }
 
             result
+        }
+
+        fn trace(&self) -> TraceTable<Self::Field> {
+            self.trace.clone()
+        }
+
+        fn context(&self) -> air::context::AirContext {
+            self.context.clone()
+        }
+    }
+
+    #[derive(Clone)]
+    pub struct Fibonacci2ColsAIR {
+        context: AirContext,
+        pub trace: TraceTable<PrimeField>,
+    }
+
+    impl AIR for Fibonacci2ColsAIR {
+        type Field = PrimeField;
+
+        fn new(trace: TraceTable<Self::Field>, context: air::context::AirContext) -> Self {
+            Self { context, trace }
+        }
+
+        fn compute_transition(
+            &self,
+            frame: &air::frame::Frame<Self::Field>,
+        ) -> Vec<FieldElement<Self::Field>> {
+            let first_row = frame.get_row(0);
+            let second_row = frame.get_row(1);
+
+            vec![second_row[0].clone() - first_row[1].clone() - first_row[0].clone()]
+        }
+
+        fn compute_boundary_constraints(&self) -> BoundaryConstraints<Self::Field> {
+            let a0 = BoundaryConstraint::new_simple(0, FieldElement::<Self::Field>::one());
+            let a1 = BoundaryConstraint::new_simple(1, FieldElement::<Self::Field>::one());
+            let result = BoundaryConstraint::new_simple(3, FieldElement::<Self::Field>::from(3));
+
+            BoundaryConstraints::from_constraints(vec![a0, a1, result])
+        }
+
+        fn transition_divisors(&self) -> Vec<Polynomial<FieldElement<Self::Field>>> {
+            let roots_of_unity_order = self.context().trace_length.trailing_zeros();
+            let roots_of_unity = Self::Field::get_powers_of_primitive_root_coset(
+                roots_of_unity_order as u64,
+                self.context().trace_length,
+                &FieldElement::<Self::Field>::one(),
+            )
+            .unwrap();
+
+            let mut result = vec![];
+
+            for _ in 0..self.context().num_transition_constraints {
+                // X^(roots_of_unity_order) - 1
+                let roots_of_unity_vanishing_polynomial =
+                    Polynomial::new_monomial(
+                        FieldElement::<Self::Field>::one(),
+                        roots_of_unity_order as usize,
+                    ) - Polynomial::new_monomial(FieldElement::<Self::Field>::one(), 0);
+
+                let mut exemptions_polynomial =
+                    Polynomial::new_monomial(FieldElement::<Self::Field>::one(), 0);
+
+                for exemption_index in self.context().transition_exemptions {
+                    exemptions_polynomial = exemptions_polynomial
+                        * (Polynomial::new_monomial(FieldElement::<Self::Field>::one(), 1)
+                            - Polynomial::new_monomial(roots_of_unity[exemption_index].clone(), 0));
+                }
+
+                result.push(roots_of_unity_vanishing_polynomial / exemptions_polynomial);
+            }
+
+            result
+        }
+
+        fn trace(&self) -> TraceTable<Self::Field> {
+            self.trace.clone()
         }
 
         fn context(&self) -> air::context::AirContext {

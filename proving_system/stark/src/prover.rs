@@ -17,16 +17,14 @@ use super::{
 };
 
 // FIXME remove unwrap() calls and return errors
-pub fn prove<F: IsField + IsTwoAdicField, A: AIR + AIR<Field = F>>(
-    trace: &[FieldElement<F>],
-    air: &A,
-) -> StarkProof<F>
+pub fn prove<F: IsField + IsTwoAdicField, A: AIR + AIR<Field = F>>(air: &A) -> StarkProof<F>
 where
     FieldElement<F>: ByteConversion,
 {
     let transcript = &mut Transcript::new();
     let mut query_list = Vec::<StarkQueryProof<F>>::new();
 
+    let trace = air.trace();
     let root_order = air.context().trace_length.trailing_zeros();
     // * Generate Coset
     let trace_primitive_root = F::get_primitive_root_of_unity(root_order as u64).unwrap();
@@ -47,8 +45,18 @@ where
     )
     .unwrap();
 
+<<<<<<< Updated upstream
     let trace_poly = Polynomial::interpolate(&trace_roots_of_unity, trace);
     let lde_trace = trace_poly.evaluate_slice(&lde_roots_of_unity_coset);
+=======
+    let trace_poly = Polynomial::interpolate_fft(&trace.table).unwrap();
+    let lde_trace = trace_poly
+        .evaluate_offset_fft(
+            &FieldElement::<F>::from(air.options().coset_offset),
+            air.options().blowup_factor as usize,
+        )
+        .unwrap();
+>>>>>>> Stashed changes
 
     // Fiat-Shamir
     // z is the Out of domain evaluation point used in Deep FRI. It needs to be a point outside
@@ -57,7 +65,7 @@ where
 
     let z_squared = &z * &z;
 
-    let lde_trace = TraceTable::new(lde_trace, 1);
+    let lde_trace = TraceTable::new(lde_trace, trace.num_cols);
 
     // Create evaluation table
     let evaluator = ConstraintEvaluator::new(air, &trace_poly, &trace_primitive_root);

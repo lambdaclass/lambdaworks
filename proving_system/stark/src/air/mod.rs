@@ -22,6 +22,7 @@ pub trait AIR: Clone {
     fn compute_boundary_constraints(&self) -> BoundaryConstraints<Self::Field>;
     fn transition_divisors(&self) -> Vec<Polynomial<FieldElement<Self::Field>>>;
     fn context(&self) -> AirContext;
+    fn trace(&self) -> TraceTable<Self::Field>;
     fn options(&self) -> ProofOptions {
         self.context().options
     }
