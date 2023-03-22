@@ -212,3 +212,4 @@ constexpr inline Fp pow(Fp x, size_t n) {
 constexpr inline Fp inv(Fp x) {
   return pow(x, Fp::P - 2);
 }
+
