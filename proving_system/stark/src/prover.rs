@@ -161,18 +161,20 @@ fn compute_deep_composition_poly<A: AIR, F: IsField>(
     transcript: &mut Transcript,
 ) -> Polynomial<FieldElement<F>> {
     let transition_offsets = air.context().transition_offsets;
+
     // Get the number of trace terms the DEEP composition poly will have.
     // One coefficient will be sampled for each of them.
     let n_trace_terms = transition_offsets.len() * trace_polys.len();
-
     let mut trace_term_coeffs = Vec::with_capacity(n_trace_terms);
     for _ in 0..n_trace_terms {
         trace_term_coeffs.push(transcript_to_field::<F>(transcript));
     }
 
+    // Get coefficients for even and odd terms of the composition polynomial H(x)
     let gamma_even = transcript_to_field::<F>(transcript);
     let gamma_odd = transcript_to_field::<F>(transcript);
 
+    // Get trace evaluations needed for the trace terms of the deep composition polynomial
     let trace_evaluations = Frame::get_trace_evaluations(
         trace_polys,
         ood_evaluation_point,
@@ -180,6 +182,8 @@ fn compute_deep_composition_poly<A: AIR, F: IsField>(
         primitive_root,
     );
 
+    // Compute all the trace terms of the deep composition polynomial. There will be one
+    // term for every trace polynomial and every trace evaluation.
     let mut trace_terms = Polynomial::zero();
     for (trace_evaluation, trace_poly) in trace_evaluations.iter().zip(trace_polys) {
         for (eval, coeff) in trace_evaluation.iter().zip(&trace_term_coeffs) {

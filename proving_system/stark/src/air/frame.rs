@@ -52,6 +52,12 @@ impl<F: IsField> Frame<F> {
         Self::new(data, 1)
     }
 
+    /// Given a slice of trace polynomials, an evaluation point `x`, the frame offsets
+    /// corresponding to the computation of the transitions, and a primitive root,
+    /// outputs the trace evaluations of each trace polynomial over the values used to
+    /// compute a transition.
+    /// Example: For a simple Fibonacci computation, if t(x) is the trace polynomial of
+    /// the computation, this will output evaluations t(x), t(g * x), t(g^2 * z).
     pub fn get_trace_evaluations(
         trace_polys: &[Polynomial<FieldElement<F>>],
         x: &FieldElement<F>,
@@ -64,9 +70,9 @@ impl<F: IsField> Frame<F> {
             .map(|offset| x * primitive_root.pow(*offset))
             .collect();
 
-        for poly in trace_polys {
-            evaluations.push(poly.evaluate_slice(&evaluation_points));
-        }
+        trace_polys
+            .iter()
+            .for_each(|p| evaluations.push(p.evaluate_slice(&evaluation_points)));
 
         evaluations
     }
