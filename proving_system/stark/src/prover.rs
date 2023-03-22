@@ -18,7 +18,7 @@ use super::{
 
 // FIXME remove unwrap() calls and return errors
 pub fn prove<F: IsField + IsTwoAdicField, A: AIR + AIR<Field = F>>(
-    trace: &[FieldElement<F>],
+    trace: &TraceTable<F>,
     air: &A,
 ) -> StarkProof<F>
 where
@@ -47,9 +47,13 @@ where
     )
     .unwrap();
 
-    let trace_poly = Polynomial::interpolate(&trace_roots_of_unity, trace);
-    let lde_trace = trace_poly.evaluate_slice(&lde_roots_of_unity_coset);
-
+    let traces_poly = trace.compute_trace_polys(&trace_roots_of_unity);
+    let lde_trace = TraceTable {
+        table: traces_poly
+            .iter()
+            .map(|poly| poly.evaluate_slice(&lde_roots_of_unity_coset))
+            .collect(),
+    };
     // TODO: Fiat-Shamir
     // z is the Out of domain evaluation point used in Deep FRI. It needs to be a point outside
     // of both the roots of unity and its corresponding coset used for the lde commitment.
@@ -60,9 +64,8 @@ where
     // let z = transcript_to_field(transcript);
     let z_squared = &z * &z;
 
-    let lde_trace = TraceTable::new(lde_trace, 1);
-
     // Create evaluation table
+    
     let evaluator = ConstraintEvaluator::new(air, &trace_poly, &trace_primitive_root);
 
     let alpha_boundary = transcript_to_field(transcript);

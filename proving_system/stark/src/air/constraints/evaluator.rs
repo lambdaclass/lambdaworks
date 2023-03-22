@@ -7,17 +7,17 @@ use crate::air::{frame::Frame, trace::TraceTable, AIR};
 
 use super::{boundary::BoundaryConstraints, evaluation_table::ConstraintEvaluationTable, helpers};
 
-pub struct ConstraintEvaluator<F: IsField, A: AIR> {
+pub struct ConstraintEvaluator<'poly, F: IsField, A: AIR> {
     air: A,
     boundary_constraints: BoundaryConstraints<F>,
-    trace_poly: Polynomial<FieldElement<F>>,
+    trace_polys: &'poly [Polynomial<FieldElement<F>>],
     primitive_root: FieldElement<F>,
 }
 
-impl<F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
+impl<'poly, F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F, A> {
     pub fn new(
         air: &A,
-        trace_poly: &Polynomial<FieldElement<F>>,
+        trace_polys: &'poly [Polynomial<FieldElement<F>>],
         primitive_root: &FieldElement<F>,
     ) -> Self {
         let boundary_constraints = air.compute_boundary_constraints();
@@ -25,7 +25,7 @@ impl<F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
         Self {
             air: air.clone(),
             boundary_constraints,
-            trace_poly: trace_poly.clone(),
+            trace_polys,
             primitive_root: primitive_root.clone(),
         }
     }
