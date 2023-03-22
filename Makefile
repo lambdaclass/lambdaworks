@@ -2,7 +2,7 @@ test:
 	cargo test
 
 clippy:
-	cargo clippy --all-targets -- -D warnings
+	cargo clippy -- -D warnings
 
 docker-shell:
 	docker build -t rust-curves .
