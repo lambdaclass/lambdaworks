@@ -13,7 +13,7 @@ jobs:
   check:
     name: Check
     # This is temporary and it should be change to ubuntu when we add the conditional compilation for gpu crate
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
