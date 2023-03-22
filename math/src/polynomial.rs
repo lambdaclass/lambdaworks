@@ -2,7 +2,6 @@ use super::field::element::FieldElement;
 use crate::{
     fft::{abstractions::*, errors::FFTError},
     field::traits::{IsField, IsTwoAdicField},
-    helpers,
 };
 use std::ops;
 
@@ -244,20 +243,11 @@ pub fn compose_fft<F>(
 where
     F: IsTwoAdicField,
 {
-    let max_degree: u64 = (poly_1.degree() * poly_2.degree()) as u64;
-    let max_degree_power_of_two = helpers::next_power_of_two(max_degree);
+    let poly_2_evaluations = poly_2.evaluate_fft().unwrap();
 
-    let mut interpolation_points = vec![];
-    for i in 0_u64..max_degree_power_of_two {
-        interpolation_points.push(FieldElement::<F>::from(i));
-    }
-
-    let values: Vec<_> = interpolation_points
+    let values: Vec<_> = poly_2_evaluations
         .iter()
-        .map(|value| {
-            let intermediate_value = poly_2.evaluate(value);
-            poly_1.evaluate(&intermediate_value)
-        })
+        .map(|value| poly_1.evaluate(&value))
         .collect();
 
     Polynomial::interpolate_fft(values.as_slice()).unwrap()
@@ -744,5 +734,14 @@ mod fft_test {
 
             prop_assert!(matches!(result, Err(FFTError::InvalidOrder(_))));
         }
+    }
+    #[test]
+    fn composition_fft_works() {
+        let p = Polynomial::new(&[FE::new(0), FE::new(2)]);
+        let q = Polynomial::new(&[FE::new(0), FE::new(0), FE::new(0), FE::new(1)]);
+        assert_eq!(
+            compose_fft(&p, &q),
+            Polynomial::new(&[FE::new(0), FE::new(0), FE::new(0), FE::new(2)])
+        );
     }
 }
