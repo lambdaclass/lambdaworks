@@ -24,8 +24,10 @@ impl From<PyU64FE> for U64FE {
 #[pymethods]
 impl PyU64FE {
     #[new]
-    pub fn new(_value: &PyInt) -> PyResult<Self> {
-        Ok(PyU64FE(U64FE::new(1)))
+    pub fn new(value: &PyInt) -> PyResult<Self> {
+        let a = U64FE::new(PyAny::extract(&value)?);
+
+        Ok(PyU64FE(a))
     }
 }
 
