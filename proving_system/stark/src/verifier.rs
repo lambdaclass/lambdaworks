@@ -111,7 +111,7 @@ where
     // The prover samples coefficients when building the deep composition polynomial. These
     // sampling is not done in the verifier hence we need to make this dummy calls.
     // There will be one call for each trace term in the deep composition polynomial + 2 from
-    // the even and ood terms of the H(x) polynomial.
+    // the even and odd terms of the H(x) polynomial.
     let deep_poly_challenges =
         air.context().transition_offsets.len() * air.context().trace_columns + 2;
     (0..deep_poly_challenges).for_each(|_| {
