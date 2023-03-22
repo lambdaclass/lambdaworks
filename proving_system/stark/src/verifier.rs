@@ -65,16 +65,15 @@ where
     let max_degree_power_of_two = helpers::next_power_of_two(max_degree as u64);
 
     // TODO: This is assuming one column
+    let boundary_degree = (air.context().trace_length - boundary_zerofier.degree()) as u64 - 1;
     let mut boundary_quotient_ood_evaluation = &trace_poly_ood_frame_evaluations.get_row(0)[0]
         - boundary_interpolating_polynomial.evaluate(&z);
 
-    boundary_quotient_ood_evaluation = boundary_quotient_ood_evaluation
-        * (&boundary_alpha
-            * z.pow(max_degree_power_of_two - (air.context().trace_length as u64 - 1))
-            + &boundary_beta);
-
     boundary_quotient_ood_evaluation =
         boundary_quotient_ood_evaluation / boundary_zerofier.evaluate(&z);
+
+    boundary_quotient_ood_evaluation = boundary_quotient_ood_evaluation
+        * (&boundary_alpha * z.pow(max_degree_power_of_two - boundary_degree) + &boundary_beta);
 
     let transition_ood_frame_evaluations = air.compute_transition(trace_poly_ood_frame_evaluations);
 
