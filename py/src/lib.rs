@@ -10,6 +10,7 @@ use crate::proving_systems::stark::PyFieldElement;
 use crate::proving_systems::stark::PyProofConfig;
 use crate::proving_systems::stark::PyStarkProof;
 
+use crypto::merkle_tree::proof::PyU64Proof;
 use pyo3::prelude::*;
 use pyo3::wrap_pyfunction;
 
@@ -20,6 +21,7 @@ fn lambdaworks_py(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<PyProofConfig>()?;
     m.add_class::<PyStarkProof>()?;
     m.add_class::<PyU64MerkleTree>()?;
+    m.add_class::<PyU64Proof>()?;
     m.add_class::<PyU64FE>()?;
     m.add_function(wrap_pyfunction!(stark::prove, m)?)?;
     m.add_function(wrap_pyfunction!(stark::verify, m)?)?;
@@ -28,7 +30,8 @@ fn lambdaworks_py(_py: Python, m: &PyModule) -> PyResult<()> {
 
 #[cfg(test)]
 mod test {
-    use pyo3::prelude::*;
+    use super::*;
+
     use pyo3::Python;
 
     #[test]
@@ -36,7 +39,7 @@ mod test {
         pyo3::prepare_freethreaded_python();
         Python::with_gil(|py| {
             let module = PyModule::new(py, "lambdaworks_py");
-            assert!(crate::lambdaworks_py(py, module.unwrap()).is_ok());
+            assert!(lambdaworks_py(py, module.unwrap()).is_ok());
         });
     }
 }
