@@ -45,7 +45,9 @@ where
     // is not either a root of unity or an element of the lde coset.
     // let z = transcript_to_field(transcript);
 
-    let domain = boundary_constraints.generate_roots_of_unity(&trace_primitive_root);
+    let domains = boundary_constraints
+        .generate_roots_of_unity(&trace_primitive_root, air.context().trace_columns);
+
     // TODO: this assumes one column
     let values = boundary_constraints.values(0);
 

@@ -4,6 +4,7 @@ use lambdaworks_math::{
 };
 
 use crate::air::{frame::Frame, trace::TraceTable, AIR};
+use std::iter::zip;
 
 use super::{boundary::BoundaryConstraints, evaluation_table::ConstraintEvaluationTable, helpers};
 
@@ -72,15 +73,18 @@ impl<'poly, F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F, A
         let domains =
             boundary_constraints.generate_roots_of_unity(&self.primitive_root, count_cols_trace);
         let values = boundary_constraints.values(count_cols_trace);
-        use std::iter::zip;
-        let boundary_polys = Vec::new();
+        let mut boundary_polys = Vec::with_capacity(count_cols_trace);
         for ((xs, ys), trace_poly) in zip(domains, values).zip(self.trace_polys) {
             boundary_polys.push(trace_poly - &Polynomial::interpolate(&xs, &ys));
         }
 
-        let boundary_zerofier = self
-            .boundary_constraints
-            .compute_zerofier(&self.primitive_root);
+        let mut boundary_zerofiers = Vec::with_capacity(count_cols_trace);
+        (0..count_cols_trace).for_each(|col| {
+            boundary_zerofiers.push(
+                self.boundary_constraints
+                    .compute_zerofier(&self.primitive_root, col),
+            )
+        });
 
         let (boundary_alpha, boundary_beta) = alpha_and_beta_boundary_coefficients;
 
@@ -104,15 +108,31 @@ impl<'poly, F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F, A
                 d,
             );
 
-            let boundary_poly_degree = boundary_poly.degree() - boundary_zerofier.degree();
+            let mut aux_boundary_evaluations = Vec::new();
+            for (boundary_poly, boundary_zerofier) in zip(boundary_polys, boundary_zerofiers) {
+                let quotient_degree = boundary_poly.degree() - boundary_zerofier.degree();
+                let mut aux_boundary_evaluation =
+                    boundary_poly.evaluate(d) / boundary_zerofier.evaluate(d);
 
-            // Append evaluation for boundary constraints
-            let mut boundary_evaluation = boundary_poly.evaluate(d) / boundary_zerofier.evaluate(d);
-            boundary_evaluation = boundary_evaluation
-                * (boundary_alpha * d.pow(max_degree_power_of_two - (boundary_poly_degree as u64))
-                    + boundary_beta);
+                aux_boundary_evaluation = aux_boundary_evaluation
+                    * (boundary_alpha * d.pow(max_degree_power_of_two - (quotient_degree as u64))
+                        + boundary_beta);
+                aux_boundary_evaluations.push(aux_boundary_evaluation);
+            }
+
+            let boundary_evaluation = aux_boundary_evaluations
+                .iter()
+                .fold(FieldElement::<F>::zero(), |acc, eval| acc + eval);
 
             evaluations.push(boundary_evaluation);
+
+            // Append evaluation for boundary constraints
+            // let mut boundary_evaluation = boundary_poly.evaluate(d) / boundary_zerofier.evaluate(d);
+            // boundary_evaluation = boundary_evaluation
+            //     * (boundary_alpha * d.pow(max_degree_power_of_two - (boundary_poly_degree as u64))
+            //         + boundary_beta);
+
+            // evaluations.push(boundary_evaluation);
 
             evaluation_table.evaluations.push(evaluations);
         }

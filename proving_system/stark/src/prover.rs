@@ -47,9 +47,9 @@ where
     )
     .unwrap();
 
-    let traces_poly = trace.compute_trace_polys(&trace_roots_of_unity);
+    let trace_polys = trace.compute_trace_polys(&trace_roots_of_unity);
     let lde_trace = TraceTable {
-        table: traces_poly
+        table: trace_polys
             .iter()
             .map(|poly| poly.evaluate_slice(&lde_roots_of_unity_coset))
             .collect(),
@@ -103,7 +103,7 @@ where
     // Compute DEEP composition polynomial so we can commit to it using FRI.
     let mut deep_composition_poly = compute_deep_composition_poly(
         air,
-        &[trace_poly],
+        &trace_polys,
         &composition_poly_even,
         &composition_poly_odd,
         &z,
