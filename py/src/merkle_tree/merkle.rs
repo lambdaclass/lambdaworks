@@ -55,7 +55,7 @@ impl PyU64MerkleTree {
         Some(PyU64Proof::from(x))
     }
 
-    pub fn get_proof_by_pos(&self, pos: usize) -> Option<PyU64Proof>{
+    pub fn get_proof_by_pos(&self, pos: usize) -> Option<PyU64Proof> {
         let proof = self.0.get_proof_by_pos(pos)?;
 
         Some(PyU64Proof::from(proof))
