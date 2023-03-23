@@ -50,9 +50,13 @@ impl<F: IsField> BoundaryConstraints<F> {
         Self { constraints }
     }
 
-    /// Returns all the steps where boundary conditions exist
-    pub fn steps(&self) -> Vec<usize> {
-        self.constraints.iter().map(|c| c.step).collect()
+    /// Returns all the steps where boundary conditions exist for the given column
+    pub fn steps(&self, col: usize) -> Vec<usize> {
+        self.constraints
+            .iter()
+            .filter(|v| v.col == col)
+            .map(|c| c.step)
+            .collect()
     }
 
     /// Given the primitive root of some domain, returns the domain values corresponding
@@ -61,21 +65,37 @@ impl<F: IsField> BoundaryConstraints<F> {
     pub fn generate_roots_of_unity(
         &self,
         primitive_root: &FieldElement<F>,
-    ) -> Vec<FieldElement<F>> {
-        self.steps()
-            .into_iter()
-            .map(|s| primitive_root.pow(s))
-            .collect()
+        count_cols_trace: usize,
+    ) -> Vec<Vec<FieldElement<F>>> {
+        let mut ret = Vec::new();
+
+        for i in 0..count_cols_trace {
+            ret.push(
+                self.steps(i)
+                    .into_iter()
+                    .map(|s| primitive_root.pow(s))
+                    .collect(),
+            );
+        }
+        ret
     }
 
     /// Given a trace column, gives all the values the trace must be equal to where
     /// the boundary constraints hold
-    pub fn values(&self, col: usize) -> Vec<FieldElement<F>> {
-        self.constraints
-            .iter()
-            .filter(|c| c.col == col)
-            .map(|c| c.value.clone())
-            .collect()
+    /// TODO %%%%%% update doc
+    pub fn values(&self, count_cols_trace: usize) -> Vec<Vec<FieldElement<F>>> {
+        let mut ret = Vec::new();
+
+        for i in 0..count_cols_trace {
+            ret.push(
+                self.constraints
+                    .iter()
+                    .filter(|c| c.col == i)
+                    .map(|c| c.value.clone())
+                    .collect(),
+            )
+        }
+        ret
     }
 
     /// Computes the zerofier of the boundary quotient. The result is the
@@ -87,9 +107,10 @@ impl<F: IsField> BoundaryConstraints<F> {
     pub fn compute_zerofier(
         &self,
         primitive_root: &FieldElement<F>,
+        col: usize,
     ) -> Polynomial<FieldElement<F>> {
         let mut zerofier = Polynomial::new_monomial(FieldElement::<F>::one(), 0);
-        for step in self.steps().into_iter() {
+        for step in self.steps(col).into_iter() {
             let binomial = Polynomial::new(&[-primitive_root.pow(step), FieldElement::<F>::one()]);
             // TODO: Implement the MulAssign trait for Polynomials?
             zerofier = zerofier * binomial;
@@ -132,7 +153,7 @@ mod test {
 
         let expected_zerofier = a0_zerofier * a1_zerofier * res_zerofier;
 
-        let zerofier = constraints.compute_zerofier(&primitive_root);
+        let zerofier = constraints.compute_zerofier(&primitive_root, 0);
 
         assert_eq!(expected_zerofier, zerofier);
     }

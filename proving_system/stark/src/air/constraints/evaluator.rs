@@ -42,26 +42,41 @@ impl<'poly, F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F, A
             self.air.context().num_transition_constraints() + 1,
             lde_domain,
         );
+        let count_cols_trace = self.trace_polys.len();
 
         let boundary_constraints = &self.boundary_constraints;
-        let domain = boundary_constraints.generate_roots_of_unity(&self.primitive_root);
+        let domains =
+            boundary_constraints.generate_roots_of_unity(&self.primitive_root, count_cols_trace);
 
-        // TODO: Unhardcode this
-        // Hard-coded for fibonacci -> trace has one column, hence col value is 0.
-        let values = boundary_constraints.values(0);
+        let transition_max_degree = self
+            .air
+            .context()
+            .transition_degrees()
+            .iter()
+            .max()
+            .unwrap();
 
-        let max_degree = self.trace_poly.degree()
-            * self
-                .air
-                .context()
-                .transition_degrees()
-                .iter()
-                .max()
-                .unwrap();
+        let max_degree = self
+            .trace_polys
+            .iter()
+            .map(|poly| poly.degree())
+            .max()
+            .unwrap()
+            * transition_max_degree;
 
         let max_degree_power_of_two = helpers::next_power_of_two(max_degree as u64);
 
-        let boundary_poly = &self.trace_poly - &Polynomial::interpolate(&domain, &values);
+        // TODO: Unhardcode this
+        // Hard-coded for fibonacci -> trace has one column, hence col value is 0.
+
+        let domains =
+            boundary_constraints.generate_roots_of_unity(&self.primitive_root, count_cols_trace);
+        let values = boundary_constraints.values(count_cols_trace);
+        use std::iter::zip;
+        let boundary_polys = Vec::new();
+        for ((xs, ys), trace_poly) in zip(domains, values).zip(self.trace_polys) {
+            boundary_polys.push(trace_poly - &Polynomial::interpolate(&xs, &ys));
+        }
 
         let boundary_zerofier = self
             .boundary_constraints
