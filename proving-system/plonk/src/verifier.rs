@@ -175,13 +175,12 @@ mod tests {
         prover::Prover,
         setup::setup,
         test_utils::{
-            test_circuit_1, test_common_preprocessed_input_1, test_srs_1, KZG, test_witness_1,
+            test_common_preprocessed_input_1, test_srs_1, KZG, test_witness_1, test_common_preprocessed_input_2, test_srs_2, test_witness_2,
         },
     };
 
     #[test]
     fn test_verifier() {
-        let test_circuit = test_circuit_1();
         let common_preprocesed_input = test_common_preprocessed_input_1();
         let srs = test_srs_1();
         let witness = test_witness_1();
@@ -189,10 +188,32 @@ mod tests {
         let public_input = vec![FieldElement::from(2_u64), FieldElement::from(4)];
 
         let kzg = KZG::new(srs);
-        let verifying_key = setup(&common_preprocesed_input, &kzg, &test_circuit);
+        let verifying_key = setup(&common_preprocesed_input, &kzg);
 
         let prover = Prover::new(kzg.clone());
-        let proof = prover.prove(&test_circuit, &witness, &public_input, &common_preprocesed_input);
+        let proof = prover.prove(&witness, &public_input, &common_preprocesed_input);
+
+        let verifier = Verifier::new(kzg.clone());
+        assert!(verifier.verify(
+            &proof,
+            &public_input,
+            &common_preprocesed_input,
+            &verifying_key
+        ));
+    }
+
+    #[test]
+    fn test_verifier_2() {
+        let common_preprocesed_input = test_common_preprocessed_input_2();
+        let srs = test_srs_2();
+        let witness = test_witness_2();
+        let public_input = vec![FieldElement::from(2_u64), FieldElement::from(11)];
+
+        let kzg = KZG::new(srs);
+        let verifying_key = setup(&common_preprocesed_input, &kzg);
+
+        let prover = Prover::new(kzg.clone());
+        let proof = prover.prove(&witness, &public_input, &common_preprocesed_input);
 
         let verifier = Verifier::new(kzg.clone());
         assert!(verifier.verify(

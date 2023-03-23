@@ -11,13 +11,13 @@ use super::traits::IsCommitmentScheme;
 
 
 #[derive(Clone)]
-pub struct StructuredReferenceString<const MAXIMUM_DEGREE: usize, G1Point, G2Point> {
+pub struct StructuredReferenceString<G1Point, G2Point> {
     pub powers_main_group: Vec<G1Point>,
     pub powers_secondary_group: [G2Point; 2],
 }
 
-impl<const MAXIMUM_DEGREE: usize, G1Point, G2Point>
-    StructuredReferenceString<MAXIMUM_DEGREE, G1Point, G2Point>
+impl<G1Point, G2Point>
+    StructuredReferenceString<G1Point, G2Point>
 where
     G1Point: IsGroup,
     G2Point: IsGroup,
@@ -32,16 +32,16 @@ where
 }
 
 #[derive(Clone)]
-pub struct KateZaveruchaGoldberg<const MAXIMUM_DEGREE: usize, F: IsPrimeField, P: IsPairing> {
-    srs: StructuredReferenceString<MAXIMUM_DEGREE, P::G1Point, P::G2Point>,
+pub struct KateZaveruchaGoldberg<F: IsPrimeField, P: IsPairing> {
+    srs: StructuredReferenceString<P::G1Point, P::G2Point>,
     phantom: PhantomData<F>,
 }
 
-impl<const MAXIMUM_DEGREE: usize, F: IsPrimeField, P: IsPairing>
-    KateZaveruchaGoldberg<MAXIMUM_DEGREE, F, P>
+impl<F: IsPrimeField, P: IsPairing>
+    KateZaveruchaGoldberg<F, P>
 {
     #[allow(unused)]
-    pub fn new(srs: StructuredReferenceString<MAXIMUM_DEGREE, P::G1Point, P::G2Point>) -> Self {
+    pub fn new(srs: StructuredReferenceString<P::G1Point, P::G2Point>) -> Self {
         Self {
             srs,
             phantom: PhantomData,
@@ -49,8 +49,8 @@ impl<const MAXIMUM_DEGREE: usize, F: IsPrimeField, P: IsPairing>
     }
 }
 
-impl<const MAXIMUM_DEGREE: usize, F: IsPrimeField, P: IsPairing> IsCommitmentScheme<F>
-    for KateZaveruchaGoldberg<MAXIMUM_DEGREE, F, P>
+impl<F: IsPrimeField, P: IsPairing> IsCommitmentScheme<F>
+    for KateZaveruchaGoldberg<F, P>
 {
     type Commitment = P::G1Point;
 
@@ -170,10 +170,9 @@ mod tests {
     type G1 = ShortWeierstrassProjectivePoint<BLS12381Curve>;
     type FrField = MontgomeryBackendPrimeField<FrConfig, 4>;
     type FrElement = FieldElement<FrField>;
-    type KZG = KateZaveruchaGoldberg<100, FrField, BLS12381AtePairing>;
+    type KZG = KateZaveruchaGoldberg<FrField, BLS12381AtePairing>;
 
     fn create_srs() -> StructuredReferenceString<
-        100,
         <BLS12381AtePairing as IsPairing>::G1Point,
         <BLS12381AtePairing as IsPairing>::G2Point,
     > {

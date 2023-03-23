@@ -5,13 +5,6 @@ use lambdaworks_math::{
 };
 
 // TODO: implement getters
-pub struct Circuit {
-    pub number_public_inputs: u64,
-    pub number_private_inputs: u64,
-    pub number_internal_variables: u64,
-}
-
-// TODO: implement getters
 pub struct Witness<F: IsField> {
     pub a: Vec<FieldElement<F>>,
     pub b: Vec<FieldElement<F>>,
@@ -60,7 +53,6 @@ pub struct VerificationKey<G1Point> {
 pub fn setup<F: IsField, CS: IsCommitmentScheme<F>>(
     common_input: &CommonPreprocessedInput<F>,
     commitment_scheme: &CS,
-    circuit: &Circuit,
 ) -> VerificationKey<CS::Commitment> {
     VerificationKey {
         qm_1: commitment_scheme.commit(&common_input.qm),
@@ -85,17 +77,16 @@ mod tests {
 
     use super::*;
     use crate::test_utils::{
-        test_circuit_1, test_common_preprocessed_input_1, test_srs_1, FpElement, FrField, KZG,
+        test_common_preprocessed_input_1, test_srs_1, FpElement, FrField, KZG,
     };
 
     #[test]
     fn setup_works_for_simple_circuit() {
         let srs = test_srs_1();
-        let circuit = test_circuit_1();
         let common_input = test_common_preprocessed_input_1();
         let kzg = KZG::new(srs);
 
-        let vk = setup::<FrField, KZG>(&common_input, &kzg, &circuit);
+        let vk = setup::<FrField, KZG>(&common_input, &kzg);
 
         let expected_ql = BLS12381Curve::create_point_from_affine(
             FpElement::from_hex("1492341357755e31a6306abf3237f84f707ded7cb526b8ffd40901746234ef27f12bc91ef638e4977563db208b765f12"),
