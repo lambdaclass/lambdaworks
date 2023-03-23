@@ -12,6 +12,8 @@ use super::{
     fft_iterative::in_place_nr_2radix_fft, helpers::log2,
 };
 
+/// It is expected to receive a vector with the digits of the numbers to multiply as elements of the field
+/// These vector will be the coefficients to create the polynomial to use in FFT operation.
 pub fn fast_multiply<F: IsField + IsTwoAdicField + IsPrimeField>(
     multiplicand_digits: &mut Vec<FieldElement<F>>,
     multiplier_digits: &mut Vec<FieldElement<F>>,
