@@ -68,14 +68,16 @@ impl MetalState {
     pub fn setup_command(
         &self,
         pipeline: &metal::ComputePipelineState,
-        buffers: &[&metal::Buffer],
+        buffers: Option<&[(u64, &metal::Buffer)]>,
     ) -> (&metal::CommandBufferRef, &metal::ComputeCommandEncoderRef) {
         let command_buffer = self.queue.new_command_buffer();
         let command_encoder = command_buffer.new_compute_command_encoder();
         command_encoder.set_compute_pipeline_state(pipeline);
 
-        for (i, buffer) in buffers.iter().enumerate() {
-            command_encoder.set_buffer(i as u64, Some(buffer), 0);
+        if let Some(buffers) = buffers {
+            for (i, buffer) in buffers.iter() {
+                command_encoder.set_buffer(*i, Some(buffer), 0);
+            }
         }
 
         (command_buffer, command_encoder)

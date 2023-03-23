@@ -28,8 +28,10 @@ pub fn fft<F: IsTwoAdicField>(
     let twiddles_buffer = state.alloc_buffer_data(twiddles);
     // TODO: twiddle factors security (right now anything can be passed as twiddle factors)
 
-    let (command_buffer, command_encoder) =
-        state.setup_command(&pipeline, &[&input_buffer, &twiddles_buffer]);
+    let (command_buffer, command_encoder) = state.setup_command(
+        &pipeline,
+        Some(&[(0, &input_buffer), (1, &twiddles_buffer)]),
+    );
 
     let order = log2(input.len()).map_err(FFTMetalError::FFT)?;
     for stage in 0..order {
@@ -69,7 +71,8 @@ pub fn gen_twiddles<F: IsTwoAdicField>(
 
     let result_buffer = state.alloc_buffer::<F::BaseType>(len);
 
-    let (command_buffer, command_encoder) = state.setup_command(&pipeline, &[&result_buffer]);
+    let (command_buffer, command_encoder) =
+        state.setup_command(&pipeline, Some(&[(0, &result_buffer)]));
 
     let root = F::get_primitive_root_of_unity(order).map_err(FFTMetalError::FFT)?;
     command_encoder.set_bytes(1, mem::size_of::<F::BaseType>() as u64, void_ptr(&root));
