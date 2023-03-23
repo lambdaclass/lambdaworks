@@ -2,7 +2,7 @@ use metal::MTLResourceOptions;
 
 use crate::abstractions::errors::MetalError;
 
-use core::mem;
+use core::{ffi, mem};
 
 const LIB_DATA: &[u8] = include_bytes!("../metal/fft.metallib");
 
@@ -59,7 +59,7 @@ impl MetalState {
         let size = mem::size_of::<T>();
 
         self.device.new_buffer_with_data(
-            unsafe { mem::transmute(data.as_ptr()) },
+            data.as_ptr() as *const ffi::c_void,
             (data.len() * size) as u64,
             MTLResourceOptions::StorageModeShared, // TODO: use managed mode
         )
