@@ -6,12 +6,12 @@ use lambdaworks_math::{
 use super::trace::TraceTable;
 
 #[derive(Clone, Debug)]
-pub struct Frame<F: IsField> {
-    data: Vec<Vec<FieldElement<F>>>,
+pub struct Frame<'field, F: IsField> {
+    data: Vec<Vec<&'field FieldElement<F>>>,
     row_width: usize,
 }
 
-impl<F: IsField> Frame<F> {
+impl<'field, F: IsField> Frame<'field, F> {
     pub fn new(data: Vec<Vec<FieldElement<F>>>, row_width: usize) -> Self {
         Self { data, row_width }
     }
@@ -46,7 +46,8 @@ impl<F: IsField> Frame<F> {
         // the frame from the trace.
         let trace_len = trace.table.len();
         for frame_row_idx in offsets.iter() {
-            data.push(trace.table[(step + (frame_row_idx * blowup as usize)) % trace_len].clone())
+            let row = trace.get_row((step + (frame_row_idx * blowup as usize)) % trace_len);
+            data.push(row);
         }
 
         Self::new(data, 1)
