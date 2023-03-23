@@ -1,6 +1,8 @@
 use lambdaworks_crypto::commitments::traits::IsCommitmentScheme;
+use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::field::{element::FieldElement, traits::IsField};
 use lambdaworks_math::polynomial::Polynomial;
+use lambdaworks_math::traits::ByteConversion;
 
 // TODO: implement getters
 pub struct Witness<F: IsField> {
@@ -61,6 +63,33 @@ pub fn setup<F: IsField, CS: IsCommitmentScheme<F>>(
         s2_1: commitment_scheme.commit(&common_input.s2),
         s3_1: commitment_scheme.commit(&common_input.s3),
     }
+}
+
+pub fn new_strong_fiat_shamir_transcript<F, CS>(
+    vk: &VerificationKey<CS::Commitment>,
+    public_input: &[FieldElement<F>],
+) -> Transcript
+where
+    F: IsField,
+    FieldElement<F>: ByteConversion,
+    CS: IsCommitmentScheme<F>,
+    CS::Commitment: ByteConversion,
+{
+    let mut transcript = Transcript::new();
+
+    transcript.append(&vk.s1_1.to_bytes_be());
+    transcript.append(&vk.s2_1.to_bytes_be());
+    transcript.append(&vk.s3_1.to_bytes_be());
+    transcript.append(&vk.ql_1.to_bytes_be());
+    transcript.append(&vk.qr_1.to_bytes_be());
+    transcript.append(&vk.qm_1.to_bytes_be());
+    transcript.append(&vk.qo_1.to_bytes_be());
+    transcript.append(&vk.qc_1.to_bytes_be());
+
+    for value in public_input.iter() {
+        transcript.append(&value.to_bytes_be());
+    }
+    transcript
 }
 
 #[cfg(test)]

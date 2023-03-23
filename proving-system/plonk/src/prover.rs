@@ -1,9 +1,9 @@
 use std::marker::PhantomData;
 
-use crate::setup::{CommonPreprocessedInput, Witness};
-use lambdaworks_crypto::{
-    commitments::traits::IsCommitmentScheme, fiat_shamir::transcript::Transcript,
+use crate::setup::{
+    new_strong_fiat_shamir_transcript, CommonPreprocessedInput, VerificationKey, Witness,
 };
+use lambdaworks_crypto::commitments::traits::IsCommitmentScheme;
 use lambdaworks_math::{field::element::FieldElement, polynomial::Polynomial};
 use lambdaworks_math::{field::traits::IsField, traits::ByteConversion};
 
@@ -190,8 +190,8 @@ where
         Round2Result {
             z_1,
             p_z,
-            beta: beta,
-            gamma: gamma,
+            beta,
+            gamma,
         }
     }
 
@@ -257,7 +257,7 @@ where
             p_t_lo,
             p_t_mid,
             p_t_hi,
-            alpha: alpha,
+            alpha,
         }
     }
 
@@ -281,7 +281,7 @@ where
             s1_zeta,
             s2_zeta,
             z_zeta_omega,
-            zeta: zeta,
+            zeta,
         }
     }
 
@@ -337,10 +337,10 @@ where
             cpi.s1.clone(),
             cpi.s2.clone(),
         ];
-        let ys: Vec<FieldElement<F>> = polynomials.iter().map(|p| p.evaluate(&&r4.zeta)).collect();
+        let ys: Vec<FieldElement<F>> = polynomials.iter().map(|p| p.evaluate(&r4.zeta)).collect();
         let w_zeta_1 = self
             .commitment_scheme
-            .open_batch(&&r4.zeta, &ys, &polynomials, upsilon);
+            .open_batch(&r4.zeta, &ys, &polynomials, upsilon);
 
         let w_zeta_omega_1 =
             self.commitment_scheme
@@ -360,9 +360,9 @@ where
         witness: &Witness<F>,
         public_input: &[FieldElement<F>],
         common_preprocesed_input: &CommonPreprocessedInput<F>,
+        vk: &VerificationKey<CS::Commitment>,
     ) -> Proof<F, CS> {
-        // TODO: use strong Fiat-Shamir (e.g.: add public inputs and statement)
-        let mut transcript = Transcript::new();
+        let mut transcript = new_strong_fiat_shamir_transcript::<F, CS>(vk, public_input);
 
         // Round 1
         let round_1 = self.round_1(witness, common_preprocesed_input);

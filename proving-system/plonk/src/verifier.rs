@@ -1,5 +1,4 @@
 use lambdaworks_crypto::commitments::traits::IsCommitmentScheme;
-use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::cyclic_group::IsGroup;
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::{IsField, IsPrimeField};
@@ -8,7 +7,7 @@ use lambdaworks_math::traits::ByteConversion;
 use std::marker::PhantomData;
 
 use crate::prover::Proof;
-use crate::setup::{CommonPreprocessedInput, VerificationKey};
+use crate::setup::{new_strong_fiat_shamir_transcript, CommonPreprocessedInput, VerificationKey};
 
 struct Verifier<F: IsField, CS: IsCommitmentScheme<F>> {
     commitment_scheme: CS,
@@ -24,14 +23,19 @@ impl<F: IsField, CS: IsCommitmentScheme<F>> Verifier<F, CS> {
         }
     }
 
-    fn compute_challenges(&self, p: &Proof<F, CS>) -> [FieldElement<F>; 5]
+    fn compute_challenges(
+        &self,
+        p: &Proof<F, CS>,
+        vk: &VerificationKey<CS::Commitment>,
+        public_input: &[FieldElement<F>],
+    ) -> [FieldElement<F>; 5]
     where
         F: IsField,
         CS: IsCommitmentScheme<F>,
         CS::Commitment: ByteConversion,
         FieldElement<F>: ByteConversion,
     {
-        let mut transcript = Transcript::new();
+        let mut transcript = new_strong_fiat_shamir_transcript::<F, CS>(vk, public_input);
 
         transcript.append(&p.a_1.to_bytes_be());
         transcript.append(&p.b_1.to_bytes_be());
@@ -73,7 +77,7 @@ impl<F: IsField, CS: IsCommitmentScheme<F>> Verifier<F, CS> {
         FieldElement<F>: ByteConversion,
     {
         // TODO: First three steps are validations: belonging to main subgroup, belonging to prime field.
-        let [beta, gamma, alpha, zeta, upsilon] = self.compute_challenges(p);
+        let [beta, gamma, alpha, zeta, upsilon] = self.compute_challenges(p, vk, public_input);
         let zh_zeta = zeta.pow(input.n) - FieldElement::one();
         let mut p_pi_y = public_input.to_vec();
         p_pi_y.append(&mut vec![
@@ -212,7 +216,12 @@ mod tests {
         let verifying_key = setup(&common_preprocesed_input, &kzg);
 
         let prover = Prover::new(kzg.clone());
-        let proof = prover.prove(&witness, &public_input, &common_preprocesed_input);
+        let proof = prover.prove(
+            &witness,
+            &public_input,
+            &common_preprocesed_input,
+            &verifying_key,
+        );
 
         let verifier = Verifier::new(kzg.clone());
         assert!(verifier.verify(
@@ -243,7 +252,12 @@ mod tests {
         let verifying_key = setup(&common_preprocesed_input, &kzg);
 
         let prover = Prover::new(kzg.clone());
-        let proof = prover.prove(&witness, &public_input, &common_preprocesed_input);
+        let proof = prover.prove(
+            &witness,
+            &public_input,
+            &common_preprocesed_input,
+            &verifying_key,
+        );
 
         let verifier = Verifier::new(kzg);
         assert!(verifier.verify(
