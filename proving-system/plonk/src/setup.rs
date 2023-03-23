@@ -18,32 +18,6 @@ pub struct Witness<F: IsField> {
     pub c: Vec<FieldElement<F>>,
 }
 
-impl Circuit {
-    // TODO: This should execute the program and return the trace.
-    pub fn get_witness<F: IsField>(&self) -> Witness<F> {
-        Witness {
-            a: vec![
-                FieldElement::from(2_u64),
-                FieldElement::from(4_u64),
-                FieldElement::from(2_u64),
-                FieldElement::from(4_u64),
-            ],
-            b: vec![
-                FieldElement::from(2_u64),
-                FieldElement::from(2_u64),
-                FieldElement::from(2_u64),
-                FieldElement::from(4_u64),
-            ],
-            c: vec![
-                FieldElement::from(2_u64),
-                FieldElement::from(2_u64),
-                FieldElement::from(4_u64),
-                FieldElement::from(2_u64),
-            ],
-        }
-    }
-}
-
 // TODO: implement getters
 pub struct CommonPreprocessedInput<F: IsField> {
     pub n: usize,
@@ -107,14 +81,14 @@ mod tests {
 
     use super::*;
     use crate::test_utils::{
-        test_circuit, test_common_preprocessed_input, test_srs, FpElement, FrField, KZG,
+        test_circuit_1, test_common_preprocessed_input_1, test_srs_1, FpElement, FrField, KZG,
     };
 
     #[test]
     fn setup_works_for_simple_circuit() {
-        let srs = test_srs();
-        let circuit = test_circuit();
-        let common_input = test_common_preprocessed_input();
+        let srs = test_srs_1();
+        let circuit = test_circuit_1();
+        let common_input = test_common_preprocessed_input_1();
         let kzg = KZG::new(srs);
 
         let vk = setup::<FrField, KZG>(&common_input, &kzg, &circuit);

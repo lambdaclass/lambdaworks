@@ -387,15 +387,15 @@ where
     pub fn prove(
         &self,
         circuit: &Circuit,
+        witness: &Witness<F>,
         public_input: &[FieldElement<F>],
         common_preprocesed_input: &CommonPreprocessedInput<F>,
     ) -> Proof<F, CS> {
         // TODO: use strong Fiat-Shamir (e.g.: add public inputs and statement)
         let mut transcript = Transcript::new();
-        let witness = circuit.get_witness();
 
         // Round 1
-        let round_1 = self.round_1(&witness, common_preprocesed_input);
+        let round_1 = self.round_1(witness, common_preprocesed_input);
         transcript.append(&round_1.a_1.to_bytes_be());
         transcript.append(&round_1.b_1.to_bytes_be());
         transcript.append(&round_1.c_1.to_bytes_be());
@@ -405,7 +405,7 @@ where
         let beta = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
         let gamma = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
 
-        let round_2 = self.round_2(&witness, common_preprocesed_input, &beta, &gamma);
+        let round_2 = self.round_2(witness, common_preprocesed_input, &beta, &gamma);
         transcript.append(&round_2.z_1.to_bytes_be());
 
         // Round 3
@@ -476,7 +476,7 @@ mod tests {
     use crate::{
         test_utils::FpElement,
         test_utils::{
-            test_circuit, test_common_preprocessed_input, test_srs, FrElement, KZG,
+            test_circuit_1, test_common_preprocessed_input_1, test_srs_1, FrElement, KZG, test_witness_1,
         },
     };
 
@@ -504,10 +504,10 @@ mod tests {
 
     #[test]
     fn test_round_1() {
-        let test_circuit = test_circuit();
-        let witness = test_circuit.get_witness();
-        let common_preprocesed_input = test_common_preprocessed_input();
-        let srs = test_srs();
+        let test_circuit_1 = test_circuit_1();
+        let witness = test_witness_1();
+        let common_preprocesed_input = test_common_preprocessed_input_1();
+        let srs = test_srs_1();
         let kzg = KZG::new(srs);
         let prover = Prover::new(kzg);
         let round_1 = prover.round_1(&witness, &common_preprocesed_input);
@@ -530,10 +530,10 @@ mod tests {
 
     #[test]
     fn test_round_2() {
-        let test_circuit = test_circuit();
-        let witness = test_circuit.get_witness();
-        let common_preprocesed_input = test_common_preprocessed_input();
-        let srs = test_srs();
+        let test_circuit_1 = test_circuit_1();
+        let witness = test_witness_1();
+        let common_preprocesed_input = test_common_preprocessed_input_1();
+        let srs = test_srs_1();
         let kzg = KZG::new(srs);
         let prover = Prover::new(kzg);
 
@@ -547,10 +547,10 @@ mod tests {
 
     #[test]
     fn test_round_3() {
-        let test_circuit = test_circuit();
-        let witness = test_circuit.get_witness();
-        let common_preprocesed_input = test_common_preprocessed_input();
-        let srs = test_srs();
+        let test_circuit_1 = test_circuit_1();
+        let witness = test_witness_1();
+        let common_preprocesed_input = test_common_preprocessed_input_1();
+        let srs = test_srs_1();
         let kzg = KZG::new(srs);
         let public_input = vec![FieldElement::from(2_u64), FieldElement::from(4)];
         let prover = Prover::new(kzg);
@@ -581,10 +581,10 @@ mod tests {
 
     #[test]
     fn test_round_4() {
-        let test_circuit = test_circuit();
-        let witness = test_circuit.get_witness();
-        let common_preprocesed_input = test_common_preprocessed_input();
-        let srs = test_srs();
+        let test_circuit_1 = test_circuit_1();
+        let witness = test_witness_1();
+        let common_preprocesed_input = test_common_preprocessed_input_1();
+        let srs = test_srs_1();
         let kzg = KZG::new(srs);
         let prover = Prover::new(kzg);
 
@@ -615,10 +615,10 @@ mod tests {
 
     #[test]
     fn test_round_5() {
-        let test_circuit = test_circuit();
-        let witness = test_circuit.get_witness();
-        let common_preprocesed_input = test_common_preprocessed_input();
-        let srs = test_srs();
+        let test_circuit_1 = test_circuit_1();
+        let witness = test_witness_1();
+        let common_preprocesed_input = test_common_preprocessed_input_1();
+        let srs = test_srs_1();
         let kzg = KZG::new(srs);
         let public_input = vec![FieldElement::from(2_u64), FieldElement::from(4)];
 
