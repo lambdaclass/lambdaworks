@@ -32,6 +32,7 @@ impl<F: IsField, CS: IsCommitmentScheme<F>> Verifier<F, CS> {
         FieldElement<F>: ByteConversion,
     {
         let mut transcript = Transcript::new();
+
         transcript.append(&p.a_1.to_bytes_be());
         transcript.append(&p.b_1.to_bytes_be());
         transcript.append(&p.c_1.to_bytes_be());
@@ -44,9 +45,16 @@ impl<F: IsField, CS: IsCommitmentScheme<F>> Verifier<F, CS> {
         transcript.append(&p.t_lo_1.to_bytes_be());
         transcript.append(&p.t_mid_1.to_bytes_be());
         transcript.append(&p.t_hi_1.to_bytes_be());
-
         let zeta = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
+
+        transcript.append(&p.a_zeta.to_bytes_be());
+        transcript.append(&p.b_zeta.to_bytes_be());
+        transcript.append(&p.c_zeta.to_bytes_be());
+        transcript.append(&p.s1_zeta.to_bytes_be());
+        transcript.append(&p.s2_zeta.to_bytes_be());
+        transcript.append(&p.z_zeta_omega.to_bytes_be());
         let upsilon = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
+
         [beta, gamma, alpha, zeta, upsilon]
     }
 

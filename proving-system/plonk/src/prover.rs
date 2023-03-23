@@ -163,8 +163,8 @@ where
         &self,
         witness: &Witness<F>,
         common_preprocesed_input: &CommonPreprocessedInput<F>,
-        beta: &FieldElement<F>,
-        gamma: &FieldElement<F>,
+        beta: FieldElement<F>,
+        gamma: FieldElement<F>,
     ) -> Round2Result<F, CS::Commitment> {
         let cpi = common_preprocesed_input;
         let mut coefficients: Vec<FieldElement<F>> = vec![FieldElement::one()];
@@ -172,7 +172,7 @@ where
 
         let k2 = &cpi.k1 * &cpi.k1;
 
-        let lp = |w: &FieldElement<F>, eta: &FieldElement<F>| w + beta * eta + gamma;
+        let lp = |w: &FieldElement<F>, eta: &FieldElement<F>| w + &beta * eta + &gamma;
 
         for i in 0..&cpi.n - 1 {
             let (a_i, b_i, c_i) = (&witness.a[i], &witness.b[i], &witness.c[i]);
@@ -190,8 +190,8 @@ where
         Round2Result {
             z_1,
             p_z,
-            beta: beta.clone(),
-            gamma: gamma.clone(),
+            beta: beta,
+            gamma: gamma,
         }
     }
 
@@ -200,8 +200,10 @@ where
         common_preprocesed_input: &CommonPreprocessedInput<F>,
         public_input: &[FieldElement<F>],
         Round1Result { p_a, p_b, p_c, .. }: &Round1Result<F, CS::Commitment>,
-        Round2Result { p_z, beta, gamma, .. }: &Round2Result<F, CS::Commitment>,
-        alpha: &FieldElement<F>,
+        Round2Result {
+            p_z, beta, gamma, ..
+        }: &Round2Result<F, CS::Commitment>,
+        alpha: FieldElement<F>,
     ) -> Round3Result<F, CS::Commitment> {
         let cpi = common_preprocesed_input;
         let k2 = &cpi.k1 * &cpi.k1;
@@ -235,7 +237,7 @@ where
         let p_permutation_1 = g * z_x_omega - f * p_z;
         let p_permutation_2 = (p_z - one) * &l1;
 
-        let p = ((&p_permutation_2 * alpha) + p_permutation_1) * alpha + p_constraints;
+        let p = ((&p_permutation_2 * &alpha) + p_permutation_1) * &alpha + p_constraints;
 
         let mut t = p / zh;
 
@@ -255,7 +257,7 @@ where
             p_t_lo,
             p_t_mid,
             p_t_hi,
-            alpha: alpha.clone(),
+            alpha: alpha,
         }
     }
 
@@ -264,14 +266,14 @@ where
         CommonPreprocessedInput { s1, s2, omega, .. }: &CommonPreprocessedInput<F>,
         Round1Result { p_a, p_b, p_c, .. }: &Round1Result<F, CS::Commitment>,
         Round2Result { p_z, .. }: &Round2Result<F, CS::Commitment>,
-        zeta: &FieldElement<F>,
+        zeta: FieldElement<F>,
     ) -> Round4Result<F> {
-        let a_zeta = p_a.evaluate(zeta);
-        let b_zeta = p_b.evaluate(zeta);
-        let c_zeta = p_c.evaluate(zeta);
-        let s1_zeta = s1.evaluate(zeta);
-        let s2_zeta = s2.evaluate(zeta);
-        let z_zeta_omega = p_z.evaluate(&(zeta * omega));
+        let a_zeta = p_a.evaluate(&zeta);
+        let b_zeta = p_b.evaluate(&zeta);
+        let c_zeta = p_c.evaluate(&zeta);
+        let s1_zeta = s1.evaluate(&zeta);
+        let s2_zeta = s2.evaluate(&zeta);
+        let z_zeta_omega = p_z.evaluate(&(&zeta * omega));
         Round4Result {
             a_zeta,
             b_zeta,
@@ -279,7 +281,7 @@ where
             s1_zeta,
             s2_zeta,
             z_zeta_omega,
-            zeta: zeta.clone(),
+            zeta: zeta,
         }
     }
 
@@ -374,7 +376,7 @@ where
         let beta = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
         let gamma = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
 
-        let round_2 = self.round_2(witness, common_preprocesed_input, &beta, &gamma);
+        let round_2 = self.round_2(witness, common_preprocesed_input, beta, gamma);
         transcript.append(&round_2.z_1.to_bytes_be());
 
         // Round 3
@@ -384,7 +386,7 @@ where
             public_input,
             &round_1,
             &round_2,
-            &alpha,
+            alpha,
         );
         transcript.append(&round_3.t_lo_1.to_bytes_be());
         transcript.append(&round_3.t_mid_1.to_bytes_be());
@@ -392,7 +394,14 @@ where
 
         // Round 4
         let zeta = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
-        let round_4 = self.round_4(common_preprocesed_input, &round_1, &round_2, &zeta);
+        let round_4 = self.round_4(common_preprocesed_input, &round_1, &round_2, zeta);
+
+        transcript.append(&round_4.a_zeta.to_bytes_be());
+        transcript.append(&round_4.b_zeta.to_bytes_be());
+        transcript.append(&round_4.c_zeta.to_bytes_be());
+        transcript.append(&round_4.s1_zeta.to_bytes_be());
+        transcript.append(&round_4.s2_zeta.to_bytes_be());
+        transcript.append(&round_4.z_zeta_omega.to_bytes_be());
 
         // Round 5
         let upsilon = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
@@ -501,7 +510,7 @@ mod tests {
         let kzg = KZG::new(srs);
         let prover = Prover::new(kzg);
 
-        let result_2 = prover.round_2(&witness, &common_preprocesed_input, &beta(), &gamma());
+        let result_2 = prover.round_2(&witness, &common_preprocesed_input, beta(), gamma());
         let z_1_expected = BLS12381Curve::create_point_from_affine(
             FpElement::from_hex("3e8322968c3496cf1b5786d4d71d158a646ec90c14edf04e758038e1f88dcdfe8443fcecbb75f3074a872a380391742"),
             FpElement::from_hex("11eac40d09796ff150004e7b858d83ddd9fe995dced0b3fbd7535d6e361729b25d488799da61fdf1d7b5022684053327"),
@@ -518,13 +527,13 @@ mod tests {
         let public_input = vec![FieldElement::from(2_u64), FieldElement::from(4)];
         let prover = Prover::new(kzg);
         let round_1 = prover.round_1(&witness, &common_preprocesed_input);
-        let round_2 = prover.round_2(&witness, &common_preprocesed_input, &beta(), &gamma());
+        let round_2 = prover.round_2(&witness, &common_preprocesed_input, beta(), gamma());
         let round_3 = prover.round_3(
             &common_preprocesed_input,
             &public_input,
             &round_1,
             &round_2,
-            &alpha(),
+            alpha(),
         );
 
         let t_lo_1_expected = BLS12381Curve::create_point_from_affine(
@@ -551,9 +560,9 @@ mod tests {
         let prover = Prover::new(kzg);
 
         let round_1 = prover.round_1(&witness, &common_preprocesed_input);
-        let round_2 = prover.round_2(&witness, &common_preprocesed_input, &beta(), &gamma());
+        let round_2 = prover.round_2(&witness, &common_preprocesed_input, beta(), gamma());
 
-        let round_4 = prover.round_4(&common_preprocesed_input, &round_1, &round_2, &zeta());
+        let round_4 = prover.round_4(&common_preprocesed_input, &round_1, &round_2, zeta());
         let expected_a_value =
             FrElement::from_hex("2c090a95b57f1f493b7b747bba34fef7772fd72f97d718ed69549641a823eb2e");
         let expected_b_value =
@@ -586,17 +595,17 @@ mod tests {
         let prover = Prover::new(kzg);
 
         let round_1 = prover.round_1(&witness, &common_preprocesed_input);
-        let round_2 = prover.round_2(&witness, &common_preprocesed_input, &beta(), &gamma());
+        let round_2 = prover.round_2(&witness, &common_preprocesed_input, beta(), gamma());
 
         let round_3 = prover.round_3(
             &common_preprocesed_input,
             &public_input,
             &round_1,
             &round_2,
-            &alpha(),
+            alpha(),
         );
 
-        let round_4 = prover.round_4(&common_preprocesed_input, &round_1, &round_2, &zeta());
+        let round_4 = prover.round_4(&common_preprocesed_input, &round_1, &round_2, zeta());
 
         let expected_w_zeta_1 = BLS12381Curve::create_point_from_affine(
             FpElement::from_hex("fa6250b80a418f0548b132ac264ff9915b2076c0c2548da9316ae19ffa35bbcf905d9f02f9274739608045ef83a4757"),
