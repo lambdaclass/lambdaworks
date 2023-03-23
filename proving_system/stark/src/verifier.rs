@@ -87,7 +87,7 @@ where
         let boundary_zerofier =
             boundary_constraints.compute_zerofier(&trace_primitive_root, trace_idx);
 
-        let mut boundary_quotient_ood_evaluation = (*trace_evaluation
+        let mut boundary_quotient_ood_evaluation = (trace_evaluation
             - boundary_interpolating_polynomial.evaluate(&z))
             / boundary_zerofier.evaluate(&z);
 

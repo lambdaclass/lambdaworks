@@ -70,10 +70,8 @@ mod tests {
     #[test]
     fn test_prove_fib() {
         let trace = fibonacci_trace([FE::from(1), FE::from(1)], 4);
-        let trace_table = TraceTable {
-            table: trace.clone(),
-            num_cols: 1,
-        };
+        let trace_length = trace.len();
+        let trace_table = TraceTable { table: trace };
 
         let context = AirContext {
             options: ProofOptions {
@@ -81,49 +79,49 @@ mod tests {
                 fri_number_of_queries: 1,
                 coset_offset: 3,
             },
-            trace_length: trace.len(),
-            trace_columns: trace_table.num_cols,
+            trace_length,
+            trace_columns: trace_table.table.len(),
             transition_degrees: vec![1],
-            transition_exemptions: vec![trace.len() - 2, trace.len() - 1],
+            transition_exemptions: vec![trace_length - 2, trace_length - 1],
             transition_offsets: vec![0, 1, 2],
             num_transition_constraints: 1,
         };
 
-        let fibonacci_air = FibonacciAIR::new(trace_table, context);
+        let fibonacci_air = FibonacciAIR::new(trace_table.clone(), context);
 
-        let result = prove(&trace, &fibonacci_air);
+        let result = prove(&trace_table, &fibonacci_air);
         assert!(verify(&result, &fibonacci_air));
     }
 
-    #[ignore]
-    #[test]
-    fn test_prove_fib17() {
-        let trace = fibonacci_trace([FE17::new(1), FE17::new(1)], 4);
+    //     #[ignore]
+    //     #[test]
+    //     fn test_prove_fib17() {
+    //         let trace = fibonacci_trace([FE17::new(1), FE17::new(1)], 4);
 
-        let trace_table = TraceTable {
-            table: trace.clone(),
-            num_cols: 1,
-        };
+    //         let trace_table = TraceTable {
+    //             table: trace.clone(),
+    //             num_cols: 1,
+    //         };
 
-        let context = AirContext {
-            options: ProofOptions {
-                blowup_factor: 2,
-                fri_number_of_queries: 1,
-                coset_offset: 3,
-            },
-            trace_length: trace.len(),
-            trace_columns: trace_table.num_cols,
-            transition_degrees: vec![1],
-            transition_exemptions: vec![trace.len() - 2, trace.len() - 1],
-            transition_offsets: vec![0, 1, 2],
-            num_transition_constraints: 1,
-        };
+    //         let context = AirContext {
+    //             options: ProofOptions {
+    //                 blowup_factor: 2,
+    //                 fri_number_of_queries: 1,
+    //                 coset_offset: 3,
+    //             },
+    //             trace_length: trace.len(),
+    //             trace_columns: trace_table.num_cols,
+    //             transition_degrees: vec![1],
+    //             transition_exemptions: vec![trace.len() - 2, trace.len() - 1],
+    //             transition_offsets: vec![0, 1, 2],
+    //             num_transition_constraints: 1,
+    //         };
 
-        let fibonacci_air = Fibonacci17AIR::new(trace_table, context);
+    //         let fibonacci_air = Fibonacci17AIR::new(trace_table, context);
 
-        let result = prove(&trace, &fibonacci_air);
-        assert!(verify(&result, &fibonacci_air));
-    }
+    //         let result = prove(&trace, &fibonacci_air);
+    //         assert!(verify(&result, &fibonacci_air));
+    //     }
 }
 
 #[cfg(test)]
@@ -142,7 +140,7 @@ mod test_utils {
     pub fn fibonacci_trace<F: IsField>(
         initial_values: [FieldElement<F>; 2],
         trace_length: usize,
-    ) -> Vec<FieldElement<F>> {
+    ) -> Vec<Vec<FieldElement<F>>> {
         let mut ret: Vec<FieldElement<F>> = vec![];
 
         ret.push(initial_values[0].clone());
@@ -152,7 +150,7 @@ mod test_utils {
             ret.push(ret[i - 1].clone() + ret[i - 2].clone());
         }
 
-        ret
+        vec![ret]
     }
 
     #[derive(Clone)]

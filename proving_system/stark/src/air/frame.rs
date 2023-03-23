@@ -6,15 +6,29 @@ use lambdaworks_math::{
 use super::trace::TraceTable;
 
 #[derive(Clone, Debug)]
-pub struct Frame<'field, F: IsField> {
-    data: Vec<Vec<&'field FieldElement<F>>>,
+pub struct Frame<F: IsField> {
+    // Vector of rows
+    data: Vec<Vec<FieldElement<F>>>,
     row_width: usize,
 }
 
-impl<'field, F: IsField> Frame<'field, F> {
+impl<F: IsField> Frame<F> {
     pub fn new(data: Vec<Vec<FieldElement<F>>>, row_width: usize) -> Self {
         Self { data, row_width }
     }
+
+    // pub fn ood_new(data_input: &[Vec<FieldElement<F>>], row_width: usize) -> Self {
+    //     let mut data = Vec::new();
+    //     for row in data_input {
+    //         let mut row_vec = Vec::new();
+    //         for elem in row {
+    //             row_vec.push(elem);
+    //         }
+    //         data.push(row_vec);
+    //     }
+
+    //     Self { data, row_width }
+    // }
 
     pub fn num_rows(&self) -> usize {
         self.data.len() / self.row_width
@@ -25,13 +39,15 @@ impl<'field, F: IsField> Frame<'field, F> {
     }
 
     pub fn get_row(&self, row_idx: usize) -> &[FieldElement<F>] {
-        let row_offset = row_idx * self.row_width;
-        &self.data[row_offset..row_offset + self.row_width]
+        //     let row_offset = row_idx * self.row_width;
+        //     &self.data[row_offset..row_offset + self.row_width]
+        &self.data[row_idx]
     }
 
     pub fn get_row_mut(&mut self, row_idx: usize) -> &mut [FieldElement<F>] {
-        let row_offset = row_idx * self.row_width;
-        &mut self.data[row_offset..row_offset + self.row_width]
+        // let row_offset = row_idx * self.row_width;
+        // &mut self.data[row_offset..row_offset + self.row_width]
+        &mut self.data[row_idx]
     }
 
     pub fn read_from_trace(
@@ -78,24 +94,24 @@ impl<'field, F: IsField> Frame<'field, F> {
         evaluations
     }
 
-    /// Returns the Out of Domain Frame for the given trace polynomials, out of domain evaluation point (called `z` in the literature),
-    /// frame offsets given by the AIR and primitive root used for interpolating the trace polynomials.
-    /// An out of domain frame is nothing more than the evaluation of the trace polynomials in the points required by the
-    /// verifier to check the consistency between the trace and the composition polynomial.
-    ///
-    /// In the fibonacci example, the ood frame is simply the evaluations `[t(z), t(z * g), t(z * g^2)]`, where `t` is the trace
-    /// polynomial and `g` is the primitive root of unity used when interpolating `t`.
-    pub fn construct_ood_frame(
-        trace_polys: &[Polynomial<FieldElement<F>>],
-        z: &FieldElement<F>,
-        frame_offsets: &[usize],
-        primitive_root: &FieldElement<F>,
-    ) -> Self {
-        let data = Self::get_trace_evaluations(trace_polys, z, frame_offsets, primitive_root);
+    // / Returns the Out of Domain Frame for the given trace polynomials, out of domain evaluation point (called `z` in the literature),
+    // / frame offsets given by the AIR and primitive root used for interpolating the trace polynomials.
+    // / An out of domain frame is nothing more than the evaluation of the trace polynomials in the points required by the
+    // / verifier to check the consistency between the trace and the composition polynomial.
+    // /
+    // / In the fibonacci example, the ood frame is simply the evaluations `[t(z), t(z * g), t(z * g^2)]`, where `t` is the trace
+    // / polynomial and `g` is the primitive root of unity used when interpolating `t`.
+    // pub fn construct_ood_frame(
+    //     trace_polys: &[Polynomial<FieldElement<F>>],
+    //     z: &FieldElement<F>,
+    //     frame_offsets: &[usize],
+    //     primitive_root: &FieldElement<F>,
+    // ) -> Self {
+    //     let data = Self::get_trace_evaluations(trace_polys, z, frame_offsets, primitive_root);
 
-        Self {
-            data,
-            row_width: trace_polys.len(),
-        }
-    }
+    //     Self {
+    //         data,
+    //         row_width: trace_polys.len(),
+    //     }
+    // }
 }

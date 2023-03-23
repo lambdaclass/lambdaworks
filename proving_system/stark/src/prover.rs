@@ -91,12 +91,21 @@ where
         composition_poly_odd.evaluate(&z_squared),
     ];
 
-    let trace_ood_frame_evaluations = Frame::<F>::construct_ood_frame(
+    let ood_trace_evaluations = Frame::get_trace_evaluations(
         &trace_polys,
         &z,
         &air.context().transition_offsets,
         &trace_primitive_root,
     );
+
+    let trace_ood_frame_evaluations = Frame::new(ood_trace_evaluations, trace_polys.len());
+
+    // let trace_ood_frame_evaluations = Frame::<F>::construct_ood_frame(
+    //     &trace_polys,
+    //     &z,
+    //     &air.context().transition_offsets,
+    //     &trace_primitive_root,
+    // );
 
     // END EVALUATION BLOCK
 

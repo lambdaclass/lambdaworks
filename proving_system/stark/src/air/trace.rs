@@ -8,26 +8,28 @@ pub struct TraceTable<F: IsField> {
 }
 
 impl<F: IsField> TraceTable<F> {
-    pub fn rows(&self) -> Vec<Vec<&FieldElement<F>>> {
+    // TODO: Remove clones
+    pub fn rows(&self) -> Vec<Vec<FieldElement<F>>> {
         // All columns should be of the same size, so we take the
         // len of the first one to know the number of rows.
         let n_rows = self.table[0].len();
         let n_cols = self.table.len();
-        let ret = Vec::with_capacity(n_rows);
+        let mut ret = Vec::with_capacity(n_rows);
         for row_idx in 0..n_rows {
-            let row = Vec::with_capacity(n_cols);
+            let mut row = Vec::with_capacity(n_cols);
             for col_idx in 0..n_cols {
-                row.push(&self.table[col_idx][row_idx]);
+                row.push(self.table[col_idx][row_idx].clone());
             }
             ret.push(row);
         }
         ret
     }
 
-    pub fn get_row(&self, row_idx: usize) -> Vec<&FieldElement<F>> {
+    // TODO: Remove clones
+    pub fn get_row(&self, row_idx: usize) -> Vec<FieldElement<F>> {
         let n_cols = self.table.len();
         let mut ret = Vec::with_capacity(n_cols);
-        (0..n_cols).for_each(|col_idx| ret.push(&self.table[col_idx][row_idx]));
+        (0..n_cols).for_each(|col_idx| ret.push(self.table[col_idx][row_idx].clone()));
         ret
     }
 

@@ -46,16 +46,10 @@ impl<'poly, F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F, A
         let count_cols_trace = self.trace_polys.len();
 
         let boundary_constraints = &self.boundary_constraints;
-        let domains =
-            boundary_constraints.generate_roots_of_unity(&self.primitive_root, count_cols_trace);
 
-        let transition_max_degree = self
-            .air
-            .context()
-            .transition_degrees()
-            .iter()
-            .max()
-            .unwrap();
+        let transition_degrees = self.air.context().transition_degrees();
+
+        let transition_max_degree = transition_degrees.iter().max().unwrap();
 
         let max_degree = self
             .trace_polys
@@ -109,7 +103,7 @@ impl<'poly, F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F, A
             );
 
             let mut aux_boundary_evaluations = Vec::new();
-            for (boundary_poly, boundary_zerofier) in zip(boundary_polys, boundary_zerofiers) {
+            for (boundary_poly, boundary_zerofier) in zip(&boundary_polys, &boundary_zerofiers) {
                 let quotient_degree = boundary_poly.degree() - boundary_zerofier.degree();
                 let mut aux_boundary_evaluation =
                     boundary_poly.evaluate(d) / boundary_zerofier.evaluate(d);
