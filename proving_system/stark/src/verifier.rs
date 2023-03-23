@@ -45,15 +45,18 @@ where
     // is not either a root of unity or an element of the lde coset.
     // let z = transcript_to_field(transcript);
 
-    let domains = boundary_constraints
-        .generate_roots_of_unity(&trace_primitive_root, air.context().trace_columns);
+    let n_trace_cols = air.context().trace_columns;
+
+    let boundary_constraint_domains =
+        boundary_constraints.generate_roots_of_unity(&trace_primitive_root, n_trace_cols);
+    let values = boundary_constraints.values(n_trace_cols);
 
     // TODO: this assumes one column
-    let values = boundary_constraints.values(0);
+    // let values = boundary_constraints.values(0);
 
     // The boundary constraint polynomial is trace - this polynomial below.
-    let boundary_interpolating_polynomial = &Polynomial::interpolate(&domain, &values);
-    let boundary_zerofier = boundary_constraints.compute_zerofier(&trace_primitive_root);
+    // let boundary_interpolating_polynomial = &Polynomial::interpolate(&domain, &values);
+    // let boundary_zerofier = boundary_constraints.compute_zerofier(&trace_primitive_root);
 
     let boundary_alpha = transcript_to_field(transcript);
     let boundary_beta = transcript_to_field(transcript);
@@ -66,16 +69,47 @@ where
 
     let max_degree_power_of_two = helpers::next_power_of_two(max_degree as u64);
 
-    // TODO: This is assuming one column
-    let boundary_degree = (air.context().trace_length - boundary_zerofier.degree()) as u64 - 1;
-    let mut boundary_quotient_ood_evaluation = &trace_poly_ood_frame_evaluations.get_row(0)[0]
-        - boundary_interpolating_polynomial.evaluate(&z);
+    // // TODO: This is assuming one column
+    // let boundary_quotient_degree =
+    //     (air.context().trace_length - boundary_zerofier.degree()) as u64 - 1;
 
-    boundary_quotient_ood_evaluation =
-        boundary_quotient_ood_evaluation / boundary_zerofier.evaluate(&z);
+    // GENERALIZE FOR MULTIPLE TRACE COLUMNS
+    // let mut boundary_quotient_ood_evaluation = &trace_poly_ood_frame_evaluations.get_row(0)[0]
+    //     - boundary_interpolating_polynomial.evaluate(&z);
 
-    boundary_quotient_ood_evaluation = boundary_quotient_ood_evaluation
-        * (&boundary_alpha * z.pow(max_degree_power_of_two - boundary_degree) + &boundary_beta);
+    let mut aux_boundary_quotient_ood_evaluations = Vec::with_capacity(n_trace_cols);
+    for trace_idx in 0..n_trace_cols {
+        let trace_evaluation = &trace_poly_ood_frame_evaluations.get_row(0)[trace_idx];
+        let boundary_constraints_domain = boundary_constraint_domains[trace_idx].clone();
+        let boundary_interpolating_polynomial =
+            &Polynomial::interpolate(&boundary_constraints_domain, &values[trace_idx]);
+
+        let boundary_zerofier =
+            boundary_constraints.compute_zerofier(&trace_primitive_root, trace_idx);
+
+        let mut boundary_quotient_ood_evaluation = (*trace_evaluation
+            - boundary_interpolating_polynomial.evaluate(&z))
+            / boundary_zerofier.evaluate(&z);
+
+        let boundary_quotient_degree =
+            (air.context().trace_length - boundary_zerofier.degree()) as u64 - 1;
+
+        boundary_quotient_ood_evaluation = boundary_quotient_ood_evaluation
+            * (&boundary_alpha * z.pow(max_degree_power_of_two - boundary_quotient_degree)
+                + &boundary_beta);
+
+        aux_boundary_quotient_ood_evaluations.push(boundary_quotient_ood_evaluation)
+    }
+
+    let boundary_quotient_ood_evaluation = aux_boundary_quotient_ood_evaluations
+        .iter()
+        .fold(FieldElement::<F>::zero(), |acc, x| acc + x);
+
+    // boundary_quotient_ood_evaluation =
+    //     boundary_quotient_ood_evaluation / boundary_zerofier.evaluate(&z);
+
+    // boundary_quotient_ood_evaluation = boundary_quotient_ood_evaluation
+    //     * (&boundary_alpha * z.pow(max_degree_power_of_two - boundary_degree) + &boundary_beta);
 
     let transition_ood_frame_evaluations = air.compute_transition(trace_poly_ood_frame_evaluations);
 
