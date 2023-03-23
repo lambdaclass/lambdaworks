@@ -43,6 +43,18 @@ where
     }
 }
 
+impl<F> FieldElement<F>
+where
+    F::BaseType: Clone,
+    F: IsField,
+{
+    pub fn from_raw(value: &F::BaseType) -> Self {
+        Self {
+            value: value.clone(),
+        }
+    }
+}
+
 /// Equality operator overloading for field elements
 impl<F> PartialEq<FieldElement<F>> for FieldElement<F>
 where

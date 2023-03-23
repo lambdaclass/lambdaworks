@@ -116,7 +116,7 @@ impl FFTMetalState {
         // creates a slice from the contents of the buffer (pointed to by a void ptr).
         // the memory will be copied on the next .collect() call.
 
-        Ok(results_slice.iter().map(FieldElement::from).collect())
+        Ok(results_slice.iter().map(FieldElement::from_raw).collect())
     }
 
     pub fn gen_twiddles<F: IsTwoAdicField>(
@@ -125,7 +125,7 @@ impl FFTMetalState {
     ) -> Result<Vec<FieldElement<F>>, FFTError> {
         let twiddles_kernel = self
             .library
-            .get_function("calc_twiddle", None)
+            .get_function("calc_twiddle_u256", None)
             .map_err(FFTError::MetalFunctionError)?;
 
         let pipeline = self
@@ -160,14 +160,10 @@ impl FFTMetalState {
         compute_encoder.set_buffer(0, Some(&omega_buffer), 0);
         compute_encoder.set_buffer(1, Some(&result_buffer), 0);
 
-        // SIMD group size:
-        let threads = pipeline.thread_execution_width();
-        // the idea is to have a SIMD per threadgroup, so:
-        let thread_group_size = MTLSize::new(threads, 1, 1);
-        // then the amount of groups should be the minimum that make `order` fit:
-        let thread_group_count = MTLSize::new((result_len + threads - 1) / threads, 1, 1);
+        let threads = MTLSize::new(result_len, 1, 1);
+        let threads_per_group = MTLSize::new(pipeline.max_total_threads_per_threadgroup(), 1, 1);
 
-        compute_encoder.dispatch_thread_groups(thread_group_size, thread_group_count);
+        compute_encoder.dispatch_threads(threads, threads_per_group);
         compute_encoder.end_encoding();
 
         command_buffer.commit();
@@ -179,7 +175,7 @@ impl FFTMetalState {
         // creates a slice from the contents of the buffer (pointed to by a void ptr).
         // the memory will be copied on the next .collect() call.
 
-        Ok(results_slice.iter().map(FieldElement::from).collect())
+        Ok(results_slice.iter().map(FieldElement::from_raw).collect())
     }
 }
 
@@ -187,14 +183,17 @@ impl FFTMetalState {
 mod tests {
     use lambdaworks_math::{
         fft::bit_reversing::in_place_bit_reverse_permute,
-        field::{test_fields::u32_test_field::U32TestField, traits::RootsConfig},
+        field::{
+            fields::fft_friendly::u256_two_adic_prime_field::U256MontgomeryTwoAdicPrimeField,
+            traits::RootsConfig,
+        },
         polynomial::Polynomial,
     };
     use proptest::prelude::*;
 
     use super::*;
 
-    type F = U32TestField;
+    type F = U256MontgomeryTwoAdicPrimeField;
     type FE = FieldElement<F>;
 
     prop_compose! {
@@ -230,13 +229,12 @@ mod tests {
 
                 let metal_state = FFTMetalState::new(None).unwrap();
                 let twiddles = F::get_twiddles(order, RootsConfig::BitReverse).unwrap();
-                let command_buff_encoder = metal_state.setup_fft("radix2_dit_butterfly", &twiddles).unwrap();
+                let command_buff_encoder = metal_state.setup_fft("radix2_dit_butterfly_u256", &twiddles).unwrap();
 
                 let mut result = metal_state.execute_fft(poly.coefficients(), command_buff_encoder).unwrap();
                 in_place_bit_reverse_permute(&mut result);
 
                 prop_assert_eq!(&result[..], &expected[..]);
-
                 Ok(())
             }).unwrap();
         }
@@ -247,11 +245,12 @@ mod tests {
         #[ignore]
         #[test]
         fn test_gpu_twiddles_match_cpu(order in powers_of_two(4)) {
+            type F256 = U256MontgomeryTwoAdicPrimeField;
             objc::rc::autoreleasepool(|| {
-                let cpu_twiddles = F::get_twiddles(order as u64, RootsConfig::Natural).unwrap();
+                let cpu_twiddles = F256::get_twiddles(order as u64, RootsConfig::Natural).unwrap();
 
                 let metal_state = FFTMetalState::new(None).unwrap();
-                let gpu_twiddles = metal_state.gen_twiddles::<F>(order as u64).unwrap();
+                let gpu_twiddles = metal_state.gen_twiddles::<F256>(order as u64).unwrap();
 
                 prop_assert_eq!(cpu_twiddles, gpu_twiddles);
                 Ok(())
