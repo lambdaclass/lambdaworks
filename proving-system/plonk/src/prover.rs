@@ -487,7 +487,7 @@ mod tests {
     use crate::{
         test_utils::FpElement,
         test_utils::{
-            test_common_preprocessed_input_1, test_srs_1, FrElement, KZG, test_witness_1,
+            test_common_preprocessed_input_1, test_srs_1, test_witness_1, FrElement, KZG,
         },
     };
 

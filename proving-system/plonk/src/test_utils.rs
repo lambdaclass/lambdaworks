@@ -81,7 +81,9 @@ pub fn test_common_preprocessed_input_1() -> CommonPreprocessedInput<FrField> {
 
     let permutation = vec![11, 3, 0, 1, 2, 4, 6, 10, 5, 8, 7, 9];
     let identity = identity_permutation(w, n);
-    let permuted: Vec<FrElement> = (0..12).map(|i| identity[permutation[i as usize]].clone()).collect();
+    let permuted: Vec<FrElement> = (0..12)
+        .map(|i| identity[permutation[i as usize]].clone())
+        .collect();
 
     let s1_lagrange: Vec<FrElement> = permuted[..4].to_vec();
     let s2_lagrange: Vec<FrElement> = permuted[4..8].to_vec();
@@ -184,9 +186,13 @@ pub fn test_common_preprocessed_input_2() -> CommonPreprocessedInput<FrField> {
         acc
     });
 
-    let permutation = vec![23, 4, 0, 18, 1, 2, 5, 6, 7, 8, 10, 9, 19, 11, 13, 14, 15, 16, 3, 12, 17, 20, 21, 22];
+    let permutation = vec![
+        23, 4, 0, 18, 1, 2, 5, 6, 7, 8, 10, 9, 19, 11, 13, 14, 15, 16, 3, 12, 17, 20, 21, 22,
+    ];
     let identity = identity_permutation(w, n);
-    let permuted: Vec<FrElement> = (0..24).map(|i| identity[permutation[i as usize]].clone()).collect();
+    let permuted: Vec<FrElement> = (0..24)
+        .map(|i| identity[permutation[i as usize]].clone())
+        .collect();
 
     let s1_lagrange: Vec<FrElement> = permuted[..8].to_vec();
     let s2_lagrange: Vec<FrElement> = permuted[8..16].to_vec();
@@ -203,11 +209,9 @@ pub fn test_common_preprocessed_input_2() -> CommonPreprocessedInput<FrField> {
             &[
                 -FieldElement::one(),
                 -FieldElement::one(),
-
                 FieldElement::zero(),
                 FieldElement::one(),
                 FieldElement::one(),
-
                 FieldElement::zero(),
                 FieldElement::zero(),
                 FieldElement::zero(),
@@ -218,11 +222,9 @@ pub fn test_common_preprocessed_input_2() -> CommonPreprocessedInput<FrField> {
             &[
                 FieldElement::zero(),
                 FieldElement::zero(),
-
                 FieldElement::zero(),
                 FieldElement::zero(),
                 -FieldElement::one(),
-
                 FieldElement::zero(),
                 FieldElement::zero(),
                 FieldElement::zero(),
@@ -233,11 +235,9 @@ pub fn test_common_preprocessed_input_2() -> CommonPreprocessedInput<FrField> {
             &[
                 FieldElement::zero(),
                 FieldElement::zero(),
-
                 -FieldElement::one(),
                 -FieldElement::one(),
                 FieldElement::zero(),
-
                 FieldElement::zero(),
                 FieldElement::zero(),
                 FieldElement::zero(),
@@ -248,11 +248,9 @@ pub fn test_common_preprocessed_input_2() -> CommonPreprocessedInput<FrField> {
             &[
                 FieldElement::zero(),
                 FieldElement::zero(),
-
                 FieldElement::one(),
                 FieldElement::zero(),
                 FieldElement::zero(),
-
                 FieldElement::zero(),
                 FieldElement::zero(),
                 FieldElement::zero(),
@@ -263,11 +261,9 @@ pub fn test_common_preprocessed_input_2() -> CommonPreprocessedInput<FrField> {
             &[
                 FieldElement::zero(),
                 FieldElement::zero(),
-
                 FieldElement::zero(),
                 FieldElement::from(5_u64),
                 FieldElement::zero(),
-
                 FieldElement::zero(),
                 FieldElement::zero(),
                 FieldElement::zero(),
@@ -289,11 +285,9 @@ pub fn test_witness_2() -> Witness<FrField> {
         a: vec![
             FrElement::from(2_u64),
             FrElement::from(11_u64),
-
             FrElement::from(2_u64),
             FrElement::from(6_u64),
             FrElement::from(11_u64),
-
             FrElement::from(2_u64), // Check
             FrElement::from(2_u64), // Check
             FrElement::from(2_u64), // Check
@@ -301,11 +295,9 @@ pub fn test_witness_2() -> Witness<FrField> {
         b: vec![
             FrElement::from(2_u64),
             FrElement::from(2_u64),
-
             FrElement::from(3_u64),
             FrElement::from(2_u64), // Check
             FrElement::from(11_u64),
-
             FrElement::from(2_u64), // Check
             FrElement::from(2_u64), // Check
             FrElement::from(2_u64), // Check
@@ -313,11 +305,9 @@ pub fn test_witness_2() -> Witness<FrField> {
         c: vec![
             FrElement::from(2_u64),
             FrElement::from(2_u64),
-
             FrElement::from(6_u64),
             FrElement::from(11_u64),
             FrElement::from(2_u64),
-
             FrElement::from(2_u64), // Check
             FrElement::from(2_u64), // Check
             FrElement::from(2_u64), // Check

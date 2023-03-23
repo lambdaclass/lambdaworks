@@ -179,7 +179,8 @@ mod tests {
         prover::Prover,
         setup::setup,
         test_utils::{
-            test_common_preprocessed_input_1, test_srs_1, KZG, test_witness_1, test_common_preprocessed_input_2, test_srs_2, test_witness_2,
+            test_common_preprocessed_input_1, test_common_preprocessed_input_2, test_srs_1,
+            test_srs_2, test_witness_1, test_witness_2, KZG,
         },
     };
 

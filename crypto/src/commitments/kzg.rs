@@ -15,8 +15,7 @@ pub struct StructuredReferenceString<G1Point, G2Point> {
     pub powers_secondary_group: [G2Point; 2],
 }
 
-impl<G1Point, G2Point>
-    StructuredReferenceString<G1Point, G2Point>
+impl<G1Point, G2Point> StructuredReferenceString<G1Point, G2Point>
 where
     G1Point: IsGroup,
     G2Point: IsGroup,
@@ -36,9 +35,7 @@ pub struct KateZaveruchaGoldberg<F: IsPrimeField, P: IsPairing> {
     phantom: PhantomData<F>,
 }
 
-impl<F: IsPrimeField, P: IsPairing>
-    KateZaveruchaGoldberg<F, P>
-{
+impl<F: IsPrimeField, P: IsPairing> KateZaveruchaGoldberg<F, P> {
     #[allow(unused)]
     pub fn new(srs: StructuredReferenceString<P::G1Point, P::G2Point>) -> Self {
         Self {
@@ -48,9 +45,7 @@ impl<F: IsPrimeField, P: IsPairing>
     }
 }
 
-impl<F: IsPrimeField, P: IsPairing> IsCommitmentScheme<F>
-    for KateZaveruchaGoldberg<F, P>
-{
+impl<F: IsPrimeField, P: IsPairing> IsCommitmentScheme<F> for KateZaveruchaGoldberg<F, P> {
     type Commitment = P::G1Point;
 
     #[allow(unused)]
