@@ -16,8 +16,7 @@ use lambdaworks_math::{
 use lambdaworks_crypto::commitments::kzg::KateZaveruchaGoldberg;
 use lambdaworks_math::{
     elliptic_curve::short_weierstrass::curves::bls12_381::pairing::BLS12381AtePairing,
-    field::fields::montgomery_backed_prime_fields::IsMontgomeryConfiguration,
-    unsigned_integer::element::U256,
+    field::fields::montgomery_backed_prime_fields::IsModulus, unsigned_integer::element::U256,
 };
 
 pub const ORDER_R: U256 =
@@ -25,7 +24,7 @@ pub const ORDER_R: U256 =
 
 #[derive(Clone, Debug)]
 pub struct FrConfig;
-impl IsMontgomeryConfiguration<4> for FrConfig {
+impl IsModulus<U256> for FrConfig {
     const MODULUS: U256 = ORDER_R;
 }
 

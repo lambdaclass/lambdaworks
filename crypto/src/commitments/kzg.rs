@@ -161,9 +161,7 @@ mod tests {
         },
         field::{
             element::FieldElement,
-            fields::montgomery_backed_prime_fields::{
-                IsMontgomeryConfiguration, MontgomeryBackendPrimeField,
-            },
+            fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
         },
         polynomial::Polynomial,
         unsigned_integer::element::U256,
@@ -176,7 +174,7 @@ mod tests {
 
     #[derive(Clone, Debug)]
     pub struct FrConfig;
-    impl IsMontgomeryConfiguration<4> for FrConfig {
+    impl IsModulus<U256> for FrConfig {
         const MODULUS: U256 =
             U256::from("73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001");
     }
