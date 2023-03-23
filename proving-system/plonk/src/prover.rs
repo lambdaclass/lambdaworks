@@ -162,36 +162,30 @@ where
     fn round_2(
         &self,
         witness: &Witness<F>,
-        CommonPreprocessedInput {
-            n,
-            domain,
-            s1_lagrange,
-            s2_lagrange,
-            s3_lagrange,
-            k1,
-            ..
-        }: &CommonPreprocessedInput<F>,
+        common_preprocesed_input: &CommonPreprocessedInput<F>,
         beta: &FieldElement<F>,
         gamma: &FieldElement<F>,
     ) -> Round2Result<F, CS::Commitment> {
+        let cpi = common_preprocesed_input;
         let mut coefficients: Vec<FieldElement<F>> = vec![FieldElement::one()];
-        let (s1, s2, s3) = (&s1_lagrange, &s2_lagrange, &s3_lagrange);
+        let (s1, s2, s3) = (&cpi.s1_lagrange, &cpi.s2_lagrange, &cpi.s3_lagrange);
 
-        let k2 = k1 * k1;
+        let k2 = &cpi.k1 * &cpi.k1;
 
         let lp = |w: &FieldElement<F>, eta: &FieldElement<F>| w + beta * eta + gamma;
 
-        for i in 0..n - 1 {
+        for i in 0..&cpi.n - 1 {
             let (a_i, b_i, c_i) = (&witness.a[i], &witness.b[i], &witness.c[i]);
-            let num =
-                lp(a_i, &domain[i]) * lp(b_i, &(&domain[i] * k1)) * lp(c_i, &(&domain[i] * &k2));
+            let num = lp(a_i, &cpi.domain[i])
+                * lp(b_i, &(&cpi.domain[i] * &cpi.k1))
+                * lp(c_i, &(&cpi.domain[i] * &k2));
             let den = lp(a_i, &s1[i]) * lp(b_i, &s2[i]) * lp(c_i, &s3[i]);
             let new_factor = num / den;
             let new_term = coefficients.last().unwrap() * &new_factor;
             coefficients.push(new_term);
         }
 
-        let p_z = Polynomial::interpolate(domain, &coefficients);
+        let p_z = Polynomial::interpolate(&cpi.domain, &coefficients);
         let z_1 = self.commitment_scheme.commit(&p_z);
         Round2Result {
             z_1,
@@ -203,65 +197,52 @@ where
 
     fn round_3(
         &self,
-        CommonPreprocessedInput {
-            ql,
-            qr,
-            qo,
-            qm,
-            qc,
-            s1,
-            s2,
-            s3,
-            n,
-            k1,
-            domain,
-            ..
-        }: &CommonPreprocessedInput<F>,
+        common_preprocesed_input: &CommonPreprocessedInput<F>,
         public_input: &[FieldElement<F>],
         Round1Result { p_a, p_b, p_c, .. }: &Round1Result<F, CS::Commitment>,
-        Round2Result {
-            p_z, beta, gamma, ..
-        }: &Round2Result<F, CS::Commitment>,
+        Round2Result { p_z, beta, gamma, .. }: &Round2Result<F, CS::Commitment>,
         alpha: &FieldElement<F>,
     ) -> Round3Result<F, CS::Commitment> {
-        let k2 = k1 * k1;
+        let cpi = common_preprocesed_input;
+        let k2 = &cpi.k1 * &cpi.k1;
 
         let one = Polynomial::new_monomial(FieldElement::one(), 0);
         let p_x = &Polynomial::new_monomial(FieldElement::one(), 1);
-        let zh = Polynomial::new_monomial(FieldElement::one(), *n) - &one;
+        let zh = Polynomial::new_monomial(FieldElement::one(), cpi.n) - &one;
 
         let z_x_omega_coefficients: Vec<FieldElement<F>> = p_z
             .coefficients()
             .iter()
             .enumerate()
-            .map(|(i, x)| x * &domain[i])
+            .map(|(i, x)| x * &cpi.domain[i])
             .collect();
         let z_x_omega = Polynomial::new(&z_x_omega_coefficients);
-        let mut e1 = vec![FieldElement::zero(); domain.len()];
+        let mut e1 = vec![FieldElement::zero(); cpi.domain.len()];
         e1[0] = FieldElement::one();
-        let l1 = Polynomial::interpolate(domain, &e1);
+        let l1 = Polynomial::interpolate(&cpi.domain, &e1);
         let mut p_pi_y = public_input.to_vec();
-        p_pi_y.append(&mut vec![FieldElement::zero(); n - public_input.len()]);
-        let p_pi = Polynomial::interpolate(domain, &p_pi_y);
+        p_pi_y.append(&mut vec![FieldElement::zero(); cpi.n - public_input.len()]);
+        let p_pi = Polynomial::interpolate(&cpi.domain, &p_pi_y);
 
-        let p_constraints = p_a * p_b * qm + p_a * ql + p_b * qr + p_c * qo + qc + p_pi;
+        let p_constraints =
+            p_a * p_b * &cpi.qm + p_a * &cpi.ql + p_b * &cpi.qr + p_c * &cpi.qo + &cpi.qc + p_pi;
         let f = (p_a + p_x * beta + gamma)
-            * (p_b + p_x * beta * k1 + gamma)
+            * (p_b + p_x * beta * &cpi.k1 + gamma)
             * (p_c + p_x * beta * k2 + gamma);
-        let g = (p_a + s1 * beta + gamma) * (p_b + s2 * beta + gamma) * (p_c + s3 * beta + gamma);
-        let p_permutation_1 = g * z_x_omega - f * p_z; // TODO: Paper says this term is minus the term found on gnark. This doesn't affect the protocol.
+        let g = (p_a + &cpi.s1 * beta + gamma)
+            * (p_b + &cpi.s2 * beta + gamma)
+            * (p_c + &cpi.s3 * beta + gamma);
+        let p_permutation_1 = g * z_x_omega - f * p_z;
         let p_permutation_2 = (p_z - one) * &l1;
 
         let p = ((&p_permutation_2 * alpha) + p_permutation_1) * alpha + p_constraints;
 
-        //let mut t = p / zh;
-        let (mut t, remainder) = p.long_division_with_remainder(&zh);
-        assert_eq!(remainder, Polynomial::zero());
+        let mut t = p / zh;
 
-        Polynomial::pad_with_zero_coefficients_to_length(&mut t, 3 * (n + 2));
-        let p_t_lo = Polynomial::new(&t.coefficients[..n + 2]);
-        let p_t_mid = Polynomial::new(&t.coefficients[n + 2..2 * (n + 2)]);
-        let p_t_hi = Polynomial::new(&t.coefficients[2 * (n + 2)..3 * (n + 2)]);
+        Polynomial::pad_with_zero_coefficients_to_length(&mut t, 3 * (&cpi.n + 2));
+        let p_t_lo = Polynomial::new(&t.coefficients[..&cpi.n + 2]);
+        let p_t_mid = Polynomial::new(&t.coefficients[&cpi.n + 2..2 * (&cpi.n + 2)]);
+        let p_t_hi = Polynomial::new(&t.coefficients[2 * (&cpi.n + 2)..3 * (&cpi.n + 2)]);
 
         let t_lo_1 = self.commitment_scheme.commit(&p_t_lo);
         let t_mid_1 = self.commitment_scheme.commit(&p_t_mid);
@@ -304,88 +285,64 @@ where
 
     fn round_5(
         &self,
-        CommonPreprocessedInput {
-            ql,
-            qr,
-            qo,
-            qm,
-            qc,
-            s1,
-            s2,
-            s3,
-            n,
-            k1,
-            omega,
-            ..
-        }: &CommonPreprocessedInput<F>,
-        Round1Result { p_a, p_b, p_c, .. }: &Round1Result<F, CS::Commitment>,
-        Round2Result {
-            p_z, beta, gamma, ..
-        }: &Round2Result<F, CS::Commitment>,
-        Round3Result {
-            p_t_lo,
-            p_t_mid,
-            p_t_hi,
-            alpha,
-            ..
-        }: &Round3Result<F, CS::Commitment>,
-        Round4Result {
-            a_zeta,
-            b_zeta,
-            c_zeta,
-            s1_zeta,
-            s2_zeta,
-            z_zeta_omega,
-            zeta,
-        }: &Round4Result<F>,
+        common_preprocessed_input: &CommonPreprocessedInput<F>,
+        round_1: &Round1Result<F, CS::Commitment>,
+        round_2: &Round2Result<F, CS::Commitment>,
+        round_3: &Round3Result<F, CS::Commitment>,
+        round_4: &Round4Result<F>,
         upsilon: &FieldElement<F>,
     ) -> Round5Result<F, CS::Commitment> {
+        let cpi = common_preprocessed_input;
+        let (r1, r2, r3, r4) = (round_1, round_2, round_3, round_4);
         // Precompute variables
-        let k2 = k1 * k1;
-        let zeta_raised_n = Polynomial::new_monomial(zeta.pow(n + 2), 0); // TODO: Paper says n and 2n, but Gnark uses n+2 and 2n+4 (see the TODO(*))
-        let zeta_raised_2n = Polynomial::new_monomial(zeta.pow(2 * n + 4), 0);
+        let k2 = &cpi.k1 * &cpi.k1;
+        let zeta_raised_n = Polynomial::new_monomial(r4.zeta.pow(cpi.n + 2), 0); // TODO: Paper says n and 2n, but Gnark uses n+2 and 2n+4 (see the TODO(*))
+        let zeta_raised_2n = Polynomial::new_monomial(r4.zeta.pow(2 * cpi.n + 4), 0);
 
-        let l1_zeta = (zeta.pow(*n as u64) - FieldElement::one())
-            / (zeta - FieldElement::one())
-            / FieldElement::from(*n as u64);
+        let l1_zeta = (&r4.zeta.pow(cpi.n as u64) - FieldElement::one())
+            / (&r4.zeta - FieldElement::one())
+            / FieldElement::from(cpi.n as u64);
 
-        let mut p_non_constant =
-            qm * a_zeta * b_zeta + a_zeta * ql + b_zeta * qr + c_zeta * qo + qc;
+        let mut p_non_constant = &cpi.qm * &r4.a_zeta * &r4.b_zeta
+            + &r4.a_zeta * &cpi.ql
+            + &r4.b_zeta * &cpi.qr
+            + &r4.c_zeta * &cpi.qo
+            + &cpi.qc;
 
-        let r_2_1 = (a_zeta + beta * zeta + gamma)
-            * (b_zeta + beta * k1 * zeta + gamma)
-            * (c_zeta + beta * &k2 * zeta + gamma)
-            * p_z;
-        let r_2_2 = (a_zeta + beta * s1_zeta + gamma)
-            * (b_zeta + beta * s2_zeta + gamma)
-            * beta
-            * z_zeta_omega
-            * s3;
-        p_non_constant = p_non_constant + (r_2_2 - r_2_1) * alpha;
+        let r_2_1 = (&r4.a_zeta + &r2.beta * &r4.zeta + &r2.gamma)
+            * (&r4.b_zeta + &r2.beta * &cpi.k1 * &r4.zeta + &r2.gamma)
+            * (&r4.c_zeta + &r2.beta * &k2 * &r4.zeta + &r2.gamma)
+            * &r2.p_z;
+        let r_2_2 = (&r4.a_zeta + &r2.beta * &r4.s1_zeta + &r2.gamma)
+            * (&r4.b_zeta + &r2.beta * &r4.s2_zeta + &r2.gamma)
+            * &r2.beta
+            * &r4.z_zeta_omega
+            * &cpi.s3;
+        p_non_constant = p_non_constant + (r_2_2 - r_2_1) * &r3.alpha;
 
-        let r_3 = p_z * l1_zeta;
-        p_non_constant = p_non_constant + (r_3 * alpha * alpha);
+        let r_3 = &r2.p_z * l1_zeta;
+        p_non_constant = p_non_constant + (r_3 * &r3.alpha * &r3.alpha);
 
-        let partial_t = p_t_lo + zeta_raised_n * p_t_mid + zeta_raised_2n * p_t_hi;
+        let partial_t = &r3.p_t_lo + zeta_raised_n * &r3.p_t_mid + zeta_raised_2n * &r3.p_t_hi;
 
         // TODO: Refactor to remove clones.
         let polynomials = vec![
             partial_t,
             p_non_constant,
-            p_a.clone(),
-            p_b.clone(),
-            p_c.clone(),
-            s1.clone(),
-            s2.clone(),
+            r1.p_a.clone(),
+            r1.p_b.clone(),
+            r1.p_c.clone(),
+            cpi.s1.clone(),
+            cpi.s2.clone(),
         ];
-        let ys: Vec<FieldElement<F>> = polynomials.iter().map(|p| p.evaluate(zeta)).collect();
+        let ys: Vec<FieldElement<F>> = polynomials.iter().map(|p| p.evaluate(&&r4.zeta)).collect();
         let w_zeta_1 = self
             .commitment_scheme
-            .open_batch(zeta, &ys, &polynomials, upsilon);
+            .open_batch(&&r4.zeta, &ys, &polynomials, upsilon);
 
-        let w_zeta_omega_1 = self
-            .commitment_scheme
-            .open(&(zeta * omega), z_zeta_omega, p_z);
+        let w_zeta_omega_1 =
+            self.commitment_scheme
+                .open(&(&r4.zeta * &cpi.omega), &r4.z_zeta_omega, &r2.p_z);
 
         Round5Result {
             w_zeta_1,
@@ -436,9 +393,6 @@ where
         // Round 4
         let zeta = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
         let round_4 = self.round_4(common_preprocesed_input, &round_1, &round_2, &zeta);
-
-        // TODO: Should we append something to the transcript here? This step does not return any commitment.
-        // But the next step receives a new challenge `upsilon`
 
         // Round 5
         let upsilon = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
