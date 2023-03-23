@@ -54,6 +54,12 @@ impl PyU64MerkleTree {
 
         Some(PyU64Proof::from(x))
     }
+
+    pub fn get_proof_by_pos(&self, pos: usize) -> Option<PyU64Proof>{
+        let proof = self.0.get_proof_by_pos(pos)?;
+
+        Some(PyU64Proof::from(proof))
+    }
 }
 
 #[pyclass(name = "MerkleTreeDefault")]
@@ -75,4 +81,16 @@ impl PyMerkleTreeDefault {
             values.as_slice(),
         )))
     }
+
+    // pub fn get_proof(&self, value: &PyBLS12381PrimeFieldElement) -> Option<PyBLS12381Proof> {
+    //     let x = self.0.get_proof(&value.0)?;
+
+    //     Some(PyBLS12381Proof::from(x))
+    // }
+
+    // pub fn get_proof_by_pos(&self, pos: usize) -> Option<PyBLS12381Proof>{
+    //     let proof = self.0.get_proof_by_pos(pos)?;
+
+    //     Some(PyBLS12381Proof::from(proof))
+    //}
 }
