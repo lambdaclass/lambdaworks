@@ -223,7 +223,7 @@ mod tests {
             &verifying_key,
         );
 
-        let verifier = Verifier::new(kzg.clone());
+        let verifier = Verifier::new(kzg);
         assert!(verifier.verify(
             &proof,
             &public_input,
@@ -245,7 +245,7 @@ mod tests {
         // Private variable
         let e = FieldElement::from(3_u64);
 
-        let public_input = vec![x.clone(), y.clone()];
+        let public_input = vec![x.clone(), y];
         let witness = test_witness_2(x, e);
 
         let kzg = KZG::new(srs);

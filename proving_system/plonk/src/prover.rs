@@ -292,7 +292,7 @@ where
         round_2: &Round2Result<F, CS::Commitment>,
         round_3: &Round3Result<F, CS::Commitment>,
         round_4: &Round4Result<F>,
-        upsilon: &FieldElement<F>,
+        upsilon: FieldElement<F>,
     ) -> Round5Result<F, CS::Commitment> {
         let cpi = common_preprocessed_input;
         let (r1, r2, r3, r4) = (round_1, round_2, round_3, round_4);
@@ -340,7 +340,7 @@ where
         let ys: Vec<FieldElement<F>> = polynomials.iter().map(|p| p.evaluate(&r4.zeta)).collect();
         let w_zeta_1 = self
             .commitment_scheme
-            .open_batch(&r4.zeta, &ys, &polynomials, upsilon);
+            .open_batch(&r4.zeta, &ys, &polynomials, &upsilon);
 
         let w_zeta_omega_1 =
             self.commitment_scheme
@@ -410,7 +410,7 @@ where
             &round_2,
             &round_3,
             &round_4,
-            &upsilon,
+            upsilon,
         );
 
         Proof {
@@ -621,7 +621,7 @@ mod tests {
             &round_2,
             &round_3,
             &round_4,
-            &upsilon(),
+            upsilon(),
         );
         assert_eq!(round_5.w_zeta_1, expected_w_zeta_1);
         assert_eq!(round_5.w_zeta_omega_1, expected_w_zeta_omega_1);
