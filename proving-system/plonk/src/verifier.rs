@@ -185,12 +185,20 @@ mod tests {
     };
 
     #[test]
-    fn test_verifier() {
+    fn test_happy_path_for_circuit_1() {
+        // This is the circuit for x * e == y
         let common_preprocesed_input = test_common_preprocessed_input_1();
         let srs = test_srs_1();
-        let witness = test_witness_1();
 
-        let public_input = vec![FieldElement::from(2_u64), FieldElement::from(4)];
+        // Public input
+        let x = FieldElement::from(4_u64);
+        let y = FieldElement::from(12_u64);
+
+        // Private variable
+        let e = FieldElement::from(3_u64);
+
+        let public_input = vec![x.clone(), y];
+        let witness = test_witness_1(x, e);
 
         let kzg = KZG::new(srs);
         let verifying_key = setup(&common_preprocesed_input, &kzg);
@@ -208,11 +216,20 @@ mod tests {
     }
 
     #[test]
-    fn test_verifier_2() {
+    fn test_happy_path_for_circuit_2() {
+        // This is the circuit for x * e + 5 == y
         let common_preprocesed_input = test_common_preprocessed_input_2();
         let srs = test_srs_2();
-        let witness = test_witness_2();
-        let public_input = vec![FieldElement::from(2_u64), FieldElement::from(11)];
+
+        // Public input
+        let x = FieldElement::from(2_u64);
+        let y = FieldElement::from(11_u64);
+
+        // Private variable
+        let e = FieldElement::from(3_u64);
+
+        let public_input = vec![x.clone(), y.clone()];
+        let witness = test_witness_2(x, e);
 
         let kzg = KZG::new(srs);
         let verifying_key = setup(&common_preprocesed_input, &kzg);

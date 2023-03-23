@@ -151,25 +151,27 @@ pub fn test_common_preprocessed_input_1() -> CommonPreprocessedInput<FrField> {
     }
 }
 
-pub fn test_witness_1() -> Witness<FrField> {
+pub fn test_witness_1(x: FrElement, e: FrElement) -> Witness<FrField> {
+    let y = &x * &e;
+    let empty = x.clone();
     Witness {
         a: vec![
-            FrElement::from(2_u64),
-            FrElement::from(4_u64),
-            FrElement::from(2_u64),
-            FrElement::from(4_u64),
+            x.clone(), // Public input
+            y.clone(), // Public input
+            x.clone(), // LHS for multiplication
+            y,         // LHS for ==
         ],
         b: vec![
-            FrElement::from(2_u64),
-            FrElement::from(2_u64),
-            FrElement::from(2_u64),
-            FrElement::from(4_u64),
+            empty.clone(),
+            empty.clone(),
+            e.clone(), // RHS for multiplication
+            &x * &e,   // RHS for ==
         ],
         c: vec![
-            FrElement::from(2_u64),
-            FrElement::from(2_u64),
-            FrElement::from(4_u64),
-            FrElement::from(2_u64),
+            empty.clone(),
+            empty.clone(),
+            &x * &e, // Output of multiplication
+            empty,
         ],
     }
 }
@@ -280,37 +282,37 @@ pub fn test_common_preprocessed_input_2() -> CommonPreprocessedInput<FrField> {
     }
 }
 
-pub fn test_witness_2() -> Witness<FrField> {
+pub fn test_witness_2(x: FrElement, e: FrElement) -> Witness<FrField> {
     Witness {
         a: vec![
-            FrElement::from(2_u64),
-            FrElement::from(11_u64),
-            FrElement::from(2_u64),
-            FrElement::from(6_u64),
-            FrElement::from(11_u64),
-            FrElement::from(2_u64), // Check
-            FrElement::from(2_u64), // Check
-            FrElement::from(2_u64), // Check
+            x.clone(),
+            &x * &e + FieldElement::from(5_u64),
+            x.clone(),
+            &x * &e,
+            &x * &e + FieldElement::from(5_u64),
+            x.clone(),
+            x.clone(),
+            x.clone(),
         ],
         b: vec![
-            FrElement::from(2_u64),
-            FrElement::from(2_u64),
-            FrElement::from(3_u64),
-            FrElement::from(2_u64), // Check
-            FrElement::from(11_u64),
-            FrElement::from(2_u64), // Check
-            FrElement::from(2_u64), // Check
-            FrElement::from(2_u64), // Check
+            x.clone(),
+            x.clone(),
+            e.clone(),
+            x.clone(),
+            &x * &e + FieldElement::from(5_u64),
+            x.clone(),
+            x.clone(),
+            x.clone(),
         ],
         c: vec![
-            FrElement::from(2_u64),
-            FrElement::from(2_u64),
-            FrElement::from(6_u64),
-            FrElement::from(11_u64),
-            FrElement::from(2_u64),
-            FrElement::from(2_u64), // Check
-            FrElement::from(2_u64), // Check
-            FrElement::from(2_u64), // Check
+            x.clone(),
+            x.clone(),
+            &x * &e,
+            &x * &e + FieldElement::from(5_u64),
+            x.clone(),
+            x.clone(),
+            x.clone(),
+            x,
         ],
     }
 }
