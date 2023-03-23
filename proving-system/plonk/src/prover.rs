@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::setup::{Circuit, CommonPreprocessedInput, Witness};
+use crate::setup::{CommonPreprocessedInput, Witness};
 use lambdaworks_crypto::{
     commitments::traits::IsCommitmentScheme, fiat_shamir::transcript::Transcript,
 };
@@ -357,7 +357,6 @@ where
     #[allow(unused)]
     pub fn prove(
         &self,
-        circuit: &Circuit,
         witness: &Witness<F>,
         public_input: &[FieldElement<F>],
         common_preprocesed_input: &CommonPreprocessedInput<F>,
@@ -479,7 +478,7 @@ mod tests {
 
     #[test]
     fn test_round_1() {
-        let witness = test_witness_1();
+        let witness = test_witness_1(FrElement::from(2), FrElement::from(2));
         let common_preprocesed_input = test_common_preprocessed_input_1();
         let srs = test_srs_1();
         let kzg = KZG::new(srs);
@@ -504,7 +503,7 @@ mod tests {
 
     #[test]
     fn test_round_2() {
-        let witness = test_witness_1();
+        let witness = test_witness_1(FrElement::from(2), FrElement::from(2));
         let common_preprocesed_input = test_common_preprocessed_input_1();
         let srs = test_srs_1();
         let kzg = KZG::new(srs);
@@ -520,7 +519,7 @@ mod tests {
 
     #[test]
     fn test_round_3() {
-        let witness = test_witness_1();
+        let witness = test_witness_1(FrElement::from(2), FrElement::from(2));
         let common_preprocesed_input = test_common_preprocessed_input_1();
         let srs = test_srs_1();
         let kzg = KZG::new(srs);
@@ -553,7 +552,7 @@ mod tests {
 
     #[test]
     fn test_round_4() {
-        let witness = test_witness_1();
+        let witness = test_witness_1(FrElement::from(2), FrElement::from(2));
         let common_preprocesed_input = test_common_preprocessed_input_1();
         let srs = test_srs_1();
         let kzg = KZG::new(srs);
@@ -586,7 +585,7 @@ mod tests {
 
     #[test]
     fn test_round_5() {
-        let witness = test_witness_1();
+        let witness = test_witness_1(FrElement::from(2), FrElement::from(2));
         let common_preprocesed_input = test_common_preprocessed_input_1();
         let srs = test_srs_1();
         let kzg = KZG::new(srs);

@@ -187,29 +187,63 @@ mod tests {
         prover::Prover,
         setup::setup,
         test_utils::{
-            test_circuit_1, test_common_preprocessed_input_1, test_srs_1, test_witness_1, KZG,
+            test_common_preprocessed_input_1, test_common_preprocessed_input_2, test_srs_1,
+            test_srs_2, test_witness_1, test_witness_2, KZG,
         },
     };
 
     #[test]
-    fn test_verifier() {
-        let test_circuit = test_circuit_1();
+    fn test_happy_path_for_circuit_1() {
+        // This is the circuit for x * e == y
         let common_preprocesed_input = test_common_preprocessed_input_1();
         let srs = test_srs_1();
-        let witness = test_witness_1();
 
-        let public_input = vec![FieldElement::from(2_u64), FieldElement::from(4)];
+        // Public input
+        let x = FieldElement::from(4_u64);
+        let y = FieldElement::from(12_u64);
+
+        // Private variable
+        let e = FieldElement::from(3_u64);
+
+        let public_input = vec![x.clone(), y];
+        let witness = test_witness_1(x, e);
 
         let kzg = KZG::new(srs);
-        let verifying_key = setup(&common_preprocesed_input, &kzg, &test_circuit);
+        let verifying_key = setup(&common_preprocesed_input, &kzg);
 
         let prover = Prover::new(kzg.clone());
-        let proof = prover.prove(
-            &test_circuit,
-            &witness,
+        let proof = prover.prove(&witness, &public_input, &common_preprocesed_input);
+
+        let verifier = Verifier::new(kzg.clone());
+        assert!(verifier.verify(
+            &proof,
             &public_input,
             &common_preprocesed_input,
-        );
+            &verifying_key
+        ));
+    }
+
+    #[test]
+    fn test_happy_path_for_circuit_2() {
+        // This is the circuit for x * e + 5 == y
+        let common_preprocesed_input = test_common_preprocessed_input_2();
+        let srs = test_srs_2();
+
+        // Public input
+        let x = FieldElement::from(2_u64);
+        let y = FieldElement::from(11_u64);
+
+        // Private variable
+        let e = FieldElement::from(3_u64);
+
+        let public_input = vec![x.clone(), y.clone()];
+        let witness = test_witness_2(x, e);
+
+        let kzg = KZG::new(srs);
+        let verifying_key = setup(&common_preprocesed_input, &kzg);
+
+        let prover = Prover::new(kzg.clone());
+        let proof = prover.prove(&witness, &public_input, &common_preprocesed_input);
 
         let verifier = Verifier::new(kzg);
         assert!(verifier.verify(
