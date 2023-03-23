@@ -7,12 +7,12 @@ use super::trace::TraceTable;
 
 #[derive(Clone, Debug)]
 pub struct Frame<F: IsField> {
-    data: Vec<FieldElement<F>>,
+    data: Vec<Vec<FieldElement<F>>>,
     row_width: usize,
 }
 
 impl<F: IsField> Frame<F> {
-    pub fn new(data: Vec<FieldElement<F>>, row_width: usize) -> Self {
+    pub fn new(data: Vec<Vec<FieldElement<F>>>, row_width: usize) -> Self {
         Self { data, row_width }
     }
 
@@ -93,7 +93,7 @@ impl<F: IsField> Frame<F> {
         let data = Self::get_trace_evaluations(trace_polys, z, frame_offsets, primitive_root);
 
         Self {
-            data: data.into_iter().flatten().collect(),
+            data,
             row_width: trace_polys.len(),
         }
     }

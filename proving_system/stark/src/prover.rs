@@ -65,7 +65,7 @@ where
     let z_squared = &z * &z;
 
     // Create evaluation table
-    let evaluator = ConstraintEvaluator::new(air, &traces_poly, &trace_primitive_root);
+    let evaluator = ConstraintEvaluator::new(air, &trace_polys, &trace_primitive_root);
 
     let alpha_boundary = transcript_to_field(transcript);
     let beta_boundary = transcript_to_field(transcript);
@@ -92,7 +92,7 @@ where
     ];
 
     let trace_ood_frame_evaluations = Frame::<F>::construct_ood_frame(
-        &[trace_poly.clone()],
+        &trace_polys,
         &z,
         &air.context().transition_offsets,
         &trace_primitive_root,
