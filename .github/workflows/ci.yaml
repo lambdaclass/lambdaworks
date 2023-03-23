@@ -1,4 +1,4 @@
-name: Lambdaworks build checks
+name: CI
 on:
   push:
     branches: [ main ]
@@ -10,8 +10,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  check:
-    name: Check
+  build:
+    name: Build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
@@ -29,7 +29,8 @@ jobs:
         with:
           command: check
 
-  coverage:
+  test:
+    name: Test
     runs-on: macos-latest
     env:
       CARGO_TERM_COLOR: always
@@ -50,8 +51,8 @@ jobs:
           files: lcov.info
           fail_ci_if_error: true
 
-  fmt:
-    name: Lints
+  lint:
+    name: Lint
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
@@ -70,13 +71,6 @@ jobs:
         with:
           command: fmt
           args: --all -- --check
-
-  clippy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
-        with:
-            toolchain: stable
-            components: clippy
-      - run: make clippy
+      
+      - name: Run clippy
+        run: make clippy
