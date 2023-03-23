@@ -61,7 +61,7 @@ pub fn fft<F: IsTwoAdicField>(
 /// Generates 2^{`order`} naturally-ordered twiddle factors in parallel, in Metal.
 pub fn gen_twiddles<F: IsTwoAdicField>(
     order: u64,
-    state: MetalState,
+    state: &MetalState,
 ) -> Result<Vec<FieldElement<F>>, FFTMetalError> {
     let len = (1 << order) / 2;
 
@@ -139,7 +139,7 @@ mod tests {
                 let twiddles = F::get_twiddles(order, RootsConfig::BitReverse).unwrap();
                 let result = fft(poly.coefficients(), &twiddles, metal_state).unwrap();
 
-                prop_assert_eq!(&result[..], &expected[..]);
+                prop_assert_eq!(&result, &expected);
 
                 Ok(())
             }).unwrap();
@@ -155,7 +155,7 @@ mod tests {
                 let cpu_twiddles = F::get_twiddles(order as u64, RootsConfig::Natural).unwrap();
 
                 let metal_state = MetalState::new(None).unwrap();
-                let gpu_twiddles = gen_twiddles::<F>(order as u64, metal_state).unwrap();
+                let gpu_twiddles = gen_twiddles::<F>(order as u64, &metal_state).unwrap();
 
                 prop_assert_eq!(cpu_twiddles, gpu_twiddles);
                 Ok(())
