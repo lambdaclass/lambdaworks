@@ -8,6 +8,22 @@ use lambdaworks_math::{field::element::FieldElement, polynomial::Polynomial};
 use lambdaworks_math::{field::traits::IsField, traits::ByteConversion};
 
 /// Plonk proof.
+/// The challenges are denoted
+///     Round 2: β,γ,
+///     Round 3: α,
+///     Round 4: ζ,
+///     Round 5: υ.
+/// Here `Z_H` denotes the domain polynomial, `z` is the polynomial
+/// that encodes the copy constraints, and `p` is the sum of `z` and
+/// the polynomial that encodes the gates constraints.
+/// The polynomial `t` is defined as `p / Z_H`.
+/// `a`, `b`, and `c` are the wire assignment polynomials.
+/// `S_σ1(ζ), S_σ2(ζ) and S_σ3(ζ)` are the copy permutation polynomials.
+/// The polynomial `p` can be "linearized" and the result can be written as
+/// `linearized_p = p_non_constant + p_constant`, where
+/// `p_non_constant` is the sum of all the terms with a "non-constant"
+/// polynomial factor, such as `b(ζ)Q_R(X)`, and `p_constant` is the
+/// sum of all the rest (such as `PI(ζ)`).
 #[allow(unused)]
 pub struct Proof<F: IsField, CS: IsCommitmentScheme<F>> {
     // Round 1.
@@ -20,7 +36,7 @@ pub struct Proof<F: IsField, CS: IsCommitmentScheme<F>> {
 
     /// Round 2.
     /// Commitment to the copy constraints polynomial `z(x)`
-    pub z_1: CS::Commitment, 
+    pub z_1: CS::Commitment,
 
     // Round 3.
     /// Commitment to the low part of the quotient polynomial t(X)
@@ -32,7 +48,7 @@ pub struct Proof<F: IsField, CS: IsCommitmentScheme<F>> {
 
     // Round 4.
     /// Value of `a(ζ)`.
-    pub a_zeta: FieldElement<F>, 
+    pub a_zeta: FieldElement<F>,
     /// Value of `b(ζ)`.
     pub b_zeta: FieldElement<F>,
     /// Value of `c(ζ)`.
@@ -45,13 +61,14 @@ pub struct Proof<F: IsField, CS: IsCommitmentScheme<F>> {
     pub z_zeta_omega: FieldElement<F>,
 
     // Round 5
-    /// Value of `p_{nc}(ζ)`.
+    /// Value of `p_non_constant(ζ)`.
     pub p_non_constant_zeta: FieldElement<F>,
     ///  Value of `t(ζ)`.
-    pub t_zeta: FieldElement<F>, //.
-    pub w_zeta_1: CS::Commitment, // Batch opening proof for all the evaluations at ζ
-    pub w_zeta_omega_1: CS::Commitment, // Single opening proof for `z(ζω)`.
-
+    pub t_zeta: FieldElement<F>,
+    /// Batch opening proof for all the evaluations at ζ
+    pub w_zeta_1: CS::Commitment,
+    /// Single opening proof for `z(ζω)`.
+    pub w_zeta_omega_1: CS::Commitment,
 }
 
 pub struct Prover<F: IsField, CS: IsCommitmentScheme<F>> {
@@ -101,7 +118,6 @@ struct Round5Result<F: IsField, Hiding> {
     p_non_constant_zeta: FieldElement<F>,
     t_zeta: FieldElement<F>,
 }
-
 
 impl<F, CS> Prover<F, CS>
 where
@@ -333,7 +349,8 @@ where
             / (zeta - FieldElement::one())
             / FieldElement::from(*n as u64);
 
-        let mut p_non_constant = qm * a_zeta * b_zeta + a_zeta * ql + b_zeta * qr + c_zeta * qo + qc;
+        let mut p_non_constant =
+            qm * a_zeta * b_zeta + a_zeta * ql + b_zeta * qr + c_zeta * qo + qc;
 
         let r_2_1 = (a_zeta + beta * zeta + gamma)
             * (b_zeta + beta * k1 * zeta + gamma)
@@ -352,16 +369,23 @@ where
         let partial_t = p_t_lo + zeta_raised_n * p_t_mid + zeta_raised_2n * p_t_hi;
 
         // TODO: Refactor to remove clones.
-        let polynomials = vec![partial_t, p_non_constant, p_a.clone(), p_b.clone(), p_c.clone(), s1.clone(), s2.clone()];
+        let polynomials = vec![
+            partial_t,
+            p_non_constant,
+            p_a.clone(),
+            p_b.clone(),
+            p_c.clone(),
+            s1.clone(),
+            s2.clone(),
+        ];
         let ys: Vec<FieldElement<F>> = polynomials.iter().map(|p| p.evaluate(zeta)).collect();
-        let w_zeta_1 = self.commitment_scheme.open_batch(
-            zeta,
-            &ys,
-            &polynomials,
-            upsilon
-        );
+        let w_zeta_1 = self
+            .commitment_scheme
+            .open_batch(zeta, &ys, &polynomials, upsilon);
 
-        let w_zeta_omega_1 = self.commitment_scheme.open(&(zeta * omega), z_zeta_omega, p_z);
+        let w_zeta_omega_1 = self
+            .commitment_scheme
+            .open(&(zeta * omega), z_zeta_omega, p_z);
 
         Round5Result {
             w_zeta_1,
@@ -371,18 +395,6 @@ where
         }
     }
 
-    /// The challenges are denoted 
-    ///     Round 2: β,γ,
-    ///     Round 3: α,
-    ///     Round 4: ζ,
-    ///     Round 5: υ.
-    /// `p` is the polynomial such that `t = p / Z_H`. It
-    /// encodes both the circuit constraints and the copy constraints.
-    /// The polynomial `p` can be "linearized" and the result can be 
-    /// written as `linearized_p = p_non_constant + p_constant`, where 
-    /// `p_non_constant` is the sum of all the terms with a "non-constant" 
-    /// polynomial factor, such as `b(ζ)Q_R(X)`, and `p_constant` is the 
-    /// sum of all the rest (such as `PI(ζ)`).
     #[allow(unused)]
     pub fn prove(
         &self,
@@ -431,7 +443,7 @@ where
         // Round 5
         let upsilon = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
         let round_5 = self.round_5(
-            &common_preprocesed_input,
+            common_preprocesed_input,
             &round_1,
             &round_2,
             &round_3,
@@ -476,7 +488,7 @@ mod tests {
     use crate::{
         test_utils::FpElement,
         test_utils::{
-            test_circuit_1, test_common_preprocessed_input_1, test_srs_1, FrElement, KZG, test_witness_1,
+            test_common_preprocessed_input_1, test_srs_1, test_witness_1, FrElement, KZG,
         },
     };
 
@@ -504,7 +516,6 @@ mod tests {
 
     #[test]
     fn test_round_1() {
-        let test_circuit_1 = test_circuit_1();
         let witness = test_witness_1();
         let common_preprocesed_input = test_common_preprocessed_input_1();
         let srs = test_srs_1();
@@ -530,7 +541,6 @@ mod tests {
 
     #[test]
     fn test_round_2() {
-        let test_circuit_1 = test_circuit_1();
         let witness = test_witness_1();
         let common_preprocesed_input = test_common_preprocessed_input_1();
         let srs = test_srs_1();
@@ -547,7 +557,6 @@ mod tests {
 
     #[test]
     fn test_round_3() {
-        let test_circuit_1 = test_circuit_1();
         let witness = test_witness_1();
         let common_preprocesed_input = test_common_preprocessed_input_1();
         let srs = test_srs_1();
@@ -581,7 +590,6 @@ mod tests {
 
     #[test]
     fn test_round_4() {
-        let test_circuit_1 = test_circuit_1();
         let witness = test_witness_1();
         let common_preprocesed_input = test_common_preprocessed_input_1();
         let srs = test_srs_1();
@@ -615,7 +623,6 @@ mod tests {
 
     #[test]
     fn test_round_5() {
-        let test_circuit_1 = test_circuit_1();
         let witness = test_witness_1();
         let common_preprocesed_input = test_common_preprocessed_input_1();
         let srs = test_srs_1();

@@ -8,8 +8,19 @@ pub trait IsCommitmentScheme<F: IsField> {
 
     fn commit(&self, p: &Polynomial<FieldElement<F>>) -> Self::Commitment;
 
-    fn open(&self, x: &FieldElement<F>, y: &FieldElement<F>, p: &Polynomial<FieldElement<F>>) -> Self::Commitment;
-    fn open_batch(&self, x: &FieldElement<F>, y: &[FieldElement<F>], p: &[Polynomial<FieldElement<F>>], upsilon: &FieldElement<F>) -> Self::Commitment;
+    fn open(
+        &self,
+        x: &FieldElement<F>,
+        y: &FieldElement<F>,
+        p: &Polynomial<FieldElement<F>>,
+    ) -> Self::Commitment;
+    fn open_batch(
+        &self,
+        x: &FieldElement<F>,
+        y: &[FieldElement<F>],
+        p: &[Polynomial<FieldElement<F>>],
+        upsilon: &FieldElement<F>,
+    ) -> Self::Commitment;
 
     fn verify(
         &self,
@@ -25,6 +36,6 @@ pub trait IsCommitmentScheme<F: IsField> {
         ys: &[FieldElement<F>],
         p_commitments: &[Self::Commitment],
         proof: &Self::Commitment,
-        upsilon: &FieldElement<F>
+        upsilon: &FieldElement<F>,
     ) -> bool;
 }

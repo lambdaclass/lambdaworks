@@ -1,8 +1,6 @@
 use lambdaworks_crypto::commitments::traits::IsCommitmentScheme;
+use lambdaworks_math::field::{element::FieldElement, traits::IsField};
 use lambdaworks_math::polynomial::Polynomial;
-use lambdaworks_math::{
-    field::{element::FieldElement, traits::IsField},
-};
 
 // TODO: implement getters
 pub struct Circuit {

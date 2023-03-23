@@ -9,7 +9,6 @@ use std::marker::PhantomData;
 
 use super::traits::IsCommitmentScheme;
 
-
 #[derive(Clone)]
 pub struct StructuredReferenceString<const MAXIMUM_DEGREE: usize, G1Point, G2Point> {
     pub powers_main_group: Vec<G1Point>,
@@ -68,7 +67,12 @@ impl<const MAXIMUM_DEGREE: usize, F: IsPrimeField, P: IsPairing> IsCommitmentSch
     }
 
     #[allow(unused)]
-    fn open(&self, x: &FieldElement<F>, y: &FieldElement<F>, p: &Polynomial<FieldElement<F>>) -> Self::Commitment {
+    fn open(
+        &self,
+        x: &FieldElement<F>,
+        y: &FieldElement<F>,
+        p: &Polynomial<FieldElement<F>>,
+    ) -> Self::Commitment {
         let value = p.evaluate(x);
         let numerator = p + Polynomial::new_monomial(-&value, 0);
         let denominator = Polynomial::new(&[-x, FieldElement::one()]);
@@ -89,8 +93,7 @@ impl<const MAXIMUM_DEGREE: usize, F: IsPrimeField, P: IsPairing> IsCommitmentSch
 
         let e = P::compute_batch(&[
             (
-                &p_commitment
-                    .operate_with(&(g1.operate_with_self(y.representative())).neg()),
+                &p_commitment.operate_with(&(g1.operate_with_self(y.representative())).neg()),
                 g2,
             ),
             (
@@ -101,15 +104,25 @@ impl<const MAXIMUM_DEGREE: usize, F: IsPrimeField, P: IsPairing> IsCommitmentSch
         e == FieldElement::one()
     }
 
-    fn open_batch(&self, x: &FieldElement<F>, ys: &[FieldElement<F>], polynomials: &[Polynomial<FieldElement<F>>], upsilon: &FieldElement<F>) -> Self::Commitment {
-        let acc_polynomial = polynomials.iter().rev().fold(Polynomial::zero(), |acc, polynomial| {
-            acc * upsilon.to_owned() + polynomial
-        });
+    fn open_batch(
+        &self,
+        x: &FieldElement<F>,
+        ys: &[FieldElement<F>],
+        polynomials: &[Polynomial<FieldElement<F>>],
+        upsilon: &FieldElement<F>,
+    ) -> Self::Commitment {
+        let acc_polynomial = polynomials
+            .iter()
+            .rev()
+            .fold(Polynomial::zero(), |acc, polynomial| {
+                acc * upsilon.to_owned() + polynomial
+            });
 
-        let acc_y = ys.iter().rev().fold(FieldElement::zero(), |acc, y| {
-            acc * upsilon.to_owned() + y
-        });
-    
+        let acc_y = ys
+            .iter()
+            .rev()
+            .fold(FieldElement::zero(), |acc, y| acc * upsilon.to_owned() + y);
+
         self.open(x, &acc_y, &acc_polynomial)
     }
 
@@ -119,15 +132,21 @@ impl<const MAXIMUM_DEGREE: usize, F: IsPrimeField, P: IsPairing> IsCommitmentSch
         ys: &[FieldElement<F>],
         p_commitments: &[Self::Commitment],
         proof: &Self::Commitment,
-        upsilon: &FieldElement<F>
+        upsilon: &FieldElement<F>,
     ) -> bool {
-        let acc_commitment = p_commitments.iter().rev().fold(P::G1Point::neutral_element(), |acc, point| {
-            acc.operate_with_self(upsilon.to_owned().representative()).operate_with(point)
-        });
+        let acc_commitment =
+            p_commitments
+                .iter()
+                .rev()
+                .fold(P::G1Point::neutral_element(), |acc, point| {
+                    acc.operate_with_self(upsilon.to_owned().representative())
+                        .operate_with(point)
+                });
 
-        let acc_y = ys.iter().rev().fold(FieldElement::zero(), |acc, y| {
-            acc * upsilon.to_owned() + y
-        });
+        let acc_y = ys
+            .iter()
+            .rev()
+            .fold(FieldElement::zero(), |acc, y| acc * upsilon.to_owned() + y);
         self.verify(x, &acc_y, &acc_commitment, proof)
     }
 }
@@ -170,6 +189,7 @@ mod tests {
     type G1 = ShortWeierstrassProjectivePoint<BLS12381Curve>;
     type FrField = MontgomeryBackendPrimeField<FrConfig, 4>;
     type FrElement = FieldElement<FrField>;
+    #[allow(clippy::upper_case_acronyms)]
     type KZG = KateZaveruchaGoldberg<100, FrField, BLS12381AtePairing>;
 
     fn create_srs() -> StructuredReferenceString<
