@@ -16,6 +16,7 @@ use super::{
         AIR,
     },
     fri::fri_decommit::FriDecommitment,
+    sample_z_ood,
 };
 
 pub fn verify<F: IsField + IsTwoAdicField, A: AIR + AIR<Field = F>>(
@@ -39,13 +40,22 @@ where
 
     let boundary_constraints = air.compute_boundary_constraints();
 
-    // TODO: Fiat-Shamir
-    let z = FieldElement::<F>::from(2);
-    // TODO: The reason this is commented is we can't just call this function, we have to make sure that the result
-    // is not either a root of unity or an element of the lde coset.
-    // let z = transcript_to_field(transcript);
-
     let domain = boundary_constraints.generate_roots_of_unity(&trace_primitive_root);
+
+    let lde_root_order =
+        (air.context().trace_length * air.options().blowup_factor as usize).trailing_zeros();
+    let lde_roots_of_unity_coset = F::get_powers_of_primitive_root_coset(
+        lde_root_order as u64,
+        air.context().trace_length * air.options().blowup_factor as usize,
+        &FieldElement::<F>::from(air.options().coset_offset),
+    )
+    .unwrap();
+
+    // Fiat-Shamir
+    // we have to make sure that the result is not either
+    // a root of unity or an element of the lde coset.
+    let z = sample_z_ood(&lde_roots_of_unity_coset, &domain, transcript);
+
     // TODO: this assumes one column
     let values = boundary_constraints.values(0);
 
