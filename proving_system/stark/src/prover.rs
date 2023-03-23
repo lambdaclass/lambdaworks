@@ -30,7 +30,6 @@ where
     let root_order = air.context().trace_length.trailing_zeros();
     // * Generate Coset
     let trace_primitive_root = F::get_primitive_root_of_unity(root_order as u64).unwrap();
-
     let trace_roots_of_unity = F::get_powers_of_primitive_root_coset(
         root_order as u64,
         air.context().trace_length,
@@ -47,8 +46,13 @@ where
     )
     .unwrap();
 
-    let trace_poly = Polynomial::interpolate(&trace_roots_of_unity, trace);
-    let lde_trace = trace_poly.evaluate_slice(&lde_roots_of_unity_coset);
+    let trace_poly = Polynomial::interpolate_fft(trace).unwrap();
+    let lde_trace = trace_poly
+        .evaluate_offset_fft(
+            &FieldElement::<F>::from(air.options().coset_offset),
+            air.options().blowup_factor as usize,
+        )
+        .unwrap();
 
     // Fiat-Shamir
     // z is the Out of domain evaluation point used in Deep FRI. It needs to be a point outside
