@@ -267,7 +267,7 @@ pub fn test_common_preprocessed_input_2() -> CommonPreprocessedInput<FrField> {
                 FieldElement::zero(),
                 FieldElement::from(5_u64),
                 FieldElement::zero(),
-                
+
                 FieldElement::zero(),
                 FieldElement::zero(),
                 FieldElement::zero(),

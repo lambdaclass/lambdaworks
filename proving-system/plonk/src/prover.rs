@@ -7,34 +7,68 @@ use lambdaworks_crypto::{
 use lambdaworks_math::{field::element::FieldElement, polynomial::Polynomial};
 use lambdaworks_math::{field::traits::IsField, traits::ByteConversion};
 
+/// Plonk proof.
+/// The challenges are denoted
+///     Round 2: β,γ,
+///     Round 3: α,
+///     Round 4: ζ,
+///     Round 5: υ.
+/// Here `Z_H` denotes the domain polynomial, `z` is the polynomial
+/// that encodes the copy constraints, and `p` is the sum of `z` and
+/// the polynomial that encodes the gates constraints.
+/// The polynomial `t` is defined as `p / Z_H`.
+/// `a`, `b`, and `c` are the wire assignment polynomials.
+/// `S_σ1(ζ), S_σ2(ζ) and S_σ3(ζ)` are the copy permutation polynomials.
+/// The polynomial `p` can be "linearized" and the result can be written as
+/// `linearized_p = p_non_constant + p_constant`, where
+/// `p_non_constant` is the sum of all the terms with a "non-constant"
+/// polynomial factor, such as `b(ζ)Q_R(X)`, and `p_constant` is the
+/// sum of all the rest (such as `PI(ζ)`).
 #[allow(unused)]
 pub struct Proof<F: IsField, CS: IsCommitmentScheme<F>> {
-    // Round 1
-    pub a_1: CS::Commitment, // [a(x)]₁ (commitment to left wire polynomial)
-    pub b_1: CS::Commitment, // [b(x)]₁ (commitment to right wire polynomial)
-    pub c_1: CS::Commitment, // [c(x)]₁ (commitment to output wire polynomial)
+    // Round 1.
+    /// Commitment to the wire polynomial `a(x)`
+    pub a_1: CS::Commitment,
+    /// Commitment to the wire polynomial `b(x)`
+    pub b_1: CS::Commitment,
+    /// Commitment to the wire polynomial `c(x)`
+    pub c_1: CS::Commitment,
 
-    // Round 2
-    pub z_1: CS::Commitment, // [z(x)]₁ (commitment to permutation polynomial)
+    /// Round 2.
+    /// Commitment to the copy constraints polynomial `z(x)`
+    pub z_1: CS::Commitment,
 
-    // Round 3
-    pub t_lo_1: CS::Commitment, // [t_lo(x)]₁ (commitment to t_lo(X), the low chunk of the quotient polynomial t(X))
-    pub t_mid_1: CS::Commitment, // [t_mid(x)]₁ (commitment to t_mid(X), the middle chunk of the quotient polynomial t(X))
-    pub t_hi_1: CS::Commitment, // [t_hi(x)]₁ (commitment to t_hi(X), the high chunk of the quotient polynomial t(X))
+    // Round 3.
+    /// Commitment to the low part of the quotient polynomial t(X)
+    pub t_lo_1: CS::Commitment,
+    /// Commitment to the middle part of the quotient polynomial t(X)
+    pub t_mid_1: CS::Commitment,
+    /// Commitment to the high part of the quotient polynomial t(X)
+    pub t_hi_1: CS::Commitment,
 
-    // Round 4
-    pub a_zeta: FieldElement<F>, // Evaluation of a(X) at evaluation challenge ζ
-    pub b_zeta: FieldElement<F>, // Evaluation of b(X) at evaluation challenge ζ
-    pub c_zeta: FieldElement<F>, // Evaluation of c(X) at evaluation challenge ζ
-    pub s1_zeta: FieldElement<F>, // Evaluation of the first permutation polynomial S_σ1(X) at evaluation challenge ζ
-    pub s2_zeta: FieldElement<F>, // Evaluation of the second permutation polynomial S_σ2(X) at evaluation challenge ζ
-    pub z_zeta_omega: FieldElement<F>, // Evaluation of the shifted permutation polynomial z(X) at the shifted evaluation challenge ζω
+    // Round 4.
+    /// Value of `a(ζ)`.
+    pub a_zeta: FieldElement<F>,
+    /// Value of `b(ζ)`.
+    pub b_zeta: FieldElement<F>,
+    /// Value of `c(ζ)`.
+    pub c_zeta: FieldElement<F>,
+    /// Value of `S_σ1(ζ)`.
+    pub s1_zeta: FieldElement<F>,
+    /// Value of `S_σ2(ζ)`.
+    pub s2_zeta: FieldElement<F>,
+    /// Value of `z(ζω)`.
+    pub z_zeta_omega: FieldElement<F>,
 
     // Round 5
-    pub w_zeta_1: CS::Commitment, // [W_ζ(X)]₁ (commitment to the opening proof polynomial)
-    pub w_zeta_omega_1: CS::Commitment, // [W_ζω(X)]₁ (commitment to the opening proof polynomial)
+    /// Value of `p_non_constant(ζ)`.
     pub p_non_constant_zeta: FieldElement<F>,
+    ///  Value of `t(ζ)`.
     pub t_zeta: FieldElement<F>,
+    /// Batch opening proof for all the evaluations at ζ
+    pub w_zeta_1: CS::Commitment,
+    /// Single opening proof for `z(ζω)`.
+    pub w_zeta_omega_1: CS::Commitment,
 }
 
 pub struct Prover<F: IsField, CS: IsCommitmentScheme<F>> {
@@ -315,8 +349,8 @@ where
             / (zeta - FieldElement::one())
             / FieldElement::from(*n as u64);
 
-        // This is called linearized polynomial in Gnark
-        let mut p_non_constant = qm * a_zeta * b_zeta + a_zeta * ql + b_zeta * qr + c_zeta * qo + qc;
+        let mut p_non_constant =
+            qm * a_zeta * b_zeta + a_zeta * ql + b_zeta * qr + c_zeta * qo + qc;
 
         let r_2_1 = (a_zeta + beta * zeta + gamma)
             * (b_zeta + beta * k1 * zeta + gamma)
@@ -335,16 +369,23 @@ where
         let partial_t = p_t_lo + zeta_raised_n * p_t_mid + zeta_raised_2n * p_t_hi;
 
         // TODO: Refactor to remove clones.
-        let polynomials = vec![partial_t, p_non_constant, p_a.clone(), p_b.clone(), p_c.clone(), s1.clone(), s2.clone()];
+        let polynomials = vec![
+            partial_t,
+            p_non_constant,
+            p_a.clone(),
+            p_b.clone(),
+            p_c.clone(),
+            s1.clone(),
+            s2.clone(),
+        ];
         let ys: Vec<FieldElement<F>> = polynomials.iter().map(|p| p.evaluate(zeta)).collect();
-        let w_zeta_1 = self.commitment_scheme.open_batch(
-            zeta,
-            &ys,
-            &polynomials,
-            upsilon
-        );
+        let w_zeta_1 = self
+            .commitment_scheme
+            .open_batch(zeta, &ys, &polynomials, upsilon);
 
-        let w_zeta_omega_1 = self.commitment_scheme.open(&(zeta * omega), z_zeta_omega, p_z);
+        let w_zeta_omega_1 = self
+            .commitment_scheme
+            .open(&(zeta * omega), z_zeta_omega, p_z);
 
         Round5Result {
             w_zeta_1,

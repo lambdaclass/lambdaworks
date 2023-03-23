@@ -1,4 +1,3 @@
-use std::marker::PhantomData;
 use lambdaworks_crypto::commitments::traits::IsCommitmentScheme;
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::cyclic_group::IsGroup;
@@ -6,6 +5,7 @@ use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::{IsField, IsPrimeField};
 use lambdaworks_math::polynomial::Polynomial;
 use lambdaworks_math::traits::ByteConversion;
+use std::marker::PhantomData;
 
 use crate::prover::Proof;
 use crate::setup::{CommonPreprocessedInput, VerificationKey};
@@ -24,10 +24,7 @@ impl<F: IsField, CS: IsCommitmentScheme<F>> Verifier<F, CS> {
         }
     }
 
-    fn compute_challenges(
-        &self,
-        p: &Proof<F, CS>,
-    ) -> [FieldElement<F>; 5]
+    fn compute_challenges(&self, p: &Proof<F, CS>) -> [FieldElement<F>; 5]
     where
         F: IsField,
         CS: IsCommitmentScheme<F>,
@@ -94,7 +91,7 @@ impl<F: IsField, CS: IsCommitmentScheme<F>> Verifier<F, CS> {
 
         let p_zeta = p_constant_zeta + &p.p_non_constant_zeta;
 
-        let check_constraints = p_zeta - (&zh_zeta * &p.t_zeta) == FieldElement::zero();
+        let constraints_check = p_zeta - (&zh_zeta * &p.t_zeta) == FieldElement::zero();
 
         // Compute commitment of partial evaluation of t (p = zh * t)
         let partial_t_1 = p
@@ -108,28 +105,18 @@ impl<F: IsField, CS: IsCommitmentScheme<F>> Verifier<F, CS> {
                     .operate_with_self(zeta.pow(2 * input.n + 4).representative()),
             );
 
-        // Compute commitment of partial evaluation of p (p = zh * t)
-        // Operations constraints
-        // + l(ζ)*Ql(X) + l(ζ)r(ζ)*Qm(X) + r(ζ)*Qr(X) + o(ζ)*Qo(X) + Qk(X)
-        let mut non_constant_p_1 = vk
+        // Compute commitment of the non constant part of the linearization of p
+        // The first term corresponds to the gates constraints
+        let mut first_term = vk
             .qm_1
             .operate_with_self((&p.a_zeta * &p.b_zeta).representative());
-        non_constant_p_1 =
-            non_constant_p_1.operate_with(&vk.ql_1.operate_with_self(p.a_zeta.representative()));
-        non_constant_p_1 =
-            non_constant_p_1.operate_with(&vk.qr_1.operate_with_self(p.b_zeta.representative()));
-        non_constant_p_1 =
-            non_constant_p_1.operate_with(&vk.qo_1.operate_with_self(p.c_zeta.representative()));
-        non_constant_p_1 = non_constant_p_1.operate_with(&vk.qc_1);
+        first_term = first_term.operate_with(&vk.ql_1.operate_with_self(p.a_zeta.representative()));
+        first_term = first_term.operate_with(&vk.qr_1.operate_with_self(p.b_zeta.representative()));
+        first_term = first_term.operate_with(&vk.qo_1.operate_with_self(p.c_zeta.representative()));
+        first_term = first_term.operate_with(&vk.qc_1);
 
-        // Copy constraints
-        // α²*L₁(ζ)*Z(X)
-        non_constant_p_1 = non_constant_p_1.operate_with(
-            &p.z_1
-                .operate_with_self((&alpha * &alpha * l1_zeta).representative()),
-        );
-
-        // + α*( (l(ζ)+β*s1(ζ)+γ)*(r(ζ)+β*s2(ζ)+γ)*Z(μζ)*β*s3(X) - Z(X)*(l(ζ)+β*id1(ζ)+γ)*(r(ζ)+β*id2(ζ)+γ)*(o(ζ)+β*id3(ζ)+γ))
+        // Second and third terms correspond to copy constraints
+        // + α*((l(ζ)+β*s1(ζ)+γ)*(r(ζ)+β*s2(ζ)+γ)*Z(μζ)*β*s3(X) - Z(X)*(l(ζ)+β*id1(ζ)+γ)*(r(ζ)+β*id2(ζ)+γ)*(o(ζ)+β*id3(ζ)+γ))
         let z_coefficient = -(&p.a_zeta + &beta * &zeta + &gamma)
             * (&p.b_zeta + &beta * k1 * &zeta + &gamma)
             * (&p.c_zeta + &beta * k2 * &zeta + &gamma);
@@ -142,30 +129,47 @@ impl<F: IsField, CS: IsCommitmentScheme<F>> Verifier<F, CS> {
             .operate_with_self(z_coefficient.representative())
             .operate_with(&vk.s3_1.operate_with_self(s3_coefficient.representative()))
             .operate_with_self(alpha.representative());
+        // α²*L₁(ζ)*Z(X)
+        let third_term = p
+            .z_1
+            .operate_with_self((&alpha * &alpha * l1_zeta).representative());
 
-        non_constant_p_1 = non_constant_p_1.operate_with(&second_term);
+        let p_non_constant_1 = first_term
+            .operate_with(&second_term)
+            .operate_with(&third_term);
 
-        let ys = [p.t_zeta.clone(), p.p_non_constant_zeta.clone(), p.a_zeta.clone(), p.b_zeta.clone(), p.c_zeta.clone(), p.s1_zeta.clone(), p.s2_zeta.clone()];
-        let commitments = [partial_t_1, non_constant_p_1, p.a_1.clone(), p.b_1.clone(), p.c_1.clone(), vk.s1_1.clone(), vk.s2_1.clone()];
-        let batch_openings_check = self.commitment_scheme.verify_batch(
-            &zeta,
-            &ys,
-            &commitments,
-            &p.w_zeta_1,
-            &upsilon
-        );
+        let ys = [
+            p.t_zeta.clone(),
+            p.p_non_constant_zeta.clone(),
+            p.a_zeta.clone(),
+            p.b_zeta.clone(),
+            p.c_zeta.clone(),
+            p.s1_zeta.clone(),
+            p.s2_zeta.clone(),
+        ];
+        let commitments = [
+            partial_t_1,
+            p_non_constant_1,
+            p.a_1.clone(),
+            p.b_1.clone(),
+            p.c_1.clone(),
+            vk.s1_1.clone(),
+            vk.s2_1.clone(),
+        ];
+        let batch_openings_check =
+            self.commitment_scheme
+                .verify_batch(&zeta, &ys, &commitments, &p.w_zeta_1, &upsilon);
 
         let single_opening_check = self.commitment_scheme.verify(
             &(zeta * &input.omega),
             &p.z_zeta_omega,
             &p.z_1,
-            &p.w_zeta_omega_1
+            &p.w_zeta_omega_1,
         );
 
-        check_constraints && batch_openings_check && single_opening_check
+        constraints_check && batch_openings_check && single_opening_check
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -215,7 +219,7 @@ mod tests {
         let prover = Prover::new(kzg.clone());
         let proof = prover.prove(&witness, &public_input, &common_preprocesed_input);
 
-        let verifier = Verifier::new(kzg.clone());
+        let verifier = Verifier::new(kzg);
         assert!(verifier.verify(
             &proof,
             &public_input,
