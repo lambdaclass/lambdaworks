@@ -1,10 +1,10 @@
 use metal::MTLResourceOptions;
 
-use crate::abstractions::errors::MetalError;
+use crate::metal::abstractions::errors::MetalError;
 
 use core::{ffi, mem};
 
-const LIB_DATA: &[u8] = include_bytes!("../metal/fft.metallib");
+const LIB_DATA: &[u8] = include_bytes!("../shaders/fft.metallib");
 
 /// Structure for abstracting basic calls to a Metal device and saving the state. Used for
 /// implementing GPU parallel computations in Apple machines.

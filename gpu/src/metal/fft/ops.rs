@@ -1,6 +1,6 @@
 use lambdaworks_math::field::{element::FieldElement, traits::IsTwoAdicField};
 
-use crate::{abstractions::metal::MetalState, fft::errors::FFTMetalError};
+use crate::metal::{abstractions::state::*, fft::errors::FFTMetalError};
 
 use super::helpers::{log2, void_ptr};
 use lambdaworks_math::fft::bit_reversing::in_place_bit_reverse_permute;
@@ -92,7 +92,7 @@ pub fn gen_twiddles<F: IsTwoAdicField>(
 
 #[cfg(test)]
 mod tests {
-    use crate::abstractions::metal::MetalState;
+    use crate::metal::abstractions::state::*;
     use lambdaworks_math::{
         field::{test_fields::u32_test_field::U32TestField, traits::RootsConfig},
         polynomial::Polynomial,

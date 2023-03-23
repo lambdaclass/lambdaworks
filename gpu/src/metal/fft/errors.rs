@@ -1,4 +1,4 @@
-use crate::abstractions::errors::MetalError;
+use crate::metal::abstractions::errors::MetalError;
 use lambdaworks_math::fft::errors::FFTError;
 use thiserror::Error;
 

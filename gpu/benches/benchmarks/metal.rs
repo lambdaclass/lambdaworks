@@ -1,5 +1,5 @@
 use criterion::Criterion;
-use lambdaworks_gpu::{abstractions::metal::MetalState, fft::fft_metal::*};
+use lambdaworks_gpu::metal::{abstractions::state::MetalState, fft::ops::*};
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsTwoAdicField},
     field::{test_fields::u32_test_field::U32TestField, traits::RootsConfig},
