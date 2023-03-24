@@ -54,7 +54,9 @@ impl IsField for P448GoldilocksPrimeField {
             bbb[i] = bb[i] + b[i + 4];
         }
 
-        let widemul = |a: u64, b: u64| -> u128 { (a as u128) * (b as u128) };
+        let widemul = |a: u64, b: u64| -> u128 {
+            (u128::try_from(a).unwrap()) * (u128::try_from(b).unwrap())
+        };
 
         for i in 0..4 {
             accum2 = 0;
@@ -73,24 +75,24 @@ impl IsField for P448GoldilocksPrimeField {
             accum1 -= accum2;
             accum0 += accum2;
 
-            c[i] = (accum0 as u64) & mask;
-            c[i + 4] = (accum1 as u64) & mask;
+            c[i] = (u64::try_from(accum0).unwrap()) & mask;
+            c[i + 4] = (u64::try_from(accum1).unwrap()) & mask;
 
             accum0 >>= 56;
             accum1 >>= 56;
         }
 
         accum0 += accum1;
-        accum0 += c[4] as u128;
-        accum1 += c[0] as u128;
-        c[4] = (accum0 as u64) & mask;
-        c[0] = (accum1 as u64) & mask;
+        accum0 += u128::try_from(c[4]).unwrap();
+        accum1 += u128::try_from(c[0]).unwrap();
+        c[4] = (u64::try_from(accum0).unwrap()) & mask;
+        c[0] = (u64::try_from(accum1).unwrap()) & mask;
 
         accum0 >>= 56;
         accum1 >>= 56;
 
-        c[5] += accum0 as u64;
-        c[1] += accum1 as u64;
+        c[5] += u64::try_from(accum0).unwrap();
+        c[1] += u64::try_from(accum1).unwrap();
 
         U56x8 { limbs: c }
     }
@@ -169,8 +171,8 @@ impl P448GoldilocksPrimeField {
         a[0] = (a[0] & mask) + tmp;
     }
 }
-
 impl U56x8 {
+    #![allow(clippy::as_conversions)]
     pub const fn from(value: &str) -> Self {
         let mut result = [0u64; 8];
         let mut limb = 0;

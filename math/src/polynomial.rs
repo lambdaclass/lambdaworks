@@ -219,7 +219,7 @@ pub fn compose<F>(
 where
     F: IsField,
 {
-    let max_degree: u64 = (poly_1.degree() * poly_2.degree()) as u64;
+    let max_degree: u64 = u64::try_from(poly_1.degree() * poly_2.degree()).unwrap();
 
     let mut interpolation_points = vec![];
     for i in 0_u64..max_degree + 1 {

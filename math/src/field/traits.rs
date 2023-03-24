@@ -59,8 +59,10 @@ pub trait IsTwoAdicField: IsField {
         let calc = |i| match config {
             RootsConfig::Natural => root.pow(i),
             RootsConfig::NaturalInversed => root.pow(i).inv(),
-            RootsConfig::BitReverse => root.pow(reverse_index(&i, count as u64)),
-            RootsConfig::BitReverseInversed => root.pow(reverse_index(&i, count as u64)).inv(),
+            RootsConfig::BitReverse => root.pow(reverse_index(&i, u64::try_from(count).unwrap())),
+            RootsConfig::BitReverseInversed => root
+                .pow(reverse_index(&i, u64::try_from(count).unwrap()))
+                .inv(),
         };
 
         let results = (0..count).map(calc);

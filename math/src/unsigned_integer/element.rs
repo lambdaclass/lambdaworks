@@ -661,7 +661,7 @@ mod tests_u384 {
     fn equality_works_5() {
         let a = U384::from("ffffffffffffffffff");
         let b = U384 {
-            limbs: [0, 0, 0, 0, u8::MAX as u64, u64::MAX],
+            limbs: [0, 0, 0, 0, u64::try_from(u8::MAX).unwrap(), u64::MAX],
         };
         assert_eq!(a, b);
     }
@@ -1364,7 +1364,7 @@ mod tests_u256 {
     fn equality_works_5() {
         let a = U256::from("ffffffffffffffffff");
         let b = U256 {
-            limbs: [0, 0, u8::MAX as u64, u64::MAX],
+            limbs: [0, 0, u64::try_from(u8::MAX).unwrap(), u64::MAX],
         };
         assert_eq!(a, b);
     }

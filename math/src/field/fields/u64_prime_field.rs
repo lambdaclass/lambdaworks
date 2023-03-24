@@ -21,11 +21,20 @@ impl<const MODULUS: u64> IsField for U64PrimeField<MODULUS> {
     type BaseType = u64;
 
     fn add(a: &u64, b: &u64) -> u64 {
-        ((*a as u128 + *b as u128) % MODULUS as u128) as u64
+        u64::try_from(
+            (u128::try_from(*a).unwrap() + u128::try_from(*b).unwrap())
+                % u128::try_from(MODULUS).unwrap(),
+        )
+        .unwrap()
     }
 
     fn sub(a: &u64, b: &u64) -> u64 {
-        (((*a as u128 + MODULUS as u128) - *b as u128) % MODULUS as u128) as u64
+        u64::try_from(
+            ((u128::try_from(*a).unwrap() + u128::try_from(MODULUS).unwrap())
+                - u128::try_from(*b).unwrap())
+                % u128::try_from(MODULUS).unwrap(),
+        )
+        .unwrap()
     }
 
     fn neg(a: &u64) -> u64 {
@@ -33,7 +42,11 @@ impl<const MODULUS: u64> IsField for U64PrimeField<MODULUS> {
     }
 
     fn mul(a: &u64, b: &u64) -> u64 {
-        ((*a as u128 * *b as u128) % MODULUS as u128) as u64
+        u64::try_from(
+            (u128::try_from(*a).unwrap() * u128::try_from(*b).unwrap())
+                % u128::try_from(MODULUS).unwrap(),
+        )
+        .unwrap()
     }
 
     fn div(a: &u64, b: &u64) -> u64 {

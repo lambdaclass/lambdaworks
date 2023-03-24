@@ -386,6 +386,15 @@ mod tests {
                 .value,
             ((n - 1) as f64 / 2. * ((n - 1) as f64 + 1.)) as u64 % MODULUS
         );
+
+        // assert_eq!(
+        //     (0..n)
+        //         .map(|x| { FieldElement::<U64TestField<MODULUS>>::from(x) })
+        //         .sum::<FieldElement<U64TestField<MODULUS>>>()
+        //         .value,
+        //     (<u64 as TryInto<f64>>::try_into(n - 1).unwrap() / 2. * ((n - 1) as f64 + 1.)) as u64
+        //         % MODULUS
+        // );
     }
 
     #[test]

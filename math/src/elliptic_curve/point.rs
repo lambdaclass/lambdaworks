@@ -108,7 +108,8 @@ mod tests {
     #[test]
     fn operate_with_self_works_2() {
         let mut point_1 = TestCurve1::generator();
-        point_1 = point_1.operate_with_self(TEST_CURVE_1_MAIN_SUBGROUP_ORDER as u128);
+        point_1 =
+            point_1.operate_with_self(u128::try_from(TEST_CURVE_1_MAIN_SUBGROUP_ORDER).unwrap());
         assert!(point_1.is_neutral_element());
     }
 

@@ -245,7 +245,7 @@ mod tests_u384_prime_fields {
     #[test]
     fn max_order_plus_1_is_0() {
         assert_eq!(
-            U384F23Element::from((ORDER - 1) as u64) + U384F23Element::from(1),
+            U384F23Element::from(u64::try_from(ORDER - 1).unwrap()) + U384F23Element::from(1),
             U384F23Element::from(0)
         );
     }
@@ -280,8 +280,8 @@ mod tests_u384_prime_fields {
 
     #[test]
     fn mul_order_minus_1() {
-        let a: U384F23Element = U384F23Element::from((ORDER - 1) as u64);
-        let b: U384F23Element = U384F23Element::from((ORDER - 1) as u64);
+        let a: U384F23Element = U384F23Element::from(u64::try_from(ORDER - 1).unwrap());
+        let b: U384F23Element = U384F23Element::from(u64::try_from(ORDER - 1).unwrap());
         assert_eq!(a * b, U384F23Element::from(1));
     }
 
@@ -353,8 +353,10 @@ mod tests_u384_prime_fields {
     fn zero_minus_1_is_order_minus_1() {
         let zero = U384F23Element::from(0);
         let one = U384F23Element::from(1);
-
-        assert_eq!(zero - one, U384F23Element::from((ORDER - 1) as u64))
+        assert_eq!(
+            zero - one,
+            U384F23Element::from(u64::try_from(ORDER - 1).unwrap())
+        )
     }
 
     #[test]
@@ -531,7 +533,7 @@ mod tests_u256_prime_fields {
     #[test]
     fn max_order_plus_1_is_0() {
         assert_eq!(
-            U256F29Element::from((ORDER - 1) as u64) + U256F29Element::from(1),
+            U256F29Element::from(u64::try_from(ORDER - 1).unwrap()) + U256F29Element::from(1),
             U256F29Element::from(0)
         );
     }
@@ -566,8 +568,8 @@ mod tests_u256_prime_fields {
 
     #[test]
     fn mul_order_minus_1() {
-        let a: U256F29Element = U256F29Element::from((ORDER - 1) as u64);
-        let b: U256F29Element = U256F29Element::from((ORDER - 1) as u64);
+        let a: U256F29Element = U256F29Element::from(u64::try_from(ORDER - 1).unwrap());
+        let b: U256F29Element = U256F29Element::from(u64::try_from(ORDER - 1).unwrap());
         assert_eq!(a * b, U256F29Element::from(1));
     }
 
@@ -639,8 +641,10 @@ mod tests_u256_prime_fields {
     fn zero_minus_1_is_order_minus_1() {
         let zero = U256F29Element::from(0);
         let one = U256F29Element::from(1);
-
-        assert_eq!(zero - one, U256F29Element::from((ORDER - 1) as u64))
+        assert_eq!(
+            zero - one,
+            U256F29Element::from(u64::try_from(ORDER - 1).unwrap())
+        )
     }
 
     #[test]

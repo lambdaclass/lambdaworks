@@ -55,7 +55,8 @@ pub fn inverse_fft<F: IsTwoAdicField>(
     in_place_bit_reverse_permute(&mut results);
 
     for elem in &mut results {
-        *elem = elem.clone() / FieldElement::from(coeffs.len() as u64); // required for inverting the DFT matrix.
+        *elem = elem.clone() / FieldElement::from(u64::try_from(coeffs.len()).unwrap());
+        // required for inverting the DFT matrix.
     }
 
     Ok(results)

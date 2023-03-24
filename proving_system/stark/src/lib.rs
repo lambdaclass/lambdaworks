@@ -206,7 +206,7 @@ mod test_utils {
         fn transition_divisors(&self) -> Vec<Polynomial<FieldElement<Self::Field>>> {
             let roots_of_unity_order = self.context().trace_length.trailing_zeros();
             let roots_of_unity = Self::Field::get_powers_of_primitive_root_coset(
-                roots_of_unity_order as u64,
+                u64::try_from(roots_of_unity_order).unwrap(),
                 self.context().trace_length,
                 &FieldElement::<Self::Field>::one(),
             )
@@ -219,7 +219,7 @@ mod test_utils {
                 let roots_of_unity_vanishing_polynomial =
                     Polynomial::new_monomial(
                         FieldElement::<Self::Field>::one(),
-                        roots_of_unity_order as usize,
+                        usize::try_from(roots_of_unity_order).unwrap(),
                     ) - Polynomial::new_monomial(FieldElement::<Self::Field>::one(), 0);
 
                 let mut exemptions_polynomial =

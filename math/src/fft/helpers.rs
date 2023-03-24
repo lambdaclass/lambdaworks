@@ -6,5 +6,5 @@ pub fn log2(n: usize) -> Result<u64, FFTError> {
             "The order of polynomial + 1 should a be power of 2".to_string(),
         ));
     }
-    Ok(n.trailing_zeros() as u64)
+    Ok(u64::try_from(n.trailing_zeros()).unwrap())
 }
