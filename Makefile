@@ -18,8 +18,3 @@ benchmarks:
 # BENCHMARK should be one of the [[bench]] names in Cargo.toml
 benchmark:
 	cargo criterion --bench ${BENCH}
-
-
-	# u64::try_from(u8::MAX).unwrap()
-	# u64::try_from(ORDER - 1).unwrap()
-	# let twiddles = (0..(u64::try_from(coeffs.len()).unwrap())).map(|i| root.pow(i)).collect::<Vec<FE>>();

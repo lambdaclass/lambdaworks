@@ -3,7 +3,6 @@ use criterion::{black_box, Criterion};
 use lambdaworks_math::field::fields::u64_prime_field::U64FieldElement;
 use lambdaworks_math::polynomial::Polynomial;
 use rand::Rng;
-
 // Mersenne prime numbers
 // https://www.math.utah.edu/~pa/math/mersenne.html
 const PRIMES: [u64; 39] = [

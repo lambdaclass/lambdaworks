@@ -160,11 +160,12 @@ impl<const NUM_LIMBS: usize> Mul<&UnsignedInteger<NUM_LIMBS>> for &UnsignedInteg
                         * (u128::try_from(other.limbs[NUM_LIMBS - 1 - i]).unwrap())
                     + carry;
                 carry = uv >> 64;
-                limbs[NUM_LIMBS - 1 - (i + j)] = u64::try_from(uv).unwrap();
+                limbs[NUM_LIMBS - 1 - (i + j)] = u64::try_from(uv & 0xFFFFFFFFFFFFFFFF).unwrap();
             }
             if i + n + 1 < NUM_LIMBS {
                 // 2.3
-                limbs[NUM_LIMBS - 1 - (i + n + 1)] = u64::try_from(carry).unwrap();
+                limbs[NUM_LIMBS - 1 - (i + n + 1)] =
+                    u64::try_from(carry & 0xFFFFFFFFFFFFFFFF).unwrap();
                 carry = 0;
             }
         }

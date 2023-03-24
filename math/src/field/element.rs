@@ -371,12 +371,12 @@ where
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::as_conversions)]
     use crate::field::element::FieldElement;
     use crate::field::test_fields::u64_test_field::U64TestField;
 
     #[test]
     fn test_std_iter_sum_field_element() {
+        #![allow(clippy::as_conversions)]
         let n = 164;
         const MODULUS: u64 = 15;
         assert_eq!(
@@ -386,15 +386,6 @@ mod tests {
                 .value,
             ((n - 1) as f64 / 2. * ((n - 1) as f64 + 1.)) as u64 % MODULUS
         );
-
-        // assert_eq!(
-        //     (0..n)
-        //         .map(|x| { FieldElement::<U64TestField<MODULUS>>::from(x) })
-        //         .sum::<FieldElement<U64TestField<MODULUS>>>()
-        //         .value,
-        //     (<u64 as TryInto<f64>>::try_into(n - 1).unwrap() / 2. * ((n - 1) as f64 + 1.)) as u64
-        //         % MODULUS
-        // );
     }
 
     #[test]

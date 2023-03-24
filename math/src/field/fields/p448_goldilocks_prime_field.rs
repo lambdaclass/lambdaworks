@@ -75,8 +75,8 @@ impl IsField for P448GoldilocksPrimeField {
             accum1 -= accum2;
             accum0 += accum2;
 
-            c[i] = (u64::try_from(accum0).unwrap()) & mask;
-            c[i + 4] = (u64::try_from(accum1).unwrap()) & mask;
+            c[i] = u64::try_from(accum0 & 0xFFFFFFFFFFFFFFFF).unwrap() & mask;
+            c[i + 4] = u64::try_from(accum1 & 0xFFFFFFFFFFFFFFFF).unwrap() & mask;
 
             accum0 >>= 56;
             accum1 >>= 56;
@@ -85,14 +85,15 @@ impl IsField for P448GoldilocksPrimeField {
         accum0 += accum1;
         accum0 += u128::try_from(c[4]).unwrap();
         accum1 += u128::try_from(c[0]).unwrap();
-        c[4] = (u64::try_from(accum0).unwrap()) & mask;
-        c[0] = (u64::try_from(accum1).unwrap()) & mask;
+
+        c[4] = u64::try_from(accum0 & 0xFFFFFFFFFFFFFFFF).unwrap() & mask;
+        c[0] = u64::try_from(accum1 & 0xFFFFFFFFFFFFFFFF).unwrap() & mask;
 
         accum0 >>= 56;
         accum1 >>= 56;
 
-        c[5] += u64::try_from(accum0).unwrap();
-        c[1] += u64::try_from(accum1).unwrap();
+        c[5] += u64::try_from(accum0 & 0xFFFFFFFFFFFFFFFF).unwrap();
+        c[1] += u64::try_from(accum1 & 0xFFFFFFFFFFFFFFFF).unwrap();
 
         U56x8 { limbs: c }
     }

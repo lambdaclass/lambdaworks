@@ -12,6 +12,7 @@ const PRIMES: [u64; 39] = [
 ];
 
 pub fn u64_benchmark(c: &mut Criterion) {
+    #![allow(clippy::as_conversions)]
     const MODULUS: u64 = PRIMES[const_random!(usize) % PRIMES.len()];
     let mut group = c.benchmark_group("u64");
 
