@@ -7,7 +7,6 @@ edition = "2021"
 
 [dependencies]
 lambdaworks-math = { path = "../math" }
-lambdaworks-crypto = { path = "../crypto"}
 thiserror = "1.0.38"
 rand = "0.8.5"
 metal = "0.24.0"

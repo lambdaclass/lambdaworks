@@ -2,7 +2,7 @@
 pub struct AirContext {
     pub options: ProofOptions,
     pub trace_length: usize,
-    pub trace_info: (usize, usize),
+    pub trace_columns: usize,
     pub transition_degrees: Vec<usize>,
     /// This is a vector with the indices of all the rows that constitute
     /// an evaluation frame. Note that, because of how we write all constraints

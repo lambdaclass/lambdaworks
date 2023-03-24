@@ -37,7 +37,7 @@ pub fn metal_fft_benchmarks(c: &mut Criterion) {
                         let twiddles =
                             F::get_twiddles(order as u64, RootsConfig::BitReverse).unwrap();
 
-                        fft(&coeffs, &twiddles, metal_state).unwrap();
+                        fft(&coeffs, &twiddles, &metal_state).unwrap();
                     });
                 });
             },
@@ -63,7 +63,7 @@ pub fn metal_fft_twiddles_benchmarks(c: &mut Criterion) {
                     // TODO: autoreleaspool hurts perf. by 2-3%. Search for an alternative
                     objc::rc::autoreleasepool(|| {
                         let metal_state = MetalState::new(None).unwrap();
-                        gen_twiddles::<F>(*order, &metal_state).unwrap();
+                        gen_twiddles::<F>(*order, RootsConfig::Natural, &metal_state).unwrap();
                     });
                 });
             },

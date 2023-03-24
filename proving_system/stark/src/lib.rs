@@ -33,6 +33,21 @@ pub fn transcript_to_usize(transcript: &mut Transcript) -> usize {
     usize::from_be_bytes(value)
 }
 
+pub fn sample_z_ood<F: IsField>(
+    lde_roots_of_unity_coset: &[FieldElement<F>],
+    trace_roots_of_unity: &[FieldElement<F>],
+    transcript: &mut Transcript,
+) -> FieldElement<F> {
+    loop {
+        let value: FieldElement<F> = transcript_to_field(transcript);
+        if !lde_roots_of_unity_coset.iter().any(|x| x == &value)
+            && !trace_roots_of_unity.iter().any(|x| x == &value)
+        {
+            return value;
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct StarkQueryProof<F: IsField> {
     pub fri_layers_merkle_roots: Vec<FieldElement<F>>,
@@ -70,6 +85,10 @@ mod tests {
     #[test]
     fn test_prove_fib() {
         let trace = fibonacci_trace([FE::from(1), FE::from(1)], 4);
+        let trace_table = TraceTable {
+            table: trace.clone(),
+            num_cols: 1,
+        };
 
         let context = AirContext {
             options: ProofOptions {
@@ -78,16 +97,11 @@ mod tests {
                 coset_offset: 3,
             },
             trace_length: trace.len(),
-            trace_info: (trace.len(), 1),
+            trace_columns: trace_table.num_cols,
             transition_degrees: vec![1],
             transition_exemptions: vec![trace.len() - 2, trace.len() - 1],
             transition_offsets: vec![0, 1, 2],
             num_transition_constraints: 1,
-        };
-
-        let trace_table = TraceTable {
-            table: trace.clone(),
-            num_cols: 1,
         };
 
         let fibonacci_air = FibonacciAIR::new(trace_table, context);
@@ -101,6 +115,11 @@ mod tests {
     fn test_prove_fib17() {
         let trace = fibonacci_trace([FE17::new(1), FE17::new(1)], 4);
 
+        let trace_table = TraceTable {
+            table: trace.clone(),
+            num_cols: 1,
+        };
+
         let context = AirContext {
             options: ProofOptions {
                 blowup_factor: 2,
@@ -108,16 +127,11 @@ mod tests {
                 coset_offset: 3,
             },
             trace_length: trace.len(),
-            trace_info: (trace.len(), 1),
+            trace_columns: trace_table.num_cols,
             transition_degrees: vec![1],
             transition_exemptions: vec![trace.len() - 2, trace.len() - 1],
             transition_offsets: vec![0, 1, 2],
             num_transition_constraints: 1,
-        };
-
-        let trace_table = TraceTable {
-            table: trace.clone(),
-            num_cols: 1,
         };
 
         let fibonacci_air = Fibonacci17AIR::new(trace_table, context);
