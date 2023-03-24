@@ -23,7 +23,7 @@ use core::mem;
 pub fn fft<F: IsTwoAdicField>(
     input: &[FieldElement<F>],
     twiddles: &[FieldElement<F>],
-    state: MetalState,
+    state: &MetalState,
 ) -> Result<Vec<FieldElement<F>>, FFTMetalError> {
     let pipeline = state
         .setup_pipeline("radix2_dit_butterfly")
@@ -138,7 +138,6 @@ mod tests {
     proptest! {
         // Property-based test that ensures Metal parallel FFT gives same result as a sequential one.
         // These tests actually pass, but we ignore them because they fail in the CI due to a lack of GPU
-        #[ignore]
         #[test]
         fn test_metal_fft_matches_sequential(poly in poly(8)) {
             objc::rc::autoreleasepool(|| {
@@ -147,7 +146,7 @@ mod tests {
 
                 let metal_state = MetalState::new(None).unwrap();
                 let twiddles = F::get_twiddles(order, RootsConfig::BitReverse).unwrap();
-                let result = fft(poly.coefficients(), &twiddles, metal_state).unwrap();
+                let result = fft(poly.coefficients(), &twiddles, &metal_state).unwrap();
 
                 prop_assert_eq!(&result, &expected);
 
@@ -158,7 +157,6 @@ mod tests {
 
     proptest! {
         // These tests actually pass, but we ignore them because they fail in the CI due to a lack of GPU
-        #[ignore]
         #[test]
         fn test_gpu_twiddles_match_cpu(order in 2..16) {
             objc::rc::autoreleasepool(|| {
