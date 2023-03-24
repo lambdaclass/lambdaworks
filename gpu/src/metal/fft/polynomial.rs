@@ -1,6 +1,9 @@
 use crate::metal::abstractions::state::MetalState;
 use lambdaworks_math::{
-    field::{element::FieldElement, traits::IsTwoAdicField},
+    field::{
+        element::FieldElement,
+        traits::{IsTwoAdicField, RootsConfig},
+    },
     polynomial::Polynomial,
 };
 
@@ -24,7 +27,7 @@ impl<F: IsTwoAdicField> GpuPolyOperations<F> for Polynomial<FieldElement<F>> {
     /// in Metal.
     fn evaluate_fft_metal(&self, state: MetalState) -> Result<Vec<FieldElement<F>>, FFTMetalError> {
         let order = log2(self.coefficients().len()).map_err(FFTMetalError::FFT)?;
-        let twiddles = gen_twiddles(order, &state)?;
+        let twiddles = gen_twiddles(order, RootsConfig::BitReverse, &state)?;
 
         fft(self.coefficients(), &twiddles, state)
     }
