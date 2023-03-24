@@ -30,8 +30,8 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
 impl<const NUM_LIMBS: usize> From<u128> for UnsignedInteger<NUM_LIMBS> {
     fn from(value: u128) -> Self {
         let mut limbs = [0u64; NUM_LIMBS];
-        limbs[NUM_LIMBS - 1] = value as u64;
-        limbs[NUM_LIMBS - 2] = (value >> 64) as u64;
+        limbs[NUM_LIMBS - 1] = u64::try_from(value).unwrap();
+        limbs[NUM_LIMBS - 2] = u64::try_from(value >> 64).unwrap();
         UnsignedInteger { limbs }
     }
 }
@@ -45,7 +45,7 @@ impl<const NUM_LIMBS: usize> From<u64> for UnsignedInteger<NUM_LIMBS> {
 impl<const NUM_LIMBS: usize> From<u16> for UnsignedInteger<NUM_LIMBS> {
     fn from(value: u16) -> Self {
         let mut limbs = [0u64; NUM_LIMBS];
-        limbs[NUM_LIMBS - 1] = value as u64;
+        limbs[NUM_LIMBS - 1] = u64::try_from(value).unwrap();
         UnsignedInteger { limbs }
     }
 }
@@ -155,16 +155,16 @@ impl<const NUM_LIMBS: usize> Mul<&UnsignedInteger<NUM_LIMBS>> for &UnsignedInteg
         for i in 0..=t {
             // 2.2
             for j in 0..=n {
-                let uv = (limbs[NUM_LIMBS - 1 - (i + j)] as u128)
-                    + (self.limbs[NUM_LIMBS - 1 - j] as u128)
-                        * (other.limbs[NUM_LIMBS - 1 - i] as u128)
+                let uv = (u128::try_from(limbs[NUM_LIMBS - 1 - (i + j)]).unwrap())
+                    + (u128::try_from(self.limbs[NUM_LIMBS - 1 - j]).unwrap())
+                        * (u128::try_from(other.limbs[NUM_LIMBS - 1 - i]).unwrap())
                     + carry;
                 carry = uv >> 64;
-                limbs[NUM_LIMBS - 1 - (i + j)] = uv as u64;
+                limbs[NUM_LIMBS - 1 - (i + j)] = u64::try_from(uv).unwrap();
             }
             if i + n + 1 < NUM_LIMBS {
                 // 2.3
-                limbs[NUM_LIMBS - 1 - (i + n + 1)] = carry as u64;
+                limbs[NUM_LIMBS - 1 - (i + n + 1)] = u64::try_from(carry).unwrap();
                 carry = 0;
             }
         }
@@ -248,12 +248,12 @@ impl<const NUM_LIMBS: usize> BitAnd for UnsignedInteger<NUM_LIMBS> {
 }
 
 impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
+    #![allow(clippy::as_conversions)]
     pub const fn from_u64(value: u64) -> Self {
         let mut limbs = [0u64; NUM_LIMBS];
         limbs[NUM_LIMBS - 1] = value;
         UnsignedInteger { limbs }
     }
-
     pub const fn from_u128(value: u128) -> Self {
         let mut limbs = [0u64; NUM_LIMBS];
         limbs[NUM_LIMBS - 1] = value as u64;

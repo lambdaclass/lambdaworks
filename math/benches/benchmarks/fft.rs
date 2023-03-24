@@ -33,7 +33,9 @@ pub fn fft_benchmarks(c: &mut Criterion) {
             |bench, coeffs| {
                 bench.iter(|| {
                     let mut coeffs = coeffs.clone();
-                    let twiddles = F::get_twiddles(pow as u64, RootsConfig::BitReverse).unwrap();
+                    let twiddles =
+                        F::get_twiddles(u64::try_from(pow).unwrap(), RootsConfig::BitReverse)
+                            .unwrap();
                     in_place_nr_2radix_fft(&mut coeffs, &twiddles);
                 });
             },
@@ -44,7 +46,8 @@ pub fn fft_benchmarks(c: &mut Criterion) {
             |bench, coeffs| {
                 bench.iter(|| {
                     let mut coeffs = coeffs.clone();
-                    let twiddles = F::get_twiddles(pow as u64, RootsConfig::Natural).unwrap();
+                    let twiddles =
+                        F::get_twiddles(u64::try_from(pow).unwrap(), RootsConfig::Natural).unwrap();
                     in_place_bit_reverse_permute(&mut coeffs);
                     in_place_rn_2radix_fft(&mut coeffs, &twiddles);
                 });

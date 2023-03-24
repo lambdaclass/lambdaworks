@@ -371,7 +371,7 @@ where
 
 #[cfg(test)]
 mod tests {
-
+    #![allow(clippy::as_conversions)]
     use crate::field::element::FieldElement;
     use crate::field::test_fields::u64_test_field::U64TestField;
 

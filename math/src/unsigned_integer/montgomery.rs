@@ -2,6 +2,7 @@ use super::element::UnsignedInteger;
 
 pub struct MontgomeryAlgorithms;
 impl MontgomeryAlgorithms {
+    #![allow(clippy::as_conversions)]
     /// Compute CIOS multiplication of `a` * `b`
     /// `q` is the modulus
     /// `mu` is the inverse of -q modulo 2^{64}

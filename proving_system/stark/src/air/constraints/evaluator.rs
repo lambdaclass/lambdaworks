@@ -59,7 +59,8 @@ impl<F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
                 .max()
                 .unwrap();
 
-        let max_degree_power_of_two = helpers::next_power_of_two(max_degree as u64);
+        let max_degree_power_of_two =
+            helpers::next_power_of_two(u64::try_from(max_degree).unwrap());
 
         let boundary_poly = &self.trace_poly - &Polynomial::interpolate(&domain, &values);
 
@@ -94,7 +95,10 @@ impl<F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
             // Append evaluation for boundary constraints
             let mut boundary_evaluation = boundary_poly.evaluate(d) / boundary_zerofier.evaluate(d);
             boundary_evaluation = boundary_evaluation
-                * (boundary_alpha * d.pow(max_degree_power_of_two - (boundary_poly_degree as u64))
+                * (boundary_alpha
+                    * d.pow(
+                        max_degree_power_of_two - (u64::try_from(boundary_poly_degree).unwrap()),
+                    )
                     + boundary_beta);
 
             evaluations.push(boundary_evaluation);
@@ -137,8 +141,8 @@ impl<F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
         {
             let zerofied_eval = eval / div.evaluate(x);
             let zerofied_degree = degree - div.degree();
-            let result =
-                zerofied_eval * (alpha * x.pow(max_degree - (zerofied_degree as u64)) + beta);
+            let result = zerofied_eval
+                * (alpha * x.pow(max_degree - (u64::try_from(zerofied_degree).unwrap())) + beta);
             ret.push(result);
         }
 

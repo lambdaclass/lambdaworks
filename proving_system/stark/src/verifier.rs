@@ -36,17 +36,19 @@ where
     let composition_poly_evaluations = &proof.composition_poly_evaluations;
 
     let root_order = air.context().trace_length.trailing_zeros();
-    let trace_primitive_root = F::get_primitive_root_of_unity(root_order as u64).unwrap();
+    let trace_primitive_root =
+        F::get_primitive_root_of_unity(u64::try_from(root_order).unwrap()).unwrap();
 
     let boundary_constraints = air.compute_boundary_constraints();
 
     let domain = boundary_constraints.generate_roots_of_unity(&trace_primitive_root);
 
-    let lde_root_order =
-        (air.context().trace_length * air.options().blowup_factor as usize).trailing_zeros();
+    let lde_root_order = (air.context().trace_length
+        * usize::try_from(air.options().blowup_factor).unwrap())
+    .trailing_zeros();
     let lde_roots_of_unity_coset = F::get_powers_of_primitive_root_coset(
-        lde_root_order as u64,
-        air.context().trace_length * air.options().blowup_factor as usize,
+        u64::try_from(lde_root_order).unwrap(),
+        air.context().trace_length * usize::try_from(air.options().blowup_factor).unwrap(),
         &FieldElement::<F>::from(air.options().coset_offset),
     )
     .unwrap();
@@ -72,10 +74,11 @@ where
     let max_degree =
         air.context().trace_length * air.context().transition_degrees().iter().max().unwrap();
 
-    let max_degree_power_of_two = helpers::next_power_of_two(max_degree as u64);
+    let max_degree_power_of_two = helpers::next_power_of_two(u64::try_from(max_degree).unwrap());
 
     // TODO: This is assuming one column
-    let boundary_degree = (air.context().trace_length - boundary_zerofier.degree()) as u64 - 1;
+    let boundary_degree =
+        u64::try_from(air.context().trace_length - boundary_zerofier.degree()).unwrap() - 1;
     let mut boundary_quotient_ood_evaluation = &trace_poly_ood_frame_evaluations.get_row(0)[0]
         - boundary_interpolating_polynomial.evaluate(&z);
 
@@ -113,8 +116,9 @@ where
 
     // // END TRACE <-> Composition poly consistency evaluation check
 
-    let lde_root_order =
-        (air.context().trace_length * air.options().blowup_factor as usize).trailing_zeros();
+    let lde_root_order = (air.context().trace_length
+        * usize::try_from(air.options().blowup_factor).unwrap())
+    .trailing_zeros();
 
     // construct vector of betas
     let mut beta_list = Vec::new();
@@ -163,7 +167,8 @@ pub fn verify_query<F: IsField + IsTwoAdicField>(
     lde_root_order: u32,
     coset_offset: u64,
 ) -> bool {
-    let mut lde_primitive_root = F::get_primitive_root_of_unity(lde_root_order as u64).unwrap();
+    let mut lde_primitive_root =
+        F::get_primitive_root_of_unity(u64::try_from(lde_root_order).unwrap()).unwrap();
     let mut offset = FieldElement::<F>::from(coset_offset);
 
     // For each fri layer merkle proof check:
@@ -208,7 +213,8 @@ pub fn verify_query<F: IsField + IsTwoAdicField>(
     {
         // This is the current layer's evaluation domain length. We need it to know what the decommitment index for the current
         // layer is, so we can check the merkle paths at the right index.
-        let current_layer_domain_length = 2_u64.pow(lde_root_order) as usize >> layer_number;
+        let current_layer_domain_length =
+            usize::try_from(2_u64.pow(lde_root_order)).unwrap() >> layer_number;
 
         let layer_evaluation_index = q_i % current_layer_domain_length;
 

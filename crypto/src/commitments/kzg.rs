@@ -135,7 +135,11 @@ mod tests {
         let g2 = BLS12381TwistCurve::generator();
         let powers_main_group: Vec<G1> = (0..100)
             .map(|exponent| {
-                g1.operate_with_self(toxic_waste.pow(exponent as u128).representative())
+                g1.operate_with_self(
+                    toxic_waste
+                        .pow(u128::try_from(exponent).unwrap())
+                        .representative(),
+                )
             })
             .collect();
         let powers_secondary_group = [
