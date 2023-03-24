@@ -162,6 +162,17 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
         }
     }
 
+    pub fn scale_coeffs(&self, factor: &FieldElement<F>) -> Self {
+        let scaled_coefficients = self
+            .coefficients
+            .iter()
+            .map(|coeff| factor * coeff)
+            .collect();
+        Self {
+            coefficients: scaled_coefficients,
+        }
+    }
+
     /// For the given polynomial, returns a tuple `(even, odd)` of polynomials
     /// with the even and odd coefficients respectively.
     /// Note that `even` and `odd` ARE NOT actually even/odd polynomials themselves.
