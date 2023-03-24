@@ -22,6 +22,15 @@ void radix2_dit_butterfly(
     input[i + distance]  = (a - w*b).asUInt32(); // --/\--
 }
 
+/// Reverses the `log2(size)` first bits of `i`
+uint32_t reverse_index(uint32_t i, uint64_t size) {
+    if (size == 1) { // TODO: replace this statement with an alternative solution.
+        return i;
+    } else {
+        return metal::reverse_bits(i) >> (32 - metal::ctz(size));
+    }
+}
+
 [[kernel]]
 void calc_twiddle(
     device uint32_t* result  [[ buffer(0) ]],
@@ -31,4 +40,40 @@ void calc_twiddle(
 {
     Fp omega = _omega;
     result[index] = pow(omega, index).asUInt32();
+}
+
+[[kernel]]
+void calc_twiddle_inv(
+    device uint32_t* result  [[ buffer(0) ]],
+    constant uint32_t& _omega [[ buffer(1) ]],
+    uint index [[ thread_position_in_grid ]],
+    uint size [[ threads_per_grid ]]
+)
+{
+    Fp omega = _omega;
+    result[index] = inv(pow(omega, index)).asUInt32();
+}
+
+[[kernel]]
+void calc_twiddle_bitrev(
+    device uint32_t* result  [[ buffer(0) ]],
+    constant uint32_t& _omega [[ buffer(1) ]],
+    uint index [[ thread_position_in_grid ]],
+    uint size [[ threads_per_grid ]]
+)
+{
+    Fp omega = _omega;
+    result[index] = pow(omega, reverse_index(index, size)).asUInt32();
+}
+
+[[kernel]]
+void calc_twiddle_bitrev_inv(
+    device uint32_t* result  [[ buffer(0) ]],
+    constant uint32_t& _omega [[ buffer(1) ]],
+    uint index [[ thread_position_in_grid ]],
+    uint size [[ threads_per_grid ]]
+)
+{
+    Fp omega = _omega;
+    result[index] = inv(pow(omega, reverse_index(index, size))).asUInt32();
 }
