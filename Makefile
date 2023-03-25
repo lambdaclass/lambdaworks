@@ -3,7 +3,6 @@ test:
 
 clippy:
 	cargo clippy --all-targets --all-features -- -W clippy::as_conversions -D warnings
-	# cargo clippy --all-targets --all-features -- -W clippy::clippy::as_conversions -- -D warnings
 
 docker-shell:
 	docker build -t rust-curves .
