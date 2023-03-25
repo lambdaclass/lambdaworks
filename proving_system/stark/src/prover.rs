@@ -53,7 +53,7 @@ where
     let lde_trace = trace_poly
         .evaluate_offset_fft(
             &FieldElement::<F>::from(air.options().coset_offset),
-            air.options().blowup_factor as usize,
+            usize::try_from(air.options().blowup_factor).unwrap(),
         )
         .unwrap();
 

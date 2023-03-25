@@ -8,11 +8,20 @@ impl<const MODULUS: u32> IsField for U32Field<MODULUS> {
     type BaseType = u32;
 
     fn add(a: &u32, b: &u32) -> u32 {
-        ((*a as u128 + *b as u128) % MODULUS as u128) as u32
+        u32::try_from(
+            (u128::try_from(*a).unwrap() + u128::try_from(*b).unwrap())
+                % u128::try_from(MODULUS).unwrap(),
+        )
+        .unwrap()
     }
 
     fn sub(a: &u32, b: &u32) -> u32 {
-        (((*a as u128 + MODULUS as u128) - *b as u128) % MODULUS as u128) as u32
+        u32::try_from(
+            ((u128::try_from(*a).unwrap() + u128::try_from(MODULUS).unwrap())
+                - u128::try_from(*b).unwrap())
+                % u128::try_from(MODULUS).unwrap(),
+        )
+        .unwrap()
     }
 
     fn neg(a: &u32) -> u32 {
@@ -20,7 +29,11 @@ impl<const MODULUS: u32> IsField for U32Field<MODULUS> {
     }
 
     fn mul(a: &u32, b: &u32) -> u32 {
-        ((*a as u128 * *b as u128) % MODULUS as u128) as u32
+        u32::try_from(
+            (u128::try_from(*a).unwrap() * u128::try_from(*b).unwrap())
+                % u128::try_from(MODULUS).unwrap(),
+        )
+        .unwrap()
     }
 
     fn div(a: &u32, b: &u32) -> u32 {
@@ -45,7 +58,7 @@ impl<const MODULUS: u32> IsField for U32Field<MODULUS> {
     }
 
     fn from_u64(x: u64) -> u32 {
-        (x % MODULUS as u64) as u32
+        u32::try_from(x % u64::try_from(MODULUS).unwrap()).unwrap()
     }
 
     fn from_base_type(x: u32) -> u32 {

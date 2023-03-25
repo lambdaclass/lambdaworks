@@ -191,10 +191,14 @@ impl<F: IsTwoAdicField> Polynomial<FieldElement<F>> {
     /// Evaluates this polynomial using FFT (so the function is evaluated using twiddle factors).
     pub fn evaluate_fft(&self) -> Result<Vec<FieldElement<F>>, FFTError> {
         let num_coefficients = self.coefficients().len();
-        let num_coeficcients_power_of_two = helpers::next_power_of_two(num_coefficients as u64);
+        let num_coeficcients_power_of_two =
+            helpers::next_power_of_two(u64::try_from(num_coefficients).unwrap());
 
         let mut padded_coefficients = self.coefficients().to_vec();
-        padded_coefficients.resize(num_coeficcients_power_of_two as usize, FieldElement::zero());
+        padded_coefficients.resize(
+            usize::try_from(num_coeficcients_power_of_two).unwrap(),
+            FieldElement::zero(),
+        );
 
         fft(padded_coefficients.as_slice())
     }
@@ -720,7 +724,7 @@ mod fft_test {
         #[test]
         fn test_fft_non_power_of_two_poly(poly in poly_with_non_power_of_two_coeffs(8)) {
             let num_coefficients = poly.coefficients().len();
-            let num_coeficcients_power_of_two = helpers::next_power_of_two(num_coefficients as u64) as usize;
+            let num_coeficcients_power_of_two = usize::try_from(helpers::next_power_of_two(u64::try_from(num_coefficients).unwrap())).unwrap();
             let order = log2(num_coeficcients_power_of_two).unwrap();
             let twiddles = F::get_powers_of_primitive_root(order, num_coeficcients_power_of_two, RootsConfig::Natural).unwrap();
 
