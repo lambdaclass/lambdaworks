@@ -1,11 +1,12 @@
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsField},
+    helpers,
     polynomial::Polynomial,
 };
 
 use crate::air::{frame::Frame, trace::TraceTable, AIR};
 
-use super::{boundary::BoundaryConstraints, evaluation_table::ConstraintEvaluationTable, helpers};
+use super::{boundary::BoundaryConstraints, evaluation_table::ConstraintEvaluationTable};
 
 pub struct ConstraintEvaluator<F: IsField, A: AIR> {
     air: A,

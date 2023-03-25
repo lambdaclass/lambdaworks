@@ -28,4 +28,7 @@ pub trait AIR: Clone {
     fn blowup_factor(&self) -> u8 {
         self.options().blowup_factor
     }
+    fn num_transition_constraints(&self) -> usize {
+        self.context().num_transition_constraints
+    }
 }

@@ -1,8 +1,8 @@
 use criterion::Criterion;
-use lambdaworks_math::field::{test_fields::u64_test_field::U64TestField, traits::RootsConfig};
 use lambdaworks_math::{
     fft::{bit_reversing::*, fft_iterative::*},
     field::{element::FieldElement, traits::IsTwoAdicField},
+    field::{test_fields::u64_test_field::U64TestField, traits::RootsConfig},
 };
 use rand::random;
 

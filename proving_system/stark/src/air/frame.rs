@@ -56,6 +56,31 @@ impl<F: IsField> Frame<F> {
         Self::new(data, 1)
     }
 
+    /// Given a slice of trace polynomials, an evaluation point `x`, the frame offsets
+    /// corresponding to the computation of the transitions, and a primitive root,
+    /// outputs the trace evaluations of each trace polynomial over the values used to
+    /// compute a transition.
+    /// Example: For a simple Fibonacci computation, if t(x) is the trace polynomial of
+    /// the computation, this will output evaluations t(x), t(g * x), t(g^2 * z).
+    pub fn get_trace_evaluations(
+        trace_polys: &[Polynomial<FieldElement<F>>],
+        x: &FieldElement<F>,
+        frame_offsets: &[usize],
+        primitive_root: &FieldElement<F>,
+    ) -> Vec<Vec<FieldElement<F>>> {
+        let mut evaluations = Vec::with_capacity(trace_polys.len());
+        let evaluation_points: Vec<FieldElement<F>> = frame_offsets
+            .iter()
+            .map(|offset| x * primitive_root.pow(*offset))
+            .collect();
+
+        trace_polys
+            .iter()
+            .for_each(|p| evaluations.push(p.evaluate_slice(&evaluation_points)));
+
+        evaluations
+    }
+
     /// Returns the Out of Domain Frame for the given trace polynomials, out of domain evaluation point (called `z` in the literature),
     /// frame offsets given by the AIR and primitive root used for interpolating the trace polynomials.
     /// An out of domain frame is nothing more than the evaluation of the trace polynomials in the points required by the
@@ -69,15 +94,7 @@ impl<F: IsField> Frame<F> {
         frame_offsets: &[usize],
         primitive_root: &FieldElement<F>,
     ) -> Self {
-        let mut data = vec![];
-        let evaluation_points: Vec<FieldElement<F>> = frame_offsets
-            .iter()
-            .map(|offset| z * primitive_root.pow(*offset))
-            .collect();
-
-        for poly in trace_polys {
-            data.push(poly.evaluate_slice(&evaluation_points));
-        }
+        let data = Self::get_trace_evaluations(trace_polys, z, frame_offsets, primitive_root);
 
         Self {
             data: data.into_iter().flatten().collect(),
