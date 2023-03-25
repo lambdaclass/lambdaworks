@@ -30,7 +30,7 @@ jobs:
           command: check
 
   coverage:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     env:
       CARGO_TERM_COLOR: always
     steps:
