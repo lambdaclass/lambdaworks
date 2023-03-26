@@ -1,9 +1,6 @@
-use lambdaworks_math::{
-    fft::bit_reversing::in_place_bit_reverse_permute,
-    field::{
-        element::FieldElement,
-        traits::{IsTwoAdicField, RootsConfig},
-    },
+use lambdaworks_math::field::{
+    element::FieldElement,
+    traits::{IsTwoAdicField, RootsConfig},
 };
 
 use crate::metal::{
@@ -61,8 +58,8 @@ pub fn fft<F: IsTwoAdicField>(
     command_buffer.commit();
     command_buffer.wait_until_completed();
 
-    let mut result = MetalState::retrieve_contents(&input_buffer);
-    in_place_bit_reverse_permute(&mut result); // TODO: implement this in metal.
+    let result = MetalState::retrieve_contents(&input_buffer);
+    let result = bitrev_permutation(&result, state).map_err(FFTMetalError::Metal)?;
     Ok(result.iter().map(FieldElement::from).collect())
 }
 
@@ -128,6 +125,7 @@ pub fn bitrev_permutation<T: Clone>(input: &[T], state: &MetalState) -> Result<V
 mod tests {
     use crate::metal::abstractions::state::*;
     use lambdaworks_math::{
+        fft::bit_reversing::in_place_bit_reverse_permute,
         field::{test_fields::u32_test_field::U32TestField, traits::RootsConfig},
         polynomial::Polynomial,
     };
