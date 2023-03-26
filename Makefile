@@ -20,4 +20,4 @@ benchmark:
 
 METALPATH = gpu/src/metal/shaders
 build-metal:
-	xcrun -sdk macosx metal $(METALPATH)/shaders.metal -o $(METALPATH)/lib.metallib
+	xcrun -sdk macosx metal $(METALPATH)/all.metal -o $(METALPATH)/lib.metallib
