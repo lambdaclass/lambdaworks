@@ -6,7 +6,10 @@ use lambdaworks_math::{
     },
 };
 
-use crate::metal::{abstractions::state::*, fft::errors::FFTMetalError};
+use crate::metal::{
+    abstractions::{errors::MetalError, state::*},
+    fft::errors::FFTMetalError,
+};
 
 use super::helpers::{log2, void_ptr};
 use metal::MTLSize;
@@ -100,6 +103,27 @@ pub fn gen_twiddles<F: IsTwoAdicField>(
     Ok(result.iter().map(FieldElement::from).collect())
 }
 
+pub fn bitrev_permutation<T: Clone>(input: &[T], state: &MetalState) -> Result<Vec<T>, MetalError> {
+    let pipeline = state.setup_pipeline("bitrev_permutation")?;
+
+    let input_buffer = state.alloc_buffer_data(input);
+    let result_buffer = state.alloc_buffer::<T>(input.len());
+
+    let (command_buffer, command_encoder) =
+        state.setup_command(&pipeline, Some(&[(0, &input_buffer), (1, &result_buffer)]));
+
+    let grid_size = MTLSize::new(input.len() as u64, 1, 1);
+    let threadgroup_size = MTLSize::new(pipeline.max_total_threads_per_threadgroup(), 1, 1);
+
+    command_encoder.dispatch_threads(grid_size, threadgroup_size);
+    command_encoder.end_encoding();
+
+    command_buffer.commit();
+    command_buffer.wait_until_completed();
+
+    Ok(MetalState::retrieve_contents::<T>(&result_buffer))
+}
+
 #[cfg(test)]
 mod tests {
     use crate::metal::abstractions::state::*;
@@ -137,7 +161,6 @@ mod tests {
 
     proptest! {
         // Property-based test that ensures Metal parallel FFT gives same result as a sequential one.
-        // These tests actually pass, but we ignore them because they fail in the CI due to a lack of GPU
         #[test]
         fn test_metal_fft_matches_sequential(poly in poly(8)) {
             objc::rc::autoreleasepool(|| {
@@ -156,8 +179,8 @@ mod tests {
     }
 
     proptest! {
-        // These tests actually pass, but we ignore them because they fail in the CI due to a lack of GPU
         #[test]
+        // Property-based test that ensures Metal parallel twiddle generation matches the sequential one..
         fn test_gpu_twiddles_match_cpu(order in 2..16) {
             objc::rc::autoreleasepool(|| {
                 let configs = [
@@ -175,6 +198,26 @@ mod tests {
 
                     prop_assert_eq!(cpu_twiddles, gpu_twiddles);
                 }
+                Ok(())
+            }).unwrap();
+        }
+    }
+
+    proptest! {
+        // Property-based test that ensures Metal parallel bitrev permutation matches the sequential one..
+        #[test]
+        fn test_gpu_bitrev_matches_cpu(input in field_vec(4)) {
+            objc::rc::autoreleasepool(|| {
+                let metal_state = MetalState::new(None).unwrap();
+                let cpu_permuted = {
+                    let mut input = input.clone();
+                    in_place_bit_reverse_permute(&mut input);
+                    input
+                };
+                let gpu_permuted = bitrev_permutation(&input, &metal_state).unwrap();
+
+                prop_assert_eq!(cpu_permuted, gpu_permuted);
+
                 Ok(())
             }).unwrap();
         }

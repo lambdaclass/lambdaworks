@@ -1,3 +1,4 @@
+#pragma once
 #include "fp.h.metal"
 #include "util.h.metal"
 
@@ -16,8 +17,7 @@ void calc_twiddle(
 void calc_twiddle_inv(
     device uint32_t* result  [[ buffer(0) ]],
     constant uint32_t& _omega [[ buffer(1) ]],
-    uint index [[ thread_position_in_grid ]],
-    uint size [[ threads_per_grid ]]
+    uint index [[ thread_position_in_grid ]]
 )
 {
     Fp omega = _omega;

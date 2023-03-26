@@ -1,6 +1,5 @@
-#include <metal_stdlib>
-
 #pragma once
+#include <metal_stdlib>
 
 /// Reverses the `log2(size)` first bits of `i`
 uint32_t reverse_index(uint32_t i, uint64_t size) {

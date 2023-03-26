@@ -1,3 +1,4 @@
+#pragma once
 #include "fp.h.metal"
 
 [[kernel]]

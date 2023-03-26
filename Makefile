@@ -18,9 +18,6 @@ benchmarks:
 benchmark:
 	cargo criterion --bench ${BENCH}
 
+METALPATH = gpu/src/metal/shaders
 build-metal:
-	xcrun -sdk macosx metal \
-	gpu/src/metal/shaders/fft.metal \
-	gpu/src/metal/shaders/twiddles.metal \
-	-o gpu/src/metal/shaders/lib.metallib
-
+	xcrun -sdk macosx metal $(METALPATH)/shaders.metal -o $(METALPATH)/lib.metallib
