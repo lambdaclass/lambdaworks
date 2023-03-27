@@ -9,8 +9,8 @@ use rand::random;
 type F = U32TestField;
 type FE = FieldElement<F>;
 
-fn gen_coeffs(pow: usize) -> Vec<FE> {
-    let mut result = Vec::with_capacity(1 << pow);
+fn gen_coeffs(order: usize) -> Vec<FE> {
+    let mut result = Vec::with_capacity(1 << order);
     for _ in 0..result.capacity() {
         result.push(FE::new(random()));
     }
@@ -20,7 +20,7 @@ fn gen_coeffs(pow: usize) -> Vec<FE> {
 pub fn metal_fft_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("metal_fft");
 
-    for order in 20..=24 {
+    for order in 21..=24 {
         let coeffs = gen_coeffs(order);
         group.throughput(criterion::Throughput::Elements(1 << order)); // info for criterion
 
@@ -51,11 +51,11 @@ pub fn metal_fft_twiddles_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("metal_fft");
     group.sample_size(10); // it becomes too slow with the default of 100
 
-    for order in 2..=4 {
+    for order in 21..=24 {
         group.throughput(criterion::Throughput::Elements(1 << order)); // info for criterion
 
         group.bench_with_input(
-            format!("parallel_twiddle_factors_2^({order}-1)_elems"),
+            format!("parallel_twiddle_gen_2^({order}-1)_elems"),
             &order,
             |bench, order| {
                 bench.iter(|| {
@@ -75,7 +75,7 @@ pub fn metal_fft_twiddles_benchmarks(c: &mut Criterion) {
 pub fn metal_bitrev_permutation_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("metal_fft");
 
-    for order in 20..=24 {
+    for order in 21..=24 {
         let coeffs = gen_coeffs(order);
         group.throughput(criterion::Throughput::Elements(1 << order)); // info for criterion
 
