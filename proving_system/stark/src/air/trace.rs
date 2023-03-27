@@ -54,13 +54,10 @@ impl<F: IsField> TraceTable<F> {
         ret
     }
 
-    pub fn compute_trace_polys(
-        &self,
-        trace_roots_of_unity: &[FieldElement<F>],
-    ) -> Vec<Polynomial<FieldElement<F>>> {
+    pub fn compute_trace_polys(&self) -> Vec<Polynomial<FieldElement<F>>> {
         self.cols()
             .iter()
-            .map(|col| Polynomial::interpolate(trace_roots_of_unity, col))
+            .map(|col| Polynomial::interpolate_fft(col))
             .collect()
     }
 }
@@ -74,9 +71,9 @@ mod test {
 
     #[test]
     fn test_cols() {
-        let cols: Vec<FieldElement<PrimeField>> = (0..4).map(FieldElement::from).collect();
+        let cols: Vec<FieldElement<PrimeField>> = (0..4).map(|n| FieldElement::from(n)).collect();
 
-        let trace_table = TraceTable::new_from_cols(&[cols.clone()]);
+        let trace_table = TraceTable::new_from_cols(&vec![cols.clone()]);
 
         let res_cols = trace_table.cols();
         assert_eq!(res_cols, vec![cols]);

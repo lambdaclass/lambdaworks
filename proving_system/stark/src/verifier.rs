@@ -4,6 +4,7 @@ use lambdaworks_math::{
         element::FieldElement,
         traits::{IsField, IsTwoAdicField},
     },
+    helpers,
     polynomial::Polynomial,
     traits::ByteConversion,
 };
@@ -11,11 +12,9 @@ use lambdaworks_math::{
 use crate::{transcript_to_field, transcript_to_usize, StarkProof};
 
 use super::{
-    air::{
-        constraints::{evaluator::ConstraintEvaluator, helpers},
-        AIR,
-    },
+    air::{constraints::evaluator::ConstraintEvaluator, AIR},
     fri::fri_decommit::FriDecommitment,
+    sample_z_ood,
 };
 
 pub fn verify<F: IsField + IsTwoAdicField, A: AIR + AIR<Field = F>>(
@@ -37,19 +36,34 @@ where
     let root_order = air.context().trace_length.trailing_zeros();
     let trace_primitive_root = F::get_primitive_root_of_unity(root_order as u64).unwrap();
 
-    let boundary_constraints = air.compute_boundary_constraints();
+    let trace_roots_of_unity = F::get_powers_of_primitive_root_coset(
+        root_order as u64,
+        air.context().trace_length,
+        &FieldElement::<F>::one(),
+    )
+    .unwrap();
 
-    // TODO: Fiat-Shamir
-    let z = FieldElement::<F>::from(2);
-    // TODO: The reason this is commented is we can't just call this function, we have to make sure that the result
-    // is not either a root of unity or an element of the lde coset.
-    // let z = transcript_to_field(transcript);
+    let boundary_constraints = air.compute_boundary_constraints();
 
     let n_trace_cols = air.context().trace_columns;
 
     let boundary_constraint_domains =
         boundary_constraints.generate_roots_of_unity(&trace_primitive_root, n_trace_cols);
     let values = boundary_constraints.values(n_trace_cols);
+
+    let lde_root_order =
+        (air.context().trace_length * air.options().blowup_factor as usize).trailing_zeros();
+    let lde_roots_of_unity_coset = F::get_powers_of_primitive_root_coset(
+        lde_root_order as u64,
+        air.context().trace_length * air.options().blowup_factor as usize,
+        &FieldElement::<F>::from(air.options().coset_offset),
+    )
+    .unwrap();
+
+    // Fiat-Shamir
+    // we have to make sure that the result is not either
+    // a root of unity or an element of the lde coset.
+    let z = sample_z_ood(&lde_roots_of_unity_coset, &trace_roots_of_unity, transcript);
 
     // TODO: this assumes one column
     // let values = boundary_constraints.values(0);

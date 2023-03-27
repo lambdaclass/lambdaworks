@@ -1,5 +1,6 @@
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::{
+    fft::errors::FFTError,
     field::{
         element::FieldElement,
         traits::{IsField, IsTwoAdicField},
@@ -13,7 +14,7 @@ use crate::{transcript_to_field, transcript_to_usize, StarkProof};
 use super::{
     air::{constraints::evaluator::ConstraintEvaluator, frame::Frame, trace::TraceTable, AIR},
     fri::{fri, fri_decommit::fri_decommit_layers},
-    StarkQueryProof,
+    sample_z_ood, StarkQueryProof,
 };
 
 // FIXME remove unwrap() calls and return errors
@@ -30,7 +31,6 @@ where
     let root_order = air.context().trace_length.trailing_zeros();
     // * Generate Coset
     let trace_primitive_root = F::get_primitive_root_of_unity(root_order as u64).unwrap();
-
     let trace_roots_of_unity = F::get_powers_of_primitive_root_coset(
         root_order as u64,
         air.context().trace_length,
@@ -47,22 +47,25 @@ where
     )
     .unwrap();
 
-    let trace_polys = trace.compute_trace_polys(&trace_roots_of_unity);
-    let lde_trace_evaluations: Vec<Vec<FieldElement<F>>> = trace_polys
+    let trace_polys = trace.compute_trace_polys();
+    let lde_trace_evaluations = trace_polys
         .iter()
-        .map(|poly| poly.evaluate_slice(&lde_roots_of_unity_coset))
-        .collect();
+        .map(|poly| {
+            poly.evaluate_offset_fft(
+                &FieldElement::<F>::from(air.options().coset_offset),
+                air.options().blowup_factor as usize,
+            )
+        })
+        .collect::<Result<Vec<Vec<FieldElement<F>>>, FFTError>>()
+        .unwrap();
 
     let lde_trace = TraceTable::new_from_cols(&lde_trace_evaluations);
 
-    // TODO: Fiat-Shamir
+    // Fiat-Shamir
     // z is the Out of domain evaluation point used in Deep FRI. It needs to be a point outside
     // of both the roots of unity and its corresponding coset used for the lde commitment.
-    let z = FieldElement::from(2);
+    let z = sample_z_ood(&lde_roots_of_unity_coset, &trace_roots_of_unity, transcript);
 
-    // TODO: The reason this is commented is we can't just call this function, we have to make sure that the result
-    // is not either a root of unity or an element of the lde coset.
-    // let z = transcript_to_field(transcript);
     let z_squared = &z * &z;
 
     // Create evaluation table
