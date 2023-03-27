@@ -221,6 +221,7 @@ mod tests {
         // Property-based test that ensures Metal parallel FFT gives same result as a sequential one.
         // These tests actually pass, but we ignore them because they fail in the CI due to a lack of GPU
         #[test]
+        #[ignore]
         fn test_metal_fft_matches_sequential(poly in poly(8)) {
             objc::rc::autoreleasepool(|| {
                 let order = poly.coefficients().len().trailing_zeros() as u64;
@@ -242,6 +243,7 @@ mod tests {
     proptest! {
         // These tests actually pass, but we ignore them because they fail in the CI due to a lack of GPU
         #[test]
+        #[ignore]
         fn test_gpu_twiddles_match_cpu(order in powers_of_two(4)) {
             type F256 = U256MontgomeryTwoAdicPrimeField;
             objc::rc::autoreleasepool(|| {
