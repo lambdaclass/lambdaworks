@@ -274,6 +274,14 @@ where
         let p_t_mid = Polynomial::new(&t.coefficients[&cpi.n + 2..2 * (&cpi.n + 2)]);
         let p_t_hi = Polynomial::new(&t.coefficients[2 * (&cpi.n + 2)..3 * (&cpi.n + 2)]);
 
+        let b_0 = self.random_generator.generate();
+        let b_1 = self.random_generator.generate();
+
+        let p_t_lo = &p_t_lo + &b_0 * Polynomial::new_monomial(FieldElement::one(), cpi.n + 2);
+        let p_t_mid =
+            &p_t_mid - b_0 + &b_1 * Polynomial::new_monomial(FieldElement::one(), cpi.n + 2);
+        let p_t_hi = &p_t_hi - b_1;
+
         let t_lo_1 = self.commitment_scheme.commit(&p_t_lo);
         let t_mid_1 = self.commitment_scheme.commit(&p_t_mid);
         let t_hi_1 = self.commitment_scheme.commit(&p_t_hi);
