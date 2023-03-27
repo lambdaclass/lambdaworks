@@ -14,10 +14,7 @@ pub struct Frame<F: IsField> {
 
 impl<F: IsField> Frame<F> {
     pub fn new(data: Vec<FieldElement<F>>, row_width: usize) -> Self {
-        Self {
-            data: data,
-            row_width,
-        }
+        Self { data, row_width }
     }
 
     pub fn num_rows(&self) -> usize {
