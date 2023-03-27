@@ -1,4 +1,5 @@
 pub mod air;
+mod cairo_vm;
 pub mod fri;
 pub mod prover;
 pub mod verifier;
