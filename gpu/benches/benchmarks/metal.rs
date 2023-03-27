@@ -18,7 +18,7 @@ fn gen_coeffs(order: usize) -> Vec<FE> {
 }
 
 pub fn metal_fft_benchmarks(c: &mut Criterion) {
-    let mut group = c.benchmark_group("metal_fft");
+    let mut group = c.benchmark_group("fft");
 
     for order in 21..=24 {
         let coeffs = gen_coeffs(order);
@@ -26,7 +26,7 @@ pub fn metal_fft_benchmarks(c: &mut Criterion) {
 
         // the objective is to bench ordered FFT, including twiddles generation and Metal setup
         group.bench_with_input(
-            format!("parallel_nr_2radix_2^{order}_coeffs"),
+            format!("Parallel NR radix2 FFT for 2^{order} elements"),
             &coeffs,
             |bench, coeffs| {
                 bench.iter(|| {
@@ -48,14 +48,14 @@ pub fn metal_fft_benchmarks(c: &mut Criterion) {
 }
 
 pub fn metal_fft_twiddles_benchmarks(c: &mut Criterion) {
-    let mut group = c.benchmark_group("metal_fft");
+    let mut group = c.benchmark_group("fft");
     group.sample_size(10); // it becomes too slow with the default of 100
 
     for order in 21..=24 {
         group.throughput(criterion::Throughput::Elements(1 << order)); // info for criterion
 
         group.bench_with_input(
-            format!("parallel_twiddle_gen_2^({order}-1)_elems"),
+            format!("Parallel twiddles generation for 2^({order}-1) elements"),
             &order,
             |bench, order| {
                 bench.iter(|| {
@@ -73,14 +73,14 @@ pub fn metal_fft_twiddles_benchmarks(c: &mut Criterion) {
 }
 
 pub fn metal_bitrev_permutation_benchmarks(c: &mut Criterion) {
-    let mut group = c.benchmark_group("metal_fft");
+    let mut group = c.benchmark_group("fft");
 
     for order in 21..=24 {
         let coeffs = gen_coeffs(order);
         group.throughput(criterion::Throughput::Elements(1 << order)); // info for criterion
 
         group.bench_with_input(
-            format!("parallel_bitrev_permutation_2^({order})_elems"),
+            format!("Parallel bitrev permutation for 2^{order} elements"),
             &coeffs,
             |bench, coeffs| {
                 bench.iter(|| {
