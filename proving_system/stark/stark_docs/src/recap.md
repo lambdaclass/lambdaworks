@@ -56,7 +56,7 @@ Ultimately, our goal is to give the tools to write a STARK prover for the cairo 
 
 Use the fibonacci example as your go-to for understanding all the moving parts; keep the Cairo example in mind as the thing we are actually building towards.
 
-# Step by step walkthrough
+# Fibonacci step by step walkthrough
 
 Below we go through a step by step explanation of a STARK prover. We will assume the trace of the fibonacci sequence mentioned above; it consists of only one column of length $2^n$. In this case, we'll take `n=3`. The trace looks like this
 
@@ -166,11 +166,70 @@ $$
 
 and be convinced that $H$ was constructed correctly.
 
-We are still not done, however, as the prover could have now cheated on the values of the trace evaluations.
+We are still not done, however, as the prover could have now cheated on the values of the trace or composition polynomial evaluations.
 
 ## Deep Composition Polynomial
 
-TODO
+There are two things left the prover needs to show to complete the proof:
+
+- That $H$ effectively is a polynomial, i.e., that the constraints are satisfied.
+- That the evaluations the prover provided on the consistency check were indeed evaluations of the trace polynomial and composition polynomial on the out of domain point `z`.
+
+Earlier we said we would use the `FRI` protocol to commit to `H` and show the first item in the list. However, we can slightly modify the polynomial we do `FRI` on to show both the first and second items and the same time. This new modified polynomial is called the `DEEP` composition polynomial. We define it as follows:
+
+$$
+Deep(x) = \dfrac{H(x) - H(z)}{x - z} + \dfrac{t(x) - t(z)}{x - z} + \dfrac{t(x) - t(zg)}{x - zg} + \dfrac{t(x) - t(zg^2)}{x - zg^2}
+$$
+
+The high level idea is the following: If we apply `FRI` to this polynomial and it verifies, we are simultaneously showing that
+
+- $H$ is a polynomial and the prover indeed provided `H(z)` as one of the out of domain evaluations. This is the first summand in `Deep(x)`.
+- The trace evaluations provided by the prover were the correct ones, i.e., they were $t(z)$, $t(zg)$, and $t(zg^2)$. These are the remaining summands of the `Deep(x)`.
+
+## Summary
+
+We summarize below the steps required in a STARK proof for both prover and verifier.
+
+### Prover side
+
+- Compute the trace polynomial `t` by interpolating the trace column over a set of $2^n$-th roots of unity $\{g^i : 0 \leq i < 2^n\}$.
+- Compute the boundary polynomial `B`.
+- Compute the transition constraint polynomial `C`.
+- Construct the composition polynomial `H` from `B` and `C`.
+- Sample an out of domain point `z` and provide the evaluations $H(z)$, $t(z)$, $t(zg)$, and $t(zg^2)$ to the verifier.
+- Construct the deep composition polynomial `Deep(x)` from `H`, `t`, and the evaluations from the item above.
+- Do `FRI` on `Deep(x)` and provide the resulting FRI commitment to the verifier.
+
+### Verifier side
+
+- Take the evaluations $H(z)$, $t(z)$, $t(zg)$, and $t(zg^2)$ the prover provided.
+- Reconstruct the evaluations $B(z)$ and $C(z)$ from the trace evaluations we were given. Check that the claimed evaluation $H(z)$ the prover gave us actually satisfies
+    $$
+    H(z) = B(z) (\alpha_1 z^{D - deg(B)} + \beta_1) + C(z) (\alpha_2 z^{D - deg(C)} + \beta_2)
+    $$
+- Take the provided `FRI` commitment and check that it verifies.
+
+# Simplifications and Omissions
+
+The walkthrough above was for the fibonacci example which, because of its simplicity, allowed us to sweep under the rug a few more complexities that we'll have to tackle on the implementation side. They are:
+
+### Multiple trace columns
+
+Our trace contained only one column, but in the general setting there can be multiple (the Cairo `AIR` has around 30). This means there isn't just *one* trace polynomial, but several; one for each column. This also means there are multiple boundary constraint polynomials.
+
+The general idea, however, remains the same. The deep composition polynomial `H` is now the sum of several terms containing the boundary constraint polynomials $B_1(x), \dots, B_k(x)$ (one per column), and each $B_i$ is in turn constructed from the $i$-th trace polynomial $t_i(x)$.
+
+### Multiple transition constraints
+
+Much in the same way, our fibonacci `AIR` had only one transition constraint, but there could be several. We will therefore have multiple transition constraint polynomials $C_1(x), \dots, C_n(x)$, each of which encodes a different relationship between rows that must be satisfied. Also, because there are multiple trace columns, a transition constraint can mix different trace polynomials. One such constraint could be
+
+$$
+C_1(x) = t_1(gx) - t_2(x)
+$$
+
+which means "The first column on the next row has to be equal to the second column in the current row".
+
+Again, even though this seems way more complex, the ideas remain the same. The composition polynomial `H` will now include a term for every $C_i(x)$, and for each one the prover will have to provide out of domain evaluations of the trace polynomials at the appropriate values. In our example above, to perform the consistency check on $C_1(x)$ the prover will have to provide the evaluations $t_1(zg)$ and $t_2(z)$.
 
 ## FRI and low degree extensions
 
