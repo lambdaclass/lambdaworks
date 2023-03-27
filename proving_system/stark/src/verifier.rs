@@ -69,14 +69,6 @@ where
 
     let max_degree_power_of_two = helpers::next_power_of_two(max_degree as u64);
 
-    // // TODO: This is assuming one column
-    // let boundary_quotient_degree =
-    //     (air.context().trace_length - boundary_zerofier.degree()) as u64 - 1;
-
-    // GENERALIZE FOR MULTIPLE TRACE COLUMNS
-    // let mut boundary_quotient_ood_evaluation = &trace_poly_ood_frame_evaluations.get_row(0)[0]
-    //     - boundary_interpolating_polynomial.evaluate(&z);
-
     let mut aux_boundary_quotient_ood_evaluations = Vec::with_capacity(n_trace_cols);
     for trace_idx in 0..n_trace_cols {
         let trace_evaluation = &trace_poly_ood_frame_evaluations.get_row(0)[trace_idx];
@@ -104,12 +96,6 @@ where
     let boundary_quotient_ood_evaluation = aux_boundary_quotient_ood_evaluations
         .iter()
         .fold(FieldElement::<F>::zero(), |acc, x| acc + x);
-
-    // boundary_quotient_ood_evaluation =
-    //     boundary_quotient_ood_evaluation / boundary_zerofier.evaluate(&z);
-
-    // boundary_quotient_ood_evaluation = boundary_quotient_ood_evaluation
-    //     * (&boundary_alpha * z.pow(max_degree_power_of_two - boundary_degree) + &boundary_beta);
 
     let transition_ood_frame_evaluations = air.compute_transition(trace_poly_ood_frame_evaluations);
 

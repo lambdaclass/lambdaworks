@@ -43,10 +43,10 @@ impl<F: IsField> TraceTable<F> {
 
     pub fn cols(&self) -> Vec<Vec<FieldElement<F>>> {
         let mut ret = Vec::with_capacity(self.n_cols);
-        let n_rows = self.table.len() / self.n_cols;
-        for row_idx in 0..n_rows {
+        let n_rows = self.n_rows();
+        for col_idx in 0..self.n_cols {
             let mut col = Vec::with_capacity(n_rows);
-            for col_idx in 0..self.n_cols {
+            for row_idx in 0..n_rows {
                 col.push(self.table[col_idx * self.n_cols + row_idx].clone())
             }
             ret.push(col);
@@ -60,7 +60,25 @@ impl<F: IsField> TraceTable<F> {
     ) -> Vec<Polynomial<FieldElement<F>>> {
         self.cols()
             .iter()
-            .map(|e| Polynomial::interpolate(&trace_roots_of_unity, e))
+            .map(|col| Polynomial::interpolate(&trace_roots_of_unity, col))
             .collect()
+    }
+}
+#[cfg(test)]
+mod test {
+    use lambdaworks_math::field::element::FieldElement;
+
+    use crate::PrimeField;
+
+    use super::TraceTable;
+
+    #[test]
+    fn test_cols() {
+        let cols: Vec<FieldElement<PrimeField>> = (0..4).map(|n| FieldElement::from(n)).collect();
+
+        let trace_table = TraceTable::new_from_cols(&vec![cols.clone()]);
+
+        let res_cols = trace_table.cols();
+        assert_eq!(res_cols, vec![cols]);
     }
 }

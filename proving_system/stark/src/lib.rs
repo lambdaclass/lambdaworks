@@ -80,7 +80,7 @@ mod tests {
                 coset_offset: 3,
             },
             trace_length,
-            trace_columns: trace_table.table.len(),
+            trace_columns: trace_table.n_cols,
             transition_degrees: vec![1],
             transition_exemptions: vec![trace_length - 2, trace_length - 1],
             transition_offsets: vec![0, 1, 2],
@@ -93,35 +93,32 @@ mod tests {
         assert!(verify(&result, &fibonacci_air));
     }
 
-    //     #[ignore]
-    //     #[test]
-    //     fn test_prove_fib17() {
-    //         let trace = fibonacci_trace([FE17::new(1), FE17::new(1)], 4);
+    #[ignore]
+    #[test]
+    fn test_prove_fib17() {
+        let trace = fibonacci_trace([FE17::from(1), FE17::from(1)], 4);
+        let trace_length = trace[0].len();
+        let trace_table = TraceTable::new_from_cols(&trace);
 
-    //         let trace_table = TraceTable {
-    //             table: trace.clone(),
-    //             num_cols: 1,
-    //         };
+        let context = AirContext {
+            options: ProofOptions {
+                blowup_factor: 2,
+                fri_number_of_queries: 1,
+                coset_offset: 3,
+            },
+            trace_length: trace.len(),
+            trace_columns: trace_table.n_cols,
+            transition_degrees: vec![1],
+            transition_exemptions: vec![trace_length - 2, trace_length - 1],
+            transition_offsets: vec![0, 1, 2],
+            num_transition_constraints: 1,
+        };
 
-    //         let context = AirContext {
-    //             options: ProofOptions {
-    //                 blowup_factor: 2,
-    //                 fri_number_of_queries: 1,
-    //                 coset_offset: 3,
-    //             },
-    //             trace_length: trace.len(),
-    //             trace_columns: trace_table.num_cols,
-    //             transition_degrees: vec![1],
-    //             transition_exemptions: vec![trace.len() - 2, trace.len() - 1],
-    //             transition_offsets: vec![0, 1, 2],
-    //             num_transition_constraints: 1,
-    //         };
+        let fibonacci_air = Fibonacci17AIR::new(trace_table.clone(), context);
 
-    //         let fibonacci_air = Fibonacci17AIR::new(trace_table, context);
-
-    //         let result = prove(&trace, &fibonacci_air);
-    //         assert!(verify(&result, &fibonacci_air));
-    //     }
+        let result = prove(&trace_table, &fibonacci_air);
+        assert!(verify(&result, &fibonacci_air));
+    }
 }
 
 #[cfg(test)]

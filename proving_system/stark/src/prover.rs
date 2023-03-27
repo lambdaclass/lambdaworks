@@ -102,13 +102,6 @@ where
     let trace_ood_frame_data = ood_trace_evaluations.into_iter().flatten().collect();
     let trace_ood_frame_evaluations = Frame::new(trace_ood_frame_data, trace_polys.len());
 
-    // let trace_ood_frame_evaluations = Frame::<F>::construct_ood_frame(
-    //     &trace_polys,
-    //     &z,
-    //     &air.context().transition_offsets,
-    //     &trace_primitive_root,
-    // );
-
     // END EVALUATION BLOCK
 
     // Compute DEEP composition polynomial so we can commit to it using FRI.
