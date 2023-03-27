@@ -79,12 +79,6 @@ impl<F: IsTwoAdicField> Frame<F> {
                     .collect::<Vec<FieldElement<F>>>()
             })
             .collect()
-
-        // trace_polys
-        //     .iter()
-        //     .for_each(|p| evaluations.push(p.evaluate_slice(&evaluation_points)));
-
-        // evaluations
     }
 
     // / Returns the Out of Domain Frame for the given trace polynomials, out of domain evaluation point (called `z` in the literature),

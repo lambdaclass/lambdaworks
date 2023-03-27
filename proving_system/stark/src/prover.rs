@@ -92,13 +92,19 @@ where
         composition_poly_odd.evaluate(&z_squared),
     ];
 
+    // Returns the Out of Domain Frame for the given trace polynomials, out of domain evaluation point (called `z` in the literature),
+    // frame offsets given by the AIR and primitive root used for interpolating the trace polynomials.
+    // An out of domain frame is nothing more than the evaluation of the trace polynomials in the points required by the
+    // verifier to check the consistency between the trace and the composition polynomial.
+    //
+    // In the fibonacci example, the ood frame is simply the evaluations `[t(z), t(z * g), t(z * g^2)]`, where `t` is the trace
+    // polynomial and `g` is the primitive root of unity used when interpolating `t`.
     let ood_trace_evaluations = Frame::get_trace_evaluations(
         &trace_polys,
         &z,
         &air.context().transition_offsets,
         &trace_primitive_root,
     );
-
     let trace_ood_frame_data = ood_trace_evaluations.into_iter().flatten().collect();
     let trace_ood_frame_evaluations = Frame::new(trace_ood_frame_data, trace_polys.len());
 

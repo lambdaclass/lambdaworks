@@ -65,13 +65,6 @@ where
     // a root of unity or an element of the lde coset.
     let z = sample_z_ood(&lde_roots_of_unity_coset, &trace_roots_of_unity, transcript);
 
-    // TODO: this assumes one column
-    // let values = boundary_constraints.values(0);
-
-    // The boundary constraint polynomial is trace - this polynomial below.
-    // let boundary_interpolating_polynomial = &Polynomial::interpolate(&domain, &values);
-    // let boundary_zerofier = boundary_constraints.compute_zerofier(&trace_primitive_root);
-
     let boundary_alpha = transcript_to_field(transcript);
     let boundary_beta = transcript_to_field(transcript);
     // TODO: these are hardcoded to one column, there should be one alpha and beta per column

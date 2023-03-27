@@ -80,13 +80,12 @@ impl<F: IsField> BoundaryConstraints<F> {
         ret
     }
 
-    /// Given a trace column, gives all the values the trace must be equal to where
-    /// the boundary constraints hold
-    /// TODO %%%%%% update doc
-    pub fn values(&self, count_cols_trace: usize) -> Vec<Vec<FieldElement<F>>> {
+    /// For every trace column, give all the values the trace must be equal to in
+    /// the steps where the boundary constraints hold
+    pub fn values(&self, n_trace_columns: usize) -> Vec<Vec<FieldElement<F>>> {
         let mut ret = Vec::new();
 
-        for i in 0..count_cols_trace {
+        for i in 0..n_trace_columns {
             ret.push(
                 self.constraints
                     .iter()
