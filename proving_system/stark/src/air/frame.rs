@@ -20,19 +20,6 @@ impl<F: IsField> Frame<F> {
         }
     }
 
-    // pub fn ood_new(data_input: &[Vec<FieldElement<F>>], row_width: usize) -> Self {
-    //     let mut data = Vec::new();
-    //     for row in data_input {
-    //         let mut row_vec = Vec::new();
-    //         for elem in row {
-    //             row_vec.push(elem);
-    //         }
-    //         data.push(row_vec);
-    //     }
-
-    //     Self { data, row_width }
-    // }
-
     pub fn num_rows(&self) -> usize {
         self.data.len() / self.row_width
     }
