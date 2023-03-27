@@ -81,17 +81,24 @@ impl<F: IsField> Frame<F> {
         frame_offsets: &[usize],
         primitive_root: &FieldElement<F>,
     ) -> Vec<Vec<FieldElement<F>>> {
-        let mut evaluations = Vec::with_capacity(trace_polys.len());
-        let evaluation_points: Vec<FieldElement<F>> = frame_offsets
+        // let mut evaluations = Vec::with_capacity(frame_offsets.len());
+        // let evaluations: Vec<Vec<FieldElement<F>>> = frame_offsets
+        frame_offsets
             .iter()
             .map(|offset| x * primitive_root.pow(*offset))
-            .collect();
+            .map(|eval_point| {
+                trace_polys
+                    .iter()
+                    .map(|poly| poly.evaluate(&eval_point))
+                    .collect::<Vec<FieldElement<F>>>()
+            })
+            .collect()
 
-        trace_polys
-            .iter()
-            .for_each(|p| evaluations.push(p.evaluate_slice(&evaluation_points)));
+        // trace_polys
+        //     .iter()
+        //     .for_each(|p| evaluations.push(p.evaluate_slice(&evaluation_points)));
 
-        evaluations
+        // evaluations
     }
 
     // / Returns the Out of Domain Frame for the given trace polynomials, out of domain evaluation point (called `z` in the literature),
