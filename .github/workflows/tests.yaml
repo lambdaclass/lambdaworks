@@ -1,3 +1,4 @@
+# Note: the gpu crate is exlcuded from the jobs because of incompatible dependencies with the CI host.
 name: Lambdaworks build checks
 on:
   push:
@@ -28,6 +29,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: check
+          args: --all-features --workspace --exclude gpu
 
   coverage:
     runs-on: macos-latest
@@ -42,7 +44,7 @@ jobs:
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
       - name: Generate code coverage
-        run: cargo llvm-cov --all-features --lcov --output-path lcov.info
+        run: cargo llvm-cov --all-features --workspace --exclude gpu --lcov --output-path lcov.info
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
         with:
@@ -69,7 +71,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: fmt
-          args: --all -- --check
+          args: --workspace -- --check
 
   clippy:
     runs-on: ubuntu-latest
