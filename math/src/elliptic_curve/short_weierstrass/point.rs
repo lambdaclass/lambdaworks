@@ -161,10 +161,21 @@ where
             Err(ByteConversionError::FromBEBytesError)
         } else {
             let len = bytes.len() / 3;
-            let x = FieldElement::<E::BaseField>::from_bytes_be(&bytes[..len])?;
-            let y = FieldElement::<E::BaseField>::from_bytes_be(&bytes[len..len * 2])?;
-            let z = FieldElement::<E::BaseField>::from_bytes_be(&bytes[len * 2..])?;
-            Ok(Self::new([x, y, z]))
+            let x = FieldElement::from_bytes_be(&bytes[..len])?;
+            let y = FieldElement::from_bytes_be(&bytes[len..len * 2])?;
+            let z = FieldElement::from_bytes_be(&bytes[len * 2..])?;
+            if z == FieldElement::zero() {
+                let point = Self::new([x, y, z]);
+                if point.is_neutral_element() {
+                    Ok(point)
+                } else {
+                    Err(ByteConversionError::FromBEBytesError)
+                }
+            } else if E::defining_equation(&(&x / &z), &(&y / &z)) == FieldElement::zero() {
+                Ok(Self::new([x, y, z]))
+            } else {
+                Err(ByteConversionError::FromBEBytesError)
+            }
         }
     }
 
@@ -173,10 +184,21 @@ where
             Err(ByteConversionError::FromLEBytesError)
         } else {
             let len = bytes.len() / 3;
-            let x = FieldElement::<E::BaseField>::from_bytes_le(&bytes[..len])?;
-            let y = FieldElement::<E::BaseField>::from_bytes_le(&bytes[len..len * 2])?;
-            let z = FieldElement::<E::BaseField>::from_bytes_le(&bytes[len * 2..])?;
-            Ok(Self::new([x, y, z]))
+            let x = FieldElement::from_bytes_le(&bytes[..len])?;
+            let y = FieldElement::from_bytes_le(&bytes[len..len * 2])?;
+            let z = FieldElement::from_bytes_le(&bytes[len * 2..])?;
+            if z == FieldElement::zero() {
+                let point = Self::new([x, y, z]);
+                if point.is_neutral_element() {
+                    Ok(point)
+                } else {
+                    Err(ByteConversionError::FromLEBytesError)
+                }
+            } else if E::defining_equation(&(&x / &z), &(&y / &z)) == FieldElement::zero() {
+                Ok(Self::new([x, y, z]))
+            } else {
+                Err(ByteConversionError::FromLEBytesError)
+            }
         }
     }
 }
@@ -194,7 +216,7 @@ mod tests {
     #[allow(clippy::upper_case_acronyms)]
     type FEE = FieldElement<BLS12381PrimeField>;
 
-    fn point_1() -> ShortWeierstrassProjectivePoint<BLS12381Curve> {
+    fn point() -> ShortWeierstrassProjectivePoint<BLS12381Curve> {
         let x = FEE::new_base("36bb494facde72d0da5c770c4b16d9b2d45cfdc27604a25a1a80b020798e5b0dbd4c6d939a8f8820f042a29ce552ee5");
         let y = FEE::new_base("7acf6e49cc000ff53b06ee1d27056734019c0a1edfa16684da41ebb0c56750f73bc1b0eae4c6c241808a5e485af0ba0");
         BLS12381Curve::create_point_from_affine(x, y).unwrap()
@@ -202,7 +224,7 @@ mod tests {
 
     #[test]
     fn byte_conversion_from_and_to_be() {
-        let expected_point = point_1();
+        let expected_point = point();
         let bytes_be = expected_point.to_bytes_be();
         let result = ShortWeierstrassProjectivePoint::from_bytes_be(&bytes_be);
         assert_eq!(expected_point, result.unwrap());
@@ -210,7 +232,7 @@ mod tests {
 
     #[test]
     fn byte_conversion_from_and_to_le() {
-        let expected_point = point_1();
+        let expected_point = point();
         let bytes_le = expected_point.to_bytes_le();
         let result = ShortWeierstrassProjectivePoint::from_bytes_le(&bytes_le);
         assert_eq!(expected_point, result.unwrap());
@@ -218,10 +240,16 @@ mod tests {
 
     #[test]
     fn byte_conversion_from_and_to_with_mixed_le_and_be_does_not_work() {
-        let expected_point = point_1();
-        let bytes_le = expected_point.to_bytes_le();
-        let result = ShortWeierstrassProjectivePoint::from_bytes_be(&bytes_le);
-        assert_ne!(expected_point, result.unwrap());
+        let result =
+            ShortWeierstrassProjectivePoint::<BLS12381Curve>::from_bytes_be(&point().to_bytes_le());
+        assert_eq!(result.unwrap_err(), ByteConversionError::FromBEBytesError);
+    }
+
+    #[test]
+    fn byte_conversion_from_and_to_with_mixed_be_and_le_does_not_work() {
+        let result =
+            ShortWeierstrassProjectivePoint::<BLS12381Curve>::from_bytes_le(&point().to_bytes_be());
+        assert_eq!(result.unwrap_err(), ByteConversionError::FromLEBytesError);
     }
 
     #[test]
