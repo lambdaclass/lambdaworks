@@ -164,11 +164,11 @@ where
         let p_b = Polynomial::interpolate(domain, &witness.b);
         let p_c = Polynomial::interpolate(domain, &witness.c);
 
-        let blinder = Polynomial::new_monomial(FieldElement::one(), common_preprocesed_input.n)
+        let z_h = Polynomial::new_monomial(FieldElement::one(), common_preprocesed_input.n)
             - FieldElement::one();
-        let p_a = self.blind_polynomial(&p_a, &blinder, 2);
-        let p_b = self.blind_polynomial(&p_b, &blinder, 2);
-        let p_c = self.blind_polynomial(&p_c, &blinder, 2);
+        let p_a = self.blind_polynomial(&p_a, &z_h, 2);
+        let p_b = self.blind_polynomial(&p_b, &z_h, 2);
+        let p_c = self.blind_polynomial(&p_c, &z_h, 2);
 
         let a_1 = self.commitment_scheme.commit(&p_a);
         let b_1 = self.commitment_scheme.commit(&p_b);
@@ -211,6 +211,9 @@ where
         }
 
         let p_z = Polynomial::interpolate(&cpi.domain, &coefficients);
+        let z_h = Polynomial::new_monomial(FieldElement::one(), common_preprocesed_input.n)
+            - FieldElement::one();
+        let p_z = self.blind_polynomial(&p_z, &z_h, 3);
         let z_1 = self.commitment_scheme.commit(&p_z);
         Round2Result {
             z_1,
@@ -241,7 +244,7 @@ where
             .coefficients()
             .iter()
             .enumerate()
-            .map(|(i, x)| x * &cpi.domain[i])
+            .map(|(i, x)| x * &cpi.domain[i % cpi.n])
             .collect();
         let z_x_omega = Polynomial::new(&z_x_omega_coefficients);
         let mut e1 = vec![FieldElement::zero(); cpi.domain.len()];
