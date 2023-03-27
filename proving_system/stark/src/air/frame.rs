@@ -67,8 +67,6 @@ impl<F: IsTwoAdicField> Frame<F> {
         frame_offsets: &[usize],
         primitive_root: &FieldElement<F>,
     ) -> Vec<Vec<FieldElement<F>>> {
-        // let mut evaluations = Vec::with_capacity(frame_offsets.len());
-        // let evaluations: Vec<Vec<FieldElement<F>>> = frame_offsets
         frame_offsets
             .iter()
             .map(|offset| x * primitive_root.pow(*offset))
@@ -80,25 +78,4 @@ impl<F: IsTwoAdicField> Frame<F> {
             })
             .collect()
     }
-
-    // / Returns the Out of Domain Frame for the given trace polynomials, out of domain evaluation point (called `z` in the literature),
-    // / frame offsets given by the AIR and primitive root used for interpolating the trace polynomials.
-    // / An out of domain frame is nothing more than the evaluation of the trace polynomials in the points required by the
-    // / verifier to check the consistency between the trace and the composition polynomial.
-    // /
-    // / In the fibonacci example, the ood frame is simply the evaluations `[t(z), t(z * g), t(z * g^2)]`, where `t` is the trace
-    // / polynomial and `g` is the primitive root of unity used when interpolating `t`.
-    // pub fn construct_ood_frame(
-    //     trace_polys: &[Polynomial<FieldElement<F>>],
-    //     z: &FieldElement<F>,
-    //     frame_offsets: &[usize],
-    //     primitive_root: &FieldElement<F>,
-    // ) -> Self {
-    //     let data = Self::get_trace_evaluations(trace_polys, z, frame_offsets, primitive_root);
-
-    //     Self {
-    //         data,
-    //         row_width: trace_polys.len(),
-    //     }
-    // }
 }
