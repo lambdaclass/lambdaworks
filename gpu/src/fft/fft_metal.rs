@@ -125,7 +125,7 @@ impl FFTMetalState {
     ) -> Result<Vec<FieldElement<F>>, FFTError> {
         let twiddles_kernel = self
             .library
-            .get_function("calc_twiddle_u256", None)
+            .get_function("calc_twiddles_u256", None)
             .map_err(FFTError::MetalFunctionError)?;
 
         let pipeline = self
@@ -220,7 +220,6 @@ mod tests {
     proptest! {
         // Property-based test that ensures Metal parallel FFT gives same result as a sequential one.
         // These tests actually pass, but we ignore them because they fail in the CI due to a lack of GPU
-        #[ignore]
         #[test]
         fn test_metal_fft_matches_sequential(poly in poly(8)) {
             objc::rc::autoreleasepool(|| {
@@ -242,7 +241,6 @@ mod tests {
 
     proptest! {
         // These tests actually pass, but we ignore them because they fail in the CI due to a lack of GPU
-        #[ignore]
         #[test]
         fn test_gpu_twiddles_match_cpu(order in powers_of_two(4)) {
             type F256 = U256MontgomeryTwoAdicPrimeField;
