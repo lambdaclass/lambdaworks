@@ -4,8 +4,9 @@ use crate::{
         point::ProjectivePoint,
         traits::{EllipticCurveError, FromAffine, IsEllipticCurve},
     },
+    errors::ByteConversionError,
     field::element::FieldElement,
-    traits::ByteConversion, errors::ByteConversionError,
+    traits::ByteConversion,
 };
 
 use super::traits::IsShortWeierstrass;
@@ -161,8 +162,8 @@ where
         } else {
             let len = bytes.len() / 3;
             let x = FieldElement::<E::BaseField>::from_bytes_be(&bytes[..len])?;
-            let y = FieldElement::<E::BaseField>::from_bytes_be(&bytes[len..len*2])?;
-            let z = FieldElement::<E::BaseField>::from_bytes_be(&bytes[len*2..])?;
+            let y = FieldElement::<E::BaseField>::from_bytes_be(&bytes[len..len * 2])?;
+            let z = FieldElement::<E::BaseField>::from_bytes_be(&bytes[len * 2..])?;
             Ok(Self::new([x, y, z]))
         }
     }
@@ -173,22 +174,22 @@ where
         } else {
             let len = bytes.len() / 3;
             let x = FieldElement::<E::BaseField>::from_bytes_le(&bytes[..len])?;
-            let y = FieldElement::<E::BaseField>::from_bytes_le(&bytes[len..len*2])?;
-            let z = FieldElement::<E::BaseField>::from_bytes_le(&bytes[len*2..])?;
+            let y = FieldElement::<E::BaseField>::from_bytes_le(&bytes[len..len * 2])?;
+            let z = FieldElement::<E::BaseField>::from_bytes_le(&bytes[len * 2..])?;
             Ok(Self::new([x, y, z]))
         }
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::{
-        cyclic_group::IsGroup, elliptic_curve::{traits::EllipticCurveError, short_weierstrass::curves::bls12_381::{field_extension::BLS12381PrimeField, curve::BLS12381Curve}},
+        elliptic_curve::short_weierstrass::curves::bls12_381::{
+            curve::BLS12381Curve, field_extension::BLS12381PrimeField,
+        },
         field::element::FieldElement,
     };
-
 
     #[allow(clippy::upper_case_acronyms)]
     type FEE = FieldElement<BLS12381PrimeField>;

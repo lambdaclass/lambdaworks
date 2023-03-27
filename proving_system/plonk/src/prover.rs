@@ -1,3 +1,4 @@
+use lambdaworks_math::traits::IsRandomFieldElementGenerator;
 use std::marker::PhantomData;
 
 use crate::setup::{
@@ -71,8 +72,9 @@ pub struct Proof<F: IsField, CS: IsCommitmentScheme<F>> {
     pub w_zeta_omega_1: CS::Commitment,
 }
 
-pub struct Prover<F: IsField, CS: IsCommitmentScheme<F>> {
+pub struct Prover<F: IsField, CS: IsCommitmentScheme<F>, R: IsRandomFieldElementGenerator<F>> {
     commitment_scheme: CS,
+    random_generator: R,
     phantom: PhantomData<F>,
 }
 
@@ -119,19 +121,36 @@ struct Round5Result<F: IsField, Hiding> {
     t_zeta: FieldElement<F>,
 }
 
-impl<F, CS> Prover<F, CS>
+impl<F, CS, R> Prover<F, CS, R>
 where
     F: IsField,
     CS: IsCommitmentScheme<F>,
     FieldElement<F>: ByteConversion,
     CS::Commitment: ByteConversion,
+    R: IsRandomFieldElementGenerator<F>,
 {
     #[allow(unused)]
-    pub fn new(commitment_scheme: CS) -> Self {
+    pub fn new(commitment_scheme: CS, random_generator: R) -> Self {
         Self {
             commitment_scheme,
+            random_generator,
             phantom: PhantomData,
         }
+    }
+
+    fn blind_polynomial(
+        &self,
+        target: &Polynomial<FieldElement<F>>,
+        blinder: &Polynomial<FieldElement<F>>,
+        n: u64,
+    ) -> Polynomial<FieldElement<F>>
+    where
+        F: IsField,
+        R: IsRandomFieldElementGenerator<F>,
+    {
+        let bs: Vec<FieldElement<F>> = (0..n).map(|_| self.random_generator.generate()).collect();
+        let random_part = Polynomial::new(&bs);
+        target + blinder * random_part
     }
 
     fn round_1(
@@ -144,6 +163,12 @@ where
         let p_a = Polynomial::interpolate(domain, &witness.a);
         let p_b = Polynomial::interpolate(domain, &witness.b);
         let p_c = Polynomial::interpolate(domain, &witness.c);
+
+        let blinder = Polynomial::new_monomial(FieldElement::one(), common_preprocesed_input.n)
+            - FieldElement::one();
+        let p_a = self.blind_polynomial(&p_a, &blinder, 2);
+        let p_b = self.blind_polynomial(&p_b, &blinder, 2);
+        let p_c = self.blind_polynomial(&p_c, &blinder, 2);
 
         let a_1 = self.commitment_scheme.commit(&p_a);
         let b_1 = self.commitment_scheme.commit(&p_b);
@@ -450,7 +475,8 @@ mod tests {
     use crate::{
         test_utils::FpElement,
         test_utils::{
-            test_common_preprocessed_input_1, test_srs_1, test_witness_1, FrElement, KZG,
+            test_common_preprocessed_input_1, test_srs_1, test_witness_1, FrElement,
+            TestRandomFieldGenerator, KZG,
         },
     };
 
@@ -482,7 +508,9 @@ mod tests {
         let common_preprocesed_input = test_common_preprocessed_input_1();
         let srs = test_srs_1();
         let kzg = KZG::new(srs);
-        let prover = Prover::new(kzg);
+        let random_generator = TestRandomFieldGenerator {};
+
+        let prover = Prover::new(kzg, random_generator);
         let round_1 = prover.round_1(&witness, &common_preprocesed_input);
         let a_1_expected = BLS12381Curve::create_point_from_affine(
             FpElement::from_hex("17f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb"),
@@ -507,7 +535,8 @@ mod tests {
         let common_preprocesed_input = test_common_preprocessed_input_1();
         let srs = test_srs_1();
         let kzg = KZG::new(srs);
-        let prover = Prover::new(kzg);
+        let random_generator = TestRandomFieldGenerator {};
+        let prover = Prover::new(kzg, random_generator);
 
         let result_2 = prover.round_2(&witness, &common_preprocesed_input, beta(), gamma());
         let z_1_expected = BLS12381Curve::create_point_from_affine(
@@ -524,7 +553,8 @@ mod tests {
         let srs = test_srs_1();
         let kzg = KZG::new(srs);
         let public_input = vec![FieldElement::from(2_u64), FieldElement::from(4)];
-        let prover = Prover::new(kzg);
+        let random_generator = TestRandomFieldGenerator {};
+        let prover = Prover::new(kzg, random_generator);
         let round_1 = prover.round_1(&witness, &common_preprocesed_input);
         let round_2 = prover.round_2(&witness, &common_preprocesed_input, beta(), gamma());
         let round_3 = prover.round_3(
@@ -556,7 +586,8 @@ mod tests {
         let common_preprocesed_input = test_common_preprocessed_input_1();
         let srs = test_srs_1();
         let kzg = KZG::new(srs);
-        let prover = Prover::new(kzg);
+        let random_generator = TestRandomFieldGenerator {};
+        let prover = Prover::new(kzg, random_generator);
 
         let round_1 = prover.round_1(&witness, &common_preprocesed_input);
         let round_2 = prover.round_2(&witness, &common_preprocesed_input, beta(), gamma());
@@ -590,8 +621,8 @@ mod tests {
         let srs = test_srs_1();
         let kzg = KZG::new(srs);
         let public_input = vec![FieldElement::from(2_u64), FieldElement::from(4)];
-
-        let prover = Prover::new(kzg);
+        let random_generator = TestRandomFieldGenerator {};
+        let prover = Prover::new(kzg, random_generator);
 
         let round_1 = prover.round_1(&witness, &common_preprocesed_input);
         let round_2 = prover.round_2(&witness, &common_preprocesed_input, beta(), gamma());

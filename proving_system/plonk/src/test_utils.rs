@@ -10,6 +10,7 @@ use lambdaworks_math::{
     },
     field::{element::FieldElement, fields::montgomery_backed_prime_fields::U256PrimeField},
     polynomial::Polynomial,
+    traits::IsRandomFieldElementGenerator,
 };
 // TODO: Generalize
 
@@ -313,5 +314,12 @@ pub fn test_witness_2(x: FrElement, e: FrElement) -> Witness<FrField> {
             x.clone(),
             x,
         ],
+    }
+}
+
+pub struct TestRandomFieldGenerator;
+impl IsRandomFieldElementGenerator<FrField> for TestRandomFieldGenerator {
+    fn generate(&self) -> FrElement {
+        FrElement::zero()
     }
 }
