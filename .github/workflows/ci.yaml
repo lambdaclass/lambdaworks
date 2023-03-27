@@ -10,8 +10,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
-    name: Build
+  compile:
+    name: Compile
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
