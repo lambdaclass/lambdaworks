@@ -3,6 +3,6 @@ authors = ["Javier Chatruc"]
 language = "en"
 multilingual = false
 src = "src"
-title = "stark_docs"
+title = "docs"
 
 [preprocessor.katex]
