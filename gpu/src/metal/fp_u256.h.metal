@@ -5,45 +5,42 @@
 
 #include "u256.h.metal"
 
-// StarkWare field for Cairo
-// P = 3618502788666131213697322783095070105623107215331596699973092056135872020481
-namespace p256 {
-
-class Fp {
+template <
+    /* =N **/ unsigned long N_0, unsigned long N_1, unsigned long N_2, unsigned long N_3,
+    /* =R_SQUARED **/ unsigned long R_SQUARED_0, unsigned long R_SQUARED_1, unsigned long R_SQUARED_2, unsigned long R_SQUARED_3,
+    /* =N_PRIME **/ unsigned long N_PRIME_0, unsigned long N_PRIME_1, unsigned long N_PRIME_2, unsigned long N_PRIME_3>
+class Fp256 {
 public:
-    Fp() = default;
-    constexpr Fp(unsigned long v) : inner(v) {}
-    constexpr Fp(u256 v) : inner(v) {}
+    Fp256() = default;
+    constexpr Fp256(unsigned long v) : inner(v) {}
+    constexpr Fp256(u256 v) : inner(v) {}
 
     constexpr explicit operator u256() const
     {
         return inner;
     }
 
-    constexpr Fp operator+(const Fp rhs) const
+    constexpr Fp256 operator+(const Fp256 rhs) const
     {
-        return Fp(add(inner, rhs.inner));
+        return Fp256(add(inner, rhs.inner));
     }
 
-    constexpr Fp operator-(const Fp rhs) const
+    constexpr Fp256 operator-(const Fp256 rhs) const
     {
-        return Fp(sub(inner, rhs.inner));
+        return Fp256(sub(inner, rhs.inner));
     }
 
-    Fp operator*(const Fp rhs) const
+    Fp256 operator*(const Fp256 rhs) const
     {
-        return Fp(mul(inner, rhs.inner));
+        return Fp256(mul(inner, rhs.inner));
     }
 
     // TODO: make method for all fields
-    Fp pow(unsigned exp)
+    Fp256 pow(unsigned exp)
     {
-        // TODO: consider removing.
-        // if (exp == 1) {
-        //     return *this;
-        // }
-
-        Fp res = ONE;
+        // TODO find a way to generate on compile time
+        Fp256 const ONE = mul(u256(1), R_SQUARED);
+        Fp256 res = ONE;
 
         while (exp > 0)
         {
@@ -58,7 +55,7 @@ public:
         return res;
     }
 
-    Fp inverse() 
+    Fp256 inverse() 
     {
         // used addchain
         // https://github.com/mmcloughlin/addchain
@@ -91,24 +88,21 @@ public:
         u256 i76 = sqn<2>(mul(i72, x60));
         u256 x64 = mul(mul(i15, i76), i76);
         u256 i208 = mul(sqn<64>(mul(sqn<63>(mul(i15, x64)), x64)), x64);
-        return Fp(mul(sqn<60>(i208), x60));
+        return Fp256(mul(sqn<60>(i208), x60));
     }
 
-    Fp neg()
+    Fp256 neg()
     {
         // TODO: can improve
-        return Fp(sub(0, inner));
+        return Fp256(sub(0, inner));
     }
-
-    // 1 in Montgomery representation
-    constexpr static const constant u256 ONE = u256(576460752303422960, 18446744073709551615, 18446744073709551615, 18446744073709551585);
 
 private:
     u256 inner;
 
-    constexpr static const constant u256 N = u256(576460752303423505, 0, 0, 1);
-    constexpr static const constant u256 R_SQUARED = u256(576413109808302096, 18446744073700081664, 5151653887, 18446741271209837569);
-    constexpr static const constant u256 N_PRIME = u256(576460752303423504, 18446744073709551615, 18446744073709551615, 18446744073709551615);
+    constexpr static const constant u256 N = u256(N_0, N_1, N_2, N_3);
+    constexpr static const constant u256 R_SQUARED = u256(R_SQUARED_0, R_SQUARED_1, R_SQUARED_2, R_SQUARED_3);
+    constexpr static const constant u256 N_PRIME = u256(N_PRIME_0, N_PRIME_1, N_PRIME_2, N_PRIME_3);
 
     // Equates to `(1 << 256) - N`
     constexpr static const constant u256 R_SUB_N =
@@ -206,6 +200,14 @@ private:
     }
 };
 
+namespace p256 {
+    // StarkWare field for Cairo
+    // P = 3618502788666131213697322783095070105623107215331596699973092056135872020481
+    using Fp = Fp256<
+    /* =N **/ /*u256(*/ 576460752303423505, 0, 0, 1 /*)*/,
+    /* =R_SQUARED **/ /*u256(*/ 576413109808302096, 18446744073700081664, 5151653887, 18446741271209837569 /*)*/,
+    /* =N_PRIME **/ /*u256(*/ 576460752303423504, 18446744073709551615, 18446744073709551615, 18446744073709551615 /*)*/
+    >;
 }
 
 #endif
