@@ -8,13 +8,16 @@ use super::trace::TraceTable;
 #[derive(Clone, Debug)]
 pub struct Frame<F: IsField> {
     // Vector of rows
-    data: Vec<Vec<FieldElement<F>>>,
+    data: Vec<FieldElement<F>>,
     row_width: usize,
 }
 
 impl<F: IsField> Frame<F> {
-    pub fn new(data: Vec<Vec<FieldElement<F>>>, row_width: usize) -> Self {
-        Self { data, row_width }
+    pub fn new(data: Vec<FieldElement<F>>, row_width: usize) -> Self {
+        Self {
+            data: data,
+            row_width,
+        }
     }
 
     // pub fn ood_new(data_input: &[Vec<FieldElement<F>>], row_width: usize) -> Self {
@@ -39,15 +42,13 @@ impl<F: IsField> Frame<F> {
     }
 
     pub fn get_row(&self, row_idx: usize) -> &[FieldElement<F>] {
-        //     let row_offset = row_idx * self.row_width;
-        //     &self.data[row_offset..row_offset + self.row_width]
-        &self.data[row_idx]
+        let row_offset = row_idx * self.row_width;
+        &self.data[row_offset..row_offset + self.row_width]
     }
 
     pub fn get_row_mut(&mut self, row_idx: usize) -> &mut [FieldElement<F>] {
-        // let row_offset = row_idx * self.row_width;
-        // &mut self.data[row_offset..row_offset + self.row_width]
-        &mut self.data[row_idx]
+        let row_offset = row_idx * self.row_width;
+        &mut self.data[row_offset..row_offset + self.row_width]
     }
 
     pub fn read_from_trace(
@@ -56,17 +57,18 @@ impl<F: IsField> Frame<F> {
         blowup: u8,
         offsets: &[usize],
     ) -> Self {
-        let mut data = Vec::new();
+        let mut rows = Vec::with_capacity(offsets.len());
 
         // Get trace length to apply module with it when getting elements of
         // the frame from the trace.
-        let trace_len = trace.table.len();
+        let trace_steps = trace.n_rows();
         for frame_row_idx in offsets.iter() {
-            let row = trace.get_row((step + (frame_row_idx * blowup as usize)) % trace_len);
-            data.push(row);
+            let row = trace.get_row((step + (frame_row_idx * blowup as usize)) % trace_steps);
+            rows.push(row.to_vec());
         }
-
-        Self::new(data, 1)
+        // TODO: Create `data` inside the for loop to avoid cloning again
+        let data = rows.into_iter().flatten().collect();
+        Self::new(data, trace.n_cols)
     }
 
     /// Given a slice of trace polynomials, an evaluation point `x`, the frame offsets

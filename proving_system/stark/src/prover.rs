@@ -48,12 +48,13 @@ where
     .unwrap();
 
     let trace_polys = trace.compute_trace_polys(&trace_roots_of_unity);
-    let lde_trace = TraceTable {
-        table: trace_polys
-            .iter()
-            .map(|poly| poly.evaluate_slice(&lde_roots_of_unity_coset))
-            .collect(),
-    };
+    let lde_trace_evaluations: Vec<Vec<FieldElement<F>>> = trace_polys
+        .iter()
+        .map(|poly| poly.evaluate_slice(&lde_roots_of_unity_coset))
+        .collect();
+
+    let lde_trace = TraceTable::new_from_cols(&lde_trace_evaluations);
+
     // TODO: Fiat-Shamir
     // z is the Out of domain evaluation point used in Deep FRI. It needs to be a point outside
     // of both the roots of unity and its corresponding coset used for the lde commitment.
@@ -98,7 +99,8 @@ where
         &trace_primitive_root,
     );
 
-    let trace_ood_frame_evaluations = Frame::new(ood_trace_evaluations, trace_polys.len());
+    let trace_ood_frame_data = ood_trace_evaluations.into_iter().flatten().collect();
+    let trace_ood_frame_evaluations = Frame::new(trace_ood_frame_data, trace_polys.len());
 
     // let trace_ood_frame_evaluations = Frame::<F>::construct_ood_frame(
     //     &trace_polys,

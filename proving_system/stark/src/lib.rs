@@ -71,7 +71,7 @@ mod tests {
     fn test_prove_fib() {
         let trace = fibonacci_trace([FE::from(1), FE::from(1)], 4);
         let trace_length = trace[0].len();
-        let trace_table = TraceTable { table: trace };
+        let trace_table = TraceTable::new_from_cols(&trace);
 
         let context = AirContext {
             options: ProofOptions {
