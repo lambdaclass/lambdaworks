@@ -44,11 +44,8 @@ impl<'poly, F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F, A
             lde_domain,
         );
         let count_cols_trace = self.trace_polys.len();
-
         let boundary_constraints = &self.boundary_constraints;
-
         let transition_degrees = self.air.context().transition_degrees();
-
         let transition_max_degree = transition_degrees.iter().max().unwrap();
 
         let max_degree = self
@@ -60,9 +57,6 @@ impl<'poly, F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F, A
             * transition_max_degree;
 
         let max_degree_power_of_two = helpers::next_power_of_two(max_degree as u64);
-
-        // TODO: Unhardcode this
-        // Hard-coded for fibonacci -> trace has one column, hence col value is 0.
 
         let domains =
             boundary_constraints.generate_roots_of_unity(&self.primitive_root, count_cols_trace);
@@ -119,14 +113,6 @@ impl<'poly, F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F, A
                 .fold(FieldElement::<F>::zero(), |acc, eval| acc + eval);
 
             evaluations.push(boundary_evaluation);
-
-            // Append evaluation for boundary constraints
-            // let mut boundary_evaluation = boundary_poly.evaluate(d) / boundary_zerofier.evaluate(d);
-            // boundary_evaluation = boundary_evaluation
-            //     * (boundary_alpha * d.pow(max_degree_power_of_two - (boundary_poly_degree as u64))
-            //         + boundary_beta);
-
-            // evaluations.push(boundary_evaluation);
 
             evaluation_table.evaluations.push(evaluations);
         }
