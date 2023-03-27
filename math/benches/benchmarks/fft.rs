@@ -19,7 +19,7 @@ fn gen_coeffs(order: usize) -> Vec<FE> {
 }
 
 pub fn fft_benchmarks(c: &mut Criterion) {
-    let mut group = c.benchmark_group("fft");
+    let mut group = c.benchmark_group("FFT");
     group.sample_size(10); // it becomes too slow with the default
 
     for order in 21..=24 {
@@ -56,7 +56,7 @@ pub fn fft_benchmarks(c: &mut Criterion) {
 }
 
 pub fn twiddles_benchmarks(c: &mut Criterion) {
-    let mut group = c.benchmark_group("fft");
+    let mut group = c.benchmark_group("FFT twiddles generation");
     group.sample_size(10); // it becomes too slow with the default
 
     for order in 21..=24 {
@@ -77,7 +77,7 @@ pub fn twiddles_benchmarks(c: &mut Criterion) {
 }
 
 pub fn bitrev_permutation_benchmarks(c: &mut Criterion) {
-    let mut group = c.benchmark_group("fft");
+    let mut group = c.benchmark_group("Bit-reverse permutation");
 
     for order in 21..=24 {
         let coeffs = gen_coeffs(order);
