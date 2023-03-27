@@ -71,7 +71,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: fmt
-          args: --workspace -- --check
+          args: -- --check
 
   clippy:
     runs-on: ubuntu-latest
