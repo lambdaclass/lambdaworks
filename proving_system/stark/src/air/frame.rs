@@ -1,18 +1,18 @@
 use lambdaworks_math::{
-    field::{element::FieldElement, traits::IsField},
+    field::{element::FieldElement, traits::IsTwoAdicField},
     polynomial::Polynomial,
 };
 
 use super::trace::TraceTable;
 
 #[derive(Clone, Debug)]
-pub struct Frame<F: IsField> {
+pub struct Frame<F: IsTwoAdicField> {
     // Vector of rows
     data: Vec<FieldElement<F>>,
     row_width: usize,
 }
 
-impl<F: IsField> Frame<F> {
+impl<F: IsTwoAdicField> Frame<F> {
     pub fn new(data: Vec<FieldElement<F>>, row_width: usize) -> Self {
         Self { data, row_width }
     }

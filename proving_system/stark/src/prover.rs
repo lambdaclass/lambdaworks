@@ -1,10 +1,7 @@
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::{
     fft::errors::FFTError,
-    field::{
-        element::FieldElement,
-        traits::{IsField, IsTwoAdicField},
-    },
+    field::{element::FieldElement, traits::IsTwoAdicField},
     polynomial::Polynomial,
     traits::ByteConversion,
 };
@@ -18,7 +15,7 @@ use super::{
 };
 
 // FIXME remove unwrap() calls and return errors
-pub fn prove<F: IsField + IsTwoAdicField, A: AIR + AIR<Field = F>>(
+pub fn prove<F: IsTwoAdicField, A: AIR + AIR<Field = F>>(
     trace: &TraceTable<F>,
     air: &A,
 ) -> StarkProof<F>
@@ -160,7 +157,7 @@ where
 /// Returns the DEEP composition polynomial that the prover then commits to using
 /// FRI. This polynomial is a linear combination of the trace polynomial and the
 /// composition polynomial, with coefficients sampled by the verifier (i.e. using Fiat-Shamir).
-fn compute_deep_composition_poly<A: AIR, F: IsField>(
+fn compute_deep_composition_poly<A: AIR, F: IsTwoAdicField>(
     air: &A,
     trace_polys: &[Polynomial<FieldElement<F>>],
     even_composition_poly: &Polynomial<FieldElement<F>>,

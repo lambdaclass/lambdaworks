@@ -5,7 +5,7 @@ use self::{
     trace::TraceTable,
 };
 use lambdaworks_math::{
-    field::{element::FieldElement, traits::IsField},
+    field::{element::FieldElement, traits::IsTwoAdicField},
     polynomial::Polynomial,
 };
 
@@ -15,7 +15,7 @@ pub mod frame;
 pub mod trace;
 
 pub trait AIR: Clone {
-    type Field: IsField;
+    type Field: IsTwoAdicField;
 
     fn new(trace: TraceTable<Self::Field>, context: AirContext) -> Self;
     fn compute_transition(&self, frame: &Frame<Self::Field>) -> Vec<FieldElement<Self::Field>>;

@@ -1,3 +1,5 @@
+use lambdaworks_math::fft::errors::FFTError;
+use lambdaworks_math::field::traits::IsTwoAdicField;
 use lambdaworks_math::field::{element::FieldElement, traits::IsField};
 use lambdaworks_math::polynomial::Polynomial;
 
@@ -8,7 +10,7 @@ pub struct TraceTable<F: IsField> {
     pub n_cols: usize,
 }
 
-impl<F: IsField> TraceTable<F> {
+impl<F: IsTwoAdicField> TraceTable<F> {
     pub fn new_from_cols(cols: &[Vec<FieldElement<F>>]) -> Self {
         let n_cols = cols.len();
         let n_rows = cols[0].len();
@@ -58,7 +60,8 @@ impl<F: IsField> TraceTable<F> {
         self.cols()
             .iter()
             .map(|col| Polynomial::interpolate_fft(col))
-            .collect()
+            .collect::<Result<Vec<Polynomial<FieldElement<F>>>, FFTError>>()
+            .unwrap()
     }
 }
 #[cfg(test)]

@@ -9,7 +9,7 @@ use fri::fri_decommit::FriDecommitment;
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::fields::fft_friendly::u256_two_adic_prime_field::U256MontgomeryTwoAdicPrimeField;
-use lambdaworks_math::field::traits::IsField;
+use lambdaworks_math::field::traits::{IsField, IsTwoAdicField};
 
 pub struct ProofConfig {
     pub count_queries: usize,
@@ -54,7 +54,7 @@ pub struct StarkQueryProof<F: IsField> {
     pub fri_decommitment: FriDecommitment<F>,
 }
 
-pub struct StarkProof<F: IsField> {
+pub struct StarkProof<F: IsTwoAdicField> {
     pub fri_layers_merkle_roots: Vec<FieldElement<F>>,
     pub trace_ood_frame_evaluations: Frame<F>,
     pub composition_poly_evaluations: Vec<FieldElement<F>>,
