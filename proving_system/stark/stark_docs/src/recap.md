@@ -231,23 +231,35 @@ which means "The first column on the next row has to be equal to the second colu
 
 Again, even though this seems way more complex, the ideas remain the same. The composition polynomial `H` will now include a term for every $C_i(x)$, and for each one the prover will have to provide out of domain evaluations of the trace polynomials at the appropriate values. In our example above, to perform the consistency check on $C_1(x)$ the prover will have to provide the evaluations $t_1(zg)$ and $t_2(z)$.
 
-## FRI and low degree extensions
+### Composition polynomial decomposition
 
-TODO: Move this? it's a digression into LDEs, roots of unity, etc. It probably belongs in an explanation about the constraint evaluation blowup factor on the implementation side.
+In the actual implementation, we won't commit to $H$, but rather to a decomposition of $H$ into an even term $H_1(x)$ and an odd term $H_2(x)$, which satisfy
 
-In our case, we will take a primitive $16$-th root of unity $\omega$. This means, as before:
+$$
+H(x) = H_1(x^2) + x H_2(x^2)
+$$
+
+This way, we don't commit to $H$ but to $H_1$ and $H_2$. This is just an optimization at the code level; once again, the ideas remain exactly the same.
+
+### FRI, low degree extensions and roots of unity
+
+We treated `FRI` as a black box entirely. However, there is one thing we do need to understand about it: low degree extensions.
+
+When applying `FRI` to a polynomial of degree $n$, we need to provide evaluations of it over a domain with *more* than $n$ points. In our case, the `DEEP` composition polynomial's degree is around the same as the trace's, which is, at most, $2^n - 1$ (because it interpolates the trace containing $2^n$ points).
+
+The domain we are going to choose to evaluate our `DEEP` polynomial on will be a set of *higher* roots of unity. In our fibonacci example, we will take a primitive $16$-th root of unity $\omega$. As a reminder, this means:
 
 - $\omega$ is an $16$-th root of unity, i.e., $\omega^{16} = 1$.
 - Every $16$-th root of unity is of the form $\omega^i$ for some $0 \leq i \leq 15$.
 
-Additionally, we also take it so that $\omega$ satisfies $\omega^2 = g$.
+Additionally, we also take it so that $\omega$ satisfies $\omega^2 = g$ ($g$ being the $8$-th primitive root of unity we used to construct `t`).
 
-The evaluation of $t$ on the set $\{\omega^i : 0 \leq i \leq 15\}$ is called a *low degree extension* (`LDE`) of $t$. Notice this is not a new polynomial, they're evaluations of $t$ on some set of points. Also note that because $\omega^2 = g$, the `LDE` contains all the evaluations of $t$ on the set of powers of $g$. In fact,
+The evaluation of $t$ on the set $\{\omega^i : 0 \leq i \leq 15\}$ is called a *low degree extension* (`LDE`) of $t$. Notice this is not a new polynomial, they're evaluations of $t$ on some set of points. Also note that, because $\omega^2 = g$, the `LDE` contains all the evaluations of $t$ on the set of powers of $g$. In fact,
 
 $$
     \{t(\omega^{2i}) : 0 \leq i \leq 15\} = \{t(g^i) : 0 \leq i \leq 7\}
 $$
 
-This will be important later on.
+This will be extremely important when we get to implementation.
 
 For our `LDE`, we chose $16$-th roots of unity, but we could have chosen any other power of two greater than $8$. In general, this choice is called the `blowup factor`, so that if the trace has $2^n$ elements, a blowup factor of $b$ means our LDE evaluates over the $2^{n} * b$ roots of unity ($b$ needs to be a power of two). The blowup factor is a parameter of the protocol related to its security.
