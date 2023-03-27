@@ -54,7 +54,6 @@ pub fn metal_fft_twiddles_benchmarks(c: &mut Criterion) {
     for order in 2..=4 {
         group.throughput(criterion::Throughput::Elements(1 << order)); // info for criterion
 
-        // the objective is to bench ordered FFT, including twiddles generation and Metal setup
         group.bench_with_input(
             format!("parallel_twiddle_factors_2^({order}-1)_elems"),
             &order,
@@ -64,6 +63,31 @@ pub fn metal_fft_twiddles_benchmarks(c: &mut Criterion) {
                     objc::rc::autoreleasepool(|| {
                         let metal_state = MetalState::new(None).unwrap();
                         gen_twiddles::<F>(*order, RootsConfig::Natural, &metal_state).unwrap();
+                    });
+                });
+            },
+        );
+    }
+
+    group.finish();
+}
+
+pub fn metal_bitrev_permutation_benchmarks(c: &mut Criterion) {
+    let mut group = c.benchmark_group("metal_fft");
+
+    for order in 20..=24 {
+        let coeffs = gen_coeffs(order);
+        group.throughput(criterion::Throughput::Elements(1 << order)); // info for criterion
+
+        group.bench_with_input(
+            format!("parallel_bitrev_permutation_2^({order})_elems"),
+            &coeffs,
+            |bench, coeffs| {
+                bench.iter(|| {
+                    // TODO: autoreleaspool hurts perf. by 2-3%. Search for an alternative
+                    objc::rc::autoreleasepool(|| {
+                        let metal_state = MetalState::new(None).unwrap();
+                        bitrev_permutation(coeffs, &metal_state).unwrap();
                     });
                 });
             },
