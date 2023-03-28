@@ -75,7 +75,7 @@ $$
 \{\omega^i : 0 \leq i < 2^{n + 1}\}
 $$
 
-Note that, because $w^2 = g$, some of the elements on this set (actually, half of them) are powers of $g$. If while doing `FRI` we evalaute `H` on them, the zerofier will vanish and we'll be dividing by zero. We introduce the offset to make sure this can't happen.
+Note that, because $w^2 = g$, some of the elements on this set (actually, half of them) are powers of $g$. If while doing `FRI` we evalaute `H` on them, the zerofier could vanish and we'd be dividing by zero. We introduce the offset to make sure this can't happen.
 
 NOTE: a careful reader might note that we can actually evaluate `H` on the elements $g^i$, since on a valid trace the zerofiers will actually divide the polynomials on their numerator. The problem still remains, however, because of performance. We don't want to do polynomial division if we don't need to, it's much cheaper to just evaluate numerator and denominator and then divide. Of course, this only works if the denominator doesn't vanish; hence, cosets.
 
