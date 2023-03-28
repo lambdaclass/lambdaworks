@@ -184,8 +184,7 @@ mod tests {
     use lambdaworks_math::{
         fft::bit_reversing::in_place_bit_reverse_permute,
         field::{
-            fields::fft_friendly::u256_two_adic_prime_field::U256MontgomeryTwoAdicPrimeField,
-            traits::RootsConfig,
+            fields::fft_friendly::stark_252_prime_field::Stark252PrimeField, traits::RootsConfig,
         },
         polynomial::Polynomial,
     };
@@ -193,7 +192,7 @@ mod tests {
 
     use super::*;
 
-    type F = U256MontgomeryTwoAdicPrimeField;
+    type F = Stark252PrimeField;
     type FE = FieldElement<F>;
 
     prop_compose! {
@@ -245,7 +244,7 @@ mod tests {
         #[test]
         #[ignore]
         fn test_gpu_twiddles_match_cpu(order in powers_of_two(4)) {
-            type F256 = U256MontgomeryTwoAdicPrimeField;
+            type F256 = Stark252PrimeField;
             objc::rc::autoreleasepool(|| {
                 let cpu_twiddles = F256::get_twiddles(order as u64, RootsConfig::Natural).unwrap();
 
