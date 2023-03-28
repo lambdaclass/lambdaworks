@@ -100,13 +100,13 @@ mod tests {
 
     use super::*;
     use crate::test_utils::{
-        test_common_preprocessed_input_1, test_srs_1, FpElement, FrField, KZG,
+        test_common_preprocessed_input_1, test_srs, FpElement, FrField, KZG,
     };
 
     #[test]
     fn setup_works_for_simple_circuit() {
-        let srs = test_srs_1();
         let common_input = test_common_preprocessed_input_1();
+        let srs = test_srs(common_input.n);
         let kzg = KZG::new(srs);
 
         let vk = setup::<FrField, KZG>(&common_input, &kzg);

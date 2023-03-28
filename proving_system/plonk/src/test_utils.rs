@@ -1,3 +1,6 @@
+use std::fs::File;
+use std::io::Read;
+use serde::{Serialize, Deserialize};
 use crate::setup::{CommonPreprocessedInput, Witness};
 use lambdaworks_crypto::commitments::kzg::StructuredReferenceString;
 use lambdaworks_math::{
@@ -47,12 +50,12 @@ pub const ORDER_R_MINUS_1_ROOT_UNITY: FrElement = FrElement::from_hex("7");
 type G1Point = <BLS12381Curve as IsEllipticCurve>::PointRepresentation;
 type G2Point = <BLS12381TwistCurve as IsEllipticCurve>::PointRepresentation;
 
-pub fn test_srs_1() -> StructuredReferenceString<G1Point, G2Point> {
+pub fn test_srs(n: usize) -> StructuredReferenceString<G1Point, G2Point> {
     let s = FrElement::from(2);
     let g1 = <BLS12381Curve as IsEllipticCurve>::generator();
     let g2 = <BLS12381TwistCurve as IsEllipticCurve>::generator();
 
-    let powers_main_group: Vec<G1Point> = (0..40)
+    let powers_main_group: Vec<G1Point> = (0..n+3)
         .map(|exp| g1.operate_with_self(s.pow(exp as u64).representative()))
         .collect();
     let powers_secondary_group = [g2.clone(), g2.operate_with_self(s.representative())];
@@ -175,11 +178,7 @@ pub fn test_witness_1(x: FrElement, e: FrElement) -> Witness<FrField> {
         ],
     }
 }
-
-pub fn test_srs_2() -> StructuredReferenceString<G1Point, G2Point> {
-    test_srs_1()
-}
-
+ 
 pub fn test_common_preprocessed_input_2() -> CommonPreprocessedInput<FrField> {
     let w = ORDER_8_ROOT_UNITY;
     let n = 8;
@@ -321,5 +320,150 @@ pub struct TestRandomFieldGenerator;
 impl IsRandomFieldElementGenerator<FrField> for TestRandomFieldGenerator {
     fn generate(&self) -> FrElement {
         FrElement::zero()
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+struct JsonPlonkCircuit {
+    N: u64,
+    Omega: String,
+    Input: Vec<String>,
+    Ql: Vec<String>,
+    Qr: Vec<String>,
+    Qm: Vec<String>,
+    Qo: Vec<String>,
+    Qc: Vec<String>,
+    A: Vec<String>,
+    B: Vec<String>,
+    C: Vec<String>,
+    Permutation: Vec<u64>,
+}
+
+pub fn common_preprocessed_input_from_json(file_name: &str) -> (Witness<FrField>, CommonPreprocessedInput<FrField>, Vec<FrElement>) {
+    let foo: JsonPlonkCircuit = serde_json::from_str(file_name).unwrap();
+    let str2frelement = |ss: Vec<String>| ss.iter().map(|s| FrElement::from_hex(s)).collect::<Vec<FrElement>>();
+    let permutation = foo.Permutation.iter().map(|x| *x as usize).collect::<Vec<usize>>();
+    let n: usize = foo.N as usize;
+    let omega = FrElement::from_hex(&foo.Omega);
+    let domain = (1..n).fold(vec![FieldElement::one()], |mut acc, _| {
+        acc.push(acc.last().unwrap() * &omega);
+        acc
+    });
+
+    let identity = identity_permutation(omega.clone(), n as u64);
+    let permuted: Vec<FrElement> = (0..n*3)
+        .map(|i| identity[permutation[i as usize]].clone())
+        .collect();
+
+    let s1_lagrange: Vec<FrElement> = permuted[..n].to_vec();
+    let s2_lagrange: Vec<FrElement> = permuted[n..2*n].to_vec();
+    let s3_lagrange: Vec<FrElement> = permuted[2*n..].to_vec();
+    (
+    Witness {
+        a: str2frelement(foo.A),
+        b: str2frelement(foo.B),
+        c: str2frelement(foo.C),
+   },
+    CommonPreprocessedInput {
+        n: n,
+        omega: omega,
+        k1: ORDER_R_MINUS_1_ROOT_UNITY,
+        domain: domain.clone(),
+        ql: Polynomial::interpolate(&domain, &str2frelement(foo.Ql)),
+        qr: Polynomial::interpolate(&domain, &str2frelement(foo.Qr)),
+        qm: Polynomial::interpolate(&domain, &str2frelement(foo.Qm)),
+        qo: Polynomial::interpolate(&domain, &str2frelement(foo.Qo)),
+        qc: Polynomial::interpolate(&domain, &str2frelement(foo.Qc)), 
+        s1: Polynomial::interpolate(&domain, &s1_lagrange),
+        s2: Polynomial::interpolate(&domain, &s2_lagrange),
+        s3: Polynomial::interpolate(&domain, &s3_lagrange),
+        s1_lagrange,
+        s2_lagrange,
+        s3_lagrange,
+    },
+    str2frelement(foo.Input)
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::common_preprocessed_input_from_json;
+
+    #[test]
+    fn test_import_gnark_circuit_from_json() {
+        common_preprocessed_input_from_json(r#"{
+ "N": 4,
+ "Omega": "8d51ccce760304d0ec030002760300000001000000000000",
+  "Input": [
+  "2",
+  "4"
+ ],
+ "Ql": [
+  "73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000000",
+  "73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000000",
+  "0",
+  "1"
+ ],
+ "Qr": [
+  "0",
+  "0",
+  "0",
+  "73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000000"
+ ],
+ "Qm": [
+  "0",
+  "0",
+  "1",
+  "0"
+ ],
+ "Qo": [
+  "0",
+  "0",
+  "73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000000",
+  "0"
+ ],
+ "Qc": [
+  "0",
+  "0",
+  "0",
+  "0"
+ ],
+ "A": [
+  "2",
+  "4",
+  "2",
+  "4"
+ ],
+ "B": [
+  "2",
+  "2",
+  "2",
+  "4"
+ ],
+ "C": [
+  "2",
+  "2",
+  "4",
+  "2"
+ ],
+ "Permutation": [
+  11,
+  3,
+  2,
+  1,
+  0,
+  4,
+  5,
+  10,
+  6,
+  8,
+  7,
+  9
+ ]
+}"#);
+         let x = 0;
+         let y = 3;
+         let z = &x + y;
+         println!("{:?}", x);
     }
 }
