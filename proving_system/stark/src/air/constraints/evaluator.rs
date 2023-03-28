@@ -44,12 +44,35 @@ impl<'poly, F: IsTwoAdicField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'pol
             self.air.context().num_transition_constraints() + 1,
             lde_domain,
         );
-        let count_cols_trace = self.trace_polys.len();
+        let n_trace_colums = self.trace_polys.len();
         let boundary_constraints = &self.boundary_constraints;
+
+        let domains =
+            boundary_constraints.generate_roots_of_unity(&self.primitive_root, n_trace_colums);
+        let values = boundary_constraints.values(n_trace_colums);
+        let mut boundary_polys = Vec::with_capacity(n_trace_colums);
+        for ((xs, ys), trace_poly) in zip(domains, values).zip(self.trace_polys) {
+            boundary_polys.push(trace_poly - &Polynomial::interpolate(&xs, &ys));
+        }
+
+        let mut boundary_zerofiers = Vec::with_capacity(n_trace_colums);
+        (0..n_trace_colums).for_each(|col| {
+            boundary_zerofiers.push(
+                self.boundary_constraints
+                    .compute_zerofier(&self.primitive_root, col),
+            )
+        });
+
+        let boundary_polys_max_degree = boundary_polys
+            .iter()
+            .zip(&boundary_zerofiers)
+            .map(|(poly, zerofier)| poly.degree() - zerofier.degree())
+            .max()
+            .unwrap();
+
         let transition_degrees = self.air.context().transition_degrees();
         let transition_max_degree = transition_degrees.iter().max().unwrap();
-
-        let max_degree = self
+        let transition_polys_max_degree = self
             .trace_polys
             .iter()
             .map(|poly| poly.degree())
@@ -57,23 +80,9 @@ impl<'poly, F: IsTwoAdicField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'pol
             .unwrap()
             * transition_max_degree;
 
+        let max_degree = std::cmp::max(transition_polys_max_degree, boundary_polys_max_degree);
+
         let max_degree_power_of_two = helpers::next_power_of_two(max_degree as u64);
-
-        let domains =
-            boundary_constraints.generate_roots_of_unity(&self.primitive_root, count_cols_trace);
-        let values = boundary_constraints.values(count_cols_trace);
-        let mut boundary_polys = Vec::with_capacity(count_cols_trace);
-        for ((xs, ys), trace_poly) in zip(domains, values).zip(self.trace_polys) {
-            boundary_polys.push(trace_poly - &Polynomial::interpolate(&xs, &ys));
-        }
-
-        let mut boundary_zerofiers = Vec::with_capacity(count_cols_trace);
-        (0..count_cols_trace).for_each(|col| {
-            boundary_zerofiers.push(
-                self.boundary_constraints
-                    .compute_zerofier(&self.primitive_root, col),
-            )
-        });
 
         let (boundary_alpha, boundary_beta) = alpha_and_beta_boundary_coefficients;
 
@@ -140,19 +149,22 @@ impl<'poly, F: IsTwoAdicField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'pol
         max_degree: u64,
         x: &FieldElement<F>,
     ) -> Vec<FieldElement<F>> {
+        // TODO: We should get the trace degree in a better way because in some special cases
+        // the trace degree may not be exactly the trace length - 1 but a smaller number.
+        let trace_degree = air.context().trace_length - 1;
         let transition_degrees = air.context().transition_degrees();
 
         let divisors = air.transition_divisors();
 
         let mut ret = Vec::new();
-        for (((eval, degree), div), (alpha, beta)) in evaluations
+        for (((eval, transition_degree), div), (alpha, beta)) in evaluations
             .iter()
             .zip(transition_degrees)
             .zip(divisors)
             .zip(alpha_and_beta_coefficients)
         {
             let zerofied_eval = eval / div.evaluate(x);
-            let zerofied_degree = degree - div.degree();
+            let zerofied_degree = trace_degree * transition_degree - div.degree();
             let result =
                 zerofied_eval * (alpha * x.pow(max_degree - (zerofied_degree as u64)) + beta);
             ret.push(result);
