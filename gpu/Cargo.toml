@@ -14,6 +14,15 @@ objc = { version = "0.2.7", optional = true }
 
 [features]
 metal = ["dep:metal", "dep:objc"]
+cuda = []
+
+# Some features activate compilation of code which isn't
+# supported in all machines (e.g. metal, cuda), so we won't
+# use `--all-features` in any case, instead every feature
+# that should compile in all cases will require to be added
+# as default. If you don't want to compile with all of these
+# use `--no-default-features`.
+default = []
 
 [dev-dependencies]
 proptest = "1.1.0"
