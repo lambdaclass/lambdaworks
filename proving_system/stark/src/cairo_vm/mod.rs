@@ -1,3 +1,3 @@
-mod cairo_trace;
-mod cairo_mem;
-mod errors;
+pub mod cairo_trace;
+pub mod cairo_mem;
+pub mod errors;

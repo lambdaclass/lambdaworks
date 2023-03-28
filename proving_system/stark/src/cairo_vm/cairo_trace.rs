@@ -1,5 +1,4 @@
 use std::fs;
-use thiserror::Error;
 use super::errors::CairoImportError;
 
 #[derive(PartialEq, Clone, Debug)]
@@ -8,7 +7,7 @@ pub struct CairoTrace {
 }
 
 #[derive(PartialEq, Clone, Debug)]
-struct RegistersState {
+pub struct RegistersState {
     pc: u64,
     fp: u64,
     ap: u64,
@@ -16,7 +15,7 @@ struct RegistersState {
 
 impl CairoTrace {
 
-    fn from_bytes_le(bytes: &[u8]) -> Result<Self,CairoImportError> {
+    pub fn from_bytes_le(bytes: &[u8]) -> Result<Self,CairoImportError> {
 
         // Each row of the trace is a RegisterState
         // ap, fp, pc, each 8 bytes long (u64)
@@ -44,7 +43,7 @@ impl CairoTrace {
         })
     }
 
-    fn from_file(path: &str) -> Result<Self, CairoImportError> {
+    pub fn from_file(path: &str) -> Result<Self, CairoImportError> {
         let data = fs::read(path)?;
         Ok(Self::from_bytes_le(&data)?)
     }

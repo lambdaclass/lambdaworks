@@ -1,20 +1,19 @@
 use std::fs;
 
 use lambdaworks_math::{unsigned_integer::element::U256, traits::ByteConversion};
-use thiserror::Error;
 
 use super::errors::CairoImportError;
 
 #[derive(Clone, Debug, PartialEq)]
-struct CairoMemoryCell {
-    address: u64,
+pub struct CairoMemoryCell {
+    pub address: u64,
     // This could also be a StarkField
     // Since we need to convert everything to StarkFields
     // later, we won't do it here
-    value: U256
+    pub value: U256
 }
 #[derive(Clone, Debug, PartialEq)]
-struct CairoMemory {
+pub struct CairoMemory {
     pub cells: Vec<CairoMemoryCell>
 }
 
@@ -45,7 +44,7 @@ impl CairoMemory {
         })
     }
 
-    fn from_file(path: &str) -> Result<Self, CairoImportError> {
+    pub fn from_file(path: &str) -> Result<Self, CairoImportError> {
         let data = fs::read(path)?;
         Ok(Self::from_bytes_le(&data)?)
     }
