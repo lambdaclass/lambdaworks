@@ -7,16 +7,18 @@ use air::frame::Frame;
 use fri::fri_decommit::FriDecommitment;
 
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
-use lambdaworks_math::field::element::FieldElement;
-use lambdaworks_math::field::fields::fft_friendly::u256_two_adic_prime_field::U256MontgomeryTwoAdicPrimeField;
-use lambdaworks_math::field::traits::{IsField, IsTwoAdicField};
+use lambdaworks_math::field::{
+    element::FieldElement,
+    fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+    traits::{IsField, IsTwoAdicField},
+};
 
 pub struct ProofConfig {
     pub count_queries: usize,
     pub blowup_factor: usize,
 }
 
-pub type PrimeField = U256MontgomeryTwoAdicPrimeField;
+pub type PrimeField = Stark252PrimeField;
 pub type FE = FieldElement<PrimeField>;
 
 // TODO: change this to use more bits
