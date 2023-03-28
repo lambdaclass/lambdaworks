@@ -191,8 +191,9 @@ mod tests {
         prover::Prover,
         setup::setup,
         test_utils::{
-            test_common_preprocessed_input_1, test_common_preprocessed_input_2, test_srs,
-            test_witness_1, test_witness_2, TestRandomFieldGenerator, KZG, common_preprocessed_input_from_json,
+            common_preprocessed_input_from_json, test_common_preprocessed_input_1,
+            test_common_preprocessed_input_2, test_srs, test_witness_1, test_witness_2,
+            TestRandomFieldGenerator, KZG,
         },
     };
 
@@ -272,7 +273,9 @@ mod tests {
 
     #[test]
     fn test_happy_path_from_json() {
-        let (witness, common_preprocessed_input, public_input) = common_preprocessed_input_from_json(r#"{
+        let (witness, common_preprocessed_input, public_input) =
+            common_preprocessed_input_from_json(
+                r#"{
             "N": 4,
             "Omega": "8d51ccce760304d0ec030002760300000001000000000000",
              "Input": [
@@ -341,7 +344,8 @@ mod tests {
              7,
              9
             ]
-           }"#);
+           }"#,
+            );
         let srs = test_srs(common_preprocessed_input.n);
 
         let kzg = KZG::new(srs);

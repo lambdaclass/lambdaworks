@@ -99,9 +99,7 @@ mod tests {
     };
 
     use super::*;
-    use crate::test_utils::{
-        test_common_preprocessed_input_1, test_srs, FpElement, FrField, KZG,
-    };
+    use crate::test_utils::{test_common_preprocessed_input_1, test_srs, FpElement, FrField, KZG};
 
     #[test]
     fn setup_works_for_simple_circuit() {

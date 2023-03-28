@@ -1,5 +1,3 @@
-use std::fs::File;
-use std::io::Read;
 use serde::{Serialize, Deserialize};
 use crate::setup::{CommonPreprocessedInput, Witness};
 use lambdaworks_crypto::commitments::kzg::StructuredReferenceString;
@@ -323,6 +321,7 @@ impl IsRandomFieldElementGenerator<FrField> for TestRandomFieldGenerator {
     }
 }
 
+#[allow(non_snake_case)]
 #[derive(Serialize, Deserialize)]
 struct JsonPlonkCircuit {
     N: u64,
@@ -352,7 +351,7 @@ pub fn common_preprocessed_input_from_json(file_name: &str) -> (Witness<FrField>
 
     let identity = identity_permutation(omega.clone(), n as u64);
     let permuted: Vec<FrElement> = (0..n*3)
-        .map(|i| identity[permutation[i as usize]].clone())
+        .map(|i| identity[permutation[i]].clone())
         .collect();
 
     let s1_lagrange: Vec<FrElement> = permuted[..n].to_vec();
@@ -365,14 +364,14 @@ pub fn common_preprocessed_input_from_json(file_name: &str) -> (Witness<FrField>
         c: str2frelement(foo.C),
    },
     CommonPreprocessedInput {
-        n: n,
-        omega: omega,
-        k1: ORDER_R_MINUS_1_ROOT_UNITY,
+        n,
         domain: domain.clone(),
+        omega,
+        k1: ORDER_R_MINUS_1_ROOT_UNITY,
         ql: Polynomial::interpolate(&domain, &str2frelement(foo.Ql)),
         qr: Polynomial::interpolate(&domain, &str2frelement(foo.Qr)),
-        qm: Polynomial::interpolate(&domain, &str2frelement(foo.Qm)),
         qo: Polynomial::interpolate(&domain, &str2frelement(foo.Qo)),
+        qm: Polynomial::interpolate(&domain, &str2frelement(foo.Qm)),
         qc: Polynomial::interpolate(&domain, &str2frelement(foo.Qc)), 
         s1: Polynomial::interpolate(&domain, &s1_lagrange),
         s2: Polynomial::interpolate(&domain, &s2_lagrange),
@@ -460,10 +459,7 @@ mod tests {
   7,
   9
  ]
-}"#);
-         let x = 0;
-         let y = 3;
-         let z = &x + y;
-         println!("{:?}", x);
+}"#
+        );
     }
 }
