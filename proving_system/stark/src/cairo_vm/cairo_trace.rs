@@ -62,7 +62,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_mul_program_gives_expected_trace() {
+    fn mul_program_gives_expected_trace() {
         /*
         Hex from the trace of the following cairo program
 
@@ -113,7 +113,7 @@ mod tests {
 
 
     #[test]
-    fn test_wrong_amount_of_bytes_gives_err() {
+    fn wrong_amount_of_bytes_gives_err() {
         let bytes = hex::decode("080000000000").unwrap();
 
         match CairoTrace::from_bytes_le(&bytes) {
@@ -124,7 +124,7 @@ mod tests {
     }
 
     #[test]
-    fn test_loads_mul_trace_correctly() {
+    fn loads_mul_trace_from_file_correctly() {
 
         let base_dir = env!("CARGO_MANIFEST_DIR");
         dbg!(base_dir);
@@ -154,7 +154,6 @@ mod tests {
             rows: [expected_state0, expected_state1, expected_state2].to_vec(),
         };
 
-        dbg!(&trace);
         assert_eq!(trace,expected_trace);
     }
 }
