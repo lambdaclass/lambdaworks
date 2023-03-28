@@ -8,7 +8,7 @@ use fri::fri_decommit::FriDecommitment;
 
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::field::element::FieldElement;
-use lambdaworks_math::field::fields::fft_friendly::u256_two_adic_prime_field::U256MontgomeryTwoAdicPrimeField;
+use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
 use lambdaworks_math::field::traits::IsField;
 
 pub struct ProofConfig {
@@ -16,7 +16,7 @@ pub struct ProofConfig {
     pub blowup_factor: usize,
 }
 
-pub type PrimeField = U256MontgomeryTwoAdicPrimeField;
+pub type PrimeField = Stark252PrimeField;
 pub type FE = FieldElement<PrimeField>;
 
 // TODO: change this to use more bits
@@ -85,6 +85,34 @@ mod tests {
     #[test]
     fn test_prove_fib() {
         let trace = fibonacci_trace([FE::from(1), FE::from(1)], 4);
+        let trace_table = TraceTable {
+            table: trace.clone(),
+            num_cols: 1,
+        };
+
+        let context = AirContext {
+            options: ProofOptions {
+                blowup_factor: 2,
+                fri_number_of_queries: 1,
+                coset_offset: 3,
+            },
+            trace_length: trace.len(),
+            trace_columns: trace_table.num_cols,
+            transition_degrees: vec![1],
+            transition_exemptions: vec![trace.len() - 2, trace.len() - 1],
+            transition_offsets: vec![0, 1, 2],
+            num_transition_constraints: 1,
+        };
+
+        let fibonacci_air = FibonacciAIR::new(trace_table, context);
+
+        let result = prove(&trace, &fibonacci_air);
+        assert!(verify(&result, &fibonacci_air));
+    }
+
+    #[test]
+    fn test_prove_fib_long_trace() {
+        let trace = fibonacci_trace([FE::from(1), FE::from(1)], 16);
         let trace_table = TraceTable {
             table: trace.clone(),
             num_cols: 1,
@@ -197,16 +225,16 @@ mod test_utils {
         fn compute_boundary_constraints(&self) -> BoundaryConstraints<Self::Field> {
             let a0 = BoundaryConstraint::new_simple(0, FieldElement::<Self::Field>::one());
             let a1 = BoundaryConstraint::new_simple(1, FieldElement::<Self::Field>::one());
-            let result = BoundaryConstraint::new_simple(3, FieldElement::<Self::Field>::from(3));
 
-            BoundaryConstraints::from_constraints(vec![a0, a1, result])
+            BoundaryConstraints::from_constraints(vec![a0, a1])
         }
 
         fn transition_divisors(&self) -> Vec<Polynomial<FieldElement<Self::Field>>> {
-            let roots_of_unity_order = self.context().trace_length.trailing_zeros();
+            let trace_length = self.context().trace_length;
+            let roots_of_unity_order = trace_length.trailing_zeros();
             let roots_of_unity = Self::Field::get_powers_of_primitive_root_coset(
                 roots_of_unity_order as u64,
-                self.context().trace_length,
+                trace_length,
                 &FieldElement::<Self::Field>::one(),
             )
             .unwrap();
@@ -214,12 +242,10 @@ mod test_utils {
             let mut result = vec![];
 
             for _ in 0..self.context().num_transition_constraints {
-                // X^(roots_of_unity_order) - 1
+                // X^(trace_length) - 1
                 let roots_of_unity_vanishing_polynomial =
-                    Polynomial::new_monomial(
-                        FieldElement::<Self::Field>::one(),
-                        roots_of_unity_order as usize,
-                    ) - Polynomial::new_monomial(FieldElement::<Self::Field>::one(), 0);
+                    Polynomial::new_monomial(FieldElement::<Self::Field>::one(), trace_length)
+                        - Polynomial::new_monomial(FieldElement::<Self::Field>::one(), 0);
 
                 let mut exemptions_polynomial =
                     Polynomial::new_monomial(FieldElement::<Self::Field>::one(), 0);
@@ -274,10 +300,11 @@ mod test_utils {
         }
 
         fn transition_divisors(&self) -> Vec<Polynomial<FieldElement<Self::Field>>> {
-            let roots_of_unity_order = self.context().trace_length.trailing_zeros();
+            let trace_length = self.context().trace_length;
+            let roots_of_unity_order = trace_length.trailing_zeros();
             let roots_of_unity = Self::Field::get_powers_of_primitive_root_coset(
                 roots_of_unity_order as u64,
-                self.context().trace_length,
+                trace_length,
                 &FieldElement::<Self::Field>::one(),
             )
             .unwrap();
@@ -285,12 +312,10 @@ mod test_utils {
             let mut result = vec![];
 
             for _ in 0..self.context().num_transition_constraints {
-                // X^(roots_of_unity_order) - 1
+                // X^(trace_length) - 1
                 let roots_of_unity_vanishing_polynomial =
-                    Polynomial::new_monomial(
-                        FieldElement::<Self::Field>::one(),
-                        roots_of_unity_order as usize,
-                    ) - Polynomial::new_monomial(FieldElement::<Self::Field>::one(), 0);
+                    Polynomial::new_monomial(FieldElement::<Self::Field>::one(), trace_length)
+                        - Polynomial::new_monomial(FieldElement::<Self::Field>::one(), 0);
 
                 let mut exemptions_polynomial =
                     Polynomial::new_monomial(FieldElement::<Self::Field>::one(), 0);
