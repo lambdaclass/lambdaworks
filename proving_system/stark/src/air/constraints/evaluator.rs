@@ -72,7 +72,8 @@ impl<F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
         }
 
         let max_degree = *degrees.iter().max().unwrap();
-        let max_degree_power_of_two = helpers::next_power_of_two(max_degree as u64);
+        let max_degree_power_of_two =
+            helpers::next_power_of_two(u64::try_from(max_degree).unwrap());
 
         let (boundary_alpha, boundary_beta) = alpha_and_beta_boundary_coefficients;
 
@@ -146,8 +147,8 @@ impl<F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
         {
             let zerofied_eval = eval / div.evaluate(x);
             let zerofied_degree = trace_degree * transition_degree - div.degree();
-            let result =
-                zerofied_eval * (alpha * x.pow(max_degree - (zerofied_degree as u64)) + beta);
+            let result = zerofied_eval
+                * (alpha * x.pow(max_degree - (u64::try_from(zerofied_degree).unwrap())) + beta);
             ret.push(result);
         }
 

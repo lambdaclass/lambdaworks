@@ -69,9 +69,10 @@ where
     let alpha = transcript_to_field(transcript);
     let beta = transcript_to_field(transcript);
 
-    let boundary_degree = (air.context().trace_length - boundary_zerofier.degree()) as u64 - 1;
+    let boundary_degree =
+        u64::try_from(air.context().trace_length - boundary_zerofier.degree()).unwrap() - 1;
 
-    let mut degrees = vec![boundary_degree as usize];
+    let mut degrees = vec![usize::try_from(boundary_degree).unwrap()];
     for (transition_degree, zerofier) in air
         .context()
         .transition_degrees()
@@ -82,7 +83,7 @@ where
         degrees.push(degree);
     }
     let max_degree = *degrees.iter().max().unwrap();
-    let max_degree_power_of_two = helpers::next_power_of_two(max_degree as u64);
+    let max_degree_power_of_two = helpers::next_power_of_two(u64::try_from(max_degree).unwrap());
 
     // TODO: This is assuming one column
     let mut boundary_quotient_ood_evaluation = &trace_poly_ood_frame_evaluations.get_row(0)[0]

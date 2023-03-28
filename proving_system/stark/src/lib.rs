@@ -234,7 +234,7 @@ mod test_utils {
             let trace_length = self.context().trace_length;
             let roots_of_unity_order = trace_length.trailing_zeros();
             let roots_of_unity = Self::Field::get_powers_of_primitive_root_coset(
-                roots_of_unity_order as u64,
+                u64::try_from(roots_of_unity_order).unwrap(),
                 trace_length,
                 &FieldElement::<Self::Field>::one(),
             )
@@ -304,7 +304,7 @@ mod test_utils {
             let trace_length = self.context().trace_length;
             let roots_of_unity_order = trace_length.trailing_zeros();
             let roots_of_unity = Self::Field::get_powers_of_primitive_root_coset(
-                roots_of_unity_order as u64,
+                u64::try_from(roots_of_unity_order).unwrap(),
                 trace_length,
                 &FieldElement::<Self::Field>::one(),
             )
