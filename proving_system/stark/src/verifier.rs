@@ -67,9 +67,17 @@ where
     let alpha = transcript_to_field(transcript);
     let beta = transcript_to_field(transcript);
 
-    let max_degree =
-        air.context().trace_length * air.context().transition_degrees().iter().max().unwrap();
-
+    let mut degrees = vec![];
+    for (transition_degree, zerofier) in air
+        .context()
+        .transition_degrees()
+        .iter()
+        .zip(air.transition_divisors())
+    {
+        let degree = transition_degree * (air.context().trace_length - 1) - zerofier.degree();
+        degrees.push(degree);
+    }
+    let max_degree = *degrees.iter().max().unwrap();
     let max_degree_power_of_two = helpers::next_power_of_two(max_degree as u64);
 
     // TODO: This is assuming one column

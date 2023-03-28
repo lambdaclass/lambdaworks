@@ -51,14 +51,18 @@ impl<F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
         // Hard-coded for fibonacci -> trace has one column, hence col value is 0.
         let values = boundary_constraints.values(0);
 
-        let max_degree = self.trace_poly.degree()
-            * self
-                .air
-                .context()
-                .transition_degrees()
-                .iter()
-                .max()
-                .unwrap();
+        let mut degrees = vec![];
+        for (transition_degree, zerofier) in self
+            .air
+            .context()
+            .transition_degrees()
+            .iter()
+            .zip(self.air.transition_divisors())
+        {
+            let degree = transition_degree * self.trace_poly.degree() - zerofier.degree();
+            degrees.push(degree);
+        }
+        let max_degree = *degrees.iter().max().unwrap();
 
         let max_degree_power_of_two = helpers::next_power_of_two(max_degree as u64);
 
@@ -125,19 +129,20 @@ impl<F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
         max_degree: u64,
         x: &FieldElement<F>,
     ) -> Vec<FieldElement<F>> {
+        let trace_degree = air.context().trace_length - 1;
         let transition_degrees = air.context().transition_degrees();
 
         let divisors = air.transition_divisors();
 
         let mut ret = Vec::new();
-        for (((eval, degree), div), (alpha, beta)) in evaluations
+        for (((eval, transition_degree), div), (alpha, beta)) in evaluations
             .iter()
             .zip(transition_degrees)
             .zip(divisors)
             .zip(alpha_and_beta_coefficients)
         {
             let zerofied_eval = eval / div.evaluate(x);
-            let zerofied_degree = degree - div.degree();
+            let zerofied_degree = trace_degree * transition_degree - div.degree();
             let result =
                 zerofied_eval * (alpha * x.pow(max_degree - (zerofied_degree as u64)) + beta);
             ret.push(result);
