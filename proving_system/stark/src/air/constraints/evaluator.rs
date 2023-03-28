@@ -153,7 +153,6 @@ impl<'poly, F: IsTwoAdicField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'pol
         // the trace degree may not be exactly the trace length - 1 but a smaller number.
         let trace_degree = air.context().trace_length - 1;
         let transition_degrees = air.context().transition_degrees();
-
         let divisors = air.transition_divisors();
 
         let mut ret = Vec::new();

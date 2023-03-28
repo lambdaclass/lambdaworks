@@ -86,7 +86,7 @@ mod tests {
 
     #[test]
     fn test_prove_fib() {
-        let trace = fibonacci_trace([FE::from(1), FE::from(1)], 4);
+        let trace = fibonacci_trace([FE::from(1), FE::from(1)], 8);
         let trace_length = trace[0].len();
         let trace_table = TraceTable::new_from_cols(&trace);
 
@@ -194,13 +194,13 @@ mod test_utils {
         fn compute_boundary_constraints(&self) -> BoundaryConstraints<Self::Field> {
             let a0 = BoundaryConstraint::new_simple(0, FieldElement::<Self::Field>::one());
             let a1 = BoundaryConstraint::new_simple(1, FieldElement::<Self::Field>::one());
-            let result = BoundaryConstraint::new_simple(3, FieldElement::<Self::Field>::from(3));
 
-            BoundaryConstraints::from_constraints(vec![a0, a1, result])
+            BoundaryConstraints::from_constraints(vec![a0, a1])
         }
 
         fn transition_divisors(&self) -> Vec<Polynomial<FieldElement<Self::Field>>> {
-            let roots_of_unity_order = self.context().trace_length.trailing_zeros();
+            let trace_length = self.context().trace_length;
+            let roots_of_unity_order = trace_length.trailing_zeros();
             let roots_of_unity = Self::Field::get_powers_of_primitive_root_coset(
                 roots_of_unity_order as u64,
                 self.context().trace_length,
@@ -211,12 +211,10 @@ mod test_utils {
             let mut result = vec![];
 
             for _ in 0..self.context().num_transition_constraints {
-                // X^(roots_of_unity_order) - 1
+                // X^(trace_length) - 1
                 let roots_of_unity_vanishing_polynomial =
-                    Polynomial::new_monomial(
-                        FieldElement::<Self::Field>::one(),
-                        roots_of_unity_order as usize,
-                    ) - Polynomial::new_monomial(FieldElement::<Self::Field>::one(), 0);
+                    Polynomial::new_monomial(FieldElement::<Self::Field>::one(), trace_length)
+                        - Polynomial::new_monomial(FieldElement::<Self::Field>::one(), 0);
 
                 let mut exemptions_polynomial =
                     Polynomial::new_monomial(FieldElement::<Self::Field>::one(), 0);
@@ -271,7 +269,8 @@ mod test_utils {
         }
 
         fn transition_divisors(&self) -> Vec<Polynomial<FieldElement<Self::Field>>> {
-            let roots_of_unity_order = self.context().trace_length.trailing_zeros();
+            let trace_length = self.context().trace_length;
+            let roots_of_unity_order = trace_length.trailing_zeros();
             let roots_of_unity = Self::Field::get_powers_of_primitive_root_coset(
                 roots_of_unity_order as u64,
                 self.context().trace_length,
@@ -284,10 +283,8 @@ mod test_utils {
             for _ in 0..self.context().num_transition_constraints {
                 // X^(roots_of_unity_order) - 1
                 let roots_of_unity_vanishing_polynomial =
-                    Polynomial::new_monomial(
-                        FieldElement::<Self::Field>::one(),
-                        roots_of_unity_order as usize,
-                    ) - Polynomial::new_monomial(FieldElement::<Self::Field>::one(), 0);
+                    Polynomial::new_monomial(FieldElement::<Self::Field>::one(), trace_length)
+                        - Polynomial::new_monomial(FieldElement::<Self::Field>::one(), 0);
 
                 let mut exemptions_polynomial =
                     Polynomial::new_monomial(FieldElement::<Self::Field>::one(), 0);
