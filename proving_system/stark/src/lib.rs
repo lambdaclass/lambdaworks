@@ -110,6 +110,34 @@ mod tests {
         assert!(verify(&result, &fibonacci_air));
     }
 
+    #[test]
+    fn test_prove_fib_long_trace() {
+        let trace = fibonacci_trace([FE::from(1), FE::from(1)], 16);
+        let trace_table = TraceTable {
+            table: trace.clone(),
+            num_cols: 1,
+        };
+
+        let context = AirContext {
+            options: ProofOptions {
+                blowup_factor: 2,
+                fri_number_of_queries: 1,
+                coset_offset: 3,
+            },
+            trace_length: trace.len(),
+            trace_columns: trace_table.num_cols,
+            transition_degrees: vec![1],
+            transition_exemptions: vec![trace.len() - 2, trace.len() - 1],
+            transition_offsets: vec![0, 1, 2],
+            num_transition_constraints: 1,
+        };
+
+        let fibonacci_air = FibonacciAIR::new(trace_table, context);
+
+        let result = prove(&trace, &fibonacci_air);
+        assert!(verify(&result, &fibonacci_air));
+    }
+
     #[ignore]
     #[test]
     fn test_prove_fib17() {
@@ -197,9 +225,8 @@ mod test_utils {
         fn compute_boundary_constraints(&self) -> BoundaryConstraints<Self::Field> {
             let a0 = BoundaryConstraint::new_simple(0, FieldElement::<Self::Field>::one());
             let a1 = BoundaryConstraint::new_simple(1, FieldElement::<Self::Field>::one());
-            let result = BoundaryConstraint::new_simple(3, FieldElement::<Self::Field>::from(3));
 
-            BoundaryConstraints::from_constraints(vec![a0, a1, result])
+            BoundaryConstraints::from_constraints(vec![a0, a1])
         }
 
         fn transition_divisors(&self) -> Vec<Polynomial<FieldElement<Self::Field>>> {

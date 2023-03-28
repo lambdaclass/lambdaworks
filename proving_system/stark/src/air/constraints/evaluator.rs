@@ -95,6 +95,8 @@ impl<F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
             );
 
             let boundary_poly_degree = boundary_poly.degree() - boundary_zerofier.degree();
+            println!("MAX DEGREE 2^N: {}", max_degree_power_of_two);
+            println!("BOUNDARY DEGREE: {}", boundary_poly_degree);
 
             // Append evaluation for boundary constraints
             let mut boundary_evaluation = boundary_poly.evaluate(d) / boundary_zerofier.evaluate(d);
