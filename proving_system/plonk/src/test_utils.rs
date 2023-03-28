@@ -339,13 +339,13 @@ struct JsonPlonkCircuit {
 }
 
 pub fn common_preprocessed_input_from_json(
-    file_name: &str,
+    json_string: &str,
 ) -> (
     Witness<FrField>,
     CommonPreprocessedInput<FrField>,
     Vec<FrElement>,
 ) {
-    let json_input: JsonPlonkCircuit = serde_json::from_str(file_name).unwrap();
+    let json_input: JsonPlonkCircuit = serde_json::from_str(json_string).unwrap();
     let str2frelement = |ss: Vec<String>| {
         ss.iter()
             .map(|s| FrElement::from_hex(s))
