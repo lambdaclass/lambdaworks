@@ -125,8 +125,11 @@ mod tests {
     #[test]
     fn test_loads_mul_trace_correctly() {
 
-        // This path is bad
-        let trace = CairoTrace::from_file("./test_data/mul_trace.out");
+        let base_dir = env!("CARGO_MANIFEST_DIR");
+        dbg!(base_dir);
+        let dir = base_dir.to_owned() + "/src/cairo_vm/test_data/mul_trace.out";
+        
+        let trace = CairoTrace::from_file(&dir).unwrap();
 
         let expected_state0 = RegistersState {
             ap: 8,
@@ -150,6 +153,7 @@ mod tests {
             rows: [expected_state0, expected_state1, expected_state2].to_vec(),
         };
 
-        dbg!(trace);
+        dbg!(&trace);
+        assert_eq!(trace,expected_trace);
     }
 }
