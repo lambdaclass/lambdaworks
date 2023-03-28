@@ -29,6 +29,22 @@ impl PyU64FE {
 
         Ok(PyU64FE(a))
     }
+
+    fn __add__(&self, other: &Self) -> Self {
+        Self(&self.0 + &other.0)
+    }
+
+    fn __sub__(&self, other: &Self) -> Self {
+        Self(&self.0 - &other.0)
+    }
+
+    fn __mul__(&self, other: &Self) -> Self {
+        Self(&self.0 * &other.0)
+    }
+
+    fn __floordiv__(&self, other: &Self) -> Self {
+        Self(&self.0 / &other.0)
+    }
 }
 
 #[pyclass(name = "U64MerkleTree")]

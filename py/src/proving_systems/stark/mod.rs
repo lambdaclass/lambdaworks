@@ -21,6 +21,18 @@ impl PyFieldElement {
     fn __add__(&self, other: &Self) -> Self {
         Self(&self.0 + &other.0)
     }
+
+    fn __sub__(&self, other: &Self) -> Self {
+        Self(&self.0 - &other.0)
+    }
+
+    fn __mul__(&self, other: &Self) -> Self {
+        Self(&self.0 * &other.0)
+    }
+
+    fn __floordiv__(&self, other: &Self) -> Self {
+        Self(&self.0 / &other.0)
+    }
 }
 
 #[pyclass(name = "StarkProofConfig")]
