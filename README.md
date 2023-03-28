@@ -103,6 +103,14 @@ If you use ```Lambdaworks``` libraries in your research projects, please cite th
 
 ### Gadgets
 
+## Documentation
+
+To serve the documentation locally, first install both [mdbook](https://rust-lang.github.io/mdBook/guide/installation.html) and the [Katex preprocessor](https://github.com/lzanini/mdbook-katex#getting-started) to render LaTeX, then run
+
+```
+make docs
+```
+
 ## 📊 Benchmarks
 
 To run the benchmarks you will need `cargo-criterion`, to install do:
