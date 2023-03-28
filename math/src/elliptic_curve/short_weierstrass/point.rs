@@ -44,12 +44,6 @@ impl<E: IsEllipticCurve> ShortWeierstrassProjectivePoint<E> {
     pub fn to_affine(&self) -> Self {
         Self(self.0.to_affine())
     }
-
-    /// Returns the additive inverse of the projective point `p`
-    pub fn neg(&self) -> Self {
-        let [px, py, pz] = self.coordinates();
-        Self::new([px.clone(), -py, pz.clone()])
-    }
 }
 
 impl<E: IsEllipticCurve> PartialEq for ShortWeierstrassProjectivePoint<E> {
@@ -124,5 +118,11 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
                 Self::new([xp, yp, zp])
             }
         }
+    }
+
+    /// Returns the additive inverse of the projective point `p`
+    fn neg(&self) -> Self {
+        let [px, py, pz] = self.coordinates();
+        Self::new([px.clone(), -py, pz.clone()])
     }
 }

@@ -4,6 +4,7 @@ use crate::field::{element::FieldElement, traits::IsTwoAdicField};
 /// It's required that the twiddle factors are in bit-reverse order. Else this function will not
 /// return fourier transformed values.
 /// Also the input size needs to be a power of two.
+/// It's recommended to use the current safe abstractions instead of this function.
 ///
 /// Performs a fast fourier transform with the next attributes:
 /// - In-Place: an auxiliary vector of data isn't needed for the algorithm.
@@ -49,6 +50,7 @@ where
 /// It's required that the twiddle factors are naturally ordered (so w[i] = w^i). Else this
 /// function will not return fourier transformed values.
 /// Also the input size needs to be a power of two.
+/// It's recommended to use the current safe abstractions instead of this function.
 ///
 /// Performs a fast fourier transform with the next attributes:
 /// - In-Place: an auxiliary vector of data isn't needed for storing the results.
@@ -56,6 +58,7 @@ where
 /// - RN: reverse to natural order, meaning that the input is bit-reversed ordered and the output will
 /// be naturally ordered.
 /// - DIT: decimation in time
+#[allow(dead_code)]
 pub fn in_place_rn_2radix_fft<F>(input: &mut [FieldElement<F>], twiddles: &[FieldElement<F>])
 where
     F: IsTwoAdicField,
@@ -121,7 +124,7 @@ mod tests {
         // Property-based test that ensures NR Radix-2 FFT gives same result as a naive polynomial evaluation.
         #[test]
         fn test_nr_2radix_fft_matches_naive_eval(coeffs in field_vec(8)) {
-            let root = F::get_root_of_unity(log2(coeffs.len()).unwrap()).unwrap();
+            let root = F::get_primitive_root_of_unity(log2(coeffs.len()).unwrap()).unwrap();
             let mut twiddles = (0..coeffs.len() as u64).map(|i| root.pow(i)).collect::<Vec<FE>>();
             in_place_bit_reverse_permute(&mut twiddles[..]); // required for NR
 
@@ -139,7 +142,7 @@ mod tests {
         // Property-based test that ensures RN Radix-2 fft gives same result as a naive polynomial evaluation.
         #[test]
         fn test_rn_2radix_fft_matches_naive_eval(coeffs in field_vec(8)) {
-            let root = F::get_root_of_unity(log2(coeffs.len()).unwrap()).unwrap();
+            let root = F::get_primitive_root_of_unity(log2(coeffs.len()).unwrap()).unwrap();
             let twiddles = (0..coeffs.len() as u64).map(|i| root.pow(i)).collect::<Vec<FE>>();
 
             let poly = Polynomial::new(&coeffs[..]);
