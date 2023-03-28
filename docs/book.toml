@@ -1,0 +1,8 @@
+[book]
+authors = ["Javier Chatruc"]
+language = "en"
+multilingual = false
+src = "src"
+title = "docs"
+
+[preprocessor.katex]
