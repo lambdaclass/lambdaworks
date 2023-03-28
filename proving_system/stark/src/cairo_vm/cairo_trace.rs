@@ -1,5 +1,6 @@
 use std::fs;
 use thiserror::Error;
+use super::errors::CairoImportError;
 
 #[derive(PartialEq, Clone, Debug)]
 pub struct CairoTrace {
@@ -13,24 +14,16 @@ struct RegistersState {
     ap: u64,
 }
 
-#[derive(Error, Debug)]
-pub enum CairoTraceError {
-    #[error("Bytes should be a multiple of 24")]
-    IncorrectNumberOfBytes,
-    #[error("IO Error")]
-    FileError(#[from] std::io::Error)
-}
-
 impl CairoTrace {
 
-    fn from_bytes_le(bytes: &[u8]) -> Result<Self,CairoTraceError> {
+    fn from_bytes_le(bytes: &[u8]) -> Result<Self,CairoImportError> {
 
         // Each row of the trace is a RegisterState
         // ap, fp, pc, each 8 bytes long (u64)
         const ROW_SIZE: usize = 8 * 3;
 
         if bytes.len() % ROW_SIZE != 0 {
-            return Err(CairoTraceError::IncorrectNumberOfBytes);
+            return Err(CairoImportError::IncorrectNumberOfBytes);
         }
         let num_rows = bytes.len() / ROW_SIZE;
 
@@ -51,7 +44,7 @@ impl CairoTrace {
         })
     }
 
-    fn from_file(path: &str) -> Result<Self, CairoTraceError> {
+    fn from_file(path: &str) -> Result<Self, CairoImportError> {
         let data = fs::read(path)?;
         Ok(Self::from_bytes_le(&data)?)
     }
@@ -117,7 +110,7 @@ mod tests {
         let bytes = hex::decode("080000000000").unwrap();
 
         match CairoTrace::from_bytes_le(&bytes) {
-            Err(CairoTraceError::IncorrectNumberOfBytes) => (),
+            Err(CairoImportError::IncorrectNumberOfBytes) => (),
             Err(_) => panic!(),
             Ok(_) => panic!()
         }

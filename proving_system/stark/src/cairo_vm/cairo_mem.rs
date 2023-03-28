@@ -3,6 +3,8 @@ use std::fs;
 use lambdaworks_math::{unsigned_integer::element::U256, traits::ByteConversion};
 use thiserror::Error;
 
+use super::errors::CairoImportError;
+
 #[derive(Clone, Debug, PartialEq)]
 struct CairoMemoryCell {
     address: u64,
@@ -16,23 +18,16 @@ struct CairoMemory {
     pub cells: Vec<CairoMemoryCell>
 }
 
-#[derive(Error, Debug)]
-pub enum CairoMemError {
-    #[error("Bytes should be a multiple of 24")]
-    IncorrectNumberOfBytes,
-    #[error("IO Error")]
-    FileError(#[from] std::io::Error)
-}
 
 impl CairoMemory {
-    fn from_bytes_le(bytes: &[u8]) -> Result<Self,CairoMemError> {
+    fn from_bytes_le(bytes: &[u8]) -> Result<Self,CairoImportError> {
 
         // Each row of the trace is a RegisterState
         // ap, fp, pc, each 8 bytes long (u64)
         const ROW_SIZE: usize = 8 + 32;
 
         if bytes.len() % ROW_SIZE != 0 {
-            return Err(CairoMemError::IncorrectNumberOfBytes);
+            return Err(CairoImportError::IncorrectNumberOfBytes);
         }
         let num_rows = bytes.len() / ROW_SIZE;
 
@@ -50,7 +45,7 @@ impl CairoMemory {
         })
     }
 
-    fn from_file(path: &str) -> Result<Self, CairoMemError> {
+    fn from_file(path: &str) -> Result<Self, CairoImportError> {
         let data = fs::read(path)?;
         Ok(Self::from_bytes_le(&data)?)
     }
@@ -95,7 +90,7 @@ mod tests {
         let bytes = hex::decode("01000000000000000080ff7f01800648000000000000000000000000000000000000000000000000020000000000000006000000000000000000000000000000000000000000000000000000000000000300000000000000ff7fff7f01800640000000000000000000000000000000000000000000000000040000000000000006000000000000000000000000000000000000000000000000000000000000000500000000000000fe7fff7fff7f8b2000000000000000000000000000000000000000000000000006000000000000000900000000000000000000000000000000000000000000000000000000000000070000000000000009000000000000000000000000000000000000000000000000000000000000000800000000000000060000000000000000000000000000000000000000000000000000000000000088").unwrap();
 
         match CairoMemory::from_bytes_le(&bytes) {
-            Err(CairoMemError::IncorrectNumberOfBytes) => (),
+            Err(CairoImportError::IncorrectNumberOfBytes) => (),
             Err(_) => panic!(),
             Ok(_) => panic!()
         }
@@ -114,4 +109,5 @@ mod tests {
             assert_eq!(cell.address, (i+1) as u64);
         }
     }
+
 }
