@@ -20,7 +20,7 @@ impl<F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
         trace_poly: &Polynomial<FieldElement<F>>,
         primitive_root: &FieldElement<F>,
     ) -> Self {
-        let boundary_constraints = air.compute_boundary_constraints();
+        let boundary_constraints = air.boundary_constraints();
 
         Self {
             air: air.clone(),
