@@ -1,3 +1,5 @@
+.PHONY: test clippy docker-shell nix-shell benchmarks benchmark docs
+
 test:
 	cargo test
 
@@ -21,3 +23,6 @@ benchmark:
 METALPATH = gpu/src/metal/shaders
 build-metal:
 	xcrun -sdk macosx metal $(METALPATH)/all.metal -o $(METALPATH)/lib.metallib
+
+docs:
+	cd docs && mdbook serve --open

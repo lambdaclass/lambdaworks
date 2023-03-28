@@ -663,8 +663,7 @@ mod fft_test {
     use super::*;
 
     // FFT related tests
-    const MODULUS: u64 = 0xFFFFFFFF00000001;
-    type F = U64TestField<MODULUS>;
+    type F = U64TestField;
     type FE = FieldElement<F>;
 
     prop_compose! {
@@ -678,7 +677,7 @@ mod fft_test {
         }
     }
     prop_compose! {
-        fn offset()(num in 1..MODULUS - 1) -> FE { FE::from(num) }
+        fn offset()(num in 1..F::neg(&1) - 1) -> FE { FE::from(num) }
     }
     prop_compose! {
         fn field_vec(max_exp: u8)(elem in field_element(), size in powers_of_two(max_exp)) -> Vec<FE> {
