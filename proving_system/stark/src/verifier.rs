@@ -67,16 +67,14 @@ where
 
     let boundary_alpha = transcript_to_field(transcript);
     let boundary_beta = transcript_to_field(transcript);
+
     // TODO: these are hardcoded to one column, there should be one alpha and beta per column
     let alpha = transcript_to_field(transcript);
     let beta = transcript_to_field(transcript);
 
-    let max_degree =
-        air.context().trace_length * air.context().transition_degrees().iter().max().unwrap();
-
-    let max_degree_power_of_two = helpers::next_power_of_two(max_degree as u64);
-
-    let mut aux_boundary_quotient_ood_evaluations = Vec::with_capacity(n_trace_cols);
+    // Following naming conventions from https://www.notamonadtutorial.com/diving-deep-fri/
+    let mut boundary_c_i_evaluations = Vec::with_capacity(n_trace_cols);
+    let mut boundary_quotient_degrees = Vec::with_capacity(n_trace_cols);
     for trace_idx in 0..n_trace_cols {
         let trace_evaluation = &trace_poly_ood_frame_evaluations.get_row(0)[trace_idx];
         let boundary_constraints_domain = boundary_constraint_domains[trace_idx].clone();
@@ -86,21 +84,40 @@ where
         let boundary_zerofier =
             boundary_constraints.compute_zerofier(&trace_primitive_root, trace_idx);
 
-        let mut boundary_quotient_ood_evaluation = (trace_evaluation
+        let boundary_quotient_ood_evaluation = (trace_evaluation
             - boundary_interpolating_polynomial.evaluate(&z))
             / boundary_zerofier.evaluate(&z);
 
-        let boundary_quotient_degree =
-            (air.context().trace_length - boundary_zerofier.degree()) as u64 - 1;
+        let boundary_quotient_degree = air.context().trace_length - boundary_zerofier.degree() - 1;
 
-        boundary_quotient_ood_evaluation = boundary_quotient_ood_evaluation
-            * (&boundary_alpha * z.pow(max_degree_power_of_two - boundary_quotient_degree)
-                + &boundary_beta);
-
-        aux_boundary_quotient_ood_evaluations.push(boundary_quotient_ood_evaluation)
+        boundary_c_i_evaluations.push(boundary_quotient_ood_evaluation);
+        boundary_quotient_degrees.push(boundary_quotient_degree);
     }
 
-    let boundary_quotient_ood_evaluation = aux_boundary_quotient_ood_evaluations
+    // TODO: Get trace polys degrees in a better way. The degree may not be trace_length - 1 in some
+    // special cases.
+    let transition_quotients_max_degree =
+        (air.context().trace_length - 1) * air.context().transition_degrees().iter().max().unwrap();
+
+    let boundary_quotients_max_degree = boundary_quotient_degrees.iter().max().unwrap();
+
+    let max_degree = std::cmp::max(
+        transition_quotients_max_degree,
+        *boundary_quotients_max_degree,
+    );
+    let max_degree_power_of_two = helpers::next_power_of_two(max_degree as u64);
+
+    let boundary_quotient_ood_evaluations: Vec<FieldElement<F>> = boundary_c_i_evaluations
+        .iter()
+        .zip(boundary_quotient_degrees)
+        .map(|(poly_eval, poly_degree)| {
+            poly_eval
+                * (&boundary_alpha * z.pow(max_degree_power_of_two - poly_degree as u64)
+                    + &boundary_beta)
+        })
+        .collect();
+
+    let boundary_quotient_ood_evaluation = boundary_quotient_ood_evaluations
         .iter()
         .fold(FieldElement::<F>::zero(), |acc, x| acc + x);
 
@@ -108,6 +125,7 @@ where
 
     let alpha_and_beta_transition_coefficients = vec![(alpha, beta)];
 
+    // TODO: Change the name of this to be the transition C_i's.
     let c_i_evaluations = ConstraintEvaluator::compute_constraint_composition_poly_evaluations(
         air,
         &transition_ood_frame_evaluations,
