@@ -51,23 +51,28 @@ impl<F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
         // Hard-coded for fibonacci -> trace has one column, hence col value is 0.
         let values = boundary_constraints.values(0);
 
-        let max_degree = self.trace_poly.degree()
-            * self
-                .air
-                .context()
-                .transition_degrees()
-                .iter()
-                .max()
-                .unwrap();
-
-        let max_degree_power_of_two =
-            helpers::next_power_of_two(u64::try_from(max_degree).unwrap());
-
         let boundary_poly = &self.trace_poly - &Polynomial::interpolate(&domain, &values);
 
         let boundary_zerofier = self
             .boundary_constraints
             .compute_zerofier(&self.primitive_root);
+
+        let boundary_poly_degree = boundary_poly.degree() - boundary_zerofier.degree();
+
+        let mut degrees = vec![boundary_poly_degree];
+        for (transition_degree, zerofier) in self
+            .air
+            .context()
+            .transition_degrees()
+            .iter()
+            .zip(self.air.transition_divisors())
+        {
+            let degree = transition_degree * self.trace_poly.degree() - zerofier.degree();
+            degrees.push(degree);
+        }
+
+        let max_degree = *degrees.iter().max().unwrap();
+        let max_degree_power_of_two = helpers::next_power_of_two(max_degree as u64);
 
         let (boundary_alpha, boundary_beta) = alpha_and_beta_boundary_coefficients;
 
@@ -90,8 +95,6 @@ impl<F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
                 max_degree_power_of_two,
                 d,
             );
-
-            let boundary_poly_degree = boundary_poly.degree() - boundary_zerofier.degree();
 
             // Append evaluation for boundary constraints
             let mut boundary_evaluation = boundary_poly.evaluate(d) / boundary_zerofier.evaluate(d);
@@ -129,21 +132,22 @@ impl<F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
         max_degree: u64,
         x: &FieldElement<F>,
     ) -> Vec<FieldElement<F>> {
+        let trace_degree = air.context().trace_length - 1;
         let transition_degrees = air.context().transition_degrees();
 
         let divisors = air.transition_divisors();
 
         let mut ret = Vec::new();
-        for (((eval, degree), div), (alpha, beta)) in evaluations
+        for (((eval, transition_degree), div), (alpha, beta)) in evaluations
             .iter()
             .zip(transition_degrees)
             .zip(divisors)
             .zip(alpha_and_beta_coefficients)
         {
             let zerofied_eval = eval / div.evaluate(x);
-            let zerofied_degree = degree - div.degree();
-            let result = zerofied_eval
-                * (alpha * x.pow(max_degree - (u64::try_from(zerofied_degree).unwrap())) + beta);
+            let zerofied_degree = trace_degree * transition_degree - div.degree();
+            let result =
+                zerofied_eval * (alpha * x.pow(max_degree - (zerofied_degree as u64)) + beta);
             ret.push(result);
         }
 
