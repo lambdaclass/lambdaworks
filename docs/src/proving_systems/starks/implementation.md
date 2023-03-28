@@ -91,7 +91,7 @@ It's not completely obvious why this is how we chose to express transition const
 
 What we need to specify in this method is the relationship that has to hold between the current step of computation and the previous ones. For this, we get a `Frame` as an argument. This is a struct holding the current step (i.e. the current row of the trace) and all previous ones needed to encode our constraint. In our case, this is the current row and the two previous ones.
 
-TODO: the following this is actually wrong. Should we change it at the code level?
+TODO: the following is actually wrong. Should we change it at the code level?
 
 The `frame` has a `get_row` method to access rows. Row zero is always the current step, with previous rows following after, so `get_row(1)` gives you the previous row and so on.
 
