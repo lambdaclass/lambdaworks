@@ -64,4 +64,8 @@ pub trait AIR: Clone {
 
         result
     }
+
+    fn num_transition_constraints(&self) -> usize {
+        self.context().num_transition_constraints
+    }
 }

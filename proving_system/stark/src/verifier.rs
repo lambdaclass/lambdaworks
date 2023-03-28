@@ -4,6 +4,7 @@ use lambdaworks_math::{
         element::FieldElement,
         traits::{IsField, IsTwoAdicField},
     },
+    helpers,
     polynomial::Polynomial,
     traits::ByteConversion,
 };
@@ -11,11 +12,9 @@ use lambdaworks_math::{
 use crate::{transcript_to_field, transcript_to_usize, StarkProof};
 
 use super::{
-    air::{
-        constraints::{evaluator::ConstraintEvaluator, helpers},
-        AIR,
-    },
+    air::{constraints::evaluator::ConstraintEvaluator, AIR},
     fri::fri_decommit::FriDecommitment,
+    sample_z_ood,
 };
 
 pub fn verify<F: IsField + IsTwoAdicField, A: AIR + AIR<Field = F>>(
@@ -39,13 +38,22 @@ where
 
     let boundary_constraints = air.boundary_constraints();
 
-    // TODO: Fiat-Shamir
-    let z = FieldElement::<F>::from(2);
-    // TODO: The reason this is commented is we can't just call this function, we have to make sure that the result
-    // is not either a root of unity or an element of the lde coset.
-    // let z = transcript_to_field(transcript);
-
     let domain = boundary_constraints.generate_roots_of_unity(&trace_primitive_root);
+
+    let lde_root_order =
+        (air.context().trace_length * air.options().blowup_factor as usize).trailing_zeros();
+    let lde_roots_of_unity_coset = F::get_powers_of_primitive_root_coset(
+        lde_root_order as u64,
+        air.context().trace_length * air.options().blowup_factor as usize,
+        &FieldElement::<F>::from(air.options().coset_offset),
+    )
+    .unwrap();
+
+    // Fiat-Shamir
+    // we have to make sure that the result is not either
+    // a root of unity or an element of the lde coset.
+    let z = sample_z_ood(&lde_roots_of_unity_coset, &domain, transcript);
+
     // TODO: this assumes one column
     let values = boundary_constraints.values(0);
 
@@ -106,6 +114,18 @@ where
     let lde_root_order =
         (air.context().trace_length * air.options().blowup_factor as usize).trailing_zeros();
 
+    // We have to make the call to `transcript.challenge()` a number of times since we need
+    // the transcript to be in the same state as the one in the prover at this stage.
+    // The prover samples coefficients when building the deep composition polynomial. These
+    // sampling is not done in the verifier hence we need to make this dummy calls.
+    // There will be one call for each trace term in the deep composition polynomial + 2 from
+    // the even and odd terms of the H(x) polynomial.
+    let deep_poly_challenges =
+        air.context().transition_offsets.len() * air.context().trace_columns + 2;
+    (0..deep_poly_challenges).for_each(|_| {
+        transcript.challenge();
+    });
+
     // construct vector of betas
     let mut beta_list = Vec::new();
     let count_betas = proof.fri_layers_merkle_roots.len() - 1;
@@ -127,7 +147,7 @@ where
         let last_evaluation_bytes = last_evaluation.to_bytes_be();
         transcript.append(&last_evaluation_bytes);
 
-        let q_i: usize = transcript_to_usize(transcript) % (2_usize.pow(lde_root_order));
+        let q_i = transcript_to_usize(transcript) % (2_usize.pow(lde_root_order));
         transcript.append(&q_i.to_be_bytes());
 
         let fri_decommitment = &proof_i.fri_decommitment;

@@ -7,15 +7,15 @@ use crate::{
 };
 
 #[derive(Clone, Debug)]
-pub struct U256MontgomeryConfigTwoAdic;
-impl IsModulus<U256> for U256MontgomeryConfigTwoAdic {
+pub struct MontgomeryConfigStark252PrimeField;
+impl IsModulus<U256> for MontgomeryConfigStark252PrimeField {
     const MODULUS: U256 =
         U256::from("800000000000011000000000000000000000000000000000000000000000001");
 }
 
-pub type U256MontgomeryTwoAdicPrimeField = U256PrimeField<U256MontgomeryConfigTwoAdic>;
+pub type Stark252PrimeField = U256PrimeField<MontgomeryConfigStark252PrimeField>;
 
-impl IsTwoAdicField for U256MontgomeryTwoAdicPrimeField {
+impl IsTwoAdicField for Stark252PrimeField {
     const TWO_ADICITY: u64 = 48;
     // Change this line for a new function like `from_limbs`.
     const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: U256 = UnsignedInteger {
@@ -32,7 +32,7 @@ impl IsTwoAdicField for U256MontgomeryTwoAdicPrimeField {
 mod u256_two_adic_prime_field_tests {
     use proptest::{prelude::any, prop_assert_eq, prop_compose, proptest, strategy::Strategy};
 
-    use super::U256MontgomeryTwoAdicPrimeField;
+    use super::Stark252PrimeField;
     use crate::{
         fft::helpers::log2,
         field::{
@@ -42,7 +42,7 @@ mod u256_two_adic_prime_field_tests {
         polynomial::Polynomial,
     };
 
-    type F = U256MontgomeryTwoAdicPrimeField;
+    type F = Stark252PrimeField;
     type FE = FieldElement<F>;
 
     prop_compose! {

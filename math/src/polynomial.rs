@@ -2,6 +2,7 @@ use super::field::element::FieldElement;
 use crate::{
     fft::{abstractions::*, errors::FFTError},
     field::traits::{IsField, IsTwoAdicField},
+    helpers,
 };
 use std::ops;
 
@@ -189,7 +190,13 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
 impl<F: IsTwoAdicField> Polynomial<FieldElement<F>> {
     /// Evaluates this polynomial using FFT (so the function is evaluated using twiddle factors).
     pub fn evaluate_fft(&self) -> Result<Vec<FieldElement<F>>, FFTError> {
-        fft(self.coefficients())
+        let num_coefficients = self.coefficients().len();
+        let num_coeficcients_power_of_two = helpers::next_power_of_two(num_coefficients as u64);
+
+        let mut padded_coefficients = self.coefficients().to_vec();
+        padded_coefficients.resize(num_coeficcients_power_of_two as usize, FieldElement::zero());
+
+        fft(padded_coefficients.as_slice())
     }
 
     /// Evaluates this polynomial in an extended domain by `blowup_factor` with an `offset`.
@@ -211,7 +218,6 @@ impl<F: IsTwoAdicField> Polynomial<FieldElement<F>> {
     }
 }
 
-// TODO: This is not an optimal implementation, it should use FFT to interpolate.
 pub fn compose<F>(
     poly_1: &Polynomial<FieldElement<F>>,
     poly_2: &Polynomial<FieldElement<F>>,
@@ -235,6 +241,23 @@ where
         .collect();
 
     Polynomial::interpolate(interpolation_points.as_slice(), values.as_slice())
+}
+
+pub fn compose_fft<F>(
+    poly_1: &Polynomial<FieldElement<F>>,
+    poly_2: &Polynomial<FieldElement<F>>,
+) -> Polynomial<FieldElement<F>>
+where
+    F: IsTwoAdicField,
+{
+    let poly_2_evaluations = poly_2.evaluate_fft().unwrap();
+
+    let values: Vec<_> = poly_2_evaluations
+        .iter()
+        .map(|value| poly_1.evaluate(value))
+        .collect();
+
+    Polynomial::interpolate_fft(values.as_slice()).unwrap()
 }
 
 impl<F: IsField> ops::Add<&Polynomial<FieldElement<F>>> for &Polynomial<FieldElement<F>> {
@@ -657,12 +680,15 @@ mod fft_test {
         }
     }
     prop_compose! {
-        // non-power-of-two sized vector
-        fn unsuitable_field_vec(max_exp: u8)(elem in field_element(), size in powers_of_two(max_exp)) -> Vec<FE> {
+        fn non_power_of_two_sized_field_vec(max_exp: u8)(elem in field_element(), size in powers_of_two(max_exp)) -> Vec<FE> {
             vec![elem; size + 1]
         }
     }
-
+    prop_compose! {
+        fn poly_with_non_power_of_two_coeffs(max_exp: u8)(coeffs in non_power_of_two_sized_field_vec(max_exp)) -> Polynomial<FE> {
+            Polynomial::new(&coeffs)
+        }
+    }
     proptest! {
         // Property-based test that ensures FFT eval. gives same result as a naive polynomial evaluation.
         #[test]
@@ -690,6 +716,21 @@ mod fft_test {
         }
     }
     proptest! {
+        // Property-based test that ensures FFT eval. using polynomials with a non-power-of-two amount of coefficients works.
+        #[test]
+        fn test_fft_non_power_of_two_poly(poly in poly_with_non_power_of_two_coeffs(8)) {
+            let num_coefficients = poly.coefficients().len();
+            let num_coeficcients_power_of_two = helpers::next_power_of_two(num_coefficients as u64) as usize;
+            let order = log2(num_coeficcients_power_of_two).unwrap();
+            let twiddles = F::get_powers_of_primitive_root(order, num_coeficcients_power_of_two, RootsConfig::Natural).unwrap();
+
+            let fft_eval = poly.evaluate_fft().unwrap();
+            let naive_eval = poly.evaluate_slice(&twiddles);
+
+            prop_assert_eq!(fft_eval, naive_eval);
+        }
+    }
+    proptest! {
         // Property-based test that ensures interpolation is the inverse operation of evaluation.
         #[test]
         fn test_fft_interpolate_is_inverse_of_evaluate(poly in poly(8)) {
@@ -709,14 +750,13 @@ mod fft_test {
             prop_assert!(matches!(result, Err(FFTError::RootOfUnityError(_, k)) if k == 0));
         }
     }
-    proptest! {
-        // Property-based test that ensures FFT won't work with a non-power-of=two poly.
-        #[test]
-        fn test_fft_non_power_of_two_poly(coeffs in unsuitable_field_vec(8)) {
-            let poly = Polynomial::new(&coeffs);
-            let result = poly.evaluate_fft();
-
-            prop_assert!(matches!(result, Err(FFTError::InvalidOrder(_))));
-        }
+    #[test]
+    fn composition_fft_works() {
+        let p = Polynomial::new(&[FE::new(0), FE::new(2)]);
+        let q = Polynomial::new(&[FE::new(0), FE::new(0), FE::new(0), FE::new(1)]);
+        assert_eq!(
+            compose_fft(&p, &q),
+            Polynomial::new(&[FE::new(0), FE::new(0), FE::new(0), FE::new(2)])
+        );
     }
 }
