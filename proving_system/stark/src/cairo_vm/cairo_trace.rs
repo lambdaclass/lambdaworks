@@ -21,7 +21,6 @@ pub enum CairoTraceError {
     FileError(#[from] std::io::Error)
 }
 
-
 impl CairoTrace {
 
     fn from_bytes_le(bytes: &[u8]) -> Result<Self,CairoTraceError> {
@@ -117,9 +116,11 @@ mod tests {
     fn test_wrong_amount_of_bytes_gives_err() {
         let bytes = hex::decode("080000000000").unwrap();
 
-        let trace = CairoTrace::from_bytes_le(&bytes);
-
-        assert!(trace.is_err())
+        match CairoTrace::from_bytes_le(&bytes) {
+            Err(CairoTraceError::IncorrectNumberOfBytes) => (),
+            Err(_) => panic!(),
+            Ok(_) => panic!()
+        }
     }
 
     #[test]
