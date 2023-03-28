@@ -51,7 +51,15 @@ impl<F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
         // Hard-coded for fibonacci -> trace has one column, hence col value is 0.
         let values = boundary_constraints.values(0);
 
-        let mut degrees = vec![];
+        let boundary_poly = &self.trace_poly - &Polynomial::interpolate(&domain, &values);
+
+        let boundary_zerofier = self
+            .boundary_constraints
+            .compute_zerofier(&self.primitive_root);
+
+        let boundary_poly_degree = boundary_poly.degree() - boundary_zerofier.degree();
+
+        let mut degrees = vec![boundary_poly_degree];
         for (transition_degree, zerofier) in self
             .air
             .context()
@@ -62,15 +70,9 @@ impl<F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
             let degree = transition_degree * self.trace_poly.degree() - zerofier.degree();
             degrees.push(degree);
         }
+
         let max_degree = *degrees.iter().max().unwrap();
-
         let max_degree_power_of_two = helpers::next_power_of_two(max_degree as u64);
-
-        let boundary_poly = &self.trace_poly - &Polynomial::interpolate(&domain, &values);
-
-        let boundary_zerofier = self
-            .boundary_constraints
-            .compute_zerofier(&self.primitive_root);
 
         let (boundary_alpha, boundary_beta) = alpha_and_beta_boundary_coefficients;
 
@@ -93,10 +95,6 @@ impl<F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
                 max_degree_power_of_two,
                 d,
             );
-
-            let boundary_poly_degree = boundary_poly.degree() - boundary_zerofier.degree();
-            println!("MAX DEGREE 2^N: {}", max_degree_power_of_two);
-            println!("BOUNDARY DEGREE: {}", boundary_poly_degree);
 
             // Append evaluation for boundary constraints
             let mut boundary_evaluation = boundary_poly.evaluate(d) / boundary_zerofier.evaluate(d);
