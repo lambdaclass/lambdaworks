@@ -38,7 +38,7 @@ impl<'poly, F: IsTwoAdicField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'pol
         lde_trace: &TraceTable<F>,
         lde_domain: &[FieldElement<F>],
         alpha_and_beta_transition_coefficients: &[(FieldElement<F>, FieldElement<F>)],
-        alpha_and_beta_boundary_coefficients: (&FieldElement<F>, &FieldElement<F>),
+        alpha_and_beta_boundary_coefficients: &[(FieldElement<F>, FieldElement<F>)],
     ) -> ConstraintEvaluationTable<F> {
         let mut evaluation_table = ConstraintEvaluationTable::new(
             self.air.context().num_transition_constraints() + 1,
@@ -84,8 +84,6 @@ impl<'poly, F: IsTwoAdicField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'pol
 
         let max_degree_power_of_two = helpers::next_power_of_two(max_degree as u64);
 
-        let (boundary_alpha, boundary_beta) = alpha_and_beta_boundary_coefficients;
-
         let blowup_factor = self.air.blowup_factor();
 
         // Iterate over trace and domain and compute transitions
@@ -107,14 +105,19 @@ impl<'poly, F: IsTwoAdicField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'pol
             );
 
             let mut aux_boundary_evaluations = Vec::new();
-            for (boundary_poly, boundary_zerofier) in zip(&boundary_polys, &boundary_zerofiers) {
+            for (index, (boundary_poly, boundary_zerofier)) in
+                zip(&boundary_polys, &boundary_zerofiers).enumerate()
+            {
                 let quotient_degree = boundary_poly.degree() - boundary_zerofier.degree();
                 let mut aux_boundary_evaluation =
                     boundary_poly.evaluate(d) / boundary_zerofier.evaluate(d);
 
+                let (boundary_alpha, boundary_beta) =
+                    alpha_and_beta_boundary_coefficients[index].clone();
+
                 aux_boundary_evaluation = aux_boundary_evaluation
-                    * (boundary_alpha * d.pow(max_degree_power_of_two - (quotient_degree as u64))
-                        + boundary_beta);
+                    * (&boundary_alpha * d.pow(max_degree_power_of_two - (quotient_degree as u64))
+                        + &boundary_beta);
                 aux_boundary_evaluations.push(aux_boundary_evaluation);
             }
 

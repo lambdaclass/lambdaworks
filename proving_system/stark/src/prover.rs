@@ -68,17 +68,30 @@ where
     // Create evaluation table
     let evaluator = ConstraintEvaluator::new(air, &trace_polys, &trace_primitive_root);
 
-    let alpha_boundary = transcript_to_field(transcript);
-    let beta_boundary = transcript_to_field(transcript);
-    let alpha = transcript_to_field(transcript);
-    let beta = transcript_to_field(transcript);
+    let mut alpha_and_beta_boundary_coefficients: Vec<(FieldElement<F>, FieldElement<F>)> = vec![];
 
-    let alpha_and_beta_transition_coefficients = vec![(alpha, beta)];
+    for _ in 0..trace_polys.len() {
+        alpha_and_beta_boundary_coefficients.push((
+            transcript_to_field(transcript),
+            transcript_to_field(transcript),
+        ));
+    }
+
+    let mut alpha_and_beta_transition_coefficients: Vec<(FieldElement<F>, FieldElement<F>)> =
+        vec![];
+
+    for _ in 0..air.context().num_transition_constraints {
+        alpha_and_beta_transition_coefficients.push((
+            transcript_to_field(transcript),
+            transcript_to_field(transcript),
+        ));
+    }
+
     let constraint_evaluations = evaluator.evaluate(
         &lde_trace,
         &lde_roots_of_unity_coset,
         &alpha_and_beta_transition_coefficients,
-        (&alpha_boundary, &beta_boundary),
+        &alpha_and_beta_boundary_coefficients,
     );
 
     // Get composition poly

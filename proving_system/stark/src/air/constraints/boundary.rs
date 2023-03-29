@@ -3,6 +3,7 @@ use lambdaworks_math::{
     polynomial::Polynomial,
 };
 
+#[derive(Debug)]
 /// Represents a boundary constraint that must hold in an execution
 /// trace:
 ///   * col: The column of the trace where the constraint must hold
@@ -32,7 +33,7 @@ impl<F: IsField> BoundaryConstraint<F> {
 
 /// Data structure that stores all the boundary constraints that must
 /// hold for the execution trace
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct BoundaryConstraints<F: IsField> {
     constraints: Vec<BoundaryConstraint<F>>,
 }

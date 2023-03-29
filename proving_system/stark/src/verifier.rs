@@ -65,12 +65,23 @@ where
     // a root of unity or an element of the lde coset.
     let z = sample_z_ood(&lde_roots_of_unity_coset, &trace_roots_of_unity, transcript);
 
-    let boundary_alpha = transcript_to_field(transcript);
-    let boundary_beta = transcript_to_field(transcript);
+    let mut alpha_and_beta_boundary_coefficients: Vec<(FieldElement<F>, FieldElement<F>)> = vec![];
+    for _ in 0..n_trace_cols {
+        alpha_and_beta_boundary_coefficients.push((
+            transcript_to_field(transcript),
+            transcript_to_field(transcript),
+        ));
+    }
 
-    // TODO: these are hardcoded to one column, there should be one alpha and beta per column
-    let alpha = transcript_to_field(transcript);
-    let beta = transcript_to_field(transcript);
+    let mut alpha_and_beta_transition_coefficients: Vec<(FieldElement<F>, FieldElement<F>)> =
+        vec![];
+
+    for _ in 0..air.context().num_transition_constraints {
+        alpha_and_beta_transition_coefficients.push((
+            transcript_to_field(transcript),
+            transcript_to_field(transcript),
+        ));
+    }
 
     // Following naming conventions from https://www.notamonadtutorial.com/diving-deep-fri/
     let mut boundary_c_i_evaluations = Vec::with_capacity(n_trace_cols);
@@ -110,10 +121,9 @@ where
     let boundary_quotient_ood_evaluations: Vec<FieldElement<F>> = boundary_c_i_evaluations
         .iter()
         .zip(boundary_quotient_degrees)
-        .map(|(poly_eval, poly_degree)| {
-            poly_eval
-                * (&boundary_alpha * z.pow(max_degree_power_of_two - poly_degree as u64)
-                    + &boundary_beta)
+        .zip(alpha_and_beta_boundary_coefficients)
+        .map(|((poly_eval, poly_degree), (alpha, beta))| {
+            poly_eval * (&alpha * z.pow(max_degree_power_of_two - poly_degree as u64) + &beta)
         })
         .collect();
 
@@ -122,8 +132,6 @@ where
         .fold(FieldElement::<F>::zero(), |acc, x| acc + x);
 
     let transition_ood_frame_evaluations = air.compute_transition(trace_poly_ood_frame_evaluations);
-
-    let alpha_and_beta_transition_coefficients = vec![(alpha, beta)];
 
     // TODO: Change the name of this to be the transition C_i's.
     let c_i_evaluations = ConstraintEvaluator::compute_constraint_composition_poly_evaluations(
