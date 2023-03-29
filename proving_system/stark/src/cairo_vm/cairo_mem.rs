@@ -16,8 +16,8 @@ pub struct CairoMemory {
 
 impl CairoMemory {
     fn from_bytes_le(bytes: &[u8]) -> Result<Self, CairoImportError> {
-        // Each row of the trace is a RegisterState
-        // ap, fp, pc, each 8 bytes long (u64)
+        // Each row is an 8 bytes address 
+        // and a value of 32 bytes (which is a field)
         const ROW_SIZE: usize = 8 + 32;
 
         if bytes.len() % ROW_SIZE != 0 {
