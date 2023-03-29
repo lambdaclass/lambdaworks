@@ -72,7 +72,7 @@ pub use lambdaworks_crypto::merkle_tree::DefaultHasher;
 mod tests {
     use lambdaworks_math::field::fields::u64_prime_field::FE17;
 
-    use crate::test_utils::{Fibonacci17AIR, Fibonacci2ColsAIR, FibonacciAIR};
+    use crate::test_utils::{Fibonacci17AIR, Fibonacci2ColsAIR, FibonacciAIR, QuadraticAIR};
 
     use crate::{
         air::{
@@ -81,7 +81,7 @@ mod tests {
             AIR,
         },
         prover::prove,
-        test_utils::{fibonacci_trace, fibonacci_trace_2_columns},
+        test_utils::{fibonacci_trace, fibonacci_trace_2_columns, quadratic_trace},
         verifier::verify,
         FE,
     };
@@ -162,6 +162,34 @@ mod tests {
         let result = prove(&trace_table, &fibonacci_air);
         assert!(verify(&result, &fibonacci_air));
     }
+
+    #[test]
+    fn test_prove_quadratic() {
+        let trace = quadratic_trace(FE::from(3), 4);
+        let trace_table = TraceTable {
+            table: trace.clone(),
+            n_cols: 1,
+        };
+
+        let context = AirContext {
+            options: ProofOptions {
+                blowup_factor: 2,
+                fri_number_of_queries: 1,
+                coset_offset: 3,
+            },
+            trace_length: trace.len(),
+            trace_columns: trace_table.n_cols,
+            transition_degrees: vec![2],
+            transition_exemptions: vec![1],
+            transition_offsets: vec![0, 1],
+            num_transition_constraints: 1,
+        };
+
+        let fibonacci_air = QuadraticAIR::new(context);
+
+        let result = prove(&trace_table, &fibonacci_air);
+        assert!(verify(&result, &fibonacci_air));
+    }
 }
 
 #[cfg(test)]
@@ -207,6 +235,21 @@ mod test_utils {
         }
 
         vec![ret1, ret2]
+    }
+
+    pub fn quadratic_trace<F: IsField>(
+        initial_value: FieldElement<F>,
+        trace_length: usize,
+    ) -> Vec<FieldElement<F>> {
+        let mut ret: Vec<FieldElement<F>> = vec![];
+
+        ret.push(initial_value.clone());
+
+        for i in 1..(trace_length) {
+            ret.push(ret[i - 1].clone() * ret[i - 1].clone());
+        }
+
+        ret
     }
 
     #[derive(Clone)]
@@ -313,6 +356,40 @@ mod test_utils {
             let a1 = BoundaryConstraint::new(1, 0, FieldElement::<Self::Field>::one());
 
             BoundaryConstraints::from_constraints(vec![a0, a1])
+        }
+
+        fn context(&self) -> air::context::AirContext {
+            self.context.clone()
+        }
+    }
+
+    #[derive(Clone)]
+    pub struct QuadraticAIR {
+        context: AirContext,
+    }
+
+    impl AIR for QuadraticAIR {
+        type Field = PrimeField;
+
+        fn new(context: air::context::AirContext) -> Self {
+            Self { context }
+        }
+
+        fn compute_transition(
+            &self,
+            frame: &air::frame::Frame<Self::Field>,
+        ) -> Vec<FieldElement<Self::Field>> {
+            let first_row = frame.get_row(0);
+            let second_row = frame.get_row(1);
+
+            vec![second_row[0].clone() - first_row[0].clone() * first_row[0].clone()]
+        }
+
+        fn boundary_constraints(&self) -> BoundaryConstraints<Self::Field> {
+            let a0 = BoundaryConstraint::new_simple(0, FieldElement::<Self::Field>::from(3));
+            let result = BoundaryConstraint::new_simple(3, FieldElement::<Self::Field>::from(16));
+
+            BoundaryConstraints::from_constraints(vec![a0, result])
         }
 
         fn context(&self) -> air::context::AirContext {
