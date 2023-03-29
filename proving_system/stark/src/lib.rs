@@ -243,7 +243,7 @@ mod test_utils {
     ) -> Vec<FieldElement<F>> {
         let mut ret: Vec<FieldElement<F>> = vec![];
 
-        ret.push(initial_value.clone());
+        ret.push(initial_value);
 
         for i in 1..(trace_length) {
             ret.push(ret[i - 1].clone() * ret[i - 1].clone());
@@ -387,9 +387,8 @@ mod test_utils {
 
         fn boundary_constraints(&self) -> BoundaryConstraints<Self::Field> {
             let a0 = BoundaryConstraint::new_simple(0, FieldElement::<Self::Field>::from(3));
-            let result = BoundaryConstraint::new_simple(3, FieldElement::<Self::Field>::from(16));
 
-            BoundaryConstraints::from_constraints(vec![a0, result])
+            BoundaryConstraints::from_constraints(vec![a0])
         }
 
         fn context(&self) -> air::context::AirContext {
