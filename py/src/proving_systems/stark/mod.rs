@@ -1,6 +1,7 @@
 use lambdaworks_stark::ProofConfig;
 use lambdaworks_stark::StarkProof;
 use lambdaworks_stark::FE;
+use lambdaworks_math::unsigned_integer::element::UnsignedInteger;
 
 use pyo3::types::*;
 use pyo3::*;
@@ -18,8 +19,42 @@ impl PyFieldElement {
         Self(FE::new(value.0))
     }
 
-    fn __add__(&self, other: &Self) -> Self {
+    pub fn __add__(&self, other: &Self) -> Self {
         Self(&self.0 + &other.0)
+    }
+
+    pub fn __sub__(&self, other: &Self) -> Self {
+        Self(&self.0 - &other.0)
+    }
+
+    pub fn __mul__(&self, other: &Self) -> Self {
+        Self(&self.0 * &other.0)
+    }
+
+    pub fn __truediv__(&self, other: &Self) -> Self {
+        Self(&self.0 / &other.0)
+    }
+
+    pub fn value(&self) -> PyU256 {
+        PyU256(*self.0.value())
+    }
+
+    pub fn inv(&self) -> Self {
+        Self(self.0.inv())
+    }
+
+    pub fn pow(&self, pyexp: &PyU256) -> Self {
+        let exp = pyexp.0;
+        Self(self.0.pow(exp))
+    }
+
+    pub fn one(&self) -> Self {
+        Self(FE::one())
+    }
+
+    /// Returns the additive neutral element of the field.
+    pub fn zero(&self) -> Self {
+        Self(FE::zero())
     }
 }
 
