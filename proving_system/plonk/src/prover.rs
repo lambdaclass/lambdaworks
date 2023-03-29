@@ -484,11 +484,8 @@ mod tests {
     };
 
     use crate::{
-        test_utils::FpElement,
-        test_utils::{
-            test_common_preprocessed_input_1, test_srs, test_witness_1, FrElement,
-            TestRandomFieldGenerator, KZG,
-        },
+        test_utils::circuit_1::{test_common_preprocessed_input_1, test_witness_1},
+        test_utils::utils::{test_srs, FpElement, FrElement, TestRandomFieldGenerator, KZG},
     };
 
     use super::*;

@@ -190,11 +190,10 @@ mod tests {
     use crate::{
         prover::Prover,
         setup::setup,
-        test_utils::{
-            common_preprocessed_input_from_json, test_common_preprocessed_input_1,
-            test_common_preprocessed_input_2, test_srs, test_witness_1, test_witness_2,
-            TestRandomFieldGenerator, KZG,
-        },
+        test_utils::circuit_1::{test_common_preprocessed_input_1, test_witness_1},
+        test_utils::circuit_2::{test_common_preprocessed_input_2, test_witness_2},
+        test_utils::circuit_json::common_preprocessed_input_from_json,
+        test_utils::utils::{test_srs, TestRandomFieldGenerator, KZG},
     };
 
     #[test]
