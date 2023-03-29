@@ -60,7 +60,7 @@ pub fn fft<F: IsTwoAdicField>(
 
     let result = MetalState::retrieve_contents(&input_buffer);
     let result = bitrev_permutation(&result, state).map_err(FFTMetalError::Metal)?;
-    Ok(result.iter().map(FieldElement::from).collect())
+    Ok(result.iter().map(FieldElement::from_raw).collect())
 }
 
 /// Generates 2^{`order`} naturally-ordered twiddle factors in parallel, in Metal.
@@ -72,7 +72,7 @@ pub fn gen_twiddles<F: IsTwoAdicField>(
     let len = (1 << order) / 2;
 
     let pipeline = match config {
-        RootsConfig::Natural => state.setup_pipeline("calc_twiddle"),
+        RootsConfig::Natural => state.setup_pipeline("calc_twiddles"),
         RootsConfig::NaturalInversed => state.setup_pipeline("calc_twiddle_inv"),
         RootsConfig::BitReverse => state.setup_pipeline("calc_twiddle_bitrev"),
         RootsConfig::BitReverseInversed => state.setup_pipeline("calc_twiddle_bitrev_inv"),
@@ -97,7 +97,7 @@ pub fn gen_twiddles<F: IsTwoAdicField>(
     command_buffer.wait_until_completed();
 
     let result = MetalState::retrieve_contents(&result_buffer);
-    Ok(result.iter().map(FieldElement::from).collect())
+    Ok(result.iter().map(FieldElement::from_raw).collect())
 }
 
 pub fn bitrev_permutation<T: Clone>(input: &[T], state: &MetalState) -> Result<Vec<T>, MetalError> {
@@ -126,14 +126,16 @@ mod tests {
     use crate::metal::abstractions::state::*;
     use lambdaworks_math::{
         fft::bit_reversing::in_place_bit_reverse_permute,
-        field::{test_fields::u32_test_field::U32TestField, traits::RootsConfig},
+        field::{
+            fields::fft_friendly::stark_252_prime_field::Stark252PrimeField, traits::RootsConfig,
+        },
         polynomial::Polynomial,
     };
     use proptest::prelude::*;
 
     use super::*;
 
-    type F = U32TestField;
+    type F = Stark252PrimeField;
     type FE = FieldElement<F>;
 
     prop_compose! {

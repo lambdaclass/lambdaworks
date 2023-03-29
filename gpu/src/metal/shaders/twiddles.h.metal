@@ -1,17 +1,26 @@
 #pragma once
 #include "fp.h.metal"
 #include "util.h.metal"
+#include "fp_u256.h.metal"
 
-[[kernel]]
-void calc_twiddle(
-    device uint32_t* result  [[ buffer(0) ]],
-    constant uint32_t& _omega [[ buffer(1) ]],
+template<typename Fp>
+[[kernel]] void calc_twiddles(
+    constant Fp& _omega [[ buffer(0) ]],
+    device Fp* result  [[ buffer(1) ]],
     uint index [[ thread_position_in_grid ]]
 )
 {
     Fp omega = _omega;
-    result[index] = pow(omega, index).asUInt32();
+    result[index] = omega.pow(index);
 }
+
+template [[ host_name("calc_twiddles") ]] 
+[[kernel]] void calc_twiddles<p256::Fp>(
+    constant p256::Fp&, 
+    device p256::Fp*, 
+    uint
+);
+
 
 [[kernel]]
 void calc_twiddle_inv(
