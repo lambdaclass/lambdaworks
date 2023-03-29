@@ -71,14 +71,16 @@ impl<'poly, F: IsTwoAdicField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'pol
             .unwrap();
 
         let transition_degrees = self.air.context().transition_degrees();
-        let transition_max_degree = transition_degrees.iter().max().unwrap();
+        // let transition_max_degree = transition_degrees.iter().max().unwrap();
+        let transition_zerofiers = self.air.transition_divisors();
         let transition_polys_max_degree = self
             .trace_polys
             .iter()
-            .map(|poly| poly.degree())
+            .zip(&transition_zerofiers)
+            .zip(&transition_degrees)
+            .map(|((poly, zerofier), degree)| poly.degree() * degree - zerofier.degree())
             .max()
-            .unwrap()
-            * transition_max_degree;
+            .unwrap();
 
         let max_degree = std::cmp::max(transition_polys_max_degree, boundary_polys_max_degree);
 
@@ -96,6 +98,7 @@ impl<'poly, F: IsTwoAdicField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'pol
             );
 
             let mut evaluations = self.air.compute_transition(&frame);
+
             evaluations = Self::compute_constraint_composition_poly_evaluations(
                 &self.air,
                 &evaluations,
@@ -148,7 +151,7 @@ impl<'poly, F: IsTwoAdicField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'pol
     pub fn compute_constraint_composition_poly_evaluations(
         air: &A,
         evaluations: &[FieldElement<F>],
-        alpha_and_beta_coefficients: &[(FieldElement<F>, FieldElement<F>)],
+        constraint_coeffs: &[(FieldElement<F>, FieldElement<F>)],
         max_degree: u64,
         x: &FieldElement<F>,
     ) -> Vec<FieldElement<F>> {
@@ -163,7 +166,7 @@ impl<'poly, F: IsTwoAdicField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'pol
             .iter()
             .zip(transition_degrees)
             .zip(divisors)
-            .zip(alpha_and_beta_coefficients)
+            .zip(constraint_coeffs)
         {
             let zerofied_eval = eval / div.evaluate(x);
             let zerofied_degree = trace_degree * transition_degree - div.degree();

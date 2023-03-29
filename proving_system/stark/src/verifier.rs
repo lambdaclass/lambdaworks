@@ -86,6 +86,7 @@ where
     // Following naming conventions from https://www.notamonadtutorial.com/diving-deep-fri/
     let mut boundary_c_i_evaluations = Vec::with_capacity(n_trace_cols);
     let mut boundary_quotient_degrees = Vec::with_capacity(n_trace_cols);
+
     for trace_idx in 0..n_trace_cols {
         let trace_evaluation = &trace_poly_ood_frame_evaluations.get_row(0)[trace_idx];
         let boundary_constraints_domain = boundary_constraint_domains[trace_idx].clone();
@@ -107,8 +108,14 @@ where
 
     // TODO: Get trace polys degrees in a better way. The degree may not be trace_length - 1 in some
     // special cases.
-    let transition_quotients_max_degree =
-        (air.context().trace_length - 1) * air.context().transition_degrees().iter().max().unwrap();
+    let transition_divisors = air.transition_divisors();
+
+    let transition_quotients_max_degree = transition_divisors
+        .iter()
+        .zip(air.context().transition_degrees())
+        .map(|(div, degree)| (air.context().trace_length - 1) * degree - div.degree())
+        .max()
+        .unwrap();
 
     let boundary_quotients_max_degree = boundary_quotient_degrees.iter().max().unwrap();
 

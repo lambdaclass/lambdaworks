@@ -67,9 +67,7 @@ where
 
     // Create evaluation table
     let evaluator = ConstraintEvaluator::new(air, &trace_polys, &trace_primitive_root);
-
     let mut alpha_and_beta_boundary_coefficients: Vec<(FieldElement<F>, FieldElement<F>)> = vec![];
-
     for _ in 0..trace_polys.len() {
         alpha_and_beta_boundary_coefficients.push((
             transcript_to_field(transcript),
@@ -118,6 +116,7 @@ where
         &air.context().transition_offsets,
         &trace_primitive_root,
     );
+
     let trace_ood_frame_data = ood_trace_evaluations.into_iter().flatten().collect();
     let trace_ood_frame_evaluations = Frame::new(trace_ood_frame_data, trace_polys.len());
 
