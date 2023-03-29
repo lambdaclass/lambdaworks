@@ -43,6 +43,18 @@ where
     }
 }
 
+impl<F> FieldElement<F>
+where
+    F::BaseType: Clone,
+    F: IsField,
+{
+    pub fn from_raw(value: &F::BaseType) -> Self {
+        Self {
+            value: value.clone(),
+        }
+    }
+}
+
 /// Equality operator overloading for field elements
 impl<F> PartialEq<FieldElement<F>> for FieldElement<F>
 where
@@ -378,11 +390,11 @@ mod tests {
     #[test]
     fn test_std_iter_sum_field_element() {
         let n = 164;
-        const MODULUS: u64 = 15;
+        const MODULUS: u64 = 18446744069414584321;
         assert_eq!(
             (0..n)
-                .map(|x| { FieldElement::<U64TestField<MODULUS>>::from(x) })
-                .sum::<FieldElement<U64TestField<MODULUS>>>()
+                .map(|x| { FieldElement::<U64TestField>::from(x) })
+                .sum::<FieldElement<U64TestField>>()
                 .value,
             ((n - 1) as f64 / 2. * ((n - 1) as f64 + 1.)) as u64 % MODULUS
         );
@@ -391,11 +403,10 @@ mod tests {
     #[test]
     fn test_std_iter_sum_field_element_zero_length() {
         let n = 0;
-        const MODULUS: u64 = 15;
         assert_eq!(
             (0..n)
-                .map(|x| { FieldElement::<U64TestField<MODULUS>>::from(x) })
-                .sum::<FieldElement<U64TestField<MODULUS>>>()
+                .map(|x| { FieldElement::<U64TestField>::from(x) })
+                .sum::<FieldElement<U64TestField>>()
                 .value,
             0
         );

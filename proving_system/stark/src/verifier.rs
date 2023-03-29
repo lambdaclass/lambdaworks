@@ -67,13 +67,22 @@ where
     let alpha = transcript_to_field(transcript);
     let beta = transcript_to_field(transcript);
 
-    let max_degree =
-        air.context().trace_length * air.context().transition_degrees().iter().max().unwrap();
+    let boundary_degree = (air.context().trace_length - boundary_zerofier.degree()) as u64 - 1;
 
+    let mut degrees = vec![boundary_degree as usize];
+    for (transition_degree, zerofier) in air
+        .context()
+        .transition_degrees()
+        .iter()
+        .zip(air.transition_divisors())
+    {
+        let degree = transition_degree * (air.context().trace_length - 1) - zerofier.degree();
+        degrees.push(degree);
+    }
+    let max_degree = *degrees.iter().max().unwrap();
     let max_degree_power_of_two = helpers::next_power_of_two(max_degree as u64);
 
     // TODO: This is assuming one column
-    let boundary_degree = (air.context().trace_length - boundary_zerofier.degree()) as u64 - 1;
     let mut boundary_quotient_ood_evaluation = &trace_poly_ood_frame_evaluations.get_row(0)[0]
         - boundary_interpolating_polynomial.evaluate(&z);
 
