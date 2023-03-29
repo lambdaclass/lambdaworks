@@ -1,5 +1,4 @@
 #![warn(clippy::as_conversions)]
-
 pub mod air;
 pub mod fri;
 pub mod prover;
