@@ -16,7 +16,7 @@ pub struct CairoMemory {
 
 impl CairoMemory {
     fn from_bytes_le(bytes: &[u8]) -> Result<Self, CairoImportError> {
-        // Each row is an 8 bytes address 
+        // Each row is an 8 bytes address
         // and a value of 32 bytes (which is a field)
         const ROW_SIZE: usize = 8 + 32;
 
