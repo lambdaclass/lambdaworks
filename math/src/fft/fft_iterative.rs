@@ -97,7 +97,7 @@ mod tests {
     use crate::fft::helpers::log2;
     use crate::field::test_fields::u64_test_field::U64TestField;
     use crate::polynomial::Polynomial;
-    use proptest::prelude::*;
+    use proptest::{collection, prelude::*};
 
     use super::*;
 
@@ -110,18 +110,19 @@ mod tests {
         // also it can't exceed the test field's two-adicity.
     }
     prop_compose! {
-        fn field_element()(num in any::<u64>().prop_filter("Avoid null polynomial", |x| x != &0)) -> FE {
+        fn field_element()(num in any::<u64>().prop_filter("Avoid null coefficients", |x| x != &0)) -> FE {
             FE::from(num)
         }
     }
     prop_compose! {
-        fn field_vec(max_exp: u8)(elem in field_element(), size in powers_of_two(max_exp)) -> Vec<FE> {
-            vec![elem; size]
+        fn field_vec(max_exp: u8)(vec in collection::vec(field_element(), 2..1<<max_exp).prop_filter("Avoid polynomials of size not power of two", |vec| vec.len().is_power_of_two())) -> Vec<FE> {
+            vec
         }
     }
 
     proptest! {
         // Property-based test that ensures NR Radix-2 FFT gives same result as a naive polynomial evaluation.
+        // FIXME this test does not pass
         #[test]
         fn test_nr_2radix_fft_matches_naive_eval(coeffs in field_vec(8)) {
             let root = F::get_primitive_root_of_unity(log2(coeffs.len()).unwrap()).unwrap();
