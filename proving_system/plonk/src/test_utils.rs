@@ -324,8 +324,9 @@ impl IsRandomFieldElementGenerator<FrField> for TestRandomFieldGenerator {
 #[allow(non_snake_case)]
 #[derive(Serialize, Deserialize)]
 struct JsonPlonkCircuit {
-    N: u64,
+    N: usize,
     Omega: String,
+    N_padded: usize,
     Input: Vec<String>,
     Ql: Vec<String>,
     Qr: Vec<String>,
@@ -336,6 +337,15 @@ struct JsonPlonkCircuit {
     B: Vec<String>,
     C: Vec<String>,
     Permutation: Vec<u64>,
+}
+
+pub fn pad_vector<'a, 'b>(
+    v: &'a mut Vec<FrElement>,
+    p: &'b FrElement,
+    target_size: usize,
+) -> &'a mut Vec<FrElement> {
+    v.append(&mut vec![p.clone(); target_size - v.len()]);
+    v
 }
 
 pub fn common_preprocessed_input_from_json(
@@ -356,7 +366,7 @@ pub fn common_preprocessed_input_from_json(
         .iter()
         .map(|x| *x as usize)
         .collect::<Vec<usize>>();
-    let n: usize = json_input.N as usize;
+    let n = json_input.N_padded;
     let omega = FrElement::from_hex(&json_input.Omega);
     let domain = (1..n).fold(vec![FieldElement::one()], |mut acc, _| {
         acc.push(acc.last().unwrap() * &omega);
@@ -368,25 +378,56 @@ pub fn common_preprocessed_input_from_json(
         .map(|i| identity[permutation[i]].clone())
         .collect();
 
+    let witness_padding_element = FrElement::from_hex(&json_input.Input[0]);
     let s1_lagrange: Vec<FrElement> = permuted[..n].to_vec();
     let s2_lagrange: Vec<FrElement> = permuted[n..2 * n].to_vec();
     let s3_lagrange: Vec<FrElement> = permuted[2 * n..].to_vec();
     (
         Witness {
-            a: str2frelement(json_input.A),
-            b: str2frelement(json_input.B),
-            c: str2frelement(json_input.C),
+            a: pad_vector(
+                &mut str2frelement(json_input.A),
+                &witness_padding_element,
+                n,
+            )
+            .to_owned(),
+            b: pad_vector(
+                &mut str2frelement(json_input.B),
+                &witness_padding_element,
+                n,
+            )
+            .to_owned(),
+            c: pad_vector(
+                &mut str2frelement(json_input.C),
+                &witness_padding_element,
+                n,
+            )
+            .to_owned(),
         },
         CommonPreprocessedInput {
             n,
             domain: domain.clone(),
             omega,
             k1: ORDER_R_MINUS_1_ROOT_UNITY,
-            ql: Polynomial::interpolate(&domain, &str2frelement(json_input.Ql)),
-            qr: Polynomial::interpolate(&domain, &str2frelement(json_input.Qr)),
-            qo: Polynomial::interpolate(&domain, &str2frelement(json_input.Qo)),
-            qm: Polynomial::interpolate(&domain, &str2frelement(json_input.Qm)),
-            qc: Polynomial::interpolate(&domain, &str2frelement(json_input.Qc)),
+            ql: Polynomial::interpolate(
+                &domain,
+                pad_vector(&mut str2frelement(json_input.Ql), &FrElement::zero(), n),
+            ),
+            qr: Polynomial::interpolate(
+                &domain,
+                pad_vector(&mut str2frelement(json_input.Qr), &FrElement::zero(), n),
+            ),
+            qo: Polynomial::interpolate(
+                &domain,
+                pad_vector(&mut str2frelement(json_input.Qo), &FrElement::zero(), n),
+            ),
+            qm: Polynomial::interpolate(
+                &domain,
+                pad_vector(&mut str2frelement(json_input.Qm), &FrElement::zero(), n),
+            ),
+            qc: Polynomial::interpolate(
+                &domain,
+                pad_vector(&mut str2frelement(json_input.Qc), &FrElement::zero(), n),
+            ),
             s1: Polynomial::interpolate(&domain, &s1_lagrange),
             s2: Polynomial::interpolate(&domain, &s2_lagrange),
             s3: Polynomial::interpolate(&domain, &s3_lagrange),
@@ -407,6 +448,7 @@ mod tests {
         common_preprocessed_input_from_json(
             r#"{
  "N": 4,
+ "N_padded": 4,
  "Omega": "8d51ccce760304d0ec030002760300000001000000000000",
   "Input": [
   "2",

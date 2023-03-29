@@ -277,6 +277,7 @@ mod tests {
             common_preprocessed_input_from_json(
                 r#"{
             "N": 4,
+            "N_padded": 4,
             "Omega": "8d51ccce760304d0ec030002760300000001000000000000",
              "Input": [
              "2",
