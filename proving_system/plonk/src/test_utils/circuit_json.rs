@@ -85,9 +85,9 @@ pub fn common_preprocessed_input_from_json(
     )
 }
 
-pub fn pad_vector<'a, 'b>(
+pub fn pad_vector<'a>(
     v: &'a mut Vec<FrElement>,
-    p: &'b FrElement,
+    p: &FrElement,
     target_size: usize,
 ) -> &'a mut Vec<FrElement> {
     v.append(&mut vec![p.clone(); target_size - v.len()]);
