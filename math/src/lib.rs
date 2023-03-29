@@ -1,3 +1,5 @@
+#![warn(clippy::as_conversions)]
+
 pub mod cyclic_group;
 pub mod elliptic_curve;
 pub mod errors;
