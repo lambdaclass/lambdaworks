@@ -89,11 +89,15 @@ fn compute_transition(
 
 It's not completely obvious why this is how we chose to express transition constraints, so let's talk a little about it. 
 
-What we need to specify in this method is the relationship that has to hold between the current step of computation and the previous ones. For this, we get a `Frame` as an argument. This is a struct holding the current step (i.e. the current row of the trace) and all previous ones needed to encode our constraint. In our case, this is the current row and the two previous ones.
+What we need to specify in this method is the relationship that has to hold between the current step of computation and the previous ones. For this, we get a `Frame` as an argument. This is a struct holding the current step (i.e. the current row of the trace) and all previous ones needed to encode our constraint. In our case, this is the current row and the two previous ones. To access rows we use the `get_row` method. The current step is always the last row (in our case `2`), with the others coming before it.
 
-TODO: the following is actually wrong. Should we change it at the code level?
+In our `compute_transition` method we get the three rows we need and return
 
-The `frame` has a `get_row` method to access rows. Row zero is always the current step, with previous rows following after, so `get_row(1)` gives you the previous row and so on.
+```rust
+third_row[0] - second_row[0] - first_row[0]
+```
 
-Our Fibonacci constraint 
+which is the value that needs to be zero for our constraint to hold. Because we support multiple transition constraints, we actually return a vector with one value per constraint, so the first element holds the first constraint value and so on.
+
+### AIR Context
 
