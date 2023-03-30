@@ -56,6 +56,7 @@ pub struct StarkQueryProof<F: IsField> {
     pub fri_decommitment: FriDecommitment<F>,
 }
 
+#[derive(Debug)]
 pub struct StarkProof<F: IsTwoAdicField> {
     pub fri_layers_merkle_roots: Vec<FieldElement<F>>,
     pub trace_ood_frame_evaluations: Frame<F>,
@@ -351,7 +352,7 @@ mod test_utils {
         }
     }
 
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     pub struct Fibonacci2ColsAIR {
         context: AirContext,
         pub trace: TraceTable<PrimeField>,
