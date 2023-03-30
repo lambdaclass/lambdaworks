@@ -46,12 +46,11 @@ impl<F: IsTwoAdicField> Frame<F> {
         let trace_steps = trace.n_rows();
         let data = offsets
             .iter()
-            .map(|frame_row_idx| {
+            .flat_map(|frame_row_idx| {
                 trace
                     .get_row((step + (frame_row_idx * blowup as usize)) % trace_steps)
                     .to_vec()
             })
-            .flatten()
             .collect();
 
         Self::new(data, trace.n_cols)
