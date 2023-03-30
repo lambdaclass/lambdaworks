@@ -2,6 +2,8 @@
 
 The goal of this section will be to go over the details of the implementation of the proving system. To this end, we will follow the flow the example in the `recap` chapter, diving deeper into the code when necessary and explaining how it fits into a more general case.
 
+This implementation couldn't be done without checking Facebook's [Winterfell](https://github.com/facebook/winterfell) and Max Gillett's [Giza](https://github.com/maxgillett/giza). We want to thank everyone involved in them, along with Shahar Papini and Lior Goldberg from Starkware who also provided us valuable insight.
+
 ## Fibonacci
 
 Let's go over the main test we use for our prover, where we compute a STARK proof for a fibonacci trace with 4 rows and then verify it.
@@ -36,7 +38,7 @@ fn test_prove_fib() {
 }
 ```
 
-The proving system revolves around  `prove` function, that takes a trace and an AIR as inputs to generate a proof, and a `verify` function that takes the proof and the AIR as inputs, outputing `true` when the proof is verified correctly and `false` otherwise.
+The proving system revolves around the `prove` function, that takes a trace and an AIR as inputs to generate a proof, and a `verify` function that takes the proof and the AIR as inputs, outputing `true` when the proof is verified correctly and `false` otherwise.
 
 Below we go over the main things involved in this code.
 
@@ -170,12 +172,78 @@ Let's go over each of them:
 Having defined all of the above, proving our fibonacci example amounts to instantiating the necessary structs and then calling `prove` passing the `AIR` and the trace.
 
 ```rust
-let result = prove(&trace, &fibonacci_air);
-assert!(verify(&result, &fibonacci_air));
+let proof = prove(&trace, &fibonacci_air);
 ```
 
 Verifying is then done by passing the proof of execution along with the same `AIR` to the `verify` function.
 
+```rust
+assert!(verify(&proof, &fibonacci_air));
+```
+
 # How this works under the hood
 
-TODO
+In this section we go over how a few things in the `prove` and `verify` functions are implemented; we will once again use the fibonacci example as an ilustration. Recall from the `recap` that the main steps for the prover and verifier are the following:
+
+### Prover side
+
+- Compute the trace polynomial `t` by interpolating the trace column over a set of $2^n$-th roots of unity $\{g^i : 0 \leq i < 2^n\}$.
+- Compute the boundary polynomial `B`.
+- Compute the transition constraint polynomial `C`.
+- Construct the composition polynomial `H` from `B` and `C`.
+- Sample an out of domain point `z` and provide the evaluation $H(z)$ and all the necessary trace evaluations to reconstruct it. In the fibonacci case, these are $t(z)$, $t(zg)$, and $t(zg^2)$.
+- Construct the deep composition polynomial `Deep(x)` from `H`, `t`, and the evaluations from the item above.
+- Do `FRI` on `Deep(x)` and provide the resulting FRI commitment to the verifier.
+
+### Verifier side
+
+- Take the evaluation $H(z)$ along with the trace evaluations the prover provided.
+- Reconstruct the evaluations $B(z)$ and $C(z)$ from the trace evaluations. Check that the claimed evaluation $H(z)$ the prover gave us actually satisfies
+    $$
+    H(z) = B(z) (\alpha_1 z^{D - deg(B)} + \beta_1) + C(z) (\alpha_2 z^{D - deg(C)} + \beta_2)
+    $$
+- Take the provided `FRI` commitment and check that it verifies.
+
+Following along the code in the `prove` and `verify` functions, most of it maps pretty well to the steps above. The main things that are not immediately clear are:
+
+- How we take the constraints defined in the `AIR` through the `compute_transition` method and map them to transition constraint polynomials.
+- How we then construct `H` from them and the boundary constraint polynomials.
+- What an out of `ood` frame is.
+- What a transcript is.
+
+## Reconstructing the transition constraint polynomials
+
+In our fibonacci example, after obtaining the trace polynomial `t` by interpolating, the transition constraint polynomial is 
+
+$$
+C(x) = \dfrac{t(xg^2) - t(xg) - t(x)}{\prod_{i = 0}^{5} (x - g^i)}
+$$
+
+On our `prove` code, if someone passes us a fibonacci `AIR` like the one we showed above used in one of our tests, we somehow need to construct $C(x)$. However, what we are given is not a polynomial, but rather this method
+
+```rust
+fn compute_transition(
+        &self,
+        frame: &air::frame::Frame<Self::Field>,
+    ) -> Vec<FieldElement<Self::Field>> {
+    let first_row = frame.get_row(0);
+    let second_row = frame.get_row(1);
+    let third_row = frame.get_row(2);
+
+    vec![third_row[0] - second_row[0] - first_row[0]]
+}
+```
+
+So how do we get to $C(x)$ from this? The answer is interpolation. What the method above is doing is the following: if you pass it a frame that looks like this
+
+$$
+\begin{bmatrix} t(x_0) \\ t(x_0g) \\ t(x_0g^2) \end{bmatrix}
+$$
+
+for any given point $x_0$, it will return the evaluation
+
+$$
+t(x_0g^2) - t(x_0g) - t(x_0)
+$$
+
+which is the numerator in $C(x)$. Using the `transition_exemptions` field we defined in our `AIR`, we can also compute the evaluations in the denominator, i.e. the zerofier evaluations. This is done under the hood by the `transition_divisors()` method.
