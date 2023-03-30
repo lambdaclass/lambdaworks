@@ -31,9 +31,11 @@ Following along the code in the `prove` and `verify` functions, most of it maps 
 - What an `ood` frame is.
 - What the transcript is.
 
-## Reconstructing the transition constraint polynomials
+# Reconstructing the transition constraint polynomials
 
-In our fibonacci example, after obtaining the trace polynomial `t` by interpolating, the transition constraint polynomial is 
+This is possibly the most complex part of the code, so what follows is a long explanation for it.
+
+In our fibonacci example, after obtaining the trace polynomial `t` by interpolating, the transition constraint polynomial is
 
 $$
 C(x) = \dfrac{t(xg^2) - t(xg) - t(x)}{\prod_{i = 0}^{5} (x - g^i)}
@@ -104,4 +106,65 @@ let composition_poly =
 
 which simply interpolates the sum of all evaluations to obtain `H`.
 
-The `evaluate` method receives the `lde_trace` as an argument because the frames we use to evaluate all the constraint polynomials are of the form
+Let's go into more detail on how the `evaluate` method reconstructs $C(x)$ in our fibonacci example. It receives the `lde_trace` as an argument, which is this:
+
+$$
+\begin{bmatrix} t(\omega^0) \\ t(\omega^1) \\ \dots \\ t(\omega^{15}) \end{bmatrix}
+$$
+
+where $\omega$ is the primitive root of unity used for the `LDE`, that is, $\omega$ satisfies $\omega^2 = g$. We need to recover $C(x)$, a polynomial whose degree can't be more than $t(x)$'s. Because $t$ was built by interpolating `8` points (the trace), we know we can recover $C(x)$ by interpolating it on 16 points. We choose these points to be the `LDE` roots of unity 
+
+$$
+\{\omega^0, \omega, \omega^2, \dots, \omega^{15}\}
+$$
+
+Remember that to evaluate $C(x)$ on these points, all we need are the evaluations of the polynomial
+
+$$
+t(xg^2) - t(xg) - t(x)
+$$
+
+as the zerofier ones we can compute easily. These become:
+
+$$
+t(\omega^0 g^2) - t(\omega^0 g) - t(\omega^0) \\
+t(\omega g^2) - t(\omega g) - t(\omega) \\
+t(\omega^2 g^2) - t(\omega^2 g) - t(\omega^2) \\
+\vdots \\
+t(\omega^{15} g^2) - t(\omega^{15} g) - t(\omega^{15}) \\
+$$
+
+If we remember that $\omega^2 = g$, this is
+
+$$
+t(\omega^4) - t(\omega^2) - t(\omega^0) \\
+t(\omega^5) - t(\omega^3) - t(\omega) \\
+t(\omega^6) - t(\omega^4) - t(\omega^2) \\
+\vdots \\
+t(\omega^{3}) - t(\omega) - t(\omega^{15}) \\
+$$
+
+and we can compute each evaluation here by calling `compute_transition` on the appropriate frame built from the `lde_trace`. Specifically, for the first evaluation we can build the frame:
+
+$$
+\begin{bmatrix} t(\omega^0) \\ t(\omega^2) \\ t(\omega^{4}) \end{bmatrix}
+$$
+
+Calling `compute_transition` on this frame gives us the first evaluation. We can get the rest in a similar fashion, which is what this piece of code in the `evaluate` method does:
+
+```rust
+for (i, d) in lde_domain.iter().enumerate() {
+    let frame = Frame::read_from_trace(
+        lde_trace,
+        i,
+        blowup_factor,
+        &self.air.context().transition_offsets,
+    )
+
+    let mut evaluations = self.air.compute_transition(&frame);
+
+    ...
+}
+```
+
+Each iteration builds a frame as above and computes one of the evaluations needed. The rest of the code just adds the zerofier evaluations, along with the alphas and betas. It then also computes boundary polynomial evaluations by explicitly constructing them.
