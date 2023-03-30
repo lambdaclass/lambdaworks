@@ -1,3 +1,9 @@
+use super::{
+    air::{constraints::evaluator::ConstraintEvaluator, frame::Frame, trace::TraceTable, AIR},
+    fri::{fri, fri_decommit::fri_decommit_layers},
+    sample_z_ood, StarkQueryProof,
+};
+use crate::{transcript_to_field, transcript_to_usize, StarkProof};
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::{
     fft::errors::FFTError,
@@ -6,19 +12,8 @@ use lambdaworks_math::{
     traits::ByteConversion,
 };
 
-use crate::{transcript_to_field, transcript_to_usize, StarkProof};
-
-use super::{
-    air::{constraints::evaluator::ConstraintEvaluator, frame::Frame, trace::TraceTable, AIR},
-    fri::{fri, fri_decommit::fri_decommit_layers},
-    sample_z_ood, StarkQueryProof,
-};
-
 // FIXME remove unwrap() calls and return errors
-pub fn prove<F: IsTwoAdicField, A: AIR + AIR<Field = F>>(
-    trace: &TraceTable<F>,
-    air: &A,
-) -> StarkProof<F>
+pub fn prove<F: IsTwoAdicField, A: AIR<Field = F>>(trace: &TraceTable<F>, air: &A) -> StarkProof<F>
 where
     FieldElement<F>: ByteConversion,
 {
@@ -67,38 +62,31 @@ where
 
     // Create evaluation table
     let evaluator = ConstraintEvaluator::new(air, &trace_polys, &trace_primitive_root);
-    let mut alpha_and_beta_boundary_coefficients: Vec<(FieldElement<F>, FieldElement<F>)> = vec![];
-    for _ in 0..trace_polys.len() {
-        alpha_and_beta_boundary_coefficients.push((
-            transcript_to_field(transcript),
-            transcript_to_field(transcript),
-        ));
-    }
 
-    let mut alpha_and_beta_transition_coefficients: Vec<(FieldElement<F>, FieldElement<F>)> =
-        vec![];
+    let boundary_coeffs: Vec<(FieldElement<F>, FieldElement<F>)> = (0..trace_polys.len())
+        .map(|_| {
+            (
+                transcript_to_field(transcript),
+                transcript_to_field(transcript),
+            )
+        })
+        .collect();
 
-    for _ in 0..air.context().num_transition_constraints {
-        alpha_and_beta_transition_coefficients.push((
-            transcript_to_field(transcript),
-            transcript_to_field(transcript),
-        ));
-    }
-
-    // println!(
-    //     "FIAT SHAMIR COEFFS BOUNDARY - PROVER: {:?}",
-    //     alpha_and_beta_boundary_coefficients
-    // );
-    // println!(
-    //     "FIAT SHAMIR COEFFS TRANSITION - PROVER: {:?}",
-    //     alpha_and_beta_transition_coefficients
-    // );
+    let transition_coeffs: Vec<(FieldElement<F>, FieldElement<F>)> =
+        (0..air.context().num_transition_constraints)
+            .map(|_| {
+                (
+                    transcript_to_field(transcript),
+                    transcript_to_field(transcript),
+                )
+            })
+            .collect();
 
     let constraint_evaluations = evaluator.evaluate(
         &lde_trace,
         &lde_roots_of_unity_coset,
-        &alpha_and_beta_transition_coefficients,
-        &alpha_and_beta_boundary_coefficients,
+        &transition_coeffs,
+        &boundary_coeffs,
     );
 
     // Get composition poly

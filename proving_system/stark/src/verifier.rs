@@ -1,3 +1,9 @@
+use super::{
+    air::{constraints::evaluator::ConstraintEvaluator, AIR},
+    fri::fri_decommit::FriDecommitment,
+    sample_z_ood,
+};
+use crate::{transcript_to_field, transcript_to_usize, StarkProof};
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::{
     field::{
@@ -9,18 +15,7 @@ use lambdaworks_math::{
     traits::ByteConversion,
 };
 
-use crate::{transcript_to_field, transcript_to_usize, StarkProof};
-
-use super::{
-    air::{constraints::evaluator::ConstraintEvaluator, AIR},
-    fri::fri_decommit::FriDecommitment,
-    sample_z_ood,
-};
-
-pub fn verify<F: IsField + IsTwoAdicField, A: AIR + AIR<Field = F>>(
-    proof: &StarkProof<F>,
-    air: &A,
-) -> bool
+pub fn verify<F: IsTwoAdicField, A: AIR<Field = F>>(proof: &StarkProof<F>, air: &A) -> bool
 where
     FieldElement<F>: ByteConversion,
 {
@@ -65,32 +60,24 @@ where
     // a root of unity or an element of the lde coset.
     let z = sample_z_ood(&lde_roots_of_unity_coset, &trace_roots_of_unity, transcript);
 
-    let mut alpha_and_beta_boundary_coefficients: Vec<(FieldElement<F>, FieldElement<F>)> = vec![];
-    for _ in 0..n_trace_cols {
-        alpha_and_beta_boundary_coefficients.push((
-            transcript_to_field(transcript),
-            transcript_to_field(transcript),
-        ));
-    }
+    let boundary_coeffs: Vec<(FieldElement<F>, FieldElement<F>)> = (0..n_trace_cols)
+        .map(|_| {
+            (
+                transcript_to_field(transcript),
+                transcript_to_field(transcript),
+            )
+        })
+        .collect();
 
-    let mut alpha_and_beta_transition_coefficients: Vec<(FieldElement<F>, FieldElement<F>)> =
-        vec![];
-
-    for _ in 0..air.context().num_transition_constraints {
-        alpha_and_beta_transition_coefficients.push((
-            transcript_to_field(transcript),
-            transcript_to_field(transcript),
-        ));
-    }
-
-    // println!(
-    //     "FIAT SHAMIR COEFFS BOUNDARY - VERIFIER: {:?}",
-    //     alpha_and_beta_boundary_coefficients
-    // );
-    // println!(
-    //     "FIAT SHAMIR COEFFS TRANSITION - VERIFIER: {:?}",
-    //     alpha_and_beta_transition_coefficients
-    // );
+    let transition_coeffs: Vec<(FieldElement<F>, FieldElement<F>)> =
+        (0..air.context().num_transition_constraints)
+            .map(|_| {
+                (
+                    transcript_to_field(transcript),
+                    transcript_to_field(transcript),
+                )
+            })
+            .collect();
 
     // Following naming conventions from https://www.notamonadtutorial.com/diving-deep-fri/
     let mut boundary_c_i_evaluations = Vec::with_capacity(n_trace_cols);
@@ -137,7 +124,7 @@ where
     let boundary_quotient_ood_evaluations: Vec<FieldElement<F>> = boundary_c_i_evaluations
         .iter()
         .zip(boundary_quotient_degrees)
-        .zip(alpha_and_beta_boundary_coefficients)
+        .zip(boundary_coeffs)
         .map(|((poly_eval, poly_degree), (alpha, beta))| {
             poly_eval * (&alpha * z.pow(max_degree_power_of_two - poly_degree as u64) + &beta)
         })
@@ -153,7 +140,7 @@ where
         ConstraintEvaluator::compute_constraint_composition_poly_evaluations(
             air,
             &transition_ood_frame_evaluations,
-            &alpha_and_beta_transition_coefficients,
+            &transition_coeffs,
             max_degree_power_of_two,
             &z,
         );
