@@ -2,9 +2,9 @@ use lambdaworks_stark::ProofConfig;
 use lambdaworks_stark::StarkProof;
 use lambdaworks_stark::FE;
 
+use pyo3::class::basic::CompareOp;
 use pyo3::types::*;
 use pyo3::*;
-use pyo3::class::basic::CompareOp;
 
 use crate::math::unsigned_integer::element::PyU256;
 
@@ -23,7 +23,7 @@ impl PyFieldElement {
         match op {
             CompareOp::Eq => Ok(self.0 == other.0),
             CompareOp::Ne => Ok(self.0 != other.0),
-            _ => Ok(false) //TODO
+            _ => Ok(false), //TODO
         }
     }
 
