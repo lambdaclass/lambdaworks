@@ -49,7 +49,7 @@ impl<F: IsTwoAdicField> TraceTable<F> {
         for col_idx in 0..self.n_cols {
             let mut col = Vec::with_capacity(n_rows);
             for row_idx in 0..n_rows {
-                col.push(self.table[col_idx * self.n_cols + row_idx].clone())
+                col.push(self.table[row_idx * self.n_cols + col_idx].clone())
             }
             ret.push(col);
         }
@@ -66,19 +66,19 @@ impl<F: IsTwoAdicField> TraceTable<F> {
 }
 #[cfg(test)]
 mod test {
-    use lambdaworks_math::field::element::FieldElement;
-
-    use crate::PrimeField;
-
     use super::TraceTable;
+    use lambdaworks_math::field::{element::FieldElement, fields::u64_prime_field::F17};
 
     #[test]
     fn test_cols() {
-        let cols: Vec<FieldElement<PrimeField>> = (0..4).map(FieldElement::from).collect();
+        type F = FieldElement<F17>;
 
-        let trace_table = TraceTable::new_from_cols(&[cols.clone()]);
+        let col_1 = vec![F::from(1), F::from(2), F::from(5), F::from(13)];
+        let col_2 = vec![F::from(1), F::from(3), F::from(8), F::from(21)];
 
+        let trace_table = TraceTable::new_from_cols(&[col_1.clone(), col_2.clone()]);
         let res_cols = trace_table.cols();
-        assert_eq!(res_cols, vec![cols]);
+
+        assert_eq!(res_cols, vec![col_1, col_2]);
     }
 }

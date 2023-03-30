@@ -140,17 +140,17 @@ where
 
     let transition_ood_frame_evaluations = air.compute_transition(trace_poly_ood_frame_evaluations);
 
-    // TODO: Change the name of this to be the transition C_i's.
-    let c_i_evaluations = ConstraintEvaluator::compute_constraint_composition_poly_evaluations(
-        air,
-        &transition_ood_frame_evaluations,
-        &alpha_and_beta_transition_coefficients,
-        max_degree_power_of_two,
-        &z,
-    );
+    let transition_c_i_evaluations =
+        ConstraintEvaluator::compute_constraint_composition_poly_evaluations(
+            air,
+            &transition_ood_frame_evaluations,
+            &alpha_and_beta_transition_coefficients,
+            max_degree_power_of_two,
+            &z,
+        );
 
     let composition_poly_ood_evaluation = &boundary_quotient_ood_evaluation
-        + c_i_evaluations
+        + transition_c_i_evaluations
             .iter()
             .fold(FieldElement::<F>::zero(), |acc, evaluation| {
                 acc + evaluation
