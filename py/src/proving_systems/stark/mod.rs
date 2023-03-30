@@ -1,10 +1,10 @@
 use lambdaworks_stark::ProofConfig;
 use lambdaworks_stark::StarkProof;
 use lambdaworks_stark::FE;
-use lambdaworks_math::unsigned_integer::element::UnsignedInteger;
 
 use pyo3::types::*;
 use pyo3::*;
+use pyo3::class::basic::CompareOp;
 
 use crate::math::unsigned_integer::element::PyU256;
 
@@ -19,19 +19,27 @@ impl PyFieldElement {
         Self(FE::new(value.0))
     }
 
-    pub fn __add__(&self, other: &Self) -> Self {
+    fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
+        match op {
+            CompareOp::Eq => Ok(self.0 == other.0),
+            CompareOp::Ne => Ok(self.0 != other.0),
+            _ => Ok(false) //TODO
+        }
+    }
+
+    fn __add__(&self, other: &Self) -> Self {
         Self(&self.0 + &other.0)
     }
 
-    pub fn __sub__(&self, other: &Self) -> Self {
+    fn __sub__(&self, other: &Self) -> Self {
         Self(&self.0 - &other.0)
     }
 
-    pub fn __mul__(&self, other: &Self) -> Self {
+    fn __mul__(&self, other: &Self) -> Self {
         Self(&self.0 * &other.0)
     }
 
-    pub fn __truediv__(&self, other: &Self) -> Self {
+    fn __truediv__(&self, other: &Self) -> Self {
         Self(&self.0 / &other.0)
     }
 

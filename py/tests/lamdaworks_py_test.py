@@ -12,7 +12,36 @@ class TestU256(unittest.TestCase):
 class TestFieldElement(unittest.TestCase):
     def test_constructor(self):
         self.assertTrue(FieldElement(U256("1")))
-        
+
+    def test_eq1(self):
+        one = FieldElement(U256("1"))
+        self.assertTrue(one == one)
+    
+    def test_eq2(self):
+        one = FieldElement(U256("1"))
+        another_one = FieldElement(U256("1"))
+        self.assertTrue(one == another_one)
+    
+    def test_add(self):
+        one = FieldElement(U256("1"))
+        two = FieldElement(U256("2"))
+        self.assertTrue(one + one == two)
+
+    def test_sub(self):
+        two = FieldElement(U256("2"))
+        one = FieldElement(U256("1"))
+        self.assertTrue(two - one == one)
+
+    def test_mul(self):
+        one = FieldElement(U256("1"))
+        two = FieldElement(U256("2"))
+        self.assertTrue(one * two == two)
+
+    def test_div(self):
+        one = FieldElement(U256("1"))
+        two = FieldElement(U256("2"))
+        self.assertTrue(two / one == two)
+
 class TestFibonacci(unittest.TestCase):
     @classmethod
     def _fibonacci_trace(cls, v0, v1):
