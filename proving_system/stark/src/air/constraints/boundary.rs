@@ -84,18 +84,15 @@ impl<F: IsField> BoundaryConstraints<F> {
     /// For every trace column, give all the values the trace must be equal to in
     /// the steps where the boundary constraints hold
     pub fn values(&self, n_trace_columns: usize) -> Vec<Vec<FieldElement<F>>> {
-        let mut ret = Vec::new();
-
-        for i in 0..n_trace_columns {
-            ret.push(
+        (0..n_trace_columns)
+            .map(|i| {
                 self.constraints
                     .iter()
                     .filter(|c| c.col == i)
                     .map(|c| c.value.clone())
-                    .collect(),
-            )
-        }
-        ret
+                    .collect()
+            })
+            .collect()
     }
 
     /// Computes the zerofier of the boundary quotient. The result is the
