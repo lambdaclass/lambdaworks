@@ -68,13 +68,14 @@ impl<F: IsTwoAdicField> MetalFFTPoly<F> for Polynomial<FieldElement<F>> {
 #[cfg(test)]
 mod tests {
     use lambdaworks_math::{
-        field::test_fields::u32_test_field::U32TestField, polynomial::Polynomial,
+        field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+        polynomial::Polynomial,
     };
     use proptest::prelude::*;
 
     use super::*;
 
-    type F = U32TestField;
+    type F = Stark252PrimeField;
     type FE = FieldElement<F>;
 
     prop_compose! {

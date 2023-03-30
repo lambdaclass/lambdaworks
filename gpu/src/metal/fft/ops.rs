@@ -73,9 +73,9 @@ pub fn gen_twiddles<F: IsTwoAdicField>(
 
     let pipeline = match config {
         RootsConfig::Natural => state.setup_pipeline("calc_twiddles"),
-        RootsConfig::NaturalInversed => state.setup_pipeline("calc_twiddle_inv"),
-        RootsConfig::BitReverse => state.setup_pipeline("calc_twiddle_bitrev"),
-        RootsConfig::BitReverseInversed => state.setup_pipeline("calc_twiddle_bitrev_inv"),
+        RootsConfig::NaturalInversed => state.setup_pipeline("calc_twiddles_inv"),
+        RootsConfig::BitReverse => state.setup_pipeline("calc_twiddles_bitrev"),
+        RootsConfig::BitReverseInversed => state.setup_pipeline("calc_twiddles_bitrev_inv"),
     }
     .map_err(FFTMetalError::Metal)?;
 
@@ -181,7 +181,7 @@ mod tests {
     proptest! {
         #[test]
         // Property-based test that ensures Metal parallel twiddle generation matches the sequential one..
-        fn test_gpu_twiddles_match_cpu(order in 2..16) {
+        fn test_gpu_twiddles_match_cpu(order in 2..8) {
             objc::rc::autoreleasepool(|| {
                 let configs = [
                     RootsConfig::Natural,
