@@ -29,7 +29,7 @@ fn test_prove_fib() {
         num_cols: 1,
     };
 
-    let fibonacci_air = FibonacciAIR::new(trace_table, context);
+    let fibonacci_air = FibonacciAIR::new(context);
 
     let result = prove(&trace, &fibonacci_air);
     assert!(verify(&result, &fibonacci_air));
@@ -99,5 +99,83 @@ third_row[0] - second_row[0] - first_row[0]
 
 which is the value that needs to be zero for our constraint to hold. Because we support multiple transition constraints, we actually return a vector with one value per constraint, so the first element holds the first constraint value and so on.
 
-### AIR Context
+## TraceTable
 
+After defining our AIR, we create our specific trace to prove against it. 
+
+```rust
+let trace = fibonacci_trace([FE17::new(1), FE17::new(1)], 4);
+
+let trace_table = TraceTable {
+    table: trace.clone(),
+    num_cols: 1,
+};
+```
+
+`TraceTable` is the struct holding execution traces; the `num_cols` says how many columns the trace has, the `table` field is a `vec` holding the actual values of the trace in row-major form, meaning if the trace looks like this
+
+```
+| 1  | 2  |
+| 3  | 4  |
+| 5  | 6  |
+```
+
+then its corresponding `TraceTable` is 
+
+```rust
+let trace_table = TraceTable {
+    table: vec![1, 2, 3, 4, 5, 6],
+    num_cols: 2,
+};
+```
+
+In our example, `fibonacci_trace` is just a helper function we use to generate the fibonacci trace with `4` columns and `[1, 1]` as the first two values.
+
+## AIR Context
+
+After specifying our constraints and trace, the only thing left to do is provide a few parameters related to the STARK protocol and our `AIR`. These are all encapsulated in the `AirContext` struct, which in our example we isntantiate like this:
+
+```rust
+let context = AirContext {
+    options: ProofOptions {
+        blowup_factor: 2,
+        fri_number_of_queries: 1,
+        coset_offset: 3,
+    },
+
+    trace_length: trace.len(),
+    trace_columns: trace_table.num_cols,
+
+    transition_degrees: vec![1],
+    transition_exemptions: vec![trace.len() - 2, trace.len() - 1],
+    transition_offsets: vec![0, 1, 2],
+    num_transition_constraints: 1,
+};
+```
+
+Let's go over each of them:
+
+- `options` requires a `ProofOptions` struct holding specific parameters related to the STARK protocol to be used when proving. They are:
+    - The `blowup_factor` used for the trace LDE extension, a parameter related to the security of the protocol.
+    - The number of queries performed by the verifier when doing `FRI`, also related to security.
+    - The `offset` used for the LDE coset. This depends on the field being used for the STARK proof.
+- `trace_length` and `trace_columns` are the number of rows and columns of the trace, respectively.
+- `transition_degrees` holds the degree of each transition constraint.
+- `transition_exemptions` is a `Vec` which tells us on which rows the transition constraints should not apply. TODO: this needs to be changed be an exemptions `Vec` per transition constraint.
+- `transition_offsets` holds the indexes that define a frame for our `AIR`. In our fibonacci case, these are `[0, 1, 2]` because we need the current row and the two previous one to define our transition constraint.
+- `num_transition_constraints` simply says how many transition constraints our `AIR` has.
+
+## Proving execution
+
+Having defined all of the above, proving our fibonacci example amounts to instantiating the necessary structs and then calling `prove` passing the `AIR` and the trace.
+
+```rust
+let result = prove(&trace, &fibonacci_air);
+assert!(verify(&result, &fibonacci_air));
+```
+
+Verifying is then done by passing the proof of execution along with the same `AIR` to the `verify` function.
+
+# How this works under the hood
+
+TODO

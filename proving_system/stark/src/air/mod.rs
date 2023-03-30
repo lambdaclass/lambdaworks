@@ -2,7 +2,6 @@ use self::{
     constraints::boundary::BoundaryConstraints,
     context::{AirContext, ProofOptions},
     frame::Frame,
-    trace::TraceTable,
 };
 use lambdaworks_math::{
     field::{
@@ -20,7 +19,7 @@ pub mod trace;
 pub trait AIR: Clone {
     type Field: IsField + IsTwoAdicField;
 
-    fn new(trace: TraceTable<Self::Field>, context: AirContext) -> Self;
+    fn new(context: AirContext) -> Self;
     fn compute_transition(&self, frame: &Frame<Self::Field>) -> Vec<FieldElement<Self::Field>>;
     fn boundary_constraints(&self) -> BoundaryConstraints<Self::Field>;
     fn context(&self) -> AirContext;

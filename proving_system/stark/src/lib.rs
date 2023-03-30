@@ -104,7 +104,7 @@ mod tests {
             num_transition_constraints: 1,
         };
 
-        let fibonacci_air = FibonacciAIR::new(trace_table, context);
+        let fibonacci_air = FibonacciAIR::new(context);
 
         let result = prove(&trace, &fibonacci_air);
         assert!(verify(&result, &fibonacci_air));
@@ -132,7 +132,7 @@ mod tests {
             num_transition_constraints: 1,
         };
 
-        let fibonacci_air = FibonacciAIR::new(trace_table, context);
+        let fibonacci_air = FibonacciAIR::new(context);
 
         let result = prove(&trace, &fibonacci_air);
         assert!(verify(&result, &fibonacci_air));
@@ -162,7 +162,7 @@ mod tests {
             num_transition_constraints: 1,
         };
 
-        let fibonacci_air = Fibonacci17AIR::new(trace_table, context);
+        let fibonacci_air = Fibonacci17AIR::new(context);
 
         let result = prove(&trace, &fibonacci_air);
         assert!(verify(&result, &fibonacci_air));
@@ -175,7 +175,6 @@ mod test_utils {
     use crate::air::{
         constraints::boundary::{BoundaryConstraint, BoundaryConstraints},
         context::AirContext,
-        trace::TraceTable,
         AIR,
     };
     use lambdaworks_math::field::element::FieldElement;
@@ -200,14 +199,13 @@ mod test_utils {
     #[derive(Clone)]
     pub struct FibonacciAIR {
         context: AirContext,
-        pub trace: TraceTable<PrimeField>,
     }
 
     impl AIR for FibonacciAIR {
         type Field = PrimeField;
 
-        fn new(trace: TraceTable<Self::Field>, context: air::context::AirContext) -> Self {
-            Self { context, trace }
+        fn new(context: air::context::AirContext) -> Self {
+            Self { context }
         }
 
         fn compute_transition(
@@ -237,14 +235,13 @@ mod test_utils {
     #[derive(Clone)]
     pub struct Fibonacci17AIR {
         context: AirContext,
-        pub trace: TraceTable<F17>,
     }
 
     impl AIR for Fibonacci17AIR {
         type Field = F17;
 
-        fn new(trace: TraceTable<Self::Field>, context: air::context::AirContext) -> Self {
-            Self { context, trace }
+        fn new(context: air::context::AirContext) -> Self {
+            Self { context }
         }
 
         fn compute_transition(
