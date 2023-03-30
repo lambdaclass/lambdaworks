@@ -121,7 +121,7 @@ mod tests {
     }
 
     proptest! {
-        // Property-based test that ensures NR Radix-2 FFT gives same result as a naive polynomial evaluation.
+        // Property-based test that ensures NR Radix-2 FFT gives the same result as a naive DFT.
         #[test]
         fn test_nr_2radix_fft_matches_naive_eval(coeffs in field_vec(8)) {
             let expected = dft(&coeffs);
@@ -138,7 +138,7 @@ mod tests {
     }
 
     proptest! {
-        // Property-based test that ensures RN Radix-2 FFT gives same result as a naive polynomial evaluation.
+        // Property-based test that ensures RN Radix-2 FFT gives the same result as a naive DFT.
         #[test]
         fn test_rn_2radix_fft_matches_naive_eval(coeffs in field_vec(8)) {
             let expected = dft(&coeffs);
@@ -177,7 +177,7 @@ mod tests {
     }
 
     proptest! {
-        // Property-based test that ensures dft() gives same result as a naive polynomial evaluation.
+        // Property-based test that ensures dft() gives the same result as a naive polynomial evaluation.
         #[test]
         fn test_dft_same_as_eval(coeffs in field_vec(8)) {
             let dft = dft(&coeffs);
