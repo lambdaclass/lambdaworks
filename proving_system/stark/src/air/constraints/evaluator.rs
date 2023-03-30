@@ -98,7 +98,6 @@ impl<'poly, F: IsTwoAdicField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'pol
             );
 
             let mut evaluations = self.air.compute_transition(&frame);
-
             evaluations = Self::compute_constraint_composition_poly_evaluations(
                 &self.air,
                 &evaluations,
@@ -107,25 +106,19 @@ impl<'poly, F: IsTwoAdicField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'pol
                 d,
             );
 
-            let mut aux_boundary_evaluations = Vec::new();
-            for (index, (boundary_poly, boundary_zerofier)) in
-                zip(&boundary_polys, &boundary_zerofiers).enumerate()
-            {
-                let quotient_degree = boundary_poly.degree() - boundary_zerofier.degree();
-                let mut aux_boundary_evaluation =
-                    boundary_poly.evaluate(d) / boundary_zerofier.evaluate(d);
+            let boundary_evaluation = zip(&boundary_polys, &boundary_zerofiers)
+                .enumerate()
+                .map(|(index, (boundary_poly, boundary_zerofier))| {
+                    let quotient_degree = boundary_poly.degree() - boundary_zerofier.degree();
 
-                let (boundary_alpha, boundary_beta) =
-                    alpha_and_beta_boundary_coefficients[index].clone();
+                    let (boundary_alpha, boundary_beta) =
+                        alpha_and_beta_boundary_coefficients[index].clone();
 
-                aux_boundary_evaluation = aux_boundary_evaluation
-                    * (&boundary_alpha * d.pow(max_degree_power_of_two - (quotient_degree as u64))
-                        + &boundary_beta);
-                aux_boundary_evaluations.push(aux_boundary_evaluation);
-            }
-
-            let boundary_evaluation = aux_boundary_evaluations
-                .iter()
+                    (boundary_poly.evaluate(d) / boundary_zerofier.evaluate(d))
+                        * (&boundary_alpha
+                            * d.pow(max_degree_power_of_two - (quotient_degree as u64))
+                            + &boundary_beta)
+                })
                 .fold(FieldElement::<F>::zero(), |acc, eval| acc + eval);
 
             evaluations.push(boundary_evaluation);
