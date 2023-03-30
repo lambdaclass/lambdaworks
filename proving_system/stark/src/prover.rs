@@ -85,6 +85,15 @@ where
         ));
     }
 
+    // println!(
+    //     "FIAT SHAMIR COEFFS BOUNDARY - PROVER: {:?}",
+    //     alpha_and_beta_boundary_coefficients
+    // );
+    // println!(
+    //     "FIAT SHAMIR COEFFS TRANSITION - PROVER: {:?}",
+    //     alpha_and_beta_transition_coefficients
+    // );
+
     let constraint_evaluations = evaluator.evaluate(
         &lde_trace,
         &lde_roots_of_unity_coset,

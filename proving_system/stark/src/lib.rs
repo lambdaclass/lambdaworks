@@ -100,7 +100,7 @@ mod tests {
             trace_length,
             trace_columns: trace_table.n_cols,
             transition_degrees: vec![1],
-            transition_exemptions: vec![trace_length - 2, trace_length - 1],
+            transition_exemptions: vec![2],
             transition_offsets: vec![0, 1, 2],
             num_transition_constraints: 1,
         };
@@ -127,7 +127,7 @@ mod tests {
             trace_length: trace.len(),
             trace_columns: trace_table.n_cols,
             transition_degrees: vec![1],
-            transition_exemptions: vec![trace_length - 2, trace_length - 1],
+            transition_exemptions: vec![2],
             transition_offsets: vec![0, 1, 2],
             num_transition_constraints: 1,
         };
@@ -140,7 +140,7 @@ mod tests {
 
     #[test]
     fn test_prove_fib_2_cols() {
-        let trace_columns = fibonacci_trace_2_columns([FE::from(1), FE::from(1)], 4);
+        let trace_columns = fibonacci_trace_2_columns([FE::from(1), FE::from(1)], 64);
 
         let trace_table = TraceTable::new_from_cols(&trace_columns);
 
@@ -152,7 +152,7 @@ mod tests {
             },
             trace_length: trace_table.n_rows(),
             transition_degrees: vec![1, 1],
-            transition_exemptions: vec![trace_table.n_rows() - 1, trace_table.n_rows() - 1],
+            transition_exemptions: vec![1, 1],
             transition_offsets: vec![0, 1],
             num_transition_constraints: 2,
             trace_columns: 2,
@@ -255,8 +255,7 @@ mod test_utils {
             .unwrap();
 
             let mut result = vec![];
-
-            for _ in 0..self.context().num_transition_constraints {
+            for transition_idx in 0..self.context().num_transition_constraints {
                 // X^(trace_length) - 1
                 let roots_of_unity_vanishing_polynomial =
                     Polynomial::new_monomial(FieldElement::<Self::Field>::one(), trace_length)
@@ -265,11 +264,23 @@ mod test_utils {
                 let mut exemptions_polynomial =
                     Polynomial::new_monomial(FieldElement::<Self::Field>::one(), 0);
 
-                for exemption_index in self.context().transition_exemptions {
+                println!("ROOTS OF UNITY: {:?}", roots_of_unity);
+
+                for i in 0..self.context().transition_exemptions[transition_idx] {
+                    // println!("EXX: {:?}", roots_of_unity[root_of_unity_last_idx - i - 1]);
                     exemptions_polynomial = exemptions_polynomial
                         * (Polynomial::new_monomial(FieldElement::<Self::Field>::one(), 1)
-                            - Polynomial::new_monomial(roots_of_unity[exemption_index].clone(), 0));
+                            - Polynomial::new_monomial(
+                                roots_of_unity[roots_of_unity.len() - 1 - i].clone(),
+                                0,
+                            ))
                 }
+
+                // for exemption_index in self.context().transition_exemptions {
+                //     exemptions_polynomial = exemptions_polynomial
+                //         * (Polynomial::new_monomial(FieldElement::<Self::Field>::one(), 1)
+                //             - Polynomial::new_monomial(roots_of_unity[exemption_index].clone(), 0));
+                // }
 
                 result.push(roots_of_unity_vanishing_polynomial / exemptions_polynomial);
             }
@@ -400,8 +411,7 @@ mod test_utils {
             .unwrap();
 
             let mut result = vec![];
-
-            for _ in 0..self.context().num_transition_constraints {
+            for transition_idx in 0..self.context().num_transition_constraints {
                 // X^(trace_length) - 1
                 let roots_of_unity_vanishing_polynomial =
                     Polynomial::new_monomial(FieldElement::<Self::Field>::one(), trace_length)
@@ -410,11 +420,23 @@ mod test_utils {
                 let mut exemptions_polynomial =
                     Polynomial::new_monomial(FieldElement::<Self::Field>::one(), 0);
 
-                for exemption_index in self.context().transition_exemptions {
+                println!("ROOTS OF UNITY: {:?}", roots_of_unity);
+
+                for i in 0..self.context().transition_exemptions[transition_idx] {
+                    // println!("EXX: {:?}", roots_of_unity[root_of_unity_last_idx - i - 1]);
                     exemptions_polynomial = exemptions_polynomial
                         * (Polynomial::new_monomial(FieldElement::<Self::Field>::one(), 1)
-                            - Polynomial::new_monomial(roots_of_unity[exemption_index].clone(), 0));
+                            - Polynomial::new_monomial(
+                                roots_of_unity[roots_of_unity.len() - 1 - i].clone(),
+                                0,
+                            ))
                 }
+
+                // for exemption_index in self.context().transition_exemptions {
+                //     exemptions_polynomial = exemptions_polynomial
+                //         * (Polynomial::new_monomial(FieldElement::<Self::Field>::one(), 1)
+                //             - Polynomial::new_monomial(roots_of_unity[exemption_index].clone(), 0));
+                // }
 
                 result.push(roots_of_unity_vanishing_polynomial / exemptions_polynomial);
             }

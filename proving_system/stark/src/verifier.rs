@@ -83,6 +83,15 @@ where
         ));
     }
 
+    // println!(
+    //     "FIAT SHAMIR COEFFS BOUNDARY - VERIFIER: {:?}",
+    //     alpha_and_beta_boundary_coefficients
+    // );
+    // println!(
+    //     "FIAT SHAMIR COEFFS TRANSITION - VERIFIER: {:?}",
+    //     alpha_and_beta_transition_coefficients
+    // );
+
     // Following naming conventions from https://www.notamonadtutorial.com/diving-deep-fri/
     let mut boundary_c_i_evaluations = Vec::with_capacity(n_trace_cols);
     let mut boundary_quotient_degrees = Vec::with_capacity(n_trace_cols);
