@@ -41,17 +41,19 @@ impl<F: IsTwoAdicField> Frame<F> {
         blowup: u8,
         offsets: &[usize],
     ) -> Self {
-        let mut rows = Vec::with_capacity(offsets.len());
-
         // Get trace length to apply module with it when getting elements of
         // the frame from the trace.
         let trace_steps = trace.n_rows();
-        for frame_row_idx in offsets.iter() {
-            let row = trace.get_row((step + (frame_row_idx * blowup as usize)) % trace_steps);
-            rows.push(row.to_vec());
-        }
-        // TODO: Create `data` inside the for loop to avoid cloning again
-        let data = rows.into_iter().flatten().collect();
+        let data = offsets
+            .iter()
+            .map(|frame_row_idx| {
+                trace
+                    .get_row((step + (frame_row_idx * blowup as usize)) % trace_steps)
+                    .to_vec()
+            })
+            .flatten()
+            .collect();
+
         Self::new(data, trace.n_cols)
     }
 
