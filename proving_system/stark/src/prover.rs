@@ -79,7 +79,7 @@ where
         (&alpha_boundary, &beta_boundary),
     );
 
-    // Get composition poly
+    // Get the composition poly H
     let composition_poly =
         constraint_evaluations.compute_composition_poly(&lde_roots_of_unity_coset);
 
