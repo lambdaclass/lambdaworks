@@ -171,7 +171,6 @@ mod test_utils {
     use crate::air::{
         constraints::boundary::{BoundaryConstraint, BoundaryConstraints},
         context::AirContext,
-        trace::TraceTable,
         AIR,
     };
     use lambdaworks_math::field::{element::FieldElement, fields::u64_prime_field::F17};
