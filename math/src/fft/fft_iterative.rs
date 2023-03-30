@@ -104,6 +104,28 @@ mod tests {
     type F = U64TestField;
     type FE = FieldElement<F>;
 
+    /// Calculates the (non-unitary) Discrete Fourier Transform of `input` via the DFT matrix.
+    fn dft<F: IsTwoAdicField>(input: &[FieldElement<F>]) -> Vec<FieldElement<F>> {
+        let n = input.len();
+        let order = log2(n).unwrap();
+
+        let twiddles = F::get_powers_of_primitive_root(order, n, RootsConfig::Natural).unwrap();
+
+        let mut output = Vec::with_capacity(n);
+        for row in 0..n {
+            let mut sum = FieldElement::zero();
+
+            for (col, element) in input.iter().enumerate() {
+                let i = (row * col) % n; // w^i = w^(i mod n)
+                sum += element.clone() * twiddles[i].clone();
+            }
+
+            output.push(sum);
+        }
+
+        output
+    }
+
     prop_compose! {
         fn powers_of_two(max_exp: u8)(exp in 1..max_exp) -> usize { 1 << exp }
         // max_exp cannot be multiple of the bits that represent a usize, generally 64 or 32.
@@ -129,7 +151,7 @@ mod tests {
             let order = log2(coeffs.len()).unwrap();
             let twiddles = F::get_twiddles(order, RootsConfig::BitReverse).unwrap();
 
-            let mut result = coeffs.clone();
+            let mut result = coeffs;
             in_place_nr_2radix_fft(&mut result, &twiddles[..]);
             in_place_bit_reverse_permute(&mut result);
 
@@ -152,28 +174,6 @@ mod tests {
 
             prop_assert_eq!(result, expected);
         }
-    }
-
-    /// Calculates the (non-unitary) Discrete Fourier Transform of `input` via the DFT matrix.
-    fn dft<F: IsTwoAdicField>(input: &[FieldElement<F>]) -> Vec<FieldElement<F>> {
-        let n = input.len();
-        let order = log2(n).unwrap();
-
-        let twiddles = F::get_powers_of_primitive_root(order, n, RootsConfig::Natural).unwrap();
-
-        let mut output = Vec::with_capacity(n);
-        for row in 0..n {
-            let mut sum = FieldElement::zero();
-
-            for col in 0..n {
-                let i = (row * col) % n; // w^i = w^(i mod n)
-                sum = sum + input[col].clone() * twiddles[i].clone();
-            }
-
-            output.push(sum);
-        }
-
-        output
     }
 
     proptest! {
