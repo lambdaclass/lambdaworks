@@ -50,18 +50,18 @@ impl<'poly, F: IsTwoAdicField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'pol
         let domains =
             boundary_constraints.generate_roots_of_unity(&self.primitive_root, n_trace_colums);
         let values = boundary_constraints.values(n_trace_colums);
-        let mut boundary_polys = Vec::with_capacity(n_trace_colums);
-        for ((xs, ys), trace_poly) in zip(domains, values).zip(self.trace_polys) {
-            boundary_polys.push(trace_poly - &Polynomial::interpolate(&xs, &ys));
-        }
 
-        let mut boundary_zerofiers = Vec::with_capacity(n_trace_colums);
-        (0..n_trace_colums).for_each(|col| {
-            boundary_zerofiers.push(
+        let boundary_polys: Vec<Polynomial<FieldElement<F>>> = zip(domains, values)
+            .zip(self.trace_polys)
+            .map(|((xs, ys), trace_poly)| trace_poly - &Polynomial::interpolate(&xs, &ys))
+            .collect();
+
+        let boundary_zerofiers: Vec<Polynomial<FieldElement<F>>> = (0..n_trace_colums)
+            .map(|col| {
                 self.boundary_constraints
-                    .compute_zerofier(&self.primitive_root, col),
-            )
-        });
+                    .compute_zerofier(&self.primitive_root, col)
+            })
+            .collect();
 
         let boundary_polys_max_degree = boundary_polys
             .iter()
