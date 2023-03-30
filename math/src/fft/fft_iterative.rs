@@ -152,7 +152,7 @@ mod tests {
             let twiddles = F::get_twiddles(order, RootsConfig::BitReverse).unwrap();
 
             let mut result = coeffs;
-            in_place_nr_2radix_fft(&mut result, &twiddles[..]);
+            in_place_nr_2radix_fft(&mut result, &twiddles);
             in_place_bit_reverse_permute(&mut result);
 
             prop_assert_eq!(expected, result);
@@ -169,8 +169,8 @@ mod tests {
             let twiddles = F::get_twiddles(order, RootsConfig::Natural).unwrap();
 
             let mut result = coeffs;
-            in_place_bit_reverse_permute(&mut result[..]);
-            in_place_rn_2radix_fft(&mut result, &twiddles[..]);
+            in_place_bit_reverse_permute(&mut result);
+            in_place_rn_2radix_fft(&mut result, &twiddles);
 
             prop_assert_eq!(result, expected);
         }
@@ -182,7 +182,7 @@ mod tests {
         fn test_dft_same_as_eval(coeffs in field_vec(8)) {
             let dft = dft(&coeffs);
 
-            let poly = Polynomial::new(&coeffs[..]);
+            let poly = Polynomial::new(&coeffs);
             let order = log2(coeffs.len()).unwrap();
             let twiddles = F::get_powers_of_primitive_root(order, coeffs.len(), RootsConfig::Natural).unwrap();
             let evals: Vec<FE> = twiddles.iter().map(|x| poly.evaluate(x)).collect();

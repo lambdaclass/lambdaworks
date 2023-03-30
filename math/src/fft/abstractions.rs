@@ -36,7 +36,7 @@ pub fn fft<F: IsTwoAdicField>(
     let twiddles = F::get_twiddles(order, RootsConfig::BitReverse)?;
 
     let mut results = coeffs.to_vec();
-    in_place_nr_2radix_fft(&mut results[..], &twiddles[..]);
+    in_place_nr_2radix_fft(&mut results, &twiddles);
     in_place_bit_reverse_permute(&mut results);
 
     Ok(results)
@@ -51,7 +51,7 @@ pub fn inverse_fft<F: IsTwoAdicField>(
     let twiddles = F::get_twiddles(order, RootsConfig::BitReverseInversed)?;
 
     let mut results = coeffs.to_vec();
-    in_place_nr_2radix_fft(&mut results[..], &twiddles[..]);
+    in_place_nr_2radix_fft(&mut results, &twiddles);
     in_place_bit_reverse_permute(&mut results);
 
     for elem in &mut results {
