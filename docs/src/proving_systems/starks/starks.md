@@ -4,6 +4,6 @@ The goal of this document is to give a good a understanding of our stark prover 
 
 - [STARKs recap](./recap.md)
 - [Implementation](./implementation.md)
-    - [High Leval API](./api.md)
+    - [High Level API](./api.md)
     - [Under the hood](./under_the_hood.md)
 - [FAQ](./faq.md)

@@ -178,8 +178,10 @@ There are two things left the prover needs to show to complete the proof:
 Earlier we said we would use the `FRI` protocol to commit to `H` and show the first item in the list. However, we can slightly modify the polynomial we do `FRI` on to show both the first and second items and the same time. This new modified polynomial is called the `DEEP` composition polynomial. We define it as follows:
 
 $$
-Deep(x) = \dfrac{H(x) - H(z)}{x - z} + \dfrac{t(x) - t(z)}{x - z} + \dfrac{t(x) - t(zg)}{x - zg} + \dfrac{t(x) - t(zg^2)}{x - zg^2}
+Deep(x) = \gamma_1 \dfrac{H(x) - H(z)}{x - z} + \gamma_2 \dfrac{t(x) - t(z)}{x - z} + \gamma_3 \dfrac{t(x) - t(zg)}{x - zg} + \gamma_4 \dfrac{t(x) - t(zg^2)}{x - zg^2}
 $$
+
+where the numbers $\gamma_i$ are randomly sampled by the verifier.
 
 The high level idea is the following: If we apply `FRI` to this polynomial and it verifies, we are simultaneously showing that
 
