@@ -7,19 +7,21 @@ use lambdaworks_math::{
 };
 use std::marker::PhantomData;
 
-struct Opening<F: IsPrimeField, P: IsPairing> {
-    value: FieldElement<F>,
-    proof: P::G1,
+use super::traits::IsCommitmentScheme;
+
+#[derive(Clone)]
+pub struct StructuredReferenceString<G1Point, G2Point> {
+    pub powers_main_group: Vec<G1Point>,
+    pub powers_secondary_group: [G2Point; 2],
 }
 
-struct StructuredReferenceString<const MAXIMUM_DEGREE: usize, P: IsPairing> {
-    powers_main_group: Vec<P::G1>,
-    powers_secondary_group: [P::G2; 2],
-}
-
-impl<const MAXIMUM_DEGREE: usize, P: IsPairing> StructuredReferenceString<MAXIMUM_DEGREE, P> {
+impl<G1Point, G2Point> StructuredReferenceString<G1Point, G2Point>
+where
+    G1Point: IsGroup,
+    G2Point: IsGroup,
+{
     #[allow(unused)]
-    pub fn new(powers_main_group: &[P::G1], powers_secondary_group: &[P::G2; 2]) -> Self {
+    pub fn new(powers_main_group: &[G1Point], powers_secondary_group: &[G2Point; 2]) -> Self {
         Self {
             powers_main_group: powers_main_group.into(),
             powers_secondary_group: powers_secondary_group.clone(),
@@ -27,24 +29,27 @@ impl<const MAXIMUM_DEGREE: usize, P: IsPairing> StructuredReferenceString<MAXIMU
     }
 }
 
-struct KateZaveruchaGoldberg<const MAXIMUM_DEGREE: usize, F: IsPrimeField, P: IsPairing> {
-    srs: StructuredReferenceString<MAXIMUM_DEGREE, P>,
+#[derive(Clone)]
+pub struct KateZaveruchaGoldberg<F: IsPrimeField, P: IsPairing> {
+    srs: StructuredReferenceString<P::G1Point, P::G2Point>,
     phantom: PhantomData<F>,
 }
 
-impl<const MAXIMUM_DEGREE: usize, F: IsPrimeField, P: IsPairing>
-    KateZaveruchaGoldberg<MAXIMUM_DEGREE, F, P>
-{
+impl<F: IsPrimeField, P: IsPairing> KateZaveruchaGoldberg<F, P> {
     #[allow(unused)]
-    fn new(srs: StructuredReferenceString<MAXIMUM_DEGREE, P>) -> Self {
+    pub fn new(srs: StructuredReferenceString<P::G1Point, P::G2Point>) -> Self {
         Self {
             srs,
             phantom: PhantomData,
         }
     }
+}
+
+impl<F: IsPrimeField, P: IsPairing> IsCommitmentScheme<F> for KateZaveruchaGoldberg<F, P> {
+    type Commitment = P::G1Point;
 
     #[allow(unused)]
-    fn commit(&self, p: &Polynomial<FieldElement<F>>) -> P::G1 {
+    fn commit(&self, p: &Polynomial<FieldElement<F>>) -> Self::Commitment {
         let coefficients: Vec<F::RepresentativeType> = p
             .coefficients
             .iter()
@@ -57,33 +62,87 @@ impl<const MAXIMUM_DEGREE: usize, F: IsPrimeField, P: IsPairing>
     }
 
     #[allow(unused)]
-    fn open(&self, x: &FieldElement<F>, p: &Polynomial<FieldElement<F>>) -> Opening<F, P> {
+    fn open(
+        &self,
+        x: &FieldElement<F>,
+        y: &FieldElement<F>,
+        p: &Polynomial<FieldElement<F>>,
+    ) -> Self::Commitment {
         let value = p.evaluate(x);
         let numerator = p + Polynomial::new_monomial(-&value, 0);
         let denominator = Polynomial::new(&[-x, FieldElement::one()]);
-        let proof = self.commit(&(numerator / denominator));
-
-        Opening { value, proof }
+        self.commit(&(numerator / denominator))
     }
 
     #[allow(unused)]
-    fn verify(&self, opening: &Opening<F, P>, x: &FieldElement<F>, p_commitment: &P::G1) -> bool {
+    fn verify(
+        &self,
+        x: &FieldElement<F>,
+        y: &FieldElement<F>,
+        p_commitment: &Self::Commitment,
+        proof: &Self::Commitment,
+    ) -> bool {
         let g1 = &self.srs.powers_main_group[0];
         let g2 = &self.srs.powers_secondary_group[0];
         let alpha_g2 = &self.srs.powers_secondary_group[1];
 
         let e = P::compute_batch(&[
             (
-                &p_commitment
-                    .operate_with(&(g1.operate_with_self(opening.value.representative())).neg()),
+                &p_commitment.operate_with(&(g1.operate_with_self(y.representative())).neg()),
                 g2,
             ),
             (
-                &opening.proof.neg(),
+                &proof.neg(),
                 &(alpha_g2.operate_with(&(g2.operate_with_self(x.representative())).neg())),
             ),
         ]);
         e == FieldElement::one()
+    }
+
+    fn open_batch(
+        &self,
+        x: &FieldElement<F>,
+        ys: &[FieldElement<F>],
+        polynomials: &[Polynomial<FieldElement<F>>],
+        upsilon: &FieldElement<F>,
+    ) -> Self::Commitment {
+        let acc_polynomial = polynomials
+            .iter()
+            .rev()
+            .fold(Polynomial::zero(), |acc, polynomial| {
+                acc * upsilon.to_owned() + polynomial
+            });
+
+        let acc_y = ys
+            .iter()
+            .rev()
+            .fold(FieldElement::zero(), |acc, y| acc * upsilon.to_owned() + y);
+
+        self.open(x, &acc_y, &acc_polynomial)
+    }
+
+    fn verify_batch(
+        &self,
+        x: &FieldElement<F>,
+        ys: &[FieldElement<F>],
+        p_commitments: &[Self::Commitment],
+        proof: &Self::Commitment,
+        upsilon: &FieldElement<F>,
+    ) -> bool {
+        let acc_commitment =
+            p_commitments
+                .iter()
+                .rev()
+                .fold(P::G1Point::neutral_element(), |acc, point| {
+                    acc.operate_with_self(upsilon.to_owned().representative())
+                        .operate_with(point)
+                });
+
+        let acc_y = ys
+            .iter()
+            .rev()
+            .fold(FieldElement::zero(), |acc, y| acc * upsilon.to_owned() + y);
+        self.verify(x, &acc_y, &acc_commitment, proof)
     }
 }
 
@@ -98,7 +157,7 @@ mod tests {
                 },
                 point::ShortWeierstrassProjectivePoint,
             },
-            traits::IsEllipticCurve,
+            traits::{IsEllipticCurve, IsPairing},
         },
         field::{
             element::FieldElement,
@@ -108,7 +167,9 @@ mod tests {
         unsigned_integer::element::U256,
     };
 
-    use super::{KateZaveruchaGoldberg as KZG, StructuredReferenceString};
+    use crate::commitments::traits::IsCommitmentScheme;
+
+    use super::{KateZaveruchaGoldberg, StructuredReferenceString};
     use rand::Rng;
 
     #[derive(Clone, Debug)]
@@ -119,9 +180,15 @@ mod tests {
     }
 
     type G1 = ShortWeierstrassProjectivePoint<BLS12381Curve>;
-    pub type FrElement = FieldElement<MontgomeryBackendPrimeField<FrConfig, 4>>;
+    type FrField = MontgomeryBackendPrimeField<FrConfig, 4>;
+    type FrElement = FieldElement<FrField>;
+    #[allow(clippy::upper_case_acronyms)]
+    type KZG = KateZaveruchaGoldberg<FrField, BLS12381AtePairing>;
 
-    fn create_srs() -> StructuredReferenceString<100, BLS12381AtePairing> {
+    fn create_srs() -> StructuredReferenceString<
+        <BLS12381AtePairing as IsPairing>::G1Point,
+        <BLS12381AtePairing as IsPairing>::G2Point,
+    > {
         let mut rng = rand::thread_rng();
         let toxic_waste = FrElement::new(U256 {
             limbs: [
@@ -149,11 +216,12 @@ mod tests {
     fn kzg_1() {
         let kzg = KZG::new(create_srs());
         let p = Polynomial::<FrElement>::new(&[FieldElement::one(), FieldElement::one()]);
-        let p_commitment = kzg.commit(&p);
+        let p_commitment: <BLS12381AtePairing as IsPairing>::G1Point = kzg.commit(&p);
         let x = -FieldElement::one();
-        let opening = kzg.open(&x, &p);
-        assert_eq!(opening.value, FieldElement::zero());
-        assert_eq!(opening.proof, BLS12381Curve::generator());
-        assert!(kzg.verify(&opening, &x, &p_commitment));
+        let y = p.evaluate(&x);
+        let proof = kzg.open(&x, &y, &p);
+        assert_eq!(y, FieldElement::zero());
+        assert_eq!(proof, BLS12381Curve::generator());
+        assert!(kzg.verify(&x, &y, &p_commitment, &proof));
     }
 }

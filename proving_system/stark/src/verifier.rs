@@ -38,7 +38,7 @@ where
     )
     .unwrap();
 
-    let boundary_constraints = air.compute_boundary_constraints();
+    let boundary_constraints = air.boundary_constraints();
 
     let n_trace_cols = air.context().trace_columns;
 

@@ -1,4 +1,5 @@
 pub mod air;
+pub mod cairo_vm;
 pub mod fri;
 pub mod prover;
 pub mod verifier;
@@ -105,7 +106,7 @@ mod tests {
             num_transition_constraints: 1,
         };
 
-        let fibonacci_air = FibonacciAIR::new(trace_table.clone(), context);
+        let fibonacci_air = FibonacciAIR::new(context);
 
         let result = prove(&trace_table, &fibonacci_air);
         assert!(verify(&result, &fibonacci_air));
@@ -131,7 +132,7 @@ mod tests {
             num_transition_constraints: 1,
         };
 
-        let fibonacci_air = Fibonacci17AIR::new(trace_table.clone(), context);
+        let fibonacci_air = Fibonacci17AIR::new(context);
 
         let result = prove(&trace_table, &fibonacci_air);
         assert!(verify(&result, &fibonacci_air));
@@ -157,7 +158,7 @@ mod tests {
             trace_columns: 2,
         };
 
-        let fibonacci_air = Fibonacci2ColsAIR::new(trace_table.clone(), context);
+        let fibonacci_air = Fibonacci2ColsAIR::new(context);
 
         let result = prove(&trace_table, &fibonacci_air);
         assert!(verify(&result, &fibonacci_air));
@@ -213,14 +214,13 @@ mod test_utils {
     #[derive(Clone)]
     pub struct FibonacciAIR {
         context: AirContext,
-        pub trace: TraceTable<PrimeField>,
     }
 
     impl AIR for FibonacciAIR {
         type Field = PrimeField;
 
-        fn new(trace: TraceTable<Self::Field>, context: air::context::AirContext) -> Self {
-            Self { context, trace }
+        fn new(context: air::context::AirContext) -> Self {
+            Self { context }
         }
 
         fn compute_transition(
@@ -234,7 +234,7 @@ mod test_utils {
             vec![third_row[0].clone() - second_row[0].clone() - first_row[0].clone()]
         }
 
-        fn compute_boundary_constraints(&self) -> BoundaryConstraints<Self::Field> {
+        fn boundary_constraints(&self) -> BoundaryConstraints<Self::Field> {
             let a0 = BoundaryConstraint::new_simple(0, FieldElement::<Self::Field>::one());
             let a1 = BoundaryConstraint::new_simple(1, FieldElement::<Self::Field>::one());
 
@@ -249,14 +249,13 @@ mod test_utils {
     #[derive(Clone)]
     pub struct Fibonacci17AIR {
         context: AirContext,
-        pub trace: TraceTable<F17>,
     }
 
     impl AIR for Fibonacci17AIR {
         type Field = F17;
 
-        fn new(trace: TraceTable<Self::Field>, context: air::context::AirContext) -> Self {
-            Self { context, trace }
+        fn new(context: air::context::AirContext) -> Self {
+            Self { context }
         }
 
         fn compute_transition(
@@ -270,7 +269,7 @@ mod test_utils {
             vec![third_row[0] - second_row[0] - first_row[0]]
         }
 
-        fn compute_boundary_constraints(&self) -> BoundaryConstraints<Self::Field> {
+        fn boundary_constraints(&self) -> BoundaryConstraints<Self::Field> {
             let a0 = BoundaryConstraint::new_simple(0, FieldElement::<Self::Field>::one());
             let a1 = BoundaryConstraint::new_simple(1, FieldElement::<Self::Field>::one());
             let result = BoundaryConstraint::new_simple(3, FieldElement::<Self::Field>::from(3));
@@ -286,14 +285,13 @@ mod test_utils {
     #[derive(Clone, Debug)]
     pub struct Fibonacci2ColsAIR {
         context: AirContext,
-        pub trace: TraceTable<PrimeField>,
     }
 
     impl AIR for Fibonacci2ColsAIR {
         type Field = PrimeField;
 
-        fn new(trace: TraceTable<Self::Field>, context: air::context::AirContext) -> Self {
-            Self { context, trace }
+        fn new(context: air::context::AirContext) -> Self {
+            Self { context }
         }
 
         fn compute_transition(
@@ -306,14 +304,13 @@ mod test_utils {
             // constraints of Fibonacci sequence (2 terms per step):
             // s_{0, i+1} = s_{0, i} + s_{1, i}
             // s_{1, i+1} = s_{1, i} + s_{0, i+1}
-
             let first_transition = &second_row[0] - &first_row[0] - &first_row[1];
             let second_transition = &second_row[1] - &first_row[1] - &second_row[0];
 
             vec![first_transition, second_transition]
         }
 
-        fn compute_boundary_constraints(&self) -> BoundaryConstraints<Self::Field> {
+        fn boundary_constraints(&self) -> BoundaryConstraints<Self::Field> {
             let a0 = BoundaryConstraint::new(0, 0, FieldElement::<Self::Field>::one());
             let a1 = BoundaryConstraint::new(1, 0, FieldElement::<Self::Field>::one());
 

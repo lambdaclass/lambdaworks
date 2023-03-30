@@ -2,7 +2,6 @@ use self::{
     constraints::boundary::BoundaryConstraints,
     context::{AirContext, ProofOptions},
     frame::Frame,
-    trace::TraceTable,
 };
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsTwoAdicField},
@@ -17,9 +16,9 @@ pub mod trace;
 pub trait AIR: Clone {
     type Field: IsTwoAdicField;
 
-    fn new(trace: TraceTable<Self::Field>, context: AirContext) -> Self;
+    fn new(context: AirContext) -> Self;
     fn compute_transition(&self, frame: &Frame<Self::Field>) -> Vec<FieldElement<Self::Field>>;
-    fn compute_boundary_constraints(&self) -> BoundaryConstraints<Self::Field>;
+    fn boundary_constraints(&self) -> BoundaryConstraints<Self::Field>;
     fn transition_divisors(&self) -> Vec<Polynomial<FieldElement<Self::Field>>> {
         let trace_length = self.context().trace_length;
         let roots_of_unity_order = trace_length.trailing_zeros();

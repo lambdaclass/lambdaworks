@@ -93,17 +93,19 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
         &self.coefficients
     }
 
+    pub fn pad_with_zero_coefficients_to_length(pa: &mut Self, n: usize) {
+        pa.coefficients.resize(n, FieldElement::zero());
+    }
+
     /// Pads polynomial representations with minimum number of zeros to match lengths.
     pub fn pad_with_zero_coefficients(pa: &Self, pb: &Self) -> (Self, Self) {
         let mut pa = pa.clone();
         let mut pb = pb.clone();
 
         if pa.coefficients.len() > pb.coefficients.len() {
-            pb.coefficients
-                .resize(pa.coefficients.len(), FieldElement::zero());
+            Self::pad_with_zero_coefficients_to_length(&mut pb, pa.coefficients.len());
         } else {
-            pa.coefficients
-                .resize(pb.coefficients.len(), FieldElement::zero());
+            Self::pad_with_zero_coefficients_to_length(&mut pa, pb.coefficients.len());
         }
         (pa, pb)
     }
@@ -296,18 +298,6 @@ impl<F: IsField> ops::Add<Polynomial<FieldElement<F>>> for &Polynomial<FieldElem
         self + &a_polynomial
     }
 }
-impl<F: IsField> ops::Neg for Polynomial<FieldElement<F>> {
-    type Output = Polynomial<FieldElement<F>>;
-
-    fn neg(self) -> Polynomial<FieldElement<F>> {
-        let neg = self
-            .coefficients
-            .iter()
-            .map(|x| -x)
-            .collect::<Vec<FieldElement<F>>>();
-        Polynomial::new(&neg)
-    }
-}
 
 impl<F: IsField> ops::Neg for &Polynomial<FieldElement<F>> {
     type Output = Polynomial<FieldElement<F>>;
@@ -322,11 +312,35 @@ impl<F: IsField> ops::Neg for &Polynomial<FieldElement<F>> {
     }
 }
 
+impl<F: IsField> ops::Neg for Polynomial<FieldElement<F>> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn neg(self) -> Polynomial<FieldElement<F>> {
+        -&self
+    }
+}
+
 impl<F: IsField> ops::Sub<Polynomial<FieldElement<F>>> for Polynomial<FieldElement<F>> {
     type Output = Polynomial<FieldElement<F>>;
 
     fn sub(self, substrahend: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
-        self + (-substrahend)
+        &self - &substrahend
+    }
+}
+
+impl<F: IsField> ops::Sub<&Polynomial<FieldElement<F>>> for Polynomial<FieldElement<F>> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn sub(self, substrahend: &Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+        &self - substrahend
+    }
+}
+
+impl<F: IsField> ops::Sub<Polynomial<FieldElement<F>>> for &Polynomial<FieldElement<F>> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn sub(self, substrahend: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+        self - &substrahend
     }
 }
 
@@ -346,13 +360,36 @@ impl<F: IsField> ops::Div<Polynomial<FieldElement<F>>> for Polynomial<FieldEleme
     }
 }
 
-impl<F: IsField> ops::Mul<Polynomial<FieldElement<F>>> for Polynomial<FieldElement<F>> {
+impl<F: IsField> ops::Mul<&Polynomial<FieldElement<F>>> for &Polynomial<FieldElement<F>> {
     type Output = Polynomial<FieldElement<F>>;
-    fn mul(self, dividend: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
-        self.mul_with_ref(&dividend)
+    fn mul(self, factor: &Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+        self.mul_with_ref(factor)
     }
 }
 
+impl<F: IsField> ops::Mul<Polynomial<FieldElement<F>>> for Polynomial<FieldElement<F>> {
+    type Output = Polynomial<FieldElement<F>>;
+    fn mul(self, factor: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+        &self * &factor
+    }
+}
+
+impl<F: IsField> ops::Mul<Polynomial<FieldElement<F>>> for &Polynomial<FieldElement<F>> {
+    type Output = Polynomial<FieldElement<F>>;
+    fn mul(self, factor: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+        self * &factor
+    }
+}
+
+impl<F: IsField> ops::Mul<&Polynomial<FieldElement<F>>> for Polynomial<FieldElement<F>> {
+    type Output = Polynomial<FieldElement<F>>;
+    fn mul(self, factor: &Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+        &self * factor
+    }
+}
+
+/* Operations between Polynomials and field elements */
+/* Multiplication field element at left */
 impl<F: IsField> ops::Mul<FieldElement<F>> for Polynomial<FieldElement<F>> {
     type Output = Polynomial<FieldElement<F>>;
 
@@ -365,6 +402,195 @@ impl<F: IsField> ops::Mul<FieldElement<F>> for Polynomial<FieldElement<F>> {
         Polynomial {
             coefficients: new_coefficients,
         }
+    }
+}
+
+impl<F: IsField> ops::Mul<&FieldElement<F>> for &Polynomial<FieldElement<F>> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn mul(self, multiplicand: &FieldElement<F>) -> Polynomial<FieldElement<F>> {
+        self.clone() * multiplicand.clone()
+    }
+}
+
+impl<F: IsField> ops::Mul<FieldElement<F>> for &Polynomial<FieldElement<F>> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn mul(self, multiplicand: FieldElement<F>) -> Polynomial<FieldElement<F>> {
+        self * &multiplicand
+    }
+}
+
+impl<F: IsField> ops::Mul<&FieldElement<F>> for Polynomial<FieldElement<F>> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn mul(self, multiplicand: &FieldElement<F>) -> Polynomial<FieldElement<F>> {
+        &self * multiplicand
+    }
+}
+
+/* Multiplication field element at right */
+impl<F: IsField> ops::Mul<&Polynomial<FieldElement<F>>> for &FieldElement<F> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn mul(self, multiplicand: &Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+        multiplicand * self
+    }
+}
+
+impl<F: IsField> ops::Mul<Polynomial<FieldElement<F>>> for &FieldElement<F> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn mul(self, multiplicand: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+        &multiplicand * self
+    }
+}
+
+impl<F: IsField> ops::Mul<&Polynomial<FieldElement<F>>> for FieldElement<F> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn mul(self, multiplicand: &Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+        multiplicand * self
+    }
+}
+
+impl<F: IsField> ops::Mul<Polynomial<FieldElement<F>>> for FieldElement<F> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn mul(self, multiplicand: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+        &multiplicand * &self
+    }
+}
+
+/* Addition field element at left */
+impl<F: IsField> ops::Add<&FieldElement<F>> for &Polynomial<FieldElement<F>> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn add(self, other: &FieldElement<F>) -> Polynomial<FieldElement<F>> {
+        Polynomial::new_monomial(other.clone(), 0) + self
+    }
+}
+
+impl<F: IsField> ops::Add<FieldElement<F>> for Polynomial<FieldElement<F>> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn add(self, other: FieldElement<F>) -> Polynomial<FieldElement<F>> {
+        &self + &other
+    }
+}
+
+impl<F: IsField> ops::Add<FieldElement<F>> for &Polynomial<FieldElement<F>> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn add(self, other: FieldElement<F>) -> Polynomial<FieldElement<F>> {
+        self + &other
+    }
+}
+
+impl<F: IsField> ops::Add<&FieldElement<F>> for Polynomial<FieldElement<F>> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn add(self, other: &FieldElement<F>) -> Polynomial<FieldElement<F>> {
+        &self + other
+    }
+}
+
+/* Addition field element at right */
+impl<F: IsField> ops::Add<&Polynomial<FieldElement<F>>> for &FieldElement<F> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn add(self, other: &Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+        Polynomial::new_monomial(self.clone(), 0) + other
+    }
+}
+
+impl<F: IsField> ops::Add<Polynomial<FieldElement<F>>> for FieldElement<F> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn add(self, other: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+        &self + &other
+    }
+}
+
+impl<F: IsField> ops::Add<Polynomial<FieldElement<F>>> for &FieldElement<F> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn add(self, other: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+        self + &other
+    }
+}
+
+impl<F: IsField> ops::Add<&Polynomial<FieldElement<F>>> for FieldElement<F> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn add(self, other: &Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+        &self + other
+    }
+}
+
+/* Substraction field element at left */
+impl<F: IsField> ops::Sub<&FieldElement<F>> for &Polynomial<FieldElement<F>> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn sub(self, other: &FieldElement<F>) -> Polynomial<FieldElement<F>> {
+        self - Polynomial::new_monomial(other.clone(), 0)
+    }
+}
+
+impl<F: IsField> ops::Sub<FieldElement<F>> for Polynomial<FieldElement<F>> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn sub(self, other: FieldElement<F>) -> Polynomial<FieldElement<F>> {
+        &self - &other
+    }
+}
+
+impl<F: IsField> ops::Sub<FieldElement<F>> for &Polynomial<FieldElement<F>> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn sub(self, other: FieldElement<F>) -> Polynomial<FieldElement<F>> {
+        self - &other
+    }
+}
+
+impl<F: IsField> ops::Sub<&FieldElement<F>> for Polynomial<FieldElement<F>> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn sub(self, other: &FieldElement<F>) -> Polynomial<FieldElement<F>> {
+        &self - other
+    }
+}
+
+/* Substraction field element at right */
+impl<F: IsField> ops::Sub<&Polynomial<FieldElement<F>>> for &FieldElement<F> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn sub(self, other: &Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+        Polynomial::new_monomial(self.clone(), 0) - other
+    }
+}
+
+impl<F: IsField> ops::Sub<Polynomial<FieldElement<F>>> for FieldElement<F> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn sub(self, other: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+        &self - &other
+    }
+}
+
+impl<F: IsField> ops::Sub<Polynomial<FieldElement<F>>> for &FieldElement<F> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn sub(self, other: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+        self - &other
+    }
+}
+
+impl<F: IsField> ops::Sub<&Polynomial<FieldElement<F>>> for FieldElement<F> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn sub(self, other: &Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+        &self - other
     }
 }
 
@@ -652,8 +878,7 @@ mod fft_test {
     use super::*;
 
     // FFT related tests
-    const MODULUS: u64 = 0xFFFFFFFF00000001;
-    type F = U64TestField<MODULUS>;
+    type F = U64TestField;
     type FE = FieldElement<F>;
 
     prop_compose! {
@@ -667,7 +892,7 @@ mod fft_test {
         }
     }
     prop_compose! {
-        fn offset()(num in 1..MODULUS - 1) -> FE { FE::from(num) }
+        fn offset()(num in 1..F::neg(&1) - 1) -> FE { FE::from(num) }
     }
     prop_compose! {
         fn field_vec(max_exp: u8)(elem in field_element(), size in powers_of_two(max_exp)) -> Vec<FE> {

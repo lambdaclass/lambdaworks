@@ -1,12 +1,14 @@
 [workspace]
 default-members = [
-    "math", 
+    "math",
     "crypto",
-    "proving_system/stark"
+    "proving_system/stark",
+    "proving_system/plonk"
 ]
 members = [
     "math",
     "crypto",
     "proving_system/stark",
+    "proving_system/plonk",
     "gpu",
 ]
