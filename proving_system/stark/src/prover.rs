@@ -18,7 +18,6 @@ where
     FieldElement<F>: ByteConversion,
 {
     let transcript = &mut Transcript::new();
-    let mut query_list = Vec::<StarkQueryProof<F>>::new();
 
     let root_order = air.context().trace_length.trailing_zeros();
     // * Generate Coset
@@ -137,28 +136,24 @@ where
         transcript,
     );
 
-    let fri_layers_merkle_roots: Vec<FieldElement<F>> = lde_fri_commitment
+    let fri_layers_merkle_roots: Vec<_> = lde_fri_commitment
         .iter()
         .map(|fri_commitment| fri_commitment.merkle_tree.root.clone())
         .collect();
 
-    for _i in 0..air.context().options.fri_number_of_queries {
-        // * Sample q_1, ..., q_m using Fiat-Shamir
-        let q_i = transcript_to_usize(transcript) % 2_usize.pow(lde_root_order);
-        transcript.append(&q_i.to_be_bytes());
+    let query_list = (0..air.context().options.fri_number_of_queries)
+        .map(|_| {
+            // * Sample q_1, ..., q_m using Fiat-Shamir
+            let q_i = transcript_to_usize(transcript) % 2_usize.pow(lde_root_order);
+            transcript.append(&q_i.to_be_bytes());
 
-        // * For every q_i, do FRI decommitment
-        let fri_decommitment = fri_decommit_layers(&lde_fri_commitment, q_i);
-
-        query_list.push(StarkQueryProof {
-            fri_layers_merkle_roots: fri_layers_merkle_roots.clone(),
-            fri_decommitment,
-        });
-    }
-
-    let fri_layers_merkle_roots: Vec<FieldElement<F>> = lde_fri_commitment
-        .iter()
-        .map(|fri_commitment| fri_commitment.merkle_tree.root.clone())
+            // * For every q_i, do FRI decommitment
+            let fri_decommitment = fri_decommit_layers(&lde_fri_commitment, q_i);
+            StarkQueryProof {
+                fri_layers_merkle_roots: fri_layers_merkle_roots.clone(),
+                fri_decommitment,
+            }
+        })
         .collect();
 
     StarkProof {
