@@ -16,7 +16,6 @@ pub struct BoundaryConstraint<F: IsField> {
 }
 
 impl<F: IsField> BoundaryConstraint<F> {
-    #[allow(dead_code)]
     pub fn new(col: usize, step: usize, value: FieldElement<F>) -> Self {
         Self { col, step, value }
     }
