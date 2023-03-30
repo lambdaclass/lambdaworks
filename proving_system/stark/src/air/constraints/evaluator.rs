@@ -71,7 +71,6 @@ impl<'poly, F: IsTwoAdicField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'pol
             .unwrap();
 
         let transition_degrees = self.air.context().transition_degrees();
-        // let transition_max_degree = transition_degrees.iter().max().unwrap();
         let transition_zerofiers = self.air.transition_divisors();
         let transition_polys_max_degree = self
             .trace_polys
