@@ -168,3 +168,48 @@ for (i, d) in lde_domain.iter().enumerate() {
 ```
 
 Each iteration builds a frame as above and computes one of the evaluations needed. The rest of the code just adds the zerofier evaluations, along with the alphas and betas. It then also computes boundary polynomial evaluations by explicitly constructing them.
+
+### Verifier
+
+The verifier employs the same trick to reconstruct the evaluations on the out of domain point $C_i(z)$ for the consistency check.
+
+# Even/odd decomposition for `H`
+
+At the end of the recap we talked about how in our code we don't actually commit to `H`, but rather an even/odd decomposition for it. These are two polynomials `H_1` and `H_2` that satisfy
+
+$$
+H(x) = H_1(x^2) + x H_2(x^2)
+$$
+
+This all happens on this piece of code
+
+```rust
+let composition_poly =
+    constraint_evaluations.compute_composition_poly(&lde_roots_of_unity_coset);
+
+let (composition_poly_even, composition_poly_odd) = composition_poly.even_odd_decomposition();
+
+// Evaluate H_1 and H_2 in z^2.
+let composition_poly_evaluations = vec![
+    composition_poly_even.evaluate(&z_squared),
+    composition_poly_odd.evaluate(&z_squared),
+];
+```
+
+After this, we don't really use `H` anymore, but rather `H_1` and `H_2`. There's not that much to say other than that.
+
+# Out of Domain Frame
+
+As part of the consistency check, the prover needs to provide evaluations of the trace polynomials in all the points needed by the verifier to check that `H` was constructed correctly. In the fibonacci example, these are $t(z)$, $t(zg)$, and $t(zg^2)$. In code, the prover passes these evaluations as a `Frame`, which we call the out of domain (`ood`) frame. 
+
+The reason we do this is simple: with the frame in hand, the verifier can reconstruct the evaluations of the constraint polynomials $C_i(z)$ by calling the `compute_transition` method on the ood frame and then adding the alphas, betas, and so on, just like we explained in the section above.
+
+# Transcript
+
+Throughout the protocol, there are a number of times where the verifier randomly samples some values that the prover needs to use (think of the alphas and betas used when constructing `H`). Because we don't actually have an interaction between prover and verifier, we emulate it by using a hash function, which we assume is a source of randomness the prover can't control.
+
+The job of providing these samples for both prover and verifier is done by the `Transcript` struct, which you can think of as a stateful `rng`; whenever you call `challenge()` on a transcript you get a random value and the internal state gets mutated, so the next time you call `challenge()` you get a different one. You can also call `append` on it to mutate its internal state yourself. This is done a number of times throughout the protocol to keep the prover honest so it can't predict or manipulate the outcome of `challenge()`.
+
+Notice that to sample the same values, both prover and verifier need to call `challenge` and `append` in the same order (and with the same values in the case of `append`) and the same number of times.
+
+The idea explained above is called the Fiat-Shamir heuristic or just `Fiat-Shamir`, and is more generally used throughout proving systems to remove interaction between prover and verifier. Though the concept is very simple, getting it right so the prover can't cheat is not, but we won't go into that here.

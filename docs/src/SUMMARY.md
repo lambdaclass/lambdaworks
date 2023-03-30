@@ -7,5 +7,5 @@
         - [Recap](./proving_systems/starks/recap.md)
         - [Implementation](./proving_systems/starks/implementation.md)
             - [High Leval API](./proving_systems/starks/api.md)
-            - [How this works under the hood](./proving_systems/starks/under_the_hood.md)
+            - [Under the hood](./proving_systems/starks/under_the_hood.md)
         - [FAQ](./proving_systems/starks/faq.md)
