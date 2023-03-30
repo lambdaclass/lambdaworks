@@ -44,15 +44,14 @@ impl<F: IsTwoAdicField> TraceTable<F> {
     }
 
     pub fn cols(&self) -> Vec<Vec<FieldElement<F>>> {
-        let mut ret = Vec::with_capacity(self.n_cols);
         let n_rows = self.n_rows();
-        for col_idx in 0..self.n_cols {
-            let col: Vec<FieldElement<F>> = (0..n_rows)
-                .map(|row_idx| self.table[row_idx * self.n_cols + col_idx].clone())
-                .collect();
-            ret.push(col);
-        }
-        ret
+        (0..self.n_cols)
+            .map(|col_idx| {
+                (0..n_rows)
+                    .map(|row_idx| self.table[row_idx * self.n_cols + col_idx].clone())
+                    .collect()
+            })
+            .collect()
     }
 
     pub fn compute_trace_polys(&self) -> Vec<Polynomial<FieldElement<F>>> {
