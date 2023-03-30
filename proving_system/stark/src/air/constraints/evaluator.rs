@@ -32,7 +32,6 @@ impl<'poly, F: IsTwoAdicField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'pol
         }
     }
 
-    // TODO: This does not work for multiple columns
     pub fn evaluate(
         &self,
         lde_trace: &TraceTable<F>,
@@ -79,10 +78,7 @@ impl<'poly, F: IsTwoAdicField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'pol
             .iter()
             .zip(&transition_zerofiers)
             .zip(&transition_degrees)
-            .map(|((poly, zerofier), degree)| {
-                println!("ZEROFIER DEGREE: {:?}", zerofier.degree());
-                poly.degree() * degree - zerofier.degree()
-            })
+            .map(|((poly, zerofier), degree)| poly.degree() * degree - zerofier.degree())
             .max()
             .unwrap();
 
@@ -102,7 +98,6 @@ impl<'poly, F: IsTwoAdicField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'pol
             );
 
             let mut evaluations = self.air.compute_transition(&frame);
-            println!("EVALUATIONS PRE: {:?}", evaluations);
 
             evaluations = Self::compute_constraint_composition_poly_evaluations(
                 &self.air,
@@ -111,7 +106,6 @@ impl<'poly, F: IsTwoAdicField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'pol
                 max_degree_power_of_two,
                 d,
             );
-            println!("EVALUATIONS POST: {:?}", evaluations);
 
             let mut aux_boundary_evaluations = Vec::new();
             for (index, (boundary_poly, boundary_zerofier)) in
@@ -167,8 +161,6 @@ impl<'poly, F: IsTwoAdicField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'pol
         let transition_degrees = air.context().transition_degrees();
         let divisors = air.transition_divisors();
 
-        println!("MAX DEGREE: {}", max_degree);
-
         let mut ret = Vec::new();
         for (((eval, transition_degree), div), (alpha, beta)) in evaluations
             .iter()
@@ -176,15 +168,8 @@ impl<'poly, F: IsTwoAdicField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'pol
             .zip(divisors)
             .zip(constraint_coeffs)
         {
-            // println!("ALPHA AND BETA: {:?}", (alpha, beta));
-            println!("X: {:?}", x);
             let zerofied_eval = eval / div.evaluate(x);
-            // println!("ZEROFIED EVAL: {:?}", zerofied_eval);
-            println!("ZEROFIER: {:?}", div);
-
             let zerofied_degree = trace_degree * transition_degree - div.degree();
-            // println!("ZEROFIER DEGERE: {:?}", div.degree());
-            println!("ZEROFIED DEGREE: {}", zerofied_degree);
             let result =
                 zerofied_eval * (alpha * x.pow(max_degree - (zerofied_degree as u64)) + beta);
             ret.push(result);

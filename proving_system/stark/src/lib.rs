@@ -115,7 +115,6 @@ mod tests {
     #[test]
     fn test_prove_fib17() {
         let trace = fibonacci_trace([FE17::from(1), FE17::from(1)], 4);
-        let trace_length = trace[0].len();
         let trace_table = TraceTable::new_from_cols(&trace);
 
         let context = AirContext {
@@ -264,10 +263,7 @@ mod test_utils {
                 let mut exemptions_polynomial =
                     Polynomial::new_monomial(FieldElement::<Self::Field>::one(), 0);
 
-                println!("ROOTS OF UNITY: {:?}", roots_of_unity);
-
                 for i in 0..self.context().transition_exemptions[transition_idx] {
-                    // println!("EXX: {:?}", roots_of_unity[root_of_unity_last_idx - i - 1]);
                     exemptions_polynomial = exemptions_polynomial
                         * (Polynomial::new_monomial(FieldElement::<Self::Field>::one(), 1)
                             - Polynomial::new_monomial(
@@ -420,10 +416,7 @@ mod test_utils {
                 let mut exemptions_polynomial =
                     Polynomial::new_monomial(FieldElement::<Self::Field>::one(), 0);
 
-                println!("ROOTS OF UNITY: {:?}", roots_of_unity);
-
                 for i in 0..self.context().transition_exemptions[transition_idx] {
-                    // println!("EXX: {:?}", roots_of_unity[root_of_unity_last_idx - i - 1]);
                     exemptions_polynomial = exemptions_polynomial
                         * (Polynomial::new_monomial(FieldElement::<Self::Field>::one(), 1)
                             - Polynomial::new_monomial(
