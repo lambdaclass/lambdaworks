@@ -71,13 +71,37 @@ $$ 9 * 1 + 0 * 0 +  9 * 0 * 0 + 8 * (-1) + (-1) $$
 
 and indeed all three give $0$ as a result.
 
-PLONK has the flexibility to construct more sophisticated gates as combinations of the five columns. And therefore the same program can be expressed in multiple ways. In our case all three gates can actually be merged into a single custom gate. The first matrix is ends up being
+So generally an addition gate is represented by the row:
+
+| $Q_L$ | $Q_R$ | $Q_M$ | $Q_O$ | $Q_C$ |
+| ----- | ----- | ----- | ----- | ----- |
+|     1 |     1 |     0 |    -1 |     0 |
+
+A multiplication gate is represented by the row:
+
+| $Q_L$ | $Q_R$ | $Q_M$ | $Q_O$ | $Q_C$ |
+| ----- | ----- | ----- | ----- | ----- |
+|     0 |     0 |     1 |    -1 |     0 |
+
+Addition by constant C can be represented by the row:
+
+| $Q_L$ | $Q_R$ | $Q_M$ | $Q_O$ | $Q_C$ |
+| ----- | ----- | ----- | ----- | ----- |
+|     1 |     0 |     0 |    -1 |     C |
+
+Multiplication by constant C can be represented by:
+
+| $Q_L$ | $Q_R$ | $Q_M$ | $Q_O$ | $Q_C$ |
+| ----- | ----- | ----- | ----- | ----- |
+|     C |     0 |     0 |    -1 |     0 |
+
+And so on. As you might have already noticed, there are several ways of representing the same gate in some cases. Additionally, PLONK has the flexibility to construct more sophisticated gates as combinations of the five columns. And therefore the same program can be expressed in multiple ways. In our case all three gates can actually be merged into a single custom gate. The first matrix is ends up being a single row.
 
 | $Q_L$ | $Q_R$ | $Q_M$ | $Q_O$ | $Q_C$ |
 | ----- | ----- | ----- | ----- | ----- |
 |     1 |     1 |     1 |    -1 |     1 |
 
-and the second one
+and the trace matrix for this representation is
 
 |   L |   R |   O |
 | --- | --- | --- |
@@ -85,9 +109,11 @@ and the second one
 
 And we check that it satisfies the equation
 
-$$ 2 * 1 + 3 * 1 +  2 * 3 * 1 + 8 * (-1) + (-1) = 0$$
+$$ 2 * 1 + 3 * 1 + 2 * 3 * 1 + 8 * (-1) + (-1) = 0$$
 
-Of course, we can't always squash our entire program into a single gate.
+Of course, we can't always squash an entire program into a single gate.
+
+In general 
 
 ## Polynomial Commitment scheme
 
