@@ -55,6 +55,27 @@ pub fn fft<F: IsTwoAdicField>(
     Ok(result.iter().map(FieldElement::from_raw).collect())
 }
 
+/// Executes parallel ordered FFT in a bigger domain over a slice of two-adic field elements, in Metal.
+///
+/// "Ordered" means that the input is required to be in natural order, and the output will be
+/// in this order too. Natural order means that input[i] corresponds to the i-th coefficient,
+/// as opposed to bit-reverse order in which input[bit_rev(i)] corresponds to the i-th
+/// coefficient.
+pub fn fft_with_blowup<F: IsTwoAdicField>(
+    input: &[FieldElement<F>],
+    blowup_factor: usize,
+    state: &MetalState,
+) -> Result<Vec<FieldElement<F>>, FFTMetalError> {
+    let domain_size = input.len() * blowup_factor;
+    let order = log2(domain_size)?;
+
+    let twiddles = F::get_twiddles(order, RootsConfig::BitReverse)?;
+    let mut resized = input.to_vec();
+    resized.resize(domain_size, FieldElement::zero());
+
+    fft(&resized, &twiddles, state)
+}
+
 /// Generates 2^{`order`} naturally-ordered twiddle factors in parallel, in Metal.
 pub fn gen_twiddles<F: IsTwoAdicField>(
     order: u64,
@@ -118,9 +139,10 @@ pub fn bitrev_permutation<T: Clone>(input: &[T], state: &MetalState) -> Result<V
 mod tests {
     use crate::metal::abstractions::state::*;
     use lambdaworks_math::{
-        fft::bit_reversing::in_place_bit_reverse_permute,
+        fft::{abstractions, bit_reversing::in_place_bit_reverse_permute},
         field::{
-            fields::fft_friendly::stark_252_prime_field::Stark252PrimeField, traits::RootsConfig,
+            fields::fft_friendly::stark_252_prime_field::Stark252PrimeField, traits::IsField,
+            traits::RootsConfig,
         },
         polynomial::Polynomial,
     };
@@ -147,6 +169,9 @@ mod tests {
         }
     }
     prop_compose! {
+        fn offset()(num in any::<u64>(), factor in any::<u64>()) -> FE { FE::from(num).pow(factor) }
+    }
+    prop_compose! {
         fn poly(max_exp: u8)(coeffs in field_vec(max_exp)) -> Polynomial<FE> {
             Polynomial::new(&coeffs)
         }
@@ -167,11 +192,35 @@ mod tests {
                 prop_assert_eq!(&result, &expected);
 
                 Ok(())
+
             }).unwrap();
         }
-    }
 
-    proptest! {
+        // Property-based test that ensures Metal parallel FFT gives same result as a sequential one.
+        #[test]
+        fn test_metal_fft_coset_matches_sequential(poly in poly(8), offset in offset(), blowup_factor in powers_of_two(4)) {
+            objc::rc::autoreleasepool(|| {
+                let metal_state = MetalState::new(None).unwrap();
+                let scaled = poly.scale(&offset);
+
+                let metal_result = super::fft_with_blowup(
+                    scaled.coefficients(),
+                    blowup_factor,
+                    &metal_state,
+                )
+                .unwrap();
+
+                let sequential_result = abstractions::fft_with_blowup(
+                    scaled.coefficients(),
+                    blowup_factor,
+                )
+                .unwrap();
+
+                prop_assert_eq!(&metal_result, &sequential_result);
+                Ok(())
+            }).unwrap();
+        }
+
         #[test]
         // Property-based test that ensures Metal parallel twiddle generation matches the sequential one..
         fn test_gpu_twiddles_match_cpu(order in 2..8) {
@@ -194,9 +243,7 @@ mod tests {
                 Ok(())
             }).unwrap();
         }
-    }
 
-    proptest! {
         // Property-based test that ensures Metal parallel bitrev permutation matches the sequential one..
         #[test]
         fn test_gpu_bitrev_matches_cpu(input in field_vec(4)) {
