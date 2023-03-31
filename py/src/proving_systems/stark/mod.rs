@@ -57,13 +57,13 @@ impl PyFieldElement {
     }
 
     pub fn pow(&self, pyexp: &PyInt) -> PyResult<Self> {
-        let exp : u64 = pyexp.extract()?;
+        let exp: u64 = pyexp.extract()?;
         Ok(Self(self.0.pow(exp)))
     }
 
     pub fn __pow__(&self, pyexp: &PyInt, modulo: Option<&PyInt>) -> PyResult<Py<PyAny>> {
         let py = pyexp.py();
-        let exp : u64 = pyexp.extract()?;
+        let exp: u64 = pyexp.extract()?;
         match modulo {
             None => Ok(Self(self.0.pow(exp)).into_py(py)),
             _ => Ok(py.NotImplemented()),
