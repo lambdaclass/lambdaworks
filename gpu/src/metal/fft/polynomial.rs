@@ -71,7 +71,7 @@ mod tests {
         field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
         polynomial::Polynomial,
     };
-    use proptest::prelude::*;
+    use proptest::{collection, prelude::*};
 
     use super::*;
 
@@ -89,8 +89,8 @@ mod tests {
         }
     }
     prop_compose! {
-        fn field_vec(max_exp: u8)(elem in field_element(), size in powers_of_two(max_exp)) -> Vec<FE> {
-            vec![elem; size]
+        fn field_vec(max_exp: u8)(vec in collection::vec(field_element(), 2..1<<max_exp).prop_filter("Avoid polynomials of size not power of two", |vec| vec.len().is_power_of_two())) -> Vec<FE> {
+            vec
         }
     }
     prop_compose! {

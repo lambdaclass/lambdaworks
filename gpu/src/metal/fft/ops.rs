@@ -40,14 +40,8 @@ pub fn fft<F: IsTwoAdicField>(
 
     let order = log2(input.len()).map_err(FFTMetalError::FFT)?;
     for stage in 0..order {
-        let group_count = stage + 1;
-        let group_size = input.len() as u64 / (1 << stage);
-
-        command_encoder.set_bytes(
-            2,
-            mem::size_of::<F::BaseType>() as u64,
-            void_ptr(&group_size),
-        );
+        let group_count = 1 << stage;
+        let group_size = input.len() as u64 / group_count;
 
         let threadgroup_size = MTLSize::new(group_size / 2, 1, 1);
         let threadgroup_count = MTLSize::new(group_count, 1, 1);
@@ -131,7 +125,7 @@ mod tests {
         },
         polynomial::Polynomial,
     };
-    use proptest::prelude::*;
+    use proptest::{collection, prelude::*};
 
     use super::*;
 
@@ -149,8 +143,8 @@ mod tests {
         }
     }
     prop_compose! {
-        fn field_vec(max_exp: u8)(elem in field_element(), size in powers_of_two(max_exp)) -> Vec<FE> {
-            vec![elem; size]
+        fn field_vec(max_exp: u8)(vec in collection::vec(field_element(), 2..1<<max_exp).prop_filter("Avoid polynomials of size not power of two", |vec| vec.len().is_power_of_two())) -> Vec<FE> {
+            vec
         }
     }
     prop_compose! {
