@@ -36,16 +36,17 @@ pub trait FromAffine<F: IsField>: Sized {
 }
 
 pub trait IsPairing {
-    type G1: IsGroup;
-    type G2: IsGroup;
+    type G1Point: IsGroup;
+    type G2Point: IsGroup;
     type OutputField: IsField;
 
     /// Compute the product of the pairings for a list of point pairs.
-    fn compute_batch(pairs: &[(&Self::G1, &Self::G2)]) -> FieldElement<Self::OutputField>;
+    fn compute_batch(pairs: &[(&Self::G1Point, &Self::G2Point)])
+        -> FieldElement<Self::OutputField>;
 
     /// Compute the ate pairing between point `p` in G1 and `q` in G2.
     #[allow(unused)]
-    fn compute(p: &Self::G1, q: &Self::G2) -> FieldElement<Self::OutputField> {
+    fn compute(p: &Self::G1Point, q: &Self::G2Point) -> FieldElement<Self::OutputField> {
         Self::compute_batch(&[(p, q)])
     }
 }

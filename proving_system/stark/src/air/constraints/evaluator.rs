@@ -21,7 +21,7 @@ impl<F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
         trace_poly: &Polynomial<FieldElement<F>>,
         primitive_root: &FieldElement<F>,
     ) -> Self {
-        let boundary_constraints = air.compute_boundary_constraints();
+        let boundary_constraints = air.boundary_constraints();
 
         Self {
             air: air.clone(),
@@ -110,12 +110,13 @@ impl<F: IsField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
         evaluation_table
     }
 
-    /// Given `evaluations` C_i(x) of the trace polynomial composed with the constraint
+    /// Given `evaluations` T_i(x) of the trace polynomial composed with the constraint
     /// polynomial at a certain point `x`, computes the following evaluations and returns them:
     ///
-    /// C_i(x) (alpha_i * x^(D - D_i) + beta_i) / (Z_i(x))
+    /// T_i(x) (alpha_i * x^(D - D_i) + beta_i) / (Z_i(x))
     ///
-    /// where Z is the zerofier of the `i`-th transition constraint polynomial.
+    /// where Z is the zerofier of the `i`-th transition constraint polynomial. In the fibonacci
+    /// example, T_i(x) is t(x * g^2) - t(x * g) - t(x).
     ///
     /// This method is called in two different scenarios. The first is when the prover
     /// is building these evaluations to compute the composition and DEEP composition polynomials.
