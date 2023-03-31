@@ -143,7 +143,6 @@ mod tests {
         field::{
             fields::fft_friendly::stark_252_prime_field::Stark252PrimeField, traits::RootsConfig,
         },
-        polynomial::Polynomial,
     };
     use proptest::{collection, prelude::*};
 
@@ -167,62 +166,51 @@ mod tests {
             vec
         }
     }
-    prop_compose! {
-        fn offset()(num in any::<u64>(), factor in any::<u64>()) -> FE { FE::from(num).pow(factor) }
-    }
-    prop_compose! {
-        fn poly(max_exp: u8)(coeffs in field_vec(max_exp)) -> Polynomial<FE> {
-            Polynomial::new(&coeffs)
-        }
-    }
 
     proptest! {
         // Property-based test that ensures Metal parallel FFT gives same result as a sequential one.
         #[test]
-        fn test_metal_fft_matches_sequential(poly in poly(6)) {
+        fn test_metal_fft_matches_sequential(input in field_vec(6)) {
             objc::rc::autoreleasepool(|| {
-                let expected = poly.evaluate_fft().unwrap();
-                let order = poly.coefficients().len().trailing_zeros() as u64;
-
                 let metal_state = MetalState::new(None).unwrap();
+                let order = log2(input.len()).unwrap();
                 let twiddles = F::get_twiddles(order, RootsConfig::BitReverse).unwrap();
-                let result = fft(poly.coefficients(), &twiddles, &metal_state).unwrap();
 
-                prop_assert_eq!(&result, &expected);
-
-                Ok(())
-
-            }).unwrap();
-        }
-
-        // Property-based test that ensures Metal parallel FFT gives same result as a sequential one.
-        #[test]
-        fn test_metal_fft_coset_matches_sequential(poly in poly(6), offset in offset(), blowup_factor in powers_of_two(4)) {
-            objc::rc::autoreleasepool(|| {
-                let metal_state = MetalState::new(None).unwrap();
-                let scaled = poly.scale(&offset);
-
-                let metal_result = super::fft_with_blowup(
-                    scaled.coefficients(),
-                    blowup_factor,
-                    &metal_state,
-                )
-                .unwrap();
-
-                let sequential_result = abstractions::fft_with_blowup(
-                    scaled.coefficients(),
-                    blowup_factor,
-                )
-                .unwrap();
+                let metal_result = super::fft(&input, &twiddles, &metal_state).unwrap();
+                let sequential_result = abstractions::fft(&input).unwrap();
 
                 prop_assert_eq!(&metal_result, &sequential_result);
                 Ok(())
             }).unwrap();
         }
 
+        // Property-based test that ensures Metal parallel FFT with blowup gives same result as a sequential one.
+        #[test]
+        fn test_metal_fft_blowup_matches_sequential(input in field_vec(6), blowup_factor in powers_of_two(4)) {
+            objc::rc::autoreleasepool(|| {
+                let metal_state = MetalState::new(None).unwrap();
+
+                let metal_result = super::fft_with_blowup(
+                    &input,
+                    blowup_factor,
+                    &metal_state,
+                )
+                .unwrap();
+
+                let sequential_result = abstractions::fft_with_blowup(
+                    &input,
+                    blowup_factor,
+                )
+                .unwrap();
+
+                prop_assert_eq!(metal_result, sequential_result);
+                Ok(())
+            }).unwrap();
+        }
+
         #[test]
         // Property-based test that ensures Metal parallel twiddle generation matches the sequential one..
-        fn test_gpu_twiddles_match_cpu(order in 2..8) {
+        fn test_metal_twiddles_match_sequential(order in 2..8) {
             objc::rc::autoreleasepool(|| {
                 let configs = [
                     RootsConfig::Natural,
@@ -232,12 +220,12 @@ mod tests {
                 ];
 
                 for config in configs {
-                    let cpu_twiddles = F::get_twiddles(order as u64, config).unwrap();
-
                     let metal_state = MetalState::new(None).unwrap();
-                    let gpu_twiddles = gen_twiddles::<F>(order as u64, config, &metal_state).unwrap();
 
-                    prop_assert_eq!(cpu_twiddles, gpu_twiddles);
+                    let sequential_twiddles = F::get_twiddles(order as u64, config).unwrap();
+                    let metal_twiddles = gen_twiddles::<F>(order as u64, config, &metal_state).unwrap();
+
+                    prop_assert_eq!(metal_twiddles, sequential_twiddles);
                 }
                 Ok(())
             }).unwrap();
@@ -248,14 +236,15 @@ mod tests {
         fn test_gpu_bitrev_matches_cpu(input in field_vec(4)) {
             objc::rc::autoreleasepool(|| {
                 let metal_state = MetalState::new(None).unwrap();
-                let cpu_permuted = {
+
+                let sequential_permuted = {
                     let mut input = input.clone();
                     in_place_bit_reverse_permute(&mut input);
                     input
                 };
-                let gpu_permuted = bitrev_permutation(&input, &metal_state).unwrap();
+                let metal_permuted = bitrev_permutation(&input, &metal_state).unwrap();
 
-                prop_assert_eq!(cpu_permuted, gpu_permuted);
+                prop_assert_eq!(metal_permuted, sequential_permuted);
 
                 Ok(())
             }).unwrap();
