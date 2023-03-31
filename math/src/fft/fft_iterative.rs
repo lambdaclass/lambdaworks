@@ -93,11 +93,11 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::fft::bit_reversing::in_place_bit_reverse_permute;
     use crate::fft::helpers::log2;
     use crate::field::test_fields::u64_test_field::U64TestField;
     use crate::polynomial::Polynomial;
-    use proptest::prelude::*;
+    use crate::{fft::bit_reversing::in_place_bit_reverse_permute, field::traits::RootsConfig};
+    use proptest::{collection, prelude::*};
 
     use super::*;
 
@@ -110,49 +110,84 @@ mod tests {
         // also it can't exceed the test field's two-adicity.
     }
     prop_compose! {
-        fn field_element()(num in any::<u64>().prop_filter("Avoid null polynomial", |x| x != &0)) -> FE {
+        fn field_element()(num in any::<u64>().prop_filter("Avoid null coefficients", |x| x != &0)) -> FE {
             FE::from(num)
         }
     }
     prop_compose! {
-        fn field_vec(max_exp: u8)(elem in field_element(), size in powers_of_two(max_exp)) -> Vec<FE> {
-            vec![elem; size]
+        fn field_vec(max_exp: u8)(vec in collection::vec(field_element(), 2..1<<max_exp).prop_filter("Avoid polynomials of size not power of two", |vec| vec.len().is_power_of_two())) -> Vec<FE> {
+            vec
         }
     }
 
     proptest! {
-        // Property-based test that ensures NR Radix-2 FFT gives same result as a naive polynomial evaluation.
+        // Property-based test that ensures NR Radix-2 FFT gives the same result as a naive DFT.
         #[test]
         fn test_nr_2radix_fft_matches_naive_eval(coeffs in field_vec(8)) {
-            let root = F::get_primitive_root_of_unity(log2(coeffs.len()).unwrap()).unwrap();
-            let mut twiddles = (0..coeffs.len() as u64).map(|i| root.pow(i)).collect::<Vec<FE>>();
-            in_place_bit_reverse_permute(&mut twiddles[..]); // required for NR
+            let expected = dft(&coeffs);
 
-            let poly = Polynomial::new(&coeffs[..]);
-            let expected: Vec<FE> = twiddles.iter().map(|x| poly.evaluate(x)).collect();
+            let order = log2(coeffs.len()).unwrap();
+            let twiddles = F::get_twiddles(order, RootsConfig::BitReverse).unwrap();
 
-            let mut result = coeffs;
+            let mut result = coeffs.clone();
             in_place_nr_2radix_fft(&mut result, &twiddles[..]);
             in_place_bit_reverse_permute(&mut result);
 
-            prop_assert_eq!(result, expected);
+            prop_assert_eq!(expected, result);
         }
     }
+
     proptest! {
-        // Property-based test that ensures RN Radix-2 fft gives same result as a naive polynomial evaluation.
+        // Property-based test that ensures RN Radix-2 FFT gives the same result as a naive DFT.
         #[test]
         fn test_rn_2radix_fft_matches_naive_eval(coeffs in field_vec(8)) {
-            let root = F::get_primitive_root_of_unity(log2(coeffs.len()).unwrap()).unwrap();
-            let twiddles = (0..coeffs.len() as u64).map(|i| root.pow(i)).collect::<Vec<FE>>();
+            let expected = dft(&coeffs);
 
-            let poly = Polynomial::new(&coeffs[..]);
-            let expected: Vec<FE> = twiddles.iter().map(|x| poly.evaluate(x)).collect();
+            let order = log2(coeffs.len()).unwrap();
+            let twiddles = F::get_twiddles(order, RootsConfig::Natural).unwrap();
 
             let mut result = coeffs;
             in_place_bit_reverse_permute(&mut result[..]);
             in_place_rn_2radix_fft(&mut result, &twiddles[..]);
 
             prop_assert_eq!(result, expected);
+        }
+    }
+
+    /// Calculates the (non-unitary) Discrete Fourier Transform of `input` via the DFT matrix.
+    fn dft<F: IsTwoAdicField>(input: &[FieldElement<F>]) -> Vec<FieldElement<F>> {
+        let n = input.len();
+        let order = log2(n).unwrap();
+
+        let twiddles = F::get_powers_of_primitive_root(order, n, RootsConfig::Natural).unwrap();
+
+        let mut output = Vec::with_capacity(n);
+        for row in 0..n {
+            let mut sum = FieldElement::zero();
+
+            for col in 0..n {
+                let i = (row * col) % n; // w^i = w^(i mod n)
+                sum = sum + input[col].clone() * twiddles[i].clone();
+            }
+
+            output.push(sum);
+        }
+
+        output
+    }
+
+    proptest! {
+        // Property-based test that ensures dft() gives the same result as a naive polynomial evaluation.
+        #[test]
+        fn test_dft_same_as_eval(coeffs in field_vec(8)) {
+            let dft = dft(&coeffs);
+
+            let poly = Polynomial::new(&coeffs[..]);
+            let order = log2(coeffs.len()).unwrap();
+            let twiddles = F::get_powers_of_primitive_root(order, coeffs.len(), RootsConfig::Natural).unwrap();
+            let evals: Vec<FE> = twiddles.iter().map(|x| poly.evaluate(x)).collect();
+
+            prop_assert_eq!(evals, dft);
         }
     }
 }
