@@ -937,8 +937,7 @@ mod fft_test {
 
             prop_assert_eq!(fft_eval, naive_eval);
         }
-    }
-    proptest! {
+
         // Property-based test that ensures FFT eval. with coset gives same result as a naive polynomial evaluation.
         #[test]
         fn test_fft_coset_matches_naive_evaluation(poly in poly(8), offset in offset(), blowup_factor in powers_of_two(4)) {
@@ -950,8 +949,7 @@ mod fft_test {
 
             prop_assert_eq!(fft_eval, naive_eval);
         }
-    }
-    proptest! {
+
         // Property-based test that ensures FFT eval. using polynomials with a non-power-of-two amount of coefficients works.
         #[test]
         fn test_fft_non_power_of_two_poly(poly in poly_with_non_power_of_two_coeffs(8)) {
@@ -965,8 +963,7 @@ mod fft_test {
 
             prop_assert_eq!(fft_eval, naive_eval);
         }
-    }
-    proptest! {
+
         // Property-based test that ensures interpolation is the inverse operation of evaluation.
         #[test]
         fn test_fft_interpolate_is_inverse_of_evaluate(poly in poly(8)) {
@@ -975,8 +972,7 @@ mod fft_test {
 
             prop_assert_eq!(poly, new_poly);
         }
-    }
-    proptest! {
+
         // Property-based test that ensures FFT won't work with a degree 0 polynomial.
         #[test]
         fn test_fft_constant_poly(elem in field_element()) {
@@ -986,6 +982,7 @@ mod fft_test {
             prop_assert!(matches!(result, Err(FFTError::RootOfUnityError(_, k)) if k == 0));
         }
     }
+
     #[test]
     fn composition_fft_works() {
         let p = Polynomial::new(&[FE::new(0), FE::new(2)]);
