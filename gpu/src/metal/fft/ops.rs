@@ -76,7 +76,7 @@ pub fn fft_with_blowup<F: IsTwoAdicField>(
     fft(&resized, &twiddles, state)
 }
 
-/// Generates 2^{`order`} naturally-ordered twiddle factors in parallel, in Metal.
+/// Generates 2^{`order`} twiddle factors in parallel, with a certain `config`, in Metal.
 pub fn gen_twiddles<F: IsTwoAdicField>(
     order: u64,
     config: RootsConfig,
