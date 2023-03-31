@@ -1,17 +1,18 @@
 use lambdaworks_math::{
-    field::{element::FieldElement, traits::IsField},
+    field::{element::FieldElement, traits::IsTwoAdicField},
     polynomial::Polynomial,
 };
 
 use super::trace::TraceTable;
 
 #[derive(Clone, Debug)]
-pub struct Frame<F: IsField> {
+pub struct Frame<F: IsTwoAdicField> {
+    // Vector of rows
     data: Vec<FieldElement<F>>,
     row_width: usize,
 }
 
-impl<F: IsField> Frame<F> {
+impl<F: IsTwoAdicField> Frame<F> {
     pub fn new(data: Vec<FieldElement<F>>, row_width: usize) -> Self {
         Self { data, row_width }
     }
@@ -40,16 +41,19 @@ impl<F: IsField> Frame<F> {
         blowup: u8,
         offsets: &[usize],
     ) -> Self {
-        let mut data = Vec::new();
-
         // Get trace length to apply module with it when getting elements of
         // the frame from the trace.
-        let trace_len = trace.table.len();
-        for frame_row_idx in offsets.iter() {
-            data.push(trace.table[(step + (frame_row_idx * blowup as usize)) % trace_len].clone())
-        }
+        let trace_steps = trace.n_rows();
+        let data = offsets
+            .iter()
+            .flat_map(|frame_row_idx| {
+                trace
+                    .get_row((step + (frame_row_idx * blowup as usize)) % trace_steps)
+                    .to_vec()
+            })
+            .collect();
 
-        Self::new(data, 1)
+        Self::new(data, trace.n_cols)
     }
 
     /// Given a slice of trace polynomials, an evaluation point `x`, the frame offsets
@@ -64,37 +68,15 @@ impl<F: IsField> Frame<F> {
         frame_offsets: &[usize],
         primitive_root: &FieldElement<F>,
     ) -> Vec<Vec<FieldElement<F>>> {
-        let mut evaluations = Vec::with_capacity(trace_polys.len());
-        let evaluation_points: Vec<FieldElement<F>> = frame_offsets
+        frame_offsets
             .iter()
             .map(|offset| x * primitive_root.pow(*offset))
-            .collect();
-
-        trace_polys
-            .iter()
-            .for_each(|p| evaluations.push(p.evaluate_slice(&evaluation_points)));
-
-        evaluations
-    }
-
-    /// Returns the Out of Domain Frame for the given trace polynomials, out of domain evaluation point (called `z` in the literature),
-    /// frame offsets given by the AIR and primitive root used for interpolating the trace polynomials.
-    /// An out of domain frame is nothing more than the evaluation of the trace polynomials in the points required by the
-    /// verifier to check the consistency between the trace and the composition polynomial.
-    ///
-    /// In the fibonacci example, the ood frame is simply the evaluations `[t(z), t(z * g), t(z * g^2)]`, where `t` is the trace
-    /// polynomial and `g` is the primitive root of unity used when interpolating `t`.
-    pub fn construct_ood_frame(
-        trace_polys: &[Polynomial<FieldElement<F>>],
-        z: &FieldElement<F>,
-        frame_offsets: &[usize],
-        primitive_root: &FieldElement<F>,
-    ) -> Self {
-        let data = Self::get_trace_evaluations(trace_polys, z, frame_offsets, primitive_root);
-
-        Self {
-            data: data.into_iter().flatten().collect(),
-            row_width: trace_polys.len(),
-        }
+            .map(|eval_point| {
+                trace_polys
+                    .iter()
+                    .map(|poly| poly.evaluate(&eval_point))
+                    .collect::<Vec<FieldElement<F>>>()
+            })
+            .collect()
     }
 }
