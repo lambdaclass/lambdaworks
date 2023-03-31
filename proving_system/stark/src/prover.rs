@@ -3,7 +3,7 @@ use super::{
     fri::{fri, fri_decommit::fri_decommit_layers},
     sample_z_ood, StarkQueryProof,
 };
-use crate::{transcript_to_field, transcript_to_usize, StarkProof};
+use crate::{fri::FriCommitmentVec, transcript_to_field, transcript_to_usize, StarkProof};
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::{
     fft::errors::FFTError,
@@ -141,20 +141,13 @@ where
         .map(|fri_commitment| fri_commitment.merkle_tree.root.clone())
         .collect();
 
-    let query_list = (0..air.context().options.fri_number_of_queries)
-        .map(|_| {
-            // * Sample q_1, ..., q_m using Fiat-Shamir
-            let q_i = transcript_to_usize(transcript) % 2_usize.pow(lde_root_order);
-            transcript.append(&q_i.to_be_bytes());
-
-            // * For every q_i, do FRI decommitment
-            let fri_decommitment = fri_decommit_layers(&lde_fri_commitment, q_i);
-            StarkQueryProof {
-                fri_layers_merkle_roots: fri_layers_merkle_roots.clone(),
-                fri_decommitment,
-            }
-        })
-        .collect();
+    let query_list = query_list(
+        air,
+        transcript,
+        lde_root_order,
+        &lde_fri_commitment,
+        &fri_layers_merkle_roots,
+    );
 
     StarkProof {
         fri_layers_merkle_roots,
@@ -162,6 +155,29 @@ where
         composition_poly_evaluations,
         query_list,
     }
+}
+
+fn query_list<A: AIR, F: IsTwoAdicField>(
+    air: &A,
+    transcript: &mut Transcript,
+    lde_root_order: u32,
+    lde_fri_commitment: &FriCommitmentVec<F>,
+    fri_layers_merkle_roots: &[FieldElement<F>],
+) -> Vec<StarkQueryProof<F>> {
+    (0..air.context().options.fri_number_of_queries)
+        .map(|_| {
+            // * Sample q_1, ..., q_m using Fiat-Shamir
+            let q_i = transcript_to_usize(transcript) % 2_usize.pow(lde_root_order);
+            transcript.append(&q_i.to_be_bytes());
+
+            // * For every q_i, do FRI decommitment
+            let fri_decommitment = fri_decommit_layers(lde_fri_commitment, q_i);
+            StarkQueryProof {
+                fri_layers_merkle_roots: fri_layers_merkle_roots.to_vec(),
+                fri_decommitment,
+            }
+        })
+        .collect()
 }
 
 /// Returns the DEEP composition polynomial that the prover then commits to using
