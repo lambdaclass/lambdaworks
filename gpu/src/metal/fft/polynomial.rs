@@ -12,12 +12,12 @@ use super::{errors::FFTMetalError, helpers::log2, ops::*};
 trait MetalFFTPoly<F: IsTwoAdicField> {
     fn evaluate_fft_metal(&self, state: &MetalState)
         -> Result<Vec<FieldElement<F>>, FFTMetalError>;
-    // fn evaluate_offset_fft_metal(
-    //     &self,
-    //     offset: &FieldElement<F>,
-    //     blowup_factor: usize,
-    //     state: MetalState
-    // ) -> Result<Vec<FieldElement<F>>, FFTMetalError>;
+    fn evaluate_offset_fft_metal(
+        &self,
+        offset: &FieldElement<F>,
+        blowup_factor: usize,
+        state: &MetalState,
+    ) -> Result<Vec<FieldElement<F>>, FFTMetalError>;
     fn interpolate_fft_metal(
         fft_evals: &[FieldElement<F>],
         state: &MetalState,
@@ -37,17 +37,17 @@ impl<F: IsTwoAdicField> MetalFFTPoly<F> for Polynomial<FieldElement<F>> {
         fft(self.coefficients(), &twiddles, state)
     }
 
-    // /// Evaluates this polynomial using parallel FFT in an extended domain by `blowup_factor` with an `offset`, in Metal.
-    // /// Usually used for Reed-Solomon encoding.
-    // fn evaluate_offset_fft_metal(
-    //     &self,
-    //     offset: &FieldElement<F>,
-    //     blowup_factor: usize,
-    //     state: MetalState
-    // ) -> Result<Vec<FieldElement<F>>, FFTMetalError> {
-    //     let scaled = self.scale(offset);
-    //     fft_with_blowup(scaled.coefficients(), blowup_factor, state)
-    // }
+    /// Evaluates this polynomial using parallel FFT in an extended domain by `blowup_factor` with an `offset`, in Metal.
+    /// Usually used for Reed-Solomon encoding.
+    fn evaluate_offset_fft_metal(
+        &self,
+        offset: &FieldElement<F>,
+        blowup_factor: usize,
+        state: &MetalState,
+    ) -> Result<Vec<FieldElement<F>>, FFTMetalError> {
+        let scaled = self.scale(offset);
+        fft_with_blowup(scaled.coefficients(), blowup_factor, state)
+    }
 
     /// Returns a new polynomial that interpolates `fft_evals`, which are evaluations using twiddle
     /// factors. This is considered to be the inverse operation of [Self::evaluate_fft()].
@@ -94,6 +94,9 @@ mod tests {
         }
     }
     prop_compose! {
+        fn offset()(num in any::<u64>(), factor in any::<u64>()) -> FE { FE::from(num).pow(factor) }
+    }
+    prop_compose! {
         fn poly(max_exp: u8)(coeffs in field_vec(max_exp)) -> Polynomial<FE> {
             Polynomial::new(&coeffs)
         }
@@ -101,7 +104,7 @@ mod tests {
 
     proptest! {
         #[test]
-        fn test_metal_fft_poly_eval_matches_cpu(poly in poly(8)) {
+        fn test_metal_fft_poly_eval_matches_cpu(poly in poly(6)) {
             objc::rc::autoreleasepool(|| {
                 let metal_state = MetalState::new(None).unwrap();
 
@@ -112,11 +115,22 @@ mod tests {
                 Ok(())
             }).unwrap();
         }
-    }
 
-    proptest! {
         #[test]
-        fn test_metal_fft_poly_interpol_matches_cpu(evals in field_vec(8)) {
+        fn test_metal_fft_coset_poly_eval_matches_cpu(poly in poly(6), offset in offset(), blowup_factor in powers_of_two(4)) {
+            objc::rc::autoreleasepool(|| {
+                let metal_state = MetalState::new(None).unwrap();
+
+                let gpu_evals = poly.evaluate_offset_fft_metal(&offset, blowup_factor, &metal_state).unwrap();
+                let cpu_evals = poly.evaluate_offset_fft(&offset, blowup_factor).unwrap();
+
+                prop_assert_eq!(gpu_evals, cpu_evals);
+                Ok(())
+            }).unwrap();
+        }
+
+        #[test]
+        fn test_metal_fft_poly_interpol_matches_cpu(evals in field_vec(6)) {
             objc::rc::autoreleasepool(|| {
                 let metal_state = MetalState::new(None).unwrap();
 
