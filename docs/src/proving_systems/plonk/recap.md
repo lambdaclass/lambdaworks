@@ -56,13 +56,13 @@ The second matrix also has one row for each gate. It will be a matrix with all l
 | --- | --- | --- |
 |   2 |   3 |   6 |
 |   6 |   3 |   9 |
-|   9 |   0 |   8 |
+|   9 |   - |   8 |
 
-The last gate subtracts a constant value that is part of the program and is not a variable. That's handled a bit different from the second gate and that's why there's a $0$ in the $R$ column. Actually any value could sit there. It won't change anything. Let's see why.
+The last gate subtracts a constant value that is part of the program and is not a variable. That's handled a bit different from the second gate and that's why there's a "-" in the $R$ column. With that we mean "any value" because it won't change the result. In the next section we'll see how we handle that. Here we'll use this notation when any value can be put there. In case we have to choose some, we'll default to $0$.
 
 These matrices are designed to satisfy the following.
 
-**Claim:** columns $L, R, O$ correspond to a valid evaluation of the circuit if and only if for all $i$ the following equality holds $$L_i (Q_L)_i + R_i *(Q_R)_i + L_i * R_i * Q_M + c_i * (Q_O)_i + (Q_C)_i = 0$$
+**Claim:** if columns $L, R, O$ correspond to a valid evaluation of the circuit then for all $i$ the following equality holds $$L_i (Q_L)_i + R_i *(Q_R)_i + L_i * R_i * Q_M + c_i * (Q_O)_i + (Q_C)_i = 0$$
 
 In our example these are three equations:
 $$ 2 * 0 + 3 * 0 +  2 * 3 * 1 + 6 * (-1) +  0 $$
@@ -95,11 +95,43 @@ Multiplication by constant C can be represented by:
 | ----- | ----- | ----- | ----- | ----- |
 |     C |     0 |     0 |    -1 |     0 |
 
-And so on. As you might have already noticed, there are several ways of representing the same gate in some cases. Additionally, PLONK has the flexibility to construct more sophisticated gates as combinations of the five columns. And therefore the same program can be expressed in multiple ways. In our case all three gates can actually be merged into a single custom gate. The first matrix is ends up being a single row.
+And so on. As you might have already noticed, there are several ways of representing the same gate in some cases. 
+
+The above claim is clearly not an "if and only if" statement because the following `LRO` columns do satisfy the equations but do not correspond to a valid execution:
+
+|   L |   R |   O |
+| --- | --- | --- |
+|   2 |   3 |   6 |
+|   0 |   0 |   0 |
+|  20 |   - |  19 |
+
+We'll need to introduce a third matrix for that, which is the one that encodes the carry of the results of one gate to the right or left operand of a subsequent one. These are called *wirings*. It's a matrix that's independent of the particular evaluation, just like the first one. It consists of indices for all input and intermediate variables. In this case that matrix is:
+
+|   A |   B |   C |
+| --- | --- | --- |
+|   0 |   1 |   2 |
+|   2 |   1 |   3 |
+|   3 |   - |   4 |
+
+Here $0$ is the index of $e$, $1$ is the index of $x$, $2$ is the index of $u$, $3$ is the index of $v$ and $4$ is the index of the output $w$. Now we can update the claim to have an "if and only if" statement.
+
+**Claim:** columns $L, R, O$ correspond to a valid evaluation of the circuit if and only if a) for all $i$ the following equality holds $$L_i (Q_L)_i + R_i *(Q_R)_i + L_i * R_i * Q_M + c_i * (Q_O)_i + (Q_C)_i = 0,$$ b) for all $i,j,k,l$ such that $(ABC)_{i,j} = (ABC)_{k,l}$ we have $(LRO)_{i,j} = (LRO)_{k,l}$.
+
+So now our malformed example 
+
+Our matrices are fine now. But they can be optimized. Let's do that to showcase this flexibility of PLONK and also reduce the size of our example.
+
+PLONK has the flexibility to construct more sophisticated gates as combinations of the five columns. And therefore the same program can be expressed in multiple ways. In our case all three gates can actually be merged into a single custom gate. The first matrix ends up being a single row.
 
 | $Q_L$ | $Q_R$ | $Q_M$ | $Q_O$ | $Q_C$ |
 | ----- | ----- | ----- | ----- | ----- |
 |     1 |     1 |     1 |    -1 |     1 |
+
+with `ABC` matrix
+
+|   A |   B |   C |
+| --- | --- | --- |
+|   0 |   1 |   2 |
 
 and the trace matrix for this representation is
 
@@ -113,7 +145,33 @@ $$ 2 * 1 + 3 * 1 + 2 * 3 * 1 + 8 * (-1) + (-1) = 0$$
 
 Of course, we can't always squash an entire program into a single gate.
 
-In general 
+Aside from the gates that execute the program operations, additional rows must be incorporated into these matrices. This is due to the fact that the prover must demonstrate not only that she executed the program, but also that she used the appropriate inputs. Furthermore, the proof must include an assertion of the output value. As a result, a few extra rows are necessary. In our case these are the first two and the last one. The original one sits now in the third row.
+
+| $Q_L$ | $Q_R$ | $Q_M$ | $Q_O$ | $Q_C$ |
+| ----- | ----- | ----- | ----- | ----- |
+|    -1 |     0 |     0 |     0 |     2 |
+|    -1 |     0 |     0 |     0 |     8 |
+|     1 |     1 |     1 |    -1 |     1 |
+|     1 |    -1 |     0 |     0 |     0 |
+
+The first row is there to handle the input $x$. The second row is there to handle the output of the program. The last row will be used check that claimed output is the output of the program. And the `LRO` matrix is now
+
+|   L |   R |   O |
+| --- | --- | --- |
+|   2 |   - |   - |
+|   8 |   - |   - |
+|   2 |   3 |   8 |
+|   8 |   8 |   - |
+
+And the `ABC` matrix now is:
+
+|   A |   B |   C |
+| --- | --- | --- |
+|   0 |   - |   - |
+|   1 |   - |   - |
+|   0 |   2 |   3 |
+|   1 |   3 |   - |
+
 
 ## Polynomial Commitment scheme
 
@@ -136,7 +194,8 @@ The reason why a SRS is so crucial to PLONK is that it allows for efficient and 
 ### Round 4
 ### Round 5
 
-
+:
 ## Verification algorithm
+
 
 
