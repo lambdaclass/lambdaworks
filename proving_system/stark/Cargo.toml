@@ -10,3 +10,6 @@ rand = "0.8.5"
 lambdaworks-math = { path = "../../math" }
 lambdaworks-crypto = { path = "../../crypto"}
 thiserror = "1.0.38"
+
+[dev-dependencies]
+hex = "0.4.3"

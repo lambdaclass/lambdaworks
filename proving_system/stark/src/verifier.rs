@@ -36,7 +36,7 @@ where
     let root_order = air.context().trace_length.trailing_zeros();
     let trace_primitive_root = F::get_primitive_root_of_unity(root_order as u64).unwrap();
 
-    let boundary_constraints = air.compute_boundary_constraints();
+    let boundary_constraints = air.boundary_constraints();
 
     let domain = boundary_constraints.generate_roots_of_unity(&trace_primitive_root);
 
