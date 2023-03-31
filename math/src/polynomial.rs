@@ -911,13 +911,13 @@ mod fft_test {
         }
     }
     prop_compose! {
-        fn poly(max_exp: u8)(coeffs in field_vec(max_exp)) -> Polynomial<FE> {
-            Polynomial::new(&coeffs)
+        fn non_power_of_two_sized_field_vec(max_exp: u8)(vec in collection::vec(field_element(), 2..1<<max_exp).prop_filter("Avoid polynomials of size power of two", |vec| !vec.len().is_power_of_two())) -> Vec<FE> {
+            vec
         }
     }
     prop_compose! {
-        fn non_power_of_two_sized_field_vec(max_exp: u8)(elem in field_element(), size in powers_of_two(max_exp)) -> Vec<FE> {
-            vec![elem; size + 1]
+        fn poly(max_exp: u8)(coeffs in field_vec(max_exp)) -> Polynomial<FE> {
+            Polynomial::new(&coeffs)
         }
     }
     prop_compose! {
