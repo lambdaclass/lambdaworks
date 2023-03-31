@@ -135,9 +135,7 @@ mod tests {
 
             prop_assert_eq!(expected, result);
         }
-    }
 
-    proptest! {
         // Property-based test that ensures RN Radix-2 FFT gives the same result as a naive DFT.
         #[test]
         fn test_rn_2radix_fft_matches_naive_eval(coeffs in field_vec(8)) {
