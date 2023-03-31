@@ -13,11 +13,13 @@ PRIVATE INPUT:
   e
 
 OUTPUT:
-  e * x - 1
+  e * x + x - 1
 ```
-The idea here is that the verifier holds some value $x$, say $x=3$. He gives them to the prover. She executes the program using her own chosen value $e$, and sends the output value, say $5$, along with a proof $\pi$ demonstrating correct execution of the program and obtaining the correct output.
+The observer would have noticed that this program could also be written as $(e + 1) * x - 1$, which is more sensible. But the way it is written now serves us to better explain the arithmetization of PLONK. So we'll stick to it.
 
-In the context of PLONK, both the inputs and outputs of the program are considered *public inputs*. This may sound odd, but it is because these are the inputs to the verification algorithm. This is the algorithm that takes, in this case, the tuple $(3, 5, \pi)$ and outputs *Accept* if the toy program was executed with input $x=3$, some private value $e$ not revealed to the verifier, and out came $5$. Otherwise it outputs *Reject*.
+The idea here is that the verifier holds some value $x$, say $x=3$. He gives them to the prover. She executes the program using her own chosen value $e$, and sends the output value, say $8$, along with a proof $\pi$ demonstrating correct execution of the program and obtaining the correct output.
+
+In the context of PLONK, both the inputs and outputs of the program are considered *public inputs*. This may sound odd, but it is because these are the inputs to the verification algorithm. This is the algorithm that takes, in this case, the tuple $(3, 8, \pi)$ and outputs *Accept* if the toy program was executed with input $x=3$, some private value $e$ not revealed to the verifier, and out came $8$. Otherwise it outputs *Reject*.
 
 PLONK can be used to delegate program executions to untrusted parties, but it can also be used as a proof of knowledge. Our program could be used by a prover to demostrate that she knows the multiplicative inverse of some value $x$ in the finite field without revealing it. She would do it by sending the verifier the tuple $(x, 0, \pi)$, where $\pi$ is the proof of the execution of our toy program.
 
@@ -32,19 +34,60 @@ OUTPUT:
 Here there's no input aside from the prover's private input. As we mentioned, the output $h$ of the program is then part of the inputs to the verification algorithm. Which in this case just takes $(h, \pi)$.
 
 ## PLONK Arithmetization
-See the program as a sequence of gates that have left operand, a right operand and an output. The two most basic gates are multiplication and addition gates. One way of seeing our toy program is as a composition of two gates.
-Gate 1: left: e, right: x, output: y = e * x
-Gate 2: left: y, right: 1, output: z = y - 1
+See the program as a sequence of gates that have left operand, a right operand and an output. The two most basic gates are multiplication and addition gates. One way of seeing our toy program is as a composition of three gates.
 
-For $x=3$ and $e=2$ we get $y=6$ and $z=5$. We put this information in a table format like so, with three columns.
-a, b, c
-2, 3, 6
-6, 1, 5
+Gate 1: left: e, right: x, output: u = e * x
+Gate 2: left: u, right: x, output: v = e + x
+Gate 3: left: v, right: 1, output: w = v - 1
 
-The fact that this table was constructed from the intermediate values of the gates evaluations implies that they satisfy algebraic equations. For example $a0 * b0 = c0$ and $a1 + b1 = c1$. Also $b1 = 1$.
+From this we are going to build two matrices. The first matrix only depends on the program itself and not on any particular evaluation of it. It has one row for each gate and its columns are called $Q_L, Q_R, Q_O, Q_M, Q_C$. They encode the type of gate of the row. In our example it's the following. Don't worry if you don't get where it came from nor what it means. We'll get there. 
 
-PLONK has the flexibility to construct more sophisticated gates as combinations of those two. We'll see those in just a moment. For now let's start with addition and multiplication.
+| $Q_L$ | $Q_R$ | $Q_M$ | $Q_O$ | $Q_C$ |
+| ----- | ----- | ----- | ----- | ----- |
+|     0 |     0 |     1 |    -1 |     0 |
+|     1 |     1 |     0 |    -1 |     0 |
+|     1 |     0 |     0 |    -1 |    -1 |
 
+One thing we can start noting here is that this matrix is a sort of *selector*. For example the 1 in the $Q_M$ column of the first row indicates that it is a multiplication gate. The 1 in the $Q_L$ column of the second row indicates that it is an addition gate. There's a $0$ in the $Q_R$ column because the right operand is constant $1$ in this program. That's why there's a 1 in the $Q_C$ column. The $Q_O$ column is there to handle outputs. We are about to see why there are negative ones there.
+
+The second matrix also has one row for each gate. It will be a matrix with all left, right and output values of all the gates. We call the columns of this matrix $L, R, O$. Let's build them for $x=3$ and $e=2$. In each gates we get $y=6$ and $z=5$. So the first matrix is:
+
+|   L |   R |   O |
+| --- | --- | --- |
+|   2 |   3 |   6 |
+|   6 |   3 |   9 |
+|   9 |   0 |   8 |
+
+The last gate subtracts a constant value that is part of the program and is not a variable. That's handled a bit different from the second gate and that's why there's a $0$ in the $R$ column. Actually any value could sit there. It won't change anything. Let's see why.
+
+These matrices are designed to satisfy the following.
+
+**Claim:** columns $L, R, O$ correspond to a valid evaluation of the circuit if and only if for all $i$ the following equality holds $$L_i (Q_L)_i + R_i *(Q_R)_i + L_i * R_i * Q_M + c_i * (Q_O)_i + (Q_C)_i = 0$$
+
+In our example these are two equations:
+$$ 2 * 0 + 3 * 0 +  2 * 3 * 1 + 6 * (-1) +  0 $$
+$$ 6 * 1 + 3 * 1 +  6 * 3 * 0 + 9 * (-1) +  0 $$
+$$ 9 * 1 + 0 * 0 +  9 * 0 * 0 + 8 * (-1) + (-1) $$
+
+and indeed all three give $0$ as a result.
+
+PLONK has the flexibility to construct more sophisticated gates as combinations of the five columns. And therefore the same program can be expressed in multiple ways. In our case all three gates can actually be merged into a single custom gate. The first matrix is ends up being
+
+| $Q_L$ | $Q_R$ | $Q_M$ | $Q_O$ | $Q_C$ |
+| ----- | ----- | ----- | ----- | ----- |
+|     1 |     1 |     1 |    -1 |     1 |
+
+and the second one
+
+|   L |   R |   O |
+| --- | --- | --- |
+|   2 |   3 |   8 |
+
+And we check that it satisfies the equation
+
+$$ 2 * 1 + 3 * 1 +  2 * 3 * 1 + 8 * (-1) + (-1) = 0$$
+
+Of course, we can't always stretch our entire program into a single gate. But for a pen and paper example that's handy.
 
 ## Polynomial Commitment scheme
 
