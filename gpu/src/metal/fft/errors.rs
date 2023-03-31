@@ -9,3 +9,15 @@ pub enum FFTMetalError {
     #[error("A Metal related error has ocurred")]
     Metal(MetalError),
 }
+
+impl From<FFTError> for FFTMetalError {
+    fn from(error: FFTError) -> Self {
+        FFTMetalError::FFT(error)
+    }
+}
+
+impl From<MetalError> for FFTMetalError {
+    fn from(error: MetalError) -> Self {
+        FFTMetalError::Metal(error)
+    }
+}

@@ -25,9 +25,7 @@ pub fn fft<F: IsTwoAdicField>(
     twiddles: &[FieldElement<F>],
     state: &MetalState,
 ) -> Result<Vec<FieldElement<F>>, FFTMetalError> {
-    let pipeline = state
-        .setup_pipeline("radix2_dit_butterfly")
-        .map_err(FFTMetalError::Metal)?;
+    let pipeline = state.setup_pipeline("radix2_dit_butterfly")?;
 
     let input_buffer = state.alloc_buffer_data(input);
     let twiddles_buffer = state.alloc_buffer_data(twiddles);
@@ -38,7 +36,7 @@ pub fn fft<F: IsTwoAdicField>(
         Some(&[(0, &input_buffer), (1, &twiddles_buffer)]),
     );
 
-    let order = log2(input.len()).map_err(FFTMetalError::FFT)?;
+    let order = log2(input.len())?;
     for stage in 0..order {
         let group_count = 1 << stage;
         let group_size = input.len() as u64 / group_count;
@@ -53,7 +51,7 @@ pub fn fft<F: IsTwoAdicField>(
     command_buffer.wait_until_completed();
 
     let result = MetalState::retrieve_contents(&input_buffer);
-    let result = bitrev_permutation(&result, state).map_err(FFTMetalError::Metal)?;
+    let result = bitrev_permutation(&result, state)?;
     Ok(result.iter().map(FieldElement::from_raw).collect())
 }
 
@@ -65,20 +63,21 @@ pub fn gen_twiddles<F: IsTwoAdicField>(
 ) -> Result<Vec<FieldElement<F>>, FFTMetalError> {
     let len = (1 << order) / 2;
 
-    let pipeline = match config {
-        RootsConfig::Natural => state.setup_pipeline("calc_twiddles"),
-        RootsConfig::NaturalInversed => state.setup_pipeline("calc_twiddles_inv"),
-        RootsConfig::BitReverse => state.setup_pipeline("calc_twiddles_bitrev"),
-        RootsConfig::BitReverseInversed => state.setup_pipeline("calc_twiddles_bitrev_inv"),
-    }
-    .map_err(FFTMetalError::Metal)?;
+    let kernel = match config {
+        RootsConfig::Natural => "calc_twiddles",
+        RootsConfig::NaturalInversed => "calc_twiddles_inv",
+        RootsConfig::BitReverse => "calc_twiddles_bitrev",
+        RootsConfig::BitReverseInversed => "calc_twiddles_bitrev_inv",
+    };
+
+    let pipeline = state.setup_pipeline(kernel)?;
 
     let result_buffer = state.alloc_buffer::<F::BaseType>(len);
 
     let (command_buffer, command_encoder) =
         state.setup_command(&pipeline, Some(&[(0, &result_buffer)]));
 
-    let root = F::get_primitive_root_of_unity(order).map_err(FFTMetalError::FFT)?;
+    let root = F::get_primitive_root_of_unity(order)?;
     command_encoder.set_bytes(1, mem::size_of::<F::BaseType>() as u64, void_ptr(&root));
 
     let grid_size = MTLSize::new(len as u64, 1, 1);
