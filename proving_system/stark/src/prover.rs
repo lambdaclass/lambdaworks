@@ -39,18 +39,6 @@ where
     .unwrap();
 
     let trace_polys = trace.compute_trace_polys();
-    let lde_trace_evaluations = trace_polys
-        .iter()
-        .map(|poly| {
-            poly.evaluate_offset_fft(
-                &FieldElement::<F>::from(air.options().coset_offset),
-                air.options().blowup_factor as usize,
-            )
-        })
-        .collect::<Result<Vec<Vec<FieldElement<F>>>, FFTError>>()
-        .unwrap();
-
-    let lde_trace = TraceTable::new_from_cols(&lde_trace_evaluations);
 
     // Fiat-Shamir
     // z is the Out of domain evaluation point used in Deep FRI. It needs to be a point outside
@@ -59,40 +47,15 @@ where
 
     let z_squared = &z * &z;
 
-    // Create evaluation table
-    let evaluator = ConstraintEvaluator::new(air, &trace_polys, &trace_primitive_root);
-
-    let boundary_coeffs: Vec<(FieldElement<F>, FieldElement<F>)> = (0..trace_polys.len())
-        .map(|_| {
-            (
-                transcript_to_field(transcript),
-                transcript_to_field(transcript),
-            )
-        })
-        .collect();
-
-    let transition_coeffs: Vec<(FieldElement<F>, FieldElement<F>)> =
-        (0..air.context().num_transition_constraints)
-            .map(|_| {
-                (
-                    transcript_to_field(transcript),
-                    transcript_to_field(transcript),
-                )
-            })
-            .collect();
-
-    let constraint_evaluations = evaluator.evaluate(
-        &lde_trace,
+    // COMPOSITION POLY
+    let (composition_poly_even, composition_poly_odd) = composition_poly(
+        air,
+        transcript,
         &lde_roots_of_unity_coset,
-        &transition_coeffs,
-        &boundary_coeffs,
+        &trace_polys,
+        &trace_primitive_root,
     );
 
-    // Get the composition poly H
-    let composition_poly =
-        constraint_evaluations.compute_composition_poly(&lde_roots_of_unity_coset);
-
-    let (composition_poly_even, composition_poly_odd) = composition_poly.even_odd_decomposition();
     // Evaluate H_1 and H_2 in z^2.
     let composition_poly_evaluations = vec![
         composition_poly_even.evaluate(&z_squared),
@@ -155,6 +118,63 @@ where
         composition_poly_evaluations,
         query_list,
     }
+}
+
+fn composition_poly<A: AIR<Field = F>, F: IsTwoAdicField>(
+    air: &A,
+    transcript: &mut Transcript,
+    lde_roots_of_unity_coset: &[FieldElement<F>],
+    trace_polys: &[Polynomial<FieldElement<F>>],
+    trace_primitive_root: &FieldElement<F>,
+) -> (Polynomial<FieldElement<F>>, Polynomial<FieldElement<F>>) {
+    let lde_trace_evaluations = trace_polys
+        .iter()
+        .map(|poly| {
+            poly.evaluate_offset_fft(
+                &FieldElement::<F>::from(air.options().coset_offset),
+                air.options().blowup_factor as usize,
+            )
+        })
+        .collect::<Result<Vec<Vec<FieldElement<F>>>, FFTError>>()
+        .unwrap();
+
+    let lde_trace = TraceTable::new_from_cols(&lde_trace_evaluations);
+
+    // Create evaluation table
+    let evaluator = ConstraintEvaluator::new(air, trace_polys, trace_primitive_root);
+
+    let boundary_coeffs: Vec<(FieldElement<F>, FieldElement<F>)> = (0..trace_polys.len())
+        .map(|_| {
+            (
+                transcript_to_field(transcript),
+                transcript_to_field(transcript),
+            )
+        })
+        .collect();
+
+    let transition_coeffs: Vec<(FieldElement<F>, FieldElement<F>)> =
+        (0..air.context().num_transition_constraints)
+            .map(|_| {
+                (
+                    transcript_to_field(transcript),
+                    transcript_to_field(transcript),
+                )
+            })
+            .collect();
+
+    let constraint_evaluations = evaluator.evaluate(
+        &lde_trace,
+        lde_roots_of_unity_coset,
+        &transition_coeffs,
+        &boundary_coeffs,
+    );
+
+    // Get the composition poly H
+    let composition_poly =
+        constraint_evaluations.compute_composition_poly(lde_roots_of_unity_coset);
+
+    let (composition_poly_even, composition_poly_odd) = composition_poly.even_odd_decomposition();
+    (composition_poly_even, composition_poly_odd)
 }
 
 fn query_list<A: AIR, F: IsTwoAdicField>(
