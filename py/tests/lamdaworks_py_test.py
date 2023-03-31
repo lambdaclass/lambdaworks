@@ -47,6 +47,20 @@ class TestFieldElement(unittest.TestCase):
         two = FieldElement(U256("2"))
         self.assertTrue(two + (-one) == one)
 
+    def test_pow(self):
+        one = FieldElement.one()
+        self.assertTrue(one.pow(2) == one)
+
+    def test_pow(self):
+        one = FieldElement.one()
+        self.assertTrue(one ** 2 == one)
+
+    def test_inv(self):
+        one = FieldElement.one()
+        two = FieldElement(U256("2"))
+        self.assertTrue(two * (two.inv()) == one)
+    
+
 class TestFibonacci(unittest.TestCase):
     @classmethod
     def _fibonacci_trace(cls, v0, v1):
