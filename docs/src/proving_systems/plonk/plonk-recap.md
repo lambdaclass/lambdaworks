@@ -64,7 +64,7 @@ These matrices are designed to satisfy the following.
 
 **Claim:** columns $L, R, O$ correspond to a valid evaluation of the circuit if and only if for all $i$ the following equality holds $$L_i (Q_L)_i + R_i *(Q_R)_i + L_i * R_i * Q_M + c_i * (Q_O)_i + (Q_C)_i = 0$$
 
-In our example these are two equations:
+In our example these are three equations:
 $$ 2 * 0 + 3 * 0 +  2 * 3 * 1 + 6 * (-1) +  0 $$
 $$ 6 * 1 + 3 * 1 +  6 * 3 * 0 + 9 * (-1) +  0 $$
 $$ 9 * 1 + 0 * 0 +  9 * 0 * 0 + 8 * (-1) + (-1) $$
@@ -87,7 +87,7 @@ And we check that it satisfies the equation
 
 $$ 2 * 1 + 3 * 1 +  2 * 3 * 1 + 8 * (-1) + (-1) = 0$$
 
-Of course, we can't always stretch our entire program into a single gate. But for a pen and paper example that's handy.
+Of course, we can't always squash our entire program into a single gate.
 
 ## Polynomial Commitment scheme
 
