@@ -1,9 +1,12 @@
 use super::{
     air::{constraints::evaluator::ConstraintEvaluator, frame::Frame, trace::TraceTable, AIR},
     fri::{fri, fri_decommit::fri_decommit_layers},
-    sample_z_ood, StarkQueryProof,
+    sample_z_ood,
 };
-use crate::{transcript_to_field, transcript_to_usize, StarkProof};
+use crate::{
+    proof::{StarkProof, StarkQueryProof},
+    transcript_to_field, transcript_to_usize,
+};
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::{
     fft::errors::FFTError,
