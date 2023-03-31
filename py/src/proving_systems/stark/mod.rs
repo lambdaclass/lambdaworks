@@ -19,11 +19,12 @@ impl PyFieldElement {
         Self(FE::new(value.0))
     }
 
-    fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
+    fn __richcmp__(&self, other: PyRef<Self>, op: CompareOp) -> Py<PyAny> {
+        let py = other.py();
         match op {
-            CompareOp::Eq => Ok(self.0 == other.0),
-            CompareOp::Ne => Ok(self.0 != other.0),
-            _ => Ok(false), //TODO
+            CompareOp::Eq => (self.0 == other.0).into_py(py),
+            CompareOp::Ne => (self.0 != other.0).into_py(py),
+            _ => py.NotImplemented(),
         }
     }
 
@@ -43,6 +44,10 @@ impl PyFieldElement {
         Self(&self.0 / &other.0)
     }
 
+    pub fn __neg__(&self) -> Self {
+        Self(-&self.0)
+    }
+
     pub fn value(&self) -> PyU256 {
         PyU256(*self.0.value())
     }
@@ -60,7 +65,6 @@ impl PyFieldElement {
         Self(FE::one())
     }
 
-    /// Returns the additive neutral element of the field.
     pub fn zero(&self) -> Self {
         Self(FE::zero())
     }
