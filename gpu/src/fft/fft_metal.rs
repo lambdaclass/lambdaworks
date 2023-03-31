@@ -237,9 +237,7 @@ mod tests {
                 Ok(())
             }).unwrap();
         }
-    }
 
-    proptest! {
         // These tests actually pass, but we ignore them because they fail in the CI due to a lack of GPU
         #[test]
         #[ignore]
