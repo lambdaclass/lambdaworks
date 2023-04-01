@@ -62,23 +62,9 @@ where
         composition_poly_odd.evaluate(&z_squared),
     ];
 
-    // Returns the Out of Domain Frame for the given trace polynomials, out of domain evaluation point (called `z` in the literature),
-    // frame offsets given by the AIR and primitive root used for interpolating the trace polynomials.
-    // An out of domain frame is nothing more than the evaluation of the trace polynomials in the points required by the
-    // verifier to check the consistency between the trace and the composition polynomial.
-    //
-    // In the fibonacci example, the ood frame is simply the evaluations `[t(z), t(z * g), t(z * g^2)]`, where `t` is the trace
-    // polynomial and `g` is the primitive root of unity used when interpolating `t`.
-    let ood_trace_evaluations = Frame::get_trace_evaluations(
-        &trace_polys,
-        &z,
-        &air.context().transition_offsets,
-        &trace_primitive_root,
-    );
-
-    let trace_ood_frame_data = ood_trace_evaluations.into_iter().flatten().collect();
-    let trace_ood_frame_evaluations = Frame::new(trace_ood_frame_data, trace_polys.len());
-
+    // OOD TRACE EVALUATIONS
+    let trace_ood_frame_evaluations =
+        get_trace_ood_frame_evaluations(air, &trace_polys, &z, &trace_primitive_root);
     // END EVALUATION BLOCK
 
     // Compute DEEP composition polynomial so we can commit to it using FRI.
@@ -175,6 +161,30 @@ fn composition_poly<A: AIR<Field = F>, F: IsTwoAdicField>(
 
     let (composition_poly_even, composition_poly_odd) = composition_poly.even_odd_decomposition();
     (composition_poly_even, composition_poly_odd)
+}
+
+// Returns the Out of Domain Frame for the given trace polynomials, out of domain evaluation point (called `z` in the literature),
+// frame offsets given by the AIR and primitive root used for interpolating the trace polynomials.
+// An out of domain frame is nothing more than the evaluation of the trace polynomials in the points required by the
+// verifier to check the consistency between the trace and the composition polynomial.
+//
+// In the fibonacci example, the ood frame is simply the evaluations `[t(z), t(z * g), t(z * g^2)]`, where `t` is the trace
+// polynomial and `g` is the primitive root of unity used when interpolating `t`.
+fn get_trace_ood_frame_evaluations<A: AIR<Field = F>, F: IsTwoAdicField>(
+    air: &A,
+    trace_polys: &[Polynomial<FieldElement<F>>],
+    z: &FieldElement<F>,
+    trace_primitive_root: &FieldElement<F>,
+) -> Frame<F> {
+    let ood_trace_evaluations = Frame::get_trace_evaluations(
+        trace_polys,
+        z,
+        &air.context().transition_offsets,
+        trace_primitive_root,
+    );
+
+    let trace_ood_frame_data = ood_trace_evaluations.into_iter().flatten().collect();
+    Frame::new(trace_ood_frame_data, trace_polys.len())
 }
 
 fn query_list<A: AIR, F: IsTwoAdicField>(
