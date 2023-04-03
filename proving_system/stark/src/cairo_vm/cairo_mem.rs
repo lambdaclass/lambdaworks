@@ -104,8 +104,6 @@ mod tests {
 
         let memory = CairoMemory::from_file(&dir).unwrap();
 
-        dbg!(memory.clone());
-
         for (i, cell) in memory.cells.iter().enumerate() {
             assert_eq!(cell.address, (i + 1) as u64);
         }

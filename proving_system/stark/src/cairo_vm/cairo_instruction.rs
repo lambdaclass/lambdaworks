@@ -26,8 +26,8 @@ const FLAGS_OFFSET: u64 = 48;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Op0Reg {
-    AP,
-    FP,
+    AP = 0,
+    FP = 1,
 }
 
 impl TryFrom<&CairoMemoryCell> for Op0Reg {
@@ -49,8 +49,8 @@ impl TryFrom<&CairoMemoryCell> for Op0Reg {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum DstReg {
-    AP,
-    FP,
+    AP = 0,
+    FP = 1,
 }
 
 impl TryFrom<&CairoMemoryCell> for DstReg {
@@ -72,10 +72,10 @@ impl TryFrom<&CairoMemoryCell> for DstReg {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Op1Src {
-    Op0,
-    Imm,
-    AP,
-    FP,
+    Op0 = 0,
+    Imm = 1,
+    AP = 2,
+    FP = 4,
 }
 
 impl TryFrom<&CairoMemoryCell> for Op1Src {
@@ -97,9 +97,10 @@ impl TryFrom<&CairoMemoryCell> for Op1Src {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ResLogic {
-    Op1,
-    Add,
-    Mul,
+    Op1 = 0,
+    Add = 1,
+    Mul = 2,
+    // TODO: Check if this is correct
     Unconstrained,
 }
 
@@ -123,10 +124,10 @@ impl TryFrom<&CairoMemoryCell> for ResLogic {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PcUpdate {
-    Regular,
-    Jump,
-    JumpRel,
-    Jnz,
+    Regular = 0,
+    Jump = 1,
+    JumpRel = 2,
+    Jnz = 4,
 }
 
 impl TryFrom<&CairoMemoryCell> for PcUpdate {
@@ -148,9 +149,9 @@ impl TryFrom<&CairoMemoryCell> for PcUpdate {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ApUpdate {
-    Regular,
-    Add,
-    Add1,
+    Regular = 0,
+    Add = 1,
+    Add1 = 2,
     // TODO: Check if this is correct
     Add2,
 }
@@ -201,10 +202,10 @@ impl TryFrom<&CairoMemoryCell> for CairoInstructionFlags {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum CairoOpcode {
-    NOp,
-    Call,
-    Ret,
-    AssertEq,
+    NOp = 0,
+    Call = 1,
+    Ret = 2,
+    AssertEq = 4,
 }
 
 impl TryFrom<&CairoMemoryCell> for CairoOpcode {
