@@ -4,10 +4,13 @@ use super::{
     sample_z_ood,
 };
 use crate::{
-    proof::{StarkProof, StarkQueryProof},
+    proof::{DeepConsistencyCheck, StarkProof, StarkQueryProof},
     transcript_to_field, transcript_to_usize,
 };
-use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
+use lambdaworks_crypto::{
+    fiat_shamir::transcript::Transcript,
+    merkle_tree::{merkle::MerkleTree, proof::Proof, DefaultHasher},
+};
 use lambdaworks_math::{
     fft::errors::FFTError,
     field::{element::FieldElement, traits::IsTwoAdicField},
@@ -134,6 +137,35 @@ where
         transcript,
     );
 
+    let consistency_check_x: Vec<FieldElement<_>> = lde_trace_evaluations
+        .iter()
+        .map(|evaluation| evaluation[transcript_to_usize(transcript) % evaluation.len()].clone())
+        .collect();
+    let lde_trace_merkle_trees: Vec<MerkleTree<F, DefaultHasher>> = lde_trace_evaluations
+        .iter()
+        .map(|evaluation| MerkleTree::build(evaluation))
+        .collect();
+    let lde_trace_merkle_roots = lde_trace_merkle_trees
+        .iter()
+        .map(|merkle_tree| merkle_tree.root.clone())
+        .collect::<Vec<FieldElement<F>>>();
+    let lde_trace_merkle_proofs = lde_trace_merkle_trees
+        .iter()
+        .zip(&consistency_check_x)
+        .map(|(merkle_tree, x_i)| merkle_tree.get_proof(x_i).unwrap())
+        .collect::<Vec<Proof<F, DefaultHasher>>>();
+    let deep_poly_evaluations = consistency_check_x
+        .iter()
+        .map(|x_i| deep_composition_poly.evaluate(x_i))
+        .collect();
+
+    let deep_consistency_check = DeepConsistencyCheck {
+        lde_trace_merkle_roots,
+        lde_trace_merkle_proofs,
+        composition_poly_evaluations,
+        deep_poly_evaluations,
+    };
+
     // * Do FRI on the composition polynomials
     let lde_fri_commitment = fri(
         &mut deep_composition_poly,
@@ -164,7 +196,7 @@ where
     StarkProof {
         fri_layers_merkle_roots,
         trace_ood_frame_evaluations,
-        composition_poly_evaluations,
+        deep_consistency_check,
         query_list,
     }
 }

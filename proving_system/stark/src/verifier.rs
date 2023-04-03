@@ -25,8 +25,10 @@ where
 
     let trace_poly_ood_frame_evaluations = &proof.trace_ood_frame_evaluations;
 
+    let deep_consistency_check = &proof.deep_consistency_check;
+
     // These are H_1(z^2) and H_2(z^2)
-    let composition_poly_evaluations = &proof.composition_poly_evaluations;
+    let composition_poly_evaluations = &deep_consistency_check.composition_poly_evaluations;
 
     let root_order = air.context().trace_length.trailing_zeros();
     let trace_primitive_root = F::get_primitive_root_of_unity(root_order as u64).unwrap();
@@ -173,6 +175,11 @@ where
     let deep_poly_challenges =
         air.context().transition_offsets.len() * air.context().trace_columns + 2;
     (0..deep_poly_challenges).for_each(|_| {
+        transcript.challenge();
+    });
+
+    // Skip DEEP consistency check for now
+    (0..composition_poly_evaluations.len()).for_each(|_| {
         transcript.challenge();
     });
 
