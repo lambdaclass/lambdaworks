@@ -140,7 +140,8 @@ where
     let deep_consistency_check = build_deep_consistency_check(
         transcript,
         air,
-        lde_trace_evaluations,
+        &lde_trace,
+        &lde_trace_evaluations,
         &deep_composition_poly,
         &lde_roots_of_unity_coset,
         composition_poly_evaluations,
@@ -248,17 +249,25 @@ fn compute_deep_composition_poly<A: AIR, F: IsTwoAdicField>(
 fn build_deep_consistency_check<A: AIR, F: IsTwoAdicField>(
     transcript: &mut Transcript,
     air: &A,
-    lde_trace_evaluations: Vec<Vec<FieldElement<F>>>,
+    trace: &TraceTable<F>,
+    lde_trace_evaluations: &[Vec<FieldElement<F>>],
     deep_composition_poly: &Polynomial<FieldElement<F>>,
     lde_roots_of_unity_coset: &[FieldElement<F>],
     composition_poly_evaluations: Vec<FieldElement<F>>,
 ) -> DeepConsistencyCheck<F> {
-    let consistency_check_index = transcript_to_usize(transcript)
+    let consistency_check_idx = transcript_to_usize(transcript)
         % (air.context().trace_length * air.options().blowup_factor as usize);
+
+    let frame_evaluations = Frame::read_from_trace(
+        trace,
+        consistency_check_idx,
+        air.options().blowup_factor,
+        &air.context().transition_offsets,
+    );
 
     let consistency_check_evaluations = lde_trace_evaluations
         .iter()
-        .map(|evaluation| evaluation[consistency_check_index].clone())
+        .map(|evaluation| evaluation[consistency_check_idx].clone())
         .collect::<Vec<FieldElement<_>>>();
 
     let lde_trace_merkle_trees = lde_trace_evaluations
@@ -278,12 +287,12 @@ fn build_deep_consistency_check<A: AIR, F: IsTwoAdicField>(
         .collect::<Vec<Proof<F, DefaultHasher>>>();
 
     let deep_poly_evaluation =
-        deep_composition_poly.evaluate(&lde_roots_of_unity_coset[consistency_check_index]);
+        deep_composition_poly.evaluate(&lde_roots_of_unity_coset[consistency_check_idx]);
 
     DeepConsistencyCheck {
         lde_trace_merkle_roots,
         lde_trace_merkle_proofs,
-        lde_trace_evaluations: consistency_check_evaluations,
+        trace_evaluations: frame_evaluations,
         composition_poly_evaluations,
         deep_poly_evaluation,
     }

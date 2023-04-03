@@ -32,7 +32,7 @@ where
 
     let lde_trace_merkle_roots = &deep_consistency_check.lde_trace_merkle_roots;
     let lde_trace_merkle_proofs = &deep_consistency_check.lde_trace_merkle_proofs;
-    let lde_trace_evaluations = &deep_consistency_check.lde_trace_evaluations;
+    let trace_evaluations = &deep_consistency_check.trace_evaluations;
 
     let root_order = air.context().trace_length.trailing_zeros();
     let trace_primitive_root = F::get_primitive_root_of_unity(root_order as u64).unwrap();
@@ -192,7 +192,7 @@ where
     for ((merkle_root, merkle_proof), evaluation) in lde_trace_merkle_roots
         .iter()
         .zip(lde_trace_merkle_proofs)
-        .zip(lde_trace_evaluations)
+        .zip(trace_evaluations.get_row(0))
     {
         // The prover calls `transcript.challenge()` for each trace polynomial, so the
         // verifier has to call this method the same number of times.
