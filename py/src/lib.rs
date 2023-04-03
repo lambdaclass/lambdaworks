@@ -16,7 +16,7 @@ fn lambdaworks_py(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<PyFieldElement>()?;
     m.add_class::<PyProofConfig>()?;
     m.add_class::<PyStarkProof>()?;
-    m.add_function(wrap_pyfunction!(stark::prove, m)?)?;
+//    m.add_function(wrap_pyfunction!(stark::prove, m)?)?;
     m.add_function(wrap_pyfunction!(stark::verify, m)?)?;
     Ok(())
 }

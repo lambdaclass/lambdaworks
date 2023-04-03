@@ -2,6 +2,7 @@ use super::field::element::FieldElement;
 use crate::{
     fft::{abstractions::*, errors::FFTError},
     field::traits::{IsField, IsTwoAdicField},
+    helpers,
 };
 use std::ops;
 
@@ -92,17 +93,19 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
         &self.coefficients
     }
 
+    pub fn pad_with_zero_coefficients_to_length(pa: &mut Self, n: usize) {
+        pa.coefficients.resize(n, FieldElement::zero());
+    }
+
     /// Pads polynomial representations with minimum number of zeros to match lengths.
     pub fn pad_with_zero_coefficients(pa: &Self, pb: &Self) -> (Self, Self) {
         let mut pa = pa.clone();
         let mut pb = pb.clone();
 
         if pa.coefficients.len() > pb.coefficients.len() {
-            pb.coefficients
-                .resize(pa.coefficients.len(), FieldElement::zero());
+            Self::pad_with_zero_coefficients_to_length(&mut pb, pa.coefficients.len());
         } else {
-            pa.coefficients
-                .resize(pb.coefficients.len(), FieldElement::zero());
+            Self::pad_with_zero_coefficients_to_length(&mut pa, pb.coefficients.len());
         }
         (pa, pb)
     }
@@ -161,12 +164,41 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
             coefficients: scaled_coefficients,
         }
     }
+
+    /// For the given polynomial, returns a tuple `(even, odd)` of polynomials
+    /// with the even and odd coefficients respectively.
+    /// Note that `even` and `odd` ARE NOT actually even/odd polynomials themselves.
+    ///
+    /// Example: if poly = 3 X^3 + X^2 + 2X + 1, then
+    /// `poly.even_odd_decomposition = (even, odd)` with
+    /// `even` = X + 1 and `odd` = 3X + 1.
+    ///
+    /// In general, the decomposition satisfies the following:
+    /// `poly(x)` = `even(x^2)` + X * `odd(x^2)`
+    pub fn even_odd_decomposition(&self) -> (Self, Self) {
+        let coef = self.coefficients();
+        let even_coef: Vec<FieldElement<F>> = coef.iter().step_by(2).cloned().collect();
+
+        // odd coeficients of poly are multiplied by beta
+        let odd_coef: Vec<FieldElement<F>> = coef.iter().skip(1).step_by(2).cloned().collect();
+
+        Polynomial::pad_with_zero_coefficients(
+            &Polynomial::new(&even_coef),
+            &Polynomial::new(&odd_coef),
+        )
+    }
 }
 
 impl<F: IsTwoAdicField> Polynomial<FieldElement<F>> {
     /// Evaluates this polynomial using FFT (so the function is evaluated using twiddle factors).
     pub fn evaluate_fft(&self) -> Result<Vec<FieldElement<F>>, FFTError> {
-        fft(self.coefficients())
+        let num_coefficients = self.coefficients().len();
+        let num_coeficcients_power_of_two = helpers::next_power_of_two(num_coefficients as u64);
+
+        let mut padded_coefficients = self.coefficients().to_vec();
+        padded_coefficients.resize(num_coeficcients_power_of_two as usize, FieldElement::zero());
+
+        fft(padded_coefficients.as_slice())
     }
 
     /// Evaluates this polynomial in an extended domain by `blowup_factor` with an `offset`.
@@ -188,7 +220,6 @@ impl<F: IsTwoAdicField> Polynomial<FieldElement<F>> {
     }
 }
 
-// TODO: This is not an optimal implementation, it should use FFT to interpolate.
 pub fn compose<F>(
     poly_1: &Polynomial<FieldElement<F>>,
     poly_2: &Polynomial<FieldElement<F>>,
@@ -212,6 +243,23 @@ where
         .collect();
 
     Polynomial::interpolate(interpolation_points.as_slice(), values.as_slice())
+}
+
+pub fn compose_fft<F>(
+    poly_1: &Polynomial<FieldElement<F>>,
+    poly_2: &Polynomial<FieldElement<F>>,
+) -> Polynomial<FieldElement<F>>
+where
+    F: IsTwoAdicField,
+{
+    let poly_2_evaluations = poly_2.evaluate_fft().unwrap();
+
+    let values: Vec<_> = poly_2_evaluations
+        .iter()
+        .map(|value| poly_1.evaluate(value))
+        .collect();
+
+    Polynomial::interpolate_fft(values.as_slice()).unwrap()
 }
 
 impl<F: IsField> ops::Add<&Polynomial<FieldElement<F>>> for &Polynomial<FieldElement<F>> {
@@ -250,7 +298,8 @@ impl<F: IsField> ops::Add<Polynomial<FieldElement<F>>> for &Polynomial<FieldElem
         self + &a_polynomial
     }
 }
-impl<F: IsField> ops::Neg for Polynomial<FieldElement<F>> {
+
+impl<F: IsField> ops::Neg for &Polynomial<FieldElement<F>> {
     type Output = Polynomial<FieldElement<F>>;
 
     fn neg(self) -> Polynomial<FieldElement<F>> {
@@ -263,10 +312,42 @@ impl<F: IsField> ops::Neg for Polynomial<FieldElement<F>> {
     }
 }
 
+impl<F: IsField> ops::Neg for Polynomial<FieldElement<F>> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn neg(self) -> Polynomial<FieldElement<F>> {
+        -&self
+    }
+}
+
 impl<F: IsField> ops::Sub<Polynomial<FieldElement<F>>> for Polynomial<FieldElement<F>> {
     type Output = Polynomial<FieldElement<F>>;
 
     fn sub(self, substrahend: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+        &self - &substrahend
+    }
+}
+
+impl<F: IsField> ops::Sub<&Polynomial<FieldElement<F>>> for Polynomial<FieldElement<F>> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn sub(self, substrahend: &Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+        &self - substrahend
+    }
+}
+
+impl<F: IsField> ops::Sub<Polynomial<FieldElement<F>>> for &Polynomial<FieldElement<F>> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn sub(self, substrahend: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+        self - &substrahend
+    }
+}
+
+impl<F: IsField> ops::Sub<&Polynomial<FieldElement<F>>> for &Polynomial<FieldElement<F>> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn sub(self, substrahend: &Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
         self + (-substrahend)
     }
 }
@@ -279,13 +360,36 @@ impl<F: IsField> ops::Div<Polynomial<FieldElement<F>>> for Polynomial<FieldEleme
     }
 }
 
-impl<F: IsField> ops::Mul<Polynomial<FieldElement<F>>> for Polynomial<FieldElement<F>> {
+impl<F: IsField> ops::Mul<&Polynomial<FieldElement<F>>> for &Polynomial<FieldElement<F>> {
     type Output = Polynomial<FieldElement<F>>;
-    fn mul(self, dividend: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
-        self.mul_with_ref(&dividend)
+    fn mul(self, factor: &Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+        self.mul_with_ref(factor)
     }
 }
 
+impl<F: IsField> ops::Mul<Polynomial<FieldElement<F>>> for Polynomial<FieldElement<F>> {
+    type Output = Polynomial<FieldElement<F>>;
+    fn mul(self, factor: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+        &self * &factor
+    }
+}
+
+impl<F: IsField> ops::Mul<Polynomial<FieldElement<F>>> for &Polynomial<FieldElement<F>> {
+    type Output = Polynomial<FieldElement<F>>;
+    fn mul(self, factor: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+        self * &factor
+    }
+}
+
+impl<F: IsField> ops::Mul<&Polynomial<FieldElement<F>>> for Polynomial<FieldElement<F>> {
+    type Output = Polynomial<FieldElement<F>>;
+    fn mul(self, factor: &Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+        &self * factor
+    }
+}
+
+/* Operations between Polynomials and field elements */
+/* Multiplication field element at left */
 impl<F: IsField> ops::Mul<FieldElement<F>> for Polynomial<FieldElement<F>> {
     type Output = Polynomial<FieldElement<F>>;
 
@@ -298,6 +402,195 @@ impl<F: IsField> ops::Mul<FieldElement<F>> for Polynomial<FieldElement<F>> {
         Polynomial {
             coefficients: new_coefficients,
         }
+    }
+}
+
+impl<F: IsField> ops::Mul<&FieldElement<F>> for &Polynomial<FieldElement<F>> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn mul(self, multiplicand: &FieldElement<F>) -> Polynomial<FieldElement<F>> {
+        self.clone() * multiplicand.clone()
+    }
+}
+
+impl<F: IsField> ops::Mul<FieldElement<F>> for &Polynomial<FieldElement<F>> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn mul(self, multiplicand: FieldElement<F>) -> Polynomial<FieldElement<F>> {
+        self * &multiplicand
+    }
+}
+
+impl<F: IsField> ops::Mul<&FieldElement<F>> for Polynomial<FieldElement<F>> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn mul(self, multiplicand: &FieldElement<F>) -> Polynomial<FieldElement<F>> {
+        &self * multiplicand
+    }
+}
+
+/* Multiplication field element at right */
+impl<F: IsField> ops::Mul<&Polynomial<FieldElement<F>>> for &FieldElement<F> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn mul(self, multiplicand: &Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+        multiplicand * self
+    }
+}
+
+impl<F: IsField> ops::Mul<Polynomial<FieldElement<F>>> for &FieldElement<F> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn mul(self, multiplicand: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+        &multiplicand * self
+    }
+}
+
+impl<F: IsField> ops::Mul<&Polynomial<FieldElement<F>>> for FieldElement<F> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn mul(self, multiplicand: &Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+        multiplicand * self
+    }
+}
+
+impl<F: IsField> ops::Mul<Polynomial<FieldElement<F>>> for FieldElement<F> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn mul(self, multiplicand: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+        &multiplicand * &self
+    }
+}
+
+/* Addition field element at left */
+impl<F: IsField> ops::Add<&FieldElement<F>> for &Polynomial<FieldElement<F>> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn add(self, other: &FieldElement<F>) -> Polynomial<FieldElement<F>> {
+        Polynomial::new_monomial(other.clone(), 0) + self
+    }
+}
+
+impl<F: IsField> ops::Add<FieldElement<F>> for Polynomial<FieldElement<F>> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn add(self, other: FieldElement<F>) -> Polynomial<FieldElement<F>> {
+        &self + &other
+    }
+}
+
+impl<F: IsField> ops::Add<FieldElement<F>> for &Polynomial<FieldElement<F>> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn add(self, other: FieldElement<F>) -> Polynomial<FieldElement<F>> {
+        self + &other
+    }
+}
+
+impl<F: IsField> ops::Add<&FieldElement<F>> for Polynomial<FieldElement<F>> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn add(self, other: &FieldElement<F>) -> Polynomial<FieldElement<F>> {
+        &self + other
+    }
+}
+
+/* Addition field element at right */
+impl<F: IsField> ops::Add<&Polynomial<FieldElement<F>>> for &FieldElement<F> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn add(self, other: &Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+        Polynomial::new_monomial(self.clone(), 0) + other
+    }
+}
+
+impl<F: IsField> ops::Add<Polynomial<FieldElement<F>>> for FieldElement<F> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn add(self, other: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+        &self + &other
+    }
+}
+
+impl<F: IsField> ops::Add<Polynomial<FieldElement<F>>> for &FieldElement<F> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn add(self, other: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+        self + &other
+    }
+}
+
+impl<F: IsField> ops::Add<&Polynomial<FieldElement<F>>> for FieldElement<F> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn add(self, other: &Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+        &self + other
+    }
+}
+
+/* Substraction field element at left */
+impl<F: IsField> ops::Sub<&FieldElement<F>> for &Polynomial<FieldElement<F>> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn sub(self, other: &FieldElement<F>) -> Polynomial<FieldElement<F>> {
+        self - Polynomial::new_monomial(other.clone(), 0)
+    }
+}
+
+impl<F: IsField> ops::Sub<FieldElement<F>> for Polynomial<FieldElement<F>> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn sub(self, other: FieldElement<F>) -> Polynomial<FieldElement<F>> {
+        &self - &other
+    }
+}
+
+impl<F: IsField> ops::Sub<FieldElement<F>> for &Polynomial<FieldElement<F>> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn sub(self, other: FieldElement<F>) -> Polynomial<FieldElement<F>> {
+        self - &other
+    }
+}
+
+impl<F: IsField> ops::Sub<&FieldElement<F>> for Polynomial<FieldElement<F>> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn sub(self, other: &FieldElement<F>) -> Polynomial<FieldElement<F>> {
+        &self - other
+    }
+}
+
+/* Substraction field element at right */
+impl<F: IsField> ops::Sub<&Polynomial<FieldElement<F>>> for &FieldElement<F> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn sub(self, other: &Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+        Polynomial::new_monomial(self.clone(), 0) - other
+    }
+}
+
+impl<F: IsField> ops::Sub<Polynomial<FieldElement<F>>> for FieldElement<F> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn sub(self, other: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+        &self - &other
+    }
+}
+
+impl<F: IsField> ops::Sub<Polynomial<FieldElement<F>>> for &FieldElement<F> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn sub(self, other: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+        self - &other
+    }
+}
+
+impl<F: IsField> ops::Sub<&Polynomial<FieldElement<F>>> for FieldElement<F> {
+    type Output = Polynomial<FieldElement<F>>;
+
+    fn sub(self, other: &Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+        &self - other
     }
 }
 
@@ -580,13 +873,12 @@ mod fft_test {
     use crate::fft::helpers::log2;
     use crate::field::test_fields::u64_test_field::U64TestField;
     use crate::field::traits::RootsConfig;
-    use proptest::prelude::*;
+    use proptest::{collection, prelude::*};
 
     use super::*;
 
     // FFT related tests
-    const MODULUS: u64 = 0xFFFFFFFF00000001;
-    type F = U64TestField<MODULUS>;
+    type F = U64TestField;
     type FE = FieldElement<F>;
 
     prop_compose! {
@@ -595,16 +887,16 @@ mod fft_test {
         // also it can't exceed the test field's two-adicity.
     }
     prop_compose! {
-        fn field_element()(num in any::<u64>().prop_filter("Avoid null polynomial", |x| x != &0)) -> FE {
+        fn field_element()(num in any::<u64>().prop_filter("Avoid null coefficients", |x| x != &0)) -> FE {
             FE::from(num)
         }
     }
     prop_compose! {
-        fn offset()(num in 1..MODULUS - 1) -> FE { FE::from(num) }
+        fn offset()(num in 1..F::neg(&1)) -> FE { FE::from(num) }
     }
     prop_compose! {
-        fn field_vec(max_exp: u8)(elem in field_element(), size in powers_of_two(max_exp)) -> Vec<FE> {
-            vec![elem; size]
+        fn field_vec(max_exp: u8)(vec in collection::vec(field_element(), 2..1<<max_exp).prop_filter("Avoid polynomials of size not power of two", |vec| vec.len().is_power_of_two())) -> Vec<FE> {
+            vec
         }
     }
     prop_compose! {
@@ -613,12 +905,15 @@ mod fft_test {
         }
     }
     prop_compose! {
-        // non-power-of-two sized vector
-        fn unsuitable_field_vec(max_exp: u8)(elem in field_element(), size in powers_of_two(max_exp)) -> Vec<FE> {
+        fn non_power_of_two_sized_field_vec(max_exp: u8)(elem in field_element(), size in powers_of_two(max_exp)) -> Vec<FE> {
             vec![elem; size + 1]
         }
     }
-
+    prop_compose! {
+        fn poly_with_non_power_of_two_coeffs(max_exp: u8)(coeffs in non_power_of_two_sized_field_vec(max_exp)) -> Polynomial<FE> {
+            Polynomial::new(&coeffs)
+        }
+    }
     proptest! {
         // Property-based test that ensures FFT eval. gives same result as a naive polynomial evaluation.
         #[test]
@@ -631,8 +926,7 @@ mod fft_test {
 
             prop_assert_eq!(fft_eval, naive_eval);
         }
-    }
-    proptest! {
+
         // Property-based test that ensures FFT eval. with coset gives same result as a naive polynomial evaluation.
         #[test]
         fn test_fft_coset_matches_naive_evaluation(poly in poly(8), offset in offset(), blowup_factor in powers_of_two(4)) {
@@ -644,8 +938,21 @@ mod fft_test {
 
             prop_assert_eq!(fft_eval, naive_eval);
         }
-    }
-    proptest! {
+
+        // Property-based test that ensures FFT eval. using polynomials with a non-power-of-two amount of coefficients works.
+        #[test]
+        fn test_fft_non_power_of_two_poly(poly in poly_with_non_power_of_two_coeffs(8)) {
+            let num_coefficients = poly.coefficients().len();
+            let num_coeficcients_power_of_two = helpers::next_power_of_two(num_coefficients as u64) as usize;
+            let order = log2(num_coeficcients_power_of_two).unwrap();
+            let twiddles = F::get_powers_of_primitive_root(order, num_coeficcients_power_of_two, RootsConfig::Natural).unwrap();
+
+            let fft_eval = poly.evaluate_fft().unwrap();
+            let naive_eval = poly.evaluate_slice(&twiddles);
+
+            prop_assert_eq!(fft_eval, naive_eval);
+        }
+
         // Property-based test that ensures interpolation is the inverse operation of evaluation.
         #[test]
         fn test_fft_interpolate_is_inverse_of_evaluate(poly in poly(8)) {
@@ -654,8 +961,7 @@ mod fft_test {
 
             prop_assert_eq!(poly, new_poly);
         }
-    }
-    proptest! {
+
         // Property-based test that ensures FFT won't work with a degree 0 polynomial.
         #[test]
         fn test_fft_constant_poly(elem in field_element()) {
@@ -665,14 +971,14 @@ mod fft_test {
             prop_assert!(matches!(result, Err(FFTError::RootOfUnityError(_, k)) if k == 0));
         }
     }
-    proptest! {
-        // Property-based test that ensures FFT won't work with a non-power-of=two poly.
-        #[test]
-        fn test_fft_non_power_of_two_poly(coeffs in unsuitable_field_vec(8)) {
-            let poly = Polynomial::new(&coeffs);
-            let result = poly.evaluate_fft();
 
-            prop_assert!(matches!(result, Err(FFTError::InvalidOrder(_))));
-        }
+    #[test]
+    fn composition_fft_works() {
+        let p = Polynomial::new(&[FE::new(0), FE::new(2)]);
+        let q = Polynomial::new(&[FE::new(0), FE::new(0), FE::new(0), FE::new(1)]);
+        assert_eq!(
+            compose_fft(&p, &q),
+            Polynomial::new(&[FE::new(0), FE::new(0), FE::new(0), FE::new(2)])
+        );
     }
 }

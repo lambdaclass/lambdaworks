@@ -1,4 +1,7 @@
-use crate::errors::ByteConversionError;
+use crate::{
+    errors::ByteConversionError,
+    field::{element::FieldElement, traits::IsField},
+};
 
 /// A trait for converting an element to and from its byte representation and
 /// for getting an element from its byte representation in big-endian or
@@ -19,4 +22,8 @@ pub trait ByteConversion {
     fn from_bytes_le(bytes: &[u8]) -> Result<Self, ByteConversionError>
     where
         Self: std::marker::Sized;
+}
+
+pub trait IsRandomFieldElementGenerator<F: IsField> {
+    fn generate(&self) -> FieldElement<F>;
 }
