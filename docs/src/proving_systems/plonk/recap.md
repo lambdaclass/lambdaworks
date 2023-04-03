@@ -232,12 +232,24 @@ In the previous section we showed how the arithmetization process works in PLONK
 
 **Claim:** Let $X$ be a $N x 3$ matrix with columns $A, B, C$ and $PI$ a $N x 1$ matrix. They correspond to a valid execution instance with public input given by $PI$ if and only if a) for all $i$ the following equality holds $$A_i (Q_L)_i + B_i * (Q_R)_i + A_i * B_i * Q_M + C_i * (Q_O)_i + (Q_C)_i + (PI)_i = 0,$$ b) for all $i,j,k,l$ such that $V_{i,j} = V_{k,l}$ we have $(ABC)_{i,j} = (ABC)_{k,l}$, c) $(PI)_i = 0$ for all $i>n$.
 
-Polynomials enter now to squash most of them.
+Polynomials enter now to squash most of these equations. We will traduce the set of all equations in conditions (a) and (b) to just a few equations on polynomials.
 
 Let $\omega$ be an N root of unity and let $H = {\omega^i: 0\leq i < N}$. Let $a, b, c, q_L, q_R, q_M, q_O, q_C, pi$ be the polynomials of degree at most $n + m$ that interpolate the columns $A, B, C, Q_L, Q_R, Q_M, Q_O, Q_C, PI$ at the domain $H$. This means for example that $a(\omega^i) = A_i$ for all $i$. And similarly for all the other columns.
 
-With this, condition (a) of the claim is equivalent to $$a(x) * q_L(x) + b(x) * q_R(x) + a(x) * b(x) * q_M(x) + c(x) * q_O(x) + q_c(x) + pi(x) = 0$$ for all $x$ in $H$.This is just by definition of the polynomials. But in polynomials land this is also equivalent to (a) there exists a polynomial $t$ such that $$a * q_L + b * q_R + a * b * q_M + c * q_O + q_c + pi = z_H * t$$, where $z_H$ is the polynomial $X^{N+1} -1$.
+With this, condition (a) of the claim is equivalent to $$a(x) * q_L(x) + b(x) * q_R(x) + a(x) * b(x) * q_M(x) + c(x) * q_O(x) + q_c(x) + pi(x) = 0$$ for all $x$ in $H$.This is just by definition of the polynomials. But in polynomials land this is also equivalent to (a) there exists a polynomial $t$ such that $$a * q_L + b * q_R + a * b * q_M + c * q_O + q_c + pi = z_H * t$$, where $z_H$ is the polynomial $X^N -1$.
 
+To reduce condition (b) to polynomial equations we need to introduce the concept of permutation. A permutation is a rearrangement of a set. Usually denoted $\sigma$. For finite sets it is a map from a set to itself that takes all values. In our case the set will be the set of all pairs $I={(i,j): \text{ such that }0\leq i<N, \text{ and } 0\leq j < 3}$. The matrix $V$ induces a permutation of this set where $\sigma((i,j))$ is equal to the indices of the *next* occurrence of the value at position $(i,j)$. If already at the last occurrence, go to the first one. By *next* we mean the following occurrence as if the columns were stacked on each other. Let's see how this works in the example circuit. Recall $V$ is 
+
+|   L |   R |   O |
+| --- | --- | --- |
+|   0 |   - |   - |
+|   1 |   - |   - |
+|   2 |   0 |   3 |
+|   1 |   3 |   - |
+
+The permutation in this case is the map $\sigma((0,0)) = (2,1)$, $\sigma((0,1)) = (0, 3)$, $\sigma((0,2)) = (0,2)$, $\sigma((0,3)) = (0,1)$, $\sigma((2,1)) = (0,0)$, $\sigma((3,1)) = (2,3)$, $\sigma((2,3)) = (3,1)$. For the positions with `-` values doesn't really matter right now.
+
+It's not hard to see that condition (b) is equivalent to: for all $(i,j)\in I$, $(ABC)_{i,j} = (ABC)_{\sigma((i,j))}$.
 
 ### Structured Reference String
 A SRS is essentially a set of precomputed values that are agreed upon by all parties involved in a PLONK proof. These values serve as a kind of baseline or starting point for verifying the correctness of the proof.
