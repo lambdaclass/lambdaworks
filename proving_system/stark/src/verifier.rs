@@ -187,6 +187,8 @@ where
     // match the transcript state.
     transcript.challenge();
 
+    // Verify that the elements used to build the DEEP composition polynomial are trace
+    // evaluations.
     for ((merkle_root, merkle_proof), evaluation) in lde_trace_merkle_roots
         .iter()
         .zip(lde_trace_merkle_proofs)

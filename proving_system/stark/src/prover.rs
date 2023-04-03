@@ -137,35 +137,14 @@ where
         transcript,
     );
 
-    let consistency_check_index = transcript_to_usize(transcript)
-        % (air.context().trace_length * air.options().blowup_factor as usize);
-    let consistency_check_evaluations = lde_trace_evaluations
-        .iter()
-        .map(|evaluation| evaluation[consistency_check_index].clone())
-        .collect::<Vec<FieldElement<_>>>();
-    let lde_trace_merkle_trees = lde_trace_evaluations
-        .iter()
-        .map(|evaluation| MerkleTree::build(evaluation))
-        .collect::<Vec<MerkleTree<_, DefaultHasher>>>();
-    let lde_trace_merkle_roots = lde_trace_merkle_trees
-        .iter()
-        .map(|merkle_tree| merkle_tree.root.clone())
-        .collect::<Vec<FieldElement<F>>>();
-    let lde_trace_merkle_proofs = lde_trace_merkle_trees
-        .iter()
-        .zip(&consistency_check_evaluations)
-        .map(|(merkle_tree, evaluation)| merkle_tree.get_proof(evaluation).unwrap())
-        .collect::<Vec<Proof<F, DefaultHasher>>>();
-    let deep_poly_evaluation =
-        deep_composition_poly.evaluate(&lde_roots_of_unity_coset[consistency_check_index]);
-
-    let deep_consistency_check = DeepConsistencyCheck {
-        lde_trace_merkle_roots,
-        lde_trace_merkle_proofs,
-        lde_trace_evaluations: consistency_check_evaluations,
+    let deep_consistency_check = build_deep_consistency_check(
+        transcript,
+        air,
+        lde_trace_evaluations,
+        &deep_composition_poly,
+        &lde_roots_of_unity_coset,
         composition_poly_evaluations,
-        deep_poly_evaluation,
-    };
+    );
 
     // * Do FRI on the composition polynomials
     let lde_fri_commitment = fri(
@@ -264,4 +243,48 @@ fn compute_deep_composition_poly<A: AIR, F: IsTwoAdicField>(
             - Polynomial::new_monomial(ood_evaluation_point * ood_evaluation_point, 0));
 
     trace_terms + even_composition_poly_term * gamma_even + odd_composition_poly_term * gamma_odd
+}
+
+fn build_deep_consistency_check<A: AIR, F: IsTwoAdicField>(
+    transcript: &mut Transcript,
+    air: &A,
+    lde_trace_evaluations: Vec<Vec<FieldElement<F>>>,
+    deep_composition_poly: &Polynomial<FieldElement<F>>,
+    lde_roots_of_unity_coset: &[FieldElement<F>],
+    composition_poly_evaluations: Vec<FieldElement<F>>,
+) -> DeepConsistencyCheck<F> {
+    let consistency_check_index = transcript_to_usize(transcript)
+        % (air.context().trace_length * air.options().blowup_factor as usize);
+
+    let consistency_check_evaluations = lde_trace_evaluations
+        .iter()
+        .map(|evaluation| evaluation[consistency_check_index].clone())
+        .collect::<Vec<FieldElement<_>>>();
+
+    let lde_trace_merkle_trees = lde_trace_evaluations
+        .iter()
+        .map(|evaluation| MerkleTree::build(evaluation))
+        .collect::<Vec<MerkleTree<_, DefaultHasher>>>();
+
+    let lde_trace_merkle_roots = lde_trace_merkle_trees
+        .iter()
+        .map(|merkle_tree| merkle_tree.root.clone())
+        .collect::<Vec<FieldElement<F>>>();
+
+    let lde_trace_merkle_proofs = lde_trace_merkle_trees
+        .iter()
+        .zip(&consistency_check_evaluations)
+        .map(|(merkle_tree, evaluation)| merkle_tree.get_proof(evaluation).unwrap())
+        .collect::<Vec<Proof<F, DefaultHasher>>>();
+
+    let deep_poly_evaluation =
+        deep_composition_poly.evaluate(&lde_roots_of_unity_coset[consistency_check_index]);
+
+    DeepConsistencyCheck {
+        lde_trace_merkle_roots,
+        lde_trace_merkle_proofs,
+        lde_trace_evaluations: consistency_check_evaluations,
+        composition_poly_evaluations,
+        deep_poly_evaluation,
+    }
 }
