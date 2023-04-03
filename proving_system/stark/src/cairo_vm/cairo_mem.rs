@@ -1,6 +1,7 @@
 use super::errors::CairoImportError;
 use lambdaworks_math::{traits::ByteConversion, unsigned_integer::element::U256};
 use std::fs;
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct CairoMemoryCell {
     pub address: u64,
