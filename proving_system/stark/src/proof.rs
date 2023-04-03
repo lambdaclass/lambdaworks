@@ -10,8 +10,9 @@ use crate::{air::frame::Frame, fri::fri_decommit::FriDecommitment};
 pub struct DeepConsistencyCheck<F: IsTwoAdicField> {
     pub lde_trace_merkle_roots: Vec<FieldElement<F>>,
     pub lde_trace_merkle_proofs: Vec<Proof<F, DefaultHasher>>,
-    pub deep_poly_evaluations: Vec<FieldElement<F>>,
+    pub lde_trace_evaluations: Vec<FieldElement<F>>,
     pub composition_poly_evaluations: Vec<FieldElement<F>>,
+    pub deep_poly_evaluation: FieldElement<F>,
 }
 
 #[derive(Debug, Clone)]

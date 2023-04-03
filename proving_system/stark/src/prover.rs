@@ -137,33 +137,34 @@ where
         transcript,
     );
 
-    let consistency_check_x: Vec<FieldElement<_>> = lde_trace_evaluations
+    let consistency_check_index = transcript_to_usize(transcript)
+        % (air.context().trace_length * air.options().blowup_factor as usize);
+    let consistency_check_evaluations = lde_trace_evaluations
         .iter()
-        .map(|evaluation| evaluation[transcript_to_usize(transcript) % evaluation.len()].clone())
-        .collect();
-    let lde_trace_merkle_trees: Vec<MerkleTree<F, DefaultHasher>> = lde_trace_evaluations
+        .map(|evaluation| evaluation[consistency_check_index].clone())
+        .collect::<Vec<FieldElement<_>>>();
+    let lde_trace_merkle_trees = lde_trace_evaluations
         .iter()
         .map(|evaluation| MerkleTree::build(evaluation))
-        .collect();
+        .collect::<Vec<MerkleTree<_, DefaultHasher>>>();
     let lde_trace_merkle_roots = lde_trace_merkle_trees
         .iter()
         .map(|merkle_tree| merkle_tree.root.clone())
         .collect::<Vec<FieldElement<F>>>();
     let lde_trace_merkle_proofs = lde_trace_merkle_trees
         .iter()
-        .zip(&consistency_check_x)
-        .map(|(merkle_tree, x_i)| merkle_tree.get_proof(x_i).unwrap())
+        .zip(&consistency_check_evaluations)
+        .map(|(merkle_tree, evaluation)| merkle_tree.get_proof(evaluation).unwrap())
         .collect::<Vec<Proof<F, DefaultHasher>>>();
-    let deep_poly_evaluations = consistency_check_x
-        .iter()
-        .map(|x_i| deep_composition_poly.evaluate(x_i))
-        .collect();
+    let deep_poly_evaluation =
+        deep_composition_poly.evaluate(&lde_roots_of_unity_coset[consistency_check_index]);
 
     let deep_consistency_check = DeepConsistencyCheck {
         lde_trace_merkle_roots,
         lde_trace_merkle_proofs,
+        lde_trace_evaluations: consistency_check_evaluations,
         composition_poly_evaluations,
-        deep_poly_evaluations,
+        deep_poly_evaluation,
     };
 
     // * Do FRI on the composition polynomials

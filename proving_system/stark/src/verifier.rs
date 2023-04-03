@@ -30,6 +30,10 @@ where
     // These are H_1(z^2) and H_2(z^2)
     let composition_poly_evaluations = &deep_consistency_check.composition_poly_evaluations;
 
+    let lde_trace_merkle_roots = &deep_consistency_check.lde_trace_merkle_roots;
+    let lde_trace_merkle_proofs = &deep_consistency_check.lde_trace_merkle_proofs;
+    let lde_trace_evaluations = &deep_consistency_check.lde_trace_evaluations;
+
     let root_order = air.context().trace_length.trailing_zeros();
     let trace_primitive_root = F::get_primitive_root_of_unity(root_order as u64).unwrap();
 
@@ -178,12 +182,22 @@ where
         transcript.challenge();
     });
 
-    // Skip DEEP consistency check for now
-    let deep_consistency_check_challenges =
-        proof.deep_consistency_check.lde_trace_merkle_roots.len();
-    (0..deep_consistency_check_challenges).for_each(|_| {
-        transcript.challenge();
-    });
+    // The prover calls `transcript.challenge()` once to get the domain element used to
+    // evaluate the DEEP composition polynomial, so the verifier has to call this method to
+    // match the transcript state.
+    transcript.challenge();
+
+    for ((merkle_root, merkle_proof), evaluation) in lde_trace_merkle_roots
+        .iter()
+        .zip(lde_trace_merkle_proofs)
+        .zip(lde_trace_evaluations)
+    {
+        // The prover calls `transcript.challenge()` for each trace polynomial, so the
+        // verifier has to call this method the same number of times.
+        if !merkle_proof.verify(merkle_root, 1, evaluation) {
+            return false;
+        }
+    }
 
     // construct vector of betas
     let mut beta_list = Vec::new();
