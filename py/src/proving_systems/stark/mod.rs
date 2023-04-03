@@ -1,4 +1,4 @@
-use lambdaworks_math::field::fields::montgomery_backed_prime_fields::MontgomeryBackendPrimeField;
+//use lambdaworks_math::field::fields::montgomery_backed_prime_fields::MontgomeryBackendPrimeField;
 use lambdaworks_stark::PrimeField;
 use lambdaworks_stark::ProofConfig;
 use lambdaworks_stark::StarkProof;
@@ -119,7 +119,7 @@ pub struct PyStarkProof(StarkProof<PrimeField>);
 // }
 
 #[pyfunction]
-pub fn verify(stark_proof: &PyStarkProof, ) -> bool {
+pub fn verify(_stark_proof: &PyStarkProof) -> bool {
     //lambdaworks_stark::verifier::verify(&stark_proof.0)
     true
 }
