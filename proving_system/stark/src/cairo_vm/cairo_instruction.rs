@@ -70,22 +70,6 @@ impl TryFrom<&CairoMemoryCell> for DstReg {
     }
 }
 
-// #[derive(Clone, Debug, PartialEq)]
-// pub struct CairoInstruction {
-//     pub off0: isize,
-//     pub off1: isize,
-//     pub off2: isize,
-//     pub imm: Option<U256>,
-//     pub dst_register: Register,
-//     pub op0_register: Register,
-//     pub op1_addr: Op1Addr,
-//     pub res: Res,
-//     pub pc_update: PcUpdate,
-//     pub ap_update: ApUpdate,
-//     pub fp_update: FpUpdate,
-//     pub opcode: CairoOpcode,
-// }
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Op1Src {
     Op0,
@@ -104,8 +88,8 @@ impl TryFrom<&CairoMemoryCell> for Op1Src {
         match op1_src {
             0 => Ok(Op1Src::Op0),
             1 => Ok(Op1Src::Imm),
-            2 => Ok(Op1Src::AP),
-            4 => Ok(Op1Src::FP),
+            2 => Ok(Op1Src::FP),
+            4 => Ok(Op1Src::AP),
             _ => Err(InstructionDecodingError::InvalidOp1Src),
         }
     }
@@ -130,6 +114,7 @@ impl TryFrom<&CairoMemoryCell> for ResLogic {
             0 => Ok(ResLogic::Op1),
             1 => Ok(ResLogic::Add),
             2 => Ok(ResLogic::Mul),
+            // TODO: Check this is correct
             4 => Ok(ResLogic::Unconstrained),
             _ => Err(InstructionDecodingError::InvalidResLogic),
         }
@@ -166,6 +151,7 @@ pub enum ApUpdate {
     Regular,
     Add,
     Add1,
+    // TODO: Check if this is correct
     Add2,
 }
 
@@ -184,13 +170,6 @@ impl TryFrom<&CairoMemoryCell> for ApUpdate {
             _ => Err(InstructionDecodingError::InvalidApUpdate),
         }
     }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum FpUpdate {
-    Regular,
-    APPlus2,
-    Dst,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -219,6 +198,7 @@ impl TryFrom<&CairoMemoryCell> for CairoInstructionFlags {
         })
     }
 }
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum CairoOpcode {
     NOp,
@@ -304,15 +284,261 @@ mod tests {
     }
 
     #[test]
-    fn decoded_flags_of_assert_are_correct() {
-        let value = U256::from_limbs([0, 0, 0, 0x480680017fff8000u64]);
+    fn regular_pc_update_flag_is_correct() {
+        let value = U256::from_limbs([0, 0, 0, 0x480a7ff87fff8000]);
         let addr: u64 = 1;
 
         let mem_cell = CairoMemoryCell {
             address: addr,
             value,
         };
+
+        assert_eq!(PcUpdate::try_from(&mem_cell), Ok(PcUpdate::Regular));
+    }
+
+    #[test]
+    fn jump_pc_update_flag_is_correct() {
+        let value = U256::from_limbs([0, 0, 0, 0x208b7fff7fff7ffe]);
+        let addr: u64 = 1;
+
+        let mem_cell = CairoMemoryCell {
+            address: addr,
+            value,
+        };
+
+        assert_eq!(PcUpdate::try_from(&mem_cell), Ok(PcUpdate::Jump));
+    }
+
+    #[test]
+    fn jumprel_pc_update_flag_is_correct() {
+        let value = U256::from_limbs([0, 0, 0, 0x1104800180018000]);
+        let addr: u64 = 1;
+
+        let mem_cell = CairoMemoryCell {
+            address: addr,
+            value,
+        };
+
+        assert_eq!(PcUpdate::try_from(&mem_cell), Ok(PcUpdate::JumpRel));
+    }
+
+    #[test]
+    fn jnz_pc_update_flag_is_correct() {
+        let value = U256::from_limbs([0, 0, 0, 0xa0680017fff8000]);
+        let addr: u64 = 1;
+
+        let mem_cell = CairoMemoryCell {
+            address: addr,
+            value,
+        };
+
+        assert_eq!(PcUpdate::try_from(&mem_cell), Ok(PcUpdate::Jnz));
+    }
+
+    #[test]
+    fn regular_ap_update_flag_is_correct() {
+        let value = U256::from_limbs([0, 0, 0, 0x400080077ff67fff]);
+        let addr: u64 = 1;
+
+        let mem_cell = CairoMemoryCell {
+            address: addr,
+            value,
+        };
+
+        assert_eq!(ApUpdate::try_from(&mem_cell), Ok(ApUpdate::Regular));
+    }
+
+    #[test]
+    fn add_ap_update_flag_is_correct() {
+        let value = U256::from_limbs([0, 0, 0, 0x40780017fff7fff]);
+        let addr: u64 = 1;
+
+        let mem_cell = CairoMemoryCell {
+            address: addr,
+            value,
+        };
+
+        assert_eq!(ApUpdate::try_from(&mem_cell), Ok(ApUpdate::Add));
+    }
+
+    #[test]
+    fn add1_ap_update_flag_is_correct() {
+        let value = U256::from_limbs([0, 0, 0, 0x484480017fff8000]);
+        let addr: u64 = 1;
+
+        let mem_cell = CairoMemoryCell {
+            address: addr,
+            value,
+        };
+
+        assert_eq!(ApUpdate::try_from(&mem_cell), Ok(ApUpdate::Add1));
+    }
+
+    #[test]
+    fn op1_res_logic_flag_is_correct() {
+        let value = U256::from_limbs([0, 0, 0, 0x48127ff87fff8000]);
+        let addr: u64 = 1;
+
+        let mem_cell = CairoMemoryCell {
+            address: addr,
+            value,
+        };
+
+        assert_eq!(ResLogic::try_from(&mem_cell), Ok(ResLogic::Op1));
+    }
+
+    #[test]
+    fn add_res_logic_flag_is_correct() {
+        let value = U256::from_limbs([0, 0, 0, 0x48307fff7ffd8000]);
+        let addr: u64 = 1;
+
+        let mem_cell = CairoMemoryCell {
+            address: addr,
+            value,
+        };
+
+        assert_eq!(ResLogic::try_from(&mem_cell), Ok(ResLogic::Add));
+    }
+
+    #[test]
+    fn mul_res_logic_flag_is_correct() {
+        let value = U256::from_limbs([0, 0, 0, 0x404b800280028002]);
+        let addr: u64 = 1;
+
+        let mem_cell = CairoMemoryCell {
+            address: addr,
+            value,
+        };
+
+        assert_eq!(ResLogic::try_from(&mem_cell), Ok(ResLogic::Mul));
+    }
+
+    #[test]
+    fn op0_op1_src_flag_is_correct() {
+        let value = U256::from_limbs([0, 0, 0, 0x400080077ff67fff]);
+        let addr: u64 = 1;
+
+        let mem_cell = CairoMemoryCell {
+            address: addr,
+            value,
+        };
+
+        assert_eq!(Op1Src::try_from(&mem_cell), Ok(Op1Src::Op0));
+    }
+
+    #[test]
+    fn imm_op1_src_flag_is_correct() {
+        let value = U256::from_limbs([0, 0, 0, 0x480680017fff8000]);
+        let addr: u64 = 1;
+
+        let mem_cell = CairoMemoryCell {
+            address: addr,
+            value,
+        };
+
+        assert_eq!(Op1Src::try_from(&mem_cell), Ok(Op1Src::Imm));
+    }
+
+    #[test]
+    fn ap_op1_src_flag_is_correct() {
+        let value = U256::from_limbs([0, 0, 0, 0x48127fd87fff8000]);
+        let addr: u64 = 1;
+
+        let mem_cell = CairoMemoryCell {
+            address: addr,
+            value,
+        };
+
+        assert_eq!(Op1Src::try_from(&mem_cell), Ok(Op1Src::AP));
+    }
+
+    #[test]
+    fn fp_op1_src_flag_is_correct() {
+        let value = U256::from_limbs([0, 0, 0, 0x208b7fff7fff7ffe]);
+        let addr: u64 = 1;
+
+        let mem_cell = CairoMemoryCell {
+            address: addr,
+            value,
+        };
+
+        assert_eq!(Op1Src::try_from(&mem_cell), Ok(Op1Src::FP));
+    }
+
+    #[test]
+    fn ap_op0_reg_flag_is_correct() {
+        let value = U256::from_limbs([0, 0, 0, 0x480080887ff58000]);
+        let addr: u64 = 1;
+
+        let mem_cell = CairoMemoryCell {
+            address: addr,
+            value,
+        };
+
+        assert_eq!(Op0Reg::try_from(&mem_cell), Ok(Op0Reg::AP));
+    }
+
+    #[test]
+    fn fp_op0_reg_flag_is_correct() {
+        let value = U256::from_limbs([0, 0, 0, 0x48127ff87fff8000]);
+        let addr: u64 = 1;
+
+        let mem_cell = CairoMemoryCell {
+            address: addr,
+            value,
+        };
+
+        assert_eq!(Op0Reg::try_from(&mem_cell), Ok(Op0Reg::FP));
+    }
+
+    #[test]
+    fn ap_dst_reg_flag_is_correct() {
+        let value = U256::from_limbs([0, 0, 0, 0x480a7ff87fff8000]);
+        let addr: u64 = 1;
+
+        let mem_cell = CairoMemoryCell {
+            address: addr,
+            value,
+        };
+
+        assert_eq!(DstReg::try_from(&mem_cell), Ok(DstReg::AP));
+    }
+
+    #[test]
+    fn fp_dst_reg_flag_is_correct() {
+        let value = U256::from_limbs([0, 0, 0, 0x400380837ffb8000]);
+        let addr: u64 = 1;
+
+        let mem_cell = CairoMemoryCell {
+            address: addr,
+            value,
+        };
+
+        assert_eq!(DstReg::try_from(&mem_cell), Ok(DstReg::FP));
+    }
+
+    #[test]
+    fn decoded_flags_of_assert_are_correct() {
+        let value = U256::from_limbs([0, 0, 0, 0x400380837ffb8000]);
+        let addr: u64 = 1;
+
+        let mem_cell = CairoMemoryCell {
+            address: addr,
+            value,
+        };
+
+        let expected_flags = CairoInstructionFlags {
+            opcode: CairoOpcode::AssertEq,
+            pc_update: PcUpdate::Regular,
+            ap_update: ApUpdate::Regular,
+            op0_reg: Op0Reg::FP,
+            op1_src: Op1Src::Op0,
+            res_logic: ResLogic::Op1,
+            dst_reg: DstReg::FP,
+        };
+
         let flags = CairoInstructionFlags::try_from(&mem_cell).unwrap();
-        dbg!(flags);
+
+        assert_eq!(expected_flags, flags);
     }
 }
