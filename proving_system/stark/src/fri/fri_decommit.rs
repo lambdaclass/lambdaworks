@@ -45,7 +45,11 @@ pub fn fri_decommit_layers<F: IsField>(
 
     // send the last element of the polynomial
     let last = commit.last().unwrap();
-    let last_evaluation = last.poly.coefficients[0].clone();
+
+    // This get can't fail, since the last will always have at least one evaluation
+    // (in fact two, but on the last step the two will be the same because the polynomial will have
+    // degree 0).
+    let last_evaluation = last.evaluation[0].clone();
 
     FriDecommitment {
         layer_merkle_paths,

@@ -78,7 +78,8 @@ where
     fri_commitment_list.push(commitment_0);
     let mut degree = p_0.degree();
 
-    let mut last_coef = last_poly.coefficients.get(0).unwrap();
+    let mut last_coef = last_poly.coefficients.get(0).unwrap().clone();
+    let zero = FieldElement::zero();
 
     while degree > 0 {
         let beta = transcript_to_field(transcript);
@@ -97,7 +98,8 @@ where
         degree = p_i.degree();
 
         last_poly = p_i.clone();
-        last_coef = last_poly.coefficients.get(0).unwrap();
+        last_coef = last_poly.evaluate(&zero);
+
         last_domain = domain_i.clone();
     }
 
