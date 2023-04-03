@@ -179,7 +179,9 @@ where
     });
 
     // Skip DEEP consistency check for now
-    (0..composition_poly_evaluations.len()).for_each(|_| {
+    let deep_consistency_check_challenges =
+        proof.deep_consistency_check.lde_trace_merkle_roots.len();
+    (0..deep_consistency_check_challenges).for_each(|_| {
         transcript.challenge();
     });
 
