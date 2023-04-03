@@ -6,7 +6,18 @@ pub mod prover;
 pub mod verifier;
 
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
-use lambdaworks_math::field::{element::FieldElement, traits::IsField};
+use lambdaworks_math::field::{
+    element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+    traits::IsField,
+};
+
+pub struct ProofConfig {
+    pub count_queries: usize,
+    pub blowup_factor: usize,
+}
+
+pub type PrimeField = Stark252PrimeField;
+pub type FE = FieldElement<PrimeField>;
 
 // TODO: change this to use more bits
 pub fn transcript_to_field<F: IsField>(transcript: &mut Transcript) -> FieldElement<F> {
