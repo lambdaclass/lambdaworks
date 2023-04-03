@@ -49,7 +49,6 @@ fn test_prove_fib() {
     assert!(verify(&result, &fibonacci_air));
 }
 
-#[ignore]
 #[test]
 fn test_prove_fib17() {
     let trace = fibonacci_trace([FE17::from(1), FE17::from(1)], 4);
@@ -61,7 +60,7 @@ fn test_prove_fib17() {
             fri_number_of_queries: 1,
             coset_offset: 3,
         },
-        trace_length: trace.len(),
+        trace_length: trace_table.n_rows(),
         trace_columns: trace_table.n_cols,
         transition_degrees: vec![1],
         transition_exemptions: vec![2],
