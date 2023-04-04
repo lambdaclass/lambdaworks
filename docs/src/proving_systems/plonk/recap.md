@@ -254,7 +254,8 @@ The permutation in this case is the map $\sigma((0,0)) = (2,1)$, $\sigma((0,1)) 
 It's not hard to see that condition (b) is equivalent to: for all $(i,j)\in I$, $T_{i,j} = T_{\sigma((i,j))}$.
 
 This in turn is equivalent to checking whether the following sets are equal 
-$$\{((i,j), T_{i,j}): (i,j) \in I\} = \{(\sigma((i,j)), T_{i,j}): (i,j) \in I\}.$$
+$$A = \{((i,j), T_{i,j}): (i,j) \in I\}$$
+$$B = \{(\sigma((i,j)), T_{i,j}): (i,j) \in I\}.$$
 
 In our example the sets in question are respectively
 $$\{((0,0), T_{0,0}), ((0,1), T_{0,1}), ((0,2), T_{0,2}), ((0,3), T_{0,3}), ((2,1), T_{2,1}), ((3,1), T_{3,1}), ((2,2), T_{2,2})\},$$
@@ -281,34 +282,34 @@ But the converse is not true. For example the sets $A=\{4, 15\}$ and $B=\{6, 10\
 
 Polynomials come to rescue here. What we can do instead is consider the following sets *of polynomials* $A'=\{a_0 + X, a_1 + X\}$, $B'=\{b_0 + X, b_1 + X\}$. Sets $A$ and $B$ are equal if and only if sets $A'$ and $B'$ are equal. This is because equality of polynomials boils down to equality of their coefficients. But the difference with $A'$ and $B'$ is that now the approach of multiplying the elements works. That is, $A'$ and $B'$ are equal if and only if $(a_0 + X)(a_1 + X) = (b_0 + X)(b_1 + X)$. This is not entirely evident but follows from a property that polynomials have, called *unique factorization domain*. Here the important fact is that linear polynomials act as sort of prime factors. Anyway, you can take that for granted. The last part of this trick is to use the Schwarz-Zippel lemma and go back to the land of field elements. That means, if for some random element $\gamma$ we have $(a_0 + \gamma)(a_1 + \gamma) = (b_0 + \gamma)(b_1 + \gamma)$, then with overwhelming probability the equality $(a_0 + X)(a_1 + X) = (b_0 + X)(b_1 + X)$ holds.
 
-Puttings this altogether, if for some random element $\gamma$ we have $(a_0 + \gamma)(a_1 + \gamma) = (b_0 + \gamma)(b_1 + \gamma)$, then the sets $A$ and $B$ are equal. Of course this also holds for sets with more than two elements. Let's write that down.
+Putting this altogether, if for some random element $\gamma$ we have $(a_0 + \gamma)(a_1 + \gamma) = (b_0 + \gamma)(b_1 + \gamma)$, then the sets $A$ and $B$ are equal. Of course this also holds for sets with more than two elements. Let's write that down.
 
 *Fact:* Let $A=\{a_0, \dots, a_{k-1}\}$ and $B=\{b_0, \dots, b_{k-1}\}$ be sets of field elements. If for some random $\gamma$ the following equality holds
 $$\prod_{i=0}^{k-1}(a_i + \gamma) = \prod_{i=0}^{k-1}(b_i + \gamma),$$
 then with overwhelming probability $A$ is equal to $B$.
 
 And here comes the trick that reduces this check to a polynomial equation. Let
-$H$ be a domain of the form $\{1, \omega, \dots, \omega^{k-1}\}$ for some $k$-th root of unity $\omega$. Let $f, g, Z$ be respectively the polynomials that interpolate the following values in $H$.
+$H$ be a domain of the form $\{1, \omega, \dots, \omega^{k-1}\}$ for some $k$-th root of unity $\omega$. Let $f$ and $g$ be respectively the polynomials that interpolate the following values at $H$.
 $$(a_0 + \gamma, \dots, a_{k-1} + \gamma),$$
 $$(b_0 + \gamma, \dots, b_{k-1} + \gamma),$$
 
 Then $\prod_{i=0}^{k-1}(a_i + \gamma)$ equals $\prod_{i=0}^{k-1}(b_i + \gamma)$ if and only if there exists a polynomial $Z$ of degree at most $k$ such that
 $$Z(\omega^0) = 1$$
-$$Z(X)g(X) = f(X)Z(\omega X)$$
+$$Z(X)f(X) = g(X)Z(\omega X)$$
 
 Let's see why. Suppose that $\prod_{i=0}^{k-1}(a_i + \gamma)$ equals $\prod_{i=0}^{k-1}(b_i + \gamma)$. Construct $Z$ as the polynomial that interpolates the following values $$(1, \frac{a_0 + \gamma}{b_0 + \gamma}, \frac{(a_0 + \gamma)(a_1 + \gamma)}{(b_0 + \gamma)(b_1 + \gamma)}, \dots, \prod_{i=0}^{k-1} \frac{a_i + \gamma}{b_i + \gamma}),$$
-in the same domain as $f$ and $g$. That works. Conversely, suppose such a polynomial $Z$ exists. By evaluating the equation $Z(X)g(X) = f(X)Z(\omega X)$ in $1, \omega, \dots, \omega^{k-2}$ we get that $Z$ actually is the polynomial that interpolates those values. Moreover, evaluating it in $\omega^{k-1}$ we obtain that $$Z(\omega^{k-1})\frac{f(\omega^{k-1})}{g(\omega^{k-1})} = Z(\omega^k) = Z(w^0) = 1.$$
+in the same domain as $f$ and $g$. That works. Conversely, suppose such a polynomial $Z$ exists. By evaluating the equation $Z(X)f(X) = g(X)Z(\omega X)$ in $1, \omega, \dots, \omega^{k-2}$ we get that $Z$ actually is the polynomial that interpolates those values. Moreover, evaluating it at $\omega^{k-1}$ we obtain that $$Z(\omega^{k-1})\frac{f(\omega^{k-1})}{g(\omega^{k-1})} = Z(\omega^k) = Z(w^0) = 1.$$
 The second equality holds because $\omega^k = \omega^0$ since it is a $k$-th root of unity. Expanding with the values of $f, g$ and $Z$ one obtains that $\prod_{i=0}^{k-1}(a_i + \gamma)/\prod_{i=0}^{k-1}(b_i + \gamma)$ equals $1$. Which is what we wanted.
 
 In summary. We proved the following:
 
-*Fact:* Let $A=\{a_0, \dots, a_{k-1}\}$ and $B=\{b_0, \dots, b_{k-1}\}$ be sets of field elements. Let $\gamma$ be a random field element. Let $\omega$ be a $k$-th root of unity. Let $f$ and $g$ be respectively the polynomials that interpolate the values ${a_0 + \gamma, \dots, a_{k-1} + \gamma}$ and ${b_0 + \gamma, \dots, b_{k-1} + \gamma}$ in the powers of $\omega$. If there exists a polynomial $Z$ of degree at most $k$ such that 
+*Fact:* Let $A=\{a_0, \dots, a_{k-1}\}$ and $B=\{b_0, \dots, b_{k-1}\}$ be sets of field elements. Let $\gamma$ be a random field element. Let $\omega$ be a $k$-th root of unity. Let $f$ and $g$ be respectively the polynomials that interpolate the values ${a_0 + \gamma, \dots, a_{k-1} + \gamma}$ and ${b_0 + \gamma, \dots, b_{k-1} + \gamma}$ at the powers of $\omega$. If there exists a polynomial $Z$ of degree at most $k$ such that 
 $$Z(\omega^0) = 1$$
-$$Z(X)g(X) = f(X)Z(\omega X)$$
-then with overwhelming probability sets $A$ and $B$ are equal.
+$$Z(X)f(X) = g(X)Z(\omega X)$$
+then with overwhelming probability the sets $A$ and $B$ are equal.
 
 #### Going back to our case
-Recall we want to rephrase condition (b) in terms of polynomials. And we are going to apply the previous fact to the sets we need.
+Recall we want to rephrase condition (b) in terms of polynomials.
 We have: 
 $$A = \{((i,j), T_{i,j}): (i,j) \in I\}$$
 and 
@@ -340,18 +341,32 @@ Again you can check that these are equal by replacing the values of $T_{i,j}$.
 
 So finally we arrive at
 
-*Fact:* The sets $A = \{((i,j), T_{i,j}): (i,j) \in I\}$ and $B = \{(\sigma((i,j)), T_{i,j}): (i,j) \in I\}$ are equal if and only if there exists a polynomial $Z$ of degree at most $3N$ such that 
+*Fact:* Suppose there exists a polynomial $Z$ of degree at most $3N$ such that 
 $$Z(\eta^0) = 1$$
-$$Z(X)g(X) = f(X)Z(\eta X),$$
-where $f$ and $g$ interpolate the values following values, respectively
-$$\{T_{i,j} + \eta^{j + 3i} + \gamma: (i,j) \in I\},$$
+$$Z(X)f(X) = g(X)Z(\eta X),$$
+where $f$ and $g$ interpolate, respectively, the values
+$$\{T_{i,j} + \eta^{j + 3i}\beta + \gamma: (i,j) \in I\},$$
 and
-$$\{T_{i,j} + \eta^{l + 3k} + \gamma: (i,j) \in I, \sigma((i,j)) = (k,l)\},$$
+$$\{T_{i,j} + \eta^{l + 3k}\beta + \gamma: (i,j) \in I, \sigma((i,j)) = (k,l)\},$$
+for some random $\beta$ and $\gamma$. Then the sets $A = \{((i,j), T_{i,j}): (i,j) \in I\}$ and $B = \{(\sigma((i,j)), T_{i,j}): (i,j) \in I\}$ are equal with overwhelming probability.
 
-There's one extra optimization to be done here, that can reduce the degree of the polynomial $Z$ to $N$ instead of $3N$. But for now let's leave it like that.
 
-#### Recap
 
+There will be an optimization of this to reduce the degree of the polynomial $Z$ to at most $N$. But for now let's leave it like that.
+
+One last minute definitions. Notice that $\omega=\eta^3$ is a primitive $N$-th root of unity. Also, $\eta^{j + 3i} = \eta^{3i}\eta^j = \omega^i\eta^j$. Let $H=\{1, \omega, \omega^2, \dots, \omega^{N-1}\}$.
+
+Define $S_{\sigma 1}$ to be the interpolation at $H$ of 
+$$\{T_{i,0} + \omega^{i}\beta + \gamma: 0\leq i < N\},$$
+Similarly define $S_{\sigma 2}$ and $S_{\sigma 3}$ to be the interpolation at $H$ of the sets of values
+$$\{T_{i,1} + \omega^{i}\eta\beta + \gamma: 0\leq i < N\},$$
+$$\{T_{i,2} + \omega^{i}\eta^2\beta + \gamma: 0\leq i < N\}.$$
+### Recap
+
+We have arrived to the eight polynomials we mentioned at the beginning:
+$$q_L, q_R, q_M, q_O, q_C, S_{\sigma 1}, S_{\sigma 2}, S_{\sigma 3}.$$
+
+These are what's called the *common preprocessed input*.
 
 
 ### Structured Reference String
