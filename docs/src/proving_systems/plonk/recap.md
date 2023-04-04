@@ -284,7 +284,7 @@ Polynomials come to rescue here. What we can do instead is consider the followin
 Puttings this altogether, if for some random element $\gamma$ we have $(a_0 + \gamma)(a_1 + \gamma) = (b_0 + \gamma)(b_1 + \gamma)$, then the sets $A$ and $B$ are equal. Of course this also holds for sets with more than two elements. Let's write that down.
 
 *Fact:* Let $A=\{a_0, \dots, a_{k-1}\}$ and $B=\{b_0, \dots, b_{k-1}\}$ be sets of field elements. If for some random $\gamma$ the following equality holds
-$$\prod_{i=0}^k(a_i + \gamma) = \prod_{i=0}^k(b_i + \gamma),$$
+$$\prod_{i=0}^{k-1}(a_i + \gamma) = \prod_{i=0}^{k-1}(b_i + \gamma),$$
 then with overwhelming probability $A$ is equal to $B$.
 
 And here comes the trick that reduces this check to a polynomial equation. Let
@@ -292,13 +292,13 @@ $H$ be a domain of the form $\{1, \omega, \dots, \omega^{k-1}\}$ for some $k$-th
 $$(a_0 + \gamma, \dots, a_{k-1} + \gamma),$$
 $$(b_0 + \gamma, \dots, b_{k-1} + \gamma),$$
 
-Then $\prod_{i=0}^k(a_i + \gamma)$ equals $\prod_{i=0}^k(b_i + \gamma)$ if and only if there exists a polynomial $Z$ of degree at most $k$ such that
+Then $\prod_{i=0}^{k-1}(a_i + \gamma)$ equals $\prod_{i=0}^{k-1}(b_i + \gamma)$ if and only if there exists a polynomial $Z$ of degree at most $k$ such that
 $$Z(\omega^0) = 1$$
 $$Z(X)g(X) = f(X)Z(\omega X)$$
 
-Let's see why. Suppose that $\prod_{i=0}^k(a_i + \gamma)$ equals $\prod_{i=0}^k(b_i + \gamma)$. Construct $Z$ as the polynomial that interpolates the following values $$(1, \frac{a_0 + \gamma}{b_0 + \gamma}, \frac{(a_0 + \gamma)(a_1 + \gamma)}{(b_0 + \gamma)(b_1 + \gamma)}, \dots, \prod_{i=0}^{k-1} \frac{a_i + \gamma}{b_i + \gamma}),$$
+Let's see why. Suppose that $\prod_{i=0}^{k-1}(a_i + \gamma)$ equals $\prod_{i=0}^{k-1}(b_i + \gamma)$. Construct $Z$ as the polynomial that interpolates the following values $$(1, \frac{a_0 + \gamma}{b_0 + \gamma}, \frac{(a_0 + \gamma)(a_1 + \gamma)}{(b_0 + \gamma)(b_1 + \gamma)}, \dots, \prod_{i=0}^{k-1} \frac{a_i + \gamma}{b_i + \gamma}),$$
 in the same domain as $f$ and $g$. That works. Conversely, suppose such a polynomial $Z$ exists. By evaluating the equation $Z(X)g(X) = f(X)Z(\omega X)$ in $1, \omega, \dots, \omega^{k-2}$ we get that $Z$ actually is the polynomial that interpolates those values. Moreover, evaluating it in $\omega^{k-1}$ we obtain that $$Z(\omega^{k-1})\frac{f(\omega^{k-1})}{g(\omega^{k-1})} = Z(\omega^k) = Z(w^0) = 1.$$
-The second equality holds because $\omega^k = \omega^0$ since it is a $k$-th root of unity. Expanding with the values of $f, g$ and $Z$ one obtains that $\prod_{i=0}^k(a_i + \gamma)/\prod_{i=0}^k(b_i + \gamma)$ equals $1$. Which is what we wanted.
+The second equality holds because $\omega^k = \omega^0$ since it is a $k$-th root of unity. Expanding with the values of $f, g$ and $Z$ one obtains that $\prod_{i=0}^{k-1}(a_i + \gamma)/\prod_{i=0}^{k-1}(b_i + \gamma)$ equals $1$. Which is what we wanted.
 
 In summary. We proved the following:
 
@@ -348,9 +348,7 @@ $$\{T_{i,j} + \eta^{j + 3i} + \gamma: (i,j) \in I\},$$
 and
 $$\{T_{i,j} + \eta^{l + 3k} + \gamma: (i,j) \in I, \sigma((i,j)) = (k,l)\},$$
 
-
 There's one extra optimization to be done here, that can reduce the degree of the polynomial $Z$ to $N$ instead of $3N$. But for now let's leave it like that.
-
 
 #### Recap
 
