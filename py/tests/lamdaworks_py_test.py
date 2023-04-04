@@ -59,25 +59,6 @@ class TestFieldElement(unittest.TestCase):
         one = FieldElement.one()
         two = FieldElement(U256("2"))
         self.assertTrue(two * (two.inv()) == one)
-    
-
-class TestFibonacci(unittest.TestCase):
-    @classmethod
-    def _fibonacci_trace(cls, v0, v1):
-        N = 32
-        l = [v0, v1]
-        for i in range(2, N):
-            l.append(l[i - 1] + l[i - 2])
-        return l
-
-    def test_prove(self):
-        trace = self.__class__._fibonacci_trace(FieldElement(U256("1")), FieldElement(U256("1")))
-
-        proof_config = StarkProofConfig(count_queries=30, blowup_factor=4)
-        # result = prove(trace, proof_config)
-
-        #self.assertTrue(verify(result))
-    
 
 if __name__ == '__main__':
     unittest.main()

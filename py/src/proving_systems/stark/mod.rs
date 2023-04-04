@@ -1,4 +1,3 @@
-//use lambdaworks_math::field::fields::montgomery_backed_prime_fields::MontgomeryBackendPrimeField;
 use lambdaworks_stark::PrimeField;
 use lambdaworks_stark::ProofConfig;
 use lambdaworks_stark::StarkProof;
@@ -46,7 +45,7 @@ impl PyFieldElement {
         Self(&self.0 / &other.0)
     }
 
-    pub fn __neg__(&self) -> Self {
+    fn __neg__(&self) -> Self {
         Self(-&self.0)
     }
 
@@ -58,12 +57,12 @@ impl PyFieldElement {
         Self(self.0.inv())
     }
 
-    pub fn pow(&self, pyexp: &PyInt) -> PyResult<Self> {
+    fn pow(&self, pyexp: &PyInt) -> PyResult<Self> {
         let exp: u64 = pyexp.extract()?;
         Ok(Self(self.0.pow(exp)))
     }
 
-    pub fn __pow__(&self, pyexp: &PyInt, modulo: Option<&PyInt>) -> PyResult<Py<PyAny>> {
+    fn __pow__(&self, pyexp: &PyInt, modulo: Option<&PyInt>) -> PyResult<Py<PyAny>> {
         let py = pyexp.py();
         let exp: u64 = pyexp.extract()?;
         match modulo {
@@ -99,27 +98,3 @@ impl PyProofConfig {
 
 #[pyclass]
 pub struct PyStarkProof(StarkProof<PrimeField>);
-
-// #[pyfunction]
-// pub fn prove(trace: &PyList, proof_config: &PyProofConfig) -> PyResult<PyStarkProof> {
-//     // FIXME is there a better way of taking a list of FieldElements as parameters?
-//     let trace = {
-//         let mut v: Vec<FE> = Vec::with_capacity(trace.len());
-//         for pyelem in trace {
-//             let fe = PyFieldElement::extract(pyelem)?;
-//             v.push(fe.0);
-//         }
-//         v
-//     };
-
-//     Ok(PyStarkProof(lambdaworks_stark::prover::prove(
-//         &trace,
-//         &proof_config.0,
-//     )))
-// }
-
-#[pyfunction]
-pub fn verify(_stark_proof: &PyStarkProof) -> bool {
-    //lambdaworks_stark::verifier::verify(&stark_proof.0)
-    true
-}
