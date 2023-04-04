@@ -140,7 +140,7 @@ The $V$ matrix encodes the carry of the results from one gate to the right or le
 
 Here $0$ is the index of $e$, $1$ is the index of $x$, $2$ is the index of $u$, $3$ is the index of $v$ and $4$ is the index of the output $w$. Now we can update the claim to have an "if and only if" statement.
 
-**Claim:** columns $A, B, C$ correspond to a valid evaluation of the circuit if and only if a) for all $i$ the following equality holds $$A_i (Q_L)_i + B_i *(Q_R)_i + A_i * B_i * Q_M + C_i * (Q_O)_i + (Q_C)_i = 0,$$ b) for all $i,j,k,l$ such that $V_{i,j} = V_{k, l}$ we have $(ABC)_{i,j} = (ABC)_{k, l}$.
+**Claim:** Let $T$ be a matrix with columns $A, B, C$. It correspond to a valid evaluation of the circuit if and only if a) for all $i$ the following equality holds $$A_i (Q_L)_i + B_i *(Q_R)_i + A_i * B_i * Q_M + C_i * (Q_O)_i + (Q_C)_i = 0,$$ b) for all $i,j,k,l$ such that $V_{i,j} = V_{k, l}$ we have $T_{i,j} = T_{k, l}$.
 
 So now our malformed example does not pass the second check.
 
@@ -225,12 +225,12 @@ And the final $Q$ matrix is
 
 We ended up with two matrices that depend only on the program, $Q$ and $V$. And two matrices that depend on a particular evaluation, namely the $ABC$ and $PI$ matrices. The updated version of the claim is the following:
 
-**Claim:** columns $A, B, C$ correspond to a valid evaluation of the circuit if and only if a) for all $i$ the following equality holds $$A_i (Q_L)_i + B_i * (Q_R)_i + A_i * B_i * Q_M + C_i * (Q_O)_i + (Q_C)_i + (PI)_i = 0,$$ b) for all $i,j,k,l$ such that $V_{i,j} = V_{k,l}$ we have $(ABC)_{i,j} = (ABC)_{k,l}$.
+**Claim:** Let $T$ be a matrix with columns $A, B, C$. It corresponds to a evaluation of the circuit if and only if a) for all $i$ the following equality holds $$A_i (Q_L)_i + B_i * (Q_R)_i + A_i * B_i * Q_M + C_i * (Q_O)_i + (Q_C)_i + (PI)_i = 0,$$ b) for all $i,j,k,l$ such that $V_{i,j} = V_{k,l}$ we have $T_{i,j} = T_{k,l}$.
 
 ### From matrices to polynomials
-In the previous section we showed how the arithmetization process works in PLONK. For a program with $n$ public inputs and $m$ gates, we constructed two matrices $Q$ and $V$, of sizes $(n + m + 1) x 5$ and $(n + m + 1) x 3$ that satisfy the following. Let $N = n + m + 1.
+In the previous section we showed how the arithmetization process works in PLONK. For a program with $n$ public inputs and $m$ gates, we constructed two matrices $Q$ and $V$, of sizes $(n + m + 1) \times 5$ and $(n + m + 1) \times 3$ that satisfy the following. Let $N = n + m + 1.
 
-**Claim:** Let $X$ be a $N x 3$ matrix with columns $A, B, C$ and $PI$ a $N x 1$ matrix. They correspond to a valid execution instance with public input given by $PI$ if and only if a) for all $i$ the following equality holds $$A_i (Q_L)_i + B_i * (Q_R)_i + A_i * B_i * Q_M + C_i * (Q_O)_i + (Q_C)_i + (PI)_i = 0,$$ b) for all $i,j,k,l$ such that $V_{i,j} = V_{k,l}$ we have $(ABC)_{i,j} = (ABC)_{k,l}$, c) $(PI)_i = 0$ for all $i>n$.
+**Claim:** Let $T$ be a $N \times 3$ matrix with columns $A, B, C$ and $PI$ a $N \times 1$ matrix. They correspond to a valid execution instance with public input given by $PI$ if and only if a) for all $i$ the following equality holds $$A_i (Q_L)_i + B_i * (Q_R)_i + A_i * B_i * Q_M + C_i * (Q_O)_i + (Q_C)_i + (PI)_i = 0,$$ b) for all $i,j,k,l$ such that $V_{i,j} = V_{k,l}$ we have $T_{i,j} = T_{k,l}$, c) $(PI)_i = 0$ for all $i>n$.
 
 Polynomials enter now to squash most of these equations. We will traduce the set of all equations in conditions (a) and (b) to just a few equations on polynomials.
 
@@ -249,9 +249,112 @@ The matrix $V$ induces a permutation of this set where $\sigma((i,j))$ is equal 
 |   2 |   0 |   3 |
 |   1 |   3 |   - |
 
-The permutation in this case is the map $\sigma((0,0)) = (2,1)$, $\sigma((0,1)) = (0, 3)$, $\sigma((0,2)) = (0,2)$, $\sigma((0,3)) = (0,1)$, $\sigma((2,1)) = (0,0)$, $\sigma((3,1)) = (2,3)$, $\sigma((2,3)) = (3,1)$. For the positions with `-` values doesn't really matter right now.
+The permutation in this case is the map $\sigma((0,0)) = (2,1)$, $\sigma((0,1)) = (0, 3)$, $\sigma((0,2)) = (0,2)$, $\sigma((0,3)) = (0,1)$, $\sigma((2,1)) = (0,0)$, $\sigma((3,1)) = (2,2)$, $\sigma((2,2)) = (3,1)$. For the positions with `-` values doesn't really matter right now.
 
-It's not hard to see that condition (b) is equivalent to: for all $(i,j)\in I$, $(ABC)_{i,j} = (ABC)_{\sigma((i,j))}$.
+It's not hard to see that condition (b) is equivalent to: for all $(i,j)\in I$, $T_{i,j} = T_{\sigma((i,j))}$.
+
+This in turn is equivalent to checking whether the following sets are equal 
+$$\{((i,j), T_{i,j}): (i,j) \in I\} = \{(\sigma((i,j)), T_{i,j}): (i,j) \in I\}.$$
+
+In our example the sets in question are respectively
+$$\{((0,0), T_{0,0}), ((0,1), T_{0,1}), ((0,2), T_{0,2}), ((0,3), T_{0,3}), ((2,1), T_{2,1}), ((3,1), T_{3,1}), ((2,2), T_{2,2})\},$$
+and
+$$\{((2,1), T_{0,0}), ((0,3), T_{0,1}), ((0,2), T_{0,2}), ((0,1), T_{0,3}), ((0,0), T_{2,1}), ((2,2), T_{3,1}), ((3,1), T_{2,2})\},$$
+
+You can check these sets coincide by inspection. Recall our trace matrix $T$ is
+
+|   A |   B |   C |
+| --- | --- | --- |
+|   3 |   - |   - |
+|   8 |   - |   - |
+|   2 |   3 |   8 |
+|   8 |   8 |   - |
+
+Checking equality of these sets is something that can be reduced to polynomial equations. It is a very nice method that PLONK uses. To understand it better let's start with a simpler case.
+
+#### Equality of sets
+Suppose we have two sets $A=\{a_0, a_1\}$ $B=\{b_0, b_1\}$ of two field elements in $\mathbb{F}$. And we are interested in checking whether they are equal.
+
+One thing we could do is compute $a_0a_1$ and $b_0b_1$ and compare them. If the sets are equal, then those elements are necessarily equal.
+
+But the converse is not true. For example the sets $A=\{4, 15\}$ and $B=\{6, 10\}$ both have $60$ as the result of the product of their elements. But they are not equal. So this is not good to check equality.
+
+Polynomials come to rescue here. What we can do instead is consider the following sets *of polynomials* $A'=\{a_0 + X, a_1 + X\}$, $B'=\{b_0 + X, b_1 + X\}$. Sets $A$ and $B$ are equal if and only if sets $A'$ and $B'$ are equal. This is because equality of polynomials boils down to equality of their coefficients. But the difference with $A'$ and $B'$ is that now the approach of multiplying the elements works. That is, $A'$ and $B'$ are equal if and only if $(a_0 + X)(a_1 + X) = (b_0 + X)(b_1 + X)$. This is not entirely evident but follows from a property that polynomials have, called *unique factorization domain*. Here the important fact is that linear polynomials act as sort of prime factors. Anyway, you can take that for granted. The last part of this trick is to use the Schwarz-Zippel lemma and go back to the land of field elements. That means, if for some random element $\gamma$ we have $(a_0 + \gamma)(a_1 + \gamma) = (b_0 + \gamma)(b_1 + \gamma)$, then with overwhelming probability the equality $(a_0 + X)(a_1 + X) = (b_0 + X)(b_1 + X)$ holds.
+
+Puttings this altogether, if for some random element $\gamma$ we have $(a_0 + \gamma)(a_1 + \gamma) = (b_0 + \gamma)(b_1 + \gamma)$, then the sets $A$ and $B$ are equal. Of course this also holds for sets with more than two elements. Let's write that down.
+
+*Fact:* Let $A=\{a_0, \dots, a_{k-1}\}$ and $B=\{b_0, \dots, b_{k-1}\}$ be sets of field elements. If for some random $\gamma$ the following equality holds
+$$\prod_{i=0}^k(a_i + \gamma) = \prod_{i=0}^k(b_i + \gamma),$$
+then with overwhelming probability $A$ is equal to $B$.
+
+And here comes the trick that reduces this check to a polynomial equation. Let
+$H$ be a domain of the form $\{1, \omega, \dots, \omega^{k-1}\}$ for some $k$-th root of unity $\omega$. Let $f, g, Z$ be respectively the polynomials that interpolate the following values in $H$.
+$$(a_0 + \gamma, \dots, a_{k-1} + \gamma),$$
+$$(b_0 + \gamma, \dots, b_{k-1} + \gamma),$$
+
+Then $\prod_{i=0}^k(a_i + \gamma)$ equals $\prod_{i=0}^k(b_i + \gamma)$ if and only if there exists a polynomial $Z$ of degree at most $k$ such that
+$$Z(\omega^0) = 1$$
+$$Z(X)g(X) = f(X)Z(\omega X)$$
+
+Let's see why. Suppose that $\prod_{i=0}^k(a_i + \gamma)$ equals $\prod_{i=0}^k(b_i + \gamma)$. Construct $Z$ as the polynomial that interpolates the following values $$(1, \frac{a_0 + \gamma}{b_0 + \gamma}, \frac{(a_0 + \gamma)(a_1 + \gamma)}{(b_0 + \gamma)(b_1 + \gamma)}, \dots, \prod_{i=0}^{k-1} \frac{a_i + \gamma}{b_i + \gamma}),$$
+in the same domain as $f$ and $g$. That works. Conversely, suppose such a polynomial $Z$ exists. By evaluating the equation $Z(X)g(X) = f(X)Z(\omega X)$ in $1, \omega, \dots, \omega^{k-2}$ we get that $Z$ actually is the polynomial that interpolates those values. Moreover, evaluating it in $\omega^{k-1}$ we obtain that $$Z(\omega^{k-1})\frac{f(\omega^{k-1})}{g(\omega^{k-1})} = Z(\omega^k) = Z(w^0) = 1.$$
+The second equality holds because $\omega^k = \omega^0$ since it is a $k$-th root of unity. Expanding with the values of $f, g$ and $Z$ one obtains that $\prod_{i=0}^k(a_i + \gamma)/\prod_{i=0}^k(b_i + \gamma)$ equals $1$. Which is what we wanted.
+
+In summary. We proved the following:
+
+*Fact:* Let $A=\{a_0, \dots, a_{k-1}\}$ and $B=\{b_0, \dots, b_{k-1}\}$ be sets of field elements. Let $\gamma$ be a random field element. Let $\omega$ be a $k$-th root of unity. Let $f$ and $g$ be respectively the polynomials that interpolate the values ${a_0 + \gamma, \dots, a_{k-1} + \gamma}$ and ${b_0 + \gamma, \dots, b_{k-1} + \gamma}$ in the powers of $\omega$. If there exists a polynomial $Z$ of degree at most $k$ such that 
+$$Z(\omega^0) = 1$$
+$$Z(X)g(X) = f(X)Z(\omega X)$$
+then with overwhelming probability sets $A$ and $B$ are equal.
+
+#### Going back to our case
+Recall we want to rephrase condition (b) in terms of polynomials. And we are going to apply the previous fact to the sets we need.
+We have: 
+$$A = \{((i,j), T_{i,j}): (i,j) \in I\}$$
+and 
+$$B = \{(\sigma((i,j)), T_{i,j}): (i,j) \in I\}$$
+And we have already seen that condition (b) is equivalent to $A$ and $B$ being equal.
+
+We cannot directly use the above fact because our sets are not sets of field elements. They are sets of pairs with some indexes $(i,j)$ in the first coordinate and a field element $v$ in the second one. To solve this, we are going to map each of these pairs to a single field element. 
+
+For this purpose, we first need a few things. Recall that $N$ is the size of each of the columns of the trace matrix $T$ and our sets have now an element for each of the entries of the matrix. That's $3N$ elements. So we need $\eta$ a $3N$-th root of unity. Additionally, sample a random field element $\beta$. With all this we can do the following. For a pair $((i,j), v)$, define the field element: $$v + \eta^{j + 3i} \beta.$$
+Using this we transform our set $A$ into
+$$\hat A = \{T_{i,j} + \eta^{j + 3i}\beta: (i,j) \in I\}$$
+and transform our set $B$ into
+
+$$\hat B = \{T_{i,j} + \eta^{l + 3k}\beta: (i,j) \in I, (k,l) = \sigma((i,j))\}$$
+A very similar argument using polynomials as before can be applied here to deduce that if these new sets $\hat A$, $\hat B$ are equal, then with overwhelming probability the original sets $A$ and $B$ are equal. The element $\beta$ comes from applying the Schwarz-Zippel lemma again. But we leave that to the reader to keep these notes short. 
+
+The gain here is that $\hat A$ and $\hat B$ are sets of field elements and we can apply the fact from before!
+
+Recall in our example the sets in question are respectively
+$$A = \{((0,0), T_{0,0}), ((0,1), T_{0,1}), ((0,2), T_{0,2}), \dots\},$$
+and
+$$B = \{((2,1), T_{0,0}), ((0,3), T_{0,1}), ((0,2), T_{0,2}), \dots\},$$
+
+And for these, the sets $\hat A$ and $\hat B$ are 
+$$\hat A = \{T_{0,0} + \eta^{0}\beta, T_{0,1} + \eta^{1}\beta, T_{0,2} + \eta^{2}\beta, \dots\}$$
+$$\hat B = \{T_{0,0} + \eta^{7}\beta, T_{0,1} + \eta^{3}\beta, T_{0,2} + \eta^{2}\beta, \dots\},$$
+
+Again you can check that these are equal by replacing the values of $T_{i,j}$.
+
+So finally we arrive at
+
+*Fact:* The sets $A = \{((i,j), T_{i,j}): (i,j) \in I\}$ and $B = \{(\sigma((i,j)), T_{i,j}): (i,j) \in I\}$ are equal if and only if there exists a polynomial $Z$ of degree at most $3N$ such that 
+$$Z(\eta^0) = 1$$
+$$Z(X)g(X) = f(X)Z(\eta X),$$
+where $f$ and $g$ interpolate the values following values, respectively
+$$\{T_{i,j} + \eta^{j + 3i} + \gamma: (i,j) \in I\},$$
+and
+$$\{T_{i,j} + \eta^{l + 3k} + \gamma: (i,j) \in I, \sigma((i,j)) = (k,l)\},$$
+
+
+There's one extra optimization to be done here, that can reduce the degree of the polynomial $Z$ to $N$ instead of $3N$. But for now let's leave it like that.
+
+
+#### Recap
+
+
 
 ### Structured Reference String
 A SRS is essentially a set of precomputed values that are agreed upon by all parties involved in a PLONK proof. These values serve as a kind of baseline or starting point for verifying the correctness of the proof.
