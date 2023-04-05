@@ -19,6 +19,9 @@ where
 {
     let transcript = &mut Transcript::new();
 
+    let blowup_factor = air.options().blowup_factor as usize;
+    let coset_offset = FieldElement::<F>::from(air.options().coset_offset);
+
     let root_order = air.context().trace_length.trailing_zeros();
     // * Generate Coset
     let trace_primitive_root = F::get_primitive_root_of_unity(root_order as u64).unwrap();
@@ -29,12 +32,11 @@ where
     )
     .unwrap();
 
-    let lde_root_order =
-        (air.context().trace_length * air.options().blowup_factor as usize).trailing_zeros();
+    let lde_root_order = (air.context().trace_length * blowup_factor).trailing_zeros();
     let lde_roots_of_unity_coset = F::get_powers_of_primitive_root_coset(
         lde_root_order as u64,
-        air.context().trace_length * air.options().blowup_factor as usize,
-        &FieldElement::<F>::from(air.options().coset_offset),
+        air.context().trace_length * blowup_factor,
+        &coset_offset,
     )
     .unwrap();
 
