@@ -382,6 +382,9 @@ These are what's called the *common preprocessed input*.
 ### Blindings
 TODO
 
+### Linearization trick
+TODO
+
 ### Polynomial commitment scheme
 A polynomial commitment scheme (PCS) is a cryptographic tool that allows one party to commit to a polynomial, and later prove properties of that polynomial.
 This commitment polynomial hides the original polynomial's coefficients and can be publicly shared without revealing any information about the original polynomial.
@@ -392,13 +395,16 @@ In the implementation section we'll explain the inner workings of the Kate-Zaver
 For the moment we only need the following about it:
 
 ## Proving algorithm
-Next we describe the proving algorithm for a program with $n$ public inputs and $m$ gates. Let $N = n + m + 1$ and let $\omega$ be a primitive $N$-th root of unity. Let $H=\{1, \omega, \omega^2, \dots, \omega^{N-1}\}$. Define $Z_H := X^N-1$.
+Next we describe the proving algorithm for a program of size $N$. That includes public inputs. Let $\omega$ be a primitive $N$-th root of unity. Let $H=\{1, \omega, \omega^2, \dots, \omega^{N-1}\}$. Define $Z_H := X^N-1$.
 
 Assume the eight polynomials of common preprocessed input are already given.
 
-The prover computes the trace matrix $T$ as described in the first sections. That means, with the first rows corresponding to the public inputs.
+The prover computes the trace matrix $T$ as described in the first sections. That means, with the first rows corresponding to the public inputs. It should be a $N \times 3$ matrix.
 
 ### Round 1
+Add to the transcript the following:
+$$[S_{\sigma1}]_1, [S_{\sigma2}]_1, [S_{\sigma3}]_1, [q_L]_1, [q_R]_1, [q_M]_1, [q_O]_1, [q_C]_1$$
+
 Compute polynomials $a',b',c'$ as the interpolation polynomials of the columns of $T$ at the domain $H$.
 Sample random $b_1, b_2, b_3, b_4, b_5, b_6$
 Let 
@@ -412,6 +418,7 @@ $c := (b_5X + b_6)Z_H + c'$
 Compute $[a]_1, [b]_1, [c]_1$ and add them to the transcript.
 
 ### Round 2
+Sample $\beta, \gamma$ from the transcript.
 
 Let $z_0 = 1$ and define recursively for $0\leq k < N$.
 
@@ -425,9 +432,11 @@ Sample random values $b_7, b_8, b_9$ and let $z = (b_7X^2 + b_8X + b_9)Z_H + z'$
 Compute $[z]_1$ and add it to the transcript.
 
 ### Round 3
+Sample $\alpha$ from the transcript.
+
+Let $pi$ be the interpolation of the public input matrix $PI$ at the domain $H$.
 
 Let
-
 $$
 \begin{aligned}
 p_1 &= aq_L + bq_R + abq_M + cq_O + q_C + pi \\
@@ -451,6 +460,7 @@ $$
 Compute $[t_{lo}]_1, [t_{mid}]_1,[t_{hi}]_1$ and add them to the transcript.
 
 ### Round 4
+Sample $\zeta$ from the transcript.
 
 Compute $\bar a = a(\zeta), \bar b = b(\zeta), \bar c = c(\zeta), \bar s_{\sigma1} =  S_{\sigma1}(\zeta), \bar s_{\sigma2} = S_{\sigma2}(\zeta), \bar z_\omega = z(\zeta\omega)$ and add them to the transcript.
 ### Round 5
@@ -470,9 +480,10 @@ p_{nc} &= p_{nc1} + \alpha p_{nc2} + \alpha^2 p_{nc3} \\
 t_{\text{partial}} &= t_{lo} + \zeta^{N+2}t_{mid} + \zeta^{2(N+2)}t_{hi}
 \end{aligned}
 $$
+The subscript $nc$ stands for "non constant", as is the part of the linearization of $p$ that has non constant factors. The subscript "partial" indicates that it is a partial evaluation of $t$ at $\zeta$. Partial meaning that only some power of $X$ ar replaced by the powers of $\zeta$. So in particular $t_{\text{partial}}(\zeta) = t(\zeta)$.
 
 Let $\pi_{\text{batch}}$ the batch opening proof at $\zeta$ of the following set of five polynomials: $$t_{\text{partial}}, p_{nc}, a, b, c, S_{\sigma1}, S_{\sigma2}$$
-Let $\pi_{\text{single}}$ be the opening proof at $\zeta\omega$ of the polynomial $z(X)$
+Let $\pi_{\text{single}}$ be the opening proof at $\zeta\omega$ of the polynomial $z$.
 
 Compute $\bar p_{nc} := p_{nc}(\zeta)$ and $\bar t = t(\zeta)$.
 
