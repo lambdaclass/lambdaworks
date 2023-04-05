@@ -423,7 +423,7 @@ Sample $\beta, \gamma$ from the transcript.
 Let $z_0 = 1$ and define recursively for $0\leq k < N$.
 
 $$
-z_{k+1} = z_k \frac{(a_0 + \beta\omega^k + \gamma)(b_0 + \beta\omega^kk_1 + \gamma)(c_0 + \beta\omega^kk_2 + \gamma)}{(a_0 + \beta S_{\sigma1}(\omega^k) + \gamma)(b_0 + \beta S_{\sigma2}(\omega^k) + \gamma)(c_0 + \beta S_{\sigma3}(\omega^k) + \gamma)}
+z_{k+1} = z_k \frac{(a_k + \beta\omega^k + \gamma)(b_k + \beta\omega^kk_1 + \gamma)(c_k + \beta\omega^kk_2 + \gamma)}{(a_k + \beta S_{\sigma1}(\omega^k) + \gamma)(b_k + \beta S_{\sigma2}(\omega^k) + \gamma)(c_k + \beta S_{\sigma3}(\omega^k) + \gamma)}
 $$
 Compute the polynomial $z'$ as the interpolation polynomial at the domain $H$ of the values $(z_0, \dots, z_{N-1})$.
 
