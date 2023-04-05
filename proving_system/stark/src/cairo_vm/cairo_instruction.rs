@@ -1,10 +1,3 @@
-/*
-   TO DO: Find a better name
-   This is a "pre trace", with everything that's needed for the Stark Trace
-
-   It starts by joining the register pointers with their instructions
-*/
-
 use super::{cairo_mem::CairoMemoryCell, errors::InstructionDecodingError};
 
 // Consts copied from cairo-rs
@@ -23,6 +16,17 @@ const AP_UPDATE_OFF: u64 = 10;
 const OPCODE_MASK: u64 = 0x7000;
 const OPCODE_OFF: u64 = 12;
 const FLAGS_OFFSET: u64 = 48;
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct CairoInstructionFlags {
+    pub opcode: CairoOpcode,
+    pub ap_update: ApUpdate,
+    pub pc_update: PcUpdate,
+    pub res_logic: ResLogic,
+    pub op1_src: Op1Src,
+    pub op0_reg: Op0Reg,
+    pub dst_reg: DstReg,
+}
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Op0Reg {
@@ -173,17 +177,6 @@ impl TryFrom<&CairoMemoryCell> for ApUpdate {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct CairoInstructionFlags {
-    pub opcode: CairoOpcode,
-    pub ap_update: ApUpdate,
-    pub pc_update: PcUpdate,
-    pub res_logic: ResLogic,
-    pub op1_src: Op1Src,
-    pub op0_reg: Op0Reg,
-    pub dst_reg: DstReg,
-}
-
 impl TryFrom<&CairoMemoryCell> for CairoInstructionFlags {
     type Error = InstructionDecodingError;
 
@@ -227,9 +220,8 @@ impl TryFrom<&CairoMemoryCell> for CairoOpcode {
 
 #[cfg(test)]
 mod tests {
-    use lambdaworks_math::unsigned_integer::element::U256;
-
     use super::*;
+    use lambdaworks_math::unsigned_integer::element::U256;
 
     #[test]
     fn assert_op_flag_is_correct() {
