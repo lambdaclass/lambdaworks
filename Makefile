@@ -1,7 +1,11 @@
-.PHONY: test clippy docker-shell nix-shell benchmarks benchmark docs
+.PHONY: test clippy docker-shell nix-shell benchmarks benchmark docs py.develop
 
-test:
+py.develop:
+	maturin develop -m py/Cargo.toml
+
+test: py.develop
 	cargo test
+	python py/tests/lamdaworks_py_test.py
 
 clippy:
 	cargo clippy --all-targets --all-features -- -D warnings
