@@ -222,11 +222,142 @@ impl TryFrom<&CairoMemoryCell> for CairoOpcode {
 mod tests {
     use super::*;
     use lambdaworks_math::unsigned_integer::element::U256;
+    /*
+    For the purpose of testing the decoding, we are going to use instructions obtained
+    directly from valid Cairo programs. The decoding shown here is obtained by inspecting
+    cairo-rs:
+        * Instruction A:  0x480680017fff8000 ->
+            Instruction {
+                off0: 0,
+                off1: -1,
+                off2: 1,
+                imm: Some(3618502680826344545094760424199446925499834509564823019178951359862461693953),
+                dst_register: AP,
+                op0_register: FP,
+                op1_addr: Imm,
+                res: Op1,
+                pc_update: Regular,
+                ap_update: Add1,
+                fp_update: Regular,
+                opcode: AssertEq
+            }
+
+        * Instruction B: 0x1104800180018000 ->
+             Instruction {
+                off0: 0,
+                off1: 1,
+                off2: 1,
+                imm: Some(3618502788666131213697322783095070105623107215331596699973092056135872020275),
+                dst_register: AP,
+                op0_register: AP,
+                op1_addr: Imm,
+                res: Op1,
+                pc_update: JumpRel,
+                ap_update: Add2,
+                fp_update: APPlus2,
+                opcode: Call
+            }
+
+        * Instruction C: 0x208b7fff7fff7ffe ->
+            Instruction {
+                off0: -2,
+                off1: -1,
+                off2: -1,
+                imm: None,
+                dst_register: FP,
+                op0_register: FP,
+                op1_addr: FP,
+                res: Op1,
+                pc_update: Jump,
+                ap_update: Regular,
+                fp_update: Dst,
+                opcode: Ret
+            }
+
+        * Instruction D: 0xa0680017fff7fff ->
+            Instruction { off0: -1,
+                off1: -1,
+                off2: 1,
+                imm: Some(7),
+                dst_register: AP,
+                op0_register: FP,
+                op1_addr: Imm,
+                res: Unconstrained,
+                pc_update: Jnz,
+                ap_update: Add1,
+                fp_update: Regular,
+                opcode: NOp
+            }
+
+        * Instruction E: 0x48327ffc7ffa8000 ->
+            Instruction {
+                off0: 0,
+                off1: -6,
+                off2: -4,
+                imm: None,
+                dst_register: AP,
+                op0_register: FP,
+                op1_addr: AP,
+                res: Add,
+                pc_update: Regular,
+                ap_update: Add1,
+                fp_update: Regular,
+                opcode: AssertEq
+            }
+
+        * Instruction F: 0x4000800d7ff07fff ->
+            Instruction {
+                off0: -1,
+                off1: -16,
+                off2: 13,
+                imm: None,
+                dst_register: AP,
+                op0_register: AP,
+                op1_addr: Op0,
+                res: Op1,
+                pc_update: Regular,
+                ap_update: Regular,
+                fp_update: Regular,
+                opcode: AssertEq
+            }
+
+        * Instruction G: 0x48507fff7ffe8000 ->
+            Instruction {
+                off0: 0,
+                off1: -1,
+                off2: 1,
+                imm: Some(3),
+                dst_register: AP,
+                op0_register: AP,
+                op1_addr: Imm,
+                res: Mul,
+                pc_update: Regular,
+                ap_update: Add1,
+                fp_update: Regular,
+                opcode: AssertEq
+            }
+
+        * Instruction H: 0x40780017fff7fff ->
+            Instruction {
+                off0: -1,
+                off1: -1,
+                off2: 1,
+                imm: Some(2),
+                dst_register: FP,
+                op0_register: FP,
+                op1_addr: Imm,
+                res: Op1,
+                pc_update: Regular,
+                ap_update: Add,
+                fp_update: Regular,
+                opcode: NOp
+            }
+    */
 
     #[test]
-    fn assert_op_flag_is_correct() {
-        // This is an assert eq
-        let value = U256::from_limbs([0, 0, 0, 0x480680017fff8000u64]);
+    fn assert_opcode_flag_is_correct() {
+        // Instruction A
+        let value = U256::from_limbs([0, 0, 0, 0x480680017fff8000]);
         let addr: u64 = 1;
 
         let mem_cell = CairoMemoryCell {
@@ -238,7 +369,8 @@ mod tests {
     }
 
     #[test]
-    fn call_op_flag_is_correct() {
+    fn call_opcode_flag_is_correct() {
+        // Instruction B
         let value = U256::from_limbs([0, 0, 0, 0x1104800180018000]);
         let addr: u64 = 1;
 
@@ -251,7 +383,8 @@ mod tests {
     }
 
     #[test]
-    fn ret_op_flag_is_correct() {
+    fn ret_opcode_flag_is_correct() {
+        // Instruction C
         let value = U256::from_limbs([0, 0, 0, 0x208b7fff7fff7ffe]);
         let addr: u64 = 1;
 
@@ -264,8 +397,9 @@ mod tests {
     }
 
     #[test]
-    fn nop_op_flag_is_correct() {
-        let value = U256::from_limbs([0, 0, 0, 0xa0680017fff7ffe]);
+    fn nop_opcode_flag_is_correct() {
+        // Instruction D
+        let value = U256::from_limbs([0, 0, 0, 0xa0680017fff7fff]);
         let addr: u64 = 1;
 
         let mem_cell = CairoMemoryCell {
@@ -278,7 +412,8 @@ mod tests {
 
     #[test]
     fn regular_pc_update_flag_is_correct() {
-        let value = U256::from_limbs([0, 0, 0, 0x480a7ff87fff8000]);
+        // Instruction A
+        let value = U256::from_limbs([0, 0, 0, 0x480680017fff8000]);
         let addr: u64 = 1;
 
         let mem_cell = CairoMemoryCell {
@@ -291,6 +426,7 @@ mod tests {
 
     #[test]
     fn jump_pc_update_flag_is_correct() {
+        // Instruction C
         let value = U256::from_limbs([0, 0, 0, 0x208b7fff7fff7ffe]);
         let addr: u64 = 1;
 
@@ -304,6 +440,7 @@ mod tests {
 
     #[test]
     fn jumprel_pc_update_flag_is_correct() {
+        // Instruction B
         let value = U256::from_limbs([0, 0, 0, 0x1104800180018000]);
         let addr: u64 = 1;
 
@@ -317,7 +454,8 @@ mod tests {
 
     #[test]
     fn jnz_pc_update_flag_is_correct() {
-        let value = U256::from_limbs([0, 0, 0, 0xa0680017fff8000]);
+        // Instruction D
+        let value = U256::from_limbs([0, 0, 0, 0xa0680017fff7fff]);
         let addr: u64 = 1;
 
         let mem_cell = CairoMemoryCell {
@@ -330,7 +468,8 @@ mod tests {
 
     #[test]
     fn regular_ap_update_flag_is_correct() {
-        let value = U256::from_limbs([0, 0, 0, 0x400080077ff67fff]);
+        // Instruction C
+        let value = U256::from_limbs([0, 0, 0, 0x208b7fff7fff7ffe]);
         let addr: u64 = 1;
 
         let mem_cell = CairoMemoryCell {
@@ -343,6 +482,7 @@ mod tests {
 
     #[test]
     fn add_ap_update_flag_is_correct() {
+        // Instruction H
         let value = U256::from_limbs([0, 0, 0, 0x40780017fff7fff]);
         let addr: u64 = 1;
 
@@ -356,7 +496,8 @@ mod tests {
 
     #[test]
     fn add1_ap_update_flag_is_correct() {
-        let value = U256::from_limbs([0, 0, 0, 0x484480017fff8000]);
+        // Instruction A
+        let value = U256::from_limbs([0, 0, 0, 0x480680017fff8000]);
         let addr: u64 = 1;
 
         let mem_cell = CairoMemoryCell {
@@ -369,7 +510,8 @@ mod tests {
 
     #[test]
     fn op1_res_logic_flag_is_correct() {
-        let value = U256::from_limbs([0, 0, 0, 0x48127ff87fff8000]);
+        // Instruction A
+        let value = U256::from_limbs([0, 0, 0, 0x480680017fff8000]);
         let addr: u64 = 1;
 
         let mem_cell = CairoMemoryCell {
@@ -382,7 +524,8 @@ mod tests {
 
     #[test]
     fn add_res_logic_flag_is_correct() {
-        let value = U256::from_limbs([0, 0, 0, 0x48307fff7ffd8000]);
+        // Instruction E
+        let value = U256::from_limbs([0, 0, 0, 0x48327ffc7ffa8000]);
         let addr: u64 = 1;
 
         let mem_cell = CairoMemoryCell {
@@ -395,7 +538,8 @@ mod tests {
 
     #[test]
     fn mul_res_logic_flag_is_correct() {
-        let value = U256::from_limbs([0, 0, 0, 0x404b800280028002]);
+        // Instruction G
+        let value = U256::from_limbs([0, 0, 0, 0x48507fff7ffe8000]);
         let addr: u64 = 1;
 
         let mem_cell = CairoMemoryCell {
@@ -408,7 +552,8 @@ mod tests {
 
     #[test]
     fn op0_op1_src_flag_is_correct() {
-        let value = U256::from_limbs([0, 0, 0, 0x400080077ff67fff]);
+        // Instruction F
+        let value = U256::from_limbs([0, 0, 0, 0x4000800d7ff07fff]);
         let addr: u64 = 1;
 
         let mem_cell = CairoMemoryCell {
@@ -421,6 +566,7 @@ mod tests {
 
     #[test]
     fn imm_op1_src_flag_is_correct() {
+        // Instruction A
         let value = U256::from_limbs([0, 0, 0, 0x480680017fff8000]);
         let addr: u64 = 1;
 
@@ -434,7 +580,8 @@ mod tests {
 
     #[test]
     fn ap_op1_src_flag_is_correct() {
-        let value = U256::from_limbs([0, 0, 0, 0x48127fd87fff8000]);
+        // Instruction E
+        let value = U256::from_limbs([0, 0, 0, 0x48327ffc7ffa8000]);
         let addr: u64 = 1;
 
         let mem_cell = CairoMemoryCell {
@@ -447,6 +594,7 @@ mod tests {
 
     #[test]
     fn fp_op1_src_flag_is_correct() {
+        // Instruction C
         let value = U256::from_limbs([0, 0, 0, 0x208b7fff7fff7ffe]);
         let addr: u64 = 1;
 
@@ -460,7 +608,8 @@ mod tests {
 
     #[test]
     fn ap_op0_reg_flag_is_correct() {
-        let value = U256::from_limbs([0, 0, 0, 0x480080887ff58000]);
+        // Instruction B
+        let value = U256::from_limbs([0, 0, 0, 0x1104800180018000]);
         let addr: u64 = 1;
 
         let mem_cell = CairoMemoryCell {
@@ -473,7 +622,8 @@ mod tests {
 
     #[test]
     fn fp_op0_reg_flag_is_correct() {
-        let value = U256::from_limbs([0, 0, 0, 0x48127ff87fff8000]);
+        // Instruction A
+        let value = U256::from_limbs([0, 0, 0, 0x480680017fff8000]);
         let addr: u64 = 1;
 
         let mem_cell = CairoMemoryCell {
@@ -486,7 +636,8 @@ mod tests {
 
     #[test]
     fn ap_dst_reg_flag_is_correct() {
-        let value = U256::from_limbs([0, 0, 0, 0x480a7ff87fff8000]);
+        // Instruction A
+        let value = U256::from_limbs([0, 0, 0, 0x480680017fff8000]);
         let addr: u64 = 1;
 
         let mem_cell = CairoMemoryCell {
@@ -499,7 +650,8 @@ mod tests {
 
     #[test]
     fn fp_dst_reg_flag_is_correct() {
-        let value = U256::from_limbs([0, 0, 0, 0x400380837ffb8000]);
+        // Instruction C
+        let value = U256::from_limbs([0, 0, 0, 0x208b7fff7fff7ffe]);
         let addr: u64 = 1;
 
         let mem_cell = CairoMemoryCell {
