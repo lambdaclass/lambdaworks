@@ -323,6 +323,9 @@ and
 $$(b_0 + \beta b_1 + \gamma)(b_2 + \beta b_3 + \gamma)$$
 coincide, then $A$ and $B$ are equal with overwhelming probability.
 
+
+Here is the statement for sets of more than two pairs of field elements.
+
 *Fact:* Let $A=\{\bar a_0, \dots, \bar a_{k-1}\}$ and $B=\{\bar b_0, \dots, \bar b_{k-1}\}$ be sets of pairs of field elements. So that $\bar a_i = (a_{i,0}, a_{i,1})$ and the same for $\hat b_i$. Let $\beta, \gamma$ be a random field elements. Let $\omega$ be a $k$-th root of unity. Let $f$ and $g$ be respectively the polynomials that interpolate the values 
 $$\{a_{i,0} + a_{i,1}\beta + \gamma, \dots, a_{k-1,0} + a_{k-1,1}\beta + \gamma\},$$
 and
@@ -334,12 +337,12 @@ then with overwhelming probability the sets $A$ and $B$ are equal.
 
 
 #### Going back to our case
-Recall we want to rephrase condition (b) in terms of polynomials. We have already that condition (b) is equivalent to $A$ and $B$ being equal, where
+Recall we want to rephrase condition (b) in terms of polynomials. We have already seen that condition (b) is equivalent to $A$ and $B$ being equal, where
 $$A = \{((i,j), T_{i,j}): (i,j) \in I\}$$
 and 
 $$B = \{(\sigma((i,j)), T_{i,j}): (i,j) \in I\}.$$
 
-We cannot directly use the above fact because our sets are not sets of field elements. Nor are they sets of pairs of field elements. They are sets of pairs with some indexes $(i,j)$ in the first coordinate and a field element $v$ in the second one. So the solution is to convert them to sets of pairs of field elements and apply the result of the previous section. So how do we map an element of the form $((i,j), v)$ to something of the form $(a_0, a_1)$ with $a_0$ and $a_1$ field elements? The second coordinate is trivial, we can just leave $v$ as it is and take $a_1 = v$. For the indexes pair $(i,j)$ there are multiple ways. The important thing to achieve here is that different pairs get mapped to different field elements. Recall that $i$ ranges from $0$ to $N-1$ and $j$ ranges from $0$ to $2$. One way is to take a $3N$-th primitive root of unity $\eta$ and define $a_0 = \eta^{3i + j}$. Putting it altogether, we are mapping the pair $((i,j), v)$ to the pair $(\eta^{3i + j}, v)$, which is a pair of field elements. Now we can consider the sets 
+We cannot directly use the facts of the previous sections because our sets are not sets of field elements. Nor are they sets of pairs of field elements. They are sets of pairs with some indexes $(i,j)$ in the first coordinate and a field element $v$ in the second one. So the solution is to convert them to sets of pairs of field elements and apply the result of the previous section. So how do we map an element of the form $((i,j), v)$ to something of the form $(a_0, a_1)$ with $a_0$ and $a_1$ field elements? The second coordinate is trivial, we can just leave $v$ as it is and take $a_1 = v$. For the indexes pair $(i,j)$ there are multiple ways. The important thing to achieve here is that different pairs get mapped to different field elements. Recall that $i$ ranges from $0$ to $N-1$ and $j$ ranges from $0$ to $2$. One way is to take a $3N$-th primitive root of unity $\eta$ and define $a_0 = \eta^{3i + j}$. Putting it altogether, we are mapping the pair $((i,j), v)$ to the pair $(\eta^{3i + j}, v)$, which is a pair of field elements. Now we can consider the sets 
 $$A = \{(\eta^{3i + j}, T_{i,j}): (i,j) \in I\}$$
 and 
 $$B = \{(\eta^{3k + l}, T_{i,j}): (i,j) \in I, \sigma((i,j)) = (k, l)\}.$$
@@ -367,7 +370,7 @@ $$\{T_{i,1} + \omega^{i}\eta\beta + \gamma: 0\leq i < N\},$$
 $$\{T_{i,2} + \omega^{i}\eta^2\beta + \gamma: 0\leq i < N\}.$$
 ### Recap
 
-We have arrived to the eight polynomials we mentioned at the beginning:
+We have arrived at the eight polynomials we mentioned at the beginning:
 $$q_L, q_R, q_M, q_O, q_C, S_{\sigma 1}, S_{\sigma 2}, S_{\sigma 3}.$$
 
 These are what's called the *common preprocessed input*.
