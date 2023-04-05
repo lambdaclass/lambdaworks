@@ -1,6 +1,3 @@
-use lambdaworks_stark::PrimeField;
-use lambdaworks_stark::ProofConfig;
-use lambdaworks_stark::StarkProof;
 use lambdaworks_stark::FE;
 
 use pyo3::class::basic::CompareOp;
@@ -81,20 +78,3 @@ impl PyFieldElement {
         Self(FE::zero())
     }
 }
-
-#[pyclass(name = "StarkProofConfig")]
-pub struct PyProofConfig(pub ProofConfig);
-
-#[pymethods]
-impl PyProofConfig {
-    #[new]
-    pub fn new(count_queries: usize, blowup_factor: usize) -> Self {
-        Self(ProofConfig {
-            count_queries,
-            blowup_factor,
-        })
-    }
-}
-
-#[pyclass]
-pub struct PyStarkProof(StarkProof<PrimeField>);
