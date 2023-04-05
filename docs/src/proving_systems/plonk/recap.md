@@ -280,7 +280,7 @@ One thing we could do is compute $a_0a_1$ and $b_0b_1$ and compare them. If the 
 
 But the converse is not true. For example the sets $A=\{4, 15\}$ and $B=\{6, 10\}$ both have $60$ as the result of the product of their elements. But they are not equal. So this is not good to check equality.
 
-Polynomials come to rescue here. What we can do instead is consider the following sets *of polynomials* $A'=\{a_0 + X, a_1 + X\}$, $B'=\{b_0 + X, b_1 + X\}$. Sets $A$ and $B$ are equal if and only if sets $A'$ and $B'$ are equal. This is because equality of polynomials boils down to equality of their coefficients. But the difference with $A'$ and $B'$ is that now the approach of multiplying the elements works. That is, $A'$ and $B'$ are equal if and only if $(a_0 + X)(a_1 + X) = (b_0 + X)(b_1 + X)$. This is not entirely evident but follows from a property that polynomials have, called *unique factorization domain*. Here the important fact is that linear polynomials act as sort of prime factors. Anyway, you can take that for granted. The last part of this trick is to use the Schwarz-Zippel lemma and go back to the land of field elements. That means, if for some random element $\gamma$ we have $(a_0 + \gamma)(a_1 + \gamma) = (b_0 + \gamma)(b_1 + \gamma)$, then with overwhelming probability the equality $(a_0 + X)(a_1 + X) = (b_0 + X)(b_1 + X)$ holds.
+Polynomials come to rescue here. What we can do instead is consider the following sets *of polynomials* $A'=\{a_0 + X, a_1 + X\}$, $B'=\{b_0 + X, b_1 + X\}$. Sets $A$ and $B$ are equal if and only if sets $A'$ and $B'$ are equal. This is because equality of polynomials boils down to equality of their coefficients. But the difference with $A'$ and $B'$ is that now the approach of multiplying the elements works. That is, $A'$ and $B'$ are equal if and only if $(a_0 + X)(a_1 + X) = (b_0 + X)(b_1 + X)$. This is not entirely evident but follows from a property that polynomials have, called *unique factorization domain*. Here the important fact is that linear polynomials act as sort of prime factors. Anyway, you can take that for granted. The last part of this trick is to use the Schwartz-Zippel lemma and go back to the land of field elements. That means, if for some random element $\gamma$ we have $(a_0 + \gamma)(a_1 + \gamma) = (b_0 + \gamma)(b_1 + \gamma)$, then with overwhelming probability the equality $(a_0 + X)(a_1 + X) = (b_0 + X)(b_1 + X)$ holds.
 
 Putting this altogether, if for some random element $\gamma$ we have $(a_0 + \gamma)(a_1 + \gamma) = (b_0 + \gamma)(b_1 + \gamma)$, then the sets $A$ and $B$ are equal. Of course this also holds for sets with more than two elements. Let's write that down.
 
@@ -303,54 +303,58 @@ The second equality holds because $\omega^k = \omega^0$ since it is a $k$-th roo
 
 In summary. We proved the following:
 
-*Fact:* Let $A=\{a_0, \dots, a_{k-1}\}$ and $B=\{b_0, \dots, b_{k-1}\}$ be sets of field elements. Let $\gamma$ be a random field element. Let $\omega$ be a $k$-th root of unity. Let $f$ and $g$ be respectively the polynomials that interpolate the values ${a_0 + \gamma, \dots, a_{k-1} + \gamma}$ and ${b_0 + \gamma, \dots, b_{k-1} + \gamma}$ at the powers of $\omega$. If there exists a polynomial $Z$ of degree at most $k$ such that 
+*Fact:* Let $A=\{a_0, \dots, a_{k-1}\}$ and $B=\{b_0, \dots, b_{k-1}\}$ be sets of field elements. Let $\gamma$ be a random field element. Let $\omega$ be a $k$-th root of unity. Let $f$ and $g$ be respectively the polynomials that interpolate the values $\{a_0 + \gamma, \dots, a_{k-1} + \gamma\}$ and $\{b_0 + \gamma, \dots, b_{k-1} + \gamma\}$ at the powers of $\omega$. If there exists a polynomial $Z$ of degree at most $k$ such that 
 $$Z(\omega^0) = 1$$
 $$Z(X)f(X) = g(X)Z(\omega X)$$
 then with overwhelming probability the sets $A$ and $B$ are equal.
 
+
+#### Sets of tuples
+In the previous section we saw how to check whether two sets of field elements are equal using polynomial equations. To be able to use it in our context we need to extend it to sets of tuples of field elements. This is pretty straightforward.
+
+Let's start with the easy case. Let $A=\{(a_0, a_1), (a_2, a_3)\}$ and $B=\{(b_0, b_1), (b_2, b_3)\}$ be two sets of pairs of field elements. That is $a_i, b_i \in \mathbb{F}$ for all $i$. The trick is very similar to the previous section.
+$$A'=\{a_0 + a_1 Y + X, a_2 + a_3 Y + X\}$$
+$$B'=\{b_0 + b_1 Y + X, b_2 + b_3 Y + X\}$$
+
+Just as before, by looking at coefficients we can see that the sets $A$ and $B$ are equal if and only if $A'$ and $B'$ are equal. 
+And notice that these are sets of polynomials, we got rid of the tuples! And now the situation is very similar to the previous section. We have that $A'$ and $B'$ are equal if and only if the product of their elements coincide. This is true also because polynomials in two variables are a unique factorization domain. So as before, we can use the Schwartz-Zippel lemma. Precisely, if for random $\beta, \gamma$, the elements
+$$(a_0 + \beta a_1 + \gamma)(a_2 + \beta a_3 + \gamma),$$
+and
+$$(b_0 + \beta b_1 + \gamma)(b_2 + \beta b_3 + \gamma)$$
+coincide, then $A$ and $B$ are equal with overwhelming probability.
+
+*Fact:* Let $A=\{\bar a_0, \dots, \bar a_{k-1}\}$ and $B=\{\bar b_0, \dots, \bar b_{k-1}\}$ be sets of pairs of field elements. So that $\bar a_i = (a_{i,0}, a_{i,1})$ and the same for $\hat b_i$. Let $\beta, \gamma$ be a random field elements. Let $\omega$ be a $k$-th root of unity. Let $f$ and $g$ be respectively the polynomials that interpolate the values 
+$$\{a_{i,0} + a_{i,1}\beta + \gamma, \dots, a_{k-1,0} + a_{k-1,1}\beta + \gamma\},$$
+and
+$$\{b_{i,0} + b_{i,1}\beta + \gamma, \dots, b_{k-1,0} + b_{k-1,1}\beta + \gamma\},$$
+at the powers of $\omega$. If there exists a polynomial $Z$ of degree at most $k$ such that 
+$$Z(\omega^0) = 1$$
+$$Z(X)f(X) = g(X)Z(\omega X)$$
+then with overwhelming probability the sets $A$ and $B$ are equal.
+
+
 #### Going back to our case
-Recall we want to rephrase condition (b) in terms of polynomials.
-We have: 
+Recall we want to rephrase condition (b) in terms of polynomials. We have already that condition (b) is equivalent to $A$ and $B$ being equal, where
 $$A = \{((i,j), T_{i,j}): (i,j) \in I\}$$
 and 
-$$B = \{(\sigma((i,j)), T_{i,j}): (i,j) \in I\}$$
-And we have already seen that condition (b) is equivalent to $A$ and $B$ being equal.
+$$B = \{(\sigma((i,j)), T_{i,j}): (i,j) \in I\}.$$
 
-We cannot directly use the above fact because our sets are not sets of field elements. They are sets of pairs with some indexes $(i,j)$ in the first coordinate and a field element $v$ in the second one. To solve this, we are going to map each of these pairs to a single field element. 
+We cannot directly use the above fact because our sets are not sets of field elements. Nor are they sets of pairs of field elements. They are sets of pairs with some indexes $(i,j)$ in the first coordinate and a field element $v$ in the second one. So the solution is to convert them to sets of pairs of field elements and apply the result of the previous section. So how do we map an element of the form $((i,j), v)$ to something of the form $(a_0, a_1)$ with $a_0$ and $a_1$ field elements? The second coordinate is trivial, we can just leave $v$ as it is and take $a_1 = v$. For the indexes pair $(i,j)$ there are multiple ways. The important thing to achieve here is that different pairs get mapped to different field elements. Recall that $i$ ranges from $0$ to $N-1$ and $j$ ranges from $0$ to $2$. One way is to take a $3N$-th primitive root of unity $\eta$ and define $a_0 = \eta^{3i + j}$. Putting it altogether, we are mapping the pair $((i,j), v)$ to the pair $(\eta^{3i + j}, v)$, which is a pair of field elements. Now we can consider the sets 
+$$A = \{(\eta^{3i + j}, T_{i,j}): (i,j) \in I\}$$
+and 
+$$B = \{(\eta^{3k + l}, T_{i,j}): (i,j) \in I, \sigma((i,j)) = (k, l)\}.$$
+We have that condition (b) is equivalent to $A$ and $B$ being equal.
 
-For this purpose, we first need a few things. Recall that $N$ is the size of each of the columns of the trace matrix $T$ and our sets have now an element for each of the entries of the matrix. That's $3N$ elements. So we need $\eta$ a $3N$-th root of unity. Additionally, sample a random field element $\beta$. With all this we can do the following. For a pair $((i,j), v)$, define the field element: $$v + \eta^{j + 3i} \beta.$$
-Using this we transform our set $A$ into
-$$\hat A = \{T_{i,j} + \eta^{j + 3i}\beta: (i,j) \in I\}$$
-and transform our set $B$ into
+Applying the method of the previous section to these sets, we obtain the following.
 
-$$\hat B = \{T_{i,j} + \eta^{l + 3k}\beta: (i,j) \in I, (k,l) = \sigma((i,j))\}$$
-A very similar argument using polynomials as before can be applied here to deduce that if these new sets $\hat A$, $\hat B$ are equal, then with overwhelming probability the original sets $A$ and $B$ are equal. The element $\beta$ comes from applying the Schwarz-Zippel lemma again. But we leave that to the reader to keep these notes short. 
-
-The gain here is that $\hat A$ and $\hat B$ are sets of field elements and we can apply the fact from before!
-
-Recall in our example the sets in question are respectively
-$$A = \{((0,0), T_{0,0}), ((0,1), T_{0,1}), ((0,2), T_{0,2}), \dots\},$$
+*Fact:* Let $\eta$ be a $3N$-th root of unity and $\beta$ and $\gamma$ random field elements. Let $f$ and $g$ be the polynomials that interpolate, respectively, the following values at the powers of $\eta$:
+$$\{T_{i,j} + \eta^{3i + j}\beta + \gamma: (i,j) \in I\},$$
 and
-$$B = \{((2,1), T_{0,0}), ((0,3), T_{0,1}), ((0,2), T_{0,2}), \dots\},$$
-
-And for these, the sets $\hat A$ and $\hat B$ are 
-$$\hat A = \{T_{0,0} + \eta^{0}\beta, T_{0,1} + \eta^{1}\beta, T_{0,2} + \eta^{2}\beta, \dots\}$$
-$$\hat B = \{T_{0,0} + \eta^{7}\beta, T_{0,1} + \eta^{3}\beta, T_{0,2} + \eta^{2}\beta, \dots\},$$
-
-Again you can check that these are equal by replacing the values of $T_{i,j}$.
-
-So finally we arrive at
-
-*Fact:* Suppose there exists a polynomial $Z$ of degree at most $3N$ such that 
+$$\{T_{i,j} + \eta^{3k + j}\beta + \gamma: (i,j) \in I, \sigma((i,j)) = (k,l)\},$$
+Suppose there exists a polynomial $Z$ of degree at most $3N$ such that 
 $$Z(\eta^0) = 1$$
 $$Z(X)f(X) = g(X)Z(\eta X),$$
-where $f$ and $g$ interpolate, respectively, the values
-$$\{T_{i,j} + \eta^{j + 3i}\beta + \gamma: (i,j) \in I\},$$
-and
-$$\{T_{i,j} + \eta^{l + 3k}\beta + \gamma: (i,j) \in I, \sigma((i,j)) = (k,l)\},$$
-for some random $\beta$ and $\gamma$. Then the sets $A = \{((i,j), T_{i,j}): (i,j) \in I\}$ and $B = \{(\sigma((i,j)), T_{i,j}): (i,j) \in I\}$ are equal with overwhelming probability.
-
-
+Then the sets $A = \{((i,j), T_{i,j}): (i,j) \in I\}$ and $B = \{(\sigma((i,j)), T_{i,j}): (i,j) \in I\}$ are equal with overwhelming probability.
 
 There will be an optimization of this to reduce the degree of the polynomial $Z$ to at most $N$. But for now let's leave it like that.
 
