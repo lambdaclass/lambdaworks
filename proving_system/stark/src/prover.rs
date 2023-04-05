@@ -258,17 +258,12 @@ fn build_deep_consistency_check<A: AIR, F: IsTwoAdicField>(
     let consistency_check_idx = transcript_to_usize(transcript)
         % (air.context().trace_length * air.options().blowup_factor as usize);
 
-    let frame_evaluations = Frame::read_from_trace(
+    let lde_trace_frame = Frame::read_from_trace(
         trace,
         consistency_check_idx,
         air.options().blowup_factor,
         &air.context().transition_offsets,
     );
-
-    let consistency_check_evaluations = lde_trace_evaluations
-        .iter()
-        .map(|evaluation| evaluation[consistency_check_idx].clone())
-        .collect::<Vec<FieldElement<_>>>();
 
     let lde_trace_merkle_trees = lde_trace_evaluations
         .iter()
@@ -280,11 +275,15 @@ fn build_deep_consistency_check<A: AIR, F: IsTwoAdicField>(
         .map(|merkle_tree| merkle_tree.root.clone())
         .collect::<Vec<FieldElement<F>>>();
 
-    let lde_trace_merkle_proofs = lde_trace_merkle_trees
-        .iter()
-        .zip(&consistency_check_evaluations)
-        .map(|(merkle_tree, evaluation)| merkle_tree.get_proof(evaluation).unwrap())
-        .collect::<Vec<Proof<F, DefaultHasher>>>();
+    let lde_trace_merkle_proofs = (0..lde_trace_frame.num_rows())
+        .map(|i| lde_trace_frame.get_row(i))
+        .map(|row| {
+            row.iter()
+                .zip(&lde_trace_merkle_trees)
+                .map(|(evaluation, merkle_tree)| merkle_tree.get_proof(evaluation).unwrap())
+                .collect()
+        })
+        .collect::<Vec<Vec<Proof<F, DefaultHasher>>>>();
 
     let deep_poly_evaluation =
         deep_composition_poly.evaluate(&lde_roots_of_unity_coset[consistency_check_idx]);
@@ -292,7 +291,7 @@ fn build_deep_consistency_check<A: AIR, F: IsTwoAdicField>(
     DeepConsistencyCheck {
         lde_trace_merkle_roots,
         lde_trace_merkle_proofs,
-        trace_evaluations: frame_evaluations,
+        lde_trace_frame,
         composition_poly_evaluations,
         deep_poly_evaluation,
     }

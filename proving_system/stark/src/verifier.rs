@@ -32,7 +32,7 @@ where
 
     let lde_trace_merkle_roots = &deep_consistency_check.lde_trace_merkle_roots;
     let lde_trace_merkle_proofs = &deep_consistency_check.lde_trace_merkle_proofs;
-    let trace_evaluations = &deep_consistency_check.trace_evaluations;
+    let lde_trace_frame = &deep_consistency_check.lde_trace_frame;
 
     let root_order = air.context().trace_length.trailing_zeros();
     let trace_primitive_root = F::get_primitive_root_of_unity(root_order as u64).unwrap();
@@ -189,15 +189,18 @@ where
 
     // Verify that the elements used to build the DEEP composition polynomial are trace
     // evaluations.
-    for ((merkle_root, merkle_proof), evaluation) in lde_trace_merkle_roots
+    for (merkle_frame_proofs, frame_row_idx) in lde_trace_merkle_proofs
         .iter()
-        .zip(lde_trace_merkle_proofs)
-        .zip(trace_evaluations.get_row(0))
+        .zip(0..lde_trace_frame.num_rows())
     {
-        // The prover calls `transcript.challenge()` for each trace polynomial, so the
-        // verifier has to call this method the same number of times.
-        if !merkle_proof.verify(merkle_root, 1, evaluation) {
-            return false;
+        for ((merkle_root, merkle_proof), evaluation) in lde_trace_merkle_roots
+            .iter()
+            .zip(merkle_frame_proofs)
+            .zip(lde_trace_frame.get_row(frame_row_idx))
+        {
+            if !merkle_proof.verify(merkle_root, 1, evaluation) {
+                return false;
+            }
         }
     }
 
