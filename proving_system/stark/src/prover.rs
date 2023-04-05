@@ -102,7 +102,7 @@ where
 
     let (composition_poly_even, composition_poly_odd) = composition_poly.even_odd_decomposition();
     // Evaluate H_1 and H_2 in z^2.
-    let composition_poly_evaluations = vec![
+    let composition_poly_ood_evaluations = vec![
         composition_poly_even.evaluate(&z_squared),
         composition_poly_odd.evaluate(&z_squared),
     ];
@@ -142,9 +142,10 @@ where
         air,
         &lde_trace,
         &lde_trace_evaluations,
+        &composition_poly_even,
+        &composition_poly_odd,
         &deep_composition_poly,
         &lde_roots_of_unity_coset,
-        composition_poly_evaluations,
     );
 
     // * Do FRI on the composition polynomials
@@ -178,6 +179,7 @@ where
         fri_layers_merkle_roots,
         trace_ood_frame_evaluations,
         deep_consistency_check,
+        composition_poly_ood_evaluations,
         query_list,
     }
 }
@@ -251,9 +253,10 @@ fn build_deep_consistency_check<A: AIR, F: IsTwoAdicField>(
     air: &A,
     trace: &TraceTable<F>,
     lde_trace_evaluations: &[Vec<FieldElement<F>>],
+    composition_poly_even: &Polynomial<FieldElement<F>>,
+    composition_poly_odd: &Polynomial<FieldElement<F>>,
     deep_composition_poly: &Polynomial<FieldElement<F>>,
     lde_roots_of_unity_coset: &[FieldElement<F>],
-    composition_poly_evaluations: Vec<FieldElement<F>>,
 ) -> DeepConsistencyCheck<F> {
     let consistency_check_idx = transcript_to_usize(transcript)
         % (air.context().trace_length * air.options().blowup_factor as usize);
@@ -284,6 +287,11 @@ fn build_deep_consistency_check<A: AIR, F: IsTwoAdicField>(
                 .collect()
         })
         .collect::<Vec<Vec<Proof<F, DefaultHasher>>>>();
+
+    let composition_poly_evaluations = vec![
+        composition_poly_even.evaluate(&lde_roots_of_unity_coset[consistency_check_idx]),
+        composition_poly_odd.evaluate(&lde_roots_of_unity_coset[consistency_check_idx]),
+    ];
 
     let deep_poly_evaluation =
         deep_composition_poly.evaluate(&lde_roots_of_unity_coset[consistency_check_idx]);

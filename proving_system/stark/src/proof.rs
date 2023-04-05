@@ -26,5 +26,6 @@ pub struct StarkProof<F: IsTwoAdicField> {
     pub fri_layers_merkle_roots: Vec<FieldElement<F>>,
     pub trace_ood_frame_evaluations: Frame<F>,
     pub deep_consistency_check: DeepConsistencyCheck<F>,
+    pub composition_poly_ood_evaluations: Vec<FieldElement<F>>,
     pub query_list: Vec<StarkQueryProof<F>>,
 }
