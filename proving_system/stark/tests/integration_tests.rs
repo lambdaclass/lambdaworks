@@ -18,6 +18,7 @@ use lambdaworks_stark::{
 use crate::air::{
     fibonacci_2_columns::{fibonacci_trace_2_columns, Fibonacci2ColsAIR},
     fibonacci_f17::Fibonacci17AIR,
+    quadratic_air::{quadratic_trace, QuadraticAIR},
     simple_fibonacci::{fibonacci_trace, FibonacciAIR},
 };
 
@@ -95,6 +96,34 @@ fn test_prove_fib_2_cols() {
     };
 
     let fibonacci_air = Fibonacci2ColsAIR::new(context);
+
+    let result = prove(&trace_table, &fibonacci_air);
+    assert!(verify(&result, &fibonacci_air));
+}
+
+#[test]
+fn test_prove_quadratic() {
+    let trace = quadratic_trace(FE::from(3), 4);
+    let trace_table = TraceTable {
+        table: trace.clone(),
+        n_cols: 1,
+    };
+
+    let context = AirContext {
+        options: ProofOptions {
+            blowup_factor: 2,
+            fri_number_of_queries: 1,
+            coset_offset: 3,
+        },
+        trace_length: trace.len(),
+        trace_columns: trace_table.n_cols,
+        transition_degrees: vec![2],
+        transition_exemptions: vec![1],
+        transition_offsets: vec![0, 1],
+        num_transition_constraints: 1,
+    };
+
+    let fibonacci_air = QuadraticAIR::new(context);
 
     let result = prove(&trace_table, &fibonacci_air);
     assert!(verify(&result, &fibonacci_air));
