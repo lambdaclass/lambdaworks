@@ -234,7 +234,7 @@ In the previous section we showed how the arithmetization process works in PLONK
 
 Polynomials enter now to squash most of these equations. We will traduce the set of all equations in conditions (a) and (b) to just a few equations on polynomials.
 
-Let $\omega$ be an N root of unity and let $H = {\omega^i: 0\leq i < N}$. Let $a, b, c, q_L, q_R, q_M, q_O, q_C, pi$ be the polynomials of degree at most $n + m$ that interpolate the columns $A, B, C, Q_L, Q_R, Q_M, Q_O, Q_C, PI$ at the domain $H$. This means for example that $a(\omega^i) = A_i$ for all $i$. And similarly for all the other columns.
+Let $\omega$ be a primitive $N$-th root of unity and let $H = {\omega^i: 0\leq i < N}$. Let $a, b, c, q_L, q_R, q_M, q_O, q_C, pi$ be the polynomials of degree at most $n + m$ that interpolate the columns $A, B, C, Q_L, Q_R, Q_M, Q_O, Q_C, PI$ at the domain $H$. This means for example that $a(\omega^i) = A_i$ for all $i$. And similarly for all the other columns.
 
 With this, condition (a) of the claim is equivalent to $$a(x) * q_L(x) + b(x) * q_R(x) + a(x) * b(x) * q_M(x) + c(x) * q_O(x) + q_c(x) + pi(x) = 0$$ for all $x$ in $H$.This is just by definition of the polynomials. But in polynomials land this is also equivalent to (a) there exists a polynomial $t$ such that $$a * q_L + b * q_R + a * b * q_M + c * q_O + q_c + pi = z_H * t$$, where $z_H$ is the polynomial $X^N -1$.
 
@@ -288,25 +288,26 @@ Putting this altogether, if for some random element $\gamma$ we have $(a_0 + \ga
 $$\prod_{i=0}^{k-1}(a_i + \gamma) = \prod_{i=0}^{k-1}(b_i + \gamma),$$
 then with overwhelming probability $A$ is equal to $B$.
 
-And here comes the trick that reduces this check to a polynomial equation. Let
-$H$ be a domain of the form $\{1, \omega, \dots, \omega^{k-1}\}$ for some $k$-th root of unity $\omega$. Let $f$ and $g$ be respectively the polynomials that interpolate the following values at $H$.
+And here comes the trick that reduces this check to polynomial equations. Let
+$H$ be a domain of the form $\{1, \omega, \dots, \omega^{k-1}\}$ for some primitive $k$-th root of unity $\omega$. Let $f$ and $g$ be respectively the polynomials that interpolate the following values at $H$.
 $$(a_0 + \gamma, \dots, a_{k-1} + \gamma),$$
 $$(b_0 + \gamma, \dots, b_{k-1} + \gamma),$$
 
 Then $\prod_{i=0}^{k-1}(a_i + \gamma)$ equals $\prod_{i=0}^{k-1}(b_i + \gamma)$ if and only if there exists a polynomial $Z$ of degree at most $k$ such that
 $$Z(\omega^0) = 1$$
-$$Z(X)f(X) = g(X)Z(\omega X)$$
+$$Z(h)f(h) = g(h)Z(\omega h)$$
+for all $h\in H$.
 
 Let's see why. Suppose that $\prod_{i=0}^{k-1}(a_i + \gamma)$ equals $\prod_{i=0}^{k-1}(b_i + \gamma)$. Construct $Z$ as the polynomial that interpolates the following values $$(1, \frac{a_0 + \gamma}{b_0 + \gamma}, \frac{(a_0 + \gamma)(a_1 + \gamma)}{(b_0 + \gamma)(b_1 + \gamma)}, \dots, \prod_{i=0}^{k-1} \frac{a_i + \gamma}{b_i + \gamma}),$$
-in the same domain as $f$ and $g$. That works. Conversely, suppose such a polynomial $Z$ exists. By evaluating the equation $Z(X)f(X) = g(X)Z(\omega X)$ in $1, \omega, \dots, \omega^{k-2}$ we get that $Z$ actually is the polynomial that interpolates those values. Moreover, evaluating it at $\omega^{k-1}$ we obtain that $$Z(\omega^{k-1})\frac{f(\omega^{k-1})}{g(\omega^{k-1})} = Z(\omega^k) = Z(w^0) = 1.$$
+in the same domain as $f$ and $g$. That works. Conversely, suppose such a polynomial $Z$ exists. By evaluating the equation $Z(X)f(X) = g(X)Z(\omega X)$ at $1, \omega, \dots, \omega^{k-2}$ we get that $Z$ actually is the polynomial that interpolates those values. Moreover, evaluating it at $\omega^{k-1}$ we obtain that $$Z(\omega^{k-1})\frac{f(\omega^{k-1})}{g(\omega^{k-1})} = Z(\omega^k) = Z(w^0) = 1.$$
 The second equality holds because $\omega^k = \omega^0$ since it is a $k$-th root of unity. Expanding with the values of $f, g$ and $Z$ one obtains that $\prod_{i=0}^{k-1}(a_i + \gamma)/\prod_{i=0}^{k-1}(b_i + \gamma)$ equals $1$. Which is what we wanted.
 
 In summary. We proved the following:
 
-*Fact:* Let $A=\{a_0, \dots, a_{k-1}\}$ and $B=\{b_0, \dots, b_{k-1}\}$ be sets of field elements. Let $\gamma$ be a random field element. Let $\omega$ be a $k$-th root of unity. Let $f$ and $g$ be respectively the polynomials that interpolate the values $\{a_0 + \gamma, \dots, a_{k-1} + \gamma\}$ and $\{b_0 + \gamma, \dots, b_{k-1} + \gamma\}$ at the powers of $\omega$. If there exists a polynomial $Z$ of degree at most $k$ such that 
+*Fact:* Let $A=\{a_0, \dots, a_{k-1}\}$ and $B=\{b_0, \dots, b_{k-1}\}$ be sets of field elements. Let $\gamma$ be a random field element. Let $\omega$ be a primitive $k$-th root of unity and $H=\{1, \omega, \omega^2, \dots, \omega^{k-1}\}$. Let $f$ and $g$ be respectively the polynomials that interpolate the values $\{a_0 + \gamma, \dots, a_{k-1} + \gamma\}$ and $\{b_0 + \gamma, \dots, b_{k-1} + \gamma\}$ at $H$. If there exists a polynomial $Z$ of degree at most $k$ such that 
 $$Z(\omega^0) = 1$$
 $$Z(X)f(X) = g(X)Z(\omega X)$$
-then with overwhelming probability the sets $A$ and $B$ are equal.
+for all $h\in H$, then with overwhelming probability the sets $A$ and $B$ are equal.
 
 
 #### Sets of tuples
@@ -326,14 +327,14 @@ coincide, then $A$ and $B$ are equal with overwhelming probability.
 
 Here is the statement for sets of more than two pairs of field elements.
 
-*Fact:* Let $A=\{\bar a_0, \dots, \bar a_{k-1}\}$ and $B=\{\bar b_0, \dots, \bar b_{k-1}\}$ be sets of pairs of field elements. So that $\bar a_i = (a_{i,0}, a_{i,1})$ and the same for $\hat b_i$. Let $\beta, \gamma$ be a random field elements. Let $\omega$ be a $k$-th root of unity. Let $f$ and $g$ be respectively the polynomials that interpolate the values 
+*Fact:* Let $A=\{\bar a_0, \dots, \bar a_{k-1}\}$ and $B=\{\bar b_0, \dots, \bar b_{k-1}\}$ be sets of pairs of field elements. So that $\bar a_i = (a_{i,0}, a_{i,1})$ and the same for $\bar b_i$. Let $\beta, \gamma$ be a random field elements. Let $\omega$ be a $k$-th root of unity and $H=\{1, \omega, \omega^2, \dots, \omega^{k-1}\}$. Let $f$ and $g$ be respectively the polynomials that interpolate the values 
 $$\{a_{i,0} + a_{i,1}\beta + \gamma, \dots, a_{k-1,0} + a_{k-1,1}\beta + \gamma\},$$
 and
 $$\{b_{i,0} + b_{i,1}\beta + \gamma, \dots, b_{k-1,0} + b_{k-1,1}\beta + \gamma\},$$
-at the powers of $\omega$. If there exists a polynomial $Z$ of degree at most $k$ such that 
+at $H$. If there exists a polynomial $Z$ of degree at most $k$ such that 
 $$Z(\omega^0) = 1$$
 $$Z(X)f(X) = g(X)Z(\omega X)$$
-then with overwhelming probability the sets $A$ and $B$ are equal.
+for all $h\in H$, then with overwhelming probability the sets $A$ and $B$ are equal.
 
 
 #### Going back to our case
@@ -350,50 +351,137 @@ We have that condition (b) is equivalent to $A$ and $B$ being equal.
 
 Applying the method of the previous section to these sets, we obtain the following.
 
-*Fact:* Let $\eta$ be a $3N$-th root of unity and $\beta$ and $\gamma$ random field elements. Let $f$ and $g$ be the polynomials that interpolate, respectively, the following values at the powers of $\eta$:
+*Fact:* Let $\eta$ be a $3N$-th root of unity and $\beta$ and $\gamma$ random field elements. Let $D = \{1, \eta, \eta^2, \dots, \eta^{3N-1}\}$. Let $f$ and $g$ be the polynomials that interpolate, respectively, the following values at $D$:
 $$\{T_{i,j} + \eta^{3i + j}\beta + \gamma: (i,j) \in I\},$$
 and
 $$\{T_{i,j} + \eta^{3k + j}\beta + \gamma: (i,j) \in I, \sigma((i,j)) = (k,l)\},$$
 Suppose there exists a polynomial $Z$ of degree at most $3N$ such that 
 $$Z(\eta^0) = 1$$
-$$Z(X)f(X) = g(X)Z(\eta X),$$
+$$Z(d)f(d) = g(d)Z(\eta d),$$
+for all $h\in D$.
 Then the sets $A = \{((i,j), T_{i,j}): (i,j) \in I\}$ and $B = \{(\sigma((i,j)), T_{i,j}): (i,j) \in I\}$ are equal with overwhelming probability.
 
 There will be an optimization of this to reduce the degree of the polynomial $Z$ to at most $N$. But for now let's leave it like that.
 
-One last minute definitions. Notice that $\omega=\eta^3$ is a primitive $N$-th root of unity. Also, $\eta^{j + 3i} = \eta^{3i}\eta^j = \omega^i\eta^j$. Let $H=\{1, \omega, \omega^2, \dots, \omega^{N-1}\}$.
+One last minute definitions. Notice that $\omega=\eta^3$ is a primitive $N$-th root of unity. Let $H = \{1, \omega, \omega^2, \dots, \omega^{N-1}\}$.
 
 Define $S_{\sigma 1}$ to be the interpolation at $H$ of 
-$$\{T_{i,0} + \omega^{i}\beta + \gamma: 0\leq i < N\},$$
+$$\{\eta^{3k + j}: (i,0) \in I, \sigma((i,0)) = (k,l)\},$$
 Similarly define $S_{\sigma 2}$ and $S_{\sigma 3}$ to be the interpolation at $H$ of the sets of values
-$$\{T_{i,1} + \omega^{i}\eta\beta + \gamma: 0\leq i < N\},$$
-$$\{T_{i,2} + \omega^{i}\eta^2\beta + \gamma: 0\leq i < N\}.$$
-### Recap
+$$\{\eta^{3k + j}: (i,1) \in I, \sigma((i,1)) = (k,l)\},$$
+$$\{\eta^{3k + j}: (i,2) \in I, \sigma((i,2)) = (k,l)\},$$
+These will be useful during the protocol to work with such polynomials $Z$ and the above equations. We'll get there in a moment.
+
+### Common preprocessed input
 
 We have arrived at the eight polynomials we mentioned at the beginning:
 $$q_L, q_R, q_M, q_O, q_C, S_{\sigma 1}, S_{\sigma 2}, S_{\sigma 3}.$$
 
 These are what's called the *common preprocessed input*.
 
+### Blindings
+TODO
 
-### Structured Reference String
-A SRS is essentially a set of precomputed values that are agreed upon by all parties involved in a PLONK proof. These values serve as a kind of baseline or starting point for verifying the correctness of the proof.
+### Polynomial commitment scheme
+A polynomial commitment scheme (PCS) is a cryptographic tool that allows one party to commit to a polynomial, and later prove properties of that polynomial.
+This commitment polynomial hides the original polynomial's coefficients and can be publicly shared without revealing any information about the original polynomial.
+Later, the party can use the commitment to prove certain properties of the polynomial, such as that it satisfies certain constraints or that it evaluates to a certain value at a specific point.
 
-The reason why a SRS is so crucial to PLONK is that it allows for efficient and scalable verification. Without a SRS, verifying a PLONK proof would require a lot of computational power and time, since it would involve complex calculations that would have to be performed from scratch each time a proof needed to be verified. With a SRS, however, the verification process becomes much simpler and faster, since the precomputed values can be reused across multiple proofs of different programs.
+In the implementation section we'll explain the inner workings of the Kate-Zaverucha-Goldberg scheme, a popular PCS chosen in Lambdaworks for PLONK.
 
-### Kate Zaverucha Goldberg
-
-### Batched Kate Zaverucha Goldberg 
-
-## Setup
+For the moment we only need the following about it:
 
 ## Proving algorithm
+Next we describe the proving algorithm for a program with $n$ public inputs and $m$ gates. Let $N = n + m + 1$ and let $\omega$ be a primitive $N$-th root of unity. Let $H=\{1, \omega, \omega^2, \dots, \omega^{N-1}\}$. Define $Z_H := X^N-1$.
+
+Assume the eight polynomials of common preprocessed input are already given.
+
+The prover computes the trace matrix $T$ as described in the first sections. That means, with the first rows corresponding to the public inputs.
 
 ### Round 1
+Compute polynomials $a',b',c'$ as the interpolation polynomials of the columns of $T$ at the domain $H$.
+Sample random $b_1, b_2, b_3, b_4, b_5, b_6$
+Let 
+
+$a := (b_1X + b_2)Z_H + a'$
+
+$b := (b_3X + b_4)Z_H + b'$
+
+$c := (b_5X + b_6)Z_H + c'$
+
+Compute $[a]_1, [b]_1, [c]_1$ and add them to the transcript.
+
 ### Round 2
+
+Let $z_0 = 1$ and define recursively for $0\leq k < N$.
+
+$$
+z_{k+1} = z_k \frac{(a_0 + \beta\omega^k + \gamma)(b_0 + \beta\omega^kk_1 + \gamma)(c_0 + \beta\omega^kk_2 + \gamma)}{(a_0 + \beta S_{\sigma1}(\omega^k) + \gamma)(b_0 + \beta S_{\sigma2}(\omega^k) + \gamma)(c_0 + \beta S_{\sigma3}(\omega^k) + \gamma)}
+$$
+Compute the polynomial $z'$ as the interpolation polynomial at the domain $H$ of the values $(z_0, \dots, z_{N-1})$.
+
+Sample random values $b_7, b_8, b_9$ and let $z = (b_7X^2 + b_8X + b_9)Z_H + z'$.
+
+Compute $[z]_1$ and add it to the transcript.
+
 ### Round 3
+
+Let
+
+$$
+\begin{aligned}
+p_1 &= aq_L + bq_R + abq_M + cq_O + q_C + pi \\
+p_2 &= (a + \beta X + \gamma)(b + \beta k_1 X + \gamma)(c + \beta k_2 X + \gamma)z -  (a + \beta S_{\sigma1} + \gamma)(b + \beta S_{\sigma2} + \gamma)(c + \beta S_{\sigma3} + \gamma)z(\omega X)\\
+p_3 &= L_1(z - 1)
+\end{aligned}
+$$
+
+and define $p = p_1 + \alpha p_2 + \alpha^2 p_3$. Compute $t$ such that $p = t Z_H$. Write $t = t_{lo}' + X^{N+2} t_{mid}' + X^{2(N+2)}t_{hi}'$ with $t_{lo}', t_{mid}'$ and $t_{hi}'$ polynomials of degree at most $N+1$. 
+
+Sample random $b_{10}, b_{11}$ and define 
+
+$$
+\begin{aligned}
+t_{lo} &= t_{lo}' + b_{10}X^{N+2} \\
+t_{mid} &= t_{mid}' - b_{10} + b_{11}X^{N+2} \\
+t_{hi} &= t_{hi}' - b_{11} 
+\end{aligned}
+$$
+
+Compute $[t_{lo}]_1, [t_{mid}]_1,[t_{hi}]_1$ and add them to the transcript.
+
 ### Round 4
+
+Compute $\bar a = a(\zeta), \bar b = b(\zeta), \bar c = c(\zeta), \bar s_{\sigma1} =  S_{\sigma1}(\zeta), \bar s_{\sigma2} = S_{\sigma2}(\zeta), \bar z_\omega = z(\zeta\omega)$ and add them to the transcript.
 ### Round 5
+
+Let 
+$$
+\begin{aligned}
+\hat p_{nc1} &= \bar aq_L + \bar bq_R + \bar a\bar bq_M + \bar cq_O + q_C \\
+\hat p_{nc2} &=(\bar a + \beta\zeta + \gamma)(\bar b + \beta k_1\zeta + \gamma)(\bar c + \beta k_2\zeta + \gamma)z - (\bar a + \beta \bar s_{\sigma1} + \gamma)(\bar b + \beta \bar s_{\sigma2} + \gamma)\beta \bar z_\omega S_{\sigma3} \\
+\hat p_{nc3} &= L_1(\zeta) z
+\end{aligned}
+$$
+Define
+$$
+\begin{aligned}
+p_{nc} &= p_{nc1} + \alpha p_{nc2} + \alpha^2 p_{nc3} \\
+t_{\text{partial}} &= t_{lo} + \zeta^{N+2}t_{mid} + \zeta^{2(N+2)}t_{hi}
+\end{aligned}
+$$
+
+Let $\pi_{\text{batch}}$ the batch opening proof at $\zeta$ of the following set of five polynomials: $$t_{\text{partial}}, p_{nc}, a, b, c, S_{\sigma1}, S_{\sigma2}$$
+Let $\pi_{\text{single}}$ be the opening proof at $\zeta\omega$ of the polynomial $z(X)$
+
+Compute $\bar p_{nc} := p_{nc}(\zeta)$ and $\bar t = t(\zeta)$.
+
+Add $\pi_{\text{batch}}, \pi_{\text{single}}, \bar p_{nc}, \bar t$ to the transcript.
+
+### Proof
+
+The proof is:
+$$[a]_1, [b]_1, [c]_1, [z]_1, [t_{lo}]_1, [t_{mid}]_1, [t_{hi}]_1, \bar a, \bar b, \bar c, \bar s_{\sigma1}, \bar s_{\sigma2}, \bar z_\omega, \pi_{\text{batch}}, \pi_{\text{single}}, \bar p_{nc}, \bar t$$
 
 ## Verification algorithm
 
