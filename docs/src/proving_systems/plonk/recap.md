@@ -280,7 +280,7 @@ One thing we could do is compute $a_0a_1$ and $b_0b_1$ and compare them. If the 
 
 But the converse is not true. For example the sets $A=\{4, 15\}$ and $B=\{6, 10\}$ both have $60$ as the result of the product of their elements. But they are not equal. So this is not good to check equality.
 
-Polynomials come to rescue here. What we can do instead is consider the following sets *of polynomials* $A'=\{a_0 + X, a_1 + X\}$, $B'=\{b_0 + X, b_1 + X\}$. Sets $A$ and $B$ are equal if and only if sets $A'$ and $B'$ are equal. This is because equality of polynomials boils down to equality of their coefficients. But the difference with $A'$ and $B'$ is that now the approach of multiplying the elements works. That is, $A'$ and $B'$ are equal if and only if $(a_0 + X)(a_1 + X) = (b_0 + X)(b_1 + X)$. This is not entirely evident but follows from a property that polynomials have, called *unique factorization domain*. Here the important fact is that linear polynomials act as sort of prime factors. Anyway, you can take that for granted. The last part of this trick is to use the Schwartz-Zippel lemma and go back to the land of field elements. That means, if for some random element $\gamma$ we have $(a_0 + \gamma)(a_1 + \gamma) = (b_0 + \gamma)(b_1 + \gamma)$, then with overwhelming probability the equality $(a_0 + X)(a_1 + X) = (b_0 + X)(b_1 + X)$ holds.
+Polynomials come to rescue here. What we can do instead is consider the following sets *of polynomials* $A'=\{a_0 + X, a_1 + X\}$, $B'=\{b_0 + X, b_1 + X\}$. Sets $A$ and $B$ are equal if and only if sets $A'$ and $B'$ are equal. This is because equality of polynomials boils down to equality of their coefficients. But the difference with $A'$ and $B'$ is that now the approach of multiplying the elements works. That is, $A'$ and $B'$ are equal if and only if $(a_0 + X)(a_1 + X) = (b_0 + X)(b_1 + X)$. This is not entirely evident but follows from a property that polynomials have, called *unique factorization*. Here the important fact is that linear polynomials act as sort of prime factors. Anyway, you can take that for granted. The last part of this trick is to use the Schwartz-Zippel lemma and go back to the land of field elements. That means, if for some random element $\gamma$ we have $(a_0 + \gamma)(a_1 + \gamma) = (b_0 + \gamma)(b_1 + \gamma)$, then with overwhelming probability the equality $(a_0 + X)(a_1 + X) = (b_0 + X)(b_1 + X)$ holds.
 
 Putting this altogether, if for some random element $\gamma$ we have $(a_0 + \gamma)(a_1 + \gamma) = (b_0 + \gamma)(b_1 + \gamma)$, then the sets $A$ and $B$ are equal. Of course this also holds for sets with more than two elements. Let's write that down.
 
@@ -441,7 +441,7 @@ $$
 \begin{aligned}
 p_1 &= aq_L + bq_R + abq_M + cq_O + q_C + pi \\
 p_2 &= (a + \beta X + \gamma)(b + \beta k_1 X + \gamma)(c + \beta k_2 X + \gamma)z -  (a + \beta S_{\sigma1} + \gamma)(b + \beta S_{\sigma2} + \gamma)(c + \beta S_{\sigma3} + \gamma)z(\omega X)\\
-p_3 &= L_1(z - 1)
+p_3 &= (z - 1)L_1
 \end{aligned}
 $$
 
