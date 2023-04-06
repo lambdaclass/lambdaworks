@@ -3,7 +3,7 @@ use super::{
     fri::fri_decommit::FriDecommitment,
     sample_z_ood,
 };
-use crate::{transcript_to_field, transcript_to_usize, StarkProof};
+use crate::{proof::StarkProof, transcript_to_field, transcript_to_usize};
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::{
     field::{
