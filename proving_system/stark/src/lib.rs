@@ -20,12 +20,12 @@ pub type PrimeField = Stark252PrimeField;
 pub type FE = FieldElement<PrimeField>;
 
 // TODO: change this to use more bits
-pub fn transcript_to_field<F: IsField>(transcript: &mut Transcript) -> FieldElement<F> {
+pub fn transcript_to_field<F: IsField, T: Transcript>(transcript: &mut T) -> FieldElement<F> {
     let value: u64 = u64::from_be_bytes(transcript.challenge()[..8].try_into().unwrap());
     FieldElement::from(value)
 }
 
-pub fn transcript_to_usize(transcript: &mut Transcript) -> usize {
+pub fn transcript_to_usize<T: Transcript>(transcript: &mut T) -> usize {
     const CANT_BYTES_USIZE: usize = (usize::BITS / 8) as usize;
     let value = transcript.challenge()[..CANT_BYTES_USIZE]
         .try_into()
@@ -33,13 +33,14 @@ pub fn transcript_to_usize(transcript: &mut Transcript) -> usize {
     usize::from_be_bytes(value)
 }
 
-pub fn sample_z_ood<F: IsField>(
+pub fn sample_z_ood<F: IsField, T: Transcript>(
     lde_roots_of_unity_coset: &[FieldElement<F>],
     trace_roots_of_unity: &[FieldElement<F>],
-    transcript: &mut Transcript,
+    transcript: &mut T,
 ) -> FieldElement<F> {
     loop {
         let value: FieldElement<F> = transcript_to_field(transcript);
+        println!("SAMPLE Z OOD {:?}", value);
         if !lde_roots_of_unity_coset.iter().any(|x| x == &value)
             && !trace_roots_of_unity.iter().any(|x| x == &value)
         {

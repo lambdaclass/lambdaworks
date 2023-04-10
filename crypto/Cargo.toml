@@ -13,3 +13,6 @@ sha3 = "0.10.6"
 
 [dependencies.rand]
 version = "0.8"
+
+[features]
+dummy_fiat_shamir = []

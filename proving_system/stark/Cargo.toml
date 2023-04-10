@@ -13,3 +13,6 @@ thiserror = "1.0.38"
 
 [dev-dependencies]
 hex = "0.4.3"
+
+[features]
+dummy_fiat_shamir = []

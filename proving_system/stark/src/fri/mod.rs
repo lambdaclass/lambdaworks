@@ -44,10 +44,10 @@ where
     }
 }
 
-pub fn fri<F: IsField>(
+pub fn fri<F: IsField, T: Transcript>(
     p_0: &mut Polynomial<FieldElement<F>>,
     domain_0: &[FieldElement<F>],
-    transcript: &mut Transcript,
+    transcript: &mut T,
 ) -> FriCommitmentVec<F>
 where
     FieldElement<F>: ByteConversion,
