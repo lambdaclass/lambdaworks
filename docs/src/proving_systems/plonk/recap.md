@@ -1,6 +1,20 @@
-## PLONK
+# PLONK
 
 PLONK is a popular cryptographic proving system within the Zero Knowledge (ZK) community due to its efficiency and flexibility. It enables the verification of complex computations executed by untrusted parties through the transformation of programs into circuit representations. The system relies on a process called arithmetization, which converts logical circuits into polynomial representations. The main idea behind arithmetization is to express the computation as a set of polynomial equations. The solutions to these equations correspond to the outputs of the circuit. In this section, we will delve into the mechanics of how arithmetization works in PLONK, as well as the protocol used to generate and verify proofs.
+
+
+## Notation
+We use the following notation.
+
+The symbol $\mathbb{F}$ denotes a finite field. It is fixed all along. The symbol $\omega$ denotes a primitive root of unity in $\mathbb{F}$.
+
+All polynomials have coefficients in $\mathbb{F}$ and the variable is usually denoted by $X$. We denote polynomials by single letters like $p, a, b, z$. We only denote them as $z(X)$ when we want to emphasize the fact that it is a polynomial in $X$, or we need that to explicitly define a polynomial from another one. For example when composing a polynomial $z$ with the polynomial $\omega X$, the result being denoted by $z' := z(\omega X)$. The symbol $'$ is **not** used to denote derivatives.
+
+When interpolating at a domain $H=\{h_0, \dots, h_n\} \subset \mathbb{F}$, the symbols $L_i$ denote the Lagrange basis. That is $L_i$ is the polynomial such that $L_i(h_j) = 0$ for all $j\neq i$, and that $L_i(h_i) = 1$.
+
+If $M$ is a matrix, then $M_{i,j}$ denotes the value at the row $i$ and column $j$.
+
+# The ideas and components
 
 ## Programs. Our toy example
 
@@ -79,7 +93,7 @@ And the row in the trace matrix that corresponds to the execution of that gate i
 | --- | --- | --- |
 | 2   | 3   | 6   |
 
-The equation in the claim for that row is that $2 /times 0 + 3 /times 0 + 2 /times 3 /times 1 + 6 /times (-1) + 0$, which equals $0$. The next is an addition gate. This is represented by the row
+The equation in the claim for that row is that $2 \times 0 + 3 \times 0 + 2 \times 3 \times 1 + 6 \times (-1) + 0$, which equals $0$. The next is an addition gate. This is represented by the row
 
 | $Q_L$ | $Q_R$ | $Q_M$ | $Q_O$ | $Q_C$ |
 | ----- | ----- | ----- | ----- | ----- |
@@ -91,7 +105,7 @@ The corresponding row in the trace matrix its
 | --- | --- | --- |
 | 6   | 3   | 9   |
 
-And the equation of the claim is $6 /times 1 + 3 /times 1 + 2 /times 3 /times 0 + 9 /times (-1) + 0$, which adds up to $0$. Our last row is the gate that adds a constant. Addition by constant C can be represented by the row
+And the equation of the claim is $6 \times 1 + 3 \times 1 + 2 \times 3 \times 0 + 9 \times (-1) + 0$, which adds up to $0$. Our last row is the gate that adds a constant. Addition by constant C can be represented by the row
 
 | $Q_L$ | $Q_R$ | $Q_M$ | $Q_O$ | $Q_C$ |
 | ----- | ----- | ----- | ----- | ----- |
@@ -103,7 +117,7 @@ In our case $C=-1$. The corresponding row in the execution trace is
 | --- | --- | --- |
 | 9   | -   | 8   |
 
-And the equation of the claim is $9 /times 1 + 0 /times 0 + 9 /times 0 /times 0 + 8 /times (-1) + C$. This is also zero.
+And the equation of the claim is $9 \times 1 + 0 \times 0 + 9 \times 0 \times 0 + 8 \times (-1) + C$. This is also zero.
 
 Putting it altogether, the full $Q$ matrix is
 
@@ -114,9 +128,9 @@ Putting it altogether, the full $Q$ matrix is
 | 1     | 0     | 0     | -1    | -1    |
 
 And we saw that the claim is true for our particular execution:
-$$ 2 /times 0 + 3 /times 0 + 2 /times 3 /times 1 + 6 /times (-1) + 0 = 0 $$
-$$ 6 /times 1 + 3 /times 1 + 6 /times 3 /times 0 + 9 /times (-1) + 0 = 0 $$
-$$ 9 /times 1 + 0 /times 0 + 9 /times 0 /times 0 + 8 /times (-1) + (-1) = 0 $$
+$$ 2 \times 0 + 3 \times 0 + 2 \times 3 \times 1 + 6 \times (-1) + 0 = 0 $$
+$$ 6 \times 1 + 3 \times 1 + 6 \times 3 \times 0 + 9 \times (-1) + 0 = 0 $$
+$$ 9 \times 1 + 0 \times 0 + 9 \times 0 \times 0 + 8 \times (-1) + (-1) = 0 $$
 
 Not important to our example, but multiplication by constant C can be represented by:
 
@@ -174,7 +188,7 @@ The trace matrix for this representation is just
 
 And we check that it satisfies the equation
 
-$$ 2 /times 1 + 3 /times 1 + 2 /times 3 /times 1 + 8 /times (-1) + (-1) = 0$$
+$$ 2 \times 1 + 3 \times 1 + 2 \times 3 \times 1 + 8 \times (-1) + (-1) = 0$$
 
 Of course, we can't always squash an entire program into a single gate.
 
@@ -241,7 +255,7 @@ In the previous section we showed how the arithmetization process works in PLONK
 
 Polynomials enter now to squash most of these equations. We will traduce the set of all equations in conditions (a) and (b) to just a few equations on polynomials.
 
-Let $\omega$ be a primitive $N$-th root of unity and let $H = {\omega^i: 0\leq i < N}$. Let $a, b, c, q_L, q_R, q_M, q_O, q_C, pi$ be the polynomials of degree at most $n + m$ that interpolate the columns $A, B, C, Q_L, Q_R, Q_M, Q_O, Q_C, PI$ at the domain $H$. This means for example that $a(\omega^i) = A_i$ for all $i$. And similarly for all the other columns.
+Let $\omega$ be a primitive $N$-th root of unity and let $H = {\omega^i: 0\leq i < N}$. Let $a, b, c, q_L, q_R, q_M, q_O, q_C, pi$ be the polynomials of degree at most $N$ that interpolate the columns $A, B, C, Q_L, Q_R, Q_M, Q_O, Q_C, PI$ at the domain $H$. This means for example that $a(\omega^i) = A_i$ for all $i$. And similarly for all the other columns.
 
 With this, condition (a) of the claim is equivalent to $$a(x) q_L(x) + b(x) q_R(x) + a(x) b(x) q_M(x) + c(x) q_O(x) + q_c(x) + pi(x) = 0$$ for all $x$ in $H$.This is just by definition of the polynomials. But in polynomials land this is also equivalent to (a) there exists a polynomial $t$ such that $$a q_L + b q_R + a b q_M + c q_O + q_c + pi = z_H t$$, where $z_H$ is the polynomial $X^N -1$.
 
@@ -260,9 +274,10 @@ The permutation in this case is the map $\sigma((0,0)) = (2,1)$, $\sigma((0,1)) 
 
 It's not hard to see that condition (b) is equivalent to: for all $(i,j)\in I$, $T_{i,j} = T_{\sigma((i,j))}$.
 
-This in turn is equivalent to checking whether the following sets are equal
+A little less obvious is that this condition is in turn equivalent to checking whether the following sets $A$ and $B$ are equal
 $$A = \{((i,j), T_{i,j}): (i,j) \in I\}$$
 $$B = \{(\sigma((i,j)), T_{i,j}): (i,j) \in I\}.$$
+The proof this equivalence is straightforward. Give it a try!
 
 In our example the sets in question are respectively
 $$\{((0,0), T_{0,0}), ((0,1), T_{0,1}), ((0,2), T_{0,2}), ((0,3), T_{0,3}), ((2,1), T_{2,1}), ((3,1), T_{3,1}), ((2,2), T_{2,2})\},$$
@@ -301,18 +316,18 @@ $H$ be a domain of the form $\{1, \omega, \dots, \omega^{k-1}\}$ for some primit
 $$(a_0 + \gamma, \dots, a_{k-1} + \gamma),$$
 $$(b_0 + \gamma, \dots, b_{k-1} + \gamma),$$
 
-Then $\prod_{i=0}^{k-1}(a_i + \gamma)$ equals $\prod_{i=0}^{k-1}(b_i + \gamma)$ if and only if there exists a polynomial $Z$ of degree at most $k$ such that
+Then $\prod_{i=0}^{k-1}(a_i + \gamma)$ equals $\prod_{i=0}^{k-1}(b_i + \gamma)$ if and only if there exists a polynomial $Z$ such that
 $$Z(\omega^0) = 1$$
 $$Z(h)f(h) = g(h)Z(\omega h)$$
 for all $h\in H$.
 
-Let's see why. Suppose that $\prod_{i=0}^{k-1}(a_i + \gamma)$ equals $\prod_{i=0}^{k-1}(b_i + \gamma)$. Construct $Z$ as the polynomial that interpolates the following values $$(1, \frac{a_0 + \gamma}{b_0 + \gamma}, \frac{(a_0 + \gamma)(a_1 + \gamma)}{(b_0 + \gamma)(b_1 + \gamma)}, \dots, \prod_{i=0}^{k-1} \frac{a_i + \gamma}{b_i + \gamma}),$$
-in the same domain as $f$ and $g$. That works. Conversely, suppose such a polynomial $Z$ exists. By evaluating the equation $Z(X)f(X) = g(X)Z(\omega X)$ at $1, \omega, \dots, \omega^{k-2}$ we get that $Z$ actually is the polynomial that interpolates those values. Moreover, evaluating it at $\omega^{k-1}$ we obtain that $$Z(\omega^{k-1})\frac{f(\omega^{k-1})}{g(\omega^{k-1})} = Z(\omega^k) = Z(w^0) = 1.$$
+Let's see why. Suppose that $\prod_{i=0}^{k-1}(a_i + \gamma)$ equals $\prod_{i=0}^{k-1}(b_i + \gamma)$. Construct $Z$ as the polynomial that interpolates the following values $$(1, \frac{a_0 + \gamma}{b_0 + \gamma}, \frac{(a_0 + \gamma)(a_1 + \gamma)}{(b_0 + \gamma)(b_1 + \gamma)}, \dots, \prod_{i=0}^{k-2} \frac{a_i + \gamma}{b_i + \gamma}),$$
+in the same domain as $f$ and $g$. That works. Conversely, suppose such a polynomial $Z$ exists. By evaluating the equation $Z(X)f(X) = g(X)Z(\omega X)$ at $1, \omega, \dots, \omega^{k-2}$ and using recursion we get that $Z(\omega^{k-1}) = \prod_{i=0}^{k-2}(a_i + \gamma)/\prod_{i=0}^{k-2}(b_i + \gamma)$. Moreover, evaluating it at $\omega^{k-1}$ we obtain that $$Z(\omega^{k-1})\frac{f(\omega^{k-1})}{g(\omega^{k-1})} = Z(\omega^k) = Z(w^0) = 1.$$
 The second equality holds because $\omega^k = \omega^0$ since it is a $k$-th root of unity. Expanding with the values of $f, g$ and $Z$ one obtains that $\prod_{i=0}^{k-1}(a_i + \gamma)/\prod_{i=0}^{k-1}(b_i + \gamma)$ equals $1$. Which is what we wanted.
 
 In summary. We proved the following:
 
-_Fact:_ Let $A=\{a_0, \dots, a_{k-1}\}$ and $B=\{b_0, \dots, b_{k-1}\}$ be sets of field elements. Let $\gamma$ be a random field element. Let $\omega$ be a primitive $k$-th root of unity and $H=\{1, \omega, \omega^2, \dots, \omega^{k-1}\}$. Let $f$ and $g$ be respectively the polynomials that interpolate the values $\{a_0 + \gamma, \dots, a_{k-1} + \gamma\}$ and $\{b_0 + \gamma, \dots, b_{k-1} + \gamma\}$ at $H$. If there exists a polynomial $Z$ of degree at most $k$ such that
+_Fact:_ Let $A=\{a_0, \dots, a_{k-1}\}$ and $B=\{b_0, \dots, b_{k-1}\}$ be sets of field elements. Let $\gamma$ be a random field element. Let $\omega$ be a primitive $k$-th root of unity and $H=\{1, \omega, \omega^2, \dots, \omega^{k-1}\}$. Let $f$ and $g$ be respectively the polynomials that interpolate the values $\{a_0 + \gamma, \dots, a_{k-1} + \gamma\}$ and $\{b_0 + \gamma, \dots, b_{k-1} + \gamma\}$ at $H$. If there exists a polynomial $Z$ such that
 $$Z(\omega^0) = 1$$
 $$Z(X)f(X) = g(X)Z(\omega X)$$
 for all $h\in H$, then with overwhelming probability the sets $A$ and $B$ are equal.
@@ -338,7 +353,7 @@ _Fact:_ Let $A=\{\bar a_0, \dots, \bar a_{k-1}\}$ and $B=\{\bar b_0, \dots, \bar
 $$\{a_{i,0} + a_{i,1}\beta + \gamma, \dots, a_{k-1,0} + a_{k-1,1}\beta + \gamma\},$$
 and
 $$\{b_{i,0} + b_{i,1}\beta + \gamma, \dots, b_{k-1,0} + b_{k-1,1}\beta + \gamma\},$$
-at $H$. If there exists a polynomial $Z$ of degree at most $k$ such that
+at $H$. If there exists a polynomial $Z$ such that
 $$Z(\omega^0) = 1$$
 $$Z(X)f(X) = g(X)Z(\omega X)$$
 for all $h\in H$, then with overwhelming probability the sets $A$ and $B$ are equal.
@@ -361,57 +376,79 @@ Applying the method of the previous section to these sets, we obtain the followi
 _Fact:_ Let $\eta$ be a $3N$-th root of unity and $\beta$ and $\gamma$ random field elements. Let $D = \{1, \eta, \eta^2, \dots, \eta^{3N-1}\}$. Let $f$ and $g$ be the polynomials that interpolate, respectively, the following values at $D$:
 $$\{T_{i,j} + \eta^{3i + j}\beta + \gamma: (i,j) \in I\},$$
 and
-$$\{T_{i,j} + \eta^{3k + j}\beta + \gamma: (i,j) \in I, \sigma((i,j)) = (k,l)\},$$
-Suppose there exists a polynomial $Z$ of degree at most $3N$ such that
+$$\{T_{i,j} + \eta^{3k + l}\beta + \gamma: (i,j) \in I, \sigma((i,j)) = (k,l)\},$$
+Suppose there exists a polynomial $Z$ such that
 $$Z(\eta^0) = 1$$
 $$Z(d)f(d) = g(d)Z(\eta d),$$
 for all $h\in D$.
 Then the sets $A = \{((i,j), T_{i,j}): (i,j) \in I\}$ and $B = \{(\sigma((i,j)), T_{i,j}): (i,j) \in I\}$ are equal with overwhelming probability.
 
-There will be an optimization of this to reduce the degree of the polynomial $Z$ to at most $N$. But for now let's leave it like that.
-
 One last minute definitions. Notice that $\omega=\eta^3$ is a primitive $N$-th root of unity. Let $H = \{1, \omega, \omega^2, \dots, \omega^{N-1}\}$.
 
 Define $S_{\sigma 1}$ to be the interpolation at $H$ of
-$$\{\eta^{3k + j}: (i,0) \in I, \sigma((i,0)) = (k,l)\},$$
+$$\{\eta^{3k + l}: (i,0) \in I, \sigma((i,0)) = (k,l)\},$$
 Similarly define $S_{\sigma 2}$ and $S_{\sigma 3}$ to be the interpolation at $H$ of the sets of values
-$$\{\eta^{3k + j}: (i,1) \in I, \sigma((i,1)) = (k,l)\},$$
-$$\{\eta^{3k + j}: (i,2) \in I, \sigma((i,2)) = (k,l)\},$$
-These will be useful during the protocol to work with such polynomials $Z$ and the above equations. We'll get there in a moment.
+$$\{\eta^{3k + l}: (i,1) \in I, \sigma((i,1)) = (k,l)\},$$
+$$\{\eta^{3k + l}: (i,2) \in I, \sigma((i,2)) = (k,l)\},$$
+These will be useful during the protocol to work with such polynomials $Z$ and the above equations.
 
-### Common preprocessed input
+#### A more compact form
+
+The last fact is equivalent the following. There's no new idea here, just a more compact form of the same thing that allows the polynomial $Z$ to be of degree at most $N$.
+
+_Fact:_ Let $\omega$ be a $N$-th root of unity. Let $H = \{1, \omega, \omega^2, \dots, \omega^{N-1}\}$. Let $k_1$ and $k_2$ be two field elements such that $\omega^i \neq \omega^jk_1 \neq \omega^lk_2$ for all $i,j,l$. Let $\beta$ and $\gamma$ be random field elements. Let $f$ and $g$ be the polynomials that interpolate, respectively, the following values at $H$:
+$$\{(T_{0,j} + \omega^{i}\beta + \gamma)(T_{1,j} + \omega^{i}k_1\beta + \gamma)(T_{2,j} + \omega^{i}k_2\beta + \gamma): 0\leq i<N\},$$
+and
+$$\{(T_{0,j} + S_{\sigma1}(\omega^i)\beta + \gamma)(T_{0,j} + S_{\sigma2}(\omega^i)\beta + \gamma)(T_{0,j} + S_{\sigma3}(\omega^i)\beta + \gamma): 0\leq i<N\},$$
+Suppose there exists a polynomial $Z$ such that
+$$Z(\omega^0) = 1$$
+$$Z(d)f(d) = g(d)Z(\omega d),$$
+for all $h\in D$.
+Then the sets $A = \{((i,j), T_{i,j}): (i,j) \in I\}$ and $B = \{(\sigma((i,j)), T_{i,j}): (i,j) \in I\}$ are equal with overwhelming probability.
+
+## Common preprocessed input
 
 We have arrived at the eight polynomials we mentioned at the beginning:
 $$q_L, q_R, q_M, q_O, q_C, S_{\sigma 1}, S_{\sigma 2}, S_{\sigma 3}.$$
 
 These are what's called the _common preprocessed input_.
 
-### Blindings
+## Wrapping up the whole thing
+Let's try to wrap up what we have so far. We started from a program. We saw that it can be seen as a sequence of gates with left, right and output values. That's called a circuit. From this two matrices $Q$ and $V$ can be computed that capture the gates logic.
 
-As you will see in the protocol, the prover reveals the value taken by a bunch of the polynomials at a random $\zeta$. In order for the protocol to be _Honest Verifier Zero Knowledge_, these polynomials need to be _blinded_. This is a process that makes the values of these polynomials at $\zeta$ seemingly random by forcing them to be of certain degree. Here's how it works.
+Executing the circuit leaves us with matrices $T$ and $PI$, called the trace matrix and the public input matrix, respectively. Everything we want to prove boils down to check that such matrices are valid. And we have the following result.
 
-Let's take for example the polynomial $a$ the prover constructs. This is the interpolation of the first column of the trace matrix $T$ at the domain $H$.
-This matrix has all of the left operands of all the gates. The prover wishes to keep them secret.
-Say the trace matrix $T$ has $N$ rows. And so $H$ is $\{1, \omega,\omega^2, \dots, \omega^{N-1}\}$. The invariant that the prover cannot violate is that $a(\omega^i)$ must take the value $T_{0, i}$, for all $i$. This is what the interpolation polynomial $a$ satisfies. And is the unique such polynomial of degree at most $N-1$. But for higher degrees, there are many polynomials that with the same property.
+**Fact:** Let $T$ be a $N \times 3$ matrix with columns $A, B, C$ and $PI$ a $N \times 1$ matrix. They correspond to a valid execution instance with public input given by $PI$ if and only if a) for all $i$ the following equality holds $$A_i (Q_L)_i + B_i (Q_R)_i + A_i B_i Q_M + C_i (Q_O)_i + (Q_C)_i + (PI)_i = 0,$$ b) for all $i,j,k,l$ such that $V_{i,j} = V_{k,l}$ we have $T_{i,j} = T_{k,l}$, c) $(PI)_i = 0$ for all $i>n$.
 
-The _blinding_ process takes $a$ and a desired degree $M\geq N$, and produces a new polynomial $a_{\text{blinded}}$ of degree exactly $M$. This new polynomial satisfies that $a_{\text{blinded}}(\omega^i) = a(\omega^i)$ for all $i$. But outside $H$ differs from $a$ and takes seemingly random values.
+Then we constructed polynomials $q_L, q_R, q_M, q_O, q_C, S_{\sigma1},S_{\sigma2}, S_{\sigma3}$, $f$, $g$ off the matrices $Q$ and $V$. They are the result of interpolating at a domain $H = \{1, \omega, \omega^2, \dots, \omega^{N-1}\}$ for some $N$-th primitive root of unity and a few random values. And also constructed polynomials $a,b,c, pi$ off the matrices $T$ and $PI$. Loosely speaking, the above fact can be reformulated in terms of polynomial equations as follows.
 
-This may seem hard but it's actually very simple. Let $z_H$ be the polynomial $z_H = X^N - 1$. If $M=N+k$, with $k\geq 0$, then sample random values $b_0, \dots, b_k$ and define
-$$ a_{\text{blinded}} := (b_0 + b_1 X + \cdots + b_k X^k)z_H + a $$
+**Fact:** Let $z_H = X^N - 1$. Let $T$ be a $N \times 3$ matrix with columns $A, B, C$ and $PI$ a $N \times 1$ matrix. They correspond to a valid execution instance with public input given by $PI$ if and only if
 
-The reason why this does the trick is that $z_H(\omega^i)=0$ for all $i$. Therefore the added term vanishes at $H$ and leaves the values of $a$ at $H$ unchanged.
+a) There is a polynomial $t_1$ such that the following equality holds $$a q_L + b q_R + a b q_M + c q_O + q_C + pi = z_H t_1,$$
 
-### Linearization trick
+b) There are polynomials $t_2, t_3$, $z$ such that $zf - gz' = z_H t_2$ and $(z-1)L_1 = z_H t_3$, where $z'(X) = z(X\omega)$
 
-This is an optimization in PLONK to reduce the number of checks of the verifier. One of the main checks in PLONK boils down to check that $p(\zeta) = z_H(\zeta) t(\zeta)$, with $p$ some polynomial that looks like $p = a q_L + b q_R + ab q_M + \cdots$, and so on. In particular the verifier needs to get the value $p(\zeta)$ from somewhere.
+You might be wondering where the polynomials $t_i$ came from. Recall that for a polynomial $F$, we have $F(h) = 0$ for all $h \in H$ if and only if $F = z_H t$ for some polynomial $t$.
 
-For the sake of simplicity, in this section assume $p$ is exactly $a q_L + bq_R$. Secret to the prover here are only $a, b$. The polynomials $q_L$ and $q_R$ are known also to the verifier. The verifier will already have the commitments $[a]_1, [b]_1, [q_L]_1$ and $[q_R]_1$. So the prover could send just $a(\zeta)$, $b(\zeta)$ along with their opening proofs and let the verifier compute by himself $q_L(\zeta)$ and $q_R(\zeta)$. Then with all these values the verifier could compute $p(\zeta) = a(\zeta)q_L(\zeta) + b(\zeta)q_R(\zeta)$. And also use his commitments to validate the opening proofs of $a(\zeta)$ and $b(\zeta)$.
+Finally both conditions (a) and (b) are equivalent to a single equation (c) if we let more randomness to come into play. This is:
 
-This has the problem that computing $q_L(\zeta)$ and $q_R(\zeta)$ is expensive. The prover can instead save the verifier this by sending also $q_L(\zeta), q_R(\zeta)$ along with opening proofs. Since the verifier will have the commitments $[q_L]_1$ and $[q_R]_1$ beforehand, he can check that the prover is not cheating and cheaply be convinced that the claimed values are actually $q_L(\zeta)$ and $q_R(\zeta)$. This is much better. It involves the check of four opening proofs and the computation of $p(\zeta)$ off the values received from the prover. But it can be further improved as follows.
+(c) Let $\alpha$ be a random field element. There is a polynomial $t$ such that
+$$
+\begin{aligned}
+z_H t &= a q_L + b q_R + a b q_M + c q_O + q_C + pi + \\
+      &= \alpha(gz' - fz) \\
+      &= \alpha^2(z-1)L_1 \\
+\end{aligned}
+$$
 
-As before, the prover sends $a(\zeta), b(\zeta)$ along with their opening proofs. She constructs the polynomial $f = a(\zeta)q_L + b(\zeta)q_R$. She sends the value $f(\zeta)$ along with an opening proof of it. Notice that the value of $f(\zeta)$ is exactly $p(\zeta)$. The verifier can compute by himself $[a(\zeta)q_L + b(\zeta)q_R]_1$ as $a(z)[q_L]_1 + b(z)[q_R]_1$. The verifier has everything to check all three openings and get convinced that the value he got as $f(\zeta)$ is actually $p(\zeta)$. So it gets reduced to three openings and no extra calculations for the verifier.
+This is the equation you'll recognize below in the description of the protocol.
 
-This is called the linearization trick. The polynomial $f$ is called the _linearization_ of $p$.
+Randomness is a delicate matter and an important part of the protocol is where it comes from, who chooses it and when they choose it. Check out the protocol to see how it works.
+
+
+# Protocol
+
+## Protocol details and tricks
 
 ### Polynomial commitment scheme
 
@@ -422,6 +459,42 @@ Later, the party can use the commitment to prove certain properties of the polyn
 In the implementation section we'll explain the inner workings of the Kate-Zaverucha-Goldberg scheme, a popular PCS chosen in Lambdaworks for PLONK.
 
 For the moment we only need the following about it:
+
+It consists of a finite group $\mathbb{G}$ and the following algorithms:
+- **Commit($f$)**: This algorithm takes a polynomial $f$ and produces an element of the group $\mathbb{G}$. It is called the commitment of $f$ and is denoted by $[f]_1$. It is homomorphic in the sense that $[f + g]_1 = [f]_1 + [g]_1$. The former sum being addition of polynomials. The latter is addition in the group $\mathbb{G}$.
+- **Open($f$,$\zeta$)**: It takes a polynomial $f$ and a field element $\zeta$ and produces an element $\pi$ of the group $\mathbb{G}$. This element is called an opening proof for $f(\zeta)$. It is the proof that $f$ evaluated at $\zeta$ gives $f(\zeta)$.
+- **Verify($[f]_1$, $\pi$, $\zeta$, $y$)**: It takes group elements $[f]_1$ and $\pi$, and also field elements $\zeta$ and $y$. With overwhelming probability it outputs _Accept_ if $f(z)=y$ and _Reject_ otherwise.
+
+
+### Blindings
+
+As you will see in the protocol, the prover reveals the value taken by a bunch of the polynomials at a random $\zeta$. In order for the protocol to be _Honest Verifier Zero Knowledge_, these polynomials need to be _blinded_. This is a process that makes the values of these polynomials at $\zeta$ seemingly random by forcing them to be of certain degree. Here's how it works.
+
+Let's take for example the polynomial $a$ the prover constructs. This is the interpolation of the first column of the trace matrix $T$ at the domain $H$.
+This matrix has all of the left operands of all the gates. The prover wishes to keep them secret.
+Say the trace matrix $T$ has $N$ rows. And so $H$ is $\{1, \omega,\omega^2, \dots, \omega^{N-1}\}$. The invariant that the prover cannot violate is that $a_{\text{blinded}}(\omega^i)$ must take the value $T_{0, i}$, for all $i$. This is what the interpolation polynomial $a$ satisfies. And is the unique such polynomial of degree at most $N-1$ with such property. But for higher degrees, there are many such polynomials.
+
+The _blinding_ process takes $a$ and a desired degree $M\geq N$, and produces a new polynomial $a_{\text{blinded}}$ of degree exactly $M$. This new polynomial satisfies that $a_{\text{blinded}}(\omega^i) = a(\omega^i)$ for all $i$. But outside $H$ differs from $a$.
+
+This may seem hard but it's actually very simple. Let $z_H$ be the polynomial $z_H = X^N - 1$. If $M=N+k$, with $k\geq 0$, then sample random values $b_0, \dots, b_k$ and define
+$$ a_{\text{blinded}} := (b_0 + b_1 X + \cdots + b_k X^k)z_H + a $$
+
+The reason why this does the job is that $z_H(\omega^i)=0$ for all $i$. Therefore the added term vanishes at $H$ and leaves the values of $a$ at $H$ unchanged.
+
+### Linearization trick
+
+This is an optimization in PLONK to reduce the number of checks of the verifier.
+
+One of the main checks in PLONK boils down to check that $p(\zeta) = z_H(\zeta) t(\zeta)$, with $p$ some polynomial that looks like $p = a q_L + b q_R + ab q_M + \cdots$, and so on. In particular the verifier needs to get the value $p(\zeta)$ from somewhere.
+
+For the sake of simplicity, in this section assume $p$ is exactly $a q_L + bq_R$. Secret to the prover here are only $a, b$. The polynomials $q_L$ and $q_R$ are known also to the verifier. The verifier will already have the commitments $[a]_1, [b]_1, [q_L]_1$ and $[q_R]_1$. So the prover could send just $a(\zeta)$, $b(\zeta)$ along with their opening proofs and let the verifier compute by himself $q_L(\zeta)$ and $q_R(\zeta)$. Then with all these values the verifier could compute $p(\zeta) = a(\zeta)q_L(\zeta) + b(\zeta)q_R(\zeta)$. And also use his commitments to validate the opening proofs of $a(\zeta)$ and $b(\zeta)$.
+
+This has the problem that computing $q_L(\zeta)$ and $q_R(\zeta)$ is expensive. The prover can instead save the verifier this by sending also $q_L(\zeta), q_R(\zeta)$ along with opening proofs. Since the verifier will have the commitments $[q_L]_1$ and $[q_R]_1$ beforehand, he can check that the prover is not cheating and cheaply be convinced that the claimed values are actually $q_L(\zeta)$ and $q_R(\zeta)$. This is much better. It involves the check of four opening proofs and the computation of $p(\zeta)$ off the values received from the prover. But it can be further improved as follows.
+
+As before, the prover sends $a(\zeta), b(\zeta)$ along with their opening proofs. She constructs the polynomial $f = a(\zeta)q_L + b(\zeta)q_R$. She sends the value $f(\zeta)$ along with an opening proof of it. Notice that the value of $f(\zeta)$ is exactly $p(\zeta)$. The verifier can compute by himself $[f]_1$ as $a(z)[q_L]_1 + b(z)[q_R]_1$. The verifier has everything to check all three openings and get convinced that the claimed value $f(\zeta)$ is true. And this value is actually $p(\zeta)$. So this means no more work for the verifier. And the whole thing got reduced to three openings.
+
+This is called the linearization trick. The polynomial $f$ is called the _linearization_ of $p$.
+
 
 ## Setup
 
@@ -613,7 +686,8 @@ $$[f_{\text{batch}}]_1 = [t_{\text{partial}}]_1 +\upsilon [p_{nc}]_1 + \upsilon^
 Now the verifier has all the necessary values to proceed with the checks.
 
 - Check that $p(\zeta)$ equals $(\zeta^N - 1)t(\zeta)$.
-- Validate the opening of $f_{\text{batch}}$ at $\zeta$. That is, check the validity of the proof $\pi_{batch}$ using the commitment $[f_{\text{batch}}]_1$ and the value $f_{\text{batch}}(\zeta)$.
-- Validate the opening of $z$ at $\zeta\omega$. That is, check the validity of the proof $\pi_{single}$ using the commitment $[z]_1$ and the value $\bar z_\omega$.
+- Verify the opening of $f_{\text{batch}}$ at $\zeta$. That is, check that $\text{Verify}([f_{\text{batch}}]_1, \pi_{\text{batch}}, \zeta, f_{\text{batch}}(\zeta))$ outputs _Accept_.
+- Verify the opening of $z$ at $\zeta\omega$. That is, check the validity of the proof $\pi_{single}$ using the commitment $[z]_1$ and the value $\bar z_\omega$.
+That is, check that $\text{Verify}([z]_1, \pi_{\text{single}}, \zeta\omega, \bar z_\omega)$ outputs _Accept_.
 
 If all checks pass, he outputs _Accept_. Otherwise outputs _Reject_.
