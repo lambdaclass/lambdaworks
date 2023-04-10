@@ -1,7 +1,7 @@
 use lambdaworks_stark::FE;
 
 use pyo3::class::basic::CompareOp;
-use pyo3::exceptions::{PyValueError};
+use pyo3::exceptions::PyValueError;
 use pyo3::types::*;
 use pyo3::*;
 
@@ -44,7 +44,7 @@ impl PyFieldElement {
             true => Err(PyValueError::new_err("Division by zero")),
             false => Ok(Self(&self.0 / &other.0)),
         }
-    }   
+    }
 
     fn __neg__(&self) -> Self {
         Self(-&self.0)
