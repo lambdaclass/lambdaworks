@@ -24,19 +24,19 @@ pub fn proof_benchmark(c: &mut Criterion) {
     group.sample_size(10);
 
     group.bench_function("simple_fibonacci", |bench| {
-        bench.iter(|| prove_fib());
+        bench.iter(prove_fib);
     });
 
     group.bench_function("fibonacci_2_columns", |bench| {
-        bench.iter(|| prove_fib());
+        bench.iter(prove_fib);
     });
 
     group.bench_function("fibonacci_f17", |bench| {
-        bench.iter(|| prove_fib17());
+        bench.iter(prove_fib17);
     });
 
     group.bench_function("quadratic_air", |bench| {
-        bench.iter(|| prove_quadratic());
+        bench.iter(prove_quadratic);
     });
 }
 
