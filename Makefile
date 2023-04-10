@@ -22,3 +22,6 @@ benchmark:
 
 docs:
 	cd docs && mdbook serve --open
+
+compile-fft:
+	nvcc -fatbin -gencode=arch=compute_75,code=sm_75 -gencode=arch=compute_60,code=sm_60 -gencode=arch=compute_61,code=sm_61 -gencode=arch=compute_70,code=sm_70 -gencode=arch=compute_75,code=sm_75 -gencode=arch=compute_75,code=compute_75 --x cu gpu/src/cuda/fft.cu -o gpu/src/cuda/fft.fatbin
