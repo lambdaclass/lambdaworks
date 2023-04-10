@@ -441,7 +441,7 @@ z_H t &= a q_L + b q_R + a b q_M + c q_O + q_C + pi + \\
 \end{aligned}
 $$
 
-This is the equation you'll recognize below in the description of the protocol.
+This is last step is not obvious. You can check the paper to see the proof. Anyway, this is the equation you'll recognize below in the description of the protocol.
 
 Randomness is a delicate matter and an important part of the protocol is where it comes from, who chooses it and when they choose it. Check out the protocol to see how it works.
 
@@ -691,3 +691,4 @@ Now the verifier has all the necessary values to proceed with the checks.
 That is, check that $\text{Verify}([z]_1, \pi_{\text{single}}, \zeta\omega, \bar z_\omega)$ outputs _Accept_.
 
 If all checks pass, he outputs _Accept_. Otherwise outputs _Reject_.
+
