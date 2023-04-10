@@ -1,9 +1,11 @@
-use lambdaworks_math::{field::{element::FieldElement, fields::u64_prime_field::U64PrimeField, traits::IsField}, elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::BLS12381PrimeField};
+use lambdaworks_math::{
+    elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::BLS12381PrimeField,
+    field::{element::FieldElement, fields::u64_prime_field::U64PrimeField, traits::IsField},
+};
 
 use crate::hash::traits::IsCryptoHash;
 
 use super::{merkle::MerkleTree, proof::Proof};
-
 
 /// Small field useful for starks, sometimes called min i goldilocks
 /// Used in miden and winterfell
