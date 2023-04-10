@@ -4,11 +4,11 @@ use super::{
     sample_z_ood,
 };
 use crate::{proof::StarkProof, transcript_to_field, transcript_to_usize};
-#[cfg(feature = "dummy_fiat_shamir")]
+#[cfg(not(feature = "test_fiat_shamir"))]
+use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
+#[cfg(feature = "test_fiat_shamir")]
 use lambdaworks_crypto::fiat_shamir::test_transcript::TestTranscript;
-use lambdaworks_crypto::fiat_shamir::{
-    default_transcript::DefaultTranscript, transcript::Transcript,
-};
+use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 
 use lambdaworks_math::{
     field::{
@@ -24,8 +24,9 @@ pub fn verify<F: IsTwoAdicField, A: AIR<Field = F>>(proof: &StarkProof<F>, air: 
 where
     FieldElement<F>: ByteConversion,
 {
+    #[cfg(not(feature = "test_fiat_shamir"))]
     let transcript = &mut DefaultTranscript::new();
-    #[cfg(feature = "dummy_fiat_shamir")]
+    #[cfg(feature = "test_fiat_shamir")]
     let transcript = &mut TestTranscript::new();
 
     // BEGIN TRACE <-> Composition poly consistency evaluation check

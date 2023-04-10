@@ -15,4 +15,4 @@ thiserror = "1.0.38"
 hex = "0.4.3"
 
 [features]
-dummy_fiat_shamir = []
+test_fiat_shamir = []

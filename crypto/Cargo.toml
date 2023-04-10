@@ -15,4 +15,4 @@ sha3 = "0.10.6"
 version = "0.8"
 
 [features]
-dummy_fiat_shamir = []
+test_fiat_shamir = []

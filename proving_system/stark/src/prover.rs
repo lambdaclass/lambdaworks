@@ -7,11 +7,11 @@ use crate::{
     proof::{StarkProof, StarkQueryProof},
     transcript_to_field, transcript_to_usize,
 };
-use lambdaworks_crypto::fiat_shamir::{
-    default_transcript::DefaultTranscript, transcript::Transcript,
-};
+#[cfg(not(feature = "test_fiat_shamir"))]
+use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
+use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 
-#[cfg(feature = "dummy_fiat_shamir")]
+#[cfg(feature = "test_fiat_shamir")]
 use lambdaworks_crypto::fiat_shamir::test_transcript::TestTranscript;
 
 use lambdaworks_math::{
@@ -26,8 +26,9 @@ pub fn prove<F: IsTwoAdicField, A: AIR<Field = F>>(trace: &TraceTable<F>, air: &
 where
     FieldElement<F>: ByteConversion,
 {
+    #[cfg(not(feature = "test_fiat_shamir"))]
     let transcript = &mut DefaultTranscript::new();
-    #[cfg(feature = "dummy_fiat_shamir")]
+    #[cfg(feature = "test_fiat_shamir")]
     let transcript = &mut TestTranscript::new();
 
     let blowup_factor = air.options().blowup_factor as usize;
