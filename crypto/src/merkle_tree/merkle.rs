@@ -86,7 +86,7 @@ impl<F: IsField, H: IsCryptoHash<F> + Clone> MerkleTree<F, H> {
 
 #[cfg(test)]
 mod tests {
-    use crate::merkle_tree::DefaultHasher;
+    use crate::merkle_tree::TestHasher;
 
     use super::*;
 
@@ -100,7 +100,7 @@ mod tests {
     // expected | 10 | 3 | 7 | 1 | 2 | 3 | 4 |
     fn build_merkle_tree_from_a_power_of_two_list_of_values() {
         let values: Vec<FE> = (1..5).map(FE::new).collect();
-        let merkle_tree = MerkleTree::<U64PF, DefaultHasher>::build(&values);
+        let merkle_tree = MerkleTree::<U64PF, TestHasher>::build(&values);
         assert_eq!(merkle_tree.root, FE::new(20));
     }
 
@@ -108,7 +108,7 @@ mod tests {
     // expected | 8 | 7 | 1 | 6 | 1 | 7 | 7 | 2 | 4 | 6 | 8 | 10 | 10 | 10 | 10 |
     fn build_merkle_tree_from_an_odd_set_of_leaves() {
         let values: Vec<FE> = (1..6).map(FE::new).collect();
-        let merkle_tree = MerkleTree::<U64PF, DefaultHasher>::build(&values);
+        let merkle_tree = MerkleTree::<U64PF, TestHasher>::build(&values);
         assert_eq!(merkle_tree.root, FE::new(8));
     }
 }

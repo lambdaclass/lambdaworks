@@ -11,20 +11,27 @@ pub mod merkle;
 pub mod proof;
 mod utils;
 
-pub type U64F = U64PrimeField<0xFFFF_FFFF_0000_0001_u64>;
-pub type U64FE = FieldElement<U64F>;
+/// Small field useful for starks
+/// Used in miden and winterfell
+pub type Ecgfp5 = U64PrimeField<0xFFFF_FFFF_0000_0001_u64>;
+pub type Ecgfp5FE = FieldElement<Ecgfp5>;
 
-pub type U64MerkleTree = MerkleTree<U64F, DefaultHasher>;
-pub type MerkleTreeDefault = MerkleTree<BLS12381PrimeField, DefaultHasher>;
+pub type TestMerkleTreeEcgfp = MerkleTree<Ecgfp5, TestHasher>;
 
-pub type U64Proof = Proof<U64F, DefaultHasher>;
+pub type TestMerkleTreeBls12381 = MerkleTree<BLS12381PrimeField, TestHasher>;
+
+pub type TestProofEcgfp5 = Proof<Ecgfp5, TestHasher>;
 
 #[derive(Debug, Clone)]
-pub struct DefaultHasher;
 
-impl<F: IsField> IsCryptoHash<F> for DefaultHasher {
-    fn new() -> DefaultHasher {
-        DefaultHasher
+/// This hasher is for testing purposes
+/// It adds the fields
+/// Under no circunstance it can be used in production
+pub struct TestHasher;
+
+impl<F: IsField> IsCryptoHash<F> for TestHasher {
+    fn new() -> TestHasher {
+        TestHasher
     }
 
     fn hash_one(&self, input: FieldElement<F>) -> FieldElement<F> {
