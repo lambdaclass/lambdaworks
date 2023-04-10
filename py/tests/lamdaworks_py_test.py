@@ -32,6 +32,11 @@ class TestFieldElement(unittest.TestCase):
         one = FieldElement(U256("1"))
         self.assertTrue(two - one == one)
 
+    def test_sub2(self):
+        two = FieldElement(U256("2"))
+        one = FieldElement(U256("1"))
+        self.assertTrue(one - two == (-one))
+
     def test_mul(self):
         one = FieldElement(U256("1"))
         two = FieldElement(U256("2"))
