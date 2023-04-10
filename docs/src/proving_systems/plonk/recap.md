@@ -59,7 +59,7 @@ What we got is a valid execution trace. Not all matrices of that shape will be t
 
 As we said, it only depends on the program itself and not on any particular evaluation of it. It has one row for each gate and its columns are called $Q_L, Q_R, Q_O, Q_M, Q_C$. They encode the type of gate of the rows and are designed to satisfy the following.
 
-**Claim:** if columns $L, R, O$ correspond to a valid evaluation of the circuit then for all $i$ the following equality holds $$A_i (Q_L)_i + B_i *(Q_R)_i + A_i * B_i * Q_M + C_i * (Q_O)_i + (Q_C)_i = 0$$
+**Claim:** if columns $L, R, O$ correspond to a valid evaluation of the circuit then for all $i$ the following equality holds $$A_i (Q_L)_i + B_i (Q_R)_i + A_i  B_i  Q_M + C_i  (Q_O)_i + (Q_C)_i = 0$$
 
 This is better seen with examples. A multiplication gate is represented by the row:
 
@@ -73,7 +73,7 @@ And the row in the trace matrix that corresponds to the execution of that gate i
 | --- | --- | --- |
 |   2 |   3 |   6 |
 
-The equation in the claim for that row is that $2 * 0 + 3 * 0 + 2 * 3 * 1 + 6 * (-1) + 0$, which equals $0$. The next is an addition gate. This is represented by the row
+The equation in the claim for that row is that $2 /times 0 + 3 /times 0 + 2 /times 3 /times 1 + 6 /times (-1) + 0$, which equals $0$. The next is an addition gate. This is represented by the row
 
 | $Q_L$ | $Q_R$ | $Q_M$ | $Q_O$ | $Q_C$ |
 | ----- | ----- | ----- | ----- | ----- |
@@ -85,7 +85,7 @@ The corresponding row in the trace matrix its
 | --- | --- | --- |
 |   6 |   3 |   9 |
 
-And the equation of the claim is $6 * 1 + 3 * 1 + 2 * 3 * 0 + 9 * (-1) + 0$, which adds up to $0$. Our last row is the gate that adds a constant. Addition by constant C can be represented by the row
+And the equation of the claim is $6 /times 1 + 3 /times 1 + 2 /times 3 /times 0 + 9 /times (-1) + 0$, which adds up to $0$. Our last row is the gate that adds a constant. Addition by constant C can be represented by the row
 
 | $Q_L$ | $Q_R$ | $Q_M$ | $Q_O$ | $Q_C$ |
 | ----- | ----- | ----- | ----- | ----- |
@@ -97,7 +97,7 @@ In our case $C=-1$. The corresponding row in the execution trace is
 | --- | --- | --- |
 |   9 |   - |   8 |
 
-And the equation of the claim is $9 * 1 + 0 * 0 + 9 * 0 * 0 + 8 * (-1) + C$. This is also zero.
+And the equation of the claim is $9 /times 1 + 0 /times 0 + 9 /times 0 /times 0 + 8 /times (-1) + C$. This is also zero.
 
 Putting it altogether, the full $Q$ matrix is
 
@@ -108,9 +108,9 @@ Putting it altogether, the full $Q$ matrix is
 |     1 |     0 |     0 |    -1 |    -1 |
 
 And we saw that the claim is true for our particular execution:
-$$ 2 * 0 + 3 * 0 +  2 * 3 * 1 + 6 * (-1) +  0 = 0 $$
-$$ 6 * 1 + 3 * 1 +  6 * 3 * 0 + 9 * (-1) +  0 = 0 $$
-$$ 9 * 1 + 0 * 0 +  9 * 0 * 0 + 8 * (-1) + (-1) = 0 $$
+$$ 2 /times 0 + 3 /times 0 +  2 /times 3 /times 1 + 6 /times (-1) +  0 = 0 $$
+$$ 6 /times 1 + 3 /times 1 +  6 /times 3 /times 0 + 9 /times (-1) +  0 = 0 $$
+$$ 9 /times 1 + 0 /times 0 +  9 /times 0 /times 0 + 8 /times (-1) + (-1) = 0 $$
 
 Not important to our example, but multiplication by constant C can be represented by:
 
@@ -140,7 +140,7 @@ The $V$ matrix encodes the carry of the results from one gate to the right or le
 
 Here $0$ is the index of $e$, $1$ is the index of $x$, $2$ is the index of $u$, $3$ is the index of $v$ and $4$ is the index of the output $w$. Now we can update the claim to have an "if and only if" statement.
 
-**Claim:** Let $T$ be a matrix with columns $A, B, C$. It correspond to a valid evaluation of the circuit if and only if a) for all $i$ the following equality holds $$A_i (Q_L)_i + B_i *(Q_R)_i + A_i * B_i * Q_M + C_i * (Q_O)_i + (Q_C)_i = 0,$$ b) for all $i,j,k,l$ such that $V_{i,j} = V_{k, l}$ we have $T_{i,j} = T_{k, l}$.
+**Claim:** Let $T$ be a matrix with columns $A, B, C$. It correspond to a valid evaluation of the circuit if and only if a) for all $i$ the following equality holds $$A_i (Q_L)_i + B_i (Q_R)_i + A_i  B_i  Q_M + C_i  (Q_O)_i + (Q_C)_i = 0,$$ b) for all $i,j,k,l$ such that $V_{i,j} = V_{k, l}$ we have $T_{i,j} = T_{k, l}$.
 
 So now our malformed example does not pass the second check.
 
@@ -168,7 +168,7 @@ The trace matrix for this representation is just
 
 And we check that it satisfies the equation
 
-$$ 2 * 1 + 3 * 1 + 2 * 3 * 1 + 8 * (-1) + (-1) = 0$$
+$$ 2 /times 1 + 3 /times 1 + 2 /times 3 /times 1 + 8 /times (-1) + (-1) = 0$$
 
 Of course, we can't always squash an entire program into a single gate.
 
@@ -225,18 +225,18 @@ And the final $Q$ matrix is
 
 We ended up with two matrices that depend only on the program, $Q$ and $V$. And two matrices that depend on a particular evaluation, namely the $ABC$ and $PI$ matrices. The updated version of the claim is the following:
 
-**Claim:** Let $T$ be a matrix with columns $A, B, C$. It corresponds to a evaluation of the circuit if and only if a) for all $i$ the following equality holds $$A_i (Q_L)_i + B_i * (Q_R)_i + A_i * B_i * Q_M + C_i * (Q_O)_i + (Q_C)_i + (PI)_i = 0,$$ b) for all $i,j,k,l$ such that $V_{i,j} = V_{k,l}$ we have $T_{i,j} = T_{k,l}$.
+**Claim:** Let $T$ be a matrix with columns $A, B, C$. It corresponds to a evaluation of the circuit if and only if a) for all $i$ the following equality holds $$A_i (Q_L)_i + B_i (Q_R)_i + A_i B_i Q_M + C_i (Q_O)_i + (Q_C)_i + (PI)_i = 0,$$ b) for all $i,j,k,l$ such that $V_{i,j} = V_{k,l}$ we have $T_{i,j} = T_{k,l}$.
 
 ### From matrices to polynomials
 In the previous section we showed how the arithmetization process works in PLONK. For a program with $n$ public inputs and $m$ gates, we constructed two matrices $Q$ and $V$, of sizes $(n + m + 1) \times 5$ and $(n + m + 1) \times 3$ that satisfy the following. Let $N = n + m + 1.
 
-**Claim:** Let $T$ be a $N \times 3$ matrix with columns $A, B, C$ and $PI$ a $N \times 1$ matrix. They correspond to a valid execution instance with public input given by $PI$ if and only if a) for all $i$ the following equality holds $$A_i (Q_L)_i + B_i * (Q_R)_i + A_i * B_i * Q_M + C_i * (Q_O)_i + (Q_C)_i + (PI)_i = 0,$$ b) for all $i,j,k,l$ such that $V_{i,j} = V_{k,l}$ we have $T_{i,j} = T_{k,l}$, c) $(PI)_i = 0$ for all $i>n$.
+**Claim:** Let $T$ be a $N \times 3$ matrix with columns $A, B, C$ and $PI$ a $N \times 1$ matrix. They correspond to a valid execution instance with public input given by $PI$ if and only if a) for all $i$ the following equality holds $$A_i (Q_L)_i + B_i (Q_R)_i + A_i B_i Q_M + C_i (Q_O)_i + (Q_C)_i + (PI)_i = 0,$$ b) for all $i,j,k,l$ such that $V_{i,j} = V_{k,l}$ we have $T_{i,j} = T_{k,l}$, c) $(PI)_i = 0$ for all $i>n$.
 
 Polynomials enter now to squash most of these equations. We will traduce the set of all equations in conditions (a) and (b) to just a few equations on polynomials.
 
 Let $\omega$ be a primitive $N$-th root of unity and let $H = {\omega^i: 0\leq i < N}$. Let $a, b, c, q_L, q_R, q_M, q_O, q_C, pi$ be the polynomials of degree at most $n + m$ that interpolate the columns $A, B, C, Q_L, Q_R, Q_M, Q_O, Q_C, PI$ at the domain $H$. This means for example that $a(\omega^i) = A_i$ for all $i$. And similarly for all the other columns.
 
-With this, condition (a) of the claim is equivalent to $$a(x) * q_L(x) + b(x) * q_R(x) + a(x) * b(x) * q_M(x) + c(x) * q_O(x) + q_c(x) + pi(x) = 0$$ for all $x$ in $H$.This is just by definition of the polynomials. But in polynomials land this is also equivalent to (a) there exists a polynomial $t$ such that $$a * q_L + b * q_R + a * b * q_M + c * q_O + q_c + pi = z_H * t$$, where $z_H$ is the polynomial $X^N -1$.
+With this, condition (a) of the claim is equivalent to $$a(x) q_L(x) + b(x) q_R(x) + a(x) b(x) q_M(x) + c(x) q_O(x) + q_c(x) + pi(x) = 0$$ for all $x$ in $H$.This is just by definition of the polynomials. But in polynomials land this is also equivalent to (a) there exists a polynomial $t$ such that $$a q_L + b q_R + a b q_M + c q_O + q_c + pi = z_H t$$, where $z_H$ is the polynomial $X^N -1$.
 
 To reduce condition (b) to polynomial equations we need to introduce the concept of permutation. A permutation is a rearrangement of a set. Usually denoted $\sigma$. For finite sets it is a map from a set to itself that takes all values. In our case the set will be the set of all pairs
 $$I=\{(i,j): \text{ such that }0\leq i < N, \text{ and } 0\leq j < 3\}$$
