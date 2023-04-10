@@ -7,9 +7,8 @@ use lambdaworks_stark::air::example::{
 use lambdaworks_stark::{
     air::{
         context::{AirContext, ProofOptions},
-        example::{fibonacci_2_columns::fibonacci_trace_2_columns, simple_fibonacci::FibonacciAIR},
+        example::fibonacci_2_columns::fibonacci_trace_2_columns,
         trace::TraceTable,
-        AIR,
     },
     fri::FieldElement,
     prover::prove,
@@ -38,7 +37,7 @@ fn test_prove_fib() {
         num_transition_constraints: 1,
     };
 
-    let fibonacci_air = FibonacciAIR::new(context);
+    let fibonacci_air = simple_fibonacci::FibonacciAIR::from(context);
 
     let result = prove(&trace_table, &fibonacci_air);
     assert!(verify(&result, &fibonacci_air));
@@ -63,7 +62,7 @@ fn test_prove_fib17() {
         num_transition_constraints: 1,
     };
 
-    let fibonacci_air = fibonacci_f17::Fibonacci17AIR::new(context);
+    let fibonacci_air = fibonacci_f17::Fibonacci17AIR::from(context);
 
     let result = prove(&trace_table, &fibonacci_air);
     assert!(verify(&result, &fibonacci_air));
@@ -89,7 +88,7 @@ fn test_prove_fib_2_cols() {
         trace_columns: 2,
     };
 
-    let fibonacci_air = fibonacci_2_columns::Fibonacci2ColsAIR::new(context);
+    let fibonacci_air = fibonacci_2_columns::Fibonacci2ColsAIR::from(context);
 
     let result = prove(&trace_table, &fibonacci_air);
     assert!(verify(&result, &fibonacci_air));
@@ -117,7 +116,7 @@ fn test_prove_quadratic() {
         num_transition_constraints: 1,
     };
 
-    let fibonacci_air = quadratic_air::QuadraticAIR::new(context);
+    let fibonacci_air = quadratic_air::QuadraticAIR::from(context);
 
     let result = prove(&trace_table, &fibonacci_air);
     assert!(verify(&result, &fibonacci_air));

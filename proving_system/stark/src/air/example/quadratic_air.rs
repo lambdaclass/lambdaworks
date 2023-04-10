@@ -16,12 +16,14 @@ pub struct QuadraticAIR {
     context: AirContext,
 }
 
-impl AIR for QuadraticAIR {
-    type Field = Stark252PrimeField;
-
-    fn new(context: air::context::AirContext) -> Self {
+impl From<AirContext> for QuadraticAIR {
+    fn from(context: AirContext) -> Self {
         Self { context }
     }
+}
+
+impl AIR for QuadraticAIR {
+    type Field = Stark252PrimeField;
 
     fn compute_transition(
         &self,
