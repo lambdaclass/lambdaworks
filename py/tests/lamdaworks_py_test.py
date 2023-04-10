@@ -42,11 +42,11 @@ class TestFieldElement(unittest.TestCase):
         two = FieldElement(U256("2"))
         self.assertTrue(two / one == two)
 
-    @unittest.expectedFailure
     def test_div_zero(self):
         one = FieldElement(U256("1"))
         zero = FieldElement(U256("0"))
-        one / zero
+        with self.assertRaises(ValueError):
+            one / zero
 
     def test_neg(self):
         one = FieldElement(U256("1"))
