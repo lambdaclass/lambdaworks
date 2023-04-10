@@ -23,7 +23,7 @@ where
 
     // BEGIN TRACE <-> Composition poly consistency evaluation check
 
-    let trace_poly_ood_frame_evaluations = &proof.trace_ood_frame_evaluations;
+    let trace_poly_ood_evaluations = &proof.trace_ood_frame_evaluations;
 
     // These are H_1(z^2) and H_2(z^2)
     let composition_poly_ood_evaluations = &proof.composition_poly_ood_evaluations;
@@ -91,7 +91,7 @@ where
     let mut boundary_quotient_degrees = Vec::with_capacity(n_trace_cols);
 
     for trace_idx in 0..n_trace_cols {
-        let trace_evaluation = &trace_poly_ood_frame_evaluations.get_row(0)[trace_idx];
+        let trace_evaluation = &trace_poly_ood_evaluations.get_row(0)[trace_idx];
         let boundary_constraints_domain = boundary_constraint_domains[trace_idx].clone();
         let boundary_interpolating_polynomial =
             &Polynomial::interpolate(&boundary_constraints_domain, &values[trace_idx]);
@@ -141,7 +141,7 @@ where
         .iter()
         .fold(FieldElement::<F>::zero(), |acc, x| acc + x);
 
-    let transition_ood_frame_evaluations = air.compute_transition(trace_poly_ood_frame_evaluations);
+    let transition_ood_frame_evaluations = air.compute_transition(trace_poly_ood_evaluations);
 
     let transition_c_i_evaluations =
         ConstraintEvaluator::compute_constraint_composition_poly_evaluations(
@@ -173,8 +173,8 @@ where
 
     let deep_poly_evaluation = evaluate_deep_composition_poly(
         air,
-        lde_trace_frame,
-        trace_poly_ood_frame_evaluations,
+        lde_trace_frame.get_row(0),
+        trace_poly_ood_evaluations,
         &lde_roots_of_unity_coset,
         composition_poly_evaluations,
         composition_poly_ood_evaluations,
@@ -245,8 +245,8 @@ where
 
 fn evaluate_deep_composition_poly<A: AIR, F: IsTwoAdicField>(
     air: &A,
-    lde_trace_frame: &Frame<F>,
-    trace_poly_ood_frame_evaluations: &Frame<F>,
+    lde_trace_evaluations: &[FieldElement<F>],
+    trace_poly_ood_evaluations: &Frame<F>,
     lde_roots_of_unity_coset: &[FieldElement<F>],
     composition_poly_evaluations: &[FieldElement<F>],
     composition_poly_ood_evaluations: &[FieldElement<F>],
@@ -256,7 +256,7 @@ fn evaluate_deep_composition_poly<A: AIR, F: IsTwoAdicField>(
 ) -> FieldElement<F> {
     // Get the number of trace terms the DEEP composition poly will have.
     // One coefficient will be sampled for each of them.
-    let n_trace_terms = lde_trace_frame.num_rows() * lde_trace_frame.num_columns();
+    let n_trace_terms = air.context().transition_offsets.len() * lde_trace_evaluations.len();
     let mut trace_term_coeffs = Vec::with_capacity(n_trace_terms);
     for _ in 0..n_trace_terms {
         trace_term_coeffs.push(transcript_to_field::<F>(transcript));
@@ -271,14 +271,13 @@ fn evaluate_deep_composition_poly<A: AIR, F: IsTwoAdicField>(
     let consistency_check_x = &lde_roots_of_unity_coset[consistency_check_idx];
 
     let mut trace_terms = FieldElement::zero();
-    for col_idx in 0..lde_trace_frame.num_columns() {
-        for (row_idx, coeff) in (0..lde_trace_frame.num_rows()).zip(&trace_term_coeffs) {
-            let poly_evaluation = lde_trace_frame.get_row(row_idx)[col_idx].clone()
-                - trace_poly_ood_frame_evaluations.get_row(row_idx)[col_idx].clone()
-                    / (consistency_check_x
-                        - ood_evaluation_point
-                            * primitive_root
-                            * FieldElement::from(row_idx as u64));
+    for (col_idx, trace_evaluation) in
+        (0..trace_poly_ood_evaluations.num_columns()).zip(lde_trace_evaluations)
+    {
+        for (row_idx, coeff) in (0..trace_poly_ood_evaluations.num_rows()).zip(&trace_term_coeffs) {
+            let poly_evaluation = (trace_evaluation
+                - trace_poly_ood_evaluations.get_row(row_idx)[col_idx].clone())
+                / (consistency_check_x - ood_evaluation_point * primitive_root.pow(row_idx as u64));
 
             trace_terms = trace_terms + poly_evaluation * coeff.clone();
         }
@@ -288,15 +287,15 @@ fn evaluate_deep_composition_poly<A: AIR, F: IsTwoAdicField>(
 
     let even_composition_poly_evaluation = (&composition_poly_evaluations[0]
         - &composition_poly_ood_evaluations[0])
-        / (consistency_check_x - &ood_evaluation_point_squared)
-        * gamma_even;
+        / (consistency_check_x - &ood_evaluation_point_squared);
 
     let odd_composition_poly_evaluation = (&composition_poly_evaluations[1]
         - &composition_poly_ood_evaluations[1])
-        / (consistency_check_x - &ood_evaluation_point_squared)
-        * gamma_odd;
+        / (consistency_check_x - &ood_evaluation_point_squared);
 
-    trace_terms + even_composition_poly_evaluation + odd_composition_poly_evaluation
+    trace_terms
+        + even_composition_poly_evaluation * gamma_even
+        + odd_composition_poly_evaluation * gamma_odd
 }
 
 pub fn verify_query<F: IsField + IsTwoAdicField>(

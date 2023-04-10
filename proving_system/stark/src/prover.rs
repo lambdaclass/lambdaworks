@@ -222,28 +222,37 @@ fn compute_deep_composition_poly<A: AIR, F: IsTwoAdicField>(
     // term for every trace polynomial and every trace evaluation.
     let mut trace_terms = Polynomial::zero();
     for (trace_evaluation, trace_poly) in trace_evaluations.iter().zip(trace_polys) {
-        for (eval, coeff) in trace_evaluation.iter().zip(&trace_term_coeffs) {
-            let poly = (trace_poly.clone()
-                - Polynomial::new_monomial(trace_poly.evaluate(eval), 0))
+        for ((eval, coeff), offset) in trace_evaluation
+            .iter()
+            .zip(&trace_term_coeffs)
+            .zip(&transition_offsets)
+        {
+            let root_of_unity = ood_evaluation_point * primitive_root.pow(*offset);
+            let poly = (trace_poly.clone() - Polynomial::new_monomial(eval.clone(), 0))
                 / (Polynomial::new_monomial(FieldElement::<F>::one(), 1)
-                    - Polynomial::new_monomial(eval.clone(), 0));
+                    - Polynomial::new_monomial(root_of_unity.clone(), 0));
 
             trace_terms = trace_terms + poly * coeff.clone();
         }
     }
 
+    let ood_evaluation_point_squared = ood_evaluation_point * ood_evaluation_point;
+
     let even_composition_poly_term = (even_composition_poly.clone()
         - Polynomial::new_monomial(
-            even_composition_poly.evaluate(&ood_evaluation_point.clone()),
+            even_composition_poly.evaluate(&ood_evaluation_point_squared),
             0,
         ))
         / (Polynomial::new_monomial(FieldElement::one(), 1)
-            - Polynomial::new_monomial(ood_evaluation_point * ood_evaluation_point, 0));
+            - Polynomial::new_monomial(ood_evaluation_point_squared.clone(), 0));
 
     let odd_composition_poly_term = (odd_composition_poly.clone()
-        - Polynomial::new_monomial(odd_composition_poly.evaluate(ood_evaluation_point), 0))
+        - Polynomial::new_monomial(
+            odd_composition_poly.evaluate(&ood_evaluation_point_squared),
+            0,
+        ))
         / (Polynomial::new_monomial(FieldElement::one(), 1)
-            - Polynomial::new_monomial(ood_evaluation_point * ood_evaluation_point, 0));
+            - Polynomial::new_monomial(ood_evaluation_point_squared.clone(), 0));
 
     trace_terms + even_composition_poly_term * gamma_even + odd_composition_poly_term * gamma_odd
 }
@@ -260,6 +269,7 @@ fn build_deep_consistency_check<A: AIR, F: IsTwoAdicField>(
 ) -> DeepConsistencyCheck<F> {
     let consistency_check_idx = transcript_to_usize(transcript)
         % (air.context().trace_length * air.options().blowup_factor as usize);
+    let consistency_check_x = &lde_roots_of_unity_coset[consistency_check_idx];
 
     let lde_trace_frame = Frame::read_from_trace(
         trace,
@@ -289,12 +299,11 @@ fn build_deep_consistency_check<A: AIR, F: IsTwoAdicField>(
         .collect::<Vec<Vec<Proof<F, DefaultHasher>>>>();
 
     let composition_poly_evaluations = vec![
-        composition_poly_even.evaluate(&lde_roots_of_unity_coset[consistency_check_idx]),
-        composition_poly_odd.evaluate(&lde_roots_of_unity_coset[consistency_check_idx]),
+        composition_poly_even.evaluate(&consistency_check_x),
+        composition_poly_odd.evaluate(&consistency_check_x),
     ];
 
-    let deep_poly_evaluation =
-        deep_composition_poly.evaluate(&lde_roots_of_unity_coset[consistency_check_idx]);
+    let deep_poly_evaluation = deep_composition_poly.evaluate(consistency_check_x);
 
     DeepConsistencyCheck {
         lde_trace_merkle_roots,
