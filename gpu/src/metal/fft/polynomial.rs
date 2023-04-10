@@ -31,7 +31,7 @@ impl<F: IsTwoAdicField> MetalFFTPoly<F> for Polynomial<FieldElement<F>> {
         &self,
         state: &MetalState,
     ) -> Result<Vec<FieldElement<F>>, FFTMetalError> {
-        let order = log2(self.coefficients().len()).map_err(FFTMetalError::FFT)?;
+        let order = log2(self.coefficients().len())?;
         let twiddles = gen_twiddles(order, RootsConfig::BitReverse, state)?;
 
         fft(self.coefficients(), &twiddles, state)
@@ -55,7 +55,7 @@ impl<F: IsTwoAdicField> MetalFFTPoly<F> for Polynomial<FieldElement<F>> {
         fft_evals: &[FieldElement<F>],
         state: &MetalState,
     ) -> Result<Self, FFTMetalError> {
-        let order = log2(fft_evals.len()).map_err(FFTMetalError::FFT)?;
+        let order = log2(fft_evals.len())?;
         let twiddles = gen_twiddles(order, RootsConfig::BitReverseInversed, state)?;
 
         let coeffs = fft(fft_evals, &twiddles, state)?;
