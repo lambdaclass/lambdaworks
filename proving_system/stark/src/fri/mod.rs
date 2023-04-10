@@ -5,7 +5,8 @@ mod fri_functions;
 use crate::fri::fri_commitment::{FriCommitment, FriCommitmentVec};
 use crate::fri::fri_functions::next_fri_layer;
 use crate::transcript_to_field;
-pub use lambdaworks_crypto::merkle_tree::TestHasher;
+use lambdaworks_crypto::merkle_tree::test_merkle::TestHasher;
+
 pub type FriMerkleTree<F> = MerkleTree<F, TestHasher>;
 pub use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 pub use lambdaworks_crypto::merkle_tree::merkle::MerkleTree;

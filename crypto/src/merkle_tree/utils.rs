@@ -80,7 +80,7 @@ pub fn right_child_index(parent_index: usize) -> usize {
 mod tests {
     use lambdaworks_math::field::{element::FieldElement, fields::u64_prime_field::U64PrimeField};
 
-    use crate::merkle_tree::TestHasher;
+    use crate::merkle_tree::test_merkle::TestHasher;
 
     use super::{build, complete_until_power_of_two, hash_leaves};
 

@@ -86,7 +86,7 @@ impl<F: IsField, H: IsCryptoHash<F> + Clone> MerkleTree<F, H> {
 
 #[cfg(test)]
 mod tests {
-    use crate::merkle_tree::TestHasher;
+    use crate::merkle_tree::test_merkle::TestHasher;
 
     use super::*;
 
