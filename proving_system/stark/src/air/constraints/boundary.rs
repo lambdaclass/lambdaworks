@@ -118,9 +118,10 @@ impl<F: IsField> BoundaryConstraints<F> {
 
 #[cfg(test)]
 mod test {
-    use lambdaworks_math::field::traits::IsTwoAdicField;
-
-    use crate::PrimeField;
+    use lambdaworks_math::field::{
+        fields::fft_friendly::stark_252_prime_field::Stark252PrimeField, traits::IsTwoAdicField,
+    };
+    type PrimeField = Stark252PrimeField;
 
     use super::*;
 

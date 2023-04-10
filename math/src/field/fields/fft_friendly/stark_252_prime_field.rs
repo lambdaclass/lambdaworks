@@ -30,7 +30,9 @@ impl IsTwoAdicField for Stark252PrimeField {
 
 #[cfg(test)]
 mod u256_two_adic_prime_field_tests {
-    use proptest::{prelude::any, prop_assert_eq, prop_compose, proptest, strategy::Strategy};
+    use proptest::{
+        collection, prelude::any, prop_assert_eq, prop_compose, proptest, strategy::Strategy,
+    };
 
     use super::Stark252PrimeField;
     use crate::{
@@ -51,13 +53,13 @@ mod u256_two_adic_prime_field_tests {
         // also it can't exceed the test field's two-adicity.
     }
     prop_compose! {
-        fn field_element()(num in any::<u64>().prop_filter("Avoid null polynomial", |x| x != &0)) -> FE {
+        fn field_element()(num in any::<u64>().prop_filter("Avoid null coefficients", |x| x != &0)) -> FE {
             FE::from(num)
         }
     }
     prop_compose! {
-        fn field_vec(max_exp: u8)(elem in field_element(), size in powers_of_two(max_exp)) -> Vec<FE> {
-            vec![elem; size]
+        fn field_vec(max_exp: u8)(vec in collection::vec(field_element(), 2..1<<max_exp).prop_filter("Avoid polynomials of size not power of two", |vec| vec.len().is_power_of_two())) -> Vec<FE> {
+            vec
         }
     }
     prop_compose! {
