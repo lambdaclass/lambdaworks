@@ -1,3 +1,9 @@
+use super::{
+    air::{constraints::evaluator::ConstraintEvaluator, AIR},
+    fri::fri_decommit::FriDecommitment,
+    sample_z_ood,
+};
+use crate::{proof::StarkProof, transcript_to_field, transcript_to_usize};
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::{
     field::{
@@ -9,18 +15,7 @@ use lambdaworks_math::{
     traits::ByteConversion,
 };
 
-use crate::{transcript_to_field, transcript_to_usize, StarkProof};
-
-use super::{
-    air::{constraints::evaluator::ConstraintEvaluator, AIR},
-    fri::fri_decommit::FriDecommitment,
-    sample_z_ood,
-};
-
-pub fn verify<F: IsField + IsTwoAdicField, A: AIR + AIR<Field = F>>(
-    proof: &StarkProof<F>,
-    air: &A,
-) -> bool
+pub fn verify<F: IsTwoAdicField, A: AIR<Field = F>>(proof: &StarkProof<F>, air: &A) -> bool
 where
     FieldElement<F>: ByteConversion,
 {
@@ -36,9 +31,20 @@ where
     let root_order = air.context().trace_length.trailing_zeros();
     let trace_primitive_root = F::get_primitive_root_of_unity(root_order as u64).unwrap();
 
+    let trace_roots_of_unity = F::get_powers_of_primitive_root_coset(
+        root_order as u64,
+        air.context().trace_length,
+        &FieldElement::<F>::one(),
+    )
+    .unwrap();
+
     let boundary_constraints = air.boundary_constraints();
 
-    let domain = boundary_constraints.generate_roots_of_unity(&trace_primitive_root);
+    let n_trace_cols = air.context().trace_columns;
+
+    let boundary_constraint_domains =
+        boundary_constraints.generate_roots_of_unity(&trace_primitive_root, n_trace_cols);
+    let values = boundary_constraints.values(n_trace_cols);
 
     let lde_root_order =
         (air.context().trace_length * air.options().blowup_factor as usize).trailing_zeros();
@@ -52,60 +58,95 @@ where
     // Fiat-Shamir
     // we have to make sure that the result is not either
     // a root of unity or an element of the lde coset.
-    let z = sample_z_ood(&lde_roots_of_unity_coset, &domain, transcript);
+    let z = sample_z_ood(&lde_roots_of_unity_coset, &trace_roots_of_unity, transcript);
 
-    // TODO: this assumes one column
-    let values = boundary_constraints.values(0);
+    let boundary_coeffs: Vec<(FieldElement<F>, FieldElement<F>)> = (0..n_trace_cols)
+        .map(|_| {
+            (
+                transcript_to_field(transcript),
+                transcript_to_field(transcript),
+            )
+        })
+        .collect();
 
-    // The boundary constraint polynomial is trace - this polynomial below.
-    let boundary_interpolating_polynomial = &Polynomial::interpolate(&domain, &values);
-    let boundary_zerofier = boundary_constraints.compute_zerofier(&trace_primitive_root);
+    let transition_coeffs: Vec<(FieldElement<F>, FieldElement<F>)> =
+        (0..air.context().num_transition_constraints)
+            .map(|_| {
+                (
+                    transcript_to_field(transcript),
+                    transcript_to_field(transcript),
+                )
+            })
+            .collect();
 
-    let boundary_alpha = transcript_to_field(transcript);
-    let boundary_beta = transcript_to_field(transcript);
-    // TODO: these are hardcoded to one column, there should be one alpha and beta per column
-    let alpha = transcript_to_field(transcript);
-    let beta = transcript_to_field(transcript);
+    // Following naming conventions from https://www.notamonadtutorial.com/diving-deep-fri/
+    let mut boundary_c_i_evaluations = Vec::with_capacity(n_trace_cols);
+    let mut boundary_quotient_degrees = Vec::with_capacity(n_trace_cols);
 
-    let boundary_degree = (air.context().trace_length - boundary_zerofier.degree()) as u64 - 1;
+    for trace_idx in 0..n_trace_cols {
+        let trace_evaluation = &trace_poly_ood_frame_evaluations.get_row(0)[trace_idx];
+        let boundary_constraints_domain = boundary_constraint_domains[trace_idx].clone();
+        let boundary_interpolating_polynomial =
+            &Polynomial::interpolate(&boundary_constraints_domain, &values[trace_idx]);
 
-    let mut degrees = vec![boundary_degree as usize];
-    for (transition_degree, zerofier) in air
-        .context()
-        .transition_degrees()
-        .iter()
-        .zip(air.transition_divisors())
-    {
-        let degree = transition_degree * (air.context().trace_length - 1) - zerofier.degree();
-        degrees.push(degree);
+        let boundary_zerofier =
+            boundary_constraints.compute_zerofier(&trace_primitive_root, trace_idx);
+
+        let boundary_quotient_ood_evaluation = (trace_evaluation
+            - boundary_interpolating_polynomial.evaluate(&z))
+            / boundary_zerofier.evaluate(&z);
+
+        let boundary_quotient_degree = air.context().trace_length - boundary_zerofier.degree() - 1;
+
+        boundary_c_i_evaluations.push(boundary_quotient_ood_evaluation);
+        boundary_quotient_degrees.push(boundary_quotient_degree);
     }
-    let max_degree = *degrees.iter().max().unwrap();
+
+    // TODO: Get trace polys degrees in a better way. The degree may not be trace_length - 1 in some
+    // special cases.
+    let transition_divisors = air.transition_divisors();
+
+    let transition_quotients_max_degree = transition_divisors
+        .iter()
+        .zip(air.context().transition_degrees())
+        .map(|(div, degree)| (air.context().trace_length - 1) * degree - div.degree())
+        .max()
+        .unwrap();
+
+    let boundary_quotients_max_degree = boundary_quotient_degrees.iter().max().unwrap();
+
+    let max_degree = std::cmp::max(
+        transition_quotients_max_degree,
+        *boundary_quotients_max_degree,
+    );
     let max_degree_power_of_two = helpers::next_power_of_two(max_degree as u64);
 
-    // TODO: This is assuming one column
-    let mut boundary_quotient_ood_evaluation = &trace_poly_ood_frame_evaluations.get_row(0)[0]
-        - boundary_interpolating_polynomial.evaluate(&z);
+    let boundary_quotient_ood_evaluations: Vec<FieldElement<F>> = boundary_c_i_evaluations
+        .iter()
+        .zip(boundary_quotient_degrees)
+        .zip(boundary_coeffs)
+        .map(|((poly_eval, poly_degree), (alpha, beta))| {
+            poly_eval * (&alpha * z.pow(max_degree_power_of_two - poly_degree as u64) + &beta)
+        })
+        .collect();
 
-    boundary_quotient_ood_evaluation =
-        boundary_quotient_ood_evaluation / boundary_zerofier.evaluate(&z);
-
-    boundary_quotient_ood_evaluation = boundary_quotient_ood_evaluation
-        * (&boundary_alpha * z.pow(max_degree_power_of_two - boundary_degree) + &boundary_beta);
+    let boundary_quotient_ood_evaluation = boundary_quotient_ood_evaluations
+        .iter()
+        .fold(FieldElement::<F>::zero(), |acc, x| acc + x);
 
     let transition_ood_frame_evaluations = air.compute_transition(trace_poly_ood_frame_evaluations);
 
-    let alpha_and_beta_transition_coefficients = vec![(alpha, beta)];
-
-    let c_i_evaluations = ConstraintEvaluator::compute_constraint_composition_poly_evaluations(
-        air,
-        &transition_ood_frame_evaluations,
-        &alpha_and_beta_transition_coefficients,
-        max_degree_power_of_two,
-        &z,
-    );
+    let transition_c_i_evaluations =
+        ConstraintEvaluator::compute_constraint_composition_poly_evaluations(
+            air,
+            &transition_ood_frame_evaluations,
+            &transition_coeffs,
+            max_degree_power_of_two,
+            &z,
+        );
 
     let composition_poly_ood_evaluation = &boundary_quotient_ood_evaluation
-        + c_i_evaluations
+        + transition_c_i_evaluations
             .iter()
             .fold(FieldElement::<F>::zero(), |acc, evaluation| {
                 acc + evaluation
