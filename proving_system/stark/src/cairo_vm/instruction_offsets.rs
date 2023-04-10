@@ -23,9 +23,71 @@ impl InstructionOffsets {
     fn decode_offset(cell: &CairoMemoryCell, instruction_offset: u32) -> i32 {
         let offset = cell.value.limbs[3] >> instruction_offset & OFFX_MASK;
         let vectorized_offset = offset.to_le_bytes();
-        let offset_16b_encoded = u16::from_le_bytes([vectorized_offset[0], vectorized_offset[1]]);
-        let complement_const = 0x8000u16;
-        let (offset_16b, _) = offset_16b_encoded.overflowing_sub(complement_const);
-        i32::from(offset_16b)
+        let aux = [
+            vectorized_offset[0],
+            vectorized_offset[1].overflowing_sub(128).0,
+        ];
+        i32::from(i16::from_le_bytes(aux))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::cairo_mem::CairoMemoryCell;
+    use super::InstructionOffsets;
+
+    use lambdaworks_math::unsigned_integer::element::U256;
+    #[test]
+    fn assert_opcode_flag_is_correct_1() {
+        // Instruction A
+        let value = U256::from_limbs([0, 0, 0, 0x480680017fff8000]);
+        let addr: u64 = 1;
+
+        let mem_cell = CairoMemoryCell {
+            address: addr,
+            value,
+        };
+
+        let instruction_offsets = InstructionOffsets::new(&mem_cell);
+
+        assert_eq!(instruction_offsets.off_dst, 0);
+        assert_eq!(instruction_offsets.off_op0, -1);
+        assert_eq!(instruction_offsets.off_op1, 1);
+    }
+
+    #[test]
+    fn assert_opcode_flag_is_correct_2() {
+        // Instruction A
+        let value = U256::from_limbs([0, 0, 0, 0x208b7fff7fff7ffe]);
+        let addr: u64 = 1;
+
+        let mem_cell = CairoMemoryCell {
+            address: addr,
+            value,
+        };
+
+        let instruction_offsets = InstructionOffsets::new(&mem_cell);
+
+        assert_eq!(instruction_offsets.off_dst, -2);
+        assert_eq!(instruction_offsets.off_op0, -1);
+        assert_eq!(instruction_offsets.off_op1, -1);
+    }
+
+    #[test]
+    fn assert_opcode_flag_is_correct_3() {
+        // Instruction A
+        let value = U256::from_limbs([0, 0, 0, 0x48327ffc7ffa8000]);
+        let addr: u64 = 1;
+
+        let mem_cell = CairoMemoryCell {
+            address: addr,
+            value,
+        };
+
+        let instruction_offsets = InstructionOffsets::new(&mem_cell);
+
+        assert_eq!(instruction_offsets.off_dst, 0);
+        assert_eq!(instruction_offsets.off_op0, -6);
+        assert_eq!(instruction_offsets.off_op1, -4);
     }
 }
