@@ -388,7 +388,18 @@ These are what's called the _common preprocessed input_.
 
 ### Blindings
 
-TODO
+As you will see in the protocol, the prover reveals the value taken by a bunch of the polynomials at a random $\zeta$. In order for the protocol to be _Honest Verifier Zero Knowledge_, these polynomials need to be _blinded_. This is a process that makes the values of these polynomials at $\zeta$ seemingly random by forcing them to be of certain degree. Here's how it works.
+
+Let's take for example the polynomial $a$ the prover constructs. This is the interpolation of the first column of the trace matrix $T$ at the domain $H$.
+This matrix has all of the left operands of all the gates. The prover wishes to keep them secret.
+Say the trace matrix $T$ has $N$ rows. And so $H$ is $\{1, \omega,\omega^2, \dots, \omega^{N-1}\}$. The invariant that the prover cannot violate is that $a(\omega^i)$ must take the value $T_{0, i}$, for all $i$. This is what the interpolation polynomial $a$ satisfies. And is the unique such polynomial of degree at most $N-1$. But for higher degrees, there are many polynomials that with the same property.
+
+The _blinding_ process takes $a$ and a desired degree $M\geq N$, and produces a new polynomial $a_{\text{blinded}}$ of degree exactly $M$. This new polynomial satisfies that $a_{\text{blinded}}(\omega^i) = a(\omega^i)$ for all $i$. But outside $H$ differs from $a$ and takes seemingly random values.
+
+This may seem hard but it's actually very simple. Let $z_H$ be the polynomial $z_H = X^N - 1$. If $M=N+k$, with $k\geq 0$, then sample random values $b_0, \dots, b_k$ and define
+$$ a_{\text{blinded}} := (b_0 + b_1 X + \cdots + b_k X^k)z_H + a $$
+
+The reason why this does the trick is that $z_H(\omega^i)=0$ for all $i$. Therefore the added term vanishes at $H$ and leaves the values of $a$ at $H$ unchanged.
 
 ### Linearization trick
 
@@ -403,6 +414,12 @@ Later, the party can use the commitment to prove certain properties of the polyn
 In the implementation section we'll explain the inner workings of the Kate-Zaverucha-Goldberg scheme, a popular PCS chosen in Lambdaworks for PLONK.
 
 For the moment we only need the following about it:
+
+
+## Setup
+
+There's a one time setup phase to compute some values common to any execution and proof of the particular circuit. Precisely, the following commitments are computed and published.
+$$ [q_L]_1, [q_R]_1, [q_M]_1, [q_O]_1, [q_C]_1, [S_{\sigma 1}]_1, [S_{\sigma 2}]_1, [S_{\sigma 3}]_1$$
 
 ## Proving algorithm
 
@@ -572,8 +589,11 @@ Also, the commitment of the polynomial $f_{\text{batch}}$ is
 $$[f_{\text{batch}}]_1 = [t_{\text{partial}}]_1 +\upsilon [p_{nc}]_1 + \upsilon^2 [a]_1 + \upsilon^3 [b]_1 + \upsilon^4 [c]_1 + \upsilon^5 [S_{\sigma1}]_1 + \upsilon^6 [S_{\sigma2}]_1$$
 
 ### Proof check
-Now the verifier has all the needed values and does the following.
+Now the verifier has all the necessary values to proceed with the checks.
 - Check that $p(\zeta)$ equals $(\zeta^N - 1)t(\zeta)$.
 - Validate the opening of $f_{\text{batch}}$ at $\zeta$. That is, check the validity of the proof $\pi_{batch}$ using the commitment $[f_{\text{batch}}]_1$ and the value $f_{\text{batch}}(\zeta)$.
 - Validate the opening of $z$ at $\zeta\omega$. That is, check the validity of the proof $\pi_{single}$ using the commitment $[z]_1$ and the value $\bar z_\omega$.
+
+If all checks pass, he outputs _Accept_. Otherwise outputs _Reject_.
+
 
