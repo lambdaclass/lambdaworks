@@ -28,7 +28,7 @@ pub fn proof_benchmark(c: &mut Criterion) {
     });
 
     group.bench_function("fibonacci_2_columns", |bench| {
-        bench.iter(prove_fib);
+        bench.iter(prove_fib_2_cols);
     });
 
     group.bench_function("fibonacci_f17", |bench| {
@@ -44,7 +44,7 @@ criterion_group!(benches, proof_benchmark);
 criterion_main!(benches);
 
 fn prove_fib() {
-    let trace = simple_fibonacci::fibonacci_trace([FE::from(1), FE::from(1)], 128);
+    let trace = simple_fibonacci::fibonacci_trace([FE::from(1), FE::from(1)], 16);
     let trace_length = trace[0].len();
     let trace_table = TraceTable::new_from_cols(&trace);
 
@@ -70,7 +70,7 @@ fn prove_fib() {
 
 fn prove_fib_2_cols() {
     let trace_columns =
-        fibonacci_2_columns::fibonacci_trace_2_columns([FE::from(1), FE::from(1)], 128);
+        fibonacci_2_columns::fibonacci_trace_2_columns([FE::from(1), FE::from(1)], 16);
 
     let trace_table = TraceTable::new_from_cols(&trace_columns);
 
@@ -119,7 +119,7 @@ fn prove_fib17() {
 }
 
 fn prove_quadratic() {
-    let trace = quadratic_air::quadratic_trace(FE::from(3), 128);
+    let trace = quadratic_air::quadratic_trace(FE::from(3), 16);
     let trace_table = TraceTable {
         table: trace.clone(),
         n_cols: 1,
