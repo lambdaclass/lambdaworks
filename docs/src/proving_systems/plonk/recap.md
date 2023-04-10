@@ -403,7 +403,15 @@ The reason why this does the trick is that $z_H(\omega^i)=0$ for all $i$. Theref
 
 ### Linearization trick
 
-TODO
+This is an optimization in PLONK to reduce the number of checks of the verifier. One of the main checks in PLONK boils down to check that $p(\zeta) = z_H(\zeta) t(\zeta)$, with $p$ some polynomial that looks like $p = a q_L + b q_R + ab q_M + \cdots$, and so on. In particular the verifier needs to get the value $p(\zeta)$ from somewhere.
+
+For the sake of simplicity, in this section assume $p$ is exactly $a q_L + bq_R$. Secret to the prover here are only $a, b$. The polynomials $q_L$ and $q_R$ are known also to the verifier. The verifier will already have the commitments $[a]_1, [b]_1, [q_L]_1$ and $[q_R]_1$. So the prover could send just $a(\zeta)$, $b(\zeta)$ along with their opening proofs and let the verifier compute by himself $q_L(\zeta)$ and $q_R(\zeta)$. Then with all these values the verifier could compute $p(\zeta) = a(\zeta)q_L(\zeta) + b(\zeta)q_R(\zeta)$. And also use his commitments to validate the opening proofs of $a(\zeta)$ and $b(\zeta)$.
+
+This has the problem that computing $q_L(\zeta)$ and $q_R(\zeta)$ is expensive. The prover can instead save the verifier this by sending also $q_L(\zeta), q_R(\zeta)$ along with opening proofs. Since the verifier will have the commitments $[q_L]_1$ and $[q_R]_1$ beforehand, he can check that the prover is not cheating and cheaply be convinced that the claimed values are actually $q_L(\zeta)$ and $q_R(\zeta)$. This is much better. It involves the check of four opening proofs and the computation of $p(\zeta)$ off the values received from the prover. But it can be further improved as follows.
+
+As before, the prover sends $a(\zeta), b(\zeta)$ along with their opening proofs. She constructs the polynomial $f = a(\zeta)q_L + b(\zeta)q_R$. She sends the value $f(\zeta)$ along with an opening proof of it. Notice that the value of $f(\zeta)$ is exactly $p(\zeta)$. The verifier can compute by himself $[a(\zeta)q_L + b(\zeta)q_R]_1$ as $a(z)[q_L]_1 + b(z)[q_R]_1$. The verifier has everything to check all three openings and get convinced that the value he got as $f(\zeta)$ is actually $p(\zeta)$. So it gets reduced to three openings and no extra calculations for the verifier.
+
+This is called the linearization trick. The polynomial $f$ is called the _linearization_ of $p$.
 
 ### Polynomial commitment scheme
 
