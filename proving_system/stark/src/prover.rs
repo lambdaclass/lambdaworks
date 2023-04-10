@@ -4,10 +4,10 @@ use super::{
     sample_z_ood,
 };
 use crate::{
+    fri::FriCommitmentVec,
     proof::{StarkProof, StarkQueryProof},
     transcript_to_field, transcript_to_usize,
 };
-use crate::{fri::FriCommitmentVec, transcript_to_field, transcript_to_usize, StarkProof};
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::{
     fft::errors::FFTError,
