@@ -13,6 +13,7 @@ mod utils;
 
 /// Small field useful for starks
 /// Used in miden and winterfell
+// This field shouldn't be defined inside the merkle tree module
 pub type Ecgfp5 = U64PrimeField<0xFFFF_FFFF_0000_0001_u64>;
 pub type Ecgfp5FE = FieldElement<Ecgfp5>;
 
