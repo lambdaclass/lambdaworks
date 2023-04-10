@@ -21,6 +21,11 @@ class TestFieldElement(unittest.TestCase):
         one = FieldElement(U256("1"))
         another_one = FieldElement(U256("1"))
         self.assertTrue(one == another_one)
+
+    def test_neq(self):
+        one = FieldElement(U256("1"))
+        two = FieldElement(U256("2"))
+        self.assertTrue(one != two)
     
     def test_add(self):
         one = FieldElement(U256("1"))
@@ -58,11 +63,7 @@ class TestFieldElement(unittest.TestCase):
         two = FieldElement(U256("2"))
         self.assertTrue(two + (-one) == one)
 
-    def test_pow(self):
-        one = FieldElement.one()
-        self.assertTrue(one.pow(2) == one)
-
-    def test_pow(self):
+    def test_pow2(self):
         one = FieldElement.one()
         self.assertTrue(one ** 2 == one)
 
