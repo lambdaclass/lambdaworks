@@ -1,8 +1,8 @@
 name: benchmarks 
 
 on:
-  push:
-    branches: [ main ]
+  pull_request:
+    branches: [ '*' ]
 
 permissions:
   # deployments permission to deploy GitHub pages website
@@ -27,8 +27,8 @@ jobs:
       with:
         tool: 'cargo'
         output-file-path: output.txt
-        benchmark-data-dir-path: "."
         github-token: ${{ secrets.GITHUB_TOKEN }}
+        benchmark-data-dir-path: "."
         # Push and deploy GitHub pages branch automatically
         auto-push: false
         alert-threshold: '130%'
