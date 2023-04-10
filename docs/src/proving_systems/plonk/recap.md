@@ -519,10 +519,13 @@ The proof is:
 $$[a]_1, [b]_1, [c]_1, [z]_1, [t_{lo}]_1, [t_{mid}]_1, [t_{hi}]_1, \bar a, \bar b, \bar c, \bar s_{\sigma1}, \bar s_{\sigma2}, \bar z_\omega, \pi_{\text{batch}}, \pi_{\text{single}}, \bar p_{nc}, \bar t$$
 
 ## Verification algorithm
+### Transcript initialization
 The first step is to initialize the transcript in the same way the prover did, adding to it the following elements.
 $$[S_{\sigma1}]_1, [S_{\sigma2}]_1, [S_{\sigma3}]_1, [q_L]_1, [q_R]_1, [q_M]_1, [q_O]_1, [q_C]_1$$
 
-Then the verifier needs to compute all the challenges. For that, he follows these steps:
+### Extraction of values and commitments
+#### Challenges
+Firstly, the verifier needs to compute all the challenges. For that, he follows these steps:
 - Add $[a]_1, [b]_1, [c]_1$ to the transcript.
 - Sample two challenges $\beta, \gamma$.
 - Add $[z]_1$ to the transcript.
@@ -532,18 +535,25 @@ Then the verifier needs to compute all the challenges. For that, he follows thes
 - Add $\bar a, \bar b, \bar c, \bar s_{\sigma1}, \bar s_{\sigma2}, \bar z_\omega$ to the transcript.
 - Sample a challenge $\upsilon$.
 
+#### Compute $pi(\zeta)$
 Also he needs compute a few values off all these data. First, he computes the $PI$ matrix with the public inputs and outputs. He needs to compute $pi(\zeta)$, where $pi$ is the interpolation of $PI$ at the domain $H$. But he doesn't need to compute $pi$. He can instead compute $pi(\zeta)$ as
 $$ \sum_{i=0}^n L_i(\zeta) (PI)_i,$$
 where $n$ is the number of public inputs and $L_i$ is the Lagrange basis at the domain $H$.
 
-He also computes $\bar p_{c} := pi(\zeta) + \alpha \bar z_\omega (\bar c + \gamma) (\bar a + \beta \bar s_{\sigma1} + \gamma) (\bar b + \beta \bar s_{\sigma2} + \gamma) - \alpha^2 L_1(\zeta)$
 
-This is the _constant_ part of the linearization of $p$. So adding it to what the prover claims to be $\bar p_{nc}$ we obtain $p(\zeta)$. The verifier uses this to check that $p(\zeta)$ equals $t(\zeta) z_H(\zeta)$. Recall that $t(\zeta)$ is $\bar t$, and that $z_H = X^N - 1$.
+#### Compute claimed values $p(\zeta)$ and $t(\zeta)$
+He computes $\bar p_{c} := pi(\zeta) + \alpha \bar z_\omega (\bar c + \gamma) (\bar a + \beta \bar s_{\sigma1} + \gamma) (\bar b + \beta \bar s_{\sigma2} + \gamma) - \alpha^2 L_1(\zeta)$
 
-He computes $[t_{\text{partial}}]_1$ off the commitments in the proof as follows
+This is the _constant_ part of the linearization of $p$. So adding it to what the prover claims to be $\bar p_{nc}$, he obtains
+$$p(\zeta) = \bar p_{c} + \bar p_{nc}$$
+
+With respect to $t(\zeta)$, this is actually already $/bar t$.
+
+#### Compute $[t_{\text{partial}}]_1$ and $[p_{nc}]_1$
+He computes these off the commitments in the proof as follows
 $$ [t_{\text{partial}}]_1 = [t_{lo}]_1 + \zeta^{N+2}[t_{mid}]_1 + \zeta^{2(N+2)}[t_{hi}]_1 $$
 
-He also computes the commitment of $[p_{nc}]_1$ from the commitments of the proof and the commitments of the setup as follows. First compute
+For $[p_{nc}]_1$, first compute
 $$ 
 \begin{aligned}
 [\hat p_{nc1}]_1 &= \bar a[q_L]_1 + \bar b[q_R]_1 + (\bar a\bar b)[q_M]_1 + \bar c[q_O]_1 + [q_C]_1 \\
@@ -553,15 +563,17 @@ $$
 $$
 Then $[p_{nc}]_1 = [p_{nc1}]_1 + [p_{nc2}]_1 + [p_{nc3}]_1$.
 
+#### Compute claimed value $f_{\text{batch}}(\zeta)$ and $[f_{\text{batch}}]_1$
 Compute $f_{\text{batch}}(\zeta)$ as
 $$ f_{\text{batch}}(\zeta) = 
-\bar t +\upsilon \bar p_{nc} + \upsilon^2 \bar a + \upsilon^3 \bar b + \upsilon^4 \bar c + \upsilon^5 \bar s_{\sigma1} + \upsilon^6 /bar s_{\sigma2}$$
+\bar t +\upsilon \bar p_{nc} + \upsilon^2 \bar a + \upsilon^3 \bar b + \upsilon^4 \bar c + \upsilon^5 \bar s_{\sigma1} + \upsilon^6 \bar s_{\sigma2}$$
 
-With all these he can compute the commitment of the polynomial $f_{\text{batch}}$ as
+Also, the commitment of the polynomial $f_{\text{batch}}$ is
 $$[f_{\text{batch}}]_1 = [t_{\text{partial}}]_1 +\upsilon [p_{nc}]_1 + \upsilon^2 [a]_1 + \upsilon^3 [b]_1 + \upsilon^4 [c]_1 + \upsilon^5 [S_{\sigma1}]_1 + \upsilon^6 [S_{\sigma2}]_1$$
 
+### Proof check
 Now the verifier has all the needed values and does the following.
-- Check that $\bar p_{nc} + \bar p_{c}$ equals $(\zeta^N - 1)\bar t$.
+- Check that $p(\zeta)$ equals $(\zeta^N - 1)t(\zeta)$.
 - Validate the opening of $f_{\text{batch}}$ at $\zeta$. That is, check the validity of the proof $\pi_{batch}$ using the commitment $[f_{\text{batch}}]_1$ and the value $f_{\text{batch}}(\zeta)$.
 - Validate the opening of $z$ at $\zeta\omega$. That is, check the validity of the proof $\pi_{single}$ using the commitment $[z]_1$ and the value $\bar z_\omega$.
 
