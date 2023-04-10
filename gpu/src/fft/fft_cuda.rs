@@ -1,10 +1,10 @@
-use rust_gpu_tools::{cuda, program_closures, Device, GPUError, Program};
+use lambdaworks_math::fft::errors::FFTError;
 use lambdaworks_math::{
     fft::bit_reversing::in_place_bit_reverse_permute,
     field::{element::FieldElement, traits::IsTwoAdicField},
     field::{test_fields::u32_test_field::U32TestField, traits::RootsConfig},
 };
-use lambdaworks_math::fft::errors::FFTError;
+use rust_gpu_tools::{cuda, program_closures, Device, GPUError, Program};
 
 type F = U32TestField;
 
@@ -25,11 +25,11 @@ pub fn run_main(input: &[FieldElement<F>]) -> Result<Vec<FieldElement<F>>, FFTEr
     let mut twiddles_s = vec![0u32; (size / 2) as usize];
     let mut twiddles_permut = vec![0u32; (size.clone() / 2) as usize];
 
-    for i in 0..input.len(){
+    for i in 0..input.len() {
         input_s[i] = *input[i].value();
     }
 
-    for i in 0..twiddles.len(){
+    for i in 0..twiddles.len() {
         twiddles_s[i] = *twiddles[i].value();
         twiddles_permut[i] = *twiddles[i].value();
     }
@@ -68,8 +68,7 @@ pub fn run_main(input: &[FieldElement<F>]) -> Result<Vec<FieldElement<F>>, FFTEr
 #[cfg(test)]
 mod tests {
     use lambdaworks_math::{
-        field::{test_fields::u32_test_field::U32TestField},
-        polynomial::Polynomial,
+        field::test_fields::u32_test_field::U32TestField, polynomial::Polynomial,
     };
     use proptest::prelude::*;
 
