@@ -114,6 +114,7 @@ pub fn gen_twiddles<F: IsTwoAdicField>(
     Ok(result.iter().map(FieldElement::from_raw).collect())
 }
 
+/// Executes a parallel bit-reverse permutation with the elements of `input`, in Metal.
 pub fn bitrev_permutation<T: Clone>(input: &[T], state: &MetalState) -> Result<Vec<T>, MetalError> {
     let pipeline = state.setup_pipeline("bitrev_permutation")?;
 
@@ -209,7 +210,7 @@ mod tests {
         }
 
         #[test]
-        // Property-based test that ensures Metal parallel twiddle generation matches the sequential one..
+        // Property-based test that ensures Metal parallel twiddle generation matches the sequential one.
         fn test_metal_twiddles_match_sequential(order in 2..8) {
             objc::rc::autoreleasepool(|| {
                 let configs = [
@@ -231,7 +232,7 @@ mod tests {
             }).unwrap();
         }
 
-        // Property-based test that ensures Metal parallel bitrev permutation matches the sequential one..
+        // Property-based test that ensures Metal parallel bitrev permutation matches the sequential one.
         #[test]
         fn test_gpu_bitrev_matches_cpu(input in field_vec(4)) {
             objc::rc::autoreleasepool(|| {
