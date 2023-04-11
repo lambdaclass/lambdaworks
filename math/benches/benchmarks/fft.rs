@@ -10,7 +10,7 @@ use rand::random;
 
 type F = Stark252PrimeField;
 type FE = FieldElement<F>;
-const INPUT_SET: [u64; 6] = [4, 5, 6, 7, 21, 22];
+const INPUT_SET: [u64; 2] = [21, 22];
 
 fn gen_coeffs(order: u64) -> Vec<FE> {
     let mut result = Vec::with_capacity(1 << order);
