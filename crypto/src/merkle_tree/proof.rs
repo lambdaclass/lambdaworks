@@ -1,5 +1,3 @@
-use std::hash::Hasher;
-
 use crate::hash::traits::IsCryptoHash;
 use lambdaworks_math::{
     errors::ByteConversionError,
@@ -121,7 +119,7 @@ mod tests {
         merkle::MerkleTree,
         proof::Proof,
         test_merkle::{Ecgfp5FE, TestHasher, TestMerkleTreeEcgfp, TestProofEcgfp5},
-    }, hash::traits::IsCryptoHash};
+    }};
 
     use lambdaworks_math::field::{element::FieldElement, fields::u64_prime_field::U64PrimeField};
 

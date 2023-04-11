@@ -4,7 +4,7 @@ use super::{
     sample_z_ood,
 };
 use crate::{proof::StarkProof, transcript_to_field, transcript_to_usize};
-use lambdaworks_crypto::{fiat_shamir::transcript::Transcript, merkle_tree::test_merkle::TestHasher, hash::traits::IsCryptoHash};
+use lambdaworks_crypto::{fiat_shamir::transcript::Transcript, merkle_tree::test_merkle::TestHasher};
 use lambdaworks_math::{
     field::{
         element::FieldElement,

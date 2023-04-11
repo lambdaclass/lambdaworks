@@ -1,5 +1,3 @@
-use std::marker::PhantomData;
-
 use lambdaworks_math::{
     elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::BLS12381PrimeField,
     field::{element::FieldElement, fields::u64_prime_field::U64PrimeField, traits::IsField},

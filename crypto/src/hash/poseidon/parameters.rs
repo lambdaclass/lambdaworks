@@ -1,6 +1,6 @@
 use lambdaworks_math::{
     elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::BLS12381PrimeField,
-    field::{element::FieldElement, traits::IsField, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField},
+    field::{element::FieldElement, traits::IsField}
 };
 
 type PoseidonConstants<F> = (Vec<FieldElement<F>>, Vec<Vec<FieldElement<F>>>);
@@ -80,29 +80,3 @@ impl Parameters<BLS12381PrimeField> {
         Ok((round_constants, mds_matrix))
     }
 }
-
-/*
-
-/// Implements hashing for BLS 12381's field.
-/// Alpha = 5 and parameters are predefined for secure implementations
-impl Parameters<Stark252PrimeField> {
-// t = 3 means width of input is 2
-    // sage generate_params_poseidon.sage 1 0 381 3 5 128
-    // Params: n=381, t=3, alpha=5, M=128, R_F=8, R_P=56
-    pub fn with_t3() -> Result<Self, String> {
-        let round_constants_csv = include_str!("s128b/t3/round_constants.csv");
-        let mds_constants_csv = include_str!("s128b/t3/mds_matrix.csv");
-
-        let (round_constants, mds_matrix) = Self::parse(round_constants_csv, mds_constants_csv)?;
-        Ok(Parameters {
-            rate: 2,
-            capacity: 1,
-            alpha: 5,
-            n_full_rounds: 8,
-            n_partial_rounds: 56,
-            round_constants,
-            mds_matrix,
-        })
-    }
-}
-*/
