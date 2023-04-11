@@ -1,14 +1,12 @@
 use crate::fri::fri_commitment::FriCommitmentVec;
+use crate::fri::TestHasher;
 pub use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
-use lambdaworks_crypto::merkle_tree::DefaultHasher;
-
 use lambdaworks_crypto::merkle_tree::proof::Proof;
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::IsField;
-
 #[derive(Debug, Clone)]
 pub struct FriDecommitment<F: IsField> {
-    pub layer_merkle_paths: Vec<(Proof<F, DefaultHasher>, Proof<F, DefaultHasher>)>,
+    pub layer_merkle_paths: Vec<(Proof<F, TestHasher>, Proof<F, TestHasher>)>,
     pub layer_evaluations: Vec<(FieldElement<F>, FieldElement<F>)>,
     pub last_layer_evaluation: FieldElement<F>,
 }
