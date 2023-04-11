@@ -7,16 +7,29 @@ edition = "2021"
 
 [dependencies]
 lambdaworks-math = { path = "../math" }
-lambdaworks-crypto = { path = "../crypto"}
+thiserror = "1.0.38"
 rand = "0.8.5"
-metal = "0.24.0"
 rust-gpu-tools = { git = "https://github.com/filecoin-project/rust-gpu-tools.git", branch = "master"}
+metal = { version = "0.24.0", optional = true }
+objc = { version = "0.2.7", optional = true }
+
+[features]
+metal = ["dep:metal", "dep:objc"]
+cuda = []
+
+# Some features activate compilation of code which isn't
+# supported in all machines (e.g. metal, cuda), so we won't
+# use `--all-features` in any case, instead every feature
+# that should compile in all cases will require to be added
+# as default. If you don't want to compile with all of these
+# use `--no-default-features`.
+default = []
 
 [dev-dependencies]
 proptest = "1.1.0"
 criterion = "0.4.0"
-objc = "0.2.7"
 
 [[bench]]
 name = "metal_benchmarks"
 harness = false
+required-features = ["metal"]
