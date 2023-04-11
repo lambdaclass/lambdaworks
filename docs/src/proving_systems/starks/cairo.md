@@ -42,7 +42,19 @@ This is a pretty complex constraint, as it is natively a cubic constraint. Becau
 
 ## Instruction Unpacking
 
-These are constraints related to the fact 
+Constraints that check that instructions are well formed (flags are all actual bits, offsets are in range, etc).
+
+## Operand constraints
+
+Constraints that check that the operands `op0_addr`, `op1_addr` and `dst_addr` are constructed accordingly from the instructions.
+
+## `af` and `ap` registers constraints
+
+Constraints to make sure that on each cycle, `af` and `ap` are updated accordingly.
+
+## Opcodes and `res` constraints
+
+To check opcodes and `res` are constructed correctly. TODO: explain what these are, especially `res`.
 
 ## Interaction step
 
