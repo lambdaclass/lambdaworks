@@ -26,7 +26,7 @@ fn gen_coeffs(order: u64) -> Vec<FE> {
 }
 
 pub fn metal_fft_benchmarks(c: &mut Criterion) {
-    let mut group = c.benchmark_group("FFT");
+    let mut group = c.benchmark_group("Ordered FFT");
     group.sample_size(10); // too slow otherwise
 
     for order in INPUT_SET {
@@ -35,7 +35,7 @@ pub fn metal_fft_benchmarks(c: &mut Criterion) {
 
         // the objective is to bench ordered FFT, including twiddles generation and Metal setup
         group.bench_with_input(
-            format!("Metal parallel NR radix2 FFT"),
+            format!("Parallel from NR radix2 (Metal)"),
             &coeffs,
             |bench, coeffs| {
                 bench.iter(|| {
@@ -63,19 +63,15 @@ pub fn metal_twiddles_gen_benchmarks(c: &mut Criterion) {
     for order in INPUT_SET {
         group.throughput(criterion::Throughput::Elements(1 << (order - 1)));
 
-        group.bench_with_input(
-            format!("Metal parallel twiddles generation"),
-            &order,
-            |bench, order| {
-                bench.iter(|| {
-                    // TODO: autoreleaspool hurts perf. by 2-3%. Search for an alternative
-                    objc::rc::autoreleasepool(|| {
-                        let metal_state = MetalState::new(None).unwrap();
-                        gen_twiddles::<F>(*order, RootsConfig::Natural, &metal_state).unwrap();
-                    });
+        group.bench_with_input(format!("Parallel (Metal)"), &order, |bench, order| {
+            bench.iter(|| {
+                // TODO: autoreleaspool hurts perf. by 2-3%. Search for an alternative
+                objc::rc::autoreleasepool(|| {
+                    let metal_state = MetalState::new(None).unwrap();
+                    gen_twiddles::<F>(*order, RootsConfig::Natural, &metal_state).unwrap();
                 });
-            },
-        );
+            });
+        });
     }
 
     group.finish();
@@ -89,19 +85,15 @@ pub fn metal_bitrev_permutation_benchmarks(c: &mut Criterion) {
         let coeffs = gen_coeffs(order);
         group.throughput(criterion::Throughput::Elements(1 << order)); // info for criterion
 
-        group.bench_with_input(
-            format!("Metal parallel bitrev permutation"),
-            &coeffs,
-            |bench, coeffs| {
-                bench.iter(|| {
-                    // TODO: autoreleaspool hurts perf. by 2-3%. Search for an alternative
-                    objc::rc::autoreleasepool(|| {
-                        let metal_state = MetalState::new(None).unwrap();
-                        bitrev_permutation(coeffs, &metal_state).unwrap();
-                    });
+        group.bench_with_input(format!("Parallel (Metal)"), &coeffs, |bench, coeffs| {
+            bench.iter(|| {
+                // TODO: autoreleaspool hurts perf. by 2-3%. Search for an alternative
+                objc::rc::autoreleasepool(|| {
+                    let metal_state = MetalState::new(None).unwrap();
+                    bitrev_permutation(coeffs, &metal_state).unwrap();
                 });
-            },
-        );
+            });
+        });
     }
 
     group.finish();
@@ -116,18 +108,15 @@ pub fn metal_poly_interpolate_fft_benchmarks(c: &mut Criterion) {
 
         group.throughput(criterion::Throughput::Elements(1 << order)); // info for criterion
 
-        group.bench_with_input(
-            format!("Metal FFT polynomial interpolation"),
-            &evals,
-            |bench, evals| {
-                bench.iter(|| {
-                    objc::rc::autoreleasepool(|| {
-                        let metal_state = MetalState::new(None).unwrap();
-                        Polynomial::interpolate_fft_metal(evals, &metal_state).unwrap();
-                    });
+        group.bench_with_input(format!("Parallel FFT (Metal)"), &evals, |bench, evals| {
+            bench.iter(|| {
+                // TODO: autoreleaspool hurts perf. by 2-3%. Search for an alternative
+                objc::rc::autoreleasepool(|| {
+                    let metal_state = MetalState::new(None).unwrap();
+                    Polynomial::interpolate_fft_metal(evals, &metal_state).unwrap();
                 });
-            },
-        );
+            });
+        });
     }
 
     group.finish();

@@ -13,13 +13,6 @@ docker-shell:
 nix-shell:
 	nix-shell
 
-benchmarks:
-	cargo criterion --bench all_benchmarks
-
-# BENCHMARK should be one of the [[bench]] names in Cargo.toml
-benchmark:
-	cargo criterion --bench ${BENCH}
-
 METALPATH = gpu/src/metal/shaders
 build-metal:
 	xcrun -sdk macosx metal $(METALPATH)/all.metal -o $(METALPATH)/lib.metallib
