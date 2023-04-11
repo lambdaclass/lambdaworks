@@ -15,17 +15,6 @@ pub struct Proof<F: IsField> {
     pub merkle_path: Vec<FieldElement<F>>,
 }
 
-/*
-
-decode instructions
-documentacion de stark esta publica
-documentacion de plonk en progreso
-se estan agregando benchmarks en cpu y en benchmarks
-
-benchmarks de metal
-
- */
-
 impl<F: IsField> Proof<F> {
     pub fn verify(
         &self,
