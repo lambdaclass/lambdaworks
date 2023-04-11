@@ -21,7 +21,7 @@ pub fn fft_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("FFT");
     group.sample_size(10); // it becomes too slow with the default
 
-    for order in 21..=24 {
+    for order in 21..=22 {
         let coeffs = gen_coeffs(order);
         group.throughput(criterion::Throughput::Elements(1 << order)); // info for criterion
 
