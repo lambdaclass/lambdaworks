@@ -1,32 +1,41 @@
 use criterion::Criterion;
-use lambdaworks_gpu::metal::{abstractions::state::MetalState, fft::ops::*};
+use lambdaworks_gpu::metal::{
+    abstractions::state::MetalState,
+    fft::{ops::*, polynomial::*},
+};
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsTwoAdicField},
-    field::{test_fields::u32_test_field::U32TestField, traits::RootsConfig},
+    field::{fields::fft_friendly::stark_252_prime_field::Stark252PrimeField, traits::RootsConfig},
+    polynomial::Polynomial,
+    unsigned_integer::element::UnsignedInteger,
 };
 use rand::random;
 
-type F = U32TestField;
+type F = Stark252PrimeField;
 type FE = FieldElement<F>;
+const INPUT_SET: [u64; 8] = [4, 5, 6, 7, 21, 22, 23, 24];
 
-fn gen_coeffs(order: usize) -> Vec<FE> {
+fn gen_coeffs(order: u64) -> Vec<FE> {
     let mut result = Vec::with_capacity(1 << order);
     for _ in 0..result.capacity() {
-        result.push(FE::new(random()));
+        let rand_big = UnsignedInteger { limbs: random() };
+
+        result.push(FE::new(rand_big));
     }
     result
 }
 
 pub fn metal_fft_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("FFT");
+    group.sample_size(10); // too slow otherwise
 
-    for order in 21..=24 {
+    for order in INPUT_SET {
         let coeffs = gen_coeffs(order);
-        group.throughput(criterion::Throughput::Elements(1 << order)); // info for criterion
+        group.throughput(criterion::Throughput::Elements(1 << order));
 
         // the objective is to bench ordered FFT, including twiddles generation and Metal setup
         group.bench_with_input(
-            format!("Parallel NR radix2 FFT for 2^{order} elements"),
+            format!("Metal parallel NR radix2 FFT"),
             &coeffs,
             |bench, coeffs| {
                 bench.iter(|| {
@@ -47,15 +56,15 @@ pub fn metal_fft_benchmarks(c: &mut Criterion) {
     group.finish();
 }
 
-pub fn metal_fft_twiddles_benchmarks(c: &mut Criterion) {
+pub fn metal_twiddles_gen_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("FFT twiddles generation");
-    group.sample_size(10); // it becomes too slow with the default of 100
+    group.sample_size(10); // too slow otherwise
 
-    for order in 21..=24 {
-        group.throughput(criterion::Throughput::Elements(1 << order)); // info for criterion
+    for order in INPUT_SET {
+        group.throughput(criterion::Throughput::Elements(1 << (order - 1)));
 
         group.bench_with_input(
-            format!("Parallel twiddles generation for 2^({order}-1) elements"),
+            format!("Metal parallel twiddles generation"),
             &order,
             |bench, order| {
                 bench.iter(|| {
@@ -74,13 +83,14 @@ pub fn metal_fft_twiddles_benchmarks(c: &mut Criterion) {
 
 pub fn metal_bitrev_permutation_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("Bit-reverse permutation");
+    group.sample_size(10); // it becomes too slow with the default of 100
 
-    for order in 21..=24 {
+    for order in INPUT_SET {
         let coeffs = gen_coeffs(order);
         group.throughput(criterion::Throughput::Elements(1 << order)); // info for criterion
 
         group.bench_with_input(
-            format!("Parallel bitrev permutation for 2^{order} elements"),
+            format!("Metal parallel bitrev permutation"),
             &coeffs,
             |bench, coeffs| {
                 bench.iter(|| {
