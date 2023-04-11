@@ -223,7 +223,7 @@ assert!(verifier.verify(
 
 ## Using gnark's frontend
 
-### Exporting from gnark
+### Exporting precomputed values from gnark's frontend
 Here is a function written in `go` to use gnark's frontend and export a JSON file with all the precomputed values needed by our backend.
 
 ```go
@@ -414,7 +414,7 @@ func main() {
 }
 ```
 
-## Importing circuit from JSON
+## Importing precomputed values from JSON
 To use the precomputed values exported from gnark's frontend there is a function `common_preprocessed_input_from_json` in the `test_utils` module that parses it and returns an instance of `Witness`, an instance of `CommonPreprocessedInput` and the public input array.
 
 ```rust
@@ -445,7 +445,7 @@ In this section we discuss the implementation details of the plonk algorithm. We
 The implementation pretty much follows the rounds as are described in the recap. There are a few details that are worth mentioning.
 
 ## Commitment Scheme
-As commitment scheme we use the Kate-Zaverucha-Goldberg scheme with the `BLS 12 381` curve and the ate pairing.
+The commitment scheme we use is the Kate-Zaverucha-Goldberg scheme with the `BLS 12 381` curve and the ate pairing.
 
 The order $r$ of the cyclic subgroup is
 
