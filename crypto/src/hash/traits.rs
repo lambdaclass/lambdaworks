@@ -5,7 +5,7 @@ pub trait IsCryptoHash<F>
 where
     F: field::traits::IsField,
 {
-    fn new() -> Self;
+    fn new() -> Self where Self: Sized;
 
     /// Hashes a field element into one. Also known as one to one hashing.
     fn hash_one(&self, input: field::element::FieldElement<F>) -> field::element::FieldElement<F>;

@@ -13,16 +13,16 @@ pub struct MerkleTree<F: IsField, H: IsCryptoHash<F>> {
 const ROOT: usize = 0;
 
 impl<F: IsField, H: IsCryptoHash<F> + Clone> MerkleTree<F, H> {
-    pub fn build(values: &[FieldElement<F>]) -> MerkleTree<F, H> {
+    pub fn build(unhashed_leaves: &[FieldElement<F>]) -> MerkleTree<F, H> {
         let hasher = H::new();
-        let mut nodes: Vec<FieldElement<F>> = hash_leaves(values, &hasher);
+        let mut hashed_leaves: Vec<FieldElement<F>> = hash_leaves(unhashed_leaves, &hasher);
 
         //The leaf must be a power of 2 set
-        nodes = complete_until_power_of_two(&mut nodes);
+        hashed_leaves = complete_until_power_of_two(&mut hashed_leaves);
 
         //The length of leaves minus one inner node in the merkle tree
-        let mut inner_nodes = vec![FieldElement::zero(); nodes.len() - 1];
-        inner_nodes.extend(nodes);
+        let mut inner_nodes = vec![FieldElement::zero(); hashed_leaves.len() - 1];
+        inner_nodes.extend(hashed_leaves);
 
         //Build the inner nodes of the tree
         let nodes = build(&mut inner_nodes, ROOT, &hasher);
