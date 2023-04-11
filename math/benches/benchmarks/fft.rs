@@ -96,3 +96,51 @@ pub fn bitrev_permutation_benchmarks(c: &mut Criterion) {
 
     group.finish();
 }
+
+pub fn poly_interpolate_benchmarks(c: &mut Criterion) {
+    let mut group = c.benchmark_group("Polynomial interpolation");
+    group.sample_size(10); // too slow otherwise
+
+    for order in 4..=7 {
+        // too slow for big inputs.
+        let xs = gen_coeffs(order);
+        let ys = gen_coeffs(order);
+
+        group.throughput(criterion::Throughput::Elements(1 << order));
+
+        group.bench_with_input(
+            format!("Sequential lagrange polynomial interpolation"),
+            &(xs, ys),
+            |bench, (xs, ys)| {
+                bench.iter(|| {
+                    Polynomial::interpolate(xs, ys);
+                });
+            },
+        );
+    }
+
+    group.finish();
+}
+
+pub fn poly_interpolate_fft_benchmarks(c: &mut Criterion) {
+    let mut group = c.benchmark_group("Polynomial interpolation");
+    group.sample_size(10); // too slow otherwise
+
+    for order in INPUT_SET {
+        let evals = gen_coeffs(order);
+
+        group.throughput(criterion::Throughput::Elements(1 << order));
+
+        group.bench_with_input(
+            format!("Sequential FFT polynomial interpolation"),
+            &evals,
+            |bench, evals| {
+                bench.iter(|| {
+                    Polynomial::interpolate_fft(evals).unwrap();
+                });
+            },
+        );
+    }
+
+    group.finish();
+}

@@ -6,6 +6,8 @@ fn run_fft_benchmarks(c: &mut Criterion) {
     benchmarks::fft::bitrev_permutation_benchmarks(c);
     benchmarks::fft::twiddles_benchmarks(c);
     benchmarks::fft::fft_benchmarks(c);
+    benchmarks::fft::poly_interpolate_benchmarks(c);
+    benchmarks::fft::poly_interpolate_fft_benchmarks(c);
 }
 
 criterion_group!(benches, run_fft_benchmarks);

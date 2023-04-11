@@ -96,3 +96,29 @@ pub fn metal_bitrev_permutation_benchmarks(c: &mut Criterion) {
 
     group.finish();
 }
+
+pub fn metal_poly_interpolate_fft_benchmarks(c: &mut Criterion) {
+    let mut group = c.benchmark_group("Polynomial interpolation");
+    group.sample_size(10); // it becomes too slow with the default of 100
+
+    for order in INPUT_SET {
+        let evals = gen_coeffs(order);
+
+        group.throughput(criterion::Throughput::Elements(1 << order)); // info for criterion
+
+        group.bench_with_input(
+            format!("Metal FFT polynomial interpolation"),
+            &evals,
+            |bench, evals| {
+                bench.iter(|| {
+                    objc::rc::autoreleasepool(|| {
+                        let metal_state = MetalState::new(None).unwrap();
+                        Polynomial::interpolate_fft_metal(evals, &metal_state).unwrap();
+                    });
+                });
+            },
+        );
+    }
+
+    group.finish();
+}
