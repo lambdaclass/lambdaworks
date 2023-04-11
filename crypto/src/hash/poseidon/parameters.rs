@@ -81,6 +81,8 @@ impl Parameters<BLS12381PrimeField> {
     }
 }
 
+/*
+
 /// Implements hashing for BLS 12381's field.
 /// Alpha = 5 and parameters are predefined for secure implementations
 impl Parameters<Stark252PrimeField> {
@@ -103,3 +105,4 @@ impl Parameters<Stark252PrimeField> {
         })
     }
 }
+*/

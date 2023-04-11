@@ -15,6 +15,15 @@ pub struct Poseidon<F: IsField> {
     params: Parameters<F>,
 }
 
+impl Poseidon<BLS12381PrimeField> {
+    pub fn new() -> Self {
+        Self {
+            params: Parameters::with_t2()
+                .expect("Error loading parameters for Posedon BLS12381 hasher"),
+        }
+    }
+}
+
 impl IsCryptoHash<BLS12381PrimeField> for Poseidon<BLS12381PrimeField> {
     fn hash_one(
         &self,
@@ -31,13 +40,6 @@ impl IsCryptoHash<BLS12381PrimeField> for Poseidon<BLS12381PrimeField> {
     ) -> FieldElement<BLS12381PrimeField> {
         // return first element of the state (unwraps to be removed after trait changes to return Result<>)
         self.hash(&[left, right]).unwrap().first().unwrap().clone()
-    }
-
-    fn new() -> Self {
-        Poseidon {
-            params: Parameters::with_t2()
-                .expect("Error loading parameters for Posedon BLS12381 hasher"),
-        }
     }
 }
 

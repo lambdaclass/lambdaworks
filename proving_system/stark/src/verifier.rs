@@ -4,7 +4,7 @@ use super::{
     sample_z_ood,
 };
 use crate::{proof::StarkProof, transcript_to_field, transcript_to_usize};
-use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
+use lambdaworks_crypto::{fiat_shamir::transcript::Transcript, merkle_tree::test_merkle::TestHasher, hash::traits::IsCryptoHash};
 use lambdaworks_math::{
     field::{
         element::FieldElement,
@@ -276,6 +276,7 @@ pub fn verify_query<F: IsField + IsTwoAdicField>(
             fri_layer_merkle_root,
             layer_evaluation_index,
             auth_path_evaluation,
+            &TestHasher::new()
         ) {
             return false;
         }
@@ -287,6 +288,7 @@ pub fn verify_query<F: IsField + IsTwoAdicField>(
             fri_layer_merkle_root,
             layer_evaluation_index_symmetric,
             auth_path_evaluation_symmetric,
+            &TestHasher::new()
         ) {
             return false;
         }
