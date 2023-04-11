@@ -16,8 +16,8 @@ pub struct CommonPreprocessedInput<F: IsField> {
     pub n: usize,
     /// Number of constraints
     pub domain: Vec<FieldElement<F>>,
-    pub omega: FieldElement<F>, // Order 4 root unity
-    pub k1: FieldElement<F>,    // Order R minus one root unity
+    pub omega: FieldElement<F>,
+    pub k1: FieldElement<F>,
 
     pub ql: Polynomial<FieldElement<F>>,
     pub qr: Polynomial<FieldElement<F>>,

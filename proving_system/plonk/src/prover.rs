@@ -35,7 +35,7 @@ pub struct Proof<F: IsField, CS: IsCommitmentScheme<F>> {
     /// Commitment to the wire polynomial `c(x)`
     pub c_1: CS::Commitment,
 
-    /// Round 2.
+    // Round 2.
     /// Commitment to the copy constraints polynomial `z(x)`
     pub z_1: CS::Commitment,
 
