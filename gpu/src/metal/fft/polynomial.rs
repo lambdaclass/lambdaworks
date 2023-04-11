@@ -9,7 +9,7 @@ use lambdaworks_math::{
 
 use super::{errors::FFTMetalError, helpers::log2, ops::*};
 
-trait MetalFFTPoly<F: IsTwoAdicField> {
+pub trait MetalFFTPoly<F: IsTwoAdicField> {
     fn evaluate_fft_metal(&self, state: &MetalState)
         -> Result<Vec<FieldElement<F>>, FFTMetalError>;
     fn evaluate_offset_fft_metal(
