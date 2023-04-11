@@ -2,6 +2,7 @@ use crate::field::traits::IsField;
 use crate::unsigned_integer::element::UnsignedInteger;
 use crate::unsigned_integer::montgomery::MontgomeryAlgorithms;
 use crate::unsigned_integer::traits::IsUnsignedInteger;
+use std::fmt;
 use std::iter::Sum;
 use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
 use std::{
@@ -363,6 +364,39 @@ impl<F: IsPrimeField> FieldElement<F> {
     }
 }
 
+impl<M, const NUM_LIMBS: usize> fmt::Display
+    for FieldElement<MontgomeryBackendPrimeField<M, NUM_LIMBS>>
+where
+    M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let value: UnsignedInteger<NUM_LIMBS> = self.representative();
+
+        write!(f, "0x")?;
+
+        if NUM_LIMBS == 0 || value.limbs.iter().all(|&x| x == 0) {
+            return write!(f, "0");
+        }
+
+        let mut first_non_zero = false;
+        for limb in value.limbs.iter() {
+            if !first_non_zero && *limb == 0 {
+                continue;
+            }
+
+            first_non_zero = true;
+
+            if first_non_zero {
+                write!(f, "{:x}", limb)?;
+            } else {
+                write!(f, "{:016x}", limb)?;
+            }
+        }
+
+        Ok(())
+    }
+}
+
 impl<M, const NUM_LIMBS: usize> FieldElement<MontgomeryBackendPrimeField<M, NUM_LIMBS>>
 where
     M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug,
@@ -385,6 +419,7 @@ where
 mod tests {
 
     use crate::field::element::FieldElement;
+    use crate::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
     use crate::field::test_fields::u64_test_field::U64TestField;
 
     #[test]
@@ -410,5 +445,12 @@ mod tests {
                 .value,
             0
         );
+    }
+
+    #[test]
+    fn test_display() {
+        let n = 0xffffffffffffffff;
+        let fe = FieldElement::<Stark252PrimeField>::from(n);
+        assert_eq!(format!("{}", fe), format!("{:#x}", n));
     }
 }
