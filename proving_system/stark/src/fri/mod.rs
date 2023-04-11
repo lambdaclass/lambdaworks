@@ -1,21 +1,20 @@
 mod fri_commitment;
 pub mod fri_decommit;
 mod fri_functions;
-
 use crate::fri::fri_commitment::{FriCommitment, FriCommitmentVec};
 use crate::fri::fri_functions::next_fri_layer;
 use crate::transcript_to_field;
-use lambdaworks_crypto::merkle_tree::test_merkle::TestHasher;
-
-pub type FriMerkleTree<F> = MerkleTree<F, TestHasher>;
 pub use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 pub use lambdaworks_crypto::merkle_tree::merkle::MerkleTree;
+use lambdaworks_crypto::merkle_tree::test_merkle::TestHasher;
 use lambdaworks_math::field::traits::IsField;
 use lambdaworks_math::traits::ByteConversion;
 pub use lambdaworks_math::{
     field::{element::FieldElement, fields::u64_prime_field::U64PrimeField},
     polynomial::Polynomial,
 };
+
+pub type FriMerkleTree<F> = MerkleTree<F, TestHasher>;
 
 /// # Params
 ///
