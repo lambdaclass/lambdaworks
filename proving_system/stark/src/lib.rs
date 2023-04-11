@@ -40,7 +40,6 @@ pub fn sample_z_ood<F: IsField, T: Transcript>(
 ) -> FieldElement<F> {
     loop {
         let value: FieldElement<F> = transcript_to_field(transcript);
-        println!("SAMPLE Z OOD {:?}", value);
         if !lde_roots_of_unity_coset.iter().any(|x| x == &value)
             && !trace_roots_of_unity.iter().any(|x| x == &value)
         {
