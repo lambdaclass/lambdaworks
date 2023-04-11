@@ -15,6 +15,10 @@ criterion = "0.4"
 const-random = "0.1.15"
 
 [[bench]]
+name = "all_benchmarks"
+harness = false
+
+[[bench]]
 name = "field_benchmarks"
 harness = false
 
@@ -23,6 +27,6 @@ name = "polynomial_benchmarks"
 harness = false
 
 [[bench]]
-name = "math_fft_benchmarks"
+name = "fft_benchmarks"
 harness = false
 
