@@ -35,7 +35,7 @@ pub fn metal_fft_benchmarks(c: &mut Criterion) {
 
         // the objective is to bench ordered FFT, including twiddles generation and Metal setup
         group.bench_with_input(
-            format!("Parallel from NR radix2 (Metal)"),
+            "Parallel from NR radix2 (Metal)",
             &coeffs,
             |bench, coeffs| {
                 bench.iter(|| {
@@ -43,8 +43,7 @@ pub fn metal_fft_benchmarks(c: &mut Criterion) {
                     objc::rc::autoreleasepool(|| {
                         let coeffs = coeffs.clone();
                         let metal_state = MetalState::new(None).unwrap();
-                        let twiddles =
-                            F::get_twiddles(order as u64, RootsConfig::BitReverse).unwrap();
+                        let twiddles = F::get_twiddles(order, RootsConfig::BitReverse).unwrap();
 
                         fft(&coeffs, &twiddles, &metal_state).unwrap();
                     });
@@ -63,7 +62,7 @@ pub fn metal_twiddles_gen_benchmarks(c: &mut Criterion) {
     for order in INPUT_SET {
         group.throughput(criterion::Throughput::Elements(1 << (order - 1)));
 
-        group.bench_with_input(format!("Parallel (Metal)"), &order, |bench, order| {
+        group.bench_with_input("Parallel (Metal)", &order, |bench, order| {
             bench.iter(|| {
                 // TODO: autoreleaspool hurts perf. by 2-3%. Search for an alternative
                 objc::rc::autoreleasepool(|| {
@@ -85,7 +84,7 @@ pub fn metal_bitrev_permutation_benchmarks(c: &mut Criterion) {
         let coeffs = gen_coeffs(order);
         group.throughput(criterion::Throughput::Elements(1 << order)); // info for criterion
 
-        group.bench_with_input(format!("Parallel (Metal)"), &coeffs, |bench, coeffs| {
+        group.bench_with_input("Parallel (Metal)", &coeffs, |bench, coeffs| {
             bench.iter(|| {
                 // TODO: autoreleaspool hurts perf. by 2-3%. Search for an alternative
                 objc::rc::autoreleasepool(|| {
@@ -108,7 +107,7 @@ pub fn metal_poly_interpolate_fft_benchmarks(c: &mut Criterion) {
 
         group.throughput(criterion::Throughput::Elements(1 << order)); // info for criterion
 
-        group.bench_with_input(format!("Parallel FFT (Metal)"), &evals, |bench, evals| {
+        group.bench_with_input("Parallel FFT (Metal)", &evals, |bench, evals| {
             bench.iter(|| {
                 // TODO: autoreleaspool hurts perf. by 2-3%. Search for an alternative
                 objc::rc::autoreleasepool(|| {
