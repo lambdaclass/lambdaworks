@@ -3,6 +3,8 @@ use criterion::{criterion_group, criterion_main, Criterion};
 mod benchmarks;
 
 fn run_fft_benchmarks(c: &mut Criterion) {
+    benchmarks::fft::bitrev_permutation_benchmarks(c);
+    benchmarks::fft::twiddles_benchmarks(c);
     benchmarks::fft::fft_benchmarks(c);
 }
 

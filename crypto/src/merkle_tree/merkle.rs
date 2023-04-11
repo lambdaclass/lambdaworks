@@ -84,6 +84,7 @@ impl<F: IsField> MerkleTree<F> {
 
 #[cfg(test)]
 mod tests {
+
     use crate::merkle_tree::test_merkle::TestHasher;
 
     use super::*;

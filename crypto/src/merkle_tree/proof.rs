@@ -104,11 +104,10 @@ mod tests {
 
     use lambdaworks_math::traits::ByteConversion;
 
-    use crate::{merkle_tree::{
+    use crate::merkle_tree::{
         merkle::MerkleTree,
-        proof::Proof,
-        test_merkle::{Ecgfp5FE, TestHasher, TestMerkleTreeEcgfp, TestProofEcgfp5},
-    }};
+        proof::Proof, test_merkle::{Ecgfp5FE, TestProofEcgfp5, TestHasher, TestMerkleTreeEcgfp}
+    };
 
     use lambdaworks_math::field::{element::FieldElement, fields::u64_prime_field::U64PrimeField};
 
