@@ -5,7 +5,7 @@ pub mod proof;
 pub mod prover;
 pub mod verifier;
 
-use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
+use lambdaworks_crypto::{fiat_shamir::transcript::Transcript, merkle_tree::test_merkle::TestHasher};
 use lambdaworks_math::field::{
     element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
     traits::IsField,
