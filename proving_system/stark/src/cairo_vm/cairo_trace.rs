@@ -53,6 +53,7 @@ impl CairoTrace {
 
 #[cfg(test)]
 mod tests {
+    use super::super::cairo_mem::CairoMemory;
     use super::*;
 
     #[test]
@@ -147,5 +148,22 @@ mod tests {
         };
 
         assert_eq!(trace, expected_trace);
+    }
+
+    #[test]
+    fn memory_trace_sum_program() {
+        let base_dir = env!("CARGO_MANIFEST_DIR");
+        dbg!(base_dir);
+
+        // read trace from file
+        let dir_trace = base_dir.to_owned() + "/src/cairo_vm/test_data/trace_sum_program.bin";
+        let trace = CairoTrace::from_file(&dir_trace).unwrap();
+
+        // read memory from file
+        let dir_memory = base_dir.to_owned() + "/src/cairo_vm/test_data/mem_sum_program.bin";
+        let memory = CairoMemory::from_file(&dir_memory).unwrap();
+
+        println!("trace: {trace:?}");
+        println!("trace: {memory:?}");
     }
 }
