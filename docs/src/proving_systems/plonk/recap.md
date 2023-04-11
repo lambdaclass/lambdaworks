@@ -249,7 +249,7 @@ We ended up with two matrices that depend only on the program, $Q$ and $V$. And 
 
 ### From matrices to polynomials
 
-In the previous section we showed how the arithmetization process works in PLONK. For a program with $n$ public inputs and $m$ gates, we constructed two matrices $Q$ and $V$, of sizes $(n + m + 1) \times 5$ and $(n + m + 1) \times 3$ that satisfy the following. Let $N = n + m + 1.
+In the previous section we showed how the arithmetization process works in PLONK. For a program with $n$ public inputs and $m$ gates, we constructed two matrices $Q$ and $V$, of sizes $(n + m + 1) \times 5$ and $(n + m + 1) \times 3$ that satisfy the following. Let $N = n + m + 1.$
 
 **Claim:** Let $T$ be a $N \times 3$ matrix with columns $A, B, C$ and $PI$ a $N \times 1$ matrix. They correspond to a valid execution instance with public input given by $PI$ if and only if a) for all $i$ the following equality holds $$A_i (Q_L)_i + B_i (Q_R)_i + A_i B_i Q_M + C_i (Q_O)_i + (Q_C)_i + (PI)_i = 0,$$ b) for all $i,j,k,l$ such that $V_{i,j} = V_{k,l}$ we have $T_{i,j} = T_{k,l}$, c) $(PI)_i = 0$ for all $i>n$.
 
