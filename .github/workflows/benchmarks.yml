@@ -27,10 +27,10 @@ jobs:
       with:
         tool: 'cargo'
         output-file-path: output.txt
-        benchmark-data-dir-path: "."
+        benchmark-data-dir-path: "./bench"
         github-token: ${{ secrets.GITHUB_TOKEN }}
         # Push and deploy GitHub pages branch automatically
-        auto-push: false
+        auto-push: true
         alert-threshold: '130%'
         comment-on-alert: true
         alert-comment-cc-users: '@unbalancedparentheses'
