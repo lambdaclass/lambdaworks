@@ -200,11 +200,13 @@ fn compute_deep_composition_poly<A: AIR, F: IsTwoAdicField>(
 
     // Get the number of trace terms the DEEP composition poly will have.
     // One coefficient will be sampled for each of them.
-    let n_trace_terms = transition_offsets.len() * trace_polys.len();
-    let mut trace_term_coeffs = Vec::with_capacity(n_trace_terms);
-    for _ in 0..n_trace_terms {
-        trace_term_coeffs.push(transcript_to_field::<F>(transcript));
-    }
+    let trace_term_coeffs = (0..trace_polys.len())
+        .map(|_| {
+            (0..transition_offsets.len())
+                .map(|_| transcript_to_field::<F>(transcript))
+                .collect()
+        })
+        .collect::<Vec<Vec<FieldElement<F>>>>();
 
     // Get coefficients for even and odd terms of the composition polynomial H(x)
     let gamma_even = transcript_to_field::<F>(transcript);
@@ -221,16 +223,17 @@ fn compute_deep_composition_poly<A: AIR, F: IsTwoAdicField>(
     // Compute all the trace terms of the deep composition polynomial. There will be one
     // term for every trace polynomial and every trace evaluation.
     let mut trace_terms = Polynomial::zero();
-    for (trace_evaluation, trace_poly) in trace_evaluations.iter().zip(trace_polys) {
-        for ((eval, coeff), offset) in trace_evaluation
+    for ((i, trace_poly), coeff_row) in trace_polys.iter().enumerate().zip(trace_term_coeffs) {
+        for ((trace_evaluation, offset), coeff) in trace_evaluations
             .iter()
-            .zip(&trace_term_coeffs)
             .zip(&transition_offsets)
+            .zip(coeff_row)
         {
+            let eval = trace_evaluation[i].clone();
             let root_of_unity = ood_evaluation_point * primitive_root.pow(*offset);
-            let poly = (trace_poly.clone() - Polynomial::new_monomial(eval.clone(), 0))
+            let poly = (trace_poly.clone() - Polynomial::new_monomial(eval, 0))
                 / (Polynomial::new_monomial(FieldElement::<F>::one(), 1)
-                    - Polynomial::new_monomial(root_of_unity.clone(), 0));
+                    - Polynomial::new_monomial(root_of_unity, 0));
 
             trace_terms = trace_terms + poly * coeff.clone();
         }

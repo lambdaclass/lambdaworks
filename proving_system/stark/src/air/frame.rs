@@ -68,14 +68,14 @@ impl<F: IsTwoAdicField> Frame<F> {
         frame_offsets: &[usize],
         primitive_root: &FieldElement<F>,
     ) -> Vec<Vec<FieldElement<F>>> {
-        trace_polys
+        frame_offsets
             .iter()
-            .map(|trace_poly| {
-                frame_offsets
+            .map(|offset| x * primitive_root.pow(*offset))
+            .map(|eval_point| {
+                trace_polys
                     .iter()
-                    .map(|offset| x * primitive_root.pow(*offset))
-                    .map(|eval_point| trace_poly.evaluate(&eval_point))
-                    .collect()
+                    .map(|poly| poly.evaluate(&eval_point))
+                    .collect::<Vec<FieldElement<F>>>()
             })
             .collect()
     }

@@ -256,11 +256,13 @@ fn evaluate_deep_composition_poly<A: AIR, F: IsTwoAdicField>(
 ) -> FieldElement<F> {
     // Get the number of trace terms the DEEP composition poly will have.
     // One coefficient will be sampled for each of them.
-    let n_trace_terms = air.context().transition_offsets.len() * lde_trace_evaluations.len();
-    let mut trace_term_coeffs = Vec::with_capacity(n_trace_terms);
-    for _ in 0..n_trace_terms {
-        trace_term_coeffs.push(transcript_to_field::<F>(transcript));
-    }
+    let trace_term_coeffs = (0..trace_poly_ood_evaluations.num_columns())
+        .map(|_| {
+            (0..trace_poly_ood_evaluations.num_rows())
+                .map(|_| transcript_to_field::<F>(transcript))
+                .collect()
+        })
+        .collect::<Vec<Vec<FieldElement<F>>>>();
 
     // Get coefficients for even and odd terms of the composition polynomial H(x)
     let gamma_even = transcript_to_field::<F>(transcript);
@@ -271,10 +273,11 @@ fn evaluate_deep_composition_poly<A: AIR, F: IsTwoAdicField>(
     let consistency_check_x = &lde_roots_of_unity_coset[consistency_check_idx];
 
     let mut trace_terms = FieldElement::zero();
-    for (col_idx, trace_evaluation) in
-        (0..trace_poly_ood_evaluations.num_columns()).zip(lde_trace_evaluations)
+    for ((col_idx, trace_evaluation), coeff_row) in (0..trace_poly_ood_evaluations.num_columns())
+        .zip(lde_trace_evaluations)
+        .zip(trace_term_coeffs)
     {
-        for (row_idx, coeff) in (0..trace_poly_ood_evaluations.num_rows()).zip(&trace_term_coeffs) {
+        for (row_idx, coeff) in (0..trace_poly_ood_evaluations.num_rows()).zip(coeff_row) {
             let poly_evaluation = (trace_evaluation
                 - trace_poly_ood_evaluations.get_row(row_idx)[col_idx].clone())
                 / (consistency_check_x - ood_evaluation_point * primitive_root.pow(row_idx as u64));
