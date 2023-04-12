@@ -439,9 +439,18 @@ assert!(verifier.verify(
     &verifying_key
 ));
 ```
+## Padding
+If you need to inspect the JSON files exported by `ToJSON`, the following details may be important to you.
+
+All the matrices $Q, V, T, PI$ are padded with dummy rows so that their length is a power of two. To be able to interpolate their columns, we need a primitive root of unity $\omega$ of that order. Given the particular field used in our implementation, that means that the maximum possible size for a circuit is $2^{32}$.
+
+The entries of the dummy rows are filled in with zeroes in the $Q$, $V$ and $PI$ matrices. The $T$ matrix needs to be consistent with the $V$ matrix. Therefore it is filled with the value of the variable with index $0$. That is the first public input.
+
+Some other rows in the $V$ matrix have also dummy values. These are the rows corresponding to the $B$ and $C$ columns of the public input rows. In the recap we denoted them with the empty `-` symbol. They are filled in with the same logic as the padding rows, as well as the corresponding values in the $T$ matrix.
+
 # Implementation details
 
-The implementation pretty much follows the rounds as are described in the recap. There are a few details that are worth mentioning.
+The implementation pretty much follows the rounds as are described in the [protocol](./protocol.md) section. There are a few details that are worth mentioning.
 
 ## Commitment Scheme
 The commitment scheme we use is the [Kate-Zaverucha-Goldberg](https://www.iacr.org/archive/asiacrypt2010/6477178/6477178.pdf) scheme with the `BLS 12 381` curve and the ate pairing. It can be found in the `commitments` module of the `lambdaworks_crypto` package.
@@ -454,13 +463,40 @@ The order $r$ of the cyclic subgroup is
 
 The maximum power of two that divides $r-1$ is $2^{32}$. Therefore, that is the maximum possible order for a primitive root of unity in $\mathbb{F}_r$ with order a power of two. 
 
+## Fiat-Shamir
 
-## Padding
-If you need to inspect the JSON files exported from `gnark`, the following details may be important to you.
+### Transcript strategy
 
-All the matrices $Q, V, T, PI$ are padded with dummy rows so that their length is a power of two. To be able to interpolate their columns, we need a primitive root of unity $\omega$ of that order. That means that the maximum possible size for a circuit is $2^{32}$.
+Here we describe our implementation of the transcript used for the Fiat-Shamir heuristic.
 
-The entries of the dummy rows are filled in with zeroes in the $Q$, $V$ and $PI$ matrices. The $T$ matrix needs to be consistent with the $V$ matrix. Therefore it is filled with the value of the variable with index $0$. That is the first public input.
+A `Transcript` exposes two methods: `append` and `challenge`.
 
-Some other rows in the $V$ matrix have also dummy values. These are the rows corresponding to the $B$ and $C$ columns of the public input rows. In the recap we denoted them with the empty `-` symbol. They are filled in with the same logic as the padding rows, as well as the corresponding values in the $T$ matrix.
+The method `append` adds a message to the transcript by updating the internal state of the hasher with the raw bytes of the message. 
+
+The  method `challenge` returns the result of the hasher using the current internal state of the hasher. It subsequently resets the hasher and updates the internal state with the last result.
+
+Here is an example of this process:
+
+1. Start a fresh transcript. 
+2. Call `append` and pass `message_1`.
+3. Call `append` and pass `message_2`.
+4. The internal state of the hasher at this point is `message_2 || message_1`.
+5. Call `challenge`. The output is `Hash(message_2 || message_1)`.
+6. Call `append` and pass `message_3`.
+7. Call `challenge`. The output is `Hash(message_3 || Hash(message_2 || message_1))`.
+8. Call `append` and pass `message_4`.
+
+The internal state of the hasher at the end of this exercise is `message_4 || Hash(message_3 || Hash(message_2 || message_1))`
+
+The underlying hasher function we use is `h=sha3`.
+
+### Field elements
+The result of every challenge is a $256$-bit string, which is interpreted as an integer in big-endian order. A field element is constructed out of it by taking modulo the field order. The prime field used in this implementation has a $253$-bit order. Therefore some field elements are slightly more probable to occur than others because they have multiple representatives as 256-bit integers.
+
+### Strong Fiat-Shamir
+The first messages added to the transcript are all commitments of the polynomials of the common preprocessed input and the values of the public inputs. This prevents a known vulnerability called "weak Fiat-Shamir".
+Check out the following resources to learn more about it.
+
+- [What can go wrong (zkdocs)](https://www.zkdocs.com/docs/zkdocs/protocol-primitives/fiat-shamir/#what-can-go-wrong)
+- [How not to Prove Yourself: Pitfalls of the Fiat-Shamir Heuristic and Applications to Helios](https://eprint.iacr.org/2016/771.pdf)
 
