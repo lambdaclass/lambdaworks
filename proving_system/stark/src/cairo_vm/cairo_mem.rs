@@ -1,18 +1,22 @@
 use super::errors::CairoImportError;
 use lambdaworks_math::{traits::ByteConversion, unsigned_integer::element::U256};
-use std::fs;
+use std::{collections::HashMap, fs};
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct CairoMemoryCell {
-    pub address: u64,
-    // This could also be a StarkField
-    // Since we need to convert everything to StarkFields
-    // later, we won't do it here
-    pub value: U256,
-}
-#[derive(Clone, Debug, PartialEq)]
+// #[derive(Clone, Debug, PartialEq)]
+// pub struct CairoMemoryCell {
+//     pub address: u64,
+//     // This could also be a StarkField
+//     // Since we need to convert everything to StarkFields
+//     // later, we won't do it here
+//     pub value: U256,
+// }
+
+// #[derive(Clone, Debug, PartialEq)]
+// pub struct CairoMemory {
+//     pub cells: Vec<CairoMemoryCell>,
+// }
 pub struct CairoMemory {
-    pub cells: Vec<CairoMemoryCell>,
+    data: HashMap<u64, U256>,
 }
 
 impl CairoMemory {
@@ -26,23 +30,21 @@ impl CairoMemory {
         }
         let num_rows = bytes.len() / ROW_SIZE;
 
-        let mut cells: Vec<CairoMemoryCell> = Vec::with_capacity(num_rows);
+        // let mut cells: Vec<CairoMemoryCell> = Vec::with_capacity(num_rows);
+        let mut data = HashMap::with_capacity(num_rows);
 
         for i in 0..num_rows {
-            cells.push(CairoMemoryCell {
-                address: u64::from_le_bytes(
-                    bytes[i * ROW_SIZE..i * ROW_SIZE + 8].try_into().unwrap(),
-                ),
-                value: U256::from_bytes_le(
-                    bytes[i * ROW_SIZE + 8..i * ROW_SIZE + 40]
-                        .try_into()
-                        .unwrap(),
-                )
-                .unwrap(),
-            })
+            let address =
+                u64::from_le_bytes(bytes[i * ROW_SIZE..i * ROW_SIZE + 8].try_into().unwrap());
+            let value = U256::from_bytes_le(
+                bytes[i * ROW_SIZE + 8..i * ROW_SIZE + 40]
+                    .try_into()
+                    .unwrap(),
+            );
+            data.insert(address, value);
         }
 
-        Ok(Self { cells })
+        Ok(Self { data })
     }
 
     pub fn from_file(path: &str) -> Result<Self, CairoImportError> {
