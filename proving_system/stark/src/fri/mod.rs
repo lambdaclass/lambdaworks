@@ -4,6 +4,7 @@ mod fri_functions;
 use crate::fri::fri_commitment::{FriCommitment, FriCommitmentVec};
 use crate::fri::fri_functions::next_fri_layer;
 use crate::{transcript_to_field};
+use lambdaworks_crypto::hash::sha3::Sha3Hasher;
 use lambdaworks_crypto::merkle_tree::test_merkle::TestHasher;
 pub use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 pub use lambdaworks_crypto::merkle_tree::merkle::MerkleTree;
@@ -15,7 +16,7 @@ pub use lambdaworks_math::{
 };
 
 pub type FriMerkleTree<F> = MerkleTree<F>;
-pub (crate) const HASHER: TestHasher = TestHasher::new();
+pub (crate) const HASHER: Sha3Hasher = Sha3Hasher::new();
 
 /// # Params
 ///

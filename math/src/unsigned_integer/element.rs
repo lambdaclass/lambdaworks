@@ -477,7 +477,10 @@ impl<const NUM_LIMBS: usize> ByteConversion for UnsignedInteger<NUM_LIMBS> {
 
     fn from_bytes_be(bytes: &[u8]) -> Result<Self, ByteConversionError> {
         let mut limbs = Vec::with_capacity(NUM_LIMBS);
-        bytes.chunks_exact(8).try_for_each(|chunk| {
+
+        bytes[0..NUM_LIMBS*8]
+            .chunks_exact(8)
+            .try_for_each(|chunk| {
             let limb = u64::from_be_bytes(
                 chunk
                     .try_into()
@@ -496,7 +499,8 @@ impl<const NUM_LIMBS: usize> ByteConversion for UnsignedInteger<NUM_LIMBS> {
 
     fn from_bytes_le(bytes: &[u8]) -> Result<Self, ByteConversionError> {
         let mut limbs = Vec::with_capacity(NUM_LIMBS);
-        bytes.chunks_exact(8).rev().try_for_each(|chunk| {
+        bytes[0..NUM_LIMBS*8]
+        .chunks_exact(8).rev().try_for_each(|chunk| {
             let limb = u64::from_le_bytes(
                 chunk
                     .try_into()
@@ -517,7 +521,7 @@ impl<const NUM_LIMBS: usize> ByteConversion for UnsignedInteger<NUM_LIMBS> {
 #[cfg(test)]
 mod tests_u384 {
     use crate::traits::ByteConversion;
-    use crate::unsigned_integer::element::{UnsignedInteger, U384};
+    use crate::unsigned_integer::element::{UnsignedInteger, U384, U256};
 
     #[test]
     fn construct_new_integer_from_limbs() {

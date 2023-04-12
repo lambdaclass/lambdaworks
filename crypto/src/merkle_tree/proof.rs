@@ -22,7 +22,8 @@ impl<F: IsField> Proof<F> {
         mut index: usize,
         value: &FieldElement<F>,
         hasher: &dyn IsCryptoHash<F>
-    ) -> bool {
+    ) 
+    -> bool where FieldElement<F>: ByteConversion {
         let mut hashed_value = hasher.hash_one(value.clone());
 
         for sibling_node in self.merkle_path.iter().rev() {

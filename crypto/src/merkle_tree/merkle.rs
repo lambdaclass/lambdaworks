@@ -1,5 +1,5 @@
 use crate::hash::traits::IsCryptoHash;
-use lambdaworks_math::field::{element::FieldElement, traits::IsField};
+use lambdaworks_math::{field::{element::FieldElement, traits::IsField}, traits::ByteConversion};
 
 //use super::proof::Proof;
 use super::{utils::*, proof::Proof};
@@ -13,7 +13,7 @@ pub struct MerkleTree<F: IsField> {
 const ROOT: usize = 0;
 
 impl<F: IsField> MerkleTree<F> {
-    pub fn build(unhashed_leaves: &[FieldElement<F>], hasher: Box<dyn IsCryptoHash<F>>) -> MerkleTree<F> {
+    pub fn build(unhashed_leaves: &[FieldElement<F>], hasher: Box<dyn IsCryptoHash<F>>) -> MerkleTree<F> where FieldElement<F>: ByteConversion {
         let mut hashed_leaves: Vec<FieldElement<F>> = hash_leaves(unhashed_leaves, hasher.as_ref());
 
         //The leaf must be a power of 2 set
@@ -38,7 +38,7 @@ impl<F: IsField> MerkleTree<F> {
         Vec::from(&self.nodes[leaves_start..])
     }
 
-    pub fn get_proof(&self, value: &FieldElement<F>) -> Option<Proof<F>> {
+    pub fn get_proof(&self, value: &FieldElement<F>) -> Option<Proof<F>> where FieldElement<F>: ByteConversion {
         let hashed_leaf = self.hasher.hash_one(value.clone());
 
         if let Some(mut pos) = self

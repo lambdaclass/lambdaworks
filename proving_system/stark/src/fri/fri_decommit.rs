@@ -3,6 +3,7 @@ pub use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_crypto::merkle_tree::proof::Proof;
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::IsField;
+use lambdaworks_math::traits::ByteConversion;
 #[derive(Debug, Clone)]
 pub struct FriDecommitment<F: IsField> {
     pub layer_merkle_paths: Vec<(Proof<F>, Proof<F>)>,
@@ -17,7 +18,9 @@ pub struct FriDecommitment<F: IsField> {
 pub fn fri_decommit_layers<F: IsField>(
     commit: &FriCommitmentVec<F>,
     index_to_verify: usize,
-) -> FriDecommitment<F> {
+) -> FriDecommitment<F> 
+where FieldElement<F>: ByteConversion {
+    
     let mut index = index_to_verify;
 
     let mut layer_merkle_paths = vec![];

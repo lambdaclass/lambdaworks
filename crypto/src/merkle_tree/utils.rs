@@ -1,11 +1,11 @@
-use lambdaworks_math::field::{element::FieldElement, traits::IsField};
+use lambdaworks_math::{field::{element::FieldElement, traits::IsField}, traits::ByteConversion};
 
 use crate::hash::traits::IsCryptoHash;
 
 pub fn hash_leaves<F: IsField>(
     values: &[FieldElement<F>],
     hasher: &dyn IsCryptoHash<F>,
-) -> Vec<FieldElement<F>> {
+) -> Vec<FieldElement<F>> where FieldElement<F>: ByteConversion {
     values
         .iter()
         .map(|val| hasher.hash_one(val.clone()))
@@ -46,7 +46,7 @@ pub fn build<F: IsField>(
     nodes: &mut Vec<FieldElement<F>>,
     parent_index: usize,
     hasher: &dyn IsCryptoHash<F>,
-) -> Vec<FieldElement<F>> {
+) -> Vec<FieldElement<F>> where FieldElement<F>: ByteConversion {
     if is_leaf(nodes.len(), parent_index) {
         return nodes.to_vec();
     }
