@@ -1,4 +1,4 @@
-use super::cairo_mem::CairoMemoryCell;
+use lambdaworks_math::unsigned_integer::element::U256;
 
 const OFF_DST_OFF: u32 = 0;
 const OFF_OP0_OFF: u32 = 16;
@@ -12,16 +12,16 @@ pub struct InstructionOffsets {
 }
 
 impl InstructionOffsets {
-    pub fn new(cell: &CairoMemoryCell) -> Self {
+    pub fn new(mem_value: &U256) -> Self {
         Self {
-            off_dst: Self::decode_offset(cell, OFF_DST_OFF),
-            off_op0: Self::decode_offset(cell, OFF_OP0_OFF),
-            off_op1: Self::decode_offset(cell, OFF_OP1_OFF),
+            off_dst: Self::decode_offset(mem_value, OFF_DST_OFF),
+            off_op0: Self::decode_offset(mem_value, OFF_OP0_OFF),
+            off_op1: Self::decode_offset(mem_value, OFF_OP1_OFF),
         }
     }
 
-    fn decode_offset(cell: &CairoMemoryCell, instruction_offset: u32) -> i32 {
-        let offset = cell.value.limbs[3] >> instruction_offset & OFFX_MASK;
+    fn decode_offset(mem_value: &U256, instruction_offset: u32) -> i32 {
+        let offset = mem_value.limbs[3] >> instruction_offset & OFFX_MASK;
         let vectorized_offset = offset.to_le_bytes();
         let aux = [
             vectorized_offset[0],
@@ -33,7 +33,6 @@ impl InstructionOffsets {
 
 #[cfg(test)]
 mod tests {
-    use super::super::cairo_mem::CairoMemoryCell;
     use super::InstructionOffsets;
 
     use lambdaworks_math::unsigned_integer::element::U256;
@@ -41,14 +40,7 @@ mod tests {
     fn assert_opcode_flag_is_correct_1() {
         // Instruction A
         let value = U256::from_limbs([0, 0, 0, 0x480680017fff8000]);
-        let addr: u64 = 1;
-
-        let mem_cell = CairoMemoryCell {
-            address: addr,
-            value,
-        };
-
-        let instruction_offsets = InstructionOffsets::new(&mem_cell);
+        let instruction_offsets = InstructionOffsets::new(&value);
 
         assert_eq!(instruction_offsets.off_dst, 0);
         assert_eq!(instruction_offsets.off_op0, -1);
@@ -59,14 +51,7 @@ mod tests {
     fn assert_opcode_flag_is_correct_2() {
         // Instruction A
         let value = U256::from_limbs([0, 0, 0, 0x208b7fff7fff7ffe]);
-        let addr: u64 = 1;
-
-        let mem_cell = CairoMemoryCell {
-            address: addr,
-            value,
-        };
-
-        let instruction_offsets = InstructionOffsets::new(&mem_cell);
+        let instruction_offsets = InstructionOffsets::new(&value);
 
         assert_eq!(instruction_offsets.off_dst, -2);
         assert_eq!(instruction_offsets.off_op0, -1);
@@ -77,14 +62,7 @@ mod tests {
     fn assert_opcode_flag_is_correct_3() {
         // Instruction A
         let value = U256::from_limbs([0, 0, 0, 0x48327ffc7ffa8000]);
-        let addr: u64 = 1;
-
-        let mem_cell = CairoMemoryCell {
-            address: addr,
-            value,
-        };
-
-        let instruction_offsets = InstructionOffsets::new(&mem_cell);
+        let instruction_offsets = InstructionOffsets::new(&value);
 
         assert_eq!(instruction_offsets.off_dst, 0);
         assert_eq!(instruction_offsets.off_op0, -6);
