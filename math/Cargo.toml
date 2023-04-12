@@ -25,8 +25,3 @@ harness = false
 [[bench]]
 name = "polynomial_benchmarks"
 harness = false
-
-[[bench]]
-name = "fft_benchmarks"
-harness = false
-
