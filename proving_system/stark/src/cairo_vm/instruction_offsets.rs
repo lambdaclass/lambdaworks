@@ -5,6 +5,7 @@ const OFF_OP0_OFF: u32 = 16;
 const OFF_OP1_OFF: u32 = 32;
 const OFFX_MASK: u64 = 0xFFFF;
 
+#[derive(Debug, PartialEq, Eq)]
 pub struct InstructionOffsets {
     pub off_dst: i32,
     pub off_op0: i32,

@@ -56,8 +56,8 @@ pub fn build_cairo_execution_trace<F: IsField>(
     raw_trace: &CairoTrace,
     memory: &CairoMemory,
 ) -> TraceTable<F> {
-    // CREATE FLAG COLUMS|
-    // let instructions = raw_trace.
+    // CREATE FLAG COLUMS
+    // let in = .
 
     // CREATE
 
