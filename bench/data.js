@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1681238242044,
+  "lastUpdate": 1681335444884,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -155,6 +155,162 @@ window.BENCHMARK_DATA = {
             "name": "starks/quadratic_air",
             "value": 33018131,
             "range": "± 71763",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49622509+jrchatruc@users.noreply.github.com",
+            "name": "Javier Rodríguez Chatruc",
+            "username": "jrchatruc"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "df56e0f08a5bb8d69bee5a922d38d2c0534d6e97",
+          "message": "Add feature flag to disable Fiat-Shamir (#242)\n\n* Add feature flag to disable Fiat-Shamir\n\n* Fix conditional compilation so make clippy can run with all features, rename dummy_fiat_shamir to test_fiat_shamir\n\n* Remove comment",
+          "timestamp": "2023-04-12T21:27:25Z",
+          "tree_id": "b114e6d86c0017959af63424bff5797c3991e43b",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/df56e0f08a5bb8d69bee5a922d38d2c0534d6e97"
+        },
+        "date": 1681335444173,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "u64/add",
+            "value": 12,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/mul",
+            "value": 12,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/pow",
+            "value": 66,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/sub",
+            "value": 13,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/inv",
+            "value": 482,
+            "range": "± 31",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/div",
+            "value": 507,
+            "range": "± 30",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/eq",
+            "value": 2,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/evaluate",
+            "value": 3836,
+            "range": "± 2257",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/evaluate_slice",
+            "value": 254458,
+            "range": "± 432501",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/add",
+            "value": 3685,
+            "range": "± 1098",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/neg",
+            "value": 1051,
+            "range": "± 433",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/sub",
+            "value": 5087,
+            "range": "± 1339",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/mul",
+            "value": 3958,
+            "range": "± 1118",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/div",
+            "value": 4019,
+            "range": "± 1172",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT/Sequential NR radix2 for 2^21 elements",
+            "value": 3021176993,
+            "range": "± 26965779",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT/Sequential RN radix2 for 2^21 elements",
+            "value": 3481723122,
+            "range": "± 21974960",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT/Sequential NR radix2 for 2^22 elements",
+            "value": 6172091713,
+            "range": "± 59776280",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT/Sequential RN radix2 for 2^22 elements",
+            "value": 7421662656,
+            "range": "± 124258226",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "starks/simple_fibonacci",
+            "value": 38518184,
+            "range": "± 1399994",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "starks/fibonacci_2_columns",
+            "value": 55901667,
+            "range": "± 1794322",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "starks/fibonacci_f17",
+            "value": 224785,
+            "range": "± 8254",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "starks/quadratic_air",
+            "value": 39492737,
+            "range": "± 1377132",
             "unit": "ns/iter"
           }
         ]
