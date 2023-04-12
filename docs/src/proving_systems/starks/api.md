@@ -4,7 +4,9 @@ Let's go over the main test we use for our prover, where we compute a STARK proo
 
 ```rust
 fn test_prove_fib() {
-    let trace = fibonacci_trace([FE::from(1), FE::from(1)], 4);
+    let trace = simple_fibonacci::fibonacci_trace([FE::from(1), FE::from(1)], 8);
+    let trace_length = trace[0].len();
+    let trace_table = TraceTable::new_from_cols(&trace);
 
     let context = AirContext {
         options: ProofOptions {
@@ -12,23 +14,20 @@ fn test_prove_fib() {
             fri_number_of_queries: 1,
             coset_offset: 3,
         },
-        trace_length: trace.len(),
-        trace_info: (trace.len(), 1),
+        trace_length,
+        trace_columns: trace_table.n_cols,
         transition_degrees: vec![1],
-        transition_exemptions: vec![trace.len() - 2, trace.len() - 1],
+        transition_exemptions: vec![2],
         transition_offsets: vec![0, 1, 2],
         num_transition_constraints: 1,
     };
 
-    let trace_table = TraceTable {
-        table: trace.clone(),
-        num_cols: 1,
-    };
-
     let fibonacci_air = FibonacciAIR::new(context);
+    let mut prover = Prover::new(&fibonacci_air);
+    let mut verifier = Verifier::new(&fibonacci_air);
 
-    let result = prove(&trace, &fibonacci_air);
-    assert!(verify(&result, &fibonacci_air));
+    let result = prover.prove::<TestHasher>(&trace_table);
+    assert!(verifier.verify(&result));
 }
 ```
 
@@ -138,12 +137,10 @@ let context = AirContext {
         fri_number_of_queries: 1,
         coset_offset: 3,
     },
-
-    trace_length: trace.len(),
-    trace_columns: trace_table.num_cols,
-
+    trace_length,
+    trace_columns: trace_table.n_cols,
     transition_degrees: vec![1],
-    transition_exemptions: vec![trace.len() - 2, trace.len() - 1],
+    transition_exemptions: vec![2],
     transition_offsets: vec![0, 1, 2],
     num_transition_constraints: 1,
 };
@@ -157,19 +154,22 @@ Let's go over each of them:
     - The `offset` used for the LDE coset. This depends on the field being used for the STARK proof.
 - `trace_length` and `trace_columns` are the number of rows and columns of the trace, respectively.
 - `transition_degrees` holds the degree of each transition constraint.
-- `transition_exemptions` is a `Vec` which tells us on which rows the transition constraints should not apply. TODO: this needs to be changed be an exemptions `Vec` per transition constraint.
+- `transition_exemptions` is a `Vec` which tells us, for each column, the number of rows the transition constraints should not apply, starting from the end of the trace. In the example, the transition constraints won't apply on the last two rows of the trace.
 - `transition_offsets` holds the indexes that define a frame for our `AIR`. In our fibonacci case, these are `[0, 1, 2]` because we need the current row and the two previous one to define our transition constraint.
 - `num_transition_constraints` simply says how many transition constraints our `AIR` has.
 
 ## Proving execution
 
-Having defined all of the above, proving our fibonacci example amounts to instantiating the necessary structs and then calling `prove` passing the `AIR` and the trace.
+Having defined all of the above, proving our fibonacci example amounts to instantiating the necessary structs, including the `Prover` and `Verifier`, and then calling `Prover::prove` passing the `AIR` and the trace. We use a simple implementation of a hasher called `TestHasher` to handle merkle proof building.
 
 ```rust
-let proof = prove(&trace, &fibonacci_air);
+    let mut prover = Prover::new(&fibonacci_air);
+    let mut verifier = Verifier::new(&fibonacci_air);
+
+    let result = prover.prove::<TestHasher>(&trace_table);
 ```
 
-Verifying is then done by passing the proof of execution along with the same `AIR` to the `verify` function.
+Verifying is then done by passing the proof of execution along with the same `AIR` to the `Verifier::verify` function.
 
 ```rust
 assert!(verify(&proof, &fibonacci_air));
