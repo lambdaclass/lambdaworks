@@ -78,7 +78,7 @@ Written as constraints, these are
     (v_{i+1} - v_i)(a_{i+1} - a_i - 1) = 0
     $$
 
-With this idea in mind, to show the memory's consistency the prover does two things. First, they take all memory accesses and orders them. Second, they show that the above constraints are satisfied for the ordered list. If the ordered list is contiguous and write-once, then the unorderes once is too.
+With this idea in mind, to show the memory's consistency the prover does two things. First, they take all memory accesses and orders them. Second, they show that the above constraints are satisfied for the ordered list. If the ordered list is contiguous and write-once, then the unordered one is too.
 
 NOTE: If you're following along with the Cairo paper, the regular unordered list of memory accesses is what the paper calls $L_1$, while the *ordered* version of it is $L_2$.
 
