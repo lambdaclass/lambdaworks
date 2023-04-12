@@ -1,12 +1,12 @@
-# Usage
-Let's start with some examples.
+# Implementation
+In this section we discuss the implementation details of the plonk algorithm. We use the notation and terminology of the [recap](./protocol.md) and [recap](./recap.md) sections. 
 
-At the moment our API supports the backend of PLONK. That is the all the setup, prove and verify algorithms. For the definition of a circuit and the creation of the $Q$ and $V$ matrices, as well as the execution of it to obtain the trace matrix $T$, we rely on external sources. We mainly use gnark temporarily for that purpose.
+At the moment our API supports the backend of PLONK. That is, all the setup, prove and verify algorithms. We temporarily rely on external sources for the definition of a circuit and the creation of the $Q$ and $V$ matrices, as well as the execution of it to obtain the trace matrix $T$. We mainly use gnark temporarily for that purpose.
 
 So to generate proofs and validate them, we need to feed the algorithms with precomputed values of the $Q$, $V$ and $T$ matrices, and the primitive root of unity $\omega$.
 
 Let us see our API on a test circuit that provides all these values. The program in this case is the one that takes an input $x$, a private input $e$ and computes $y = xe +5$. As in the toy example of the recap, the output of the program is added to the public inputs and the circuit actually asserts that the output is the claimed value. So more precisely, the prover will generate a proof for the statement `ASSERT(x*e+5==y)`, where both $x,y$ are public inputs.
-
+# Usage
 Here is the happy path.
 
 ```rust
@@ -440,12 +440,11 @@ assert!(verifier.verify(
 ));
 ```
 # Implementation details
-In this section we discuss the implementation details of the plonk algorithm. We use the notation and terminology of the [recap](./recap.md) section. 
 
 The implementation pretty much follows the rounds as are described in the recap. There are a few details that are worth mentioning.
 
 ## Commitment Scheme
-The commitment scheme we use is the Kate-Zaverucha-Goldberg scheme with the `BLS 12 381` curve and the ate pairing.
+The commitment scheme we use is the [Kate-Zaverucha-Goldberg](https://www.iacr.org/archive/asiacrypt2010/6477178/6477178.pdf) scheme with the `BLS 12 381` curve and the ate pairing. It can be found in the `commitments` module of the `lambdaworks_crypto` package.
 
 The order $r$ of the cyclic subgroup is
 
@@ -455,7 +454,10 @@ The order $r$ of the cyclic subgroup is
 
 The maximum power of two that divides $r-1$ is $2^{32}$. Therefore, that is the maximum possible order for a primitive root of unity in $\mathbb{F}_r$ with order a power of two. 
 
+
 ## Padding
+If you need to inspect the JSON files exported from `gnark`, the following details may be important to you.
+
 All the matrices $Q, V, T, PI$ are padded with dummy rows so that their length is a power of two. To be able to interpolate their columns, we need a primitive root of unity $\omega$ of that order. That means that the maximum possible size for a circuit is $2^{32}$.
 
 The entries of the dummy rows are filled in with zeroes in the $Q$, $V$ and $PI$ matrices. The $T$ matrix needs to be consistent with the $V$ matrix. Therefore it is filled with the value of the variable with index $0$. That is the first public input.
