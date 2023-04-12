@@ -1,5 +1,5 @@
 # Implementation
-In this section we discuss the implementation details of the plonk algorithm. We use the notation and terminology of the [recap](./protocol.md) and [recap](./recap.md) sections. 
+In this section we discuss the implementation details of the PLONK algorithm. We use the notation and terminology of the [protocol](./protocol.md) and [recap](./recap.md) sections. 
 
 At the moment our API supports the backend of PLONK. That is, all the setup, prove and verify algorithms. We temporarily rely on external sources for the definition of a circuit and the creation of the $Q$ and $V$ matrices, as well as the execution of it to obtain the trace matrix $T$. We mainly use gnark temporarily for that purpose.
 
