@@ -12,7 +12,7 @@
 // ├xxxxxxxxxxxxxxxx|x|xx|xxxx|xxxx|xxx|xxx┤
 //
 
-use lambdaworks_math::field::traits::IsField;
+use lambdaworks_math::field::{element::FieldElement, traits::IsField};
 
 use crate::{
     air::trace::TraceTable,
@@ -65,7 +65,15 @@ pub fn build_cairo_execution_trace<F: IsField>(
         .into_iter()
         .unzip();
 
-    // CREATE
+    // Get res, dst_addr, op0_addr and op1_addr
+
+    let flags: Vec<[FieldElement<F>; 16]> =
+        flags.iter().map(|f| f.to_trace_representation()).collect();
+
+    let offsets: Vec<[FieldElement<F>; 3]> = offsets
+        .iter()
+        .map(|off| off.to_trace_representation())
+        .collect();
 
     todo!()
 }

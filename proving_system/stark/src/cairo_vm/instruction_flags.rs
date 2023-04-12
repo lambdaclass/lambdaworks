@@ -34,6 +34,7 @@ pub struct CairoInstructionFlags {
 }
 
 impl CairoInstructionFlags {
+    #[rustfmt::skip]
     pub fn to_trace_representation<F: IsField>(&self) -> [FieldElement<F>; 16] {
         let [b0, b1, b2] = self.opcode.to_trace_representation();
         let [b3, b4] = self.ap_update.to_trace_representation();
@@ -44,21 +45,13 @@ impl CairoInstructionFlags {
         let b14 = self.dst_reg.to_trace_representation();
 
         [
-            b0,
-            b1,
-            b2,
-            b3,
-            b4,
-            b5,
-            b6,
-            b7,
-            b8,
-            b9,
-            b10,
-            b11,
-            b12,
-            b13,
-            b14,
+            b0, b1, b2,      // opcode bits
+            b3, b4,          // ap_update bits
+            b5, b6, b7,      // pc_update bits
+            b8, b9,          // res_logic bits
+            b10, b11, b12,   // op1_src bits
+            b13,             // op0_reg bits
+            b14,             // dst_reg bits
             FieldElement::zero(),
         ]
     }
@@ -377,10 +370,7 @@ impl TryFrom<&U256> for CairoOpcode {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use lambdaworks_math::{
-        field::fields::u64_prime_field::{U64PrimeField, F17},
-        unsigned_integer::element::U256,
-    };
+    use lambdaworks_math::{field::fields::u64_prime_field::F17, unsigned_integer::element::U256};
     /*
     For the purpose of testing the decoding, we are going to use instructions obtained
     directly from valid Cairo programs. The decoding shown here is obtained by inspecting

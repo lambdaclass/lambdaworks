@@ -1,4 +1,7 @@
-use lambdaworks_math::unsigned_integer::element::U256;
+use lambdaworks_math::{
+    field::{element::FieldElement, traits::IsField},
+    unsigned_integer::element::U256,
+};
 
 const OFF_DST_OFF: u32 = 0;
 const OFF_OP0_OFF: u32 = 16;
@@ -21,7 +24,7 @@ impl InstructionOffsets {
         }
     }
 
-    fn decode_offset(mem_value: &U256, instruction_offset: u32) -> i32 {
+    pub fn decode_offset(mem_value: &U256, instruction_offset: u32) -> i32 {
         let offset = mem_value.limbs[3] >> instruction_offset & OFFX_MASK;
         let vectorized_offset = offset.to_le_bytes();
         let aux = [
@@ -29,6 +32,23 @@ impl InstructionOffsets {
             vectorized_offset[1].overflowing_sub(128).0,
         ];
         i32::from(i16::from_le_bytes(aux))
+    }
+
+    pub fn to_trace_representation<F: IsField>(&self) -> [FieldElement<F>; 3] {
+        [
+            to_unbiased_representation(self.off_dst),
+            to_unbiased_representation(self.off_op0),
+            to_unbiased_representation(self.off_op1),
+        ]
+    }
+}
+
+fn to_unbiased_representation<F: IsField>(n: i32) -> FieldElement<F> {
+    let b15 = 2u64.pow(15u32);
+    if n < 0 {
+        FieldElement::<F>::from(b15 - n.unsigned_abs() as u64)
+    } else {
+        FieldElement::<F>::from(n as u64 + b15)
     }
 }
 
