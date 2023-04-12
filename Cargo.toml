@@ -1,10 +1,4 @@
 [workspace]
-default-members = [
-    "math",
-    "crypto",
-    "proving_system/stark",
-    "proving_system/plonk"
-]
 members = [
     "math",
     "crypto",

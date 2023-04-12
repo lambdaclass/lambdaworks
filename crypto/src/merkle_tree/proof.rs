@@ -108,7 +108,9 @@ mod tests {
     use lambdaworks_math::traits::ByteConversion;
 
     use crate::merkle_tree::{
-        merkle::MerkleTree, proof::Proof, DefaultHasher, U64MerkleTree, U64Proof, U64FE,
+        merkle::MerkleTree,
+        proof::Proof,
+        test_merkle::{Ecgfp5FE, TestHasher, TestMerkleTreeEcgfp, TestProofEcgfp5},
     };
 
     use lambdaworks_math::field::{element::FieldElement, fields::u64_prime_field::U64PrimeField};
@@ -119,13 +121,13 @@ mod tests {
 
     #[test]
     fn serialize_proof_and_deserialize_using_be_it_get_a_consistent_proof() {
-        let merkle_path = [U64FE::new(2), U64FE::new(1), U64FE::new(1)].to_vec();
-        let original_proof = U64Proof {
-            hasher: DefaultHasher,
+        let merkle_path = [Ecgfp5FE::new(2), Ecgfp5FE::new(1), Ecgfp5FE::new(1)].to_vec();
+        let original_proof = TestProofEcgfp5 {
+            hasher: TestHasher,
             merkle_path,
         };
         let serialize_proof = original_proof.to_bytes_be();
-        let proof: U64Proof = Proof::from_bytes_be(&serialize_proof).unwrap();
+        let proof: TestProofEcgfp5 = Proof::from_bytes_be(&serialize_proof).unwrap();
 
         for (o_node, node) in original_proof.merkle_path.iter().zip(proof.merkle_path) {
             assert_eq!(*o_node, node);
@@ -134,13 +136,13 @@ mod tests {
 
     #[test]
     fn serialize_proof_and_deserialize_using_le_it_get_a_consistent_proof() {
-        let merkle_path = [U64FE::new(2), U64FE::new(1), U64FE::new(1)].to_vec();
-        let original_proof = U64Proof {
-            hasher: DefaultHasher,
+        let merkle_path = [Ecgfp5FE::new(2), Ecgfp5FE::new(1), Ecgfp5FE::new(1)].to_vec();
+        let original_proof = TestProofEcgfp5 {
+            hasher: TestHasher,
             merkle_path,
         };
         let serialize_proof = original_proof.to_bytes_le();
-        let proof: U64Proof = Proof::from_bytes_le(&serialize_proof).unwrap();
+        let proof: TestProofEcgfp5 = Proof::from_bytes_le(&serialize_proof).unwrap();
 
         for (o_node, node) in original_proof.merkle_path.iter().zip(proof.merkle_path) {
             assert_eq!(*o_node, node);
@@ -152,7 +154,7 @@ mod tests {
     fn create_a_proof_over_value_that_belongs_to_a_given_merkle_tree_when_given_the_leaf_position()
     {
         let values: Vec<FE> = (1..6).map(FE::new).collect();
-        let merkle_tree = MerkleTree::<U64PF, DefaultHasher>::build(&values);
+        let merkle_tree = MerkleTree::<U64PF, TestHasher>::build(&values);
         let proof = &merkle_tree.get_proof_by_pos(1).unwrap();
         assert_merkle_path(&proof.merkle_path, &[FE::new(2), FE::new(1), FE::new(1)]);
         assert!(proof.verify(&merkle_tree.root, 1, &FE::new(2)));
@@ -162,7 +164,7 @@ mod tests {
     // expected | 2 | 1 | 1 |
     fn verify_a_proof_over_value_that_belongs_to_a_given_merkle_tree() {
         let values: Vec<FE> = (1..6).map(FE::new).collect();
-        let merkle_tree = MerkleTree::<U64PF, DefaultHasher>::build(&values);
+        let merkle_tree = MerkleTree::<U64PF, TestHasher>::build(&values);
 
         let proof = merkle_tree.get_proof(&FE::new(2)).unwrap();
         assert_merkle_path(&proof.merkle_path, &[FE::new(2), FE::new(1), FE::new(1)]);
@@ -172,20 +174,20 @@ mod tests {
 
     #[test]
     fn merkle_proof_verifies_after_serialization_and_deserialization() {
-        let values: Vec<U64FE> = (1..6).map(U64FE::new).collect();
-        let merkle_tree = U64MerkleTree::build(&values);
-        let proof = merkle_tree.get_proof(&U64FE::new(2)).unwrap();
+        let values: Vec<Ecgfp5FE> = (1..6).map(Ecgfp5FE::new).collect();
+        let merkle_tree = TestMerkleTreeEcgfp::build(&values);
+        let proof = merkle_tree.get_proof(&Ecgfp5FE::new(2)).unwrap();
         let serialize_proof = proof.to_bytes_be();
-        let proof: U64Proof = Proof::from_bytes_be(&serialize_proof).unwrap();
-        assert!(proof.verify(&merkle_tree.root, 1, &U64FE::new(2)));
+        let proof: TestProofEcgfp5 = Proof::from_bytes_be(&serialize_proof).unwrap();
+        assert!(proof.verify(&merkle_tree.root, 1, &Ecgfp5FE::new(2)));
     }
 
     #[test]
     fn create_a_merkle_tree_with_10000_elements_and_verify_that_an_element_is_part_of_it() {
-        let values: Vec<U64FE> = (1..10000).map(U64FE::new).collect();
-        let merkle_tree = U64MerkleTree::build(&values);
-        let proof = merkle_tree.get_proof(&U64FE::new(9350)).unwrap();
-        assert!(proof.verify(&merkle_tree.root, 9349, &U64FE::new(9350)));
+        let values: Vec<Ecgfp5FE> = (1..10000).map(Ecgfp5FE::new).collect();
+        let merkle_tree = TestMerkleTreeEcgfp::build(&values);
+        let proof = merkle_tree.get_proof(&Ecgfp5FE::new(9350)).unwrap();
+        assert!(proof.verify(&merkle_tree.root, 9349, &Ecgfp5FE::new(9350)));
     }
 
     fn assert_merkle_path(values: &[FE], expected_values: &[FE]) {
