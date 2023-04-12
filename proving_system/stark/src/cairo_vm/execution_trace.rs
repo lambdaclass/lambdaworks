@@ -14,7 +14,10 @@
 
 use lambdaworks_math::field::traits::IsField;
 
-use crate::air::trace::TraceTable;
+use crate::{
+    air::trace::TraceTable,
+    cairo_vm::{instruction_flags::CairoInstructionFlags, instruction_offsets::InstructionOffsets},
+};
 
 use super::{cairo_mem::CairoMemory, cairo_trace::CairoTrace};
 
@@ -56,8 +59,11 @@ pub fn build_cairo_execution_trace<F: IsField>(
     raw_trace: &CairoTrace,
     memory: &CairoMemory,
 ) -> TraceTable<F> {
-    // CREATE FLAG COLUMS
-    // let in = .
+    let (flags, offsets): (Vec<CairoInstructionFlags>, Vec<InstructionOffsets>) = raw_trace
+        .flags_and_offsets(memory)
+        .unwrap()
+        .into_iter()
+        .unzip();
 
     // CREATE
 

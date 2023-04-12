@@ -1,4 +1,7 @@
-use lambdaworks_math::unsigned_integer::element::U256;
+use lambdaworks_math::{
+    field::{element::FieldElement, traits::IsField},
+    unsigned_integer::element::U256,
+};
 
 use super::errors::InstructionDecodingError;
 
@@ -30,10 +33,50 @@ pub struct CairoInstructionFlags {
     pub dst_reg: DstReg,
 }
 
+impl CairoInstructionFlags {
+    pub fn to_trace_representation<F: IsField>(&self) -> [FieldElement<F>; 16] {
+        let [b0, b1, b2] = self.opcode.to_trace_representation();
+        let [b3, b4] = self.ap_update.to_trace_representation();
+        let [b5, b6, b7] = self.pc_update.to_trace_representation();
+        let [b8, b9] = self.res_logic.to_trace_representation();
+        let [b10, b11, b12] = self.op1_src.to_trace_representation();
+        let b13 = self.op0_reg.to_trace_representation();
+        let b14 = self.dst_reg.to_trace_representation();
+
+        [
+            b0,
+            b1,
+            b2,
+            b3,
+            b4,
+            b5,
+            b6,
+            b7,
+            b8,
+            b9,
+            b10,
+            b11,
+            b12,
+            b13,
+            b14,
+            FieldElement::zero(),
+        ]
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Op0Reg {
     AP = 0,
     FP = 1,
+}
+
+impl Op0Reg {
+    pub fn to_trace_representation<F: IsField>(&self) -> FieldElement<F> {
+        match self {
+            Op0Reg::AP => FieldElement::zero(),
+            Op0Reg::FP => FieldElement::one(),
+        }
+    }
 }
 
 impl TryFrom<&U256> for Op0Reg {
@@ -57,6 +100,14 @@ impl TryFrom<&U256> for Op0Reg {
 pub enum DstReg {
     AP = 0,
     FP = 1,
+}
+impl DstReg {
+    pub fn to_trace_representation<F: IsField>(&self) -> FieldElement<F> {
+        match self {
+            DstReg::AP => FieldElement::zero(),
+            DstReg::FP => FieldElement::one(),
+        }
+    }
 }
 
 impl TryFrom<&U256> for DstReg {
@@ -82,6 +133,33 @@ pub enum Op1Src {
     Imm = 1,
     AP = 2,
     FP = 4,
+}
+
+impl Op1Src {
+    pub fn to_trace_representation<F: IsField>(&self) -> [FieldElement<F>; 3] {
+        match self {
+            Op1Src::Op0 => [
+                FieldElement::zero(),
+                FieldElement::zero(),
+                FieldElement::zero(),
+            ],
+            Op1Src::Imm => [
+                FieldElement::zero(),
+                FieldElement::zero(),
+                FieldElement::one(),
+            ],
+            Op1Src::AP => [
+                FieldElement::zero(),
+                FieldElement::one(),
+                FieldElement::zero(),
+            ],
+            Op1Src::FP => [
+                FieldElement::one(),
+                FieldElement::zero(),
+                FieldElement::zero(),
+            ],
+        }
+    }
 }
 
 impl TryFrom<&U256> for Op1Src {
@@ -110,6 +188,17 @@ pub enum ResLogic {
     Unconstrained,
 }
 
+impl ResLogic {
+    pub fn to_trace_representation<F: IsField>(&self) -> [FieldElement<F>; 2] {
+        match self {
+            ResLogic::Op1 => [FieldElement::zero(), FieldElement::zero()],
+            ResLogic::Add => [FieldElement::zero(), FieldElement::one()],
+            ResLogic::Mul => [FieldElement::one(), FieldElement::zero()],
+            ResLogic::Unconstrained => todo!(),
+        }
+    }
+}
+
 impl TryFrom<&U256> for ResLogic {
     type Error = InstructionDecodingError;
 
@@ -136,6 +225,33 @@ pub enum PcUpdate {
     Jnz = 4,
 }
 
+impl PcUpdate {
+    pub fn to_trace_representation<F: IsField>(&self) -> [FieldElement<F>; 3] {
+        match self {
+            PcUpdate::Regular => [
+                FieldElement::zero(),
+                FieldElement::zero(),
+                FieldElement::zero(),
+            ],
+            PcUpdate::Jump => [
+                FieldElement::zero(),
+                FieldElement::zero(),
+                FieldElement::one(),
+            ],
+            PcUpdate::JumpRel => [
+                FieldElement::zero(),
+                FieldElement::one(),
+                FieldElement::zero(),
+            ],
+            PcUpdate::Jnz => [
+                FieldElement::one(),
+                FieldElement::zero(),
+                FieldElement::zero(),
+            ],
+        }
+    }
+}
+
 impl TryFrom<&U256> for PcUpdate {
     type Error = InstructionDecodingError;
 
@@ -160,6 +276,17 @@ pub enum ApUpdate {
     Add1 = 2,
     // TODO: Check if this is correct
     Add2,
+}
+
+impl ApUpdate {
+    pub fn to_trace_representation<F: IsField>(&self) -> [FieldElement<F>; 2] {
+        match self {
+            ApUpdate::Regular => [FieldElement::zero(), FieldElement::zero()],
+            ApUpdate::Add => [FieldElement::zero(), FieldElement::one()],
+            ApUpdate::Add1 => [FieldElement::one(), FieldElement::zero()],
+            ApUpdate::Add2 => todo!(),
+        }
+    }
 }
 
 impl TryFrom<&U256> for ApUpdate {
@@ -203,6 +330,33 @@ pub enum CairoOpcode {
     AssertEq = 4,
 }
 
+impl CairoOpcode {
+    pub fn to_trace_representation<F: IsField>(&self) -> [FieldElement<F>; 3] {
+        match self {
+            CairoOpcode::NOp => [
+                FieldElement::zero(),
+                FieldElement::zero(),
+                FieldElement::zero(),
+            ],
+            CairoOpcode::Call => [
+                FieldElement::zero(),
+                FieldElement::zero(),
+                FieldElement::one(),
+            ],
+            CairoOpcode::Ret => [
+                FieldElement::zero(),
+                FieldElement::one(),
+                FieldElement::zero(),
+            ],
+            CairoOpcode::AssertEq => [
+                FieldElement::one(),
+                FieldElement::zero(),
+                FieldElement::zero(),
+            ],
+        }
+    }
+}
+
 impl TryFrom<&U256> for CairoOpcode {
     type Error = InstructionDecodingError;
 
@@ -223,7 +377,10 @@ impl TryFrom<&U256> for CairoOpcode {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use lambdaworks_math::unsigned_integer::element::U256;
+    use lambdaworks_math::{
+        field::fields::u64_prime_field::{U64PrimeField, F17},
+        unsigned_integer::element::U256,
+    };
     /*
     For the purpose of testing the decoding, we are going to use instructions obtained
     directly from valid Cairo programs. The decoding shown here is obtained by inspecting
@@ -548,5 +705,45 @@ mod tests {
         let flags = CairoInstructionFlags::try_from(&value).unwrap();
 
         assert_eq!(expected_flags, flags);
+    }
+
+    #[test]
+    fn flags_trace_representation() {
+        // CairoOpcode::AssertEq = 1 0 0
+        // ApUpdate::Regular = 0 0
+        // PcUpdate::Regular = 0 0 0
+        // ResLogic::Op1 = 0 0
+        // Op1Src::Op0 = 0 0 0
+        // Op0Reg::FP = 1
+        // DstReg::FP = 1
+
+        let flags = CairoInstructionFlags {
+            opcode: CairoOpcode::AssertEq,
+            pc_update: PcUpdate::Regular,
+            ap_update: ApUpdate::Regular,
+            op0_reg: Op0Reg::FP,
+            op1_src: Op1Src::Op0,
+            res_logic: ResLogic::Op1,
+            dst_reg: DstReg::FP,
+        };
+
+        let zero: FieldElement<F17> = FieldElement::zero();
+        let one: FieldElement<F17> = FieldElement::one();
+
+        #[rustfmt::skip]
+        let expected_representation = [
+            one, zero, zero,
+            zero, zero,
+            zero, zero, zero,
+            zero, zero,
+            zero, zero, zero,
+            one,
+            one,
+            zero,
+        ];
+
+        let representation = flags.to_trace_representation();
+
+        assert_eq!(representation, expected_representation);
     }
 }

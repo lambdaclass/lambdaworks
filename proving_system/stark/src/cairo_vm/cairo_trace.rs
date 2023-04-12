@@ -20,7 +20,7 @@ impl RegistersState {
     ) -> Result<(CairoInstructionFlags, InstructionOffsets), InstructionDecodingError> {
         let instruction = memory
             .get(&self.pc)
-            .ok_or_else(|| InstructionDecodingError::InstructionNotFound)?;
+            .ok_or(InstructionDecodingError::InstructionNotFound)?;
 
         let flags = CairoInstructionFlags::try_from(instruction)?;
         let offsets = InstructionOffsets::new(instruction);
