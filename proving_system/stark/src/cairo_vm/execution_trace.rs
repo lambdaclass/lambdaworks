@@ -19,7 +19,7 @@ use crate::{
     cairo_vm::{instruction_flags::CairoInstructionFlags, instruction_offsets::InstructionOffsets},
 };
 
-use super::{cairo_mem::CairoMemory, cairo_trace::CairoTrace};
+use super::{cairo_mem::CairoMemory, cairo_trace::CairoTrace, instruction_flags::DstReg};
 
 pub const FLAG_TRACE_OFFSET: usize = 0;
 pub const FLAG_TRACE_WIDTH: usize = 16;
@@ -65,7 +65,8 @@ pub fn build_cairo_execution_trace<F: IsField>(
         .into_iter()
         .unzip();
 
-    // Get res, dst_addr, op0_addr and op1_addr
+    // TODO: Get res, op0_addr and op1_addr
+    let dst_addrs: Vec<FieldElement<F>> = compute_dst_addrs(&flags, &offsets, raw_trace);
 
     let flags: Vec<[FieldElement<F>; 16]> =
         flags.iter().map(|f| f.to_trace_representation()).collect();
@@ -76,4 +77,24 @@ pub fn build_cairo_execution_trace<F: IsField>(
         .collect();
 
     todo!()
+}
+
+pub fn compute_dst_addrs<F: IsField>(
+    flags: &[CairoInstructionFlags],
+    offsets: &[InstructionOffsets],
+    raw_trace: &CairoTrace,
+) -> Vec<FieldElement<F>> {
+    flags
+        .iter()
+        .zip(offsets)
+        .zip(raw_trace.rows.iter())
+        .map(|((f, o), t)| match f.dst_reg {
+            DstReg::AP => {
+                FieldElement::<F>::from(t.ap.checked_add_signed(o.off_dst.into()).unwrap())
+            }
+            DstReg::FP => {
+                FieldElement::<F>::from(t.fp.checked_add_signed(o.off_dst.into()).unwrap())
+            }
+        })
+        .collect()
 }

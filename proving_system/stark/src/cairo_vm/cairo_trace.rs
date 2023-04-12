@@ -8,9 +8,9 @@ use std::fs;
 
 #[derive(PartialEq, Clone, Debug)]
 pub struct RegistersState {
-    pc: u64,
-    fp: u64,
-    ap: u64,
+    pub pc: u64,
+    pub fp: u64,
+    pub ap: u64,
 }
 
 impl RegistersState {
@@ -31,7 +31,7 @@ impl RegistersState {
 
 #[derive(PartialEq, Clone, Debug)]
 pub struct CairoTrace {
-    rows: Vec<RegistersState>,
+    pub rows: Vec<RegistersState>,
 }
 
 impl CairoTrace {
