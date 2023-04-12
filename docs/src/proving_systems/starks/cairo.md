@@ -95,7 +95,7 @@ If you read the article above, you probably noticed that the argument is *intera
 
 Notice that, because the argument is interactive, the constraints associated to it *depend on the sampled Fiat-Shamir values*. This means that the associated `compute_transition` method will have to take fiat-shamir sampled values as arguments along with the frame. This is part of the reason why the trace, constraints, and other stuff are divided into `main` and `auxiliary`.
 
-The explanation above was for the memory constraints. These are not the only constraints that require an interactive step and are therefore part of the `auxiliary` step. In general, constraints for builtins are also done during this step, as they also relate to memory.
+The explanation above was for the contiguous read-only memory constraints. These are not the only constraints that require an interactive step and are therefore part of the `auxiliary` step. In general, constraints for builtins are also done during this step, as they also relate to memory.
 
 ## Public memory constraints
 
