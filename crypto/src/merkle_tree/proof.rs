@@ -26,7 +26,7 @@ impl<F: IsField> Proof<F> {
     -> bool where FieldElement<F>: ByteConversion {
         let mut hashed_value = hasher.hash_one(value.clone());
 
-        for sibling_node in self.merkle_path.iter().rev() {
+        for sibling_node in self.merkle_path.iter() {
             if index % 2 == 0 {
                 hashed_value = hasher.hash_two(hashed_value, sibling_node.clone());
             } else {
