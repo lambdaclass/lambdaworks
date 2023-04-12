@@ -1,4 +1,5 @@
 use criterion::{criterion_group, criterion_main, Criterion};
+use lambdaworks_crypto::merkle_tree::test_merkle::TestHasher;
 use lambdaworks_math::field::fields::{
     fft_friendly::stark_252_prime_field::Stark252PrimeField, u64_prime_field::FE17,
 };
@@ -9,8 +10,8 @@ use lambdaworks_stark::{
         AIR,
     },
     fri::FieldElement,
-    prover::prove,
-    verifier::verify,
+    prover::Prover,
+    verifier::Verifier,
 };
 
 use lambdaworks_stark::air::example::{
@@ -63,9 +64,11 @@ fn prove_fib() {
     };
 
     let fibonacci_air = simple_fibonacci::FibonacciAIR::new(context);
+    let mut prover = Prover::new(&fibonacci_air);
+    let mut verifier = Verifier::new(&fibonacci_air);
 
-    let result = prove(&trace_table, &fibonacci_air);
-    verify(&result, &fibonacci_air);
+    let result = prover.prove::<TestHasher>(&trace_table);
+    verifier.verify(&result);
 }
 
 fn prove_fib_2_cols() {
@@ -89,9 +92,11 @@ fn prove_fib_2_cols() {
     };
 
     let fibonacci_air = fibonacci_2_columns::Fibonacci2ColsAIR::new(context);
+    let mut prover = Prover::new(&fibonacci_air);
+    let mut verifier = Verifier::new(&fibonacci_air);
 
-    let result = prove(&trace_table, &fibonacci_air);
-    verify(&result, &fibonacci_air);
+    let result = prover.prove::<TestHasher>(&trace_table);
+    verifier.verify(&result);
 }
 
 fn prove_fib17() {
@@ -113,9 +118,11 @@ fn prove_fib17() {
     };
 
     let fibonacci_air = fibonacci_f17::Fibonacci17AIR::new(context);
+    let mut prover = Prover::new(&fibonacci_air);
+    let mut verifier = Verifier::new(&fibonacci_air);
 
-    let result = prove(&trace_table, &fibonacci_air);
-    verify(&result, &fibonacci_air);
+    let result = prover.prove::<TestHasher>(&trace_table);
+    verifier.verify(&result);
 }
 
 fn prove_quadratic() {
@@ -140,7 +147,9 @@ fn prove_quadratic() {
     };
 
     let fibonacci_air = quadratic_air::QuadraticAIR::new(context);
+    let mut prover = Prover::new(&fibonacci_air);
+    let mut verifier = Verifier::new(&fibonacci_air);
 
-    let result = prove(&trace_table, &fibonacci_air);
-    verify(&result, &fibonacci_air);
+    let result = prover.prove::<TestHasher>(&trace_table);
+    verifier.verify(&result);
 }

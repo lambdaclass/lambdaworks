@@ -1,21 +1,23 @@
+use lambdaworks_crypto::merkle_tree::test_merkle::TestHasher;
 use lambdaworks_math::field::fields::{
     fft_friendly::stark_252_prime_field::Stark252PrimeField, u64_prime_field::FE17,
 };
 
+use lambdaworks_stark::air::example::fibonacci_2_columns::fibonacci_trace_2_columns;
+use lambdaworks_stark::air::example::simple_fibonacci::FibonacciAIR;
+use lambdaworks_stark::air::example::{
+    fibonacci_2_columns, fibonacci_f17, quadratic_air, simple_fibonacci,
+};
+use lambdaworks_stark::air::AIR;
+
 use lambdaworks_stark::{
     air::{
         context::{AirContext, ProofOptions},
-        example::{fibonacci_2_columns::fibonacci_trace_2_columns, simple_fibonacci::FibonacciAIR},
         trace::TraceTable,
-        AIR,
     },
     fri::FieldElement,
-    prover::prove,
-    verifier::verify,
-};
-
-use lambdaworks_stark::air::example::{
-    fibonacci_2_columns, fibonacci_f17, quadratic_air, simple_fibonacci,
+    prover::Prover,
+    verifier::Verifier,
 };
 
 pub type FE = FieldElement<Stark252PrimeField>;
@@ -41,9 +43,11 @@ fn test_prove_fib() {
     };
 
     let fibonacci_air = FibonacciAIR::new(context);
+    let mut prover = Prover::new(&fibonacci_air);
+    let mut verifier = Verifier::new(&fibonacci_air);
 
-    let result = prove(&trace_table, &fibonacci_air);
-    assert!(verify(&result, &fibonacci_air));
+    let result = prover.prove::<TestHasher>(&trace_table);
+    assert!(verifier.verify(&result));
 }
 
 #[test]
@@ -66,9 +70,11 @@ fn test_prove_fib17() {
     };
 
     let fibonacci_air = fibonacci_f17::Fibonacci17AIR::new(context);
+    let mut prover = Prover::new(&fibonacci_air);
+    let mut verifier = Verifier::new(&fibonacci_air);
 
-    let result = prove(&trace_table, &fibonacci_air);
-    assert!(verify(&result, &fibonacci_air));
+    let result = prover.prove::<TestHasher>(&trace_table);
+    assert!(verifier.verify(&result));
 }
 
 #[test]
@@ -92,9 +98,11 @@ fn test_prove_fib_2_cols() {
     };
 
     let fibonacci_air = fibonacci_2_columns::Fibonacci2ColsAIR::new(context);
+    let mut prover = Prover::new(&fibonacci_air);
+    let mut verifier = Verifier::new(&fibonacci_air);
 
-    let result = prove(&trace_table, &fibonacci_air);
-    assert!(verify(&result, &fibonacci_air));
+    let result = prover.prove::<TestHasher>(&trace_table);
+    assert!(verifier.verify(&result));
 }
 
 #[test]
@@ -119,8 +127,10 @@ fn test_prove_quadratic() {
         num_transition_constraints: 1,
     };
 
-    let fibonacci_air = quadratic_air::QuadraticAIR::new(context);
+    let quadratic_air = quadratic_air::QuadraticAIR::new(context);
+    let mut prover = Prover::new(&quadratic_air);
+    let mut verifier = Verifier::new(&quadratic_air);
 
-    let result = prove(&trace_table, &fibonacci_air);
-    assert!(verify(&result, &fibonacci_air));
+    let result = prover.prove::<TestHasher>(&trace_table);
+    assert!(verifier.verify(&result));
 }
