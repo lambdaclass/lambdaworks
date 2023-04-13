@@ -1,3 +1,5 @@
+# FFT Benchmarks
+
 ## Polynomial interpolation methods comparison
 
 Three methods of polynomial interpolation were benchmarked, with different input sizes each time:
