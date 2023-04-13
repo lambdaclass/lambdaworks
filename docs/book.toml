@@ -1,5 +1,5 @@
 [book]
-authors = ["Javier Chatruc"]
+authors = ["Javier Chatruc", "Estéfano Bargas"]
 language = "en"
 multilingual = false
 src = "src"
