@@ -32,29 +32,6 @@ impl<F: IsField> MerkleTree<F> {
             hasher: hasher,
         }
     }
-    
-    fn get_leaves(&self) -> Vec<FieldElement<F>> {
-        let leaves_start = self.nodes.len() / 2;
-        Vec::from(&self.nodes[leaves_start..])
-    }
-
-    pub fn get_proof(&self, value: &FieldElement<F>) -> Option<Proof<F>> where FieldElement<F>: ByteConversion {
-        let hashed_leaf = self.hasher.hash_one(value.clone());
-
-        if let Some(mut pos) = self
-            .get_leaves()
-            .iter()
-            .position(|leaf| *leaf == hashed_leaf)
-        {
-            pos += self.nodes.len() / 2;
-
-            let merkle_path = self.build_merkle_path(pos);
-
-            return self.create_proof(merkle_path);
-        }
-
-        None
-    }
 
     pub fn get_proof_by_pos(&self, pos: usize) -> Option<Proof<F>> {
         let pos = pos + self.nodes.len() / 2;

@@ -32,12 +32,12 @@ where FieldElement<F>: ByteConversion {
         let length_i = commit_i.domain.len();
         index %= length_i;
         let evaluation_i = commit_i.evaluation[index].clone();
-        let auth_path = commit_i.merkle_tree.get_proof(&evaluation_i).unwrap();
+        let auth_path = commit_i.merkle_tree.get_proof_by_pos(index).unwrap();
 
         // symmetrical element
         let index_sym = (index + length_i / 2) % length_i;
         let evaluation_i_sym = commit_i.evaluation[index_sym].clone();
-        let auth_path_sym = commit_i.merkle_tree.get_proof(&evaluation_i_sym).unwrap();
+        let auth_path_sym = commit_i.merkle_tree.get_proof_by_pos(index_sym).unwrap();
 
         layer_merkle_paths.push((auth_path, auth_path_sym));
         layer_evaluations.push((evaluation_i, evaluation_i_sym));

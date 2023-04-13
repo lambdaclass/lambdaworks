@@ -284,7 +284,7 @@ where FieldElement<F>: ByteConversion {
         }
 
         let layer_evaluation_index_symmetric =
-            (q_i + current_layer_domain_length) % current_layer_domain_length;
+            (q_i + current_layer_domain_length / 2) % current_layer_domain_length;
 
         if !fri_layer_auth_path_symmetric.verify(
             fri_layer_merkle_root,
