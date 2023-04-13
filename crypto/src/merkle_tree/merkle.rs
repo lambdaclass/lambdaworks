@@ -4,7 +4,6 @@ use lambdaworks_math::{
     traits::ByteConversion,
 };
 
-//use super::proof::Proof;
 use super::{proof::Proof, utils::*};
 
 pub struct MerkleTree<F: IsField> {
