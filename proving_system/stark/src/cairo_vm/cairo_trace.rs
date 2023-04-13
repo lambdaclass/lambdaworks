@@ -86,10 +86,11 @@ impl CairoTrace {
 mod tests {
     use std::collections::HashMap;
 
-    use lambdaworks_math::unsigned_integer::element::U256;
-
-    use crate::cairo_vm::instruction_flags::{
-        ApUpdate, CairoOpcode, DstReg, Op0Reg, Op1Src, PcUpdate, ResLogic,
+    use crate::{
+        cairo_vm::instruction_flags::{
+            ApUpdate, CairoOpcode, DstReg, Op0Reg, Op1Src, PcUpdate, ResLogic,
+        },
+        FE,
     };
 
     use super::*;
@@ -191,8 +192,8 @@ mod tests {
     #[test]
     fn decode_instruction_flags_and_offsets() {
         let data = HashMap::from([
-            (1u64, U256::from_limbs([0, 0, 0, 0x480680017fff8000])),
-            (2u64, U256::from_limbs([0, 0, 0, 0x1104800180018000])),
+            (1u64, FE::from(0x480680017fff8000)),
+            (2u64, FE::from(0x1104800180018000)),
         ]);
 
         let memory = CairoMemory::new(data);

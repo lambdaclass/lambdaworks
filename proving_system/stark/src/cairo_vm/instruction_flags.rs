@@ -1,6 +1,6 @@
 use super::errors::InstructionDecodingError;
 use crate::FE;
-use lambdaworks_math::{traits::ByteConversion, unsigned_integer::element::U256};
+use lambdaworks_math::traits::ByteConversion;
 
 // Consts copied from cairo-rs
 const DST_REG_MASK: u64 = 0x0001;
@@ -19,7 +19,10 @@ const OPCODE_MASK: u64 = 0x7000;
 const OPCODE_OFF: u64 = 12;
 const FLAGS_OFFSET: u64 = 48;
 
-fn aux_get_last_nim_of_FE(value: &FE) -> u64 {
+// This is just an auxiliary function done to get out of the way
+// It should be deleted afterwards
+#[allow(non_snake_case)]
+pub(crate) fn aux_get_last_nim_of_FE(value: &FE) -> u64 {
     let mem_value_bytes = value.to_bytes_be();
 
     // we are taking the last nim of the field element,
@@ -320,7 +323,7 @@ impl CairoOpcode {
 impl TryFrom<&FE> for CairoOpcode {
     type Error = InstructionDecodingError;
 
-    fn try_from(mem_value: &U256) -> Result<Self, Self::Error> {
+    fn try_from(mem_value: &FE) -> Result<Self, Self::Error> {
         let flags = aux_get_last_nim_of_FE(mem_value) >> FLAGS_OFFSET;
         let opcode = ((flags & OPCODE_MASK) >> OPCODE_OFF) as u8;
 
@@ -337,7 +340,6 @@ impl TryFrom<&FE> for CairoOpcode {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use lambdaworks_math::{field::fields::u64_prime_field::F17, unsigned_integer::element::U256};
     /*
     For the purpose of testing the decoding, we are going to use instructions obtained
     directly from valid Cairo programs. The decoding shown here is obtained by inspecting
@@ -473,7 +475,7 @@ mod tests {
     #[test]
     fn assert_opcode_flag_is_correct() {
         // Instruction A
-        let value = U256::from_limbs([0, 0, 0, 0x480680017fff8000]);
+        let value = FE::from(0x480680017fff8000);
 
         assert_eq!(CairoOpcode::try_from(&value), Ok(CairoOpcode::AssertEq));
     }
@@ -481,7 +483,7 @@ mod tests {
     #[test]
     fn call_opcode_flag_is_correct() {
         // Instruction B
-        let value = U256::from_limbs([0, 0, 0, 0x1104800180018000]);
+        let value = FE::from(0x1104800180018000);
 
         assert_eq!(CairoOpcode::try_from(&value), Ok(CairoOpcode::Call));
     }
@@ -489,7 +491,7 @@ mod tests {
     #[test]
     fn ret_opcode_flag_is_correct() {
         // Instruction C
-        let value = U256::from_limbs([0, 0, 0, 0x208b7fff7fff7ffe]);
+        let value = FE::from(0x208b7fff7fff7ffe);
 
         assert_eq!(CairoOpcode::try_from(&value), Ok(CairoOpcode::Ret));
     }
@@ -497,7 +499,7 @@ mod tests {
     #[test]
     fn nop_opcode_flag_is_correct() {
         // Instruction D
-        let value = U256::from_limbs([0, 0, 0, 0xa0680017fff7fff]);
+        let value = FE::from(0xa0680017fff7fff);
 
         assert_eq!(CairoOpcode::try_from(&value), Ok(CairoOpcode::NOp));
     }
@@ -505,7 +507,7 @@ mod tests {
     #[test]
     fn regular_pc_update_flag_is_correct() {
         // Instruction A
-        let value = U256::from_limbs([0, 0, 0, 0x480680017fff8000]);
+        let value = FE::from(0x480680017fff8000);
 
         assert_eq!(PcUpdate::try_from(&value), Ok(PcUpdate::Regular));
     }
@@ -513,7 +515,7 @@ mod tests {
     #[test]
     fn jump_pc_update_flag_is_correct() {
         // Instruction C
-        let value = U256::from_limbs([0, 0, 0, 0x208b7fff7fff7ffe]);
+        let value = FE::from(0x208b7fff7fff7ffe);
 
         assert_eq!(PcUpdate::try_from(&value), Ok(PcUpdate::Jump));
     }
@@ -521,7 +523,7 @@ mod tests {
     #[test]
     fn jumprel_pc_update_flag_is_correct() {
         // Instruction B
-        let value = U256::from_limbs([0, 0, 0, 0x1104800180018000]);
+        let value = FE::from(0x1104800180018000);
 
         assert_eq!(PcUpdate::try_from(&value), Ok(PcUpdate::JumpRel));
     }
@@ -529,7 +531,7 @@ mod tests {
     #[test]
     fn jnz_pc_update_flag_is_correct() {
         // Instruction D
-        let value = U256::from_limbs([0, 0, 0, 0xa0680017fff7fff]);
+        let value = FE::from(0xa0680017fff7fff);
 
         assert_eq!(PcUpdate::try_from(&value), Ok(PcUpdate::Jnz));
     }
@@ -537,7 +539,7 @@ mod tests {
     #[test]
     fn regular_ap_update_flag_is_correct() {
         // Instruction C
-        let value = U256::from_limbs([0, 0, 0, 0x208b7fff7fff7ffe]);
+        let value = FE::from(0x208b7fff7fff7ffe);
 
         assert_eq!(ApUpdate::try_from(&value), Ok(ApUpdate::Regular));
     }
@@ -545,7 +547,7 @@ mod tests {
     #[test]
     fn add_ap_update_flag_is_correct() {
         // Instruction H
-        let value = U256::from_limbs([0, 0, 0, 0x40780017fff7fff]);
+        let value = FE::from(0x40780017fff7fff);
 
         assert_eq!(ApUpdate::try_from(&value), Ok(ApUpdate::Add));
     }
@@ -553,7 +555,7 @@ mod tests {
     #[test]
     fn add1_ap_update_flag_is_correct() {
         // Instruction A
-        let value = U256::from_limbs([0, 0, 0, 0x480680017fff8000]);
+        let value = FE::from(0x480680017fff8000);
 
         assert_eq!(ApUpdate::try_from(&value), Ok(ApUpdate::Add1));
     }
@@ -561,7 +563,7 @@ mod tests {
     #[test]
     fn op1_res_logic_flag_is_correct() {
         // Instruction A
-        let value = U256::from_limbs([0, 0, 0, 0x480680017fff8000]);
+        let value = FE::from(0x480680017fff8000);
 
         assert_eq!(ResLogic::try_from(&value), Ok(ResLogic::Op1));
     }
@@ -569,7 +571,7 @@ mod tests {
     #[test]
     fn add_res_logic_flag_is_correct() {
         // Instruction E
-        let value = U256::from_limbs([0, 0, 0, 0x48327ffc7ffa8000]);
+        let value = FE::from(0x48327ffc7ffa8000);
 
         assert_eq!(ResLogic::try_from(&value), Ok(ResLogic::Add));
     }
@@ -577,7 +579,7 @@ mod tests {
     #[test]
     fn mul_res_logic_flag_is_correct() {
         // Instruction G
-        let value = U256::from_limbs([0, 0, 0, 0x48507fff7ffe8000]);
+        let value = FE::from(0x48507fff7ffe8000);
 
         assert_eq!(ResLogic::try_from(&value), Ok(ResLogic::Mul));
     }
@@ -585,7 +587,7 @@ mod tests {
     #[test]
     fn op0_op1_src_flag_is_correct() {
         // Instruction F
-        let value = U256::from_limbs([0, 0, 0, 0x4000800d7ff07fff]);
+        let value = FE::from(0x4000800d7ff07fff);
 
         assert_eq!(Op1Src::try_from(&value), Ok(Op1Src::Op0));
     }
@@ -593,7 +595,7 @@ mod tests {
     #[test]
     fn imm_op1_src_flag_is_correct() {
         // Instruction A
-        let value = U256::from_limbs([0, 0, 0, 0x480680017fff8000]);
+        let value = FE::from(0x480680017fff8000);
 
         assert_eq!(Op1Src::try_from(&value), Ok(Op1Src::Imm));
     }
@@ -601,7 +603,7 @@ mod tests {
     #[test]
     fn ap_op1_src_flag_is_correct() {
         // Instruction E
-        let value = U256::from_limbs([0, 0, 0, 0x48327ffc7ffa8000]);
+        let value = FE::from(0x48327ffc7ffa8000);
 
         assert_eq!(Op1Src::try_from(&value), Ok(Op1Src::AP));
     }
@@ -609,7 +611,7 @@ mod tests {
     #[test]
     fn fp_op1_src_flag_is_correct() {
         // Instruction C
-        let value = U256::from_limbs([0, 0, 0, 0x208b7fff7fff7ffe]);
+        let value = FE::from(0x208b7fff7fff7ffe);
 
         assert_eq!(Op1Src::try_from(&value), Ok(Op1Src::FP));
     }
@@ -617,7 +619,7 @@ mod tests {
     #[test]
     fn ap_op0_reg_flag_is_correct() {
         // Instruction B
-        let value = U256::from_limbs([0, 0, 0, 0x1104800180018000]);
+        let value = FE::from(0x1104800180018000);
 
         assert_eq!(Op0Reg::try_from(&value), Ok(Op0Reg::AP));
     }
@@ -625,7 +627,7 @@ mod tests {
     #[test]
     fn fp_op0_reg_flag_is_correct() {
         // Instruction A
-        let value = U256::from_limbs([0, 0, 0, 0x480680017fff8000]);
+        let value = FE::from(0x480680017fff8000);
 
         assert_eq!(Op0Reg::try_from(&value), Ok(Op0Reg::FP));
     }
@@ -633,7 +635,7 @@ mod tests {
     #[test]
     fn ap_dst_reg_flag_is_correct() {
         // Instruction A
-        let value = U256::from_limbs([0, 0, 0, 0x480680017fff8000]);
+        let value = FE::from(0x480680017fff8000);
 
         assert_eq!(DstReg::try_from(&value), Ok(DstReg::AP));
     }
@@ -641,14 +643,14 @@ mod tests {
     #[test]
     fn fp_dst_reg_flag_is_correct() {
         // Instruction C
-        let value = U256::from_limbs([0, 0, 0, 0x208b7fff7fff7ffe]);
+        let value = FE::from(0x208b7fff7fff7ffe);
 
         assert_eq!(DstReg::try_from(&value), Ok(DstReg::FP));
     }
 
     #[test]
     fn decoded_flags_of_assert_are_correct() {
-        let value = U256::from_limbs([0, 0, 0, 0x400380837ffb8000]);
+        let value = FE::from(0x400380837ffb8000);
         let expected_flags = CairoInstructionFlags {
             opcode: CairoOpcode::AssertEq,
             pc_update: PcUpdate::Regular,
@@ -666,13 +668,14 @@ mod tests {
 
     #[test]
     fn flags_trace_representation() {
-        // CairoOpcode::AssertEq = 1 0 0
-        // ApUpdate::Regular = 0 0
-        // PcUpdate::Regular = 0 0 0
-        // ResLogic::Op1 = 0 0
-        // Op1Src::Op0 = 0 0 0
-        // Op0Reg::FP = 1
-        // DstReg::FP = 1
+        // Bit-trace representation for each flag:
+        //    CairoOpcode::AssertEq = 1 0 0
+        //    ApUpdate::Regular = 0 0
+        //    PcUpdate::Regular = 0 0 0
+        //    ResLogic::Op1 = 0 0
+        //    Op1Src::Op0 = 0 0 0
+        //    Op0Reg::FP = 1
+        //    DstReg::FP = 1
 
         let flags = CairoInstructionFlags {
             opcode: CairoOpcode::AssertEq,
@@ -684,19 +687,16 @@ mod tests {
             dst_reg: DstReg::FP,
         };
 
-        let zero: FieldElement<F17> = FE::zero();
-        let one: FieldElement<F17> = FE::one();
-
         #[rustfmt::skip]
         let expected_representation = [
-            one, zero, zero,
-            zero, zero,
-            zero, zero, zero,
-            zero, zero,
-            zero, zero, zero,
-            one,
-            one,
-            zero,
+            FE::one(), FE::zero(), FE::zero(),
+            FE::zero(), FE::zero(),
+            FE::zero(), FE::zero(), FE::zero(),
+            FE::zero(), FE::zero(),
+            FE::zero(), FE::zero(), FE::zero(),
+            FE::one(),
+            FE::one(),
+            FE::zero(),
         ];
 
         let representation = flags.to_trace_representation();

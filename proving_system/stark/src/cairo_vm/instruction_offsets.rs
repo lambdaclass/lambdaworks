@@ -1,7 +1,7 @@
-use lambdaworks_math::{
-    field::{element::FieldElement, traits::IsField},
-    unsigned_integer::element::U256,
-};
+use crate::FE;
+use lambdaworks_math::field::{element::FieldElement, traits::IsField};
+
+use super::instruction_flags::aux_get_last_nim_of_FE;
 
 const OFF_DST_OFF: u32 = 0;
 const OFF_OP0_OFF: u32 = 16;
@@ -16,7 +16,7 @@ pub struct InstructionOffsets {
 }
 
 impl InstructionOffsets {
-    pub fn new(mem_value: &U256) -> Self {
+    pub fn new(mem_value: &FE) -> Self {
         Self {
             off_dst: Self::decode_offset(mem_value, OFF_DST_OFF),
             off_op0: Self::decode_offset(mem_value, OFF_OP0_OFF),
@@ -24,8 +24,8 @@ impl InstructionOffsets {
         }
     }
 
-    pub fn decode_offset(mem_value: &U256, instruction_offset: u32) -> i32 {
-        let offset = mem_value.limbs[3] >> instruction_offset & OFFX_MASK;
+    pub fn decode_offset(mem_value: &FE, instruction_offset: u32) -> i32 {
+        let offset = aux_get_last_nim_of_FE(mem_value) >> instruction_offset & OFFX_MASK;
         let vectorized_offset = offset.to_le_bytes();
         let aux = [
             vectorized_offset[0],
@@ -54,13 +54,12 @@ fn to_unbiased_representation<F: IsField>(n: i32) -> FieldElement<F> {
 
 #[cfg(test)]
 mod tests {
-    use super::InstructionOffsets;
+    use super::*;
 
-    use lambdaworks_math::unsigned_integer::element::U256;
     #[test]
     fn assert_opcode_flag_is_correct_1() {
         // Instruction A
-        let value = U256::from_limbs([0, 0, 0, 0x480680017fff8000]);
+        let value = FE::from(0x480680017fff8000);
         let instruction_offsets = InstructionOffsets::new(&value);
 
         assert_eq!(instruction_offsets.off_dst, 0);
@@ -71,7 +70,7 @@ mod tests {
     #[test]
     fn assert_opcode_flag_is_correct_2() {
         // Instruction A
-        let value = U256::from_limbs([0, 0, 0, 0x208b7fff7fff7ffe]);
+        let value = FE::from(0x208b7fff7fff7ffe);
         let instruction_offsets = InstructionOffsets::new(&value);
 
         assert_eq!(instruction_offsets.off_dst, -2);
@@ -82,7 +81,7 @@ mod tests {
     #[test]
     fn assert_opcode_flag_is_correct_3() {
         // Instruction A
-        let value = U256::from_limbs([0, 0, 0, 0x48327ffc7ffa8000]);
+        let value = FE::from(0x48327ffc7ffa8000);
         let instruction_offsets = InstructionOffsets::new(&value);
 
         assert_eq!(instruction_offsets.off_dst, 0);
