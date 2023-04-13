@@ -7,7 +7,6 @@ use super::{utils::*, proof::Proof};
 pub struct MerkleTree<F: IsField> {
     pub root: FieldElement<F>,
     nodes: Vec<FieldElement<F>>,
-    hasher: Box<dyn IsCryptoHash<F>>,
 }
 
 const ROOT: usize = 0;
@@ -29,7 +28,6 @@ impl<F: IsField> MerkleTree<F> {
         MerkleTree {
             root: nodes[ROOT].clone(),
             nodes,
-            hasher: hasher,
         }
     }
 
