@@ -1,6 +1,8 @@
 use crate::unsigned_integer::traits::IsUnsignedInteger;
 use std::{fmt::Debug, hash::Hash};
 
+use super::{element::FieldElement, errors::FieldError};
+
 /// Represents different configurations that powers of roots of unity can be in. Some of these may
 /// be necessary for FFT (as twiddle factors).
 #[derive(Clone, Copy)]
@@ -22,6 +24,28 @@ pub enum RootsConfig {
 pub trait IsTwoAdicField: IsField {
     const TWO_ADICITY: u64;
     const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: Self::BaseType;
+
+    /// Returns a primitive root of unity of order $2^{order}$.
+    fn get_primitive_root_of_unity<F: IsTwoAdicField>(
+        order: u64,
+    ) -> Result<FieldElement<F>, FieldError> {
+        let two_adic_primitive_root_of_unity =
+            FieldElement::new(F::TWO_ADIC_PRIMITVE_ROOT_OF_UNITY);
+        if order == 0 {
+            return Err(FieldError::RootOfUnityError(
+                "Cannot get root of unity for order = 0".to_string(),
+                order,
+            ));
+        }
+        if order > F::TWO_ADICITY {
+            return Err(FieldError::RootOfUnityError(
+                "Order cannot exceed 2^{F::TWO_ADICITY}".to_string(),
+                order,
+            ));
+        }
+        let power = 1u64 << (F::TWO_ADICITY - order);
+        Ok(two_adic_primitive_root_of_unity.pow(power))
+    }
 }
 
 /// Trait to add field behaviour to a struct.

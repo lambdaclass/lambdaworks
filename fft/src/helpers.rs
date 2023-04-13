@@ -1,4 +1,4 @@
-use super::errors::FFTError;
+use crate::errors::FFTError;
 
 pub fn log2(n: usize) -> Result<u64, FFTError> {
     if !n.is_power_of_two() {
@@ -7,8 +7,4 @@ pub fn log2(n: usize) -> Result<u64, FFTError> {
         ));
     }
     Ok(n.trailing_zeros() as u64)
-}
-
-pub fn void_ptr<T>(v: &T) -> *const core::ffi::c_void {
-    v as *const T as *const core::ffi::c_void
 }

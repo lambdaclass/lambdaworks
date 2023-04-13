@@ -1,7 +1,7 @@
 use criterion::Criterion;
 use lambdaworks_gpu::metal::{abstractions::state::MetalState, fft::ops::*};
 use lambdaworks_math::{
-    field::{element::FieldElement, traits::IsTwoAdicField},
+    field::element::FieldElement,
     field::{test_fields::u32_test_field::U32TestField, traits::RootsConfig},
 };
 use rand::random;
@@ -35,7 +35,8 @@ pub fn metal_fft_benchmarks(c: &mut Criterion) {
                         let coeffs = coeffs.clone();
                         let metal_state = MetalState::new(None).unwrap();
                         let twiddles =
-                            F::get_twiddles(order as u64, RootsConfig::BitReverse).unwrap();
+                            gen_twiddles(order as u64, RootsConfig::BitReverse, &metal_state)
+                                .unwrap();
 
                         fft(&coeffs, &twiddles, &metal_state).unwrap();
                     });
