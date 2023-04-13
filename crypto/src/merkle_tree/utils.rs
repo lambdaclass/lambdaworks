@@ -76,7 +76,7 @@ pub fn right_child_index(parent_index: usize) -> usize {
     parent_index * 2 + 2
 }
 
-/* 
+
 #[cfg(test)]
 mod tests {
     use lambdaworks_math::field::{element::FieldElement, fields::u64_prime_field::U64PrimeField};
@@ -128,4 +128,4 @@ mod tests {
         assert_eq!(tree[ROOT], FE::new(10));
     }
 }
-*/
+
