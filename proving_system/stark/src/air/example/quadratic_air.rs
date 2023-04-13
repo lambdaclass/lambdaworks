@@ -1,7 +1,4 @@
-use lambdaworks_math::field::{
-    fields::fft_friendly::stark_252_prime_field::Stark252PrimeField, traits::IsField,
-};
-use lambdaworks_stark::{
+use crate::{
     air::{
         self,
         constraints::boundary::{BoundaryConstraint, BoundaryConstraints},
@@ -9,6 +6,9 @@ use lambdaworks_stark::{
         AIR,
     },
     fri::FieldElement,
+};
+use lambdaworks_math::field::{
+    fields::fft_friendly::stark_252_prime_field::Stark252PrimeField, traits::IsField,
 };
 
 #[derive(Clone)]
