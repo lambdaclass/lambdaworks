@@ -68,8 +68,7 @@ fn test_prove_fib17() {
     let fibonacci_air = fibonacci_f17::Fibonacci17AIR::new(context);
 
     let result = prove(&trace_table, &fibonacci_air);
-    let verifies = verify(&result, &fibonacci_air);
-    assert!(verifies);
+    assert!(verify(&result, &fibonacci_air));
 }
 
 #[test]
