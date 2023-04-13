@@ -1,6 +1,5 @@
 pub mod air;
 
-use lambdaworks_crypto::hash::{sha3::Sha3Hasher, traits::IsCryptoHash};
 use lambdaworks_math::field::fields::{
     fft_friendly::stark_252_prime_field::Stark252PrimeField, u64_prime_field::FE17,
 };

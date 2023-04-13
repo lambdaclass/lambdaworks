@@ -24,6 +24,12 @@ impl Poseidon<BLS12381PrimeField> {
     }
 }
 
+impl Default for Poseidon<BLS12381PrimeField>{
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl IsCryptoHash<BLS12381PrimeField> for Poseidon<BLS12381PrimeField> {
     fn hash_one(
         &self,
