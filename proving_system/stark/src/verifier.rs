@@ -4,7 +4,12 @@ use super::{
     sample_z_ood,
 };
 use crate::{air::frame::Frame, proof::StarkProof, transcript_to_field, transcript_to_usize};
+#[cfg(not(feature = "test_fiat_shamir"))]
+use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
+#[cfg(feature = "test_fiat_shamir")]
+use lambdaworks_crypto::fiat_shamir::test_transcript::TestTranscript;
 use lambdaworks_crypto::{fiat_shamir::transcript::Transcript, hash::traits::IsCryptoHash};
+
 use lambdaworks_math::{
     field::{
         element::FieldElement,
@@ -15,9 +20,9 @@ use lambdaworks_math::{
     traits::ByteConversion,
 };
 
-struct DeepCompositionPolyArgs<'a, F: IsTwoAdicField, A: AIR<Field = F>> {
+struct DeepCompositionPolyArgs<'a, F: IsTwoAdicField, A: AIR<Field = F>, T: Transcript> {
     air: &'a A,
-    transcript: &'a mut Transcript,
+    transcript: &'a mut T,
     lde_trace_evaluations: &'a [FieldElement<F>],
     trace_poly_ood_evaluations: &'a Frame<F>,
     lde_roots_of_unity_coset: &'a [FieldElement<F>],
@@ -34,7 +39,10 @@ pub fn verify<F: IsTwoAdicField, A: AIR<Field = F>, H: IsCryptoHash<F>>(
 where
     FieldElement<F>: ByteConversion,
 {
-    let transcript = &mut Transcript::new();
+    #[cfg(not(feature = "test_fiat_shamir"))]
+    let transcript = &mut DefaultTranscript::new();
+    #[cfg(feature = "test_fiat_shamir")]
+    let transcript = &mut TestTranscript::new();
 
     // BEGIN TRACE <-> Composition poly consistency evaluation check
 
@@ -259,22 +267,22 @@ where
     result
 }
 
-fn evaluate_deep_composition_poly<F: IsTwoAdicField, A: AIR<Field = F>>(
-    args: &mut DeepCompositionPolyArgs<F, A>,
+fn evaluate_deep_composition_poly<F: IsTwoAdicField, A: AIR<Field = F>, T: Transcript>(
+    args: &mut DeepCompositionPolyArgs<F, A, T>,
 ) -> FieldElement<F> {
     // Get the number of trace terms the DEEP composition poly will have.
     // One coefficient will be sampled for each of them.
     let trace_term_coeffs = (0..args.trace_poly_ood_evaluations.num_columns())
         .map(|_| {
             (0..args.trace_poly_ood_evaluations.num_rows())
-                .map(|_| transcript_to_field::<F>(args.transcript))
+                .map(|_| transcript_to_field::<F, T>(args.transcript))
                 .collect()
         })
         .collect::<Vec<Vec<FieldElement<F>>>>();
 
     // Get coefficients for even and odd terms of the composition polynomial H(x)
-    let gamma_even = transcript_to_field::<F>(args.transcript);
-    let gamma_odd = transcript_to_field::<F>(args.transcript);
+    let gamma_even = transcript_to_field::<F, T>(args.transcript);
+    let gamma_odd = transcript_to_field::<F, T>(args.transcript);
 
     let consistency_check_idx = transcript_to_usize(args.transcript)
         % (args.air.context().trace_length * args.air.options().blowup_factor as usize);

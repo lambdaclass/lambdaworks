@@ -7,11 +7,17 @@ use crate::{
     proof::{DeepConsistencyCheck, StarkProof, StarkQueryProof},
     transcript_to_field, transcript_to_usize,
 };
+#[cfg(not(feature = "test_fiat_shamir"))]
+use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
 use lambdaworks_crypto::{
     fiat_shamir::transcript::Transcript,
     hash::traits::IsCryptoHash,
     merkle_tree::{merkle::MerkleTree, proof::Proof},
 };
+
+#[cfg(feature = "test_fiat_shamir")]
+use lambdaworks_crypto::fiat_shamir::test_transcript::TestTranscript;
+
 use lambdaworks_math::{
     fft::errors::FFTError,
     field::{element::FieldElement, traits::IsTwoAdicField},
@@ -19,9 +25,9 @@ use lambdaworks_math::{
     traits::ByteConversion,
 };
 
-struct DeepConsistencyCheckArgs<'a, F: IsTwoAdicField, A: AIR<Field = F>> {
+struct DeepConsistencyCheckArgs<'a, F: IsTwoAdicField, A: AIR<Field = F>, T: Transcript> {
     pub air: &'a A,
-    pub transcript: &'a mut Transcript,
+    pub transcript: &'a mut T,
     pub trace: &'a TraceTable<F>,
     pub lde_trace_evaluations: &'a [Vec<FieldElement<F>>],
     pub composition_poly_even: &'a Polynomial<FieldElement<F>>,
@@ -38,7 +44,10 @@ pub fn prove<F: IsTwoAdicField, A: AIR<Field = F>, H: IsCryptoHash<F> + Clone>(
 where
     FieldElement<F>: ByteConversion,
 {
-    let transcript = &mut Transcript::new();
+    #[cfg(not(feature = "test_fiat_shamir"))]
+    let transcript = &mut DefaultTranscript::new();
+    #[cfg(feature = "test_fiat_shamir")]
+    let transcript = &mut TestTranscript::new();
 
     let blowup_factor = air.options().blowup_factor as usize;
     let coset_offset = FieldElement::<F>::from(air.options().coset_offset);
@@ -204,9 +213,9 @@ where
 /// Returns the DEEP composition polynomial that the prover then commits to using
 /// FRI. This polynomial is a linear combination of the trace polynomial and the
 /// composition polynomial, with coefficients sampled by the verifier (i.e. using Fiat-Shamir).
-fn compute_deep_composition_poly<F: IsTwoAdicField, A: AIR<Field = F>>(
+fn compute_deep_composition_poly<A: AIR, F: IsTwoAdicField, T: Transcript>(
     air: &A,
-    transcript: &mut Transcript,
+    transcript: &mut T,
     trace_polys: &[Polynomial<FieldElement<F>>],
     even_composition_poly: &Polynomial<FieldElement<F>>,
     odd_composition_poly: &Polynomial<FieldElement<F>>,
@@ -220,14 +229,13 @@ fn compute_deep_composition_poly<F: IsTwoAdicField, A: AIR<Field = F>>(
     let trace_term_coeffs = (0..trace_polys.len())
         .map(|_| {
             (0..transition_offsets.len())
-                .map(|_| transcript_to_field::<F>(transcript))
+                .map(|_| transcript_to_field::<F, T>(transcript))
                 .collect()
         })
         .collect::<Vec<Vec<FieldElement<F>>>>();
-
     // Get coefficients for even and odd terms of the composition polynomial H(x)
-    let gamma_even = transcript_to_field::<F>(transcript);
-    let gamma_odd = transcript_to_field::<F>(transcript);
+    let gamma_even = transcript_to_field::<F, T>(transcript);
+    let gamma_odd = transcript_to_field::<F, T>(transcript);
 
     // Get trace evaluations needed for the trace terms of the deep composition polynomial
     let trace_evaluations = Frame::get_trace_evaluations(
@@ -281,8 +289,9 @@ fn build_deep_consistency_check<
     F: IsTwoAdicField,
     A: AIR<Field = F>,
     H: IsCryptoHash<F> + Clone,
+    T: Transcript,
 >(
-    args: &mut DeepConsistencyCheckArgs<F, A>,
+    args: &mut DeepConsistencyCheckArgs<F, A, T>,
 ) -> DeepConsistencyCheck<F, H> {
     let consistency_check_idx = transcript_to_usize(args.transcript)
         % (args.air.context().trace_length * args.air.options().blowup_factor as usize);
