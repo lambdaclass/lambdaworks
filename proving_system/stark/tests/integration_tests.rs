@@ -72,11 +72,6 @@ fn test_prove_fib17() {
 
     let fibonacci_air = Fibonacci17AIR::new(context);
 
-    let left = FE17::from(3);
-    let right = FE17::from(9);
-    let res = Sha3Hasher::new().hash_two(left, right);
-
-
     let result = prove(&trace_table, &fibonacci_air);
     let verifies = verify(&result, &fibonacci_air);
     assert!(verifies);
