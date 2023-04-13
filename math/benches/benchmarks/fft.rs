@@ -16,7 +16,6 @@ fn rand_field_elements(order: u64) -> Vec<FE> {
     let mut result = Vec::with_capacity(1 << order);
     for _ in 0..result.capacity() {
         let rand_big = UnsignedInteger { limbs: random() };
-
         result.push(FE::new(rand_big));
     }
     result
