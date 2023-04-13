@@ -1,5 +1,7 @@
 use lambdaworks_crypto::commitments::kzg::KateZaveruchaGoldberg;
 use lambdaworks_crypto::commitments::kzg::StructuredReferenceString;
+use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::pairing::BLS12381AtePairing;
+use lambdaworks_math::field::fields::fft_friendly::bls12381_scalar_field::BLS12381ScalarField;
 use lambdaworks_math::{
     cyclic_group::IsGroup,
     elliptic_curve::{
@@ -8,27 +10,13 @@ use lambdaworks_math::{
         },
         traits::IsEllipticCurve,
     },
-    field::{element::FieldElement, fields::montgomery_backed_prime_fields::U256PrimeField},
+    field::element::FieldElement,
     traits::IsRandomFieldElementGenerator,
 };
-use lambdaworks_math::{
-    elliptic_curve::short_weierstrass::curves::bls12_381::pairing::BLS12381AtePairing,
-    field::fields::montgomery_backed_prime_fields::IsModulus, unsigned_integer::element::U256,
-};
-
-/// Specific curves and fields are set for testing purposes
-pub const ORDER_R: U256 =
-    U256::from("73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001");
-
-#[derive(Clone, Debug)]
-pub struct FrConfig;
-impl IsModulus<U256> for FrConfig {
-    const MODULUS: U256 = ORDER_R;
-}
 
 pub type Curve = BLS12381Curve;
 pub type TwistedCurve = BLS12381TwistCurve;
-pub type FrField = U256PrimeField<FrConfig>;
+pub type FrField = BLS12381ScalarField;
 pub type FpField = BLS12381PrimeField;
 pub type FrElement = FieldElement<FrField>;
 pub type FpElement = FieldElement<FpField>;
