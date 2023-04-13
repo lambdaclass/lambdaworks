@@ -10,6 +10,7 @@ use lambdaworks_math::{
 
 pub mod constraints;
 pub mod context;
+pub mod example;
 pub mod frame;
 pub mod trace;
 

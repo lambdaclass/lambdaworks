@@ -113,7 +113,9 @@ make docs
 
 ## 📊 Benchmarks
 
-To run the benchmarks you will need `cargo-criterion`, to install do:
+Benchmark results are hosted [here](https://lambdaclass.github.io/lambdaworks/bench).
+
+To run them locally, you will need `cargo-criterion`. Install it with:
 
 ```
 cargo install cargo-criterion

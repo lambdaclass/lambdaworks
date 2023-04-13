@@ -12,4 +12,5 @@ Cargo.lock
 **/proptest-regressions
 
 # Python virtualenv
-.env
+.venv
+/output.txt
