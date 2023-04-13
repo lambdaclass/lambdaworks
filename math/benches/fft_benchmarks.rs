@@ -8,6 +8,8 @@ fn run_fft_benchmarks(c: &mut Criterion) {
     benchmarks::fft::fft_benchmarks(c);
     benchmarks::fft::poly_interpolate_benchmarks(c);
     benchmarks::fft::poly_interpolate_fft_benchmarks(c);
+    benchmarks::fft::poly_evaluate_benchmarks(c);
+    benchmarks::fft::poly_evaluate_fft_benchmarks(c);
 }
 
 criterion_group!(benches, run_fft_benchmarks);
