@@ -12,14 +12,17 @@
 // ├xxxxxxxxxxxxxxxx|x|xx|xxxx|xxxx|xxx|xxx┤
 //
 
-use lambdaworks_math::field::{element::FieldElement, traits::IsField};
-
 use crate::{
     air::trace::TraceTable,
     cairo_vm::{instruction_flags::CairoInstructionFlags, instruction_offsets::InstructionOffsets},
+    IsField, FE,
 };
 
-use super::{cairo_mem::CairoMemory, cairo_trace::CairoTrace, instruction_flags::DstReg};
+use super::{
+    cairo_mem::CairoMemory,
+    cairo_trace::CairoTrace,
+    instruction_flags::{DstReg, Op0Reg},
+};
 
 pub const FLAG_TRACE_OFFSET: usize = 0;
 pub const FLAG_TRACE_WIDTH: usize = 16;
@@ -66,12 +69,12 @@ pub fn build_cairo_execution_trace<F: IsField>(
         .unzip();
 
     // TODO: Get res, op0_addr and op1_addr
-    let dst_addrs: Vec<FieldElement<F>> = compute_dst_addrs(&flags, &offsets, raw_trace);
+    let dst_addrs: Vec<FE> = compute_dst_addrs(&flags, &offsets, raw_trace);
+    let op0_addr: (Vec<FE>, Vec<FE>) = compute_op0_addrs(&flags, &offsets, raw_trace, memory);
 
-    let flags: Vec<[FieldElement<F>; 16]> =
-        flags.iter().map(|f| f.to_trace_representation()).collect();
+    let flags: Vec<[FE; 16]> = flags.iter().map(|f| f.to_trace_representation()).collect();
 
-    let offsets: Vec<[FieldElement<F>; 3]> = offsets
+    let offsets: Vec<[FE; 3]> = offsets
         .iter()
         .map(|off| off.to_trace_representation())
         .collect();
@@ -79,22 +82,49 @@ pub fn build_cairo_execution_trace<F: IsField>(
     todo!()
 }
 
-pub fn compute_dst_addrs<F: IsField>(
+pub fn compute_dst_addrs(
     flags: &[CairoInstructionFlags],
     offsets: &[InstructionOffsets],
     raw_trace: &CairoTrace,
-) -> Vec<FieldElement<F>> {
+) -> Vec<FE> {
     flags
         .iter()
         .zip(offsets)
         .zip(raw_trace.rows.iter())
         .map(|((f, o), t)| match f.dst_reg {
-            DstReg::AP => {
-                FieldElement::<F>::from(t.ap.checked_add_signed(o.off_dst.into()).unwrap())
-            }
-            DstReg::FP => {
-                FieldElement::<F>::from(t.fp.checked_add_signed(o.off_dst.into()).unwrap())
-            }
+            DstReg::AP => FE::from(t.ap.checked_add_signed(o.off_dst.into()).unwrap()),
+            DstReg::FP => FE::from(t.fp.checked_add_signed(o.off_dst.into()).unwrap()),
         })
         .collect()
+}
+
+pub fn compute_op0_addrs(
+    flags: &[CairoInstructionFlags],
+    offsets: &[InstructionOffsets],
+    raw_trace: &CairoTrace,
+    memory: &CairoMemory,
+) -> (Vec<FE>, Vec<FE>) {
+    flags
+        .iter()
+        .zip(offsets)
+        .zip(raw_trace.rows.iter())
+        .map(|((f, o), t)| match f.op0_reg {
+            Op0Reg::AP => {
+                let addr = t.ap.checked_add_signed(o.off_dst.into()).unwrap();
+                (
+                    FE::from(addr),
+                    *memory.get(&addr).unwrap(), //FE::from(1),
+                )
+            }
+            Op0Reg::FP => {
+                let addr = t.fp.checked_add_signed(o.off_dst.into()).unwrap();
+
+                (
+                    FE::from(addr),
+                    //FE::from(memory.get(&addr).unwrap())
+                    FE::from(1),
+                )
+            }
+        })
+        .unzip()
 }

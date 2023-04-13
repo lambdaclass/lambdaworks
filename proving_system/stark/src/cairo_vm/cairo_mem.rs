@@ -1,18 +1,19 @@
 use super::errors::CairoImportError;
-use lambdaworks_math::{traits::ByteConversion, unsigned_integer::element::U256};
-use std::{collections::HashMap, fs};
+use crate::FE;
+use lambdaworks_math::traits::ByteConversion;
+use std::{collections::HashMap, fs}; // this is the field used by Cairo
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct CairoMemory {
-    data: HashMap<u64, U256>,
+    data: HashMap<u64, FE>,
 }
 
 impl CairoMemory {
-    pub fn new(data: HashMap<u64, U256>) -> Self {
+    pub fn new(data: HashMap<u64, FE>) -> Self {
         Self { data }
     }
 
-    pub fn get(&self, addr: &u64) -> Option<&U256> {
+    pub fn get(&self, addr: &u64) -> Option<&FE> {
         self.data.get(addr)
     }
 
@@ -31,7 +32,7 @@ impl CairoMemory {
         for i in 0..num_rows {
             let address =
                 u64::from_le_bytes(bytes[i * ROW_SIZE..i * ROW_SIZE + 8].try_into().unwrap());
-            let value = U256::from_bytes_le(
+            let value = FE::from_bytes_le(
                 bytes[i * ROW_SIZE + 8..i * ROW_SIZE + 40]
                     .try_into()
                     .unwrap(),

@@ -1,9 +1,6 @@
-use lambdaworks_math::{
-    field::{element::FieldElement, traits::IsField},
-    unsigned_integer::element::U256,
-};
-
 use super::errors::InstructionDecodingError;
+use crate::FE;
+use lambdaworks_math::{traits::ByteConversion, unsigned_integer::element::U256};
 
 // Consts copied from cairo-rs
 const DST_REG_MASK: u64 = 0x0001;
@@ -22,6 +19,23 @@ const OPCODE_MASK: u64 = 0x7000;
 const OPCODE_OFF: u64 = 12;
 const FLAGS_OFFSET: u64 = 48;
 
+fn aux_get_last_nim_of_FE(value: &FE) -> u64 {
+    let mem_value_bytes = value.to_bytes_be();
+
+    // we are taking the last nim of the field element,
+    // since it is a U256
+    u64::from_be_bytes([
+        mem_value_bytes[24],
+        mem_value_bytes[25],
+        mem_value_bytes[26],
+        mem_value_bytes[27],
+        mem_value_bytes[28],
+        mem_value_bytes[29],
+        mem_value_bytes[30],
+        mem_value_bytes[31],
+    ])
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct CairoInstructionFlags {
     pub opcode: CairoOpcode,
@@ -35,7 +49,7 @@ pub struct CairoInstructionFlags {
 
 impl CairoInstructionFlags {
     #[rustfmt::skip]
-    pub fn to_trace_representation<F: IsField>(&self) -> [FieldElement<F>; 16] {
+    pub fn to_trace_representation(&self) -> [FE; 16] {
         let [b0, b1, b2] = self.opcode.to_trace_representation();
         let [b3, b4] = self.ap_update.to_trace_representation();
         let [b5, b6, b7] = self.pc_update.to_trace_representation();
@@ -52,7 +66,7 @@ impl CairoInstructionFlags {
             b10, b11, b12,   // op1_src bits
             b13,             // op0_reg bits
             b14,             // dst_reg bits
-            FieldElement::zero(),
+            FE::zero(),
         ]
     }
 }
@@ -64,19 +78,20 @@ pub enum Op0Reg {
 }
 
 impl Op0Reg {
-    pub fn to_trace_representation<F: IsField>(&self) -> FieldElement<F> {
+    pub fn to_trace_representation(&self) -> FE {
         match self {
-            Op0Reg::AP => FieldElement::zero(),
-            Op0Reg::FP => FieldElement::one(),
+            Op0Reg::AP => FE::zero(),
+            Op0Reg::FP => FE::one(),
         }
     }
 }
 
-impl TryFrom<&U256> for Op0Reg {
+impl TryFrom<&FE> for Op0Reg {
     type Error = InstructionDecodingError;
 
-    fn try_from(mem_value: &U256) -> Result<Self, Self::Error> {
-        let flags = mem_value.limbs[3] >> FLAGS_OFFSET;
+    fn try_from(mem_value: &FE) -> Result<Self, Self::Error> {
+        let flags = aux_get_last_nim_of_FE(mem_value) >> FLAGS_OFFSET;
+
         let op0_reg = ((flags & OP0_REG_MASK) >> OP0_REG_OFF) as u8;
 
         if op0_reg == 0 {
@@ -95,10 +110,10 @@ pub enum DstReg {
     FP = 1,
 }
 impl DstReg {
-    pub fn to_trace_representation<F: IsField>(&self) -> FieldElement<F> {
+    pub fn to_trace_representation(&self) -> FE {
         match self {
-            DstReg::AP => FieldElement::zero(),
-            DstReg::FP => FieldElement::one(),
+            DstReg::AP => FE::zero(),
+            DstReg::FP => FE::one(),
         }
     }
 }
@@ -129,28 +144,12 @@ pub enum Op1Src {
 }
 
 impl Op1Src {
-    pub fn to_trace_representation<F: IsField>(&self) -> [FieldElement<F>; 3] {
+    pub fn to_trace_representation(&self) -> [FE; 3] {
         match self {
-            Op1Src::Op0 => [
-                FieldElement::zero(),
-                FieldElement::zero(),
-                FieldElement::zero(),
-            ],
-            Op1Src::Imm => [
-                FieldElement::zero(),
-                FieldElement::zero(),
-                FieldElement::one(),
-            ],
-            Op1Src::AP => [
-                FieldElement::zero(),
-                FieldElement::one(),
-                FieldElement::zero(),
-            ],
-            Op1Src::FP => [
-                FieldElement::one(),
-                FieldElement::zero(),
-                FieldElement::zero(),
-            ],
+            Op1Src::Op0 => [FE::zero(), FE::zero(), FE::zero()],
+            Op1Src::Imm => [FE::zero(), FE::zero(), FE::one()],
+            Op1Src::AP => [FE::zero(), FE::one(), FE::zero()],
+            Op1Src::FP => [FE::one(), FE::zero(), FE::zero()],
         }
     }
 }
@@ -182,11 +181,11 @@ pub enum ResLogic {
 }
 
 impl ResLogic {
-    pub fn to_trace_representation<F: IsField>(&self) -> [FieldElement<F>; 2] {
+    pub fn to_trace_representation(&self) -> [FE; 2] {
         match self {
-            ResLogic::Op1 => [FieldElement::zero(), FieldElement::zero()],
-            ResLogic::Add => [FieldElement::zero(), FieldElement::one()],
-            ResLogic::Mul => [FieldElement::one(), FieldElement::zero()],
+            ResLogic::Op1 => [FE::zero(), FE::zero()],
+            ResLogic::Add => [FE::zero(), FE::one()],
+            ResLogic::Mul => [FE::one(), FE::zero()],
             ResLogic::Unconstrained => todo!(),
         }
     }
@@ -219,28 +218,12 @@ pub enum PcUpdate {
 }
 
 impl PcUpdate {
-    pub fn to_trace_representation<F: IsField>(&self) -> [FieldElement<F>; 3] {
+    pub fn to_trace_representation(&self) -> [FE; 3] {
         match self {
-            PcUpdate::Regular => [
-                FieldElement::zero(),
-                FieldElement::zero(),
-                FieldElement::zero(),
-            ],
-            PcUpdate::Jump => [
-                FieldElement::zero(),
-                FieldElement::zero(),
-                FieldElement::one(),
-            ],
-            PcUpdate::JumpRel => [
-                FieldElement::zero(),
-                FieldElement::one(),
-                FieldElement::zero(),
-            ],
-            PcUpdate::Jnz => [
-                FieldElement::one(),
-                FieldElement::zero(),
-                FieldElement::zero(),
-            ],
+            PcUpdate::Regular => [FE::zero(), FE::zero(), FE::zero()],
+            PcUpdate::Jump => [FE::zero(), FE::zero(), FE::one()],
+            PcUpdate::JumpRel => [FE::zero(), FE::one(), FE::zero()],
+            PcUpdate::Jnz => [FE::one(), FE::zero(), FE::zero()],
         }
     }
 }
@@ -272,11 +255,11 @@ pub enum ApUpdate {
 }
 
 impl ApUpdate {
-    pub fn to_trace_representation<F: IsField>(&self) -> [FieldElement<F>; 2] {
+    pub fn to_trace_representation(&self) -> [FE; 2] {
         match self {
-            ApUpdate::Regular => [FieldElement::zero(), FieldElement::zero()],
-            ApUpdate::Add => [FieldElement::zero(), FieldElement::one()],
-            ApUpdate::Add1 => [FieldElement::one(), FieldElement::zero()],
+            ApUpdate::Regular => [FE::zero(), FE::zero()],
+            ApUpdate::Add => [FE::zero(), FE::one()],
+            ApUpdate::Add1 => [FE::one(), FE::zero()],
             ApUpdate::Add2 => todo!(),
         }
     }
@@ -324,28 +307,12 @@ pub enum CairoOpcode {
 }
 
 impl CairoOpcode {
-    pub fn to_trace_representation<F: IsField>(&self) -> [FieldElement<F>; 3] {
+    pub fn to_trace_representation(&self) -> [FE; 3] {
         match self {
-            CairoOpcode::NOp => [
-                FieldElement::zero(),
-                FieldElement::zero(),
-                FieldElement::zero(),
-            ],
-            CairoOpcode::Call => [
-                FieldElement::zero(),
-                FieldElement::zero(),
-                FieldElement::one(),
-            ],
-            CairoOpcode::Ret => [
-                FieldElement::zero(),
-                FieldElement::one(),
-                FieldElement::zero(),
-            ],
-            CairoOpcode::AssertEq => [
-                FieldElement::one(),
-                FieldElement::zero(),
-                FieldElement::zero(),
-            ],
+            CairoOpcode::NOp => [FE::zero(), FE::zero(), FE::zero()],
+            CairoOpcode::Call => [FE::zero(), FE::zero(), FE::one()],
+            CairoOpcode::Ret => [FE::zero(), FE::one(), FE::zero()],
+            CairoOpcode::AssertEq => [FE::one(), FE::zero(), FE::zero()],
         }
     }
 }
@@ -717,8 +684,8 @@ mod tests {
             dst_reg: DstReg::FP,
         };
 
-        let zero: FieldElement<F17> = FieldElement::zero();
-        let one: FieldElement<F17> = FieldElement::one();
+        let zero: FieldElement<F17> = FE::zero();
+        let one: FieldElement<F17> = FE::one();
 
         #[rustfmt::skip]
         let expected_representation = [
