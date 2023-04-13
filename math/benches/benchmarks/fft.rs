@@ -2,53 +2,51 @@ use criterion::Criterion;
 use lambdaworks_math::{
     fft::{bit_reversing::*, fft_iterative::*},
     field::{element::FieldElement, traits::IsTwoAdicField},
-    field::{test_fields::u64_test_field::U64TestField, traits::RootsConfig},
+    field::{fields::fft_friendly::stark_252_prime_field::Stark252PrimeField, traits::RootsConfig},
+    polynomial::Polynomial,
+    unsigned_integer::element::UnsignedInteger,
 };
 use rand::random;
 
-type F = U64TestField;
+type F = Stark252PrimeField;
 type FE = FieldElement<F>;
+const INPUT_SET: [u64; 2] = [21, 22];
 
-fn gen_coeffs(order: usize) -> Vec<FE> {
+fn rand_field_elements(order: u64) -> Vec<FE> {
     let mut result = Vec::with_capacity(1 << order);
     for _ in 0..result.capacity() {
-        result.push(FE::new(random()));
+        let rand_big = UnsignedInteger { limbs: random() };
+        result.push(FE::new(rand_big));
     }
     result
 }
 
 pub fn fft_benchmarks(c: &mut Criterion) {
-    let mut group = c.benchmark_group("FFT");
-    group.sample_size(10); // it becomes too slow with the default
+    let mut group = c.benchmark_group("Ordered FFT");
+    group.sample_size(10); // too slow otherwise
 
-    for order in 21..=22 {
-        let coeffs = gen_coeffs(order);
-        group.throughput(criterion::Throughput::Elements(1 << order)); // info for criterion
+    for order in INPUT_SET {
+        group.throughput(criterion::Throughput::Elements(1 << order));
 
-        // the objective is to bench ordered FFT, including twiddles generation
-        group.bench_with_input(
-            format!("Sequential NR radix2 for 2^{order} elements"),
-            &coeffs,
-            |bench, coeffs| {
-                bench.iter(|| {
-                    let mut coeffs = coeffs.clone();
-                    let twiddles = F::get_twiddles(order as u64, RootsConfig::BitReverse).unwrap();
-                    in_place_nr_2radix_fft(&mut coeffs, &twiddles);
-                });
-            },
-        );
-        group.bench_with_input(
-            format!("Sequential RN radix2 for 2^{order} elements"),
-            &coeffs,
-            |bench, coeffs| {
-                bench.iter(|| {
-                    let mut coeffs = coeffs.clone();
-                    let twiddles = F::get_twiddles(order as u64, RootsConfig::Natural).unwrap();
-                    in_place_bit_reverse_permute(&mut coeffs);
-                    in_place_rn_2radix_fft(&mut coeffs, &twiddles);
-                });
-            },
-        );
+        let input = rand_field_elements(order);
+        let twiddles_bitrev = F::get_twiddles(order, RootsConfig::BitReverse).unwrap();
+        let twiddles_nat = F::get_twiddles(order, RootsConfig::Natural).unwrap();
+
+        // the objective is to bench ordered FFT, that's why a bitrev permutation is added.
+        group.bench_with_input("Sequential from NR radix2", &input, |bench, input| {
+            bench.iter(|| {
+                let mut input = input.clone();
+                in_place_nr_2radix_fft(&mut input, &twiddles_bitrev);
+                in_place_bit_reverse_permute(&mut input);
+            });
+        });
+        group.bench_with_input("Sequential from RN radix2", &input, |bench, input| {
+            bench.iter(|| {
+                let mut input = input.clone();
+                in_place_bit_reverse_permute(&mut input);
+                in_place_rn_2radix_fft(&mut input, &twiddles_nat);
+            });
+        });
     }
 
     group.finish();
@@ -56,20 +54,16 @@ pub fn fft_benchmarks(c: &mut Criterion) {
 
 pub fn twiddles_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("FFT twiddles generation");
-    group.sample_size(10); // it becomes too slow with the default
+    group.sample_size(10); // too slow otherwise
 
-    for order in 21..=24 {
-        group.throughput(criterion::Throughput::Elements(1 << order)); // info for criterion
+    for order in INPUT_SET {
+        group.throughput(criterion::Throughput::Elements(1 << (order - 1)));
 
-        group.bench_with_input(
-            format!("Sequential twiddles generation for 2^({order}-1) elements"),
-            &order,
-            |bench, order| {
-                bench.iter(|| {
-                    F::get_twiddles(*order as u64, RootsConfig::Natural).unwrap();
-                });
-            },
-        );
+        group.bench_with_input("Sequential", &order, |bench, order| {
+            bench.iter(|| {
+                F::get_twiddles(*order, RootsConfig::Natural).unwrap();
+            });
+        });
     }
 
     group.finish();
@@ -78,20 +72,101 @@ pub fn twiddles_benchmarks(c: &mut Criterion) {
 pub fn bitrev_permutation_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("Bit-reverse permutation");
 
-    for order in 21..=24 {
-        let coeffs = gen_coeffs(order);
-        group.throughput(criterion::Throughput::Elements(1 << order)); // info for criterion
+    for order in INPUT_SET {
+        let coeffs = rand_field_elements(order);
+        group.throughput(criterion::Throughput::Elements(1 << order));
+
+        group.bench_with_input("Sequential", &coeffs, |bench, coeffs| {
+            bench.iter(|| {
+                let mut coeffs = coeffs.clone();
+                in_place_bit_reverse_permute(&mut coeffs);
+            });
+        });
+    }
+
+    group.finish();
+}
+
+pub fn poly_interpolate_benchmarks(c: &mut Criterion) {
+    let mut group = c.benchmark_group("Polynomial interpolation");
+    group.sample_size(10); // too slow otherwise
+
+    for order in 4..=7 {
+        // too slow for big inputs.
+        let xs = rand_field_elements(order);
+        let ys = rand_field_elements(order);
+
+        group.throughput(criterion::Throughput::Elements(1 << order));
+
+        group.bench_with_input("Sequential Lagrange", &(xs, ys), |bench, (xs, ys)| {
+            bench.iter(|| {
+                Polynomial::interpolate(xs, ys);
+            });
+        });
+    }
+
+    group.finish();
+}
+
+pub fn poly_interpolate_fft_benchmarks(c: &mut Criterion) {
+    let mut group = c.benchmark_group("Polynomial interpolation");
+    group.sample_size(10); // too slow otherwise
+
+    for order in INPUT_SET {
+        let evals = rand_field_elements(order);
+
+        group.throughput(criterion::Throughput::Elements(1 << order));
+
+        group.bench_with_input("Sequential FFT", &evals, |bench, evals| {
+            bench.iter(|| {
+                Polynomial::interpolate_fft(evals).unwrap();
+            });
+        });
+    }
+
+    group.finish();
+}
+
+pub fn poly_evaluate_benchmarks(c: &mut Criterion) {
+    let mut group = c.benchmark_group("Polynomial evaluation");
+    group.sample_size(10); // too slow otherwise
+
+    for order in 4..=7 {
+        // too slow for big inputs.
+        let poly = Polynomial::new(&rand_field_elements(order));
+        let input = rand_field_elements(order);
+
+        group.throughput(criterion::Throughput::Elements(1 << order));
 
         group.bench_with_input(
-            format!("Sequential bitrev permutation for 2^{order} elements"),
-            &coeffs,
-            |bench, coeffs| {
+            "Sequential Horner",
+            &(poly, input),
+            |bench, (poly, input)| {
                 bench.iter(|| {
-                    let mut coeffs = coeffs.clone();
-                    in_place_bit_reverse_permute(&mut coeffs);
+                    poly.evaluate_slice(input);
                 });
             },
         );
+    }
+
+    group.finish();
+}
+
+pub fn poly_evaluate_fft_benchmarks(c: &mut Criterion) {
+    let mut group = c.benchmark_group("Polynomial evaluation");
+    group.sample_size(10); // too slow otherwise
+
+    for order in INPUT_SET {
+        // too slow for big inputs.
+        let poly = Polynomial::new(&rand_field_elements(order));
+
+        group.throughput(criterion::Throughput::Elements(1 << order));
+
+        group.bench_with_input("Sequential FFT", &poly, |bench, poly| {
+            bench.iter(|| {
+                poly.evaluate_fft().unwrap();
+            });
+        });
     }
 
     group.finish();
