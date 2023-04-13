@@ -4,7 +4,7 @@ use lambdaworks_gpu::metal::{
     fft::{ops::*, polynomial::*},
 };
 use lambdaworks_math::{
-    field::{element::FieldElement, traits::IsTwoAdicField},
+    field::element::FieldElement,
     field::{fields::fft_friendly::stark_252_prime_field::Stark252PrimeField, traits::RootsConfig},
     polynomial::Polynomial,
     unsigned_integer::element::UnsignedInteger,
@@ -15,11 +15,10 @@ type F = Stark252PrimeField;
 type FE = FieldElement<F>;
 const INPUT_SET: [u64; 4] = [21, 22, 23, 24];
 
-fn gen_coeffs(order: u64) -> Vec<FE> {
+fn rand_field_elements(order: u64) -> Vec<FE> {
     let mut result = Vec::with_capacity(1 << order);
     for _ in 0..result.capacity() {
         let rand_big = UnsignedInteger { limbs: random() };
-
         result.push(FE::new(rand_big));
     }
     result
@@ -30,22 +29,21 @@ pub fn metal_fft_benchmarks(c: &mut Criterion) {
     group.sample_size(10); // too slow otherwise
 
     for order in INPUT_SET {
-        let coeffs = gen_coeffs(order);
         group.throughput(criterion::Throughput::Elements(1 << order));
 
-        // the objective is to bench ordered FFT, including twiddles generation and Metal setup
+        let input = rand_field_elements(order);
+        let metal_state = MetalState::new(None).unwrap();
+        let twiddles = gen_twiddles::<F>(order, RootsConfig::BitReverse, &metal_state).unwrap();
+
         group.bench_with_input(
-            "Parallel from NR radix2 (Metal)",
-            &coeffs,
-            |bench, coeffs| {
+            "Parallel (Metal)",
+            &(input, twiddles),
+            |bench, (input, twiddles)| {
                 bench.iter(|| {
                     // TODO: autoreleaspool hurts perf. by 2-3%. Search for an alternative
                     objc::rc::autoreleasepool(|| {
-                        let coeffs = coeffs.clone();
                         let metal_state = MetalState::new(None).unwrap();
-                        let twiddles = F::get_twiddles(order, RootsConfig::BitReverse).unwrap();
-
-                        fft(&coeffs, &twiddles, &metal_state).unwrap();
+                        fft(input, twiddles, &metal_state).unwrap();
                     });
                 });
             },
@@ -81,7 +79,7 @@ pub fn metal_bitrev_permutation_benchmarks(c: &mut Criterion) {
     group.sample_size(10); // it becomes too slow with the default of 100
 
     for order in INPUT_SET {
-        let coeffs = gen_coeffs(order);
+        let coeffs = rand_field_elements(order);
         group.throughput(criterion::Throughput::Elements(1 << order)); // info for criterion
 
         group.bench_with_input("Parallel (Metal)", &coeffs, |bench, coeffs| {
@@ -103,7 +101,7 @@ pub fn metal_poly_interpolate_fft_benchmarks(c: &mut Criterion) {
     group.sample_size(10); // it becomes too slow with the default of 100
 
     for order in INPUT_SET {
-        let evals = gen_coeffs(order);
+        let evals = rand_field_elements(order);
 
         group.throughput(criterion::Throughput::Elements(1 << order)); // info for criterion
 
@@ -113,6 +111,28 @@ pub fn metal_poly_interpolate_fft_benchmarks(c: &mut Criterion) {
                 objc::rc::autoreleasepool(|| {
                     let metal_state = MetalState::new(None).unwrap();
                     Polynomial::interpolate_fft_metal(evals, &metal_state).unwrap();
+                });
+            });
+        });
+    }
+
+    group.finish();
+}
+
+pub fn metal_poly_evaluate_fft_benchmarks(c: &mut Criterion) {
+    let mut group = c.benchmark_group("Polynomial evaluation");
+    group.sample_size(10); // too slow otherwise
+
+    for order in INPUT_SET {
+        let poly = Polynomial::new(&rand_field_elements(order));
+        group.throughput(criterion::Throughput::Elements(1 << order));
+
+        group.bench_with_input("Parallel FFT (Metal)", &poly, |bench, poly| {
+            bench.iter(|| {
+                // TODO: autoreleaspool hurts perf. by 2-3%. Search for an alternative
+                objc::rc::autoreleasepool(|| {
+                    let metal_state = MetalState::new(None).unwrap();
+                    poly.evaluate_fft_metal(&metal_state).unwrap();
                 });
             });
         });
