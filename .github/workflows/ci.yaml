@@ -66,7 +66,8 @@ jobs:
         uses: taiki-e/install-action@cargo-llvm-cov
       - name: Build python wrapper wheel
         uses: PyO3/maturin-action@v1
-        args: -m py/Cargo.toml
+        with:
+          args: -m py/Cargo.toml
       - name: Install python wrapper wheel
         run: pip install target/wheels/lambdaworks*
       - name: Run rust tests and generate code coverage
