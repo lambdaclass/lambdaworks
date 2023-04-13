@@ -1,7 +1,8 @@
 use lambdaworks_crypto::commitments::traits::IsCommitmentScheme;
 use lambdaworks_math::cyclic_group::IsGroup;
+use lambdaworks_math::fft::errors::FFTError;
 use lambdaworks_math::field::element::FieldElement;
-use lambdaworks_math::field::traits::{IsField, IsPrimeField};
+use lambdaworks_math::field::traits::{IsField, IsPrimeField, IsTwoAdicField};
 use lambdaworks_math::polynomial::Polynomial;
 use lambdaworks_math::traits::ByteConversion;
 use std::marker::PhantomData;
@@ -69,9 +70,9 @@ impl<F: IsField, CS: IsCommitmentScheme<F>> Verifier<F, CS> {
         public_input: &[FieldElement<F>],
         input: &CommonPreprocessedInput<F>,
         vk: &VerificationKey<CS::Commitment>,
-    ) -> bool
+    ) -> Result<bool, FFTError>
     where
-        F: IsPrimeField,
+        F: IsPrimeField + IsTwoAdicField,
         CS: IsCommitmentScheme<F>,
         CS::Commitment: ByteConversion + IsGroup,
         FieldElement<F>: ByteConversion,
@@ -91,7 +92,7 @@ impl<F: IsField, CS: IsCommitmentScheme<F>> Verifier<F, CS> {
         let l1_zeta = (zeta.pow(input.n as u64) - FieldElement::one())
             / (&zeta - FieldElement::one())
             / FieldElement::from(input.n as u64);
-        let p_pi_zeta = Polynomial::interpolate(&input.domain, &p_pi_y).evaluate(&zeta);
+        let p_pi_zeta = Polynomial::interpolate_fft(&p_pi_y)?.evaluate(&zeta);
 
         let mut p_constant_zeta = &alpha
             * &p.z_zeta_omega
@@ -179,7 +180,7 @@ impl<F: IsField, CS: IsCommitmentScheme<F>> Verifier<F, CS> {
             &p.w_zeta_omega_1,
         );
 
-        constraints_check && batch_openings_check && single_opening_check
+        Ok(constraints_check && batch_openings_check && single_opening_check)
     }
 }
 
@@ -217,20 +218,24 @@ mod tests {
         let random_generator = TestRandomFieldGenerator {};
 
         let prover = Prover::new(kzg.clone(), random_generator);
-        let proof = prover.prove(
-            &witness,
-            &public_input,
-            &common_preprocessed_input,
-            &verifying_key,
-        );
+        let proof = prover
+            .prove(
+                &witness,
+                &public_input,
+                &common_preprocessed_input,
+                &verifying_key,
+            )
+            .unwrap();
 
         let verifier = Verifier::new(kzg);
-        assert!(verifier.verify(
-            &proof,
-            &public_input,
-            &common_preprocessed_input,
-            &verifying_key
-        ));
+        assert!(verifier
+            .verify(
+                &proof,
+                &public_input,
+                &common_preprocessed_input,
+                &verifying_key
+            )
+            .unwrap());
     }
 
     #[test]
@@ -254,20 +259,24 @@ mod tests {
         let random_generator = TestRandomFieldGenerator {};
 
         let prover = Prover::new(kzg.clone(), random_generator);
-        let proof = prover.prove(
-            &witness,
-            &public_input,
-            &common_preprocessed_input,
-            &verifying_key,
-        );
+        let proof = prover
+            .prove(
+                &witness,
+                &public_input,
+                &common_preprocessed_input,
+                &verifying_key,
+            )
+            .unwrap();
 
         let verifier = Verifier::new(kzg);
-        assert!(verifier.verify(
-            &proof,
-            &public_input,
-            &common_preprocessed_input,
-            &verifying_key
-        ));
+        assert!(verifier
+            .verify(
+                &proof,
+                &public_input,
+                &common_preprocessed_input,
+                &verifying_key
+            )
+            .unwrap());
     }
 
     #[test]
@@ -353,19 +362,23 @@ mod tests {
         let random_generator = TestRandomFieldGenerator {};
 
         let prover = Prover::new(kzg.clone(), random_generator);
-        let proof = prover.prove(
-            &witness,
-            &public_input,
-            &common_preprocessed_input,
-            &verifying_key,
-        );
+        let proof = prover
+            .prove(
+                &witness,
+                &public_input,
+                &common_preprocessed_input,
+                &verifying_key,
+            )
+            .unwrap();
 
         let verifier = Verifier::new(kzg);
-        assert!(verifier.verify(
-            &proof,
-            &public_input,
-            &common_preprocessed_input,
-            &verifying_key
-        ));
+        assert!(verifier
+            .verify(
+                &proof,
+                &public_input,
+                &common_preprocessed_input,
+                &verifying_key
+            )
+            .unwrap());
     }
 }
