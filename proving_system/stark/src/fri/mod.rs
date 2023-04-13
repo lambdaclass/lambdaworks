@@ -3,7 +3,7 @@ pub mod fri_decommit;
 mod fri_functions;
 use crate::fri::fri_commitment::{FriCommitment, FriCommitmentVec};
 use crate::fri::fri_functions::next_fri_layer;
-use crate::{transcript_to_field};
+use crate::transcript_to_field;
 use lambdaworks_crypto::hash::sha3::Sha3Hasher;
 
 pub use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
@@ -16,7 +16,7 @@ pub use lambdaworks_math::{
 };
 
 pub type FriMerkleTree<F> = MerkleTree<F>;
-pub (crate) const HASHER: Sha3Hasher = Sha3Hasher::new();
+pub(crate) const HASHER: Sha3Hasher = Sha3Hasher::new();
 
 /// # Params
 ///

@@ -18,9 +18,10 @@ pub struct FriDecommitment<F: IsField> {
 pub fn fri_decommit_layers<F: IsField>(
     commit: &FriCommitmentVec<F>,
     index_to_verify: usize,
-) -> FriDecommitment<F> 
-where FieldElement<F>: ByteConversion {
-    
+) -> FriDecommitment<F>
+where
+    FieldElement<F>: ByteConversion,
+{
     let mut index = index_to_verify;
 
     let mut layer_merkle_paths = vec![];

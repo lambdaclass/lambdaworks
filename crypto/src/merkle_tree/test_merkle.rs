@@ -33,7 +33,6 @@ impl TestHasher {
 }
 
 impl<F: IsField> IsCryptoHash<F> for TestHasher {
-
     fn hash_one(&self, input: FieldElement<F>) -> FieldElement<F> {
         &input + &input
     }

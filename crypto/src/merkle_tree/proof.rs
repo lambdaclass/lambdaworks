@@ -21,9 +21,11 @@ impl<F: IsField> Proof<F> {
         root_hash: &FieldElement<F>,
         mut index: usize,
         value: &FieldElement<F>,
-        hasher: &dyn IsCryptoHash<F>
-    ) 
-    -> bool where FieldElement<F>: ByteConversion {
+        hasher: &dyn IsCryptoHash<F>,
+    ) -> bool
+    where
+        FieldElement<F>: ByteConversion,
+    {
         let mut hashed_value = hasher.hash_one(value.clone());
 
         for sibling_node in self.merkle_path.iter() {
@@ -80,9 +82,7 @@ where
             merkle_path.push(field);
         }
 
-        Ok(Proof {
-            merkle_path,
-        })
+        Ok(Proof { merkle_path })
     }
 
     /// Returns the element from its byte representation in little-endian order.
@@ -94,9 +94,7 @@ where
             merkle_path.push(field);
         }
 
-        Ok(Proof {
-            merkle_path
-        })
+        Ok(Proof { merkle_path })
     }
 }
 
@@ -107,7 +105,8 @@ mod tests {
 
     use crate::merkle_tree::{
         merkle::MerkleTree,
-        proof::Proof, test_merkle::{Ecgfp5FE, TestProofEcgfp5, TestHasher, TestMerkleTreeEcgfp}
+        proof::Proof,
+        test_merkle::{Ecgfp5FE, TestHasher, TestMerkleTreeEcgfp, TestProofEcgfp5},
     };
 
     use lambdaworks_math::field::{element::FieldElement, fields::u64_prime_field::U64PrimeField};
@@ -119,9 +118,7 @@ mod tests {
     #[test]
     fn serialize_proof_and_deserialize_using_be_it_get_a_consistent_proof() {
         let merkle_path = [Ecgfp5FE::new(2), Ecgfp5FE::new(1), Ecgfp5FE::new(1)].to_vec();
-        let original_proof = TestProofEcgfp5 {
-            merkle_path,
-        };
+        let original_proof = TestProofEcgfp5 { merkle_path };
         let serialize_proof = original_proof.to_bytes_be();
         let proof: TestProofEcgfp5 = Proof::from_bytes_be(&serialize_proof).unwrap();
 
@@ -129,14 +126,11 @@ mod tests {
             assert_eq!(*o_node, node);
         }
     }
-    
 
     #[test]
     fn serialize_proof_and_deserialize_using_le_it_get_a_consistent_proof() {
         let merkle_path = [Ecgfp5FE::new(2), Ecgfp5FE::new(1), Ecgfp5FE::new(1)].to_vec();
-        let original_proof = TestProofEcgfp5 {
-            merkle_path,
-        };
+        let original_proof = TestProofEcgfp5 { merkle_path };
         let serialize_proof = original_proof.to_bytes_le();
         let proof: TestProofEcgfp5 = Proof::from_bytes_le(&serialize_proof).unwrap();
 
@@ -171,7 +165,12 @@ mod tests {
         let values: Vec<Ecgfp5FE> = (1..10000).map(Ecgfp5FE::new).collect();
         let merkle_tree = TestMerkleTreeEcgfp::build(&values, Box::new(TestHasher::new()));
         let proof = merkle_tree.get_proof_by_pos(9349).unwrap();
-        assert!(proof.verify(&merkle_tree.root, 9349, &Ecgfp5FE::new(9350), &TestHasher::new()));
+        assert!(proof.verify(
+            &merkle_tree.root,
+            9349,
+            &Ecgfp5FE::new(9350),
+            &TestHasher::new()
+        ));
     }
 
     fn assert_merkle_path(values: &[FE], expected_values: &[FE]) {

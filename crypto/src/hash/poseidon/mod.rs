@@ -24,7 +24,7 @@ impl Poseidon<BLS12381PrimeField> {
     }
 }
 
-impl Default for Poseidon<BLS12381PrimeField>{
+impl Default for Poseidon<BLS12381PrimeField> {
     fn default() -> Self {
         Self::new()
     }

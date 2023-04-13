@@ -1,8 +1,11 @@
 use crate::hash::traits::IsCryptoHash;
-use lambdaworks_math::{field::{element::FieldElement, traits::IsField}, traits::ByteConversion};
+use lambdaworks_math::{
+    field::{element::FieldElement, traits::IsField},
+    traits::ByteConversion,
+};
 
 //use super::proof::Proof;
-use super::{utils::*, proof::Proof};
+use super::{proof::Proof, utils::*};
 
 pub struct MerkleTree<F: IsField> {
     pub root: FieldElement<F>,
@@ -12,7 +15,13 @@ pub struct MerkleTree<F: IsField> {
 const ROOT: usize = 0;
 
 impl<F: IsField> MerkleTree<F> {
-    pub fn build(unhashed_leaves: &[FieldElement<F>], hasher: Box<dyn IsCryptoHash<F>>) -> MerkleTree<F> where FieldElement<F>: ByteConversion {
+    pub fn build(
+        unhashed_leaves: &[FieldElement<F>],
+        hasher: Box<dyn IsCryptoHash<F>>,
+    ) -> MerkleTree<F>
+    where
+        FieldElement<F>: ByteConversion,
+    {
         let mut hashed_leaves: Vec<FieldElement<F>> = hash_leaves(unhashed_leaves, hasher.as_ref());
 
         //The leaf must be a power of 2 set
@@ -39,9 +48,7 @@ impl<F: IsField> MerkleTree<F> {
     }
 
     fn create_proof(&self, merkle_path: Vec<FieldElement<F>>) -> Option<Proof<F>> {
-        Some(Proof {
-            merkle_path,
-        })
+        Some(Proof { merkle_path })
     }
 
     fn build_merkle_path(&self, pos: usize) -> Vec<FieldElement<F>> {
@@ -74,10 +81,7 @@ mod tests {
     // expected | 10 | 3 | 7 | 1 | 2 | 3 | 4 |
     fn build_merkle_tree_from_a_power_of_two_list_of_values() {
         let values: Vec<FE> = (1..5).map(FE::new).collect();
-        let merkle_tree = MerkleTree::<U64PF>::build(
-            &values,
-            Box::new(TestHasher::new())
-        );
+        let merkle_tree = MerkleTree::<U64PF>::build(&values, Box::new(TestHasher::new()));
         assert_eq!(merkle_tree.root, FE::new(20));
     }
 
@@ -88,5 +92,4 @@ mod tests {
         let merkle_tree = MerkleTree::<U64PF>::build(&values, Box::new(TestHasher::new()));
         assert_eq!(merkle_tree.root, FE::new(8));
     }
-    
 }

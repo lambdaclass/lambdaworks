@@ -3,7 +3,7 @@ use super::{
     fri::fri_decommit::FriDecommitment,
     sample_z_ood,
 };
-use crate::{proof::StarkProof, transcript_to_field, transcript_to_usize, fri::HASHER};
+use crate::{fri::HASHER, proof::StarkProof, transcript_to_field, transcript_to_usize};
 #[cfg(not(feature = "test_fiat_shamir"))]
 use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
 #[cfg(feature = "test_fiat_shamir")]
@@ -231,8 +231,9 @@ pub fn verify_query<F: IsField + IsTwoAdicField>(
     lde_root_order: u32,
     coset_offset: u64,
 ) -> bool
-where FieldElement<F>: ByteConversion {
-
+where
+    FieldElement<F>: ByteConversion,
+{
     let mut lde_primitive_root = F::get_primitive_root_of_unity(lde_root_order as u64).unwrap();
     let mut offset = FieldElement::<F>::from(coset_offset);
 
@@ -286,7 +287,7 @@ where FieldElement<F>: ByteConversion {
             fri_layer_merkle_root,
             layer_evaluation_index,
             auth_path_evaluation,
-            &HASHER
+            &HASHER,
         ) {
             return false;
         }
@@ -298,7 +299,7 @@ where FieldElement<F>: ByteConversion {
             fri_layer_merkle_root,
             layer_evaluation_index_symmetric,
             auth_path_evaluation_symmetric,
-            &HASHER
+            &HASHER,
         ) {
             return false;
         }

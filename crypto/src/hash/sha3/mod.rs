@@ -1,4 +1,7 @@
-use lambdaworks_math::{field::{traits::IsField,element::FieldElement}, traits::ByteConversion};
+use lambdaworks_math::{
+    field::{element::FieldElement, traits::IsField},
+    traits::ByteConversion,
+};
 use sha3::{Digest, Sha3_256};
 
 use super::traits::IsCryptoHash;
@@ -10,9 +13,10 @@ impl Sha3Hasher {
     }
 }
 impl<F: IsField> IsCryptoHash<F> for Sha3Hasher {
-    fn hash_one(&self, input: FieldElement<F>)
-    -> FieldElement<F> 
-    where FieldElement<F>: ByteConversion,{
+    fn hash_one(&self, input: FieldElement<F>) -> FieldElement<F>
+    where
+        FieldElement<F>: ByteConversion,
+    {
         let mut hasher = Sha3_256::new();
         hasher.update(input.to_bytes_be());
         let mut result_hash = [0_u8; 32];
@@ -20,12 +24,9 @@ impl<F: IsField> IsCryptoHash<F> for Sha3Hasher {
         FieldElement::<F>::from_bytes_le(&result_hash).unwrap()
     }
 
-    fn hash_two(
-        &self,
-        left: FieldElement<F>,
-        right: FieldElement<F>,
-    ) -> FieldElement<F> 
-    where FieldElement<F>: ByteConversion
+    fn hash_two(&self, left: FieldElement<F>, right: FieldElement<F>) -> FieldElement<F>
+    where
+        FieldElement<F>: ByteConversion,
     {
         let mut hasher = Sha3_256::new();
         hasher.update(left.to_bytes_be());
