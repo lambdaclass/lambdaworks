@@ -29,7 +29,7 @@ impl IsTwoAdicField for Stark252PrimeField {
 }
 
 #[cfg(test)]
-mod u256_two_adic_prime_field_tests {
+mod u256_stark_two_adic_prime_field_tests {
     use proptest::{
         collection, prelude::any, prop_assert_eq, prop_compose, proptest, strategy::Strategy,
     };
