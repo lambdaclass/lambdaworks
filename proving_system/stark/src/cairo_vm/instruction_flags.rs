@@ -118,11 +118,11 @@ impl DstReg {
     }
 }
 
-impl TryFrom<&U256> for DstReg {
+impl TryFrom<&FE> for DstReg {
     type Error = InstructionDecodingError;
 
-    fn try_from(mem_value: &U256) -> Result<Self, Self::Error> {
-        let flags = mem_value.limbs[3] >> FLAGS_OFFSET;
+    fn try_from(mem_value: &FE) -> Result<Self, Self::Error> {
+        let flags = aux_get_last_nim_of_FE(mem_value) >> FLAGS_OFFSET;
         let dst_reg = ((flags & DST_REG_MASK) >> DST_REG_OFF) as u8;
 
         if dst_reg == 0 {
@@ -154,11 +154,11 @@ impl Op1Src {
     }
 }
 
-impl TryFrom<&U256> for Op1Src {
+impl TryFrom<&FE> for Op1Src {
     type Error = InstructionDecodingError;
 
-    fn try_from(mem_value: &U256) -> Result<Self, Self::Error> {
-        let flags = mem_value.limbs[3] >> FLAGS_OFFSET;
+    fn try_from(mem_value: &FE) -> Result<Self, Self::Error> {
+        let flags = aux_get_last_nim_of_FE(mem_value) >> FLAGS_OFFSET;
         let op1_src = ((flags & OP1_SRC_MASK) >> OP1_SRC_OFF) as u8;
 
         match op1_src {
@@ -191,11 +191,11 @@ impl ResLogic {
     }
 }
 
-impl TryFrom<&U256> for ResLogic {
+impl TryFrom<&FE> for ResLogic {
     type Error = InstructionDecodingError;
 
-    fn try_from(mem_value: &U256) -> Result<Self, Self::Error> {
-        let flags = mem_value.limbs[3] >> FLAGS_OFFSET;
+    fn try_from(mem_value: &FE) -> Result<Self, Self::Error> {
+        let flags = aux_get_last_nim_of_FE(mem_value) >> FLAGS_OFFSET;
         let res_logic = ((flags & RES_LOGIC_MASK) >> RES_LOGIC_OFF) as u8;
 
         match res_logic {
@@ -228,11 +228,11 @@ impl PcUpdate {
     }
 }
 
-impl TryFrom<&U256> for PcUpdate {
+impl TryFrom<&FE> for PcUpdate {
     type Error = InstructionDecodingError;
 
-    fn try_from(mem_value: &U256) -> Result<Self, Self::Error> {
-        let flags = mem_value.limbs[3] >> FLAGS_OFFSET;
+    fn try_from(mem_value: &FE) -> Result<Self, Self::Error> {
+        let flags = aux_get_last_nim_of_FE(mem_value) >> FLAGS_OFFSET;
         let pc_update = ((flags & PC_UPDATE_MASK) >> PC_UPDATE_OFF) as u8;
 
         match pc_update {
@@ -265,11 +265,11 @@ impl ApUpdate {
     }
 }
 
-impl TryFrom<&U256> for ApUpdate {
+impl TryFrom<&FE> for ApUpdate {
     type Error = InstructionDecodingError;
 
-    fn try_from(mem_value: &U256) -> Result<Self, Self::Error> {
-        let flags = mem_value.limbs[3] >> FLAGS_OFFSET;
+    fn try_from(mem_value: &FE) -> Result<Self, Self::Error> {
+        let flags = aux_get_last_nim_of_FE(mem_value) >> FLAGS_OFFSET;
         let ap_update = ((flags & AP_UPDATE_MASK) >> AP_UPDATE_OFF) as u8;
 
         match ap_update {
@@ -282,10 +282,10 @@ impl TryFrom<&U256> for ApUpdate {
     }
 }
 
-impl TryFrom<&U256> for CairoInstructionFlags {
+impl TryFrom<&FE> for CairoInstructionFlags {
     type Error = InstructionDecodingError;
 
-    fn try_from(mem_value: &U256) -> Result<Self, Self::Error> {
+    fn try_from(mem_value: &FE) -> Result<Self, Self::Error> {
         Ok(CairoInstructionFlags {
             opcode: CairoOpcode::try_from(mem_value)?,
             pc_update: PcUpdate::try_from(mem_value)?,
@@ -317,11 +317,11 @@ impl CairoOpcode {
     }
 }
 
-impl TryFrom<&U256> for CairoOpcode {
+impl TryFrom<&FE> for CairoOpcode {
     type Error = InstructionDecodingError;
 
     fn try_from(mem_value: &U256) -> Result<Self, Self::Error> {
-        let flags = mem_value.limbs[3] >> FLAGS_OFFSET;
+        let flags = aux_get_last_nim_of_FE(mem_value) >> FLAGS_OFFSET;
         let opcode = ((flags & OPCODE_MASK) >> OPCODE_OFF) as u8;
 
         match opcode {
