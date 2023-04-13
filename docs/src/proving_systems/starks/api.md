@@ -23,11 +23,9 @@ fn test_prove_fib() {
     };
 
     let fibonacci_air = FibonacciAIR::new(context);
-    let mut prover = Prover::new(&fibonacci_air);
-    let mut verifier = Verifier::new(&fibonacci_air);
-
-    let result = prover.prove::<TestHasher>(&trace_table);
-    assert!(verifier.verify(&result));
+    
+    let result = prove::<_, _, TestHasher>(&trace_table, &fibonacci_air);
+    assert!(verify(&result, &fibonacci_air));
 }
 ```
 
@@ -160,16 +158,13 @@ Let's go over each of them:
 
 ## Proving execution
 
-Having defined all of the above, proving our fibonacci example amounts to instantiating the necessary structs, including the `Prover` and `Verifier`, and then calling `Prover::prove` passing the `AIR` and the trace. We use a simple implementation of a hasher called `TestHasher` to handle merkle proof building.
+Having defined all of the above, proving our fibonacci example amounts to instantiating the necessary structs and then calling `prove` passing the `AIR` and the trace. We use a simple implementation of a hasher called `TestHasher` to handle merkle proof building.
 
-```rust
-    let mut prover = Prover::new(&fibonacci_air);
-    let mut verifier = Verifier::new(&fibonacci_air);
-
-    let result = prover.prove::<TestHasher>(&trace_table);
+```rust 
+    let result = prove::<_, _, TestHasher>(&trace_table, &fibonacci_air);
 ```
 
-Verifying is then done by passing the proof of execution along with the same `AIR` to the `Verifier::verify` function.
+Verifying is then done by passing the proof of execution along with the same `AIR` to the `verify` function.
 
 ```rust
 assert!(verify(&proof, &fibonacci_air));

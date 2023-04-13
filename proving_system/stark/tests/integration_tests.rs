@@ -10,14 +10,14 @@ use lambdaworks_stark::air::example::{
 };
 use lambdaworks_stark::air::AIR;
 
+use lambdaworks_stark::prover::prove;
+use lambdaworks_stark::verifier::verify;
 use lambdaworks_stark::{
     air::{
         context::{AirContext, ProofOptions},
         trace::TraceTable,
     },
     fri::FieldElement,
-    prover::Prover,
-    verifier::Verifier,
 };
 
 pub type FE = FieldElement<Stark252PrimeField>;
@@ -43,11 +43,9 @@ fn test_prove_fib() {
     };
 
     let fibonacci_air = FibonacciAIR::new(context);
-    let mut prover = Prover::new(&fibonacci_air);
-    let mut verifier = Verifier::new(&fibonacci_air);
 
-    let result = prover.prove::<TestHasher>(&trace_table);
-    assert!(verifier.verify(&result));
+    let result = prove::<_, _, TestHasher>(&trace_table, &fibonacci_air);
+    assert!(verify(&result, &fibonacci_air));
 }
 
 #[test]
@@ -70,11 +68,9 @@ fn test_prove_fib17() {
     };
 
     let fibonacci_air = fibonacci_f17::Fibonacci17AIR::new(context);
-    let mut prover = Prover::new(&fibonacci_air);
-    let mut verifier = Verifier::new(&fibonacci_air);
 
-    let result = prover.prove::<TestHasher>(&trace_table);
-    assert!(verifier.verify(&result));
+    let result = prove::<_, _, TestHasher>(&trace_table, &fibonacci_air);
+    assert!(verify(&result, &fibonacci_air));
 }
 
 #[test]
@@ -98,11 +94,9 @@ fn test_prove_fib_2_cols() {
     };
 
     let fibonacci_air = fibonacci_2_columns::Fibonacci2ColsAIR::new(context);
-    let mut prover = Prover::new(&fibonacci_air);
-    let mut verifier = Verifier::new(&fibonacci_air);
 
-    let result = prover.prove::<TestHasher>(&trace_table);
-    assert!(verifier.verify(&result));
+    let result = prove::<_, _, TestHasher>(&trace_table, &fibonacci_air);
+    assert!(verify(&result, &fibonacci_air));
 }
 
 #[test]
@@ -128,9 +122,7 @@ fn test_prove_quadratic() {
     };
 
     let quadratic_air = quadratic_air::QuadraticAIR::new(context);
-    let mut prover = Prover::new(&quadratic_air);
-    let mut verifier = Verifier::new(&quadratic_air);
 
-    let result = prover.prove::<TestHasher>(&trace_table);
-    assert!(verifier.verify(&result));
+    let result = prove::<_, _, TestHasher>(&trace_table, &quadratic_air);
+    assert!(verify(&result, &quadratic_air));
 }
