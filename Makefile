@@ -5,7 +5,7 @@ py.develop:
 
 test: py.develop
 	cargo test
-	python py/tests/lamdaworks_py_test.py
+	python -m unittest py/tests/lamdaworks_py_test.py
 
 clippy:
 	cargo clippy --all-targets --all-features -- -D warnings

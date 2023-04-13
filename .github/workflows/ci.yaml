@@ -64,8 +64,15 @@ jobs:
           components: clippy
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
-      - name: Run tests and generate code coverage
+      - name: Build python wrapper wheel
+        uses: PyO3/maturin-action@v1
+        args: -m py/Cargo.toml
+      - name: Install python wrapper wheel
+        run: pip install target/wheels/lambdaworks*
+      - name: Run rust tests and generate code coverage
         run: cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info
+      - name: Run python tests
+        run: python -m unittest py/tests/lamdaworks_py_test.py
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
         with:
