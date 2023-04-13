@@ -1,8 +1,11 @@
 use super::errors::CairoImportError;
 use crate::FE;
 use lambdaworks_math::traits::ByteConversion;
-use std::{collections::HashMap, fs}; // this is the field used by Cairo
+use std::{collections::HashMap, fs};
 
+// `FE` is used as the type of values stored in
+// the Cairo memory. We should decide if this is
+// correct or we should consider another type.
 #[derive(Clone, Debug, PartialEq)]
 pub struct CairoMemory {
     data: HashMap<u64, FE>,

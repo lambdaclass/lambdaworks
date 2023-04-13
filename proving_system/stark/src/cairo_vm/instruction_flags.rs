@@ -51,6 +51,10 @@ pub struct CairoInstructionFlags {
 }
 
 impl CairoInstructionFlags {
+    /// Gives a bit trace representation of all flags.
+    /// Altough the flags can be interpreted as bits, they are
+    /// represented by field elements: bit 0 is FE::zero() and
+    /// bit 1 is FE::one().
     #[rustfmt::skip]
     pub fn to_trace_representation(&self) -> [FE; 16] {
         let [b0, b1, b2] = self.opcode.to_trace_representation();
