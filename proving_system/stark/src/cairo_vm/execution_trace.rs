@@ -21,7 +21,7 @@ use crate::{
 use super::{
     cairo_mem::CairoMemory,
     cairo_trace::CairoTrace,
-    instruction_flags::{DstReg, Op0Reg},
+    instruction_flags::{ApUpdate, CairoOpcode, DstReg, Op0Reg, PcUpdate, ResLogic},
 };
 
 pub const FLAG_TRACE_OFFSET: usize = 0;
@@ -80,6 +80,67 @@ pub fn build_cairo_execution_trace<F: IsField>(
         .iter()
         .map(|off| off.to_trace_representation())
         .collect();
+
+    todo!()
+}
+
+pub fn compute_res(
+    flags: &[CairoInstructionFlags],
+    offsets: &[InstructionOffsets],
+    raw_trace: &CairoTrace,
+    memory: &CairoMemory,
+) -> Vec<FE> {
+    /*
+    # Compute res.
+    if pc_update == 4:
+        if res_logic == 0 && opcode == 0 && ap_update != 1:
+            res = Unused
+        else:
+            Undefined Behavior
+    else if pc_update = 0, 1 or 2:
+        switch res_logic:
+            case 0: res = op1
+            case 1: res = op0 + op1
+            case 2: res = op0 * op1
+            default: Undefined Behavior
+    else: Undefined Behavior
+
+    */
+
+    flags.iter().map(|f| {
+        match f.pc_update {
+            PcUpdate::Jnz => {
+                match (f.res_logic, f.opcode, f.ap_update) {
+                    (
+                        ResLogic::Op1,
+                        CairoOpcode::NOp,
+                        ApUpdate::Regular | ApUpdate::Add1 | ApUpdate::Add2,
+                    ) => {
+                        // res = Unused
+                    }
+                    _ => {
+                        panic!("Undefined Behavior");
+                    }
+                }
+            }
+            PcUpdate::Regular | PcUpdate::Jump | PcUpdate::JumpRel => {
+                match f.res_logic {
+                    ResLogic::Op1 => {
+                        // res = op1
+                    }
+                    ResLogic::Add => {
+                        // res = op0 + op1
+                    }
+                    ResLogic::Mul => {
+                        // res = op0 * op1
+                    }
+                    ResLogic::Unconstrained => {
+                        panic!("Undefined Behavior");
+                    }
+                }
+            }
+        };
+    });
 
     todo!()
 }
