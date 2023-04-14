@@ -72,6 +72,7 @@ pub fn build_cairo_execution_trace<F: IsField>(
     let (dst_addrs, dsts): (Vec<FE>, Vec<FE>) = compute_dst(&flags, &offsets, raw_trace, memory);
     let (op0_addrs, op0s): (Vec<FE>, Vec<FE>) = compute_op0(&flags, &offsets, raw_trace, memory);
     let (op1_addrs, op1s): (Vec<FE>, Vec<FE>) = compute_op1(&flags, &offsets, raw_trace, memory);
+    let res = compute_res(&flags, &op0s, &op1s);
 
     let trace_repr_flags: Vec<[FE; 16]> =
         flags.iter().map(|f| f.to_trace_representation()).collect();
@@ -84,12 +85,7 @@ pub fn build_cairo_execution_trace<F: IsField>(
     todo!()
 }
 
-pub fn compute_res(
-    flags: &[CairoInstructionFlags],
-    offsets: &[InstructionOffsets],
-    raw_trace: &CairoTrace,
-    memory: &CairoMemory,
-) -> Vec<FE> {
+pub fn compute_res(flags: &[CairoInstructionFlags], op0s: &[FE], op1s: &[FE]) -> Vec<FE> {
     /*
     # Compute res.
     if pc_update == 4:
@@ -104,45 +100,40 @@ pub fn compute_res(
             case 2: res = op0 * op1
             default: Undefined Behavior
     else: Undefined Behavior
-
     */
 
-    flags.iter().map(|f| {
-        match f.pc_update {
-            PcUpdate::Jnz => {
-                match (f.res_logic, f.opcode, f.ap_update) {
-                    (
-                        ResLogic::Op1,
-                        CairoOpcode::NOp,
-                        ApUpdate::Regular | ApUpdate::Add1 | ApUpdate::Add2,
-                    ) => {
-                        // res = Unused
-                    }
-                    _ => {
-                        panic!("Undefined Behavior");
+    flags
+        .iter()
+        .zip(op0s)
+        .zip(op1s)
+        .map(|((f, op0), op1)| {
+            match f.pc_update {
+                PcUpdate::Jnz => {
+                    match (&f.res_logic, &f.opcode, &f.ap_update) {
+                        (
+                            ResLogic::Op1,
+                            CairoOpcode::NOp,
+                            ApUpdate::Regular | ApUpdate::Add1 | ApUpdate::Add2,
+                        ) => {
+                            // TODO! res = Unused
+                            FE::zero()
+                        }
+                        _ => {
+                            panic!("Undefined Behavior");
+                        }
                     }
                 }
-            }
-            PcUpdate::Regular | PcUpdate::Jump | PcUpdate::JumpRel => {
-                match f.res_logic {
-                    ResLogic::Op1 => {
-                        // res = op1
-                    }
-                    ResLogic::Add => {
-                        // res = op0 + op1
-                    }
-                    ResLogic::Mul => {
-                        // res = op0 * op1
-                    }
+                PcUpdate::Regular | PcUpdate::Jump | PcUpdate::JumpRel => match f.res_logic {
+                    ResLogic::Op1 => op1.clone(),
+                    ResLogic::Add => op0 + op1,
+                    ResLogic::Mul => op0 * op1,
                     ResLogic::Unconstrained => {
                         panic!("Undefined Behavior");
                     }
-                }
+                },
             }
-        };
-    });
-
-    todo!()
+        })
+        .collect()
 }
 
 pub fn compute_dst(
