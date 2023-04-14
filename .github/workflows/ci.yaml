@@ -53,7 +53,7 @@ jobs:
         run: make clippy
   test:
     name: Test
-    runs-on: macos-latest
+    runs-on: [self-hosted, macOS]
     env:
       CARGO_TERM_COLOR: always
     steps:
