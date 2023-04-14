@@ -1,13 +1,13 @@
 .PHONY: test clippy docker-shell nix-shell benchmarks benchmark docs py.develop
 
+test: py.develop
+	cargo test
+	python3 -m unittest py/tests/lamdaworks_py_test.py
+
 py.develop:
 	python3 -m venv .venv
 	. .venv/bin/activate
 	maturin develop -m py/Cargo.toml
-
-test: py.develop
-	cargo test
-	python3 -m unittest py/tests/lamdaworks_py_test.py
 
 clippy:
 	cargo clippy --all-targets -- -D warnings
