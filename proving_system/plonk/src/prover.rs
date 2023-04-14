@@ -1,13 +1,14 @@
+use lambdaworks_math::traits::IsRandomFieldElementGenerator;
+use std::marker::PhantomData;
+
 use crate::setup::{
     new_strong_fiat_shamir_transcript, CommonPreprocessedInput, VerificationKey, Witness,
 };
 use lambdaworks_crypto::commitments::traits::IsCommitmentScheme;
 use lambdaworks_math::fft::errors::FFTError;
 use lambdaworks_math::field::traits::IsTwoAdicField;
-use lambdaworks_math::traits::IsRandomFieldElementGenerator;
 use lambdaworks_math::{field::element::FieldElement, polynomial::Polynomial};
 use lambdaworks_math::{field::traits::IsField, traits::ByteConversion};
-use std::marker::PhantomData;
 
 /// Plonk proof.
 /// The challenges are denoted
