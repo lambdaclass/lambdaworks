@@ -1,10 +1,8 @@
-name: Benchmarks 
+name: Criterion benchmarks 
 
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ '*' ]
 
 permissions:
   # deployments permission to deploy GitHub pages website
@@ -33,6 +31,3 @@ jobs:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         # Push and deploy GitHub pages branch automatically
         auto-push: ${{ github.event_name != 'pull_request' }}
-        alert-threshold: '130%'
-        comment-on-alert: true
-        alert-comment-cc-users: '@unbalancedparentheses'
