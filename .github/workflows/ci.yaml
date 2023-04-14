@@ -67,7 +67,7 @@ jobs:
       - name: Run tests and generate code coverage
         run: cargo llvm-cov --lcov --output-path lcov.info
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v3.1.2
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: lcov.info
