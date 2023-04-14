@@ -69,55 +69,6 @@ where
     Polynomial::interpolate_fft(values.as_slice()).unwrap()
 }
 
-// pub trait FFTPoly<F: IsTwoAdicField> {
-//     fn evaluate_fft(&self) -> Result<Vec<FieldElement<F>>, FFTMetalError>;
-//     fn evaluate_offset_fft(
-//         &self,
-//         offset: &FieldElement<F>,
-//         blowup_factor: usize,
-//     ) -> Result<Vec<FieldElement<F>>, FFTMetalError>;
-//     fn interpolate_fft(
-//         fft_evals: &[FieldElement<F>],
-//     ) -> Result<Polynomial<FieldElement<F>>, FFTMetalError>;
-// }
-
-// impl<F: IsTwoAdicField> MetalFFTPoly<F> for Polynomial<FieldElement<F>> {
-//     /// Evaluates this polynomial using parallel FFT (so the function is evaluated using twiddle factors),
-//     /// in Metal.
-//     fn evaluate_fft(&self) -> Result<Vec<FieldElement<F>>, FFTMetalError> {
-//         let metal_state = MetalState::new(None).unwrap();
-//         let order = log2(self.coefficients().len())?;
-//         let twiddles = gen_twiddles(order, RootsConfig::BitReverse, &metal_state)?;
-
-//         fft(self.coefficients(), &twiddles, &metal_state)
-//     }
-
-//     /// Evaluates this polynomial using parallel FFT in an extended domain by `blowup_factor` with an `offset`, in Metal.
-//     /// Usually used for Reed-Solomon encoding.
-//     fn evaluate_offset_fft(
-//         &self,
-//         offset: &FieldElement<F>,
-//         blowup_factor: usize,
-//     ) -> Result<Vec<FieldElement<F>>, FFTMetalError> {
-//         let metal_state = MetalState::new(None).unwrap();
-//         let scaled = self.scale(offset);
-//         fft_with_blowup(scaled.coefficients(), blowup_factor, &metal_state)
-//     }
-
-//     /// Returns a new polynomial that interpolates `fft_evals`, which are evaluations using twiddle
-//     /// factors. This is considered to be the inverse operation of [Self::evaluate_fft()].
-//     fn interpolate_fft(fft_evals: &[FieldElement<F>]) -> Result<Self, FFTMetalError> {
-//         let metal_state = MetalState::new(None).unwrap();
-//         let order = log2(fft_evals.len())?;
-//         let twiddles = gen_twiddles(order, RootsConfig::BitReverseInversed, &metal_state)?;
-
-//         let coeffs = fft(fft_evals, &twiddles, &metal_state)?;
-
-//         let scale_factor = FieldElement::from(fft_evals.len() as u64).inv();
-//         Ok(Polynomial::new(&coeffs).scale_coeffs(&scale_factor))
-//     }
-// }
-
 #[cfg(test)]
 mod tests {
     use lambdaworks_math::{
@@ -158,41 +109,6 @@ mod tests {
             Polynomial::new(&coeffs)
         }
     }
-
-    // proptest! {
-    //     #[test]
-    //     fn test_metal_fft_poly_eval_matches_cpu(poly in poly(6)) {
-    //         objc::rc::autoreleasepool(|| {
-    //             let gpu_evals = poly.evaluate_fft().unwrap();
-    //             let cpu_evals = poly.evaluate_fft().unwrap();
-
-    //             prop_assert_eq!(gpu_evals, cpu_evals);
-    //             Ok(())
-    //         }).unwrap();
-    //     }
-
-    //     #[test]
-    //     fn test_metal_fft_coset_poly_eval_matches_cpu(poly in poly(6), offset in offset(), blowup_factor in powers_of_two(4)) {
-    //         objc::rc::autoreleasepool(|| {
-    //             let gpu_evals = poly.evaluate_offset_fft(&offset, blowup_factor).unwrap();
-    //             let cpu_evals = poly.evaluate_offset_fft(&offset, blowup_factor).unwrap();
-
-    //             prop_assert_eq!(gpu_evals, cpu_evals);
-    //             Ok(())
-    //         }).unwrap();
-    //     }
-
-    //     #[test]
-    //     fn test_metal_fft_poly_interpol_matches_cpu(evals in field_vec(6)) {
-    //         objc::rc::autoreleasepool(|| {
-    //             let gpu_evals = Polynomial::interpolate_fft(&evals).unwrap();
-    //             let cpu_evals = Polynomial::interpolate_fft(&evals).unwrap();
-
-    //             prop_assert_eq!(gpu_evals, cpu_evals);
-    //             Ok(())
-    //         }).unwrap();
-    //     }
-    // }
 
     proptest! {
         // Property-based test that ensures FFT eval. in the FFT friendly field gives same result as a naive polynomial evaluation.
