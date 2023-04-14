@@ -33,14 +33,12 @@ pub fn bitrev_permute(input: &[FE]) {
 pub fn poly_evaluate_fft(poly: &Polynomial<FE>) {
     // TODO: autoreleasepool hurts perf. by 2-3%. Search for an alternative
     objc::rc::autoreleasepool(|| {
-        let metal_state = MetalState::new(None).unwrap();
-        poly.evaluate_fft_metal(&metal_state).unwrap();
+        poly.evaluate_fft_metal().unwrap();
     });
 }
 pub fn poly_interpolate_fft(evals: &[FE]) {
     // TODO: autoreleasepool hurts perf. by 2-3%. Search for an alternative
     objc::rc::autoreleasepool(|| {
-        let metal_state = MetalState::new(None).unwrap();
-        Polynomial::interpolate_fft_metal(evals, &metal_state).unwrap();
+        Polynomial::interpolate_fft_metal(evals).unwrap();
     });
 }

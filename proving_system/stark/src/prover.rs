@@ -7,9 +7,16 @@ use crate::{
     proof::{StarkProof, StarkQueryProof},
     transcript_to_field, transcript_to_usize,
 };
+#[cfg(not(feature = "test_fiat_shamir"))]
+use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
+
+#[cfg(feature = "test_fiat_shamir")]
+use lambdaworks_crypto::fiat_shamir::test_transcript::TestTranscript;
+
+use lambdaworks_fft::polynomial::FFTPoly;
+use lambdaworks_fft::{errors::FFTError, roots_of_unity::get_powers_of_primitive_root_coset};
 use lambdaworks_math::{
-    fft::errors::FFTError,
     field::{element::FieldElement, traits::IsTwoAdicField},
     polynomial::Polynomial,
     traits::ByteConversion,
@@ -20,7 +27,10 @@ pub fn prove<F: IsTwoAdicField, A: AIR<Field = F>>(trace: &TraceTable<F>, air: &
 where
     FieldElement<F>: ByteConversion,
 {
-    let transcript = &mut Transcript::new();
+    #[cfg(not(feature = "test_fiat_shamir"))]
+    let transcript = &mut DefaultTranscript::new();
+    #[cfg(feature = "test_fiat_shamir")]
+    let transcript = &mut TestTranscript::new();
 
     let blowup_factor = air.options().blowup_factor as usize;
     let coset_offset = FieldElement::<F>::from(air.options().coset_offset);
@@ -28,7 +38,7 @@ where
     let root_order = air.context().trace_length.trailing_zeros();
     // * Generate Coset
     let trace_primitive_root = F::get_primitive_root_of_unity(root_order as u64).unwrap();
-    let trace_roots_of_unity = F::get_powers_of_primitive_root_coset(
+    let trace_roots_of_unity = get_powers_of_primitive_root_coset(
         root_order as u64,
         air.context().trace_length,
         &FieldElement::<F>::one(),
@@ -36,7 +46,7 @@ where
     .unwrap();
 
     let lde_root_order = (air.context().trace_length * blowup_factor).trailing_zeros();
-    let lde_roots_of_unity_coset = F::get_powers_of_primitive_root_coset(
+    let lde_roots_of_unity_coset = get_powers_of_primitive_root_coset(
         lde_root_order as u64,
         air.context().trace_length * blowup_factor,
         &coset_offset,
@@ -47,10 +57,12 @@ where
     let lde_trace_evaluations = trace_polys
         .iter()
         .map(|poly| {
-            poly.evaluate_offset_fft(
+            let res = poly.evaluate_offset_fft(
                 &FieldElement::<F>::from(air.options().coset_offset),
                 air.options().blowup_factor as usize,
-            )
+            );
+            dbg!(&res);
+            res
         })
         .collect::<Result<Vec<Vec<FieldElement<F>>>, FFTError>>()
         .unwrap();
@@ -172,14 +184,14 @@ where
 /// Returns the DEEP composition polynomial that the prover then commits to using
 /// FRI. This polynomial is a linear combination of the trace polynomial and the
 /// composition polynomial, with coefficients sampled by the verifier (i.e. using Fiat-Shamir).
-fn compute_deep_composition_poly<A: AIR, F: IsTwoAdicField>(
+fn compute_deep_composition_poly<A: AIR, F: IsTwoAdicField, T: Transcript>(
     air: &A,
     trace_polys: &[Polynomial<FieldElement<F>>],
     even_composition_poly: &Polynomial<FieldElement<F>>,
     odd_composition_poly: &Polynomial<FieldElement<F>>,
     ood_evaluation_point: &FieldElement<F>,
     primitive_root: &FieldElement<F>,
-    transcript: &mut Transcript,
+    transcript: &mut T,
 ) -> Polynomial<FieldElement<F>> {
     let transition_offsets = air.context().transition_offsets;
 
@@ -188,12 +200,12 @@ fn compute_deep_composition_poly<A: AIR, F: IsTwoAdicField>(
     let n_trace_terms = transition_offsets.len() * trace_polys.len();
     let mut trace_term_coeffs = Vec::with_capacity(n_trace_terms);
     for _ in 0..n_trace_terms {
-        trace_term_coeffs.push(transcript_to_field::<F>(transcript));
+        trace_term_coeffs.push(transcript_to_field::<F, T>(transcript));
     }
 
     // Get coefficients for even and odd terms of the composition polynomial H(x)
-    let gamma_even = transcript_to_field::<F>(transcript);
-    let gamma_odd = transcript_to_field::<F>(transcript);
+    let gamma_even = transcript_to_field::<F, T>(transcript);
+    let gamma_odd = transcript_to_field::<F, T>(transcript);
 
     // Get trace evaluations needed for the trace terms of the deep composition polynomial
     let trace_evaluations = Frame::get_trace_evaluations(
