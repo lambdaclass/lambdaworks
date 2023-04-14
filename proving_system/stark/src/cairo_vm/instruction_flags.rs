@@ -146,8 +146,8 @@ impl TryFrom<&FE> for DstReg {
 pub enum Op1Src {
     Op0 = 0,
     Imm = 1,
-    AP = 2,
-    FP = 4,
+    FP = 2,
+    AP = 4,
 }
 
 impl Op1Src {

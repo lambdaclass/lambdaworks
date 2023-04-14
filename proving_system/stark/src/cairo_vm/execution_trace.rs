@@ -12,16 +12,19 @@
 // ├xxxxxxxxxxxxxxxx|x|xx|xxxx|xxxx|xxx|xxx┤
 //
 
-use crate::{
-    air::trace::TraceTable,
-    cairo_vm::{instruction_flags::CairoInstructionFlags, instruction_offsets::InstructionOffsets},
-    IsField, FE,
-};
+use lambdaworks_math::traits::ByteConversion;
 
 use super::{
     cairo_mem::CairoMemory,
     cairo_trace::CairoTrace,
-    instruction_flags::{ApUpdate, CairoOpcode, DstReg, Op0Reg, PcUpdate, ResLogic},
+    instruction_flags::{
+        aux_get_last_nim_of_FE, ApUpdate, CairoOpcode, DstReg, Op0Reg, Op1Src, PcUpdate, ResLogic,
+    },
+};
+use crate::{
+    air::trace::TraceTable,
+    cairo_vm::{instruction_flags::{CairoInstructionFlags, self}, instruction_offsets::InstructionOffsets},
+    IsField, FE,
 };
 
 pub const FLAG_TRACE_OFFSET: usize = 0;
@@ -71,7 +74,8 @@ pub fn build_cairo_execution_trace<F: IsField>(
     // TODO: Get res, op0_addr and op1_addr
     let (dst_addrs, dsts): (Vec<FE>, Vec<FE>) = compute_dst(&flags, &offsets, raw_trace, memory);
     let (op0_addrs, op0s): (Vec<FE>, Vec<FE>) = compute_op0(&flags, &offsets, raw_trace, memory);
-    let (op1_addrs, op1s): (Vec<FE>, Vec<FE>) = compute_op1(&flags, &offsets, raw_trace, memory);
+    let (op1_addrs, op1s, instruction_size): (Vec<FE>, Vec<FE>, Vec<FE>) =
+        compute_op1(&flags, &offsets, raw_trace, memory, &op0s);
     let res = compute_res(&flags, &op0s, &op1s);
 
     let trace_repr_flags: Vec<[FE; 16]> =
@@ -115,7 +119,7 @@ pub fn compute_res(flags: &[CairoInstructionFlags], op0s: &[FE], op1s: &[FE]) ->
                             CairoOpcode::NOp,
                             ApUpdate::Regular | ApUpdate::Add1 | ApUpdate::Add2,
                         ) => {
-                            // TODO! res = Unused
+                            // res = Unused
                             FE::zero()
                         }
                         _ => {
@@ -182,11 +186,85 @@ pub fn compute_op0(
         .unzip()
 }
 
+/// Returns the vector of:
+/// - op1_addrs
+/// - op1s
+/// - instruction_size
 pub fn compute_op1(
     flags: &[CairoInstructionFlags],
     offsets: &[InstructionOffsets],
     raw_trace: &CairoTrace,
     memory: &CairoMemory,
-) -> (Vec<FE>, Vec<FE>) {
-    todo!()
+    op0s: &[FE],
+) -> (Vec<FE>, Vec<FE>, Vec<FE>) {
+    /*
+    # Compute op1 and instruction_size.
+    switch op1_src:
+        case 0:
+            instruction_size = 1
+            op1 = m(op0 + offop1)
+        case 1:
+            instruction_size = 2
+            op1 = m(pc + offop1)
+            # If offop1 = 1, we have op1 = immediate_value.
+        case 2:
+            instruction_size = 1
+            op1 = m(fp + offop1)
+        case 4:
+            instruction_size = 1
+            op1 = m(ap + offop1)
+        default:
+            Undefined Behavior
+    */
+    let ret = flags
+        .iter()
+        .zip(offsets)
+        .zip(op0s)
+        .zip(raw_trace.rows.iter())
+        .map(|(((flag, offset), op0), trace_state)| match flag.op1_src {
+            Op1Src::Op0 => {
+                let instruction_size = FE::one();
+                let addr = aux_get_last_nim_of_FE(op0)
+                    .checked_add_signed(offset.off_op1.into())
+                    .unwrap();
+                (
+                    FE::from(addr),
+                    memory.get(&addr).unwrap().clone(),
+                    instruction_size,
+                )
+            }
+            Op1Src::Imm => {
+                let instruction_size = FE::from(2);
+                let pc = trace_state.pc;
+                let addr = pc.checked_add_signed(offset.off_op1.into()).unwrap();
+                (
+                    FE::from(addr),
+                    memory.get(&addr).unwrap().clone(),
+                    instruction_size,
+                )
+            }
+            Op1Src::AP => {
+                let instruction_size = FE::one();
+                let ap = trace_state.ap;
+                let addr = ap.checked_add_signed(offset.off_op1.into()).unwrap();
+                (
+                    FE::from(addr),
+                    memory.get(&addr).unwrap().clone(),
+                    instruction_size,
+                )
+            }
+            Op1Src::FP => {
+                let instruction_size = FE::one();
+                let fp = trace_state.fp;
+                let addr = fp.checked_add_signed(offset.off_op1.into()).unwrap();
+                (
+                    FE::from(addr),
+                    memory.get(&addr).unwrap().clone(),
+                    instruction_size,
+                )
+            }
+        })
+        .collect::<(FE, FE, FE)>();
+    //ret
+        todo!()
 }
