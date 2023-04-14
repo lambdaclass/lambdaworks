@@ -65,13 +65,13 @@ fn bitrev_permutation_benchmarks(c: &mut Criterion) {
 }
 
 fn poly_evaluation_benchmarks(c: &mut Criterion) {
-    let mut group = c.benchmark_group("Polynomial evaluation");
+    let mut group = c.benchmark_group("Polynomial");
 
     for poly in SIZE_ORDERS.map(util::rand_poly) {
         group.throughput(criterion::Throughput::Elements(
             poly.coefficients().len() as u64
         ));
-        group.bench_with_input("Parallel FFT (Metal)", &poly, |bench, poly| {
+        group.bench_with_input("evaluate_fft_metal", &poly, |bench, poly| {
             bench.iter_with_large_drop(|| {
                 functions::metal::poly_evaluate_fft(poly);
             });
@@ -82,11 +82,11 @@ fn poly_evaluation_benchmarks(c: &mut Criterion) {
 }
 
 fn poly_interpolation_benchmarks(c: &mut Criterion) {
-    let mut group = c.benchmark_group("Polynomial interpolation");
+    let mut group = c.benchmark_group("Polynomial");
 
     for evals in SIZE_ORDERS.map(util::rand_field_elements) {
         group.throughput(criterion::Throughput::Elements(evals.len() as u64));
-        group.bench_with_input("Parallel FFT (Metal)", &evals, |bench, evals| {
+        group.bench_with_input("interpolate_fft_metal", &evals, |bench, evals| {
             bench.iter_with_large_drop(|| {
                 functions::metal::poly_interpolate_fft(evals);
             });
