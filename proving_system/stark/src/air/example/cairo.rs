@@ -62,14 +62,20 @@ const FRAME_T1: usize = 31;
 const FRAME_MUL: usize = 32;
 const FRAME_SELECTOR: usize = 33;
 
+// Trace layout
+pub const MEM_P_TRACE_OFFSET: usize = 17;
+pub const MEM_A_TRACE_OFFSET: usize = 19;
+
 #[derive(Clone)]
-pub struct CairoAIR {}
+pub struct CairoAIR {
+    context: AirContext,
+}
 
 impl AIR for CairoAIR {
     type Field = Stark252PrimeField;
 
-    fn new(_context: AirContext) -> Self {
-        todo!()
+    fn new(context: AirContext) -> Self {
+        Self { context }
     }
 
     fn compute_transition(&self, frame: &Frame<Self::Field>) -> Vec<FieldElement<Self::Field>> {
@@ -85,11 +91,21 @@ impl AIR for CairoAIR {
     }
 
     fn boundary_constraints(&self) -> BoundaryConstraints<Self::Field> {
-        todo!()
+        // let last_step = self.context.trace_length - 1;
+        let constraints = vec![
+            // Initial and final 'pc' register
+            // BoundaryConstraint::new(MEM_A_TRACE_OFFSET, 0, self.pub_inputs.init.pc),
+            // BoundaryConstraint::new(MEM_A_TRACE_OFFSET, last_step, self.pub_inputs.fin.pc),
+            // Initial and final 'ap' register
+            // BoundaryConstraint::new(MEM_P_TRACE_OFFSET, 0, self.pub_inputs.init.ap),
+            // BoundaryConstraint::new(MEM_P_TRACE_OFFSET, last_step, self.pub_inputs.fin.ap),
+        ];
+
+        BoundaryConstraints::from_constraints(constraints)
     }
 
     fn context(&self) -> AirContext {
-        todo!()
+        self.context.clone()
     }
 }
 
