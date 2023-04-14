@@ -310,7 +310,6 @@ mod fft_test {
 
         // Property-based test that ensures FFT won't work with a degree 0 polynomial.
         #[test]
-        #[ignore] // TODO fix
         fn test_fft_constant_poly(elem in field_element()) {
             let poly = Polynomial::new(&[elem]);
             let result = poly.evaluate_fft();

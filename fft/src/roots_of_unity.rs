@@ -12,7 +12,7 @@ pub fn get_powers_of_primitive_root<F: IsTwoAdicField>(
     count: usize,
     config: RootsConfig,
 ) -> Result<Vec<FieldElement<F>>, FFTError> {
-    let root = F::get_primitive_root_of_unity(n).unwrap(); // TODO fix unwrap;
+    let root = F::get_primitive_root_of_unity(n)?;
 
     let calc = |i| match config {
         RootsConfig::Natural => root.pow(i),
@@ -32,7 +32,7 @@ pub fn get_powers_of_primitive_root_coset<F: IsTwoAdicField>(
     count: usize,
     offset: &FieldElement<F>,
 ) -> Result<Vec<FieldElement<F>>, FFTError> {
-    let root = F::get_primitive_root_of_unity(n).unwrap(); // TODO fix unwrap
+    let root = F::get_primitive_root_of_unity(n)?;
     let results = (0..count).map(|i| root.pow(i) * offset);
 
     Ok(results.collect())
