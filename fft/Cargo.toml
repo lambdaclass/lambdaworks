@@ -12,6 +12,7 @@ lambdaworks-gpu = { path = "../gpu", optional = true }
 [dev-dependencies]
 proptest = "1.1.0"
 criterion = "0.4.0"
+objc = "0.2.7"
 
 [features]
 metal = ["dep:lambdaworks-gpu"]
