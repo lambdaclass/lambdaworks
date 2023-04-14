@@ -1,3 +1,4 @@
+use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::traits::IsRandomFieldElementGenerator;
 use std::marker::PhantomData;
 
