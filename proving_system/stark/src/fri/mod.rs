@@ -1,7 +1,7 @@
 mod fri_commitment;
 pub mod fri_decommit;
 mod fri_functions;
-use crate::fri::fri_commitment::{FriCommitment, FriCommitmentVec};
+pub use crate::fri::fri_commitment::{FriCommitment, FriCommitmentVec};
 use crate::fri::fri_functions::next_fri_layer;
 use crate::transcript_to_field;
 pub use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
