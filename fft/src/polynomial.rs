@@ -5,8 +5,8 @@ use lambdaworks_math::{
 };
 
 use crate::{
-    abstractions::{fft, fft_with_blowup, inverse_fft},
     errors::FFTError,
+    ops::{fft, fft_with_blowup, inverse_fft},
 };
 
 pub trait FFTPoly<F: IsTwoAdicField> {
