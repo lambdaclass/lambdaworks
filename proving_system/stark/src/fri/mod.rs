@@ -1,7 +1,7 @@
 mod fri_commitment;
 pub mod fri_decommit;
 mod fri_functions;
-use crate::fri::fri_commitment::{FriCommitment, FriCommitmentVec};
+pub use crate::fri::fri_commitment::{FriCommitment, FriCommitmentVec};
 use crate::fri::fri_functions::next_fri_layer;
 use crate::transcript_to_field;
 pub use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
@@ -44,10 +44,10 @@ where
     }
 }
 
-pub fn fri<F: IsField>(
+pub fn fri<F: IsField, T: Transcript>(
     p_0: &mut Polynomial<FieldElement<F>>,
     domain_0: &[FieldElement<F>],
-    transcript: &mut Transcript,
+    transcript: &mut T,
 ) -> FriCommitmentVec<F>
 where
     FieldElement<F>: ByteConversion,

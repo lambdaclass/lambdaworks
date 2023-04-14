@@ -16,6 +16,9 @@ thiserror = "1.0.38"
 hex = "0.4.3"
 criterion = "0.4"
 
+[features]
+test_fiat_shamir = []
+
 [[bench]]
 name = "all_benchmarks"
 harness = false
