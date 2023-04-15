@@ -1,4 +1,5 @@
 use lambdaworks_crypto::commitments::traits::IsCommitmentScheme;
+use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::field::{element::FieldElement, traits::IsField};
 use lambdaworks_math::polynomial::Polynomial;
@@ -68,14 +69,14 @@ pub fn setup<F: IsField, CS: IsCommitmentScheme<F>>(
 pub fn new_strong_fiat_shamir_transcript<F, CS>(
     vk: &VerificationKey<CS::Commitment>,
     public_input: &[FieldElement<F>],
-) -> Transcript
+) -> DefaultTranscript
 where
     F: IsField,
     FieldElement<F>: ByteConversion,
     CS: IsCommitmentScheme<F>,
     CS::Commitment: ByteConversion,
 {
-    let mut transcript = Transcript::new();
+    let mut transcript = DefaultTranscript::new();
 
     transcript.append(&vk.s1_1.to_bytes_be());
     transcript.append(&vk.s2_1.to_bytes_be());

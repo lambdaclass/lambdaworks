@@ -1,10 +1,9 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 
-mod benchmarks;
+pub mod benchmarks;
 
 fn run_all_benchmarks(c: &mut Criterion) {
-    benchmarks::metal::metal_fft_twiddles_benchmarks(c);
-    benchmarks::metal::metal_fft_benchmarks(c);
+    benchmarks::stark::proof_benchmark(c);
 }
 
 criterion_group!(benches, run_all_benchmarks);

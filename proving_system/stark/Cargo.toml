@@ -10,3 +10,18 @@ rand = "0.8.5"
 lambdaworks-math = { path = "../../math" }
 lambdaworks-crypto = { path = "../../crypto"}
 thiserror = "1.0.38"
+
+[dev-dependencies]
+hex = "0.4.3"
+criterion = "0.4"
+
+[features]
+test_fiat_shamir = []
+
+[[bench]]
+name = "all_benchmarks"
+harness = false
+
+[[bench]]
+name = "stark_benchmarks"
+harness = false

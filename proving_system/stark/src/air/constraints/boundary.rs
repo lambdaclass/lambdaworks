@@ -3,6 +3,7 @@ use lambdaworks_math::{
     polynomial::Polynomial,
 };
 
+#[derive(Debug)]
 /// Represents a boundary constraint that must hold in an execution
 /// trace:
 ///   * col: The column of the trace where the constraint must hold
@@ -15,7 +16,6 @@ pub struct BoundaryConstraint<F: IsField> {
 }
 
 impl<F: IsField> BoundaryConstraint<F> {
-    #[allow(dead_code)]
     pub fn new(col: usize, step: usize, value: FieldElement<F>) -> Self {
         Self { col, step, value }
     }
@@ -32,7 +32,7 @@ impl<F: IsField> BoundaryConstraint<F> {
 
 /// Data structure that stores all the boundary constraints that must
 /// hold for the execution trace
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct BoundaryConstraints<F: IsField> {
     constraints: Vec<BoundaryConstraint<F>>,
 }
@@ -50,9 +50,13 @@ impl<F: IsField> BoundaryConstraints<F> {
         Self { constraints }
     }
 
-    /// Returns all the steps where boundary conditions exist
-    pub fn steps(&self) -> Vec<usize> {
-        self.constraints.iter().map(|c| c.step).collect()
+    /// Returns all the steps where boundary conditions exist for the given column
+    pub fn steps(&self, col: usize) -> Vec<usize> {
+        self.constraints
+            .iter()
+            .filter(|v| v.col == col)
+            .map(|c| c.step)
+            .collect()
     }
 
     /// Given the primitive root of some domain, returns the domain values corresponding
@@ -61,20 +65,32 @@ impl<F: IsField> BoundaryConstraints<F> {
     pub fn generate_roots_of_unity(
         &self,
         primitive_root: &FieldElement<F>,
-    ) -> Vec<FieldElement<F>> {
-        self.steps()
-            .into_iter()
-            .map(|s| primitive_root.pow(s))
-            .collect()
+        count_cols_trace: usize,
+    ) -> Vec<Vec<FieldElement<F>>> {
+        let mut ret = Vec::new();
+
+        for i in 0..count_cols_trace {
+            ret.push(
+                self.steps(i)
+                    .into_iter()
+                    .map(|s| primitive_root.pow(s))
+                    .collect(),
+            );
+        }
+        ret
     }
 
-    /// Given a trace column, gives all the values the trace must be equal to where
-    /// the boundary constraints hold
-    pub fn values(&self, col: usize) -> Vec<FieldElement<F>> {
-        self.constraints
-            .iter()
-            .filter(|c| c.col == col)
-            .map(|c| c.value.clone())
+    /// For every trace column, give all the values the trace must be equal to in
+    /// the steps where the boundary constraints hold
+    pub fn values(&self, n_trace_columns: usize) -> Vec<Vec<FieldElement<F>>> {
+        (0..n_trace_columns)
+            .map(|i| {
+                self.constraints
+                    .iter()
+                    .filter(|c| c.col == i)
+                    .map(|c| c.value.clone())
+                    .collect()
+            })
             .collect()
     }
 
@@ -87,9 +103,10 @@ impl<F: IsField> BoundaryConstraints<F> {
     pub fn compute_zerofier(
         &self,
         primitive_root: &FieldElement<F>,
+        col: usize,
     ) -> Polynomial<FieldElement<F>> {
         let mut zerofier = Polynomial::new_monomial(FieldElement::<F>::one(), 0);
-        for step in self.steps().into_iter() {
+        for step in self.steps(col).into_iter() {
             let binomial = Polynomial::new(&[-primitive_root.pow(step), FieldElement::<F>::one()]);
             // TODO: Implement the MulAssign trait for Polynomials?
             zerofier = zerofier * binomial;
@@ -101,9 +118,10 @@ impl<F: IsField> BoundaryConstraints<F> {
 
 #[cfg(test)]
 mod test {
-    use lambdaworks_math::field::traits::IsTwoAdicField;
-
-    use crate::PrimeField;
+    use lambdaworks_math::field::{
+        fields::fft_friendly::stark_252_prime_field::Stark252PrimeField, traits::IsTwoAdicField,
+    };
+    type PrimeField = Stark252PrimeField;
 
     use super::*;
 
@@ -132,7 +150,7 @@ mod test {
 
         let expected_zerofier = a0_zerofier * a1_zerofier * res_zerofier;
 
-        let zerofier = constraints.compute_zerofier(&primitive_root);
+        let zerofier = constraints.compute_zerofier(&primitive_root, 0);
 
         assert_eq!(expected_zerofier, zerofier);
     }
