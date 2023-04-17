@@ -17,6 +17,8 @@ jobs:
     name: Iai benchmarks
     runs-on: ubuntu-20.04
     steps:
+    - name: Install valgrind
+      run: sudo apt-get install -y valgrind
     - name: Install Rust 1.66.1 
       uses: actions-rs/toolchain@v1
       with:
@@ -24,7 +26,7 @@ jobs:
           override: true
     - uses: actions/checkout@v3
     - name: Run benchmark
-      run: cargo bench --bench "iai_*" -- --output-format bencher | tee output.txt
+      run: cargo bench --no-fail-fast --bench "iai_*" -- --output-format bencher | tee output.txt
     - name: Store benchmark result
       uses: benchmark-action/github-action-benchmark@v1
       with:
