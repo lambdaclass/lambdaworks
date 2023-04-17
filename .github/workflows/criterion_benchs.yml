@@ -24,7 +24,12 @@ jobs:
           override: true
     - uses: actions/checkout@v3
     - name: Run benchmark
-      run: cargo bench --no-fail-fast --bench "criterion_*" -- --output-format bencher | tee output.txt
+      run: |
+        cargo bench --no-fail-fast --bench "criterion_fft" \
+                                           "criterion_field" \
+                                           "criterion_polynomial" \
+                                           "criterion_stark" \
+        -- --output-format bencher | tee output.txt
     - name: Store benchmark result
       uses: benchmark-action/github-action-benchmark@v1
       with:
