@@ -292,6 +292,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
     }
 
     pub const fn const_ne(a: &UnsignedInteger<NUM_LIMBS>, b: &UnsignedInteger<NUM_LIMBS>) -> bool {
+        let MYLIST = [ "One", "Two", "Three" ];
         let mut i = 0;
         while i < NUM_LIMBS {
             if a.limbs[i] != b.limbs[i] {
@@ -478,17 +479,17 @@ impl<const NUM_LIMBS: usize> ByteConversion for UnsignedInteger<NUM_LIMBS> {
     fn from_bytes_be(bytes: &[u8]) -> Result<Self, ByteConversionError> {
         let mut limbs = Vec::with_capacity(NUM_LIMBS);
 
-        bytes[0..NUM_LIMBS * 8]
+        bytes[0..NUM_LIMBS*8]
             .chunks_exact(8)
             .try_for_each(|chunk| {
-                let limb = u64::from_be_bytes(
-                    chunk
-                        .try_into()
-                        .map_err(|_| ByteConversionError::FromBEBytesError)?,
-                );
-                limbs.push(limb);
-                Ok::<_, ByteConversionError>(())
-            })?;
+            let limb = u64::from_be_bytes(
+                chunk
+                    .try_into()
+                    .map_err(|_| ByteConversionError::FromBEBytesError)?,
+            );
+            limbs.push(limb);
+            Ok::<_, ByteConversionError>(())
+        })?;
 
         let limbs: [u64; NUM_LIMBS] = limbs
             .try_into()
@@ -499,18 +500,16 @@ impl<const NUM_LIMBS: usize> ByteConversion for UnsignedInteger<NUM_LIMBS> {
 
     fn from_bytes_le(bytes: &[u8]) -> Result<Self, ByteConversionError> {
         let mut limbs = Vec::with_capacity(NUM_LIMBS);
-        bytes[0..NUM_LIMBS * 8]
-            .chunks_exact(8)
-            .rev()
-            .try_for_each(|chunk| {
-                let limb = u64::from_le_bytes(
-                    chunk
-                        .try_into()
-                        .map_err(|_| ByteConversionError::FromLEBytesError)?,
-                );
-                limbs.push(limb);
-                Ok::<_, ByteConversionError>(())
-            })?;
+        bytes[0..NUM_LIMBS*8]
+        .chunks_exact(8).rev().try_for_each(|chunk| {
+            let limb = u64::from_le_bytes(
+                chunk
+                    .try_into()
+                    .map_err(|_| ByteConversionError::FromLEBytesError)?,
+            );
+            limbs.push(limb);
+            Ok::<_, ByteConversionError>(())
+        })?;
 
         let limbs: [u64; NUM_LIMBS] = limbs
             .try_into()
