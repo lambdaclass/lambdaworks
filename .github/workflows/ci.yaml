@@ -53,7 +53,7 @@ jobs:
         run: make clippy
   test:
     name: Test
-    runs-on: [self-hosted, macOS]
+    runs-on: ubuntu-latest
     env:
       CARGO_TERM_COLOR: always
     steps:
@@ -67,9 +67,23 @@ jobs:
       - name: Run tests and generate code coverage
         run: cargo llvm-cov --lcov --output-path lcov.info
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3.1.2
+        uses: codecov/codecov-action@v3
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: lcov.info
           fail_ci_if_error: true
-          os: macos
+  test-metal:
+    name: Test Metal
+    runs-on: [self-hosted, macOS]
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          components: clippy
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+      - name: Run tests
+        run: cargo test -F metal
