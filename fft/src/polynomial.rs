@@ -70,63 +70,7 @@ where
 }
 
 #[cfg(test)]
-mod tests {
-    use lambdaworks_math::{
-        field::{
-            fields::fft_friendly::stark_252_prime_field::Stark252PrimeField, traits::RootsConfig,
-        },
-        polynomial::Polynomial,
-    };
-    use proptest::{collection, prelude::*};
-
-    use crate::{helpers::log2, roots_of_unity::get_powers_of_primitive_root};
-
-    use super::*;
-
-    type F = Stark252PrimeField;
-    type FE = FieldElement<F>;
-
-    prop_compose! {
-        fn powers_of_two(max_exp: u8)(exp in 1..max_exp) -> usize { 1 << exp }
-        // max_exp cannot be multiple of the bits that represent a usize, generally 64 or 32.
-        // also it can't exceed the test field's two-adicity.
-    }
-    prop_compose! {
-        fn field_element()(num in any::<u64>().prop_filter("Avoid null polynomial", |x| x != &0)) -> FE {
-            FE::from(num)
-        }
-    }
-    prop_compose! {
-        fn field_vec(max_exp: u8)(vec in collection::vec(field_element(), 2..1<<max_exp).prop_filter("Avoid polynomials of size not power of two", |vec| vec.len().is_power_of_two())) -> Vec<FE> {
-            vec
-        }
-    }
-    prop_compose! {
-        fn offset()(num in any::<u64>(), factor in any::<u64>()) -> FE { FE::from(num).pow(factor) }
-    }
-    prop_compose! {
-        fn poly(max_exp: u8)(coeffs in field_vec(max_exp)) -> Polynomial<FE> {
-            Polynomial::new(&coeffs)
-        }
-    }
-
-    proptest! {
-        // Property-based test that ensures FFT eval. in the FFT friendly field gives same result as a naive polynomial evaluation.
-        #[test]
-        fn test_fft_evaluation_is_correct_in_u256_fft_friendly_field(poly in poly(8)) {
-            let order = log2(poly.coefficients().len()).unwrap();
-            let twiddles = get_powers_of_primitive_root(order, poly.coefficients.len(), RootsConfig::Natural).unwrap();
-
-            let fft_eval = poly.evaluate_fft().unwrap();
-            let naive_eval = poly.evaluate_slice(&twiddles);
-
-            prop_assert_eq!(fft_eval, naive_eval);
-        }
-    }
-}
-
-#[cfg(test)]
-mod fft_test {
+mod u64_field_tests {
     use lambdaworks_math::field::test_fields::u64_test_field::U64TestField;
     use lambdaworks_math::field::traits::IsField;
     use lambdaworks_math::field::traits::RootsConfig;
