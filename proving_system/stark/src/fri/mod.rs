@@ -4,9 +4,10 @@ mod fri_functions;
 use crate::fri::fri_commitment::{FriCommitment, FriCommitmentVec};
 use crate::fri::fri_functions::next_fri_layer;
 use crate::transcript_to_field;
+use lambdaworks_crypto::hash::sha3::Sha3Hasher;
+
 pub use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 pub use lambdaworks_crypto::merkle_tree::merkle::MerkleTree;
-use lambdaworks_crypto::merkle_tree::test_merkle::TestHasher;
 use lambdaworks_math::field::traits::IsField;
 use lambdaworks_math::traits::ByteConversion;
 pub use lambdaworks_math::{
@@ -14,7 +15,8 @@ pub use lambdaworks_math::{
     polynomial::Polynomial,
 };
 
-pub type FriMerkleTree<F> = MerkleTree<F, TestHasher>;
+pub type FriMerkleTree<F> = MerkleTree<F>;
+pub(crate) const HASHER: Sha3Hasher = Sha3Hasher::new();
 
 /// # Params
 ///
@@ -34,7 +36,7 @@ where
     //     - root
     //     - hasher
     // Create a new merkle tree with evaluation_i
-    let merkle_tree = FriMerkleTree::build(evaluation_i);
+    let merkle_tree = FriMerkleTree::build(evaluation_i, Box::new(HASHER));
 
     FriCommitment {
         poly: p_i.clone(),
@@ -55,7 +57,7 @@ where
     let mut fri_commitment_list = FriCommitmentVec::new();
     let evaluation_0 = p_0.evaluate_slice(domain_0);
 
-    let merkle_tree = FriMerkleTree::build(&evaluation_0);
+    let merkle_tree = FriMerkleTree::build(&evaluation_0, Box::new(HASHER));
 
     // append the root of the merkle tree to the transcript
     let root = merkle_tree.root.clone();
