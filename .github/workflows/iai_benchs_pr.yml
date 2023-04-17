@@ -10,8 +10,9 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
     - name: Install valgrind
-      run: sudo apt update
-      run: sudo apt-get install -y valgrind
+      run: |
+        sudo apt update
+        sudo apt-get install -y valgrind
     - name: Install Rust 1.66.1
       uses: actions-rs/toolchain@v1
       with:
