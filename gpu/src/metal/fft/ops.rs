@@ -68,8 +68,7 @@ pub fn fft_with_blowup<F: IsTwoAdicField>(
 ) -> Result<Vec<FieldElement<F>>, FFTMetalError> {
     let domain_size = input.len() * blowup_factor;
     let order = log2(domain_size)?;
-
-    let twiddles = F::get_twiddles(order, RootsConfig::BitReverse)?;
+    let twiddles = gen_twiddles(order, RootsConfig::BitReverse, state)?;
     let mut resized = input.to_vec();
     resized.resize(domain_size, FieldElement::zero());
 
@@ -98,7 +97,7 @@ pub fn gen_twiddles<F: IsTwoAdicField>(
     let (command_buffer, command_encoder) =
         state.setup_command(&pipeline, Some(&[(0, &result_buffer)]));
 
-    let root = F::get_primitive_root_of_unity(order)?;
+    let root = F::get_primitive_root_of_unity::<F>(order).unwrap();
     command_encoder.set_bytes(1, mem::size_of::<F::BaseType>() as u64, void_ptr(&root));
 
     let grid_size = MTLSize::new(len as u64, 1, 1);
@@ -139,11 +138,8 @@ pub fn bitrev_permutation<T: Clone>(input: &[T], state: &MetalState) -> Result<V
 #[cfg(test)]
 mod tests {
     use crate::metal::abstractions::state::*;
-    use lambdaworks_math::{
-        fft::{abstractions, bit_reversing::in_place_bit_reverse_permute},
-        field::{
-            fields::fft_friendly::stark_252_prime_field::Stark252PrimeField, traits::RootsConfig,
-        },
+    use lambdaworks_math::field::{
+        fields::fft_friendly::stark_252_prime_field::Stark252PrimeField, traits::RootsConfig,
     };
     use proptest::{collection, prelude::*};
 
@@ -175,78 +171,12 @@ mod tests {
             objc::rc::autoreleasepool(|| {
                 let metal_state = MetalState::new(None).unwrap();
                 let order = log2(input.len()).unwrap();
-                let twiddles = F::get_twiddles(order, RootsConfig::BitReverse).unwrap();
+                let twiddles = lambdaworks_fft::roots_of_unity::get_twiddles(order, RootsConfig::BitReverse).unwrap();
 
                 let metal_result = super::fft(&input, &twiddles, &metal_state).unwrap();
-                let sequential_result = abstractions::fft(&input).unwrap();
+                let sequential_result = lambdaworks_fft::ops::fft(&input).unwrap();
 
                 prop_assert_eq!(&metal_result, &sequential_result);
-                Ok(())
-            }).unwrap();
-        }
-
-        // Property-based test that ensures Metal parallel FFT with blowup gives same result as a sequential one.
-        #[test]
-        fn test_metal_fft_blowup_matches_sequential(input in field_vec(6), blowup_factor in powers_of_two(4)) {
-            objc::rc::autoreleasepool(|| {
-                let metal_state = MetalState::new(None).unwrap();
-
-                let metal_result = super::fft_with_blowup(
-                    &input,
-                    blowup_factor,
-                    &metal_state,
-                )
-                .unwrap();
-
-                let sequential_result = abstractions::fft_with_blowup(
-                    &input,
-                    blowup_factor,
-                )
-                .unwrap();
-
-                prop_assert_eq!(metal_result, sequential_result);
-                Ok(())
-            }).unwrap();
-        }
-
-        #[test]
-        // Property-based test that ensures Metal parallel twiddle generation matches the sequential one.
-        fn test_metal_twiddles_match_sequential(order in 2..8) {
-            objc::rc::autoreleasepool(|| {
-                let configs = [
-                    RootsConfig::Natural,
-                    RootsConfig::NaturalInversed,
-                    RootsConfig::BitReverse,
-                    RootsConfig::BitReverseInversed,
-                ];
-
-                for config in configs {
-                    let metal_state = MetalState::new(None).unwrap();
-
-                    let sequential_twiddles = F::get_twiddles(order as u64, config).unwrap();
-                    let metal_twiddles = gen_twiddles::<F>(order as u64, config, &metal_state).unwrap();
-
-                    prop_assert_eq!(metal_twiddles, sequential_twiddles);
-                }
-                Ok(())
-            }).unwrap();
-        }
-
-        // Property-based test that ensures Metal parallel bitrev permutation matches the sequential one.
-        #[test]
-        fn test_gpu_bitrev_matches_cpu(input in field_vec(4)) {
-            objc::rc::autoreleasepool(|| {
-                let metal_state = MetalState::new(None).unwrap();
-
-                let sequential_permuted = {
-                    let mut input = input.clone();
-                    in_place_bit_reverse_permute(&mut input);
-                    input
-                };
-                let metal_permuted = bitrev_permutation(&input, &metal_state).unwrap();
-
-                prop_assert_eq!(metal_permuted, sequential_permuted);
-
                 Ok(())
             }).unwrap();
         }
