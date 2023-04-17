@@ -1,3 +1,15 @@
+use super::{
+    cairo_mem::CairoMemory,
+    cairo_trace::CairoTrace,
+    instruction_flags::{
+        aux_get_last_nim_of_FE, ApUpdate, CairoOpcode, DstReg, Op0Reg, Op1Src, PcUpdate, ResLogic,
+    },
+};
+use crate::{
+    air::trace::TraceTable,
+    cairo_vm::{instruction_flags::CairoInstructionFlags, instruction_offsets::InstructionOffsets},
+    FE,
+};
 use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
 
 // MAIN TRACE LAYOUT
@@ -13,18 +25,6 @@ use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark2
 //  A                B C  D    E    F   G
 // ├xxxxxxxxxxxxxxxx|x|xx|xxxx|xxxx|xxx|xxx┤
 //
-use super::{
-    cairo_mem::CairoMemory,
-    cairo_trace::CairoTrace,
-    instruction_flags::{
-        aux_get_last_nim_of_FE, ApUpdate, CairoOpcode, DstReg, Op0Reg, Op1Src, PcUpdate, ResLogic,
-    },
-};
-use crate::{
-    air::trace::TraceTable,
-    cairo_vm::{instruction_flags::CairoInstructionFlags, instruction_offsets::InstructionOffsets},
-    FE,
-};
 
 pub fn build_cairo_execution_trace(
     raw_trace: &CairoTrace,
@@ -270,3 +270,6 @@ pub fn update_values(
         }
     }
 }
+
+#[cfg(test)]
+mod test {}
