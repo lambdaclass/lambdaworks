@@ -13,7 +13,7 @@ permissions:
   contents: write
 
 jobs:
-  run:
+  criterion_bench:
     name: Criterion benchmarks
     runs-on: ubuntu-20.04
     steps:
