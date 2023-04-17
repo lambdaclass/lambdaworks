@@ -478,17 +478,26 @@ impl<const NUM_LIMBS: usize> ByteConversion for UnsignedInteger<NUM_LIMBS> {
     fn from_bytes_be(bytes: &[u8]) -> Result<Self, ByteConversionError> {
         let mut limbs = Vec::with_capacity(NUM_LIMBS);
 
-        bytes[0..NUM_LIMBS * 8]
-            .chunks_exact(8)
-            .try_for_each(|chunk| {
-                let limb = u64::from_be_bytes(
-                    chunk
-                        .try_into()
-                        .map_err(|_| ByteConversionError::FromBEBytesError)?,
-                );
-                limbs.push(limb);
-                Ok::<_, ByteConversionError>(())
-            })?;
+        // We cut off extra bytes, this is useful when you use this function to generate the element from randomness
+        // In the future with the right algorithm this shouldn't be needed
+
+        let needed_bytes_res = bytes.get(0..NUM_LIMBS * 8);
+
+        if needed_bytes_res.is_none() {
+            return Err(ByteConversionError::FromBEBytesError);
+        }
+
+        let needed_bytes = needed_bytes_res.unwrap();
+
+        needed_bytes.chunks_exact(8).try_for_each(|chunk| {
+            let limb = u64::from_be_bytes(
+                chunk
+                    .try_into()
+                    .map_err(|_| ByteConversionError::FromBEBytesError)?,
+            );
+            limbs.push(limb);
+            Ok::<_, ByteConversionError>(())
+        })?;
 
         let limbs: [u64; NUM_LIMBS] = limbs
             .try_into()
@@ -498,19 +507,25 @@ impl<const NUM_LIMBS: usize> ByteConversion for UnsignedInteger<NUM_LIMBS> {
     }
 
     fn from_bytes_le(bytes: &[u8]) -> Result<Self, ByteConversionError> {
+        let needed_bytes_res = bytes.get(0..NUM_LIMBS * 8);
+
+        if needed_bytes_res.is_none() {
+            return Err(ByteConversionError::FromBEBytesError);
+        }
+
+        let needed_bytes = needed_bytes_res.unwrap();
+
         let mut limbs = Vec::with_capacity(NUM_LIMBS);
-        bytes[0..NUM_LIMBS * 8]
-            .chunks_exact(8)
-            .rev()
-            .try_for_each(|chunk| {
-                let limb = u64::from_le_bytes(
-                    chunk
-                        .try_into()
-                        .map_err(|_| ByteConversionError::FromLEBytesError)?,
-                );
-                limbs.push(limb);
-                Ok::<_, ByteConversionError>(())
-            })?;
+
+        needed_bytes.chunks_exact(8).rev().try_for_each(|chunk| {
+            let limb = u64::from_le_bytes(
+                chunk
+                    .try_into()
+                    .map_err(|_| ByteConversionError::FromLEBytesError)?,
+            );
+            limbs.push(limb);
+            Ok::<_, ByteConversionError>(())
+        })?;
 
         let limbs: [u64; NUM_LIMBS] = limbs
             .try_into()
@@ -1223,6 +1238,46 @@ mod tests_u384 {
         let bytes = vec![
             1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ];
+        let expected_number = U384::from_u64(1);
+
+        assert_eq!(U384::from_bytes_le(&bytes).unwrap(), expected_number);
+    }
+
+    #[test]
+    fn from_bytes_be_works_with_extra_data() {
+        let bytes = vec![
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 , 0, 0 , 0
+        ];
+        let expected_number = U384::from_u64(0);
+
+        assert_eq!(U384::from_bytes_be(&bytes).unwrap(), expected_number);
+    }
+
+    #[test]
+    #[should_panic]
+    fn from_bytes_be_errs_with_less_data() {
+        let bytes = vec![
+            0, 0, 0, 0, 0
+        ];
+        U384::from_bytes_be(&bytes).unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn from_bytes_le_errs_with_less_data() {
+        let bytes = vec![
+            0, 0, 0, 0, 0
+        ];
+        U384::from_bytes_le(&bytes).unwrap();
+    }
+    
+    #[test]
+    fn from_bytes_le_works_with_extra_data() {
+        let bytes = vec![
+            1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 , 1, 0 , 1
         ];
         let expected_number = U384::from_u64(1);
 
