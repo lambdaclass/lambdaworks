@@ -14,7 +14,7 @@ impl Sha3Hasher {
     }
 }
 impl<F: IsField> IsCryptoHash<F> for Sha3Hasher {
-    fn hash_one(&self, input: FieldElement<F>) -> FieldElement<F>
+    fn hash_one(&self, input: &FieldElement<F>) -> FieldElement<F>
     where
         FieldElement<F>: ByteConversion,
     {
@@ -25,7 +25,7 @@ impl<F: IsField> IsCryptoHash<F> for Sha3Hasher {
         FieldElement::<F>::from_bytes_le(&result_hash).unwrap()
     }
 
-    fn hash_two(&self, left: FieldElement<F>, right: FieldElement<F>) -> FieldElement<F>
+    fn hash_two(&self, left: &FieldElement<F>, right: &FieldElement<F>) -> FieldElement<F>
     where
         FieldElement<F>: ByteConversion,
     {

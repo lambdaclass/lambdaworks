@@ -14,7 +14,7 @@ where
 {
     values
         .iter()
-        .map(|val| hasher.hash_one(val.clone()))
+        .map(|val| hasher.hash_one(&val))
         .collect()
 }
 
@@ -67,8 +67,8 @@ where
     nodes = build(&mut nodes, right_child_index, hasher);
 
     nodes[parent_index] = hasher.hash_two(
-        nodes[left_child_index].clone(),
-        nodes[right_child_index].clone(),
+        &nodes[left_child_index],
+        &nodes[right_child_index],
     );
     nodes
 }
