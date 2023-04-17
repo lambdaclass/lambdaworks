@@ -1,16 +1,8 @@
 name: CI
 
 on:
-  push:
-    branches: [ main ]
   pull_request:
     branches: [ '*' ]
-
-permissions:
-  # deployments permission to deploy GitHub pages website
-  deployments: write
-  # contents permission to update benchmark contents in gh-pages branch
-  contents: write
 
 jobs:
   fetch_iai_benchs:
@@ -18,6 +10,7 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
     - name: Install valgrind
+      run: sudo apt update
       run: sudo apt-get install -y valgrind
     - name: Install Rust 1.66.1
       uses: actions-rs/toolchain@v1
