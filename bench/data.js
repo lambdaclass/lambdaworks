@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1681737769504,
+  "lastUpdate": 1681741013999,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -731,6 +731,138 @@ window.BENCHMARK_DATA = {
             "name": "starks/quadratic_air",
             "value": 35769763,
             "range": "± 206435",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "12560266+MauroToscano@users.noreply.github.com",
+            "name": "Mauro Toscano",
+            "username": "MauroToscano"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2045c8bdf402d2f9278cc83f038e529f6ceec7a5",
+          "message": "Update hash in merkle tree to SHA3 256 (#244)\n\n* Explicity written the word test in test objects\n\n* Added comment\n\n* Removed unused file\n\n* Moved test merkle tree to it's own file\n\n* Fmt\n\n* Refactor names\n\n* wip paramaters\n\n* Removed generics\n\n* Fixed warnings\n\n* Refactor move hasher\n\n* Fix warnings\n\n* Remove unused comments\n\n* Add sha\n\n* Add sha\n\n* Fix merkle tree\n\n* Update hash\n\n* Remove hasher  from MerkleTree\n\n* Uncommented tests\n\n* Remove unused code\n\n* Fix warnings\n\n* Fix warnings\n\n* Add cargo fmt\n\n* Add comment\n\n* Remove commented line\n\n* Revert small change that wasn't needed\n\n* Cfg config\n\n* Change hash API to not consume the values\n\n* Fix clippy\n\n* Update error cases in conversion\n\n* Update math/src/unsigned_integer/element.rs\n\nCo-authored-by: Mario Rugiero <mario.rugiero@nextroll.com>\n\n* Refactor code\n\n---------\n\nCo-authored-by: Mario Rugiero <mario.rugiero@nextroll.com>",
+          "timestamp": "2023-04-17T14:11:09Z",
+          "tree_id": "0423f69e7dda5bb1f79ab7ad8a4c4e7773941945",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/2045c8bdf402d2f9278cc83f038e529f6ceec7a5"
+        },
+        "date": 1681741013308,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "u64/add",
+            "value": 10,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/mul",
+            "value": 10,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/pow",
+            "value": 54,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/sub",
+            "value": 10,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/inv",
+            "value": 27,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/div",
+            "value": 39,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/eq",
+            "value": 3,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/evaluate",
+            "value": 3046,
+            "range": "± 1805",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/evaluate_slice",
+            "value": 347089,
+            "range": "± 308979",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/add",
+            "value": 2770,
+            "range": "± 880",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/neg",
+            "value": 853,
+            "range": "± 250",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/sub",
+            "value": 3640,
+            "range": "± 946",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/mul",
+            "value": 3210,
+            "range": "± 828",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/div",
+            "value": 3241,
+            "range": "± 924",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "starks/simple_fibonacci",
+            "value": 34959831,
+            "range": "± 398470",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "starks/fibonacci_2_columns",
+            "value": 53972027,
+            "range": "± 2346068",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "starks/fibonacci_f17",
+            "value": 379117,
+            "range": "± 24742",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "starks/quadratic_air",
+            "value": 35701562,
+            "range": "± 796393",
             "unit": "ns/iter"
           }
         ]
