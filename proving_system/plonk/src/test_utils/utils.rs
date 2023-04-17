@@ -97,3 +97,4 @@ impl IsRandomFieldElementGenerator<FrField> for TestRandomFieldGenerator {
         FrElement::zero()
     }
 }
+
