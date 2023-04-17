@@ -1,4 +1,4 @@
-name: Criterion benchmarks 
+name: CI
 
 on:
   push:
@@ -13,7 +13,8 @@ permissions:
   contents: write
 
 jobs:
-  build:
+  run:
+    name: Criterion benchmarks
     runs-on: ubuntu-20.04
     steps:
     - name: Install Rust 1.66.1 
@@ -23,7 +24,7 @@ jobs:
           override: true
     - uses: actions/checkout@v3
     - name: Run benchmark
-      run: cargo criterion --output-format bencher | tee output.txt
+      run: cargo bench --bench "criterion_*" -- --output-format bencher | tee output.txt
     - name: Store benchmark result
       uses: benchmark-action/github-action-benchmark@v1
       with:

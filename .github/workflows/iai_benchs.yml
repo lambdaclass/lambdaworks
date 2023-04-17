@@ -1,4 +1,4 @@
-name: Iai benchmarks 
+name: CI
 
 on:
   push:
@@ -13,7 +13,8 @@ permissions:
   contents: write
 
 jobs:
-  build:
+  run:
+    name: Iai benchmarks
     runs-on: ubuntu-20.04
     steps:
     - name: Install Rust 1.66.1 
