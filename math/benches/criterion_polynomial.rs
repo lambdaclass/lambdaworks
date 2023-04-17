@@ -2,7 +2,6 @@ use const_random::const_random;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use util::{rand_field_elements, rand_poly, FE};
 
-mod functions;
 mod util;
 
 pub fn polynomial_benchmarks(c: &mut Criterion) {
