@@ -21,6 +21,10 @@ pub fn rand_field_elements(order: u64) -> Vec<FE> {
     result
 }
 
+pub fn rand_field_elements_pair() -> (FE, FE) {
+    (FE::new(random()), FE::new(random()))
+}
+
 pub fn rand_poly(order: u64) -> Polynomial<FE> {
     Polynomial::new(&rand_field_elements(order))
 }

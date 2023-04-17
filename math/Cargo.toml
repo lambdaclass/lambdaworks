@@ -22,3 +22,11 @@ harness = false
 [[bench]]
 name = "iai_polynomial"
 harness = false
+
+[[bench]]
+name = "criterion_field"
+harness = false
+
+[[bench]]
+name = "iai_field"
+harness = false
