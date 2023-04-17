@@ -323,7 +323,8 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         let mut limbs = [0u64; NUM_LIMBS];
         let (a, b) = (times / 64, times % 64);
 
-        if b == 0 {
+        if b 
+        == 0 {
             let mut i = 0;
             while i < NUM_LIMBS - a {
                 limbs[i] = self.limbs[a + i];
