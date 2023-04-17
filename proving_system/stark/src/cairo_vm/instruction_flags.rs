@@ -57,22 +57,22 @@ impl CairoInstructionFlags {
     /// bit 1 is FE::one().
     #[rustfmt::skip]
     pub fn to_trace_representation(&self) -> [FE; 16] {
-        let [b0, b1, b2] = self.opcode.to_trace_representation();
-        let [b3, b4] = self.ap_update.to_trace_representation();
-        let [b5, b6, b7] = self.pc_update.to_trace_representation();
-        let [b8, b9] = self.res_logic.to_trace_representation();
-        let [b10, b11, b12] = self.op1_src.to_trace_representation();
-        let b13 = self.op0_reg.to_trace_representation();
-        let b14 = self.dst_reg.to_trace_representation();
+        let b0 = self.dst_reg.to_trace_representation();
+        let b1 = self.op0_reg.to_trace_representation();
+        let [b2, b3, b4] = self.op1_src.to_trace_representation();
+        let [b5, b6] = self.res_logic.to_trace_representation();
+        let [b7, b8, b9] = self.pc_update.to_trace_representation();
+        let [b10, b11] = self.ap_update.to_trace_representation();
+        let [b12, b13, b14] = self.opcode.to_trace_representation();
 
         [
-            b0, b1, b2,      // opcode bits
-            b3, b4,          // ap_update bits
-            b5, b6, b7,      // pc_update bits
-            b8, b9,          // res_logic bits
-            b10, b11, b12,   // op1_src bits
-            b13,             // op0_reg bits
-            b14,             // dst_reg bits
+            b0,             // dst_reg bits
+            b1,             // op0_reg bits
+            b2, b3, b4,     // op1_src bits
+            b5, b6,         // res_logic bits
+            b7, b8, b9,     // pc_update bits
+            b10, b11,       // ap_update bits
+            b12, b13, b14,  // opcode bits
             FE::zero(),
         ]
     }
@@ -673,13 +673,13 @@ mod tests {
     #[test]
     fn flags_trace_representation() {
         // Bit-trace representation for each flag:
-        //    CairoOpcode::AssertEq = 1 0 0
-        //    ApUpdate::Regular = 0 0
-        //    PcUpdate::Regular = 0 0 0
-        //    ResLogic::Op1 = 0 0
-        //    Op1Src::Op0 = 0 0 0
-        //    Op0Reg::FP = 1
         //    DstReg::FP = 1
+        //    Op0Reg::FP = 1
+        //    Op1Src::Op0 = 0 0 0
+        //    ResLogic::Op1 = 0 0
+        //    PcUpdate::Regular = 0 0 0
+        //    ApUpdate::Regular = 0 0
+        //    CairoOpcode::AssertEq = 1 0 0
 
         let flags = CairoInstructionFlags {
             opcode: CairoOpcode::AssertEq,
@@ -693,13 +693,13 @@ mod tests {
 
         #[rustfmt::skip]
         let expected_representation = [
+            FE::one(),
+            FE::one(),
+            FE::zero(), FE::zero(), FE::zero(),
+            FE::zero(), FE::zero(),
+            FE::zero(), FE::zero(), FE::zero(),
+            FE::zero(), FE::zero(),
             FE::one(), FE::zero(), FE::zero(),
-            FE::zero(), FE::zero(),
-            FE::zero(), FE::zero(), FE::zero(),
-            FE::zero(), FE::zero(),
-            FE::zero(), FE::zero(), FE::zero(),
-            FE::one(),
-            FE::one(),
             FE::zero(),
         ];
 

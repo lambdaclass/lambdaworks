@@ -1,3 +1,5 @@
+use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
+
 // MAIN TRACE LAYOUT
 // -----------------------------------------------------------------------------------------
 //  A.  flags   (16) : Decoded instruction flags
@@ -11,9 +13,6 @@
 //  A                B C  D    E    F   G
 // ├xxxxxxxxxxxxxxxx|x|xx|xxxx|xxxx|xxx|xxx┤
 //
-
-use lambdaworks_math::traits::ByteConversion;
-
 use super::{
     cairo_mem::CairoMemory,
     cairo_trace::CairoTrace,
@@ -23,60 +22,29 @@ use super::{
 };
 use crate::{
     air::trace::TraceTable,
-    cairo_vm::{instruction_flags::{CairoInstructionFlags, self}, instruction_offsets::InstructionOffsets},
-    IsField, FE,
+    cairo_vm::{instruction_flags::CairoInstructionFlags, instruction_offsets::InstructionOffsets},
+    FE,
 };
 
-pub const FLAG_TRACE_OFFSET: usize = 0;
-pub const FLAG_TRACE_WIDTH: usize = 16;
-// pub const FLAG_TRACE_RANGE: Range<usize> = range(FLAG_TRACE_OFFSET, FLAG_TRACE_WIDTH);
-
-pub const RES_TRACE_OFFSET: usize = 16;
-pub const RES_TRACE_WIDTH: usize = 1;
-// pub const RES_TRACE_RANGE: Range<usize> = range(RES_TRACE_OFFSET, RES_TRACE_WIDTH);
-
-pub const MEM_P_TRACE_OFFSET: usize = 17;
-pub const MEM_P_TRACE_WIDTH: usize = 2;
-// pub const MEM_P_TRACE_RANGE: Range<usize> = range(MEM_P_TRACE_OFFSET, MEM_P_TRACE_WIDTH);
-
-pub const MEM_A_TRACE_OFFSET: usize = 19;
-pub const MEM_A_TRACE_WIDTH: usize = 4;
-// pub const MEM_A_TRACE_RANGE: Range<usize> = range(MEM_A_TRACE_OFFSET, MEM_A_TRACE_WIDTH);
-
-pub const MEM_V_TRACE_OFFSET: usize = 23;
-pub const MEM_V_TRACE_WIDTH: usize = 4;
-// pub const MEM_V_TRACE_RANGE: Range<usize> = range(MEM_V_TRACE_OFFSET, MEM_V_TRACE_WIDTH);
-
-pub const OFF_X_TRACE_OFFSET: usize = 27;
-pub const OFF_X_TRACE_WIDTH: usize = 3;
-// pub const OFF_X_TRACE_RANGE: Range<usize> = range(OFF_X_TRACE_OFFSET, OFF_X_TRACE_WIDTH);
-
-pub const DERIVED_TRACE_OFFSET: usize = 30;
-pub const DERIVED_TRACE_WIDTH: usize = 3;
-// pub const DERIVED_TRACE_RANGE: Range<usize> = range(DERIVED_TRACE_OFFSET, DERIVED_TRACE_WIDTH);
-
-pub const SELECTOR_TRACE_OFFSET: usize = 33;
-pub const SELECTOR_TRACE_WIDTH: usize = 1;
-// pub const SELECTOR_TRACE_RANGE: Range<usize> = range(SELECTOR_TRACE_OFFSET, SELECTOR_TRACE_WIDTH);
-
-pub const TRACE_WIDTH: usize = 34;
-
-pub fn build_cairo_execution_trace<F: IsField>(
+pub fn build_cairo_execution_trace(
     raw_trace: &CairoTrace,
     memory: &CairoMemory,
-) -> TraceTable<F> {
+) -> TraceTable<Stark252PrimeField> {
     let (flags, offsets): (Vec<CairoInstructionFlags>, Vec<InstructionOffsets>) = raw_trace
         .flags_and_offsets(memory)
         .unwrap()
         .into_iter()
         .unzip();
 
-    // TODO: Get res, op0_addr and op1_addr
-    let (dst_addrs, dsts): (Vec<FE>, Vec<FE>) = compute_dst(&flags, &offsets, raw_trace, memory);
-    let (op0_addrs, op0s): (Vec<FE>, Vec<FE>) = compute_op0(&flags, &offsets, raw_trace, memory);
-    let (op1_addrs, op1s, instruction_size): (Vec<FE>, Vec<FE>, Vec<FE>) =
+    let (dst_addrs, mut dsts): (Vec<FE>, Vec<FE>) =
+        compute_dst(&flags, &offsets, raw_trace, memory);
+    let (op0_addrs, mut op0s): (Vec<FE>, Vec<FE>) =
+        compute_op0(&flags, &offsets, raw_trace, memory);
+    let (op1_addrs, op1s): (Vec<FE>, Vec<FE>) =
         compute_op1(&flags, &offsets, raw_trace, memory, &op0s);
-    let res = compute_res(&flags, &op0s, &op1s);
+    let mut res = compute_res(&flags, &op0s, &op1s);
+
+    update_values(&flags, raw_trace, &mut op0s, &mut dsts, &mut res);
 
     let trace_repr_flags: Vec<[FE; 16]> =
         flags.iter().map(|f| f.to_trace_representation()).collect();
@@ -86,7 +54,43 @@ pub fn build_cairo_execution_trace<F: IsField>(
         .map(|off| off.to_trace_representation())
         .collect();
 
-    todo!()
+    let aps: Vec<FE> = raw_trace.rows.iter().map(|t| FE::from(t.ap)).collect();
+    let fps: Vec<FE> = raw_trace.rows.iter().map(|t| FE::from(t.fp)).collect();
+    let pcs: Vec<FE> = raw_trace.rows.iter().map(|t| FE::from(t.pc)).collect();
+    let instructions: Vec<FE> = raw_trace
+        .rows
+        .iter()
+        .map(|t| memory.get(&t.pc).unwrap().clone())
+        .collect();
+
+    let t0: Vec<FE> = trace_repr_flags[9]
+        .iter()
+        .zip(&dsts)
+        .map(|(f_pc_jnz, dst)| f_pc_jnz * dst)
+        .collect();
+    let t1: Vec<FE> = t0.iter().zip(&res).map(|(t, r)| t * r).collect();
+    let mul: Vec<FE> = op0s.iter().zip(&op1s).map(|(op0, op1)| op0 * op1).collect();
+
+    // Build Cairo trace columns to instantiate TraceTable struct
+    let mut trace_cols: Vec<Vec<_>> = Vec::new();
+    (0..trace_repr_flags.len()).for_each(|n| trace_cols.push(trace_repr_flags[n].to_vec()));
+    trace_cols.push(res);
+    trace_cols.push(aps);
+    trace_cols.push(fps);
+    trace_cols.push(pcs);
+    trace_cols.push(dst_addrs);
+    trace_cols.push(op0_addrs);
+    trace_cols.push(op1_addrs);
+    trace_cols.push(instructions);
+    trace_cols.push(dsts);
+    trace_cols.push(op0s);
+    trace_cols.push(op1s);
+    (0..trace_repr_offsets.len()).for_each(|n| trace_cols.push(trace_repr_offsets[n].to_vec()));
+    trace_cols.push(t0);
+    trace_cols.push(t1);
+    trace_cols.push(mul);
+
+    TraceTable::new_from_cols(&trace_cols)
 }
 
 pub fn compute_res(flags: &[CairoInstructionFlags], op0s: &[FE], op1s: &[FE]) -> Vec<FE> {
@@ -105,7 +109,6 @@ pub fn compute_res(flags: &[CairoInstructionFlags], op0s: &[FE], op1s: &[FE]) ->
             default: Undefined Behavior
     else: Undefined Behavior
     */
-
     flags
         .iter()
         .zip(op0s)
@@ -189,14 +192,13 @@ pub fn compute_op0(
 /// Returns the vector of:
 /// - op1_addrs
 /// - op1s
-/// - instruction_size
 pub fn compute_op1(
     flags: &[CairoInstructionFlags],
     offsets: &[InstructionOffsets],
     raw_trace: &CairoTrace,
     memory: &CairoMemory,
     op0s: &[FE],
-) -> (Vec<FE>, Vec<FE>, Vec<FE>) {
+) -> (Vec<FE>, Vec<FE>) {
     /*
     # Compute op1 and instruction_size.
     switch op1_src:
@@ -216,55 +218,55 @@ pub fn compute_op1(
         default:
             Undefined Behavior
     */
-    let ret = flags
+    flags
         .iter()
         .zip(offsets)
         .zip(op0s)
         .zip(raw_trace.rows.iter())
         .map(|(((flag, offset), op0), trace_state)| match flag.op1_src {
             Op1Src::Op0 => {
-                let instruction_size = FE::one();
                 let addr = aux_get_last_nim_of_FE(op0)
                     .checked_add_signed(offset.off_op1.into())
                     .unwrap();
-                (
-                    FE::from(addr),
-                    memory.get(&addr).unwrap().clone(),
-                    instruction_size,
-                )
+                (FE::from(addr), memory.get(&addr).unwrap().clone())
             }
             Op1Src::Imm => {
-                let instruction_size = FE::from(2);
                 let pc = trace_state.pc;
                 let addr = pc.checked_add_signed(offset.off_op1.into()).unwrap();
-                (
-                    FE::from(addr),
-                    memory.get(&addr).unwrap().clone(),
-                    instruction_size,
-                )
+                (FE::from(addr), memory.get(&addr).unwrap().clone())
             }
             Op1Src::AP => {
-                let instruction_size = FE::one();
                 let ap = trace_state.ap;
                 let addr = ap.checked_add_signed(offset.off_op1.into()).unwrap();
-                (
-                    FE::from(addr),
-                    memory.get(&addr).unwrap().clone(),
-                    instruction_size,
-                )
+                (FE::from(addr), memory.get(&addr).unwrap().clone())
             }
             Op1Src::FP => {
-                let instruction_size = FE::one();
                 let fp = trace_state.fp;
                 let addr = fp.checked_add_signed(offset.off_op1.into()).unwrap();
-                (
-                    FE::from(addr),
-                    memory.get(&addr).unwrap().clone(),
-                    instruction_size,
-                )
+                (FE::from(addr), memory.get(&addr).unwrap().clone())
             }
         })
-        .collect::<(FE, FE, FE)>();
-    //ret
-        todo!()
+        .unzip()
+}
+
+pub fn update_values(
+    flags: &[CairoInstructionFlags],
+    raw_trace: &CairoTrace,
+    op0s: &mut [FE],
+    dst: &mut [FE],
+    res: &mut [FE],
+) {
+    for (i, f) in flags.iter().enumerate() {
+        if f.opcode == CairoOpcode::Call {
+            let instruction_size = if flags[i].op1_src == Op1Src::Imm {
+                2
+            } else {
+                1
+            };
+            op0s[i] = (raw_trace.rows[i].pc + instruction_size).into();
+            dst[i] = raw_trace.rows[i].fp.into();
+        } else if f.opcode == CairoOpcode::AssertEq {
+            res[i] = dst[i].clone();
+        }
+    }
 }
