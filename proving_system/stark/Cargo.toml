@@ -11,13 +11,28 @@ lambdaworks-math = { path = "../../math" }
 lambdaworks-crypto = { path = "../../crypto" }
 lambdaworks-fft = { path = "../../fft" }
 thiserror = "1.0.38"
+embedded-hal = { version = "1.0.0-alpha.9", optional = true }
+esp-idf-sys = { version = "0.32", features = ["binstart"], optional = true }
+esp-idf-hal = { version = "0.40.1", optional = true }
 
 [dev-dependencies]
 hex = "0.4.3"
 criterion = "0.4"
 
+[build-dependencies]
+embuild = "0.31.1"
+anyhow = "1"
+
 [features]
 test_fiat_shamir = []
+esp = [
+    "embedded-hal",
+    "esp-idf-sys",
+    "esp-idf-hal",
+    "lambdaworks-math/esp",
+    "lambdaworks-crypto/esp",
+    "lambdaworks-fft/esp"
+]
 
 [[bench]]
 name = "all_benchmarks"
