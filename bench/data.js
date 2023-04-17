@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1681730702085,
+  "lastUpdate": 1681731878637,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -467,6 +467,138 @@ window.BENCHMARK_DATA = {
             "name": "starks/quadratic_air",
             "value": 33086731,
             "range": "± 12712",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "martin.paulucci@lambdaclass.com",
+            "name": "Martin Paulucci",
+            "username": "mpaulucci"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "db83658307c57211e876df884661a9e9a3a1a0e9",
+          "message": "Extract FFT code into its own crate (#252)\n\n* Remove fft from `math` module.\n\n* Make a separate fft crate to avoid circular dependencies.\n\n* Bring back benches.\n\n* Move tests to gpu.\n\n* Fix error handling.\n\n* Remove more repeated code.\n\n* Rename abstractions to ops.\n\n* Move metal tests back to gpu.\n\n* Fix linting error.\n\n* Remove duplicate tests.\n\n* nit.",
+          "timestamp": "2023-04-17T11:39:06Z",
+          "tree_id": "0e6c3f84cf9b089c31061c8a66ea6aa690edfa75",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/db83658307c57211e876df884661a9e9a3a1a0e9"
+        },
+        "date": 1681731877987,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "u64/add",
+            "value": 10,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/mul",
+            "value": 10,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/pow",
+            "value": 53,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/sub",
+            "value": 10,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/inv",
+            "value": 379,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/div",
+            "value": 387,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/eq",
+            "value": 2,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/evaluate",
+            "value": 3467,
+            "range": "± 1629",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/evaluate_slice",
+            "value": 223109,
+            "range": "± 344516",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/add",
+            "value": 2937,
+            "range": "± 771",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/neg",
+            "value": 806,
+            "range": "± 264",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/sub",
+            "value": 3952,
+            "range": "± 892",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/mul",
+            "value": 3362,
+            "range": "± 828",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/div",
+            "value": 3179,
+            "range": "± 906",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "starks/simple_fibonacci",
+            "value": 34733483,
+            "range": "± 918970",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "starks/fibonacci_2_columns",
+            "value": 53669042,
+            "range": "± 1424094",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "starks/fibonacci_f17",
+            "value": 327151,
+            "range": "± 123186",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "starks/quadratic_air",
+            "value": 35185532,
+            "range": "± 799728",
             "unit": "ns/iter"
           }
         ]
