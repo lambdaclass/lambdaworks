@@ -1,14 +1,10 @@
-use criterion::{criterion_group, criterion_main, Criterion};
-use lambdaworks_math::field::fields::{
-    fft_friendly::stark_252_prime_field::Stark252PrimeField, u64_prime_field::FE17,
-};
+use lambdaworks_math::field::fields::u64_prime_field::FE17;
 use lambdaworks_stark::{
     air::{
         context::{AirContext, ProofOptions},
         trace::TraceTable,
         AIR,
     },
-    fri::FieldElement,
     prover::prove,
     verifier::verify,
 };
@@ -17,33 +13,9 @@ use lambdaworks_stark::air::example::{
     fibonacci_2_columns, fibonacci_f17, quadratic_air, simple_fibonacci,
 };
 
-pub type FE = FieldElement<Stark252PrimeField>;
+use crate::util::FE;
 
-pub fn proof_benchmark(c: &mut Criterion) {
-    let mut group = c.benchmark_group("starks");
-    group.sample_size(10);
-
-    group.bench_function("simple_fibonacci", |bench| {
-        bench.iter(prove_fib);
-    });
-
-    group.bench_function("fibonacci_2_columns", |bench| {
-        bench.iter(prove_fib_2_cols);
-    });
-
-    group.bench_function("fibonacci_f17", |bench| {
-        bench.iter(prove_fib17);
-    });
-
-    group.bench_function("quadratic_air", |bench| {
-        bench.iter(prove_quadratic);
-    });
-}
-
-criterion_group!(benches, proof_benchmark);
-criterion_main!(benches);
-
-fn prove_fib() {
+pub fn prove_fib() {
     let trace = simple_fibonacci::fibonacci_trace([FE::from(1), FE::from(1)], 16);
     let trace_length = trace[0].len();
     let trace_table = TraceTable::new_from_cols(&trace);
@@ -68,7 +40,7 @@ fn prove_fib() {
     verify(&result, &fibonacci_air);
 }
 
-fn prove_fib_2_cols() {
+pub fn prove_fib_2_cols() {
     let trace_columns =
         fibonacci_2_columns::fibonacci_trace_2_columns([FE::from(1), FE::from(1)], 16);
 
@@ -94,7 +66,7 @@ fn prove_fib_2_cols() {
     verify(&result, &fibonacci_air);
 }
 
-fn prove_fib17() {
+pub fn prove_fib17() {
     let trace = simple_fibonacci::fibonacci_trace([FE17::from(1), FE17::from(1)], 4);
     let trace_table = TraceTable::new_from_cols(&trace);
 
@@ -118,7 +90,7 @@ fn prove_fib17() {
     verify(&result, &fibonacci_air);
 }
 
-fn prove_quadratic() {
+pub fn prove_quadratic() {
     let trace = quadratic_air::quadratic_trace(FE::from(3), 16);
     let trace_table = TraceTable {
         table: trace.clone(),

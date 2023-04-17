@@ -15,14 +15,15 @@ thiserror = "1.0.38"
 [dev-dependencies]
 hex = "0.4.3"
 criterion = "0.4"
+iai = "0.1"
 
 [features]
 test_fiat_shamir = []
 
 [[bench]]
-name = "all_benchmarks"
+name = "criterion_stark"
 harness = false
 
 [[bench]]
-name = "stark_benchmarks"
+name = "iai_stark"
 harness = false
