@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1681730431636,
+  "lastUpdate": 1681730702085,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -311,6 +311,162 @@ window.BENCHMARK_DATA = {
             "name": "starks/quadratic_air",
             "value": 33155337,
             "range": "± 13913",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60488569+tcoratger@users.noreply.github.com",
+            "name": "Thomas Coratger",
+            "username": "tcoratger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "be6b800cc339582041890886943ee174476a4450",
+          "message": "Change actions-rs in CI for dtolnay/rust-toolchain@stable (#222)\n\n* upstream update\n\n* migrate to dtolnay/rust-toolchain\n\n* clean up",
+          "timestamp": "2023-04-17T11:15:30Z",
+          "tree_id": "635dc4878959dbef734592d34cf8e68bf50c4e08",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/be6b800cc339582041890886943ee174476a4450"
+        },
+        "date": 1681730701234,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "u64/add",
+            "value": 10,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/mul",
+            "value": 10,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/pow",
+            "value": 53,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/sub",
+            "value": 10,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/inv",
+            "value": 375,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/div",
+            "value": 386,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/eq",
+            "value": 1,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/evaluate",
+            "value": 2729,
+            "range": "± 1674",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/evaluate_slice",
+            "value": 372603,
+            "range": "± 366067",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/add",
+            "value": 2935,
+            "range": "± 757",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/neg",
+            "value": 761,
+            "range": "± 236",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/sub",
+            "value": 3437,
+            "range": "± 1066",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/mul",
+            "value": 2804,
+            "range": "± 889",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/div",
+            "value": 2802,
+            "range": "± 800",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from NR radix2",
+            "value": 2029376888,
+            "range": "± 2377619",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from RN radix2",
+            "value": 4664076536,
+            "range": "± 13470203",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from NR radix2 #2",
+            "value": 4246429616,
+            "range": "± 9140968",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from RN radix2 #2",
+            "value": 10174876303,
+            "range": "± 22081027",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "starks/simple_fibonacci",
+            "value": 32586018,
+            "range": "± 8694",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "starks/fibonacci_2_columns",
+            "value": 46571429,
+            "range": "± 211317",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "starks/fibonacci_f17",
+            "value": 187727,
+            "range": "± 68",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "starks/quadratic_air",
+            "value": 33086731,
+            "range": "± 12712",
             "unit": "ns/iter"
           }
         ]
