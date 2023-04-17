@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1681549499159,
+  "lastUpdate": 1681730431636,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -155,6 +155,162 @@ window.BENCHMARK_DATA = {
             "name": "starks/quadratic_air",
             "value": 33078080,
             "range": "± 10327",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60488569+tcoratger@users.noreply.github.com",
+            "name": "Thomas Coratger",
+            "username": "tcoratger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4a6500a1a508f7c25c1f809279c3215acee8de66",
+          "message": "Tests for Montgomery representative method (#196)\n\n* upstream update\n\n* tests for Montgomery representative\n\n* clean up",
+          "timestamp": "2023-04-17T11:11:06Z",
+          "tree_id": "58ee768c40f40184475520ddeee894636127e530",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/4a6500a1a508f7c25c1f809279c3215acee8de66"
+        },
+        "date": 1681730430525,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "u64/add",
+            "value": 4,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/mul",
+            "value": 4,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/pow",
+            "value": 21,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/sub",
+            "value": 4,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/inv",
+            "value": 270,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/div",
+            "value": 279,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/eq",
+            "value": 2,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/evaluate",
+            "value": 2170,
+            "range": "± 1290",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/evaluate_slice",
+            "value": 249168,
+            "range": "± 246805",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/add",
+            "value": 1594,
+            "range": "± 385",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/neg",
+            "value": 752,
+            "range": "± 230",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/sub",
+            "value": 2275,
+            "range": "± 528",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/mul",
+            "value": 1659,
+            "range": "± 442",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/div",
+            "value": 1723,
+            "range": "± 414",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from NR radix2",
+            "value": 2259951559,
+            "range": "± 2611142",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from RN radix2",
+            "value": 3913566558,
+            "range": "± 29613956",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from NR radix2 #2",
+            "value": 4719331292,
+            "range": "± 2068444",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from RN radix2 #2",
+            "value": 8770122950,
+            "range": "± 18017435",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "starks/simple_fibonacci",
+            "value": 32663299,
+            "range": "± 19726",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "starks/fibonacci_2_columns",
+            "value": 46631126,
+            "range": "± 21506",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "starks/fibonacci_f17",
+            "value": 156991,
+            "range": "± 52",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "starks/quadratic_air",
+            "value": 33155337,
+            "range": "± 13913",
             "unit": "ns/iter"
           }
         ]
