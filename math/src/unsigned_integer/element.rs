@@ -292,7 +292,6 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
     }
 
     pub const fn const_ne(a: &UnsignedInteger<NUM_LIMBS>, b: &UnsignedInteger<NUM_LIMBS>) -> bool {
-        let MYLIST = ["One", "Two", "Three"];
         let mut i = 0;
         while i < NUM_LIMBS {
             if a.limbs[i] != b.limbs[i] {
