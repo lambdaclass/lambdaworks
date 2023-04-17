@@ -40,10 +40,7 @@ jobs:
           components: rustfmt, clippy
 
       - name: Run cargo fmt
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          command: fmt
-          args: --all -- --check
+        run: cargo fmt --all -- --check
 
       - name: Run clippy
         run: make clippy
