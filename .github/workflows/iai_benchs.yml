@@ -14,6 +14,7 @@ permissions:
 
 jobs:
   fetch_iai_benchs:
+    name: Fetch iai benchmarks
     runs-on: ubuntu-20.04
     steps:
     - name: Install valgrind
@@ -40,7 +41,7 @@ jobs:
       if: ${{ steps.cache-iai-results.outputs.cache-hit != 'true' }}
       run: cargo bench --no-fail-fast --bench "iai_*"
   run_iai_benchs:
-    name: Iai benchmarks
+    name: Run iai benchmarks
     needs: fetch_iai_benchs
     runs-on: ubuntu-20.04
     steps:
