@@ -12,10 +12,7 @@ pub fn hash_leaves<F: IsField>(
 where
     FieldElement<F>: ByteConversion,
 {
-    values
-        .iter()
-        .map(|val| hasher.hash_one(&val))
-        .collect()
+    values.iter().map(|val| hasher.hash_one(val)).collect()
 }
 
 pub fn sibling_index(node_index: usize) -> usize {
@@ -66,10 +63,7 @@ where
     let mut nodes = build(nodes, left_child_index, hasher);
     nodes = build(&mut nodes, right_child_index, hasher);
 
-    nodes[parent_index] = hasher.hash_two(
-        &nodes[left_child_index],
-        &nodes[right_child_index],
-    );
+    nodes[parent_index] = hasher.hash_two(&nodes[left_child_index], &nodes[right_child_index]);
     nodes
 }
 

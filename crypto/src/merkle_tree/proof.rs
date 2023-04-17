@@ -26,13 +26,13 @@ impl<F: IsField> Proof<F> {
     where
         FieldElement<F>: ByteConversion,
     {
-        let mut hashed_value = hasher.hash_one(&value);
+        let mut hashed_value = hasher.hash_one(value);
 
         for sibling_node in self.merkle_path.iter() {
             if index % 2 == 0 {
                 hashed_value = hasher.hash_two(&hashed_value, sibling_node);
             } else {
-                hashed_value = hasher.hash_two(&sibling_node, &hashed_value);
+                hashed_value = hasher.hash_two(sibling_node, &hashed_value);
             }
 
             index >>= 1;
