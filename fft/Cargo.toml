@@ -8,15 +8,23 @@ rand = "0.8.5"
 thiserror = "1.0.38"
 lambdaworks-math = { path = "../math" }
 lambdaworks-gpu = { path = "../gpu", optional = true }
+embedded-hal = { version = "1.0.0-alpha.9", optional = true }
+esp-idf-sys = { version = "0.32", features = ["binstart"], optional = true }
+esp-idf-hal = { version = "0.40.1", optional = true }
 
 [dev-dependencies]
 proptest = "1.1.0"
 criterion = "0.4.0"
 objc = "0.2.7"
 
+[build-dependencies]
+embuild = "0.31.1"
+anyhow = "1"
+
 [features]
 metal = ["dep:lambdaworks-gpu"]
 cuda = ["dep:lambdaworks-gpu"]
+esp = ["embedded-hal", "esp-idf-sys", "esp-idf-hal", "lambdaworks-math/esp"]
 
 [[bench]]
 name = "fft_benchmarks"
