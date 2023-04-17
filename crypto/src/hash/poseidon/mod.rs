@@ -15,29 +15,46 @@ pub struct Poseidon<F: IsField> {
     params: Parameters<F>,
 }
 
+impl Poseidon<BLS12381PrimeField> {
+    pub fn new() -> Self {
+        Self {
+            params: Parameters::with_t2()
+                .expect("Error loading parameters for Posedon BLS12381 hasher"),
+        }
+    }
+}
+
+impl Default for Poseidon<BLS12381PrimeField> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl IsCryptoHash<BLS12381PrimeField> for Poseidon<BLS12381PrimeField> {
     fn hash_one(
         &self,
-        input: FieldElement<BLS12381PrimeField>,
+        input: &FieldElement<BLS12381PrimeField>,
     ) -> FieldElement<BLS12381PrimeField> {
         // return first element of the state (unwraps to be removed after trait changes to return Result<>)
-        self.hash(&[input]).unwrap().first().unwrap().clone()
+        // This clone could be removed
+        self.hash(&[input.clone()])
+            .unwrap()
+            .first()
+            .unwrap()
+            .clone()
     }
 
     fn hash_two(
         &self,
-        left: FieldElement<BLS12381PrimeField>,
-        right: FieldElement<BLS12381PrimeField>,
+        left: &FieldElement<BLS12381PrimeField>,
+        right: &FieldElement<BLS12381PrimeField>,
     ) -> FieldElement<BLS12381PrimeField> {
         // return first element of the state (unwraps to be removed after trait changes to return Result<>)
-        self.hash(&[left, right]).unwrap().first().unwrap().clone()
-    }
-
-    fn new() -> Self {
-        Poseidon {
-            params: Parameters::with_t2()
-                .expect("Error loading parameters for Posedon BLS12381 hasher"),
-        }
+        self.hash(&[left.clone(), right.clone()])
+            .unwrap()
+            .first()
+            .unwrap()
+            .clone()
     }
 }
 
@@ -257,8 +274,8 @@ mod tests {
         let a = FieldElement::one();
         let b = FieldElement::zero();
 
-        poseidon.hash_one(a.clone());
-        poseidon.hash_two(a, b);
+        poseidon.hash_one(&a);
+        poseidon.hash_two(&a, &b);
     }
 
     #[test]

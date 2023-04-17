@@ -5,8 +5,8 @@ use lambdaworks_math::{
 };
 
 use crate::{
-    abstractions::{fft, fft_with_blowup, inverse_fft},
     errors::FFTError,
+    ops::{fft, fft_with_blowup, inverse_fft},
 };
 
 pub trait FFTPoly<F: IsTwoAdicField> {
@@ -70,6 +70,7 @@ where
 }
 
 #[cfg(test)]
+<<<<<<< HEAD
 mod tests {
     use lambdaworks_math::{
         field::{
@@ -127,6 +128,9 @@ mod tests {
 
 #[cfg(test)]
 mod fft_test {
+=======
+mod u64_field_tests {
+>>>>>>> main
     use lambdaworks_math::field::test_fields::u64_test_field::U64TestField;
     use lambdaworks_math::field::traits::IsField;
     use lambdaworks_math::field::traits::RootsConfig;
@@ -245,6 +249,7 @@ mod fft_test {
     }
 }
 
+<<<<<<< HEAD
 #[cfg(feature = "metal")]
 #[cfg(test)]
 mod gpu_tests {
@@ -320,6 +325,8 @@ mod gpu_tests {
     }
 }
 
+=======
+>>>>>>> main
 #[cfg(test)]
 mod u256_two_adic_prime_field_tests {
     use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;

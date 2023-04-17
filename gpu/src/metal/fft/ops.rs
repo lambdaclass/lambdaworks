@@ -134,3 +134,51 @@ pub fn bitrev_permutation<T: Clone>(input: &[T], state: &MetalState) -> Result<V
 
     Ok(MetalState::retrieve_contents::<T>(&result_buffer))
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::metal::abstractions::state::*;
+    use lambdaworks_math::field::{
+        fields::fft_friendly::stark_252_prime_field::Stark252PrimeField, traits::RootsConfig,
+    };
+    use proptest::{collection, prelude::*};
+
+    use super::*;
+
+    type F = Stark252PrimeField;
+    type FE = FieldElement<F>;
+
+    prop_compose! {
+        fn powers_of_two(max_exp: u8)(exp in 1..max_exp) -> usize { 1 << exp }
+        // max_exp cannot be multiple of the bits that represent a usize, generally 64 or 32.
+        // also it can't exceed the test field's two-adicity.
+    }
+    prop_compose! {
+        fn field_element()(num in any::<u64>().prop_filter("Avoid null polynomial", |x| x != &0)) -> FE {
+            FE::from(num)
+        }
+    }
+    prop_compose! {
+        fn field_vec(max_exp: u8)(vec in collection::vec(field_element(), 2..1<<max_exp).prop_filter("Avoid polynomials of size not power of two", |vec| vec.len().is_power_of_two())) -> Vec<FE> {
+            vec
+        }
+    }
+
+    proptest! {
+        // Property-based test that ensures Metal parallel FFT gives same result as a sequential one.
+        #[test]
+        fn test_metal_fft_matches_sequential(input in field_vec(6)) {
+            objc::rc::autoreleasepool(|| {
+                let metal_state = MetalState::new(None).unwrap();
+                let order = log2(input.len()).unwrap();
+                let twiddles = lambdaworks_fft::roots_of_unity::get_twiddles(order, RootsConfig::BitReverse).unwrap();
+
+                let metal_result = super::fft(&input, &twiddles, &metal_state).unwrap();
+                let sequential_result = lambdaworks_fft::ops::fft(&input).unwrap();
+
+                prop_assert_eq!(&metal_result, &sequential_result);
+                Ok(())
+            }).unwrap();
+        }
+    }
+}
