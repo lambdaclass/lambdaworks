@@ -31,7 +31,7 @@ jobs:
       uses: actions/cache@v3
       id: cache-iai-results
       with:
-        path: iai |
+        path: |
           target/iai/
           !target/iai/**.old
         key: ${{ runner.os }}-iai-benchmark-cache-${{ github.event.pull_request.base.sha }}
@@ -57,7 +57,7 @@ jobs:
       uses: actions/cache@v3
       id: cache-iai-results
       with:
-        path: iai |
+        path: |
           target/iai/
           !target/iai/**.old
         key: ${{ runner.os }}-iai-benchmark-cache-${{ github.event.pull_request.base.sha }}
