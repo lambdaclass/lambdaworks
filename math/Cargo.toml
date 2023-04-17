@@ -8,6 +8,9 @@ edition = "2021"
 [dependencies]
 rand = "0.8.5"
 thiserror = "1.0.38"
+embedded-hal = "1.0.0-alpha.9"
+esp-idf-sys = { version = "0.32", features = ["binstart"] }
+esp-idf-hal = "0.40.1"
 
 [dev-dependencies]
 proptest = "1.1.0"
@@ -25,3 +28,10 @@ harness = false
 [[bench]]
 name = "polynomial_benchmarks"
 harness = false
+
+[build-dependencies]
+embuild = "0.31.1"
+anyhow = "1"
+
+[features]
+pio = ["esp-idf-sys/pio"]

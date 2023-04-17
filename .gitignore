@@ -11,3 +11,5 @@ Cargo.lock
 
 **/proptest-regressions
 /output.txt
+
+.embuild
