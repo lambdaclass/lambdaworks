@@ -1,7 +1,9 @@
-use crate::field::{
+use lambdaworks_math::field::{
     element::FieldElement,
     traits::{IsTwoAdicField, RootsConfig},
 };
+
+use crate::roots_of_unity::get_powers_of_primitive_root;
 
 use super::helpers::log2;
 
@@ -10,7 +12,7 @@ pub fn naive_matrix_dft_test<F: IsTwoAdicField>(input: &[FieldElement<F>]) -> Ve
     let n = input.len();
     let order = log2(n).unwrap();
 
-    let twiddles = F::get_powers_of_primitive_root(order, n, RootsConfig::Natural).unwrap();
+    let twiddles = get_powers_of_primitive_root(order, n, RootsConfig::Natural).unwrap();
 
     let mut output = Vec::with_capacity(n);
     for row in 0..n {
@@ -29,7 +31,9 @@ pub fn naive_matrix_dft_test<F: IsTwoAdicField>(input: &[FieldElement<F>]) -> Ve
 
 #[cfg(test)]
 mod fft_helpers_test {
-    use crate::{field::test_fields::u64_test_field::U64TestField, polynomial::Polynomial};
+    use lambdaworks_math::{
+        field::test_fields::u64_test_field::U64TestField, polynomial::Polynomial,
+    };
     use proptest::{collection, prelude::*};
 
     use super::*;
@@ -61,7 +65,7 @@ mod fft_helpers_test {
 
             let poly = Polynomial::new(&coeffs);
             let order = log2(coeffs.len()).unwrap();
-            let twiddles = F::get_powers_of_primitive_root(order, coeffs.len(), RootsConfig::Natural).unwrap();
+            let twiddles = get_powers_of_primitive_root(order, coeffs.len(), RootsConfig::Natural).unwrap();
             let evals: Vec<FE> = twiddles.iter().map(|x| poly.evaluate(x)).collect();
 
             prop_assert_eq!(evals, dft);
