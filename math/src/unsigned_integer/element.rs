@@ -481,13 +481,8 @@ impl<const NUM_LIMBS: usize> ByteConversion for UnsignedInteger<NUM_LIMBS> {
         // We cut off extra bytes, this is useful when you use this function to generate the element from randomness
         // In the future with the right algorithm this shouldn't be needed
 
-        let needed_bytes_res = bytes.get(0..NUM_LIMBS * 8);
-
-        if needed_bytes_res.is_none() {
-            return Err(ByteConversionError::FromBEBytesError);
-        }
-
-        let needed_bytes = needed_bytes_res.unwrap();
+        let needed_bytes = bytes.get(0..NUM_LIMBS * 8)
+            .ok_or(ByteConversionError::FromBEBytesError)?;
 
         needed_bytes.chunks_exact(8).try_for_each(|chunk| {
             let limb = u64::from_be_bytes(
