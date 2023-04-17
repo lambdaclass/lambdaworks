@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1681731878637,
+  "lastUpdate": 1681737769504,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -599,6 +599,138 @@ window.BENCHMARK_DATA = {
             "name": "starks/quadratic_air",
             "value": 35185532,
             "range": "± 799728",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "12560266+MauroToscano@users.noreply.github.com",
+            "name": "Mauro Toscano",
+            "username": "MauroToscano"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b9220c1ffbb77e643be91150e6bf92340dbb9303",
+          "message": "Fix linter (#262)\n\n* Fix linter\n\n* Test bad fmt\n\n* Reverted bad fmt\n\n* Add clippy error to test\n\n* Add clippy error to test\n\n* Rever bad clippy\n\n* revert bad test  changes",
+          "timestamp": "2023-04-17T13:17:07Z",
+          "tree_id": "a08a52f3b1e803da5738696d304d9f58689086ed",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/b9220c1ffbb77e643be91150e6bf92340dbb9303"
+        },
+        "date": 1681737768335,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "u64/add",
+            "value": 4,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/mul",
+            "value": 4,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/pow",
+            "value": 21,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/sub",
+            "value": 4,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/inv",
+            "value": 165,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/div",
+            "value": 170,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/eq",
+            "value": 2,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/evaluate",
+            "value": 2332,
+            "range": "± 1310",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/evaluate_slice",
+            "value": 143964,
+            "range": "± 219998",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/add",
+            "value": 1697,
+            "range": "± 412",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/neg",
+            "value": 512,
+            "range": "± 272",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/sub",
+            "value": 2537,
+            "range": "± 570",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/mul",
+            "value": 1848,
+            "range": "± 481",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/div",
+            "value": 1911,
+            "range": "± 426",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "starks/simple_fibonacci",
+            "value": 35252837,
+            "range": "± 22711",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "starks/fibonacci_2_columns",
+            "value": 51903921,
+            "range": "± 1508967",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "starks/fibonacci_f17",
+            "value": 364411,
+            "range": "± 143710",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "starks/quadratic_air",
+            "value": 35769763,
+            "range": "± 206435",
             "unit": "ns/iter"
           }
         ]
