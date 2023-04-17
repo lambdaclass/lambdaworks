@@ -5,7 +5,7 @@ use lambdaworks_math::field::traits::RootsConfig;
 mod functions;
 mod util;
 
-const SIZE_ORDER: u64 = 4;
+const SIZE_ORDER: u64 = 10;
 
 #[inline(never)]
 fn seq_fft_benchmarks() {
