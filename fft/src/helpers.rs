@@ -1,4 +1,4 @@
-use crate::errors::FFTError;
+use super::errors::FFTError;
 
 pub fn log2(n: usize) -> Result<u64, FFTError> {
     if !n.is_power_of_two() {
