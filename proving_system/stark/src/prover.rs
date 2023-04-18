@@ -163,7 +163,7 @@ where
 
             let deep_consistency_check = build_deep_consistency_check(
                 q_i,
-                &lde_fri_commitment[0].evaluation,
+                &lde_roots_of_unity_coset,
                 &lde_trace,
                 &composition_poly_even,
                 &composition_poly_odd,

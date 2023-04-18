@@ -24,14 +24,18 @@ use lambdaworks_math::{
     traits::ByteConversion,
 };
 
-struct QueryVerificationArgs<'a, F: IsTwoAdicField, A: AIR<Field = F>, T: Transcript> {
+struct QueryVerificationArgs<'a, F: IsTwoAdicField, A: AIR<Field = F>> {
     air: &'a A,
-    transcript: &'a mut T,
     fri_layers_merkle_roots: &'a [FieldElement<F>],
+    trace_term_coeffs: &'a [Vec<FieldElement<F>>],
+    gamma_even: &'a FieldElement<F>,
+    gamma_odd: &'a FieldElement<F>,
     beta_list: &'a [FieldElement<F>],
     q_i: usize,
     fri_decommitment: &'a FriDecommitment<F>,
+    root_order: u32,
     lde_root_order: u32,
+    lde_roots_of_unity_coset: &'a [FieldElement<F>],
     ood_evaluation_point: &'a FieldElement<F>,
     trace_poly_ood_evaluations: &'a Frame<F>,
     composition_poly_d_evaluations: &'a Vec<FieldElement<F>>,
@@ -39,9 +43,11 @@ struct QueryVerificationArgs<'a, F: IsTwoAdicField, A: AIR<Field = F>, T: Transc
     deep_consistency_check: &'a DeepConsistencyCheck<F>,
 }
 
-struct DeepCompositionPolyArgs<'a, F: IsTwoAdicField, T: Transcript> {
-    transcript: &'a mut T,
+struct DeepCompositionPolyArgs<'a, F: IsTwoAdicField> {
     primitive_root: &'a FieldElement<F>,
+    trace_term_coeffs: &'a [Vec<FieldElement<F>>],
+    gamma_even: &'a FieldElement<F>,
+    gamma_odd: &'a FieldElement<F>,
     d_evaluation_point: &'a FieldElement<F>,
     ood_evaluation_point: &'a FieldElement<F>,
     lde_trace_evaluations: &'a [FieldElement<F>],
@@ -202,6 +208,21 @@ where
     let lde_root_order =
         (air.context().trace_length * air.options().blowup_factor as usize).trailing_zeros();
 
+    // Get the number of trace terms the DEEP composition poly will have.
+    // One coefficient will be sampled for each of them.
+    // TODO: try remove this, call transcript inside for and move gamma declarations
+    let trace_term_coeffs = &(0..trace_poly_ood_evaluations.num_columns())
+        .map(|_| {
+            (0..trace_poly_ood_evaluations.num_rows())
+                .map(|_| transcript_to_field(transcript))
+                .collect()
+        })
+        .collect::<Vec<Vec<FieldElement<F>>>>();
+
+    // Get coefficients for even and odd terms of the composition polynomial H(x)
+    let gamma_even = &transcript_to_field::<F, _>(transcript);
+    let gamma_odd = &transcript_to_field::<F, _>(transcript);
+
     // construct vector of betas
     let mut beta_list = Vec::new();
     let count_betas = proof.fri_layers_merkle_roots.len() - 1;
@@ -231,12 +252,16 @@ where
 
         let query_verification_args = &mut QueryVerificationArgs {
             air,
-            transcript,
             fri_layers_merkle_roots: &proof.fri_layers_merkle_roots,
+            trace_term_coeffs,
+            gamma_even,
+            gamma_odd,
             beta_list: &beta_list,
             q_i,
             fri_decommitment,
+            root_order,
             lde_root_order,
+            lde_roots_of_unity_coset: &lde_roots_of_unity_coset,
             ood_evaluation_point: &z,
             trace_poly_ood_evaluations,
             composition_poly_d_evaluations: &deep_consistency_check.composition_poly_evaluations,
@@ -250,17 +275,20 @@ where
     result
 }
 
-fn verify_query<F: IsField + IsTwoAdicField, A: AIR<Field = F>, T: Transcript>(
-    args: &mut QueryVerificationArgs<'_, F, A, T>,
+fn verify_query<F: IsField + IsTwoAdicField, A: AIR<Field = F>>(
+    args: &mut QueryVerificationArgs<'_, F, A>,
 ) -> bool {
+    let primitive_root = &F::get_primitive_root_of_unity(args.root_order as u64).unwrap();
     let mut lde_primitive_root =
         F::get_primitive_root_of_unity(args.lde_root_order as u64).unwrap();
     let mut offset = FieldElement::<F>::from(args.air.options().coset_offset);
 
-    let d_evaluation_point = &(&offset * lde_primitive_root.pow(args.q_i));
+    let d_evaluation_point = &args.lde_roots_of_unity_coset[args.q_i];
     let deep_composition_poly_args = &mut DeepCompositionPolyArgs {
-        transcript: args.transcript,
-        primitive_root: &lde_primitive_root,
+        primitive_root,
+        trace_term_coeffs: args.trace_term_coeffs,
+        gamma_even: args.gamma_even,
+        gamma_odd: args.gamma_odd,
         d_evaluation_point,
         ood_evaluation_point: args.ood_evaluation_point,
         lde_trace_evaluations: &args.deep_consistency_check.lde_trace_evaluations,
@@ -387,27 +415,13 @@ fn verify_query<F: IsField + IsTwoAdicField, A: AIR<Field = F>, T: Transcript>(
     true
 }
 
-fn evaluate_deep_composition_poly<F: IsTwoAdicField, T: Transcript>(
-    args: &mut DeepCompositionPolyArgs<F, T>,
+fn evaluate_deep_composition_poly<F: IsTwoAdicField>(
+    args: &mut DeepCompositionPolyArgs<F>,
 ) -> FieldElement<F> {
-    // Get the number of trace terms the DEEP composition poly will have.
-    // One coefficient will be sampled for each of them.
-    // TODO: try remove this, call transcript inside for and move gamma declarations
-    let trace_term_coeffs = (0..args.trace_poly_ood_evaluations.num_columns())
-        .map(|_| {
-            (0..args.trace_poly_ood_evaluations.num_rows())
-                .map(|_| transcript_to_field::<F, T>(args.transcript))
-                .collect()
-        })
-        .collect::<Vec<Vec<FieldElement<F>>>>();
-
-    // Get coefficients for even and odd terms of the composition polynomial H(x)
-    let gamma_even = transcript_to_field::<F, T>(args.transcript);
-    let gamma_odd = transcript_to_field::<F, T>(args.transcript);
-
     let mut trace_terms = FieldElement::zero();
+
     for (col_idx, coeff_row) in
-        (0..args.trace_poly_ood_evaluations.num_columns()).zip(trace_term_coeffs)
+        (0..args.trace_poly_ood_evaluations.num_columns()).zip(args.trace_term_coeffs)
     {
         for (row_idx, coeff) in (0..args.trace_poly_ood_evaluations.num_rows()).zip(coeff_row) {
             let poly_evaluation = (args.lde_trace_evaluations[col_idx].clone()
@@ -428,6 +442,6 @@ fn evaluate_deep_composition_poly<F: IsTwoAdicField, T: Transcript>(
         / (args.d_evaluation_point - args.ood_evaluation_point);
 
     trace_terms
-        + even_composition_poly_evaluation * gamma_even
-        + odd_composition_poly_evaluation * gamma_odd
+        + even_composition_poly_evaluation * args.gamma_even
+        + odd_composition_poly_evaluation * args.gamma_odd
 }

@@ -1,5 +1,4 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use lambdaworks_crypto::merkle_tree::test_merkle::TestHasher;
 use lambdaworks_math::field::fields::{
     fft_friendly::stark_252_prime_field::Stark252PrimeField, u64_prime_field::FE17,
 };
@@ -65,7 +64,7 @@ fn prove_fib() {
 
     let fibonacci_air = simple_fibonacci::FibonacciAIR::new(context);
 
-    let result = prove::<_, _, TestHasher>(&trace_table, &fibonacci_air);
+    let result = prove::<_, _>(&trace_table, &fibonacci_air);
     assert!(verify(&result, &fibonacci_air));
 }
 
@@ -91,7 +90,7 @@ fn prove_fib_2_cols() {
 
     let fibonacci_air = fibonacci_2_columns::Fibonacci2ColsAIR::new(context);
 
-    let result = prove::<_, _, TestHasher>(&trace_table, &fibonacci_air);
+    let result = prove::<_, _>(&trace_table, &fibonacci_air);
     assert!(verify(&result, &fibonacci_air));
 }
 
@@ -115,7 +114,7 @@ fn prove_fib17() {
 
     let fibonacci_air = fibonacci_f17::Fibonacci17AIR::new(context);
 
-    let result = prove::<_, _, TestHasher>(&trace_table, &fibonacci_air);
+    let result = prove::<_, _>(&trace_table, &fibonacci_air);
     assert!(verify(&result, &fibonacci_air));
 }
 
@@ -142,6 +141,6 @@ fn prove_quadratic() {
 
     let quadratic_air = quadratic_air::QuadraticAIR::new(context);
 
-    let result = prove::<_, _, TestHasher>(&trace_table, &quadratic_air);
+    let result = prove::<_, _>(&trace_table, &quadratic_air);
     assert!(verify(&result, &quadratic_air));
 }
