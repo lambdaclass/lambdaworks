@@ -1,31 +1,34 @@
 #[cfg(test)]
 mod tests {
+    use cudarc::driver::LaunchAsync;
+
     #[test]
     fn poc() {
-        let dev = cudarc::driver::CudaDevice::new(0)?;
+        let dev = cudarc::driver::CudaDevice::new(0).unwrap();
 
         // allocate buffers
-        let inp = dev.htod_copy(vec![1.0f32; 100])?;
-        let mut out = dev.alloc_zeros::<f32>(100)?;
+        let inp = dev.htod_copy(vec![1i32; 100]).unwrap();
+        let mut out = dev.alloc_zeros::<i32>(100).unwrap();
 
         let ptx = cudarc::nvrtc::compile_ptx(
             "
-        extern \"C\" __global__ void sin_kernel(float *out, const float *inp, const size_t numel) {
+        extern \"C\" __global__ void test_kernel(int *out, const int *inp, const size_t numel) {
             unsigned int i = blockIdx.x * blockDim.x + threadIdx.x;
             if (i < numel) {
-                out[i] = sin(inp[i]);
+                out[i] = inp[i] * i;
             }
         }",
-        )?;
+        )
+        .unwrap();
 
         // and dynamically load it into the device
-        dev.load_ptx(ptx, "my_module", &["sin_kernel"])?;
+        dev.load_ptx(ptx, "my_module", &["test_kernel"]).unwrap();
 
-        let sin_kernel = dev.get_func("my_module", "sin_kernel").unwrap();
-        let cfg = LaunchConfig::for_num_elems(100);
-        unsafe { sin_kernel.launch(cfg, (&mut out, &inp, 100usize)) }?;
+        let test_kernel = dev.get_func("my_module", "test_kernel").unwrap();
+        let cfg = cudarc::driver::LaunchConfig::for_num_elems(100);
+        unsafe { test_kernel.launch(cfg, (&mut out, &inp, 100usize)) }.unwrap();
 
-        let out_host: Vec<f32> = dev.dtoh_sync_copy(&out)?;
-        assert_eq!(out_host, [1.0; 100].map(f32::sin));
+        let out_host: Vec<i32> = dev.dtoh_sync_copy(&out).unwrap();
+        assert_eq!(out_host, (0..100).collect::<Vec<i32>>());
     }
 }
