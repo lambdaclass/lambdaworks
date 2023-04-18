@@ -59,7 +59,9 @@ where
 #[cfg(feature = "metal")]
 #[cfg(test)]
 mod gpu_tests {
-    use lambdaworks_fft::polynomial::FFTPoly;
+    use lambdaworks_fft::polynomial::{
+        evaluate_fft_cpu, evaluate_offset_fft_cpu, interpolate_fft_cpu,
+    };
     use lambdaworks_math::{
         field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
         polynomial::Polynomial,
@@ -100,7 +102,7 @@ mod gpu_tests {
         fn test_metal_fft_poly_eval_matches_cpu(poly in poly(6)) {
             objc::rc::autoreleasepool(|| {
                 let gpu_evals = evaluate_fft_metal(&poly).unwrap();
-                let cpu_evals = poly.evaluate_fft().unwrap();
+                let cpu_evals = evaluate_fft_cpu(&poly).unwrap();
 
                 prop_assert_eq!(gpu_evals, cpu_evals);
                 Ok(())
@@ -111,7 +113,7 @@ mod gpu_tests {
         fn test_metal_fft_coset_poly_eval_matches_cpu(poly in poly(6), offset in offset(), blowup_factor in powers_of_two(4)) {
             objc::rc::autoreleasepool(|| {
                 let gpu_evals = evaluate_offset_fft_metal(&poly, &offset, blowup_factor).unwrap();
-                let cpu_evals = poly.evaluate_offset_fft(&offset, blowup_factor).unwrap();
+                let cpu_evals = evaluate_offset_fft_cpu(&poly, &offset, blowup_factor).unwrap();
 
                 prop_assert_eq!(gpu_evals, cpu_evals);
                 Ok(())
@@ -122,7 +124,7 @@ mod gpu_tests {
         fn test_metal_fft_poly_interpol_matches_cpu(evals in field_vec(6)) {
             objc::rc::autoreleasepool(|| {
                 let gpu_evals = interpolate_fft_metal(&evals).unwrap();
-                let cpu_evals = Polynomial::interpolate_fft(&evals).unwrap();
+                let cpu_evals = interpolate_fft_cpu(&evals).unwrap();
 
                 prop_assert_eq!(gpu_evals, cpu_evals);
                 Ok(())

@@ -33,7 +33,7 @@ impl<F: IsTwoAdicField> FFTPoly<F> for Polynomial<FieldElement<F>> {
 
         #[cfg(not(feature = "metal"))]
         {
-            evaluate_fft(self)
+            evaluate_fft_cpu(self)
         }
     }
 
@@ -57,7 +57,7 @@ impl<F: IsTwoAdicField> FFTPoly<F> for Polynomial<FieldElement<F>> {
 
         #[cfg(not(feature = "metal"))]
         {
-            evaluate_offset_fft(self, offset, blowup_factor)
+            evaluate_offset_fft_cpu(self, offset, blowup_factor)
         }
     }
 
@@ -71,13 +71,14 @@ impl<F: IsTwoAdicField> FFTPoly<F> for Polynomial<FieldElement<F>> {
 
         #[cfg(not(feature = "metal"))]
         {
-            interpolate_fft(fft_evals)
+            interpolate_fft_cpu(fft_evals)
         }
     }
 }
 
-#[allow(dead_code)]
-fn evaluate_fft<F>(poly: &Polynomial<FieldElement<F>>) -> Result<Vec<FieldElement<F>>, FFTError>
+pub fn evaluate_fft_cpu<F>(
+    poly: &Polynomial<FieldElement<F>>,
+) -> Result<Vec<FieldElement<F>>, FFTError>
 where
     F: IsTwoAdicField,
 {
@@ -89,8 +90,7 @@ where
     crate::ops::fft(padded_coefficients.as_slice())
 }
 
-#[allow(dead_code)]
-fn evaluate_offset_fft<F>(
+pub fn evaluate_offset_fft_cpu<F>(
     poly: &Polynomial<FieldElement<F>>,
     offset: &FieldElement<F>,
     blowup_factor: usize,
@@ -102,8 +102,7 @@ where
     fft_with_blowup(scaled.coefficients(), blowup_factor)
 }
 
-#[allow(dead_code)]
-fn interpolate_fft<F>(
+pub fn interpolate_fft_cpu<F>(
     fft_evals: &[FieldElement<F>],
 ) -> Result<Polynomial<FieldElement<F>>, FFTError>
 where
