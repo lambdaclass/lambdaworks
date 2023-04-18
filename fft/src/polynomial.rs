@@ -6,7 +6,7 @@ use lambdaworks_math::{
 
 use crate::{
     errors::FFTError,
-    ops::{fft, fft_with_blowup, inverse_fft},
+    ops::{fft_with_blowup, inverse_fft},
 };
 
 pub trait FFTPoly<F: IsTwoAdicField> {
@@ -24,13 +24,17 @@ pub trait FFTPoly<F: IsTwoAdicField> {
 impl<F: IsTwoAdicField> FFTPoly<F> for Polynomial<FieldElement<F>> {
     /// Evaluates this polynomial using FFT (so the function is evaluated using twiddle factors).
     fn evaluate_fft(&self) -> Result<Vec<FieldElement<F>>, FFTError> {
-        let num_coefficients = self.coefficients().len();
-        let num_coeficcients_power_of_two = helpers::next_power_of_two(num_coefficients as u64);
+        #[cfg(feature = "metal")]
+        {
+            Ok(lambdaworks_gpu::metal::fft::polynomial::evaluate_fft_metal(
+                &self,
+            )?)
+        }
 
-        let mut padded_coefficients = self.coefficients().to_vec();
-        padded_coefficients.resize(num_coeficcients_power_of_two as usize, FieldElement::zero());
-
-        fft(padded_coefficients.as_slice())
+        #[cfg(not(feature = "metal"))]
+        {
+            evaluate_fft(self)
+        }
     }
 
     /// Evaluates this polynomial in an extended domain by `blowup_factor` with an `offset`.
@@ -40,16 +44,73 @@ impl<F: IsTwoAdicField> FFTPoly<F> for Polynomial<FieldElement<F>> {
         offset: &FieldElement<F>,
         blowup_factor: usize,
     ) -> Result<Vec<FieldElement<F>>, FFTError> {
-        let scaled = self.scale(offset);
-        fft_with_blowup(scaled.coefficients(), blowup_factor)
+        #[cfg(feature = "metal")]
+        {
+            Ok(
+                lambdaworks_gpu::metal::fft::polynomial::evaluate_offset_fft_metal(
+                    &self,
+                    offset,
+                    blowup_factor,
+                )?,
+            )
+        }
+
+        #[cfg(not(feature = "metal"))]
+        {
+            evaluate_offset_fft(self, offset, blowup_factor)
+        }
     }
 
     /// Returns a new polynomial that interpolates `fft_evals`, which are evaluations using twiddle
     /// factors. This is considered to be the inverse operation of [Self::evaluate_fft()].
     fn interpolate_fft(fft_evals: &[FieldElement<F>]) -> Result<Self, FFTError> {
-        let coeffs = inverse_fft(fft_evals)?;
-        Ok(Polynomial::new(&coeffs))
+        #[cfg(feature = "metal")]
+        {
+            Ok(lambdaworks_gpu::metal::fft::polynomial::interpolate_fft_metal(fft_evals)?)
+        }
+
+        #[cfg(not(feature = "metal"))]
+        {
+            interpolate_fft(fft_evals)
+        }
     }
+}
+
+#[allow(dead_code)]
+fn evaluate_fft<F>(poly: &Polynomial<FieldElement<F>>) -> Result<Vec<FieldElement<F>>, FFTError>
+where
+    F: IsTwoAdicField,
+{
+    let num_coefficients = poly.coefficients().len();
+    let num_coeficcients_power_of_two = helpers::next_power_of_two(num_coefficients as u64);
+
+    let mut padded_coefficients = poly.coefficients().to_vec();
+    padded_coefficients.resize(num_coeficcients_power_of_two as usize, FieldElement::zero());
+    crate::ops::fft(padded_coefficients.as_slice())
+}
+
+#[allow(dead_code)]
+fn evaluate_offset_fft<F>(
+    poly: &Polynomial<FieldElement<F>>,
+    offset: &FieldElement<F>,
+    blowup_factor: usize,
+) -> Result<Vec<FieldElement<F>>, FFTError>
+where
+    F: IsTwoAdicField,
+{
+    let scaled = poly.scale(offset);
+    fft_with_blowup(scaled.coefficients(), blowup_factor)
+}
+
+#[allow(dead_code)]
+fn interpolate_fft<F>(
+    fft_evals: &[FieldElement<F>],
+) -> Result<Polynomial<FieldElement<F>>, FFTError>
+where
+    F: IsTwoAdicField,
+{
+    let coeffs = inverse_fft(fft_evals)?;
+    Ok(Polynomial::new(&coeffs))
 }
 
 pub fn compose_fft<F>(
@@ -68,7 +129,7 @@ where
 
     Polynomial::interpolate_fft(values.as_slice()).unwrap()
 }
-
+#[cfg(not(feature = "metal"))]
 #[cfg(test)]
 mod u64_field_tests {
     use lambdaworks_math::field::test_fields::u64_test_field::U64TestField;
