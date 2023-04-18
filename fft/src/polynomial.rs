@@ -26,9 +26,13 @@ impl<F: IsTwoAdicField> FFTPoly<F> for Polynomial<FieldElement<F>> {
     fn evaluate_fft(&self) -> Result<Vec<FieldElement<F>>, FFTError> {
         #[cfg(feature = "metal")]
         {
-            Ok(lambdaworks_gpu::metal::fft::polynomial::evaluate_fft_metal(
-                &self,
-            )?)
+            if field_supports_metal::<F>() {
+                Ok(lambdaworks_gpu::metal::fft::polynomial::evaluate_fft_metal(
+                    &self,
+                )?)
+            } else {
+                evaluate_fft_cpu(self)
+            }
         }
 
         #[cfg(not(feature = "metal"))]
@@ -46,13 +50,17 @@ impl<F: IsTwoAdicField> FFTPoly<F> for Polynomial<FieldElement<F>> {
     ) -> Result<Vec<FieldElement<F>>, FFTError> {
         #[cfg(feature = "metal")]
         {
-            Ok(
-                lambdaworks_gpu::metal::fft::polynomial::evaluate_offset_fft_metal(
-                    &self,
-                    offset,
-                    blowup_factor,
-                )?,
-            )
+            if field_supports_metal::<F>() {
+                Ok(
+                    lambdaworks_gpu::metal::fft::polynomial::evaluate_offset_fft_metal(
+                        &self,
+                        offset,
+                        blowup_factor,
+                    )?,
+                )
+            } else {
+                evaluate_offset_fft_cpu(self, offset, blowup_factor)
+            }
         }
 
         #[cfg(not(feature = "metal"))]
@@ -66,7 +74,11 @@ impl<F: IsTwoAdicField> FFTPoly<F> for Polynomial<FieldElement<F>> {
     fn interpolate_fft(fft_evals: &[FieldElement<F>]) -> Result<Self, FFTError> {
         #[cfg(feature = "metal")]
         {
-            Ok(lambdaworks_gpu::metal::fft::polynomial::interpolate_fft_metal(fft_evals)?)
+            if field_supports_metal::<F>() {
+                Ok(lambdaworks_gpu::metal::fft::polynomial::interpolate_fft_metal(fft_evals)?)
+            } else {
+                interpolate_fft_cpu(fft_evals)
+            }
         }
 
         #[cfg(not(feature = "metal"))]
@@ -74,6 +86,13 @@ impl<F: IsTwoAdicField> FFTPoly<F> for Polynomial<FieldElement<F>> {
             interpolate_fft_cpu(fft_evals)
         }
     }
+}
+
+// TODO remove this hack as we support any field
+#[cfg(feature = "metal")]
+fn field_supports_metal<F>() -> bool {
+    let f_type = std::any::type_name::<F>();
+    return f_type.contains("Stark252PrimeField");
 }
 
 pub fn evaluate_fft_cpu<F>(
