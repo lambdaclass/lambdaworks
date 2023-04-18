@@ -290,8 +290,6 @@ fn rows_to_cols<const N: usize>(rows: &[[FE; N]]) -> Vec<Vec<FE>> {
 
 #[cfg(test)]
 mod test {
-    use crate::cairo_vm::execution_trace;
-
     use super::*;
 
     #[test]
@@ -310,10 +308,14 @@ mod test {
             "EXECUTION TRACE NUMBER OF COLUMNS: {}",
             execution_trace.cols().len()
         );
-        execution_trace.cols().iter().for_each(|col| {
-            println!("COL LENGTH: {:?}", col.len());
-            println!("COL: {:?}", col);
-            println!("");
-        });
+        execution_trace
+            .cols()
+            .iter()
+            .enumerate()
+            .for_each(|(i, col)| {
+                println!("COL IDX: {:?}", i);
+                println!("COL: {:?}", col);
+                println!("");
+            });
     }
 }

@@ -19,7 +19,7 @@ const OPCODE_MASK: u64 = 0x7000;
 const OPCODE_OFF: u64 = 12;
 const FLAGS_OFFSET: u64 = 48;
 
-// This is just an auxiliary function done to get out of the way
+// TODO: This is just an auxiliary function done to get out of the way.
 // It should be deleted afterwards
 #[allow(non_snake_case)]
 pub(crate) fn aux_get_last_nim_of_FE(value: &FE) -> u64 {
@@ -155,8 +155,8 @@ impl Op1Src {
         match self {
             Op1Src::Op0 => [FE::zero(), FE::zero(), FE::zero()],
             Op1Src::Imm => [FE::zero(), FE::zero(), FE::one()],
-            Op1Src::AP => [FE::zero(), FE::one(), FE::zero()],
-            Op1Src::FP => [FE::one(), FE::zero(), FE::zero()],
+            Op1Src::FP => [FE::zero(), FE::one(), FE::zero()],
+            Op1Src::AP => [FE::one(), FE::zero(), FE::zero()],
         }
     }
 }
