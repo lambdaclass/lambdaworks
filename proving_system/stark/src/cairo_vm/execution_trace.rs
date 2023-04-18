@@ -63,14 +63,17 @@ pub fn build_cairo_execution_trace(
         .map(|t| memory.get(&t.pc).unwrap().clone())
         .collect();
 
-    let t0: Vec<FE> = trace_repr_flags[9]
+    // println!("TRACE FLAGS: {:?}", &trace_repr_flags.len());
+
+    let t0: Vec<FE> = trace_repr_flags
         .iter()
         .zip(&dsts)
-        .map(|(f_pc_jnz, dst)| f_pc_jnz * dst)
+        .map(|(repr_flags, dst)| repr_flags[9].clone() * dst)
         .collect();
     let t1: Vec<FE> = t0.iter().zip(&res).map(|(t, r)| t * r).collect();
     let mul: Vec<FE> = op0s.iter().zip(&op1s).map(|(op0, op1)| op0 * op1).collect();
 
+    let trace_repr_flags = rows_to_cols(&trace_repr_flags);
     // Build Cairo trace columns to instantiate TraceTable struct
     let mut trace_cols: Vec<Vec<_>> = Vec::new();
     (0..trace_repr_flags.len()).for_each(|n| trace_cols.push(trace_repr_flags[n].to_vec()));
@@ -271,5 +274,46 @@ pub fn update_values(
     }
 }
 
+fn rows_to_cols<const N: usize>(rows: &[[FE; N]]) -> Vec<Vec<FE>> {
+    let mut cols = Vec::new();
+    let n_cols = rows[0].len();
+
+    for col_idx in 0..n_cols {
+        let mut col = Vec::new();
+        for row in rows {
+            col.push(row[col_idx].clone());
+        }
+        cols.push(col);
+    }
+    cols
+}
+
 #[cfg(test)]
-mod test {}
+mod test {
+    use crate::cairo_vm::execution_trace;
+
+    use super::*;
+
+    #[test]
+    fn test_build_execution_trace() {
+        // Read trace and memory from binary files
+        let base_dir = env!("CARGO_MANIFEST_DIR");
+        let dir_trace = base_dir.to_owned() + "/src/cairo_vm/test_data/simple_program.trace";
+        let dir_memory = base_dir.to_owned() + "/src/cairo_vm/test_data/simple_program.mem";
+
+        let raw_trace = CairoTrace::from_file(&dir_trace).unwrap();
+        let memory = CairoMemory::from_file(&dir_memory).unwrap();
+
+        let execution_trace = build_cairo_execution_trace(&raw_trace, &memory);
+
+        println!(
+            "EXECUTION TRACE NUMBER OF COLUMNS: {}",
+            execution_trace.cols().len()
+        );
+        execution_trace.cols().iter().for_each(|col| {
+            println!("COL LENGTH: {:?}", col.len());
+            println!("COL: {:?}", col);
+            println!("");
+        });
+    }
+}
