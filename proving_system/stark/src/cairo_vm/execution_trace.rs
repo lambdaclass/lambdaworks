@@ -63,8 +63,6 @@ pub fn build_cairo_execution_trace(
         .map(|t| memory.get(&t.pc).unwrap().clone())
         .collect();
 
-    // println!("TRACE FLAGS: {:?}", &trace_repr_flags.len());
-
     let t0: Vec<FE> = trace_repr_flags
         .iter()
         .zip(&dsts)
