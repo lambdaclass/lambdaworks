@@ -291,6 +291,7 @@ fn rows_to_cols<const N: usize>(rows: &[[FE; N]]) -> Vec<Vec<FE>> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use lambdaworks_math::traits::ByteConversion;
 
     #[test]
     fn test_build_execution_trace() {
@@ -314,7 +315,8 @@ mod test {
             .enumerate()
             .for_each(|(i, col)| {
                 println!("COL IDX: {:?}", i);
-                println!("COL: {:?}", col);
+                col.iter()
+                    .for_each(|f| println!("FIELD BYTES: {:?}", f.to_bytes_le()));
                 println!("");
             });
     }

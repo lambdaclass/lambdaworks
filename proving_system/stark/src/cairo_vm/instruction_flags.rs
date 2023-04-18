@@ -68,11 +68,11 @@ impl CairoInstructionFlags {
         [
             b0,             // dst_reg bits
             b1,             // op0_reg bits
-            b2, b3, b4,     // op1_src bits
-            b5, b6,         // res_logic bits
-            b7, b8, b9,     // pc_update bits
-            b10, b11,       // ap_update bits
-            b12, b13, b14,  // opcode bits
+            b4, b3, b2,     // op1_src bits
+            b6, b5,         // res_logic bits
+            b9, b8, b7,     // pc_update bits
+            b11, b10,       // ap_update bits
+            b14, b13, b12,  // opcode bits
             FE::zero(),
         ]
     }
