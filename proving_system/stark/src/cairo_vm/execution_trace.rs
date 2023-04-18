@@ -74,6 +74,8 @@ pub fn build_cairo_execution_trace(
     let mul: Vec<FE> = op0s.iter().zip(&op1s).map(|(op0, op1)| op0 * op1).collect();
 
     let trace_repr_flags = rows_to_cols(&trace_repr_flags);
+    let trace_repr_offsets = rows_to_cols(&trace_repr_offsets);
+
     // Build Cairo trace columns to instantiate TraceTable struct
     let mut trace_cols: Vec<Vec<_>> = Vec::new();
     (0..trace_repr_flags.len()).for_each(|n| trace_cols.push(trace_repr_flags[n].to_vec()));
@@ -181,11 +183,11 @@ pub fn compute_op0(
         .zip(raw_trace.rows.iter())
         .map(|((f, o), t)| match f.op0_reg {
             Op0Reg::AP => {
-                let addr = t.ap.checked_add_signed(o.off_dst.into()).unwrap();
+                let addr = t.ap.checked_add_signed(o.off_op0.into()).unwrap();
                 (FE::from(addr), memory.get(&addr).unwrap().clone())
             }
             Op0Reg::FP => {
-                let addr = t.fp.checked_add_signed(o.off_dst.into()).unwrap();
+                let addr = t.fp.checked_add_signed(o.off_op0.into()).unwrap();
                 (FE::from(addr), memory.get(&addr).unwrap().clone())
             }
         })

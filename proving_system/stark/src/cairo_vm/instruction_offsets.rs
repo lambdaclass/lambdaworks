@@ -44,6 +44,7 @@ impl InstructionOffsets {
 }
 
 fn to_unbiased_representation<F: IsField>(n: i32) -> FieldElement<F> {
+    println!("OFFSETS: {:?}", n);
     let b15 = 2u64.pow(15u32);
     if n < 0 {
         FieldElement::<F>::from(b15 - n.unsigned_abs() as u64)
