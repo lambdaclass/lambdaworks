@@ -93,6 +93,48 @@ pub struct CairoAIR {
     pub_inputs: PublicInputs,
 }
 
+impl CairoAIR {
+    pub fn new(table: &TraceTable<Stark252PrimeField>) -> Self {
+        let context = AirContext {
+            options: ProofOptions {
+                blowup_factor: 2,
+                fri_number_of_queries: 1,
+                coset_offset: 3,
+            },
+            trace_length: 4,
+            trace_columns: table.n_cols,
+            transition_degrees: vec![
+                // Flags 0-14.
+                2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, // Flag 15
+                1, // Main constraints.
+                2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+            ],
+            transition_exemptions: vec![1; 31],
+            transition_offsets: vec![0, 1],
+            num_transition_constraints: 31,
+        };
+
+        let num_steps = table.n_rows();
+        let first_step = 0;
+        let last_step = num_steps - 1;
+
+        let pub_inputs = PublicInputs {
+            pc_init: table.get(FRAME_PC, first_step),
+            ap_init: table.get(FRAME_AP, first_step),
+            fp_init: table.get(FRAME_FP, first_step),
+            pc_final: table.get(FRAME_AP, last_step),
+            ap_final: table.get(FRAME_AP, last_step),
+            fp_final: table.get(FRAME_FP, last_step),
+            num_steps,
+        };
+
+        Self {
+            context,
+            pub_inputs,
+        }
+    }
+}
+
 impl AIR for CairoAIR {
     type Field = Stark252PrimeField;
 
