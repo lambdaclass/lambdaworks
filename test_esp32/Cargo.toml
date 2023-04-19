@@ -1,0 +1,16 @@
+[package]
+name = "test_esp32"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+embedded-hal = { version = "1.0.0-alpha.9" }
+esp-idf-sys = { version = "0.32", features = ["binstart"] }
+esp-idf-hal = { version = "0.40.1" }
+lambdaworks-math = { path = "../math", features = ["esp"]  }
+
+[build-dependencies]
+embuild = "0.31.1"
+anyhow = "1"

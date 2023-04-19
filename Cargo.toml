@@ -9,4 +9,5 @@ members = [
     "proving_system/stark",
     "proving_system/plonk",
     "gpu",
+    "test_esp32",
 ]
