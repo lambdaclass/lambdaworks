@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1681741013999,
+  "lastUpdate": 1681930868060,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -863,6 +863,138 @@ window.BENCHMARK_DATA = {
             "name": "starks/quadratic_air",
             "value": 35701562,
             "range": "± 796393",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "martin.paulucci@lambdaclass.com",
+            "name": "Martin Paulucci",
+            "username": "mpaulucci"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "8068afc7f753ac04cb607a6e0db5e6c79a60fc2d",
+          "message": "Implement Display trait for Montgomery Prime fields. (#243)\n\n* Implement Display trait for Montgomery Prime fields.\n\n* Add fix implementation and add more tests.\n\n* Rename some variables for more clarity.\n\n* Update math/src/field/element.rs\n\nCo-authored-by: Nacho Avecilla <iavecilla@fi.uba.ar>\n\n---------\n\nCo-authored-by: Nacho Avecilla <iavecilla@fi.uba.ar>",
+          "timestamp": "2023-04-19T18:55:25Z",
+          "tree_id": "3f42dfab12815840c7b16a28a513c2bf4621c639",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/8068afc7f753ac04cb607a6e0db5e6c79a60fc2d"
+        },
+        "date": 1681930866097,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "u64/add",
+            "value": 10,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/mul",
+            "value": 10,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/pow",
+            "value": 54,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/sub",
+            "value": 10,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/inv",
+            "value": 253,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/div",
+            "value": 264,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/eq",
+            "value": 1,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/evaluate",
+            "value": 3069,
+            "range": "± 1829",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/evaluate_slice",
+            "value": 284479,
+            "range": "± 387854",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/add",
+            "value": 3060,
+            "range": "± 740",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/neg",
+            "value": 599,
+            "range": "± 233",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/sub",
+            "value": 3728,
+            "range": "± 979",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/mul",
+            "value": 3123,
+            "range": "± 835",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/div",
+            "value": 3128,
+            "range": "± 860",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "starks/simple_fibonacci",
+            "value": 35210537,
+            "range": "± 1426374",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "starks/fibonacci_2_columns",
+            "value": 53871370,
+            "range": "± 2486213",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "starks/fibonacci_f17",
+            "value": 495824,
+            "range": "± 96062",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "starks/quadratic_air",
+            "value": 35534496,
+            "range": "± 97660",
             "unit": "ns/iter"
           }
         ]
