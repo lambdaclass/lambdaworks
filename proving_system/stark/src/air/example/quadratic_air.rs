@@ -16,6 +16,12 @@ pub struct QuadraticAIR {
     context: AirContext,
 }
 
+impl QuadraticAIR {
+    pub fn new(context: air::context::AirContext) -> Self {
+        Self { context }
+    }
+}
+
 impl AIR for QuadraticAIR {
     type Field = Stark252PrimeField;
 
