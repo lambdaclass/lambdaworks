@@ -244,23 +244,17 @@ fn compute_deep_composition_poly<A: AIR, F: IsTwoAdicField, T: Transcript>(
         }
     }
 
-    let ood_evaluation_point_squared = ood_evaluation_point * ood_evaluation_point;
+    let ood_point_squared = ood_evaluation_point * ood_evaluation_point;
 
     let even_composition_poly_term = (even_composition_poly.clone()
-        - Polynomial::new_monomial(
-            even_composition_poly.evaluate(&ood_evaluation_point_squared),
-            0,
-        ))
+        - Polynomial::new_monomial(even_composition_poly.evaluate(&ood_point_squared), 0))
         / (Polynomial::new_monomial(FieldElement::one(), 1)
-            - Polynomial::new_monomial(ood_evaluation_point.clone(), 0));
+            - Polynomial::new_monomial(ood_point_squared.clone(), 0));
 
     let odd_composition_poly_term = (odd_composition_poly.clone()
-        - Polynomial::new_monomial(
-            odd_composition_poly.evaluate(&ood_evaluation_point_squared),
-            0,
-        ))
+        - Polynomial::new_monomial(odd_composition_poly.evaluate(&ood_point_squared), 0))
         / (Polynomial::new_monomial(FieldElement::one(), 1)
-            - Polynomial::new_monomial(ood_evaluation_point.clone(), 0));
+            - Polynomial::new_monomial(ood_point_squared.clone(), 0));
 
     trace_terms + even_composition_poly_term * gamma_even + odd_composition_poly_term * gamma_odd
 }

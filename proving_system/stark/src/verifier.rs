@@ -305,7 +305,6 @@ where
     let deep_poly_claimed_evaluation = &args.fri_decommitment.layer_evaluations[0].0;
 
     if deep_poly_claimed_evaluation != deep_poly_evaluation {
-        println!("DEEP CHECK FAILED");
         return false;
     }
 
@@ -439,13 +438,15 @@ fn evaluate_deep_composition_poly<F: IsTwoAdicField>(
         }
     }
 
+    let ood_point_squared = &(args.ood_evaluation_point * args.ood_evaluation_point);
+
     let even_composition_poly_evaluation = (&args.composition_poly_d_evaluations[0]
         - &args.composition_poly_ood_evaluations[0])
-        / (args.d_evaluation_point - args.ood_evaluation_point);
+        / (args.d_evaluation_point - ood_point_squared);
 
     let odd_composition_poly_evaluation = (&args.composition_poly_d_evaluations[1]
         - &args.composition_poly_ood_evaluations[1])
-        / (args.d_evaluation_point - args.ood_evaluation_point);
+        / (args.d_evaluation_point - ood_point_squared);
 
     trace_terms
         + even_composition_poly_evaluation * args.gamma_even
