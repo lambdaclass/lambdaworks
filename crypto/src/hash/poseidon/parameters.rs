@@ -21,7 +21,7 @@ impl Parameters<BLS12381PrimeField> {
     // t = 3 means width of input is 2
     // sage generate_params_poseidon.sage 1 0 381 3 5 128
     // Params: n=381, t=3, alpha=5, M=128, R_F=8, R_P=56
-    pub fn with_t3() -> Result<Parameters<BLS12381PrimeField>, String> {
+    pub fn with_t3() -> Result<Self, String> {
         let round_constants_csv = include_str!("bls12381/t3/round_constants.csv");
         let mds_constants_csv = include_str!("bls12381/t3/mds_matrix.csv");
 
