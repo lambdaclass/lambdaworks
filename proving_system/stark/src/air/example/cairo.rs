@@ -79,15 +79,15 @@ impl AIR for CairoAIR {
     }
 
     fn compute_transition(&self, frame: &Frame<Self::Field>) -> Vec<FieldElement<Self::Field>> {
-        let result = &mut vec![FieldElement::zero(); ROW_LENGTH];
+        let mut constraints: Vec<FieldElement<Self::Field>> = Vec::with_capacity(ROW_LENGTH);
 
-        evaluate_instr_constraints(result, frame);
-        evaluate_operand_constraints(result, frame);
-        evaluate_register_constraints(result, frame);
-        evaluate_opcode_constraints(result, frame);
-        enforce_selector(result, frame);
+        generate_instr_constraints(&mut constraints, frame);
+        generate_operand_constraints(&mut constraints, frame);
+        generate_register_constraints(&mut constraints, frame);
+        generate_opcode_constraints(&mut constraints, frame);
+        enforce_selector(&mut constraints, frame);
 
-        result.clone()
+        constraints
     }
 
     fn boundary_constraints(&self) -> BoundaryConstraints<Self::Field> {
@@ -109,14 +109,14 @@ impl AIR for CairoAIR {
     }
 }
 
-fn evaluate_instr_constraints(
-    result: &mut [FieldElement<Stark252PrimeField>],
+fn generate_instr_constraints(
+    constraints: &mut [FieldElement<Stark252PrimeField>],
     frame: &Frame<Stark252PrimeField>,
 ) {
     let curr = frame.get_row(0);
     // Bit constraints
     for (i, flag) in curr[0..16].iter().enumerate() {
-        result[i] = match i {
+        constraints[i] = match i {
             0..=14 => flag * (flag - FieldElement::one()),
             15 => flag.clone(),
             _ => panic!("Unknown flag offset"),
@@ -135,15 +135,15 @@ fn evaluate_instr_constraints(
             acc + FieldElement::from(2).pow(n) * flag
         });
 
-    result[INST] = (&curr[OFF_DST] + &b15)
+    constraints[INST] = (&curr[OFF_DST] + &b15)
         + b16 * (&curr[OFF_OP0] + &b15)
         + b32 * (&curr[OFF_OP1] + &b15)
         + b48 * a
         - &curr[FRAME_INST];
 }
 
-fn evaluate_operand_constraints(
-    result: &mut [FieldElement<Stark252PrimeField>],
+fn generate_operand_constraints(
+    constraints: &mut [FieldElement<Stark252PrimeField>],
     frame: &Frame<Stark252PrimeField>,
 ) {
     let curr = frame.get_row(0);
@@ -152,11 +152,11 @@ fn evaluate_operand_constraints(
     let pc = &curr[FRAME_PC];
     let one = FieldElement::one();
 
-    result[DST_ADDR] = &curr[F_DST_FP] * fp + (&one - &curr[F_DST_FP]) * ap + &curr[OFF_DST]
+    constraints[DST_ADDR] = &curr[F_DST_FP] * fp + (&one - &curr[F_DST_FP]) * ap + &curr[OFF_DST]
         - &curr[FRAME_DST_ADDR];
-    result[OP0_ADDR] = &curr[F_OP_0_FP] * fp + (&one - &curr[F_OP_0_FP]) * ap + &curr[OFF_OP0]
+    constraints[OP0_ADDR] = &curr[F_OP_0_FP] * fp + (&one - &curr[F_OP_0_FP]) * ap + &curr[OFF_OP0]
         - &curr[FRAME_OP0_ADDR];
-    result[OP1_ADDR] = &curr[F_OP_1_VAL] * pc
+    constraints[OP1_ADDR] = &curr[F_OP_1_VAL] * pc
         + &curr[F_OP_1_AP] * ap
         + &curr[F_OP_1_FP] * fp
         + (&one - &curr[F_OP_1_VAL] - &curr[F_OP_1_AP] - &curr[F_OP_1_FP]) * &curr[FRAME_OP0]
@@ -164,8 +164,8 @@ fn evaluate_operand_constraints(
         - &curr[FRAME_OP1_ADDR];
 }
 
-fn evaluate_register_constraints(
-    result: &mut [FieldElement<Stark252PrimeField>],
+fn generate_register_constraints(
+    constraints: &mut [FieldElement<Stark252PrimeField>],
     frame: &Frame<Stark252PrimeField>,
 ) {
     let curr = frame.get_row(0);
@@ -174,52 +174,52 @@ fn evaluate_register_constraints(
     let two = FieldElement::from(2);
 
     // ap and fp constraints
-    result[NEXT_AP] = &curr[FRAME_AP]
+    constraints[NEXT_AP] = &curr[FRAME_AP]
         + &curr[F_AP_ADD] * &curr[FRAME_RES]
         + &curr[F_AP_ONE]
         + &curr[F_OPC_CALL] * &two
         - &next[FRAME_AP];
-    result[NEXT_FP] = &curr[F_OPC_RET] * &curr[FRAME_DST]
+    constraints[NEXT_FP] = &curr[F_OPC_RET] * &curr[FRAME_DST]
         + &curr[F_OPC_CALL] * (&curr[FRAME_AP] + &two)
         + (&one - &curr[F_OPC_RET] - &curr[F_OPC_CALL]) * &curr[FRAME_AP]
         - &next[FRAME_AP];
 
     // pc constraints
-    result[NEXT_PC_1] = (&curr[FRAME_T1] - &curr[F_PC_JNZ])
+    constraints[NEXT_PC_1] = (&curr[FRAME_T1] - &curr[F_PC_JNZ])
         * (&next[FRAME_PC] - (&curr[FRAME_PC] + frame_inst_size(curr)));
-    result[NEXT_PC_2] = &curr[FRAME_T0] * (&next[FRAME_PC] - (&curr[FRAME_PC] + &curr[FRAME_OP1]))
+    constraints[NEXT_PC_2] = &curr[FRAME_T0] * (&next[FRAME_PC] - (&curr[FRAME_PC] + &curr[FRAME_OP1]))
         + (&one - &curr[F_PC_JNZ]) * &next[FRAME_PC]
         - ((&one - &curr[F_PC_ABS] - &curr[F_PC_REL] - &curr[F_PC_JNZ])
             * (&curr[FRAME_PC] + frame_inst_size(curr))
             + &curr[F_PC_ABS] * &curr[FRAME_RES]
             + &curr[F_PC_REL] * (&curr[FRAME_PC] + &curr[FRAME_RES]));
-    result[T0] = &curr[F_PC_JNZ] * &curr[FRAME_DST] - &curr[FRAME_T0];
-    result[T1] = &curr[FRAME_T0] * &curr[FRAME_RES] - &curr[FRAME_T1];
+    constraints[T0] = &curr[F_PC_JNZ] * &curr[FRAME_DST] - &curr[FRAME_T0];
+    constraints[T1] = &curr[FRAME_T0] * &curr[FRAME_RES] - &curr[FRAME_T1];
 }
 
-fn evaluate_opcode_constraints(
-    result: &mut [FieldElement<Stark252PrimeField>],
+fn generate_opcode_constraints(
+    constraints: &mut [FieldElement<Stark252PrimeField>],
     frame: &Frame<Stark252PrimeField>,
 ) {
     let curr = frame.get_row(0);
     let one = FieldElement::one();
-    result[MUL_1] = &curr[FRAME_MUL] - (&curr[FRAME_OP0] * &curr[FRAME_OP1]);
-    result[MUL_2] = &curr[F_RES_ADD] * (&curr[FRAME_OP0] + &curr[FRAME_OP1])
+    constraints[MUL_1] = &curr[FRAME_MUL] - (&curr[FRAME_OP0] * &curr[FRAME_OP1]);
+    constraints[MUL_2] = &curr[F_RES_ADD] * (&curr[FRAME_OP0] + &curr[FRAME_OP1])
         + &curr[F_RES_MUL] * &curr[FRAME_MUL]
         + (&one - &curr[F_RES_ADD] - &curr[F_RES_MUL] - &curr[F_PC_JNZ]) * &curr[FRAME_OP1]
         - (&one - &curr[F_PC_JNZ]) * &curr[FRAME_RES];
-    result[CALL_1] = &curr[F_OPC_CALL] * (&curr[FRAME_DST] - &curr[FRAME_AP]);
-    result[CALL_2] =
+    constraints[CALL_1] = &curr[F_OPC_CALL] * (&curr[FRAME_DST] - &curr[FRAME_AP]);
+    constraints[CALL_2] =
         &curr[F_OPC_CALL] * (&curr[FRAME_OP0] - (&curr[FRAME_PC] + frame_inst_size(curr)));
-    result[ASSERT_EQ] = &curr[F_OPC_AEQ] * (&curr[FRAME_DST] - &curr[FRAME_RES]);
+    constraints[ASSERT_EQ] = &curr[F_OPC_AEQ] * (&curr[FRAME_DST] - &curr[FRAME_RES]);
 }
 
 fn enforce_selector(
-    result: &mut [FieldElement<Stark252PrimeField>],
+    constraints: &mut [FieldElement<Stark252PrimeField>],
     frame: &Frame<Stark252PrimeField>,
 ) {
     let curr = frame.get_row(0);
-    for result_cell in result.iter_mut().take(ASSERT_EQ + 1).skip(INST) {
+    for result_cell in constraints.iter_mut().take(ASSERT_EQ + 1).skip(INST) {
         *result_cell = result_cell.clone() * curr[FRAME_SELECTOR].clone();
     }
 }
