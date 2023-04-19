@@ -372,25 +372,22 @@ where
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let value: UnsignedInteger<NUM_LIMBS> = self.representative();
 
-        write!(f, "0x")?;
+        let first_non_zero_pos = value.limbs.iter().position(|&x| x != 0);
 
-        if NUM_LIMBS == 0 || value.limbs.iter().all(|&x| x == 0) {
-            return write!(f, "0");
-        }
+        if let Some(first_non_zero_pos) = first_non_zero_pos {
+            write!(f, "0x")?;
 
-        let mut first_non_zero = false;
-        for limb in value.limbs.iter() {
-            if !first_non_zero && *limb == 0 {
-                continue;
+            let mut is_first_limb = true;
+            for limb in value.limbs.iter().skip(first_non_zero_pos) {
+                if is_first_limb {
+                    write!(f, "{:x}", limb)?;
+                    is_first_limb = false;
+                } else {
+                    write!(f, "{:016x}", limb)?;
+                }
             }
-
-            first_non_zero = true;
-
-            if first_non_zero {
-                write!(f, "{:x}", limb)?;
-            } else {
-                write!(f, "{:016x}", limb)?;
-            }
+        } else {
+            write!(f, "0x0")?;
         }
 
         Ok(())
@@ -421,6 +418,7 @@ mod tests {
     use crate::field::element::FieldElement;
     use crate::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
     use crate::field::test_fields::u64_test_field::U64TestField;
+    use crate::unsigned_integer::element::UnsignedInteger;
 
     #[test]
     fn test_std_iter_sum_field_element() {
@@ -448,9 +446,19 @@ mod tests {
     }
 
     #[test]
-    fn test_display() {
-        let n = 0xffffffffffffffff;
-        let fe = FieldElement::<Stark252PrimeField>::from(n);
-        assert_eq!(format!("{}", fe), format!("{:#x}", n));
+    fn test_display_montgomery_field() {
+        let zero_field_element = FieldElement::<Stark252PrimeField>::from(0);
+        assert_eq!(format!("{}", zero_field_element), "0x0");
+
+        let some_field_element =
+            FieldElement::<Stark252PrimeField>::from(&UnsignedInteger::from_limbs([
+                0x0, 0x1, 0x0, 0x1,
+            ]));
+
+        // it should start with the first non-zero digit. Each limb has 16 digits in hex.
+        assert_eq!(
+            format!("{}", some_field_element),
+            format!("0x{}{}{}{}", "1", "0".repeat(16), "0".repeat(15), "1")
+        );
     }
 }
