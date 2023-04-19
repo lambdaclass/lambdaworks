@@ -64,8 +64,8 @@ fn prove_fib() {
 
     let fibonacci_air = simple_fibonacci::FibonacciAIR::new(context);
 
-    let result = prove::<_, _>(&trace_table, &fibonacci_air);
-    assert!(verify(&result, &fibonacci_air));
+    let result = prove(&trace_table, &fibonacci_air);
+    verify(&result, &fibonacci_air);
 }
 
 fn prove_fib_2_cols() {
@@ -90,8 +90,8 @@ fn prove_fib_2_cols() {
 
     let fibonacci_air = fibonacci_2_columns::Fibonacci2ColsAIR::new(context);
 
-    let result = prove::<_, _>(&trace_table, &fibonacci_air);
-    assert!(verify(&result, &fibonacci_air));
+    let result = prove(&trace_table, &fibonacci_air);
+    verify(&result, &fibonacci_air);
 }
 
 fn prove_fib17() {
@@ -114,8 +114,8 @@ fn prove_fib17() {
 
     let fibonacci_air = fibonacci_f17::Fibonacci17AIR::new(context);
 
-    let result = prove::<_, _>(&trace_table, &fibonacci_air);
-    assert!(verify(&result, &fibonacci_air));
+    let result = prove(&trace_table, &fibonacci_air);
+    verify(&result, &fibonacci_air);
 }
 
 fn prove_quadratic() {
@@ -141,6 +141,6 @@ fn prove_quadratic() {
 
     let quadratic_air = quadratic_air::QuadraticAIR::new(context);
 
-    let result = prove::<_, _>(&trace_table, &quadratic_air);
-    assert!(verify(&result, &quadratic_air));
+    let result = prove(&trace_table, &quadratic_air);
+    verify(&result, &quadratic_air);
 }
