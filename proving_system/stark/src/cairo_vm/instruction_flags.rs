@@ -1,4 +1,6 @@
-use super::{cairo_mem::CairoMemoryCell, errors::InstructionDecodingError};
+use super::errors::InstructionDecodingError;
+use crate::FE;
+use lambdaworks_math::traits::ByteConversion;
 
 // Consts copied from cairo-rs
 const DST_REG_MASK: u64 = 0x0001;
@@ -17,6 +19,26 @@ const OPCODE_MASK: u64 = 0x7000;
 const OPCODE_OFF: u64 = 12;
 const FLAGS_OFFSET: u64 = 48;
 
+// TODO: This is just an auxiliary function done to get out of the way.
+// It should be deleted afterwards
+#[allow(non_snake_case)]
+pub(crate) fn aux_get_last_nim_of_FE(value: &FE) -> u64 {
+    let mem_value_bytes = value.to_bytes_be();
+
+    // we are taking the last nim of the field element,
+    // since it is a U256
+    u64::from_be_bytes([
+        mem_value_bytes[24],
+        mem_value_bytes[25],
+        mem_value_bytes[26],
+        mem_value_bytes[27],
+        mem_value_bytes[28],
+        mem_value_bytes[29],
+        mem_value_bytes[30],
+        mem_value_bytes[31],
+    ])
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct CairoInstructionFlags {
     pub opcode: CairoOpcode,
@@ -28,17 +50,55 @@ pub struct CairoInstructionFlags {
     pub dst_reg: DstReg,
 }
 
+impl CairoInstructionFlags {
+    /// Gives a bit trace representation of all flags.
+    /// Altough the flags can be interpreted as bits, they are
+    /// represented by field elements: bit 0 is FE::zero() and
+    /// bit 1 is FE::one().
+    #[rustfmt::skip]
+    pub fn to_trace_representation(&self) -> [FE; 16] {
+        let b0 = self.dst_reg.to_trace_representation();
+        let b1 = self.op0_reg.to_trace_representation();
+        let [b2, b3, b4] = self.op1_src.to_trace_representation();
+        let [b5, b6] = self.res_logic.to_trace_representation();
+        let [b7, b8, b9] = self.pc_update.to_trace_representation();
+        let [b10, b11] = self.ap_update.to_trace_representation();
+        let [b12, b13, b14] = self.opcode.to_trace_representation();
+
+        [
+            b0,             // dst_reg bits
+            b1,             // op0_reg bits
+            b4, b3, b2,     // op1_src bits
+            b6, b5,         // res_logic bits
+            b9, b8, b7,     // pc_update bits
+            b11, b10,       // ap_update bits
+            b14, b13, b12,  // opcode bits
+            FE::zero(),
+        ]
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Op0Reg {
     AP = 0,
     FP = 1,
 }
 
-impl TryFrom<&CairoMemoryCell> for Op0Reg {
+impl Op0Reg {
+    pub fn to_trace_representation(&self) -> FE {
+        match self {
+            Op0Reg::AP => FE::zero(),
+            Op0Reg::FP => FE::one(),
+        }
+    }
+}
+
+impl TryFrom<&FE> for Op0Reg {
     type Error = InstructionDecodingError;
 
-    fn try_from(cell: &CairoMemoryCell) -> Result<Self, Self::Error> {
-        let flags = cell.value.limbs[3] >> FLAGS_OFFSET;
+    fn try_from(mem_value: &FE) -> Result<Self, Self::Error> {
+        let flags = aux_get_last_nim_of_FE(mem_value) >> FLAGS_OFFSET;
+
         let op0_reg = ((flags & OP0_REG_MASK) >> OP0_REG_OFF) as u8;
 
         if op0_reg == 0 {
@@ -56,12 +116,20 @@ pub enum DstReg {
     AP = 0,
     FP = 1,
 }
+impl DstReg {
+    pub fn to_trace_representation(&self) -> FE {
+        match self {
+            DstReg::AP => FE::zero(),
+            DstReg::FP => FE::one(),
+        }
+    }
+}
 
-impl TryFrom<&CairoMemoryCell> for DstReg {
+impl TryFrom<&FE> for DstReg {
     type Error = InstructionDecodingError;
 
-    fn try_from(cell: &CairoMemoryCell) -> Result<Self, Self::Error> {
-        let flags = cell.value.limbs[3] >> FLAGS_OFFSET;
+    fn try_from(mem_value: &FE) -> Result<Self, Self::Error> {
+        let flags = aux_get_last_nim_of_FE(mem_value) >> FLAGS_OFFSET;
         let dst_reg = ((flags & DST_REG_MASK) >> DST_REG_OFF) as u8;
 
         if dst_reg == 0 {
@@ -78,15 +146,26 @@ impl TryFrom<&CairoMemoryCell> for DstReg {
 pub enum Op1Src {
     Op0 = 0,
     Imm = 1,
-    AP = 2,
-    FP = 4,
+    FP = 2,
+    AP = 4,
 }
 
-impl TryFrom<&CairoMemoryCell> for Op1Src {
+impl Op1Src {
+    pub fn to_trace_representation(&self) -> [FE; 3] {
+        match self {
+            Op1Src::Op0 => [FE::zero(), FE::zero(), FE::zero()],
+            Op1Src::Imm => [FE::zero(), FE::zero(), FE::one()],
+            Op1Src::FP => [FE::zero(), FE::one(), FE::zero()],
+            Op1Src::AP => [FE::one(), FE::zero(), FE::zero()],
+        }
+    }
+}
+
+impl TryFrom<&FE> for Op1Src {
     type Error = InstructionDecodingError;
 
-    fn try_from(cell: &CairoMemoryCell) -> Result<Self, Self::Error> {
-        let flags = cell.value.limbs[3] >> FLAGS_OFFSET;
+    fn try_from(mem_value: &FE) -> Result<Self, Self::Error> {
+        let flags = aux_get_last_nim_of_FE(mem_value) >> FLAGS_OFFSET;
         let op1_src = ((flags & OP1_SRC_MASK) >> OP1_SRC_OFF) as u8;
 
         match op1_src {
@@ -108,11 +187,22 @@ pub enum ResLogic {
     Unconstrained,
 }
 
-impl TryFrom<&CairoMemoryCell> for ResLogic {
+impl ResLogic {
+    pub fn to_trace_representation(&self) -> [FE; 2] {
+        match self {
+            ResLogic::Op1 => [FE::zero(), FE::zero()],
+            ResLogic::Add => [FE::zero(), FE::one()],
+            ResLogic::Mul => [FE::one(), FE::zero()],
+            ResLogic::Unconstrained => todo!(),
+        }
+    }
+}
+
+impl TryFrom<&FE> for ResLogic {
     type Error = InstructionDecodingError;
 
-    fn try_from(cell: &CairoMemoryCell) -> Result<Self, Self::Error> {
-        let flags = cell.value.limbs[3] >> FLAGS_OFFSET;
+    fn try_from(mem_value: &FE) -> Result<Self, Self::Error> {
+        let flags = aux_get_last_nim_of_FE(mem_value) >> FLAGS_OFFSET;
         let res_logic = ((flags & RES_LOGIC_MASK) >> RES_LOGIC_OFF) as u8;
 
         match res_logic {
@@ -134,11 +224,22 @@ pub enum PcUpdate {
     Jnz = 4,
 }
 
-impl TryFrom<&CairoMemoryCell> for PcUpdate {
+impl PcUpdate {
+    pub fn to_trace_representation(&self) -> [FE; 3] {
+        match self {
+            PcUpdate::Regular => [FE::zero(), FE::zero(), FE::zero()],
+            PcUpdate::Jump => [FE::zero(), FE::zero(), FE::one()],
+            PcUpdate::JumpRel => [FE::zero(), FE::one(), FE::zero()],
+            PcUpdate::Jnz => [FE::one(), FE::zero(), FE::zero()],
+        }
+    }
+}
+
+impl TryFrom<&FE> for PcUpdate {
     type Error = InstructionDecodingError;
 
-    fn try_from(cell: &CairoMemoryCell) -> Result<Self, Self::Error> {
-        let flags = cell.value.limbs[3] >> FLAGS_OFFSET;
+    fn try_from(mem_value: &FE) -> Result<Self, Self::Error> {
+        let flags = aux_get_last_nim_of_FE(mem_value) >> FLAGS_OFFSET;
         let pc_update = ((flags & PC_UPDATE_MASK) >> PC_UPDATE_OFF) as u8;
 
         match pc_update {
@@ -160,11 +261,22 @@ pub enum ApUpdate {
     Add2,
 }
 
-impl TryFrom<&CairoMemoryCell> for ApUpdate {
+impl ApUpdate {
+    pub fn to_trace_representation(&self) -> [FE; 2] {
+        match self {
+            ApUpdate::Regular => [FE::zero(), FE::zero()],
+            ApUpdate::Add => [FE::zero(), FE::one()],
+            ApUpdate::Add1 => [FE::one(), FE::zero()],
+            ApUpdate::Add2 => todo!(),
+        }
+    }
+}
+
+impl TryFrom<&FE> for ApUpdate {
     type Error = InstructionDecodingError;
 
-    fn try_from(cell: &CairoMemoryCell) -> Result<Self, Self::Error> {
-        let flags = cell.value.limbs[3] >> FLAGS_OFFSET;
+    fn try_from(mem_value: &FE) -> Result<Self, Self::Error> {
+        let flags = aux_get_last_nim_of_FE(mem_value) >> FLAGS_OFFSET;
         let ap_update = ((flags & AP_UPDATE_MASK) >> AP_UPDATE_OFF) as u8;
 
         match ap_update {
@@ -177,18 +289,18 @@ impl TryFrom<&CairoMemoryCell> for ApUpdate {
     }
 }
 
-impl TryFrom<&CairoMemoryCell> for CairoInstructionFlags {
+impl TryFrom<&FE> for CairoInstructionFlags {
     type Error = InstructionDecodingError;
 
-    fn try_from(cell: &CairoMemoryCell) -> Result<Self, Self::Error> {
+    fn try_from(mem_value: &FE) -> Result<Self, Self::Error> {
         Ok(CairoInstructionFlags {
-            opcode: CairoOpcode::try_from(cell)?,
-            pc_update: PcUpdate::try_from(cell)?,
-            ap_update: ApUpdate::try_from(cell)?,
-            res_logic: ResLogic::try_from(cell)?,
-            op1_src: Op1Src::try_from(cell)?,
-            op0_reg: Op0Reg::try_from(cell)?,
-            dst_reg: DstReg::try_from(cell)?,
+            opcode: CairoOpcode::try_from(mem_value)?,
+            pc_update: PcUpdate::try_from(mem_value)?,
+            ap_update: ApUpdate::try_from(mem_value)?,
+            res_logic: ResLogic::try_from(mem_value)?,
+            op1_src: Op1Src::try_from(mem_value)?,
+            op0_reg: Op0Reg::try_from(mem_value)?,
+            dst_reg: DstReg::try_from(mem_value)?,
         })
     }
 }
@@ -201,11 +313,22 @@ pub enum CairoOpcode {
     AssertEq = 4,
 }
 
-impl TryFrom<&CairoMemoryCell> for CairoOpcode {
+impl CairoOpcode {
+    pub fn to_trace_representation(&self) -> [FE; 3] {
+        match self {
+            CairoOpcode::NOp => [FE::zero(), FE::zero(), FE::zero()],
+            CairoOpcode::Call => [FE::zero(), FE::zero(), FE::one()],
+            CairoOpcode::Ret => [FE::zero(), FE::one(), FE::zero()],
+            CairoOpcode::AssertEq => [FE::one(), FE::zero(), FE::zero()],
+        }
+    }
+}
+
+impl TryFrom<&FE> for CairoOpcode {
     type Error = InstructionDecodingError;
 
-    fn try_from(cell: &CairoMemoryCell) -> Result<Self, Self::Error> {
-        let flags = cell.value.limbs[3] >> FLAGS_OFFSET;
+    fn try_from(mem_value: &FE) -> Result<Self, Self::Error> {
+        let flags = aux_get_last_nim_of_FE(mem_value) >> FLAGS_OFFSET;
         let opcode = ((flags & OPCODE_MASK) >> OPCODE_OFF) as u8;
 
         match opcode {
@@ -221,7 +344,6 @@ impl TryFrom<&CairoMemoryCell> for CairoOpcode {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use lambdaworks_math::unsigned_integer::element::U256;
     /*
     For the purpose of testing the decoding, we are going to use instructions obtained
     directly from valid Cairo programs. The decoding shown here is obtained by inspecting
@@ -357,321 +479,182 @@ mod tests {
     #[test]
     fn assert_opcode_flag_is_correct() {
         // Instruction A
-        let value = U256::from_limbs([0, 0, 0, 0x480680017fff8000]);
-        let addr: u64 = 1;
+        let value = FE::from(0x480680017fff8000);
 
-        let mem_cell = CairoMemoryCell {
-            address: addr,
-            value,
-        };
-
-        assert_eq!(CairoOpcode::try_from(&mem_cell), Ok(CairoOpcode::AssertEq));
+        assert_eq!(CairoOpcode::try_from(&value), Ok(CairoOpcode::AssertEq));
     }
 
     #[test]
     fn call_opcode_flag_is_correct() {
         // Instruction B
-        let value = U256::from_limbs([0, 0, 0, 0x1104800180018000]);
-        let addr: u64 = 1;
+        let value = FE::from(0x1104800180018000);
 
-        let mem_cell = CairoMemoryCell {
-            address: addr,
-            value,
-        };
-
-        assert_eq!(CairoOpcode::try_from(&mem_cell), Ok(CairoOpcode::Call));
+        assert_eq!(CairoOpcode::try_from(&value), Ok(CairoOpcode::Call));
     }
 
     #[test]
     fn ret_opcode_flag_is_correct() {
         // Instruction C
-        let value = U256::from_limbs([0, 0, 0, 0x208b7fff7fff7ffe]);
-        let addr: u64 = 1;
+        let value = FE::from(0x208b7fff7fff7ffe);
 
-        let mem_cell = CairoMemoryCell {
-            address: addr,
-            value,
-        };
-
-        assert_eq!(CairoOpcode::try_from(&mem_cell), Ok(CairoOpcode::Ret));
+        assert_eq!(CairoOpcode::try_from(&value), Ok(CairoOpcode::Ret));
     }
 
     #[test]
     fn nop_opcode_flag_is_correct() {
         // Instruction D
-        let value = U256::from_limbs([0, 0, 0, 0xa0680017fff7fff]);
-        let addr: u64 = 1;
+        let value = FE::from(0xa0680017fff7fff);
 
-        let mem_cell = CairoMemoryCell {
-            address: addr,
-            value,
-        };
-
-        assert_eq!(CairoOpcode::try_from(&mem_cell), Ok(CairoOpcode::NOp));
+        assert_eq!(CairoOpcode::try_from(&value), Ok(CairoOpcode::NOp));
     }
 
     #[test]
     fn regular_pc_update_flag_is_correct() {
         // Instruction A
-        let value = U256::from_limbs([0, 0, 0, 0x480680017fff8000]);
-        let addr: u64 = 1;
+        let value = FE::from(0x480680017fff8000);
 
-        let mem_cell = CairoMemoryCell {
-            address: addr,
-            value,
-        };
-
-        assert_eq!(PcUpdate::try_from(&mem_cell), Ok(PcUpdate::Regular));
+        assert_eq!(PcUpdate::try_from(&value), Ok(PcUpdate::Regular));
     }
 
     #[test]
     fn jump_pc_update_flag_is_correct() {
         // Instruction C
-        let value = U256::from_limbs([0, 0, 0, 0x208b7fff7fff7ffe]);
-        let addr: u64 = 1;
+        let value = FE::from(0x208b7fff7fff7ffe);
 
-        let mem_cell = CairoMemoryCell {
-            address: addr,
-            value,
-        };
-
-        assert_eq!(PcUpdate::try_from(&mem_cell), Ok(PcUpdate::Jump));
+        assert_eq!(PcUpdate::try_from(&value), Ok(PcUpdate::Jump));
     }
 
     #[test]
     fn jumprel_pc_update_flag_is_correct() {
         // Instruction B
-        let value = U256::from_limbs([0, 0, 0, 0x1104800180018000]);
-        let addr: u64 = 1;
+        let value = FE::from(0x1104800180018000);
 
-        let mem_cell = CairoMemoryCell {
-            address: addr,
-            value,
-        };
-
-        assert_eq!(PcUpdate::try_from(&mem_cell), Ok(PcUpdate::JumpRel));
+        assert_eq!(PcUpdate::try_from(&value), Ok(PcUpdate::JumpRel));
     }
 
     #[test]
     fn jnz_pc_update_flag_is_correct() {
         // Instruction D
-        let value = U256::from_limbs([0, 0, 0, 0xa0680017fff7fff]);
-        let addr: u64 = 1;
+        let value = FE::from(0xa0680017fff7fff);
 
-        let mem_cell = CairoMemoryCell {
-            address: addr,
-            value,
-        };
-
-        assert_eq!(PcUpdate::try_from(&mem_cell), Ok(PcUpdate::Jnz));
+        assert_eq!(PcUpdate::try_from(&value), Ok(PcUpdate::Jnz));
     }
 
     #[test]
     fn regular_ap_update_flag_is_correct() {
         // Instruction C
-        let value = U256::from_limbs([0, 0, 0, 0x208b7fff7fff7ffe]);
-        let addr: u64 = 1;
+        let value = FE::from(0x208b7fff7fff7ffe);
 
-        let mem_cell = CairoMemoryCell {
-            address: addr,
-            value,
-        };
-
-        assert_eq!(ApUpdate::try_from(&mem_cell), Ok(ApUpdate::Regular));
+        assert_eq!(ApUpdate::try_from(&value), Ok(ApUpdate::Regular));
     }
 
     #[test]
     fn add_ap_update_flag_is_correct() {
         // Instruction H
-        let value = U256::from_limbs([0, 0, 0, 0x40780017fff7fff]);
-        let addr: u64 = 1;
+        let value = FE::from(0x40780017fff7fff);
 
-        let mem_cell = CairoMemoryCell {
-            address: addr,
-            value,
-        };
-
-        assert_eq!(ApUpdate::try_from(&mem_cell), Ok(ApUpdate::Add));
+        assert_eq!(ApUpdate::try_from(&value), Ok(ApUpdate::Add));
     }
 
     #[test]
     fn add1_ap_update_flag_is_correct() {
         // Instruction A
-        let value = U256::from_limbs([0, 0, 0, 0x480680017fff8000]);
-        let addr: u64 = 1;
+        let value = FE::from(0x480680017fff8000);
 
-        let mem_cell = CairoMemoryCell {
-            address: addr,
-            value,
-        };
-
-        assert_eq!(ApUpdate::try_from(&mem_cell), Ok(ApUpdate::Add1));
+        assert_eq!(ApUpdate::try_from(&value), Ok(ApUpdate::Add1));
     }
 
     #[test]
     fn op1_res_logic_flag_is_correct() {
         // Instruction A
-        let value = U256::from_limbs([0, 0, 0, 0x480680017fff8000]);
-        let addr: u64 = 1;
+        let value = FE::from(0x480680017fff8000);
 
-        let mem_cell = CairoMemoryCell {
-            address: addr,
-            value,
-        };
-
-        assert_eq!(ResLogic::try_from(&mem_cell), Ok(ResLogic::Op1));
+        assert_eq!(ResLogic::try_from(&value), Ok(ResLogic::Op1));
     }
 
     #[test]
     fn add_res_logic_flag_is_correct() {
         // Instruction E
-        let value = U256::from_limbs([0, 0, 0, 0x48327ffc7ffa8000]);
-        let addr: u64 = 1;
+        let value = FE::from(0x48327ffc7ffa8000);
 
-        let mem_cell = CairoMemoryCell {
-            address: addr,
-            value,
-        };
-
-        assert_eq!(ResLogic::try_from(&mem_cell), Ok(ResLogic::Add));
+        assert_eq!(ResLogic::try_from(&value), Ok(ResLogic::Add));
     }
 
     #[test]
     fn mul_res_logic_flag_is_correct() {
         // Instruction G
-        let value = U256::from_limbs([0, 0, 0, 0x48507fff7ffe8000]);
-        let addr: u64 = 1;
+        let value = FE::from(0x48507fff7ffe8000);
 
-        let mem_cell = CairoMemoryCell {
-            address: addr,
-            value,
-        };
-
-        assert_eq!(ResLogic::try_from(&mem_cell), Ok(ResLogic::Mul));
+        assert_eq!(ResLogic::try_from(&value), Ok(ResLogic::Mul));
     }
 
     #[test]
     fn op0_op1_src_flag_is_correct() {
         // Instruction F
-        let value = U256::from_limbs([0, 0, 0, 0x4000800d7ff07fff]);
-        let addr: u64 = 1;
+        let value = FE::from(0x4000800d7ff07fff);
 
-        let mem_cell = CairoMemoryCell {
-            address: addr,
-            value,
-        };
-
-        assert_eq!(Op1Src::try_from(&mem_cell), Ok(Op1Src::Op0));
+        assert_eq!(Op1Src::try_from(&value), Ok(Op1Src::Op0));
     }
 
     #[test]
     fn imm_op1_src_flag_is_correct() {
         // Instruction A
-        let value = U256::from_limbs([0, 0, 0, 0x480680017fff8000]);
-        let addr: u64 = 1;
+        let value = FE::from(0x480680017fff8000);
 
-        let mem_cell = CairoMemoryCell {
-            address: addr,
-            value,
-        };
-
-        assert_eq!(Op1Src::try_from(&mem_cell), Ok(Op1Src::Imm));
+        assert_eq!(Op1Src::try_from(&value), Ok(Op1Src::Imm));
     }
 
     #[test]
     fn ap_op1_src_flag_is_correct() {
         // Instruction E
-        let value = U256::from_limbs([0, 0, 0, 0x48327ffc7ffa8000]);
-        let addr: u64 = 1;
+        let value = FE::from(0x48327ffc7ffa8000);
 
-        let mem_cell = CairoMemoryCell {
-            address: addr,
-            value,
-        };
-
-        assert_eq!(Op1Src::try_from(&mem_cell), Ok(Op1Src::AP));
+        assert_eq!(Op1Src::try_from(&value), Ok(Op1Src::AP));
     }
 
     #[test]
     fn fp_op1_src_flag_is_correct() {
         // Instruction C
-        let value = U256::from_limbs([0, 0, 0, 0x208b7fff7fff7ffe]);
-        let addr: u64 = 1;
+        let value = FE::from(0x208b7fff7fff7ffe);
 
-        let mem_cell = CairoMemoryCell {
-            address: addr,
-            value,
-        };
-
-        assert_eq!(Op1Src::try_from(&mem_cell), Ok(Op1Src::FP));
+        assert_eq!(Op1Src::try_from(&value), Ok(Op1Src::FP));
     }
 
     #[test]
     fn ap_op0_reg_flag_is_correct() {
         // Instruction B
-        let value = U256::from_limbs([0, 0, 0, 0x1104800180018000]);
-        let addr: u64 = 1;
+        let value = FE::from(0x1104800180018000);
 
-        let mem_cell = CairoMemoryCell {
-            address: addr,
-            value,
-        };
-
-        assert_eq!(Op0Reg::try_from(&mem_cell), Ok(Op0Reg::AP));
+        assert_eq!(Op0Reg::try_from(&value), Ok(Op0Reg::AP));
     }
 
     #[test]
     fn fp_op0_reg_flag_is_correct() {
         // Instruction A
-        let value = U256::from_limbs([0, 0, 0, 0x480680017fff8000]);
-        let addr: u64 = 1;
+        let value = FE::from(0x480680017fff8000);
 
-        let mem_cell = CairoMemoryCell {
-            address: addr,
-            value,
-        };
-
-        assert_eq!(Op0Reg::try_from(&mem_cell), Ok(Op0Reg::FP));
+        assert_eq!(Op0Reg::try_from(&value), Ok(Op0Reg::FP));
     }
 
     #[test]
     fn ap_dst_reg_flag_is_correct() {
         // Instruction A
-        let value = U256::from_limbs([0, 0, 0, 0x480680017fff8000]);
-        let addr: u64 = 1;
+        let value = FE::from(0x480680017fff8000);
 
-        let mem_cell = CairoMemoryCell {
-            address: addr,
-            value,
-        };
-
-        assert_eq!(DstReg::try_from(&mem_cell), Ok(DstReg::AP));
+        assert_eq!(DstReg::try_from(&value), Ok(DstReg::AP));
     }
 
     #[test]
     fn fp_dst_reg_flag_is_correct() {
         // Instruction C
-        let value = U256::from_limbs([0, 0, 0, 0x208b7fff7fff7ffe]);
-        let addr: u64 = 1;
+        let value = FE::from(0x208b7fff7fff7ffe);
 
-        let mem_cell = CairoMemoryCell {
-            address: addr,
-            value,
-        };
-
-        assert_eq!(DstReg::try_from(&mem_cell), Ok(DstReg::FP));
+        assert_eq!(DstReg::try_from(&value), Ok(DstReg::FP));
     }
 
     #[test]
     fn decoded_flags_of_assert_are_correct() {
-        let value = U256::from_limbs([0, 0, 0, 0x400380837ffb8000]);
-        let addr: u64 = 1;
-
-        let mem_cell = CairoMemoryCell {
-            address: addr,
-            value,
-        };
-
+        let value = FE::from(0x400380837ffb8000);
         let expected_flags = CairoInstructionFlags {
             opcode: CairoOpcode::AssertEq,
             pc_update: PcUpdate::Regular,
@@ -682,8 +665,46 @@ mod tests {
             dst_reg: DstReg::FP,
         };
 
-        let flags = CairoInstructionFlags::try_from(&mem_cell).unwrap();
+        let flags = CairoInstructionFlags::try_from(&value).unwrap();
 
         assert_eq!(expected_flags, flags);
+    }
+
+    #[test]
+    fn flags_trace_representation() {
+        // Bit-trace representation for each flag:
+        //    DstReg::FP = 1
+        //    Op0Reg::FP = 1
+        //    Op1Src::Op0 = 0 0 0
+        //    ResLogic::Op1 = 0 0
+        //    PcUpdate::Regular = 0 0 0
+        //    ApUpdate::Regular = 0 0
+        //    CairoOpcode::AssertEq = 1 0 0
+
+        let flags = CairoInstructionFlags {
+            opcode: CairoOpcode::AssertEq,
+            pc_update: PcUpdate::Regular,
+            ap_update: ApUpdate::Regular,
+            op0_reg: Op0Reg::FP,
+            op1_src: Op1Src::Op0,
+            res_logic: ResLogic::Op1,
+            dst_reg: DstReg::FP,
+        };
+
+        #[rustfmt::skip]
+        let expected_representation = [
+            FE::one(),
+            FE::one(),
+            FE::zero(), FE::zero(), FE::zero(),
+            FE::zero(), FE::zero(),
+            FE::zero(), FE::zero(), FE::zero(),
+            FE::zero(), FE::zero(),
+            FE::one(), FE::zero(), FE::zero(),
+            FE::zero(),
+        ];
+
+        let representation = flags.to_trace_representation();
+
+        assert_eq!(representation, expected_representation);
     }
 }
