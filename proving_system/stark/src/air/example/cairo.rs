@@ -84,7 +84,7 @@ pub struct PublicInputs {
     pub rc_max: u16, // maximum range check value
     pub mem: (Vec<u64>, Vec<Option<FE>>), // public memory
     pub num_steps: usize, // number of execution steps
-    // pub builtins: Vec<Builtin>, // list of builtins
+                     // pub builtins: Vec<Builtin>, // list of builtins
 }
 
 #[derive(Clone)]
