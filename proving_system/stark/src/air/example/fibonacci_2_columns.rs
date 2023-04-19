@@ -16,6 +16,12 @@ pub struct Fibonacci2ColsAIR {
     context: AirContext,
 }
 
+impl Fibonacci2ColsAIR {
+    pub fn new(context: air::context::AirContext) -> Self {
+        Self { context }
+    }
+}
+
 impl AIR for Fibonacci2ColsAIR {
     type Field = Stark252PrimeField;
 
