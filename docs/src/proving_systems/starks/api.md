@@ -23,8 +23,8 @@ fn test_prove_fib() {
     };
 
     let fibonacci_air = FibonacciAIR::new(context);
-    
-    let result = prove::<_, _, TestHasher>(&trace_table, &fibonacci_air);
+
+    let result = prove(&trace_table, &fibonacci_air);
     assert!(verify(&result, &fibonacci_air));
 }
 ```
@@ -47,9 +47,8 @@ For our Fibonacci `AIR`, boundary constraints look like this:
 fn boundary_constraints(&self) -> BoundaryConstraints<Self::Field> {
     let a0 = BoundaryConstraint::new_simple(0, FieldElement::<Self::Field>::one());
     let a1 = BoundaryConstraint::new_simple(1, FieldElement::<Self::Field>::one());
-    let result = BoundaryConstraint::new_simple(3, FieldElement::<Self::Field>::from(3));
 
-    BoundaryConstraints::from_constraints(vec![a0, a1, result])
+    BoundaryConstraints::from_constraints(vec![a0, a1])
 }
 ```
 
@@ -69,14 +68,14 @@ The way we specify our fibonacci transition constraint looks like this:
 
 ```rust
 fn compute_transition(
-        &self,
-        frame: &air::frame::Frame<Self::Field>,
-    ) -> Vec<FieldElement<Self::Field>> {
+    &self,
+    frame: &air::frame::Frame<Self::Field>,
+) -> Vec<FieldElement<Self::Field>> {
     let first_row = frame.get_row(0);
     let second_row = frame.get_row(1);
     let third_row = frame.get_row(2);
 
-    vec![third_row[0] - second_row[0] - first_row[0]]
+    vec![third_row[0].clone() - second_row[0].clone() - first_row[0].clone()]
 }
 ```
 
@@ -161,11 +160,11 @@ Let's go over each of them:
 Having defined all of the above, proving our fibonacci example amounts to instantiating the necessary structs and then calling `prove` passing the `AIR` and the trace. We use a simple implementation of a hasher called `TestHasher` to handle merkle proof building.
 
 ```rust 
-    let result = prove::<_, _, TestHasher>(&trace_table, &fibonacci_air);
+let result = prove(&trace_table, &fibonacci_air);
 ```
 
 Verifying is then done by passing the proof of execution along with the same `AIR` to the `verify` function.
 
 ```rust
-assert!(verify(&proof, &fibonacci_air));
+assert!(verify(&result, &fibonacci_air));
 ```
