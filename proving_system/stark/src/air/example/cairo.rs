@@ -2,8 +2,14 @@ use lambdaworks_math::field::{
     element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
 };
 
-use crate::air::{
-    constraints::boundary::BoundaryConstraints, context::AirContext, frame::Frame, AIR,
+use crate::{
+    air::{
+        constraints::boundary::{BoundaryConstraint, BoundaryConstraints},
+        context::AirContext,
+        frame::Frame,
+        AIR,
+    },
+    FE,
 };
 
 const ROW_LENGTH: usize = 33;
@@ -67,8 +73,24 @@ pub const MEM_P_TRACE_OFFSET: usize = 17;
 pub const MEM_A_TRACE_OFFSET: usize = 19;
 
 #[derive(Clone)]
+pub struct PublicInputs {
+    pub pc_init: FE,
+    pub ap_init: FE,
+    pub fp_init: FE,
+    pub pc_final: FE,
+    pub ap_final: FE,
+    pub fp_final: FE,
+    pub rc_min: u16, // minimum range check value (0 < rc_min < rc_max < 2^16)
+    pub rc_max: u16, // maximum range check value
+    pub mem: (Vec<u64>, Vec<Option<FE>>), // public memory
+    pub num_steps: usize, // number of execution steps
+    // pub builtins: Vec<Builtin>, // list of builtins
+}
+
+#[derive(Clone)]
 pub struct CairoAIR {
     context: AirContext,
+    pub_inputs: PublicInputs,
 }
 
 impl AIR for CairoAIR {
@@ -87,14 +109,24 @@ impl AIR for CairoAIR {
     }
 
     fn boundary_constraints(&self) -> BoundaryConstraints<Self::Field> {
-        // let last_step = self.context.trace_length - 1;
+        let last_step = self.context.trace_length - 1;
         let constraints = vec![
-            // Initial and final 'pc' register
-            // BoundaryConstraint::new(MEM_A_TRACE_OFFSET, 0, self.pub_inputs.init.pc),
-            // BoundaryConstraint::new(MEM_A_TRACE_OFFSET, last_step, self.pub_inputs.fin.pc),
-            // Initial and final 'ap' register
-            // BoundaryConstraint::new(MEM_P_TRACE_OFFSET, 0, self.pub_inputs.init.ap),
-            // BoundaryConstraint::new(MEM_P_TRACE_OFFSET, last_step, self.pub_inputs.fin.ap),
+            // Initial 'pc' register
+            BoundaryConstraint::new(MEM_A_TRACE_OFFSET, 0, self.pub_inputs.pc_init.clone()),
+            // Initial 'ap' register
+            BoundaryConstraint::new(MEM_P_TRACE_OFFSET, 0, self.pub_inputs.ap_init.clone()),
+            // Final 'pc' register
+            BoundaryConstraint::new(
+                MEM_A_TRACE_OFFSET,
+                last_step,
+                self.pub_inputs.pc_final.clone(),
+            ),
+            // Final 'ap' register
+            BoundaryConstraint::new(
+                MEM_P_TRACE_OFFSET,
+                last_step,
+                self.pub_inputs.ap_final.clone(),
+            ),
         ];
 
         BoundaryConstraints::from_constraints(constraints)
@@ -183,7 +215,8 @@ fn generate_register_constraints(
     // pc constraints
     constraints[NEXT_PC_1] = (&curr[FRAME_T1] - &curr[F_PC_JNZ])
         * (&next[FRAME_PC] - (&curr[FRAME_PC] + frame_inst_size(curr)));
-    constraints[NEXT_PC_2] = &curr[FRAME_T0] * (&next[FRAME_PC] - (&curr[FRAME_PC] + &curr[FRAME_OP1]))
+    constraints[NEXT_PC_2] = &curr[FRAME_T0]
+        * (&next[FRAME_PC] - (&curr[FRAME_PC] + &curr[FRAME_OP1]))
         + (&one - &curr[F_PC_JNZ]) * &next[FRAME_PC]
         - ((&one - &curr[F_PC_ABS] - &curr[F_PC_REL] - &curr[F_PC_JNZ])
             * (&curr[FRAME_PC] + frame_inst_size(curr))
