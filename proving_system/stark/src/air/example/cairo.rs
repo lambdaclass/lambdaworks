@@ -72,6 +72,7 @@ const FRAME_SELECTOR: usize = 33;
 pub const MEM_P_TRACE_OFFSET: usize = 17;
 pub const MEM_A_TRACE_OFFSET: usize = 19;
 
+// TODO: Commented fields are not useful yet.
 #[derive(Clone)]
 pub struct PublicInputs {
     pub pc_init: FE,
@@ -80,11 +81,11 @@ pub struct PublicInputs {
     pub pc_final: FE,
     pub ap_final: FE,
     pub fp_final: FE,
-    pub rc_min: u16, // minimum range check value (0 < rc_min < rc_max < 2^16)
-    pub rc_max: u16, // maximum range check value
-    pub mem: (Vec<u64>, Vec<Option<FE>>), // public memory
+    // pub rc_min: u16, // minimum range check value (0 < rc_min < rc_max < 2^16)
+    // pub rc_max: u16, // maximum range check value
+    // pub mem: (Vec<u64>, Vec<Option<FE>>), // public memory
     pub num_steps: usize, // number of execution steps
-                     // pub builtins: Vec<Builtin>, // list of builtins
+                          // pub builtins: Vec<Builtin>, // list of builtins
 }
 
 #[derive(Clone)]
