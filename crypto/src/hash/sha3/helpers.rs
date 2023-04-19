@@ -2,64 +2,40 @@ use sha3::Digest;
 use sha3::Sha3_256;
 
 pub fn expand_message(msg: &[u8], dst: &[u8], len_in_bytes: u64) -> Result<Vec<u8>, String> {
-    let mut b: Vec<Vec<u8>> = Vec::new();
+    let b_in_bytes = Sha3_256::output_size() as f32 / 8_f32;
 
-    let ell = (len_in_bytes as f64 / (256_f64 / 8_f64)).ceil() as u64;
+    let ell = (len_in_bytes as f32 / b_in_bytes).ceil() as u64;
     if ell > 255 {
         return Err("Abort".to_string());
     }
 
-    let dst_prime: Vec<u8> = i2osp(dst.len() as u64, 1)
-        .iter()
-        .zip(dst)
-        .map(|(a, b)| a | b)
-        .collect();
+    let dst_prime: Vec<u8> = [dst, &i2osp(dst.len() as u64, 1)].concat();
     let z_pad = i2osp(0, 64);
     let l_i_b_str = i2osp(len_in_bytes, 2);
+    let msg_prime = [
+        z_pad,
+        msg.to_vec(),
+        l_i_b_str,
+        i2osp(0, 1),
+        dst_prime.clone(),
+    ]
+    .concat();
+    let b_0: Vec<u8> = Sha3_256::digest(msg_prime).to_vec();
+    let a = [b_0.clone(), i2osp(1, 1), dst_prime.clone()].concat();
+    let b_1 = Sha3_256::digest(a).to_vec();
 
-    let b_0_mid: Vec<u8> = z_pad
-        .iter()
-        .zip(msg)
-        .zip(l_i_b_str)
-        .zip(i2osp(0, 1))
-        .zip(dst_prime.clone())
-        .map(|((((a, b), c), d), e)| a | b | c | d | e)
-        .collect();
-
-    let mut hasher = Sha3_256::new();
-    hasher.update(b_0_mid);
-    b[0] = hasher.finalize().to_vec();
-
-    let b_1_mid: Vec<u8> = b[0]
-        .iter()
-        .zip(i2osp(1, 1))
-        .zip(dst_prime.clone())
-        .map(|((a, b), c)| a | b | c)
-        .collect();
-
-    let mut hasher = Sha3_256::new();
-    hasher.update(b_1_mid);
-    b[1] = hasher.finalize().to_vec();
-
-    for i in 2..ell {
-        let b_i_mid: Vec<u8> = strxor(&b[0], &b[(i - 1) as usize])
-            .iter()
-            .zip(i2osp(i, 1))
-            .zip(dst_prime.clone())
-            .map(|((a, b), c)| a | b | c)
-            .collect();
-        let mut hasher = Sha3_256::new();
-        hasher.update(b_i_mid);
-        let b_i = hasher.finalize().to_vec();
-        b[i as usize] = b_i;
+    let mut b_vals = Vec::<Vec<u8>>::with_capacity(ell as usize * b_in_bytes as usize);
+    b_vals.push(b_1);
+    for idx in 1..ell {
+        let aux = strxor(&b_0, &b_vals[idx as usize - 1]);
+        let b_i = [aux, i2osp(idx, 1), dst_prime.clone()].concat();
+        b_vals.push(Sha3_256::digest(b_i).to_vec());
     }
-    let pseudo_random_bytes = b
-        .into_iter()
-        .reduce(|acc, b| stror(&acc[..], &b[..]))
-        .unwrap()
-        .to_vec();
 
-    Ok(pseudo_random_bytes[0..len_in_bytes as usize].to_vec())
+    let mut b_vals = b_vals.concat();
+    b_vals.truncate(len_in_bytes as usize);
+
+    Ok(b_vals)
 }
 
 pub fn i2osp(x: u64, length: u64) -> Vec<u8> {
