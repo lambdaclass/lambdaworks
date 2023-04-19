@@ -16,6 +16,12 @@ pub struct FibonacciAIR {
     context: AirContext,
 }
 
+impl FibonacciAIR {
+    pub fn new(context: air::context::AirContext) -> Self {
+        Self { context }
+    }
+}
+
 impl AIR for FibonacciAIR {
     type Field = Stark252PrimeField;
 
