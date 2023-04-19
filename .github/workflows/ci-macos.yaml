@@ -1,0 +1,27 @@
+name: CI (MacOS)
+on:
+  pull_request:
+    branches: ["*"]
+    paths:
+      - gpu/**
+      - fft/**
+
+concurrency:
+  group: ${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+  
+  test-metal:
+    name: Test Metal
+    runs-on: [self-hosted, macOS]
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v3
+      - name: Rustup toolchain install
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+      - name: Run tests
+        run: cargo test -F metal
