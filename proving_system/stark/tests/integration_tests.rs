@@ -7,7 +7,6 @@ use lambdaworks_stark::{
         context::{AirContext, ProofOptions},
         example::{fibonacci_2_columns::fibonacci_trace_2_columns, simple_fibonacci::FibonacciAIR},
         trace::TraceTable,
-        AIR,
     },
     fri::FieldElement,
     prover::prove,

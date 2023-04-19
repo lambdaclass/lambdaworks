@@ -6,7 +6,6 @@ use lambdaworks_stark::{
     air::{
         context::{AirContext, ProofOptions},
         trace::TraceTable,
-        AIR,
     },
     fri::FieldElement,
     prover::prove,
