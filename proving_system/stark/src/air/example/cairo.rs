@@ -49,24 +49,25 @@ const F_OPC_CALL: usize = 12;
 const F_OPC_RET: usize = 13;
 const F_OPC_AEQ: usize = 14;
 //  - Others
-const FRAME_RES: usize = 16;
-const FRAME_AP: usize = 17;
-const FRAME_FP: usize = 18;
-const FRAME_PC: usize = 19;
-const FRAME_DST_ADDR: usize = 20;
-const FRAME_OP0_ADDR: usize = 21;
-const FRAME_OP1_ADDR: usize = 22;
-const FRAME_INST: usize = 23;
-const FRAME_DST: usize = 24;
-const FRAME_OP0: usize = 25;
-const FRAME_OP1: usize = 26;
-const OFF_DST: usize = 27;
-const OFF_OP0: usize = 28;
-const OFF_OP1: usize = 29;
-const FRAME_T0: usize = 30;
-const FRAME_T1: usize = 31;
-const FRAME_MUL: usize = 32;
-const FRAME_SELECTOR: usize = 33;
+// TODO: These should probably be in the TraceTable module.
+pub const FRAME_RES: usize = 16;
+pub const FRAME_AP: usize = 17;
+pub const FRAME_FP: usize = 18;
+pub const FRAME_PC: usize = 19;
+pub const FRAME_DST_ADDR: usize = 20;
+pub const FRAME_OP0_ADDR: usize = 21;
+pub const FRAME_OP1_ADDR: usize = 22;
+pub const FRAME_INST: usize = 23;
+pub const FRAME_DST: usize = 24;
+pub const FRAME_OP0: usize = 25;
+pub const FRAME_OP1: usize = 26;
+pub const OFF_DST: usize = 27;
+pub const OFF_OP0: usize = 28;
+pub const OFF_OP1: usize = 29;
+pub const FRAME_T0: usize = 30;
+pub const FRAME_T1: usize = 31;
+pub const FRAME_MUL: usize = 32;
+pub const FRAME_SELECTOR: usize = 33;
 
 // Trace layout
 pub const MEM_P_TRACE_OFFSET: usize = 17;
