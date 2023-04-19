@@ -138,7 +138,7 @@ impl AIR for CairoAIR {
 }
 
 fn generate_instr_constraints(
-    constraints: &mut [FieldElement<Stark252PrimeField>],
+    constraints: &mut [FE],
     frame: &Frame<Stark252PrimeField>,
 ) {
     let curr = frame.get_row(0);
@@ -171,7 +171,7 @@ fn generate_instr_constraints(
 }
 
 fn generate_operand_constraints(
-    constraints: &mut [FieldElement<Stark252PrimeField>],
+    constraints: &mut [FE],
     frame: &Frame<Stark252PrimeField>,
 ) {
     let curr = frame.get_row(0);
@@ -193,7 +193,7 @@ fn generate_operand_constraints(
 }
 
 fn generate_register_constraints(
-    constraints: &mut [FieldElement<Stark252PrimeField>],
+    constraints: &mut [FE],
     frame: &Frame<Stark252PrimeField>,
 ) {
     let curr = frame.get_row(0);
@@ -227,7 +227,7 @@ fn generate_register_constraints(
 }
 
 fn generate_opcode_constraints(
-    constraints: &mut [FieldElement<Stark252PrimeField>],
+    constraints: &mut [FE],
     frame: &Frame<Stark252PrimeField>,
 ) {
     let curr = frame.get_row(0);
@@ -244,7 +244,7 @@ fn generate_opcode_constraints(
 }
 
 fn enforce_selector(
-    constraints: &mut [FieldElement<Stark252PrimeField>],
+    constraints: &mut [FE],
     frame: &Frame<Stark252PrimeField>,
 ) {
     let curr = frame.get_row(0);
@@ -254,7 +254,7 @@ fn enforce_selector(
 }
 
 fn frame_inst_size(
-    frame_row: &[FieldElement<Stark252PrimeField>],
-) -> FieldElement<Stark252PrimeField> {
+    frame_row: &[FE],
+) -> FE {
     &frame_row[F_OP_1_VAL] + FieldElement::one()
 }
