@@ -10,6 +10,7 @@ embedded-hal = { version = "1.0.0-alpha.9" }
 esp-idf-sys = { version = "0.32", features = ["binstart"] }
 esp-idf-hal = { version = "0.40.1" }
 lambdaworks-math = { path = "../math", features = ["esp"]  }
+lambdaworks-stark = { path = "../proving_system/stark", features = ["esp"]  }
 
 [build-dependencies]
 embuild = "0.31.1"
