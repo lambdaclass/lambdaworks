@@ -372,16 +372,16 @@ where
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let value: UnsignedInteger<NUM_LIMBS> = self.representative();
 
-        let first_non_zero_pos = value.limbs.iter().position(|&x| x != 0);
+        let first_non_zero_pos = value.limbs.iter().position(|&limb| limb != 0);
 
         if let Some(first_non_zero_pos) = first_non_zero_pos {
             write!(f, "0x")?;
 
-            let mut is_first_limb = true;
+            let mut is_most_significant_limb = true;
             for limb in value.limbs.iter().skip(first_non_zero_pos) {
-                if is_first_limb {
+                if is_most_significant_limb {
                     write!(f, "{:x}", limb)?;
-                    is_first_limb = false;
+                    is_most_significant_limb = false;
                 } else {
                     write!(f, "{:016x}", limb)?;
                 }
