@@ -203,20 +203,6 @@ fn compute_deep_composition_poly<A: AIR, F: IsTwoAdicField, T: Transcript>(
 ) -> Polynomial<FieldElement<F>> {
     let transition_offsets = air.context().transition_offsets;
 
-    // Get the number of trace terms the DEEP composition poly will have.
-    // One coefficient will be sampled for each of them.
-    // TODO: try remove this, call transcript inside for and move gamma declarations
-    let trace_term_coeffs = (0..trace_polys.len())
-        .map(|_| {
-            (0..transition_offsets.len())
-                .map(|_| transcript_to_field::<F, T>(transcript))
-                .collect()
-        })
-        .collect::<Vec<Vec<FieldElement<F>>>>();
-    // Get coefficients for even and odd terms of the composition polynomial H(x)
-    let gamma_even = transcript_to_field::<F, T>(transcript);
-    let gamma_odd = transcript_to_field::<F, T>(transcript);
-
     // Get trace evaluations needed for the trace terms of the deep composition polynomial
     let trace_evaluations = Frame::get_trace_evaluations(
         trace_polys,
@@ -228,21 +214,22 @@ fn compute_deep_composition_poly<A: AIR, F: IsTwoAdicField, T: Transcript>(
     // Compute all the trace terms of the deep composition polynomial. There will be one
     // term for every trace polynomial and every trace evaluation.
     let mut trace_terms = Polynomial::zero();
-    for ((i, trace_poly), coeff_row) in trace_polys.iter().enumerate().zip(trace_term_coeffs) {
-        for ((trace_evaluation, offset), coeff) in trace_evaluations
-            .iter()
-            .zip(&transition_offsets)
-            .zip(coeff_row)
-        {
+    for (i, trace_poly) in trace_polys.iter().enumerate() {
+        for (trace_evaluation, offset) in trace_evaluations.iter().zip(&transition_offsets) {
             let eval = trace_evaluation[i].clone();
             let root_of_unity = ood_evaluation_point * primitive_root.pow(*offset);
             let poly = (trace_poly.clone() - Polynomial::new_monomial(eval, 0))
                 / (Polynomial::new_monomial(FieldElement::<F>::one(), 1)
                     - Polynomial::new_monomial(root_of_unity, 0));
+            let coeff = transcript_to_field::<F, T>(transcript);
 
-            trace_terms = trace_terms + poly * coeff.clone();
+            trace_terms = trace_terms + poly * coeff;
         }
     }
+
+    // Get coefficients for even and odd terms of the composition polynomial H(x)
+    let gamma_even = transcript_to_field::<F, T>(transcript);
+    let gamma_odd = transcript_to_field::<F, T>(transcript);
 
     let ood_point_squared = ood_evaluation_point * ood_evaluation_point;
 
