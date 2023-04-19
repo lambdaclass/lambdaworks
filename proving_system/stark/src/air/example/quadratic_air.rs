@@ -19,10 +19,6 @@ pub struct QuadraticAIR {
 impl AIR for QuadraticAIR {
     type Field = Stark252PrimeField;
 
-    fn new(context: air::context::AirContext) -> Self {
-        Self { context }
-    }
-
     fn compute_transition(
         &self,
         frame: &air::frame::Frame<Self::Field>,

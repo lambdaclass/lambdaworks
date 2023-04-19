@@ -74,10 +74,6 @@ pub struct CairoAIR {
 impl AIR for CairoAIR {
     type Field = Stark252PrimeField;
 
-    fn new(context: AirContext) -> Self {
-        Self { context }
-    }
-
     fn compute_transition(&self, frame: &Frame<Self::Field>) -> Vec<FieldElement<Self::Field>> {
         let mut constraints: Vec<FieldElement<Self::Field>> = Vec::with_capacity(ROW_LENGTH);
 

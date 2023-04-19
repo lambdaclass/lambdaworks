@@ -17,10 +17,6 @@ pub struct Fibonacci17AIR {
 impl AIR for Fibonacci17AIR {
     type Field = F17;
 
-    fn new(context: air::context::AirContext) -> Self {
-        Self { context }
-    }
-
     fn compute_transition(
         &self,
         frame: &air::frame::Frame<Self::Field>,
