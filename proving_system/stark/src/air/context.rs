@@ -1,4 +1,4 @@
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct AirContext {
     pub options: ProofOptions,
     pub trace_length: usize,
@@ -24,9 +24,9 @@ impl AirContext {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ProofOptions {
-    pub(crate) blowup_factor: u8,
+    pub blowup_factor: u8,
     pub fri_number_of_queries: u8,
     pub coset_offset: u64,
 }

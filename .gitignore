@@ -10,3 +10,4 @@ Cargo.lock
 **/*.rs.bk
 
 **/proptest-regressions
+/output.txt

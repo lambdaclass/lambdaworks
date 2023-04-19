@@ -101,12 +101,12 @@ impl<const MODULUS: u64> ByteConversion for U64FieldElement<MODULUS> {
     }
 
     fn from_bytes_be(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError> {
-        let bytes: [u8; 8] = bytes.try_into().map_err(|_| FromBEBytesError)?;
+        let bytes: [u8; 8] = bytes[0..8].try_into().map_err(|_| FromBEBytesError)?;
         Ok(Self::from(u64::from_be_bytes(bytes)))
     }
 
     fn from_bytes_le(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError> {
-        let bytes: [u8; 8] = bytes.try_into().map_err(|_| FromLEBytesError)?;
+        let bytes: [u8; 8] = bytes[0..8].try_into().map_err(|_| FromLEBytesError)?;
         Ok(Self::from(u64::from_le_bytes(bytes)))
     }
 }

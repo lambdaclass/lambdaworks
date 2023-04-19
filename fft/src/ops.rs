@@ -1,7 +1,9 @@
-use crate::field::{
+use lambdaworks_math::field::{
     element::FieldElement,
     traits::{IsTwoAdicField, RootsConfig},
 };
+
+use crate::roots_of_unity::get_twiddles;
 
 use super::{
     bit_reversing::in_place_bit_reverse_permute, errors::FFTError,
@@ -16,7 +18,7 @@ pub fn fft_with_blowup<F: IsTwoAdicField>(
 ) -> Result<Vec<FieldElement<F>>, FFTError> {
     let domain_size = coeffs.len() * blowup_factor;
     let order = log2(domain_size)?;
-    let twiddles = F::get_twiddles(order, RootsConfig::BitReverse)?;
+    let twiddles = get_twiddles(order, RootsConfig::BitReverse)?;
 
     let mut results = coeffs.to_vec();
     results.resize(domain_size, FieldElement::zero());
@@ -33,10 +35,10 @@ pub fn fft<F: IsTwoAdicField>(
     coeffs: &[FieldElement<F>],
 ) -> Result<Vec<FieldElement<F>>, FFTError> {
     let order = log2(coeffs.len())?;
-    let twiddles = F::get_twiddles(order, RootsConfig::BitReverse)?;
+    let twiddles = get_twiddles(order, RootsConfig::BitReverse)?;
 
     let mut results = coeffs.to_vec();
-    in_place_nr_2radix_fft(&mut results[..], &twiddles[..]);
+    in_place_nr_2radix_fft(&mut results, &twiddles);
     in_place_bit_reverse_permute(&mut results);
 
     Ok(results)
@@ -48,10 +50,10 @@ pub fn inverse_fft<F: IsTwoAdicField>(
     coeffs: &[FieldElement<F>],
 ) -> Result<Vec<FieldElement<F>>, FFTError> {
     let order = log2(coeffs.len())?;
-    let twiddles = F::get_twiddles(order, RootsConfig::BitReverseInversed)?;
+    let twiddles = get_twiddles(order, RootsConfig::BitReverseInversed)?;
 
     let mut results = coeffs.to_vec();
-    in_place_nr_2radix_fft(&mut results[..], &twiddles[..]);
+    in_place_nr_2radix_fft(&mut results, &twiddles);
     in_place_bit_reverse_permute(&mut results);
 
     for elem in &mut results {

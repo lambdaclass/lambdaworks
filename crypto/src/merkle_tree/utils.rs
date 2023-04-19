@@ -1,15 +1,18 @@
-use lambdaworks_math::field::{element::FieldElement, traits::IsField};
+use lambdaworks_math::{
+    field::{element::FieldElement, traits::IsField},
+    traits::ByteConversion,
+};
 
 use crate::hash::traits::IsCryptoHash;
 
-pub fn hash_leaves<F: IsField, H: IsCryptoHash<F>>(
+pub fn hash_leaves<F: IsField>(
     values: &[FieldElement<F>],
-    hasher: &H,
-) -> Vec<FieldElement<F>> {
-    values
-        .iter()
-        .map(|val| hasher.hash_one(val.clone()))
-        .collect()
+    hasher: &dyn IsCryptoHash<F>,
+) -> Vec<FieldElement<F>>
+where
+    FieldElement<F>: ByteConversion,
+{
+    values.iter().map(|val| hasher.hash_one(val)).collect()
 }
 
 pub fn sibling_index(node_index: usize) -> usize {
@@ -42,11 +45,14 @@ pub fn is_power_of_two(x: usize) -> bool {
     (x != 0) && ((x & (x - 1)) == 0)
 }
 
-pub fn build<F: IsField, H: IsCryptoHash<F>>(
+pub fn build<F: IsField>(
     nodes: &mut Vec<FieldElement<F>>,
     parent_index: usize,
-    hasher: &H,
-) -> Vec<FieldElement<F>> {
+    hasher: &dyn IsCryptoHash<F>,
+) -> Vec<FieldElement<F>>
+where
+    FieldElement<F>: ByteConversion,
+{
     if is_leaf(nodes.len(), parent_index) {
         return nodes.to_vec();
     }
@@ -57,10 +63,7 @@ pub fn build<F: IsField, H: IsCryptoHash<F>>(
     let mut nodes = build(nodes, left_child_index, hasher);
     nodes = build(&mut nodes, right_child_index, hasher);
 
-    nodes[parent_index] = hasher.hash_two(
-        nodes[left_child_index].clone(),
-        nodes[right_child_index].clone(),
-    );
+    nodes[parent_index] = hasher.hash_two(&nodes[left_child_index], &nodes[right_child_index]);
     nodes
 }
 
@@ -80,7 +83,7 @@ pub fn right_child_index(parent_index: usize) -> usize {
 mod tests {
     use lambdaworks_math::field::{element::FieldElement, fields::u64_prime_field::U64PrimeField};
 
-    use crate::merkle_tree::DefaultHasher;
+    use crate::merkle_tree::test_merkle::TestHasher;
 
     use super::{build, complete_until_power_of_two, hash_leaves};
 
@@ -92,7 +95,7 @@ mod tests {
     // expected |2|4|6|8|
     fn hash_leaves_from_a_list_of_field_elemnts() {
         let values: Vec<FE> = (1..5).map(FE::new).collect();
-        let hashed_leaves = hash_leaves(&values, &DefaultHasher);
+        let hashed_leaves = hash_leaves(&values, &TestHasher);
         let list_of_nodes = &[FE::new(2), FE::new(4), FE::new(6), FE::new(8)];
         for (leaf, expected_leaf) in hashed_leaves.iter().zip(list_of_nodes) {
             assert_eq!(leaf, expected_leaf);
@@ -123,7 +126,7 @@ mod tests {
         let mut nodes = vec![FE::zero(); leaves.len() - 1];
         nodes.extend(leaves);
 
-        let tree = build(&mut nodes, ROOT, &DefaultHasher);
+        let tree = build(&mut nodes, ROOT, &TestHasher);
         assert_eq!(tree[ROOT], FE::new(10));
     }
 }
