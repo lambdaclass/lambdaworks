@@ -75,8 +75,8 @@ pub fn build_cairo_execution_trace(
     let trace_repr_offsets = rows_to_cols(&trace_repr_offsets);
 
     // Build Cairo trace columns to instantiate TraceTable struct
-    let mut trace_cols: Vec<Vec<_>> = Vec::new();
-    (0..trace_repr_flags.len()).for_each(|n| trace_cols.push(trace_repr_flags[n].to_vec()));
+    let mut trace_cols: Vec<Vec<FE>> = Vec::new();
+    (0..trace_repr_flags.len()).for_each(|n| trace_cols.push(trace_repr_flags[n].clone()));
     trace_cols.push(res);
     trace_cols.push(aps);
     trace_cols.push(fps);
@@ -88,7 +88,7 @@ pub fn build_cairo_execution_trace(
     trace_cols.push(dsts);
     trace_cols.push(op0s);
     trace_cols.push(op1s);
-    (0..trace_repr_offsets.len()).for_each(|n| trace_cols.push(trace_repr_offsets[n].to_vec()));
+    (0..trace_repr_offsets.len()).for_each(|n| trace_cols.push(trace_repr_offsets[n].clone()));
     trace_cols.push(t0);
     trace_cols.push(t1);
     trace_cols.push(mul);
@@ -290,12 +290,23 @@ fn rows_to_cols<const N: usize>(rows: &[[FE; N]]) -> Vec<Vec<FE>> {
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use lambdaworks_math::traits::ByteConversion;
+
+    use super::*;
 
     #[test]
     fn test_build_execution_trace() {
-        // Read trace and memory from binary files
+        /*
+        The following trace and memory files are obtained running the following Cairo program:
+
+        func main() {
+            let x = 1;
+            let y = 2;
+            assert x + y = 3;
+            return ();
+        }
+        */
+
         let base_dir = env!("CARGO_MANIFEST_DIR");
         let dir_trace = base_dir.to_owned() + "/src/cairo_vm/test_data/simple_program.trace";
         let dir_memory = base_dir.to_owned() + "/src/cairo_vm/test_data/simple_program.mem";
@@ -305,19 +316,125 @@ mod test {
 
         let execution_trace = build_cairo_execution_trace(&raw_trace, &memory);
 
-        println!(
-            "EXECUTION TRACE NUMBER OF COLUMNS: {}",
-            execution_trace.cols().len()
-        );
+        // This trace is obtained from Giza when running the prover for the mentioned program.
+        let expected_trace = TraceTable::new_from_cols(&vec![
+            // col 0
+            vec![FE::zero(), FE::zero(), FE::one()],
+            // col 1
+            vec![FE::one(), FE::one(), FE::one()],
+            // col 2
+            vec![FE::one(), FE::one(), FE::zero()],
+            // col 3
+            vec![FE::zero(), FE::zero(), FE::one()],
+            // col 4
+            vec![FE::zero(), FE::zero(), FE::zero()],
+            // col 5
+            vec![FE::zero(), FE::zero(), FE::zero()],
+            // col 6
+            vec![FE::zero(), FE::zero(), FE::zero()],
+            // col 7
+            vec![FE::zero(), FE::zero(), FE::one()],
+            // col 8
+            vec![FE::zero(), FE::zero(), FE::zero()],
+            // col 9
+            vec![FE::zero(), FE::zero(), FE::zero()],
+            // col 10
+            vec![FE::zero(), FE::zero(), FE::zero()],
+            // col 11
+            vec![FE::one(), FE::zero(), FE::zero()],
+            // col 12
+            vec![FE::zero(), FE::zero(), FE::zero()],
+            // col 13
+            vec![FE::zero(), FE::zero(), FE::one()],
+            // col 14
+            vec![FE::one(), FE::one(), FE::zero()],
+            // col 15
+            vec![FE::zero(), FE::zero(), FE::zero()],
+            // col 16
+            vec![FE::from(3), FE::from(3), FE::from(9)],
+            // col 17
+            vec![FE::from(8), FE::from(9), FE::from(9)],
+            // col 18
+            vec![FE::from(8), FE::from(8), FE::from(8)],
+            // col 19
+            vec![FE::from(1), FE::from(3), FE::from(5)],
+            // col 20
+            vec![FE::from(8), FE::from(8), FE::from(6)],
+            // col 21
+            vec![FE::from(7), FE::from(7), FE::from(7)],
+            // col 22
+            vec![FE::from(2), FE::from(4), FE::from(7)],
+            // col 23
+            vec![
+                FE::from(0x480680017fff8000),
+                FE::from(0x400680017fff7fff),
+                FE::from(0x208b7fff7fff7ffe),
+            ],
+            // col 24
+            vec![FE::from(3), FE::from(3), FE::from(9)],
+            // col 25
+            vec![FE::from(9), FE::from(9), FE::from(9)],
+            // col 26
+            vec![FE::from(3), FE::from(3), FE::from(9)],
+            // col 27
+            vec![FE::from(0x8000), FE::from(0x7fff), FE::from(0x7ffe)],
+            // col 28
+            vec![FE::from(0x7fff), FE::from(0x7fff), FE::from(0x7fff)],
+            // col 29
+            vec![FE::from(0x8001), FE::from(0x8001), FE::from(0x7fff)],
+            // col 30
+            vec![FE::zero(), FE::zero(), FE::zero()],
+            // col 31
+            vec![FE::zero(), FE::zero(), FE::zero()],
+            // col 32
+            vec![FE::from(0x1b), FE::from(0x1b), FE::from(0x51)],
+            // col 33
+            // vec![FE::one(), FE::one(), FE::zero()],
+        ]);
+
+        assert_eq!(execution_trace.cols(), expected_trace.cols());
+    }
+
+    #[test]
+    fn test_build_execution_trace_2() {
+        /*
+        The following trace and memory files are obtained running the following Cairo program:
+        ```
+        func mul(x: felt, y: felt) -> (res: felt) {
+            return (res = x * y);
+        }
+
+        func main() {
+            let x = 2;
+            let y = 3;
+
+            let (res) = mul(x, y);
+            assert res = 6;
+
+            return ();
+        }
+        ```
+        */
+
+        let base_dir = env!("CARGO_MANIFEST_DIR");
+        let dir_trace = base_dir.to_owned() + "/src/cairo_vm/test_data/call_func.trace";
+        let dir_memory = base_dir.to_owned() + "/src/cairo_vm/test_data/call_func.mem";
+
+        let raw_trace = CairoTrace::from_file(&dir_trace).unwrap();
+        let memory = CairoMemory::from_file(&dir_memory).unwrap();
+
+        let execution_trace = build_cairo_execution_trace(&raw_trace, &memory);
+
         execution_trace
             .cols()
             .iter()
             .enumerate()
             .for_each(|(i, col)| {
-                println!("COL IDX: {:?}", i);
-                col.iter()
-                    .for_each(|f| println!("FIELD BYTES: {:?}", f.to_bytes_le()));
                 println!("");
-            });
+                println!("COL IDX: {}", i);
+                col.iter().for_each(|row| {
+                    println!("FIELD BYTES: {:?}", row.to_bytes_le());
+                });
+            })
     }
 }

@@ -3,7 +3,7 @@ use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::IsTwoAdicField;
 use lambdaworks_math::polynomial::Polynomial;
 
-#[derive(Clone, Default, Debug)]
+#[derive(Clone, Default, Debug, PartialEq, Eq)]
 pub struct TraceTable<F: IsTwoAdicField> {
     /// `table` is column oriented trace element description
     pub table: Vec<FieldElement<F>>,
