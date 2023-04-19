@@ -63,6 +63,10 @@ impl<F: IsTwoAdicField> TraceTable<F> {
             .collect::<Result<Vec<Polynomial<FieldElement<F>>>, FFTError>>()
             .unwrap()
     }
+
+    pub fn get(&self, register: usize, on_step: usize) -> FieldElement<F> {
+        self.get_row(on_step)[register].clone()
+    }
 }
 #[cfg(test)]
 mod test {
