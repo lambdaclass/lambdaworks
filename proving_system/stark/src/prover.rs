@@ -4,12 +4,13 @@ use super::{
     sample_z_ood,
 };
 use crate::{
+    fri::HASHER,
     proof::{DeepConsistencyCheck, StarkProof, StarkQueryProof},
     transcript_to_field, transcript_to_usize,
 };
 #[cfg(not(feature = "test_fiat_shamir"))]
 use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
-use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
+use lambdaworks_crypto::{fiat_shamir::transcript::Transcript, merkle_tree::merkle::MerkleTree};
 
 #[cfg(feature = "test_fiat_shamir")]
 use lambdaworks_crypto::fiat_shamir::test_transcript::TestTranscript;
@@ -264,9 +265,30 @@ fn build_deep_consistency_check<F: IsTwoAdicField>(
     trace: &TraceTable<F>,
     composition_poly_even: &Polynomial<FieldElement<F>>,
     composition_poly_odd: &Polynomial<FieldElement<F>>,
-) -> DeepConsistencyCheck<F> {
-    let d_evaluation_point = &domain[index_to_verify];
-    let lde_trace_evaluations = trace.get_row(index_to_verify).to_vec();
+) -> DeepConsistencyCheck<F>
+where
+    FieldElement<F>: ByteConversion,
+{
+    let index = index_to_verify % domain.len();
+
+    let lde_trace_merkle_trees = trace
+        .cols()
+        .iter()
+        .map(|col| MerkleTree::build(col, Box::new(HASHER)))
+        .collect::<Vec<MerkleTree<F>>>();
+
+    let lde_trace_merkle_roots = lde_trace_merkle_trees
+        .iter()
+        .map(|tree| tree.root.clone())
+        .collect();
+
+    let lde_trace_merkle_proofs = lde_trace_merkle_trees
+        .iter()
+        .map(|tree| tree.get_proof_by_pos(index).unwrap())
+        .collect();
+
+    let d_evaluation_point = &domain[index];
+    let lde_trace_evaluations = trace.get_row(index).to_vec();
 
     let composition_poly_evaluations = vec![
         composition_poly_even.evaluate(d_evaluation_point),
@@ -274,6 +296,8 @@ fn build_deep_consistency_check<F: IsTwoAdicField>(
     ];
 
     DeepConsistencyCheck {
+        lde_trace_merkle_roots,
+        lde_trace_merkle_proofs,
         lde_trace_evaluations,
         composition_poly_evaluations,
     }

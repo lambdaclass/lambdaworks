@@ -287,6 +287,8 @@ where
         F::get_primitive_root_of_unity(args.lde_root_order as u64).unwrap();
     let mut offset = FieldElement::<F>::from(args.air.options().coset_offset);
 
+    // Verify that Deep(x) has been built correctly
+    let deep_consistency_check = args.deep_consistency_check;
     let d_evaluation_point = &args.lde_roots_of_unity_coset[args.q_i];
     let deep_composition_poly_args = &mut DeepCompositionPolyArgs {
         primitive_root,
@@ -295,7 +297,7 @@ where
         gamma_odd: args.gamma_odd,
         d_evaluation_point,
         ood_evaluation_point: args.ood_evaluation_point,
-        lde_trace_evaluations: &args.deep_consistency_check.lde_trace_evaluations,
+        lde_trace_evaluations: &deep_consistency_check.lde_trace_evaluations,
         trace_poly_ood_evaluations: args.trace_poly_ood_evaluations,
         composition_poly_d_evaluations: args.composition_poly_d_evaluations,
         composition_poly_ood_evaluations: args.composition_poly_ood_evaluations,
@@ -306,6 +308,20 @@ where
 
     if deep_poly_claimed_evaluation != deep_poly_evaluation {
         return false;
+    }
+
+    // Verify that t(x_0) is a trace evaluation
+    for ((merkle_root, merkle_proof), evaluation) in deep_consistency_check
+        .lde_trace_merkle_roots
+        .iter()
+        .zip(&deep_consistency_check.lde_trace_merkle_proofs)
+        .zip(&deep_consistency_check.lde_trace_evaluations)
+    {
+        let index = args.q_i % args.lde_roots_of_unity_coset.len();
+
+        if !merkle_proof.verify(merkle_root, index, evaluation, &HASHER) {
+            return false;
+        }
     }
 
     // For each fri layer merkle proof check:

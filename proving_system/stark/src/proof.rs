@@ -1,9 +1,12 @@
+use lambdaworks_crypto::merkle_tree::proof::Proof;
 use lambdaworks_math::field::{element::FieldElement, traits::IsTwoAdicField};
 
 use crate::{air::frame::Frame, fri::fri_decommit::FriDecommitment};
 
 #[derive(Debug, Clone)]
 pub struct DeepConsistencyCheck<F: IsTwoAdicField> {
+    pub lde_trace_merkle_roots: Vec<FieldElement<F>>,
+    pub lde_trace_merkle_proofs: Vec<Proof<F>>,
     pub lde_trace_evaluations: Vec<FieldElement<F>>,
     pub composition_poly_evaluations: Vec<FieldElement<F>>,
 }
