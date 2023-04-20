@@ -191,11 +191,26 @@ fn test() {
         // col 26
         vec![FE::from(3), FE::from(3), FE::from(9), FE::zero()],
         // col 27
-        vec![FE::from(0x8000), FE::from(0x7fff), FE::from(0x7ffe), FE::zero()],
+        vec![
+            FE::from(0x8000),
+            FE::from(0x7fff),
+            FE::from(0x7ffe),
+            FE::zero(),
+        ],
         // col 28
-        vec![FE::from(0x7fff), FE::from(0x7fff), FE::from(0x7fff), FE::zero()],
+        vec![
+            FE::from(0x7fff),
+            FE::from(0x7fff),
+            FE::from(0x7fff),
+            FE::zero(),
+        ],
         // col 29
-        vec![FE::from(0x8001), FE::from(0x8001), FE::from(0x7fff), FE::zero()],
+        vec![
+            FE::from(0x8001),
+            FE::from(0x8001),
+            FE::from(0x7fff),
+            FE::zero(),
+        ],
         // col 30
         vec![FE::zero(), FE::zero(), FE::zero(), FE::zero()],
         // col 31
