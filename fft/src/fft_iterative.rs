@@ -1,4 +1,4 @@
-use crate::field::{element::FieldElement, traits::IsTwoAdicField};
+use lambdaworks_math::field::{element::FieldElement, traits::IsTwoAdicField};
 
 /// In-Place Radix-2 NR DIT FFT algorithm over a slice of two-adic field elements.
 /// It's required that the twiddle factors are in bit-reverse order. Else this function will not
@@ -93,10 +93,10 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::fft::helpers::log2;
-    use crate::fft::test_helpers::naive_matrix_dft_test;
-    use crate::field::test_fields::u64_test_field::U64TestField;
-    use crate::{fft::bit_reversing::in_place_bit_reverse_permute, field::traits::RootsConfig};
+    use crate::helpers::log2;
+    use crate::test_helpers::naive_matrix_dft_test;
+    use crate::{bit_reversing::in_place_bit_reverse_permute, roots_of_unity::get_twiddles};
+    use lambdaworks_math::field::{test_fields::u64_test_field::U64TestField, traits::RootsConfig};
     use proptest::{collection, prelude::*};
 
     use super::*;
@@ -127,7 +127,7 @@ mod tests {
             let expected = naive_matrix_dft_test(&coeffs);
 
             let order = log2(coeffs.len()).unwrap();
-            let twiddles = F::get_twiddles(order, RootsConfig::BitReverse).unwrap();
+            let twiddles = get_twiddles(order, RootsConfig::BitReverse).unwrap();
 
             let mut result = coeffs;
             in_place_nr_2radix_fft(&mut result, &twiddles);
@@ -142,7 +142,7 @@ mod tests {
             let expected = naive_matrix_dft_test(&coeffs);
 
             let order = log2(coeffs.len()).unwrap();
-            let twiddles = F::get_twiddles(order, RootsConfig::Natural).unwrap();
+            let twiddles = get_twiddles(order, RootsConfig::Natural).unwrap();
 
             let mut result = coeffs;
             in_place_bit_reverse_permute(&mut result);

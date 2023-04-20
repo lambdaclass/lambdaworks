@@ -26,16 +26,23 @@ use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark2
 // ├xxxxxxxxxxxxxxxx|x|xx|xxxx|xxxx|xxx|xxx┤
 //
 
+/// Receives the raw Cairo trace and memory as outputted from the Cairo VM and returns
+/// the trace table used to feed the Cairo STARK prover.
+/// The constraints of the Cairo AIR are defined over this trace rather than the raw trace
+/// obtained from the Cairo VM, this is why this function is needed.
 pub fn build_cairo_execution_trace(
     raw_trace: &CairoTrace,
     memory: &CairoMemory,
 ) -> TraceTable<Stark252PrimeField> {
+    // Instruction flags and offsets are decoded from the raw instructions and represented
+    // by the CairoInstructionFlags and InstructionOffsets as an intermediate representation
     let (flags, offsets): (Vec<CairoInstructionFlags>, Vec<InstructionOffsets>) = raw_trace
         .flags_and_offsets(memory)
         .unwrap()
         .into_iter()
         .unzip();
 
+    // dst, op0, op1 and res are computed from flags and offsets
     let (dst_addrs, mut dsts): (Vec<FE>, Vec<FE>) =
         compute_dst(&flags, &offsets, raw_trace, memory);
     let (op0_addrs, mut op0s): (Vec<FE>, Vec<FE>) =
@@ -44,16 +51,19 @@ pub fn build_cairo_execution_trace(
         compute_op1(&flags, &offsets, raw_trace, memory, &op0s);
     let mut res = compute_res(&flags, &op0s, &op1s);
 
+    // In some cases op0, dst or res may need to be updated from the already calculated values
     update_values(&flags, raw_trace, &mut op0s, &mut dsts, &mut res);
 
+    // Flags and offsets are transformed to a bit representation. This is needed since
+    // the flag constraints of the Cairo AIR are defined over bit representations of these
     let trace_repr_flags: Vec<[FE; 16]> =
         flags.iter().map(|f| f.to_trace_representation()).collect();
-
     let trace_repr_offsets: Vec<[FE; 3]> = offsets
         .iter()
         .map(|off| off.to_trace_representation())
         .collect();
 
+    // ap, fp, pc and instruction columns are computed
     let aps: Vec<FE> = raw_trace.rows.iter().map(|t| FE::from(t.ap)).collect();
     let fps: Vec<FE> = raw_trace.rows.iter().map(|t| FE::from(t.fp)).collect();
     let pcs: Vec<FE> = raw_trace.rows.iter().map(|t| FE::from(t.pc)).collect();
@@ -63,6 +73,8 @@ pub fn build_cairo_execution_trace(
         .map(|t| memory.get(&t.pc).unwrap().clone())
         .collect();
 
+    // t0, t1 and mul derived values are constructed. For details refer to
+    // section 9.1 of the Cairo whitepaper
     let t0: Vec<FE> = trace_repr_flags
         .iter()
         .zip(&dsts)
@@ -71,10 +83,13 @@ pub fn build_cairo_execution_trace(
     let t1: Vec<FE> = t0.iter().zip(&res).map(|(t, r)| t * r).collect();
     let mul: Vec<FE> = op0s.iter().zip(&op1s).map(|(op0, op1)| op0 * op1).collect();
 
+    // A structure change of the flags and offsets representations to fit into the arguments
+    // expected by the TraceTable constructor. A vector of columns of the representations
+    // is obtained from the rows representation.
     let trace_repr_flags = rows_to_cols(&trace_repr_flags);
     let trace_repr_offsets = rows_to_cols(&trace_repr_offsets);
 
-    // Build Cairo trace columns to instantiate TraceTable struct
+    // Build Cairo trace columns to instantiate TraceTable struct as defined in the trace layout
     let mut trace_cols: Vec<Vec<FE>> = Vec::new();
     (0..trace_repr_flags.len()).for_each(|n| trace_cols.push(trace_repr_flags[n].clone()));
     trace_cols.push(res);
@@ -96,8 +111,10 @@ pub fn build_cairo_execution_trace(
     TraceTable::new_from_cols(&trace_cols)
 }
 
-pub fn compute_res(flags: &[CairoInstructionFlags], op0s: &[FE], op1s: &[FE]) -> Vec<FE> {
+/// Returns the vector of res values.
+fn compute_res(flags: &[CairoInstructionFlags], op0s: &[FE], op1s: &[FE]) -> Vec<FE> {
     /*
+    Cairo whitepaper, page 33 - https://eprint.iacr.org/2021/1063.pdf
     # Compute res.
     if pc_update == 4:
         if res_logic == 0 && opcode == 0 && ap_update != 1:
@@ -146,12 +163,23 @@ pub fn compute_res(flags: &[CairoInstructionFlags], op0s: &[FE], op1s: &[FE]) ->
         .collect()
 }
 
-pub fn compute_dst(
+/// Returns the vector of:
+/// - dst_addrs
+/// - dsts
+fn compute_dst(
     flags: &[CairoInstructionFlags],
     offsets: &[InstructionOffsets],
     raw_trace: &CairoTrace,
     memory: &CairoMemory,
 ) -> (Vec<FE>, Vec<FE>) {
+    /* Cairo whitepaper, page 33 - https://eprint.iacr.org/2021/1063.pdf
+
+    # Compute dst
+    if dst_reg == 0:
+        dst = m(ap + offdst)
+    else:
+        dst = m(fp + offdst)
+    */
     flags
         .iter()
         .zip(offsets)
@@ -169,12 +197,23 @@ pub fn compute_dst(
         .unzip()
 }
 
+/// Returns the vector of:
+/// - op0_addrs
+/// - op0s
 pub fn compute_op0(
     flags: &[CairoInstructionFlags],
     offsets: &[InstructionOffsets],
     raw_trace: &CairoTrace,
     memory: &CairoMemory,
 ) -> (Vec<FE>, Vec<FE>) {
+    /* Cairo whitepaper, page 33 - https://eprint.iacr.org/2021/1063.pdf
+
+    # Compute op0.
+    if op0_reg == 0:
+        op0 = m(ap + offop0)
+    else:
+        op0 = m(fp + offop0)
+    */
     flags
         .iter()
         .zip(offsets)
@@ -202,7 +241,7 @@ pub fn compute_op1(
     memory: &CairoMemory,
     op0s: &[FE],
 ) -> (Vec<FE>, Vec<FE>) {
-    /*
+    /* Cairo whitepaper, page 33 - https://eprint.iacr.org/2021/1063.pdf
     # Compute op1 and instruction_size.
     switch op1_src:
         case 0:
@@ -252,7 +291,9 @@ pub fn compute_op1(
         .unzip()
 }
 
-pub fn update_values(
+/// Depending on the instruction opcodes, some values should be updated.
+/// This function updates op0s, dst, res in place when the conditions hold.
+fn update_values(
     flags: &[CairoInstructionFlags],
     raw_trace: &CairoTrace,
     op0s: &mut [FE],
@@ -274,6 +315,8 @@ pub fn update_values(
     }
 }
 
+/// Utility function to change from a rows representation to a columns
+/// representation of a slice of arrays.   
 fn rows_to_cols<const N: usize>(rows: &[[FE; N]]) -> Vec<Vec<FE>> {
     let mut cols = Vec::new();
     let n_cols = rows[0].len();
@@ -290,21 +333,21 @@ fn rows_to_cols<const N: usize>(rows: &[[FE; N]]) -> Vec<Vec<FE>> {
 
 #[cfg(test)]
 mod test {
-    use lambdaworks_math::traits::ByteConversion;
-
     use super::*;
 
     #[test]
-    fn test_build_execution_trace() {
+    fn test_build_execution_trace_simple_program() {
         /*
         The following trace and memory files are obtained running the following Cairo program:
-
+        ```
         func main() {
             let x = 1;
             let y = 2;
             assert x + y = 3;
             return ();
         }
+
+        ```
         */
 
         let base_dir = env!("CARGO_MANIFEST_DIR");
@@ -388,7 +431,7 @@ mod test {
             vec![FE::zero(), FE::zero(), FE::zero()],
             // col 32
             vec![FE::from(0x1b), FE::from(0x1b), FE::from(0x51)],
-            // col 33
+            // col 33 - Selector column
             // vec![FE::one(), FE::one(), FE::zero()],
         ]);
 
@@ -396,7 +439,7 @@ mod test {
     }
 
     #[test]
-    fn test_build_execution_trace_2() {
+    fn test_build_execution_trace_call_func_program() {
         /*
         The following trace and memory files are obtained running the following Cairo program:
         ```
@@ -413,6 +456,7 @@ mod test {
 
             return ();
         }
+
         ```
         */
 
@@ -425,16 +469,342 @@ mod test {
 
         let execution_trace = build_cairo_execution_trace(&raw_trace, &memory);
 
-        execution_trace
-            .cols()
-            .iter()
-            .enumerate()
-            .for_each(|(i, col)| {
-                println!("");
-                println!("COL IDX: {}", i);
-                col.iter().for_each(|row| {
-                    println!("FIELD BYTES: {:?}", row.to_bytes_le());
-                });
-            })
+        // This trace is obtained from Giza when running the prover for the mentioned program.
+        let expected_trace = TraceTable::new_from_cols(&vec![
+            // col 0
+            vec![
+                FE::zero(),
+                FE::zero(),
+                FE::zero(),
+                FE::zero(),
+                FE::one(),
+                FE::zero(),
+                FE::one(),
+            ],
+            // col 1
+            vec![
+                FE::one(),
+                FE::one(),
+                FE::zero(),
+                FE::one(),
+                FE::one(),
+                FE::one(),
+                FE::one(),
+            ],
+            // col 2
+            vec![
+                FE::one(),
+                FE::one(),
+                FE::one(),
+                FE::zero(),
+                FE::zero(),
+                FE::one(),
+                FE::zero(),
+            ],
+            // col 3
+            vec![
+                FE::zero(),
+                FE::zero(),
+                FE::zero(),
+                FE::one(),
+                FE::one(),
+                FE::zero(),
+                FE::one(),
+            ],
+            // col 4
+            vec![
+                FE::zero(),
+                FE::zero(),
+                FE::zero(),
+                FE::zero(),
+                FE::zero(),
+                FE::zero(),
+                FE::zero(),
+            ],
+            // col 5
+            vec![
+                FE::zero(),
+                FE::zero(),
+                FE::zero(),
+                FE::zero(),
+                FE::zero(),
+                FE::zero(),
+                FE::zero(),
+            ],
+            // col 6
+            vec![
+                FE::zero(),
+                FE::zero(),
+                FE::zero(),
+                FE::one(),
+                FE::zero(),
+                FE::zero(),
+                FE::zero(),
+            ],
+            // col 7
+            vec![
+                FE::zero(),
+                FE::zero(),
+                FE::zero(),
+                FE::zero(),
+                FE::one(),
+                FE::zero(),
+                FE::one(),
+            ],
+            // col 8
+            vec![
+                FE::zero(),
+                FE::zero(),
+                FE::one(),
+                FE::zero(),
+                FE::zero(),
+                FE::zero(),
+                FE::zero(),
+            ],
+            // col 9
+            vec![
+                FE::zero(),
+                FE::zero(),
+                FE::zero(),
+                FE::zero(),
+                FE::zero(),
+                FE::zero(),
+                FE::zero(),
+            ],
+            // col 10
+            vec![
+                FE::zero(),
+                FE::zero(),
+                FE::zero(),
+                FE::zero(),
+                FE::zero(),
+                FE::zero(),
+                FE::zero(),
+            ],
+            // col 11
+            vec![
+                FE::one(),
+                FE::one(),
+                FE::zero(),
+                FE::one(),
+                FE::zero(),
+                FE::zero(),
+                FE::zero(),
+            ],
+            // col 12
+            vec![
+                FE::zero(),
+                FE::zero(),
+                FE::one(),
+                FE::zero(),
+                FE::zero(),
+                FE::zero(),
+                FE::zero(),
+            ],
+            // col 13
+            vec![
+                FE::zero(),
+                FE::zero(),
+                FE::zero(),
+                FE::zero(),
+                FE::one(),
+                FE::zero(),
+                FE::one(),
+            ],
+            // col 14
+            vec![
+                FE::one(),
+                FE::one(),
+                FE::zero(),
+                FE::one(),
+                FE::zero(),
+                FE::one(),
+                FE::zero(),
+            ],
+            // col 15
+            vec![
+                FE::zero(),
+                FE::zero(),
+                FE::zero(),
+                FE::zero(),
+                FE::zero(),
+                FE::zero(),
+                FE::zero(),
+            ],
+            // col 16
+            vec![
+                FE::from(2),
+                FE::from(3),
+                FE::from_hex("0800000000000010fffffffffffffffffffffffffffffffffffffffffffffffb"),
+                FE::from(6),
+                FE::from(9),
+                FE::from(6),
+                FE::from(19),
+            ],
+            // col 17
+            vec![
+                FE::from(14),
+                FE::from(15),
+                FE::from(16),
+                FE::from(18),
+                FE::from(19),
+                FE::from(19),
+                FE::from(19),
+            ],
+            // col 18
+            vec![
+                FE::from(14),
+                FE::from(14),
+                FE::from(14),
+                FE::from(18),
+                FE::from(18),
+                FE::from(14),
+                FE::from(14),
+            ],
+            // col 19
+            vec![
+                FE::from(3),
+                FE::from(5),
+                FE::from(7),
+                FE::from(1),
+                FE::from(2),
+                FE::from(9),
+                FE::from(11),
+            ],
+            // col 20
+            vec![
+                FE::from(14),
+                FE::from(15),
+                FE::from(16),
+                FE::from(18),
+                FE::from(16),
+                FE::from(18),
+                FE::from(12),
+            ],
+            // col 21
+            vec![
+                FE::from(13),
+                FE::from(13),
+                FE::from(17),
+                FE::from(14),
+                FE::from(17),
+                FE::from(13),
+                FE::from(13),
+            ],
+            // col 22
+            vec![
+                FE::from(4),
+                FE::from(6),
+                FE::from(8),
+                FE::from(15),
+                FE::from(17),
+                FE::from(10),
+                FE::from(13),
+            ],
+            // col 23
+            vec![
+                FE::from(0x480680017fff8000),
+                FE::from(0x480680017fff8000),
+                FE::from(0x1104800180018000),
+                FE::from(0x484a7ffd7ffc8000),
+                FE::from(0x208b7fff7fff7ffe),
+                FE::from(0x400680017fff7fff),
+                FE::from(0x208b7fff7fff7ffe),
+            ],
+            // col 24
+            vec![
+                FE::from(2),
+                FE::from(3),
+                FE::from(14),
+                FE::from(6),
+                FE::from(14),
+                FE::from(6),
+                FE::from(19),
+            ],
+            // col 25
+            vec![
+                FE::from(19),
+                FE::from(19),
+                FE::from(9),
+                FE::from(2),
+                FE::from(9),
+                FE::from(19),
+                FE::from(19),
+            ],
+            // col 26
+            vec![
+                FE::from(2),
+                FE::from(3),
+                FE::from_hex("0800000000000010fffffffffffffffffffffffffffffffffffffffffffffffb"),
+                FE::from(3),
+                FE::from(9),
+                FE::from(6),
+                FE::from(19),
+            ],
+            // col 27
+            vec![
+                FE::from(0x8000),
+                FE::from(0x8000),
+                FE::from(0x8000),
+                FE::from(0x8000),
+                FE::from(0x7ffe),
+                FE::from(0x7fff),
+                FE::from(0x7ffe),
+            ],
+            // col 28
+            vec![
+                FE::from(0x7fff),
+                FE::from(0x7fff),
+                FE::from(0x8001),
+                FE::from(0x7ffc),
+                FE::from(0x7fff),
+                FE::from(0x7fff),
+                FE::from(0x7fff),
+            ],
+            // col 29
+            vec![
+                FE::from(0x8001),
+                FE::from(0x8001),
+                FE::from(0x8001),
+                FE::from(0x7ffd),
+                FE::from(0x7fff),
+                FE::from(0x8001),
+                FE::from(0x7fff),
+            ],
+            // col 30
+            vec![
+                FE::zero(),
+                FE::zero(),
+                FE::zero(),
+                FE::zero(),
+                FE::zero(),
+                FE::zero(),
+                FE::zero(),
+            ],
+            // col 31
+            vec![
+                FE::zero(),
+                FE::zero(),
+                FE::zero(),
+                FE::zero(),
+                FE::zero(),
+                FE::zero(),
+                FE::zero(),
+            ],
+            // col 32
+            vec![
+                FE::from(38),
+                FE::from(57),
+                FE::from_hex("0800000000000010ffffffffffffffffffffffffffffffffffffffffffffffcb"),
+                FE::from(6),
+                FE::from(81),
+                FE::from(114),
+                FE::from(0x169),
+            ],
+            // col 33 - Selector column
+            // vec![FE::one(), FE::one(), FE::zero()],
+        ]);
+
+        assert_eq!(execution_trace.cols(), expected_trace.cols());
     }
 }

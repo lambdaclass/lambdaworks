@@ -1,8 +1,15 @@
 use criterion::Criterion;
+use lambdaworks_fft::{
+    bit_reversing::in_place_bit_reverse_permute,
+    fft_iterative::{in_place_nr_2radix_fft, in_place_rn_2radix_fft},
+    polynomial::FFTPoly,
+    roots_of_unity::get_twiddles,
+};
 use lambdaworks_math::{
-    fft::{bit_reversing::*, fft_iterative::*},
-    field::{element::FieldElement, traits::IsTwoAdicField},
-    field::{fields::fft_friendly::stark_252_prime_field::Stark252PrimeField, traits::RootsConfig},
+    field::{
+        element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+        traits::RootsConfig,
+    },
     polynomial::Polynomial,
     unsigned_integer::element::UnsignedInteger,
 };
@@ -29,8 +36,8 @@ pub fn fft_benchmarks(c: &mut Criterion) {
         group.throughput(criterion::Throughput::Elements(1 << order));
 
         let input = rand_field_elements(order);
-        let twiddles_bitrev = F::get_twiddles(order, RootsConfig::BitReverse).unwrap();
-        let twiddles_nat = F::get_twiddles(order, RootsConfig::Natural).unwrap();
+        let twiddles_bitrev = get_twiddles(order, RootsConfig::BitReverse).unwrap();
+        let twiddles_nat = get_twiddles(order, RootsConfig::Natural).unwrap();
 
         // the objective is to bench ordered FFT, that's why a bitrev permutation is added.
         group.bench_with_input("Sequential from NR radix2", &input, |bench, input| {
@@ -61,7 +68,7 @@ pub fn twiddles_benchmarks(c: &mut Criterion) {
 
         group.bench_with_input("Sequential", &order, |bench, order| {
             bench.iter(|| {
-                F::get_twiddles(*order, RootsConfig::Natural).unwrap();
+                get_twiddles::<F>(*order, RootsConfig::Natural).unwrap();
             });
         });
     }

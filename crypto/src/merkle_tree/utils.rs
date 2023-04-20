@@ -1,15 +1,18 @@
-use lambdaworks_math::field::{element::FieldElement, traits::IsField};
+use lambdaworks_math::{
+    field::{element::FieldElement, traits::IsField},
+    traits::ByteConversion,
+};
 
 use crate::hash::traits::IsCryptoHash;
 
-pub fn hash_leaves<F: IsField, H: IsCryptoHash<F>>(
+pub fn hash_leaves<F: IsField>(
     values: &[FieldElement<F>],
-    hasher: &H,
-) -> Vec<FieldElement<F>> {
-    values
-        .iter()
-        .map(|val| hasher.hash_one(val.clone()))
-        .collect()
+    hasher: &dyn IsCryptoHash<F>,
+) -> Vec<FieldElement<F>>
+where
+    FieldElement<F>: ByteConversion,
+{
+    values.iter().map(|val| hasher.hash_one(val)).collect()
 }
 
 pub fn sibling_index(node_index: usize) -> usize {
@@ -42,11 +45,14 @@ pub fn is_power_of_two(x: usize) -> bool {
     (x != 0) && ((x & (x - 1)) == 0)
 }
 
-pub fn build<F: IsField, H: IsCryptoHash<F>>(
+pub fn build<F: IsField>(
     nodes: &mut Vec<FieldElement<F>>,
     parent_index: usize,
-    hasher: &H,
-) -> Vec<FieldElement<F>> {
+    hasher: &dyn IsCryptoHash<F>,
+) -> Vec<FieldElement<F>>
+where
+    FieldElement<F>: ByteConversion,
+{
     if is_leaf(nodes.len(), parent_index) {
         return nodes.to_vec();
     }
@@ -57,10 +63,7 @@ pub fn build<F: IsField, H: IsCryptoHash<F>>(
     let mut nodes = build(nodes, left_child_index, hasher);
     nodes = build(&mut nodes, right_child_index, hasher);
 
-    nodes[parent_index] = hasher.hash_two(
-        nodes[left_child_index].clone(),
-        nodes[right_child_index].clone(),
-    );
+    nodes[parent_index] = hasher.hash_two(&nodes[left_child_index], &nodes[right_child_index]);
     nodes
 }
 

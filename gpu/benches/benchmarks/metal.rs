@@ -5,9 +5,8 @@ use lambdaworks_gpu::metal::{
 };
 use lambdaworks_math::{
     field::element::FieldElement,
-    field::{fields::fft_friendly::stark_252_prime_field::Stark252PrimeField, traits::RootsConfig},
-    polynomial::Polynomial,
-    unsigned_integer::element::UnsignedInteger,
+    field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+    field::traits::RootsConfig, polynomial::Polynomial, unsigned_integer::element::UnsignedInteger,
 };
 use rand::random;
 
@@ -109,8 +108,7 @@ pub fn metal_poly_interpolate_fft_benchmarks(c: &mut Criterion) {
             bench.iter(|| {
                 // TODO: autoreleaspool hurts perf. by 2-3%. Search for an alternative
                 objc::rc::autoreleasepool(|| {
-                    let metal_state = MetalState::new(None).unwrap();
-                    Polynomial::interpolate_fft_metal(evals, &metal_state).unwrap();
+                    Polynomial::interpolate_fft_metal(evals).unwrap();
                 });
             });
         });
@@ -131,8 +129,7 @@ pub fn metal_poly_evaluate_fft_benchmarks(c: &mut Criterion) {
             bench.iter(|| {
                 // TODO: autoreleaspool hurts perf. by 2-3%. Search for an alternative
                 objc::rc::autoreleasepool(|| {
-                    let metal_state = MetalState::new(None).unwrap();
-                    poly.evaluate_fft_metal(&metal_state).unwrap();
+                    poly.evaluate_fft_metal().unwrap();
                 });
             });
         });

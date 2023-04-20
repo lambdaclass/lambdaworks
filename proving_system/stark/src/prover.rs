@@ -14,8 +14,9 @@ use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 #[cfg(feature = "test_fiat_shamir")]
 use lambdaworks_crypto::fiat_shamir::test_transcript::TestTranscript;
 
+use lambdaworks_fft::polynomial::FFTPoly;
+use lambdaworks_fft::{errors::FFTError, roots_of_unity::get_powers_of_primitive_root_coset};
 use lambdaworks_math::{
-    fft::errors::FFTError,
     field::{element::FieldElement, traits::IsTwoAdicField},
     polynomial::Polynomial,
     traits::ByteConversion,
@@ -37,7 +38,7 @@ where
     let root_order = air.context().trace_length.trailing_zeros();
     // * Generate Coset
     let trace_primitive_root = F::get_primitive_root_of_unity(root_order as u64).unwrap();
-    let trace_roots_of_unity = F::get_powers_of_primitive_root_coset(
+    let trace_roots_of_unity = get_powers_of_primitive_root_coset(
         root_order as u64,
         air.context().trace_length,
         &FieldElement::<F>::one(),
@@ -45,7 +46,7 @@ where
     .unwrap();
 
     let lde_root_order = (air.context().trace_length * blowup_factor).trailing_zeros();
-    let lde_roots_of_unity_coset = F::get_powers_of_primitive_root_coset(
+    let lde_roots_of_unity_coset = get_powers_of_primitive_root_coset(
         lde_root_order as u64,
         air.context().trace_length * blowup_factor,
         &coset_offset,
@@ -56,10 +57,12 @@ where
     let lde_trace_evaluations = trace_polys
         .iter()
         .map(|poly| {
-            poly.evaluate_offset_fft(
+            let res = poly.evaluate_offset_fft(
                 &FieldElement::<F>::from(air.options().coset_offset),
                 air.options().blowup_factor as usize,
-            )
+            );
+            dbg!(&res);
+            res
         })
         .collect::<Result<Vec<Vec<FieldElement<F>>>, FFTError>>()
         .unwrap();

@@ -3,6 +3,7 @@ use self::{
     context::{AirContext, ProofOptions},
     frame::Frame,
 };
+use lambdaworks_fft::roots_of_unity::get_powers_of_primitive_root_coset;
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsTwoAdicField},
     polynomial::Polynomial,
@@ -22,7 +23,7 @@ pub trait AIR: Clone {
     fn transition_divisors(&self) -> Vec<Polynomial<FieldElement<Self::Field>>> {
         let trace_length = self.context().trace_length;
         let roots_of_unity_order = trace_length.trailing_zeros();
-        let roots_of_unity = Self::Field::get_powers_of_primitive_root_coset(
+        let roots_of_unity = get_powers_of_primitive_root_coset(
             roots_of_unity_order as u64,
             self.context().trace_length,
             &FieldElement::<Self::Field>::one(),
