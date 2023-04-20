@@ -15,9 +15,7 @@ pub struct TraceTable<F: IsTwoAdicField> {
 impl<F: IsTwoAdicField> TraceTable<F> {
     pub fn new_from_cols(cols: &[Vec<FieldElement<F>>]) -> Self {
         let n_cols = cols.len();
-
         let n_rows = cols[0].len();
-        // dbg!(&n_rows);
 
         let mut table = Vec::with_capacity(n_cols * n_rows);
 

@@ -56,11 +56,13 @@ pub fn build_cairo_execution_trace(
 
     // Flags and offsets are transformed to a bit representation. This is needed since
     // the flag constraints of the Cairo AIR are defined over bit representations of these
-    let trace_repr_flags: Vec<[FE; 16]> =
-        flags.iter().map(|f| f.to_trace_representation()).collect();
+    let trace_repr_flags: Vec<[FE; 16]> = flags
+        .iter()
+        .map(CairoInstructionFlags::to_trace_representation)
+        .collect();
     let trace_repr_offsets: Vec<[FE; 3]> = offsets
         .iter()
-        .map(|off| off.to_trace_representation())
+        .map(InstructionOffsets::to_trace_representation)
         .collect();
 
     // ap, fp, pc and instruction columns are computed
