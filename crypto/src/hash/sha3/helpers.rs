@@ -2,9 +2,9 @@ use sha3::Digest;
 use sha3::Sha3_256;
 
 pub fn expand_message(msg: &[u8], dst: &[u8], len_in_bytes: u64) -> Result<Vec<u8>, String> {
-    let b_in_bytes = Sha3_256::output_size() as f32 / 8_f32;
+    let b_in_bytes = Sha3_256::output_size() as u64;
 
-    let ell = (len_in_bytes as f32 / b_in_bytes).ceil() as u64;
+    let ell = (len_in_bytes + b_in_bytes - 1) / b_in_bytes;
     if ell > 255 {
         return Err("Abort".to_string());
     }
