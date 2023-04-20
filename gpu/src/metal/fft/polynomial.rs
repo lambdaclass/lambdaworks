@@ -39,7 +39,7 @@ where
 }
 
 /// Returns a new polynomial that interpolates `fft_evals`, which are evaluations using twiddle
-/// factors. This is considered to be the inverse operation of [Self::evaluate_fft()].
+/// factors. This is considered to be the inverse operation of [evaluate_fft_metal()].
 pub fn interpolate_fft_metal<F>(
     fft_evals: &[FieldElement<F>],
 ) -> Result<Polynomial<FieldElement<F>>, MetalError>
