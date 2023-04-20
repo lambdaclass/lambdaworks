@@ -1,7 +1,9 @@
-use lambdaworks_math::fft::errors::FFTError;
-use lambdaworks_math::field::element::FieldElement;
-use lambdaworks_math::field::traits::IsTwoAdicField;
-use lambdaworks_math::polynomial::Polynomial;
+use lambdaworks_fft::errors::FFTError;
+use lambdaworks_fft::polynomial::FFTPoly;
+use lambdaworks_math::{
+    field::{element::FieldElement, traits::IsTwoAdicField},
+    polynomial::Polynomial,
+};
 
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
 pub struct TraceTable<F: IsTwoAdicField> {

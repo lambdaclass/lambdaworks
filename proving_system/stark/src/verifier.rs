@@ -3,13 +3,13 @@ use super::{
     fri::fri_decommit::FriDecommitment,
     sample_z_ood,
 };
-use crate::{proof::StarkProof, transcript_to_field, transcript_to_usize};
+use crate::{fri::HASHER, proof::StarkProof, transcript_to_field, transcript_to_usize};
 #[cfg(not(feature = "test_fiat_shamir"))]
 use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
-#[cfg(feature = "test_fiat_shamir")]
-use lambdaworks_crypto::fiat_shamir::test_transcript::TestTranscript;
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
-
+#[cfg(feature = "test_fiat_shamir")]
+use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
+use lambdaworks_fft::roots_of_unity::get_powers_of_primitive_root_coset;
 use lambdaworks_math::{
     field::{
         element::FieldElement,
@@ -39,7 +39,7 @@ where
     let root_order = air.context().trace_length.trailing_zeros();
     let trace_primitive_root = F::get_primitive_root_of_unity(root_order as u64).unwrap();
 
-    let trace_roots_of_unity = F::get_powers_of_primitive_root_coset(
+    let trace_roots_of_unity = get_powers_of_primitive_root_coset(
         root_order as u64,
         air.context().trace_length,
         &FieldElement::<F>::one(),
@@ -56,7 +56,7 @@ where
 
     let lde_root_order =
         (air.context().trace_length * air.options().blowup_factor as usize).trailing_zeros();
-    let lde_roots_of_unity_coset = F::get_powers_of_primitive_root_coset(
+    let lde_roots_of_unity_coset = get_powers_of_primitive_root_coset(
         lde_root_order as u64,
         air.context().trace_length * air.options().blowup_factor as usize,
         &FieldElement::<F>::from(air.options().coset_offset),
@@ -230,7 +230,10 @@ pub fn verify_query<F: IsField + IsTwoAdicField>(
     fri_decommitment: &FriDecommitment<F>,
     lde_root_order: u32,
     coset_offset: u64,
-) -> bool {
+) -> bool
+where
+    FieldElement<F>: ByteConversion,
+{
     let mut lde_primitive_root = F::get_primitive_root_of_unity(lde_root_order as u64).unwrap();
     let mut offset = FieldElement::<F>::from(coset_offset);
 
@@ -284,17 +287,19 @@ pub fn verify_query<F: IsField + IsTwoAdicField>(
             fri_layer_merkle_root,
             layer_evaluation_index,
             auth_path_evaluation,
+            &HASHER,
         ) {
             return false;
         }
 
         let layer_evaluation_index_symmetric =
-            (q_i + current_layer_domain_length) % current_layer_domain_length;
+            (q_i + current_layer_domain_length / 2) % current_layer_domain_length;
 
         if !fri_layer_auth_path_symmetric.verify(
             fri_layer_merkle_root,
             layer_evaluation_index_symmetric,
             auth_path_evaluation_symmetric,
+            &HASHER,
         ) {
             return false;
         }
