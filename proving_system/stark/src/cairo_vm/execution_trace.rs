@@ -2,7 +2,8 @@ use super::{
     cairo_mem::CairoMemory,
     cairo_trace::CairoTrace,
     instruction_flags::{
-        aux_get_last_nim_of_FE, ApUpdate, CairoOpcode, DstReg, Op0Reg, Op1Src, PcUpdate, ResLogic,
+        aux_get_last_nim_of_field_element, ApUpdate, CairoOpcode, DstReg, Op0Reg, Op1Src, PcUpdate,
+        ResLogic,
     },
 };
 use crate::{
@@ -269,7 +270,7 @@ pub fn compute_op1(
         .zip(raw_trace.rows.iter())
         .map(|(((flag, offset), op0), trace_state)| match flag.op1_src {
             Op1Src::Op0 => {
-                let addr = aux_get_last_nim_of_FE(op0)
+                let addr = aux_get_last_nim_of_field_element(op0)
                     .checked_add_signed(offset.off_op1.into())
                     .unwrap();
                 (FE::from(addr), memory.get(&addr).unwrap().clone())

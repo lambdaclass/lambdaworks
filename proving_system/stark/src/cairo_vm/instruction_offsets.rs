@@ -1,7 +1,7 @@
 use crate::FE;
 use lambdaworks_math::field::{element::FieldElement, traits::IsField};
 
-use super::instruction_flags::aux_get_last_nim_of_FE;
+use super::instruction_flags::aux_get_last_nim_of_field_element;
 
 const OFF_DST_OFF: u32 = 0;
 const OFF_OP0_OFF: u32 = 16;
@@ -25,7 +25,7 @@ impl InstructionOffsets {
     }
 
     pub fn decode_offset(mem_value: &FE, instruction_offset: u32) -> i32 {
-        let offset = aux_get_last_nim_of_FE(mem_value) >> instruction_offset & OFFX_MASK;
+        let offset = aux_get_last_nim_of_field_element(mem_value) >> instruction_offset & OFFX_MASK;
         let vectorized_offset = offset.to_le_bytes();
         let aux = [
             vectorized_offset[0],
