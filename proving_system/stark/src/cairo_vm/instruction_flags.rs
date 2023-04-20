@@ -2,7 +2,7 @@ use super::errors::InstructionDecodingError;
 use crate::FE;
 use lambdaworks_math::traits::ByteConversion;
 
-// Consts copied from cairo-rs
+// Constants for instructions decoding
 const DST_REG_MASK: u64 = 0x0001;
 const DST_REG_OFF: u64 = 0;
 const OP0_REG_MASK: u64 = 0x0002;
@@ -53,8 +53,8 @@ pub struct CairoInstructionFlags {
 impl CairoInstructionFlags {
     /// Gives a bit trace representation of all flags.
     /// Altough the flags can be interpreted as bits, they are
-    /// represented by field elements: bit 0 is FE::zero() and
-    /// bit 1 is FE::one().
+    /// represented by field elements: FE::zero() for bit 0 and
+    /// FE::one() for bit 1.
     #[rustfmt::skip]
     pub fn to_trace_representation(&self) -> [FE; 16] {
         let b0 = self.dst_reg.to_trace_representation();
@@ -65,6 +65,9 @@ impl CairoInstructionFlags {
         let [b10, b11] = self.ap_update.to_trace_representation();
         let [b12, b13, b14] = self.opcode.to_trace_representation();
 
+        // In the paper, a little-endian format for the bit flags is
+        // mentioned. That is why they are arranged in this way (section 4.4
+        // of the Cairo whitepaper - https://eprint.iacr.org/2021/1063.pdf)
         [
             b0,             // dst_reg bits
             b1,             // op0_reg bits
@@ -679,7 +682,7 @@ mod tests {
         //    ResLogic::Op1 = 0 0
         //    PcUpdate::Regular = 0 0 0
         //    ApUpdate::Regular = 0 0
-        //    CairoOpcode::AssertEq = 1 0 0
+        //    CairoOpcode::AssertEq = 0 0 1
 
         let flags = CairoInstructionFlags {
             opcode: CairoOpcode::AssertEq,
@@ -699,7 +702,7 @@ mod tests {
             FE::zero(), FE::zero(),
             FE::zero(), FE::zero(), FE::zero(),
             FE::zero(), FE::zero(),
-            FE::one(), FE::zero(), FE::zero(),
+            FE::zero(), FE::zero(), FE::one(),
             FE::zero(),
         ];
 
