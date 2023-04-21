@@ -157,26 +157,34 @@ where
         .map(|fri_commitment| fri_commitment.merkle_tree.root.clone())
         .collect();
 
-    let query_list = (0..air.context().options.fri_number_of_queries)
-        .map(|_| {
-            // * Sample q_1, ..., q_m using Fiat-Shamir
-            let q_i = transcript_to_usize(transcript) % 2_usize.pow(lde_root_order);
-            transcript.append(&q_i.to_be_bytes());
+    let q_0 = transcript_to_usize(transcript) % 2_usize.pow(lde_root_order);
+    transcript.append(&q_0.to_be_bytes());
 
-            let deep_consistency_check = build_deep_consistency_check(
-                q_i,
-                &lde_roots_of_unity_coset,
-                &lde_trace,
-                &composition_poly_even,
-                &composition_poly_odd,
-            );
+    let deep_consistency_check = build_deep_consistency_check(
+        q_0,
+        &lde_roots_of_unity_coset,
+        &lde_trace,
+        &composition_poly_even,
+        &composition_poly_odd,
+    );
+
+    let query_list = (0..air.context().options.fri_number_of_queries)
+        .enumerate()
+        .map(|(i, _)| {
+            let q_i = if i > 0 {
+                // * Sample q_1, ..., q_m using Fiat-Shamir
+                let q = transcript_to_usize(transcript) % 2_usize.pow(lde_root_order);
+                transcript.append(&q.to_be_bytes());
+                q
+            } else {
+                q_0
+            };
 
             // * For every q_i, do FRI decommitment
             let fri_decommitment = fri_decommit_layers(&lde_fri_commitment, q_i);
             StarkQueryProof {
                 fri_layers_merkle_roots: fri_layers_merkle_roots.clone(),
                 fri_decommitment,
-                deep_consistency_check,
             }
         })
         .collect();
@@ -185,6 +193,7 @@ where
         fri_layers_merkle_roots,
         trace_ood_frame_evaluations,
         composition_poly_ood_evaluations,
+        deep_consistency_check,
         query_list,
     }
 }

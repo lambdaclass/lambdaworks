@@ -219,41 +219,56 @@ where
         }
     }
 
-    let mut result = true;
-    for proof_i in &proof.query_list {
-        let last_evaluation = &proof_i.fri_decommitment.last_layer_evaluation;
-        let last_evaluation_bytes = last_evaluation.to_bytes_be();
-        transcript.append(&last_evaluation_bytes);
+    // DEEP consistency check
+    // 1. Verify that Deep(x) is constructed correctly
+    let last_evaluation = &proof.query_list[0].fri_decommitment.last_layer_evaluation;
+    let last_evaluation_bytes = last_evaluation.to_bytes_be();
+    transcript.append(&last_evaluation_bytes);
 
+    let q_0 = transcript_to_usize(transcript) % (2_usize.pow(lde_root_order));
+    transcript.append(&q_0.to_be_bytes());
+
+    let deep_composition_poly_args = &mut DeepCompositionPolyArgs {
+        root_order,
+        trace_term_coeffs,
+        gamma_even,
+        gamma_odd,
+        d_evaluation_point: &lde_roots_of_unity_coset[q_0],
+        ood_evaluation_point: &z,
+        trace_poly_ood_evaluations,
+        composition_poly_ood_evaluations,
+        deep_consistency_check: &proof.deep_consistency_check,
+    };
+
+    let deep_poly_evaluation = compare_deep_composition_poly(deep_composition_poly_args);
+    let deep_poly_claimed_evaluation = &proof.query_list[0].fri_decommitment.layer_evaluations[0].0;
+
+    if deep_poly_claimed_evaluation != &deep_poly_evaluation {
+        return false;
+    }
+
+    // 2. Verify that t(x_0) is a trace evaluation
+    // 3. Verify first layer of FRI
+    if !verify_trace_evaluations(
+        &proof.deep_consistency_check,
+        q_0,
+        &lde_roots_of_unity_coset,
+    ) || !verify_query(
+        air,
+        &proof.fri_layers_merkle_roots,
+        &beta_list,
+        q_0,
+        &proof.query_list[0].fri_decommitment,
+        lde_root_order,
+    ) {
+        return false;
+    }
+
+    // Verify 1..n layers of FRI
+    let mut result = true;
+    for proof_i in proof.query_list.iter().skip(1) {
         let q_i = transcript_to_usize(transcript) % (2_usize.pow(lde_root_order));
         transcript.append(&q_i.to_be_bytes());
-
-        let deep_composition_poly_args = &mut DeepCompositionPolyArgs {
-            root_order,
-            trace_term_coeffs,
-            gamma_even,
-            gamma_odd,
-            d_evaluation_point: &lde_roots_of_unity_coset[q_i],
-            ood_evaluation_point: &z,
-            trace_poly_ood_evaluations,
-            composition_poly_ood_evaluations,
-            deep_consistency_check: &proof_i.deep_consistency_check,
-        };
-
-        let deep_poly_evaluation = compare_deep_composition_poly(deep_composition_poly_args);
-        let deep_poly_claimed_evaluation = &proof_i.fri_decommitment.layer_evaluations[0].0;
-
-        if deep_poly_claimed_evaluation != &deep_poly_evaluation {
-            return false;
-        }
-
-        if !verify_trace_evaluations(
-            &proof_i.deep_consistency_check,
-            q_i,
-            &lde_roots_of_unity_coset,
-        ) {
-            return false;
-        }
 
         // this is done in constant time
         result &= verify_query(
