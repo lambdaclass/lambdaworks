@@ -1,4 +1,4 @@
-name: Criterion benchmarks
+name: CI
 
 on:
   push:
@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   criterion_bench:
-    name: Run (Ubuntu)
+    name: Criterion benches (Ubuntu)
     runs-on: ubuntu-20.04
     env:
       CARGO_TERM_COLOR: always
@@ -38,7 +38,7 @@ jobs:
         # Push and deploy GitHub pages branch automatically
         auto-push: ${{ github.event_name != 'pull_request' }}
   criterion_bench_macos:
-    name: Run (macOS, Apple sillicon)
+    name: Criterion benches (macOS, Apple sillicon)
     runs-on: [self-hosted, macOS]
     env:
       CARGO_TERM_COLOR: always
