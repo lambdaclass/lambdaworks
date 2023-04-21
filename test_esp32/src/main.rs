@@ -22,6 +22,7 @@ use lambdaworks_stark::air::example::{
 use lambdaworks_stark::air::trace::TraceTable;
 use lambdaworks_stark::air::AIR;
 use lambdaworks_stark::prover::prove;
+use lambdaworks_stark::verifier::verify;
 
 pub type Stark252PrimeField = U256PrimeField<MontgomeryConfigStark252PrimeField>;
 type FE = FieldElement<Stark252PrimeField>;
@@ -36,16 +37,32 @@ fn main() {
         // Enable WatchDogTask on the main (=this) task.
         //esp_idf_sys::esp_task_wdt_add(esp_idf_sys::xTaskGetCurrentTaskHandle());
     };
+    
+    let mut i = 0_u64;
 
     loop {
-        println!("Test stark! 16");
-        thread::sleep(Duration::from_millis(1000));
+
         test_prove_fib();
+/*
+        let builder = thread::Builder::new().stack_size(280 * 1024);
+        let th = builder.spawn(move || {
+            println!("New thread! {i}");
+
+            println!("Test stark! 32");
+            test_prove_fib();
+        }).unwrap();
+*/
+
+        i += 1;
+
+        //th.join().unwrap();
+
+        //thread::sleep(Duration::from_millis(1000));
     }
 }
 
 fn test_prove_fib() {
-    let trace = simple_fibonacci::fibonacci_trace([FE::from(1), FE::from(1)], 16);
+    let trace = simple_fibonacci::fibonacci_trace([FE::from(1), FE::from(1)], 32);
     let trace_length = trace[0].len();
     let trace_table = TraceTable::new_from_cols(&trace);
 
@@ -68,7 +85,8 @@ fn test_prove_fib() {
     let result = prove(&trace_table, &fibonacci_air);
     let cant_query_list = result.query_list.len();
     println!("cant: {cant_query_list}");
-    //    assert!(verify(&result, &fibonacci_air));
+    let ret_verify = verify(&result, &fibonacci_air);
+    println!("ret_verify: {ret_verify:?}");
 }
 
 fn interpolation_example() {
