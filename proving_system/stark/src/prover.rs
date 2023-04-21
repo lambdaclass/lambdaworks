@@ -11,6 +11,9 @@ use crate::{
 use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 
+#[cfg(feature = "esp")]
+use lambdaworks_crypto::fiat_shamir::embedded_transcript::EmbeddedTranscript;
+
 #[cfg(feature = "test_fiat_shamir")]
 use lambdaworks_crypto::fiat_shamir::test_transcript::TestTranscript;
 
@@ -28,7 +31,12 @@ where
     FieldElement<F>: ByteConversion,
 {
     #[cfg(not(feature = "test_fiat_shamir"))]
-    let transcript = &mut DefaultTranscript::new();
+    let transcript = {
+        #[cfg(not(feature = "esp"))]
+        {&mut DefaultTranscript::new()}
+        #[cfg(feature = "esp")]
+        {&mut EmbeddedTranscript::new()}
+    };
     #[cfg(feature = "test_fiat_shamir")]
     let transcript = &mut TestTranscript::new();
 
