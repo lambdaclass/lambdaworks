@@ -10,7 +10,7 @@ concurrency:
   group: ${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
   
-  test-metal:
+  test_metal:
     name: Test Metal
     runs-on: [self-hosted, macOS]
     env:
