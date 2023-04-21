@@ -359,7 +359,7 @@
 }
 <span class="boring">}
 </span></code></pre></pre>
-<p>The proving system revolves around the <code>prove</code> function, that takes a trace and an AIR as inputs to generate a proof, and a <code>verify</code> function that takes the proof and the AIR as inputs, outputing <code>true</code> when the proof is verified correctly and <code>false</code> otherwise.</p>
+<p>The proving system revolves around the <code>prove</code> function, that takes a trace and an AIR as inputs to generate a proof, and a <code>verify</code> function that takes the proof and the AIR as inputs, outputting <code>true</code> when the proof is verified correctly and <code>false</code> otherwise.</p>
 <p>Below we go over the main things involved in this code.</p>
 <h2 id="air"><a class="header" href="#air">AIR</a></h2>
 <p>To prove the integrity of a fibonacci trace, we first need to define what it means for a trace to be valid. As we've talked about in the recap, this involves defining an <code>AIR</code> for our computation where we specify both the boundary and transition constraints for a fibonacci sequence.</p>
@@ -441,9 +441,9 @@ let trace_table = TraceTable {
 };
 <span class="boring">}
 </span></code></pre></pre>
-<p>In our example, <code>fibonacci_trace</code> is just a helper function we use to generate the fibonacci trace with <code>4</code> columns and <code>[1, 1]</code> as the first two values.</p>
+<p>In our example, <code>fibonacci_trace</code> is just a helper function we use to generate the fibonacci trace with <code>4</code> rows and <code>[1, 1]</code> as the first two values.</p>
 <h2 id="air-context"><a class="header" href="#air-context">AIR Context</a></h2>
-<p>After specifying our constraints and trace, the only thing left to do is provide a few parameters related to the STARK protocol and our <code>AIR</code>. These are all encapsulated in the <code>AirContext</code> struct, which in our example we isntantiate like this:</p>
+<p>After specifying our constraints and trace, the only thing left to do is provide a few parameters related to the STARK protocol and our <code>AIR</code>. These are all encapsulated in the <code>AirContext</code> struct, which in our example we instantiate like this:</p>
 <pre><pre class="playground"><code class="language-rust">
 <span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
