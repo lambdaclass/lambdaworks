@@ -24,5 +24,9 @@ METALPATH = gpu/src/metal/shaders
 build-metal:
 	xcrun -sdk macosx metal $(METALPATH)/all.metal -o $(METALPATH)/lib.metallib
 
+CUDAPATH = gpu/src/cuda/shaders
+build-cuda:
+	nvcc -ptx $(CUDAPATH)/fft.cu -o $(CUDAPATH)/fft.ptx
+
 docs:
 	cd docs && mdbook serve --open
