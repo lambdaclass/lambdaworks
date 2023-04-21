@@ -50,21 +50,6 @@ pub fn i2osp(x: u64, length: u64) -> Vec<u8> {
     digits
 }
 
-pub fn os2ip(x: &[u8]) -> u64 {
-    let mut aux_x = x.to_vec();
-    let x_len = aux_x.len();
-    aux_x.reverse();
-    let mut i = 0_u64;
-    for (j, item) in aux_x.iter().enumerate().take(x_len) {
-        i += *item as u64 * 256_u64.pow(j as u32);
-    }
-    i
-}
-
 pub fn strxor(a: &[u8], b: &[u8]) -> Vec<u8> {
     a.iter().zip(b).map(|(a, b)| a ^ b).collect()
-}
-
-pub fn stror(a: &[u8], b: &[u8]) -> Vec<u8> {
-    a.iter().zip(b).map(|(a, b)| a | b).collect()
 }
