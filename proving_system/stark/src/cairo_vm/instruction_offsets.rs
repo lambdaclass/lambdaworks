@@ -43,6 +43,9 @@ impl InstructionOffsets {
     }
 }
 
+/// Returns an unbiased representation of the number. This is applied to
+/// instruction offsets as explained in section 9.4 of the Cairo whitepaper
+/// to be in the range [0, 2^16). https://eprint.iacr.org/2021/1063.pdf
 fn to_unbiased_representation<F: IsField>(n: i32) -> FieldElement<F> {
     let b15 = 2u64.pow(15u32);
     if n < 0 {
