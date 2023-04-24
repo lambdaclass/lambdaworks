@@ -20,7 +20,7 @@ benchmarks:
 benchmark:
 	cargo criterion --bench ${BENCH}
 
-flamegraph:
+flamegraph_stark:
 	CARGO_PROFILE_BENCH_DEBUG=true cargo flamegraph --root --bench stark_benchmarks -- --bench
 
 METALPATH = gpu/src/metal/shaders
