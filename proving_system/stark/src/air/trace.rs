@@ -1,11 +1,12 @@
 use lambdaworks_fft::errors::FFTError;
 use lambdaworks_fft::polynomial::FFTPoly;
-use lambdaworks_math::field::traits::IsTwoAdicField;
-use lambdaworks_math::field::{element::FieldElement, traits::IsField};
-use lambdaworks_math::polynomial::Polynomial;
+use lambdaworks_math::{
+    field::{element::FieldElement, traits::IsTwoAdicField},
+    polynomial::Polynomial,
+};
 
-#[derive(Clone, Default, Debug)]
-pub struct TraceTable<F: IsField> {
+#[derive(Clone, Default, Debug, PartialEq, Eq)]
+pub struct TraceTable<F: IsTwoAdicField> {
     /// `table` is column oriented trace element description
     pub table: Vec<FieldElement<F>>,
     pub n_cols: usize,
