@@ -1,3 +1,9 @@
+use std::fmt::Debug;
+
+use lambdaworks_math::field::element::FieldElement;
+use lambdaworks_math::field::fields::montgomery_backed_prime_fields::IsModulus;
+use lambdaworks_math::field::fields::montgomery_backed_prime_fields::MontgomeryBackendPrimeField;
+use lambdaworks_math::unsigned_integer::element::UnsignedInteger;
 use sha3::Digest;
 use sha3::Sha3_256;
 
@@ -50,6 +56,38 @@ pub fn i2osp(x: u64, length: u64) -> Vec<u8> {
     digits
 }
 
+pub fn os2ip<M: IsModulus<UnsignedInteger<N>> + Clone + Debug, const N: usize>(
+    x: &[u8],
+) -> FieldElement<MontgomeryBackendPrimeField<M, N>> {
+    let mut aux_x = x.to_vec();
+    aux_x.reverse();
+    let two_to_the_nth = build_two_to_the_nth();
+    let mut j = 0_u32;
+    let mut item_hex = String::with_capacity(N * 16);
+    let mut result = FieldElement::zero();
+    for item_u8 in aux_x.iter() {
+        item_hex += &format!("{:x}", item_u8);
+        if item_hex.len() == item_hex.capacity() {
+            result += FieldElement::from_hex(&item_hex) * two_to_the_nth.pow(j);
+            item_hex.clear();
+            j += 1;
+        }
+    }
+    result
+}
+
 pub fn strxor(a: &[u8], b: &[u8]) -> Vec<u8> {
     a.iter().zip(b).map(|(a, b)| a ^ b).collect()
+}
+
+/// Builds a `FieldElement` for `2^(N*16)`, where `N` is the number of limbs of the `UnsignedInteger`
+/// used for the prime field.
+fn build_two_to_the_nth<M: IsModulus<UnsignedInteger<N>> + Clone + Debug, const N: usize>(
+) -> FieldElement<MontgomeryBackendPrimeField<M, N>> {
+    // The hex used to build the FieldElement is a 1 followed by N * 16 zeros
+    let mut two_to_the_nth = String::with_capacity(N * 16);
+    for _ in 0..two_to_the_nth.capacity() - 1 {
+        two_to_the_nth.push('1');
+    }
+    FieldElement::from_hex(&two_to_the_nth) + FieldElement::one()
 }

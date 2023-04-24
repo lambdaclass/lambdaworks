@@ -1,8 +1,15 @@
 pub mod helpers;
 
+use std::fmt::Debug;
+
 use lambdaworks_math::{
-    field::{element::FieldElement, traits::IsField},
+    field::{
+        element::FieldElement,
+        fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
+        traits::IsField,
+    },
     traits::ByteConversion,
+    unsigned_integer::element::{UnsignedInteger, U256},
 };
 use sha3::{Digest, Sha3_256};
 
@@ -16,25 +23,25 @@ impl Sha3Hasher {
         Self
     }
 
-    pub fn hash_to_field<F: IsField>(
+    pub fn hash_to_field<M: IsModulus<UnsignedInteger<N>> + Clone + Debug, const N: usize>(
         &self,
         msg: &[u8],
         count: u64,
         dst: &[u8],
-    ) -> Vec<FieldElement<F>>
-    where
-        FieldElement<F>: ByteConversion,
-    {
-        let order = 18446744069414584321_u64 as f64;
-        let mut u: Vec<FieldElement<F>> = vec![FieldElement::zero(); count as usize];
-        //L = ceil((ceil(log2(p)) + k) / 8), where k is the security parameter of the cryptosystem (e.g., k = 128)
-        let l = ((((order.log2().ceil() as u64) + 128) / 8) as f64).ceil() as u64;
+    ) -> Vec<FieldElement<MontgomeryBackendPrimeField<M, N>>> {
+        let order = U256::from("800000000000011000000000000000000000000000000000000000000000001");
+        let mut u = vec![FieldElement::zero(); count as usize];
+        //L = ceil((ceil(log2(p)) + k) / 8), where k is the security parameter of the cryptosystem (e.g. k = ceil(log2(p) / 2))
+        let log2_p = (order.limbs.len() * 8) as f64;
+        let k = (log2_p / 2.0).ceil() * 8.0;
+        let l = (((log2_p * 8.0) + k) / 8.0).ceil() as u64;
         let len_in_bytes = count * l;
         let pseudo_random_bytes = helpers::expand_message(msg, dst, len_in_bytes).unwrap();
         for i in 0..count {
             let elm_offset = l * i;
             let tv = &pseudo_random_bytes[elm_offset as usize..elm_offset as usize + l as usize];
-            u[i as usize] = FieldElement::from_bytes_be(tv).unwrap();
+
+            u[i as usize] = helpers::os2ip::<M, N>(tv);
         }
         u
     }
@@ -66,18 +73,19 @@ impl<F: IsField> IsCryptoHash<F> for Sha3Hasher {
 
 #[cfg(test)]
 mod tests {
-    use lambdaworks_math::field::fields::u64_prime_field::U64PrimeField;
+    use lambdaworks_math::field::{
+        element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+    };
 
     use super::Sha3Hasher;
 
-    const MODULUS: u64 = 20;
-    type F = U64PrimeField<MODULUS>;
+    type F = Stark252PrimeField;
 
     #[test]
     fn test_same_message_produce_same_field_elements() {
         let hasher = Sha3Hasher::new();
-        let field_elements = hasher.hash_to_field::<F>(b"testing", 40, b"dsttest");
-        let other_field_elements = hasher.hash_to_field::<F>(b"testing", 40, b"dsttest");
+        let field_elements: Vec<FieldElement<F>> = hasher.hash_to_field(b"testing", 40, b"dsttest");
+        let other_field_elements = hasher.hash_to_field(b"testing", 40, b"dsttest");
         assert_eq!(field_elements, other_field_elements);
     }
 }
