@@ -1,15 +1,18 @@
-use lambdaworks_math::field::element::FieldElement;
-use lambdaworks_math::field::test_fields::u32_test_field::U32TestField;
+use lambdaworks_math::field::{
+    element::FieldElement,
+    traits::{IsField, IsTwoAdicField},
+};
 
 use cudarc::{
-    driver::{CudaDevice, LaunchAsync, LaunchConfig},
+    driver::{safe::DeviceRepr, CudaDevice, LaunchAsync, LaunchConfig},
     nvrtc::safe::Ptx,
 };
 
-const SHADER_PTX: &str = include_str!("../shaders/fft.ptx");
+use core::ffi;
 
-type F = U32TestField;
-type FE = FieldElement<F>;
+use crate::cuda::field;
+
+const SHADER_PTX: &str = include_str!("../shaders/fft.ptx");
 
 /// Executes parallel ordered FFT over a slice of two-adic field elements, in CUDA.
 /// Twiddle factors are required to be in bit-reverse order.
@@ -18,15 +21,29 @@ type FE = FieldElement<F>;
 /// in this order too. Natural order means that input[i] corresponds to the i-th coefficient,
 /// as opposed to bit-reverse order in which input[bit_rev(i)] corresponds to the i-th
 /// coefficient.
-pub fn fft(input: &[FieldElement<F>], twiddles: &[FieldElement<F>]) -> Vec<FieldElement<F>> {
+pub fn fft<F>(input: &[FieldElement<F>], twiddles: &[FieldElement<F>]) -> Vec<FieldElement<F>>
+where
+    F: IsTwoAdicField,
+    F::BaseType: Unpin,
+{
     let device = CudaDevice::new(0).unwrap();
 
     // d_ prefix is used to indicate device memory.
     let mut d_input = device
-        .htod_sync_copy(&input.iter().map(|e| *e.value()).collect::<Vec<u32>>())
+        .htod_sync_copy(
+            &input
+                .iter()
+                .map(CUDAFieldElement::from)
+                .collect::<Vec<CUDAFieldElement<F>>>(),
+        )
         .unwrap();
     let d_twiddles = device
-        .htod_sync_copy(&twiddles.iter().map(|e| *e.value()).collect::<Vec<u32>>())
+        .htod_sync_copy(
+            &twiddles
+                .iter()
+                .map(CUDAFieldElement::from)
+                .collect::<Vec<CUDAFieldElement<F>>>(),
+        )
         .unwrap();
 
     device
@@ -52,8 +69,12 @@ pub fn fft(input: &[FieldElement<F>], twiddles: &[FieldElement<F>]) -> Vec<Field
         unsafe { kernel.clone().launch(config, (&mut d_input, &d_twiddles)) }.unwrap();
     }
 
-    let output: Vec<u32> = device.sync_reclaim(d_input).unwrap();
-    output.iter().map(FE::from).collect()
+    let output: Vec<CUDAFieldElement<F>> = device.sync_reclaim(d_input).unwrap();
+    let output: Vec<FieldElement<F>> = output
+        .into_iter()
+        .map(|cuda_elem| cuda_elem.into())
+        .collect();
+    output
 }
 
 #[cfg(test)]
