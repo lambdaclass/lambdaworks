@@ -15,6 +15,7 @@ From the heights of these towers of fields, forty centuries of mathematics look 
 ![FqJmqwtWABozHi_](https://user-images.githubusercontent.com/569014/222294400-4a9e2a46-2823-4a98-b0f4-2293d372cccb.jpeg)
 
 If you use ```Lambdaworks``` libraries in your research projects, please cite them using the following template:
+
 ```
 @software{Lambdaworks,
   author={Lambdaworks contributors},
@@ -115,9 +116,9 @@ make docs
 
 Benchmark results are hosted [here](https://lambdaclass.github.io/lambdaworks/bench).
 
-To run them locally, you will need `cargo-criterion`. Install it with:
+To run them locally, you will need `cargo-criterion` and `cargo-flamgraph`. Install it with:
 
-```
+```bash
 cargo install cargo-criterion
 ```
 

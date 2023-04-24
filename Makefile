@@ -20,6 +20,9 @@ benchmarks:
 benchmark:
 	cargo criterion --bench ${BENCH}
 
+flamegraph:
+	CARGO_PROFILE_BENCH_DEBUG=true cargo flamegraph --root --bench stark_benchmarks -- --bench
+
 METALPATH = gpu/src/metal/shaders
 build-metal:
 	xcrun -sdk macosx metal $(METALPATH)/all.metal -o $(METALPATH)/lib.metallib
