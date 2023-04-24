@@ -7,5 +7,5 @@ If you were using the `--all-features` flag please read this crate's Cargo.toml"
 #[cfg(feature = "metal")]
 pub mod metal;
 
-#[cfg(feature = "cuda")]
+//#[cfg(feature = "cuda")]
 pub mod cuda;
