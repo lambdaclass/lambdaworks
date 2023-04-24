@@ -1,7 +1,7 @@
 use lambdaworks_math::field::{element::FieldElement, traits::IsTwoAdicField};
 
 use cudarc::{
-    driver::{safe::DeviceRepr, CudaDevice, LaunchAsync, LaunchConfig},
+    driver::{CudaDevice, LaunchAsync, LaunchConfig},
     nvrtc::safe::Ptx,
 };
 
