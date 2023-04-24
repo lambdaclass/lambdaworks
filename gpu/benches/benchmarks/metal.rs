@@ -108,7 +108,7 @@ pub fn metal_poly_interpolate_fft_benchmarks(c: &mut Criterion) {
             bench.iter(|| {
                 // TODO: autoreleaspool hurts perf. by 2-3%. Search for an alternative
                 objc::rc::autoreleasepool(|| {
-                    Polynomial::interpolate_fft_metal(evals).unwrap();
+                    interpolate_fft_metal(evals).unwrap();
                 });
             });
         });
@@ -129,7 +129,7 @@ pub fn metal_poly_evaluate_fft_benchmarks(c: &mut Criterion) {
             bench.iter(|| {
                 // TODO: autoreleaspool hurts perf. by 2-3%. Search for an alternative
                 objc::rc::autoreleasepool(|| {
-                    poly.evaluate_fft_metal().unwrap();
+                    evaluate_fft_metal(poly).unwrap();
                 });
             });
         });
