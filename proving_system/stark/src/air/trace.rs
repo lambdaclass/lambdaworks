@@ -1,3 +1,4 @@
+use crate::air::AIR;
 use lambdaworks_fft::errors::FFTError;
 use lambdaworks_fft::polynomial::FFTPoly;
 use lambdaworks_math::field::traits::IsTwoAdicField;
@@ -62,7 +63,14 @@ impl<F: IsTwoAdicField> TraceTable<F> {
             .collect::<Result<Vec<Polynomial<FieldElement<F>>>, FFTError>>()
             .unwrap()
     }
+
+    pub fn validate<A: AIR>(&self, air: A) {
+        // VALIDATE BOUNDARY CONSTRAINTS
+
+        // VALIDATE TRANSITION CONSTRAINTS
+    }
 }
+
 #[cfg(test)]
 mod test {
     use super::TraceTable;
