@@ -17,10 +17,10 @@ use lambdaworks_stark::{
 use lambdaworks_stark::air::example::{
     fibonacci_2_columns, fibonacci_f17, quadratic_air, simple_fibonacci,
 };
-
+use test_log::test;
 pub type FE = FieldElement<Stark252PrimeField>;
 
-#[test]
+#[test_log::test]
 fn test_prove_fib() {
     let trace = simple_fibonacci::fibonacci_trace([FE::from(1), FE::from(1)], 8);
     let trace_length = trace[0].len();

@@ -1,12 +1,14 @@
+use crate::air::frame::Frame;
 use crate::air::AIR;
 use lambdaworks_fft::errors::FFTError;
 use lambdaworks_fft::polynomial::FFTPoly;
+use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::IsTwoAdicField;
-use lambdaworks_math::field::{element::FieldElement, traits::IsField};
 use lambdaworks_math::polynomial::Polynomial;
+use log::{error, info};
 
 #[derive(Clone, Default, Debug)]
-pub struct TraceTable<F: IsField> {
+pub struct TraceTable<F: IsTwoAdicField> {
     /// `table` is column oriented trace element description
     pub table: Vec<FieldElement<F>>,
     pub n_cols: usize,
@@ -56,6 +58,11 @@ impl<F: IsTwoAdicField> TraceTable<F> {
             .collect()
     }
 
+    pub fn get(&self, step: usize, col: usize) -> FieldElement<F> {
+        let idx = step * self.n_cols + col;
+        self.table[idx].clone()
+    }
+
     pub fn compute_trace_polys(&self) -> Vec<Polynomial<FieldElement<F>>> {
         self.cols()
             .iter()
@@ -64,10 +71,54 @@ impl<F: IsTwoAdicField> TraceTable<F> {
             .unwrap()
     }
 
-    pub fn validate<A: AIR>(&self, air: A) {
-        // VALIDATE BOUNDARY CONSTRAINTS
+    /// Validates that the trace is valid with respect to the supplied AIR constraints
+    pub fn validate<A: AIR<Field = F>>(&self, air: &A) {
+        info!("Starting constraints validation over trace...");
 
-        // VALIDATE TRANSITION CONSTRAINTS
+        // --------- VALIDATE BOUNDARY CONSTRAINTS ------------
+        air.boundary_constraints()
+            .constraints
+            .iter()
+            .for_each(|constraint| {
+                let col = constraint.col;
+                let step = constraint.step;
+                let boundary_value = constraint.value.clone();
+                let trace_value = self.get(step, col);
+
+                if boundary_value != trace_value {
+                    error!("Boundary constraint inconsistency - Expected value {:?} in step {} and column {}, found: {:?}", boundary_value, step, col, trace_value);
+                }
+            });
+
+        // --------- VALIDATE TRANSITION CONSTRAINTS -----------
+        let root_order = air.context().trace_length.trailing_zeros();
+        let _trace_primitive_root: FieldElement<F> =
+            F::get_primitive_root_of_unity(root_order as u64).unwrap();
+
+        let n_transition_constraints = air.context().num_transition_constraints();
+        let transition_exemptions = air.context().transition_exemptions;
+
+        let exemption_steps: Vec<usize> = vec![self.n_rows(); n_transition_constraints]
+            .iter()
+            .zip(transition_exemptions)
+            .map(|(trace_steps, exemptions)| trace_steps - exemptions)
+            .collect();
+
+        // Iterate over trace and compute transitions. With
+        for step in 0..self.n_rows() {
+            let frame = Frame::read_from_trace(self, step, 1, &air.context().transition_offsets);
+
+            let evaluations = air.compute_transition(&frame);
+            // Iterate over each transition evaluation. When the evaluated step is not from
+            // the exemption steps corresponding to the transition, it should have zero as a
+            // result
+            evaluations.iter().enumerate().for_each(|(i, eval)| {
+                if step < exemption_steps[i] && eval != &FieldElement::<F>::zero() {
+                    error!("Inconsistent evaluation of transition {} in step {} - expected 0, got {:?}", i, step, eval);
+                }
+            })
+        }
+        info!("Constraints validation check ended");
     }
 }
 

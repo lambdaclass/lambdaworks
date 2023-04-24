@@ -27,6 +27,9 @@ pub fn prove<F: IsTwoAdicField, A: AIR<Field = F>>(trace: &TraceTable<F>, air: &
 where
     FieldElement<F>: ByteConversion,
 {
+    #[cfg(debug_assertions)]
+    trace.validate(air);
+
     #[cfg(not(feature = "test_fiat_shamir"))]
     let transcript = &mut DefaultTranscript::new();
     #[cfg(feature = "test_fiat_shamir")]
@@ -61,7 +64,6 @@ where
                 &FieldElement::<F>::from(air.options().coset_offset),
                 air.options().blowup_factor as usize,
             );
-            dbg!(&res);
             res
         })
         .collect::<Result<Vec<Vec<FieldElement<F>>>, FFTError>>()

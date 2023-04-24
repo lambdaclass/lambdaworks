@@ -11,10 +11,13 @@ lambdaworks-math = { path = "../../math" }
 lambdaworks-crypto = { path = "../../crypto" }
 lambdaworks-fft = { path = "../../fft" }
 thiserror = "1.0.38"
+log = "0.4.17"
 
 [dev-dependencies]
 hex = "0.4.3"
 criterion = "0.4"
+env_logger = "*"
+test-log = { version = "0.2.11", features = ["log"] }
 
 [features]
 test_fiat_shamir = []
