@@ -77,15 +77,19 @@ mod tests {
         element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
     };
 
+    use proptest::prelude::*;
+
     use super::Sha3Hasher;
 
     type F = Stark252PrimeField;
 
-    #[test]
-    fn test_same_message_produce_same_field_elements() {
-        let hasher = Sha3Hasher::new();
-        let field_elements: Vec<FieldElement<F>> = hasher.hash_to_field(b"testing", 40, b"dsttest");
-        let other_field_elements = hasher.hash_to_field(b"testing", 40, b"dsttest");
-        assert_eq!(field_elements, other_field_elements);
+    proptest! {
+        #[test]
+        fn test_same_message_produce_same_field_elements(msg in ".*", dst in ".*") {
+            let hasher = Sha3Hasher::new();
+            let field_elements: Vec<FieldElement<F>> = hasher.hash_to_field(msg.as_bytes(), 40, dst.as_bytes());
+            let other_field_elements = hasher.hash_to_field(msg.as_bytes(), 40, dst.as_bytes());
+            prop_assert_eq!(field_elements, other_field_elements);
+        }
     }
 }
