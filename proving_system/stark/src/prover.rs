@@ -60,11 +60,10 @@ where
     let lde_trace_evaluations = trace_polys
         .iter()
         .map(|poly| {
-            let res = poly.evaluate_offset_fft(
+            poly.evaluate_offset_fft(
                 &FieldElement::<F>::from(air.options().coset_offset),
                 air.options().blowup_factor as usize,
-            );
-            res
+            )
         })
         .collect::<Result<Vec<Vec<FieldElement<F>>>, FFTError>>()
         .unwrap();
