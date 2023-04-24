@@ -13,16 +13,16 @@ pub fn hash_to_field<M: IsModulus<UnsignedInteger<N>> + Clone + Debug, const N: 
     count: usize,
 ) -> Vec<FieldElement<MontgomeryBackendPrimeField<M, N>>> {
     let order = M::MODULUS;
-    let mut u = vec![FieldElement::zero(); count as usize];
+    let mut u = vec![FieldElement::zero(); count];
     //L = ceil((ceil(log2(p)) + k) / 8), where k is the security parameter of the cryptosystem (e.g. k = ceil(log2(p) / 2))
     let log2_p = (order.limbs.len() * 8) as f64;
     let k = (log2_p / 2.0).ceil() * 8.0;
     let l = (((log2_p * 8.0) + k) / 8.0).ceil() as usize;
-    for i in 0..count {
+    for (i, item) in u.iter_mut().enumerate() {
         let elm_offset = l * i;
-        let tv = &pseudo_random_bytes[elm_offset as usize..elm_offset as usize + l as usize];
+        let tv = &pseudo_random_bytes[elm_offset..elm_offset + l];
 
-        u[i as usize] = os2ip::<M, N>(tv);
+        *item = os2ip::<M, N>(tv);
     }
     u
 }
