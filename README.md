@@ -116,7 +116,7 @@ make docs
 
 Benchmark results are hosted [here](https://lambdaclass.github.io/lambdaworks/bench).
 
-To run them locally, you will need `cargo-criterion` and `cargo-flamgraph`. Install it with:
+To run them locally, you will need `cargo-criterion` and `cargo-flamegraph`. Install it with:
 
 ```bash
 cargo install cargo-criterion
