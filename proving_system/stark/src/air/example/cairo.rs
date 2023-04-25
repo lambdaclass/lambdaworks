@@ -244,10 +244,11 @@ fn compute_register_constraints(constraints: &mut [FE], frame: &Frame<Stark252Pr
         + &curr[F_AP_ONE]
         + &curr[F_OPC_CALL] * &two
         - &next[FRAME_AP];
+
     constraints[NEXT_FP] = &curr[F_OPC_RET] * &curr[FRAME_DST]
         + &curr[F_OPC_CALL] * (&curr[FRAME_AP] + &two)
-        + (&one - &curr[F_OPC_RET] - &curr[F_OPC_CALL]) * &curr[FRAME_AP]
-        - &next[FRAME_AP];
+        + (&one - &curr[F_OPC_RET] - &curr[F_OPC_CALL]) * &curr[FRAME_FP]
+        - &next[FRAME_FP];
 
     // pc constraints
     constraints[NEXT_PC_1] = (&curr[FRAME_T1] - &curr[F_PC_JNZ])
