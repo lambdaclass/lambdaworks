@@ -169,8 +169,7 @@ where
     );
 
     let query_list = (0..air.context().options.fri_number_of_queries)
-        .enumerate()
-        .map(|(i, _)| {
+        .map(|i| {
             let q_i = if i > 0 {
                 // * Sample q_1, ..., q_m using Fiat-Shamir
                 let q = transcript_to_usize(transcript) % 2_usize.pow(lde_root_order);
