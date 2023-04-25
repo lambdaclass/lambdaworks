@@ -138,8 +138,8 @@ fn prove_quadratic() {
         num_transition_constraints: 1,
     };
 
-    let fibonacci_air = quadratic_air::QuadraticAIR::from(context);
+    let quadratic_air = quadratic_air::QuadraticAIR::from(context);
 
-    let result = prove(&trace_table, &fibonacci_air);
-    verify(&result, &fibonacci_air);
+    let result = prove(&trace_table, &quadratic_air);
+    verify(&result, &quadratic_air);
 }
