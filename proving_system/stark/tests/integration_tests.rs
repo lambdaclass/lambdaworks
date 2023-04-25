@@ -128,7 +128,7 @@ fn test_prove_quadratic() {
 }
 
 #[test_log::test]
-fn test_prove_cairo() {
+fn test_prove_cairo_simple_program() {
     /*
     Cairo program used in the test:
 
@@ -145,6 +145,43 @@ fn test_prove_cairo() {
     let base_dir = env!("CARGO_MANIFEST_DIR");
     let dir_trace = base_dir.to_owned() + "/src/cairo_vm/test_data/simple_program.trace";
     let dir_memory = base_dir.to_owned() + "/src/cairo_vm/test_data/simple_program.mem";
+
+    let raw_trace = CairoTrace::from_file(&dir_trace).unwrap();
+    let memory = CairoMemory::from_file(&dir_memory).unwrap();
+
+    let execution_trace = build_cairo_execution_trace(&raw_trace, &memory);
+
+    let cairo_air = cairo::CairoAIR::new(&execution_trace);
+
+    let result = prove(&execution_trace, &cairo_air);
+    assert!(verify(&result, &cairo_air));
+}
+
+#[test_log::test]
+fn test_prove_cairo_call_func() {
+    /*
+    Cairo program used in the test:
+
+    ```
+    func mul(x: felt, y: felt) -> (res: felt) {
+        return (res = x * y);
+    }
+
+    func main() {
+        let x = 2;
+        let y = 3;
+
+        let (res) = mul(x, y);
+        assert res = 6;
+
+        return ();
+    }
+
+    ```
+    */
+    let base_dir = env!("CARGO_MANIFEST_DIR");
+    let dir_trace = base_dir.to_owned() + "/src/cairo_vm/test_data/call_func.trace";
+    let dir_memory = base_dir.to_owned() + "/src/cairo_vm/test_data/call_func.mem";
 
     let raw_trace = CairoTrace::from_file(&dir_trace).unwrap();
     let memory = CairoMemory::from_file(&dir_memory).unwrap();
