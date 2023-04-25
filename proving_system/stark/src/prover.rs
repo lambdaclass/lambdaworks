@@ -64,7 +64,7 @@ where
                 &FieldElement::<F>::from(air.options().coset_offset),
                 air.options().blowup_factor as usize,
             );
-            dbg!(&res);
+            // dbg!(&res);
             // FIXME: This doesn't work, it should be handled better.
             match res {
                 Ok(res) => Ok(res),

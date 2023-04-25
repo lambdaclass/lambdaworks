@@ -61,7 +61,7 @@ impl<F: IsTwoAdicField> TraceTable<F> {
             .collect()
     }
 
-    pub fn get(&self, step: usize, col: usize) -> FieldElement<F> {
+    pub fn get_dbg(&self, step: usize, col: usize) -> FieldElement<F> {
         let idx = step * self.n_cols + col;
         self.table[idx].clone()
     }
@@ -90,7 +90,7 @@ impl<F: IsTwoAdicField> TraceTable<F> {
                 let col = constraint.col;
                 let step = constraint.step;
                 let boundary_value = constraint.value.clone();
-                let trace_value = self.get(step, col);
+                let trace_value = self.get_dbg(step, col);
 
                 if boundary_value != trace_value {
                     error!("Boundary constraint inconsistency - Expected value {:?} in step {} and column {}, found: {:?}", boundary_value, step, col, trace_value);
