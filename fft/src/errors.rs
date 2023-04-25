@@ -1,20 +1,18 @@
 use lambdaworks_math::field::errors::FieldError;
 use thiserror::Error;
 
+#[cfg(feature = "metal")]
+use lambdaworks_gpu::metal::abstractions::errors::MetalError;
+
 #[derive(Debug, Error)]
 pub enum FFTError {
     #[error("The order of the polynomial is not correct")]
     InvalidOrder(String),
     #[error("Could not calculate {1} root of unity")]
     RootOfUnityError(String, u64),
-    #[error("Couldn't find a system default device for Metal")]
-    MetalDeviceNotFound(),
-    #[error("Couldn't create a new Metal library: {0}")]
-    MetalLibraryError(String),
-    #[error("Couldn't create a new Metal function object: {0}")]
-    MetalFunctionError(String),
-    #[error("Couldn't create a new Metal compute pipeline: {0}")]
-    MetalPipelineError(String),
+    #[cfg(feature = "metal")]
+    #[error("A Metal related error has ocurred")]
+    MetalError(MetalError),
 }
 
 impl From<FieldError> for FFTError {
@@ -25,5 +23,12 @@ impl From<FieldError> for FFTError {
             }
             FieldError::RootOfUnityError(error, order) => FFTError::RootOfUnityError(error, order),
         }
+    }
+}
+
+#[cfg(feature = "metal")]
+impl From<MetalError> for FFTError {
+    fn from(error: MetalError) -> Self {
+        FFTError::MetalError(error)
     }
 }

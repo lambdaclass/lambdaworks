@@ -46,7 +46,7 @@ jobs:
         run: make clippy
   test:
     name: Test
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     env:
       CARGO_TERM_COLOR: always
     steps:

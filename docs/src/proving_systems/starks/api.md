@@ -29,7 +29,7 @@ fn test_prove_fib() {
 }
 ```
 
-The proving system revolves around the `prove` function, that takes a trace and an AIR as inputs to generate a proof, and a `verify` function that takes the proof and the AIR as inputs, outputing `true` when the proof is verified correctly and `false` otherwise.
+The proving system revolves around the `prove` function, that takes a trace and an AIR as inputs to generate a proof, and a `verify` function that takes the proof and the AIR as inputs, outputting `true` when the proof is verified correctly and `false` otherwise.
 
 Below we go over the main things involved in this code.
 
@@ -121,11 +121,11 @@ let trace_table = TraceTable {
 };
 ```
 
-In our example, `fibonacci_trace` is just a helper function we use to generate the fibonacci trace with `4` columns and `[1, 1]` as the first two values.
+In our example, `fibonacci_trace` is just a helper function we use to generate the fibonacci trace with `4` rows and `[1, 1]` as the first two values.
 
 ## AIR Context
 
-After specifying our constraints and trace, the only thing left to do is provide a few parameters related to the STARK protocol and our `AIR`. These are all encapsulated in the `AirContext` struct, which in our example we isntantiate like this:
+After specifying our constraints and trace, the only thing left to do is provide a few parameters related to the STARK protocol and our `AIR`. These are all encapsulated in the `AirContext` struct, which in our example we instantiate like this:
 
 ```rust
 let context = AirContext {

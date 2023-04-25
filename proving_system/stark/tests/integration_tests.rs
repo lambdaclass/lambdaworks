@@ -1,27 +1,23 @@
 use lambdaworks_math::field::fields::{
     fft_friendly::stark_252_prime_field::Stark252PrimeField, u64_prime_field::FE17,
 };
-
-use lambdaworks_stark::air::example::fibonacci_2_columns::fibonacci_trace_2_columns;
-use lambdaworks_stark::air::example::simple_fibonacci::FibonacciAIR;
 use lambdaworks_stark::air::example::{
     fibonacci_2_columns, fibonacci_f17, quadratic_air, simple_fibonacci,
 };
-use lambdaworks_stark::air::AIR;
-
-use lambdaworks_stark::prover::prove;
-use lambdaworks_stark::verifier::verify;
 use lambdaworks_stark::{
     air::{
         context::{AirContext, ProofOptions},
         trace::TraceTable,
+        AIR,
     },
     fri::FieldElement,
+    prover::prove,
+    verifier::verify,
 };
 
 pub type FE = FieldElement<Stark252PrimeField>;
 
-#[test]
+#[test_log::test]
 fn test_prove_fib() {
     let trace = simple_fibonacci::fibonacci_trace([FE::from(1), FE::from(1)], 8);
     let trace_length = trace[0].len();
@@ -41,13 +37,13 @@ fn test_prove_fib() {
         num_transition_constraints: 1,
     };
 
-    let fibonacci_air = FibonacciAIR::new(context);
+    let fibonacci_air = simple_fibonacci::FibonacciAIR::new(context);
 
     let result = prove(&trace_table, &fibonacci_air);
     assert!(verify(&result, &fibonacci_air));
 }
 
-#[test]
+#[test_log::test]
 fn test_prove_fib17() {
     let trace = simple_fibonacci::fibonacci_trace([FE17::from(1), FE17::from(1)], 4);
     let trace_table = TraceTable::new_from_cols(&trace);
@@ -72,9 +68,10 @@ fn test_prove_fib17() {
     assert!(verify(&result, &fibonacci_air));
 }
 
-#[test]
+#[test_log::test]
 fn test_prove_fib_2_cols() {
-    let trace_columns = fibonacci_trace_2_columns([FE::from(1), FE::from(1)], 16);
+    let trace_columns =
+        fibonacci_2_columns::fibonacci_trace_2_columns([FE::from(1), FE::from(1)], 16);
 
     let trace_table = TraceTable::new_from_cols(&trace_columns);
 
@@ -98,7 +95,7 @@ fn test_prove_fib_2_cols() {
     assert!(verify(&result, &fibonacci_air));
 }
 
-#[test]
+#[test_log::test]
 fn test_prove_quadratic() {
     let trace = quadratic_air::quadratic_trace(FE::from(3), 4);
     let trace_table = TraceTable {
