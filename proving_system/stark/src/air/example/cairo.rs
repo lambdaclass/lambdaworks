@@ -102,7 +102,7 @@ impl CairoAIR {
                 fri_number_of_queries: 1,
                 coset_offset: 3,
             },
-            trace_length: 4,
+            trace_length: table.n_rows(),
             trace_columns: table.n_cols,
             transition_degrees: vec![
                 // Flags 0-14.
@@ -123,7 +123,7 @@ impl CairoAIR {
             pc_init: table.get(FRAME_PC, first_step),
             ap_init: table.get(FRAME_AP, first_step),
             fp_init: table.get(FRAME_FP, first_step),
-            pc_final: table.get(FRAME_AP, last_step),
+            pc_final: table.get(FRAME_PC, last_step),
             ap_final: table.get(FRAME_AP, last_step),
             fp_final: table.get(FRAME_FP, last_step),
             num_steps,

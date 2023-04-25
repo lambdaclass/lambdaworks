@@ -70,7 +70,7 @@ where
             // FIXME: This doesn't work, it should be handled better.
             match res {
                 Ok(res) => Ok(res),
-                Err(FFTError::InvalidOrder(_)) => Ok(vec![FieldElement::<F>::zero(); 8]),
+                Err(FFTError::InvalidOrder(_)) => Ok(vec![FieldElement::<F>::zero(); 16]),
                 Err(_) => todo!(),
             }
         })
