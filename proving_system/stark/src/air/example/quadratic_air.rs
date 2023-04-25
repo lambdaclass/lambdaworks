@@ -16,8 +16,8 @@ pub struct QuadraticAIR {
     context: AirContext,
 }
 
-impl QuadraticAIR {
-    pub fn new(context: air::context::AirContext) -> Self {
+impl From<AirContext> for QuadraticAIR {
+    fn from(context: AirContext) -> Self {
         Self { context }
     }
 }

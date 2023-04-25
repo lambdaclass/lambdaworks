@@ -16,8 +16,8 @@ pub struct FibonacciAIR {
     context: AirContext,
 }
 
-impl FibonacciAIR {
-    pub fn new(context: air::context::AirContext) -> Self {
+impl From<AirContext> for FibonacciAIR {
+    fn from(context: AirContext) -> Self {
         Self { context }
     }
 }
