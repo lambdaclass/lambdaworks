@@ -17,10 +17,10 @@ pub struct TraceTable<F: IsTwoAdicField> {
 
 impl<F: IsTwoAdicField> TraceTable<F> {
     pub fn new_from_cols(cols: &[Vec<FieldElement<F>>]) -> Self {
-        let n_cols = cols.len();
-
         let n_rows = cols[0].len();
-        // dbg!(&n_rows);
+        debug_assert!(cols.iter().all(|c| c.len() == n_rows));
+
+        let n_cols = cols.len();
 
         let mut table = Vec::with_capacity(n_cols * n_rows);
 
@@ -61,7 +61,8 @@ impl<F: IsTwoAdicField> TraceTable<F> {
             .collect()
     }
 
-    pub fn get_dbg(&self, step: usize, col: usize) -> FieldElement<F> {
+    /// Given a step and a column index, gives stored value in that position
+    pub fn get(&self, step: usize, col: usize) -> FieldElement<F> {
         let idx = step * self.n_cols + col;
         self.table[idx].clone()
     }
@@ -72,10 +73,6 @@ impl<F: IsTwoAdicField> TraceTable<F> {
             .map(|col| Polynomial::interpolate_fft(col))
             .collect::<Result<Vec<Polynomial<FieldElement<F>>>, FFTError>>()
             .unwrap()
-    }
-
-    pub fn get(&self, register: usize, on_step: usize) -> FieldElement<F> {
-        self.get_row(on_step)[register].clone()
     }
 
     /// Validates that the trace is valid with respect to the supplied AIR constraints
@@ -90,7 +87,7 @@ impl<F: IsTwoAdicField> TraceTable<F> {
                 let col = constraint.col;
                 let step = constraint.step;
                 let boundary_value = constraint.value.clone();
-                let trace_value = self.get_dbg(step, col);
+                let trace_value = self.get(step, col);
 
                 if boundary_value != trace_value {
                     error!("Boundary constraint inconsistency - Expected value {:?} in step {} and column {}, found: {:?}", boundary_value, step, col, trace_value);

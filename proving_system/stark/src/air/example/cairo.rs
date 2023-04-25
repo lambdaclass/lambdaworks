@@ -95,15 +95,16 @@ pub struct CairoAIR {
 }
 
 impl CairoAIR {
-    pub fn new(table: &TraceTable<Stark252PrimeField>) -> Self {
+    pub fn new(trace: &TraceTable<Stark252PrimeField>) -> Self {
+        let num_steps = trace.n_rows();
         let context = AirContext {
             options: ProofOptions {
                 blowup_factor: 2,
                 fri_number_of_queries: 1,
                 coset_offset: 3,
             },
-            trace_length: 4,
-            trace_columns: table.n_cols,
+            trace_length: num_steps,
+            trace_columns: trace.n_cols,
             transition_degrees: vec![
                 // Flags 0-14.
                 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, // Flag 15
@@ -115,17 +116,15 @@ impl CairoAIR {
             num_transition_constraints: 31,
         };
 
-        let num_steps = table.n_rows();
-        let first_step = 0;
         let last_step = num_steps - 1;
 
         let pub_inputs = PublicInputs {
-            pc_init: table.get(FRAME_PC, first_step),
-            ap_init: table.get(FRAME_AP, first_step),
-            fp_init: table.get(FRAME_FP, first_step),
-            pc_final: table.get(FRAME_AP, last_step),
-            ap_final: table.get(FRAME_AP, last_step),
-            fp_final: table.get(FRAME_FP, last_step),
+            pc_init: trace.get(0, FRAME_PC),
+            ap_init: trace.get(0, FRAME_AP),
+            fp_init: trace.get(0, FRAME_FP),
+            pc_final: trace.get(last_step, FRAME_PC),
+            ap_final: trace.get(last_step, FRAME_AP),
+            fp_final: trace.get(last_step, FRAME_FP),
             num_steps,
         };
 
@@ -271,6 +270,7 @@ fn compute_opcode_constraints(constraints: &mut [FE], frame: &Frame<Stark252Prim
     let one = FE::one();
 
     constraints[MUL_1] = &curr[FRAME_MUL] - (&curr[FRAME_OP0] * &curr[FRAME_OP1]);
+
     constraints[MUL_2] = &curr[F_RES_ADD] * (&curr[FRAME_OP0] + &curr[FRAME_OP1])
         + &curr[F_RES_MUL] * &curr[FRAME_MUL]
         + (&one - &curr[F_RES_ADD] - &curr[F_RES_MUL] - &curr[F_PC_JNZ]) * &curr[FRAME_OP1]

@@ -29,6 +29,7 @@ where
     FieldElement<F>: ByteConversion,
 {
     info!("Starting proof generation...");
+
     #[cfg(debug_assertions)]
     trace.validate(air);
 
@@ -66,11 +67,15 @@ where
                 &FieldElement::<F>::from(air.options().coset_offset),
                 air.options().blowup_factor as usize,
             );
-            // dbg!(&res);
-            // FIXME: This doesn't work, it should be handled better.
+            // FIXME: This is a temporary fix until the FFT API is able to evaluate on
+            // polynomials with degrees that are not powers of two.
             match res {
                 Ok(res) => Ok(res),
-                Err(FFTError::InvalidOrder(_)) => Ok(vec![FieldElement::<F>::zero(); 8]),
+                Err(FFTError::InvalidOrder(_)) => Ok(vec![
+                    FieldElement::<F>::zero();
+                    air.context().trace_length
+                        * blowup_factor
+                ]),
                 Err(_) => todo!(),
             }
         })
