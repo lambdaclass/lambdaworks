@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1682371327200,
+  "lastUpdate": 1682429726625,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -263,6 +263,138 @@ window.BENCHMARK_DATA = {
             "name": "starks/quadratic_air",
             "value": 41897029,
             "range": "± 341674",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "pdeymon@fi.uba.ar",
+            "name": "Pablo Deymonnaz",
+            "username": "pablodeymo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3e5a9a69c39252b3b1e34ee5158151249c2acf78",
+          "message": "Flamegraph (#270)\n\n* flamegraph in Makefile\n\n* flamegraph_stark in Makefile\n\n* typo fixed\n\n* Ignoring flamegraph.svg\n\n---------\n\nCo-authored-by: Pablo Deymonnaz <deymonnaz@gmail.com>",
+          "timestamp": "2023-04-25T13:29:27Z",
+          "tree_id": "e02d84ceb4c9501119ee17923cb8795f622124e2",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/3e5a9a69c39252b3b1e34ee5158151249c2acf78"
+        },
+        "date": 1682429725988,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "u64/add",
+            "value": 10,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/mul",
+            "value": 10,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/pow",
+            "value": 54,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/sub",
+            "value": 10,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/inv",
+            "value": 30,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/div",
+            "value": 48,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/eq",
+            "value": 1,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/evaluate",
+            "value": 3480,
+            "range": "± 1806",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/evaluate_slice",
+            "value": 230624,
+            "range": "± 362863",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/add",
+            "value": 2845,
+            "range": "± 878",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/neg",
+            "value": 777,
+            "range": "± 223",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/sub",
+            "value": 3744,
+            "range": "± 891",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/mul",
+            "value": 2974,
+            "range": "± 794",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/div",
+            "value": 3008,
+            "range": "± 850",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "starks/simple_fibonacci",
+            "value": 35258949,
+            "range": "± 1277074",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "starks/fibonacci_2_columns",
+            "value": 54840892,
+            "range": "± 2989743",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "starks/fibonacci_f17",
+            "value": 537213,
+            "range": "± 192790",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "starks/quadratic_air",
+            "value": 35988850,
+            "range": "± 466676",
             "unit": "ns/iter"
           }
         ]
