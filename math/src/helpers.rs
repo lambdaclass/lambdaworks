@@ -8,9 +8,7 @@ pub fn next_power_of_two(n: u64) -> u64 {
     }
 }
 
-pub fn resize_to_next_power_of_two<F: IsTwoAdicField>(
-    trace_colums: &mut Vec<Vec<FieldElement<F>>>,
-) {
+pub fn resize_to_next_power_of_two<F: IsTwoAdicField>(trace_colums: &mut [Vec<FieldElement<F>>]) {
     trace_colums.iter_mut().for_each(|col| {
         // TODO: Remove this unwrap. This may panic if the usize cant be
         // casted into a u64.
