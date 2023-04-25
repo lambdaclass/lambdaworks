@@ -70,9 +70,8 @@ mod tests {
         },
         unsigned_integer::element::UnsignedInteger,
     };
-    use rand::random;
 
-    use crate::hash::hash_to_field::hash_to_field;
+    use crate::hash::{hash_to_field::hash_to_field, sha3::Sha3Hasher};
 
     type F = MontgomeryBackendPrimeField<U64, 1>;
 
@@ -84,7 +83,7 @@ mod tests {
 
     #[test]
     fn test_same_message_produce_same_field_elements() {
-        let input = (0..500).map(|_| random::<u8>()).collect::<Vec<u8>>();
+        let input = Sha3Hasher::expand_message(b"helloworld", b"dsttest", 500).unwrap();
         let field_elements: Vec<FieldElement<F>> = hash_to_field(&input, 40);
         let other_field_elements = hash_to_field(&input, 40);
         assert_eq!(field_elements, other_field_elements);
