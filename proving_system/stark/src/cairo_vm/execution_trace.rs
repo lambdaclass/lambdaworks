@@ -2,7 +2,8 @@ use super::{
     cairo_mem::CairoMemory,
     cairo_trace::CairoTrace,
     instruction_flags::{
-        aux_get_last_nim_of_FE, ApUpdate, CairoOpcode, DstReg, Op0Reg, Op1Src, PcUpdate, ResLogic,
+        aux_get_last_nim_of_field_element, ApUpdate, CairoOpcode, DstReg, Op0Reg, Op1Src, PcUpdate,
+        ResLogic,
     },
 };
 use crate::{
@@ -56,11 +57,13 @@ pub fn build_cairo_execution_trace(
 
     // Flags and offsets are transformed to a bit representation. This is needed since
     // the flag constraints of the Cairo AIR are defined over bit representations of these
-    let trace_repr_flags: Vec<[FE; 16]> =
-        flags.iter().map(|f| f.to_trace_representation()).collect();
+    let trace_repr_flags: Vec<[FE; 16]> = flags
+        .iter()
+        .map(CairoInstructionFlags::to_trace_representation)
+        .collect();
     let trace_repr_offsets: Vec<[FE; 3]> = offsets
         .iter()
-        .map(|off| off.to_trace_representation())
+        .map(InstructionOffsets::to_trace_representation)
         .collect();
 
     // ap, fp, pc and instruction columns are computed
@@ -267,7 +270,7 @@ pub fn compute_op1(
         .zip(raw_trace.rows.iter())
         .map(|(((flag, offset), op0), trace_state)| match flag.op1_src {
             Op1Src::Op0 => {
-                let addr = aux_get_last_nim_of_FE(op0)
+                let addr = aux_get_last_nim_of_field_element(op0)
                     .checked_add_signed(offset.off_op1.into())
                     .unwrap();
                 (FE::from(addr), memory.get(&addr).unwrap().clone())

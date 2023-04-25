@@ -16,6 +16,8 @@ impl CairoMemory {
         Self { data }
     }
 
+    /// Given a memory address, gets the value stored in it if
+    /// the address exists.
     pub fn get(&self, addr: &u64) -> Option<&FE> {
         self.data.get(addr)
     }

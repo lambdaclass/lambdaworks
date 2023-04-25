@@ -21,8 +21,7 @@ const FLAGS_OFFSET: u64 = 48;
 
 // TODO: This is just an auxiliary function done to get out of the way.
 // It should be deleted afterwards
-#[allow(non_snake_case)]
-pub(crate) fn aux_get_last_nim_of_FE(value: &FE) -> u64 {
+pub(crate) fn aux_get_last_nim_of_field_element(value: &FE) -> u64 {
     let mem_value_bytes = value.to_bytes_be();
 
     // we are taking the last nim of the field element,
@@ -100,7 +99,7 @@ impl TryFrom<&FE> for Op0Reg {
     type Error = InstructionDecodingError;
 
     fn try_from(mem_value: &FE) -> Result<Self, Self::Error> {
-        let flags = aux_get_last_nim_of_FE(mem_value) >> FLAGS_OFFSET;
+        let flags = aux_get_last_nim_of_field_element(mem_value) >> FLAGS_OFFSET;
 
         let op0_reg = ((flags & OP0_REG_MASK) >> OP0_REG_OFF) as u8;
 
@@ -132,7 +131,7 @@ impl TryFrom<&FE> for DstReg {
     type Error = InstructionDecodingError;
 
     fn try_from(mem_value: &FE) -> Result<Self, Self::Error> {
-        let flags = aux_get_last_nim_of_FE(mem_value) >> FLAGS_OFFSET;
+        let flags = aux_get_last_nim_of_field_element(mem_value) >> FLAGS_OFFSET;
         let dst_reg = ((flags & DST_REG_MASK) >> DST_REG_OFF) as u8;
 
         if dst_reg == 0 {
@@ -168,7 +167,7 @@ impl TryFrom<&FE> for Op1Src {
     type Error = InstructionDecodingError;
 
     fn try_from(mem_value: &FE) -> Result<Self, Self::Error> {
-        let flags = aux_get_last_nim_of_FE(mem_value) >> FLAGS_OFFSET;
+        let flags = aux_get_last_nim_of_field_element(mem_value) >> FLAGS_OFFSET;
         let op1_src = ((flags & OP1_SRC_MASK) >> OP1_SRC_OFF) as u8;
 
         match op1_src {
@@ -205,7 +204,7 @@ impl TryFrom<&FE> for ResLogic {
     type Error = InstructionDecodingError;
 
     fn try_from(mem_value: &FE) -> Result<Self, Self::Error> {
-        let flags = aux_get_last_nim_of_FE(mem_value) >> FLAGS_OFFSET;
+        let flags = aux_get_last_nim_of_field_element(mem_value) >> FLAGS_OFFSET;
         let res_logic = ((flags & RES_LOGIC_MASK) >> RES_LOGIC_OFF) as u8;
 
         match res_logic {
@@ -242,7 +241,7 @@ impl TryFrom<&FE> for PcUpdate {
     type Error = InstructionDecodingError;
 
     fn try_from(mem_value: &FE) -> Result<Self, Self::Error> {
-        let flags = aux_get_last_nim_of_FE(mem_value) >> FLAGS_OFFSET;
+        let flags = aux_get_last_nim_of_field_element(mem_value) >> FLAGS_OFFSET;
         let pc_update = ((flags & PC_UPDATE_MASK) >> PC_UPDATE_OFF) as u8;
 
         match pc_update {
@@ -279,7 +278,7 @@ impl TryFrom<&FE> for ApUpdate {
     type Error = InstructionDecodingError;
 
     fn try_from(mem_value: &FE) -> Result<Self, Self::Error> {
-        let flags = aux_get_last_nim_of_FE(mem_value) >> FLAGS_OFFSET;
+        let flags = aux_get_last_nim_of_field_element(mem_value) >> FLAGS_OFFSET;
         let ap_update = ((flags & AP_UPDATE_MASK) >> AP_UPDATE_OFF) as u8;
 
         match ap_update {
@@ -331,7 +330,7 @@ impl TryFrom<&FE> for CairoOpcode {
     type Error = InstructionDecodingError;
 
     fn try_from(mem_value: &FE) -> Result<Self, Self::Error> {
-        let flags = aux_get_last_nim_of_FE(mem_value) >> FLAGS_OFFSET;
+        let flags = aux_get_last_nim_of_field_element(mem_value) >> FLAGS_OFFSET;
         let opcode = ((flags & OPCODE_MASK) >> OPCODE_OFF) as u8;
 
         match opcode {

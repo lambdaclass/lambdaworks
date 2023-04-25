@@ -27,6 +27,9 @@ pub fn prove<F: IsTwoAdicField, A: AIR<Field = F>>(trace: &TraceTable<F>, air: &
 where
     FieldElement<F>: ByteConversion,
 {
+    #[cfg(debug_assertions)]
+    trace.validate(air);
+
     #[cfg(not(feature = "test_fiat_shamir"))]
     let transcript = &mut DefaultTranscript::new();
     #[cfg(feature = "test_fiat_shamir")]

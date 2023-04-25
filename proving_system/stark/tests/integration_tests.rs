@@ -1,7 +1,9 @@
 use lambdaworks_math::field::fields::{
     fft_friendly::stark_252_prime_field::Stark252PrimeField, u64_prime_field::FE17,
 };
-
+use lambdaworks_stark::air::example::{
+    fibonacci_2_columns, fibonacci_f17, quadratic_air, simple_fibonacci,
+};
 use lambdaworks_stark::{
     air::{
         context::{AirContext, ProofOptions},
@@ -15,13 +17,9 @@ use lambdaworks_stark::{
     verifier::verify,
 };
 
-use lambdaworks_stark::air::example::{
-    fibonacci_2_columns, fibonacci_f17, quadratic_air, simple_fibonacci,
-};
-
 pub type FE = FieldElement<Stark252PrimeField>;
 
-#[test]
+#[test_log::test]
 fn test_prove_fib() {
     let trace = simple_fibonacci::fibonacci_trace([FE::from(1), FE::from(1)], 8);
     let trace_length = trace[0].len();
@@ -47,7 +45,7 @@ fn test_prove_fib() {
     assert!(verify(&result, &fibonacci_air));
 }
 
-#[test]
+#[test_log::test]
 fn test_prove_fib17() {
     let trace = simple_fibonacci::fibonacci_trace([FE17::from(1), FE17::from(1)], 4);
     let trace_table = TraceTable::new_from_cols(&trace);
@@ -72,7 +70,7 @@ fn test_prove_fib17() {
     assert!(verify(&result, &fibonacci_air));
 }
 
-#[test]
+#[test_log::test]
 fn test_prove_fib_2_cols() {
     let trace_columns = fibonacci_trace_2_columns([FE::from(1), FE::from(1)], 16);
 
@@ -98,7 +96,7 @@ fn test_prove_fib_2_cols() {
     assert!(verify(&result, &fibonacci_air));
 }
 
-#[test]
+#[test_log::test]
 fn test_prove_quadratic() {
     let trace = quadratic_air::quadratic_trace(FE::from(3), 4);
     let trace_table = TraceTable {

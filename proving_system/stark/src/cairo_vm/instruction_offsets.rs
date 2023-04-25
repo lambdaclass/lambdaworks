@@ -1,7 +1,7 @@
 use crate::FE;
 use lambdaworks_math::field::{element::FieldElement, traits::IsField};
 
-use super::instruction_flags::aux_get_last_nim_of_FE;
+use super::instruction_flags::aux_get_last_nim_of_field_element;
 
 const OFF_DST_OFF: u32 = 0;
 const OFF_OP0_OFF: u32 = 16;
@@ -25,7 +25,7 @@ impl InstructionOffsets {
     }
 
     pub fn decode_offset(mem_value: &FE, instruction_offset: u32) -> i32 {
-        let offset = aux_get_last_nim_of_FE(mem_value) >> instruction_offset & OFFX_MASK;
+        let offset = aux_get_last_nim_of_field_element(mem_value) >> instruction_offset & OFFX_MASK;
         let vectorized_offset = offset.to_le_bytes();
         let aux = [
             vectorized_offset[0],
@@ -43,6 +43,9 @@ impl InstructionOffsets {
     }
 }
 
+/// Returns an unbiased representation of the number. This is applied to
+/// instruction offsets as explained in section 9.4 of the Cairo whitepaper
+/// to be in the range [0, 2^16). https://eprint.iacr.org/2021/1063.pdf
 fn to_unbiased_representation<F: IsField>(n: i32) -> FieldElement<F> {
     let b15 = 2u64.pow(15u32);
     if n < 0 {
