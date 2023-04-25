@@ -4,6 +4,9 @@ use lambdaworks_math::field::fields::{
 use lambdaworks_stark::air::example::{
     fibonacci_2_columns, fibonacci_f17, quadratic_air, simple_fibonacci,
 };
+use lambdaworks_stark::cairo_vm::cairo_mem::CairoMemory;
+use lambdaworks_stark::cairo_vm::cairo_trace::CairoTrace;
+use lambdaworks_stark::cairo_vm::execution_trace::build_cairo_execution_trace;
 use lambdaworks_stark::{
     air::{
         context::{AirContext, ProofOptions},
@@ -126,100 +129,30 @@ fn test_prove_quadratic() {
 
 #[test_log::test]
 fn test_prove_cairo() {
-    // This trace is obtained from Giza when running the prover for the mentioned program.
-    let trace_table = TraceTable::new_from_cols(&vec![
-        // col 0
-        vec![FE::zero(), FE::zero(), FE::one(), FE::zero()],
-        // col 1
-        vec![FE::one(), FE::one(), FE::one(), FE::zero()],
-        // col 2
-        vec![FE::one(), FE::one(), FE::zero(), FE::zero()],
-        // col 3
-        vec![FE::zero(), FE::zero(), FE::one(), FE::zero()],
-        // col 4
-        vec![FE::zero(), FE::zero(), FE::zero(), FE::zero()],
-        // col 5
-        vec![FE::zero(), FE::zero(), FE::zero(), FE::zero()],
-        // col 6
-        vec![FE::zero(), FE::zero(), FE::zero(), FE::zero()],
-        // col 7
-        vec![FE::zero(), FE::zero(), FE::one(), FE::zero()],
-        // col 8
-        vec![FE::zero(), FE::zero(), FE::zero(), FE::zero()],
-        // col 9
-        vec![FE::zero(), FE::zero(), FE::zero(), FE::zero()],
-        // col 10
-        vec![FE::zero(), FE::zero(), FE::zero(), FE::zero()],
-        // col 11
-        vec![FE::one(), FE::zero(), FE::zero(), FE::zero()],
-        // col 12
-        vec![FE::zero(), FE::zero(), FE::zero(), FE::zero()],
-        // col 13
-        vec![FE::zero(), FE::zero(), FE::one(), FE::zero()],
-        // col 14
-        vec![FE::one(), FE::one(), FE::zero(), FE::zero()],
-        // col 15
-        vec![FE::zero(), FE::zero(), FE::zero(), FE::zero()],
-        // col 16
-        vec![FE::from(3), FE::from(3), FE::from(9), FE::zero()],
-        // col 17
-        vec![FE::from(8), FE::from(9), FE::from(9), FE::zero()],
-        // col 18
-        vec![FE::from(8), FE::from(8), FE::from(8), FE::zero()],
-        // col 19
-        vec![FE::from(1), FE::from(3), FE::from(5), FE::zero()],
-        // col 20
-        vec![FE::from(8), FE::from(8), FE::from(6), FE::zero()],
-        // col 21
-        vec![FE::from(7), FE::from(7), FE::from(7), FE::zero()],
-        // col 22
-        vec![FE::from(2), FE::from(4), FE::from(7), FE::zero()],
-        // col 23
-        vec![
-            FE::from(0x480680017fff8000),
-            FE::from(0x400680017fff7fff),
-            FE::from(0x208b7fff7fff7ffe),
-            FE::zero(),
-        ],
-        // col 24
-        vec![FE::from(3), FE::from(3), FE::from(9), FE::zero()],
-        // col 25
-        vec![FE::from(9), FE::from(9), FE::from(9), FE::zero()],
-        // col 26
-        vec![FE::from(3), FE::from(3), FE::from(9), FE::zero()],
-        // col 27
-        vec![
-            FE::from(0x8000),
-            FE::from(0x7fff),
-            FE::from(0x7ffe),
-            FE::zero(),
-        ],
-        // col 28
-        vec![
-            FE::from(0x7fff),
-            FE::from(0x7fff),
-            FE::from(0x7fff),
-            FE::zero(),
-        ],
-        // col 29
-        vec![
-            FE::from(0x8001),
-            FE::from(0x8001),
-            FE::from(0x7fff),
-            FE::zero(),
-        ],
-        // col 30
-        vec![FE::zero(), FE::zero(), FE::zero(), FE::zero()],
-        // col 31
-        vec![FE::zero(), FE::zero(), FE::zero(), FE::zero()],
-        // col 32
-        vec![FE::from(0x1b), FE::from(0x1b), FE::from(0x51), FE::zero()],
-        // col 33
-        vec![FE::one(), FE::one(), FE::zero(), FE::zero()],
-    ]);
+    /*
+    Cairo program used in the test:
 
-    let cairo_air = cairo::CairoAIR::new(&trace_table);
+    ```
+    func main() {
+        let x = 1;
+        let y = 2;
+        assert x + y = 3;
+        return ();
+    }
 
-    let result = prove(&trace_table, &cairo_air);
+    ```
+    */
+    let base_dir = env!("CARGO_MANIFEST_DIR");
+    let dir_trace = base_dir.to_owned() + "/src/cairo_vm/test_data/simple_program.trace";
+    let dir_memory = base_dir.to_owned() + "/src/cairo_vm/test_data/simple_program.mem";
+
+    let raw_trace = CairoTrace::from_file(&dir_trace).unwrap();
+    let memory = CairoMemory::from_file(&dir_memory).unwrap();
+
+    let execution_trace = build_cairo_execution_trace(&raw_trace, &memory);
+
+    let cairo_air = cairo::CairoAIR::new(&execution_trace);
+
+    let result = prove(&execution_trace, &cairo_air);
     assert!(verify(&result, &cairo_air));
 }

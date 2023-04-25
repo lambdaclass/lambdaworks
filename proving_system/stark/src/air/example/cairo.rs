@@ -141,7 +141,6 @@ impl AIR for CairoAIR {
 
     fn compute_transition(&self, frame: &Frame<Self::Field>) -> Vec<FieldElement<Self::Field>> {
         let mut constraints: Vec<FieldElement<Self::Field>> =
-            // vec![FE::zero(); self.num_transition_constraints() + 1];
             vec![FE::zero(); self.num_transition_constraints()];
 
         compute_instr_constraints(&mut constraints, frame);
@@ -192,8 +191,9 @@ fn compute_instr_constraints(constraints: &mut [FE], frame: &Frame<Stark252Prime
             _ => panic!("Unknown flag offset"),
         };
     }
-    let two = FE::from(2);
+
     // Instruction unpacking
+    let two = FE::from(2);
     let b16 = two.pow(16u32);
     let b32 = two.pow(32u32);
     let b48 = two.pow(48u32);
@@ -253,6 +253,7 @@ fn compute_register_constraints(constraints: &mut [FE], frame: &Frame<Stark252Pr
     // pc constraints
     constraints[NEXT_PC_1] = (&curr[FRAME_T1] - &curr[F_PC_JNZ])
         * (&next[FRAME_PC] - (&curr[FRAME_PC] + frame_inst_size(curr)));
+
     constraints[NEXT_PC_2] = &curr[FRAME_T0]
         * (&next[FRAME_PC] - (&curr[FRAME_PC] + &curr[FRAME_OP1]))
         + (&one - &curr[F_PC_JNZ]) * &next[FRAME_PC]
@@ -260,6 +261,7 @@ fn compute_register_constraints(constraints: &mut [FE], frame: &Frame<Stark252Pr
             * (&curr[FRAME_PC] + frame_inst_size(curr))
             + &curr[F_PC_ABS] * &curr[FRAME_RES]
             + &curr[F_PC_REL] * (&curr[FRAME_PC] + &curr[FRAME_RES]));
+
     constraints[T0] = &curr[F_PC_JNZ] * &curr[FRAME_DST] - &curr[FRAME_T0];
     constraints[T1] = &curr[FRAME_T0] * &curr[FRAME_RES] - &curr[FRAME_T1];
 }
