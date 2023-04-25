@@ -124,9 +124,8 @@ fn test_prove_quadratic() {
     assert!(verify(&result, &fibonacci_air));
 }
 
-#[test]
-#[ignore = "we need a valid trace for this test"]
-fn test() {
+#[test_log::test]
+fn test_prove_cairo() {
     // This trace is obtained from Giza when running the prover for the mentioned program.
     let trace_table = TraceTable::new_from_cols(&vec![
         // col 0
@@ -219,8 +218,8 @@ fn test() {
         vec![FE::one(), FE::one(), FE::zero(), FE::zero()],
     ]);
 
-    let some_cairo_air = cairo::CairoAIR::new(&trace_table);
+    let cairo_air = cairo::CairoAIR::new(&trace_table);
 
-    let result = prove(&trace_table, &some_cairo_air);
-    assert!(verify(&result, &some_cairo_air));
+    let result = prove(&trace_table, &cairo_air);
+    assert!(verify(&result, &cairo_air));
 }

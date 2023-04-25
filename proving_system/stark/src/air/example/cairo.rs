@@ -141,12 +141,13 @@ impl AIR for CairoAIR {
 
     fn compute_transition(&self, frame: &Frame<Self::Field>) -> Vec<FieldElement<Self::Field>> {
         let mut constraints: Vec<FieldElement<Self::Field>> =
-            vec![FE::zero(); self.num_transition_constraints() + 1];
+            // vec![FE::zero(); self.num_transition_constraints() + 1];
+            vec![FE::zero(); self.num_transition_constraints()];
 
-        generate_instr_constraints(&mut constraints, frame);
-        generate_operand_constraints(&mut constraints, frame);
-        generate_register_constraints(&mut constraints, frame);
-        generate_opcode_constraints(&mut constraints, frame);
+        compute_instr_constraints(&mut constraints, frame);
+        compute_operand_constraints(&mut constraints, frame);
+        compute_register_constraints(&mut constraints, frame);
+        compute_opcode_constraints(&mut constraints, frame);
         enforce_selector(&mut constraints, frame);
 
         constraints
@@ -181,56 +182,57 @@ impl AIR for CairoAIR {
     }
 }
 
-fn generate_instr_constraints(constraints: &mut [FE], frame: &Frame<Stark252PrimeField>) {
+fn compute_instr_constraints(constraints: &mut [FE], frame: &Frame<Stark252PrimeField>) {
     let curr = frame.get_row(0);
     // Bit constraints
     for (i, flag) in curr[0..16].iter().enumerate() {
         constraints[i] = match i {
-            0..=14 => flag * (flag - FieldElement::one()),
+            0..=14 => flag * (flag - FE::one()),
             15 => flag.clone(),
             _ => panic!("Unknown flag offset"),
         };
     }
-    let two = FieldElement::from(2);
+    let two = FE::from(2);
     // Instruction unpacking
-    let b15 = two.pow(15u32);
     let b16 = two.pow(16u32);
     let b32 = two.pow(32u32);
     let b48 = two.pow(48u32);
-    let a = &curr[0..14]
-        .iter()
-        .enumerate()
-        .fold(FieldElement::zero(), |acc, (n, flag)| {
-            acc + FieldElement::from(2).pow(n) * flag
-        });
 
-    constraints[INST] = (&curr[OFF_DST] + &b15)
-        + b16 * (&curr[OFF_OP0] + &b15)
-        + b32 * (&curr[OFF_OP1] + &b15)
-        + b48 * a
-        - &curr[FRAME_INST];
+    let f0 = &curr[0..15]
+        .iter()
+        .rev()
+        .fold(FE::zero(), |acc, flag| flag + &two * acc);
+
+    constraints[INST] =
+        (&curr[OFF_DST]) + b16 * (&curr[OFF_OP0]) + b32 * (&curr[OFF_OP1]) + b48 * f0
+            - &curr[FRAME_INST];
 }
 
-fn generate_operand_constraints(constraints: &mut [FE], frame: &Frame<Stark252PrimeField>) {
+fn compute_operand_constraints(constraints: &mut [FE], frame: &Frame<Stark252PrimeField>) {
     let curr = frame.get_row(0);
     let ap = &curr[FRAME_AP];
     let fp = &curr[FRAME_FP];
     let pc = &curr[FRAME_PC];
-    let one = FieldElement::one();
+    let one = FE::one();
+    let b15 = FE::from(2).pow(15u32);
 
-    constraints[DST_ADDR] = &curr[F_DST_FP] * fp + (&one - &curr[F_DST_FP]) * ap + &curr[OFF_DST]
-        - &curr[FRAME_DST_ADDR];
-    constraints[OP0_ADDR] = &curr[F_OP_0_FP] * fp + (&one - &curr[F_OP_0_FP]) * ap + &curr[OFF_OP0]
-        - &curr[FRAME_OP0_ADDR];
+    constraints[DST_ADDR] =
+        &curr[F_DST_FP] * fp + (&one - &curr[F_DST_FP]) * ap + (&curr[OFF_DST] - &b15)
+            - &curr[FRAME_DST_ADDR];
+
+    constraints[OP0_ADDR] =
+        &curr[F_OP_0_FP] * fp + (&one - &curr[F_OP_0_FP]) * ap + (&curr[OFF_OP0] - &b15)
+            - &curr[FRAME_OP0_ADDR];
+
     constraints[OP1_ADDR] = &curr[F_OP_1_VAL] * pc
         + &curr[F_OP_1_AP] * ap
         + &curr[F_OP_1_FP] * fp
         + (&one - &curr[F_OP_1_VAL] - &curr[F_OP_1_AP] - &curr[F_OP_1_FP]) * &curr[FRAME_OP0]
-        + &curr[OFF_OP1]
+        + (&curr[OFF_OP1] - &b15)
         - &curr[FRAME_OP1_ADDR];
 }
 
-fn generate_register_constraints(constraints: &mut [FE], frame: &Frame<Stark252PrimeField>) {
+fn compute_register_constraints(constraints: &mut [FE], frame: &Frame<Stark252PrimeField>) {
     let curr = frame.get_row(0);
     let next = frame.get_row(1);
     let one = FieldElement::one();
@@ -261,7 +263,7 @@ fn generate_register_constraints(constraints: &mut [FE], frame: &Frame<Stark252P
     constraints[T1] = &curr[FRAME_T0] * &curr[FRAME_RES] - &curr[FRAME_T1];
 }
 
-fn generate_opcode_constraints(constraints: &mut [FE], frame: &Frame<Stark252PrimeField>) {
+fn compute_opcode_constraints(constraints: &mut [FE], frame: &Frame<Stark252PrimeField>) {
     let curr = frame.get_row(0);
     let one = FieldElement::one();
     constraints[MUL_1] = &curr[FRAME_MUL] - (&curr[FRAME_OP0] * &curr[FRAME_OP1]);

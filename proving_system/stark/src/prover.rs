@@ -21,12 +21,14 @@ use lambdaworks_math::{
     polynomial::Polynomial,
     traits::ByteConversion,
 };
+use log::info;
 
 // FIXME remove unwrap() calls and return errors
 pub fn prove<F: IsTwoAdicField, A: AIR<Field = F>>(trace: &TraceTable<F>, air: &A) -> StarkProof<F>
 where
     FieldElement<F>: ByteConversion,
 {
+    info!("Starting proof generation...");
     #[cfg(debug_assertions)]
     trace.validate(air);
 
@@ -181,6 +183,7 @@ where
         })
         .collect();
 
+    info!("End proof generation");
     StarkProof {
         fri_layers_merkle_roots,
         trace_ood_frame_evaluations,
