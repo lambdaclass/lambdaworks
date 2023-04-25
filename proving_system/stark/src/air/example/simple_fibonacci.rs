@@ -16,12 +16,14 @@ pub struct FibonacciAIR {
     context: AirContext,
 }
 
-impl AIR for FibonacciAIR {
-    type Field = Stark252PrimeField;
-
-    fn new(context: air::context::AirContext) -> Self {
+impl From<AirContext> for FibonacciAIR {
+    fn from(context: AirContext) -> Self {
         Self { context }
     }
+}
+
+impl AIR for FibonacciAIR {
+    type Field = Stark252PrimeField;
 
     fn compute_transition(
         &self,
