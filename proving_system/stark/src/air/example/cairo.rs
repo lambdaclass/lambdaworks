@@ -268,15 +268,19 @@ fn compute_register_constraints(constraints: &mut [FE], frame: &Frame<Stark252Pr
 
 fn compute_opcode_constraints(constraints: &mut [FE], frame: &Frame<Stark252PrimeField>) {
     let curr = frame.get_row(0);
-    let one = FieldElement::one();
+    let one = FE::one();
+
     constraints[MUL_1] = &curr[FRAME_MUL] - (&curr[FRAME_OP0] * &curr[FRAME_OP1]);
     constraints[MUL_2] = &curr[F_RES_ADD] * (&curr[FRAME_OP0] + &curr[FRAME_OP1])
         + &curr[F_RES_MUL] * &curr[FRAME_MUL]
         + (&one - &curr[F_RES_ADD] - &curr[F_RES_MUL] - &curr[F_PC_JNZ]) * &curr[FRAME_OP1]
         - (&one - &curr[F_PC_JNZ]) * &curr[FRAME_RES];
-    constraints[CALL_1] = &curr[F_OPC_CALL] * (&curr[FRAME_DST] - &curr[FRAME_AP]);
+
+    constraints[CALL_1] = &curr[F_OPC_CALL] * (&curr[FRAME_DST] - &curr[FRAME_FP]);
+
     constraints[CALL_2] =
         &curr[F_OPC_CALL] * (&curr[FRAME_OP0] - (&curr[FRAME_PC] + frame_inst_size(curr)));
+
     constraints[ASSERT_EQ] = &curr[F_OPC_AEQ] * (&curr[FRAME_DST] - &curr[FRAME_RES]);
 }
 
@@ -288,5 +292,5 @@ fn enforce_selector(constraints: &mut [FE], frame: &Frame<Stark252PrimeField>) {
 }
 
 fn frame_inst_size(frame_row: &[FE]) -> FE {
-    &frame_row[F_OP_1_VAL] + FieldElement::one()
+    &frame_row[F_OP_1_VAL] + FE::one()
 }
