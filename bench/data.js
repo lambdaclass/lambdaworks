@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1682432692538,
+  "lastUpdate": 1682449603871,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -527,6 +527,138 @@ window.BENCHMARK_DATA = {
             "name": "starks/quadratic_air",
             "value": 33895265,
             "range": "± 13298",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jpcenteno@users.noreply.github.com",
+            "name": "Joaquín Centeno",
+            "username": "jpcenteno"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6a08abb98d1562f683e9998643e79058af5d472b",
+          "message": "Remove constructor from AIR trait. Impl From as replacement (#240)",
+          "timestamp": "2023-04-25T19:00:37Z",
+          "tree_id": "9114c09e4c9e0a08260c2157cb6d85c7e57317ac",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/6a08abb98d1562f683e9998643e79058af5d472b"
+        },
+        "date": 1682449603201,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "u64/add",
+            "value": 10,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/mul",
+            "value": 10,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/pow",
+            "value": 54,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/sub",
+            "value": 10,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/inv",
+            "value": 284,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/div",
+            "value": 292,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/eq",
+            "value": 1,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/evaluate",
+            "value": 3029,
+            "range": "± 1843",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/evaluate_slice",
+            "value": 428103,
+            "range": "± 379436",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/add",
+            "value": 3111,
+            "range": "± 744",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/neg",
+            "value": 749,
+            "range": "± 227",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/sub",
+            "value": 3850,
+            "range": "± 1021",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/mul",
+            "value": 3193,
+            "range": "± 824",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/div",
+            "value": 2830,
+            "range": "± 884",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "starks/simple_fibonacci",
+            "value": 32937426,
+            "range": "± 30885",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "starks/fibonacci_2_columns",
+            "value": 46938631,
+            "range": "± 14083",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "starks/fibonacci_f17",
+            "value": 268950,
+            "range": "± 111",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "starks/quadratic_air",
+            "value": 33421914,
+            "range": "± 7846",
             "unit": "ns/iter"
           }
         ]
