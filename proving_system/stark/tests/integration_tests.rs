@@ -2,7 +2,7 @@ use lambdaworks_math::field::fields::{
     fft_friendly::stark_252_prime_field::Stark252PrimeField, u64_prime_field::FE17,
 };
 use lambdaworks_stark::air::example::{
-    fibonacci_2_columns, fibonacci_f17, quadratic_air, simple_fibonacci,
+    cairo, fibonacci_2_columns, fibonacci_f17, quadratic_air, simple_fibonacci,
 };
 use lambdaworks_stark::cairo_vm::cairo_mem::CairoMemory;
 use lambdaworks_stark::cairo_vm::cairo_trace::CairoTrace;
@@ -10,7 +10,6 @@ use lambdaworks_stark::cairo_vm::execution_trace::build_cairo_execution_trace;
 use lambdaworks_stark::{
     air::{
         context::{AirContext, ProofOptions},
-        example::{cairo, fibonacci_2_columns::fibonacci_trace_2_columns},
         trace::TraceTable,
     },
     fri::FieldElement,
@@ -73,7 +72,8 @@ fn test_prove_fib17() {
 
 #[test_log::test]
 fn test_prove_fib_2_cols() {
-    let trace_columns = fibonacci_trace_2_columns([FE::from(1), FE::from(1)], 16);
+    let trace_columns =
+        fibonacci_2_columns::fibonacci_trace_2_columns([FE::from(1), FE::from(1)], 16);
 
     let trace_table = TraceTable::new_from_cols(&trace_columns);
 
@@ -119,10 +119,10 @@ fn test_prove_quadratic() {
         num_transition_constraints: 1,
     };
 
-    let fibonacci_air = quadratic_air::QuadraticAIR::from(context);
+    let quadratic_air = quadratic_air::QuadraticAIR::from(context);
 
-    let result = prove(&trace_table, &fibonacci_air);
-    assert!(verify(&result, &fibonacci_air));
+    let result = prove(&trace_table, &quadratic_air);
+    assert!(verify(&result, &quadratic_air));
 }
 
 #[test_log::test]
