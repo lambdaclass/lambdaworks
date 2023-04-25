@@ -22,12 +22,15 @@ pub enum Error {
 }
 
 pub fn parse_cairo_file(
-    entrypoint: &str,
+    entrypoint_function: Option<&str>,
     layout: &str,
     filename: &str,
     trace_path: &str,
     memory_path: &str,
 ) -> Result<(), Error> {
+    // default value for entrypoint is "main"
+    let entrypoint = entrypoint_function.unwrap_or("main");
+
     let trace_enabled = true;
     let mut hint_executor = BuiltinHintProcessor::new_empty();
     let cairo_run_config = cairo_run::CairoRunConfig {
@@ -84,23 +87,17 @@ mod tests {
     type FE = FieldElement<Stark252PrimeField>;
 
     #[test]
-    fn parse_cairo_file() {
+    fn test_parse_cairo_file() {
         let base_dir = env!("CARGO_MANIFEST_DIR");
 
         let json_filename = base_dir.to_owned() + "/src/cairo_run/program.json";
         let dir_trace = base_dir.to_owned() + "/src/cairo_run/program.trace";
         let dir_memory = base_dir.to_owned() + "/src/cairo_run/program.memory";
-        
+
         println!("{}", json_filename);
 
-        super::parse_cairo_file(
-            "main",
-            "all_cairo",
-            &json_filename,
-            &dir_trace,
-            &dir_memory,
-        )
-        .unwrap();
+        super::parse_cairo_file(None, "all_cairo", &json_filename, &dir_trace, &dir_memory)
+            .unwrap();
 
         // read trace from file
         let raw_trace = CairoTrace::from_file(&dir_trace).unwrap();
