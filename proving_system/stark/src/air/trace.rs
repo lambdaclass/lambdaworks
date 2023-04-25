@@ -10,7 +10,7 @@ use log::{error, info};
 
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
 pub struct TraceTable<F: IsTwoAdicField> {
-    /// `table` is column oriented trace element description
+    /// `table` is row-major trace element description
     pub table: Vec<FieldElement<F>>,
     pub n_cols: usize,
 }
@@ -92,10 +92,6 @@ impl<F: IsTwoAdicField> TraceTable<F> {
             });
 
         // --------- VALIDATE TRANSITION CONSTRAINTS -----------
-        let root_order = air.context().trace_length.trailing_zeros();
-        let _trace_primitive_root: FieldElement<F> =
-            F::get_primitive_root_of_unity(root_order as u64).unwrap();
-
         let n_transition_constraints = air.context().num_transition_constraints();
         let transition_exemptions = air.context().transition_exemptions;
 
@@ -105,7 +101,7 @@ impl<F: IsTwoAdicField> TraceTable<F> {
             .map(|(trace_steps, exemptions)| trace_steps - exemptions)
             .collect();
 
-        // Iterate over trace and compute transitions. With
+        // Iterate over trace and compute transitions
         for step in 0..self.n_rows() {
             let frame = Frame::read_from_trace(self, step, 1, &air.context().transition_offsets);
 
