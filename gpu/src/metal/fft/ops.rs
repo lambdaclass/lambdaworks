@@ -135,6 +135,7 @@ pub fn bitrev_permutation<T: Clone>(input: &[T], state: &MetalState) -> Result<V
 #[cfg(test)]
 mod tests {
     use crate::metal::abstractions::state::*;
+    use lambdaworks_fft::roots_of_unity::get_twiddles;
     use lambdaworks_math::field::{
         fields::fft_friendly::stark_252_prime_field::Stark252PrimeField, traits::RootsConfig,
     };
@@ -167,8 +168,8 @@ mod tests {
         fn test_metal_fft_matches_sequential(input in field_vec(6)) {
             objc::rc::autoreleasepool(|| {
                 let metal_state = MetalState::new(None).unwrap();
-                let order = log2(input.len()).unwrap();
-                let twiddles = lambdaworks_fft::roots_of_unity::get_twiddles(order, RootsConfig::BitReverse).unwrap();
+                let order = input.len().trailing_zeros();
+                let twiddles = get_twiddles(order, RootsConfig::BitReverse).unwrap();
 
                 let metal_result = super::fft(&input, &twiddles, &metal_state).unwrap();
                 let sequential_result = lambdaworks_fft::ops::fft(&input).unwrap();

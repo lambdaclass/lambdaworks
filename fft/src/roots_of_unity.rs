@@ -42,10 +42,10 @@ pub fn get_powers_of_primitive_root_coset<F: IsTwoAdicField>(
 /// Twiddle factors are powers of a primitive root of unity of the field, used for FFT
 /// computations. FFT only requires the first half of all the powers
 pub fn get_twiddles<F: IsTwoAdicField>(
-    order: u64,
+    order: u32,
     config: RootsConfig,
 ) -> Result<Vec<FieldElement<F>>, FFTError> {
-    get_powers_of_primitive_root(order, (1 << order) / 2, config)
+    get_powers_of_primitive_root(order.into(), (1 << order) / 2, config)
 }
 
 #[cfg(test)]
@@ -58,7 +58,7 @@ mod tests {
 
     proptest! {
         #[test]
-        fn test_gen_twiddles_bit_reversed_validity(n in 1..8_u64) {
+        fn test_gen_twiddles_bit_reversed_validity(n in 1..8_u32) {
             let twiddles = get_twiddles::<F>(n, RootsConfig::Natural).unwrap();
             let mut twiddles_to_reorder = get_twiddles(n, RootsConfig::BitReverse).unwrap();
             in_place_bit_reverse_permute(&mut twiddles_to_reorder); // so now should be naturally ordered

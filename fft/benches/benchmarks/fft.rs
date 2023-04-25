@@ -17,9 +17,9 @@ use rand::random;
 
 type F = Stark252PrimeField;
 type FE = FieldElement<F>;
-const INPUT_SET: [u64; 2] = [21, 22];
+const INPUT_SET: [u32; 2] = [21, 22];
 
-fn rand_field_elements(order: u64) -> Vec<FE> {
+fn rand_field_elements(order: u32) -> Vec<FE> {
     let mut result = Vec::with_capacity(1 << order);
     for _ in 0..result.capacity() {
         let rand_big = UnsignedInteger { limbs: random() };

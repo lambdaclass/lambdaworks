@@ -93,7 +93,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::helpers::log2;
     use crate::test_helpers::naive_matrix_dft_test;
     use crate::{bit_reversing::in_place_bit_reverse_permute, roots_of_unity::get_twiddles};
     use lambdaworks_math::field::{test_fields::u64_test_field::U64TestField, traits::RootsConfig};
@@ -126,7 +125,7 @@ mod tests {
         fn test_nr_2radix_fft_matches_naive_eval(coeffs in field_vec(8)) {
             let expected = naive_matrix_dft_test(&coeffs);
 
-            let order = log2(coeffs.len()).unwrap();
+            let order = coeffs.len().trailing_zeros();
             let twiddles = get_twiddles(order, RootsConfig::BitReverse).unwrap();
 
             let mut result = coeffs;
@@ -141,7 +140,7 @@ mod tests {
         fn test_rn_2radix_fft_matches_naive_eval(coeffs in field_vec(8)) {
             let expected = naive_matrix_dft_test(&coeffs);
 
-            let order = log2(coeffs.len()).unwrap();
+            let order = coeffs.len().trailing_zeros();
             let twiddles = get_twiddles(order, RootsConfig::Natural).unwrap();
 
             let mut result = coeffs;

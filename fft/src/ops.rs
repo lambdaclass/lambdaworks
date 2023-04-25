@@ -7,8 +7,10 @@ use crate::roots_of_unity::get_twiddles;
 
 use super::{
     bit_reversing::in_place_bit_reverse_permute, errors::FFTError,
-    fft_iterative::in_place_nr_2radix_fft, helpers::log2,
+    fft_iterative::in_place_nr_2radix_fft,
 };
+
+use super::helpers;
 
 /// Executes Fast Fourier Transform over elements of a two-adic finite field `F` in a coset. Usually used for
 /// fast polynomial evaluation.
@@ -16,12 +18,16 @@ pub fn fft_with_blowup<F: IsTwoAdicField>(
     input: &[FieldElement<F>],
     blowup_factor: usize,
 ) -> Result<Vec<FieldElement<F>>, FFTError> {
-    let domain_size = input.len() * blowup_factor;
-    let order = log2(domain_size)?;
-    let twiddles = get_twiddles(order, RootsConfig::BitReverse)?;
+    if input.is_empty() || input == vec![FieldElement::zero(); input.len()] {
+        return Ok(vec![FieldElement::zero()]);
+    }
 
     let mut results = input.to_vec();
+    let domain_size = helpers::next_power_of_two(input.len() * blowup_factor);
     results.resize(domain_size, FieldElement::zero());
+
+    let order = results.len().trailing_zeros();
+    let twiddles = get_twiddles(order, RootsConfig::BitReverse)?;
 
     in_place_nr_2radix_fft(&mut results, &twiddles);
     in_place_bit_reverse_permute(&mut results);
@@ -32,7 +38,14 @@ pub fn fft_with_blowup<F: IsTwoAdicField>(
 /// Executes Fast Fourier Transform over elements of a two-adic finite field `F`. Usually used for
 /// fast polynomial evaluation.
 pub fn fft<F: IsTwoAdicField>(input: &[FieldElement<F>]) -> Result<Vec<FieldElement<F>>, FFTError> {
-    let order = log2(input.len())?;
+    if input.is_empty() || input == vec![FieldElement::zero(); input.len()] {
+        return Ok(vec![FieldElement::zero()]);
+    }
+
+    // if the input size is not a power of two, use zero padding
+    let input = helpers::zero_padding(input);
+
+    let order = input.len().trailing_zeros();
     let twiddles = get_twiddles(order, RootsConfig::BitReverse)?;
 
     let mut results = input.to_vec();
@@ -47,7 +60,14 @@ pub fn fft<F: IsTwoAdicField>(input: &[FieldElement<F>]) -> Result<Vec<FieldElem
 pub fn inverse_fft<F: IsTwoAdicField>(
     input: &[FieldElement<F>],
 ) -> Result<Vec<FieldElement<F>>, FFTError> {
-    let order = log2(input.len())?;
+    if input.is_empty() || input == vec![FieldElement::zero(); input.len()] {
+        return Ok(vec![FieldElement::zero()]);
+    }
+
+    // if the input size is not a power of two, use zero padding
+    let input = helpers::zero_padding(input);
+
+    let order = input.len().trailing_zeros();
     let twiddles = get_twiddles(order, RootsConfig::BitReverseInversed)?;
 
     let mut results = input.to_vec();
