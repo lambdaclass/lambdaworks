@@ -5,6 +5,5 @@ members = [
     "crypto",
     "proving_system/stark",
     "proving_system/plonk",
-    "proving_system/integration_cairo",
     "gpu",
 ]
