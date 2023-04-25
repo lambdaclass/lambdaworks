@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1682429726625,
+  "lastUpdate": 1682432692538,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -395,6 +395,138 @@ window.BENCHMARK_DATA = {
             "name": "starks/quadratic_air",
             "value": 35988850,
             "range": "± 466676",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mariano.nicolini.91@gmail.com",
+            "name": "Mariano A. Nicolini",
+            "username": "entropidelic"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fa1dcdeb75240fb1f478569e9d9c738b22caad9b",
+          "message": "feat: add debug info - trace validation (#272)\n\n* Build validate method skeleton\n\n* Add validation function for trace\n\n* Add clippy suggestions\n\n* Remove unused variables",
+          "timestamp": "2023-04-25T14:18:42Z",
+          "tree_id": "971bc614e4f034d551fa2210483a3d8f7d88c1bd",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/fa1dcdeb75240fb1f478569e9d9c738b22caad9b"
+        },
+        "date": 1682432691872,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "u64/add",
+            "value": 4,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/mul",
+            "value": 4,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/pow",
+            "value": 21,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/sub",
+            "value": 4,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/inv",
+            "value": 159,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/div",
+            "value": 168,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "u64/eq",
+            "value": 2,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/evaluate",
+            "value": 2250,
+            "range": "± 1319",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/evaluate_slice",
+            "value": 178253,
+            "range": "± 267687",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/add",
+            "value": 1565,
+            "range": "± 359",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/neg",
+            "value": 504,
+            "range": "± 260",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/sub",
+            "value": 2247,
+            "range": "± 564",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/mul",
+            "value": 1801,
+            "range": "± 448",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "polynomial/div",
+            "value": 1720,
+            "range": "± 414",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "starks/simple_fibonacci",
+            "value": 33423506,
+            "range": "± 133316",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "starks/fibonacci_2_columns",
+            "value": 47420084,
+            "range": "± 15353",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "starks/fibonacci_f17",
+            "value": 229642,
+            "range": "± 80",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "starks/quadratic_air",
+            "value": 33895265,
+            "range": "± 13298",
             "unit": "ns/iter"
           }
         ]
