@@ -322,6 +322,96 @@ struct Round4<F: IsTwoAdicField> {
     query_list: Vec<StarkQueryProof<F>>,
 }
 
+/// Returns the DEEP composition polynomial that the prover then commits to using
+/// FRI. This polynomial is a linear combination of the trace polynomial and the
+/// composition polynomial, with coefficients sampled by the verifier (i.e. using Fiat-Shamir).
+fn compute_deep_composition_poly<A: AIR, F: IsTwoAdicField, T: Transcript>(
+    air: &A,
+    transcript: &mut T,
+    trace_polys: &[Polynomial<FieldElement<F>>],
+    even_composition_poly: &Polynomial<FieldElement<F>>,
+    odd_composition_poly: &Polynomial<FieldElement<F>>,
+    ood_evaluation_point: &FieldElement<F>,
+    primitive_root: &FieldElement<F>,
+) -> Polynomial<FieldElement<F>> {
+    let transition_offsets = air.context().transition_offsets;
+
+    // Get trace evaluations needed for the trace terms of the deep composition polynomial
+    let trace_evaluations = Frame::get_trace_evaluations(
+        trace_polys,
+        ood_evaluation_point,
+        &transition_offsets,
+        primitive_root,
+    );
+
+    // Compute all the trace terms of the deep composition polynomial. There will be one
+    // term for every trace polynomial and every trace evaluation.
+    let mut trace_terms = Polynomial::zero();
+    for (i, trace_poly) in trace_polys.iter().enumerate() {
+        for (trace_evaluation, offset) in trace_evaluations.iter().zip(&transition_offsets) {
+            let eval = trace_evaluation[i].clone();
+            let root_of_unity = ood_evaluation_point * primitive_root.pow(*offset);
+            let poly = (trace_poly.clone() - Polynomial::new_monomial(eval, 0))
+                / (Polynomial::new_monomial(FieldElement::<F>::one(), 1)
+                    - Polynomial::new_monomial(root_of_unity, 0));
+            let coeff = transcript_to_field::<F, T>(transcript);
+
+            trace_terms = trace_terms + poly * coeff;
+        }
+    }
+
+    // Get coefficients for even and odd terms of the composition polynomial H(x)
+    let gamma_even = transcript_to_field::<F, T>(transcript);
+    let gamma_odd = transcript_to_field::<F, T>(transcript);
+
+    let ood_point_squared = ood_evaluation_point * ood_evaluation_point;
+
+    let even_composition_poly_term = (even_composition_poly.clone()
+        - Polynomial::new_monomial(even_composition_poly.evaluate(&ood_point_squared), 0))
+        / (Polynomial::new_monomial(FieldElement::one(), 1)
+            - Polynomial::new_monomial(ood_point_squared.clone(), 0));
+
+    let odd_composition_poly_term = (odd_composition_poly.clone()
+        - Polynomial::new_monomial(odd_composition_poly.evaluate(&ood_point_squared), 0))
+        / (Polynomial::new_monomial(FieldElement::one(), 1)
+            - Polynomial::new_monomial(ood_point_squared.clone(), 0));
+
+    trace_terms + even_composition_poly_term * gamma_even + odd_composition_poly_term * gamma_odd
+}
+
+fn build_deep_consistency_check<F: IsTwoAdicField>(
+    index_to_verify: usize,
+    domain: &[FieldElement<F>],
+    round_1_result: &Round1<F>,
+    composition_poly_even: &Polynomial<FieldElement<F>>,
+    composition_poly_odd: &Polynomial<FieldElement<F>>,
+) -> DeepConsistencyCheck<F>
+where
+    FieldElement<F>: ByteConversion,
+{
+    let index = index_to_verify % domain.len();
+    let lde_trace_merkle_proofs = round_1_result
+        .lde_trace_merkle_trees
+        .iter()
+        .map(|tree| tree.get_proof_by_pos(index).unwrap())
+        .collect();
+
+    let d_evaluation_point = &domain[index];
+    let lde_trace_evaluations = round_1_result.lde_trace.get_row(index).to_vec();
+
+    let composition_poly_evaluations = vec![
+        composition_poly_even.evaluate(d_evaluation_point),
+        composition_poly_odd.evaluate(d_evaluation_point),
+    ];
+
+    DeepConsistencyCheck {
+        lde_trace_merkle_roots: round_1_result.lde_trace_merkle_roots.clone(),
+        lde_trace_merkle_proofs,
+        lde_trace_evaluations,
+        composition_poly_evaluations,
+    }
+}
+
 // FIXME remove unwrap() calls and return errors
 pub fn prove<F: IsTwoAdicField, A: AIR<Field = F>>(trace: &TraceTable<F>, air: &A) -> StarkProof<F>
 where
@@ -421,95 +511,5 @@ where
         composition_poly_ood_evaluations: round_3_result.composition_poly_ood_evaluations,
         deep_consistency_check: round_4_result.deep_consistency_check,
         query_list: round_4_result.query_list,
-    }
-}
-
-/// Returns the DEEP composition polynomial that the prover then commits to using
-/// FRI. This polynomial is a linear combination of the trace polynomial and the
-/// composition polynomial, with coefficients sampled by the verifier (i.e. using Fiat-Shamir).
-fn compute_deep_composition_poly<A: AIR, F: IsTwoAdicField, T: Transcript>(
-    air: &A,
-    transcript: &mut T,
-    trace_polys: &[Polynomial<FieldElement<F>>],
-    even_composition_poly: &Polynomial<FieldElement<F>>,
-    odd_composition_poly: &Polynomial<FieldElement<F>>,
-    ood_evaluation_point: &FieldElement<F>,
-    primitive_root: &FieldElement<F>,
-) -> Polynomial<FieldElement<F>> {
-    let transition_offsets = air.context().transition_offsets;
-
-    // Get trace evaluations needed for the trace terms of the deep composition polynomial
-    let trace_evaluations = Frame::get_trace_evaluations(
-        trace_polys,
-        ood_evaluation_point,
-        &transition_offsets,
-        primitive_root,
-    );
-
-    // Compute all the trace terms of the deep composition polynomial. There will be one
-    // term for every trace polynomial and every trace evaluation.
-    let mut trace_terms = Polynomial::zero();
-    for (i, trace_poly) in trace_polys.iter().enumerate() {
-        for (trace_evaluation, offset) in trace_evaluations.iter().zip(&transition_offsets) {
-            let eval = trace_evaluation[i].clone();
-            let root_of_unity = ood_evaluation_point * primitive_root.pow(*offset);
-            let poly = (trace_poly.clone() - Polynomial::new_monomial(eval, 0))
-                / (Polynomial::new_monomial(FieldElement::<F>::one(), 1)
-                    - Polynomial::new_monomial(root_of_unity, 0));
-            let coeff = transcript_to_field::<F, T>(transcript);
-
-            trace_terms = trace_terms + poly * coeff;
-        }
-    }
-
-    // Get coefficients for even and odd terms of the composition polynomial H(x)
-    let gamma_even = transcript_to_field::<F, T>(transcript);
-    let gamma_odd = transcript_to_field::<F, T>(transcript);
-
-    let ood_point_squared = ood_evaluation_point * ood_evaluation_point;
-
-    let even_composition_poly_term = (even_composition_poly.clone()
-        - Polynomial::new_monomial(even_composition_poly.evaluate(&ood_point_squared), 0))
-        / (Polynomial::new_monomial(FieldElement::one(), 1)
-            - Polynomial::new_monomial(ood_point_squared.clone(), 0));
-
-    let odd_composition_poly_term = (odd_composition_poly.clone()
-        - Polynomial::new_monomial(odd_composition_poly.evaluate(&ood_point_squared), 0))
-        / (Polynomial::new_monomial(FieldElement::one(), 1)
-            - Polynomial::new_monomial(ood_point_squared.clone(), 0));
-
-    trace_terms + even_composition_poly_term * gamma_even + odd_composition_poly_term * gamma_odd
-}
-
-fn build_deep_consistency_check<F: IsTwoAdicField>(
-    index_to_verify: usize,
-    domain: &[FieldElement<F>],
-    round_1_result: &Round1<F>,
-    composition_poly_even: &Polynomial<FieldElement<F>>,
-    composition_poly_odd: &Polynomial<FieldElement<F>>,
-) -> DeepConsistencyCheck<F>
-where
-    FieldElement<F>: ByteConversion,
-{
-    let index = index_to_verify % domain.len();
-    let lde_trace_merkle_proofs = round_1_result
-        .lde_trace_merkle_trees
-        .iter()
-        .map(|tree| tree.get_proof_by_pos(index).unwrap())
-        .collect();
-
-    let d_evaluation_point = &domain[index];
-    let lde_trace_evaluations = round_1_result.lde_trace.get_row(index).to_vec();
-
-    let composition_poly_evaluations = vec![
-        composition_poly_even.evaluate(d_evaluation_point),
-        composition_poly_odd.evaluate(d_evaluation_point),
-    ];
-
-    DeepConsistencyCheck {
-        lde_trace_merkle_roots: round_1_result.lde_trace_merkle_roots.clone(),
-        lde_trace_merkle_proofs,
-        lde_trace_evaluations,
-        composition_poly_evaluations,
     }
 }
