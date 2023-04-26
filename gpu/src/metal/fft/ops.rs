@@ -5,7 +5,7 @@ use lambdaworks_math::field::{
 
 use crate::metal::abstractions::{errors::MetalError, state::*};
 
-use super::helpers::{log2, void_ptr};
+use super::helpers::{self, void_ptr};
 use metal::MTLSize;
 
 use core::mem;
@@ -24,7 +24,10 @@ pub fn fft<F: IsTwoAdicField>(
 ) -> Result<Vec<FieldElement<F>>, MetalError> {
     let pipeline = state.setup_pipeline("radix2_dit_butterfly")?;
 
-    let input_buffer = state.alloc_buffer_data(input);
+    // if the input size is not a power of two, use zero padding
+    let input = helpers::zero_padding(input);
+
+    let input_buffer = state.alloc_buffer_data(&input);
     let twiddles_buffer = state.alloc_buffer_data(twiddles);
     // TODO: twiddle factors security (right now anything can be passed as twiddle factors)
 
@@ -63,8 +66,8 @@ pub fn fft_with_blowup<F: IsTwoAdicField>(
     blowup_factor: usize,
     state: &MetalState,
 ) -> Result<Vec<FieldElement<F>>, MetalError> {
-    let domain_size = input.len() * blowup_factor;
-    let order = log2(domain_size)?;
+    let domain_size = (input.len() * blowup_factor).next_power_of_two();
+    let order = domain_size.trailing_zeros();
     let twiddles = gen_twiddles(order, RootsConfig::BitReverse, state)?;
     let mut resized = input.to_vec();
     resized.resize(domain_size, FieldElement::zero());
@@ -74,7 +77,7 @@ pub fn fft_with_blowup<F: IsTwoAdicField>(
 
 /// Generates 2^{`order`} twiddle factors in parallel, with a certain `config`, in Metal.
 pub fn gen_twiddles<F: IsTwoAdicField>(
-    order: u64,
+    order: u32,
     config: RootsConfig,
     state: &MetalState,
 ) -> Result<Vec<FieldElement<F>>, MetalError> {
@@ -94,7 +97,7 @@ pub fn gen_twiddles<F: IsTwoAdicField>(
     let (command_buffer, command_encoder) =
         state.setup_command(&pipeline, Some(&[(0, &result_buffer)]));
 
-    let root = F::get_primitive_root_of_unity::<F>(order).unwrap();
+    let root = F::get_primitive_root_of_unity::<F>(order.into()).unwrap();
     command_encoder.set_bytes(1, mem::size_of::<F::BaseType>() as u64, void_ptr(&root));
 
     let grid_size = MTLSize::new(len as u64, 1, 1);

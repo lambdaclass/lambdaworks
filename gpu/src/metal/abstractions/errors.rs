@@ -2,8 +2,6 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum MetalError {
-    #[error("The order of the polynomial is not correct")]
-    InvalidOrder(String),
     #[error("Could not calculate {1} root of unity")]
     RootOfUnityError(String, u64),
     #[error("Couldn't find a system default device for Metal")]

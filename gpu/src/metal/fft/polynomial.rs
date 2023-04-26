@@ -7,7 +7,7 @@ use lambdaworks_math::{
     polynomial::Polynomial,
 };
 
-use super::{helpers::log2, ops::*};
+use super::ops::*;
 
 pub fn evaluate_fft_metal<F>(
     poly: &Polynomial<FieldElement<F>>,
@@ -16,7 +16,12 @@ where
     F: IsTwoAdicField,
 {
     let metal_state = MetalState::new(None).unwrap();
-    let order = log2(poly.coefficients.len())?;
+
+    // fft() can zero-pad the coeffs if there aren't 2^k of them (k being any integer).
+    // TODO: twiddle factors need to be handled with too much care, the FFT API shouldn't accept
+    // invalid twiddle factor collections. A better solution is needed.
+    let order = poly.coefficients.len().next_power_of_two().trailing_zeros();
+
     let twiddles = gen_twiddles(order, RootsConfig::BitReverse, &metal_state)?;
 
     fft(poly.coefficients(), &twiddles, &metal_state)
@@ -47,7 +52,12 @@ where
     F: IsTwoAdicField,
 {
     let metal_state = MetalState::new(None).unwrap();
-    let order = log2(fft_evals.len())?;
+
+    // fft() can zero-pad the coeffs if there aren't 2^k of them (k being any integer).
+    // TODO: twiddle factors need to be handled with too much care, the FFT API shouldn't accept
+    // invalid twiddle factor collections. A better solution is needed.
+    let order = fft_evals.len().next_power_of_two().trailing_zeros();
+
     let twiddles = gen_twiddles(order, RootsConfig::BitReverseInversed, &metal_state)?;
 
     let coeffs = fft(fft_evals, &twiddles, &metal_state)?;

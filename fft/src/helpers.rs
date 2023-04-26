@@ -1,7 +1,7 @@
 use lambdaworks_math::field::{element::FieldElement, traits::IsField};
 
 /// Fill a field element slice with 0s until a power of two size is reached, unless it already is.
-pub(crate) fn zero_padding<F: IsField>(input: &[FieldElement<F>]) -> Vec<FieldElement<F>> {
+pub fn zero_padding<F: IsField>(input: &[FieldElement<F>]) -> Vec<FieldElement<F>> {
     let mut input = input.to_vec();
     input.resize(input.len().next_power_of_two(), FieldElement::zero());
     input

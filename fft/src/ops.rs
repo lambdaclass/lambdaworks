@@ -22,7 +22,7 @@ pub fn fft_with_blowup<F: IsTwoAdicField>(
     let domain_size = (input.len() * blowup_factor).next_power_of_two();
     results.resize(domain_size, FieldElement::zero());
 
-    let order = results.len().trailing_zeros();
+    let order = domain_size.trailing_zeros();
     let twiddles = get_twiddles(order, RootsConfig::BitReverse)?;
 
     in_place_nr_2radix_fft(&mut results, &twiddles);
