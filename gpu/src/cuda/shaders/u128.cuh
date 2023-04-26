@@ -106,9 +106,9 @@ public:
   }
 
   __device__ u128 operator*(const u128 rhs) const {
-    unsigned long t_low_high = __umulhi(low, rhs.high);
-    unsigned long t_high = __umulhi(low, rhs.low);
-    unsigned long t_high_low = __umulhi(high, rhs.low);
+    unsigned long t_low_high = __umul64hi(low, rhs.high);
+    unsigned long t_high = __umul64hi(low, rhs.low);
+    unsigned long t_high_low = __umul64hi(high, rhs.low);
     unsigned long t_low = low * rhs.low;
     return u128(t_low_high + t_high_low + t_high, t_low);
 

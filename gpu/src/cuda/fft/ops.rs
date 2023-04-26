@@ -81,7 +81,6 @@ mod tests {
     };
     use proptest::{collection, prelude::*};
 
-    // FFT related tests
     type F = Stark252PrimeField;
     type FE = FieldElement<F>;
 

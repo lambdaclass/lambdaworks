@@ -23,7 +23,7 @@ impl<F: IsField> Default for CUDAFieldElement<F> {
 
 unsafe impl<F: IsField> DeviceRepr for CUDAFieldElement<F> {
     fn as_kernel_param(&self) -> *mut ffi::c_void {
-        [self.value()].as_ptr() as *mut ffi::c_void
+        [self].as_ptr() as *mut ffi::c_void
     }
 }
 
@@ -37,6 +37,6 @@ impl<F: IsField> From<&FieldElement<F>> for CUDAFieldElement<F> {
 
 impl<F: IsField> Into<FieldElement<F>> for CUDAFieldElement<F> {
     fn into(self) -> FieldElement<F> {
-        FieldElement::from(self.value())
+        FieldElement::from_raw(self.value())
     }
 }
