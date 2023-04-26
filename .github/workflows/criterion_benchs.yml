@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+  # deployments permission to deploy GitHub pages website
+  deployments: write
+  # contents permission to update benchmark contents in gh-pages branch
+  contents: write
+
+jobs:
+  criterion_bench:
+    name: Criterion benches (Ubuntu)
+    runs-on: ubuntu-20.04
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+    - name: Install stable toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+          toolchain: stable
+    - uses: actions/checkout@v3
+    - name: Run benchmark
+      run: |
+        cargo bench --no-fail-fast --bench "criterion_fft" \
+                                   --bench "criterion_polynomial" \
+                                   --bench "criterion_stark" \
+        -- --output-format bencher | tee output.txt
+    - name: Store benchmark result
+      uses: benchmark-action/github-action-benchmark@v1
+      with:
+        tool: 'cargo'
+        output-file-path: output.txt
+        benchmark-data-dir-path: "./bench"
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        # Push and deploy GitHub pages branch automatically
+        auto-push: ${{ github.event_name != 'pull_request' }}
+  criterion_bench_macos:
+    name: Criterion benches (macOS, Apple sillicon)
+    runs-on: [self-hosted, macOS]
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+    - name: Install stable toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+          toolchain: stable
+    - uses: actions/checkout@v3
+    - name: Run benchmark
+      run: |
+        cargo bench --no-fail-fast --bench "criterion_metal" \
+        -- --output-format bencher | tee output.txt
+    - name: Store benchmark result
+      uses: benchmark-action/github-action-benchmark@v1
+      with:
+        tool: 'cargo'
+        output-file-path: output.txt
+        benchmark-data-dir-path: "./bench"
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        # Push and deploy GitHub pages branch automatically
+        auto-push: ${{ github.event_name != 'pull_request' }}
