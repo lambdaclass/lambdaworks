@@ -3,10 +3,7 @@ use lambdaworks_math::field::{
     traits::{IsTwoAdicField, RootsConfig},
 };
 
-use crate::metal::{
-    abstractions::{errors::MetalError, state::*},
-    fft::errors::FFTMetalError,
-};
+use crate::metal::abstractions::{errors::MetalError, state::*};
 
 use super::helpers::{log2, void_ptr};
 use metal::MTLSize;
@@ -24,7 +21,7 @@ pub fn fft<F: IsTwoAdicField>(
     input: &[FieldElement<F>],
     twiddles: &[FieldElement<F>],
     state: &MetalState,
-) -> Result<Vec<FieldElement<F>>, FFTMetalError> {
+) -> Result<Vec<FieldElement<F>>, MetalError> {
     let pipeline = state.setup_pipeline("radix2_dit_butterfly")?;
 
     let input_buffer = state.alloc_buffer_data(input);
@@ -36,7 +33,7 @@ pub fn fft<F: IsTwoAdicField>(
         Some(&[(0, &input_buffer), (1, &twiddles_buffer)]),
     );
 
-    let order = log2(input.len())?;
+    let order = input.len().trailing_zeros();
     for stage in 0..order {
         let group_count = 1 << stage;
         let group_size = input.len() as u64 / group_count;
@@ -65,7 +62,7 @@ pub fn fft_with_blowup<F: IsTwoAdicField>(
     input: &[FieldElement<F>],
     blowup_factor: usize,
     state: &MetalState,
-) -> Result<Vec<FieldElement<F>>, FFTMetalError> {
+) -> Result<Vec<FieldElement<F>>, MetalError> {
     let domain_size = input.len() * blowup_factor;
     let order = log2(domain_size)?;
     let twiddles = gen_twiddles(order, RootsConfig::BitReverse, state)?;
@@ -80,7 +77,7 @@ pub fn gen_twiddles<F: IsTwoAdicField>(
     order: u64,
     config: RootsConfig,
     state: &MetalState,
-) -> Result<Vec<FieldElement<F>>, FFTMetalError> {
+) -> Result<Vec<FieldElement<F>>, MetalError> {
     let len = (1 << order) / 2;
 
     let kernel = match config {

@@ -45,8 +45,8 @@ jobs:
       - name: Run clippy
         run: make clippy
   test:
-    name: Test
-    runs-on: macos-latest
+    name: Test (Ubuntu)
+    runs-on: ubuntu-latest
     env:
       CARGO_TERM_COLOR: always
     steps:
@@ -65,15 +65,31 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: lcov.info
           fail_ci_if_error: true
-  test_cuda:
-    name: Test CUDA
+  test_macos:
+    name: Test (macOS, Apple sillicon)
+    runs-on: [self-hosted, macOS]
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v3
+      - name: Rustup toolchain install
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          components: clippy
+      - name: Run tests
+        run: cargo test -F metal
+  test_nvidia:
+    name: Test (Ubuntu, NVIDIA GPU)
     runs-on: [self-hosted, cuda]
     env:
       CARGO_TERM_COLOR: always
     steps:
       - uses: actions/checkout@v3
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Rustup toolchain install
+        uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
+          components: clippy
       - name: Run tests
-        run: cargo test -F cuda -- cuda
+        run: cargo test -F cuda
