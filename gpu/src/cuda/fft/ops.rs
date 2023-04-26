@@ -1,7 +1,7 @@
 use lambdaworks_math::field::{element::FieldElement, traits::IsTwoAdicField};
 
 use cudarc::{
-    driver::{CudaDevice, LaunchAsync, LaunchConfig},
+    driver::{CudaDevice, DriverError, LaunchAsync, LaunchConfig},
     nvrtc::safe::Ptx,
 };
 
@@ -16,35 +16,27 @@ const SHADER_PTX: &str = include_str!("../shaders/fft.ptx");
 /// in this order too. Natural order means that input[i] corresponds to the i-th coefficient,
 /// as opposed to bit-reverse order in which input[bit_rev(i)] corresponds to the i-th
 /// coefficient.
-pub fn fft<F>(input: &[FieldElement<F>], twiddles: &[FieldElement<F>]) -> Vec<FieldElement<F>>
+pub fn fft<F>(
+    input: &[FieldElement<F>],
+    twiddles: &[FieldElement<F>],
+) -> Result<Vec<FieldElement<F>>, DriverError>
 where
     F: IsTwoAdicField,
     F::BaseType: Unpin,
 {
-    let device = CudaDevice::new(0).unwrap();
+    let device = CudaDevice::new(0)?;
 
     // d_ prefix is used to indicate device memory.
-    let mut d_input = device
-        .htod_sync_copy(
-            &input
-                .iter()
-                .map(CUDAFieldElement::from)
-                .collect::<Vec<CUDAFieldElement<F>>>(),
-        )
-        .unwrap();
-    let d_twiddles = device
-        .htod_sync_copy(
-            &twiddles
-                .iter()
-                .map(CUDAFieldElement::from)
-                .collect::<Vec<CUDAFieldElement<F>>>(),
-        )
-        .unwrap();
+    let mut d_input =
+        device.htod_sync_copy(&input.iter().map(CUDAFieldElement::from).collect::<Vec<_>>())?;
+    let d_twiddles = device.htod_sync_copy(
+        &twiddles
+            .iter()
+            .map(CUDAFieldElement::from)
+            .collect::<Vec<_>>(),
+    )?;
 
-    device
-        .load_ptx(Ptx::from_src(SHADER_PTX), "fft", &["radix2_dit_butterfly"])
-        .unwrap();
-
+    device.load_ptx(Ptx::from_src(SHADER_PTX), "fft", &["radix2_dit_butterfly"])?;
     let kernel = device.get_func("fft", "radix2_dit_butterfly").unwrap();
 
     let order = input.len().trailing_zeros();
@@ -61,15 +53,15 @@ where
             shared_mem_bytes: 0,
         };
 
-        unsafe { kernel.clone().launch(config, (&mut d_input, &d_twiddles)) }.unwrap();
+        unsafe { kernel.clone().launch(config, (&mut d_input, &d_twiddles)) }?;
     }
 
-    let output: Vec<CUDAFieldElement<F>> = device.sync_reclaim(d_input).unwrap();
-    let output: Vec<FieldElement<F>> = output
+    let output = device.sync_reclaim(d_input).unwrap();
+    let output = output
         .into_iter()
         .map(|cuda_elem| cuda_elem.into())
         .collect();
-    output
+    Ok(output)
 }
 
 #[cfg(test)]
@@ -81,6 +73,7 @@ mod tests {
     };
     use proptest::{collection, prelude::*};
 
+    // FFT related tests
     type F = Stark252PrimeField;
     type FE = FieldElement<F>;
 
@@ -106,7 +99,7 @@ mod tests {
             let order = input.len().trailing_zeros();
             let twiddles = get_twiddles(order.into(), RootsConfig::BitReverse).unwrap();
 
-            let mut cuda_fft = super::fft(&input, &twiddles);
+            let mut cuda_fft = super::fft(&input, &twiddles).unwrap();
             lambdaworks_fft::bit_reversing::in_place_bit_reverse_permute(&mut cuda_fft);
             let fft = lambdaworks_fft::ops::fft(&input).unwrap();
 
