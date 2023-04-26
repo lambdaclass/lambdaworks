@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1682531327567,
+  "lastUpdate": 1682543431859,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -263,6 +263,240 @@ window.BENCHMARK_DATA = {
             "name": "starks/quadratic_air",
             "value": 34472978,
             "range": "± 16870",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "estefano.bargas@fing.edu.uy",
+            "name": "Estéfano Bargas",
+            "username": "xqft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "064f51ca23bce97a483946eeace28bb7630fbba3",
+          "message": "Add iai support and benchmarks for performance comparison between new PRs and main (#255)\n\n* Added poly interpolation benchs\n\n* Changed benchs to StarkField, other improves\n\n* Reorg benchs, changed names\n\n* Added gpu README with poly interpol. benchs\n\n* Reverted removal of math all_benchmarks\n\n* Reverted Makefile change\n\n* Reduced input sets\n\n* Fix clippy\n\n* Changed times to 1 precision\n\n* Remove fft from `math` module.\n\n* Make a separate fft crate to avoid circular dependencies.\n\n* Separated FFT benchmarks from polynomial evaluation\n\n* Forgot to add new benches for exec\n\n* Formatting nits\n\n* Moved benchmarks to repo's book\n\n* Bring back benches.\n\n* Move tests to gpu.\n\n* Restructured metal benchs, added iai\n\n* Fix error handling.\n\n* Remove more repeated code.\n\n* Reverted iai benchs on metal\n\n* Added criterion and iai benchs for fft crate\n\n* Create iai CI job, update criterion's\n\n* Added polynomial benches\n\n* Added iai poly benches\n\n* Added field benches\n\n* Added stark benchs\n\n* Fixed merge\n\n* Reverted small change\n\n* Fixed jobs\n\n* Fix jobs again\n\n* Fix jobs again\n\n* Fix jobs again\n\n* Format iai tests, prevent inline\n\n* Remove u64 tests from CI\n\n* Changed iai job to restore/save in cache\n\n* Fix clippy, change job name\n\n* Fix iai job\n\n* Added job for caching main's iai, other fixes\n\n* Fix iai job, only run criterion on main\n\n* Removed unused fft benchs, changed iai_fft order\n\n* Nit\n\n* Added criterion macos tests, refactored actions\n\n* Replaced actions-rs/ with dtolnay/ toolchain to match other jobs\n\n* Small fixes in names, also another action-rs\n\n* Fix iai job\n\n* Update .github/workflows/iai_benchs_main.yml\n\nCo-authored-by: Mario Rugiero <mario.rugiero@nextroll.com>\n\n* Update .github/workflows/iai_benchs_main.yml\n\nCo-authored-by: Mario Rugiero <mario.rugiero@nextroll.com>\n\n* Update .github/workflows/iai_benchs_main.yml\n\nCo-authored-by: Mario Rugiero <mario.rugiero@nextroll.com>\n\n---------\n\nCo-authored-by: Martin Paulucci <martin.paulucci@lambdaclass.com>\nCo-authored-by: Mario Rugiero <mario.rugiero@nextroll.com>",
+          "timestamp": "2023-04-26T17:43:32Z",
+          "tree_id": "d1187743220df5e758525817d827c89e87f8315b",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/064f51ca23bce97a483946eeace28bb7630fbba3"
+        },
+        "date": 1682543431166,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "Ordered FFT/Sequential from NR radix2",
+            "value": 2562684915,
+            "range": "± 1001712",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from RN radix2",
+            "value": 4153390394,
+            "range": "± 22356098",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from NR radix2 #2",
+            "value": 5362155406,
+            "range": "± 1135247",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from RN radix2 #2",
+            "value": 9217541673,
+            "range": "± 21854871",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from NR radix2 #3",
+            "value": 11187651606,
+            "range": "± 8608242",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from RN radix2 #3",
+            "value": 19942652620,
+            "range": "± 32110911",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from NR radix2 #4",
+            "value": 23320769406,
+            "range": "± 14539031",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from RN radix2 #4",
+            "value": 42083781153,
+            "range": "± 105465950",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Sequential",
+            "value": 1295147041,
+            "range": "± 509829",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Sequential #2",
+            "value": 2717860974,
+            "range": "± 787598",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Sequential #3",
+            "value": 5691714891,
+            "range": "± 2174935",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Sequential #4",
+            "value": 11893295430,
+            "range": "± 5714666",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Sequential",
+            "value": 74341639,
+            "range": "± 2603956",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Sequential #2",
+            "value": 146887457,
+            "range": "± 570292",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Sequential #3",
+            "value": 291082638,
+            "range": "± 1017619",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Sequential #4",
+            "value": 595722263,
+            "range": "± 4055584",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial evaluation/Sequential FFT",
+            "value": 3881211162,
+            "range": "± 7138350",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial evaluation/Sequential FFT #2",
+            "value": 8122762830,
+            "range": "± 2181855",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial evaluation/Sequential FFT #3",
+            "value": 16974742841,
+            "range": "± 2885582",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial evaluation/Sequential FFT #4",
+            "value": 35412223309,
+            "range": "± 14168914",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial interpolation/Sequential FFT",
+            "value": 58695881632,
+            "range": "± 15393260",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial interpolation/Sequential FFT #2",
+            "value": 117643349327,
+            "range": "± 25849853",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial interpolation/Sequential FFT #3",
+            "value": 235862328793,
+            "range": "± 162707307",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial interpolation/Sequential FFT #4",
+            "value": 473650036745,
+            "range": "± 84305194",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate",
+            "value": 34,
+            "range": "± 2",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_slice",
+            "value": 152,
+            "range": "± 10",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/add",
+            "value": 86,
+            "range": "± 12",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/neg",
+            "value": 15,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/sub",
+            "value": 159,
+            "range": "± 16",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/mul",
+            "value": 119,
+            "range": "± 13",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/div",
+            "value": 119,
+            "range": "± 24",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "STARK/Simple Fibonacci",
+            "value": 33753475,
+            "range": "± 16817",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "STARK/2 column Fibonacci",
+            "value": 47252242,
+            "range": "± 22379",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "STARK/Fibonacci F17",
+            "value": 274893,
+            "range": "± 42",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "STARK/Quadratic AIR",
+            "value": 33895682,
+            "range": "± 18800",
             "unit": "ns/iter"
           }
         ]
