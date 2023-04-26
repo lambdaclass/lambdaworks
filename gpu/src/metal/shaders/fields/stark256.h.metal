@@ -6,6 +6,7 @@
 #include "../fft/twiddles.h.metal"
 #include "../fft/permutation.h.metal"
 
+// Prime Field of U256 with modulus 0x800000000000011000000000000000000000000000000000000000000000001, used for Starks
 namespace {
     typedef Fp256<
     /* =N **/ /*u256(*/ 576460752303423505, 0, 0, 1 /*)*/,
