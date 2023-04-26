@@ -1,7 +1,6 @@
 #pragma once
 
 #include <metal_stdlib>
-#include "fp_u256.h.metal"
 
 template<typename Fp>
 [[kernel]] void radix2_dit_butterfly(

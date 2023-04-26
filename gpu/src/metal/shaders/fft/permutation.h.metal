@@ -1,6 +1,5 @@
 #pragma once
 #include "util.h.metal"
-#include "fp_u256.h.metal"
 
 template<typename Fp>
 [[kernel]] void bitrev_permutation(

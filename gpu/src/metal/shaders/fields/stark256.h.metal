@@ -1,7 +1,10 @@
+#pragma once
 
-#include "../fft.h.metal"
-#include "../twiddles.h.metal"
-#include "../permutation.h.metal"
+#include "fp_u256.h.metal"
+
+#include "../fft/fft.h.metal"
+#include "../fft/twiddles.h.metal"
+#include "../fft/permutation.h.metal"
 
 namespace {
     typedef Fp256<
