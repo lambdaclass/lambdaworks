@@ -35,7 +35,7 @@ fn round_0_transcript_initialization() -> DefaultTranscript {
     transcript
 }
 
-fn round_1_build_rap<F: IsTwoAdicField, A: AIR<Field = F>>(trace: &TraceTable<F>, air: &A) -> Round1<F>
+fn commit_original_trace<F: IsTwoAdicField, A: AIR<Field = F>>(trace: &TraceTable<F>, air: &A) -> Round1<F>
 where
     FieldElement<F>: ByteConversion
 {
@@ -70,6 +70,19 @@ where
         .collect();
 
     Round1 { trace_polys, lde_trace, lde_trace_merkle_trees, lde_trace_merkle_roots}
+}
+
+fn commit_extended_trace() { 
+    // TODO
+}
+
+fn round_1_randomized_air_with_preprocessing<F: IsTwoAdicField, A: AIR<Field = F>>(trace: &TraceTable<F>, air: &A) -> Round1<F>
+where
+FieldElement<F>: ByteConversion
+{
+    let round_1_result = commit_original_trace(trace, air);
+    commit_extended_trace();
+    round_1_result
 }
 
 struct Round1<F: IsTwoAdicField> {
@@ -126,7 +139,8 @@ where
     .unwrap();
 
     let transcript = &mut round_0_transcript_initialization();
-    let round_1_result = round_1_build_rap(trace, air);
+    let round_1_result = round_1_randomized_air_with_preprocessing(trace, air);
+    
 
     // Fiat-Shamir
     // z is the Out of domain evaluation point used in Deep FRI. It needs to be a point outside
