@@ -38,12 +38,12 @@ mod tests {
     proptest! {
         #[test]
         fn test_zero_padding_works(input in non_power_of_two_sized_field_vec(8)) {
-            assert!(zero_padding(&input).len().is_power_of_two());
+            prop_assert!(zero_padding(&input).len().is_power_of_two());
         }
 
         #[test]
         fn test_zero_padding_does_nothing_with_2pow(input in field_vec(8)) {
-            assert_eq!(zero_padding(&input).len(), input.len());
+            prop_assert_eq!(zero_padding(&input).len(), input.len());
         }
     }
 }
