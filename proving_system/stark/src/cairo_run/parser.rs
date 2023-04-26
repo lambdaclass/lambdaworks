@@ -21,7 +21,7 @@ pub enum Error {
     Trace(#[from] TraceError),
 }
 
-pub fn parse_cairo_file(
+pub fn run_program(
     entrypoint_function: Option<&str>,
     layout: &str,
     filename: &str,
@@ -96,8 +96,7 @@ mod tests {
 
         println!("{}", json_filename);
 
-        super::parse_cairo_file(None, "all_cairo", &json_filename, &dir_trace, &dir_memory)
-            .unwrap();
+        super::run_program(None, "all_cairo", &json_filename, &dir_trace, &dir_memory).unwrap();
 
         // read trace from file
         let raw_trace = CairoTrace::from_file(&dir_trace).unwrap();
