@@ -1,4 +1,4 @@
-mod fri_commitment;
+pub mod fri_commitment;
 pub mod fri_decommit;
 mod fri_functions;
 use crate::fri::fri_commitment::{FriCommitment, FriCommitmentVec};

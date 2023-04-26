@@ -1,6 +1,6 @@
 use super::{
     air::{constraints::evaluator::ConstraintEvaluator, frame::Frame, trace::TraceTable, AIR},
-    fri::{fri, fri_decommit::fri_decommit_layers},
+    fri::{fri, fri_decommit::fri_decommit_layers, fri_commitment::FriCommitmentVec},
     sample_z_ood,
 };
 use crate::{
@@ -166,12 +166,142 @@ struct Round3<F: IsTwoAdicField> {
     composition_poly_ood_evaluations: Vec<FieldElement<F>>,
 }
 
-fn round_4_compute_and_run_fri_on_the_deep_composition_polynomial() {
-    todo!()
+fn fri_commit_phase<F: IsTwoAdicField, A: AIR<Field = F>, T: Transcript>(
+    round_1_result: &Round1<F>,
+    round_2_result: &Round2<F>,
+    round_3_result: &Round3<F>,
+    trace_primitive_root: &FieldElement<F>,
+    z: &FieldElement<F>,
+    lde_roots_of_unity_coset: &[FieldElement<F>],
+    transcript: &mut T,
+    air: &A) -> (FriCommitmentVec<F>, Vec<FieldElement<F>>)
+where
+    FieldElement<F>: ByteConversion
+{
+    // Compute DEEP composition polynomial so we can commit to it using FRI.
+    let mut deep_composition_poly = compute_deep_composition_poly(
+        air,
+        transcript,
+        &round_1_result.trace_polys,
+        &round_2_result.composition_poly_even,
+        &round_2_result.composition_poly_odd,
+        &z,
+        &trace_primitive_root,
+    );
+
+    // * Do FRI on the composition polynomials
+    let lde_fri_commitment = fri(
+        &mut deep_composition_poly,
+        &lde_roots_of_unity_coset,
+        transcript,
+    );
+
+    let fri_layers_merkle_roots: Vec<_> = lde_fri_commitment
+        .iter()
+        .map(|fri_commitment| fri_commitment.merkle_tree.root.clone())
+        .collect();
+
+    (lde_fri_commitment, fri_layers_merkle_roots)
 }
 
-fn round_5_build_proof() {
-    todo!()
+fn fri_query_phase<F: IsTwoAdicField, A: AIR<Field = F>, T: Transcript>(
+    round_1_result: &Round1<F>,
+    round_2_result: &Round2<F>,
+    round_3_result: &Round3<F>,
+    trace_primitive_root: &FieldElement<F>,
+    z: &FieldElement<F>,
+    lde_roots_of_unity_coset: &[FieldElement<F>],
+    transcript: &mut T,
+    air: &A,
+    q_0: usize,
+    lde_root_order: u32,
+    lde_fri_commitment: &FriCommitmentVec<F>,
+    fri_layers_merkle_roots: &[FieldElement<F>],
+) -> (Vec<StarkQueryProof<F>>, DeepConsistencyCheck<F>)
+where
+    FieldElement<F>: ByteConversion
+{
+    // Query
+    let deep_consistency_check = build_deep_consistency_check(
+        q_0,
+        &lde_roots_of_unity_coset,
+        &round_1_result,
+        &round_2_result.composition_poly_even,
+        &round_2_result.composition_poly_odd,
+    );
+
+    let query_list = (0..air.context().options.fri_number_of_queries)
+        .map(|i| {
+            let q_i = if i > 0 {
+                // * Sample q_1, ..., q_m using Fiat-Shamir
+                let q = transcript_to_usize(transcript) % 2_usize.pow(lde_root_order);
+                transcript.append(&q.to_be_bytes());
+                q
+            } else {
+                q_0
+            };
+
+            // * For every q_i, do FRI decommitment
+            let fri_decommitment = fri_decommit_layers(&lde_fri_commitment, q_i);
+            StarkQueryProof {
+                fri_layers_merkle_roots: fri_layers_merkle_roots.clone().to_vec(),
+                fri_decommitment,
+            }
+        })
+        .collect();
+
+    (query_list, deep_consistency_check)
+}
+
+fn round_4_compute_and_run_fri_on_the_deep_composition_polynomial<F: IsTwoAdicField, A: AIR<Field = F>, T: Transcript>(
+    round_1_result: &Round1<F>,
+    round_2_result: &Round2<F>,
+    round_3_result: &Round3<F>,
+    trace_primitive_root: &FieldElement<F>,
+    z: &FieldElement<F>,
+    lde_roots_of_unity_coset: &[FieldElement<F>],
+    transcript: &mut T,
+    air: &A,
+    lde_root_order: u32
+) -> Round4<F>
+where
+FieldElement<F>: ByteConversion
+{
+    let (lde_fri_commitment, fri_layers_merkle_roots) = fri_commit_phase(
+        round_1_result,
+        round_2_result,
+        round_3_result,
+        trace_primitive_root,
+        z,
+        lde_roots_of_unity_coset,
+        transcript,
+        air,
+    );
+
+    let q_0 = transcript_to_usize(transcript) % 2_usize.pow(lde_root_order);
+    transcript.append(&q_0.to_be_bytes());
+
+    let (query_list, deep_consistency_check) = fri_query_phase(
+        round_1_result,
+        round_2_result,
+        round_3_result,
+        trace_primitive_root,
+        z,
+        lde_roots_of_unity_coset,
+        transcript,
+        air,
+        q_0,
+        lde_root_order,
+        &lde_fri_commitment,
+        &fri_layers_merkle_roots,
+    );
+    Round4 {fri_layers_merkle_roots, deep_consistency_check, query_list}
+}
+
+struct Round4<F: IsTwoAdicField> {
+    fri_layers_merkle_roots: Vec<FieldElement<F>>,
+    deep_consistency_check: DeepConsistencyCheck<F>,
+    query_list: Vec<StarkQueryProof<F>>
 }
 
 // FIXME remove unwrap() calls and return errors
@@ -256,68 +386,24 @@ where
         &trace_primitive_root,
     );
 
-    // END EVALUATION BLOCK
-
-    // Compute DEEP composition polynomial so we can commit to it using FRI.
-    let mut deep_composition_poly = compute_deep_composition_poly(
-        air,
-        transcript,
-        &round_1_result.trace_polys,
-        &round_2_result.composition_poly_even,
-        &round_2_result.composition_poly_odd,
-        &z,
-        &trace_primitive_root,
-    );
-
-    // * Do FRI on the composition polynomials
-    let lde_fri_commitment = fri(
-        &mut deep_composition_poly,
-        &lde_roots_of_unity_coset,
-        transcript,
-    );
-
-    let fri_layers_merkle_roots: Vec<_> = lde_fri_commitment
-        .iter()
-        .map(|fri_commitment| fri_commitment.merkle_tree.root.clone())
-        .collect();
-
-    let q_0 = transcript_to_usize(transcript) % 2_usize.pow(lde_root_order);
-    transcript.append(&q_0.to_be_bytes());
-
-    let deep_consistency_check = build_deep_consistency_check(
-        q_0,
-        &lde_roots_of_unity_coset,
+    let round_4_result = round_4_compute_and_run_fri_on_the_deep_composition_polynomial(
         &round_1_result,
-        &round_2_result.composition_poly_even,
-        &round_2_result.composition_poly_odd,
+        &round_2_result,
+        &round_3_result,
+        &trace_primitive_root,
+        &z,
+        &lde_roots_of_unity_coset,
+        transcript,
+        air,
+        lde_root_order
     );
-
-    let query_list = (0..air.context().options.fri_number_of_queries)
-        .map(|i| {
-            let q_i = if i > 0 {
-                // * Sample q_1, ..., q_m using Fiat-Shamir
-                let q = transcript_to_usize(transcript) % 2_usize.pow(lde_root_order);
-                transcript.append(&q.to_be_bytes());
-                q
-            } else {
-                q_0
-            };
-
-            // * For every q_i, do FRI decommitment
-            let fri_decommitment = fri_decommit_layers(&lde_fri_commitment, q_i);
-            StarkQueryProof {
-                fri_layers_merkle_roots: fri_layers_merkle_roots.clone(),
-                fri_decommitment,
-            }
-        })
-        .collect();
 
     StarkProof {
-        fri_layers_merkle_roots: fri_layers_merkle_roots,
+        fri_layers_merkle_roots: round_4_result.fri_layers_merkle_roots,
         trace_ood_frame_evaluations: round_3_result.trace_ood_frame_evaluations,
         composition_poly_ood_evaluations: round_3_result.composition_poly_ood_evaluations,
-        deep_consistency_check: deep_consistency_check,
-        query_list: query_list,
+        deep_consistency_check: round_4_result.deep_consistency_check,
+        query_list: round_4_result.query_list,
     }
 }
 
