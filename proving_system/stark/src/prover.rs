@@ -92,8 +92,36 @@ struct Round1<F: IsTwoAdicField> {
     lde_trace_merkle_roots: Vec<FieldElement<F>>
 }
 
-fn round_2_compute_composition_polynomial() {
-    todo!()
+fn round_2_compute_composition_polynomial<F: IsTwoAdicField, A: AIR<Field = F>>(
+    round_1_result: &Round1<F>,
+    air: &A,
+    trace_primitive_root: &FieldElement<F>,
+    lde_roots_of_unity_coset: &[FieldElement<F>],
+    transition_coeffs: &[(FieldElement<F>, FieldElement<F>)],
+    boundary_coeffs: &[(FieldElement<F>, FieldElement<F>)],
+) -> Round2<F> {
+    // Create evaluation table
+    let evaluator = ConstraintEvaluator::new(air, &round_1_result.trace_polys, &trace_primitive_root);
+
+    let constraint_evaluations = evaluator.evaluate(
+        &round_1_result.lde_trace,
+        &lde_roots_of_unity_coset,
+        &transition_coeffs,
+        &boundary_coeffs,
+    );
+
+    // Get the composition poly H
+    let composition_poly =
+        constraint_evaluations.compute_composition_poly(&lde_roots_of_unity_coset);
+
+    let (composition_poly_even, composition_poly_odd) = composition_poly.even_odd_decomposition();
+
+    Round2 { composition_poly_even, composition_poly_odd }
+}
+
+struct Round2<F: IsTwoAdicField> {
+    composition_poly_even: Polynomial<FieldElement<F>>,
+    composition_poly_odd: Polynomial<FieldElement<F>>,
 }
 
 fn round_3_evaluate_polynomials_in_out_of_domain_element() {
@@ -139,19 +167,18 @@ where
     .unwrap();
 
     let transcript = &mut round_0_transcript_initialization();
-    let round_1_result = round_1_randomized_air_with_preprocessing(trace, air);
-    
 
     // Fiat-Shamir
     // z is the Out of domain evaluation point used in Deep FRI. It needs to be a point outside
     // of both the roots of unity and its corresponding coset used for the lde commitment.
+    // TODO: This has to be sampled after round 2 according to the protocol
     let z = sample_z_ood(&lde_roots_of_unity_coset, &trace_roots_of_unity, transcript);
-
     let z_squared = &z * &z;
 
-    // Create evaluation table
-    let evaluator = ConstraintEvaluator::new(air, &round_1_result.trace_polys, &trace_primitive_root);
+    let round_1_result = round_1_randomized_air_with_preprocessing(trace, air);
 
+    // Sample challenges for round 2
+    // These are the challenges alpha^B_j and beta^B_j
     let boundary_coeffs: Vec<(FieldElement<F>, FieldElement<F>)> = (0..round_1_result.trace_polys.len())
         .map(|_| {
             (
@@ -161,6 +188,7 @@ where
         })
         .collect();
 
+    // These are the challenges alpha^T_j and beta^T_j
     let transition_coeffs: Vec<(FieldElement<F>, FieldElement<F>)> =
         (0..air.context().num_transition_constraints)
             .map(|_| {
@@ -171,22 +199,19 @@ where
             })
             .collect();
 
-    let constraint_evaluations = evaluator.evaluate(
-        &round_1_result.lde_trace,
+    let round_2_result = round_2_compute_composition_polynomial(
+        &round_1_result,
+        air,
+        &trace_primitive_root,
         &lde_roots_of_unity_coset,
         &transition_coeffs,
         &boundary_coeffs,
     );
 
-    // Get the composition poly H
-    let composition_poly =
-        constraint_evaluations.compute_composition_poly(&lde_roots_of_unity_coset);
-
-    let (composition_poly_even, composition_poly_odd) = composition_poly.even_odd_decomposition();
     // Evaluate H_1 and H_2 in z^2.
     let composition_poly_ood_evaluations = vec![
-        composition_poly_even.evaluate(&z_squared),
-        composition_poly_odd.evaluate(&z_squared),
+        round_2_result.composition_poly_even.evaluate(&z_squared),
+        round_2_result.composition_poly_odd.evaluate(&z_squared),
     ];
 
     // Returns the Out of Domain Frame for the given trace polynomials, out of domain evaluation point (called `z` in the literature),
@@ -213,8 +238,8 @@ where
         air,
         transcript,
         &round_1_result.trace_polys,
-        &composition_poly_even,
-        &composition_poly_odd,
+        &round_2_result.composition_poly_even,
+        &round_2_result.composition_poly_odd,
         &z,
         &trace_primitive_root,
     );
@@ -238,8 +263,8 @@ where
         q_0,
         &lde_roots_of_unity_coset,
         &round_1_result,
-        &composition_poly_even,
-        &composition_poly_odd,
+        &round_2_result.composition_poly_even,
+        &round_2_result.composition_poly_odd,
     );
 
     let query_list = (0..air.context().options.fri_number_of_queries)
