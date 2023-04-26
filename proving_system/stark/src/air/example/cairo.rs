@@ -47,6 +47,7 @@ const F_AP_ONE: usize = 11;
 const F_OPC_CALL: usize = 12;
 const F_OPC_RET: usize = 13;
 const F_OPC_AEQ: usize = 14;
+
 //  - Others
 // TODO: These should probably be in the TraceTable module.
 pub const FRAME_RES: usize = 16;
@@ -72,7 +73,7 @@ pub const FRAME_SELECTOR: usize = 33;
 pub const MEM_P_TRACE_OFFSET: usize = 17;
 pub const MEM_A_TRACE_OFFSET: usize = 19;
 
-// TODO: Commented fields are not useful yet.
+// TODO: For memory constraints and builtins, the commented fields may be useful.
 #[derive(Clone)]
 pub struct PublicInputs {
     pub pc_init: FE,
@@ -80,12 +81,11 @@ pub struct PublicInputs {
     pub fp_init: FE,
     pub pc_final: FE,
     pub ap_final: FE,
-    pub fp_final: FE,
     // pub rc_min: u16, // minimum range check value (0 < rc_min < rc_max < 2^16)
     // pub rc_max: u16, // maximum range check value
     // pub mem: (Vec<u64>, Vec<Option<FE>>), // public memory
+    // pub builtins: Vec<Builtin>, // list of builtins
     pub num_steps: usize, // number of execution steps
-                          // pub builtins: Vec<Builtin>, // list of builtins
 }
 
 #[derive(Clone)]
@@ -95,21 +95,16 @@ pub struct CairoAIR {
 }
 
 impl CairoAIR {
-    pub fn new(trace: &TraceTable<Stark252PrimeField>) -> Self {
+    pub fn new(proof_options: ProofOptions, trace: &TraceTable<Stark252PrimeField>) -> Self {
         let num_steps = trace.n_rows();
         let context = AirContext {
-            options: ProofOptions {
-                blowup_factor: 2,
-                fri_number_of_queries: 1,
-                coset_offset: 3,
-            },
+            options: proof_options,
             trace_length: num_steps,
             trace_columns: trace.n_cols,
             transition_degrees: vec![
-                // Flags 0-14.
-                2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, // Flag 15
-                1, // Main constraints.
-                2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+                2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, // Flags 0-14.
+                1, // Flag 15
+                2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, // Other constraints.
             ],
             transition_exemptions: vec![1; 31],
             transition_offsets: vec![0, 1],
@@ -124,7 +119,6 @@ impl CairoAIR {
             fp_init: trace.get(0, FRAME_FP),
             pc_final: trace.get(last_step, FRAME_PC),
             ap_final: trace.get(last_step, FRAME_AP),
-            fp_final: trace.get(last_step, FRAME_FP),
             num_steps,
         };
 
@@ -151,26 +145,34 @@ impl AIR for CairoAIR {
         constraints
     }
 
+    /// From the Cairo whitepaper, section 9.10.
+    /// These are part of the register constraints.
+    ///
+    /// Boundary constraints:
+    ///  * ap_0 = fp_0 = ap_i
+    ///  * ap_t = ap_f
+    ///  * pc_0 = pc_i
+    ///  * pc_t = pc_f
     fn boundary_constraints(&self) -> BoundaryConstraints<Self::Field> {
         let last_step = self.context.trace_length - 1;
-        let constraints = vec![
-            // Initial 'pc' register
-            BoundaryConstraint::new(MEM_A_TRACE_OFFSET, 0, self.pub_inputs.pc_init.clone()),
-            // Initial 'ap' register
-            BoundaryConstraint::new(MEM_P_TRACE_OFFSET, 0, self.pub_inputs.ap_init.clone()),
-            // Final 'pc' register
-            BoundaryConstraint::new(
-                MEM_A_TRACE_OFFSET,
-                last_step,
-                self.pub_inputs.pc_final.clone(),
-            ),
-            // Final 'ap' register
-            BoundaryConstraint::new(
-                MEM_P_TRACE_OFFSET,
-                last_step,
-                self.pub_inputs.ap_final.clone(),
-            ),
-        ];
+
+        let initial_pc =
+            BoundaryConstraint::new(MEM_A_TRACE_OFFSET, 0, self.pub_inputs.pc_init.clone());
+        let initial_ap =
+            BoundaryConstraint::new(MEM_P_TRACE_OFFSET, 0, self.pub_inputs.ap_init.clone());
+
+        let final_pc = BoundaryConstraint::new(
+            MEM_A_TRACE_OFFSET,
+            last_step,
+            self.pub_inputs.pc_final.clone(),
+        );
+        let final_ap = BoundaryConstraint::new(
+            MEM_P_TRACE_OFFSET,
+            last_step,
+            self.pub_inputs.ap_final.clone(),
+        );
+
+        let constraints = vec![initial_pc, initial_ap, final_pc, final_ap];
 
         BoundaryConstraints::from_constraints(constraints)
     }
@@ -180,8 +182,11 @@ impl AIR for CairoAIR {
     }
 }
 
+/// From the Cairo whitepaper, section 9.10
 fn compute_instr_constraints(constraints: &mut [FE], frame: &Frame<Stark252PrimeField>) {
+    // This constraints are only applied over elements of the same row.
     let curr = frame.get_row(0);
+
     // Bit constraints
     for (i, flag) in curr[0..16].iter().enumerate() {
         constraints[i] = match i {
@@ -208,10 +213,13 @@ fn compute_instr_constraints(constraints: &mut [FE], frame: &Frame<Stark252Prime
 }
 
 fn compute_operand_constraints(constraints: &mut [FE], frame: &Frame<Stark252PrimeField>) {
+    // This constraints are only applied over elements of the same row.
     let curr = frame.get_row(0);
+
     let ap = &curr[FRAME_AP];
     let fp = &curr[FRAME_FP];
     let pc = &curr[FRAME_PC];
+
     let one = FE::one();
     let b15 = FE::from(2).pow(15u32);
 
@@ -234,6 +242,7 @@ fn compute_operand_constraints(constraints: &mut [FE], frame: &Frame<Stark252Pri
 fn compute_register_constraints(constraints: &mut [FE], frame: &Frame<Stark252PrimeField>) {
     let curr = frame.get_row(0);
     let next = frame.get_row(1);
+
     let one = FieldElement::one();
     let two = FieldElement::from(2);
 

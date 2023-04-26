@@ -149,7 +149,13 @@ fn test_prove_cairo_simple_program() {
 
     let execution_trace = build_cairo_execution_trace(&raw_trace, &memory);
 
-    let cairo_air = cairo::CairoAIR::new(&execution_trace);
+    let proof_options = ProofOptions {
+        blowup_factor: 2,
+        fri_number_of_queries: 1,
+        coset_offset: 3,
+    };
+
+    let cairo_air = cairo::CairoAIR::new(proof_options, &execution_trace);
 
     let result = prove(&execution_trace, &cairo_air);
     assert!(verify(&result, &cairo_air));
@@ -186,7 +192,13 @@ fn test_prove_cairo_call_func() {
 
     let execution_trace = build_cairo_execution_trace(&raw_trace, &memory);
 
-    let cairo_air = cairo::CairoAIR::new(&execution_trace);
+    let proof_options = ProofOptions {
+        blowup_factor: 2,
+        fri_number_of_queries: 1,
+        coset_offset: 3,
+    };
+
+    let cairo_air = cairo::CairoAIR::new(proof_options, &execution_trace);
 
     let result = prove(&execution_trace, &cairo_air);
     assert!(verify(&result, &cairo_air));
