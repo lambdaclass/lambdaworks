@@ -23,7 +23,7 @@ pub fn fft_with_blowup<F: IsTwoAdicField>(
     }
 
     let mut results = input.to_vec();
-    let domain_size = helpers::next_power_of_two(input.len() * blowup_factor);
+    let domain_size = (input.len() * blowup_factor).next_power_of_two();
     results.resize(domain_size, FieldElement::zero());
 
     let order = results.len().trailing_zeros();
