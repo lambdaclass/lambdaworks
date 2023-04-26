@@ -86,7 +86,7 @@ pub fn metal_bitrev_permutation_benchmarks(c: &mut Criterion) {
                 // TODO: autoreleaspool hurts perf. by 2-3%. Search for an alternative
                 objc::rc::autoreleasepool(|| {
                     let metal_state = MetalState::new(None).unwrap();
-                    bitrev_permutation(coeffs, &metal_state).unwrap();
+                    bitrev_permutation::<F, _>(coeffs, &metal_state).unwrap();
                 });
             });
         });
@@ -108,7 +108,7 @@ pub fn metal_poly_interpolate_fft_benchmarks(c: &mut Criterion) {
             bench.iter(|| {
                 // TODO: autoreleaspool hurts perf. by 2-3%. Search for an alternative
                 objc::rc::autoreleasepool(|| {
-                    Polynomial::interpolate_fft_metal(evals).unwrap();
+                    interpolate_fft_metal(evals).unwrap();
                 });
             });
         });
@@ -129,7 +129,7 @@ pub fn metal_poly_evaluate_fft_benchmarks(c: &mut Criterion) {
             bench.iter(|| {
                 // TODO: autoreleaspool hurts perf. by 2-3%. Search for an alternative
                 objc::rc::autoreleasepool(|| {
-                    poly.evaluate_fft_metal().unwrap();
+                    evaluate_fft_metal(poly).unwrap();
                 });
             });
         });

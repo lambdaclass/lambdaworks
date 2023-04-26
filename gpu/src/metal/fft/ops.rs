@@ -48,7 +48,7 @@ pub fn fft<F: IsFFTField>(
     command_buffer.wait_until_completed();
 
     let result = MetalState::retrieve_contents(&input_buffer);
-    let result = bitrev_permutation(&result, state)?;
+    let result = bitrev_permutation::<F, _>(&result, state)?;
     Ok(result.iter().map(FieldElement::from_raw).collect())
 }
 
@@ -111,8 +111,11 @@ pub fn gen_twiddles<F: IsFFTField>(
 }
 
 /// Executes a parallel bit-reverse permutation with the elements of `input`, in Metal.
-pub fn bitrev_permutation<T: Clone>(input: &[T], state: &MetalState) -> Result<Vec<T>, MetalError> {
-    let pipeline = state.setup_pipeline(&format!("bitrev_permutation_{}", "stark256"))?;
+pub fn bitrev_permutation<F: IsFFTField, T: Clone>(
+    input: &[T],
+    state: &MetalState,
+) -> Result<Vec<T>, MetalError> {
+    let pipeline = state.setup_pipeline(&format!("bitrev_permutation_{}", F::field_name()))?;
 
     let input_buffer = state.alloc_buffer_data(input);
     let result_buffer = state.alloc_buffer::<T>(input.len());
