@@ -5,7 +5,7 @@ use self::{
 };
 use lambdaworks_fft::roots_of_unity::get_powers_of_primitive_root_coset;
 use lambdaworks_math::{
-    field::{element::FieldElement, traits::IsTwoAdicField},
+    field::{element::FieldElement, traits::IsFFTField},
     polynomial::Polynomial,
 };
 
@@ -16,7 +16,7 @@ pub mod frame;
 pub mod trace;
 
 pub trait AIR: Clone {
-    type Field: IsTwoAdicField;
+    type Field: IsFFTField;
 
     fn new(context: AirContext) -> Self;
     fn compute_transition(&self, frame: &Frame<Self::Field>) -> Vec<FieldElement<Self::Field>>;

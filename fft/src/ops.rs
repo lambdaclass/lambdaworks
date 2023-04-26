@@ -1,6 +1,6 @@
 use lambdaworks_math::field::{
     element::FieldElement,
-    traits::{IsTwoAdicField, RootsConfig},
+    traits::{IsFFTField, RootsConfig},
 };
 
 use crate::roots_of_unity::get_twiddles;
@@ -12,7 +12,7 @@ use super::{
 
 /// Executes Fast Fourier Transform over elements of a two-adic finite field `F` in a coset. Usually used for
 /// fast polynomial evaluation.
-pub fn fft_with_blowup<F: IsTwoAdicField>(
+pub fn fft_with_blowup<F: IsFFTField>(
     coeffs: &[FieldElement<F>],
     blowup_factor: usize,
 ) -> Result<Vec<FieldElement<F>>, FFTError> {
@@ -31,9 +31,7 @@ pub fn fft_with_blowup<F: IsTwoAdicField>(
 
 /// Executes Fast Fourier Transform over elements of a two-adic finite field `F`. Usually used for
 /// fast polynomial evaluation.
-pub fn fft<F: IsTwoAdicField>(
-    coeffs: &[FieldElement<F>],
-) -> Result<Vec<FieldElement<F>>, FFTError> {
+pub fn fft<F: IsFFTField>(coeffs: &[FieldElement<F>]) -> Result<Vec<FieldElement<F>>, FFTError> {
     let order = log2(coeffs.len())?;
     let twiddles = get_twiddles(order, RootsConfig::BitReverse)?;
 
@@ -46,7 +44,7 @@ pub fn fft<F: IsTwoAdicField>(
 
 /// Executes the inverse Fast Fourier Transform over elements of a two-adic finite field `F`.
 /// Usually used for fast polynomial evaluation.
-pub fn inverse_fft<F: IsTwoAdicField>(
+pub fn inverse_fft<F: IsFFTField>(
     coeffs: &[FieldElement<F>],
 ) -> Result<Vec<FieldElement<F>>, FFTError> {
     let order = log2(coeffs.len())?;

@@ -1,6 +1,6 @@
 use lambdaworks_math::field::{
     element::FieldElement,
-    traits::{IsField, IsTwoAdicField},
+    traits::{IsFFTField, IsField},
 };
 
 use crate::{air::frame::Frame, fri::fri_decommit::FriDecommitment};
@@ -12,7 +12,7 @@ pub struct StarkQueryProof<F: IsField> {
 }
 
 #[derive(Debug)]
-pub struct StarkProof<F: IsTwoAdicField> {
+pub struct StarkProof<F: IsFFTField> {
     pub fri_layers_merkle_roots: Vec<FieldElement<F>>,
     pub trace_ood_frame_evaluations: Frame<F>,
     pub composition_poly_evaluations: Vec<FieldElement<F>>,

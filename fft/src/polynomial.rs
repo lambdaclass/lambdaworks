@@ -1,5 +1,5 @@
 use lambdaworks_math::{
-    field::{element::FieldElement, traits::IsTwoAdicField},
+    field::{element::FieldElement, traits::IsFFTField},
     helpers,
     polynomial::Polynomial,
 };
@@ -9,7 +9,7 @@ use crate::{
     ops::{fft_with_blowup, inverse_fft},
 };
 
-pub trait FFTPoly<F: IsTwoAdicField> {
+pub trait FFTPoly<F: IsFFTField> {
     fn evaluate_fft(&self) -> Result<Vec<FieldElement<F>>, FFTError>;
     fn evaluate_offset_fft(
         &self,
@@ -21,7 +21,7 @@ pub trait FFTPoly<F: IsTwoAdicField> {
     ) -> Result<Polynomial<FieldElement<F>>, FFTError>;
 }
 
-impl<F: IsTwoAdicField> FFTPoly<F> for Polynomial<FieldElement<F>> {
+impl<F: IsFFTField> FFTPoly<F> for Polynomial<FieldElement<F>> {
     /// Evaluates this polynomial using FFT (so the function is evaluated using twiddle factors).
     fn evaluate_fft(&self) -> Result<Vec<FieldElement<F>>, FFTError> {
         #[cfg(feature = "metal")]
@@ -99,7 +99,7 @@ pub fn evaluate_fft_cpu<F>(
     poly: &Polynomial<FieldElement<F>>,
 ) -> Result<Vec<FieldElement<F>>, FFTError>
 where
-    F: IsTwoAdicField,
+    F: IsFFTField,
 {
     let num_coefficients = poly.coefficients().len();
     let num_coeficcients_power_of_two = helpers::next_power_of_two(num_coefficients as u64);
@@ -115,7 +115,7 @@ pub fn evaluate_offset_fft_cpu<F>(
     blowup_factor: usize,
 ) -> Result<Vec<FieldElement<F>>, FFTError>
 where
-    F: IsTwoAdicField,
+    F: IsFFTField,
 {
     let scaled = poly.scale(offset);
     fft_with_blowup(scaled.coefficients(), blowup_factor)
@@ -125,7 +125,7 @@ pub fn interpolate_fft_cpu<F>(
     fft_evals: &[FieldElement<F>],
 ) -> Result<Polynomial<FieldElement<F>>, FFTError>
 where
-    F: IsTwoAdicField,
+    F: IsFFTField,
 {
     let coeffs = inverse_fft(fft_evals)?;
     Ok(Polynomial::new(&coeffs))
@@ -136,7 +136,7 @@ pub fn compose_fft<F>(
     poly_2: &Polynomial<FieldElement<F>>,
 ) -> Polynomial<FieldElement<F>>
 where
-    F: IsTwoAdicField,
+    F: IsFFTField,
 {
     let poly_2_evaluations = poly_2.evaluate_fft().unwrap();
 

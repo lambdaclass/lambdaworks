@@ -1,6 +1,6 @@
 use lambdaworks_math::field::{
     element::FieldElement,
-    traits::{IsTwoAdicField, RootsConfig},
+    traits::{IsFFTField, RootsConfig},
 };
 
 use crate::metal::abstractions::{errors::MetalError, state::*};
@@ -17,12 +17,12 @@ use core::mem;
 /// in this order too. Natural order means that input[i] corresponds to the i-th coefficient,
 /// as opposed to bit-reverse order in which input[bit_rev(i)] corresponds to the i-th
 /// coefficient.
-pub fn fft<F: IsTwoAdicField>(
+pub fn fft<F: IsFFTField>(
     input: &[FieldElement<F>],
     twiddles: &[FieldElement<F>],
     state: &MetalState,
 ) -> Result<Vec<FieldElement<F>>, MetalError> {
-    let pipeline = state.setup_pipeline("radix2_dit_butterfly")?;
+    let pipeline = state.setup_pipeline(&format!("radix2_dit_butterfly_{}", F::field_name()))?;
 
     let input_buffer = state.alloc_buffer_data(input);
     let twiddles_buffer = state.alloc_buffer_data(twiddles);
@@ -58,7 +58,7 @@ pub fn fft<F: IsTwoAdicField>(
 /// in this order too. Natural order means that input[i] corresponds to the i-th coefficient,
 /// as opposed to bit-reverse order in which input[bit_rev(i)] corresponds to the i-th
 /// coefficient.
-pub fn fft_with_blowup<F: IsTwoAdicField>(
+pub fn fft_with_blowup<F: IsFFTField>(
     input: &[FieldElement<F>],
     blowup_factor: usize,
     state: &MetalState,
@@ -73,7 +73,7 @@ pub fn fft_with_blowup<F: IsTwoAdicField>(
 }
 
 /// Generates 2^{`order`} twiddle factors in parallel, with a certain `config`, in Metal.
-pub fn gen_twiddles<F: IsTwoAdicField>(
+pub fn gen_twiddles<F: IsFFTField>(
     order: u64,
     config: RootsConfig,
     state: &MetalState,
@@ -81,13 +81,13 @@ pub fn gen_twiddles<F: IsTwoAdicField>(
     let len = (1 << order) / 2;
 
     let kernel = match config {
-        RootsConfig::Natural => "calc_twiddles",
-        RootsConfig::NaturalInversed => "calc_twiddles_inv",
-        RootsConfig::BitReverse => "calc_twiddles_bitrev",
-        RootsConfig::BitReverseInversed => "calc_twiddles_bitrev_inv",
+        RootsConfig::Natural => format!("calc_twiddles_{}", F::field_name()),
+        RootsConfig::NaturalInversed => format!("calc_twiddles_inv_{}", F::field_name()),
+        RootsConfig::BitReverse => format!("calc_twiddles_bitrev_{}", F::field_name()),
+        RootsConfig::BitReverseInversed => format!("calc_twiddles_bitrev_inv_{}", F::field_name()),
     };
 
-    let pipeline = state.setup_pipeline(kernel)?;
+    let pipeline = state.setup_pipeline(&kernel)?;
 
     let result_buffer = state.alloc_buffer::<F::BaseType>(len);
 
@@ -112,7 +112,7 @@ pub fn gen_twiddles<F: IsTwoAdicField>(
 
 /// Executes a parallel bit-reverse permutation with the elements of `input`, in Metal.
 pub fn bitrev_permutation<T: Clone>(input: &[T], state: &MetalState) -> Result<Vec<T>, MetalError> {
-    let pipeline = state.setup_pipeline("bitrev_permutation")?;
+    let pipeline = state.setup_pipeline(&format!("bitrev_permutation_{}", "stark256"))?;
 
     let input_buffer = state.alloc_buffer_data(input);
     let result_buffer = state.alloc_buffer::<T>(input.len());

@@ -13,10 +13,3 @@ template<typename Fp>
     result[index] = input[reverse_index(index, size)];
 }
 
-template [[ host_name("bitrev_permutation") ]] 
-[[kernel]] void bitrev_permutation<p256::Fp>(
-    device p256::Fp*, 
-    device p256::Fp*, 
-    uint, 
-    uint
-);

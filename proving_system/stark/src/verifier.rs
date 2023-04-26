@@ -13,14 +13,14 @@ use lambdaworks_fft::roots_of_unity::get_powers_of_primitive_root_coset;
 use lambdaworks_math::{
     field::{
         element::FieldElement,
-        traits::{IsField, IsTwoAdicField},
+        traits::{IsFFTField, IsField},
     },
     helpers,
     polynomial::Polynomial,
     traits::ByteConversion,
 };
 
-pub fn verify<F: IsTwoAdicField, A: AIR<Field = F>>(proof: &StarkProof<F>, air: &A) -> bool
+pub fn verify<F: IsFFTField, A: AIR<Field = F>>(proof: &StarkProof<F>, air: &A) -> bool
 where
     FieldElement<F>: ByteConversion,
 {
@@ -223,7 +223,7 @@ where
     result
 }
 
-pub fn verify_query<F: IsField + IsTwoAdicField>(
+pub fn verify_query<F: IsField + IsFFTField>(
     fri_layers_merkle_roots: &[FieldElement<F>],
     beta_list: &[FieldElement<F>],
     q_i: usize,

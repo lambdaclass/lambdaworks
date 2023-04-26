@@ -25,11 +25,3 @@ template<typename Fp>
   input[i + half_group_size]  = res_2; // --/\--
 }
 
-template [[ host_name("radix2_dit_butterfly") ]] 
-[[kernel]] void radix2_dit_butterfly<p256::Fp>(
-    device p256::Fp*, 
-    constant p256::Fp*, 
-    uint32_t, 
-    uint32_t, 
-    uint32_t
-);

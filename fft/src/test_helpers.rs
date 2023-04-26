@@ -1,6 +1,6 @@
 use lambdaworks_math::field::{
     element::FieldElement,
-    traits::{IsTwoAdicField, RootsConfig},
+    traits::{IsFFTField, RootsConfig},
 };
 
 use crate::roots_of_unity::get_powers_of_primitive_root;
@@ -8,7 +8,7 @@ use crate::roots_of_unity::get_powers_of_primitive_root;
 use super::helpers::log2;
 
 /// Calculates the (non-unitary) Discrete Fourier Transform of `input` via the DFT matrix.
-pub fn naive_matrix_dft_test<F: IsTwoAdicField>(input: &[FieldElement<F>]) -> Vec<FieldElement<F>> {
+pub fn naive_matrix_dft_test<F: IsFFTField>(input: &[FieldElement<F>]) -> Vec<FieldElement<F>> {
     let n = input.len();
     let order = log2(n).unwrap();
 
