@@ -213,3 +213,10 @@ The job of providing these samples for both prover and verifier is done by the `
 Notice that to sample the same values, both prover and verifier need to call `challenge` and `append` in the same order (and with the same values in the case of `append`) and the same number of times.
 
 The idea explained above is called the Fiat-Shamir heuristic or just `Fiat-Shamir`, and is more generally used throughout proving systems to remove interaction between prover and verifier. Though the concept is very simple, getting it right so the prover can't cheat is not, but we won't go into that here.
+
+# Special considerations
+
+## FFT evaluation and interpolation
+When evaluating or interpolating a polynomial, if the input (be it coefficients or evaluations) size isn't a power of two then the FFT API will extend it with zero padding until this requirement is met. This is because the library currently only uses a radix-2 FFT algorithm.
+
+Also, right now FFT only supports inputs with a size up to $2^{2^32}$ elements.
