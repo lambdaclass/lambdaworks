@@ -23,17 +23,17 @@ pub enum Error {
 
 /// Runs a cairo program in JSON format and returns trace and memory files.
 /// Uses [cairo-rs](https://github.com/lambdaclass/cairo-rs/) project to run the program.
-/// 
+///
 ///  # Params
-/// 
+///
 /// `entrypoint_function` - the name of the entrypoint function tu run. If `None` is provided, the default value is `main`.
 /// `layout` - type of layout of Cairo.
 /// `filename` - path to the input file.
 /// `trace_path` - path where to store the generated trace file.
 /// `memory_path` - path where to store the generated memory file.
-/// 
+///
 /// # Returns
-/// 
+///
 /// Ok(()) in case of succes
 /// `Error` indicating the type of error.
 pub fn run_program(
