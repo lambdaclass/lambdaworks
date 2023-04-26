@@ -124,8 +124,46 @@ struct Round2<F: IsTwoAdicField> {
     composition_poly_odd: Polynomial<FieldElement<F>>,
 }
 
-fn round_3_evaluate_polynomials_in_out_of_domain_element() {
-    todo!()
+fn round_3_evaluate_polynomials_in_out_of_domain_element<F: IsTwoAdicField, A: AIR<Field = F>>(
+    round_1_result: &Round1<F>,
+    round_2_result: &Round2<F>,
+    trace: &TraceTable<F>,
+    air: &A,
+    z: &FieldElement<F>,
+    z_squared: &FieldElement<F>,
+    trace_primitive_root: &FieldElement<F>) -> Round3<F>
+where
+FieldElement<F>: ByteConversion
+{
+    // Evaluate H_1 and H_2 in z^2.
+    let composition_poly_ood_evaluations = vec![
+        round_2_result.composition_poly_even.evaluate(&z_squared),
+        round_2_result.composition_poly_odd.evaluate(&z_squared),
+    ];
+
+    // Returns the Out of Domain Frame for the given trace polynomials, out of domain evaluation point (called `z` in the literature),
+    // frame offsets given by the AIR and primitive root used for interpolating the trace polynomials.
+    // An out of domain frame is nothing more than the evaluation of the trace polynomials in the points required by the
+    // verifier to check the consistency between the trace and the composition polynomial.
+    //
+    // In the fibonacci example, the ood frame is simply the evaluations `[t(z), t(z * g), t(z * g^2)]`, where `t` is the trace
+    // polynomial and `g` is the primitive root of unity used when interpolating `t`.
+    let ood_trace_evaluations = Frame::get_trace_evaluations(
+        &round_1_result.trace_polys,
+        &z,
+        &air.context().transition_offsets,
+        &trace_primitive_root,
+    );
+
+    let trace_ood_frame_data = ood_trace_evaluations.into_iter().flatten().collect();
+    let trace_ood_frame_evaluations = Frame::new(trace_ood_frame_data, round_1_result.trace_polys.len());
+
+    Round3 { trace_ood_frame_evaluations, composition_poly_ood_evaluations }
+}
+
+struct Round3<F: IsTwoAdicField> {
+    trace_ood_frame_evaluations: Frame<F>,
+    composition_poly_ood_evaluations: Vec<FieldElement<F>>,
 }
 
 fn round_4_compute_and_run_fri_on_the_deep_composition_polynomial() {
@@ -208,28 +246,15 @@ where
         &boundary_coeffs,
     );
 
-    // Evaluate H_1 and H_2 in z^2.
-    let composition_poly_ood_evaluations = vec![
-        round_2_result.composition_poly_even.evaluate(&z_squared),
-        round_2_result.composition_poly_odd.evaluate(&z_squared),
-    ];
-
-    // Returns the Out of Domain Frame for the given trace polynomials, out of domain evaluation point (called `z` in the literature),
-    // frame offsets given by the AIR and primitive root used for interpolating the trace polynomials.
-    // An out of domain frame is nothing more than the evaluation of the trace polynomials in the points required by the
-    // verifier to check the consistency between the trace and the composition polynomial.
-    //
-    // In the fibonacci example, the ood frame is simply the evaluations `[t(z), t(z * g), t(z * g^2)]`, where `t` is the trace
-    // polynomial and `g` is the primitive root of unity used when interpolating `t`.
-    let ood_trace_evaluations = Frame::get_trace_evaluations(
-        &round_1_result.trace_polys,
+    let round_3_result = round_3_evaluate_polynomials_in_out_of_domain_element(
+        &round_1_result,
+        &round_2_result,
+        trace,
+        air,
         &z,
-        &air.context().transition_offsets,
+        &z_squared,
         &trace_primitive_root,
     );
-
-    let trace_ood_frame_data = ood_trace_evaluations.into_iter().flatten().collect();
-    let trace_ood_frame_evaluations = Frame::new(trace_ood_frame_data, round_1_result.trace_polys.len());
 
     // END EVALUATION BLOCK
 
@@ -288,11 +313,11 @@ where
         .collect();
 
     StarkProof {
-        fri_layers_merkle_roots,
-        trace_ood_frame_evaluations,
-        composition_poly_ood_evaluations,
-        deep_consistency_check,
-        query_list,
+        fri_layers_merkle_roots: fri_layers_merkle_roots,
+        trace_ood_frame_evaluations: round_3_result.trace_ood_frame_evaluations,
+        composition_poly_ood_evaluations: round_3_result.composition_poly_ood_evaluations,
+        deep_consistency_check: deep_consistency_check,
+        query_list: query_list,
     }
 }
 
