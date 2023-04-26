@@ -18,7 +18,6 @@ pub mod trace;
 pub trait AIR: Clone {
     type Field: IsFFTField;
 
-    fn new(context: AirContext) -> Self;
     fn compute_transition(&self, frame: &Frame<Self::Field>) -> Vec<FieldElement<Self::Field>>;
     fn boundary_constraints(&self) -> BoundaryConstraints<Self::Field>;
     fn transition_divisors(&self) -> Vec<Polynomial<FieldElement<Self::Field>>> {

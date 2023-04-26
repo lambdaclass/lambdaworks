@@ -4,12 +4,13 @@ use super::{
     sample_z_ood,
 };
 use crate::{
-    proof::{StarkProof, StarkQueryProof},
+    fri::HASHER,
+    proof::{DeepConsistencyCheck, StarkProof, StarkQueryProof},
     transcript_to_field, transcript_to_usize,
 };
 #[cfg(not(feature = "test_fiat_shamir"))]
 use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
-use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
+use lambdaworks_crypto::{fiat_shamir::transcript::Transcript, merkle_tree::merkle::MerkleTree};
 
 #[cfg(feature = "test_fiat_shamir")]
 use lambdaworks_crypto::fiat_shamir::test_transcript::TestTranscript;
@@ -27,6 +28,9 @@ pub fn prove<F: IsFFTField, A: AIR<Field = F>>(trace: &TraceTable<F>, air: &A) -
 where
     FieldElement<F>: ByteConversion,
 {
+    #[cfg(debug_assertions)]
+    trace.validate(air);
+
     #[cfg(not(feature = "test_fiat_shamir"))]
     let transcript = &mut DefaultTranscript::new();
     #[cfg(feature = "test_fiat_shamir")]
@@ -57,12 +61,10 @@ where
     let lde_trace_evaluations = trace_polys
         .iter()
         .map(|poly| {
-            let res = poly.evaluate_offset_fft(
+            poly.evaluate_offset_fft(
                 &FieldElement::<F>::from(air.options().coset_offset),
                 air.options().blowup_factor as usize,
-            );
-            dbg!(&res);
-            res
+            )
         })
         .collect::<Result<Vec<Vec<FieldElement<F>>>, FFTError>>()
         .unwrap();
@@ -111,7 +113,7 @@ where
 
     let (composition_poly_even, composition_poly_odd) = composition_poly.even_odd_decomposition();
     // Evaluate H_1 and H_2 in z^2.
-    let composition_poly_evaluations = vec![
+    let composition_poly_ood_evaluations = vec![
         composition_poly_even.evaluate(&z_squared),
         composition_poly_odd.evaluate(&z_squared),
     ];
@@ -138,12 +140,12 @@ where
     // Compute DEEP composition polynomial so we can commit to it using FRI.
     let mut deep_composition_poly = compute_deep_composition_poly(
         air,
+        transcript,
         &trace_polys,
         &composition_poly_even,
         &composition_poly_odd,
         &z,
         &trace_primitive_root,
-        transcript,
     );
 
     // * Do FRI on the composition polynomials
@@ -158,11 +160,27 @@ where
         .map(|fri_commitment| fri_commitment.merkle_tree.root.clone())
         .collect();
 
+    let q_0 = transcript_to_usize(transcript) % 2_usize.pow(lde_root_order);
+    transcript.append(&q_0.to_be_bytes());
+
+    let deep_consistency_check = build_deep_consistency_check(
+        q_0,
+        &lde_roots_of_unity_coset,
+        &lde_trace,
+        &composition_poly_even,
+        &composition_poly_odd,
+    );
+
     let query_list = (0..air.context().options.fri_number_of_queries)
-        .map(|_| {
-            // * Sample q_1, ..., q_m using Fiat-Shamir
-            let q_i = transcript_to_usize(transcript) % 2_usize.pow(lde_root_order);
-            transcript.append(&q_i.to_be_bytes());
+        .map(|i| {
+            let q_i = if i > 0 {
+                // * Sample q_1, ..., q_m using Fiat-Shamir
+                let q = transcript_to_usize(transcript) % 2_usize.pow(lde_root_order);
+                transcript.append(&q.to_be_bytes());
+                q
+            } else {
+                q_0
+            };
 
             // * For every q_i, do FRI decommitment
             let fri_decommitment = fri_decommit_layers(&lde_fri_commitment, q_i);
@@ -176,7 +194,8 @@ where
     StarkProof {
         fri_layers_merkle_roots,
         trace_ood_frame_evaluations,
-        composition_poly_evaluations,
+        composition_poly_ood_evaluations,
+        deep_consistency_check,
         query_list,
     }
 }
@@ -186,26 +205,14 @@ where
 /// composition polynomial, with coefficients sampled by the verifier (i.e. using Fiat-Shamir).
 fn compute_deep_composition_poly<A: AIR, F: IsFFTField, T: Transcript>(
     air: &A,
+    transcript: &mut T,
     trace_polys: &[Polynomial<FieldElement<F>>],
     even_composition_poly: &Polynomial<FieldElement<F>>,
     odd_composition_poly: &Polynomial<FieldElement<F>>,
     ood_evaluation_point: &FieldElement<F>,
     primitive_root: &FieldElement<F>,
-    transcript: &mut T,
 ) -> Polynomial<FieldElement<F>> {
     let transition_offsets = air.context().transition_offsets;
-
-    // Get the number of trace terms the DEEP composition poly will have.
-    // One coefficient will be sampled for each of them.
-    let n_trace_terms = transition_offsets.len() * trace_polys.len();
-    let mut trace_term_coeffs = Vec::with_capacity(n_trace_terms);
-    for _ in 0..n_trace_terms {
-        trace_term_coeffs.push(transcript_to_field::<F, T>(transcript));
-    }
-
-    // Get coefficients for even and odd terms of the composition polynomial H(x)
-    let gamma_even = transcript_to_field::<F, T>(transcript);
-    let gamma_odd = transcript_to_field::<F, T>(transcript);
 
     // Get trace evaluations needed for the trace terms of the deep composition polynomial
     let trace_evaluations = Frame::get_trace_evaluations(
@@ -218,29 +225,78 @@ fn compute_deep_composition_poly<A: AIR, F: IsFFTField, T: Transcript>(
     // Compute all the trace terms of the deep composition polynomial. There will be one
     // term for every trace polynomial and every trace evaluation.
     let mut trace_terms = Polynomial::zero();
-    for (trace_evaluation, trace_poly) in trace_evaluations.iter().zip(trace_polys) {
-        for (eval, coeff) in trace_evaluation.iter().zip(&trace_term_coeffs) {
-            let poly = (trace_poly.clone()
-                - Polynomial::new_monomial(trace_poly.evaluate(eval), 0))
+    for (i, trace_poly) in trace_polys.iter().enumerate() {
+        for (trace_evaluation, offset) in trace_evaluations.iter().zip(&transition_offsets) {
+            let eval = trace_evaluation[i].clone();
+            let root_of_unity = ood_evaluation_point * primitive_root.pow(*offset);
+            let poly = (trace_poly.clone() - Polynomial::new_monomial(eval, 0))
                 / (Polynomial::new_monomial(FieldElement::<F>::one(), 1)
-                    - Polynomial::new_monomial(eval.clone(), 0));
+                    - Polynomial::new_monomial(root_of_unity, 0));
+            let coeff = transcript_to_field::<F, T>(transcript);
 
-            trace_terms = trace_terms + poly * coeff.clone();
+            trace_terms = trace_terms + poly * coeff;
         }
     }
 
+    // Get coefficients for even and odd terms of the composition polynomial H(x)
+    let gamma_even = transcript_to_field::<F, T>(transcript);
+    let gamma_odd = transcript_to_field::<F, T>(transcript);
+
+    let ood_point_squared = ood_evaluation_point * ood_evaluation_point;
+
     let even_composition_poly_term = (even_composition_poly.clone()
-        - Polynomial::new_monomial(
-            even_composition_poly.evaluate(&ood_evaluation_point.clone()),
-            0,
-        ))
+        - Polynomial::new_monomial(even_composition_poly.evaluate(&ood_point_squared), 0))
         / (Polynomial::new_monomial(FieldElement::one(), 1)
-            - Polynomial::new_monomial(ood_evaluation_point * ood_evaluation_point, 0));
+            - Polynomial::new_monomial(ood_point_squared.clone(), 0));
 
     let odd_composition_poly_term = (odd_composition_poly.clone()
-        - Polynomial::new_monomial(odd_composition_poly.evaluate(ood_evaluation_point), 0))
+        - Polynomial::new_monomial(odd_composition_poly.evaluate(&ood_point_squared), 0))
         / (Polynomial::new_monomial(FieldElement::one(), 1)
-            - Polynomial::new_monomial(ood_evaluation_point * ood_evaluation_point, 0));
+            - Polynomial::new_monomial(ood_point_squared.clone(), 0));
 
     trace_terms + even_composition_poly_term * gamma_even + odd_composition_poly_term * gamma_odd
+}
+
+fn build_deep_consistency_check<F: IsFFTField>(
+    index_to_verify: usize,
+    domain: &[FieldElement<F>],
+    trace: &TraceTable<F>,
+    composition_poly_even: &Polynomial<FieldElement<F>>,
+    composition_poly_odd: &Polynomial<FieldElement<F>>,
+) -> DeepConsistencyCheck<F>
+where
+    FieldElement<F>: ByteConversion,
+{
+    let index = index_to_verify % domain.len();
+
+    let lde_trace_merkle_trees = trace
+        .cols()
+        .iter()
+        .map(|col| MerkleTree::build(col, Box::new(HASHER)))
+        .collect::<Vec<MerkleTree<F>>>();
+
+    let lde_trace_merkle_roots = lde_trace_merkle_trees
+        .iter()
+        .map(|tree| tree.root.clone())
+        .collect();
+
+    let lde_trace_merkle_proofs = lde_trace_merkle_trees
+        .iter()
+        .map(|tree| tree.get_proof_by_pos(index).unwrap())
+        .collect();
+
+    let d_evaluation_point = &domain[index];
+    let lde_trace_evaluations = trace.get_row(index).to_vec();
+
+    let composition_poly_evaluations = vec![
+        composition_poly_even.evaluate(d_evaluation_point),
+        composition_poly_odd.evaluate(d_evaluation_point),
+    ];
+
+    DeepConsistencyCheck {
+        lde_trace_merkle_roots,
+        lde_trace_merkle_proofs,
+        lde_trace_evaluations,
+        composition_poly_evaluations,
+    }
 }

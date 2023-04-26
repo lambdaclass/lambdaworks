@@ -11,3 +11,4 @@ Cargo.lock
 
 **/proptest-regressions
 /output.txt
+flamegraph.svg
