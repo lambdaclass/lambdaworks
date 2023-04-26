@@ -1,16 +1,11 @@
-use lambdaworks_math::field::{
-    element::FieldElement,
-    traits::{IsField, IsTwoAdicField},
-};
+use lambdaworks_math::field::{element::FieldElement, traits::IsTwoAdicField};
 
 use cudarc::{
-    driver::{safe::DeviceRepr, CudaDevice, LaunchAsync, LaunchConfig},
+    driver::{CudaDevice, LaunchAsync, LaunchConfig},
     nvrtc::safe::Ptx,
 };
 
-use core::ffi;
-
-use crate::cuda::field;
+use crate::cuda::field::element::CUDAFieldElement;
 
 const SHADER_PTX: &str = include_str!("../shaders/fft.ptx");
 
@@ -81,13 +76,12 @@ where
 mod tests {
     use lambdaworks_fft::roots_of_unity::get_twiddles;
     use lambdaworks_math::field::{
-        element::FieldElement,
-        {test_fields::u32_test_field::U32TestField, traits::RootsConfig},
+        element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+        traits::RootsConfig,
     };
     use proptest::{collection, prelude::*};
 
-    // FFT related tests
-    type F = U32TestField;
+    type F = Stark252PrimeField;
     type FE = FieldElement<F>;
 
     prop_compose! {
@@ -118,18 +112,5 @@ mod tests {
 
             assert_eq!(cuda_fft, fft);
         }
-    }
-
-    #[test]
-    fn test_cuda_fft_single() {
-        let input = vec![FE::new(1), FE::new(1)];
-        let order = input.len().trailing_zeros();
-        let twiddles = get_twiddles(order.into(), RootsConfig::BitReverse).unwrap();
-
-        let mut cuda_fft = super::fft(&input, &twiddles);
-        lambdaworks_fft::bit_reversing::in_place_bit_reverse_permute(&mut cuda_fft);
-        let fft = lambdaworks_fft::ops::fft(&input).unwrap();
-
-        assert_eq!(cuda_fft, fft);
     }
 }
