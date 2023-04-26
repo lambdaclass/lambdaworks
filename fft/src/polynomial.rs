@@ -26,7 +26,7 @@ impl<F: IsFFTField> FFTPoly<F> for Polynomial<FieldElement<F>> {
     fn evaluate_fft(&self) -> Result<Vec<FieldElement<F>>, FFTError> {
         #[cfg(feature = "metal")]
         {
-            if field_supports_metal::<F>() {
+            if !F::field_name().is_empty() {
                 Ok(lambdaworks_gpu::metal::fft::polynomial::evaluate_fft_metal(
                     &self,
                 )?)
@@ -50,7 +50,7 @@ impl<F: IsFFTField> FFTPoly<F> for Polynomial<FieldElement<F>> {
     ) -> Result<Vec<FieldElement<F>>, FFTError> {
         #[cfg(feature = "metal")]
         {
-            if field_supports_metal::<F>() {
+            if !F::field_name().is_empty() {
                 Ok(
                     lambdaworks_gpu::metal::fft::polynomial::evaluate_offset_fft_metal(
                         &self,
@@ -74,7 +74,7 @@ impl<F: IsFFTField> FFTPoly<F> for Polynomial<FieldElement<F>> {
     fn interpolate_fft(fft_evals: &[FieldElement<F>]) -> Result<Self, FFTError> {
         #[cfg(feature = "metal")]
         {
-            if field_supports_metal::<F>() {
+            if !F::field_name().is_empty() {
                 Ok(lambdaworks_gpu::metal::fft::polynomial::interpolate_fft_metal(fft_evals)?)
             } else {
                 interpolate_fft_cpu(fft_evals)
@@ -86,13 +86,6 @@ impl<F: IsFFTField> FFTPoly<F> for Polynomial<FieldElement<F>> {
             interpolate_fft_cpu(fft_evals)
         }
     }
-}
-
-// TODO remove this hack as we support any field
-#[allow(dead_code)]
-fn field_supports_metal<F>() -> bool {
-    let f_type = std::any::type_name::<F>();
-    f_type.contains("Stark252PrimeField")
 }
 
 pub fn evaluate_fft_cpu<F>(
@@ -270,10 +263,7 @@ mod u64_field_tests {
 
 #[cfg(test)]
 mod u256_two_adic_prime_field_tests {
-    use lambdaworks_math::field::{
-        fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
-        test_fields::u64_test_field::U64TestField,
-    };
+    use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
     use proptest::{
         collection, prelude::any, prop_assert_eq, prop_compose, proptest, strategy::Strategy,
     };
@@ -283,11 +273,7 @@ mod u256_two_adic_prime_field_tests {
         polynomial::Polynomial,
     };
 
-    use crate::{
-        helpers::log2,
-        polynomial::{field_supports_metal, FFTPoly},
-        roots_of_unity::get_powers_of_primitive_root,
-    };
+    use crate::{helpers::log2, polynomial::FFTPoly, roots_of_unity::get_powers_of_primitive_root};
 
     type F = Stark252PrimeField;
     type FE = FieldElement<F>;
@@ -325,12 +311,5 @@ mod u256_two_adic_prime_field_tests {
 
             prop_assert_eq!(fft_eval, naive_eval);
         }
-    }
-
-    // test of field_supports_metal function
-    #[test]
-    fn test_field_supports_metal() {
-        assert!(field_supports_metal::<Stark252PrimeField>());
-        assert!(!field_supports_metal::<U64TestField>())
     }
 }
