@@ -14,12 +14,14 @@ pub struct Fibonacci17AIR {
     context: AirContext,
 }
 
-impl AIR for Fibonacci17AIR {
-    type Field = F17;
-
-    fn new(context: air::context::AirContext) -> Self {
+impl From<AirContext> for Fibonacci17AIR {
+    fn from(context: AirContext) -> Self {
         Self { context }
     }
+}
+
+impl AIR for Fibonacci17AIR {
+    type Field = F17;
 
     fn compute_transition(
         &self,
