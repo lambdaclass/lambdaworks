@@ -46,6 +46,46 @@ struct Round4<F: IsTwoAdicField> {
     query_list: Vec<StarkQueryProof<F>>,
 }
 
+struct Domain<F: IsTwoAdicField> {
+    lde_roots_of_unity_coset: Vec<FieldElement<F>>,
+    lde_root_order: u32,
+    trace_primitive_root: FieldElement<F>,
+    trace_roots_of_unity: Vec<FieldElement<F>>,
+}
+
+impl<F: IsTwoAdicField> Domain<F> {
+    fn new<A: AIR<Field = F>>(air: &A) -> Self {
+        // Initial definitions
+        let blowup_factor = air.options().blowup_factor as usize;
+        let coset_offset = FieldElement::<F>::from(air.options().coset_offset);
+
+        let root_order = air.context().trace_length.trailing_zeros();
+        // * Generate Coset
+        let trace_primitive_root = F::get_primitive_root_of_unity(root_order as u64).unwrap();
+        let trace_roots_of_unity = get_powers_of_primitive_root_coset(
+            root_order as u64,
+            air.context().trace_length,
+            &FieldElement::<F>::one(),
+        )
+        .unwrap();
+
+        let lde_root_order = (air.context().trace_length * blowup_factor).trailing_zeros();
+        let lde_roots_of_unity_coset = get_powers_of_primitive_root_coset(
+            lde_root_order as u64,
+            air.context().trace_length * blowup_factor,
+            &coset_offset,
+        )
+        .unwrap();
+
+        Self {
+            lde_roots_of_unity_coset,
+            lde_root_order,
+            trace_primitive_root,
+            trace_roots_of_unity,
+        }
+    }
+}
+
 #[cfg(feature = "test_fiat_shamir")]
 fn round_0_transcript_initialization() -> TestTranscript {
     TestTranscript::new()
@@ -121,25 +161,27 @@ where
 fn round_2_compute_composition_polynomial<F: IsTwoAdicField, A: AIR<Field = F>>(
     round_1_result: &Round1<F>,
     air: &A,
-    trace_primitive_root: &FieldElement<F>,
-    lde_roots_of_unity_coset: &[FieldElement<F>],
+    domain: &Domain<F>,
     transition_coeffs: &[(FieldElement<F>, FieldElement<F>)],
     boundary_coeffs: &[(FieldElement<F>, FieldElement<F>)],
 ) -> Round2<F> {
     // Create evaluation table
-    let evaluator =
-        ConstraintEvaluator::new(air, &round_1_result.trace_polys, trace_primitive_root);
+    let evaluator = ConstraintEvaluator::new(
+        air,
+        &round_1_result.trace_polys,
+        &domain.trace_primitive_root,
+    );
 
     let constraint_evaluations = evaluator.evaluate(
         &round_1_result.lde_trace,
-        lde_roots_of_unity_coset,
+        &domain.lde_roots_of_unity_coset,
         transition_coeffs,
         boundary_coeffs,
     );
 
     // Get the composition poly H
     let composition_poly =
-        constraint_evaluations.compute_composition_poly(lde_roots_of_unity_coset);
+        constraint_evaluations.compute_composition_poly(&domain.lde_roots_of_unity_coset);
 
     let (composition_poly_even, composition_poly_odd) = composition_poly.even_odd_decomposition();
 
@@ -154,7 +196,7 @@ fn round_3_evaluate_polynomials_in_out_of_domain_element<F: IsTwoAdicField, A: A
     round_2_result: &Round2<F>,
     air: &A,
     z: &FieldElement<F>,
-    trace_primitive_root: &FieldElement<F>,
+    domain: &Domain<F>,
 ) -> Round3<F>
 where
     FieldElement<F>: ByteConversion,
@@ -178,7 +220,7 @@ where
         &round_1_result.trace_polys,
         z,
         &air.context().transition_offsets,
-        trace_primitive_root,
+        &domain.trace_primitive_root,
     );
 
     let trace_ood_frame_data = ood_trace_evaluations.into_iter().flatten().collect();
@@ -282,12 +324,10 @@ fn round_4_compute_and_run_fri_on_the_deep_composition_polynomial<
 >(
     round_1_result: &Round1<F>,
     round_2_result: &Round2<F>,
-    trace_primitive_root: &FieldElement<F>,
+    domain: &Domain<F>,
     z: &FieldElement<F>,
-    lde_roots_of_unity_coset: &[FieldElement<F>],
     transcript: &mut T,
     air: &A,
-    lde_root_order: u32,
 ) -> Round4<F>
 where
     FieldElement<F>: ByteConversion,
@@ -295,24 +335,24 @@ where
     let (lde_fri_commitment, fri_layers_merkle_roots) = fri_commit_phase(
         round_1_result,
         round_2_result,
-        trace_primitive_root,
+        &domain.trace_primitive_root,
         z,
-        lde_roots_of_unity_coset,
+        &domain.lde_roots_of_unity_coset,
         transcript,
         air,
     );
 
-    let q_0 = transcript_to_usize(transcript) % 2_usize.pow(lde_root_order);
+    let q_0 = transcript_to_usize(transcript) % 2_usize.pow(domain.lde_root_order);
     transcript.append(&q_0.to_be_bytes());
 
     let (query_list, deep_consistency_check) = fri_query_phase(
         round_1_result,
         round_2_result,
-        lde_roots_of_unity_coset,
+        &domain.lde_roots_of_unity_coset,
         transcript,
         air,
         q_0,
-        lde_root_order,
+        domain.lde_root_order,
         &lde_fri_commitment,
         &fri_layers_merkle_roots,
     );
@@ -421,27 +461,7 @@ where
     #[cfg(debug_assertions)]
     trace.validate(air);
 
-    // Initial definitions
-    let blowup_factor = air.options().blowup_factor as usize;
-    let coset_offset = FieldElement::<F>::from(air.options().coset_offset);
-
-    let root_order = air.context().trace_length.trailing_zeros();
-    // * Generate Coset
-    let trace_primitive_root = F::get_primitive_root_of_unity(root_order as u64).unwrap();
-    let trace_roots_of_unity = get_powers_of_primitive_root_coset(
-        root_order as u64,
-        air.context().trace_length,
-        &FieldElement::<F>::one(),
-    )
-    .unwrap();
-
-    let lde_root_order = (air.context().trace_length * blowup_factor).trailing_zeros();
-    let lde_roots_of_unity_coset = get_powers_of_primitive_root_coset(
-        lde_root_order as u64,
-        air.context().trace_length * blowup_factor,
-        &coset_offset,
-    )
-    .unwrap();
+    let domain = Domain::new(air);
 
     let transcript = &mut round_0_transcript_initialization();
 
@@ -449,7 +469,11 @@ where
     // z is the Out of domain evaluation point used in Deep FRI. It needs to be a point outside
     // of both the roots of unity and its corresponding coset used for the lde commitment.
     // TODO: This has to be sampled after round 2 according to the protocol
-    let z = sample_z_ood(&lde_roots_of_unity_coset, &trace_roots_of_unity, transcript);
+    let z = sample_z_ood(
+        &domain.lde_roots_of_unity_coset,
+        &domain.trace_roots_of_unity,
+        transcript,
+    );
 
     let round_1_result = round_1_randomized_air_with_preprocessing(trace, air);
 
@@ -479,8 +503,7 @@ where
     let round_2_result = round_2_compute_composition_polynomial(
         &round_1_result,
         air,
-        &trace_primitive_root,
-        &lde_roots_of_unity_coset,
+        &domain,
         &transition_coeffs,
         &boundary_coeffs,
     );
@@ -490,18 +513,16 @@ where
         &round_2_result,
         air,
         &z,
-        &trace_primitive_root,
+        &domain,
     );
 
     let round_4_result = round_4_compute_and_run_fri_on_the_deep_composition_polynomial(
         &round_1_result,
         &round_2_result,
-        &trace_primitive_root,
+        &domain,
         &z,
-        &lde_roots_of_unity_coset,
         transcript,
         air,
-        lde_root_order,
     );
 
     StarkProof {
