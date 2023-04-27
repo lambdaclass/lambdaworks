@@ -3,7 +3,12 @@ use super::{
     fri::fri_decommit::FriDecommitment,
     sample_z_ood,
 };
-use crate::{fri::HASHER, proof::StarkProof, transcript_to_field, transcript_to_usize};
+use crate::{
+    air::frame::Frame,
+    fri::HASHER,
+    proof::{DeepConsistencyCheck, StarkProof},
+    transcript_to_field, transcript_to_usize,
+};
 #[cfg(not(feature = "test_fiat_shamir"))]
 use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
@@ -20,6 +25,18 @@ use lambdaworks_math::{
     traits::ByteConversion,
 };
 
+struct DeepCompositionPolyArgs<'a, F: IsTwoAdicField> {
+    root_order: u32,
+    trace_term_coeffs: &'a [Vec<FieldElement<F>>],
+    gamma_even: &'a FieldElement<F>,
+    gamma_odd: &'a FieldElement<F>,
+    d_evaluation_point: &'a FieldElement<F>,
+    ood_evaluation_point: &'a FieldElement<F>,
+    trace_poly_ood_evaluations: &'a Frame<F>,
+    composition_poly_ood_evaluations: &'a [FieldElement<F>],
+    deep_consistency_check: &'a DeepConsistencyCheck<F>,
+}
+
 pub fn verify<F: IsTwoAdicField, A: AIR<Field = F>>(proof: &StarkProof<F>, air: &A) -> bool
 where
     FieldElement<F>: ByteConversion,
@@ -31,10 +48,10 @@ where
 
     // BEGIN TRACE <-> Composition poly consistency evaluation check
 
-    let trace_poly_ood_frame_evaluations = &proof.trace_ood_frame_evaluations;
+    let trace_poly_ood_evaluations = &proof.trace_ood_frame_evaluations;
 
     // These are H_1(z^2) and H_2(z^2)
-    let composition_poly_evaluations = &proof.composition_poly_evaluations;
+    let composition_poly_ood_evaluations = &proof.composition_poly_ood_evaluations;
 
     let root_order = air.context().trace_length.trailing_zeros();
     let trace_primitive_root = F::get_primitive_root_of_unity(root_order as u64).unwrap();
@@ -92,7 +109,7 @@ where
     let mut boundary_quotient_degrees = Vec::with_capacity(n_trace_cols);
 
     for trace_idx in 0..n_trace_cols {
-        let trace_evaluation = &trace_poly_ood_frame_evaluations.get_row(0)[trace_idx];
+        let trace_evaluation = &trace_poly_ood_evaluations.get_row(0)[trace_idx];
         let boundary_constraints_domain = boundary_constraint_domains[trace_idx].clone();
         let boundary_interpolating_polynomial =
             &Polynomial::interpolate(&boundary_constraints_domain, &values[trace_idx]);
@@ -142,7 +159,7 @@ where
         .iter()
         .fold(FieldElement::<F>::zero(), |acc, x| acc + x);
 
-    let transition_ood_frame_evaluations = air.compute_transition(trace_poly_ood_frame_evaluations);
+    let transition_ood_frame_evaluations = air.compute_transition(trace_poly_ood_evaluations);
 
     let transition_c_i_evaluations =
         ConstraintEvaluator::compute_constraint_composition_poly_evaluations(
@@ -161,7 +178,7 @@ where
             });
 
     let composition_poly_claimed_ood_evaluation =
-        &composition_poly_evaluations[0] + &z * &composition_poly_evaluations[1];
+        &composition_poly_ood_evaluations[0] + &z * &composition_poly_ood_evaluations[1];
 
     if composition_poly_claimed_ood_evaluation != composition_poly_ood_evaluation {
         return false;
@@ -172,17 +189,20 @@ where
     let lde_root_order =
         (air.context().trace_length * air.options().blowup_factor as usize).trailing_zeros();
 
-    // We have to make the call to `transcript.challenge()` a number of times since we need
-    // the transcript to be in the same state as the one in the prover at this stage.
-    // The prover samples coefficients when building the deep composition polynomial. These
-    // sampling is not done in the verifier hence we need to make this dummy calls.
-    // There will be one call for each trace term in the deep composition polynomial + 2 from
-    // the even and odd terms of the H(x) polynomial.
-    let deep_poly_challenges =
-        air.context().transition_offsets.len() * air.context().trace_columns + 2;
-    (0..deep_poly_challenges).for_each(|_| {
-        transcript.challenge();
-    });
+    // Get the number of trace terms the DEEP composition poly will have.
+    // One coefficient will be sampled for each of them.
+    // TODO: try remove this, call transcript inside for and move gamma declarations
+    let trace_term_coeffs = &(0..trace_poly_ood_evaluations.num_columns())
+        .map(|_| {
+            (0..trace_poly_ood_evaluations.num_rows())
+                .map(|_| transcript_to_field(transcript))
+                .collect()
+        })
+        .collect::<Vec<Vec<FieldElement<F>>>>();
+
+    // Get coefficients for even and odd terms of the composition polynomial H(x)
+    let gamma_even = &transcript_to_field::<F, _>(transcript);
+    let gamma_odd = &transcript_to_field::<F, _>(transcript);
 
     // construct vector of betas
     let mut beta_list = Vec::new();
@@ -199,43 +219,83 @@ where
         }
     }
 
-    let mut result = true;
-    for proof_i in &proof.query_list {
-        let last_evaluation = &proof_i.fri_decommitment.last_layer_evaluation;
-        let last_evaluation_bytes = last_evaluation.to_bytes_be();
-        transcript.append(&last_evaluation_bytes);
+    // DEEP consistency check
+    // 1. Verify that Deep(x) is constructed correctly
+    let last_evaluation = &proof.query_list[0].fri_decommitment.last_layer_evaluation;
+    let last_evaluation_bytes = last_evaluation.to_bytes_be();
+    transcript.append(&last_evaluation_bytes);
 
+    let q_0 = transcript_to_usize(transcript) % (2_usize.pow(lde_root_order));
+    transcript.append(&q_0.to_be_bytes());
+
+    let deep_composition_poly_args = &mut DeepCompositionPolyArgs {
+        root_order,
+        trace_term_coeffs,
+        gamma_even,
+        gamma_odd,
+        d_evaluation_point: &lde_roots_of_unity_coset[q_0],
+        ood_evaluation_point: &z,
+        trace_poly_ood_evaluations,
+        composition_poly_ood_evaluations,
+        deep_consistency_check: &proof.deep_consistency_check,
+    };
+
+    let deep_poly_evaluation = compare_deep_composition_poly(deep_composition_poly_args);
+    let deep_poly_claimed_evaluation = &proof.query_list[0].fri_decommitment.layer_evaluations[0].0;
+
+    if deep_poly_claimed_evaluation != &deep_poly_evaluation {
+        return false;
+    }
+
+    // 2. Verify that t(x_0) is a trace evaluation
+    // 3. Verify first layer of FRI
+    if !verify_trace_evaluations(
+        &proof.deep_consistency_check,
+        q_0,
+        &lde_roots_of_unity_coset,
+    ) || !verify_query(
+        air,
+        &proof.fri_layers_merkle_roots,
+        &beta_list,
+        q_0,
+        &proof.query_list[0].fri_decommitment,
+        lde_root_order,
+    ) {
+        return false;
+    }
+
+    // Verify 1..n layers of FRI
+    let mut result = true;
+    for proof_i in proof.query_list.iter().skip(1) {
         let q_i = transcript_to_usize(transcript) % (2_usize.pow(lde_root_order));
         transcript.append(&q_i.to_be_bytes());
 
-        let fri_decommitment = &proof_i.fri_decommitment;
-
         // this is done in constant time
         result &= verify_query(
+            air,
             &proof.fri_layers_merkle_roots,
             &beta_list,
             q_i,
-            fri_decommitment,
+            &proof_i.fri_decommitment,
             lde_root_order,
-            air.options().coset_offset,
         );
     }
     result
 }
 
-pub fn verify_query<F: IsField + IsTwoAdicField>(
+fn verify_query<F: IsField + IsTwoAdicField, A: AIR<Field = F>>(
+    air: &A,
     fri_layers_merkle_roots: &[FieldElement<F>],
     beta_list: &[FieldElement<F>],
     q_i: usize,
     fri_decommitment: &FriDecommitment<F>,
     lde_root_order: u32,
-    coset_offset: u64,
 ) -> bool
 where
     FieldElement<F>: ByteConversion,
 {
     let mut lde_primitive_root = F::get_primitive_root_of_unity(lde_root_order as u64).unwrap();
-    let mut offset = FieldElement::<F>::from(coset_offset);
+    let mut offset = FieldElement::<F>::from(air.options().coset_offset);
 
     // For each fri layer merkle proof check:
     // That each merkle path verifies
@@ -341,6 +401,70 @@ where
             if last_v != fri_decommitment.last_layer_evaluation {
                 return false;
             }
+        }
+    }
+
+    true
+}
+
+// Verify that Deep(x) has been built correctly
+fn compare_deep_composition_poly<F: IsTwoAdicField>(
+    args: &mut DeepCompositionPolyArgs<F>,
+) -> FieldElement<F> {
+    let primitive_root = &F::get_primitive_root_of_unity(args.root_order as u64).unwrap();
+
+    let deep_consistency_check = args.deep_consistency_check;
+
+    let mut trace_terms = FieldElement::zero();
+
+    for (col_idx, coeff_row) in
+        (0..args.trace_poly_ood_evaluations.num_columns()).zip(args.trace_term_coeffs)
+    {
+        for (row_idx, coeff) in (0..args.trace_poly_ood_evaluations.num_rows()).zip(coeff_row) {
+            let poly_evaluation = (deep_consistency_check.lde_trace_evaluations[col_idx].clone()
+                - args.trace_poly_ood_evaluations.get_row(row_idx)[col_idx].clone())
+                / (args.d_evaluation_point
+                    - args.ood_evaluation_point * primitive_root.pow(row_idx as u64));
+
+            trace_terms += poly_evaluation * coeff.clone();
+        }
+    }
+
+    let ood_point_squared = &(args.ood_evaluation_point * args.ood_evaluation_point);
+
+    let even_composition_poly_evaluation = (&deep_consistency_check.composition_poly_evaluations
+        [0]
+        - &args.composition_poly_ood_evaluations[0])
+        / (args.d_evaluation_point - ood_point_squared);
+
+    let odd_composition_poly_evaluation = (&deep_consistency_check.composition_poly_evaluations[1]
+        - &args.composition_poly_ood_evaluations[1])
+        / (args.d_evaluation_point - ood_point_squared);
+
+    trace_terms
+        + even_composition_poly_evaluation * args.gamma_even
+        + odd_composition_poly_evaluation * args.gamma_odd
+}
+
+// Verifies that t(x_0) is a trace evaluation
+fn verify_trace_evaluations<F: IsField + IsTwoAdicField>(
+    deep_consistency_check: &DeepConsistencyCheck<F>,
+    q_i: usize,
+    domain: &[FieldElement<F>],
+) -> bool
+where
+    FieldElement<F>: ByteConversion,
+{
+    for ((merkle_root, merkle_proof), evaluation) in deep_consistency_check
+        .lde_trace_merkle_roots
+        .iter()
+        .zip(&deep_consistency_check.lde_trace_merkle_proofs)
+        .zip(&deep_consistency_check.lde_trace_evaluations)
+    {
+        let index = q_i % domain.len();
+
+        if !merkle_proof.verify(merkle_root, index, evaluation, &HASHER) {
+            return false;
         }
     }
 

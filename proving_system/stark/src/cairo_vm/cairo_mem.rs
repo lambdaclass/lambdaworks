@@ -1,22 +1,28 @@
 use super::errors::CairoImportError;
-use lambdaworks_math::{traits::ByteConversion, unsigned_integer::element::U256};
-use std::fs;
+use crate::FE;
+use lambdaworks_math::traits::ByteConversion;
+use std::{collections::HashMap, fs};
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct CairoMemoryCell {
-    pub address: u64,
-    // This could also be a StarkField
-    // Since we need to convert everything to StarkFields
-    // later, we won't do it here
-    pub value: U256,
-}
+// `FE` is used as the type of values stored in
+// the Cairo memory. We should decide if this is
+// correct or we should consider another type.
 #[derive(Clone, Debug, PartialEq)]
 pub struct CairoMemory {
-    pub cells: Vec<CairoMemoryCell>,
+    data: HashMap<u64, FE>,
 }
 
 impl CairoMemory {
-    fn from_bytes_le(bytes: &[u8]) -> Result<Self, CairoImportError> {
+    pub fn new(data: HashMap<u64, FE>) -> Self {
+        Self { data }
+    }
+
+    /// Given a memory address, gets the value stored in it if
+    /// the address exists.
+    pub fn get(&self, addr: &u64) -> Option<&FE> {
+        self.data.get(addr)
+    }
+
+    pub fn from_bytes_le(bytes: &[u8]) -> Result<Self, CairoImportError> {
         // Each row is an 8 bytes address
         // and a value of 32 bytes (which is a field)
         const ROW_SIZE: usize = 8 + 32;
@@ -26,23 +32,22 @@ impl CairoMemory {
         }
         let num_rows = bytes.len() / ROW_SIZE;
 
-        let mut cells: Vec<CairoMemoryCell> = Vec::with_capacity(num_rows);
+        let mut data = HashMap::with_capacity(num_rows);
 
         for i in 0..num_rows {
-            cells.push(CairoMemoryCell {
-                address: u64::from_le_bytes(
-                    bytes[i * ROW_SIZE..i * ROW_SIZE + 8].try_into().unwrap(),
-                ),
-                value: U256::from_bytes_le(
-                    bytes[i * ROW_SIZE + 8..i * ROW_SIZE + 40]
-                        .try_into()
-                        .unwrap(),
-                )
-                .unwrap(),
-            })
+            let address =
+                u64::from_le_bytes(bytes[i * ROW_SIZE..i * ROW_SIZE + 8].try_into().unwrap());
+            let value = FE::from_bytes_le(
+                bytes[i * ROW_SIZE + 8..i * ROW_SIZE + 40]
+                    .try_into()
+                    .unwrap(),
+            )
+            .unwrap();
+
+            data.insert(address, value);
         }
 
-        Ok(Self { cells })
+        Ok(Self::new(data))
     }
 
     pub fn from_file(path: &str) -> Result<Self, CairoImportError> {
@@ -80,8 +85,11 @@ mod tests {
 
         let memory = CairoMemory::from_bytes_le(&bytes).unwrap();
 
-        for (i, cell) in memory.cells.iter().enumerate() {
-            assert_eq!(cell.address, (i + 1) as u64);
+        let mut sorted_addrs = memory.data.into_keys().collect::<Vec<u64>>();
+        sorted_addrs.sort();
+
+        for (i, addr) in sorted_addrs.into_iter().enumerate() {
+            assert_eq!(addr, (i + 1) as u64);
         }
     }
 
@@ -104,8 +112,11 @@ mod tests {
 
         let memory = CairoMemory::from_file(&dir).unwrap();
 
-        for (i, cell) in memory.cells.iter().enumerate() {
-            assert_eq!(cell.address, (i + 1) as u64);
+        let mut sorted_addrs = memory.data.into_keys().collect::<Vec<u64>>();
+        sorted_addrs.sort();
+
+        for (i, addr) in sorted_addrs.into_iter().enumerate() {
+            assert_eq!(addr, (i + 1) as u64);
         }
     }
 }

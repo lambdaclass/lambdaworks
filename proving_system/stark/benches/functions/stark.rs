@@ -1,14 +1,9 @@
-use criterion::{criterion_group, criterion_main, Criterion};
-use lambdaworks_math::field::fields::{
-    fft_friendly::stark_252_prime_field::Stark252PrimeField, u64_prime_field::FE17,
-};
+use lambdaworks_math::field::fields::u64_prime_field::FE17;
 use lambdaworks_stark::{
     air::{
         context::{AirContext, ProofOptions},
         trace::TraceTable,
-        AIR,
     },
-    fri::FieldElement,
     prover::prove,
     verifier::verify,
 };
@@ -17,33 +12,9 @@ use lambdaworks_stark::air::example::{
     fibonacci_2_columns, fibonacci_f17, quadratic_air, simple_fibonacci,
 };
 
-pub type FE = FieldElement<Stark252PrimeField>;
+use crate::util::FE;
 
-pub fn proof_benchmark(c: &mut Criterion) {
-    let mut group = c.benchmark_group("starks");
-    group.sample_size(10);
-
-    group.bench_function("simple_fibonacci", |bench| {
-        bench.iter(prove_fib);
-    });
-
-    group.bench_function("fibonacci_2_columns", |bench| {
-        bench.iter(prove_fib_2_cols);
-    });
-
-    group.bench_function("fibonacci_f17", |bench| {
-        bench.iter(prove_fib17);
-    });
-
-    group.bench_function("quadratic_air", |bench| {
-        bench.iter(prove_quadratic);
-    });
-}
-
-criterion_group!(benches, proof_benchmark);
-criterion_main!(benches);
-
-fn prove_fib() {
+pub fn prove_fib() {
     let trace = simple_fibonacci::fibonacci_trace([FE::from(1), FE::from(1)], 16);
     let trace_length = trace[0].len();
     let trace_table = TraceTable::new_from_cols(&trace);
@@ -62,13 +33,13 @@ fn prove_fib() {
         num_transition_constraints: 1,
     };
 
-    let fibonacci_air = simple_fibonacci::FibonacciAIR::new(context);
+    let fibonacci_air = simple_fibonacci::FibonacciAIR::from(context);
 
     let result = prove(&trace_table, &fibonacci_air);
     verify(&result, &fibonacci_air);
 }
 
-fn prove_fib_2_cols() {
+pub fn prove_fib_2_cols() {
     let trace_columns =
         fibonacci_2_columns::fibonacci_trace_2_columns([FE::from(1), FE::from(1)], 16);
 
@@ -88,13 +59,13 @@ fn prove_fib_2_cols() {
         trace_columns: 2,
     };
 
-    let fibonacci_air = fibonacci_2_columns::Fibonacci2ColsAIR::new(context);
+    let fibonacci_air = fibonacci_2_columns::Fibonacci2ColsAIR::from(context);
 
     let result = prove(&trace_table, &fibonacci_air);
     verify(&result, &fibonacci_air);
 }
 
-fn prove_fib17() {
+pub fn prove_fib17() {
     let trace = simple_fibonacci::fibonacci_trace([FE17::from(1), FE17::from(1)], 4);
     let trace_table = TraceTable::new_from_cols(&trace);
 
@@ -112,13 +83,13 @@ fn prove_fib17() {
         num_transition_constraints: 1,
     };
 
-    let fibonacci_air = fibonacci_f17::Fibonacci17AIR::new(context);
+    let fibonacci_air = fibonacci_f17::Fibonacci17AIR::from(context);
 
     let result = prove(&trace_table, &fibonacci_air);
     verify(&result, &fibonacci_air);
 }
 
-fn prove_quadratic() {
+pub fn prove_quadratic() {
     let trace = quadratic_air::quadratic_trace(FE::from(3), 16);
     let trace_table = TraceTable {
         table: trace.clone(),
@@ -139,8 +110,8 @@ fn prove_quadratic() {
         num_transition_constraints: 1,
     };
 
-    let fibonacci_air = quadratic_air::QuadraticAIR::new(context);
+    let quadratic_air = quadratic_air::QuadraticAIR::from(context);
 
-    let result = prove(&trace_table, &fibonacci_air);
-    verify(&result, &fibonacci_air);
+    let result = prove(&trace_table, &quadratic_air);
+    verify(&result, &quadratic_air);
 }
