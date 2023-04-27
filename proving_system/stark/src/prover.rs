@@ -23,6 +23,29 @@ use lambdaworks_math::{
     traits::ByteConversion,
 };
 
+struct Round1<F: IsTwoAdicField> {
+    trace_polys: Vec<Polynomial<FieldElement<F>>>,
+    lde_trace: TraceTable<F>,
+    lde_trace_merkle_trees: Vec<MerkleTree<F>>,
+    lde_trace_merkle_roots: Vec<FieldElement<F>>,
+}
+
+struct Round2<F: IsTwoAdicField> {
+    composition_poly_even: Polynomial<FieldElement<F>>,
+    composition_poly_odd: Polynomial<FieldElement<F>>,
+}
+
+struct Round3<F: IsTwoAdicField> {
+    trace_ood_frame_evaluations: Frame<F>,
+    composition_poly_ood_evaluations: Vec<FieldElement<F>>,
+}
+
+struct Round4<F: IsTwoAdicField> {
+    fri_layers_merkle_roots: Vec<FieldElement<F>>,
+    deep_consistency_check: DeepConsistencyCheck<F>,
+    query_list: Vec<StarkQueryProof<F>>,
+}
+
 #[cfg(feature = "test_fiat_shamir")]
 fn round_0_transcript_initialization() -> TestTranscript {
     TestTranscript::new()
@@ -95,13 +118,6 @@ where
     round_1_result
 }
 
-struct Round1<F: IsTwoAdicField> {
-    trace_polys: Vec<Polynomial<FieldElement<F>>>,
-    lde_trace: TraceTable<F>,
-    lde_trace_merkle_trees: Vec<MerkleTree<F>>,
-    lde_trace_merkle_roots: Vec<FieldElement<F>>,
-}
-
 fn round_2_compute_composition_polynomial<F: IsTwoAdicField, A: AIR<Field = F>>(
     round_1_result: &Round1<F>,
     air: &A,
@@ -131,11 +147,6 @@ fn round_2_compute_composition_polynomial<F: IsTwoAdicField, A: AIR<Field = F>>(
         composition_poly_even,
         composition_poly_odd,
     }
-}
-
-struct Round2<F: IsTwoAdicField> {
-    composition_poly_even: Polynomial<FieldElement<F>>,
-    composition_poly_odd: Polynomial<FieldElement<F>>,
 }
 
 fn round_3_evaluate_polynomials_in_out_of_domain_element<F: IsTwoAdicField, A: AIR<Field = F>>(
@@ -177,11 +188,6 @@ where
         trace_ood_frame_evaluations,
         composition_poly_ood_evaluations,
     }
-}
-
-struct Round3<F: IsTwoAdicField> {
-    trace_ood_frame_evaluations: Frame<F>,
-    composition_poly_ood_evaluations: Vec<FieldElement<F>>,
 }
 
 fn fri_commit_phase<F: IsTwoAdicField, A: AIR<Field = F>, T: Transcript>(
@@ -314,12 +320,6 @@ where
         deep_consistency_check,
         query_list,
     }
-}
-
-struct Round4<F: IsTwoAdicField> {
-    fri_layers_merkle_roots: Vec<FieldElement<F>>,
-    deep_consistency_check: DeepConsistencyCheck<F>,
-    query_list: Vec<StarkQueryProof<F>>,
 }
 
 /// Returns the DEEP composition polynomial that the prover then commits to using
