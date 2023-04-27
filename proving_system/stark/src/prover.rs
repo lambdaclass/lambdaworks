@@ -154,16 +154,17 @@ fn round_3_evaluate_polynomials_in_out_of_domain_element<F: IsTwoAdicField, A: A
     round_2_result: &Round2<F>,
     air: &A,
     z: &FieldElement<F>,
-    z_squared: &FieldElement<F>,
     trace_primitive_root: &FieldElement<F>,
 ) -> Round3<F>
 where
     FieldElement<F>: ByteConversion,
 {
+    let z_squared = z * z;
+
     // Evaluate H_1 and H_2 in z^2.
     let composition_poly_ood_evaluations = vec![
-        round_2_result.composition_poly_even.evaluate(z_squared),
-        round_2_result.composition_poly_odd.evaluate(z_squared),
+        round_2_result.composition_poly_even.evaluate(&z_squared),
+        round_2_result.composition_poly_odd.evaluate(&z_squared),
     ];
 
     // Returns the Out of Domain Frame for the given trace polynomials, out of domain evaluation point (called `z` in the literature),
@@ -449,7 +450,6 @@ where
     // of both the roots of unity and its corresponding coset used for the lde commitment.
     // TODO: This has to be sampled after round 2 according to the protocol
     let z = sample_z_ood(&lde_roots_of_unity_coset, &trace_roots_of_unity, transcript);
-    let z_squared = &z * &z;
 
     let round_1_result = round_1_randomized_air_with_preprocessing(trace, air);
 
@@ -490,7 +490,6 @@ where
         &round_2_result,
         air,
         &z,
-        &z_squared,
         &trace_primitive_root,
     );
 
