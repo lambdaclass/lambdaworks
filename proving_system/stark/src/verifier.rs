@@ -57,7 +57,7 @@ struct Challenges<F: IsTwoAdicField> {
     gamma_even: FieldElement<F>,
     gamma_odd: FieldElement<F>,
     beta_list: Vec<FieldElement<F>>,
-    q_0: usize
+    q_0: usize,
 }
 
 fn step_1_replay_rounds_and_recover_challenges<F, A, T>(
@@ -135,7 +135,6 @@ where
     let q_0 = transcript_to_usize(transcript) % (2_usize.pow(domain.lde_root_order));
     transcript.append(&q_0.to_be_bytes());
 
-
     Challenges {
         z,
         boundary_coeffs,
@@ -144,7 +143,7 @@ where
         gamma_even,
         gamma_odd,
         beta_list,
-        q_0
+        q_0,
     }
 }
 
@@ -251,6 +250,49 @@ fn step_2_verify_claimed_composition_polynomial<F: IsTwoAdicField, A: AIR<Field 
     composition_poly_claimed_ood_evaluation == composition_poly_ood_evaluation
 }
 
+fn step_3_verify_fri<F, T, A>(air: &A, proof: &StarkProof<F>, domain: &Domain<F>, challenges: &Challenges<F>, transcript: &mut T) -> bool
+where
+    F: IsTwoAdicField,
+    FieldElement<F>: ByteConversion,
+    T: Transcript,
+    A: AIR<Field = F>
+{
+    // 2. Verify that t(x_0) is a trace evaluation
+    // 3. Verify first layer of FRI
+    if !verify_trace_evaluations(
+        &proof.deep_consistency_check,
+        challenges.q_0,
+        &domain.lde_roots_of_unity_coset,
+    ) || !verify_query(
+        air,
+        &proof.fri_layers_merkle_roots,
+        &challenges.beta_list,
+        challenges.q_0,
+        &proof.query_list[0].fri_decommitment,
+        domain.lde_root_order,
+    ) {
+        return false;
+    }
+
+    // Verify 1..n layers of FRI
+    let mut result = true;
+    for proof_i in proof.query_list.iter().skip(1) {
+        let q_i = transcript_to_usize(transcript) % (2_usize.pow(domain.lde_root_order));
+        transcript.append(&q_i.to_be_bytes());
+
+        // this is done in constant time
+        result &= verify_query(
+            air,
+            &proof.fri_layers_merkle_roots,
+            &challenges.beta_list,
+            q_i,
+            &proof_i.fri_decommitment,
+            domain.lde_root_order,
+        );
+    }
+    result
+}
+
 pub fn verify<F: IsTwoAdicField, A: AIR<Field = F>>(proof: &StarkProof<F>, air: &A) -> bool
 where
     FieldElement<F>: ByteConversion,
@@ -272,39 +314,10 @@ where
     }
     // // END TRACE <-> Composition poly consistency evaluation check
 
-    // 2. Verify that t(x_0) is a trace evaluation
-    // 3. Verify first layer of FRI
-    if !verify_trace_evaluations(
-        &proof.deep_consistency_check,
-        challenges.q_0,
-        &domain.lde_roots_of_unity_coset,
-    ) || !verify_query(
-        air,
-        &proof.fri_layers_merkle_roots,
-        &challenges.beta_list,
-        challenges.q_0,
-        &proof.query_list[0].fri_decommitment,
-        domain.lde_root_order,
-    ) {
+    if !step_3_verify_fri(air, &proof, &domain, &challenges, &mut transcript) {
         return false;
     }
 
-    // Verify 1..n layers of FRI
-    let mut result = true;
-    for proof_i in proof.query_list.iter().skip(1) {
-        let q_i = transcript_to_usize(&mut transcript) % (2_usize.pow(domain.lde_root_order));
-        transcript.append(&q_i.to_be_bytes());
-
-        // this is done in constant time
-        result &= verify_query(
-            air,
-            &proof.fri_layers_merkle_roots,
-            &challenges.beta_list,
-            q_i,
-            &proof_i.fri_decommitment,
-            domain.lde_root_order,
-        );
-    }
     //
     // DEEP consistency check
     // 1. Verify that Deep(x) is constructed correctly
@@ -327,7 +340,7 @@ where
         return false;
     }
 
-    result
+    true
 }
 
 fn verify_query<F: IsField + IsTwoAdicField, A: AIR<Field = F>>(
