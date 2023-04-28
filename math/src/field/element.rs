@@ -5,7 +5,7 @@ use crate::traits::ByteConversion;
 use crate::unsigned_integer::element::UnsignedInteger;
 use crate::unsigned_integer::montgomery::MontgomeryAlgorithms;
 use crate::unsigned_integer::traits::IsUnsignedInteger;
-use std::fmt;
+use std::fmt::{self, Display};
 use std::iter::Sum;
 use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
 use std::{
@@ -400,9 +400,9 @@ where
     }
 
     // Returns the representative of the value stored
-    fn sqrt(&self) -> Option<Self> {
+    pub fn sqrt(&self) -> Option<(Self,Self)> {
         match self.legendre_symbol() {
-            0 => return Some(Self::zero()), // self is 0
+            0 => return Some((Self::zero(), Self::zero())), // self is 0
             -1 => return None,              // self is quadratic non-residue
             1 => (),                        // self is quadratic residue
             _ => unreachable!(),
@@ -415,8 +415,10 @@ where
         let mut s = Self::zero();
 
         while q.is_even() {
+
             s = s + &one;
             q = q / &two;
+            println!("Qi: {:?}", q);
         }
 
         let mut c = {
@@ -454,7 +456,8 @@ where
             c = &b * &b;
             m = i;
         }
-        Some(x)
+
+        Some((x.clone(), Self::zero() - &x))
     }
 }
 
@@ -504,7 +507,6 @@ where
 
 #[cfg(test)]
 mod tests {
-
     use crate::field::element::FieldElement;
     use crate::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
     use crate::field::fields::montgomery_backed_prime_fields::{
@@ -568,7 +570,7 @@ mod tests {
     }
 
     #[test]
-    fn sqrt_works() {
+    fn sqrt_4_is_2() {
         #[derive(Clone, Debug)]
         pub struct FrConfig;
         impl IsModulus<U256> for FrConfig {
@@ -578,8 +580,26 @@ mod tests {
         type FrField = MontgomeryBackendPrimeField<FrConfig, 4>;
         type FrElement = FieldElement<FrField>;
 
-        let input = FrElement::from(2);
+        let input = FrElement::from(4);
         let sqrt = input.sqrt().unwrap();
-        assert_eq!((&sqrt * &sqrt), input);
+        let result = FrElement::from(2);
+        assert_eq!(sqrt.0, result);
+    }
+
+    #[test]
+    fn sqrt_25_is_5() {
+        #[derive(Clone, Debug)]
+        pub struct FrConfig;
+        impl IsModulus<U256> for FrConfig {
+            const MODULUS: U256 =
+                U256::from("73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001");
+        }
+        type FrField = MontgomeryBackendPrimeField<FrConfig, 4>;
+        type FrElement = FieldElement<FrField>;
+
+        let input = FrElement::from(25);
+        let sqrt = input.sqrt().unwrap();
+        let result = FrElement::from(5);
+        assert_eq!(sqrt.1, result);
     }
 }
