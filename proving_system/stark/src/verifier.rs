@@ -250,12 +250,18 @@ fn step_2_verify_claimed_composition_polynomial<F: IsTwoAdicField, A: AIR<Field 
     composition_poly_claimed_ood_evaluation == composition_poly_ood_evaluation
 }
 
-fn step_3_verify_fri<F, T, A>(air: &A, proof: &StarkProof<F>, domain: &Domain<F>, challenges: &Challenges<F>, transcript: &mut T) -> bool
+fn step_3_verify_fri<F, T, A>(
+    air: &A,
+    proof: &StarkProof<F>,
+    domain: &Domain<F>,
+    challenges: &Challenges<F>,
+    transcript: &mut T,
+) -> bool
 where
     F: IsTwoAdicField,
     FieldElement<F>: ByteConversion,
     T: Transcript,
-    A: AIR<Field = F>
+    A: AIR<Field = F>,
 {
     // 2. Verify that t(x_0) is a trace evaluation
     // 3. Verify first layer of FRI
@@ -293,31 +299,11 @@ where
     result
 }
 
-pub fn verify<F: IsTwoAdicField, A: AIR<Field = F>>(proof: &StarkProof<F>, air: &A) -> bool
-where
-    FieldElement<F>: ByteConversion,
-{
-    let mut transcript = step_1_transcript_initialization();
-    let domain = Domain::new(air);
-
-    let challenges = step_1_replay_rounds_and_recover_challenges(
-        air,
-        proof,
-        &domain,
-        &domain.lde_roots_of_unity_coset,
-        &domain.trace_roots_of_unity,
-        &mut transcript,
-    );
-
-    if !step_2_verify_claimed_composition_polynomial(air, &domain, &challenges, proof) {
-        return false;
-    }
-    // // END TRACE <-> Composition poly consistency evaluation check
-
-    if !step_3_verify_fri(air, &proof, &domain, &challenges, &mut transcript) {
-        return false;
-    }
-
+fn step_4_verify_deep_composition_polynomial<F: IsTwoAdicField>(
+    domain: &Domain<F>,
+    challenges: &Challenges<F>,
+    proof: &StarkProof<F>,
+) -> bool {
     //
     // DEEP consistency check
     // 1. Verify that Deep(x) is constructed correctly
@@ -336,11 +322,7 @@ where
     let deep_poly_evaluation = compare_deep_composition_poly(deep_composition_poly_args);
     let deep_poly_claimed_evaluation = &proof.query_list[0].fri_decommitment.layer_evaluations[0].0;
 
-    if deep_poly_claimed_evaluation != &deep_poly_evaluation {
-        return false;
-    }
-
-    true
+    deep_poly_claimed_evaluation == &deep_poly_evaluation
 }
 
 fn verify_query<F: IsField + IsTwoAdicField, A: AIR<Field = F>>(
@@ -529,4 +511,31 @@ where
     }
 
     true
+}
+
+pub fn verify<F: IsTwoAdicField, A: AIR<Field = F>>(proof: &StarkProof<F>, air: &A) -> bool
+where
+    FieldElement<F>: ByteConversion,
+{
+    let mut transcript = step_1_transcript_initialization();
+    let domain = Domain::new(air);
+
+    let challenges = step_1_replay_rounds_and_recover_challenges(
+        air,
+        proof,
+        &domain,
+        &domain.lde_roots_of_unity_coset,
+        &domain.trace_roots_of_unity,
+        &mut transcript,
+    );
+
+    if !step_2_verify_claimed_composition_polynomial(air, &domain, &challenges, proof) {
+        return false;
+    }
+
+    if !step_3_verify_fri(air, proof, &domain, &challenges, &mut transcript) {
+        return false;
+    }
+
+    step_4_verify_deep_composition_polynomial(&domain, &challenges, proof)
 }
