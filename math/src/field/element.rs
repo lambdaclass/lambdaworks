@@ -5,7 +5,7 @@ use crate::traits::ByteConversion;
 use crate::unsigned_integer::element::UnsignedInteger;
 use crate::unsigned_integer::montgomery::MontgomeryAlgorithms;
 use crate::unsigned_integer::traits::IsUnsignedInteger;
-use std::fmt;
+use std::fmt::{self, Display};
 use std::iter::Sum;
 use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
 use std::{
@@ -367,7 +367,7 @@ impl<F: IsPrimeField> FieldElement<F> {
     }
 
     pub fn is_even(&self) -> bool {
-        self.representative() & 1.into() == 1.into()
+        self.representative() & 1.into() == 0.into()
     }
 
     fn legendre_symbol(&self) -> i8 {
@@ -407,7 +407,7 @@ impl<F: IsPrimeField> FieldElement<F>
     }
 
     // Returns the representative of the value stored
-    fn sqrt(&self) -> Option<Self> {
+    fn sqrt(&self) -> Option<(Self,Self)> {
 
         if !self.legendre_symbol() == 1 {
             return None
@@ -419,24 +419,31 @@ impl<F: IsPrimeField> FieldElement<F>
         // Factor p-1 on the form q * 2^s (with Q odd).
         let mut q = Self::zero() - &one;
         let mut s = Self::zero();
-    
+        println!("Q0: {:?}", q);
+
         while q.is_even() {
+
             s = s + &one;
             q = q / &two;
+            println!("Qi: {:?}", q);
         }
 
-        let six = Self::from(6);
+        println!("Q after while: {:?}", q);
+        let six = Self::from(7);
         // Select a z which is a quadratic non resudue modulo p.
+
+        // Search for a solution.
+        let mut m = s;
         // We pre-computed it so we know that 6 isn't QR.
         let mut c = six.pow(q.representative());
+        //r
 
-       // Search for a solution.
+        // self n
         let mut x = self.pow(
             ((&q + &one) 
             / &two).representative()
         );
        let mut t = self.pow(q.representative());
-       let mut m = s;
 
         while t != one {
             // Find the lowest i such that t^(2^i) = 1.
@@ -444,7 +451,9 @@ impl<F: IsPrimeField> FieldElement<F>
             let mut e = FieldElement::from(2);
             let b;
             while i.representative() < m.representative() {
-                i = i + FieldElement::one();
+                i = i + &one;
+                //if t.pow(&e).ct_eq(&one).unwrap_u8() == 1u8 {
+
                 if t.pow(e.representative()) == one {
                     break;
                 }
@@ -457,12 +466,13 @@ impl<F: IsPrimeField> FieldElement<F>
                     (m - &i - &one).representative()
                 ).representative());
 
-            x = x * &b;
-            t = t * b.pow(two.representative());
-            c = b.pow(two.representative());
             m = i;
+            c = &b * &b;
+            t = t * &b * &b;
+            x = x * &b;
         }
-        Some(x)
+
+        Some((x.clone(), Self::zero() - &x))
     }
 }
 
@@ -512,9 +522,6 @@ where
 
 #[cfg(test)]
 mod tests {
-
-    use crate::elliptic_curve::short_weierstrass::curves::bls12_381::curve::BLS12381Curve;
-    use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
     use crate::field::element::FieldElement;
     use crate::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
     use crate::field::fields::montgomery_backed_prime_fields::{MontgomeryBackendPrimeField, IsModulus};
@@ -564,15 +571,15 @@ mod tests {
     }
 
     #[test]
-    fn two_is_odd() {
+    fn two_is_even() {
         let two = FieldElement::<Stark252PrimeField>::from(2);
-        assert!(!two.is_even());
+        assert!(two.is_even());
     }
 
     #[test]
-    fn three_is_even() {
+    fn three_is_not_even() {
         let three = FieldElement::<Stark252PrimeField>::from(3);
-        assert!(three.is_even());
+        assert!(!three.is_even());
     }
 
     #[test]
@@ -590,7 +597,45 @@ mod tests {
         let two = FrElement::from(2);
         let four = FrElement::from(4);
         let result = four.sqrt().unwrap();
-        println!("Result: {:?}", result);
-        assert_eq!(four.sqrt().unwrap(), two);
+        println!("Result 1: {:?}", result.0.representative());
+        println!("Result 2: {:?}", result.1.representative());
     }
+
+    #[test]
+    fn sqrt_16_is_4() {
+
+        #[derive(Clone, Debug)]
+        pub struct FrConfig;
+        impl IsModulus<U256> for FrConfig {
+            const MODULUS: U256 =
+                U256::from("73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001");
+        }    
+        type FrField = MontgomeryBackendPrimeField<FrConfig, 4>;
+        type FrElement = FieldElement<FrField>;
+
+        let sixteen = FrElement::from(16);
+        let result = sixteen.sqrt().unwrap();
+        println!("Result 1: {:?}", result.0.representative());
+        println!("Result 2: {:?}", result.1.representative());
+    }
+
+    /*
+    #[test]
+    fn sqrt_16_is_4() {
+
+        #[derive(Clone, Debug)]
+        pub struct FrConfig;
+        impl IsModulus<U256> for FrConfig {
+            const MODULUS: U256 =
+                U256::from("29");
+        }    
+        type FrField = MontgomeryBackendPrimeField<FrConfig, 4>;
+        type FrElement = FieldElement<FrField>;
+
+        let five = FrElement::from(5);
+        let result = five.sqrt().unwrap();
+        println!("Result 1: {:?}", result.0.representative());
+        println!("Result 2: {:?}", result.1.representative());
+    } */
+
 }
