@@ -408,9 +408,7 @@ where
             _ => unreachable!(),
         };
 
-        let zero = Self::zero();
-        let one = Self::one();
-        let two = Self::from(2);
+        let (zero, one, two) = (Self::zero(), Self::one(), Self::from(2));
 
         // Factor p-1 on the form q * 2^s (with Q odd).
         let mut q = Self::zero() - &one;
@@ -421,10 +419,15 @@ where
             q = q / &two;
         }
 
-        // Select a non resudue modulo p.
-        let non_qr = Self::from(7);
-        assert_eq!(non_qr.legendre_symbol(), -1);
-        let mut c = non_qr.pow(q.representative());
+        let mut c = {
+            // Calculate a non residue:
+            let mut non_qr = one.clone();
+            while non_qr.legendre_symbol() != -1 {
+                non_qr += one.clone();
+            }
+
+            non_qr.pow(q.representative())
+        };
 
         // Search for a solution.
         let mut x = self.pow(((&q + &one) / &two).representative());
@@ -435,9 +438,8 @@ where
             // Find the lowest i such that t^(2^i) = 1.
             let mut i = zero.clone();
             let mut e = FieldElement::from(2);
-            let b;
             while i.representative() < m.representative() {
-                i = i + FieldElement::one();
+                i += FieldElement::one();
                 if t.pow(e.representative()) == one {
                     break;
                 }
@@ -445,11 +447,11 @@ where
             }
 
             // Update values for next iter
-            b = c.pow(two.pow((m - &i - &one).representative()).representative());
+            let b = c.pow(two.pow((m - &i - &one).representative()).representative());
 
             x = x * &b;
-            t = t * b.pow(two.representative());
-            c = b.pow(two.representative());
+            t = t * &b * &b;
+            c = &b * &b;
             m = i;
         }
         Some(x)
