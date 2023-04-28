@@ -7,7 +7,7 @@ use crate::{
     air::frame::Frame,
     fri::HASHER,
     proof::{DeepConsistencyCheck, StarkProof},
-    transcript_to_field, transcript_to_usize,
+    transcript_to_field, transcript_to_usize, Domain,
 };
 #[cfg(not(feature = "test_fiat_shamir"))]
 use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
@@ -16,7 +16,6 @@ use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 #[cfg(feature = "test_fiat_shamir")]
 use lambdaworks_crypto::fiat_shamir::test_transcript::TestTranscript;
 
-use lambdaworks_fft::roots_of_unity::get_powers_of_primitive_root_coset;
 use lambdaworks_math::{
     field::{
         element::FieldElement,
@@ -62,7 +61,7 @@ fn step_0_replay_rounds_and_recover_challenges<F: IsTwoAdicField, T: Transcript>
     // Fiat-Shamir
     // we have to make sure that the result is not either
     // a root of unity or an element of the lde coset.
-    let z = sample_z_ood(&lde_roots_of_unity_coset, &trace_roots_of_unity, transcript);
+    let z = sample_z_ood(lde_roots_of_unity_coset, trace_roots_of_unity, transcript);
     Challenges { z }
 }
 
@@ -71,28 +70,9 @@ where
     FieldElement<F>: ByteConversion,
 {
     let transcript = &mut step_0_transcript_initialization();
+    let domain = Domain::new(air);
 
-    let root_order = air.context().trace_length.trailing_zeros();
-    let trace_primitive_root = F::get_primitive_root_of_unity(root_order as u64).unwrap();
-
-    let trace_roots_of_unity = get_powers_of_primitive_root_coset(
-        root_order as u64,
-        air.context().trace_length,
-        &FieldElement::<F>::one(),
-    )
-    .unwrap();
-
-
-    let lde_root_order =
-        (air.context().trace_length * air.options().blowup_factor as usize).trailing_zeros();
-    let lde_roots_of_unity_coset = get_powers_of_primitive_root_coset(
-        lde_root_order as u64,
-        air.context().trace_length * air.options().blowup_factor as usize,
-        &FieldElement::<F>::from(air.options().coset_offset),
-    )
-    .unwrap();
-
-    let challenges = step_0_replay_rounds_and_recover_challenges(&lde_roots_of_unity_coset, &trace_roots_of_unity, transcript);
+    let challenges = step_0_replay_rounds_and_recover_challenges(&domain.lde_roots_of_unity_coset, &domain.trace_roots_of_unity, transcript);
 
     // BEGIN TRACE <-> Composition poly consistency evaluation check
     let trace_poly_ood_evaluations = &proof.trace_ood_frame_evaluations;
@@ -105,7 +85,7 @@ where
     let n_trace_cols = air.context().trace_columns;
 
     let boundary_constraint_domains =
-        boundary_constraints.generate_roots_of_unity(&trace_primitive_root, n_trace_cols);
+        boundary_constraints.generate_roots_of_unity(&domain.trace_primitive_root, n_trace_cols);
     let values = boundary_constraints.values(n_trace_cols);
 
     let boundary_coeffs: Vec<(FieldElement<F>, FieldElement<F>)> = (0..n_trace_cols)
@@ -138,7 +118,7 @@ where
             &Polynomial::interpolate(&boundary_constraints_domain, &values[trace_idx]);
 
         let boundary_zerofier =
-            boundary_constraints.compute_zerofier(&trace_primitive_root, trace_idx);
+            boundary_constraints.compute_zerofier(&domain.trace_primitive_root, trace_idx);
 
         let boundary_quotient_ood_evaluation = (trace_evaluation
             - boundary_interpolating_polynomial.evaluate(&challenges.z))
@@ -252,11 +232,11 @@ where
     transcript.append(&q_0.to_be_bytes());
 
     let deep_composition_poly_args = &mut DeepCompositionPolyArgs {
-        root_order,
+        root_order: domain.root_order,
         trace_term_coeffs,
         gamma_even,
         gamma_odd,
-        d_evaluation_point: &lde_roots_of_unity_coset[q_0],
+        d_evaluation_point: &domain.lde_roots_of_unity_coset[q_0],
         ood_evaluation_point: &challenges.z,
         trace_poly_ood_evaluations,
         composition_poly_ood_evaluations,
@@ -275,7 +255,7 @@ where
     if !verify_trace_evaluations(
         &proof.deep_consistency_check,
         q_0,
-        &lde_roots_of_unity_coset,
+        &domain.lde_roots_of_unity_coset,
     ) || !verify_query(
         air,
         &proof.fri_layers_merkle_roots,
