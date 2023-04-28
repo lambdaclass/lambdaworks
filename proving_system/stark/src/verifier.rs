@@ -64,8 +64,6 @@ fn step_1_replay_rounds_and_recover_challenges<F, A, T>(
     air: &A,
     proof: &StarkProof<F>,
     domain: &Domain<F>,
-    lde_roots_of_unity_coset: &[FieldElement<F>],
-    trace_roots_of_unity: &[FieldElement<F>],
     transcript: &mut T,
 ) -> Challenges<F>
 where
@@ -78,7 +76,11 @@ where
     // we have to make sure that the result is not either
     // a root of unity or an element of the lde coset.
     let n_trace_cols = air.context().trace_columns;
-    let z = sample_z_ood(lde_roots_of_unity_coset, trace_roots_of_unity, transcript);
+    let z = sample_z_ood(
+        &domain.lde_roots_of_unity_coset,
+        &domain.trace_roots_of_unity,
+        transcript,
+    );
     let boundary_coeffs: Vec<(FieldElement<F>, FieldElement<F>)> = (0..n_trace_cols)
         .map(|_| {
             (
@@ -149,9 +151,9 @@ where
 
 fn step_2_verify_claimed_composition_polynomial<F: IsTwoAdicField, A: AIR<Field = F>>(
     air: &A,
+    proof: &StarkProof<F>,
     domain: &Domain<F>,
     challenges: &Challenges<F>,
-    proof: &StarkProof<F>,
 ) -> bool {
     // BEGIN TRACE <-> Composition poly consistency evaluation check
     // These are H_1(z^2) and H_2(z^2)
@@ -300,9 +302,9 @@ where
 }
 
 fn step_4_verify_deep_composition_polynomial<F: IsTwoAdicField>(
+    proof: &StarkProof<F>,
     domain: &Domain<F>,
     challenges: &Challenges<F>,
-    proof: &StarkProof<F>,
 ) -> bool {
     //
     // DEEP consistency check
@@ -513,23 +515,19 @@ where
     true
 }
 
-pub fn verify<F: IsTwoAdicField, A: AIR<Field = F>>(proof: &StarkProof<F>, air: &A) -> bool
+pub fn verify<F, A>(proof: &StarkProof<F>, air: &A) -> bool
 where
+    F: IsTwoAdicField,
+    A: AIR<Field = F>,
     FieldElement<F>: ByteConversion,
 {
     let mut transcript = step_1_transcript_initialization();
     let domain = Domain::new(air);
 
-    let challenges = step_1_replay_rounds_and_recover_challenges(
-        air,
-        proof,
-        &domain,
-        &domain.lde_roots_of_unity_coset,
-        &domain.trace_roots_of_unity,
-        &mut transcript,
-    );
+    let challenges =
+        step_1_replay_rounds_and_recover_challenges(air, proof, &domain, &mut transcript);
 
-    if !step_2_verify_claimed_composition_polynomial(air, &domain, &challenges, proof) {
+    if !step_2_verify_claimed_composition_polynomial(air, proof, &domain, &challenges) {
         return false;
     }
 
@@ -537,5 +535,5 @@ where
         return false;
     }
 
-    step_4_verify_deep_composition_polynomial(&domain, &challenges, proof)
+    step_4_verify_deep_composition_polynomial(proof, &domain, &challenges)
 }
