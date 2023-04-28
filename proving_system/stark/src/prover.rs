@@ -61,6 +61,7 @@ where
                 &FieldElement::<F>::from(air.options().coset_offset),
                 air.options().blowup_factor as usize,
             );
+            dbg!(&res);
             res
         })
         .collect::<Result<Vec<Vec<FieldElement<F>>>, FFTError>>()
