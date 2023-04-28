@@ -5,10 +5,13 @@ pub mod proof;
 pub mod prover;
 pub mod verifier;
 
+use air::AIR;
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
+use lambdaworks_fft::roots_of_unity::get_powers_of_primitive_root_coset;
 use lambdaworks_math::field::{
-    element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
-    traits::IsField,
+    element::FieldElement,
+    fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+    traits::{IsField, IsTwoAdicField},
 };
 
 pub struct ProofConfig {
@@ -44,6 +47,46 @@ pub fn sample_z_ood<F: IsField, T: Transcript>(
             && !trace_roots_of_unity.iter().any(|x| x == &value)
         {
             return value;
+        }
+    }
+}
+
+pub struct Domain<F: IsTwoAdicField> {
+    lde_roots_of_unity_coset: Vec<FieldElement<F>>,
+    lde_root_order: u32,
+    trace_primitive_root: FieldElement<F>,
+    trace_roots_of_unity: Vec<FieldElement<F>>,
+}
+
+impl<F: IsTwoAdicField> Domain<F> {
+    fn new<A: AIR<Field = F>>(air: &A) -> Self {
+        // Initial definitions
+        let blowup_factor = air.options().blowup_factor as usize;
+        let coset_offset = FieldElement::<F>::from(air.options().coset_offset);
+
+        let root_order = air.context().trace_length.trailing_zeros();
+        // * Generate Coset
+        let trace_primitive_root = F::get_primitive_root_of_unity(root_order as u64).unwrap();
+        let trace_roots_of_unity = get_powers_of_primitive_root_coset(
+            root_order as u64,
+            air.context().trace_length,
+            &FieldElement::<F>::one(),
+        )
+        .unwrap();
+
+        let lde_root_order = (air.context().trace_length * blowup_factor).trailing_zeros();
+        let lde_roots_of_unity_coset = get_powers_of_primitive_root_coset(
+            lde_root_order as u64,
+            air.context().trace_length * blowup_factor,
+            &coset_offset,
+        )
+        .unwrap();
+
+        Self {
+            lde_roots_of_unity_coset,
+            lde_root_order,
+            trace_primitive_root,
+            trace_roots_of_unity,
         }
     }
 }

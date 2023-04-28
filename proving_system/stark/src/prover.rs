@@ -6,7 +6,7 @@ use super::{
 use crate::{
     fri::HASHER,
     proof::{DeepConsistencyCheck, StarkProof, StarkQueryProof},
-    transcript_to_field, transcript_to_usize,
+    transcript_to_field, transcript_to_usize, Domain,
 };
 #[cfg(not(feature = "test_fiat_shamir"))]
 use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
@@ -15,8 +15,8 @@ use lambdaworks_crypto::{fiat_shamir::transcript::Transcript, merkle_tree::merkl
 #[cfg(feature = "test_fiat_shamir")]
 use lambdaworks_crypto::fiat_shamir::test_transcript::TestTranscript;
 
+use lambdaworks_fft::errors::FFTError;
 use lambdaworks_fft::polynomial::FFTPoly;
-use lambdaworks_fft::{errors::FFTError, roots_of_unity::get_powers_of_primitive_root_coset};
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsTwoAdicField},
     polynomial::Polynomial,
@@ -44,46 +44,6 @@ struct Round4<F: IsTwoAdicField> {
     fri_layers_merkle_roots: Vec<FieldElement<F>>,
     deep_consistency_check: DeepConsistencyCheck<F>,
     query_list: Vec<StarkQueryProof<F>>,
-}
-
-struct Domain<F: IsTwoAdicField> {
-    lde_roots_of_unity_coset: Vec<FieldElement<F>>,
-    lde_root_order: u32,
-    trace_primitive_root: FieldElement<F>,
-    trace_roots_of_unity: Vec<FieldElement<F>>,
-}
-
-impl<F: IsTwoAdicField> Domain<F> {
-    fn new<A: AIR<Field = F>>(air: &A) -> Self {
-        // Initial definitions
-        let blowup_factor = air.options().blowup_factor as usize;
-        let coset_offset = FieldElement::<F>::from(air.options().coset_offset);
-
-        let root_order = air.context().trace_length.trailing_zeros();
-        // * Generate Coset
-        let trace_primitive_root = F::get_primitive_root_of_unity(root_order as u64).unwrap();
-        let trace_roots_of_unity = get_powers_of_primitive_root_coset(
-            root_order as u64,
-            air.context().trace_length,
-            &FieldElement::<F>::one(),
-        )
-        .unwrap();
-
-        let lde_root_order = (air.context().trace_length * blowup_factor).trailing_zeros();
-        let lde_roots_of_unity_coset = get_powers_of_primitive_root_coset(
-            lde_root_order as u64,
-            air.context().trace_length * blowup_factor,
-            &coset_offset,
-        )
-        .unwrap();
-
-        Self {
-            lde_roots_of_unity_coset,
-            lde_root_order,
-            trace_primitive_root,
-            trace_roots_of_unity,
-        }
-    }
 }
 
 #[cfg(feature = "test_fiat_shamir")]
