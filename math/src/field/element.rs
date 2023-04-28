@@ -372,27 +372,20 @@ impl<F: IsPrimeField> FieldElement<F> {
 
     fn legendre_symbol(&self) -> i8 {
         let mod_minus_one: FieldElement<F> = Self::zero() - Self::one();
-        let symbol = self.pow(
-            (mod_minus_one / FieldElement::from(2)).representative()
-        );
+        let symbol = self.pow((mod_minus_one / FieldElement::from(2)).representative());
 
-        let zero = Self::zero();
-        let one = Self::one();
-        
-        if symbol == zero {
-            return 0;
-        } else if symbol == one {
-            return 1;
-        } else {
-            return -1;
+        match symbol {
+            x if x == Self::zero() => 0,
+            x if x == Self::one() => 1,
+            _ => -1,
         }
     }
 }
 
-impl<F: IsPrimeField> FieldElement<F> 
-    where
-    FieldElement<F>: ByteConversion {
-
+impl<F: IsPrimeField> FieldElement<F>
+where
+    FieldElement<F>: ByteConversion,
+{
     // Works up to 512 bytes, and it's not uniform
     // Use it only for math algorithms, not for cryptography
     fn random_field() -> Self {
@@ -410,7 +403,7 @@ impl<F: IsPrimeField> FieldElement<F>
     fn sqrt(&self) -> Option<Self> {
 
         if !self.legendre_symbol() == 1 {
-            return None
+            return None;
         }
         let zero = Self::zero();
         let one = Self::one();
@@ -419,24 +412,21 @@ impl<F: IsPrimeField> FieldElement<F>
         // Factor p-1 on the form q * 2^s (with Q odd).
         let mut q = Self::zero() - &one;
         let mut s = Self::zero();
-    
+
         while q.is_even() {
             s = s + &one;
             q = q / &two;
         }
 
-        let six = Self::from(6);
-        // Select a z which is a quadratic non resudue modulo p.
-        // We pre-computed it so we know that 6 isn't QR.
-        let mut c = six.pow(q.representative());
+        // Select a non resudue modulo p.
+        let non_qr = Self::from(7);
+        assert_eq!(non_qr.legendre_symbol(), -1);
+        let mut c = non_qr.pow(q.representative());
 
-       // Search for a solution.
-        let mut x = self.pow(
-            ((&q + &one) 
-            / &two).representative()
-        );
-       let mut t = self.pow(q.representative());
-       let mut m = s;
+        // Search for a solution.
+        let mut x = self.pow(((&q + &one) / &two).representative());
+        let mut t = self.pow(q.representative());
+        let mut m = s;
 
         while t != one {
             // Find the lowest i such that t^(2^i) = 1.
@@ -452,10 +442,7 @@ impl<F: IsPrimeField> FieldElement<F>
             }
 
             // Update values for next iter
-            b = c.pow(
-                two.pow(
-                    (m - &i - &one).representative()
-                ).representative());
+            b = c.pow(two.pow((m - &i - &one).representative()).representative());
 
             x = x * &b;
             t = t * b.pow(two.representative());
@@ -517,7 +504,9 @@ mod tests {
     use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
     use crate::field::element::FieldElement;
     use crate::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
-    use crate::field::fields::montgomery_backed_prime_fields::{MontgomeryBackendPrimeField, IsModulus};
+    use crate::field::fields::montgomery_backed_prime_fields::{
+        IsModulus, MontgomeryBackendPrimeField,
+    };
     use crate::field::test_fields::u64_test_field::U64TestField;
     use crate::unsigned_integer::element::{UnsignedInteger, U256};
 
@@ -583,7 +572,7 @@ mod tests {
         impl IsModulus<U256> for FrConfig {
             const MODULUS: U256 =
                 U256::from("73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001");
-        }    
+        }
         type FrField = MontgomeryBackendPrimeField<FrConfig, 4>;
         type FrElement = FieldElement<FrField>;
 
