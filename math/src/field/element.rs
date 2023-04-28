@@ -1,11 +1,9 @@
-use rand::Rng;
-
 use crate::field::traits::IsField;
 use crate::traits::ByteConversion;
 use crate::unsigned_integer::element::UnsignedInteger;
 use crate::unsigned_integer::montgomery::MontgomeryAlgorithms;
 use crate::unsigned_integer::traits::IsUnsignedInteger;
-use std::fmt::{self, Display};
+use std::fmt::{self};
 use std::iter::Sum;
 use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
 use std::{
@@ -386,19 +384,6 @@ impl<F: IsPrimeField> FieldElement<F>
 where
     FieldElement<F>: ByteConversion,
 {
-    // Works up to 512 bytes, and it's not uniform
-    // Use it only for math algorithms, not for cryptography
-    fn random_field() -> Self {
-        let random_chunk_a = rand::thread_rng().gen::<[u8; 32]>();
-        let random_chunk_b = rand::thread_rng().gen::<[u8; 32]>();
-
-        let mut random_bytes = Vec::with_capacity(64);
-        random_bytes.extend_from_slice(&random_chunk_a);
-        random_bytes.extend_from_slice(&random_chunk_b);
-
-        Self::from_bytes_be(&random_bytes).unwrap()
-    }
-
     // Returns the representative of the value stored
     pub fn sqrt(&self) -> Option<(Self,Self)> {
         match self.legendre_symbol() {
