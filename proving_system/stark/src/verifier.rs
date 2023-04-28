@@ -50,10 +50,13 @@ fn step_0_transcript_initialization() -> DefaultTranscript {
 }
 
 struct Challenges<F: IsTwoAdicField> {
-    z: FieldElement<F>
+    z: FieldElement<F>,
+    boundary_coeffs: Vec<(FieldElement<F>, FieldElement<F>)>,
+    transition_coeffs: Vec<(FieldElement<F>, FieldElement<F>)>,
 }
 
-fn step_0_replay_rounds_and_recover_challenges<F: IsTwoAdicField, T: Transcript>(
+fn step_0_replay_rounds_and_recover_challenges<F: IsTwoAdicField, A: AIR<Field=F>, T: Transcript>(
+    air: &A,
     lde_roots_of_unity_coset: &[FieldElement<F>],
     trace_roots_of_unity: &[FieldElement<F>],
     transcript: &mut T,
@@ -61,33 +64,8 @@ fn step_0_replay_rounds_and_recover_challenges<F: IsTwoAdicField, T: Transcript>
     // Fiat-Shamir
     // we have to make sure that the result is not either
     // a root of unity or an element of the lde coset.
-    let z = sample_z_ood(lde_roots_of_unity_coset, trace_roots_of_unity, transcript);
-    Challenges { z }
-}
-
-pub fn verify<F: IsTwoAdicField, A: AIR<Field = F>>(proof: &StarkProof<F>, air: &A) -> bool
-where
-    FieldElement<F>: ByteConversion,
-{
-    let transcript = &mut step_0_transcript_initialization();
-    let domain = Domain::new(air);
-
-    let challenges = step_0_replay_rounds_and_recover_challenges(&domain.lde_roots_of_unity_coset, &domain.trace_roots_of_unity, transcript);
-
-    // BEGIN TRACE <-> Composition poly consistency evaluation check
-    let trace_poly_ood_evaluations = &proof.trace_ood_frame_evaluations;
-
-    // These are H_1(z^2) and H_2(z^2)
-    let composition_poly_ood_evaluations = &proof.composition_poly_ood_evaluations;
-
-    let boundary_constraints = air.boundary_constraints();
-
     let n_trace_cols = air.context().trace_columns;
-
-    let boundary_constraint_domains =
-        boundary_constraints.generate_roots_of_unity(&domain.trace_primitive_root, n_trace_cols);
-    let values = boundary_constraints.values(n_trace_cols);
-
+    let z = sample_z_ood(lde_roots_of_unity_coset, trace_roots_of_unity, transcript);
     let boundary_coeffs: Vec<(FieldElement<F>, FieldElement<F>)> = (0..n_trace_cols)
         .map(|_| {
             (
@@ -106,6 +84,32 @@ where
                 )
             })
             .collect();
+
+    Challenges { z, boundary_coeffs, transition_coeffs }
+}
+
+pub fn verify<F: IsTwoAdicField, A: AIR<Field = F>>(proof: &StarkProof<F>, air: &A) -> bool
+where
+    FieldElement<F>: ByteConversion,
+{
+    let transcript = &mut step_0_transcript_initialization();
+    let domain = Domain::new(air);
+
+    let challenges = step_0_replay_rounds_and_recover_challenges(air, &domain.lde_roots_of_unity_coset, &domain.trace_roots_of_unity, transcript);
+
+    // BEGIN TRACE <-> Composition poly consistency evaluation check
+    let trace_poly_ood_evaluations = &proof.trace_ood_frame_evaluations;
+
+    // These are H_1(z^2) and H_2(z^2)
+    let composition_poly_ood_evaluations = &proof.composition_poly_ood_evaluations;
+
+    let boundary_constraints = air.boundary_constraints();
+
+    let n_trace_cols = air.context().trace_columns;
+
+    let boundary_constraint_domains =
+        boundary_constraints.generate_roots_of_unity(&domain.trace_primitive_root, n_trace_cols);
+    let values = boundary_constraints.values(n_trace_cols);
 
     // Following naming conventions from https://www.notamonadtutorial.com/diving-deep-fri/
     let mut boundary_c_i_evaluations = Vec::with_capacity(n_trace_cols);
@@ -152,7 +156,7 @@ where
     let boundary_quotient_ood_evaluations: Vec<FieldElement<F>> = boundary_c_i_evaluations
         .iter()
         .zip(boundary_quotient_degrees)
-        .zip(boundary_coeffs)
+        .zip(challenges.boundary_coeffs)
         .map(|((poly_eval, poly_degree), (alpha, beta))| {
             poly_eval * (&alpha * challenges.z.pow(max_degree_power_of_two - poly_degree as u64) + &beta)
         })
@@ -168,7 +172,7 @@ where
         ConstraintEvaluator::compute_constraint_composition_poly_evaluations(
             air,
             &transition_ood_frame_evaluations,
-            &transition_coeffs,
+            &challenges.transition_coeffs,
             max_degree_power_of_two,
             &challenges.z,
         );
