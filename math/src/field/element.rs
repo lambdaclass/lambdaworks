@@ -568,7 +568,7 @@ mod tests {
     }
 
     #[test]
-    fn sqrt_four_is_2() {
+    fn sqrt_works() {
         #[derive(Clone, Debug)]
         pub struct FrConfig;
         impl IsModulus<U256> for FrConfig {
