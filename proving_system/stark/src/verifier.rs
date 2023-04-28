@@ -39,12 +39,12 @@ struct DeepCompositionPolyArgs<'a, F: IsTwoAdicField> {
 }
 
 #[cfg(feature = "test_fiat_shamir")]
-fn step_0_transcript_initialization() -> TestTranscript {
+fn step_1_transcript_initialization() -> TestTranscript {
     TestTranscript::new()
 }
 
 #[cfg(not(feature = "test_fiat_shamir"))]
-fn step_0_transcript_initialization() -> DefaultTranscript {
+fn step_1_transcript_initialization() -> DefaultTranscript {
     // TODO: add strong fiat shamir
     DefaultTranscript::new()
 }
@@ -53,9 +53,16 @@ struct Challenges<F: IsTwoAdicField> {
     z: FieldElement<F>,
     boundary_coeffs: Vec<(FieldElement<F>, FieldElement<F>)>,
     transition_coeffs: Vec<(FieldElement<F>, FieldElement<F>)>,
+    trace_term_coeffs: Vec<Vec<FieldElement<F>>>,
+    gamma_even: FieldElement<F>,
+    gamma_odd: FieldElement<F>,
 }
 
-fn step_0_replay_rounds_and_recover_challenges<F: IsTwoAdicField, A: AIR<Field=F>, T: Transcript>(
+fn step_1_replay_rounds_and_recover_challenges<
+    F: IsTwoAdicField,
+    A: AIR<Field = F>,
+    T: Transcript,
+>(
     air: &A,
     lde_roots_of_unity_coset: &[FieldElement<F>],
     trace_roots_of_unity: &[FieldElement<F>],
@@ -85,21 +92,38 @@ fn step_0_replay_rounds_and_recover_challenges<F: IsTwoAdicField, A: AIR<Field=F
             })
             .collect();
 
-    Challenges { z, boundary_coeffs, transition_coeffs }
+    // Get the number of trace terms the DEEP composition poly will have.
+    // One coefficient will be sampled for each of them.
+    // TODO: try remove this, call transcript inside for and move gamma declarations
+    let trace_term_coeffs = (0..n_trace_cols)
+        .map(|_| {
+            (0..air.context().transition_offsets.len())
+                .map(|_| transcript_to_field(transcript))
+                .collect()
+        })
+        .collect::<Vec<Vec<FieldElement<F>>>>();
+
+    // Get coefficients for even and odd terms of the composition polynomial H(x)
+    let gamma_even = transcript_to_field::<F, _>(transcript);
+    let gamma_odd = transcript_to_field::<F, _>(transcript);
+
+    Challenges {
+        z,
+        boundary_coeffs,
+        transition_coeffs,
+        trace_term_coeffs,
+        gamma_even,
+        gamma_odd,
+    }
 }
 
-pub fn verify<F: IsTwoAdicField, A: AIR<Field = F>>(proof: &StarkProof<F>, air: &A) -> bool
-where
-    FieldElement<F>: ByteConversion,
-{
-    let transcript = &mut step_0_transcript_initialization();
-    let domain = Domain::new(air);
-
-    let challenges = step_0_replay_rounds_and_recover_challenges(air, &domain.lde_roots_of_unity_coset, &domain.trace_roots_of_unity, transcript);
-
+fn step_2_verify_claimed_composition_polynomial<F: IsTwoAdicField, A: AIR<Field = F>>(
+    air: &A,
+    domain: &Domain<F>,
+    challenges: &Challenges<F>,
+    proof: &StarkProof<F>,
+) -> bool {
     // BEGIN TRACE <-> Composition poly consistency evaluation check
-    let trace_poly_ood_evaluations = &proof.trace_ood_frame_evaluations;
-
     // These are H_1(z^2) and H_2(z^2)
     let composition_poly_ood_evaluations = &proof.composition_poly_ood_evaluations;
 
@@ -116,7 +140,7 @@ where
     let mut boundary_quotient_degrees = Vec::with_capacity(n_trace_cols);
 
     for trace_idx in 0..n_trace_cols {
-        let trace_evaluation = &trace_poly_ood_evaluations.get_row(0)[trace_idx];
+        let trace_evaluation = &proof.trace_ood_frame_evaluations.get_row(0)[trace_idx];
         let boundary_constraints_domain = boundary_constraint_domains[trace_idx].clone();
         let boundary_interpolating_polynomial =
             &Polynomial::interpolate(&boundary_constraints_domain, &values[trace_idx]);
@@ -156,9 +180,14 @@ where
     let boundary_quotient_ood_evaluations: Vec<FieldElement<F>> = boundary_c_i_evaluations
         .iter()
         .zip(boundary_quotient_degrees)
-        .zip(challenges.boundary_coeffs)
+        .zip(&challenges.boundary_coeffs)
         .map(|((poly_eval, poly_degree), (alpha, beta))| {
-            poly_eval * (&alpha * challenges.z.pow(max_degree_power_of_two - poly_degree as u64) + &beta)
+            poly_eval
+                * (alpha
+                    * challenges
+                        .z
+                        .pow(max_degree_power_of_two - poly_degree as u64)
+                    + beta)
         })
         .collect();
 
@@ -166,7 +195,7 @@ where
         .iter()
         .fold(FieldElement::<F>::zero(), |acc, x| acc + x);
 
-    let transition_ood_frame_evaluations = air.compute_transition(trace_poly_ood_evaluations);
+    let transition_ood_frame_evaluations = air.compute_transition(&proof.trace_ood_frame_evaluations);
 
     let transition_c_i_evaluations =
         ConstraintEvaluator::compute_constraint_composition_poly_evaluations(
@@ -187,29 +216,27 @@ where
     let composition_poly_claimed_ood_evaluation =
         &composition_poly_ood_evaluations[0] + &challenges.z * &composition_poly_ood_evaluations[1];
 
-    if composition_poly_claimed_ood_evaluation != composition_poly_ood_evaluation {
+    composition_poly_claimed_ood_evaluation == composition_poly_ood_evaluation
+}
+
+pub fn verify<F: IsTwoAdicField, A: AIR<Field = F>>(proof: &StarkProof<F>, air: &A) -> bool
+where
+    FieldElement<F>: ByteConversion,
+{
+    let mut transcript = step_1_transcript_initialization();
+    let domain = Domain::new(air);
+
+    let challenges = step_1_replay_rounds_and_recover_challenges(
+        air,
+        &domain.lde_roots_of_unity_coset,
+        &domain.trace_roots_of_unity,
+        &mut transcript,
+    );
+
+    if !step_2_verify_claimed_composition_polynomial(air, &domain, &challenges, proof) {
         return false;
     }
-
     // // END TRACE <-> Composition poly consistency evaluation check
-
-    let lde_root_order =
-        (air.context().trace_length * air.options().blowup_factor as usize).trailing_zeros();
-
-    // Get the number of trace terms the DEEP composition poly will have.
-    // One coefficient will be sampled for each of them.
-    // TODO: try remove this, call transcript inside for and move gamma declarations
-    let trace_term_coeffs = &(0..trace_poly_ood_evaluations.num_columns())
-        .map(|_| {
-            (0..trace_poly_ood_evaluations.num_rows())
-                .map(|_| transcript_to_field(transcript))
-                .collect()
-        })
-        .collect::<Vec<Vec<FieldElement<F>>>>();
-
-    // Get coefficients for even and odd terms of the composition polynomial H(x)
-    let gamma_even = &transcript_to_field::<F, _>(transcript);
-    let gamma_odd = &transcript_to_field::<F, _>(transcript);
 
     // construct vector of betas
     let mut beta_list = Vec::new();
@@ -221,7 +248,7 @@ where
         transcript.append(&root_bytes);
 
         if i < count_betas {
-            let beta = transcript_to_field(transcript);
+            let beta = transcript_to_field(&mut transcript);
             beta_list.push(beta);
         }
     }
@@ -232,18 +259,18 @@ where
     let last_evaluation_bytes = last_evaluation.to_bytes_be();
     transcript.append(&last_evaluation_bytes);
 
-    let q_0 = transcript_to_usize(transcript) % (2_usize.pow(lde_root_order));
+    let q_0 = transcript_to_usize(&mut transcript) % (2_usize.pow(domain.lde_root_order));
     transcript.append(&q_0.to_be_bytes());
 
     let deep_composition_poly_args = &mut DeepCompositionPolyArgs {
         root_order: domain.root_order,
-        trace_term_coeffs,
-        gamma_even,
-        gamma_odd,
+        trace_term_coeffs: &challenges.trace_term_coeffs,
+        gamma_even: &challenges.gamma_even,
+        gamma_odd: &challenges.gamma_odd,
         d_evaluation_point: &domain.lde_roots_of_unity_coset[q_0],
         ood_evaluation_point: &challenges.z,
-        trace_poly_ood_evaluations,
-        composition_poly_ood_evaluations,
+        trace_poly_ood_evaluations: &proof.trace_ood_frame_evaluations,
+        composition_poly_ood_evaluations: &proof.composition_poly_ood_evaluations,
         deep_consistency_check: &proof.deep_consistency_check,
     };
 
@@ -266,7 +293,7 @@ where
         &beta_list,
         q_0,
         &proof.query_list[0].fri_decommitment,
-        lde_root_order,
+        domain.lde_root_order,
     ) {
         return false;
     }
@@ -274,7 +301,7 @@ where
     // Verify 1..n layers of FRI
     let mut result = true;
     for proof_i in proof.query_list.iter().skip(1) {
-        let q_i = transcript_to_usize(transcript) % (2_usize.pow(lde_root_order));
+        let q_i = transcript_to_usize(&mut transcript) % (2_usize.pow(domain.lde_root_order));
         transcript.append(&q_i.to_be_bytes());
 
         // this is done in constant time
@@ -284,7 +311,7 @@ where
             &beta_list,
             q_i,
             &proof_i.fri_decommitment,
-            lde_root_order,
+            domain.lde_root_order,
         );
     }
     result
