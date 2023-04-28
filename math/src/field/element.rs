@@ -367,7 +367,7 @@ impl<F: IsPrimeField> FieldElement<F> {
     }
 
     pub fn is_even(&self) -> bool {
-        self.representative() & 1.into() == 1.into()
+        self.representative() & 1.into() == 0.into()
     }
 
     fn legendre_symbol(&self) -> i8 {
@@ -401,10 +401,13 @@ where
 
     // Returns the representative of the value stored
     fn sqrt(&self) -> Option<Self> {
+        match self.legendre_symbol() {
+            0 => return Some(Self::zero()), // self is 0
+            -1 => return None,              // self is quadratic non-residue
+            1 => (),                        // self is quadratic residue
+            _ => unreachable!(),
+        };
 
-        if !self.legendre_symbol() == 1 {
-            return None;
-        }
         let zero = Self::zero();
         let one = Self::one();
         let two = Self::from(2);
@@ -500,8 +503,6 @@ where
 #[cfg(test)]
 mod tests {
 
-    use crate::elliptic_curve::short_weierstrass::curves::bls12_381::curve::BLS12381Curve;
-    use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
     use crate::field::element::FieldElement;
     use crate::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
     use crate::field::fields::montgomery_backed_prime_fields::{
@@ -553,20 +554,19 @@ mod tests {
     }
 
     #[test]
-    fn two_is_odd() {
+    fn two_is_even() {
         let two = FieldElement::<Stark252PrimeField>::from(2);
-        assert!(!two.is_even());
+        assert!(two.is_even());
     }
 
     #[test]
-    fn three_is_even() {
+    fn three_is_odd() {
         let three = FieldElement::<Stark252PrimeField>::from(3);
-        assert!(three.is_even());
+        assert!(!three.is_even());
     }
 
     #[test]
     fn sqrt_four_is_2() {
-
         #[derive(Clone, Debug)]
         pub struct FrConfig;
         impl IsModulus<U256> for FrConfig {
@@ -576,10 +576,8 @@ mod tests {
         type FrField = MontgomeryBackendPrimeField<FrConfig, 4>;
         type FrElement = FieldElement<FrField>;
 
-        let two = FrElement::from(2);
-        let four = FrElement::from(4);
-        let result = four.sqrt().unwrap();
-        println!("Result: {:?}", result);
-        assert_eq!(four.sqrt().unwrap(), two);
+        let input = FrElement::from(2);
+        let sqrt = input.sqrt().unwrap();
+        assert_eq!((&sqrt * &sqrt), input);
     }
 }
