@@ -12,8 +12,10 @@ use crate::{
 #[cfg(not(feature = "test_fiat_shamir"))]
 use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
+
 #[cfg(feature = "test_fiat_shamir")]
-use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
+use lambdaworks_crypto::fiat_shamir::test_transcript::TestTranscript;
+
 use lambdaworks_fft::roots_of_unity::get_powers_of_primitive_root_coset;
 use lambdaworks_math::{
     field::{
@@ -37,21 +39,38 @@ struct DeepCompositionPolyArgs<'a, F: IsTwoAdicField> {
     deep_consistency_check: &'a DeepConsistencyCheck<F>,
 }
 
+#[cfg(feature = "test_fiat_shamir")]
+fn step_0_transcript_initialization() -> TestTranscript {
+    TestTranscript::new()
+}
+
+#[cfg(not(feature = "test_fiat_shamir"))]
+fn step_0_transcript_initialization() -> DefaultTranscript {
+    // TODO: add strong fiat shamir
+    DefaultTranscript::new()
+}
+
+struct Challenges<F: IsTwoAdicField> {
+    z: FieldElement<F>
+}
+
+fn step_0_replay_rounds_and_recover_challenges<F: IsTwoAdicField, T: Transcript>(
+    lde_roots_of_unity_coset: &[FieldElement<F>],
+    trace_roots_of_unity: &[FieldElement<F>],
+    transcript: &mut T,
+) -> Challenges<F> {
+    // Fiat-Shamir
+    // we have to make sure that the result is not either
+    // a root of unity or an element of the lde coset.
+    let z = sample_z_ood(&lde_roots_of_unity_coset, &trace_roots_of_unity, transcript);
+    Challenges { z }
+}
+
 pub fn verify<F: IsTwoAdicField, A: AIR<Field = F>>(proof: &StarkProof<F>, air: &A) -> bool
 where
     FieldElement<F>: ByteConversion,
 {
-    #[cfg(not(feature = "test_fiat_shamir"))]
-    let transcript = &mut DefaultTranscript::new();
-    #[cfg(feature = "test_fiat_shamir")]
-    let transcript = &mut TestTranscript::new();
-
-    // BEGIN TRACE <-> Composition poly consistency evaluation check
-
-    let trace_poly_ood_evaluations = &proof.trace_ood_frame_evaluations;
-
-    // These are H_1(z^2) and H_2(z^2)
-    let composition_poly_ood_evaluations = &proof.composition_poly_ood_evaluations;
+    let transcript = &mut step_0_transcript_initialization();
 
     let root_order = air.context().trace_length.trailing_zeros();
     let trace_primitive_root = F::get_primitive_root_of_unity(root_order as u64).unwrap();
@@ -63,13 +82,6 @@ where
     )
     .unwrap();
 
-    let boundary_constraints = air.boundary_constraints();
-
-    let n_trace_cols = air.context().trace_columns;
-
-    let boundary_constraint_domains =
-        boundary_constraints.generate_roots_of_unity(&trace_primitive_root, n_trace_cols);
-    let values = boundary_constraints.values(n_trace_cols);
 
     let lde_root_order =
         (air.context().trace_length * air.options().blowup_factor as usize).trailing_zeros();
@@ -80,10 +92,21 @@ where
     )
     .unwrap();
 
-    // Fiat-Shamir
-    // we have to make sure that the result is not either
-    // a root of unity or an element of the lde coset.
-    let z = sample_z_ood(&lde_roots_of_unity_coset, &trace_roots_of_unity, transcript);
+    let challenges = step_0_replay_rounds_and_recover_challenges(&lde_roots_of_unity_coset, &trace_roots_of_unity, transcript);
+
+    // BEGIN TRACE <-> Composition poly consistency evaluation check
+    let trace_poly_ood_evaluations = &proof.trace_ood_frame_evaluations;
+
+    // These are H_1(z^2) and H_2(z^2)
+    let composition_poly_ood_evaluations = &proof.composition_poly_ood_evaluations;
+
+    let boundary_constraints = air.boundary_constraints();
+
+    let n_trace_cols = air.context().trace_columns;
+
+    let boundary_constraint_domains =
+        boundary_constraints.generate_roots_of_unity(&trace_primitive_root, n_trace_cols);
+    let values = boundary_constraints.values(n_trace_cols);
 
     let boundary_coeffs: Vec<(FieldElement<F>, FieldElement<F>)> = (0..n_trace_cols)
         .map(|_| {
@@ -118,8 +141,8 @@ where
             boundary_constraints.compute_zerofier(&trace_primitive_root, trace_idx);
 
         let boundary_quotient_ood_evaluation = (trace_evaluation
-            - boundary_interpolating_polynomial.evaluate(&z))
-            / boundary_zerofier.evaluate(&z);
+            - boundary_interpolating_polynomial.evaluate(&challenges.z))
+            / boundary_zerofier.evaluate(&challenges.z);
 
         let boundary_quotient_degree = air.context().trace_length - boundary_zerofier.degree() - 1;
 
@@ -151,7 +174,7 @@ where
         .zip(boundary_quotient_degrees)
         .zip(boundary_coeffs)
         .map(|((poly_eval, poly_degree), (alpha, beta))| {
-            poly_eval * (&alpha * z.pow(max_degree_power_of_two - poly_degree as u64) + &beta)
+            poly_eval * (&alpha * challenges.z.pow(max_degree_power_of_two - poly_degree as u64) + &beta)
         })
         .collect();
 
@@ -167,7 +190,7 @@ where
             &transition_ood_frame_evaluations,
             &transition_coeffs,
             max_degree_power_of_two,
-            &z,
+            &challenges.z,
         );
 
     let composition_poly_ood_evaluation = &boundary_quotient_ood_evaluation
@@ -178,7 +201,7 @@ where
             });
 
     let composition_poly_claimed_ood_evaluation =
-        &composition_poly_ood_evaluations[0] + &z * &composition_poly_ood_evaluations[1];
+        &composition_poly_ood_evaluations[0] + &challenges.z * &composition_poly_ood_evaluations[1];
 
     if composition_poly_claimed_ood_evaluation != composition_poly_ood_evaluation {
         return false;
@@ -234,7 +257,7 @@ where
         gamma_even,
         gamma_odd,
         d_evaluation_point: &lde_roots_of_unity_coset[q_0],
-        ood_evaluation_point: &z,
+        ood_evaluation_point: &challenges.z,
         trace_poly_ood_evaluations,
         composition_poly_ood_evaluations,
         deep_consistency_check: &proof.deep_consistency_check,
