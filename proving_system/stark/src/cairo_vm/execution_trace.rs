@@ -54,7 +54,7 @@ pub fn build_cairo_execution_trace(
         compute_op0(&flags, &offsets, raw_trace, memory);
     let (op1_addrs, op1s): (Vec<FE>, Vec<FE>) =
         compute_op1(&flags, &offsets, raw_trace, memory, &op0s);
-    let mut res = compute_res(&flags, &op0s, &op1s);
+    let mut res = compute_res(&flags, &op0s, &op1s, &dsts);
 
     // In some cases op0, dst or res may need to be updated from the already calculated values
     update_values(&flags, raw_trace, &mut op0s, &mut dsts, &mut res);
@@ -125,7 +125,7 @@ pub fn build_cairo_execution_trace(
 }
 
 /// Returns the vector of res values.
-fn compute_res(flags: &[CairoInstructionFlags], op0s: &[FE], op1s: &[FE]) -> Vec<FE> {
+fn compute_res(flags: &[CairoInstructionFlags], op0s: &[FE], op1s: &[FE], dsts: &[FE]) -> Vec<FE> {
     /*
     Cairo whitepaper, page 33 - https://eprint.iacr.org/2021/1063.pdf
     # Compute res.
@@ -146,7 +146,8 @@ fn compute_res(flags: &[CairoInstructionFlags], op0s: &[FE], op1s: &[FE]) -> Vec
         .iter()
         .zip(op0s)
         .zip(op1s)
-        .map(|((f, op0), op1)| {
+        .zip(dsts)
+        .map(|(((f, op0), op1), dst)| {
             match f.pc_update {
                 PcUpdate::Jnz => {
                     match (&f.res_logic, &f.opcode, &f.ap_update) {
@@ -155,8 +156,16 @@ fn compute_res(flags: &[CairoInstructionFlags], op0s: &[FE], op1s: &[FE]) -> Vec
                             CairoOpcode::NOp,
                             ApUpdate::Regular | ApUpdate::Add1 | ApUpdate::Add2,
                         ) => {
-                            // res = Unused
-                            FE::zero()
+                            // In a `jnz` instruction, res is not used, so it is used
+                            // to hold the value v = dst^(-1) as an optimization.
+                            // This is important for the calculation of the `t1` virtual column
+                            // values later on.
+                            // See section 9.5 of the Cairo whitepaper, page 53.
+                            if dst == &FE::zero() {
+                                dst.clone()
+                            } else {
+                                dst.inv()
+                            }
                         }
                         _ => {
                             panic!("Undefined Behavior");

@@ -114,7 +114,9 @@ impl<F: IsTwoAdicField> TraceTable<F> {
             // result
             evaluations.iter().enumerate().for_each(|(i, eval)| {
                 if step < exemption_steps[i] && eval != &FieldElement::<F>::zero() {
-                    error!("Inconsistent evaluation of transition {} in step {} - expected 0, got {:?}", i, step, eval);
+                    error!(
+                        "Inconsistent evaluation of transition {} in step {} - expected 0, got {:?}", i, step, eval
+                    );
                 }
             })
         }

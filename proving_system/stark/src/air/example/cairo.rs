@@ -243,8 +243,8 @@ fn compute_register_constraints(constraints: &mut [FE], frame: &Frame<Stark252Pr
     let curr = frame.get_row(0);
     let next = frame.get_row(1);
 
-    let one = FieldElement::one();
-    let two = FieldElement::from(2);
+    let one = FE::one();
+    let two = FE::from(2);
 
     // ap and fp constraints
     constraints[NEXT_AP] = &curr[FRAME_AP]

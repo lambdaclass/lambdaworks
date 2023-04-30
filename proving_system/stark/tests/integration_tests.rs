@@ -203,3 +203,26 @@ fn test_prove_cairo_call_func() {
     let result = prove(&execution_trace, &cairo_air);
     assert!(verify(&result, &cairo_air));
 }
+
+#[test_log::test]
+fn test_prove_cairo_fibonacci() {
+    let base_dir = env!("CARGO_MANIFEST_DIR");
+    let dir_trace = base_dir.to_owned() + "/src/cairo_vm/test_data/fibonacci_5.trace";
+    let dir_memory = base_dir.to_owned() + "/src/cairo_vm/test_data/fibonacci_5.memory";
+
+    let raw_trace = CairoTrace::from_file(&dir_trace).expect("Cairo trace binary file not found");
+    let memory = CairoMemory::from_file(&dir_memory).expect("Cairo memory binary file not found");
+
+    let execution_trace = build_cairo_execution_trace(&raw_trace, &memory);
+
+    let proof_options = ProofOptions {
+        blowup_factor: 2,
+        fri_number_of_queries: 5,
+        coset_offset: 3,
+    };
+
+    let cairo_air = cairo::CairoAIR::new(proof_options, &execution_trace);
+
+    let result = prove(&execution_trace, &cairo_air);
+    assert!(verify(&result, &cairo_air));
+}
