@@ -13,20 +13,25 @@ lambdaworks-crypto = { path = "../../crypto" }
 lambdaworks-fft = { path = "../../fft" }
 thiserror = "1.0.38"
 log = "0.4.17"
+bincode = { version = "2.0.0-rc.2", tag = "v2.0.0-rc.2", git = "https://github.com/bincode-org/bincode.git" }
+cairo-vm = { git = "https://github.com/lambdaclass/cairo-rs/" }
 
 [dev-dependencies]
 hex = "0.4.3"
 criterion = "0.4"
+iai = "0.1"
 env_logger = "*"
 test-log = { version = "0.2.11", features = ["log"] }
+assert_matches = "1.5.0"
+rstest = "0.17.0"
 
 [features]
 test_fiat_shamir = []
 
 [[bench]]
-name = "all_benchmarks"
+name = "criterion_stark"
 harness = false
 
 [[bench]]
-name = "stark_benchmarks"
+name = "iai_stark"
 harness = false

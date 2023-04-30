@@ -5,7 +5,7 @@ use crate::errors::ByteConversionError;
 use crate::traits::ByteConversion;
 use crate::unsigned_integer::traits::IsUnsignedInteger;
 
-use std::fmt::Debug;
+use std::fmt::{self, Debug};
 
 pub type U384 = UnsignedInteger<6>;
 pub type U256 = UnsignedInteger<4>;
@@ -53,6 +53,27 @@ impl<const NUM_LIMBS: usize> From<u16> for UnsignedInteger<NUM_LIMBS> {
 impl<const NUM_LIMBS: usize> From<&str> for UnsignedInteger<NUM_LIMBS> {
     fn from(hex_str: &str) -> Self {
         Self::from(hex_str)
+    }
+}
+
+impl<const NUM_LIMBS: usize> fmt::Display for UnsignedInteger<NUM_LIMBS> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut limbs_iterator = self.limbs.iter().skip_while(|limb| **limb == 0).peekable();
+
+        if limbs_iterator.peek().is_none() {
+            write!(f, "0x0")?;
+        } else {
+            write!(f, "0x")?;
+            if let Some(most_significant_limb) = limbs_iterator.next() {
+                write!(f, "{:x}", most_significant_limb)?;
+            }
+
+            for limb in limbs_iterator {
+                write!(f, "{:016x}", limb)?;
+            }
+        }
+
+        Ok(())
     }
 }
 
