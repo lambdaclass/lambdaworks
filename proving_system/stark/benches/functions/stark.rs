@@ -14,8 +14,8 @@ use lambdaworks_stark::air::example::{
 
 use crate::util::FE;
 
-pub fn prove_fib() {
-    let trace = simple_fibonacci::fibonacci_trace([FE::from(1), FE::from(1)], 16);
+pub fn prove_fib(trace_length: usize) {
+    let trace = simple_fibonacci::fibonacci_trace([FE::from(1), FE::from(1)], trace_length);
     let trace_length = trace[0].len();
     let trace_table = TraceTable::new_from_cols(&trace);
 
