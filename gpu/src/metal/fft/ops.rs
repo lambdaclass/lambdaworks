@@ -5,7 +5,7 @@ use lambdaworks_math::field::{
 
 use crate::metal::abstractions::{errors::MetalError, state::*};
 
-use super::helpers::{log2, void_ptr};
+use super::helpers::{self, void_ptr};
 use metal::MTLSize;
 
 use core::mem;
@@ -24,7 +24,10 @@ pub fn fft<F: IsTwoAdicField>(
 ) -> Result<Vec<FieldElement<F>>, MetalError> {
     let pipeline = state.setup_pipeline("radix2_dit_butterfly")?;
 
-    let input_buffer = state.alloc_buffer_data(input);
+    // if the input size is not a power of two, use zero padding
+    let input = helpers::zero_padding(input);
+
+    let input_buffer = state.alloc_buffer_data(&input);
     let twiddles_buffer = state.alloc_buffer_data(twiddles);
     // TODO: twiddle factors security (right now anything can be passed as twiddle factors)
 
@@ -63,9 +66,9 @@ pub fn fft_with_blowup<F: IsTwoAdicField>(
     blowup_factor: usize,
     state: &MetalState,
 ) -> Result<Vec<FieldElement<F>>, MetalError> {
-    let domain_size = input.len() * blowup_factor;
-    let order = log2(domain_size)?;
-    let twiddles = gen_twiddles(order, RootsConfig::BitReverse, state)?;
+    let domain_size = (input.len() * blowup_factor).next_power_of_two();
+    let order = domain_size.trailing_zeros();
+    let twiddles = gen_twiddles(order.into(), RootsConfig::BitReverse, state)?;
     let mut resized = input.to_vec();
     resized.resize(domain_size, FieldElement::zero());
 
@@ -135,6 +138,7 @@ pub fn bitrev_permutation<T: Clone>(input: &[T], state: &MetalState) -> Result<V
 #[cfg(test)]
 mod tests {
     use crate::metal::abstractions::state::*;
+    use lambdaworks_fft::roots_of_unity::get_twiddles;
     use lambdaworks_math::field::{
         fields::fft_friendly::stark_252_prime_field::Stark252PrimeField, traits::RootsConfig,
     };
@@ -167,8 +171,8 @@ mod tests {
         fn test_metal_fft_matches_sequential(input in field_vec(6)) {
             objc::rc::autoreleasepool(|| {
                 let metal_state = MetalState::new(None).unwrap();
-                let order = log2(input.len()).unwrap();
-                let twiddles = lambdaworks_fft::roots_of_unity::get_twiddles(order, RootsConfig::BitReverse).unwrap();
+                let order = input.len().trailing_zeros();
+                let twiddles = get_twiddles(order.into(), RootsConfig::BitReverse).unwrap();
 
                 let metal_result = super::fft(&input, &twiddles, &metal_state).unwrap();
                 let sequential_result = lambdaworks_fft::ops::fft(&input).unwrap();

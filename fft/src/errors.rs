@@ -6,8 +6,6 @@ use lambdaworks_gpu::metal::abstractions::errors::MetalError;
 
 #[derive(Debug, Error)]
 pub enum FFTError {
-    #[error("The order of the polynomial is not correct")]
-    InvalidOrder(String),
     #[error("Could not calculate {1} root of unity")]
     RootOfUnityError(String, u64),
     #[cfg(feature = "metal")]
