@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1683067098627,
+  "lastUpdate": 1683068170530,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -1421,6 +1421,240 @@ window.BENCHMARK_DATA = {
             "name": "STARK/Quadratic AIR",
             "value": 34159977,
             "range": "± 9061",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "12560266+MauroToscano@users.noreply.github.com",
+            "name": "Mauro Toscano",
+            "username": "MauroToscano"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c611e65d9717b7e5c47f5b6f662e65ede76e606d",
+          "message": "Sqrt (#290)\n\n* Initial version of sqrt\n\n* Remove graph\n\n* Formatting, fix non_qr\n\n* Fixed sqrt()\n\n* Clippy and nits\n\n* Changed test name\n\n* Fix\n\n* Remove unused file\n\n* Remove unused random fn\n\n* Reverted change that should be in another pr\n\n* Cargo fmt\n\n* Add test for more curves\n\n* Remove comments\n\n* Remove unused trait requirement\n\n* Add test\n\n* Renamed tests\n\n* Improve documentation\n\n* Add test for 0 in sqrt\n\n* fix linter\n\n* Add Legendre Symbol enum\n\n* Cargo fmt\n\n---------\n\nCo-authored-by: Estéfano Bargas <estefano.bargas@fing.edu.uy>",
+          "timestamp": "2023-05-02T19:09:05Z",
+          "tree_id": "47bd83fe09c2f3a703125da74a3949348f3902f7",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/c611e65d9717b7e5c47f5b6f662e65ede76e606d"
+        },
+        "date": 1683068169847,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "Ordered FFT/Sequential from NR radix2",
+            "value": 2593379617,
+            "range": "± 41445901",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from RN radix2",
+            "value": 5201203978,
+            "range": "± 68610955",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from NR radix2 #2",
+            "value": 5578376187,
+            "range": "± 123060574",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from RN radix2 #2",
+            "value": 11349558910,
+            "range": "± 55503722",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from NR radix2 #3",
+            "value": 11172690169,
+            "range": "± 93027080",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from RN radix2 #3",
+            "value": 24480043189,
+            "range": "± 100698191",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from NR radix2 #4",
+            "value": 23253622548,
+            "range": "± 189743160",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from RN radix2 #4",
+            "value": 51660082955,
+            "range": "± 246525217",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Sequential",
+            "value": 1266692216,
+            "range": "± 12005694",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Sequential #2",
+            "value": 2640027645,
+            "range": "± 56614049",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Sequential #3",
+            "value": 5628871169,
+            "range": "± 35619561",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Sequential #4",
+            "value": 11600819846,
+            "range": "± 78621347",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Sequential",
+            "value": 80379510,
+            "range": "± 1170101",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Sequential #2",
+            "value": 172055857,
+            "range": "± 1353695",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Sequential #3",
+            "value": 342924212,
+            "range": "± 1477619",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Sequential #4",
+            "value": 689675547,
+            "range": "± 3543856",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial evaluation/Sequential FFT",
+            "value": 3900546780,
+            "range": "± 42753210",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial evaluation/Sequential FFT #2",
+            "value": 8422460138,
+            "range": "± 218147675",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial evaluation/Sequential FFT #3",
+            "value": 17077250494,
+            "range": "± 212719109",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial evaluation/Sequential FFT #4",
+            "value": 35750975589,
+            "range": "± 429852368",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial interpolation/Sequential FFT",
+            "value": 64906284307,
+            "range": "± 563875531",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial interpolation/Sequential FFT #2",
+            "value": 129401637602,
+            "range": "± 1313796981",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial interpolation/Sequential FFT #3",
+            "value": 260593842991,
+            "range": "± 2891539884",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial interpolation/Sequential FFT #4",
+            "value": 520550772508,
+            "range": "± 3843900755",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate",
+            "value": 197,
+            "range": "± 12",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_slice",
+            "value": 1589,
+            "range": "± 89",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/add",
+            "value": 261,
+            "range": "± 15",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/neg",
+            "value": 18,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/sub",
+            "value": 466,
+            "range": "± 32",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/mul",
+            "value": 302,
+            "range": "± 26",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/div",
+            "value": 295,
+            "range": "± 26",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "STARK/Simple Fibonacci",
+            "value": 37827260,
+            "range": "± 963442",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "STARK/2 column Fibonacci",
+            "value": 52593567,
+            "range": "± 1325391",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "STARK/Fibonacci F17",
+            "value": 367271,
+            "range": "± 5205",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "STARK/Quadratic AIR",
+            "value": 39637970,
+            "range": "± 516893",
             "unit": "ns/iter"
           }
         ]
