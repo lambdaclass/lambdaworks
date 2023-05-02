@@ -16,7 +16,7 @@ use lambdaworks_crypto::{fiat_shamir::transcript::Transcript, merkle_tree::merkl
 use lambdaworks_crypto::fiat_shamir::test_transcript::TestTranscript;
 
 use lambdaworks_fft::errors::FFTError;
-use lambdaworks_fft::polynomial::FFTPoly;
+use lambdaworks_fft::polynomial::evaluate_offset_fft_with_len;
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsTwoAdicField},
     polynomial::Polynomial,
@@ -73,21 +73,14 @@ where
     let lde_trace_evaluations = trace_polys
         .iter()
         .map(|poly| {
-            let res = poly.evaluate_offset_fft(
+            // FIXME: This function should be changed when `evaluate_offset_fft`
+            // handles the case for the zero polynomial.
+            evaluate_offset_fft_with_len(
+                poly,
+                trace.n_rows(),
                 &FieldElement::<F>::from(air.options().coset_offset),
                 air.options().blowup_factor as usize,
-            );
-            // FIXME: This is a temporary fix until the FFT API is able to evaluate on
-            // polynomials with degrees that are not powers of two.
-            match res {
-                Ok(res) => Ok(res),
-                Err(FFTError::RootOfUnityError(_, _)) => Ok(vec![
-                    FieldElement::<F>::zero();
-                    air.context().trace_length
-                        * air.options().blowup_factor
-                            as usize
-                ]),
-            }
+            )
         })
         .collect::<Result<Vec<Vec<FieldElement<F>>>, FFTError>>()
         .unwrap();

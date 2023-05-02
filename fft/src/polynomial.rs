@@ -147,6 +147,27 @@ where
 
     Polynomial::interpolate_fft(values.as_slice()).unwrap()
 }
+
+/// Temporary hotfix for handling evaluations of the zero polynomial
+/// in the STARK prover context. Checks if the the polynomial is the
+/// zero polynomial, and if it is, returns its evaluations as a
+/// vector of the zero field element of size domain_len * blowup_factor.
+pub fn evaluate_offset_fft_with_len<F>(
+    poly: &Polynomial<FieldElement<F>>,
+    domain_len: usize,
+    offset: &FieldElement<F>,
+    blowup_factor: usize,
+) -> Result<Vec<FieldElement<F>>, FFTError>
+where
+    F: IsTwoAdicField,
+{
+    if poly == &Polynomial::zero() {
+        return Ok(vec![FieldElement::<F>::zero(); domain_len * blowup_factor]);
+    }
+
+    poly.evaluate_offset_fft(offset, blowup_factor)
+}
+
 #[cfg(not(feature = "metal"))]
 #[cfg(test)]
 mod u64_field_tests {
