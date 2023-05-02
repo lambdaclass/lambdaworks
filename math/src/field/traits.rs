@@ -25,6 +25,8 @@ pub trait IsFFTField: IsField {
     const TWO_ADICITY: u64;
     const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: Self::BaseType;
 
+    /// Used for searching this field's implementation in other languages, e.g in MSL
+    /// for executing parallel operations with the Metal API.
     fn field_name() -> String {
         "".to_string()
     }
