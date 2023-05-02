@@ -227,3 +227,39 @@ fn test_prove_cairo_fibonacci() {
     let result = prove(&execution_trace, &cairo_air);
     assert!(verify(&result, &cairo_air));
 }
+
+#[test_log::test]
+fn test_malicious_trace_does_not_verify() {
+    // A valid execution trace is built from the call_func.cairo binary files.
+    let base_dir = env!("CARGO_MANIFEST_DIR");
+    let dir_trace = base_dir.to_owned() + "/src/cairo_vm/test_data/call_func.trace";
+    let dir_memory = base_dir.to_owned() + "/src/cairo_vm/test_data/call_func.mem";
+
+    let raw_trace = CairoTrace::from_file(&dir_trace).unwrap();
+    let memory = CairoMemory::from_file(&dir_memory).unwrap();
+    let execution_trace = build_cairo_execution_trace(&raw_trace, &memory);
+
+    // Get the columns representation of the execution trace
+    let mut exec_trace_cols = execution_trace.cols().clone();
+    // Get the op1 column
+    let mut op1s = execution_trace.cols()[26].clone();
+    // Write an arbitrary value in the first position of the op1 column.
+    op1s[0] = FE::from(666);
+    // Overwrite the modified op1 column into the execution trace columns representation.
+    exec_trace_cols[26] = op1s;
+
+    // Reconstruct the execution trace with this invalid op1 column.
+    let reconstructed_exec_trace = TraceTable::new_from_cols(&exec_trace_cols);
+
+    // We create the new Cairo AIR instance with the malicious trace.
+    let proof_options = ProofOptions {
+        blowup_factor: 2,
+        fri_number_of_queries: 5,
+        coset_offset: 3,
+    };
+    let cairo_air = cairo::CairoAIR::new(proof_options, &reconstructed_exec_trace);
+
+    // The proof is generated and the verifier rejects the proof
+    let result = prove(&reconstructed_exec_trace, &cairo_air);
+    assert!(!verify(&result, &cairo_air));
+}
