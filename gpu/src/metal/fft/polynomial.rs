@@ -22,7 +22,7 @@ where
     // invalid twiddle factor collections. A better solution is needed.
     let order = poly.coefficients.len().next_power_of_two().trailing_zeros();
 
-    let twiddles = gen_twiddles(order, RootsConfig::BitReverse, &metal_state)?;
+    let twiddles = gen_twiddles(order.into(), RootsConfig::BitReverse, &metal_state)?;
 
     fft(poly.coefficients(), &twiddles, &metal_state)
 }
@@ -58,7 +58,7 @@ where
     // invalid twiddle factor collections. A better solution is needed.
     let order = fft_evals.len().next_power_of_two().trailing_zeros();
 
-    let twiddles = gen_twiddles(order, RootsConfig::BitReverseInversed, &metal_state)?;
+    let twiddles = gen_twiddles(order.into(), RootsConfig::BitReverseInversed, &metal_state)?;
 
     let coeffs = fft(fft_evals, &twiddles, &metal_state)?;
 

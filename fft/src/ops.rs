@@ -23,7 +23,7 @@ pub fn fft_with_blowup<F: IsTwoAdicField>(
     results.resize(domain_size, FieldElement::zero());
 
     let order = domain_size.trailing_zeros();
-    let twiddles = get_twiddles(order, RootsConfig::BitReverse)?;
+    let twiddles = get_twiddles(order.into(), RootsConfig::BitReverse)?;
 
     in_place_nr_2radix_fft(&mut results, &twiddles);
     in_place_bit_reverse_permute(&mut results);
@@ -38,7 +38,7 @@ pub fn fft<F: IsTwoAdicField>(input: &[FieldElement<F>]) -> Result<Vec<FieldElem
     let input = helpers::zero_padding(input);
 
     let order = input.len().trailing_zeros();
-    let twiddles = get_twiddles(order, RootsConfig::BitReverse)?;
+    let twiddles = get_twiddles(order.into(), RootsConfig::BitReverse)?;
 
     let mut results = input.to_vec();
     in_place_nr_2radix_fft(&mut results, &twiddles);
@@ -56,7 +56,7 @@ pub fn inverse_fft<F: IsTwoAdicField>(
     let input = helpers::zero_padding(input);
 
     let order = input.len().trailing_zeros();
-    let twiddles = get_twiddles(order, RootsConfig::BitReverseInversed)?;
+    let twiddles = get_twiddles(order.into(), RootsConfig::BitReverseInversed)?;
 
     let mut results = input.to_vec();
     in_place_nr_2radix_fft(&mut results, &twiddles);

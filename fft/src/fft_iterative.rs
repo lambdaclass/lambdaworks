@@ -126,7 +126,7 @@ mod tests {
             let expected = naive_matrix_dft_test(&coeffs);
 
             let order = coeffs.len().trailing_zeros();
-            let twiddles = get_twiddles(order, RootsConfig::BitReverse).unwrap();
+            let twiddles = get_twiddles(order.into(), RootsConfig::BitReverse).unwrap();
 
             let mut result = coeffs;
             in_place_nr_2radix_fft(&mut result, &twiddles);
@@ -141,7 +141,7 @@ mod tests {
             let expected = naive_matrix_dft_test(&coeffs);
 
             let order = coeffs.len().trailing_zeros();
-            let twiddles = get_twiddles(order, RootsConfig::Natural).unwrap();
+            let twiddles = get_twiddles(order.into(), RootsConfig::Natural).unwrap();
 
             let mut result = coeffs;
             in_place_bit_reverse_permute(&mut result);
