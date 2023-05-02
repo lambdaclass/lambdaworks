@@ -357,6 +357,13 @@ where
     }
 }
 
+#[derive(PartialEq)]
+enum LegendreSymbol {
+    MinusOne,
+    Zero,
+    One
+}
+
 impl<F: IsPrimeField> FieldElement<F> {
     // Returns the representative of the value stored
     pub fn representative(&self) -> F::RepresentativeType {
@@ -367,14 +374,14 @@ impl<F: IsPrimeField> FieldElement<F> {
         self.representative() & 1.into() == 0.into()
     }
 
-    fn legendre_symbol(&self) -> i8 {
+    fn legendre_symbol(&self) -> LegendreSymbol {
         let mod_minus_one: FieldElement<F> = Self::zero() - Self::one();
         let symbol = self.pow((mod_minus_one / FieldElement::from(2)).representative());
 
         match symbol {
-            x if x == Self::zero() => 0,
-            x if x == Self::one() => 1,
-            _ => -1,
+            x if x == Self::zero() => LegendreSymbol::Zero,
+            x if x == Self::one() => LegendreSymbol::One,
+            _ => LegendreSymbol::MinusOne,
         }
     }
 }
@@ -383,11 +390,11 @@ impl<F: IsPrimeField> FieldElement<F> {
     // Returns the two square roots of `self` if it exists
     // `None` if it doesn't
     pub fn sqrt(&self) -> Option<(Self, Self)> {
+
         match self.legendre_symbol() {
-            0 => return Some((Self::zero(), Self::zero())), // self is 0
-            -1 => return None,                              // self is quadratic non-residue
-            1 => (),                                        // self is quadratic residue
-            _ => unreachable!(),
+            LegendreSymbol::Zero => return Some((Self::zero(), Self::zero())), // self is 0
+            LegendreSymbol::MinusOne => return None,                              // self is quadratic non-residue
+            LegendreSymbol::One => ()
         };
 
         let (zero, one, two) = (Self::zero(), Self::one(), Self::from(2));
@@ -398,13 +405,12 @@ impl<F: IsPrimeField> FieldElement<F> {
         while q.is_even() {
             s = s + &one;
             q = q / &two;
-            println!("Qi: {:?}", q);
         }
 
         let mut c = {
             // Calculate a non residue:
             let mut non_qr = one.clone();
-            while non_qr.legendre_symbol() != -1 {
+            while non_qr.legendre_symbol() != LegendreSymbol::MinusOne {
                 non_qr += one.clone();
             }
 
