@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [ '*' ]
+
+jobs:
+  fetch_iai_benchs:
+    name: Fetch iai benchmarks
+    runs-on: ubuntu-20.04
+    steps:
+    - name: Install valgrind
+      run: |
+        sudo apt update
+        sudo apt-get install -y valgrind
+    - name: Install stable toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+          toolchain: stable
+    - uses: actions/checkout@v3
+      with:
+        ref: ${{ github.event.pull_request.base.sha }}
+    - name: Initialize iai cache for ${{ github.event.pull_request.base.sha }}
+      uses: actions/cache@v3
+      id: cache-iai-results
+      with:
+        path: |
+          target/iai/
+          !target/iai/**.old
+        key: ${{ runner.os }}-iai-benchmark-cache-${{ github.event.pull_request.base.sha }}
+        restore-keys: |
+          ${{ runner.os }}-iai-benchmark-cache-
+    - name: Run benchmarks
+      if: ${{ steps.cache-iai-results.outputs.cache-hit != 'true' }}
+      run: cargo bench --no-fail-fast --bench "iai_*"
+  run_iai_benchs:
+    name: Run iai benchmarks
+    needs: fetch_iai_benchs
+    runs-on: ubuntu-20.04
+    steps:
+    - name: Install valgrind
+      run: sudo apt-get install -y valgrind
+    - name: Install stable toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+          toolchain: stable
+    - uses: actions/checkout@v3
+    - name: Initialize iai cache for ${{ github.event.pull_request.base.sha }}
+      uses: actions/cache@v3
+      id: cache-iai-results
+      with:
+        path: |
+          target/iai/
+          !target/iai/**.old
+        key: ${{ runner.os }}-iai-benchmark-cache-${{ github.event.pull_request.base.sha }}
+        restore-keys: |
+          ${{ runner.os }}-iai-benchmark-cache-
+    - name: Run benchmarks
+      run: cargo bench --no-fail-fast --bench "iai_*"

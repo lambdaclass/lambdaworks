@@ -4,6 +4,8 @@
 - [Yrrid and MatterLabs combined solution for MSM](https://github.com/matter-labs/z-prize-msm-gpu-combined)
 - [FFT library](https://developer.nvidia.com/cufft)
 - [snarks with GPU](https://github.com/MariusVanDerWijden/gpusnarks)
+- [FFTW](https://fftw.org/)
+- [FFT with hadoop and CUDA](https://arxiv.org/pdf/1407.6915.pdf)
 
 ## PLONK
 - [Simplified Plonk](https://hackmd.io/vUGG8CO_Rk2iEjruBL_gGw?view#Note-A-Mind-Boggling-Issue-with-Ultra-Plonk)

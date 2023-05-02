@@ -1,7 +1,10 @@
-use std::ops::{BitAnd, Shr};
+use std::{
+    fmt::Display,
+    ops::{BitAnd, Shr},
+};
 
 pub trait IsUnsignedInteger:
-    Shr<usize, Output = Self> + BitAnd<Output = Self> + Eq + Ord + From<u16> + Copy
+    Shr<usize, Output = Self> + BitAnd<Output = Self> + Eq + Ord + From<u16> + Copy + Display
 {
 }
 

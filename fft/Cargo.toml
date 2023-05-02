@@ -13,11 +13,16 @@ lambdaworks-gpu = { path = "../gpu", optional = true }
 proptest = "1.1.0"
 criterion = "0.4.0"
 objc = "0.2.7"
+iai = "0.1"
 
 [features]
 metal = ["dep:lambdaworks-gpu"]
 cuda = ["dep:lambdaworks-gpu"]
 
 [[bench]]
-name = "fft_benchmarks"
+name = "criterion_fft"
+harness = false
+
+[[bench]]
+name = "iai_fft"
 harness = false
