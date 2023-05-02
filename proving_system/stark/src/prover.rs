@@ -1,12 +1,12 @@
 use super::{
     air::{constraints::evaluator::ConstraintEvaluator, frame::Frame, trace::TraceTable, AIR},
-    fri::{fri, fri_decommit::fri_decommit_layers},
+    fri::{fri, fri_commitment::FriCommitmentVec, fri_decommit::fri_decommit_layers},
     sample_z_ood,
 };
 use crate::{
     fri::HASHER,
     proof::{DeepConsistencyCheck, StarkProof, StarkQueryProof},
-    transcript_to_field, transcript_to_usize,
+    transcript_to_field, transcript_to_usize, Domain,
 };
 #[cfg(not(feature = "test_fiat_shamir"))]
 use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
@@ -15,8 +15,8 @@ use lambdaworks_crypto::{fiat_shamir::transcript::Transcript, merkle_tree::merkl
 #[cfg(feature = "test_fiat_shamir")]
 use lambdaworks_crypto::fiat_shamir::test_transcript::TestTranscript;
 
+use lambdaworks_fft::errors::FFTError;
 use lambdaworks_fft::polynomial::FFTPoly;
-use lambdaworks_fft::{errors::FFTError, roots_of_unity::get_powers_of_primitive_root_coset};
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsTwoAdicField},
     polynomial::Polynomial,
@@ -24,43 +24,52 @@ use lambdaworks_math::{
 };
 use log::info;
 
-// FIXME remove unwrap() calls and return errors
-pub fn prove<F: IsTwoAdicField, A: AIR<Field = F>>(trace: &TraceTable<F>, air: &A) -> StarkProof<F>
+struct Round1<F: IsTwoAdicField> {
+    trace_polys: Vec<Polynomial<FieldElement<F>>>,
+    lde_trace: TraceTable<F>,
+    lde_trace_merkle_trees: Vec<MerkleTree<F>>,
+    lde_trace_merkle_roots: Vec<FieldElement<F>>,
+}
+
+struct Round2<F: IsTwoAdicField> {
+    composition_poly_even: Polynomial<FieldElement<F>>,
+    composition_poly_odd: Polynomial<FieldElement<F>>,
+}
+
+struct Round3<F: IsTwoAdicField> {
+    trace_ood_frame_evaluations: Frame<F>,
+    composition_poly_ood_evaluations: Vec<FieldElement<F>>,
+}
+
+struct Round4<F: IsTwoAdicField> {
+    fri_layers_merkle_roots: Vec<FieldElement<F>>,
+    deep_consistency_check: DeepConsistencyCheck<F>,
+    query_list: Vec<StarkQueryProof<F>>,
+}
+
+#[cfg(feature = "test_fiat_shamir")]
+fn round_0_transcript_initialization() -> TestTranscript {
+    TestTranscript::new()
+}
+
+#[cfg(not(feature = "test_fiat_shamir"))]
+fn round_0_transcript_initialization() -> DefaultTranscript {
+    // TODO: add strong fiat shamir
+    DefaultTranscript::new()
+}
+
+fn commit_original_trace<F: IsTwoAdicField, A: AIR<Field = F>>(
+    trace: &TraceTable<F>,
+    air: &A,
+) -> Round1<F>
 where
     FieldElement<F>: ByteConversion,
 {
-    info!("Starting proof generation...");
-
-    #[cfg(debug_assertions)]
-    trace.validate(air);
-
-    #[cfg(not(feature = "test_fiat_shamir"))]
-    let transcript = &mut DefaultTranscript::new();
-    #[cfg(feature = "test_fiat_shamir")]
-    let transcript = &mut TestTranscript::new();
-
-    let blowup_factor = air.options().blowup_factor as usize;
-    let coset_offset = FieldElement::<F>::from(air.options().coset_offset);
-
-    let root_order = air.context().trace_length.trailing_zeros();
-    // * Generate Coset
-    let trace_primitive_root = F::get_primitive_root_of_unity(root_order as u64).unwrap();
-    let trace_roots_of_unity = get_powers_of_primitive_root_coset(
-        root_order as u64,
-        air.context().trace_length,
-        &FieldElement::<F>::one(),
-    )
-    .unwrap();
-
-    let lde_root_order = (air.context().trace_length * blowup_factor).trailing_zeros();
-    let lde_roots_of_unity_coset = get_powers_of_primitive_root_coset(
-        lde_root_order as u64,
-        air.context().trace_length * blowup_factor,
-        &coset_offset,
-    )
-    .unwrap();
-
+    // The trace M_ij is part of the input. Interpolate the polynomials t_j
+    // corresponding to the first part of the RAP.
     let trace_polys = trace.compute_trace_polys();
+
+    // Evaluate those polynomials t_j on the large domain D_LDE.
     let lde_trace_evaluations = trace_polys
         .iter()
         .map(|poly| {
@@ -72,12 +81,12 @@ where
             // polynomials with degrees that are not powers of two.
             match res {
                 Ok(res) => Ok(res),
-                Err(FFTError::InvalidOrder(_)) => Ok(vec![
+                Err(FFTError::RootOfUnityError(_, _)) => Ok(vec![
                     FieldElement::<F>::zero();
                     air.context().trace_length
-                        * blowup_factor
+                        * air.options().blowup_factor
+                            as usize
                 ]),
-                Err(_) => todo!(),
             }
         })
         .collect::<Result<Vec<Vec<FieldElement<F>>>, FFTError>>()
@@ -85,51 +94,91 @@ where
 
     let lde_trace = TraceTable::new_from_cols(&lde_trace_evaluations);
 
-    // Fiat-Shamir
-    // z is the Out of domain evaluation point used in Deep FRI. It needs to be a point outside
-    // of both the roots of unity and its corresponding coset used for the lde commitment.
-    let z = sample_z_ood(&lde_roots_of_unity_coset, &trace_roots_of_unity, transcript);
+    // Compute commitments [t_j].
+    let lde_trace_merkle_trees = lde_trace
+        .cols()
+        .iter()
+        .map(|col| MerkleTree::build(col, Box::new(HASHER)))
+        .collect::<Vec<MerkleTree<F>>>();
 
-    let z_squared = &z * &z;
-
-    // Create evaluation table
-    let evaluator = ConstraintEvaluator::new(air, &trace_polys, &trace_primitive_root);
-
-    let boundary_coeffs: Vec<(FieldElement<F>, FieldElement<F>)> = (0..trace_polys.len())
-        .map(|_| {
-            (
-                transcript_to_field(transcript),
-                transcript_to_field(transcript),
-            )
-        })
+    let lde_trace_merkle_roots = lde_trace_merkle_trees
+        .iter()
+        .map(|tree| tree.root.clone())
         .collect();
 
-    let transition_coeffs: Vec<(FieldElement<F>, FieldElement<F>)> =
-        (0..air.context().num_transition_constraints)
-            .map(|_| {
-                (
-                    transcript_to_field(transcript),
-                    transcript_to_field(transcript),
-                )
-            })
-            .collect();
+    Round1 {
+        trace_polys,
+        lde_trace,
+        lde_trace_merkle_trees,
+        lde_trace_merkle_roots,
+    }
+}
+
+fn commit_extended_trace() {
+    // TODO
+}
+
+fn round_1_randomized_air_with_preprocessing<F: IsTwoAdicField, A: AIR<Field = F>>(
+    trace: &TraceTable<F>,
+    air: &A,
+) -> Round1<F>
+where
+    FieldElement<F>: ByteConversion,
+{
+    let round_1_result = commit_original_trace(trace, air);
+    commit_extended_trace();
+    round_1_result
+}
+
+fn round_2_compute_composition_polynomial<F: IsTwoAdicField, A: AIR<Field = F>>(
+    air: &A,
+    domain: &Domain<F>,
+    round_1_result: &Round1<F>,
+    transition_coeffs: &[(FieldElement<F>, FieldElement<F>)],
+    boundary_coeffs: &[(FieldElement<F>, FieldElement<F>)],
+) -> Round2<F> {
+    // Create evaluation table
+    let evaluator = ConstraintEvaluator::new(
+        air,
+        &round_1_result.trace_polys,
+        &domain.trace_primitive_root,
+    );
 
     let constraint_evaluations = evaluator.evaluate(
-        &lde_trace,
-        &lde_roots_of_unity_coset,
-        &transition_coeffs,
-        &boundary_coeffs,
+        &round_1_result.lde_trace,
+        &domain.lde_roots_of_unity_coset,
+        transition_coeffs,
+        boundary_coeffs,
     );
 
     // Get the composition poly H
     let composition_poly =
-        constraint_evaluations.compute_composition_poly(&lde_roots_of_unity_coset);
+        constraint_evaluations.compute_composition_poly(&domain.lde_roots_of_unity_coset);
 
     let (composition_poly_even, composition_poly_odd) = composition_poly.even_odd_decomposition();
+
+    Round2 {
+        composition_poly_even,
+        composition_poly_odd,
+    }
+}
+
+fn round_3_evaluate_polynomials_in_out_of_domain_element<F: IsTwoAdicField, A: AIR<Field = F>>(
+    air: &A,
+    domain: &Domain<F>,
+    round_1_result: &Round1<F>,
+    round_2_result: &Round2<F>,
+    z: &FieldElement<F>,
+) -> Round3<F>
+where
+    FieldElement<F>: ByteConversion,
+{
+    let z_squared = z * z;
+
     // Evaluate H_1 and H_2 in z^2.
     let composition_poly_ood_evaluations = vec![
-        composition_poly_even.evaluate(&z_squared),
-        composition_poly_odd.evaluate(&z_squared),
+        round_2_result.composition_poly_even.evaluate(&z_squared),
+        round_2_result.composition_poly_odd.evaluate(&z_squared),
     ];
 
     // Returns the Out of Domain Frame for the given trace polynomials, out of domain evaluation point (called `z` in the literature),
@@ -140,32 +189,48 @@ where
     // In the fibonacci example, the ood frame is simply the evaluations `[t(z), t(z * g), t(z * g^2)]`, where `t` is the trace
     // polynomial and `g` is the primitive root of unity used when interpolating `t`.
     let ood_trace_evaluations = Frame::get_trace_evaluations(
-        &trace_polys,
-        &z,
+        &round_1_result.trace_polys,
+        z,
         &air.context().transition_offsets,
-        &trace_primitive_root,
+        &domain.trace_primitive_root,
     );
 
     let trace_ood_frame_data = ood_trace_evaluations.into_iter().flatten().collect();
-    let trace_ood_frame_evaluations = Frame::new(trace_ood_frame_data, trace_polys.len());
+    let trace_ood_frame_evaluations =
+        Frame::new(trace_ood_frame_data, round_1_result.trace_polys.len());
 
-    // END EVALUATION BLOCK
+    Round3 {
+        trace_ood_frame_evaluations,
+        composition_poly_ood_evaluations,
+    }
+}
 
+fn fri_commit_phase<F: IsTwoAdicField, A: AIR<Field = F>, T: Transcript>(
+    air: &A,
+    domain: &Domain<F>,
+    round_1_result: &Round1<F>,
+    round_2_result: &Round2<F>,
+    z: &FieldElement<F>,
+    transcript: &mut T,
+) -> (FriCommitmentVec<F>, Vec<FieldElement<F>>)
+where
+    FieldElement<F>: ByteConversion,
+{
     // Compute DEEP composition polynomial so we can commit to it using FRI.
     let mut deep_composition_poly = compute_deep_composition_poly(
         air,
+        &round_1_result.trace_polys,
+        &round_2_result.composition_poly_even,
+        &round_2_result.composition_poly_odd,
+        z,
+        &domain.trace_primitive_root,
         transcript,
-        &trace_polys,
-        &composition_poly_even,
-        &composition_poly_odd,
-        &z,
-        &trace_primitive_root,
     );
 
     // * Do FRI on the composition polynomials
     let lde_fri_commitment = fri(
         &mut deep_composition_poly,
-        &lde_roots_of_unity_coset,
+        &domain.lde_roots_of_unity_coset,
         transcript,
     );
 
@@ -174,22 +239,37 @@ where
         .map(|fri_commitment| fri_commitment.merkle_tree.root.clone())
         .collect();
 
-    let q_0 = transcript_to_usize(transcript) % 2_usize.pow(lde_root_order);
-    transcript.append(&q_0.to_be_bytes());
+    (lde_fri_commitment, fri_layers_merkle_roots)
+}
 
+#[allow(clippy::too_many_arguments)]
+fn fri_query_phase<F: IsTwoAdicField, A: AIR<Field = F>, T: Transcript>(
+    air: &A,
+    domain: &Domain<F>,
+    round_1_result: &Round1<F>,
+    round_2_result: &Round2<F>,
+    q_0: usize,
+    lde_fri_commitment: &FriCommitmentVec<F>,
+    fri_layers_merkle_roots: &[FieldElement<F>],
+    transcript: &mut T,
+) -> (Vec<StarkQueryProof<F>>, DeepConsistencyCheck<F>)
+where
+    FieldElement<F>: ByteConversion,
+{
+    // Query
     let deep_consistency_check = build_deep_consistency_check(
+        domain,
+        round_1_result,
         q_0,
-        &lde_roots_of_unity_coset,
-        &lde_trace,
-        &composition_poly_even,
-        &composition_poly_odd,
+        &round_2_result.composition_poly_even,
+        &round_2_result.composition_poly_odd,
     );
 
     let query_list = (0..air.context().options.fri_number_of_queries)
         .map(|i| {
             let q_i = if i > 0 {
                 // * Sample q_1, ..., q_m using Fiat-Shamir
-                let q = transcript_to_usize(transcript) % 2_usize.pow(lde_root_order);
+                let q = transcript_to_usize(transcript) % 2_usize.pow(domain.lde_root_order);
                 transcript.append(&q.to_be_bytes());
                 q
             } else {
@@ -197,19 +277,50 @@ where
             };
 
             // * For every q_i, do FRI decommitment
-            let fri_decommitment = fri_decommit_layers(&lde_fri_commitment, q_i);
+            let fri_decommitment = fri_decommit_layers(lde_fri_commitment, q_i);
             StarkQueryProof {
-                fri_layers_merkle_roots: fri_layers_merkle_roots.clone(),
+                fri_layers_merkle_roots: fri_layers_merkle_roots.to_vec(),
                 fri_decommitment,
             }
         })
         .collect();
 
-    info!("End proof generation");
-    StarkProof {
+    (query_list, deep_consistency_check)
+}
+
+fn round_4_compute_and_run_fri_on_the_deep_composition_polynomial<
+    F: IsTwoAdicField,
+    A: AIR<Field = F>,
+    T: Transcript,
+>(
+    air: &A,
+    domain: &Domain<F>,
+    round_1_result: &Round1<F>,
+    round_2_result: &Round2<F>,
+    z: &FieldElement<F>,
+    transcript: &mut T,
+) -> Round4<F>
+where
+    FieldElement<F>: ByteConversion,
+{
+    let (lde_fri_commitment, fri_layers_merkle_roots) =
+        fri_commit_phase(air, domain, round_1_result, round_2_result, z, transcript);
+
+    let q_0 = transcript_to_usize(transcript) % 2_usize.pow(domain.lde_root_order);
+    transcript.append(&q_0.to_be_bytes());
+
+    let (query_list, deep_consistency_check) = fri_query_phase(
+        air,
+        domain,
+        round_1_result,
+        round_2_result,
+        q_0,
+        &lde_fri_commitment,
+        &fri_layers_merkle_roots,
+        transcript,
+    );
+    Round4 {
         fri_layers_merkle_roots,
-        trace_ood_frame_evaluations,
-        composition_poly_ood_evaluations,
         deep_consistency_check,
         query_list,
     }
@@ -220,12 +331,12 @@ where
 /// composition polynomial, with coefficients sampled by the verifier (i.e. using Fiat-Shamir).
 fn compute_deep_composition_poly<A: AIR, F: IsTwoAdicField, T: Transcript>(
     air: &A,
-    transcript: &mut T,
     trace_polys: &[Polynomial<FieldElement<F>>],
     even_composition_poly: &Polynomial<FieldElement<F>>,
     odd_composition_poly: &Polynomial<FieldElement<F>>,
     ood_evaluation_point: &FieldElement<F>,
     primitive_root: &FieldElement<F>,
+    transcript: &mut T,
 ) -> Polynomial<FieldElement<F>> {
     let transition_offsets = air.context().transition_offsets;
 
@@ -273,35 +384,24 @@ fn compute_deep_composition_poly<A: AIR, F: IsTwoAdicField, T: Transcript>(
 }
 
 fn build_deep_consistency_check<F: IsTwoAdicField>(
+    domain: &Domain<F>,
+    round_1_result: &Round1<F>,
     index_to_verify: usize,
-    domain: &[FieldElement<F>],
-    trace: &TraceTable<F>,
     composition_poly_even: &Polynomial<FieldElement<F>>,
     composition_poly_odd: &Polynomial<FieldElement<F>>,
 ) -> DeepConsistencyCheck<F>
 where
     FieldElement<F>: ByteConversion,
 {
-    let index = index_to_verify % domain.len();
-
-    let lde_trace_merkle_trees = trace
-        .cols()
-        .iter()
-        .map(|col| MerkleTree::build(col, Box::new(HASHER)))
-        .collect::<Vec<MerkleTree<F>>>();
-
-    let lde_trace_merkle_roots = lde_trace_merkle_trees
-        .iter()
-        .map(|tree| tree.root.clone())
-        .collect();
-
-    let lde_trace_merkle_proofs = lde_trace_merkle_trees
+    let index = index_to_verify % domain.lde_roots_of_unity_coset.len();
+    let lde_trace_merkle_proofs = round_1_result
+        .lde_trace_merkle_trees
         .iter()
         .map(|tree| tree.get_proof_by_pos(index).unwrap())
         .collect();
 
-    let d_evaluation_point = &domain[index];
-    let lde_trace_evaluations = trace.get_row(index).to_vec();
+    let d_evaluation_point = &domain.lde_roots_of_unity_coset[index];
+    let lde_trace_evaluations = round_1_result.lde_trace.get_row(index).to_vec();
 
     let composition_poly_evaluations = vec![
         composition_poly_even.evaluate(d_evaluation_point),
@@ -309,9 +409,94 @@ where
     ];
 
     DeepConsistencyCheck {
-        lde_trace_merkle_roots,
+        lde_trace_merkle_roots: round_1_result.lde_trace_merkle_roots.clone(),
         lde_trace_merkle_proofs,
         lde_trace_evaluations,
         composition_poly_evaluations,
+    }
+}
+
+// FIXME remove unwrap() calls and return errors
+pub fn prove<F: IsTwoAdicField, A: AIR<Field = F>>(trace: &TraceTable<F>, air: &A) -> StarkProof<F>
+where
+    FieldElement<F>: ByteConversion,
+{
+    info!("Starting proof generation...");
+
+    #[cfg(debug_assertions)]
+    trace.validate(air);
+
+    let domain = Domain::new(air);
+
+    let transcript = &mut round_0_transcript_initialization();
+
+    // Fiat-Shamir
+    // z is the Out of domain evaluation point used in Deep FRI. It needs to be a point outside
+    // of both the roots of unity and its corresponding coset used for the lde commitment.
+    // TODO: This has to be sampled after round 2 according to the protocol
+    let z = sample_z_ood(
+        &domain.lde_roots_of_unity_coset,
+        &domain.trace_roots_of_unity,
+        transcript,
+    );
+
+    let round_1_result = round_1_randomized_air_with_preprocessing(trace, air);
+
+    // Sample challenges for round 2
+    // These are the challenges alpha^B_j and beta^B_j
+    let boundary_coeffs: Vec<(FieldElement<F>, FieldElement<F>)> =
+        (0..round_1_result.trace_polys.len())
+            .map(|_| {
+                (
+                    transcript_to_field(transcript),
+                    transcript_to_field(transcript),
+                )
+            })
+            .collect();
+
+    // These are the challenges alpha^T_j and beta^T_j
+    let transition_coeffs: Vec<(FieldElement<F>, FieldElement<F>)> =
+        (0..air.context().num_transition_constraints)
+            .map(|_| {
+                (
+                    transcript_to_field(transcript),
+                    transcript_to_field(transcript),
+                )
+            })
+            .collect();
+
+    let round_2_result = round_2_compute_composition_polynomial(
+        air,
+        &domain,
+        &round_1_result,
+        &transition_coeffs,
+        &boundary_coeffs,
+    );
+
+    let round_3_result = round_3_evaluate_polynomials_in_out_of_domain_element(
+        air,
+        &domain,
+        &round_1_result,
+        &round_2_result,
+        &z,
+    );
+
+    let round_4_result = round_4_compute_and_run_fri_on_the_deep_composition_polynomial(
+        air,
+        &domain,
+        &round_1_result,
+        &round_2_result,
+        &z,
+        transcript,
+    );
+
+    info!("End proof generation");
+
+    StarkProof {
+        fri_layers_merkle_roots: round_4_result.fri_layers_merkle_roots,
+        trace_ood_frame_evaluations: round_3_result.trace_ood_frame_evaluations,
+        composition_poly_ood_evaluations: round_3_result.composition_poly_ood_evaluations,
+        deep_consistency_check: round_4_result.deep_consistency_check,
+        query_list: round_4_result.query_list,
     }
 }

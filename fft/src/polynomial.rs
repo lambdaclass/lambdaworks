@@ -28,7 +28,7 @@ impl<F: IsTwoAdicField> FFTPoly<F> for Polynomial<FieldElement<F>> {
         {
             if field_supports_metal::<F>() {
                 Ok(lambdaworks_gpu::metal::fft::polynomial::evaluate_fft_metal(
-                    &self,
+                    self,
                 )?)
             } else {
                 evaluate_fft_cpu(self)
@@ -53,7 +53,7 @@ impl<F: IsTwoAdicField> FFTPoly<F> for Polynomial<FieldElement<F>> {
             if field_supports_metal::<F>() {
                 Ok(
                     lambdaworks_gpu::metal::fft::polynomial::evaluate_offset_fft_metal(
-                        &self,
+                        self,
                         offset,
                         blowup_factor,
                     )?,
@@ -155,10 +155,7 @@ mod u64_field_tests {
     use lambdaworks_math::field::traits::RootsConfig;
     use proptest::{collection, prelude::*};
 
-    use crate::{
-        helpers::log2,
-        roots_of_unity::{get_powers_of_primitive_root, get_powers_of_primitive_root_coset},
-    };
+    use crate::roots_of_unity::{get_powers_of_primitive_root, get_powers_of_primitive_root_coset};
 
     use super::*;
 
@@ -203,8 +200,8 @@ mod u64_field_tests {
         // Property-based test that ensures FFT eval. gives same result as a naive polynomial evaluation.
         #[test]
         fn test_fft_matches_naive_evaluation(poly in poly(8)) {
-            let order = log2(poly.coefficients().len()).unwrap();
-            let twiddles = get_powers_of_primitive_root(order, poly.coefficients.len(), RootsConfig::Natural).unwrap();
+            let order = poly.coefficients().len().trailing_zeros();
+            let twiddles = get_powers_of_primitive_root(order.into(), poly.coefficients.len(), RootsConfig::Natural).unwrap();
 
             let fft_eval = poly.evaluate_fft().unwrap();
             let naive_eval = poly.evaluate_slice(&twiddles);
@@ -215,8 +212,8 @@ mod u64_field_tests {
         // Property-based test that ensures FFT eval. with coset gives same result as a naive polynomial evaluation.
         #[test]
         fn test_fft_coset_matches_naive_evaluation(poly in poly(8), offset in offset(), blowup_factor in powers_of_two(4)) {
-            let order = log2(poly.coefficients().len() * blowup_factor).unwrap();
-            let twiddles = get_powers_of_primitive_root_coset(order, poly.coefficients.len() * blowup_factor, &offset).unwrap();
+            let order = (poly.coefficients().len() * blowup_factor).trailing_zeros();
+            let twiddles = get_powers_of_primitive_root_coset(order.into(), poly.coefficients.len() * blowup_factor, &offset).unwrap();
 
             let fft_eval = poly.evaluate_offset_fft(&offset, blowup_factor).unwrap();
             let naive_eval = poly.evaluate_slice(&twiddles);
@@ -226,11 +223,9 @@ mod u64_field_tests {
 
         // Property-based test that ensures FFT eval. using polynomials with a non-power-of-two amount of coefficients works.
         #[test]
-        fn test_fft_non_power_of_two_poly(poly in poly_with_non_power_of_two_coeffs(8)) {
-            let num_coefficients = poly.coefficients().len();
-            let num_coeficcients_power_of_two = helpers::next_power_of_two(num_coefficients as u64) as usize;
-            let order = log2(num_coeficcients_power_of_two).unwrap();
-            let twiddles = get_powers_of_primitive_root(order, num_coeficcients_power_of_two, RootsConfig::Natural).unwrap();
+        fn test_fft_non_power_of_two(poly in poly(8)) {
+            let order = poly.coefficients().len().trailing_zeros();
+            let twiddles = get_powers_of_primitive_root(order.into(), poly.coefficients.len(), RootsConfig::Natural).unwrap();
 
             let fft_eval = poly.evaluate_fft().unwrap();
             let naive_eval = poly.evaluate_slice(&twiddles);
@@ -284,7 +279,6 @@ mod u256_two_adic_prime_field_tests {
     };
 
     use crate::{
-        helpers::log2,
         polynomial::{field_supports_metal, FFTPoly},
         roots_of_unity::get_powers_of_primitive_root,
     };
@@ -317,8 +311,8 @@ mod u256_two_adic_prime_field_tests {
         // Property-based test that ensures FFT eval. in the FFT friendly field gives same result as a naive polynomial evaluation.
         #[test]
         fn test_fft_evaluation_is_correct_in_u256_fft_friendly_field(poly in poly(8)) {
-            let order = log2(poly.coefficients().len()).unwrap();
-            let twiddles = get_powers_of_primitive_root(order, poly.coefficients.len(), RootsConfig::Natural).unwrap();
+            let order = poly.coefficients().len().trailing_zeros();
+            let twiddles = get_powers_of_primitive_root(order.into(), poly.coefficients.len(), RootsConfig::Natural).unwrap();
 
             let fft_eval = poly.evaluate_fft().unwrap();
             let naive_eval = poly.evaluate_slice(&twiddles);
