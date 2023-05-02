@@ -240,7 +240,7 @@ fn test_malicious_trace_does_not_verify() {
     let execution_trace = build_cairo_execution_trace(&raw_trace, &memory);
 
     // Get the columns representation of the execution trace
-    let mut exec_trace_cols = execution_trace.cols().clone();
+    let mut exec_trace_cols = execution_trace.cols();
     // Get the op1 column
     let mut op1s = execution_trace.cols()[26].clone();
     // Write an arbitrary value in the first position of the op1 column.
