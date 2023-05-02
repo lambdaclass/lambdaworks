@@ -593,6 +593,18 @@ mod tests {
     }
 
     #[test]
+    fn sqrt_roots_for_0_are_0_in_stark_field() {
+        type FrField = Stark252PrimeField;
+        type FrElement = FieldElement<FrField>;
+
+        let input = FrElement::from(0);
+        let sqrt = input.sqrt().unwrap();
+        let result = FrElement::from(0);
+        assert_eq!(sqrt.0, result);
+        assert_eq!(sqrt.1, result);
+    }
+
+    #[test]
     fn sqrt_of_27_for_stark_field_does_not_exist() {
         type FrField = Stark252PrimeField;
         type FrElement = FieldElement<FrField>;
