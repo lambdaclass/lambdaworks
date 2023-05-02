@@ -361,7 +361,7 @@ where
 enum LegendreSymbol {
     MinusOne,
     Zero,
-    One
+    One,
 }
 
 impl<F: IsPrimeField> FieldElement<F> {
@@ -390,11 +390,10 @@ impl<F: IsPrimeField> FieldElement<F> {
     // Returns the two square roots of `self` if it exists
     // `None` if it doesn't
     pub fn sqrt(&self) -> Option<(Self, Self)> {
-
         match self.legendre_symbol() {
             LegendreSymbol::Zero => return Some((Self::zero(), Self::zero())), // self is 0
-            LegendreSymbol::MinusOne => return None,                              // self is quadratic non-residue
-            LegendreSymbol::One => ()
+            LegendreSymbol::MinusOne => return None, // self is quadratic non-residue
+            LegendreSymbol::One => (),
         };
 
         let (zero, one, two) = (Self::zero(), Self::one(), Self::from(2));
