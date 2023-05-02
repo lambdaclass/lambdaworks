@@ -165,6 +165,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
     #[cfg(not(feature = "metal"))]
     use lambdaworks_math::field::traits::RootsConfig;
     use proptest::{collection, prelude::*};
@@ -173,9 +174,12 @@ mod tests {
 
     use super::*;
 
-    fn gen_fft_and_naive_evaluation<F: IsFFTField>(
-        poly: Polynomial<FieldElement<F>>,
-    ) -> (Vec<FieldElement<F>>, Vec<FieldElement<F>>) {
+    fn gen_fft_and_naive_evaluation(
+        poly: Polynomial<FieldElement<Stark252PrimeField>>,
+    ) -> (
+        Vec<FieldElement<Stark252PrimeField>>,
+        Vec<FieldElement<Stark252PrimeField>>,
+    ) {
         let len = poly.coeff_len().next_power_of_two();
         let order = len.trailing_zeros();
         let twiddles =
@@ -187,11 +191,14 @@ mod tests {
         (fft_eval, naive_eval)
     }
 
-    fn gen_fft_coset_and_naive_evaluation<F: IsFFTField>(
-        poly: Polynomial<FieldElement<F>>,
-        offset: FieldElement<F>,
+    fn gen_fft_coset_and_naive_evaluation(
+        poly: Polynomial<FieldElement<Stark252PrimeField>>,
+        offset: FieldElement<Stark252PrimeField>,
         blowup_factor: usize,
-    ) -> (Vec<FieldElement<F>>, Vec<FieldElement<F>>) {
+    ) -> (
+        Vec<FieldElement<Stark252PrimeField>>,
+        Vec<FieldElement<Stark252PrimeField>>,
+    ) {
         let len = poly.coeff_len().next_power_of_two();
         let order = (len * blowup_factor).trailing_zeros();
         let twiddles =
@@ -205,9 +212,12 @@ mod tests {
         (fft_eval, naive_eval)
     }
 
-    fn gen_fft_and_naive_interpolate<F: IsFFTField>(
-        fft_evals: &[FieldElement<F>],
-    ) -> (Polynomial<FieldElement<F>>, Polynomial<FieldElement<F>>) {
+    fn gen_fft_and_naive_interpolate(
+        fft_evals: &[FieldElement<Stark252PrimeField>],
+    ) -> (
+        Polynomial<FieldElement<Stark252PrimeField>>,
+        Polynomial<FieldElement<Stark252PrimeField>>,
+    ) {
         let order = fft_evals.len().trailing_zeros() as u64;
         let twiddles =
             get_powers_of_primitive_root(order, 1 << order, RootsConfig::Natural).unwrap();
@@ -218,10 +228,13 @@ mod tests {
         (fft_poly, naive_poly)
     }
 
-    fn gen_fft_and_naive_coset_interpolate<F: IsFFTField>(
-        fft_evals: &[FieldElement<F>],
-        offset: &FieldElement<F>,
-    ) -> (Polynomial<FieldElement<F>>, Polynomial<FieldElement<F>>) {
+    fn gen_fft_and_naive_coset_interpolate(
+        fft_evals: &[FieldElement<Stark252PrimeField>],
+        offset: &FieldElement<Stark252PrimeField>,
+    ) -> (
+        Polynomial<FieldElement<Stark252PrimeField>>,
+        Polynomial<FieldElement<Stark252PrimeField>>,
+    ) {
         let order = fft_evals.len().trailing_zeros() as u64;
         let twiddles = get_powers_of_primitive_root_coset(order, 1 << order, offset).unwrap();
 
@@ -231,9 +244,12 @@ mod tests {
         (fft_poly, naive_poly)
     }
 
-    fn gen_fft_interpolate_and_evaluate<F: IsFFTField>(
-        poly: Polynomial<FieldElement<F>>,
-    ) -> (Polynomial<FieldElement<F>>, Polynomial<FieldElement<F>>) {
+    fn gen_fft_interpolate_and_evaluate(
+        poly: Polynomial<FieldElement<Stark252PrimeField>>,
+    ) -> (
+        Polynomial<FieldElement<Stark252PrimeField>>,
+        Polynomial<FieldElement<Stark252PrimeField>>,
+    ) {
         let eval = poly.evaluate_fft(1, None).unwrap();
         let new_poly = Polynomial::interpolate_fft(&eval).unwrap();
 
@@ -242,12 +258,10 @@ mod tests {
 
     #[cfg(not(feature = "metal"))]
     mod u64_field_tests {
-        use lambdaworks_math::field::test_fields::u64_test_field::U64TestField;
-
         use super::*;
 
         // FFT related tests
-        type F = U64TestField;
+        type F = Stark252PrimeField;
         type FE = FieldElement<F>;
 
         prop_compose! {
