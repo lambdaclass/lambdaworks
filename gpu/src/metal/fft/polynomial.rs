@@ -2,7 +2,7 @@ use crate::metal::abstractions::{errors::MetalError, state::MetalState};
 use lambdaworks_math::{
     field::{
         element::FieldElement,
-        traits::{IsTwoAdicField, RootsConfig},
+        traits::{IsFFTField, RootsConfig},
     },
     polynomial::Polynomial,
 };
@@ -13,7 +13,7 @@ pub fn evaluate_fft_metal<F>(
     poly: &Polynomial<FieldElement<F>>,
 ) -> Result<Vec<FieldElement<F>>, MetalError>
 where
-    F: IsTwoAdicField,
+    F: IsFFTField,
 {
     let metal_state = MetalState::new(None).unwrap();
 
@@ -35,7 +35,7 @@ pub fn evaluate_offset_fft_metal<F>(
     blowup_factor: usize,
 ) -> Result<Vec<FieldElement<F>>, MetalError>
 where
-    F: IsTwoAdicField,
+    F: IsFFTField,
 {
     let metal_state = MetalState::new(None).unwrap();
     let scaled = poly.scale(offset);
@@ -49,7 +49,7 @@ pub fn interpolate_fft_metal<F>(
     fft_evals: &[FieldElement<F>],
 ) -> Result<Polynomial<FieldElement<F>>, MetalError>
 where
-    F: IsTwoAdicField,
+    F: IsFFTField,
 {
     let metal_state = MetalState::new(None).unwrap();
 
