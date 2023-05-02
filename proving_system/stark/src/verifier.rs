@@ -252,16 +252,18 @@ fn step_2_verify_claimed_composition_polynomial<F: IsTwoAdicField, A: AIR<Field 
     composition_poly_claimed_ood_evaluation == composition_poly_ood_evaluation
 }
 
-fn step_3_verify_fri<F, A>(
+fn step_3_verify_fri<F, A, T>(
     air: &A,
     proof: &StarkProof<F>,
     domain: &Domain<F>,
     challenges: &Challenges<F>,
+    transcript: &mut T,
 ) -> bool
 where
     F: IsTwoAdicField,
     FieldElement<F>: ByteConversion,
     A: AIR<Field = F>,
+    T: Transcript,
 {
     // Verify that t(x_0) is a trace evaluation
     // and verify first layer of FRI
