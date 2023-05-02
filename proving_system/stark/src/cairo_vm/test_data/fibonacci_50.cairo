@@ -2,7 +2,7 @@ func main() {
     // Call fib(1, 1, 50).
     let result: felt = fib(1, 1, 50);
 
-    // Make sure the 10th Fibonacci number is 144.
+    // Make sure the 50th Fibonacci number is 32951280099.
     assert result = 32951280099;
     ret;
 }
