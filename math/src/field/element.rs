@@ -548,7 +548,7 @@ mod tests {
     }
 
     #[test]
-    fn sqrt_4_is_2() {
+    fn one_of_sqrt_roots_for_4_is_2() {
         #[derive(Clone, Debug)]
         pub struct FrConfig;
         impl IsModulus<U256> for FrConfig {
@@ -565,7 +565,7 @@ mod tests {
     }
 
     #[test]
-    fn sqrt_25_is_5() {
+    fn one_of_sqrt_roots_for_25_is_5() {
         #[derive(Clone, Debug)]
         pub struct FrConfig;
         impl IsModulus<U256> for FrConfig {
@@ -582,7 +582,7 @@ mod tests {
     }
 
     #[test]
-    fn sqrt_25_is_5_for_stark_field() {
+    fn one_of_sqrt_roots_for_25_is_5_in_stark_field() {
         type FrField = Stark252PrimeField;
         type FrElement = FieldElement<FrField>;
 
