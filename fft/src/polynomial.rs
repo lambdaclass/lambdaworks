@@ -152,7 +152,7 @@ pub fn evaluate_offset_fft_with_len<F>(
     blowup_factor: usize,
 ) -> Result<Vec<FieldElement<F>>, FFTError>
 where
-    F: IsTwoAdicField,
+    F: IsFFTField,
 {
     if poly == &Polynomial::zero() {
         return Ok(vec![FieldElement::<F>::zero(); domain_len * blowup_factor]);
