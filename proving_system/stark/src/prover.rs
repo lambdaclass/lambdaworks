@@ -18,7 +18,9 @@ use lambdaworks_crypto::fiat_shamir::test_transcript::TestTranscript;
 
 use lambdaworks_fft::{errors::FFTError, polynomial::FFTPoly};
 use lambdaworks_math::{
-    field::{element::FieldElement, traits::IsFFTField},
+    field::{
+        element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+    },
     polynomial::Polynomial,
     traits::ByteConversion,
 };
@@ -27,36 +29,36 @@ use log::info;
 #[cfg(debug_assertions)]
 use crate::air::debug::validate_trace;
 
-struct Round1<F: IsFFTField, A: AIR<Field = F>> {
-    trace_polys: Vec<Polynomial<FieldElement<F>>>,
-    lde_trace: TraceTable<F>,
-    lde_trace_merkle_trees: Vec<MerkleTree<F>>,
-    lde_trace_merkle_roots: Vec<FieldElement<F>>,
+struct Round1<A: AIR> {
+    trace_polys: Vec<Polynomial<FieldElement<Stark252PrimeField>>>,
+    lde_trace: TraceTable,
+    lde_trace_merkle_trees: Vec<MerkleTree<Stark252PrimeField>>,
+    lde_trace_merkle_roots: Vec<FieldElement<Stark252PrimeField>>,
     rap_challenges: A::RAPChallenges,
 }
 
-struct Round2<F: IsFFTField> {
-    composition_poly_even: Polynomial<FieldElement<F>>,
-    lde_composition_poly_even_evaluations: Vec<FieldElement<F>>,
-    composition_poly_even_merkle_tree: MerkleTree<F>,
-    composition_poly_even_root: FieldElement<F>,
-    composition_poly_odd: Polynomial<FieldElement<F>>,
-    lde_composition_poly_odd_evaluations: Vec<FieldElement<F>>,
-    composition_poly_odd_merkle_tree: MerkleTree<F>,
-    composition_poly_odd_root: FieldElement<F>,
+struct Round2 {
+    composition_poly_even: Polynomial<FieldElement<Stark252PrimeField>>,
+    lde_composition_poly_even_evaluations: Vec<FieldElement<Stark252PrimeField>>,
+    composition_poly_even_merkle_tree: MerkleTree<Stark252PrimeField>,
+    composition_poly_even_root: FieldElement<Stark252PrimeField>,
+    composition_poly_odd: Polynomial<FieldElement<Stark252PrimeField>>,
+    lde_composition_poly_odd_evaluations: Vec<FieldElement<Stark252PrimeField>>,
+    composition_poly_odd_merkle_tree: MerkleTree<Stark252PrimeField>,
+    composition_poly_odd_root: FieldElement<Stark252PrimeField>,
 }
 
-struct Round3<F: IsFFTField> {
-    trace_ood_frame_evaluations: Frame<F>,
-    composition_poly_even_ood_evaluation: FieldElement<F>,
-    composition_poly_odd_ood_evaluation: FieldElement<F>,
+struct Round3 {
+    trace_ood_frame_evaluations: Frame<Stark252PrimeField>,
+    composition_poly_even_ood_evaluation: FieldElement<Stark252PrimeField>,
+    composition_poly_odd_ood_evaluation: FieldElement<Stark252PrimeField>,
 }
 
-struct Round4<F: IsFFTField> {
-    fri_last_value: FieldElement<F>,
-    fri_layers_merkle_roots: Vec<FieldElement<F>>,
-    deep_poly_openings: DeepPolynomialOpenings<F>,
-    query_list: Vec<FriDecommitment<F>>,
+struct Round4 {
+    fri_last_value: FieldElement<Stark252PrimeField>,
+    fri_layers_merkle_roots: Vec<FieldElement<Stark252PrimeField>>,
+    deep_poly_openings: DeepPolynomialOpenings<Stark252PrimeField>,
+    query_list: Vec<FriDecommitment>,
 }
 
 #[cfg(feature = "test_fiat_shamir")]
@@ -70,13 +72,12 @@ fn round_0_transcript_initialization() -> DefaultTranscript {
     DefaultTranscript::new()
 }
 
-fn batch_commit<F>(
-    vectors: Vec<&Vec<FieldElement<F>>>,
-) -> (Vec<MerkleTree<F>>, Vec<FieldElement<F>>)
-where
-    F: IsFFTField,
-    FieldElement<F>: ByteConversion,
-{
+fn batch_commit(
+    vectors: Vec<&Vec<FieldElement<Stark252PrimeField>>>,
+) -> (
+    Vec<MerkleTree<Stark252PrimeField>>,
+    Vec<FieldElement<Stark252PrimeField>>,
+) {
     let trees: Vec<_> = vectors
         .iter()
         .map(|col| MerkleTree::build(col, Box::new(HASHER)))
@@ -86,14 +87,10 @@ where
     (trees, roots)
 }
 
-fn evaluate_polynomial_on_lde_domain<F>(
-    p: &Polynomial<FieldElement<F>>,
-    domain: &Domain<F>,
-) -> Result<Vec<FieldElement<F>>, FFTError>
-where
-    F: IsFFTField,
-    Polynomial<FieldElement<F>>: FFTPoly<F>,
-{
+fn evaluate_polynomial_on_lde_domain(
+    p: &Polynomial<FieldElement<Stark252PrimeField>>,
+    domain: &Domain,
+) -> Result<Vec<FieldElement<Stark252PrimeField>>, FFTError> {
     // Evaluate those polynomials t_j on the large domain D_LDE.
     p.evaluate_offset_fft(
         domain.blowup_factor,
@@ -103,28 +100,23 @@ where
 }
 
 #[allow(clippy::type_complexity)]
-fn interpolate_and_commit<T, F>(
-    trace: &TraceTable<F>,
-    domain: &Domain<F>,
+fn interpolate_and_commit<T: Transcript>(
+    trace: &TraceTable,
+    domain: &Domain,
     transcript: &mut T,
 ) -> (
-    Vec<Polynomial<FieldElement<F>>>,
-    Vec<Vec<FieldElement<F>>>,
-    Vec<MerkleTree<F>>,
-    Vec<FieldElement<F>>,
-)
-where
-    T: Transcript,
-    F: IsFFTField,
-    FieldElement<F>: ByteConversion,
-{
+    Vec<Polynomial<FieldElement<Stark252PrimeField>>>,
+    Vec<Vec<FieldElement<Stark252PrimeField>>>,
+    Vec<MerkleTree<Stark252PrimeField>>,
+    Vec<FieldElement<Stark252PrimeField>>,
+) {
     let trace_polys = trace.compute_trace_polys();
 
     // Evaluate those polynomials t_j on the large domain D_LDE.
     let lde_trace_evaluations = trace_polys
         .iter()
         .map(|poly| evaluate_polynomial_on_lde_domain(poly, domain))
-        .collect::<Result<Vec<Vec<FieldElement<F>>>, FFTError>>()
+        .collect::<Result<Vec<Vec<FieldElement<_>>>, FFTError>>()
         .unwrap();
 
     // Compute commitments [t_j].
@@ -146,14 +138,11 @@ where
     )
 }
 
-fn round_1_randomized_air_with_preprocessing<F: IsFFTField, A: AIR<Field = F>, T: Transcript>(
+fn round_1_randomized_air_with_preprocessing<A: AIR, T: Transcript>(
     raw_trace: &A::RawTrace,
-    domain: &Domain<F>,
+    domain: &Domain,
     transcript: &mut T,
-) -> Round1<F, A>
-where
-    FieldElement<F>: ByteConversion,
-{
+) -> Round1<A> {
     let main_trace = A::build_main_trace(raw_trace);
 
     let (mut trace_polys, mut evaluations, mut lde_trace_merkle_trees, mut lde_trace_merkle_roots) =
@@ -184,18 +173,19 @@ where
     }
 }
 
-fn round_2_compute_composition_polynomial<F, A>(
+fn round_2_compute_composition_polynomial<A: AIR>(
     air: &A,
-    domain: &Domain<F>,
-    round_1_result: &Round1<F, A>,
-    transition_coeffs: &[(FieldElement<F>, FieldElement<F>)],
-    boundary_coeffs: &[(FieldElement<F>, FieldElement<F>)],
-) -> Round2<F>
-where
-    F: IsFFTField,
-    A: AIR<Field = F>,
-    FieldElement<F>: ByteConversion,
-{
+    domain: &Domain,
+    round_1_result: &Round1<A>,
+    transition_coeffs: &[(
+        FieldElement<Stark252PrimeField>,
+        FieldElement<Stark252PrimeField>,
+    )],
+    boundary_coeffs: &[(
+        FieldElement<Stark252PrimeField>,
+        FieldElement<Stark252PrimeField>,
+    )],
+) -> Round2 {
     // Create evaluation table
     let evaluator = ConstraintEvaluator::new(
         air,
@@ -240,16 +230,13 @@ where
     }
 }
 
-fn round_3_evaluate_polynomials_in_out_of_domain_element<F: IsFFTField, A: AIR<Field = F>>(
+fn round_3_evaluate_polynomials_in_out_of_domain_element<A: AIR>(
     air: &A,
-    domain: &Domain<F>,
-    round_1_result: &Round1<F, A>,
-    round_2_result: &Round2<F>,
-    z: &FieldElement<F>,
-) -> Round3<F>
-where
-    FieldElement<F>: ByteConversion,
-{
+    domain: &Domain,
+    round_1_result: &Round1<A>,
+    round_2_result: &Round2,
+    z: &FieldElement<Stark252PrimeField>,
+) -> Round3 {
     let z_squared = z * z;
 
     // Evaluate H_1 and H_2 in z^2.
@@ -283,29 +270,22 @@ where
     }
 }
 
-fn round_4_compute_and_run_fri_on_the_deep_composition_polynomial<
-    F: IsFFTField,
-    A: AIR<Field = F>,
-    T: Transcript,
->(
+fn round_4_compute_and_run_fri_on_the_deep_composition_polynomial<A: AIR, T: Transcript>(
     air: &A,
-    domain: &Domain<F>,
-    round_1_result: &Round1<F, A>,
-    round_2_result: &Round2<F>,
-    round_3_result: &Round3<F>,
-    z: &FieldElement<F>,
+    domain: &Domain,
+    round_1_result: &Round1<A>,
+    round_2_result: &Round2,
+    round_3_result: &Round3,
+    z: &FieldElement<Stark252PrimeField>,
     transcript: &mut T,
-) -> Round4<F>
-where
-    FieldElement<F>: ByteConversion,
-{
+) -> Round4 {
     // <<<< Receive challenges: 𝛾, 𝛾'
     let composition_poly_coeffients = [
         transcript_to_field(transcript),
         transcript_to_field(transcript),
     ];
     // <<<< Receive challenges: 𝛾ⱼ, 𝛾ⱼ'
-    let trace_poly_coeffients = batch_sample_challenges::<F, T>(
+    let trace_poly_coeffients = batch_sample_challenges::<T>(
         air.context().transition_offsets.len() * air.context().trace_columns,
         transcript,
     );
@@ -351,16 +331,16 @@ where
 /// FRI. This polynomial is a linear combination of the trace polynomial and the
 /// composition polynomial, with coefficients sampled by the verifier (i.e. using Fiat-Shamir).
 #[allow(clippy::too_many_arguments)]
-fn compute_deep_composition_poly<A: AIR, F: IsFFTField>(
+fn compute_deep_composition_poly<A: AIR>(
     air: &A,
-    trace_polys: &[Polynomial<FieldElement<F>>],
-    round_2_result: &Round2<F>,
-    round_3_result: &Round3<F>,
-    z: &FieldElement<F>,
-    primitive_root: &FieldElement<F>,
-    composition_poly_gammas: &[FieldElement<F>; 2],
-    trace_terms_gammas: &[FieldElement<F>],
-) -> Polynomial<FieldElement<F>> {
+    trace_polys: &[Polynomial<FieldElement<Stark252PrimeField>>],
+    round_2_result: &Round2,
+    round_3_result: &Round3,
+    z: &FieldElement<Stark252PrimeField>,
+    primitive_root: &FieldElement<Stark252PrimeField>,
+    composition_poly_gammas: &[FieldElement<Stark252PrimeField>; 2],
+    trace_terms_gammas: &[FieldElement<Stark252PrimeField>],
+) -> Polynomial<FieldElement<Stark252PrimeField>> {
     // Compute composition polynomial terms of the deep composition polynomial.
     let x = Polynomial::new_monomial(FieldElement::one(), 1);
     let h_1 = &round_2_result.composition_poly_even;
@@ -403,15 +383,12 @@ fn compute_deep_composition_poly<A: AIR, F: IsFFTField>(
     h_1_term + h_2_term + trace_terms
 }
 
-fn open_deep_composition_poly<F: IsFFTField, A: AIR<Field = F>>(
-    domain: &Domain<F>,
-    round_1_result: &Round1<F, A>,
-    round_2_result: &Round2<F>,
+fn open_deep_composition_poly<A: AIR>(
+    domain: &Domain,
+    round_1_result: &Round1<A>,
+    round_2_result: &Round2,
     index_to_open: usize,
-) -> DeepPolynomialOpenings<F>
-where
-    FieldElement<F>: ByteConversion,
-{
+) -> DeepPolynomialOpenings<Stark252PrimeField> {
     let index = index_to_open % domain.lde_roots_of_unity_coset.len();
 
     // H₁ openings
@@ -449,10 +426,7 @@ where
 }
 
 // FIXME remove unwrap() calls and return errors
-pub fn prove<F: IsFFTField, A: AIR<Field = F>>(trace: &A::RawTrace, air: &A) -> StarkProof<F>
-where
-    FieldElement<F>: ByteConversion,
-{
+pub fn prove<A: AIR>(trace: &A::RawTrace, air: &A) -> StarkProof<Stark252PrimeField> {
     info!("Starting proof generation...");
 
     let domain = Domain::new(air);
@@ -464,7 +438,7 @@ where
     // ===================================
 
     let round_1_result =
-        round_1_randomized_air_with_preprocessing::<F, A, _>(trace, &domain, &mut transcript);
+        round_1_randomized_air_with_preprocessing::<A, _>(trace, &domain, &mut transcript);
 
     #[cfg(debug_assertions)]
     validate_trace(

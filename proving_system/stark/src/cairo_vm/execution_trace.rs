@@ -11,9 +11,7 @@ use crate::{
     cairo_vm::{instruction_flags::CairoInstructionFlags, instruction_offsets::InstructionOffsets},
     FE,
 };
-use lambdaworks_math::{
-    field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField, helpers,
-};
+use lambdaworks_math::helpers;
 
 // MAIN TRACE LAYOUT
 // -----------------------------------------------------------------------------------------
@@ -33,12 +31,8 @@ use lambdaworks_math::{
 /// the trace table used to feed the Cairo STARK prover.
 /// The constraints of the Cairo AIR are defined over this trace rather than the raw trace
 /// obtained from the Cairo VM, this is why this function is needed.
-pub fn build_cairo_execution_trace(
-    raw_trace: &CairoTrace,
-    memory: &CairoMemory,
-) -> TraceTable<Stark252PrimeField> {
+pub fn build_cairo_execution_trace(raw_trace: &CairoTrace, memory: &CairoMemory) -> TraceTable {
     let n_steps = raw_trace.steps();
-
     // Instruction flags and offsets are decoded from the raw instructions and represented
     // by the CairoInstructionFlags and InstructionOffsets as an intermediate representation
     let (flags, offsets): (Vec<CairoInstructionFlags>, Vec<InstructionOffsets>) = raw_trace

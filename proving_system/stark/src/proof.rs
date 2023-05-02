@@ -33,7 +33,7 @@ pub struct StarkProof<F: IsFFTField> {
     // pₙ
     pub fri_last_value: FieldElement<F>,
     // Open(p₀(D₀), 𝜐ₛ), Opwn(pₖ(Dₖ), −𝜐ₛ^(2ᵏ))
-    pub query_list: Vec<FriDecommitment<F>>,
+    pub query_list: Vec<FriDecommitment>,
     // Open(H₁(D_LDE, 𝜐₀), Open(H₂(D_LDE, 𝜐₀), Open(tⱼ(D_LDE), 𝜐₀)
     pub deep_poly_openings: DeepPolynomialOpenings<F>,
 }

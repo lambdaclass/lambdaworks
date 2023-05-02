@@ -1,5 +1,7 @@
 use lambdaworks_math::{
-    field::{element::FieldElement, traits::IsFFTField},
+    field::{
+        element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+    },
     helpers,
     polynomial::Polynomial,
 };
@@ -9,18 +11,18 @@ use std::iter::zip;
 
 use super::{boundary::BoundaryConstraints, evaluation_table::ConstraintEvaluationTable};
 
-pub struct ConstraintEvaluator<'poly, F: IsFFTField, A: AIR> {
+pub struct ConstraintEvaluator<'poly, A: AIR> {
     air: A,
-    boundary_constraints: BoundaryConstraints<F>,
-    trace_polys: &'poly [Polynomial<FieldElement<F>>],
-    primitive_root: FieldElement<F>,
+    boundary_constraints: BoundaryConstraints<Stark252PrimeField>,
+    trace_polys: &'poly [Polynomial<FieldElement<Stark252PrimeField>>],
+    primitive_root: FieldElement<Stark252PrimeField>,
 }
 
-impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F, A> {
+impl<'poly, A: AIR> ConstraintEvaluator<'poly, A> {
     pub fn new(
         air: &A,
-        trace_polys: &'poly [Polynomial<FieldElement<F>>],
-        primitive_root: &FieldElement<F>,
+        trace_polys: &'poly [Polynomial<FieldElement<Stark252PrimeField>>],
+        primitive_root: &FieldElement<Stark252PrimeField>,
         rap_challenges: &A::RAPChallenges,
     ) -> Self {
         let boundary_constraints = air.boundary_constraints(rap_challenges);
@@ -35,12 +37,18 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
 
     pub fn evaluate(
         &self,
-        lde_trace: &TraceTable<F>,
-        lde_domain: &[FieldElement<F>],
-        alpha_and_beta_transition_coefficients: &[(FieldElement<F>, FieldElement<F>)],
-        alpha_and_beta_boundary_coefficients: &[(FieldElement<F>, FieldElement<F>)],
+        lde_trace: &TraceTable,
+        lde_domain: &[FieldElement<Stark252PrimeField>],
+        alpha_and_beta_transition_coefficients: &[(
+            FieldElement<Stark252PrimeField>,
+            FieldElement<Stark252PrimeField>,
+        )],
+        alpha_and_beta_boundary_coefficients: &[(
+            FieldElement<Stark252PrimeField>,
+            FieldElement<Stark252PrimeField>,
+        )],
         rap_challenges: &A::RAPChallenges,
-    ) -> ConstraintEvaluationTable<F> {
+    ) -> ConstraintEvaluationTable<Stark252PrimeField> {
         // The + 1 is for the boundary constraints column
         let mut evaluation_table = ConstraintEvaluationTable::new(
             self.air.context().num_transition_constraints() + 1,
@@ -53,12 +61,14 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
             boundary_constraints.generate_roots_of_unity(&self.primitive_root, n_trace_colums);
         let values = boundary_constraints.values(n_trace_colums);
 
-        let boundary_polys: Vec<Polynomial<FieldElement<F>>> = zip(domains, values)
-            .zip(self.trace_polys)
-            .map(|((xs, ys), trace_poly)| trace_poly - &Polynomial::interpolate(&xs, &ys))
-            .collect();
+        let boundary_polys: Vec<Polynomial<FieldElement<Stark252PrimeField>>> =
+            zip(domains, values)
+                .zip(self.trace_polys)
+                .map(|((xs, ys), trace_poly)| trace_poly - &Polynomial::interpolate(&xs, &ys))
+                .collect();
 
-        let boundary_zerofiers: Vec<Polynomial<FieldElement<F>>> = (0..n_trace_colums)
+        let boundary_zerofiers: Vec<Polynomial<FieldElement<Stark252PrimeField>>> = (0
+            ..n_trace_colums)
             .map(|col| {
                 self.boundary_constraints
                     .compute_zerofier(&self.primitive_root, col)
@@ -94,7 +104,7 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
         let divisors = self.air.transition_divisors();
         // Iterate over trace and domain and compute transitions
         for (i, d) in lde_domain.iter().enumerate() {
-            let frame = Frame::read_from_trace(
+            let frame = Frame::<Stark252PrimeField>::read_from_trace(
                 lde_trace,
                 i,
                 blowup_factor,
@@ -124,7 +134,7 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
                             * d.pow(max_degree_power_of_two - (quotient_degree as u64))
                             + &boundary_beta)
                 })
-                .fold(FieldElement::<F>::zero(), |acc, eval| acc + eval);
+                .fold(FieldElement::zero(), |acc, eval| acc + eval);
 
             evaluations.push(boundary_evaluation);
 
@@ -149,12 +159,15 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
     /// (in the fibonacci example they are evaluations on the points `z`, `zg`, `zg^2`).
     pub fn compute_constraint_composition_poly_evaluations(
         air: &A,
-        evaluations: &[FieldElement<F>],
-        divisors: &[Polynomial<FieldElement<F>>],
-        constraint_coeffs: &[(FieldElement<F>, FieldElement<F>)],
+        evaluations: &[FieldElement<Stark252PrimeField>],
+        divisors: &[Polynomial<FieldElement<Stark252PrimeField>>],
+        constraint_coeffs: &[(
+            FieldElement<Stark252PrimeField>,
+            FieldElement<Stark252PrimeField>,
+        )],
         max_degree: u64,
-        x: &FieldElement<F>,
-    ) -> Vec<FieldElement<F>> {
+        x: &FieldElement<Stark252PrimeField>,
+    ) -> Vec<FieldElement<Stark252PrimeField>> {
         // TODO: We should get the trace degree in a better way because in some special cases
         // the trace degree may not be exactly the trace length - 1 but a smaller number.
         let trace_degree = air.context().trace_length - 1;

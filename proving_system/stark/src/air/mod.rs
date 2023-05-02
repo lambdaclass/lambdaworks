@@ -7,7 +7,9 @@ use self::{
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_fft::roots_of_unity::get_powers_of_primitive_root_coset;
 use lambdaworks_math::{
-    field::{element::FieldElement, traits::IsFFTField},
+    field::{
+        element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+    },
     polynomial::Polynomial,
 };
 
@@ -20,16 +22,15 @@ pub mod frame;
 pub mod trace;
 
 pub trait AIR: Clone {
-    type Field: IsFFTField;
     type RawTrace;
     type RAPChallenges;
 
-    fn build_main_trace(raw_trace: &Self::RawTrace) -> TraceTable<Self::Field>;
+    fn build_main_trace(raw_trace: &Self::RawTrace) -> TraceTable;
 
     fn build_auxiliary_trace(
-        main_trace: &TraceTable<Self::Field>,
+        main_trace: &TraceTable,
         rap_challenges: &Self::RAPChallenges,
-    ) -> TraceTable<Self::Field>;
+    ) -> TraceTable;
 
     fn build_rap_challenges<T: Transcript>(transcript: &mut T) -> Self::RAPChallenges;
 
@@ -39,20 +40,20 @@ pub trait AIR: Clone {
 
     fn compute_transition(
         &self,
-        frame: &Frame<Self::Field>,
+        frame: &Frame<Stark252PrimeField>,
         rap_challenges: &Self::RAPChallenges,
-    ) -> Vec<FieldElement<Self::Field>>;
+    ) -> Vec<FieldElement<Stark252PrimeField>>;
     fn boundary_constraints(
         &self,
         rap_challenges: &Self::RAPChallenges,
-    ) -> BoundaryConstraints<Self::Field>;
-    fn transition_divisors(&self) -> Vec<Polynomial<FieldElement<Self::Field>>> {
+    ) -> BoundaryConstraints<Stark252PrimeField>;
+    fn transition_divisors(&self) -> Vec<Polynomial<FieldElement<Stark252PrimeField>>> {
         let trace_length = self.context().trace_length;
         let roots_of_unity_order = trace_length.trailing_zeros();
         let roots_of_unity = get_powers_of_primitive_root_coset(
             roots_of_unity_order as u64,
             self.context().trace_length,
-            &FieldElement::<Self::Field>::one(),
+            &FieldElement::<Stark252PrimeField>::one(),
         )
         .unwrap();
 
@@ -64,7 +65,7 @@ pub trait AIR: Clone {
             let roots_of_unity_vanishing_polynomial = &x_n - FieldElement::one();
 
             let mut exemptions_polynomial =
-                Polynomial::new_monomial(FieldElement::<Self::Field>::one(), 0);
+                Polynomial::new_monomial(FieldElement::<Stark252PrimeField>::one(), 0);
 
             for i in 0..self.context().transition_exemptions[transition_idx] {
                 exemptions_polynomial =

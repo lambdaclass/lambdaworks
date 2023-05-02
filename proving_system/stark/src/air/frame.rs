@@ -1,5 +1,8 @@
 use lambdaworks_math::{
-    field::{element::FieldElement, traits::IsFFTField},
+    field::{
+        element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+        traits::IsFFTField,
+    },
     polynomial::Polynomial,
 };
 
@@ -36,11 +39,11 @@ impl<F: IsFFTField> Frame<F> {
     }
 
     pub fn read_from_trace(
-        trace: &TraceTable<F>,
+        trace: &TraceTable,
         step: usize,
         blowup: u8,
         offsets: &[usize],
-    ) -> Self {
+    ) -> Frame<Stark252PrimeField> {
         // Get trace length to apply module with it when getting elements of
         // the frame from the trace.
         let trace_steps = trace.n_rows();
@@ -53,7 +56,7 @@ impl<F: IsFFTField> Frame<F> {
             })
             .collect();
 
-        Self::new(data, trace.n_cols)
+        Frame::new(data, trace.n_cols)
     }
 
     /// Given a slice of trace polynomials, an evaluation point `x`, the frame offsets

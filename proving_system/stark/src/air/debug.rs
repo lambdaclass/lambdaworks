@@ -1,6 +1,8 @@
 use lambdaworks_fft::polynomial::FFTPoly;
 use lambdaworks_math::{
-    field::{element::FieldElement, traits::IsFFTField},
+    field::{
+        element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+    },
     polynomial::Polynomial,
 };
 use log::{error, info};
@@ -13,10 +15,10 @@ use crate::{
 use super::AIR;
 
 /// Validates that the trace is valid with respect to the supplied AIR constraints
-pub fn validate_trace<F: IsFFTField, A: AIR<Field = F>>(
+pub fn validate_trace<A: AIR>(
     air: &A,
-    trace_polys: &[Polynomial<FieldElement<A::Field>>],
-    domain: &Domain<A::Field>,
+    trace_polys: &[Polynomial<FieldElement<Stark252PrimeField>>],
+    domain: &Domain,
     rap_challenges: &A::RAPChallenges,
 ) -> bool {
     info!("Starting constraints validation over trace...");
@@ -59,14 +61,19 @@ pub fn validate_trace<F: IsFFTField, A: AIR<Field = F>>(
 
     // Iterate over trace and compute transitions
     for step in 0..trace.n_rows() {
-        let frame = Frame::read_from_trace(&trace, step, 1, &air.context().transition_offsets);
+        let frame = Frame::<Stark252PrimeField>::read_from_trace(
+            &trace,
+            step,
+            1,
+            &air.context().transition_offsets,
+        );
 
         let evaluations = air.compute_transition(&frame, rap_challenges);
         // Iterate over each transition evaluation. When the evaluated step is not from
         // the exemption steps corresponding to the transition, it should have zero as a
         // result
         evaluations.iter().enumerate().for_each(|(i, eval)| {
-            if step < exemption_steps[i] && eval != &FieldElement::<F>::zero() {
+            if step < exemption_steps[i] && eval != &FieldElement::zero() {
                 ret = false;
                 error!(
                     "Inconsistent evaluation of transition {} in step {} - expected 0, got {:?}",

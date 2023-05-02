@@ -1,6 +1,10 @@
 use lambdaworks_math::{
-    field::{element::FieldElement, traits::IsField},
-    traits::ByteConversion,
+    field::{
+        element::FieldElement,
+        fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
+        traits::IsField,
+    },
+    unsigned_integer::element::UnsignedInteger,
 };
 
 use super::HASHER;
@@ -14,12 +18,13 @@ pub struct FriLayer<F: IsField> {
     pub merkle_tree: FriMerkleTree<F>,
 }
 
-impl<F> FriLayer<F>
-where
-    F: IsField,
-    FieldElement<F>: ByteConversion,
+impl<M: IsModulus<UnsignedInteger<N>> + Clone, const N: usize>
+    FriLayer<MontgomeryBackendPrimeField<M, N>>
 {
-    pub fn new(poly: Polynomial<FieldElement<F>>, domain: &[FieldElement<F>]) -> Self {
+    pub fn new(
+        poly: Polynomial<FieldElement<MontgomeryBackendPrimeField<M, N>>>,
+        domain: &[FieldElement<MontgomeryBackendPrimeField<M, N>>],
+    ) -> Self {
         let evaluation = poly.evaluate_slice(domain);
         let merkle_tree = FriMerkleTree::build(&evaluation, Box::new(HASHER));
 

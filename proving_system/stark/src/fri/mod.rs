@@ -8,7 +8,7 @@ use lambdaworks_crypto::hash::sha3::Sha3Hasher;
 
 pub use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 pub use lambdaworks_crypto::merkle_tree::merkle::MerkleTree;
-use lambdaworks_math::field::traits::{IsFFTField, IsField};
+use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
 use lambdaworks_math::traits::ByteConversion;
 pub use lambdaworks_math::{
     field::{element::FieldElement, fields::u64_prime_field::U64PrimeField},
@@ -21,15 +21,15 @@ use self::fri_functions::{fold_polynomial, next_domain};
 pub type FriMerkleTree<F> = MerkleTree<F>;
 pub(crate) const HASHER: Sha3Hasher = Sha3Hasher::new();
 
-pub fn fri_commit_phase<F: IsField, T: Transcript>(
+pub fn fri_commit_phase<T: Transcript>(
     number_layers: usize,
-    p_0: Polynomial<FieldElement<F>>,
-    domain_0: &[FieldElement<F>],
+    p_0: Polynomial<FieldElement<Stark252PrimeField>>,
+    domain_0: &[FieldElement<Stark252PrimeField>],
     transcript: &mut T,
-) -> (FieldElement<F>, Vec<FriLayer<F>>)
-where
-    FieldElement<F>: ByteConversion,
-{
+) -> (
+    FieldElement<Stark252PrimeField>,
+    Vec<FriLayer<Stark252PrimeField>>,
+) {
     let mut fri_layer_list = Vec::with_capacity(number_layers);
     let mut current_layer = FriLayer::new(p_0, domain_0);
     fri_layer_list.push(current_layer.clone());
@@ -67,15 +67,12 @@ where
     (last_value, fri_layer_list)
 }
 
-pub fn fri_query_phase<F: IsFFTField, A: AIR<Field = F>, T: Transcript>(
+pub fn fri_query_phase<A: AIR, T: Transcript>(
     air: &A,
-    domain: &Domain<F>,
-    fri_layers: &Vec<FriLayer<F>>,
+    domain: &Domain,
+    fri_layers: &Vec<FriLayer<Stark252PrimeField>>,
     transcript: &mut T,
-) -> (Vec<FriDecommitment<F>>, usize)
-where
-    FieldElement<F>: ByteConversion,
-{
+) -> (Vec<FriDecommitment>, usize) {
     if let Some(first_layer) = fri_layers.get(0) {
         let number_of_queries = air.context().options.fri_number_of_queries;
         let mut iotas: Vec<usize> = Vec::with_capacity(number_of_queries);

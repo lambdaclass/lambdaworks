@@ -28,18 +28,14 @@ impl FibonacciRAP {
 }
 
 impl AIR for FibonacciRAP {
-    type Field = Stark252PrimeField;
-    type RawTrace = Vec<Vec<FieldElement<Self::Field>>>;
-    type RAPChallenges = FieldElement<Self::Field>;
+    type RawTrace = Vec<Vec<FieldElement<Stark252PrimeField>>>;
+    type RAPChallenges = FieldElement<Stark252PrimeField>;
 
-    fn build_main_trace(raw_trace: &Self::RawTrace) -> TraceTable<Self::Field> {
+    fn build_main_trace(raw_trace: &Self::RawTrace) -> TraceTable {
         TraceTable::new_from_cols(raw_trace)
     }
 
-    fn build_auxiliary_trace(
-        main_trace: &TraceTable<Self::Field>,
-        gamma: &Self::RAPChallenges,
-    ) -> TraceTable<Self::Field> {
+    fn build_auxiliary_trace(main_trace: &TraceTable, gamma: &Self::RAPChallenges) -> TraceTable {
         let main_segment_cols = main_trace.cols();
         let not_perm = &main_segment_cols[0];
         let perm = &main_segment_cols[1];
@@ -49,7 +45,7 @@ impl AIR for FibonacciRAP {
         let mut aux_col = Vec::new();
         for i in 0..trace_len {
             if i == 0 {
-                aux_col.push(FieldElement::<Self::Field>::one());
+                aux_col.push(FieldElement::one());
             } else {
                 let z_i = &aux_col[i - 1];
                 let n_p_term = not_perm[i - 1].clone() + gamma;
@@ -71,9 +67,9 @@ impl AIR for FibonacciRAP {
 
     fn compute_transition(
         &self,
-        frame: &Frame<Self::Field>,
+        frame: &Frame<Stark252PrimeField>,
         gamma: &Self::RAPChallenges,
-    ) -> Vec<FieldElement<Self::Field>> {
+    ) -> Vec<FieldElement<Stark252PrimeField>> {
         // Main constraints
         let first_row = frame.get_row(0);
         let second_row = frame.get_row(1);
@@ -98,13 +94,13 @@ impl AIR for FibonacciRAP {
     fn boundary_constraints(
         &self,
         _rap_challenges: &Self::RAPChallenges,
-    ) -> BoundaryConstraints<Self::Field> {
+    ) -> BoundaryConstraints<Stark252PrimeField> {
         // Main boundary constraints
-        let a0 = BoundaryConstraint::new_simple(0, FieldElement::<Self::Field>::one());
-        let a1 = BoundaryConstraint::new_simple(1, FieldElement::<Self::Field>::one());
+        let a0 = BoundaryConstraint::new_simple(0, FieldElement::one());
+        let a1 = BoundaryConstraint::new_simple(1, FieldElement::one());
 
         // Auxiliary boundary constraints
-        let a0_aux = BoundaryConstraint::new(2, 0, FieldElement::<Self::Field>::one());
+        let a0_aux = BoundaryConstraint::new(2, 0, FieldElement::one());
 
         BoundaryConstraints::from_constraints(vec![a0, a1, a0_aux])
     }

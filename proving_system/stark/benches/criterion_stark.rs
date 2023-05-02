@@ -22,10 +22,6 @@ pub fn proof_benchmarks(c: &mut Criterion) {
         bench.iter(functions::stark::prove_fib_2_cols);
     });
 
-    group.bench_function("Fibonacci F17", |bench| {
-        bench.iter(functions::stark::prove_fib17);
-    });
-
     group.bench_function("Quadratic AIR", |bench| {
         bench.iter(functions::stark::prove_quadratic);
     });

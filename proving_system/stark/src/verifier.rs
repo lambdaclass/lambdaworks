@@ -16,8 +16,8 @@ use lambdaworks_crypto::fiat_shamir::test_transcript::TestTranscript;
 
 use lambdaworks_math::{
     field::{
-        element::FieldElement,
-        traits::{IsFFTField, IsField},
+        element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+        traits::IsFFTField,
     },
     helpers,
     polynomial::Polynomial,
@@ -35,30 +35,30 @@ fn step_1_transcript_initialization() -> DefaultTranscript {
     DefaultTranscript::new()
 }
 
-struct Challenges<F: IsFFTField, A: AIR<Field = F>> {
-    z: FieldElement<F>,
-    boundary_coeffs: Vec<(FieldElement<F>, FieldElement<F>)>,
-    transition_coeffs: Vec<(FieldElement<F>, FieldElement<F>)>,
-    trace_term_coeffs: Vec<Vec<FieldElement<F>>>,
-    gamma_even: FieldElement<F>,
-    gamma_odd: FieldElement<F>,
-    zetas: Vec<FieldElement<F>>,
+struct Challenges<A: AIR> {
+    z: FieldElement<Stark252PrimeField>,
+    boundary_coeffs: Vec<(
+        FieldElement<Stark252PrimeField>,
+        FieldElement<Stark252PrimeField>,
+    )>,
+    transition_coeffs: Vec<(
+        FieldElement<Stark252PrimeField>,
+        FieldElement<Stark252PrimeField>,
+    )>,
+    trace_term_coeffs: Vec<Vec<FieldElement<Stark252PrimeField>>>,
+    gamma_even: FieldElement<Stark252PrimeField>,
+    gamma_odd: FieldElement<Stark252PrimeField>,
+    zetas: Vec<FieldElement<Stark252PrimeField>>,
     iotas: Vec<usize>,
     rap_challenges: A::RAPChallenges,
 }
 
-fn step_1_replay_rounds_and_recover_challenges<F, A, T>(
+fn step_1_replay_rounds_and_recover_challenges<A: AIR, T: Transcript>(
     air: &A,
-    proof: &StarkProof<F>,
-    domain: &Domain<F>,
+    proof: &StarkProof<Stark252PrimeField>,
+    domain: &Domain,
     transcript: &mut T,
-) -> Challenges<F, A>
-where
-    F: IsFFTField,
-    FieldElement<F>: ByteConversion,
-    A: AIR<Field = F>,
-    T: Transcript,
-{
+) -> Challenges<A> {
     // ===================================
     // ==========|   Round 1   |==========
     // ===================================
@@ -149,10 +149,10 @@ where
                 .map(|_| transcript_to_field(transcript))
                 .collect()
         })
-        .collect::<Vec<Vec<FieldElement<F>>>>();
+        .collect::<Vec<Vec<FieldElement<_>>>>();
 
     // FRI commit phase
-    let mut zetas: Vec<FieldElement<F>> = Vec::new();
+    let mut zetas = Vec::new();
     let merkle_roots = &proof.fri_layers_merkle_roots;
     for root in merkle_roots.iter() {
         let root_bytes = root.to_bytes_be();
@@ -186,11 +186,11 @@ where
     }
 }
 
-fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>>(
+fn step_2_verify_claimed_composition_polynomial<A: AIR>(
     air: &A,
-    proof: &StarkProof<F>,
-    domain: &Domain<F>,
-    challenges: &Challenges<F, A>,
+    proof: &StarkProof<Stark252PrimeField>,
+    domain: &Domain,
+    challenges: &Challenges<A>,
 ) -> bool {
     // BEGIN TRACE <-> Composition poly consistency evaluation check
     // These are H_1(z^2) and H_2(z^2)
@@ -247,23 +247,24 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
     );
     let max_degree_power_of_two = helpers::next_power_of_two(max_degree as u64);
 
-    let boundary_quotient_ood_evaluations: Vec<FieldElement<F>> = boundary_c_i_evaluations
-        .iter()
-        .zip(boundary_quotient_degrees)
-        .zip(&challenges.boundary_coeffs)
-        .map(|((poly_eval, poly_degree), (alpha, beta))| {
-            poly_eval
-                * (alpha
-                    * challenges
-                        .z
-                        .pow(max_degree_power_of_two - poly_degree as u64)
-                    + beta)
-        })
-        .collect();
+    let boundary_quotient_ood_evaluations: Vec<FieldElement<Stark252PrimeField>> =
+        boundary_c_i_evaluations
+            .iter()
+            .zip(boundary_quotient_degrees)
+            .zip(&challenges.boundary_coeffs)
+            .map(|((poly_eval, poly_degree), (alpha, beta))| {
+                poly_eval
+                    * (alpha
+                        * challenges
+                            .z
+                            .pow(max_degree_power_of_two - poly_degree as u64)
+                        + beta)
+            })
+            .collect();
 
     let boundary_quotient_ood_evaluation = boundary_quotient_ood_evaluations
         .iter()
-        .fold(FieldElement::<F>::zero(), |acc, x| acc + x);
+        .fold(FieldElement::zero(), |acc, x| acc + x);
 
     let transition_ood_frame_evaluations = air.compute_transition(
         &proof.trace_ood_frame_evaluations,
@@ -284,9 +285,7 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
     let composition_poly_ood_evaluation = &boundary_quotient_ood_evaluation
         + transition_c_i_evaluations
             .iter()
-            .fold(FieldElement::<F>::zero(), |acc, evaluation| {
-                acc + evaluation
-            });
+            .fold(FieldElement::zero(), |acc, evaluation| acc + evaluation);
 
     let composition_poly_claimed_ood_evaluation =
         composition_poly_even_ood_evaluation + &challenges.z * composition_poly_odd_ood_evaluation;
@@ -294,17 +293,12 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
     composition_poly_claimed_ood_evaluation == composition_poly_ood_evaluation
 }
 
-fn step_3_verify_fri<F, A>(
+fn step_3_verify_fri<A: AIR>(
     air: &A,
-    proof: &StarkProof<F>,
-    domain: &Domain<F>,
-    challenges: &Challenges<F, A>,
-) -> bool
-where
-    F: IsFFTField,
-    FieldElement<F>: ByteConversion,
-    A: AIR<Field = F>,
-{
+    proof: &StarkProof<Stark252PrimeField>,
+    domain: &Domain,
+    challenges: &Challenges<A>,
+) -> bool {
     let mut result = true;
     // Verify FRI
     for (proof_s, iota_s) in proof.query_list.iter().zip(challenges.iotas.iter()) {
@@ -323,14 +317,11 @@ where
     result
 }
 
-fn step_4_verify_deep_composition_polynomial<F: IsFFTField, A: AIR<Field = F>>(
-    proof: &StarkProof<F>,
-    domain: &Domain<F>,
-    challenges: &Challenges<F, A>,
-) -> bool
-where
-    FieldElement<F>: ByteConversion,
-{
+fn step_4_verify_deep_composition_polynomial<A: AIR>(
+    proof: &StarkProof<Stark252PrimeField>,
+    domain: &Domain,
+    challenges: &Challenges<A>,
+) -> bool {
     let mut result = true;
 
     let iota_0 = challenges.iotas[0];
@@ -379,18 +370,15 @@ where
     result
 }
 
-fn verify_query_and_sym_openings<F: IsField + IsFFTField, A: AIR<Field = F>>(
+fn verify_query_and_sym_openings<A: AIR>(
     air: &A,
-    fri_layers_merkle_roots: &[FieldElement<F>],
-    fri_last_value: &FieldElement<F>,
-    zetas: &[FieldElement<F>],
+    fri_layers_merkle_roots: &[FieldElement<Stark252PrimeField>],
+    fri_last_value: &FieldElement<Stark252PrimeField>,
+    zetas: &[FieldElement<Stark252PrimeField>],
     iota: usize,
-    fri_decommitment: &FriDecommitment<F>,
-    domain: &Domain<F>,
-) -> bool
-where
-    FieldElement<F>: ByteConversion,
-{
+    fri_decommitment: &FriDecommitment,
+    domain: &Domain,
+) -> bool {
     // Verify opening Open(p₀(D₀), 𝜐ₛ)
     if !fri_decommitment.first_layer_auth_path.verify(
         &fri_layers_merkle_roots[0],
@@ -401,7 +389,8 @@ where
         return false;
     }
 
-    let lde_primitive_root = F::get_primitive_root_of_unity(domain.lde_root_order as u64).unwrap();
+    let lde_primitive_root =
+        Stark252PrimeField::get_primitive_root_of_unity(domain.lde_root_order as u64).unwrap();
     let offset = FieldElement::from(air.options().coset_offset);
     // evaluation point = offset * w ^ i in the Stark literature
     let mut evaluation_point = offset * lde_primitive_root.pow(iota);
@@ -460,12 +449,13 @@ where
 }
 
 // Reconstruct Deep(\upsilon_0) off the values in the proof
-fn reconstruct_deep_composition_poly_evaluation<F: IsFFTField, A: AIR<Field = F>>(
-    proof: &StarkProof<F>,
-    domain: &Domain<F>,
-    challenges: &Challenges<F, A>,
-) -> FieldElement<F> {
-    let primitive_root = &F::get_primitive_root_of_unity(domain.root_order as u64).unwrap();
+fn reconstruct_deep_composition_poly_evaluation<A: AIR>(
+    proof: &StarkProof<Stark252PrimeField>,
+    domain: &Domain,
+    challenges: &Challenges<A>,
+) -> FieldElement<Stark252PrimeField> {
+    let primitive_root =
+        &Stark252PrimeField::get_primitive_root_of_unity(domain.root_order as u64).unwrap();
     let upsilon_0 = &domain.lde_roots_of_unity_coset[challenges.iotas[0]];
 
     let mut trace_terms = FieldElement::zero();
@@ -496,12 +486,7 @@ fn reconstruct_deep_composition_poly_evaluation<F: IsFFTField, A: AIR<Field = F>
     trace_terms + h_1_term * &challenges.gamma_even + h_2_term * &challenges.gamma_odd
 }
 
-pub fn verify<F, A>(proof: &StarkProof<F>, air: &A) -> bool
-where
-    F: IsFFTField,
-    A: AIR<Field = F>,
-    FieldElement<F>: ByteConversion,
-{
+pub fn verify<A: AIR>(proof: &StarkProof<Stark252PrimeField>, air: &A) -> bool {
     let mut transcript = step_1_transcript_initialization();
     let domain = Domain::new(air);
 

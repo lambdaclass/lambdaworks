@@ -1,10 +1,8 @@
-use lambdaworks_math::field::fields::{
-    fft_friendly::stark_252_prime_field::Stark252PrimeField, u64_prime_field::FE17,
-};
+use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
 use lambdaworks_math::helpers::resize_to_next_power_of_two;
 use lambdaworks_stark::air::example::fibonacci_rap::{fibonacci_rap_trace, FibonacciRAP};
 use lambdaworks_stark::air::example::{
-    cairo, fibonacci_2_columns, fibonacci_f17, quadratic_air, simple_fibonacci,
+    cairo, fibonacci_2_columns, quadratic_air, simple_fibonacci,
 };
 use lambdaworks_stark::cairo_vm::cairo_mem::CairoMemory;
 use lambdaworks_stark::cairo_vm::cairo_trace::CairoTrace;
@@ -37,30 +35,6 @@ fn test_prove_fib() {
     };
 
     let fibonacci_air = simple_fibonacci::FibonacciAIR::from(context);
-
-    let result = prove(&trace, &fibonacci_air);
-    assert!(verify(&result, &fibonacci_air));
-}
-
-#[test_log::test]
-fn test_prove_fib17() {
-    let trace = simple_fibonacci::fibonacci_trace([FE17::from(1), FE17::from(1)], 4);
-
-    let context = AirContext {
-        options: ProofOptions {
-            blowup_factor: 2,
-            fri_number_of_queries: 1,
-            coset_offset: 3,
-        },
-        trace_length: trace[0].len(),
-        trace_columns: 1,
-        transition_degrees: vec![1],
-        transition_exemptions: vec![2],
-        transition_offsets: vec![0, 1, 2],
-        num_transition_constraints: 1,
-    };
-
-    let fibonacci_air = fibonacci_f17::Fibonacci17AIR::from(context);
 
     let result = prove(&trace, &fibonacci_air);
     assert!(verify(&result, &fibonacci_air));

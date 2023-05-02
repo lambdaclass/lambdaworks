@@ -1,6 +1,10 @@
 use lambdaworks_math::{
-    field::{element::FieldElement, traits::IsField},
+    field::{
+        element::FieldElement,
+        fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
+    },
     traits::ByteConversion,
+    unsigned_integer::element::UnsignedInteger,
 };
 use sha3::{Digest, Sha3_256};
 
@@ -67,27 +71,30 @@ impl Sha3Hasher {
         a.iter().zip(b).map(|(a, b)| a ^ b).collect()
     }
 }
-impl<F: IsField> IsCryptoHash<F> for Sha3Hasher {
-    fn hash_one(&self, input: &FieldElement<F>) -> FieldElement<F>
-    where
-        FieldElement<F>: ByteConversion,
-    {
+impl<M: IsModulus<UnsignedInteger<N>> + Clone, const N: usize>
+    IsCryptoHash<MontgomeryBackendPrimeField<M, N>> for Sha3Hasher
+{
+    fn hash_one(
+        &self,
+        input: &FieldElement<MontgomeryBackendPrimeField<M, N>>,
+    ) -> FieldElement<MontgomeryBackendPrimeField<M, N>> {
         let mut hasher = Sha3_256::new();
         hasher.update(input.to_bytes_be());
         let mut result_hash = [0_u8; 32];
         result_hash.copy_from_slice(&hasher.finalize());
-        FieldElement::<F>::from_bytes_le(&result_hash).unwrap()
+        FieldElement::from_bytes_le(&result_hash).unwrap()
     }
 
-    fn hash_two(&self, left: &FieldElement<F>, right: &FieldElement<F>) -> FieldElement<F>
-    where
-        FieldElement<F>: ByteConversion,
-    {
+    fn hash_two(
+        &self,
+        left: &FieldElement<MontgomeryBackendPrimeField<M, N>>,
+        right: &FieldElement<MontgomeryBackendPrimeField<M, N>>,
+    ) -> FieldElement<MontgomeryBackendPrimeField<M, N>> {
         let mut hasher = Sha3_256::new();
         hasher.update(left.to_bytes_be());
         hasher.update(right.to_bytes_be());
         let mut result_hash = [0_u8; 32];
         result_hash.copy_from_slice(&hasher.finalize());
-        FieldElement::<F>::from_bytes_le(&result_hash).unwrap()
+        FieldElement::from_bytes_le(&result_hash).unwrap()
     }
 }

@@ -25,11 +25,10 @@ impl From<AirContext> for QuadraticAIR {
 }
 
 impl AIR for QuadraticAIR {
-    type Field = Stark252PrimeField;
-    type RawTrace = Vec<FieldElement<Self::Field>>;
+    type RawTrace = Vec<FieldElement<Stark252PrimeField>>;
     type RAPChallenges = ();
 
-    fn build_main_trace(raw_trace: &Self::RawTrace) -> TraceTable<Self::Field> {
+    fn build_main_trace(raw_trace: &Self::RawTrace) -> TraceTable {
         TraceTable {
             table: raw_trace.clone(),
             n_cols: 1,
@@ -37,9 +36,9 @@ impl AIR for QuadraticAIR {
     }
 
     fn build_auxiliary_trace(
-        _main_trace: &TraceTable<Self::Field>,
+        _main_trace: &TraceTable,
         _rap_challenges: &Self::RAPChallenges,
-    ) -> TraceTable<Self::Field> {
+    ) -> TraceTable {
         TraceTable::empty()
     }
 
@@ -47,9 +46,9 @@ impl AIR for QuadraticAIR {
 
     fn compute_transition(
         &self,
-        frame: &air::frame::Frame<Self::Field>,
+        frame: &air::frame::Frame<Stark252PrimeField>,
         _rap_challenges: &Self::RAPChallenges,
-    ) -> Vec<FieldElement<Self::Field>> {
+    ) -> Vec<FieldElement<Stark252PrimeField>> {
         let first_row = frame.get_row(0);
         let second_row = frame.get_row(1);
 
@@ -59,8 +58,8 @@ impl AIR for QuadraticAIR {
     fn boundary_constraints(
         &self,
         _rap_challenges: &Self::RAPChallenges,
-    ) -> BoundaryConstraints<Self::Field> {
-        let a0 = BoundaryConstraint::new_simple(0, FieldElement::<Self::Field>::from(3));
+    ) -> BoundaryConstraints<Stark252PrimeField> {
+        let a0 = BoundaryConstraint::new_simple(0, FieldElement::from(3));
 
         BoundaryConstraints::from_constraints(vec![a0])
     }

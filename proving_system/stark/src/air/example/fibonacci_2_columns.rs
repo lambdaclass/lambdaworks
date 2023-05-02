@@ -25,18 +25,17 @@ impl From<AirContext> for Fibonacci2ColsAIR {
 }
 
 impl AIR for Fibonacci2ColsAIR {
-    type Field = Stark252PrimeField;
-    type RawTrace = Vec<Vec<FieldElement<Self::Field>>>;
+    type RawTrace = Vec<Vec<FieldElement<Stark252PrimeField>>>;
     type RAPChallenges = ();
 
-    fn build_main_trace(raw_trace: &Self::RawTrace) -> TraceTable<Self::Field> {
+    fn build_main_trace(raw_trace: &Self::RawTrace) -> TraceTable {
         TraceTable::new_from_cols(raw_trace)
     }
 
     fn build_auxiliary_trace(
-        _main_trace: &TraceTable<Self::Field>,
+        _main_trace: &TraceTable,
         _rap_challenges: &Self::RAPChallenges,
-    ) -> TraceTable<Self::Field> {
+    ) -> TraceTable {
         TraceTable::empty()
     }
 
@@ -44,9 +43,9 @@ impl AIR for Fibonacci2ColsAIR {
 
     fn compute_transition(
         &self,
-        frame: &air::frame::Frame<Self::Field>,
+        frame: &air::frame::Frame<Stark252PrimeField>,
         _rap_challenges: &Self::RAPChallenges,
-    ) -> Vec<FieldElement<Self::Field>> {
+    ) -> Vec<FieldElement<Stark252PrimeField>> {
         let first_row = frame.get_row(0);
         let second_row = frame.get_row(1);
 
@@ -62,9 +61,9 @@ impl AIR for Fibonacci2ColsAIR {
     fn boundary_constraints(
         &self,
         _rap_challenges: &Self::RAPChallenges,
-    ) -> BoundaryConstraints<Self::Field> {
-        let a0 = BoundaryConstraint::new(0, 0, FieldElement::<Self::Field>::one());
-        let a1 = BoundaryConstraint::new(1, 0, FieldElement::<Self::Field>::one());
+    ) -> BoundaryConstraints<Stark252PrimeField> {
+        let a0 = BoundaryConstraint::new(0, 0, FieldElement::one());
+        let a1 = BoundaryConstraint::new(1, 0, FieldElement::one());
 
         BoundaryConstraints::from_constraints(vec![a0, a1])
     }
