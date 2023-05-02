@@ -227,4 +227,4 @@ The idea explained above is called the Fiat-Shamir heuristic or just `Fiat-Shami
 ## FFT evaluation and interpolation
 When evaluating or interpolating a polynomial, if the input (be it coefficients or evaluations) size isn't a power of two then the FFT API will extend it with zero padding until this requirement is met. This is because the library currently only uses a radix-2 FFT algorithm.
 
-Also, right now FFT only supports inputs with a size up to $2^{2^32}$ elements.
+Also, right now FFT only supports inputs with a size up to $2^{2^64}$ elements.
