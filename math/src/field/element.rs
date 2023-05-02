@@ -381,7 +381,8 @@ impl<F: IsPrimeField> FieldElement<F> {
 
 impl<F: IsPrimeField> FieldElement<F>
 {
-    // Returns the representative of the value stored
+    // Returns the two square roots of `self` if it exists
+    // none if it doesn't 
     pub fn sqrt(&self) -> Option<(Self, Self)> {
         match self.legendre_symbol() {
             0 => return Some((Self::zero(), Self::zero())), // self is 0
@@ -589,5 +590,15 @@ mod tests {
         let sqrt = input.sqrt().unwrap();
         let result = FrElement::from(5);
         assert_eq!(sqrt.0, result);
+    }
+
+    #[test]
+    fn sqrt_of_27_for_stark_field_does_not_exist() {
+        type FrField = Stark252PrimeField;
+        type FrElement = FieldElement<FrField>;
+
+        let input = FrElement::from(27);
+        let sqrt = input.sqrt();
+        assert!(sqrt.is_none());
     }
 }
