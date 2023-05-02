@@ -1,5 +1,3 @@
-use std::fmt::Debug;
-
 use lambdaworks_math::{
     field::{
         element::FieldElement,
@@ -8,7 +6,7 @@ use lambdaworks_math::{
     unsigned_integer::element::UnsignedInteger,
 };
 
-pub fn hash_to_field<M: IsModulus<UnsignedInteger<N>> + Clone + Debug, const N: usize>(
+pub fn hash_to_field<M: IsModulus<UnsignedInteger<N>> + Clone, const N: usize>(
     pseudo_random_bytes: &[u8],
     count: usize,
 ) -> Vec<FieldElement<MontgomeryBackendPrimeField<M, N>>> {
@@ -29,7 +27,7 @@ pub fn hash_to_field<M: IsModulus<UnsignedInteger<N>> + Clone + Debug, const N: 
 
 /// Converts an octet string to a nonnegative integer.
 /// For more info, see https://www.rfc-editor.org/rfc/pdfrfc/rfc8017.txt.pdf
-fn os2ip<M: IsModulus<UnsignedInteger<N>> + Clone + Debug, const N: usize>(
+fn os2ip<M: IsModulus<UnsignedInteger<N>> + Clone, const N: usize>(
     x: &[u8],
 ) -> FieldElement<MontgomeryBackendPrimeField<M, N>> {
     let mut aux_x = x.to_vec();
@@ -51,7 +49,7 @@ fn os2ip<M: IsModulus<UnsignedInteger<N>> + Clone + Debug, const N: usize>(
 
 /// Builds a `FieldElement` for `2^(N*16)`, where `N` is the number of limbs of the `UnsignedInteger`
 /// used for the prime field.
-fn build_two_to_the_nth<M: IsModulus<UnsignedInteger<N>> + Clone + Debug, const N: usize>(
+fn build_two_to_the_nth<M: IsModulus<UnsignedInteger<N>> + Clone, const N: usize>(
 ) -> FieldElement<MontgomeryBackendPrimeField<M, N>> {
     // The hex used to build the FieldElement is a 1 followed by N * 16 zeros
     let mut two_to_the_nth = String::with_capacity(N * 16);
