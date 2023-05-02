@@ -382,7 +382,7 @@ impl<F: IsPrimeField> FieldElement<F> {
 impl<F: IsPrimeField> FieldElement<F>
 {
     // Returns the two square roots of `self` if it exists
-    // none if it doesn't 
+    // `None` if it doesn't 
     pub fn sqrt(&self) -> Option<(Self, Self)> {
         match self.legendre_symbol() {
             0 => return Some((Self::zero(), Self::zero())), // self is 0
