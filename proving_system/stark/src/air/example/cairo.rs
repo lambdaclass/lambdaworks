@@ -184,7 +184,7 @@ impl AIR for CairoAIR {
 
 /// From the Cairo whitepaper, section 9.10
 fn compute_instr_constraints(constraints: &mut [FE], frame: &Frame<Stark252PrimeField>) {
-    // This constraints are only applied over elements of the same row.
+    // These constraints are only applied over elements of the same row.
     let curr = frame.get_row(0);
 
     // Bit constraints
@@ -213,7 +213,7 @@ fn compute_instr_constraints(constraints: &mut [FE], frame: &Frame<Stark252Prime
 }
 
 fn compute_operand_constraints(constraints: &mut [FE], frame: &Frame<Stark252PrimeField>) {
-    // This constraints are only applied over elements of the same row.
+    // These constraints are only applied over elements of the same row.
     let curr = frame.get_row(0);
 
     let ap = &curr[FRAME_AP];
