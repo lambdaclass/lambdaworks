@@ -6,6 +6,9 @@ use lambdaworks_math::{
     unsigned_integer::element::UnsignedInteger,
 };
 
+/// Converts a hash, represented by an array of bytes, into a vector of field elements
+/// For more info, see
+/// https://www.ietf.org/id/draft-irtf-cfrg-hash-to-curve-16.html#name-hashing-to-a-finite-field
 pub fn hash_to_field<M: IsModulus<UnsignedInteger<N>> + Clone, const N: usize>(
     pseudo_random_bytes: &[u8],
     count: usize,
