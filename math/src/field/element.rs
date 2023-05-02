@@ -3,7 +3,7 @@ use crate::traits::ByteConversion;
 use crate::unsigned_integer::element::UnsignedInteger;
 use crate::unsigned_integer::montgomery::MontgomeryAlgorithms;
 use crate::unsigned_integer::traits::IsUnsignedInteger;
-use std::fmt::{self};
+use std::fmt;
 use std::iter::Sum;
 use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
 use std::{
@@ -395,7 +395,6 @@ where
 
         let (zero, one, two) = (Self::zero(), Self::one(), Self::from(2));
 
-        // Factor p-1 on the form q * 2^s (with Q odd).
         let mut q = Self::zero() - &one;
         let mut s = Self::zero();
 
@@ -415,13 +414,11 @@ where
             non_qr.pow(q.representative())
         };
 
-        // Search for a solution.
         let mut x = self.pow(((&q + &one) / &two).representative());
         let mut t = self.pow(q.representative());
         let mut m = s;
 
         while t != one {
-            // Find the lowest i such that t^(2^i) = 1.
             let mut i = zero.clone();
             let mut e = FieldElement::from(2);
             while i.representative() < m.representative() {
@@ -432,7 +429,6 @@ where
                 e = e * &two;
             }
 
-            // Update values for next iter
             let b = c.pow(two.pow((m - &i - &one).representative()).representative());
 
             x = x * &b;
