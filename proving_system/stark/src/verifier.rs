@@ -252,21 +252,19 @@ fn step_2_verify_claimed_composition_polynomial<F: IsTwoAdicField, A: AIR<Field 
     composition_poly_claimed_ood_evaluation == composition_poly_ood_evaluation
 }
 
-fn step_3_verify_fri<F, T, A>(
+fn step_3_verify_fri<F, A>(
     air: &A,
     proof: &StarkProof<F>,
     domain: &Domain<F>,
     challenges: &Challenges<F>,
-    transcript: &mut T,
 ) -> bool
 where
     F: IsTwoAdicField,
     FieldElement<F>: ByteConversion,
-    T: Transcript,
     A: AIR<Field = F>,
 {
-    // 2. Verify that t(x_0) is a trace evaluation
-    // 3. Verify first layer of FRI
+    // Verify that t(x_0) is a trace evaluation
+    // and verify first layer of FRI
     if !verify_trace_evaluations(
         &proof.deep_consistency_check,
         challenges.q_0,
@@ -308,7 +306,7 @@ fn step_4_verify_deep_composition_polynomial<F: IsTwoAdicField>(
 ) -> bool {
     //
     // DEEP consistency check
-    // 1. Verify that Deep(x) is constructed correctly
+    // Verify that Deep(x) is constructed correctly
     let deep_composition_poly_args = &mut DeepCompositionPolyArgs {
         root_order: domain.root_order,
         trace_term_coeffs: &challenges.trace_term_coeffs,
