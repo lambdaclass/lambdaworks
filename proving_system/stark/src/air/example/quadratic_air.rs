@@ -16,12 +16,14 @@ pub struct QuadraticAIR {
     context: AirContext,
 }
 
-impl AIR for QuadraticAIR {
-    type Field = Stark252PrimeField;
-
-    fn new(context: air::context::AirContext) -> Self {
+impl From<AirContext> for QuadraticAIR {
+    fn from(context: AirContext) -> Self {
         Self { context }
     }
+}
+
+impl AIR for QuadraticAIR {
+    type Field = Stark252PrimeField;
 
     fn compute_transition(
         &self,
@@ -30,7 +32,7 @@ impl AIR for QuadraticAIR {
         let first_row = frame.get_row(0);
         let second_row = frame.get_row(1);
 
-        vec![second_row[0].clone() - first_row[0].clone() * first_row[0].clone()]
+        vec![&second_row[0] - &first_row[0] * &first_row[0]]
     }
 
     fn boundary_constraints(&self) -> BoundaryConstraints<Self::Field> {

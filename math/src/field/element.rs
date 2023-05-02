@@ -2,6 +2,7 @@ use crate::field::traits::IsField;
 use crate::unsigned_integer::element::UnsignedInteger;
 use crate::unsigned_integer::montgomery::MontgomeryAlgorithms;
 use crate::unsigned_integer::traits::IsUnsignedInteger;
+use std::fmt;
 use std::iter::Sum;
 use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
 use std::{
@@ -363,6 +364,18 @@ impl<F: IsPrimeField> FieldElement<F> {
     }
 }
 
+impl<M, const NUM_LIMBS: usize> fmt::Display
+    for FieldElement<MontgomeryBackendPrimeField<M, NUM_LIMBS>>
+where
+    M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let value: UnsignedInteger<NUM_LIMBS> = self.representative();
+        let res = format!("{}", value);
+        write!(f, "{}", res)
+    }
+}
+
 impl<M, const NUM_LIMBS: usize> FieldElement<MontgomeryBackendPrimeField<M, NUM_LIMBS>>
 where
     M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug,
@@ -385,7 +398,9 @@ where
 mod tests {
 
     use crate::field::element::FieldElement;
+    use crate::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
     use crate::field::test_fields::u64_test_field::U64TestField;
+    use crate::unsigned_integer::element::UnsignedInteger;
 
     #[test]
     fn test_std_iter_sum_field_element() {
@@ -409,6 +424,23 @@ mod tests {
                 .sum::<FieldElement<U64TestField>>()
                 .value,
             0
+        );
+    }
+
+    #[test]
+    fn test_display_montgomery_field() {
+        let zero_field_element = FieldElement::<Stark252PrimeField>::from(0);
+        assert_eq!(format!("{}", zero_field_element), "0x0");
+
+        let some_field_element =
+            FieldElement::<Stark252PrimeField>::from(&UnsignedInteger::from_limbs([
+                0x0, 0x1, 0x0, 0x1,
+            ]));
+
+        // it should start with the first non-zero digit. Each limb has 16 digits in hex.
+        assert_eq!(
+            format!("{}", some_field_element),
+            format!("0x{}{}{}{}", "1", "0".repeat(16), "0".repeat(15), "1")
         );
     }
 }

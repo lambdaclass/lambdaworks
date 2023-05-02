@@ -24,4 +24,6 @@ pub enum InstructionDecodingError {
     InvalidOp0Reg,
     #[error("Invalid dst_reg value")]
     InvalidDstReg,
+    #[error("Instruction not found in memory")]
+    InstructionNotFound,
 }
