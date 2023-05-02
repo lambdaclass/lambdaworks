@@ -21,5 +21,5 @@ iai::main!(
     simple_fibonacci_benchmarks,
     two_col_fibonacci_benchmarks,
     fibonacci_f17_benchmarks,
-    quadratic_air_benchmarks
+    quadratic_air_benchmarks,
 );

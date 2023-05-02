@@ -121,6 +121,10 @@ pub fn prove_quadratic() {
     verify(&result, &quadratic_air);
 }
 
+// We added an attribute to disable the `dead_code` lint because clippy doesn't take into account
+// functions used by criterion.
+
+#[allow(dead_code)]
 pub fn prove_cairo_fibonacci_5() {
     let base_dir = env!("CARGO_MANIFEST_DIR");
     let dir_trace = base_dir.to_owned() + "/src/cairo_vm/test_data/fibonacci_5.trace";
@@ -142,6 +146,7 @@ pub fn prove_cairo_fibonacci_5() {
     prove(&execution_trace, &cairo_air);
 }
 
+#[allow(dead_code)]
 pub fn prove_cairo_fibonacci_10() {
     let base_dir = env!("CARGO_MANIFEST_DIR");
     let dir_trace = base_dir.to_owned() + "/src/cairo_vm/test_data/fibonacci_10.trace";
@@ -163,6 +168,7 @@ pub fn prove_cairo_fibonacci_10() {
     prove(&execution_trace, &cairo_air);
 }
 
+#[allow(dead_code)]
 pub fn prove_cairo_fibonacci_30() {
     let base_dir = env!("CARGO_MANIFEST_DIR");
     let dir_trace = base_dir.to_owned() + "/src/cairo_vm/test_data/fibonacci_30.trace";
@@ -184,6 +190,7 @@ pub fn prove_cairo_fibonacci_30() {
     prove(&execution_trace, &cairo_air);
 }
 
+#[allow(dead_code)]
 pub fn prove_cairo_fibonacci_50() {
     let base_dir = env!("CARGO_MANIFEST_DIR");
     let dir_trace = base_dir.to_owned() + "/src/cairo_vm/test_data/fibonacci_50.trace";
@@ -205,6 +212,7 @@ pub fn prove_cairo_fibonacci_50() {
     prove(&execution_trace, &cairo_air);
 }
 
+#[allow(dead_code)]
 pub fn prove_cairo_fibonacci_100() {
     let base_dir = env!("CARGO_MANIFEST_DIR");
     let dir_trace = base_dir.to_owned() + "/src/cairo_vm/test_data/fibonacci_100.trace";
