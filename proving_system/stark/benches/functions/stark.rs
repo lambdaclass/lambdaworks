@@ -140,7 +140,6 @@ pub fn prove_cairo_fibonacci_5() {
     let cairo_air = cairo::CairoAIR::new(proof_options, &execution_trace);
 
     prove(&execution_trace, &cairo_air);
-    // assert!(verify(&result, &cairo_air));
 }
 
 pub fn prove_cairo_fibonacci_10() {
@@ -162,7 +161,6 @@ pub fn prove_cairo_fibonacci_10() {
     let cairo_air = cairo::CairoAIR::new(proof_options, &execution_trace);
 
     prove(&execution_trace, &cairo_air);
-    // assert!(verify(&result, &cairo_air));
 }
 
 pub fn prove_cairo_fibonacci_30() {
@@ -184,7 +182,6 @@ pub fn prove_cairo_fibonacci_30() {
     let cairo_air = cairo::CairoAIR::new(proof_options, &execution_trace);
 
     prove(&execution_trace, &cairo_air);
-    // assert!(verify(&result, &cairo_air));
 }
 
 pub fn prove_cairo_fibonacci_50() {
@@ -206,7 +203,6 @@ pub fn prove_cairo_fibonacci_50() {
     let cairo_air = cairo::CairoAIR::new(proof_options, &execution_trace);
 
     prove(&execution_trace, &cairo_air);
-    // assert!(verify(&result, &cairo_air));
 }
 
 pub fn prove_cairo_fibonacci_100() {
@@ -228,5 +224,4 @@ pub fn prove_cairo_fibonacci_100() {
     let cairo_air = cairo::CairoAIR::new(proof_options, &execution_trace);
 
     prove(&execution_trace, &cairo_air);
-    // assert!(verify(&result, &cairo_air));
 }
