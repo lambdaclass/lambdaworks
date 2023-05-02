@@ -385,11 +385,11 @@ where
     FieldElement<F>: ByteConversion,
 {
     // Returns the representative of the value stored
-    pub fn sqrt(&self) -> Option<(Self,Self)> {
+    pub fn sqrt(&self) -> Option<(Self, Self)> {
         match self.legendre_symbol() {
             0 => return Some((Self::zero(), Self::zero())), // self is 0
-            -1 => return None,              // self is quadratic non-residue
-            1 => (),                        // self is quadratic residue
+            -1 => return None,                              // self is quadratic non-residue
+            1 => (),                                        // self is quadratic residue
             _ => unreachable!(),
         };
 
@@ -400,7 +400,6 @@ where
         let mut s = Self::zero();
 
         while q.is_even() {
-
             s = s + &one;
             q = q / &two;
             println!("Qi: {:?}", q);
