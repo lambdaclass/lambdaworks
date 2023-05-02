@@ -11,8 +11,10 @@ We will once again use the fibonacci example as an ilustration. Recall from the 
 - Compute the transition constraint polynomial `C`.
 - Construct the composition polynomial `H` from `B` and `C`.
 - Sample an out of domain point `z` and provide the evaluation $H(z)$ and all the necessary trace evaluations to reconstruct it. In the fibonacci case, these are $t(z)$, $t(zg)$, and $t(zg^2)$.
+- Sample a domain point `x_0` and provide the evaluation $H(x_0)$ and $t(x_0)$.
 - Construct the deep composition polynomial `Deep(x)` from `H`, `t`, and the evaluations from the item above.
 - Do `FRI` on `Deep(x)` and provide the resulting FRI commitment to the verifier.
+- Provide the merkle root of `t` and the merkle proof of $t(x_0)$.
 
 ### Verifier side
 
@@ -21,7 +23,13 @@ We will once again use the fibonacci example as an ilustration. Recall from the 
     $$
     H(z) = B(z) (\alpha_1 z^{D - deg(B)} + \beta_1) + C(z) (\alpha_2 z^{D - deg(C)} + \beta_2)
     $$
+- Take the evaluations $H(x_0)$ and $t(x_0)$.
+- Check that the claimed evaluation $Deep(x_0)$ the prover gave us actually satisfies
+    $$
+    Deep(x_0) = \gamma_1 \dfrac{H(x_0) - H(z)}{x_0 - z} + \gamma_2 \dfrac{t(x_0) - t(z)}{x_0 - z} + \gamma_3 \dfrac{t(x_0) - t(zg)}{x_0 - zg} + \gamma_4 \dfrac{t(x_0) - t(zg^2)}{x_0 - zg^2}
+    $$
 - Take the provided `FRI` commitment and check that it verifies.
+- Using the merkle root and the merkle proof the prover provided, check that $t(x_0)$ belongs to the trace.
 
 Following along the code in the `prove` and `verify` functions, most of it maps pretty well to the steps above. The main things that are not immediately clear are:
 

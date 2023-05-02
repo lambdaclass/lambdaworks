@@ -371,22 +371,8 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let value: UnsignedInteger<NUM_LIMBS> = self.representative();
-        let mut limbs_iterator = value.limbs.iter().skip_while(|limb| **limb == 0).peekable();
-
-        if limbs_iterator.peek().is_none() {
-            write!(f, "0x0")?;
-        } else {
-            write!(f, "0x")?;
-            if let Some(most_significant_limb) = limbs_iterator.next() {
-                write!(f, "{:x}", most_significant_limb)?;
-            }
-
-            for limb in limbs_iterator {
-                write!(f, "{:016x}", limb)?;
-            }
-        }
-
-        Ok(())
+        let res = format!("{}", value);
+        write!(f, "{}", res)
     }
 }
 

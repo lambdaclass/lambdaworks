@@ -45,7 +45,7 @@ jobs:
       - name: Run clippy
         run: make clippy
   test:
-    name: Test
+    name: Test (Ubuntu)
     runs-on: ubuntu-latest
     env:
       CARGO_TERM_COLOR: always
@@ -65,3 +65,17 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: lcov.info
           fail_ci_if_error: true
+  test_macos:
+    name: Test (macOS, Apple sillicon)
+    runs-on: [self-hosted, macOS]
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v3
+      - name: Rustup toolchain install
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          components: clippy
+      - name: Run tests
+        run: cargo test -F metal

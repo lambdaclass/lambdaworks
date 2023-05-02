@@ -30,6 +30,6 @@ criterion = "0.4.0"
 lambdaworks-fft = { path = "../fft" }
 
 [[bench]]
-name = "metal_benchmarks"
+name = "criterion_metal"
 harness = false
 required-features = ["metal"]
