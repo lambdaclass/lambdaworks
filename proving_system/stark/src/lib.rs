@@ -53,6 +53,7 @@ pub fn sample_z_ood<F: IsField, T: Transcript>(
 }
 
 pub struct Domain<F: IsTwoAdicField> {
+    root_order: u32,
     lde_roots_of_unity_coset: Vec<FieldElement<F>>,
     lde_root_order: u32,
     trace_primitive_root: FieldElement<F>,
@@ -84,6 +85,7 @@ impl<F: IsTwoAdicField> Domain<F> {
         .unwrap();
 
         Self {
+            root_order,
             lde_roots_of_unity_coset,
             lde_root_order,
             trace_primitive_root,
