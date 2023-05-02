@@ -3,19 +3,19 @@ use crate::air::AIR;
 use lambdaworks_fft::errors::FFTError;
 use lambdaworks_fft::polynomial::FFTPoly;
 use lambdaworks_math::{
-    field::{element::FieldElement, traits::IsTwoAdicField},
+    field::{element::FieldElement, traits::IsFFTField},
     polynomial::Polynomial,
 };
 use log::{error, info};
 
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
-pub struct TraceTable<F: IsTwoAdicField> {
+pub struct TraceTable<F: IsFFTField> {
     /// `table` is row-major trace element description
     pub table: Vec<FieldElement<F>>,
     pub n_cols: usize,
 }
 
-impl<F: IsTwoAdicField> TraceTable<F> {
+impl<F: IsFFTField> TraceTable<F> {
     pub fn new_from_cols(cols: &[Vec<FieldElement<F>>]) -> Self {
         let n_cols = cols.len();
         let n_rows = cols[0].len();

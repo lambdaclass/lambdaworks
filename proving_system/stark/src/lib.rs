@@ -12,7 +12,7 @@ use lambdaworks_fft::roots_of_unity::get_powers_of_primitive_root_coset;
 use lambdaworks_math::field::{
     element::FieldElement,
     fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
-    traits::{IsField, IsTwoAdicField},
+    traits::{IsFFTField, IsField},
 };
 
 pub struct ProofConfig {
@@ -52,7 +52,7 @@ pub fn sample_z_ood<F: IsField, T: Transcript>(
     }
 }
 
-pub struct Domain<F: IsTwoAdicField> {
+pub struct Domain<F: IsFFTField> {
     root_order: u32,
     lde_roots_of_unity_coset: Vec<FieldElement<F>>,
     lde_root_order: u32,
@@ -60,7 +60,7 @@ pub struct Domain<F: IsTwoAdicField> {
     trace_roots_of_unity: Vec<FieldElement<F>>,
 }
 
-impl<F: IsTwoAdicField> Domain<F> {
+impl<F: IsFFTField> Domain<F> {
     fn new<A: AIR<Field = F>>(air: &A) -> Self {
         // Initial definitions
         let blowup_factor = air.options().blowup_factor as usize;

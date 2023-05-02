@@ -1,4 +1,4 @@
-use crate::field::traits::{IsField, IsTwoAdicField};
+use crate::field::traits::{IsFFTField, IsField};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 
@@ -57,7 +57,7 @@ impl<const MODULUS: u32> IsField for U32Field<MODULUS> {
 pub type U32TestField = U32Field<2013265921>;
 
 // These params correspond to the 2013265921 modulus.
-impl IsTwoAdicField for U32TestField {
+impl IsFFTField for U32TestField {
     const TWO_ADICITY: u64 = 27;
     const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: u32 = 440532289;
 }

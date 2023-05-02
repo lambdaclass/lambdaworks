@@ -19,14 +19,14 @@ use lambdaworks_crypto::fiat_shamir::test_transcript::TestTranscript;
 use lambdaworks_math::{
     field::{
         element::FieldElement,
-        traits::{IsField, IsTwoAdicField},
+        traits::{IsFFTField, IsField},
     },
     helpers,
     polynomial::Polynomial,
     traits::ByteConversion,
 };
 
-struct DeepCompositionPolyArgs<'a, F: IsTwoAdicField> {
+struct DeepCompositionPolyArgs<'a, F: IsFFTField> {
     root_order: u32,
     trace_term_coeffs: &'a [Vec<FieldElement<F>>],
     gamma_even: &'a FieldElement<F>,
@@ -49,7 +49,7 @@ fn step_1_transcript_initialization() -> DefaultTranscript {
     DefaultTranscript::new()
 }
 
-struct Challenges<F: IsTwoAdicField> {
+struct Challenges<F: IsFFTField> {
     z: FieldElement<F>,
     boundary_coeffs: Vec<(FieldElement<F>, FieldElement<F>)>,
     transition_coeffs: Vec<(FieldElement<F>, FieldElement<F>)>,
@@ -67,7 +67,7 @@ fn step_1_replay_rounds_and_recover_challenges<F, A, T>(
     transcript: &mut T,
 ) -> Challenges<F>
 where
-    F: IsTwoAdicField,
+    F: IsFFTField,
     FieldElement<F>: ByteConversion,
     A: AIR<Field = F>,
     T: Transcript,
@@ -149,7 +149,7 @@ where
     }
 }
 
-fn step_2_verify_claimed_composition_polynomial<F: IsTwoAdicField, A: AIR<Field = F>>(
+fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>>(
     air: &A,
     proof: &StarkProof<F>,
     domain: &Domain<F>,
@@ -260,7 +260,7 @@ fn step_3_verify_fri<F, A, T>(
     transcript: &mut T,
 ) -> bool
 where
-    F: IsTwoAdicField,
+    F: IsFFTField,
     FieldElement<F>: ByteConversion,
     A: AIR<Field = F>,
     T: Transcript,
@@ -301,7 +301,7 @@ where
     result
 }
 
-fn step_4_verify_deep_composition_polynomial<F: IsTwoAdicField>(
+fn step_4_verify_deep_composition_polynomial<F: IsFFTField>(
     proof: &StarkProof<F>,
     domain: &Domain<F>,
     challenges: &Challenges<F>,
@@ -327,7 +327,7 @@ fn step_4_verify_deep_composition_polynomial<F: IsTwoAdicField>(
     deep_poly_claimed_evaluation == &deep_poly_evaluation
 }
 
-fn verify_query<F: IsField + IsTwoAdicField, A: AIR<Field = F>>(
+fn verify_query<F: IsField + IsFFTField, A: AIR<Field = F>>(
     air: &A,
     fri_layers_merkle_roots: &[FieldElement<F>],
     beta_list: &[FieldElement<F>],
@@ -452,7 +452,7 @@ where
 }
 
 // Verify that Deep(x) has been built correctly
-fn compare_deep_composition_poly<F: IsTwoAdicField>(
+fn compare_deep_composition_poly<F: IsFFTField>(
     args: &mut DeepCompositionPolyArgs<F>,
 ) -> FieldElement<F> {
     let primitive_root = &F::get_primitive_root_of_unity(args.root_order as u64).unwrap();
@@ -491,7 +491,7 @@ fn compare_deep_composition_poly<F: IsTwoAdicField>(
 }
 
 // Verifies that t(x_0) is a trace evaluation
-fn verify_trace_evaluations<F: IsField + IsTwoAdicField>(
+fn verify_trace_evaluations<F: IsField + IsFFTField>(
     deep_consistency_check: &DeepConsistencyCheck<F>,
     q_i: usize,
     domain: &[FieldElement<F>],
@@ -517,7 +517,7 @@ where
 
 pub fn verify<F, A>(proof: &StarkProof<F>, air: &A) -> bool
 where
-    F: IsTwoAdicField,
+    F: IsFFTField,
     A: AIR<Field = F>,
     FieldElement<F>: ByteConversion,
 {

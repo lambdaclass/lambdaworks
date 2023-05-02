@@ -1,5 +1,5 @@
 use lambdaworks_math::{
-    field::{element::FieldElement, traits::IsTwoAdicField},
+    field::{element::FieldElement, traits::IsFFTField},
     helpers,
     polynomial::Polynomial,
 };
@@ -9,7 +9,7 @@ use crate::{
     ops::{fft_with_blowup, inverse_fft},
 };
 
-pub trait FFTPoly<F: IsTwoAdicField> {
+pub trait FFTPoly<F: IsFFTField> {
     fn evaluate_fft(&self) -> Result<Vec<FieldElement<F>>, FFTError>;
     fn evaluate_offset_fft(
         &self,
@@ -21,12 +21,12 @@ pub trait FFTPoly<F: IsTwoAdicField> {
     ) -> Result<Polynomial<FieldElement<F>>, FFTError>;
 }
 
-impl<F: IsTwoAdicField> FFTPoly<F> for Polynomial<FieldElement<F>> {
+impl<F: IsFFTField> FFTPoly<F> for Polynomial<FieldElement<F>> {
     /// Evaluates this polynomial using FFT (so the function is evaluated using twiddle factors).
     fn evaluate_fft(&self) -> Result<Vec<FieldElement<F>>, FFTError> {
         #[cfg(feature = "metal")]
         {
-            if field_supports_metal::<F>() {
+            if !F::field_name().is_empty() {
                 Ok(lambdaworks_gpu::metal::fft::polynomial::evaluate_fft_metal(
                     self,
                 )?)
@@ -50,7 +50,7 @@ impl<F: IsTwoAdicField> FFTPoly<F> for Polynomial<FieldElement<F>> {
     ) -> Result<Vec<FieldElement<F>>, FFTError> {
         #[cfg(feature = "metal")]
         {
-            if field_supports_metal::<F>() {
+            if !F::field_name().is_empty() {
                 Ok(
                     lambdaworks_gpu::metal::fft::polynomial::evaluate_offset_fft_metal(
                         self,
@@ -74,7 +74,7 @@ impl<F: IsTwoAdicField> FFTPoly<F> for Polynomial<FieldElement<F>> {
     fn interpolate_fft(fft_evals: &[FieldElement<F>]) -> Result<Self, FFTError> {
         #[cfg(feature = "metal")]
         {
-            if field_supports_metal::<F>() {
+            if !F::field_name().is_empty() {
                 Ok(lambdaworks_gpu::metal::fft::polynomial::interpolate_fft_metal(fft_evals)?)
             } else {
                 interpolate_fft_cpu(fft_evals)
@@ -88,18 +88,11 @@ impl<F: IsTwoAdicField> FFTPoly<F> for Polynomial<FieldElement<F>> {
     }
 }
 
-// TODO remove this hack as we support any field
-#[allow(dead_code)]
-fn field_supports_metal<F>() -> bool {
-    let f_type = std::any::type_name::<F>();
-    f_type.contains("Stark252PrimeField")
-}
-
 pub fn evaluate_fft_cpu<F>(
     poly: &Polynomial<FieldElement<F>>,
 ) -> Result<Vec<FieldElement<F>>, FFTError>
 where
-    F: IsTwoAdicField,
+    F: IsFFTField,
 {
     let num_coefficients = poly.coefficients().len();
     let num_coeficcients_power_of_two = helpers::next_power_of_two(num_coefficients as u64);
@@ -115,7 +108,7 @@ pub fn evaluate_offset_fft_cpu<F>(
     blowup_factor: usize,
 ) -> Result<Vec<FieldElement<F>>, FFTError>
 where
-    F: IsTwoAdicField,
+    F: IsFFTField,
 {
     let scaled = poly.scale(offset);
     fft_with_blowup(scaled.coefficients(), blowup_factor)
@@ -125,7 +118,7 @@ pub fn interpolate_fft_cpu<F>(
     fft_evals: &[FieldElement<F>],
 ) -> Result<Polynomial<FieldElement<F>>, FFTError>
 where
-    F: IsTwoAdicField,
+    F: IsFFTField,
 {
     let coeffs = inverse_fft(fft_evals)?;
     Ok(Polynomial::new(&coeffs))
@@ -136,7 +129,7 @@ pub fn compose_fft<F>(
     poly_2: &Polynomial<FieldElement<F>>,
 ) -> Polynomial<FieldElement<F>>
 where
-    F: IsTwoAdicField,
+    F: IsFFTField,
 {
     let poly_2_evaluations = poly_2.evaluate_fft().unwrap();
 
@@ -265,10 +258,7 @@ mod u64_field_tests {
 
 #[cfg(test)]
 mod u256_two_adic_prime_field_tests {
-    use lambdaworks_math::field::{
-        fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
-        test_fields::u64_test_field::U64TestField,
-    };
+    use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
     use proptest::{
         collection, prelude::any, prop_assert_eq, prop_compose, proptest, strategy::Strategy,
     };
@@ -278,10 +268,7 @@ mod u256_two_adic_prime_field_tests {
         polynomial::Polynomial,
     };
 
-    use crate::{
-        polynomial::{field_supports_metal, FFTPoly},
-        roots_of_unity::get_powers_of_primitive_root,
-    };
+    use crate::{polynomial::FFTPoly, roots_of_unity::get_powers_of_primitive_root};
 
     type F = Stark252PrimeField;
     type FE = FieldElement<F>;
@@ -319,12 +306,5 @@ mod u256_two_adic_prime_field_tests {
 
             prop_assert_eq!(fft_eval, naive_eval);
         }
-    }
-
-    // test of field_supports_metal function
-    #[test]
-    fn test_field_supports_metal() {
-        assert!(field_supports_metal::<Stark252PrimeField>());
-        assert!(!field_supports_metal::<U64TestField>())
     }
 }

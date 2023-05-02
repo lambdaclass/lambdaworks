@@ -18,29 +18,29 @@ use lambdaworks_crypto::fiat_shamir::test_transcript::TestTranscript;
 use lambdaworks_fft::errors::FFTError;
 use lambdaworks_fft::polynomial::FFTPoly;
 use lambdaworks_math::{
-    field::{element::FieldElement, traits::IsTwoAdicField},
+    field::{element::FieldElement, traits::IsFFTField},
     polynomial::Polynomial,
     traits::ByteConversion,
 };
 
-struct Round1<F: IsTwoAdicField> {
+struct Round1<F: IsFFTField> {
     trace_polys: Vec<Polynomial<FieldElement<F>>>,
     lde_trace: TraceTable<F>,
     lde_trace_merkle_trees: Vec<MerkleTree<F>>,
     lde_trace_merkle_roots: Vec<FieldElement<F>>,
 }
 
-struct Round2<F: IsTwoAdicField> {
+struct Round2<F: IsFFTField> {
     composition_poly_even: Polynomial<FieldElement<F>>,
     composition_poly_odd: Polynomial<FieldElement<F>>,
 }
 
-struct Round3<F: IsTwoAdicField> {
+struct Round3<F: IsFFTField> {
     trace_ood_frame_evaluations: Frame<F>,
     composition_poly_ood_evaluations: Vec<FieldElement<F>>,
 }
 
-struct Round4<F: IsTwoAdicField> {
+struct Round4<F: IsFFTField> {
     fri_layers_merkle_roots: Vec<FieldElement<F>>,
     deep_consistency_check: DeepConsistencyCheck<F>,
     query_list: Vec<StarkQueryProof<F>>,
@@ -57,7 +57,7 @@ fn round_0_transcript_initialization() -> DefaultTranscript {
     DefaultTranscript::new()
 }
 
-fn commit_original_trace<F: IsTwoAdicField, A: AIR<Field = F>>(
+fn commit_original_trace<F: IsFFTField, A: AIR<Field = F>>(
     trace: &TraceTable<F>,
     air: &A,
 ) -> Round1<F>
@@ -106,7 +106,7 @@ fn commit_extended_trace() {
     // TODO
 }
 
-fn round_1_randomized_air_with_preprocessing<F: IsTwoAdicField, A: AIR<Field = F>>(
+fn round_1_randomized_air_with_preprocessing<F: IsFFTField, A: AIR<Field = F>>(
     trace: &TraceTable<F>,
     air: &A,
 ) -> Round1<F>
@@ -118,7 +118,7 @@ where
     round_1_result
 }
 
-fn round_2_compute_composition_polynomial<F: IsTwoAdicField, A: AIR<Field = F>>(
+fn round_2_compute_composition_polynomial<F: IsFFTField, A: AIR<Field = F>>(
     air: &A,
     domain: &Domain<F>,
     round_1_result: &Round1<F>,
@@ -151,7 +151,7 @@ fn round_2_compute_composition_polynomial<F: IsTwoAdicField, A: AIR<Field = F>>(
     }
 }
 
-fn round_3_evaluate_polynomials_in_out_of_domain_element<F: IsTwoAdicField, A: AIR<Field = F>>(
+fn round_3_evaluate_polynomials_in_out_of_domain_element<F: IsFFTField, A: AIR<Field = F>>(
     air: &A,
     domain: &Domain<F>,
     round_1_result: &Round1<F>,
@@ -193,7 +193,7 @@ where
     }
 }
 
-fn fri_commit_phase<F: IsTwoAdicField, A: AIR<Field = F>, T: Transcript>(
+fn fri_commit_phase<F: IsFFTField, A: AIR<Field = F>, T: Transcript>(
     air: &A,
     domain: &Domain<F>,
     round_1_result: &Round1<F>,
@@ -231,7 +231,7 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-fn fri_query_phase<F: IsTwoAdicField, A: AIR<Field = F>, T: Transcript>(
+fn fri_query_phase<F: IsFFTField, A: AIR<Field = F>, T: Transcript>(
     air: &A,
     domain: &Domain<F>,
     round_1_result: &Round1<F>,
@@ -277,7 +277,7 @@ where
 }
 
 fn round_4_compute_and_run_fri_on_the_deep_composition_polynomial<
-    F: IsTwoAdicField,
+    F: IsFFTField,
     A: AIR<Field = F>,
     T: Transcript,
 >(
@@ -317,7 +317,7 @@ where
 /// Returns the DEEP composition polynomial that the prover then commits to using
 /// FRI. This polynomial is a linear combination of the trace polynomial and the
 /// composition polynomial, with coefficients sampled by the verifier (i.e. using Fiat-Shamir).
-fn compute_deep_composition_poly<A: AIR, F: IsTwoAdicField, T: Transcript>(
+fn compute_deep_composition_poly<A: AIR, F: IsFFTField, T: Transcript>(
     air: &A,
     trace_polys: &[Polynomial<FieldElement<F>>],
     even_composition_poly: &Polynomial<FieldElement<F>>,
@@ -371,7 +371,7 @@ fn compute_deep_composition_poly<A: AIR, F: IsTwoAdicField, T: Transcript>(
     trace_terms + even_composition_poly_term * gamma_even + odd_composition_poly_term * gamma_odd
 }
 
-fn build_deep_consistency_check<F: IsTwoAdicField>(
+fn build_deep_consistency_check<F: IsFFTField>(
     domain: &Domain<F>,
     round_1_result: &Round1<F>,
     index_to_verify: usize,
@@ -405,7 +405,7 @@ where
 }
 
 // FIXME remove unwrap() calls and return errors
-pub fn prove<F: IsTwoAdicField, A: AIR<Field = F>>(trace: &TraceTable<F>, air: &A) -> StarkProof<F>
+pub fn prove<F: IsFFTField, A: AIR<Field = F>>(trace: &TraceTable<F>, air: &A) -> StarkProof<F>
 where
     FieldElement<F>: ByteConversion,
 {
