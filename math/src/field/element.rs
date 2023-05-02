@@ -1,5 +1,4 @@
 use crate::field::traits::IsField;
-use crate::traits::ByteConversion;
 use crate::unsigned_integer::element::UnsignedInteger;
 use crate::unsigned_integer::montgomery::MontgomeryAlgorithms;
 use crate::unsigned_integer::traits::IsUnsignedInteger;
@@ -381,8 +380,6 @@ impl<F: IsPrimeField> FieldElement<F> {
 }
 
 impl<F: IsPrimeField> FieldElement<F>
-where
-    FieldElement<F>: ByteConversion,
 {
     // Returns the representative of the value stored
     pub fn sqrt(&self) -> Option<(Self, Self)> {
