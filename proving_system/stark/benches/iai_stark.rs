@@ -2,7 +2,7 @@ mod functions;
 mod util;
 
 fn simple_fibonacci_benchmarks() {
-    functions::stark::prove_fib();
+    functions::stark::prove_fib(8);
 }
 
 fn two_col_fibonacci_benchmarks() {

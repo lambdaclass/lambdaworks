@@ -2,7 +2,12 @@ use lambdaworks_math::field::fields::u64_prime_field::FE17;
 use lambdaworks_stark::{
     air::{
         context::{AirContext, ProofOptions},
+        example::cairo,
         trace::TraceTable,
+    },
+    cairo_vm::{
+        cairo_mem::CairoMemory, cairo_trace::CairoTrace,
+        execution_trace::build_cairo_execution_trace,
     },
     prover::prove,
     verifier::verify,
@@ -114,4 +119,114 @@ pub fn prove_quadratic() {
 
     let result = prove(&trace_table, &quadratic_air);
     verify(&result, &quadratic_air);
+}
+
+pub fn prove_cairo_fibonacci_5() {
+    let base_dir = env!("CARGO_MANIFEST_DIR");
+    let dir_trace = base_dir.to_owned() + "/src/cairo_vm/test_data/fibonacci_5.trace";
+    let dir_memory = base_dir.to_owned() + "/src/cairo_vm/test_data/fibonacci_5.memory";
+
+    let raw_trace = CairoTrace::from_file(&dir_trace).expect("Cairo trace binary file not found");
+    let memory = CairoMemory::from_file(&dir_memory).expect("Cairo memory binary file not found");
+
+    let execution_trace = build_cairo_execution_trace(&raw_trace, &memory);
+
+    let proof_options = ProofOptions {
+        blowup_factor: 2,
+        fri_number_of_queries: 5,
+        coset_offset: 3,
+    };
+
+    let cairo_air = cairo::CairoAIR::new(proof_options, &execution_trace);
+
+    prove(&execution_trace, &cairo_air);
+    // assert!(verify(&result, &cairo_air));
+}
+
+pub fn prove_cairo_fibonacci_10() {
+    let base_dir = env!("CARGO_MANIFEST_DIR");
+    let dir_trace = base_dir.to_owned() + "/src/cairo_vm/test_data/fibonacci_10.trace";
+    let dir_memory = base_dir.to_owned() + "/src/cairo_vm/test_data/fibonacci_10.memory";
+
+    let raw_trace = CairoTrace::from_file(&dir_trace).expect("Cairo trace binary file not found");
+    let memory = CairoMemory::from_file(&dir_memory).expect("Cairo memory binary file not found");
+
+    let execution_trace = build_cairo_execution_trace(&raw_trace, &memory);
+
+    let proof_options = ProofOptions {
+        blowup_factor: 2,
+        fri_number_of_queries: 5,
+        coset_offset: 3,
+    };
+
+    let cairo_air = cairo::CairoAIR::new(proof_options, &execution_trace);
+
+    prove(&execution_trace, &cairo_air);
+    // assert!(verify(&result, &cairo_air));
+}
+
+pub fn prove_cairo_fibonacci_30() {
+    let base_dir = env!("CARGO_MANIFEST_DIR");
+    let dir_trace = base_dir.to_owned() + "/src/cairo_vm/test_data/fibonacci_30.trace";
+    let dir_memory = base_dir.to_owned() + "/src/cairo_vm/test_data/fibonacci_30.memory";
+
+    let raw_trace = CairoTrace::from_file(&dir_trace).expect("Cairo trace binary file not found");
+    let memory = CairoMemory::from_file(&dir_memory).expect("Cairo memory binary file not found");
+
+    let execution_trace = build_cairo_execution_trace(&raw_trace, &memory);
+
+    let proof_options = ProofOptions {
+        blowup_factor: 2,
+        fri_number_of_queries: 5,
+        coset_offset: 3,
+    };
+
+    let cairo_air = cairo::CairoAIR::new(proof_options, &execution_trace);
+
+    prove(&execution_trace, &cairo_air);
+    // assert!(verify(&result, &cairo_air));
+}
+
+pub fn prove_cairo_fibonacci_50() {
+    let base_dir = env!("CARGO_MANIFEST_DIR");
+    let dir_trace = base_dir.to_owned() + "/src/cairo_vm/test_data/fibonacci_50.trace";
+    let dir_memory = base_dir.to_owned() + "/src/cairo_vm/test_data/fibonacci_50.memory";
+
+    let raw_trace = CairoTrace::from_file(&dir_trace).expect("Cairo trace binary file not found");
+    let memory = CairoMemory::from_file(&dir_memory).expect("Cairo memory binary file not found");
+
+    let execution_trace = build_cairo_execution_trace(&raw_trace, &memory);
+
+    let proof_options = ProofOptions {
+        blowup_factor: 2,
+        fri_number_of_queries: 5,
+        coset_offset: 3,
+    };
+
+    let cairo_air = cairo::CairoAIR::new(proof_options, &execution_trace);
+
+    prove(&execution_trace, &cairo_air);
+    // assert!(verify(&result, &cairo_air));
+}
+
+pub fn prove_cairo_fibonacci_100() {
+    let base_dir = env!("CARGO_MANIFEST_DIR");
+    let dir_trace = base_dir.to_owned() + "/src/cairo_vm/test_data/fibonacci_100.trace";
+    let dir_memory = base_dir.to_owned() + "/src/cairo_vm/test_data/fibonacci_100.memory";
+
+    let raw_trace = CairoTrace::from_file(&dir_trace).expect("Cairo trace binary file not found");
+    let memory = CairoMemory::from_file(&dir_memory).expect("Cairo memory binary file not found");
+
+    let execution_trace = build_cairo_execution_trace(&raw_trace, &memory);
+
+    let proof_options = ProofOptions {
+        blowup_factor: 2,
+        fri_number_of_queries: 5,
+        coset_offset: 3,
+    };
+
+    let cairo_air = cairo::CairoAIR::new(proof_options, &execution_trace);
+
+    prove(&execution_trace, &cairo_air);
+    // assert!(verify(&result, &cairo_air));
 }

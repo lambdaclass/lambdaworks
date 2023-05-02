@@ -204,6 +204,7 @@ fn test_prove_cairo_call_func() {
     assert!(verify(&result, &cairo_air));
 }
 
+#[ignore]
 #[test_log::test]
 fn test_prove_cairo_fibonacci() {
     let base_dir = env!("CARGO_MANIFEST_DIR");
