@@ -586,4 +586,15 @@ mod tests {
         let result = FrElement::from(5);
         assert_eq!(sqrt.1, result);
     }
+
+    #[test]
+    fn sqrt_25_is_5_for_stark_field() {
+        type FrField = Stark252PrimeField;
+        type FrElement = FieldElement<FrField>;
+
+        let input = FrElement::from(25);
+        let sqrt = input.sqrt().unwrap();
+        let result = FrElement::from(5);
+        assert_eq!(sqrt.0, result);
+    }
 }
