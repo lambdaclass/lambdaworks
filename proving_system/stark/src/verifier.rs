@@ -7,7 +7,7 @@ use crate::{
     air::frame::Frame,
     fri::HASHER,
     proof::{DeepConsistencyCheck, StarkProof},
-    transcript_to_field, transcript_to_usize, Domain,
+    transcript_to_field, transcript_to_usize, Domain, prover::batch_sample_challenges,
 };
 #[cfg(not(feature = "test_fiat_shamir"))]
 use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
@@ -79,24 +79,8 @@ where
     for root in proof.lde_trace_merkle_roots.iter() {
         transcript.append(&root.to_bytes_be());
     }
-    let boundary_coeffs: Vec<(FieldElement<F>, FieldElement<F>)> = (0..n_trace_cols)
-        .map(|_| {
-            (
-                transcript_to_field(transcript),
-                transcript_to_field(transcript),
-            )
-        })
-        .collect();
-
-    let transition_coeffs: Vec<(FieldElement<F>, FieldElement<F>)> =
-        (0..air.context().num_transition_constraints)
-            .map(|_| {
-                (
-                    transcript_to_field(transcript),
-                    transcript_to_field(transcript),
-                )
-            })
-            .collect();
+    let boundary_coeffs = batch_sample_challenges(n_trace_cols, transcript);
+    let transition_coeffs = batch_sample_challenges(air.context().num_transition_constraints, transcript);
 
     transcript.append(&proof.composition_poly_roots[0].to_bytes_be());
     transcript.append(&proof.composition_poly_roots[1].to_bytes_be());

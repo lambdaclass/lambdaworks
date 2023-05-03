@@ -94,6 +94,20 @@ where
     )
 }
 
+pub fn batch_sample_challenges<F: IsFFTField, T: Transcript>(
+    size: usize,
+    transcript: &mut T,
+) -> Vec<(FieldElement<F>, FieldElement<F>)> {
+    (0..size)
+        .map(|_| {
+            (
+                transcript_to_field(transcript),
+                transcript_to_field(transcript),
+            )
+        })
+        .collect()
+}
+
 fn commit_original_trace<F, A>(trace: &TraceTable<F>, air: &A) -> Round1<F>
 where
     F: IsFFTField,
@@ -453,7 +467,7 @@ where
 
     let domain = Domain::new(air);
 
-    let transcript = &mut round_0_transcript_initialization();
+    let mut transcript = round_0_transcript_initialization();
 
     // Fiat-Shamir
     // z is the Out of domain evaluation point used in Deep FRI. It needs to be a point outside
@@ -467,26 +481,8 @@ where
 
     // Sample challenges for round 2
     // These are the challenges alpha^B_j and beta^B_j
-    let boundary_coeffs: Vec<(FieldElement<F>, FieldElement<F>)> =
-        (0..round_1_result.trace_polys.len())
-            .map(|_| {
-                (
-                    transcript_to_field(transcript),
-                    transcript_to_field(transcript),
-                )
-            })
-            .collect();
-
-    // These are the challenges alpha^T_j and beta^T_j
-    let transition_coeffs: Vec<(FieldElement<F>, FieldElement<F>)> =
-        (0..air.context().num_transition_constraints)
-            .map(|_| {
-                (
-                    transcript_to_field(transcript),
-                    transcript_to_field(transcript),
-                )
-            })
-            .collect();
+    let boundary_coeffs = batch_sample_challenges(round_1_result.trace_polys.len(), &mut transcript);
+    let transition_coeffs = batch_sample_challenges(air.context().num_transition_constraints, &mut transcript);
 
     let round_2_result = round_2_compute_composition_polynomial(
         air,
@@ -502,7 +498,7 @@ where
     let z = sample_z_ood(
         &domain.lde_roots_of_unity_coset,
         &domain.trace_roots_of_unity,
-        transcript,
+        &mut transcript,
     );
 
     let round_3_result = round_3_evaluate_polynomials_in_out_of_domain_element(
@@ -519,7 +515,7 @@ where
         &round_1_result,
         &round_2_result,
         &z,
-        transcript,
+        &mut transcript,
     );
 
     StarkProof {
