@@ -36,6 +36,10 @@ struct Round1<F: IsFFTField> {
 struct Round2<F: IsFFTField> {
     composition_poly_even: Polynomial<FieldElement<F>>,
     composition_poly_odd: Polynomial<FieldElement<F>>,
+    // Merkle trees of H_1 and H_2 at the LDE Domain
+    composition_poly_merkle_trees: Vec<MerkleTree<F>>,
+    // Commitments of H_1, and H_2
+    composition_poly_roots: Vec<FieldElement<F>>,
 }
 
 struct Round3<F: IsFFTField> {
@@ -70,18 +74,30 @@ where
         .map(|col| MerkleTree::build(col, Box::new(HASHER)))
         .collect::<Vec<MerkleTree<F>>>();
 
-    let roots = trees
-        .iter()
-        .map(|tree| tree.root.clone())
-        .collect();
+    let roots = trees.iter().map(|tree| tree.root.clone()).collect();
     (trees, roots)
 }
 
-fn commit_original_trace<F: IsFFTField, A: AIR<Field = F>>(
-    trace: &TraceTable<F>,
+fn evaluate_polynomial_on_lde_domain<F, A>(
+    p: &Polynomial<FieldElement<F>>,
     air: &A,
-) -> Round1<F>
+) -> Result<Vec<FieldElement<F>>, FFTError>
 where
+    F: IsFFTField,
+    Polynomial<FieldElement<F>>: FFTPoly<F>,
+    A: AIR<Field = F>,
+{
+    // Evaluate those polynomials t_j on the large domain D_LDE.
+    p.evaluate_offset_fft(
+        &FieldElement::<F>::from(air.options().coset_offset),
+        air.options().blowup_factor as usize,
+    )
+}
+
+fn commit_original_trace<F, A>(trace: &TraceTable<F>, air: &A) -> Round1<F>
+where
+    F: IsFFTField,
+    A: AIR<Field = F>,
     FieldElement<F>: ByteConversion,
 {
     // The trace M_ij is part of the input. Interpolate the polynomials t_j
@@ -91,12 +107,7 @@ where
     // Evaluate those polynomials t_j on the large domain D_LDE.
     let lde_trace_evaluations = trace_polys
         .iter()
-        .map(|poly| {
-            poly.evaluate_offset_fft(
-                &FieldElement::<F>::from(air.options().coset_offset),
-                air.options().blowup_factor as usize,
-            )
-        })
+        .map(|poly| evaluate_polynomial_on_lde_domain(poly, air))
         .collect::<Result<Vec<Vec<FieldElement<F>>>, FFTError>>()
         .unwrap();
 
@@ -129,13 +140,18 @@ where
     round_1_result
 }
 
-fn round_2_compute_composition_polynomial<F: IsFFTField, A: AIR<Field = F>>(
+fn round_2_compute_composition_polynomial<F, A>(
     air: &A,
     domain: &Domain<F>,
     round_1_result: &Round1<F>,
     transition_coeffs: &[(FieldElement<F>, FieldElement<F>)],
     boundary_coeffs: &[(FieldElement<F>, FieldElement<F>)],
-) -> Round2<F> {
+) -> Round2<F>
+where
+    F: IsFFTField,
+    A: AIR<Field = F>,
+    FieldElement<F>: ByteConversion,
+{
     // Create evaluation table
     let evaluator = ConstraintEvaluator::new(
         air,
@@ -156,9 +172,21 @@ fn round_2_compute_composition_polynomial<F: IsFFTField, A: AIR<Field = F>>(
 
     let (composition_poly_even, composition_poly_odd) = composition_poly.even_odd_decomposition();
 
+    let lde_composition_poly_even_evaluations =
+        evaluate_polynomial_on_lde_domain(&composition_poly_even, air).unwrap();
+    let lde_composition_poly_odd_evaluations =
+        evaluate_polynomial_on_lde_domain(&composition_poly_odd, air).unwrap();
+
+    let (composition_poly_merkle_trees, composition_poly_roots) = batch_commit(vec![
+        lde_composition_poly_even_evaluations,
+        lde_composition_poly_odd_evaluations,
+    ]);
+
     Round2 {
         composition_poly_even,
         composition_poly_odd,
+        composition_poly_merkle_trees,
+        composition_poly_roots,
     }
 }
 
@@ -468,6 +496,9 @@ where
         &boundary_coeffs,
     );
 
+    transcript.append(&round_2_result.composition_poly_roots[0].to_bytes_be());
+    transcript.append(&round_2_result.composition_poly_roots[1].to_bytes_be());
+
     let z = sample_z_ood(
         &domain.lde_roots_of_unity_coset,
         &domain.trace_roots_of_unity,
@@ -493,6 +524,7 @@ where
 
     StarkProof {
         lde_trace_merkle_roots: round_1_result.lde_trace_merkle_roots,
+        composition_poly_roots: round_2_result.composition_poly_roots,
         fri_layers_merkle_roots: round_4_result.fri_layers_merkle_roots,
         trace_ood_frame_evaluations: round_3_result.trace_ood_frame_evaluations,
         composition_poly_ood_evaluations: round_3_result.composition_poly_ood_evaluations,

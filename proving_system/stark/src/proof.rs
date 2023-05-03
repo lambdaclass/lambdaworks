@@ -21,6 +21,7 @@ pub struct StarkQueryProof<F: IsFFTField> {
 pub struct StarkProof<F: IsFFTField> {
     // Commitments of the trace columns
     pub lde_trace_merkle_roots: Vec<FieldElement<F>>,
+    pub composition_poly_roots: Vec<FieldElement<F>>,
     pub fri_layers_merkle_roots: Vec<FieldElement<F>>,
     pub trace_ood_frame_evaluations: Frame<F>,
     pub composition_poly_ood_evaluations: Vec<FieldElement<F>>,

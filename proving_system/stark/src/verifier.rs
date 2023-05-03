@@ -98,6 +98,9 @@ where
             })
             .collect();
 
+    transcript.append(&proof.composition_poly_roots[0].to_bytes_be());
+    transcript.append(&proof.composition_poly_roots[1].to_bytes_be());
+
     let z = sample_z_ood(
         &domain.lde_roots_of_unity_coset,
         &domain.trace_roots_of_unity,
