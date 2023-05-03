@@ -23,6 +23,7 @@ pub trait ByteConversion {
     where
         Self: std::marker::Sized;
 }
+
 pub trait IsRandomFieldElementGenerator<F: IsField> {
     fn generate(&self) -> FieldElement<F>;
 }
