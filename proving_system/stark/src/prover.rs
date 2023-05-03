@@ -89,7 +89,7 @@ where
 
     // Compute commitments [t_j].
     let lde_trace_merkle_trees = lde_trace
-        .cols()
+        .main_cols()
         .iter()
         .map(|col| MerkleTree::build(col, Box::new(HASHER)))
         .collect::<Vec<MerkleTree<F>>>();
@@ -104,6 +104,26 @@ where
         lde_trace,
         lde_trace_merkle_trees,
         lde_trace_merkle_roots,
+    }
+}
+
+fn commit_aux_segments<F, A, T>(air: &A, trace: &TraceTable<F>, transcript: &T)
+where
+    F: IsFFTField,
+    A: AIR<Field = F>,
+    T: Transcript,
+{
+    let n_aux_segments = air.num_aux_segments();
+    for segment_idx in 0..n_aux_segments {
+        let segment_rand_coeffs = air.aux_segment_rand_coeffs(segment_idx, transcript);
+        let aux_segment = air.build_aux_segment(trace, &segment_rand_coeffs).unwrap();
+
+        // Compute aux_segment polys
+        let aux_segment_polys = aux_segment.compute_aux_segment_polys();
+
+        // Compute aux_segment LDE
+
+        // Commit aux_segment LDE
     }
 }
 

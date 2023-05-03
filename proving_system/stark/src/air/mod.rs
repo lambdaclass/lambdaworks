@@ -2,7 +2,9 @@ use self::{
     constraints::boundary::BoundaryConstraints,
     context::{AirContext, ProofOptions},
     frame::Frame,
+    trace::{AuxiliarySegment, TraceTable},
 };
+use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_fft::roots_of_unity::get_powers_of_primitive_root_coset;
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsFFTField},
@@ -14,6 +16,20 @@ pub mod context;
 pub mod example;
 pub mod frame;
 pub mod trace;
+
+#[derive(Clone, Debug)]
+pub struct TraceLayout {
+    main_segment_width: usize,
+    aux_segment_widths: Vec<usize>,
+    aux_segment_rands: Vec<usize>,
+    num_aux_segments: usize,
+}
+
+#[derive(Clone, Debug)]
+pub struct TraceInfo {
+    layout: TraceLayout,
+    length: usize,
+}
 
 pub trait AIR: Clone {
     type Field: IsFFTField;
@@ -63,5 +79,23 @@ pub trait AIR: Clone {
     }
     fn num_transition_constraints(&self) -> usize {
         self.context().num_transition_constraints
+    }
+    fn trace_info(&self) -> TraceInfo;
+    fn num_aux_segments(&self) -> usize {
+        self.trace_info().layout.num_aux_segments
+    }
+    fn aux_segment_rand_coeffs<T: Transcript>(
+        &self,
+        segment_idx: usize,
+        transcript: &T,
+    ) -> Vec<FieldElement<Self::Field>>;
+
+    #[allow(unused)]
+    fn build_aux_segment(
+        &self,
+        trace: &TraceTable<Self::Field>,
+        rand_elements: &[FieldElement<Self::Field>],
+    ) -> Option<AuxiliarySegment<Self::Field>> {
+        None
     }
 }

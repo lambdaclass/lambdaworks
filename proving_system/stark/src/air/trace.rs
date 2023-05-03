@@ -9,61 +9,99 @@ use lambdaworks_math::{
 use log::{error, info};
 
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
+pub struct AuxiliarySegment<F: IsFFTField> {
+    //`aux_segment` is a row-major trace element description
+    pub aux_segment: Vec<FieldElement<F>>,
+    pub aux_segment_width: usize,
+}
+
+impl<F: IsFFTField> AuxiliarySegment<F> {
+    fn n_rows(&self) -> usize {
+        self.aux_segment.len() / self.aux_segment_width
+    }
+
+    fn cols(&self) -> Vec<Vec<FieldElement<F>>> {
+        let n_rows = self.n_rows();
+        (0..self.aux_segment_width)
+            .map(|col_idx| {
+                (0..n_rows)
+                    .map(|row_idx| {
+                        self.aux_segment[row_idx * self.aux_segment_width + col_idx].clone()
+                    })
+                    .collect()
+            })
+            .collect()
+    }
+
+    pub fn compute_aux_segment_polys(&self) -> Vec<Polynomial<FieldElement<F>>> {
+        self.cols()
+            .iter()
+            .map(|col| Polynomial::interpolate_fft(col))
+            .collect::<Result<Vec<Polynomial<FieldElement<F>>>, FFTError>>()
+            .unwrap()
+    }
+}
+
+#[derive(Clone, Default, Debug, PartialEq, Eq)]
 pub struct TraceTable<F: IsFFTField> {
-    /// `table` is row-major trace element description
-    pub table: Vec<FieldElement<F>>,
-    pub n_cols: usize,
-    pub aux_segments_layout: Option<Vec<usize>>,
+    // `main_segment` is row-major trace element description
+    pub main_segment: Vec<FieldElement<F>>,
+    pub main_segment_width: usize,
+    pub aux_segments: Option<Vec<AuxiliarySegment<F>>>,
 }
 
 impl<F: IsFFTField> TraceTable<F> {
     pub fn new_from_cols(
         cols: &[Vec<FieldElement<F>>],
-        aux_segments_layout: Option<Vec<usize>>,
+        aux_segments: Option<Vec<AuxiliarySegment<F>>>,
     ) -> Self {
         let n_rows = cols[0].len();
         debug_assert!(cols.iter().all(|c| c.len() == n_rows));
 
-        let n_cols = cols.len();
+        let main_segment_width = cols.len();
 
-        let mut table = Vec::with_capacity(n_cols * n_rows);
+        let mut main_segment = Vec::with_capacity(main_segment_width * n_rows);
 
         for row_idx in 0..n_rows {
             for col in cols {
-                table.push(col[row_idx].clone());
+                main_segment.push(col[row_idx].clone());
             }
         }
         Self {
-            table,
-            n_cols,
-            aux_segments_layout,
+            main_segment,
+            main_segment_width,
+            aux_segments,
         }
     }
 
     pub fn n_rows(&self) -> usize {
-        self.table.len() / self.n_cols
+        self.main_segment.len() / self.main_segment_width
     }
 
     pub fn rows(&self) -> Vec<Vec<FieldElement<F>>> {
         let n_rows = self.n_rows();
         (0..n_rows)
             .map(|row_idx| {
-                self.table[(row_idx * self.n_cols)..(row_idx * self.n_cols + self.n_cols)].to_vec()
+                self.main_segment[(row_idx * self.main_segment_width)
+                    ..(row_idx * self.main_segment_width + self.main_segment_width)]
+                    .to_vec()
             })
             .collect()
     }
 
     pub fn get_row(&self, row_idx: usize) -> &[FieldElement<F>] {
-        let row_offset = row_idx * self.n_cols;
-        &self.table[row_offset..row_offset + self.n_cols]
+        let row_offset = row_idx * self.main_segment_width;
+        &self.main_segment[row_offset..row_offset + self.main_segment_width]
     }
 
-    pub fn cols(&self) -> Vec<Vec<FieldElement<F>>> {
+    pub fn main_cols(&self) -> Vec<Vec<FieldElement<F>>> {
         let n_rows = self.n_rows();
-        (0..self.n_cols)
+        (0..self.main_segment_width)
             .map(|col_idx| {
                 (0..n_rows)
-                    .map(|row_idx| self.table[row_idx * self.n_cols + col_idx].clone())
+                    .map(|row_idx| {
+                        self.main_segment[row_idx * self.main_segment_width + col_idx].clone()
+                    })
                     .collect()
             })
             .collect()
@@ -71,12 +109,12 @@ impl<F: IsFFTField> TraceTable<F> {
 
     /// Given a step and a column index, gives stored value in that position
     pub fn get(&self, step: usize, col: usize) -> FieldElement<F> {
-        let idx = step * self.n_cols + col;
-        self.table[idx].clone()
+        let idx = step * self.main_segment_width + col;
+        self.main_segment[idx].clone()
     }
 
     pub fn compute_trace_polys(&self) -> Vec<Polynomial<FieldElement<F>>> {
-        self.cols()
+        self.main_cols()
             .iter()
             .map(|col| Polynomial::interpolate_fft(col))
             .collect::<Result<Vec<Polynomial<FieldElement<F>>>, FFTError>>()
@@ -149,7 +187,7 @@ mod test {
         let col_2 = vec![F::from(1), F::from(3), F::from(8), F::from(21)];
 
         let trace_table = TraceTable::new_from_cols(&[col_1.clone(), col_2.clone()], None);
-        let res_cols = trace_table.cols();
+        let res_cols = trace_table.main_cols();
 
         assert_eq!(res_cols, vec![col_1, col_2]);
     }

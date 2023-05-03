@@ -32,7 +32,7 @@ fn test_prove_fib() {
             coset_offset: 3,
         },
         trace_length,
-        trace_columns: trace_table.n_cols,
+        trace_columns: trace_table.main_segment_width,
         transition_degrees: vec![1],
         transition_exemptions: vec![2],
         transition_offsets: vec![0, 1, 2],
@@ -57,7 +57,7 @@ fn test_prove_fib17() {
             coset_offset: 3,
         },
         trace_length: trace_table.n_rows(),
-        trace_columns: trace_table.n_cols,
+        trace_columns: trace_table.main_segment_width,
         transition_degrees: vec![1],
         transition_exemptions: vec![2],
         transition_offsets: vec![0, 1, 2],
@@ -101,9 +101,9 @@ fn test_prove_fib_2_cols() {
 fn test_prove_quadratic() {
     let trace = quadratic_air::quadratic_trace(FE::from(3), 4);
     let trace_table = TraceTable {
-        table: trace.clone(),
-        n_cols: 1,
-        aux_segments_layout: None,
+        main_segment: trace.clone(),
+        main_segment_width: 1,
+        aux_segments: None,
     };
 
     let context = AirContext {
@@ -113,7 +113,7 @@ fn test_prove_quadratic() {
             coset_offset: 3,
         },
         trace_length: trace.len(),
-        trace_columns: trace_table.n_cols,
+        trace_columns: trace_table.main_segment_width,
         transition_degrees: vec![2],
         transition_exemptions: vec![1],
         transition_offsets: vec![0, 1],
@@ -241,9 +241,9 @@ fn test_malicious_trace_does_not_verify() {
     let execution_trace = build_cairo_execution_trace(&raw_trace, &memory);
 
     // Get the columns representation of the execution trace
-    let mut exec_trace_cols = execution_trace.cols();
+    let mut exec_trace_cols = execution_trace.main_cols();
     // Get the op1 column
-    let mut op1s = execution_trace.cols()[26].clone();
+    let mut op1s = execution_trace.main_cols()[26].clone();
     // Write an arbitrary value in the first position of the op1 column.
     op1s[0] = FE::from(666);
     // Overwrite the modified op1 column into the execution trace columns representation.

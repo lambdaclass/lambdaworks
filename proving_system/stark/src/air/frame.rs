@@ -53,7 +53,7 @@ impl<F: IsFFTField> Frame<F> {
             })
             .collect();
 
-        Self::new(data, trace.n_cols)
+        Self::new(data, trace.main_segment_width)
     }
 
     /// Given a slice of trace polynomials, an evaluation point `x`, the frame offsets

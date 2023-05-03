@@ -100,7 +100,7 @@ impl CairoAIR {
         let context = AirContext {
             options: proof_options,
             trace_length: num_steps,
-            trace_columns: trace.n_cols,
+            trace_columns: trace.main_segment_width,
             transition_degrees: vec![
                 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, // Flags 0-14.
                 1, // Flag 15

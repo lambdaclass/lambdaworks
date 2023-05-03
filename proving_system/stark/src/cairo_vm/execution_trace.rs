@@ -476,7 +476,7 @@ mod test {
             None,
         );
 
-        assert_eq!(execution_trace.cols(), expected_trace.cols());
+        assert_eq!(execution_trace.main_cols(), expected_trace.main_cols());
     }
 
     #[test]
@@ -897,6 +897,6 @@ mod test {
             None,
         );
 
-        assert_eq!(execution_trace.cols(), expected_trace.cols());
+        assert_eq!(execution_trace.main_cols(), expected_trace.main_cols());
     }
 }
