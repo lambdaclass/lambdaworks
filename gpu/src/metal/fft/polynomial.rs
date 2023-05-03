@@ -1,15 +1,17 @@
 use crate::metal::abstractions::{errors::MetalError, state::MetalState};
 use lambdaworks_math::{
     field::{
-        element::FieldElement,
-        traits::{IsFFTField, RootsConfig},
+        element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+        traits::RootsConfig,
     },
     polynomial::Polynomial,
 };
 
 use super::ops::*;
 
-pub fn evaluate_fft_metal<F>(coeffs: &[FieldElement<F>]) -> Result<Vec<FieldElement<F>>, MetalError>
+pub fn evaluate_fft_metal(
+    coeffs: &[FieldElement<Stark252PrimeField>],
+) -> Result<Vec<FieldElement<Stark252PrimeField>>, MetalError>
 where
     F: IsFFTField,
 {
@@ -23,12 +25,9 @@ where
 
 /// Returns a new polynomial that interpolates `fft_evals`, which are evaluations using twiddle
 /// factors. This is considered to be the inverse operation of [evaluate_fft_metal()].
-pub fn interpolate_fft_metal<F>(
-    fft_evals: &[FieldElement<F>],
-) -> Result<Polynomial<FieldElement<F>>, MetalError>
-where
-    F: IsFFTField,
-{
+pub fn interpolate_fft_metal(
+    fft_evals: &[FieldElement<Stark252PrimeField>],
+) -> Result<Polynomial<FieldElement<Stark252PrimeField>>, MetalError> {
     let metal_state = MetalState::new(None).unwrap();
 
     let order = fft_evals.len().trailing_zeros();

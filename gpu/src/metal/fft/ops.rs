@@ -1,6 +1,7 @@
 use lambdaworks_math::field::{
     element::FieldElement,
-    traits::{IsFFTField, RootsConfig},
+    fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+    traits::{IsFFTField, IsField, RootsConfig},
 };
 
 use crate::metal::abstractions::{errors::MetalError, state::*};
@@ -17,9 +18,9 @@ use core::mem;
 /// in this order too. Natural order means that input[i] corresponds to the i-th coefficient,
 /// as opposed to bit-reverse order in which input[bit_rev(i)] corresponds to the i-th
 /// coefficient.
-pub fn fft<F: IsFFTField>(
-    input: &[FieldElement<F>],
-    twiddles: &[FieldElement<F>],
+pub fn fft(
+    input: &[FieldElement<Stark252PrimeField>],
+    twiddles: &[FieldElement<Stark252PrimeField>],
     state: &MetalState,
 ) -> Result<Vec<FieldElement<F>>, MetalError> {
     if !input.len().is_power_of_two() {
@@ -52,34 +53,45 @@ pub fn fft<F: IsFFTField>(
     command_buffer.wait_until_completed();
 
     let result = MetalState::retrieve_contents(&input_buffer);
-    let result = bitrev_permutation::<F, _>(&result, state)?;
+    let result = bitrev_permutation(&result, state)?;
     Ok(result.iter().map(FieldElement::from_raw).collect())
 }
 
 /// Generates 2^{`order-1`} twiddle factors in parallel, with a certain `config`, in Metal.
-pub fn gen_twiddles<F: IsFFTField>(
+pub fn gen_twiddles(
     order: u64,
     config: RootsConfig,
     state: &MetalState,
-) -> Result<Vec<FieldElement<F>>, MetalError> {
+) -> Result<Vec<FieldElement<Stark252PrimeField>>, MetalError> {
     let len = (1 << order) / 2;
 
     let kernel = match config {
-        RootsConfig::Natural => format!("calc_twiddles_{}", F::field_name()),
-        RootsConfig::NaturalInversed => format!("calc_twiddles_inv_{}", F::field_name()),
-        RootsConfig::BitReverse => format!("calc_twiddles_bitrev_{}", F::field_name()),
-        RootsConfig::BitReverseInversed => format!("calc_twiddles_bitrev_inv_{}", F::field_name()),
+        RootsConfig::Natural => format!("calc_twiddles_{}", Stark252PrimeField::field_name()),
+        RootsConfig::NaturalInversed => {
+            format!("calc_twiddles_inv_{}", Stark252PrimeField::field_name())
+        }
+        RootsConfig::BitReverse => {
+            format!("calc_twiddles_bitrev_{}", Stark252PrimeField::field_name())
+        }
+        RootsConfig::BitReverseInversed => format!(
+            "calc_twiddles_bitrev_inv_{}",
+            Stark252PrimeField::field_name()
+        ),
     };
 
     let pipeline = state.setup_pipeline(&kernel)?;
 
-    let result_buffer = state.alloc_buffer::<F::BaseType>(len);
+    let result_buffer = state.alloc_buffer::<<Stark252PrimeField as IsField>::BaseType>(len);
 
     let (command_buffer, command_encoder) =
         state.setup_command(&pipeline, Some(&[(0, &result_buffer)]));
 
-    let root = F::get_primitive_root_of_unity::<F>(order).unwrap();
-    command_encoder.set_bytes(1, mem::size_of::<F::BaseType>() as u64, void_ptr(&root));
+    let root = Stark252PrimeField::get_primitive_root_of_unity(order).unwrap();
+    command_encoder.set_bytes(
+        1,
+        mem::size_of::<<Stark252PrimeField as IsField>::BaseType>() as u64,
+        void_ptr(&root),
+    );
 
     let grid_size = MTLSize::new(len as u64, 1, 1);
     let threadgroup_size = MTLSize::new(pipeline.max_total_threads_per_threadgroup(), 1, 1);
@@ -95,11 +107,11 @@ pub fn gen_twiddles<F: IsFFTField>(
 }
 
 /// Executes a parallel bit-reverse permutation with the elements of `input`, in Metal.
-pub fn bitrev_permutation<F: IsFFTField, T: Clone>(
-    input: &[T],
-    state: &MetalState,
-) -> Result<Vec<T>, MetalError> {
-    let pipeline = state.setup_pipeline(&format!("bitrev_permutation_{}", F::field_name()))?;
+pub fn bitrev_permutation<T: Clone>(input: &[T], state: &MetalState) -> Result<Vec<T>, MetalError> {
+    let pipeline = state.setup_pipeline(&format!(
+        "bitrev_permutation_{}",
+        Stark252PrimeField::field_name()
+    ))?;
 
     let input_buffer = state.alloc_buffer_data(input);
     let result_buffer = state.alloc_buffer::<T>(input.len());
