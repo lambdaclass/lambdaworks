@@ -1,16 +1,22 @@
 use lambdaworks_math::{
-    field::{element::FieldElement, traits::IsFFTField},
+    field::{
+        element::FieldElement,
+        traits::{IsFFTField, RootsConfig},
+    },
     helpers,
     polynomial::Polynomial,
 };
 
+use lambdaworks_gpu::metal::fft::polynomial::{forward_fft_metal};
+
 use crate::{
     errors::FFTError,
     ops::{fft_with_blowup, inverse_fft},
+    roots_of_unity::get_twiddles,
 };
 
 pub trait FFTPoly<F: IsFFTField> {
-    fn evaluate_fft(&self) -> Result<Vec<FieldElement<F>>, FFTError>;
+    fn evaluate_fft(&self, order: Option<usize>) -> Result<Vec<FieldElement<F>>, FFTError>;
     fn evaluate_offset_fft(
         &self,
         offset: &FieldElement<F>,
@@ -22,22 +28,37 @@ pub trait FFTPoly<F: IsFFTField> {
 }
 
 impl<F: IsFFTField> FFTPoly<F> for Polynomial<FieldElement<F>> {
-    /// Evaluates this polynomial using FFT (so the function is evaluated using twiddle factors).
-    fn evaluate_fft(&self) -> Result<Vec<FieldElement<F>>, FFTError> {
+    /// If `Some(order),`returns 2^{order} evaluations of this polynomial using FFT (so the results
+    /// are P(w^i), with w being a primitive root of unity), otherwise returns `n` evals. where `n` is
+    /// the next power of two from `self.coeff_len()`.
+    fn evaluate_fft(&self, order: Option<usize>) -> Result<Vec<FieldElement<F>>, FFTError> {
+        let eval_count = if let Some(order) = order {
+            1 << order
+        } else {
+            self.coeff_len().next_power_of_two()
+        };
+        let coeff_count = std::cmp::max(eval_count, self.coeff_len().next_power_of_two());
+
+        if self.coefficients().is_empty() {
+            return Ok(vec![FieldElement::zero(); eval_count]);
+        }
+
+        let mut coeffs = self.coefficients().to_vec();
+        coeffs.resize(coeff_count, FieldElement::zero());
+        // padding with zeros will make FFT return more evaluations of the same polynomial.
+
         #[cfg(feature = "metal")]
         {
             if !F::field_name().is_empty() {
-                Ok(lambdaworks_gpu::metal::fft::polynomial::evaluate_fft_metal(
-                    self,
-                )?)
+                Ok(forward_fft_metal(&coeffs).map(|evals| evals[..eval_count].to_vec())?)
             } else {
-                evaluate_fft_cpu(self)
+                forward_fft_cpu(&coeffs).map(|evals| evals[..eval_count].to_vec())
             }
         }
 
         #[cfg(not(feature = "metal"))]
         {
-            evaluate_fft_cpu(self)
+            forward_fft_cpu(&coeffs)
         }
     }
 
@@ -88,18 +109,16 @@ impl<F: IsFFTField> FFTPoly<F> for Polynomial<FieldElement<F>> {
     }
 }
 
-pub fn evaluate_fft_cpu<F>(
-    poly: &Polynomial<FieldElement<F>>,
+fn forward_fft_cpu<F>(
+    input: &[FieldElement<F>], // needs to be power-of-two sized.
 ) -> Result<Vec<FieldElement<F>>, FFTError>
 where
     F: IsFFTField,
 {
-    let num_coefficients = poly.coefficients().len();
-    let num_coeficcients_power_of_two = helpers::next_power_of_two(num_coefficients as u64);
-
-    let mut padded_coefficients = poly.coefficients().to_vec();
-    padded_coefficients.resize(num_coeficcients_power_of_two as usize, FieldElement::zero());
-    crate::ops::fft(padded_coefficients.as_slice())
+    let order = input.len().trailing_zeros();
+    let twiddles = get_twiddles(order.into(), RootsConfig::BitReverse)?;
+    // Bit reverse order is needed for NR DIT FFT.
+    crate::ops::fft(&input, &twiddles)
 }
 
 pub fn evaluate_offset_fft_cpu<F>(
@@ -131,7 +150,7 @@ pub fn compose_fft<F>(
 where
     F: IsFFTField,
 {
-    let poly_2_evaluations = poly_2.evaluate_fft().unwrap();
+    let poly_2_evaluations = poly_2.evaluate_fft(None).unwrap();
 
     let values: Vec<_> = poly_2_evaluations
         .iter()

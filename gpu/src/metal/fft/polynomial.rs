@@ -9,22 +9,18 @@ use lambdaworks_math::{
 
 use super::ops::*;
 
-pub fn evaluate_fft_metal<F>(
-    poly: &Polynomial<FieldElement<F>>,
+pub fn forward_fft_metal<F>(
+    input: &[FieldElement<F>],
 ) -> Result<Vec<FieldElement<F>>, MetalError>
 where
     F: IsFFTField,
 {
-    let metal_state = MetalState::new(None).unwrap();
+    let state = MetalState::new(None).unwrap();
 
-    // fft() can zero-pad the coeffs if there aren't 2^k of them (k being any integer).
-    // TODO: twiddle factors need to be handled with too much care, the FFT API shouldn't accept
-    // invalid twiddle factor collections. A better solution is needed.
-    let order = poly.coefficients.len().next_power_of_two().trailing_zeros();
+    let order = input.len().trailing_zeros();
+    let twiddles = gen_twiddles(order.into(), RootsConfig::BitReverse, &state)?;
 
-    let twiddles = gen_twiddles(order.into(), RootsConfig::BitReverse, &metal_state)?;
-
-    fft(poly.coefficients(), &twiddles, &metal_state)
+    fft(input, &twiddles, &state)
 }
 
 /// Evaluates this polynomial using parallel FFT in an extended domain by `blowup_factor` with an `offset`, in Metal.
