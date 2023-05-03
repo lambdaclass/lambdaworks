@@ -1,6 +1,6 @@
-use lambdaworks_math::field::{element::FieldElement, traits::IsField};
+use lambdaworks_math::{field::{element::FieldElement, traits::IsField}, traits::ByteConversion};
 
-use super::Polynomial;
+use super::{Polynomial, FriMerkleTree, fri_commitment::FriLayer, HASHER};
 
 fn fold_polynomial<F>(
     poly: &Polynomial<FieldElement<F>>,
@@ -49,18 +49,23 @@ pub fn next_fri_layer<F>(
     poly: &Polynomial<FieldElement<F>>,
     domain: &[FieldElement<F>],
     beta: &FieldElement<F>,
-) -> (
-    Polynomial<FieldElement<F>>,
-    Vec<FieldElement<F>>,
-    Vec<FieldElement<F>>,
-)
+) -> FriLayer<F>
 where
     F: IsField,
+    FieldElement<F>: ByteConversion,
 {
     let ret_poly = fold_polynomial(poly, beta);
     let ret_next_domain = next_domain(domain);
     let ret_evaluation = ret_poly.evaluate_slice(&ret_next_domain);
-    (ret_poly, ret_next_domain, ret_evaluation)
+
+    let merkle_tree = FriMerkleTree::build(&ret_evaluation, Box::new(HASHER));
+
+    FriLayer {
+        poly: ret_poly.clone(),
+        domain: ret_next_domain.to_vec(),
+        evaluation: ret_evaluation.to_vec(),
+        merkle_tree,
+    }
 }
 
 #[cfg(test)]
@@ -146,18 +151,18 @@ mod tests {
             FE::new(1),
         ];
 
-        let (p1, ret_next_domain, ret_evaluation) = next_fri_layer(&p0, &input_domain, &beta);
+        let layer = next_fri_layer(&p0, &input_domain, &beta);
 
         assert_eq!(
-            p1,
+            layer.poly,
             Polynomial::new(&[FE::new(7), FE::new(30), FE::new(23),])
         );
         assert_eq!(
-            ret_next_domain,
+            layer.domain,
             &[FE::new(25), FE::new(49), FE::new(169), FE::new(107),]
         );
         assert_eq!(
-            ret_evaluation,
+            layer.evaluation,
             &[FE::new(189), FE::new(151), FE::new(93), FE::new(207),]
         );
     }

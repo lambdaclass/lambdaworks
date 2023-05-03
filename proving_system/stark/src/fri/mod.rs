@@ -62,8 +62,7 @@ where
 
     // append the root of the merkle tree to the transcript
     let root = merkle_tree.root.clone();
-    let root_bytes = root.to_bytes_be();
-    transcript.append(&root_bytes);
+    transcript.append(&root.to_bytes_be());
 
     let commitment_0 = FriLayer {
         poly: p_0.clone(),
@@ -79,7 +78,6 @@ where
 
     // first evaluation in the list
     fri_layer_list.push(commitment_0);
-    let mut degree = p_0.degree();
 
     let zero = FieldElement::zero();
     let mut last_coef = last_poly.coefficients.get(0).unwrap_or(&zero);
@@ -87,23 +85,18 @@ where
     for _ in 0..number_layers {
         let zeta = transcript_to_field(transcript);
 
-        let (p_i, domain_i, evaluation_i) = next_fri_layer(&last_poly, &last_domain, &zeta);
-
-        let layer_i = fri_commitment(&p_i, &domain_i, &evaluation_i);
+        let layer_i = next_fri_layer(&last_poly, &last_domain, &zeta);
 
         // append root of merkle tree to transcript
-        let tree = &layer_i.merkle_tree;
-        let root = tree.root.clone();
-        let root_bytes = root.to_bytes_be();
-        transcript.append(&root_bytes);
+        let root = layer_i.merkle_tree.root.clone();
+        transcript.append(&root.to_bytes_be());
 
-        fri_layer_list.push(layer_i);
-        degree = p_i.degree();
-
-        last_poly = p_i.clone();
+        last_poly = layer_i.poly.clone();
         last_coef = last_poly.coefficients.get(0).unwrap_or(&zero);
 
-        last_domain = domain_i.clone();
+        last_domain = layer_i.domain.clone();
+
+        fri_layer_list.push(layer_i);
     }
 
     // append last value of the polynomial to the trasncript
