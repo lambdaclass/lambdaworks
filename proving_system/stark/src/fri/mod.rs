@@ -1,7 +1,7 @@
 pub mod fri_commitment;
 pub mod fri_decommit;
 mod fri_functions;
-use crate::fri::fri_commitment::{FriCommitment, FriCommitmentVec};
+use crate::fri::fri_commitment::FriLayer;
 use crate::fri::fri_functions::next_fri_layer;
 use crate::transcript_to_field;
 use lambdaworks_crypto::hash::sha3::Sha3Hasher;
@@ -27,7 +27,7 @@ pub fn fri_commitment<F: IsField>(
     p_i: &Polynomial<FieldElement<F>>,
     domain_i: &[FieldElement<F>],
     evaluation_i: &[FieldElement<F>],
-) -> FriCommitment<F>
+) -> FriLayer<F>
 where
     FieldElement<F>: ByteConversion,
 {
@@ -38,7 +38,7 @@ where
     // Create a new merkle tree with evaluation_i
     let merkle_tree = FriMerkleTree::build(evaluation_i, Box::new(HASHER));
 
-    FriCommitment {
+    FriLayer {
         poly: p_i.clone(),
         domain: domain_i.to_vec(),
         evaluation: evaluation_i.to_vec(),
@@ -46,15 +46,16 @@ where
     }
 }
 
-pub fn fri<F: IsField, T: Transcript>(
-    p_0: &mut Polynomial<FieldElement<F>>,
+pub fn fri_commit_phase<F: IsField, T: Transcript>(
+    number_layers: usize,
+    mut p_0: Polynomial<FieldElement<F>>,
     domain_0: &[FieldElement<F>],
     transcript: &mut T,
-) -> FriCommitmentVec<F>
+) -> Vec<FriLayer<F>>
 where
     FieldElement<F>: ByteConversion,
 {
-    let mut fri_commitment_list = FriCommitmentVec::new();
+    let mut fri_layer_list = Vec::new();
     let evaluation_0 = p_0.evaluate_slice(domain_0);
 
     let merkle_tree = FriMerkleTree::build(&evaluation_0, Box::new(HASHER));
@@ -64,7 +65,7 @@ where
     let root_bytes = root.to_bytes_be();
     transcript.append(&root_bytes);
 
-    let commitment_0 = FriCommitment {
+    let commitment_0 = FriLayer {
         poly: p_0.clone(),
         domain: domain_0.to_vec(),
         evaluation: evaluation_0.to_vec(),
@@ -77,26 +78,26 @@ where
     let mut last_domain: Vec<FieldElement<F>> = domain_0.to_vec();
 
     // first evaluation in the list
-    fri_commitment_list.push(commitment_0);
+    fri_layer_list.push(commitment_0);
     let mut degree = p_0.degree();
 
     let zero = FieldElement::zero();
     let mut last_coef = last_poly.coefficients.get(0).unwrap_or(&zero);
 
-    while degree > 0 {
-        let beta = transcript_to_field(transcript);
+    for _ in 0..number_layers {
+        let zeta = transcript_to_field(transcript);
 
-        let (p_i, domain_i, evaluation_i) = next_fri_layer(&last_poly, &last_domain, &beta);
+        let (p_i, domain_i, evaluation_i) = next_fri_layer(&last_poly, &last_domain, &zeta);
 
-        let commitment_i = fri_commitment(&p_i, &domain_i, &evaluation_i);
+        let layer_i = fri_commitment(&p_i, &domain_i, &evaluation_i);
 
         // append root of merkle tree to transcript
-        let tree = &commitment_i.merkle_tree;
+        let tree = &layer_i.merkle_tree;
         let root = tree.root.clone();
         let root_bytes = root.to_bytes_be();
         transcript.append(&root_bytes);
 
-        fri_commitment_list.push(commitment_i);
+        fri_layer_list.push(layer_i);
         degree = p_i.degree();
 
         last_poly = p_i.clone();
@@ -109,5 +110,5 @@ where
     let last_coef_bytes = last_coef.to_bytes_be();
     transcript.append(&last_coef_bytes);
 
-    fri_commitment_list
+    fri_layer_list
 }

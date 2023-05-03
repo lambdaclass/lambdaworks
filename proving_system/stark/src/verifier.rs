@@ -5,9 +5,10 @@ use super::{
 };
 use crate::{
     air::frame::Frame,
+    batch_sample_challenges,
     fri::HASHER,
     proof::{DeepConsistencyCheck, StarkProof},
-    transcript_to_field, transcript_to_usize, Domain, batch_sample_challenges,
+    transcript_to_field, transcript_to_usize, Domain,
 };
 #[cfg(not(feature = "test_fiat_shamir"))]
 use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
@@ -85,12 +86,20 @@ where
     // These are the challenges alpha^B_j and beta^B_j
     let boundary_coeffs_alphas = batch_sample_challenges(n_trace_cols, transcript);
     let boundary_coeffs_betas = batch_sample_challenges(n_trace_cols, transcript);
-    let boundary_coeffs: Vec<_> = boundary_coeffs_alphas.into_iter().zip(boundary_coeffs_betas).collect();
+    let boundary_coeffs: Vec<_> = boundary_coeffs_alphas
+        .into_iter()
+        .zip(boundary_coeffs_betas)
+        .collect();
 
     // These are the challenges alpha^T_j and beta^T_j
-    let transition_coeffs_alphas = batch_sample_challenges(air.context().num_transition_constraints, transcript);
-    let transition_coeffs_betas = batch_sample_challenges(air.context().num_transition_constraints, transcript);
-    let transition_coeffs: Vec<_> = transition_coeffs_alphas.into_iter().zip(transition_coeffs_betas).collect();
+    let transition_coeffs_alphas =
+        batch_sample_challenges(air.context().num_transition_constraints, transcript);
+    let transition_coeffs_betas =
+        batch_sample_challenges(air.context().num_transition_constraints, transcript);
+    let transition_coeffs: Vec<_> = transition_coeffs_alphas
+        .into_iter()
+        .zip(transition_coeffs_betas)
+        .collect();
 
     transcript.append(&proof.composition_poly_roots[0].to_bytes_be());
     transcript.append(&proof.composition_poly_roots[1].to_bytes_be());
@@ -291,7 +300,7 @@ where
         &challenges.beta_list,
         challenges.q_0,
         &proof.query_list[0].fri_decommitment,
-        domain.lde_root_order,
+        domain,
     ) {
         return false;
     }
@@ -309,7 +318,7 @@ where
             &challenges.beta_list,
             q_i,
             &proof_i.fri_decommitment,
-            domain.lde_root_order,
+            domain,
         );
     }
     result
@@ -347,12 +356,14 @@ fn verify_query<F: IsField + IsFFTField, A: AIR<Field = F>>(
     beta_list: &[FieldElement<F>],
     q_i: usize,
     fri_decommitment: &FriDecommitment<F>,
-    lde_root_order: u32,
+    domain: &Domain<F>,
 ) -> bool
 where
     FieldElement<F>: ByteConversion,
 {
-    let mut lde_primitive_root = F::get_primitive_root_of_unity(lde_root_order as u64).unwrap();
+
+    let mut lde_primitive_root =
+        F::get_primitive_root_of_unity(domain.lde_root_order as u64).unwrap();
     let mut offset = FieldElement::<F>::from(air.options().coset_offset);
 
     // For each fri layer merkle proof check:
@@ -397,7 +408,7 @@ where
     {
         // This is the current layer's evaluation domain length. We need it to know what the decommitment index for the current
         // layer is, so we can check the merkle paths at the right index.
-        let current_layer_domain_length = 2_u64.pow(lde_root_order) as usize >> layer_number;
+        let current_layer_domain_length = 2_u64.pow(domain.lde_root_order) as usize >> layer_number;
 
         let layer_evaluation_index = q_i % current_layer_domain_length;
 

@@ -1,9 +1,10 @@
-use crate::fri::fri_commitment::FriCommitmentVec;
 pub use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_crypto::merkle_tree::proof::Proof;
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::IsField;
 use lambdaworks_math::traits::ByteConversion;
+
+use super::fri_commitment::FriLayer;
 #[derive(Debug, Clone)]
 pub struct FriDecommitment<F: IsField> {
     pub layer_merkle_paths: Vec<(Proof<F>, Proof<F>)>,
@@ -16,7 +17,7 @@ pub struct FriDecommitment<F: IsField> {
 // TODO: encapsulate the return type of this function in a struct.
 // This returns a list of authentication paths for evaluations on points and their symmetric counterparts.
 pub fn fri_decommit_layers<F: IsField>(
-    commit: &FriCommitmentVec<F>,
+    commit: &Vec<FriLayer<F>>,
     index_to_verify: usize,
 ) -> FriDecommitment<F>
 where

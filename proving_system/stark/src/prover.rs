@@ -1,11 +1,11 @@
 use super::{
     air::{constraints::evaluator::ConstraintEvaluator, frame::Frame, trace::TraceTable, AIR},
-    fri::{fri, fri_commitment::FriCommitmentVec, fri_decommit::fri_decommit_layers},
+    fri::{fri_commit_phase, fri_decommit::fri_decommit_layers},
     sample_z_ood,
 };
 use crate::{
     batch_sample_challenges,
-    fri::HASHER,
+    fri::{HASHER, fri_commitment::FriLayer},
     proof::{DeepConsistencyCheck, StarkProof, StarkQueryProof},
     transcript_to_field, transcript_to_usize, Domain,
 };
@@ -230,46 +230,6 @@ where
     }
 }
 
-fn fri_commit_phase<F: IsFFTField, A: AIR<Field = F>, T: Transcript>(
-    air: &A,
-    domain: &Domain<F>,
-    round_1_result: &Round1<F>,
-    round_2_result: &Round2<F>,
-    z: &FieldElement<F>,
-    composition_poly_coeffients: [FieldElement<F>; 2],
-    trace_poly_coeffients: &[FieldElement<F>],
-    transcript: &mut T,
-) -> (FriCommitmentVec<F>, Vec<FieldElement<F>>)
-where
-    FieldElement<F>: ByteConversion,
-{
-    // Compute DEEP composition polynomial so we can commit to it using FRI.
-    let mut deep_composition_poly = compute_deep_composition_poly(
-        air,
-        &round_1_result.trace_polys,
-        &round_2_result.composition_poly_even,
-        &round_2_result.composition_poly_odd,
-        z,
-        &domain.trace_primitive_root,
-        &composition_poly_coeffients,
-        trace_poly_coeffients,
-    );
-
-    // * Do FRI on the composition polynomials
-    let lde_fri_commitment = fri(
-        &mut deep_composition_poly,
-        &domain.lde_roots_of_unity_coset,
-        transcript,
-    );
-
-    let fri_layers_merkle_roots: Vec<_> = lde_fri_commitment
-        .iter()
-        .map(|fri_commitment| fri_commitment.merkle_tree.root.clone())
-        .collect();
-
-    (lde_fri_commitment, fri_layers_merkle_roots)
-}
-
 #[allow(clippy::too_many_arguments)]
 fn fri_query_phase<F: IsFFTField, A: AIR<Field = F>, T: Transcript>(
     air: &A,
@@ -277,7 +237,7 @@ fn fri_query_phase<F: IsFFTField, A: AIR<Field = F>, T: Transcript>(
     round_1_result: &Round1<F>,
     round_2_result: &Round2<F>,
     q_0: usize,
-    lde_fri_commitment: &FriCommitmentVec<F>,
+    fri_layers: &Vec<FriLayer<F>>,
     fri_layers_merkle_roots: &[FieldElement<F>],
     transcript: &mut T,
 ) -> (Vec<StarkQueryProof<F>>, DeepConsistencyCheck<F>)
@@ -305,7 +265,7 @@ where
             };
 
             // * For every q_i, do FRI decommitment
-            let fri_decommitment = fri_decommit_layers(lde_fri_commitment, q_i);
+            let fri_decommitment = fri_decommit_layers(fri_layers, q_i);
             StarkQueryProof {
                 fri_layers_merkle_roots: fri_layers_merkle_roots.to_vec(),
                 fri_decommitment,
@@ -340,16 +300,32 @@ where
         transcript_to_field(transcript),
         transcript_to_field(transcript),
     ];
-    let (lde_fri_commitment, fri_layers_merkle_roots) = fri_commit_phase(
+
+    // Compute DEEP composition polynomial so we can commit to it using FRI.
+    let deep_composition_poly = compute_deep_composition_poly(
         air,
-        domain,
-        round_1_result,
-        round_2_result,
+        &round_1_result.trace_polys,
+        &round_2_result.composition_poly_even,
+        &round_2_result.composition_poly_odd,
         z,
-        composition_poly_coeffients,
+        &domain.trace_primitive_root,
+        &composition_poly_coeffients,
         &trace_poly_coeffients,
+    );
+
+    // * Do FRI on the deep composition polynomial
+    let fri_layers = fri_commit_phase(
+        domain.root_order as usize,
+        deep_composition_poly,
+        &domain.lde_roots_of_unity_coset,
         transcript,
     );
+
+    let fri_layers_merkle_roots: Vec<_> = fri_layers
+        .iter()
+        .map(|layer| layer.merkle_tree.root.clone())
+        .collect();
+
 
     let q_0 = transcript_to_usize(transcript) % 2_usize.pow(domain.lde_root_order);
     transcript.append(&q_0.to_be_bytes());
@@ -360,7 +336,7 @@ where
         round_1_result,
         round_2_result,
         q_0,
-        &lde_fri_commitment,
+        &fri_layers,
         &fri_layers_merkle_roots,
         transcript,
     );
