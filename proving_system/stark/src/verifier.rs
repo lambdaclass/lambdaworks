@@ -79,11 +79,6 @@ where
     for root in proof.lde_trace_merkle_roots.iter() {
         transcript.append(&root.to_bytes_be());
     }
-    let z = sample_z_ood(
-        &domain.lde_roots_of_unity_coset,
-        &domain.trace_roots_of_unity,
-        transcript,
-    );
     let boundary_coeffs: Vec<(FieldElement<F>, FieldElement<F>)> = (0..n_trace_cols)
         .map(|_| {
             (
@@ -102,6 +97,12 @@ where
                 )
             })
             .collect();
+
+    let z = sample_z_ood(
+        &domain.lde_roots_of_unity_coset,
+        &domain.trace_roots_of_unity,
+        transcript,
+    );
 
     // Get the number of trace terms the DEEP composition poly will have.
     // One coefficient will be sampled for each of them.

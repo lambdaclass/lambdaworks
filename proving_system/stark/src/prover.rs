@@ -426,12 +426,6 @@ where
         transcript.append(&root.to_bytes_be());
     }
 
-    let z = sample_z_ood(
-        &domain.lde_roots_of_unity_coset,
-        &domain.trace_roots_of_unity,
-        transcript,
-    );
-
     // Sample challenges for round 2
     // These are the challenges alpha^B_j and beta^B_j
     let boundary_coeffs: Vec<(FieldElement<F>, FieldElement<F>)> =
@@ -461,6 +455,12 @@ where
         &round_1_result,
         &transition_coeffs,
         &boundary_coeffs,
+    );
+
+    let z = sample_z_ood(
+        &domain.lde_roots_of_unity_coset,
+        &domain.trace_roots_of_unity,
+        transcript,
     );
 
     let round_3_result = round_3_evaluate_polynomials_in_out_of_domain_element(
