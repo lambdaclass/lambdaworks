@@ -7,8 +7,7 @@ use crate::{
     air::frame::Frame,
     fri::HASHER,
     proof::{DeepConsistencyCheck, StarkProof},
-    prover::batch_sample_challenges,
-    transcript_to_field, transcript_to_usize, Domain,
+    transcript_to_field, transcript_to_usize, Domain, batch_sample_challenges,
 };
 #[cfg(not(feature = "test_fiat_shamir"))]
 use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;

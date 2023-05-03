@@ -6,7 +6,7 @@ use super::{
 use crate::{
     fri::HASHER,
     proof::{DeepConsistencyCheck, StarkProof, StarkQueryProof},
-    transcript_to_field, transcript_to_usize, Domain,
+    transcript_to_field, transcript_to_usize, Domain, batch_sample_challenges,
 };
 #[cfg(not(feature = "test_fiat_shamir"))]
 use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
@@ -92,20 +92,6 @@ where
         &FieldElement::<F>::from(air.options().coset_offset),
         air.options().blowup_factor as usize,
     )
-}
-
-pub fn batch_sample_challenges<F: IsFFTField, T: Transcript>(
-    size: usize,
-    transcript: &mut T,
-) -> Vec<(FieldElement<F>, FieldElement<F>)> {
-    (0..size)
-        .map(|_| {
-            (
-                transcript_to_field(transcript),
-                transcript_to_field(transcript),
-            )
-        })
-        .collect()
 }
 
 fn commit_original_trace<F, A>(trace: &TraceTable<F>, air: &A) -> Round1<F>
