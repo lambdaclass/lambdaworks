@@ -21,7 +21,7 @@ use lambdaworks_math::{
     field::{
         element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
     },
-    polynomial::Polynomial,
+    polynomial::Polynomial, traits::ByteConversion,
 };
 use log::info;
 
