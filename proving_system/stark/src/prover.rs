@@ -420,13 +420,17 @@ where
     // z is the Out of domain evaluation point used in Deep FRI. It needs to be a point outside
     // of both the roots of unity and its corresponding coset used for the lde commitment.
     // TODO: This has to be sampled after round 2 according to the protocol
+
+    let round_1_result = round_1_randomized_air_with_preprocessing(trace, air);
+    for root in round_1_result.lde_trace_merkle_roots.iter() {
+        transcript.append(&root.to_bytes_be());
+    }
+
     let z = sample_z_ood(
         &domain.lde_roots_of_unity_coset,
         &domain.trace_roots_of_unity,
         transcript,
     );
-
-    let round_1_result = round_1_randomized_air_with_preprocessing(trace, air);
 
     // Sample challenges for round 2
     // These are the challenges alpha^B_j and beta^B_j
@@ -477,6 +481,7 @@ where
     );
 
     StarkProof {
+        lde_trace_merkle_roots: round_1_result.lde_trace_merkle_roots,
         fri_layers_merkle_roots: round_4_result.fri_layers_merkle_roots,
         trace_ood_frame_evaluations: round_3_result.trace_ood_frame_evaluations,
         composition_poly_ood_evaluations: round_3_result.composition_poly_ood_evaluations,

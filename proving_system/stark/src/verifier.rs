@@ -76,6 +76,9 @@ where
     // we have to make sure that the result is not either
     // a root of unity or an element of the lde coset.
     let n_trace_cols = air.context().trace_columns;
+    for root in proof.lde_trace_merkle_roots.iter() {
+        transcript.append(&root.to_bytes_be());
+    }
     let z = sample_z_ood(
         &domain.lde_roots_of_unity_coset,
         &domain.trace_roots_of_unity,
