@@ -3,10 +3,9 @@ use lambdaworks_math::{
     elliptic_curve::traits::IsPairing,
     field::{element::FieldElement, traits::IsPrimeField},
     msm::msm,
-    polynomial::Polynomial,
+    polynomial::Polynomial, traits::ByteConversion,
 };
-use std::marker::PhantomData;
-
+use std::{marker::PhantomData, mem};
 use super::traits::IsCommitmentScheme;
 
 #[derive(Clone)]
@@ -26,6 +25,88 @@ where
             powers_main_group: powers_main_group.into(),
             powers_secondary_group: powers_secondary_group.clone(),
         }
+    }
+}
+
+impl<G1Point, G2Point> StructuredReferenceString<G1Point, G2Point>
+where
+    G1Point: IsGroup + ByteConversion,
+    G2Point: IsGroup + ByteConversion,
+{
+    pub fn serialize(&self) -> Vec<u8> {
+
+        let mut serialized_data: Vec<u8> = Vec::new();
+        // First 4 bytes encodes protocol version
+        let protocol_version: [u8;4] = [0;4];
+
+        serialized_data.extend(&protocol_version);
+
+        // Second 8 bytes store the amount of G1 elements to be stored, this is more than can be indexed with a 64-bit architecture, and some millions of terabytes of data if the points were compressed
+        let mut main_group_len_bytes: Vec<u8> = self.powers_main_group.len().to_le_bytes().to_vec();
+
+        // For architectures with less than 64 bits for pointers
+        // We add extra zeros at the end
+        while main_group_len_bytes.len() < 8 {
+            main_group_len_bytes.push(0)
+        }
+    
+        serialized_data.extend(&main_group_len_bytes);
+
+        // G1 elements
+        for point in &self.powers_main_group {
+            serialized_data.extend(point.to_bytes_le());
+        }
+
+        // G2 elements
+        for point in &self.powers_secondary_group {
+            serialized_data.extend(point.to_bytes_le());
+        }
+
+        serialized_data
+    }
+
+    pub fn deserialize(bytes: &[u8]) -> Self {
+
+        let main_group_len_u64 
+            = u64::from_le_bytes(
+                bytes[4..12].try_into().unwrap()
+            );
+
+        // TO DO: Panics if there are more points than 2^32 g1 points in 32-bit architecture
+        let main_group_len = usize::try_from(main_group_len_u64).unwrap() ;
+
+        let mut main_group: Vec<G1Point> = Vec::new();
+        let mut secondary_group: Vec<G2Point> = Vec::new();
+        let size_g1_point = mem::size_of::<G1Point>();
+        let size_g2_point = mem::size_of::<G2Point>();
+
+
+        for i in 0..main_group_len {
+            // The second unwrap shouldn't fail since the amount of bytes is fixed
+            let point = G1Point::from_bytes_le(
+                bytes[i*size_g1_point+12..i*size_g1_point+size_g1_point+12].try_into().unwrap()
+            ).unwrap();
+            main_group.push(point);
+        }
+
+        let size_g1_point = mem::size_of::<G1Point>();
+        let size_g2_point = mem::size_of::<G2Point>();
+        let g2s_offset = size_g1_point*main_group_len+12;
+        for i in 0..2 {
+            // The second unwrap shouldn't fail since the amount of bytes is fixed
+            let point = G2Point::from_bytes_le(
+                bytes[i*size_g2_point+g2s_offset..i*size_g2_point+g2s_offset+size_g2_point].try_into().unwrap()
+            ).unwrap();
+            secondary_group.push(point);
+        }
+
+        let secondary_group_slice = [secondary_group[0].clone(),secondary_group[1].clone()];
+        
+        let srs = StructuredReferenceString::new(
+            &main_group,
+            &secondary_group_slice
+        );
+        srs
     }
 }
 
@@ -223,5 +304,13 @@ mod tests {
         assert_eq!(y, FieldElement::zero());
         assert_eq!(proof, BLS12381Curve::generator());
         assert!(kzg.verify(&x, &y, &p_commitment, &proof));
+    }
+
+    #[test]
+    fn serialize_deserialize_srs() {
+        let srs = create_srs();
+        let bytes = srs.serialize();
+    
+        //assert!(kzg.verify(&x, &y, &p_commitment, &proof));
     }
 }

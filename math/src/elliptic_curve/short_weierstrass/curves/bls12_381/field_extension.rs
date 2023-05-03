@@ -1,11 +1,11 @@
-use crate::field::{
+use crate::{field::{
     element::FieldElement,
     extensions::{
         cubic::{CubicExtensionField, HasCubicNonResidue},
         quadratic::{HasQuadraticNonResidue, QuadraticExtensionField},
     },
     fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
-};
+}, traits::ByteConversion};
 use crate::unsigned_integer::element::U384;
 
 pub const BLS12381_PRIME_FIELD_ORDER: U384 = U384::from("1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab");
@@ -30,6 +30,28 @@ impl HasQuadraticNonResidue for LevelOneResidue {
 }
 
 pub type Degree2ExtensionField = QuadraticExtensionField<LevelOneResidue>;
+
+impl ByteConversion for QuadraticExtensionField<LevelOneResidue> {
+    fn to_bytes_be(&self) -> Vec<u8> {
+        todo!()
+    }
+
+    fn to_bytes_le(&self) -> Vec<u8> {
+        todo!()
+    }
+
+    fn from_bytes_be(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
+    where
+        Self: std::marker::Sized {
+        todo!()
+    }
+
+    fn from_bytes_le(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
+    where
+        Self: std::marker::Sized {
+        todo!()
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct LevelTwoResidue;
@@ -73,6 +95,8 @@ impl FieldElement<Degree2ExtensionField> {
         Self::new([FieldElement::new(U384::from(a_hex)), FieldElement::zero()])
     }
 }
+
+
 
 impl FieldElement<Degree6ExtensionField> {
     pub fn new_base(a_hex: &str) -> Self {

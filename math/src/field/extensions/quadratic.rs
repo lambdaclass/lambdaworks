@@ -1,5 +1,6 @@
 use crate::field::element::FieldElement;
 use crate::field::traits::IsField;
+use crate::traits::ByteConversion;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
