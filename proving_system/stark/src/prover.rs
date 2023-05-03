@@ -20,7 +20,7 @@ use lambdaworks_fft::polynomial::FFTPoly;
 use lambdaworks_math::{
     field::{
         element::FieldElement,
-        traits::{IsFFTField, IsField},
+        traits::{IsFFTField},
     },
     polynomial::Polynomial,
     traits::ByteConversion,
@@ -44,7 +44,7 @@ struct Round2<F: IsFFTField> {
 
 struct Round3<F: IsFFTField> {
     trace_ood_frame_evaluations: Frame<F>,
-    composition_poly_ood_evaluations: [FieldElement<F>;2]
+    composition_poly_ood_evaluations: [FieldElement<F>; 2],
 }
 
 struct Round4<F: IsFFTField> {
@@ -469,22 +469,20 @@ where
 
     let mut transcript = round_0_transcript_initialization();
 
-    // Fiat-Shamir
-    // z is the Out of domain evaluation point used in Deep FRI. It needs to be a point outside
-    // of both the roots of unity and its corresponding coset used for the lde commitment.
-    // TODO: This has to be sampled after round 2 according to the protocol
-
+    // Round 1
     let round_1_result = round_1_randomized_air_with_preprocessing(trace, air);
 
     for root in round_1_result.lde_trace_merkle_roots.iter() {
         transcript.append(&root.to_bytes_be());
     }
 
-    // Sample challenges for round 2
+    // Round 2
     // These are the challenges alpha^B_j and beta^B_j
-    let boundary_coeffs = batch_sample_challenges(round_1_result.trace_polys.len(), &mut transcript);
+    let boundary_coeffs =
+        batch_sample_challenges(round_1_result.trace_polys.len(), &mut transcript);
     // These are the challenges alpha^T_j and beta^T_j
-    let transition_coeffs = batch_sample_challenges(air.context().num_transition_constraints, &mut transcript);
+    let transition_coeffs =
+        batch_sample_challenges(air.context().num_transition_constraints, &mut transcript);
 
     let round_2_result = round_2_compute_composition_polynomial(
         air,
@@ -497,6 +495,7 @@ where
     transcript.append(&round_2_result.composition_poly_roots[0].to_bytes_be());
     transcript.append(&round_2_result.composition_poly_roots[1].to_bytes_be());
 
+    // Round 3
     let z = sample_z_ood(
         &domain.lde_roots_of_unity_coset,
         &domain.trace_roots_of_unity,
@@ -511,7 +510,6 @@ where
         &z,
     );
 
-
     // H_1(z^2)
     transcript.append(&round_3_result.composition_poly_ood_evaluations[0].to_bytes_be());
     // H_2(z^2)
@@ -525,6 +523,7 @@ where
         transcript.append(&element.to_bytes_be());
     }
 
+    // Round 4
     let round_4_result = round_4_compute_and_run_fri_on_the_deep_composition_polynomial(
         air,
         &domain,

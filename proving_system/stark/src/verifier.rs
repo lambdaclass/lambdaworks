@@ -7,7 +7,8 @@ use crate::{
     air::frame::Frame,
     fri::HASHER,
     proof::{DeepConsistencyCheck, StarkProof},
-    transcript_to_field, transcript_to_usize, Domain, prover::batch_sample_challenges,
+    prover::batch_sample_challenges,
+    transcript_to_field, transcript_to_usize, Domain,
 };
 #[cfg(not(feature = "test_fiat_shamir"))]
 use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
@@ -82,7 +83,8 @@ where
     }
 
     let boundary_coeffs = batch_sample_challenges(n_trace_cols, transcript);
-    let transition_coeffs = batch_sample_challenges(air.context().num_transition_constraints, transcript);
+    let transition_coeffs =
+        batch_sample_challenges(air.context().num_transition_constraints, transcript);
 
     transcript.append(&proof.composition_poly_roots[0].to_bytes_be());
     transcript.append(&proof.composition_poly_roots[1].to_bytes_be());
