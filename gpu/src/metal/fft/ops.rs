@@ -86,7 +86,8 @@ pub fn gen_twiddles(
     let (command_buffer, command_encoder) =
         state.setup_command(&pipeline, Some(&[(0, &result_buffer)]));
 
-    let root = Stark252PrimeField::get_primitive_root_of_unity(order).unwrap();
+    let root: FieldElement<Stark252PrimeField> =
+        Stark252PrimeField::get_primitive_root_of_unity(order).unwrap();
     command_encoder.set_bytes(
         1,
         mem::size_of::<<Stark252PrimeField as IsField>::BaseType>() as u64,

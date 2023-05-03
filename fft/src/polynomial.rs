@@ -92,7 +92,7 @@ impl<F: IsFFTField> FFTPoly<F> for Polynomial<FieldElement<F>> {
     fn interpolate_fft(fft_evals: &[FieldElement<F>]) -> Result<Self, FFTError> {
         #[cfg(feature = "metal")]
         {
-            if !F::field_name().is_empty() {
+            if !Stark252PrimeField::field_name().is_empty() {
                 Ok(lambdaworks_gpu::metal::fft::polynomial::interpolate_fft_metal(fft_evals)?)
             } else {
                 println!(
