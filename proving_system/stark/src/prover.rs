@@ -16,12 +16,13 @@ use lambdaworks_crypto::{fiat_shamir::transcript::Transcript, merkle_tree::merkl
 use lambdaworks_crypto::fiat_shamir::test_transcript::TestTranscript;
 
 use lambdaworks_fft::errors::FFTError;
-use lambdaworks_fft::polynomial::FFTPoly;
+use lambdaworks_fft::polynomial::evaluate_offset_fft_with_len;
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsFFTField},
     polynomial::Polynomial,
     traits::ByteConversion,
 };
+use log::info;
 
 struct Round1<F: IsFFTField> {
     trace_polys: Vec<Polynomial<FieldElement<F>>>,
@@ -72,7 +73,11 @@ where
     let lde_trace_evaluations = trace_polys
         .iter()
         .map(|poly| {
-            poly.evaluate_offset_fft(
+            // FIXME: This function should be changed when `evaluate_offset_fft`
+            // handles the case for the zero polynomial.
+            evaluate_offset_fft_with_len(
+                poly,
+                trace.n_rows(),
                 &FieldElement::<F>::from(air.options().coset_offset),
                 air.options().blowup_factor as usize,
             )
@@ -409,6 +414,8 @@ pub fn prove<F: IsFFTField, A: AIR<Field = F>>(trace: &TraceTable<F>, air: &A) -
 where
     FieldElement<F>: ByteConversion,
 {
+    info!("Starting proof generation...");
+
     #[cfg(debug_assertions)]
     trace.validate(air);
 
@@ -475,6 +482,8 @@ where
         &z,
         transcript,
     );
+
+    info!("End proof generation");
 
     StarkProof {
         fri_layers_merkle_roots: round_4_result.fri_layers_merkle_roots,
