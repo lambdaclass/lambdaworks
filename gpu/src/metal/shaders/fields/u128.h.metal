@@ -3,6 +3,8 @@
 #ifndef u128_h
 #define u128_h
 
+#include <metal_stdlib>
+
 class u128
 {
 public:
