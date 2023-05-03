@@ -1,4 +1,8 @@
-use lambdaworks_math::field::{element::FieldElement, traits::IsTwoAdicField};
+use lambdaworks_math::field::{
+    element::FieldElement,
+    errors::FieldError,
+    traits::{IsTwoAdicField, RootsConfig},
+};
 
 use cudarc::{
     driver::{CudaDevice, DriverError, LaunchAsync, LaunchConfig},
@@ -57,11 +61,68 @@ where
     }
 
     let output = device.sync_reclaim(d_input).unwrap();
-    let output = output
+    let mut output: Vec<_> = output
         .into_iter()
         .map(|cuda_elem| cuda_elem.into())
         .collect();
+
+    in_place_bit_reverse_permute(&mut output);
     Ok(output)
+}
+
+//TODO: Should return CudaError
+//TODO: This should mimic metal helpers module
+pub fn log2(n: usize) -> Result<u64, FieldError> {
+    if !n.is_power_of_two() {
+        panic!("The order of polynomial + 1 should a be power of 2");
+    }
+    Ok(n.trailing_zeros() as u64)
+}
+
+//TODO implement in CUDA
+pub fn get_twiddles<F: IsTwoAdicField>(
+    order: u64,
+    config: RootsConfig,
+) -> Result<Vec<FieldElement<F>>, FieldError> {
+    get_powers_of_primitive_root(order, (1 << order) / 2, config)
+}
+
+//TODO remove after implementing in cuda
+pub fn get_powers_of_primitive_root<F: IsTwoAdicField>(
+    n: u64,
+    count: usize,
+    config: RootsConfig,
+) -> Result<Vec<FieldElement<F>>, FieldError> {
+    let root = F::get_primitive_root_of_unity(n).unwrap();
+
+    let calc = |i| match config {
+        RootsConfig::Natural => root.pow(i),
+        RootsConfig::NaturalInversed => root.pow(i).inv(),
+        RootsConfig::BitReverse => root.pow(reverse_index(&i, count as u64)),
+        RootsConfig::BitReverseInversed => root.pow(reverse_index(&i, count as u64)).inv(),
+    };
+
+    let results = (0..count).map(calc);
+    Ok(results.collect())
+}
+
+//TODO remove after implementing in cuda
+pub fn in_place_bit_reverse_permute<E>(input: &mut [E]) {
+    for i in 0..input.len() {
+        let bit_reversed_index = reverse_index(&i, input.len() as u64);
+        if bit_reversed_index > i {
+            input.swap(i, bit_reversed_index);
+        }
+    }
+}
+
+//TODO remove after implementing in cuda
+pub fn reverse_index(i: &usize, size: u64) -> usize {
+    if size == 1 {
+        *i
+    } else {
+        i.reverse_bits() >> (usize::BITS - size.trailing_zeros())
+    }
 }
 
 #[cfg(test)]
@@ -95,12 +156,11 @@ mod tests {
 
     proptest! {
         #[test]
-        fn test_cuda_fft_matches_sequential_fft(input in field_vec(2)) {
+        fn test_cuda_fft_matches_sequential_fft(input in field_vec(4)) {
             let order = input.len().trailing_zeros();
             let twiddles = get_twiddles(order.into(), RootsConfig::BitReverse).unwrap();
 
-            let mut cuda_fft = super::fft(&input, &twiddles).unwrap();
-            lambdaworks_fft::bit_reversing::in_place_bit_reverse_permute(&mut cuda_fft);
+            let cuda_fft = super::fft(&input, &twiddles).unwrap();
             let fft = lambdaworks_fft::ops::fft(&input).unwrap();
 
             assert_eq!(cuda_fft, fft);

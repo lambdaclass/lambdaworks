@@ -21,7 +21,10 @@ pub trait FFTPoly<F: IsTwoAdicField> {
     ) -> Result<Polynomial<FieldElement<F>>, FFTError>;
 }
 
-impl<F: IsTwoAdicField> FFTPoly<F> for Polynomial<FieldElement<F>> {
+impl<F> FFTPoly<F> for Polynomial<FieldElement<F>>
+where
+    F: IsTwoAdicField,
+{
     /// Evaluates this polynomial using FFT (so the function is evaluated using twiddle factors).
     fn evaluate_fft(&self) -> Result<Vec<FieldElement<F>>, FFTError> {
         #[cfg(feature = "metal")]
@@ -35,7 +38,16 @@ impl<F: IsTwoAdicField> FFTPoly<F> for Polynomial<FieldElement<F>> {
             }
         }
 
-        #[cfg(not(feature = "metal"))]
+        #[cfg(feature = "cuda")]
+        {
+            if field_supports_metal::<F>() {
+                Ok(lambdaworks_gpu::cuda::fft::polynomial::evaluate_fft_cuda(&self).unwrap())
+            } else {
+                evaluate_fft_cpu(self)
+            }
+        }
+
+        #[cfg(all(not(feature = "metal"), not(feature = "cuda")))]
         {
             evaluate_fft_cpu(self)
         }
