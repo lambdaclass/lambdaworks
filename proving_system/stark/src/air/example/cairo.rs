@@ -202,13 +202,14 @@ fn compute_instr_constraints(constraints: &mut [FE], frame: &Frame<Stark252Prime
     let b32 = two.pow(32u32);
     let b48 = two.pow(48u32);
 
-    let f0 = &curr[0..15]
+    // Named like this to match the Cairo whitepaper's notation.
+    let f0_squiggle = &curr[0..15]
         .iter()
         .rev()
         .fold(FE::zero(), |acc, flag| flag + &two * acc);
 
     constraints[INST] =
-        (&curr[OFF_DST]) + b16 * (&curr[OFF_OP0]) + b32 * (&curr[OFF_OP1]) + b48 * f0
+        (&curr[OFF_DST]) + b16 * (&curr[OFF_OP0]) + b32 * (&curr[OFF_OP1]) + b48 * f0_squiggle
             - &curr[FRAME_INST];
 }
 
@@ -302,4 +303,34 @@ fn enforce_selector(constraints: &mut [FE], frame: &Frame<Stark252PrimeField>) {
 
 fn frame_inst_size(frame_row: &[FE]) -> FE {
     &frame_row[F_OP_1_VAL] + FE::one()
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::cairo_vm::{
+        cairo_mem::CairoMemory, cairo_trace::CairoTrace,
+        execution_trace::build_cairo_execution_trace,
+    };
+
+    #[test]
+    fn check_simple_cairo_trace_evaluates_to_zero() {
+        let base_dir = env!("CARGO_MANIFEST_DIR");
+        let dir_trace = base_dir.to_owned() + "/src/cairo_vm/test_data/simple_program.trace";
+        let dir_memory = base_dir.to_owned() + "/src/cairo_vm/test_data/simple_program.mem";
+
+        let raw_trace = CairoTrace::from_file(&dir_trace).unwrap();
+        let memory = CairoMemory::from_file(&dir_memory).unwrap();
+
+        let execution_trace = build_cairo_execution_trace(&raw_trace, &memory);
+
+        let proof_options = ProofOptions {
+            blowup_factor: 2,
+            fri_number_of_queries: 1,
+            coset_offset: 3,
+        };
+
+        let cairo_air = CairoAIR::new(proof_options, &execution_trace);
+        assert!(execution_trace.validate(&cairo_air));
+    }
 }
