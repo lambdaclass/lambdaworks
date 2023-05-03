@@ -44,7 +44,7 @@ struct Round2<F: IsFFTField> {
 
 struct Round3<F: IsFFTField> {
     trace_ood_frame_evaluations: Frame<F>,
-    composition_poly_ood_evaluations: Vec<FieldElement<F>>,
+    composition_poly_ood_evaluations: [FieldElement<F>;2]
 }
 
 struct Round4<F: IsFFTField> {
@@ -217,7 +217,7 @@ where
     let z_squared = z * z;
 
     // Evaluate H_1 and H_2 in z^2.
-    let composition_poly_ood_evaluations = vec![
+    let composition_poly_ood_evaluations = [
         round_2_result.composition_poly_even.evaluate(&z_squared),
         round_2_result.composition_poly_odd.evaluate(&z_squared),
     ];
@@ -475,6 +475,7 @@ where
     // TODO: This has to be sampled after round 2 according to the protocol
 
     let round_1_result = round_1_randomized_air_with_preprocessing(trace, air);
+
     for root in round_1_result.lde_trace_merkle_roots.iter() {
         transcript.append(&root.to_bytes_be());
     }
@@ -482,6 +483,7 @@ where
     // Sample challenges for round 2
     // These are the challenges alpha^B_j and beta^B_j
     let boundary_coeffs = batch_sample_challenges(round_1_result.trace_polys.len(), &mut transcript);
+    // These are the challenges alpha^T_j and beta^T_j
     let transition_coeffs = batch_sample_challenges(air.context().num_transition_constraints, &mut transcript);
 
     let round_2_result = round_2_compute_composition_polynomial(
@@ -508,6 +510,20 @@ where
         &round_2_result,
         &z,
     );
+
+
+    // H_1(z^2)
+    transcript.append(&round_3_result.composition_poly_ood_evaluations[0].to_bytes_be());
+    // H_2(z^2)
+    transcript.append(&round_3_result.composition_poly_ood_evaluations[1].to_bytes_be());
+    // These are the values t_j(z)
+    for element in round_3_result.trace_ood_frame_evaluations.get_row(0).iter() {
+        transcript.append(&element.to_bytes_be());
+    }
+    // These are the values t_j(gz)
+    for element in round_3_result.trace_ood_frame_evaluations.get_row(1).iter() {
+        transcript.append(&element.to_bytes_be());
+    }
 
     let round_4_result = round_4_compute_and_run_fri_on_the_deep_composition_polynomial(
         air,

@@ -76,9 +76,11 @@ where
     // we have to make sure that the result is not either
     // a root of unity or an element of the lde coset.
     let n_trace_cols = air.context().trace_columns;
+
     for root in proof.lde_trace_merkle_roots.iter() {
         transcript.append(&root.to_bytes_be());
     }
+
     let boundary_coeffs = batch_sample_challenges(n_trace_cols, transcript);
     let transition_coeffs = batch_sample_challenges(air.context().num_transition_constraints, transcript);
 
@@ -90,6 +92,19 @@ where
         &domain.trace_roots_of_unity,
         transcript,
     );
+
+    // H_1(z^2)
+    transcript.append(&proof.composition_poly_ood_evaluations[0].to_bytes_be());
+    // H_2(z^2)
+    transcript.append(&proof.composition_poly_ood_evaluations[1].to_bytes_be());
+    // These are the values t_j(z)
+    for element in proof.trace_ood_frame_evaluations.get_row(0).iter() {
+        transcript.append(&element.to_bytes_be());
+    }
+    // These are the values t_j(gz)
+    for element in proof.trace_ood_frame_evaluations.get_row(1).iter() {
+        transcript.append(&element.to_bytes_be());
+    }
 
     // Get the number of trace terms the DEEP composition poly will have.
     // One coefficient will be sampled for each of them.
