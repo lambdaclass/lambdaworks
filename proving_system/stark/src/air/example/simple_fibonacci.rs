@@ -3,7 +3,7 @@ use crate::{
         self,
         constraints::boundary::{BoundaryConstraint, BoundaryConstraints},
         context::AirContext,
-        AIR,
+        TraceInfo, AIR,
     },
     fri::FieldElement,
 };
@@ -16,8 +16,8 @@ pub struct FibonacciAIR {
     context: AirContext,
 }
 
-impl From<AirContext> for FibonacciAIR {
-    fn from(context: AirContext) -> Self {
+impl FibonacciAIR {
+    pub fn new(context: AirContext) -> Self {
         Self { context }
     }
 }
@@ -43,7 +43,7 @@ impl AIR for FibonacciAIR {
         BoundaryConstraints::from_constraints(vec![a0, a1])
     }
 
-    fn context(&self) -> air::context::AirContext {
+    fn context(&self) -> AirContext {
         self.context.clone()
     }
 }

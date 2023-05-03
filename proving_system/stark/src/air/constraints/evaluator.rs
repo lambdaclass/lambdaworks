@@ -152,7 +152,7 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
     ) -> Vec<FieldElement<F>> {
         // TODO: We should get the trace degree in a better way because in some special cases
         // the trace degree may not be exactly the trace length - 1 but a smaller number.
-        let trace_degree = air.context().trace_length - 1;
+        let trace_degree = air.trace_length() - 1;
         let transition_degrees = air.context().transition_degrees();
         let divisors = air.transition_divisors();
 

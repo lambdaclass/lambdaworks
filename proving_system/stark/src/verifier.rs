@@ -75,7 +75,7 @@ where
     // Fiat-Shamir
     // we have to make sure that the result is not either
     // a root of unity or an element of the lde coset.
-    let n_trace_cols = air.context().trace_columns;
+    let n_trace_cols = air.trace_info().layout.main_segment_width;
     let z = sample_z_ood(
         &domain.lde_roots_of_unity_coset,
         &domain.trace_roots_of_unity,
@@ -161,7 +161,7 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
 
     let boundary_constraints = air.boundary_constraints();
 
-    let n_trace_cols = air.context().trace_columns;
+    let n_trace_cols = air.trace_info().layout.main_segment_width;
 
     let boundary_constraint_domains =
         boundary_constraints.generate_roots_of_unity(&domain.trace_primitive_root, n_trace_cols);
@@ -184,7 +184,7 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
             - boundary_interpolating_polynomial.evaluate(&challenges.z))
             / boundary_zerofier.evaluate(&challenges.z);
 
-        let boundary_quotient_degree = air.context().trace_length - boundary_zerofier.degree() - 1;
+        let boundary_quotient_degree = air.trace_length() - boundary_zerofier.degree() - 1;
 
         boundary_c_i_evaluations.push(boundary_quotient_ood_evaluation);
         boundary_quotient_degrees.push(boundary_quotient_degree);
@@ -197,7 +197,7 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
     let transition_quotients_max_degree = transition_divisors
         .iter()
         .zip(air.context().transition_degrees())
-        .map(|(div, degree)| (air.context().trace_length - 1) * degree - div.degree())
+        .map(|(div, degree)| (air.trace_length() - 1) * degree - div.degree())
         .max()
         .unwrap();
 

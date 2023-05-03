@@ -113,16 +113,34 @@ where
     A: AIR<Field = F>,
     T: Transcript,
 {
+    let mut aux_segments = Vec::new();
     let n_aux_segments = air.num_aux_segments();
-    for segment_idx in 0..n_aux_segments {
-        let segment_rand_coeffs = air.aux_segment_rand_coeffs(segment_idx, transcript);
+    for aux_segment_idx in 0..n_aux_segments {
+        let segment_rand_coeffs = air
+            .aux_segment_rand_coeffs(aux_segment_idx, transcript)
+            .unwrap();
         let aux_segment = air.build_aux_segment(trace, &segment_rand_coeffs).unwrap();
 
         // Compute aux_segment polys
         let aux_segment_polys = aux_segment.compute_aux_segment_polys();
 
         // Compute aux_segment LDE
+        let lde_aux_evaluations = aux_segment_polys
+            .iter()
+            .map(|poly| {
+                // FIXME: This function should be changed when `evaluate_offset_fft`
+                // handles the case for the zero polynomial.
+                evaluate_offset_fft_with_len(
+                    poly,
+                    trace.n_rows(),
+                    &FieldElement::<F>::from(air.options().coset_offset),
+                    air.options().blowup_factor as usize,
+                )
+            })
+            .collect::<Result<Vec<Vec<FieldElement<F>>>, FFTError>>()
+            .unwrap();
 
+        aux_segments.push(aux_segment);
         // Commit aux_segment LDE
     }
 }

@@ -8,7 +8,7 @@ use crate::{
         context::{AirContext, ProofOptions},
         frame::Frame,
         trace::TraceTable,
-        AIR,
+        TraceInfo, TraceLayout, AIR,
     },
     FE,
 };
@@ -96,11 +96,21 @@ pub struct CairoAIR {
 
 impl CairoAIR {
     pub fn new(proof_options: ProofOptions, trace: &TraceTable<Stark252PrimeField>) -> Self {
-        let num_steps = trace.n_rows();
+        let trace_length = trace.n_rows();
+
+        let layout = TraceLayout {
+            main_segment_width: trace.main_segment_width,
+            info: None,
+        };
+
+        let trace_info = TraceInfo {
+            layout,
+            trace_length,
+        };
+
         let context = AirContext {
             options: proof_options,
-            trace_length: num_steps,
-            trace_columns: trace.main_segment_width,
+            trace_info,
             transition_degrees: vec![
                 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, // Flags 0-14.
                 1, // Flag 15
@@ -111,7 +121,7 @@ impl CairoAIR {
             num_transition_constraints: 31,
         };
 
-        let last_step = num_steps - 1;
+        let last_step = trace_length - 1;
 
         let pub_inputs = PublicInputs {
             pc_init: trace.get(0, FRAME_PC),
@@ -119,7 +129,7 @@ impl CairoAIR {
             fp_init: trace.get(0, FRAME_FP),
             pc_final: trace.get(last_step, FRAME_PC),
             ap_final: trace.get(last_step, FRAME_AP),
-            num_steps,
+            num_steps: trace_length,
         };
 
         Self {
@@ -154,7 +164,7 @@ impl AIR for CairoAIR {
     ///  * pc_0 = pc_i
     ///  * pc_t = pc_f
     fn boundary_constraints(&self) -> BoundaryConstraints<Self::Field> {
-        let last_step = self.context.trace_length - 1;
+        let last_step = self.trace_length() - 1;
 
         let initial_pc =
             BoundaryConstraint::new(MEM_A_TRACE_OFFSET, 0, self.pub_inputs.pc_init.clone());

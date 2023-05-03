@@ -4,6 +4,7 @@ use lambdaworks_math::field::fields::{
 use lambdaworks_stark::air::example::{
     cairo, fibonacci_2_columns, fibonacci_f17, quadratic_air, simple_fibonacci,
 };
+use lambdaworks_stark::air::{TraceInfo, TraceLayout};
 use lambdaworks_stark::cairo_vm::cairo_mem::CairoMemory;
 use lambdaworks_stark::cairo_vm::cairo_trace::CairoTrace;
 use lambdaworks_stark::cairo_vm::execution_trace::build_cairo_execution_trace;
@@ -25,21 +26,30 @@ fn test_prove_fib() {
     let trace_length = trace[0].len();
     let trace_table = TraceTable::new_from_cols(&trace, None);
 
+    let layout = TraceLayout {
+        main_segment_width: 1,
+        info: None,
+    };
+
+    let trace_info = TraceInfo {
+        layout,
+        trace_length,
+    };
+
     let context = AirContext {
         options: ProofOptions {
             blowup_factor: 2,
             fri_number_of_queries: 1,
             coset_offset: 3,
         },
-        trace_length,
-        trace_columns: trace_table.main_segment_width,
+        trace_info,
         transition_degrees: vec![1],
         transition_exemptions: vec![2],
         transition_offsets: vec![0, 1, 2],
         num_transition_constraints: 1,
     };
 
-    let fibonacci_air = simple_fibonacci::FibonacciAIR::from(context);
+    let fibonacci_air = simple_fibonacci::FibonacciAIR::new(context);
 
     let result = prove(&trace_table, &fibonacci_air);
     assert!(verify(&result, &fibonacci_air));
@@ -49,6 +59,17 @@ fn test_prove_fib() {
 fn test_prove_fib17() {
     let trace = simple_fibonacci::fibonacci_trace([FE17::from(1), FE17::from(1)], 4);
     let trace_table = TraceTable::new_from_cols(&trace, None);
+    let trace_length = trace_table.n_rows();
+
+    let layout = TraceLayout {
+        main_segment_width: 1,
+        info: None,
+    };
+
+    let trace_info = TraceInfo {
+        layout,
+        trace_length,
+    };
 
     let context = AirContext {
         options: ProofOptions {
@@ -56,8 +77,7 @@ fn test_prove_fib17() {
             fri_number_of_queries: 1,
             coset_offset: 3,
         },
-        trace_length: trace_table.n_rows(),
-        trace_columns: trace_table.main_segment_width,
+        trace_info,
         transition_degrees: vec![1],
         transition_exemptions: vec![2],
         transition_offsets: vec![0, 1, 2],
@@ -76,6 +96,17 @@ fn test_prove_fib_2_cols() {
         fibonacci_2_columns::fibonacci_trace_2_columns([FE::from(1), FE::from(1)], 16);
 
     let trace_table = TraceTable::new_from_cols(&trace_columns, None);
+    let trace_length = trace_table.n_rows();
+
+    let layout = TraceLayout {
+        main_segment_width: 2,
+        info: None,
+    };
+
+    let trace_info = TraceInfo {
+        layout,
+        trace_length,
+    };
 
     let context = AirContext {
         options: ProofOptions {
@@ -83,12 +114,11 @@ fn test_prove_fib_2_cols() {
             fri_number_of_queries: 1,
             coset_offset: 3,
         },
-        trace_length: trace_table.n_rows(),
+        trace_info,
         transition_degrees: vec![1, 1],
         transition_exemptions: vec![1, 1],
         transition_offsets: vec![0, 1],
         num_transition_constraints: 2,
-        trace_columns: 2,
     };
 
     let fibonacci_air = fibonacci_2_columns::Fibonacci2ColsAIR::from(context);
@@ -106,14 +136,25 @@ fn test_prove_quadratic() {
         aux_segments: None,
     };
 
+    let trace_length = trace_table.n_rows();
+
+    let layout = TraceLayout {
+        main_segment_width: 1,
+        info: None,
+    };
+
+    let trace_info = TraceInfo {
+        layout,
+        trace_length,
+    };
+
     let context = AirContext {
         options: ProofOptions {
             blowup_factor: 2,
             fri_number_of_queries: 1,
             coset_offset: 3,
         },
-        trace_length: trace.len(),
-        trace_columns: trace_table.main_segment_width,
+        trace_info,
         transition_degrees: vec![2],
         transition_exemptions: vec![1],
         transition_offsets: vec![0, 1],

@@ -2,7 +2,7 @@ use self::{
     constraints::boundary::BoundaryConstraints,
     context::{AirContext, ProofOptions},
     frame::Frame,
-    trace::{AuxiliarySegment, TraceTable},
+    trace::{AuxSegmentInfo, AuxiliarySegment, TraceTable},
 };
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_fft::roots_of_unity::get_powers_of_primitive_root_coset;
@@ -19,16 +19,14 @@ pub mod trace;
 
 #[derive(Clone, Debug)]
 pub struct TraceLayout {
-    main_segment_width: usize,
-    aux_segment_widths: Vec<usize>,
-    aux_segment_rands: Vec<usize>,
-    num_aux_segments: usize,
+    pub main_segment_width: usize,
+    pub info: Option<AuxSegmentInfo>,
 }
 
 #[derive(Clone, Debug)]
 pub struct TraceInfo {
-    layout: TraceLayout,
-    length: usize,
+    pub layout: TraceLayout,
+    pub trace_length: usize,
 }
 
 pub trait AIR: Clone {
@@ -37,11 +35,11 @@ pub trait AIR: Clone {
     fn compute_transition(&self, frame: &Frame<Self::Field>) -> Vec<FieldElement<Self::Field>>;
     fn boundary_constraints(&self) -> BoundaryConstraints<Self::Field>;
     fn transition_divisors(&self) -> Vec<Polynomial<FieldElement<Self::Field>>> {
-        let trace_length = self.context().trace_length;
+        let trace_length = self.trace_length();
         let roots_of_unity_order = trace_length.trailing_zeros();
         let roots_of_unity = get_powers_of_primitive_root_coset(
             roots_of_unity_order as u64,
-            self.context().trace_length,
+            trace_length,
             &FieldElement::<Self::Field>::one(),
         )
         .unwrap();
@@ -80,15 +78,26 @@ pub trait AIR: Clone {
     fn num_transition_constraints(&self) -> usize {
         self.context().num_transition_constraints
     }
-    fn trace_info(&self) -> TraceInfo;
+    fn trace_info(&self) -> TraceInfo {
+        self.context().trace_info
+    }
+    fn trace_length(&self) -> usize {
+        self.trace_info().trace_length
+    }
     fn num_aux_segments(&self) -> usize {
-        self.trace_info().layout.num_aux_segments
+        if let Some(info) = self.trace_info().layout.info {
+            info.num_aux_segments
+        } else {
+            0
+        }
     }
     fn aux_segment_rand_coeffs<T: Transcript>(
         &self,
         segment_idx: usize,
         transcript: &T,
-    ) -> Vec<FieldElement<Self::Field>>;
+    ) -> Option<Vec<FieldElement<Self::Field>>> {
+        None
+    }
 
     #[allow(unused)]
     fn build_aux_segment(
