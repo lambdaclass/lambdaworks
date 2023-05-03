@@ -112,7 +112,9 @@ where
     F: IsFFTField,
     A: AIR<Field = F>,
     T: Transcript,
+    FieldElement<F>: ByteConversion,
 {
+    let mut aux_segments_commitments = Vec::new();
     let mut aux_segments = Vec::new();
     let n_aux_segments = air.num_aux_segments();
     for aux_segment_idx in 0..n_aux_segments {
@@ -140,8 +142,19 @@ where
             .collect::<Result<Vec<Vec<FieldElement<F>>>, FFTError>>()
             .unwrap();
 
+        // Compute commitments [t_j].
+        let lde_aux_merkle_trees = lde_aux_evaluations
+            .iter()
+            .map(|col| MerkleTree::build(col, Box::new(HASHER)))
+            .collect::<Vec<MerkleTree<F>>>();
+
+        let lde_aux_merkle_roots: Vec<FieldElement<F>> = lde_aux_merkle_trees
+            .iter()
+            .map(|tree| tree.root.clone())
+            .collect();
+
+        aux_segments_commitments.push((lde_aux_merkle_trees, lde_aux_merkle_roots));
         aux_segments.push(aux_segment);
-        // Commit aux_segment LDE
     }
 }
 
