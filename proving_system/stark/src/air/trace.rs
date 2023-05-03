@@ -13,10 +13,14 @@ pub struct TraceTable<F: IsFFTField> {
     /// `table` is row-major trace element description
     pub table: Vec<FieldElement<F>>,
     pub n_cols: usize,
+    pub aux_segments_layout: Option<Vec<usize>>,
 }
 
 impl<F: IsFFTField> TraceTable<F> {
-    pub fn new_from_cols(cols: &[Vec<FieldElement<F>>]) -> Self {
+    pub fn new_from_cols(
+        cols: &[Vec<FieldElement<F>>],
+        aux_segments_layout: Option<Vec<usize>>,
+    ) -> Self {
         let n_rows = cols[0].len();
         debug_assert!(cols.iter().all(|c| c.len() == n_rows));
 
@@ -29,7 +33,11 @@ impl<F: IsFFTField> TraceTable<F> {
                 table.push(col[row_idx].clone());
             }
         }
-        Self { table, n_cols }
+        Self {
+            table,
+            n_cols,
+            aux_segments_layout,
+        }
     }
 
     pub fn n_rows(&self) -> usize {
