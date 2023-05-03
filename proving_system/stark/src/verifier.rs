@@ -140,17 +140,14 @@ where
     //
     // construct vector of betas
     let mut beta_list: Vec<FieldElement<F>> = Vec::new();
-    let count_betas = proof.fri_layers_merkle_roots.len() - 1;
-
-    for (i, merkle_roots) in proof.fri_layers_merkle_roots.iter().enumerate() {
-        let root = merkle_roots.clone();
+    let merkle_roots = &proof.fri_layers_merkle_roots;
+    for i in 0..merkle_roots.len() - 1 {
+        let root = merkle_roots[i].clone();
         let root_bytes = root.to_bytes_be();
         transcript.append(&root_bytes);
 
-        if i < count_betas {
-            let beta = transcript_to_field(transcript);
-            beta_list.push(beta);
-        }
+        let beta = transcript_to_field(transcript);
+        beta_list.push(beta);
     }
 
     let last_evaluation = &proof.query_list[0].fri_decommitment.last_layer_evaluation;
@@ -361,7 +358,6 @@ fn verify_query<F: IsField + IsFFTField, A: AIR<Field = F>>(
 where
     FieldElement<F>: ByteConversion,
 {
-
     let mut lde_primitive_root =
         F::get_primitive_root_of_unity(domain.lde_root_order as u64).unwrap();
     let mut offset = FieldElement::<F>::from(air.options().coset_offset);

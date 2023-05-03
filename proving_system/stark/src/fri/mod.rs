@@ -82,20 +82,21 @@ where
     let zero = FieldElement::zero();
     let mut last_coef = last_poly.coefficients.get(0).unwrap_or(&zero);
 
-    for _ in 0..number_layers {
+    for k in 1..=number_layers {
         let zeta = transcript_to_field(transcript);
 
         let layer_i = next_fri_layer(&last_poly, &last_domain, &zeta);
 
         // append root of merkle tree to transcript
         let root = layer_i.merkle_tree.root.clone();
-        transcript.append(&root.to_bytes_be());
-
         last_poly = layer_i.poly.clone();
         last_coef = last_poly.coefficients.get(0).unwrap_or(&zero);
 
         last_domain = layer_i.domain.clone();
 
+        if k < number_layers {
+            transcript.append(&root.to_bytes_be());
+        }
         fri_layer_list.push(layer_i);
     }
 
