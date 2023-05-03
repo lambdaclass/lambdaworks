@@ -4,9 +4,10 @@ use super::{
     sample_z_ood,
 };
 use crate::{
+    batch_sample_challenges,
     fri::HASHER,
     proof::{DeepConsistencyCheck, StarkProof, StarkQueryProof},
-    transcript_to_field, transcript_to_usize, Domain, batch_sample_challenges,
+    transcript_to_field, transcript_to_usize, Domain,
 };
 #[cfg(not(feature = "test_fiat_shamir"))]
 use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
@@ -18,10 +19,7 @@ use lambdaworks_crypto::fiat_shamir::test_transcript::TestTranscript;
 use lambdaworks_fft::errors::FFTError;
 use lambdaworks_fft::polynomial::FFTPoly;
 use lambdaworks_math::{
-    field::{
-        element::FieldElement,
-        traits::{IsFFTField},
-    },
+    field::{element::FieldElement, traits::IsFFTField},
     polynomial::Polynomial,
     traits::ByteConversion,
 };
@@ -238,6 +236,8 @@ fn fri_commit_phase<F: IsFFTField, A: AIR<Field = F>, T: Transcript>(
     round_1_result: &Round1<F>,
     round_2_result: &Round2<F>,
     z: &FieldElement<F>,
+    composition_poly_coeffients: [FieldElement<F>; 2],
+    trace_poly_coeffients: &[FieldElement<F>],
     transcript: &mut T,
 ) -> (FriCommitmentVec<F>, Vec<FieldElement<F>>)
 where
@@ -251,7 +251,8 @@ where
         &round_2_result.composition_poly_odd,
         z,
         &domain.trace_primitive_root,
-        transcript,
+        &composition_poly_coeffients,
+        trace_poly_coeffients,
     );
 
     // * Do FRI on the composition polynomials
@@ -330,8 +331,25 @@ fn round_4_compute_and_run_fri_on_the_deep_composition_polynomial<
 where
     FieldElement<F>: ByteConversion,
 {
-    let (lde_fri_commitment, fri_layers_merkle_roots) =
-        fri_commit_phase(air, domain, round_1_result, round_2_result, z, transcript);
+    let trace_poly_coeffients = batch_sample_challenges::<F, T>(
+        air.context().transition_offsets.len() * air.context().trace_columns,
+        transcript,
+    );
+
+    let composition_poly_coeffients = [
+        transcript_to_field(transcript),
+        transcript_to_field(transcript),
+    ];
+    let (lde_fri_commitment, fri_layers_merkle_roots) = fri_commit_phase(
+        air,
+        domain,
+        round_1_result,
+        round_2_result,
+        z,
+        composition_poly_coeffients,
+        &trace_poly_coeffients,
+        transcript,
+    );
 
     let q_0 = transcript_to_usize(transcript) % 2_usize.pow(domain.lde_root_order);
     transcript.append(&q_0.to_be_bytes());
@@ -356,14 +374,15 @@ where
 /// Returns the DEEP composition polynomial that the prover then commits to using
 /// FRI. This polynomial is a linear combination of the trace polynomial and the
 /// composition polynomial, with coefficients sampled by the verifier (i.e. using Fiat-Shamir).
-fn compute_deep_composition_poly<A: AIR, F: IsFFTField, T: Transcript>(
+fn compute_deep_composition_poly<A: AIR, F: IsFFTField>(
     air: &A,
     trace_polys: &[Polynomial<FieldElement<F>>],
     even_composition_poly: &Polynomial<FieldElement<F>>,
     odd_composition_poly: &Polynomial<FieldElement<F>>,
     ood_evaluation_point: &FieldElement<F>,
     primitive_root: &FieldElement<F>,
-    transcript: &mut T,
+    composition_poly_coeffients: &[FieldElement<F>; 2],
+    trace_poly_coeffients: &[FieldElement<F>],
 ) -> Polynomial<FieldElement<F>> {
     let transition_offsets = air.context().transition_offsets;
 
@@ -379,21 +398,20 @@ fn compute_deep_composition_poly<A: AIR, F: IsFFTField, T: Transcript>(
     // term for every trace polynomial and every trace evaluation.
     let mut trace_terms = Polynomial::zero();
     for (i, trace_poly) in trace_polys.iter().enumerate() {
-        for (trace_evaluation, offset) in trace_evaluations.iter().zip(&transition_offsets) {
+        for (j, (trace_evaluation, offset)) in trace_evaluations
+            .iter()
+            .zip(&transition_offsets)
+            .enumerate()
+        {
             let eval = trace_evaluation[i].clone();
-            let root_of_unity = ood_evaluation_point * primitive_root.pow(*offset);
-            let poly = (trace_poly.clone() - Polynomial::new_monomial(eval, 0))
-                / (Polynomial::new_monomial(FieldElement::<F>::one(), 1)
-                    - Polynomial::new_monomial(root_of_unity, 0));
-            let coeff = transcript_to_field::<F, T>(transcript);
+            let shifted_root_of_unity = ood_evaluation_point * primitive_root.pow(*offset);
+            let poly = (trace_poly - eval)
+                / Polynomial::new(&[-shifted_root_of_unity, FieldElement::one()]);
 
-            trace_terms = trace_terms + poly * coeff;
+            trace_terms =
+                trace_terms + poly * &trace_poly_coeffients[i * trace_evaluations.len() + j];
         }
     }
-
-    // Get coefficients for even and odd terms of the composition polynomial H(x)
-    let gamma_even = transcript_to_field::<F, T>(transcript);
-    let gamma_odd = transcript_to_field::<F, T>(transcript);
 
     let ood_point_squared = ood_evaluation_point * ood_evaluation_point;
 
@@ -407,7 +425,9 @@ fn compute_deep_composition_poly<A: AIR, F: IsFFTField, T: Transcript>(
         / (Polynomial::new_monomial(FieldElement::one(), 1)
             - Polynomial::new_monomial(ood_point_squared.clone(), 0));
 
-    trace_terms + even_composition_poly_term * gamma_even + odd_composition_poly_term * gamma_odd
+    trace_terms
+        + even_composition_poly_term * &composition_poly_coeffients[0]
+        + odd_composition_poly_term * &composition_poly_coeffients[1]
 }
 
 fn build_deep_consistency_check<F: IsFFTField>(
@@ -464,12 +484,24 @@ where
 
     // Round 2
     // These are the challenges alpha^B_j and beta^B_j
-    let boundary_coeffs =
+    let boundary_coeffs_alphas =
         batch_sample_challenges(round_1_result.trace_polys.len(), &mut transcript);
-    // These are the challenges alpha^T_j and beta^T_j
-    let transition_coeffs =
-        batch_sample_challenges(air.context().num_transition_constraints, &mut transcript);
+    let boundary_coeffs_betas =
+        batch_sample_challenges(round_1_result.trace_polys.len(), &mut transcript);
+    let boundary_coeffs: Vec<_> = boundary_coeffs_alphas
+        .into_iter()
+        .zip(boundary_coeffs_betas)
+        .collect();
 
+    // These are the challenges alpha^T_j and beta^T_j
+    let transition_coeffs_alphas =
+        batch_sample_challenges(air.context().num_transition_constraints, &mut transcript);
+    let transition_coeffs_betas =
+        batch_sample_challenges(air.context().num_transition_constraints, &mut transcript);
+    let transition_coeffs: Vec<_> = transition_coeffs_alphas
+        .into_iter()
+        .zip(transition_coeffs_betas)
+        .collect();
     let round_2_result = round_2_compute_composition_polynomial(
         air,
         &domain,

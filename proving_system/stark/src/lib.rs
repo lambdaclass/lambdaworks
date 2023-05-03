@@ -55,15 +55,8 @@ pub fn sample_z_ood<F: IsField, T: Transcript>(
 pub fn batch_sample_challenges<F: IsFFTField, T: Transcript>(
     size: usize,
     transcript: &mut T,
-) -> Vec<(FieldElement<F>, FieldElement<F>)> {
-    (0..size)
-        .map(|_| {
-            (
-                transcript_to_field(transcript),
-                transcript_to_field(transcript),
-            )
-        })
-        .collect()
+) -> Vec<FieldElement<F>> {
+    (0..size).map(|_| transcript_to_field(transcript)).collect()
 }
 
 pub struct Domain<F: IsFFTField> {

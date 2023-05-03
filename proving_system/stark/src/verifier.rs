@@ -81,9 +81,16 @@ where
         transcript.append(&root.to_bytes_be());
     }
 
-    let boundary_coeffs = batch_sample_challenges(n_trace_cols, transcript);
-    let transition_coeffs =
-        batch_sample_challenges(air.context().num_transition_constraints, transcript);
+    // Round 2
+    // These are the challenges alpha^B_j and beta^B_j
+    let boundary_coeffs_alphas = batch_sample_challenges(n_trace_cols, transcript);
+    let boundary_coeffs_betas = batch_sample_challenges(n_trace_cols, transcript);
+    let boundary_coeffs: Vec<_> = boundary_coeffs_alphas.into_iter().zip(boundary_coeffs_betas).collect();
+
+    // These are the challenges alpha^T_j and beta^T_j
+    let transition_coeffs_alphas = batch_sample_challenges(air.context().num_transition_constraints, transcript);
+    let transition_coeffs_betas = batch_sample_challenges(air.context().num_transition_constraints, transcript);
+    let transition_coeffs: Vec<_> = transition_coeffs_alphas.into_iter().zip(transition_coeffs_betas).collect();
 
     transcript.append(&proof.composition_poly_roots[0].to_bytes_be());
     transcript.append(&proof.composition_poly_roots[1].to_bytes_be());
