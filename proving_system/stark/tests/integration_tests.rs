@@ -28,7 +28,7 @@ fn test_prove_fib() {
 
     let layout = TraceLayout {
         main_segment_width: 1,
-        info: None,
+        aux_segment_info: None,
     };
 
     let trace_info = TraceInfo {
@@ -63,7 +63,7 @@ fn test_prove_fib17() {
 
     let layout = TraceLayout {
         main_segment_width: 1,
-        info: None,
+        aux_segment_info: None,
     };
 
     let trace_info = TraceInfo {
@@ -99,8 +99,8 @@ fn test_prove_fib_2_cols() {
     let trace_length = trace_table.n_rows();
 
     let layout = TraceLayout {
-        main_segment_width: 2,
-        info: None,
+        main_segment_width: 1,
+        aux_segment_info: None,
     };
 
     let trace_info = TraceInfo {
@@ -140,7 +140,7 @@ fn test_prove_quadratic() {
 
     let layout = TraceLayout {
         main_segment_width: 1,
-        info: None,
+        aux_segment_info: None,
     };
 
     let trace_info = TraceInfo {

@@ -20,7 +20,7 @@ pub mod trace;
 #[derive(Clone, Debug)]
 pub struct TraceLayout {
     pub main_segment_width: usize,
-    pub info: Option<AuxSegmentInfo>,
+    pub aux_segment_info: Option<AuxSegmentInfo>,
 }
 
 #[derive(Clone, Debug)]
@@ -85,12 +85,14 @@ pub trait AIR: Clone {
         self.trace_info().trace_length
     }
     fn num_aux_segments(&self) -> usize {
-        if let Some(info) = self.trace_info().layout.info {
+        if let Some(info) = self.trace_info().layout.aux_segment_info {
             info.num_aux_segments
         } else {
             0
         }
     }
+
+    #[allow(unused)]
     fn aux_segment_rand_coeffs<T: Transcript>(
         &self,
         segment_idx: usize,
