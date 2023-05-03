@@ -18,7 +18,10 @@ use lambdaworks_crypto::fiat_shamir::test_transcript::TestTranscript;
 use lambdaworks_fft::errors::FFTError;
 use lambdaworks_fft::polynomial::FFTPoly;
 use lambdaworks_math::{
-    field::{element::FieldElement, traits::IsFFTField},
+    field::{
+        element::FieldElement,
+        traits::{IsFFTField, IsField},
+    },
     polynomial::Polynomial,
     traits::ByteConversion,
 };
@@ -57,6 +60,23 @@ fn round_0_transcript_initialization() -> DefaultTranscript {
     DefaultTranscript::new()
 }
 
+fn batch_commit<F>(vectors: Vec<Vec<FieldElement<F>>>) -> (Vec<MerkleTree<F>>, Vec<FieldElement<F>>)
+where
+    F: IsFFTField,
+    FieldElement<F>: ByteConversion,
+{
+    let trees = vectors
+        .iter()
+        .map(|col| MerkleTree::build(col, Box::new(HASHER)))
+        .collect::<Vec<MerkleTree<F>>>();
+
+    let roots = trees
+        .iter()
+        .map(|tree| tree.root.clone())
+        .collect();
+    (trees, roots)
+}
+
 fn commit_original_trace<F: IsFFTField, A: AIR<Field = F>>(
     trace: &TraceTable<F>,
     air: &A,
@@ -83,16 +103,7 @@ where
     let lde_trace = TraceTable::new_from_cols(&lde_trace_evaluations);
 
     // Compute commitments [t_j].
-    let lde_trace_merkle_trees = lde_trace
-        .cols()
-        .iter()
-        .map(|col| MerkleTree::build(col, Box::new(HASHER)))
-        .collect::<Vec<MerkleTree<F>>>();
-
-    let lde_trace_merkle_roots = lde_trace_merkle_trees
-        .iter()
-        .map(|tree| tree.root.clone())
-        .collect();
+    let (lde_trace_merkle_trees, lde_trace_merkle_roots) = batch_commit(lde_trace.cols());
 
     Round1 {
         trace_polys,
