@@ -23,7 +23,7 @@ pub type FE = FieldElement<Stark252PrimeField>;
 fn test_prove_fib() {
     let trace = simple_fibonacci::fibonacci_trace([FE::from(1), FE::from(1)], 8);
     let trace_length = trace[0].len();
-    let trace_table = TraceTable::new_from_cols(&trace);
+    let trace_table = TraceTable::new_from_cols(&trace, None);
 
     let context = AirContext {
         options: ProofOptions {
@@ -48,7 +48,7 @@ fn test_prove_fib() {
 #[test_log::test]
 fn test_prove_fib17() {
     let trace = simple_fibonacci::fibonacci_trace([FE17::from(1), FE17::from(1)], 4);
-    let trace_table = TraceTable::new_from_cols(&trace);
+    let trace_table = TraceTable::new_from_cols(&trace, None);
 
     let context = AirContext {
         options: ProofOptions {
@@ -75,7 +75,7 @@ fn test_prove_fib_2_cols() {
     let trace_columns =
         fibonacci_2_columns::fibonacci_trace_2_columns([FE::from(1), FE::from(1)], 16);
 
-    let trace_table = TraceTable::new_from_cols(&trace_columns);
+    let trace_table = TraceTable::new_from_cols(&trace_columns, None);
 
     let context = AirContext {
         options: ProofOptions {
@@ -103,6 +103,7 @@ fn test_prove_quadratic() {
     let trace_table = TraceTable {
         table: trace.clone(),
         n_cols: 1,
+        aux_segments_layout: None,
     };
 
     let context = AirContext {
@@ -249,7 +250,7 @@ fn test_malicious_trace_does_not_verify() {
     exec_trace_cols[26] = op1s;
 
     // Reconstruct the execution trace with this invalid op1 column.
-    let reconstructed_exec_trace = TraceTable::new_from_cols(&exec_trace_cols);
+    let reconstructed_exec_trace = TraceTable::new_from_cols(&exec_trace_cols, None);
 
     // We create the new Cairo AIR instance with the malicious trace.
     let proof_options = ProofOptions {

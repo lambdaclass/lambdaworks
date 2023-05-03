@@ -84,8 +84,9 @@ impl<F: IsFFTField> TraceTable<F> {
     }
 
     /// Validates that the trace is valid with respect to the supplied AIR constraints
-    pub fn validate<A: AIR<Field = F>>(&self, air: &A) {
+    pub fn validate<A: AIR<Field = F>>(&self, air: &A) -> bool {
         info!("Starting constraints validation over trace...");
+        let mut ret = true;
 
         // --------- VALIDATE BOUNDARY CONSTRAINTS ------------
         air.boundary_constraints()
@@ -98,6 +99,7 @@ impl<F: IsFFTField> TraceTable<F> {
                 let trace_value = self.get(step, col);
 
                 if boundary_value != trace_value {
+                    ret = false;
                     error!("Boundary constraint inconsistency - Expected value {:?} in step {} and column {}, found: {:?}", boundary_value, step, col, trace_value);
                 }
             });
@@ -122,6 +124,7 @@ impl<F: IsFFTField> TraceTable<F> {
             // result
             evaluations.iter().enumerate().for_each(|(i, eval)| {
                 if step < exemption_steps[i] && eval != &FieldElement::<F>::zero() {
+                    ret = false;
                     error!(
                         "Inconsistent evaluation of transition {} in step {} - expected 0, got {:?}", i, step, eval
                     );
@@ -129,6 +132,7 @@ impl<F: IsFFTField> TraceTable<F> {
             })
         }
         info!("Constraints validation check ended");
+        ret
     }
 }
 
@@ -144,7 +148,7 @@ mod test {
         let col_1 = vec![F::from(1), F::from(2), F::from(5), F::from(13)];
         let col_2 = vec![F::from(1), F::from(3), F::from(8), F::from(21)];
 
-        let trace_table = TraceTable::new_from_cols(&[col_1.clone(), col_2.clone()]);
+        let trace_table = TraceTable::new_from_cols(&[col_1.clone(), col_2.clone()], None);
         let res_cols = trace_table.cols();
 
         assert_eq!(res_cols, vec![col_1, col_2]);

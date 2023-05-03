@@ -85,7 +85,7 @@ where
         .collect::<Result<Vec<Vec<FieldElement<F>>>, FFTError>>()
         .unwrap();
 
-    let lde_trace = TraceTable::new_from_cols(&lde_trace_evaluations);
+    let lde_trace = TraceTable::new_from_cols(&lde_trace_evaluations, None);
 
     // Compute commitments [t_j].
     let lde_trace_merkle_trees = lde_trace
