@@ -3,7 +3,7 @@ use crate::{
         self,
         constraints::boundary::{BoundaryConstraint, BoundaryConstraints},
         context::AirContext,
-        TraceInfo, AIR,
+        AIR,
     },
     fri::FieldElement,
 };
