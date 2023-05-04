@@ -24,7 +24,6 @@ pub trait ByteConversion {
         Self: std::marker::Sized;
 }
 
-
 /// Serialize function without options
 /// Used to serialize data to feed it into Fiat Shamir
 /// in some protocols, when ByteConversion is not avaible

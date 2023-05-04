@@ -7,7 +7,7 @@ pub enum DeserializationError {
     #[error("Invalid amount of bytes")]
     InvalidAmountOfBytes,
     #[error("Error when creating a field from bytes")]
-    FieldFromBytesError
+    FieldFromBytesError,
 }
 
 impl From<ByteConversionError> for DeserializationError {
