@@ -3,12 +3,12 @@ use lambdaworks_math::{
     elliptic_curve::traits::IsPairing,
     field::{element::FieldElement, traits::IsPrimeField},
     msm::msm,
-    polynomial::Polynomial, traits::ByteConversion,
+    polynomial::Polynomial, traits::{ByteConversion, SimpleSerialization, SimpleDeserialization},
 };
 use std::{marker::PhantomData, mem};
 use super::traits::IsCommitmentScheme;
 
-#[derive(Clone)]
+#[derive(PartialEq, Clone, Debug)]
 pub struct StructuredReferenceString<G1Point, G2Point> {
     pub powers_main_group: Vec<G1Point>,
     pub powers_secondary_group: [G2Point; 2],
@@ -30,8 +30,8 @@ where
 
 impl<G1Point, G2Point> StructuredReferenceString<G1Point, G2Point>
 where
-    G1Point: IsGroup + ByteConversion,
-    G2Point: IsGroup + ByteConversion,
+    G1Point: IsGroup + SimpleSerialization + SimpleDeserialization,
+    G2Point: IsGroup + SimpleSerialization + SimpleDeserialization,
 {
     pub fn serialize(&self) -> Vec<u8> {
 
@@ -39,6 +39,7 @@ where
         // First 4 bytes encodes protocol version
         let protocol_version: [u8;4] = [0;4];
 
+        let a = G2Point::neutral_element();
         serialized_data.extend(&protocol_version);
 
         // Second 8 bytes store the amount of G1 elements to be stored, this is more than can be indexed with a 64-bit architecture, and some millions of terabytes of data if the points were compressed
@@ -54,12 +55,12 @@ where
 
         // G1 elements
         for point in &self.powers_main_group {
-            serialized_data.extend(point.to_bytes_le());
+            serialized_data.extend(point.simple_serialize());
         }
 
         // G2 elements
         for point in &self.powers_secondary_group {
-            serialized_data.extend(point.to_bytes_le());
+            serialized_data.extend(point.simple_serialize());
         }
 
         serialized_data
@@ -83,7 +84,7 @@ where
 
         for i in 0..main_group_len {
             // The second unwrap shouldn't fail since the amount of bytes is fixed
-            let point = G1Point::from_bytes_le(
+            let point = G1Point::simple_deserialize(
                 bytes[i*size_g1_point+12..i*size_g1_point+size_g1_point+12].try_into().unwrap()
             ).unwrap();
             main_group.push(point);
@@ -94,7 +95,7 @@ where
         let g2s_offset = size_g1_point*main_group_len+12;
         for i in 0..2 {
             // The second unwrap shouldn't fail since the amount of bytes is fixed
-            let point = G2Point::from_bytes_le(
+            let point = G2Point::simple_deserialize(
                 bytes[i*size_g2_point+g2s_offset..i*size_g2_point+g2s_offset+size_g2_point].try_into().unwrap()
             ).unwrap();
             secondary_group.push(point);
@@ -310,7 +311,10 @@ mod tests {
     fn serialize_deserialize_srs() {
         let srs = create_srs();
         let bytes = srs.serialize();
+        let deserialized: StructuredReferenceString<
+            ShortWeierstrassProjectivePoint<BLS12381Curve>,ShortWeierstrassProjectivePoint<BLS12381TwistCurve>
+        > = StructuredReferenceString::deserialize(&bytes);
     
-        //assert!(kzg.verify(&x, &y, &p_commitment, &proof));
+        assert_eq!(srs, deserialized);
     }
 }

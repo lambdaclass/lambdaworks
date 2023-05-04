@@ -5,7 +5,7 @@ use crate::{
         traits::{EllipticCurveError, FromAffine, IsEllipticCurve},
     },
     field::element::FieldElement,
-    traits::{ByteConversion, SimpleSerialization},
+    traits::{ByteConversion, SimpleSerialization, SimpleDeserialization},
 };
 
 use super::{errors::DeserializationError, traits::IsShortWeierstrass};
@@ -221,6 +221,17 @@ where
 {
     fn simple_serialize(&self) -> Vec<u8> {
         self.serialize(PointFormat::Projective, FieldEndianness::LittleEndian)
+    }
+}
+
+
+impl<E> SimpleDeserialization for ShortWeierstrassProjectivePoint<E>
+where
+    E: IsShortWeierstrass,
+    FieldElement<E::BaseField>: ByteConversion,
+{
+    fn simple_deserialize(bytes: &[u8]) -> Result<Self, DeserializationError> where Self: Sized {
+        Self::deserialize(bytes, PointFormat::Projective, FieldEndianness::LittleEndian)
     }
 }
 
