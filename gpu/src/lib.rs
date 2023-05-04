@@ -9,3 +9,6 @@ pub mod metal;
 
 #[cfg(feature = "cuda")]
 pub mod cuda;
+
+#[cfg(any(feature = "cuda", feature = "metal"))]
+pub(crate) mod helpers;

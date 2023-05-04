@@ -9,7 +9,7 @@ use cudarc::{
     nvrtc::safe::Ptx,
 };
 
-use crate::cuda::field::element::CUDAFieldElement;
+use crate::cuda::abstractions::element::CUDAFieldElement;
 
 const SHADER_PTX: &str = include_str!("../shaders/fft.ptx");
 
@@ -29,6 +29,9 @@ where
     F::BaseType: Unpin,
 {
     let device = CudaDevice::new(0)?;
+
+    // if the input size is not a power of two, use zero padding
+    let input = zero_padding(input);
 
     // d_ prefix is used to indicate device memory.
     let mut d_input =
