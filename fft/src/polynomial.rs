@@ -136,15 +136,15 @@ where
 
     let coeffs = crate::ops::fft(fft_evals, &twiddles)?;
 
-    let poly =
-        Polynomial::new(&coeffs).scale_coeffs(&FieldElement::from(fft_evals.len() as u64).inv());
-
-    Ok(poly)
+    let scale_factor = FieldElement::from(fft_evals.len() as u64).inv();
+    Ok(Polynomial::new(&coeffs).scale_coeffs(&scale_factor))
 }
 
 #[cfg(test)]
 mod tests {
+    #[cfg(not(feature = "metal"))]
     use lambdaworks_math::field::traits::IsField;
+
     use lambdaworks_math::field::traits::RootsConfig;
     use proptest::{collection, prelude::*};
 
@@ -246,8 +246,8 @@ mod tests {
 
             // Property-based test that ensures FFT eval. with coset gives same result as a naive polynomial evaluation.
             #[test]
-            fn test_fft_coset_matches_naive_evaluation(poly in poly(8), offset in offset(), blowup_factor in powers_of_two(4)) {
-                let (fft_eval, naive_eval) = gen_fft_and_naive_evaluation(poly);
+            fn test_fft_coset_matches_naive_evaluation(poly in poly(6), offset in offset(), blowup_factor in powers_of_two(4)) {
+                let (fft_eval, naive_eval) = gen_fft_coset_and_naive_evaluation(poly, offset, blowup_factor);
                 prop_assert_eq!(fft_eval, naive_eval);
             }
 
@@ -256,8 +256,7 @@ mod tests {
             fn test_fft_interpolate_is_inverse_of_evaluate(poly in poly(8)
                                                            .prop_filter("Avoid polynomials of size not power of two",
                                                                         |poly| poly.coeff_len().is_power_of_two())) {
-                let eval = poly.evaluate_fft(1, None).unwrap();
-                let new_poly = Polynomial::interpolate_fft(&eval).unwrap();
+                let (poly, new_poly) = gen_fft_interpolate_and_evaluate(poly);
 
                 prop_assert_eq!(poly, new_poly);
             }
@@ -320,25 +319,32 @@ mod tests {
             // Property-based test that ensures FFT eval. gives same result as a naive polynomial evaluation.
             #[test]
             fn test_fft_matches_naive_evaluation(poly in poly(8)) {
-                let (fft_eval, naive_eval) = gen_fft_and_naive_evaluation(poly);
-                prop_assert_eq!(fft_eval, naive_eval);
+                objc::rc::autoreleasepool(|| {
+                    let (fft_eval, naive_eval) = gen_fft_and_naive_evaluation(poly);
+                    prop_assert_eq!(fft_eval, naive_eval);
+                    Ok(())
+                }).unwrap();
             }
 
             // Property-based test that ensures FFT eval. with coset gives same result as a naive polynomial evaluation.
             #[test]
-            fn test_fft_coset_matches_naive_evaluation(poly in poly(8), offset in offset(), blowup_factor in powers_of_two(4)) {
-                let (fft_eval, naive_eval) = gen_fft_and_naive_evaluation(poly);
-                prop_assert_eq!(fft_eval, naive_eval);
+            fn test_fft_coset_matches_naive_evaluation(poly in poly(4), offset in offset(), blowup_factor in powers_of_two(4)) {
+                objc::rc::autoreleasepool(|| {
+                    let (fft_eval, naive_eval) = gen_fft_coset_and_naive_evaluation(poly, offset, blowup_factor);
+                    prop_assert_eq!(fft_eval, naive_eval);
+                    Ok(())
+                }).unwrap();
             }
 
             // Property-based test that ensures interpolation is the inverse operation of evaluation.
             #[test]
             fn test_fft_interpolate_is_inverse_of_evaluate(poly in poly(8)
                                                            .prop_filter("Avoid polynomials of size not power of two", |poly| poly.coeff_len().is_power_of_two())) {
-                let eval = poly.evaluate_fft(1, None).unwrap();
-                let new_poly = Polynomial::interpolate_fft(&eval).unwrap();
-
-                prop_assert_eq!(poly, new_poly);
+                objc::rc::autoreleasepool(|| {
+                    let (poly, new_poly) = gen_fft_interpolate_and_evaluate(poly);
+                    prop_assert_eq!(poly, new_poly);
+                    Ok(())
+                }).unwrap()
             }
         }
     }

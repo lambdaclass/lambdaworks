@@ -28,7 +28,7 @@ pub fn fft<F: IsFFTField>(
 
     let pipeline = state.setup_pipeline(&format!("radix2_dit_butterfly_{}", F::field_name()))?;
 
-    let input_buffer = state.alloc_buffer_data(&input);
+    let input_buffer = state.alloc_buffer_data(input);
     let twiddles_buffer = state.alloc_buffer_data(twiddles);
     // TODO: twiddle factors security (right now anything can be passed as twiddle factors)
 
