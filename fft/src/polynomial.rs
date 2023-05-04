@@ -39,7 +39,9 @@ impl<F: IsFFTField> FFTPoly<F> for Polynomial<FieldElement<F>> {
         {
             // TODO: support multiple fields with CUDA
             if F::field_name() == "stark256" {
-                Ok(lambdaworks_gpu::cuda::fft::polynomial::evaluate_fft_cuda(self).unwrap())
+                Ok(lambdaworks_gpu::cuda::fft::polynomial::evaluate_fft_cuda(
+                    self,
+                )?)
             } else {
                 evaluate_fft_cpu(self)
             }
