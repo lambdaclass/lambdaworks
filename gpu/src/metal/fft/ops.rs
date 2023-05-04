@@ -5,7 +5,7 @@ use lambdaworks_math::field::{
 
 use crate::metal::abstractions::{errors::MetalError, state::*};
 
-use crate::helpers::{void_ptr, zero_padding};
+use crate::helpers::zero_padding;
 use metal::MTLSize;
 
 use core::mem;
@@ -136,6 +136,10 @@ pub fn bitrev_permutation<F: IsFFTField, T: Clone>(
     command_buffer.wait_until_completed();
 
     Ok(MetalState::retrieve_contents::<T>(&result_buffer))
+}
+
+fn void_ptr<T>(v: &T) -> *const core::ffi::c_void {
+    v as *const T as *const core::ffi::c_void
 }
 
 #[cfg(test)]
