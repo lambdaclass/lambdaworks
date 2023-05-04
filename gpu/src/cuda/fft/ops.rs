@@ -30,9 +30,6 @@ where
 {
     let device = CudaDevice::new(0)?;
 
-    // if the input size is not a power of two, use zero padding
-    let input = zero_padding(input);
-
     // d_ prefix is used to indicate device memory.
     let mut d_input =
         device.htod_sync_copy(&input.iter().map(CUDAFieldElement::from).collect::<Vec<_>>())?;
@@ -73,30 +70,25 @@ where
     Ok(output)
 }
 
-//TODO: Should return CudaError
-//TODO: This should mimic metal helpers module
-pub fn log2(n: usize) -> Result<u64, FieldError> {
-    if !n.is_power_of_two() {
-        panic!("The order of polynomial + 1 should a be power of 2");
-    }
-    Ok(n.trailing_zeros() as u64)
-}
-
-//TODO implement in CUDA
-pub fn get_twiddles<F: IsFFTField>(
+// TODO: implement in CUDA
+pub(crate) fn get_twiddles<F: IsFFTField>(
     order: u64,
     config: RootsConfig,
-) -> Result<Vec<FieldElement<F>>, FieldError> {
-    get_powers_of_primitive_root(order, (1 << order) / 2, config)
+) -> Result<Vec<FieldElement<F>>, CudaError> {
+    Ok(get_powers_of_primitive_root(
+        order,
+        (1 << order) / 2,
+        config,
+    )?)
 }
 
-//TODO remove after implementing in cuda
-pub fn get_powers_of_primitive_root<F: IsFFTField>(
+// TODO: remove after implementing in cuda
+pub(crate) fn get_powers_of_primitive_root<F: IsFFTField>(
     n: u64,
     count: usize,
     config: RootsConfig,
 ) -> Result<Vec<FieldElement<F>>, FieldError> {
-    let root = F::get_primitive_root_of_unity(n).unwrap();
+    let root = F::get_primitive_root_of_unity(n)?;
 
     let calc = |i| match config {
         RootsConfig::Natural => root.pow(i),
@@ -109,8 +101,8 @@ pub fn get_powers_of_primitive_root<F: IsFFTField>(
     Ok(results.collect())
 }
 
-//TODO remove after implementing in cuda
-pub fn in_place_bit_reverse_permute<E>(input: &mut [E]) {
+// TODO: remove after implementing in cuda
+pub(crate) fn in_place_bit_reverse_permute<E>(input: &mut [E]) {
     for i in 0..input.len() {
         let bit_reversed_index = reverse_index(&i, input.len() as u64);
         if bit_reversed_index > i {
@@ -119,8 +111,8 @@ pub fn in_place_bit_reverse_permute<E>(input: &mut [E]) {
     }
 }
 
-//TODO remove after implementing in cuda
-pub fn reverse_index(i: &usize, size: u64) -> usize {
+// TODO: remove after implementing in cuda
+pub(crate) fn reverse_index(i: &usize, size: u64) -> usize {
     if size == 1 {
         *i
     } else {

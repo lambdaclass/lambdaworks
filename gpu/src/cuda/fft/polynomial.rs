@@ -7,17 +7,18 @@ use lambdaworks_math::{
     polynomial::Polynomial,
 };
 
+use super::abstractions::error::CudaError;
 use super::ops::{fft, get_twiddles, log2};
 
 pub fn evaluate_fft_cuda<F>(
     poly: &Polynomial<FieldElement<F>>,
-) -> Result<Vec<FieldElement<F>>, DriverError>
+) -> Result<Vec<FieldElement<F>>, CudaError>
 where
     F: IsFFTField,
     F::BaseType: Unpin,
 {
-    let order = log2(poly.coefficients.len()).unwrap();
-    let twiddles = get_twiddles(order, RootsConfig::BitReverse).unwrap();
+    let order = log2(poly.coefficients.len())?;
+    let twiddles = get_twiddles(order, RootsConfig::BitReverse)?;
 
     fft(poly.coefficients(), &twiddles)
 }
@@ -26,7 +27,7 @@ where
 /// factors. This is considered to be the inverse operation of [evaluate_fft_cuda()].
 pub fn interpolate_fft_cuda<F>(
     fft_evals: &[FieldElement<F>],
-) -> Result<Polynomial<FieldElement<F>>, DriverError>
+) -> Result<Polynomial<FieldElement<F>>, CudaError>
 where
     F: IsFFTField,
     F::BaseType: Unpin,
@@ -34,8 +35,8 @@ where
     // fft() can zero-pad the coeffs if there aren't 2^k of them (k being any integer).
     // TODO: twiddle factors need to be handled with too much care, the FFT API shouldn't accept
     // invalid twiddle factor collections. A better solution is needed.
-    let order = log2(fft_evals.len()).unwrap();
-    let twiddles = get_twiddles(order, RootsConfig::BitReverseInversed).unwrap();
+    let order = log2(fft_evals.len())?;
+    let twiddles = get_twiddles(order, RootsConfig::BitReverseInversed)?;
 
     let coeffs = fft(fft_evals, &twiddles)?;
 
@@ -43,6 +44,13 @@ where
     Ok(Polynomial::new(&coeffs).scale_coeffs(&scale_factor))
 }
 
-#[cfg(feature = "cuda")]
+// TODO: remove when fft works on non-multiple-of-two input length
+pub fn log2(n: usize) -> Result<u64, CudaError> {
+    if !n.is_power_of_two() {
+        return Err(CudaError::InvalidOrder(n));
+    }
+    Ok(n.trailing_zeros() as u64)
+}
+
 #[cfg(test)]
-mod gpu_tests {}
+mod tests {}
