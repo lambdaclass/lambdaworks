@@ -5,5 +5,16 @@ pub enum CudaError {
     #[error("The order of polynomial + 1 should a be power of 2. Got: {}")]
     InvalidOrder(usize),
     #[error("An error occured while working in CPU with fields")]
+    // TODO: remove when implemented in CUDA
     FieldError(#[from] FieldError),
+    // #[error("Could not calculate {1} root of unity")]
+    // RootOfUnityError(String, u64),
+    // #[error("Couldn't find a system default device for Metal")]
+    // MetalDeviceNotFound(),
+    // #[error("Couldn't create a new Metal library: {0}")]
+    // MetalLibraryError(String),
+    // #[error("Couldn't create a new Metal function object: {0}")]
+    // MetalFunctionError(String),
+    // #[error("Couldn't create a new Metal compute pipeline: {0}")]
+    // MetalPipelineError(String),
 }

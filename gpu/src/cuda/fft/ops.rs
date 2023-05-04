@@ -70,37 +70,6 @@ where
     Ok(output)
 }
 
-// TODO: implement in CUDA
-pub(crate) fn get_twiddles<F: IsFFTField>(
-    order: u64,
-    config: RootsConfig,
-) -> Result<Vec<FieldElement<F>>, CudaError> {
-    Ok(get_powers_of_primitive_root(
-        order,
-        (1 << order) / 2,
-        config,
-    )?)
-}
-
-// TODO: remove after implementing in cuda
-pub(crate) fn get_powers_of_primitive_root<F: IsFFTField>(
-    n: u64,
-    count: usize,
-    config: RootsConfig,
-) -> Result<Vec<FieldElement<F>>, FieldError> {
-    let root = F::get_primitive_root_of_unity(n)?;
-
-    let calc = |i| match config {
-        RootsConfig::Natural => root.pow(i),
-        RootsConfig::NaturalInversed => root.pow(i).inv(),
-        RootsConfig::BitReverse => root.pow(reverse_index(&i, count as u64)),
-        RootsConfig::BitReverseInversed => root.pow(reverse_index(&i, count as u64)).inv(),
-    };
-
-    let results = (0..count).map(calc);
-    Ok(results.collect())
-}
-
 // TODO: remove after implementing in cuda
 pub(crate) fn in_place_bit_reverse_permute<E>(input: &mut [E]) {
     for i in 0..input.len() {

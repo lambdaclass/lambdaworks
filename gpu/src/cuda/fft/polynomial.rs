@@ -8,7 +8,7 @@ use lambdaworks_math::{
 };
 
 use super::abstractions::error::CudaError;
-use super::ops::{fft, get_twiddles, log2};
+use super::ops::fft;
 
 pub fn evaluate_fft_cuda<F>(
     poly: &Polynomial<FieldElement<F>>,
@@ -44,8 +44,35 @@ where
     Ok(Polynomial::new(&coeffs).scale_coeffs(&scale_factor))
 }
 
+// TODO: implement in CUDA
+fn get_twiddles<F: IsFFTField>(
+    order: u64,
+    config: RootsConfig,
+) -> Result<Vec<FieldElement<F>>, FieldError> {
+    get_powers_of_primitive_root(order, (1 << order) / 2, config)
+}
+
+// TODO: remove after implementing in cuda
+fn get_powers_of_primitive_root<F: IsFFTField>(
+    n: u64,
+    count: usize,
+    config: RootsConfig,
+) -> Result<Vec<FieldElement<F>>, FieldError> {
+    let root = F::get_primitive_root_of_unity(n)?;
+
+    let calc = |i| match config {
+        RootsConfig::Natural => root.pow(i),
+        RootsConfig::NaturalInversed => root.pow(i).inv(),
+        RootsConfig::BitReverse => root.pow(reverse_index(&i, count as u64)),
+        RootsConfig::BitReverseInversed => root.pow(reverse_index(&i, count as u64)).inv(),
+    };
+
+    let results = (0..count).map(calc);
+    Ok(results.collect())
+}
+
 // TODO: remove when fft works on non-multiple-of-two input length
-pub fn log2(n: usize) -> Result<u64, CudaError> {
+fn log2(n: usize) -> Result<u64, CudaError> {
     if !n.is_power_of_two() {
         return Err(CudaError::InvalidOrder(n));
     }
