@@ -33,9 +33,12 @@ pub fn fft_with_blowup<F: IsFFTField>(
 
 /// Executes Fast Fourier Transform over elements of a two-adic finite field `F`. Usually used for
 /// fast polynomial evaluation.
-pub fn fft<F: IsFFTField>(input: &[FieldElement<F>], twiddles: &[FieldElement<F>]) -> Result<Vec<FieldElement<F>>, FFTError> {
+pub fn fft<F: IsFFTField>(
+    input: &[FieldElement<F>],
+    twiddles: &[FieldElement<F>],
+) -> Result<Vec<FieldElement<F>>, FFTError> {
     let mut results = input.to_vec();
-    in_place_nr_2radix_fft(&mut results, &twiddles);
+    in_place_nr_2radix_fft(&mut results, twiddles);
     in_place_bit_reverse_permute(&mut results);
 
     Ok(results)

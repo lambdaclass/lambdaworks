@@ -178,7 +178,7 @@ mod tests {
                 let twiddles = get_twiddles(order.into(), RootsConfig::BitReverse).unwrap();
 
                 let metal_result = super::fft(&input, &twiddles, &metal_state).unwrap();
-                let sequential_result = lambdaworks_fft::ops::fft(&input).unwrap();
+                let sequential_result = lambdaworks_fft::ops::fft(&input, &twiddles).unwrap();
 
                 prop_assert_eq!(&metal_result, &sequential_result);
                 Ok(())

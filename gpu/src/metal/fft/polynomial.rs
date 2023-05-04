@@ -9,9 +9,7 @@ use lambdaworks_math::{
 
 use super::ops::*;
 
-pub fn forward_fft_metal<F>(
-    input: &[FieldElement<F>],
-) -> Result<Vec<FieldElement<F>>, MetalError>
+pub fn forward_fft_metal<F>(input: &[FieldElement<F>]) -> Result<Vec<FieldElement<F>>, MetalError>
 where
     F: IsFFTField,
 {
@@ -66,7 +64,7 @@ where
 #[cfg(test)]
 mod gpu_tests {
     use lambdaworks_fft::polynomial::{
-        evaluate_fft_cpu, evaluate_offset_fft_cpu, interpolate_fft_cpu,
+        evaluate_offset_fft_cpu, forward_fft_cpu, interpolate_fft_cpu,
     };
     use lambdaworks_math::{
         field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
@@ -105,10 +103,10 @@ mod gpu_tests {
 
     proptest! {
         #[test]
-        fn test_metal_fft_poly_eval_matches_cpu(poly in poly(6)) {
+        fn test_metal_fft_poly_eval_matches_cpu(input in field_vec(6)) {
             objc::rc::autoreleasepool(|| {
-                let gpu_evals = evaluate_fft_metal(&poly).unwrap();
-                let cpu_evals = evaluate_fft_cpu(&poly).unwrap();
+                let gpu_evals = forward_fft_metal(&input).unwrap();
+                let cpu_evals = forward_fft_cpu(&input).unwrap();
 
                 prop_assert_eq!(gpu_evals, cpu_evals);
                 Ok(())

@@ -73,8 +73,8 @@ where
         .iter()
         .map(|poly| {
             poly.evaluate_offset_fft(
-                &FieldElement::<F>::from(air.options().coset_offset),
                 air.options().blowup_factor as usize,
+                &FieldElement::<F>::from(air.options().coset_offset),
             )
         })
         .collect::<Result<Vec<Vec<FieldElement<F>>>, FFTError>>()

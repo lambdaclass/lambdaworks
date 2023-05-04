@@ -3,11 +3,10 @@ use lambdaworks_math::{
         element::FieldElement,
         traits::{IsFFTField, RootsConfig},
     },
-    helpers,
     polynomial::Polynomial,
 };
 
-use lambdaworks_gpu::metal::fft::polynomial::{forward_fft_metal};
+use lambdaworks_gpu::metal::fft::polynomial::forward_fft_metal;
 
 use crate::{
     errors::FFTError,
@@ -16,11 +15,11 @@ use crate::{
 };
 
 pub trait FFTPoly<F: IsFFTField> {
-    fn evaluate_fft(&self, order: Option<usize>) -> Result<Vec<FieldElement<F>>, FFTError>;
+    fn evaluate_fft(&self, blowup_factor: usize) -> Result<Vec<FieldElement<F>>, FFTError>;
     fn evaluate_offset_fft(
         &self,
-        offset: &FieldElement<F>,
         blowup_factor: usize,
+        offset: &FieldElement<F>,
     ) -> Result<Vec<FieldElement<F>>, FFTError>;
     fn interpolate_fft(
         fft_evals: &[FieldElement<F>],
@@ -28,31 +27,26 @@ pub trait FFTPoly<F: IsFFTField> {
 }
 
 impl<F: IsFFTField> FFTPoly<F> for Polynomial<FieldElement<F>> {
-    /// If `Some(order),`returns 2^{order} evaluations of this polynomial using FFT (so the results
-    /// are P(w^i), with w being a primitive root of unity), otherwise returns `n` evals. where `n` is
-    /// the next power of two from `self.coeff_len()`.
-    fn evaluate_fft(&self, order: Option<usize>) -> Result<Vec<FieldElement<F>>, FFTError> {
-        let eval_count = if let Some(order) = order {
-            1 << order
-        } else {
-            self.coeff_len().next_power_of_two()
-        };
-        let coeff_count = std::cmp::max(eval_count, self.coeff_len().next_power_of_two());
+    /// If `Some(order)` returns `N` evaluations of this polynomial using FFT (so the results
+    /// are P(w^i), with w being a primitive root of unity).
+    /// `N = self.coeff_len().next_power_of_two() * blowup_factor`.
+    fn evaluate_fft(&self, blowup_factor: usize) -> Result<Vec<FieldElement<F>>, FFTError> {
+        let len = self.coeff_len().next_power_of_two() * blowup_factor;
 
         if self.coefficients().is_empty() {
-            return Ok(vec![FieldElement::zero(); eval_count]);
+            return Ok(vec![FieldElement::zero(); len]);
         }
 
         let mut coeffs = self.coefficients().to_vec();
-        coeffs.resize(coeff_count, FieldElement::zero());
+        coeffs.resize(len, FieldElement::zero());
         // padding with zeros will make FFT return more evaluations of the same polynomial.
 
         #[cfg(feature = "metal")]
         {
             if !F::field_name().is_empty() {
-                Ok(forward_fft_metal(&coeffs).map(|evals| evals[..eval_count].to_vec())?)
+                Ok(forward_fft_metal(&coeffs)?)
             } else {
-                forward_fft_cpu(&coeffs).map(|evals| evals[..eval_count].to_vec())
+                forward_fft_cpu(&coeffs)
             }
         }
 
@@ -62,32 +56,16 @@ impl<F: IsFFTField> FFTPoly<F> for Polynomial<FieldElement<F>> {
         }
     }
 
-    /// Evaluates this polynomial in an extended domain by `blowup_factor` with an `offset`.
-    /// Usually used for Reed-Solomon encoding.
+    /// If `Some(order)` returns `N` evaluations with an offset of this polynomial using FFT 
+    /// (so the results are P(w^i), with w being a primitive root of unity).
+    /// `N = self.coeff_len().next_power_of_two() * blowup_factor`.
     fn evaluate_offset_fft(
         &self,
-        offset: &FieldElement<F>,
         blowup_factor: usize,
+        offset: &FieldElement<F>,
     ) -> Result<Vec<FieldElement<F>>, FFTError> {
-        #[cfg(feature = "metal")]
-        {
-            if !F::field_name().is_empty() {
-                Ok(
-                    lambdaworks_gpu::metal::fft::polynomial::evaluate_offset_fft_metal(
-                        self,
-                        offset,
-                        blowup_factor,
-                    )?,
-                )
-            } else {
-                evaluate_offset_fft_cpu(self, offset, blowup_factor)
-            }
-        }
-
-        #[cfg(not(feature = "metal"))]
-        {
-            evaluate_offset_fft_cpu(self, offset, blowup_factor)
-        }
+        let scaled = self.scale(offset);
+        scaled.evaluate_fft(blowup_factor)
     }
 
     /// Returns a new polynomial that interpolates `fft_evals`, which are evaluations using twiddle
@@ -109,7 +87,7 @@ impl<F: IsFFTField> FFTPoly<F> for Polynomial<FieldElement<F>> {
     }
 }
 
-fn forward_fft_cpu<F>(
+pub fn forward_fft_cpu<F>(
     input: &[FieldElement<F>], // needs to be power-of-two sized.
 ) -> Result<Vec<FieldElement<F>>, FFTError>
 where
@@ -118,7 +96,7 @@ where
     let order = input.len().trailing_zeros();
     let twiddles = get_twiddles(order.into(), RootsConfig::BitReverse)?;
     // Bit reverse order is needed for NR DIT FFT.
-    crate::ops::fft(&input, &twiddles)
+    crate::ops::fft(input, &twiddles)
 }
 
 pub fn evaluate_offset_fft_cpu<F>(
@@ -150,7 +128,7 @@ pub fn compose_fft<F>(
 where
     F: IsFFTField,
 {
-    let poly_2_evaluations = poly_2.evaluate_fft(None).unwrap();
+    let poly_2_evaluations = poly_2.evaluate_fft(1).unwrap();
 
     let values: Vec<_> = poly_2_evaluations
         .iter()
@@ -215,7 +193,7 @@ mod u64_field_tests {
             let order = poly.coefficients().len().trailing_zeros();
             let twiddles = get_powers_of_primitive_root(order.into(), poly.coefficients.len(), RootsConfig::Natural).unwrap();
 
-            let fft_eval = poly.evaluate_fft().unwrap();
+            let fft_eval = poly.evaluate_fft(1).unwrap();
             let naive_eval = poly.evaluate_slice(&twiddles);
 
             prop_assert_eq!(fft_eval, naive_eval);
@@ -227,7 +205,7 @@ mod u64_field_tests {
             let order = (poly.coefficients().len() * blowup_factor).trailing_zeros();
             let twiddles = get_powers_of_primitive_root_coset(order.into(), poly.coefficients.len() * blowup_factor, &offset).unwrap();
 
-            let fft_eval = poly.evaluate_offset_fft(&offset, blowup_factor).unwrap();
+            let fft_eval = poly.evaluate_offset_fft(1, &offset).unwrap();
             let naive_eval = poly.evaluate_slice(&twiddles);
 
             prop_assert_eq!(fft_eval, naive_eval);
@@ -239,7 +217,7 @@ mod u64_field_tests {
             let order = poly.coefficients().len().trailing_zeros();
             let twiddles = get_powers_of_primitive_root(order.into(), poly.coefficients.len(), RootsConfig::Natural).unwrap();
 
-            let fft_eval = poly.evaluate_fft().unwrap();
+            let fft_eval = poly.evaluate_fft(1).unwrap();
             let naive_eval = poly.evaluate_slice(&twiddles);
 
             prop_assert_eq!(fft_eval, naive_eval);
@@ -248,7 +226,7 @@ mod u64_field_tests {
         // Property-based test that ensures interpolation is the inverse operation of evaluation.
         #[test]
         fn test_fft_interpolate_is_inverse_of_evaluate(poly in poly(8)) {
-            let eval = poly.evaluate_fft().unwrap();
+            let eval = poly.evaluate_fft(1).unwrap();
             let new_poly = Polynomial::interpolate_fft(&eval).unwrap();
 
             prop_assert_eq!(poly, new_poly);
@@ -258,7 +236,7 @@ mod u64_field_tests {
         #[test]
         fn test_fft_constant_poly(elem in field_element()) {
             let poly = Polynomial::new(&[elem]);
-            let result = poly.evaluate_fft();
+            let result = poly.evaluate_fft(1);
 
             prop_assert!(matches!(result, Err(FFTError::RootOfUnityError(_, k)) if k == 0));
         }
@@ -320,7 +298,7 @@ mod u256_two_adic_prime_field_tests {
             let order = poly.coefficients().len().trailing_zeros();
             let twiddles = get_powers_of_primitive_root(order.into(), poly.coefficients.len(), RootsConfig::Natural).unwrap();
 
-            let fft_eval = poly.evaluate_fft().unwrap();
+            let fft_eval = poly.evaluate_fft(1).unwrap();
             let naive_eval = poly.evaluate_slice(&twiddles);
 
             prop_assert_eq!(fft_eval, naive_eval);
