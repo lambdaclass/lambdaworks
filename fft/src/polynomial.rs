@@ -91,7 +91,19 @@ impl<F: IsFFTField> FFTPoly<F> for Polynomial<FieldElement<F>> {
             }
         }
 
-        #[cfg(not(feature = "metal"))]
+        #[cfg(feature = "cuda")]
+        {
+            if !F::field_name().is_empty() {
+                Ok(
+                    lambdaworks_gpu::cuda::fft::polynomial::interpolate_fft_cuda(fft_evals)
+                        .unwrap(),
+                )
+            } else {
+                interpolate_fft_cpu(fft_evals)
+            }
+        }
+
+        #[cfg(all(not(feature = "metal"), not(feature = "cuda")))]
         {
             interpolate_fft_cpu(fft_evals)
         }
