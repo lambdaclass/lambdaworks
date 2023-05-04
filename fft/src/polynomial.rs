@@ -31,7 +31,7 @@ where
         {
             if field_supports_metal::<F>() {
                 Ok(lambdaworks_gpu::metal::fft::polynomial::evaluate_fft_metal(
-                    &self,
+                    self,
                 )?)
             } else {
                 evaluate_fft_cpu(self)
@@ -65,7 +65,7 @@ where
             if field_supports_metal::<F>() {
                 Ok(
                     lambdaworks_gpu::metal::fft::polynomial::evaluate_offset_fft_metal(
-                        &self,
+                        self,
                         offset,
                         blowup_factor,
                     )?,
