@@ -41,7 +41,7 @@ where
         #[cfg(feature = "cuda")]
         {
             if field_supports_metal::<F>() {
-                Ok(lambdaworks_gpu::cuda::fft::polynomial::evaluate_fft_cuda(&self).unwrap())
+                Ok(lambdaworks_gpu::cuda::fft::polynomial::evaluate_fft_cuda(self).unwrap())
             } else {
                 evaluate_fft_cpu(self)
             }
