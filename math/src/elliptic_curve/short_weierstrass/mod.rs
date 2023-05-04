@@ -4,3 +4,5 @@ pub mod curves;
 pub mod point;
 /// Common behaviour for Elliptic curves.
 pub mod traits;
+/// Shared errors
+pub mod errors;

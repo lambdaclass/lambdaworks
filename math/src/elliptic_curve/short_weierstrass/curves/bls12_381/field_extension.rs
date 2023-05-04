@@ -72,6 +72,10 @@ impl FieldElement<Degree2ExtensionField> {
     pub fn new_base(a_hex: &str) -> Self {
         Self::new([FieldElement::new(U384::from(a_hex)), FieldElement::zero()])
     }
+
+    pub fn deserialize(&self, bytes: &[u8]) {
+        let v = self.value();
+    }
 }
 
 impl FieldElement<Degree6ExtensionField> {
