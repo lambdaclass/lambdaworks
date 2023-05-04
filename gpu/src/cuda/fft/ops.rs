@@ -1,4 +1,4 @@
-use lambdaworks_math::field::{element::FieldElement, traits::IsTwoAdicField};
+use lambdaworks_math::field::{element::FieldElement, traits::IsFFTField};
 
 use cudarc::{
     driver::{CudaDevice, DriverError, LaunchAsync, LaunchConfig},
@@ -21,7 +21,7 @@ pub fn fft<F>(
     twiddles: &[FieldElement<F>],
 ) -> Result<Vec<FieldElement<F>>, DriverError>
 where
-    F: IsTwoAdicField,
+    F: IsFFTField,
     F::BaseType: Unpin,
 {
     let device = CudaDevice::new(0)?;
