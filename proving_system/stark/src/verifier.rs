@@ -141,8 +141,7 @@ where
     // construct vector of betas
     let mut beta_list: Vec<FieldElement<F>> = Vec::new();
     let merkle_roots = &proof.fri_layers_merkle_roots;
-    for i in 0..merkle_roots.len() - 1 {
-        let root = merkle_roots[i].clone();
+    for root in merkle_roots.iter().take(merkle_roots.len() - 1) {
         let root_bytes = root.to_bytes_be();
         transcript.append(&root_bytes);
 

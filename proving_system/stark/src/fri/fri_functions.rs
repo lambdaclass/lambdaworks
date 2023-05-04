@@ -1,8 +1,8 @@
-use lambdaworks_math::{field::{element::FieldElement, traits::IsField}, traits::ByteConversion};
+use lambdaworks_math::field::{element::FieldElement, traits::IsField};
 
-use super::{Polynomial, FriMerkleTree, fri_commitment::FriLayer, HASHER};
+use super::Polynomial;
 
-fn fold_polynomial<F>(
+pub fn fold_polynomial<F>(
     poly: &Polynomial<FieldElement<F>>,
     beta: &FieldElement<F>,
 ) -> Polynomial<FieldElement<F>>
@@ -27,7 +27,7 @@ where
     even_poly + odd_poly
 }
 
-fn next_domain<F>(input: &[FieldElement<F>]) -> Vec<FieldElement<F>>
+pub fn next_domain<F>(input: &[FieldElement<F>]) -> Vec<FieldElement<F>>
 where
     F: IsField,
 {
@@ -39,38 +39,11 @@ where
     ret
 }
 
-/// Returns:
-/// * new polynomoial folded with FRI protocol
-/// * new domain
-/// * evaluations of the polynomial
-// TODO: Remove this
-#[allow(clippy::type_complexity)]
-pub fn next_fri_layer<F>(
-    poly: &Polynomial<FieldElement<F>>,
-    domain: &[FieldElement<F>],
-    beta: &FieldElement<F>,
-) -> FriLayer<F>
-where
-    F: IsField,
-    FieldElement<F>: ByteConversion,
-{
-    let ret_poly = fold_polynomial(poly, beta);
-    let ret_next_domain = next_domain(domain);
-    let ret_evaluation = ret_poly.evaluate_slice(&ret_next_domain);
-
-    let merkle_tree = FriMerkleTree::build(&ret_evaluation, Box::new(HASHER));
-
-    FriLayer {
-        poly: ret_poly.clone(),
-        domain: ret_next_domain.to_vec(),
-        evaluation: ret_evaluation.to_vec(),
-        merkle_tree,
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use super::{fold_polynomial, next_domain, next_fri_layer};
+    use crate::fri::fri_commitment::FriLayer;
+
+    use super::{fold_polynomial, next_domain};
     use lambdaworks_math::field::element::FieldElement;
     use lambdaworks_math::field::fields::u64_prime_field::U64PrimeField;
     const MODULUS: u64 = 293;
@@ -151,7 +124,9 @@ mod tests {
             FE::new(1),
         ];
 
-        let layer = next_fri_layer(&p0, &input_domain, &beta);
+        let next_poly = fold_polynomial(&p0, &beta);
+        let next_domain = next_domain(&input_domain);
+        let layer = FriLayer::new(next_poly, &next_domain);
 
         assert_eq!(
             layer.poly,

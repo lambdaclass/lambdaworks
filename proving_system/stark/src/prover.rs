@@ -5,7 +5,7 @@ use super::{
 };
 use crate::{
     batch_sample_challenges,
-    fri::{HASHER, fri_commitment::FriLayer},
+    fri::{fri_commitment::FriLayer, HASHER},
     proof::{DeepConsistencyCheck, StarkProof, StarkQueryProof},
     transcript_to_field, transcript_to_usize, Domain,
 };
@@ -325,7 +325,6 @@ where
         .iter()
         .map(|layer| layer.merkle_tree.root.clone())
         .collect();
-
 
     let q_0 = transcript_to_usize(transcript) % 2_usize.pow(domain.lde_root_order);
     transcript.append(&q_0.to_be_bytes());
