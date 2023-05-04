@@ -1,7 +1,8 @@
 #include "./fp_u256.cuh"
 
 extern "C" __global__ void radix2_dit_butterfly(p256::Fp *input,
-                                                const p256::Fp *twiddles) {
+                                                const p256::Fp *twiddles)
+{
   int group = blockIdx.x;
   int pos_in_group = threadIdx.x % blockDim.x;
   int half_group_size = blockDim.x;
