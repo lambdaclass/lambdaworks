@@ -24,6 +24,16 @@ pub trait ByteConversion {
         Self: std::marker::Sized;
 }
 
+
+/// Serialize function without options
+/// Used to serialize data to feed it into Fiat Shamir
+/// in some protocols, when ByteConversion is not avaible
+/// For example, when using Curve Points
+pub trait SimpleSerialization {
+    /// Returns the byte representation of the element in big-endian order.
+    fn simple_serialize(&self) -> Vec<u8>;
+}
+
 pub trait IsRandomFieldElementGenerator<F: IsField> {
     fn generate(&self) -> FieldElement<F>;
 }
