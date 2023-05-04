@@ -1,11 +1,11 @@
-use crate::field::{
+use crate::{field::{
     element::FieldElement,
     extensions::{
         cubic::{CubicExtensionField, HasCubicNonResidue},
         quadratic::{HasQuadraticNonResidue, QuadraticExtensionField},
     },
     fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
-};
+}, traits::ByteConversion};
 use crate::unsigned_integer::element::U384;
 
 pub const BLS12381_PRIME_FIELD_ORDER: U384 = U384::from("1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab");
@@ -72,9 +72,37 @@ impl FieldElement<Degree2ExtensionField> {
     pub fn new_base(a_hex: &str) -> Self {
         Self::new([FieldElement::new(U384::from(a_hex)), FieldElement::zero()])
     }
+}
 
-    pub fn deserialize(&self, bytes: &[u8]) {
-        let v = self.value();
+impl ByteConversion for FieldElement<Degree2ExtensionField> {
+    fn to_bytes_be(&self) -> Vec<u8> {
+        let mut byte_slice = FieldElement::to_bytes_be(&self.value()[0]);
+        byte_slice.extend(FieldElement::to_bytes_be(&self.value()[1]));
+        byte_slice
+    }
+
+    fn to_bytes_le(&self) -> Vec<u8> {
+        let mut byte_slice = FieldElement::to_bytes_le(&self.value()[0]);
+        byte_slice.extend(FieldElement::to_bytes_le(&self.value()[1]));
+        byte_slice
+    }
+
+    fn from_bytes_be(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
+    where
+        Self: std::marker::Sized {
+            const BYTES_PER_FIELD: usize = 48;
+            let x0 = FieldElement::from_bytes_be(&bytes[0..BYTES_PER_FIELD])?;
+            let x1 = FieldElement::from_bytes_be(&bytes[BYTES_PER_FIELD..BYTES_PER_FIELD*2])?;
+            Ok(Self::new([x0,x1]))
+    }
+
+    fn from_bytes_le(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
+    where
+        Self: std::marker::Sized {
+            const BYTES_PER_FIELD: usize = 48;
+            let x0 = FieldElement::from_bytes_le(&bytes[0..BYTES_PER_FIELD])?;
+            let x1 = FieldElement::from_bytes_le(&bytes[BYTES_PER_FIELD..BYTES_PER_FIELD*2])?;
+            Ok(Self::new([x0,x1]))
     }
 }
 

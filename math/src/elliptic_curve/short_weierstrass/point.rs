@@ -148,7 +148,7 @@ where
     FieldElement<E::BaseField>: ByteConversion,
 {
     /// Serialize the points in the given format
-    fn serialize(&self, _point_format: PointFormat, endianness: FieldEndianness) -> Vec<u8> {
+    pub fn serialize(&self, _point_format: PointFormat, endianness: FieldEndianness) -> Vec<u8> {
         // TODO: these can be more efficient.
         // More options for point formats should be added
         // E.g: Store the x value, the bit to indicate y.
@@ -175,8 +175,7 @@ where
         bytes
     }
 
-    // Note this deserialize doesn't work for extension fields
-    fn deserialize(
+    pub fn deserialize(
         bytes: &[u8],
         _point_format: PointFormat,
         endianness: FieldEndianness,
