@@ -16,7 +16,6 @@ objc = "0.2.7"
 iai = "0.1"
 
 [features]
-default = ["cuda"]
 metal = ["dep:lambdaworks-gpu", "lambdaworks-gpu?/metal"]
 cuda = ["dep:lambdaworks-gpu", "lambdaworks-gpu?/cuda"]
 
