@@ -37,8 +37,15 @@ impl IsShortWeierstrass for BLS12381Curve {
 mod tests {
     use super::*;
     use crate::{
-        cyclic_group::IsGroup, elliptic_curve::traits::EllipticCurveError,
-        field::element::FieldElement,
+        cyclic_group::IsGroup,
+        elliptic_curve::{
+            short_weierstrass::curves::bls12_381::field_extension::BLS12381FieldModulus,
+            traits::EllipticCurveError,
+        },
+        field::{
+            element::FieldElement,
+            fields::montgomery_backed_prime_fields::MontgomeryBackendPrimeField,
+        },
     };
 
     use super::BLS12381Curve;
@@ -87,6 +94,25 @@ mod tests {
         let g2 = g.operate_with(&g);
         assert_ne!(&g2, &g);
         assert_eq!(&g, &g);
+    }
+
+    #[test]
+    fn g_operated_with_g_satifies_ec_equation() {
+        type FE = FieldElement<MontgomeryBackendPrimeField<BLS12381FieldModulus, 6>>;
+        let g = BLS12381Curve::generator();
+        let g2 = g.operate_with_self(FE::from(2).representative());
+
+        // get x and y from affine coordinates
+        let g2_affine = g2.to_affine();
+        let x = g2_affine.x();
+        let y = g2_affine.y();
+
+        // calculate both sides of BLS12-381 equation
+        let four = FieldElement::<MontgomeryBackendPrimeField<BLS12381FieldModulus, 6>>::from(4);
+        let y_sq_0 = x.pow(3_u16) + four;
+        let y_sq_1 = y.pow(2_u16);
+
+        assert_eq!(y_sq_0, y_sq_1);
     }
 
     #[test]
