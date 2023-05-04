@@ -141,9 +141,7 @@ where
     let mut aux_segments = Vec::new();
     let n_aux_segments = air.num_aux_segments();
     for aux_segment_idx in 0..n_aux_segments {
-        let segment_rand_coeffs = air
-            .aux_segment_rand_coeffs(aux_segment_idx, transcript)
-            .unwrap();
+        let segment_rand_coeffs = air.aux_segment_rand_coeffs(aux_segment_idx, transcript);
 
         let aux_segment = air.build_aux_segment(trace, &segment_rand_coeffs).unwrap();
 
@@ -239,13 +237,19 @@ where
     }
 }
 
-fn round_2_compute_composition_polynomial<F: IsFFTField, A: AIR<Field = F>>(
+fn round_2_compute_composition_polynomial<F, A, T>(
     air: &A,
     domain: &Domain<F>,
     round_1_result: &Round1<F>,
     transition_coeffs: &[(FieldElement<F>, FieldElement<F>)],
     boundary_coeffs: &[(FieldElement<F>, FieldElement<F>)],
-) -> Round2<F> {
+    transcript: &T,
+) -> Round2<F>
+where
+    F: IsFFTField,
+    A: AIR<Field = F>,
+    T: Transcript,
+{
     // Create evaluation table
     let evaluator = ConstraintEvaluator::new(
         air,
@@ -258,7 +262,7 @@ fn round_2_compute_composition_polynomial<F: IsFFTField, A: AIR<Field = F>>(
         &domain.lde_roots_of_unity_coset,
         transition_coeffs,
         boundary_coeffs,
-        None,
+        transcript,
     );
 
     // Get the composition poly H
@@ -564,16 +568,16 @@ where
             })
             .collect();
 
+    let n_transition_coeffs = air.num_transition_constraints() + air.num_aux_transitions();
     // These are the challenges alpha^T_j and beta^T_j
-    let transition_coeffs: Vec<(FieldElement<F>, FieldElement<F>)> =
-        (0..air.context().num_transition_constraints)
-            .map(|_| {
-                (
-                    transcript_to_field(transcript),
-                    transcript_to_field(transcript),
-                )
-            })
-            .collect();
+    let transition_coeffs: Vec<(FieldElement<F>, FieldElement<F>)> = (0..n_transition_coeffs)
+        .map(|_| {
+            (
+                transcript_to_field(transcript),
+                transcript_to_field(transcript),
+            )
+        })
+        .collect();
 
     let round_2_result = round_2_compute_composition_polynomial(
         air,
@@ -581,6 +585,7 @@ where
         &round_1_result,
         &transition_coeffs,
         &boundary_coeffs,
+        transcript,
     );
 
     let round_3_result = round_3_evaluate_polynomials_in_out_of_domain_element(

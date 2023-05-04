@@ -1,3 +1,4 @@
+use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsFFTField},
     helpers,
@@ -32,13 +33,13 @@ impl<'poly, F: IsFFTField, A: AIR<Field = F>> ConstraintEvaluator<'poly, F, A> {
         }
     }
 
-    pub fn evaluate(
+    pub fn evaluate<T: Transcript>(
         &self,
         lde_trace: &TraceTable<F>,
         lde_domain: &[FieldElement<F>],
         transition_coefficients: &[(FieldElement<F>, FieldElement<F>)],
         boundary_coefficients: &[(FieldElement<F>, FieldElement<F>)],
-        aux_rand_coefficients: Option<&[FieldElement<F>]>,
+        transcript: &T,
     ) -> ConstraintEvaluationTable<F> {
         // The + 1 is for the boundary constraints column
         let mut evaluation_table = ConstraintEvaluationTable::new(
@@ -99,9 +100,31 @@ impl<'poly, F: IsFFTField, A: AIR<Field = F>> ConstraintEvaluator<'poly, F, A> {
                 &self.air.context().transition_offsets,
             );
 
-            // let aux_frame = todo!();
-
             let mut evaluations = self.air.compute_transition(&main_frame);
+
+            // Compute auxiliary transitions if needed
+            if self.air.is_multi_segment() {
+                let n_aux_segments = self.air.num_aux_segments();
+                let aux_transition_offsets = self.air.context().aux_transition_offsets;
+                let aux_transition_offsets = aux_transition_offsets.as_ref().unwrap();
+                (0..n_aux_segments).for_each(|segment_idx| {
+                    let aux_rand_elements =
+                        self.air.aux_segment_rand_coeffs(segment_idx, transcript);
+                    let aux_frame = Frame::read_from_aux_segment(
+                        lde_trace,
+                        i,
+                        blowup_factor,
+                        aux_transition_offsets,
+                        segment_idx,
+                    );
+                    let aux_evaluations = self.air.compute_aux_transition(
+                        &main_frame,
+                        &aux_frame,
+                        &aux_rand_elements,
+                    );
+                    evaluations.extend_from_slice(&aux_evaluations);
+                });
+            }
             // let aux_evaluations = self.air.compute_aux_transition(&aux_frame);
             evaluations = Self::compute_constraint_composition_poly_evaluations(
                 &self.air,

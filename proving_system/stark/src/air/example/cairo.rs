@@ -120,6 +120,7 @@ impl CairoAIR {
             transition_offsets: vec![0, 1],
             aux_transition_offsets: None,
             num_transition_constraints: 31,
+            num_aux_transition_constraints: 0,
         };
 
         let last_step = trace_length - 1;

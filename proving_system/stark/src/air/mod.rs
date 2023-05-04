@@ -97,8 +97,8 @@ pub trait AIR: Clone {
         &self,
         segment_idx: usize,
         transcript: &T,
-    ) -> Option<Vec<FieldElement<Self::Field>>> {
-        None
+    ) -> Vec<FieldElement<Self::Field>> {
+        Vec::new()
     }
 
     #[allow(unused)]
@@ -108,6 +108,26 @@ pub trait AIR: Clone {
         rand_elements: &[FieldElement<Self::Field>],
     ) -> Option<AuxiliarySegment<Self::Field>> {
         None
+    }
+
+    #[allow(unused_variables)]
+    fn compute_aux_transition(
+        &self,
+        main_frame: &Frame<Self::Field>,
+        aux_frame: &Frame<Self::Field>,
+        aux_rand_elements: &[FieldElement<Self::Field>],
+    ) -> Vec<FieldElement<Self::Field>> {
+        Vec::new()
+    }
+
+    // fn aux_boundary_constraints(
+    //     &self,
+    //     aux_rand_elements: &[FieldElement<Self::Field>],
+    // ) -> BoundaryConstraints<Self::Field> {
+    // }
+
+    fn num_aux_transitions(&self) -> usize {
+        self.context().num_aux_transition_constraints
     }
 
     fn is_multi_segment(&self) -> bool {

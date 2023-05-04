@@ -48,6 +48,7 @@ fn test_prove_fib() {
         transition_offsets: vec![0, 1, 2],
         aux_transition_offsets: None,
         num_transition_constraints: 1,
+        num_aux_transition_constraints: 0,
     };
 
     let fibonacci_air = simple_fibonacci::FibonacciAIR::new(context);
@@ -84,6 +85,7 @@ fn test_prove_fib17() {
         transition_offsets: vec![0, 1, 2],
         aux_transition_offsets: None,
         num_transition_constraints: 1,
+        num_aux_transition_constraints: 0,
     };
 
     let fibonacci_air = fibonacci_f17::Fibonacci17AIR::from(context);
@@ -122,6 +124,7 @@ fn test_prove_fib_2_cols() {
         transition_offsets: vec![0, 1],
         aux_transition_offsets: None,
         num_transition_constraints: 2,
+        num_aux_transition_constraints: 0,
     };
 
     let fibonacci_air = fibonacci_2_columns::Fibonacci2ColsAIR::from(context);
@@ -163,6 +166,7 @@ fn test_prove_quadratic() {
         transition_offsets: vec![0, 1],
         aux_transition_offsets: None,
         num_transition_constraints: 1,
+        num_aux_transition_constraints: 0,
     };
 
     let quadratic_air = quadratic_air::QuadraticAIR::from(context);

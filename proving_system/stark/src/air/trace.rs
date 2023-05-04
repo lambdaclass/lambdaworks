@@ -51,6 +51,11 @@ impl<F: IsFFTField> AuxiliarySegment<F> {
             .collect()
     }
 
+    pub fn get_row(&self, row_idx: usize) -> &[FieldElement<F>] {
+        let row_offset = row_idx * self.aux_segment_width;
+        &self.aux_segment[row_offset..row_offset + self.aux_segment_width]
+    }
+
     pub fn compute_aux_segment_polys(&self) -> Vec<Polynomial<FieldElement<F>>> {
         self.cols()
             .iter()
@@ -137,6 +142,10 @@ impl<F: IsFFTField> TraceTable<F> {
             .map(|col| Polynomial::interpolate_fft(col))
             .collect::<Result<Vec<Polynomial<FieldElement<F>>>, FFTError>>()
             .unwrap()
+    }
+
+    pub fn get_aux_segment<'a>(&'a self, segment_idx: usize) -> &'a AuxiliarySegment<F> {
+        &self.aux_segments.as_ref().unwrap()[segment_idx]
     }
 
     /// Validates that the trace is valid with respect to the supplied AIR constraints

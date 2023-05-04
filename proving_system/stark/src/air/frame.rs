@@ -43,17 +43,39 @@ impl<F: IsFFTField> Frame<F> {
     ) -> Self {
         // Get trace length to apply module with it when getting elements of
         // the frame from the trace.
-        let trace_steps = trace.n_rows();
+        let trace_length = trace.n_rows();
         let data = offsets
             .iter()
             .flat_map(|frame_row_idx| {
                 trace
-                    .get_row((step + (frame_row_idx * blowup as usize)) % trace_steps)
+                    .get_row((step + (frame_row_idx * blowup as usize)) % trace_length)
                     .to_vec()
             })
             .collect();
 
         Self::new(data, trace.main_segment_width)
+    }
+
+    pub fn read_from_aux_segment(
+        trace: &TraceTable<F>,
+        step: usize,
+        blowup: u8,
+        offsets: &[usize],
+        segment_idx: usize,
+    ) -> Self {
+        let aux_segment = trace.get_aux_segment(segment_idx);
+
+        let trace_length = trace.n_rows();
+        let data = offsets
+            .iter()
+            .flat_map(|frame_row_idx| {
+                aux_segment
+                    .get_row((step + (frame_row_idx * blowup as usize)) % trace_length)
+                    .to_vec()
+            })
+            .collect();
+
+        Self::new(data, aux_segment.aux_segment_width)
     }
 
     /// Given a slice of trace polynomials, an evaluation point `x`, the frame offsets
