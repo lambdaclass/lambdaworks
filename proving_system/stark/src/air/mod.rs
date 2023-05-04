@@ -109,4 +109,8 @@ pub trait AIR: Clone {
     ) -> Option<AuxiliarySegment<Self::Field>> {
         None
     }
+
+    fn is_multi_segment(&self) -> bool {
+        self.num_aux_segments() != 0
+    }
 }

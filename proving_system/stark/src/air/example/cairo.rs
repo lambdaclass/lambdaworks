@@ -118,6 +118,7 @@ impl CairoAIR {
             ],
             transition_exemptions: vec![1; 31],
             transition_offsets: vec![0, 1],
+            aux_transition_offsets: None,
             num_transition_constraints: 31,
         };
 

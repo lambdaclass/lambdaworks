@@ -46,6 +46,7 @@ fn test_prove_fib() {
         transition_degrees: vec![1],
         transition_exemptions: vec![2],
         transition_offsets: vec![0, 1, 2],
+        aux_transition_offsets: None,
         num_transition_constraints: 1,
     };
 
@@ -81,6 +82,7 @@ fn test_prove_fib17() {
         transition_degrees: vec![1],
         transition_exemptions: vec![2],
         transition_offsets: vec![0, 1, 2],
+        aux_transition_offsets: None,
         num_transition_constraints: 1,
     };
 
@@ -118,6 +120,7 @@ fn test_prove_fib_2_cols() {
         transition_degrees: vec![1, 1],
         transition_exemptions: vec![1, 1],
         transition_offsets: vec![0, 1],
+        aux_transition_offsets: None,
         num_transition_constraints: 2,
     };
 
@@ -158,6 +161,7 @@ fn test_prove_quadratic() {
         transition_degrees: vec![2],
         transition_exemptions: vec![1],
         transition_offsets: vec![0, 1],
+        aux_transition_offsets: None,
         num_transition_constraints: 1,
     };
 

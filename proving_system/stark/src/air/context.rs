@@ -11,6 +11,7 @@ pub struct AirContext {
     /// offsets that are needed to compute EVERY transition constraint, even if some
     /// constraints don't use all of the indexes in said offsets.
     pub transition_offsets: Vec<usize>,
+    pub aux_transition_offsets: Option<Vec<usize>>,
     pub transition_exemptions: Vec<usize>,
     pub num_transition_constraints: usize,
 }

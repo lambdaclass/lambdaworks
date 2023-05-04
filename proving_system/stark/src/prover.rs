@@ -4,6 +4,7 @@ use super::{
     sample_z_ood,
 };
 use crate::{
+    air::trace::AuxiliarySegment,
     fri::HASHER,
     proof::{DeepConsistencyCheck, StarkProof, StarkQueryProof},
     transcript_to_field, transcript_to_usize, Domain,
@@ -25,10 +26,14 @@ use lambdaworks_math::{
 use log::info;
 
 struct Round1<F: IsFFTField> {
-    trace_polys: Vec<Polynomial<FieldElement<F>>>,
-    lde_trace: TraceTable<F>,
-    lde_trace_merkle_trees: Vec<MerkleTree<F>>,
-    lde_trace_merkle_roots: Vec<FieldElement<F>>,
+    main_trace_polys: Vec<Polynomial<FieldElement<F>>>,
+    aux_trace_polys: Option<Vec<Vec<Polynomial<FieldElement<F>>>>>,
+    main_lde_trace_merkle_trees: Vec<MerkleTree<F>>,
+    main_lde_trace_merkle_roots: Vec<FieldElement<F>>,
+    aux_lde_trace_merkle_trees: Option<Vec<Vec<MerkleTree<F>>>>,
+    aux_lde_trace_merkle_roots: Option<Vec<Vec<FieldElement<F>>>>,
+    // main + auxiliary LDE trace
+    full_lde_trace: TraceTable<F>,
 }
 
 struct Round2<F: IsFFTField> {
@@ -58,11 +63,18 @@ fn round_0_transcript_initialization() -> DefaultTranscript {
     DefaultTranscript::new()
 }
 
-fn commit_original_trace<F: IsFFTField, A: AIR<Field = F>>(
+fn commit_original_trace<F, A>(
     trace: &TraceTable<F>,
     air: &A,
-) -> Round1<F>
+) -> (
+    Vec<Polynomial<FieldElement<F>>>,
+    Vec<Vec<FieldElement<F>>>,
+    Vec<MerkleTree<F>>,
+    Vec<FieldElement<F>>,
+)
 where
+    F: IsFFTField,
+    A: AIR<Field = F>,
     FieldElement<F>: ByteConversion,
 {
     // The trace M_ij is part of the input. Interpolate the polynomials t_j
@@ -85,11 +97,11 @@ where
         .collect::<Result<Vec<Vec<FieldElement<F>>>, FFTError>>()
         .unwrap();
 
-    let lde_trace = TraceTable::new_from_cols(&lde_trace_evaluations, None);
+    // let lde_trace = TraceTable::new_from_cols(&lde_trace_evaluations, None);
 
     // Compute commitments [t_j].
-    let lde_trace_merkle_trees = lde_trace
-        .main_cols()
+    let lde_trace_merkle_trees = lde_trace_evaluations
+        // .main_cols()
         .iter()
         .map(|col| MerkleTree::build(col, Box::new(HASHER)))
         .collect::<Vec<MerkleTree<F>>>();
@@ -99,28 +111,40 @@ where
         .map(|tree| tree.root.clone())
         .collect();
 
-    Round1 {
+    (
         trace_polys,
-        lde_trace,
+        lde_trace_evaluations,
         lde_trace_merkle_trees,
         lde_trace_merkle_roots,
-    }
+    )
 }
 
-fn commit_aux_segments<F, A, T>(air: &A, trace: &TraceTable<F>, transcript: &T)
+fn commit_aux_trace<F, A, T>(
+    air: &A,
+    trace: &TraceTable<F>,
+    transcript: &T,
+) -> (
+    Vec<Vec<Polynomial<FieldElement<F>>>>,
+    Vec<AuxiliarySegment<F>>,
+    Vec<Vec<MerkleTree<F>>>,
+    Vec<Vec<FieldElement<F>>>,
+)
 where
     F: IsFFTField,
     A: AIR<Field = F>,
     T: Transcript,
     FieldElement<F>: ByteConversion,
 {
-    let mut aux_segments_commitments = Vec::new();
+    let mut aux_segments_polys = Vec::new();
+    let mut aux_segments_merkle_trees = Vec::new();
+    let mut aux_segments_merkle_roots = Vec::new();
     let mut aux_segments = Vec::new();
     let n_aux_segments = air.num_aux_segments();
     for aux_segment_idx in 0..n_aux_segments {
         let segment_rand_coeffs = air
             .aux_segment_rand_coeffs(aux_segment_idx, transcript)
             .unwrap();
+
         let aux_segment = air.build_aux_segment(trace, &segment_rand_coeffs).unwrap();
 
         // Compute aux_segment polys
@@ -153,25 +177,66 @@ where
             .map(|tree| tree.root.clone())
             .collect();
 
-        aux_segments_commitments.push((lde_aux_merkle_trees, lde_aux_merkle_roots));
+        aux_segments_polys.push(aux_segment_polys);
+        aux_segments_merkle_trees.push(lde_aux_merkle_trees);
+        aux_segments_merkle_roots.push(lde_aux_merkle_roots);
         aux_segments.push(aux_segment);
     }
+
+    (
+        aux_segments_polys,
+        aux_segments,
+        aux_segments_merkle_trees,
+        aux_segments_merkle_roots,
+    )
 }
 
-fn commit_extended_trace() {
-    // TODO
-}
-
-fn round_1_randomized_air_with_preprocessing<F: IsFFTField, A: AIR<Field = F>>(
+fn round_1_randomized_air_with_preprocessing<F, A, T>(
     trace: &TraceTable<F>,
     air: &A,
+    transcript: &T,
 ) -> Round1<F>
 where
+    F: IsFFTField,
+    A: AIR<Field = F>,
+    T: Transcript,
     FieldElement<F>: ByteConversion,
 {
-    let round_1_result = commit_original_trace(trace, air);
-    commit_extended_trace();
-    round_1_result
+    let (
+        main_trace_polys,
+        lde_trace_evaluations,
+        main_lde_trace_merkle_trees,
+        main_lde_trace_merkle_roots,
+    ) = commit_original_trace(trace, air);
+
+    if air.is_multi_segment() {
+        let (aux_trace_polys, aux_segments, aux_lde_trace_merkle_trees, aux_lde_trace_merkle_roots) =
+            commit_aux_trace(air, trace, transcript);
+
+        let lde_trace = TraceTable::new_from_cols(&lde_trace_evaluations, Some(aux_segments));
+
+        return Round1 {
+            main_trace_polys,
+            aux_trace_polys: Some(aux_trace_polys),
+            main_lde_trace_merkle_trees,
+            main_lde_trace_merkle_roots,
+            aux_lde_trace_merkle_trees: Some(aux_lde_trace_merkle_trees),
+            aux_lde_trace_merkle_roots: Some(aux_lde_trace_merkle_roots),
+            full_lde_trace: lde_trace,
+        };
+    }
+
+    let lde_trace = TraceTable::new_from_cols(&lde_trace_evaluations, None);
+
+    Round1 {
+        main_trace_polys,
+        aux_trace_polys: None,
+        main_lde_trace_merkle_trees,
+        main_lde_trace_merkle_roots,
+        aux_lde_trace_merkle_trees: None,
+        aux_lde_trace_merkle_roots: None,
+        full_lde_trace: lde_trace,
+    }
 }
 
 fn round_2_compute_composition_polynomial<F: IsFFTField, A: AIR<Field = F>>(
@@ -184,15 +249,16 @@ fn round_2_compute_composition_polynomial<F: IsFFTField, A: AIR<Field = F>>(
     // Create evaluation table
     let evaluator = ConstraintEvaluator::new(
         air,
-        &round_1_result.trace_polys,
+        &round_1_result.main_trace_polys,
         &domain.trace_primitive_root,
     );
 
     let constraint_evaluations = evaluator.evaluate(
-        &round_1_result.lde_trace,
+        &round_1_result.full_lde_trace,
         &domain.lde_roots_of_unity_coset,
         transition_coeffs,
         boundary_coeffs,
+        None,
     );
 
     // Get the composition poly H
@@ -233,7 +299,7 @@ where
     // In the fibonacci example, the ood frame is simply the evaluations `[t(z), t(z * g), t(z * g^2)]`, where `t` is the trace
     // polynomial and `g` is the primitive root of unity used when interpolating `t`.
     let ood_trace_evaluations = Frame::get_trace_evaluations(
-        &round_1_result.trace_polys,
+        &round_1_result.main_trace_polys,
         z,
         &air.context().transition_offsets,
         &domain.trace_primitive_root,
@@ -241,7 +307,7 @@ where
 
     let trace_ood_frame_data = ood_trace_evaluations.into_iter().flatten().collect();
     let trace_ood_frame_evaluations =
-        Frame::new(trace_ood_frame_data, round_1_result.trace_polys.len());
+        Frame::new(trace_ood_frame_data, round_1_result.main_trace_polys.len());
 
     Round3 {
         trace_ood_frame_evaluations,
@@ -263,7 +329,7 @@ where
     // Compute DEEP composition polynomial so we can commit to it using FRI.
     let mut deep_composition_poly = compute_deep_composition_poly(
         air,
-        &round_1_result.trace_polys,
+        &round_1_result.main_trace_polys,
         &round_2_result.composition_poly_even,
         &round_2_result.composition_poly_odd,
         z,
@@ -439,13 +505,13 @@ where
 {
     let index = index_to_verify % domain.lde_roots_of_unity_coset.len();
     let lde_trace_merkle_proofs = round_1_result
-        .lde_trace_merkle_trees
+        .main_lde_trace_merkle_trees
         .iter()
         .map(|tree| tree.get_proof_by_pos(index).unwrap())
         .collect();
 
     let d_evaluation_point = &domain.lde_roots_of_unity_coset[index];
-    let lde_trace_evaluations = round_1_result.lde_trace.get_row(index).to_vec();
+    let lde_trace_evaluations = round_1_result.full_lde_trace.get_row(index).to_vec();
 
     let composition_poly_evaluations = vec![
         composition_poly_even.evaluate(d_evaluation_point),
@@ -453,7 +519,7 @@ where
     ];
 
     DeepConsistencyCheck {
-        lde_trace_merkle_roots: round_1_result.lde_trace_merkle_roots.clone(),
+        lde_trace_merkle_roots: round_1_result.main_lde_trace_merkle_roots.clone(),
         lde_trace_merkle_proofs,
         lde_trace_evaluations,
         composition_poly_evaluations,
@@ -484,12 +550,12 @@ where
         transcript,
     );
 
-    let round_1_result = round_1_randomized_air_with_preprocessing(trace, air);
+    let round_1_result = round_1_randomized_air_with_preprocessing(trace, air, transcript);
 
     // Sample challenges for round 2
     // These are the challenges alpha^B_j and beta^B_j
     let boundary_coeffs: Vec<(FieldElement<F>, FieldElement<F>)> =
-        (0..round_1_result.trace_polys.len())
+        (0..round_1_result.main_trace_polys.len())
             .map(|_| {
                 (
                     transcript_to_field(transcript),
