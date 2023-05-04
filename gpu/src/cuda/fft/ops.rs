@@ -1,7 +1,7 @@
 use lambdaworks_math::field::{
     element::FieldElement,
     errors::FieldError,
-    traits::{IsTwoAdicField, RootsConfig},
+    traits::{IsFFTField, RootsConfig},
 };
 
 use cudarc::{
@@ -25,7 +25,7 @@ pub fn fft<F>(
     twiddles: &[FieldElement<F>],
 ) -> Result<Vec<FieldElement<F>>, DriverError>
 where
-    F: IsTwoAdicField,
+    F: IsFFTField,
     F::BaseType: Unpin,
 {
     let device = CudaDevice::new(0)?;
@@ -80,7 +80,7 @@ pub fn log2(n: usize) -> Result<u64, FieldError> {
 }
 
 //TODO implement in CUDA
-pub fn get_twiddles<F: IsTwoAdicField>(
+pub fn get_twiddles<F: IsFFTField>(
     order: u64,
     config: RootsConfig,
 ) -> Result<Vec<FieldElement<F>>, FieldError> {
@@ -88,7 +88,7 @@ pub fn get_twiddles<F: IsTwoAdicField>(
 }
 
 //TODO remove after implementing in cuda
-pub fn get_powers_of_primitive_root<F: IsTwoAdicField>(
+pub fn get_powers_of_primitive_root<F: IsFFTField>(
     n: u64,
     count: usize,
     config: RootsConfig,

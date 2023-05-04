@@ -2,7 +2,7 @@ use cudarc::driver::DriverError;
 use lambdaworks_math::{
     field::{
         element::FieldElement,
-        traits::{IsTwoAdicField, RootsConfig},
+        traits::{IsFFTField, RootsConfig},
     },
     polynomial::Polynomial,
 };
@@ -13,7 +13,7 @@ pub fn evaluate_fft_cuda<F>(
     poly: &Polynomial<FieldElement<F>>,
 ) -> Result<Vec<FieldElement<F>>, DriverError>
 where
-    F: IsTwoAdicField,
+    F: IsFFTField,
     F::BaseType: Unpin,
 {
     let order = log2(poly.coefficients.len()).unwrap();
