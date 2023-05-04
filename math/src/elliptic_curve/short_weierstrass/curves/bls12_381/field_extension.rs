@@ -1,12 +1,15 @@
-use crate::{field::{
-    element::FieldElement,
-    extensions::{
-        cubic::{CubicExtensionField, HasCubicNonResidue},
-        quadratic::{HasQuadraticNonResidue, QuadraticExtensionField},
-    },
-    fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
-}, traits::ByteConversion};
 use crate::unsigned_integer::element::U384;
+use crate::{
+    field::{
+        element::FieldElement,
+        extensions::{
+            cubic::{CubicExtensionField, HasCubicNonResidue},
+            quadratic::{HasQuadraticNonResidue, QuadraticExtensionField},
+        },
+        fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
+    },
+    traits::ByteConversion,
+};
 
 pub const BLS12381_PRIME_FIELD_ORDER: U384 = U384::from("1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab");
 
@@ -89,20 +92,22 @@ impl ByteConversion for FieldElement<Degree2ExtensionField> {
 
     fn from_bytes_be(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
     where
-        Self: std::marker::Sized {
-            const BYTES_PER_FIELD: usize = 48;
-            let x0 = FieldElement::from_bytes_be(&bytes[0..BYTES_PER_FIELD])?;
-            let x1 = FieldElement::from_bytes_be(&bytes[BYTES_PER_FIELD..BYTES_PER_FIELD*2])?;
-            Ok(Self::new([x0,x1]))
+        Self: std::marker::Sized,
+    {
+        const BYTES_PER_FIELD: usize = 48;
+        let x0 = FieldElement::from_bytes_be(&bytes[0..BYTES_PER_FIELD])?;
+        let x1 = FieldElement::from_bytes_be(&bytes[BYTES_PER_FIELD..BYTES_PER_FIELD * 2])?;
+        Ok(Self::new([x0, x1]))
     }
 
     fn from_bytes_le(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
     where
-        Self: std::marker::Sized {
-            const BYTES_PER_FIELD: usize = 48;
-            let x0 = FieldElement::from_bytes_le(&bytes[0..BYTES_PER_FIELD])?;
-            let x1 = FieldElement::from_bytes_le(&bytes[BYTES_PER_FIELD..BYTES_PER_FIELD*2])?;
-            Ok(Self::new([x0,x1]))
+        Self: std::marker::Sized,
+    {
+        const BYTES_PER_FIELD: usize = 48;
+        let x0 = FieldElement::from_bytes_le(&bytes[0..BYTES_PER_FIELD])?;
+        let x1 = FieldElement::from_bytes_le(&bytes[BYTES_PER_FIELD..BYTES_PER_FIELD * 2])?;
+        Ok(Self::new([x0, x1]))
     }
 }
 
