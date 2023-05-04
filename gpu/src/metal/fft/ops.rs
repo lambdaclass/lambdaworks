@@ -1,11 +1,11 @@
 use lambdaworks_math::field::{
     element::FieldElement,
-    traits::{IsTwoAdicField, RootsConfig},
+    traits::{IsFFTField, RootsConfig},
 };
 
 use crate::metal::abstractions::{errors::MetalError, state::*};
 
-use super::helpers::{log2, void_ptr};
+use super::helpers::{self, void_ptr};
 use metal::MTLSize;
 
 use core::mem;
@@ -17,14 +17,17 @@ use core::mem;
 /// in this order too. Natural order means that input[i] corresponds to the i-th coefficient,
 /// as opposed to bit-reverse order in which input[bit_rev(i)] corresponds to the i-th
 /// coefficient.
-pub fn fft<F: IsTwoAdicField>(
+pub fn fft<F: IsFFTField>(
     input: &[FieldElement<F>],
     twiddles: &[FieldElement<F>],
     state: &MetalState,
 ) -> Result<Vec<FieldElement<F>>, MetalError> {
-    let pipeline = state.setup_pipeline("radix2_dit_butterfly")?;
+    let pipeline = state.setup_pipeline(&format!("radix2_dit_butterfly_{}", F::field_name()))?;
 
-    let input_buffer = state.alloc_buffer_data(input);
+    // if the input size is not a power of two, use zero padding
+    let input = helpers::zero_padding(input);
+
+    let input_buffer = state.alloc_buffer_data(&input);
     let twiddles_buffer = state.alloc_buffer_data(twiddles);
     // TODO: twiddle factors security (right now anything can be passed as twiddle factors)
 
@@ -48,7 +51,7 @@ pub fn fft<F: IsTwoAdicField>(
     command_buffer.wait_until_completed();
 
     let result = MetalState::retrieve_contents(&input_buffer);
-    let result = bitrev_permutation(&result, state)?;
+    let result = bitrev_permutation::<F, _>(&result, state)?;
     Ok(result.iter().map(FieldElement::from_raw).collect())
 }
 
@@ -58,14 +61,14 @@ pub fn fft<F: IsTwoAdicField>(
 /// in this order too. Natural order means that input[i] corresponds to the i-th coefficient,
 /// as opposed to bit-reverse order in which input[bit_rev(i)] corresponds to the i-th
 /// coefficient.
-pub fn fft_with_blowup<F: IsTwoAdicField>(
+pub fn fft_with_blowup<F: IsFFTField>(
     input: &[FieldElement<F>],
     blowup_factor: usize,
     state: &MetalState,
 ) -> Result<Vec<FieldElement<F>>, MetalError> {
-    let domain_size = input.len() * blowup_factor;
-    let order = log2(domain_size)?;
-    let twiddles = gen_twiddles(order, RootsConfig::BitReverse, state)?;
+    let domain_size = (input.len() * blowup_factor).next_power_of_two();
+    let order = domain_size.trailing_zeros();
+    let twiddles = gen_twiddles(order.into(), RootsConfig::BitReverse, state)?;
     let mut resized = input.to_vec();
     resized.resize(domain_size, FieldElement::zero());
 
@@ -73,7 +76,7 @@ pub fn fft_with_blowup<F: IsTwoAdicField>(
 }
 
 /// Generates 2^{`order`} twiddle factors in parallel, with a certain `config`, in Metal.
-pub fn gen_twiddles<F: IsTwoAdicField>(
+pub fn gen_twiddles<F: IsFFTField>(
     order: u64,
     config: RootsConfig,
     state: &MetalState,
@@ -81,13 +84,13 @@ pub fn gen_twiddles<F: IsTwoAdicField>(
     let len = (1 << order) / 2;
 
     let kernel = match config {
-        RootsConfig::Natural => "calc_twiddles",
-        RootsConfig::NaturalInversed => "calc_twiddles_inv",
-        RootsConfig::BitReverse => "calc_twiddles_bitrev",
-        RootsConfig::BitReverseInversed => "calc_twiddles_bitrev_inv",
+        RootsConfig::Natural => format!("calc_twiddles_{}", F::field_name()),
+        RootsConfig::NaturalInversed => format!("calc_twiddles_inv_{}", F::field_name()),
+        RootsConfig::BitReverse => format!("calc_twiddles_bitrev_{}", F::field_name()),
+        RootsConfig::BitReverseInversed => format!("calc_twiddles_bitrev_inv_{}", F::field_name()),
     };
 
-    let pipeline = state.setup_pipeline(kernel)?;
+    let pipeline = state.setup_pipeline(&kernel)?;
 
     let result_buffer = state.alloc_buffer::<F::BaseType>(len);
 
@@ -111,8 +114,11 @@ pub fn gen_twiddles<F: IsTwoAdicField>(
 }
 
 /// Executes a parallel bit-reverse permutation with the elements of `input`, in Metal.
-pub fn bitrev_permutation<T: Clone>(input: &[T], state: &MetalState) -> Result<Vec<T>, MetalError> {
-    let pipeline = state.setup_pipeline("bitrev_permutation")?;
+pub fn bitrev_permutation<F: IsFFTField, T: Clone>(
+    input: &[T],
+    state: &MetalState,
+) -> Result<Vec<T>, MetalError> {
+    let pipeline = state.setup_pipeline(&format!("bitrev_permutation_{}", F::field_name()))?;
 
     let input_buffer = state.alloc_buffer_data(input);
     let result_buffer = state.alloc_buffer::<T>(input.len());
@@ -135,6 +141,7 @@ pub fn bitrev_permutation<T: Clone>(input: &[T], state: &MetalState) -> Result<V
 #[cfg(test)]
 mod tests {
     use crate::metal::abstractions::state::*;
+    use lambdaworks_fft::roots_of_unity::get_twiddles;
     use lambdaworks_math::field::{
         fields::fft_friendly::stark_252_prime_field::Stark252PrimeField, traits::RootsConfig,
     };
@@ -167,8 +174,8 @@ mod tests {
         fn test_metal_fft_matches_sequential(input in field_vec(6)) {
             objc::rc::autoreleasepool(|| {
                 let metal_state = MetalState::new(None).unwrap();
-                let order = log2(input.len()).unwrap();
-                let twiddles = lambdaworks_fft::roots_of_unity::get_twiddles(order, RootsConfig::BitReverse).unwrap();
+                let order = input.len().trailing_zeros();
+                let twiddles = get_twiddles(order.into(), RootsConfig::BitReverse).unwrap();
 
                 let metal_result = super::fft(&input, &twiddles, &metal_state).unwrap();
                 let sequential_result = lambdaworks_fft::ops::fft(&input).unwrap();

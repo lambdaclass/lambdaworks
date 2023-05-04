@@ -1,5 +1,5 @@
 use lambdaworks_math::{
-    field::{element::FieldElement, traits::IsTwoAdicField},
+    field::{element::FieldElement, traits::IsFFTField},
     helpers,
     polynomial::Polynomial,
 };
@@ -9,14 +9,14 @@ use std::iter::zip;
 
 use super::{boundary::BoundaryConstraints, evaluation_table::ConstraintEvaluationTable};
 
-pub struct ConstraintEvaluator<'poly, F: IsTwoAdicField, A: AIR> {
+pub struct ConstraintEvaluator<'poly, F: IsFFTField, A: AIR> {
     air: A,
     boundary_constraints: BoundaryConstraints<F>,
     trace_polys: &'poly [Polynomial<FieldElement<F>>],
     primitive_root: FieldElement<F>,
 }
 
-impl<'poly, F: IsTwoAdicField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F, A> {
+impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F, A> {
     pub fn new(
         air: &A,
         trace_polys: &'poly [Polynomial<FieldElement<F>>],
@@ -77,7 +77,9 @@ impl<'poly, F: IsTwoAdicField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'pol
             .iter()
             .zip(&transition_zerofiers)
             .zip(&transition_degrees)
-            .map(|((poly, zerofier), degree)| poly.degree() * degree - zerofier.degree())
+            .map(|((poly, zerofier), degree)| {
+                (poly.degree() * degree).saturating_sub(zerofier.degree())
+            })
             .max()
             .unwrap();
 

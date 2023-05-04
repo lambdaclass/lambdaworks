@@ -1,5 +1,5 @@
 use lambdaworks_math::{
-    field::{element::FieldElement, traits::IsTwoAdicField},
+    field::{element::FieldElement, traits::IsFFTField},
     helpers,
     polynomial::Polynomial,
 };
@@ -9,7 +9,7 @@ use crate::{
     ops::{fft_with_blowup, inverse_fft},
 };
 
-pub trait FFTPoly<F: IsTwoAdicField> {
+pub trait FFTPoly<F: IsFFTField> {
     fn evaluate_fft(&self) -> Result<Vec<FieldElement<F>>, FFTError>;
     fn evaluate_offset_fft(
         &self,
@@ -21,14 +21,14 @@ pub trait FFTPoly<F: IsTwoAdicField> {
     ) -> Result<Polynomial<FieldElement<F>>, FFTError>;
 }
 
-impl<F: IsTwoAdicField> FFTPoly<F> for Polynomial<FieldElement<F>> {
+impl<F: IsFFTField> FFTPoly<F> for Polynomial<FieldElement<F>> {
     /// Evaluates this polynomial using FFT (so the function is evaluated using twiddle factors).
     fn evaluate_fft(&self) -> Result<Vec<FieldElement<F>>, FFTError> {
         #[cfg(feature = "metal")]
         {
-            if field_supports_metal::<F>() {
+            if !F::field_name().is_empty() {
                 Ok(lambdaworks_gpu::metal::fft::polynomial::evaluate_fft_metal(
-                    &self,
+                    self,
                 )?)
             } else {
                 evaluate_fft_cpu(self)
@@ -50,10 +50,10 @@ impl<F: IsTwoAdicField> FFTPoly<F> for Polynomial<FieldElement<F>> {
     ) -> Result<Vec<FieldElement<F>>, FFTError> {
         #[cfg(feature = "metal")]
         {
-            if field_supports_metal::<F>() {
+            if !F::field_name().is_empty() {
                 Ok(
                     lambdaworks_gpu::metal::fft::polynomial::evaluate_offset_fft_metal(
-                        &self,
+                        self,
                         offset,
                         blowup_factor,
                     )?,
@@ -74,7 +74,7 @@ impl<F: IsTwoAdicField> FFTPoly<F> for Polynomial<FieldElement<F>> {
     fn interpolate_fft(fft_evals: &[FieldElement<F>]) -> Result<Self, FFTError> {
         #[cfg(feature = "metal")]
         {
-            if field_supports_metal::<F>() {
+            if !F::field_name().is_empty() {
                 Ok(lambdaworks_gpu::metal::fft::polynomial::interpolate_fft_metal(fft_evals)?)
             } else {
                 interpolate_fft_cpu(fft_evals)
@@ -88,18 +88,11 @@ impl<F: IsTwoAdicField> FFTPoly<F> for Polynomial<FieldElement<F>> {
     }
 }
 
-// TODO remove this hack as we support any field
-#[allow(dead_code)]
-fn field_supports_metal<F>() -> bool {
-    let f_type = std::any::type_name::<F>();
-    f_type.contains("Stark252PrimeField")
-}
-
 pub fn evaluate_fft_cpu<F>(
     poly: &Polynomial<FieldElement<F>>,
 ) -> Result<Vec<FieldElement<F>>, FFTError>
 where
-    F: IsTwoAdicField,
+    F: IsFFTField,
 {
     let num_coefficients = poly.coefficients().len();
     let num_coeficcients_power_of_two = helpers::next_power_of_two(num_coefficients as u64);
@@ -115,7 +108,7 @@ pub fn evaluate_offset_fft_cpu<F>(
     blowup_factor: usize,
 ) -> Result<Vec<FieldElement<F>>, FFTError>
 where
-    F: IsTwoAdicField,
+    F: IsFFTField,
 {
     let scaled = poly.scale(offset);
     fft_with_blowup(scaled.coefficients(), blowup_factor)
@@ -125,7 +118,7 @@ pub fn interpolate_fft_cpu<F>(
     fft_evals: &[FieldElement<F>],
 ) -> Result<Polynomial<FieldElement<F>>, FFTError>
 where
-    F: IsTwoAdicField,
+    F: IsFFTField,
 {
     let coeffs = inverse_fft(fft_evals)?;
     Ok(Polynomial::new(&coeffs))
@@ -136,7 +129,7 @@ pub fn compose_fft<F>(
     poly_2: &Polynomial<FieldElement<F>>,
 ) -> Polynomial<FieldElement<F>>
 where
-    F: IsTwoAdicField,
+    F: IsFFTField,
 {
     let poly_2_evaluations = poly_2.evaluate_fft().unwrap();
 
@@ -147,6 +140,27 @@ where
 
     Polynomial::interpolate_fft(values.as_slice()).unwrap()
 }
+
+/// Temporary hotfix for handling evaluations of the zero polynomial
+/// in the STARK prover context. Checks if the the polynomial is the
+/// zero polynomial, and if it is, returns its evaluations as a
+/// vector of the zero field element of size domain_len * blowup_factor.
+pub fn evaluate_offset_fft_with_len<F>(
+    poly: &Polynomial<FieldElement<F>>,
+    domain_len: usize,
+    offset: &FieldElement<F>,
+    blowup_factor: usize,
+) -> Result<Vec<FieldElement<F>>, FFTError>
+where
+    F: IsFFTField,
+{
+    if poly == &Polynomial::zero() {
+        return Ok(vec![FieldElement::<F>::zero(); domain_len * blowup_factor]);
+    }
+
+    poly.evaluate_offset_fft(offset, blowup_factor)
+}
+
 #[cfg(not(feature = "metal"))]
 #[cfg(test)]
 mod u64_field_tests {
@@ -155,10 +169,7 @@ mod u64_field_tests {
     use lambdaworks_math::field::traits::RootsConfig;
     use proptest::{collection, prelude::*};
 
-    use crate::{
-        helpers::log2,
-        roots_of_unity::{get_powers_of_primitive_root, get_powers_of_primitive_root_coset},
-    };
+    use crate::roots_of_unity::{get_powers_of_primitive_root, get_powers_of_primitive_root_coset};
 
     use super::*;
 
@@ -203,8 +214,8 @@ mod u64_field_tests {
         // Property-based test that ensures FFT eval. gives same result as a naive polynomial evaluation.
         #[test]
         fn test_fft_matches_naive_evaluation(poly in poly(8)) {
-            let order = log2(poly.coefficients().len()).unwrap();
-            let twiddles = get_powers_of_primitive_root(order, poly.coefficients.len(), RootsConfig::Natural).unwrap();
+            let order = poly.coefficients().len().trailing_zeros();
+            let twiddles = get_powers_of_primitive_root(order.into(), poly.coefficients.len(), RootsConfig::Natural).unwrap();
 
             let fft_eval = poly.evaluate_fft().unwrap();
             let naive_eval = poly.evaluate_slice(&twiddles);
@@ -215,8 +226,8 @@ mod u64_field_tests {
         // Property-based test that ensures FFT eval. with coset gives same result as a naive polynomial evaluation.
         #[test]
         fn test_fft_coset_matches_naive_evaluation(poly in poly(8), offset in offset(), blowup_factor in powers_of_two(4)) {
-            let order = log2(poly.coefficients().len() * blowup_factor).unwrap();
-            let twiddles = get_powers_of_primitive_root_coset(order, poly.coefficients.len() * blowup_factor, &offset).unwrap();
+            let order = (poly.coefficients().len() * blowup_factor).trailing_zeros();
+            let twiddles = get_powers_of_primitive_root_coset(order.into(), poly.coefficients.len() * blowup_factor, &offset).unwrap();
 
             let fft_eval = poly.evaluate_offset_fft(&offset, blowup_factor).unwrap();
             let naive_eval = poly.evaluate_slice(&twiddles);
@@ -226,11 +237,9 @@ mod u64_field_tests {
 
         // Property-based test that ensures FFT eval. using polynomials with a non-power-of-two amount of coefficients works.
         #[test]
-        fn test_fft_non_power_of_two_poly(poly in poly_with_non_power_of_two_coeffs(8)) {
-            let num_coefficients = poly.coefficients().len();
-            let num_coeficcients_power_of_two = helpers::next_power_of_two(num_coefficients as u64) as usize;
-            let order = log2(num_coeficcients_power_of_two).unwrap();
-            let twiddles = get_powers_of_primitive_root(order, num_coeficcients_power_of_two, RootsConfig::Natural).unwrap();
+        fn test_fft_non_power_of_two(poly in poly(8)) {
+            let order = poly.coefficients().len().trailing_zeros();
+            let twiddles = get_powers_of_primitive_root(order.into(), poly.coefficients.len(), RootsConfig::Natural).unwrap();
 
             let fft_eval = poly.evaluate_fft().unwrap();
             let naive_eval = poly.evaluate_slice(&twiddles);
@@ -270,10 +279,7 @@ mod u64_field_tests {
 
 #[cfg(test)]
 mod u256_two_adic_prime_field_tests {
-    use lambdaworks_math::field::{
-        fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
-        test_fields::u64_test_field::U64TestField,
-    };
+    use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
     use proptest::{
         collection, prelude::any, prop_assert_eq, prop_compose, proptest, strategy::Strategy,
     };
@@ -283,11 +289,7 @@ mod u256_two_adic_prime_field_tests {
         polynomial::Polynomial,
     };
 
-    use crate::{
-        helpers::log2,
-        polynomial::{field_supports_metal, FFTPoly},
-        roots_of_unity::get_powers_of_primitive_root,
-    };
+    use crate::{polynomial::FFTPoly, roots_of_unity::get_powers_of_primitive_root};
 
     type F = Stark252PrimeField;
     type FE = FieldElement<F>;
@@ -317,20 +319,13 @@ mod u256_two_adic_prime_field_tests {
         // Property-based test that ensures FFT eval. in the FFT friendly field gives same result as a naive polynomial evaluation.
         #[test]
         fn test_fft_evaluation_is_correct_in_u256_fft_friendly_field(poly in poly(8)) {
-            let order = log2(poly.coefficients().len()).unwrap();
-            let twiddles = get_powers_of_primitive_root(order, poly.coefficients.len(), RootsConfig::Natural).unwrap();
+            let order = poly.coefficients().len().trailing_zeros();
+            let twiddles = get_powers_of_primitive_root(order.into(), poly.coefficients.len(), RootsConfig::Natural).unwrap();
 
             let fft_eval = poly.evaluate_fft().unwrap();
             let naive_eval = poly.evaluate_slice(&twiddles);
 
             prop_assert_eq!(fft_eval, naive_eval);
         }
-    }
-
-    // test of field_supports_metal function
-    #[test]
-    fn test_field_supports_metal() {
-        assert!(field_supports_metal::<Stark252PrimeField>());
-        assert!(!field_supports_metal::<U64TestField>())
     }
 }

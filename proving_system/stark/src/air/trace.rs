@@ -3,22 +3,24 @@ use crate::air::AIR;
 use lambdaworks_fft::errors::FFTError;
 use lambdaworks_fft::polynomial::FFTPoly;
 use lambdaworks_math::{
-    field::{element::FieldElement, traits::IsTwoAdicField},
+    field::{element::FieldElement, traits::IsFFTField},
     polynomial::Polynomial,
 };
 use log::{error, info};
 
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
-pub struct TraceTable<F: IsTwoAdicField> {
+pub struct TraceTable<F: IsFFTField> {
     /// `table` is row-major trace element description
     pub table: Vec<FieldElement<F>>,
     pub n_cols: usize,
 }
 
-impl<F: IsTwoAdicField> TraceTable<F> {
+impl<F: IsFFTField> TraceTable<F> {
     pub fn new_from_cols(cols: &[Vec<FieldElement<F>>]) -> Self {
-        let n_cols = cols.len();
         let n_rows = cols[0].len();
+        debug_assert!(cols.iter().all(|c| c.len() == n_rows));
+
+        let n_cols = cols.len();
 
         let mut table = Vec::with_capacity(n_cols * n_rows);
 
@@ -59,6 +61,7 @@ impl<F: IsTwoAdicField> TraceTable<F> {
             .collect()
     }
 
+    /// Given a step and a column index, gives stored value in that position
     pub fn get(&self, step: usize, col: usize) -> FieldElement<F> {
         let idx = step * self.n_cols + col;
         self.table[idx].clone()
@@ -73,8 +76,9 @@ impl<F: IsTwoAdicField> TraceTable<F> {
     }
 
     /// Validates that the trace is valid with respect to the supplied AIR constraints
-    pub fn validate<A: AIR<Field = F>>(&self, air: &A) {
+    pub fn validate<A: AIR<Field = F>>(&self, air: &A) -> bool {
         info!("Starting constraints validation over trace...");
+        let mut ret = true;
 
         // --------- VALIDATE BOUNDARY CONSTRAINTS ------------
         air.boundary_constraints()
@@ -87,6 +91,7 @@ impl<F: IsTwoAdicField> TraceTable<F> {
                 let trace_value = self.get(step, col);
 
                 if boundary_value != trace_value {
+                    ret = false;
                     error!("Boundary constraint inconsistency - Expected value {:?} in step {} and column {}, found: {:?}", boundary_value, step, col, trace_value);
                 }
             });
@@ -111,11 +116,15 @@ impl<F: IsTwoAdicField> TraceTable<F> {
             // result
             evaluations.iter().enumerate().for_each(|(i, eval)| {
                 if step < exemption_steps[i] && eval != &FieldElement::<F>::zero() {
-                    error!("Inconsistent evaluation of transition {} in step {} - expected 0, got {:?}", i, step, eval);
+                    ret = false;
+                    error!(
+                        "Inconsistent evaluation of transition {} in step {} - expected 0, got {:?}", i, step, eval
+                    );
                 }
             })
         }
         info!("Constraints validation check ended");
+        ret
     }
 }
 
