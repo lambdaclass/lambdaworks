@@ -100,7 +100,7 @@ impl<F: IsFFTField> FFTPoly<F> for Polynomial<FieldElement<F>> {
             }
         }
 
-        #[cfg(not(feature = "metal"))]
+        #[cfg(all(not(feature = "metal"), not(feature = "cuda")))]
         {
             interpolate_fft_cpu(fft_evals)
         }
