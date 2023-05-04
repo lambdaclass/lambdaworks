@@ -3,33 +3,10 @@ use lambdaworks_math::field::{
     traits::{IsFFTField, RootsConfig},
 };
 
-use crate::roots_of_unity::get_twiddles;
-
 use super::{
     bit_reversing::in_place_bit_reverse_permute, errors::FFTError,
     fft_iterative::in_place_nr_2radix_fft,
 };
-
-use super::helpers;
-
-/// Executes Fast Fourier Transform over elements of a two-adic finite field `F` in a coset. Usually used for
-/// fast polynomial evaluation.
-pub fn fft_with_blowup<F: IsFFTField>(
-    input: &[FieldElement<F>],
-    blowup_factor: usize,
-) -> Result<Vec<FieldElement<F>>, FFTError> {
-    let mut results = input.to_vec();
-    let domain_size = (input.len() * blowup_factor).next_power_of_two();
-    results.resize(domain_size, FieldElement::zero());
-
-    let order = domain_size.trailing_zeros();
-    let twiddles = get_twiddles(order.into(), RootsConfig::BitReverse)?;
-
-    in_place_nr_2radix_fft(&mut results, &twiddles);
-    in_place_bit_reverse_permute(&mut results);
-
-    Ok(results)
-}
 
 /// Executes Fast Fourier Transform over elements of a two-adic finite field `F`. Usually used for
 /// fast polynomial evaluation.
@@ -37,6 +14,10 @@ pub fn fft<F: IsFFTField>(
     input: &[FieldElement<F>],
     twiddles: &[FieldElement<F>],
 ) -> Result<Vec<FieldElement<F>>, FFTError> {
+    if !input.len().is_power_of_two() {
+        return Err(FFTError::InputError(input.len()));
+    }
+
     let mut results = input.to_vec();
     in_place_nr_2radix_fft(&mut results, twiddles);
     in_place_bit_reverse_permute(&mut results);

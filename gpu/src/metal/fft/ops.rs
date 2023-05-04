@@ -5,7 +5,7 @@ use lambdaworks_math::field::{
 
 use crate::metal::abstractions::{errors::MetalError, state::*};
 
-use super::helpers::{self, void_ptr};
+use super::helpers::void_ptr;
 use metal::MTLSize;
 
 use core::mem;
@@ -22,10 +22,11 @@ pub fn fft<F: IsFFTField>(
     twiddles: &[FieldElement<F>],
     state: &MetalState,
 ) -> Result<Vec<FieldElement<F>>, MetalError> {
-    let pipeline = state.setup_pipeline(&format!("radix2_dit_butterfly_{}", F::field_name()))?;
+    if !input.len().is_power_of_two() {
+        return Err(MetalError::InputError(input.len()));
+    }
 
-    // if the input size is not a power of two, use zero padding
-    let input = helpers::zero_padding(input);
+    let pipeline = state.setup_pipeline(&format!("radix2_dit_butterfly_{}", F::field_name()))?;
 
     let input_buffer = state.alloc_buffer_data(&input);
     let twiddles_buffer = state.alloc_buffer_data(twiddles);
@@ -55,27 +56,7 @@ pub fn fft<F: IsFFTField>(
     Ok(result.iter().map(FieldElement::from_raw).collect())
 }
 
-/// Executes parallel ordered FFT in a bigger domain over a slice of two-adic field elements, in Metal.
-///
-/// "Ordered" means that the input is required to be in natural order, and the output will be
-/// in this order too. Natural order means that input[i] corresponds to the i-th coefficient,
-/// as opposed to bit-reverse order in which input[bit_rev(i)] corresponds to the i-th
-/// coefficient.
-pub fn fft_with_blowup<F: IsFFTField>(
-    input: &[FieldElement<F>],
-    blowup_factor: usize,
-    state: &MetalState,
-) -> Result<Vec<FieldElement<F>>, MetalError> {
-    let domain_size = (input.len() * blowup_factor).next_power_of_two();
-    let order = domain_size.trailing_zeros();
-    let twiddles = gen_twiddles(order.into(), RootsConfig::BitReverse, state)?;
-    let mut resized = input.to_vec();
-    resized.resize(domain_size, FieldElement::zero());
-
-    fft(&resized, &twiddles, state)
-}
-
-/// Generates 2^{`order`} twiddle factors in parallel, with a certain `config`, in Metal.
+/// Generates 2^{`order-1`} twiddle factors in parallel, with a certain `config`, in Metal.
 pub fn gen_twiddles<F: IsFFTField>(
     order: u64,
     config: RootsConfig,
