@@ -35,7 +35,7 @@ where
     // TODO: twiddle factors need to be handled with too much care, the FFT API shouldn't accept
     // invalid twiddle factor collections. A better solution is needed.
     let order = log2(fft_evals.coefficients.len()).unwrap();
-    let twiddles = get_twiddles(order, RootsConfig::BitReverseInverse).unwrap();
+    let twiddles = get_twiddles(order, RootsConfig::BitReverseInversed).unwrap();
 
     let coeffs = fft(fft_evals.coefficients, &twiddles)?;
 
