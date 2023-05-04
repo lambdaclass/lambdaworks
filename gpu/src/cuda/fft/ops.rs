@@ -28,6 +28,8 @@ where
     F: IsFFTField,
     F::BaseType: Unpin,
 {
+    // TODO: Add wrapper similar to `MetalState` around these calls. That would remove
+    //  error wrapping and allow for better static checks around the `launch`'s unsafe block
     let device = CudaDevice::new(0).map_err(|err| CudaError::DeviceNotFound(err.to_string()))?;
 
     // d_ prefix is used to indicate device memory.
