@@ -7,14 +7,16 @@ pub enum CudaError {
     #[error("An error occured while working in CPU with fields")]
     // TODO: remove when implemented in CUDA
     FieldError(#[from] FieldError),
-    // #[error("Could not calculate {1} root of unity")]
-    // RootOfUnityError(String, u64),
-    // #[error("Couldn't find a system default device for Metal")]
-    // MetalDeviceNotFound(),
-    // #[error("Couldn't create a new Metal library: {0}")]
-    // MetalLibraryError(String),
-    // #[error("Couldn't create a new Metal function object: {0}")]
-    // MetalFunctionError(String),
-    // #[error("Couldn't create a new Metal compute pipeline: {0}")]
-    // MetalPipelineError(String),
+    #[error("Couldn't load compiled PTX: {0}")]
+    PtxError(String),
+    #[error("Couldn't create a new CUDA function object: {0}")]
+    FunctionError(String),
+    #[error("Couldn't find a CUDA device: {0}")]
+    DeviceNotFound(String),
+    #[error("Couldn't allocate memory for copying: {0}")]
+    AllocateMemory(String),
+    #[error("Couldn't retrieve information from GPU: {0}")]
+    RetrieveMemory(String),
+    #[error("Couldn't launch CUDA function: {0}")]
+    Launch(String),
 }
