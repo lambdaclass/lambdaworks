@@ -31,28 +31,6 @@ impl HasQuadraticNonResidue for LevelOneResidue {
 
 pub type Degree2ExtensionField = QuadraticExtensionField<LevelOneResidue>;
 
-impl ByteConversion for QuadraticExtensionField<LevelOneResidue> {
-    fn to_bytes_be(&self) -> Vec<u8> {
-        todo!()
-    }
-
-    fn to_bytes_le(&self) -> Vec<u8> {
-        todo!()
-    }
-
-    fn from_bytes_be(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
-    where
-        Self: std::marker::Sized {
-        todo!()
-    }
-
-    fn from_bytes_le(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
-    where
-        Self: std::marker::Sized {
-        todo!()
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct LevelTwoResidue;
 impl HasCubicNonResidue for LevelTwoResidue {

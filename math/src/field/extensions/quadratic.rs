@@ -1,6 +1,8 @@
 use crate::field::element::FieldElement;
+use crate::field::fields::montgomery_backed_prime_fields::{MontgomeryBackendPrimeField, IsModulus};
 use crate::field::traits::IsField;
 use crate::traits::ByteConversion;
+use crate::unsigned_integer::element::UnsignedInteger;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
@@ -118,6 +120,32 @@ where
     }
 }
 
+impl <Q>ByteConversion for FieldElement<QuadraticExtensionField<Q>>
+where 
+    Q: Clone + Debug + HasQuadraticNonResidue,
+    FieldElement<Q::BaseField>: ByteConversion
+{
+    fn to_bytes_be(&self) -> Vec<u8> {
+        todo!()
+        // self.value()[0].to_bytes_be()
+    }
+
+    fn to_bytes_le(&self) -> Vec<u8> {
+        todo!()
+    }
+
+    fn from_bytes_be(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
+    where
+        Self: std::marker::Sized {
+        todo!()
+    }
+
+    fn from_bytes_le(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
+    where
+        Self: std::marker::Sized {
+        todo!()
+    }
+}
 #[cfg(test)]
 mod tests {
     use crate::field::fields::u64_prime_field::{U64FieldElement, U64PrimeField};
