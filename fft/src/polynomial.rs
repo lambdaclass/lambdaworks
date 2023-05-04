@@ -37,7 +37,7 @@ impl<F: IsFFTField> FFTPoly<F> for Polynomial<FieldElement<F>> {
 
         #[cfg(feature = "cuda")]
         {
-            if field_supports_metal::<F>() {
+            if F::field_name() == "stark256" {
                 Ok(lambdaworks_gpu::cuda::fft::polynomial::evaluate_fft_cuda(self).unwrap())
             } else {
                 evaluate_fft_cpu(self)
