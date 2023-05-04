@@ -1,8 +1,10 @@
 use thiserror::Error;
 
+use lambdaworks_math::field::errors::FieldError;
+
 #[derive(Debug, Error)]
 pub enum CudaError {
-    #[error("The order of polynomial + 1 should a be power of 2. Got: {}")]
+    #[error("The order of polynomial + 1 should a be power of 2. Got: {0}")]
     InvalidOrder(usize),
     #[error("An error occured while working in CPU with fields")]
     // TODO: remove when implemented in CUDA

@@ -9,7 +9,7 @@ use cudarc::{
     nvrtc::safe::Ptx,
 };
 
-use crate::cuda::abstractions::element::CUDAFieldElement;
+use crate::cuda::abstractions::{element::CUDAFieldElement, errors::CudaError};
 
 const SHADER_PTX: &str = include_str!("../shaders/fft.ptx");
 

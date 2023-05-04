@@ -2,13 +2,14 @@ use cudarc::driver::DriverError;
 use lambdaworks_math::{
     field::{
         element::FieldElement,
+        errors::FieldError,
         traits::{IsFFTField, RootsConfig},
     },
     polynomial::Polynomial,
 };
 
-use super::abstractions::error::CudaError;
 use super::ops::{fft, reverse_index};
+use crate::cuda::abstractions::error::CudaError;
 
 pub fn evaluate_fft_cuda<F>(
     poly: &Polynomial<FieldElement<F>>,
