@@ -4,5 +4,5 @@ compile_error!(
 If you were using the `--all-features` flag please read this crate's Cargo.toml"
 );
 
-//#[cfg(feature = "metal")]
+#[cfg(feature = "metal")]
 pub mod metal;

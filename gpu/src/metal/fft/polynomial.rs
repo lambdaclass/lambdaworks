@@ -9,7 +9,7 @@ use lambdaworks_math::{
 
 use super::ops::*;
 
-pub fn forward_fft_metal<F>(input: &[FieldElement<F>]) -> Result<Vec<FieldElement<F>>, MetalError>
+pub fn evaluate_fft_metal<F>(input: &[FieldElement<F>]) -> Result<Vec<FieldElement<F>>, MetalError>
 where
     F: IsFFTField,
 {
@@ -19,22 +19,6 @@ where
     let twiddles = gen_twiddles(order.into(), RootsConfig::BitReverse, &state)?;
 
     fft(input, &twiddles, &state)
-}
-
-/// Evaluates this polynomial using parallel FFT in an extended domain by `blowup_factor` with an `offset`, in Metal.
-/// Usually used for Reed-Solomon encoding.
-pub fn evaluate_offset_fft_metal<F>(
-    poly: &Polynomial<FieldElement<F>>,
-    offset: &FieldElement<F>,
-    blowup_factor: usize,
-) -> Result<Vec<FieldElement<F>>, MetalError>
-where
-    F: IsFFTField,
-{
-    let metal_state = MetalState::new(None).unwrap();
-    let scaled = poly.scale(offset);
-
-    fft_with_blowup(scaled.coefficients(), blowup_factor, &metal_state)
 }
 
 /// Returns a new polynomial that interpolates `fft_evals`, which are evaluations using twiddle
@@ -63,9 +47,7 @@ where
 #[cfg(feature = "metal")]
 #[cfg(test)]
 mod gpu_tests {
-    use lambdaworks_fft::polynomial::{
-        evaluate_offset_fft_cpu, forward_fft_cpu, interpolate_fft_cpu,
-    };
+    use lambdaworks_fft::polynomial::{evaluate_fft_cpu, interpolate_fft_cpu};
     use lambdaworks_math::{
         field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
         polynomial::Polynomial,
@@ -105,19 +87,8 @@ mod gpu_tests {
         #[test]
         fn test_metal_fft_poly_eval_matches_cpu(input in field_vec(6)) {
             objc::rc::autoreleasepool(|| {
-                let gpu_evals = forward_fft_metal(&input).unwrap();
-                let cpu_evals = forward_fft_cpu(&input).unwrap();
-
-                prop_assert_eq!(gpu_evals, cpu_evals);
-                Ok(())
-            }).unwrap();
-        }
-
-        #[test]
-        fn test_metal_fft_coset_poly_eval_matches_cpu(poly in poly(6), offset in offset(), blowup_factor in powers_of_two(4)) {
-            objc::rc::autoreleasepool(|| {
-                let gpu_evals = evaluate_offset_fft_metal(&poly, &offset, blowup_factor).unwrap();
-                let cpu_evals = evaluate_offset_fft_cpu(&poly, &offset, blowup_factor).unwrap();
+                let gpu_evals = evaluate_fft_metal(&input).unwrap();
+                let cpu_evals = evaluate_fft_cpu(&input).unwrap();
 
                 prop_assert_eq!(gpu_evals, cpu_evals);
                 Ok(())
