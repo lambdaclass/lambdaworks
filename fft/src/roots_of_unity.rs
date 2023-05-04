@@ -1,13 +1,13 @@
 use lambdaworks_math::field::{
     element::FieldElement,
-    traits::{IsTwoAdicField, RootsConfig},
+    traits::{IsFFTField, RootsConfig},
 };
 
 use crate::{bit_reversing::reverse_index, errors::FFTError};
 
 /// Returns a `Vec` of the powers of a `2^n`th primitive root of unity in some configuration
 /// `config`. For example, in a `Natural` config this would yield: w^0, w^1, w^2...
-pub fn get_powers_of_primitive_root<F: IsTwoAdicField>(
+pub fn get_powers_of_primitive_root<F: IsFFTField>(
     n: u64,
     count: usize,
     config: RootsConfig,
@@ -27,7 +27,7 @@ pub fn get_powers_of_primitive_root<F: IsTwoAdicField>(
 
 /// Returns a `Vec` of the powers of a `2^n`th primitive root of unity, scaled `offset` times,
 /// in a Natural configuration.
-pub fn get_powers_of_primitive_root_coset<F: IsTwoAdicField>(
+pub fn get_powers_of_primitive_root_coset<F: IsFFTField>(
     n: u64,
     count: usize,
     offset: &FieldElement<F>,
@@ -41,7 +41,7 @@ pub fn get_powers_of_primitive_root_coset<F: IsTwoAdicField>(
 /// Returns 2^`order` / 2 twiddle factors for FFT in some configuration `config`.
 /// Twiddle factors are powers of a primitive root of unity of the field, used for FFT
 /// computations. FFT only requires the first half of all the powers
-pub fn get_twiddles<F: IsTwoAdicField>(
+pub fn get_twiddles<F: IsFFTField>(
     order: u64,
     config: RootsConfig,
 ) -> Result<Vec<FieldElement<F>>, FFTError> {

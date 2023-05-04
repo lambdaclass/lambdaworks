@@ -4,12 +4,11 @@ use crate::{
         point::ProjectivePoint,
         traits::{EllipticCurveError, FromAffine, IsEllipticCurve},
     },
-    errors::ByteConversionError,
     field::element::FieldElement,
-    traits::ByteConversion,
+    traits::{ByteConversion, SimpleSerialization},
 };
 
-use super::traits::IsShortWeierstrass;
+use super::{errors::DeserializationError, traits::IsShortWeierstrass};
 
 #[derive(Clone, Debug)]
 pub struct ShortWeierstrassProjectivePoint<E: IsEllipticCurve>(ProjectivePoint<E>);
@@ -129,80 +128,99 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
     }
 }
 
-impl<E> ByteConversion for ShortWeierstrassProjectivePoint<E>
+#[derive(PartialEq)]
+pub enum PointFormat {
+    Projective,
+    // TO DO:
+    // Uncompressed,
+    // Compressed,
+}
+
+#[derive(PartialEq)]
+pub enum FieldEndianness {
+    BigEndian,
+    LittleEndian,
+}
+
+impl<E> ShortWeierstrassProjectivePoint<E>
 where
     E: IsShortWeierstrass,
     FieldElement<E::BaseField>: ByteConversion,
 {
-    fn to_bytes_be(&self) -> Vec<u8> {
+    /// Serialize the points in the given format
+    pub fn serialize(&self, _point_format: PointFormat, endianness: FieldEndianness) -> Vec<u8> {
         // TODO: these can be more efficient.
+        // More options for point formats should be added
         // E.g: Store the x value, the bit to indicate y.
+        let mut bytes: Vec<u8> = Vec::new();
+        let x_bytes: Vec<u8>;
+        let y_bytes: Vec<u8>;
+        let z_bytes: Vec<u8>;
+
         let [x, y, z] = self.coordinates();
-        let mut x_bytes = x.to_bytes_be();
-        let mut y_bytes = y.to_bytes_be();
-        let mut z_bytes = z.to_bytes_be();
-        x_bytes.append(&mut y_bytes);
-        x_bytes.append(&mut z_bytes);
-        x_bytes
-    }
-
-    fn to_bytes_le(&self) -> Vec<u8> {
-        let [x, y, z] = self.coordinates();
-        let mut x_bytes = x.to_bytes_le();
-        let mut y_bytes = y.to_bytes_le();
-        let mut z_bytes = z.to_bytes_le();
-        x_bytes.append(&mut y_bytes);
-        x_bytes.append(&mut z_bytes);
-        x_bytes
-    }
-
-    fn from_bytes_be(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError> {
-
-        if bytes.len() % 3 != 0 {
-            Err(ByteConversionError::FromBEBytesError)
+        if endianness == FieldEndianness::BigEndian {
+            x_bytes = x.to_bytes_be();
+            y_bytes = y.to_bytes_be();
+            z_bytes = z.to_bytes_be();
         } else {
-            let len = bytes.len() / 3;
-            let x = FieldElement::from_bytes_be(&bytes[..len])?;
-            let y = FieldElement::from_bytes_be(&bytes[len..len * 2])?;
-            let z = FieldElement::from_bytes_be(&bytes[len * 2..])?;
-            if z == FieldElement::zero() {
-                let point = Self::new([x, y, z]);
-                if point.is_neutral_element() {
-                    Ok(point)
-                } else {
-                    Err(ByteConversionError::FromBEBytesError)
-                }
-            } else if E::defining_equation(&(&x / &z), &(&y / &z)) == FieldElement::zero() {
-                Ok(Self::new([x, y, z]))
+            x_bytes = x.to_bytes_le();
+            y_bytes = y.to_bytes_le();
+            z_bytes = z.to_bytes_le();
+        }
+
+        bytes.extend(&x_bytes);
+        bytes.extend(&y_bytes);
+        bytes.extend(&z_bytes);
+
+        bytes
+    }
+
+    pub fn deserialize(
+        bytes: &[u8],
+        _point_format: PointFormat,
+        endianness: FieldEndianness,
+    ) -> Result<Self, DeserializationError> {
+        if bytes.len() % 3 != 0 {
+            return Err(DeserializationError::InvalidAmountOfBytes);
+        }
+
+        let len = bytes.len() / 3;
+        let x: FieldElement<E::BaseField>;
+        let y: FieldElement<E::BaseField>;
+        let z: FieldElement<E::BaseField>;
+
+        if endianness == FieldEndianness::BigEndian {
+            x = FieldElement::from_bytes_be(&bytes[..len])?;
+            y = FieldElement::from_bytes_be(&bytes[len..len * 2])?;
+            z = FieldElement::from_bytes_be(&bytes[len * 2..])?;
+        } else {
+            x = FieldElement::from_bytes_le(&bytes[..len])?;
+            y = FieldElement::from_bytes_le(&bytes[len..len * 2])?;
+            z = FieldElement::from_bytes_le(&bytes[len * 2..])?;
+        }
+
+        if z == FieldElement::zero() {
+            let point = Self::new([x, y, z]);
+            if point.is_neutral_element() {
+                Ok(point)
             } else {
-                Err(ByteConversionError::FromBEBytesError)
+                Err(DeserializationError::FieldFromBytesError)
             }
+        } else if E::defining_equation(&(&x / &z), &(&y / &z)) == FieldElement::zero() {
+            Ok(Self::new([x, y, z]))
+        } else {
+            Err(DeserializationError::FieldFromBytesError)
         }
     }
+}
 
-    fn from_bytes_le(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError> {
-
-        if bytes.len() % 3 != 0 {
-            Err(ByteConversionError::FromLEBytesError)
-        } else {
-            let len = bytes.len() / 3;
-            let x = FieldElement::from_bytes_le(&bytes[..len])?;
-            let y = FieldElement::from_bytes_le(&bytes[len..len * 2])?;
-            let z = FieldElement::from_bytes_le(&bytes[len * 2..])?;
-            if z == FieldElement::zero() {
-                let point = Self::new([x, y, z]);
-                if point.is_neutral_element() {
-                    Ok(point)
-                } else {
-                    Err(ByteConversionError::FromLEBytesError)
-                }
-            } else if E::defining_equation(&(&x / &z), &(&y / &z)) == FieldElement::zero() {
-                Ok(Self::new([x, y, z]))
-            } else {
-                Err(ByteConversionError::FromLEBytesError)
-            }
-        }
-        */
+impl<E> SimpleSerialization for ShortWeierstrassProjectivePoint<E>
+where
+    E: IsShortWeierstrass,
+    FieldElement<E::BaseField>: ByteConversion,
+{
+    fn simple_serialize(&self) -> Vec<u8> {
+        self.serialize(PointFormat::Projective, FieldEndianness::LittleEndian)
     }
 }
 
@@ -225,46 +243,95 @@ mod tests {
         BLS12381Curve::create_point_from_affine(x, y).unwrap()
     }
 
-    /*
     #[test]
     fn byte_conversion_from_and_to_be() {
         let expected_point = point();
-        let bytes_be = expected_point.to_bytes_be();
-        // let result = ShortWeierstrassProjectivePoint::from_bytes_be(&bytes_be);
+        let bytes_be =
+            expected_point.serialize(PointFormat::Projective, FieldEndianness::BigEndian);
+
+        let result = ShortWeierstrassProjectivePoint::deserialize(
+            &bytes_be,
+            PointFormat::Projective,
+            FieldEndianness::BigEndian,
+        );
         assert_eq!(expected_point, result.unwrap());
     }
 
     #[test]
     fn byte_conversion_from_and_to_le() {
         let expected_point = point();
-        let bytes_le = expected_point.to_bytes_le();
-        let result = ShortWeierstrassProjectivePoint::from_bytes_le(&bytes_le); 
+        let bytes_be =
+            expected_point.serialize(PointFormat::Projective, FieldEndianness::LittleEndian);
+
+        let result = ShortWeierstrassProjectivePoint::deserialize(
+            &bytes_be,
+            PointFormat::Projective,
+            FieldEndianness::LittleEndian,
+        );
         assert_eq!(expected_point, result.unwrap());
-    }*/
+    }
 
     #[test]
     fn byte_conversion_from_and_to_with_mixed_le_and_be_does_not_work() {
-        let result =
-            ShortWeierstrassProjectivePoint::<BLS12381Curve>::from_bytes_be(&point().to_bytes_le());
-        assert_eq!(result.unwrap_err(), ByteConversionError::FromBEBytesError);
+        let bytes = point().serialize(PointFormat::Projective, FieldEndianness::LittleEndian);
+
+        let result = ShortWeierstrassProjectivePoint::<BLS12381Curve>::deserialize(
+            &bytes,
+            PointFormat::Projective,
+            FieldEndianness::BigEndian,
+        );
+
+        assert_eq!(
+            result.unwrap_err(),
+            DeserializationError::FieldFromBytesError
+        );
     }
 
     #[test]
     fn byte_conversion_from_and_to_with_mixed_be_and_le_does_not_work() {
-        let result =
-            ShortWeierstrassProjectivePoint::<BLS12381Curve>::from_bytes_le(&point().to_bytes_be());
-        assert_eq!(result.unwrap_err(), ByteConversionError::FromLEBytesError);
+        let bytes = point().serialize(PointFormat::Projective, FieldEndianness::BigEndian);
+
+        let result = ShortWeierstrassProjectivePoint::<BLS12381Curve>::deserialize(
+            &bytes,
+            PointFormat::Projective,
+            FieldEndianness::LittleEndian,
+        );
+
+        assert_eq!(
+            result.unwrap_err(),
+            DeserializationError::FieldFromBytesError
+        );
     }
 
     #[test]
     fn cannot_create_point_from_wrong_number_of_bytes_le() {
-        let result = ShortWeierstrassProjectivePoint::<BLS12381Curve>::from_bytes_le(&[0_u8; 13]);
-        assert_eq!(result.unwrap_err(), ByteConversionError::FromLEBytesError);
+        let bytes = &[0_u8; 13];
+
+        let result = ShortWeierstrassProjectivePoint::<BLS12381Curve>::deserialize(
+            bytes,
+            PointFormat::Projective,
+            FieldEndianness::LittleEndian,
+        );
+
+        assert_eq!(
+            result.unwrap_err(),
+            DeserializationError::InvalidAmountOfBytes
+        );
     }
 
     #[test]
     fn cannot_create_point_from_wrong_number_of_bytes_be() {
-        let result = ShortWeierstrassProjectivePoint::<BLS12381Curve>::from_bytes_be(&[0_u8; 13]);
-        assert_eq!(result.unwrap_err(), ByteConversionError::FromBEBytesError);
+        let bytes = &[0_u8; 13];
+
+        let result = ShortWeierstrassProjectivePoint::<BLS12381Curve>::deserialize(
+            bytes,
+            PointFormat::Projective,
+            FieldEndianness::BigEndian,
+        );
+
+        assert_eq!(
+            result.unwrap_err(),
+            DeserializationError::InvalidAmountOfBytes
+        );
     }
 }

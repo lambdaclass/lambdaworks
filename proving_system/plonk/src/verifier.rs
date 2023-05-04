@@ -4,7 +4,7 @@ use lambdaworks_math::cyclic_group::IsGroup;
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::{IsField, IsPrimeField};
 use lambdaworks_math::polynomial::Polynomial;
-use lambdaworks_math::traits::ByteConversion;
+use lambdaworks_math::traits::{ByteConversion, SimpleSerialization};
 use std::marker::PhantomData;
 
 use crate::prover::Proof;
@@ -33,23 +33,23 @@ impl<F: IsField, CS: IsCommitmentScheme<F>> Verifier<F, CS> {
     where
         F: IsField,
         CS: IsCommitmentScheme<F>,
-        CS::Commitment: ByteConversion,
+        CS::Commitment: SimpleSerialization,
         FieldElement<F>: ByteConversion,
     {
         let mut transcript = new_strong_fiat_shamir_transcript::<F, CS>(vk, public_input);
 
-        transcript.append(&p.a_1.to_bytes_be());
-        transcript.append(&p.b_1.to_bytes_be());
-        transcript.append(&p.c_1.to_bytes_be());
+        transcript.append(&p.a_1.simple_serialize());
+        transcript.append(&p.b_1.simple_serialize());
+        transcript.append(&p.c_1.simple_serialize());
         let beta = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
         let gamma = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
 
-        transcript.append(&p.z_1.to_bytes_be());
+        transcript.append(&p.z_1.simple_serialize());
         let alpha = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
 
-        transcript.append(&p.t_lo_1.to_bytes_be());
-        transcript.append(&p.t_mid_1.to_bytes_be());
-        transcript.append(&p.t_hi_1.to_bytes_be());
+        transcript.append(&p.t_lo_1.simple_serialize());
+        transcript.append(&p.t_mid_1.simple_serialize());
+        transcript.append(&p.t_hi_1.simple_serialize());
         let zeta = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
 
         transcript.append(&p.a_zeta.to_bytes_be());
@@ -74,7 +74,7 @@ impl<F: IsField, CS: IsCommitmentScheme<F>> Verifier<F, CS> {
     where
         F: IsPrimeField,
         CS: IsCommitmentScheme<F>,
-        CS::Commitment: ByteConversion + IsGroup,
+        CS::Commitment: SimpleSerialization + IsGroup,
         FieldElement<F>: ByteConversion,
     {
         // TODO: First three steps are validations: belonging to main subgroup, belonging to prime field.
