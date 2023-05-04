@@ -4,7 +4,7 @@ use lambdaworks_math::field::{element::FieldElement, traits::IsField};
 use core::ffi;
 
 #[derive(Clone)]
-pub struct CUDAFieldElement<F: IsField> {
+pub(crate) struct CUDAFieldElement<F: IsField> {
     value: F::BaseType,
 }
 
