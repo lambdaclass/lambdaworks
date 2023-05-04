@@ -3,12 +3,12 @@ use lambdaworks_math::{
     polynomial::Polynomial,
 };
 
-#[derive(Debug)]
 /// Represents a boundary constraint that must hold in an execution
 /// trace:
 ///   * col: The column of the trace where the constraint must hold
 ///   * step: The step (or row) of the trace where the constraint must hold
 ///   * value: The value the constraint must have in that column and step
+#[derive(Debug, Clone)]
 pub struct BoundaryConstraint<F: IsField> {
     pub col: usize,
     pub step: usize,
@@ -32,13 +32,12 @@ impl<F: IsField> BoundaryConstraint<F> {
 
 /// Data structure that stores all the boundary constraints that must
 /// hold for the execution trace
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct BoundaryConstraints<F: IsField> {
     pub constraints: Vec<BoundaryConstraint<F>>,
 }
 
 impl<F: IsField> BoundaryConstraints<F> {
-    #[allow(dead_code)]
     pub fn new() -> Self {
         Self {
             constraints: Vec::<BoundaryConstraint<F>>::new(),
@@ -113,6 +112,10 @@ impl<F: IsField> BoundaryConstraints<F> {
         }
 
         zerofier
+    }
+
+    pub fn to_vec(&self) -> Vec<BoundaryConstraint<F>> {
+        self.constraints.clone()
     }
 }
 

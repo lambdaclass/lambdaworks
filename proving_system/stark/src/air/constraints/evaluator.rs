@@ -8,11 +8,13 @@ use lambdaworks_math::{
 use crate::air::{frame::Frame, trace::TraceTable, AIR};
 use std::iter::zip;
 
-use super::{boundary::BoundaryConstraints, evaluation_table::ConstraintEvaluationTable};
+use super::{
+    boundary::{BoundaryConstraint, BoundaryConstraints},
+    evaluation_table::ConstraintEvaluationTable,
+};
 
 pub struct ConstraintEvaluator<'poly, F: IsFFTField, A: AIR> {
     air: A,
-    boundary_constraints: BoundaryConstraints<F>,
     trace_polys: &'poly [Polynomial<FieldElement<F>>],
     primitive_root: FieldElement<F>,
 }
@@ -23,11 +25,8 @@ impl<'poly, F: IsFFTField, A: AIR<Field = F>> ConstraintEvaluator<'poly, F, A> {
         trace_polys: &'poly [Polynomial<FieldElement<F>>],
         primitive_root: &FieldElement<F>,
     ) -> Self {
-        let boundary_constraints = air.boundary_constraints();
-
         Self {
             air: air.clone(),
-            boundary_constraints,
             trace_polys,
             primitive_root: primitive_root.clone(),
         }
@@ -46,28 +45,35 @@ impl<'poly, F: IsFFTField, A: AIR<Field = F>> ConstraintEvaluator<'poly, F, A> {
             self.air.context().num_transition_constraints() + 1,
             lde_domain,
         );
+
         let n_trace_colums = self.trace_polys.len();
-        let boundary_constraints = &self.boundary_constraints;
+        let main_boundary_constraints = self.air.boundary_constraints();
+        // let aux_boundary_constraints = self.air.aux_boundary_constraints().to_vec();
+
+        // let boundary_constraints_vec: Vec<BoundaryConstraint<F>> =
+        //     vec![main_boundary_constraints, aux_boundary_constraints]
+        //         .iter()
+        //         .flatten()
+        //         .collect();
+
+        // let boundary_constraints = &self.boundary_constraints;
 
         let domains =
-            boundary_constraints.generate_roots_of_unity(&self.primitive_root, n_trace_colums);
-        let values = boundary_constraints.values(n_trace_colums);
+            main_boundary_constraints.generate_roots_of_unity(&self.primitive_root, n_trace_colums);
+        let values = main_boundary_constraints.values(n_trace_colums);
 
         let boundary_polys: Vec<Polynomial<FieldElement<F>>> = zip(domains, values)
             .zip(self.trace_polys)
             .map(|((xs, ys), trace_poly)| trace_poly - &Polynomial::interpolate(&xs, &ys))
             .collect();
 
-        let boundary_zerofiers: Vec<Polynomial<FieldElement<F>>> = (0..n_trace_colums)
-            .map(|col| {
-                self.boundary_constraints
-                    .compute_zerofier(&self.primitive_root, col)
-            })
+        let main_boundary_zerofiers: Vec<Polynomial<FieldElement<F>>> = (0..n_trace_colums)
+            .map(|col| main_boundary_constraints.compute_zerofier(&self.primitive_root, col))
             .collect();
 
         let boundary_polys_max_degree = boundary_polys
             .iter()
-            .zip(&boundary_zerofiers)
+            .zip(&main_boundary_zerofiers)
             .map(|(poly, zerofier)| poly.degree() - zerofier.degree())
             .max()
             .unwrap();
@@ -134,7 +140,7 @@ impl<'poly, F: IsFFTField, A: AIR<Field = F>> ConstraintEvaluator<'poly, F, A> {
                 d,
             );
 
-            let boundary_evaluation = zip(&boundary_polys, &boundary_zerofiers)
+            let boundary_evaluation = zip(&boundary_polys, &main_boundary_zerofiers)
                 .enumerate()
                 .map(|(index, (boundary_poly, boundary_zerofier))| {
                     let quotient_degree = boundary_poly.degree() - boundary_zerofier.degree();

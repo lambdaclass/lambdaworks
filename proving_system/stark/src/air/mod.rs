@@ -120,11 +120,13 @@ pub trait AIR: Clone {
         Vec::new()
     }
 
-    // fn aux_boundary_constraints(
-    //     &self,
-    //     aux_rand_elements: &[FieldElement<Self::Field>],
-    // ) -> BoundaryConstraints<Self::Field> {
-    // }
+    #[allow(unused_variables)]
+    fn aux_boundary_constraints(
+        &self,
+        aux_rand_elements: &[FieldElement<Self::Field>],
+    ) -> BoundaryConstraints<Self::Field> {
+        BoundaryConstraints::new()
+    }
 
     fn num_aux_transitions(&self) -> usize {
         self.context().num_aux_transition_constraints
