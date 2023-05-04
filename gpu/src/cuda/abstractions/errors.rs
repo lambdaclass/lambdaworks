@@ -11,7 +11,7 @@ pub enum CudaError {
     FieldError(#[from] FieldError),
     #[error("Couldn't load compiled PTX: {0}")]
     PtxError(String),
-    #[error("Couldn't create a new CUDA function object: {0}")]
+    #[error("Couldn't get CUDA function: {0}")]
     FunctionError(String),
     #[error("Couldn't find a CUDA device: {0}")]
     DeviceNotFound(String),

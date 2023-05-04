@@ -1,2 +1,2 @@
-mod abstractions;
+pub mod abstractions;
 pub mod fft;

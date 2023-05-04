@@ -1,11 +1,7 @@
-use lambdaworks_math::field::{
-    element::FieldElement,
-    errors::FieldError,
-    traits::{IsFFTField, RootsConfig},
-};
+use lambdaworks_math::field::{element::FieldElement, traits::IsFFTField};
 
 use cudarc::{
-    driver::{CudaDevice, DriverError, LaunchAsync, LaunchConfig},
+    driver::{CudaDevice, LaunchAsync, LaunchConfig},
     nvrtc::safe::Ptx,
 };
 
@@ -52,7 +48,7 @@ where
 
     let kernel = device
         .get_func("fft", "radix2_dit_butterfly")
-        .map_err(|err| CudaError::FunctionError(err.to_string()))?;
+        .ok_or_else(|| CudaError::FunctionError("fft::radix2_dit_butterfly".to_string()))?;
 
     let order = input.len().trailing_zeros();
     for stage in 0..order {
