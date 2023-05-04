@@ -77,7 +77,9 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
             .iter()
             .zip(&transition_zerofiers)
             .zip(&transition_degrees)
-            .map(|((poly, zerofier), degree)| poly.degree() * degree - zerofier.degree())
+            .map(|((poly, zerofier), degree)| {
+                (poly.degree() * degree).saturating_sub(zerofier.degree())
+            })
             .max()
             .unwrap();
 

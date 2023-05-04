@@ -12,10 +12,15 @@ use lambdaworks_gpu::metal::fft::polynomial::evaluate_fft_metal;
 use crate::{errors::FFTError, roots_of_unity::get_twiddles};
 
 pub trait FFTPoly<F: IsFFTField> {
-    fn evaluate_fft(&self, blowup_factor: usize) -> Result<Vec<FieldElement<F>>, FFTError>;
+    fn evaluate_fft(
+        &self,
+        blowup_factor: usize,
+        domain_size: Option<usize>,
+    ) -> Result<Vec<FieldElement<F>>, FFTError>;
     fn evaluate_offset_fft(
         &self,
         blowup_factor: usize,
+        domain_size: Option<usize>,
         offset: &FieldElement<F>,
     ) -> Result<Vec<FieldElement<F>>, FFTError>;
     fn interpolate_fft(
@@ -26,9 +31,15 @@ pub trait FFTPoly<F: IsFFTField> {
 impl<F: IsFFTField> FFTPoly<F> for Polynomial<FieldElement<F>> {
     /// Returns `N` evaluations of this polynomial using FFT (so the results
     /// are P(w^i), with w being a primitive root of unity).
-    /// `N = self.coeff_len().next_power_of_two() * blowup_factor`.
-    fn evaluate_fft(&self, blowup_factor: usize) -> Result<Vec<FieldElement<F>>, FFTError> {
-        let len = self.coeff_len().next_power_of_two() * blowup_factor;
+    /// `N = max(self.coeff_len(), domain_size).next_power_of_two() * blowup_factor`.
+    /// If `domain_size` is `None`, it defaults to 0.
+    fn evaluate_fft(
+        &self,
+        blowup_factor: usize,
+        domain_size: Option<usize>,
+    ) -> Result<Vec<FieldElement<F>>, FFTError> {
+        let domain_size = domain_size.unwrap_or(0);
+        let len = std::cmp::max(self.coeff_len(), domain_size).next_power_of_two() * blowup_factor;
 
         if self.coefficients().is_empty() {
             return Ok(vec![FieldElement::zero(); len]);
@@ -55,14 +66,16 @@ impl<F: IsFFTField> FFTPoly<F> for Polynomial<FieldElement<F>> {
 
     /// Returns `N` evaluations with an offset of this polynomial using FFT
     /// (so the results are P(w^i), with w being a primitive root of unity).
-    /// `N = self.coeff_len().next_power_of_two() * blowup_factor`.
+    /// `N = max(self.coeff_len(), domain_size).next_power_of_two() * blowup_factor`.
+    /// If `domain_size` is `None`, it defaults to 0.
     fn evaluate_offset_fft(
         &self,
         blowup_factor: usize,
+        domain_size: Option<usize>,
         offset: &FieldElement<F>,
     ) -> Result<Vec<FieldElement<F>>, FFTError> {
         let scaled = self.scale(offset);
-        scaled.evaluate_fft(blowup_factor)
+        scaled.evaluate_fft(blowup_factor, domain_size)
     }
 
     /// Returns a new polynomial that interpolates `(w^i, fft_evals[i])`, with `w` being a
@@ -121,7 +134,7 @@ pub fn compose_fft<F>(
 where
     F: IsFFTField,
 {
-    let poly_2_evaluations = poly_2.evaluate_fft(1).unwrap();
+    let poly_2_evaluations = poly_2.evaluate_fft(1, None).unwrap();
 
     let values: Vec<_> = poly_2_evaluations
         .iter()
@@ -130,6 +143,7 @@ where
 
     Polynomial::interpolate_fft(values.as_slice()).unwrap()
 }
+
 #[cfg(not(feature = "metal"))]
 #[cfg(test)]
 mod u64_field_tests {
@@ -187,7 +201,7 @@ mod u64_field_tests {
             let order = len.trailing_zeros();
             let twiddles = get_powers_of_primitive_root(order.into(), len, RootsConfig::Natural).unwrap();
 
-            let fft_eval = poly.evaluate_fft(1).unwrap();
+            let fft_eval = poly.evaluate_fft(1, None).unwrap();
             let naive_eval = poly.evaluate_slice(&twiddles);
 
             prop_assert_eq!(fft_eval, naive_eval);
@@ -200,7 +214,7 @@ mod u64_field_tests {
             let order = (len * blowup_factor).trailing_zeros();
             let twiddles = get_powers_of_primitive_root_coset(order.into(), len * blowup_factor, &offset).unwrap();
 
-            let fft_eval = poly.evaluate_offset_fft(blowup_factor, &offset).unwrap();
+            let fft_eval = poly.evaluate_offset_fft(blowup_factor, None, &offset).unwrap();
             let naive_eval = poly.evaluate_slice(&twiddles);
 
             prop_assert_eq!(fft_eval, naive_eval);
@@ -210,7 +224,7 @@ mod u64_field_tests {
         #[test]
         fn test_fft_interpolate_is_inverse_of_evaluate(poly in poly(8)
                                                        .prop_filter("Avoid polynomials of size not power of two", |poly| poly.coeff_len().is_power_of_two())) {
-            let eval = poly.evaluate_fft(1).unwrap();
+            let eval = poly.evaluate_fft(1, None).unwrap();
             let new_poly = Polynomial::interpolate_fft(&eval).unwrap();
 
             prop_assert_eq!(poly, new_poly);
@@ -274,7 +288,7 @@ mod u256_two_adic_prime_field_tests {
             let order = len.trailing_zeros();
             let twiddles = get_powers_of_primitive_root(order.into(), len, RootsConfig::Natural).unwrap();
 
-            let fft_eval = poly.evaluate_fft(1).unwrap();
+            let fft_eval = poly.evaluate_fft(1, None).unwrap();
             let naive_eval = poly.evaluate_slice(&twiddles);
 
             prop_assert_eq!(fft_eval, naive_eval);

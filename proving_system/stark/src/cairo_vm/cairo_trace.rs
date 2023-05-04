@@ -35,6 +35,10 @@ pub struct CairoTrace {
 }
 
 impl CairoTrace {
+    pub fn steps(&self) -> usize {
+        self.rows.len()
+    }
+
     pub fn flags_and_offsets(
         &self,
         memory: &CairoMemory,

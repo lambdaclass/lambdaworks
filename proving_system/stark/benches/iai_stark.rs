@@ -2,7 +2,7 @@ mod functions;
 mod util;
 
 fn simple_fibonacci_benchmarks() {
-    functions::stark::prove_fib();
+    functions::stark::prove_fib(8);
 }
 
 fn two_col_fibonacci_benchmarks() {
@@ -21,5 +21,5 @@ iai::main!(
     simple_fibonacci_benchmarks,
     two_col_fibonacci_benchmarks,
     fibonacci_f17_benchmarks,
-    quadratic_air_benchmarks
+    quadratic_air_benchmarks,
 );
