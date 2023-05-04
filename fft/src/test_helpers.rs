@@ -1,18 +1,17 @@
 use lambdaworks_math::field::{
     element::FieldElement,
-    traits::{IsTwoAdicField, RootsConfig},
+    traits::{IsFFTField, RootsConfig},
 };
 
 use crate::roots_of_unity::get_powers_of_primitive_root;
 
-use super::helpers::log2;
-
 /// Calculates the (non-unitary) Discrete Fourier Transform of `input` via the DFT matrix.
-pub fn naive_matrix_dft_test<F: IsTwoAdicField>(input: &[FieldElement<F>]) -> Vec<FieldElement<F>> {
+pub fn naive_matrix_dft_test<F: IsFFTField>(input: &[FieldElement<F>]) -> Vec<FieldElement<F>> {
     let n = input.len();
-    let order = log2(n).unwrap();
+    assert!(n.is_power_of_two());
+    let order = n.trailing_zeros();
 
-    let twiddles = get_powers_of_primitive_root(order, n, RootsConfig::Natural).unwrap();
+    let twiddles = get_powers_of_primitive_root(order.into(), n, RootsConfig::Natural).unwrap();
 
     let mut output = Vec::with_capacity(n);
     for row in 0..n {
@@ -64,8 +63,8 @@ mod fft_helpers_test {
             let dft = naive_matrix_dft_test(&coeffs);
 
             let poly = Polynomial::new(&coeffs);
-            let order = log2(coeffs.len()).unwrap();
-            let twiddles = get_powers_of_primitive_root(order, coeffs.len(), RootsConfig::Natural).unwrap();
+            let order = coeffs.len().trailing_zeros();
+            let twiddles = get_powers_of_primitive_root(order.into(), coeffs.len(), RootsConfig::Natural).unwrap();
             let evals: Vec<FE> = twiddles.iter().map(|x| poly.evaluate(x)).collect();
 
             prop_assert_eq!(evals, dft);

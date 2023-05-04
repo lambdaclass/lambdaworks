@@ -1,7 +1,7 @@
 use crate::{
     field::{
         fields::montgomery_backed_prime_fields::{IsModulus, U256PrimeField},
-        traits::IsTwoAdicField,
+        traits::IsFFTField,
     },
     unsigned_integer::element::{UnsignedInteger, U256},
 };
@@ -15,7 +15,7 @@ impl IsModulus<U256> for MontgomeryConfigStark252PrimeField {
 
 pub type Stark252PrimeField = U256PrimeField<MontgomeryConfigStark252PrimeField>;
 
-impl IsTwoAdicField for Stark252PrimeField {
+impl IsFFTField for Stark252PrimeField {
     const TWO_ADICITY: u64 = 48;
     // Change this line for a new function like `from_limbs`.
     const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: U256 = UnsignedInteger {
@@ -26,4 +26,8 @@ impl IsTwoAdicField for Stark252PrimeField {
             16338897044258952332,
         ],
     };
+
+    fn field_name() -> String {
+        "stark256".to_string()
+    }
 }

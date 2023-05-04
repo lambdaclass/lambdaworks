@@ -3,6 +3,7 @@
 #ifndef u256_h
 #define u256_h
 
+#include <metal_stdlib>
 #include "u128.h.metal"
 
 class u256

@@ -1,4 +1,4 @@
-use lambdaworks_math::field::{element::FieldElement, traits::IsTwoAdicField};
+use lambdaworks_math::field::{element::FieldElement, traits::IsFFTField};
 
 /// In-Place Radix-2 NR DIT FFT algorithm over a slice of two-adic field elements.
 /// It's required that the twiddle factors are in bit-reverse order. Else this function will not
@@ -14,7 +14,7 @@ use lambdaworks_math::field::{element::FieldElement, traits::IsTwoAdicField};
 /// - DIT: decimation in time
 pub fn in_place_nr_2radix_fft<F>(input: &mut [FieldElement<F>], twiddles: &[FieldElement<F>])
 where
-    F: IsTwoAdicField,
+    F: IsFFTField,
 {
     // divide input in groups, starting with 1, duplicating the number of groups in each stage.
     let mut group_count = 1;
@@ -61,7 +61,7 @@ where
 #[allow(dead_code)]
 pub fn in_place_rn_2radix_fft<F>(input: &mut [FieldElement<F>], twiddles: &[FieldElement<F>])
 where
-    F: IsTwoAdicField,
+    F: IsFFTField,
 {
     // divide input in groups, starting with 1, duplicating the number of groups in each stage.
     let mut group_count = 1;
@@ -93,7 +93,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::helpers::log2;
     use crate::test_helpers::naive_matrix_dft_test;
     use crate::{bit_reversing::in_place_bit_reverse_permute, roots_of_unity::get_twiddles};
     use lambdaworks_math::field::{test_fields::u64_test_field::U64TestField, traits::RootsConfig};
@@ -126,8 +125,8 @@ mod tests {
         fn test_nr_2radix_fft_matches_naive_eval(coeffs in field_vec(8)) {
             let expected = naive_matrix_dft_test(&coeffs);
 
-            let order = log2(coeffs.len()).unwrap();
-            let twiddles = get_twiddles(order, RootsConfig::BitReverse).unwrap();
+            let order = coeffs.len().trailing_zeros();
+            let twiddles = get_twiddles(order.into(), RootsConfig::BitReverse).unwrap();
 
             let mut result = coeffs;
             in_place_nr_2radix_fft(&mut result, &twiddles);
@@ -141,8 +140,8 @@ mod tests {
         fn test_rn_2radix_fft_matches_naive_eval(coeffs in field_vec(8)) {
             let expected = naive_matrix_dft_test(&coeffs);
 
-            let order = log2(coeffs.len()).unwrap();
-            let twiddles = get_twiddles(order, RootsConfig::Natural).unwrap();
+            let order = coeffs.len().trailing_zeros();
+            let twiddles = get_twiddles(order.into(), RootsConfig::Natural).unwrap();
 
             let mut result = coeffs;
             in_place_bit_reverse_permute(&mut result);
