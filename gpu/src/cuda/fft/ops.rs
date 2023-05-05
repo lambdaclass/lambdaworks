@@ -89,7 +89,7 @@ pub fn gen_twiddles<F: IsFFTField>(
     config: RootsConfig,
 ) -> Result<Vec<FieldElement<F>>, DriverError> {
     let count = (1 << order) / 2;
-    let root = F::get_primitive_root_of_unity(order).unwrap();
+    let root: FieldElement<F> = F::get_primitive_root_of_unity(order).unwrap();
 
     let (root, function_name) = match config {
         RootsConfig::Natural => (root, "calc_twiddles"),
