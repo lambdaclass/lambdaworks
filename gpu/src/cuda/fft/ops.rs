@@ -118,8 +118,8 @@ pub fn gen_twiddles<F: IsFFTField>(
     )?;
     let kernel = device.get_func("twiddles", function_name).unwrap();
 
-    let grid_dim = (count as u32, 1, 1); // in blocks
-    let block_dim = (1 as u32, 1, 1);
+    let grid_dim = (1 as u32, 1, 1); // in blocks
+    let block_dim = (count as u32, 1, 1);
 
     let config = LaunchConfig {
         grid_dim,
