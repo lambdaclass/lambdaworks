@@ -1,3 +1,5 @@
+use crate::errors::SrsFromFileError;
+
 use super::traits::IsCommitmentScheme;
 use lambdaworks_math::{
     cyclic_group::IsGroup,
@@ -34,11 +36,11 @@ where
     G1Point: IsGroup + Deserializable,
     G2Point: IsGroup + Deserializable,
 {
-    pub fn from_file(file_path: &str) -> Self {
+    pub fn from_file(file_path: &str) -> Result<Self,SrsFromFileError> {
         let mut f = File::open(file_path).expect("no file found");
         let mut bytes: Vec<u8> = Vec::new();
-        f.read_to_end(&mut bytes).unwrap();
-        Self::deserialize(&bytes).unwrap()
+        f.read_to_end(&mut bytes)?;
+        Ok(Self::deserialize(&bytes)?)
     }
 }
 
@@ -349,7 +351,7 @@ mod tests {
         let base_dir = env!("CARGO_MANIFEST_DIR");
         let srs_file = base_dir.to_owned() + "/src/commitments/test_srs/srs_3_g1_elements.bin";
 
-        let srs = TestSrsType::from_file(&srs_file);
+        let srs = TestSrsType::from_file(&srs_file).unwrap();
 
         assert_eq!(srs.powers_main_group.len(), 3);
     }
