@@ -159,11 +159,7 @@ pub fn bitrev_permutation<F: IsFFTField>(
 
     // d_ prefix is used to indicate device memory.
     let d_input = device
-        .htod_sync_copy(
-            &input
-                .map(|i| CUDAFieldElement::from(&FieldElement::from(i)))
-                .collect::<Vec<_>>(),
-        )
+        .htod_sync_copy(&input.iter().map(CUDAFieldElement::from).collect::<Vec<_>>())
         .map_err(|err| CudaError::AllocateMemory(err.to_string()))?;
 
     let mut d_output = device
@@ -187,7 +183,7 @@ pub fn bitrev_permutation<F: IsFFTField>(
         .ok_or_else(|| CudaError::FunctionError("bitrev_permutation".to_string()))?;
 
     let grid_dim = (1 as u32, 1, 1); // in blocks
-    let block_dim = (count as u32, 1, 1);
+    let block_dim = (input.len() as u32, 1, 1);
 
     let config = LaunchConfig {
         grid_dim,
@@ -199,7 +195,7 @@ pub fn bitrev_permutation<F: IsFFTField>(
         .map_err(|err| CudaError::Launch(err.to_string()))?;
 
     let output = device
-        .sync_reclaim(d_twiddles)
+        .sync_reclaim(d_output)
         .map_err(|err| CudaError::RetrieveMemory(err.to_string()))?;
     let output: Vec<_> = output
         .into_iter()
