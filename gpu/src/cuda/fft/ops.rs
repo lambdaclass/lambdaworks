@@ -103,23 +103,31 @@ pub fn gen_twiddles<F: IsFFTField>(
         RootsConfig::BitReverseInversed => (root.inv(), "calc_twiddles_bitrev"),
     };
 
-    let device = CudaDevice::new(0)?;
+    let device = CudaDevice::new(0).map_err(|err| CudaError::DeviceNotFound(err.to_string()))?;
 
     // d_ prefix is used to indicate device memory.
-    let mut d_twiddles = device.htod_sync_copy(
-        &(0..count)
-            .map(|i| CUDAFieldElement::from(&FieldElement::from(i)))
-            .collect::<Vec<_>>(),
-    )?;
+    let mut d_twiddles = device
+        .htod_sync_copy(
+            &(0..count)
+                .map(|i| CUDAFieldElement::from(&FieldElement::from(i)))
+                .collect::<Vec<_>>(),
+        )
+        .map_err(|err| CudaError::AllocateMemory(err.to_string()))?;
     let root = vec![CUDAFieldElement::from(&root)];
-    let d_root = device.htod_sync_copy(&root)?;
+    let d_root = device
+        .htod_sync_copy(&root)
+        .map_err(|err| CudaError::AllocateMemory(err.to_string()))?;
 
-    device.load_ptx(
-        Ptx::from_src(SHADER_PTX_TWIDDLES),
-        "twiddles",
-        &["calc_twiddles_bitrev", "calc_twiddles"],
-    )?;
-    let kernel = device.get_func("twiddles", function_name)?;
+    device
+        .load_ptx(
+            Ptx::from_src(SHADER_PTX_TWIDDLES),
+            "twiddles",
+            &["calc_twiddles_bitrev", "calc_twiddles"],
+        )
+        .map_err(|err| CudaError::PtxError(err.to_string()))?;
+    let kernel = device
+        .get_func("twiddles", function_name)
+        .ok_or_else(|| CudaError::FunctionError(function_name.to_string()))?;
 
     let grid_dim = (1 as u32, 1, 1); // in blocks
     let block_dim = (count as u32, 1, 1);
@@ -130,7 +138,8 @@ pub fn gen_twiddles<F: IsFFTField>(
         shared_mem_bytes: 0,
     };
 
-    unsafe { kernel.clone().launch(config, (&mut d_twiddles, &d_root)) }?;
+    unsafe { kernel.clone().launch(config, (&mut d_twiddles, &d_root)) }
+        .map_err(|err| CudaError::Launch(err.to_string()))?;
 
     let output = device.sync_reclaim(d_twiddles)?;
     let output: Vec<_> = output
