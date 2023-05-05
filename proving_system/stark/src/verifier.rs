@@ -286,7 +286,7 @@ where
     // Verify that t(x_0) is a trace evaluation
     // and verify first layer of FRI
     if !verify_trace_evaluations(
-        &proof.deep_consistency_check,
+        &proof,
         challenges.q_0,
         &domain.lde_roots_of_unity_coset,
     ) || !verify_query(
@@ -358,9 +358,9 @@ fn verify_query<F: IsField + IsFFTField, A: AIR<Field = F>>(
 where
     FieldElement<F>: ByteConversion,
 {
-    let mut lde_primitive_root =
+    let lde_primitive_root =
         F::get_primitive_root_of_unity(domain.lde_root_order as u64).unwrap();
-    let mut offset = FieldElement::from(air.options().coset_offset);
+    let offset = FieldElement::from(air.options().coset_offset);
     // evaluation point = offset * w ^ i in the Stark literature
     let mut evaluation_point = offset * lde_primitive_root.pow(iota);
 
@@ -437,12 +437,12 @@ fn compare_deep_composition_poly<F: IsFFTField>(
 
     let ood_point_squared = &(args.ood_evaluation_point * args.ood_evaluation_point);
 
-    let even_composition_poly_evaluation = (&deep_consistency_check.composition_poly_evaluations
+    let even_composition_poly_evaluation = (&deep_consistency_check.lde_composition_poly_evaluations
         [0]
         - &args.composition_poly_ood_evaluations[0])
         / (args.d_evaluation_point - ood_point_squared);
 
-    let odd_composition_poly_evaluation = (&deep_consistency_check.composition_poly_evaluations[1]
+    let odd_composition_poly_evaluation = (&deep_consistency_check.lde_composition_poly_evaluations[1]
         - &args.composition_poly_ood_evaluations[1])
         / (args.d_evaluation_point - ood_point_squared);
 
@@ -453,18 +453,18 @@ fn compare_deep_composition_poly<F: IsFFTField>(
 
 // Verifies that t(x_0) is a trace evaluation
 fn verify_trace_evaluations<F: IsField + IsFFTField>(
-    deep_consistency_check: &DeepConsistencyCheck<F>,
+    proof: &StarkProof<F>,
     q_i: usize,
     domain: &[FieldElement<F>],
 ) -> bool
 where
     FieldElement<F>: ByteConversion,
 {
-    for ((merkle_root, merkle_proof), evaluation) in deep_consistency_check
+    for ((merkle_root, merkle_proof), evaluation) in proof
         .lde_trace_merkle_roots
         .iter()
-        .zip(&deep_consistency_check.lde_trace_merkle_proofs)
-        .zip(&deep_consistency_check.lde_trace_evaluations)
+        .zip(&proof.deep_consistency_check.lde_trace_merkle_proofs)
+        .zip(&proof.deep_consistency_check.lde_trace_evaluations)
     {
         let index = q_i % domain.len();
 

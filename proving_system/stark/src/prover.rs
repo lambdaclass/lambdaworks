@@ -414,30 +414,37 @@ fn build_deep_consistency_check<F: IsFFTField>(
     domain: &Domain<F>,
     round_1_result: &Round1<F>,
     round_2_result: &Round2<F>,
-    index_to_verify: usize,
+    index_to_open: usize,
 ) -> DeepConsistencyCheck<F>
 where
     FieldElement<F>: ByteConversion,
 {
-    let index = index_to_verify % domain.lde_roots_of_unity_coset.len();
+    // Trace openings
+    let index = index_to_open % domain.lde_roots_of_unity_coset.len();
     let lde_trace_merkle_proofs = round_1_result
         .lde_trace_merkle_trees
         .iter()
         .map(|tree| tree.get_proof_by_pos(index).unwrap())
         .collect();
-
     let lde_trace_evaluations = round_1_result.lde_trace.get_row(index).to_vec();
 
-    let composition_poly_evaluations = vec![
+    // Composition polynomial openings
+
+    let lde_composition_poly_proofs = round_2_result
+        .composition_poly_merkle_trees
+        .iter()
+        .map(|tree| tree.get_proof_by_pos(index).unwrap())
+        .collect();
+    let lde_composition_poly_evaluations = vec![
         round_2_result.lde_composition_poly_even_evaluations[index].clone(),
         round_2_result.lde_composition_poly_odd_evaluations[index].clone(),
     ];
 
     DeepConsistencyCheck {
-        lde_trace_merkle_roots: round_1_result.lde_trace_merkle_roots.clone(),
         lde_trace_merkle_proofs,
+        lde_composition_poly_proofs,
         lde_trace_evaluations,
-        composition_poly_evaluations,
+        lde_composition_poly_evaluations,
     }
 }
 
