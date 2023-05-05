@@ -13,7 +13,6 @@ pub struct DeepConsistencyCheck<F: IsFFTField> {
 
 #[derive(Debug, Clone)]
 pub struct FriQuery<F: IsFFTField> {
-    pub fri_layers_merkle_roots: Vec<FieldElement<F>>,
     pub fri_decommitment: FriDecommitment<F>,
 }
 

@@ -238,7 +238,6 @@ fn fri_query_phase<F: IsFFTField, A: AIR<Field = F>, T: Transcript>(
     round_1_result: &Round1<F>,
     round_2_result: &Round2<F>,
     fri_layers: &Vec<FriLayer<F>>,
-    fri_layers_merkle_roots: &[FieldElement<F>],
     transcript: &mut T,
 ) -> (Vec<FriQuery<F>>, DeepConsistencyCheck<F>)
 where
@@ -258,7 +257,6 @@ where
             // * For every q_i, do FRI decommitment
             let fri_decommitment = fri_decommit_layers(fri_layers, q_i);
             FriQuery {
-                fri_layers_merkle_roots: fri_layers_merkle_roots.to_vec(),
                 fri_decommitment,
             }
         })
@@ -333,7 +331,6 @@ where
         round_1_result,
         round_2_result,
         &fri_layers,
-        &fri_layers_merkle_roots,
         transcript,
     );
     Round4 {
