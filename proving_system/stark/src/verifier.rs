@@ -341,7 +341,7 @@ fn step_4_verify_deep_composition_polynomial<F: IsFFTField>(
     };
 
     let deep_poly_evaluation = compare_deep_composition_poly(deep_composition_poly_args);
-    let deep_poly_claimed_evaluation = &proof.query_list[0].layers_evaluations[0].0;
+    let deep_poly_claimed_evaluation = &proof.query_list[0].first_layer_evaluation;
 
     deep_poly_claimed_evaluation == &deep_poly_evaluation
 }
@@ -351,7 +351,7 @@ fn verify_query<F: IsField + IsFFTField, A: AIR<Field = F>>(
     fri_layers_merkle_roots: &[FieldElement<F>],
     fri_last_value: &FieldElement<F>,
     beta_list: &[FieldElement<F>],
-    q_i: usize,
+    iota: usize,
     fri_decommitment: &FriDecommitment<F>,
     domain: &Domain<F>,
 ) -> bool
@@ -360,116 +360,57 @@ where
 {
     let mut lde_primitive_root =
         F::get_primitive_root_of_unity(domain.lde_root_order as u64).unwrap();
-    let mut offset = FieldElement::<F>::from(air.options().coset_offset);
+    let mut offset = FieldElement::from(air.options().coset_offset);
+    // evaluation point = offset * w ^ i in the Stark literature
+    let mut evaluation_point = offset * lde_primitive_root.pow(iota);
 
+    let mut v = fri_decommitment.first_layer_evaluation.clone();
     // For each fri layer merkle proof check:
     // That each merkle path verifies
 
     // Sample beta with fiat shamir
     // Compute v = [P_i(z_i) + P_i(-z_i)] / 2 + beta * [P_i(z_i) - P_i(-z_i)] / (2 * z_i)
     // Where P_i is the folded polynomial of the i-th fiat shamir round
-    // z_i is obtained from the first z (that was derived through fiat-shamir) through a known calculation
+    // z_i is obtained from the first z (that was derived through Fiat-Shamir) through a known calculation
     // The calculation is, given the index, index % length_of_evaluation_domain
 
     // Check that v = P_{i+1}(z_i)
 
     // For each (merkle_root, merkle_auth_path) / fold
-    // With the auth path containining the element that the
-    // path proves it's existance
-    for (
-        index,
-        (
-            layer_number,
-            (
-                fri_layer_merkle_root,
-                (
-                    (fri_layer_auth_path, fri_layer_auth_path_symmetric),
-                    (auth_path_evaluation, auth_path_evaluation_symmetric),
-                ),
-            ),
-        ),
-    ) in fri_layers_merkle_roots
+    // With the auth path containining the element that the path proves it's existence
+    for (layer_number, (layer_merkle_root, (auth_path, evaluation_sym))) in fri_layers_merkle_roots
         .iter()
         .zip(
             fri_decommitment
-                .layers_auth_paths
+                .layers_auth_paths_sym
                 .iter()
-                .zip(fri_decommitment.layers_evaluations.iter()),
+                .zip(fri_decommitment.layers_evaluations_sym.iter()),
         )
         .enumerate()
         // Since we always derive the current layer from the previous layer
         // We start with the second one, skipping the first, so previous is layer is the first one
-        .skip(1)
-        .enumerate()
+        .take(fri_layers_merkle_roots.len() - 1)
     {
         // This is the current layer's evaluation domain length. We need it to know what the decommitment index for the current
         // layer is, so we can check the merkle paths at the right index.
-        let current_layer_domain_length = 2_u64.pow(domain.lde_root_order) as usize >> layer_number;
-
-        let layer_evaluation_index = q_i % current_layer_domain_length;
-
-        if !fri_layer_auth_path.verify(
-            fri_layer_merkle_root,
-            layer_evaluation_index,
-            auth_path_evaluation,
+        let domain_length = 1 << domain.lde_root_order - layer_number as u32;
+        let layer_evaluation_index_sym = (iota + domain_length / 2) % domain_length;
+        if !auth_path.verify(
+            layer_merkle_root,
+            layer_evaluation_index_sym,
+            evaluation_sym,
             &HASHER,
         ) {
             return false;
         }
 
-        let layer_evaluation_index_symmetric =
-            (q_i + current_layer_domain_length / 2) % current_layer_domain_length;
-
-        if !fri_layer_auth_path_symmetric.verify(
-            fri_layer_merkle_root,
-            layer_evaluation_index_symmetric,
-            auth_path_evaluation_symmetric,
-            &HASHER,
-        ) {
-            return false;
-        }
-
-        let beta = beta_list[index].clone();
-
-        let (previous_auth_path_evaluation, previous_path_evaluation_symmetric) = fri_decommitment
-            .layers_evaluations
-            .get(layer_number - 1)
-            // TODO: Check at the start of the FRI operation
-            // if layer_merkle_paths has the right amount of elements
-            .unwrap();
-
-        // evaluation point = offset * w ^ i in the Stark literature
-        let evaluation_point = &offset * lde_primitive_root.pow(q_i);
-
-        // v is the calculated element for the
-        // co linearity check
-        let two = &FieldElement::<F>::from(2);
-        let v = (previous_auth_path_evaluation + previous_path_evaluation_symmetric) / two
-            + &beta * (previous_auth_path_evaluation - previous_path_evaluation_symmetric)
-                / (two * evaluation_point);
-
-        lde_primitive_root = lde_primitive_root.pow(2_usize);
-        offset = offset.pow(2_usize);
-
-        if v != *auth_path_evaluation {
-            return false;
-        }
-
-        // On the last iteration, also check the provided last evaluation point.
-        if layer_number == fri_layers_merkle_roots.len() - 1 {
-            let last_evaluation_point = &offset * lde_primitive_root.pow(q_i);
-
-            let last_v = (auth_path_evaluation + auth_path_evaluation_symmetric) / two
-                + &beta * (auth_path_evaluation - auth_path_evaluation_symmetric)
-                    / (two * &last_evaluation_point);
-
-            if last_v != *fri_last_value {
-                return false;
-            }
-        }
+        let beta = &beta_list[layer_number];
+        // v is the calculated element for the co linearity check
+        let two = &FieldElement::from(2);
+        v = (&v + evaluation_sym) / two + beta * (&v - evaluation_sym) / (two * &evaluation_point);
+        evaluation_point = evaluation_point.pow(2_u64);
     }
-
-    true
+    v == *fri_last_value
 }
 
 // Verify that Deep(x) has been built correctly

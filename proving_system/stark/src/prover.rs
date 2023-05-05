@@ -1,11 +1,15 @@
 use super::{
     air::{constraints::evaluator::ConstraintEvaluator, frame::Frame, trace::TraceTable, AIR},
-    fri::{fri_commit_phase, fri_decommit::fri_decommit_layers},
+    fri::fri_commit_phase,
     sample_z_ood,
 };
 use crate::{
     batch_sample_challenges,
-    fri::{fri_commitment::FriLayer, fri_decommit::FriDecommitment, HASHER},
+    fri::{
+        fri_commitment::FriLayer,
+        fri_decommit::{open_layer, FriDecommitment},
+        HASHER,
+    },
     proof::{DeepConsistencyCheck, StarkProof},
     transcript_to_field, transcript_to_usize, Domain,
 };
@@ -243,32 +247,61 @@ fn fri_query_phase<F: IsFFTField, A: AIR<Field = F>, T: Transcript>(
 where
     FieldElement<F>: ByteConversion,
 {
-    let q_0 = transcript_to_usize(transcript) % 2_usize.pow(domain.lde_root_order);
+    if let Some(fri_first_layer) = fri_layers.get(0) {
+        let number_of_queries = air.context().options.fri_number_of_queries;
+        let mut iotas: Vec<usize> = Vec::with_capacity(number_of_queries);
+        let query_list = (0..number_of_queries)
+            .map(|_| {
+                let iota_s = transcript_to_usize(transcript) % 2_usize.pow(domain.lde_root_order);
+                let (first_layer_evaluation, first_layer_auth_path) =
+                    open_layer(fri_first_layer, iota_s);
 
-    let query_list = (0..air.context().options.fri_number_of_queries)
-        .map(|i| {
-            let q_i = if i > 0 {
-                // * Sample q_1, ..., q_m using Fiat-Shamir
-                transcript_to_usize(transcript) % 2_usize.pow(domain.lde_root_order)
-            } else {
-                q_0
-            };
+                let mut layers_auth_paths_sym = vec![];
+                let mut layers_evaluations_sym = vec![];
 
-            // * For every q_i, do FRI decommitment
-            fri_decommit_layers(fri_layers, q_i)
-        })
-        .collect();
+                // with every element of the commit, we look for that one in
+                // the merkle tree and get the corresponding element
+                for layer in fri_layers {
+                    // symmetric element
+                    let index_sym = (iota_s + layer.domain.len() / 2) % layer.domain.len();
+                    let (evaluation_sym, auth_path_sym) = open_layer(layer, index_sym);
 
-    // Query
-    let deep_consistency_check = build_deep_consistency_check(
-        domain,
-        round_1_result,
-        q_0,
-        &round_2_result.composition_poly_even,
-        &round_2_result.composition_poly_odd,
-    );
+                    layers_auth_paths_sym.push(auth_path_sym);
+                    layers_evaluations_sym.push(evaluation_sym);
+                }
+                iotas.push(iota_s);
 
-    (query_list, deep_consistency_check)
+                FriDecommitment {
+                    layers_auth_paths_sym,
+                    layers_evaluations_sym,
+                    first_layer_evaluation,
+                    first_layer_auth_path,
+                }
+                // * For every q_i, do FRI decommitment
+            })
+            .collect();
+
+        // Query
+        let deep_consistency_check = build_deep_consistency_check(
+            domain,
+            round_1_result,
+            iotas[0],
+            &round_2_result.composition_poly_even,
+            &round_2_result.composition_poly_odd,
+        );
+
+        (query_list, deep_consistency_check)
+    } else {
+        (
+            vec![],
+            DeepConsistencyCheck {
+                lde_trace_merkle_roots: vec![],
+                lde_trace_merkle_proofs: vec![],
+                lde_trace_evaluations: vec![],
+                composition_poly_evaluations: vec![],
+            },
+        )
+    }
 }
 
 fn round_4_compute_and_run_fri_on_the_deep_composition_polynomial<

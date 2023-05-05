@@ -2,13 +2,14 @@ pub use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_crypto::merkle_tree::proof::Proof;
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::IsField;
-use lambdaworks_math::traits::ByteConversion;
 
 use super::fri_commitment::FriLayer;
 #[derive(Debug, Clone)]
 pub struct FriDecommitment<F: IsField> {
-    pub layers_auth_paths: Vec<(Proof<F>, Proof<F>)>,
-    pub layers_evaluations: Vec<(FieldElement<F>, FieldElement<F>)>,
+    pub layers_auth_paths_sym: Vec<Proof<F>>,
+    pub layers_evaluations_sym: Vec<FieldElement<F>>,
+    pub first_layer_evaluation: FieldElement<F>,
+    pub first_layer_auth_path: Proof<F>,
 }
 
 pub fn open_layer<F: IsField>(layer: &FriLayer<F>, mut index: usize) -> (FieldElement<F>, Proof<F>) {
@@ -16,39 +17,6 @@ pub fn open_layer<F: IsField>(layer: &FriLayer<F>, mut index: usize) -> (FieldEl
     let evaluation = layer.evaluation[index].clone();
     let auth_path = layer.merkle_tree.get_proof_by_pos(index).unwrap();
     (evaluation, auth_path)
-}
-
-// verifier chooses a randomness and get the index where
-// they want to evaluate the poly
-// TODO: encapsulate the return type of this function in a struct.
-// This returns a list of authentication paths for evaluations on points and their symmetric counterparts.
-pub fn fri_decommit_layers<F: IsField>(
-    layers: &Vec<FriLayer<F>>,
-    index: usize,
-) -> FriDecommitment<F>
-where
-    FieldElement<F>: ByteConversion,
-{
-    let mut layer_auth_paths = vec![];
-    let mut layer_evaluations = vec![];
-
-    // with every element of the commit, we look for that one in
-    // the merkle tree and get the corresponding element
-    for layer in layers {
-        let (evaluation, auth_path) = open_layer(layer, index);
-
-        // symmetric element
-        let index_sym = (index + layer.domain.len() / 2) % layer.domain.len();
-        let (evaluation_sym, auth_path_sym) = open_layer(layer, index_sym);
-
-        layer_auth_paths.push((auth_path, auth_path_sym));
-        layer_evaluations.push((evaluation, evaluation_sym));
-    }
-
-    FriDecommitment {
-        layers_auth_paths: layer_auth_paths,
-        layers_evaluations: layer_evaluations,
-    }
 }
 
 // Integration test:
