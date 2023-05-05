@@ -133,7 +133,7 @@ pub fn gen_twiddles<F: IsFFTField>(
             shared_mem_bytes: 0,
         };
 
-        unsafe { kernel.clone().launch(config, (&mut d_twiddles, d_root)) }.unwrap();
+        unsafe { kernel.clone().launch(config, (&mut d_twiddles, &d_root)) }.unwrap();
     }
 
     let output = device.sync_reclaim(d_twiddles).unwrap();
