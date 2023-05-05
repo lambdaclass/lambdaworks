@@ -108,7 +108,7 @@ pub fn gen_twiddles<F: IsFFTField>(
                 .collect::<Vec<_>>(),
         )
         .unwrap();
-    let root = [CUDAFieldElement::from(&root)];
+    let root = vec![CUDAFieldElement::from(&root)];
     let d_root = device.htod_sync_copy(&root).unwrap();
 
     device.load_ptx(
