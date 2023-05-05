@@ -79,12 +79,54 @@ pub fn log2(n: usize) -> Result<u64, FieldError> {
     Ok(n.trailing_zeros() as u64)
 }
 
-//TODO implement in CUDA
 pub fn get_twiddles<F: IsFFTField>(
     order: u64,
     config: RootsConfig,
 ) -> Result<Vec<FieldElement<F>>, FieldError> {
-    get_powers_of_primitive_root(order, (1 << order) / 2, config)
+    let count = (1 << order) / 2;
+    let root = F::get_primitive_root_of_unity(order).unwrap();
+    let function_name;
+
+    let (root, function_name) = match config {
+        RootsConfig::Natual => (root, "calc_twiddles"),
+        RootsConfig::NaturalInversed => (root.inv(), "calc_twiddles"),
+        RootsConfig::BitReverse => (root, "calc_twiddles_bitrev"),
+        RootsConfig::BitReverseInversed => (root.inv(), "calc_twiddles_bitrev"),
+    };
+
+    let device = CudaDevice::new(0)?;
+
+    // d_ prefix is used to indicate device memory.
+    let mut d_twiddles =
+        device.htod_sync_copy((0..count).map(CUDAFieldElement::from).collect::<Vec<_>>())?;
+    let d_root = device.htod_sync_copy(&CUDAFieldElement::from(root))?;
+
+    device.load_ptx(Ptx::from_src(SHADER_PTX), "twiddles", &[function_name])?;
+    let kernel = device.get_func("twiddles", function_name).unwrap();
+
+    for stage in 0..order {
+        let group_count = 1 << stage;
+        let group_size = input.len() / group_count;
+
+        let grid_dim = (group_count as u32, 1, 1); // in blocks
+        let block_dim = (group_size as u32 / 2, 1, 1);
+
+        let config = LaunchConfig {
+            grid_dim,
+            block_dim,
+            shared_mem_bytes: 0,
+        };
+
+        unsafe { kernel.clone().launch(config, (&mut d_twiddles, &d_root)) }?;
+    }
+
+    let output = device.sync_reclaim(d_twiddles).unwrap();
+    let mut output: Vec<_> = output
+        .into_iter()
+        .map(|cuda_elem| cuda_elem.into())
+        .collect();
+
+    Ok(output)
 }
 
 //TODO remove after implementing in cuda
