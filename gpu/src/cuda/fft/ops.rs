@@ -1,7 +1,10 @@
-use lambdaworks_math::field::{element::FieldElement, traits::IsFFTField};
+use lambdaworks_math::field::{
+    element::FieldElement,
+    traits::{IsFFTField, RootsConfig},
+};
 
 use cudarc::{
-    driver::{CudaDevice, LaunchAsync, LaunchConfig},
+    driver::{CudaDevice, DriverError, LaunchAsync, LaunchConfig},
     nvrtc::safe::Ptx,
 };
 
