@@ -5,7 +5,7 @@ extern "C"
 {
 
     __global__ void calc_twiddles(p256::Fp *result,
-                                  const p256::Fp &_omega)
+                                  const p256::Fp _omega)
     {
         const uint index = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -24,7 +24,7 @@ extern "C"
     // };
 
     __global__ void calc_twiddles_bitrev(p256::Fp *result,
-                                         const p256::Fp &_omega)
+                                         const p256::Fp _omega)
     {
         const uint index = blockIdx.x * blockDim.x + threadIdx.x;
         const uint size = blockDim.x;
