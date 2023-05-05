@@ -85,7 +85,7 @@ mod tests {
         elliptic_curve::{
             short_weierstrass::{
                 curves::bls12_381::field_extension::{BLS12381PrimeField, Degree2ExtensionField},
-                point::{FieldEndianness, PointFormat, ShortWeierstrassProjectivePoint},
+                point::{Endianness, PointFormat, ShortWeierstrassProjectivePoint},
                 traits::IsShortWeierstrass,
             },
             traits::IsEllipticCurve,
@@ -111,12 +111,12 @@ mod tests {
     #[test]
     fn serialize_deserialize_generator() {
         let g = BLS12381TwistCurve::generator();
-        let bytes = g.serialize(PointFormat::Projective, FieldEndianness::LittleEndian);
+        let bytes = g.serialize(PointFormat::Projective, Endianness::LittleEndian);
 
         let deserialized = ShortWeierstrassProjectivePoint::<BLS12381TwistCurve>::deserialize(
             &bytes,
             PointFormat::Projective,
-            FieldEndianness::LittleEndian,
+            Endianness::LittleEndian,
         )
         .unwrap();
 
