@@ -28,9 +28,9 @@ pub trait ByteConversion {
 /// Used to serialize data to feed it into Fiat Shamir
 /// in some protocols, when ByteConversion is not avaible
 /// For example, when using Curve Points
-pub trait SimpleSerialization {
+pub trait Serializable {
     /// Returns the byte representation of the element in big-endian order.
-    fn simple_serialize(&self) -> Vec<u8>;
+    fn serialize(&self) -> Vec<u8>;
 }
 
 pub trait IsRandomFieldElementGenerator<F: IsField> {

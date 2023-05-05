@@ -3,7 +3,7 @@ use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::field::{element::FieldElement, traits::IsField};
 use lambdaworks_math::polynomial::Polynomial;
-use lambdaworks_math::traits::{ByteConversion, SimpleSerialization};
+use lambdaworks_math::traits::{ByteConversion, Serializable};
 
 // TODO: implement getters
 pub struct Witness<F: IsField> {
@@ -74,18 +74,18 @@ where
     F: IsField,
     FieldElement<F>: ByteConversion,
     CS: IsCommitmentScheme<F>,
-    CS::Commitment: SimpleSerialization,
+    CS::Commitment: Serializable,
 {
     let mut transcript = DefaultTranscript::new();
 
-    transcript.append(&vk.s1_1.simple_serialize());
-    transcript.append(&vk.s2_1.simple_serialize());
-    transcript.append(&vk.s3_1.simple_serialize());
-    transcript.append(&vk.ql_1.simple_serialize());
-    transcript.append(&vk.qr_1.simple_serialize());
-    transcript.append(&vk.qm_1.simple_serialize());
-    transcript.append(&vk.qo_1.simple_serialize());
-    transcript.append(&vk.qc_1.simple_serialize());
+    transcript.append(&vk.s1_1.serialize());
+    transcript.append(&vk.s2_1.serialize());
+    transcript.append(&vk.s3_1.serialize());
+    transcript.append(&vk.ql_1.serialize());
+    transcript.append(&vk.qr_1.serialize());
+    transcript.append(&vk.qm_1.serialize());
+    transcript.append(&vk.qo_1.serialize());
+    transcript.append(&vk.qc_1.serialize());
 
     for value in public_input.iter() {
         transcript.append(&value.to_bytes_be());
