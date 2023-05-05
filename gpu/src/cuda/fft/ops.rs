@@ -133,11 +133,11 @@ pub fn gen_twiddles<F: IsFFTField>(
             shared_mem_bytes: 0,
         };
 
-        unsafe { kernel.clone().launch(config, (&mut d_twiddles, &d_root)) }?;
+        unsafe { kernel.clone().launch(config, (&mut d_twiddles, d_root)) }.unwrap();
     }
 
     let output = device.sync_reclaim(d_twiddles).unwrap();
-    let mut output: Vec<_> = output
+    let output: Vec<_> = output
         .into_iter()
         .map(|cuda_elem| cuda_elem.into())
         .collect();
