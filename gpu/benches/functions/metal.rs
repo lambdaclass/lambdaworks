@@ -34,9 +34,7 @@ pub fn bitrev_permute(input: &[FE]) {
 
 pub fn poly_evaluate_fft(poly: &Polynomial<FE>) {
     // TODO: autoreleasepool hurts perf. by 2-3%. Search for an alternative
-    objc::rc::autoreleasepool(|| {
-        poly.evaluate_fft(1, None).unwrap()
-    });
+    objc::rc::autoreleasepool(|| poly.evaluate_fft(1, None).unwrap());
 }
 pub fn poly_interpolate_fft(evals: &[FE]) {
     // TODO: autoreleasepool hurts perf. by 2-3%. Search for an alternative
