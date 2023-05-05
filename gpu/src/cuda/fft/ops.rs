@@ -4,7 +4,7 @@ use lambdaworks_math::field::{
 };
 
 use cudarc::{
-    driver::{CudaDevice, DriverError, LaunchAsync, LaunchConfig},
+    driver::{CudaDevice, LaunchAsync, LaunchConfig},
     nvrtc::safe::Ptx,
 };
 
