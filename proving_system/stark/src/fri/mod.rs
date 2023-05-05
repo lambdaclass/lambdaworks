@@ -31,25 +31,27 @@ where
     let mut fri_layer_list = Vec::with_capacity(number_layers);
     let mut current_layer = FriLayer::new(p_0, domain_0);
 
-    // TODO: last layer is unnecesary. We should remove it
-    for _ in 0..number_layers {
-        fri_layer_list.push(current_layer.clone());
-        transcript.append(&current_layer.merkle_tree.root.to_bytes_be());
+    fri_layer_list.push(current_layer.clone());
+    transcript.append(&current_layer.merkle_tree.root.to_bytes_be());
+
+    for _ in 1..number_layers {
         let zeta = transcript_to_field(transcript);
         let next_poly = fold_polynomial(&current_layer.poly, &zeta);
         let next_domain = next_domain(&current_layer.domain);
         current_layer = FriLayer::new(next_poly, &next_domain);
+        fri_layer_list.push(current_layer.clone());
+        transcript.append(&current_layer.merkle_tree.root.to_bytes_be());
     }
-    fri_layer_list.push(current_layer.clone());
 
-    let last_value = current_layer
-        .poly
+    let zeta = transcript_to_field(transcript);
+    let last_poly = fold_polynomial(&current_layer.poly, &zeta);
+
+    let last_value = last_poly
         .coefficients()
         .get(0)
         .unwrap_or(&FieldElement::zero())
         .clone();
 
-    // append last value of the polynomial to the transcript
     let last_coef_bytes = last_value.to_bytes_be();
     transcript.append(&last_coef_bytes);
 

@@ -259,8 +259,6 @@ where
                 let mut layers_auth_paths_sym = vec![];
                 let mut layers_evaluations_sym = vec![];
 
-                // with every element of the commit, we look for that one in
-                // the merkle tree and get the corresponding element
                 for layer in fri_layers {
                     // symmetric element
                     let index_sym = (iota_s + layer.domain.len() / 2) % layer.domain.len();
@@ -277,7 +275,6 @@ where
                     first_layer_evaluation,
                     first_layer_auth_path,
                 }
-                // * For every q_i, do FRI decommitment
             })
             .collect();
 

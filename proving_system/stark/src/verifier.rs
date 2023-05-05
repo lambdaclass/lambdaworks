@@ -141,7 +141,7 @@ where
     // construct vector of betas
     let mut beta_list: Vec<FieldElement<F>> = Vec::new();
     let merkle_roots = &proof.fri_layers_merkle_roots;
-    for root in merkle_roots.iter().take(merkle_roots.len() - 1) {
+    for root in merkle_roots.iter() {
         let root_bytes = root.to_bytes_be();
         transcript.append(&root_bytes);
 
@@ -389,7 +389,6 @@ where
         .enumerate()
         // Since we always derive the current layer from the previous layer
         // We start with the second one, skipping the first, so previous is layer is the first one
-        .take(fri_layers_merkle_roots.len() - 1)
     {
         // This is the current layer's evaluation domain length. We need it to know what the decommitment index for the current
         // layer is, so we can check the merkle paths at the right index.
