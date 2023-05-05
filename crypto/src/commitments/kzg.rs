@@ -9,7 +9,7 @@ use lambdaworks_math::{
     polynomial::Polynomial,
     traits::{Deserializable, Serializable},
 };
-use std::{fs::File, io::Read, marker::PhantomData, mem};
+use std::{io::Read, marker::PhantomData, mem};
 
 #[derive(PartialEq, Clone, Debug)]
 pub struct StructuredReferenceString<G1Point, G2Point> {
@@ -37,9 +37,7 @@ where
     G2Point: IsGroup + Deserializable,
 {
     pub fn from_file(file_path: &str) -> Result<Self, SrsFromFileError> {
-        let mut f = File::open(file_path)?;
-        let mut bytes: Vec<u8> = Vec::new();
-        f.read_to_end(&mut bytes)?;
+        let bytes = std::fs::read(file_path)?;
         Ok(Self::deserialize(&bytes)?)
     }
 }
