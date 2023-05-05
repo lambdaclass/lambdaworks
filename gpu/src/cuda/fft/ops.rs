@@ -12,6 +12,7 @@ use crate::cuda::abstractions::{element::CUDAFieldElement, errors::CudaError};
 
 const SHADER_PTX_FFT: &str = include_str!("../shaders/fft.ptx");
 const SHADER_PTX_TWIDDLES: &str = include_str!("../shaders/twiddles.ptx");
+const SHADER_PTX_BITREV_PERMUTATION: &str = include_str!("../shaders/bitrev_permutation.ptx");
 
 /// Executes parallel ordered FFT over a slice of two-adic field elements, in CUDA.
 /// Twiddle factors are required to be in bit-reverse order.
@@ -80,13 +81,12 @@ where
         .sync_reclaim(d_input)
         .map_err(|err| CudaError::RetrieveMemory(err.to_string()))?;
 
-    let mut output: Vec<_> = output
+    let output: Vec<_> = output
         .into_iter()
         .map(|cuda_elem| cuda_elem.into())
         .collect();
 
-    in_place_bit_reverse_permute(&mut output);
-    Ok(output)
+    bitrev_permutation(output)
 }
 
 pub fn gen_twiddles<F: IsFFTField>(
@@ -152,23 +152,61 @@ pub fn gen_twiddles<F: IsFFTField>(
     Ok(output)
 }
 
-// TODO: remove after implementing in cuda
-pub(crate) fn in_place_bit_reverse_permute<E>(input: &mut [E]) {
-    for i in 0..input.len() {
-        let bit_reversed_index = reverse_index(&i, input.len() as u64);
-        if bit_reversed_index > i {
-            input.swap(i, bit_reversed_index);
-        }
-    }
-}
+pub fn bitrev_permutation<F: IsFFTField>(
+    input: Vec<FieldElement<F>>,
+) -> Result<Vec<FieldElement<F>>, CudaError> {
+    let device = CudaDevice::new(0).map_err(|err| CudaError::DeviceNotFound(err.to_string()))?;
 
-// TODO: remove after implementing in cuda
-pub(crate) fn reverse_index(i: &usize, size: u64) -> usize {
-    if size == 1 {
-        *i
-    } else {
-        i.reverse_bits() >> (usize::BITS - size.trailing_zeros())
-    }
+    // d_ prefix is used to indicate device memory.
+    let d_input = device
+        .htod_sync_copy(
+            &input
+                .map(|i| CUDAFieldElement::from(&FieldElement::from(i)))
+                .collect::<Vec<_>>(),
+        )
+        .map_err(|err| CudaError::AllocateMemory(err.to_string()))?;
+
+    let mut d_output = device
+        .htod_sync_copy(
+            &(0..input.len())
+                .map(|i| CUDAFieldElement::from(&FieldElement::from(i)))
+                .collect::<Vec<_>>(),
+        )
+        .map_err(|err| CudaError::AllocateMemory(err.to_string()))?;
+
+    device
+        .load_ptx(
+            Ptx::from_src(SHADER_PTX_BITREV_PERMUTATION),
+            "bitrev_permutation",
+            &["bitrev_permutation"],
+        )
+        .map_err(|err| CudaError::PtxError(err.to_string()))?;
+
+    let kernel = device
+        .get_func("bitrev_permutation", "bitrev_permutation")
+        .ok_or_else(|| CudaError::FunctionError("bitrev_permutation".to_string()))?;
+
+    let grid_dim = (1 as u32, 1, 1); // in blocks
+    let block_dim = (count as u32, 1, 1);
+
+    let config = LaunchConfig {
+        grid_dim,
+        block_dim,
+        shared_mem_bytes: 0,
+    };
+
+    unsafe { kernel.clone().launch(config, (&d_input, &mut d_output)) }
+        .map_err(|err| CudaError::Launch(err.to_string()))?;
+
+    let output = device
+        .sync_reclaim(d_twiddles)
+        .map_err(|err| CudaError::RetrieveMemory(err.to_string()))?;
+    let output: Vec<_> = output
+        .into_iter()
+        .map(|cuda_elem| cuda_elem.into())
+        .collect();
+
+    Ok(output)
 }
 
 #[cfg(test)]
