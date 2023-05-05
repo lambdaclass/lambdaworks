@@ -8,6 +8,8 @@ use lambdaworks_gpu::metal::abstractions::errors::MetalError;
 pub enum FFTError {
     #[error("Could not calculate {1} root of unity")]
     RootOfUnityError(String, u64),
+    #[error("Input length is {0}, which is not a power of two")]
+    InputError(usize),
     #[cfg(feature = "metal")]
     #[error("A Metal related error has ocurred")]
     MetalError(MetalError),
