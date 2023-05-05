@@ -5,7 +5,7 @@ use crate::{
         traits::{EllipticCurveError, FromAffine, IsEllipticCurve},
     },
     field::element::FieldElement,
-    traits::{ByteConversion, Serializable, Deserializable},
+    traits::{ByteConversion, Deserializable, Serializable},
 };
 
 use super::{errors::DeserializationError, traits::IsShortWeierstrass};
@@ -227,13 +227,15 @@ where
     }
 }
 
-
 impl<E> Deserializable for ShortWeierstrassProjectivePoint<E>
 where
     E: IsShortWeierstrass,
     FieldElement<E::BaseField>: ByteConversion,
 {
-    fn deserialize(bytes: &[u8]) -> Result<Self, DeserializationError> where Self: Sized {
+    fn deserialize(bytes: &[u8]) -> Result<Self, DeserializationError>
+    where
+        Self: Sized,
+    {
         Self::deserialize(bytes, PointFormat::Projective, Endianness::LittleEndian)
     }
 }

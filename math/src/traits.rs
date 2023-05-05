@@ -1,6 +1,7 @@
 use crate::{
+    elliptic_curve::short_weierstrass::errors::DeserializationError,
     errors::ByteConversionError,
-    field::{element::FieldElement, traits::IsField}, elliptic_curve::short_weierstrass::errors::DeserializationError,
+    field::{element::FieldElement, traits::IsField},
 };
 
 /// A trait for converting an element to and from its byte representation and
@@ -33,7 +34,9 @@ pub trait Serializable {
 
 pub trait Deserializable {
     /// Returns the byte representation of the element in big-endian order.
-    fn deserialize(bytes: &[u8]) -> Result<Self, DeserializationError> where Self: Sized;
+    fn deserialize(bytes: &[u8]) -> Result<Self, DeserializationError>
+    where
+        Self: Sized;
 }
 
 pub trait IsRandomFieldElementGenerator<F: IsField> {

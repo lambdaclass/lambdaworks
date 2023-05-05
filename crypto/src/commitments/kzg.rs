@@ -1,12 +1,13 @@
+use super::traits::IsCommitmentScheme;
 use lambdaworks_math::{
     cyclic_group::IsGroup,
-    elliptic_curve::{traits::IsPairing, short_weierstrass::errors::DeserializationError},
+    elliptic_curve::{short_weierstrass::errors::DeserializationError, traits::IsPairing},
     field::{element::FieldElement, traits::IsPrimeField},
     msm::msm,
-    polynomial::Polynomial, traits::{Deserializable, Serializable},
+    polynomial::Polynomial,
+    traits::{Deserializable, Serializable},
 };
-use std::{marker::PhantomData, mem, fs::{File}, io::Read};
-use super::traits::IsCommitmentScheme;
+use std::{fs::File, io::Read, marker::PhantomData, mem};
 
 #[derive(PartialEq, Clone, Debug)]
 pub struct StructuredReferenceString<G1Point, G2Point> {
@@ -28,13 +29,12 @@ where
     }
 }
 
-
 impl<G1Point, G2Point> StructuredReferenceString<G1Point, G2Point>
 where
     G1Point: IsGroup + Deserializable,
     G2Point: IsGroup + Deserializable,
 {
-    pub fn from_file(file_path: &str) -> Self{
+    pub fn from_file(file_path: &str) -> Self {
         let mut f = File::open(file_path).expect("no file found");
         let mut bytes: Vec<u8> = Vec::new();
         f.read_to_end(&mut bytes).unwrap();
@@ -48,10 +48,9 @@ where
     G2Point: IsGroup + Serializable,
 {
     fn serialize(&self) -> Vec<u8> {
-
         let mut serialized_data: Vec<u8> = Vec::new();
         // First 4 bytes encodes protocol version
-        let protocol_version: [u8;4] = [0;4];
+        let protocol_version: [u8; 4] = [0; 4];
 
         serialized_data.extend(&protocol_version);
 
@@ -63,7 +62,7 @@ where
         while main_group_len_bytes.len() < 8 {
             main_group_len_bytes.push(0)
         }
-    
+
         serialized_data.extend(&main_group_len_bytes);
 
         // G1 elements
@@ -86,14 +85,13 @@ where
     G2Point: IsGroup + Deserializable,
 {
     fn deserialize(bytes: &[u8]) -> Result<Self, DeserializationError> {
+        let main_group_len_u64 = u64::from_le_bytes(
+            // This unwrap can't fail since we are fixing the size of the slice
+            bytes[4..12].try_into().unwrap(),
+        );
 
-        let main_group_len_u64 
-            = u64::from_le_bytes(
-                // This unwrap can't fail since we are fixing the size of the slice
-                bytes[4..12].try_into().unwrap()
-            );
-
-        let main_group_len = usize::try_from(main_group_len_u64).map_err(|_| DeserializationError::PointerSizeError)? ;
+        let main_group_len = usize::try_from(main_group_len_u64)
+            .map_err(|_| DeserializationError::PointerSizeError)?;
 
         let mut main_group: Vec<G1Point> = Vec::new();
         let mut secondary_group: Vec<G2Point> = Vec::new();
@@ -104,26 +102,30 @@ where
         for i in 0..main_group_len {
             // The second unwrap shouldn't fail since the amount of bytes is fixed
             let point = G1Point::deserialize(
-                bytes[i*size_g1_point+12..i*size_g1_point+size_g1_point+12].try_into().unwrap()
-            ).unwrap();
+                bytes[i * size_g1_point + 12..i * size_g1_point + size_g1_point + 12]
+                    .try_into()
+                    .unwrap(),
+            )
+            .unwrap();
             main_group.push(point);
         }
 
-        let g2s_offset = size_g1_point*main_group_len+12;
+        let g2s_offset = size_g1_point * main_group_len + 12;
         for i in 0..2 {
             // The second unwrap shouldn't fail since the amount of bytes is fixed
             let point = G2Point::deserialize(
-                bytes[i*size_g2_point+g2s_offset..i*size_g2_point+g2s_offset+size_g2_point].try_into().unwrap()
-            ).unwrap();
+                bytes[i * size_g2_point + g2s_offset
+                    ..i * size_g2_point + g2s_offset + size_g2_point]
+                    .try_into()
+                    .unwrap(),
+            )
+            .unwrap();
             secondary_group.push(point);
         }
 
-        let secondary_group_slice = [secondary_group[0].clone(),secondary_group[1].clone()];
-        
-        let srs = StructuredReferenceString::new(
-            &main_group,
-            &secondary_group_slice
-        );
+        let secondary_group_slice = [secondary_group[0].clone(), secondary_group[1].clone()];
+
+        let srs = StructuredReferenceString::new(&main_group, &secondary_group_slice);
         Ok(srs)
     }
 }
@@ -263,7 +265,8 @@ mod tests {
             fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
         },
         polynomial::Polynomial,
-        unsigned_integer::element::U256, traits::{Deserializable, Serializable},
+        traits::{Deserializable, Serializable},
+        unsigned_integer::element::U256,
     };
 
     use crate::commitments::traits::IsCommitmentScheme;
@@ -329,21 +332,25 @@ mod tests {
         let srs = create_srs();
         let bytes = srs.serialize();
         let deserialized: StructuredReferenceString<
-            ShortWeierstrassProjectivePoint<BLS12381Curve>,ShortWeierstrassProjectivePoint<BLS12381TwistCurve>
+            ShortWeierstrassProjectivePoint<BLS12381Curve>,
+            ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
         > = StructuredReferenceString::deserialize(&bytes).unwrap();
-    
+
         assert_eq!(srs, deserialized);
     }
 
     #[test]
     fn load_srs_from_file() {
-        type TestSrsType = StructuredReferenceString<ShortWeierstrassProjectivePoint<BLS12381Curve>, ShortWeierstrassProjectivePoint<BLS12381TwistCurve>>;
-        
+        type TestSrsType = StructuredReferenceString<
+            ShortWeierstrassProjectivePoint<BLS12381Curve>,
+            ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
+        >;
+
         let base_dir = env!("CARGO_MANIFEST_DIR");
         let srs_file = base_dir.to_owned() + "/src/commitments/test_srs/srs_3_g1_elements.bin";
-        
+
         let srs = TestSrsType::from_file(&srs_file);
-    
+
         assert_eq!(srs.powers_main_group.len(), 3);
     }
 }
