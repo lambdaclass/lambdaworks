@@ -115,7 +115,7 @@ pub fn gen_twiddles<F: IsFFTField>(
     device.load_ptx(
         Ptx::from_src(SHADER_PTX_TWIDDLES),
         "twiddles",
-        &[function_name],
+        &["calc_twiddles_bitrev", "calc_twiddles"],
     )?;
     let kernel = device.get_func("twiddles", function_name).unwrap();
 
