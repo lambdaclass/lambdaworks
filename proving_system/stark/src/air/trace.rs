@@ -9,14 +9,14 @@ use lambdaworks_math::{
 use log::{error, info};
 
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
-pub struct AuxSegmentInfo {
-    aux_segment_widths: Vec<usize>,
-    aux_segment_rands: Vec<usize>,
-    pub num_aux_segments: usize,
+pub struct AuxSegmentsInfo {
+    pub(crate) aux_segment_widths: Vec<usize>,
+    pub(crate) aux_segment_rands: Vec<usize>,
+    pub(crate) num_aux_segments: usize,
 }
 
-impl AuxSegmentInfo {
-    fn new(aux_segment_widths: Vec<usize>, aux_segment_rands: Vec<usize>) -> AuxSegmentInfo {
+impl AuxSegmentsInfo {
+    fn new(aux_segment_widths: Vec<usize>, aux_segment_rands: Vec<usize>) -> Self {
         debug_assert_eq!(aux_segment_widths.len(), aux_segment_rands.len());
         Self {
             aux_segment_rands,

@@ -15,19 +15,22 @@ use super::{
 
 pub struct ConstraintEvaluator<'poly, F: IsFFTField, A: AIR> {
     air: A,
-    trace_polys: &'poly [Polynomial<FieldElement<F>>],
+    main_trace_polys: &'poly [Polynomial<FieldElement<F>>],
+    aux_trace_polys: &'poly [Vec<Polynomial<FieldElement<F>>>],
     primitive_root: FieldElement<F>,
 }
 
 impl<'poly, F: IsFFTField, A: AIR<Field = F>> ConstraintEvaluator<'poly, F, A> {
     pub fn new(
         air: &A,
-        trace_polys: &'poly [Polynomial<FieldElement<F>>],
+        main_trace_polys: &'poly [Polynomial<FieldElement<F>>],
+        aux_trace_polys: &'poly [Vec<Polynomial<FieldElement<F>>>],
         primitive_root: &FieldElement<F>,
     ) -> Self {
         Self {
             air: air.clone(),
-            trace_polys,
+            main_trace_polys,
+            aux_trace_polys,
             primitive_root: primitive_root.clone(),
         }
     }
@@ -46,7 +49,7 @@ impl<'poly, F: IsFFTField, A: AIR<Field = F>> ConstraintEvaluator<'poly, F, A> {
             lde_domain,
         );
 
-        let n_trace_colums = self.trace_polys.len();
+        let n_trace_colums = self.main_trace_polys.len();
         let main_boundary_constraints = self.air.boundary_constraints();
         // let aux_boundary_constraints = self.air.aux_boundary_constraints().to_vec();
 
@@ -62,26 +65,62 @@ impl<'poly, F: IsFFTField, A: AIR<Field = F>> ConstraintEvaluator<'poly, F, A> {
             main_boundary_constraints.generate_roots_of_unity(&self.primitive_root, n_trace_colums);
         let values = main_boundary_constraints.values(n_trace_colums);
 
-        let boundary_polys: Vec<Polynomial<FieldElement<F>>> = zip(domains, values)
-            .zip(self.trace_polys)
+        // Main trace boundary polys
+        let main_boundary_polys: Vec<Polynomial<FieldElement<F>>> = zip(domains, values)
+            .zip(self.main_trace_polys)
             .map(|((xs, ys), trace_poly)| trace_poly - &Polynomial::interpolate(&xs, &ys))
             .collect();
-
         let main_boundary_zerofiers: Vec<Polynomial<FieldElement<F>>> = (0..n_trace_colums)
             .map(|col| main_boundary_constraints.compute_zerofier(&self.primitive_root, col))
             .collect();
 
-        let boundary_polys_max_degree = boundary_polys
-            .iter()
-            .zip(&main_boundary_zerofiers)
-            .map(|(poly, zerofier)| poly.degree() - zerofier.degree())
-            .max()
-            .unwrap();
+        // Auxiliary trace boundary polys
+        let n_aux_segments = self.air.num_aux_segments();
+        let mut aux_rand_elements = Vec::with_capacity(n_aux_segments);
+        if self.air.is_multi_segment() {
+            (0..n_aux_segments).for_each(|segment_idx| {
+                let aux_segment_rand_elements =
+                    self.air.aux_segment_rand_coeffs(segment_idx, transcript);
+                let aux_segment_polys = &self.aux_trace_polys[segment_idx];
+                let aux_segment_boundary_constraints = self
+                    .air
+                    .aux_boundary_constraints(segment_idx, &aux_segment_rand_elements);
+
+                let aux_segment_width = self.air.aux_segment_width(segment_idx);
+                let aux_segment_boundary_domains = aux_segment_boundary_constraints
+                    .generate_roots_of_unity(&self.primitive_root, aux_segment_width);
+                let aux_segment_boundary_values =
+                    main_boundary_constraints.values(aux_segment_width);
+
+                let aux_trace_polys = &self.aux_trace_polys[segment_idx];
+
+                let aux_segment_boundary_polys: Vec<Polynomial<FieldElement<F>>> =
+                    zip(aux_segment_boundary_domains, aux_segment_boundary_values)
+                        .zip(aux_trace_polys)
+                        .map(|((xs, ys), aux_trace_poly)| {
+                            aux_trace_poly - &Polynomial::interpolate(&xs, &ys)
+                        })
+                        .collect();
+
+                let aux_boundary_zerofiers: Vec<Polynomial<FieldElement<F>>> = (0
+                    ..aux_segment_width)
+                    .map(|aux_col| {
+                        aux_segment_boundary_constraints
+                            .compute_zerofier(&self.primitive_root, aux_col)
+                    })
+                    .collect();
+
+                aux_rand_elements.push(aux_segment_rand_elements);
+            })
+        }
+
+        let boundary_polys_max_degree =
+            boundary_polys_max_degree(&main_boundary_polys, &main_boundary_zerofiers);
 
         let transition_degrees = self.air.context().transition_degrees();
         let transition_zerofiers = self.air.transition_divisors();
         let transition_polys_max_degree = self
-            .trace_polys
+            .main_trace_polys
             .iter()
             .zip(&transition_zerofiers)
             .zip(&transition_degrees)
@@ -96,7 +135,6 @@ impl<'poly, F: IsFFTField, A: AIR<Field = F>> ConstraintEvaluator<'poly, F, A> {
         let max_degree_power_of_two = helpers::next_power_of_two(max_degree as u64);
 
         let blowup_factor = self.air.blowup_factor();
-
         // Iterate over trace and domain and compute transitions
         for (i, d) in lde_domain.iter().enumerate() {
             let main_frame = Frame::read_from_trace(
@@ -131,6 +169,7 @@ impl<'poly, F: IsFFTField, A: AIR<Field = F>> ConstraintEvaluator<'poly, F, A> {
                     evaluations.extend_from_slice(&aux_evaluations);
                 });
             }
+
             // let aux_evaluations = self.air.compute_aux_transition(&aux_frame);
             evaluations = Self::compute_constraint_composition_poly_evaluations(
                 &self.air,
@@ -140,7 +179,7 @@ impl<'poly, F: IsFFTField, A: AIR<Field = F>> ConstraintEvaluator<'poly, F, A> {
                 d,
             );
 
-            let boundary_evaluation = zip(&boundary_polys, &main_boundary_zerofiers)
+            let boundary_evaluation = zip(&main_boundary_polys, &main_boundary_zerofiers)
                 .enumerate()
                 .map(|(index, (boundary_poly, boundary_zerofier))| {
                     let quotient_degree = boundary_poly.degree() - boundary_zerofier.degree();
@@ -204,4 +243,17 @@ impl<'poly, F: IsFFTField, A: AIR<Field = F>> ConstraintEvaluator<'poly, F, A> {
 
         ret
     }
+}
+
+// Maybe this could be in a helpers or utils file
+fn boundary_polys_max_degree<F: IsFFTField>(
+    boundary_polys: &[Polynomial<FieldElement<F>>],
+    boundary_zerofier_polys: &[Polynomial<FieldElement<F>>],
+) -> usize {
+    boundary_polys
+        .iter()
+        .zip(boundary_zerofier_polys)
+        .map(|(poly, zerofier)| poly.degree() - zerofier.degree())
+        .max()
+        .unwrap()
 }

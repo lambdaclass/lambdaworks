@@ -100,7 +100,7 @@ impl CairoAIR {
 
         let layout = TraceLayout {
             main_segment_width: trace.main_segment_width,
-            aux_segment_info: None,
+            aux_segments_info: None,
         };
 
         let trace_info = TraceInfo {

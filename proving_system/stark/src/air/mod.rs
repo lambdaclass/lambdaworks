@@ -2,7 +2,7 @@ use self::{
     constraints::boundary::BoundaryConstraints,
     context::{AirContext, ProofOptions},
     frame::Frame,
-    trace::{AuxSegmentInfo, AuxiliarySegment, TraceTable},
+    trace::{AuxSegmentsInfo, AuxiliarySegment, TraceTable},
 };
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_fft::roots_of_unity::get_powers_of_primitive_root_coset;
@@ -20,7 +20,7 @@ pub mod trace;
 #[derive(Clone, Debug)]
 pub struct TraceLayout {
     pub main_segment_width: usize,
-    pub aux_segment_info: Option<AuxSegmentInfo>,
+    pub aux_segments_info: Option<AuxSegmentsInfo>,
 }
 
 #[derive(Clone, Debug)]
@@ -85,11 +85,18 @@ pub trait AIR: Clone {
         self.trace_info().trace_length
     }
     fn num_aux_segments(&self) -> usize {
-        if let Some(info) = self.trace_info().layout.aux_segment_info {
+        if let Some(info) = self.trace_info().layout.aux_segments_info {
             info.num_aux_segments
         } else {
             0
         }
+    }
+
+    fn aux_segment_width(&self, segment_idx: usize) -> usize {
+        if let Some(info) = self.trace_info().layout.aux_segments_info {
+            return info.aux_segment_widths[segment_idx];
+        }
+        0
     }
 
     #[allow(unused)]
@@ -123,6 +130,7 @@ pub trait AIR: Clone {
     #[allow(unused_variables)]
     fn aux_boundary_constraints(
         &self,
+        segment_idx: usize,
         aux_rand_elements: &[FieldElement<Self::Field>],
     ) -> BoundaryConstraints<Self::Field> {
         BoundaryConstraints::new()

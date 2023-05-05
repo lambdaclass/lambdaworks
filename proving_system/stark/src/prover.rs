@@ -250,10 +250,19 @@ where
     A: AIR<Field = F>,
     T: Transcript,
 {
+    let main_trace_polys = &round_1_result.main_trace_polys;
+
+    let aux_trace_polys_default = Vec::new();
+    let aux_trace_polys = round_1_result
+        .aux_trace_polys
+        .as_ref()
+        .unwrap_or(&aux_trace_polys_default);
+
     // Create evaluation table
     let evaluator = ConstraintEvaluator::new(
         air,
-        &round_1_result.main_trace_polys,
+        main_trace_polys,
+        aux_trace_polys,
         &domain.trace_primitive_root,
     );
 
