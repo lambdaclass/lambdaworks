@@ -17,7 +17,7 @@ where
     F: IsFFTField,
     F::BaseType: Unpin,
 {
-    let state = CudaState::new().unwrap();
+    let state = CudaState::new()?;
     let order = log2(poly.coefficients.len())?;
     let twiddles = get_twiddles(order, RootsConfig::BitReverse)?;
 
