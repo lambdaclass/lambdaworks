@@ -5,6 +5,7 @@ pub struct AirContext {
     pub options: ProofOptions,
     pub trace_info: TraceInfo,
     pub transition_degrees: Vec<usize>,
+    pub aux_transition_degrees: Option<Vec<usize>>,
     /// This is a vector with the indices of all the rows that constitute
     /// an evaluation frame. Note that, because of how we write all constraints
     /// in one method (`compute_transitions`), this vector needs to include the

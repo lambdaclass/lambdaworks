@@ -116,6 +116,7 @@ impl CairoAIR {
                 1, // Flag 15
                 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, // Other constraints.
             ],
+            aux_transition_degrees: None,
             transition_exemptions: vec![1; 31],
             transition_offsets: vec![0, 1],
             aux_transition_offsets: None,
