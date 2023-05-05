@@ -118,21 +118,16 @@ pub fn gen_twiddles<F: IsFFTField>(
     )?;
     let kernel = device.get_func("twiddles", function_name).unwrap();
 
-    for stage in 0..order {
-        let group_count = 1 << stage;
-        let group_size = count / group_count;
+    let grid_dim = (1 as u32, 1, 1); // in blocks
+    let block_dim = (count as u32, 1, 1);
 
-        let grid_dim = (group_count as u32, 1, 1); // in blocks
-        let block_dim = (group_size as u32 / 2, 1, 1);
+    let config = LaunchConfig {
+        grid_dim,
+        block_dim,
+        shared_mem_bytes: 0,
+    };
 
-        let config = LaunchConfig {
-            grid_dim,
-            block_dim,
-            shared_mem_bytes: 0,
-        };
-
-        unsafe { kernel.clone().launch(config, (&mut d_twiddles, &d_root)) }.unwrap();
-    }
+    unsafe { kernel.clone().launch(config, (&mut d_twiddles, &d_root)) }.unwrap();
 
     let output = device.sync_reclaim(d_twiddles).unwrap();
     let output: Vec<_> = output
