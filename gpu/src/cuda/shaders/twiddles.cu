@@ -7,7 +7,7 @@ extern "C"
     __global__ void calc_twiddles(p256::Fp *result,
                                   const p256::Fp *_omega)
     {
-        const uint index = blockIdx.x * blockDim.x + threadIdx.x;
+        unsigned index = blockIdx.x * blockDim.x + threadIdx.x;
 
         p256::Fp omega = _omega[0];
         result[index] = omega.pow(index);
@@ -26,8 +26,8 @@ extern "C"
     __global__ void calc_twiddles_bitrev(p256::Fp *result,
                                          const p256::Fp *_omega)
     {
-        const uint index = blockIdx.x * blockDim.x + threadIdx.x;
-        const uint size = blockDim.x;
+        unsigned index = blockIdx.x * blockDim.x + threadIdx.x;
+        unsigned size = blockDim.x;
 
         p256::Fp omega = _omega[0];
         result[index] = omega.pow(reverse_index(index, size));
