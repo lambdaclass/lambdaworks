@@ -47,7 +47,11 @@ where
         .map_err(|err| CudaError::AllocateMemory(err.to_string()))?;
 
     device
-        .load_ptx(Ptx::from_src(SHADER_PTX), "fft", &["radix2_dit_butterfly"])
+        .load_ptx(
+            Ptx::from_src(SHADER_PTX_FFT),
+            "fft",
+            &["radix2_dit_butterfly"],
+        )
         .map_err(|err| CudaError::PtxError(err.to_string()))?;
 
     let kernel = device
@@ -88,7 +92,7 @@ where
 pub fn gen_twiddles<F: IsFFTField>(
     order: u64,
     config: RootsConfig,
-) -> Result<Vec<FieldElement<F>>, DriverError> {
+) -> Result<Vec<FieldElement<F>>, CudaError> {
     let count = (1 << order) / 2;
     let root: FieldElement<F> = F::get_primitive_root_of_unity(order)?;
 
