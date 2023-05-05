@@ -12,7 +12,8 @@ template <
     unsigned long R_SQUARED_2, unsigned long R_SQUARED_3,
     /* =N_PRIME **/ unsigned long N_PRIME_0, unsigned long N_PRIME_1,
     unsigned long N_PRIME_2, unsigned long N_PRIME_3>
-class Fp256 {
+class Fp256
+{
 public:
   Fp256() = default;
   __device__ constexpr Fp256(unsigned long v) : inner(v) {}
@@ -20,26 +21,32 @@ public:
 
   __device__ constexpr explicit operator u256() const { return inner; }
 
-  __device__ constexpr Fp256 operator+(const Fp256 rhs) const {
+  __device__ constexpr Fp256 operator+(const Fp256 rhs) const
+  {
     return Fp256(add(inner, rhs.inner));
   }
 
-  __device__ constexpr Fp256 operator-(const Fp256 rhs) const {
+  __device__ constexpr Fp256 operator-(const Fp256 rhs) const
+  {
     return Fp256(sub(inner, rhs.inner));
   }
 
-  __device__ Fp256 operator*(const Fp256 rhs) const {
+  __device__ Fp256 operator*(const Fp256 rhs) const
+  {
     return Fp256(mul(inner, rhs.inner));
   }
 
   // TODO: make method for all fields
-  __device__ Fp256 pow(unsigned exp) {
+  __device__ Fp256 pow(unsigned exp)
+  {
     // TODO find a way to generate on compile time
     Fp256 const ONE = mul(u256(1), R_SQUARED);
     Fp256 res = ONE;
 
-    while (exp > 0) {
-      if (exp & 1) {
+    while (exp > 0)
+    {
+      if (exp & 1)
+      {
         res = res * *this;
       }
       exp >>= 1;
@@ -49,7 +56,8 @@ public:
     return res;
   }
 
-  __device__ Fp256 inverse() {
+  __device__ Fp256 inverse()
+  {
     // used addchain
     // https://github.com/mmcloughlin/addchain
     u256 _10 = mul(inner, inner);
@@ -84,7 +92,8 @@ public:
     return Fp256(mul(sqn<60>(i208), x60));
   }
 
-  __device__ Fp256 neg() {
+  __device__ Fp256 neg()
+  {
     // TODO: can improve
     return Fp256(sub(0, inner));
   }
@@ -104,10 +113,13 @@ private:
            0xFFFFFFFFFFFFFFFF) -
       N + u256(1);
 
-  template <unsigned N_ACC> __device__ u256 sqn(u256 base) const {
+  template <unsigned N_ACC>
+  __device__ u256 sqn(u256 base) const
+  {
     u256 result = base;
 #pragma unroll
-    for (unsigned i = 0; i < N_ACC; i++) {
+    for (unsigned i = 0; i < N_ACC; i++)
+    {
       result = mul(result, result);
     }
     return result;
@@ -115,7 +127,8 @@ private:
 
   // Computes `lhs + rhs mod N`
   // Returns value in range [0,N)
-  __device__ inline u256 add(const u256 lhs, const u256 rhs) const {
+  __device__ inline u256 add(const u256 lhs, const u256 rhs) const
+  {
     u256 addition = (lhs + rhs);
     u256 res = addition;
     // TODO: determine if an if statement here are more optimal
@@ -124,7 +137,8 @@ private:
 
   // Computes `lhs - rhs mod N`
   // Assumes `rhs` value in range [0,N)
-  __device__ inline u256 sub(const u256 lhs, const u256 rhs) const {
+  __device__ inline u256 sub(const u256 lhs, const u256 rhs) const
+  {
     // TODO: figure what goes on here with "constant" scope variables
     return add(lhs, ((u256)N) - rhs);
   }
@@ -137,7 +151,8 @@ private:
   // Reference:
   // - https://en.wikipedia.org/wiki/Montgomery_modular_multiplication (REDC)
   // - https://www.youtube.com/watch?v=2UmQDKcelBQ
-  __device__ u256 mul(const u256 lhs, const u256 rhs) const {
+  __device__ u256 mul(const u256 lhs, const u256 rhs) const
+  {
     u256 lhs_low = lhs.low;
     u256 lhs_high = lhs.high;
     u256 rhs_low = rhs.low;
@@ -194,17 +209,18 @@ private:
   }
 };
 
-namespace p256 {
-// StarkWare field for Cairo
-// P =
-// 3618502788666131213697322783095070105623107215331596699973092056135872020481
-using Fp = Fp256<
-    /* =N **/ /*u256(*/ 576460752303423505, 0, 0, 1 /*)*/,
-    /* =R_SQUARED **/ /*u256(*/ 576413109808302096, 18446744073700081664,
-    5151653887, 18446741271209837569 /*)*/,
-    /* =N_PRIME **/ /*u256(*/ 576460752303423504, 18446744073709551615,
-    18446744073709551615, 18446744073709551615 /*)*/
-    >;
+namespace p256
+{
+  // StarkWare field for Cairo
+  // P =
+  // 3618502788666131213697322783095070105623107215331596699973092056135872020481
+  using Fp = Fp256<
+      /* =N **/ /*u256(*/ 576460752303423505, 0, 0, 1 /*)*/,
+      /* =R_SQUARED **/ /*u256(*/ 576413109808302096, 18446744073700081664,
+      5151653887, 18446741271209837569 /*)*/,
+      /* =N_PRIME **/ /*u256(*/ 576460752303423504, 18446744073709551615,
+      18446744073709551615, 18446744073709551615 /*)*/
+      >;
 } // namespace p256
 
 #endif
