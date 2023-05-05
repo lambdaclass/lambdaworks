@@ -87,9 +87,14 @@ where
     G2Point: IsGroup + Deserializable,
 {
     fn deserialize(bytes: &[u8]) -> Result<Self, DeserializationError> {
+        const MAIN_GROUP_LEN_OFFSET: usize = 4;
+        const MAIN_GROUP_OFFSET: usize = 12;
+
         let main_group_len_u64 = u64::from_le_bytes(
             // This unwrap can't fail since we are fixing the size of the slice
-            bytes[4..12].try_into().unwrap(),
+            bytes[MAIN_GROUP_LEN_OFFSET..MAIN_GROUP_OFFSET]
+                .try_into()
+                .unwrap(),
         );
 
         let main_group_len = usize::try_from(main_group_len_u64)
@@ -104,7 +109,8 @@ where
         for i in 0..main_group_len {
             // The second unwrap shouldn't fail since the amount of bytes is fixed
             let point = G1Point::deserialize(
-                bytes[i * size_g1_point + 12..i * size_g1_point + size_g1_point + 12]
+                bytes[i * size_g1_point + MAIN_GROUP_OFFSET
+                    ..i * size_g1_point + size_g1_point + MAIN_GROUP_OFFSET]
                     .try_into()
                     .unwrap(),
             )
