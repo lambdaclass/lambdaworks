@@ -5,7 +5,7 @@ use lambdaworks_math::{
     msm::msm,
     polynomial::Polynomial, traits::{Deserializable, Serializable},
 };
-use std::{marker::PhantomData, mem, fs::{File, self}, io::Read};
+use std::{marker::PhantomData, mem, fs::{File}, io::Read};
 use super::traits::IsCommitmentScheme;
 
 #[derive(PartialEq, Clone, Debug)]
@@ -35,7 +35,7 @@ where
     G2Point: IsGroup + Deserializable,
 {
     pub fn from_file(file_path: &str) -> Self{
-        let mut f = File::open(&file_path).expect("no file found");
+        let mut f = File::open(file_path).expect("no file found");
         let mut bytes: Vec<u8> = Vec::new();
         f.read_to_end(&mut bytes).unwrap();
         Self::deserialize(&bytes).unwrap()
