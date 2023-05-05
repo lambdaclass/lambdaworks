@@ -90,7 +90,7 @@ pub fn gen_twiddles<F: IsFFTField>(
     config: RootsConfig,
 ) -> Result<Vec<FieldElement<F>>, DriverError> {
     let count = (1 << order) / 2;
-    let root: FieldElement<F> = F::get_primitive_root_of_unity(order).unwrap();
+    let root: FieldElement<F> = F::get_primitive_root_of_unity(order)?;
 
     let (root, function_name) = match config {
         RootsConfig::Natural => (root, "calc_twiddles"),
@@ -102,22 +102,20 @@ pub fn gen_twiddles<F: IsFFTField>(
     let device = CudaDevice::new(0)?;
 
     // d_ prefix is used to indicate device memory.
-    let mut d_twiddles = device
-        .htod_sync_copy(
-            &(0..count)
-                .map(|i| CUDAFieldElement::from(&FieldElement::from(i)))
-                .collect::<Vec<_>>(),
-        )
-        .unwrap();
+    let mut d_twiddles = device.htod_sync_copy(
+        &(0..count)
+            .map(|i| CUDAFieldElement::from(&FieldElement::from(i)))
+            .collect::<Vec<_>>(),
+    )?;
     let root = vec![CUDAFieldElement::from(&root)];
-    let d_root = device.htod_sync_copy(&root).unwrap();
+    let d_root = device.htod_sync_copy(&root)?;
 
     device.load_ptx(
         Ptx::from_src(SHADER_PTX_TWIDDLES),
         "twiddles",
         &["calc_twiddles_bitrev", "calc_twiddles"],
     )?;
-    let kernel = device.get_func("twiddles", function_name).unwrap();
+    let kernel = device.get_func("twiddles", function_name)?;
 
     let grid_dim = (1 as u32, 1, 1); // in blocks
     let block_dim = (count as u32, 1, 1);
@@ -128,9 +126,9 @@ pub fn gen_twiddles<F: IsFFTField>(
         shared_mem_bytes: 0,
     };
 
-    unsafe { kernel.clone().launch(config, (&mut d_twiddles, &d_root)) }.unwrap();
+    unsafe { kernel.clone().launch(config, (&mut d_twiddles, &d_root)) }?;
 
-    let output = device.sync_reclaim(d_twiddles).unwrap();
+    let output = device.sync_reclaim(d_twiddles)?;
     let output: Vec<_> = output
         .into_iter()
         .map(|cuda_elem| cuda_elem.into())
