@@ -1,11 +1,11 @@
 use lambdaworks_math::{
     cyclic_group::IsGroup,
-    elliptic_curve::traits::IsPairing,
+    elliptic_curve::{traits::IsPairing, short_weierstrass::errors::DeserializationError},
     field::{element::FieldElement, traits::IsPrimeField},
     msm::msm,
     polynomial::Polynomial, traits::{Deserializable, Serializable},
 };
-use std::{marker::PhantomData, mem};
+use std::{marker::PhantomData, mem, fs::{File, self}, io::Read};
 use super::traits::IsCommitmentScheme;
 
 #[derive(PartialEq, Clone, Debug)]
@@ -28,12 +28,26 @@ where
     }
 }
 
+
 impl<G1Point, G2Point> StructuredReferenceString<G1Point, G2Point>
 where
-    G1Point: IsGroup + Serializable + Deserializable,
-    G2Point: IsGroup + Serializable + Deserializable,
+    G1Point: IsGroup + Deserializable,
+    G2Point: IsGroup + Deserializable,
 {
-    pub fn serialize(&self) -> Vec<u8> {
+    pub fn from_file(file_path: &str) -> Self{
+        let mut f = File::open(&file_path).expect("no file found");
+        let mut bytes: Vec<u8> = Vec::new();
+        f.read_to_end(&mut bytes).unwrap();
+        Self::deserialize(&bytes).unwrap()
+    }
+}
+
+impl<G1Point, G2Point> Serializable for StructuredReferenceString<G1Point, G2Point>
+where
+    G1Point: IsGroup + Serializable,
+    G2Point: IsGroup + Serializable,
+{
+    fn serialize(&self) -> Vec<u8> {
 
         let mut serialized_data: Vec<u8> = Vec::new();
         // First 4 bytes encodes protocol version
@@ -64,16 +78,22 @@ where
 
         serialized_data
     }
+}
 
-    pub fn deserialize(bytes: &[u8]) -> Self {
+impl<G1Point, G2Point> Deserializable for StructuredReferenceString<G1Point, G2Point>
+where
+    G1Point: IsGroup + Deserializable,
+    G2Point: IsGroup + Deserializable,
+{
+    fn deserialize(bytes: &[u8]) -> Result<Self, DeserializationError> {
 
         let main_group_len_u64 
             = u64::from_le_bytes(
+                // This unwrap can't fail since we are fixing the size of the slice
                 bytes[4..12].try_into().unwrap()
             );
 
-        // TO DO: Panics if there are more points than 2^32 g1 points in 32-bit architecture
-        let main_group_len = usize::try_from(main_group_len_u64).unwrap() ;
+        let main_group_len = usize::try_from(main_group_len_u64).map_err(|_| DeserializationError::PointerSizeError)? ;
 
         let mut main_group: Vec<G1Point> = Vec::new();
         let mut secondary_group: Vec<G2Point> = Vec::new();
@@ -104,7 +124,7 @@ where
             &main_group,
             &secondary_group_slice
         );
-        srs
+        Ok(srs)
     }
 }
 
@@ -243,7 +263,7 @@ mod tests {
             fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
         },
         polynomial::Polynomial,
-        unsigned_integer::element::U256,
+        unsigned_integer::element::U256, traits::{Deserializable, Serializable},
     };
 
     use crate::commitments::traits::IsCommitmentScheme;
@@ -279,7 +299,7 @@ mod tests {
         });
         let g1 = BLS12381Curve::generator();
         let g2 = BLS12381TwistCurve::generator();
-        let powers_main_group: Vec<G1> = (0..100)
+        let powers_main_group: Vec<G1> = (0..3)
             .map(|exponent| {
                 g1.operate_with_self(toxic_waste.pow(exponent as u128).representative())
             })
@@ -310,8 +330,20 @@ mod tests {
         let bytes = srs.serialize();
         let deserialized: StructuredReferenceString<
             ShortWeierstrassProjectivePoint<BLS12381Curve>,ShortWeierstrassProjectivePoint<BLS12381TwistCurve>
-        > = StructuredReferenceString::deserialize(&bytes);
+        > = StructuredReferenceString::deserialize(&bytes).unwrap();
     
         assert_eq!(srs, deserialized);
+    }
+
+    #[test]
+    fn load_srs_from_file() {
+        type TestSrsType = StructuredReferenceString<ShortWeierstrassProjectivePoint<BLS12381Curve>, ShortWeierstrassProjectivePoint<BLS12381TwistCurve>>;
+        
+        let base_dir = env!("CARGO_MANIFEST_DIR");
+        let srs_file = base_dir.to_owned() + "/src/commitments/test_srs/srs_3_g1_elements.bin";
+        
+        let srs = TestSrsType::from_file(&srs_file);
+    
+        assert_eq!(srs.powers_main_group.len(), 3);
     }
 }
