@@ -1,15 +1,11 @@
-use lambdaworks_math::field::{
-    element::FieldElement,
-    errors::FieldError,
-    traits::{IsFFTField, RootsConfig},
-};
+use lambdaworks_math::field::{element::FieldElement, traits::IsFFTField};
 
 use cudarc::{
-    driver::{CudaDevice, DriverError, LaunchAsync, LaunchConfig},
+    driver::{CudaDevice, LaunchAsync, LaunchConfig},
     nvrtc::safe::Ptx,
 };
 
-use crate::cuda::field::element::CUDAFieldElement;
+use crate::cuda::abstractions::{element::CUDAFieldElement, errors::CudaError};
 
 const SHADER_PTX_FFT: &str = include_str!("../shaders/fft.ptx");
 const SHADER_PTX_TWIDDLES: &str = include_str!("../shaders/twiddles.ptx");
@@ -24,29 +20,36 @@ const SHADER_PTX_TWIDDLES: &str = include_str!("../shaders/twiddles.ptx");
 pub fn fft<F>(
     input: &[FieldElement<F>],
     twiddles: &[FieldElement<F>],
-) -> Result<Vec<FieldElement<F>>, DriverError>
+) -> Result<Vec<FieldElement<F>>, CudaError>
 where
     F: IsFFTField,
     F::BaseType: Unpin,
 {
-    let device = CudaDevice::new(0)?;
+    // TODO: Add wrapper similar to `MetalState` around these calls. That would remove
+    //  error wrapping and allow for better static checks around the `launch`'s unsafe block
+    let device = CudaDevice::new(0).map_err(|err| CudaError::DeviceNotFound(err.to_string()))?;
 
     // d_ prefix is used to indicate device memory.
-    let mut d_input =
-        device.htod_sync_copy(&input.iter().map(CUDAFieldElement::from).collect::<Vec<_>>())?;
-    let d_twiddles = device.htod_sync_copy(
-        &twiddles
-            .iter()
-            .map(CUDAFieldElement::from)
-            .collect::<Vec<_>>(),
-    )?;
+    let mut d_input = device
+        .htod_sync_copy(&input.iter().map(CUDAFieldElement::from).collect::<Vec<_>>())
+        .map_err(|err| CudaError::AllocateMemory(err.to_string()))?;
 
-    device.load_ptx(
-        Ptx::from_src(SHADER_PTX_FFT),
-        "fft",
-        &["radix2_dit_butterfly"],
-    )?;
-    let kernel = device.get_func("fft", "radix2_dit_butterfly").unwrap();
+    let d_twiddles = device
+        .htod_sync_copy(
+            &twiddles
+                .iter()
+                .map(CUDAFieldElement::from)
+                .collect::<Vec<_>>(),
+        )
+        .map_err(|err| CudaError::AllocateMemory(err.to_string()))?;
+
+    device
+        .load_ptx(Ptx::from_src(SHADER_PTX), "fft", &["radix2_dit_butterfly"])
+        .map_err(|err| CudaError::PtxError(err.to_string()))?;
+
+    let kernel = device
+        .get_func("fft", "radix2_dit_butterfly")
+        .ok_or_else(|| CudaError::FunctionError("fft::radix2_dit_butterfly".to_string()))?;
 
     let order = input.len().trailing_zeros();
     for stage in 0..order {
@@ -62,10 +65,14 @@ where
             shared_mem_bytes: 0,
         };
 
-        unsafe { kernel.clone().launch(config, (&mut d_input, &d_twiddles)) }?;
+        unsafe { kernel.clone().launch(config, (&mut d_input, &d_twiddles)) }
+            .map_err(|err| CudaError::Launch(err.to_string()))?;
     }
 
-    let output = device.sync_reclaim(d_input).unwrap();
+    let output = device
+        .sync_reclaim(d_input)
+        .map_err(|err| CudaError::RetrieveMemory(err.to_string()))?;
+
     let mut output: Vec<_> = output
         .into_iter()
         .map(|cuda_elem| cuda_elem.into())
@@ -73,15 +80,6 @@ where
 
     in_place_bit_reverse_permute(&mut output);
     Ok(output)
-}
-
-//TODO: Should return CudaError
-//TODO: This should mimic metal helpers module
-pub fn log2(n: usize) -> Result<u64, FieldError> {
-    if !n.is_power_of_two() {
-        panic!("The order of polynomial + 1 should a be power of 2");
-    }
-    Ok(n.trailing_zeros() as u64)
 }
 
 pub fn gen_twiddles<F: IsFFTField>(
@@ -138,27 +136,8 @@ pub fn gen_twiddles<F: IsFFTField>(
     Ok(output)
 }
 
-//TODO remove after implementing in cuda
-pub fn get_powers_of_primitive_root<F: IsFFTField>(
-    n: u64,
-    count: usize,
-    config: RootsConfig,
-) -> Result<Vec<FieldElement<F>>, FieldError> {
-    let root = F::get_primitive_root_of_unity(n).unwrap();
-
-    let calc = |i| match config {
-        RootsConfig::Natural => root.pow(i),
-        RootsConfig::NaturalInversed => root.pow(i).inv(),
-        RootsConfig::BitReverse => root.pow(reverse_index(&i, count as u64)),
-        RootsConfig::BitReverseInversed => root.pow(reverse_index(&i, count as u64)).inv(),
-    };
-
-    let results = (0..count).map(calc);
-    Ok(results.collect())
-}
-
-//TODO remove after implementing in cuda
-pub fn in_place_bit_reverse_permute<E>(input: &mut [E]) {
+// TODO: remove after implementing in cuda
+pub(crate) fn in_place_bit_reverse_permute<E>(input: &mut [E]) {
     for i in 0..input.len() {
         let bit_reversed_index = reverse_index(&i, input.len() as u64);
         if bit_reversed_index > i {
@@ -167,8 +146,8 @@ pub fn in_place_bit_reverse_permute<E>(input: &mut [E]) {
     }
 }
 
-//TODO remove after implementing in cuda
-pub fn reverse_index(i: &usize, size: u64) -> usize {
+// TODO: remove after implementing in cuda
+pub(crate) fn reverse_index(i: &usize, size: u64) -> usize {
     if size == 1 {
         *i
     } else {

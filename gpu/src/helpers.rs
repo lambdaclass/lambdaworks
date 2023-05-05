@@ -1,11 +1,8 @@
+#![allow(dead_code)] // Some functions are not used in all configurations, but that should be ok
 use lambdaworks_math::field::{element::FieldElement, traits::IsField};
 
-pub fn void_ptr<T>(v: &T) -> *const core::ffi::c_void {
-    v as *const T as *const core::ffi::c_void
-}
-
 /// Fill a field element slice with 0s until a power of two size is reached, unless it already is.
-pub fn zero_padding<F: IsField>(input: &[FieldElement<F>]) -> Vec<FieldElement<F>> {
+pub(crate) fn zero_padding<F: IsField>(input: &[FieldElement<F>]) -> Vec<FieldElement<F>> {
     let mut input = input.to_vec();
     input.resize(input.len().next_power_of_two(), FieldElement::zero());
     input
