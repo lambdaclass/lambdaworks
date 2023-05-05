@@ -236,7 +236,6 @@ fn fri_query_phase<F: IsFFTField, A: AIR<Field = F>, T: Transcript>(
     domain: &Domain<F>,
     round_1_result: &Round1<F>,
     round_2_result: &Round2<F>,
-    q_0: usize,
     fri_layers: &Vec<FriLayer<F>>,
     fri_layers_merkle_roots: &[FieldElement<F>],
     transcript: &mut T,
@@ -244,22 +243,13 @@ fn fri_query_phase<F: IsFFTField, A: AIR<Field = F>, T: Transcript>(
 where
     FieldElement<F>: ByteConversion,
 {
-    // Query
-    let deep_consistency_check = build_deep_consistency_check(
-        domain,
-        round_1_result,
-        q_0,
-        &round_2_result.composition_poly_even,
-        &round_2_result.composition_poly_odd,
-    );
+    let q_0 = transcript_to_usize(transcript) % 2_usize.pow(domain.lde_root_order);
 
     let query_list = (0..air.context().options.fri_number_of_queries)
         .map(|i| {
             let q_i = if i > 0 {
                 // * Sample q_1, ..., q_m using Fiat-Shamir
-                let q = transcript_to_usize(transcript) % 2_usize.pow(domain.lde_root_order);
-                transcript.append(&q.to_be_bytes());
-                q
+                transcript_to_usize(transcript) % 2_usize.pow(domain.lde_root_order)
             } else {
                 q_0
             };
@@ -272,6 +262,15 @@ where
             }
         })
         .collect();
+
+    // Query
+    let deep_consistency_check = build_deep_consistency_check(
+        domain,
+        round_1_result,
+        q_0,
+        &round_2_result.composition_poly_even,
+        &round_2_result.composition_poly_odd,
+    );
 
     (query_list, deep_consistency_check)
 }
@@ -326,15 +325,12 @@ where
         .map(|layer| layer.merkle_tree.root.clone())
         .collect();
 
-    let q_0 = transcript_to_usize(transcript) % 2_usize.pow(domain.lde_root_order);
-    transcript.append(&q_0.to_be_bytes());
 
     let (query_list, deep_consistency_check) = fri_query_phase(
         air,
         domain,
         round_1_result,
         round_2_result,
-        q_0,
         &fri_layers,
         &fri_layers_merkle_roots,
         transcript,

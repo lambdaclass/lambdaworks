@@ -154,7 +154,6 @@ where
     transcript.append(&last_evaluation_bytes);
 
     let q_0 = transcript_to_usize(transcript) % (2_usize.pow(domain.lde_root_order));
-    transcript.append(&q_0.to_be_bytes());
 
     Challenges {
         z,
@@ -305,7 +304,6 @@ where
     let mut result = true;
     for proof_i in proof.query_list.iter().skip(1) {
         let q_i = transcript_to_usize(transcript) % (2_usize.pow(domain.lde_root_order));
-        transcript.append(&q_i.to_be_bytes());
 
         // this is done in constant time
         result &= verify_query(

@@ -17,7 +17,7 @@ pub struct FriDecommitment<F: IsField> {
 // TODO: encapsulate the return type of this function in a struct.
 // This returns a list of authentication paths for evaluations on points and their symmetric counterparts.
 pub fn fri_decommit_layers<F: IsField>(
-    commit: &Vec<FriLayer<F>>,
+    layers: &Vec<FriLayer<F>>,
     index_to_verify: usize,
 ) -> FriDecommitment<F>
 where
@@ -30,23 +30,23 @@ where
 
     // with every element of the commit, we look for that one in
     // the merkle tree and get the corresponding element
-    for commit_i in commit {
-        let length_i = commit_i.domain.len();
-        index %= length_i;
-        let evaluation_i = commit_i.evaluation[index].clone();
-        let auth_path = commit_i.merkle_tree.get_proof_by_pos(index).unwrap();
+    for layer in layers {
+        let length = layer.domain.len();
+        index %= length;
+        let evaluation = layer.evaluation[index].clone();
+        let auth_path = layer.merkle_tree.get_proof_by_pos(index).unwrap();
 
-        // symmetrical element
-        let index_sym = (index + length_i / 2) % length_i;
-        let evaluation_i_sym = commit_i.evaluation[index_sym].clone();
-        let auth_path_sym = commit_i.merkle_tree.get_proof_by_pos(index_sym).unwrap();
+        // symmetric element
+        let index_sym = (index + length / 2) % length;
+        let evaluation_i_sym = layer.evaluation[index_sym].clone();
+        let auth_path_sym = layer.merkle_tree.get_proof_by_pos(index_sym).unwrap();
 
         layer_merkle_paths.push((auth_path, auth_path_sym));
-        layer_evaluations.push((evaluation_i, evaluation_i_sym));
+        layer_evaluations.push((evaluation, evaluation_i_sym));
     }
 
     // send the last element of the polynomial
-    let last = commit.last().unwrap();
+    let last = layers.last().unwrap();
 
     // This get can't fail, since the last will always have at least one evaluation
     // (in fact two, but on the last step the two will be the same because the polynomial will have
