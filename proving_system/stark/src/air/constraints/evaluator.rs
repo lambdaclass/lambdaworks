@@ -114,23 +114,18 @@ impl<'poly, F: IsFFTField, A: AIR<Field = F>> ConstraintEvaluator<'poly, F, A> {
             })
         }
 
-        let boundary_polys_max_degree =
+        let main_boundary_polys_max_degree =
             boundary_polys_max_degree(&main_boundary_polys, &main_boundary_zerofiers);
 
-        let transition_degrees = self.air.context().transition_degrees();
+        let main_transition_degrees = self.air.context().transition_degrees();
         let transition_zerofiers = self.air.transition_divisors();
-        let transition_polys_max_degree = self
-            .main_trace_polys
-            .iter()
-            .zip(&transition_zerofiers)
-            .zip(&transition_degrees)
-            .map(|((poly, zerofier), degree)| {
-                (poly.degree() * degree).saturating_sub(zerofier.degree())
-            })
-            .max()
-            .unwrap();
+        let transition_polys_max_degree = transition_polys_max_degree(
+            &main_transition_degrees,
+            &self.main_trace_polys,
+            &transition_zerofiers,
+        );
 
-        let max_degree = std::cmp::max(transition_polys_max_degree, boundary_polys_max_degree);
+        let max_degree = std::cmp::max(transition_polys_max_degree, main_boundary_polys_max_degree);
 
         let max_degree_power_of_two = helpers::next_power_of_two(max_degree as u64);
 
@@ -246,14 +241,36 @@ impl<'poly, F: IsFFTField, A: AIR<Field = F>> ConstraintEvaluator<'poly, F, A> {
 }
 
 // Maybe this could be in a helpers or utils file
-fn boundary_polys_max_degree<F: IsFFTField>(
+fn boundary_polys_max_degree<F>(
     boundary_polys: &[Polynomial<FieldElement<F>>],
     boundary_zerofier_polys: &[Polynomial<FieldElement<F>>],
-) -> usize {
+) -> usize
+where
+    F: IsFFTField,
+{
     boundary_polys
         .iter()
         .zip(boundary_zerofier_polys)
         .map(|(poly, zerofier)| poly.degree() - zerofier.degree())
+        .max()
+        .unwrap()
+}
+
+fn transition_polys_max_degree<F>(
+    transition_degrees: &[usize],
+    trace_polys: &[Polynomial<FieldElement<F>>],
+    transition_zerofiers: &[Polynomial<FieldElement<F>>],
+) -> usize
+where
+    F: IsFFTField,
+{
+    trace_polys
+        .iter()
+        .zip(transition_zerofiers)
+        .zip(transition_degrees)
+        .map(|((poly, zerofier), degree)| {
+            (poly.degree() * degree).saturating_sub(zerofier.degree())
+        })
         .max()
         .unwrap()
 }
