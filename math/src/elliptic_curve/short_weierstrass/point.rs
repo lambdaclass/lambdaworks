@@ -249,8 +249,7 @@ mod tests {
     #[test]
     fn byte_conversion_from_and_to_be() {
         let expected_point = point();
-        let bytes_be =
-            expected_point.serialize(PointFormat::Projective, Endianness::BigEndian);
+        let bytes_be = expected_point.serialize(PointFormat::Projective, Endianness::BigEndian);
 
         let result = ShortWeierstrassProjectivePoint::deserialize(
             &bytes_be,
@@ -263,8 +262,7 @@ mod tests {
     #[test]
     fn byte_conversion_from_and_to_le() {
         let expected_point = point();
-        let bytes_be =
-            expected_point.serialize(PointFormat::Projective, Endianness::LittleEndian);
+        let bytes_be = expected_point.serialize(PointFormat::Projective, Endianness::LittleEndian);
 
         let result = ShortWeierstrassProjectivePoint::deserialize(
             &bytes_be,
