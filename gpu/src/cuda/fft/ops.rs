@@ -165,7 +165,7 @@ pub fn bitrev_permutation<F: IsFFTField>(
     let mut d_output = device
         .htod_sync_copy(
             &(0..input.len())
-                .map(|i| CUDAFieldElement::from(&FieldElement::from(i)))
+                .map(|i| CUDAFieldElement::from(&FieldElement::from(i as u64)))
                 .collect::<Vec<_>>(),
         )
         .map_err(|err| CudaError::AllocateMemory(err.to_string()))?;
