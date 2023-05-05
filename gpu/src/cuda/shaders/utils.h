@@ -1,4 +1,5 @@
-#include "./utils.cuh"
+#ifndef UTILS_H
+#define UTILS_H
 
 /// Reverses the `log2(size)` first bits of `i`
 __device__ uint reverse_index(uint i, uint size)
@@ -12,3 +13,5 @@ __device__ uint reverse_index(uint i, uint size)
         return __brev(i) >> (__clz(size) + 1);
     }
 }
+
+#endif // UTILS_H

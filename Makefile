@@ -33,7 +33,7 @@ build-metal:
 
 CUDA_DIR = gpu/src/cuda/shaders
 CUDA_FILES:=$(wildcard $(CUDA_DIR)/*.cu)
-CUDA_COMPILED:=$(patsubst $(PROOF_BENCH_DIR)/%.cu, $(PROOF_BENCH_DIR)/%.ptx, $(CUDA_FILES))
+CUDA_COMPILED:=$(patsubst $(CUDA_DIR)/%.cu, $(CUDA_DIR)/%.ptx, $(CUDA_FILES))
 
 $(CUDA_DIR)/%.ptx: $(CUDA_DIR)/%.cu
 	nvcc -ptx $< -o $@
