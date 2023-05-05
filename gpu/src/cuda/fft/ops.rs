@@ -141,7 +141,9 @@ pub fn gen_twiddles<F: IsFFTField>(
     unsafe { kernel.clone().launch(config, (&mut d_twiddles, &d_root)) }
         .map_err(|err| CudaError::Launch(err.to_string()))?;
 
-    let output = device.sync_reclaim(d_twiddles)?;
+    let output = device
+        .sync_reclaim(d_twiddles)
+        .map_err(|err| CudaError::RetrieveMemory(err.to_string()))?;
     let output: Vec<_> = output
         .into_iter()
         .map(|cuda_elem| cuda_elem.into())
