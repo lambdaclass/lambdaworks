@@ -32,8 +32,9 @@ pub trait Serializable {
     fn serialize(&self) -> Vec<u8>;
 }
 
+/// Deserialize function without args
+/// Used along with the Serializable trait
 pub trait Deserializable {
-    /// Returns the byte representation of the element in big-endian order.
     fn deserialize(bytes: &[u8]) -> Result<Self, DeserializationError>
     where
         Self: Sized;
