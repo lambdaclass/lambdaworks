@@ -10,9 +10,9 @@ use lambdaworks_math::{
 ///   * step: The step (or row) of the trace where the constraint must hold
 ///   * value: The value the constraint must have in that column and step
 pub struct BoundaryConstraint<F: IsField> {
-    col: usize,
-    step: usize,
-    value: FieldElement<F>,
+    pub col: usize,
+    pub step: usize,
+    pub value: FieldElement<F>,
 }
 
 impl<F: IsField> BoundaryConstraint<F> {
@@ -34,7 +34,7 @@ impl<F: IsField> BoundaryConstraint<F> {
 /// hold for the execution trace
 #[derive(Default, Debug)]
 pub struct BoundaryConstraints<F: IsField> {
-    constraints: Vec<BoundaryConstraint<F>>,
+    pub constraints: Vec<BoundaryConstraint<F>>,
 }
 
 impl<F: IsField> BoundaryConstraints<F> {
@@ -118,9 +118,10 @@ impl<F: IsField> BoundaryConstraints<F> {
 
 #[cfg(test)]
 mod test {
-    use lambdaworks_math::field::traits::IsTwoAdicField;
-
-    use crate::PrimeField;
+    use lambdaworks_math::field::{
+        fields::fft_friendly::stark_252_prime_field::Stark252PrimeField, traits::IsFFTField,
+    };
+    type PrimeField = Stark252PrimeField;
 
     use super::*;
 

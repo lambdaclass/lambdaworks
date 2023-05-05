@@ -188,6 +188,22 @@ The high level idea is the following: If we apply `FRI` to this polynomial and i
 - $H$ is a polynomial and the prover indeed provided `H(z)` as one of the out of domain evaluations. This is the first summand in `Deep(x)`.
 - The trace evaluations provided by the prover were the correct ones, i.e., they were $t(z)$, $t(zg)$, and $t(zg^2)$. These are the remaining summands of the `Deep(x)`.
 
+### Consistency check
+The prover needs to show that `Deep` was constructed correctly according to the formula above. To do this, the verifier will ask the prover to provide:
+
+- An evaluation of `H` on `z` and `x_0`
+- Evaluations of the trace at the points $t(z)$, $t(zg)$, $t(zg^2)$ and $t(x_0)$
+
+Where `z` is the same random, out of domain point used in the consistency check of the composition polynomial, and `x_0` is a random point that belongs to the trace domain.
+
+With the values provided by the prover, the verifier can check both sides of the equation:
+
+$$
+Deep(x_0) = \gamma_1 \dfrac{H(x_0) - H(z)}{x_0 - z} + \gamma_2 \dfrac{t(x_0) - t(z)}{x_0 - z} + \gamma_3 \dfrac{t(x_0) - t(zg)}{x_0 - zg} + \gamma_4 \dfrac{t(x_0) - t(zg^2)}{x_0 - zg^2}
+$$
+
+The prover also needs to show that the trace evaluation $t(x_0)$ belongs to the trace. To achieve this, it needs to commit the merkle roots of `t` and the merkle proof of $t(x_0)$.
+
 ## Summary
 
 We summarize below the steps required in a STARK proof for both prover and verifier.
@@ -199,16 +215,23 @@ We summarize below the steps required in a STARK proof for both prover and verif
 - Compute the transition constraint polynomial `C`.
 - Construct the composition polynomial `H` from `B` and `C`.
 - Sample an out of domain point `z` and provide the evaluations $H(z)$, $t(z)$, $t(zg)$, and $t(zg^2)$ to the verifier.
+- Sample a domain point `x_0` and provide the evaluations $H(x_0)$ and $t(x_0)$ to the verifier.
 - Construct the deep composition polynomial `Deep(x)` from `H`, `t`, and the evaluations from the item above.
 - Do `FRI` on `Deep(x)` and provide the resulting FRI commitment to the verifier.
+- Provide the merkle root of `t` and the merkle proof of $t(x_0)$.
 
 ### Verifier side
 
-- Take the evaluations $H(z)$, $t(z)$, $t(zg)$, and $t(zg^2)$ the prover provided.
+- Take the evaluations $H(z)$, $H(x_0)$, $t(z)$, $t(zg)$, $t(zg^2)$ and $t(x_0)$ the prover provided.
 - Reconstruct the evaluations $B(z)$ and $C(z)$ from the trace evaluations we were given. Check that the claimed evaluation $H(z)$ the prover gave us actually satisfies
     $$
     H(z) = B(z) (\alpha_1 z^{D - deg(B)} + \beta_1) + C(z) (\alpha_2 z^{D - deg(C)} + \beta_2)
     $$
+- Check that the claimed evaluation $Deep(x_0)$ the prover gave us actually satisfies
+    $$
+    Deep(x_0) = \gamma_1 \dfrac{H(x_0) - H(z)}{x_0 - z} + \gamma_2 \dfrac{t(x_0) - t(z)}{x_0 - z} + \gamma_3 \dfrac{t(x_0) - t(zg)}{x_0 - zg} + \gamma_4 \dfrac{t(x_0) - t(zg^2)}{x_0 - zg^2}
+    $$
+- Using the merkle root and the merkle proof the prover provided, check that $t(x_0)$ belongs to the trace.
 - Take the provided `FRI` commitment and check that it verifies.
 
 # Simplifications and Omissions

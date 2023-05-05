@@ -1,0 +1,28 @@
+[package]
+name = "lambdaworks-fft"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+rand = "0.8.5"
+thiserror = "1.0.38"
+lambdaworks-math = { path = "../math" }
+lambdaworks-gpu = { path = "../gpu", optional = true }
+
+[dev-dependencies]
+proptest = "1.1.0"
+criterion = "0.4.0"
+objc = "0.2.7"
+iai = "0.1"
+
+[features]
+metal = ["dep:lambdaworks-gpu"]
+cuda = ["dep:lambdaworks-gpu"]
+
+[[bench]]
+name = "criterion_fft"
+harness = false
+
+[[bench]]
+name = "iai_fft"
+harness = false

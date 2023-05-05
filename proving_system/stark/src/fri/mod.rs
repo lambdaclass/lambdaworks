@@ -1,12 +1,11 @@
-mod fri_commitment;
+pub mod fri_commitment;
 pub mod fri_decommit;
 mod fri_functions;
-
 use crate::fri::fri_commitment::{FriCommitment, FriCommitmentVec};
 use crate::fri::fri_functions::next_fri_layer;
 use crate::transcript_to_field;
-pub use lambdaworks_crypto::merkle_tree::DefaultHasher;
-pub type FriMerkleTree<F> = MerkleTree<F, DefaultHasher>;
+use lambdaworks_crypto::hash::sha3::Sha3Hasher;
+
 pub use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 pub use lambdaworks_crypto::merkle_tree::merkle::MerkleTree;
 use lambdaworks_math::field::traits::IsField;
@@ -15,6 +14,9 @@ pub use lambdaworks_math::{
     field::{element::FieldElement, fields::u64_prime_field::U64PrimeField},
     polynomial::Polynomial,
 };
+
+pub type FriMerkleTree<F> = MerkleTree<F>;
+pub(crate) const HASHER: Sha3Hasher = Sha3Hasher::new();
 
 /// # Params
 ///
@@ -34,7 +36,7 @@ where
     //     - root
     //     - hasher
     // Create a new merkle tree with evaluation_i
-    let merkle_tree = FriMerkleTree::build(evaluation_i);
+    let merkle_tree = FriMerkleTree::build(evaluation_i, Box::new(HASHER));
 
     FriCommitment {
         poly: p_i.clone(),
@@ -44,10 +46,10 @@ where
     }
 }
 
-pub fn fri<F: IsField>(
+pub fn fri<F: IsField, T: Transcript>(
     p_0: &mut Polynomial<FieldElement<F>>,
     domain_0: &[FieldElement<F>],
-    transcript: &mut Transcript,
+    transcript: &mut T,
 ) -> FriCommitmentVec<F>
 where
     FieldElement<F>: ByteConversion,
@@ -55,7 +57,7 @@ where
     let mut fri_commitment_list = FriCommitmentVec::new();
     let evaluation_0 = p_0.evaluate_slice(domain_0);
 
-    let merkle_tree = FriMerkleTree::build(&evaluation_0);
+    let merkle_tree = FriMerkleTree::build(&evaluation_0, Box::new(HASHER));
 
     // append the root of the merkle tree to the transcript
     let root = merkle_tree.root.clone();
@@ -78,7 +80,8 @@ where
     fri_commitment_list.push(commitment_0);
     let mut degree = p_0.degree();
 
-    let mut last_coef = last_poly.coefficients.get(0).unwrap();
+    let zero = FieldElement::zero();
+    let mut last_coef = last_poly.coefficients.get(0).unwrap_or(&zero);
 
     while degree > 0 {
         let beta = transcript_to_field(transcript);
@@ -97,7 +100,8 @@ where
         degree = p_i.degree();
 
         last_poly = p_i.clone();
-        last_coef = last_poly.coefficients.get(0).unwrap();
+        last_coef = last_poly.coefficients.get(0).unwrap_or(&zero);
+
         last_domain = domain_i.clone();
     }
 

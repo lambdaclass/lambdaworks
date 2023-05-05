@@ -1,13 +1,11 @@
-use crate::{
-    fft::{bit_reversing::reverse_index, errors::FFTError},
-    unsigned_integer::traits::IsUnsignedInteger,
-};
+use crate::unsigned_integer::traits::IsUnsignedInteger;
 use std::{fmt::Debug, hash::Hash};
 
-use super::element::FieldElement;
+use super::{element::FieldElement, errors::FieldError};
 
 /// Represents different configurations that powers of roots of unity can be in. Some of these may
 /// be necessary for FFT (as twiddle factors).
+#[derive(Clone, Copy)]
 pub enum RootsConfig {
     Natural,            // w^0, w^1, w^2...
     NaturalInversed,    // w^0, w^-1, w^-2...
@@ -23,68 +21,36 @@ pub enum RootsConfig {
 /// A two-adic primitive root of unity is a number w that satisfies w^(2^n) = 1
 /// and w^(j) != 1 for every j below 2^n. With this primitive root we can generate
 /// any other root of unity we need to perform FFT.
-pub trait IsTwoAdicField: IsField {
+pub trait IsFFTField: IsField {
     const TWO_ADICITY: u64;
     const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: Self::BaseType;
 
+    /// Used for searching this field's implementation in other languages, e.g in MSL
+    /// for executing parallel operations with the Metal API.
+    fn field_name() -> String {
+        "".to_string()
+    }
+
     /// Returns a primitive root of unity of order $2^{order}$.
-    fn get_primitive_root_of_unity(order: u64) -> Result<FieldElement<Self>, FFTError> {
+    fn get_primitive_root_of_unity<F: IsFFTField>(
+        order: u64,
+    ) -> Result<FieldElement<F>, FieldError> {
         let two_adic_primitive_root_of_unity =
-            FieldElement::new(Self::TWO_ADIC_PRIMITVE_ROOT_OF_UNITY);
+            FieldElement::new(F::TWO_ADIC_PRIMITVE_ROOT_OF_UNITY);
         if order == 0 {
-            return Err(FFTError::RootOfUnityError(
+            return Err(FieldError::RootOfUnityError(
                 "Cannot get root of unity for order = 0".to_string(),
                 order,
             ));
         }
-        if order > Self::TWO_ADICITY {
-            return Err(FFTError::RootOfUnityError(
-                "Order cannot exceed 2^{Self::TWO_ADICITY}".to_string(),
+        if order > F::TWO_ADICITY {
+            return Err(FieldError::RootOfUnityError(
+                "Order cannot exceed 2^{F::TWO_ADICITY}".to_string(),
                 order,
             ));
         }
-        let power = 1u64 << (Self::TWO_ADICITY - order);
+        let power = 1u64 << (F::TWO_ADICITY - order);
         Ok(two_adic_primitive_root_of_unity.pow(power))
-    }
-
-    /// Returns a `Vec` of the powers of a `n`th primitive root of unity in some configuration
-    /// `config`. For example, in a `Natural` config this would yield: w^0, w^1, w^2...
-    fn get_powers_of_primitive_root(
-        n: u64,
-        count: usize,
-        config: RootsConfig,
-    ) -> Result<Vec<FieldElement<Self>>, FFTError> {
-        let root = Self::get_primitive_root_of_unity(n)?;
-
-        let calc = |i| match config {
-            RootsConfig::Natural => root.pow(i),
-            RootsConfig::NaturalInversed => root.pow(i).inv(),
-            RootsConfig::BitReverse => root.pow(reverse_index(&i, count as u64)),
-            RootsConfig::BitReverseInversed => root.pow(reverse_index(&i, count as u64)).inv(),
-        };
-
-        let results = (0..count).map(calc);
-        Ok(results.collect())
-    }
-
-    /// Returns a `Vec` of the powers of a `n`th primitive root of unity, scaled `offset` times,
-    /// in a Natural configuration.
-    fn get_powers_of_primitive_root_coset(
-        n: u64,
-        count: usize,
-        offset: &FieldElement<Self>,
-    ) -> Result<Vec<FieldElement<Self>>, FFTError> {
-        let root = Self::get_primitive_root_of_unity(n)?;
-        let results = (0..count).map(|i| root.pow(i) * offset);
-
-        Ok(results.collect())
-    }
-
-    /// Returns 2^`order` / 2 twiddle factors for FFT in some configuration `config`.
-    /// Twiddle factors are powers of a primitive root of unity of the field, used for FFT
-    /// computations. FFT only requires the first half of all the powers
-    fn get_twiddles(order: u64, config: RootsConfig) -> Result<Vec<FieldElement<Self>>, FFTError> {
-        Self::get_powers_of_primitive_root(order, (1 << order) / 2, config)
     }
 }
 
@@ -152,28 +118,4 @@ pub trait IsPrimeField: IsField {
 
     // Returns the representative of the value stored
     fn representative(a: &Self::BaseType) -> Self::RepresentativeType;
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::{
-        fft::bit_reversing::in_place_bit_reverse_permute,
-        field::test_fields::u64_test_field::U64TestField,
-    };
-    use proptest::prelude::*;
-
-    use super::*;
-
-    type F = U64TestField;
-
-    proptest! {
-        #[test]
-        fn test_gen_twiddles_bit_reversed_validity(n in 1..8_u64) {
-            let twiddles = F::get_twiddles(n, RootsConfig::Natural).unwrap();
-            let mut twiddles_to_reorder = F::get_twiddles(n, RootsConfig::BitReverse).unwrap();
-            in_place_bit_reverse_permute(&mut twiddles_to_reorder); // so now should be naturally ordered
-
-            prop_assert_eq!(twiddles, twiddles_to_reorder);
-        }
-    }
 }

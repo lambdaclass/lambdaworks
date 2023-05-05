@@ -1,7 +1,7 @@
 use crate::cyclic_group::IsGroup;
 use crate::errors::ByteConversionError::{FromBEBytesError, FromLEBytesError};
 use crate::field::element::FieldElement;
-use crate::field::traits::{IsField, IsPrimeField, IsTwoAdicField};
+use crate::field::traits::{IsFFTField, IsField, IsPrimeField};
 use crate::traits::ByteConversion;
 
 /// Type representing prime fields over unsigned 64-bit integers.
@@ -12,7 +12,7 @@ pub type U64FieldElement<const MODULUS: u64> = FieldElement<U64PrimeField<MODULU
 pub type F17 = U64PrimeField<17>;
 pub type FE17 = U64FieldElement<17>;
 
-impl IsTwoAdicField for F17 {
+impl IsFFTField for F17 {
     const TWO_ADICITY: u64 = 4;
     const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: u64 = 3;
 }
@@ -101,12 +101,12 @@ impl<const MODULUS: u64> ByteConversion for U64FieldElement<MODULUS> {
     }
 
     fn from_bytes_be(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError> {
-        let bytes: [u8; 8] = bytes.try_into().map_err(|_| FromBEBytesError)?;
+        let bytes: [u8; 8] = bytes[0..8].try_into().map_err(|_| FromBEBytesError)?;
         Ok(Self::from(u64::from_be_bytes(bytes)))
     }
 
     fn from_bytes_le(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError> {
-        let bytes: [u8; 8] = bytes.try_into().map_err(|_| FromLEBytesError)?;
+        let bytes: [u8; 8] = bytes[0..8].try_into().map_err(|_| FromLEBytesError)?;
         Ok(Self::from(u64::from_le_bytes(bytes)))
     }
 }

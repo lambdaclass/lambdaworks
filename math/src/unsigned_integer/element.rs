@@ -5,7 +5,7 @@ use crate::errors::ByteConversionError;
 use crate::traits::ByteConversion;
 use crate::unsigned_integer::traits::IsUnsignedInteger;
 
-use std::fmt::Debug;
+use std::fmt::{self, Debug};
 
 pub type U384 = UnsignedInteger<6>;
 pub type U256 = UnsignedInteger<4>;
@@ -53,6 +53,27 @@ impl<const NUM_LIMBS: usize> From<u16> for UnsignedInteger<NUM_LIMBS> {
 impl<const NUM_LIMBS: usize> From<&str> for UnsignedInteger<NUM_LIMBS> {
     fn from(hex_str: &str) -> Self {
         Self::from(hex_str)
+    }
+}
+
+impl<const NUM_LIMBS: usize> fmt::Display for UnsignedInteger<NUM_LIMBS> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut limbs_iterator = self.limbs.iter().skip_while(|limb| **limb == 0).peekable();
+
+        if limbs_iterator.peek().is_none() {
+            write!(f, "0x0")?;
+        } else {
+            write!(f, "0x")?;
+            if let Some(most_significant_limb) = limbs_iterator.next() {
+                write!(f, "{:x}", most_significant_limb)?;
+            }
+
+            for limb in limbs_iterator {
+                write!(f, "{:016x}", limb)?;
+            }
+        }
+
+        Ok(())
     }
 }
 
@@ -477,7 +498,15 @@ impl<const NUM_LIMBS: usize> ByteConversion for UnsignedInteger<NUM_LIMBS> {
 
     fn from_bytes_be(bytes: &[u8]) -> Result<Self, ByteConversionError> {
         let mut limbs = Vec::with_capacity(NUM_LIMBS);
-        bytes.chunks_exact(8).try_for_each(|chunk| {
+
+        // We cut off extra bytes, this is useful when you use this function to generate the element from randomness
+        // In the future with the right algorithm this shouldn't be needed
+
+        let needed_bytes = bytes
+            .get(0..NUM_LIMBS * 8)
+            .ok_or(ByteConversionError::FromBEBytesError)?;
+
+        needed_bytes.chunks_exact(8).try_for_each(|chunk| {
             let limb = u64::from_be_bytes(
                 chunk
                     .try_into()
@@ -495,8 +524,13 @@ impl<const NUM_LIMBS: usize> ByteConversion for UnsignedInteger<NUM_LIMBS> {
     }
 
     fn from_bytes_le(bytes: &[u8]) -> Result<Self, ByteConversionError> {
+        let needed_bytes = bytes
+            .get(0..NUM_LIMBS * 8)
+            .ok_or(ByteConversionError::FromBEBytesError)?;
+
         let mut limbs = Vec::with_capacity(NUM_LIMBS);
-        bytes.chunks_exact(8).rev().try_for_each(|chunk| {
+
+        needed_bytes.chunks_exact(8).rev().try_for_each(|chunk| {
             let limb = u64::from_le_bytes(
                 chunk
                     .try_into()
@@ -1217,6 +1251,42 @@ mod tests_u384 {
         let bytes = vec![
             1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ];
+        let expected_number = U384::from_u64(1);
+
+        assert_eq!(U384::from_bytes_le(&bytes).unwrap(), expected_number);
+    }
+
+    #[test]
+    fn from_bytes_be_works_with_extra_data() {
+        let bytes = vec![
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ];
+        let expected_number = U384::from_u64(0);
+
+        assert_eq!(U384::from_bytes_be(&bytes).unwrap(), expected_number);
+    }
+
+    #[test]
+    #[should_panic]
+    fn from_bytes_be_errs_with_less_data() {
+        let bytes = vec![0, 0, 0, 0, 0];
+        U384::from_bytes_be(&bytes).unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn from_bytes_le_errs_with_less_data() {
+        let bytes = vec![0, 0, 0, 0, 0];
+        U384::from_bytes_le(&bytes).unwrap();
+    }
+
+    #[test]
+    fn from_bytes_le_works_with_extra_data() {
+        let bytes = vec![
+            1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1,
         ];
         let expected_number = U384::from_u64(1);
 

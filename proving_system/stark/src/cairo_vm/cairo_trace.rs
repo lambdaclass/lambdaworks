@@ -1,19 +1,54 @@
-use super::errors::CairoImportError;
+use super::{
+    cairo_mem::CairoMemory,
+    errors::{CairoImportError, InstructionDecodingError},
+    instruction_flags::CairoInstructionFlags,
+    instruction_offsets::InstructionOffsets,
+};
 use std::fs;
 
 #[derive(PartialEq, Clone, Debug)]
-pub struct CairoTrace {
-    rows: Vec<RegistersState>,
+pub struct RegistersState {
+    pub pc: u64,
+    pub fp: u64,
+    pub ap: u64,
+}
+
+impl RegistersState {
+    fn instruction_flags_and_offsets(
+        &self,
+        memory: &CairoMemory,
+    ) -> Result<(CairoInstructionFlags, InstructionOffsets), InstructionDecodingError> {
+        let instruction = memory
+            .get(&self.pc)
+            .ok_or(InstructionDecodingError::InstructionNotFound)?;
+
+        let flags = CairoInstructionFlags::try_from(instruction)?;
+        let offsets = InstructionOffsets::new(instruction);
+
+        Ok((flags, offsets))
+    }
 }
 
 #[derive(PartialEq, Clone, Debug)]
-pub struct RegistersState {
-    pc: u64,
-    fp: u64,
-    ap: u64,
+pub struct CairoTrace {
+    pub rows: Vec<RegistersState>,
 }
 
 impl CairoTrace {
+    pub fn steps(&self) -> usize {
+        self.rows.len()
+    }
+
+    pub fn flags_and_offsets(
+        &self,
+        memory: &CairoMemory,
+    ) -> Result<Vec<(CairoInstructionFlags, InstructionOffsets)>, InstructionDecodingError> {
+        self.rows
+            .iter()
+            .map(|state| state.instruction_flags_and_offsets(memory))
+            .collect()
+    }
+
     pub fn from_bytes_le(bytes: &[u8]) -> Result<Self, CairoImportError> {
         // Each row of the trace is a RegisterState
         // ap, fp, pc, each 8 bytes long (u64)
@@ -53,6 +88,15 @@ impl CairoTrace {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
+    use crate::{
+        cairo_vm::instruction_flags::{
+            ApUpdate, CairoOpcode, DstReg, Op0Reg, Op1Src, PcUpdate, ResLogic,
+        },
+        FE,
+    };
+
     use super::*;
 
     #[test]
@@ -147,5 +191,71 @@ mod tests {
         };
 
         assert_eq!(trace, expected_trace);
+    }
+
+    #[test]
+    fn decode_instruction_flags_and_offsets() {
+        let data = HashMap::from([
+            (1u64, FE::from(0x480680017fff8000)),
+            (2u64, FE::from(0x1104800180018000)),
+        ]);
+
+        let memory = CairoMemory::new(data);
+        let state1 = RegistersState {
+            ap: 8,
+            fp: 8,
+            pc: 1,
+        };
+        let state2 = RegistersState {
+            ap: 9,
+            fp: 8,
+            pc: 2,
+        };
+
+        let trace = CairoTrace {
+            rows: [state1, state2].to_vec(),
+        };
+
+        let expected_flags1 = CairoInstructionFlags {
+            opcode: CairoOpcode::AssertEq,
+            pc_update: PcUpdate::Regular,
+            ap_update: ApUpdate::Add1,
+            op0_reg: Op0Reg::FP,
+            op1_src: Op1Src::Imm,
+            res_logic: ResLogic::Op1,
+            dst_reg: DstReg::AP,
+        };
+
+        let expected_offsets1 = InstructionOffsets {
+            off_dst: 0,
+            off_op0: -1,
+            off_op1: 1,
+        };
+
+        let expected_flags2 = CairoInstructionFlags {
+            opcode: CairoOpcode::Call,
+            pc_update: PcUpdate::JumpRel,
+            ap_update: ApUpdate::Regular,
+            op0_reg: Op0Reg::AP,
+            op1_src: Op1Src::Imm,
+            res_logic: ResLogic::Op1,
+            dst_reg: DstReg::AP,
+        };
+
+        let expected_offsets2 = InstructionOffsets {
+            off_dst: 0,
+            off_op0: 1,
+            off_op1: 1,
+        };
+
+        let flags_and_offsets = trace.flags_and_offsets(&memory).unwrap();
+
+        assert_eq!(
+            flags_and_offsets,
+            vec![
+                (expected_flags1, expected_offsets1),
+                (expected_flags2, expected_offsets2)
+            ]
+        );
     }
 }

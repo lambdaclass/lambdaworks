@@ -212,6 +212,8 @@ where
 mod tests_u384_prime_fields {
     use crate::field::element::FieldElement;
     use crate::field::fields::montgomery_backed_prime_fields::{IsModulus, U384PrimeField};
+    use crate::field::traits::IsField;
+    use crate::field::traits::IsPrimeField;
     use crate::traits::ByteConversion;
     use crate::unsigned_integer::element::UnsignedInteger;
     use crate::unsigned_integer::element::U384;
@@ -224,6 +226,43 @@ mod tests_u384_prime_fields {
 
     type U384F23 = U384PrimeField<U384Modulus23>;
     type U384F23Element = FieldElement<U384F23>;
+
+    #[test]
+    fn montgomery_backend_primefield_compute_r2_parameter() {
+        let r2: U384 = UnsignedInteger {
+            limbs: [0, 0, 0, 0, 0, 6],
+        };
+        assert_eq!(U384F23::R2, r2);
+    }
+
+    #[test]
+    fn montgomery_backend_primefield_compute_mu_parameter() {
+        assert_eq!(U384F23::MU, 3208129404123400281);
+    }
+
+    #[test]
+    fn montgomery_backend_primefield_compute_zero_parameter() {
+        let zero: U384 = UnsignedInteger {
+            limbs: [0, 0, 0, 0, 0, 0],
+        };
+        assert_eq!(U384F23::ZERO, zero);
+    }
+
+    #[test]
+    fn montgomery_backend_primefield_from_u64() {
+        let a: U384 = UnsignedInteger {
+            limbs: [0, 0, 0, 0, 0, 17],
+        };
+        assert_eq!(U384F23::from_u64(770_u64), a);
+    }
+
+    #[test]
+    fn montgomery_backend_primefield_representative() {
+        let a: U384 = UnsignedInteger {
+            limbs: [0, 0, 0, 0, 0, 11],
+        };
+        assert_eq!(U384F23::representative(&U384F23::from_u64(770_u64)), a);
+    }
 
     #[test]
     fn montgomery_backend_multiplication_works_0() {
@@ -498,6 +537,8 @@ mod tests_u384_prime_fields {
 mod tests_u256_prime_fields {
     use crate::field::element::FieldElement;
     use crate::field::fields::montgomery_backed_prime_fields::{IsModulus, U256PrimeField};
+    use crate::field::traits::IsField;
+    use crate::field::traits::IsPrimeField;
     use crate::traits::ByteConversion;
     use crate::unsigned_integer::element::UnsignedInteger;
     use crate::unsigned_integer::element::U256;
@@ -510,6 +551,46 @@ mod tests_u256_prime_fields {
 
     type U256F29 = U256PrimeField<U256Modulus29>;
     type U256F29Element = FieldElement<U256F29>;
+
+    #[test]
+    fn montgomery_backend_primefield_compute_r2_parameter() {
+        let r2: U256 = UnsignedInteger {
+            limbs: [0, 0, 0, 24],
+        };
+        assert_eq!(U256F29::R2, r2);
+    }
+
+    #[test]
+    fn montgomery_backend_primefield_compute_mu_parameter() {
+        // modular multiplicative inverse
+        assert_eq!(U256F29::MU, 14630176334321368523);
+    }
+
+    #[test]
+    fn montgomery_backend_primefield_compute_zero_parameter() {
+        let zero: U256 = UnsignedInteger {
+            limbs: [0, 0, 0, 0],
+        };
+        assert_eq!(U256F29::ZERO, zero);
+    }
+
+    #[test]
+    fn montgomery_backend_primefield_from_u64() {
+        // (770*2**(256))%29
+        let a: U256 = UnsignedInteger {
+            limbs: [0, 0, 0, 24],
+        };
+        assert_eq!(U256F29::from_u64(770_u64), a);
+    }
+
+    #[test]
+    fn montgomery_backend_primefield_representative() {
+        // 770%29
+        let a: U256 = UnsignedInteger {
+            limbs: [0, 0, 0, 16],
+        };
+        assert_eq!(U256F29::representative(&U256F29::from_u64(770_u64)), a);
+    }
 
     #[test]
     fn montgomery_backend_multiplication_works_0() {
