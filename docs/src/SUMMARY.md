@@ -16,4 +16,6 @@
 
 - [FFT Library]()
   - [Brief introduction to polynomial evaluation and the Fourier transform](./fft/introduction.md)
+  - [The FFT black box](./fft/the_fft_black_box.md.md)
+  - [Implementation](./fft/implementation.md)
   - [Benchmarks](./fft/benchmarks.md)
