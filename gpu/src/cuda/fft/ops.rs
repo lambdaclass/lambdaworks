@@ -107,7 +107,7 @@ pub fn gen_twiddles<F: IsFFTField>(
             .collect::<Vec<_>>()
             .as_slice(),
     )?;
-    let d_root = device.htod_sync_copy(&CUDAFieldElement::from(&root))?;
+    let d_root = device.htod_sync_copy(&[CUDAFieldElement::from(&root)])?;
 
     device.load_ptx(
         Ptx::from_src(SHADER_PTX_TWIDDLES),
