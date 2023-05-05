@@ -1,6 +1,5 @@
 use lambdaworks_math::field::fields::{
-    fft_friendly::stark_252_prime_field::Stark252PrimeField, u64_prime_field::FE17,
-};
+    fft_friendly::stark_252_prime_field::Stark252PrimeField, u64_prime_field::FE17, };
 use lambdaworks_stark::air::example::{
     cairo, fibonacci_2_columns, fibonacci_f17, quadratic_air, simple_fibonacci,
 };
