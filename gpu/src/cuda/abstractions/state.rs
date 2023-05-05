@@ -25,7 +25,7 @@ impl CudaState {
         device
             .load_ptx(
                 Ptx::from_src(/* Library code */ FFT_PTX),
-                "fft",
+                /* Library name */ "fft",
                 /* defined functions */ &["radix2_dit_butterfly"],
             )
             .map_err(|err| CudaError::PtxError(err.to_string()))?;
@@ -80,7 +80,19 @@ impl<F: IsField> Radix2DitButterflyFunction<F> {
         }
     }
 
-    pub(crate) fn launch(config: LaunchConfig) {
-        // TODO: launch
+    pub(crate) fn launch(config: LaunchConfig) -> Result<(), CudaError> {
+        unsafe { kernel.clone().launch(config, (&mut d_input, &d_twiddles)) }
+            .map_err(|err| CudaError::Launch(err.to_string()))?
+    }
+
+    pub(crate) fn retrieve_result() -> Result<Vec<FieldElement<F>>, CudaError> {
+        let output = device
+            .sync_reclaim(d_input)
+            .map_err(|err| CudaError::RetrieveMemory(err.to_string()))?
+            .into_iter()
+            .map(FieldElement::<F>::from)
+            .collect();
+
+        Ok(output)
     }
 }

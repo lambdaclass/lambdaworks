@@ -7,8 +7,6 @@ use cudarc::{
 
 use crate::cuda::abstractions::{element::CUDAFieldElement, errors::CudaError};
 
-const SHADER_PTX: &str = include_str!("../shaders/fft.ptx");
-
 /// Executes parallel ordered FFT over a slice of two-adic field elements, in CUDA.
 /// Twiddle factors are required to be in bit-reverse order.
 ///
@@ -19,36 +17,13 @@ const SHADER_PTX: &str = include_str!("../shaders/fft.ptx");
 pub fn fft<F>(
     input: &[FieldElement<F>],
     twiddles: &[FieldElement<F>],
+    state: &CudaState,
 ) -> Result<Vec<FieldElement<F>>, CudaError>
 where
     F: IsFFTField,
     F::BaseType: Unpin,
 {
-    // TODO: Add wrapper similar to `MetalState` around these calls. That would remove
-    //  error wrapping and allow for better static checks around the `launch`'s unsafe block
-    let device = CudaDevice::new(0).map_err(|err| CudaError::DeviceNotFound(err.to_string()))?;
-
-    // d_ prefix is used to indicate device memory.
-    let mut d_input = device
-        .htod_sync_copy(&input.iter().map(CUDAFieldElement::from).collect::<Vec<_>>())
-        .map_err(|err| CudaError::AllocateMemory(err.to_string()))?;
-
-    let d_twiddles = device
-        .htod_sync_copy(
-            &twiddles
-                .iter()
-                .map(CUDAFieldElement::from)
-                .collect::<Vec<_>>(),
-        )
-        .map_err(|err| CudaError::AllocateMemory(err.to_string()))?;
-
-    device
-        .load_ptx(Ptx::from_src(SHADER_PTX), "fft", &["radix2_dit_butterfly"])
-        .map_err(|err| CudaError::PtxError(err.to_string()))?;
-
-    let kernel = device
-        .get_func("fft", "radix2_dit_butterfly")
-        .ok_or_else(|| CudaError::FunctionError("fft::radix2_dit_butterfly".to_string()))?;
+    let function = state.get_radix2_dit_butterfly(input, twiddles)?;
 
     let order = input.len().trailing_zeros();
     for stage in 0..order {
@@ -64,18 +39,10 @@ where
             shared_mem_bytes: 0,
         };
 
-        unsafe { kernel.clone().launch(config, (&mut d_input, &d_twiddles)) }
-            .map_err(|err| CudaError::Launch(err.to_string()))?;
+        function.launch(config);
     }
 
-    let output = device
-        .sync_reclaim(d_input)
-        .map_err(|err| CudaError::RetrieveMemory(err.to_string()))?;
-
-    let mut output: Vec<_> = output
-        .into_iter()
-        .map(|cuda_elem| cuda_elem.into())
-        .collect();
+    let output = function.retrieve_result()?;
 
     in_place_bit_reverse_permute(&mut output);
     Ok(output)

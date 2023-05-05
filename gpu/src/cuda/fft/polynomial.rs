@@ -17,10 +17,11 @@ where
     F: IsFFTField,
     F::BaseType: Unpin,
 {
+    let state = CudaState::new().unwrap();
     let order = log2(poly.coefficients.len())?;
     let twiddles = get_twiddles(order, RootsConfig::BitReverse)?;
 
-    fft(poly.coefficients(), &twiddles)
+    fft(poly.coefficients(), &twiddles, &state)
 }
 
 /// Returns a new polynomial that interpolates `fft_evals`, which are evaluations using twiddle
