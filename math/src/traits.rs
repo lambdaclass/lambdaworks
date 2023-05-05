@@ -36,7 +36,6 @@ pub trait Deserializable {
     fn deserialize(bytes: &[u8]) -> Result<Self, DeserializationError> where Self: Sized;
 }
 
-
 pub trait IsRandomFieldElementGenerator<F: IsField> {
     fn generate(&self) -> FieldElement<F>;
 }

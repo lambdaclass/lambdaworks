@@ -90,6 +90,24 @@ mod tests {
     }
 
     #[test]
+    fn g_operated_with_g_satifies_ec_equation() {
+        let g = BLS12381Curve::generator();
+        let g2 = g.operate_with_self(2_u64);
+
+        // get x and y from affine coordinates
+        let g2_affine = g2.to_affine();
+        let x = g2_affine.x();
+        let y = g2_affine.y();
+
+        // calculate both sides of BLS12-381 equation
+        let four = FieldElement::from(4);
+        let y_sq_0 = x.pow(3_u16) + four;
+        let y_sq_1 = y.pow(2_u16);
+
+        assert_eq!(y_sq_0, y_sq_1);
+    }
+
+    #[test]
     fn operate_with_self_works_1() {
         let g = BLS12381Curve::generator();
         assert_eq!(
