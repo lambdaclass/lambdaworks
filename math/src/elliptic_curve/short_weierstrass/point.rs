@@ -152,9 +152,9 @@ where
 {
     /// Serialize the points in the given format
     pub fn serialize(&self, _point_format: PointFormat, endianness: Endianness) -> Vec<u8> {
-        // TODO: these can be more efficient.
-        // More options for point formats should be added
-        // E.g: Store the x value, the bit to indicate y.
+        // TODO: Add more compact serialization formats
+        // Uncompressed affine / Compressed
+
         let mut bytes: Vec<u8> = Vec::new();
         let x_bytes: Vec<u8>;
         let y_bytes: Vec<u8>;
