@@ -17,18 +17,23 @@ impl CudaState {
     pub(crate) fn new() -> Result<Self, CudaError> {
         let device =
             CudaDevice::new(0).map_err(|err| CudaError::DeviceNotFound(err.to_string()))?;
+        let self = Self { device };
 
         // Load PTX libraries
-        // TODO: extract into helper method
-        device
-            .load_ptx(
-                Ptx::from_src(/* Library code */ FFT_PTX),
-                /* Library name */ "fft",
-                /* defined functions */ &["radix2_dit_butterfly"],
-            )
-            .map_err(|err| CudaError::PtxError(err.to_string()))?;
+        self.load_library(FFT_PTX, "fft", &["radix2_dit_butterfly"])?;
 
-        Ok(Self { device })
+        Ok(self)
+    }
+
+    fn load_library(
+        &self,
+        src: &'static str,          // Library code
+        module: &'static str,       // Module name
+        functions: &'static [&str], // List of functions
+    ) -> Result<(), CudaError> {
+        self.device
+            .load_ptx(Ptx::from_src(src), module, functions)
+            .map_err(|err| CudaError::PtxError(err.to_string()))?;
     }
 
     /// Allocates a buffer in the GPU and copies `data` into it. Returns its handle.
