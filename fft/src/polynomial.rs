@@ -54,6 +54,10 @@ impl<F: IsFFTField> FFTPoly<F> for Polynomial<FieldElement<F>> {
             if !F::field_name().is_empty() {
                 Ok(evaluate_fft_metal(&coeffs)?)
             } else {
+                println!(
+                    "GPU evaluation failed for field {}. Program will fallback to CPU.",
+                    std::any::type_name::<F>()
+                );
                 evaluate_fft_cpu(&coeffs)
             }
         }
@@ -87,6 +91,10 @@ impl<F: IsFFTField> FFTPoly<F> for Polynomial<FieldElement<F>> {
             if !F::field_name().is_empty() {
                 Ok(lambdaworks_gpu::metal::fft::polynomial::interpolate_fft_metal(fft_evals)?)
             } else {
+                println!(
+                    "GPU interpolation failed for field {}. Program will fallback to CPU.",
+                    std::any::type_name::<F>()
+                );
                 interpolate_fft_cpu(fft_evals)
             }
         }
