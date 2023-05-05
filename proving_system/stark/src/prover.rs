@@ -5,8 +5,8 @@ use super::{
 };
 use crate::{
     batch_sample_challenges,
-    fri::{fri_commitment::FriLayer, HASHER},
-    proof::{DeepConsistencyCheck, StarkProof, FriQuery},
+    fri::{fri_commitment::FriLayer, fri_decommit::FriDecommitment, HASHER},
+    proof::{DeepConsistencyCheck, StarkProof},
     transcript_to_field, transcript_to_usize, Domain,
 };
 #[cfg(not(feature = "test_fiat_shamir"))]
@@ -49,7 +49,7 @@ struct Round4<F: IsFFTField> {
     fri_last_value: FieldElement<F>,
     fri_layers_merkle_roots: Vec<FieldElement<F>>,
     deep_consistency_check: DeepConsistencyCheck<F>,
-    query_list: Vec<FriQuery<F>>,
+    query_list: Vec<FriDecommitment<F>>,
 }
 
 #[cfg(feature = "test_fiat_shamir")]
@@ -239,7 +239,7 @@ fn fri_query_phase<F: IsFFTField, A: AIR<Field = F>, T: Transcript>(
     round_2_result: &Round2<F>,
     fri_layers: &Vec<FriLayer<F>>,
     transcript: &mut T,
-) -> (Vec<FriQuery<F>>, DeepConsistencyCheck<F>)
+) -> (Vec<FriDecommitment<F>>, DeepConsistencyCheck<F>)
 where
     FieldElement<F>: ByteConversion,
 {
@@ -255,10 +255,7 @@ where
             };
 
             // * For every q_i, do FRI decommitment
-            let fri_decommitment = fri_decommit_layers(fri_layers, q_i);
-            FriQuery {
-                fri_decommitment,
-            }
+            fri_decommit_layers(fri_layers, q_i)
         })
         .collect();
 
@@ -323,7 +320,6 @@ where
         .iter()
         .map(|layer| layer.merkle_tree.root.clone())
         .collect();
-
 
     let (query_list, deep_consistency_check) = fri_query_phase(
         air,

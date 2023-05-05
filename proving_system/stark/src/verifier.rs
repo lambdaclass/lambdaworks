@@ -295,7 +295,7 @@ where
         &proof.fri_last_value,
         &challenges.beta_list,
         challenges.q_0,
-        &proof.query_list[0].fri_decommitment,
+        &proof.query_list[0],
         domain,
     ) {
         return false;
@@ -313,7 +313,7 @@ where
             &proof.fri_last_value,
             &challenges.beta_list,
             q_i,
-            &proof_i.fri_decommitment,
+            &proof_i,
             domain,
         );
     }
@@ -341,7 +341,7 @@ fn step_4_verify_deep_composition_polynomial<F: IsFFTField>(
     };
 
     let deep_poly_evaluation = compare_deep_composition_poly(deep_composition_poly_args);
-    let deep_poly_claimed_evaluation = &proof.query_list[0].fri_decommitment.layers_evaluations[0].0;
+    let deep_poly_claimed_evaluation = &proof.query_list[0].layers_evaluations[0].0;
 
     deep_poly_claimed_evaluation == &deep_poly_evaluation
 }

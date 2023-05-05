@@ -11,11 +11,6 @@ pub struct DeepConsistencyCheck<F: IsFFTField> {
     pub composition_poly_evaluations: Vec<FieldElement<F>>,
 }
 
-#[derive(Debug, Clone)]
-pub struct FriQuery<F: IsFFTField> {
-    pub fri_decommitment: FriDecommitment<F>,
-}
-
 #[derive(Debug)]
 pub struct StarkProof<F: IsFFTField> {
     // Commitments of the trace columns
@@ -26,5 +21,5 @@ pub struct StarkProof<F: IsFFTField> {
     pub trace_ood_frame_evaluations: Frame<F>,
     pub composition_poly_ood_evaluations: [FieldElement<F>; 2],
     pub deep_consistency_check: DeepConsistencyCheck<F>,
-    pub query_list: Vec<FriQuery<F>>,
+    pub query_list: Vec<FriDecommitment<F>>,
 }
