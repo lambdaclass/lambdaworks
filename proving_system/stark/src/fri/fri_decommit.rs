@@ -7,9 +7,8 @@ use lambdaworks_math::traits::ByteConversion;
 use super::fri_commitment::FriLayer;
 #[derive(Debug, Clone)]
 pub struct FriDecommitment<F: IsField> {
-    pub layer_merkle_paths: Vec<(Proof<F>, Proof<F>)>,
-    pub layer_evaluations: Vec<(FieldElement<F>, FieldElement<F>)>,
-    pub last_layer_evaluation: FieldElement<F>,
+    pub layers_auth_paths: Vec<(Proof<F>, Proof<F>)>,
+    pub layers_evaluations: Vec<(FieldElement<F>, FieldElement<F>)>,
 }
 
 pub fn open_layer<F: IsField>(layer: &FriLayer<F>, mut index: usize) -> (FieldElement<F>, Proof<F>) {
@@ -30,7 +29,7 @@ pub fn fri_decommit_layers<F: IsField>(
 where
     FieldElement<F>: ByteConversion,
 {
-    let mut layer_merkle_paths = vec![];
+    let mut layer_auth_paths = vec![];
     let mut layer_evaluations = vec![];
 
     // with every element of the commit, we look for that one in
@@ -42,22 +41,13 @@ where
         let index_sym = (index + layer.domain.len() / 2) % layer.domain.len();
         let (evaluation_sym, auth_path_sym) = open_layer(layer, index_sym);
 
-        layer_merkle_paths.push((auth_path, auth_path_sym));
+        layer_auth_paths.push((auth_path, auth_path_sym));
         layer_evaluations.push((evaluation, evaluation_sym));
     }
 
-    // send the last element of the polynomial
-    let last = layers.last().unwrap();
-
-    // This get can't fail, since the last will always have at least one evaluation
-    // (in fact two, but on the last step the two will be the same because the polynomial will have
-    // degree 0).
-    let last_evaluation = last.evaluation[0].clone();
-
     FriDecommitment {
-        layer_merkle_paths,
-        layer_evaluations,
-        last_layer_evaluation: last_evaluation,
+        layers_auth_paths: layer_auth_paths,
+        layers_evaluations: layer_evaluations,
     }
 }
 

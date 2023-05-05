@@ -24,7 +24,7 @@ pub fn fri_commit_phase<F: IsField, T: Transcript>(
     p_0: Polynomial<FieldElement<F>>,
     domain_0: &[FieldElement<F>],
     transcript: &mut T,
-) -> Vec<FriLayer<F>>
+) -> (FieldElement<F>, Vec<FriLayer<F>>)
 where
     FieldElement<F>: ByteConversion,
 {
@@ -42,14 +42,16 @@ where
     }
     fri_layer_list.push(current_layer.clone());
 
-    // append last value of the polynomial to the trasncript
-    let last_coef_bytes = current_layer
+    let last_value = current_layer
         .poly
         .coefficients()
         .get(0)
         .unwrap_or(&FieldElement::zero())
-        .to_bytes_be();
+        .clone();
+
+    // append last value of the polynomial to the transcript
+    let last_coef_bytes = last_value.to_bytes_be();
     transcript.append(&last_coef_bytes);
 
-    fri_layer_list
+    (last_value, fri_layer_list)
 }

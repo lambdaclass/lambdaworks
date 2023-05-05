@@ -77,7 +77,7 @@ fn test_prove_fib_2_cols() {
     let context = AirContext {
         options: ProofOptions {
             blowup_factor: 2,
-            fri_number_of_queries: 1,
+            fri_number_of_queries: 7,
             coset_offset: 3,
         },
         trace_length: trace_table.n_rows(),

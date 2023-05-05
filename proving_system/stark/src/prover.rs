@@ -6,7 +6,7 @@ use super::{
 use crate::{
     batch_sample_challenges,
     fri::{fri_commitment::FriLayer, HASHER},
-    proof::{DeepConsistencyCheck, StarkProof, StarkQueryProof},
+    proof::{DeepConsistencyCheck, StarkProof, FriQuery},
     transcript_to_field, transcript_to_usize, Domain,
 };
 #[cfg(not(feature = "test_fiat_shamir"))]
@@ -46,9 +46,10 @@ struct Round3<F: IsFFTField> {
 }
 
 struct Round4<F: IsFFTField> {
+    fri_last_value: FieldElement<F>,
     fri_layers_merkle_roots: Vec<FieldElement<F>>,
     deep_consistency_check: DeepConsistencyCheck<F>,
-    query_list: Vec<StarkQueryProof<F>>,
+    query_list: Vec<FriQuery<F>>,
 }
 
 #[cfg(feature = "test_fiat_shamir")]
@@ -239,7 +240,7 @@ fn fri_query_phase<F: IsFFTField, A: AIR<Field = F>, T: Transcript>(
     fri_layers: &Vec<FriLayer<F>>,
     fri_layers_merkle_roots: &[FieldElement<F>],
     transcript: &mut T,
-) -> (Vec<StarkQueryProof<F>>, DeepConsistencyCheck<F>)
+) -> (Vec<FriQuery<F>>, DeepConsistencyCheck<F>)
 where
     FieldElement<F>: ByteConversion,
 {
@@ -256,7 +257,7 @@ where
 
             // * For every q_i, do FRI decommitment
             let fri_decommitment = fri_decommit_layers(fri_layers, q_i);
-            StarkQueryProof {
+            FriQuery {
                 fri_layers_merkle_roots: fri_layers_merkle_roots.to_vec(),
                 fri_decommitment,
             }
@@ -313,7 +314,7 @@ where
     );
 
     // * Do FRI on the deep composition polynomial
-    let fri_layers = fri_commit_phase(
+    let (fri_last_value, fri_layers) = fri_commit_phase(
         domain.root_order as usize,
         deep_composition_poly,
         &domain.lde_roots_of_unity_coset,
@@ -336,6 +337,7 @@ where
         transcript,
     );
     Round4 {
+        fri_last_value,
         fri_layers_merkle_roots,
         deep_consistency_check,
         query_list,
@@ -526,6 +528,7 @@ where
         lde_trace_merkle_roots: round_1_result.lde_trace_merkle_roots,
         composition_poly_roots: round_2_result.composition_poly_roots,
         fri_layers_merkle_roots: round_4_result.fri_layers_merkle_roots,
+        fri_last_value: round_4_result.fri_last_value,
         trace_ood_frame_evaluations: round_3_result.trace_ood_frame_evaluations,
         composition_poly_ood_evaluations: round_3_result.composition_poly_ood_evaluations,
         deep_consistency_check: round_4_result.deep_consistency_check,

@@ -149,7 +149,7 @@ where
         beta_list.push(beta);
     }
 
-    let last_evaluation = &proof.query_list[0].fri_decommitment.last_layer_evaluation;
+    let last_evaluation = &proof.fri_last_value;
     let last_evaluation_bytes = last_evaluation.to_bytes_be();
     transcript.append(&last_evaluation_bytes);
 
@@ -292,6 +292,7 @@ where
     ) || !verify_query(
         air,
         &proof.fri_layers_merkle_roots,
+        &proof.fri_last_value,
         &challenges.beta_list,
         challenges.q_0,
         &proof.query_list[0].fri_decommitment,
@@ -309,6 +310,7 @@ where
         result &= verify_query(
             air,
             &proof.fri_layers_merkle_roots,
+            &proof.fri_last_value,
             &challenges.beta_list,
             q_i,
             &proof_i.fri_decommitment,
@@ -339,7 +341,7 @@ fn step_4_verify_deep_composition_polynomial<F: IsFFTField>(
     };
 
     let deep_poly_evaluation = compare_deep_composition_poly(deep_composition_poly_args);
-    let deep_poly_claimed_evaluation = &proof.query_list[0].fri_decommitment.layer_evaluations[0].0;
+    let deep_poly_claimed_evaluation = &proof.query_list[0].fri_decommitment.layers_evaluations[0].0;
 
     deep_poly_claimed_evaluation == &deep_poly_evaluation
 }
@@ -347,6 +349,7 @@ fn step_4_verify_deep_composition_polynomial<F: IsFFTField>(
 fn verify_query<F: IsField + IsFFTField, A: AIR<Field = F>>(
     air: &A,
     fri_layers_merkle_roots: &[FieldElement<F>],
+    fri_last_value: &FieldElement<F>,
     beta_list: &[FieldElement<F>],
     q_i: usize,
     fri_decommitment: &FriDecommitment<F>,
@@ -389,9 +392,9 @@ where
         .iter()
         .zip(
             fri_decommitment
-                .layer_merkle_paths
+                .layers_auth_paths
                 .iter()
-                .zip(fri_decommitment.layer_evaluations.iter()),
+                .zip(fri_decommitment.layers_evaluations.iter()),
         )
         .enumerate()
         // Since we always derive the current layer from the previous layer
@@ -429,7 +432,7 @@ where
         let beta = beta_list[index].clone();
 
         let (previous_auth_path_evaluation, previous_path_evaluation_symmetric) = fri_decommitment
-            .layer_evaluations
+            .layers_evaluations
             .get(layer_number - 1)
             // TODO: Check at the start of the FRI operation
             // if layer_merkle_paths has the right amount of elements
@@ -460,7 +463,7 @@ where
                 + &beta * (auth_path_evaluation - auth_path_evaluation_symmetric)
                     / (two * &last_evaluation_point);
 
-            if last_v != fri_decommitment.last_layer_evaluation {
+            if last_v != *fri_last_value {
                 return false;
             }
         }
