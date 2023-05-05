@@ -23,7 +23,7 @@ use lambdaworks_math::{
     polynomial::Polynomial,
     traits::ByteConversion,
 };
-use log::info;
+use log::{error, info};
 
 struct Round1<F: IsFFTField> {
     main_trace_polys: Vec<Polynomial<FieldElement<F>>>,
@@ -142,6 +142,12 @@ where
     let n_aux_segments = air.num_aux_segments();
     for aux_segment_idx in 0..n_aux_segments {
         let segment_rand_coeffs = air.aux_segment_rand_coeffs(aux_segment_idx, transcript);
+
+        // Adding this for easier debugging.
+        #[cfg(debug_assertions)]
+        if air.build_aux_segment(trace, &segment_rand_coeffs).is_none() {
+            error!("Inconsistent AIR implementation, build_aux_segment function should not return None for a multi-segment AIR.")
+        }
 
         let aux_segment = air.build_aux_segment(trace, &segment_rand_coeffs).unwrap();
 

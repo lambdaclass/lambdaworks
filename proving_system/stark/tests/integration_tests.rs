@@ -2,8 +2,9 @@ use lambdaworks_math::field::fields::{
     fft_friendly::stark_252_prime_field::Stark252PrimeField, u64_prime_field::FE17,
 };
 use lambdaworks_stark::air::example::{
-    cairo, fibonacci_2_columns, fibonacci_f17, quadratic_air, simple_fibonacci,
+    cairo, fibonacci_2_columns, fibonacci_f17, fibonacci_rap, quadratic_air, simple_fibonacci,
 };
+use lambdaworks_stark::air::trace::AuxSegmentsInfo;
 use lambdaworks_stark::air::{TraceInfo, TraceLayout};
 use lambdaworks_stark::cairo_vm::cairo_mem::CairoMemory;
 use lambdaworks_stark::cairo_vm::cairo_trace::CairoTrace;
@@ -316,4 +317,49 @@ fn test_malicious_trace_does_not_verify() {
     // The proof is generated and the verifier rejects the proof
     let result = prove(&reconstructed_exec_trace, &cairo_air);
     assert!(!verify(&result, &cairo_air));
+}
+
+#[test_log::test]
+fn test_prove_rap_fib() {
+    let trace_length = 8;
+    let trace = fibonacci_rap::fibonacci_rap_trace([FE::from(1), FE::from(1)], trace_length);
+
+    let trace_table = TraceTable::new_from_cols(&trace, None);
+
+    let aux_segments_info = AuxSegmentsInfo {
+        aux_segment_widths: vec![1],
+        aux_segment_rands: vec![1],
+        num_aux_segments: 1,
+    };
+
+    let layout = TraceLayout {
+        main_segment_width: 2,
+        aux_segments_info: Some(aux_segments_info),
+    };
+
+    let trace_info = TraceInfo {
+        layout,
+        trace_length,
+    };
+
+    let context = AirContext {
+        options: ProofOptions {
+            blowup_factor: 2,
+            fri_number_of_queries: 1,
+            coset_offset: 3,
+        },
+        trace_info,
+        transition_degrees: vec![1],
+        aux_transition_degrees: Some(vec![1]),
+        transition_exemptions: vec![1],
+        transition_offsets: vec![0, 1, 2],
+        aux_transition_offsets: Some(vec![0, 1]),
+        num_transition_constraints: 1,
+        num_aux_transition_constraints: 1,
+    };
+
+    let fibonacci_rap = fibonacci_rap::FibonacciRAP::new(context);
+
+    let result = prove(&trace_table, &fibonacci_rap);
+    assert!(verify(&result, &fibonacci_rap));
 }

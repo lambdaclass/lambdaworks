@@ -10,9 +10,9 @@ use log::{error, info};
 
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
 pub struct AuxSegmentsInfo {
-    pub(crate) aux_segment_widths: Vec<usize>,
-    pub(crate) aux_segment_rands: Vec<usize>,
-    pub(crate) num_aux_segments: usize,
+    pub aux_segment_widths: Vec<usize>,
+    pub aux_segment_rands: Vec<usize>,
+    pub num_aux_segments: usize,
 }
 
 impl AuxSegmentsInfo {
