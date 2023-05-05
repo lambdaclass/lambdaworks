@@ -1,4 +1,4 @@
-.PHONY: test clippy docker-shell nix-shell benchmarks benchmark docs
+.PHONY: test clippy docker-shell nix-shell benchmarks benchmark docs build-cuda build-metal
 
 test:
 	cargo test
@@ -23,17 +23,20 @@ benchmark:
 flamegraph_stark:
 	CARGO_PROFILE_BENCH_DEBUG=true cargo flamegraph --root --bench stark_benchmarks -- --bench
 
-METALPATH = gpu/src/metal/shaders
-build-metal:
-	xcrun -sdk macosx metal $(METALPATH)/all.metal -o $(METALPATH)/lib.metallib
-
-CUDAPATH = gpu/src/cuda/shaders
-build-cuda:
-	nvcc -ptx $(CUDAPATH)/fft.cu -o $(CUDAPATH)/fft.ptx
-	nvcc -ptx $(CUDAPATH)/calc_twiddles.cu -o $(CUDAPATH)/calc_twiddles.ptx
-	nvcc -ptx $(CUDAPATH)/calc_twiddles_inv.cu -o $(CUDAPATH)/calc_twiddles_inv.ptx
-	nvcc -ptx $(CUDAPATH)/calc_twiddles_bitrev.cu -o $(CUDAPATH)/calc_twiddles_bitrev.ptx
-	nvcc -ptx $(CUDAPATH)/calc_twiddles_bitrev_inv.cu -o $(CUDAPATH)/calc_twiddles_bitrev_inv.ptx
-
 docs:
 	cd docs && mdbook serve --open
+
+METAL_DIR = gpu/src/metal/shaders
+build-metal:
+	xcrun -sdk macosx metal $(METAL_DIR)/all.metal -o $(METAL_DIR)/lib.metallib
+
+
+CUDA_DIR = gpu/src/cuda/shaders
+CUDA_FILES:=$(wildcard $(CUDA_DIR)/*.cu)
+CUDA_COMPILED:=$(patsubst $(CUDA_DIR)/%.cu, $(CUDA_DIR)/%.ptx, $(CUDA_FILES))
+
+$(CUDA_DIR)/%.ptx: $(CUDA_DIR)/%.cu
+	nvcc -ptx $< -o $@
+
+# This part compiles all .cu files in $(CUDA_DIR)
+build-cuda: $(CUDA_COMPILED)
