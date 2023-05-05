@@ -137,7 +137,10 @@ pub enum PointFormat {
 }
 
 #[derive(PartialEq)]
-pub enum FieldEndianness {
+/// Describes the endianess of the internal types of the types
+/// For example, in a field made with limbs of u64
+/// this is the endianess of those u64
+pub enum Endianness {
     BigEndian,
     LittleEndian,
 }
@@ -148,7 +151,7 @@ where
     FieldElement<E::BaseField>: ByteConversion,
 {
     /// Serialize the points in the given format
-    pub fn serialize(&self, _point_format: PointFormat, endianness: FieldEndianness) -> Vec<u8> {
+    pub fn serialize(&self, _point_format: PointFormat, endianness: Endianness) -> Vec<u8> {
         // TODO: these can be more efficient.
         // More options for point formats should be added
         // E.g: Store the x value, the bit to indicate y.
@@ -158,7 +161,7 @@ where
         let z_bytes: Vec<u8>;
 
         let [x, y, z] = self.coordinates();
-        if endianness == FieldEndianness::BigEndian {
+        if endianness == Endianness::BigEndian {
             x_bytes = x.to_bytes_be();
             y_bytes = y.to_bytes_be();
             z_bytes = z.to_bytes_be();
@@ -178,7 +181,7 @@ where
     pub fn deserialize(
         bytes: &[u8],
         _point_format: PointFormat,
-        endianness: FieldEndianness,
+        endianness: Endianness,
     ) -> Result<Self, DeserializationError> {
         if bytes.len() % 3 != 0 {
             return Err(DeserializationError::InvalidAmountOfBytes);
@@ -189,7 +192,7 @@ where
         let y: FieldElement<E::BaseField>;
         let z: FieldElement<E::BaseField>;
 
-        if endianness == FieldEndianness::BigEndian {
+        if endianness == Endianness::BigEndian {
             x = FieldElement::from_bytes_be(&bytes[..len])?;
             y = FieldElement::from_bytes_be(&bytes[len..len * 2])?;
             z = FieldElement::from_bytes_be(&bytes[len * 2..])?;
@@ -220,7 +223,7 @@ where
     FieldElement<E::BaseField>: ByteConversion,
 {
     fn serialize(&self) -> Vec<u8> {
-        self.serialize(PointFormat::Projective, FieldEndianness::LittleEndian)
+        self.serialize(PointFormat::Projective, Endianness::LittleEndian)
     }
 }
 
@@ -247,12 +250,12 @@ mod tests {
     fn byte_conversion_from_and_to_be() {
         let expected_point = point();
         let bytes_be =
-            expected_point.serialize(PointFormat::Projective, FieldEndianness::BigEndian);
+            expected_point.serialize(PointFormat::Projective, Endianness::BigEndian);
 
         let result = ShortWeierstrassProjectivePoint::deserialize(
             &bytes_be,
             PointFormat::Projective,
-            FieldEndianness::BigEndian,
+            Endianness::BigEndian,
         );
         assert_eq!(expected_point, result.unwrap());
     }
@@ -261,24 +264,24 @@ mod tests {
     fn byte_conversion_from_and_to_le() {
         let expected_point = point();
         let bytes_be =
-            expected_point.serialize(PointFormat::Projective, FieldEndianness::LittleEndian);
+            expected_point.serialize(PointFormat::Projective, Endianness::LittleEndian);
 
         let result = ShortWeierstrassProjectivePoint::deserialize(
             &bytes_be,
             PointFormat::Projective,
-            FieldEndianness::LittleEndian,
+            Endianness::LittleEndian,
         );
         assert_eq!(expected_point, result.unwrap());
     }
 
     #[test]
     fn byte_conversion_from_and_to_with_mixed_le_and_be_does_not_work() {
-        let bytes = point().serialize(PointFormat::Projective, FieldEndianness::LittleEndian);
+        let bytes = point().serialize(PointFormat::Projective, Endianness::LittleEndian);
 
         let result = ShortWeierstrassProjectivePoint::<BLS12381Curve>::deserialize(
             &bytes,
             PointFormat::Projective,
-            FieldEndianness::BigEndian,
+            Endianness::BigEndian,
         );
 
         assert_eq!(
@@ -289,12 +292,12 @@ mod tests {
 
     #[test]
     fn byte_conversion_from_and_to_with_mixed_be_and_le_does_not_work() {
-        let bytes = point().serialize(PointFormat::Projective, FieldEndianness::BigEndian);
+        let bytes = point().serialize(PointFormat::Projective, Endianness::BigEndian);
 
         let result = ShortWeierstrassProjectivePoint::<BLS12381Curve>::deserialize(
             &bytes,
             PointFormat::Projective,
-            FieldEndianness::LittleEndian,
+            Endianness::LittleEndian,
         );
 
         assert_eq!(
@@ -310,7 +313,7 @@ mod tests {
         let result = ShortWeierstrassProjectivePoint::<BLS12381Curve>::deserialize(
             bytes,
             PointFormat::Projective,
-            FieldEndianness::LittleEndian,
+            Endianness::LittleEndian,
         );
 
         assert_eq!(
@@ -326,7 +329,7 @@ mod tests {
         let result = ShortWeierstrassProjectivePoint::<BLS12381Curve>::deserialize(
             bytes,
             PointFormat::Projective,
-            FieldEndianness::BigEndian,
+            Endianness::BigEndian,
         );
 
         assert_eq!(
