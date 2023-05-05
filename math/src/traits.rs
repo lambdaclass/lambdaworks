@@ -24,12 +24,10 @@ pub trait ByteConversion {
         Self: std::marker::Sized;
 }
 
-/// Serialize function without options
-/// Used to serialize data to feed it into Fiat Shamir
-/// in some protocols, when ByteConversion is not avaible
-/// For example, when using Curve Points
+/// Serialize function without args
+/// Used for serialization when formatting options are not relevant
 pub trait Serializable {
-    /// Returns the byte representation of the element in big-endian order.
+    /// Default serialize without args
     fn serialize(&self) -> Vec<u8>;
 }
 
