@@ -87,12 +87,12 @@ pub fn log2(n: usize) -> Result<u64, FieldError> {
 pub fn gen_twiddles<F: IsFFTField>(
     order: u64,
     config: RootsConfig,
-) -> Result<Vec<FieldElement<F>>, FieldError> {
+) -> Result<Vec<FieldElement<F>>, DriverError> {
     let count = (1 << order) / 2;
     let root = F::get_primitive_root_of_unity(order).unwrap();
 
     let (root, function_name) = match config {
-        RootsConfig::Natual => (root, "calc_twiddles"),
+        RootsConfig::Natural => (root, "calc_twiddles"),
         RootsConfig::NaturalInversed => (root.inv(), "calc_twiddles"),
         RootsConfig::BitReverse => (root, "calc_twiddles_bitrev"),
         RootsConfig::BitReverseInversed => (root.inv(), "calc_twiddles_bitrev"),
@@ -101,8 +101,11 @@ pub fn gen_twiddles<F: IsFFTField>(
     let device = CudaDevice::new(0)?;
 
     // d_ prefix is used to indicate device memory.
-    let mut d_twiddles =
-        device.htod_sync_copy((0..count).map(CUDAFieldElement::from).collect::<Vec<_>>())?;
+    let mut d_twiddles = device.htod_sync_copy(
+        (0..count)
+            .map(|i| CUDAFieldElement::from(FieldElement::from(i)))
+            .collect::<Vec<_>>(),
+    )?;
     let d_root = device.htod_sync_copy(&CUDAFieldElement::from(root))?;
 
     device.load_ptx(
@@ -114,7 +117,7 @@ pub fn gen_twiddles<F: IsFFTField>(
 
     for stage in 0..order {
         let group_count = 1 << stage;
-        let group_size = input.len() / group_count;
+        let group_size = count / group_count;
 
         let grid_dim = (group_count as u32, 1, 1); // in blocks
         let block_dim = (group_size as u32 / 2, 1, 1);

@@ -7,7 +7,7 @@ use lambdaworks_math::{
     polynomial::Polynomial,
 };
 
-use super::ops::{fft, get_twiddles, log2};
+use super::ops::{fft, gen_twiddles, log2};
 
 pub fn evaluate_fft_cuda<F>(
     poly: &Polynomial<FieldElement<F>>,
