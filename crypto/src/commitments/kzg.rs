@@ -36,7 +36,7 @@ where
     G1Point: IsGroup + Deserializable,
     G2Point: IsGroup + Deserializable,
 {
-    pub fn from_file(file_path: &str) -> Result<Self,SrsFromFileError> {
+    pub fn from_file(file_path: &str) -> Result<Self, SrsFromFileError> {
         let mut f = File::open(file_path).expect("no file found");
         let mut bytes: Vec<u8> = Vec::new();
         f.read_to_end(&mut bytes)?;
