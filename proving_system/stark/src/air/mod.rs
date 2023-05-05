@@ -45,7 +45,17 @@ pub trait AIR: Clone {
         .unwrap();
 
         let mut result = vec![];
-        for transition_idx in 0..self.context().num_transition_constraints {
+        let n_main_transitions = self.context().num_transition_constraints;
+        let n_aux_transitions = self.num_aux_transitions();
+
+        #[cfg(debug_assertions)]
+        if n_aux_transitions == 0 {
+            debug_assert!(self.context().aux_transition_degrees.is_none());
+        }
+
+        let n_total_transition_constraints = n_main_transitions + n_aux_transitions;
+
+        for transition_idx in 0..n_total_transition_constraints {
             // X^(trace_length) - 1
             let roots_of_unity_vanishing_polynomial =
                 Polynomial::new_monomial(FieldElement::<Self::Field>::one(), trace_length)
@@ -125,6 +135,41 @@ pub trait AIR: Clone {
         aux_rand_elements: &[FieldElement<Self::Field>],
     ) -> Vec<FieldElement<Self::Field>> {
         Vec::new()
+    }
+
+    fn aux_transition_divisors(&self) -> Vec<Polynomial<FieldElement<Self::Field>>> {
+        let trace_length = self.trace_length();
+        let roots_of_unity_order = trace_length.trailing_zeros();
+        let roots_of_unity = get_powers_of_primitive_root_coset(
+            roots_of_unity_order as u64,
+            trace_length,
+            &FieldElement::<Self::Field>::one(),
+        )
+        .unwrap();
+
+        let mut result = vec![];
+        for transition_idx in 0..self.context().num_aux_transition_constraints {
+            // X^(trace_length) - 1
+            let roots_of_unity_vanishing_polynomial =
+                Polynomial::new_monomial(FieldElement::<Self::Field>::one(), trace_length)
+                    - Polynomial::new_monomial(FieldElement::<Self::Field>::one(), 0);
+
+            let mut exemptions_polynomial =
+                Polynomial::new_monomial(FieldElement::<Self::Field>::one(), 0);
+
+            for i in 0..self.context().transition_exemptions[transition_idx] {
+                exemptions_polynomial = exemptions_polynomial
+                    * (Polynomial::new_monomial(FieldElement::<Self::Field>::one(), 1)
+                        - Polynomial::new_monomial(
+                            roots_of_unity[roots_of_unity.len() - 1 - i].clone(),
+                            0,
+                        ))
+            }
+
+            result.push(roots_of_unity_vanishing_polynomial / exemptions_polynomial);
+        }
+
+        result
     }
 
     #[allow(unused_variables)]

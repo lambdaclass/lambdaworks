@@ -8,10 +8,7 @@ use lambdaworks_math::{
 use crate::air::{frame::Frame, trace::TraceTable, AIR};
 use std::iter::zip;
 
-use super::{
-    boundary::{BoundaryConstraint, BoundaryConstraints},
-    evaluation_table::ConstraintEvaluationTable,
-};
+use super::evaluation_table::ConstraintEvaluationTable;
 
 pub struct ConstraintEvaluator<'poly, F: IsFFTField, A: AIR> {
     air: A,
@@ -52,11 +49,10 @@ impl<'poly, F: IsFFTField, A: AIR<Field = F>> ConstraintEvaluator<'poly, F, A> {
         let n_trace_colums = self.main_trace_polys.len();
         let main_boundary_constraints = self.air.boundary_constraints();
 
+        // Main trace boundary polys
         let main_boundary_domains =
             main_boundary_constraints.generate_roots_of_unity(&self.primitive_root, n_trace_colums);
         let main_boundary_values = main_boundary_constraints.values(n_trace_colums);
-
-        // Main trace boundary polys
         let mut boundary_polys: Vec<Polynomial<FieldElement<F>>> =
             zip(main_boundary_domains, main_boundary_values)
                 .zip(self.main_trace_polys)
@@ -65,15 +61,32 @@ impl<'poly, F: IsFFTField, A: AIR<Field = F>> ConstraintEvaluator<'poly, F, A> {
         let mut boundary_zerofiers: Vec<Polynomial<FieldElement<F>>> = (0..n_trace_colums)
             .map(|col| main_boundary_constraints.compute_zerofier(&self.primitive_root, col))
             .collect();
-
         // Get the max degree of boundary polys of main segments
         let mut bound_polys_max_degree =
             boundary_polys_max_degree(&boundary_polys, &boundary_zerofiers);
+
+        // Initialize trace_polys vector with only the main trace polynomials.
+        let mut trace_polys = self.main_trace_polys.to_vec();
+
+        // Get main transition degrees. When there are auxiliary transition constraints,
+        // this vector is updated with their corresponding degrees.
+        let mut transition_degrees = self.air.context().transition_degrees();
 
         // Auxiliary trace boundary polys
         let n_aux_segments = self.air.num_aux_segments();
         let mut aux_rand_elements = Vec::with_capacity(n_aux_segments);
         if self.air.is_multi_segment() {
+            let Some(aux_transition_degrees) = self.air.context().aux_transition_degrees
+                else {
+                    panic!("AIR context inconsistency - AIR is multi-segment but there are no auxiliary transition degrees set.");
+                };
+
+            // Update trace_polys vector with auxiliary trace polynomials.
+            self.aux_trace_polys
+                .iter()
+                .for_each(|aux_poly| trace_polys.extend_from_slice(&aux_poly));
+
+            transition_degrees.extend_from_slice(&aux_transition_degrees);
             let mut aux_boundary_polys = Vec::with_capacity(n_aux_segments);
             let mut aux_boundary_zerofiers = Vec::with_capacity(n_aux_segments);
             (0..n_aux_segments).for_each(|segment_idx| {
@@ -112,6 +125,7 @@ impl<'poly, F: IsFFTField, A: AIR<Field = F>> ConstraintEvaluator<'poly, F, A> {
             });
 
             // NOTE: This is not very efficient, we may want to do it another way.
+            // The polynomials vectors are flattened so that it is easier to operate with them.
             let flattened_aux_boundary_polys: Vec<Polynomial<FieldElement<F>>> =
                 aux_boundary_polys.into_iter().flatten().collect();
             let flattened_aux_boundary_zerofier: Vec<Polynomial<FieldElement<F>>> =
@@ -126,15 +140,9 @@ impl<'poly, F: IsFFTField, A: AIR<Field = F>> ConstraintEvaluator<'poly, F, A> {
                 std::cmp::max(bound_polys_max_degree, aux_boundary_polys_max_degree);
         }
 
-        // Get the max degree of transition polys of main and auxiliary segments
-        let main_transition_degrees = self.air.context().transition_degrees();
         let transition_zerofiers = self.air.transition_divisors();
-        let transition_polys_max_degree = transition_polys_max_degree(
-            &main_transition_degrees,
-            &self.main_trace_polys,
-            &transition_zerofiers,
-        );
-
+        let transition_polys_max_degree =
+            transition_polys_max_degree(&transition_degrees, &trace_polys, &transition_zerofiers);
         let max_degree = std::cmp::max(transition_polys_max_degree, bound_polys_max_degree);
         let max_degree_power_of_two = helpers::next_power_of_two(max_degree as u64);
 

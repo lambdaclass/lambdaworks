@@ -26,6 +26,13 @@ impl AirContext {
     pub fn transition_degrees(&self) -> Vec<usize> {
         self.transition_degrees.clone()
     }
+
+    pub fn aux_transition_degrees(&self) -> Vec<usize> {
+        if let Some(degrees) = self.aux_transition_degrees.as_ref() {
+            return degrees.clone();
+        }
+        vec![0]
+    }
 }
 
 #[derive(Clone, Debug)]
