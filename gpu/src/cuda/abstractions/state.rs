@@ -10,8 +10,6 @@ const FFT_PTX: &str = include_str!("../shaders/fft.ptx");
 /// implementing GPU parallel computations in Apple machines.
 pub(crate) struct CudaState {
     pub(crate) device: CudaDevice,
-    pub(crate) library: metal::Library,
-    pub(crate) queue: metal::CommandQueue,
 }
 
 impl CudaState {
