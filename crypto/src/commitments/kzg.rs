@@ -3,7 +3,7 @@ use lambdaworks_math::{
     elliptic_curve::traits::IsPairing,
     field::{element::FieldElement, traits::IsPrimeField},
     msm::msm,
-    polynomial::Polynomial, traits::{ByteConversion, SimpleSerialization, SimpleDeserialization},
+    polynomial::Polynomial, traits::{Deserializable, Serializable},
 };
 use std::{marker::PhantomData, mem};
 use super::traits::IsCommitmentScheme;
@@ -30,8 +30,8 @@ where
 
 impl<G1Point, G2Point> StructuredReferenceString<G1Point, G2Point>
 where
-    G1Point: IsGroup + SimpleSerialization + SimpleDeserialization,
-    G2Point: IsGroup + SimpleSerialization + SimpleDeserialization,
+    G1Point: IsGroup + Serializable + Deserializable,
+    G2Point: IsGroup + Serializable + Deserializable,
 {
     pub fn serialize(&self) -> Vec<u8> {
 
@@ -39,7 +39,6 @@ where
         // First 4 bytes encodes protocol version
         let protocol_version: [u8;4] = [0;4];
 
-        let a = G2Point::neutral_element();
         serialized_data.extend(&protocol_version);
 
         // Second 8 bytes store the amount of G1 elements to be stored, this is more than can be indexed with a 64-bit architecture, and some millions of terabytes of data if the points were compressed
@@ -55,12 +54,12 @@ where
 
         // G1 elements
         for point in &self.powers_main_group {
-            serialized_data.extend(point.simple_serialize());
+            serialized_data.extend(point.serialize());
         }
 
         // G2 elements
         for point in &self.powers_secondary_group {
-            serialized_data.extend(point.simple_serialize());
+            serialized_data.extend(point.serialize());
         }
 
         serialized_data
@@ -78,24 +77,22 @@ where
 
         let mut main_group: Vec<G1Point> = Vec::new();
         let mut secondary_group: Vec<G2Point> = Vec::new();
+
         let size_g1_point = mem::size_of::<G1Point>();
         let size_g2_point = mem::size_of::<G2Point>();
 
-
         for i in 0..main_group_len {
             // The second unwrap shouldn't fail since the amount of bytes is fixed
-            let point = G1Point::simple_deserialize(
+            let point = G1Point::deserialize(
                 bytes[i*size_g1_point+12..i*size_g1_point+size_g1_point+12].try_into().unwrap()
             ).unwrap();
             main_group.push(point);
         }
 
-        let size_g1_point = mem::size_of::<G1Point>();
-        let size_g2_point = mem::size_of::<G2Point>();
         let g2s_offset = size_g1_point*main_group_len+12;
         for i in 0..2 {
             // The second unwrap shouldn't fail since the amount of bytes is fixed
-            let point = G2Point::simple_deserialize(
+            let point = G2Point::deserialize(
                 bytes[i*size_g2_point+g2s_offset..i*size_g2_point+g2s_offset+size_g2_point].try_into().unwrap()
             ).unwrap();
             secondary_group.push(point);
