@@ -12,37 +12,38 @@ pub struct FriDecommitment<F: IsField> {
     pub last_layer_evaluation: FieldElement<F>,
 }
 
+pub fn open_layer<F: IsField>(layer: &FriLayer<F>, mut index: usize) -> (FieldElement<F>, Proof<F>) {
+    index = index % layer.domain.len();
+    let evaluation = layer.evaluation[index].clone();
+    let auth_path = layer.merkle_tree.get_proof_by_pos(index).unwrap();
+    (evaluation, auth_path)
+}
+
 // verifier chooses a randomness and get the index where
 // they want to evaluate the poly
 // TODO: encapsulate the return type of this function in a struct.
 // This returns a list of authentication paths for evaluations on points and their symmetric counterparts.
 pub fn fri_decommit_layers<F: IsField>(
     layers: &Vec<FriLayer<F>>,
-    index_to_verify: usize,
+    index: usize,
 ) -> FriDecommitment<F>
 where
     FieldElement<F>: ByteConversion,
 {
-    let mut index = index_to_verify;
-
     let mut layer_merkle_paths = vec![];
     let mut layer_evaluations = vec![];
 
     // with every element of the commit, we look for that one in
     // the merkle tree and get the corresponding element
     for layer in layers {
-        let length = layer.domain.len();
-        index %= length;
-        let evaluation = layer.evaluation[index].clone();
-        let auth_path = layer.merkle_tree.get_proof_by_pos(index).unwrap();
+        let (evaluation, auth_path) = open_layer(layer, index);
 
         // symmetric element
-        let index_sym = (index + length / 2) % length;
-        let evaluation_i_sym = layer.evaluation[index_sym].clone();
-        let auth_path_sym = layer.merkle_tree.get_proof_by_pos(index_sym).unwrap();
+        let index_sym = (index + layer.domain.len() / 2) % layer.domain.len();
+        let (evaluation_sym, auth_path_sym) = open_layer(layer, index_sym);
 
         layer_merkle_paths.push((auth_path, auth_path_sym));
-        layer_evaluations.push((evaluation, evaluation_i_sym));
+        layer_evaluations.push((evaluation, evaluation_sym));
     }
 
     // send the last element of the polynomial
