@@ -9,7 +9,7 @@ use lambdaworks_math::{
     polynomial::Polynomial,
     traits::{Deserializable, Serializable},
 };
-use std::{io::Read, marker::PhantomData, mem};
+use std::{marker::PhantomData, mem};
 
 #[derive(PartialEq, Clone, Debug)]
 pub struct StructuredReferenceString<G1Point, G2Point> {
