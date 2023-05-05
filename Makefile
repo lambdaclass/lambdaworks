@@ -30,7 +30,10 @@ build-metal:
 CUDAPATH = gpu/src/cuda/shaders
 build-cuda:
 	nvcc -ptx $(CUDAPATH)/fft.cu -o $(CUDAPATH)/fft.ptx
-	nvcc -ptx $(CUDAPATH)/twiddles.cu -o $(CUDAPATH)/twiddles.ptx
+	nvcc -ptx $(CUDAPATH)/calc_twiddles.cu -o $(CUDAPATH)/calc_twiddles.ptx
+	nvcc -ptx $(CUDAPATH)/calc_twiddles_inv.cu -o $(CUDAPATH)/calc_twiddles_inv.ptx
+	nvcc -ptx $(CUDAPATH)/calc_twiddles_bitrev.cu -o $(CUDAPATH)/calc_twiddles_bitrev.ptx
+	nvcc -ptx $(CUDAPATH)/calc_twiddles_bitrev_inv.cu -o $(CUDAPATH)/calc_twiddles_bitrev_inv.ptx
 
 docs:
 	cd docs && mdbook serve --open
