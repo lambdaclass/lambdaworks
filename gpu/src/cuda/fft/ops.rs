@@ -101,13 +101,17 @@ pub fn gen_twiddles<F: IsFFTField>(
     let device = CudaDevice::new(0)?;
 
     // d_ prefix is used to indicate device memory.
-    let mut d_twiddles = device.htod_sync_copy(
-        (0..count)
-            .map(|i| CUDAFieldElement::from(&FieldElement::from(i)))
-            .collect::<Vec<_>>()
-            .as_slice(),
-    )?;
-    let d_root = device.htod_sync_copy(&[CUDAFieldElement::from(&root)])?;
+    let mut d_twiddles = device
+        .htod_sync_copy(
+            (0..count)
+                .map(|i| CUDAFieldElement::from(&FieldElement::from(i)))
+                .collect::<Vec<_>>()
+                .as_slice(),
+        )
+        .unwrap();
+    let d_root = device
+        .htod_sync_copy(&[CUDAFieldElement::from(&root)])
+        .unwrap();
 
     device.load_ptx(
         Ptx::from_src(SHADER_PTX_TWIDDLES),
