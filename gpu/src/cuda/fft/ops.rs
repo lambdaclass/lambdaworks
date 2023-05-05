@@ -11,7 +11,8 @@ use cudarc::{
 
 use crate::cuda::field::element::CUDAFieldElement;
 
-const SHADER_PTX: &str = include_str!("../shaders/fft.ptx");
+const SHADER_PTX_FFT: &str = include_str!("../shaders/fft.ptx");
+const SHADER_PTX_TWIDDLES: &str = include_str!("../shaders/twiddles.ptx");
 
 /// Executes parallel ordered FFT over a slice of two-adic field elements, in CUDA.
 /// Twiddle factors are required to be in bit-reverse order.
@@ -40,7 +41,11 @@ where
             .collect::<Vec<_>>(),
     )?;
 
-    device.load_ptx(Ptx::from_src(SHADER_PTX), "fft", &["radix2_dit_butterfly"])?;
+    device.load_ptx(
+        Ptx::from_src(SHADER_PTX_FFT),
+        "fft",
+        &["radix2_dit_butterfly"],
+    )?;
     let kernel = device.get_func("fft", "radix2_dit_butterfly").unwrap();
 
     let order = input.len().trailing_zeros();
@@ -79,13 +84,12 @@ pub fn log2(n: usize) -> Result<u64, FieldError> {
     Ok(n.trailing_zeros() as u64)
 }
 
-pub fn get_twiddles<F: IsFFTField>(
+pub fn gen_twiddles<F: IsFFTField>(
     order: u64,
     config: RootsConfig,
 ) -> Result<Vec<FieldElement<F>>, FieldError> {
     let count = (1 << order) / 2;
     let root = F::get_primitive_root_of_unity(order).unwrap();
-    let function_name;
 
     let (root, function_name) = match config {
         RootsConfig::Natual => (root, "calc_twiddles"),
@@ -101,7 +105,11 @@ pub fn get_twiddles<F: IsFFTField>(
         device.htod_sync_copy((0..count).map(CUDAFieldElement::from).collect::<Vec<_>>())?;
     let d_root = device.htod_sync_copy(&CUDAFieldElement::from(root))?;
 
-    device.load_ptx(Ptx::from_src(SHADER_PTX), "twiddles", &[function_name])?;
+    device.load_ptx(
+        Ptx::from_src(SHADER_PTX_TWIDDLES),
+        "twiddles",
+        &[function_name],
+    )?;
     let kernel = device.get_func("twiddles", function_name).unwrap();
 
     for stage in 0..order {
