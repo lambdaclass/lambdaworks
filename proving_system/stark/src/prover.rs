@@ -246,6 +246,7 @@ fn round_4_compute_and_run_fri_on_the_deep_composition_polynomial<
     domain: &Domain<F>,
     round_1_result: &Round1<F>,
     round_2_result: &Round2<F>,
+    round_3_result: &Round3<F>,
     z: &FieldElement<F>,
     transcript: &mut T,
 ) -> Round4<F>
@@ -266,8 +267,8 @@ where
     let deep_composition_poly = compute_deep_composition_poly(
         air,
         &round_1_result.trace_polys,
-        &round_2_result.composition_poly_even,
-        &round_2_result.composition_poly_odd,
+        &round_2_result,
+        &round_3_result,
         z,
         &domain.trace_primitive_root,
         &composition_poly_coeffients,
@@ -306,9 +307,9 @@ where
 fn compute_deep_composition_poly<A: AIR, F: IsFFTField>(
     air: &A,
     trace_polys: &[Polynomial<FieldElement<F>>],
-    even_composition_poly: &Polynomial<FieldElement<F>>,
-    odd_composition_poly: &Polynomial<FieldElement<F>>,
-    ood_evaluation_point: &FieldElement<F>,
+    round_2_result: &Round2<F>,
+    round_3_result: &Round3<F>,
+    z: &FieldElement<F>,
     primitive_root: &FieldElement<F>,
     composition_poly_coefficients: &[FieldElement<F>; 2],
     trace_poly_coefficients: &[FieldElement<F>],
@@ -316,12 +317,8 @@ fn compute_deep_composition_poly<A: AIR, F: IsFFTField>(
     let transition_offsets = air.context().transition_offsets;
 
     // Get trace evaluations needed for the trace terms of the deep composition polynomial
-    let trace_evaluations = Frame::get_trace_evaluations(
-        trace_polys,
-        ood_evaluation_point,
-        &transition_offsets,
-        primitive_root,
-    );
+    let trace_evaluations =
+        Frame::get_trace_evaluations(trace_polys, z, &transition_offsets, primitive_root);
 
     // Compute all the trace terms of the deep composition polynomial. There will be one
     // term for every trace polynomial and every trace evaluation.
@@ -333,7 +330,7 @@ fn compute_deep_composition_poly<A: AIR, F: IsFFTField>(
             .enumerate()
         {
             let eval = trace_evaluation[i].clone();
-            let shifted_root_of_unity = ood_evaluation_point * primitive_root.pow(*offset);
+            let shifted_root_of_unity = z * primitive_root.pow(*offset);
             let poly = (trace_poly - eval)
                 / Polynomial::new(&[-shifted_root_of_unity, FieldElement::one()]);
 
@@ -342,21 +339,20 @@ fn compute_deep_composition_poly<A: AIR, F: IsFFTField>(
         }
     }
 
-    let ood_point_squared = ood_evaluation_point * ood_evaluation_point;
+    let z_squared = z * z;
 
-    let even_composition_poly_term = (even_composition_poly.clone()
-        - Polynomial::new_monomial(even_composition_poly.evaluate(&ood_point_squared), 0))
-        / (Polynomial::new_monomial(FieldElement::one(), 1)
-            - Polynomial::new_monomial(ood_point_squared.clone(), 0));
+    let x = Polynomial::new_monomial(FieldElement::one(), 1);
+    let h_1 = &round_2_result.composition_poly_even;
+    let h_1_z = &round_3_result.composition_poly_ood_evaluations[0];
+    let gamma = &composition_poly_coefficients[0];
+    let gamma_p = &composition_poly_coefficients[1];
+    let h_2 = &round_2_result.composition_poly_odd;
+    let h_2_z = &round_3_result.composition_poly_ood_evaluations[1];
 
-    let odd_composition_poly_term = (odd_composition_poly.clone()
-        - Polynomial::new_monomial(odd_composition_poly.evaluate(&ood_point_squared), 0))
-        / (Polynomial::new_monomial(FieldElement::one(), 1)
-            - Polynomial::new_monomial(ood_point_squared.clone(), 0));
+    let h_1_term = (h_1 - h_1_z) / (&x - &z_squared);
+    let h_2_term = (h_2 - h_2_z) / (x - z_squared);
 
-    trace_terms
-        + even_composition_poly_term * &composition_poly_coefficients[0]
-        + odd_composition_poly_term * &composition_poly_coefficients[1]
+    h_1_term * gamma + h_2_term * gamma_p + trace_terms
 }
 
 fn build_deep_consistency_check<F: IsFFTField>(
@@ -481,6 +477,7 @@ where
         &domain,
         &round_1_result,
         &round_2_result,
+        &round_3_result,
         &z,
         &mut transcript,
     );
