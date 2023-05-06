@@ -1,5 +1,4 @@
 use lambdaworks_math::field::{element::FieldElement, traits::IsField};
-
 use super::Polynomial;
 
 pub fn fold_polynomial<F>(

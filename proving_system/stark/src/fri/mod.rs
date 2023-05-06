@@ -81,8 +81,7 @@ where
         let mut iotas: Vec<usize> = Vec::with_capacity(number_of_queries);
         let query_list = (0..number_of_queries)
             .map(|_| {
-                // <<<<<<<<<<<< Receive challenge
-                // 𝜄ₛ (iota_s)
+                // <<<< Receive challenge 𝜄ₛ (iota_s)
                 let iota_s = transcript_to_usize(transcript) % 2_usize.pow(domain.lde_root_order);
 
                 let first_layer_evaluation = first_layer.evaluation[iota_s].clone();

@@ -42,8 +42,8 @@ struct Challenges<F: IsFFTField> {
     trace_term_coeffs: Vec<Vec<FieldElement<F>>>,
     gamma_even: FieldElement<F>,
     gamma_odd: FieldElement<F>,
-    beta_list: Vec<FieldElement<F>>,
-    q_0: usize,
+    zetas: Vec<FieldElement<F>>,
+    iotas: Vec<usize>,
 }
 
 fn step_1_replay_rounds_and_recover_challenges<F, A, T>(
@@ -64,6 +64,7 @@ where
 
     let n_trace_cols = air.context().trace_columns;
 
+    // <<<< Receive commitments:[tⱼ]
     for root in proof.lde_trace_merkle_roots.iter() {
         transcript.append(&root.to_bytes_be());
     }
@@ -73,23 +74,27 @@ where
     // ===================================
 
     // These are the challenges alpha^B_j and beta^B_j
+    // >>>> Send challenges: 𝛼_j^B
     let boundary_coeffs_alphas = batch_sample_challenges(n_trace_cols, transcript);
+    // >>>> Send  challenges: 𝛽_j^B
     let boundary_coeffs_betas = batch_sample_challenges(n_trace_cols, transcript);
+    // >>>> Send challenges: 𝛼_j^T
+    let transition_coeffs_alphas =
+        batch_sample_challenges(air.context().num_transition_constraints, transcript);
+    // >>>> Send challenges: 𝛽_j^T
+    let transition_coeffs_betas =
+        batch_sample_challenges(air.context().num_transition_constraints, transcript);
     let boundary_coeffs: Vec<_> = boundary_coeffs_alphas
         .into_iter()
         .zip(boundary_coeffs_betas)
         .collect();
 
-    // These are the challenges alpha^T_j and beta^T_j
-    let transition_coeffs_alphas =
-        batch_sample_challenges(air.context().num_transition_constraints, transcript);
-    let transition_coeffs_betas =
-        batch_sample_challenges(air.context().num_transition_constraints, transcript);
     let transition_coeffs: Vec<_> = transition_coeffs_alphas
         .into_iter()
         .zip(transition_coeffs_betas)
         .collect();
 
+    // <<<< Receive commitments: [H₁], [H₂]
     transcript.append(&proof.composition_poly_even_root.to_bytes_be());
     transcript.append(&proof.composition_poly_odd_root.to_bytes_be());
 
@@ -97,17 +102,18 @@ where
     // ==========|   Round 3   |==========
     // ===================================
 
+    // >>>> Send challenge: z
     let z = sample_z_ood(
         &domain.lde_roots_of_unity_coset,
         &domain.trace_roots_of_unity,
         transcript,
     );
 
-    // H_1(z^2)
+    // <<<< Receive value: H₁(z²)
     transcript.append(&proof.composition_poly_even_ood_evaluation.to_bytes_be());
-    // H_2(z^2)
+    // <<<< Receive value: H₂(z²)
     transcript.append(&proof.composition_poly_odd_ood_evaluation.to_bytes_be());
-    // These are the values t_j(zg^i)
+    // <<<< Receive values: tⱼ(zgᵏ)
     for i in 0..proof.trace_ood_frame_evaluations.num_rows() {
         for element in proof.trace_ood_frame_evaluations.get_row(i).iter() {
             transcript.append(&element.to_bytes_be());
@@ -118,13 +124,14 @@ where
     // ==========|   Round 4   |==========
     // ===================================
 
+    // >>>> Send challenges: 𝛾, 𝛾'
+    let gamma_even = transcript_to_field(transcript);
+    let gamma_odd = transcript_to_field(transcript);
+
+    // >>>> Send challenges: 𝛾ⱼ, 𝛾ⱼ'
     // Get the number of trace terms the DEEP composition poly will have.
     // One coefficient will be sampled for each of them.
     // TODO: try remove this, call transcript inside for and move gamma declarations
-    // Get coefficients for even and odd terms of the composition polynomial H(x)
-    let gamma_even = transcript_to_field::<F, _>(transcript);
-    let gamma_odd = transcript_to_field::<F, _>(transcript);
-
     let trace_term_coeffs = (0..n_trace_cols)
         .map(|_| {
             (0..air.context().transition_offsets.len())
@@ -133,22 +140,27 @@ where
         })
         .collect::<Vec<Vec<FieldElement<F>>>>();
 
-    // construct vector of betas
-    let mut beta_list: Vec<FieldElement<F>> = Vec::new();
+    // FRI commit phase
+    let mut zetas: Vec<FieldElement<F>> = Vec::new();
     let merkle_roots = &proof.fri_layers_merkle_roots;
     for root in merkle_roots.iter() {
         let root_bytes = root.to_bytes_be();
+        // <<<< Receive commitment: [pₖ] (the first one is [p₀])
         transcript.append(&root_bytes);
 
-        let beta = transcript_to_field(transcript);
-        beta_list.push(beta);
+        // >>>> Send challenge 𝜁ₖ
+        let zeta = transcript_to_field(transcript);
+        zetas.push(zeta);
     }
 
-    let last_evaluation = &proof.fri_last_value;
-    let last_evaluation_bytes = last_evaluation.to_bytes_be();
-    transcript.append(&last_evaluation_bytes);
+    // <<<< Receive value: pₙ
+    transcript.append(&proof.fri_last_value.to_bytes_be());
 
-    let q_0 = transcript_to_usize(transcript) % (2_usize.pow(domain.lde_root_order));
+    // FRI query phase
+    // <<<< Send challenges 𝜄ₛ (iota_s)
+    let iotas = (0..air.options().fri_number_of_queries)
+        .map(|_| transcript_to_usize(transcript) % (2_usize.pow(domain.lde_root_order)))
+        .collect();
 
     Challenges {
         z,
@@ -157,8 +169,8 @@ where
         trace_term_coeffs,
         gamma_even,
         gamma_odd,
-        beta_list,
-        q_0,
+        zetas,
+        iotas,
     }
 }
 
@@ -266,28 +278,26 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
     composition_poly_claimed_ood_evaluation == composition_poly_ood_evaluation
 }
 
-fn step_3_verify_fri<F, A, T>(
+fn step_3_verify_fri<F, A>(
     air: &A,
     proof: &StarkProof<F>,
     domain: &Domain<F>,
     challenges: &Challenges<F>,
-    transcript: &mut T,
 ) -> bool
 where
     F: IsFFTField,
     FieldElement<F>: ByteConversion,
     A: AIR<Field = F>,
-    T: Transcript,
 {
     // Verify that t(x_0) is a trace evaluation
     // and verify first layer of FRI
-    if !verify_trace_evaluations(proof, challenges.q_0, &domain.lde_roots_of_unity_coset)
+    if !verify_trace_evaluations(proof, challenges.iotas[0], &domain.lde_roots_of_unity_coset)
         || !verify_query(
             air,
             &proof.fri_layers_merkle_roots,
             &proof.fri_last_value,
-            &challenges.beta_list,
-            challenges.q_0,
+            &challenges.zetas,
+            challenges.iotas[0],
             &proof.query_list[0],
             domain,
         )
@@ -297,17 +307,15 @@ where
 
     // Verify 1..n layers of FRI
     let mut result = true;
-    for proof_i in proof.query_list.iter().skip(1) {
-        let q_i = transcript_to_usize(transcript) % (2_usize.pow(domain.lde_root_order));
-
+    for (proof_s, iota_s) in proof.query_list.iter().zip(challenges.iotas.iter()).skip(1) {
         // this is done in constant time
         result &= verify_query(
             air,
             &proof.fri_layers_merkle_roots,
             &proof.fri_last_value,
-            &challenges.beta_list,
-            q_i,
-            proof_i,
+            &challenges.zetas,
+            *iota_s,
+            proof_s,
             domain,
         );
     }
@@ -333,7 +341,7 @@ fn verify_query<F: IsField + IsFFTField, A: AIR<Field = F>>(
     air: &A,
     fri_layers_merkle_roots: &[FieldElement<F>],
     fri_last_value: &FieldElement<F>,
-    beta_list: &[FieldElement<F>],
+    zetas: &[FieldElement<F>],
     iota: usize,
     fri_decommitment: &FriDecommitment<F>,
     domain: &Domain<F>,
@@ -385,7 +393,7 @@ where
             return false;
         }
 
-        let beta = &beta_list[layer_number];
+        let beta = &zetas[layer_number];
         // v is the calculated element for the co linearity check
         let two = &FieldElement::from(2);
         v = (&v + evaluation_sym) / two + beta * (&v - evaluation_sym) / (two * &evaluation_point);
@@ -401,7 +409,7 @@ fn reconstruct_deep_composition_poly_evaluation<F: IsFFTField>(
     challenges: &Challenges<F>,
 ) -> FieldElement<F> {
     let primitive_root = &F::get_primitive_root_of_unity(domain.root_order as u64).unwrap();
-    let upsilon_0 = &domain.lde_roots_of_unity_coset[challenges.q_0];
+    let upsilon_0 = &domain.lde_roots_of_unity_coset[challenges.iotas[0]];
 
     let mut trace_terms = FieldElement::zero();
 
@@ -472,7 +480,7 @@ where
         return false;
     }
 
-    if !step_3_verify_fri(air, proof, &domain, &challenges, &mut transcript) {
+    if !step_3_verify_fri(air, proof, &domain, &challenges) {
         return false;
     }
 

@@ -369,8 +369,9 @@ fn open_deep_composition_poly<F: IsFFTField>(
 where
     FieldElement<F>: ByteConversion,
 {
-    // Trace openings
     let index = index_to_open % domain.lde_roots_of_unity_coset.len();
+
+    // Trace polynomials openings
     let lde_trace_merkle_proofs = round_1_result
         .lde_trace_merkle_trees
         .iter()
@@ -378,7 +379,7 @@ where
         .collect();
     let lde_trace_evaluations = round_1_result.lde_trace.get_row(index).to_vec();
 
-    // Composition polynomial openings
+    // H₁ openings
     let lde_composition_poly_even_proof = round_2_result
         .composition_poly_even_merkle_tree
         .get_proof_by_pos(index)
@@ -386,6 +387,7 @@ where
     let lde_composition_poly_even_evaluation =
         round_2_result.lde_composition_poly_even_evaluations[index].clone();
 
+    // H₂ openings
     let lde_composition_poly_odd_proof = round_2_result
         .composition_poly_odd_merkle_tree
         .get_proof_by_pos(index)
@@ -421,7 +423,6 @@ where
     // ==========|   Round 1   |==========
     // ===================================
 
-    // Randomized AIR with preprocessing
     let round_1_result = round_1_randomized_air_with_preprocessing(trace, &domain);
 
     // >>>> Send commitments: [tⱼ]
