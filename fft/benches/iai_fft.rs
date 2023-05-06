@@ -40,10 +40,18 @@ fn seq_poly_interpolation_benchmarks() {
     functions::poly_interpolate_fft(black_box(&evals));
 }
 
+#[cfg(not(any(feature = "metal", feature = "cuda")))]
 iai::main!(
     seq_fft_benchmarks,
     seq_twiddles_generation_benchmarks,
     seq_bitrev_permutation_benchmarks,
     seq_poly_evaluation_benchmarks,
     seq_poly_interpolation_benchmarks
+);
+
+#[cfg(any(feature = "metal", feature = "cuda"))]
+iai::main!(
+    seq_fft_benchmarks,
+    seq_twiddles_generation_benchmarks,
+    seq_bitrev_permutation_benchmarks,
 );
