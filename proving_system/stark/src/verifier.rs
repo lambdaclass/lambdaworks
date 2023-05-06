@@ -58,9 +58,9 @@ where
     A: AIR<Field = F>,
     T: Transcript,
 {
-    // ###################################
-    // ##########|   Round 1   |##########
-    // ###################################
+    // ===================================
+    // ==========|   Round 1   |==========
+    // ===================================
 
     let n_trace_cols = air.context().trace_columns;
 
@@ -68,9 +68,9 @@ where
         transcript.append(&root.to_bytes_be());
     }
 
-    // ###################################
-    // ##########|   Round 2   |##########
-    // ###################################
+    // ===================================
+    // ==========|   Round 2   |==========
+    // ===================================
 
     // These are the challenges alpha^B_j and beta^B_j
     let boundary_coeffs_alphas = batch_sample_challenges(n_trace_cols, transcript);
@@ -93,9 +93,9 @@ where
     transcript.append(&proof.composition_poly_even_root.to_bytes_be());
     transcript.append(&proof.composition_poly_odd_root.to_bytes_be());
 
-    // ###################################
-    // ##########|   Round 3   |##########
-    // ###################################
+    // ===================================
+    // ==========|   Round 3   |==========
+    // ===================================
 
     let z = sample_z_ood(
         &domain.lde_roots_of_unity_coset,
@@ -114,13 +114,17 @@ where
         }
     }
 
-    // ###################################
-    // ##########|   Round 4   |##########
-    // ###################################
+    // ===================================
+    // ==========|   Round 4   |==========
+    // ===================================
 
     // Get the number of trace terms the DEEP composition poly will have.
     // One coefficient will be sampled for each of them.
     // TODO: try remove this, call transcript inside for and move gamma declarations
+    // Get coefficients for even and odd terms of the composition polynomial H(x)
+    let gamma_even = transcript_to_field::<F, _>(transcript);
+    let gamma_odd = transcript_to_field::<F, _>(transcript);
+
     let trace_term_coeffs = (0..n_trace_cols)
         .map(|_| {
             (0..air.context().transition_offsets.len())
@@ -128,10 +132,6 @@ where
                 .collect()
         })
         .collect::<Vec<Vec<FieldElement<F>>>>();
-
-    // Get coefficients for even and odd terms of the composition polynomial H(x)
-    let gamma_even = transcript_to_field::<F, _>(transcript);
-    let gamma_odd = transcript_to_field::<F, _>(transcript);
 
     // construct vector of betas
     let mut beta_list: Vec<FieldElement<F>> = Vec::new();

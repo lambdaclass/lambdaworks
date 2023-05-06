@@ -15,7 +15,7 @@ pub use lambdaworks_math::{
     polynomial::Polynomial,
 };
 
-use self::fri_decommit::{open_layer, FriDecommitment};
+use self::fri_decommit::FriDecommitment;
 use self::fri_functions::{fold_polynomial, next_domain};
 
 pub type FriMerkleTree<F> = MerkleTree<F>;
@@ -32,30 +32,37 @@ where
 {
     let mut fri_layer_list = Vec::with_capacity(number_layers);
     let mut current_layer = FriLayer::new(p_0, domain_0);
-
     fri_layer_list.push(current_layer.clone());
+
+    // >>>> Send commitment: [p₀]
     transcript.append(&current_layer.merkle_tree.root.to_bytes_be());
 
     for _ in 1..number_layers {
+        // <<<< Receive challenge 𝜁ₖ₋₁
         let zeta = transcript_to_field(transcript);
+
+        // Compute layer polynomial and domain
         let next_poly = fold_polynomial(&current_layer.poly, &zeta);
         let next_domain = next_domain(&current_layer.domain);
         current_layer = FriLayer::new(next_poly, &next_domain);
         fri_layer_list.push(current_layer.clone());
+
+        // >>>> Send commitment: [pₖ]
         transcript.append(&current_layer.merkle_tree.root.to_bytes_be());
     }
 
+    // <<<< Receive challenge: 𝜁ₙ₋₁
     let zeta = transcript_to_field(transcript);
-    let last_poly = fold_polynomial(&current_layer.poly, &zeta);
 
+    let last_poly = fold_polynomial(&current_layer.poly, &zeta);
     let last_value = last_poly
         .coefficients()
         .get(0)
         .unwrap_or(&FieldElement::zero())
         .clone();
 
-    let last_coef_bytes = last_value.to_bytes_be();
-    transcript.append(&last_coef_bytes);
+    // >>>> Send value: pₙ
+    transcript.append(&last_value.to_bytes_be());
 
     (last_value, fri_layer_list)
 }
@@ -69,14 +76,18 @@ pub fn fri_query_phase<F: IsFFTField, A: AIR<Field = F>, T: Transcript>(
 where
     FieldElement<F>: ByteConversion,
 {
-    if let Some(fri_first_layer) = fri_layers.get(0) {
+    if let Some(first_layer) = fri_layers.get(0) {
         let number_of_queries = air.context().options.fri_number_of_queries;
         let mut iotas: Vec<usize> = Vec::with_capacity(number_of_queries);
         let query_list = (0..number_of_queries)
             .map(|_| {
+                // <<<<<<<<<<<< Receive challenge
+                // 𝜄ₛ (iota_s)
                 let iota_s = transcript_to_usize(transcript) % 2_usize.pow(domain.lde_root_order);
-                let (first_layer_evaluation, first_layer_auth_path) =
-                    open_layer(fri_first_layer, iota_s);
+
+                let first_layer_evaluation = first_layer.evaluation[iota_s].clone();
+                let first_layer_auth_path =
+                    first_layer.merkle_tree.get_proof_by_pos(iota_s).unwrap();
 
                 let mut layers_auth_paths_sym = vec![];
                 let mut layers_evaluations_sym = vec![];
@@ -84,8 +95,8 @@ where
                 for layer in fri_layers {
                     // symmetric element
                     let index_sym = (iota_s + layer.domain.len() / 2) % layer.domain.len();
-                    let (evaluation_sym, auth_path_sym) = open_layer(layer, index_sym);
-
+                    let evaluation_sym = layer.evaluation[index_sym].clone();
+                    let auth_path_sym = layer.merkle_tree.get_proof_by_pos(index_sym).unwrap();
                     layers_auth_paths_sym.push(auth_path_sym);
                     layers_evaluations_sym.push(evaluation_sym);
                 }
