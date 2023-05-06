@@ -289,27 +289,11 @@ where
     FieldElement<F>: ByteConversion,
     A: AIR<Field = F>,
 {
-    // Verify that t(x_0) is a trace evaluation
-    // and verify first layer of FRI
-    if !verify_trace_evaluations(proof, challenges.iotas[0], &domain.lde_roots_of_unity_coset)
-        || !verify_query(
-            air,
-            &proof.fri_layers_merkle_roots,
-            &proof.fri_last_value,
-            &challenges.zetas,
-            challenges.iotas[0],
-            &proof.query_list[0],
-            domain,
-        )
-    {
-        return false;
-    }
-
-    // Verify 1..n layers of FRI
     let mut result = true;
-    for (proof_s, iota_s) in proof.query_list.iter().zip(challenges.iotas.iter()).skip(1) {
+    // Verify FRI
+    for (proof_s, iota_s) in proof.query_list.iter().zip(challenges.iotas.iter()) {
         // this is done in constant time
-        result &= verify_query(
+        result &= verify_query_and_sym_openings(
             air,
             &proof.fri_layers_merkle_roots,
             &proof.fri_last_value,
@@ -319,6 +303,7 @@ where
             domain,
         );
     }
+
     result
 }
 
@@ -326,18 +311,59 @@ fn step_4_verify_deep_composition_polynomial<F: IsFFTField>(
     proof: &StarkProof<F>,
     domain: &Domain<F>,
     challenges: &Challenges<F>,
-) -> bool {
-    //
+) -> bool
+where
+    FieldElement<F>: ByteConversion,
+{
+    let mut result = true;
+
+    let iota_0 = challenges.iotas[0];
+
+    // Verify opening Open(H₁(D_LDE, 𝜐₀)
+    result &= proof
+        .deep_poly_openings
+        .lde_composition_poly_even_proof
+        .verify(
+            &proof.composition_poly_even_root,
+            iota_0,
+            &proof
+                .deep_poly_openings
+                .lde_composition_poly_even_evaluation,
+            &HASHER,
+        );
+
+    // Verify opening Open(H₂(D_LDE, 𝜐₀),
+    result &= proof
+        .deep_poly_openings
+        .lde_composition_poly_odd_proof
+        .verify(
+            &proof.composition_poly_odd_root,
+            iota_0,
+            &proof.deep_poly_openings.lde_composition_poly_odd_evaluation,
+            &HASHER,
+        );
+
+    // Verify openings Open(tⱼ(D_LDE), 𝜐₀)
+    for ((merkle_root, merkle_proof), evaluation) in proof
+        .lde_trace_merkle_roots
+        .iter()
+        .zip(&proof.deep_poly_openings.lde_trace_merkle_proofs)
+        .zip(&proof.deep_poly_openings.lde_trace_evaluations)
+    {
+        result &= merkle_proof.verify(merkle_root, iota_0, evaluation, &HASHER);
+    }
+
     // DEEP consistency check
     // Verify that Deep(x) is constructed correctly
     let deep_poly_evaluation =
         reconstruct_deep_composition_poly_evaluation(proof, domain, challenges);
     let deep_poly_claimed_evaluation = &proof.query_list[0].first_layer_evaluation;
 
-    deep_poly_claimed_evaluation == &deep_poly_evaluation
+    result &= deep_poly_claimed_evaluation == &deep_poly_evaluation;
+    result
 }
 
-fn verify_query<F: IsField + IsFFTField, A: AIR<Field = F>>(
+fn verify_query_and_sym_openings<F: IsField + IsFFTField, A: AIR<Field = F>>(
     air: &A,
     fri_layers_merkle_roots: &[FieldElement<F>],
     fri_last_value: &FieldElement<F>,
@@ -349,6 +375,16 @@ fn verify_query<F: IsField + IsFFTField, A: AIR<Field = F>>(
 where
     FieldElement<F>: ByteConversion,
 {
+    // Verify opening Open(p₀(D₀), 𝜐ₛ)
+    if !fri_decommitment.first_layer_auth_path.verify(
+        &fri_layers_merkle_roots[0],
+        iota,
+        &fri_decommitment.first_layer_evaluation,
+        &HASHER,
+    ) {
+        return false;
+    }
+
     let lde_primitive_root = F::get_primitive_root_of_unity(domain.lde_root_order as u64).unwrap();
     let offset = FieldElement::from(air.options().coset_offset);
     // evaluation point = offset * w ^ i in the Stark literature
@@ -368,7 +404,7 @@ where
 
     // For each (merkle_root, merkle_auth_path) / fold
     // With the auth path containining the element that the path proves it's existence
-    for (layer_number, (layer_merkle_root, (auth_path, evaluation_sym))) in fri_layers_merkle_roots
+    for (k, (merkle_root, (auth_path, evaluation_sym))) in fri_layers_merkle_roots
         .iter()
         .zip(
             fri_decommitment
@@ -380,12 +416,15 @@ where
     // Since we always derive the current layer from the previous layer
     // We start with the second one, skipping the first, so previous is layer is the first one
     {
-        // This is the current layer's evaluation domain length. We need it to know what the decommitment index for the current
+        // This is the current layer's evaluation domain length.
+        // We need it to know what the decommitment index for the current
         // layer is, so we can check the merkle paths at the right index.
-        let domain_length = 1 << (domain.lde_root_order - layer_number as u32);
+        let domain_length = 1 << (domain.lde_root_order - k as u32);
         let layer_evaluation_index_sym = (iota + domain_length / 2) % domain_length;
+
+        // Verify opening Open(pₖ(Dₖ), −𝜐ₛ^(2ᵏ))
         if !auth_path.verify(
-            layer_merkle_root,
+            merkle_root,
             layer_evaluation_index_sym,
             evaluation_sym,
             &HASHER,
@@ -393,12 +432,14 @@ where
             return false;
         }
 
-        let beta = &zetas[layer_number];
+        let beta = &zetas[k];
         // v is the calculated element for the co linearity check
         let two = &FieldElement::from(2);
         v = (&v + evaluation_sym) / two + beta * (&v - evaluation_sym) / (two * &evaluation_point);
         evaluation_point = evaluation_point.pow(2_u64);
     }
+
+    // Check that last value is the given by the prover
     v == *fri_last_value
 }
 
