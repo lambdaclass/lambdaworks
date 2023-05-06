@@ -16,7 +16,7 @@ pub fn open_layer<F: IsField>(
     layer: &FriLayer<F>,
     mut index: usize,
 ) -> (FieldElement<F>, Proof<F>) {
-    index = index % layer.domain.len();
+    index %= layer.domain.len();
     let evaluation = layer.evaluation[index].clone();
     let auth_path = layer.merkle_tree.get_proof_by_pos(index).unwrap();
     (evaluation, auth_path)

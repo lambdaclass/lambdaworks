@@ -281,7 +281,7 @@ where
 {
     // Verify that t(x_0) is a trace evaluation
     // and verify first layer of FRI
-    if !verify_trace_evaluations(&proof, challenges.q_0, &domain.lde_roots_of_unity_coset)
+    if !verify_trace_evaluations(proof, challenges.q_0, &domain.lde_roots_of_unity_coset)
         || !verify_query(
             air,
             &proof.fri_layers_merkle_roots,
@@ -307,7 +307,7 @@ where
             &proof.fri_last_value,
             &challenges.beta_list,
             q_i,
-            &proof_i,
+            proof_i,
             domain,
         );
     }
@@ -374,7 +374,7 @@ where
     {
         // This is the current layer's evaluation domain length. We need it to know what the decommitment index for the current
         // layer is, so we can check the merkle paths at the right index.
-        let domain_length = 1 << domain.lde_root_order - layer_number as u32;
+        let domain_length = 1 << (domain.lde_root_order - layer_number as u32);
         let layer_evaluation_index_sym = (iota + domain_length / 2) % domain_length;
         if !auth_path.verify(
             layer_merkle_root,

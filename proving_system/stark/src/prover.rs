@@ -110,7 +110,7 @@ where
     // Evaluate those polynomials t_j on the large domain D_LDE.
     let lde_trace_evaluations = trace_polys
         .iter()
-        .map(|poly| evaluate_polynomial_on_lde_domain(poly, &domain))
+        .map(|poly| evaluate_polynomial_on_lde_domain(poly, domain))
         .collect::<Result<Vec<Vec<FieldElement<F>>>, FFTError>>()
         .unwrap();
 
@@ -139,7 +139,7 @@ fn round_1_randomized_air_with_preprocessing<F: IsFFTField>(
 where
     FieldElement<F>: ByteConversion,
 {
-    let round_1_result = commit_original_trace(trace, &domain);
+    let round_1_result = commit_original_trace(trace, domain);
     commit_extended_trace();
     round_1_result
 }
@@ -177,9 +177,9 @@ where
     let (composition_poly_even, composition_poly_odd) = composition_poly.even_odd_decomposition();
 
     let lde_composition_poly_even_evaluations =
-        evaluate_polynomial_on_lde_domain(&composition_poly_even, &domain).unwrap();
+        evaluate_polynomial_on_lde_domain(&composition_poly_even, domain).unwrap();
     let lde_composition_poly_odd_evaluations =
-        evaluate_polynomial_on_lde_domain(&composition_poly_odd, &domain).unwrap();
+        evaluate_polynomial_on_lde_domain(&composition_poly_odd, domain).unwrap();
 
     let (composition_poly_merkle_trees, composition_poly_roots) = batch_commit(vec![
         &lde_composition_poly_even_evaluations,
@@ -271,8 +271,8 @@ where
     let deep_composition_poly = compute_deep_composition_poly(
         air,
         &round_1_result.trace_polys,
-        &round_2_result,
-        &round_3_result,
+        round_2_result,
+        round_3_result,
         z,
         &domain.trace_primitive_root,
         &composition_poly_coeffients,
@@ -639,9 +639,10 @@ mod tests {
 
         for poly in trace_polys.iter() {
             let lde_evaluation = evaluate_polynomial_on_lde_domain(poly, &domain).unwrap();
-            for i in 0..domain.interpolation_domain_size {
+            assert_eq!(lde_evaluation.len(), trace_length * blowup_factor);
+            for (i, evaluation) in lde_evaluation.iter().enumerate() {
                 assert_eq!(
-                    lde_evaluation[i],
+                    *evaluation,
                     poly.evaluate(&(&coset_offset * primitive_root.pow(i)))
                 );
             }
