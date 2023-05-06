@@ -114,13 +114,11 @@ where
     transcript.append(&proof.composition_poly_ood_evaluations[0].to_bytes_be());
     // H_2(z^2)
     transcript.append(&proof.composition_poly_ood_evaluations[1].to_bytes_be());
-    // These are the values t_j(z)
-    for element in proof.trace_ood_frame_evaluations.get_row(0).iter() {
-        transcript.append(&element.to_bytes_be());
-    }
-    // These are the values t_j(gz)
-    for element in proof.trace_ood_frame_evaluations.get_row(1).iter() {
-        transcript.append(&element.to_bytes_be());
+    // These are the values t_j(zg^i)
+    for i in 0..proof.trace_ood_frame_evaluations.num_rows() {
+        for element in proof.trace_ood_frame_evaluations.get_row(i).iter() {
+            transcript.append(&element.to_bytes_be());
+        }
     }
 
     // Get the number of trace terms the DEEP composition poly will have.
@@ -285,19 +283,17 @@ where
 {
     // Verify that t(x_0) is a trace evaluation
     // and verify first layer of FRI
-    if !verify_trace_evaluations(
-        &proof,
-        challenges.q_0,
-        &domain.lde_roots_of_unity_coset,
-    ) || !verify_query(
-        air,
-        &proof.fri_layers_merkle_roots,
-        &proof.fri_last_value,
-        &challenges.beta_list,
-        challenges.q_0,
-        &proof.query_list[0],
-        domain,
-    ) {
+    if !verify_trace_evaluations(&proof, challenges.q_0, &domain.lde_roots_of_unity_coset)
+        || !verify_query(
+            air,
+            &proof.fri_layers_merkle_roots,
+            &proof.fri_last_value,
+            &challenges.beta_list,
+            challenges.q_0,
+            &proof.query_list[0],
+            domain,
+        )
+    {
         return false;
     }
 
@@ -340,7 +336,7 @@ fn step_4_verify_deep_composition_polynomial<F: IsFFTField>(
         deep_consistency_check: &proof.deep_consistency_check,
     };
 
-    let deep_poly_evaluation = compare_deep_composition_poly(deep_composition_poly_args);
+    let deep_poly_evaluation = reconstruct_deep_composition_poly_evaluation(deep_composition_poly_args);
     let deep_poly_claimed_evaluation = &proof.query_list[0].first_layer_evaluation;
 
     deep_poly_claimed_evaluation == &deep_poly_evaluation
@@ -358,8 +354,7 @@ fn verify_query<F: IsField + IsFFTField, A: AIR<Field = F>>(
 where
     FieldElement<F>: ByteConversion,
 {
-    let lde_primitive_root =
-        F::get_primitive_root_of_unity(domain.lde_root_order as u64).unwrap();
+    let lde_primitive_root = F::get_primitive_root_of_unity(domain.lde_root_order as u64).unwrap();
     let offset = FieldElement::from(air.options().coset_offset);
     // evaluation point = offset * w ^ i in the Stark literature
     let mut evaluation_point = offset * lde_primitive_root.pow(iota);
@@ -387,8 +382,8 @@ where
                 .zip(fri_decommitment.layers_evaluations_sym.iter()),
         )
         .enumerate()
-        // Since we always derive the current layer from the previous layer
-        // We start with the second one, skipping the first, so previous is layer is the first one
+    // Since we always derive the current layer from the previous layer
+    // We start with the second one, skipping the first, so previous is layer is the first one
     {
         // This is the current layer's evaluation domain length. We need it to know what the decommitment index for the current
         // layer is, so we can check the merkle paths at the right index.
@@ -412,8 +407,8 @@ where
     v == *fri_last_value
 }
 
-// Verify that Deep(x) has been built correctly
-fn compare_deep_composition_poly<F: IsFFTField>(
+// Reconstruct Deep(\upsilon_0) off the values in the proof
+fn reconstruct_deep_composition_poly_evaluation<F: IsFFTField>(
     args: &mut DeepCompositionPolyArgs<F>,
 ) -> FieldElement<F> {
     let primitive_root = &F::get_primitive_root_of_unity(args.root_order as u64).unwrap();
@@ -437,12 +432,13 @@ fn compare_deep_composition_poly<F: IsFFTField>(
 
     let ood_point_squared = &(args.ood_evaluation_point * args.ood_evaluation_point);
 
-    let even_composition_poly_evaluation = (&deep_consistency_check.lde_composition_poly_evaluations
-        [0]
+    let even_composition_poly_evaluation = (&deep_consistency_check
+        .lde_composition_poly_evaluations[0]
         - &args.composition_poly_ood_evaluations[0])
         / (args.d_evaluation_point - ood_point_squared);
 
-    let odd_composition_poly_evaluation = (&deep_consistency_check.lde_composition_poly_evaluations[1]
+    let odd_composition_poly_evaluation = (&deep_consistency_check
+        .lde_composition_poly_evaluations[1]
         - &args.composition_poly_ood_evaluations[1])
         / (args.d_evaluation_point - ood_point_squared);
 

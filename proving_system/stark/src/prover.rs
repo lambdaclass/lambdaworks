@@ -361,8 +361,8 @@ fn compute_deep_composition_poly<A: AIR, F: IsFFTField>(
     odd_composition_poly: &Polynomial<FieldElement<F>>,
     ood_evaluation_point: &FieldElement<F>,
     primitive_root: &FieldElement<F>,
-    composition_poly_coeffients: &[FieldElement<F>; 2],
-    trace_poly_coeffients: &[FieldElement<F>],
+    composition_poly_coefficients: &[FieldElement<F>; 2],
+    trace_poly_coefficients: &[FieldElement<F>],
 ) -> Polynomial<FieldElement<F>> {
     let transition_offsets = air.context().transition_offsets;
 
@@ -389,7 +389,7 @@ fn compute_deep_composition_poly<A: AIR, F: IsFFTField>(
                 / Polynomial::new(&[-shifted_root_of_unity, FieldElement::one()]);
 
             trace_terms =
-                trace_terms + poly * &trace_poly_coeffients[i * trace_evaluations.len() + j];
+                trace_terms + poly * &trace_poly_coefficients[i * trace_evaluations.len() + j];
         }
     }
 
@@ -406,8 +406,8 @@ fn compute_deep_composition_poly<A: AIR, F: IsFFTField>(
             - Polynomial::new_monomial(ood_point_squared.clone(), 0));
 
     trace_terms
-        + even_composition_poly_term * &composition_poly_coeffients[0]
-        + odd_composition_poly_term * &composition_poly_coeffients[1]
+        + even_composition_poly_term * &composition_poly_coefficients[0]
+        + odd_composition_poly_term * &composition_poly_coefficients[1]
 }
 
 fn build_deep_consistency_check<F: IsFFTField>(
@@ -442,8 +442,8 @@ where
 
     DeepConsistencyCheck {
         lde_trace_merkle_proofs,
-        lde_composition_poly_proofs,
         lde_trace_evaluations,
+        lde_composition_poly_proofs,
         lde_composition_poly_evaluations,
     }
 }
@@ -519,13 +519,11 @@ where
     transcript.append(&round_3_result.composition_poly_ood_evaluations[0].to_bytes_be());
     // H_2(z^2)
     transcript.append(&round_3_result.composition_poly_ood_evaluations[1].to_bytes_be());
-    // These are the values t_j(z)
-    for element in round_3_result.trace_ood_frame_evaluations.get_row(0).iter() {
-        transcript.append(&element.to_bytes_be());
-    }
-    // These are the values t_j(gz)
-    for element in round_3_result.trace_ood_frame_evaluations.get_row(1).iter() {
-        transcript.append(&element.to_bytes_be());
+    // These are the values t_j(zg^i)
+    for i in 0..round_3_result.trace_ood_frame_evaluations.num_rows() {
+        for element in round_3_result.trace_ood_frame_evaluations.get_row(i).iter() {
+            transcript.append(&element.to_bytes_be());
+        }
     }
 
     // Round 4
@@ -543,11 +541,11 @@ where
     StarkProof {
         lde_trace_merkle_roots: round_1_result.lde_trace_merkle_roots,
         composition_poly_roots: round_2_result.composition_poly_roots,
+        deep_consistency_check: round_4_result.deep_consistency_check,
         fri_layers_merkle_roots: round_4_result.fri_layers_merkle_roots,
         fri_last_value: round_4_result.fri_last_value,
         trace_ood_frame_evaluations: round_3_result.trace_ood_frame_evaluations,
         composition_poly_ood_evaluations: round_3_result.composition_poly_ood_evaluations,
-        deep_consistency_check: round_4_result.deep_consistency_check,
         query_list: round_4_result.query_list,
     }
 }
