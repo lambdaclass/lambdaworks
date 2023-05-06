@@ -67,7 +67,7 @@ pub struct Domain<F: IsFFTField> {
     trace_roots_of_unity: Vec<FieldElement<F>>,
     coset_offset: FieldElement<F>,
     blowup_factor: usize,
-    interpolation_domain_size: usize
+    interpolation_domain_size: usize,
 }
 
 impl<F: IsFFTField> Domain<F> {

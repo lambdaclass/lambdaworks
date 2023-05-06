@@ -3,19 +3,19 @@ pub mod fri_decommit;
 mod fri_functions;
 use crate::air::AIR;
 use crate::fri::fri_commitment::FriLayer;
-use crate::{transcript_to_field, Domain, transcript_to_usize};
+use crate::{transcript_to_field, transcript_to_usize, Domain};
 use lambdaworks_crypto::hash::sha3::Sha3Hasher;
 
 pub use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 pub use lambdaworks_crypto::merkle_tree::merkle::MerkleTree;
-use lambdaworks_math::field::traits::{IsField, IsFFTField};
+use lambdaworks_math::field::traits::{IsFFTField, IsField};
 use lambdaworks_math::traits::ByteConversion;
 pub use lambdaworks_math::{
     field::{element::FieldElement, fields::u64_prime_field::U64PrimeField},
     polynomial::Polynomial,
 };
 
-use self::fri_decommit::{FriDecommitment, open_layer};
+use self::fri_decommit::{open_layer, FriDecommitment};
 use self::fri_functions::{fold_polynomial, next_domain};
 
 pub type FriMerkleTree<F> = MerkleTree<F>;
@@ -105,4 +105,3 @@ where
         (vec![], 0)
     }
 }
-

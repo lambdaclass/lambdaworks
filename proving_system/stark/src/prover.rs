@@ -6,7 +6,7 @@ use super::{
 use crate::{
     batch_sample_challenges,
     fri::{fri_decommit::FriDecommitment, fri_query_phase, HASHER},
-    proof::{DeepConsistencyCheck, StarkProof},
+    proof::{DeepPolynomialOpenings, StarkProof},
     transcript_to_field, Domain,
 };
 #[cfg(not(feature = "test_fiat_shamir"))]
@@ -34,23 +34,24 @@ struct Round1<F: IsFFTField> {
 struct Round2<F: IsFFTField> {
     composition_poly_even: Polynomial<FieldElement<F>>,
     lde_composition_poly_even_evaluations: Vec<FieldElement<F>>,
+    composition_poly_even_merkle_tree: MerkleTree<F>,
+    composition_poly_even_root: FieldElement<F>,
     composition_poly_odd: Polynomial<FieldElement<F>>,
     lde_composition_poly_odd_evaluations: Vec<FieldElement<F>>,
-    // Merkle trees of H_1 and H_2 at the LDE Domain
-    composition_poly_merkle_trees: Vec<MerkleTree<F>>,
-    // Commitments of H_1, and H_2
-    composition_poly_roots: Vec<FieldElement<F>>,
+    composition_poly_odd_merkle_tree: MerkleTree<F>,
+    composition_poly_odd_root: FieldElement<F>,
 }
 
 struct Round3<F: IsFFTField> {
     trace_ood_frame_evaluations: Frame<F>,
-    composition_poly_ood_evaluations: [FieldElement<F>; 2],
+    composition_poly_even_ood_evaluation: FieldElement<F>,
+    composition_poly_odd_ood_evaluation: FieldElement<F>,
 }
 
 struct Round4<F: IsFFTField> {
     fri_last_value: FieldElement<F>,
     fri_layers_merkle_roots: Vec<FieldElement<F>>,
-    deep_consistency_check: DeepConsistencyCheck<F>,
+    deep_poly_openings: DeepPolynomialOpenings<F>,
     query_list: Vec<FriDecommitment<F>>,
 }
 
@@ -188,10 +189,12 @@ where
     Round2 {
         composition_poly_even,
         lde_composition_poly_even_evaluations,
+        composition_poly_even_merkle_tree: composition_poly_merkle_trees[0].clone(),
+        composition_poly_even_root: composition_poly_roots[0].clone(),
         composition_poly_odd,
         lde_composition_poly_odd_evaluations,
-        composition_poly_merkle_trees,
-        composition_poly_roots,
+        composition_poly_odd_merkle_tree: composition_poly_merkle_trees[1].clone(),
+        composition_poly_odd_root: composition_poly_roots[1].clone(),
     }
 }
 
@@ -208,10 +211,10 @@ where
     let z_squared = z * z;
 
     // Evaluate H_1 and H_2 in z^2.
-    let composition_poly_ood_evaluations = [
-        round_2_result.composition_poly_even.evaluate(&z_squared),
-        round_2_result.composition_poly_odd.evaluate(&z_squared),
-    ];
+    let composition_poly_even_ood_evaluation =
+        round_2_result.composition_poly_even.evaluate(&z_squared);
+    let composition_poly_odd_ood_evaluation =
+        round_2_result.composition_poly_odd.evaluate(&z_squared);
 
     // Returns the Out of Domain Frame for the given trace polynomials, out of domain evaluation point (called `z` in the literature),
     // frame offsets given by the AIR and primitive root used for interpolating the trace polynomials.
@@ -226,14 +229,15 @@ where
         &air.context().transition_offsets,
         &domain.trace_primitive_root,
     );
-
-    let trace_ood_frame_data = ood_trace_evaluations.into_iter().flatten().collect();
-    let trace_ood_frame_evaluations =
-        Frame::new(trace_ood_frame_data, round_1_result.trace_polys.len());
+    let trace_ood_frame_evaluations = Frame::new(
+        ood_trace_evaluations.into_iter().flatten().collect(),
+        round_1_result.trace_polys.len(),
+    );
 
     Round3 {
         trace_ood_frame_evaluations,
-        composition_poly_ood_evaluations,
+        composition_poly_even_ood_evaluation,
+        composition_poly_odd_ood_evaluation,
     }
 }
 
@@ -296,7 +300,7 @@ where
     Round4 {
         fri_last_value,
         fri_layers_merkle_roots,
-        deep_consistency_check,
+        deep_poly_openings: deep_consistency_check,
         query_list,
     }
 }
@@ -343,14 +347,14 @@ fn compute_deep_composition_poly<A: AIR, F: IsFFTField>(
 
     let x = Polynomial::new_monomial(FieldElement::one(), 1);
     let h_1 = &round_2_result.composition_poly_even;
-    let h_1_z = &round_3_result.composition_poly_ood_evaluations[0];
+    let h_1_z2 = &round_3_result.composition_poly_even_ood_evaluation;
     let gamma = &composition_poly_coefficients[0];
     let gamma_p = &composition_poly_coefficients[1];
     let h_2 = &round_2_result.composition_poly_odd;
-    let h_2_z = &round_3_result.composition_poly_ood_evaluations[1];
+    let h_2_z2 = &round_3_result.composition_poly_odd_ood_evaluation;
 
-    let h_1_term = (h_1 - h_1_z) / (&x - &z_squared);
-    let h_2_term = (h_2 - h_2_z) / (x - z_squared);
+    let h_1_term = (h_1 - h_1_z2) / (&x - &z_squared);
+    let h_2_term = (h_2 - h_2_z2) / (x - z_squared);
 
     h_1_term * gamma + h_2_term * gamma_p + trace_terms
 }
@@ -360,7 +364,7 @@ fn build_deep_consistency_check<F: IsFFTField>(
     round_1_result: &Round1<F>,
     round_2_result: &Round2<F>,
     index_to_open: usize,
-) -> DeepConsistencyCheck<F>
+) -> DeepPolynomialOpenings<F>
 where
     FieldElement<F>: ByteConversion,
 {
@@ -374,22 +378,27 @@ where
     let lde_trace_evaluations = round_1_result.lde_trace.get_row(index).to_vec();
 
     // Composition polynomial openings
+    let lde_composition_poly_even_proof = round_2_result
+        .composition_poly_even_merkle_tree
+        .get_proof_by_pos(index)
+        .unwrap();
+    let lde_composition_poly_even_evaluation =
+        round_2_result.lde_composition_poly_even_evaluations[index].clone();
 
-    let lde_composition_poly_proofs = round_2_result
-        .composition_poly_merkle_trees
-        .iter()
-        .map(|tree| tree.get_proof_by_pos(index).unwrap())
-        .collect();
-    let lde_composition_poly_evaluations = vec![
-        round_2_result.lde_composition_poly_even_evaluations[index].clone(),
-        round_2_result.lde_composition_poly_odd_evaluations[index].clone(),
-    ];
+    let lde_composition_poly_odd_proof = round_2_result
+        .composition_poly_odd_merkle_tree
+        .get_proof_by_pos(index)
+        .unwrap();
+    let lde_composition_poly_odd_evaluation =
+        round_2_result.lde_composition_poly_odd_evaluations[index].clone();
 
-    DeepConsistencyCheck {
+    DeepPolynomialOpenings {
+        lde_composition_poly_even_proof,
+        lde_composition_poly_even_evaluation,
+        lde_composition_poly_odd_proof,
+        lde_composition_poly_odd_evaluation,
         lde_trace_merkle_proofs,
         lde_trace_evaluations,
-        lde_composition_poly_proofs,
-        lde_composition_poly_evaluations,
     }
 }
 
@@ -407,14 +416,16 @@ where
 
     let mut transcript = round_0_transcript_initialization();
 
-    // Round 1
+    ///////      Round 1      ///////
+
     let round_1_result = round_1_randomized_air_with_preprocessing(trace, &domain);
 
     for root in round_1_result.lde_trace_merkle_roots.iter() {
         transcript.append(&root.to_bytes_be());
     }
 
-    // Round 2
+    ///////      Round 2      ///////
+
     // These are the challenges alpha^B_j and beta^B_j
     let boundary_coeffs_alphas =
         batch_sample_challenges(round_1_result.trace_polys.len(), &mut transcript);
@@ -434,6 +445,7 @@ where
         .into_iter()
         .zip(transition_coeffs_betas)
         .collect();
+
     let round_2_result = round_2_compute_composition_polynomial(
         air,
         &domain,
@@ -442,10 +454,11 @@ where
         &boundary_coeffs,
     );
 
-    transcript.append(&round_2_result.composition_poly_roots[0].to_bytes_be());
-    transcript.append(&round_2_result.composition_poly_roots[1].to_bytes_be());
+    transcript.append(&round_2_result.composition_poly_even_root.to_bytes_be());
+    transcript.append(&round_2_result.composition_poly_odd_root.to_bytes_be());
 
-    // Round 3
+    ///////      Round 3      ///////
+
     let z = sample_z_ood(
         &domain.lde_roots_of_unity_coset,
         &domain.trace_roots_of_unity,
@@ -461,9 +474,17 @@ where
     );
 
     // H_1(z^2)
-    transcript.append(&round_3_result.composition_poly_ood_evaluations[0].to_bytes_be());
+    transcript.append(
+        &round_3_result
+            .composition_poly_even_ood_evaluation
+            .to_bytes_be(),
+    );
     // H_2(z^2)
-    transcript.append(&round_3_result.composition_poly_ood_evaluations[1].to_bytes_be());
+    transcript.append(
+        &round_3_result
+            .composition_poly_odd_ood_evaluation
+            .to_bytes_be(),
+    );
     // These are the values t_j(zg^i)
     for i in 0..round_3_result.trace_ood_frame_evaluations.num_rows() {
         for element in round_3_result.trace_ood_frame_evaluations.get_row(i).iter() {
@@ -485,14 +506,26 @@ where
     info!("End proof generation");
 
     StarkProof {
+        // [tⱼ]
         lde_trace_merkle_roots: round_1_result.lde_trace_merkle_roots,
-        composition_poly_roots: round_2_result.composition_poly_roots,
-        deep_consistency_check: round_4_result.deep_consistency_check,
-        fri_layers_merkle_roots: round_4_result.fri_layers_merkle_roots,
-        fri_last_value: round_4_result.fri_last_value,
+        // tⱼ(zgᵏ)
         trace_ood_frame_evaluations: round_3_result.trace_ood_frame_evaluations,
-        composition_poly_ood_evaluations: round_3_result.composition_poly_ood_evaluations,
+        // [H₁]
+        composition_poly_even_root: round_2_result.composition_poly_even_root,
+        // H₁(z²)
+        composition_poly_even_ood_evaluation: round_3_result.composition_poly_even_ood_evaluation,
+        // [H₂]
+        composition_poly_odd_root: round_2_result.composition_poly_odd_root,
+        // H₂(z²)
+        composition_poly_odd_ood_evaluation: round_3_result.composition_poly_odd_ood_evaluation,
+        // [pₖ]
+        fri_layers_merkle_roots: round_4_result.fri_layers_merkle_roots,
+        // pₙ
+        fri_last_value: round_4_result.fri_last_value,
+        // Open(p₀(D₀), 𝜐ₛ), Opwn(pₖ(Dₖ), −𝜐ₛ^(2ᵏ))
         query_list: round_4_result.query_list,
+        // Open(H₁(D_LDE, 𝜐₀), Open(H₂(D_LDE, 𝜐₀), Open(tⱼ(D_LDE), 𝜐₀)
+        deep_poly_openings: round_4_result.deep_poly_openings,
     }
 }
 

@@ -7,7 +7,7 @@ use crate::{
     air::frame::Frame,
     batch_sample_challenges,
     fri::HASHER,
-    proof::{DeepConsistencyCheck, StarkProof},
+    proof::{DeepPolynomialOpenings, StarkProof},
     transcript_to_field, transcript_to_usize, Domain,
 };
 #[cfg(not(feature = "test_fiat_shamir"))]
@@ -26,18 +26,6 @@ use lambdaworks_math::{
     polynomial::Polynomial,
     traits::ByteConversion,
 };
-
-struct DeepCompositionPolyArgs<'a, F: IsFFTField> {
-    root_order: u32,
-    trace_term_coeffs: &'a [Vec<FieldElement<F>>],
-    gamma_even: &'a FieldElement<F>,
-    gamma_odd: &'a FieldElement<F>,
-    d_evaluation_point: &'a FieldElement<F>,
-    ood_evaluation_point: &'a FieldElement<F>,
-    trace_poly_ood_evaluations: &'a Frame<F>,
-    composition_poly_ood_evaluations: &'a [FieldElement<F>],
-    deep_consistency_check: &'a DeepConsistencyCheck<F>,
-}
 
 #[cfg(feature = "test_fiat_shamir")]
 fn step_1_transcript_initialization() -> TestTranscript {
@@ -101,8 +89,8 @@ where
         .zip(transition_coeffs_betas)
         .collect();
 
-    transcript.append(&proof.composition_poly_roots[0].to_bytes_be());
-    transcript.append(&proof.composition_poly_roots[1].to_bytes_be());
+    transcript.append(&proof.composition_poly_even_root.to_bytes_be());
+    transcript.append(&proof.composition_poly_odd_root.to_bytes_be());
 
     let z = sample_z_ood(
         &domain.lde_roots_of_unity_coset,
@@ -111,9 +99,9 @@ where
     );
 
     // H_1(z^2)
-    transcript.append(&proof.composition_poly_ood_evaluations[0].to_bytes_be());
+    transcript.append(&proof.composition_poly_even_ood_evaluation.to_bytes_be());
     // H_2(z^2)
-    transcript.append(&proof.composition_poly_ood_evaluations[1].to_bytes_be());
+    transcript.append(&proof.composition_poly_odd_ood_evaluation.to_bytes_be());
     // These are the values t_j(zg^i)
     for i in 0..proof.trace_ood_frame_evaluations.num_rows() {
         for element in proof.trace_ood_frame_evaluations.get_row(i).iter() {
@@ -173,7 +161,8 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
 ) -> bool {
     // BEGIN TRACE <-> Composition poly consistency evaluation check
     // These are H_1(z^2) and H_2(z^2)
-    let composition_poly_ood_evaluations = &proof.composition_poly_ood_evaluations;
+    let composition_poly_even_ood_evaluation = &proof.composition_poly_even_ood_evaluation;
+    let composition_poly_odd_ood_evaluation = &proof.composition_poly_odd_ood_evaluation;
 
     let boundary_constraints = air.boundary_constraints();
 
@@ -263,7 +252,7 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
             });
 
     let composition_poly_claimed_ood_evaluation =
-        &composition_poly_ood_evaluations[0] + &challenges.z * &composition_poly_ood_evaluations[1];
+        composition_poly_even_ood_evaluation + &challenges.z * composition_poly_odd_ood_evaluation;
 
     composition_poly_claimed_ood_evaluation == composition_poly_ood_evaluation
 }
@@ -324,19 +313,8 @@ fn step_4_verify_deep_composition_polynomial<F: IsFFTField>(
     //
     // DEEP consistency check
     // Verify that Deep(x) is constructed correctly
-    let deep_composition_poly_args = &mut DeepCompositionPolyArgs {
-        root_order: domain.root_order,
-        trace_term_coeffs: &challenges.trace_term_coeffs,
-        gamma_even: &challenges.gamma_even,
-        gamma_odd: &challenges.gamma_odd,
-        d_evaluation_point: &domain.lde_roots_of_unity_coset[challenges.q_0],
-        ood_evaluation_point: &challenges.z,
-        trace_poly_ood_evaluations: &proof.trace_ood_frame_evaluations,
-        composition_poly_ood_evaluations: &proof.composition_poly_ood_evaluations,
-        deep_consistency_check: &proof.deep_consistency_check,
-    };
-
-    let deep_poly_evaluation = reconstruct_deep_composition_poly_evaluation(deep_composition_poly_args);
+    let deep_poly_evaluation =
+        reconstruct_deep_composition_poly_evaluation(proof, domain, challenges);
     let deep_poly_claimed_evaluation = &proof.query_list[0].first_layer_evaluation;
 
     deep_poly_claimed_evaluation == &deep_poly_evaluation
@@ -409,42 +387,39 @@ where
 
 // Reconstruct Deep(\upsilon_0) off the values in the proof
 fn reconstruct_deep_composition_poly_evaluation<F: IsFFTField>(
-    args: &mut DeepCompositionPolyArgs<F>,
+    proof: &StarkProof<F>,
+    domain: &Domain<F>,
+    challenges: &Challenges<F>,
 ) -> FieldElement<F> {
-    let primitive_root = &F::get_primitive_root_of_unity(args.root_order as u64).unwrap();
-
-    let deep_consistency_check = args.deep_consistency_check;
+    let primitive_root = &F::get_primitive_root_of_unity(domain.root_order as u64).unwrap();
+    let upsilon_0 = &domain.lde_roots_of_unity_coset[challenges.q_0];
 
     let mut trace_terms = FieldElement::zero();
 
     for (col_idx, coeff_row) in
-        (0..args.trace_poly_ood_evaluations.num_columns()).zip(args.trace_term_coeffs)
+        (0..proof.trace_ood_frame_evaluations.num_columns()).zip(&challenges.trace_term_coeffs)
     {
-        for (row_idx, coeff) in (0..args.trace_poly_ood_evaluations.num_rows()).zip(coeff_row) {
-            let poly_evaluation = (deep_consistency_check.lde_trace_evaluations[col_idx].clone()
-                - args.trace_poly_ood_evaluations.get_row(row_idx)[col_idx].clone())
-                / (args.d_evaluation_point
-                    - args.ood_evaluation_point * primitive_root.pow(row_idx as u64));
+        for (row_idx, coeff) in (0..proof.trace_ood_frame_evaluations.num_rows()).zip(coeff_row) {
+            let poly_evaluation = (proof.deep_poly_openings.lde_trace_evaluations[col_idx].clone()
+                - proof.trace_ood_frame_evaluations.get_row(row_idx)[col_idx].clone())
+                / (upsilon_0 - &challenges.z * primitive_root.pow(row_idx as u64));
 
             trace_terms += poly_evaluation * coeff.clone();
         }
     }
 
-    let ood_point_squared = &(args.ood_evaluation_point * args.ood_evaluation_point);
+    let z_squared = &(&challenges.z * &challenges.z);
+    let h_1_upsilon_0 = &proof
+        .deep_poly_openings
+        .lde_composition_poly_even_evaluation;
+    let h_1_zsquared = &proof.composition_poly_even_ood_evaluation;
+    let h_2_upsilon_0 = &proof.deep_poly_openings.lde_composition_poly_odd_evaluation;
+    let h_2_zsquared = &proof.composition_poly_odd_ood_evaluation;
 
-    let even_composition_poly_evaluation = (&deep_consistency_check
-        .lde_composition_poly_evaluations[0]
-        - &args.composition_poly_ood_evaluations[0])
-        / (args.d_evaluation_point - ood_point_squared);
+    let h_1_term = (h_1_upsilon_0 - h_1_zsquared) / (upsilon_0 - z_squared);
+    let h_2_term = (h_2_upsilon_0 - h_2_zsquared) / (upsilon_0 - z_squared);
 
-    let odd_composition_poly_evaluation = (&deep_consistency_check
-        .lde_composition_poly_evaluations[1]
-        - &args.composition_poly_ood_evaluations[1])
-        / (args.d_evaluation_point - ood_point_squared);
-
-    trace_terms
-        + even_composition_poly_evaluation * args.gamma_even
-        + odd_composition_poly_evaluation * args.gamma_odd
+    trace_terms + h_1_term * &challenges.gamma_even + h_2_term * &challenges.gamma_odd
 }
 
 // Verifies that t(x_0) is a trace evaluation
@@ -459,8 +434,8 @@ where
     for ((merkle_root, merkle_proof), evaluation) in proof
         .lde_trace_merkle_roots
         .iter()
-        .zip(&proof.deep_consistency_check.lde_trace_merkle_proofs)
-        .zip(&proof.deep_consistency_check.lde_trace_evaluations)
+        .zip(&proof.deep_poly_openings.lde_trace_merkle_proofs)
+        .zip(&proof.deep_poly_openings.lde_trace_evaluations)
     {
         let index = q_i % domain.len();
 
