@@ -5,13 +5,9 @@ use super::{
 };
 use crate::{
     batch_sample_challenges,
-    fri::{
-        fri_commitment::FriLayer,
-        fri_decommit::{open_layer, FriDecommitment},
-        HASHER,
-    },
+    fri::{fri_decommit::FriDecommitment, fri_query_phase, HASHER},
     proof::{DeepConsistencyCheck, StarkProof},
-    transcript_to_field, transcript_to_usize, Domain,
+    transcript_to_field, Domain,
 };
 #[cfg(not(feature = "test_fiat_shamir"))]
 use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
@@ -238,53 +234,6 @@ where
     Round3 {
         trace_ood_frame_evaluations,
         composition_poly_ood_evaluations,
-    }
-}
-
-#[allow(clippy::too_many_arguments)]
-fn fri_query_phase<F: IsFFTField, A: AIR<Field = F>, T: Transcript>(
-    air: &A,
-    domain: &Domain<F>,
-    fri_layers: &Vec<FriLayer<F>>,
-    transcript: &mut T,
-) -> (Vec<FriDecommitment<F>>, usize)
-where
-    FieldElement<F>: ByteConversion,
-{
-    if let Some(fri_first_layer) = fri_layers.get(0) {
-        let number_of_queries = air.context().options.fri_number_of_queries;
-        let mut iotas: Vec<usize> = Vec::with_capacity(number_of_queries);
-        let query_list = (0..number_of_queries)
-            .map(|_| {
-                let iota_s = transcript_to_usize(transcript) % 2_usize.pow(domain.lde_root_order);
-                let (first_layer_evaluation, first_layer_auth_path) =
-                    open_layer(fri_first_layer, iota_s);
-
-                let mut layers_auth_paths_sym = vec![];
-                let mut layers_evaluations_sym = vec![];
-
-                for layer in fri_layers {
-                    // symmetric element
-                    let index_sym = (iota_s + layer.domain.len() / 2) % layer.domain.len();
-                    let (evaluation_sym, auth_path_sym) = open_layer(layer, index_sym);
-
-                    layers_auth_paths_sym.push(auth_path_sym);
-                    layers_evaluations_sym.push(evaluation_sym);
-                }
-                iotas.push(iota_s);
-
-                FriDecommitment {
-                    layers_auth_paths_sym,
-                    layers_evaluations_sym,
-                    first_layer_evaluation,
-                    first_layer_auth_path,
-                }
-            })
-            .collect();
-
-        (query_list, iotas[0])
-    } else {
-        (vec![], 0)
     }
 }
 

@@ -1,19 +1,21 @@
 pub mod fri_commitment;
 pub mod fri_decommit;
 mod fri_functions;
+use crate::air::AIR;
 use crate::fri::fri_commitment::FriLayer;
-use crate::transcript_to_field;
+use crate::{transcript_to_field, Domain, transcript_to_usize};
 use lambdaworks_crypto::hash::sha3::Sha3Hasher;
 
 pub use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 pub use lambdaworks_crypto::merkle_tree::merkle::MerkleTree;
-use lambdaworks_math::field::traits::IsField;
+use lambdaworks_math::field::traits::{IsField, IsFFTField};
 use lambdaworks_math::traits::ByteConversion;
 pub use lambdaworks_math::{
     field::{element::FieldElement, fields::u64_prime_field::U64PrimeField},
     polynomial::Polynomial,
 };
 
+use self::fri_decommit::{FriDecommitment, open_layer};
 use self::fri_functions::{fold_polynomial, next_domain};
 
 pub type FriMerkleTree<F> = MerkleTree<F>;
@@ -57,3 +59,50 @@ where
 
     (last_value, fri_layer_list)
 }
+
+pub fn fri_query_phase<F: IsFFTField, A: AIR<Field = F>, T: Transcript>(
+    air: &A,
+    domain: &Domain<F>,
+    fri_layers: &Vec<FriLayer<F>>,
+    transcript: &mut T,
+) -> (Vec<FriDecommitment<F>>, usize)
+where
+    FieldElement<F>: ByteConversion,
+{
+    if let Some(fri_first_layer) = fri_layers.get(0) {
+        let number_of_queries = air.context().options.fri_number_of_queries;
+        let mut iotas: Vec<usize> = Vec::with_capacity(number_of_queries);
+        let query_list = (0..number_of_queries)
+            .map(|_| {
+                let iota_s = transcript_to_usize(transcript) % 2_usize.pow(domain.lde_root_order);
+                let (first_layer_evaluation, first_layer_auth_path) =
+                    open_layer(fri_first_layer, iota_s);
+
+                let mut layers_auth_paths_sym = vec![];
+                let mut layers_evaluations_sym = vec![];
+
+                for layer in fri_layers {
+                    // symmetric element
+                    let index_sym = (iota_s + layer.domain.len() / 2) % layer.domain.len();
+                    let (evaluation_sym, auth_path_sym) = open_layer(layer, index_sym);
+
+                    layers_auth_paths_sym.push(auth_path_sym);
+                    layers_evaluations_sym.push(evaluation_sym);
+                }
+                iotas.push(iota_s);
+
+                FriDecommitment {
+                    layers_auth_paths_sym,
+                    layers_evaluations_sym,
+                    first_layer_evaluation,
+                    first_layer_auth_path,
+                }
+            })
+            .collect();
+
+        (query_list, iotas[0])
+    } else {
+        (vec![], 0)
+    }
+}
+
