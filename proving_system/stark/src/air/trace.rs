@@ -34,6 +34,24 @@ pub struct AuxiliarySegment<F: IsFFTField> {
 }
 
 impl<F: IsFFTField> AuxiliarySegment<F> {
+    pub fn new_from_cols(cols: &[Vec<FieldElement<F>>]) -> Self {
+        let n_rows = cols[0].len();
+        debug_assert!(cols.iter().all(|c| c.len() == n_rows));
+
+        let aux_segment_width = cols.len();
+
+        let mut aux_segment = Vec::with_capacity(aux_segment_width * n_rows);
+
+        for row_idx in 0..n_rows {
+            for col in cols {
+                aux_segment.push(col[row_idx].clone());
+            }
+        }
+        Self {
+            aux_segment,
+            aux_segment_width,
+        }
+    }
     fn n_rows(&self) -> usize {
         self.aux_segment.len() / self.aux_segment_width
     }
@@ -181,7 +199,7 @@ impl<F: IsFFTField> TraceTable<F> {
 
         // Iterate over trace and compute transitions
         for step in 0..self.n_rows() {
-            let frame = Frame::read_from_trace(self, step, 1, &air.context().transition_offsets);
+            let frame = Frame::read_from_trace(air, self, 1, step);
 
             let evaluations = air.compute_transition(&frame);
             // Iterate over each transition evaluation. When the evaluated step is not from

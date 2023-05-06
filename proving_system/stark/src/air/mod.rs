@@ -122,6 +122,7 @@ pub trait AIR: Clone {
     fn build_aux_segment(
         &self,
         trace: &TraceTable<Self::Field>,
+        segment_idx: usize,
         rand_elements: &[FieldElement<Self::Field>],
     ) -> Option<AuxiliarySegment<Self::Field>> {
         None

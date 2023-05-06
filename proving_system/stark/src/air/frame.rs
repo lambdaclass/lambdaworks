@@ -3,7 +3,7 @@ use lambdaworks_math::{
     polynomial::Polynomial,
 };
 
-use super::trace::TraceTable;
+use super::{trace::TraceTable, AIR};
 
 #[derive(Clone, Debug)]
 pub struct Frame<F: IsFFTField> {
@@ -35,13 +35,13 @@ impl<F: IsFFTField> Frame<F> {
         &mut self.data[row_offset..row_offset + self.row_width]
     }
 
-    pub fn read_from_trace(
-        trace: &TraceTable<F>,
-        step: usize,
-        blowup: u8,
-        offsets: &[usize],
-    ) -> Self {
-        // Get trace length to apply module with it when getting elements of
+    pub fn read_from_trace<A>(air: &A, trace: &TraceTable<F>, blowup: u8, step: usize) -> Self
+    where
+        A: AIR<Field = F>,
+    {
+        let offsets = air.context().transition_offsets;
+
+        // Get trace length to apply modulus with it when getting elements of
         // the frame from the trace.
         let trace_length = trace.n_rows();
         let data = offsets
@@ -56,13 +56,18 @@ impl<F: IsFFTField> Frame<F> {
         Self::new(data, trace.main_segment_width)
     }
 
-    pub fn read_from_aux_segment(
+    pub fn read_from_aux_segment<A>(
+        air: &A,
         trace: &TraceTable<F>,
         step: usize,
-        blowup: u8,
-        offsets: &[usize],
         segment_idx: usize,
-    ) -> Self {
+    ) -> Self
+    where
+        A: AIR<Field = F>,
+    {
+        let offsets = air.context().aux_transition_offsets;
+        let offsets = offsets.as_ref().unwrap();
+        let blowup = air.blowup_factor();
         let aux_segment = trace.get_aux_segment(segment_idx);
 
         let trace_length = trace.n_rows();

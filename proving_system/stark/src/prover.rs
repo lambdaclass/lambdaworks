@@ -24,6 +24,11 @@ use lambdaworks_math::{
 };
 use log::{error, info};
 
+type AuxSegments<F> = Vec<AuxiliarySegment<F>>;
+type AuxSegmentsPolys<F> = Vec<Vec<Polynomial<FieldElement<F>>>>;
+type AuxSegmentsMerkleTrees<F> = Vec<Vec<MerkleTree<F>>>;
+type AuxSegmentsMerkleRoots<F> = Vec<Vec<FieldElement<F>>>;
+
 struct Round1<F: IsFFTField> {
     main_trace_polys: Vec<Polynomial<FieldElement<F>>>,
     aux_trace_polys: Option<Vec<Vec<Polynomial<FieldElement<F>>>>>,
@@ -120,10 +125,10 @@ fn commit_aux_trace<F, A, T>(
     trace: &TraceTable<F>,
     transcript: &T,
 ) -> (
-    Vec<Vec<Polynomial<FieldElement<F>>>>,
-    Vec<AuxiliarySegment<F>>,
-    Vec<Vec<MerkleTree<F>>>,
-    Vec<Vec<FieldElement<F>>>,
+    AuxSegments<F>,
+    AuxSegmentsPolys<F>,
+    AuxSegmentsMerkleTrees<F>,
+    AuxSegmentsMerkleRoots<F>,
 )
 where
     F: IsFFTField,
@@ -145,22 +150,23 @@ where
             error!("Inconsistent AIR implementation, build_aux_segment function should not return None for a multi-segment AIR.")
         }
 
-        let aux_segment = air.build_aux_segment(trace, &segment_rand_coeffs).unwrap();
+        let aux_segment = air
+            .build_aux_segment(trace, aux_segment_idx, &segment_rand_coeffs)
+            .unwrap();
 
         // Compute aux_segment polys
         let aux_segment_polys = aux_segment.compute_aux_segment_polys();
+
+        let coset_offset = FieldElement::<F>::from(air.options().coset_offset);
 
         // Compute aux_segment LDE
         let lde_aux_evaluations = aux_segment_polys
             .iter()
             .map(|poly| {
-                // FIXME: This function should be changed when `evaluate_offset_fft`
-                // handles the case for the zero polynomial.
-                evaluate_offset_fft_with_len(
-                    poly,
-                    trace.n_rows(),
-                    &FieldElement::<F>::from(air.options().coset_offset),
+                poly.evaluate_offset_fft(
                     air.options().blowup_factor as usize,
+                    Some(trace.n_rows()),
+                    &coset_offset,
                 )
             })
             .collect::<Result<Vec<Vec<FieldElement<F>>>, FFTError>>()
@@ -184,8 +190,8 @@ where
     }
 
     (
-        aux_segments_polys,
         aux_segments,
+        aux_segments_polys,
         aux_segments_merkle_trees,
         aux_segments_merkle_roots,
     )
@@ -210,7 +216,7 @@ where
     ) = commit_original_trace(trace, air);
 
     if air.is_multi_segment() {
-        let (aux_trace_polys, aux_segments, aux_lde_trace_merkle_trees, aux_lde_trace_merkle_roots) =
+        let (aux_segments, aux_trace_polys, aux_lde_trace_merkle_trees, aux_lde_trace_merkle_roots) =
             commit_aux_trace(air, trace, transcript);
 
         let lde_trace = TraceTable::new_from_cols(&lde_trace_evaluations, Some(aux_segments));

@@ -69,7 +69,7 @@ impl<'poly, F: IsFFTField, A: AIR<Field = F>> ConstraintEvaluator<'poly, F, A> {
         let mut trace_polys = self.main_trace_polys.to_vec();
 
         // Get main transition degrees. When there are auxiliary transition constraints,
-        // this vector is updated with their corresponding degrees.
+        // this vector is updated with their corresponding degrees later on.
         let mut transition_degrees = self.air.context().transition_degrees();
 
         // Auxiliary trace boundary polys
@@ -87,22 +87,37 @@ impl<'poly, F: IsFFTField, A: AIR<Field = F>> ConstraintEvaluator<'poly, F, A> {
                 .for_each(|aux_poly| trace_polys.extend_from_slice(&aux_poly));
 
             transition_degrees.extend_from_slice(&aux_transition_degrees);
+
             let mut aux_boundary_polys = Vec::with_capacity(n_aux_segments);
             let mut aux_boundary_zerofiers = Vec::with_capacity(n_aux_segments);
             (0..n_aux_segments).for_each(|segment_idx| {
+                // Sample random elements needed for construction of the aux segment.
                 let aux_segment_rand_elements =
                     self.air.aux_segment_rand_coeffs(segment_idx, transcript);
+
+                // Get interpolated polynomials for the aux segment. There will be one polynomial
+                // for each column of the aux segment.
                 let aux_segment_polys = &self.aux_trace_polys[segment_idx];
+
+                // Get aux segment boundary constraint. The random elements are needed for setting
+                // them up as a part of the RAP.
                 let aux_segment_boundary_constraints = self
                     .air
                     .aux_boundary_constraints(segment_idx, &aux_segment_rand_elements);
 
+                // Get the domains where the boundary constraints are to be applied and their
+                // corresponding values.
                 let aux_segment_width = self.air.aux_segment_width(segment_idx);
                 let aux_segment_boundary_domains = aux_segment_boundary_constraints
                     .generate_roots_of_unity(&self.primitive_root, aux_segment_width);
                 let aux_segment_boundary_values =
                     main_boundary_constraints.values(aux_segment_width);
 
+                // Interpolate to find the numerator of the boundary quotient:
+                //      Ni_aux(x) = ti_aux(x) - Bi_aux(x)
+                // where,
+                //    * ti_aux(x): Auxiliary trace polynomial corresponding to column `i` of the segment.
+                //    * Bi_aux(x): Polynomial obtained from interpolating aux boundary constraints in the column `i` of the segment.
                 let aux_segment_boundary_polys: Vec<Polynomial<FieldElement<F>>> =
                     zip(aux_segment_boundary_domains, aux_segment_boundary_values)
                         .zip(aux_segment_polys)
@@ -111,6 +126,7 @@ impl<'poly, F: IsFFTField, A: AIR<Field = F>> ConstraintEvaluator<'poly, F, A> {
                         })
                         .collect();
 
+                // Compute zerofiers for every `Ni_aux(x)`
                 let aux_segment_boundary_zerofiers: Vec<Polynomial<FieldElement<F>>> = (0
                     ..aux_segment_width)
                     .map(|aux_col| {
@@ -134,6 +150,7 @@ impl<'poly, F: IsFFTField, A: AIR<Field = F>> ConstraintEvaluator<'poly, F, A> {
                 &flattened_aux_boundary_polys,
                 &flattened_aux_boundary_zerofier,
             );
+
             boundary_polys.extend_from_slice(&flattened_aux_boundary_polys);
             boundary_zerofiers.extend_from_slice(&flattened_aux_boundary_zerofier);
             bound_polys_max_degree =
@@ -148,30 +165,16 @@ impl<'poly, F: IsFFTField, A: AIR<Field = F>> ConstraintEvaluator<'poly, F, A> {
 
         let blowup_factor = self.air.blowup_factor();
         // Iterate over trace and domain and compute transitions
-        for (i, d) in lde_domain.iter().enumerate() {
-            let main_frame = Frame::read_from_trace(
-                lde_trace,
-                i,
-                blowup_factor,
-                &self.air.context().transition_offsets,
-            );
+        for (step, d) in lde_domain.iter().enumerate() {
+            let main_frame = Frame::read_from_trace(&self.air, lde_trace, blowup_factor, step);
 
             let mut evaluations = self.air.compute_transition(&main_frame);
 
-            // Compute auxiliary transitions if needed
+            // Compute auxiliary transitions if needed, extending the evaluations vector with them.
             if self.air.is_multi_segment() {
-                let n_aux_segments = self.air.num_aux_segments();
-                let aux_transition_offsets = self.air.context().aux_transition_offsets;
-                let aux_transition_offsets = aux_transition_offsets.as_ref().unwrap();
                 (0..n_aux_segments).for_each(|segment_idx| {
-                    self.air.aux_segment_rand_coeffs(segment_idx, transcript);
-                    let aux_frame = Frame::read_from_aux_segment(
-                        lde_trace,
-                        i,
-                        blowup_factor,
-                        aux_transition_offsets,
-                        segment_idx,
-                    );
+                    let aux_frame =
+                        Frame::read_from_aux_segment(&self.air, lde_trace, step, segment_idx);
                     let aux_evaluations = self.air.compute_aux_transition(
                         &main_frame,
                         &aux_frame,
@@ -189,6 +192,7 @@ impl<'poly, F: IsFFTField, A: AIR<Field = F>> ConstraintEvaluator<'poly, F, A> {
                 d,
             );
 
+            // Merge all boundary terms evaluations into a single one.
             let boundary_evaluation = zip(&boundary_polys, &boundary_zerofiers)
                 .enumerate()
                 .map(|(index, (boundary_poly, boundary_zerofier))| {
