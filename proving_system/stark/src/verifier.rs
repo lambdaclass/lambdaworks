@@ -4,11 +4,8 @@ use super::{
     sample_z_ood,
 };
 use crate::{
-    air::frame::Frame,
-    batch_sample_challenges,
-    fri::HASHER,
-    proof::{DeepPolynomialOpenings, StarkProof},
-    transcript_to_field, transcript_to_usize, Domain,
+    batch_sample_challenges, fri::HASHER, proof::StarkProof, transcript_to_field,
+    transcript_to_usize, Domain,
 };
 #[cfg(not(feature = "test_fiat_shamir"))]
 use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
@@ -61,16 +58,20 @@ where
     A: AIR<Field = F>,
     T: Transcript,
 {
-    // Fiat-Shamir
-    // we have to make sure that the result is not either
-    // a root of unity or an element of the lde coset.
+    // ###################################
+    // ##########|   Round 1   |##########
+    // ###################################
+
     let n_trace_cols = air.context().trace_columns;
 
     for root in proof.lde_trace_merkle_roots.iter() {
         transcript.append(&root.to_bytes_be());
     }
 
-    // Round 2
+    // ###################################
+    // ##########|   Round 2   |##########
+    // ###################################
+
     // These are the challenges alpha^B_j and beta^B_j
     let boundary_coeffs_alphas = batch_sample_challenges(n_trace_cols, transcript);
     let boundary_coeffs_betas = batch_sample_challenges(n_trace_cols, transcript);
@@ -92,6 +93,10 @@ where
     transcript.append(&proof.composition_poly_even_root.to_bytes_be());
     transcript.append(&proof.composition_poly_odd_root.to_bytes_be());
 
+    // ###################################
+    // ##########|   Round 3   |##########
+    // ###################################
+
     let z = sample_z_ood(
         &domain.lde_roots_of_unity_coset,
         &domain.trace_roots_of_unity,
@@ -109,6 +114,10 @@ where
         }
     }
 
+    // ###################################
+    // ##########|   Round 4   |##########
+    // ###################################
+
     // Get the number of trace terms the DEEP composition poly will have.
     // One coefficient will be sampled for each of them.
     // TODO: try remove this, call transcript inside for and move gamma declarations
@@ -123,7 +132,7 @@ where
     // Get coefficients for even and odd terms of the composition polynomial H(x)
     let gamma_even = transcript_to_field::<F, _>(transcript);
     let gamma_odd = transcript_to_field::<F, _>(transcript);
-    //
+
     // construct vector of betas
     let mut beta_list: Vec<FieldElement<F>> = Vec::new();
     let merkle_roots = &proof.fri_layers_merkle_roots;

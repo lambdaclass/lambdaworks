@@ -416,7 +416,9 @@ where
 
     let mut transcript = round_0_transcript_initialization();
 
-    ///////      Round 1      ///////
+    // ###################################
+    // ##########|   Round 1   |##########
+    // ###################################
 
     let round_1_result = round_1_randomized_air_with_preprocessing(trace, &domain);
 
@@ -424,9 +426,11 @@ where
         transcript.append(&root.to_bytes_be());
     }
 
-    ///////      Round 2      ///////
+    // ###################################
+    // ##########|   Round 2   |##########
+    // ###################################
 
-    // These are the challenges alpha^B_j and beta^B_j
+    // These are the challenges alpha^Bⱼ and beta^Bⱼ
     let boundary_coeffs_alphas =
         batch_sample_challenges(round_1_result.trace_polys.len(), &mut transcript);
     let boundary_coeffs_betas =
@@ -457,7 +461,9 @@ where
     transcript.append(&round_2_result.composition_poly_even_root.to_bytes_be());
     transcript.append(&round_2_result.composition_poly_odd_root.to_bytes_be());
 
-    ///////      Round 3      ///////
+    // ###################################
+    // ##########|   Round 3   |##########
+    // ###################################
 
     let z = sample_z_ood(
         &domain.lde_roots_of_unity_coset,
@@ -473,26 +479,29 @@ where
         &z,
     );
 
-    // H_1(z^2)
+    // H₁(z^2)
     transcript.append(
         &round_3_result
             .composition_poly_even_ood_evaluation
             .to_bytes_be(),
     );
-    // H_2(z^2)
+    // H₂(z^2)
     transcript.append(
         &round_3_result
             .composition_poly_odd_ood_evaluation
             .to_bytes_be(),
     );
-    // These are the values t_j(zg^i)
+    // These are the values tⱼ(zgᵏ) 
     for i in 0..round_3_result.trace_ood_frame_evaluations.num_rows() {
         for element in round_3_result.trace_ood_frame_evaluations.get_row(i).iter() {
             transcript.append(&element.to_bytes_be());
         }
     }
 
-    // Round 4
+    // ###################################
+    // ##########|   Round 4   |##########
+    // ###################################
+
     let round_4_result = round_4_compute_and_run_fri_on_the_deep_composition_polynomial(
         air,
         &domain,
