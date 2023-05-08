@@ -9,5 +9,3 @@ pub mod metal;
 
 #[cfg(feature = "cuda")]
 pub mod cuda;
-
-pub(crate) mod helpers;
