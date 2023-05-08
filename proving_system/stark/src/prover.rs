@@ -308,6 +308,7 @@ where
 /// Returns the DEEP composition polynomial that the prover then commits to using
 /// FRI. This polynomial is a linear combination of the trace polynomial and the
 /// composition polynomial, with coefficients sampled by the verifier (i.e. using Fiat-Shamir).
+#[allow(clippy::too_many_arguments)]
 fn compute_deep_composition_poly<A: AIR, F: IsFFTField>(
     air: &A,
     trace_polys: &[Polynomial<FieldElement<F>>],
@@ -394,7 +395,6 @@ where
         .map(|tree| tree.get_proof_by_pos(index).unwrap())
         .collect();
     let lde_trace_evaluations = round_1_result.lde_trace.get_row(index).to_vec();
-
 
     DeepPolynomialOpenings {
         lde_composition_poly_even_proof,
