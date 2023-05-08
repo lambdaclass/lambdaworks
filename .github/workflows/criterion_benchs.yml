@@ -61,3 +61,27 @@ jobs:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         # Push and deploy GitHub pages branch automatically
         auto-push: ${{ github.event_name != 'pull_request' }}
+  criterion_bench_nvidia:
+    name: Criterion benches (Ubuntu, NVIDIA GPU)
+    runs-on: [self-hosted, cuda]
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+    - name: Install stable toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+          toolchain: stable
+    - uses: actions/checkout@v3
+    - name: Run benchmark
+      run: |
+        cargo bench -F metal --no-fail-fast --bench "criterion_cuda" \
+        -- --output-format bencher | tee output.txt
+    - name: Store benchmark result
+      uses: benchmark-action/github-action-benchmark@v1
+      with:
+        tool: 'cargo'
+        output-file-path: output.txt
+        benchmark-data-dir-path: "./bench"
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        # Push and deploy GitHub pages branch automatically
+        auto-push: ${{ github.event_name != 'pull_request' }}
