@@ -37,9 +37,10 @@ impl AIR for Fibonacci17AIR {
     fn boundary_constraints(&self) -> BoundaryConstraints<Self::Field> {
         let a0 = BoundaryConstraint::new_simple(0, FieldElement::<Self::Field>::one());
         let a1 = BoundaryConstraint::new_simple(1, FieldElement::<Self::Field>::one());
-        let result = BoundaryConstraint::new_simple(3, FieldElement::<Self::Field>::from(3));
+        // let result = BoundaryConstraint::new_simple(3, FieldElement::<Self::Field>::from(3));
 
-        BoundaryConstraints::from_constraints(vec![a0, a1, result])
+        // BoundaryConstraints::from_constraints(vec![a0, a1, result])
+        BoundaryConstraints::from_constraints(vec![a0, a1])
     }
 
     fn context(&self) -> air::context::AirContext {

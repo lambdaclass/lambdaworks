@@ -2,17 +2,28 @@ use std::ops::Div;
 
 use crate::{
     air::{
-        self,
-        constraints::boundary::{BoundaryConstraint, BoundaryConstraints},
+        constraints::boundary::{
+            AuxSegmentBoundaryConstraints, BoundaryConstraint, BoundaryConstraints,
+        },
         context::AirContext,
         frame::Frame,
         trace::{AuxiliarySegment, TraceTable},
         AIR,
     },
     fri::FieldElement,
+    transcript_to_field,
 };
-use lambdaworks_math::field::{
-    fields::fft_friendly::stark_252_prime_field::Stark252PrimeField, traits::IsField,
+use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
+use lambdaworks_math::{
+    field::{
+        fields::{
+            fft_friendly::stark_252_prime_field::Stark252PrimeField,
+            u64_prime_field::{F17, FE17},
+        },
+        traits::{IsFFTField, IsField},
+    },
+    helpers::{next_power_of_two, resize_to_next_power_of_two},
+    polynomial::Polynomial,
 };
 
 #[derive(Clone)]
@@ -50,13 +61,13 @@ impl AIR for FibonacciRAP {
         aux_frame: &Frame<Self::Field>,
         aux_rand_elements: &[FieldElement<Self::Field>],
     ) -> Vec<FieldElement<Self::Field>> {
-        let z_i = aux_frame.get_row(0)[0];
-        let z_i_plus_one = aux_frame.get_row(1)[0];
+        let z_i = &aux_frame.get_row(0)[0];
+        let z_i_plus_one = &aux_frame.get_row(1)[0];
 
-        let a_i = main_frame.get_row(0)[0];
-        let b_i = main_frame.get_row(0)[1];
+        let a_i = &main_frame.get_row(0)[0];
+        let b_i = &main_frame.get_row(0)[1];
 
-        let gamma = aux_rand_elements[0];
+        let gamma = &aux_rand_elements[0];
 
         let numerator = z_i * (a_i + gamma);
         let denominator = b_i + gamma;
@@ -69,14 +80,14 @@ impl AIR for FibonacciRAP {
     fn build_aux_segment(
         &self,
         trace: &TraceTable<Self::Field>,
-        segment_idx: usize,
+        _segment_idx: usize,
         rand_elements: &[FieldElement<Self::Field>],
     ) -> Option<AuxiliarySegment<Self::Field>> {
         let main_segment_cols = trace.main_cols();
 
-        let not_perm = main_segment_cols[0].clone();
-        let perm = main_segment_cols[1].clone();
-        let gamma = rand_elements[0];
+        let not_perm = &main_segment_cols[0];
+        let perm = &main_segment_cols[1];
+        let gamma = &rand_elements[0];
 
         let trace_len = trace.n_rows();
 
@@ -85,9 +96,9 @@ impl AIR for FibonacciRAP {
             if i == 0 {
                 aux_col.push(FieldElement::<Self::Field>::one());
             } else {
-                let z_i = aux_col[i - 1];
+                let z_i = &aux_col[i - 1];
                 let n_p_term = not_perm[i - 1].clone() + gamma;
-                let p_term = perm[i - 1] + gamma;
+                let p_term = &perm[i - 1] + gamma;
 
                 aux_col.push(z_i * n_p_term.div(p_term));
             }
@@ -97,20 +108,34 @@ impl AIR for FibonacciRAP {
         Some(aux_segment)
     }
 
-    // fn aux_boundary_constraints(
-    //     &self,
-    //     segment_idx: usize,
-    //     aux_rand_elements: &[FieldElement<Self::Field>],
-    // ) -> BoundaryConstraints<Self::Field> {
-    //     let a0 = BoundaryConstraint::new_simple(0, FieldElement::<Self::Field>::one());
-    // }
+    fn aux_boundary_constraints(
+        &self,
+        segment_idx: usize,
+        _aux_rand_elements: &[FieldElement<Self::Field>],
+    ) -> AuxSegmentBoundaryConstraints<Self::Field> {
+        let a0 = BoundaryConstraint::new_simple(0, FieldElement::<Self::Field>::one());
+
+        AuxSegmentBoundaryConstraints::from_constraints(segment_idx, vec![a0])
+    }
+
+    fn aux_segment_rand_coeffs<T>(
+        &self,
+        _segment_idx: usize,
+        transcript: &mut T,
+    ) -> Vec<FieldElement<Self::Field>>
+    where
+        T: Transcript,
+    {
+        let gamma = transcript_to_field::<Self::Field, T>(transcript);
+        vec![gamma]
+    }
 
     fn context(&self) -> AirContext {
         self.context.clone()
     }
 }
 
-pub fn fibonacci_rap_trace<F: IsField>(
+pub fn fibonacci_rap_trace<F: IsFFTField>(
     initial_values: [FieldElement<F>; 2],
     trace_length: usize,
 ) -> Vec<Vec<FieldElement<F>>> {
@@ -131,6 +156,9 @@ pub fn fibonacci_rap_trace<F: IsField>(
     fib_seq.push(FieldElement::<F>::zero());
     fib_permuted.push(FieldElement::<F>::zero());
 
+    // let mut trace_cols = vec![fib_seq, fib_permuted];
+
+    // resize_to_next_power_of_two(&mut trace_cols);
     vec![fib_seq, fib_permuted]
 }
 
@@ -159,7 +187,6 @@ mod test {
 
         let mut aux_col = Vec::new();
         for i in 0..trace_len {
-            println!("IDX: {i}");
             if i == 0 {
                 aux_col.push(FE17::one());
             } else {

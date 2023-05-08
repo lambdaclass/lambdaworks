@@ -8,6 +8,9 @@ use lambdaworks_math::{
 };
 use log::{error, info};
 
+type MainTraceColumn<F> = Vec<FieldElement<F>>;
+type AuxTraceColumn<F> = Vec<FieldElement<F>>;
+
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
 pub struct AuxSegmentsInfo {
     pub aux_segment_widths: Vec<usize>,
@@ -52,7 +55,7 @@ impl<F: IsFFTField> AuxiliarySegment<F> {
             aux_segment_width,
         }
     }
-    fn n_rows(&self) -> usize {
+    pub fn n_rows(&self) -> usize {
         self.aux_segment.len() / self.aux_segment_width
     }
 
@@ -93,21 +96,31 @@ pub struct TraceTable<F: IsFFTField> {
 
 impl<F: IsFFTField> TraceTable<F> {
     pub fn new_from_cols(
-        cols: &[Vec<FieldElement<F>>],
-        aux_segments: Option<Vec<AuxiliarySegment<F>>>,
+        main_cols: &[MainTraceColumn<F>],
+        aux_segments_cols: Option<&[Vec<AuxTraceColumn<F>>]>,
     ) -> Self {
-        let n_rows = cols[0].len();
-        debug_assert!(cols.iter().all(|c| c.len() == n_rows));
+        let n_rows = main_cols[0].len();
+        debug_assert!(main_cols.iter().all(|c| c.len() == n_rows));
 
-        let main_segment_width = cols.len();
+        let main_segment_width = main_cols.len();
 
         let mut main_segment = Vec::with_capacity(main_segment_width * n_rows);
 
         for row_idx in 0..n_rows {
-            for col in cols {
+            for col in main_cols {
                 main_segment.push(col[row_idx].clone());
             }
         }
+
+        let aux_segments = if let Some(aux_segments_cols) = aux_segments_cols {
+            aux_segments_cols
+                .iter()
+                .map(|aux_segment_cols| Some(AuxiliarySegment::new_from_cols(aux_segment_cols)))
+                .collect()
+        } else {
+            None
+        };
+
         Self {
             main_segment,
             main_segment_width,

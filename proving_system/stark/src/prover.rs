@@ -24,7 +24,8 @@ use lambdaworks_math::{
 };
 use log::{error, info};
 
-type AuxSegments<F> = Vec<AuxiliarySegment<F>>;
+// type AuxSegments<F> = Vec<AuxiliarySegment<F>>;
+type LDEAuxSegmentsEvaluations<F> = Vec<Vec<Vec<FieldElement<F>>>>;
 type AuxSegmentsPolys<F> = Vec<Vec<Polynomial<FieldElement<F>>>>;
 type AuxSegmentsMerkleTrees<F> = Vec<Vec<MerkleTree<F>>>;
 type AuxSegmentsMerkleRoots<F> = Vec<Vec<FieldElement<F>>>;
@@ -123,9 +124,9 @@ where
 fn commit_aux_trace<F, A, T>(
     air: &A,
     trace: &TraceTable<F>,
-    transcript: &T,
+    transcript: &mut T,
 ) -> (
-    AuxSegments<F>,
+    LDEAuxSegmentsEvaluations<F>,
     AuxSegmentsPolys<F>,
     AuxSegmentsMerkleTrees<F>,
     AuxSegmentsMerkleRoots<F>,
@@ -139,14 +140,17 @@ where
     let mut aux_segments_polys = Vec::new();
     let mut aux_segments_merkle_trees = Vec::new();
     let mut aux_segments_merkle_roots = Vec::new();
-    let mut aux_segments = Vec::new();
+    let mut lde_aux_segments_evaluations = Vec::new();
     let n_aux_segments = air.num_aux_segments();
     for aux_segment_idx in 0..n_aux_segments {
         let segment_rand_coeffs = air.aux_segment_rand_coeffs(aux_segment_idx, transcript);
 
         // Adding this for easier debugging.
         #[cfg(debug_assertions)]
-        if air.build_aux_segment(trace, &segment_rand_coeffs).is_none() {
+        if air
+            .build_aux_segment(trace, aux_segment_idx, &segment_rand_coeffs)
+            .is_none()
+        {
             error!("Inconsistent AIR implementation, build_aux_segment function should not return None for a multi-segment AIR.")
         }
 
@@ -186,11 +190,11 @@ where
         aux_segments_polys.push(aux_segment_polys);
         aux_segments_merkle_trees.push(lde_aux_merkle_trees);
         aux_segments_merkle_roots.push(lde_aux_merkle_roots);
-        aux_segments.push(aux_segment);
+        lde_aux_segments_evaluations.push(lde_aux_evaluations);
     }
 
     (
-        aux_segments,
+        lde_aux_segments_evaluations,
         aux_segments_polys,
         aux_segments_merkle_trees,
         aux_segments_merkle_roots,
@@ -200,7 +204,7 @@ where
 fn round_1_randomized_air_with_preprocessing<F, A, T>(
     trace: &TraceTable<F>,
     air: &A,
-    transcript: &T,
+    transcript: &mut T,
 ) -> Round1<F>
 where
     F: IsFFTField,
@@ -216,10 +220,15 @@ where
     ) = commit_original_trace(trace, air);
 
     if air.is_multi_segment() {
-        let (aux_segments, aux_trace_polys, aux_lde_trace_merkle_trees, aux_lde_trace_merkle_roots) =
-            commit_aux_trace(air, trace, transcript);
+        let (
+            lde_aux_segments_evals,
+            aux_trace_polys,
+            aux_lde_trace_merkle_trees,
+            aux_lde_trace_merkle_roots,
+        ) = commit_aux_trace(air, trace, transcript);
 
-        let lde_trace = TraceTable::new_from_cols(&lde_trace_evaluations, Some(aux_segments));
+        let lde_trace =
+            TraceTable::new_from_cols(&lde_trace_evaluations, Some(&lde_aux_segments_evals));
 
         return Round1 {
             main_trace_polys,
@@ -251,7 +260,7 @@ fn round_2_compute_composition_polynomial<F, A, T>(
     round_1_result: &Round1<F>,
     transition_coeffs: &[(FieldElement<F>, FieldElement<F>)],
     boundary_coeffs: &[(FieldElement<F>, FieldElement<F>)],
-    transcript: &T,
+    transcript: &mut T,
 ) -> Round2<F>
 where
     F: IsFFTField,
@@ -573,17 +582,19 @@ where
 
     let round_1_result = round_1_randomized_air_with_preprocessing(trace, air, transcript);
 
+    // FIXME: Find a better way to calculate the number of boundary constraints
+    let n_boundary_coeffs = round_1_result.main_trace_polys.len()
+        + round_1_result.aux_trace_polys.as_ref().unwrap().len();
     // Sample challenges for round 2
     // These are the challenges alpha^B_j and beta^B_j
-    let boundary_coeffs: Vec<(FieldElement<F>, FieldElement<F>)> =
-        (0..round_1_result.main_trace_polys.len())
-            .map(|_| {
-                (
-                    transcript_to_field(transcript),
-                    transcript_to_field(transcript),
-                )
-            })
-            .collect();
+    let boundary_coeffs: Vec<(FieldElement<F>, FieldElement<F>)> = (0..n_boundary_coeffs)
+        .map(|_| {
+            (
+                transcript_to_field(transcript),
+                transcript_to_field(transcript),
+            )
+        })
+        .collect();
 
     let n_transition_coeffs = air.num_transition_constraints() + air.num_aux_transitions();
     // These are the challenges alpha^T_j and beta^T_j

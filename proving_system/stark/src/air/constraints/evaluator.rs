@@ -38,7 +38,7 @@ impl<'poly, F: IsFFTField, A: AIR<Field = F>> ConstraintEvaluator<'poly, F, A> {
         lde_domain: &[FieldElement<F>],
         transition_coefficients: &[(FieldElement<F>, FieldElement<F>)],
         boundary_coefficients: &[(FieldElement<F>, FieldElement<F>)],
-        transcript: &T,
+        transcript: &mut T,
     ) -> ConstraintEvaluationTable<F> {
         // The + 1 is for the boundary constraints column
         let mut evaluation_table = ConstraintEvaluationTable::new(
@@ -56,7 +56,13 @@ impl<'poly, F: IsFFTField, A: AIR<Field = F>> ConstraintEvaluator<'poly, F, A> {
         let mut boundary_polys: Vec<Polynomial<FieldElement<F>>> =
             zip(main_boundary_domains, main_boundary_values)
                 .zip(self.main_trace_polys)
-                .map(|((xs, ys), trace_poly)| trace_poly - &Polynomial::interpolate(&xs, &ys))
+                .map(|((xs, ys), trace_poly)| {
+                    if xs.is_empty() {
+                        return trace_poly.clone();
+                    } else {
+                        trace_poly - &Polynomial::interpolate(&xs, &ys)
+                    }
+                })
                 .collect();
         let mut boundary_zerofiers: Vec<Polynomial<FieldElement<F>>> = (0..n_trace_colums)
             .map(|col| main_boundary_constraints.compute_zerofier(&self.primitive_root, col))
@@ -111,7 +117,7 @@ impl<'poly, F: IsFFTField, A: AIR<Field = F>> ConstraintEvaluator<'poly, F, A> {
                 let aux_segment_boundary_domains = aux_segment_boundary_constraints
                     .generate_roots_of_unity(&self.primitive_root, aux_segment_width);
                 let aux_segment_boundary_values =
-                    main_boundary_constraints.values(aux_segment_width);
+                    aux_segment_boundary_constraints.values(aux_segment_width);
 
                 // Interpolate to find the numerator of the boundary quotient:
                 //      Ni_aux(x) = ti_aux(x) - Bi_aux(x)

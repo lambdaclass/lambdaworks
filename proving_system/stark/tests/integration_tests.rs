@@ -1,6 +1,7 @@
 use lambdaworks_math::field::fields::{
     fft_friendly::stark_252_prime_field::Stark252PrimeField, u64_prime_field::FE17,
 };
+use lambdaworks_math::helpers::resize_to_next_power_of_two;
 use lambdaworks_stark::air::example::{
     cairo, fibonacci_2_columns, fibonacci_f17, fibonacci_rap, quadratic_air, simple_fibonacci,
 };
@@ -319,13 +320,18 @@ fn test_malicious_trace_does_not_verify() {
     assert!(!verify(&result, &cairo_air));
 }
 
-#[ignore]
+// #[ignore]
 #[test_log::test]
 fn test_prove_rap_fib() {
-    let trace_length = 8;
+    let trace_length = 16;
     let trace = fibonacci_rap::fibonacci_rap_trace([FE::from(1), FE::from(1)], trace_length);
+    let mut trace_cols = vec![trace[0].clone(), trace[1].clone()];
+    resize_to_next_power_of_two(&mut trace_cols);
+    let power_of_two_len = trace_cols[0].len();
 
-    let trace_table = TraceTable::new_from_cols(&trace, None);
+    let exemptions = 3 + power_of_two_len - trace_length - 1;
+
+    let trace_table = TraceTable::new_from_cols(&trace_cols, None);
 
     let aux_segments_info = AuxSegmentsInfo {
         aux_segment_widths: vec![1],
@@ -340,7 +346,7 @@ fn test_prove_rap_fib() {
 
     let trace_info = TraceInfo {
         layout,
-        trace_length,
+        trace_length: trace_table.n_rows(),
     };
 
     let context = AirContext {
@@ -352,7 +358,7 @@ fn test_prove_rap_fib() {
         trace_info,
         transition_degrees: vec![1],
         aux_transition_degrees: Some(vec![1]),
-        transition_exemptions: vec![1],
+        transition_exemptions: vec![exemptions, 1],
         transition_offsets: vec![0, 1, 2],
         aux_transition_offsets: Some(vec![0, 1]),
         num_transition_constraints: 1,

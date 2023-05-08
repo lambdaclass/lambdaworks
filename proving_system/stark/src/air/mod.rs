@@ -1,5 +1,5 @@
 use self::{
-    constraints::boundary::BoundaryConstraints,
+    constraints::boundary::{AuxSegmentBoundaryConstraints, BoundaryConstraints},
     context::{AirContext, ProofOptions},
     frame::Frame,
     trace::{AuxSegmentsInfo, AuxiliarySegment, TraceTable},
@@ -113,7 +113,7 @@ pub trait AIR: Clone {
     fn aux_segment_rand_coeffs<T: Transcript>(
         &self,
         segment_idx: usize,
-        transcript: &T,
+        transcript: &mut T,
     ) -> Vec<FieldElement<Self::Field>> {
         Vec::new()
     }
@@ -178,8 +178,8 @@ pub trait AIR: Clone {
         &self,
         segment_idx: usize,
         aux_rand_elements: &[FieldElement<Self::Field>],
-    ) -> BoundaryConstraints<Self::Field> {
-        BoundaryConstraints::new()
+    ) -> AuxSegmentBoundaryConstraints<Self::Field> {
+        AuxSegmentBoundaryConstraints::new()
     }
 
     fn num_aux_transitions(&self) -> usize {
