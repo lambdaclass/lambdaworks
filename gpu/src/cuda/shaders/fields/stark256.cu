@@ -17,5 +17,5 @@ namespace p256
 
 extern "C" __global__ void radix2_dit_butterfly(p256::Fp *input, const p256::Fp *twiddles)
 {
-    radix2_dit_butterfly<p256::Fp>(input, twiddles);
+    _radix2_dit_butterfly<p256::Fp>(input, twiddles);
 }

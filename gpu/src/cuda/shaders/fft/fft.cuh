@@ -1,8 +1,8 @@
 #pragma once
 
 template <class Fp>
-inline __device__ void radix2_dit_butterfly(Fp *input,
-                                            const Fp *twiddles)
+inline __device__ void _radix2_dit_butterfly(Fp *input,
+                                             const Fp *twiddles)
 {
   int group = blockIdx.x;
   int pos_in_group = threadIdx.x;
