@@ -15,7 +15,7 @@ pub fn evaluate_fft_metal<F>(
 where
     F: IsFFTField,
 {
-    let metal_state = MetalState::new(None).unwrap();
+    let metal_state = MetalState::new(None)?;
 
     // fft() can zero-pad the coeffs if there aren't 2^k of them (k being any integer).
     // TODO: twiddle factors need to be handled with too much care, the FFT API shouldn't accept
@@ -37,7 +37,7 @@ pub fn evaluate_offset_fft_metal<F>(
 where
     F: IsFFTField,
 {
-    let metal_state = MetalState::new(None).unwrap();
+    let metal_state = MetalState::new(None)?;
     let scaled = poly.scale(offset);
 
     fft_with_blowup(scaled.coefficients(), blowup_factor, &metal_state)
@@ -51,7 +51,7 @@ pub fn interpolate_fft_metal<F>(
 where
     F: IsFFTField,
 {
-    let metal_state = MetalState::new(None).unwrap();
+    let metal_state = MetalState::new(None)?;
 
     // fft() can zero-pad the coeffs if there aren't 2^k of them (k being any integer).
     // TODO: twiddle factors need to be handled with too much care, the FFT API shouldn't accept
