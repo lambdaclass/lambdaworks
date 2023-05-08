@@ -379,7 +379,7 @@ mod tests {
             }
         }
 
-        #[cfg(not(feature = "metal"))]
+        #[cfg(not(feature = "metal"), not(feature = "cuda"))]
         proptest! {
             // Property-based test that ensures FFT eval. gives same result as a naive polynomial evaluation.
             #[test]
