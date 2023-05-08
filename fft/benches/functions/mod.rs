@@ -1,3 +1,4 @@
+#![allow(dead_code)] // clippy has false positive in benchmarks
 use lambdaworks_fft::{
     bit_reversing::in_place_bit_reverse_permute,
     fft_iterative::{in_place_nr_2radix_fft, in_place_rn_2radix_fft},
@@ -31,7 +32,7 @@ pub fn bitrev_permute(input: &[FE]) {
 }
 
 pub fn poly_evaluate_fft(poly: &Polynomial<FE>) {
-    poly.evaluate_fft().unwrap();
+    poly.evaluate_fft(1, None).unwrap();
 }
 pub fn poly_interpolate_fft(evals: &[FE]) {
     Polynomial::interpolate_fft(evals).unwrap();

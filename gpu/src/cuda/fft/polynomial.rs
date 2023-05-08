@@ -1,25 +1,25 @@
 use lambdaworks_math::{
     field::{
         element::FieldElement,
+        errors::FieldError,
         traits::{IsFFTField, RootsConfig},
     },
     polynomial::Polynomial,
 };
 
-use super::ops::{fft, gen_twiddles};
-use crate::cuda::abstractions::errors::CudaError;
+use super::ops::{fft, reverse_index};
+use crate::cuda::abstractions::{errors::CudaError, state::CudaState};
 
-pub fn evaluate_fft_cuda<F>(
-    poly: &Polynomial<FieldElement<F>>,
-) -> Result<Vec<FieldElement<F>>, CudaError>
+pub fn evaluate_fft_cuda<F>(coeffs: &[FieldElement<F>]) -> Result<Vec<FieldElement<F>>, CudaError>
 where
     F: IsFFTField,
     F::BaseType: Unpin,
 {
-    let order = log2(poly.coefficients.len())?;
+    let state = CudaState::new()?;
+    let order = log2(coeffs.len())?;
     let twiddles = gen_twiddles(order, RootsConfig::BitReverse)?;
 
-    fft(poly.coefficients(), &twiddles)
+    fft(coeffs, &twiddles, &state)
 }
 
 /// Returns a new polynomial that interpolates `fft_evals`, which are evaluations using twiddle
@@ -31,13 +31,15 @@ where
     F: IsFFTField,
     F::BaseType: Unpin,
 {
+    let state = CudaState::new()?;
+
     // fft() can zero-pad the coeffs if there aren't 2^k of them (k being any integer).
     // TODO: twiddle factors need to be handled with too much care, the FFT API shouldn't accept
     // invalid twiddle factor collections. A better solution is needed.
     let order = log2(fft_evals.len())?;
     let twiddles = gen_twiddles(order, RootsConfig::BitReverseInversed)?;
 
-    let coeffs = fft(fft_evals, &twiddles)?;
+    let coeffs = fft(fft_evals, &twiddles, &state)?;
 
     let scale_factor = FieldElement::from(fft_evals.len() as u64).inv();
     Ok(Polynomial::new(&coeffs).scale_coeffs(&scale_factor))

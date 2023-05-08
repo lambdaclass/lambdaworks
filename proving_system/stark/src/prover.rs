@@ -15,8 +15,7 @@ use lambdaworks_crypto::{fiat_shamir::transcript::Transcript, merkle_tree::merkl
 #[cfg(feature = "test_fiat_shamir")]
 use lambdaworks_crypto::fiat_shamir::test_transcript::TestTranscript;
 
-use lambdaworks_fft::errors::FFTError;
-use lambdaworks_fft::polynomial::evaluate_offset_fft_with_len;
+use lambdaworks_fft::{errors::FFTError, polynomial::FFTPoly};
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsFFTField},
     polynomial::Polynomial,
@@ -73,13 +72,10 @@ where
     let lde_trace_evaluations = trace_polys
         .iter()
         .map(|poly| {
-            // FIXME: This function should be changed when `evaluate_offset_fft`
-            // handles the case for the zero polynomial.
-            evaluate_offset_fft_with_len(
-                poly,
-                trace.n_rows(),
-                &FieldElement::<F>::from(air.options().coset_offset),
+            poly.evaluate_offset_fft(
                 air.options().blowup_factor as usize,
+                Some(trace.n_rows()),
+                &FieldElement::<F>::from(air.options().coset_offset),
             )
         })
         .collect::<Result<Vec<Vec<FieldElement<F>>>, FFTError>>()

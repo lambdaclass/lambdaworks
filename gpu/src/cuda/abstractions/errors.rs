@@ -21,4 +21,6 @@ pub enum CudaError {
     RetrieveMemory(String),
     #[error("Couldn't launch CUDA function: {0}")]
     Launch(String),
+    #[error("Index out of bounds: {0}. Length of buffer is {0}")]
+    IndexOutOfBounds(usize, usize),
 }

@@ -89,6 +89,10 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
         &self.coefficients
     }
 
+    pub fn coeff_len(&self) -> usize {
+        self.coefficients().len()
+    }
+
     pub fn pad_with_zero_coefficients_to_length(pa: &mut Self, n: usize) {
         pa.coefficients.resize(n, FieldElement::zero());
     }

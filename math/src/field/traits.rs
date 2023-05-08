@@ -38,10 +38,7 @@ pub trait IsFFTField: IsField {
         let two_adic_primitive_root_of_unity =
             FieldElement::new(F::TWO_ADIC_PRIMITVE_ROOT_OF_UNITY);
         if order == 0 {
-            return Err(FieldError::RootOfUnityError(
-                "Cannot get root of unity for order = 0".to_string(),
-                order,
-            ));
+            return Ok(FieldElement::one());
         }
         if order > F::TWO_ADICITY {
             return Err(FieldError::RootOfUnityError(

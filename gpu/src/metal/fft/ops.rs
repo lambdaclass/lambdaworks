@@ -5,7 +5,6 @@ use lambdaworks_math::field::{
 
 use crate::metal::abstractions::{errors::MetalError, state::*};
 
-use crate::helpers::zero_padding;
 use metal::MTLSize;
 
 use core::mem;
@@ -22,12 +21,13 @@ pub fn fft<F: IsFFTField>(
     twiddles: &[FieldElement<F>],
     state: &MetalState,
 ) -> Result<Vec<FieldElement<F>>, MetalError> {
+    if !input.len().is_power_of_two() {
+        return Err(MetalError::InputError(input.len()));
+    }
+
     let pipeline = state.setup_pipeline(&format!("radix2_dit_butterfly_{}", F::field_name()))?;
 
-    // if the input size is not a power of two, use zero padding
-    let input = zero_padding(input);
-
-    let input_buffer = state.alloc_buffer_data(&input);
+    let input_buffer = state.alloc_buffer_data(input);
     let twiddles_buffer = state.alloc_buffer_data(twiddles);
     // TODO: twiddle factors security (right now anything can be passed as twiddle factors)
 
@@ -55,27 +55,7 @@ pub fn fft<F: IsFFTField>(
     Ok(result.iter().map(FieldElement::from_raw).collect())
 }
 
-/// Executes parallel ordered FFT in a bigger domain over a slice of two-adic field elements, in Metal.
-///
-/// "Ordered" means that the input is required to be in natural order, and the output will be
-/// in this order too. Natural order means that input[i] corresponds to the i-th coefficient,
-/// as opposed to bit-reverse order in which input[bit_rev(i)] corresponds to the i-th
-/// coefficient.
-pub fn fft_with_blowup<F: IsFFTField>(
-    input: &[FieldElement<F>],
-    blowup_factor: usize,
-    state: &MetalState,
-) -> Result<Vec<FieldElement<F>>, MetalError> {
-    let domain_size = (input.len() * blowup_factor).next_power_of_two();
-    let order = domain_size.trailing_zeros();
-    let twiddles = gen_twiddles(order.into(), RootsConfig::BitReverse, state)?;
-    let mut resized = input.to_vec();
-    resized.resize(domain_size, FieldElement::zero());
-
-    fft(&resized, &twiddles, state)
-}
-
-/// Generates 2^{`order`} twiddle factors in parallel, with a certain `config`, in Metal.
+/// Generates 2^{`order-1`} twiddle factors in parallel, with a certain `config`, in Metal.
 pub fn gen_twiddles<F: IsFFTField>(
     order: u64,
     config: RootsConfig,
@@ -161,15 +141,15 @@ mod tests {
         // max_exp cannot be multiple of the bits that represent a usize, generally 64 or 32.
         // also it can't exceed the test field's two-adicity.
     }
+
     prop_compose! {
         fn field_element()(num in any::<u64>().prop_filter("Avoid null polynomial", |x| x != &0)) -> FE {
             FE::from(num)
         }
     }
-    prop_compose! {
-        fn field_vec(max_exp: u8)(vec in collection::vec(field_element(), 2..1<<max_exp).prop_filter("Avoid polynomials of size not power of two", |vec| vec.len().is_power_of_two())) -> Vec<FE> {
-            vec
-        }
+
+    fn field_vec(max_exp: u8) -> impl Strategy<Value = Vec<FE>> {
+        powers_of_two(max_exp).prop_flat_map(|size| collection::vec(field_element(), size))
     }
 
     proptest! {
@@ -182,7 +162,7 @@ mod tests {
                 let twiddles = get_twiddles(order.into(), RootsConfig::BitReverse).unwrap();
 
                 let metal_result = super::fft(&input, &twiddles, &metal_state).unwrap();
-                let sequential_result = lambdaworks_fft::ops::fft(&input).unwrap();
+                let sequential_result = lambdaworks_fft::ops::fft(&input, &twiddles).unwrap();
 
                 prop_assert_eq!(&metal_result, &sequential_result);
                 Ok(())

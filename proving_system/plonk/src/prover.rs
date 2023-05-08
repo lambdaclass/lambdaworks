@@ -1,5 +1,5 @@
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
-use lambdaworks_math::traits::IsRandomFieldElementGenerator;
+use lambdaworks_math::traits::{IsRandomFieldElementGenerator, Serializable};
 use std::marker::PhantomData;
 
 use crate::setup::{
@@ -127,7 +127,7 @@ where
     F: IsField,
     CS: IsCommitmentScheme<F>,
     FieldElement<F>: ByteConversion,
-    CS::Commitment: ByteConversion,
+    CS::Commitment: Serializable,
     R: IsRandomFieldElementGenerator<F>,
 {
     #[allow(unused)]
@@ -403,9 +403,9 @@ where
 
         // Round 1
         let round_1 = self.round_1(witness, common_preprocessed_input);
-        transcript.append(&round_1.a_1.to_bytes_be());
-        transcript.append(&round_1.b_1.to_bytes_be());
-        transcript.append(&round_1.c_1.to_bytes_be());
+        transcript.append(&round_1.a_1.serialize());
+        transcript.append(&round_1.b_1.serialize());
+        transcript.append(&round_1.c_1.serialize());
 
         // Round 2
         // TODO: Handle error
@@ -413,7 +413,7 @@ where
         let gamma = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
 
         let round_2 = self.round_2(witness, common_preprocessed_input, beta, gamma);
-        transcript.append(&round_2.z_1.to_bytes_be());
+        transcript.append(&round_2.z_1.serialize());
 
         // Round 3
         let alpha = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
@@ -424,9 +424,9 @@ where
             &round_2,
             alpha,
         );
-        transcript.append(&round_3.t_lo_1.to_bytes_be());
-        transcript.append(&round_3.t_mid_1.to_bytes_be());
-        transcript.append(&round_3.t_hi_1.to_bytes_be());
+        transcript.append(&round_3.t_lo_1.serialize());
+        transcript.append(&round_3.t_mid_1.serialize());
+        transcript.append(&round_3.t_hi_1.serialize());
 
         // Round 4
         let zeta = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
