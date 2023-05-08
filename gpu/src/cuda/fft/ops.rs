@@ -3,12 +3,7 @@ use lambdaworks_math::field::{
     traits::{IsFFTField, RootsConfig},
 };
 
-use cudarc::{
-    driver::{CudaDevice, LaunchAsync, LaunchConfig},
-    nvrtc::safe::Ptx,
-};
-
-use crate::cuda::abstractions::{element::CUDAFieldElement, errors::CudaError, state::CudaState};
+use crate::cuda::abstractions::{errors::CudaError, state::CudaState};
 
 const SHADER_PTX_TWIDDLES: &str = include_str!("../shaders/twiddles.ptx");
 
@@ -47,6 +42,7 @@ where
 pub fn gen_twiddles<F: IsFFTField>(
     order: u64,
     config: RootsConfig,
+    state: &CudaState,
 ) -> Result<Vec<FieldElement<F>>, CudaError> {
     let count = (1 << order) / 2;
 

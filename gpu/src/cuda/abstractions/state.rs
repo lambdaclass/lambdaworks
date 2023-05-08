@@ -8,7 +8,7 @@ use cudarc::{
 };
 use lambdaworks_math::field::{
     element::FieldElement,
-    traits::{IsFFTField, IsField},
+    traits::{IsFFTField, IsField, RootsConfig},
 };
 use std::sync::Arc;
 
@@ -87,7 +87,7 @@ impl CudaState {
         &self,
         order: u64,
         config: RootsConfig,
-    ) -> Result<Radix2DitButterflyFunction<F>, CudaError> {
+    ) -> Result<CalcTwiddlesFunction<F>, CudaError> {
         let root: FieldElement<F> = F::get_primitive_root_of_unity(order)?;
 
         let (root, function_name) = match config {
@@ -102,12 +102,10 @@ impl CudaState {
             .get_func("twiddles", function_name)
             .ok_or_else(|| CudaError::FunctionError(format!("twiddles::{function_name}")))?;
 
+        let count = (1 << order) / 2;
         let omega_buffer = self.alloc_buffer_with_data(&[root])?;
-        let twiddles_buffer = self.alloc_buffer_with_data(
-            &(0..count)
-                .map(|i| CUDAFieldElement::from(&FieldElement::from(i)))
-                .collect::<Vec<_>>(),
-        )?;
+        let twiddles_buffer =
+            self.alloc_buffer_with_data(&(0..count).map(FieldElement::from).collect::<Vec<_>>())?;
 
         Ok(CalcTwiddlesFunction::new(
             Arc::clone(&self.device),
