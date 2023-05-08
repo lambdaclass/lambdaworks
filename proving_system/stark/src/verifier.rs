@@ -54,6 +54,7 @@ struct Challenges<F: IsFFTField> {
     boundary_coeffs: Vec<(FieldElement<F>, FieldElement<F>)>,
     transition_coeffs: Vec<(FieldElement<F>, FieldElement<F>)>,
     trace_term_coeffs: Vec<Vec<FieldElement<F>>>,
+    aux_segments_rand_elements: Option<Vec<Vec<FieldElement<F>>>>,
     gamma_even: FieldElement<F>,
     gamma_odd: FieldElement<F>,
     beta_list: Vec<FieldElement<F>>,
@@ -113,6 +114,16 @@ where
         })
         .collect();
 
+    let aux_segments_rand_elements = if air.is_multi_segment() {
+        let rand_elements: Vec<Vec<FieldElement<F>>> = (0..air.num_aux_segments())
+            .map(|segment_idx| air.aux_segment_rand_coeffs(segment_idx, transcript))
+            .collect();
+
+        Some(rand_elements)
+    } else {
+        None
+    };
+
     // Get the number of trace terms the DEEP composition poly will have.
     // One coefficient will be sampled for each of them.
     // TODO: try remove this, call transcript inside for and move gamma declarations
@@ -155,6 +166,7 @@ where
         boundary_coeffs,
         transition_coeffs,
         trace_term_coeffs,
+        aux_segments_rand_elements,
         gamma_even,
         gamma_odd,
         beta_list,
@@ -203,8 +215,14 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
         boundary_quotient_degrees.push(boundary_quotient_degree);
     }
 
-    let mut aux_segments_rand_elements = Vec::new();
     if air.is_multi_segment() {
+        let aux_segments_rand_elements =
+            if let Some(aux_rand_elements) = &challenges.aux_segments_rand_elements {
+                aux_rand_elements
+            } else {
+                panic!("There should be sampled random elements for the auxiliary segments");
+            };
+
         (0..air.num_aux_segments()).for_each(|segment_idx| {
             let aux_segment_width = air.aux_segment_width(segment_idx);
             debug_assert!(!&proof.aux_ood_frame_evaluations.is_none());
@@ -212,20 +230,21 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
 
             // TODO: We should think how to deal with these rand elements. This is done only for debugging
             // quickly.
-            let n_rand_elements = air
-                .trace_info()
-                .layout
-                .aux_segments_info
-                .unwrap()
-                .aux_segment_rands[segment_idx];
+            // let n_rand_elements = air
+            //     .trace_info()
+            //     .layout
+            //     .aux_segments_info
+            //     .unwrap()
+            //     .aux_segment_rands[segment_idx];
 
             // FIXME: THIS SHOULD BE FIAT-SHAMIR
-            let aux_rand_elements = vec![FieldElement::<F>::one(); n_rand_elements];
+            // let aux_rand_elements = vec![FieldElement::<F>::one(); n_rand_elements];
+            let aux_rand_elements = &aux_segments_rand_elements[segment_idx];
 
             let aux_boundary_constraints =
                 air.aux_boundary_constraints(segment_idx, &aux_rand_elements);
 
-            aux_segments_rand_elements.push(aux_rand_elements);
+            // aux_segments_rand_elements.push(aux_rand_elements);
 
             let aux_boundary_constraint_domains = aux_boundary_constraints.generate_roots_of_unity(
                 &domain.trace_primitive_root,
@@ -308,6 +327,13 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
     if air.is_multi_segment() {
         debug_assert!(!&proof.aux_ood_frame_evaluations.is_none());
         let aux_ood_frames = &proof.aux_ood_frame_evaluations.as_ref().unwrap();
+
+        let aux_segments_rand_elements =
+            if let Some(aux_rand_elements) = &challenges.aux_segments_rand_elements {
+                aux_rand_elements
+            } else {
+                panic!("There should be sampled random elements for the auxiliary segments");
+            };
 
         (0..air.num_aux_segments()).for_each(|segment_idx| {
             let aux_evaluations = air.compute_aux_transition(
