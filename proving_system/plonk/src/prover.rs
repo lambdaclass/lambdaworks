@@ -478,7 +478,8 @@ mod tests {
         cyclic_group::IsGroup,
         elliptic_curve::{
             short_weierstrass::{
-                curves::bls12_381::curve::BLS12381Curve, point::ShortWeierstrassProjectivePoint,
+                curves::bls12_381::{curve::BLS12381Curve, default_types::FrElement},
+                point::ShortWeierstrassProjectivePoint,
             },
             traits::IsEllipticCurve,
         },
@@ -486,7 +487,7 @@ mod tests {
 
     use crate::{
         test_utils::circuit_1::{test_common_preprocessed_input_1, test_witness_1},
-        test_utils::utils::{test_srs, FpElement, FrElement, TestRandomFieldGenerator, KZG},
+        test_utils::utils::{test_srs, FpElement, TestRandomFieldGenerator, KZG},
     };
 
     use super::*;
