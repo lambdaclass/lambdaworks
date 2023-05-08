@@ -1,6 +1,5 @@
 use lambdaworks_math::field::{
     element::FieldElement,
-    fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
     traits::{IsFFTField, RootsConfig},
 };
 
@@ -28,12 +27,12 @@ pub fn get_powers_of_primitive_root<F: IsFFTField>(
 
 /// Returns a `Vec` of the powers of a `2^n`th primitive root of unity, scaled `offset` times,
 /// in a Natural configuration.
-pub fn get_powers_of_primitive_root_coset(
+pub fn get_powers_of_primitive_root_coset<F: IsFFTField>(
     n: u64,
     count: usize,
-    offset: &FieldElement<Stark252PrimeField>,
-) -> Result<Vec<FieldElement<Stark252PrimeField>>, FFTError> {
-    let root = Stark252PrimeField::get_primitive_root_of_unity(n)?;
+    offset: &FieldElement<F>,
+) -> Result<Vec<FieldElement<F>>, FFTError> {
+    let root = F::get_primitive_root_of_unity(n)?;
     let results = (0..count).map(|i| root.pow(i) * offset);
 
     Ok(results.collect())

@@ -57,7 +57,7 @@ pub fn fft<F: IsFFTField>(
 }
 
 /// Generates 2^{`order-1`} twiddle factors in parallel, with a certain `config`, in Metal.
-pub fn gen_twiddles(
+pub fn gen_twiddles<F: IsFFTField>(
     order: u64,
     config: RootsConfig,
     state: &MetalState,

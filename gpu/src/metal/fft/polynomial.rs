@@ -9,9 +9,7 @@ use lambdaworks_math::{
 
 use super::ops::*;
 
-pub fn evaluate_fft_metal(
-    coeffs: &[FieldElement<Stark252PrimeField>],
-) -> Result<Vec<FieldElement<Stark252PrimeField>>, MetalError>
+pub fn evaluate_fft_metal<F>(coeffs: &[FieldElement<F>]) -> Result<Vec<FieldElement<F>>, MetalError>
 where
     F: IsFFTField,
 {
