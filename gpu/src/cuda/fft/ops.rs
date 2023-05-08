@@ -3,12 +3,9 @@ use lambdaworks_math::field::{
     traits::{IsFFTField, RootsConfig},
 };
 
-use cudarc::{
-    driver::{CudaDevice, LaunchAsync, LaunchConfig},
-    nvrtc::safe::Ptx,
-};
+use cudarc::driver::LaunchAsync;
 
-use crate::cuda::abstractions::{element::CUDAFieldElement, errors::CudaError, state::CudaState};
+use crate::cuda::abstractions::{errors::CudaError, state::CudaState};
 
 /// Executes parallel ordered FFT over a slice of two-adic field elements, in CUDA.
 /// Twiddle factors are required to be in bit-reverse order.
@@ -38,7 +35,7 @@ where
 
     let mut output = function.retrieve_result()?;
 
-    bitrev_permutation(output)
+    bitrev_permutation(output, state)
 }
 
 pub fn gen_twiddles<F: IsFFTField>(
@@ -57,6 +54,7 @@ pub fn gen_twiddles<F: IsFFTField>(
 
 pub fn bitrev_permutation<F: IsFFTField>(
     input: Vec<FieldElement<F>>,
+    state: &CudaState,
 ) -> Result<Vec<FieldElement<F>>, CudaError> {
     let result = input.clone();
     let mut function = state.get_bitrev_permutation(input, result)?;
