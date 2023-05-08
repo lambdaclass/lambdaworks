@@ -190,8 +190,65 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
         boundary_quotient_degrees.push(boundary_quotient_degree);
     }
 
+    let mut aux_merged_boundary_c_i_evals = FieldElement::<F>::zero();
     if air.is_multi_segment() {
-        (0..air.num_aux_segments()).for_each(|segment_idx| {})
+        (0..air.num_aux_segments()).for_each(|segment_idx| {
+            let aux_segment_width = air.aux_segment_width(segment_idx);
+            debug_assert!(!&proof.aux_ood_frame_evaluations.is_none());
+            debug_assert!(!air.trace_info().layout.aux_segments_info.is_none());
+
+            // TODO: We should think how to deal with these rand elements. This is done only for debugging
+            // quickly.
+            let n_rand_elements = air
+                .trace_info()
+                .layout
+                .aux_segments_info
+                .unwrap()
+                .aux_segment_rands[segment_idx];
+
+            // FIXME: THIS SHOULD BE FIAT-SHAMIR
+            let aux_rand_elements = vec![FieldElement::<F>::one(); n_rand_elements];
+
+            let aux_boundary_constraints =
+                air.aux_boundary_constraints(segment_idx, &aux_rand_elements);
+
+            let aux_boundary_constraint_domains = aux_boundary_constraints.generate_roots_of_unity(
+                &domain.trace_primitive_root,
+                air.aux_segment_width(segment_idx),
+            );
+            let aux_boundary_constraint_values =
+                aux_boundary_constraints.values(air.aux_segment_width(segment_idx));
+
+            let mut aux_boundary_c_i_evaluations = Vec::new();
+            let mut aux_boundary_quotient_degrees = Vec::new();
+            for aux_col_idx in 0..aux_segment_width {
+                let aux_trace_evaluation = &proof.aux_ood_frame_evaluations.as_ref().unwrap()
+                    [segment_idx]
+                    .get_row(0)[aux_col_idx];
+
+                let aux_boundary_interpolating_polynomial = &Polynomial::interpolate(
+                    &aux_boundary_constraint_domains[aux_col_idx],
+                    &aux_boundary_constraint_values[aux_col_idx],
+                );
+
+                let aux_boundary_zerofier = aux_boundary_constraints
+                    .compute_zerofier(&domain.trace_primitive_root, aux_col_idx);
+
+                let aux_boundary_quotient_degree =
+                    air.trace_length() - aux_boundary_zerofier.degree() - 1;
+
+                let aux_boundary_quotient_ood_evaluation = (aux_trace_evaluation
+                    - aux_boundary_interpolating_polynomial.evaluate(&challenges.z))
+                    / aux_boundary_zerofier.evaluate(&challenges.z);
+
+                aux_boundary_c_i_evaluations.push(aux_boundary_quotient_ood_evaluation);
+                aux_boundary_quotient_degrees.push(aux_boundary_quotient_degree);
+            }
+
+            aux_merged_boundary_c_i_evals = aux_boundary_c_i_evaluations
+                .iter()
+                .fold(FieldElement::<F>::zero(), |acc, x| acc + x);
+        })
     }
 
     // TODO: Get trace polys degrees in a better way. The degree may not be trace_length - 1 in some
@@ -244,6 +301,7 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
         );
 
     let composition_poly_ood_evaluation = &boundary_quotient_ood_evaluation
+        + &aux_merged_boundary_c_i_evals
         + transition_c_i_evaluations
             .iter()
             .fold(FieldElement::<F>::zero(), |acc, evaluation| {
