@@ -2,6 +2,7 @@ use lambdaworks_crypto::commitments::kzg::KateZaveruchaGoldberg;
 use lambdaworks_crypto::commitments::kzg::StructuredReferenceString;
 use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::default_types::FrElement;
 use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::default_types::FrField;
+use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::pairing::BLS12381AtePairing;
 use lambdaworks_math::{
     cyclic_group::IsGroup,
     elliptic_curve::{
@@ -10,11 +11,8 @@ use lambdaworks_math::{
         },
         traits::IsEllipticCurve,
     },
-    field::{element::FieldElement},
+    field::element::FieldElement,
     traits::IsRandomFieldElementGenerator,
-};
-use lambdaworks_math::{
-    elliptic_curve::short_weierstrass::curves::bls12_381::pairing::BLS12381AtePairing,
 };
 
 pub type Curve = BLS12381Curve;
