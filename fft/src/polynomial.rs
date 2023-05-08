@@ -342,6 +342,7 @@ mod tests {
         }
 
         // FFT related tests
+        #[cfg(not(feature = "cuda"))]
         type F = Stark252PrimeField;
         type FE = FieldElement<F>;
 

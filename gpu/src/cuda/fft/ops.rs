@@ -5,8 +5,6 @@ use lambdaworks_math::field::{
 
 use crate::cuda::abstractions::{errors::CudaError, state::CudaState};
 
-const SHADER_PTX_TWIDDLES: &str = include_str!("../shaders/twiddles.ptx");
-
 /// Executes parallel ordered FFT over a slice of two-adic field elements, in CUDA.
 /// Twiddle factors are required to be in bit-reverse order.
 ///
@@ -50,9 +48,7 @@ pub fn gen_twiddles<F: IsFFTField>(
 
     function.launch(count)?;
 
-    let mut output = function.retrieve_result()?;
-
-    Ok(output)
+    function.retrieve_result()
 }
 
 // TODO: remove after implementing in cuda
