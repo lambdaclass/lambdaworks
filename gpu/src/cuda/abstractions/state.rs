@@ -36,7 +36,8 @@ impl CudaState {
 
     fn load_library<F: IsFFTField>(&self, src: &'static str) -> Result<(), CudaError> {
         let mod_name = F::field_name();
-        let functions = [format!("radix2_dit_butterfly_{}", mod_name)];
+        let radix2_dit_butterfly = format!("radix2_dit_butterfly_{}", mod_name);
+        let functions = [&radix2_dit_butterfly];
         self.device
             .load_ptx(Ptx::from_src(src), mod_name, &functions)
             .map_err(|err| CudaError::PtxError(err.to_string()))
@@ -66,7 +67,7 @@ impl CudaState {
         input: &[FieldElement<F>],
         twiddles: &[FieldElement<F>],
     ) -> Result<Radix2DitButterflyFunction<F>, CudaError> {
-        let function = get_function::<F>("radix2_dit_butterfly")?;
+        let function = self.get_function::<F>("radix2_dit_butterfly")?;
 
         let input_buffer = self.alloc_buffer_with_data(input)?;
         let twiddles_buffer = self.alloc_buffer_with_data(twiddles)?;
