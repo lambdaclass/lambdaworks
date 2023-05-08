@@ -23,7 +23,7 @@ fn fft_benchmarks(c: &mut Criterion) {
         group.bench_with_input(
             "Parallel (Cuda)",
             &(input, twiddles),
-            |bench, (input, twiddles)| {
+            |bench, (&input, twiddles)| {
                 bench.iter_with_large_drop(|| {
                     functions::cuda::ordered_fft(input, twiddles);
                 });
