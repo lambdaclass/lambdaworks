@@ -1,3 +1,4 @@
+#![allow(dead_code)] // clippy has false positive in benchmarks
 use criterion::{criterion_group, criterion_main, Criterion};
 use lambdaworks_fft::roots_of_unity::get_twiddles;
 use lambdaworks_math::field::traits::RootsConfig;
@@ -102,6 +103,7 @@ fn poly_interpolation_benchmarks(c: &mut Criterion) {
     group.finish();
 }
 
+#[cfg(not(any(feature = "metal", feature = "cuda")))]
 criterion_group!(
     name = seq_fft;
     config = Criterion::default().sample_size(10);
@@ -111,6 +113,16 @@ criterion_group!(
         bitrev_permutation_benchmarks,
         poly_evaluation_benchmarks,
         poly_interpolation_benchmarks,
+);
+
+#[cfg(any(feature = "metal", feature = "cuda"))]
+criterion_group!(
+    name = seq_fft;
+    config = Criterion::default().sample_size(10);
+    targets =
+        fft_benchmarks,
+        twiddles_generation_benchmarks,
+        bitrev_permutation_benchmarks,
 );
 
 criterion_main!(seq_fft);

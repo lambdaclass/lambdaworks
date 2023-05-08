@@ -4,7 +4,7 @@ extern "C" __global__ void radix2_dit_butterfly(p256::Fp *input,
                                                 const p256::Fp *twiddles)
 {
   int group = blockIdx.x;
-  int pos_in_group = threadIdx.x % blockDim.x;
+  int pos_in_group = threadIdx.x;
   int half_group_size = blockDim.x;
 
   int i = group * half_group_size * 2 + pos_in_group;
