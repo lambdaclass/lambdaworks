@@ -10,11 +10,11 @@
 .target sm_52
 .address_size 64
 
-	// .globl	radix2_dit_butterfly_stark256
+	// .globl	radix2_dit_butterfly
 
-.visible .entry radix2_dit_butterfly_stark256(
-	.param .u64 radix2_dit_butterfly_stark256_param_0,
-	.param .u64 radix2_dit_butterfly_stark256_param_1
+.visible .entry radix2_dit_butterfly(
+	.param .u64 radix2_dit_butterfly_param_0,
+	.param .u64 radix2_dit_butterfly_param_1
 )
 {
 	.reg .pred 	%p<296>;
@@ -22,8 +22,8 @@
 	.reg .b64 	%rd<761>;
 
 
-	ld.param.u64 	%rd101, [radix2_dit_butterfly_stark256_param_0];
-	ld.param.u64 	%rd102, [radix2_dit_butterfly_stark256_param_1];
+	ld.param.u64 	%rd101, [radix2_dit_butterfly_param_0];
+	ld.param.u64 	%rd102, [radix2_dit_butterfly_param_1];
 	cvta.to.global.u64 	%rd103, %rd101;
 	mov.u32 	%r1, %ntid.x;
 	shl.b32 	%r2, %r1, 1;
@@ -1014,7 +1014,7 @@ $L__BB0_14:
 	shl.b32 	%r7, %r10, 1;
 	mad.lo.s32 	%r6, %r7, %r8, %r9;
 	mul.wide.s32 	%rd752, %r6, 32;
-	ld.param.u64 	%rd751, [radix2_dit_butterfly_stark256_param_0];
+	ld.param.u64 	%rd751, [radix2_dit_butterfly_param_0];
 	cvta.to.global.u64 	%rd750, %rd751;
 	add.s64 	%rd749, %rd750, %rd752;
 	mul.wide.s32 	%rd748, %r10, 32;
