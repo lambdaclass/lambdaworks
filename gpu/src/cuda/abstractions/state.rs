@@ -126,7 +126,7 @@ impl CudaState {
         &self,
         input: &[FieldElement<F>],
         result: &[FieldElement<F>],
-    ) -> Result<Radix2DitButterflyFunction<F>, CudaError> {
+    ) -> Result<BitrevPermutationFunction<F>, CudaError> {
         let function = self
             .device
             .get_func("bitrev_permutation", "bitrev_permutation")
