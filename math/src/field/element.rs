@@ -478,11 +478,8 @@ mod tests {
     use crate::elliptic_curve::short_weierstrass::curves::bls12_381::default_types::FrElement;
     use crate::field::element::FieldElement;
     use crate::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
-    use crate::field::fields::montgomery_backed_prime_fields::{
-        IsModulus, MontgomeryBackendPrimeField,
-    };
     use crate::field::test_fields::u64_test_field::U64TestField;
-    use crate::unsigned_integer::element::{UnsignedInteger, U256};
+    use crate::unsigned_integer::element::UnsignedInteger;
 
     #[test]
     fn test_std_iter_sum_field_element() {
