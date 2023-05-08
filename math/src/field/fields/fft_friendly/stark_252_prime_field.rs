@@ -27,7 +27,7 @@ impl IsFFTField for Stark252PrimeField {
         ],
     };
 
-    fn field_name() -> String {
-        "stark256".to_string()
+    fn field_name() -> &'static str {
+        "stark256"
     }
 }
