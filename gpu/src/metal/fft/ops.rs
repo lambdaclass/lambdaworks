@@ -5,7 +5,7 @@ use lambdaworks_math::field::{
 
 use crate::metal::abstractions::{errors::MetalError, state::*};
 
-use super::helpers::{self, void_ptr};
+use crate::helpers::zero_padding;
 use metal::MTLSize;
 
 use core::mem;
@@ -25,7 +25,7 @@ pub fn fft<F: IsFFTField>(
     let pipeline = state.setup_pipeline(&format!("radix2_dit_butterfly_{}", F::field_name()))?;
 
     // if the input size is not a power of two, use zero padding
-    let input = helpers::zero_padding(input);
+    let input = zero_padding(input);
 
     let input_buffer = state.alloc_buffer_data(&input);
     let twiddles_buffer = state.alloc_buffer_data(twiddles);
@@ -136,6 +136,10 @@ pub fn bitrev_permutation<F: IsFFTField, T: Clone>(
     command_buffer.wait_until_completed();
 
     Ok(MetalState::retrieve_contents::<T>(&result_buffer))
+}
+
+fn void_ptr<T>(v: &T) -> *const core::ffi::c_void {
+    v as *const T as *const core::ffi::c_void
 }
 
 #[cfg(test)]

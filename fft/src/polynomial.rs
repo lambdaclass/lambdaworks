@@ -35,7 +35,19 @@ impl<F: IsFFTField> FFTPoly<F> for Polynomial<FieldElement<F>> {
             }
         }
 
-        #[cfg(not(feature = "metal"))]
+        #[cfg(feature = "cuda")]
+        {
+            // TODO: support multiple fields with CUDA
+            if F::field_name() == "stark256" {
+                Ok(lambdaworks_gpu::cuda::fft::polynomial::evaluate_fft_cuda(
+                    self,
+                )?)
+            } else {
+                evaluate_fft_cpu(self)
+            }
+        }
+
+        #[cfg(all(not(feature = "metal"), not(feature = "cuda")))]
         {
             evaluate_fft_cpu(self)
         }
@@ -81,7 +93,16 @@ impl<F: IsFFTField> FFTPoly<F> for Polynomial<FieldElement<F>> {
             }
         }
 
-        #[cfg(not(feature = "metal"))]
+        #[cfg(feature = "cuda")]
+        {
+            if !F::field_name().is_empty() {
+                Ok(lambdaworks_gpu::cuda::fft::polynomial::interpolate_fft_cuda(fft_evals)?)
+            } else {
+                interpolate_fft_cpu(fft_evals)
+            }
+        }
+
+        #[cfg(all(not(feature = "metal"), not(feature = "cuda")))]
         {
             interpolate_fft_cpu(fft_evals)
         }

@@ -26,7 +26,7 @@ pub fn bitrev_permute(input: &[FE]) {
     // TODO: autoreleasepool hurts perf. by 2-3%. Search for an alternative
     objc::rc::autoreleasepool(|| {
         let metal_state = MetalState::new(None).unwrap();
-        bitrev_permutation(input, &metal_state).unwrap();
+        bitrev_permutation::<F, _>(input, &metal_state).unwrap();
     });
 }
 

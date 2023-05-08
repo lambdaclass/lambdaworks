@@ -4,7 +4,7 @@ use lambdaworks_math::field::{element::FieldElement, traits::IsField};
 use core::ffi;
 
 #[derive(Clone)]
-pub struct CUDAFieldElement<F: IsField> {
+pub(crate) struct CUDAFieldElement<F: IsField> {
     value: F::BaseType,
 }
 
@@ -35,8 +35,8 @@ impl<F: IsField> From<&FieldElement<F>> for CUDAFieldElement<F> {
     }
 }
 
-impl<F: IsField> Into<FieldElement<F>> for CUDAFieldElement<F> {
-    fn into(self) -> FieldElement<F> {
-        FieldElement::from_raw(self.value())
+impl<F: IsField> From<CUDAFieldElement<F>> for FieldElement<F> {
+    fn from(elem: CUDAFieldElement<F>) -> Self {
+        Self::from_raw(elem.value())
     }
 }
