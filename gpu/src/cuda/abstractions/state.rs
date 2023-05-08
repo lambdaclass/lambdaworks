@@ -83,7 +83,15 @@ impl<F: IsField> Radix2DitButterflyFunction<F> {
         }
     }
 
-    pub(crate) fn launch(config: LaunchConfig) -> Result<(), CudaError> {
+    pub(crate) fn launch(group_count: u32, group_size: u32) -> Result<(), CudaError> {
+        let grid_dim = (group_count, 1, 1); // in blocks
+        let block_dim = (group_size / 2, 1, 1);
+
+        let config = LaunchConfig {
+            grid_dim,
+            block_dim,
+            shared_mem_bytes: 0,
+        };
         unsafe { kernel.clone().launch(config, (&mut d_input, &d_twiddles)) }
             .map_err(|err| CudaError::Launch(err.to_string()))?
     }

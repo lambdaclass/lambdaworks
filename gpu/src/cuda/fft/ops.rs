@@ -1,11 +1,6 @@
 use lambdaworks_math::field::{element::FieldElement, traits::IsFFTField};
 
-use cudarc::{
-    driver::{CudaDevice, LaunchAsync, LaunchConfig},
-    nvrtc::safe::Ptx,
-};
-
-use crate::cuda::abstractions::{element::CUDAFieldElement, errors::CudaError};
+use crate::cuda::abstractions::{errors::CudaError, state::CudaState};
 
 /// Executes parallel ordered FFT over a slice of two-adic field elements, in CUDA.
 /// Twiddle factors are required to be in bit-reverse order.
@@ -30,16 +25,7 @@ where
         let group_count = 1 << stage;
         let group_size = input.len() / group_count;
 
-        let grid_dim = (group_count as u32, 1, 1); // in blocks
-        let block_dim = (group_size as u32 / 2, 1, 1);
-
-        let config = LaunchConfig {
-            grid_dim,
-            block_dim,
-            shared_mem_bytes: 0,
-        };
-
-        function.launch(config);
+        function.launch(group_count as u32, group_size as u32);
     }
 
     let output = function.retrieve_result()?;

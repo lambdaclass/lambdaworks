@@ -33,13 +33,15 @@ where
     F: IsFFTField,
     F::BaseType: Unpin,
 {
+    let state = CudaState::new()?;
+
     // fft() can zero-pad the coeffs if there aren't 2^k of them (k being any integer).
     // TODO: twiddle factors need to be handled with too much care, the FFT API shouldn't accept
     // invalid twiddle factor collections. A better solution is needed.
     let order = log2(fft_evals.len())?;
     let twiddles = get_twiddles(order, RootsConfig::BitReverseInversed)?;
 
-    let coeffs = fft(fft_evals, &twiddles)?;
+    let coeffs = fft(fft_evals, &twiddles, &state)?;
 
     let scale_factor = FieldElement::from(fft_evals.len() as u64).inv();
     Ok(Polynomial::new(&coeffs).scale_coeffs(&scale_factor))
