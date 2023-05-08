@@ -74,18 +74,6 @@ impl<F: IsFFTField> FFTPoly<F> for Polynomial<FieldElement<F>> {
             }
         }
 
-        #[cfg(feature = "cuda")]
-        {
-            // TODO: support multiple fields with CUDA
-            if F::field_name() == "stark256" {
-                Ok(lambdaworks_gpu::cuda::fft::polynomial::evaluate_fft_cuda(
-                    &coeffs,
-                )?)
-            } else {
-                evaluate_fft_cpu(&coeffs)
-            }
-        }
-
         #[cfg(all(not(feature = "metal"), not(feature = "cuda")))]
         {
             evaluate_fft_cpu(&coeffs)
