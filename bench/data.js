@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1683575498476,
+  "lastUpdate": 1683576225134,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -2699,6 +2699,150 @@ window.BENCHMARK_DATA = {
             "name": "Polynomial/interpolate_fft_metal #4",
             "value": 3536506146,
             "range": "± 29517223",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "iavecilla@fi.uba.ar",
+            "name": "Nacho Avecilla",
+            "username": "IAvecilla"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "39fbf756451dc4e40ea513a62431d2a494ca50e0",
+          "message": "Hash to field elements function (#267)\n\n* Add function to transform hash into elements of the prime field\n\n* Add file with function helpers for hash to field operation\n\n* Fix compile issues and finish hash_to_field function\n\n* Add several fixes to message encoding implementation\n\n* Fix len in bytes calculation for expand message function\n\n* Fix hash to field to work with u64 fields\n\n* Include integers larger than 64 bits\n\n* Make hash_to_field test a proptest\n\n* Generalize hash_to_field\n\nMove hash_to_field outside of sha3 mod.\nSet proptest back to unit test.\nTODO: remove sha3 dependency.\n\n* Parameterize pseudo random bytes\n\nRemove helpers module.\nMove necessary functions from old helpers module to hash_to_field\nmodule.\nRemove sha3 dependency.\n\n* Fix clippy issues\n\n* Add random bytes generator to sha3\n\n* Make IsModulus derive Debug\n\n* Add reference to hash function\n\n* Add whitespace\n\n* Remove floats from length computation\n\n---------\n\nCo-authored-by: gabrielbosio <gabrielbosio95@gmail.com>",
+          "timestamp": "2023-05-08T19:57:51Z",
+          "tree_id": "0d99a6b3de720f77daebbc94bf1fc1aa7a565c5d",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/39fbf756451dc4e40ea513a62431d2a494ca50e0"
+        },
+        "date": 1683576223716,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "Ordered FFT/Parallel (Metal)",
+            "value": 137877317,
+            "range": "± 4536481",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #2",
+            "value": 247880701,
+            "range": "± 4828003",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #3",
+            "value": 484048198,
+            "range": "± 6937768",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #4",
+            "value": 965466479,
+            "range": "± 9729540",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal)",
+            "value": 35103761,
+            "range": "± 363037",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #2",
+            "value": 69429519,
+            "range": "± 959857",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #3",
+            "value": 136594552,
+            "range": "± 2025316",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #4",
+            "value": 279975708,
+            "range": "± 2556408",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal)",
+            "value": 36452324,
+            "range": "± 3740794",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #2",
+            "value": 57459242,
+            "range": "± 1311238",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #3",
+            "value": 125026382,
+            "range": "± 4973191",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #4",
+            "value": 219305531,
+            "range": "± 12004122",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal",
+            "value": 166447874,
+            "range": "± 2108657",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #2",
+            "value": 330135322,
+            "range": "± 5220159",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #3",
+            "value": 681737292,
+            "range": "± 35879402",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #4",
+            "value": 1310899208,
+            "range": "± 17432143",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal",
+            "value": 457944291,
+            "range": "± 580880",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #2",
+            "value": 913981979,
+            "range": "± 7981279",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #3",
+            "value": 1803889083,
+            "range": "± 7806934",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #4",
+            "value": 3543616771,
+            "range": "± 14843516",
             "unit": "ns/iter"
           }
         ]
