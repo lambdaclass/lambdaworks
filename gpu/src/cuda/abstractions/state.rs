@@ -35,17 +35,15 @@ impl CudaState {
     }
 
     fn load_library<F: IsFFTField>(&self, src: &'static str) -> Result<(), CudaError> {
-        let mod_name = F::field_name();
-        let radix2_dit_butterfly = format!("radix2_dit_butterfly_{}", mod_name);
-        let functions = [&radix2_dit_butterfly];
+        let mod_name: &'static str = F::field_name();
+        let functions = ["radix2_dit_butterfly"];
         self.device
             .load_ptx(Ptx::from_src(src), mod_name, &functions)
             .map_err(|err| CudaError::PtxError(err.to_string()))
     }
 
-    fn get_function<F: IsFFTField>(&self, func_base: &str) -> Result<CudaFunction, CudaError> {
+    fn get_function<F: IsFFTField>(&self, func_name: &str) -> Result<CudaFunction, CudaError> {
         let mod_name = F::field_name();
-        let func_name = format!("{}_{}", func_base, mod_name);
         self.device
             .get_func(&mod_name, &func_name)
             .ok_or_else(|| CudaError::FunctionError(func_name))
