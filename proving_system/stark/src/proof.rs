@@ -21,6 +21,7 @@ pub struct StarkQueryProof<F: IsFFTField> {
 pub struct StarkProof<F: IsFFTField> {
     pub fri_layers_merkle_roots: Vec<FieldElement<F>>,
     pub trace_ood_frame_evaluations: Frame<F>,
+    pub aux_ood_frame_evaluations: Option<Vec<Frame<F>>>,
     pub composition_poly_ood_evaluations: Vec<FieldElement<F>>,
     pub deep_consistency_check: DeepConsistencyCheck<F>,
     pub query_list: Vec<StarkQueryProof<F>>,

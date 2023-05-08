@@ -48,6 +48,7 @@ struct Round2<F: IsFFTField> {
 
 struct Round3<F: IsFFTField> {
     trace_ood_frame_evaluations: Frame<F>,
+    aux_trace_ood_frame_evaluations: Option<Vec<Frame<F>>>,
     composition_poly_ood_evaluations: Vec<FieldElement<F>>,
 }
 
@@ -328,19 +329,50 @@ where
     //
     // In the fibonacci example, the ood frame is simply the evaluations `[t(z), t(z * g), t(z * g^2)]`, where `t` is the trace
     // polynomial and `g` is the primitive root of unity used when interpolating `t`.
-    let ood_trace_evaluations = Frame::get_trace_evaluations(
+    let ood_main_trace_evaluations = Frame::get_trace_evaluations(
         &round_1_result.main_trace_polys,
         z,
         &air.context().transition_offsets,
         &domain.trace_primitive_root,
     );
 
-    let trace_ood_frame_data = ood_trace_evaluations.into_iter().flatten().collect();
+    let trace_ood_frame_data = ood_main_trace_evaluations.into_iter().flatten().collect();
     let trace_ood_frame_evaluations =
         Frame::new(trace_ood_frame_data, round_1_result.main_trace_polys.len());
 
+    if air.is_multi_segment() {
+        let ood_aux_trace_evaluations = (0..air.num_aux_segments())
+            .map(|segment_idx| {
+                debug_assert!(!&round_1_result.aux_trace_polys.is_none());
+                debug_assert!(!&air.context().aux_transition_degrees.is_none());
+                let aux_segment_polys = &round_1_result.aux_trace_polys.as_ref().unwrap();
+                let aux_transition_offsets = &air.context().aux_transition_offsets.unwrap();
+
+                let aux_frame = Frame::get_trace_evaluations(
+                    &aux_segment_polys[segment_idx],
+                    z,
+                    &aux_transition_offsets,
+                    &domain.trace_primitive_root,
+                );
+
+                let aux_trace_ood_frame_data = aux_frame.into_iter().flatten().collect();
+                Frame::new(
+                    aux_trace_ood_frame_data,
+                    round_1_result.aux_trace_polys.as_ref().unwrap().len(),
+                )
+            })
+            .collect();
+
+        return Round3 {
+            trace_ood_frame_evaluations,
+            aux_trace_ood_frame_evaluations: Some(ood_aux_trace_evaluations),
+            composition_poly_ood_evaluations,
+        };
+    }
+
     Round3 {
         trace_ood_frame_evaluations,
+        aux_trace_ood_frame_evaluations: None,
         composition_poly_ood_evaluations,
     }
 }
@@ -583,8 +615,12 @@ where
     let round_1_result = round_1_randomized_air_with_preprocessing(trace, air, transcript);
 
     // FIXME: Find a better way to calculate the number of boundary constraints
-    let n_boundary_coeffs = round_1_result.main_trace_polys.len()
-        + round_1_result.aux_trace_polys.as_ref().unwrap().len();
+    let n_boundary_coeffs = if let Some(ref aux_trace_polys) = round_1_result.aux_trace_polys {
+        round_1_result.main_trace_polys.len() + aux_trace_polys.len()
+    } else {
+        round_1_result.main_trace_polys.len()
+    };
+
     // Sample challenges for round 2
     // These are the challenges alpha^B_j and beta^B_j
     let boundary_coeffs: Vec<(FieldElement<F>, FieldElement<F>)> = (0..n_boundary_coeffs)
@@ -635,9 +671,24 @@ where
 
     info!("End proof generation");
 
+    if air.is_multi_segment() {
+        debug_assert!(!round_3_result.aux_trace_ood_frame_evaluations.is_none());
+        return StarkProof {
+            fri_layers_merkle_roots: round_4_result.fri_layers_merkle_roots,
+            trace_ood_frame_evaluations: round_3_result.trace_ood_frame_evaluations,
+            aux_ood_frame_evaluations: Some(
+                round_3_result.aux_trace_ood_frame_evaluations.unwrap(),
+            ),
+            composition_poly_ood_evaluations: round_3_result.composition_poly_ood_evaluations,
+            deep_consistency_check: round_4_result.deep_consistency_check,
+            query_list: round_4_result.query_list,
+        };
+    }
+
     StarkProof {
         fri_layers_merkle_roots: round_4_result.fri_layers_merkle_roots,
         trace_ood_frame_evaluations: round_3_result.trace_ood_frame_evaluations,
+        aux_ood_frame_evaluations: None,
         composition_poly_ood_evaluations: round_3_result.composition_poly_ood_evaluations,
         deep_consistency_check: round_4_result.deep_consistency_check,
         query_list: round_4_result.query_list,

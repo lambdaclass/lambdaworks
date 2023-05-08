@@ -161,17 +161,17 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
 
     let boundary_constraints = air.boundary_constraints();
 
-    let n_trace_cols = air.trace_info().layout.main_segment_width;
+    let n_main_trace_cols = air.trace_info().layout.main_segment_width;
 
-    let boundary_constraint_domains =
-        boundary_constraints.generate_roots_of_unity(&domain.trace_primitive_root, n_trace_cols);
-    let values = boundary_constraints.values(n_trace_cols);
+    let boundary_constraint_domains = boundary_constraints
+        .generate_roots_of_unity(&domain.trace_primitive_root, n_main_trace_cols);
+    let values = boundary_constraints.values(n_main_trace_cols);
 
     // Following naming conventions from https://www.notamonadtutorial.com/diving-deep-fri/
-    let mut boundary_c_i_evaluations = Vec::with_capacity(n_trace_cols);
-    let mut boundary_quotient_degrees = Vec::with_capacity(n_trace_cols);
+    let mut boundary_c_i_evaluations = Vec::new();
+    let mut boundary_quotient_degrees = Vec::new();
 
-    for trace_idx in 0..n_trace_cols {
+    for trace_idx in 0..n_main_trace_cols {
         let trace_evaluation = &proof.trace_ood_frame_evaluations.get_row(0)[trace_idx];
         let boundary_constraints_domain = boundary_constraint_domains[trace_idx].clone();
         let boundary_interpolating_polynomial =
@@ -188,6 +188,10 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
 
         boundary_c_i_evaluations.push(boundary_quotient_ood_evaluation);
         boundary_quotient_degrees.push(boundary_quotient_degree);
+    }
+
+    if air.is_multi_segment() {
+        (0..air.num_aux_segments()).for_each(|segment_idx| {})
     }
 
     // TODO: Get trace polys degrees in a better way. The degree may not be trace_length - 1 in some
