@@ -82,7 +82,7 @@ impl<F: IsFFTField> FFTPoly<F> for Polynomial<FieldElement<F>> {
                     self,
                 )?)
             } else {
-                evaluate_fft_cpu(self)
+                evaluate_fft_cpu(&coeffs)
             }
         }
 
