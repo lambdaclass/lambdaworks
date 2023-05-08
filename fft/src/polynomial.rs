@@ -95,6 +95,7 @@ impl<F: IsFFTField> FFTPoly<F> for Polynomial<FieldElement<F>> {
 
         #[cfg(feature = "cuda")]
         {
+            // TODO: Change this when we template kernels in CUDA
             if F::field_name() == "stark256" {
                 Ok(lambdaworks_gpu::cuda::fft::polynomial::interpolate_fft_cuda(fft_evals)?)
             } else {
