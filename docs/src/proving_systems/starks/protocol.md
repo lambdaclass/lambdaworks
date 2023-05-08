@@ -51,7 +51,7 @@ The verifier sends challenges $\alpha, z \in \mathbb{F}$ (or the prover samples 
 3. Define $M_{\text{Mem}}\in\mathbb{F}^{(L+L')\times 2}$ to be the matrix with columns `a`, `v`.
 3. Define $M_{\text{MemRepl}}\in\mathbb{F}^{(L+L')\times 2}$ to be the matrix that's equal to $M_{\text{Mem}}$ in the first $L - L_{\text{pub}}$ rows, and its last $L_{\text{pub}}$ entries are the addresses and values of the actual public memory.
 5. Sort $M_{\text{MemRepl}}$ by the first column in increasing order. The result is a matrix $M_{\text{MemReplSorted}}$ of size $(L+L')\times 2$. Denote its columns by `a'` and `b'`.
-6. Compute the vector $p$ of size $L+L'$ with entries 
+6. Compute the vector $p$ of size $4(L+L')$ with entries 
 $$ p_i = \prod_{j=0}^i\frac{z - (\alpha a_i' + v_i')}{z - (\alpha a_i + v_i)}$$
 5. Reshape the matrix $M_{\text{MemReplSorted}}$ into a $(L+L')\times8$ in row-major. Reshape the vector $p$ into a $(L+L')\times4$ matrix in row-major.
 6. Concatenate these 12 rows. The result is a matrix $M'$ of size $(L+L') \times 12$.
