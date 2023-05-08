@@ -308,7 +308,7 @@ mod tests {
         });
         let g1 = BLS12381Curve::generator();
         let g2 = BLS12381TwistCurve::generator();
-        let powers_main_group: Vec<G1> = (0..3)
+        let powers_main_group: Vec<G1> = (0..100)
             .map(|exponent| {
                 g1.operate_with_self(toxic_waste.pow(exponent as u128).representative())
             })
