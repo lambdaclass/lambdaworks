@@ -111,8 +111,7 @@ where
                     ..i * size_g1_point + size_g1_point + MAIN_GROUP_OFFSET]
                     .try_into()
                     .unwrap(),
-            )
-            .unwrap();
+            )?;
             main_group.push(point);
         }
 
@@ -124,8 +123,7 @@ where
                     ..i * size_g2_point + g2s_offset + size_g2_point]
                     .try_into()
                     .unwrap(),
-            )
-            .unwrap();
+            )?;
             secondary_group.push(point);
         }
 
