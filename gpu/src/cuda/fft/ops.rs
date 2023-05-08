@@ -91,7 +91,7 @@ mod tests {
             let twiddles = get_twiddles(order.into(), RootsConfig::BitReverse).unwrap();
 
             let cuda_fft = fft(&input, &twiddles, &state).unwrap();
-            let fft = lambdaworks_fft::ops::fft(&input).unwrap();
+            let fft = lambdaworks_fft::ops::fft(&input, &twiddles).unwrap();
 
             assert_eq!(cuda_fft, fft);
         }

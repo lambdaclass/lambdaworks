@@ -10,18 +10,16 @@ use lambdaworks_math::{
 use super::ops::{fft, reverse_index};
 use crate::cuda::abstractions::{errors::CudaError, state::CudaState};
 
-pub fn evaluate_fft_cuda<F>(
-    poly: &Polynomial<FieldElement<F>>,
-) -> Result<Vec<FieldElement<F>>, CudaError>
+pub fn evaluate_fft_cuda<F>(coeffs: &[FieldElement<F>]) -> Result<Vec<FieldElement<F>>, CudaError>
 where
     F: IsFFTField,
     F::BaseType: Unpin,
 {
     let state = CudaState::new()?;
-    let order = log2(poly.coefficients.len())?;
+    let order = log2(coeffs.len())?;
     let twiddles = get_twiddles(order, RootsConfig::BitReverse)?;
 
-    fft(poly.coefficients(), &twiddles, &state)
+    fft(coeffs, &twiddles, &state)
 }
 
 /// Returns a new polynomial that interpolates `fft_evals`, which are evaluations using twiddle
