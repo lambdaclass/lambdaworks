@@ -10,7 +10,6 @@ use cudarc::{
 
 use crate::cuda::abstractions::{element::CUDAFieldElement, errors::CudaError, state::CudaState};
 
-const SHADER_PTX_FFT: &str = include_str!("../shaders/fft.ptx");
 const SHADER_PTX_TWIDDLES: &str = include_str!("../shaders/twiddles.ptx");
 
 /// Executes parallel ordered FFT over a slice of two-adic field elements, in CUDA.
