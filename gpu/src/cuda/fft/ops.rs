@@ -93,7 +93,7 @@ mod tests {
             let cuda_fft = fft(&input, &twiddles, &state).unwrap();
             let fft = lambdaworks_fft::ops::fft(&input, &twiddles).unwrap();
 
-            assert_eq!(cuda_fft, fft);
+            prop_assert_eq!(cuda_fft, fft);
         }
     }
 }
