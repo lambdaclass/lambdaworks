@@ -87,6 +87,18 @@ impl<F: IsField> Radix2DitButterflyFunction<F> {
         let grid_dim = (group_count, 1, 1); // in blocks
         let block_dim = (group_size / 2, 1, 1);
 
+        if block_dim.0 > twiddles.len() {
+            return Err(CudaError::IndexOutOfBounds(
+                block_dim.0 as usize,
+                twiddles.len(),
+            ));
+        } else if grid_dim.0 * block_dim.0 > input.len() {
+            return Err(CudaError::IndexOutOfBounds(
+                grid_dim.0 * block_dim.0 as usize,
+                twiddles.len(),
+            ));
+        }
+
         let config = LaunchConfig {
             grid_dim,
             block_dim,
