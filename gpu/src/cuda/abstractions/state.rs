@@ -13,6 +13,7 @@ use lambdaworks_math::field::{
 use std::sync::Arc;
 
 const FFT_PTX: &str = include_str!("../shaders/fft.ptx");
+const GEN_TWIDDLES_PTX: &str = include_str!("../shaders/twiddles.ptx");
 
 /// Structure for abstracting basic calls to a Metal device and saving the state. Used for
 /// implementing GPU parallel computations in Apple machines.
@@ -29,6 +30,11 @@ impl CudaState {
 
         // Load PTX libraries
         state.load_library(FFT_PTX, "fft", &["radix2_dit_butterfly"])?;
+        state.load_library(
+            GEN_TWIDDLES_PTX,
+            "twiddles",
+            &["calc_twiddles", "calc_twiddles_bitrev"],
+        )?;
 
         Ok(state)
     }
@@ -72,6 +78,41 @@ impl CudaState {
             Arc::clone(&self.device),
             function,
             input_buffer,
+            twiddles_buffer,
+        ))
+    }
+
+    /// Returns a wrapper object over the `calc_twiddles` function defined in `twiddles.cu`
+    pub(crate) fn get_calc_twiddles<F: IsFFTField>(
+        &self,
+        order: u64,
+        config: RootsConfig,
+    ) -> Result<Radix2DitButterflyFunction<F>, CudaError> {
+        let root: FieldElement<F> = F::get_primitive_root_of_unity(order)?;
+
+        let (root, function_name) = match config {
+            RootsConfig::Natural => (root, "calc_twiddles"),
+            RootsConfig::NaturalInversed => (root.inv(), "calc_twiddles"),
+            RootsConfig::BitReverse => (root, "calc_twiddles_bitrev"),
+            RootsConfig::BitReverseInversed => (root.inv(), "calc_twiddles_bitrev"),
+        };
+
+        let function = self
+            .device
+            .get_func("twiddles", function_name)
+            .ok_or_else(|| CudaError::FunctionError(format!("twiddles::{function_name}")))?;
+
+        let omega_buffer = self.alloc_buffer_with_data(&[root])?;
+        let twiddles_buffer = self.alloc_buffer_with_data(
+            &(0..count)
+                .map(|i| CUDAFieldElement::from(&FieldElement::from(i)))
+                .collect::<Vec<_>>(),
+        )?;
+
+        Ok(CalcTwiddlesFunction::new(
+            Arc::clone(&self.device),
+            function,
+            omega_buffer,
             twiddles_buffer,
         ))
     }
@@ -136,6 +177,71 @@ impl<F: IsField> Radix2DitButterflyFunction<F> {
         let Self { device, input, .. } = self;
         let output = device
             .sync_reclaim(input)
+            .map_err(|err| CudaError::RetrieveMemory(err.to_string()))?
+            .into_iter()
+            .map(FieldElement::from)
+            .collect();
+
+        Ok(output)
+    }
+}
+
+pub(crate) struct CalcTwiddlesFunction<F: IsField> {
+    device: Arc<CudaDevice>,
+    function: CudaFunction,
+    omega: CudaSlice<CUDAFieldElement<F>>,
+    twiddles: CudaSlice<CUDAFieldElement<F>>,
+}
+
+impl<F: IsField> CalcTwiddlesFunction<F> {
+    fn new(
+        device: Arc<CudaDevice>,
+        function: CudaFunction,
+        omega: CudaSlice<CUDAFieldElement<F>>,
+        twiddles: CudaSlice<CUDAFieldElement<F>>,
+    ) -> Self {
+        Self {
+            device,
+            function,
+            omega,
+            twiddles,
+        }
+    }
+
+    pub(crate) fn launch(
+        &mut self,
+        _group_count: usize,
+        group_size: usize,
+    ) -> Result<(), CudaError> {
+        let grid_dim = (1, 1, 1); // in blocks
+        let block_dim = (group_size as u32, 1, 1);
+
+        if block_dim.0 as usize > DeviceSlice::len(&self.twiddles) {
+            return Err(CudaError::IndexOutOfBounds(
+                block_dim.0 as usize,
+                self.twiddles.len(),
+            ));
+        }
+
+        let config = LaunchConfig {
+            grid_dim,
+            block_dim,
+            shared_mem_bytes: 0,
+        };
+        unsafe {
+            self.function
+                .clone()
+                .launch(config, (&mut self.twiddles, &self.omega))
+        }
+        .map_err(|err| CudaError::Launch(err.to_string()))
+    }
+
+    pub(crate) fn retrieve_result(self) -> Result<Vec<FieldElement<F>>, CudaError> {
+        let Self {
+            device, twiddles, ..
+        } = self;
+        let output = device
+            .sync_reclaim(twiddles)
             .map_err(|err| CudaError::RetrieveMemory(err.to_string()))?
             .into_iter()
             .map(FieldElement::from)
