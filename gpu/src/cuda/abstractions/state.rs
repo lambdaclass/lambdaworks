@@ -299,7 +299,7 @@ impl<F: IsField> BitrevPermutationFunction<F> {
 
     pub(crate) fn launch(&mut self, group_size: usize) -> Result<(), CudaError> {
         let grid_dim = (1, 1, 1); // in blocks
-        let block_dim = (group_size, 1, 1);
+        let block_dim = (group_size as u32, 1, 1);
 
         if block_dim.0 as usize > DeviceSlice::len(&self.input) {
             return Err(CudaError::IndexOutOfBounds(
