@@ -50,12 +50,7 @@ impl CudaState {
         data: &[FieldElement<F>],
     ) -> Result<CudaSlice<CUDAFieldElement<F>>, CudaError> {
         self.device
-            .htod_sync_copy(
-                &data
-                    .into_iter()
-                    .map(CUDAFieldElement::from)
-                    .collect::<Vec<_>>(),
-            )
+            .htod_sync_copy(&data.iter().map(CUDAFieldElement::from).collect::<Vec<_>>())
             .map_err(|err| CudaError::AllocateMemory(err.to_string()))
     }
 

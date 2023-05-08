@@ -55,6 +55,7 @@ pub(crate) fn reverse_index(i: &usize, size: u64) -> usize {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use lambdaworks_fft::roots_of_unity::get_twiddles;
     use lambdaworks_math::field::{
         element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
@@ -85,10 +86,11 @@ mod tests {
     proptest! {
         #[test]
         fn test_cuda_fft_matches_sequential_fft(input in field_vec(4)) {
+            let state = CudaState::new().unwrap();
             let order = input.len().trailing_zeros();
             let twiddles = get_twiddles(order.into(), RootsConfig::BitReverse).unwrap();
 
-            let cuda_fft = super::fft(&input, &twiddles).unwrap();
+            let cuda_fft = fft(&input, &twiddles, &state).unwrap();
             let fft = lambdaworks_fft::ops::fft(&input).unwrap();
 
             assert_eq!(cuda_fft, fft);
