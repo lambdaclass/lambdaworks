@@ -17,7 +17,7 @@ where
 {
     let state = CudaState::new()?;
     let order = log2(coeffs.len())?;
-    let twiddles = gen_twiddles(order, RootsConfig::BitReverse)?;
+    let twiddles = gen_twiddles(order, RootsConfig::BitReverse, &state)?;
 
     fft(coeffs, &twiddles, &state)
 }
@@ -37,7 +37,7 @@ where
     // TODO: twiddle factors need to be handled with too much care, the FFT API shouldn't accept
     // invalid twiddle factor collections. A better solution is needed.
     let order = log2(fft_evals.len())?;
-    let twiddles = gen_twiddles(order, RootsConfig::BitReverseInversed)?;
+    let twiddles = gen_twiddles(order, RootsConfig::BitReverseInversed, &state)?;
 
     let coeffs = fft(fft_evals, &twiddles, &state)?;
 
