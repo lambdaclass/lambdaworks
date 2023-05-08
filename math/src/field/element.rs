@@ -475,6 +475,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    use crate::elliptic_curve::short_weierstrass::curves::bls12_381::default_types::FrElement;
     use crate::field::element::FieldElement;
     use crate::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
     use crate::field::fields::montgomery_backed_prime_fields::{
@@ -541,12 +542,6 @@ mod tests {
     fn one_of_sqrt_roots_for_4_is_2() {
         #[derive(Clone, Debug)]
         pub struct FrConfig;
-        impl IsModulus<U256> for FrConfig {
-            const MODULUS: U256 =
-                U256::from("73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001");
-        }
-        type FrField = MontgomeryBackendPrimeField<FrConfig, 4>;
-        type FrElement = FieldElement<FrField>;
 
         let input = FrElement::from(4);
         let sqrt = input.sqrt().unwrap();
@@ -556,15 +551,6 @@ mod tests {
 
     #[test]
     fn one_of_sqrt_roots_for_25_is_5() {
-        #[derive(Clone, Debug)]
-        pub struct FrConfig;
-        impl IsModulus<U256> for FrConfig {
-            const MODULUS: U256 =
-                U256::from("73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001");
-        }
-        type FrField = MontgomeryBackendPrimeField<FrConfig, 4>;
-        type FrElement = FieldElement<FrField>;
-
         let input = FrElement::from(25);
         let sqrt = input.sqrt().unwrap();
         let result = FrElement::from(5);

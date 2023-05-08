@@ -1,4 +1,10 @@
-use crate::{field::{fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField}, element::FieldElement}, unsigned_integer::element::U256};
+use crate::{
+    field::{
+        element::FieldElement,
+        fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
+    },
+    unsigned_integer::element::U256,
+};
 
 #[derive(Clone, Debug)]
 pub struct FrConfig;
