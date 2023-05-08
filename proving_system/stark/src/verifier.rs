@@ -75,13 +75,21 @@ where
     // Fiat-Shamir
     // we have to make sure that the result is not either
     // a root of unity or an element of the lde coset.
-    let n_trace_cols = air.trace_info().layout.main_segment_width;
+    let n_main_trace_cols = air.trace_info().layout.main_segment_width;
     let z = sample_z_ood(
         &domain.lde_roots_of_unity_coset,
         &domain.trace_roots_of_unity,
         transcript,
     );
-    let boundary_coeffs: Vec<(FieldElement<F>, FieldElement<F>)> = (0..n_trace_cols)
+
+    // FIXME: Find a better way to calculate the number of boundary constraints
+    let n_boundary_coeffs =
+        if let Some(aux_segments_info) = air.trace_info().layout.aux_segments_info {
+            n_main_trace_cols + aux_segments_info.aux_segment_widths.iter().sum::<usize>()
+        } else {
+            n_main_trace_cols
+        };
+    let boundary_coeffs: Vec<(FieldElement<F>, FieldElement<F>)> = (0..n_boundary_coeffs)
         .map(|_| {
             (
                 transcript_to_field(transcript),
@@ -90,20 +98,25 @@ where
         })
         .collect();
 
-    let transition_coeffs: Vec<(FieldElement<F>, FieldElement<F>)> =
-        (0..air.context().num_transition_constraints)
-            .map(|_| {
-                (
-                    transcript_to_field(transcript),
-                    transcript_to_field(transcript),
-                )
-            })
-            .collect();
+    let n_transition_coeffs = if air.is_multi_segment() {
+        air.num_transition_constraints() + air.context().num_aux_transition_constraints
+    } else {
+        air.num_transition_constraints()
+    };
+
+    let transition_coeffs: Vec<(FieldElement<F>, FieldElement<F>)> = (0..n_transition_coeffs)
+        .map(|_| {
+            (
+                transcript_to_field(transcript),
+                transcript_to_field(transcript),
+            )
+        })
+        .collect();
 
     // Get the number of trace terms the DEEP composition poly will have.
     // One coefficient will be sampled for each of them.
     // TODO: try remove this, call transcript inside for and move gamma declarations
-    let trace_term_coeffs = (0..n_trace_cols)
+    let trace_term_coeffs = (0..n_boundary_coeffs)
         .map(|_| {
             (0..air.context().transition_offsets.len())
                 .map(|_| transcript_to_field(transcript))
@@ -190,7 +203,7 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
         boundary_quotient_degrees.push(boundary_quotient_degree);
     }
 
-    let mut aux_merged_boundary_c_i_evals = FieldElement::<F>::zero();
+    let mut aux_segments_rand_elements = Vec::new();
     if air.is_multi_segment() {
         (0..air.num_aux_segments()).for_each(|segment_idx| {
             let aux_segment_width = air.aux_segment_width(segment_idx);
@@ -211,6 +224,8 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
 
             let aux_boundary_constraints =
                 air.aux_boundary_constraints(segment_idx, &aux_rand_elements);
+
+            aux_segments_rand_elements.push(aux_rand_elements);
 
             let aux_boundary_constraint_domains = aux_boundary_constraints.generate_roots_of_unity(
                 &domain.trace_primitive_root,
@@ -244,11 +259,9 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
                 aux_boundary_c_i_evaluations.push(aux_boundary_quotient_ood_evaluation);
                 aux_boundary_quotient_degrees.push(aux_boundary_quotient_degree);
             }
-
-            aux_merged_boundary_c_i_evals = aux_boundary_c_i_evaluations
-                .iter()
-                .fold(FieldElement::<F>::zero(), |acc, x| acc + x);
-        })
+            boundary_c_i_evaluations.extend_from_slice(&aux_boundary_c_i_evaluations);
+            boundary_quotient_degrees.extend_from_slice(&aux_boundary_quotient_degrees);
+        });
     }
 
     // TODO: Get trace polys degrees in a better way. The degree may not be trace_length - 1 in some
@@ -288,8 +301,24 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
         .iter()
         .fold(FieldElement::<F>::zero(), |acc, x| acc + x);
 
-    let transition_ood_frame_evaluations =
-        air.compute_transition(&proof.trace_ood_frame_evaluations);
+    let main_ood_frame = &proof.trace_ood_frame_evaluations;
+
+    let mut transition_ood_frame_evaluations = air.compute_transition(&main_ood_frame);
+
+    if air.is_multi_segment() {
+        debug_assert!(!&proof.aux_ood_frame_evaluations.is_none());
+        let aux_ood_frames = &proof.aux_ood_frame_evaluations.as_ref().unwrap();
+
+        (0..air.num_aux_segments()).for_each(|segment_idx| {
+            let aux_evaluations = air.compute_aux_transition(
+                &main_ood_frame,
+                &aux_ood_frames[segment_idx],
+                &aux_segments_rand_elements[segment_idx],
+            );
+
+            transition_ood_frame_evaluations.extend_from_slice(&aux_evaluations);
+        })
+    }
 
     let transition_c_i_evaluations =
         ConstraintEvaluator::compute_constraint_composition_poly_evaluations(
@@ -301,7 +330,6 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
         );
 
     let composition_poly_ood_evaluation = &boundary_quotient_ood_evaluation
-        + &aux_merged_boundary_c_i_evals
         + transition_c_i_evaluations
             .iter()
             .fold(FieldElement::<F>::zero(), |acc, evaluation| {

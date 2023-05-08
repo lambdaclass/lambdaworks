@@ -39,6 +39,7 @@ impl FibonacciRAP {
 
 impl AIR for FibonacciRAP {
     type Field = Stark252PrimeField;
+    // type Field = F17;
 
     fn compute_transition(&self, frame: &Frame<Self::Field>) -> Vec<FieldElement<Self::Field>> {
         let first_row = frame.get_row(0);
