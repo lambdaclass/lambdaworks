@@ -32,13 +32,14 @@ impl<'poly, F: IsFFTField, A: AIR<Field = F>> ConstraintEvaluator<'poly, F, A> {
         }
     }
 
-    pub fn evaluate<T: Transcript>(
+    pub fn evaluate(
         &self,
         lde_trace: &TraceTable<F>,
         lde_domain: &[FieldElement<F>],
         transition_coefficients: &[(FieldElement<F>, FieldElement<F>)],
         boundary_coefficients: &[(FieldElement<F>, FieldElement<F>)],
-        transcript: &mut T,
+        aux_segments_rand_elements: Option<&Vec<Vec<FieldElement<F>>>>,
+        // transcript: &mut T,
     ) -> ConstraintEvaluationTable<F> {
         // The + 1 is for the boundary constraints column
         let mut evaluation_table = ConstraintEvaluationTable::new(
@@ -80,7 +81,7 @@ impl<'poly, F: IsFFTField, A: AIR<Field = F>> ConstraintEvaluator<'poly, F, A> {
 
         // Auxiliary trace boundary polys
         let n_aux_segments = self.air.num_aux_segments();
-        let mut aux_rand_elements = Vec::with_capacity(n_aux_segments);
+        // let mut aux_rand_elements = Vec::with_capacity(n_aux_segments);
         if self.air.is_multi_segment() {
             let Some(aux_transition_degrees) = self.air.context().aux_transition_degrees
                 else {
@@ -98,8 +99,9 @@ impl<'poly, F: IsFFTField, A: AIR<Field = F>> ConstraintEvaluator<'poly, F, A> {
             let mut aux_boundary_zerofiers = Vec::with_capacity(n_aux_segments);
             (0..n_aux_segments).for_each(|segment_idx| {
                 // Sample random elements needed for construction of the aux segment.
-                let aux_segment_rand_elements =
-                    self.air.aux_segment_rand_coeffs(segment_idx, transcript);
+                // let aux_segment_rand_elements =
+                //     self.air.aux_segment_rand_coeffs(segment_idx, transcript);
+                let aux_segment_rand_elements = &aux_segments_rand_elements.unwrap()[segment_idx];
 
                 // Get interpolated polynomials for the aux segment. There will be one polynomial
                 // for each column of the aux segment.
@@ -141,7 +143,7 @@ impl<'poly, F: IsFFTField, A: AIR<Field = F>> ConstraintEvaluator<'poly, F, A> {
                     })
                     .collect();
 
-                aux_rand_elements.push(aux_segment_rand_elements);
+                // aux_rand_elements.push(aux_segment_rand_elements);
                 aux_boundary_polys.push(aux_segment_boundary_polys);
                 aux_boundary_zerofiers.push(aux_segment_boundary_zerofiers);
             });
@@ -184,7 +186,7 @@ impl<'poly, F: IsFFTField, A: AIR<Field = F>> ConstraintEvaluator<'poly, F, A> {
                     let aux_evaluations = self.air.compute_aux_transition(
                         &main_frame,
                         &aux_frame,
-                        &aux_rand_elements[segment_idx],
+                        &aux_segments_rand_elements.unwrap()[segment_idx],
                     );
                     evaluations.extend_from_slice(&aux_evaluations);
                 });

@@ -83,6 +83,16 @@ where
         transcript,
     );
 
+    let aux_segments_rand_elements = if air.is_multi_segment() {
+        let rand_elements: Vec<Vec<FieldElement<F>>> = (0..air.num_aux_segments())
+            .map(|segment_idx| air.aux_segment_rand_coeffs(segment_idx, transcript))
+            .collect();
+
+        Some(rand_elements)
+    } else {
+        None
+    };
+
     // FIXME: Find a better way to calculate the number of boundary constraints
     let n_boundary_coeffs =
         if let Some(aux_segments_info) = air.trace_info().layout.aux_segments_info {
@@ -113,16 +123,6 @@ where
             )
         })
         .collect();
-
-    let aux_segments_rand_elements = if air.is_multi_segment() {
-        let rand_elements: Vec<Vec<FieldElement<F>>> = (0..air.num_aux_segments())
-            .map(|segment_idx| air.aux_segment_rand_coeffs(segment_idx, transcript))
-            .collect();
-
-        Some(rand_elements)
-    } else {
-        None
-    };
 
     // Get the number of trace terms the DEEP composition poly will have.
     // One coefficient will be sampled for each of them.
@@ -381,6 +381,7 @@ where
     A: AIR<Field = F>,
     T: Transcript,
 {
+    println!("ENTRE FRI");
     // Verify that t(x_0) is a trace evaluation
     // and verify first layer of FRI
     if !verify_trace_evaluations(

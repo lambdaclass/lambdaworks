@@ -33,6 +33,7 @@ type AuxSegmentsMerkleRoots<F> = Vec<Vec<FieldElement<F>>>;
 struct Round1<F: IsFFTField> {
     main_trace_polys: Vec<Polynomial<FieldElement<F>>>,
     aux_trace_polys: Option<Vec<Vec<Polynomial<FieldElement<F>>>>>,
+    aux_segments_rand_elements: Option<Vec<Vec<FieldElement<F>>>>,
     main_lde_trace_merkle_trees: Vec<MerkleTree<F>>,
     main_lde_trace_merkle_roots: Vec<FieldElement<F>>,
     aux_lde_trace_merkle_trees: Option<Vec<Vec<MerkleTree<F>>>>,
@@ -131,6 +132,7 @@ fn commit_aux_trace<F, A, T>(
     AuxSegmentsPolys<F>,
     AuxSegmentsMerkleTrees<F>,
     AuxSegmentsMerkleRoots<F>,
+    Vec<Vec<FieldElement<F>>>,
 )
 where
     F: IsFFTField,
@@ -142,6 +144,7 @@ where
     let mut aux_segments_merkle_trees = Vec::new();
     let mut aux_segments_merkle_roots = Vec::new();
     let mut lde_aux_segments_evaluations = Vec::new();
+    let mut aux_segments_rand_elements = Vec::new();
     let n_aux_segments = air.num_aux_segments();
     for aux_segment_idx in 0..n_aux_segments {
         let segment_rand_coeffs = air.aux_segment_rand_coeffs(aux_segment_idx, transcript);
@@ -189,6 +192,7 @@ where
             .collect();
 
         aux_segments_polys.push(aux_segment_polys);
+        aux_segments_rand_elements.push(segment_rand_coeffs);
         aux_segments_merkle_trees.push(lde_aux_merkle_trees);
         aux_segments_merkle_roots.push(lde_aux_merkle_roots);
         lde_aux_segments_evaluations.push(lde_aux_evaluations);
@@ -199,6 +203,7 @@ where
         aux_segments_polys,
         aux_segments_merkle_trees,
         aux_segments_merkle_roots,
+        aux_segments_rand_elements,
     )
 }
 
@@ -226,6 +231,7 @@ where
             aux_trace_polys,
             aux_lde_trace_merkle_trees,
             aux_lde_trace_merkle_roots,
+            aux_segments_rand_elements,
         ) = commit_aux_trace(air, trace, transcript);
 
         let lde_trace =
@@ -234,6 +240,7 @@ where
         return Round1 {
             main_trace_polys,
             aux_trace_polys: Some(aux_trace_polys),
+            aux_segments_rand_elements: Some(aux_segments_rand_elements),
             main_lde_trace_merkle_trees,
             main_lde_trace_merkle_roots,
             aux_lde_trace_merkle_trees: Some(aux_lde_trace_merkle_trees),
@@ -247,6 +254,7 @@ where
     Round1 {
         main_trace_polys,
         aux_trace_polys: None,
+        aux_segments_rand_elements: None,
         main_lde_trace_merkle_trees,
         main_lde_trace_merkle_roots,
         aux_lde_trace_merkle_trees: None,
@@ -284,12 +292,14 @@ where
         &domain.trace_primitive_root,
     );
 
+    let aux_segments_rand_elements = round_1_result.aux_segments_rand_elements.as_ref();
+
     let constraint_evaluations = evaluator.evaluate(
         &round_1_result.full_lde_trace,
         &domain.lde_roots_of_unity_coset,
         transition_coeffs,
         boundary_coeffs,
-        transcript,
+        aux_segments_rand_elements,
     );
 
     // Get the composition poly H
