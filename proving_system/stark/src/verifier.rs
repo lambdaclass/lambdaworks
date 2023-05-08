@@ -256,10 +256,12 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
     let transition_ood_frame_evaluations =
         air.compute_transition(&proof.trace_ood_frame_evaluations);
 
+    let divisors = air.transition_divisors();
     let transition_c_i_evaluations =
         ConstraintEvaluator::compute_constraint_composition_poly_evaluations(
             air,
             &transition_ood_frame_evaluations,
+            &divisors,
             &challenges.transition_coeffs,
             max_degree_power_of_two,
             &challenges.z,
