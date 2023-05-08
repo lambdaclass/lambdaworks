@@ -48,7 +48,7 @@ pub fn gen_twiddles<F: IsFFTField>(
 
     let mut function = state.get_calc_twiddles(order, config)?;
 
-    function.launch(1, count)?;
+    function.launch(count)?;
 
     let mut output = function.retrieve_result()?;
 

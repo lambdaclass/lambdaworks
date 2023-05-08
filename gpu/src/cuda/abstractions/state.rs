@@ -206,11 +206,7 @@ impl<F: IsField> CalcTwiddlesFunction<F> {
         }
     }
 
-    pub(crate) fn launch(
-        &mut self,
-        _group_count: usize,
-        group_size: usize,
-    ) -> Result<(), CudaError> {
+    pub(crate) fn launch(&mut self, group_size: usize) -> Result<(), CudaError> {
         let grid_dim = (1, 1, 1); // in blocks
         let block_dim = (group_size as u32, 1, 1);
 
