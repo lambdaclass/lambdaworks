@@ -45,8 +45,8 @@ impl CudaState {
     fn get_function<F: IsFFTField>(&self, func_name: &str) -> Result<CudaFunction, CudaError> {
         let mod_name = F::field_name();
         self.device
-            .get_func(&mod_name, &func_name)
-            .ok_or_else(|| CudaError::FunctionError(func_name))
+            .get_func(mod_name, func_name)
+            .ok_or_else(|| CudaError::FunctionError(func_name.to_string()))
     }
 
     /// Allocates a buffer in the GPU and copies `data` into it. Returns its handle.
