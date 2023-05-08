@@ -3,8 +3,6 @@ use lambdaworks_math::field::{
     traits::{IsFFTField, RootsConfig},
 };
 
-use cudarc::driver::LaunchAsync;
-
 use crate::cuda::abstractions::{errors::CudaError, state::CudaState};
 
 /// Executes parallel ordered FFT over a slice of two-adic field elements, in CUDA.
@@ -33,7 +31,7 @@ where
         function.launch(group_count, group_size)?;
     }
 
-    let mut output = function.retrieve_result()?;
+    let output = function.retrieve_result()?;
 
     bitrev_permutation(output, state)
 }
