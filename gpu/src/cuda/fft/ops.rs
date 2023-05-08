@@ -57,7 +57,7 @@ pub fn bitrev_permutation<F: IsFFTField>(
     state: &CudaState,
 ) -> Result<Vec<FieldElement<F>>, CudaError> {
     let result = input.clone();
-    let mut function = state.get_bitrev_permutation(&input, &result, state)?;
+    let mut function = state.get_bitrev_permutation(&input, &result)?;
 
     function.launch(input.len())?;
 
