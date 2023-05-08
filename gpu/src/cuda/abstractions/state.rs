@@ -1,15 +1,23 @@
 use crate::cuda::abstractions::{element::CUDAFieldElement, errors::CudaError};
 use cudarc::{
-    driver::{CudaDevice, LaunchAsync, LaunchConfig},
+    driver::{
+        safe::{CudaSlice, DeviceSlice},
+        CudaDevice, CudaFunction, LaunchAsync, LaunchConfig,
+    },
     nvrtc::safe::Ptx,
 };
+use lambdaworks_math::field::{
+    element::FieldElement,
+    traits::{IsFFTField, IsField},
+};
+use std::sync::Arc;
 
 const FFT_PTX: &str = include_str!("../shaders/fft.ptx");
 
 /// Structure for abstracting basic calls to a Metal device and saving the state. Used for
 /// implementing GPU parallel computations in Apple machines.
-pub(crate) struct CudaState {
-    pub(crate) device: CudaDevice,
+pub struct CudaState {
+    device: Arc<CudaDevice>,
 }
 
 impl CudaState {
@@ -17,12 +25,12 @@ impl CudaState {
     pub(crate) fn new() -> Result<Self, CudaError> {
         let device =
             CudaDevice::new(0).map_err(|err| CudaError::DeviceNotFound(err.to_string()))?;
-        let self = Self { device };
+        let state = Self { device };
 
         // Load PTX libraries
-        self.load_library(FFT_PTX, "fft", &["radix2_dit_butterfly"])?;
+        state.load_library(FFT_PTX, "fft", &["radix2_dit_butterfly"])?;
 
-        Ok(self)
+        Ok(state)
     }
 
     fn load_library(
@@ -33,17 +41,22 @@ impl CudaState {
     ) -> Result<(), CudaError> {
         self.device
             .load_ptx(Ptx::from_src(src), module, functions)
-            .map_err(|err| CudaError::PtxError(err.to_string()))?;
+            .map_err(|err| CudaError::PtxError(err.to_string()))
     }
 
     /// Allocates a buffer in the GPU and copies `data` into it. Returns its handle.
     fn alloc_buffer_with_data<F: IsField>(
         &self,
-        data: &[F::BaseType],
+        data: &[FieldElement<F>],
     ) -> Result<CudaSlice<CUDAFieldElement<F>>, CudaError> {
         self.device
-            .htod_sync_copy(data.iter().map(CUDAFieldElement::from).collect::<Vec<_>>())
-            .map_err(|err| CudaError::AllocateMemory(err.to_string()))?
+            .htod_sync_copy(
+                &data
+                    .into_iter()
+                    .map(CUDAFieldElement::from)
+                    .collect::<Vec<_>>(),
+            )
+            .map_err(|err| CudaError::AllocateMemory(err.to_string()))
     }
 
     /// Returns a wrapper object over the `radix2_dit_butterfly` function defined in `fft.cu`
@@ -51,7 +64,7 @@ impl CudaState {
         &self,
         input: &[FieldElement<F>],
         twiddles: &[FieldElement<F>],
-    ) -> Result<Radix2DitButterflyFunction, CudaError> {
+    ) -> Result<Radix2DitButterflyFunction<F>, CudaError> {
         let function = self
             .device
             .get_func("fft", "radix2_dit_butterfly")
@@ -60,11 +73,17 @@ impl CudaState {
         let input_buffer = self.alloc_buffer_with_data(input)?;
         let twiddles_buffer = self.alloc_buffer_with_data(twiddles)?;
 
-        Radix2DitButterflyFunction::new(function, input_buffer, twiddles_buffer)
+        Ok(Radix2DitButterflyFunction::new(
+            Arc::clone(&self.device),
+            function,
+            input_buffer,
+            twiddles_buffer,
+        ))
     }
 }
 
 pub(crate) struct Radix2DitButterflyFunction<F: IsField> {
+    device: Arc<CudaDevice>,
     function: CudaFunction,
     input: CudaSlice<CUDAFieldElement<F>>,
     twiddles: CudaSlice<CUDAFieldElement<F>>,
@@ -72,30 +91,36 @@ pub(crate) struct Radix2DitButterflyFunction<F: IsField> {
 
 impl<F: IsField> Radix2DitButterflyFunction<F> {
     fn new(
+        device: Arc<CudaDevice>,
         function: CudaFunction,
         input: CudaSlice<CUDAFieldElement<F>>,
         twiddles: CudaSlice<CUDAFieldElement<F>>,
-    ) -> Result<Self, CudaError> {
+    ) -> Self {
         Self {
+            device,
             function,
             input,
             twiddles,
         }
     }
 
-    pub(crate) fn launch(group_count: u32, group_size: u32) -> Result<(), CudaError> {
-        let grid_dim = (group_count, 1, 1); // in blocks
-        let block_dim = (group_size / 2, 1, 1);
+    pub(crate) fn launch(
+        &mut self,
+        group_count: usize,
+        group_size: usize,
+    ) -> Result<(), CudaError> {
+        let grid_dim = (group_count as u32, 1, 1); // in blocks
+        let block_dim = ((group_size / 2) as u32, 1, 1);
 
-        if block_dim.0 > twiddles.len() {
+        if block_dim.0 as usize > DeviceSlice::len(&self.twiddles) {
             return Err(CudaError::IndexOutOfBounds(
                 block_dim.0 as usize,
-                twiddles.len(),
+                self.twiddles.len(),
             ));
-        } else if grid_dim.0 * block_dim.0 > input.len() {
+        } else if (grid_dim.0 * block_dim.0) as usize > DeviceSlice::len(&self.input) {
             return Err(CudaError::IndexOutOfBounds(
-                grid_dim.0 * block_dim.0 as usize,
-                twiddles.len(),
+                (grid_dim.0 * block_dim.0) as usize,
+                self.input.len(),
             ));
         }
 
@@ -104,16 +129,21 @@ impl<F: IsField> Radix2DitButterflyFunction<F> {
             block_dim,
             shared_mem_bytes: 0,
         };
-        unsafe { kernel.clone().launch(config, (&mut d_input, &d_twiddles)) }
-            .map_err(|err| CudaError::Launch(err.to_string()))?
+        unsafe {
+            self.function
+                .clone()
+                .launch(config, (&mut self.input, &self.twiddles))
+        }
+        .map_err(|err| CudaError::Launch(err.to_string()))
     }
 
-    pub(crate) fn retrieve_result() -> Result<Vec<FieldElement<F>>, CudaError> {
+    pub(crate) fn retrieve_result(self) -> Result<Vec<FieldElement<F>>, CudaError> {
+        let Self { device, input, .. } = self;
         let output = device
-            .sync_reclaim(d_input)
+            .sync_reclaim(input)
             .map_err(|err| CudaError::RetrieveMemory(err.to_string()))?
             .into_iter()
-            .map(FieldElement::<F>::from)
+            .map(FieldElement::from)
             .collect();
 
         Ok(output)

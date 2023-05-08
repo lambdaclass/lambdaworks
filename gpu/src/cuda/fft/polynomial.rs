@@ -8,7 +8,7 @@ use lambdaworks_math::{
 };
 
 use super::ops::{fft, reverse_index};
-use crate::cuda::abstractions::errors::CudaError;
+use crate::cuda::abstractions::{errors::CudaError, state::CudaState};
 
 pub fn evaluate_fft_cuda<F>(
     poly: &Polynomial<FieldElement<F>>,

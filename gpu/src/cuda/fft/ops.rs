@@ -18,17 +18,17 @@ where
     F: IsFFTField,
     F::BaseType: Unpin,
 {
-    let function = state.get_radix2_dit_butterfly(input, twiddles)?;
+    let mut function = state.get_radix2_dit_butterfly(input, twiddles)?;
 
     let order = input.len().trailing_zeros();
     for stage in 0..order {
         let group_count = 1 << stage;
         let group_size = input.len() / group_count;
 
-        function.launch(group_count as u32, group_size as u32);
+        function.launch(group_count, group_size)?;
     }
 
-    let output = function.retrieve_result()?;
+    let mut output = function.retrieve_result()?;
 
     in_place_bit_reverse_permute(&mut output);
     Ok(output)
