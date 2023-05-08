@@ -24,6 +24,13 @@ pub trait ByteConversion {
         Self: std::marker::Sized;
 }
 
+/// Serialize function without args
+/// Used for serialization when formatting options are not relevant
+pub trait Serializable {
+    /// Default serialize without args
+    fn serialize(&self) -> Vec<u8>;
+}
+
 pub trait IsRandomFieldElementGenerator<F: IsField> {
     fn generate(&self) -> FieldElement<F>;
 }
