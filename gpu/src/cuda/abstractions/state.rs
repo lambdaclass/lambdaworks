@@ -14,6 +14,7 @@ use std::sync::Arc;
 
 const FFT_PTX: &str = include_str!("../shaders/fft.ptx");
 const GEN_TWIDDLES_PTX: &str = include_str!("../shaders/twiddles.ptx");
+const BITREV_PERMUTATION_PTX: &str = include_str!("../shaders/bitrev_permutation.ptx");
 
 /// Structure for abstracting basic calls to a Metal device and saving the state. Used for
 /// implementing GPU parallel computations in Apple machines.
@@ -34,6 +35,11 @@ impl CudaState {
             GEN_TWIDDLES_PTX,
             "twiddles",
             &["calc_twiddles", "calc_twiddles_bitrev"],
+        )?;
+        state.load_library(
+            BITREV_PERMUTATION_PTX,
+            "bitrev_permutation",
+            &["bitrev_permutation"],
         )?;
 
         Ok(state)
@@ -112,6 +118,30 @@ impl CudaState {
             function,
             omega_buffer,
             twiddles_buffer,
+        ))
+    }
+
+    /// Returns a wrapper object over the `bitrev_permutation` function defined in `bitrev_permutation.cu`
+    pub(crate) fn get_bitrev_permutation<F: IsFFTField>(
+        &self,
+        input: &[FieldElement<F>],
+        result: &[FieldElement<F>],
+    ) -> Result<Radix2DitButterflyFunction<F>, CudaError> {
+        let function = self
+            .device
+            .get_func("bitrev_permutation", "bitrev_permutation")
+            .ok_or_else(|| {
+                CudaError::FunctionError("bitrev_permutation::bitrev_permutation".to_string())
+            })?;
+
+        let input_buffer = self.alloc_buffer_with_data(input)?;
+        let result_buffer = self.alloc_buffer_with_data(result)?;
+
+        Ok(BitrevPermutationFunction::new(
+            Arc::clone(&self.device),
+            function,
+            input_buffer,
+            result_buffer,
         ))
     }
 }
@@ -236,6 +266,70 @@ impl<F: IsField> CalcTwiddlesFunction<F> {
         } = self;
         let output = device
             .sync_reclaim(twiddles)
+            .map_err(|err| CudaError::RetrieveMemory(err.to_string()))?
+            .into_iter()
+            .map(FieldElement::from)
+            .collect();
+
+        Ok(output)
+    }
+}
+
+pub(crate) struct BitrevPermutationFunction<F: IsField> {
+    device: Arc<CudaDevice>,
+    function: CudaFunction,
+    input: CudaSlice<CUDAFieldElement<F>>,
+    result: CudaSlice<CUDAFieldElement<F>>,
+}
+
+impl<F: IsField> BitrevPermutationFunction<F> {
+    fn new(
+        device: Arc<CudaDevice>,
+        function: CudaFunction,
+        input: CudaSlice<CUDAFieldElement<F>>,
+        result: CudaSlice<CUDAFieldElement<F>>,
+    ) -> Self {
+        Self {
+            device,
+            function,
+            input,
+            result,
+        }
+    }
+
+    pub(crate) fn launch(&mut self, group_size: usize) -> Result<(), CudaError> {
+        let grid_dim = (1, 1, 1); // in blocks
+        let block_dim = (group_size, 1, 1);
+
+        if block_dim.0 as usize > DeviceSlice::len(&self.input) {
+            return Err(CudaError::IndexOutOfBounds(
+                block_dim.0 as usize,
+                self.input.len(),
+            ));
+        } else if block_dim.0 as usize > DeviceSlice::len(&self.result) {
+            return Err(CudaError::IndexOutOfBounds(
+                block_dim.0 as usize,
+                self.result.len(),
+            ));
+        }
+
+        let config = LaunchConfig {
+            grid_dim,
+            block_dim,
+            shared_mem_bytes: 0,
+        };
+        unsafe {
+            self.function
+                .clone()
+                .launch(config, (&mut self.input, &self.result))
+        }
+        .map_err(|err| CudaError::Launch(err.to_string()))
+    }
+
+    pub(crate) fn retrieve_result(self) -> Result<Vec<FieldElement<F>>, CudaError> {
+        let Self { device, result, .. } = self;
+        let output = device
+            .sync_reclaim(result)
             .map_err(|err| CudaError::RetrieveMemory(err.to_string()))?
             .into_iter()
             .map(FieldElement::from)

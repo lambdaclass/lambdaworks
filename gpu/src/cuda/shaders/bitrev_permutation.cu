@@ -7,7 +7,7 @@ extern "C"
         const p256::Fp *input,
         p256::Fp *result
     ) {
-        unsigned index = blockIdx.x * blockDim.x + threadIdx.x;
+        unsigned index = threadIdx.x;
         unsigned size = blockDim.x;
 
         result[index] = input[reverse_index(index, size)];

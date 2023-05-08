@@ -10,8 +10,6 @@ use cudarc::{
 
 use crate::cuda::abstractions::{element::CUDAFieldElement, errors::CudaError, state::CudaState};
 
-const SHADER_PTX_BITREV_PERMUTATION: &str = include_str!("../shaders/bitrev_permutation.ptx");
-
 /// Executes parallel ordered FFT over a slice of two-adic field elements, in CUDA.
 /// Twiddle factors are required to be in bit-reverse order.
 ///
@@ -60,54 +58,12 @@ pub fn gen_twiddles<F: IsFFTField>(
 pub fn bitrev_permutation<F: IsFFTField>(
     input: Vec<FieldElement<F>>,
 ) -> Result<Vec<FieldElement<F>>, CudaError> {
-    let device = CudaDevice::new(0).map_err(|err| CudaError::DeviceNotFound(err.to_string()))?;
+    let result = input.clone();
+    let mut function = state.get_bitrev_permutation(input, result)?;
 
-    // d_ prefix is used to indicate device memory.
-    let d_input = device
-        .htod_sync_copy(&input.iter().map(CUDAFieldElement::from).collect::<Vec<_>>())
-        .map_err(|err| CudaError::AllocateMemory(err.to_string()))?;
+    function.launch(count)?;
 
-    let mut d_output = device
-        .htod_sync_copy(
-            &(0..input.len())
-                .map(|i| CUDAFieldElement::from(&FieldElement::from(i as u64)))
-                .collect::<Vec<_>>(),
-        )
-        .map_err(|err| CudaError::AllocateMemory(err.to_string()))?;
-
-    device
-        .load_ptx(
-            Ptx::from_src(SHADER_PTX_BITREV_PERMUTATION),
-            "bitrev_permutation",
-            &["bitrev_permutation"],
-        )
-        .map_err(|err| CudaError::PtxError(err.to_string()))?;
-
-    let kernel = device
-        .get_func("bitrev_permutation", "bitrev_permutation")
-        .ok_or_else(|| CudaError::FunctionError("bitrev_permutation".to_string()))?;
-
-    let grid_dim = (1 as u32, 1, 1); // in blocks
-    let block_dim = (input.len() as u32, 1, 1);
-
-    let config = LaunchConfig {
-        grid_dim,
-        block_dim,
-        shared_mem_bytes: 0,
-    };
-
-    unsafe { kernel.clone().launch(config, (&d_input, &mut d_output)) }
-        .map_err(|err| CudaError::Launch(err.to_string()))?;
-
-    let output = device
-        .sync_reclaim(d_output)
-        .map_err(|err| CudaError::RetrieveMemory(err.to_string()))?;
-    let output: Vec<_> = output
-        .into_iter()
-        .map(|cuda_elem| cuda_elem.into())
-        .collect();
-
-    Ok(output)
+    function.retrieve_result()
 }
 
 #[cfg(test)]
