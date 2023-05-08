@@ -10,4 +10,3 @@ pub struct FriDecommitment<F: IsField> {
     pub first_layer_evaluation: FieldElement<F>,
     pub first_layer_auth_path: Proof<F>,
 }
-
