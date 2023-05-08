@@ -9,7 +9,7 @@ use super::{proof::Proof, utils::*};
 #[derive(Clone)]
 pub struct MerkleTree<F: IsField> {
     pub root: FieldElement<F>,
-    pub nodes: Vec<FieldElement<F>>,
+    nodes: Vec<FieldElement<F>>,
 }
 
 const ROOT: usize = 0;
