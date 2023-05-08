@@ -30,9 +30,11 @@ impl IsPairing for BLS12381AtePairing {
     ) -> FieldElement<Self::OutputField> {
         let mut result = FieldElement::one();
         for (p, q) in pairs {
-            let p = p.to_affine();
-            let q = q.to_affine();
-            result = result * miller(&q, &p);
+            if !p.is_neutral_element() && !q.is_neutral_element() {
+                let p = p.to_affine();
+                let q = q.to_affine();
+                result = result * miller(&q, &p);
+            }
         }
         final_exponentiation(&result)
     }
@@ -241,6 +243,19 @@ mod tests {
             ),
             (&p.operate_with_self(a * b).to_affine(), &q.neg()),
         ]);
+        assert_eq!(result, FieldElement::one());
+    }
+
+    #[test]
+    fn ate_pairing_returns_one_when_one_element_is_the_neutral_element() {
+        let p = BLS12381Curve::generator().to_affine();
+        let q = ShortWeierstrassProjectivePoint::neutral_element();
+        let result = BLS12381AtePairing::compute_batch(&[(&p.to_affine(), &q)]);
+        assert_eq!(result, FieldElement::one());
+
+        let p = ShortWeierstrassProjectivePoint::neutral_element();
+        let q = BLS12381TwistCurve::generator();
+        let result = BLS12381AtePairing::compute_batch(&[(&p, &q.to_affine())]);
         assert_eq!(result, FieldElement::one());
     }
 }
