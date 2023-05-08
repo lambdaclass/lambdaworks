@@ -14,11 +14,8 @@ pub fn hash_to_field<M: IsModulus<UnsignedInteger<N>> + Clone, const N: usize>(
     count: usize,
 ) -> Vec<FieldElement<MontgomeryBackendPrimeField<M, N>>> {
     let order = M::MODULUS;
+    let l = compute_length(order);
     let mut u = vec![FieldElement::zero(); count];
-    //L = ceil((ceil(log2(p)) + k) / 8), where k is the security parameter of the cryptosystem (e.g. k = ceil(log2(p) / 2))
-    let log2_p = (order.limbs.len() * 8) as f64;
-    let k = (log2_p / 2.0).ceil() * 8.0;
-    let l = (((log2_p * 8.0) + k) / 8.0).ceil() as usize;
     for (i, item) in u.iter_mut().enumerate() {
         let elm_offset = l * i;
         let tv = &pseudo_random_bytes[elm_offset..elm_offset + l];
@@ -26,6 +23,12 @@ pub fn hash_to_field<M: IsModulus<UnsignedInteger<N>> + Clone, const N: usize>(
         *item = os2ip::<M, N>(tv);
     }
     u
+}
+
+fn compute_length<const N: usize>(order: UnsignedInteger<N>) -> usize {
+    //L = ceil((ceil(log2(p)) + k) / 8), where k is the security parameter of the cryptosystem (e.g. k = ceil(log2(p) / 2))
+    let log2_p = order.limbs.len() << 3;
+    ((log2_p << 3) + (log2_p << 2)) >> 3
 }
 
 /// Converts an octet string to a nonnegative integer.
