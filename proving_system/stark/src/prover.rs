@@ -294,13 +294,13 @@ where
         .map(|layer| layer.merkle_tree.root.clone())
         .collect();
 
-    let deep_consistency_check =
+    let deep_poly_openings =
         open_deep_composition_poly(domain, round_1_result, round_2_result, iota_0);
 
     Round4 {
         fri_last_value,
         fri_layers_merkle_roots,
-        deep_poly_openings: deep_consistency_check,
+        deep_poly_openings,
         query_list,
     }
 }
@@ -371,14 +371,6 @@ where
 {
     let index = index_to_open % domain.lde_roots_of_unity_coset.len();
 
-    // Trace polynomials openings
-    let lde_trace_merkle_proofs = round_1_result
-        .lde_trace_merkle_trees
-        .iter()
-        .map(|tree| tree.get_proof_by_pos(index).unwrap())
-        .collect();
-    let lde_trace_evaluations = round_1_result.lde_trace.get_row(index).to_vec();
-
     // H₁ openings
     let lde_composition_poly_even_proof = round_2_result
         .composition_poly_even_merkle_tree
@@ -394,6 +386,15 @@ where
         .unwrap();
     let lde_composition_poly_odd_evaluation =
         round_2_result.lde_composition_poly_odd_evaluations[index].clone();
+
+    // Trace polynomials openings
+    let lde_trace_merkle_proofs = round_1_result
+        .lde_trace_merkle_trees
+        .iter()
+        .map(|tree| tree.get_proof_by_pos(index).unwrap())
+        .collect();
+    let lde_trace_evaluations = round_1_result.lde_trace.get_row(index).to_vec();
+
 
     DeepPolynomialOpenings {
         lde_composition_poly_even_proof,

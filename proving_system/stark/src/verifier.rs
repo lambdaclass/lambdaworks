@@ -480,31 +480,6 @@ fn reconstruct_deep_composition_poly_evaluation<F: IsFFTField>(
     trace_terms + h_1_term * &challenges.gamma_even + h_2_term * &challenges.gamma_odd
 }
 
-// Verifies that t(x_0) is a trace evaluation
-fn verify_trace_evaluations<F: IsField + IsFFTField>(
-    proof: &StarkProof<F>,
-    q_i: usize,
-    domain: &[FieldElement<F>],
-) -> bool
-where
-    FieldElement<F>: ByteConversion,
-{
-    for ((merkle_root, merkle_proof), evaluation) in proof
-        .lde_trace_merkle_roots
-        .iter()
-        .zip(&proof.deep_poly_openings.lde_trace_merkle_proofs)
-        .zip(&proof.deep_poly_openings.lde_trace_evaluations)
-    {
-        let index = q_i % domain.len();
-
-        if !merkle_proof.verify(merkle_root, index, evaluation, &HASHER) {
-            return false;
-        }
-    }
-
-    true
-}
-
 pub fn verify<F, A>(proof: &StarkProof<F>, air: &A) -> bool
 where
     F: IsFFTField,
