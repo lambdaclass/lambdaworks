@@ -12,8 +12,9 @@ use crate::unsigned_integer::traits::IsUnsignedInteger;
 /// If `hidings` and `cs` are empty, then `msm` returns the zero element of the group.
 ///
 /// Panics if `cs` and `hidings` have different lengths.
-pub fn msm<C: IsUnsignedInteger, T>(cs: &[C], hidings: &[T]) -> T
+pub fn msm<C, T>(cs: &[C], hidings: &[T]) -> T
 where
+    C: IsUnsignedInteger,
     T: IsGroup,
 {
     debug_assert_eq!(

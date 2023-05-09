@@ -5,7 +5,7 @@ use lambdaworks_math::{
     cyclic_group::IsGroup,
     elliptic_curve::{short_weierstrass::errors::DeserializationError, traits::IsPairing},
     field::{element::FieldElement, traits::IsPrimeField},
-    msm::msm,
+    msm::naive::msm,
     polynomial::Polynomial,
     traits::{Deserializable, Serializable},
 };
