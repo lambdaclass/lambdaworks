@@ -4,10 +4,12 @@ use super::transcript::Transcript;
 
 pub struct DefaultTranscript {
     hasher: Sha3_256,
+    pub counter: Vec<(usize, u8)>,
 }
 
 impl Transcript for DefaultTranscript {
     fn append(&mut self, new_data: &[u8]) {
+        self.counter.push((0, new_data[0]));
         self.hasher.update(&mut new_data.to_owned());
     }
 
@@ -15,6 +17,16 @@ impl Transcript for DefaultTranscript {
         let mut result_hash = [0_u8; 32];
         result_hash.copy_from_slice(&self.hasher.finalize_reset());
         self.hasher.update(result_hash);
+        self.counter.push((1, result_hash[0]));
+        // println!("RESULT HASH: {:?}", result_hash);
+        if result_hash[0] == 8 {
+            let hola = 2 + 2;
+            println!("TUKI {}", hola);
+        }
+        if result_hash[0] == 231 {
+            let chau = 1 + 2;
+            println!("TAKI {}", chau);
+        }
         result_hash
     }
 }
@@ -29,6 +41,7 @@ impl DefaultTranscript {
     pub fn new() -> Self {
         Self {
             hasher: Sha3_256::new(),
+            counter: Vec::new(),
         }
     }
 }

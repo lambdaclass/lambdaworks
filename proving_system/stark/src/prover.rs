@@ -339,6 +339,14 @@ where
     //
     // In the fibonacci example, the ood frame is simply the evaluations `[t(z), t(z * g), t(z * g^2)]`, where `t` is the trace
     // polynomial and `g` is the primitive root of unity used when interpolating `t`.
+    // let mut trace_polys = round_1_result.main_trace_polys.clone();
+    // if air.is_multi_segment() {
+    //     (0..air.num_aux_segments()).for_each(|segment_idx| {
+    //         trace_polys
+    //             .extend_from_slice(&round_1_result.aux_trace_polys.as_ref().unwrap()[segment_idx])
+    //     })
+    // }
+
     let ood_main_trace_evaluations = Frame::get_trace_evaluations(
         &round_1_result.main_trace_polys,
         z,
@@ -402,6 +410,7 @@ where
     let mut deep_composition_poly = compute_deep_composition_poly(
         air,
         &round_1_result.main_trace_polys,
+        round_1_result.aux_trace_polys.clone(),
         &round_2_result.composition_poly_even,
         &round_2_result.composition_poly_odd,
         z,
@@ -513,7 +522,8 @@ where
 /// composition polynomial, with coefficients sampled by the verifier (i.e. using Fiat-Shamir).
 fn compute_deep_composition_poly<A: AIR, F: IsFFTField, T: Transcript>(
     air: &A,
-    trace_polys: &[Polynomial<FieldElement<F>>],
+    main_trace_polys: &[Polynomial<FieldElement<F>>],
+    aux_trace_polys: Option<Vec<Vec<Polynomial<FieldElement<F>>>>>,
     even_composition_poly: &Polynomial<FieldElement<F>>,
     odd_composition_poly: &Polynomial<FieldElement<F>>,
     ood_evaluation_point: &FieldElement<F>,
@@ -522,14 +532,27 @@ fn compute_deep_composition_poly<A: AIR, F: IsFFTField, T: Transcript>(
 ) -> Polynomial<FieldElement<F>> {
     let transition_offsets = air.context().transition_offsets;
 
+    let mut trace_polys = main_trace_polys.to_vec();
+    if air.is_multi_segment() {
+        (0..air.num_aux_segments()).for_each(|segment_idx| {
+            trace_polys.extend_from_slice(&aux_trace_polys.as_ref().unwrap()[segment_idx]);
+            // let aux_evaluations = Frame::get_trace_evaluations(
+            //     &aux_trace_polys.as_ref().unwrap()[segment_idx],
+            //     ood_evaluation_point,
+            //     &transition_offsets,
+            //     primitive_root,
+            // );
+            // trace_evaluations.extend_from_slice(&aux_evaluations);
+        });
+    }
     // Get trace evaluations needed for the trace terms of the deep composition polynomial
+
     let trace_evaluations = Frame::get_trace_evaluations(
-        trace_polys,
+        &trace_polys,
         ood_evaluation_point,
         &transition_offsets,
         primitive_root,
     );
-
     // Compute all the trace terms of the deep composition polynomial. There will be one
     // term for every trace polynomial and every trace evaluation.
     let mut trace_terms = Polynomial::zero();
@@ -541,6 +564,7 @@ fn compute_deep_composition_poly<A: AIR, F: IsFFTField, T: Transcript>(
                 / (Polynomial::new_monomial(FieldElement::<F>::one(), 1)
                     - Polynomial::new_monomial(root_of_unity, 0));
             let coeff = transcript_to_field::<F, T>(transcript);
+            println!("TRACE TERM COEFF - PROVER: {:?}", coeff);
 
             trace_terms = trace_terms + poly * coeff;
         }
@@ -576,14 +600,20 @@ where
     FieldElement<F>: ByteConversion,
 {
     let index = index_to_verify % domain.lde_roots_of_unity_coset.len();
-    let lde_trace_merkle_proofs = round_1_result
+    let lde_trace_merkle_proofs: Vec<_> = round_1_result
         .main_lde_trace_merkle_trees
         .iter()
         .map(|tree| tree.get_proof_by_pos(index).unwrap())
         .collect();
 
     let d_evaluation_point = &domain.lde_roots_of_unity_coset[index];
-    let lde_trace_evaluations = round_1_result.full_lde_trace.get_row(index).to_vec();
+    let mut lde_trace_evaluations = round_1_result.full_lde_trace.get_row(index).to_vec();
+
+    if let Some(aux_segments) = &round_1_result.full_lde_trace.aux_segments {
+        aux_segments
+            .iter()
+            .for_each(|segment| lde_trace_evaluations.extend_from_slice(segment.get_row(0)));
+    }
 
     let composition_poly_evaluations = vec![
         composition_poly_even.evaluate(d_evaluation_point),
@@ -592,8 +622,8 @@ where
 
     DeepConsistencyCheck {
         lde_trace_merkle_roots: round_1_result.main_lde_trace_merkle_roots.clone(),
-        lde_trace_merkle_proofs,
-        lde_trace_evaluations,
+        lde_trace_merkle_proofs: lde_trace_merkle_proofs.clone(),
+        lde_trace_evaluations: lde_trace_evaluations.clone(),
         composition_poly_evaluations,
     }
 }
@@ -683,6 +713,7 @@ where
 
     if air.is_multi_segment() {
         debug_assert!(!round_3_result.aux_trace_ood_frame_evaluations.is_none());
+        println!("TRANSCRIPT COUNTER - PROVER: {:?}", transcript.counter);
         return StarkProof {
             fri_layers_merkle_roots: round_4_result.fri_layers_merkle_roots,
             trace_ood_frame_evaluations: round_3_result.trace_ood_frame_evaluations,
@@ -694,7 +725,6 @@ where
             query_list: round_4_result.query_list,
         };
     }
-
     StarkProof {
         fri_layers_merkle_roots: round_4_result.fri_layers_merkle_roots,
         trace_ood_frame_evaluations: round_3_result.trace_ood_frame_evaluations,

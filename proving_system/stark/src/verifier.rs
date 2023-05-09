@@ -33,7 +33,8 @@ struct DeepCompositionPolyArgs<'a, F: IsFFTField> {
     gamma_odd: &'a FieldElement<F>,
     d_evaluation_point: &'a FieldElement<F>,
     ood_evaluation_point: &'a FieldElement<F>,
-    trace_poly_ood_evaluations: &'a Frame<F>,
+    aux_ood_frame_evaluations: Option<&'a Vec<Frame<F>>>,
+    main_trace_poly_ood_evaluations: &'a Frame<F>,
     composition_poly_ood_evaluations: &'a [FieldElement<F>],
     deep_consistency_check: &'a DeepConsistencyCheck<F>,
 }
@@ -135,6 +136,10 @@ where
         })
         .collect::<Vec<Vec<FieldElement<F>>>>();
 
+    trace_term_coeffs.iter().for_each(|coeff| {
+        println!("TRACE TERM COEFF - VERIFIER: {:?}", coeff);
+    });
+
     // Get coefficients for even and odd terms of the composition polynomial H(x)
     let gamma_even = transcript_to_field::<F, _>(transcript);
     let gamma_odd = transcript_to_field::<F, _>(transcript);
@@ -196,8 +201,24 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
     let mut boundary_c_i_evaluations = Vec::new();
     let mut boundary_quotient_degrees = Vec::new();
 
+    let n_trace_cols = if let Some(aux_segments_info) = air.trace_info().layout.aux_segments_info {
+        n_main_trace_cols + aux_segments_info.aux_segment_widths.iter().sum::<usize>()
+    } else {
+        n_main_trace_cols
+    };
+
+    let aux_trace_evaluations: Vec<&FieldElement<F>> = proof
+        .aux_ood_frame_evaluations
+        .as_ref()
+        .unwrap()
+        .iter()
+        .map(|frame| frame.get_row(0).clone())
+        .flatten()
+        .collect();
+
     for trace_idx in 0..n_main_trace_cols {
         let trace_evaluation = &proof.trace_ood_frame_evaluations.get_row(0)[trace_idx];
+
         let boundary_constraints_domain = boundary_constraint_domains[trace_idx].clone();
         let boundary_interpolating_polynomial =
             &Polynomial::interpolate(&boundary_constraints_domain, &values[trace_idx]);
@@ -228,17 +249,6 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
             debug_assert!(!&proof.aux_ood_frame_evaluations.is_none());
             debug_assert!(!air.trace_info().layout.aux_segments_info.is_none());
 
-            // TODO: We should think how to deal with these rand elements. This is done only for debugging
-            // quickly.
-            // let n_rand_elements = air
-            //     .trace_info()
-            //     .layout
-            //     .aux_segments_info
-            //     .unwrap()
-            //     .aux_segment_rands[segment_idx];
-
-            // FIXME: THIS SHOULD BE FIAT-SHAMIR
-            // let aux_rand_elements = vec![FieldElement::<F>::one(); n_rand_elements];
             let aux_rand_elements = &aux_segments_rand_elements[segment_idx];
 
             let aux_boundary_constraints =
@@ -381,7 +391,6 @@ where
     A: AIR<Field = F>,
     T: Transcript,
 {
-    println!("ENTRE FRI");
     // Verify that t(x_0) is a trace evaluation
     // and verify first layer of FRI
     if !verify_trace_evaluations(
@@ -433,7 +442,8 @@ fn step_4_verify_deep_composition_polynomial<F: IsFFTField>(
         gamma_odd: &challenges.gamma_odd,
         d_evaluation_point: &domain.lde_roots_of_unity_coset[challenges.q_0],
         ood_evaluation_point: &challenges.z,
-        trace_poly_ood_evaluations: &proof.trace_ood_frame_evaluations,
+        main_trace_poly_ood_evaluations: &proof.trace_ood_frame_evaluations,
+        aux_ood_frame_evaluations: proof.aux_ood_frame_evaluations.as_ref(),
         composition_poly_ood_evaluations: &proof.composition_poly_ood_evaluations,
         deep_consistency_check: &proof.deep_consistency_check,
     };
@@ -578,12 +588,18 @@ fn compare_deep_composition_poly<F: IsFFTField>(
 
     let mut trace_terms = FieldElement::zero();
 
+    println!("TRACE TERM COEFFS LEN: {}", args.trace_term_coeffs.len());
+
+    let n_trace_colums = deep_consistency_check.lde_trace_evaluations.len();
+
     for (col_idx, coeff_row) in
-        (0..args.trace_poly_ood_evaluations.num_columns()).zip(args.trace_term_coeffs)
+        (0..args.main_trace_poly_ood_evaluations.num_columns()).zip(args.trace_term_coeffs)
     {
-        for (row_idx, coeff) in (0..args.trace_poly_ood_evaluations.num_rows()).zip(coeff_row) {
+        println!("COL IDX: {}", col_idx);
+        for (row_idx, coeff) in (0..args.main_trace_poly_ood_evaluations.num_rows()).zip(coeff_row)
+        {
             let poly_evaluation = (deep_consistency_check.lde_trace_evaluations[col_idx].clone()
-                - args.trace_poly_ood_evaluations.get_row(row_idx)[col_idx].clone())
+                - args.main_trace_poly_ood_evaluations.get_row(row_idx)[col_idx].clone())
                 / (args.d_evaluation_point
                     - args.ood_evaluation_point * primitive_root.pow(row_idx as u64));
 
@@ -647,7 +663,7 @@ where
     if !step_2_verify_claimed_composition_polynomial(air, proof, &domain, &challenges) {
         return false;
     }
-
+    println!("TRANSCRIPT COUNTER - VERIFIER: {:?}", transcript.counter);
     if !step_3_verify_fri(air, proof, &domain, &challenges, &mut transcript) {
         return false;
     }
