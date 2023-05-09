@@ -15,12 +15,17 @@ pub fn msm<const NUM_LIMBS: usize, G>(cs: &[UnsignedInteger<NUM_LIMBS>], hidings
 where
     G: IsGroup,
 {
+    debug_assert_eq!(
+        cs.len(),
+        hidings.len(),
+        "Slices `cs` and `hidings` must be of the same length to compute `msm`."
+    );
     // TODO: set dynamically based on NUM_LIMBS and cs.len()
     let window_size = 4;
     msm_with(cs, hidings, window_size)
 }
 
-fn msm_with<const NUM_LIMBS: usize, G>(
+pub fn msm_with<const NUM_LIMBS: usize, G>(
     cs: &[UnsignedInteger<NUM_LIMBS>],
     hidings: &[G],
     window_size: usize,
@@ -28,11 +33,6 @@ fn msm_with<const NUM_LIMBS: usize, G>(
 where
     G: IsGroup,
 {
-    debug_assert_eq!(
-        cs.len(),
-        hidings.len(),
-        "Slices `cs` and `hidings` must be of the same length to compute `msm`."
-    );
     debug_assert!(window_size < usize::BITS as usize);
     // The number of windows of size `s` is ceil(lambda/s).
     let num_windows = (64 * NUM_LIMBS - 1) / window_size + 1;
