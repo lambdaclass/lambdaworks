@@ -15,6 +15,16 @@ where
     values.iter().map(|val| hasher.hash_one(val)).collect()
 }
 
+pub fn hash_rows<F: IsField>(
+    rows: &[Vec<FieldElement<F>>],
+    hasher: &dyn IsCryptoHash<F>,
+) -> Vec<FieldElement<F>>
+where
+    FieldElement<F>: ByteConversion,
+{
+    rows.iter().map(|row| hasher.hash_many(row)).collect()
+}
+
 pub fn sibling_index(node_index: usize) -> usize {
     if node_index % 2 == 0 {
         node_index - 1
@@ -85,7 +95,7 @@ mod tests {
 
     use crate::merkle_tree::test_merkle::TestHasher;
 
-    use super::{build, complete_until_power_of_two, hash_leaves};
+    use super::{build, complete_until_power_of_two, hash_leaves, hash_rows};
 
     const MODULUS: u64 = 13;
     type U64PF = U64PrimeField<MODULUS>;
@@ -97,6 +107,22 @@ mod tests {
         let values: Vec<FE> = (1..5).map(FE::new).collect();
         let hashed_leaves = hash_leaves(&values, &TestHasher);
         let list_of_nodes = &[FE::new(2), FE::new(4), FE::new(6), FE::new(8)];
+        for (leaf, expected_leaf) in hashed_leaves.iter().zip(list_of_nodes) {
+            assert_eq!(leaf, expected_leaf);
+        }
+    }
+
+    #[test]
+    // expected |3|7|3|5|
+    fn hash_rows_from_a_list_of_rows_of_field_elemnts() {
+        let rows = vec![
+            vec![FE::from(1), FE::from(2)],
+            vec![FE::from(3), FE::from(4)],
+            vec![FE::from(1), FE::from(2)],
+            vec![FE::from(2), FE::from(3)],
+        ];
+        let hashed_leaves = hash_rows(&rows, &TestHasher);
+        let list_of_nodes = &[FE::new(3), FE::new(7), FE::new(3), FE::new(5)];
         for (leaf, expected_leaf) in hashed_leaves.iter().zip(list_of_nodes) {
             assert_eq!(leaf, expected_leaf);
         }

@@ -40,4 +40,10 @@ impl<F: IsField> IsCryptoHash<F> for TestHasher {
     fn hash_two(&self, left: &FieldElement<F>, right: &FieldElement<F>) -> FieldElement<F> {
         left + right
     }
+
+    fn hash_many(&self, elements: &[FieldElement<F>]) -> FieldElement<F> {
+        elements
+            .iter()
+            .fold(FieldElement::zero(), |acc, elem| acc + elem)
+    }
 }

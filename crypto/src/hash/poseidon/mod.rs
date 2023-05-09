@@ -37,11 +37,7 @@ impl IsCryptoHash<BLS12381PrimeField> for Poseidon<BLS12381PrimeField> {
     ) -> FieldElement<BLS12381PrimeField> {
         // return first element of the state (unwraps to be removed after trait changes to return Result<>)
         // This clone could be removed
-        self.hash(&[input.clone()])
-            .unwrap()
-            .first()
-            .unwrap()
-            .clone()
+        self.hash_many(&[input.clone()])
     }
 
     fn hash_two(
@@ -50,11 +46,15 @@ impl IsCryptoHash<BLS12381PrimeField> for Poseidon<BLS12381PrimeField> {
         right: &FieldElement<BLS12381PrimeField>,
     ) -> FieldElement<BLS12381PrimeField> {
         // return first element of the state (unwraps to be removed after trait changes to return Result<>)
-        self.hash(&[left.clone(), right.clone()])
-            .unwrap()
-            .first()
-            .unwrap()
-            .clone()
+        self.hash_many(&[left.clone(), right.clone()])
+    }
+
+    fn hash_many(
+        &self,
+        elements: &[FieldElement<BLS12381PrimeField>],
+    ) -> FieldElement<BLS12381PrimeField> {
+        // return first element of the state (unwraps to be removed after trait changes to return Result<>)
+        self.hash(elements).unwrap().first().unwrap().clone()
     }
 }
 

@@ -21,4 +21,12 @@ where
     ) -> field::element::FieldElement<F>
     where
         FieldElement<F>: ByteConversion;
+
+    /// Hashes many field elements into one.
+    fn hash_many(
+        &self,
+        elements: &[field::element::FieldElement<F>],
+    ) -> field::element::FieldElement<F>
+    where
+        FieldElement<F>: ByteConversion;
 }

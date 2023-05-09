@@ -97,4 +97,17 @@ impl<M: IsModulus<UnsignedInteger<N>> + Clone, const N: usize>
         result_hash.copy_from_slice(&hasher.finalize());
         FieldElement::from_bytes_le(&result_hash).unwrap()
     }
+
+    fn hash_many(
+        &self,
+        elements: &[FieldElement<MontgomeryBackendPrimeField<M, N>>],
+    ) -> FieldElement<MontgomeryBackendPrimeField<M, N>> {
+        let mut hasher = Sha3_256::new();
+        for elem in elements {
+            hasher.update(elem.to_bytes_be());
+        }
+        let mut result_hash = [0_u8; 32];
+        result_hash.copy_from_slice(&hasher.finalize());
+        FieldElement::from_bytes_le(&result_hash).unwrap()
+    }
 }
