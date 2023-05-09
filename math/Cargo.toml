@@ -30,3 +30,7 @@ harness = false
 [[bench]]
 name = "iai_field"
 harness = false
+
+[[bench]]
+name = "criterion_msm"
+harness = false
