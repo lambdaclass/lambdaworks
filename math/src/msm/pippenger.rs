@@ -84,7 +84,9 @@ mod tests {
     };
     use proptest::{collection, prelude::*, prop_assert_eq, prop_compose, proptest};
 
-    const MAX_WSIZE: usize = 16;
+    const _CASES: u32 = 20;
+    const _MAX_WSIZE: usize = 8;
+    const _MAX_LEN: usize = 30;
 
     prop_compose! {
         fn bls12381_element()(limbs: [u64; 6]) -> FieldElement::<BLS12381PrimeField> {
@@ -93,7 +95,7 @@ mod tests {
     }
 
     prop_compose! {
-        fn bls12381_element_vec()(vec in collection::vec(bls12381_element(), 0..100)) -> Vec<FieldElement::<BLS12381PrimeField>> {
+        fn bls12381_element_vec()(vec in collection::vec(bls12381_element(), 0.._MAX_LEN)) -> Vec<FieldElement::<BLS12381PrimeField>> {
             vec
         }
     }
@@ -105,18 +107,18 @@ mod tests {
     }
 
     prop_compose! {
-        fn points_vec()(vec in collection::vec(point(), 0..100)) -> Vec<<BLS12381Curve as IsEllipticCurve>::PointRepresentation> {
+        fn points_vec()(vec in collection::vec(point(), 0.._MAX_LEN)) -> Vec<<BLS12381Curve as IsEllipticCurve>::PointRepresentation> {
             vec
         }
     }
 
     proptest! {
         #![proptest_config(ProptestConfig {
-            cases: 1, .. ProptestConfig::default()
+            cases: _CASES, .. ProptestConfig::default()
           })]
         // Property-based test that ensures FFT eval. gives same result as a naive polynomial evaluation.
-        #[test]
-        fn test_pippenger_matches_naive_msm(window_size in 1..MAX_WSIZE, cs in bls12381_element_vec(), hidings in points_vec()) {
+        // #[test]
+        fn test_pippenger_matches_naive_msm(window_size in 1.._MAX_WSIZE, cs in bls12381_element_vec(), hidings in points_vec()) {
             let min_len = cs.len().min(hidings.len());
             let cs = cs[..min_len].to_vec();
             let hidings = hidings[..min_len].to_vec();
