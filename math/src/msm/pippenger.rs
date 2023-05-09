@@ -22,7 +22,7 @@ where
         hidings.len(),
         "Slices `cs` and `hidings` must be of the same length to compute `msm`."
     );
-    assert!(window_size < usize::MAX);
+    assert!(window_size < usize::BITS as usize);
     // The number of windows of size `s` is ceil(lambda/s).
     let num_windows = (64 * NUM_LIMBS - 1) / window_size + 1;
 
@@ -40,10 +40,13 @@ where
         .map(|window_idx| {
             // Put in the right bucket the corresponding ps[i] for the current window.
             cs.iter().zip(hidings).for_each(|(k, p)| {
-                // The window_size should be lower than usize::MAX <= u64::MAX so this is ok
-                let window_unmasked = (k.representative() >> (window_idx * window_size)).limbs[0];
+                // We truncate the number to the least significative limb.
+                // This is ok because window_size < usize::BITS.
+                let window_unmasked = (dbg!(k.representative())
+                    >> (dbg!(window_idx) * dbg!(window_size)))
+                .limbs[NUM_LIMBS - 1];
                 let m_ij = window_unmasked & ((1 << window_size) - 1);
-                if m_ij != 0 {
+                if dbg!(m_ij) != 0 {
                     let idx = (m_ij - 1) as usize;
                     buckets[idx] = buckets[idx].operate_with(p);
                 }
@@ -81,6 +84,8 @@ mod tests {
     };
     use proptest::{collection, prelude::*, prop_assert_eq, prop_compose, proptest};
 
+    const MAX_WSIZE: usize = 16;
+
     prop_compose! {
         fn bls12381_element()(limbs: [u64; 6]) -> FieldElement::<BLS12381PrimeField> {
             FieldElement::<BLS12381PrimeField>::new(UnsignedInteger::from_limbs(limbs))
@@ -88,7 +93,7 @@ mod tests {
     }
 
     prop_compose! {
-        fn bls12381_element_vec()(vec in collection::vec(bls12381_element(), 0..30)) -> Vec<FieldElement::<BLS12381PrimeField>> {
+        fn bls12381_element_vec()(vec in collection::vec(bls12381_element(), 0..100)) -> Vec<FieldElement::<BLS12381PrimeField>> {
             vec
         }
     }
@@ -100,7 +105,7 @@ mod tests {
     }
 
     prop_compose! {
-        fn points_vec()(vec in collection::vec(point(), 0..30)) -> Vec<<BLS12381Curve as IsEllipticCurve>::PointRepresentation> {
+        fn points_vec()(vec in collection::vec(point(), 0..100)) -> Vec<<BLS12381Curve as IsEllipticCurve>::PointRepresentation> {
             vec
         }
     }
@@ -111,12 +116,12 @@ mod tests {
           })]
         // Property-based test that ensures FFT eval. gives same result as a naive polynomial evaluation.
         #[test]
-        fn test_pippenger_matches_naive_msm(_window_size: usize, cs in bls12381_element_vec(), hidings in points_vec()) {
+        fn test_pippenger_matches_naive_msm(window_size in 1..MAX_WSIZE, cs in bls12381_element_vec(), hidings in points_vec()) {
             let min_len = cs.len().min(hidings.len());
             let cs = cs[..min_len].to_vec();
             let hidings = hidings[..min_len].to_vec();
 
-            let pippenger = pippenger::msm(&cs, &hidings, 4);
+            let pippenger = pippenger::msm(&cs, &hidings, window_size);
 
             let cs: Vec<_> = cs.into_iter().map(|x| x.representative()).collect();
             let naive = naive::msm(&cs, &hidings);
