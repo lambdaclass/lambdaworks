@@ -11,7 +11,16 @@ use crate::{cyclic_group::IsGroup, unsigned_integer::element::UnsignedInteger};
 /// If `hidings` and `cs` are empty, then `msm` returns the zero element of the group.
 ///
 /// Panics if `cs` and `hidings` have different lengths.
-pub fn msm<const NUM_LIMBS: usize, G>(
+pub fn msm<const NUM_LIMBS: usize, G>(cs: &[UnsignedInteger<NUM_LIMBS>], hidings: &[G]) -> G
+where
+    G: IsGroup,
+{
+    // TODO: set dynamically based on NUM_LIMBS and cs.len()
+    let window_size = 4;
+    msm_with(cs, hidings, window_size)
+}
+
+fn msm_with<const NUM_LIMBS: usize, G>(
     cs: &[UnsignedInteger<NUM_LIMBS>],
     hidings: &[G],
     window_size: usize,
@@ -46,7 +55,7 @@ where
                 // This is ok because window_size < usize::BITS.
                 let window_unmasked = (k >> (window_idx * window_size)).limbs[NUM_LIMBS - 1];
                 let m_ij = window_unmasked & ((1 << window_size) - 1);
-                if dbg!(m_ij) != 0 {
+                if m_ij != 0 {
                     let idx = (m_ij - 1) as usize;
                     buckets[idx] = buckets[idx].operate_with(p);
                 }
@@ -119,7 +128,7 @@ mod tests {
             let cs = cs[..min_len].to_vec();
             let hidings = hidings[..min_len].to_vec();
 
-            let pippenger = pippenger::msm(&cs, &hidings, window_size);
+            let pippenger = pippenger::msm_with(&cs, &hidings, window_size);
             let naive = naive::msm(&cs, &hidings);
 
             prop_assert_eq!(naive, pippenger);
