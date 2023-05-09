@@ -2,7 +2,7 @@ use lambdaworks_math::{
     cyclic_group::IsGroup,
     elliptic_curve::traits::IsPairing,
     field::{element::FieldElement, traits::IsPrimeField},
-    msm::msm,
+    msm::naive::msm,
     polynomial::Polynomial,
 };
 use std::marker::PhantomData;
