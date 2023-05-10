@@ -344,7 +344,7 @@ mod tests {
         let y0 = FieldElement::from(9000);
         let upsilon = &FieldElement::from(1);
 
-        let proof = kzg.open_batch(&x, &[y0.clone()], &[p0], &upsilon);
+        let proof = kzg.open_batch(&x, &[y0.clone()], &[p0], upsilon);
 
         assert!(kzg.verify_batch(&x, &[y0], &[p0_commitment], &proof, upsilon));
     }
@@ -359,9 +359,15 @@ mod tests {
         let y0 = FieldElement::from(9000);
         let upsilon = &FieldElement::from(1);
 
-        let proof = kzg.open_batch(&x, &[y0.clone(),y0.clone()], &[p0.clone(),p0.clone()], upsilon);
+        let proof = kzg.open_batch(&x, &[y0.clone(), y0.clone()], &[p0.clone(), p0], upsilon);
 
-        assert!(kzg.verify_batch(&x, &[y0.clone(), y0.clone()], &[p0_commitment.clone(), p0_commitment.clone()], &proof, upsilon));
+        assert!(kzg.verify_batch(
+            &x,
+            &[y0.clone(), y0],
+            &[p0_commitment.clone(), p0_commitment],
+            &proof,
+            upsilon
+        ));
     }
 
     #[test]
@@ -374,17 +380,26 @@ mod tests {
         let p0_commitment: <BLS12381AtePairing as IsPairing>::G1Point = kzg.commit(&p0);
         let y0 = FieldElement::from(9000);
 
-        let p1 = Polynomial::<FrElement>::new(&[FieldElement::from(1),FieldElement::from(2),-FieldElement::from(1)]);
+        let p1 = Polynomial::<FrElement>::new(&[
+            FieldElement::from(1),
+            FieldElement::from(2),
+            -FieldElement::from(1),
+        ]);
         let p1_commitment: <BLS12381AtePairing as IsPairing>::G1Point = kzg.commit(&p1);
         let y1 = p1.evaluate(&x);
 
         let upsilon = &FieldElement::from(1);
 
-        let proof = kzg.open_batch(&x, &[y0.clone(),y1.clone()], &[p0.clone(),p1.clone()], upsilon);
+        let proof = kzg.open_batch(&x, &[y0.clone(), y1.clone()], &[p0, p1], upsilon);
 
-        assert!(kzg.verify_batch(&x, &[y0.clone(), y1.clone()], &[p0_commitment.clone(), p1_commitment.clone()], &proof, upsilon));
+        assert!(kzg.verify_batch(
+            &x,
+            &[y0, y1],
+            &[p0_commitment, p1_commitment],
+            &proof,
+            upsilon
+        ));
     }
-
 
     #[test]
     fn serialize_deserialize_srs() {
