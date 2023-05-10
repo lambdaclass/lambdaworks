@@ -14,7 +14,7 @@ pub type U256PrimeField<M> = MontgomeryBackendPrimeField<M, 4>;
 /// This trait is necessary for us to be able to use unsigned integer types bigger than
 /// `u128` (the biggest native `unit`) as constant generics.
 /// This trait should be removed when Rust supports this feature.
-pub trait IsModulus<U> {
+pub trait IsModulus<U>: Debug {
     const MODULUS: U;
 }
 

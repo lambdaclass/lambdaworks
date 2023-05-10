@@ -95,13 +95,14 @@ where
 
 #[cfg(test)]
 mod tests {
+    use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::default_types::FrField;
     use lambdaworks_math::elliptic_curve::{
         short_weierstrass::curves::bls12_381::curve::BLS12381Curve, traits::IsEllipticCurve,
     };
 
     use super::*;
     use crate::test_utils::circuit_1::test_common_preprocessed_input_1;
-    use crate::test_utils::utils::{test_srs, FpElement, FrField, KZG};
+    use crate::test_utils::utils::{test_srs, FpElement, KZG};
 
     #[test]
     fn setup_works_for_simple_circuit() {
