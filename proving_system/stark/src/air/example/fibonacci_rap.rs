@@ -14,16 +14,8 @@ use crate::{
     transcript_to_field,
 };
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
-use lambdaworks_math::{
-    field::{
-        fields::{
-            fft_friendly::stark_252_prime_field::Stark252PrimeField,
-            u64_prime_field::{F17, FE17},
-        },
-        traits::{IsFFTField, IsField},
-    },
-    helpers::{next_power_of_two, resize_to_next_power_of_two},
-    polynomial::Polynomial,
+use lambdaworks_math::field::{
+    fields::fft_friendly::stark_252_prime_field::Stark252PrimeField, traits::IsFFTField,
 };
 
 #[derive(Clone)]
@@ -39,7 +31,6 @@ impl FibonacciRAP {
 
 impl AIR for FibonacciRAP {
     type Field = Stark252PrimeField;
-    // type Field = F17;
 
     fn compute_transition(&self, frame: &Frame<Self::Field>) -> Vec<FieldElement<Self::Field>> {
         let first_row = frame.get_row(0);

@@ -1,4 +1,3 @@
-use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsFFTField},
     helpers,
@@ -59,7 +58,7 @@ impl<'poly, F: IsFFTField, A: AIR<Field = F>> ConstraintEvaluator<'poly, F, A> {
                 .zip(self.main_trace_polys)
                 .map(|((xs, ys), trace_poly)| {
                     if xs.is_empty() {
-                        return trace_poly.clone();
+                        trace_poly.clone()
                     } else {
                         trace_poly - &Polynomial::interpolate(&xs, &ys)
                     }
@@ -91,7 +90,7 @@ impl<'poly, F: IsFFTField, A: AIR<Field = F>> ConstraintEvaluator<'poly, F, A> {
             // Update trace_polys vector with auxiliary trace polynomials.
             self.aux_trace_polys
                 .iter()
-                .for_each(|aux_poly| trace_polys.extend_from_slice(&aux_poly));
+                .for_each(|aux_poly| trace_polys.extend_from_slice(aux_poly));
 
             transition_degrees.extend_from_slice(&aux_transition_degrees);
 
@@ -111,7 +110,7 @@ impl<'poly, F: IsFFTField, A: AIR<Field = F>> ConstraintEvaluator<'poly, F, A> {
                 // them up as a part of the RAP.
                 let aux_segment_boundary_constraints = self
                     .air
-                    .aux_boundary_constraints(segment_idx, &aux_segment_rand_elements);
+                    .aux_boundary_constraints(segment_idx, aux_segment_rand_elements);
 
                 // Get the domains where the boundary constraints are to be applied and their
                 // corresponding values.

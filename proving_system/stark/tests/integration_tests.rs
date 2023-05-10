@@ -142,7 +142,7 @@ fn test_prove_fib_2_cols() {
 fn test_prove_quadratic() {
     let trace = quadratic_air::quadratic_trace(FE::from(3), 4);
     let trace_table = TraceTable {
-        main_segment: trace.clone(),
+        main_segment: trace,
         main_segment_width: 1,
         aux_segments: None,
     };

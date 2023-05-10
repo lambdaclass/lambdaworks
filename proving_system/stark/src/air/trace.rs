@@ -18,17 +18,6 @@ pub struct AuxSegmentsInfo {
     pub num_aux_segments: usize,
 }
 
-impl AuxSegmentsInfo {
-    fn new(aux_segment_widths: Vec<usize>, aux_segment_rands: Vec<usize>) -> Self {
-        debug_assert_eq!(aux_segment_widths.len(), aux_segment_rands.len());
-        Self {
-            aux_segment_rands,
-            num_aux_segments: aux_segment_widths.len(),
-            aux_segment_widths,
-        }
-    }
-}
-
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
 pub struct AuxiliarySegment<F: IsFFTField> {
     //`aux_segment` is a row-major trace element description
@@ -175,7 +164,7 @@ impl<F: IsFFTField> TraceTable<F> {
             .unwrap()
     }
 
-    pub fn get_aux_segment<'a>(&'a self, segment_idx: usize) -> &'a AuxiliarySegment<F> {
+    pub fn get_aux_segment(&self, segment_idx: usize) -> &AuxiliarySegment<F> {
         &self.aux_segments.as_ref().unwrap()[segment_idx]
     }
 

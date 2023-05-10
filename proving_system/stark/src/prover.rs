@@ -4,7 +4,6 @@ use super::{
     sample_z_ood,
 };
 use crate::{
-    air::trace::AuxiliarySegment,
     fri::HASHER,
     proof::{DeepConsistencyCheck, StarkProof, StarkQueryProof},
     transcript_to_field, transcript_to_usize, Domain,
@@ -24,18 +23,26 @@ use lambdaworks_math::{
 };
 use log::{error, info};
 
-// type AuxSegments<F> = Vec<AuxiliarySegment<F>>;
-type LDEAuxSegmentsEvaluations<F> = Vec<Vec<Vec<FieldElement<F>>>>;
+type MainSegmentPolys<F> = Vec<Polynomial<FieldElement<F>>>;
+type MainLdeTraceEvaluations<F> = Vec<Vec<FieldElement<F>>>;
+type MainSegmentMerkleTrees<F> = Vec<MerkleTree<F>>;
+type MainSegmentMerkleRoots<F> = Vec<FieldElement<F>>;
+
+type AuxSegmentsLdeTraceEvaluations<F> = Vec<Vec<Vec<FieldElement<F>>>>;
 type AuxSegmentsPolys<F> = Vec<Vec<Polynomial<FieldElement<F>>>>;
 type AuxSegmentsMerkleTrees<F> = Vec<Vec<MerkleTree<F>>>;
 type AuxSegmentsMerkleRoots<F> = Vec<Vec<FieldElement<F>>>;
+type AuxSegmentsRandElements<F> = Vec<Vec<FieldElement<F>>>;
 
+#[allow(unused)]
 struct Round1<F: IsFFTField> {
     main_trace_polys: Vec<Polynomial<FieldElement<F>>>,
     aux_trace_polys: Option<Vec<Vec<Polynomial<FieldElement<F>>>>>,
     aux_segments_rand_elements: Option<Vec<Vec<FieldElement<F>>>>,
     main_lde_trace_merkle_trees: Vec<MerkleTree<F>>,
     main_lde_trace_merkle_roots: Vec<FieldElement<F>>,
+    // TODO: These commitments are not being used yet. We need to add
+    // their verification in the protocol
     aux_lde_trace_merkle_trees: Option<Vec<Vec<MerkleTree<F>>>>,
     aux_lde_trace_merkle_roots: Option<Vec<Vec<FieldElement<F>>>>,
     // main + auxiliary LDE trace
@@ -70,14 +77,14 @@ fn round_0_transcript_initialization() -> DefaultTranscript {
     DefaultTranscript::new()
 }
 
-fn commit_original_trace<F, A>(
+fn commit_main_trace<F, A>(
     trace: &TraceTable<F>,
     air: &A,
 ) -> (
-    Vec<Polynomial<FieldElement<F>>>,
-    Vec<Vec<FieldElement<F>>>,
-    Vec<MerkleTree<F>>,
-    Vec<FieldElement<F>>,
+    MainSegmentPolys<F>,
+    MainLdeTraceEvaluations<F>,
+    MainSegmentMerkleTrees<F>,
+    MainSegmentMerkleRoots<F>,
 )
 where
     F: IsFFTField,
@@ -101,8 +108,6 @@ where
         .collect::<Result<Vec<Vec<FieldElement<F>>>, FFTError>>()
         .unwrap();
 
-    // let lde_trace = TraceTable::new_from_cols(&lde_trace_evaluations, None);
-
     // Compute commitments [t_j].
     let lde_trace_merkle_trees = lde_trace_evaluations
         // .main_cols()
@@ -123,16 +128,17 @@ where
     )
 }
 
+#[allow(clippy::type_complexity)]
 fn commit_aux_trace<F, A, T>(
     air: &A,
     trace: &TraceTable<F>,
     transcript: &mut T,
 ) -> (
-    LDEAuxSegmentsEvaluations<F>,
+    AuxSegmentsLdeTraceEvaluations<F>,
     AuxSegmentsPolys<F>,
     AuxSegmentsMerkleTrees<F>,
     AuxSegmentsMerkleRoots<F>,
-    Vec<Vec<FieldElement<F>>>,
+    AuxSegmentsRandElements<F>,
 )
 where
     F: IsFFTField,
@@ -223,7 +229,7 @@ where
         lde_trace_evaluations,
         main_lde_trace_merkle_trees,
         main_lde_trace_merkle_roots,
-    ) = commit_original_trace(trace, air);
+    ) = commit_main_trace(trace, air);
 
     if air.is_multi_segment() {
         let (
@@ -362,7 +368,7 @@ where
                 let aux_frame = Frame::get_trace_evaluations(
                     &aux_segment_polys[segment_idx],
                     z,
-                    &aux_transition_offsets,
+                    aux_transition_offsets,
                     &domain.trace_primitive_root,
                 );
 
@@ -512,6 +518,7 @@ where
 /// Returns the DEEP composition polynomial that the prover then commits to using
 /// FRI. This polynomial is a linear combination of the trace polynomial and the
 /// composition polynomial, with coefficients sampled by the verifier (i.e. using Fiat-Shamir).
+#[allow(clippy::too_many_arguments)]
 fn compute_deep_composition_poly<A: AIR, F: IsFFTField, T: Transcript>(
     air: &A,
     main_trace_polys: &[Polynomial<FieldElement<F>>],
@@ -606,8 +613,8 @@ where
 
     DeepConsistencyCheck {
         lde_trace_merkle_roots: round_1_result.main_lde_trace_merkle_roots.clone(),
-        lde_trace_merkle_proofs: lde_trace_merkle_proofs.clone(),
-        lde_trace_evaluations: lde_trace_evaluations.clone(),
+        lde_trace_merkle_proofs,
+        lde_trace_evaluations,
         composition_poly_evaluations,
     }
 }
@@ -695,7 +702,7 @@ where
     info!("End proof generation");
 
     if air.is_multi_segment() {
-        debug_assert!(!round_3_result.aux_trace_ood_frame_evaluations.is_none());
+        debug_assert!(round_3_result.aux_trace_ood_frame_evaluations.is_some());
         return StarkProof {
             fri_layers_merkle_roots: round_4_result.fri_layers_merkle_roots,
             trace_ood_frame_evaluations: round_3_result.trace_ood_frame_evaluations,

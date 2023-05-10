@@ -229,13 +229,13 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
 
         (0..air.num_aux_segments()).for_each(|segment_idx| {
             let aux_segment_width = air.aux_segment_width(segment_idx);
-            debug_assert!(!&proof.aux_ood_frame_evaluations.is_none());
-            debug_assert!(!air.trace_info().layout.aux_segments_info.is_none());
+            debug_assert!(&proof.aux_ood_frame_evaluations.is_some());
+            debug_assert!(air.trace_info().layout.aux_segments_info.is_some());
 
             let aux_rand_elements = &aux_segments_rand_elements[segment_idx];
 
             let aux_boundary_constraints =
-                air.aux_boundary_constraints(segment_idx, &aux_rand_elements);
+                air.aux_boundary_constraints(segment_idx, aux_rand_elements);
 
             let aux_boundary_constraint_domains = aux_boundary_constraints.generate_roots_of_unity(
                 &domain.trace_primitive_root,
@@ -313,7 +313,7 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
 
     let main_ood_frame = &proof.trace_ood_frame_evaluations;
 
-    let mut transition_ood_frame_evaluations = air.compute_transition(&main_ood_frame);
+    let mut transition_ood_frame_evaluations = air.compute_transition(main_ood_frame);
 
     if air.is_multi_segment() {
         debug_assert!(!&proof.aux_ood_frame_evaluations.is_none());
@@ -328,7 +328,7 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
 
         (0..air.num_aux_segments()).for_each(|segment_idx| {
             let aux_evaluations = air.compute_aux_transition(
-                &main_ood_frame,
+                main_ood_frame,
                 &aux_ood_frames[segment_idx],
                 &aux_segments_rand_elements[segment_idx],
             );
