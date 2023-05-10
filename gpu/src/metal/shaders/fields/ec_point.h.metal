@@ -28,8 +28,8 @@ public:
         Fp u2 = y * other.z;
         Fp v1 = other.x * z;
         Fp v2 = x * other.z;
-        bool condition = v1 == v2;
-        if (condition) {
+
+        if (v1 == v2) {
             if (u1 != u2 || y == Fp(0)) {
                 return neutral_element();
             }

@@ -1,4 +1,4 @@
-#[cfg(test)]
+#[cfg(all(test, feature = "metal"))]
 mod test {
     use crate::metal::abstractions::state::MetalState;
     use lambdaworks_math::field::element::FieldElement;
@@ -9,13 +9,13 @@ mod test {
     pub type FE = FieldElement<F>;
 
     #[test]
-    fn test_metal_point_addition() {
+    fn test_metal_ec_p_plus_infinity_should_equal_p() {
         let state = MetalState::new(None).unwrap();
         let pipeline = state.setup_pipeline("bls12381_add").unwrap();
 
-        let p: &[FE] = &[FE::from(0_u64), FE::from(2_u64), FE::from(0_u64)];
+        let p: &[FE] = &[FE::from(0_u64), FE::from(1_u64), FE::from(0_u64)];
         let p_buffer = state.alloc_buffer_data(p);
-        let q: &[FE] = &[FE::from(0_u64), FE::from(2_u64), FE::from(0_u64)];
+        let q: &[FE] = &[FE::from(0_u64), FE::from(1_u64), FE::from(0_u64)];
         let q_buffer = state.alloc_buffer_data(q);
         let result: &[FE] = &[FE::from(1), FE::from(1), FE::from(1)];
         let result_buffer = state.alloc_buffer_data(result);

@@ -12,7 +12,7 @@ namespace {
     /* =N_PRIME **/ /*u256(*/ 576460752303423504, 18446744073709551615, 18446744073709551615, 18446744073709551615 /*)*/
     > Fp;
 
-    typedef ECPoint<Fp, 5> BLS12381;
+    typedef ECPoint<Fp, 0> BLS12381;
 }
 
 template [[ host_name("bls12381_add") ]] 
