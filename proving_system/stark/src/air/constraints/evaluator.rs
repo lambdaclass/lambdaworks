@@ -73,13 +73,7 @@ impl<'a, F: IsFFTField, A: AIR<Field = F>> ConstraintEvaluator<'a, F, A> {
 
         // Auxiliary trace boundary polys
         let n_aux_segments = self.air.num_aux_segments();
-        // let mut aux_rand_elements = Vec::with_capacity(n_aux_segments);
-        if self.air.is_multi_segment() {
-            let Some(aux_transition_degrees) = self.air.context().aux_transition_degrees
-                else {
-                    panic!("AIR context inconsistency - AIR is multi-segment but there are no auxiliary transition degrees set.");
-                };
-
+        if let Some(aux_transition_degrees) = self.air.context().aux_transition_degrees {
             // Update trace_polys vector with auxiliary trace polynomials.
             self.aux_trace_polys
                 .iter()
