@@ -346,7 +346,7 @@ mod tests {
 
         let proof = kzg.open_batch(&x, &[y0.clone()], &[p0], &upsilon);
 
-        assert!(!kzg.verify_batch(&x, &[y0], &[p0_commitment], &proof, upsilon));
+        assert!(kzg.verify_batch(&x, &[y0], &[p0_commitment], &proof, upsilon));
     }
     /*
     #[test]
