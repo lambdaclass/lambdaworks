@@ -25,7 +25,8 @@ where
     const SCALE_FACTORS: (usize, usize) = (4, 5);
 
     // We approximate the optimum window size with: f(n) = k * log2(n), where k is a scaling factor
-    let window_size = (cs.len().trailing_zeros() as usize) * (SCALE_FACTORS.0 / SCALE_FACTORS.1);
+    let window_size =
+        ((usize::BITS - cs.len().leading_zeros() - 1) as usize * SCALE_FACTORS.0) / SCALE_FACTORS.1;
     msm_with(cs, hidings, MIN_WINDOWS.min(window_size))
 }
 
