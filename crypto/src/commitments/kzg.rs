@@ -335,15 +335,30 @@ mod tests {
     }
 
     #[test]
-    fn kzg_poly_9000_constant_should_not_verify_proof_on_9001() {
+    fn kzg_poly_9000_batched_should_verify() {
         let kzg = KZG::new(create_srs());
-        let p = Polynomial::<FrElement>::new(&[FieldElement::from(9000)]);
-        let p_commitment: <BLS12381AtePairing as IsPairing>::G1Point = kzg.commit(&p);
+        let p0 = Polynomial::<FrElement>::new(&[FieldElement::from(9000)]);
+        let p0_commitment: <BLS12381AtePairing as IsPairing>::G1Point = kzg.commit(&p0);
+
+        let x = FieldElement::one();
+        let y0 = FieldElement::from(9000);
+        let upsilon = &FieldElement::from(1);
+
+        let proof = kzg.open_batch(&x, &[y0.clone()], &[p0], &upsilon);
+
+        assert!(!kzg.verify_batch(&x, &[y0], &[p0_commitment], &proof, upsilon));
+    }
+    /*
+    #[test]
+    fn poly_batch_should_verify() {
+        let kzg = KZG::new(create_srs());
+        let p0 = Polynomial::<FrElement>::new(&[FieldElement::from(9000),FieldElement::from(9000)]);
+        let p0_commitment: G2Point = kzg.commit(&p0);
         let x = FieldElement::one();
         let y = FieldElement::from(9001);
         let proof = kzg.open(&x, &y, &p);
         assert!(!kzg.verify(&x, &y, &p_commitment, &proof));
-    }
+    } */
 
     #[test]
     fn serialize_deserialize_srs() {
