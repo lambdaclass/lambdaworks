@@ -331,8 +331,6 @@ mod tests {
         let x = FieldElement::one();
         let y = FieldElement::from(9000);
         let proof = kzg.open(&x, &y, &p);
-        assert_eq!(y, FieldElement::zero());
-        assert_eq!(proof, BLS12381Curve::generator());
         assert!(kzg.verify(&x, &y, &p_commitment, &proof));
     }
 
@@ -344,8 +342,6 @@ mod tests {
         let x = FieldElement::one();
         let y = FieldElement::from(9001);
         let proof = kzg.open(&x, &y, &p);
-        assert_eq!(y, FieldElement::zero());
-        assert_eq!(proof, BLS12381Curve::generator());
         assert!(!kzg.verify(&x, &y, &p_commitment, &proof));
     }
 
