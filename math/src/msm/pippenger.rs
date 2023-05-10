@@ -20,9 +20,13 @@ where
         hidings.len(),
         "Slices `cs` and `hidings` must be of the same length to compute `msm`."
     );
-    // TODO: set dynamically based on NUM_LIMBS and cs.len()
-    let window_size = 4;
-    msm_with(cs, hidings, window_size)
+    // When input is small enough, windows of length 2 seem faster than 1.
+    const MIN_WINDOWS: usize = 2;
+    const SCALE_FACTORS: (usize, usize) = (4, 5);
+
+    // We approximate the optimum window size with: f(n) = k * log2(n), where k is a scaling factor
+    let window_size = (cs.len().trailing_zeros() as usize) * (SCALE_FACTORS.0 / SCALE_FACTORS.1);
+    msm_with(cs, hidings, MIN_WINDOWS.min(window_size))
 }
 
 pub fn msm_with<const NUM_LIMBS: usize, G>(
