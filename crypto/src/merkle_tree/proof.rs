@@ -26,23 +26,45 @@ impl<M: IsModulus<UnsignedInteger<N>> + Clone, const N: usize>
     pub fn verify(
         &self,
         root_hash: &FieldElement<MontgomeryBackendPrimeField<M, N>>,
-        mut index: usize,
+        index: usize,
         value: &FieldElement<MontgomeryBackendPrimeField<M, N>>,
         hasher: &dyn IsCryptoHash<MontgomeryBackendPrimeField<M, N>>,
     ) -> bool {
         let mut hashed_value = hasher.hash_one(value);
 
+        self.verify_hashed_value(root_hash, index, &mut hashed_value, hasher)
+    }
+
+    pub fn verify_row(
+        &self,
+        root_hash: &FieldElement<MontgomeryBackendPrimeField<M, N>>,
+        index: usize,
+        row: &[FieldElement<MontgomeryBackendPrimeField<M, N>>],
+        hasher: &dyn IsCryptoHash<MontgomeryBackendPrimeField<M, N>>,
+    ) -> bool {
+        let mut hashed_value = hasher.hash_many(row);
+
+        self.verify_hashed_value(root_hash, index, &mut hashed_value, hasher)
+    }
+
+    fn verify_hashed_value(
+        &self,
+        root_hash: &FieldElement<MontgomeryBackendPrimeField<M, N>>,
+        mut index: usize,
+        hashed_value: &mut FieldElement<MontgomeryBackendPrimeField<M, N>>,
+        hasher: &dyn IsCryptoHash<MontgomeryBackendPrimeField<M, N>>,
+    ) -> bool {
         for sibling_node in self.merkle_path.iter() {
             if index % 2 == 0 {
-                hashed_value = hasher.hash_two(&hashed_value, sibling_node);
+                *hashed_value = hasher.hash_two(hashed_value, sibling_node);
             } else {
-                hashed_value = hasher.hash_two(sibling_node, &hashed_value);
+                *hashed_value = hasher.hash_two(sibling_node, hashed_value);
             }
 
             index >>= 1;
         }
 
-        root_hash == &hashed_value
+        root_hash == hashed_value
     }
 }
 

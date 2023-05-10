@@ -27,12 +27,29 @@ impl<M: IsModulus<UnsignedInteger<N>> + Clone, const N: usize>
     ) -> MerkleTree<MontgomeryBackendPrimeField<M, N>> {
         let mut hashed_leaves = hash_leaves(unhashed_leaves, hasher.as_ref());
 
+        Self::build_with_hashed_leaves(&mut hashed_leaves, hasher)
+    }
+
+    /// Builds a merkle tree with a leaf per vector of field elements passed in `rows`.
+    pub fn build_from_rows(
+        rows: &[Vec<FieldElement<MontgomeryBackendPrimeField<M, N>>>],
+        hasher: Box<dyn IsCryptoHash<MontgomeryBackendPrimeField<M, N>>>,
+    ) -> MerkleTree<MontgomeryBackendPrimeField<M, N>> {
+        let mut hashed_leaves = hash_rows(rows, hasher.as_ref());
+
+        Self::build_with_hashed_leaves(&mut hashed_leaves, hasher)
+    }
+
+    fn build_with_hashed_leaves(
+        hashed_leaves: &mut Vec<FieldElement<MontgomeryBackendPrimeField<M, N>>>,
+        hasher: Box<dyn IsCryptoHash<MontgomeryBackendPrimeField<M, N>>>,
+    ) -> MerkleTree<MontgomeryBackendPrimeField<M, N>> {
         //The leaf must be a power of 2 set
-        hashed_leaves = complete_until_power_of_two(&mut hashed_leaves);
+        *hashed_leaves = complete_until_power_of_two(hashed_leaves);
 
         //The length of leaves minus one inner node in the merkle tree
         let mut inner_nodes = vec![FieldElement::zero(); hashed_leaves.len() - 1];
-        inner_nodes.extend(hashed_leaves);
+        inner_nodes.extend(hashed_leaves.clone());
 
         //Build the inner nodes of the tree
         let nodes = build(&mut inner_nodes, ROOT, hasher.as_ref());
