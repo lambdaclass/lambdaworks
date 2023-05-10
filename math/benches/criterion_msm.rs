@@ -50,6 +50,10 @@ pub fn msm_benchmarks_with_size(
         group.bench_function(BenchmarkId::new("pippenger", window_size), |bench| {
             bench.iter(|| black_box(pippenger::msm_with(cs, hidings, window_size)));
         });
+
+        group.bench_function(BenchmarkId::new("par_pippenger", window_size), |bench| {
+            bench.iter(|| black_box(pippenger::parallel_msm(cs, hidings, window_size)));
+        });
     }
 }
 

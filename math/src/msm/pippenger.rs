@@ -86,6 +86,54 @@ where
         .unwrap_or_else(G::neutral_element)
 }
 
+#[cfg(feature = "rayon")]
+pub fn parallel_msm<const NUM_LIMBS: usize, G>(
+    cs: &[UnsignedInteger<NUM_LIMBS>],
+    hidings: &[G],
+    window_size: usize,
+) -> G
+where
+    G: IsGroup + Send + Sync,
+{
+    use rayon::prelude::*;
+
+    debug_assert!(window_size < usize::BITS as usize);
+    // The number of windows of size `s` is ceil(lambda/s).
+    let num_windows = (64 * NUM_LIMBS - 1) / window_size + 1;
+
+    (0..num_windows)
+        .into_par_iter()
+        .map(|window_idx| {
+            let mut buckets = vec![G::neutral_element(); (1 << window_size) - 1];
+            // Put in the right bucket the corresponding ps[i] for the current window.
+            cs.iter().zip(hidings).for_each(|(k, p)| {
+                // We truncate the number to the least significative limb.
+                // This is ok because window_size < usize::BITS.
+                let window_unmasked = (k >> (window_idx * window_size)).limbs[NUM_LIMBS - 1];
+                let m_ij = window_unmasked & ((1 << window_size) - 1);
+                if m_ij != 0 {
+                    let idx = (m_ij - 1) as usize;
+                    buckets[idx] = buckets[idx].operate_with(p);
+                }
+            });
+
+            // Do the reduction step for the buckets.
+            buckets
+                .iter_mut()
+                .rev()
+                .scan(G::neutral_element(), |m, b| {
+                    *m = m.operate_with(b); // Reduction step.
+                    *b = G::neutral_element(); // Cleanup bucket slot to reuse in the next window.
+                    Some(m.clone())
+                })
+                .reduce(|g, m| g.operate_with(&m))
+                .unwrap_or_else(G::neutral_element)
+        })
+        .reduce(G::neutral_element, |t, g| {
+            t.operate_with_self(1_u64 << window_size).operate_with(&g)
+        })
+}
+
 #[cfg(test)]
 mod tests {
     use crate::cyclic_group::IsGroup;
