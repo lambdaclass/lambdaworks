@@ -69,12 +69,16 @@ where
             // Do the reduction step for the buckets.
             buckets
                 .iter_mut()
+                // This first part iterates buckets in descending order, generating an iterator with the sum of
+                // each bucket and all that came before as its items; i.e: (b_n, b_n + b_n-1, ..., b_n + ... + b_0)
                 .rev()
                 .scan(G::neutral_element(), |m, b| {
                     *m = m.operate_with(b); // Reduction step.
                     *b = G::neutral_element(); // Cleanup bucket slot to reuse in the next window.
                     Some(m.clone())
                 })
+                // This next part sums all elements of the iterator: (b_n) + (b_n + b_n-1) + ...
+                // This results in: (n + 1) * b_n + n * b_n-1 + ... + b_0
                 .reduce(|g, m| g.operate_with(&m))
                 .unwrap_or_else(G::neutral_element)
         })
