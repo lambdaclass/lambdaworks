@@ -269,7 +269,6 @@ fn round_2_compute_composition_polynomial<F, A, T>(
     round_1_result: &Round1<F>,
     transition_coeffs: &[(FieldElement<F>, FieldElement<F>)],
     boundary_coeffs: &[(FieldElement<F>, FieldElement<F>)],
-    transcript: &mut T,
 ) -> Round2<F>
 where
     F: IsFFTField,
@@ -339,14 +338,6 @@ where
     //
     // In the fibonacci example, the ood frame is simply the evaluations `[t(z), t(z * g), t(z * g^2)]`, where `t` is the trace
     // polynomial and `g` is the primitive root of unity used when interpolating `t`.
-    // let mut trace_polys = round_1_result.main_trace_polys.clone();
-    // if air.is_multi_segment() {
-    //     (0..air.num_aux_segments()).for_each(|segment_idx| {
-    //         trace_polys
-    //             .extend_from_slice(&round_1_result.aux_trace_polys.as_ref().unwrap()[segment_idx])
-    //     })
-    // }
-
     let ood_main_trace_evaluations = Frame::get_trace_evaluations(
         &round_1_result.main_trace_polys,
         z,
@@ -538,17 +529,9 @@ fn compute_deep_composition_poly<A: AIR, F: IsFFTField, T: Transcript>(
     if air.is_multi_segment() {
         (0..air.num_aux_segments()).for_each(|segment_idx| {
             trace_polys.extend_from_slice(&aux_trace_polys.as_ref().unwrap()[segment_idx]);
-            // let aux_evaluations = Frame::get_trace_evaluations(
-            //     &aux_trace_polys.as_ref().unwrap()[segment_idx],
-            //     ood_evaluation_point,
-            //     &transition_offsets,
-            //     primitive_root,
-            // );
-            // trace_evaluations.extend_from_slice(&aux_evaluations);
         });
     }
     // Get trace evaluations needed for the trace terms of the deep composition polynomial
-
     let trace_evaluations = Frame::get_trace_evaluations(
         &trace_polys,
         ood_evaluation_point,

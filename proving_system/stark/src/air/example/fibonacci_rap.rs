@@ -157,9 +157,6 @@ pub fn fibonacci_rap_trace<F: IsFFTField>(
     fib_seq.push(FieldElement::<F>::zero());
     fib_permuted.push(FieldElement::<F>::zero());
 
-    // let mut trace_cols = vec![fib_seq, fib_permuted];
-
-    // resize_to_next_power_of_two(&mut trace_cols);
     vec![fib_seq, fib_permuted]
 }
 
@@ -169,10 +166,40 @@ mod test {
     use lambdaworks_math::field::fields::u64_prime_field::FE17;
 
     #[test]
-    fn fib_rap_trace() {
-        let trace = fibonacci_rap_trace([FE17::from(1), FE17::from(1)], 8);
+    fn test_build_fibonacci_rap_trace() {
+        // The fibonacci RAP trace should have two columns:
+        //     * The usual fibonacci sequence column
+        //     * The permuted fibonacci sequence column. The first and last elements are permuted.
+        // Also, a 0 is appended at the end of both columns. The reason for this can be read in
+        // https://hackmd.io/@aztec-network/plonk-arithmetiization-air#RAPs---PAIRs-with-interjected-verifier-randomness
 
-        println!("TRACE: {:?}", trace);
+        let trace = fibonacci_rap_trace([FE17::from(1), FE17::from(1)], 8);
+        let expected_trace = vec![
+            vec![
+                FE17::one(),
+                FE17::one(),
+                FE17::from(2),
+                FE17::from(3),
+                FE17::from(5),
+                FE17::from(8),
+                FE17::from(13),
+                FE17::from(21),
+                FE17::zero(),
+            ],
+            vec![
+                FE17::from(21),
+                FE17::one(),
+                FE17::from(2),
+                FE17::from(3),
+                FE17::from(5),
+                FE17::from(8),
+                FE17::from(13),
+                FE17::one(),
+                FE17::zero(),
+            ],
+        ];
+
+        assert_eq!(trace, expected_trace);
     }
 
     #[test]
