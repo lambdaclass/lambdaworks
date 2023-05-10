@@ -1,8 +1,10 @@
 use self::{
     constraints::boundary::BoundaryConstraints,
     context::{AirContext, ProofOptions},
-    frame::Frame, trace::TraceTable,
+    frame::Frame,
+    trace::TraceTable,
 };
+use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_fft::roots_of_unity::get_powers_of_primitive_root_coset;
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsFFTField},
@@ -18,10 +20,15 @@ pub mod trace;
 pub trait AIR: Clone {
     type Field: IsFFTField;
     type RawTrace;
-    // type RAPChallenges;
+    type RAPChallenges;
 
-    fn build_execution_trace(raw_trace: &Self::RawTrace) -> TraceTable<Self::Field>;
-    // fn build_execution_trace<T: Transcript>(raw_trace: &Self::RawTrace, transcript: &mut T) -> TraceTable<Self::Field>;
+    fn build_execution_trace<T: Transcript>(
+        raw_trace: &Self::RawTrace,
+        transcript: &mut T,
+    ) -> (
+        Vec<Polynomial<FieldElement<Self::Field>>>,
+        Self::RAPChallenges,
+    );
     fn compute_transition(&self, frame: &Frame<Self::Field>) -> Vec<FieldElement<Self::Field>>;
     // fn compute_transition(&self, frame: &Frame<Self::Field>, rap_challenges: &Self::RAPChallenges) -> Vec<FieldElement<Self::Field>>;
     fn boundary_constraints(&self) -> BoundaryConstraints<Self::Field>;
@@ -47,7 +54,8 @@ pub trait AIR: Clone {
                 Polynomial::new_monomial(FieldElement::<Self::Field>::one(), 0);
 
             for i in 0..self.context().transition_exemptions[transition_idx] {
-                exemptions_polynomial = exemptions_polynomial * (&x - &roots_of_unity[roots_of_unity.len() - 1 - i])
+                exemptions_polynomial =
+                    exemptions_polynomial * (&x - &roots_of_unity[roots_of_unity.len() - 1 - i])
             }
 
             result.push(roots_of_unity_vanishing_polynomial / exemptions_polynomial);

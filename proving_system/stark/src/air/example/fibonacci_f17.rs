@@ -3,11 +3,13 @@ use crate::{
         self,
         constraints::boundary::{BoundaryConstraint, BoundaryConstraints},
         context::AirContext,
-        AIR, trace::TraceTable,
+        trace::TraceTable,
+        AIR,
     },
     fri::FieldElement,
 };
-use lambdaworks_math::field::fields::u64_prime_field::F17;
+use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
+use lambdaworks_math::{field::fields::u64_prime_field::F17, polynomial::Polynomial};
 
 #[derive(Clone)]
 pub struct Fibonacci17AIR {
@@ -23,9 +25,18 @@ impl From<AirContext> for Fibonacci17AIR {
 impl AIR for Fibonacci17AIR {
     type Field = F17;
     type RawTrace = Vec<Vec<FieldElement<Self::Field>>>;
+    type RAPChallenges = ();
 
-    fn build_execution_trace(raw_trace: &Self::RawTrace) -> air::trace::TraceTable<Self::Field> {
-        TraceTable::new_from_cols(raw_trace)
+    fn build_execution_trace<T: Transcript>(
+        raw_trace: &Self::RawTrace,
+        transcript: &mut T,
+    ) -> (
+        Vec<Polynomial<FieldElement<Self::Field>>>,
+        Self::RAPChallenges,
+    ) {
+        let trace = TraceTable::new_from_cols(raw_trace);
+        let trace_polys = trace.compute_trace_polys();
+        (trace_polys, ())
     }
 
     fn compute_transition(
@@ -50,5 +61,4 @@ impl AIR for Fibonacci17AIR {
     fn context(&self) -> air::context::AirContext {
         self.context.clone()
     }
-
 }

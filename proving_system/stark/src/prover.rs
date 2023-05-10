@@ -11,7 +11,7 @@ use crate::{
 };
 #[cfg(not(feature = "test_fiat_shamir"))]
 use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
-use lambdaworks_crypto::{fiat_shamir::transcript::Transcript, merkle_tree::merkle::MerkleTree};
+use lambdaworks_crypto::{fiat_shamir::transcript::{Transcript, self}, merkle_tree::merkle::MerkleTree};
 
 #[cfg(feature = "test_fiat_shamir")]
 use lambdaworks_crypto::fiat_shamir::test_transcript::TestTranscript;
@@ -98,16 +98,14 @@ where
     )
 }
 
-fn commit_original_trace<F, A>(trace: &A::RawTrace, domain: &Domain<F>) -> Round1<F>
+fn commit_original_trace<F, A, T>(trace: &A::RawTrace, domain: &Domain<F>, transcript: &mut T) -> Round1<F>
 where
     F: IsFFTField,
     FieldElement<F>: ByteConversion,
-    A: AIR<Field = F>
+    A: AIR<Field = F>,
+    T: Transcript
 {
-    let trace = A::build_execution_trace(trace);
-    // The trace M_ij is part of the input. Interpolate the polynomials t_j
-    // corresponding to the first part of the RAP.
-    let trace_polys = trace.compute_trace_polys();
+    let (trace_polys, _) = A::build_execution_trace(trace, transcript);
 
     // Evaluate those polynomials t_j on the large domain D_LDE.
     let lde_trace_evaluations = trace_polys
@@ -134,14 +132,15 @@ fn commit_extended_trace() {
     // TODO
 }
 
-fn round_1_randomized_air_with_preprocessing<F: IsFFTField, A: AIR<Field = F>>(
+fn round_1_randomized_air_with_preprocessing<F: IsFFTField, A: AIR<Field = F>, T: Transcript>(
     trace: &A::RawTrace,
     domain: &Domain<F>,
+    transcript: &mut T,
 ) -> Round1<F>
 where
     FieldElement<F>: ByteConversion,
 {
-    let round_1_result = commit_original_trace::<F, A>(trace, domain);
+    let round_1_result = commit_original_trace::<F, A, T>(trace, domain, transcript);
     commit_extended_trace();
     round_1_result
 }
@@ -426,7 +425,7 @@ where
     // ==========|   Round 1   |==========
     // ===================================
 
-    let round_1_result = round_1_randomized_air_with_preprocessing::<F, A>(trace, &domain);
+    let round_1_result = round_1_randomized_air_with_preprocessing::<F, A, _>(trace, &domain, &mut transcript);
 
     // >>>> Send commitments: [tⱼ]
     for root in round_1_result.lde_trace_merkle_roots.iter() {

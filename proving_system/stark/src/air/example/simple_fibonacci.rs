@@ -3,13 +3,15 @@ use crate::{
         self,
         constraints::boundary::{BoundaryConstraint, BoundaryConstraints},
         context::AirContext,
-        AIR, trace::TraceTable,
+        trace::TraceTable,
+        AIR,
     },
     fri::FieldElement,
 };
-use lambdaworks_math::field::{
+use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
+use lambdaworks_math::{field::{
     fields::fft_friendly::stark_252_prime_field::Stark252PrimeField, traits::IsField,
-};
+}, polynomial::Polynomial};
 
 #[derive(Clone)]
 pub struct FibonacciAIR {
@@ -25,10 +27,15 @@ impl From<AirContext> for FibonacciAIR {
 impl AIR for FibonacciAIR {
     type Field = Stark252PrimeField;
     type RawTrace = Vec<Vec<FieldElement<Self::Field>>>;
+    type RAPChallenges = ();
 
-
-    fn build_execution_trace(raw_trace: &Self::RawTrace) -> air::trace::TraceTable<Self::Field> {
-        TraceTable::new_from_cols(raw_trace)
+    fn build_execution_trace<T: Transcript>(
+        raw_trace: &Self::RawTrace,
+        transcript: &mut T,
+    ) -> (Vec<Polynomial<FieldElement<Self::Field>>>, Self::RAPChallenges) {
+        let trace = TraceTable::new_from_cols(raw_trace);
+        let trace_polys = trace.compute_trace_polys();
+        (trace_polys, ())
     }
     fn compute_transition(
         &self,
