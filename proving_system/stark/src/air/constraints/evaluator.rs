@@ -38,7 +38,6 @@ impl<'poly, F: IsFFTField, A: AIR<Field = F>> ConstraintEvaluator<'poly, F, A> {
         transition_coefficients: &[(FieldElement<F>, FieldElement<F>)],
         boundary_coefficients: &[(FieldElement<F>, FieldElement<F>)],
         aux_segments_rand_elements: Option<&Vec<Vec<FieldElement<F>>>>,
-        // transcript: &mut T,
     ) -> ConstraintEvaluationTable<F> {
         // The + 1 is for the boundary constraints column
         let mut evaluation_table = ConstraintEvaluationTable::new(

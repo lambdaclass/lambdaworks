@@ -95,13 +95,14 @@ where
     };
 
     // FIXME: Find a better way to calculate the number of boundary constraints
-    let n_boundary_coeffs =
-        if let Some(aux_segments_info) = air.trace_info().layout.aux_segments_info {
-            n_main_trace_cols + aux_segments_info.aux_segment_widths.iter().sum::<usize>()
-        } else {
-            n_main_trace_cols
-        };
-    let boundary_coeffs: Vec<(FieldElement<F>, FieldElement<F>)> = (0..n_boundary_coeffs)
+    // In short, there will be as many boundary coefficients as there are trace colums (main + auxiliary)
+    let n_trace_colums = if let Some(aux_segments_info) = air.trace_info().layout.aux_segments_info
+    {
+        n_main_trace_cols + aux_segments_info.aux_segment_widths.iter().sum::<usize>()
+    } else {
+        n_main_trace_cols
+    };
+    let boundary_coeffs: Vec<(FieldElement<F>, FieldElement<F>)> = (0..n_trace_colums)
         .map(|_| {
             (
                 transcript_to_field(transcript),
@@ -128,7 +129,7 @@ where
     // Get the number of trace terms the DEEP composition poly will have.
     // One coefficient will be sampled for each of them.
     // TODO: try remove this, call transcript inside for and move gamma declarations
-    let trace_term_coeffs = (0..n_boundary_coeffs)
+    let trace_term_coeffs = (0..n_trace_colums)
         .map(|_| {
             (0..air.context().transition_offsets.len())
                 .map(|_| transcript_to_field(transcript))
