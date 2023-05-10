@@ -63,7 +63,7 @@ public:
 
     bool is_neutral_element(const ECPoint a_point) const
     {
-        return a_point.x == Fp(0) && a_point.y == Fp(1) && a_point.z == Fp(0);
+        return a_point.x == Fp(0) && a_point.z == Fp(0);
     }
 };
 

@@ -11,7 +11,7 @@ template<typename BLS12381, typename Fp>
     BLS12381 P = BLS12381(p[0], p[1], p[2]);
     BLS12381 Q = BLS12381(q[0], q[1], q[2]);
     BLS12381 res = P + Q;
-    
+
     result[0] = res.x;
     result[1] = res.y;
     result[2] = res.z;

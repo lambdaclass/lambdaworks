@@ -12,10 +12,13 @@ mod test {
     fn test_metal_ec_p_plus_infinity_should_equal_p() {
         let state = MetalState::new(None).unwrap();
         let pipeline = state.setup_pipeline("bls12381_add").unwrap();
+        let mut felt1 = FE::one();
+        //felt1.value().limbs[3] = 1;
+        dbg!(felt1.clone());
 
-        let p: &[FE] = &[FE::from(0_u64), FE::from(1_u64), FE::from(0_u64)];
+        let p: &[FE] = &[FE::from(2_u64), FE::from(1_u64), FE::from(3_u64)];
         let p_buffer = state.alloc_buffer_data(p);
-        let q: &[FE] = &[FE::from(0_u64), FE::from(1_u64), FE::from(0_u64)];
+        let q: &[FE] = &[FE::zero(), FE::one(), FE::zero()];
         let q_buffer = state.alloc_buffer_data(q);
         let result: &[FE] = &[FE::from(1), FE::from(1), FE::from(1)];
         let result_buffer = state.alloc_buffer_data(result);
@@ -33,7 +36,9 @@ mod test {
         command_buffer.wait_until_completed();
 
         let result: Vec<FE> = MetalState::retrieve_contents(&result_buffer);
-        dbg!(result);
-        assert!(false);
+
+        assert_eq!(result[0], FE::from(2_u64));
+        assert_eq!(result[1], FE::from(1_u64));
+        assert_eq!(result[2], FE::from(3_u64));
     }
 }
