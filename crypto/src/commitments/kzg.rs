@@ -324,6 +324,32 @@ mod tests {
     }
 
     #[test]
+    fn kzg_poly_9000_constant_should_verify_proof() {
+        let kzg = KZG::new(create_srs());
+        let p = Polynomial::<FrElement>::new(&[FieldElement::from(9000)]);
+        let p_commitment: <BLS12381AtePairing as IsPairing>::G1Point = kzg.commit(&p);
+        let x = FieldElement::one();
+        let y = FieldElement::from(9000);
+        let proof = kzg.open(&x, &y, &p);
+        assert_eq!(y, FieldElement::zero());
+        assert_eq!(proof, BLS12381Curve::generator());
+        assert!(kzg.verify(&x, &y, &p_commitment, &proof));
+    }
+
+    #[test]
+    fn kzg_poly_9000_constant_should_not_verify_proof_on_9001() {
+        let kzg = KZG::new(create_srs());
+        let p = Polynomial::<FrElement>::new(&[FieldElement::from(9000)]);
+        let p_commitment: <BLS12381AtePairing as IsPairing>::G1Point = kzg.commit(&p);
+        let x = FieldElement::one();
+        let y = FieldElement::from(9001);
+        let proof = kzg.open(&x, &y, &p);
+        assert_eq!(y, FieldElement::zero());
+        assert_eq!(proof, BLS12381Curve::generator());
+        assert!(!kzg.verify(&x, &y, &p_commitment, &proof));
+    }
+
+    #[test]
     fn serialize_deserialize_srs() {
         let srs = create_srs();
         let bytes = srs.serialize();
