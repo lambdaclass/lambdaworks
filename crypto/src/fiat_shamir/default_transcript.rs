@@ -18,15 +18,6 @@ impl Transcript for DefaultTranscript {
         result_hash.copy_from_slice(&self.hasher.finalize_reset());
         self.hasher.update(result_hash);
         self.counter.push((1, result_hash[0]));
-        // println!("RESULT HASH: {:?}", result_hash);
-        if result_hash[0] == 8 {
-            let hola = 2 + 2;
-            println!("TUKI {}", hola);
-        }
-        if result_hash[0] == 231 {
-            let chau = 1 + 2;
-            println!("TAKI {}", chau);
-        }
         result_hash
     }
 }

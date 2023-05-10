@@ -8,7 +8,6 @@ impl Transcript for TestTranscript {
     fn append(&mut self, _new_data: &[u8]) {}
 
     fn challenge(&mut self) -> [u8; 32] {
-        println!("Challenge...");
         [1; 32]
     }
 }

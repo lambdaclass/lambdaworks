@@ -364,7 +364,10 @@ where
                 debug_assert!(!&round_1_result.aux_trace_polys.is_none());
                 debug_assert!(!&air.context().aux_transition_degrees.is_none());
                 let aux_segment_polys = &round_1_result.aux_trace_polys.as_ref().unwrap();
-                let aux_transition_offsets = &air.context().aux_transition_offsets.unwrap();
+
+                // FIXME: We are using only the main transition offsets here. We should
+                // maybe just pick the longest offsets between the main and auxiliary.
+                let aux_transition_offsets = &air.context().transition_offsets;
 
                 let aux_frame = Frame::get_trace_evaluations(
                     &aux_segment_polys[segment_idx],
@@ -466,7 +469,6 @@ where
             } else {
                 q_0
             };
-
             // * For every q_i, do FRI decommitment
             let fri_decommitment = fri_decommit_layers(lde_fri_commitment, q_i);
             StarkQueryProof {
@@ -553,6 +555,7 @@ fn compute_deep_composition_poly<A: AIR, F: IsFFTField, T: Transcript>(
         &transition_offsets,
         primitive_root,
     );
+
     // Compute all the trace terms of the deep composition polynomial. There will be one
     // term for every trace polynomial and every trace evaluation.
     let mut trace_terms = Polynomial::zero();
@@ -564,7 +567,6 @@ fn compute_deep_composition_poly<A: AIR, F: IsFFTField, T: Transcript>(
                 / (Polynomial::new_monomial(FieldElement::<F>::one(), 1)
                     - Polynomial::new_monomial(root_of_unity, 0));
             let coeff = transcript_to_field::<F, T>(transcript);
-            println!("TRACE TERM COEFF - PROVER: {:?}", coeff);
 
             trace_terms = trace_terms + poly * coeff;
         }
@@ -612,7 +614,7 @@ where
     if let Some(aux_segments) = &round_1_result.full_lde_trace.aux_segments {
         aux_segments
             .iter()
-            .for_each(|segment| lde_trace_evaluations.extend_from_slice(segment.get_row(0)));
+            .for_each(|segment| lde_trace_evaluations.extend_from_slice(segment.get_row(index)));
     }
 
     let composition_poly_evaluations = vec![
@@ -713,7 +715,6 @@ where
 
     if air.is_multi_segment() {
         debug_assert!(!round_3_result.aux_trace_ood_frame_evaluations.is_none());
-        println!("TRANSCRIPT COUNTER - PROVER: {:?}", transcript.counter);
         return StarkProof {
             fri_layers_merkle_roots: round_4_result.fri_layers_merkle_roots,
             trace_ood_frame_evaluations: round_3_result.trace_ood_frame_evaluations,
