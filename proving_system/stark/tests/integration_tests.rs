@@ -1,6 +1,8 @@
 use lambdaworks_math::field::fields::{
     fft_friendly::stark_252_prime_field::Stark252PrimeField, u64_prime_field::FE17,
 };
+use lambdaworks_math::helpers::resize_to_next_power_of_two;
+use lambdaworks_stark::air::example::fibonacci_rap::{fibonacci_rap_trace, FibonacciRAP};
 use lambdaworks_stark::air::example::{
     cairo, fibonacci_2_columns, fibonacci_f17, quadratic_air, simple_fibonacci,
 };
@@ -262,3 +264,32 @@ fn test_prove_cairo_fibonacci() {
 //     let result = prove(&reconstructed_exec_trace, &cairo_air);
 //     assert!(!verify(&result, &cairo_air));
 // }
+
+#[test_log::test]
+fn test_prove_rap_fib() {
+    let trace_length = 16;
+    let trace = fibonacci_rap_trace([FE::from(1), FE::from(1)], trace_length);
+    let mut trace_cols = vec![trace[0].clone(), trace[1].clone()];
+    resize_to_next_power_of_two(&mut trace_cols);
+    let power_of_two_len = trace_cols[0].len();
+    let exemptions = 3 + power_of_two_len - trace_length - 1;
+
+    let context = AirContext {
+        options: ProofOptions {
+            blowup_factor: 2,
+            fri_number_of_queries: 1,
+            coset_offset: 3,
+        },
+        trace_columns: 3,
+        trace_length: trace_cols[0].len(),
+        transition_degrees: vec![1],
+        transition_offsets: vec![0, 1, 2],
+        transition_exemptions: vec![exemptions, 1],
+        num_transition_constraints: 2,
+    };
+
+    let fibonacci_rap = FibonacciRAP::new(context);
+
+    let result = prove(&trace_cols, &fibonacci_rap);
+    assert!(verify(&result, &fibonacci_rap));
+}

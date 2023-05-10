@@ -21,8 +21,9 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
         air: &A,
         trace_polys: &'poly [Polynomial<FieldElement<F>>],
         primitive_root: &FieldElement<F>,
+        rap_challenges: &A::RAPChallenges
     ) -> Self {
-        let boundary_constraints = air.boundary_constraints();
+        let boundary_constraints = air.boundary_constraints(rap_challenges);
 
         Self {
             air: air.clone(),
@@ -38,6 +39,7 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
         lde_domain: &[FieldElement<F>],
         alpha_and_beta_transition_coefficients: &[(FieldElement<F>, FieldElement<F>)],
         alpha_and_beta_boundary_coefficients: &[(FieldElement<F>, FieldElement<F>)],
+        rap_challenges: &A::RAPChallenges
     ) -> ConstraintEvaluationTable<F> {
         // The + 1 is for the boundary constraints column
         let mut evaluation_table = ConstraintEvaluationTable::new(
@@ -99,7 +101,7 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
                 &self.air.context().transition_offsets,
             );
 
-            let mut evaluations = self.air.compute_transition(&frame);
+            let mut evaluations = self.air.compute_transition(&frame, rap_challenges);
             evaluations = Self::compute_constraint_composition_poly_evaluations(
                 &self.air,
                 &evaluations,

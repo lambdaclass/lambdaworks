@@ -88,12 +88,12 @@ impl<F: IsFFTField> TraceTable<F> {
     }
 
     /// Validates that the trace is valid with respect to the supplied AIR constraints
-    pub fn validate<A: AIR<Field = F>>(&self, air: &A) -> bool {
+    pub fn validate<A: AIR<Field = F>>(&self, air: &A, rap_challenges: &A::RAPChallenges) -> bool {
         info!("Starting constraints validation over trace...");
         let mut ret = true;
 
         // --------- VALIDATE BOUNDARY CONSTRAINTS ------------
-        air.boundary_constraints()
+        air.boundary_constraints(rap_challenges)
             .constraints
             .iter()
             .for_each(|constraint| {
@@ -122,7 +122,7 @@ impl<F: IsFFTField> TraceTable<F> {
         for step in 0..self.n_rows() {
             let frame = Frame::read_from_trace(self, step, 1, &air.context().transition_offsets);
 
-            let evaluations = air.compute_transition(&frame);
+            let evaluations = air.compute_transition(&frame, rap_challenges);
             // Iterate over each transition evaluation. When the evaluated step is not from
             // the exemption steps corresponding to the transition, it should have zero as a
             // result

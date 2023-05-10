@@ -26,14 +26,20 @@ pub trait AIR: Clone {
         raw_trace: &Self::RawTrace,
     ) -> TraceTable<Self::Field>;
 
-    fn build_auxiliary_trace<T: Transcript>(
+    fn build_auxiliary_trace(
         main_trace: &TraceTable<Self::Field>,
-        transcript: &mut T
-    ) -> (TraceTable<Self::Field>, Self::RAPChallenges);
+        rap_challenges: &Self::RAPChallenges
+    ) -> TraceTable<Self::Field>;
 
-    fn compute_transition(&self, frame: &Frame<Self::Field>) -> Vec<FieldElement<Self::Field>>;
+    fn build_rap_challenges<T: Transcript>(transcript: &mut T) -> Self::RAPChallenges;
+
+    fn number_auxiliary_rap_columns(&self) -> usize {
+        0
+    }
+
+    fn compute_transition(&self, frame: &Frame<Self::Field>, rap_challenges: &Self::RAPChallenges) -> Vec<FieldElement<Self::Field>>;
     // fn compute_transition(&self, frame: &Frame<Self::Field>, rap_challenges: &Self::RAPChallenges) -> Vec<FieldElement<Self::Field>>;
-    fn boundary_constraints(&self) -> BoundaryConstraints<Self::Field>;
+    fn boundary_constraints(&self, rap_challenges: &Self::RAPChallenges) -> BoundaryConstraints<Self::Field>;
     // fn boundary_constraints(&self, rap_challenges: &Self::RAPChallenges) -> BoundaryConstraints<Self::Field>;
     fn transition_divisors(&self) -> Vec<Polynomial<FieldElement<Self::Field>>> {
         let trace_length = self.context().trace_length;
@@ -69,9 +75,11 @@ pub trait AIR: Clone {
     fn options(&self) -> ProofOptions {
         self.context().options
     }
+
     fn blowup_factor(&self) -> u8 {
         self.options().blowup_factor
     }
+
     fn num_transition_constraints(&self) -> usize {
         self.context().num_transition_constraints
     }

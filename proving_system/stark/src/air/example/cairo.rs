@@ -157,16 +157,20 @@ impl AIR for CairoAIR {
         build_cairo_execution_trace(&raw_trace.0, &raw_trace.1)
     }
 
-    fn build_auxiliary_trace<T: Transcript>(
+    fn build_auxiliary_trace(
         main_trace: &TraceTable<Self::Field>,
-        transcript: &mut T
-    ) -> (TraceTable<Self::Field>, Self::RAPChallenges) {
-        // TODO: Sample challenges and complete with CAIRO memory auxiliary columns
+        rap_challenges: &Self::RAPChallenges
+    ) -> TraceTable<Self::Field> {
+        // TODO: complete with CAIRO memory auxiliary columns
 
-        (TraceTable::empty(), CairoRAPChallenges { alpha: FieldElement::zero(), z: FieldElement::zero() })
+        TraceTable::empty()
     }
 
-    fn compute_transition(&self, frame: &Frame<Self::Field>) -> Vec<FieldElement<Self::Field>> {
+    fn build_rap_challenges<T: Transcript>(transcript: &mut T) -> Self::RAPChallenges {
+        CairoRAPChallenges { alpha: FieldElement::zero(), z: FieldElement::zero() }
+    }
+
+    fn compute_transition(&self, frame: &Frame<Self::Field>, rap_challenges: &Self::RAPChallenges) -> Vec<FieldElement<Self::Field>> {
         let mut constraints: Vec<FieldElement<Self::Field>> =
             vec![FE::zero(); self.num_transition_constraints()];
 
@@ -187,7 +191,7 @@ impl AIR for CairoAIR {
     ///  * ap_t = ap_f
     ///  * pc_0 = pc_i
     ///  * pc_t = pc_f
-    fn boundary_constraints(&self) -> BoundaryConstraints<Self::Field> {
+    fn boundary_constraints(&self, rap_challenges: &Self::RAPChallenges) -> BoundaryConstraints<Self::Field> {
         let last_step = self.context.trace_length - 1;
 
         let initial_pc =

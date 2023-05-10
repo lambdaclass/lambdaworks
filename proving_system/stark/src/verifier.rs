@@ -35,7 +35,7 @@ fn step_1_transcript_initialization() -> DefaultTranscript {
     DefaultTranscript::new()
 }
 
-struct Challenges<F: IsFFTField> {
+struct Challenges<F: IsFFTField, A: AIR<Field=F>> {
     z: FieldElement<F>,
     boundary_coeffs: Vec<(FieldElement<F>, FieldElement<F>)>,
     transition_coeffs: Vec<(FieldElement<F>, FieldElement<F>)>,
@@ -44,6 +44,7 @@ struct Challenges<F: IsFFTField> {
     gamma_odd: FieldElement<F>,
     zetas: Vec<FieldElement<F>>,
     iotas: Vec<usize>,
+    rap_challenges: A::RAPChallenges
 }
 
 fn step_1_replay_rounds_and_recover_challenges<F, A, T>(
@@ -51,7 +52,7 @@ fn step_1_replay_rounds_and_recover_challenges<F, A, T>(
     proof: &StarkProof<F>,
     domain: &Domain<F>,
     transcript: &mut T,
-) -> Challenges<F>
+) -> Challenges<F, A>
 where
     F: IsFFTField,
     FieldElement<F>: ByteConversion,
@@ -65,7 +66,17 @@ where
     let n_trace_cols = air.context().trace_columns;
 
     // <<<< Receive commitments:[tⱼ]
-    for root in proof.lde_trace_merkle_roots.iter() {
+    let total_columns = proof.lde_trace_merkle_roots.len();
+    let aux_columns = air.number_auxiliary_rap_columns();
+    let main_columns = total_columns - aux_columns;
+
+    for root in proof.lde_trace_merkle_roots.iter().take(main_columns) {
+        transcript.append(&root.to_bytes_be());
+    }
+
+    let rap_challenges = A::build_rap_challenges(transcript);
+
+    for root in proof.lde_trace_merkle_roots.iter().skip(main_columns) {
         transcript.append(&root.to_bytes_be());
     }
 
@@ -171,6 +182,7 @@ where
         gamma_odd,
         zetas,
         iotas,
+        rap_challenges
     }
 }
 
@@ -178,14 +190,14 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
     air: &A,
     proof: &StarkProof<F>,
     domain: &Domain<F>,
-    challenges: &Challenges<F>,
+    challenges: &Challenges<F, A>,
 ) -> bool {
     // BEGIN TRACE <-> Composition poly consistency evaluation check
     // These are H_1(z^2) and H_2(z^2)
     let composition_poly_even_ood_evaluation = &proof.composition_poly_even_ood_evaluation;
     let composition_poly_odd_ood_evaluation = &proof.composition_poly_odd_ood_evaluation;
 
-    let boundary_constraints = air.boundary_constraints();
+    let boundary_constraints = air.boundary_constraints(&challenges.rap_challenges);
 
     let n_trace_cols = air.context().trace_columns;
 
@@ -254,7 +266,7 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
         .fold(FieldElement::<F>::zero(), |acc, x| acc + x);
 
     let transition_ood_frame_evaluations =
-        air.compute_transition(&proof.trace_ood_frame_evaluations);
+        air.compute_transition(&proof.trace_ood_frame_evaluations, &challenges.rap_challenges);
 
     let divisors = air.transition_divisors();
     let transition_c_i_evaluations =
@@ -284,7 +296,7 @@ fn step_3_verify_fri<F, A>(
     air: &A,
     proof: &StarkProof<F>,
     domain: &Domain<F>,
-    challenges: &Challenges<F>,
+    challenges: &Challenges<F, A>,
 ) -> bool
 where
     F: IsFFTField,
@@ -309,10 +321,10 @@ where
     result
 }
 
-fn step_4_verify_deep_composition_polynomial<F: IsFFTField>(
+fn step_4_verify_deep_composition_polynomial<F: IsFFTField, A: AIR<Field = F>>(
     proof: &StarkProof<F>,
     domain: &Domain<F>,
-    challenges: &Challenges<F>,
+    challenges: &Challenges<F, A>,
 ) -> bool
 where
     FieldElement<F>: ByteConversion,
@@ -446,10 +458,10 @@ where
 }
 
 // Reconstruct Deep(\upsilon_0) off the values in the proof
-fn reconstruct_deep_composition_poly_evaluation<F: IsFFTField>(
+fn reconstruct_deep_composition_poly_evaluation<F: IsFFTField, A: AIR<Field = F>>(
     proof: &StarkProof<F>,
     domain: &Domain<F>,
-    challenges: &Challenges<F>,
+    challenges: &Challenges<F, A>,
 ) -> FieldElement<F> {
     let primitive_root = &F::get_primitive_root_of_unity(domain.root_order as u64).unwrap();
     let upsilon_0 = &domain.lde_roots_of_unity_coset[challenges.iotas[0]];

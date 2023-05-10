@@ -141,7 +141,8 @@ where
     let main_trace = A::build_main_trace(raw_trace);
     let (mut trace_polys, mut evaluations, mut lde_trace_merkle_trees, mut lde_trace_merkle_roots) = interpolate_and_commit(&main_trace, domain, transcript);
 
-    let (aux_trace, rap_challenges) = A::build_auxiliary_trace(&main_trace, transcript);
+    let rap_challenges = A::build_rap_challenges(transcript);
+    let aux_trace = A::build_auxiliary_trace(&main_trace, &rap_challenges);
 
     if !aux_trace.is_empty() { // Check that this is valid for interpolation
         let (aux_trace_polys, aux_trace_polys_evaluations, aux_merkle_trees, aux_merkle_roots) = interpolate_and_commit(&aux_trace, domain, transcript);
@@ -179,6 +180,7 @@ where
         air,
         &round_1_result.trace_polys,
         &domain.trace_primitive_root,
+        &round_1_result.rap_challenges
     );
 
     let constraint_evaluations = evaluator.evaluate(
@@ -186,6 +188,7 @@ where
         &domain.lde_roots_of_unity_coset,
         transition_coeffs,
         boundary_coeffs,
+        &round_1_result.rap_challenges
     );
 
     // Get the composition poly H

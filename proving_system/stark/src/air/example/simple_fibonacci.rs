@@ -35,16 +35,19 @@ impl AIR for FibonacciAIR {
         TraceTable::new_from_cols(raw_trace)
     }
 
-    fn build_auxiliary_trace<T: Transcript>(
+    fn build_auxiliary_trace(
         main_trace: &TraceTable<Self::Field>,
-        transcript: &mut T
-    ) -> (TraceTable<Self::Field>, Self::RAPChallenges) {      
-        (TraceTable::empty(), ())
+        rap_challenges: &Self::RAPChallenges
+    ) -> TraceTable<Self::Field> {      
+        TraceTable::empty()
     }
 
+    fn build_rap_challenges<T: Transcript>(transcript: &mut T) -> Self::RAPChallenges {
+        ()
+    }
     fn compute_transition(
         &self,
-        frame: &air::frame::Frame<Self::Field>,
+        frame: &air::frame::Frame<Self::Field>, rap_challenges: &Self::RAPChallenges
     ) -> Vec<FieldElement<Self::Field>> {
         let first_row = frame.get_row(0);
         let second_row = frame.get_row(1);
@@ -53,7 +56,7 @@ impl AIR for FibonacciAIR {
         vec![third_row[0].clone() - second_row[0].clone() - first_row[0].clone()]
     }
 
-    fn boundary_constraints(&self) -> BoundaryConstraints<Self::Field> {
+    fn boundary_constraints(&self, rap_challenges: &Self::RAPChallenges) -> BoundaryConstraints<Self::Field> {
         let a0 = BoundaryConstraint::new_simple(0, FieldElement::<Self::Field>::one());
         let a1 = BoundaryConstraint::new_simple(1, FieldElement::<Self::Field>::one());
 
