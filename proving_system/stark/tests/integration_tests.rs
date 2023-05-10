@@ -320,7 +320,6 @@ fn test_malicious_trace_does_not_verify() {
     assert!(!verify(&result, &cairo_air));
 }
 
-// #[ignore]
 #[test_log::test]
 fn test_prove_rap_fib() {
     let trace_length = 16;
