@@ -54,10 +54,11 @@ pub fn msm_benchmarks_with_size(
 }
 
 pub fn run_benchmarks(c: &mut Criterion) {
-    let msm_sizes = vec![10, 100, 1000, 10000];
-    let window_sizes = vec![1, 2, 4, 8, 16];
+    let exponents = 1..=10;
+    let window_sizes = vec![1, 2, 4, 8, 12];
 
-    for msm_size in msm_sizes {
+    for exp in exponents {
+        let msm_size = 1 << exp;
         let (cs, hidings) = generate_cs_and_hidings(msm_size);
 
         msm_benchmarks_with_size(c, &cs, &hidings, &window_sizes);
