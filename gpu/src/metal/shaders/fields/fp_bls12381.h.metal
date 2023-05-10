@@ -100,12 +100,12 @@ public:
 private:
     u384 inner;
 
-    constexpr static const constant u384 N {436277738, 964683418,
+    constexpr static const constant u384 N {{436277738, 964683418,
               1260103606, 1129032919,
               1685539716, 4085584575,
               1731252896, 4138792484,
               514588670, 2975072255,
-              3120496639, 4294945451};
+              3120496639, 4294945451}};
     constexpr static const constant u384 R_SQUARED = 
         u384([295210981, 2462770090,
             2591637125, 3038352685,
