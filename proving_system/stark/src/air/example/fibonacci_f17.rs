@@ -3,7 +3,7 @@ use crate::{
         self,
         constraints::boundary::{BoundaryConstraint, BoundaryConstraints},
         context::AirContext,
-        AIR,
+        AIR, trace::TraceTable,
     },
     fri::FieldElement,
 };
@@ -22,6 +22,11 @@ impl From<AirContext> for Fibonacci17AIR {
 
 impl AIR for Fibonacci17AIR {
     type Field = F17;
+    type RawTrace = Vec<Vec<FieldElement<Self::Field>>>;
+
+    fn build_execution_trace(raw_trace: &Self::RawTrace) -> air::trace::TraceTable<Self::Field> {
+        TraceTable::new_from_cols(raw_trace)
+    }
 
     fn compute_transition(
         &self,
@@ -45,4 +50,5 @@ impl AIR for Fibonacci17AIR {
     fn context(&self) -> air::context::AirContext {
         self.context.clone()
     }
+
 }

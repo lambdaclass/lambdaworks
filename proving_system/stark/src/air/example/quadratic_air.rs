@@ -3,7 +3,7 @@ use crate::{
         self,
         constraints::boundary::{BoundaryConstraint, BoundaryConstraints},
         context::AirContext,
-        AIR,
+        AIR, trace::TraceTable,
     },
     fri::FieldElement,
 };
@@ -24,6 +24,14 @@ impl From<AirContext> for QuadraticAIR {
 
 impl AIR for QuadraticAIR {
     type Field = Stark252PrimeField;
+    type RawTrace = Vec<FieldElement<Self::Field>>;
+
+    fn build_execution_trace(raw_trace: &Self::RawTrace) -> air::trace::TraceTable<Self::Field> {
+        TraceTable {
+            table: raw_trace.clone(),
+            n_cols: 1,
+        }
+    }
 
     fn compute_transition(
         &self,

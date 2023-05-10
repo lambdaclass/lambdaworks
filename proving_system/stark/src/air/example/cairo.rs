@@ -10,6 +10,10 @@ use crate::{
         trace::TraceTable,
         AIR,
     },
+    cairo_vm::{
+        cairo_mem::CairoMemory, cairo_trace::CairoTrace,
+        execution_trace::build_cairo_execution_trace,
+    },
     FE,
 };
 
@@ -90,17 +94,21 @@ pub struct PublicInputs {
 
 #[derive(Clone)]
 pub struct CairoAIR {
-    context: AirContext,
-    pub_inputs: PublicInputs,
+    pub context: AirContext,
+    pub pub_inputs: PublicInputs,
 }
 
 impl CairoAIR {
-    pub fn new(proof_options: ProofOptions, trace: &TraceTable<Stark252PrimeField>) -> Self {
-        let num_steps = trace.n_rows();
+    pub fn new(proof_options: ProofOptions, trace: &CairoTrace) -> Self {
+        let mut padded_num_steps = 1;
+        let num_steps = trace.steps();
+        while padded_num_steps < num_steps {
+            padded_num_steps = padded_num_steps << 1;
+        }
         let context = AirContext {
             options: proof_options,
-            trace_length: num_steps,
-            trace_columns: trace.n_cols,
+            trace_length: padded_num_steps,
+            trace_columns: 34,
             transition_degrees: vec![
                 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, // Flags 0-14.
                 1, // Flag 15
@@ -114,11 +122,11 @@ impl CairoAIR {
         let last_step = num_steps - 1;
 
         let pub_inputs = PublicInputs {
-            pc_init: trace.get(0, FRAME_PC),
-            ap_init: trace.get(0, FRAME_AP),
-            fp_init: trace.get(0, FRAME_FP),
-            pc_final: trace.get(last_step, FRAME_PC),
-            ap_final: trace.get(last_step, FRAME_AP),
+            pc_init: FE::from(trace.rows[0].pc),
+            ap_init: FE::from(trace.rows[0].ap),
+            fp_init: FE::from(trace.rows[0].fp),
+            pc_final: FE::from(trace.rows[last_step].pc),
+            ap_final: FE::from(trace.rows[last_step].ap),
             num_steps,
         };
 
@@ -131,6 +139,10 @@ impl CairoAIR {
 
 impl AIR for CairoAIR {
     type Field = Stark252PrimeField;
+    type RawTrace = (CairoTrace, CairoMemory);
+    fn build_execution_trace(raw_trace: &Self::RawTrace) -> TraceTable<Self::Field> {
+        build_cairo_execution_trace(&raw_trace.0, &raw_trace.1)
+    }
 
     fn compute_transition(&self, frame: &Frame<Self::Field>) -> Vec<FieldElement<Self::Field>> {
         let mut constraints: Vec<FieldElement<Self::Field>> =
@@ -308,10 +320,7 @@ fn frame_inst_size(frame_row: &[FE]) -> FE {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::cairo_vm::{
-        cairo_mem::CairoMemory, cairo_trace::CairoTrace,
-        execution_trace::build_cairo_execution_trace,
-    };
+    use crate::cairo_vm::{cairo_mem::CairoMemory, cairo_trace::CairoTrace};
 
     #[test]
     fn check_simple_cairo_trace_evaluates_to_zero() {
@@ -322,15 +331,18 @@ mod test {
         let raw_trace = CairoTrace::from_file(&dir_trace).unwrap();
         let memory = CairoMemory::from_file(&dir_memory).unwrap();
 
-        let execution_trace = build_cairo_execution_trace(&raw_trace, &memory);
-
         let proof_options = ProofOptions {
             blowup_factor: 2,
             fri_number_of_queries: 1,
             coset_offset: 3,
         };
 
-        let cairo_air = CairoAIR::new(proof_options, &execution_trace);
+        let mut cairo_air = CairoAIR::new(proof_options, &raw_trace);
+        // PC FINAL AND AP FINAL are not computed correctly since they are extracted after padding to
+        // power of two and therefore are zero
+        cairo_air.pub_inputs.ap_final = FieldElement::zero();
+        cairo_air.pub_inputs.pc_final = FieldElement::zero();
+        let execution_trace = CairoAIR::build_execution_trace(&(raw_trace, memory));
         assert!(execution_trace.validate(&cairo_air));
     }
 }

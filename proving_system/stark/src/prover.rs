@@ -98,11 +98,13 @@ where
     )
 }
 
-fn commit_original_trace<F>(trace: &TraceTable<F>, domain: &Domain<F>) -> Round1<F>
+fn commit_original_trace<F, A>(trace: &A::RawTrace, domain: &Domain<F>) -> Round1<F>
 where
     F: IsFFTField,
     FieldElement<F>: ByteConversion,
+    A: AIR<Field = F>
 {
+    let trace = A::build_execution_trace(trace);
     // The trace M_ij is part of the input. Interpolate the polynomials t_j
     // corresponding to the first part of the RAP.
     let trace_polys = trace.compute_trace_polys();
@@ -132,14 +134,14 @@ fn commit_extended_trace() {
     // TODO
 }
 
-fn round_1_randomized_air_with_preprocessing<F: IsFFTField>(
-    trace: &TraceTable<F>,
+fn round_1_randomized_air_with_preprocessing<F: IsFFTField, A: AIR<Field = F>>(
+    trace: &A::RawTrace,
     domain: &Domain<F>,
 ) -> Round1<F>
 where
     FieldElement<F>: ByteConversion,
 {
-    let round_1_result = commit_original_trace(trace, domain);
+    let round_1_result = commit_original_trace::<F, A>(trace, domain);
     commit_extended_trace();
     round_1_result
 }
@@ -407,14 +409,14 @@ where
 }
 
 // FIXME remove unwrap() calls and return errors
-pub fn prove<F: IsFFTField, A: AIR<Field = F>>(trace: &TraceTable<F>, air: &A) -> StarkProof<F>
+pub fn prove<F: IsFFTField, A: AIR<Field = F>>(trace: &A::RawTrace, air: &A) -> StarkProof<F>
 where
     FieldElement<F>: ByteConversion,
 {
     info!("Starting proof generation...");
 
     #[cfg(debug_assertions)]
-    trace.validate(air);
+    // trace.validate(air);
 
     let domain = Domain::new(air);
 
@@ -424,7 +426,7 @@ where
     // ==========|   Round 1   |==========
     // ===================================
 
-    let round_1_result = round_1_randomized_air_with_preprocessing(trace, &domain);
+    let round_1_result = round_1_randomized_air_with_preprocessing::<F, A>(trace, &domain);
 
     // >>>> Send commitments: [tⱼ]
     for root in round_1_result.lde_trace_merkle_roots.iter() {

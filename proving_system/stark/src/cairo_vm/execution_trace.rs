@@ -1,6 +1,6 @@
 use super::{
     cairo_mem::CairoMemory,
-    cairo_trace::CairoTrace,
+    cairo_trace::{CairoTrace, RegistersState},
     instruction_flags::{
         aux_get_last_nim_of_field_element, ApUpdate, CairoOpcode, DstReg, Op0Reg, Op1Src, PcUpdate,
         ResLogic,
@@ -11,9 +11,15 @@ use crate::{
     cairo_vm::{instruction_flags::CairoInstructionFlags, instruction_offsets::InstructionOffsets},
     FE,
 };
+use cairo_vm::types::instruction::Register;
 use lambdaworks_math::{
-    field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField, helpers,
+    field::{
+        element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+        traits::IsField,
+    },
+    helpers,
 };
+
 
 // MAIN TRACE LAYOUT
 // -----------------------------------------------------------------------------------------
