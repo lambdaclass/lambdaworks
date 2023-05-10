@@ -7,7 +7,14 @@ class UnsignedInteger {
 
 public:
     UnsignedInteger() = default;
-    constexpr UnsignedInteger(uint32_t limbs[NUM_LIMBS]) : m_limbs{limbs} {}
+
+    template <typename... U32>
+    UnsignedInteger(const device U32& ... limbs) : m_limbs {limbs...} {}
+    UnsignedInteger(uint32_t limbs[NUM_LIMBS]) : m_limbs {limbs} {}
+    UnsignedInteger(uint32_t least_significant) {
+      m_limbs = {};
+      m_limbs[NUM_LIMBS - 1] = least_significant;
+    }
 
     constexpr UnsignedInteger operator+(const UnsignedInteger rhs) const
     {
@@ -22,7 +29,8 @@ public:
             i -= 1;
         }
 
-        return UnsignedInteger(limbs);
+        return UnsignedInteger<NUM_LIMBS> {limbs};
+
     }
 
     constexpr UnsignedInteger operator+=(const UnsignedInteger rhs)
@@ -44,7 +52,7 @@ public:
             carry = c < 0 ? -1 : 0;
         }
 
-        return UnsignedInteger(limbs);
+        return UnsignedInteger<NUM_LIMBS> {limbs};
     }
 
     constexpr UnsignedInteger operator-=(const UnsignedInteger rhs)
@@ -84,7 +92,7 @@ public:
                 carry = 0;
             }
         }
-        return UnsignedInteger(limbs);
+        return UnsignedInteger<NUM_LIMBS> {limbs};
     }
 
 };
