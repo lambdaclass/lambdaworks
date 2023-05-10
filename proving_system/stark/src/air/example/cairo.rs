@@ -145,6 +145,7 @@ impl AIR for CairoAIR {
     type Field = Stark252PrimeField;
     type RawTrace = (CairoTrace, CairoMemory);
     type RAPChallenges = ();
+
     fn build_execution_trace<T: Transcript>(
         raw_trace: &Self::RawTrace,
         transcript: &mut T,

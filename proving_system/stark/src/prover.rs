@@ -24,11 +24,12 @@ use lambdaworks_math::{
 };
 use log::info;
 
-struct Round1<F: IsFFTField> {
+struct Round1<F: IsFFTField, A: AIR<Field = F>> {
     trace_polys: Vec<Polynomial<FieldElement<F>>>,
     lde_trace: TraceTable<F>,
     lde_trace_merkle_trees: Vec<MerkleTree<F>>,
     lde_trace_merkle_roots: Vec<FieldElement<F>>,
+    rap_challenges: A::RAPChallenges,
 }
 
 struct Round2<F: IsFFTField> {
@@ -98,14 +99,16 @@ where
     )
 }
 
-fn commit_original_trace<F, A, T>(trace: &A::RawTrace, domain: &Domain<F>, transcript: &mut T) -> Round1<F>
+
+fn round_1_randomized_air_with_preprocessing<F: IsFFTField, A: AIR<Field = F>, T: Transcript>(
+    trace: &A::RawTrace,
+    domain: &Domain<F>,
+    transcript: &mut T,
+) -> Round1<F, A>
 where
-    F: IsFFTField,
     FieldElement<F>: ByteConversion,
-    A: AIR<Field = F>,
-    T: Transcript
 {
-    let (trace_polys, _) = A::build_execution_trace(trace, transcript);
+    let (trace_polys, rap_challenges) = A::build_execution_trace(trace, transcript);
 
     // Evaluate those polynomials t_j on the large domain D_LDE.
     let lde_trace_evaluations = trace_polys
@@ -125,30 +128,14 @@ where
         lde_trace,
         lde_trace_merkle_trees,
         lde_trace_merkle_roots,
+        rap_challenges,
     }
-}
-
-fn commit_extended_trace() {
-    // TODO
-}
-
-fn round_1_randomized_air_with_preprocessing<F: IsFFTField, A: AIR<Field = F>, T: Transcript>(
-    trace: &A::RawTrace,
-    domain: &Domain<F>,
-    transcript: &mut T,
-) -> Round1<F>
-where
-    FieldElement<F>: ByteConversion,
-{
-    let round_1_result = commit_original_trace::<F, A, T>(trace, domain, transcript);
-    commit_extended_trace();
-    round_1_result
 }
 
 fn round_2_compute_composition_polynomial<F, A>(
     air: &A,
     domain: &Domain<F>,
-    round_1_result: &Round1<F>,
+    round_1_result: &Round1<F, A>,
     transition_coeffs: &[(FieldElement<F>, FieldElement<F>)],
     boundary_coeffs: &[(FieldElement<F>, FieldElement<F>)],
 ) -> Round2<F>
@@ -202,7 +189,7 @@ where
 fn round_3_evaluate_polynomials_in_out_of_domain_element<F: IsFFTField, A: AIR<Field = F>>(
     air: &A,
     domain: &Domain<F>,
-    round_1_result: &Round1<F>,
+    round_1_result: &Round1<F, A>,
     round_2_result: &Round2<F>,
     z: &FieldElement<F>,
 ) -> Round3<F>
@@ -249,7 +236,7 @@ fn round_4_compute_and_run_fri_on_the_deep_composition_polynomial<
 >(
     air: &A,
     domain: &Domain<F>,
-    round_1_result: &Round1<F>,
+    round_1_result: &Round1<F, A>,
     round_2_result: &Round2<F>,
     round_3_result: &Round3<F>,
     z: &FieldElement<F>,
@@ -362,9 +349,9 @@ fn compute_deep_composition_poly<A: AIR, F: IsFFTField>(
     h_1_term + h_2_term + trace_terms
 }
 
-fn open_deep_composition_poly<F: IsFFTField>(
+fn open_deep_composition_poly<F: IsFFTField, A: AIR<Field = F>> (
     domain: &Domain<F>,
-    round_1_result: &Round1<F>,
+    round_1_result: &Round1<F, A>,
     round_2_result: &Round2<F>,
     index_to_open: usize,
 ) -> DeepPolynomialOpenings<F>
