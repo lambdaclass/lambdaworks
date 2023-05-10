@@ -323,7 +323,7 @@ fn test_malicious_trace_does_not_verify() {
 // #[ignore]
 #[test_log::test]
 fn test_prove_rap_fib() {
-    let trace_length = 5;
+    let trace_length = 16;
     let trace = fibonacci_rap::fibonacci_rap_trace([FE::from(1), FE::from(1)], trace_length);
     let mut trace_cols = vec![trace[0].clone(), trace[1].clone()];
     resize_to_next_power_of_two(&mut trace_cols);

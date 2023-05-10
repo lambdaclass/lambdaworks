@@ -263,7 +263,7 @@ where
     }
 }
 
-fn round_2_compute_composition_polynomial<F, A, T>(
+fn round_2_compute_composition_polynomial<F, A>(
     air: &A,
     domain: &Domain<F>,
     round_1_result: &Round1<F>,
@@ -273,7 +273,6 @@ fn round_2_compute_composition_polynomial<F, A, T>(
 where
     F: IsFFTField,
     A: AIR<Field = F>,
-    T: Transcript,
 {
     let main_trace_polys = &round_1_result.main_trace_polys;
 
@@ -674,7 +673,6 @@ where
         &round_1_result,
         &transition_coeffs,
         &boundary_coeffs,
-        transcript,
     );
 
     let round_3_result = round_3_evaluate_polynomials_in_out_of_domain_element(
