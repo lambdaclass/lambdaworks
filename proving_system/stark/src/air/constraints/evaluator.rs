@@ -9,25 +9,25 @@ use std::iter::zip;
 
 use super::evaluation_table::ConstraintEvaluationTable;
 
-pub struct ConstraintEvaluator<'poly, F: IsFFTField, A: AIR> {
+pub struct ConstraintEvaluator<'a, F: IsFFTField, A: AIR> {
     air: A,
-    main_trace_polys: &'poly [Polynomial<FieldElement<F>>],
-    aux_trace_polys: &'poly [Vec<Polynomial<FieldElement<F>>>],
-    primitive_root: FieldElement<F>,
+    main_trace_polys: &'a [Polynomial<FieldElement<F>>],
+    aux_trace_polys: &'a [Vec<Polynomial<FieldElement<F>>>],
+    primitive_root: &'a FieldElement<F>,
 }
 
-impl<'poly, F: IsFFTField, A: AIR<Field = F>> ConstraintEvaluator<'poly, F, A> {
+impl<'a, F: IsFFTField, A: AIR<Field = F>> ConstraintEvaluator<'a, F, A> {
     pub fn new(
-        air: &A,
-        main_trace_polys: &'poly [Polynomial<FieldElement<F>>],
-        aux_trace_polys: &'poly [Vec<Polynomial<FieldElement<F>>>],
-        primitive_root: &FieldElement<F>,
+        air: &'a A,
+        main_trace_polys: &'a [Polynomial<FieldElement<F>>],
+        aux_trace_polys: &'a [Vec<Polynomial<FieldElement<F>>>],
+        primitive_root: &'a FieldElement<F>,
     ) -> Self {
         Self {
             air: air.clone(),
             main_trace_polys,
             aux_trace_polys,
-            primitive_root: primitive_root.clone(),
+            primitive_root: primitive_root,
         }
     }
 
@@ -55,13 +55,7 @@ impl<'poly, F: IsFFTField, A: AIR<Field = F>> ConstraintEvaluator<'poly, F, A> {
         let mut boundary_polys: Vec<Polynomial<FieldElement<F>>> =
             zip(main_boundary_domains, main_boundary_values)
                 .zip(self.main_trace_polys)
-                .map(|((xs, ys), trace_poly)| {
-                    if xs.is_empty() {
-                        trace_poly.clone()
-                    } else {
-                        trace_poly - &Polynomial::interpolate(&xs, &ys)
-                    }
-                })
+                .map(|((xs, ys), trace_poly)| trace_poly - &Polynomial::interpolate(&xs, &ys))
                 .collect();
         let mut boundary_zerofiers: Vec<Polynomial<FieldElement<F>>> = (0..n_trace_colums)
             .map(|col| main_boundary_constraints.compute_zerofier(&self.primitive_root, col))
