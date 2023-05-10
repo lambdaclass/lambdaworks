@@ -35,21 +35,32 @@ public:
         return Fp256(mul(inner, rhs.inner));
     }
 
+    bool operator==(const Fp256 rhs) const
+    {
+        return inner == rhs.inner;
+    }
+
+    bool operator!=(const Fp256 rhs) const
+    {
+        return inner != rhs.inner;
+    }
+
     // TODO: make method for all fields
-    Fp256 pow(unsigned exp)
+    Fp256 pow(unsigned exp) const
     {
         // TODO find a way to generate on compile time
         Fp256 const ONE = mul(u256(1), R_SQUARED);
         Fp256 res = ONE;
+        Fp256 initial = *this;
 
         while (exp > 0)
         {
             if (exp & 1)
             {
-                res = res * *this;
+                res = res * initial;
             }
             exp >>= 1;
-            *this = *this * *this;
+            initial = initial * initial;
         }
 
         return res;
