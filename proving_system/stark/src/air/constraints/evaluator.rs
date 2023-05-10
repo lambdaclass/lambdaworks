@@ -91,8 +91,6 @@ impl<'a, F: IsFFTField, A: AIR<Field = F>> ConstraintEvaluator<'a, F, A> {
             let mut aux_boundary_zerofiers = Vec::with_capacity(n_aux_segments);
             (0..n_aux_segments).for_each(|segment_idx| {
                 // Sample random elements needed for construction of the aux segment.
-                // let aux_segment_rand_elements =
-                //     self.air.aux_segment_rand_coeffs(segment_idx, transcript);
                 let aux_segment_rand_elements = &aux_segments_rand_elements.unwrap()[segment_idx];
 
                 // Get interpolated polynomials for the aux segment. There will be one polynomial
