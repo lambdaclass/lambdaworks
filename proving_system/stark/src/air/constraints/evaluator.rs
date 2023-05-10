@@ -24,10 +24,10 @@ impl<'a, F: IsFFTField, A: AIR<Field = F>> ConstraintEvaluator<'a, F, A> {
         primitive_root: &'a FieldElement<F>,
     ) -> Self {
         Self {
-            air: air,
+            air,
             main_trace_polys,
             aux_trace_polys,
-            primitive_root: primitive_root,
+            primitive_root,
         }
     }
 
@@ -50,7 +50,7 @@ impl<'a, F: IsFFTField, A: AIR<Field = F>> ConstraintEvaluator<'a, F, A> {
 
         // Main trace boundary polys
         let main_boundary_domains =
-            main_boundary_constraints.generate_roots_of_unity(&self.primitive_root, n_trace_colums);
+            main_boundary_constraints.generate_roots_of_unity(self.primitive_root, n_trace_colums);
         let main_boundary_values = main_boundary_constraints.values(n_trace_colums);
         let mut boundary_polys: Vec<Polynomial<FieldElement<F>>> =
             zip(main_boundary_domains, main_boundary_values)
@@ -58,7 +58,7 @@ impl<'a, F: IsFFTField, A: AIR<Field = F>> ConstraintEvaluator<'a, F, A> {
                 .map(|((xs, ys), trace_poly)| trace_poly - &Polynomial::interpolate(&xs, &ys))
                 .collect();
         let mut boundary_zerofiers: Vec<Polynomial<FieldElement<F>>> = (0..n_trace_colums)
-            .map(|col| main_boundary_constraints.compute_zerofier(&self.primitive_root, col))
+            .map(|col| main_boundary_constraints.compute_zerofier(self.primitive_root, col))
             .collect();
         // Get the max degree of boundary polys of main segments
         let mut bound_polys_max_degree =
@@ -109,7 +109,7 @@ impl<'a, F: IsFFTField, A: AIR<Field = F>> ConstraintEvaluator<'a, F, A> {
                 // corresponding values.
                 let aux_segment_width = self.air.aux_segment_width(segment_idx);
                 let aux_segment_boundary_domains = aux_segment_boundary_constraints
-                    .generate_roots_of_unity(&self.primitive_root, aux_segment_width);
+                    .generate_roots_of_unity(self.primitive_root, aux_segment_width);
                 let aux_segment_boundary_values =
                     aux_segment_boundary_constraints.values(aux_segment_width);
 
@@ -131,7 +131,7 @@ impl<'a, F: IsFFTField, A: AIR<Field = F>> ConstraintEvaluator<'a, F, A> {
                     ..aux_segment_width)
                     .map(|aux_col| {
                         aux_segment_boundary_constraints
-                            .compute_zerofier(&self.primitive_root, aux_col)
+                            .compute_zerofier(self.primitive_root, aux_col)
                     })
                     .collect();
 
@@ -185,7 +185,7 @@ impl<'a, F: IsFFTField, A: AIR<Field = F>> ConstraintEvaluator<'a, F, A> {
             }
 
             evaluations = Self::compute_constraint_composition_poly_evaluations(
-                &self.air,
+                self.air,
                 &evaluations,
                 transition_coefficients,
                 max_degree_power_of_two,
