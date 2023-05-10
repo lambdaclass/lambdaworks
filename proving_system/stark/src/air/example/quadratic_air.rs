@@ -30,19 +30,21 @@ impl AIR for QuadraticAIR {
     type RawTrace = Vec<FieldElement<Self::Field>>;
     type RAPChallenges = ();
 
-    fn build_execution_trace<T: Transcript>(
+    fn build_main_trace(
         raw_trace: &Self::RawTrace,
-        transcript: &mut T,
-    ) -> (
-        Vec<Polynomial<FieldElement<Self::Field>>>,
-        Self::RAPChallenges,
-    ) {
+    ) -> TraceTable<Self::Field> {
         let trace = TraceTable {
             table: raw_trace.clone(),
             n_cols: 1,
         };
-        let trace_polys = trace.compute_trace_polys();
-        (trace_polys, ())
+        trace
+    }
+
+    fn build_auxiliary_trace<T: Transcript>(
+        main_trace: &TraceTable<Self::Field>,
+        transcript: &mut T
+    ) -> (TraceTable<Self::Field>, Self::RAPChallenges) {      
+        (TraceTable::empty(), ())
     }
 
     fn compute_transition(

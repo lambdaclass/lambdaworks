@@ -364,7 +364,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_build_execution_trace_simple_program() {
+    fn test_build_main_trace_simple_program() {
         /*
         The following trace and memory files are obtained running the following Cairo program:
         ```
@@ -483,7 +483,7 @@ mod test {
     }
 
     #[test]
-    fn test_build_execution_trace_call_func_program() {
+    fn test_build_main_trace_call_func_program() {
         /*
         The following trace and memory files are obtained running the following Cairo program:
         ```

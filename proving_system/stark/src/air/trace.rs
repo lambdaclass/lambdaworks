@@ -16,6 +16,14 @@ pub struct TraceTable<F: IsFFTField> {
 }
 
 impl<F: IsFFTField> TraceTable<F> {
+    pub fn empty() -> Self {
+        Self { table: Vec::new() , n_cols: 0 }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.n_cols == 0
+    }
+
     pub fn new_from_cols(cols: &[Vec<FieldElement<F>>]) -> Self {
         let n_rows = cols[0].len();
         debug_assert!(cols.iter().all(|c| c.len() == n_rows));
@@ -33,7 +41,11 @@ impl<F: IsFFTField> TraceTable<F> {
     }
 
     pub fn n_rows(&self) -> usize {
-        self.table.len() / self.n_cols
+        if self.n_cols == 0 {
+            0
+        } else {
+            self.table.len() / self.n_cols
+        }
     }
 
     pub fn rows(&self) -> Vec<Vec<FieldElement<F>>> {

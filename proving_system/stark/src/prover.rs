@@ -100,15 +100,15 @@ where
 }
 
 
-fn round_1_randomized_air_with_preprocessing<F: IsFFTField, A: AIR<Field = F>, T: Transcript>(
-    trace: &A::RawTrace,
-    domain: &Domain<F>,
-    transcript: &mut T,
-) -> Round1<F, A>
-where
-    FieldElement<F>: ByteConversion,
-{
-    let (trace_polys, rap_challenges) = A::build_execution_trace(trace, transcript);
+fn interpolate_and_commit<T, F>(trace: &TraceTable<F>, domain: &Domain<F>, transcript: &mut T)
+    -> (
+        Vec<Polynomial<FieldElement<F>>>,
+        Vec<Vec<FieldElement<F>>>,
+        Vec<MerkleTree<F>>,
+        Vec<FieldElement<F>>
+    )
+where T: Transcript, F: IsFFTField, FieldElement<F>: ByteConversion {
+    let trace_polys = trace.compute_trace_polys();
 
     // Evaluate those polynomials t_j on the large domain D_LDE.
     let lde_trace_evaluations = trace_polys
@@ -117,17 +117,47 @@ where
         .collect::<Result<Vec<Vec<FieldElement<F>>>, FFTError>>()
         .unwrap();
 
-    let lde_trace = TraceTable::new_from_cols(&lde_trace_evaluations);
-
     // Compute commitments [t_j].
-    let (lde_trace_merkle_trees, lde_trace_merkle_roots) =
-        batch_commit(lde_trace.cols().iter().collect());
+    let lde_trace = TraceTable::new_from_cols(&lde_trace_evaluations);
+    let (lde_trace_merkle_trees, lde_trace_merkle_roots) = batch_commit(lde_trace.cols().iter().collect());
+
+    // Agrega al transcript
+    // >>>> Send commitments: [tⱼ]
+    for root in lde_trace_merkle_roots.iter() {
+        transcript.append(&root.to_bytes_be());
+    }
+    
+    (trace_polys, lde_trace_evaluations, lde_trace_merkle_trees, lde_trace_merkle_roots)
+}
+
+fn round_1_randomized_air_with_preprocessing<F: IsFFTField, A: AIR<Field = F>, T: Transcript>(
+    raw_trace: &A::RawTrace,
+    domain: &Domain<F>,
+    transcript: &mut T,
+) -> Round1<F, A>
+where
+    FieldElement<F>: ByteConversion,
+{
+    let main_trace = A::build_main_trace(raw_trace);
+    let (mut trace_polys, mut evaluations, mut lde_trace_merkle_trees, mut lde_trace_merkle_roots) = interpolate_and_commit(&main_trace, domain, transcript);
+
+    let (aux_trace, rap_challenges) = A::build_auxiliary_trace(&main_trace, transcript);
+
+    if !aux_trace.is_empty() { // Check that this is valid for interpolation
+        let (aux_trace_polys, aux_trace_polys_evaluations, aux_merkle_trees, aux_merkle_roots) = interpolate_and_commit(&aux_trace, domain, transcript);
+        trace_polys.extend_from_slice(&aux_trace_polys);
+        evaluations.extend_from_slice(&aux_trace_polys_evaluations);
+        lde_trace_merkle_trees.extend_from_slice(&aux_merkle_trees);
+        lde_trace_merkle_roots.extend_from_slice(&aux_merkle_roots);
+    }
+
+    let lde_trace = TraceTable::new_from_cols(&evaluations);
 
     Round1 {
         trace_polys,
         lde_trace,
-        lde_trace_merkle_trees,
         lde_trace_merkle_roots,
+        lde_trace_merkle_trees,
         rap_challenges,
     }
 }
@@ -413,11 +443,6 @@ where
     // ===================================
 
     let round_1_result = round_1_randomized_air_with_preprocessing::<F, A, _>(trace, &domain, &mut transcript);
-
-    // >>>> Send commitments: [tⱼ]
-    for root in round_1_result.lde_trace_merkle_roots.iter() {
-        transcript.append(&root.to_bytes_be());
-    }
 
     // ===================================
     // ==========|   Round 2   |==========

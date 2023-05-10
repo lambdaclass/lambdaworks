@@ -22,13 +22,15 @@ pub trait AIR: Clone {
     type RawTrace;
     type RAPChallenges;
 
-    fn build_execution_trace<T: Transcript>(
+    fn build_main_trace(
         raw_trace: &Self::RawTrace,
-        transcript: &mut T,
-    ) -> (
-        Vec<Polynomial<FieldElement<Self::Field>>>,
-        Self::RAPChallenges,
-    );
+    ) -> TraceTable<Self::Field>;
+
+    fn build_auxiliary_trace<T: Transcript>(
+        main_trace: &TraceTable<Self::Field>,
+        transcript: &mut T
+    ) -> (TraceTable<Self::Field>, Self::RAPChallenges);
+
     fn compute_transition(&self, frame: &Frame<Self::Field>) -> Vec<FieldElement<Self::Field>>;
     // fn compute_transition(&self, frame: &Frame<Self::Field>, rap_challenges: &Self::RAPChallenges) -> Vec<FieldElement<Self::Field>>;
     fn boundary_constraints(&self) -> BoundaryConstraints<Self::Field>;

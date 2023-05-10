@@ -18,7 +18,7 @@ use crate::{
         cairo_mem::CairoMemory, cairo_trace::CairoTrace,
         execution_trace::build_cairo_execution_trace,
     },
-    FE,
+    FE, transcript_to_field,
 };
 
 /// Main constraint identifiers
@@ -141,18 +141,29 @@ impl CairoAIR {
     }
 }
 
+pub struct CairoRAPChallenges {
+    pub alpha: FieldElement<Stark252PrimeField>,
+    pub z: FieldElement<Stark252PrimeField>
+}
+
 impl AIR for CairoAIR {
     type Field = Stark252PrimeField;
     type RawTrace = (CairoTrace, CairoMemory);
-    type RAPChallenges = ();
+    type RAPChallenges = CairoRAPChallenges;
 
-    fn build_execution_trace<T: Transcript>(
+    fn build_main_trace(
         raw_trace: &Self::RawTrace,
-        transcript: &mut T,
-    ) -> (Vec<Polynomial<FieldElement<Self::Field>>>, Self::RAPChallenges) {
-        let trace = build_cairo_execution_trace(&raw_trace.0, &raw_trace.1);
-        let trace_polys = trace.compute_trace_polys();
-        (trace_polys, ())
+    ) -> TraceTable<Self::Field>{
+        build_cairo_execution_trace(&raw_trace.0, &raw_trace.1)
+    }
+
+    fn build_auxiliary_trace<T: Transcript>(
+        main_trace: &TraceTable<Self::Field>,
+        transcript: &mut T
+    ) -> (TraceTable<Self::Field>, Self::RAPChallenges) {
+        // TODO: Sample challenges and complete with CAIRO memory auxiliary columns
+
+        (TraceTable::empty(), CairoRAPChallenges { alpha: FieldElement::zero(), z: FieldElement::zero() })
     }
 
     fn compute_transition(&self, frame: &Frame<Self::Field>) -> Vec<FieldElement<Self::Field>> {
@@ -353,7 +364,7 @@ mod test {
     //     // power of two and therefore are zero
     //     cairo_air.pub_inputs.ap_final = FieldElement::zero();
     //     cairo_air.pub_inputs.pc_final = FieldElement::zero();
-    //     let execution_trace = CairoAIR::build_execution_trace(&(raw_trace, memory));
+    //     let execution_trace = CairoAIR::build_main_trace(&(raw_trace, memory));
     //     assert!(execution_trace.validate(&cairo_air));
     // }
 }
