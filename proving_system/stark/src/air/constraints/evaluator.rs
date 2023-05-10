@@ -10,7 +10,7 @@ use std::iter::zip;
 use super::evaluation_table::ConstraintEvaluationTable;
 
 pub struct ConstraintEvaluator<'a, F: IsFFTField, A: AIR> {
-    air: A,
+    air: &'a A,
     main_trace_polys: &'a [Polynomial<FieldElement<F>>],
     aux_trace_polys: &'a [Vec<Polynomial<FieldElement<F>>>],
     primitive_root: &'a FieldElement<F>,
@@ -24,7 +24,7 @@ impl<'a, F: IsFFTField, A: AIR<Field = F>> ConstraintEvaluator<'a, F, A> {
         primitive_root: &'a FieldElement<F>,
     ) -> Self {
         Self {
-            air: air.clone(),
+            air: air,
             main_trace_polys,
             aux_trace_polys,
             primitive_root: primitive_root,
@@ -166,7 +166,7 @@ impl<'a, F: IsFFTField, A: AIR<Field = F>> ConstraintEvaluator<'a, F, A> {
         let blowup_factor = self.air.blowup_factor();
         // Iterate over trace and domain and compute transitions
         for (step, d) in lde_domain.iter().enumerate() {
-            let main_frame = Frame::read_from_trace(&self.air, lde_trace, blowup_factor, step);
+            let main_frame = Frame::read_from_trace(self.air, lde_trace, blowup_factor, step);
 
             let mut evaluations = self.air.compute_transition(&main_frame);
 
@@ -174,7 +174,7 @@ impl<'a, F: IsFFTField, A: AIR<Field = F>> ConstraintEvaluator<'a, F, A> {
             if self.air.is_multi_segment() {
                 (0..n_aux_segments).for_each(|segment_idx| {
                     let aux_frame =
-                        Frame::read_from_aux_segment(&self.air, lde_trace, step, segment_idx);
+                        Frame::read_from_aux_segment(self.air, lde_trace, step, segment_idx);
                     let aux_evaluations = self.air.compute_aux_transition(
                         &main_frame,
                         &aux_frame,
