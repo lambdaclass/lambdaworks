@@ -61,6 +61,22 @@ public:
         return ECPoint(Fp(0), Fp(1), Fp(0));
     }
 
+    ECPoint operate_with_self(uint64_t exponent) const
+    {
+        ECPoint result = neutral_element();
+        ECPoint base = ECPoint(x, y, z);
+
+        while (exponent > 0) {
+            if ((exponent & 1) == 1) {
+                result = result + base;
+            }
+            exponent = exponent >> 1;
+            base = base + base;
+        }
+
+        return result;
+    }
+
     bool is_neutral_element(const ECPoint a_point) const
     {
         return a_point.x == Fp(0) && a_point.z == Fp(0);
