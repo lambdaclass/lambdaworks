@@ -460,7 +460,10 @@ impl<M, const NUM_LIMBS: usize> FieldElement<MontgomeryBackendPrimeField<M, NUM_
 where
     M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug,
 {
-    #[allow(unused)]
+
+    /// Creates a `FieldElement` from a hexstring. It can contain `0x` or not. 
+    /// # Panics
+    /// Panics if value is not a hexstring
     pub const fn from_hex_unchecked(hex: &str) -> Self {
         let integer = UnsignedInteger::<NUM_LIMBS>::from_hex_unchecked(hex);
         Self {
@@ -473,7 +476,8 @@ where
         }
     }
 
-    #[allow(unused)]
+    /// Creates a `FieldElement` from a hexstring. It can contain `0x` or not. 
+    /// Returns an `CreationError::InvalidHexString`if the value is not a hexstring
     pub fn from_hex(hex: &str) -> Result<Self, CreationError> {
         let integer = UnsignedInteger::<NUM_LIMBS>::from_hex(hex)?;
 
