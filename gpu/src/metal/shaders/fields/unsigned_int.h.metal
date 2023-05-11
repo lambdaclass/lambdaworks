@@ -11,21 +11,41 @@ struct UnsignedInteger {
       return res;
     }
 
-    constexpr UnsignedInteger low() {
-      UnsignedInteger res = {m_limbs};
+    constexpr static UnsignedInteger from_high_low(UnsignedInteger high, UnsignedInteger low) {
+      UnsignedInteger res = low;
 
-      for (int i = 0; i < NUM_LIMBS / 2; i++) {
-        res[i] = 0;
+      for (uint64_t i = 0; i < NUM_LIMBS; i++) {
+        res.m_limbs[i] = high.m_limbs[i];
       }
 
       return res;
     }
 
-    constexpr UnsignedInteger high() {
+    constexpr UnsignedInteger low() const {
+      UnsignedInteger res = {m_limbs};
+
+      for (uint64_t i = 0; i < NUM_LIMBS / 2; i++) {
+        res.m_limbs[i] = 0;
+      }
+
+      return res;
+    }
+
+    constexpr UnsignedInteger high() const {
       UnsignedInteger res = {};
 
-      for (int i = 0; i < NUM_LIMBS / 2; i++) {
-        res[NUM_LIMBS - 1 - i] = m_limbs[i];
+      for (uint64_t i = 0; i < NUM_LIMBS / 2; i++) {
+        res.m_limbs[NUM_LIMBS - 1 - i] = m_limbs[i];
+      }
+
+      return res;
+    }
+
+    static UnsignedInteger max() {
+      UnsignedInteger res = {};
+
+      for (uint64_t i = 0; i < NUM_LIMBS; i++) {
+        res.m_limbs[i] = 0xFFFFFFFF;
       }
 
       return res;
@@ -107,6 +127,48 @@ struct UnsignedInteger {
             }
         }
         return UnsignedInteger<NUM_LIMBS> {limbs};
+    }
+
+    constexpr UnsignedInteger operator*=(const UnsignedInteger rhs)
+    {
+        *this = *this * rhs;
+        return *this;
+    }
+
+    constexpr bool operator>(const UnsignedInteger rhs) {
+      for (uint64_t i = 0; i < NUM_LIMBS; i++) {
+        if (m_limbs[i] > rhs.m_limbs[i]) return true;
+        if (m_limbs[i] < rhs.m_limbs[i]) return false;
+      }
+
+      return false;
+    }
+
+    constexpr bool operator>=(const UnsignedInteger rhs) {
+      for (uint64_t i = 0; i < NUM_LIMBS; i++) {
+        if (m_limbs[i] > rhs.m_limbs[i]) return true;
+        if (m_limbs[i] < rhs.m_limbs[i]) return false;
+      }
+
+      return true;
+    }
+
+    constexpr bool operator<(const UnsignedInteger rhs) {
+      for (uint64_t i = 0; i < NUM_LIMBS; i++) {
+        if (m_limbs[i] > rhs.m_limbs[i]) return false;
+        if (m_limbs[i] < rhs.m_limbs[i]) return true;
+      }
+
+      return false;
+    }
+
+    constexpr bool operator<=(const UnsignedInteger rhs) {
+      for (uint64_t i = 0; i < NUM_LIMBS; i++) {
+        if (m_limbs[i] > rhs.m_limbs[i]) return false;
+        if (m_limbs[i] < rhs.m_limbs[i]) return true;
+      }
+
+      return true;
     }
 };
 

@@ -47,7 +47,7 @@ public:
     FpBLS12381 pow(uint32_t exp)
     {
         // TODO find a way to generate on compile time
-        FpBLS12381 const ONE = mul(1, R_SQUARED);
+        FpBLS12381 const ONE = mul(u384::from_int(1), R_SQUARED);
         FpBLS12381 res = ONE;
 
         while (exp > 0)
@@ -102,31 +102,48 @@ public:
     FpBLS12381 neg()
     {
         // TODO: can improve
-        return FpBLS12381(sub(0, inner));
+        return FpBLS12381(sub(u384::from_int(0), inner));
     }
 
 private:
     u384 inner;
 
     constexpr static const constant u384 N = {
-              436277738, 964683418,
-              1260103606, 1129032919,
-              1685539716, 4085584575,
-              1731252896, 4138792484,
-              514588670, 2975072255,
-              3120496639, 4294945451};
-    constexpr static const constant uint32_t R_SQUARED[12] {
-            295210981, 2462770090,
-            2591637125, 3038352685,
-            1743489193, 2476573632,
-            2380613484, 1284880085,
-            175564454, 164693233,
-            4108263220, 473175878};
-    //constexpr static const constant u384 N_PRIME = u384(N_PRIME_0, N_PRIME_1, N_PRIME_2, N_PRIME_3);
+        436277738, 964683418,
+        1260103606, 1129032919,
+        1685539716, 4085584575,
+        1731252896, 4138792484,
+        514588670, 2975072255,
+        3120496639, 4294945451
+    };
+    constexpr static const constant u384 R_SQUARED = {
+        295210981, 2462770090,
+        2591637125, 3038352685,
+        1743489193, 2476573632,
+        2380613484, 1284880085,
+        175564454, 164693233,
+        4108263220, 473175878
+    };
+    constexpr static const constant u384 N_PRIME = {
+        1534381189, 1334344675,
+        1875411489, 3867397717,
+        2301435770, 2935452467,
+        2908669417, 2814654000,
+        4258938632, 210135816, 
+        63534106, 783156227
+    };
 
-    // Equates to `(1 << 256) - N`
-    //constexpr static const constant u384 R_SUB_N =
-    //   u384(0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF) - N + u384(1);
+    constexpr static const constant u384 MAX = {
+        0xFFFFFFFF, 0xFFFFFFFF,
+        0xFFFFFFFF, 0xFFFFFFFF,
+        0xFFFFFFFF, 0xFFFFFFFF,
+        0xFFFFFFFF, 0xFFFFFFFF,
+        0xFFFFFFFF, 0xFFFFFFFF,
+        0xFFFFFFFF, 0xFFFFFFFF
+    };
+
+    // Equates to `(1 << 384) - N`
+    constexpr static const constant u384 R_SUB_N = MAX - N + u384::from_int(1);
 
     template<uint32_t N_ACC>
     u384 sqn(u384 base) const {
@@ -145,7 +162,7 @@ private:
         u384 addition = (lhs + rhs);
         u384 res = addition;
         // TODO: determine if an if statement here are more optimal
-        return res - u384(addition >= N) * N + u384(addition < lhs) * R_SUB_N;
+        return res - u384::from_int(addition >= N) * N + u384::from_int(addition < lhs) * R_SUB_N;
     }
 
     // Computes `lhs - rhs mod N`
@@ -183,7 +200,7 @@ private:
         u384 tmp = partial_t_mid_a_low +
                    partial_t_mid_b_low + partial_t_low.high();
         u384 carry = tmp.high();
-        u384 t_low = u384(tmp.low(), partial_t_low.low());
+        u384 t_low = u384::from_high_low(tmp.low(), partial_t_low.low());
         u384 t_high = partial_t_high + partial_t_mid_a_high + partial_t_mid_b_high + carry;
 
         // Compute `m = T * N' mod R`
@@ -205,21 +222,19 @@ private:
         u384 partial_mn_mid_b_high = partial_mn_mid_b.high();
         u384 partial_mn_low = m_low * n_low;
 
-        tmp = partial_mn_mid_a_low + partial_mn_mid_b_low + u384(partial_mn_low.high());
+        tmp = partial_mn_mid_a_low + partial_mn_mid_b_low + partial_mn_low.high();
         carry = tmp.high();
-        u384 mn_low = u384(tmp.low(), partial_mn_low.low());
+        u384 mn_low = u384::from_high_low(tmp.low(), partial_mn_low.low());
         u384 mn_high = partial_mn_high + partial_mn_mid_a_high + partial_mn_mid_b_high + carry;
 
-        u384 overflow = mn_low + t_low < mn_low;
+        u384 overflow = mn_low + u384::from_int(t_low < mn_low);
         u384 t_tmp = t_high + overflow;
         u384 t = t_tmp + mn_high;
-        u384 overflows_r = t < t_tmp;
-        u384 overflows_modulus = t >= N;
+        u384 overflows_r = u384::from_int(t < t_tmp);
+        u384 overflows_modulus = u384::from_int(t >= N);
 
         return t + overflows_r * R_SUB_N - overflows_modulus * N;
     }
 };
-
-
 
 #endif /* bls12381_h */
