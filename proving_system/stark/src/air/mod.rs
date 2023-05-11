@@ -42,12 +42,10 @@ pub trait AIR: Clone {
         frame: &Frame<Self::Field>,
         rap_challenges: &Self::RAPChallenges,
     ) -> Vec<FieldElement<Self::Field>>;
-    // fn compute_transition(&self, frame: &Frame<Self::Field>, rap_challenges: &Self::RAPChallenges) -> Vec<FieldElement<Self::Field>>;
     fn boundary_constraints(
         &self,
         rap_challenges: &Self::RAPChallenges,
     ) -> BoundaryConstraints<Self::Field>;
-    // fn boundary_constraints(&self, rap_challenges: &Self::RAPChallenges) -> BoundaryConstraints<Self::Field>;
     fn transition_divisors(&self) -> Vec<Polynomial<FieldElement<Self::Field>>> {
         let trace_length = self.context().trace_length;
         let roots_of_unity_order = trace_length.trailing_zeros();

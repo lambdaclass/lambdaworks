@@ -15,7 +15,7 @@ use crate::{
         cairo_mem::CairoMemory, cairo_trace::CairoTrace,
         execution_trace::build_cairo_execution_trace,
     },
-    FE,
+    transcript_to_field, FE,
 };
 
 /// Main constraint identifiers
@@ -161,10 +161,10 @@ impl AIR for CairoAIR {
         TraceTable::empty()
     }
 
-    fn build_rap_challenges<T: Transcript>(_transcript: &mut T) -> Self::RAPChallenges {
+    fn build_rap_challenges<T: Transcript>(transcript: &mut T) -> Self::RAPChallenges {
         CairoRAPChallenges {
-            alpha: FieldElement::zero(),
-            z: FieldElement::zero(),
+            alpha: transcript_to_field(transcript),
+            z: transcript_to_field(transcript),
         }
     }
 
