@@ -424,13 +424,13 @@ mod tests_u384_prime_fields {
 
     #[test]
     fn montgomery_prime_field_addition_works_0() {
-        let x = U384FP1Element::new(UnsignedInteger::from(
+        let x = U384FP1Element::new(UnsignedInteger::from_hex(
             "05ed176deb0e80b4deb7718cdaa075165f149c",
         ));
-        let y = U384FP1Element::new(UnsignedInteger::from(
+        let y = U384FP1Element::new(UnsignedInteger::from_hex(
             "5f103b0bd4397d4df560eb559f38353f80eeb6",
         ));
-        let c = U384FP1Element::new(UnsignedInteger::from(
+        let c = U384FP1Element::new(UnsignedInteger::from_hex(
             "64fd5279bf47fe02d4185ce279d8aa55e00352",
         ));
         assert_eq!(x + y, c);
@@ -438,13 +438,13 @@ mod tests_u384_prime_fields {
 
     #[test]
     fn montgomery_prime_field_multiplication_works_0() {
-        let x = U384FP1Element::new(UnsignedInteger::from(
+        let x = U384FP1Element::new(UnsignedInteger::from_hex(
             "05ed176deb0e80b4deb7718cdaa075165f149c",
         ));
-        let y = U384FP1Element::new(UnsignedInteger::from(
+        let y = U384FP1Element::new(UnsignedInteger::from_hex(
             "5f103b0bd4397d4df560eb559f38353f80eeb6",
         ));
-        let c = U384FP1Element::new(UnsignedInteger::from(
+        let c = U384FP1Element::new(UnsignedInteger::from_hex(
             "73d23e8d462060dc23d5c15c00fc432d95621a3c",
         ));
         assert_eq!(x * y, c);
@@ -471,13 +471,13 @@ mod tests_u384_prime_fields {
 
     #[test]
     fn montgomery_prime_field_addition_works_1() {
-        let x = U384FP2Element::new(UnsignedInteger::from(
+        let x = U384FP2Element::new(UnsignedInteger::from_hex(
             "05ed176deb0e80b4deb7718cdaa075165f149c",
         ));
-        let y = U384FP2Element::new(UnsignedInteger::from(
+        let y = U384FP2Element::new(UnsignedInteger::from_hex(
             "5f103b0bd4397d4df560eb559f38353f80eeb6",
         ));
-        let c = U384FP2Element::new(UnsignedInteger::from(
+        let c = U384FP2Element::new(UnsignedInteger::from_hex(
             "64fd5279bf47fe02d4185ce279d8aa55e00352",
         ));
         assert_eq!(x + y, c);
@@ -486,7 +486,7 @@ mod tests_u384_prime_fields {
     #[test]
     fn montgomery_prime_field_multiplication_works_1() {
         let x = U384FP2Element::one();
-        let y = U384FP2Element::new(UnsignedInteger::from(
+        let y = U384FP2Element::new(UnsignedInteger::from_hex(
             "5f103b0bd4397d4df560eb559f38353f80eeb6",
         ));
         assert_eq!(&y * x, y);
@@ -494,7 +494,7 @@ mod tests_u384_prime_fields {
 
     #[test]
     fn to_bytes_from_bytes_be_is_the_identity() {
-        let x = U384FP2Element::new(UnsignedInteger::from(
+        let x = U384FP2Element::new(UnsignedInteger::from_hex(
             "5f103b0bd4397d4df560eb559f38353f80eeb6",
         ));
         assert_eq!(U384FP2Element::from_bytes_be(&x.to_bytes_be()).unwrap(), x);
@@ -514,7 +514,7 @@ mod tests_u384_prime_fields {
 
     #[test]
     fn to_bytes_from_bytes_le_is_the_identity() {
-        let x = U384FP2Element::new(UnsignedInteger::from(
+        let x = U384FP2Element::new(UnsignedInteger::from_hex(
             "5f103b0bd4397d4df560eb559f38353f80eeb6",
         ));
         assert_eq!(U384FP2Element::from_bytes_le(&x.to_bytes_le()).unwrap(), x);
@@ -750,13 +750,13 @@ mod tests_u256_prime_fields {
 
     #[test]
     fn montgomery_prime_field_addition_works_0() {
-        let x = U256FP1Element::new(UnsignedInteger::from(
+        let x = U256FP1Element::new(UnsignedInteger::from_hex(
             "93e712950bf3fe589aa030562a44b1cec66b09192c4bcf705a5",
         ));
-        let y = U256FP1Element::new(UnsignedInteger::from(
+        let y = U256FP1Element::new(UnsignedInteger::from_hex(
             "10a712235c1f6b4172a1e35da6aef1a7ec6b09192c4bb88cfa5",
         ));
-        let c = U256FP1Element::new(UnsignedInteger::from(
+        let c = U256FP1Element::new(UnsignedInteger::from_hex(
             "a48e24b86813699a0d4213b3d0f3a376b2d61232589787fd54a",
         ));
         assert_eq!(x + y, c);
@@ -764,13 +764,13 @@ mod tests_u256_prime_fields {
 
     #[test]
     fn montgomery_prime_field_multiplication_works_0() {
-        let x = U256FP1Element::new(UnsignedInteger::from(
+        let x = U256FP1Element::new(UnsignedInteger::from_hex(
             "93e712950bf3fe589aa030562a44b1cec66b09192c4bcf705a5",
         ));
-        let y = U256FP1Element::new(UnsignedInteger::from(
+        let y = U256FP1Element::new(UnsignedInteger::from_hex(
             "10a712235c1f6b4172a1e35da6aef1a7ec6b09192c4bb88cfa5",
         ));
-        let c = U256FP1Element::new(UnsignedInteger::from(
+        let c = U256FP1Element::new(UnsignedInteger::from_hex(
             "7808e74c3208d9a66791ef9cc15a46acc9951ee312102684021",
         ));
         assert_eq!(x * y, c);
@@ -795,13 +795,13 @@ mod tests_u256_prime_fields {
 
     #[test]
     fn montgomery_prime_field_addition_works_1() {
-        let x = FP2Element::new(UnsignedInteger::from(
+        let x = FP2Element::new(UnsignedInteger::from_hex(
             "acbbb7ca01c65cfffffc72815b397fff9ab130ad53a5ffffffb8f21b207dfedf",
         ));
-        let y = FP2Element::new(UnsignedInteger::from(
+        let y = FP2Element::new(UnsignedInteger::from_hex(
             "d65ddbe509d3fffff21f494c588cbdbfe43e929b0543e3ffffffffffffffff43",
         ));
-        let c = FP2Element::new(UnsignedInteger::from(
+        let c = FP2Element::new(UnsignedInteger::from_hex(
             "831993af0b9a5cfff21bbbcdb3c63dbf7eefc34858e9e3ffffb8f21b207dfedf",
         ));
         assert_eq!(x + y, c);
@@ -809,13 +809,13 @@ mod tests_u256_prime_fields {
 
     #[test]
     fn montgomery_prime_field_multiplication_works_1() {
-        let x = FP2Element::new(UnsignedInteger::from(
+        let x = FP2Element::new(UnsignedInteger::from_hex(
             "acbbb7ca01c65cfffffc72815b397fff9ab130ad53a5ffffffb8f21b207dfedf",
         ));
-        let y = FP2Element::new(UnsignedInteger::from(
+        let y = FP2Element::new(UnsignedInteger::from_hex(
             "d65ddbe509d3fffff21f494c588cbdbfe43e929b0543e3ffffffffffffffff43",
         ));
-        let c = FP2Element::new(UnsignedInteger::from(
+        let c = FP2Element::new(UnsignedInteger::from_hex(
             "2b1e80d553ecab2e4d41eb53c4c8ad89ebacac6cf6b91dcf2213f311093aa05d",
         ));
         assert_eq!(&y * x, c);
@@ -823,7 +823,7 @@ mod tests_u256_prime_fields {
 
     #[test]
     fn to_bytes_from_bytes_be_is_the_identity() {
-        let x = FP2Element::new(UnsignedInteger::from(
+        let x = FP2Element::new(UnsignedInteger::from_hex(
             "5f103b0bd4397d4df560eb559f38353f80eeb6",
         ));
         assert_eq!(FP2Element::from_bytes_be(&x.to_bytes_be()).unwrap(), x);
@@ -843,7 +843,7 @@ mod tests_u256_prime_fields {
 
     #[test]
     fn to_bytes_from_bytes_le_is_the_identity() {
-        let x = FP2Element::new(UnsignedInteger::from(
+        let x = FP2Element::new(UnsignedInteger::from_hex(
             "5f103b0bd4397d4df560eb559f38353f80eeb6",
         ));
         assert_eq!(FP2Element::from_bytes_le(&x.to_bytes_le()).unwrap(), x);

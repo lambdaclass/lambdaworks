@@ -52,7 +52,7 @@ impl<const NUM_LIMBS: usize> From<u16> for UnsignedInteger<NUM_LIMBS> {
 
 impl<const NUM_LIMBS: usize> From<&str> for UnsignedInteger<NUM_LIMBS> {
     fn from(hex_str: &str) -> Self {
-        Self::from(hex_str)
+        Self::from_hex(hex_str)
     }
 }
 
@@ -282,7 +282,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         UnsignedInteger { limbs }
     }
 
-    pub const fn from(value: &str) -> Self {
+    pub const fn from_hex(value: &str) -> Self {
         let mut result = [0u64; NUM_LIMBS];
         let mut limb = 0;
         let mut limb_index = NUM_LIMBS - 1;
@@ -590,43 +590,43 @@ mod tests_u384 {
 
     #[test]
     fn construct_new_integer_from_hex_1() {
-        let a = U384::from("1");
+        let a = U384::from_hex("1");
         assert_eq!(a.limbs, [0, 0, 0, 0, 0, 1]);
     }
 
     #[test]
     fn construct_new_integer_from_hex_2() {
-        let a = U384::from("f");
+        let a = U384::from_hex("f");
         assert_eq!(a.limbs, [0, 0, 0, 0, 0, 15]);
     }
 
     #[test]
     fn construct_new_integer_from_hex_3() {
-        let a = U384::from("10000000000000000");
+        let a = U384::from_hex("10000000000000000");
         assert_eq!(a.limbs, [0, 0, 0, 0, 1, 0]);
     }
 
     #[test]
     fn construct_new_integer_from_hex_4() {
-        let a = U384::from("a0000000000000000");
+        let a = U384::from_hex("a0000000000000000");
         assert_eq!(a.limbs, [0, 0, 0, 0, 10, 0]);
     }
 
     #[test]
     fn construct_new_integer_from_hex_5() {
-        let a = U384::from("ffffffffffffffffff");
+        let a = U384::from_hex("ffffffffffffffffff");
         assert_eq!(a.limbs, [0, 0, 0, 0, 255, u64::MAX]);
     }
 
     #[test]
     fn construct_new_integer_from_hex_6() {
-        let a = U384::from("eb235f6144d9e91f4b14");
+        let a = U384::from_hex("eb235f6144d9e91f4b14");
         assert_eq!(a.limbs, [0, 0, 0, 0, 60195, 6872850209053821716]);
     }
 
     #[test]
     fn construct_new_integer_from_hex_7() {
-        let a = U384::from("2b20aaa5cf482b239e2897a787faf4660cc95597854beb2");
+        let a = U384::from_hex("2b20aaa5cf482b239e2897a787faf4660cc95597854beb2");
         assert_eq!(
             a.limbs,
             [
@@ -642,7 +642,7 @@ mod tests_u384 {
 
     #[test]
     fn construct_new_integer_from_hex_8() {
-        let a = U384::from("140f5177b90b4f96b61bb8ccb4f298ad2b20aaa5cf482b239e2897a787faf4660cc95597854beb235f6144d9e91f4b14");
+        let a = U384::from_hex("140f5177b90b4f96b61bb8ccb4f298ad2b20aaa5cf482b239e2897a787faf4660cc95597854beb235f6144d9e91f4b14");
         assert_eq!(
             a.limbs,
             [
@@ -658,7 +658,7 @@ mod tests_u384 {
 
     #[test]
     fn equality_works_1() {
-        let a = U384::from("1");
+        let a = U384::from_hex("1");
         let b = U384 {
             limbs: [0, 0, 0, 0, 0, 1],
         };
@@ -666,7 +666,7 @@ mod tests_u384 {
     }
     #[test]
     fn equality_works_2() {
-        let a = U384::from("f");
+        let a = U384::from_hex("f");
         let b = U384 {
             limbs: [0, 0, 0, 0, 0, 15],
         };
@@ -675,7 +675,7 @@ mod tests_u384 {
 
     #[test]
     fn equality_works_3() {
-        let a = U384::from("10000000000000000");
+        let a = U384::from_hex("10000000000000000");
         let b = U384 {
             limbs: [0, 0, 0, 0, 1, 0],
         };
@@ -684,7 +684,7 @@ mod tests_u384 {
 
     #[test]
     fn equality_works_4() {
-        let a = U384::from("a0000000000000000");
+        let a = U384::from_hex("a0000000000000000");
         let b = U384 {
             limbs: [0, 0, 0, 0, 10, 0],
         };
@@ -693,7 +693,7 @@ mod tests_u384 {
 
     #[test]
     fn equality_works_5() {
-        let a = U384::from("ffffffffffffffffff");
+        let a = U384::from_hex("ffffffffffffffffff");
         let b = U384 {
             limbs: [0, 0, 0, 0, u8::MAX as u64, u64::MAX],
         };
@@ -702,7 +702,7 @@ mod tests_u384 {
 
     #[test]
     fn equality_works_6() {
-        let a = U384::from("eb235f6144d9e91f4b14");
+        let a = U384::from_hex("eb235f6144d9e91f4b14");
         let b = U384 {
             limbs: [0, 0, 0, 0, 60195, 6872850209053821716],
         };
@@ -711,7 +711,7 @@ mod tests_u384 {
 
     #[test]
     fn equality_works_7() {
-        let a = U384::from("2b20aaa5cf482b239e2897a787faf4660cc95597854beb2");
+        let a = U384::from_hex("2b20aaa5cf482b239e2897a787faf4660cc95597854beb2");
         let b = U384 {
             limbs: [
                 0,
@@ -727,7 +727,7 @@ mod tests_u384 {
 
     #[test]
     fn equality_works_8() {
-        let a = U384::from("140f5177b90b4f96b61bb8ccb4f298ad2b20aaa5cf482b239e2897a787faf4660cc95597854beb235f6144d9e91f4b14");
+        let a = U384::from_hex("140f5177b90b4f96b61bb8ccb4f298ad2b20aaa5cf482b239e2897a787faf4660cc95597854beb235f6144d9e91f4b14");
         let b = U384 {
             limbs: [
                 1445463580056702870,
@@ -743,28 +743,28 @@ mod tests_u384 {
 
     #[test]
     fn equality_works_9() {
-        let a = U384::from("fffffff");
-        let b = U384::from("fefffff");
+        let a = U384::from_hex("fffffff");
+        let b = U384::from_hex("fefffff");
         assert_ne!(a, b);
     }
 
     #[test]
     fn equality_works_10() {
-        let a = U384::from("ffff000000000000");
-        let b = U384::from("ffff000000100000");
+        let a = U384::from_hex("ffff000000000000");
+        let b = U384::from_hex("ffff000000100000");
         assert_ne!(a, b);
     }
 
     #[test]
     fn const_ne_works_1() {
-        let a = U384::from("ffff000000000000");
-        let b = U384::from("ffff000000100000");
+        let a = U384::from_hex("ffff000000000000");
+        let b = U384::from_hex("ffff000000100000");
         assert!(U384::const_ne(&a, &b));
     }
 
     #[test]
     fn const_ne_works_2() {
-        let a = U384::from("140f5177b90b4f96b61bb8ccb4f298ad2b20aaa5cf482b239e2897a787faf4660cc95597854beb235f6144d9e91f4b14");
+        let a = U384::from_hex("140f5177b90b4f96b61bb8ccb4f298ad2b20aaa5cf482b239e2897a787faf4660cc95597854beb235f6144d9e91f4b14");
         let b = U384 {
             limbs: [
                 1445463580056702870,
@@ -796,45 +796,45 @@ mod tests_u384 {
 
     #[test]
     fn add_two_384_bit_integers_3() {
-        let a = U384::from("ffffffffffffffff");
-        let b = U384::from("1");
-        let c = U384::from("10000000000000000");
+        let a = U384::from_hex("ffffffffffffffff");
+        let b = U384::from_hex("1");
+        let c = U384::from_hex("10000000000000000");
         assert_eq!(a + b, c);
     }
 
     #[test]
     fn add_two_384_bit_integers_4() {
-        let a = U384::from("b58e1e0b66");
-        let b = U384::from("55469d9619");
-        let c = U384::from("10ad4bba17f");
+        let a = U384::from_hex("b58e1e0b66");
+        let b = U384::from_hex("55469d9619");
+        let c = U384::from_hex("10ad4bba17f");
         assert_eq!(a + b, c);
     }
 
     #[test]
     fn add_two_384_bit_integers_5() {
-        let a = U384::from("e8dff25cb6160f7705221da6f");
-        let b = U384::from("ab879169b5f80dc8a7969f0b0");
-        let c = U384::from("1946783c66c0e1d3facb8bcb1f");
+        let a = U384::from_hex("e8dff25cb6160f7705221da6f");
+        let b = U384::from_hex("ab879169b5f80dc8a7969f0b0");
+        let c = U384::from_hex("1946783c66c0e1d3facb8bcb1f");
         assert_eq!(a + b, c);
     }
 
     #[test]
     fn add_two_384_bit_integers_6() {
-        let a = U384::from("9adf291af3a64d59e14e7b440c850508014c551ed5");
-        let b = U384::from("e7948474bce907f0feaf7e5d741a8cd2f6d1fb9448");
-        let c = U384::from("18273ad8fb08f554adffdf9a1809f91daf81e50b31d");
+        let a = U384::from_hex("9adf291af3a64d59e14e7b440c850508014c551ed5");
+        let b = U384::from_hex("e7948474bce907f0feaf7e5d741a8cd2f6d1fb9448");
+        let c = U384::from_hex("18273ad8fb08f554adffdf9a1809f91daf81e50b31d");
         assert_eq!(a + b, c);
     }
 
     #[test]
     fn add_two_384_bit_integers_7() {
-        let a = U384::from(
+        let a = U384::from_hex(
             "f866aef803c92bf02e85c7fad0eccb4881c59825e499fa22f98e1a8fefed4cd9a03647cd3cc84",
         );
-        let b = U384::from(
+        let b = U384::from_hex(
             "9b4000dccf01a010e196154a1b998408f949d734389626ba97cb3331ee87e01dd5badc58f41b2",
         );
-        let c = U384::from(
+        let c = U384::from_hex(
             "193a6afd4d2cacc01101bdd44ec864f517b0f6f5a1d3020dd91594dc1de752cf775f1242630e36",
         );
         assert_eq!(a + b, c);
@@ -842,25 +842,25 @@ mod tests_u384 {
 
     #[test]
     fn add_two_384_bit_integers_8() {
-        let a = U384::from("07df9c74fa9d5aafa74a87dbbf93215659d8a3e1706d4b06de9512284802580eb36ae12ea59f90db5b1799d0970a42e");
-        let b = U384::from("d515e54973f0643a6a9957579c1f84020a6a91d5d5f27b75401c7538d2c9ea9cafff44a2c606877d46c49a3433cc85e");
-        let c = U384::from("dcf581be6e8dbeea11e3df335bb2a558644335b7465fc67c1eb187611acc42ab636a25d16ba61858a1dc3404cad6c8c");
+        let a = U384::from_hex("07df9c74fa9d5aafa74a87dbbf93215659d8a3e1706d4b06de9512284802580eb36ae12ea59f90db5b1799d0970a42e");
+        let b = U384::from_hex("d515e54973f0643a6a9957579c1f84020a6a91d5d5f27b75401c7538d2c9ea9cafff44a2c606877d46c49a3433cc85e");
+        let c = U384::from_hex("dcf581be6e8dbeea11e3df335bb2a558644335b7465fc67c1eb187611acc42ab636a25d16ba61858a1dc3404cad6c8c");
         assert_eq!(a + b, c);
     }
 
     #[test]
     fn add_two_384_bit_integers_9() {
-        let a = U384::from("92977527a0f8ba00d18c1b2f1900d965d4a70e5f5f54468ffb2d4d41519385f24b078a0e7d0281d5ad0c36724dc4233");
-        let b = U384::from("46facf9953a9494822bf18836ffd7e55c48b30aa81e17fa1ace0b473015307e4622b8bd6fa68ef654796a183abde842");
-        let c = U384::from("d99244c0f4a20348f44b33b288fe57bb99323f09e135c631a80e01b452e68dd6ad3315e5776b713af4a2d7f5f9a2a75");
+        let a = U384::from_hex("92977527a0f8ba00d18c1b2f1900d965d4a70e5f5f54468ffb2d4d41519385f24b078a0e7d0281d5ad0c36724dc4233");
+        let b = U384::from_hex("46facf9953a9494822bf18836ffd7e55c48b30aa81e17fa1ace0b473015307e4622b8bd6fa68ef654796a183abde842");
+        let c = U384::from_hex("d99244c0f4a20348f44b33b288fe57bb99323f09e135c631a80e01b452e68dd6ad3315e5776b713af4a2d7f5f9a2a75");
         assert_eq!(a + b, c);
     }
 
     #[test]
     fn add_two_384_bit_integers_10() {
-        let a = U384::from("07df9c74fa9d5aafa74a87dbbf93215659d8a3e1706d4b06de9512284802580eb36ae12ea59f90db5b1799d0970a42e");
-        let b = U384::from("d515e54973f0643a6a9957579c1f84020a6a91d5d5f27b75401c7538d2c9ea9cafff44a2c606877d46c49a3433cc85e");
-        let c_expected = U384::from("dcf581be6e8dbeea11e3df335bb2a558644335b7465fc67c1eb187611acc42ab636a25d16ba61858a1dc3404cad6c8c");
+        let a = U384::from_hex("07df9c74fa9d5aafa74a87dbbf93215659d8a3e1706d4b06de9512284802580eb36ae12ea59f90db5b1799d0970a42e");
+        let b = U384::from_hex("d515e54973f0643a6a9957579c1f84020a6a91d5d5f27b75401c7538d2c9ea9cafff44a2c606877d46c49a3433cc85e");
+        let c_expected = U384::from_hex("dcf581be6e8dbeea11e3df335bb2a558644335b7465fc67c1eb187611acc42ab636a25d16ba61858a1dc3404cad6c8c");
         let (c, overflow) = U384::add(&a, &b);
         assert_eq!(c, c_expected);
         assert!(!overflow);
@@ -868,9 +868,9 @@ mod tests_u384 {
 
     #[test]
     fn add_two_384_bit_integers_11() {
-        let a = U384::from("92977527a0f8ba00d18c1b2f1900d965d4a70e5f5f54468ffb2d4d41519385f24b078a0e7d0281d5ad0c36724dc4233");
-        let b = U384::from("46facf9953a9494822bf18836ffd7e55c48b30aa81e17fa1ace0b473015307e4622b8bd6fa68ef654796a183abde842");
-        let c_expected = U384::from("d99244c0f4a20348f44b33b288fe57bb99323f09e135c631a80e01b452e68dd6ad3315e5776b713af4a2d7f5f9a2a75");
+        let a = U384::from_hex("92977527a0f8ba00d18c1b2f1900d965d4a70e5f5f54468ffb2d4d41519385f24b078a0e7d0281d5ad0c36724dc4233");
+        let b = U384::from_hex("46facf9953a9494822bf18836ffd7e55c48b30aa81e17fa1ace0b473015307e4622b8bd6fa68ef654796a183abde842");
+        let c_expected = U384::from_hex("d99244c0f4a20348f44b33b288fe57bb99323f09e135c631a80e01b452e68dd6ad3315e5776b713af4a2d7f5f9a2a75");
         let (c, overflow) = U384::add(&a, &b);
         assert_eq!(c, c_expected);
         assert!(!overflow);
@@ -878,9 +878,9 @@ mod tests_u384 {
 
     #[test]
     fn add_two_384_bit_integers_12_with_overflow() {
-        let a = U384::from("b07bc844363dd56467d9ebdd5929e9bb34a8e2577db77df6cf8f2ac45bd3d0bc2fc3078d265fe761af51d6aec5b59428");
-        let b = U384::from("cbbc474761bb7995ff54e25fa5d30295604fe3545d0cde405e72d8c0acebb119e9158131679b6c34483a3dafb49deeea");
-        let c_expected = U384::from("7c380f8b97f94efa672ece3cfefcec5094f8c5abdac45c372e02038508bf81d618d888be8dfb5395f78c145e7a538312");
+        let a = U384::from_hex("b07bc844363dd56467d9ebdd5929e9bb34a8e2577db77df6cf8f2ac45bd3d0bc2fc3078d265fe761af51d6aec5b59428");
+        let b = U384::from_hex("cbbc474761bb7995ff54e25fa5d30295604fe3545d0cde405e72d8c0acebb119e9158131679b6c34483a3dafb49deeea");
+        let c_expected = U384::from_hex("7c380f8b97f94efa672ece3cfefcec5094f8c5abdac45c372e02038508bf81d618d888be8dfb5395f78c145e7a538312");
         let (c, overflow) = U384::add(&a, &b);
         assert_eq!(c, c_expected);
         assert!(overflow);
@@ -904,45 +904,45 @@ mod tests_u384 {
 
     #[test]
     fn sub_two_384_bit_integers_3() {
-        let a = U384::from("ffffffffffffffff");
-        let b = U384::from("1");
-        let c = U384::from("10000000000000000");
+        let a = U384::from_hex("ffffffffffffffff");
+        let b = U384::from_hex("1");
+        let c = U384::from_hex("10000000000000000");
         assert_eq!(c - a, b);
     }
 
     #[test]
     fn sub_two_384_bit_integers_4() {
-        let a = U384::from("b58e1e0b66");
-        let b = U384::from("55469d9619");
-        let c = U384::from("10ad4bba17f");
+        let a = U384::from_hex("b58e1e0b66");
+        let b = U384::from_hex("55469d9619");
+        let c = U384::from_hex("10ad4bba17f");
         assert_eq!(c - a, b);
     }
 
     #[test]
     fn sub_two_384_bit_integers_5() {
-        let a = U384::from("e8dff25cb6160f7705221da6f");
-        let b = U384::from("ab879169b5f80dc8a7969f0b0");
-        let c = U384::from("1946783c66c0e1d3facb8bcb1f");
+        let a = U384::from_hex("e8dff25cb6160f7705221da6f");
+        let b = U384::from_hex("ab879169b5f80dc8a7969f0b0");
+        let c = U384::from_hex("1946783c66c0e1d3facb8bcb1f");
         assert_eq!(c - a, b);
     }
 
     #[test]
     fn sub_two_384_bit_integers_6() {
-        let a = U384::from("9adf291af3a64d59e14e7b440c850508014c551ed5");
-        let b = U384::from("e7948474bce907f0feaf7e5d741a8cd2f6d1fb9448");
-        let c = U384::from("18273ad8fb08f554adffdf9a1809f91daf81e50b31d");
+        let a = U384::from_hex("9adf291af3a64d59e14e7b440c850508014c551ed5");
+        let b = U384::from_hex("e7948474bce907f0feaf7e5d741a8cd2f6d1fb9448");
+        let c = U384::from_hex("18273ad8fb08f554adffdf9a1809f91daf81e50b31d");
         assert_eq!(c - a, b);
     }
 
     #[test]
     fn sub_two_384_bit_integers_7() {
-        let a = U384::from(
+        let a = U384::from_hex(
             "f866aef803c92bf02e85c7fad0eccb4881c59825e499fa22f98e1a8fefed4cd9a03647cd3cc84",
         );
-        let b = U384::from(
+        let b = U384::from_hex(
             "9b4000dccf01a010e196154a1b998408f949d734389626ba97cb3331ee87e01dd5badc58f41b2",
         );
-        let c = U384::from(
+        let c = U384::from_hex(
             "193a6afd4d2cacc01101bdd44ec864f517b0f6f5a1d3020dd91594dc1de752cf775f1242630e36",
         );
         assert_eq!(c - a, b);
@@ -950,17 +950,17 @@ mod tests_u384 {
 
     #[test]
     fn sub_two_384_bit_integers_8() {
-        let a = U384::from("07df9c74fa9d5aafa74a87dbbf93215659d8a3e1706d4b06de9512284802580eb36ae12ea59f90db5b1799d0970a42e");
-        let b = U384::from("d515e54973f0643a6a9957579c1f84020a6a91d5d5f27b75401c7538d2c9ea9cafff44a2c606877d46c49a3433cc85e");
-        let c = U384::from("dcf581be6e8dbeea11e3df335bb2a558644335b7465fc67c1eb187611acc42ab636a25d16ba61858a1dc3404cad6c8c");
+        let a = U384::from_hex("07df9c74fa9d5aafa74a87dbbf93215659d8a3e1706d4b06de9512284802580eb36ae12ea59f90db5b1799d0970a42e");
+        let b = U384::from_hex("d515e54973f0643a6a9957579c1f84020a6a91d5d5f27b75401c7538d2c9ea9cafff44a2c606877d46c49a3433cc85e");
+        let c = U384::from_hex("dcf581be6e8dbeea11e3df335bb2a558644335b7465fc67c1eb187611acc42ab636a25d16ba61858a1dc3404cad6c8c");
         assert_eq!(c - a, b);
     }
 
     #[test]
     fn sub_two_384_bit_integers_9() {
-        let a = U384::from("92977527a0f8ba00d18c1b2f1900d965d4a70e5f5f54468ffb2d4d41519385f24b078a0e7d0281d5ad0c36724dc4233");
-        let b = U384::from("46facf9953a9494822bf18836ffd7e55c48b30aa81e17fa1ace0b473015307e4622b8bd6fa68ef654796a183abde842");
-        let c = U384::from("d99244c0f4a20348f44b33b288fe57bb99323f09e135c631a80e01b452e68dd6ad3315e5776b713af4a2d7f5f9a2a75");
+        let a = U384::from_hex("92977527a0f8ba00d18c1b2f1900d965d4a70e5f5f54468ffb2d4d41519385f24b078a0e7d0281d5ad0c36724dc4233");
+        let b = U384::from_hex("46facf9953a9494822bf18836ffd7e55c48b30aa81e17fa1ace0b473015307e4622b8bd6fa68ef654796a183abde842");
+        let c = U384::from_hex("d99244c0f4a20348f44b33b288fe57bb99323f09e135c631a80e01b452e68dd6ad3315e5776b713af4a2d7f5f9a2a75");
         assert_eq!(c - a, b);
     }
 
@@ -977,7 +977,7 @@ mod tests_u384 {
     #[test]
     fn sub_two_384_bit_integers_11_with_overflow() {
         let a = U384::from_u64(334);
-        let b_expected = U384::from("fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd66");
+        let b_expected = U384::from_hex("fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd66");
         let c = U384::from_u64(1000);
         let (b, underflow) = U384::sub(&a, &c);
         assert!(underflow);
@@ -994,8 +994,8 @@ mod tests_u384 {
         assert!(U384::from_u64(2) > U384::from_u64(1));
         assert!(U384::from_u64(1) <= U384::from_u64(2));
 
-        let a = U384::from("92977527a0f8ba00d18c1b2f1900d965d4a70e5f5f54468ffb2d4d41519385f24b078a0e7d0281d5ad0c36724dc4233");
-        let c = U384::from("d99244c0f4a20348f44b33b288fe57bb99323f09e135c631a80e01b452e68dd6ad3315e5776b713af4a2d7f5f9a2a75");
+        let a = U384::from_hex("92977527a0f8ba00d18c1b2f1900d965d4a70e5f5f54468ffb2d4d41519385f24b078a0e7d0281d5ad0c36724dc4233");
+        let c = U384::from_hex("d99244c0f4a20348f44b33b288fe57bb99323f09e135c631a80e01b452e68dd6ad3315e5776b713af4a2d7f5f9a2a75");
 
         assert!(&a <= &a);
         assert!(&a >= &a);
@@ -1026,25 +1026,25 @@ mod tests_u384 {
 
     #[test]
     fn mul_two_384_bit_integers_works_2() {
-        let a = U384::from("6131d99f840b3b0");
-        let b = U384::from("6f5c466db398f43");
-        let c = U384::from("2a47a603a77f871dfbb937af7e5710");
+        let a = U384::from_hex("6131d99f840b3b0");
+        let b = U384::from_hex("6f5c466db398f43");
+        let c = U384::from_hex("2a47a603a77f871dfbb937af7e5710");
         assert_eq!(a * b, c);
     }
 
     #[test]
     fn mul_two_384_bit_integers_works_3() {
-        let a = U384::from("84a6add5db9e095b2e0f6b40eff8ee");
-        let b = U384::from("2347db918f725461bec2d5c57");
-        let c = U384::from("124805c476c9462adc0df6c88495d4253f5c38033afc18d78d920e2");
+        let a = U384::from_hex("84a6add5db9e095b2e0f6b40eff8ee");
+        let b = U384::from_hex("2347db918f725461bec2d5c57");
+        let c = U384::from_hex("124805c476c9462adc0df6c88495d4253f5c38033afc18d78d920e2");
         assert_eq!(a * b, c);
     }
 
     #[test]
     fn mul_two_384_bit_integers_works_4() {
-        let a = U384::from("04050753dd7c0b06c404633016f87040");
-        let b = U384::from("dc3830be041b3b4476445fcad3dac0f6f3a53e4ba12da");
-        let c = U384::from(
+        let a = U384::from_hex("04050753dd7c0b06c404633016f87040");
+        let b = U384::from_hex("dc3830be041b3b4476445fcad3dac0f6f3a53e4ba12da");
+        let c = U384::from_hex(
             "375342999dab7f52f4010c4abc2e18b55218015931a55d6053ac39e86e2a47d6b1cb95f41680",
         );
         assert_eq!(a * b, c);
@@ -1052,9 +1052,9 @@ mod tests_u384 {
 
     #[test]
     fn mul_two_384_bit_integers_works_5() {
-        let a = U384::from("7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8");
-        let b = U384::from("2");
-        let c_expected = U384::from(
+        let a = U384::from_hex("7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8");
+        let b = U384::from_hex("2");
+        let c_expected = U384::from_hex(
             "fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0",
         );
         assert_eq!(a * b, c_expected);
@@ -1063,17 +1063,17 @@ mod tests_u384 {
     #[test]
     #[should_panic]
     fn mul_two_384_bit_integers_works_6() {
-        let a = U384::from("800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000");
-        let b = U384::from("2");
+        let a = U384::from_hex("800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000");
+        let b = U384::from_hex("2");
         let _c = a * b;
     }
 
     #[test]
     fn mul_two_384_bit_integers_works_7_hi_lo() {
-        let a = U384::from("04050753dd7c0b06c404633016f87040");
-        let b = U384::from("dc3830be041b3b4476445fcad3dac0f6f3a53e4ba12da");
-        let hi_expected = U384::from("0");
-        let lo_expected = U384::from(
+        let a = U384::from_hex("04050753dd7c0b06c404633016f87040");
+        let b = U384::from_hex("dc3830be041b3b4476445fcad3dac0f6f3a53e4ba12da");
+        let hi_expected = U384::from_hex("0");
+        let lo_expected = U384::from_hex(
             "375342999dab7f52f4010c4abc2e18b55218015931a55d6053ac39e86e2a47d6b1cb95f41680",
         );
         let (hi, lo) = U384::mul(&a, &b);
@@ -1083,12 +1083,12 @@ mod tests_u384 {
 
     #[test]
     fn mul_two_384_bit_integers_works_8_hi_lo() {
-        let a = U384::from("5e2d939b602a50911232731d04fe6f40c05f97da0602307099fb991f9b414e2d52bef130349ec18db1a0215ea6caf76");
-        let b = U384::from("3f3ad1611ab58212f92a2484e9560935b9ac4615fe61cfed1a4861e193a74d20c94f9f88d8b2cc089543c3f699969d9");
-        let hi_expected = U384::from(
+        let a = U384::from_hex("5e2d939b602a50911232731d04fe6f40c05f97da0602307099fb991f9b414e2d52bef130349ec18db1a0215ea6caf76");
+        let b = U384::from_hex("3f3ad1611ab58212f92a2484e9560935b9ac4615fe61cfed1a4861e193a74d20c94f9f88d8b2cc089543c3f699969d9");
+        let hi_expected = U384::from_hex(
             "1742daad9c7861dd3499e7ece65467e337937b27e20d641b225bfe00323d33ed62715654eadc092b057a5f19f2ad6c",
         );
-        let lo_expected = U384::from("9969c0417b9304d9c16b046c860447d3533999e16710d2e90a44959a168816c015ffb44b987e8cbb82bd46b08d9e2106");
+        let lo_expected = U384::from_hex("9969c0417b9304d9c16b046c860447d3533999e16710d2e90a44959a168816c015ffb44b987e8cbb82bd46b08d9e2106");
         let (hi, lo) = U384::mul(&a, &b);
         assert_eq!(hi, hi_expected);
         assert_eq!(lo, lo_expected);
@@ -1096,10 +1096,10 @@ mod tests_u384 {
 
     #[test]
     fn mul_two_384_bit_integers_works_9_hi_lo() {
-        let a = U384::from("800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000");
-        let b = U384::from("2");
-        let hi_expected = U384::from("1");
-        let lo_expected = U384::from("0");
+        let a = U384::from_hex("800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000");
+        let b = U384::from_hex("2");
+        let hi_expected = U384::from_hex("1");
+        let lo_expected = U384::from_hex("0");
         let (hi, lo) = U384::mul(&a, &b);
         assert_eq!(hi, hi_expected);
         assert_eq!(lo, lo_expected);
@@ -1107,8 +1107,8 @@ mod tests_u384 {
 
     #[test]
     fn shift_left_on_384_bit_integer_works_1() {
-        let a = U384::from("1");
-        let b = U384::from("10");
+        let a = U384::from_hex("1");
+        let b = U384::from_hex("10");
         assert_eq!(a << 4, b);
     }
 
@@ -1121,29 +1121,29 @@ mod tests_u384 {
 
     #[test]
     fn shift_left_on_384_bit_integer_works_3() {
-        let a = U384::from("10");
-        let b = U384::from("1000");
+        let a = U384::from_hex("10");
+        let b = U384::from_hex("1000");
         assert_eq!(&a << 8, b);
     }
 
     #[test]
     fn shift_left_on_384_bit_integer_works_4() {
-        let a = U384::from("e45542992b6844553f3cb1c5ac33e7fa5");
-        let b = U384::from("391550a64ada11154fcf2c716b0cf9fe940");
+        let a = U384::from_hex("e45542992b6844553f3cb1c5ac33e7fa5");
+        let b = U384::from_hex("391550a64ada11154fcf2c716b0cf9fe940");
         assert_eq!(a << 6, b);
     }
 
     #[test]
     fn shift_left_on_384_bit_integer_works_5() {
-        let a = U384::from("03303f4d6c2d1caf0c24a6b0239b679a8390aa99bead76bc0093b1bc1a8101f5ce");
-        let b = U384::from("6607e9ad85a395e18494d604736cf35072155337d5aed7801276378350203eb9c0000000000000000000000000000000");
+        let a = U384::from_hex("03303f4d6c2d1caf0c24a6b0239b679a8390aa99bead76bc0093b1bc1a8101f5ce");
+        let b = U384::from_hex("6607e9ad85a395e18494d604736cf35072155337d5aed7801276378350203eb9c0000000000000000000000000000000");
         assert_eq!(&a << 125, b);
     }
 
     #[test]
     fn shift_left_on_384_bit_integer_works_6() {
-        let a = U384::from("762e8968bc392ed786ab132f0b5b0cacd385dd51de3a");
-        let b = U384::from(
+        let a = U384::from_hex("762e8968bc392ed786ab132f0b5b0cacd385dd51de3a");
+        let b = U384::from_hex(
             "762e8968bc392ed786ab132f0b5b0cacd385dd51de3a00000000000000000000000000000000",
         );
         assert_eq!(&a << (64 * 2), b);
@@ -1151,65 +1151,65 @@ mod tests_u384 {
 
     #[test]
     fn shift_left_on_384_bit_integer_works_7() {
-        let a = U384::from("90823e0bd707f");
-        let b = U384::from("90823e0bd707f000000000000000000000000000000000000000000000000");
+        let a = U384::from_hex("90823e0bd707f");
+        let b = U384::from_hex("90823e0bd707f000000000000000000000000000000000000000000000000");
         assert_eq!(&a << (64 * 3), b);
     }
 
     #[test]
     fn shift_right_on_384_bit_integer_works_1() {
-        let a = U384::from("1");
-        let b = U384::from("10");
+        let a = U384::from_hex("1");
+        let b = U384::from_hex("10");
         assert_eq!(b >> 4, a);
     }
 
     #[test]
     fn shift_right_on_384_bit_integer_works_2() {
-        let a = U384::from("10");
-        let b = U384::from("1000");
+        let a = U384::from_hex("10");
+        let b = U384::from_hex("1000");
         assert_eq!(&b >> 8, a);
     }
 
     #[test]
     fn shift_right_on_384_bit_integer_works_3() {
-        let a = U384::from("e45542992b6844553f3cb1c5ac33e7fa5");
-        let b = U384::from("391550a64ada11154fcf2c716b0cf9fe940");
+        let a = U384::from_hex("e45542992b6844553f3cb1c5ac33e7fa5");
+        let b = U384::from_hex("391550a64ada11154fcf2c716b0cf9fe940");
         assert_eq!(b >> 6, a);
     }
 
     #[test]
     fn shift_right_on_384_bit_integer_works_4() {
-        let a = U384::from("03303f4d6c2d1caf0c24a6b0239b679a8390aa99bead76bc0093b1bc1a8101f5ce");
-        let b = U384::from("6607e9ad85a395e18494d604736cf35072155337d5aed7801276378350203eb9c0000000000000000000000000000000");
+        let a = U384::from_hex("03303f4d6c2d1caf0c24a6b0239b679a8390aa99bead76bc0093b1bc1a8101f5ce");
+        let b = U384::from_hex("6607e9ad85a395e18494d604736cf35072155337d5aed7801276378350203eb9c0000000000000000000000000000000");
         assert_eq!(&b >> 125, a);
     }
 
     #[test]
     fn shift_right_on_384_bit_integer_works_5() {
-        let a = U384::from("ba6ab46f9a9a2f20e4061b67ce4d8c3da98091cf990d7b14ef47ffe27370abbdeb6a3ce9f9cbf5df1b2430114c8558eb");
-        let b = U384::from("174d568df35345e41c80c36cf9c9b187b5301239f321af629de8fffc4e6");
+        let a = U384::from_hex("ba6ab46f9a9a2f20e4061b67ce4d8c3da98091cf990d7b14ef47ffe27370abbdeb6a3ce9f9cbf5df1b2430114c8558eb");
+        let b = U384::from_hex("174d568df35345e41c80c36cf9c9b187b5301239f321af629de8fffc4e6");
         assert_eq!(a >> 151, b);
     }
 
     #[test]
     fn shift_right_on_384_bit_integer_works_6() {
         let a =
-            U384::from("076c075d2f65e39b9ecdde8bf6f8c94241962ce0f557b7739673200c777152eb7e772ad35");
-        let b = U384::from("ed80eba5ecbc7373d9bbd17edf19284832c59c1eaaf6ee7");
+            U384::from_hex("076c075d2f65e39b9ecdde8bf6f8c94241962ce0f557b7739673200c777152eb7e772ad35");
+        let b = U384::from_hex("ed80eba5ecbc7373d9bbd17edf19284832c59c1eaaf6ee7");
         assert_eq!(&a >> 99, b);
     }
 
     #[test]
     fn shift_right_on_384_bit_integer_works_7() {
-        let a = U384::from("6a9ce35d8940a5ebd29604ce9a182ade76f03f7e9965760b84a8cfd1d3dd2e612669fe000e58b2af688fd90");
-        let b = U384::from("6a9ce35d8940a5ebd29604ce9a182ade76f03f7");
+        let a = U384::from_hex("6a9ce35d8940a5ebd29604ce9a182ade76f03f7e9965760b84a8cfd1d3dd2e612669fe000e58b2af688fd90");
+        let b = U384::from_hex("6a9ce35d8940a5ebd29604ce9a182ade76f03f7");
         assert_eq!(&a >> (64 * 3), b);
     }
 
     #[test]
     fn shift_right_on_384_bit_integer_works_8() {
-        let a = U384::from("5322c128ec84081b6c376c108ebd7fd36bbd44f71ee5e6ad6bcb3dd1c5265bd7db75c90b2665a0826d17600f0e9");
-        let b = U384::from("5322c128ec84081b6c376c108ebd7fd36bbd44f71ee5e6ad6bcb3dd1c52");
+        let a = U384::from_hex("5322c128ec84081b6c376c108ebd7fd36bbd44f71ee5e6ad6bcb3dd1c5265bd7db75c90b2665a0826d17600f0e9");
+        let b = U384::from_hex("5322c128ec84081b6c376c108ebd7fd36bbd44f71ee5e6ad6bcb3dd1c52");
         assert_eq!(&a >> (64 * 2), b);
     }
 
@@ -1333,43 +1333,43 @@ mod tests_u256 {
 
     #[test]
     fn construct_new_integer_from_hex_1() {
-        let a = U256::from("1");
+        let a = U256::from_hex("1");
         assert_eq!(a.limbs, [0, 0, 0, 1]);
     }
 
     #[test]
     fn construct_new_integer_from_hex_2() {
-        let a = U256::from("f");
+        let a = U256::from_hex("f");
         assert_eq!(a.limbs, [0, 0, 0, 15]);
     }
 
     #[test]
     fn construct_new_integer_from_hex_3() {
-        let a = U256::from("10000000000000000");
+        let a = U256::from_hex("10000000000000000");
         assert_eq!(a.limbs, [0, 0, 1, 0]);
     }
 
     #[test]
     fn construct_new_integer_from_hex_4() {
-        let a = U256::from("a0000000000000000");
+        let a = U256::from_hex("a0000000000000000");
         assert_eq!(a.limbs, [0, 0, 10, 0]);
     }
 
     #[test]
     fn construct_new_integer_from_hex_5() {
-        let a = U256::from("ffffffffffffffffff");
+        let a = U256::from_hex("ffffffffffffffffff");
         assert_eq!(a.limbs, [0, 0, 255, u64::MAX]);
     }
 
     #[test]
     fn construct_new_integer_from_hex_6() {
-        let a = U256::from("eb235f6144d9e91f4b14");
+        let a = U256::from_hex("eb235f6144d9e91f4b14");
         assert_eq!(a.limbs, [0, 0, 60195, 6872850209053821716]);
     }
 
     #[test]
     fn construct_new_integer_from_hex_7() {
-        let a = U256::from("2b20aaa5cf482b239e2897a787faf4660cc95597854beb2");
+        let a = U256::from_hex("2b20aaa5cf482b239e2897a787faf4660cc95597854beb2");
         assert_eq!(
             a.limbs,
             [
@@ -1383,7 +1383,7 @@ mod tests_u256 {
 
     #[test]
     fn construct_new_integer_from_hex_8() {
-        let a = U256::from("2B20AAA5CF482B239E2897A787FAF4660CC95597854BEB235F6144D9E91F4B14");
+        let a = U256::from_hex("2B20AAA5CF482B239E2897A787FAF4660CC95597854BEB235F6144D9E91F4B14");
         assert_eq!(
             a.limbs,
             [
@@ -1397,7 +1397,7 @@ mod tests_u256 {
 
     #[test]
     fn equality_works_1() {
-        let a = U256::from("1");
+        let a = U256::from_hex("1");
         let b = U256 {
             limbs: [0, 0, 0, 1],
         };
@@ -1405,7 +1405,7 @@ mod tests_u256 {
     }
     #[test]
     fn equality_works_2() {
-        let a = U256::from("f");
+        let a = U256::from_hex("f");
         let b = U256 {
             limbs: [0, 0, 0, 15],
         };
@@ -1414,7 +1414,7 @@ mod tests_u256 {
 
     #[test]
     fn equality_works_3() {
-        let a = U256::from("10000000000000000");
+        let a = U256::from_hex("10000000000000000");
         let b = U256 {
             limbs: [0, 0, 1, 0],
         };
@@ -1423,7 +1423,7 @@ mod tests_u256 {
 
     #[test]
     fn equality_works_4() {
-        let a = U256::from("a0000000000000000");
+        let a = U256::from_hex("a0000000000000000");
         let b = U256 {
             limbs: [0, 0, 10, 0],
         };
@@ -1432,7 +1432,7 @@ mod tests_u256 {
 
     #[test]
     fn equality_works_5() {
-        let a = U256::from("ffffffffffffffffff");
+        let a = U256::from_hex("ffffffffffffffffff");
         let b = U256 {
             limbs: [0, 0, u8::MAX as u64, u64::MAX],
         };
@@ -1441,7 +1441,7 @@ mod tests_u256 {
 
     #[test]
     fn equality_works_6() {
-        let a = U256::from("eb235f6144d9e91f4b14");
+        let a = U256::from_hex("eb235f6144d9e91f4b14");
         let b = U256 {
             limbs: [0, 0, 60195, 6872850209053821716],
         };
@@ -1450,7 +1450,7 @@ mod tests_u256 {
 
     #[test]
     fn equality_works_7() {
-        let a = U256::from("2b20aaa5cf482b239e2897a787faf4660cc95597854beb2");
+        let a = U256::from_hex("2b20aaa5cf482b239e2897a787faf4660cc95597854beb2");
         let b = U256 {
             limbs: [
                 0,
@@ -1464,7 +1464,7 @@ mod tests_u256 {
 
     #[test]
     fn equality_works_8() {
-        let a = U256::from("2B20AAA5CF482B239E2897A787FAF4660CC95597854BEB235F6144D9E91F4B14");
+        let a = U256::from_hex("2B20AAA5CF482B239E2897A787FAF4660CC95597854BEB235F6144D9E91F4B14");
         let b = U256 {
             limbs: [
                 3107671372009581347,
@@ -1478,15 +1478,15 @@ mod tests_u256 {
 
     #[test]
     fn equality_works_9() {
-        let a = U256::from("fffffff");
-        let b = U256::from("fefffff");
+        let a = U256::from_hex("fffffff");
+        let b = U256::from_hex("fefffff");
         assert_ne!(a, b);
     }
 
     #[test]
     fn equality_works_10() {
-        let a = U256::from("ffff000000000000");
-        let b = U256::from("ffff000000100000");
+        let a = U256::from_hex("ffff000000000000");
+        let b = U256::from_hex("ffff000000100000");
         assert_ne!(a, b);
     }
 
@@ -1508,66 +1508,66 @@ mod tests_u256 {
 
     #[test]
     fn add_two_256_bit_integers_3() {
-        let a = U256::from("ffffffffffffffff");
-        let b = U256::from("1");
-        let c = U256::from("10000000000000000");
+        let a = U256::from_hex("ffffffffffffffff");
+        let b = U256::from_hex("1");
+        let c = U256::from_hex("10000000000000000");
         assert_eq!(a + b, c);
     }
 
     #[test]
     fn add_two_256_bit_integers_4() {
-        let a = U256::from("b58e1e0b66");
-        let b = U256::from("55469d9619");
-        let c = U256::from("10ad4bba17f");
+        let a = U256::from_hex("b58e1e0b66");
+        let b = U256::from_hex("55469d9619");
+        let c = U256::from_hex("10ad4bba17f");
         assert_eq!(a + b, c);
     }
 
     #[test]
     fn add_two_256_bit_integers_5() {
-        let a = U256::from("e8dff25cb6160f7705221da6f");
-        let b = U256::from("ab879169b5f80dc8a7969f0b0");
-        let c = U256::from("1946783c66c0e1d3facb8bcb1f");
+        let a = U256::from_hex("e8dff25cb6160f7705221da6f");
+        let b = U256::from_hex("ab879169b5f80dc8a7969f0b0");
+        let c = U256::from_hex("1946783c66c0e1d3facb8bcb1f");
         assert_eq!(a + b, c);
     }
 
     #[test]
     fn add_two_256_bit_integers_6() {
-        let a = U256::from("9adf291af3a64d59e14e7b440c850508014c551ed5");
-        let b = U256::from("e7948474bce907f0feaf7e5d741a8cd2f6d1fb9448");
-        let c = U256::from("18273ad8fb08f554adffdf9a1809f91daf81e50b31d");
+        let a = U256::from_hex("9adf291af3a64d59e14e7b440c850508014c551ed5");
+        let b = U256::from_hex("e7948474bce907f0feaf7e5d741a8cd2f6d1fb9448");
+        let c = U256::from_hex("18273ad8fb08f554adffdf9a1809f91daf81e50b31d");
         assert_eq!(a + b, c);
     }
 
     #[test]
     fn add_two_256_bit_integers_7() {
-        let a = U256::from("10d3bc05496380cfe27bf5d97ddb99ac95eb5ecfbd3907eadf877a4c2dfa05f6");
-        let b = U256::from("0866aef803c92bf02e85c7fad0eccb4881c59825e499fa22f98e1a8fefed4cd9");
-        let c = U256::from("193a6afd4d2cacc01101bdd44ec864f517b0f6f5a1d3020dd91594dc1de752cf");
+        let a = U256::from_hex("10d3bc05496380cfe27bf5d97ddb99ac95eb5ecfbd3907eadf877a4c2dfa05f6");
+        let b = U256::from_hex("0866aef803c92bf02e85c7fad0eccb4881c59825e499fa22f98e1a8fefed4cd9");
+        let c = U256::from_hex("193a6afd4d2cacc01101bdd44ec864f517b0f6f5a1d3020dd91594dc1de752cf");
         assert_eq!(a + b, c);
     }
 
     #[test]
     fn add_two_256_bit_integers_8() {
-        let a = U256::from("07df9c74fa9d5aafa74a87dbbf93215659d8a3e1706d4b06de9512284802580f");
-        let b = U256::from("d515e54973f0643a6a9957579c1f84020a6a91d5d5f27b75401c7538d2c9ea9c");
-        let c = U256::from("dcf581be6e8dbeea11e3df335bb2a558644335b7465fc67c1eb187611acc42ab");
+        let a = U256::from_hex("07df9c74fa9d5aafa74a87dbbf93215659d8a3e1706d4b06de9512284802580f");
+        let b = U256::from_hex("d515e54973f0643a6a9957579c1f84020a6a91d5d5f27b75401c7538d2c9ea9c");
+        let c = U256::from_hex("dcf581be6e8dbeea11e3df335bb2a558644335b7465fc67c1eb187611acc42ab");
         assert_eq!(a + b, c);
     }
 
     #[test]
     fn add_two_256_bit_integers_9() {
-        let a = U256::from("92977527a0f8ba00d18c1b2f1900d965d4a70e5f5f54468ffb2d4d41519385f2");
-        let b = U256::from("46facf9953a9494822bf18836ffd7e55c48b30aa81e17fa1ace0b473015307e4");
-        let c = U256::from("d99244c0f4a20348f44b33b288fe57bb99323f09e135c631a80e01b452e68dd6");
+        let a = U256::from_hex("92977527a0f8ba00d18c1b2f1900d965d4a70e5f5f54468ffb2d4d41519385f2");
+        let b = U256::from_hex("46facf9953a9494822bf18836ffd7e55c48b30aa81e17fa1ace0b473015307e4");
+        let c = U256::from_hex("d99244c0f4a20348f44b33b288fe57bb99323f09e135c631a80e01b452e68dd6");
         assert_eq!(a + b, c);
     }
 
     #[test]
     fn add_two_256_bit_integers_10() {
-        let a = U256::from("07df9c74fa9d5aafa74a87dbbf93215659d8a3e1706d4b06de9512284802580f");
-        let b = U256::from("d515e54973f0643a6a9957579c1f84020a6a91d5d5f27b75401c7538d2c9ea9c");
+        let a = U256::from_hex("07df9c74fa9d5aafa74a87dbbf93215659d8a3e1706d4b06de9512284802580f");
+        let b = U256::from_hex("d515e54973f0643a6a9957579c1f84020a6a91d5d5f27b75401c7538d2c9ea9c");
         let c_expected =
-            U256::from("dcf581be6e8dbeea11e3df335bb2a558644335b7465fc67c1eb187611acc42ab");
+            U256::from_hex("dcf581be6e8dbeea11e3df335bb2a558644335b7465fc67c1eb187611acc42ab");
         let (c, overflow) = U256::add(&a, &b);
         assert_eq!(c, c_expected);
         assert!(!overflow);
@@ -1575,10 +1575,10 @@ mod tests_u256 {
 
     #[test]
     fn add_two_256_bit_integers_11() {
-        let a = U256::from("92977527a0f8ba00d18c1b2f1900d965d4a70e5f5f54468ffb2d4d41519385f2");
-        let b = U256::from("46facf9953a9494822bf18836ffd7e55c48b30aa81e17fa1ace0b473015307e4");
+        let a = U256::from_hex("92977527a0f8ba00d18c1b2f1900d965d4a70e5f5f54468ffb2d4d41519385f2");
+        let b = U256::from_hex("46facf9953a9494822bf18836ffd7e55c48b30aa81e17fa1ace0b473015307e4");
         let c_expected =
-            U256::from("d99244c0f4a20348f44b33b288fe57bb99323f09e135c631a80e01b452e68dd6");
+            U256::from_hex("d99244c0f4a20348f44b33b288fe57bb99323f09e135c631a80e01b452e68dd6");
         let (c, overflow) = U256::add(&a, &b);
         assert_eq!(c, c_expected);
         assert!(!overflow);
@@ -1586,10 +1586,10 @@ mod tests_u256 {
 
     #[test]
     fn add_two_256_bit_integers_12_with_overflow() {
-        let a = U256::from("b07bc844363dd56467d9ebdd5929e9bb34a8e2577db77df6cf8f2ac45bd3d0bc");
-        let b = U256::from("cbbc474761bb7995ff54e25fa5d30295604fe3545d0cde405e72d8c0acebb119");
+        let a = U256::from_hex("b07bc844363dd56467d9ebdd5929e9bb34a8e2577db77df6cf8f2ac45bd3d0bc");
+        let b = U256::from_hex("cbbc474761bb7995ff54e25fa5d30295604fe3545d0cde405e72d8c0acebb119");
         let c_expected =
-            U256::from("7c380f8b97f94efa672ece3cfefcec5094f8c5abdac45c372e02038508bf81d5");
+            U256::from_hex("7c380f8b97f94efa672ece3cfefcec5094f8c5abdac45c372e02038508bf81d5");
         let (c, overflow) = U256::add(&a, &b);
         assert_eq!(c, c_expected);
         assert!(overflow);
@@ -1613,57 +1613,57 @@ mod tests_u256 {
 
     #[test]
     fn sub_two_256_bit_integers_3() {
-        let a = U256::from("ffffffffffffffff");
-        let b = U256::from("1");
-        let c = U256::from("10000000000000000");
+        let a = U256::from_hex("ffffffffffffffff");
+        let b = U256::from_hex("1");
+        let c = U256::from_hex("10000000000000000");
         assert_eq!(c - a, b);
     }
 
     #[test]
     fn sub_two_256_bit_integers_4() {
-        let a = U256::from("b58e1e0b66");
-        let b = U256::from("55469d9619");
-        let c = U256::from("10ad4bba17f");
+        let a = U256::from_hex("b58e1e0b66");
+        let b = U256::from_hex("55469d9619");
+        let c = U256::from_hex("10ad4bba17f");
         assert_eq!(c - a, b);
     }
 
     #[test]
     fn sub_two_256_bit_integers_5() {
-        let a = U256::from("e8dff25cb6160f7705221da6f");
-        let b = U256::from("ab879169b5f80dc8a7969f0b0");
-        let c = U256::from("1946783c66c0e1d3facb8bcb1f");
+        let a = U256::from_hex("e8dff25cb6160f7705221da6f");
+        let b = U256::from_hex("ab879169b5f80dc8a7969f0b0");
+        let c = U256::from_hex("1946783c66c0e1d3facb8bcb1f");
         assert_eq!(c - a, b);
     }
 
     #[test]
     fn sub_two_256_bit_integers_6() {
-        let a = U256::from("9adf291af3a64d59e14e7b440c850508014c551ed5");
-        let b = U256::from("e7948474bce907f0feaf7e5d741a8cd2f6d1fb9448");
-        let c = U256::from("18273ad8fb08f554adffdf9a1809f91daf81e50b31d");
+        let a = U256::from_hex("9adf291af3a64d59e14e7b440c850508014c551ed5");
+        let b = U256::from_hex("e7948474bce907f0feaf7e5d741a8cd2f6d1fb9448");
+        let c = U256::from_hex("18273ad8fb08f554adffdf9a1809f91daf81e50b31d");
         assert_eq!(c - a, b);
     }
 
     #[test]
     fn sub_two_256_bit_integers_7() {
-        let a = U256::from("9b4000dccf01a010e196154a1b998408f949d734389626ba97cb3331ee87e01d");
-        let b = U256::from("5d26ae1b34c78bdf4cefb2b0b553473f887bc0f1ac03d36861c2e75e01656cbc");
-        let c = U256::from("f866aef803c92bf02e85c7fad0eccb4881c59825e499fa22f98e1a8fefed4cd9");
+        let a = U256::from_hex("9b4000dccf01a010e196154a1b998408f949d734389626ba97cb3331ee87e01d");
+        let b = U256::from_hex("5d26ae1b34c78bdf4cefb2b0b553473f887bc0f1ac03d36861c2e75e01656cbc");
+        let c = U256::from_hex("f866aef803c92bf02e85c7fad0eccb4881c59825e499fa22f98e1a8fefed4cd9");
         assert_eq!(c - a, b);
     }
 
     #[test]
     fn sub_two_256_bit_integers_8() {
-        let a = U256::from("07df9c74fa9d5aafa74a87dbbf93215659d8a3e1706d4b06de9512284802580e");
-        let b = U256::from("d515e54973f0643a6a9957579c1f84020a6a91d5d5f27b75401c7538d2c9ea9d");
-        let c = U256::from("dcf581be6e8dbeea11e3df335bb2a558644335b7465fc67c1eb187611acc42ab");
+        let a = U256::from_hex("07df9c74fa9d5aafa74a87dbbf93215659d8a3e1706d4b06de9512284802580e");
+        let b = U256::from_hex("d515e54973f0643a6a9957579c1f84020a6a91d5d5f27b75401c7538d2c9ea9d");
+        let c = U256::from_hex("dcf581be6e8dbeea11e3df335bb2a558644335b7465fc67c1eb187611acc42ab");
         assert_eq!(c - a, b);
     }
 
     #[test]
     fn sub_two_256_bit_integers_9() {
-        let a = U256::from("92977527a0f8ba00d18c1b2f1900d965d4a70e5f5f54468ffb2d4d41519385f2");
-        let b = U256::from("46facf9953a9494822bf18836ffd7e55c48b30aa81e17fa1ace0b473015307e4");
-        let c = U256::from("d99244c0f4a20348f44b33b288fe57bb99323f09e135c631a80e01b452e68dd6");
+        let a = U256::from_hex("92977527a0f8ba00d18c1b2f1900d965d4a70e5f5f54468ffb2d4d41519385f2");
+        let b = U256::from_hex("46facf9953a9494822bf18836ffd7e55c48b30aa81e17fa1ace0b473015307e4");
+        let c = U256::from_hex("d99244c0f4a20348f44b33b288fe57bb99323f09e135c631a80e01b452e68dd6");
         assert_eq!(c - a, b);
     }
 
@@ -1681,7 +1681,7 @@ mod tests_u256 {
     fn sub_two_256_bit_integers_11_with_overflow() {
         let a = U256::from_u64(334);
         let b_expected =
-            U256::from("fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd66");
+            U256::from_hex("fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd66");
         let c = U256::from_u64(1000);
         let (b, overflow) = U256::sub(&a, &c);
         assert!(overflow);
@@ -1698,8 +1698,8 @@ mod tests_u256 {
         assert!(U256::from_u64(2) > U256::from_u64(1));
         assert!(U256::from_u64(1) <= U256::from_u64(2));
 
-        let a = U256::from("5d4a70e5f5f54468ffb2d4d41519385f24b078a0e7d0281d5ad0c36724dc4233");
-        let c = U256::from("b99323f09e135c631a80e01b452e68dd6ad3315e5776b713af4a2d7f5f9a2a75");
+        let a = U256::from_hex("5d4a70e5f5f54468ffb2d4d41519385f24b078a0e7d0281d5ad0c36724dc4233");
+        let c = U256::from_hex("b99323f09e135c631a80e01b452e68dd6ad3315e5776b713af4a2d7f5f9a2a75");
 
         assert!(&a <= &a);
         assert!(&a >= &a);
@@ -1730,37 +1730,37 @@ mod tests_u256 {
 
     #[test]
     fn mul_two_256_bit_integers_works_2() {
-        let a = U256::from("6131d99f840b3b0");
-        let b = U256::from("6f5c466db398f43");
-        let c = U256::from("2a47a603a77f871dfbb937af7e5710");
+        let a = U256::from_hex("6131d99f840b3b0");
+        let b = U256::from_hex("6f5c466db398f43");
+        let c = U256::from_hex("2a47a603a77f871dfbb937af7e5710");
         assert_eq!(a * b, c);
     }
 
     #[test]
     fn mul_two_256_bit_integers_works_3() {
-        let a = U256::from("84a6add5db9e095b2e0f6b40eff8ee");
-        let b = U256::from("2347db918f725461bec2d5c57");
-        let c = U256::from("124805c476c9462adc0df6c88495d4253f5c38033afc18d78d920e2");
+        let a = U256::from_hex("84a6add5db9e095b2e0f6b40eff8ee");
+        let b = U256::from_hex("2347db918f725461bec2d5c57");
+        let c = U256::from_hex("124805c476c9462adc0df6c88495d4253f5c38033afc18d78d920e2");
         assert_eq!(a * b, c);
     }
 
     #[test]
     fn mul_two_256_bit_integers_works_4() {
-        let a = U256::from("15bf61fcf53a3f0ae1e8e555d");
-        let b = U256::from("cbbc474761bb7995ff54e25fa5d5d0cde405e9f");
+        let a = U256::from_hex("15bf61fcf53a3f0ae1e8e555d");
+        let b = U256::from_hex("cbbc474761bb7995ff54e25fa5d5d0cde405e9f");
         let c_expected =
-            U256::from("114ec14db0c80d30b7dcb9c45948ef04cc149e612cb544f447b146553aff2ac3");
+            U256::from_hex("114ec14db0c80d30b7dcb9c45948ef04cc149e612cb544f447b146553aff2ac3");
         assert_eq!(a * b, c_expected);
     }
 
     #[test]
     fn mul_two_256_bit_integers_works_5_hi_lo() {
-        let a = U256::from("8e2d939b602a50911232731d04fe6f40c05f97da0602307099fb991f9b414e2d");
-        let b = U256::from("7f3ad1611ab58212f92a2484e9560935b9ac4615fe61cfed1a4861e193a74d20");
+        let a = U256::from_hex("8e2d939b602a50911232731d04fe6f40c05f97da0602307099fb991f9b414e2d");
+        let b = U256::from_hex("7f3ad1611ab58212f92a2484e9560935b9ac4615fe61cfed1a4861e193a74d20");
         let hi_expected =
-            U256::from("46A946D6A984FE6507DE6B8D1354256D7A7BAE4283404733BDC876A264BCE5EE");
+            U256::from_hex("46A946D6A984FE6507DE6B8D1354256D7A7BAE4283404733BDC876A264BCE5EE");
         let lo_expected =
-            U256::from("43F24263F10930EBE3EA0307466C19B13B9C7DBA6B3F7604B7F32FB0E3084EA0");
+            U256::from_hex("43F24263F10930EBE3EA0307466C19B13B9C7DBA6B3F7604B7F32FB0E3084EA0");
         let (hi, lo) = U256::mul(&a, &b);
         assert_eq!(hi, hi_expected);
         assert_eq!(lo, lo_expected);
@@ -1768,8 +1768,8 @@ mod tests_u256 {
 
     #[test]
     fn shift_left_on_256_bit_integer_works_1() {
-        let a = U256::from("1");
-        let b = U256::from("10");
+        let a = U256::from_hex("1");
+        let b = U256::from_hex("10");
         assert_eq!(a << 4, b);
     }
 
@@ -1782,92 +1782,92 @@ mod tests_u256 {
 
     #[test]
     fn shift_left_on_256_bit_integer_works_3() {
-        let a = U256::from("10");
-        let b = U256::from("1000");
+        let a = U256::from_hex("10");
+        let b = U256::from_hex("1000");
         assert_eq!(&a << 8, b);
     }
 
     #[test]
     fn shift_left_on_256_bit_integer_works_4() {
-        let a = U256::from("e45542992b6844553f3cb1c5ac33e7fa5");
-        let b = U256::from("391550a64ada11154fcf2c716b0cf9fe940");
+        let a = U256::from_hex("e45542992b6844553f3cb1c5ac33e7fa5");
+        let b = U256::from_hex("391550a64ada11154fcf2c716b0cf9fe940");
         assert_eq!(a << 6, b);
     }
 
     #[test]
     fn shift_left_on_256_bit_integer_works_5() {
-        let a = U256::from("a8390aa99bead76bc0093b1bc1a8101f5ce");
-        let b = U256::from("72155337d5aed7801276378350203eb9c0000000000000000000000000000000");
+        let a = U256::from_hex("a8390aa99bead76bc0093b1bc1a8101f5ce");
+        let b = U256::from_hex("72155337d5aed7801276378350203eb9c0000000000000000000000000000000");
         assert_eq!(&a << 125, b);
     }
 
     #[test]
     fn shift_left_on_256_bit_integer_works_6() {
-        let a = U256::from("2ed786ab132f0b5b0cacd385dd51de3a");
-        let b = U256::from("2ed786ab132f0b5b0cacd385dd51de3a00000000000000000000000000000000");
+        let a = U256::from_hex("2ed786ab132f0b5b0cacd385dd51de3a");
+        let b = U256::from_hex("2ed786ab132f0b5b0cacd385dd51de3a00000000000000000000000000000000");
         assert_eq!(&a << (64 * 2), b);
     }
 
     #[test]
     fn shift_left_on_256_bit_integer_works_7() {
-        let a = U256::from("90823e0bd707f");
-        let b = U256::from("90823e0bd707f000000000000000000000000000000000000000000000000");
+        let a = U256::from_hex("90823e0bd707f");
+        let b = U256::from_hex("90823e0bd707f000000000000000000000000000000000000000000000000");
         assert_eq!(&a << (64 * 3), b);
     }
 
     #[test]
     fn shift_right_on_256_bit_integer_works_1() {
-        let a = U256::from("1");
-        let b = U256::from("10");
+        let a = U256::from_hex("1");
+        let b = U256::from_hex("10");
         assert_eq!(b >> 4, a);
     }
 
     #[test]
     fn shift_right_on_256_bit_integer_works_2() {
-        let a = U256::from("10");
-        let b = U256::from("1000");
+        let a = U256::from_hex("10");
+        let b = U256::from_hex("1000");
         assert_eq!(&b >> 8, a);
     }
 
     #[test]
     fn shift_right_on_256_bit_integer_works_3() {
-        let a = U256::from("e45542992b6844553f3cb1c5ac33e7fa5");
-        let b = U256::from("391550a64ada11154fcf2c716b0cf9fe940");
+        let a = U256::from_hex("e45542992b6844553f3cb1c5ac33e7fa5");
+        let b = U256::from_hex("391550a64ada11154fcf2c716b0cf9fe940");
         assert_eq!(b >> 6, a);
     }
 
     #[test]
     fn shift_right_on_256_bit_integer_works_4() {
-        let a = U256::from("390aa99bead76bc0093b1bc1a8101f5ce");
-        let b = U256::from("72155337d5aed7801276378350203eb9c0000000000000000000000000000000");
+        let a = U256::from_hex("390aa99bead76bc0093b1bc1a8101f5ce");
+        let b = U256::from_hex("72155337d5aed7801276378350203eb9c0000000000000000000000000000000");
         assert_eq!(&b >> 125, a);
     }
 
     #[test]
     fn shift_right_on_256_bit_integer_works_5() {
-        let a = U256::from("ba6ab46f9a9a2f20e4061b67ce4d8c3da98091cf990d7b14ef47ffe27370abbd");
-        let b = U256::from("174d568df35345e41c80c36cf9c");
+        let a = U256::from_hex("ba6ab46f9a9a2f20e4061b67ce4d8c3da98091cf990d7b14ef47ffe27370abbd");
+        let b = U256::from_hex("174d568df35345e41c80c36cf9c");
         assert_eq!(a >> 151, b);
     }
 
     #[test]
     fn shift_right_on_256_bit_integer_works_6() {
-        let a = U256::from("076c075d2f65e39b9ecdde8bf6f8c94241962ce0f557b7739673200c777152eb");
-        let b = U256::from("ed80eba5ecbc7373d9bbd17edf19284832c59c");
+        let a = U256::from_hex("076c075d2f65e39b9ecdde8bf6f8c94241962ce0f557b7739673200c777152eb");
+        let b = U256::from_hex("ed80eba5ecbc7373d9bbd17edf19284832c59c");
         assert_eq!(&a >> 99, b);
     }
 
     #[test]
     fn shift_right_on_256_bit_integer_works_7() {
-        let a = U256::from("6a9ce35d8940a5ebd29604ce9a182ade76f03f7e9965760b84a8cfd1d3dd2e61");
-        let b = U256::from("6a9ce35d8940a5eb");
+        let a = U256::from_hex("6a9ce35d8940a5ebd29604ce9a182ade76f03f7e9965760b84a8cfd1d3dd2e61");
+        let b = U256::from_hex("6a9ce35d8940a5eb");
         assert_eq!(&a >> (64 * 3), b);
     }
 
     #[test]
     fn shift_right_on_256_bit_integer_works_8() {
-        let a = U256::from("5322c128ec84081b6c376c108ebd7fd36bbd44f71ee5e6ad6bcb3dd1c5265bd7");
-        let b = U256::from("5322c128ec84081b6c376c108ebd7fd3");
+        let a = U256::from_hex("5322c128ec84081b6c376c108ebd7fd36bbd44f71ee5e6ad6bcb3dd1c5265bd7");
+        let b = U256::from_hex("5322c128ec84081b6c376c108ebd7fd3");
         assert_eq!(&a >> (64 * 2), b);
     }
 

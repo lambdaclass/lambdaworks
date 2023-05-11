@@ -10,7 +10,7 @@ use crate::{
 pub struct MontgomeryConfigStark252PrimeField;
 impl IsModulus<U256> for MontgomeryConfigStark252PrimeField {
     const MODULUS: U256 =
-        U256::from("800000000000011000000000000000000000000000000000000000000000001");
+        U256::from_hex("800000000000011000000000000000000000000000000000000000000000001");
 }
 
 pub type Stark252PrimeField = U256PrimeField<MontgomeryConfigStark252PrimeField>;

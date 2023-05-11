@@ -127,12 +127,12 @@ mod tests {
 
         let expected_result = TestCurve2::create_point_from_affine(
             FieldElement::new([
-                FieldElement::new(U384::from("7b8ee59e422e702458174c18eb3302e17")),
-                FieldElement::new(U384::from("1395065adef5a6a5457f1ea600b5a3e4fb")),
+                FieldElement::new(U384::from_hex("7b8ee59e422e702458174c18eb3302e17")),
+                FieldElement::new(U384::from_hex("1395065adef5a6a5457f1ea600b5a3e4fb")),
             ]),
             FieldElement::new([
-                FieldElement::new(U384::from("e29d5b15c42124cd8f05d3c8500451c33")),
-                FieldElement::new(U384::from("e836ef62db0a47a63304b67c0de69b140")),
+                FieldElement::new(U384::from_hex("e29d5b15c42124cd8f05d3c8500451c33")),
+                FieldElement::new(U384::from_hex("e836ef62db0a47a63304b67c0de69b140")),
             ]),
         )
         .unwrap();
