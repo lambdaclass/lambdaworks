@@ -709,9 +709,24 @@ mod tests_u384 {
     }
 
     #[test]
-    #[should_panic]
     fn construct_new_integer_from_non_hex_errs() {
-        U384::from_hex("0xTEST").unwrap();
+        assert!(U384::from_hex("0xTEST").is_err());
+    }
+
+    #[test]
+    fn construct_new_integer_from_hex_checked_8() {
+        let a = U384::from_hex("140f5177b90b4f96b61bb8ccb4f298ad2b20aaa5cf482b239e2897a787faf4660cc95597854beb235f6144d9e91f4b14").unwrap();
+        assert_eq!(
+            a.limbs,
+            [
+                1445463580056702870,
+                13122285128622708909,
+                3107671372009581347,
+                11396525602857743462,
+                921361708038744867,
+                6872850209053821716
+            ]
+        );
     }
 
     #[test]

@@ -1,3 +1,4 @@
+use crate::errors::CreationError;
 use crate::field::traits::IsField;
 use crate::unsigned_integer::element::UnsignedInteger;
 use crate::unsigned_integer::montgomery::MontgomeryAlgorithms;
@@ -460,7 +461,7 @@ where
     M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug,
 {
     #[allow(unused)]
-    pub const fn from_hex(hex: &str) -> Self {
+    pub const fn from_hex_unchecked(hex: &str) -> Self {
         let integer = UnsignedInteger::<NUM_LIMBS>::from_hex_unchecked(hex);
         Self {
             value: MontgomeryAlgorithms::cios(
@@ -470,6 +471,20 @@ where
                 &MontgomeryBackendPrimeField::<M, NUM_LIMBS>::MU,
             ),
         }
+    }
+
+    #[allow(unused)]
+    pub fn from_hex(hex: &str) -> Result<Self,CreationError> {
+        let integer = UnsignedInteger::<NUM_LIMBS>::from_hex(hex)?;
+
+        Ok(Self {
+            value: MontgomeryAlgorithms::cios(
+                &integer,
+                &MontgomeryBackendPrimeField::<M, NUM_LIMBS>::R2,
+                &M::MODULUS,
+                &MontgomeryBackendPrimeField::<M, NUM_LIMBS>::MU,
+            ),
+        })
     }
 }
 

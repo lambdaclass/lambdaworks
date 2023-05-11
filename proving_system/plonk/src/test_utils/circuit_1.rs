@@ -9,7 +9,7 @@ use lambdaworks_math::{
 };
 
 pub const ORDER_4_ROOT_UNITY: FrElement =
-    FrElement::from_hex("8d51ccce760304d0ec030002760300000001000000000000"); // order 4
+    FrElement::from_hex_unchecked("8d51ccce760304d0ec030002760300000001000000000000"); // order 4
 
 /*  Test circuit for the program:
     public input x

@@ -493,23 +493,23 @@ mod tests {
     use super::*;
 
     fn alpha() -> FrElement {
-        FrElement::from_hex("583cfb0df2ef98f2131d717bc6aadd571c5302597c135cab7c00435817bf6e50")
+        FrElement::from_hex_unchecked("583cfb0df2ef98f2131d717bc6aadd571c5302597c135cab7c00435817bf6e50")
     }
 
     fn beta() -> FrElement {
-        FrElement::from_hex("bdda7414bdf5bf42b77cbb3af4a82f32ec7622dd6c71575bede021e6e4609d4")
+        FrElement::from_hex_unchecked("bdda7414bdf5bf42b77cbb3af4a82f32ec7622dd6c71575bede021e6e4609d4")
     }
 
     fn gamma() -> FrElement {
-        FrElement::from_hex("58f6690d9b36e62e4a0aef27612819288df2a3ff5bf01597cf06779503f51583")
+        FrElement::from_hex_unchecked("58f6690d9b36e62e4a0aef27612819288df2a3ff5bf01597cf06779503f51583")
     }
 
     fn zeta() -> FrElement {
-        FrElement::from_hex("2a4040abb941ee5e2a42602a7a60d282a430a4cf099fa3bb0ba8f4da628ec59a")
+        FrElement::from_hex_unchecked("2a4040abb941ee5e2a42602a7a60d282a430a4cf099fa3bb0ba8f4da628ec59a")
     }
 
     fn upsilon() -> FrElement {
-        FrElement::from_hex("2d15959489a2a8e44693221ca7cbdcab15253d6bae9fd7fe0664cff02fe4f1cf")
+        FrElement::from_hex_unchecked("2d15959489a2a8e44693221ca7cbdcab15253d6bae9fd7fe0664cff02fe4f1cf")
     }
 
     #[test]
@@ -523,16 +523,16 @@ mod tests {
         let prover = Prover::new(kzg, random_generator);
         let round_1 = prover.round_1(&witness, &common_preprocessed_input);
         let a_1_expected = BLS12381Curve::create_point_from_affine(
-            FpElement::from_hex("17f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb"),
-            FpElement::from_hex("114d1d6855d545a8aa7d76c8cf2e21f267816aef1db507c96655b9d5caac42364e6f38ba0ecb751bad54dcd6b939c2ca"),
+            FpElement::from_hex_unchecked("17f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb"),
+            FpElement::from_hex_unchecked("114d1d6855d545a8aa7d76c8cf2e21f267816aef1db507c96655b9d5caac42364e6f38ba0ecb751bad54dcd6b939c2ca"),
         ).unwrap();
         let b_1_expected = BLS12381Curve::create_point_from_affine(
-            FpElement::from_hex("44ed7c3ed015c6a39c350cd06d03b48d3e1f5eaf7a256c5b6203886e6e78cd9b76623d163da4dfb0f2491e7cc06408"),
-            FpElement::from_hex("14c4464d2556fdfdc8e31068ef8d953608e511569a236c825f2ddab4fe04af03aba29e38b9b2b6221243124d235f4c67"),
+            FpElement::from_hex_unchecked("44ed7c3ed015c6a39c350cd06d03b48d3e1f5eaf7a256c5b6203886e6e78cd9b76623d163da4dfb0f2491e7cc06408"),
+            FpElement::from_hex_unchecked("14c4464d2556fdfdc8e31068ef8d953608e511569a236c825f2ddab4fe04af03aba29e38b9b2b6221243124d235f4c67"),
         ).unwrap();
         let c_1_expected = BLS12381Curve::create_point_from_affine(
-            FpElement::from_hex("7726dc031bd26122395153ca428d5e6dea0a64c1f9b3b1bb2f2508a5eb6ea0ea0363294fad3160858bc87e46d3422fd"),
-            FpElement::from_hex("8db0c15bfd77df7fe66284c3b04e6043eaba99ef6a845d4f7255fd0da95f2fb8e474df2e7f8e1a38829f7a9612a9b87"),
+            FpElement::from_hex_unchecked("7726dc031bd26122395153ca428d5e6dea0a64c1f9b3b1bb2f2508a5eb6ea0ea0363294fad3160858bc87e46d3422fd"),
+            FpElement::from_hex_unchecked("8db0c15bfd77df7fe66284c3b04e6043eaba99ef6a845d4f7255fd0da95f2fb8e474df2e7f8e1a38829f7a9612a9b87"),
         ).unwrap();
         assert_eq!(round_1.a_1, a_1_expected);
         assert_eq!(round_1.b_1, b_1_expected);
@@ -550,8 +550,8 @@ mod tests {
 
         let result_2 = prover.round_2(&witness, &common_preprocessed_input, beta(), gamma());
         let z_1_expected = BLS12381Curve::create_point_from_affine(
-            FpElement::from_hex("3e8322968c3496cf1b5786d4d71d158a646ec90c14edf04e758038e1f88dcdfe8443fcecbb75f3074a872a380391742"),
-            FpElement::from_hex("11eac40d09796ff150004e7b858d83ddd9fe995dced0b3fbd7535d6e361729b25d488799da61fdf1d7b5022684053327"),
+            FpElement::from_hex_unchecked("3e8322968c3496cf1b5786d4d71d158a646ec90c14edf04e758038e1f88dcdfe8443fcecbb75f3074a872a380391742"),
+            FpElement::from_hex_unchecked("11eac40d09796ff150004e7b858d83ddd9fe995dced0b3fbd7535d6e361729b25d488799da61fdf1d7b5022684053327"),
         ).unwrap();
         assert_eq!(result_2.z_1, z_1_expected);
     }
@@ -576,12 +576,12 @@ mod tests {
         );
 
         let t_lo_1_expected = BLS12381Curve::create_point_from_affine(
-            FpElement::from_hex("9f511a769e77e87537b0749d65f467532fbf0f9dc1bcc912c333741be9d0a613f61e5fe595996964646ce30794701e5"),
-            FpElement::from_hex("89fd6bb571323912210517237d6121144fc01ba2756f47c12c9cc94fc9197313867d68530f152dc8d447f10fcf75a6c"),
+            FpElement::from_hex_unchecked("9f511a769e77e87537b0749d65f467532fbf0f9dc1bcc912c333741be9d0a613f61e5fe595996964646ce30794701e5"),
+            FpElement::from_hex_unchecked("89fd6bb571323912210517237d6121144fc01ba2756f47c12c9cc94fc9197313867d68530f152dc8d447f10fcf75a6c"),
         ).unwrap();
         let t_mid_1_expected = BLS12381Curve::create_point_from_affine(
-            FpElement::from_hex("f96d8a93f3f5be2ab2819891f41c9f883cacea63da423e6ed1701765fcd659fc11e056a48c554f5df3a9c6603d48ca8"),
-            FpElement::from_hex("14fa74fa049b7276007b739f3b8cfeac09e8cfabd4f858b6b99798c81124c34851960bebda90133cb03c981c08c8b6d3"),
+            FpElement::from_hex_unchecked("f96d8a93f3f5be2ab2819891f41c9f883cacea63da423e6ed1701765fcd659fc11e056a48c554f5df3a9c6603d48ca8"),
+            FpElement::from_hex_unchecked("14fa74fa049b7276007b739f3b8cfeac09e8cfabd4f858b6b99798c81124c34851960bebda90133cb03c981c08c8b6d3"),
         ).unwrap();
         let t_hi_1_expected = ShortWeierstrassProjectivePoint::<BLS12381Curve>::neutral_element();
 
@@ -604,17 +604,17 @@ mod tests {
 
         let round_4 = prover.round_4(&common_preprocessed_input, &round_1, &round_2, zeta());
         let expected_a_value =
-            FrElement::from_hex("2c090a95b57f1f493b7b747bba34fef7772fd72f97d718ed69549641a823eb2e");
+            FrElement::from_hex_unchecked("2c090a95b57f1f493b7b747bba34fef7772fd72f97d718ed69549641a823eb2e");
         let expected_b_value =
-            FrElement::from_hex("5975959d91369ba4e7a03c6ae94b7fe98e8b61b7bf9af63c8ae0759e17ac0c7e");
+            FrElement::from_hex_unchecked("5975959d91369ba4e7a03c6ae94b7fe98e8b61b7bf9af63c8ae0759e17ac0c7e");
         let expected_c_value =
-            FrElement::from_hex("6bf31edeb4344b7d2df2cb1bd40b4d13e182d9cb09f89591fa043c1a34b4a93");
+            FrElement::from_hex_unchecked("6bf31edeb4344b7d2df2cb1bd40b4d13e182d9cb09f89591fa043c1a34b4a93");
         let expected_z_value =
-            FrElement::from_hex("38e2ec8e7c3dab29e2b8e9c8ea152914b8fe4612e91f2902c80238efcf21f4ee");
+            FrElement::from_hex_unchecked("38e2ec8e7c3dab29e2b8e9c8ea152914b8fe4612e91f2902c80238efcf21f4ee");
         let expected_s1_value =
-            FrElement::from_hex("472f66db4fb6947d9ed9808241fe82324bc08aa2a54be93179db8e564e1137d4");
+            FrElement::from_hex_unchecked("472f66db4fb6947d9ed9808241fe82324bc08aa2a54be93179db8e564e1137d4");
         let expected_s2_value =
-            FrElement::from_hex("5588f1239c24efe0538868d0f716984e69c6980e586864f615e4b0621fdc6f81");
+            FrElement::from_hex_unchecked("5588f1239c24efe0538868d0f716984e69c6980e586864f615e4b0621fdc6f81");
 
         assert_eq!(round_4.a_zeta, expected_a_value);
         assert_eq!(round_4.b_zeta, expected_b_value);
@@ -648,12 +648,12 @@ mod tests {
         let round_4 = prover.round_4(&common_preprocessed_input, &round_1, &round_2, zeta());
 
         let expected_w_zeta_1 = BLS12381Curve::create_point_from_affine(
-            FpElement::from_hex("fa6250b80a418f0548b132ac264ff9915b2076c0c2548da9316ae19ffa35bbcf905d9f02f9274739608045ef83a4757"),
-            FpElement::from_hex("17713ade2dbd66e923d4092a5d2da98202959dd65a15e9f7791fab3c0dd08788aa9b4a1cb21d04e0c43bd29225472145"),
+            FpElement::from_hex_unchecked("fa6250b80a418f0548b132ac264ff9915b2076c0c2548da9316ae19ffa35bbcf905d9f02f9274739608045ef83a4757"),
+            FpElement::from_hex_unchecked("17713ade2dbd66e923d4092a5d2da98202959dd65a15e9f7791fab3c0dd08788aa9b4a1cb21d04e0c43bd29225472145"),
         ).unwrap();
         let expected_w_zeta_omega_1 = BLS12381Curve::create_point_from_affine(
-            FpElement::from_hex("4484f08f8eaccf28bab8ee9539e6e7f4059cb1ce77b9b18e9e452f387163dc0b845f4874bf6445399e650d362799ff5"),
-            FpElement::from_hex("1254347a0fa2ac856917825a5cff5f9583d39a52edbc2be5bb10fabd0c04d23019bcb963404345743120310fd734a61a"),
+            FpElement::from_hex_unchecked("4484f08f8eaccf28bab8ee9539e6e7f4059cb1ce77b9b18e9e452f387163dc0b845f4874bf6445399e650d362799ff5"),
+            FpElement::from_hex_unchecked("1254347a0fa2ac856917825a5cff5f9583d39a52edbc2be5bb10fabd0c04d23019bcb963404345743120310fd734a61a"),
         ).unwrap();
 
         let round_5 = prover.round_5(
