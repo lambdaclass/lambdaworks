@@ -89,10 +89,7 @@ impl AIR for FibonacciRAP {
         let a_i = &frame.get_row(0)[0];
         let b_i = &frame.get_row(0)[1];
 
-        let numerator = z_i * (a_i + gamma);
-        let denominator = b_i + gamma;
-
-        let eval = z_i_plus_one - numerator.div(denominator);
+        let eval = z_i_plus_one * (b_i + gamma) - z_i * (a_i + gamma);
 
         constraints.push(eval);
         constraints

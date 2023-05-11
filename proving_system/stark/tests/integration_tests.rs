@@ -240,7 +240,7 @@ fn test_prove_rap_fib() {
         },
         trace_columns: 3,
         trace_length: trace_cols[0].len(),
-        transition_degrees: vec![1],
+        transition_degrees: vec![1, 2],
         transition_offsets: vec![0, 1, 2],
         transition_exemptions: vec![exemptions, 1],
         num_transition_constraints: 2,
