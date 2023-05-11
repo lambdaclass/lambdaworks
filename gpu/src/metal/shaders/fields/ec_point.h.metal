@@ -77,6 +77,11 @@ public:
         return result;
     }
 
+    ECPoint neg()
+    {
+        return ECPoint(x, y.neg(), z);
+    }
+
     bool is_neutral_element(const ECPoint a_point) const
     {
         return a_point.x == Fp(0) && a_point.z == Fp(0);
