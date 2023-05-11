@@ -3,9 +3,11 @@ use lambdaworks_math::field::{
     traits::{IsFFTField, RootsConfig},
 };
 
-use crate::metal::abstractions::{errors::MetalError, state::*};
+use crate::metal::{
+    abstractions::{errors::MetalError, state::*},
+    helpers::void_ptr,
+};
 
-use super::helpers::void_ptr;
 use metal::MTLSize;
 
 use core::mem;

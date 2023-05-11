@@ -1,0 +1,142 @@
+#![allow(unused)]
+use lambdaworks_math::{
+    cyclic_group::IsGroup,
+    field::{element::FieldElement, traits::IsField},
+    unsigned_integer::element::UnsignedInteger,
+};
+
+use crate::metal::{
+    abstractions::{errors::MetalError, state::*},
+    helpers::void_ptr,
+};
+
+use metal::MTLSize;
+
+use core::mem;
+
+/// Executes parallel ordered FFT over a slice of two-adic field elements, in Metal.
+/// Twiddle factors are required to be in bit-reverse order.
+///
+/// "Ordered" means that the input is required to be in natural order, and the output will be
+/// in this order too. Natural order means that input[i] corresponds to the i-th coefficient,
+/// as opposed to bit-reverse order in which input[bit_rev(i)] corresponds to the i-th
+/// coefficient.
+pub fn pippenger<const NUM_LIMBS: usize, G>(
+    cs: &[UnsignedInteger<NUM_LIMBS>],
+    hidings: &[G],
+    state: &MetalState,
+) -> Result<G, MetalError>
+where
+    G: IsGroup,
+{
+    debug_assert_eq!(
+        cs.len(),
+        hidings.len(),
+        "Slices `cs` and `hidings` must be of the same length to compute `msm`."
+    );
+
+    const MAX_THREADS: u64 = 512;
+
+    let window_size: u32 = 4;
+    debug_assert!(window_size < usize::BITS);
+
+    let n_groups: usize = 512.min(cs.len());
+
+    let pipeline = state.setup_pipeline("calculate_Gjs")?;
+
+    let cs_buffer = state.alloc_buffer_data(cs);
+    let hidings_buffer = state.alloc_buffer_data(hidings);
+    let result_buffer = state.alloc_buffer::<G>(n_groups);
+
+    let (command_buffer, command_encoder) = state.setup_command(
+        &pipeline,
+        Some(&[(0, &cs_buffer), (1, &hidings_buffer), (4, &result_buffer)]),
+    );
+
+    command_encoder.set_bytes(2, u32::BITS.into(), void_ptr(&window_size));
+
+    let buflen: u64 = cs.len() as u64;
+    command_encoder.set_bytes(3, u64::BITS.into(), void_ptr(&buflen));
+
+    let n_bits = 64 * NUM_LIMBS as u64;
+    let num_windows = (n_bits - 1) / window_size as u64 + 1;
+    let num_threads = MAX_THREADS.min(buflen);
+
+    let threadgroup_size = MTLSize::new(num_threads, 1, 1);
+    let threadgroup_count = MTLSize::new(num_windows, 1, 1);
+    command_encoder.dispatch_thread_groups(threadgroup_count, threadgroup_size);
+    command_encoder.end_encoding();
+
+    command_buffer.commit();
+    command_buffer.wait_until_completed();
+
+    let result: Vec<G> = MetalState::retrieve_contents(&result_buffer);
+    // TODO: do this in GPU
+    let result = result
+        .into_iter()
+        .rev()
+        .reduce(|t, g| t.operate_with_self(1_u64 << window_size).operate_with(&g));
+    Ok(result.expect("result_buffer is never empty"))
+}
+
+#[cfg(test)]
+mod tests {
+    use lambdaworks_math::{
+        cyclic_group::IsGroup,
+        elliptic_curve::{
+            short_weierstrass::curves::bls12_381::curve::BLS12381Curve, traits::IsEllipticCurve,
+        },
+        msm::pippenger,
+        unsigned_integer::element::UnsignedInteger,
+    };
+    use proptest::{collection, prelude::*, prop_assert_eq, prop_compose, proptest};
+
+    use crate::metal::abstractions::state::MetalState;
+
+    const _CASES: u32 = 20;
+    const _MAX_WSIZE: usize = 8;
+    const _MAX_LEN: usize = 30;
+
+    prop_compose! {
+        fn unsigned_integer()(limbs: [u64; 6]) -> UnsignedInteger<6> {
+            UnsignedInteger::from_limbs(limbs)
+        }
+    }
+
+    prop_compose! {
+        fn unsigned_integer_vec()(vec in collection::vec(unsigned_integer(), 0.._MAX_LEN)) -> Vec<UnsignedInteger<6>> {
+            vec
+        }
+    }
+
+    prop_compose! {
+        fn point()(power: u128) -> <BLS12381Curve as IsEllipticCurve>::PointRepresentation {
+            BLS12381Curve::generator().operate_with_self(power)
+        }
+    }
+
+    prop_compose! {
+        fn points_vec()(vec in collection::vec(point(), 0.._MAX_LEN)) -> Vec<<BLS12381Curve as IsEllipticCurve>::PointRepresentation> {
+            vec
+        }
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig {
+            cases: _CASES, .. ProptestConfig::default()
+          })]
+        // Property-based test that ensures the metal implementation matches the CPU one.
+        #[test]
+        fn test_metal_pippenger_matches_cpu(window_size in 1.._MAX_WSIZE, cs in unsigned_integer_vec(), hidings in points_vec()) {
+            let state = MetalState::new(None).unwrap();
+            let min_len = cs.len().min(hidings.len());
+            let cs = cs[..min_len].to_vec();
+            let hidings = hidings[..min_len].to_vec();
+
+            let cpu_result = pippenger::msm_with(&cs, &hidings, window_size);
+            let metal_result = super::pippenger(&cs, &hidings, &state).unwrap();
+
+            prop_assert_eq!(metal_result, cpu_result);
+        }
+    }
+}

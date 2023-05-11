@@ -12,7 +12,7 @@ template<typename Fp, typename EcPoint>
     constant const Fp* cs [[ buffer(0) ]],
     constant const EcPoint* hidings [[ buffer(1) ]],
     constant const uint32_t& _window_size [[ buffer(2) ]],
-    constant const uint32_t& _buflen [[ buffer(3) ]],
+    constant const uint64_t& _buflen [[ buffer(3) ]],
     threadgroup EcPoint* group_buckets [[ threadgroup(0) ]],
     device EcPoint* result [[ buffer(4) ]],
     uint32_t group [[ threadgroup_position_in_grid ]],
@@ -20,7 +20,7 @@ template<typename Fp, typename EcPoint>
     uint32_t pos_in_group [[ thread_position_in_threadgroup ]]
 ) {
     uint32_t window_size = _window_size;
-    uint32_t buflen = _buflen;
+    uint64_t buflen = _buflen;
 
     uint32_t buckets_size = 1 << (window_size - 1);
 
@@ -31,7 +31,7 @@ template<typename Fp, typename EcPoint>
     uint32_t windows_mask = (1 << window_size) - 1;
 
     // Calculate all Bij in parallel
-    for (uint32_t i = pos_in_group; i < buflen; i += group_size) {
+    for (uint64_t i = pos_in_group; i < buflen; i += group_size) {
         uint32_t m_ij = (cs[i] >> windows_shl) & windows_mask;
         if (m_ij == 0) {
             continue;

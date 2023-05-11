@@ -40,7 +40,8 @@ where
 {
     debug_assert!(window_size < usize::BITS as usize);
     // The number of windows of size `s` is ceil(lambda/s).
-    let num_windows = (64 * NUM_LIMBS - 1) / window_size + 1;
+    let n_bits = 64 * NUM_LIMBS;
+    let num_windows = (n_bits - 1) / window_size + 1;
 
     // We define `buckets` outside of the loop so we only have to allocate once, and reuse it.
     //
