@@ -349,6 +349,7 @@ fn frame_inst_size(frame_row: &[FE]) -> FE {
 }
 
 #[cfg(test)]
+#[cfg(debug_assertions)]
 mod test {
     use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
     use lambdaworks_math::field::element::FieldElement;
