@@ -135,6 +135,52 @@ struct UnsignedInteger {
         return *this;
     }
 
+    constexpr UnsignedInteger operator<<(const uint32_t rhs)
+    {
+        uint32_t limbs_shift = rhs >> 5;
+        UnsignedInteger<NUM_LIMBS> result = {};
+        if (limbs_shift >= NUM_LIMBS) {
+            return result;
+        }
+        // rhs % 32;
+        uint32_t bit_shift = rhs & 0x1F;
+        // applying this leaves us the bits lost when shifting
+        uint32_t bitmask = 0xFFFFFFFF - (1 << (32 - bit_shift)) + 1;
+
+        result.m_limbs[0] = m_limbs[limbs_shift] << bit_shift;
+
+        for (int src = limbs_shift; src < NUM_LIMBS - 1; src++) {
+            uint32_t dst = src - limbs_shift;
+            result.m_limbs[dst] |= m_limbs[src + 1] & bitmask;
+            result.m_limbs[dst + 1] = m_limbs[src + 1] << bit_shift;
+        }
+
+        return result;
+    }
+
+    constexpr UnsignedInteger operator>>(const uint32_t rhs)
+    {
+        uint32_t limbs_shift = rhs >> 5;
+        UnsignedInteger<NUM_LIMBS> result = {};
+        if (limbs_shift >= NUM_LIMBS) {
+            return result;
+        }
+        // rhs % 32;
+        uint32_t bit_shift = rhs & 0x1F;
+        // applying this leaves us the bits lost when shifting
+        uint32_t bitmask = (1 << bit_shift) - 1;
+
+        result.m_limbs[NUM_LIMBS - 1] = m_limbs[NUM_LIMBS - 1 - limbs_shift] >> bit_shift;
+
+        for (int src = NUM_LIMBS - 1 - limbs_shift; src > 0; src++) {
+            uint32_t dst = src + limbs_shift;
+            result.m_limbs[dst] |= m_limbs[src - 1] & bitmask;
+            result.m_limbs[dst - 1] = m_limbs[src - 1] >> bit_shift;
+        }
+
+        return result;
+    }
+
     constexpr bool operator>(const UnsignedInteger rhs) {
       for (uint64_t i = 0; i < NUM_LIMBS; i++) {
         if (m_limbs[i] > rhs.m_limbs[i]) return true;
