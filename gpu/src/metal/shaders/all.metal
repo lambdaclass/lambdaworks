@@ -5,4 +5,4 @@
 // than headers and a unique source.
 
 #include "fields/stark256.h.metal"
-#include "fields/bls12381.h.metal"
+#include "fields/fp_bls12381.h.metal"

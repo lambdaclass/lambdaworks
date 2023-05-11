@@ -2,23 +2,38 @@
 #define unsigned_int_h
 
 template <const uint64_t NUM_LIMBS>
-class UnsignedInteger {
-    uint32_t m_limbs[NUM_LIMBS];
+struct UnsignedInteger {
+    metal::array<uint32_t, NUM_LIMBS> m_limbs;
 
-public:
-    UnsignedInteger() = default;
+    constexpr static UnsignedInteger from_int(uint32_t n) {
+      UnsignedInteger res = {};
+      res.m_limbs[NUM_LIMBS - 1] = n;
+      return res;
+    }
 
-    template <typename... U32>
-    UnsignedInteger(const device U32& ... limbs) : m_limbs {limbs...} {}
-    UnsignedInteger(uint32_t limbs[NUM_LIMBS]) : m_limbs {limbs} {}
-    UnsignedInteger(uint32_t least_significant) {
-      m_limbs = {};
-      m_limbs[NUM_LIMBS - 1] = least_significant;
+    constexpr UnsignedInteger low() {
+      UnsignedInteger res = {m_limbs};
+
+      for (int i = 0; i < NUM_LIMBS / 2; i++) {
+        res[i] = 0;
+      }
+
+      return res;
+    }
+
+    constexpr UnsignedInteger high() {
+      UnsignedInteger res = {};
+
+      for (int i = 0; i < NUM_LIMBS / 2; i++) {
+        res[NUM_LIMBS - 1 - i] = m_limbs[i];
+      }
+
+      return res;
     }
 
     constexpr UnsignedInteger operator+(const UnsignedInteger rhs) const
     {
-        uint32_t limbs[NUM_LIMBS];
+        metal::array<uint32_t, NUM_LIMBS> limbs;
         uint64_t carry = 0;
         uint64_t i = NUM_LIMBS;
 
@@ -30,7 +45,6 @@ public:
         }
 
         return UnsignedInteger<NUM_LIMBS> {limbs};
-
     }
 
     constexpr UnsignedInteger operator+=(const UnsignedInteger rhs)
@@ -41,7 +55,7 @@ public:
 
     constexpr UnsignedInteger operator-(const UnsignedInteger rhs) const
     {
-        uint32_t limbs[NUM_LIMBS];
+        metal::array<uint32_t, NUM_LIMBS> limbs;
         uint64_t carry = 0;
         uint64_t i = NUM_LIMBS;
 
@@ -75,7 +89,7 @@ public:
             }
         }
 
-        uint32_t limbs[NUM_LIMBS];
+        metal::array<uint32_t, NUM_LIMBS> limbs;
 
         uint64_t carry = 0;
         for (uint64_t i = 0; i <= t; i++) {
@@ -94,7 +108,6 @@ public:
         }
         return UnsignedInteger<NUM_LIMBS> {limbs};
     }
-
 };
 
 #endif /* unsigned_int_h */

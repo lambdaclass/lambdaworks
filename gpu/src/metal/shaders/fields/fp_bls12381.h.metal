@@ -1,6 +1,7 @@
 #pragma once
 
 #include "fp_u256.h.metal"
+#include "unsigned_int.h.metal"
 #include "ec_point.h.metal"
 #include "../test/test_bls12381.h.metal"
 
@@ -13,12 +14,13 @@ namespace {
     > Fp;
 
     typedef ECPoint<Fp, 5> BLS12381;
+    typedef UnsignedInteger<12> u384;
 }
 
 class FpBLS12381 {
 public:
     FpBLS12381() = default;
-    constexpr FpBLS12381(uint32_t v) : inner{v} {}
+    //constexpr FpBLS12381(uint32_t v) : inner{} {}
     constexpr FpBLS12381(u384 v) : inner{v} {}
 
     constexpr explicit operator u384() const
@@ -106,24 +108,25 @@ public:
 private:
     u384 inner;
 
-    constexpr static const constant u384 N {{436277738, 964683418,
+    constexpr static const constant u384 N = {
+              436277738, 964683418,
               1260103606, 1129032919,
               1685539716, 4085584575,
               1731252896, 4138792484,
               514588670, 2975072255,
-              3120496639, 4294945451}};
-    constexpr static const constant u384 R_SQUARED = 
-        u384([295210981, 2462770090,
+              3120496639, 4294945451};
+    constexpr static const constant uint32_t R_SQUARED[12] {
+            295210981, 2462770090,
             2591637125, 3038352685,
             1743489193, 2476573632,
             2380613484, 1284880085,
             175564454, 164693233,
-            4108263220, 473175878]);
-    constexpr static const constant u384 N_PRIME = u384(N_PRIME_0, N_PRIME_1, N_PRIME_2, N_PRIME_3);
+            4108263220, 473175878};
+    //constexpr static const constant u384 N_PRIME = u384(N_PRIME_0, N_PRIME_1, N_PRIME_2, N_PRIME_3);
 
     // Equates to `(1 << 256) - N`
-    constexpr static const constant u384 R_SUB_N =
-        u384(0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF) - N + u384(1);
+    //constexpr static const constant u384 R_SUB_N =
+    //   u384(0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF) - N + u384(1);
 
     template<uint32_t N_ACC>
     u384 sqn(u384 base) const {
@@ -163,24 +166,24 @@ private:
     // - https://www.youtube.com/watch?v=2UmQDKcelBQ
     u384 mul(const u384 lhs, const u384 rhs) const
     {
-        u384 lhs_low = lhs.low;
-        u384 lhs_high = lhs.high;
-        u384 rhs_low = rhs.low;
-        u384 rhs_high = rhs.high;
+        u384 lhs_low = lhs.low();
+        u384 lhs_high = lhs.high();
+        u384 rhs_low = rhs.low();
+        u384 rhs_high = rhs.high();
 
         u384 partial_t_high = lhs_high * rhs_high;
         u384 partial_t_mid_a = lhs_high * rhs_low;
-        u384 partial_t_mid_a_low = partial_t_mid_a.low;
-        u384 partial_t_mid_a_high = partial_t_mid_a.high;
+        u384 partial_t_mid_a_low = partial_t_mid_a.low();
+        u384 partial_t_mid_a_high = partial_t_mid_a.high();
         u384 partial_t_mid_b = rhs_high * lhs_low;
-        u384 partial_t_mid_b_low = partial_t_mid_b.low;
-        u384 partial_t_mid_b_high = partial_t_mid_b.high;
+        u384 partial_t_mid_b_low = partial_t_mid_b.low();
+        u384 partial_t_mid_b_high = partial_t_mid_b.high();
         u384 partial_t_low = lhs_low * rhs_low;
 
         u384 tmp = partial_t_mid_a_low +
-                   partial_t_mid_b_low + partial_t_low.high;
-        u384 carry = tmp.high;
-        u384 t_low = u384(tmp.low, partial_t_low.low);
+                   partial_t_mid_b_low + partial_t_low.high();
+        u384 carry = tmp.high();
+        u384 t_low = u384(tmp.low(), partial_t_low.low());
         u384 t_high = partial_t_high + partial_t_mid_a_high + partial_t_mid_b_high + carry;
 
         // Compute `m = T * N' mod R`
@@ -188,23 +191,23 @@ private:
 
         // Compute `t = (T + m * N) / R`
         u384 n = N;
-        u384 n_low = n.low;
-        u384 n_high = n.high;
-        u384 m_low = m.low;
-        u384 m_high = m.high;
+        u384 n_low = n.low();
+        u384 n_high = n.high();
+        u384 m_low = m.low();
+        u384 m_high = m.high();
 
         u384 partial_mn_high = m_high * n_high;
         u384 partial_mn_mid_a = m_high * n_low;
-        u384 partial_mn_mid_a_low = partial_mn_mid_a.low;
-        u384 partial_mn_mid_a_high = partial_mn_mid_a.high;
+        u384 partial_mn_mid_a_low = partial_mn_mid_a.low();
+        u384 partial_mn_mid_a_high = partial_mn_mid_a.high();
         u384 partial_mn_mid_b = n_high * m_low;
-        u384 partial_mn_mid_b_low = partial_mn_mid_b.low;
-        u384 partial_mn_mid_b_high = partial_mn_mid_b.high;
+        u384 partial_mn_mid_b_low = partial_mn_mid_b.low();
+        u384 partial_mn_mid_b_high = partial_mn_mid_b.high();
         u384 partial_mn_low = m_low * n_low;
 
-        tmp = partial_mn_mid_a_low + partial_mn_mid_b_low + u384(partial_mn_low.high);
-        carry = tmp.high;
-        u384 mn_low = u384(tmp.low, partial_mn_low.low);
+        tmp = partial_mn_mid_a_low + partial_mn_mid_b_low + u384(partial_mn_low.high());
+        carry = tmp.high();
+        u384 mn_low = u384(tmp.low(), partial_mn_low.low());
         u384 mn_high = partial_mn_high + partial_mn_mid_a_high + partial_mn_mid_b_high + carry;
 
         u384 overflow = mn_low + t_low < mn_low;
