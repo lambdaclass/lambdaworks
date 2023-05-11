@@ -1,6 +1,7 @@
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::field::{
-    element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField, traits::IsFFTField,
+    element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+    traits::IsFFTField,
 };
 
 use crate::{
@@ -82,7 +83,7 @@ pub const MEMORY_COLUMNS: [usize; 8] = [
     FRAME_INST,
     FRAME_DST,
     FRAME_OP0,
-    FRAME_OP1
+    FRAME_OP1,
 ];
 
 // Trace layout
@@ -155,7 +156,7 @@ pub struct CairoRAPChallenges {
 }
 
 pub struct CairoPublicInput<F: IsFFTField> {
-    pub program: Vec<FieldElement<F>>
+    pub program: Vec<FieldElement<F>>,
 }
 
 impl AIR for CairoAIR {
@@ -164,7 +165,11 @@ impl AIR for CairoAIR {
     type RAPChallenges = CairoRAPChallenges;
     type PublicInput = CairoPublicInput<Self::Field>;
 
-    fn build_main_trace(&self, raw_trace: &Self::RawTrace, public_input: &Self::PublicInput) -> TraceTable<Self::Field> {
+    fn build_main_trace(
+        &self,
+        raw_trace: &Self::RawTrace,
+        public_input: &Self::PublicInput,
+    ) -> TraceTable<Self::Field> {
         let main_trace = build_cairo_execution_trace(&raw_trace.0, &raw_trace.1);
 
         // Add rows with zeros at the end with enough space to fit the program.
@@ -174,7 +179,10 @@ impl AIR for CairoAIR {
         }
 
         let program_size = public_input.program.len();
-        let public_input_section: Vec<FieldElement<Self::Field>> = std::iter::repeat(last_row).take(program_size >> 2).flatten().collect();
+        let public_input_section: Vec<FieldElement<Self::Field>> = std::iter::repeat(last_row)
+            .take(program_size >> 2)
+            .flatten()
+            .collect();
 
         let mut main_trace_table = main_trace.table;
         main_trace_table.extend_from_slice(&public_input_section);
@@ -186,30 +194,25 @@ impl AIR for CairoAIR {
         &self,
         main_trace: &TraceTable<Self::Field>,
         rap_challenges: &Self::RAPChallenges,
-        public_input: &Self::PublicInput
+        public_input: &Self::PublicInput,
     ) -> TraceTable<Self::Field> {
         // Keep the columns that refer to the memory.
         // Convert from wide-format to long format (8 columns of length N to 2 columns of length 4N).
-        let mut a_original = main_trace.get_cols(&[
-            FRAME_PC,
-            FRAME_DST_ADDR,
-            FRAME_OP0_ADDR,
-            FRAME_OP1_ADDR,
-        ]).table;
+        let mut a_original = main_trace
+            .get_cols(&[FRAME_PC, FRAME_DST_ADDR, FRAME_OP0_ADDR, FRAME_OP1_ADDR])
+            .table;
 
-        let mut v_original = main_trace.get_cols(&[
-            FRAME_INST,
-            FRAME_DST,
-            FRAME_OP0,
-            FRAME_OP1
-        ]).table;
+        let mut v_original = main_trace
+            .get_cols(&[FRAME_INST, FRAME_DST, FRAME_OP0, FRAME_OP1])
+            .table;
 
         let mut a_aux = a_original.clone();
         let mut v_aux = v_original.clone();
 
         // Add the program in the public input section
         let public_input_section = main_trace.n_rows() - public_input.program.len();
-        let continous_memory = (0..public_input.program.len() as u64).map(|i| FieldElement::from(i));
+        let continous_memory =
+            (0..public_input.program.len() as u64).map(|i| FieldElement::from(i));
 
         a_aux.splice(public_input_section.., continous_memory);
         v_aux.splice(public_input_section.., public_input.program.clone());
@@ -217,10 +220,10 @@ impl AIR for CairoAIR {
         // Sort the two columns.
         let mut tuples: Vec<_> = a_aux.into_iter().zip(v_aux).collect();
         tuples.sort_by(|(x, _), (y, _)| x.representative().cmp(&y.representative()));
-        
+
         // Add an auxiliary column for the permutation argument.
         let (a_aux, v_aux): (Vec<_>, Vec<_>) = tuples.into_iter().unzip();
-        
+
         let z = &rap_challenges.z;
         let alpha = &rap_challenges.alpha;
         let f = |a, v, ap, vp| (z - (a + alpha * v)) / (z - (ap + alpha * vp));
@@ -237,17 +240,17 @@ impl AIR for CairoAIR {
         let mut aux_table = Vec::new();
         for i in (0..a_aux.len()).step_by(12) {
             aux_table.push(a_aux[i].clone());
-            aux_table.push(a_aux[i+1].clone());
-            aux_table.push(a_aux[i+2].clone());
-            aux_table.push(a_aux[i+3].clone());
+            aux_table.push(a_aux[i + 1].clone());
+            aux_table.push(a_aux[i + 2].clone());
+            aux_table.push(a_aux[i + 3].clone());
             aux_table.push(v_aux[i].clone());
-            aux_table.push(v_aux[i+1].clone());
-            aux_table.push(v_aux[i+2].clone());
-            aux_table.push(v_aux[i+3].clone());
+            aux_table.push(v_aux[i + 1].clone());
+            aux_table.push(v_aux[i + 2].clone());
+            aux_table.push(v_aux[i + 3].clone());
             aux_table.push(permutation_col[i].clone());
-            aux_table.push(permutation_col[i+1].clone());
-            aux_table.push(permutation_col[i+2].clone());
-            aux_table.push(permutation_col[i+3].clone());
+            aux_table.push(permutation_col[i + 1].clone());
+            aux_table.push(permutation_col[i + 2].clone());
+            aux_table.push(permutation_col[i + 3].clone());
         }
         TraceTable::new(aux_table, 12)
     }
@@ -445,7 +448,12 @@ mod test {
     use lambdaworks_math::field::element::FieldElement;
 
     use crate::{
-        air::{context::ProofOptions, debug::validate_trace, example::cairo::{CairoAIR, CairoPublicInput}, AIR},
+        air::{
+            context::ProofOptions,
+            debug::validate_trace,
+            example::cairo::{CairoAIR, CairoPublicInput},
+            AIR,
+        },
         cairo_vm::{cairo_mem::CairoMemory, cairo_trace::CairoTrace},
         Domain,
     };
@@ -467,20 +475,23 @@ mod test {
 
         // TODO: Put correct number of instructions
         let mut cairo_air = CairoAIR::new(proof_options, &raw_trace, 2);
-        
+
         // PC FINAL AND AP FINAL are not computed correctly since they are extracted after padding to
         // power of two and therefore are zero
         cairo_air.pub_inputs.ap_final = FieldElement::zero();
         cairo_air.pub_inputs.pc_final = FieldElement::zero();
 
-        let public_input = CairoPublicInput { program: Vec::new() }; // TODO: Put real program
+        let public_input = CairoPublicInput {
+            program: Vec::new(),
+        }; // TODO: Put real program
 
         let main_trace = cairo_air.build_main_trace(&(raw_trace, memory), &public_input);
         let mut trace_polys = main_trace.compute_trace_polys();
         let mut transcript = DefaultTranscript::new();
         let rap_challenges = cairo_air.build_rap_challenges(&mut transcript);
 
-        let aux_trace = cairo_air.build_auxiliary_trace(&main_trace, &rap_challenges, &public_input);
+        let aux_trace =
+            cairo_air.build_auxiliary_trace(&main_trace, &rap_challenges, &public_input);
         let aux_polys = aux_trace.compute_trace_polys();
 
         trace_polys.extend_from_slice(&aux_polys);

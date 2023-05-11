@@ -451,7 +451,11 @@ where
 }
 
 // FIXME remove unwrap() calls and return errors
-pub fn prove<F: IsFFTField, A: AIR<Field = F>>(trace: &A::RawTrace, air: &A, public_input: &A::PublicInput) -> StarkProof<F>
+pub fn prove<F: IsFFTField, A: AIR<Field = F>>(
+    trace: &A::RawTrace,
+    air: &A,
+    public_input: &A::PublicInput,
+) -> StarkProof<F>
 where
     FieldElement<F>: ByteConversion,
 {
@@ -465,8 +469,13 @@ where
     // ==========|   Round 1   |==========
     // ===================================
 
-    let round_1_result =
-        round_1_randomized_air_with_preprocessing::<F, A, _>(&air, trace, &domain, &public_input, &mut transcript);
+    let round_1_result = round_1_randomized_air_with_preprocessing::<F, A, _>(
+        &air,
+        trace,
+        &domain,
+        &public_input,
+        &mut transcript,
+    );
 
     #[cfg(debug_assertions)]
     validate_trace(

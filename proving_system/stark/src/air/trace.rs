@@ -25,7 +25,10 @@ impl<F: IsFFTField> TraceTable<F> {
     }
 
     pub fn new(table: Vec<FieldElement<F>>, n_cols: usize) -> Self {
-        Self { table: table, n_cols: n_cols }
+        Self {
+            table: table,
+            n_cols: n_cols,
+        }
     }
 
     pub fn get_cols(&self, columns: &[usize]) -> Self {
@@ -38,7 +41,7 @@ impl<F: IsFFTField> TraceTable<F> {
 
         Self {
             table: table,
-            n_cols: columns.len()
+            n_cols: columns.len(),
         }
     }
 
@@ -129,13 +132,46 @@ mod test {
 
     #[test]
     fn test_subtable_works() {
-        let table = vec![FE::new(1), FE::new(2), FE::new(3), FE::new(1), FE::new(2), FE::new(3), FE::new(1), FE::new(2), FE::new(3)];
-        let trace_table = TraceTable { table: table, n_cols: 3 };
+        let table = vec![
+            FE::new(1),
+            FE::new(2),
+            FE::new(3),
+            FE::new(1),
+            FE::new(2),
+            FE::new(3),
+            FE::new(1),
+            FE::new(2),
+            FE::new(3),
+        ];
+        let trace_table = TraceTable {
+            table: table,
+            n_cols: 3,
+        };
         let subtable = trace_table.get_cols(&[0, 1]);
-        assert_eq!(subtable.table, vec![FE::new(1), FE::new(2), FE::new(1), FE::new(2), FE::new(1), FE::new(2)]);
+        assert_eq!(
+            subtable.table,
+            vec![
+                FE::new(1),
+                FE::new(2),
+                FE::new(1),
+                FE::new(2),
+                FE::new(1),
+                FE::new(2)
+            ]
+        );
         assert_eq!(subtable.n_cols, 2);
         let subtable = trace_table.get_cols(&[0, 2]);
-        assert_eq!(subtable.table, vec![FE::new(1), FE::new(3), FE::new(1), FE::new(3), FE::new(1), FE::new(3)]);
+        assert_eq!(
+            subtable.table,
+            vec![
+                FE::new(1),
+                FE::new(3),
+                FE::new(1),
+                FE::new(3),
+                FE::new(1),
+                FE::new(3)
+            ]
+        );
         assert_eq!(subtable.n_cols, 2);
         assert_eq!(trace_table.get_cols(&[]), TraceTable::empty());
     }

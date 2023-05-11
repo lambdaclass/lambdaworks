@@ -28,13 +28,19 @@ impl AIR for Fibonacci17AIR {
     type RAPChallenges = ();
     type PublicInput = ();
 
-    fn build_main_trace(&self, raw_trace: &Self::RawTrace, public_input: &Self::PublicInput) -> TraceTable<Self::Field> {
+    fn build_main_trace(
+        &self,
+        raw_trace: &Self::RawTrace,
+        public_input: &Self::PublicInput,
+    ) -> TraceTable<Self::Field> {
         TraceTable::new_from_cols(raw_trace)
     }
 
-    fn build_auxiliary_trace(&self, 
+    fn build_auxiliary_trace(
+        &self,
         _main_trace: &TraceTable<Self::Field>,
-        _rap_challenges: &Self::RAPChallenges, public_input: &Self::PublicInput
+        _rap_challenges: &Self::RAPChallenges,
+        public_input: &Self::PublicInput,
     ) -> TraceTable<Self::Field> {
         TraceTable::empty()
     }

@@ -25,11 +25,17 @@ pub trait AIR: Clone {
     type RAPChallenges;
     type PublicInput;
 
-    fn build_main_trace(&self, raw_trace: &Self::RawTrace, public_input: &Self::PublicInput) -> TraceTable<Self::Field>;
+    fn build_main_trace(
+        &self,
+        raw_trace: &Self::RawTrace,
+        public_input: &Self::PublicInput,
+    ) -> TraceTable<Self::Field>;
 
-    fn build_auxiliary_trace(&self, 
+    fn build_auxiliary_trace(
+        &self,
         main_trace: &TraceTable<Self::Field>,
-        rap_challenges: &Self::RAPChallenges, public_input: &Self::PublicInput
+        rap_challenges: &Self::RAPChallenges,
+        public_input: &Self::PublicInput,
     ) -> TraceTable<Self::Field>;
 
     fn build_rap_challenges<T: Transcript>(&self, transcript: &mut T) -> Self::RAPChallenges;

@@ -145,11 +145,13 @@ fn test_prove_cairo_simple_program() {
     };
 
     let mut cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace, 2); // TODO: Put correct size of the program
-    // PC FINAL AND AP FINAL are not computed correctly since they are extracted after padding to
-    // power of two and therefore are zero
+                                                                            // PC FINAL AND AP FINAL are not computed correctly since they are extracted after padding to
+                                                                            // power of two and therefore are zero
     cairo_air.pub_inputs.ap_final = FieldElement::zero();
     cairo_air.pub_inputs.pc_final = FieldElement::zero();
-    let public_input = CairoPublicInput { program: Vec::new() }; // TODO: Put real program
+    let public_input = CairoPublicInput {
+        program: Vec::new(),
+    }; // TODO: Put real program
 
     let result = prove(&(raw_trace, memory), &cairo_air, &public_input);
     assert!(verify(&result, &cairo_air));
@@ -191,12 +193,14 @@ fn test_prove_cairo_call_func() {
     };
 
     let mut cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace, 2); // TODO: Put correct size of the program
-    // PC FINAL AND AP FINAL are not computed correctly since they are extracted after padding to
-    // power of two and therefore are zero
+                                                                            // PC FINAL AND AP FINAL are not computed correctly since they are extracted after padding to
+                                                                            // power of two and therefore are zero
     cairo_air.pub_inputs.ap_final = FieldElement::zero();
     cairo_air.pub_inputs.pc_final = FieldElement::zero();
 
-    let public_input = CairoPublicInput { program: Vec::new() }; // TODO: Put real program
+    let public_input = CairoPublicInput {
+        program: Vec::new(),
+    }; // TODO: Put real program
 
     let result = prove(&(raw_trace, memory), &cairo_air, &public_input);
     assert!(verify(&result, &cairo_air));
@@ -218,11 +222,13 @@ fn test_prove_cairo_fibonacci() {
     };
 
     let mut cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace, 2); // TODO: Put correct size of the program
-    // PC FINAL AND AP FINAL are not computed correctly since they are extracted after padding to
-    // power of two and therefore are zero
+                                                                            // PC FINAL AND AP FINAL are not computed correctly since they are extracted after padding to
+                                                                            // power of two and therefore are zero
     cairo_air.pub_inputs.ap_final = FieldElement::zero();
     cairo_air.pub_inputs.pc_final = FieldElement::zero();
-    let public_input = CairoPublicInput { program: Vec::new() }; // TODO: Put real program
+    let public_input = CairoPublicInput {
+        program: Vec::new(),
+    }; // TODO: Put real program
 
     let result = prove(&(raw_trace, memory), &cairo_air, &public_input);
     assert!(verify(&result, &cairo_air));
