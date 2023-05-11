@@ -300,7 +300,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         true
     }
 
-    /// Creates an `UnsignedInteger` from a hexstring. It can contain `0x` or not. 
+    /// Creates an `UnsignedInteger` from a hexstring. It can contain `0x` or not.
     /// Returns an `CreationError::InvalidHexString`if the value is not a hexstring
     pub fn from_hex(value: &str) -> Result<Self, CreationError> {
         let mut string = value;
@@ -321,7 +321,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         Ok(Self::from_hex_unchecked(string))
     }
 
-    /// Creates an `UnsignedInteger` from a hexstring. It can contain `0x` or not. 
+    /// Creates an `UnsignedInteger` from a hexstring. It can contain `0x` or not.
     /// # Panics
     /// Panics if value is not a hexstring
     pub const fn from_hex_unchecked(value: &str) -> Self {
