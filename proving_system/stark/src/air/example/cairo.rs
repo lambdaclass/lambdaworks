@@ -1,6 +1,6 @@
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::field::{
-    element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+    element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField, traits::IsFFTField,
 };
 
 use crate::{
@@ -121,7 +121,6 @@ impl CairoAIR {
             options: proof_options,
             trace_length: padded_num_steps,
             trace_columns: 34,
-            program_size: program_size,
             transition_degrees: vec![
                 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, // Flags 0-14.
                 1, // Flag 15
@@ -155,12 +154,17 @@ pub struct CairoRAPChallenges {
     pub z: FieldElement<Stark252PrimeField>,
 }
 
+pub struct CairoPublicInput<F: IsFFTField> {
+    pub program: Vec<FieldElement<F>>
+}
+
 impl AIR for CairoAIR {
     type Field = Stark252PrimeField;
     type RawTrace = (CairoTrace, CairoMemory);
     type RAPChallenges = CairoRAPChallenges;
+    type PublicInput = CairoPublicInput<Self::Field>;
 
-    fn build_main_trace(&self, raw_trace: &Self::RawTrace) -> TraceTable<Self::Field> {
+    fn build_main_trace(&self, raw_trace: &Self::RawTrace, public_input: &Self::PublicInput) -> TraceTable<Self::Field> {
         let main_trace = build_cairo_execution_trace(&raw_trace.0, &raw_trace.1);
 
         // Add rows with zeros at the end with enough space to fit the program.
@@ -169,7 +173,7 @@ impl AIR for CairoAIR {
             last_row[memory_column] = FieldElement::zero();
         }
 
-        let program_size = self.context.program_size;
+        let program_size = public_input.program.len();
         let public_input_section: Vec<FieldElement<Self::Field>> = std::iter::repeat(last_row).take(program_size >> 2).flatten().collect();
 
         let mut main_trace_table = main_trace.table;
@@ -182,27 +186,70 @@ impl AIR for CairoAIR {
         &self,
         main_trace: &TraceTable<Self::Field>,
         rap_challenges: &Self::RAPChallenges,
+        public_input: &Self::PublicInput
     ) -> TraceTable<Self::Field> {
-        // Keep the 8 columns that refer to the memory.
-        let aux_trace = main_trace.subtable(&[FRAME_PC,
+        // Keep the columns that refer to the memory.
+        // Convert from wide-format to long format (8 columns of length N to 2 columns of length 4N).
+        let mut a_original = main_trace.get_cols(&[
+            FRAME_PC,
             FRAME_DST_ADDR,
             FRAME_OP0_ADDR,
             FRAME_OP1_ADDR,
+        ]).table;
+
+        let mut v_original = main_trace.get_cols(&[
             FRAME_INST,
             FRAME_DST,
             FRAME_OP0,
             FRAME_OP1
-        ]);
+        ]).table;
 
-        // Convert from wide-format to long format (8 columns of length N to 2 columns of length 4N).
+        let mut a_aux = a_original.clone();
+        let mut v_aux = v_original.clone();
+
+        // Add the program in the public input section
+        let public_input_section = main_trace.n_rows() - public_input.program.len();
+        let continous_memory = (0..public_input.program.len() as u64).map(|i| FieldElement::from(i));
+
+        a_aux.splice(public_input_section.., continous_memory);
+        v_aux.splice(public_input_section.., public_input.program.clone());
 
         // Sort the two columns.
+        let mut tuples: Vec<_> = a_aux.into_iter().zip(v_aux).collect();
+        tuples.sort_by(|(x, _), (y, _)| x.representative().cmp(&y.representative()));
+        
+        // Add an auxiliary column for the permutation argument.
+        let (a_aux, v_aux): (Vec<_>, Vec<_>) = tuples.into_iter().unzip();
+        
+        let z = &rap_challenges.z;
+        let alpha = &rap_challenges.alpha;
+        let f = |a, v, ap, vp| (z - (a + alpha * v)) / (z - (ap + alpha * vp));
 
-        // Add an auxiliary column for the permutation challenge.
+        let mut permutation_col = Vec::with_capacity(a_aux.len());
+        permutation_col[0] = f(&a_original[0], &v_original[0], &a_aux[0], &v_aux[0]);
+
+        for i in 1..a_aux.len() {
+            let last = permutation_col.last().unwrap();
+            permutation_col[i] = last * f(&a_original[i], &v_original[i], &a_aux[i], &v_aux[i]);
+        }
 
         // Convert from long-format to wide-format again
-
-        TraceTable::empty()
+        let mut aux_table = Vec::new();
+        for i in (0..a_aux.len()).step_by(12) {
+            aux_table.push(a_aux[i].clone());
+            aux_table.push(a_aux[i+1].clone());
+            aux_table.push(a_aux[i+2].clone());
+            aux_table.push(a_aux[i+3].clone());
+            aux_table.push(v_aux[i+4].clone());
+            aux_table.push(v_aux[i+5].clone());
+            aux_table.push(v_aux[i+6].clone());
+            aux_table.push(v_aux[i+7].clone());
+            aux_table.push(permutation_col[i+8].clone());
+            aux_table.push(permutation_col[i+9].clone());
+            aux_table.push(permutation_col[i+10].clone());
+            aux_table.push(permutation_col[i+11].clone());
+        }
+        TraceTable::new(aux_table, 12)
     }
 
     fn build_rap_challenges<T: Transcript>(&self, transcript: &mut T) -> Self::RAPChallenges {
@@ -398,7 +445,7 @@ mod test {
     use lambdaworks_math::field::element::FieldElement;
 
     use crate::{
-        air::{context::ProofOptions, debug::validate_trace, example::cairo::CairoAIR, AIR},
+        air::{context::ProofOptions, debug::validate_trace, example::cairo::{CairoAIR, CairoPublicInput}, AIR},
         cairo_vm::{cairo_mem::CairoMemory, cairo_trace::CairoTrace},
         Domain,
     };
@@ -426,12 +473,14 @@ mod test {
         cairo_air.pub_inputs.ap_final = FieldElement::zero();
         cairo_air.pub_inputs.pc_final = FieldElement::zero();
 
-        let main_trace = cairo_air.build_main_trace(&(raw_trace, memory));
+        let public_input = CairoPublicInput { program: Vec::new() }; // TODO: Put real program
+
+        let main_trace = cairo_air.build_main_trace(&(raw_trace, memory), &public_input);
         let mut trace_polys = main_trace.compute_trace_polys();
         let mut transcript = DefaultTranscript::new();
         let rap_challenges = cairo_air.build_rap_challenges(&mut transcript);
 
-        let aux_trace = cairo_air.build_auxiliary_trace(&main_trace, &rap_challenges);
+        let aux_trace = cairo_air.build_auxiliary_trace(&main_trace, &rap_challenges, &public_input);
         let aux_polys = aux_trace.compute_trace_polys();
 
         trace_polys.extend_from_slice(&aux_polys);

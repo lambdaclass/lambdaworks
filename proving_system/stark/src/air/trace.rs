@@ -28,7 +28,7 @@ impl<F: IsFFTField> TraceTable<F> {
         Self { table: table, n_cols: n_cols }
     }
 
-    pub fn subtable(&self, columns: &[usize]) -> Self {
+    pub fn get_cols(&self, columns: &[usize]) -> Self {
         let mut table = Vec::new();
         for row_index in 0..self.n_rows() {
             for column in columns {
@@ -131,12 +131,12 @@ mod test {
     fn test_subtable_works() {
         let table = vec![FE::new(1), FE::new(2), FE::new(3), FE::new(1), FE::new(2), FE::new(3), FE::new(1), FE::new(2), FE::new(3)];
         let trace_table = TraceTable { table: table, n_cols: 3 };
-        let subtable = trace_table.subtable(&[0, 1]);
+        let subtable = trace_table.get_cols(&[0, 1]);
         assert_eq!(subtable.table, vec![FE::new(1), FE::new(2), FE::new(1), FE::new(2), FE::new(1), FE::new(2)]);
         assert_eq!(subtable.n_cols, 2);
-        let subtable = trace_table.subtable(&[0, 2]);
+        let subtable = trace_table.get_cols(&[0, 2]);
         assert_eq!(subtable.table, vec![FE::new(1), FE::new(3), FE::new(1), FE::new(3), FE::new(1), FE::new(3)]);
         assert_eq!(subtable.n_cols, 2);
-        assert_eq!(trace_table.subtable(&[]), TraceTable::empty());
+        assert_eq!(trace_table.get_cols(&[]), TraceTable::empty());
     }
 }

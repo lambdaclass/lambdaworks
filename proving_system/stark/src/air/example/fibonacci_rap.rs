@@ -31,14 +31,15 @@ impl AIR for FibonacciRAP {
     type Field = Stark252PrimeField;
     type RawTrace = Vec<Vec<FieldElement<Self::Field>>>;
     type RAPChallenges = FieldElement<Self::Field>;
+    type PublicInput = ();
 
-    fn build_main_trace(&self, raw_trace: &Self::RawTrace) -> TraceTable<Self::Field> {
+    fn build_main_trace(&self, raw_trace: &Self::RawTrace, public_input: &Self::PublicInput) -> TraceTable<Self::Field> {
         TraceTable::new_from_cols(raw_trace)
     }
 
     fn build_auxiliary_trace(&self, 
         main_trace: &TraceTable<Self::Field>,
-        gamma: &Self::RAPChallenges,
+        gamma: &Self::RAPChallenges, public_input: &Self::PublicInput
     ) -> TraceTable<Self::Field> {
         let main_segment_cols = main_trace.cols();
         let not_perm = &main_segment_cols[0];

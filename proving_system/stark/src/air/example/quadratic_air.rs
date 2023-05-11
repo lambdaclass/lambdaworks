@@ -28,8 +28,9 @@ impl AIR for QuadraticAIR {
     type Field = Stark252PrimeField;
     type RawTrace = Vec<FieldElement<Self::Field>>;
     type RAPChallenges = ();
+    type PublicInput = ();
 
-    fn build_main_trace(&self, raw_trace: &Self::RawTrace) -> TraceTable<Self::Field> {
+    fn build_main_trace(&self, raw_trace: &Self::RawTrace, public_input: &Self::PublicInput) -> TraceTable<Self::Field> {
         TraceTable {
             table: raw_trace.clone(),
             n_cols: 1,
@@ -38,7 +39,7 @@ impl AIR for QuadraticAIR {
 
     fn build_auxiliary_trace(&self, 
         _main_trace: &TraceTable<Self::Field>,
-        _rap_challenges: &Self::RAPChallenges,
+        _rap_challenges: &Self::RAPChallenges, public_input: &Self::PublicInput
     ) -> TraceTable<Self::Field> {
         TraceTable::empty()
     }

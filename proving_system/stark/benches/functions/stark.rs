@@ -2,7 +2,7 @@ use lambdaworks_math::field::fields::u64_prime_field::FE17;
 use lambdaworks_stark::{
     air::{
         context::{AirContext, ProofOptions},
-        example::cairo,
+        example::cairo::{self, CairoPublicInput},
     },
     cairo_vm::{cairo_mem::CairoMemory, cairo_trace::CairoTrace},
     prover::prove,
@@ -26,7 +26,6 @@ pub fn prove_fib(trace_length: usize) {
             coset_offset: 3,
         },
         trace_length,
-        program_size: 2, // TODO: Put correct size of the program
         trace_columns: trace.len(),
         transition_degrees: vec![1],
         transition_exemptions: vec![2],
@@ -36,7 +35,7 @@ pub fn prove_fib(trace_length: usize) {
 
     let fibonacci_air = simple_fibonacci::FibonacciAIR::from(context);
 
-    let result = prove(&trace, &fibonacci_air);
+    let result = prove(&trace, &fibonacci_air, &());
     verify(&result, &fibonacci_air);
 }
 
@@ -50,7 +49,6 @@ pub fn prove_fib_2_cols() {
             fri_number_of_queries: 1,
             coset_offset: 3,
         },
-        program_size: 2, // TODO: Put correct size of the program
         trace_length: trace_columns.len(),
         transition_degrees: vec![1, 1],
         transition_exemptions: vec![1, 1],
@@ -61,7 +59,7 @@ pub fn prove_fib_2_cols() {
 
     let fibonacci_air = fibonacci_2_columns::Fibonacci2ColsAIR::from(context);
 
-    let result = prove(&trace_columns, &fibonacci_air);
+    let result = prove(&trace_columns, &fibonacci_air, &());
     verify(&result, &fibonacci_air);
 }
 
@@ -74,7 +72,6 @@ pub fn prove_fib17() {
             fri_number_of_queries: 1,
             coset_offset: 3,
         },
-        program_size: 2, // TODO: Put correct size of the program
         trace_length: trace.len(),
         trace_columns: trace[0].len(),
         transition_degrees: vec![1],
@@ -85,7 +82,7 @@ pub fn prove_fib17() {
 
     let fibonacci_air = fibonacci_f17::Fibonacci17AIR::from(context);
 
-    let result = prove(&trace, &fibonacci_air);
+    let result = prove(&trace, &fibonacci_air, &());
     verify(&result, &fibonacci_air);
 }
 
@@ -98,7 +95,6 @@ pub fn prove_quadratic() {
             fri_number_of_queries: 1,
             coset_offset: 3,
         },
-        program_size: 2, // TODO: Put correct size of the program
         trace_length: trace.len(),
         trace_columns: trace.len(),
         transition_degrees: vec![2],
@@ -109,7 +105,7 @@ pub fn prove_quadratic() {
 
     let quadratic_air = quadratic_air::QuadraticAIR::from(context);
 
-    let result = prove(&trace, &quadratic_air);
+    let result = prove(&trace, &quadratic_air, &());
     verify(&result, &quadratic_air);
 }
 
@@ -132,8 +128,9 @@ pub fn prove_cairo_fibonacci_5() {
     };
 
     let cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace, 2); // TODO: Put correct size of the program
+    let public_input = CairoPublicInput { program: Vec::new() }; // TODO: Put real program
 
-    prove(&(raw_trace, memory), &cairo_air);
+    prove(&(raw_trace, memory), &cairo_air, &public_input);
 }
 
 #[allow(dead_code)]
@@ -152,8 +149,9 @@ pub fn prove_cairo_fibonacci_10() {
     };
 
     let cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace, 2); // TODO: Put correct size of the program
+    let public_input = CairoPublicInput { program: Vec::new() }; // TODO: Put real program
 
-    prove(&(raw_trace, memory), &cairo_air);
+    prove(&(raw_trace, memory), &cairo_air, &public_input);
 }
 
 #[allow(dead_code)]
@@ -172,8 +170,9 @@ pub fn prove_cairo_fibonacci_30() {
     };
 
     let cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace, 2); // TODO: Put correct size of the program
+    let public_input = CairoPublicInput { program: Vec::new() }; // TODO: Put real program
 
-    prove(&(raw_trace, memory), &cairo_air);
+    prove(&(raw_trace, memory), &cairo_air, &public_input);
 }
 
 #[allow(dead_code)]
@@ -192,8 +191,9 @@ pub fn prove_cairo_fibonacci_50() {
     };
 
     let cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace, 2); // TODO: Put correct size of the program
+    let public_input = CairoPublicInput { program: Vec::new() }; // TODO: Put real program
 
-    prove(&(raw_trace, memory), &cairo_air);
+    prove(&(raw_trace, memory), &cairo_air, &public_input);
 }
 
 #[allow(dead_code)]
@@ -212,6 +212,7 @@ pub fn prove_cairo_fibonacci_100() {
     };
 
     let cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace, 2); // TODO: Put correct size of the program
+    let public_input = CairoPublicInput { program: Vec::new() }; // TODO: Put real program
 
-    prove(&(raw_trace, memory), &cairo_air);
+    prove(&(raw_trace, memory), &cairo_air, &public_input);
 }

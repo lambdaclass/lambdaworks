@@ -150,19 +150,20 @@ fn round_1_randomized_air_with_preprocessing<F: IsFFTField, A: AIR<Field = F>, T
     air: &A,
     raw_trace: &A::RawTrace,
     domain: &Domain<F>,
+    public_input: &A::PublicInput,
     transcript: &mut T,
 ) -> Round1<F, A>
 where
     FieldElement<F>: ByteConversion,
 {
-    let main_trace = air.build_main_trace(raw_trace);
+    let main_trace = air.build_main_trace(raw_trace, public_input);
 
     let (mut trace_polys, mut evaluations, mut lde_trace_merkle_trees, mut lde_trace_merkle_roots) =
         interpolate_and_commit(&main_trace, domain, transcript);
 
     let rap_challenges = air.build_rap_challenges(transcript);
 
-    let aux_trace = air.build_auxiliary_trace(&main_trace, &rap_challenges);
+    let aux_trace = air.build_auxiliary_trace(&main_trace, &rap_challenges, public_input);
 
     if !aux_trace.is_empty() {
         // Check that this is valid for interpolation
@@ -450,7 +451,7 @@ where
 }
 
 // FIXME remove unwrap() calls and return errors
-pub fn prove<F: IsFFTField, A: AIR<Field = F>>(trace: &A::RawTrace, air: &A) -> StarkProof<F>
+pub fn prove<F: IsFFTField, A: AIR<Field = F>>(trace: &A::RawTrace, air: &A, public_input: &A::PublicInput) -> StarkProof<F>
 where
     FieldElement<F>: ByteConversion,
 {
@@ -465,7 +466,7 @@ where
     // ===================================
 
     let round_1_result =
-        round_1_randomized_air_with_preprocessing::<F, A, _>(&air, trace, &domain, &mut transcript);
+        round_1_randomized_air_with_preprocessing::<F, A, _>(&air, trace, &domain, &public_input, &mut transcript);
 
     #[cfg(debug_assertions)]
     validate_trace(
@@ -630,7 +631,6 @@ mod tests {
                 coset_offset,
             },
             trace_length,
-            program_size: 3, // TODO: Put correct size of the program
             trace_columns: trace_table.n_cols,
             transition_degrees: vec![1],
             transition_exemptions: vec![2],
@@ -681,7 +681,6 @@ mod tests {
                 coset_offset,
             },
             trace_length,
-            program_size: 3, // TODO: Put correct size of the program
             trace_columns: trace_table.n_cols,
             transition_degrees: vec![1],
             transition_exemptions: vec![2],

@@ -2,6 +2,7 @@ use lambdaworks_math::field::fields::{
     fft_friendly::stark_252_prime_field::Stark252PrimeField, u64_prime_field::FE17,
 };
 use lambdaworks_math::helpers::resize_to_next_power_of_two;
+use lambdaworks_stark::air::example::cairo::CairoPublicInput;
 use lambdaworks_stark::air::example::fibonacci_rap::{fibonacci_rap_trace, FibonacciRAP};
 use lambdaworks_stark::air::example::{
     cairo, fibonacci_2_columns, fibonacci_f17, quadratic_air, simple_fibonacci,
@@ -29,7 +30,6 @@ fn test_prove_fib() {
             coset_offset: 3,
         },
         trace_length,
-        program_size: 3, // TODO: Put correct size of the program
         trace_columns: 1,
         transition_degrees: vec![1],
         transition_exemptions: vec![2],
@@ -39,7 +39,7 @@ fn test_prove_fib() {
 
     let fibonacci_air = simple_fibonacci::FibonacciAIR::from(context);
 
-    let result = prove(&trace, &fibonacci_air);
+    let result = prove(&trace, &fibonacci_air, &());
     assert!(verify(&result, &fibonacci_air));
 }
 
@@ -55,7 +55,6 @@ fn test_prove_fib17() {
         },
         trace_length: trace[0].len(),
         trace_columns: 1,
-        program_size: 3, // TODO: Put correct size of the program
         transition_degrees: vec![1],
         transition_exemptions: vec![2],
         transition_offsets: vec![0, 1, 2],
@@ -64,7 +63,7 @@ fn test_prove_fib17() {
 
     let fibonacci_air = fibonacci_f17::Fibonacci17AIR::from(context);
 
-    let result = prove(&trace, &fibonacci_air);
+    let result = prove(&trace, &fibonacci_air, &());
     assert!(verify(&result, &fibonacci_air));
 }
 
@@ -80,7 +79,6 @@ fn test_prove_fib_2_cols() {
             coset_offset: 3,
         },
         trace_length: trace_columns[0].len(),
-        program_size: 3, // TODO: Put correct size of the program
         transition_degrees: vec![1, 1],
         transition_exemptions: vec![1, 1],
         transition_offsets: vec![0, 1],
@@ -90,7 +88,7 @@ fn test_prove_fib_2_cols() {
 
     let fibonacci_air = fibonacci_2_columns::Fibonacci2ColsAIR::from(context);
 
-    let result = prove(&trace_columns, &fibonacci_air);
+    let result = prove(&trace_columns, &fibonacci_air, &());
     assert!(verify(&result, &fibonacci_air));
 }
 
@@ -106,7 +104,6 @@ fn test_prove_quadratic() {
         },
         trace_length: trace.len(),
         trace_columns: 1,
-        program_size: 3, // TODO: Put correct size of the program
         transition_degrees: vec![2],
         transition_exemptions: vec![1],
         transition_offsets: vec![0, 1],
@@ -115,7 +112,7 @@ fn test_prove_quadratic() {
 
     let quadratic_air = quadratic_air::QuadraticAIR::from(context);
 
-    let result = prove(&trace, &quadratic_air);
+    let result = prove(&trace, &quadratic_air, &());
     assert!(verify(&result, &quadratic_air));
 }
 
@@ -152,8 +149,9 @@ fn test_prove_cairo_simple_program() {
     // power of two and therefore are zero
     cairo_air.pub_inputs.ap_final = FieldElement::zero();
     cairo_air.pub_inputs.pc_final = FieldElement::zero();
+    let public_input = CairoPublicInput { program: Vec::new() }; // TODO: Put real program
 
-    let result = prove(&(raw_trace, memory), &cairo_air);
+    let result = prove(&(raw_trace, memory), &cairo_air, &public_input);
     assert!(verify(&result, &cairo_air));
 }
 
@@ -198,7 +196,9 @@ fn test_prove_cairo_call_func() {
     cairo_air.pub_inputs.ap_final = FieldElement::zero();
     cairo_air.pub_inputs.pc_final = FieldElement::zero();
 
-    let result = prove(&(raw_trace, memory), &cairo_air);
+    let public_input = CairoPublicInput { program: Vec::new() }; // TODO: Put real program
+
+    let result = prove(&(raw_trace, memory), &cairo_air, &public_input);
     assert!(verify(&result, &cairo_air));
 }
 
@@ -222,8 +222,9 @@ fn test_prove_cairo_fibonacci() {
     // power of two and therefore are zero
     cairo_air.pub_inputs.ap_final = FieldElement::zero();
     cairo_air.pub_inputs.pc_final = FieldElement::zero();
+    let public_input = CairoPublicInput { program: Vec::new() }; // TODO: Put real program
 
-    let result = prove(&(raw_trace, memory), &cairo_air);
+    let result = prove(&(raw_trace, memory), &cairo_air, &public_input);
     assert!(verify(&result, &cairo_air));
 }
 
@@ -243,7 +244,6 @@ fn test_prove_rap_fib() {
             coset_offset: 3,
         },
         trace_columns: 3,
-        program_size: 2, // TODO : Put correct size of the program
         trace_length: trace_cols[0].len(),
         transition_degrees: vec![1],
         transition_offsets: vec![0, 1, 2],
@@ -253,6 +253,6 @@ fn test_prove_rap_fib() {
 
     let fibonacci_rap = FibonacciRAP::new(context);
 
-    let result = prove(&trace_cols, &fibonacci_rap);
+    let result = prove(&trace_cols, &fibonacci_rap, &());
     assert!(verify(&result, &fibonacci_rap));
 }
