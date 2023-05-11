@@ -45,7 +45,7 @@ fn os2ip<M: IsModulus<UnsignedInteger<N>> + Clone, const N: usize>(
     for item_u8 in aux_x.iter() {
         item_hex += &format!("{:x}", item_u8);
         if item_hex.len() == item_hex.capacity() {
-            result += FieldElement::from_hex(&item_hex) * two_to_the_nth.pow(j);
+            result += FieldElement::from_hex_unchecked(&item_hex) * two_to_the_nth.pow(j);
             item_hex.clear();
             j += 1;
         }
@@ -62,7 +62,7 @@ fn build_two_to_the_nth<M: IsModulus<UnsignedInteger<N>> + Clone, const N: usize
     for _ in 0..two_to_the_nth.capacity() - 1 {
         two_to_the_nth.push('1');
     }
-    FieldElement::from_hex(&two_to_the_nth) + FieldElement::one()
+    FieldElement::from_hex_unchecked(&two_to_the_nth) + FieldElement::one()
 }
 
 #[cfg(test)]
