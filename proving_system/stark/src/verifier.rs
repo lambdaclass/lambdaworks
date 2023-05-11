@@ -35,7 +35,7 @@ fn step_1_transcript_initialization() -> DefaultTranscript {
     DefaultTranscript::new()
 }
 
-struct Challenges<F: IsFFTField, A: AIR<Field=F>> {
+struct Challenges<F: IsFFTField, A: AIR<Field = F>> {
     z: FieldElement<F>,
     boundary_coeffs: Vec<(FieldElement<F>, FieldElement<F>)>,
     transition_coeffs: Vec<(FieldElement<F>, FieldElement<F>)>,
@@ -44,7 +44,7 @@ struct Challenges<F: IsFFTField, A: AIR<Field=F>> {
     gamma_odd: FieldElement<F>,
     zetas: Vec<FieldElement<F>>,
     iotas: Vec<usize>,
-    rap_challenges: A::RAPChallenges
+    rap_challenges: A::RAPChallenges,
 }
 
 fn step_1_replay_rounds_and_recover_challenges<F, A, T>(
@@ -182,7 +182,7 @@ where
         gamma_odd,
         zetas,
         iotas,
-        rap_challenges
+        rap_challenges,
     }
 }
 
@@ -265,8 +265,10 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
         .iter()
         .fold(FieldElement::<F>::zero(), |acc, x| acc + x);
 
-    let transition_ood_frame_evaluations =
-        air.compute_transition(&proof.trace_ood_frame_evaluations, &challenges.rap_challenges);
+    let transition_ood_frame_evaluations = air.compute_transition(
+        &proof.trace_ood_frame_evaluations,
+        &challenges.rap_challenges,
+    );
 
     let divisors = air.transition_divisors();
     let transition_c_i_evaluations =

@@ -13,6 +13,8 @@ use lambdaworks_math::{
 
 pub mod constraints;
 pub mod context;
+#[cfg(debug_assertions)]
+pub mod debug;
 pub mod example;
 pub mod frame;
 pub mod trace;
@@ -22,13 +24,11 @@ pub trait AIR: Clone {
     type RawTrace;
     type RAPChallenges;
 
-    fn build_main_trace(
-        raw_trace: &Self::RawTrace,
-    ) -> TraceTable<Self::Field>;
+    fn build_main_trace(raw_trace: &Self::RawTrace) -> TraceTable<Self::Field>;
 
     fn build_auxiliary_trace(
         main_trace: &TraceTable<Self::Field>,
-        rap_challenges: &Self::RAPChallenges
+        rap_challenges: &Self::RAPChallenges,
     ) -> TraceTable<Self::Field>;
 
     fn build_rap_challenges<T: Transcript>(transcript: &mut T) -> Self::RAPChallenges;
@@ -37,9 +37,16 @@ pub trait AIR: Clone {
         0
     }
 
-    fn compute_transition(&self, frame: &Frame<Self::Field>, rap_challenges: &Self::RAPChallenges) -> Vec<FieldElement<Self::Field>>;
+    fn compute_transition(
+        &self,
+        frame: &Frame<Self::Field>,
+        rap_challenges: &Self::RAPChallenges,
+    ) -> Vec<FieldElement<Self::Field>>;
     // fn compute_transition(&self, frame: &Frame<Self::Field>, rap_challenges: &Self::RAPChallenges) -> Vec<FieldElement<Self::Field>>;
-    fn boundary_constraints(&self, rap_challenges: &Self::RAPChallenges) -> BoundaryConstraints<Self::Field>;
+    fn boundary_constraints(
+        &self,
+        rap_challenges: &Self::RAPChallenges,
+    ) -> BoundaryConstraints<Self::Field>;
     // fn boundary_constraints(&self, rap_challenges: &Self::RAPChallenges) -> BoundaryConstraints<Self::Field>;
     fn transition_divisors(&self) -> Vec<Polynomial<FieldElement<Self::Field>>> {
         let trace_length = self.context().trace_length;

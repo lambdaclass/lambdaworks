@@ -11,7 +11,7 @@ use crate::{
 };
 #[cfg(not(feature = "test_fiat_shamir"))]
 use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
-use lambdaworks_crypto::{fiat_shamir::transcript::{Transcript, self}, merkle_tree::merkle::MerkleTree};
+use lambdaworks_crypto::{fiat_shamir::transcript::Transcript, merkle_tree::merkle::MerkleTree};
 
 #[cfg(feature = "test_fiat_shamir")]
 use lambdaworks_crypto::fiat_shamir::test_transcript::TestTranscript;
@@ -23,6 +23,9 @@ use lambdaworks_math::{
     traits::ByteConversion,
 };
 use log::info;
+
+#[cfg(debug_assertions)]
+use crate::air::debug::validate_trace;
 
 struct Round1<F: IsFFTField, A: AIR<Field = F>> {
     trace_polys: Vec<Polynomial<FieldElement<F>>>,
@@ -99,15 +102,22 @@ where
     )
 }
 
-
-fn interpolate_and_commit<T, F>(trace: &TraceTable<F>, domain: &Domain<F>, transcript: &mut T)
-    -> (
-        Vec<Polynomial<FieldElement<F>>>,
-        Vec<Vec<FieldElement<F>>>,
-        Vec<MerkleTree<F>>,
-        Vec<FieldElement<F>>
-    )
-where T: Transcript, F: IsFFTField, FieldElement<F>: ByteConversion {
+#[allow(clippy::type_complexity)]
+fn interpolate_and_commit<T, F>(
+    trace: &TraceTable<F>,
+    domain: &Domain<F>,
+    transcript: &mut T,
+) -> (
+    Vec<Polynomial<FieldElement<F>>>,
+    Vec<Vec<FieldElement<F>>>,
+    Vec<MerkleTree<F>>,
+    Vec<FieldElement<F>>,
+)
+where
+    T: Transcript,
+    F: IsFFTField,
+    FieldElement<F>: ByteConversion,
+{
     let trace_polys = trace.compute_trace_polys();
 
     // Evaluate those polynomials t_j on the large domain D_LDE.
@@ -119,15 +129,21 @@ where T: Transcript, F: IsFFTField, FieldElement<F>: ByteConversion {
 
     // Compute commitments [t_j].
     let lde_trace = TraceTable::new_from_cols(&lde_trace_evaluations);
-    let (lde_trace_merkle_trees, lde_trace_merkle_roots) = batch_commit(lde_trace.cols().iter().collect());
+    let (lde_trace_merkle_trees, lde_trace_merkle_roots) =
+        batch_commit(lde_trace.cols().iter().collect());
 
     // Agrega al transcript
     // >>>> Send commitments: [tⱼ]
     for root in lde_trace_merkle_roots.iter() {
         transcript.append(&root.to_bytes_be());
     }
-    
-    (trace_polys, lde_trace_evaluations, lde_trace_merkle_trees, lde_trace_merkle_roots)
+
+    (
+        trace_polys,
+        lde_trace_evaluations,
+        lde_trace_merkle_trees,
+        lde_trace_merkle_roots,
+    )
 }
 
 fn round_1_randomized_air_with_preprocessing<F: IsFFTField, A: AIR<Field = F>, T: Transcript>(
@@ -139,13 +155,18 @@ where
     FieldElement<F>: ByteConversion,
 {
     let main_trace = A::build_main_trace(raw_trace);
-    let (mut trace_polys, mut evaluations, mut lde_trace_merkle_trees, mut lde_trace_merkle_roots) = interpolate_and_commit(&main_trace, domain, transcript);
+
+    let (mut trace_polys, mut evaluations, mut lde_trace_merkle_trees, mut lde_trace_merkle_roots) =
+        interpolate_and_commit(&main_trace, domain, transcript);
 
     let rap_challenges = A::build_rap_challenges(transcript);
+
     let aux_trace = A::build_auxiliary_trace(&main_trace, &rap_challenges);
 
-    if !aux_trace.is_empty() { // Check that this is valid for interpolation
-        let (aux_trace_polys, aux_trace_polys_evaluations, aux_merkle_trees, aux_merkle_roots) = interpolate_and_commit(&aux_trace, domain, transcript);
+    if !aux_trace.is_empty() {
+        // Check that this is valid for interpolation
+        let (aux_trace_polys, aux_trace_polys_evaluations, aux_merkle_trees, aux_merkle_roots) =
+            interpolate_and_commit(&aux_trace, domain, transcript);
         trace_polys.extend_from_slice(&aux_trace_polys);
         evaluations.extend_from_slice(&aux_trace_polys_evaluations);
         lde_trace_merkle_trees.extend_from_slice(&aux_merkle_trees);
@@ -180,7 +201,7 @@ where
         air,
         &round_1_result.trace_polys,
         &domain.trace_primitive_root,
-        &round_1_result.rap_challenges
+        &round_1_result.rap_challenges,
     );
 
     let constraint_evaluations = evaluator.evaluate(
@@ -188,7 +209,7 @@ where
         &domain.lde_roots_of_unity_coset,
         transition_coeffs,
         boundary_coeffs,
-        &round_1_result.rap_challenges
+        &round_1_result.rap_challenges,
     );
 
     // Get the composition poly H
@@ -382,7 +403,7 @@ fn compute_deep_composition_poly<A: AIR, F: IsFFTField>(
     h_1_term + h_2_term + trace_terms
 }
 
-fn open_deep_composition_poly<F: IsFFTField, A: AIR<Field = F>> (
+fn open_deep_composition_poly<F: IsFFTField, A: AIR<Field = F>>(
     domain: &Domain<F>,
     round_1_result: &Round1<F, A>,
     round_2_result: &Round2<F>,
@@ -434,9 +455,6 @@ where
 {
     info!("Starting proof generation...");
 
-    #[cfg(debug_assertions)]
-    // trace.validate(air);
-
     let domain = Domain::new(air);
 
     let mut transcript = round_0_transcript_initialization();
@@ -445,7 +463,16 @@ where
     // ==========|   Round 1   |==========
     // ===================================
 
-    let round_1_result = round_1_randomized_air_with_preprocessing::<F, A, _>(trace, &domain, &mut transcript);
+    let round_1_result =
+        round_1_randomized_air_with_preprocessing::<F, A, _>(trace, &domain, &mut transcript);
+
+    #[cfg(debug_assertions)]
+    validate_trace(
+        air,
+        &round_1_result.trace_polys,
+        &domain,
+        &round_1_result.rap_challenges,
+    );
 
     // ===================================
     // ==========|   Round 2   |==========

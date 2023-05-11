@@ -8,12 +8,8 @@ use lambdaworks_stark::air::example::{
 };
 use lambdaworks_stark::cairo_vm::cairo_mem::CairoMemory;
 use lambdaworks_stark::cairo_vm::cairo_trace::CairoTrace;
-use lambdaworks_stark::cairo_vm::execution_trace::build_cairo_execution_trace;
 use lambdaworks_stark::{
-    air::{
-        context::{AirContext, ProofOptions},
-        trace::TraceTable,
-    },
+    air::context::{AirContext, ProofOptions},
     fri::FieldElement,
     prover::prove,
     verifier::verify,
@@ -74,7 +70,6 @@ fn test_prove_fib17() {
 fn test_prove_fib_2_cols() {
     let trace_columns =
         fibonacci_2_columns::fibonacci_trace_2_columns([FE::from(1), FE::from(1)], 16);
-
 
     let context = AirContext {
         options: ProofOptions {
@@ -211,7 +206,6 @@ fn test_prove_cairo_fibonacci() {
 
     let raw_trace = CairoTrace::from_file(&dir_trace).expect("Cairo trace binary file not found");
     let memory = CairoMemory::from_file(&dir_memory).expect("Cairo memory binary file not found");
-
 
     let proof_options = ProofOptions {
         blowup_factor: 2,

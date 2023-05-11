@@ -1,9 +1,6 @@
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
-use lambdaworks_math::{
-    field::{
-        element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
-    },
-    polynomial::Polynomial,
+use lambdaworks_math::field::{
+    element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
 };
 
 use crate::{
@@ -18,7 +15,7 @@ use crate::{
         cairo_mem::CairoMemory, cairo_trace::CairoTrace,
         execution_trace::build_cairo_execution_trace,
     },
-    FE, transcript_to_field,
+    FE,
 };
 
 /// Main constraint identifiers
@@ -107,7 +104,7 @@ impl CairoAIR {
         let mut padded_num_steps = 1;
         let num_steps = trace.steps();
         while padded_num_steps < num_steps {
-            padded_num_steps = padded_num_steps << 1;
+            padded_num_steps <<= 1;
         }
         let context = AirContext {
             options: proof_options,
@@ -143,7 +140,7 @@ impl CairoAIR {
 
 pub struct CairoRAPChallenges {
     pub alpha: FieldElement<Stark252PrimeField>,
-    pub z: FieldElement<Stark252PrimeField>
+    pub z: FieldElement<Stark252PrimeField>,
 }
 
 impl AIR for CairoAIR {
@@ -151,26 +148,31 @@ impl AIR for CairoAIR {
     type RawTrace = (CairoTrace, CairoMemory);
     type RAPChallenges = CairoRAPChallenges;
 
-    fn build_main_trace(
-        raw_trace: &Self::RawTrace,
-    ) -> TraceTable<Self::Field>{
+    fn build_main_trace(raw_trace: &Self::RawTrace) -> TraceTable<Self::Field> {
         build_cairo_execution_trace(&raw_trace.0, &raw_trace.1)
     }
 
     fn build_auxiliary_trace(
-        main_trace: &TraceTable<Self::Field>,
-        rap_challenges: &Self::RAPChallenges
+        _main_trace: &TraceTable<Self::Field>,
+        _rap_challenges: &Self::RAPChallenges,
     ) -> TraceTable<Self::Field> {
         // TODO: complete with CAIRO memory auxiliary columns
 
         TraceTable::empty()
     }
 
-    fn build_rap_challenges<T: Transcript>(transcript: &mut T) -> Self::RAPChallenges {
-        CairoRAPChallenges { alpha: FieldElement::zero(), z: FieldElement::zero() }
+    fn build_rap_challenges<T: Transcript>(_transcript: &mut T) -> Self::RAPChallenges {
+        CairoRAPChallenges {
+            alpha: FieldElement::zero(),
+            z: FieldElement::zero(),
+        }
     }
 
-    fn compute_transition(&self, frame: &Frame<Self::Field>, rap_challenges: &Self::RAPChallenges) -> Vec<FieldElement<Self::Field>> {
+    fn compute_transition(
+        &self,
+        frame: &Frame<Self::Field>,
+        _rap_challenges: &Self::RAPChallenges,
+    ) -> Vec<FieldElement<Self::Field>> {
         let mut constraints: Vec<FieldElement<Self::Field>> =
             vec![FE::zero(); self.num_transition_constraints()];
 
@@ -191,7 +193,10 @@ impl AIR for CairoAIR {
     ///  * ap_t = ap_f
     ///  * pc_0 = pc_i
     ///  * pc_t = pc_f
-    fn boundary_constraints(&self, rap_challenges: &Self::RAPChallenges) -> BoundaryConstraints<Self::Field> {
+    fn boundary_constraints(
+        &self,
+        _rap_challenges: &Self::RAPChallenges,
+    ) -> BoundaryConstraints<Self::Field> {
         let last_step = self.context.trace_length - 1;
 
         let initial_pc =
@@ -345,9 +350,6 @@ fn frame_inst_size(frame_row: &[FE]) -> FE {
 
 #[cfg(test)]
 mod test {
-    use super::*;
-    use crate::cairo_vm::{cairo_mem::CairoMemory, cairo_trace::CairoTrace};
-
     // #[test]
     // fn check_simple_cairo_trace_evaluates_to_zero() {
     //     let base_dir = env!("CARGO_MANIFEST_DIR");
