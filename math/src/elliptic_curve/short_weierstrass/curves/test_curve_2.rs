@@ -13,10 +13,12 @@ use crate::{
 };
 
 /// Order of the base field (e.g.: order of the coordinates)
-pub const TEST_CURVE_2_PRIME_FIELD_ORDER: U384 = U384::from_hex_unchecked("150b4c0967215604b841bb57053fcb86cf");
+pub const TEST_CURVE_2_PRIME_FIELD_ORDER: U384 =
+    U384::from_hex_unchecked("150b4c0967215604b841bb57053fcb86cf");
 
 /// Order of the subgroup of the curve.
-pub const TEST_CURVE_2_MAIN_SUBGROUP_ORDER: U384 = U384::from_hex_unchecked("40a065fb5a76390de709fb229");
+pub const TEST_CURVE_2_MAIN_SUBGROUP_ORDER: U384 =
+    U384::from_hex_unchecked("40a065fb5a76390de709fb229");
 
 // FPBLS12381
 #[derive(Clone, Debug)]
@@ -51,12 +53,20 @@ impl IsEllipticCurve for TestCurve2 {
     fn generator() -> Self::PointRepresentation {
         Self::PointRepresentation::new([
             FieldElement::new([
-                FieldElement::new(U384::from_hex_unchecked("21acedb641ca6d0f8b60148123a999801")),
-                FieldElement::new(U384::from_hex_unchecked("14d34d94f7de312859a8a0d9dbc67159d3")),
+                FieldElement::new(U384::from_hex_unchecked(
+                    "21acedb641ca6d0f8b60148123a999801",
+                )),
+                FieldElement::new(U384::from_hex_unchecked(
+                    "14d34d94f7de312859a8a0d9dbc67159d3",
+                )),
             ]),
             FieldElement::new([
-                FieldElement::new(U384::from_hex_unchecked("2ac53e77afe8d841c8eb660761c4b873a")),
-                FieldElement::new(U384::from_hex_unchecked("108a9e1c5514b0921cd5781a7f71130142")),
+                FieldElement::new(U384::from_hex_unchecked(
+                    "2ac53e77afe8d841c8eb660761c4b873a",
+                )),
+                FieldElement::new(U384::from_hex_unchecked(
+                    "108a9e1c5514b0921cd5781a7f71130142",
+                )),
             ]),
             FieldElement::one(),
         ])

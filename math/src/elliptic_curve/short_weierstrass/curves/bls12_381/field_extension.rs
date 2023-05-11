@@ -73,7 +73,10 @@ impl FieldElement<BLS12381PrimeField> {
 
 impl FieldElement<Degree2ExtensionField> {
     pub fn new_base(a_hex: &str) -> Self {
-        Self::new([FieldElement::new(U384::from_hex_unchecked(a_hex)), FieldElement::zero()])
+        Self::new([
+            FieldElement::new(U384::from_hex_unchecked(a_hex)),
+            FieldElement::zero(),
+        ])
     }
 }
 
@@ -114,7 +117,10 @@ impl ByteConversion for FieldElement<Degree2ExtensionField> {
 impl FieldElement<Degree6ExtensionField> {
     pub fn new_base(a_hex: &str) -> Self {
         Self::new([
-            FieldElement::new([FieldElement::new(U384::from_hex_unchecked(a_hex)), FieldElement::zero()]),
+            FieldElement::new([
+                FieldElement::new(U384::from_hex_unchecked(a_hex)),
+                FieldElement::zero(),
+            ]),
             FieldElement::zero(),
             FieldElement::zero(),
         ])

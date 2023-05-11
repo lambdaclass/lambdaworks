@@ -97,7 +97,9 @@ pub fn pad_vector<'a>(
 }
 
 fn convert_str_vec_to_frelement_vec(ss: Vec<String>) -> Vec<FrElement> {
-    ss.iter().map(|s| FrElement::from_hex_unchecked(s)).collect()
+    ss.iter()
+        .map(|s| FrElement::from_hex_unchecked(s))
+        .collect()
 }
 
 fn process_vector(vector: Vec<String>, pad: &FrElement, n: usize) -> Vec<FrElement> {

@@ -474,7 +474,7 @@ where
     }
 
     #[allow(unused)]
-    pub fn from_hex(hex: &str) -> Result<Self,CreationError> {
+    pub fn from_hex(hex: &str) -> Result<Self, CreationError> {
         let integer = UnsignedInteger::<NUM_LIMBS>::from_hex(hex)?;
 
         Ok(Self {

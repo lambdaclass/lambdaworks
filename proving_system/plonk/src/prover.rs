@@ -493,23 +493,33 @@ mod tests {
     use super::*;
 
     fn alpha() -> FrElement {
-        FrElement::from_hex_unchecked("583cfb0df2ef98f2131d717bc6aadd571c5302597c135cab7c00435817bf6e50")
+        FrElement::from_hex_unchecked(
+            "583cfb0df2ef98f2131d717bc6aadd571c5302597c135cab7c00435817bf6e50",
+        )
     }
 
     fn beta() -> FrElement {
-        FrElement::from_hex_unchecked("bdda7414bdf5bf42b77cbb3af4a82f32ec7622dd6c71575bede021e6e4609d4")
+        FrElement::from_hex_unchecked(
+            "bdda7414bdf5bf42b77cbb3af4a82f32ec7622dd6c71575bede021e6e4609d4",
+        )
     }
 
     fn gamma() -> FrElement {
-        FrElement::from_hex_unchecked("58f6690d9b36e62e4a0aef27612819288df2a3ff5bf01597cf06779503f51583")
+        FrElement::from_hex_unchecked(
+            "58f6690d9b36e62e4a0aef27612819288df2a3ff5bf01597cf06779503f51583",
+        )
     }
 
     fn zeta() -> FrElement {
-        FrElement::from_hex_unchecked("2a4040abb941ee5e2a42602a7a60d282a430a4cf099fa3bb0ba8f4da628ec59a")
+        FrElement::from_hex_unchecked(
+            "2a4040abb941ee5e2a42602a7a60d282a430a4cf099fa3bb0ba8f4da628ec59a",
+        )
     }
 
     fn upsilon() -> FrElement {
-        FrElement::from_hex_unchecked("2d15959489a2a8e44693221ca7cbdcab15253d6bae9fd7fe0664cff02fe4f1cf")
+        FrElement::from_hex_unchecked(
+            "2d15959489a2a8e44693221ca7cbdcab15253d6bae9fd7fe0664cff02fe4f1cf",
+        )
     }
 
     #[test]
@@ -603,18 +613,24 @@ mod tests {
         let round_2 = prover.round_2(&witness, &common_preprocessed_input, beta(), gamma());
 
         let round_4 = prover.round_4(&common_preprocessed_input, &round_1, &round_2, zeta());
-        let expected_a_value =
-            FrElement::from_hex_unchecked("2c090a95b57f1f493b7b747bba34fef7772fd72f97d718ed69549641a823eb2e");
-        let expected_b_value =
-            FrElement::from_hex_unchecked("5975959d91369ba4e7a03c6ae94b7fe98e8b61b7bf9af63c8ae0759e17ac0c7e");
-        let expected_c_value =
-            FrElement::from_hex_unchecked("6bf31edeb4344b7d2df2cb1bd40b4d13e182d9cb09f89591fa043c1a34b4a93");
-        let expected_z_value =
-            FrElement::from_hex_unchecked("38e2ec8e7c3dab29e2b8e9c8ea152914b8fe4612e91f2902c80238efcf21f4ee");
-        let expected_s1_value =
-            FrElement::from_hex_unchecked("472f66db4fb6947d9ed9808241fe82324bc08aa2a54be93179db8e564e1137d4");
-        let expected_s2_value =
-            FrElement::from_hex_unchecked("5588f1239c24efe0538868d0f716984e69c6980e586864f615e4b0621fdc6f81");
+        let expected_a_value = FrElement::from_hex_unchecked(
+            "2c090a95b57f1f493b7b747bba34fef7772fd72f97d718ed69549641a823eb2e",
+        );
+        let expected_b_value = FrElement::from_hex_unchecked(
+            "5975959d91369ba4e7a03c6ae94b7fe98e8b61b7bf9af63c8ae0759e17ac0c7e",
+        );
+        let expected_c_value = FrElement::from_hex_unchecked(
+            "6bf31edeb4344b7d2df2cb1bd40b4d13e182d9cb09f89591fa043c1a34b4a93",
+        );
+        let expected_z_value = FrElement::from_hex_unchecked(
+            "38e2ec8e7c3dab29e2b8e9c8ea152914b8fe4612e91f2902c80238efcf21f4ee",
+        );
+        let expected_s1_value = FrElement::from_hex_unchecked(
+            "472f66db4fb6947d9ed9808241fe82324bc08aa2a54be93179db8e564e1137d4",
+        );
+        let expected_s2_value = FrElement::from_hex_unchecked(
+            "5588f1239c24efe0538868d0f716984e69c6980e586864f615e4b0621fdc6f81",
+        );
 
         assert_eq!(round_4.a_zeta, expected_a_value);
         assert_eq!(round_4.b_zeta, expected_b_value);

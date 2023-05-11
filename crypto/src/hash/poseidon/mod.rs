@@ -173,8 +173,9 @@ mod tests {
     #[derive(Clone, Debug)]
     pub struct TestFieldModulus;
     impl IsModulus<U384> for TestFieldModulus {
-        const MODULUS: U384 =
-            U384::from_hex_unchecked("2000000000000080000000000000000000000000000000000000000000000001");
+        const MODULUS: U384 = U384::from_hex_unchecked(
+            "2000000000000080000000000000000000000000000000000000000000000001",
+        );
     }
 
     pub type PoseidonTestField = U384PrimeField<TestFieldModulus>;
