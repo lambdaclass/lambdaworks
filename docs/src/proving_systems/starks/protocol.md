@@ -90,8 +90,8 @@ In our cases the sets $A$ will be of the form $A=(f(a), f(ab), f(ab^2), \dots, f
 #### Round 2: Compute composition polynomial
 - Sample $\alpha_1^B,\dots,\alpha_{m}^B$ and $\beta_1^B,\dots,\beta_{m}^B$ in $\mathbb{F}$ from the transcript.
 - Sample $\alpha_1^T,\dots,\alpha_{n_T}^T$ and $\beta_1^T,\dots,\beta_{n_T}^T$ in $\mathbb{F}$ from the transcript.
-- Compute $B_j := \frac{t_j - P^B_j}{Z_j^B}$
-- Compute $C_k := \frac{P^T_k(t_1, \dots, t_m, t_1(gX), \dots, t_m(gX))}{Z_k^T}$
+- Compute $B_j := \frac{t_j - P^B_j}{Z_j^B}$.
+- Compute $C_k := \frac{P^T_k(t_1, \dots, t_m, t_1(gX), \dots, t_m(gX))}{Z_k^T}$.
 - Compute the _composition polynomial_
 $$H := \sum_{k} (\alpha_k^T X^{D-\deg(C_k)} + \beta_k^T)C_k + \sum_j (\alpha_j^BX^{D-\deg(B_j)}+\beta_j^B)B_j$$
 - Decompose $H$ as 
@@ -107,24 +107,24 @@ $$H = H_1(X^2) + XH_2(X^2)$$
 - Sample $\gamma$, $\gamma'$, and $\gamma_1,\dots,\gamma_m$, $\gamma_1',\dots,\gamma_m'$ in $\mathbb{F}$ from the transcript.
 - Compute $p_0$ as $$\gamma\frac{H_1 - H_1(z^2)}{X - z^2} + \gamma'\frac{H_2 - H_2(z^2)}{X - z^2} + \sum_j \gamma_j\frac{t_j - t_j(z)}{X - z} + \gamma_j'\frac{t_j - t_j(gz)}{X - gz}$$
 ##### Round 4.1.k: FRI commit phase
-- Let $D_0:=D_{\text{LDE}}$, and $[p_0]:=\text{Commit}(p_0(D_0))$
+- Let $D_0:=D_{\text{LDE}}$, and $[p_0]:=\text{Commit}(p_0(D_0))$.
 - Add $[p_0]$ to the transcript.
 - For $k=1,\dots,n$ do the following:
--- Sample $\zeta_{k-1}$ from the transcript.
--- Decompose $p_{k-1}$ into even and odd parts, that is, $p_{k-1}=p_{k-1}^{odd}(X^2)+ X p_{k-1}^{even}(X^2)$
--- Define $p_k:= p_{k-1}^{odd}(X) + \zeta_{k-1}p_{k-1}^{even}(X)$
--- If $k < n$:
---- Let $L$ such that $|D_{k-1}|=2L$. Define $D_{k}:=(d_1^2, \dots, d_L^2)$, where $D_{k-1}=(d_1, \dots, d_{2L})$ 
---- Let $[p_k]:=\text{Commit}(p_k(D_k))$
---- Add $[p_k]$ to the transcript.
+    - Sample $\zeta_{k-1}$ from the transcript.
+    - Decompose $p_{k-1}$ into even and odd parts, that is, $p_{k-1}=p_{k-1}^{odd}(X^2)+ X p_{k-1}^{even}(X^2)$.
+    - Define $p_k:= p_{k-1}^{odd}(X) + \zeta_{k-1}p_{k-1}^{even}(X)$.
+    - If $k < n$:
+        - Let $L$ such that $|D_{k-1}|=2L$. Define $D_{k}:=(d_1^2, \dots, d_L^2)$, where $D_{k-1}=(d_1, \dots, d_{2L})$.
+        - Let $[p_k]:=\text{Commit}(p_k(D_k))$.
+        - Add $[p_k]$ to the transcript.
 - $p_n$ is a constant polynomial and therefore $p_n\in\mathbb{F}$. Add $p_n$ to the transcript.
 
 ##### Round 4.2: FRI query phase
 
 - For $s=0,\dots,Q-1$ do the following:
--- Sample random index $\iota_s \in [0, 2^{n+l}]$ from the transcript and let $\upsilon_s := \omega^{\iota_s}$.
--- Compute $\text{Open}(p_0(D_0), \upsilon_s)$
--- Compute $\text{Open}(p_k(D_k), -\upsilon_s^{2^k})$ for all $k=0,\dots,n-1$.
+    - Sample random index $\iota_s \in [0, 2^{n+l}]$ from the transcript and let $\upsilon_s := \omega^{\iota_s}$.
+    - Compute $\text{Open}(p_0(D_0), \upsilon_s)$.
+    - Compute $\text{Open}(p_k(D_k), -\upsilon_s^{2^k})$ for all $k=0,\dots,n-1$.
 
 ##### Round 4.3: Open deep composition polynomial components
 - Compute $\text{Open}(H_1(D_{\text{LDE}}), \upsilon_0)$, $\text{Open}(H_2(D_{\text{LDE}}), \upsilon_0)$.
@@ -150,11 +150,12 @@ $$
 
 ### Verifier
 #### Notation
-- Bold capital letters refer to commitments (e.g. $\mathbf{H}_1$).
-- Greek letters with superscripts refer to claimed function evaluations (e.g. $\tau_j^z$).
-- Gothic letters refer to authentication paths (e.g. $\mathfrak{H}_1$).
+- Bold capital letters refer to commitments. For example $\mathbf{H}_1$ is the claimed commitment $[H_1]$.
+- Greek letters with superscripts refer to claimed function evaluations. For example $\tau_j^z$ is the claimed evaluation $t_j(z)$.
+- Gothic letters refer to authentication paths (e.g. $\mathfrak{H}_1$  is the authentication path of the opening of $H_1$).
 
 #### Input
+$$
 \begin{align}
 \Pi = ( &\\
 &\{\mathbf{T}_j, \tau_j^z, \tau_j^{gz}: 0\leq j < m\}, \\
@@ -168,6 +169,7 @@ $$
 &\{(\tau_j^{\upsilon_0}, \mathfrak{T}_j): 0 \leq j< m\}, \\
 ) &
 \end{align}
+$$
 
 
  #### Step 1: Replay interactions and recover challenges
@@ -184,9 +186,8 @@ $$
 - Sample $\gamma$, $\gamma'$, and $\gamma_1, \dots, \gamma_m, \gamma'_1, \dots,  \gamma'_m$ from the transcript.
 - Add $\mathbf{P}_0$ to the transcript
 - For $k=1, \dots, n$ do the following:
--- Sample $\zeta_{k-1}$
--- If $k < n$:
---- Add $\mathbf{P}_k$ to the transcript
+    - Sample $\zeta_{k-1}$
+    - If $k < n$: add $\mathbf{P}_k$ to the transcript
 - Add $\pi$ to the transcript.
 - For $s=0, \dots, Q-1$:
 -- Sample random index $\iota_s \in [0, 2^{n+l}]$ from the transcript and let $\upsilon_s := \omega^{\iota_s}$.
@@ -202,31 +203,31 @@ $$h = \sum_{k} (\alpha_k^T z^{D-\deg(C_k)} + \beta_k^T)c_k + \sum_j (\alpha_j^B 
 #### Step 3: Verify FRI
 
 - Check that the following are all _Accept_:
--- $\text{Verify}((\upsilon_s, \pi_0^{\upsilon_s}), \mathbf{P}_0, \mathfrak{P}_0)$ for all $0\leq s < Q$.
--- $\text{Verify}((-\upsilon_s^{2^k}, \pi_k^{-\upsilon_s^{2^k}}), \mathbf{P}_k, \mathfrak{P}_k)$  for all $0\leq k < n$, $0\leq s < Q$.
+    - $\text{Verify}((\upsilon_s, \pi_0^{\upsilon_s}), \mathbf{P}_0, \mathfrak{P}_0)$ for all $0\leq s < Q$.
+    - $\text{Verify}((-\upsilon_s^{2^k}, \pi_k^{-\upsilon_s^{2^k}}), \mathbf{P}_k, \mathfrak{P}_k)$  for all $0\leq k < n$, $0\leq s < Q$.
 - For all $s=0,\dots,Q-1$:
--- For all $k=0,\dots,n-1$:
---- Solve the following system of equations on the variables $G, H$
+    - For all $k=0,\dots,n-1$:
+        - Solve the following system of equations on the variables $G, H$
 $$
 \begin{aligned}
 \pi_k^{\upsilon_s^{2^{k}}} &= G + \upsilon_s^{2^k}H \\
 \pi_k^{-\upsilon_s^{2^{k}}} &= G - \upsilon_s^{2^k}H
 \end{aligned}
 $$
---- Define $\pi_{k+1}^{\upsilon_s^{2^{k+1}}}:=G + \zeta_{k}H$
--- Check that $\pi_n^{\upsilon_s^{2^n}}$ is equal to $\pi$.
+        - Define $\pi_{k+1}^{\upsilon_s^{2^{k+1}}}:=G + \zeta_{k}H$
+    - Check that $\pi_n^{\upsilon_s^{2^n}}$ is equal to $\pi$.
 
 
 #### Step 4: Verify deep composition polynomial is FRI first layer
 
 - Check that the following are all _Accept_:
--- $\text{Verify}((\upsilon_0, \eta_1^{\upsilon_0}), \mathbf{H}_1, \mathfrak{h}_1)$.
--- $\text{Verify}((\upsilon_0, \eta_2^{\upsilon_0}), \mathbf{H}_2, \mathfrak{h}_2)$.
--- $\text{Verify}((\upsilon_0, \tau_j^{\upsilon_0}), \mathbf{T}_j, \mathfrak{T}_j)$ for all $0\leq j < m$.
+    - $\text{Verify}((\upsilon_0, \eta_1^{\upsilon_0}), \mathbf{H}_1, \mathfrak{h}_1)$.
+    - $\text{Verify}((\upsilon_0, \eta_2^{\upsilon_0}), \mathbf{H}_2, \mathfrak{h}_2)$.
+    - $\text{Verify}((\upsilon_0, \tau_j^{\upsilon_0}), \mathbf{T}_j, \mathfrak{T}_j)$ for all $0\leq j < m$.
 - Check that $\pi_0^{\upsilon_0}$ is equal to the following:
 
 $$
-\gamma\frac{\eta_1^{\upsilon_0} - \eta_1^{z^2}}{\upsilon_0 - z^2} + \gamma'\frac{\eta_2^{\upsilon_0} - \eta_2^{z^2}}{\upsilon_0 - z^2} + \sum_j \gamma_j\frac{\tau_j^{\upsilon_0} - \tau_j^{z}}{\upsilon_0 - z} + \gamma_j'\frac{\tau_j^{\upsilon_0} - t_j^{gz}}{\upsilon_0 - gz}
+\gamma\frac{\eta_1^{\upsilon_0} - \eta_1^{z^2}}{\upsilon_0 - z^2} + \gamma'\frac{\eta_2^{\upsilon_0} - \eta_2^{z^2}}{\upsilon_0 - z^2} + \sum_j \gamma_j\frac{\tau_j^{\upsilon_0} - \tau_j^{z}}{\upsilon_0 - z} + \gamma_j'\frac{\tau_j^{\upsilon_0} - \tau_j^{gz}}{\upsilon_0 - gz}
 $$
 
 
