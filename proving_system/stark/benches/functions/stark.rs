@@ -87,6 +87,7 @@ pub fn prove_fib17() {
     verify(&result, &fibonacci_air);
 }
 
+#[allow(dead_code)]
 pub fn prove_quadratic() {
     let trace = quadratic_air::quadratic_trace(FE::from(3), 16);
 
