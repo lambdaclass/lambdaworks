@@ -63,6 +63,7 @@ pub fn prove_fib_2_cols() {
     verify(&result, &fibonacci_air);
 }
 
+#[allow(dead_code)]
 pub fn prove_fib17() {
     let trace = simple_fibonacci::fibonacci_trace([FE17::from(1), FE17::from(1)], 4);
 
