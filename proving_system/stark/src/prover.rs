@@ -147,6 +147,7 @@ where
 }
 
 fn round_1_randomized_air_with_preprocessing<F: IsFFTField, A: AIR<Field = F>, T: Transcript>(
+    air: &A,
     raw_trace: &A::RawTrace,
     domain: &Domain<F>,
     transcript: &mut T,
@@ -154,14 +155,14 @@ fn round_1_randomized_air_with_preprocessing<F: IsFFTField, A: AIR<Field = F>, T
 where
     FieldElement<F>: ByteConversion,
 {
-    let main_trace = A::build_main_trace(raw_trace);
+    let main_trace = air.build_main_trace(raw_trace);
 
     let (mut trace_polys, mut evaluations, mut lde_trace_merkle_trees, mut lde_trace_merkle_roots) =
         interpolate_and_commit(&main_trace, domain, transcript);
 
-    let rap_challenges = A::build_rap_challenges(transcript);
+    let rap_challenges = air.build_rap_challenges(transcript);
 
-    let aux_trace = A::build_auxiliary_trace(&main_trace, &rap_challenges);
+    let aux_trace = air.build_auxiliary_trace(&main_trace, &rap_challenges);
 
     if !aux_trace.is_empty() {
         // Check that this is valid for interpolation
@@ -464,7 +465,7 @@ where
     // ===================================
 
     let round_1_result =
-        round_1_randomized_air_with_preprocessing::<F, A, _>(trace, &domain, &mut transcript);
+        round_1_randomized_air_with_preprocessing::<F, A, _>(&air, trace, &domain, &mut transcript);
 
     #[cfg(debug_assertions)]
     validate_trace(
@@ -629,6 +630,7 @@ mod tests {
                 coset_offset,
             },
             trace_length,
+            program_size: 3, // TODO: Put correct size of the program
             trace_columns: trace_table.n_cols,
             transition_degrees: vec![1],
             transition_exemptions: vec![2],
@@ -679,6 +681,7 @@ mod tests {
                 coset_offset,
             },
             trace_length,
+            program_size: 3, // TODO: Put correct size of the program
             trace_columns: trace_table.n_cols,
             transition_degrees: vec![1],
             transition_exemptions: vec![2],

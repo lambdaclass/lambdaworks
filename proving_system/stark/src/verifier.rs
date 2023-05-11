@@ -74,7 +74,7 @@ where
         transcript.append(&root.to_bytes_be());
     }
 
-    let rap_challenges = A::build_rap_challenges(transcript);
+    let rap_challenges = air.build_rap_challenges(transcript);
 
     for root in proof.lde_trace_merkle_roots.iter().skip(main_columns) {
         transcript.append(&root.to_bytes_be());

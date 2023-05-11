@@ -74,6 +74,17 @@ pub const FRAME_T1: usize = 31;
 pub const FRAME_MUL: usize = 32;
 pub const FRAME_SELECTOR: usize = 33;
 
+pub const MEMORY_COLUMNS: [usize; 8] = [
+    FRAME_PC,
+    FRAME_DST_ADDR,
+    FRAME_OP0_ADDR,
+    FRAME_OP1_ADDR,
+    FRAME_INST,
+    FRAME_DST,
+    FRAME_OP0,
+    FRAME_OP1
+];
+
 // Trace layout
 pub const MEM_P_TRACE_OFFSET: usize = 17;
 pub const MEM_A_TRACE_OFFSET: usize = 19;
@@ -100,7 +111,7 @@ pub struct CairoAIR {
 }
 
 impl CairoAIR {
-    pub fn new(proof_options: ProofOptions, trace: &CairoTrace) -> Self {
+    pub fn new(proof_options: ProofOptions, trace: &CairoTrace, program_size: usize) -> Self {
         let mut padded_num_steps = 1;
         let num_steps = trace.steps();
         while padded_num_steps < num_steps {
@@ -110,6 +121,7 @@ impl CairoAIR {
             options: proof_options,
             trace_length: padded_num_steps,
             trace_columns: 34,
+            program_size: program_size,
             transition_degrees: vec![
                 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, // Flags 0-14.
                 1, // Flag 15
@@ -148,20 +160,52 @@ impl AIR for CairoAIR {
     type RawTrace = (CairoTrace, CairoMemory);
     type RAPChallenges = CairoRAPChallenges;
 
-    fn build_main_trace(raw_trace: &Self::RawTrace) -> TraceTable<Self::Field> {
-        build_cairo_execution_trace(&raw_trace.0, &raw_trace.1)
+    fn build_main_trace(&self, raw_trace: &Self::RawTrace) -> TraceTable<Self::Field> {
+        let main_trace = build_cairo_execution_trace(&raw_trace.0, &raw_trace.1);
+
+        // Add rows with zeros at the end with enough space to fit the program.
+        let mut last_row = main_trace.last_row().to_vec();
+        for memory_column in MEMORY_COLUMNS {
+            last_row[memory_column] = FieldElement::zero();
+        }
+
+        let program_size = self.context.program_size;
+        let public_input_section: Vec<FieldElement<Self::Field>> = std::iter::repeat(last_row).take(program_size >> 2).flatten().collect();
+
+        let mut main_trace_table = main_trace.table;
+        main_trace_table.extend_from_slice(&public_input_section);
+
+        TraceTable::new(main_trace_table, main_trace.n_cols)
     }
 
     fn build_auxiliary_trace(
-        _main_trace: &TraceTable<Self::Field>,
-        _rap_challenges: &Self::RAPChallenges,
+        &self,
+        main_trace: &TraceTable<Self::Field>,
+        rap_challenges: &Self::RAPChallenges,
     ) -> TraceTable<Self::Field> {
-        // TODO: complete with CAIRO memory auxiliary columns
+        // Keep the 8 columns that refer to the memory.
+        let aux_trace = main_trace.subtable(&[FRAME_PC,
+            FRAME_DST_ADDR,
+            FRAME_OP0_ADDR,
+            FRAME_OP1_ADDR,
+            FRAME_INST,
+            FRAME_DST,
+            FRAME_OP0,
+            FRAME_OP1
+        ]);
+
+        // Convert from wide-format to long format (8 columns of length N to 2 columns of length 4N).
+
+        // Sort the two columns.
+
+        // Add an auxiliary column for the permutation challenge.
+
+        // Convert from long-format to wide-format again
 
         TraceTable::empty()
     }
 
-    fn build_rap_challenges<T: Transcript>(transcript: &mut T) -> Self::RAPChallenges {
+    fn build_rap_challenges<T: Transcript>(&self, transcript: &mut T) -> Self::RAPChallenges {
         CairoRAPChallenges {
             alpha: transcript_to_field(transcript),
             z: transcript_to_field(transcript),
@@ -374,18 +418,20 @@ mod test {
             coset_offset: 3,
         };
 
-        let mut cairo_air = CairoAIR::new(proof_options, &raw_trace);
+        // TODO: Put correct number of instructions
+        let mut cairo_air = CairoAIR::new(proof_options, &raw_trace, 2);
+        
         // PC FINAL AND AP FINAL are not computed correctly since they are extracted after padding to
         // power of two and therefore are zero
         cairo_air.pub_inputs.ap_final = FieldElement::zero();
         cairo_air.pub_inputs.pc_final = FieldElement::zero();
 
-        let main_trace = CairoAIR::build_main_trace(&(raw_trace, memory));
+        let main_trace = cairo_air.build_main_trace(&(raw_trace, memory));
         let mut trace_polys = main_trace.compute_trace_polys();
         let mut transcript = DefaultTranscript::new();
-        let rap_challenges = CairoAIR::build_rap_challenges(&mut transcript);
+        let rap_challenges = cairo_air.build_rap_challenges(&mut transcript);
 
-        let aux_trace = CairoAIR::build_auxiliary_trace(&main_trace, &rap_challenges);
+        let aux_trace = cairo_air.build_auxiliary_trace(&main_trace, &rap_challenges);
         let aux_polys = aux_trace.compute_trace_polys();
 
         trace_polys.extend_from_slice(&aux_polys);

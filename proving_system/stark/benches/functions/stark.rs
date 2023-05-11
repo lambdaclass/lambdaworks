@@ -26,6 +26,7 @@ pub fn prove_fib(trace_length: usize) {
             coset_offset: 3,
         },
         trace_length,
+        program_size: 2, // TODO: Put correct size of the program
         trace_columns: trace.len(),
         transition_degrees: vec![1],
         transition_exemptions: vec![2],
@@ -49,6 +50,7 @@ pub fn prove_fib_2_cols() {
             fri_number_of_queries: 1,
             coset_offset: 3,
         },
+        program_size: 2, // TODO: Put correct size of the program
         trace_length: trace_columns.len(),
         transition_degrees: vec![1, 1],
         transition_exemptions: vec![1, 1],
@@ -72,6 +74,7 @@ pub fn prove_fib17() {
             fri_number_of_queries: 1,
             coset_offset: 3,
         },
+        program_size: 2, // TODO: Put correct size of the program
         trace_length: trace.len(),
         trace_columns: trace[0].len(),
         transition_degrees: vec![1],
@@ -95,6 +98,7 @@ pub fn prove_quadratic() {
             fri_number_of_queries: 1,
             coset_offset: 3,
         },
+        program_size: 2, // TODO: Put correct size of the program
         trace_length: trace.len(),
         trace_columns: trace.len(),
         transition_degrees: vec![2],
@@ -127,7 +131,7 @@ pub fn prove_cairo_fibonacci_5() {
         coset_offset: 3,
     };
 
-    let cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace);
+    let cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace, 2); // TODO: Put correct size of the program
 
     prove(&(raw_trace, memory), &cairo_air);
 }
@@ -147,7 +151,7 @@ pub fn prove_cairo_fibonacci_10() {
         coset_offset: 3,
     };
 
-    let cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace);
+    let cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace, 2); // TODO: Put correct size of the program
 
     prove(&(raw_trace, memory), &cairo_air);
 }
@@ -167,7 +171,7 @@ pub fn prove_cairo_fibonacci_30() {
         coset_offset: 3,
     };
 
-    let cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace);
+    let cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace, 2); // TODO: Put correct size of the program
 
     prove(&(raw_trace, memory), &cairo_air);
 }
@@ -187,7 +191,7 @@ pub fn prove_cairo_fibonacci_50() {
         coset_offset: 3,
     };
 
-    let cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace);
+    let cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace, 2); // TODO: Put correct size of the program
 
     prove(&(raw_trace, memory), &cairo_air);
 }
@@ -207,7 +211,7 @@ pub fn prove_cairo_fibonacci_100() {
         coset_offset: 3,
     };
 
-    let cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace);
+    let cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace, 2); // TODO: Put correct size of the program
 
     prove(&(raw_trace, memory), &cairo_air);
 }

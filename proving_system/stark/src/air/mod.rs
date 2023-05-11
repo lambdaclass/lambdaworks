@@ -24,14 +24,14 @@ pub trait AIR: Clone {
     type RawTrace;
     type RAPChallenges;
 
-    fn build_main_trace(raw_trace: &Self::RawTrace) -> TraceTable<Self::Field>;
+    fn build_main_trace(&self, raw_trace: &Self::RawTrace) -> TraceTable<Self::Field>;
 
-    fn build_auxiliary_trace(
+    fn build_auxiliary_trace(&self, 
         main_trace: &TraceTable<Self::Field>,
         rap_challenges: &Self::RAPChallenges,
     ) -> TraceTable<Self::Field>;
 
-    fn build_rap_challenges<T: Transcript>(transcript: &mut T) -> Self::RAPChallenges;
+    fn build_rap_challenges<T: Transcript>(&self, transcript: &mut T) -> Self::RAPChallenges;
 
     fn number_auxiliary_rap_columns(&self) -> usize {
         0

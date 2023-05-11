@@ -29,6 +29,7 @@ fn test_prove_fib() {
             coset_offset: 3,
         },
         trace_length,
+        program_size: 3, // TODO: Put correct size of the program
         trace_columns: 1,
         transition_degrees: vec![1],
         transition_exemptions: vec![2],
@@ -54,6 +55,7 @@ fn test_prove_fib17() {
         },
         trace_length: trace[0].len(),
         trace_columns: 1,
+        program_size: 3, // TODO: Put correct size of the program
         transition_degrees: vec![1],
         transition_exemptions: vec![2],
         transition_offsets: vec![0, 1, 2],
@@ -78,6 +80,7 @@ fn test_prove_fib_2_cols() {
             coset_offset: 3,
         },
         trace_length: trace_columns[0].len(),
+        program_size: 3, // TODO: Put correct size of the program
         transition_degrees: vec![1, 1],
         transition_exemptions: vec![1, 1],
         transition_offsets: vec![0, 1],
@@ -103,6 +106,7 @@ fn test_prove_quadratic() {
         },
         trace_length: trace.len(),
         trace_columns: 1,
+        program_size: 3, // TODO: Put correct size of the program
         transition_degrees: vec![2],
         transition_exemptions: vec![1],
         transition_offsets: vec![0, 1],
@@ -143,7 +147,7 @@ fn test_prove_cairo_simple_program() {
         coset_offset: 3,
     };
 
-    let mut cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace);
+    let mut cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace, 2); // TODO: Put correct size of the program
     // PC FINAL AND AP FINAL are not computed correctly since they are extracted after padding to
     // power of two and therefore are zero
     cairo_air.pub_inputs.ap_final = FieldElement::zero();
@@ -188,7 +192,7 @@ fn test_prove_cairo_call_func() {
         coset_offset: 3,
     };
 
-    let mut cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace);
+    let mut cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace, 2); // TODO: Put correct size of the program
     // PC FINAL AND AP FINAL are not computed correctly since they are extracted after padding to
     // power of two and therefore are zero
     cairo_air.pub_inputs.ap_final = FieldElement::zero();
@@ -213,7 +217,7 @@ fn test_prove_cairo_fibonacci() {
         coset_offset: 3,
     };
 
-    let mut cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace);
+    let mut cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace, 2); // TODO: Put correct size of the program
     // PC FINAL AND AP FINAL are not computed correctly since they are extracted after padding to
     // power of two and therefore are zero
     cairo_air.pub_inputs.ap_final = FieldElement::zero();
@@ -239,6 +243,7 @@ fn test_prove_rap_fib() {
             coset_offset: 3,
         },
         trace_columns: 3,
+        program_size: 2, // TODO : Put correct size of the program
         trace_length: trace_cols[0].len(),
         transition_degrees: vec![1],
         transition_offsets: vec![0, 1, 2],

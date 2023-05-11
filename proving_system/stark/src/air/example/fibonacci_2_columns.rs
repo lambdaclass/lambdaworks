@@ -29,18 +29,18 @@ impl AIR for Fibonacci2ColsAIR {
     type RawTrace = Vec<Vec<FieldElement<Self::Field>>>;
     type RAPChallenges = ();
 
-    fn build_main_trace(raw_trace: &Self::RawTrace) -> TraceTable<Self::Field> {
+    fn build_main_trace(&self, raw_trace: &Self::RawTrace) -> TraceTable<Self::Field> {
         TraceTable::new_from_cols(raw_trace)
     }
 
-    fn build_auxiliary_trace(
+    fn build_auxiliary_trace(&self, 
         _main_trace: &TraceTable<Self::Field>,
         _rap_challenges: &Self::RAPChallenges,
     ) -> TraceTable<Self::Field> {
         TraceTable::empty()
     }
 
-    fn build_rap_challenges<T: Transcript>(_transcript: &mut T) -> Self::RAPChallenges {}
+    fn build_rap_challenges<T: Transcript>(&self, _transcript: &mut T) -> Self::RAPChallenges {}
 
     fn compute_transition(
         &self,
