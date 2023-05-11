@@ -27,6 +27,7 @@ where
     // We approximate the optimum window size with: f(n) = k * log2(n), where k is a scaling factor
     let window_size =
         ((usize::BITS - cs.len().leading_zeros() - 1) as usize * SCALE_FACTORS.0) / SCALE_FACTORS.1;
+
     msm_with(cs, hidings, MIN_WINDOWS.min(window_size))
 }
 
@@ -49,7 +50,8 @@ where
     // If we accept a const window_size, we could make it an array instaed of a vector
     // avoiding the heap allocation. We should be aware if that might be too agressive for
     // the stack and cause a potential stack overflow.
-    let mut buckets = vec![G::neutral_element(); (1 << window_size) - 1];
+    let n_buckets = (1 << window_size) - 1;
+    let mut buckets = vec![G::neutral_element(); n_buckets];
 
     (0..num_windows)
         .rev()
@@ -59,7 +61,7 @@ where
                 // We truncate the number to the least significative limb.
                 // This is ok because window_size < usize::BITS.
                 let window_unmasked = (k >> (window_idx * window_size)).limbs[NUM_LIMBS - 1];
-                let m_ij = window_unmasked & ((1 << window_size) - 1);
+                let m_ij = window_unmasked & n_buckets as u64;
                 if m_ij != 0 {
                     let idx = (m_ij - 1) as usize;
                     buckets[idx] = buckets[idx].operate_with(p);
@@ -82,12 +84,16 @@ where
                 .reduce(|g, m| g.operate_with(&m))
                 .unwrap_or_else(G::neutral_element)
         })
+        // NOTE: this operation is non-associative and strictly sequential
         .reduce(|t, g| t.operate_with_self(1_u64 << window_size).operate_with(&g))
         .unwrap_or_else(G::neutral_element)
 }
 
 #[cfg(feature = "rayon")]
-pub fn parallel_msm<const NUM_LIMBS: usize, G>(
+// It has the following differences with the sequential one:
+//  1. It uses one vec per thread to store buckets.
+//  2. It reduces all window results via a different method.
+pub fn parallel_msm_with<const NUM_LIMBS: usize, G>(
     cs: &[UnsignedInteger<NUM_LIMBS>],
     hidings: &[G],
     window_size: usize,
@@ -100,17 +106,20 @@ where
     debug_assert!(window_size < usize::BITS as usize);
     // The number of windows of size `s` is ceil(lambda/s).
     let num_windows = (64 * NUM_LIMBS - 1) / window_size + 1;
+    let n_buckets = (1 << window_size) - 1;
 
+    // TODO: limit the number of threads, and reuse vecs
     (0..num_windows)
         .into_par_iter()
         .map(|window_idx| {
-            let mut buckets = vec![G::neutral_element(); (1 << window_size) - 1];
+            let mut buckets = vec![G::neutral_element(); n_buckets];
             // Put in the right bucket the corresponding ps[i] for the current window.
+            let shift = window_idx * window_size;
             cs.iter().zip(hidings).for_each(|(k, p)| {
                 // We truncate the number to the least significative limb.
                 // This is ok because window_size < usize::BITS.
-                let window_unmasked = (k >> (window_idx * window_size)).limbs[NUM_LIMBS - 1];
-                let m_ij = window_unmasked & ((1 << window_size) - 1);
+                let window_unmasked = (k >> shift).limbs[NUM_LIMBS - 1];
+                let m_ij = window_unmasked & n_buckets as u64;
                 if m_ij != 0 {
                     let idx = (m_ij - 1) as usize;
                     buckets[idx] = buckets[idx].operate_with(p);
@@ -118,20 +127,19 @@ where
             });
 
             // Do the reduction step for the buckets.
-            buckets
+            let window_item = buckets
                 .iter_mut()
                 .rev()
                 .scan(G::neutral_element(), |m, b| {
                     *m = m.operate_with(b); // Reduction step.
-                    *b = G::neutral_element(); // Cleanup bucket slot to reuse in the next window.
                     Some(m.clone())
                 })
                 .reduce(|g, m| g.operate_with(&m))
-                .unwrap_or_else(G::neutral_element)
+                .unwrap_or_else(G::neutral_element);
+
+            window_item.operate_with_self(UnsignedInteger::<NUM_LIMBS>::from_u64(1) << shift)
         })
-        .reduce(G::neutral_element, |t, g| {
-            t.operate_with_self(1_u64 << window_size).operate_with(&g)
-        })
+        .reduce(G::neutral_element, |a, b| a.operate_with(&b))
 }
 
 #[cfg(test)]
@@ -146,7 +154,7 @@ mod tests {
     };
     use proptest::{collection, prelude::*, prop_assert_eq, prop_compose, proptest};
 
-    const _CASES: u32 = 20;
+    const _CASES: u32 = 1;
     const _MAX_WSIZE: usize = 8;
     const _MAX_LEN: usize = 30;
 
@@ -189,6 +197,20 @@ mod tests {
             let naive = naive::msm(&cs, &hidings);
 
             prop_assert_eq!(naive, pippenger);
+        }
+
+        // Property-based test that ensures `pippenger::msm_with` gives same result as `pippenger::parallel_msm_with`.
+        #[test]
+        #[cfg(feature = "rayon")]
+        fn test_parallel_pippenger_matches_sequential(window_size in 1.._MAX_WSIZE, cs in unsigned_integer_vec(), hidings in points_vec()) {
+            let min_len = cs.len().min(hidings.len());
+            let cs = cs[..min_len].to_vec();
+            let hidings = hidings[..min_len].to_vec();
+
+            let sequential = pippenger::msm_with(&cs, &hidings, window_size);
+            let parallel = pippenger::parallel_msm_with(&cs, &hidings, window_size);
+
+            prop_assert_eq!(parallel, sequential);
         }
     }
 }

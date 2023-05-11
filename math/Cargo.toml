@@ -40,3 +40,4 @@ harness = false
 [[bench]]
 name = "criterion_msm"
 harness = false
+required-features = ["rayon"]
