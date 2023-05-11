@@ -226,11 +226,11 @@ impl AIR for CairoAIR {
         let f = |a, v, ap, vp| (z - (a + alpha * v)) / (z - (ap + alpha * vp));
 
         let mut permutation_col = Vec::with_capacity(a_aux.len());
-        permutation_col[0] = f(&a_original[0], &v_original[0], &a_aux[0], &v_aux[0]);
+        permutation_col.push(f(&a_original[0], &v_original[0], &a_aux[0], &v_aux[0]));
 
         for i in 1..a_aux.len() {
             let last = permutation_col.last().unwrap();
-            permutation_col[i] = last * f(&a_original[i], &v_original[i], &a_aux[i], &v_aux[i]);
+            permutation_col.push(last * f(&a_original[i], &v_original[i], &a_aux[i], &v_aux[i]));
         }
 
         // Convert from long-format to wide-format again
@@ -240,14 +240,14 @@ impl AIR for CairoAIR {
             aux_table.push(a_aux[i+1].clone());
             aux_table.push(a_aux[i+2].clone());
             aux_table.push(a_aux[i+3].clone());
-            aux_table.push(v_aux[i+4].clone());
-            aux_table.push(v_aux[i+5].clone());
-            aux_table.push(v_aux[i+6].clone());
-            aux_table.push(v_aux[i+7].clone());
-            aux_table.push(permutation_col[i+8].clone());
-            aux_table.push(permutation_col[i+9].clone());
-            aux_table.push(permutation_col[i+10].clone());
-            aux_table.push(permutation_col[i+11].clone());
+            aux_table.push(v_aux[i].clone());
+            aux_table.push(v_aux[i+1].clone());
+            aux_table.push(v_aux[i+2].clone());
+            aux_table.push(v_aux[i+3].clone());
+            aux_table.push(permutation_col[i].clone());
+            aux_table.push(permutation_col[i+1].clone());
+            aux_table.push(permutation_col[i+2].clone());
+            aux_table.push(permutation_col[i+3].clone());
         }
         TraceTable::new(aux_table, 12)
     }
