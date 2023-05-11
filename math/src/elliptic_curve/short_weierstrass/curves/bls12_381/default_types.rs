@@ -12,7 +12,7 @@ pub struct FrConfig;
 /// Modulus of bls 12 381 subgroup
 impl IsModulus<U256> for FrConfig {
     const MODULUS: U256 =
-        U256::from_hex("73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001");
+        U256::from_hex_unchecked("73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001");
 }
 
 /// FrField using MontgomeryBackend for bls 12 381

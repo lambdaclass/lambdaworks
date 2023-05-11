@@ -461,7 +461,7 @@ where
 {
     #[allow(unused)]
     pub const fn from_hex(hex: &str) -> Self {
-        let integer = UnsignedInteger::<NUM_LIMBS>::from_hex(hex);
+        let integer = UnsignedInteger::<NUM_LIMBS>::from_hex_unchecked(hex);
         Self {
             value: MontgomeryAlgorithms::cios(
                 &integer,
