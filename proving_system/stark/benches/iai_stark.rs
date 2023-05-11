@@ -12,11 +12,6 @@ fn two_col_fibonacci_benchmarks() {
 }
 
 #[inline(never)]
-fn fibonacci_f17_benchmarks() {
-    functions::stark::prove_fib17();
-}
-
-#[inline(never)]
 fn quadratic_air_benchmarks() {
     functions::stark::prove_quadratic();
 }
@@ -24,6 +19,5 @@ fn quadratic_air_benchmarks() {
 iai::main!(
     simple_fibonacci_benchmarks,
     two_col_fibonacci_benchmarks,
-    fibonacci_f17_benchmarks,
     quadratic_air_benchmarks,
 );
