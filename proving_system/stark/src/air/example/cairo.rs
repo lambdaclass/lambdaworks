@@ -350,27 +350,53 @@ fn frame_inst_size(frame_row: &[FE]) -> FE {
 
 #[cfg(test)]
 mod test {
-    // #[test]
-    // fn check_simple_cairo_trace_evaluates_to_zero() {
-    //     let base_dir = env!("CARGO_MANIFEST_DIR");
-    //     let dir_trace = base_dir.to_owned() + "/src/cairo_vm/test_data/simple_program.trace";
-    //     let dir_memory = base_dir.to_owned() + "/src/cairo_vm/test_data/simple_program.mem";
-    //
-    //     let raw_trace = CairoTrace::from_file(&dir_trace).unwrap();
-    //     let memory = CairoMemory::from_file(&dir_memory).unwrap();
-    //
-    //     let proof_options = ProofOptions {
-    //         blowup_factor: 2,
-    //         fri_number_of_queries: 1,
-    //         coset_offset: 3,
-    //     };
-    //
-    //     let mut cairo_air = CairoAIR::new(proof_options, &raw_trace);
-    //     // PC FINAL AND AP FINAL are not computed correctly since they are extracted after padding to
-    //     // power of two and therefore are zero
-    //     cairo_air.pub_inputs.ap_final = FieldElement::zero();
-    //     cairo_air.pub_inputs.pc_final = FieldElement::zero();
-    //     let execution_trace = CairoAIR::build_main_trace(&(raw_trace, memory));
-    //     assert!(execution_trace.validate(&cairo_air));
-    // }
+    use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
+    use lambdaworks_math::field::element::FieldElement;
+
+    use crate::{
+        air::{context::ProofOptions, debug::validate_trace, example::cairo::CairoAIR, AIR},
+        cairo_vm::{cairo_mem::CairoMemory, cairo_trace::CairoTrace},
+        Domain,
+    };
+
+    #[test]
+    fn check_simple_cairo_trace_evaluates_to_zero() {
+        let base_dir = env!("CARGO_MANIFEST_DIR");
+        let dir_trace = base_dir.to_owned() + "/src/cairo_vm/test_data/simple_program.trace";
+        let dir_memory = base_dir.to_owned() + "/src/cairo_vm/test_data/simple_program.mem";
+
+        let raw_trace = CairoTrace::from_file(&dir_trace).unwrap();
+        let memory = CairoMemory::from_file(&dir_memory).unwrap();
+
+        let proof_options = ProofOptions {
+            blowup_factor: 2,
+            fri_number_of_queries: 1,
+            coset_offset: 3,
+        };
+
+        let mut cairo_air = CairoAIR::new(proof_options, &raw_trace);
+        // PC FINAL AND AP FINAL are not computed correctly since they are extracted after padding to
+        // power of two and therefore are zero
+        cairo_air.pub_inputs.ap_final = FieldElement::zero();
+        cairo_air.pub_inputs.pc_final = FieldElement::zero();
+
+        let main_trace = CairoAIR::build_main_trace(&(raw_trace, memory));
+        let mut trace_polys = main_trace.compute_trace_polys();
+        let mut transcript = DefaultTranscript::new();
+        let rap_challenges = CairoAIR::build_rap_challenges(&mut transcript);
+
+        let aux_trace = CairoAIR::build_auxiliary_trace(&main_trace, &rap_challenges);
+        let aux_polys = aux_trace.compute_trace_polys();
+
+        trace_polys.extend_from_slice(&aux_polys);
+
+        let domain = Domain::new(&cairo_air);
+
+        assert!(validate_trace(
+            &cairo_air,
+            &trace_polys,
+            &domain,
+            &rap_challenges
+        ));
+    }
 }
