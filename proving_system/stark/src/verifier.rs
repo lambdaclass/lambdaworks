@@ -190,6 +190,7 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
     air: &A,
     proof: &StarkProof<F>,
     domain: &Domain<F>,
+    public_input: &A::PublicInput,
     challenges: &Challenges<F, A>,
 ) -> bool {
     // BEGIN TRACE <-> Composition poly consistency evaluation check
@@ -197,7 +198,7 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
     let composition_poly_even_ood_evaluation = &proof.composition_poly_even_ood_evaluation;
     let composition_poly_odd_ood_evaluation = &proof.composition_poly_odd_ood_evaluation;
 
-    let boundary_constraints = air.boundary_constraints(&challenges.rap_challenges);
+    let boundary_constraints = air.boundary_constraints(&challenges.rap_challenges, public_input);
 
     let n_trace_cols = air.context().trace_columns;
 
@@ -496,7 +497,7 @@ fn reconstruct_deep_composition_poly_evaluation<F: IsFFTField, A: AIR<Field = F>
     trace_terms + h_1_term * &challenges.gamma_even + h_2_term * &challenges.gamma_odd
 }
 
-pub fn verify<F, A>(proof: &StarkProof<F>, air: &A) -> bool
+pub fn verify<F, A>(proof: &StarkProof<F>, air: &A, public_input: &A::PublicInput) -> bool
 where
     F: IsFFTField,
     A: AIR<Field = F>,
@@ -508,7 +509,7 @@ where
     let challenges =
         step_1_replay_rounds_and_recover_challenges(air, proof, &domain, &mut transcript);
 
-    if !step_2_verify_claimed_composition_polynomial(air, proof, &domain, &challenges) {
+    if !step_2_verify_claimed_composition_polynomial(air, proof, &domain, public_input, &challenges) {
         return false;
     }
 

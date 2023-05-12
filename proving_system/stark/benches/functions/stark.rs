@@ -2,7 +2,7 @@ use lambdaworks_math::field::fields::u64_prime_field::FE17;
 use lambdaworks_stark::{
     air::{
         context::{AirContext, ProofOptions},
-        example::cairo::{self, CairoPublicInput},
+        example::cairo::{self, PublicInputs},
     },
     cairo_vm::{cairo_mem::CairoMemory, cairo_trace::CairoTrace},
     prover::prove,
@@ -36,7 +36,7 @@ pub fn prove_fib(trace_length: usize) {
     let fibonacci_air = simple_fibonacci::FibonacciAIR::from(context);
 
     let result = prove(&trace, &fibonacci_air, &());
-    verify(&result, &fibonacci_air);
+    verify(&result, &fibonacci_air, &());
 }
 
 pub fn prove_fib_2_cols() {
@@ -60,7 +60,7 @@ pub fn prove_fib_2_cols() {
     let fibonacci_air = fibonacci_2_columns::Fibonacci2ColsAIR::from(context);
 
     let result = prove(&trace_columns, &fibonacci_air, &());
-    verify(&result, &fibonacci_air);
+    verify(&result, &fibonacci_air, &());
 }
 
 pub fn prove_fib17() {
@@ -83,7 +83,7 @@ pub fn prove_fib17() {
     let fibonacci_air = fibonacci_f17::Fibonacci17AIR::from(context);
 
     let result = prove(&trace, &fibonacci_air, &());
-    verify(&result, &fibonacci_air);
+    verify(&result, &fibonacci_air, &());
 }
 
 pub fn prove_quadratic() {
@@ -105,8 +105,9 @@ pub fn prove_quadratic() {
 
     let quadratic_air = quadratic_air::QuadraticAIR::from(context);
 
+
     let result = prove(&trace, &quadratic_air, &());
-    verify(&result, &quadratic_air);
+    verify(&result, &quadratic_air, &());
 }
 
 // We added an attribute to disable the `dead_code` lint because clippy doesn't take into account
@@ -128,7 +129,15 @@ pub fn prove_cairo_fibonacci_5() {
     };
 
     let cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace);
-    let public_input = CairoPublicInput {
+    // PC FINAL AND AP FINAL are not computed correctly since they are extracted after padding to
+    // power of two and therefore are zero
+    let public_input = PublicInputs {
+        pc_init: FE::from(raw_trace.rows[0].pc),
+        ap_init: FE::from(raw_trace.rows[0].ap),
+        fp_init: FE::from(raw_trace.rows[0].fp),
+        pc_final: FE::zero(),
+        ap_final: FE::zero(),
+        num_steps: raw_trace.steps(),
         program: Vec::new(),
     }; // TODO: Put real program
 
@@ -151,7 +160,16 @@ pub fn prove_cairo_fibonacci_10() {
     };
 
     let cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace);
-    let public_input = CairoPublicInput {
+
+    // PC FINAL AND AP FINAL are not computed correctly since they are extracted after padding to
+    // power of two and therefore are zero
+    let public_input = PublicInputs {
+        pc_init: FE::from(raw_trace.rows[0].pc),
+        ap_init: FE::from(raw_trace.rows[0].ap),
+        fp_init: FE::from(raw_trace.rows[0].fp),
+        pc_final: FE::zero(),
+        ap_final: FE::zero(),
+        num_steps: raw_trace.steps(),
         program: Vec::new(),
     }; // TODO: Put real program
 
@@ -174,7 +192,15 @@ pub fn prove_cairo_fibonacci_30() {
     };
 
     let cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace);
-    let public_input = CairoPublicInput {
+    // PC FINAL AND AP FINAL are not computed correctly since they are extracted after padding to
+    // power of two and therefore are zero
+    let public_input = PublicInputs {
+        pc_init: FE::from(raw_trace.rows[0].pc),
+        ap_init: FE::from(raw_trace.rows[0].ap),
+        fp_init: FE::from(raw_trace.rows[0].fp),
+        pc_final: FE::zero(),
+        ap_final: FE::zero(),
+        num_steps: raw_trace.steps(),
         program: Vec::new(),
     }; // TODO: Put real program
 
@@ -197,7 +223,15 @@ pub fn prove_cairo_fibonacci_50() {
     };
 
     let cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace);
-    let public_input = CairoPublicInput {
+    // PC FINAL AND AP FINAL are not computed correctly since they are extracted after padding to
+    // power of two and therefore are zero
+    let public_input = PublicInputs {
+        pc_init: FE::from(raw_trace.rows[0].pc),
+        ap_init: FE::from(raw_trace.rows[0].ap),
+        fp_init: FE::from(raw_trace.rows[0].fp),
+        pc_final: FE::zero(),
+        ap_final: FE::zero(),
+        num_steps: raw_trace.steps(),
         program: Vec::new(),
     }; // TODO: Put real program
 
@@ -220,7 +254,15 @@ pub fn prove_cairo_fibonacci_100() {
     };
 
     let cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace);
-    let public_input = CairoPublicInput {
+    // PC FINAL AND AP FINAL are not computed correctly since they are extracted after padding to
+    // power of two and therefore are zero
+    let public_input = PublicInputs {
+        pc_init: FE::from(raw_trace.rows[0].pc),
+        ap_init: FE::from(raw_trace.rows[0].ap),
+        fp_init: FE::from(raw_trace.rows[0].fp),
+        pc_final: FE::zero(),
+        ap_final: FE::zero(),
+        num_steps: raw_trace.steps(),
         program: Vec::new(),
     }; // TODO: Put real program
 

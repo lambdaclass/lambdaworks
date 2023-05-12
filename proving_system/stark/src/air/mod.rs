@@ -52,6 +52,7 @@ pub trait AIR: Clone {
     fn boundary_constraints(
         &self,
         rap_challenges: &Self::RAPChallenges,
+        public_input: &Self::PublicInput
     ) -> BoundaryConstraints<Self::Field>;
     fn transition_divisors(&self) -> Vec<Polynomial<FieldElement<Self::Field>>> {
         let trace_length = self.context().trace_length;

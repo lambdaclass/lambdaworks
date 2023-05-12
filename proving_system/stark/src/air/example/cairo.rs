@@ -100,15 +100,14 @@ pub struct PublicInputs {
     pub ap_final: FE,
     // pub rc_min: u16, // minimum range check value (0 < rc_min < rc_max < 2^16)
     // pub rc_max: u16, // maximum range check value
-    // pub mem: (Vec<u64>, Vec<Option<FE>>), // public memory
     // pub builtins: Vec<Builtin>, // list of builtins
+    pub program: Vec<FE>,
     pub num_steps: usize, // number of execution steps
 }
 
 #[derive(Clone)]
 pub struct CairoAIR {
     pub context: AirContext,
-    pub pub_inputs: PublicInputs,
 }
 
 impl CairoAIR {
@@ -134,18 +133,8 @@ impl CairoAIR {
 
         let last_step = num_steps - 1;
 
-        let pub_inputs = PublicInputs {
-            pc_init: FE::from(trace.rows[0].pc),
-            ap_init: FE::from(trace.rows[0].ap),
-            fp_init: FE::from(trace.rows[0].fp),
-            pc_final: FE::from(trace.rows[last_step].pc),
-            ap_final: FE::from(trace.rows[last_step].ap),
-            num_steps,
-        };
-
         Self {
             context,
-            pub_inputs,
         }
     }
 }
@@ -155,15 +144,12 @@ pub struct CairoRAPChallenges {
     pub z: FieldElement<Stark252PrimeField>,
 }
 
-pub struct CairoPublicInput<F: IsFFTField> {
-    pub program: Vec<FieldElement<F>>,
-}
 
 impl AIR for CairoAIR {
     type Field = Stark252PrimeField;
     type RawTrace = (CairoTrace, CairoMemory);
     type RAPChallenges = CairoRAPChallenges;
-    type PublicInput = CairoPublicInput<Self::Field>;
+    type PublicInput = PublicInputs;
 
     fn build_main_trace(
         &self,
@@ -290,23 +276,24 @@ impl AIR for CairoAIR {
     fn boundary_constraints(
         &self,
         _rap_challenges: &Self::RAPChallenges,
+        public_input: &Self::PublicInput
     ) -> BoundaryConstraints<Self::Field> {
         let last_step = self.context.trace_length - 1;
 
         let initial_pc =
-            BoundaryConstraint::new(MEM_A_TRACE_OFFSET, 0, self.pub_inputs.pc_init.clone());
+            BoundaryConstraint::new(MEM_A_TRACE_OFFSET, 0, public_input.pc_init.clone());
         let initial_ap =
-            BoundaryConstraint::new(MEM_P_TRACE_OFFSET, 0, self.pub_inputs.ap_init.clone());
+            BoundaryConstraint::new(MEM_P_TRACE_OFFSET, 0, public_input.ap_init.clone());
 
         let final_pc = BoundaryConstraint::new(
             MEM_A_TRACE_OFFSET,
             last_step,
-            self.pub_inputs.pc_final.clone(),
+            public_input.pc_final.clone(),
         );
         let final_ap = BoundaryConstraint::new(
             MEM_P_TRACE_OFFSET,
             last_step,
-            self.pub_inputs.ap_final.clone(),
+            public_input.ap_final.clone(),
         );
 
         let constraints = vec![initial_pc, initial_ap, final_pc, final_ap];
@@ -455,7 +442,7 @@ mod test {
         air::{
             context::ProofOptions,
             debug::validate_trace,
-            example::cairo::{CairoAIR, CairoPublicInput},
+            example::cairo::{CairoAIR, PublicInputs},
             AIR,
         },
         cairo_vm::{cairo_mem::CairoMemory, cairo_trace::CairoTrace},
@@ -481,11 +468,14 @@ mod test {
 
         // PC FINAL AND AP FINAL are not computed correctly since they are extracted after padding to
         // power of two and therefore are zero
-        cairo_air.pub_inputs.ap_final = FieldElement::zero();
-        cairo_air.pub_inputs.pc_final = FieldElement::zero();
-
-        let public_input = CairoPublicInput {
+        let public_input = PublicInputs {
             program: Vec::new(),
+            ap_final: FieldElement::zero(),
+            pc_final: FieldElement::zero(),
+            pc_init: FieldElement::from(raw_trace.rows[0].pc),
+            ap_init: FieldElement::from(raw_trace.rows[0].ap),
+            fp_init: FieldElement::from(raw_trace.rows[0].fp),
+            num_steps: raw_trace.steps(),
         }; // TODO: Put real program
 
         let main_trace = cairo_air.build_main_trace(&(raw_trace, memory), &public_input);
@@ -505,6 +495,7 @@ mod test {
             &cairo_air,
             &trace_polys,
             &domain,
+            &public_input,
             &rap_challenges
         ));
     }

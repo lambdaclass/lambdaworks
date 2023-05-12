@@ -63,6 +63,7 @@ impl AIR for FibonacciAIR {
     fn boundary_constraints(
         &self,
         _rap_challenges: &Self::RAPChallenges,
+        public_input: &Self::PublicInput,
     ) -> BoundaryConstraints<Self::Field> {
         let a0 = BoundaryConstraint::new_simple(0, FieldElement::<Self::Field>::one());
         let a1 = BoundaryConstraint::new_simple(1, FieldElement::<Self::Field>::one());

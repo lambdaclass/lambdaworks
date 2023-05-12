@@ -190,6 +190,7 @@ fn round_2_compute_composition_polynomial<F, A>(
     air: &A,
     domain: &Domain<F>,
     round_1_result: &Round1<F, A>,
+    public_input: &A::PublicInput,
     transition_coeffs: &[(FieldElement<F>, FieldElement<F>)],
     boundary_coeffs: &[(FieldElement<F>, FieldElement<F>)],
 ) -> Round2<F>
@@ -203,6 +204,7 @@ where
         air,
         &round_1_result.trace_polys,
         &domain.trace_primitive_root,
+        public_input,
         &round_1_result.rap_challenges,
     );
 
@@ -481,6 +483,7 @@ where
         air,
         &round_1_result.trace_polys,
         &domain,
+        public_input,
         &round_1_result.rap_challenges,
     );
 
@@ -514,6 +517,7 @@ where
         air,
         &domain,
         &round_1_result,
+        public_input,
         &transition_coeffs,
         &boundary_coeffs,
     );

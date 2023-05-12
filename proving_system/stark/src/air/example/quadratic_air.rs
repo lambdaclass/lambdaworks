@@ -66,6 +66,7 @@ impl AIR for QuadraticAIR {
     fn boundary_constraints(
         &self,
         _rap_challenges: &Self::RAPChallenges,
+        public_input: &Self::PublicInput,
     ) -> BoundaryConstraints<Self::Field> {
         let a0 = BoundaryConstraint::new_simple(0, FieldElement::<Self::Field>::from(3));
 

@@ -4,7 +4,7 @@ use lambdaworks_math::{
     polynomial::Polynomial,
 };
 
-use crate::air::{frame::Frame, trace::TraceTable, AIR};
+use crate::air::{frame::Frame, trace::TraceTable, AIR, example::cairo::PublicInputs};
 use std::iter::zip;
 
 use super::{boundary::BoundaryConstraints, evaluation_table::ConstraintEvaluationTable};
@@ -21,9 +21,10 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
         air: &A,
         trace_polys: &'poly [Polynomial<FieldElement<F>>],
         primitive_root: &FieldElement<F>,
+        public_input: &A::PublicInput,
         rap_challenges: &A::RAPChallenges,
     ) -> Self {
-        let boundary_constraints = air.boundary_constraints(rap_challenges);
+        let boundary_constraints = air.boundary_constraints(rap_challenges, public_input);
 
         Self {
             air: air.clone(),
