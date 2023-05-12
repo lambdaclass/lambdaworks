@@ -1,12 +1,16 @@
 use super::utils::{
-    generate_domain, generate_permutation_coefficients, FrElement, FrField,
-    ORDER_R_MINUS_1_ROOT_UNITY,
+    generate_domain, generate_permutation_coefficients, ORDER_R_MINUS_1_ROOT_UNITY,
 };
 use crate::setup::{CommonPreprocessedInput, Witness};
-use lambdaworks_math::{field::element::FieldElement, polynomial::Polynomial};
+use lambdaworks_math::{
+    elliptic_curve::short_weierstrass::curves::bls12_381::default_types::{FrElement, FrField},
+    field::element::FieldElement,
+    polynomial::Polynomial,
+};
 
-pub const ORDER_8_ROOT_UNITY: FrElement =
-    FrElement::from_hex("345766f603fa66e78c0625cd70d77ce2b38b21c28713b7007228fd3397743f7a"); // order 8
+pub const ORDER_8_ROOT_UNITY: FrElement = FrElement::from_hex_unchecked(
+    "345766f603fa66e78c0625cd70d77ce2b38b21c28713b7007228fd3397743f7a",
+); // order 8
 
 /*  Test circuit for the program:
     public input x

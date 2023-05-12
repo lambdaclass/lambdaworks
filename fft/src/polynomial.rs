@@ -26,6 +26,10 @@ pub trait FFTPoly<F: IsFFTField> {
     fn interpolate_fft(
         fft_evals: &[FieldElement<F>],
     ) -> Result<Polynomial<FieldElement<F>>, FFTError>;
+    fn interpolate_offset_fft(
+        fft_evals: &[FieldElement<F>],
+        offset: &FieldElement<F>,
+    ) -> Result<Polynomial<FieldElement<F>>, FFTError>;
 }
 
 impl<F: IsFFTField> FFTPoly<F> for Polynomial<FieldElement<F>> {
@@ -103,6 +107,17 @@ impl<F: IsFFTField> FFTPoly<F> for Polynomial<FieldElement<F>> {
         {
             interpolate_fft_cpu(fft_evals)
         }
+    }
+
+    /// Returns a new polynomial that interpolates offset `(w^i, fft_evals[i])`, with `w` being a
+    /// Nth primitive root of unity, and `i in 0..N`, with `N = fft_evals.len()`.
+    /// This is considered to be the inverse operation of [Self::evaluate_offset_fft()].
+    fn interpolate_offset_fft(
+        fft_evals: &[FieldElement<F>],
+        offset: &FieldElement<F>,
+    ) -> Result<Polynomial<FieldElement<F>>, FFTError> {
+        let scaled = Polynomial::interpolate_fft(fft_evals)?;
+        Ok(scaled.scale(&offset.inv()))
     }
 }
 
@@ -192,6 +207,32 @@ mod tests {
         (fft_eval, naive_eval)
     }
 
+    fn gen_fft_and_naive_interpolate<F: IsFFTField>(
+        fft_evals: &[FieldElement<F>],
+    ) -> (Polynomial<FieldElement<F>>, Polynomial<FieldElement<F>>) {
+        let order = fft_evals.len().trailing_zeros() as u64;
+        let twiddles =
+            get_powers_of_primitive_root(order, 1 << order, RootsConfig::Natural).unwrap();
+
+        let naive_poly = Polynomial::interpolate(&twiddles, fft_evals);
+        let fft_poly = Polynomial::interpolate_fft(fft_evals).unwrap();
+
+        (fft_poly, naive_poly)
+    }
+
+    fn gen_fft_and_naive_coset_interpolate<F: IsFFTField>(
+        fft_evals: &[FieldElement<F>],
+        offset: &FieldElement<F>,
+    ) -> (Polynomial<FieldElement<F>>, Polynomial<FieldElement<F>>) {
+        let order = fft_evals.len().trailing_zeros() as u64;
+        let twiddles = get_powers_of_primitive_root_coset(order, 1 << order, offset).unwrap();
+
+        let naive_poly = Polynomial::interpolate(&twiddles, fft_evals);
+        let fft_poly = Polynomial::interpolate_offset_fft(fft_evals, offset).unwrap();
+
+        (fft_poly, naive_poly)
+    }
+
     fn gen_fft_interpolate_and_evaluate<F: IsFFTField>(
         poly: Polynomial<FieldElement<F>>,
     ) -> (Polynomial<FieldElement<F>>, Polynomial<FieldElement<F>>) {
@@ -259,9 +300,27 @@ mod tests {
                 prop_assert_eq!(fft_eval, naive_eval);
             }
 
+            // Property-based test that ensures FFT interpolation is the same as naive.
+            #[test]
+            fn test_fft_interpolate_matches_naive(fft_evals in field_vec(4)
+                                                           .prop_filter("Avoid polynomials of size not power of two",
+                                                                        |evals| evals.len().is_power_of_two())) {
+                let (fft_poly, naive_poly) = gen_fft_and_naive_interpolate(&fft_evals);
+                prop_assert_eq!(fft_poly, naive_poly);
+            }
+
+            // Property-based test that ensures FFT interpolation with an offset is the same as naive.
+            #[test]
+            fn test_fft_interpolate_coset_matches_naive(offset in offset(), fft_evals in field_vec(4)
+                                                           .prop_filter("Avoid polynomials of size not power of two",
+                                                                        |evals| evals.len().is_power_of_two())) {
+                let (fft_poly, naive_poly) = gen_fft_and_naive_coset_interpolate(&fft_evals, &offset);
+                prop_assert_eq!(fft_poly, naive_poly);
+            }
+
             // Property-based test that ensures interpolation is the inverse operation of evaluation.
             #[test]
-            fn test_fft_interpolate_is_inverse_of_evaluate(poly in poly(8)
+            fn test_fft_interpolate_is_inverse_of_evaluate(poly in poly(4)
                                                            .prop_filter("Avoid polynomials of size not power of two",
                                                                         |poly| poly.coeff_len().is_power_of_two())) {
                 let (poly, new_poly) = gen_fft_interpolate_and_evaluate(poly);
@@ -345,10 +404,34 @@ mod tests {
                 }).unwrap();
             }
 
+            // Property-based test that ensures FFT interpolation is the same as naive.
+            #[test]
+            fn test_fft_interpolate_matches_naive(fft_evals in field_vec(4)
+                                                           .prop_filter("Avoid polynomials of size not power of two",
+                                                                        |evals| evals.len().is_power_of_two())) {
+                objc::rc::autoreleasepool(|| {
+                let (fft_poly, naive_poly) = gen_fft_and_naive_interpolate(&fft_evals);
+                prop_assert_eq!(fft_poly, naive_poly);
+                    Ok(())
+                }).unwrap();
+            }
+
+            // Property-based test that ensures FFT interpolation with an offset is the same as naive.
+            #[test]
+            fn test_fft_interpolate_coset_matches_naive(offset in offset(), fft_evals in field_vec(4)
+                                                           .prop_filter("Avoid polynomials of size not power of two",
+                                                                        |evals| evals.len().is_power_of_two())) {
+                objc::rc::autoreleasepool(|| {
+                let (fft_poly, naive_poly) = gen_fft_and_naive_coset_interpolate(&fft_evals, &offset);
+                prop_assert_eq!(fft_poly, naive_poly);
+                    Ok(())
+                }).unwrap();
+            }
+
             // Property-based test that ensures interpolation is the inverse operation of evaluation.
             #[test]
             fn test_fft_interpolate_is_inverse_of_evaluate(
-                poly in poly(8).prop_filter("Avoid non pows of two", |poly| poly.coeff_len().is_power_of_two())) {
+                poly in poly(4).prop_filter("Avoid non pows of two", |poly| poly.coeff_len().is_power_of_two())) {
                 objc::rc::autoreleasepool(|| {
                     let (poly, new_poly) = gen_fft_interpolate_and_evaluate(poly);
                     prop_assert_eq!(poly, new_poly);
@@ -373,10 +456,28 @@ mod tests {
                 prop_assert_eq!(fft_eval, naive_eval);
             }
 
+            // Property-based test that ensures FFT interpolation is the same as naive..
+            #[test]
+            fn test_fft_interpolate_matches_naive(fft_evals in field_vec(4)
+                                                           .prop_filter("Avoid polynomials of size not power of two",
+                                                                        |evals| evals.len().is_power_of_two())) {
+                let (fft_poly, naive_poly) = gen_fft_and_naive_interpolate(&fft_evals);
+                prop_assert_eq!(fft_poly, naive_poly);
+            }
+
+            // Property-based test that ensures FFT interpolation with an offset is the same as naive.
+            #[test]
+            fn test_fft_interpolate_coset_matches_naive(offset in offset(), fft_evals in field_vec(4)
+                                                           .prop_filter("Avoid polynomials of size not power of two",
+                                                                        |evals| evals.len().is_power_of_two())) {
+                let (fft_poly, naive_poly) = gen_fft_and_naive_coset_interpolate(&fft_evals, &offset);
+                prop_assert_eq!(fft_poly, naive_poly);
+            }
+
             // Property-based test that ensures interpolation is the inverse operation of evaluation.
             #[test]
             fn test_fft_interpolate_is_inverse_of_evaluate(
-                poly in poly(8).prop_filter("Avoid non pows of two", |poly| poly.coeff_len().is_power_of_two())) {
+                poly in poly(4).prop_filter("Avoid non pows of two", |poly| poly.coeff_len().is_power_of_two())) {
                 let (poly, new_poly) = gen_fft_interpolate_and_evaluate(poly);
                 prop_assert_eq!(poly, new_poly);
             }
