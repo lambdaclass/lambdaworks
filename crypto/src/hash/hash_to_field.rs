@@ -3,18 +3,21 @@ use lambdaworks_math::{
         element::FieldElement,
         fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
     },
+    traits::ByteConversion,
     unsigned_integer::element::UnsignedInteger,
 };
 
-/// Converts a hash, represented by an array of bytes, into a vector of field elements
+/// Converts a hash, represented by an array of bytes, into a vector of field elements.
+/// `l * count` must be equal to the length of `pseudo_random_bytes`.
 /// For more info, see
 /// https://www.ietf.org/id/draft-irtf-cfrg-hash-to-curve-16.html#name-hashing-to-a-finite-field
 pub fn hash_to_field<M: IsModulus<UnsignedInteger<N>> + Clone, const N: usize>(
     pseudo_random_bytes: &[u8],
     count: usize,
+    l: usize,
 ) -> Vec<FieldElement<MontgomeryBackendPrimeField<M, N>>> {
-    let order = M::MODULUS;
-    let l = compute_length(order);
+    // TODO: remove this and return Result instead
+    assert_eq!(l * count, pseudo_random_bytes.len());
     let mut u = vec![FieldElement::zero(); count];
     for (i, item) in u.iter_mut().enumerate() {
         let elm_offset = l * i;
@@ -23,12 +26,6 @@ pub fn hash_to_field<M: IsModulus<UnsignedInteger<N>> + Clone, const N: usize>(
         *item = os2ip::<M, N>(tv);
     }
     u
-}
-
-fn compute_length<const N: usize>(order: UnsignedInteger<N>) -> usize {
-    //L = ceil((ceil(log2(p)) + k) / 8), where k is the security parameter of the cryptosystem (e.g. k = ceil(log2(p) / 2))
-    let log2_p = order.limbs.len() << 3;
-    ((log2_p << 3) + (log2_p << 2)) >> 3
 }
 
 /// Converts an octet string to a nonnegative integer.
@@ -40,13 +37,13 @@ fn os2ip<M: IsModulus<UnsignedInteger<N>> + Clone, const N: usize>(
     aux_x.reverse();
     let two_to_the_nth = build_two_to_the_nth();
     let mut j = 0_u32;
-    let mut item_hex = String::with_capacity(N * 16);
+    let mut item_vec = Vec::with_capacity(N * 8);
     let mut result = FieldElement::zero();
     for item_u8 in aux_x.iter() {
-        item_hex += &format!("{:x}", item_u8);
-        if item_hex.len() == item_hex.capacity() {
-            result += FieldElement::from_hex_unchecked(&item_hex) * two_to_the_nth.pow(j);
-            item_hex.clear();
+        item_vec.push(*item_u8);
+        if item_vec.len() == item_vec.capacity() {
+            result += FieldElement::from_bytes_le(&item_vec).unwrap() * two_to_the_nth.pow(j);
+            item_vec.clear();
             j += 1;
         }
     }
@@ -75,7 +72,7 @@ mod tests {
         unsigned_integer::element::UnsignedInteger,
     };
 
-    use crate::hash::{hash_to_field::hash_to_field, sha3::Sha3Hasher};
+    use crate::hash::hash_to_field::hash_to_field;
 
     type F = MontgomeryBackendPrimeField<U64, 1>;
 
@@ -87,9 +84,9 @@ mod tests {
 
     #[test]
     fn test_same_message_produce_same_field_elements() {
-        let input = Sha3Hasher::expand_message(b"helloworld", b"dsttest", 500).unwrap();
-        let field_elements: Vec<FieldElement<F>> = hash_to_field(&input, 40);
-        let other_field_elements = hash_to_field(&input, 40);
+        let input = &(0..40).map(|_| rand::random()).collect::<Vec<u8>>();
+        let field_elements: Vec<FieldElement<F>> = hash_to_field(input, 40, 1);
+        let other_field_elements = hash_to_field(input, 40, 1);
         assert_eq!(field_elements, other_field_elements);
     }
 }
