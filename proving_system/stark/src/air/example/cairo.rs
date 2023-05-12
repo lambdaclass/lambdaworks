@@ -16,7 +16,7 @@ use crate::{
         cairo_mem::CairoMemory, cairo_trace::CairoTrace,
         execution_trace::build_cairo_execution_trace,
     },
-    transcript_to_field, FE,
+    transcript_to_field, FE, PrimeField,
 };
 
 /// Main constraint identifiers
@@ -145,6 +145,52 @@ pub struct CairoRAPChallenges {
 }
 
 
+fn add_program_in_public_input_section(
+    addresses: &Vec<FE>,
+    values: &Vec<FE>,
+    public_input: &PublicInputs
+) -> (Vec<FE>, Vec<FE>) {
+    let mut a_aux = addresses.clone();
+    let mut v_aux = values.clone();
+
+    let public_input_section = addresses.len() - public_input.program.len();
+    let continous_memory = (0..public_input.program.len() as u64).map(|i| FieldElement::from(i));
+
+    a_aux.splice(public_input_section.., continous_memory);
+    v_aux.splice(public_input_section.., public_input.program.clone());
+
+    (a_aux, v_aux)
+}
+
+fn sort_columns_by_memory_address(adresses: Vec<FE>, values: Vec<FE>) -> (Vec<FE>, Vec<FE>) {
+    let mut tuples: Vec<_> = adresses.into_iter().zip(values).collect();
+    tuples.sort_by(|(x, _), (y, _)| x.representative().cmp(&y.representative()));
+    let (adresses, values): (Vec<_>, Vec<_>) = tuples.into_iter().unzip();
+    (adresses, values)
+}
+
+fn generate_permutation_argument_column(
+    addresses_original: Vec<FE>,
+    values_original: Vec<FE>,
+    addresses_sorted: &[FE],
+    values_sorted: &[FE],
+    rap_challenges: &CairoRAPChallenges
+) -> Vec<FE> {
+    let z = &rap_challenges.z;
+    let alpha = &rap_challenges.alpha;
+    let f = |a, v, ap, vp| (z - (a + alpha * v)) / (z - (ap + alpha * vp));
+
+    let mut permutation_col = Vec::with_capacity(addresses_sorted.len());
+    permutation_col.push(f(&addresses_original[0], &values_original[0], &addresses_sorted[0], &values_sorted[0]));
+
+    for i in 1..addresses_sorted.len() {
+        let last = permutation_col.last().unwrap();
+        permutation_col.push(last * f(&addresses_original[i], &values_original[i], &addresses_sorted[i], &values_sorted[i]));
+    }
+
+    permutation_col
+}
+
 impl AIR for CairoAIR {
     type Field = Stark252PrimeField;
     type RawTrace = (CairoTrace, CairoMemory);
@@ -182,57 +228,24 @@ impl AIR for CairoAIR {
         rap_challenges: &Self::RAPChallenges,
         public_input: &Self::PublicInput,
     ) -> TraceTable<Self::Field> {
-        // Keep the columns that refer to the memory.
-        // Convert from wide-format to long format (8 columns of length N to 2 columns of length 4N).
-        let mut a_original = main_trace
-            .get_cols(&[FRAME_PC, FRAME_DST_ADDR, FRAME_OP0_ADDR, FRAME_OP1_ADDR])
-            .table;
+        let addresses_original = main_trace.get_cols(&[FRAME_PC, FRAME_DST_ADDR, FRAME_OP0_ADDR, FRAME_OP1_ADDR]).table;
+        let values_original = main_trace.get_cols(&[FRAME_INST, FRAME_DST, FRAME_OP0, FRAME_OP1]).table;
 
-        let mut v_original = main_trace
-            .get_cols(&[FRAME_INST, FRAME_DST, FRAME_OP0, FRAME_OP1])
-            .table;
-
-        let mut a_aux = a_original.clone();
-        let mut v_aux = v_original.clone();
-
-        // Add the program in the public input section
-        let public_input_section = a_original.len() - public_input.program.len();
-        let continous_memory =
-            (0..public_input.program.len() as u64).map(|i| FieldElement::from(i));
-
-        a_aux.splice(public_input_section.., continous_memory);
-        v_aux.splice(public_input_section.., public_input.program.clone());
-
-        // Sort the two columns.
-        let mut tuples: Vec<_> = a_aux.into_iter().zip(v_aux).collect();
-        tuples.sort_by(|(x, _), (y, _)| x.representative().cmp(&y.representative()));
-
-        // Add an auxiliary column for the permutation argument.
-        let (a_aux, v_aux): (Vec<_>, Vec<_>) = tuples.into_iter().unzip();
-
-        let z = &rap_challenges.z;
-        let alpha = &rap_challenges.alpha;
-        let f = |a, v, ap, vp| (z - (a + alpha * v)) / (z - (ap + alpha * vp));
-
-        let mut permutation_col = Vec::with_capacity(a_aux.len());
-        permutation_col.push(f(&a_original[0], &v_original[0], &a_aux[0], &v_aux[0]));
-
-        for i in 1..a_aux.len() {
-            let last = permutation_col.last().unwrap();
-            permutation_col.push(last * f(&a_original[i], &v_original[i], &a_aux[i], &v_aux[i]));
-        }
+        let (addresses, values) = add_program_in_public_input_section(&addresses_original, &values_original, public_input);
+        let (addresses, values) = sort_columns_by_memory_address(addresses, values);
+        let permutation_col = generate_permutation_argument_column(addresses_original, values_original, &addresses, &values, rap_challenges);
 
         // Convert from long-format to wide-format again
         let mut aux_table = Vec::new();
-        for i in (0..a_aux.len()).step_by(4) {
-            aux_table.push(a_aux[i].clone());
-            aux_table.push(a_aux[i + 1].clone());
-            aux_table.push(a_aux[i + 2].clone());
-            aux_table.push(a_aux[i + 3].clone());
-            aux_table.push(v_aux[i].clone());
-            aux_table.push(v_aux[i + 1].clone());
-            aux_table.push(v_aux[i + 2].clone());
-            aux_table.push(v_aux[i + 3].clone());
+        for i in (0..addresses.len()).step_by(4) {
+            aux_table.push(addresses[i].clone());
+            aux_table.push(addresses[i + 1].clone());
+            aux_table.push(addresses[i + 2].clone());
+            aux_table.push(addresses[i + 3].clone());
+            aux_table.push(values[i].clone());
+            aux_table.push(values[i + 1].clone());
+            aux_table.push(values[i + 2].clone());
+            aux_table.push(values[i + 3].clone());
             aux_table.push(permutation_col[i].clone());
             aux_table.push(permutation_col[i + 1].clone());
             aux_table.push(permutation_col[i + 2].clone());
@@ -440,14 +453,16 @@ mod test {
 
     use crate::{
         air::{
-            context::ProofOptions,
+            context::{ProofOptions},
             debug::validate_trace,
-            example::cairo::{CairoAIR, PublicInputs},
+            example::cairo::{CairoAIR, PublicInputs, FRAME_INST, FRAME_DST, FRAME_OP0, FRAME_OP1, add_program_in_public_input_section},
             AIR,
         },
         cairo_vm::{cairo_mem::CairoMemory, cairo_trace::CairoTrace},
         Domain,
     };
+
+    use super::{CairoRAPChallenges, sort_columns_by_memory_address, generate_permutation_argument_column};
 
     #[test]
     fn check_simple_cairo_trace_evaluates_to_zero() {
@@ -501,17 +516,45 @@ mod test {
     }
 
     #[test]
-    fn test_build_auxiliary_trace_works() {
-        /* 
-        let proof_options = ProofOptions {
-            blowup_factor: 2,
-            fri_number_of_queries: 1,
-            coset_offset: 3,
+    fn test_build_auxiliary_trace_add_program_in_public_input_section_works() {
+        let dummy_public_input = PublicInputs {
+            pc_init: FieldElement::zero(),
+            ap_init: FieldElement::zero(),
+            fp_init: FieldElement::zero(),
+            pc_final: FieldElement::zero(),
+            ap_final: FieldElement::zero(),
+            program: vec![FieldElement::from(2), FieldElement::from(3)],
+            num_steps: 1,
         };
+        
+        let a = vec![FieldElement::one(), FieldElement::one(), FieldElement::zero(), FieldElement::zero()];
+        let v = vec![FieldElement::one(), FieldElement::one(), FieldElement::zero(), FieldElement::zero()];
+        let (ap, vp) = add_program_in_public_input_section(&a, &v, &dummy_public_input);
+        assert_eq!(ap, vec![FieldElement::one(), FieldElement::one(), FieldElement::zero(), FieldElement::one()]);
+        assert_eq!(vp, vec![FieldElement::one(), FieldElement::one(), FieldElement::from(2), FieldElement::from(3)]);
+    }
 
-        let raw_trace
-        // TODO: Put correct number of instructions
-        let mut cairo_air = CairoAIR::new(proof_options, &raw_trace, 2);
-        */
+    #[test]
+    fn test_build_auxiliary_trace_sort_columns_by_memory_address() {
+        let a = vec![FieldElement::from(2), FieldElement::one(), FieldElement::from(3), FieldElement::from(2)];
+        let v = vec![FieldElement::from(6), FieldElement::from(4), FieldElement::from(5), FieldElement::from(6)];
+        let (ap, vp) = sort_columns_by_memory_address(a, v);
+        assert_eq!(ap, vec![FieldElement::one(), FieldElement::from(2), FieldElement::from(2), FieldElement::from(3)]);
+        assert_eq!(vp, vec![FieldElement::from(4), FieldElement::from(6), FieldElement::from(6), FieldElement::from(5),]);
+    }
+
+    #[test]
+    fn test_build_auxiliary_trace_generate_permutation_argument_column() {
+        let a = vec![FieldElement::from(3), FieldElement::one(), FieldElement::from(2)];
+        let v = vec![FieldElement::from(5), FieldElement::one(), FieldElement::from(2)];
+        let ap = vec![FieldElement::one(), FieldElement::from(2), FieldElement::from(3)];
+        let vp = vec![FieldElement::one(), FieldElement::from(2), FieldElement::from(5)];
+        let rap_challenges = CairoRAPChallenges { alpha: FieldElement::from(15), z: FieldElement::from(10) };
+        let p = generate_permutation_argument_column(a, v, &ap, &vp, &rap_challenges);
+        assert_eq!(p, vec![
+            FieldElement::from_hex("2aaaaaaaaaaaab0555555555555555555555555555555555555555555555561"),
+            FieldElement::from_hex("1745d1745d174602e8ba2e8ba2e8ba2e8ba2e8ba2e8ba2e8ba2e8ba2e8ba2ec"),
+            FieldElement::one(),
+        ]);
     }
 }
