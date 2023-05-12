@@ -1,7 +1,4 @@
-#ifndef ec_point_h
-#define ec_point_h
-
-#include "ec_point.h.metal"
+#pragma once
 
 template<typename Fp, const uint64_t A_CURVE>
 class ECPoint {
@@ -11,15 +8,15 @@ public:
     Fp y;
     Fp z;
 
-    constexpr ECPoint() : ECPoint(ECPoint::neutral_element()) {};
+    constexpr ECPoint() : ECPoint(ECPoint::neutral_element()) {}
     constexpr ECPoint(Fp _x, Fp _y, Fp _z) : x(_x), y(_y), z(_z) {}
 
     constexpr ECPoint operator+(const ECPoint other) const
     {
-        if(is_neutral_element(*this)){
+        if (is_neutral_element(*this)) {
             return other;
         }
-        if(is_neutral_element(other)){
+        if (is_neutral_element(other)) {
             return *this;
         }
 
@@ -93,15 +90,13 @@ public:
         *this = (*this).operate_with_self(exponent);
     }
 
-    ECPoint neg()
+    constexpr ECPoint neg()
     {
         return ECPoint(x, y.neg(), z);
     }
 
-    bool is_neutral_element(const ECPoint a_point) const
+    constexpr bool is_neutral_element(const ECPoint a_point) const
     {
         return a_point.x == Fp(0) && a_point.z == Fp(0);
     }
 };
-
-#endif

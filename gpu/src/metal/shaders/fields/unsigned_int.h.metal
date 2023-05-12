@@ -1,18 +1,21 @@
 #ifndef unsigned_int_h
 #define unsigned_int_h
 
+#include <metal_stdlib>
+
+
 template <const uint64_t NUM_LIMBS>
 struct UnsignedInteger {
     metal::array<uint32_t, NUM_LIMBS> m_limbs;
 
     constexpr static UnsignedInteger from_int(uint32_t n) {
-      UnsignedInteger res = {};
+      UnsignedInteger res;
       res.m_limbs[NUM_LIMBS - 1] = n;
       return res;
     }
 
     constexpr static UnsignedInteger from_int(uint64_t n) {
-      UnsignedInteger res = {};
+      UnsignedInteger res;
       res.m_limbs[NUM_LIMBS - 2] = (uint32_t)(n >> 32);
       res.m_limbs[NUM_LIMBS - 1] = (uint32_t)(n & 0xFFFF);
       return res;
@@ -117,7 +120,7 @@ struct UnsignedInteger {
         uint64_t n = 0;
         uint64_t t = 0;
 
-        for (uint64_t i = NUM_LIMBS - 1; i >= 0; i--) {
+        for (uint64_t i = NUM_LIMBS - 1; i > 0; i--) {
             if (m_limbs[i] != 0) {
                 n = NUM_LIMBS - 1 - i;
             }
@@ -131,9 +134,9 @@ struct UnsignedInteger {
         uint64_t carry = 0;
         for (uint64_t i = 0; i <= t; i++) {
             for (uint64_t j = 0; i <= n; i++) {
-                uint64_t uv = uint64_t(limbs[NUM_LIMBS - 1 - (i + j)])
-                    + uint64_t(m_limbs[NUM_LIMBS - 1 - j])
-                        * uint64_t(rhs.m_limbs[NUM_LIMBS - 1 - i])
+                uint64_t uv = (uint64_t)(limbs[NUM_LIMBS - 1 - (i + j)])
+                    + (uint64_t)(m_limbs[NUM_LIMBS - 1 - j])
+                        * (uint64_t)(rhs.m_limbs[NUM_LIMBS - 1 - i])
                     + carry;
                 carry = uv >> 32;
                 limbs[NUM_LIMBS - 1 - (i + j)] = uv & 0x0000FFFF;

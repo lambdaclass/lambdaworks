@@ -1,7 +1,5 @@
+#pragma once
 // https://github.com/andrewmilson/ministark/blob/main/gpu-poly/src/metal/felt_u256.h.metal
-
-#ifndef felt_u256_h
-#define felt_u256_h
 
 #include "u256.h.metal"
 
@@ -46,7 +44,7 @@ public:
     }
 
     // TODO: make method for all fields
-    Fp256 pow(unsigned exp) const
+    constexpr Fp256 pow(unsigned exp) const
     {
         // TODO find a way to generate on compile time
         Fp256 const ONE = mul(u256(1), R_SQUARED);
@@ -66,7 +64,7 @@ public:
         return res;
     }
 
-    Fp256 inverse() 
+    constexpr Fp256 inverse()
     {
         // used addchain
         // https://github.com/mmcloughlin/addchain
@@ -102,7 +100,7 @@ public:
         return Fp256(mul(sqn<60>(i208), x60));
     }
 
-    Fp256 neg()
+    constexpr Fp256 neg()
     {
         // TODO: can improve
         return Fp256(sub(0, inner));
@@ -210,7 +208,3 @@ private:
         return t + overflows_r * R_SUB_N - overflows_modulus * N;
     }
 };
-
-
-
-#endif

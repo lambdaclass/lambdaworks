@@ -1,7 +1,6 @@
 // https://github.com/andrewmilson/ministark/blob/main/gpu-poly/src/metal/u256.h.metal
 
-#ifndef u256_h
-#define u256_h
+#pragma once
 
 #include <metal_stdlib>
 #include "u128.h.metal"
@@ -263,5 +262,3 @@ public:
 
 // #endif
 };
-
-#endif /* u256_h */

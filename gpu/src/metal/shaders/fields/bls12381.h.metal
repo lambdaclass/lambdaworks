@@ -1,6 +1,5 @@
 #pragma once
 
-#include "fp_u256.h.metal"
 #include "fp_bls12381.h.metal"
 #include "ec_point.h.metal"
 #include "../test/test_bls12381.h.metal"

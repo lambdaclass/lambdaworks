@@ -149,26 +149,4 @@ mod tests {
             prop_assert_eq!(metal_result, cpu_result);
         }
     }
-    /*
-    #[test]
-    fn smoke_test() {
-        let state = MetalState::new(None).unwrap();
-
-        let pipeline = state.setup_pipeline("bls12381_add").unwrap();
-
-        let px = MontgomeryBackendPrimeField::<BLS12381FieldModulus, 6>::from_u64(2);
-        let py = MontgomeryBackendPrimeField::<BLS12381FieldModulus, 6>::from_u64(5);
-        let p = ShortWeierstrassProjectivePoint::<BLS12381Curve>::from_affine(px, py);
-
-        let qx = MontgomeryBackendPrimeField::<BLS12381FieldModulus, 6>::from_u64(2);
-        let qy = MontgomeryBackendPrimeField::<BLS12381FieldModulus, 6>::from_u64(5);
-        let q = ShortWeierstrassProjectivePoint::<BLS12381Curve>::;
-
-        let p_buffer = state.alloc_buffer_data(&[p]);
-        let q_buffer = state.alloc_buffer_data(&[q]);
-        let result_buffer =
-            state.alloc_buffer::<<BLS12381Curve as IsEllipticCurve>::PointRepresentation>(1);
-    }
-
-    */
 }

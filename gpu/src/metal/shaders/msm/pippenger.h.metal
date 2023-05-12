@@ -1,6 +1,5 @@
 #pragma once
 
-#include <metal_stdlib>
 
 // NOTE: 
 //   - the number of threadgroups dispatched needs to equal the number of windows.
@@ -33,7 +32,7 @@ template<typename Fp, typename ECPoint>
     // Calculate all Bij in parallel
     for (uint64_t i = pos_in_group; i < buflen; i += group_size) {
         Fp fp = cs[i];
-        uint32_t w = fp >> windows_shl;
+        uint32_t w = (uint32_t) (fp >> windows_shl);
         uint32_t m_ij = w & windows_mask;
         if (m_ij == 0) {
             continue;
