@@ -120,12 +120,12 @@ struct UnsignedInteger {
         uint64_t n = 0;
         uint64_t t = 0;
 
-        for (uint64_t i = NUM_LIMBS - 1; i > 0; i--) {
-            if (m_limbs[i] != 0) {
-                n = NUM_LIMBS - 1 - i;
+        for (uint64_t i = NUM_LIMBS; i > 0; i--) {
+            if (m_limbs[i - 1] != 0) {
+                n = NUM_LIMBS - i;
             }
-            if (rhs.m_limbs[i] != 0) {
-                t = NUM_LIMBS - 1 - i;
+            if (rhs.m_limbs[i - 1] != 0) {
+                t = NUM_LIMBS - i;
             }
         }
 
