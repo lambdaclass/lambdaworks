@@ -346,7 +346,7 @@ impl AIR for CairoAIR {
     ///  * pc_t = pc_f
     fn boundary_constraints(
         &self,
-        _rap_challenges: &Self::RAPChallenges,
+        rap_challenges: &Self::RAPChallenges,
         public_input: &Self::PublicInput,
     ) -> BoundaryConstraints<Self::Field> {
         let last_step = self.context.trace_length - 1;
@@ -361,7 +361,19 @@ impl AIR for CairoAIR {
         let final_ap =
             BoundaryConstraint::new(MEM_P_TRACE_OFFSET, last_step, public_input.ap_final.clone());
 
-        let constraints = vec![initial_pc, initial_ap, final_pc, final_ap];
+        // Auxiliary constraint: permutation argument initial value 
+        //BoundaryConstraint::new(PERMUTATION_ARGUMENT_COL_0, 0, )
+        //public_input.program[0]
+
+        // Auxiliary constraint: permutation argument final value
+        let mut cumulative_product = FieldElement::one();
+        for (i, value) in public_input.program.iter().enumerate() {
+            cumulative_product = cumulative_product * (&rap_challenges.z - (FieldElement::from(i as u64) + &rap_challenges.alpha * value));
+        }
+        let permutation_final = rap_challenges.z.pow(public_input.program.len()) / cumulative_product;
+        let permutation_final_constraint = BoundaryConstraint::new(PERMUTATION_ARGUMENT_COL_3, last_step, permutation_final);
+
+        let constraints = vec![initial_pc, initial_ap, final_pc, final_ap, permutation_final_constraint];
 
         BoundaryConstraints::from_constraints(constraints)
     }
