@@ -165,7 +165,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
     #[cfg(not(feature = "metal"))]
     use lambdaworks_math::field::traits::RootsConfig;
     use proptest::{collection, prelude::*};
