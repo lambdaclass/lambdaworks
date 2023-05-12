@@ -42,7 +42,7 @@ where
 
     let n_groups: usize = 512.min(cs.len());
 
-    let pipeline = state.setup_pipeline("calculate_Gjs")?;
+    let pipeline = state.setup_pipeline("calculate_Gjs_bls12381")?;
 
     let cs_buffer = state.alloc_buffer_data(cs);
     let hidings_buffer = state.alloc_buffer_data(hidings);

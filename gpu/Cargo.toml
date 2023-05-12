@@ -22,7 +22,7 @@ cuda = []
 # that should compile in all cases will require to be added
 # as default. If you don't want to compile with all of these
 # use `--no-default-features`.
-default = []
+default = ["metal"]
 
 [dev-dependencies]
 proptest = "1.1.0"

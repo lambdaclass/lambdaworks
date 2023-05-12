@@ -12,52 +12,52 @@ namespace {
     /* =N **/ /*u256(*/ 576460752303423505, 0, 0, 1 /*)*/,
     /* =R_SQUARED **/ /*u256(*/ 576413109808302096, 18446744073700081664, 5151653887, 18446741271209837569 /*)*/,
     /* =N_PRIME **/ /*u256(*/ 576460752303423504, 18446744073709551615, 18446744073709551615, 18446744073709551615 /*)*/
-    > Fp;
+    > FpStark256;
 }
 
 template [[ host_name("radix2_dit_butterfly_stark256") ]] 
-[[kernel]] void radix2_dit_butterfly<Fp>(
-    device Fp*, 
-    constant Fp*, 
+[[kernel]] void radix2_dit_butterfly<FpStark256>(
+    device FpStark256*, 
+    constant FpStark256*, 
     uint32_t, 
     uint32_t, 
     uint32_t
 );
 
 template [[ host_name("calc_twiddles_stark256") ]] 
-[[kernel]] void calc_twiddles<Fp>(
-    device Fp*,
-    constant Fp&, 
+[[kernel]] void calc_twiddles<FpStark256>(
+    device FpStark256*,
+    constant FpStark256&, 
     uint
 );
 
 template [[ host_name("calc_twiddles_inv_stark256") ]] 
-[[kernel]] void calc_twiddles_inv<Fp>(
-    device Fp*,
-    constant Fp&, 
+[[kernel]] void calc_twiddles_inv<FpStark256>(
+    device FpStark256*,
+    constant FpStark256&, 
     uint
 );
 
 template [[ host_name("calc_twiddles_bitrev_stark256") ]] 
-[[kernel]] void calc_twiddles_bitrev<Fp>(
-    device Fp*,
-    constant Fp&, 
+[[kernel]] void calc_twiddles_bitrev<FpStark256>(
+    device FpStark256*,
+    constant FpStark256&, 
     uint,
     uint
 );
 
 template [[ host_name("calc_twiddles_bitrev_inv_stark256") ]] 
-[[kernel]] void calc_twiddles_bitrev_inv<Fp>(
-    device Fp*,
-    constant Fp&, 
+[[kernel]] void calc_twiddles_bitrev_inv<FpStark256>(
+    device FpStark256*,
+    constant FpStark256&, 
     uint,
     uint
 );
 
 template [[ host_name("bitrev_permutation_stark256") ]] 
-[[kernel]] void bitrev_permutation<Fp>(
-    device Fp*, 
-    device Fp*, 
+[[kernel]] void bitrev_permutation<FpStark256>(
+    device FpStark256*, 
+    device FpStark256*, 
     uint, 
     uint
 );

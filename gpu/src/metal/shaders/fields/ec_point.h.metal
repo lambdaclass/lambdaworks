@@ -56,6 +56,11 @@ public:
         return ECPoint(xp, yp, zp);
     }
 
+    constexpr void operator+=(const ECPoint other) const
+    {
+        *this = *this + other;
+    }
+
     ECPoint neutral_element() const
     {
         return ECPoint(Fp(0), Fp(1), Fp(0));
@@ -75,6 +80,11 @@ public:
         }
 
         return result;
+    }
+
+    constexpr ECPoint operator*(uint64_t exponent) const
+    {
+        *this = *this + other;
     }
 
     ECPoint neg()
