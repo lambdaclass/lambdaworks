@@ -509,7 +509,8 @@ where
     let challenges =
         step_1_replay_rounds_and_recover_challenges(air, proof, &domain, &mut transcript);
 
-    if !step_2_verify_claimed_composition_polynomial(air, proof, &domain, public_input, &challenges) {
+    if !step_2_verify_claimed_composition_polynomial(air, proof, &domain, public_input, &challenges)
+    {
         return false;
     }
 

@@ -133,9 +133,7 @@ impl CairoAIR {
 
         let last_step = num_steps - 1;
 
-        Self {
-            context,
-        }
+        Self { context }
     }
 }
 
@@ -143,7 +141,6 @@ pub struct CairoRAPChallenges {
     pub alpha: FieldElement<Stark252PrimeField>,
     pub z: FieldElement<Stark252PrimeField>,
 }
-
 
 impl AIR for CairoAIR {
     type Field = Stark252PrimeField;
@@ -276,7 +273,7 @@ impl AIR for CairoAIR {
     fn boundary_constraints(
         &self,
         _rap_challenges: &Self::RAPChallenges,
-        public_input: &Self::PublicInput
+        public_input: &Self::PublicInput,
     ) -> BoundaryConstraints<Self::Field> {
         let last_step = self.context.trace_length - 1;
 
@@ -285,16 +282,10 @@ impl AIR for CairoAIR {
         let initial_ap =
             BoundaryConstraint::new(MEM_P_TRACE_OFFSET, 0, public_input.ap_init.clone());
 
-        let final_pc = BoundaryConstraint::new(
-            MEM_A_TRACE_OFFSET,
-            last_step,
-            public_input.pc_final.clone(),
-        );
-        let final_ap = BoundaryConstraint::new(
-            MEM_P_TRACE_OFFSET,
-            last_step,
-            public_input.ap_final.clone(),
-        );
+        let final_pc =
+            BoundaryConstraint::new(MEM_A_TRACE_OFFSET, last_step, public_input.pc_final.clone());
+        let final_ap =
+            BoundaryConstraint::new(MEM_P_TRACE_OFFSET, last_step, public_input.ap_final.clone());
 
         let constraints = vec![initial_pc, initial_ap, final_pc, final_ap];
 
@@ -434,6 +425,7 @@ fn frame_inst_size(frame_row: &[FE]) -> FE {
 }
 
 #[cfg(test)]
+#[cfg(debug_assertions)]
 mod test {
     use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
     use lambdaworks_math::field::element::FieldElement;
@@ -502,7 +494,7 @@ mod test {
 
     #[test]
     fn test_build_auxiliary_trace_works() {
-        /* 
+        /*
         let proof_options = ProofOptions {
             blowup_factor: 2,
             fri_number_of_queries: 1,
