@@ -46,7 +46,7 @@ constexpr static const constant u384 R_SUB_N = {
 
 class FpBLS12381 {
 public:
-    FpBLS12381() = default;
+    constexpr FpBLS12381() = default;
     constexpr FpBLS12381(uint64_t v) : inner{u384::from_int(v)} {}
     constexpr FpBLS12381(u384 v) : inner{v} {}
 
@@ -95,10 +95,10 @@ public:
         return FpBLS12381(inner << rhs);
     }
 
-    FpBLS12381 one() const
+    constexpr static FpBLS12381 one()
     {
         // TODO find a way to generate on compile time
-        FpBLS12381 const ONE = mul(u384::from_int((uint32_t) 1), R_SQUARED);
+        const FpBLS12381 ONE = FpBLS12381::mul(u384::from_int((uint32_t) 1), R_SQUARED);
         return ONE;
     }
 
@@ -204,7 +204,7 @@ private:
     // Reference:
     // - https://en.wikipedia.org/wiki/Montgomery_modular_multiplication (REDC)
     // - https://www.youtube.com/watch?v=2UmQDKcelBQ
-    u384 mul(const u384 lhs, const u384 rhs) const
+    constexpr static u384 mul(const u384 lhs, const u384 rhs)
     {
         u384 lhs_low = lhs.low();
         u384 lhs_high = lhs.high();
@@ -250,11 +250,11 @@ private:
         u384 mn_low = u384::from_high_low(tmp.low(), partial_mn_low.low());
         u384 mn_high = partial_mn_high + partial_mn_mid_a_high + partial_mn_mid_b_high + carry;
 
-        u384 overflow = mn_low + u384::from_int((uint32_t)(t_low < mn_low));
+        u384 overflow = mn_low + u384::from_bool(t_low < mn_low);
         u384 t_tmp = t_high + overflow;
         u384 t = t_tmp + mn_high;
-        u384 overflows_r = u384::from_int((uint32_t)(t < t_tmp));
-        u384 overflows_modulus = u384::from_int((uint32_t)(t >= N));
+        u384 overflows_r = u384::from_bool(t < t_tmp);
+        u384 overflows_modulus = u384::from_bool(t >= N);
 
         return t + overflows_r * R_SUB_N - overflows_modulus * N;
     }

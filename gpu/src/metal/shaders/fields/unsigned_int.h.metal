@@ -8,57 +8,67 @@ template <const uint64_t NUM_LIMBS>
 struct UnsignedInteger {
     metal::array<uint32_t, NUM_LIMBS> m_limbs;
 
+    constexpr UnsignedInteger() = default;
+
     constexpr static UnsignedInteger from_int(uint32_t n) {
-      UnsignedInteger res;
-      res.m_limbs[NUM_LIMBS - 1] = n;
-      return res;
+        UnsignedInteger res;
+        res.m_limbs[NUM_LIMBS - 1] = n;
+        return res;
     }
 
     constexpr static UnsignedInteger from_int(uint64_t n) {
-      UnsignedInteger res;
-      res.m_limbs[NUM_LIMBS - 2] = (uint32_t)(n >> 32);
-      res.m_limbs[NUM_LIMBS - 1] = (uint32_t)(n & 0xFFFF);
-      return res;
+        UnsignedInteger res;
+        res.m_limbs[NUM_LIMBS - 2] = (uint32_t)(n >> 32);
+        res.m_limbs[NUM_LIMBS - 1] = (uint32_t)(n & 0xFFFF);
+        return res;
+    }
+
+    constexpr static UnsignedInteger from_bool(bool b) {
+        UnsignedInteger res;
+        if (b) {
+            res.m_limbs[NUM_LIMBS - 1] = 1;
+        }
+        return res;
     }
 
     constexpr static UnsignedInteger from_high_low(UnsignedInteger high, UnsignedInteger low) {
-      UnsignedInteger res = low;
+        UnsignedInteger res = low;
 
-      for (uint64_t i = 0; i < NUM_LIMBS; i++) {
-        res.m_limbs[i] = high.m_limbs[i];
-      }
+        for (uint64_t i = 0; i < NUM_LIMBS; i++) {
+            res.m_limbs[i] = high.m_limbs[i];
+        }
 
-      return res;
+        return res;
     }
 
     constexpr UnsignedInteger low() const {
-      UnsignedInteger res = {m_limbs};
+        UnsignedInteger res = {m_limbs};
 
-      for (uint64_t i = 0; i < NUM_LIMBS / 2; i++) {
-        res.m_limbs[i] = 0;
-      }
+        for (uint64_t i = 0; i < NUM_LIMBS / 2; i++) {
+            res.m_limbs[i] = 0;
+        }
 
-      return res;
+        return res;
     }
 
     constexpr UnsignedInteger high() const {
-      UnsignedInteger res = {};
+        UnsignedInteger res = {};
 
-      for (uint64_t i = 0; i < NUM_LIMBS / 2; i++) {
-        res.m_limbs[NUM_LIMBS - 1 - i] = m_limbs[i];
-      }
+        for (uint64_t i = 0; i < NUM_LIMBS / 2; i++) {
+            res.m_limbs[NUM_LIMBS - 1 - i] = m_limbs[i];
+        }
 
-      return res;
+        return res;
     }
 
     static UnsignedInteger max() {
-      UnsignedInteger res = {};
+        UnsignedInteger res = {};
 
-      for (uint64_t i = 0; i < NUM_LIMBS; i++) {
-        res.m_limbs[i] = 0xFFFFFFFF;
-      }
+        for (uint64_t i = 0; i < NUM_LIMBS; i++) {
+            res.m_limbs[i] = 0xFFFFFFFF;
+        }
 
-      return res;
+        return res;
     }
 
     constexpr UnsignedInteger operator+(const UnsignedInteger rhs) const
@@ -115,7 +125,7 @@ struct UnsignedInteger {
         return *this;
     }
 
-    constexpr UnsignedInteger operator*(const UnsignedInteger rhs)
+    constexpr UnsignedInteger operator*(const UnsignedInteger rhs) const
     {
         uint64_t n = 0;
         uint64_t t = 0;
@@ -201,7 +211,7 @@ struct UnsignedInteger {
         return result;
     }
 
-    constexpr bool operator>(const UnsignedInteger rhs) {
+    constexpr bool operator>(const UnsignedInteger rhs) const {
       for (uint64_t i = 0; i < NUM_LIMBS; i++) {
         if (m_limbs[i] > rhs.m_limbs[i]) return true;
         if (m_limbs[i] < rhs.m_limbs[i]) return false;
@@ -219,7 +229,7 @@ struct UnsignedInteger {
       return true;
     }
 
-    constexpr bool operator<(const UnsignedInteger rhs) {
+    constexpr bool operator<(const UnsignedInteger rhs) const {
       for (uint64_t i = 0; i < NUM_LIMBS; i++) {
         if (m_limbs[i] > rhs.m_limbs[i]) return false;
         if (m_limbs[i] < rhs.m_limbs[i]) return true;
@@ -228,7 +238,7 @@ struct UnsignedInteger {
       return false;
     }
 
-    constexpr bool operator<=(const UnsignedInteger rhs) {
+    constexpr bool operator<=(const UnsignedInteger rhs) const {
       for (uint64_t i = 0; i < NUM_LIMBS; i++) {
         if (m_limbs[i] > rhs.m_limbs[i]) return false;
         if (m_limbs[i] < rhs.m_limbs[i]) return true;
