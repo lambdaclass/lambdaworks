@@ -1,4 +1,5 @@
 use crate::{
+    elliptic_curve::short_weierstrass::errors::DeserializationError,
     errors::ByteConversionError,
     field::{element::FieldElement, traits::IsField},
 };
@@ -29,6 +30,14 @@ pub trait ByteConversion {
 pub trait Serializable {
     /// Default serialize without args
     fn serialize(&self) -> Vec<u8>;
+}
+
+/// Deserialize function without args
+/// Used along with the Serializable trait
+pub trait Deserializable {
+    fn deserialize(bytes: &[u8]) -> Result<Self, DeserializationError>
+    where
+        Self: Sized;
 }
 
 pub trait IsRandomFieldElementGenerator<F: IsField> {

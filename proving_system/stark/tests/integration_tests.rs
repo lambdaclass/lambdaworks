@@ -2,7 +2,7 @@ use lambdaworks_math::field::fields::{
     fft_friendly::stark_252_prime_field::Stark252PrimeField, u64_prime_field::FE17,
 };
 use lambdaworks_math::helpers::resize_to_next_power_of_two;
-use lambdaworks_stark::air::example::cairo::{PublicInputs};
+use lambdaworks_stark::air::example::cairo::PublicInputs;
 use lambdaworks_stark::air::example::fibonacci_rap::{fibonacci_rap_trace, FibonacciRAP};
 use lambdaworks_stark::air::example::{
     cairo, fibonacci_2_columns, fibonacci_f17, quadratic_air, simple_fibonacci,
@@ -231,7 +231,6 @@ fn test_prove_cairo_fibonacci() {
     };
 
     let mut cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace);
-                                                                            
 
     // PC FINAL AND AP FINAL are not computed correctly since they are extracted after padding to
     // power of two and therefore are zero
@@ -266,14 +265,14 @@ fn test_prove_rap_fib() {
         },
         trace_columns: 3,
         trace_length: trace_cols[0].len(),
-        transition_degrees: vec![1],
+        transition_degrees: vec![1, 2],
         transition_offsets: vec![0, 1, 2],
         transition_exemptions: vec![exemptions, 1],
         num_transition_constraints: 2,
     };
 
     let fibonacci_rap = FibonacciRAP::new(context);
-    
+
     let result = prove(&trace_cols, &fibonacci_rap, &());
     assert!(verify(&result, &fibonacci_rap, &()));
 }

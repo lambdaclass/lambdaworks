@@ -4,7 +4,7 @@ use lambdaworks_math::{
     polynomial::Polynomial,
 };
 
-use crate::air::{frame::Frame, trace::TraceTable, AIR, example::cairo::PublicInputs};
+use crate::air::{example::cairo::PublicInputs, frame::Frame, trace::TraceTable, AIR};
 use std::iter::zip;
 
 use super::{boundary::BoundaryConstraints, evaluation_table::ConstraintEvaluationTable};

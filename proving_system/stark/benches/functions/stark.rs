@@ -63,6 +63,7 @@ pub fn prove_fib_2_cols() {
     verify(&result, &fibonacci_air, &());
 }
 
+#[allow(dead_code)]
 pub fn prove_fib17() {
     let trace = simple_fibonacci::fibonacci_trace([FE17::from(1), FE17::from(1)], 4);
 
@@ -86,6 +87,7 @@ pub fn prove_fib17() {
     verify(&result, &fibonacci_air, &());
 }
 
+#[allow(dead_code)]
 pub fn prove_quadratic() {
     let trace = quadratic_air::quadratic_trace(FE::from(3), 16);
 
@@ -104,7 +106,6 @@ pub fn prove_quadratic() {
     };
 
     let quadratic_air = quadratic_air::QuadraticAIR::from(context);
-
 
     let result = prove(&trace, &quadratic_air, &());
     verify(&result, &quadratic_air, &());
