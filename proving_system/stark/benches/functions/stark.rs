@@ -127,7 +127,7 @@ pub fn prove_cairo_fibonacci_5() {
         coset_offset: 3,
     };
 
-    let cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace, 2); // TODO: Put correct size of the program
+    let cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace);
     let public_input = CairoPublicInput {
         program: Vec::new(),
     }; // TODO: Put real program
@@ -150,7 +150,7 @@ pub fn prove_cairo_fibonacci_10() {
         coset_offset: 3,
     };
 
-    let cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace, 2); // TODO: Put correct size of the program
+    let cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace);
     let public_input = CairoPublicInput {
         program: Vec::new(),
     }; // TODO: Put real program
@@ -173,7 +173,7 @@ pub fn prove_cairo_fibonacci_30() {
         coset_offset: 3,
     };
 
-    let cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace, 2); // TODO: Put correct size of the program
+    let cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace);
     let public_input = CairoPublicInput {
         program: Vec::new(),
     }; // TODO: Put real program
@@ -196,7 +196,7 @@ pub fn prove_cairo_fibonacci_50() {
         coset_offset: 3,
     };
 
-    let cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace, 2); // TODO: Put correct size of the program
+    let cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace);
     let public_input = CairoPublicInput {
         program: Vec::new(),
     }; // TODO: Put real program
@@ -219,7 +219,7 @@ pub fn prove_cairo_fibonacci_100() {
         coset_offset: 3,
     };
 
-    let cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace, 2); // TODO: Put correct size of the program
+    let cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace);
     let public_input = CairoPublicInput {
         program: Vec::new(),
     }; // TODO: Put real program

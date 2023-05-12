@@ -144,7 +144,7 @@ fn test_prove_cairo_simple_program() {
         coset_offset: 3,
     };
 
-    let mut cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace, 2); // TODO: Put correct size of the program
+    let mut cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace);
                                                                             // PC FINAL AND AP FINAL are not computed correctly since they are extracted after padding to
                                                                             // power of two and therefore are zero
     cairo_air.pub_inputs.ap_final = FieldElement::zero();
@@ -192,7 +192,7 @@ fn test_prove_cairo_call_func() {
         coset_offset: 3,
     };
 
-    let mut cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace, 2); // TODO: Put correct size of the program
+    let mut cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace);
                                                                             // PC FINAL AND AP FINAL are not computed correctly since they are extracted after padding to
                                                                             // power of two and therefore are zero
     cairo_air.pub_inputs.ap_final = FieldElement::zero();
@@ -221,7 +221,7 @@ fn test_prove_cairo_fibonacci() {
         coset_offset: 3,
     };
 
-    let mut cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace, 2); // TODO: Put correct size of the program
+    let mut cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace);
                                                                             // PC FINAL AND AP FINAL are not computed correctly since they are extracted after padding to
                                                                             // power of two and therefore are zero
     cairo_air.pub_inputs.ap_final = FieldElement::zero();

@@ -112,7 +112,7 @@ pub struct CairoAIR {
 }
 
 impl CairoAIR {
-    pub fn new(proof_options: ProofOptions, trace: &CairoTrace, program_size: usize) -> Self {
+    pub fn new(proof_options: ProofOptions, trace: &CairoTrace) -> Self {
         let mut padded_num_steps = 1;
         let num_steps = trace.steps();
         while padded_num_steps < num_steps {
@@ -477,8 +477,7 @@ mod test {
             coset_offset: 3,
         };
 
-        // TODO: Put correct number of instructions
-        let mut cairo_air = CairoAIR::new(proof_options, &raw_trace, 2);
+        let mut cairo_air = CairoAIR::new(proof_options, &raw_trace);
 
         // PC FINAL AND AP FINAL are not computed correctly since they are extracted after padding to
         // power of two and therefore are zero
@@ -508,5 +507,20 @@ mod test {
             &domain,
             &rap_challenges
         ));
+    }
+
+    #[test]
+    fn test_build_auxiliary_trace_works() {
+        /* 
+        let proof_options = ProofOptions {
+            blowup_factor: 2,
+            fri_number_of_queries: 1,
+            coset_offset: 3,
+        };
+
+        let raw_trace
+        // TODO: Put correct number of instructions
+        let mut cairo_air = CairoAIR::new(proof_options, &raw_trace, 2);
+        */
     }
 }
