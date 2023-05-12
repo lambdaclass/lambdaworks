@@ -12,7 +12,6 @@ mod test {
     fn test_metal_ec_p_plus_infinity_should_equal_p() {
         let state = MetalState::new(None).unwrap();
         let pipeline = state.setup_pipeline("bls12381_add").unwrap();
-        let mut felt1 = FE::one();
 
         let p: &[FE] = &[FE::from(2_u64), FE::from(1_u64), FE::from(3_u64)];
         let p_buffer = state.alloc_buffer_data(p);
@@ -44,7 +43,6 @@ mod test {
     fn test_metal_ec_infinity_plus_q_should_equal_q() {
         let state = MetalState::new(None).unwrap();
         let pipeline = state.setup_pipeline("bls12381_add").unwrap();
-        let mut felt1 = FE::one();
 
         let p: &[FE] = &[FE::zero(), FE::one(), FE::zero()];
         let p_buffer = state.alloc_buffer_data(p);

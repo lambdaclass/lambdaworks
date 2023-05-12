@@ -21,6 +21,8 @@ use core::mem;
 /// in this order too. Natural order means that input[i] corresponds to the i-th coefficient,
 /// as opposed to bit-reverse order in which input[bit_rev(i)] corresponds to the i-th
 /// coefficient.
+// TODO: to support big endian architecture, copy all limbs with indices changed: 103254 -> 012345
+#[cfg(target_endian = "little")]
 pub fn pippenger<const NUM_LIMBS: usize, G>(
     cs: &[UnsignedInteger<NUM_LIMBS>],
     hidings: &[G],
@@ -35,35 +37,35 @@ where
         "Slices `cs` and `hidings` must be of the same length to compute `msm`."
     );
 
-    const MAX_THREADS: u64 = 512;
+    const MAX_THREADS: u64 = 64;
 
     let window_size: u32 = 4;
-    debug_assert!(window_size < usize::BITS);
+    let buflen: u64 = cs.len() as u64;
+    let n_bits = 64 * NUM_LIMBS as u64;
 
-    let n_groups: usize = 512.min(cs.len());
+    let num_windows = (n_bits - 1) / window_size as u64 + 1;
+
+    let num_threads = MAX_THREADS.min(buflen);
+
+    debug_assert!(window_size < usize::BITS);
 
     let pipeline = state.setup_pipeline("calculate_Gjs_bls12381")?;
 
     let cs_buffer = state.alloc_buffer_data(cs);
     let hidings_buffer = state.alloc_buffer_data(hidings);
-    let result_buffer = state.alloc_buffer::<G>(n_groups);
+    let result_buffer = state.alloc_buffer::<G>(num_windows as usize);
 
     let (command_buffer, command_encoder) = state.setup_command(
         &pipeline,
         Some(&[(0, &cs_buffer), (1, &hidings_buffer), (4, &result_buffer)]),
     );
 
-    command_encoder.set_bytes(2, u32::BITS.into(), void_ptr(&window_size));
-
-    let buflen: u64 = cs.len() as u64;
-    command_encoder.set_bytes(3, u64::BITS.into(), void_ptr(&buflen));
-
-    let n_bits = 64 * NUM_LIMBS as u64;
-    let num_windows = (n_bits - 1) / window_size as u64 + 1;
-    let num_threads = MAX_THREADS.min(buflen);
+    command_encoder.set_bytes(2, std::mem::size_of::<u32>() as u64, void_ptr(&window_size));
+    command_encoder.set_bytes(3, std::mem::size_of::<u64>() as u64, void_ptr(&buflen));
 
     let threadgroup_size = MTLSize::new(num_threads, 1, 1);
     let threadgroup_count = MTLSize::new(num_windows, 1, 1);
+
     command_encoder.dispatch_thread_groups(threadgroup_count, threadgroup_size);
     command_encoder.end_encoding();
 
@@ -76,6 +78,7 @@ where
         .into_iter()
         .rev()
         .reduce(|t, g| t.operate_with_self(1_u64 << window_size).operate_with(&g));
+
     Ok(result.expect("result_buffer is never empty"))
 }
 
@@ -84,17 +87,17 @@ mod tests {
     use lambdaworks_math::{
         cyclic_group::IsGroup,
         elliptic_curve::{
-            short_weierstrass::curves::bls12_381::curve::BLS12381Curve, traits::IsEllipticCurve,
+            short_weierstrass::{curves::bls12_381::{curve::BLS12381Curve, field_extension::BLS12381FieldModulus}, point::ShortWeierstrassProjectivePoint}, traits::{IsEllipticCurve, FromAffine},
         },
         msm::pippenger,
-        unsigned_integer::element::UnsignedInteger,
+        unsigned_integer::element::UnsignedInteger, field::{fields::montgomery_backed_prime_fields::MontgomeryBackendPrimeField, traits::IsField},
     };
     use proptest::{collection, prelude::*, prop_assert_eq, prop_compose, proptest};
 
     use crate::metal::abstractions::state::MetalState;
 
-    const _CASES: u32 = 20;
-    const _MAX_WSIZE: usize = 8;
+    const _CASES: u32 = 1;
+    const _MAX_WSIZE: usize = 4;
     const _MAX_LEN: usize = 30;
 
     prop_compose! {
@@ -138,5 +141,25 @@ mod tests {
 
             prop_assert_eq!(metal_result, cpu_result);
         }
+    }
+
+    #[test]
+    fn smoke_test() {
+        let state = MetalState::new(None).unwrap();
+
+        let pipeline = state.setup_pipeline("bls12381_add").unwrap();
+
+        let px = MontgomeryBackendPrimeField::<BLS12381FieldModulus, 6>::from_u64(2);
+        let py = MontgomeryBackendPrimeField::<BLS12381FieldModulus, 6>::from_u64(5);
+        let p = ShortWeierstrassProjectivePoint::<BLS12381Curve>::from_affine(px, py);
+
+        let qx = MontgomeryBackendPrimeField::<BLS12381FieldModulus, 6>::from_u64(2);
+        let qy = MontgomeryBackendPrimeField::<BLS12381FieldModulus, 6>::from_u64(5);
+        let q = ShortWeierstrassProjectivePoint::<BLS12381Curve>::;
+
+        let p_buffer = state.alloc_buffer_data(&[p]);
+        let q_buffer = state.alloc_buffer_data(&[q]);
+        let result_buffer =
+            state.alloc_buffer::<<BLS12381Curve as IsEllipticCurve>::PointRepresentation>(1);
     }
 }

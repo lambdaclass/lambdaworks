@@ -11,6 +11,13 @@ struct UnsignedInteger {
       return res;
     }
 
+    constexpr static UnsignedInteger from_int(uint64_t n) {
+      UnsignedInteger res = {};
+      res.m_limbs[NUM_LIMBS - 2] = (uint32_t)(n >> 32);
+      res.m_limbs[NUM_LIMBS - 1] = (uint32_t)(n & 0xFFFF);
+      return res;
+    }
+
     constexpr static UnsignedInteger from_high_low(UnsignedInteger high, UnsignedInteger low) {
       UnsignedInteger res = low;
 
@@ -65,6 +72,16 @@ struct UnsignedInteger {
         }
 
         return UnsignedInteger<NUM_LIMBS> {limbs};
+    }
+
+    constexpr bool operator==(const UnsignedInteger rhs) const
+    {
+        for (uint32_t i = 0; i < NUM_LIMBS; i++) {
+            if (m_limbs[i] != rhs.m_limbs[i]) {
+                return false;
+            }
+        }
+        return true;
     }
 
     constexpr UnsignedInteger operator+=(const UnsignedInteger rhs)
@@ -135,7 +152,7 @@ struct UnsignedInteger {
         return *this;
     }
 
-    constexpr UnsignedInteger operator<<(const uint32_t rhs)
+    constexpr UnsignedInteger operator<<(const uint32_t rhs) const
     {
         uint32_t limbs_shift = rhs >> 5;
         UnsignedInteger<NUM_LIMBS> result = {};
@@ -149,7 +166,7 @@ struct UnsignedInteger {
 
         result.m_limbs[0] = m_limbs[limbs_shift] << bit_shift;
 
-        for (int src = limbs_shift; src < NUM_LIMBS - 1; src++) {
+        for (uint32_t src = limbs_shift; src < NUM_LIMBS - 1; src++) {
             uint32_t dst = src - limbs_shift;
             result.m_limbs[dst] |= m_limbs[src + 1] & bitmask;
             result.m_limbs[dst + 1] = m_limbs[src + 1] << bit_shift;
@@ -158,7 +175,7 @@ struct UnsignedInteger {
         return result;
     }
 
-    constexpr UnsignedInteger operator>>(const uint32_t rhs)
+    constexpr UnsignedInteger operator>>(const uint32_t rhs) const
     {
         uint32_t limbs_shift = rhs >> 5;
         UnsignedInteger<NUM_LIMBS> result = {};

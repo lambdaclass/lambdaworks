@@ -6,3 +6,4 @@
 
 #include "fields/stark256.h.metal"
 #include "fields/bls12381.h.metal"
+#include "test/test_bls12381.h.metal"

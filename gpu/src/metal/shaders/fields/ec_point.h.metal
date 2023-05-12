@@ -3,17 +3,16 @@
 
 #include "ec_point.h.metal"
 
-template<typename Fp, const uint64_t a_curve>
+template<typename Fp, const uint64_t A_CURVE>
 class ECPoint {
 public:
 
     Fp x;
     Fp y;
     Fp z;
-    Fp a_fp;
 
-    ECPoint() = default;
-    constexpr ECPoint(Fp _x, Fp _y, Fp _z) : x(_x), y(_y), z(_z), a_fp(a_curve){}
+    constexpr ECPoint() : ECPoint(ECPoint::neutral_element()) {};
+    constexpr ECPoint(Fp _x, Fp _y, Fp _z) : x(_x), y(_y), z(_z) {}
 
     constexpr ECPoint operator+(const ECPoint other) const
     {
@@ -33,6 +32,8 @@ public:
             if (u1 != u2 || y == Fp(0)) {
                 return neutral_element();
             }
+
+            Fp a_fp = Fp(A_CURVE);
 
             Fp w = a_fp * z.pow(2) + Fp(3) * x.pow(2);
             Fp s = y * z;
@@ -56,7 +57,7 @@ public:
         return ECPoint(xp, yp, zp);
     }
 
-    constexpr void operator+=(const ECPoint other) const
+    void operator+=(const ECPoint other)
     {
         *this = *this + other;
     }
@@ -84,7 +85,12 @@ public:
 
     constexpr ECPoint operator*(uint64_t exponent) const
     {
-        *this = *this + other;
+        return (*this).operate_with_self(exponent);
+    }
+
+    constexpr void operator*=(uint64_t exponent)
+    {
+        *this = (*this).operate_with_self(exponent);
     }
 
     ECPoint neg()

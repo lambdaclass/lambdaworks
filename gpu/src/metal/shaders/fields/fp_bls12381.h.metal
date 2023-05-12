@@ -5,22 +5,14 @@
 #include "ec_point.h.metal"
 #include "../test/test_bls12381.h.metal"
 
-// Prime Field of U256 with modulus 0x800000000000011000000000000000000000000000000000000000000000001, used for Starks
 namespace {
-    typedef Fp256<
-    /* =N **/ /*u256(*/ 576460752303423505, 0, 0, 1 /*)*/,
-    /* =R_SQUARED **/ /*u256(*/ 576413109808302096, 18446744073700081664, 5151653887, 18446741271209837569 /*)*/,
-    /* =N_PRIME **/ /*u256(*/ 576460752303423504, 18446744073709551615, 18446744073709551615, 18446744073709551615 /*)*/
-    > Fp;
-
-    typedef ECPoint<Fp, 5> BLS12381;
     typedef UnsignedInteger<12> u384;
 }
 
 class FpBLS12381 {
 public:
     FpBLS12381() = default;
-    //constexpr FpBLS12381(uint32_t v) : inner{} {}
+    constexpr FpBLS12381(uint64_t v) : inner{u384::from_int(v)} {}
     constexpr FpBLS12381(u384 v) : inner{v} {}
 
     constexpr explicit operator u384() const
@@ -43,21 +35,47 @@ public:
         return FpBLS12381(mul(inner, rhs.inner));
     }
 
+    constexpr bool operator==(const FpBLS12381 rhs) const
+    {
+        return inner == rhs.inner;
+    }
+
+    constexpr bool operator!=(const FpBLS12381 rhs) const
+    {
+        return !(inner == rhs.inner);
+    }
+
+    constexpr operator uint32_t() const
+    {
+        return FpBLS12381(inner.m_limbs[11]);
+    }
+
+    FpBLS12381 operator>>(const uint32_t rhs) const
+    {
+        return FpBLS12381(inner >> rhs);
+    }
+
+    FpBLS12381 operator<<(const uint32_t rhs) const
+    {
+        return FpBLS12381(inner << rhs);
+    }
+
     // TODO: make method for all fields
-    FpBLS12381 pow(uint32_t exp)
+    FpBLS12381 pow(uint32_t exp) const
     {
         // TODO find a way to generate on compile time
-        FpBLS12381 const ONE = mul(u384::from_int(1), R_SQUARED);
+        FpBLS12381 const ONE = mul(u384::from_int((uint32_t) 1), R_SQUARED);
         FpBLS12381 res = ONE;
+        FpBLS12381 power = *this;
 
         while (exp > 0)
         {
             if (exp & 1)
             {
-                res = res * *this;
+                res = res * power;
             }
             exp >>= 1;
-            *this = *this * *this;
+            power = power * power;
         }
 
         return res;
@@ -102,7 +120,7 @@ public:
     FpBLS12381 neg()
     {
         // TODO: can improve
-        return FpBLS12381(sub(u384::from_int(0), inner));
+        return FpBLS12381(sub(u384::from_int((uint32_t)0), inner));
     }
 
 private:
@@ -162,7 +180,7 @@ private:
         u384 addition = (lhs + rhs);
         u384 res = addition;
         // TODO: determine if an if statement here are more optimal
-        return res - u384::from_int(addition >= N) * N + u384::from_int(addition < lhs) * R_SUB_N;
+        return res - u384::from_int((uint32_t)(addition >= N)) * N + u384::from_int((uint32_t)(addition < lhs)) * R_SUB_N;
     }
 
     // Computes `lhs - rhs mod N`
@@ -227,11 +245,11 @@ private:
         u384 mn_low = u384::from_high_low(tmp.low(), partial_mn_low.low());
         u384 mn_high = partial_mn_high + partial_mn_mid_a_high + partial_mn_mid_b_high + carry;
 
-        u384 overflow = mn_low + u384::from_int(t_low < mn_low);
+        u384 overflow = mn_low + u384::from_int((uint32_t)(t_low < mn_low));
         u384 t_tmp = t_high + overflow;
         u384 t = t_tmp + mn_high;
-        u384 overflows_r = u384::from_int(t < t_tmp);
-        u384 overflows_modulus = u384::from_int(t >= N);
+        u384 overflows_r = u384::from_int((uint32_t)(t < t_tmp));
+        u384 overflows_modulus = u384::from_int((uint32_t)(t >= N));
 
         return t + overflows_r * R_SUB_N - overflows_modulus * N;
     }
