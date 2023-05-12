@@ -119,8 +119,6 @@ pub fn build_cairo_execution_trace(
     trace_cols.push(mul);
     trace_cols.push(selector);
 
-    helpers::resize_to_next_power_of_two(&mut trace_cols);
-
     TraceTable::new_from_cols(&trace_cols)
 }
 

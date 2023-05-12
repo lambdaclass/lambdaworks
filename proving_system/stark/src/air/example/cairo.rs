@@ -1,8 +1,8 @@
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
-use lambdaworks_math::field::{
+use lambdaworks_math::{field::{
     element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
     traits::IsFFTField,
-};
+}, helpers};
 
 use crate::{
     air::{
@@ -140,18 +140,20 @@ pub struct PublicInputs {
 #[derive(Clone)]
 pub struct CairoAIR {
     pub context: AirContext,
+    pub number_steps: usize
 }
 
 impl CairoAIR {
-    pub fn new(proof_options: ProofOptions, trace: &CairoTrace) -> Self {
-        let mut padded_num_steps = 1;
-        let num_steps = trace.steps();
-        while padded_num_steps < num_steps {
-            padded_num_steps <<= 1;
+    pub fn new(proof_options: ProofOptions, program_size: usize, number_steps: usize) -> Self {
+        let trace_length = number_steps + (program_size >> 2);
+        let mut power_of_two = 1;
+        while power_of_two < trace_length {
+            power_of_two <<= 1;
         }
+
         let context = AirContext {
             options: proof_options,
-            trace_length: padded_num_steps,
+            trace_length: power_of_two,
             trace_columns: 34 + 12,
             transition_degrees: vec![
                 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, // Flags 0-14.
@@ -166,7 +168,7 @@ impl CairoAIR {
             num_transition_constraints: 43,
         };
 
-        Self { context }
+        Self { context, number_steps }
     }
 }
 
@@ -246,20 +248,20 @@ impl AIR for CairoAIR {
     ) -> TraceTable<Self::Field> {
         let main_trace = build_cairo_execution_trace(&raw_trace.0, &raw_trace.1);
 
-        // Add rows with zeros at the end with enough space to fit the program.
+        // Repeat the last row (with zeros in the memory columns) until the smallest
+        // power of two that leaves enough space for the program.
         let mut last_row = main_trace.last_row().to_vec();
         for memory_column in MEMORY_COLUMNS {
             last_row[memory_column] = FieldElement::zero();
         }
 
-        let program_size = public_input.program.len();
-        let public_input_section: Vec<FieldElement<Self::Field>> = std::iter::repeat(last_row)
-            .take(program_size >> 2)
+        let pad: Vec<FieldElement<Self::Field>> = std::iter::repeat(last_row)
+            .take(self.context().trace_length - main_trace.n_rows())
             .flatten()
             .collect();
 
         let mut main_trace_table = main_trace.table;
-        main_trace_table.extend_from_slice(&public_input_section);
+        main_trace_table.extend_from_slice(&pad);
 
         TraceTable::new(main_trace_table, main_trace.n_cols)
     }
@@ -349,29 +351,29 @@ impl AIR for CairoAIR {
         rap_challenges: &Self::RAPChallenges,
         public_input: &Self::PublicInput,
     ) -> BoundaryConstraints<Self::Field> {
-        let last_step = self.context.trace_length - 1;
-
         let initial_pc =
             BoundaryConstraint::new(MEM_A_TRACE_OFFSET, 0, public_input.pc_init.clone());
         let initial_ap =
             BoundaryConstraint::new(MEM_P_TRACE_OFFSET, 0, public_input.ap_init.clone());
 
         let final_pc =
-            BoundaryConstraint::new(MEM_A_TRACE_OFFSET, last_step, public_input.pc_final.clone());
+            BoundaryConstraint::new(MEM_A_TRACE_OFFSET, self.number_steps - 1, public_input.pc_final.clone());
         let final_ap =
-            BoundaryConstraint::new(MEM_P_TRACE_OFFSET, last_step, public_input.ap_final.clone());
+            BoundaryConstraint::new(MEM_P_TRACE_OFFSET, self.number_steps - 1, public_input.ap_final.clone());
 
         // Auxiliary constraint: permutation argument initial value 
         //BoundaryConstraint::new(PERMUTATION_ARGUMENT_COL_0, 0, )
         //public_input.program[0]
 
         // Auxiliary constraint: permutation argument final value
+        let final_index = self.context.trace_length - 1;
+
         let mut cumulative_product = FieldElement::one();
         for (i, value) in public_input.program.iter().enumerate() {
             cumulative_product = cumulative_product * (&rap_challenges.z - (FieldElement::from(i as u64) + &rap_challenges.alpha * value));
         }
         let permutation_final = rap_challenges.z.pow(public_input.program.len()) / cumulative_product;
-        let permutation_final_constraint = BoundaryConstraint::new(PERMUTATION_ARGUMENT_COL_3, last_step, permutation_final);
+        let permutation_final_constraint = BoundaryConstraint::new(PERMUTATION_ARGUMENT_COL_3, final_index, permutation_final);
 
         let constraints = vec![initial_pc, initial_ap, final_pc, final_ap, permutation_final_constraint];
 
@@ -586,8 +588,10 @@ fn frame_inst_size(frame_row: &[FE]) -> FE {
 #[cfg(test)]
 #[cfg(debug_assertions)]
 mod test {
+    use cairo_vm::{types::program::Program, cairo_run};
     use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
     use lambdaworks_math::field::element::FieldElement;
+    use thiserror::Error;
 
     use crate::{
         air::{
@@ -600,7 +604,7 @@ mod test {
             AIR,
         },
         cairo_vm::{cairo_mem::CairoMemory, cairo_trace::CairoTrace},
-        Domain,
+        Domain, cairo_run::run::Error,
     };
 
     use super::{
@@ -610,11 +614,30 @@ mod test {
     #[test]
     fn check_simple_cairo_trace_evaluates_to_zero() {
         let base_dir = env!("CARGO_MANIFEST_DIR");
+
+        let cairo_run_config = cairo_run::CairoRunConfig {
+            entrypoint: "main",
+            trace_enabled: true,
+            relocate_mem: true,
+            layout: "all_cairo",
+            proof_mode: false,
+            secure_run: None,
+        };
+        let json_filename = base_dir.to_owned() + "/src/cairo_vm/test_data/simple_program.json";
+        let program_content = std::fs::read(json_filename).map_err(Error::IO).unwrap();
+        let cairo_program = Program::from_bytes(&program_content, Some(cairo_run_config.entrypoint)).unwrap();
+
         let dir_trace = base_dir.to_owned() + "/src/cairo_vm/test_data/simple_program.trace";
         let dir_memory = base_dir.to_owned() + "/src/cairo_vm/test_data/simple_program.mem";
 
         let raw_trace = CairoTrace::from_file(&dir_trace).unwrap();
         let memory = CairoMemory::from_file(&dir_memory).unwrap();
+
+        //let program: Vec<u8> = program.iter_data().collect();
+        let mut program = Vec::new();
+        for i in 1..=cairo_program.data_len() as u64 {
+            program.push(memory.get(&i).unwrap().clone());
+        }
 
         let proof_options = ProofOptions {
             blowup_factor: 2,
@@ -622,14 +645,15 @@ mod test {
             coset_offset: 3,
         };
 
-        let mut cairo_air = CairoAIR::new(proof_options, &raw_trace);
+        let cairo_air = CairoAIR::new(proof_options, program.len(), raw_trace.steps());
 
         // PC FINAL AND AP FINAL are not computed correctly since they are extracted after padding to
         // power of two and therefore are zero
+        let last_register_state = &raw_trace.rows[raw_trace.steps() - 1];
         let public_input = PublicInputs {
-            program: Vec::new(),
-            ap_final: FieldElement::zero(),
-            pc_final: FieldElement::zero(),
+            program: program,
+            ap_final: FieldElement::from(last_register_state.ap),
+            pc_final: FieldElement::from(last_register_state.pc),
             pc_init: FieldElement::from(raw_trace.rows[0].pc),
             ap_init: FieldElement::from(raw_trace.rows[0].ap),
             fp_init: FieldElement::from(raw_trace.rows[0].fp),
