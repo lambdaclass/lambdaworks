@@ -108,42 +108,42 @@ public:
 private:
     u384 inner;
 
+    // taken from the Rust implementation
     constexpr static const constant u384 N = {
-        436277738, 964683418,
-        1260103606, 1129032919,
-        1685539716, 4085584575,
-        1731252896, 4138792484,
-        514588670, 2975072255,
-        3120496639, 4294945451
+        0x1a0111ea,0x397fe69a,
+        0x4b1ba7b6,0x434bacd7,
+        0x64774b84,0xf38512bf,
+        0x6730d2a0,0xf6b0f624,
+        0x1eabfffe,0xb153ffff,
+        0xb9feffff,0xffffaaab
     };
     constexpr static const constant u384 R_SQUARED = {
-        295210981, 2462770090,
-        2591637125, 3038352685,
-        1743489193, 2476573632,
-        2380613484, 1284880085,
-        175564454, 164693233,
-        4108263220, 473175878
+        0x11988fe5,0x92cae3aa,
+        0x9a793e85,0xb519952d,
+        0x67eb88a9,0x939d83c0,
+        0x8de5476c,0x4c95b6d5,
+        0x0a76e6a6,0x09d104f1,
+        0xf4df1f34,0x1c341746
     };
+    // N * N_PRIME = -1
     constexpr static const constant u384 N_PRIME = {
-        1534381189, 1334344675,
-        1875411489, 3867397717,
-        2301435770, 2935452467,
-        2908669417, 2814654000,
-        4258938632, 210135816, 
-        63534106, 783156227
-    };
-
-    constexpr static const constant u384 MAX = {
-        0xFFFFFFFF, 0xFFFFFFFF,
-        0xFFFFFFFF, 0xFFFFFFFF,
-        0xFFFFFFFF, 0xFFFFFFFF,
-        0xFFFFFFFF, 0xFFFFFFFF,
-        0xFFFFFFFF, 0xFFFFFFFF,
-        0xFFFFFFFF, 0xFFFFFFFF
+        0x314f9ef9,0x0155036b,
+        0x974ce901,0x1d9730a7,
+        0xe61335f1,0x714d24b3,
+        0xe910d10f,0x371cf4b7,
+        0xd795246d,0x262eec17,
+        0x760c0003,0x00030003
     };
 
     // Equates to `(1 << 384) - N`
-    constexpr static const constant u384 R_SUB_N = MAX - N + u384::from_int(1);
+    constexpr static const constant u384 R_SUB_N = {
+        0xe5feee15,0xc6801965,
+        0xb4e45849,0xbcb45328,
+        0x9b88b47b,0x0c7aed40,
+        0x98cf2d5f,0x094f09db,
+        0xe1540001,0x4eac0000,
+        0x46010000,0x00005555
+    };
 
     template<uint32_t N_ACC>
     u384 sqn(u384 base) const {
@@ -236,5 +236,3 @@ private:
         return t + overflows_r * R_SUB_N - overflows_modulus * N;
     }
 };
-
-#endif /* bls12381_h */
