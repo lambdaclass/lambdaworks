@@ -61,7 +61,7 @@ public:
 
     ECPoint neutral_element() const
     {
-        return ECPoint(Fp(0), Fp(1), Fp(0));
+        return ECPoint(Fp(0), Fp().one(), Fp(0));
     }
 
     ECPoint operate_with_self(uint64_t exponent) const
@@ -97,6 +97,6 @@ public:
 
     constexpr bool is_neutral_element(const ECPoint a_point) const
     {
-        return a_point.x == Fp(0) && a_point.z == Fp(0);
+        return a_point.x == Fp(0) && a_point.y == Fp().one() && a_point.z == Fp(0);
     }
 };

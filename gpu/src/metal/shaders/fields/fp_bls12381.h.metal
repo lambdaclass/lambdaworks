@@ -95,11 +95,18 @@ public:
         return FpBLS12381(inner << rhs);
     }
 
+    FpBLS12381 one() const
+    {
+        // TODO find a way to generate on compile time
+        FpBLS12381 const ONE = mul(u384::from_int((uint32_t) 1), R_SQUARED);
+        return ONE;
+    }
+
     // TODO: make method for all fields
     FpBLS12381 pow(uint32_t exp) const
     {
         // TODO find a way to generate on compile time
-        FpBLS12381 const ONE = mul(u384::from_int((uint32_t) 1), R_SQUARED);
+        FpBLS12381 const ONE = one();
         FpBLS12381 res = ONE;
         FpBLS12381 power = *this;
 
