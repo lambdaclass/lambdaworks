@@ -3,10 +3,12 @@ use crate::{
         self,
         constraints::boundary::{BoundaryConstraint, BoundaryConstraints},
         context::AirContext,
+        trace::TraceTable,
         AIR,
     },
     fri::FieldElement,
 };
+use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::field::{
     fields::fft_friendly::stark_252_prime_field::Stark252PrimeField, traits::IsField,
 };
@@ -24,10 +26,26 @@ impl From<AirContext> for Fibonacci2ColsAIR {
 
 impl AIR for Fibonacci2ColsAIR {
     type Field = Stark252PrimeField;
+    type RawTrace = Vec<Vec<FieldElement<Self::Field>>>;
+    type RAPChallenges = ();
+
+    fn build_main_trace(raw_trace: &Self::RawTrace) -> TraceTable<Self::Field> {
+        TraceTable::new_from_cols(raw_trace)
+    }
+
+    fn build_auxiliary_trace(
+        _main_trace: &TraceTable<Self::Field>,
+        _rap_challenges: &Self::RAPChallenges,
+    ) -> TraceTable<Self::Field> {
+        TraceTable::empty()
+    }
+
+    fn build_rap_challenges<T: Transcript>(_transcript: &mut T) -> Self::RAPChallenges {}
 
     fn compute_transition(
         &self,
         frame: &air::frame::Frame<Self::Field>,
+        _rap_challenges: &Self::RAPChallenges,
     ) -> Vec<FieldElement<Self::Field>> {
         let first_row = frame.get_row(0);
         let second_row = frame.get_row(1);
@@ -41,7 +59,10 @@ impl AIR for Fibonacci2ColsAIR {
         vec![first_transition, second_transition]
     }
 
-    fn boundary_constraints(&self) -> BoundaryConstraints<Self::Field> {
+    fn boundary_constraints(
+        &self,
+        _rap_challenges: &Self::RAPChallenges,
+    ) -> BoundaryConstraints<Self::Field> {
         let a0 = BoundaryConstraint::new(0, 0, FieldElement::<Self::Field>::one());
         let a1 = BoundaryConstraint::new(1, 0, FieldElement::<Self::Field>::one());
 
