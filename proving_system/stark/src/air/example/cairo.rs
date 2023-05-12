@@ -16,7 +16,7 @@ use crate::{
         cairo_mem::CairoMemory, cairo_trace::CairoTrace,
         execution_trace::build_cairo_execution_trace,
     },
-    transcript_to_field, FE, PrimeField,
+    transcript_to_field, PrimeField, FE,
 };
 
 /// Main constraint identifiers
@@ -35,6 +35,22 @@ const MUL_2: usize = 27;
 const CALL_1: usize = 28;
 const CALL_2: usize = 29;
 const ASSERT_EQ: usize = 30;
+
+// Auxiliary constraint identifiers
+const MEMORY_INCREASING_0: usize = 31;
+const MEMORY_INCREASING_1: usize = 32;
+const MEMORY_INCREASING_2: usize = 33;
+const MEMORY_INCREASING_3: usize = 34;
+
+const MEMORY_CONSISTENCY_0: usize = 35;
+const MEMORY_CONSISTENCY_1: usize = 36;
+const MEMORY_CONSISTENCY_2: usize = 37;
+const MEMORY_CONSISTENCY_3: usize = 38;
+
+const PERMUTATION_ARGUMENT_0: usize = 39;
+const PERMUTATION_ARGUMENT_1: usize = 40;
+const PERMUTATION_ARGUMENT_2: usize = 41;
+const PERMUTATION_ARGUMENT_3: usize = 42;
 
 // Frame row identifiers
 //  - Flags
@@ -74,6 +90,22 @@ pub const FRAME_T0: usize = 30;
 pub const FRAME_T1: usize = 31;
 pub const FRAME_MUL: usize = 32;
 pub const FRAME_SELECTOR: usize = 33;
+
+// Auxiliary columns
+pub const MEMORY_ADDR_SORTED_0: usize = 34;
+pub const MEMORY_ADDR_SORTED_1: usize = 35;
+pub const MEMORY_ADDR_SORTED_2: usize = 36;
+pub const MEMORY_ADDR_SORTED_3: usize = 37;
+
+pub const MEMORY_VALUES_SORTED_0: usize = 38;
+pub const MEMORY_VALUES_SORTED_1: usize = 39;
+pub const MEMORY_VALUES_SORTED_2: usize = 40;
+pub const MEMORY_VALUES_SORTED_3: usize = 41;
+
+pub const PERMUTATION_ARGUMENT_COL_0: usize = 42;
+pub const PERMUTATION_ARGUMENT_COL_1: usize = 43;
+pub const PERMUTATION_ARGUMENT_COL_2: usize = 44;
+pub const PERMUTATION_ARGUMENT_COL_3: usize = 45;
 
 pub const MEMORY_COLUMNS: [usize; 8] = [
     FRAME_PC,
@@ -125,13 +157,14 @@ impl CairoAIR {
                 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, // Flags 0-14.
                 1, // Flag 15
                 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, // Other constraints.
+                2, 2, 2, 2, // Increasing memory auxiliary constraints.
+                2, 2, 2, 2, // Consistent memory auxiliary constraints.
+                2, 2, 2, 2, // Permutation auxiliary constraints.
             ],
-            transition_exemptions: vec![1; 31],
+            transition_exemptions: vec![1; 43],
             transition_offsets: vec![0, 1],
-            num_transition_constraints: 31,
+            num_transition_constraints: 43,
         };
-
-        let last_step = num_steps - 1;
 
         Self { context }
     }
@@ -142,11 +175,10 @@ pub struct CairoRAPChallenges {
     pub z: FieldElement<Stark252PrimeField>,
 }
 
-
 fn add_program_in_public_input_section(
     addresses: &Vec<FE>,
     values: &Vec<FE>,
-    public_input: &PublicInputs
+    public_input: &PublicInputs,
 ) -> (Vec<FE>, Vec<FE>) {
     let mut a_aux = addresses.clone();
     let mut v_aux = values.clone();
@@ -172,18 +204,30 @@ fn generate_permutation_argument_column(
     values_original: Vec<FE>,
     addresses_sorted: &[FE],
     values_sorted: &[FE],
-    rap_challenges: &CairoRAPChallenges
+    rap_challenges: &CairoRAPChallenges,
 ) -> Vec<FE> {
     let z = &rap_challenges.z;
     let alpha = &rap_challenges.alpha;
     let f = |a, v, ap, vp| (z - (a + alpha * v)) / (z - (ap + alpha * vp));
 
     let mut permutation_col = Vec::with_capacity(addresses_sorted.len());
-    permutation_col.push(f(&addresses_original[0], &values_original[0], &addresses_sorted[0], &values_sorted[0]));
+    permutation_col.push(f(
+        &addresses_original[0],
+        &values_original[0],
+        &addresses_sorted[0],
+        &values_sorted[0],
+    ));
 
     for i in 1..addresses_sorted.len() {
         let last = permutation_col.last().unwrap();
-        permutation_col.push(last * f(&addresses_original[i], &values_original[i], &addresses_sorted[i], &values_sorted[i]));
+        permutation_col.push(
+            last * f(
+                &addresses_original[i],
+                &values_original[i],
+                &addresses_sorted[i],
+                &values_sorted[i],
+            ),
+        );
     }
 
     permutation_col
@@ -226,12 +270,26 @@ impl AIR for CairoAIR {
         rap_challenges: &Self::RAPChallenges,
         public_input: &Self::PublicInput,
     ) -> TraceTable<Self::Field> {
-        let addresses_original = main_trace.get_cols(&[FRAME_PC, FRAME_DST_ADDR, FRAME_OP0_ADDR, FRAME_OP1_ADDR]).table;
-        let values_original = main_trace.get_cols(&[FRAME_INST, FRAME_DST, FRAME_OP0, FRAME_OP1]).table;
+        let addresses_original = main_trace
+            .get_cols(&[FRAME_PC, FRAME_DST_ADDR, FRAME_OP0_ADDR, FRAME_OP1_ADDR])
+            .table;
+        let values_original = main_trace
+            .get_cols(&[FRAME_INST, FRAME_DST, FRAME_OP0, FRAME_OP1])
+            .table;
 
-        let (addresses, values) = add_program_in_public_input_section(&addresses_original, &values_original, public_input);
+        let (addresses, values) = add_program_in_public_input_section(
+            &addresses_original,
+            &values_original,
+            public_input,
+        );
         let (addresses, values) = sort_columns_by_memory_address(addresses, values);
-        let permutation_col = generate_permutation_argument_column(addresses_original, values_original, &addresses, &values, rap_challenges);
+        let permutation_col = generate_permutation_argument_column(
+            addresses_original,
+            values_original,
+            &addresses,
+            &values,
+            rap_challenges,
+        );
 
         // Convert from long-format to wide-format again
         let mut aux_table = Vec::new();
@@ -262,7 +320,7 @@ impl AIR for CairoAIR {
     fn compute_transition(
         &self,
         frame: &Frame<Self::Field>,
-        _rap_challenges: &Self::RAPChallenges,
+        rap_challenges: &Self::RAPChallenges,
     ) -> Vec<FieldElement<Self::Field>> {
         let mut constraints: Vec<FieldElement<Self::Field>> =
             vec![FE::zero(); self.num_transition_constraints()];
@@ -272,6 +330,8 @@ impl AIR for CairoAIR {
         compute_register_constraints(&mut constraints, frame);
         compute_opcode_constraints(&mut constraints, frame);
         enforce_selector(&mut constraints, frame);
+        memory_is_increasing(&mut constraints, frame);
+        permutation_argument(&mut constraints, frame, rap_challenges);
 
         constraints
     }
@@ -434,6 +494,79 @@ fn enforce_selector(constraints: &mut [FE], frame: &Frame<Stark252PrimeField>) {
     }
 }
 
+fn memory_is_increasing(constraints: &mut [FE], frame: &Frame<Stark252PrimeField>) {
+    let curr = frame.get_row(0);
+    let next = frame.get_row(1);
+    let one = FieldElement::one();
+    constraints[MEMORY_INCREASING_0] = (&curr[MEMORY_ADDR_SORTED_0] - &curr[MEMORY_ADDR_SORTED_1])
+        * (&curr[MEMORY_ADDR_SORTED_1] - &curr[MEMORY_ADDR_SORTED_0] - &one);
+    constraints[MEMORY_INCREASING_1] = (&curr[MEMORY_ADDR_SORTED_1] - &curr[MEMORY_ADDR_SORTED_2])
+        * (&curr[MEMORY_ADDR_SORTED_2] - &curr[MEMORY_ADDR_SORTED_1] - &one);
+    constraints[MEMORY_INCREASING_2] = (&curr[MEMORY_ADDR_SORTED_2] - &curr[MEMORY_ADDR_SORTED_3])
+        * (&curr[MEMORY_ADDR_SORTED_3] - &curr[MEMORY_ADDR_SORTED_2] - &one);
+    constraints[MEMORY_INCREASING_3] = (&curr[MEMORY_ADDR_SORTED_3] - &next[MEMORY_ADDR_SORTED_0])
+        * (&next[MEMORY_ADDR_SORTED_0] - &curr[MEMORY_ADDR_SORTED_3] - &one);
+
+    constraints[MEMORY_CONSISTENCY_0] = (&curr[MEMORY_VALUES_SORTED_0]
+        - &curr[MEMORY_VALUES_SORTED_1])
+        * (&curr[MEMORY_ADDR_SORTED_1] - &curr[MEMORY_ADDR_SORTED_0] - &one);
+    constraints[MEMORY_CONSISTENCY_1] = (&curr[MEMORY_VALUES_SORTED_1]
+        - &curr[MEMORY_VALUES_SORTED_2])
+        * (&curr[MEMORY_ADDR_SORTED_2] - &curr[MEMORY_ADDR_SORTED_1] - &one);
+    constraints[MEMORY_CONSISTENCY_2] = (&curr[MEMORY_VALUES_SORTED_2]
+        - &curr[MEMORY_VALUES_SORTED_3])
+        * (&curr[MEMORY_ADDR_SORTED_3] - &curr[MEMORY_ADDR_SORTED_2] - &one);
+    constraints[MEMORY_CONSISTENCY_3] = (&curr[MEMORY_VALUES_SORTED_3]
+        - &next[MEMORY_VALUES_SORTED_0])
+        * (&next[MEMORY_ADDR_SORTED_0] - &curr[MEMORY_ADDR_SORTED_3] - &one);
+}
+
+fn permutation_argument(
+    constraints: &mut [FE],
+    frame: &Frame<Stark252PrimeField>,
+    rap_challenges: &CairoRAPChallenges,
+) {
+    let curr = frame.get_row(0);
+    let next = frame.get_row(1);
+    let z = &rap_challenges.z;
+    let alpha = &rap_challenges.alpha;
+
+    let p0 = &curr[PERMUTATION_ARGUMENT_COL_0];
+    let p0_next = &next[PERMUTATION_ARGUMENT_COL_0];
+    let p1 = &curr[PERMUTATION_ARGUMENT_COL_1];
+    let p2 = &curr[PERMUTATION_ARGUMENT_COL_2];
+    let p3 = &curr[PERMUTATION_ARGUMENT_COL_3];
+
+    let ap0_next = &next[MEMORY_ADDR_SORTED_0];
+    let ap1 = &curr[MEMORY_ADDR_SORTED_1];
+    let ap2 = &curr[MEMORY_ADDR_SORTED_2];
+    let ap3 = &curr[MEMORY_ADDR_SORTED_3];
+
+    let vp0_next = &next[MEMORY_VALUES_SORTED_0];
+    let vp1 = &curr[MEMORY_VALUES_SORTED_1];
+    let vp2 = &curr[MEMORY_VALUES_SORTED_2];
+    let vp3 = &curr[MEMORY_VALUES_SORTED_3];
+
+    let a0_next = &next[FRAME_PC];
+    let a1 = &curr[FRAME_DST_ADDR];
+    let a2 = &curr[FRAME_OP0_ADDR];
+    let a3 = &curr[FRAME_OP1_ADDR];
+
+    let v0_next = &next[FRAME_INST];
+    let v1 = &curr[FRAME_DST];
+    let v2 = &curr[FRAME_OP0];
+    let v3 = &curr[FRAME_OP1];
+
+    constraints[PERMUTATION_ARGUMENT_0] =
+        (z - (ap1 + alpha * vp1)) * p1 - (z - (a1 + alpha * v1)) * p0;
+    constraints[PERMUTATION_ARGUMENT_1] =
+        (z - (ap2 + alpha * vp2)) * p2 - (z - (a2 + alpha * v2)) * p1;
+    constraints[PERMUTATION_ARGUMENT_2] =
+        (z - (ap3 + alpha * vp3)) * p3 - (z - (a3 + alpha * v3)) * p2;
+    constraints[PERMUTATION_ARGUMENT_3] =
+        (z - (ap0_next + alpha * vp0_next)) * p0_next - (z - (a0_next + alpha * v0_next)) * p3;
+}
+
 fn frame_inst_size(frame_row: &[FE]) -> FE {
     &frame_row[F_OP_1_VAL] + FE::one()
 }
@@ -446,16 +579,21 @@ mod test {
 
     use crate::{
         air::{
-            context::{ProofOptions},
+            context::ProofOptions,
             debug::validate_trace,
-            example::cairo::{CairoAIR, PublicInputs, FRAME_INST, FRAME_DST, FRAME_OP0, FRAME_OP1, add_program_in_public_input_section},
+            example::cairo::{
+                add_program_in_public_input_section, CairoAIR, PublicInputs, FRAME_DST, FRAME_INST,
+                FRAME_OP0, FRAME_OP1,
+            },
             AIR,
         },
         cairo_vm::{cairo_mem::CairoMemory, cairo_trace::CairoTrace},
         Domain,
     };
 
-    use super::{CairoRAPChallenges, sort_columns_by_memory_address, generate_permutation_argument_column};
+    use super::{
+        generate_permutation_argument_column, sort_columns_by_memory_address, CairoRAPChallenges,
+    };
 
     #[test]
     fn check_simple_cairo_trace_evaluates_to_zero() {
@@ -519,35 +657,115 @@ mod test {
             program: vec![FieldElement::from(2), FieldElement::from(3)],
             num_steps: 1,
         };
-        
-        let a = vec![FieldElement::one(), FieldElement::one(), FieldElement::zero(), FieldElement::zero()];
-        let v = vec![FieldElement::one(), FieldElement::one(), FieldElement::zero(), FieldElement::zero()];
+
+        let a = vec![
+            FieldElement::one(),
+            FieldElement::one(),
+            FieldElement::zero(),
+            FieldElement::zero(),
+        ];
+        let v = vec![
+            FieldElement::one(),
+            FieldElement::one(),
+            FieldElement::zero(),
+            FieldElement::zero(),
+        ];
         let (ap, vp) = add_program_in_public_input_section(&a, &v, &dummy_public_input);
-        assert_eq!(ap, vec![FieldElement::one(), FieldElement::one(), FieldElement::zero(), FieldElement::one()]);
-        assert_eq!(vp, vec![FieldElement::one(), FieldElement::one(), FieldElement::from(2), FieldElement::from(3)]);
+        assert_eq!(
+            ap,
+            vec![
+                FieldElement::one(),
+                FieldElement::one(),
+                FieldElement::zero(),
+                FieldElement::one()
+            ]
+        );
+        assert_eq!(
+            vp,
+            vec![
+                FieldElement::one(),
+                FieldElement::one(),
+                FieldElement::from(2),
+                FieldElement::from(3)
+            ]
+        );
     }
 
     #[test]
     fn test_build_auxiliary_trace_sort_columns_by_memory_address() {
-        let a = vec![FieldElement::from(2), FieldElement::one(), FieldElement::from(3), FieldElement::from(2)];
-        let v = vec![FieldElement::from(6), FieldElement::from(4), FieldElement::from(5), FieldElement::from(6)];
+        let a = vec![
+            FieldElement::from(2),
+            FieldElement::one(),
+            FieldElement::from(3),
+            FieldElement::from(2),
+        ];
+        let v = vec![
+            FieldElement::from(6),
+            FieldElement::from(4),
+            FieldElement::from(5),
+            FieldElement::from(6),
+        ];
         let (ap, vp) = sort_columns_by_memory_address(a, v);
-        assert_eq!(ap, vec![FieldElement::one(), FieldElement::from(2), FieldElement::from(2), FieldElement::from(3)]);
-        assert_eq!(vp, vec![FieldElement::from(4), FieldElement::from(6), FieldElement::from(6), FieldElement::from(5),]);
+        assert_eq!(
+            ap,
+            vec![
+                FieldElement::one(),
+                FieldElement::from(2),
+                FieldElement::from(2),
+                FieldElement::from(3)
+            ]
+        );
+        assert_eq!(
+            vp,
+            vec![
+                FieldElement::from(4),
+                FieldElement::from(6),
+                FieldElement::from(6),
+                FieldElement::from(5),
+            ]
+        );
     }
 
     #[test]
     fn test_build_auxiliary_trace_generate_permutation_argument_column() {
-        let a = vec![FieldElement::from(3), FieldElement::one(), FieldElement::from(2)];
-        let v = vec![FieldElement::from(5), FieldElement::one(), FieldElement::from(2)];
-        let ap = vec![FieldElement::one(), FieldElement::from(2), FieldElement::from(3)];
-        let vp = vec![FieldElement::one(), FieldElement::from(2), FieldElement::from(5)];
-        let rap_challenges = CairoRAPChallenges { alpha: FieldElement::from(15), z: FieldElement::from(10) };
-        let p = generate_permutation_argument_column(a, v, &ap, &vp, &rap_challenges);
-        assert_eq!(p, vec![
-            FieldElement::from_hex("2aaaaaaaaaaaab0555555555555555555555555555555555555555555555561").unwrap(),
-            FieldElement::from_hex("1745d1745d174602e8ba2e8ba2e8ba2e8ba2e8ba2e8ba2e8ba2e8ba2e8ba2ec").unwrap(),
+        let a = vec![
+            FieldElement::from(3),
             FieldElement::one(),
-        ]);
+            FieldElement::from(2),
+        ];
+        let v = vec![
+            FieldElement::from(5),
+            FieldElement::one(),
+            FieldElement::from(2),
+        ];
+        let ap = vec![
+            FieldElement::one(),
+            FieldElement::from(2),
+            FieldElement::from(3),
+        ];
+        let vp = vec![
+            FieldElement::one(),
+            FieldElement::from(2),
+            FieldElement::from(5),
+        ];
+        let rap_challenges = CairoRAPChallenges {
+            alpha: FieldElement::from(15),
+            z: FieldElement::from(10),
+        };
+        let p = generate_permutation_argument_column(a, v, &ap, &vp, &rap_challenges);
+        assert_eq!(
+            p,
+            vec![
+                FieldElement::from_hex(
+                    "2aaaaaaaaaaaab0555555555555555555555555555555555555555555555561"
+                )
+                .unwrap(),
+                FieldElement::from_hex(
+                    "1745d1745d174602e8ba2e8ba2e8ba2e8ba2e8ba2e8ba2e8ba2e8ba2e8ba2ec"
+                )
+                .unwrap(),
+                FieldElement::one(),
+            ]
+        );
     }
 }
