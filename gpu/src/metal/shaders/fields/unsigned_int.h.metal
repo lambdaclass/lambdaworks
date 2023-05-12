@@ -55,7 +55,7 @@ struct UnsignedInteger {
         UnsignedInteger res = {};
 
         for (uint64_t i = 0; i < NUM_LIMBS / 2; i++) {
-            res.m_limbs[NUM_LIMBS - 1 - i] = m_limbs[i];
+            res.m_limbs[NUM_LIMBS / 2 + i] = m_limbs[i];
         }
 
         return res;
