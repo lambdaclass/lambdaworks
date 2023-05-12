@@ -317,6 +317,10 @@ impl AIR for CairoAIR {
     fn context(&self) -> AirContext {
         self.context.clone()
     }
+
+    fn number_auxiliary_rap_columns(&self) -> usize {
+        12
+    }
 }
 
 /// From the Cairo whitepaper, section 9.10
