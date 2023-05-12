@@ -121,7 +121,7 @@ impl CairoAIR {
         let context = AirContext {
             options: proof_options,
             trace_length: padded_num_steps,
-            trace_columns: 34,
+            trace_columns: 34 + 12,
             transition_degrees: vec![
                 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, // Flags 0-14.
                 1, // Flag 15
@@ -210,7 +210,7 @@ impl AIR for CairoAIR {
         let mut v_aux = v_original.clone();
 
         // Add the program in the public input section
-        let public_input_section = main_trace.n_rows() - public_input.program.len();
+        let public_input_section = a_original.len() - public_input.program.len();
         let continous_memory =
             (0..public_input.program.len() as u64).map(|i| FieldElement::from(i));
 
@@ -238,7 +238,7 @@ impl AIR for CairoAIR {
 
         // Convert from long-format to wide-format again
         let mut aux_table = Vec::new();
-        for i in (0..a_aux.len()).step_by(12) {
+        for i in (0..a_aux.len()).step_by(4) {
             aux_table.push(a_aux[i].clone());
             aux_table.push(a_aux[i + 1].clone());
             aux_table.push(a_aux[i + 2].clone());
