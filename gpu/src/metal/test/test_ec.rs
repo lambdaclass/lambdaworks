@@ -44,7 +44,7 @@ mod test {
         let state = MetalState::new(None).unwrap();
         let pipeline = state.setup_pipeline("bls12381_add").unwrap();
 
-        let p: &[FE] = &[FE::zero(), FE::one(), FE::from(179_u64)];
+        let p: &[FE] = &[FE::zero(), FE::one(), FE::zero()];
         let p_buffer = state.alloc_buffer_data(p);
         let q: &[FE] = &[FE::from(66_u64), FE::from(85_u64), FE::from(179_u64)];
         let q_buffer = state.alloc_buffer_data(q);
