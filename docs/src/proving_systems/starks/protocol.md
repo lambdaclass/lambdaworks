@@ -229,12 +229,3 @@ $$
 $$
 \gamma\frac{\eta_1^{\upsilon_0} - \eta_1^{z^2}}{\upsilon_0 - z^2} + \gamma'\frac{\eta_2^{\upsilon_0} - \eta_2^{z^2}}{\upsilon_0 - z^2} + \sum_j \gamma_j\frac{\tau_j^{\upsilon_0} - \tau_j^{z}}{\upsilon_0 - z} + \gamma_j'\frac{\tau_j^{\upsilon_0} - \tau_j^{gz}}{\upsilon_0 - gz}
 $$
-
-
-
-
-
-
-
-
-
