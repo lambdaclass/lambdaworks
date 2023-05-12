@@ -2,10 +2,10 @@
 mod test {
     use crate::metal::abstractions::state::MetalState;
     use lambdaworks_math::field::element::FieldElement;
-    use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
     use metal::MTLSize;
 
-    pub type F = Stark252PrimeField;
+    pub type F = BLS12381PrimeField;
+    use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::BLS12381PrimeField;
     pub type FE = FieldElement<F>;
 
     #[test]
@@ -44,7 +44,7 @@ mod test {
         let state = MetalState::new(None).unwrap();
         let pipeline = state.setup_pipeline("bls12381_add").unwrap();
 
-        let p: &[FE] = &[FE::zero(), FE::one(), FE::zero()];
+        let p: &[FE] = &[FE::zero(), FE::one(), FE::from(179_u64)];
         let p_buffer = state.alloc_buffer_data(p);
         let q: &[FE] = &[FE::from(66_u64), FE::from(85_u64), FE::from(179_u64)];
         let q_buffer = state.alloc_buffer_data(q);

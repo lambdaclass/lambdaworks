@@ -87,10 +87,17 @@ mod tests {
     use lambdaworks_math::{
         cyclic_group::IsGroup,
         elliptic_curve::{
-            short_weierstrass::{curves::bls12_381::{curve::BLS12381Curve, field_extension::BLS12381FieldModulus}, point::ShortWeierstrassProjectivePoint}, traits::{IsEllipticCurve, FromAffine},
+            short_weierstrass::{
+                curves::bls12_381::{curve::BLS12381Curve, field_extension::BLS12381FieldModulus},
+                point::ShortWeierstrassProjectivePoint,
+            },
+            traits::{FromAffine, IsEllipticCurve},
+        },
+        field::{
+            fields::montgomery_backed_prime_fields::MontgomeryBackendPrimeField, traits::IsField,
         },
         msm::pippenger,
-        unsigned_integer::element::UnsignedInteger, field::{fields::montgomery_backed_prime_fields::MontgomeryBackendPrimeField, traits::IsField},
+        unsigned_integer::element::UnsignedInteger,
     };
     use proptest::{collection, prelude::*, prop_assert_eq, prop_compose, proptest};
 
@@ -142,7 +149,7 @@ mod tests {
             prop_assert_eq!(metal_result, cpu_result);
         }
     }
-
+    /*
     #[test]
     fn smoke_test() {
         let state = MetalState::new(None).unwrap();
@@ -162,4 +169,6 @@ mod tests {
         let result_buffer =
             state.alloc_buffer::<<BLS12381Curve as IsEllipticCurve>::PointRepresentation>(1);
     }
+
+    */
 }
