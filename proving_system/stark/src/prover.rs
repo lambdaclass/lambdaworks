@@ -301,7 +301,7 @@ fn round_4_compute_and_run_fri_on_the_deep_composition_polynomial<
     round_3_result: &Round3<F>,
     z: &FieldElement<F>,
     transcript: &mut T,
-) -> Round4<F>
+) -> Result<Round4<F>, ProverError>
 where
     FieldElement<F>: ByteConversion,
 {
@@ -326,7 +326,7 @@ where
         &domain.trace_primitive_root,
         &composition_poly_coeffients,
         &trace_poly_coeffients,
-    );
+    )?;
 
     // FRI commit and query phases
     let (fri_last_value, fri_layers) = fri_commit_phase(
@@ -345,12 +345,12 @@ where
     let deep_poly_openings =
         open_deep_composition_poly(domain, round_1_result, round_2_result, iota_0);
 
-    Round4 {
+    Ok(Round4 {
         fri_last_value,
         fri_layers_merkle_roots,
         deep_poly_openings,
         query_list,
-    }
+    })
 }
 
 /// Returns the DEEP composition polynomial that the prover then commits to using
@@ -366,7 +366,20 @@ fn compute_deep_composition_poly<A: AIR, F: IsFFTField>(
     primitive_root: &FieldElement<F>,
     composition_poly_gammas: &[FieldElement<F>; 2],
     trace_terms_gammas: &[FieldElement<F>],
-) -> Polynomial<FieldElement<F>> {
+) -> Result<Polynomial<FieldElement<F>>, ProverError> {
+    // Get trace evaluations needed for the trace terms of the deep composition polynomial
+    let transition_offsets = air.context().transition_offsets;
+    let trace_frame_evaluations =
+        Frame::get_trace_evaluations(trace_polys, z, &transition_offsets, primitive_root);
+
+    if trace_terms_gammas.len() != trace_frame_evaluations.len() * trace_polys.len() {
+        return Err(ProverError::DeepTraceTermGammasError(
+            trace_frame_evaluations.len(),
+            trace_polys.len(),
+            trace_terms_gammas.len(),
+        ));
+    }
+
     // Compute composition polynomial terms of the deep composition polynomial.
     let x = Polynomial::new_monomial(FieldElement::one(), 1);
     let h_1 = &round_2_result.composition_poly_even;
@@ -382,11 +395,6 @@ fn compute_deep_composition_poly<A: AIR, F: IsFFTField>(
 
     // 𝛾' ( H₂ − H₂(z²) ) / ( X − z² )
     let h_2_term = gamma_p * (h_2 - h_2_z2) / (&x - z_squared);
-
-    // Get trace evaluations needed for the trace terms of the deep composition polynomial
-    let transition_offsets = air.context().transition_offsets;
-    let trace_frame_evaluations =
-        Frame::get_trace_evaluations(trace_polys, z, &transition_offsets, primitive_root);
 
     // Compute the sum of all the trace terms of the deep composition polynomial.
     // There is one term for every trace polynomial and for every row in the frame.
@@ -406,7 +414,7 @@ fn compute_deep_composition_poly<A: AIR, F: IsFFTField>(
         }
     }
 
-    h_1_term + h_2_term + trace_terms
+    Ok(h_1_term + h_2_term + trace_terms)
 }
 
 fn open_deep_composition_poly<F: IsFFTField, A: AIR<Field = F>>(
@@ -454,7 +462,6 @@ where
     }
 }
 
-// FIXME remove unwrap() calls and return errors
 pub fn prove<F: IsFFTField, A: AIR<Field = F>>(
     trace: &A::RawTrace,
     air: &A,
@@ -575,7 +582,7 @@ where
         &round_3_result,
         &z,
         &mut transcript,
-    );
+    )?;
 
     info!("End proof generation");
 
