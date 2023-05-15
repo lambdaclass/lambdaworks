@@ -28,7 +28,7 @@ pub trait AIR: Clone {
     fn build_main_trace(
         &self,
         raw_trace: &Self::RawTrace,
-        public_input: &Self::PublicInput,
+        public_input: &mut Self::PublicInput,
     ) -> TraceTable<Self::Field>;
 
     fn build_auxiliary_trace(

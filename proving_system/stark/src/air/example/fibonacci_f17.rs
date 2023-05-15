@@ -31,7 +31,7 @@ impl AIR for Fibonacci17AIR {
     fn build_main_trace(
         &self,
         raw_trace: &Self::RawTrace,
-        public_input: &Self::PublicInput,
+        public_input: &mut Self::PublicInput,
     ) -> TraceTable<Self::Field> {
         TraceTable::new_from_cols(raw_trace)
     }

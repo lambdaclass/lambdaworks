@@ -39,7 +39,7 @@ fn test_prove_fib() {
 
     let fibonacci_air = simple_fibonacci::FibonacciAIR::from(context);
 
-    let result = prove(&trace, &fibonacci_air, &());
+    let result = prove(&trace, &fibonacci_air, &mut ());
     assert!(verify(&result, &fibonacci_air, &()));
 }
 
@@ -63,7 +63,7 @@ fn test_prove_fib17() {
 
     let fibonacci_air = fibonacci_f17::Fibonacci17AIR::from(context);
 
-    let result = prove(&trace, &fibonacci_air, &());
+    let result = prove(&trace, &fibonacci_air, &mut ());
     assert!(verify(&result, &fibonacci_air, &()));
 }
 
@@ -88,7 +88,7 @@ fn test_prove_fib_2_cols() {
 
     let fibonacci_air = fibonacci_2_columns::Fibonacci2ColsAIR::from(context);
 
-    let result = prove(&trace_columns, &fibonacci_air, &());
+    let result = prove(&trace_columns, &fibonacci_air, &mut ());
     assert!(verify(&result, &fibonacci_air, &()));
 }
 
@@ -112,7 +112,7 @@ fn test_prove_quadratic() {
 
     let quadratic_air = quadratic_air::QuadraticAIR::from(context);
 
-    let result = prove(&trace, &quadratic_air, &());
+    let result = prove(&trace, &quadratic_air, &mut ());
     assert!(verify(&result, &quadratic_air, &()));
 }
 
@@ -154,7 +154,7 @@ fn test_prove_cairo_simple_program() {
 
     let first_step = &raw_trace.rows[0];
     let last_step = &raw_trace.rows[raw_trace.steps() - 1];
-    let public_input = PublicInputs {
+    let mut public_input = PublicInputs {
         pc_init: FE::from(first_step.pc),
         ap_init: FE::from(first_step.ap),
         fp_init: FE::from(first_step.fp),
@@ -164,7 +164,7 @@ fn test_prove_cairo_simple_program() {
         program,
     };
 
-    let result = prove(&(raw_trace, memory), &cairo_air, &public_input);
+    let result = prove(&(raw_trace, memory), &cairo_air, &mut public_input);
     assert!(verify(&result, &cairo_air, &public_input));
 }
 
@@ -212,7 +212,7 @@ fn test_prove_cairo_call_func() {
 
     let cairo_air = cairo::CairoAIR::new(proof_options, program_size, raw_trace.steps());
     let last_step = &raw_trace.rows[raw_trace.steps() - 1];
-    let public_input = PublicInputs {
+    let mut public_input = PublicInputs {
         pc_init: FE::from(raw_trace.rows[0].pc),
         ap_init: FE::from(raw_trace.rows[0].ap),
         fp_init: FE::from(raw_trace.rows[0].fp),
@@ -222,7 +222,7 @@ fn test_prove_cairo_call_func() {
         program,
     };
 
-    let result = prove(&(raw_trace, memory), &cairo_air, &public_input);
+    let result = prove(&(raw_trace, memory), &cairo_air, &mut public_input);
     assert!(verify(&result, &cairo_air, &public_input));
 }
 
@@ -251,7 +251,7 @@ fn test_prove_cairo_fibonacci() {
     let cairo_air = cairo::CairoAIR::new(proof_options, program_size, raw_trace.steps());
 
     let last_step = &raw_trace.rows[raw_trace.steps() - 1];
-    let public_input = PublicInputs {
+    let mut public_input = PublicInputs {
         pc_init: FE::from(raw_trace.rows[0].pc),
         ap_init: FE::from(raw_trace.rows[0].ap),
         fp_init: FE::from(raw_trace.rows[0].fp),
@@ -261,7 +261,7 @@ fn test_prove_cairo_fibonacci() {
         program,
     };
 
-    let result = prove(&(raw_trace, memory), &cairo_air, &public_input);
+    let result = prove(&(raw_trace, memory), &cairo_air, &mut public_input);
     assert!(verify(&result, &cairo_air, &public_input));
 }
 
@@ -290,6 +290,6 @@ fn test_prove_rap_fib() {
 
     let fibonacci_rap = FibonacciRAP::new(context);
 
-    let result = prove(&trace_cols, &fibonacci_rap, &());
+    let result = prove(&trace_cols, &fibonacci_rap, &mut ());
     assert!(verify(&result, &fibonacci_rap, &()));
 }

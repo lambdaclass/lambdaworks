@@ -1,6 +1,6 @@
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::field::{
-    element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+    element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField, traits::IsFFTField,
 };
 
 use crate::{
@@ -240,6 +240,14 @@ fn generate_permutation_argument_column(
     permutation_col
 }
 
+// fn pad_with_zeros<F: IsFFTField>(trace: &mut TraceTable<F>, number_rows: usize) {
+//         let pad = vec![
+//             FieldElement::zero();
+//             trace.n_cols * number_rows
+//         ];
+//         trace.table.extend_from_slice(&pad);
+// }
+
 impl AIR for CairoAIR {
     type Field = Stark252PrimeField;
     type RawTrace = (CairoTrace, CairoMemory);
@@ -249,7 +257,7 @@ impl AIR for CairoAIR {
     fn build_main_trace(
         &self,
         raw_trace: &Self::RawTrace,
-        public_input: &Self::PublicInput,
+        public_input: &mut Self::PublicInput,
     ) -> TraceTable<Self::Field> {
         let main_trace = build_cairo_execution_trace(&raw_trace.0, &raw_trace.1);
 
@@ -683,7 +691,7 @@ mod test {
         // PC FINAL AND AP FINAL are not computed correctly since they are extracted after padding to
         // power of two and therefore are zero
         let last_register_state = &raw_trace.rows[raw_trace.steps() - 1];
-        let public_input = PublicInputs {
+        let mut public_input = PublicInputs {
             program: program,
             ap_final: FieldElement::from(last_register_state.ap),
             pc_final: FieldElement::from(last_register_state.pc),
@@ -693,7 +701,7 @@ mod test {
             num_steps: raw_trace.steps(),
         }; // TODO: Put real program
 
-        let main_trace = cairo_air.build_main_trace(&(raw_trace, memory), &public_input);
+        let main_trace = cairo_air.build_main_trace(&(raw_trace, memory), &mut public_input);
         let mut trace_polys = main_trace.compute_trace_polys();
         let mut transcript = DefaultTranscript::new();
         let rap_challenges = cairo_air.build_rap_challenges(&mut transcript);

@@ -149,7 +149,7 @@ fn round_1_randomized_air_with_preprocessing<F: IsFFTField, A: AIR<Field = F>, T
     air: &A,
     raw_trace: &A::RawTrace,
     domain: &Domain<F>,
-    public_input: &A::PublicInput,
+    public_input: &mut A::PublicInput,
     transcript: &mut T,
 ) -> Round1<F, A>
 where
@@ -454,7 +454,7 @@ where
 pub fn prove<F: IsFFTField, A: AIR<Field = F>>(
     trace: &A::RawTrace,
     air: &A,
-    public_input: &A::PublicInput,
+    public_input: &mut A::PublicInput,
 ) -> StarkProof<F>
 where
     FieldElement<F>: ByteConversion,
@@ -473,7 +473,7 @@ where
         &air,
         trace,
         &domain,
-        &public_input,
+        public_input,
         &mut transcript,
     );
 
