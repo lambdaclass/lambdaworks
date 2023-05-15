@@ -343,7 +343,7 @@ where
         .collect();
 
     let deep_poly_openings =
-        open_deep_composition_poly(domain, round_1_result, round_2_result, iota_0);
+        open_deep_composition_poly(domain, round_1_result, round_2_result, iota_0)?;
 
     Ok(Round4 {
         fri_last_value,
@@ -406,6 +406,9 @@ fn compute_deep_composition_poly<A: AIR, F: IsFFTField>(
             .zip(&transition_offsets)
             .enumerate()
         {
+            // `Frame::get_trace_evaluations` returns a vector of evaluation vectors where each
+            // evaluation vector has the same length as the trace polys vector, so it's OK here
+            // to get a value from an evaluation vector without checking
             let t_j_z = evaluations[i].clone();
             let z_shifted = z * primitive_root.pow(*offset);
             let poly = (t_j - t_j_z) / (&x - z_shifted);
@@ -422,7 +425,7 @@ fn open_deep_composition_poly<F: IsFFTField, A: AIR<Field = F>>(
     round_1_result: &Round1<F, A>,
     round_2_result: &Round2<F>,
     index_to_open: usize,
-) -> DeepPolynomialOpenings<F>
+) -> Result<DeepPolynomialOpenings<F>, ProverError>
 where
     FieldElement<F>: ByteConversion,
 {
@@ -433,16 +436,28 @@ where
         .composition_poly_even_merkle_tree
         .get_proof_by_pos(index)
         .unwrap();
-    let lde_composition_poly_even_evaluation =
-        round_2_result.lde_composition_poly_even_evaluations[index].clone();
+    let lde_composition_poly_even_evaluation = round_2_result
+        .lde_composition_poly_even_evaluations
+        .get(index)
+        .ok_or(ProverError::CompositionPolyEvenEvaluationsError(
+            round_2_result.lde_composition_poly_even_evaluations.len(),
+            index,
+        ))?
+        .clone();
 
     // H₂ openings
     let lde_composition_poly_odd_proof = round_2_result
         .composition_poly_odd_merkle_tree
         .get_proof_by_pos(index)
         .unwrap();
-    let lde_composition_poly_odd_evaluation =
-        round_2_result.lde_composition_poly_odd_evaluations[index].clone();
+    let lde_composition_poly_odd_evaluation = round_2_result
+        .lde_composition_poly_odd_evaluations
+        .get(index)
+        .ok_or(ProverError::CompositionPolyOddEvaluationsError(
+            round_2_result.lde_composition_poly_odd_evaluations.len(),
+            index,
+        ))?
+        .clone();
 
     // Trace polynomials openings
     let lde_trace_merkle_proofs = round_1_result
@@ -452,14 +467,14 @@ where
         .collect();
     let lde_trace_evaluations = round_1_result.lde_trace.get_row(index).to_vec();
 
-    DeepPolynomialOpenings {
+    Ok(DeepPolynomialOpenings {
         lde_composition_poly_even_proof,
         lde_composition_poly_even_evaluation,
         lde_composition_poly_odd_proof,
         lde_composition_poly_odd_evaluation,
         lde_trace_merkle_proofs,
         lde_trace_evaluations,
-    }
+    })
 }
 
 pub fn prove<F: IsFFTField, A: AIR<Field = F>>(
