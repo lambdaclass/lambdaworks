@@ -115,18 +115,22 @@ struct UnsignedInteger {
 
     constexpr UnsignedInteger operator-(const UnsignedInteger rhs) const
     {
+        metal::array<uint32_t, NUM_LIMBS> swapped_limbs = swap_limbs(m_limbs);
+        metal::array<uint32_t, NUM_LIMBS> rhs_swapped_limbs = swap_limbs(rhs.m_limbs);
+
         metal::array<uint32_t, NUM_LIMBS> limbs {};
         uint64_t carry = 0;
         uint64_t i = NUM_LIMBS;
 
         while (i > 0) {
             i -= 1;
-            uint64_t c = uint64_t(m_limbs[i - 1]) - uint64_t(rhs.m_limbs[i - 1]) + carry;
+            uint64_t c = uint64_t(swapped_limbs[i - 1]) - uint64_t(rhs_swapped_limbs[i - 1]) + carry;
             limbs[i] = c & 0x0000FFFF;
             carry = c < 0 ? -1 : 0;
         }
 
-        return UnsignedInteger<NUM_LIMBS> {limbs};
+        metal::array<uint32_t, NUM_LIMBS> res_limbs = swap_limbs(limbs);
+        return UnsignedInteger<NUM_LIMBS> {res_limbs};
     }
 
     constexpr UnsignedInteger operator-=(const UnsignedInteger rhs)
@@ -135,18 +139,31 @@ struct UnsignedInteger {
         return *this;
     }
 
+    constexpr metal::array<uint32_t, NUM_LIMBS> swap_limbs(metal::array<uint32_t, NUM_LIMBS> limbs) const {
+        metal::array<uint32_t, NUM_LIMBS> swap_limbs {};
+
+        for (uint64_t i = 0; i < NUM_LIMBS / 2; i++) {
+            swap_limbs[i * 2] = limbs[i * 2 + 1];
+            swap_limbs[i * 2 + 1] = limbs[i * 2];
+        }
+
+        return swap_limbs;
+    }
+
     constexpr UnsignedInteger operator*(const UnsignedInteger rhs) const
     {
+        long int INT_NUM_LIMBS = (long int)NUM_LIMBS;
+        metal::array<uint32_t, NUM_LIMBS> swapped_limbs = swap_limbs(m_limbs);
+        metal::array<uint32_t, NUM_LIMBS> rhs_swapped_limbs = swap_limbs(rhs.m_limbs);
+
         uint64_t n = 0;
         uint64_t t = 0;
 
-        int INT_NUM_LIMBS = (int)NUM_LIMBS;
-
-        for (int i = INT_NUM_LIMBS - 1; i >= 0; i--) {
-            if (m_limbs[i] != 0) {
+        for (long int i = INT_NUM_LIMBS - 1; i >= 0; i--) {
+            if (swapped_limbs[i] != 0) {
                 n = INT_NUM_LIMBS - 1 - i;
             }
-            if (rhs.m_limbs[i] != 0) {
+            if (rhs_swapped_limbs[i] != 0) {
                 t = INT_NUM_LIMBS - 1 - i;
             }
         }
@@ -155,20 +172,27 @@ struct UnsignedInteger {
 
         uint64_t carry = 0;
         for (uint64_t i = 0; i <= t; i++) {
-            for (uint64_t j = 0; i <= n; i++) {
+            for (uint64_t j = 0; j <= n; j++) {
                 uint64_t uv = (uint64_t)(limbs[NUM_LIMBS - 1 - (i + j)])
-                    + (uint64_t)(m_limbs[NUM_LIMBS - 1 - j])
-                        * (uint64_t)(rhs.m_limbs[NUM_LIMBS - 1 - i])
+                    + (uint64_t)(swapped_limbs[NUM_LIMBS - 1 - j])
+                        * (uint64_t)(rhs_swapped_limbs[NUM_LIMBS - 1 - i])
                     + carry;
                 carry = uv >> 32;
-                limbs[NUM_LIMBS - 1 - (i + j)] = uv & 0x0000FFFF;
+                limbs[NUM_LIMBS - 1 - (i + j)] = uv & 0xFFFFFFFF;
             }
             if (i + n + 1 < NUM_LIMBS) {
-                limbs[NUM_LIMBS - 1 - (i + n + 1)] = carry & 0x0000FFFF;
+                limbs[NUM_LIMBS - 1 - (i + n + 1)] = carry & 0xFFFFFFFF;
                 carry = 0;
             }
         }
-        return UnsignedInteger<NUM_LIMBS> {limbs};
+
+        metal::array<uint32_t, NUM_LIMBS> res_limbs = swap_limbs(swapped_limbs);
+
+        return UnsignedInteger<NUM_LIMBS> {res_limbs};
+    }
+
+    uint64_t cast(uint32_t n) {
+      return ((uint64_t)n) >> 32;
     }
 
     constexpr UnsignedInteger operator*=(const UnsignedInteger rhs)
