@@ -2,7 +2,7 @@
 #define unsigned_int_h
 
 #include <metal_stdlib>
-
+#include "unsigned_int64.h.metal"
 
 template <const uint64_t NUM_LIMBS>
 struct UnsignedInteger {
@@ -71,15 +71,25 @@ struct UnsignedInteger {
         return res;
     }
 
+    constexpr UnsignedInteger64<NUM_LIMBS / 2> to_u64() {
+        metal::array<uint64_t, NUM_LIMBS / 2> new_limbs {};
+
+        for (int i = 0; i < (int)NUM_LIMBS / 2; i++) {
+            new_limbs[i] = ((uint64_t)m_limbs[i * 2 + 1] << 32) + (uint64_t)m_limbs[i * 2];
+        }
+
+        return UnsignedInteger64<NUM_LIMBS / 2> {new_limbs};
+    }
+
     constexpr UnsignedInteger operator+(const UnsignedInteger rhs) const
     {
         metal::array<uint32_t, NUM_LIMBS> limbs {};
         uint64_t carry = 0;
-        uint64_t i = NUM_LIMBS;
+        int i = NUM_LIMBS;
 
         while (i > 0) {
             uint64_t c = uint64_t(m_limbs[i - 1]) + uint64_t(rhs.m_limbs[i - 1]) + carry;
-            limbs[i - 1] = c & 0x0000FFFF;
+            limbs[i - 1] = c & 0xFFFFFFFF;
             carry = c >> 32;
             i -= 1;
         }
