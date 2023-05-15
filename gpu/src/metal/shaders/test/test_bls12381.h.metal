@@ -16,3 +16,16 @@ template<typename BLS12381, typename Fp>
     //result[2] = res.z;
     result[0] = Fp::one();
 }
+
+template<typename Fp>
+[[kernel]] void add_fp(
+    constant Fp* p [[ buffer(0) ]],
+    constant Fp* q [[ buffer(1) ]],
+    device Fp* result [[ buffer(2) ]]
+)
+{
+    Fp fp_p = p[0];
+    Fp fp_q = q[0];
+    Fp res = fp_p + fp_q;
+    result[0] = res;
+}

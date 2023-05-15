@@ -1,7 +1,6 @@
 #[cfg(all(test, feature = "metal"))]
 mod test {
     use crate::metal::abstractions::state::MetalState;
-    use lambdaworks_math::cyclic_group::IsGroup;
     use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::curve::BLS12381Curve;
     use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::BLS12381PrimeField;
     use lambdaworks_math::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
@@ -54,8 +53,12 @@ mod test {
 
         let p: &[FE] = &[FE::zero(), FE::one(), FE::zero()];
         let p_buffer = state.alloc_buffer_data(p);
-        let q: &[FE] = &[FE::from(66_u64), FE::from(85_u64), FE::from(179_u64)];
-        let q_buffer = state.alloc_buffer_data(q);
+
+        let qx = FE::from(0);
+        let qy = FE::from(2);
+        let q = ShortWeierstrassProjectivePoint::<BLS12381Curve>::from_affine(qx, qy).unwrap();
+
+        let q_buffer = state.alloc_buffer_data(q.coordinates());
         let result: &[FE] = &[FE::from(1), FE::from(1), FE::from(1)];
         let result_buffer = state.alloc_buffer_data(result);
 
@@ -73,9 +76,9 @@ mod test {
 
         let result: Vec<FE> = MetalState::retrieve_contents(&result_buffer);
 
-        assert_eq!(result[0], FE::from(66_u64));
-        assert_eq!(result[1], FE::from(85_u64));
-        assert_eq!(result[2], FE::from(179_u64));
+        assert_eq!(&result[0], q.x());
+        assert_eq!(&result[1], q.y());
+        assert_eq!(&result[2], q.z());
     }
 
     #[test]
@@ -130,5 +133,34 @@ mod test {
         //assert_eq!(&result[0], result_cpu.x());
         //assert_eq!(&result[1], result_cpu.y());
         //assert_eq!(&result[2], result_cpu.z());
+    }
+
+    #[test]
+    fn test_metal_add_fp_should_equal_cpu() {
+        let state = MetalState::new(None).unwrap();
+        let pipeline = state.setup_pipeline("fp_bls12381_add").unwrap();
+
+        let p = FE::from(555);
+        let p_buffer = state.alloc_buffer_data(&[p.clone()]);
+
+        let q = FE::from(666);
+        let q_buffer = state.alloc_buffer_data(&[q.clone()]);
+        let result_buffer = state.alloc_buffer_data(&[FE::zero()]);
+
+        let (command_buffer, command_encoder) = state.setup_command(
+            &pipeline,
+            Some(&[(0, &p_buffer), (1, &q_buffer), (2, &result_buffer)]),
+        );
+
+        let threadgroup_size = MTLSize::new(1, 1, 1);
+        let threadgroup_count = MTLSize::new(1, 1, 1);
+        command_encoder.dispatch_thread_groups(threadgroup_count, threadgroup_size);
+        command_encoder.end_encoding();
+        command_buffer.commit();
+        command_buffer.wait_until_completed();
+
+        let result: Vec<FE> = MetalState::retrieve_contents(&result_buffer);
+
+        assert_eq!(result[0], p + q);
     }
 }
