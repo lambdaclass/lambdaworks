@@ -9,13 +9,13 @@ pub enum StarkError {
     PolynomialEvaluationError(FFTError),
     #[error("Number of trace term gammas should be {0} * {1} = {} but is {2}", .0 * .1)]
     DeepTraceTermGammasError(usize, usize, usize),
-    #[error("Could not get composition even merkle proof")]
+    #[error("Could not get merkle proof of even composition polynomial")]
     CompositionPolyEvenProofError,
-    #[error("Number of composition poly even evaluations should be {0} but number of LDE roots of unity is {1}")]
+    #[error("Number of evaluations of even composition polynomial should be {0} but number of LDE roots of unity is {1}")]
     CompositionPolyEvenEvaluationsError(usize, usize),
-    #[error("Could not get composition odd merkle proof")]
+    #[error("Could not get merkle proof of odd composition polynomial")]
     CompositionPolyOddProofError,
-    #[error("Number of composition poly odd evaluations should be {0} but number of LDE roots of unity is {1}")]
+    #[error("Number of evaluations of odd composition polynomial should be {0} but number of LDE roots of unity is {1}")]
     CompositionPolyOddEvaluationsError(usize, usize),
     #[error("Could not get LDE trace merkle proof")]
     LDETraceMerkleProofError,
