@@ -92,6 +92,12 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
 
         let blowup_factor = self.air.blowup_factor();
 
+        #[cfg(debug_assertions)]
+        for (poly, z) in boundary_polys.iter().zip(boundary_zerofiers.iter()) {
+            let (_, b) = poly.clone().long_division_with_remainder(z);
+            assert_eq!(b, Polynomial::zero());
+        }
+
         let divisors = self.air.transition_divisors();
         // Iterate over trace and domain and compute transitions
         for (i, d) in lde_domain.iter().enumerate() {

@@ -129,7 +129,7 @@ pub fn prove_cairo_fibonacci_5() {
         coset_offset: 3,
     };
 
-    let cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace);
+    let cairo_air = cairo::CairoAIR::new(proof_options, 100, raw_trace.steps());
     // PC FINAL AND AP FINAL are not computed correctly since they are extracted after padding to
     // power of two and therefore are zero
     let public_input = PublicInputs {
@@ -160,7 +160,7 @@ pub fn prove_cairo_fibonacci_10() {
         coset_offset: 3,
     };
 
-    let cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace);
+    let cairo_air = cairo::CairoAIR::new(proof_options, 100, raw_trace.steps());
 
     // PC FINAL AND AP FINAL are not computed correctly since they are extracted after padding to
     // power of two and therefore are zero
@@ -192,7 +192,7 @@ pub fn prove_cairo_fibonacci_30() {
         coset_offset: 3,
     };
 
-    let cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace);
+    let cairo_air = cairo::CairoAIR::new(proof_options, 100, raw_trace.steps());
     // PC FINAL AND AP FINAL are not computed correctly since they are extracted after padding to
     // power of two and therefore are zero
     let public_input = PublicInputs {
@@ -223,7 +223,7 @@ pub fn prove_cairo_fibonacci_50() {
         coset_offset: 3,
     };
 
-    let cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace);
+    let cairo_air = cairo::CairoAIR::new(proof_options, 100, raw_trace.steps());
     // PC FINAL AND AP FINAL are not computed correctly since they are extracted after padding to
     // power of two and therefore are zero
     let public_input = PublicInputs {
@@ -254,7 +254,7 @@ pub fn prove_cairo_fibonacci_100() {
         coset_offset: 3,
     };
 
-    let cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace);
+    let cairo_air = cairo::CairoAIR::new(proof_options, 100, raw_trace.steps());
     // PC FINAL AND AP FINAL are not computed correctly since they are extracted after padding to
     // power of two and therefore are zero
     let public_input = PublicInputs {

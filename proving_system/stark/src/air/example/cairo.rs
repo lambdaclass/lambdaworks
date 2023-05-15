@@ -1,8 +1,7 @@
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
-use lambdaworks_math::{field::{
+use lambdaworks_math::field::{
     element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
-    traits::IsFFTField,
-}, helpers};
+};
 
 use crate::{
     air::{
@@ -16,7 +15,7 @@ use crate::{
         cairo_mem::CairoMemory, cairo_trace::CairoTrace,
         execution_trace::build_cairo_execution_trace,
     },
-    transcript_to_field, PrimeField, FE,
+    transcript_to_field, FE,
 };
 
 /// Main constraint identifiers
@@ -140,12 +139,12 @@ pub struct PublicInputs {
 #[derive(Clone)]
 pub struct CairoAIR {
     pub context: AirContext,
-    pub number_steps: usize
+    pub number_steps: usize,
 }
 
 impl CairoAIR {
     pub fn new(proof_options: ProofOptions, program_size: usize, number_steps: usize) -> Self {
-        let trace_length = number_steps + (program_size >> 2);
+        let trace_length = number_steps + (program_size >> 2) + 1;
         let mut power_of_two = 1;
         while power_of_two < trace_length {
             power_of_two <<= 1;
@@ -158,17 +157,23 @@ impl CairoAIR {
             transition_degrees: vec![
                 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, // Flags 0-14.
                 1, // Flag 15
-                2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, // Other constraints.
+                2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, // Other constraints.
                 2, 2, 2, 2, // Increasing memory auxiliary constraints.
                 2, 2, 2, 2, // Consistent memory auxiliary constraints.
                 2, 2, 2, 2, // Permutation auxiliary constraints.
             ],
-            transition_exemptions: vec![1; 43],
+            transition_exemptions: vec![
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1,
+            ],
             transition_offsets: vec![0, 1],
             num_transition_constraints: 43,
         };
 
-        Self { context, number_steps }
+        Self {
+            context,
+            number_steps,
+        }
     }
 }
 
@@ -186,7 +191,7 @@ fn add_program_in_public_input_section(
     let mut v_aux = values.clone();
 
     let public_input_section = addresses.len() - public_input.program.len();
-    let continous_memory = (0..public_input.program.len() as u64).map(|i| FieldElement::from(i));
+    let continous_memory = (1..=public_input.program.len() as u64).map(|i| FieldElement::from(i));
 
     a_aux.splice(public_input_section.., continous_memory);
     v_aux.splice(public_input_section.., public_input.program.clone());
@@ -255,6 +260,13 @@ impl AIR for CairoAIR {
             last_row[memory_column] = FieldElement::zero();
         }
 
+        // // Pad with zeroes
+        // let pad = vec![
+        //     FieldElement::zero();
+        //     last_row.len() * (self.context().trace_length - main_trace.n_rows())
+        // ];
+
+        // Pad with last row
         let pad: Vec<FieldElement<Self::Field>> = std::iter::repeat(last_row)
             .take(self.context().trace_length - main_trace.n_rows())
             .flatten()
@@ -356,12 +368,18 @@ impl AIR for CairoAIR {
         let initial_ap =
             BoundaryConstraint::new(MEM_P_TRACE_OFFSET, 0, public_input.ap_init.clone());
 
-        let final_pc =
-            BoundaryConstraint::new(MEM_A_TRACE_OFFSET, self.number_steps - 1, public_input.pc_final.clone());
-        let final_ap =
-            BoundaryConstraint::new(MEM_P_TRACE_OFFSET, self.number_steps - 1, public_input.ap_final.clone());
+        let final_pc = BoundaryConstraint::new(
+            MEM_A_TRACE_OFFSET,
+            self.number_steps - 1,
+            public_input.pc_final.clone(),
+        );
+        let final_ap = BoundaryConstraint::new(
+            MEM_P_TRACE_OFFSET,
+            self.number_steps - 1,
+            public_input.ap_final.clone(),
+        );
 
-        // Auxiliary constraint: permutation argument initial value 
+        // Auxiliary constraint: permutation argument initial value
         //BoundaryConstraint::new(PERMUTATION_ARGUMENT_COL_0, 0, )
         //public_input.program[0]
 
@@ -370,12 +388,22 @@ impl AIR for CairoAIR {
 
         let mut cumulative_product = FieldElement::one();
         for (i, value) in public_input.program.iter().enumerate() {
-            cumulative_product = cumulative_product * (&rap_challenges.z - (FieldElement::from(i as u64) + &rap_challenges.alpha * value));
+            cumulative_product = cumulative_product
+                * (&rap_challenges.z
+                    - (FieldElement::from(i as u64 + 1) + &rap_challenges.alpha * value));
         }
-        let permutation_final = rap_challenges.z.pow(public_input.program.len()) / cumulative_product;
-        let permutation_final_constraint = BoundaryConstraint::new(PERMUTATION_ARGUMENT_COL_3, final_index, permutation_final);
+        let permutation_final =
+            rap_challenges.z.pow(public_input.program.len()) / cumulative_product;
+        let permutation_final_constraint =
+            BoundaryConstraint::new(PERMUTATION_ARGUMENT_COL_3, final_index, permutation_final);
 
-        let constraints = vec![initial_pc, initial_ap, final_pc, final_ap, permutation_final_constraint];
+        let constraints = vec![
+            initial_pc,
+            initial_ap,
+            final_pc,
+            final_ap,
+            permutation_final_constraint,
+        ];
 
         BoundaryConstraints::from_constraints(constraints)
     }
@@ -512,24 +540,31 @@ fn memory_is_increasing(constraints: &mut [FE], frame: &Frame<Stark252PrimeField
     let curr = frame.get_row(0);
     let next = frame.get_row(1);
     let one = FieldElement::one();
+
     constraints[MEMORY_INCREASING_0] = (&curr[MEMORY_ADDR_SORTED_0] - &curr[MEMORY_ADDR_SORTED_1])
         * (&curr[MEMORY_ADDR_SORTED_1] - &curr[MEMORY_ADDR_SORTED_0] - &one);
+
     constraints[MEMORY_INCREASING_1] = (&curr[MEMORY_ADDR_SORTED_1] - &curr[MEMORY_ADDR_SORTED_2])
         * (&curr[MEMORY_ADDR_SORTED_2] - &curr[MEMORY_ADDR_SORTED_1] - &one);
+
     constraints[MEMORY_INCREASING_2] = (&curr[MEMORY_ADDR_SORTED_2] - &curr[MEMORY_ADDR_SORTED_3])
         * (&curr[MEMORY_ADDR_SORTED_3] - &curr[MEMORY_ADDR_SORTED_2] - &one);
+
     constraints[MEMORY_INCREASING_3] = (&curr[MEMORY_ADDR_SORTED_3] - &next[MEMORY_ADDR_SORTED_0])
         * (&next[MEMORY_ADDR_SORTED_0] - &curr[MEMORY_ADDR_SORTED_3] - &one);
 
     constraints[MEMORY_CONSISTENCY_0] = (&curr[MEMORY_VALUES_SORTED_0]
         - &curr[MEMORY_VALUES_SORTED_1])
         * (&curr[MEMORY_ADDR_SORTED_1] - &curr[MEMORY_ADDR_SORTED_0] - &one);
+
     constraints[MEMORY_CONSISTENCY_1] = (&curr[MEMORY_VALUES_SORTED_1]
         - &curr[MEMORY_VALUES_SORTED_2])
         * (&curr[MEMORY_ADDR_SORTED_2] - &curr[MEMORY_ADDR_SORTED_1] - &one);
+
     constraints[MEMORY_CONSISTENCY_2] = (&curr[MEMORY_VALUES_SORTED_2]
         - &curr[MEMORY_VALUES_SORTED_3])
         * (&curr[MEMORY_ADDR_SORTED_3] - &curr[MEMORY_ADDR_SORTED_2] - &one);
+
     constraints[MEMORY_CONSISTENCY_3] = (&curr[MEMORY_VALUES_SORTED_3]
         - &next[MEMORY_VALUES_SORTED_0])
         * (&next[MEMORY_ADDR_SORTED_0] - &curr[MEMORY_ADDR_SORTED_3] - &one);
@@ -588,23 +623,20 @@ fn frame_inst_size(frame_row: &[FE]) -> FE {
 #[cfg(test)]
 #[cfg(debug_assertions)]
 mod test {
-    use cairo_vm::{types::program::Program, cairo_run};
+    use cairo_vm::{cairo_run, types::program::Program};
     use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
     use lambdaworks_math::field::element::FieldElement;
-    use thiserror::Error;
 
     use crate::{
         air::{
             context::ProofOptions,
             debug::validate_trace,
-            example::cairo::{
-                add_program_in_public_input_section, CairoAIR, PublicInputs, FRAME_DST, FRAME_INST,
-                FRAME_OP0, FRAME_OP1,
-            },
+            example::cairo::{add_program_in_public_input_section, CairoAIR, PublicInputs},
             AIR,
         },
+        cairo_run::run::Error,
         cairo_vm::{cairo_mem::CairoMemory, cairo_trace::CairoTrace},
-        Domain, cairo_run::run::Error,
+        Domain,
     };
 
     use super::{
@@ -625,7 +657,8 @@ mod test {
         };
         let json_filename = base_dir.to_owned() + "/src/cairo_vm/test_data/simple_program.json";
         let program_content = std::fs::read(json_filename).map_err(Error::IO).unwrap();
-        let cairo_program = Program::from_bytes(&program_content, Some(cairo_run_config.entrypoint)).unwrap();
+        let cairo_program =
+            Program::from_bytes(&program_content, Some(cairo_run_config.entrypoint)).unwrap();
 
         let dir_trace = base_dir.to_owned() + "/src/cairo_vm/test_data/simple_program.trace";
         let dir_memory = base_dir.to_owned() + "/src/cairo_vm/test_data/simple_program.mem";
@@ -690,7 +723,11 @@ mod test {
             fp_init: FieldElement::zero(),
             pc_final: FieldElement::zero(),
             ap_final: FieldElement::zero(),
-            program: vec![FieldElement::from(2), FieldElement::from(3)],
+            program: vec![
+                FieldElement::from(10),
+                FieldElement::from(20),
+                FieldElement::from(30),
+            ],
             num_steps: 1,
         };
 
@@ -699,10 +736,14 @@ mod test {
             FieldElement::one(),
             FieldElement::zero(),
             FieldElement::zero(),
+            FieldElement::zero(),
+            FieldElement::zero(),
         ];
         let v = vec![
             FieldElement::one(),
             FieldElement::one(),
+            FieldElement::zero(),
+            FieldElement::zero(),
             FieldElement::zero(),
             FieldElement::zero(),
         ];
@@ -713,7 +754,9 @@ mod test {
                 FieldElement::one(),
                 FieldElement::one(),
                 FieldElement::zero(),
-                FieldElement::one()
+                FieldElement::one(),
+                FieldElement::from(2),
+                FieldElement::from(3)
             ]
         );
         assert_eq!(
@@ -721,8 +764,10 @@ mod test {
             vec![
                 FieldElement::one(),
                 FieldElement::one(),
-                FieldElement::from(2),
-                FieldElement::from(3)
+                FieldElement::zero(),
+                FieldElement::from(10),
+                FieldElement::from(20),
+                FieldElement::from(30)
             ]
         );
     }

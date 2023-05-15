@@ -1,5 +1,9 @@
+use lambdaworks_fft::polynomial::FFTPoly;
 use lambdaworks_math::{
-    field::{element::FieldElement, traits::IsField},
+    field::{
+        element::FieldElement,
+        traits::{IsFFTField, IsField},
+    },
     polynomial::Polynomial,
 };
 
@@ -22,14 +26,18 @@ impl<F: IsField> ConstraintEvaluationTable<F> {
 
     pub fn compute_composition_poly(
         &self,
-        lde_coset: &[FieldElement<F>],
-    ) -> Polynomial<FieldElement<F>> {
+        offset: &FieldElement<F>,
+    ) -> Polynomial<FieldElement<F>>
+    where
+        F: IsFFTField,
+        Polynomial<FieldElement<F>>: FFTPoly<F>,
+    {
         let merged_evals: Vec<FieldElement<F>> = self
             .evaluations
             .iter()
             .map(|row| row.iter().fold(FieldElement::zero(), |acc, d| acc + d))
             .collect();
 
-        Polynomial::interpolate(lde_coset, &merged_evals)
+        Polynomial::interpolate_offset_fft(&merged_evals, offset).unwrap()
     }
 }

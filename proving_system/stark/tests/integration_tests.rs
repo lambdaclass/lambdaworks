@@ -144,19 +144,25 @@ fn test_prove_cairo_simple_program() {
         coset_offset: 3,
     };
 
-    let mut cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace);
+    let program_size = 5;
+    let mut program = vec![];
+    for i in 1..=program_size as u64 {
+        program.push(memory.get(&i).unwrap().clone());
+    }
 
-    // PC FINAL AND AP FINAL are not computed correctly since they are extracted after padding to
-    // power of two and therefore are zero
+    let cairo_air = cairo::CairoAIR::new(proof_options, program_size, raw_trace.steps());
+
+    let first_step = &raw_trace.rows[0];
+    let last_step = &raw_trace.rows[raw_trace.steps() - 1];
     let public_input = PublicInputs {
-        pc_init: FE::from(raw_trace.rows[0].pc),
-        ap_init: FE::from(raw_trace.rows[0].ap),
-        fp_init: FE::from(raw_trace.rows[0].fp),
-        pc_final: FieldElement::zero(),
-        ap_final: FieldElement::zero(),
+        pc_init: FE::from(first_step.pc),
+        ap_init: FE::from(first_step.ap),
+        fp_init: FE::from(first_step.fp),
+        pc_final: FE::from(last_step.pc),
+        ap_final: FE::from(last_step.ap),
         num_steps: raw_trace.steps(),
-        program: Vec::new(),
-    }; // TODO: Put real program
+        program,
+    };
 
     let result = prove(&(raw_trace, memory), &cairo_air, &public_input);
     assert!(verify(&result, &cairo_air, &public_input));
@@ -197,19 +203,24 @@ fn test_prove_cairo_call_func() {
         coset_offset: 3,
     };
 
-    let mut cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace);
+    let program_size = 11;
+    let mut program = vec![];
 
-    // PC FINAL AND AP FINAL are not computed correctly since they are extracted after padding to
-    // power of two and therefore are zero
+    for i in 1..=program_size as u64 {
+        program.push(memory.get(&i).unwrap().clone());
+    }
+
+    let cairo_air = cairo::CairoAIR::new(proof_options, program_size, raw_trace.steps());
+    let last_step = &raw_trace.rows[raw_trace.steps() - 1];
     let public_input = PublicInputs {
         pc_init: FE::from(raw_trace.rows[0].pc),
         ap_init: FE::from(raw_trace.rows[0].ap),
         fp_init: FE::from(raw_trace.rows[0].fp),
-        pc_final: FieldElement::zero(),
-        ap_final: FieldElement::zero(),
+        pc_final: FieldElement::from(last_step.pc),
+        ap_final: FieldElement::from(last_step.ap),
         num_steps: raw_trace.steps(),
-        program: Vec::new(),
-    }; // TODO: Put real program
+        program,
+    };
 
     let result = prove(&(raw_trace, memory), &cairo_air, &public_input);
     assert!(verify(&result, &cairo_air, &public_input));
@@ -230,19 +241,25 @@ fn test_prove_cairo_fibonacci() {
         coset_offset: 3,
     };
 
-    let mut cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace);
+    let program_size = 24;
+    let mut program = vec![];
 
-    // PC FINAL AND AP FINAL are not computed correctly since they are extracted after padding to
-    // power of two and therefore are zero
+    for i in 1..=program_size as u64 {
+        program.push(memory.get(&i).unwrap().clone());
+    }
+
+    let cairo_air = cairo::CairoAIR::new(proof_options, program_size, raw_trace.steps());
+
+    let last_step = &raw_trace.rows[raw_trace.steps() - 1];
     let public_input = PublicInputs {
         pc_init: FE::from(raw_trace.rows[0].pc),
         ap_init: FE::from(raw_trace.rows[0].ap),
         fp_init: FE::from(raw_trace.rows[0].fp),
-        pc_final: FieldElement::zero(),
-        ap_final: FieldElement::zero(),
+        pc_final: FieldElement::from(last_step.pc),
+        ap_final: FieldElement::from(last_step.ap),
         num_steps: raw_trace.steps(),
-        program: Vec::new(),
-    }; // TODO: Put real program
+        program,
+    };
 
     let result = prove(&(raw_trace, memory), &cairo_air, &public_input);
     assert!(verify(&result, &cairo_air, &public_input));

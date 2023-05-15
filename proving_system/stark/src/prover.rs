@@ -132,7 +132,6 @@ where
     let (lde_trace_merkle_trees, lde_trace_merkle_roots) =
         batch_commit(lde_trace.cols().iter().collect());
 
-    // Agrega al transcript
     // >>>> Send commitments: [tⱼ]
     for root in lde_trace_merkle_roots.iter() {
         transcript.append(&root.to_bytes_be());
@@ -218,7 +217,7 @@ where
 
     // Get the composition poly H
     let composition_poly =
-        constraint_evaluations.compute_composition_poly(&domain.lde_roots_of_unity_coset);
+        constraint_evaluations.compute_composition_poly(&domain.coset_offset);
     let (composition_poly_even, composition_poly_odd) = composition_poly.even_odd_decomposition();
 
     let lde_composition_poly_even_evaluations =
