@@ -47,6 +47,17 @@ struct Challenges<F: IsFFTField, A: AIR<Field = F>> {
     rap_challenges: A::RAPChallenges,
 }
 
+fn check_air<F: IsFFTField, A: AIR<Field = F>>(air: &A) -> Result<(), StarkError> {
+    if air.context().trace_columns == 0 {
+        return Err(StarkError::AIRTraceColumnsError);
+    }
+    if air.context().transition_degrees().is_empty() {
+        return Err(StarkError::AIRTransitionDegreesError);
+    }
+
+    Ok(())
+}
+
 fn step_1_replay_rounds_and_recover_challenges<F, A, T>(
     air: &A,
     proof: &StarkProof<F>,
@@ -191,7 +202,7 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
     proof: &StarkProof<F>,
     domain: &Domain<F>,
     challenges: &Challenges<F, A>,
-) -> bool {
+) -> Result<bool, StarkError> {
     // BEGIN TRACE <-> Composition poly consistency evaluation check
     // These are H_1(z^2) and H_2(z^2)
     let composition_poly_even_ood_evaluation = &proof.composition_poly_even_ood_evaluation;
@@ -231,7 +242,11 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
     // TODO: Get trace polys degrees in a better way. The degree may not be trace_length - 1 in some
     // special cases.
     let transition_divisors = air.transition_divisors();
+    if transition_divisors.is_empty() {
+        return Err(StarkError::AIRTransitionDivisorsError);
+    }
 
+    // We already checked that the AIR should have any transition degree, so it's ok to unwrap here
     let transition_quotients_max_degree = transition_divisors
         .iter()
         .zip(air.context().transition_degrees())
@@ -239,6 +254,8 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
         .max()
         .unwrap();
 
+    // We already checked that the number of trace columns shouldn't be zero, so
+    // `boundary_quotient_degrees` won't be empty, so it's ok to unwrap here
     let boundary_quotients_max_degree = boundary_quotient_degrees.iter().max().unwrap();
 
     let max_degree = std::cmp::max(
@@ -270,12 +287,11 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
         &challenges.rap_challenges,
     );
 
-    let divisors = air.transition_divisors();
     let transition_c_i_evaluations =
         ConstraintEvaluator::compute_constraint_composition_poly_evaluations(
             air,
             &transition_ood_frame_evaluations,
-            &divisors,
+            &transition_divisors,
             &challenges.transition_coeffs,
             max_degree_power_of_two,
             &challenges.z,
@@ -291,7 +307,7 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
     let composition_poly_claimed_ood_evaluation =
         composition_poly_even_ood_evaluation + &challenges.z * composition_poly_odd_ood_evaluation;
 
-    composition_poly_claimed_ood_evaluation == composition_poly_ood_evaluation
+    Ok(composition_poly_claimed_ood_evaluation == composition_poly_ood_evaluation)
 }
 
 fn step_3_verify_fri<F, A>(
@@ -502,13 +518,15 @@ where
     A: AIR<Field = F>,
     FieldElement<F>: ByteConversion,
 {
+    check_air(air)?;
+
     let mut transcript = step_1_transcript_initialization();
     let domain = Domain::new(air)?;
 
     let challenges =
         step_1_replay_rounds_and_recover_challenges(air, proof, &domain, &mut transcript);
 
-    if !step_2_verify_claimed_composition_polynomial(air, proof, &domain, &challenges) {
+    if !step_2_verify_claimed_composition_polynomial(air, proof, &domain, &challenges)? {
         return Ok(false);
     }
 

@@ -23,4 +23,10 @@ pub enum StarkError {
     DomainCreationError(FFTError),
     #[error("Could not query FRI layers: {0}")]
     FriQueryError(FriError),
+    #[error("AIR trace columns field is set to zero")]
+    AIRTraceColumnsError,
+    #[error("AIR has no transition degrees")]
+    AIRTransitionDegreesError,
+    #[error("AIR has no transition divisors")]
+    AIRTransitionDivisorsError,
 }
