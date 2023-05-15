@@ -194,7 +194,7 @@ fn round_2_compute_composition_polynomial<F, A>(
     round_1_result: &Round1<F, A>,
     transition_coeffs: &[(FieldElement<F>, FieldElement<F>)],
     boundary_coeffs: &[(FieldElement<F>, FieldElement<F>)],
-) -> Round2<F>
+) -> Result<Round2<F>, ProverError>
 where
     F: IsFFTField,
     A: AIR<Field = F>,
@@ -223,16 +223,18 @@ where
     let (composition_poly_even, composition_poly_odd) = composition_poly.even_odd_decomposition();
 
     let lde_composition_poly_even_evaluations =
-        evaluate_polynomial_on_lde_domain(&composition_poly_even, domain).unwrap();
+        evaluate_polynomial_on_lde_domain(&composition_poly_even, domain)
+            .map_err(ProverError::PolynomialEvaluationError)?;
     let lde_composition_poly_odd_evaluations =
-        evaluate_polynomial_on_lde_domain(&composition_poly_odd, domain).unwrap();
+        evaluate_polynomial_on_lde_domain(&composition_poly_odd, domain)
+            .map_err(ProverError::PolynomialEvaluationError)?;
 
     let (composition_poly_merkle_trees, composition_poly_roots) = batch_commit(vec![
         &lde_composition_poly_even_evaluations,
         &lde_composition_poly_odd_evaluations,
     ]);
 
-    Round2 {
+    Ok(Round2 {
         composition_poly_even,
         lde_composition_poly_even_evaluations,
         composition_poly_even_merkle_tree: composition_poly_merkle_trees[0].clone(),
@@ -241,7 +243,7 @@ where
         lde_composition_poly_odd_evaluations,
         composition_poly_odd_merkle_tree: composition_poly_merkle_trees[1].clone(),
         composition_poly_odd_root: composition_poly_roots[1].clone(),
-    }
+    })
 }
 
 fn round_3_evaluate_polynomials_in_out_of_domain_element<F: IsFFTField, A: AIR<Field = F>>(
@@ -513,7 +515,7 @@ where
         &round_1_result,
         &transition_coeffs,
         &boundary_coeffs,
-    );
+    )?;
 
     // >>>> Send commitments: [H₁], [H₂]
     transcript.append(&round_2_result.composition_poly_even_root.to_bytes_be());
