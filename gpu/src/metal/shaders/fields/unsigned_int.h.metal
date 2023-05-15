@@ -73,7 +73,7 @@ struct UnsignedInteger {
 
     constexpr UnsignedInteger operator+(const UnsignedInteger rhs) const
     {
-        metal::array<uint32_t, NUM_LIMBS> limbs;
+        metal::array<uint32_t, NUM_LIMBS> limbs {};
         uint64_t carry = 0;
         uint64_t i = NUM_LIMBS;
 
@@ -105,7 +105,7 @@ struct UnsignedInteger {
 
     constexpr UnsignedInteger operator-(const UnsignedInteger rhs) const
     {
-        metal::array<uint32_t, NUM_LIMBS> limbs;
+        metal::array<uint32_t, NUM_LIMBS> limbs {};
         uint64_t carry = 0;
         uint64_t i = NUM_LIMBS;
 
@@ -130,16 +130,18 @@ struct UnsignedInteger {
         uint64_t n = 0;
         uint64_t t = 0;
 
-        for (uint64_t i = NUM_LIMBS; i > 0; i--) {
-            if (m_limbs[i - 1] != 0) {
-                n = NUM_LIMBS - i;
+        int INT_NUM_LIMBS = (int)NUM_LIMBS;
+
+        for (int i = INT_NUM_LIMBS - 1; i >= 0; i--) {
+            if (m_limbs[i] != 0) {
+                n = INT_NUM_LIMBS - 1 - i;
             }
-            if (rhs.m_limbs[i - 1] != 0) {
-                t = NUM_LIMBS - i;
+            if (rhs.m_limbs[i] != 0) {
+                t = INT_NUM_LIMBS - 1 - i;
             }
         }
 
-        metal::array<uint32_t, NUM_LIMBS> limbs;
+        metal::array<uint32_t, NUM_LIMBS> limbs {};
 
         uint64_t carry = 0;
         for (uint64_t i = 0; i <= t; i++) {
