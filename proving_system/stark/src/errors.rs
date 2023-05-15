@@ -7,7 +7,7 @@ use crate::fri::errors::FriError;
 pub enum StarkError {
     #[error("Could not evaluate polynomial: {0}")]
     PolynomialEvaluationError(FFTError),
-    #[error("Number of trace term gammas should be {0} * {1} = {} but is {2}", .0 * .1)]
+    #[error("Number of trace term gammas of DEEP composition polynomial should be {0} * {1} = {} but is {2}", .0 * .1)]
     DeepTraceTermGammasError(usize, usize, usize),
     #[error("Could not get merkle proof of even composition polynomial")]
     CompositionPolyEvenProofError,
@@ -29,4 +29,8 @@ pub enum StarkError {
     AIRTransitionDegreesError,
     #[error("AIR has no transition divisors")]
     AIRTransitionDivisorsError,
+    #[error("Could not reconstruct DEEP composition polynomial: {0}")]
+    DeepPolyReconstructionError(FFTError),
+    #[error("Could not verify query: {0}")]
+    QueryVerificationError(FFTError),
 }

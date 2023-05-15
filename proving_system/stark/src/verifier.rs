@@ -315,7 +315,7 @@ fn step_3_verify_fri<F, A>(
     proof: &StarkProof<F>,
     domain: &Domain<F>,
     challenges: &Challenges<F, A>,
-) -> bool
+) -> Result<bool, StarkError>
 where
     F: IsFFTField,
     FieldElement<F>: ByteConversion,
@@ -333,17 +333,17 @@ where
             *iota_s,
             proof_s,
             domain,
-        );
+        )?;
     }
 
-    result
+    Ok(result)
 }
 
 fn step_4_verify_deep_composition_polynomial<F: IsFFTField, A: AIR<Field = F>>(
     proof: &StarkProof<F>,
     domain: &Domain<F>,
     challenges: &Challenges<F, A>,
-) -> bool
+) -> Result<bool, StarkError>
 where
     FieldElement<F>: ByteConversion,
 {
@@ -388,11 +388,11 @@ where
     // DEEP consistency check
     // Verify that Deep(x) is constructed correctly
     let deep_poly_evaluation =
-        reconstruct_deep_composition_poly_evaluation(proof, domain, challenges);
+        reconstruct_deep_composition_poly_evaluation(proof, domain, challenges)?;
     let deep_poly_claimed_evaluation = &proof.query_list[0].first_layer_evaluation;
 
     result &= deep_poly_claimed_evaluation == &deep_poly_evaluation;
-    result
+    Ok(result)
 }
 
 fn verify_query_and_sym_openings<F: IsField + IsFFTField, A: AIR<Field = F>>(
@@ -403,7 +403,7 @@ fn verify_query_and_sym_openings<F: IsField + IsFFTField, A: AIR<Field = F>>(
     iota: usize,
     fri_decommitment: &FriDecommitment<F>,
     domain: &Domain<F>,
-) -> bool
+) -> Result<bool, StarkError>
 where
     FieldElement<F>: ByteConversion,
 {
@@ -414,10 +414,11 @@ where
         &fri_decommitment.first_layer_evaluation,
         &HASHER,
     ) {
-        return false;
+        return Ok(false);
     }
 
-    let lde_primitive_root = F::get_primitive_root_of_unity(domain.lde_root_order as u64).unwrap();
+    let lde_primitive_root = F::get_primitive_root_of_unity(domain.lde_root_order as u64)
+        .map_err(|error| StarkError::QueryVerificationError(error.into()))?;
     let offset = FieldElement::from(air.options().coset_offset);
     // evaluation point = offset * w ^ i in the Stark literature
     let mut evaluation_point = offset * lde_primitive_root.pow(iota);
@@ -461,7 +462,7 @@ where
             evaluation_sym,
             &HASHER,
         ) {
-            return false;
+            return Ok(false);
         }
 
         let beta = &zetas[k];
@@ -472,7 +473,7 @@ where
     }
 
     // Check that last value is the given by the prover
-    v == *fri_last_value
+    Ok(v == *fri_last_value)
 }
 
 // Reconstruct Deep(\upsilon_0) off the values in the proof
@@ -480,8 +481,9 @@ fn reconstruct_deep_composition_poly_evaluation<F: IsFFTField, A: AIR<Field = F>
     proof: &StarkProof<F>,
     domain: &Domain<F>,
     challenges: &Challenges<F, A>,
-) -> FieldElement<F> {
-    let primitive_root = &F::get_primitive_root_of_unity(domain.root_order as u64).unwrap();
+) -> Result<FieldElement<F>, StarkError> {
+    let primitive_root = &F::get_primitive_root_of_unity(domain.root_order as u64)
+        .map_err(|error| StarkError::DeepPolyReconstructionError(error.into()))?;
     let upsilon_0 = &domain.lde_roots_of_unity_coset[challenges.iotas[0]];
 
     let mut trace_terms = FieldElement::zero();
@@ -509,7 +511,7 @@ fn reconstruct_deep_composition_poly_evaluation<F: IsFFTField, A: AIR<Field = F>
     let h_1_term = (h_1_upsilon_0 - h_1_zsquared) / (upsilon_0 - z_squared);
     let h_2_term = (h_2_upsilon_0 - h_2_zsquared) / (upsilon_0 - z_squared);
 
-    trace_terms + h_1_term * &challenges.gamma_even + h_2_term * &challenges.gamma_odd
+    Ok(trace_terms + h_1_term * &challenges.gamma_even + h_2_term * &challenges.gamma_odd)
 }
 
 pub fn verify<F, A>(proof: &StarkProof<F>, air: &A) -> Result<bool, StarkError>
@@ -530,13 +532,9 @@ where
         return Ok(false);
     }
 
-    if !step_3_verify_fri(air, proof, &domain, &challenges) {
+    if !step_3_verify_fri(air, proof, &domain, &challenges)? {
         return Ok(false);
     }
 
-    Ok(step_4_verify_deep_composition_polynomial(
-        proof,
-        &domain,
-        &challenges,
-    ))
+    step_4_verify_deep_composition_polynomial(proof, &domain, &challenges)
 }
