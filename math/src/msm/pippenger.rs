@@ -1,5 +1,7 @@
 use crate::{cyclic_group::IsGroup, unsigned_integer::element::UnsignedInteger};
 
+use super::naive::MSMError;
+
 /// This function computes the multiscalar multiplication (MSM).
 ///
 /// Assume a group G of order r is given.
@@ -11,15 +13,16 @@ use crate::{cyclic_group::IsGroup, unsigned_integer::element::UnsignedInteger};
 /// If `hidings` and `cs` are empty, then `msm` returns the zero element of the group.
 ///
 /// Panics if `cs` and `hidings` have different lengths.
-pub fn msm<const NUM_LIMBS: usize, G>(cs: &[UnsignedInteger<NUM_LIMBS>], hidings: &[G]) -> G
+pub fn msm<const NUM_LIMBS: usize, G>(
+    cs: &[UnsignedInteger<NUM_LIMBS>],
+    hidings: &[G],
+) -> Result<G, MSMError>
 where
     G: IsGroup,
 {
-    debug_assert_eq!(
-        cs.len(),
-        hidings.len(),
-        "Slices `cs` and `hidings` must be of the same length to compute `msm`."
-    );
+    if cs.len() != hidings.len() {
+        return Err(MSMError::LengthMismatch(cs.len(), hidings.len()));
+    }
     // When input is small enough, windows of length 2 seem faster than 1.
     const MIN_WINDOWS: usize = 2;
     const SCALE_FACTORS: (usize, usize) = (4, 5);
@@ -27,7 +30,7 @@ where
     // We approximate the optimum window size with: f(n) = k * log2(n), where k is a scaling factor
     let window_size =
         ((usize::BITS - cs.len().leading_zeros() - 1) as usize * SCALE_FACTORS.0) / SCALE_FACTORS.1;
-    msm_with(cs, hidings, MIN_WINDOWS.min(window_size))
+    Ok(msm_with(cs, hidings, MIN_WINDOWS.min(window_size)))
 }
 
 pub fn msm_with<const NUM_LIMBS: usize, G>(
@@ -38,7 +41,8 @@ pub fn msm_with<const NUM_LIMBS: usize, G>(
 where
     G: IsGroup,
 {
-    debug_assert!(window_size < usize::BITS as usize);
+    assert!(window_size < usize::BITS as usize); // Program would go OOM anyways
+
     // The number of windows of size `s` is ceil(lambda/s).
     let num_windows = (64 * NUM_LIMBS - 1) / window_size + 1;
 
@@ -138,7 +142,7 @@ mod tests {
             let hidings = hidings[..min_len].to_vec();
 
             let pippenger = pippenger::msm_with(&cs, &hidings, window_size);
-            let naive = naive::msm(&cs, &hidings);
+            let naive = naive::msm(&cs, &hidings).unwrap();
 
             prop_assert_eq!(naive, pippenger);
         }

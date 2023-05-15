@@ -59,6 +59,7 @@ impl<F: IsPrimeField, P: IsPairing> IsCommitmentScheme<F> for KateZaveruchaGoldb
             &coefficients,
             &self.srs.powers_main_group[..coefficients.len()],
         )
+        .expect("`hidings` is sliced by `cs`'s length")
     }
 
     #[allow(unused)]
