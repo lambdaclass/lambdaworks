@@ -1,5 +1,4 @@
 use lambdaworks_fft::errors::FFTError;
-use lambdaworks_math::field::errors::FieldError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -13,7 +12,5 @@ pub enum StarkError {
     #[error("Number of composition poly odd evaluations should be {0} but number of LDE roots of unity is {1}")]
     CompositionPolyOddEvaluationsError(usize, usize),
     #[error("Could not create domain: {0}")]
-    DomainFieldError(FieldError),
-    #[error("Could not create domain: {0}")]
-    DomainFFTError(FFTError),
+    DomainCreationError(FFTError),
 }

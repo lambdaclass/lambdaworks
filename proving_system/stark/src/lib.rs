@@ -85,13 +85,13 @@ impl<F: IsFFTField> Domain<F> {
         let root_order = air.context().trace_length.trailing_zeros();
         // * Generate Coset
         let trace_primitive_root = F::get_primitive_root_of_unity(root_order as u64)
-            .map_err(StarkError::DomainFieldError)?;
+            .map_err(|error| StarkError::DomainCreationError(error.into()))?;
         let trace_roots_of_unity = get_powers_of_primitive_root_coset(
             root_order as u64,
             interpolation_domain_size,
             &FieldElement::<F>::one(),
         )
-        .map_err(StarkError::DomainFFTError)?;
+        .map_err(StarkError::DomainCreationError)?;
 
         let lde_root_order = (air.context().trace_length * blowup_factor).trailing_zeros();
         let lde_roots_of_unity_coset = get_powers_of_primitive_root_coset(
@@ -99,7 +99,7 @@ impl<F: IsFFTField> Domain<F> {
             air.context().trace_length * blowup_factor,
             &coset_offset,
         )
-        .map_err(StarkError::DomainFFTError)?;
+        .map_err(StarkError::DomainCreationError)?;
 
         Ok(Self {
             root_order,
