@@ -4,8 +4,8 @@ use super::{
     sample_z_ood,
 };
 use crate::{
-    batch_sample_challenges, fri::HASHER, proof::StarkProof, transcript_to_field,
-    transcript_to_usize, Domain,
+    batch_sample_challenges, errors::StarkError, fri::HASHER, proof::StarkProof,
+    transcript_to_field, transcript_to_usize, Domain,
 };
 #[cfg(not(feature = "test_fiat_shamir"))]
 use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
@@ -496,25 +496,29 @@ fn reconstruct_deep_composition_poly_evaluation<F: IsFFTField, A: AIR<Field = F>
     trace_terms + h_1_term * &challenges.gamma_even + h_2_term * &challenges.gamma_odd
 }
 
-pub fn verify<F, A>(proof: &StarkProof<F>, air: &A) -> bool
+pub fn verify<F, A>(proof: &StarkProof<F>, air: &A) -> Result<bool, StarkError>
 where
     F: IsFFTField,
     A: AIR<Field = F>,
     FieldElement<F>: ByteConversion,
 {
     let mut transcript = step_1_transcript_initialization();
-    let domain = Domain::new(air);
+    let domain = Domain::new(air)?;
 
     let challenges =
         step_1_replay_rounds_and_recover_challenges(air, proof, &domain, &mut transcript);
 
     if !step_2_verify_claimed_composition_polynomial(air, proof, &domain, &challenges) {
-        return false;
+        return Ok(false);
     }
 
     if !step_3_verify_fri(air, proof, &domain, &challenges) {
-        return false;
+        return Ok(false);
     }
 
-    step_4_verify_deep_composition_polynomial(proof, &domain, &challenges)
+    Ok(step_4_verify_deep_composition_polynomial(
+        proof,
+        &domain,
+        &challenges,
+    ))
 }

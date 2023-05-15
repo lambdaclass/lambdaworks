@@ -8,6 +8,7 @@ pub mod prover;
 pub mod verifier;
 
 use air::AIR;
+use errors::StarkError;
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_fft::roots_of_unity::get_powers_of_primitive_root_coset;
 use lambdaworks_math::field::{
@@ -76,20 +77,21 @@ pub struct Domain<F: IsFFTField> {
 }
 
 impl<F: IsFFTField> Domain<F> {
-    fn new<A: AIR<Field = F>>(air: &A) -> Self {
+    fn new<A: AIR<Field = F>>(air: &A) -> Result<Self, StarkError> {
         // Initial definitions
         let blowup_factor = air.options().blowup_factor as usize;
         let coset_offset = FieldElement::<F>::from(air.options().coset_offset);
         let interpolation_domain_size = air.context().trace_length;
         let root_order = air.context().trace_length.trailing_zeros();
         // * Generate Coset
-        let trace_primitive_root = F::get_primitive_root_of_unity(root_order as u64).unwrap();
+        let trace_primitive_root = F::get_primitive_root_of_unity(root_order as u64)
+            .map_err(StarkError::DomainFieldError)?;
         let trace_roots_of_unity = get_powers_of_primitive_root_coset(
             root_order as u64,
             interpolation_domain_size,
             &FieldElement::<F>::one(),
         )
-        .unwrap();
+        .map_err(StarkError::DomainFFTError)?;
 
         let lde_root_order = (air.context().trace_length * blowup_factor).trailing_zeros();
         let lde_roots_of_unity_coset = get_powers_of_primitive_root_coset(
@@ -97,9 +99,9 @@ impl<F: IsFFTField> Domain<F> {
             air.context().trace_length * blowup_factor,
             &coset_offset,
         )
-        .unwrap();
+        .map_err(StarkError::DomainFFTError)?;
 
-        Self {
+        Ok(Self {
             root_order,
             lde_roots_of_unity_coset,
             lde_root_order,
@@ -108,6 +110,6 @@ impl<F: IsFFTField> Domain<F> {
             blowup_factor,
             coset_offset,
             interpolation_domain_size,
-        }
+        })
     }
 }

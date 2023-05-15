@@ -36,7 +36,7 @@ pub fn prove_fib(trace_length: usize) {
     let fibonacci_air = simple_fibonacci::FibonacciAIR::from(context);
 
     let result = prove(&trace, &fibonacci_air).unwrap();
-    verify(&result, &fibonacci_air);
+    verify(&result, &fibonacci_air).unwrap();
 }
 
 pub fn prove_fib_2_cols() {
@@ -60,7 +60,7 @@ pub fn prove_fib_2_cols() {
     let fibonacci_air = fibonacci_2_columns::Fibonacci2ColsAIR::from(context);
 
     let result = prove(&trace_columns, &fibonacci_air).unwrap();
-    verify(&result, &fibonacci_air);
+    verify(&result, &fibonacci_air).unwrap();
 }
 
 #[allow(dead_code)]
@@ -84,7 +84,7 @@ pub fn prove_fib17() {
     let fibonacci_air = fibonacci_f17::Fibonacci17AIR::from(context);
 
     let result = prove(&trace, &fibonacci_air).unwrap();
-    verify(&result, &fibonacci_air);
+    verify(&result, &fibonacci_air).unwrap();
 }
 
 #[allow(dead_code)]
@@ -108,7 +108,7 @@ pub fn prove_quadratic() {
     let quadratic_air = quadratic_air::QuadraticAIR::from(context);
 
     let result = prove(&trace, &quadratic_air).unwrap();
-    verify(&result, &quadratic_air);
+    verify(&result, &quadratic_air).unwrap();
 }
 
 // We added an attribute to disable the `dead_code` lint because clippy doesn't take into account

@@ -5,7 +5,7 @@ use super::{
 };
 use crate::{
     batch_sample_challenges,
-    errors::ProverError,
+    errors::StarkError,
     fri::{fri_decommit::FriDecommitment, fri_query_phase, HASHER},
     proof::{DeepPolynomialOpenings, StarkProof},
     transcript_to_field, Domain,
@@ -115,7 +115,7 @@ fn interpolate_and_commit<T, F>(
         Vec<MerkleTree<F>>,
         Vec<FieldElement<F>>,
     ),
-    ProverError,
+    StarkError,
 >
 where
     T: Transcript,
@@ -129,7 +129,7 @@ where
         .iter()
         .map(|poly| evaluate_polynomial_on_lde_domain(poly, domain))
         .collect::<Result<Vec<Vec<FieldElement<F>>>, FFTError>>()
-        .map_err(ProverError::PolynomialEvaluationError)?;
+        .map_err(StarkError::PolynomialEvaluationError)?;
 
     // Compute commitments [t_j].
     let lde_trace = TraceTable::new_from_cols(&lde_trace_evaluations);
@@ -154,7 +154,7 @@ fn round_1_randomized_air_with_preprocessing<F: IsFFTField, A: AIR<Field = F>, T
     raw_trace: &A::RawTrace,
     domain: &Domain<F>,
     transcript: &mut T,
-) -> Result<Round1<F, A>, ProverError>
+) -> Result<Round1<F, A>, StarkError>
 where
     FieldElement<F>: ByteConversion,
 {
@@ -194,7 +194,7 @@ fn round_2_compute_composition_polynomial<F, A>(
     round_1_result: &Round1<F, A>,
     transition_coeffs: &[(FieldElement<F>, FieldElement<F>)],
     boundary_coeffs: &[(FieldElement<F>, FieldElement<F>)],
-) -> Result<Round2<F>, ProverError>
+) -> Result<Round2<F>, StarkError>
 where
     F: IsFFTField,
     A: AIR<Field = F>,
@@ -224,10 +224,10 @@ where
 
     let lde_composition_poly_even_evaluations =
         evaluate_polynomial_on_lde_domain(&composition_poly_even, domain)
-            .map_err(ProverError::PolynomialEvaluationError)?;
+            .map_err(StarkError::PolynomialEvaluationError)?;
     let lde_composition_poly_odd_evaluations =
         evaluate_polynomial_on_lde_domain(&composition_poly_odd, domain)
-            .map_err(ProverError::PolynomialEvaluationError)?;
+            .map_err(StarkError::PolynomialEvaluationError)?;
 
     let (composition_poly_merkle_trees, composition_poly_roots) = batch_commit(vec![
         &lde_composition_poly_even_evaluations,
@@ -301,7 +301,7 @@ fn round_4_compute_and_run_fri_on_the_deep_composition_polynomial<
     round_3_result: &Round3<F>,
     z: &FieldElement<F>,
     transcript: &mut T,
-) -> Result<Round4<F>, ProverError>
+) -> Result<Round4<F>, StarkError>
 where
     FieldElement<F>: ByteConversion,
 {
@@ -366,14 +366,14 @@ fn compute_deep_composition_poly<A: AIR, F: IsFFTField>(
     primitive_root: &FieldElement<F>,
     composition_poly_gammas: &[FieldElement<F>; 2],
     trace_terms_gammas: &[FieldElement<F>],
-) -> Result<Polynomial<FieldElement<F>>, ProverError> {
+) -> Result<Polynomial<FieldElement<F>>, StarkError> {
     // Get trace evaluations needed for the trace terms of the deep composition polynomial
     let transition_offsets = air.context().transition_offsets;
     let trace_frame_evaluations =
         Frame::get_trace_evaluations(trace_polys, z, &transition_offsets, primitive_root);
 
     if trace_terms_gammas.len() != trace_frame_evaluations.len() * trace_polys.len() {
-        return Err(ProverError::DeepTraceTermGammasError(
+        return Err(StarkError::DeepTraceTermGammasError(
             trace_frame_evaluations.len(),
             trace_polys.len(),
             trace_terms_gammas.len(),
@@ -425,7 +425,7 @@ fn open_deep_composition_poly<F: IsFFTField, A: AIR<Field = F>>(
     round_1_result: &Round1<F, A>,
     round_2_result: &Round2<F>,
     index_to_open: usize,
-) -> Result<DeepPolynomialOpenings<F>, ProverError>
+) -> Result<DeepPolynomialOpenings<F>, StarkError>
 where
     FieldElement<F>: ByteConversion,
 {
@@ -439,7 +439,7 @@ where
     let lde_composition_poly_even_evaluation = round_2_result
         .lde_composition_poly_even_evaluations
         .get(index)
-        .ok_or(ProverError::CompositionPolyEvenEvaluationsError(
+        .ok_or(StarkError::CompositionPolyEvenEvaluationsError(
             round_2_result.lde_composition_poly_even_evaluations.len(),
             index,
         ))?
@@ -453,7 +453,7 @@ where
     let lde_composition_poly_odd_evaluation = round_2_result
         .lde_composition_poly_odd_evaluations
         .get(index)
-        .ok_or(ProverError::CompositionPolyOddEvaluationsError(
+        .ok_or(StarkError::CompositionPolyOddEvaluationsError(
             round_2_result.lde_composition_poly_odd_evaluations.len(),
             index,
         ))?
@@ -480,13 +480,13 @@ where
 pub fn prove<F: IsFFTField, A: AIR<Field = F>>(
     trace: &A::RawTrace,
     air: &A,
-) -> Result<StarkProof<F>, ProverError>
+) -> Result<StarkProof<F>, StarkError>
 where
     FieldElement<F>: ByteConversion,
 {
     info!("Starting proof generation...");
 
-    let domain = Domain::new(air);
+    let domain = Domain::new(air)?;
 
     let mut transcript = round_0_transcript_initialization();
 
@@ -667,7 +667,7 @@ mod tests {
             num_transition_constraints: 1,
         };
 
-        let domain = Domain::new(&simple_fibonacci::FibonacciAIR::from(context));
+        let domain = Domain::new(&simple_fibonacci::FibonacciAIR::from(context)).unwrap();
         assert_eq!(domain.blowup_factor, 2);
         assert_eq!(domain.interpolation_domain_size, trace_length);
         assert_eq!(domain.root_order, trace_length.trailing_zeros());
@@ -718,7 +718,7 @@ mod tests {
         };
         let coset_offset = FieldElement::from(coset_offset);
 
-        let domain = Domain::new(&simple_fibonacci::FibonacciAIR::from(context));
+        let domain = Domain::new(&simple_fibonacci::FibonacciAIR::from(context)).unwrap();
         let primitive_root = Stark252PrimeField::get_primitive_root_of_unity(
             (trace_length * blowup_factor).trailing_zeros() as u64,
         )

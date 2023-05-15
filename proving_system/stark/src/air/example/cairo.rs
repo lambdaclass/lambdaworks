@@ -391,7 +391,7 @@ mod test {
 
         trace_polys.extend_from_slice(&aux_polys);
 
-        let domain = Domain::new(&cairo_air);
+        let domain = Domain::new(&cairo_air).unwrap();
 
         assert!(validate_trace(
             &cairo_air,
