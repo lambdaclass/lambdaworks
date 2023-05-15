@@ -5,6 +5,7 @@ use super::{
 };
 use crate::{
     batch_sample_challenges,
+    errors::ProverError,
     fri::{fri_decommit::FriDecommitment, fri_query_phase, HASHER},
     proof::{DeepPolynomialOpenings, StarkProof},
     transcript_to_field, Domain,
@@ -107,12 +108,15 @@ fn interpolate_and_commit<T, F>(
     trace: &TraceTable<F>,
     domain: &Domain<F>,
     transcript: &mut T,
-) -> (
-    Vec<Polynomial<FieldElement<F>>>,
-    Vec<Vec<FieldElement<F>>>,
-    Vec<MerkleTree<F>>,
-    Vec<FieldElement<F>>,
-)
+) -> Result<
+    (
+        Vec<Polynomial<FieldElement<F>>>,
+        Vec<Vec<FieldElement<F>>>,
+        Vec<MerkleTree<F>>,
+        Vec<FieldElement<F>>,
+    ),
+    ProverError,
+>
 where
     T: Transcript,
     F: IsFFTField,
@@ -125,7 +129,7 @@ where
         .iter()
         .map(|poly| evaluate_polynomial_on_lde_domain(poly, domain))
         .collect::<Result<Vec<Vec<FieldElement<F>>>, FFTError>>()
-        .unwrap();
+        .map_err(ProverError::PolynomialEvaluationError)?;
 
     // Compute commitments [t_j].
     let lde_trace = TraceTable::new_from_cols(&lde_trace_evaluations);
@@ -138,26 +142,26 @@ where
         transcript.append(&root.to_bytes_be());
     }
 
-    (
+    Ok((
         trace_polys,
         lde_trace_evaluations,
         lde_trace_merkle_trees,
         lde_trace_merkle_roots,
-    )
+    ))
 }
 
 fn round_1_randomized_air_with_preprocessing<F: IsFFTField, A: AIR<Field = F>, T: Transcript>(
     raw_trace: &A::RawTrace,
     domain: &Domain<F>,
     transcript: &mut T,
-) -> Round1<F, A>
+) -> Result<Round1<F, A>, ProverError>
 where
     FieldElement<F>: ByteConversion,
 {
     let main_trace = A::build_main_trace(raw_trace);
 
     let (mut trace_polys, mut evaluations, mut lde_trace_merkle_trees, mut lde_trace_merkle_roots) =
-        interpolate_and_commit(&main_trace, domain, transcript);
+        interpolate_and_commit(&main_trace, domain, transcript)?;
 
     let rap_challenges = A::build_rap_challenges(transcript);
 
@@ -166,7 +170,7 @@ where
     if !aux_trace.is_empty() {
         // Check that this is valid for interpolation
         let (aux_trace_polys, aux_trace_polys_evaluations, aux_merkle_trees, aux_merkle_roots) =
-            interpolate_and_commit(&aux_trace, domain, transcript);
+            interpolate_and_commit(&aux_trace, domain, transcript)?;
         trace_polys.extend_from_slice(&aux_trace_polys);
         evaluations.extend_from_slice(&aux_trace_polys_evaluations);
         lde_trace_merkle_trees.extend_from_slice(&aux_merkle_trees);
@@ -175,13 +179,13 @@ where
 
     let lde_trace = TraceTable::new_from_cols(&evaluations);
 
-    Round1 {
+    Ok(Round1 {
         trace_polys,
         lde_trace,
         lde_trace_merkle_roots,
         lde_trace_merkle_trees,
         rap_challenges,
-    }
+    })
 }
 
 fn round_2_compute_composition_polynomial<F, A>(
@@ -449,7 +453,10 @@ where
 }
 
 // FIXME remove unwrap() calls and return errors
-pub fn prove<F: IsFFTField, A: AIR<Field = F>>(trace: &A::RawTrace, air: &A) -> StarkProof<F>
+pub fn prove<F: IsFFTField, A: AIR<Field = F>>(
+    trace: &A::RawTrace,
+    air: &A,
+) -> Result<StarkProof<F>, ProverError>
 where
     FieldElement<F>: ByteConversion,
 {
@@ -464,7 +471,7 @@ where
     // ===================================
 
     let round_1_result =
-        round_1_randomized_air_with_preprocessing::<F, A, _>(trace, &domain, &mut transcript);
+        round_1_randomized_air_with_preprocessing::<F, A, _>(trace, &domain, &mut transcript)?;
 
     #[cfg(debug_assertions)]
     validate_trace(
@@ -570,7 +577,7 @@ where
 
     info!("End proof generation");
 
-    StarkProof {
+    Ok(StarkProof {
         // [tⱼ]
         lde_trace_merkle_roots: round_1_result.lde_trace_merkle_roots,
         // tⱼ(zgᵏ)
@@ -591,7 +598,7 @@ where
         query_list: round_4_result.query_list,
         // Open(H₁(D_LDE, 𝜐₀), Open(H₂(D_LDE, 𝜐₀), Open(tⱼ(D_LDE), 𝜐₀)
         deep_poly_openings: round_4_result.deep_poly_openings,
-    }
+    })
 }
 
 #[cfg(test)]

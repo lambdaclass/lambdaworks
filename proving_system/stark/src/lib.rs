@@ -1,6 +1,7 @@
 pub mod air;
 pub mod cairo_run;
 pub mod cairo_vm;
+pub mod errors;
 pub mod fri;
 pub mod proof;
 pub mod prover;

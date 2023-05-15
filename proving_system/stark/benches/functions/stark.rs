@@ -35,7 +35,7 @@ pub fn prove_fib(trace_length: usize) {
 
     let fibonacci_air = simple_fibonacci::FibonacciAIR::from(context);
 
-    let result = prove(&trace, &fibonacci_air);
+    let result = prove(&trace, &fibonacci_air).unwrap();
     verify(&result, &fibonacci_air);
 }
 
@@ -59,7 +59,7 @@ pub fn prove_fib_2_cols() {
 
     let fibonacci_air = fibonacci_2_columns::Fibonacci2ColsAIR::from(context);
 
-    let result = prove(&trace_columns, &fibonacci_air);
+    let result = prove(&trace_columns, &fibonacci_air).unwrap();
     verify(&result, &fibonacci_air);
 }
 
@@ -83,7 +83,7 @@ pub fn prove_fib17() {
 
     let fibonacci_air = fibonacci_f17::Fibonacci17AIR::from(context);
 
-    let result = prove(&trace, &fibonacci_air);
+    let result = prove(&trace, &fibonacci_air).unwrap();
     verify(&result, &fibonacci_air);
 }
 
@@ -107,7 +107,7 @@ pub fn prove_quadratic() {
 
     let quadratic_air = quadratic_air::QuadraticAIR::from(context);
 
-    let result = prove(&trace, &quadratic_air);
+    let result = prove(&trace, &quadratic_air).unwrap();
     verify(&result, &quadratic_air);
 }
 
@@ -131,7 +131,7 @@ pub fn prove_cairo_fibonacci_5() {
 
     let cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace);
 
-    prove(&(raw_trace, memory), &cairo_air);
+    prove(&(raw_trace, memory), &cairo_air).unwrap();
 }
 
 #[allow(dead_code)]
@@ -151,7 +151,7 @@ pub fn prove_cairo_fibonacci_10() {
 
     let cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace);
 
-    prove(&(raw_trace, memory), &cairo_air);
+    prove(&(raw_trace, memory), &cairo_air).unwrap();
 }
 
 #[allow(dead_code)]
@@ -171,7 +171,7 @@ pub fn prove_cairo_fibonacci_30() {
 
     let cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace);
 
-    prove(&(raw_trace, memory), &cairo_air);
+    prove(&(raw_trace, memory), &cairo_air).unwrap();
 }
 
 #[allow(dead_code)]
@@ -191,7 +191,7 @@ pub fn prove_cairo_fibonacci_50() {
 
     let cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace);
 
-    prove(&(raw_trace, memory), &cairo_air);
+    prove(&(raw_trace, memory), &cairo_air).unwrap();
 }
 
 #[allow(dead_code)]
@@ -211,5 +211,5 @@ pub fn prove_cairo_fibonacci_100() {
 
     let cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace);
 
-    prove(&(raw_trace, memory), &cairo_air);
+    prove(&(raw_trace, memory), &cairo_air).unwrap();
 }
