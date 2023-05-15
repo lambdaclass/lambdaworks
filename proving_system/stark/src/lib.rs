@@ -26,13 +26,17 @@ pub type FE = FieldElement<PrimeField>;
 
 // TODO: change this to use more bits
 pub fn transcript_to_field<F: IsField, T: Transcript>(transcript: &mut T) -> FieldElement<F> {
+    // `transcript.challenge` returns an array of 32 bytes, so it's ok to get its first 8 bytes
+    // without checking
     let value: u64 = u64::from_be_bytes(transcript.challenge()[..8].try_into().unwrap());
     FieldElement::from(value)
 }
 
 pub fn transcript_to_usize<T: Transcript>(transcript: &mut T) -> usize {
-    const CANT_BYTES_USIZE: usize = (usize::BITS / 8) as usize;
-    let value = transcript.challenge()[..CANT_BYTES_USIZE]
+    const NUM_BYTES_USIZE: usize = (usize::BITS / 8) as usize;
+    // `transcript.challenge` returns an array of 32 bytes and `usize` size is 8 bytes at most,
+    // so it's ok to get its first `NUM_BYTES_USIZE` bytes without checking
+    let value = transcript.challenge()[..NUM_BYTES_USIZE]
         .try_into()
         .unwrap();
     usize::from_be_bytes(value)
