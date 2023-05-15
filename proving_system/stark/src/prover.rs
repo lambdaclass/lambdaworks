@@ -335,7 +335,8 @@ where
         &domain.lde_roots_of_unity_coset,
         transcript,
     );
-    let (query_list, iota_0) = fri_query_phase(air, domain, &fri_layers, transcript);
+    let (query_list, iota_0) =
+        fri_query_phase(air, domain, &fri_layers, transcript).map_err(StarkError::FriQueryError)?;
 
     let fri_layers_merkle_roots: Vec<_> = fri_layers
         .iter()

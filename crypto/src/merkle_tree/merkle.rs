@@ -42,7 +42,7 @@ impl<F: IsField> MerkleTree<F> {
 
     pub fn get_proof_by_pos(&self, pos: usize) -> Option<Proof<F>> {
         let pos = pos + self.nodes.len() / 2;
-        let merkle_path = self.build_merkle_path(pos);
+        let merkle_path = self.build_merkle_path(pos)?;
 
         self.create_proof(merkle_path)
     }
@@ -51,7 +51,11 @@ impl<F: IsField> MerkleTree<F> {
         Some(Proof { merkle_path })
     }
 
-    fn build_merkle_path(&self, pos: usize) -> Vec<FieldElement<F>> {
+    fn build_merkle_path(&self, pos: usize) -> Option<Vec<FieldElement<F>>> {
+        if sibling_index(pos) >= self.nodes.len() {
+            return None;
+        }
+
         let mut merkle_path = Vec::new();
         let mut pos = pos;
 
@@ -60,7 +64,7 @@ impl<F: IsField> MerkleTree<F> {
             pos = parent_index(pos);
         }
 
-        merkle_path
+        Some(merkle_path)
     }
 }
 

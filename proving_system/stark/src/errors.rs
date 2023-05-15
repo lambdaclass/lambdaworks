@@ -1,6 +1,8 @@
 use lambdaworks_fft::errors::FFTError;
 use thiserror::Error;
 
+use crate::fri::errors::FriError;
+
 #[derive(Debug, Error)]
 pub enum StarkError {
     #[error("Could not evaluate polynomial: {0}")]
@@ -13,4 +15,6 @@ pub enum StarkError {
     CompositionPolyOddEvaluationsError(usize, usize),
     #[error("Could not create domain: {0}")]
     DomainCreationError(FFTError),
+    #[error("Could not query FRI layers: {0}")]
+    FriQueryError(FriError),
 }

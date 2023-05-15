@@ -1,3 +1,4 @@
+pub mod errors;
 pub mod fri_commitment;
 pub mod fri_decommit;
 mod fri_functions;
@@ -15,6 +16,7 @@ pub use lambdaworks_math::{
     polynomial::Polynomial,
 };
 
+use self::errors::FriError;
 use self::fri_decommit::FriDecommitment;
 use self::fri_functions::{fold_polynomial, next_domain};
 
@@ -70,48 +72,86 @@ where
 pub fn fri_query_phase<F: IsFFTField, A: AIR<Field = F>, T: Transcript>(
     air: &A,
     domain: &Domain<F>,
-    fri_layers: &Vec<FriLayer<F>>,
+    fri_layers: &[FriLayer<F>],
     transcript: &mut T,
-) -> (Vec<FriDecommitment<F>>, usize)
+) -> Result<(Vec<FriDecommitment<F>>, usize), FriError>
 where
     FieldElement<F>: ByteConversion,
 {
     if let Some(first_layer) = fri_layers.get(0) {
+        let max_iota = 2_usize.pow(domain.lde_root_order);
+        check_fri_layers_length(fri_layers, max_iota)?;
+
         let number_of_queries = air.context().options.fri_number_of_queries;
+        if number_of_queries == 0 {
+            return Err(FriError::NumberOfQueriesError);
+        }
+
         let mut iotas: Vec<usize> = Vec::with_capacity(number_of_queries);
         let query_list = (0..number_of_queries)
             .map(|_| {
                 // <<<< Receive challenge 𝜄ₛ (iota_s)
-                let iota_s = transcript_to_usize(transcript) % 2_usize.pow(domain.lde_root_order);
+                let iota_s = transcript_to_usize(transcript) % max_iota;
 
                 let first_layer_evaluation = first_layer.evaluation[iota_s].clone();
-                let first_layer_auth_path =
-                    first_layer.merkle_tree.get_proof_by_pos(iota_s).unwrap();
+                let first_layer_auth_path = first_layer
+                    .merkle_tree
+                    .get_proof_by_pos(iota_s)
+                    .ok_or(FriError::LayerMerkleProofError(0))?;
 
                 let mut layers_auth_paths_sym = vec![];
                 let mut layers_evaluations_sym = vec![];
 
-                for layer in fri_layers {
+                for (i, layer) in fri_layers.iter().enumerate() {
                     // symmetric element
                     let index_sym = (iota_s + layer.domain.len() / 2) % layer.domain.len();
                     let evaluation_sym = layer.evaluation[index_sym].clone();
-                    let auth_path_sym = layer.merkle_tree.get_proof_by_pos(index_sym).unwrap();
+                    let auth_path_sym = layer
+                        .merkle_tree
+                        .get_proof_by_pos(index_sym)
+                        .ok_or(FriError::LayerMerkleProofError(i))?;
                     layers_auth_paths_sym.push(auth_path_sym);
                     layers_evaluations_sym.push(evaluation_sym);
                 }
                 iotas.push(iota_s);
 
-                FriDecommitment {
+                Ok(FriDecommitment {
                     layers_auth_paths_sym,
                     layers_evaluations_sym,
                     first_layer_evaluation,
                     first_layer_auth_path,
-                }
+                })
             })
-            .collect();
+            .collect::<Result<Vec<FriDecommitment<F>>, FriError>>()?;
 
-        (query_list, iotas[0])
+        Ok((query_list, iotas[0]))
     } else {
-        (vec![], 0)
+        Ok((vec![], 0))
     }
+}
+
+fn check_fri_layers_length<F: IsFFTField>(
+    fri_layers: &[FriLayer<F>],
+    first_layer_min_length: usize,
+) -> Result<(), FriError> {
+    // Function caller knows that there is at least one FRI layer, so it's ok to get
+    // the first FRI layer without checking
+    if fri_layers[0].evaluation.len() < first_layer_min_length {
+        return Err(FriError::LayerEvaluationError(
+            0,
+            first_layer_min_length,
+            fri_layers[0].evaluation.len(),
+        ));
+    }
+    for (i, layer) in fri_layers.iter().enumerate() {
+        if layer.evaluation.len() < layer.domain.len() {
+            return Err(FriError::LayerEvaluationError(
+                i,
+                layer.domain.len(),
+                layer.evaluation.len(),
+            ));
+        }
+    }
+
+    Ok(())
 }
