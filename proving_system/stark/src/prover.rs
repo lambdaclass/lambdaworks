@@ -12,7 +12,10 @@ use crate::{
 };
 #[cfg(not(feature = "test_fiat_shamir"))]
 use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
-use lambdaworks_crypto::{fiat_shamir::transcript::Transcript, merkle_tree::merkle::MerkleTree};
+use lambdaworks_crypto::{
+    fiat_shamir::transcript::Transcript,
+    merkle_tree::{merkle::MerkleTree, proof::Proof},
+};
 
 #[cfg(feature = "test_fiat_shamir")]
 use lambdaworks_crypto::fiat_shamir::test_transcript::TestTranscript;
@@ -430,42 +433,34 @@ fn open_deep_composition_poly<F: IsFFTField, A: AIR<Field = F>>(
 where
     FieldElement<F>: ByteConversion,
 {
+    check_composition_polys_length(round_2_result, domain.lde_roots_of_unity_coset.len())?;
     let index = index_to_open % domain.lde_roots_of_unity_coset.len();
 
     // H₁ openings
     let lde_composition_poly_even_proof = round_2_result
         .composition_poly_even_merkle_tree
         .get_proof_by_pos(index)
-        .unwrap();
-    let lde_composition_poly_even_evaluation = round_2_result
-        .lde_composition_poly_even_evaluations
-        .get(index)
-        .ok_or(StarkError::CompositionPolyEvenEvaluationsError(
-            round_2_result.lde_composition_poly_even_evaluations.len(),
-            index,
-        ))?
-        .clone();
+        .ok_or(StarkError::CompositionPolyEvenProofError)?;
+    let lde_composition_poly_even_evaluation =
+        round_2_result.lde_composition_poly_even_evaluations[index].clone();
 
     // H₂ openings
     let lde_composition_poly_odd_proof = round_2_result
         .composition_poly_odd_merkle_tree
         .get_proof_by_pos(index)
-        .unwrap();
-    let lde_composition_poly_odd_evaluation = round_2_result
-        .lde_composition_poly_odd_evaluations
-        .get(index)
-        .ok_or(StarkError::CompositionPolyOddEvaluationsError(
-            round_2_result.lde_composition_poly_odd_evaluations.len(),
-            index,
-        ))?
-        .clone();
+        .ok_or(StarkError::CompositionPolyOddProofError)?;
+    let lde_composition_poly_odd_evaluation =
+        round_2_result.lde_composition_poly_odd_evaluations[index].clone();
 
     // Trace polynomials openings
     let lde_trace_merkle_proofs = round_1_result
         .lde_trace_merkle_trees
         .iter()
-        .map(|tree| tree.get_proof_by_pos(index).unwrap())
-        .collect();
+        .map(|tree| {
+            tree.get_proof_by_pos(index)
+                .ok_or(StarkError::LDETraceMerkleProofError)
+        })
+        .collect::<Result<Vec<Proof<F>>, StarkError>>()?;
     let lde_trace_evaluations = round_1_result.lde_trace.get_row(index).to_vec();
 
     Ok(DeepPolynomialOpenings {
@@ -476,6 +471,26 @@ where
         lde_trace_merkle_proofs,
         lde_trace_evaluations,
     })
+}
+
+fn check_composition_polys_length<F: IsFFTField>(
+    round_2_result: &Round2<F>,
+    lde_roots_of_unity_coset_len: usize,
+) -> Result<(), StarkError> {
+    if round_2_result.lde_composition_poly_even_evaluations.len() < lde_roots_of_unity_coset_len {
+        return Err(StarkError::CompositionPolyEvenEvaluationsError(
+            round_2_result.lde_composition_poly_even_evaluations.len(),
+            lde_roots_of_unity_coset_len,
+        ));
+    }
+    if round_2_result.lde_composition_poly_odd_evaluations.len() < lde_roots_of_unity_coset_len {
+        return Err(StarkError::CompositionPolyOddEvaluationsError(
+            round_2_result.lde_composition_poly_odd_evaluations.len(),
+            lde_roots_of_unity_coset_len,
+        ));
+    }
+
+    Ok(())
 }
 
 pub fn prove<F: IsFFTField, A: AIR<Field = F>>(
