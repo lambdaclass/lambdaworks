@@ -18,12 +18,12 @@ mod test {
             let state = MetalState::new(None).unwrap();
             let pipeline = state.setup_pipeline("fp_bls12381_add").unwrap();
 
-            let p = U384::from_u128(1 << 70);
-            let q = U384::from_u128(23865976567890);
-
+            let p = FE::from(555);
             let p_buffer = state.alloc_buffer_data(&[p.clone()]);
+
+            let q = FE::from(666);
             let q_buffer = state.alloc_buffer_data(&[q.clone()]);
-            let result_buffer = state.alloc_buffer::<U384>(1);
+            let result_buffer = state.alloc_buffer_data(&[FE::zero()]);
 
             let (command_buffer, command_encoder) = state.setup_command(
                 &pipeline,
@@ -37,12 +37,9 @@ mod test {
             command_buffer.commit();
             command_buffer.wait_until_completed();
 
-            let result = MetalState::retrieve_contents::<U384>(&result_buffer);
-            //let result: Vec<FE> = result.iter().map(FieldElement::from_raw).collect();
+            let result: Vec<FE> = result.iter().map(FieldElement::from_raw).collect();
 
             assert_eq!(result[0], p + q);
-            dbg!(result[0]);
-            //assert!(false);
         });
     }
 

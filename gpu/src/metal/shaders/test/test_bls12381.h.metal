@@ -22,13 +22,13 @@ template<typename Fp>
 [[kernel]] void add_fp(
     constant Fp* p [[ buffer(0) ]],
     constant Fp* q [[ buffer(1) ]],
-    device UnsignedInteger64<6>* result [[ buffer(2) ]]
+    device Fp* result [[ buffer(2) ]]
 )
 {
     Fp fp_p = p[0];
     Fp fp_q = q[0];
-    Fp res = fp_p - fp_q;
-    result[0] = res.to_u64();
+    Fp res = fp_p + fp_q;
+    result[0] = res;
 }
 
 template<typename Fp>

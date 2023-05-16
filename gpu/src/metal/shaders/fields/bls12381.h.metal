@@ -19,10 +19,10 @@ template [[ host_name("bls12381_add") ]]
 );
 
 template [[ host_name("fp_bls12381_add") ]]
-[[kernel]] void add_fp<u384>(
-    constant u384*,
-    constant u384*,
-    device UnsignedInteger64<6>*
+[[kernel]] void add_fp<FpBLS12381>(
+    constant FpBLS12381*,
+    constant FpBLS12381*,
+    device FpBLS12381*
 );
 
 template [[ host_name("fp_bls12381_mul") ]]
