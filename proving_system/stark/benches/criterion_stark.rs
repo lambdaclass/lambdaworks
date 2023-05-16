@@ -71,19 +71,29 @@ pub fn proof_benchmarks(c: &mut Criterion) {
     );
 }
 
-fn run_fibonacci_bench(group: &mut BenchmarkGroup<'_, WallTime>, name: &str, file: &str) {
+fn run_fibonacci_bench(group: &mut BenchmarkGroup<'_, WallTime>, benchname: &str, file: &str) {
     let trace = generate_cairo_trace(file, "all_cairo");
 
-    let proof_options = ProofOptions {
-        blowup_factor: 2,
-        fri_number_of_queries: 5,
-        coset_offset: 3,
-    };
-    let cairo_air = cairo::CairoAIR::new(proof_options, &trace.0);
+    let blowup_factors = [2, 4, 8];
+    let query_numbers = [16, 32];
 
-    group.bench_function(name, |bench| {
-        bench.iter(|| black_box(prove(black_box(&trace), black_box(&cairo_air))));
-    });
+    for &blowup_factor in blowup_factors.iter() {
+        for &fri_number_of_queries in query_numbers.iter() {
+            let proof_options = ProofOptions {
+                blowup_factor,
+                fri_number_of_queries,
+                coset_offset: 3,
+            };
+            let cairo_air = cairo::CairoAIR::new(proof_options, &trace.0);
+
+            let name =
+                format!("{benchname} (blowup: {blowup_factor}, queries: {fri_number_of_queries})");
+
+            group.bench_function(name, |bench| {
+                bench.iter(|| black_box(prove(black_box(&trace), black_box(&cairo_air))));
+            });
+        }
+    }
 }
 
 criterion_group!(benches, proof_benchmarks);
