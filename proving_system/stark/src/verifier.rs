@@ -255,7 +255,7 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
         .unwrap();
 
     // We already checked that the number of trace columns shouldn't be zero, so
-    // `boundary_quotient_degrees` won't be empty, so it's ok to unwrap here
+    // `boundary_quotient_degrees` isn't empty, so it's ok to unwrap here
     let boundary_quotients_max_degree = boundary_quotient_degrees.iter().max().unwrap();
 
     let max_degree = std::cmp::max(
