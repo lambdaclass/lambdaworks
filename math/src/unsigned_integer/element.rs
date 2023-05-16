@@ -27,6 +27,11 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
     }
 
     pub fn from_u32_limbs(limbs: &[u32]) -> Self {
+        let mut limbs = limbs.to_vec();
+        limbs.reverse();
+        limbs.resize(NUM_LIMBS * 2, 0);
+        limbs.reverse();
+
         let mut limbs_64 = [0; NUM_LIMBS];
 
         for (i, pair) in limbs.chunks(2).enumerate() {
