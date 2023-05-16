@@ -84,7 +84,7 @@ where
 
         let number_of_queries = air.context().options.fri_number_of_queries;
         if number_of_queries == 0 {
-            return Err(FriError::NumberOfQueriesError);
+            return Err(FriError::NumberOfQueries);
         }
 
         let mut iotas: Vec<usize> = Vec::with_capacity(number_of_queries);
@@ -97,7 +97,7 @@ where
                 let first_layer_auth_path = first_layer
                     .merkle_tree
                     .get_proof_by_pos(iota_s)
-                    .ok_or(FriError::LayerMerkleProofError(0))?;
+                    .ok_or(FriError::LayerMerkleProof(0))?;
 
                 let mut layers_auth_paths_sym = vec![];
                 let mut layers_evaluations_sym = vec![];
@@ -109,7 +109,7 @@ where
                     let auth_path_sym = layer
                         .merkle_tree
                         .get_proof_by_pos(index_sym)
-                        .ok_or(FriError::LayerMerkleProofError(i))?;
+                        .ok_or(FriError::LayerMerkleProof(i))?;
                     layers_auth_paths_sym.push(auth_path_sym);
                     layers_evaluations_sym.push(evaluation_sym);
                 }
@@ -137,7 +137,7 @@ fn check_fri_layers_length<F: IsFFTField>(
     // Function caller knows that there is at least one FRI layer, so it's ok to get
     // the first FRI layer without checking
     if fri_layers[0].evaluation.len() < first_layer_min_length {
-        return Err(FriError::LayerEvaluationError(
+        return Err(FriError::LayerEvaluation(
             0,
             first_layer_min_length,
             fri_layers[0].evaluation.len(),
@@ -145,7 +145,7 @@ fn check_fri_layers_length<F: IsFFTField>(
     }
     for (i, layer) in fri_layers.iter().enumerate() {
         if layer.evaluation.len() < layer.domain.len() {
-            return Err(FriError::LayerEvaluationError(
+            return Err(FriError::LayerEvaluation(
                 i,
                 layer.domain.len(),
                 layer.evaluation.len(),

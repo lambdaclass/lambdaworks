@@ -132,7 +132,7 @@ where
         .iter()
         .map(|poly| evaluate_polynomial_on_lde_domain(poly, domain))
         .collect::<Result<Vec<Vec<FieldElement<F>>>, FFTError>>()
-        .map_err(StarkError::PolynomialEvaluationError)?;
+        .map_err(StarkError::PolynomialEvaluation)?;
 
     // Compute commitments [t_j].
     let lde_trace = TraceTable::new_from_cols(&lde_trace_evaluations);
@@ -219,7 +219,7 @@ where
             boundary_coeffs,
             &round_1_result.rap_challenges,
         )
-        .map_err(StarkError::ConstraintEvaluationError)?;
+        .map_err(StarkError::ConstraintEvaluation)?;
 
     // Get the composition poly H
     let composition_poly =
@@ -229,10 +229,10 @@ where
 
     let lde_composition_poly_even_evaluations =
         evaluate_polynomial_on_lde_domain(&composition_poly_even, domain)
-            .map_err(StarkError::PolynomialEvaluationError)?;
+            .map_err(StarkError::PolynomialEvaluation)?;
     let lde_composition_poly_odd_evaluations =
         evaluate_polynomial_on_lde_domain(&composition_poly_odd, domain)
-            .map_err(StarkError::PolynomialEvaluationError)?;
+            .map_err(StarkError::PolynomialEvaluation)?;
 
     let (composition_poly_merkle_trees, composition_poly_roots) = batch_commit(vec![
         &lde_composition_poly_even_evaluations,
@@ -341,7 +341,7 @@ where
         transcript,
     );
     let (query_list, iota_0) =
-        fri_query_phase(air, domain, &fri_layers, transcript).map_err(StarkError::FriQueryError)?;
+        fri_query_phase(air, domain, &fri_layers, transcript).map_err(StarkError::FriQuery)?;
 
     let fri_layers_merkle_roots: Vec<_> = fri_layers
         .iter()
@@ -379,7 +379,7 @@ fn compute_deep_composition_poly<A: AIR, F: IsFFTField>(
         Frame::get_trace_evaluations(trace_polys, z, &transition_offsets, primitive_root);
 
     if trace_terms_gammas.len() != trace_frame_evaluations.len() * trace_polys.len() {
-        return Err(StarkError::DeepTraceTermGammasError(
+        return Err(StarkError::DeepTraceTermGammas(
             trace_frame_evaluations.len(),
             trace_polys.len(),
             trace_terms_gammas.len(),
@@ -442,7 +442,7 @@ where
     let lde_composition_poly_even_proof = round_2_result
         .composition_poly_even_merkle_tree
         .get_proof_by_pos(index)
-        .ok_or(StarkError::CompositionPolyEvenProofError)?;
+        .ok_or(StarkError::CompositionPolyEvenProof)?;
     let lde_composition_poly_even_evaluation =
         round_2_result.lde_composition_poly_even_evaluations[index].clone();
 
@@ -450,7 +450,7 @@ where
     let lde_composition_poly_odd_proof = round_2_result
         .composition_poly_odd_merkle_tree
         .get_proof_by_pos(index)
-        .ok_or(StarkError::CompositionPolyOddProofError)?;
+        .ok_or(StarkError::CompositionPolyOddProof)?;
     let lde_composition_poly_odd_evaluation =
         round_2_result.lde_composition_poly_odd_evaluations[index].clone();
 
@@ -460,7 +460,7 @@ where
         .iter()
         .map(|tree| {
             tree.get_proof_by_pos(index)
-                .ok_or(StarkError::LDETraceMerkleProofError)
+                .ok_or(StarkError::LDETraceMerkleProof)
         })
         .collect::<Result<Vec<Proof<F>>, StarkError>>()?;
     let lde_trace_evaluations = round_1_result.lde_trace.get_row(index).to_vec();
@@ -480,13 +480,13 @@ fn check_composition_polys_length<F: IsFFTField>(
     lde_roots_of_unity_coset_len: usize,
 ) -> Result<(), StarkError> {
     if round_2_result.lde_composition_poly_even_evaluations.len() < lde_roots_of_unity_coset_len {
-        return Err(StarkError::CompositionPolyEvenEvaluationsError(
+        return Err(StarkError::CompositionPolyEvenEvaluations(
             round_2_result.lde_composition_poly_even_evaluations.len(),
             lde_roots_of_unity_coset_len,
         ));
     }
     if round_2_result.lde_composition_poly_odd_evaluations.len() < lde_roots_of_unity_coset_len {
-        return Err(StarkError::CompositionPolyOddEvaluationsError(
+        return Err(StarkError::CompositionPolyOddEvaluations(
             round_2_result.lde_composition_poly_odd_evaluations.len(),
             lde_roots_of_unity_coset_len,
         ));

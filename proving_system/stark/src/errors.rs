@@ -6,33 +6,33 @@ use crate::{air::errors::AIRError, fri::errors::FriError};
 #[derive(Debug, Error)]
 pub enum StarkError {
     #[error("Could not evaluate polynomial: {0}")]
-    PolynomialEvaluationError(FFTError),
+    PolynomialEvaluation(FFTError),
     #[error("Number of trace term gammas of DEEP composition polynomial should be {0} * {1} = {} but is {2}", .0 * .1)]
-    DeepTraceTermGammasError(usize, usize, usize),
+    DeepTraceTermGammas(usize, usize, usize),
     #[error("Could not get merkle proof of even composition polynomial")]
-    CompositionPolyEvenProofError,
+    CompositionPolyEvenProof,
     #[error("Number of evaluations of even composition polynomial should be {0} but number of LDE roots of unity is {1}")]
-    CompositionPolyEvenEvaluationsError(usize, usize),
+    CompositionPolyEvenEvaluations(usize, usize),
     #[error("Could not get merkle proof of odd composition polynomial")]
-    CompositionPolyOddProofError,
+    CompositionPolyOddProof,
     #[error("Number of evaluations of odd composition polynomial should be {0} but number of LDE roots of unity is {1}")]
-    CompositionPolyOddEvaluationsError(usize, usize),
+    CompositionPolyOddEvaluations(usize, usize),
     #[error("Could not get LDE trace merkle proof")]
-    LDETraceMerkleProofError,
+    LDETraceMerkleProof,
     #[error("Could not create domain: {0}")]
-    DomainCreationError(FFTError),
+    DomainCreation(FFTError),
     #[error("Could not query FRI layers: {0}")]
-    FriQueryError(FriError),
+    FriQuery(FriError),
     #[error("AIR trace columns field is set to zero")]
-    AIRTraceColumnsError,
+    AIRTraceColumns,
     #[error("AIR has no transition degrees")]
-    AIRTransitionDegreesError,
+    AIRTransitionDegrees,
     #[error("Could not verify composition polynomial: {0}")]
-    CompositionPolyVerificationError(AIRError),
+    CompositionPolyVerification(AIRError),
     #[error("Could not reconstruct DEEP composition polynomial: {0}")]
-    DeepPolyReconstructionError(FFTError),
+    DeepPolyReconstruction(FFTError),
     #[error("Could not verify query: {0}")]
-    QueryVerificationError(FFTError),
+    QueryVerification(FFTError),
     #[error("Could not evaluate constraints: {0}")]
-    ConstraintEvaluationError(AIRError),
+    ConstraintEvaluation(AIRError),
 }

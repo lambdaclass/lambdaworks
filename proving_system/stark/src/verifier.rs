@@ -49,10 +49,10 @@ struct Challenges<F: IsFFTField, A: AIR<Field = F>> {
 
 fn check_air<F: IsFFTField, A: AIR<Field = F>>(air: &A) -> Result<(), StarkError> {
     if air.context().trace_columns == 0 {
-        return Err(StarkError::AIRTraceColumnsError);
+        return Err(StarkError::AIRTraceColumns);
     }
     if air.context().transition_degrees().is_empty() {
-        return Err(StarkError::AIRTransitionDegreesError);
+        return Err(StarkError::AIRTransitionDegrees);
     }
 
     Ok(())
@@ -244,7 +244,7 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
     let transition_divisors = air
         .transition_divisors()
         // TODO: rename this error to be more specific to the context
-        .map_err(StarkError::CompositionPolyVerificationError)?;
+        .map_err(StarkError::CompositionPolyVerification)?;
 
     // We already checked that the AIR should have any transition degree, so it's ok to unwrap here
     let transition_quotients_max_degree = transition_divisors
@@ -418,7 +418,7 @@ where
     }
 
     let lde_primitive_root = F::get_primitive_root_of_unity(domain.lde_root_order as u64)
-        .map_err(|error| StarkError::QueryVerificationError(error.into()))?;
+        .map_err(|error| StarkError::QueryVerification(error.into()))?;
     let offset = FieldElement::from(air.options().coset_offset);
     // evaluation point = offset * w ^ i in the Stark literature
     let mut evaluation_point = offset * lde_primitive_root.pow(iota);
@@ -483,7 +483,7 @@ fn reconstruct_deep_composition_poly_evaluation<F: IsFFTField, A: AIR<Field = F>
     challenges: &Challenges<F, A>,
 ) -> Result<FieldElement<F>, StarkError> {
     let primitive_root = &F::get_primitive_root_of_unity(domain.root_order as u64)
-        .map_err(|error| StarkError::DeepPolyReconstructionError(error.into()))?;
+        .map_err(|error| StarkError::DeepPolyReconstruction(error.into()))?;
     let upsilon_0 = &domain.lde_roots_of_unity_coset[challenges.iotas[0]];
 
     let mut trace_terms = FieldElement::zero();

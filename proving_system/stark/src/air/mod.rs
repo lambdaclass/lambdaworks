@@ -51,7 +51,7 @@ pub trait AIR: Clone {
     fn transition_divisors(&self) -> Result<Vec<Polynomial<FieldElement<Self::Field>>>, AIRError> {
         let num_transition_constraints = self.context().num_transition_constraints;
         if num_transition_constraints == 0 {
-            return Err(AIRError::TransitionConstraintsError);
+            return Err(AIRError::TransitionConstraints);
         }
 
         let trace_length = self.context().trace_length;
@@ -61,7 +61,7 @@ pub trait AIR: Clone {
             self.context().trace_length,
             &FieldElement::<Self::Field>::one(),
         )
-        .map_err(AIRError::TransitionDivisorsError)?;
+        .map_err(AIRError::TransitionDivisors)?;
 
         let mut result = vec![];
         let x_n = Polynomial::new_monomial(FieldElement::one(), trace_length);
