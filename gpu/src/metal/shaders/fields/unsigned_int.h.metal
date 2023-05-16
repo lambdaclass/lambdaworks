@@ -124,8 +124,8 @@ struct UnsignedInteger {
 
         while (i > 0) {
             i -= 1;
-            uint64_t c = uint64_t(swapped_limbs[i - 1]) - uint64_t(rhs_swapped_limbs[i - 1]) + carry;
-            limbs[i] = c & 0x0000FFFF;
+            int64_t c = (int64_t)(swapped_limbs[i]) - (int64_t)(rhs_swapped_limbs[i]) + carry;
+            limbs[i] = c & 0xFFFFFFFF;
             carry = c < 0 ? -1 : 0;
         }
 
