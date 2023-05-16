@@ -94,26 +94,27 @@ pub const FRAME_T1: usize = 31;
 pub const FRAME_MUL: usize = 32;
 pub const FRAME_SELECTOR: usize = 33;
 
-// Auxiliary memory columns
-pub const MEMORY_ADDR_SORTED_0: usize = 34;
-pub const MEMORY_ADDR_SORTED_1: usize = 35;
-pub const MEMORY_ADDR_SORTED_2: usize = 36;
-pub const MEMORY_ADDR_SORTED_3: usize = 37;
-
-pub const MEMORY_VALUES_SORTED_0: usize = 38;
-pub const MEMORY_VALUES_SORTED_1: usize = 39;
-pub const MEMORY_VALUES_SORTED_2: usize = 40;
-pub const MEMORY_VALUES_SORTED_3: usize = 41;
-
-pub const PERMUTATION_ARGUMENT_COL_0: usize = 42;
-pub const PERMUTATION_ARGUMENT_COL_1: usize = 43;
-pub const PERMUTATION_ARGUMENT_COL_2: usize = 44;
-pub const PERMUTATION_ARGUMENT_COL_3: usize = 45;
-
 // Auxiliary range check columns
-pub const RANGE_CHECK_COL_1: usize = 46;
-pub const RANGE_CHECK_COL_2: usize = 47;
-pub const RANGE_CHECK_COL_3: usize = 48;
+pub const RANGE_CHECK_COL_1: usize = 34;
+pub const RANGE_CHECK_COL_2: usize = 35;
+pub const RANGE_CHECK_COL_3: usize = 36;
+
+// Auxiliary memory columns
+pub const MEMORY_ADDR_SORTED_0: usize = 37;
+pub const MEMORY_ADDR_SORTED_1: usize = 38;
+pub const MEMORY_ADDR_SORTED_2: usize = 39;
+pub const MEMORY_ADDR_SORTED_3: usize = 40;
+
+pub const MEMORY_VALUES_SORTED_0: usize = 41;
+pub const MEMORY_VALUES_SORTED_1: usize = 42;
+pub const MEMORY_VALUES_SORTED_2: usize = 43;
+pub const MEMORY_VALUES_SORTED_3: usize = 44;
+
+pub const PERMUTATION_ARGUMENT_COL_0: usize = 45;
+pub const PERMUTATION_ARGUMENT_COL_1: usize = 46;
+pub const PERMUTATION_ARGUMENT_COL_2: usize = 47;
+pub const PERMUTATION_ARGUMENT_COL_3: usize = 48;
+
 
 pub const MEMORY_COLUMNS: [usize; 8] = [
     FRAME_PC,
@@ -159,7 +160,7 @@ impl CairoAIR {
         let context = AirContext {
             options: proof_options,
             trace_length: full_trace_length,
-            trace_columns: 34 + 12,
+            trace_columns: 34 + 3 + 12,
             transition_degrees: vec![
                 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, // Flags 0-14.
                 1, // Flag 15
@@ -251,16 +252,16 @@ fn pad_with_zeros<F: IsFFTField>(trace: &mut TraceTable<F>, number_rows: usize) 
     trace.table.extend_from_slice(&pad);
 }
 
-fn pad_with_last_row<F: IsFFTField>(trace: &mut TraceTable<F>, number_rows: usize) {
+fn pad_with_last_row<F: IsFFTField>(trace: &mut TraceTable<F>, number_rows: usize, exception_columns: &[usize]) {
     let mut last_row = trace.last_row().to_vec();
-    for memory_column in MEMORY_COLUMNS {
-        last_row[memory_column] = FieldElement::zero();
+    for excemption_column in exception_columns.iter() {
+        last_row[*excemption_column] = FieldElement::zero();
     }
     let mut pad: Vec<_> = std::iter::repeat(&last_row).take(number_rows).cloned().flatten().collect();
     trace.table.append(&mut pad);
 }
 
-fn fill_offsets_missing_values<F>(
+fn get_filled_offset_columns<F>(
     trace: &TraceTable<F>,
     columns_indices: &[usize],
 ) -> (Vec<FieldElement<F>>, Vec<FieldElement<F>>)
@@ -268,15 +269,13 @@ where
     F: IsFFTField + IsPrimeField,
     u16: From<F::RepresentativeType>,
 {
-    let mut offset_columns = trace.get_cols(columns_indices).table;
+    let offset_columns = trace.get_cols(columns_indices).table;
 
     let mut sorted_offset_representatives: Vec<u16> = offset_columns
         .iter()
         .map(|x| x.representative().into())
         .collect();
     sorted_offset_representatives.sort();
-
-    println!("{:?} {:?}", sorted_offset_representatives[0], sorted_offset_representatives.last());
 
     let mut sorted_permutation_column: Vec<FieldElement<F>> = Vec::new();
     sorted_permutation_column.push(FieldElement::from(sorted_offset_representatives[0] as u64));
@@ -299,12 +298,11 @@ where
     }
 
     let multiple_of_three_padding = ((sorted_permutation_column.len() + 2) / 3) * 3 - sorted_permutation_column.len();
-    all_missing_values.extend_from_slice(&vec![FieldElement::zero(); multiple_of_three_padding as usize]);
-    let mut new_column_padded: Vec<FieldElement<F>> = vec![FieldElement::zero(); multiple_of_three_padding as usize];
-    new_column_padded.append(&mut sorted_permutation_column.clone());
+    let padding_element = sorted_permutation_column.last().unwrap();
+    all_missing_values.append(&mut vec![padding_element.clone(); multiple_of_three_padding as usize]);
+    sorted_permutation_column.append(&mut vec![padding_element.clone(); multiple_of_three_padding as usize]);
 
-
-    (all_missing_values, new_column_padded)
+    (all_missing_values, sorted_permutation_column)
 }
 
 fn add_missing_values_to_offsets_column<F: IsFFTField>(trace: &mut TraceTable<F>, missing_values: Vec<FieldElement<F>>) {
@@ -332,25 +330,20 @@ impl AIR for CairoAIR {
         let mut main_trace = build_cairo_execution_trace(&raw_trace.0, &raw_trace.1);
 
         //pad_with_zeros(&mut main_trace, (public_input.program.len() >> 2) + 1);
-        pad_with_last_row(&mut main_trace, (public_input.program.len() >> 2) + 1);
+        pad_with_last_row(&mut main_trace, (public_input.program.len() >> 2) + 1, &MEMORY_COLUMNS);
 
-        let (missing_values, sorted_offsets) = fill_offsets_missing_values(&mut main_trace, &[
+        let (missing_values, sorted_offsets) = get_filled_offset_columns(&mut main_trace, &[
             OFF_DST,
             OFF_OP0,
             OFF_OP1
         ]);
 
-        println!("Before adding missing values at the end");
-        println!("{:?}", main_trace.n_rows());
-        println!("{:?}", main_trace.table.len());
-        println!("{:?}", main_trace.n_cols);
-
         add_missing_values_to_offsets_column(&mut main_trace, missing_values);
-        //public_input.last_row_range_checks = Some(main_trace.n_rows());
-        //let mut main_trace = main_trace.concatenate(sorted_offsets, 3);
+        public_input.last_row_range_checks = Some(main_trace.n_rows());
+        let mut main_trace = main_trace.concatenate(sorted_offsets, 3);
 
         let padding = self.context().trace_length - main_trace.n_rows();
-        pad_with_last_row(&mut main_trace, padding);
+        pad_with_last_row(&mut main_trace, padding, &MEMORY_COLUMNS);
 
         main_trace
     }
@@ -720,7 +713,7 @@ mod test {
     };
 
     use super::{
-        fill_offsets_missing_values, generate_permutation_argument_column,
+        get_filled_offset_columns, generate_permutation_argument_column,
         sort_columns_by_memory_address, CairoRAPChallenges, add_missing_values_to_offsets_column,
     };
 
@@ -945,12 +938,10 @@ mod test {
             FieldElement::from(3),
             FieldElement::from(5),
             FieldElement::from(6),
-            FieldElement::zero(),
-            FieldElement::zero(),
+            FieldElement::from(7),
+            FieldElement::from(7),
         ];
         let expected_col2 = vec![
-            FieldElement::zero(),
-            FieldElement::zero(),
             FieldElement::from(1),
             FieldElement::from(1),
             FieldElement::from(1),
@@ -964,10 +955,12 @@ mod test {
             FieldElement::from(7),
             FieldElement::from(7),
             FieldElement::from(7),
+            FieldElement::from(7),
+            FieldElement::from(7),
         ];
         let table = TraceTable::<Stark252PrimeField>::new_from_cols(&columns);
 
-        let (col1, col2) = fill_offsets_missing_values(&table, &[0, 1, 2]);
+        let (col1, col2) = get_filled_offset_columns(&table, &[0, 1, 2]);
         assert_eq!(col1, expected_col1);
         assert_eq!(col2, expected_col2);
     }

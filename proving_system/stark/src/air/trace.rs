@@ -116,11 +116,14 @@ impl<F: IsFFTField> TraceTable<F> {
         let mut new_table = Vec::new();
         let mut i = 0;
         for row_index in (0..self.table.len()).step_by(self.n_cols) {
-            new_table.append(& mut self.table[row_index..row_index + self.n_cols].to_vec());
-            new_table.append(& mut new_cols[i..(i+n_cols)].to_vec());
+            new_table.append(&mut self.table[row_index..row_index + self.n_cols].to_vec());
+            new_table.append(&mut new_cols[i..(i + n_cols)].to_vec());
             i += n_cols;
         }
-        TraceTable { table: new_table , n_cols: self.n_cols + n_cols }
+        TraceTable {
+            table: new_table,
+            n_cols: self.n_cols + n_cols,
+        }
     }
 }
 
@@ -185,5 +188,25 @@ mod test {
         );
         assert_eq!(subtable.n_cols, 2);
         assert_eq!(trace_table.get_cols(&[]), TraceTable::empty());
+    }
+
+    #[test]
+    fn test_concatenate_works() {
+        let table1_columns = vec![vec![FE::new(7), FE::new(8), FE::new(9)]];
+        let new_columns = vec![
+            FE::new(1),
+            FE::new(2),
+            FE::new(3),
+            FE::new(4),
+            FE::new(5),
+            FE::new(6),
+        ];
+        let expected_table = TraceTable::new_from_cols(&vec![
+            vec![FE::new(7), FE::new(8), FE::new(9)],
+            vec![FE::new(1), FE::new(3), FE::new(5)],
+            vec![FE::new(2), FE::new(4), FE::new(6)],
+        ]);
+        let table1 = TraceTable::new_from_cols(&table1_columns);
+        assert_eq!(table1.concatenate(new_columns, 2), expected_table)
     }
 }
