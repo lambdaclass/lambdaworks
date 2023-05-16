@@ -24,8 +24,8 @@ fn test_prove_fib() {
 
     let context = AirContext {
         options: ProofOptions {
-            blowup_factor: 2,
-            fri_number_of_queries: 1,
+            blowup_factor: 8,
+            fri_number_of_queries: 32,
             coset_offset: 3,
         },
         trace_length,
@@ -49,7 +49,7 @@ fn test_prove_fib17() {
     let context = AirContext {
         options: ProofOptions {
             blowup_factor: 2,
-            fri_number_of_queries: 1,
+            fri_number_of_queries: 32,
             coset_offset: 3,
         },
         trace_length: trace[0].len(),
@@ -73,8 +73,8 @@ fn test_prove_fib_2_cols() {
 
     let context = AirContext {
         options: ProofOptions {
-            blowup_factor: 2,
-            fri_number_of_queries: 7,
+            blowup_factor: 8,
+            fri_number_of_queries: 32,
             coset_offset: 3,
         },
         trace_length: trace_columns[0].len(),
@@ -97,8 +97,8 @@ fn test_prove_quadratic() {
 
     let context = AirContext {
         options: ProofOptions {
-            blowup_factor: 2,
-            fri_number_of_queries: 1,
+            blowup_factor: 8,
+            fri_number_of_queries: 32,
             coset_offset: 3,
         },
         trace_length: trace.len(),
@@ -138,8 +138,8 @@ fn test_prove_cairo_simple_program() {
     let memory = CairoMemory::from_file(&dir_memory).unwrap();
 
     let proof_options = ProofOptions {
-        blowup_factor: 2,
-        fri_number_of_queries: 1,
+        blowup_factor: 8,
+        fri_number_of_queries: 32,
         coset_offset: 3,
     };
 
@@ -183,8 +183,8 @@ fn test_prove_cairo_call_func() {
     let memory = CairoMemory::from_file(&dir_memory).unwrap();
 
     let proof_options = ProofOptions {
-        blowup_factor: 2,
-        fri_number_of_queries: 1,
+        blowup_factor: 8,
+        fri_number_of_queries: 32,
         coset_offset: 3,
     };
 
@@ -208,8 +208,8 @@ fn test_prove_cairo_fibonacci() {
     let memory = CairoMemory::from_file(&dir_memory).expect("Cairo memory binary file not found");
 
     let proof_options = ProofOptions {
-        blowup_factor: 2,
-        fri_number_of_queries: 5,
+        blowup_factor: 4,
+        fri_number_of_queries: 32,
         coset_offset: 3,
     };
 
@@ -234,8 +234,8 @@ fn test_prove_rap_fib() {
 
     let context = AirContext {
         options: ProofOptions {
-            blowup_factor: 2,
-            fri_number_of_queries: 1,
+            blowup_factor: 8,
+            fri_number_of_queries: 32,
             coset_offset: 3,
         },
         trace_columns: 3,

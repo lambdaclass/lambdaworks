@@ -3,7 +3,8 @@ use criterion::{
     Criterion, Throughput,
 };
 use functions::stark::{
-    generate_cairo_trace, generate_fib_2_cols_proof_params, generate_fib_proof_params,
+    generate_cairo_trace, generate_fib17_proof_params, generate_fib_2_cols_proof_params,
+    generate_fib_proof_params, generate_quadratic_proof_params,
 };
 use lambdaworks_stark::{
     air::{context::ProofOptions, example::cairo},
@@ -33,17 +34,15 @@ pub fn proof_benchmarks(c: &mut Criterion) {
         });
     }
 
-    // TODO: this benchmarks panic
-    // let (trace, fibonacci_air) = generate_fib17_proof_params(4);
-    // group.bench_function("Fibonacci F17", |b| {
-    //     b.iter(|| black_box(prove(black_box(&trace), black_box(&fibonacci_air))));
-    // });
+    let (trace, fibonacci_air) = generate_fib17_proof_params(4);
+    group.bench_function("Fibonacci F17", |b| {
+        b.iter(|| black_box(prove(black_box(&trace), black_box(&fibonacci_air))));
+    });
 
-    // TODO: this benchmarks panic
-    // let (trace, fibonacci_air) = generate_quadratic_proof_params(16);
-    // group.bench_function("Quadratic AIR", |b| {
-    //     b.iter(|| black_box(prove(black_box(&trace), black_box(&fibonacci_air))));
-    // });
+    let (trace, fibonacci_air) = generate_quadratic_proof_params(16);
+    group.bench_function("Quadratic AIR", |b| {
+        b.iter(|| black_box(prove(black_box(&trace), black_box(&fibonacci_air))));
+    });
 
     run_fibonacci_bench(
         &mut group,

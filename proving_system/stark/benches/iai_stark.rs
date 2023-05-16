@@ -26,4 +26,9 @@ fn two_col_fibonacci_benchmarks() {
     assert!(ok);
 }
 
-iai::main!(simple_fibonacci_benchmarks, two_col_fibonacci_benchmarks,);
+// iai::main!(simple_fibonacci_benchmarks, two_col_fibonacci_benchmarks,);
+
+fn main() {
+    simple_fibonacci_benchmarks();
+    two_col_fibonacci_benchmarks();
+}

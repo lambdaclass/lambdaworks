@@ -33,8 +33,8 @@ pub fn generate_fib_proof_params(
 
     let context = AirContext {
         options: ProofOptions {
-            blowup_factor: 2,
-            fri_number_of_queries: 1,
+            blowup_factor: 4,
+            fri_number_of_queries: 32,
             coset_offset: 3,
         },
         trace_length,
@@ -62,11 +62,11 @@ pub fn generate_fib_2_cols_proof_params(
 
     let context = AirContext {
         options: ProofOptions {
-            blowup_factor: 2,
-            fri_number_of_queries: 1,
+            blowup_factor: 8,
+            fri_number_of_queries: 32,
             coset_offset: 3,
         },
-        trace_length: trace.len(),
+        trace_length: trace[0].len(),
         transition_degrees: vec![1, 1],
         transition_exemptions: vec![1, 1],
         transition_offsets: vec![0, 1],
@@ -88,11 +88,11 @@ pub fn generate_fib17_proof_params(
     let context = AirContext {
         options: ProofOptions {
             blowup_factor: 2,
-            fri_number_of_queries: 1,
+            fri_number_of_queries: 32,
             coset_offset: 3,
         },
-        trace_length: trace.len(),
-        trace_columns: trace[0].len(),
+        trace_length: trace[0].len(),
+        trace_columns: 1,
         transition_degrees: vec![1],
         transition_exemptions: vec![2],
         transition_offsets: vec![0, 1, 2],
@@ -115,12 +115,12 @@ pub fn generate_quadratic_proof_params(
 
     let context = AirContext {
         options: ProofOptions {
-            blowup_factor: 2,
-            fri_number_of_queries: 1,
+            blowup_factor: 8,
+            fri_number_of_queries: 32,
             coset_offset: 3,
         },
         trace_length: trace.len(),
-        trace_columns: trace.len(),
+        trace_columns: 1,
         transition_degrees: vec![2],
         transition_exemptions: vec![1],
         transition_offsets: vec![0, 1],
