@@ -8,6 +8,7 @@ mod test {
     use lambdaworks_math::field::element::FieldElement;
     use lambdaworks_math::unsigned_integer::element::{UnsignedInteger, U384};
     use metal::MTLSize;
+    use proptest::prelude::*;
 
     pub type F = BLS12381PrimeField;
     pub type FE = FieldElement<F>;
@@ -19,12 +20,15 @@ mod test {
                 let state = MetalState::new(None).unwrap();
                 let pipeline = state.setup_pipeline("fp_bls12381_add").unwrap();
 
-                let p = U384::from_u128(a as u128);
-                let q = U384::from_u128(b as u128);
+                let p = U384::from_u128(std::cmp::max(a, b) as u128);
+                let q = U384::from_u128(std::cmp::min(a, b) as u128);
 
-                let p_buffer = state.alloc_buffer_data(&[p.clone()]);
-                let q_buffer = state.alloc_buffer_data(&[q.clone()]);
-                let result_buffer = state.alloc_buffer::<U384>(1);
+                let p_limbs = p.to_u32_limbs();
+                let q_limbs = q.to_u32_limbs();
+
+                let p_buffer = state.alloc_buffer_data(&p_limbs);
+                let q_buffer = state.alloc_buffer_data(&q_limbs);
+                let result_buffer = state.alloc_buffer::<u32>(12);
 
                 let (command_buffer, command_encoder) = state.setup_command(
                     &pipeline,
@@ -37,12 +41,9 @@ mod test {
                 command_encoder.end_encoding();
                 command_buffer.commit();
                 command_buffer.wait_until_completed();
-                let result = MetalState::retrieve_contents::<U384>(&result_buffer);
-                //let result: Vec<FE> = result.iter().map(FieldElement::from_raw).collect();
+                let result = MetalState::retrieve_contents::<u32>(&result_buffer);
 
-                assert_eq!(result[0], p);
-                //dbg!(result[0]);
-                //assert!(false);
+                assert_eq!(U384::from_u32_limbs(&result), p);
             });
         }
     }
