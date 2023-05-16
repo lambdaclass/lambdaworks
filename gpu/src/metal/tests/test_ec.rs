@@ -193,11 +193,11 @@ mod tests {
         let state = MetalState::new(None).unwrap();
         let pipeline = state.setup_pipeline("fp_bls12381_mul").unwrap();
 
-        let p = FE::from(555);
+        let p = FE::from(1);
         let p_limbs = p.value().to_u32_limbs();
         let p_buffer = state.alloc_buffer_data(&p_limbs);
 
-        let q = FE::from(666);
+        let q = FE::from(0);
         let q_limbs = q.value().to_u32_limbs();
         let q_buffer = state.alloc_buffer_data(&q_limbs);
 

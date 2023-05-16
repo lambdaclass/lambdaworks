@@ -1,7 +1,5 @@
 #pragma once
 
-#include "../fields/unsigned_int64.h.metal"
-
 template<typename BLS12381, typename Fp>
 [[kernel]] void add(
     constant Fp* p [[ buffer(0) ]],

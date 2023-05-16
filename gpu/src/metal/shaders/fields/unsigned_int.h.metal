@@ -2,7 +2,6 @@
 #define unsigned_int_h
 
 #include <metal_stdlib>
-#include "unsigned_int64.h.metal"
 
 template <const uint64_t NUM_LIMBS>
 struct UnsignedInteger {
@@ -12,12 +11,14 @@ struct UnsignedInteger {
 
     constexpr static UnsignedInteger from_int(uint32_t n) {
         UnsignedInteger res;
+        res.m_limbs = {};
         res.m_limbs[NUM_LIMBS - 1] = n;
         return res;
     }
 
     constexpr static UnsignedInteger from_int(uint64_t n) {
         UnsignedInteger res;
+        res.m_limbs = {};
         res.m_limbs[NUM_LIMBS - 2] = (uint32_t)(n >> 32);
         res.m_limbs[NUM_LIMBS - 1] = (uint32_t)(n & 0xFFFFFFFF);
         return res;
@@ -25,6 +26,7 @@ struct UnsignedInteger {
 
     constexpr static UnsignedInteger from_bool(bool b) {
         UnsignedInteger res;
+        res.m_limbs = {};
         if (b) {
             res.m_limbs[NUM_LIMBS - 1] = 1;
         }
@@ -34,15 +36,15 @@ struct UnsignedInteger {
     constexpr static UnsignedInteger from_high_low(UnsignedInteger high, UnsignedInteger low) {
         UnsignedInteger res = low;
 
-        for (uint64_t i = 0; i < NUM_LIMBS; i++) {
-            res.m_limbs[i] = high.m_limbs[i];
+        for (uint64_t i = 0; i < NUM_LIMBS / 2; i++) {
+            res.m_limbs[i] = high.m_limbs[i + NUM_LIMBS / 2];
         }
 
         return res;
     }
 
     constexpr UnsignedInteger low() const {
-        UnsignedInteger res = {m_limbs};
+        UnsignedInteger res = *this;
 
         for (uint64_t i = 0; i < NUM_LIMBS / 2; i++) {
             res.m_limbs[i] = 0;
@@ -52,7 +54,8 @@ struct UnsignedInteger {
     }
 
     constexpr UnsignedInteger high() const {
-        UnsignedInteger res = {};
+        UnsignedInteger res;
+        res.m_limbs = {};
 
         for (uint64_t i = 0; i < NUM_LIMBS / 2; i++) {
             res.m_limbs[NUM_LIMBS / 2 + i] = m_limbs[i];

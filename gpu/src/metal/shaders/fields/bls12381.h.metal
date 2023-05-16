@@ -4,7 +4,6 @@
 #include "ec_point.h.metal"
 #include "../test/test_bls12381.h.metal"
 #include "../msm/pippenger.h.metal"
-#include "unsigned_int64.h.metal"
 
 namespace {
     typedef ECPoint<FpBLS12381, 0> BLS12381;
