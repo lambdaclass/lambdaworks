@@ -25,6 +25,31 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
     pub fn from_limbs(limbs: [u64; NUM_LIMBS]) -> Self {
         Self { limbs }
     }
+
+    pub fn from_u32_limbs(limbs: &[u32]) -> Self {
+        let mut limbs_64 = [0; NUM_LIMBS];
+
+        for (i, pair) in limbs.chunks(2).enumerate() {
+            let high = pair[0];
+            let low = pair[1];
+            let limb = ((high as u64) << 32) + (low as u64);
+            limbs_64[i] = limb;
+        }
+
+        UnsignedInteger::from_limbs(limbs_64)
+    }
+
+    pub fn to_u32_limbs(&self) -> Vec<u32> {
+        let mut limbs_32 = vec![];
+        for limb in self.limbs {
+            let high = (limb >> 32) as u32;
+            let low = limb as u32;
+            limbs_32.push(high);
+            limbs_32.push(low);
+        }
+
+        limbs_32
+    }
 }
 
 impl<const NUM_LIMBS: usize> From<u128> for UnsignedInteger<NUM_LIMBS> {
@@ -552,6 +577,16 @@ impl<const NUM_LIMBS: usize> ByteConversion for UnsignedInteger<NUM_LIMBS> {
 mod tests_u384 {
     use crate::traits::ByteConversion;
     use crate::unsigned_integer::element::{UnsignedInteger, U384};
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn test_u384_to_limbs_from_limbs_should_equal_original_value(a in any::<u128>(), b in any::<u128>()) {
+            let p = U384::from_u128(a as u128);
+            let p_limbs = p.to_u32_limbs();
+            assert_eq!(U384::from_u32_limbs(&p_limbs), p);
+        }
+    }
 
     #[test]
     fn construct_new_integer_from_limbs() {
