@@ -7,3 +7,6 @@ members = [
     "proving_system/plonk",
     "gpu",
 ]
+
+[workspace.dependencies]
+iai-callgrind = "0.3.1"
