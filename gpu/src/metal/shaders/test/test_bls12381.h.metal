@@ -20,24 +20,26 @@ template<typename BLS12381, typename Fp>
 
 template<typename Fp>
 [[kernel]] void add_fp(
-    constant Fp &p [[ buffer(0) ]],
-    constant Fp &q [[ buffer(1) ]],
+    constant Fp &_p [[ buffer(0) ]],
+    constant Fp &_q [[ buffer(1) ]],
     device Fp &result [[ buffer(2) ]]
 )
 {
-    Fp fp_p = p;
-    //Fp fp_q = q;
-    result = fp_p << 10;
+    Fp p = _p;
+    Fp q = _q;
+    Fp res = p + q;
+    result = res;
 }
 
 template<typename Fp>
 [[kernel]] void mul_fp(
-    constant Fp &p [[ buffer(0) ]],
-    constant Fp &q [[ buffer(1) ]],
+    constant Fp &_p [[ buffer(0) ]],
+    constant Fp &_q [[ buffer(1) ]],
     device Fp &result [[ buffer(2) ]]
 )
 {
-    Fp fp_p = p;
-    Fp fp_q = q;
-    result = fp_p * fp_q;
+    Fp p = _p;
+    Fp q = _q;
+    Fp res = p * q;
+    result = res;
 }

@@ -46,6 +46,7 @@ constexpr static const constant u384 R_SUB_N = {
 
 class FpBLS12381 {
 public:
+    u384 inner;
     constexpr FpBLS12381() = default;
     constexpr FpBLS12381(uint64_t v) : inner{u384::from_int(v)} {}
     constexpr FpBLS12381(u384 v) : inner{v} {}
@@ -166,7 +167,6 @@ public:
     }
 
 private:
-    u384 inner;
 
     template<uint32_t N_ACC>
     u384 sqn(u384 base) const {
@@ -185,7 +185,8 @@ private:
         u384 addition = lhs + rhs;
         u384 res = addition;
         // TODO: determine if an if statement here are more optimal
-        return res - u384::from_int((uint32_t)(addition >= N)) * N + u384::from_int((uint32_t)(addition < lhs)) * R_SUB_N;
+
+        return res - u384::from_int((uint64_t)(addition >= N)) * N + u384::from_int((uint64_t)(addition < lhs)) * R_SUB_N;
     }
 
     // Computes `lhs - rhs mod N`

@@ -12,11 +12,10 @@ mod tests {
 
     pub type F = BLS12381PrimeField;
     pub type FE = FieldElement<F>;
+    pub type U = U384; // F::BaseType
 
     mod unsigned_int_tests {
         use super::*;
-
-        pub type U = U384; // F::BaseType
 
         enum BigOrSmallInt {
             Big(U),
@@ -29,7 +28,7 @@ mod tests {
 
             let (a, b) = params;
             let a = a.to_u32_limbs();
-            // conversion needed because of aossible difference of endianess between host and
+            // conversion needed because of possible difference of endianess between host and
             // device (Metal's UnsignedInteger has 32bit limbs).
 
             let result_buffer = state.alloc_buffer::<U>(1);
@@ -126,17 +125,83 @@ mod tests {
         }
     }
 
+    mod fp_tests {
+        use proptest::collection;
+
+        use super::*;
+
+        prop_compose! {
+            fn rand_u32()(n in any::<u32>()) -> u32 { n }
+        }
+
+        prop_compose! {
+            fn rand_limbs()(vec in collection::vec(rand_u32(), 12)) -> Vec<u32> {
+                vec
+            }
+        }
+
+        prop_compose! {
+            fn rand_felt()(limbs in rand_limbs()) -> FE {
+                FE::from(&U384::from_u32_limbs(&limbs))
+            }
+        }
+
+        fn execute_kernel(name: &str, a: FE, b: FE) -> FE {
+            let state = MetalState::new(None).unwrap();
+            let pipeline = state.setup_pipeline(name).unwrap();
+
+            // conversion needed because of possible difference of endianess between host and
+            // device (Metal's UnsignedInteger has 32bit limbs).
+            let a = a.value().to_u32_limbs();
+            let b = b.value().to_u32_limbs();
+            let a_buffer = state.alloc_buffer_data(&a);
+            let b_buffer = state.alloc_buffer_data(&b);
+            let result_buffer = state.alloc_buffer::<u32>(12);
+
+            let (command_buffer, command_encoder) = state.setup_command(
+                &pipeline,
+                Some(&[(0, &a_buffer), (1, &b_buffer), (2, &result_buffer)]),
+            );
+
+            let threadgroup_size = MTLSize::new(1, 1, 1);
+            let threadgroup_count = MTLSize::new(1, 1, 1);
+
+            command_encoder.dispatch_thread_groups(threadgroup_count, threadgroup_size);
+            command_encoder.end_encoding();
+
+            command_buffer.commit();
+            command_buffer.wait_until_completed();
+
+            let limbs = MetalState::retrieve_contents::<u32>(&result_buffer);
+            FE::from_raw(&U::from_u32_limbs(&limbs))
+        }
+
+        proptest! {
+            #[test]
+            fn add(a in rand_felt(), b in rand_felt()) {
+                objc::rc::autoreleasepool(|| {
+                    let result = execute_kernel("fp_bls12381_add", a.clone(), b.clone());
+                    prop_assert_eq!(result, a + b);
+                    Ok(())
+                }).unwrap();
+            }
+        }
+    }
+
     #[test]
-    fn test_metal_mul_fp_should_equal_cpu() {
+    fn test_metal_add_fp_should_equal_cpu() {
         let state = MetalState::new(None).unwrap();
-        let pipeline = state.setup_pipeline("fp_bls12381_mul").unwrap();
+        let pipeline = state.setup_pipeline("fp_bls12381_add").unwrap();
 
         let p = FE::from(555);
-        let p_buffer = state.alloc_buffer_data(&[p.clone()]);
+        let p_limbs = p.value().to_u32_limbs();
+        let p_buffer = state.alloc_buffer_data(&p_limbs);
 
         let q = FE::from(666);
-        let q_buffer = state.alloc_buffer_data(&[q.clone()]);
-        let result_buffer = state.alloc_buffer_data(&[FE::zero()]);
+        let q_limbs = q.value().to_u32_limbs();
+        let q_buffer = state.alloc_buffer_data(&q_limbs);
+
+        let result_buffer = state.alloc_buffer::<u32>(12);
 
         let (command_buffer, command_encoder) = state.setup_command(
             &pipeline,
@@ -150,9 +215,43 @@ mod tests {
         command_buffer.commit();
         command_buffer.wait_until_completed();
 
-        let result: Vec<FE> = MetalState::retrieve_contents(&result_buffer);
+        let result = MetalState::retrieve_contents::<u32>(&result_buffer);
+        let result = FE::from_raw(&U384::from_u32_limbs(&result));
 
-        assert_eq!(result[0], p * q);
+        assert_eq!(result, p + q);
+    }
+
+    #[test]
+    fn test_metal_mul_fp_should_equal_cpu() {
+        let state = MetalState::new(None).unwrap();
+        let pipeline = state.setup_pipeline("fp_bls12381_mul").unwrap();
+
+        let p = FE::from(555);
+        let p_limbs = p.value().to_u32_limbs();
+        let p_buffer = state.alloc_buffer_data(&p_limbs);
+
+        let q = FE::from(666);
+        let q_limbs = q.value().to_u32_limbs();
+        let q_buffer = state.alloc_buffer_data(&q_limbs);
+
+        let result_buffer = state.alloc_buffer::<u32>(12);
+
+        let (command_buffer, command_encoder) = state.setup_command(
+            &pipeline,
+            Some(&[(0, &p_buffer), (1, &q_buffer), (2, &result_buffer)]),
+        );
+
+        let threadgroup_size = MTLSize::new(1, 1, 1);
+        let threadgroup_count = MTLSize::new(1, 1, 1);
+        command_encoder.dispatch_thread_groups(threadgroup_count, threadgroup_size);
+        command_encoder.end_encoding();
+        command_buffer.commit();
+        command_buffer.wait_until_completed();
+
+        let result = MetalState::retrieve_contents::<u32>(&result_buffer);
+        let result = FE::from_raw(&U384::from_u32_limbs(&result));
+
+        assert_eq!(result, p * q);
     }
 
     #[test]

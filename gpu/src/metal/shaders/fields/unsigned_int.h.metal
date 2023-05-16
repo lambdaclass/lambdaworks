@@ -19,7 +19,7 @@ struct UnsignedInteger {
     constexpr static UnsignedInteger from_int(uint64_t n) {
         UnsignedInteger res;
         res.m_limbs[NUM_LIMBS - 2] = (uint32_t)(n >> 32);
-        res.m_limbs[NUM_LIMBS - 1] = (uint32_t)(n & 0xFFFF);
+        res.m_limbs[NUM_LIMBS - 1] = (uint32_t)(n & 0xFFFFFFFF);
         return res;
     }
 
