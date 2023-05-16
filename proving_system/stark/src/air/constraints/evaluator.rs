@@ -1,3 +1,4 @@
+use lambdaworks_fft::polynomial::FFTPoly;
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsFFTField},
     helpers,
@@ -49,13 +50,16 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
         let n_trace_colums = self.trace_polys.len();
         let boundary_constraints = &self.boundary_constraints;
 
-        let domains =
-            boundary_constraints.generate_roots_of_unity(&self.primitive_root, n_trace_colums);
         let values = boundary_constraints.values(n_trace_colums);
 
-        let boundary_polys: Vec<Polynomial<FieldElement<F>>> = zip(domains, values)
+        let boundary_polys_fft: Vec<Polynomial<FieldElement<F>>> = values
+            .into_iter()
             .zip(self.trace_polys)
-            .map(|((xs, ys), trace_poly)| trace_poly - &Polynomial::interpolate(&xs, &ys))
+            .map(|(ys, trace_poly)| {
+                Polynomial::interpolate_fft(&ys)
+                    .map(|poly| trace_poly - poly)
+                    .unwrap()
+            })
             .collect();
 
         let boundary_zerofiers: Vec<Polynomial<FieldElement<F>>> = (0..n_trace_colums)
@@ -65,7 +69,7 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
             })
             .collect();
 
-        let boundary_polys_max_degree = boundary_polys
+        let boundary_polys_max_degree = boundary_polys_fft
             .iter()
             .zip(&boundary_zerofiers)
             .map(|(poly, zerofier)| poly.degree() - zerofier.degree())
@@ -111,7 +115,7 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
                 d,
             );
 
-            let boundary_evaluation = zip(&boundary_polys, &boundary_zerofiers)
+            let boundary_evaluation = zip(&boundary_polys_fft, &boundary_zerofiers)
                 .enumerate()
                 .map(|(index, (boundary_poly, boundary_zerofier))| {
                     let quotient_degree = boundary_poly.degree() - boundary_zerofier.degree();

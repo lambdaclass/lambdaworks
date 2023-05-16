@@ -1,5 +1,9 @@
+use lambdaworks_fft::polynomial::FFTPoly;
 use lambdaworks_math::{
-    field::{element::FieldElement, traits::IsField},
+    field::{
+        element::FieldElement,
+        traits::{IsFFTField, IsField},
+    },
     polynomial::Polynomial,
 };
 
@@ -10,7 +14,7 @@ pub struct ConstraintEvaluationTable<F: IsField> {
     pub trace_length: usize,
 }
 
-impl<F: IsField> ConstraintEvaluationTable<F> {
+impl<F: IsFFTField> ConstraintEvaluationTable<F> {
     pub fn new(_n_cols: usize, domain: &[FieldElement<F>]) -> Self {
         let evaluations = Vec::with_capacity(domain.len());
 
@@ -22,7 +26,7 @@ impl<F: IsField> ConstraintEvaluationTable<F> {
 
     pub fn compute_composition_poly(
         &self,
-        lde_coset: &[FieldElement<F>],
+        coset_offset: &FieldElement<F>,
     ) -> Polynomial<FieldElement<F>> {
         let merged_evals: Vec<FieldElement<F>> = self
             .evaluations
@@ -30,6 +34,6 @@ impl<F: IsField> ConstraintEvaluationTable<F> {
             .map(|row| row.iter().fold(FieldElement::zero(), |acc, d| acc + d))
             .collect();
 
-        Polynomial::interpolate(lde_coset, &merged_evals)
+        Polynomial::interpolate_offset_fft(&merged_evals, coset_offset).unwrap()
     }
 }

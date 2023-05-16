@@ -213,8 +213,7 @@ where
     );
 
     // Get the composition poly H
-    let composition_poly =
-        constraint_evaluations.compute_composition_poly(&domain.lde_roots_of_unity_coset);
+    let composition_poly = constraint_evaluations.compute_composition_poly(&domain.coset_offset);
 
     let (composition_poly_even, composition_poly_odd) = composition_poly.even_odd_decomposition();
 
