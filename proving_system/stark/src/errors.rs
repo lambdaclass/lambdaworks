@@ -1,7 +1,7 @@
 use lambdaworks_fft::errors::FFTError;
 use thiserror::Error;
 
-use crate::fri::errors::FriError;
+use crate::{air::errors::AIRError, fri::errors::FriError};
 
 #[derive(Debug, Error)]
 pub enum StarkError {
@@ -27,10 +27,12 @@ pub enum StarkError {
     AIRTraceColumnsError,
     #[error("AIR has no transition degrees")]
     AIRTransitionDegreesError,
-    #[error("AIR has no transition divisors")]
-    AIRTransitionDivisorsError,
+    #[error("Could not verify composition polynomial: {0}")]
+    CompositionPolyVerificationError(AIRError),
     #[error("Could not reconstruct DEEP composition polynomial: {0}")]
     DeepPolyReconstructionError(FFTError),
     #[error("Could not verify query: {0}")]
     QueryVerificationError(FFTError),
+    #[error("Could not evaluate constraints: {0}")]
+    ConstraintEvaluationError(AIRError),
 }

@@ -1,6 +1,7 @@
 use self::{
     constraints::boundary::BoundaryConstraints,
     context::{AirContext, ProofOptions},
+    errors::AIRError,
     frame::Frame,
     trace::TraceTable,
 };
@@ -15,6 +16,7 @@ pub mod constraints;
 pub mod context;
 #[cfg(debug_assertions)]
 pub mod debug;
+pub mod errors;
 pub mod example;
 pub mod frame;
 pub mod trace;
@@ -46,7 +48,12 @@ pub trait AIR: Clone {
         &self,
         rap_challenges: &Self::RAPChallenges,
     ) -> BoundaryConstraints<Self::Field>;
-    fn transition_divisors(&self) -> Vec<Polynomial<FieldElement<Self::Field>>> {
+    fn transition_divisors(&self) -> Result<Vec<Polynomial<FieldElement<Self::Field>>>, AIRError> {
+        let num_transition_constraints = self.context().num_transition_constraints;
+        if num_transition_constraints == 0 {
+            return Err(AIRError::TransitionConstraintsError);
+        }
+
         let trace_length = self.context().trace_length;
         let roots_of_unity_order = trace_length.trailing_zeros();
         let roots_of_unity = get_powers_of_primitive_root_coset(
@@ -54,12 +61,12 @@ pub trait AIR: Clone {
             self.context().trace_length,
             &FieldElement::<Self::Field>::one(),
         )
-        .unwrap();
+        .map_err(AIRError::TransitionDivisorsError)?;
 
         let mut result = vec![];
         let x_n = Polynomial::new_monomial(FieldElement::one(), trace_length);
         let x = Polynomial::new_monomial(FieldElement::one(), 1);
-        for transition_idx in 0..self.context().num_transition_constraints {
+        for transition_idx in 0..num_transition_constraints {
             // X^(trace_length) - 1
             let roots_of_unity_vanishing_polynomial = &x_n - FieldElement::one();
 
@@ -74,7 +81,7 @@ pub trait AIR: Clone {
             result.push(roots_of_unity_vanishing_polynomial / exemptions_polynomial);
         }
 
-        result
+        Ok(result)
     }
     fn context(&self) -> AirContext;
     fn options(&self) -> ProofOptions {

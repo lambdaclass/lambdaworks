@@ -4,7 +4,7 @@ use lambdaworks_math::{
     polynomial::Polynomial,
 };
 
-use crate::air::{frame::Frame, trace::TraceTable, AIR};
+use crate::air::{errors::AIRError, frame::Frame, trace::TraceTable, AIR};
 use std::iter::zip;
 
 use super::{boundary::BoundaryConstraints, evaluation_table::ConstraintEvaluationTable};
@@ -40,7 +40,7 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
         alpha_and_beta_transition_coefficients: &[(FieldElement<F>, FieldElement<F>)],
         alpha_and_beta_boundary_coefficients: &[(FieldElement<F>, FieldElement<F>)],
         rap_challenges: &A::RAPChallenges,
-    ) -> ConstraintEvaluationTable<F> {
+    ) -> Result<ConstraintEvaluationTable<F>, AIRError> {
         // The + 1 is for the boundary constraints column
         let mut evaluation_table = ConstraintEvaluationTable::new(
             self.air.context().num_transition_constraints() + 1,
@@ -73,7 +73,7 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
             .unwrap();
 
         let transition_degrees = self.air.context().transition_degrees();
-        let transition_zerofiers = self.air.transition_divisors();
+        let transition_zerofiers = self.air.transition_divisors()?;
         let transition_polys_max_degree = self
             .trace_polys
             .iter()
@@ -91,7 +91,6 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
 
         let blowup_factor = self.air.blowup_factor();
 
-        let divisors = self.air.transition_divisors();
         // Iterate over trace and domain and compute transitions
         for (i, d) in lde_domain.iter().enumerate() {
             let frame = Frame::read_from_trace(
@@ -105,7 +104,7 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
             evaluations = Self::compute_constraint_composition_poly_evaluations(
                 &self.air,
                 &evaluations,
-                &divisors,
+                &transition_zerofiers,
                 alpha_and_beta_transition_coefficients,
                 max_degree_power_of_two,
                 d,
@@ -131,7 +130,7 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
             evaluation_table.evaluations.push(evaluations);
         }
 
-        evaluation_table
+        Ok(evaluation_table)
     }
 
     /// Given `evaluations` T_i(x) of the trace polynomial composed with the constraint

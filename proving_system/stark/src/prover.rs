@@ -211,13 +211,15 @@ where
         &round_1_result.rap_challenges,
     );
 
-    let constraint_evaluations = evaluator.evaluate(
-        &round_1_result.lde_trace,
-        &domain.lde_roots_of_unity_coset,
-        transition_coeffs,
-        boundary_coeffs,
-        &round_1_result.rap_challenges,
-    );
+    let constraint_evaluations = evaluator
+        .evaluate(
+            &round_1_result.lde_trace,
+            &domain.lde_roots_of_unity_coset,
+            transition_coeffs,
+            boundary_coeffs,
+            &round_1_result.rap_challenges,
+        )
+        .map_err(StarkError::ConstraintEvaluationError)?;
 
     // Get the composition poly H
     let composition_poly =
