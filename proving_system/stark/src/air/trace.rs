@@ -111,6 +111,17 @@ impl<F: IsFFTField> TraceTable<F> {
             .collect::<Result<Vec<Polynomial<FieldElement<F>>>, FFTError>>()
             .unwrap()
     }
+
+    pub fn concatenate(&self, new_cols: Vec<FieldElement<F>>, n_cols: usize) -> Self {
+        let mut new_table = Vec::new();
+        let mut i = 0;
+        for row_index in (0..self.table.len()).step_by(self.n_cols) {
+            new_table.append(& mut self.table[row_index..row_index + self.n_cols].to_vec());
+            new_table.append(& mut new_cols[i..(i+n_cols)].to_vec());
+            i += n_cols;
+        }
+        TraceTable { table: new_table , n_cols: self.n_cols + n_cols }
+    }
 }
 
 #[cfg(test)]

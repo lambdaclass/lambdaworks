@@ -1,3 +1,5 @@
+use core::num;
+
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::field::{
     element::FieldElement,
@@ -92,7 +94,7 @@ pub const FRAME_T1: usize = 31;
 pub const FRAME_MUL: usize = 32;
 pub const FRAME_SELECTOR: usize = 33;
 
-// Auxiliary columns
+// Auxiliary memory columns
 pub const MEMORY_ADDR_SORTED_0: usize = 34;
 pub const MEMORY_ADDR_SORTED_1: usize = 35;
 pub const MEMORY_ADDR_SORTED_2: usize = 36;
@@ -108,6 +110,11 @@ pub const PERMUTATION_ARGUMENT_COL_1: usize = 43;
 pub const PERMUTATION_ARGUMENT_COL_2: usize = 44;
 pub const PERMUTATION_ARGUMENT_COL_3: usize = 45;
 
+// Auxiliary range check columns
+pub const RANGE_CHECK_COL_1: usize = 46;
+pub const RANGE_CHECK_COL_2: usize = 47;
+pub const RANGE_CHECK_COL_3: usize = 48;
+
 pub const MEMORY_COLUMNS: [usize; 8] = [
     FRAME_PC,
     FRAME_DST_ADDR,
@@ -118,6 +125,8 @@ pub const MEMORY_COLUMNS: [usize; 8] = [
     FRAME_OP0,
     FRAME_OP1,
 ];
+
+
 
 // Trace layout
 pub const MEM_P_TRACE_OFFSET: usize = 17;
@@ -146,16 +155,10 @@ pub struct CairoAIR {
 }
 
 impl CairoAIR {
-    pub fn new(proof_options: ProofOptions, program_size: usize, number_steps: usize) -> Self {
-        let trace_length = number_steps + (program_size >> 2) + 1;
-        let mut power_of_two = 1;
-        while power_of_two < trace_length {
-            power_of_two <<= 1;
-        }
-
+    pub fn new(proof_options: ProofOptions, full_trace_length: usize, number_steps: usize) -> Self {
         let context = AirContext {
             options: proof_options,
-            trace_length: power_of_two,
+            trace_length: full_trace_length,
             trace_columns: 34 + 12,
             transition_degrees: vec![
                 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, // Flags 0-14.
@@ -248,6 +251,15 @@ fn pad_with_zeros<F: IsFFTField>(trace: &mut TraceTable<F>, number_rows: usize) 
     trace.table.extend_from_slice(&pad);
 }
 
+fn pad_with_last_row<F: IsFFTField>(trace: &mut TraceTable<F>, number_rows: usize) {
+    let mut last_row = trace.last_row().to_vec();
+    for memory_column in MEMORY_COLUMNS {
+        last_row[memory_column] = FieldElement::zero();
+    }
+    let mut pad: Vec<_> = std::iter::repeat(&last_row).take(number_rows).cloned().flatten().collect();
+    trace.table.append(&mut pad);
+}
+
 fn fill_offsets_missing_values<F>(
     trace: &TraceTable<F>,
     columns_indices: &[usize],
@@ -257,10 +269,6 @@ where
     u16: From<F::RepresentativeType>,
 {
     let mut offset_columns = trace.get_cols(columns_indices).table;
-    let b = FieldElement::from(2).pow(15u64);
-    for i in 0..offset_columns.len() {
-        offset_columns[i] = &offset_columns[i] + &b;
-    }
 
     let mut sorted_offset_representatives: Vec<u16> = offset_columns
         .iter()
@@ -268,34 +276,46 @@ where
         .collect();
     sorted_offset_representatives.sort();
 
-    let mut new_column: Vec<FieldElement<F>> = Vec::new();
-    new_column.push(FieldElement::from(sorted_offset_representatives[0] as u64));
-    let mut missing_ranges: Vec<Vec<FieldElement<F>>> = Vec::new();
+    println!("{:?} {:?}", sorted_offset_representatives[0], sorted_offset_representatives.last());
+
+    let mut sorted_permutation_column: Vec<FieldElement<F>> = Vec::new();
+    sorted_permutation_column.push(FieldElement::from(sorted_offset_representatives[0] as u64));
+    let mut all_missing_values: Vec<FieldElement<F>> = Vec::new();
+
     for window in sorted_offset_representatives.windows(2) {
         match window[1] - window[0] {
             0 => {
-                new_column.push(FieldElement::from(window[1] as u64));
+                sorted_permutation_column.push(FieldElement::from(window[1] as u64));
             }
             _ => {
-                let missing_range: Vec<_> = ((window[0] + 1)..window[1])
+                let mut missing_range: Vec<_> = ((window[0] + 1)..window[1])
                     .map(|x| FieldElement::from(x as u64))
                     .collect();
-                new_column.extend_from_slice(&missing_range);
-                new_column.push(FieldElement::from(window[1] as u64));
-                missing_ranges.push(missing_range);
+                sorted_permutation_column.extend_from_slice(&missing_range);
+                sorted_permutation_column.push(FieldElement::from(window[1] as u64));
+                all_missing_values.append(& mut missing_range);
             }
         }
     }
 
-    missing_ranges
-        .iter()
-        .for_each(|missing_range| offset_columns.extend_from_slice(&missing_range));
-
-    let multiple_of_three_padding = ((new_column.len() + 2) / 3) * 3 - new_column.len();
-    offset_columns.extend_from_slice(&vec![FieldElement::zero(); multiple_of_three_padding as usize]);
+    let multiple_of_three_padding = ((sorted_permutation_column.len() + 2) / 3) * 3 - sorted_permutation_column.len();
+    all_missing_values.extend_from_slice(&vec![FieldElement::zero(); multiple_of_three_padding as usize]);
     let mut new_column_padded: Vec<FieldElement<F>> = vec![FieldElement::zero(); multiple_of_three_padding as usize];
-    new_column_padded.append(&mut new_column);
-    (offset_columns, new_column_padded)
+    new_column_padded.append(&mut sorted_permutation_column.clone());
+
+
+    (all_missing_values, new_column_padded)
+}
+
+fn add_missing_values_to_offsets_column<F: IsFFTField>(trace: &mut TraceTable<F>, missing_values: Vec<FieldElement<F>>) {
+    let zeros_left = vec![FieldElement::zero(); OFF_DST];
+    let zeros_right = vec![FieldElement::zero(); trace.n_cols - OFF_OP1 - 1];
+
+    for i in (0..missing_values.len()).step_by(3) {
+        trace.table.append(& mut zeros_left.clone());
+        trace.table.append(& mut missing_values[i..(i+3)].to_vec());
+        trace.table.append(& mut zeros_right.clone());
+    }
 }
 
 impl AIR for CairoAIR {
@@ -311,31 +331,26 @@ impl AIR for CairoAIR {
     ) -> TraceTable<Self::Field> {
         let mut main_trace = build_cairo_execution_trace(&raw_trace.0, &raw_trace.1);
 
-        pad_with_zeros(&mut main_trace, (public_input.program.len() >> 2) + 1);
-        // fill_offsets_missing_values(&mut main_trace, public_input);
+        //pad_with_zeros(&mut main_trace, (public_input.program.len() >> 2) + 1);
+        pad_with_last_row(&mut main_trace, (public_input.program.len() >> 2) + 1);
 
-        // let b15 = Felt::from(2u8).exp(15u32.into());
-        // let mut rc_column: Vec<Felt> = VirtualColumn::new(&state.offsets)
-        //     .to_column()
-        //     .into_iter()
-        //     .map(|x| x + b15)
-        //     .collect();
-        // let mut rc_sorted: Vec<u16> = rc_column
-        //     .iter()
-        //     .map(|x| x.as_int().try_into().unwrap())
-        //     .collect();
-        // rc_sorted.sort_unstable();
-        // let rc_min = rc_sorted.first().unwrap().clone();
-        // let rc_max = rc_sorted.last().unwrap().clone();
-        // for s in rc_sorted.windows(2).progress() {
-        //     match s[1] - s[0] {
-        //         0 | 1 => {}
-        //         _ => {
-        //             rc_column.extend((s[0] + 1..s[1]).map(|x| Felt::from(x)).collect::<Vec<_>>());
-        //         }
-        //     }
-        // }
-        // let offsets = VirtualColumn::new(&[rc_column]).to_columns(&[3]);
+        let (missing_values, sorted_offsets) = fill_offsets_missing_values(&mut main_trace, &[
+            OFF_DST,
+            OFF_OP0,
+            OFF_OP1
+        ]);
+
+        println!("Before adding missing values at the end");
+        println!("{:?}", main_trace.n_rows());
+        println!("{:?}", main_trace.table.len());
+        println!("{:?}", main_trace.n_cols);
+
+        add_missing_values_to_offsets_column(&mut main_trace, missing_values);
+        //public_input.last_row_range_checks = Some(main_trace.n_rows());
+        //let mut main_trace = main_trace.concatenate(sorted_offsets, 3);
+
+        let padding = self.context().trace_length - main_trace.n_rows();
+        pad_with_last_row(&mut main_trace, padding);
 
         main_trace
     }
@@ -695,7 +710,7 @@ mod test {
         air::{
             context::ProofOptions,
             debug::validate_trace,
-            example::cairo::{add_program_in_public_input_section, CairoAIR, PublicInputs},
+            example::cairo::{add_program_in_public_input_section, CairoAIR, PublicInputs, OFF_DST, OFF_OP1},
             trace::TraceTable,
             AIR,
         },
@@ -706,7 +721,7 @@ mod test {
 
     use super::{
         fill_offsets_missing_values, generate_permutation_argument_column,
-        sort_columns_by_memory_address, CairoRAPChallenges,
+        sort_columns_by_memory_address, CairoRAPChallenges, add_missing_values_to_offsets_column,
     };
 
     #[test]
@@ -925,45 +940,72 @@ mod test {
             vec![FieldElement::from(4); 3],
             vec![FieldElement::from(7); 3],
         ];
-        let b = FieldElement::from(2).pow(15u64);
         let expected_col1 = vec![
-            FieldElement::from(1) + &b,
-            FieldElement::from(4) + &b,
-            FieldElement::from(7) + &b,
-            FieldElement::from(1) + &b,
-            FieldElement::from(4) + &b,
-            FieldElement::from(7) + &b,
-            FieldElement::from(1) + &b,
-            FieldElement::from(4) + &b,
-            FieldElement::from(7) + &b,
-            FieldElement::from(2) + &b,
-            FieldElement::from(3) + &b,
-            FieldElement::from(5) + &b,
-            FieldElement::from(6) + &b,
+            FieldElement::from(2),
+            FieldElement::from(3),
+            FieldElement::from(5),
+            FieldElement::from(6),
             FieldElement::zero(),
             FieldElement::zero(),
         ];
         let expected_col2 = vec![
             FieldElement::zero(),
             FieldElement::zero(),
-            FieldElement::from(1) + &b,
-            FieldElement::from(1) + &b,
-            FieldElement::from(1) + &b,
-            FieldElement::from(2) + &b,
-            FieldElement::from(3) + &b,
-            FieldElement::from(4) + &b,
-            FieldElement::from(4) + &b,
-            FieldElement::from(4) + &b,
-            FieldElement::from(5) + &b,
-            FieldElement::from(6) + &b,
-            FieldElement::from(7) + &b,
-            FieldElement::from(7) + &b,
-            FieldElement::from(7) + &b,
+            FieldElement::from(1),
+            FieldElement::from(1),
+            FieldElement::from(1),
+            FieldElement::from(2),
+            FieldElement::from(3),
+            FieldElement::from(4),
+            FieldElement::from(4),
+            FieldElement::from(4),
+            FieldElement::from(5),
+            FieldElement::from(6),
+            FieldElement::from(7),
+            FieldElement::from(7),
+            FieldElement::from(7),
         ];
         let table = TraceTable::<Stark252PrimeField>::new_from_cols(&columns);
 
         let (col1, col2) = fill_offsets_missing_values(&table, &[0, 1, 2]);
         assert_eq!(col1, expected_col1);
         assert_eq!(col2, expected_col2);
+    }
+
+    #[test]
+    fn test_add_missing_values_to_offsets_column() {
+        let mut main_trace = TraceTable { table: (0..34*2).map(|x| FieldElement::from(x)).collect(), n_cols: 34 };
+        let missing_values = vec![
+            FieldElement::from(1),
+            FieldElement::from(2),
+            FieldElement::from(3),
+            FieldElement::from(4),
+            FieldElement::from(5),
+            FieldElement::from(6),
+        ];
+        add_missing_values_to_offsets_column(&mut main_trace, missing_values);
+
+        let mut expected: Vec<_> = (0..34*2).map(|x| FieldElement::from(x)).collect();
+        expected.append(
+            &mut vec![FieldElement::zero(); OFF_DST]
+        );
+        expected.append(
+            &mut vec![FieldElement::from(1), FieldElement::from(2), FieldElement::from(3)]
+        );
+        expected.append(
+            &mut vec![FieldElement::zero(); 34 - OFF_OP1 - 1]
+        );
+        expected.append(
+            &mut vec![FieldElement::zero(); OFF_DST]
+        );
+        expected.append(
+            &mut vec![FieldElement::from(4), FieldElement::from(5), FieldElement::from(6)]
+        );
+        expected.append(
+            &mut vec![FieldElement::zero(); 34 - OFF_OP1 - 1]
+        );
+        assert_eq!(main_trace.table, expected);
+        assert_eq!(main_trace.n_cols, 34);
+        assert_eq!(main_trace.table.len(), 34 * 4);
     }
 }
