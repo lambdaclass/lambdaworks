@@ -25,7 +25,7 @@ COMPILED_TESTS:=$(patsubst $(TEST_DIR)/%.cairo, $(TEST_DIR)/%.json, $(TEST_FILES
 TEST_TRACES:=$(patsubst $(TEST_DIR)/%.cairo, $(TEST_DIR)/%.trace, $(TEST_FILES))
 
 $(TEST_DIR)/%.json: $(TEST_DIR)/%.cairo
-	cairo-compile --cairo_path="$(TEST_DIR)" $< --output $@ --proof_mode
+	cairo-compile --cairo_path="$(TEST_DIR)" $< --output $@
 
 benchmarks: $(COMPILED_TESTS)
 	cargo criterion --workspace

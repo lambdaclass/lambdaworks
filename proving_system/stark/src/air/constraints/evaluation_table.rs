@@ -34,6 +34,7 @@ impl<F: IsFFTField> ConstraintEvaluationTable<F> {
             .map(|row| row.iter().fold(FieldElement::zero(), |acc, d| acc + d))
             .collect();
 
+        // TODO: remove unwrap
         Polynomial::interpolate_offset_fft(&merged_evals, coset_offset).unwrap()
     }
 }
