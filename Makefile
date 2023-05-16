@@ -14,14 +14,14 @@ nix-shell:
 	nix-shell
 
 benchmarks:
-	cargo criterion --bench all_benchmarks
+	cargo criterion --workspace
 
 # BENCHMARK should be one of the [[bench]] names in Cargo.toml
 benchmark:
 	cargo criterion --bench ${BENCH}
 
 flamegraph_stark:
-	CARGO_PROFILE_BENCH_DEBUG=true cargo flamegraph --root --bench stark_benchmarks -- --bench
+	CARGO_PROFILE_BENCH_DEBUG=true cargo flamegraph --root --bench criterion_stark -- --bench
 
 METALPATH = gpu/src/metal/shaders
 build-metal:
