@@ -154,9 +154,6 @@ fn interpolate_fft_cpu<F>(
 where
     F: IsFFTField,
 {
-    if fft_evals.is_empty() {
-        return Ok(Polynomial::new(&[]));
-    }
     let order = fft_evals.len().trailing_zeros();
     let twiddles = get_twiddles(order.into(), RootsConfig::BitReverseInversed)?;
 
