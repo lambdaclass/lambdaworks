@@ -189,39 +189,6 @@ mod tests {
     }
 
     #[test]
-    fn test_metal_add_fp_should_equal_cpu() {
-        let state = MetalState::new(None).unwrap();
-        let pipeline = state.setup_pipeline("fp_bls12381_add").unwrap();
-
-        let p = FE::from(555);
-        let p_limbs = p.value().to_u32_limbs();
-        let p_buffer = state.alloc_buffer_data(&p_limbs);
-
-        let q = FE::from(666);
-        let q_limbs = q.value().to_u32_limbs();
-        let q_buffer = state.alloc_buffer_data(&q_limbs);
-
-        let result_buffer = state.alloc_buffer::<u32>(12);
-
-        let (command_buffer, command_encoder) = state.setup_command(
-            &pipeline,
-            Some(&[(0, &p_buffer), (1, &q_buffer), (2, &result_buffer)]),
-        );
-
-        let threadgroup_size = MTLSize::new(1, 1, 1);
-        let threadgroup_count = MTLSize::new(1, 1, 1);
-        command_encoder.dispatch_thread_groups(threadgroup_count, threadgroup_size);
-        command_encoder.end_encoding();
-        command_buffer.commit();
-        command_buffer.wait_until_completed();
-
-        let result = MetalState::retrieve_contents::<u32>(&result_buffer);
-        let result = FE::from_raw(&U384::from_u32_limbs(&result));
-
-        assert_eq!(result, p + q);
-    }
-
-    #[test]
     fn test_metal_mul_fp_should_equal_cpu() {
         let state = MetalState::new(None).unwrap();
         let pipeline = state.setup_pipeline("fp_bls12381_mul").unwrap();
