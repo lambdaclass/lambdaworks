@@ -2,8 +2,9 @@ use lambdaworks_math::field::fields::u64_prime_field::FE17;
 use lambdaworks_stark::{
     air::{
         context::{AirContext, ProofOptions},
-        example::cairo,
+        example::cairo::{self, CairoAIR},
     },
+    cairo_run::run::run_program,
     cairo_vm::{cairo_mem::CairoMemory, cairo_trace::CairoTrace},
     prover::prove,
     verifier::verify,
@@ -36,6 +37,7 @@ pub fn prove_fib(trace_length: usize) {
     let fibonacci_air = simple_fibonacci::FibonacciAIR::from(context);
 
     let result = prove(&trace, &fibonacci_air);
+    println!("{result:?}");
     verify(&result, &fibonacci_air);
 }
 
@@ -115,13 +117,19 @@ pub fn prove_quadratic() {
 // functions used by criterion.
 
 #[allow(dead_code)]
-pub fn prove_cairo_fibonacci_5() {
-    let base_dir = env!("CARGO_MANIFEST_DIR");
-    let dir_trace = base_dir.to_owned() + "/src/cairo_vm/test_data/fibonacci_5.trace";
-    let dir_memory = base_dir.to_owned() + "/src/cairo_vm/test_data/fibonacci_5.memory";
+pub fn generate_cairo_fibonacci_5_trace() -> (CairoTrace, CairoMemory, CairoAIR) {
+    let base_dir = format!("{}/src/cairo_vm/test_data/", env!("CARGO_MANIFEST_DIR"));
 
-    let raw_trace = CairoTrace::from_file(&dir_trace).expect("Cairo trace binary file not found");
-    let memory = CairoMemory::from_file(&dir_memory).expect("Cairo memory binary file not found");
+    let filename = "fibonacci_5";
+
+    let contract = format!("{base_dir}/{filename}.json");
+    let trace_path = format!("{base_dir}/{filename}.trace");
+    let memory_path = format!("{base_dir}/{filename}.memory");
+
+    run_program(None, "plain", &contract, &trace_path, &memory_path).unwrap();
+
+    let raw_trace = CairoTrace::from_file(&trace_path).expect("Cairo trace binary file not found");
+    let memory = CairoMemory::from_file(&memory_path).expect("Cairo memory binary file not found");
 
     let proof_options = ProofOptions {
         blowup_factor: 2,
@@ -130,8 +138,7 @@ pub fn prove_cairo_fibonacci_5() {
     };
 
     let cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace);
-
-    prove(&(raw_trace, memory), &cairo_air);
+    (raw_trace, memory, cairo_air)
 }
 
 #[allow(dead_code)]
