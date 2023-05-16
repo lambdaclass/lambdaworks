@@ -211,7 +211,8 @@ where
         &round_1_result.trace_polys,
         &domain.trace_primitive_root,
         &round_1_result.rap_challenges,
-    );
+    )
+    .map_err(StarkError::ConstraintEvaluation)?;
 
     let constraint_evaluations = evaluator
         .evaluate(

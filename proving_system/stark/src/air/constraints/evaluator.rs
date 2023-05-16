@@ -22,15 +22,19 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
         trace_polys: &'poly [Polynomial<FieldElement<F>>],
         primitive_root: &FieldElement<F>,
         rap_challenges: &A::RAPChallenges,
-    ) -> Self {
+    ) -> Result<Self, AIRError> {
+        if trace_polys.is_empty() || air.context().transition_degrees().is_empty() {
+            return Err(AIRError::ConstraintEvaluatorCreation);
+        }
+
         let boundary_constraints = air.boundary_constraints(rap_challenges);
 
-        Self {
+        Ok(Self {
             air: air.clone(),
             boundary_constraints,
             trace_polys,
             primitive_root: primitive_root.clone(),
-        }
+        })
     }
 
     pub fn evaluate(
@@ -65,6 +69,8 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
             })
             .collect();
 
+        // When declaring `boundary_polys_max_degree` and `transition_polys_max_degree`, it's ok
+        // to unwrap because we already checked that the resulting vectors aren't empty
         let boundary_polys_max_degree = boundary_polys
             .iter()
             .zip(&boundary_zerofiers)

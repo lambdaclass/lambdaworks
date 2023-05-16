@@ -86,7 +86,7 @@ impl<F: IsFFTField> TraceTable<F> {
             .iter()
             .map(|col| Polynomial::interpolate_fft(col))
             .collect::<Result<Vec<Polynomial<FieldElement<F>>>, FFTError>>()
-            .map_err(AIRError::TracePolys)
+            .map_err(AIRError::TracePolynomialsComputation)
     }
 }
 
