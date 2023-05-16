@@ -5,6 +5,8 @@ use lambdaworks_math::{
     polynomial::Polynomial,
 };
 
+use super::errors::AIRError;
+
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
 pub struct TraceTable<F: IsFFTField> {
     /// `table` is row-major trace element description
@@ -79,12 +81,12 @@ impl<F: IsFFTField> TraceTable<F> {
         self.table[idx].clone()
     }
 
-    pub fn compute_trace_polys(&self) -> Vec<Polynomial<FieldElement<F>>> {
+    pub fn compute_trace_polys(&self) -> Result<Vec<Polynomial<FieldElement<F>>>, AIRError> {
         self.cols()
             .iter()
             .map(|col| Polynomial::interpolate_fft(col))
             .collect::<Result<Vec<Polynomial<FieldElement<F>>>, FFTError>>()
-            .unwrap()
+            .map_err(AIRError::TracePolys)
     }
 }
 

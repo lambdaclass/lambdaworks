@@ -382,12 +382,12 @@ mod test {
         cairo_air.pub_inputs.pc_final = FieldElement::zero();
 
         let main_trace = CairoAIR::build_main_trace(&(raw_trace, memory));
-        let mut trace_polys = main_trace.compute_trace_polys();
+        let mut trace_polys = main_trace.compute_trace_polys().unwrap();
         let mut transcript = DefaultTranscript::new();
         let rap_challenges = CairoAIR::build_rap_challenges(&mut transcript);
 
         let aux_trace = CairoAIR::build_auxiliary_trace(&main_trace, &rap_challenges);
-        let aux_polys = aux_trace.compute_trace_polys();
+        let aux_polys = aux_trace.compute_trace_polys().unwrap();
 
         trace_polys.extend_from_slice(&aux_polys);
 

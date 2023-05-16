@@ -7,4 +7,6 @@ pub enum AIRError {
     TransitionConstraints,
     #[error("Could not compute AIR transition divisors: {0}")]
     TransitionDivisors(FFTError),
+    #[error("Could not compute trace polynomials: {0}")]
+    TracePolys(FFTError),
 }

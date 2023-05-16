@@ -7,6 +7,8 @@ use crate::{air::errors::AIRError, fri::errors::FriError};
 pub enum StarkError {
     #[error("Could not evaluate polynomial: {0}")]
     PolynomialEvaluation(FFTError),
+    #[error("Could not interpolate and commit: {0}")]
+    InterpolationAndCommitment(AIRError),
     #[error("Number of trace term gammas of DEEP composition polynomial should be {0} * {1} = {} but is {2}", .0 * .1)]
     DeepTraceTermGammas(usize, usize, usize),
     #[error("Could not get merkle proof of even composition polynomial")]

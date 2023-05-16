@@ -125,7 +125,9 @@ where
     F: IsFFTField,
     FieldElement<F>: ByteConversion,
 {
-    let trace_polys = trace.compute_trace_polys();
+    let trace_polys = trace
+        .compute_trace_polys()
+        .map_err(StarkError::InterpolationAndCommitment)?;
 
     // Evaluate those polynomials t_j on the large domain D_LDE.
     let lde_trace_evaluations = trace_polys
@@ -717,7 +719,7 @@ mod tests {
         let trace = simple_fibonacci::fibonacci_trace([FE::from(1), FE::from(1)], 8);
         let trace_length = trace[0].len();
         let trace_table = TraceTable::new_from_cols(&trace);
-        let trace_polys = trace_table.compute_trace_polys();
+        let trace_polys = trace_table.compute_trace_polys().unwrap();
         let coset_offset = 3;
         let blowup_factor: usize = 2;
 
