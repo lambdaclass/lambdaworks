@@ -648,6 +648,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    use lambdaworks_fft::errors::FFTError;
     use lambdaworks_math::field::{
         element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
         traits::IsFFTField,
@@ -656,13 +657,15 @@ mod tests {
     use crate::{
         air::{
             context::{AirContext, ProofOptions},
+            errors::AIRError,
             example::simple_fibonacci,
             trace::TraceTable,
         },
+        errors::StarkError,
         Domain,
     };
 
-    use super::evaluate_polynomial_on_lde_domain;
+    use super::{evaluate_polynomial_on_lde_domain, prove};
 
     pub type FE = FieldElement<Stark252PrimeField>;
 
@@ -755,5 +758,66 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn test_trace_length_is_too_big() {
+        let trace = simple_fibonacci::fibonacci_trace([FE::from(1), FE::from(1)], 8);
+        let wrong_order = 49;
+        let wrong_trace_length = 2_usize.pow(wrong_order);
+        let trace_table = TraceTable::new_from_cols(&trace);
+        let coset_offset = 3;
+        let blowup_factor: usize = 2;
+
+        let context = AirContext {
+            options: ProofOptions {
+                blowup_factor: blowup_factor as u8,
+                fri_number_of_queries: 1,
+                coset_offset,
+            },
+            trace_length: wrong_trace_length,
+            trace_columns: trace_table.n_cols,
+            transition_degrees: vec![1],
+            transition_exemptions: vec![2],
+            transition_offsets: vec![0, 1, 2],
+            num_transition_constraints: 1,
+        };
+
+        let prover_result = prove(&trace, &simple_fibonacci::FibonacciAIR::from(context));
+        assert!(matches!(
+            prover_result,
+            Err(StarkError::DomainCreation(FFTError::RootOfUnityError(_, _)))
+        ));
+    }
+
+    #[test]
+    fn test_trace_length_is_not_power_of_two() {
+        let trace = simple_fibonacci::fibonacci_trace([FE::from(1), FE::from(1)], 9);
+        let trace_length = trace.len();
+        let trace_table = TraceTable::new_from_cols(&trace);
+        let coset_offset = 3;
+        let blowup_factor: usize = 2;
+
+        let context = AirContext {
+            options: ProofOptions {
+                blowup_factor: blowup_factor as u8,
+                fri_number_of_queries: 1,
+                coset_offset,
+            },
+            trace_length,
+            trace_columns: trace_table.n_cols,
+            transition_degrees: vec![1],
+            transition_exemptions: vec![2],
+            transition_offsets: vec![0, 1, 2],
+            num_transition_constraints: 1,
+        };
+
+        let prover_result = prove(&trace, &simple_fibonacci::FibonacciAIR::from(context));
+        assert!(matches!(
+            prover_result,
+            Err(StarkError::InterpolationAndCommitment(
+                AIRError::TracePolynomialsComputation(_)
+            ))
+        ));
     }
 }
