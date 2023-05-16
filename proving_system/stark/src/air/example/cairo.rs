@@ -115,7 +115,6 @@ pub const PERMUTATION_ARGUMENT_COL_1: usize = 46;
 pub const PERMUTATION_ARGUMENT_COL_2: usize = 47;
 pub const PERMUTATION_ARGUMENT_COL_3: usize = 48;
 
-
 pub const MEMORY_COLUMNS: [usize; 8] = [
     FRAME_PC,
     FRAME_DST_ADDR,
@@ -126,8 +125,6 @@ pub const MEMORY_COLUMNS: [usize; 8] = [
     FRAME_OP0,
     FRAME_OP1,
 ];
-
-
 
 // Trace layout
 pub const MEM_P_TRACE_OFFSET: usize = 17;
@@ -160,7 +157,7 @@ impl CairoAIR {
         let context = AirContext {
             options: proof_options,
             trace_length: full_trace_length,
-            trace_columns: 34 + 3 + 12,
+            trace_columns: 34 + 3 + 12 + 3,
             transition_degrees: vec![
                 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, // Flags 0-14.
                 1, // Flag 15
@@ -185,8 +182,9 @@ impl CairoAIR {
 }
 
 pub struct CairoRAPChallenges {
-    pub alpha: FieldElement<Stark252PrimeField>,
-    pub z: FieldElement<Stark252PrimeField>,
+    pub alpha_memory: FieldElement<Stark252PrimeField>,
+    pub z_memory: FieldElement<Stark252PrimeField>,
+    pub z_range_check: FieldElement<Stark252PrimeField>,
 }
 
 fn add_program_in_public_input_section(
@@ -213,15 +211,15 @@ fn sort_columns_by_memory_address(adresses: Vec<FE>, values: Vec<FE>) -> (Vec<FE
     (adresses, values)
 }
 
-fn generate_permutation_argument_column(
+fn generate_memory_permutation_argument_column(
     addresses_original: Vec<FE>,
     values_original: Vec<FE>,
     addresses_sorted: &[FE],
     values_sorted: &[FE],
     rap_challenges: &CairoRAPChallenges,
 ) -> Vec<FE> {
-    let z = &rap_challenges.z;
-    let alpha = &rap_challenges.alpha;
+    let z = &rap_challenges.z_memory;
+    let alpha = &rap_challenges.alpha_memory;
     let f = |a, v, ap, vp| (z - (a + alpha * v)) / (z - (ap + alpha * vp));
 
     let mut permutation_col = Vec::with_capacity(addresses_sorted.len());
@@ -246,18 +244,43 @@ fn generate_permutation_argument_column(
 
     permutation_col
 }
+fn generate_range_check_permutation_argument_column(
+    offset_column_original: &[FE],
+    offset_column_sorted: &[FE],
+    rap_challenges: &CairoRAPChallenges,
+) -> Vec<FE> {
+    let z = &rap_challenges.z_range_check;
+    let f = |a, ap| (z - a) / (z - ap);
+
+    let mut permutation_col = Vec::with_capacity(offset_column_original.len());
+    permutation_col.push(f(&offset_column_original[0], &offset_column_sorted[0]));
+
+    for i in 1..offset_column_sorted.len() {
+        let last = permutation_col.last().unwrap();
+        permutation_col.push(last * f(&offset_column_original[i], &offset_column_sorted[i]));
+    }
+    permutation_col
+}
 
 fn pad_with_zeros<F: IsFFTField>(trace: &mut TraceTable<F>, number_rows: usize) {
     let pad = vec![FieldElement::zero(); trace.n_cols * number_rows];
     trace.table.extend_from_slice(&pad);
 }
 
-fn pad_with_last_row<F: IsFFTField>(trace: &mut TraceTable<F>, number_rows: usize, exception_columns: &[usize]) {
+fn pad_with_last_row<F: IsFFTField>(
+    trace: &mut TraceTable<F>,
+    number_rows: usize,
+    exception_columns: &[usize],
+) {
     let mut last_row = trace.last_row().to_vec();
     for excemption_column in exception_columns.iter() {
         last_row[*excemption_column] = FieldElement::zero();
     }
-    let mut pad: Vec<_> = std::iter::repeat(&last_row).take(number_rows).cloned().flatten().collect();
+    let mut pad: Vec<_> = std::iter::repeat(&last_row)
+        .take(number_rows)
+        .cloned()
+        .flatten()
+        .collect();
     trace.table.append(&mut pad);
 }
 
@@ -292,27 +315,37 @@ where
                     .collect();
                 sorted_permutation_column.extend_from_slice(&missing_range);
                 sorted_permutation_column.push(FieldElement::from(window[1] as u64));
-                all_missing_values.append(& mut missing_range);
+                all_missing_values.append(&mut missing_range);
             }
         }
     }
 
-    let multiple_of_three_padding = ((sorted_permutation_column.len() + 2) / 3) * 3 - sorted_permutation_column.len();
+    let multiple_of_three_padding =
+        ((sorted_permutation_column.len() + 2) / 3) * 3 - sorted_permutation_column.len();
     let padding_element = sorted_permutation_column.last().unwrap();
-    all_missing_values.append(&mut vec![padding_element.clone(); multiple_of_three_padding as usize]);
-    sorted_permutation_column.append(&mut vec![padding_element.clone(); multiple_of_three_padding as usize]);
+    all_missing_values.append(&mut vec![
+        padding_element.clone();
+        multiple_of_three_padding as usize
+    ]);
+    sorted_permutation_column.append(&mut vec![
+        padding_element.clone();
+        multiple_of_three_padding as usize
+    ]);
 
     (all_missing_values, sorted_permutation_column)
 }
 
-fn add_missing_values_to_offsets_column<F: IsFFTField>(trace: &mut TraceTable<F>, missing_values: Vec<FieldElement<F>>) {
+fn add_missing_values_to_offsets_column<F: IsFFTField>(
+    trace: &mut TraceTable<F>,
+    missing_values: Vec<FieldElement<F>>,
+) {
     let zeros_left = vec![FieldElement::zero(); OFF_DST];
     let zeros_right = vec![FieldElement::zero(); trace.n_cols - OFF_OP1 - 1];
 
     for i in (0..missing_values.len()).step_by(3) {
-        trace.table.append(& mut zeros_left.clone());
-        trace.table.append(& mut missing_values[i..(i+3)].to_vec());
-        trace.table.append(& mut zeros_right.clone());
+        trace.table.append(&mut zeros_left.clone());
+        trace.table.append(&mut missing_values[i..(i + 3)].to_vec());
+        trace.table.append(&mut zeros_right.clone());
     }
 }
 
@@ -330,13 +363,14 @@ impl AIR for CairoAIR {
         let mut main_trace = build_cairo_execution_trace(&raw_trace.0, &raw_trace.1);
 
         //pad_with_zeros(&mut main_trace, (public_input.program.len() >> 2) + 1);
-        pad_with_last_row(&mut main_trace, (public_input.program.len() >> 2) + 1, &MEMORY_COLUMNS);
+        pad_with_last_row(
+            &mut main_trace,
+            (public_input.program.len() >> 2) + 1,
+            &MEMORY_COLUMNS,
+        );
 
-        let (missing_values, sorted_offsets) = get_filled_offset_columns(&mut main_trace, &[
-            OFF_DST,
-            OFF_OP0,
-            OFF_OP1
-        ]);
+        let (missing_values, sorted_offsets) =
+            get_filled_offset_columns(&mut main_trace, &[OFF_DST, OFF_OP0, OFF_OP1]);
 
         add_missing_values_to_offsets_column(&mut main_trace, missing_values);
         public_input.last_row_range_checks = Some(main_trace.n_rows());
@@ -367,7 +401,7 @@ impl AIR for CairoAIR {
             public_input,
         );
         let (addresses, values) = sort_columns_by_memory_address(addresses, values);
-        let permutation_col = generate_permutation_argument_column(
+        let permutation_col = generate_memory_permutation_argument_column(
             addresses_original,
             values_original,
             &addresses,
@@ -375,29 +409,39 @@ impl AIR for CairoAIR {
             rap_challenges,
         );
 
+        let offsets_original = main_trace.get_cols(&[OFF_DST, OFF_OP0, OFF_OP0]).table;
+        let offsets_sorted =
+            main_trace.get_cols(&[RANGE_CHECK_COL_1, RANGE_CHECK_COL_2, RANGE_CHECK_COL_3]).table;
+
+        let range_check_permutation_col = generate_range_check_permutation_argument_column(&offsets_original, &offsets_sorted, rap_challenges);
+
         // Convert from long-format to wide-format again
         let mut aux_table = Vec::new();
-        for i in (0..addresses.len()).step_by(4) {
-            aux_table.push(addresses[i].clone());
-            aux_table.push(addresses[i + 1].clone());
-            aux_table.push(addresses[i + 2].clone());
-            aux_table.push(addresses[i + 3].clone());
-            aux_table.push(values[i].clone());
-            aux_table.push(values[i + 1].clone());
-            aux_table.push(values[i + 2].clone());
-            aux_table.push(values[i + 3].clone());
-            aux_table.push(permutation_col[i].clone());
-            aux_table.push(permutation_col[i + 1].clone());
-            aux_table.push(permutation_col[i + 2].clone());
-            aux_table.push(permutation_col[i + 3].clone());
+        for i in 0..main_trace.n_rows() {
+            aux_table.push(addresses[4*i].clone());
+            aux_table.push(addresses[4*i + 1].clone());
+            aux_table.push(addresses[4*i + 2].clone());
+            aux_table.push(addresses[4*i + 3].clone());
+            aux_table.push(values[4*i].clone());
+            aux_table.push(values[4*i + 1].clone());
+            aux_table.push(values[4*i + 2].clone());
+            aux_table.push(values[4*i + 3].clone());
+            aux_table.push(permutation_col[4*i].clone());
+            aux_table.push(permutation_col[4*i + 1].clone());
+            aux_table.push(permutation_col[4*i + 2].clone());
+            aux_table.push(permutation_col[4*i + 3].clone());
+            aux_table.push(range_check_permutation_col[3*i].clone());
+            aux_table.push(range_check_permutation_col[3*i + 1].clone());
+            aux_table.push(range_check_permutation_col[3*i + 2].clone());
         }
-        TraceTable::new(aux_table, 12)
+        TraceTable::new(aux_table, 12 + 3)
     }
 
     fn build_rap_challenges<T: Transcript>(&self, transcript: &mut T) -> Self::RAPChallenges {
         CairoRAPChallenges {
-            alpha: transcript_to_field(transcript),
-            z: transcript_to_field(transcript),
+            alpha_memory: transcript_to_field(transcript),
+            z_memory: transcript_to_field(transcript),
+            z_range_check: transcript_to_field(transcript),
         }
     }
 
@@ -459,11 +503,11 @@ impl AIR for CairoAIR {
         let mut cumulative_product = FieldElement::one();
         for (i, value) in public_input.program.iter().enumerate() {
             cumulative_product = cumulative_product
-                * (&rap_challenges.z
-                    - (FieldElement::from(i as u64 + 1) + &rap_challenges.alpha * value));
+                * (&rap_challenges.z_memory
+                    - (FieldElement::from(i as u64 + 1) + &rap_challenges.alpha_memory * value));
         }
         let permutation_final =
-            rap_challenges.z.pow(public_input.program.len()) / cumulative_product;
+            rap_challenges.z_memory.pow(public_input.program.len()) / cumulative_product;
         let permutation_final_constraint =
             BoundaryConstraint::new(PERMUTATION_ARGUMENT_COL_3, final_index, permutation_final);
 
@@ -483,7 +527,7 @@ impl AIR for CairoAIR {
     }
 
     fn number_auxiliary_rap_columns(&self) -> usize {
-        12
+        12 + 3
     }
 }
 
@@ -647,8 +691,8 @@ fn permutation_argument(
 ) {
     let curr = frame.get_row(0);
     let next = frame.get_row(1);
-    let z = &rap_challenges.z;
-    let alpha = &rap_challenges.alpha;
+    let z = &rap_challenges.z_memory;
+    let alpha = &rap_challenges.alpha_memory;
 
     let p0 = &curr[PERMUTATION_ARGUMENT_COL_0];
     let p0_next = &next[PERMUTATION_ARGUMENT_COL_0];
@@ -703,7 +747,9 @@ mod test {
         air::{
             context::ProofOptions,
             debug::validate_trace,
-            example::cairo::{add_program_in_public_input_section, CairoAIR, PublicInputs, OFF_DST, OFF_OP1},
+            example::cairo::{
+                add_program_in_public_input_section, CairoAIR, PublicInputs, OFF_DST, OFF_OP1,
+            },
             trace::TraceTable,
             AIR,
         },
@@ -713,8 +759,8 @@ mod test {
     };
 
     use super::{
-        get_filled_offset_columns, generate_permutation_argument_column,
-        sort_columns_by_memory_address, CairoRAPChallenges, add_missing_values_to_offsets_column,
+        add_missing_values_to_offsets_column, generate_memory_permutation_argument_column,
+        get_filled_offset_columns, sort_columns_by_memory_address, CairoRAPChallenges,
     };
 
     #[test]
@@ -906,10 +952,11 @@ mod test {
             FieldElement::from(5),
         ];
         let rap_challenges = CairoRAPChallenges {
-            alpha: FieldElement::from(15),
-            z: FieldElement::from(10),
+            alpha_memory: FieldElement::from(15),
+            z_memory: FieldElement::from(10),
+            z_range_check: FieldElement::zero(),
         };
-        let p = generate_permutation_argument_column(a, v, &ap, &vp, &rap_challenges);
+        let p = generate_memory_permutation_argument_column(a, v, &ap, &vp, &rap_challenges);
         assert_eq!(
             p,
             vec![
@@ -967,7 +1014,10 @@ mod test {
 
     #[test]
     fn test_add_missing_values_to_offsets_column() {
-        let mut main_trace = TraceTable { table: (0..34*2).map(|x| FieldElement::from(x)).collect(), n_cols: 34 };
+        let mut main_trace = TraceTable {
+            table: (0..34 * 2).map(|x| FieldElement::from(x)).collect(),
+            n_cols: 34,
+        };
         let missing_values = vec![
             FieldElement::from(1),
             FieldElement::from(2),
@@ -978,25 +1028,21 @@ mod test {
         ];
         add_missing_values_to_offsets_column(&mut main_trace, missing_values);
 
-        let mut expected: Vec<_> = (0..34*2).map(|x| FieldElement::from(x)).collect();
-        expected.append(
-            &mut vec![FieldElement::zero(); OFF_DST]
-        );
-        expected.append(
-            &mut vec![FieldElement::from(1), FieldElement::from(2), FieldElement::from(3)]
-        );
-        expected.append(
-            &mut vec![FieldElement::zero(); 34 - OFF_OP1 - 1]
-        );
-        expected.append(
-            &mut vec![FieldElement::zero(); OFF_DST]
-        );
-        expected.append(
-            &mut vec![FieldElement::from(4), FieldElement::from(5), FieldElement::from(6)]
-        );
-        expected.append(
-            &mut vec![FieldElement::zero(); 34 - OFF_OP1 - 1]
-        );
+        let mut expected: Vec<_> = (0..34 * 2).map(|x| FieldElement::from(x)).collect();
+        expected.append(&mut vec![FieldElement::zero(); OFF_DST]);
+        expected.append(&mut vec![
+            FieldElement::from(1),
+            FieldElement::from(2),
+            FieldElement::from(3),
+        ]);
+        expected.append(&mut vec![FieldElement::zero(); 34 - OFF_OP1 - 1]);
+        expected.append(&mut vec![FieldElement::zero(); OFF_DST]);
+        expected.append(&mut vec![
+            FieldElement::from(4),
+            FieldElement::from(5),
+            FieldElement::from(6),
+        ]);
+        expected.append(&mut vec![FieldElement::zero(); 34 - OFF_OP1 - 1]);
         assert_eq!(main_trace.table, expected);
         assert_eq!(main_trace.n_cols, 34);
         assert_eq!(main_trace.table.len(), 34 * 4);
