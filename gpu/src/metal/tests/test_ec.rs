@@ -1,5 +1,5 @@
 #[cfg(all(test, feature = "metal"))]
-mod test {
+mod tests {
     use crate::metal::abstractions::state::MetalState;
     use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::curve::BLS12381Curve;
     use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::BLS12381PrimeField;
@@ -13,39 +13,116 @@ mod test {
     pub type F = BLS12381PrimeField;
     pub type FE = FieldElement<F>;
 
-    proptest! {
-        #[test]
-        fn test_metal_add_fp_should_equal_cpu(a in any::<u128>(), b in any::<u128>()) {
-            objc::rc::autoreleasepool(|| {
-                let state = MetalState::new(None).unwrap();
-                let pipeline = state.setup_pipeline("fp_bls12381_add").unwrap();
+    mod unsigned_int_tests {
+        use super::*;
 
-                let p = U384::from_u128(std::cmp::max(a, b) as u128);
-                let q = U384::from_u128(std::cmp::min(a, b) as u128);
+        pub type U = U384; // F::BaseType
 
-                let p_limbs = p.to_u32_limbs();
-                let q_limbs = q.to_u32_limbs();
+        enum BigOrSmallInt {
+            Big(U),
+            Small(usize),
+        }
 
-                let p_buffer = state.alloc_buffer_data(&p_limbs);
-                let q_buffer = state.alloc_buffer_data(&q_limbs);
-                let result_buffer = state.alloc_buffer::<u32>(12);
+        fn execute_kernel(name: &str, params: (U, BigOrSmallInt)) -> U {
+            let state = MetalState::new(None).unwrap();
+            let pipeline = state.setup_pipeline(name).unwrap();
 
-                let (command_buffer, command_encoder) = state.setup_command(
-                    &pipeline,
-                    Some(&[(0, &p_buffer), (1, &q_buffer), (2, &result_buffer)]),
-                );
+            let (a, b) = params;
+            let a = a.to_u32_limbs();
+            // conversion needed because of aossible difference of endianess between host and
+            // device (Metal's UnsignedInteger has 32bit limbs).
 
-                let threadgroup_size = MTLSize::new(1, 1, 1);
-                let threadgroup_count = MTLSize::new(1, 1, 1);
-                command_encoder.dispatch_thread_groups(threadgroup_count, threadgroup_size);
-                command_encoder.end_encoding();
-                command_buffer.commit();
-                command_buffer.wait_until_completed();
-                let result = MetalState::retrieve_contents::<u32>(&result_buffer);
+            let result_buffer = state.alloc_buffer::<U>(1);
 
-                prop_assert_eq!(U384::from_u32_limbs(&result), p << 10);
-                Ok(())
-            }).unwrap();
+            let (command_buffer, command_encoder) = match b {
+                BigOrSmallInt::Big(b) => {
+                    let b = b.to_u32_limbs();
+                    let a_buffer = state.alloc_buffer_data(&a);
+                    let b_buffer = state.alloc_buffer_data(&b);
+                    state.setup_command(
+                        &pipeline,
+                        Some(&[(0, &a_buffer), (1, &b_buffer), (2, &result_buffer)]),
+                    )
+                }
+                BigOrSmallInt::Small(b) => {
+                    let a_buffer = state.alloc_buffer_data(&a);
+                    let b_buffer = state.alloc_buffer_data(&[b]);
+                    state.setup_command(
+                        &pipeline,
+                        Some(&[(0, &a_buffer), (1, &b_buffer), (2, &result_buffer)]),
+                    )
+                }
+            };
+
+            let threadgroup_size = MTLSize::new(1, 1, 1);
+            let threadgroup_count = MTLSize::new(1, 1, 1);
+
+            command_encoder.dispatch_thread_groups(threadgroup_count, threadgroup_size);
+            command_encoder.end_encoding();
+
+            command_buffer.commit();
+            command_buffer.wait_until_completed();
+
+            let limbs = MetalState::retrieve_contents::<u32>(&result_buffer);
+            U::from_u32_limbs(&limbs)
+        }
+
+        prop_compose! {
+            fn rand_u()(n in any::<u128>()) -> U { U::from_u128(n) } // doesn't populate all limbs
+        }
+
+        use BigOrSmallInt::{Big, Small};
+
+        proptest! {
+            #[test]
+            fn add(a in rand_u(), b in rand_u()) {
+                objc::rc::autoreleasepool(|| {
+                    let result = execute_kernel("test_uint_add", (a, Big(b)));
+                    prop_assert_eq!(result, a + b);
+                    Ok(())
+                }).unwrap();
+            }
+
+            #[test]
+            fn sub(a in rand_u(), b in rand_u()) {
+                objc::rc::autoreleasepool(|| {
+                    let a = std::cmp::max(a, b);
+                    let b = std::cmp::min(a, b);
+
+                    let result = execute_kernel("test_uint_sub", (a, Big(b)));
+                    prop_assert_eq!(result, a - b);
+                    Ok(())
+                }).unwrap();
+            }
+
+            #[test]
+            fn prod(a in rand_u(), b in rand_u()) {
+                objc::rc::autoreleasepool(|| {
+                    let result = execute_kernel("test_uint_prod", (a, Big(b)));
+                    prop_assert_eq!(result, a * b);
+                    Ok(())
+                }).unwrap();
+            }
+
+            #[test]
+            fn shl(a in rand_u(), b in any::<usize>()) {
+                objc::rc::autoreleasepool(|| {
+                    let b = b % 384; // so it doesn't overflow
+                    let result = execute_kernel("test_uint_shl", (a, Small(b)));
+                    prop_assert_eq!(result, a << b);
+                    Ok(())
+                }).unwrap();
+            }
+
+            #[test]
+            fn shr(a in rand_u(), b in any::<usize>()) {
+                objc::rc::autoreleasepool(|| {
+                    let b = b % 384; // so it doesn't overflow
+                    let result = execute_kernel("test_uint_shr", (a, Small(b)));
+                    prop_assert_eq!(result, a >> b);
+                    Ok(())
+                }).unwrap();
+            }
         }
     }
 
