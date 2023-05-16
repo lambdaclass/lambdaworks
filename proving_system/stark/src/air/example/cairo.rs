@@ -1,6 +1,8 @@
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::field::{
-    element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField, traits::IsFFTField,
+    element::FieldElement,
+    fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+    traits::{IsFFTField, IsPrimeField},
 };
 
 use crate::{
@@ -134,6 +136,7 @@ pub struct PublicInputs {
     // pub builtins: Vec<Builtin>, // list of builtins
     pub program: Vec<FE>,
     pub num_steps: usize, // number of execution steps
+    pub last_row_range_checks: Option<usize>,
 }
 
 #[derive(Clone)]
@@ -240,13 +243,60 @@ fn generate_permutation_argument_column(
     permutation_col
 }
 
-// fn pad_with_zeros<F: IsFFTField>(trace: &mut TraceTable<F>, number_rows: usize) {
-//         let pad = vec![
-//             FieldElement::zero();
-//             trace.n_cols * number_rows
-//         ];
-//         trace.table.extend_from_slice(&pad);
-// }
+fn pad_with_zeros<F: IsFFTField>(trace: &mut TraceTable<F>, number_rows: usize) {
+    let pad = vec![FieldElement::zero(); trace.n_cols * number_rows];
+    trace.table.extend_from_slice(&pad);
+}
+
+fn fill_offsets_missing_values<F>(
+    trace: &TraceTable<F>,
+    columns_indices: &[usize],
+) -> (Vec<FieldElement<F>>, Vec<FieldElement<F>>)
+where
+    F: IsFFTField + IsPrimeField,
+    u16: From<F::RepresentativeType>,
+{
+    let mut offset_columns = trace.get_cols(columns_indices).table;
+    let b = FieldElement::from(2).pow(15u64);
+    for i in 0..offset_columns.len() {
+        offset_columns[i] = &offset_columns[i] + &b;
+    }
+
+    let mut sorted_offset_representatives: Vec<u16> = offset_columns
+        .iter()
+        .map(|x| x.representative().into())
+        .collect();
+    sorted_offset_representatives.sort();
+
+    let mut new_column: Vec<FieldElement<F>> = Vec::new();
+    new_column.push(FieldElement::from(sorted_offset_representatives[0] as u64));
+    let mut missing_ranges: Vec<Vec<FieldElement<F>>> = Vec::new();
+    for window in sorted_offset_representatives.windows(2) {
+        match window[1] - window[0] {
+            0 => {
+                new_column.push(FieldElement::from(window[1] as u64));
+            }
+            _ => {
+                let missing_range: Vec<_> = ((window[0] + 1)..window[1])
+                    .map(|x| FieldElement::from(x as u64))
+                    .collect();
+                new_column.extend_from_slice(&missing_range);
+                new_column.push(FieldElement::from(window[1] as u64));
+                missing_ranges.push(missing_range);
+            }
+        }
+    }
+
+    missing_ranges
+        .iter()
+        .for_each(|missing_range| offset_columns.extend_from_slice(&missing_range));
+
+    let multiple_of_three_padding = ((new_column.len() + 2) / 3) * 3 - new_column.len();
+    offset_columns.extend_from_slice(&vec![FieldElement::zero(); multiple_of_three_padding as usize]);
+    let mut new_column_padded: Vec<FieldElement<F>> = vec![FieldElement::zero(); multiple_of_three_padding as usize];
+    new_column_padded.append(&mut new_column);
+    (offset_columns, new_column_padded)
+}
 
 impl AIR for CairoAIR {
     type Field = Stark252PrimeField;
@@ -259,31 +309,35 @@ impl AIR for CairoAIR {
         raw_trace: &Self::RawTrace,
         public_input: &mut Self::PublicInput,
     ) -> TraceTable<Self::Field> {
-        let main_trace = build_cairo_execution_trace(&raw_trace.0, &raw_trace.1);
+        let mut main_trace = build_cairo_execution_trace(&raw_trace.0, &raw_trace.1);
 
-        // Repeat the last row (with zeros in the memory columns) until the smallest
-        // power of two that leaves enough space for the program.
-        let mut last_row = main_trace.last_row().to_vec();
-        for memory_column in MEMORY_COLUMNS {
-            last_row[memory_column] = FieldElement::zero();
-        }
+        pad_with_zeros(&mut main_trace, (public_input.program.len() >> 2) + 1);
+        // fill_offsets_missing_values(&mut main_trace, public_input);
 
-        // // Pad with zeroes
-        // let pad = vec![
-        //     FieldElement::zero();
-        //     last_row.len() * (self.context().trace_length - main_trace.n_rows())
-        // ];
+        // let b15 = Felt::from(2u8).exp(15u32.into());
+        // let mut rc_column: Vec<Felt> = VirtualColumn::new(&state.offsets)
+        //     .to_column()
+        //     .into_iter()
+        //     .map(|x| x + b15)
+        //     .collect();
+        // let mut rc_sorted: Vec<u16> = rc_column
+        //     .iter()
+        //     .map(|x| x.as_int().try_into().unwrap())
+        //     .collect();
+        // rc_sorted.sort_unstable();
+        // let rc_min = rc_sorted.first().unwrap().clone();
+        // let rc_max = rc_sorted.last().unwrap().clone();
+        // for s in rc_sorted.windows(2).progress() {
+        //     match s[1] - s[0] {
+        //         0 | 1 => {}
+        //         _ => {
+        //             rc_column.extend((s[0] + 1..s[1]).map(|x| Felt::from(x)).collect::<Vec<_>>());
+        //         }
+        //     }
+        // }
+        // let offsets = VirtualColumn::new(&[rc_column]).to_columns(&[3]);
 
-        // Pad with last row
-        let pad: Vec<FieldElement<Self::Field>> = std::iter::repeat(last_row)
-            .take(self.context().trace_length - main_trace.n_rows())
-            .flatten()
-            .collect();
-
-        let mut main_trace_table = main_trace.table;
-        main_trace_table.extend_from_slice(&pad);
-
-        TraceTable::new(main_trace_table, main_trace.n_cols)
+        main_trace
     }
 
     fn build_auxiliary_trace(
@@ -633,13 +687,16 @@ fn frame_inst_size(frame_row: &[FE]) -> FE {
 mod test {
     use cairo_vm::{cairo_run, types::program::Program};
     use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
-    use lambdaworks_math::field::element::FieldElement;
+    use lambdaworks_math::field::{
+        element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+    };
 
     use crate::{
         air::{
             context::ProofOptions,
             debug::validate_trace,
             example::cairo::{add_program_in_public_input_section, CairoAIR, PublicInputs},
+            trace::TraceTable,
             AIR,
         },
         cairo_run::run::Error,
@@ -648,7 +705,8 @@ mod test {
     };
 
     use super::{
-        generate_permutation_argument_column, sort_columns_by_memory_address, CairoRAPChallenges,
+        fill_offsets_missing_values, generate_permutation_argument_column,
+        sort_columns_by_memory_address, CairoRAPChallenges,
     };
 
     #[test]
@@ -699,7 +757,8 @@ mod test {
             ap_init: FieldElement::from(raw_trace.rows[0].ap),
             fp_init: FieldElement::from(raw_trace.rows[0].fp),
             num_steps: raw_trace.steps(),
-        }; // TODO: Put real program
+            last_row_range_checks: None,
+        };
 
         let main_trace = cairo_air.build_main_trace(&(raw_trace, memory), &mut public_input);
         let mut trace_polys = main_trace.compute_trace_polys();
@@ -737,6 +796,7 @@ mod test {
                 FieldElement::from(30),
             ],
             num_steps: 1,
+            last_row_range_checks: None,
         };
 
         let a = vec![
@@ -856,5 +916,54 @@ mod test {
                 FieldElement::one(),
             ]
         );
+    }
+
+    #[test]
+    fn test_fill_range_check_values() {
+        let columns = vec![
+            vec![FieldElement::from(1); 3],
+            vec![FieldElement::from(4); 3],
+            vec![FieldElement::from(7); 3],
+        ];
+        let b = FieldElement::from(2).pow(15u64);
+        let expected_col1 = vec![
+            FieldElement::from(1) + &b,
+            FieldElement::from(4) + &b,
+            FieldElement::from(7) + &b,
+            FieldElement::from(1) + &b,
+            FieldElement::from(4) + &b,
+            FieldElement::from(7) + &b,
+            FieldElement::from(1) + &b,
+            FieldElement::from(4) + &b,
+            FieldElement::from(7) + &b,
+            FieldElement::from(2) + &b,
+            FieldElement::from(3) + &b,
+            FieldElement::from(5) + &b,
+            FieldElement::from(6) + &b,
+            FieldElement::zero(),
+            FieldElement::zero(),
+        ];
+        let expected_col2 = vec![
+            FieldElement::zero(),
+            FieldElement::zero(),
+            FieldElement::from(1) + &b,
+            FieldElement::from(1) + &b,
+            FieldElement::from(1) + &b,
+            FieldElement::from(2) + &b,
+            FieldElement::from(3) + &b,
+            FieldElement::from(4) + &b,
+            FieldElement::from(4) + &b,
+            FieldElement::from(4) + &b,
+            FieldElement::from(5) + &b,
+            FieldElement::from(6) + &b,
+            FieldElement::from(7) + &b,
+            FieldElement::from(7) + &b,
+            FieldElement::from(7) + &b,
+        ];
+        let table = TraceTable::<Stark252PrimeField>::new_from_cols(&columns);
+
+        let (col1, col2) = fill_offsets_missing_values(&table, &[0, 1, 2]);
+        assert_eq!(col1, expected_col1);
+        assert_eq!(col2, expected_col2);
     }
 }

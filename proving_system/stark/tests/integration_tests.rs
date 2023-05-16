@@ -160,8 +160,9 @@ fn test_prove_cairo_simple_program() {
         fp_init: FE::from(first_step.fp),
         pc_final: FE::from(last_step.pc),
         ap_final: FE::from(last_step.ap),
-        num_steps: raw_trace.steps(),
         program,
+        num_steps: raw_trace.steps(),
+        last_row_range_checks: None,
     };
 
     let result = prove(&(raw_trace, memory), &cairo_air, &mut public_input);
@@ -220,6 +221,7 @@ fn test_prove_cairo_call_func() {
         ap_final: FieldElement::from(last_step.ap),
         num_steps: raw_trace.steps(),
         program,
+        last_row_range_checks: None,
     };
 
     let result = prove(&(raw_trace, memory), &cairo_air, &mut public_input);
@@ -259,6 +261,7 @@ fn test_prove_cairo_fibonacci() {
         ap_final: FieldElement::from(last_step.ap),
         num_steps: raw_trace.steps(),
         program,
+        last_row_range_checks: None,
     };
 
     let result = prove(&(raw_trace, memory), &cairo_air, &mut public_input);
