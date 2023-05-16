@@ -27,7 +27,7 @@ template<typename Fp>
 {
     Fp fp_p = p;
     //Fp fp_q = q;
-    result = fp_p >> 0;
+    result = fp_p << 10;
 }
 
 template<typename Fp>

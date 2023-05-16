@@ -43,8 +43,9 @@ mod test {
                 command_buffer.wait_until_completed();
                 let result = MetalState::retrieve_contents::<u32>(&result_buffer);
 
-                assert_eq!(U384::from_u32_limbs(&result), p);
-            });
+                prop_assert_eq!(U384::from_u32_limbs(&result), p << 10);
+                Ok(())
+            }).unwrap();
         }
     }
 

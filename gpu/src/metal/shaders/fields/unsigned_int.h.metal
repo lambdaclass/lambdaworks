@@ -71,16 +71,6 @@ struct UnsignedInteger {
         return res;
     }
 
-    constexpr UnsignedInteger64<NUM_LIMBS / 2> to_u64() {
-        metal::array<uint64_t, NUM_LIMBS / 2> new_limbs {};
-
-        for (int i = 0; i < (int)NUM_LIMBS / 2; i++) {
-            new_limbs[i] = ((uint64_t)m_limbs[i * 2 + 1] << 32) + (uint64_t)m_limbs[i * 2];
-        }
-
-        return UnsignedInteger64<NUM_LIMBS / 2> {new_limbs};
-    }
-
     constexpr UnsignedInteger operator+(const UnsignedInteger rhs) const
     {
         metal::array<uint32_t, NUM_LIMBS> limbs {};
@@ -181,50 +171,52 @@ struct UnsignedInteger {
         return *this;
     }
 
-    constexpr UnsignedInteger operator<<(const uint32_t rhs) const
+    constexpr UnsignedInteger operator<<(const uint32_t times) const
     {
-        uint32_t limbs_shift = rhs >> 5;
-        UnsignedInteger<NUM_LIMBS> result = {};
-        if (limbs_shift >= NUM_LIMBS) {
-            return result;
+        metal::array<uint32_t, NUM_LIMBS> limbs {};
+        uint32_t a = times / 32;
+        uint32_t b = times % 32;
+
+        if (b == 0) {
+            int64_t i = 0;
+            while (i < (int64_t)NUM_LIMBS - (int64_t)a) {
+                limbs[i] = m_limbs[a + i];
+                i += 1;
+            }
+        } else {
+            limbs[NUM_LIMBS - 1 - a] = m_limbs[NUM_LIMBS - 1] << b;
+            uint64_t i = a + 1;
+            while (i < NUM_LIMBS) {
+                limbs[NUM_LIMBS - 1 - i] = (m_limbs[NUM_LIMBS - 1 - i + a] << b) | (m_limbs[NUM_LIMBS - i + a] >> (32 - b));
+                i += 1;
+            }
         }
-        // rhs % 32;
-        uint32_t bit_shift = rhs & 0x1F;
-        // applying this leaves us the bits lost when shifting
-        uint32_t bitmask = 0xFFFFFFFF - (1 << (32 - bit_shift)) + 1;
 
-        result.m_limbs[0] = m_limbs[limbs_shift] << bit_shift;
-
-        for (uint32_t src = limbs_shift; src < NUM_LIMBS - 1; src++) {
-            uint32_t dst = src - limbs_shift;
-            result.m_limbs[dst] |= m_limbs[src + 1] & bitmask;
-            result.m_limbs[dst + 1] = m_limbs[src + 1] << bit_shift;
-        }
-
-        return result;
+        return UnsignedInteger<NUM_LIMBS> {limbs};
     }
 
-    constexpr UnsignedInteger operator>>(const uint32_t rhs) const
+    constexpr UnsignedInteger operator>>(const uint32_t times) const
     {
-        uint32_t limbs_shift = rhs >> 5;
-        UnsignedInteger<NUM_LIMBS> result = {};
-        if (limbs_shift >= NUM_LIMBS) {
-            return result;
+        metal::array<uint32_t, NUM_LIMBS> limbs {};
+        uint32_t a = times / 32;
+        uint32_t b = times % 32;
+
+        if (b == 0) {
+            int64_t i = 0;
+            while (i < (int64_t)NUM_LIMBS - (int64_t)a) {
+                limbs[a + i] = m_limbs[i];
+                i += 1;
+            }
+        } else {
+            limbs[a] = m_limbs[0] >> b;
+            uint64_t i = a + 1;
+            while (i < NUM_LIMBS) {
+                limbs[i] = (m_limbs[i - a - 1] << (32 - b)) | (m_limbs[i - a] >> b);
+                i += 1;
+            }
         }
-        // rhs % 32;
-        uint32_t bit_shift = rhs & 0x1F;
-        // applying this leaves us the bits lost when shifting
-        uint32_t bitmask = (1 << bit_shift) - 1;
 
-        result.m_limbs[NUM_LIMBS - 1] = m_limbs[NUM_LIMBS - 1 - limbs_shift] >> bit_shift;
-
-        for (int src = NUM_LIMBS - 1 - limbs_shift; src > 0; src++) {
-            uint32_t dst = src + limbs_shift;
-            result.m_limbs[dst] |= m_limbs[src - 1] & bitmask;
-            result.m_limbs[dst - 1] = m_limbs[src - 1] >> bit_shift;
-        }
-
-        return result;
+        return UnsignedInteger<NUM_LIMBS> {limbs};
     }
 
     constexpr bool operator>(const UnsignedInteger rhs) const {
