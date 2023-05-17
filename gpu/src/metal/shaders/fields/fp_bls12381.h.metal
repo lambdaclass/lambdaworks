@@ -97,6 +97,11 @@ public:
         return ONE;
     }
 
+    constexpr FpBLS12381 to_montgomery()
+    {
+        return mul(inner, R_SQUARED);
+    }
+
     // TODO: make method for all fields
     FpBLS12381 pow(uint32_t exp) const
     {
