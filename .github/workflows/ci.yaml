@@ -60,6 +60,8 @@ jobs:
           components: clippy
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
+      - name: Generate traces
+        run: make traces
       - name: Run tests and generate code coverage
         run: cargo llvm-cov --lcov --output-path lcov.info
       - name: Upload coverage to Codecov
@@ -80,5 +82,7 @@ jobs:
         with:
           toolchain: stable
           components: clippy
+      - name: Generate traces
+        run: make traces
       - name: Run tests
         run: cargo test -F metal

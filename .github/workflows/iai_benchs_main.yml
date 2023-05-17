@@ -28,6 +28,8 @@ jobs:
         key: ${{ runner.os }}-iai-benchmark-cache-${{ github.sha }}
         restore-keys: |
           ${{ runner.os }}-iai-benchmark-cache-
+    - name: Generate traces
+      run: make traces
     - name: Run benchmarks
       if: ${{ steps.cache-iai-results.outputs.cache-hit != 'true' }}
       run: cargo bench --no-fail-fast --bench "iai_*"

@@ -1,4 +1,4 @@
-.PHONY: test clippy docker-shell nix-shell benchmarks benchmark docs clean
+.PHONY: test clippy docker-shell nix-shell benchmarks benchmark docs clean traces
 
 # Proof mode consumes too much memory with cairo-lang to execute
 # two instances at the same time in the CI without getting killed
@@ -36,11 +36,13 @@ $(TEST_DIR)/%.trace $(TEST_DIR)/%.memory: $(TEST_DIR)/%.json
 	cairo-run --layout plain --proof_mode --program $< --trace_file $@ --memory_file $(@D)/$(*F).memory
 
 
-benchmarks: $(TEST_TRACES) $(TEST_MEMORIES)
+traces: $(TEST_TRACES) $(TEST_MEMORIES)
+
+benchmarks: traces
 	cargo criterion --workspace
 
 # BENCHMARK should be one of the [[bench]] names in Cargo.toml
-benchmark: $(TEST_TRACES) $(TEST_MEMORIES)
+benchmark: traces
 	cargo criterion --bench ${BENCH}
 
 clean:
@@ -48,7 +50,7 @@ clean:
 	rm -f $(TEST_DIR)/*.trace
 	rm -f $(TEST_DIR)/*.memory
 
-flamegraph_stark: $(TEST_TRACES) $(TEST_MEMORIES)
+flamegraph_stark: traces
 	CARGO_PROFILE_BENCH_DEBUG=true cargo flamegraph --root --bench criterion_stark -- --bench
 
 METALPATH = gpu/src/metal/shaders

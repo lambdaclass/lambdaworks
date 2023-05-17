@@ -55,5 +55,7 @@ jobs:
         key: ${{ runner.os }}-iai-benchmark-cache-${{ github.event.pull_request.base.sha }}
         restore-keys: |
           ${{ runner.os }}-iai-benchmark-cache-
+    - name: Generate traces
+      run: make traces
     - name: Run benchmarks
       run: cargo bench --no-fail-fast --bench "iai_*"
