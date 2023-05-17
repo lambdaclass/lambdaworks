@@ -72,7 +72,7 @@ pub fn proof_benchmarks(c: &mut Criterion) {
 }
 
 fn run_fibonacci_bench(group: &mut BenchmarkGroup<'_, WallTime>, benchname: &str, file: &str) {
-    let trace = generate_cairo_trace(file, "all_cairo");
+    let trace = generate_cairo_trace(file);
 
     let blowup_factors = [2, 4, 8];
     let query_numbers = [16, 32];

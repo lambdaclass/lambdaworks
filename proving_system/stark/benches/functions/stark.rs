@@ -10,7 +10,6 @@ use lambdaworks_stark::{
             quadratic_air::QuadraticAIR, simple_fibonacci::FibonacciAIR,
         },
     },
-    cairo_run::run::run_program,
     cairo_vm::{cairo_mem::CairoMemory, cairo_trace::CairoTrace},
     fri::{FieldElement, U64PrimeField},
 };
@@ -135,14 +134,11 @@ pub fn generate_quadratic_proof_params(
 // We added an attribute to disable the `dead_code` lint because clippy doesn't take into account
 // functions used by criterion.
 #[allow(dead_code)]
-pub fn generate_cairo_trace(filename: &str, layout: &str) -> (CairoTrace, CairoMemory) {
+pub fn generate_cairo_trace(filename: &str) -> (CairoTrace, CairoMemory) {
     let base_dir = format!("{}/src/cairo_vm/test_data/", env!("CARGO_MANIFEST_DIR"));
 
-    let contract = format!("{base_dir}/{filename}.json");
     let trace_path = format!("{base_dir}/{filename}.trace");
     let memory_path = format!("{base_dir}/{filename}.memory");
-
-    run_program(None, layout, &contract, &trace_path, &memory_path).unwrap();
 
     let raw_trace = CairoTrace::from_file(&trace_path).expect("Cairo trace binary file not found");
     let memory = CairoMemory::from_file(&memory_path).expect("Cairo memory binary file not found");
