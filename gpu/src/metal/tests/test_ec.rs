@@ -194,6 +194,15 @@ mod tests {
                     Ok(())
                 }).unwrap();
             }
+
+            #[test]
+            fn mul(a in rand_felt(), b in rand_felt()) {
+                objc::rc::autoreleasepool(|| {
+                    let result = execute_kernel("fp_bls12381_mul", &a, &b);
+                    prop_assert_eq!(result, a * b);
+                    Ok(())
+                }).unwrap();
+            }
         }
     }
 
