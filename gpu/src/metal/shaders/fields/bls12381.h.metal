@@ -38,6 +38,13 @@ template [[ host_name("fp_bls12381_mul") ]]
     device FpBLS12381&
 );
 
+template [[ host_name("fp_bls12381_pow") ]]
+[[kernel]] void pow_fp<FpBLS12381>(
+    constant FpBLS12381&,
+    constant uint32_t&,
+    device FpBLS12381&
+);
+
 template [[ host_name("calculate_Gjs_bls12381") ]]
 [[kernel]] void calculate_Gjs<FpBLS12381, BLS12381>(
     constant FpBLS12381*,

@@ -54,3 +54,16 @@ template<typename Fp>
     Fp res = p * q;
     result = res;
 }
+
+template<typename Fp>
+[[kernel]] void pow_fp(
+    constant Fp &_p [[ buffer(0) ]],
+    constant uint32_t &_a [[ buffer(1) ]],
+    device Fp &result [[ buffer(2) ]]
+)
+{
+    Fp p = _p;
+    uint32_t a = _a;
+    Fp res = p.pow(a);
+    result = res;
+}
