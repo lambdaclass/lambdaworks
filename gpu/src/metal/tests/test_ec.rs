@@ -1,10 +1,11 @@
 #[cfg(all(test, feature = "metal"))]
 mod tests {
     use crate::metal::abstractions::state::MetalState;
+    use lambdaworks_math::cyclic_group::IsGroup;
     use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::curve::BLS12381Curve;
     use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::BLS12381PrimeField;
     use lambdaworks_math::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
-    use lambdaworks_math::elliptic_curve::traits::FromAffine;
+    use lambdaworks_math::elliptic_curve::traits::{FromAffine, IsEllipticCurve};
     use lambdaworks_math::field::element::FieldElement;
     use lambdaworks_math::unsigned_integer::element::{UnsignedInteger, U384};
     use metal::MTLSize;
@@ -207,19 +208,32 @@ mod tests {
     }
 
     #[test]
-    fn test_metal_mul_fp_should_equal_cpu() {
+    fn test_metal_ec_p_plus_infinity_should_equal_p() {
         let state = MetalState::new(None).unwrap();
-        let pipeline = state.setup_pipeline("fp_bls12381_mul").unwrap();
+        let pipeline = state.setup_pipeline("bls12381_add").unwrap();
 
-        let p = FE::from(1);
-        let p_limbs = p.value().to_u32_limbs();
-        let p_buffer = state.alloc_buffer_data(&p_limbs);
+        let px = FE::from(0);
+        let py = FE::from(2);
+        let p = BLS12381Curve::create_point_from_affine(px, py).unwrap();
+        let p_coordinates: Vec<u32> = p
+            .coordinates()
+            .into_iter()
+            .map(|felt| felt.value().to_u32_limbs())
+            .flatten()
+            .collect();
 
-        let q = FE::from(0);
-        let q_limbs = q.value().to_u32_limbs();
-        let q_buffer = state.alloc_buffer_data(&q_limbs);
+        let p_buffer = state.alloc_buffer_data(&p_coordinates);
 
-        let result_buffer = state.alloc_buffer::<u32>(12);
+        let q = BLS12381Curve::generator().operate_with_self(0_u64);
+        let q_coordinates: Vec<u32> = q
+            .coordinates()
+            .into_iter()
+            .map(|felt| felt.value().to_u32_limbs())
+            .flatten()
+            .collect();
+        let q_buffer = state.alloc_buffer_data(&q_coordinates);
+
+        let result_buffer = state.alloc_buffer::<u32>(36);
 
         let (command_buffer, command_encoder) = state.setup_command(
             &pipeline,
@@ -234,43 +248,16 @@ mod tests {
         command_buffer.wait_until_completed();
 
         let result = MetalState::retrieve_contents::<u32>(&result_buffer);
-        let result = FE::from_raw(&U384::from_u32_limbs(&result));
 
-        assert_eq!(result, p * q);
-    }
+        let cpu_result = p.operate_with(&q);
+        let cpu_result_coordinates: Vec<u32> = cpu_result
+            .coordinates()
+            .into_iter()
+            .map(|felt| felt.value().to_u32_limbs())
+            .flatten()
+            .collect();
 
-    #[test]
-    fn test_metal_ec_p_plus_infinity_should_equal_p() {
-        let state = MetalState::new(None).unwrap();
-        let pipeline = state.setup_pipeline("bls12381_add").unwrap();
-
-        let px = FE::from(0);
-        let py = FE::from(2);
-        let p = ShortWeierstrassProjectivePoint::<BLS12381Curve>::from_affine(px, py).unwrap();
-
-        let p_buffer = state.alloc_buffer_data(p.coordinates());
-        let q: &[FE] = &[FE::zero(), FE::one(), FE::zero()];
-        let q_buffer = state.alloc_buffer_data(q);
-        let result: &[FE] = &[FE::from(1), FE::from(1), FE::from(1)];
-        let result_buffer = state.alloc_buffer_data(result);
-
-        let (command_buffer, command_encoder) = state.setup_command(
-            &pipeline,
-            Some(&[(0, &p_buffer), (1, &q_buffer), (2, &result_buffer)]),
-        );
-
-        let threadgroup_size = MTLSize::new(1, 1, 1);
-        let threadgroup_count = MTLSize::new(1, 1, 1);
-        command_encoder.dispatch_thread_groups(threadgroup_count, threadgroup_size);
-        command_encoder.end_encoding();
-        command_buffer.commit();
-        command_buffer.wait_until_completed();
-
-        let result: Vec<FE> = MetalState::retrieve_contents(&result_buffer);
-
-        assert_eq!(&result[0], p.x());
-        assert_eq!(&result[1], p.y());
-        assert_eq!(&result[2], p.z());
+        assert_eq!(cpu_result_coordinates, result);
     }
 
     #[test]
@@ -278,16 +265,28 @@ mod tests {
         let state = MetalState::new(None).unwrap();
         let pipeline = state.setup_pipeline("bls12381_add").unwrap();
 
-        let p: &[FE] = &[FE::zero(), FE::one(), FE::zero()];
-        let p_buffer = state.alloc_buffer_data(p);
+        let p = BLS12381Curve::generator().operate_with_self(0_u64);
+        let p_coordinates: Vec<u32> = p
+            .coordinates()
+            .into_iter()
+            .map(|felt| felt.value().to_u32_limbs())
+            .flatten()
+            .collect();
+        let p_buffer = state.alloc_buffer_data(&p_coordinates);
 
         let qx = FE::from(0);
         let qy = FE::from(2);
-        let q = ShortWeierstrassProjectivePoint::<BLS12381Curve>::from_affine(qx, qy).unwrap();
+        let q = BLS12381Curve::create_point_from_affine(qx, qy).unwrap();
+        let q_coordinates: Vec<u32> = q
+            .coordinates()
+            .into_iter()
+            .map(|felt| felt.value().to_u32_limbs())
+            .flatten()
+            .collect();
 
-        let q_buffer = state.alloc_buffer_data(q.coordinates());
-        let result: &[FE] = &[FE::from(1), FE::from(1), FE::from(1)];
-        let result_buffer = state.alloc_buffer_data(result);
+        let q_buffer = state.alloc_buffer_data(&q_coordinates);
+
+        let result_buffer = state.alloc_buffer::<u32>(36);
 
         let (command_buffer, command_encoder) = state.setup_command(
             &pipeline,
@@ -301,66 +300,65 @@ mod tests {
         command_buffer.commit();
         command_buffer.wait_until_completed();
 
-        let result: Vec<FE> = MetalState::retrieve_contents(&result_buffer);
+        let result = MetalState::retrieve_contents::<u32>(&result_buffer);
 
-        assert_eq!(&result[0], q.x());
-        assert_eq!(&result[1], q.y());
-        assert_eq!(&result[2], q.z());
+        let cpu_result = p.operate_with(&q);
+        let cpu_result_coordinates: Vec<u32> = cpu_result
+            .coordinates()
+            .into_iter()
+            .map(|felt| felt.value().to_u32_limbs())
+            .flatten()
+            .collect();
+
+        assert_eq!(cpu_result_coordinates, result);
     }
 
     #[test]
-    fn test_metal_sum_should_equal_cpu_sum() {
-        objc::rc::autoreleasepool(|| {
-            let state = MetalState::new(None).unwrap();
-            let pipeline = state.setup_pipeline("bls12381_add").unwrap();
+    fn test_metal_p_plus_p_should_equal_cpu() {
+        let state = MetalState::new(None).unwrap();
+        let pipeline = state.setup_pipeline("bls12381_add").unwrap();
 
-            // let px = FE::from(0);
-            // let py = FE::from(2);
-            // let p = ShortWeierstrassProjectivePoint::<BLS12381Curve>::from_affine(px, py).unwrap();
+        let px = FE::from(0);
+        let py = FE::from(2);
+        let p = BLS12381Curve::create_point_from_affine(px, py).unwrap();
+        let p_coordinates: Vec<u32> = p
+            .coordinates()
+            .into_iter()
+            .map(|felt| felt.value().to_u32_limbs())
+            .flatten()
+            .collect();
 
-            let qx = FE::from(0);
-            let qy = FE::from(2);
-            let q = ShortWeierstrassProjectivePoint::<BLS12381Curve>::from_affine(qx, qy).unwrap();
+        let p_buffer = state.alloc_buffer_data(&p_coordinates);
 
-            let p =FE::from_hex("44ed1dea66f6a8b9d8561ee71e58fa8339819b906d8dd6b77ce7fb8812cd333c4470d257e33bed03a8dfbb765f8a5c6");
-            let p_buffer = state.alloc_buffer_data(&[FE::one()]);
-            let q_buffer = state.alloc_buffer_data(q.coordinates());
-            let result_buffer = state.alloc_buffer::<FE>(1);
+        let q = p.clone();
+        let q_coordinates = p_coordinates.clone();
 
-            let (command_buffer, command_encoder) = state.setup_command(
-                &pipeline,
-                Some(&[(0, &p_buffer), (1, &q_buffer), (2, &result_buffer)]),
-            );
+        let q_buffer = state.alloc_buffer_data(&q_coordinates);
 
-            let threadgroup_size = MTLSize::new(1, 1, 1);
-            let threadgroup_count = MTLSize::new(1, 1, 1);
+        let result_buffer = state.alloc_buffer::<u32>(36);
 
-            command_encoder.dispatch_thread_groups(threadgroup_count, threadgroup_size);
-            command_encoder.end_encoding();
-            command_buffer.commit();
-            command_buffer.wait_until_completed();
+        let (command_buffer, command_encoder) = state.setup_command(
+            &pipeline,
+            Some(&[(0, &p_buffer), (1, &q_buffer), (2, &result_buffer)]),
+        );
 
-            let result: Vec<UnsignedInteger<6>> = MetalState::retrieve_contents(&result_buffer);
-            let result: Vec<FE> = result.iter().map(FE::from).collect();
-            // let result_cpu = p.operate_with(&q);
+        let threadgroup_size = MTLSize::new(1, 1, 1);
+        let threadgroup_count = MTLSize::new(1, 1, 1);
+        command_encoder.dispatch_thread_groups(threadgroup_count, threadgroup_size);
+        command_encoder.end_encoding();
+        command_buffer.commit();
+        command_buffer.wait_until_completed();
 
-            eprintln!("{:x?}", result[0]);
-            eprintln!("{:x?}", FE::one());
-            eprintln!("{:x?}", FE::from_raw(&FE::one().representative()));
-            let val = result[0].clone();
-            // let val: Vec<_> = val
-            //     .representative()
-            //     .limbs
-            //     .into_iter()
-            //     .map(|v| ((v & 0xFFFF) << 32) | (v >> 32))
-            //     .collect();
-            // let val: [u64; 6] = val.try_into().unwrap();
-            // let val = FE::from_raw(&UnsignedInteger::<6>::from_limbs(val));
-            assert_eq!(val, FE::one());
+        let result = MetalState::retrieve_contents::<u32>(&result_buffer);
 
-            //assert_eq!(&result[0], result_cpu.x());
-            //assert_eq!(&result[1], result_cpu.y());
-            //assert_eq!(&result[2], result_cpu.z());
-        });
+        let cpu_result = p.operate_with(&q);
+        let cpu_result_coordinates: Vec<u32> = cpu_result
+            .coordinates()
+            .into_iter()
+            .map(|felt| felt.value().to_u32_limbs())
+            .flatten()
+            .collect();
+
+        assert_eq!(result, cpu_result_coordinates);
     }
 }
