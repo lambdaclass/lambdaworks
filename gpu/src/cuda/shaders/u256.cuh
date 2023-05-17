@@ -115,7 +115,7 @@ public:
 
   __device__ u256 operator*(const u256 rhs) const
   {
-    // split values into 4 64-bit parts
+    // split values into 5 64-bit parts
     u128 top[2] = {u128(low.high), u128(low.low)};
     u128 bottom[3] = {u128(rhs.high.low), u128(rhs.low.high),
                       u128(rhs.low.low)};
