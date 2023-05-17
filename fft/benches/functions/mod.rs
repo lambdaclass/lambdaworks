@@ -1,4 +1,3 @@
-#![allow(dead_code)] // clippy has false positive in benchmarks
 use lambdaworks_fft::{
     bit_reversing::in_place_bit_reverse_permute,
     fft_iterative::{in_place_nr_2radix_fft, in_place_rn_2radix_fft},

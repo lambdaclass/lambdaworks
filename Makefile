@@ -4,7 +4,7 @@ test:
 	cargo test
 
 clippy:
-	cargo clippy --all-targets -- -D warnings
+	cargo clippy --workspace --all-targets -- -D warnings
 
 docker-shell:
 	docker build -t rust-curves .
@@ -14,7 +14,7 @@ nix-shell:
 	nix-shell
 
 benchmarks:
-	cargo criterion --bench all_benchmarks
+	cargo criterion --workspace
 
 # BENCHMARK should be one of the [[bench]] names in Cargo.toml
 benchmark:
