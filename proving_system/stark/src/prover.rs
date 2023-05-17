@@ -602,7 +602,12 @@ where
     );
     // >>>> Send values: tⱼ(zgᵏ)
     for i in 0..round_3_result.trace_ood_frame_evaluations.num_rows() {
-        for element in round_3_result.trace_ood_frame_evaluations.get_row(i).iter() {
+        for element in round_3_result
+            .trace_ood_frame_evaluations
+            .get_row(i)
+            .unwrap()
+            .iter()
+        {
             transcript.append(&element.to_bytes_be());
         }
     }

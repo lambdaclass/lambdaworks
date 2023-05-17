@@ -46,9 +46,9 @@ impl AIR for FibonacciAIR {
         frame: &air::frame::Frame<Self::Field>,
         _rap_challenges: &Self::RAPChallenges,
     ) -> Vec<FieldElement<Self::Field>> {
-        let first_row = frame.get_row(0);
-        let second_row = frame.get_row(1);
-        let third_row = frame.get_row(2);
+        let first_row = frame.get_row(0).unwrap();
+        let second_row = frame.get_row(1).unwrap();
+        let third_row = frame.get_row(2).unwrap();
 
         vec![third_row[0].clone() - second_row[0].clone() - first_row[0].clone()]
     }

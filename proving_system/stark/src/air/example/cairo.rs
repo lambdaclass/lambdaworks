@@ -228,7 +228,7 @@ impl AIR for CairoAIR {
 /// From the Cairo whitepaper, section 9.10
 fn compute_instr_constraints(constraints: &mut [FE], frame: &Frame<Stark252PrimeField>) {
     // These constraints are only applied over elements of the same row.
-    let curr = frame.get_row(0);
+    let curr = frame.get_row(0).unwrap();
 
     // Bit constraints
     for (i, flag) in curr[0..16].iter().enumerate() {
@@ -258,7 +258,7 @@ fn compute_instr_constraints(constraints: &mut [FE], frame: &Frame<Stark252Prime
 
 fn compute_operand_constraints(constraints: &mut [FE], frame: &Frame<Stark252PrimeField>) {
     // These constraints are only applied over elements of the same row.
-    let curr = frame.get_row(0);
+    let curr = frame.get_row(0).unwrap();
 
     let ap = &curr[FRAME_AP];
     let fp = &curr[FRAME_FP];
@@ -284,8 +284,8 @@ fn compute_operand_constraints(constraints: &mut [FE], frame: &Frame<Stark252Pri
 }
 
 fn compute_register_constraints(constraints: &mut [FE], frame: &Frame<Stark252PrimeField>) {
-    let curr = frame.get_row(0);
-    let next = frame.get_row(1);
+    let curr = frame.get_row(0).unwrap();
+    let next = frame.get_row(1).unwrap();
 
     let one = FE::one();
     let two = FE::from(2);
@@ -319,7 +319,7 @@ fn compute_register_constraints(constraints: &mut [FE], frame: &Frame<Stark252Pr
 }
 
 fn compute_opcode_constraints(constraints: &mut [FE], frame: &Frame<Stark252PrimeField>) {
-    let curr = frame.get_row(0);
+    let curr = frame.get_row(0).unwrap();
     let one = FE::one();
 
     constraints[MUL_1] = &curr[FRAME_MUL] - (&curr[FRAME_OP0] * &curr[FRAME_OP1]);
@@ -338,7 +338,7 @@ fn compute_opcode_constraints(constraints: &mut [FE], frame: &Frame<Stark252Prim
 }
 
 fn enforce_selector(constraints: &mut [FE], frame: &Frame<Stark252PrimeField>) {
-    let curr = frame.get_row(0);
+    let curr = frame.get_row(0).unwrap();
     for result_cell in constraints.iter_mut().take(ASSERT_EQ + 1).skip(INST) {
         *result_cell = result_cell.clone() * curr[FRAME_SELECTOR].clone();
     }

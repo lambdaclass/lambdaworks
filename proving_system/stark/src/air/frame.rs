@@ -3,7 +3,7 @@ use lambdaworks_math::{
     polynomial::Polynomial,
 };
 
-use super::trace::TraceTable;
+use super::{errors::AIRError, trace::TraceTable};
 
 #[derive(Clone, Debug)]
 pub struct Frame<F: IsFFTField> {
@@ -25,14 +25,18 @@ impl<F: IsFFTField> Frame<F> {
         self.row_width
     }
 
-    pub fn get_row(&self, row_idx: usize) -> &[FieldElement<F>] {
+    pub fn get_row(&self, row_idx: usize) -> Result<&[FieldElement<F>], AIRError> {
         let row_offset = row_idx * self.row_width;
-        &self.data[row_offset..row_offset + self.row_width]
+        self.data
+            .get(row_offset..row_offset + self.row_width)
+            .ok_or(AIRError::RowIndexOutOfFrameBounds(row_idx, self.row_width))
     }
 
-    pub fn get_row_mut(&mut self, row_idx: usize) -> &mut [FieldElement<F>] {
+    pub fn get_row_mut(&mut self, row_idx: usize) -> Result<&mut [FieldElement<F>], AIRError> {
         let row_offset = row_idx * self.row_width;
-        &mut self.data[row_offset..row_offset + self.row_width]
+        self.data
+            .get_mut(row_offset..row_offset + self.row_width)
+            .ok_or(AIRError::RowIndexOutOfFrameBounds(row_idx, self.row_width))
     }
 
     pub fn read_from_trace(

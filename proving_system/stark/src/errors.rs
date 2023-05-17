@@ -45,4 +45,6 @@ pub enum StarkError {
     FrameColIndexOutOfBounds(usize, usize),
     #[error("Proof has no merkle roots of FRI layers")]
     ProofFriLayersMerkleRoots,
+    #[error("Proof has no trace OOD frame evaluations")]
+    ProofTraceFrameEvaluations,
 }

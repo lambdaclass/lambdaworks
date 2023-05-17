@@ -64,6 +64,9 @@ fn check_air_and_proof<F: IsFFTField, A: AIR<Field = F>>(
         return Err(StarkError::AIRFriNumberOfQueries);
     }
 
+    if proof.trace_ood_frame_evaluations.num_rows() == 0 {
+        return Err(StarkError::ProofTraceFrameEvaluations);
+    }
     if proof.fri_layers_merkle_roots.is_empty() {
         return Err(StarkError::ProofFriLayersMerkleRoots);
     }
@@ -150,7 +153,7 @@ where
     transcript.append(&proof.composition_poly_odd_ood_evaluation.to_bytes_be());
     // <<<< Receive values: tⱼ(zgᵏ)
     for i in 0..proof.trace_ood_frame_evaluations.num_rows() {
-        for element in proof.trace_ood_frame_evaluations.get_row(i).iter() {
+        for element in proof.trace_ood_frame_evaluations.get_row(i).unwrap().iter() {
             transcript.append(&element.to_bytes_be());
         }
     }
@@ -235,7 +238,9 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
 
     for trace_idx in 0..n_trace_cols {
         let frame_evaluations = &proof.trace_ood_frame_evaluations;
-        let trace_evaluation = frame_evaluations.get_row(0).get(trace_idx).ok_or(
+        // We already checked that `trace_ood_frame_evaluations` mut not be empty, so it's ok to
+        // get the first element without checking
+        let trace_evaluation = frame_evaluations.get_row(0).unwrap().get(trace_idx).ok_or(
             StarkError::FrameColIndexOutOfBounds(trace_idx, frame_evaluations.num_columns()),
         )?;
         let boundary_constraints_domain = boundary_constraint_domains[trace_idx].clone();
@@ -516,7 +521,7 @@ fn reconstruct_deep_composition_poly_evaluation<F: IsFFTField, A: AIR<Field = F>
     {
         for (row_idx, coeff) in (0..proof.trace_ood_frame_evaluations.num_rows()).zip(coeff_row) {
             let poly_evaluation = (proof.deep_poly_openings.lde_trace_evaluations[col_idx].clone()
-                - proof.trace_ood_frame_evaluations.get_row(row_idx)[col_idx].clone())
+                - proof.trace_ood_frame_evaluations.get_row(row_idx).unwrap()[col_idx].clone())
                 / (upsilon_0 - &challenges.z * primitive_root.pow(row_idx as u64));
 
             trace_terms += poly_evaluation * coeff.clone();

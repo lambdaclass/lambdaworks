@@ -50,8 +50,8 @@ impl AIR for QuadraticAIR {
         frame: &air::frame::Frame<Self::Field>,
         _rap_challenges: &Self::RAPChallenges,
     ) -> Vec<FieldElement<Self::Field>> {
-        let first_row = frame.get_row(0);
-        let second_row = frame.get_row(1);
+        let first_row = frame.get_row(0).unwrap();
+        let second_row = frame.get_row(1).unwrap();
 
         vec![&second_row[0] - &first_row[0] * &first_row[0]]
     }

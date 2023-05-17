@@ -47,8 +47,8 @@ impl AIR for Fibonacci2ColsAIR {
         frame: &air::frame::Frame<Self::Field>,
         _rap_challenges: &Self::RAPChallenges,
     ) -> Vec<FieldElement<Self::Field>> {
-        let first_row = frame.get_row(0);
-        let second_row = frame.get_row(1);
+        let first_row = frame.get_row(0).unwrap();
+        let second_row = frame.get_row(1).unwrap();
 
         // constraints of Fibonacci sequence (2 terms per step):
         // s_{0, i+1} = s_{0, i} + s_{1, i}

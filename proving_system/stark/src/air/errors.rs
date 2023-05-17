@@ -13,4 +13,6 @@ pub enum AIRError {
     ConstraintEvaluatorCreation,
     #[error("Row index {0} is out of bounds for table with {1} rows")]
     RowIndexOutOfTableBounds(usize, usize),
+    #[error("Row index {0} is out of bounds for frame with {1} rows")]
+    RowIndexOutOfFrameBounds(usize, usize),
 }

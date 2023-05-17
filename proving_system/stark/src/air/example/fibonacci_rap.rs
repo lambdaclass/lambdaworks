@@ -75,19 +75,19 @@ impl AIR for FibonacciRAP {
         gamma: &Self::RAPChallenges,
     ) -> Vec<FieldElement<Self::Field>> {
         // Main constraints
-        let first_row = frame.get_row(0);
-        let second_row = frame.get_row(1);
-        let third_row = frame.get_row(2);
+        let first_row = frame.get_row(0).unwrap();
+        let second_row = frame.get_row(1).unwrap();
+        let third_row = frame.get_row(2).unwrap();
 
         let mut constraints =
             vec![third_row[0].clone() - second_row[0].clone() - first_row[0].clone()];
 
         // Auxiliary constraints
-        let z_i = &frame.get_row(0)[2];
-        let z_i_plus_one = &frame.get_row(1)[2];
+        let z_i = &frame.get_row(0).unwrap()[2];
+        let z_i_plus_one = &frame.get_row(1).unwrap()[2];
 
-        let a_i = &frame.get_row(0)[0];
-        let b_i = &frame.get_row(0)[1];
+        let a_i = &frame.get_row(0).unwrap()[0];
+        let b_i = &frame.get_row(0).unwrap()[1];
 
         let eval = z_i_plus_one * (b_i + gamma) - z_i * (a_i + gamma);
 
