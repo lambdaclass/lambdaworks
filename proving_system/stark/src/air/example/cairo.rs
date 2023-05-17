@@ -302,7 +302,7 @@ fn pad_with_last_row<F: IsFFTField>(
 fn get_filled_offset_columns<F>(
     trace: &TraceTable<F>,
     columns_indices: &[usize],
-) -> (Vec<FieldElement<F>>, Vec<FieldElement<F>>)
+) -> Vec<FieldElement<F>>
 where
     F: IsFFTField + IsPrimeField,
     u16: From<F::RepresentativeType>,
@@ -315,39 +315,26 @@ where
         .collect();
     sorted_offset_representatives.sort();
 
-    let mut sorted_permutation_column: Vec<FieldElement<F>> = Vec::new();
-    sorted_permutation_column.push(FieldElement::from(sorted_offset_representatives[0] as u64));
     let mut all_missing_values: Vec<FieldElement<F>> = Vec::new();
 
     for window in sorted_offset_representatives.windows(2) {
-        match window[1] - window[0] {
-            0 => {
-                sorted_permutation_column.push(FieldElement::from(window[1] as u64));
-            }
-            _ => {
-                let mut missing_range: Vec<_> = ((window[0] + 1)..window[1])
-                    .map(|x| FieldElement::from(x as u64))
-                    .collect();
-                sorted_permutation_column.extend_from_slice(&missing_range);
-                sorted_permutation_column.push(FieldElement::from(window[1] as u64));
-                all_missing_values.append(&mut missing_range);
-            }
+        if window[1] != window[0] {
+            let mut missing_range: Vec<_> = ((window[0] + 1)..window[1])
+                .map(|x| FieldElement::from(x as u64))
+                .collect();
+            all_missing_values.append(&mut missing_range);
         }
     }
 
     let multiple_of_three_padding =
-        ((sorted_permutation_column.len() + 2) / 3) * 3 - sorted_permutation_column.len();
-    let padding_element = sorted_permutation_column.last().unwrap();
+        ((all_missing_values.len() + 2) / 3) * 3 - all_missing_values.len();
+    let padding_element = FieldElement::from(*sorted_offset_representatives.last().unwrap() as u64);
     all_missing_values.append(&mut vec![
         padding_element.clone();
         multiple_of_three_padding as usize
     ]);
-    sorted_permutation_column.append(&mut vec![
-        padding_element.clone();
-        multiple_of_three_padding as usize
-    ]);
 
-    (all_missing_values, sorted_permutation_column)
+    all_missing_values
 }
 
 fn add_missing_values_to_offsets_column<F: IsFFTField>(
@@ -384,12 +371,10 @@ impl AIR for CairoAIR {
             &MEMORY_COLUMNS,
         );
 
-        let (missing_values, sorted_offsets) =
-            get_filled_offset_columns(&mut main_trace, &[OFF_DST, OFF_OP0, OFF_OP1]);
+        let missing_values = get_filled_offset_columns(&mut main_trace, &[OFF_DST, OFF_OP0, OFF_OP1]);
 
         add_missing_values_to_offsets_column(&mut main_trace, missing_values);
         public_input.last_row_range_checks = Some(main_trace.n_rows());
-        let mut main_trace = main_trace.concatenate(sorted_offsets, 3);
 
         let padding = self.context().trace_length - main_trace.n_rows();
         pad_with_last_row(&mut main_trace, padding, &MEMORY_COLUMNS);
@@ -424,10 +409,17 @@ impl AIR for CairoAIR {
             rap_challenges,
         );
 
+        // Range Check
         let offsets_original = main_trace.get_cols(&[OFF_DST, OFF_OP0, OFF_OP1]).table;
-        let offsets_sorted = main_trace
-            .get_cols(&[RANGE_CHECK_COL_1, RANGE_CHECK_COL_2, RANGE_CHECK_COL_3])
-            .table;
+        let mut offsets_sorted: Vec<u16> = offsets_original
+            .iter()
+            .map(|x| x.representative().into())
+            .collect();
+        offsets_sorted.sort();
+        let offsets_sorted: Vec<_> = offsets_sorted
+            .iter()
+            .map(|x| FieldElement::from(*x as u64))
+            .collect();
 
         let range_check_permutation_col = generate_range_check_permutation_argument_column(
             &offsets_original,
@@ -438,6 +430,9 @@ impl AIR for CairoAIR {
         // Convert from long-format to wide-format again
         let mut aux_table = Vec::new();
         for i in 0..main_trace.n_rows() {
+            aux_table.push(offsets_sorted[3 * i].clone());
+            aux_table.push(offsets_sorted[3 * i + 1].clone());
+            aux_table.push(offsets_sorted[3 * i + 2].clone());
             aux_table.push(addresses[4 * i].clone());
             aux_table.push(addresses[4 * i + 1].clone());
             aux_table.push(addresses[4 * i + 2].clone());
@@ -454,7 +449,8 @@ impl AIR for CairoAIR {
             aux_table.push(range_check_permutation_col[3 * i + 1].clone());
             aux_table.push(range_check_permutation_col[3 * i + 2].clone());
         }
-        TraceTable::new(aux_table, 12 + 3)
+
+        TraceTable::new(aux_table, self.number_auxiliary_rap_columns())
     }
 
     fn build_rap_challenges<T: Transcript>(&self, transcript: &mut T) -> Self::RAPChallenges {
@@ -532,12 +528,16 @@ impl AIR for CairoAIR {
         let permutation_final_constraint =
             BoundaryConstraint::new(PERMUTATION_ARGUMENT_COL_3, final_index, permutation_final);
 
+        let one: FieldElement<Self::Field> = FieldElement::one();
+        let range_check_final_constraint = BoundaryConstraint::new(PERMUTATION_ARGUMENT_RANGE_CHECK_COL_3, final_index, one);
+
         let constraints = vec![
             initial_pc,
             initial_ap,
             final_pc,
             final_ap,
             permutation_final_constraint,
+            range_check_final_constraint
         ];
 
         BoundaryConstraints::from_constraints(constraints)
@@ -548,7 +548,7 @@ impl AIR for CairoAIR {
     }
 
     fn number_auxiliary_rap_columns(&self) -> usize {
-        12 + 3
+        12 + 3 + 3
     }
 }
 
@@ -857,7 +857,7 @@ mod test {
             coset_offset: 3,
         };
 
-        let cairo_air = CairoAIR::new(proof_options, program.len(), raw_trace.steps());
+        let cairo_air = CairoAIR::new(proof_options, 128, raw_trace.steps());
 
         // PC FINAL AND AP FINAL are not computed correctly since they are extracted after padding to
         // power of two and therefore are zero
@@ -1039,36 +1039,18 @@ mod test {
             vec![FieldElement::from(4); 3],
             vec![FieldElement::from(7); 3],
         ];
-        let expected_col1 = vec![
+        let expected_col = vec![
             FieldElement::from(2),
             FieldElement::from(3),
             FieldElement::from(5),
             FieldElement::from(6),
-            FieldElement::from(7),
-            FieldElement::from(7),
-        ];
-        let expected_col2 = vec![
-            FieldElement::from(1),
-            FieldElement::from(1),
-            FieldElement::from(1),
-            FieldElement::from(2),
-            FieldElement::from(3),
-            FieldElement::from(4),
-            FieldElement::from(4),
-            FieldElement::from(4),
-            FieldElement::from(5),
-            FieldElement::from(6),
-            FieldElement::from(7),
-            FieldElement::from(7),
-            FieldElement::from(7),
             FieldElement::from(7),
             FieldElement::from(7),
         ];
         let table = TraceTable::<Stark252PrimeField>::new_from_cols(&columns);
 
-        let (col1, col2) = get_filled_offset_columns(&table, &[0, 1, 2]);
-        assert_eq!(col1, expected_col1);
-        assert_eq!(col2, expected_col2);
+        let col = get_filled_offset_columns(&table, &[0, 1, 2]);
+        assert_eq!(col, expected_col);
     }
 
     #[test]

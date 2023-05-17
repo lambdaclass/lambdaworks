@@ -150,7 +150,7 @@ fn test_prove_cairo_simple_program() {
         program.push(memory.get(&i).unwrap().clone());
     }
 
-    let cairo_air = cairo::CairoAIR::new(proof_options, 128, raw_trace.steps());
+    let cairo_air = cairo::CairoAIR::new(proof_options, 16, raw_trace.steps());
 
     let first_step = &raw_trace.rows[0];
     let last_step = &raw_trace.rows[raw_trace.steps() - 1];
