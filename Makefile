@@ -30,9 +30,11 @@ TEST_TRACES:=$(patsubst $(TEST_DIR)/%.cairo, $(TEST_DIR)/%.trace, $(TEST_FILES))
 TEST_MEMORIES:=$(patsubst $(TEST_DIR)/%.cairo, $(TEST_DIR)/%.memory, $(TEST_FILES))
 
 $(TEST_DIR)/%.json: $(TEST_DIR)/%.cairo
+	. venv/bin/activate ; \
 	cairo-compile --cairo_path="$(TEST_DIR)" $< --output $@ --proof_mode
 
 $(TEST_DIR)/%.trace $(TEST_DIR)/%.memory: $(TEST_DIR)/%.json
+	. venv/bin/activate ; \
 	cairo-run --layout plain --proof_mode --program $< --trace_file $@ --memory_file $(@D)/$(*F).memory
 
 
