@@ -37,9 +37,7 @@ fn optimum_window_size(data_length: usize) -> usize {
 
     // We approximate the optimum window size with: f(n) = k * log2(n), where k is a scaling factor
     let len_isqrt = usize::BITS - data_length.leading_zeros() - 1;
-    let optimum = (len_isqrt as usize * SCALE_FACTORS.0) / SCALE_FACTORS.1;
-
-    optimum
+    (len_isqrt as usize * SCALE_FACTORS.0) / SCALE_FACTORS.1
 }
 
 pub fn msm_with<const NUM_LIMBS: usize, G>(
