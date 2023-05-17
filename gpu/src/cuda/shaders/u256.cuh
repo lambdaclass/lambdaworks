@@ -5,7 +5,8 @@
 
 #include "u128.cuh"
 
-class u256 {
+class u256
+{
 public:
   u256() = default;
   __device__ constexpr u256(int l) : low(l), high(0) {}
@@ -17,79 +18,105 @@ public:
                             unsigned long lh, unsigned long ll)
       : low(u128(lh, ll)), high(u128(hh, hl)) {}
 
-  __device__ constexpr u256 operator+(const u256 rhs) const {
+  __device__ constexpr u256 operator+(const u256 rhs) const
+  {
     return u256(high + rhs.high + ((low + rhs.low) < low), low + rhs.low);
   }
 
-  __device__ constexpr u256 operator+=(const u256 rhs) {
+  __device__ constexpr u256 operator+=(const u256 rhs)
+  {
     *this = *this + rhs;
     return *this;
   }
 
-  __device__ constexpr inline u256 operator-(const u256 rhs) const {
+  __device__ constexpr inline u256 operator-(const u256 rhs) const
+  {
     return u256(high - rhs.high - ((low - rhs.low) > low), low - rhs.low);
   }
 
-  __device__ constexpr u256 operator-=(const u256 rhs) {
+  __device__ constexpr u256 operator-=(const u256 rhs)
+  {
     *this = *this - rhs;
     return *this;
   }
 
-  __device__ constexpr bool operator==(const u256 rhs) const {
+  __device__ constexpr bool operator==(const u256 rhs) const
+  {
     return high == rhs.high && low == rhs.low;
   }
 
-  __device__ constexpr bool operator!=(const u256 rhs) const {
+  __device__ constexpr bool operator!=(const u256 rhs) const
+  {
     return !(*this == rhs);
   }
 
-  __device__ constexpr bool operator<(const u256 rhs) const {
+  __device__ constexpr bool operator<(const u256 rhs) const
+  {
     return ((high == rhs.high) && (low < rhs.low)) || (high < rhs.high);
   }
 
-  __device__ constexpr u256 operator&(const u256 rhs) const {
+  __device__ constexpr u256 operator&(const u256 rhs) const
+  {
     return u256(high & rhs.high, low & rhs.low);
   }
 
-  __device__ constexpr bool operator>(const u256 rhs) const {
+  __device__ constexpr bool operator>(const u256 rhs) const
+  {
     return ((high == rhs.high) && (low > rhs.low)) || (high > rhs.high);
   }
 
-  __device__ constexpr bool operator>=(const u256 rhs) const {
+  __device__ constexpr bool operator>=(const u256 rhs) const
+  {
     return !(*this < rhs);
   }
 
-  __device__ constexpr bool operator<=(const u256 rhs) const {
+  __device__ constexpr bool operator<=(const u256 rhs) const
+  {
     return !(*this > rhs);
   }
 
-  __device__ constexpr inline u256 operator>>(unsigned shift) const {
+  __device__ constexpr inline u256 operator>>(unsigned shift) const
+  {
     // TODO: reduce branch conditions
-    if (shift >= 256) {
+    if (shift >= 256)
+    {
       return u256(0);
-    } else if (shift == 128) {
+    }
+    else if (shift == 128)
+    {
       return u256(0, high);
-    } else if (shift == 0) {
+    }
+    else if (shift == 0)
+    {
       return *this;
-    } else if (shift < 128) {
+    }
+    else if (shift < 128)
+    {
       return u256(high >> shift, (high << (128 - shift)) | (low >> shift));
-    } else if ((256 > shift) && (shift > 128)) {
+    }
+    else if ((256 > shift) && (shift > 128))
+    {
       return u256(0, (high >> (shift - 128)));
-    } else {
+    }
+    else
+    {
       return u256(0);
     }
   }
 
-  __device__ constexpr u256 operator>>=(unsigned rhs) {
+  __device__ constexpr u256 operator>>=(unsigned rhs)
+  {
     *this = *this >> rhs;
     return *this;
   }
 
-  __device__ u256 operator*(const bool rhs) const {
+  __device__ u256 operator*(const bool rhs) const
+  {
     return u256(high * rhs, low * rhs);
   }
 
-  __device__ u256 operator*(const u256 rhs) const {
+  __device__ u256 operator*(const u256 rhs) const
+  {
     // split values into 4 64-bit parts
     u128 top[2] = {u128(low.high), u128(low.low)};
     u128 bottom[3] = {u128(rhs.high.low), u128(rhs.low.high),
@@ -130,23 +157,15 @@ public:
     return u256(u128(first64, second64.low), u128(third64.low, tmp0_3.low));
   }
 
-  __device__ u256 operator*=(const u256 rhs) {
+  __device__ u256 operator*=(const u256 rhs)
+  {
     *this = *this * rhs;
     return *this;
   }
 
-  // TODO: Could get better performance with  smaller limb size
-  // Not sure what word size is for M1 GPU
+  // TODO: check if performance improves with a different limb size
   u128 high;
   u128 low;
-
-  // #ifdef __LITTLE_ENDIAN__
-  //     u128 low;
-  //     u128 high;
-  // #endif
-  // #ifdef __BIG_ENDIAN__
-
-  // #endif
 };
 
 #endif /* u256_h */
