@@ -24,6 +24,13 @@ template [[ host_name("fp_bls12381_add") ]]
     device FpBLS12381&
 );
 
+template [[ host_name("fp_bls12381_sub") ]]
+[[kernel]] void sub_fp<FpBLS12381>(
+    constant FpBLS12381&,
+    constant FpBLS12381&,
+    device FpBLS12381&
+);
+
 template [[ host_name("fp_bls12381_mul") ]]
 [[kernel]] void mul_fp<FpBLS12381>(
     constant FpBLS12381&,

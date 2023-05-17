@@ -146,7 +146,7 @@ mod tests {
             }
         }
 
-        fn execute_kernel(name: &str, a: FE, b: FE) -> FE {
+        fn execute_kernel(name: &str, a: &FE, b: &FE) -> FE {
             let state = MetalState::new(None).unwrap();
             let pipeline = state.setup_pipeline(name).unwrap();
 
@@ -180,8 +180,17 @@ mod tests {
             #[test]
             fn add(a in rand_felt(), b in rand_felt()) {
                 objc::rc::autoreleasepool(|| {
-                    let result = execute_kernel("fp_bls12381_add", a.clone(), b.clone());
+                    let result = execute_kernel("fp_bls12381_add", &a, &b);
                     prop_assert_eq!(result, a + b);
+                    Ok(())
+                }).unwrap();
+            }
+
+            #[test]
+            fn sub(a in rand_felt(), b in rand_felt()) {
+                objc::rc::autoreleasepool(|| {
+                    let result = execute_kernel("fp_bls12381_sub", &a, &b);
+                    prop_assert_eq!(result, a - b);
                     Ok(())
                 }).unwrap();
             }

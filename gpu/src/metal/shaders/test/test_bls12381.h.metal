@@ -30,6 +30,19 @@ template<typename Fp>
 }
 
 template<typename Fp>
+[[kernel]] void sub_fp(
+    constant Fp &_p [[ buffer(0) ]],
+    constant Fp &_q [[ buffer(1) ]],
+    device Fp &result [[ buffer(2) ]]
+)
+{
+    Fp p = _p;
+    Fp q = _q;
+    Fp res = p - q;
+    result = res;
+}
+
+template<typename Fp>
 [[kernel]] void mul_fp(
     constant Fp &_p [[ buffer(0) ]],
     constant Fp &_q [[ buffer(1) ]],
