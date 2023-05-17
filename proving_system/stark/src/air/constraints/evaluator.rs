@@ -2,9 +2,10 @@ use lambdaworks_math::{
     field::{element::FieldElement, traits::IsFFTField},
     helpers,
     polynomial::Polynomial,
+    traits::ByteConversion,
 };
 
-use crate::air::{example::cairo::PublicInputs, frame::Frame, trace::TraceTable, AIR};
+use crate::air::{debug::check_polynomial_divisibility, frame::Frame, trace::TraceTable, AIR};
 use std::iter::zip;
 
 use super::{boundary::BoundaryConstraints, evaluation_table::ConstraintEvaluationTable};
@@ -41,7 +42,10 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
         alpha_and_beta_transition_coefficients: &[(FieldElement<F>, FieldElement<F>)],
         alpha_and_beta_boundary_coefficients: &[(FieldElement<F>, FieldElement<F>)],
         rap_challenges: &A::RAPChallenges,
-    ) -> ConstraintEvaluationTable<F> {
+    ) -> ConstraintEvaluationTable<F>
+    where
+        FieldElement<F>: ByteConversion,
+    {
         // The + 1 is for the boundary constraints column
         let mut evaluation_table = ConstraintEvaluationTable::new(
             self.air.context().num_transition_constraints() + 1,
@@ -98,6 +102,9 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
             assert_eq!(b, Polynomial::zero());
         }
 
+        #[cfg(debug_assertions)]
+        let mut transition_evaluations = Vec::new();
+
         let divisors = self.air.transition_divisors();
         // Iterate over trace and domain and compute transitions
         for (i, d) in lde_domain.iter().enumerate() {
@@ -109,6 +116,10 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
             );
 
             let mut evaluations = self.air.compute_transition(&frame, rap_challenges);
+
+            #[cfg(debug_assertions)]
+            transition_evaluations.push(evaluations.clone());
+
             evaluations = Self::compute_constraint_composition_poly_evaluations(
                 &self.air,
                 &evaluations,
@@ -137,6 +148,9 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
 
             evaluation_table.evaluations.push(evaluations);
         }
+
+        #[cfg(debug_assertions)]
+        check_polynomial_divisibility(&self.air, &transition_evaluations, &transition_zerofiers);
 
         evaluation_table
     }
