@@ -23,7 +23,7 @@ docker-shell:
 nix-shell:
 	nix-shell
 
-TEST_DIR=proving_system/stark/src/cairo_vm/test_data
+TEST_DIR=proving_system/stark/cairo_programs
 TEST_FILES:=$(wildcard $(TEST_DIR)/*.cairo)
 COMPILED_TESTS:=$(patsubst $(TEST_DIR)/%.cairo, $(TEST_DIR)/%.json, $(TEST_FILES))
 TEST_TRACES:=$(patsubst $(TEST_DIR)/%.cairo, $(TEST_DIR)/%.trace, $(TEST_FILES))

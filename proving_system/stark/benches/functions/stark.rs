@@ -135,7 +135,7 @@ pub fn generate_quadratic_proof_params(
 // functions used by criterion.
 #[allow(dead_code)]
 pub fn generate_cairo_trace(filename: &str) -> (CairoTrace, CairoMemory) {
-    let base_dir = format!("{}/src/cairo_vm/test_data/", env!("CARGO_MANIFEST_DIR"));
+    let base_dir = format!("{}/cairo_programs/", env!("CARGO_MANIFEST_DIR"));
 
     let trace_path = format!("{base_dir}/{filename}.trace");
     let memory_path = format!("{base_dir}/{filename}.memory");
