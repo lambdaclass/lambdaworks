@@ -466,7 +466,11 @@ where
                 .ok_or(StarkError::LDETraceMerkleProof)
         })
         .collect::<Result<Vec<Proof<F>>, StarkError>>()?;
-    let lde_trace_evaluations = round_1_result.lde_trace.get_row(index).to_vec();
+    let lde_trace = &round_1_result.lde_trace;
+    let lde_trace_evaluations = lde_trace
+        .get_row(index)
+        .map_err(|_| StarkError::LDETraceRowOutOfBounds(index, lde_trace.n_rows()))?
+        .to_vec();
 
     Ok(DeepPolynomialOpenings {
         lde_composition_poly_even_proof,

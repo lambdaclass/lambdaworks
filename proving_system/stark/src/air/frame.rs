@@ -47,8 +47,10 @@ impl<F: IsFFTField> Frame<F> {
         let data = offsets
             .iter()
             .flat_map(|frame_row_idx| {
+                // It's ok to unwrap here because the row index will always be in bounds
                 trace
                     .get_row((step + (frame_row_idx * blowup as usize)) % trace_steps)
+                    .unwrap()
                     .to_vec()
             })
             .collect();

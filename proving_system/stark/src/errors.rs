@@ -21,6 +21,8 @@ pub enum StarkError {
     CompositionPolyOddEvaluations(usize, usize),
     #[error("Could not get LDE trace merkle proof")]
     LDETraceMerkleProof,
+    #[error("Could not get LDE trace row because index is {0} and number of trace rows is {1}")]
+    LDETraceRowOutOfBounds(usize, usize),
     #[error("Could not create domain: {0}")]
     DomainCreation(FFTError),
     #[error("Could not query FRI layers: {0}")]

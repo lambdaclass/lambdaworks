@@ -59,9 +59,11 @@ impl<F: IsFFTField> TraceTable<F> {
             .collect()
     }
 
-    pub fn get_row(&self, row_idx: usize) -> &[FieldElement<F>] {
+    pub fn get_row(&self, row_idx: usize) -> Result<&[FieldElement<F>], AIRError> {
         let row_offset = row_idx * self.n_cols;
-        &self.table[row_offset..row_offset + self.n_cols]
+        self.table
+            .get(row_offset..row_offset + self.n_cols)
+            .ok_or(AIRError::RowIndexOutOfTableBounds(row_idx, self.n_rows()))
     }
 
     pub fn cols(&self) -> Vec<Vec<FieldElement<F>>> {

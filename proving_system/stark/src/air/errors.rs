@@ -11,4 +11,6 @@ pub enum AIRError {
     TracePolynomialsComputation(FFTError),
     #[error("Could not create constraint evaluator")]
     ConstraintEvaluatorCreation,
+    #[error("Row index {0} is out of bounds for table with {1} rows")]
+    RowIndexOutOfTableBounds(usize, usize),
 }
