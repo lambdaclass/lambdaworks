@@ -32,13 +32,13 @@ public:
 
             Fp a_fp = Fp(A_CURVE);
 
-            Fp w = a_fp * z.pow(2) + Fp(3) * x.pow(2);
+            Fp w = a_fp * z * z + Fp(3) * x * x;
             Fp s = y * z;
             Fp b = x * y * s;
-            Fp h = w.pow(2) - Fp(8) * b;
+            Fp h = w * w - Fp(8) * b;
             Fp xp = Fp(2) * h * s;
-            Fp yp = w * (Fp(4) * b - h) - Fp(8) * y.pow(2) * s.pow(2);
-            Fp zp = Fp(8) * s.pow(3);
+            Fp yp = w * (Fp(4) * b - h) - Fp(8) * y * y * s * s;
+            Fp zp = Fp(8) * s * s * s;
               
             return ECPoint(xp, yp, zp);
         }
@@ -46,10 +46,10 @@ public:
         Fp u = u1 - u2;
         Fp v = v1 - v2;
         Fp w = z * other.z;
-        Fp a = u.pow(2) * w - v.pow(3) - Fp(2) * v.pow(2) * v2;
+        Fp a = u * u * w - v * v * v - Fp(2) * v * v * v2;
         Fp xp = v * a;
-        Fp yp = u * (v.pow(2) * v2 - a) - v.pow(3) * u2;
-        Fp zp = v.pow(3) * w;
+        Fp yp = u * (v * v * v2 - a) - v * v * v * u2;
+        Fp zp = v * v * v * w;
 
         return ECPoint(xp, yp, zp);
     }
