@@ -55,9 +55,13 @@ const PERMUTATION_ARGUMENT_1: usize = 40;
 const PERMUTATION_ARGUMENT_2: usize = 41;
 const PERMUTATION_ARGUMENT_3: usize = 42;
 
-const RANGE_CHECK_0: usize = 43;
-const RANGE_CHECK_1: usize = 44;
-const RANGE_CHECK_2: usize = 45;
+const RANGE_CHECK_INCREASING_0: usize = 43;
+const RANGE_CHECK_INCREASING_1: usize = 44;
+const RANGE_CHECK_INCREASING_2: usize = 45;
+
+const RANGE_CHECK_0: usize = 46;
+const RANGE_CHECK_1: usize = 47;
+const RANGE_CHECK_2: usize = 48;
 
 // Frame row identifiers
 //  - Flags
@@ -178,10 +182,11 @@ impl CairoAIR {
             transition_exemptions: vec![
                 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
                 1, 1, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1,
-                0, 0, 1
+                1, 1, 1,
+                0, 0, 1,
             ],
             transition_offsets: vec![0, 1],
-            num_transition_constraints: 46,
+            num_transition_constraints: 49,
         };
 
         Self {
@@ -736,6 +741,7 @@ fn permutation_argument(
     let v2 = &curr[FRAME_OP0];
     let v3 = &curr[FRAME_OP1];
 
+
     constraints[PERMUTATION_ARGUMENT_0] =
         (z - (ap1 + alpha * vp1)) * p1 - (z - (a1 + alpha * v1)) * p0;
     constraints[PERMUTATION_ARGUMENT_1] =
@@ -753,7 +759,15 @@ fn permutation_argument_range_check(
 ) {
     let curr = frame.get_row(0);
     let next = frame.get_row(1);
+    let one = FieldElement::one();
     let z = &rap_challenges.z_range_check;
+
+    constraints[RANGE_CHECK_INCREASING_0] = (&curr[RANGE_CHECK_COL_1] - &curr[RANGE_CHECK_COL_2])
+        * (&curr[RANGE_CHECK_COL_2] - &curr[RANGE_CHECK_COL_1] - &one);
+    constraints[RANGE_CHECK_INCREASING_1] = (&curr[RANGE_CHECK_COL_2] - &curr[RANGE_CHECK_COL_3])
+        * (&curr[RANGE_CHECK_COL_3] - &curr[RANGE_CHECK_COL_2] - &one);
+    constraints[RANGE_CHECK_INCREASING_2] = (&curr[RANGE_CHECK_COL_3] - &next[RANGE_CHECK_COL_1])
+        * (&next[RANGE_CHECK_COL_1] - &curr[RANGE_CHECK_COL_3] - &one);
 
     let p0 = &curr[PERMUTATION_ARGUMENT_RANGE_CHECK_COL_1];
     let p0_next = &next[PERMUTATION_ARGUMENT_RANGE_CHECK_COL_1];
@@ -767,7 +781,6 @@ fn permutation_argument_range_check(
     let a0_next = &next[OFF_DST];
     let a1 = &curr[OFF_OP0];
     let a2 = &curr[OFF_OP1];
-
 
     constraints[RANGE_CHECK_0] =
         (z - ap1) * p1 - (z - a1) * p0;
@@ -839,7 +852,7 @@ mod test {
         }
 
         let proof_options = ProofOptions {
-            blowup_factor: 2,
+            blowup_factor: 4,
             fri_number_of_queries: 1,
             coset_offset: 3,
         };

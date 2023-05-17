@@ -139,7 +139,7 @@ fn test_prove_cairo_simple_program() {
     let memory = CairoMemory::from_file(&dir_memory).unwrap();
 
     let proof_options = ProofOptions {
-        blowup_factor: 16,
+        blowup_factor: 4,
         fri_number_of_queries: 1,
         coset_offset: 3,
     };
