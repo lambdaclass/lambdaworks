@@ -1,4 +1,7 @@
+use std::iter::zip;
+
 use lambdaworks_fft::polynomial::FFTPoly;
+use lambdaworks_math::traits::ByteConversion;
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsFFTField},
     polynomial::Polynomial,
@@ -78,4 +81,37 @@ pub fn validate_trace<F: IsFFTField, A: AIR<Field = F>>(
     }
     info!("Constraints validation check ended");
     ret
+}
+
+pub fn check_polynomial_divisibility<A>(
+    air: &A,
+    transition_evaluations: &[Vec<FieldElement<A::Field>>],
+    transition_zerofiers: &[Polynomial<FieldElement<A::Field>>],
+) where
+    A: AIR,
+    FieldElement<A::Field>: ByteConversion,
+{
+    let mut polys = Vec::new();
+    let domain = Domain::new(air);
+    for col_idx in 0..transition_evaluations[0].len() {
+        let mut poly_evals = Vec::new();
+        for row_idx in 0..transition_evaluations.len() {
+            poly_evals.push(transition_evaluations[row_idx][col_idx].clone());
+        }
+        let poly = Polynomial::interpolate_offset_fft(&poly_evals, &domain.coset_offset).unwrap();
+        polys.push(poly);
+    }
+
+    debug_assert_eq!(polys.len(), transition_zerofiers.len());
+
+    zip(polys, transition_zerofiers)
+        .enumerate()
+        .for_each(|(i, (p, z))| {
+            let (_, rem) = p.clone().long_division_with_remainder(&z);
+            if rem != Polynomial::zero() {
+                error!(
+                    "Numerator of constraint poly for constraint {i} is not divisible by zerofier."
+                );
+            }
+        });
 }
