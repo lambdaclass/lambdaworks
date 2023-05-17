@@ -161,6 +161,8 @@ fn test_prove_cairo_simple_program() {
         pc_final: FE::from(last_step.pc),
         ap_final: FE::from(last_step.ap),
         program,
+        range_check_min: None,
+        range_check_max: None,
         num_steps: raw_trace.steps(),
         last_row_range_checks: None,
     };
@@ -219,8 +221,10 @@ fn test_prove_cairo_call_func() {
         fp_init: FE::from(raw_trace.rows[0].fp),
         pc_final: FieldElement::from(last_step.pc),
         ap_final: FieldElement::from(last_step.ap),
-        num_steps: raw_trace.steps(),
+        range_check_min: None,
+        range_check_max: None,
         program,
+        num_steps: raw_trace.steps(),
         last_row_range_checks: None,
     };
 
@@ -259,8 +263,10 @@ fn test_prove_cairo_fibonacci() {
         fp_init: FE::from(raw_trace.rows[0].fp),
         pc_final: FieldElement::from(last_step.pc),
         ap_final: FieldElement::from(last_step.ap),
-        num_steps: raw_trace.steps(),
+        range_check_min: None,
+        range_check_max: None,
         program,
+        num_steps: raw_trace.steps(),
         last_row_range_checks: None,
     };
 

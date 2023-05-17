@@ -150,8 +150,8 @@ pub struct PublicInputs {
     pub fp_init: FE,
     pub pc_final: FE,
     pub ap_final: FE,
-    // pub rc_min: u16, // minimum range check value (0 < rc_min < rc_max < 2^16)
-    // pub rc_max: u16, // maximum range check value
+    pub range_check_min: Option<u16>, // minimum range check value (0 < rc_min < rc_max < 2^16)
+    pub range_check_max: Option<u16>, // maximum range check value
     // pub builtins: Vec<Builtin>, // list of builtins
     pub program: Vec<FE>,
     pub num_steps: usize, // number of execution steps
@@ -299,10 +299,10 @@ fn pad_with_last_row<F: IsFFTField>(
     trace.table.append(&mut pad);
 }
 
-fn get_filled_offset_columns<F>(
+fn get_missing_values_offset_columns<F>(
     trace: &TraceTable<F>,
-    columns_indices: &[usize],
-) -> Vec<FieldElement<F>>
+    columns_indices: &[usize]
+) -> (Vec<FieldElement<F>>, u16, u16)
 where
     F: IsFFTField + IsPrimeField,
     u16: From<F::RepresentativeType>,
@@ -334,7 +334,7 @@ where
         multiple_of_three_padding as usize
     ]);
 
-    all_missing_values
+    (all_missing_values, sorted_offset_representatives[0], sorted_offset_representatives.last().cloned().unwrap())
 }
 
 fn add_missing_values_to_offsets_column<F: IsFFTField>(
@@ -371,7 +371,9 @@ impl AIR for CairoAIR {
             &MEMORY_COLUMNS,
         );
 
-        let missing_values = get_filled_offset_columns(&mut main_trace, &[OFF_DST, OFF_OP0, OFF_OP1]);
+        let (missing_values, rc_min, rc_max) = get_missing_values_offset_columns(&mut main_trace, &[OFF_DST, OFF_OP0, OFF_OP1]);
+        public_input.range_check_min = Some(rc_min);
+        public_input.range_check_max = Some(rc_max);
 
         add_missing_values_to_offsets_column(&mut main_trace, missing_values);
         public_input.last_row_range_checks = Some(main_trace.n_rows());
@@ -531,13 +533,18 @@ impl AIR for CairoAIR {
         let one: FieldElement<Self::Field> = FieldElement::one();
         let range_check_final_constraint = BoundaryConstraint::new(PERMUTATION_ARGUMENT_RANGE_CHECK_COL_3, final_index, one);
 
+        let range_check_min = BoundaryConstraint::new(RANGE_CHECK_COL_1, 0, FieldElement::from(public_input.range_check_min.unwrap() as u64));
+        let range_check_max = BoundaryConstraint::new(RANGE_CHECK_COL_3, final_index, FieldElement::from(public_input.range_check_max.unwrap() as u64));
+
         let constraints = vec![
             initial_pc,
             initial_ap,
             final_pc,
             final_ap,
             permutation_final_constraint,
-            range_check_final_constraint
+            range_check_final_constraint,
+            range_check_min,
+            range_check_max
         ];
 
         BoundaryConstraints::from_constraints(constraints)
@@ -819,7 +826,7 @@ mod test {
 
     use super::{
         add_missing_values_to_offsets_column, generate_memory_permutation_argument_column,
-        get_filled_offset_columns, sort_columns_by_memory_address, CairoRAPChallenges,
+        get_missing_values_offset_columns, sort_columns_by_memory_address, CairoRAPChallenges,
     };
 
     #[test]
@@ -869,6 +876,8 @@ mod test {
             pc_init: FieldElement::from(raw_trace.rows[0].pc),
             ap_init: FieldElement::from(raw_trace.rows[0].ap),
             fp_init: FieldElement::from(raw_trace.rows[0].fp),
+            range_check_max: None,
+            range_check_min: None,
             num_steps: raw_trace.steps(),
             last_row_range_checks: None,
         };
@@ -908,6 +917,8 @@ mod test {
                 FieldElement::from(20),
                 FieldElement::from(30),
             ],
+            range_check_max: None,
+            range_check_min: None,
             num_steps: 1,
             last_row_range_checks: None,
         };
@@ -1049,8 +1060,10 @@ mod test {
         ];
         let table = TraceTable::<Stark252PrimeField>::new_from_cols(&columns);
 
-        let col = get_filled_offset_columns(&table, &[0, 1, 2]);
+        let (col, rc_min, rc_max) = get_missing_values_offset_columns(&table, &[0, 1, 2]);
         assert_eq!(col, expected_col);
+        assert_eq!(rc_min, 1);
+        assert_eq!(rc_max, 7);
     }
 
     #[test]
