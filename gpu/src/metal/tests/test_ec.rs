@@ -131,6 +131,55 @@ mod tests {
 
         use super::*;
 
+        enum FEOrInt {
+            Elem(FE),
+            Int(u32),
+        }
+
+        fn execute_kernel(name: &str, a: &FE, b: FEOrInt) -> FE {
+            let state = MetalState::new(None).unwrap();
+            let pipeline = state.setup_pipeline(name).unwrap();
+
+            // conversion needed because of possible difference of endianess between host and
+            // device (Metal's UnsignedInteger has 32bit limbs).
+            let a = a.value().to_u32_limbs();
+            let result_buffer = state.alloc_buffer::<u32>(12);
+
+            let (command_buffer, command_encoder) = match b {
+                FEOrInt::Elem(b) => {
+                    let b = b.value().to_u32_limbs();
+                    let a_buffer = state.alloc_buffer_data(&a);
+                    let b_buffer = state.alloc_buffer_data(&b);
+
+                    state.setup_command(
+                        &pipeline,
+                        Some(&[(0, &a_buffer), (1, &b_buffer), (2, &result_buffer)]),
+                    )
+                }
+                FEOrInt::Int(b) => {
+                    let a_buffer = state.alloc_buffer_data(&a);
+                    let b_buffer = state.alloc_buffer_data(&[b]);
+
+                    state.setup_command(
+                        &pipeline,
+                        Some(&[(0, &a_buffer), (1, &b_buffer), (2, &result_buffer)]),
+                    )
+                }
+            };
+
+            let threadgroup_size = MTLSize::new(1, 1, 1);
+            let threadgroup_count = MTLSize::new(1, 1, 1);
+
+            command_encoder.dispatch_thread_groups(threadgroup_count, threadgroup_size);
+            command_encoder.end_encoding();
+
+            command_buffer.commit();
+            command_buffer.wait_until_completed();
+
+            let limbs = MetalState::retrieve_contents::<u32>(&result_buffer);
+            FE::from_raw(&U::from_u32_limbs(&limbs))
+        }
+
         prop_compose! {
             fn rand_u32()(n in any::<u32>()) -> u32 { n }
         }
@@ -147,41 +196,13 @@ mod tests {
             }
         }
 
-        fn execute_kernel(name: &str, a: &FE, b: &FE) -> FE {
-            let state = MetalState::new(None).unwrap();
-            let pipeline = state.setup_pipeline(name).unwrap();
-
-            // conversion needed because of possible difference of endianess between host and
-            // device (Metal's UnsignedInteger has 32bit limbs).
-            let a = a.value().to_u32_limbs();
-            let b = b.value().to_u32_limbs();
-            let a_buffer = state.alloc_buffer_data(&a);
-            let b_buffer = state.alloc_buffer_data(&b);
-            let result_buffer = state.alloc_buffer::<u32>(12);
-
-            let (command_buffer, command_encoder) = state.setup_command(
-                &pipeline,
-                Some(&[(0, &a_buffer), (1, &b_buffer), (2, &result_buffer)]),
-            );
-
-            let threadgroup_size = MTLSize::new(1, 1, 1);
-            let threadgroup_count = MTLSize::new(1, 1, 1);
-
-            command_encoder.dispatch_thread_groups(threadgroup_count, threadgroup_size);
-            command_encoder.end_encoding();
-
-            command_buffer.commit();
-            command_buffer.wait_until_completed();
-
-            let limbs = MetalState::retrieve_contents::<u32>(&result_buffer);
-            FE::from_raw(&U::from_u32_limbs(&limbs))
-        }
+        use FEOrInt::{Elem, Int};
 
         proptest! {
             #[test]
             fn add(a in rand_felt(), b in rand_felt()) {
                 objc::rc::autoreleasepool(|| {
-                    let result = execute_kernel("fp_bls12381_add", &a, &b);
+                    let result = execute_kernel("fp_bls12381_add", &a, Elem(b.clone()));
                     prop_assert_eq!(result, a + b);
                     Ok(())
                 }).unwrap();
@@ -190,7 +211,7 @@ mod tests {
             #[test]
             fn sub(a in rand_felt(), b in rand_felt()) {
                 objc::rc::autoreleasepool(|| {
-                    let result = execute_kernel("fp_bls12381_sub", &a, &b);
+                    let result = execute_kernel("fp_bls12381_sub", &a, Elem(b.clone()));
                     prop_assert_eq!(result, a - b);
                     Ok(())
                 }).unwrap();
@@ -199,8 +220,17 @@ mod tests {
             #[test]
             fn mul(a in rand_felt(), b in rand_felt()) {
                 objc::rc::autoreleasepool(|| {
-                    let result = execute_kernel("fp_bls12381_mul", &a, &b);
+                    let result = execute_kernel("fp_bls12381_mul", &a, Elem(b.clone()));
                     prop_assert_eq!(result, a * b);
+                    Ok(())
+                }).unwrap();
+            }
+
+            #[test]
+            fn pow(a in rand_felt(), b in rand_u32()) {
+                objc::rc::autoreleasepool(|| {
+                    let result = execute_kernel("fp_bls12381_pow", &a, Int(b));
+                    prop_assert_eq!(result, a.pow(b));
                     Ok(())
                 }).unwrap();
             }
