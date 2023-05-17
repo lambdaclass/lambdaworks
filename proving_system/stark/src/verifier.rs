@@ -47,12 +47,25 @@ struct Challenges<F: IsFFTField, A: AIR<Field = F>> {
     rap_challenges: A::RAPChallenges,
 }
 
-fn check_air<F: IsFFTField, A: AIR<Field = F>>(air: &A) -> Result<(), StarkError> {
-    if air.context().trace_columns == 0 {
-        return Err(StarkError::AIRTraceColumns);
+fn check_air_and_proof<F: IsFFTField, A: AIR<Field = F>>(
+    air: &A,
+    proof: &StarkProof<F>,
+) -> Result<(), StarkError> {
+    if air.context().trace_columns < proof.trace_ood_frame_evaluations.num_columns() {
+        return Err(StarkError::AIRTraceColumns(
+            proof.trace_ood_frame_evaluations.num_columns(),
+            air.context().trace_columns,
+        ));
     }
     if air.context().transition_degrees().is_empty() {
         return Err(StarkError::AIRTransitionDegrees);
+    }
+    if air.options().fri_number_of_queries == 0 {
+        return Err(StarkError::AIRFriNumberOfQueries);
+    }
+
+    if proof.fri_layers_merkle_roots.is_empty() {
+        return Err(StarkError::ProofFriLayersMerkleRoots);
     }
 
     Ok(())
@@ -221,7 +234,10 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
     let mut boundary_quotient_degrees = Vec::with_capacity(n_trace_cols);
 
     for trace_idx in 0..n_trace_cols {
-        let trace_evaluation = &proof.trace_ood_frame_evaluations.get_row(0)[trace_idx];
+        let frame_evaluations = &proof.trace_ood_frame_evaluations;
+        let trace_evaluation = frame_evaluations.get_row(0).get(trace_idx).ok_or(
+            StarkError::FrameColIndexOutOfBounds(trace_idx, frame_evaluations.num_columns()),
+        )?;
         let boundary_constraints_domain = boundary_constraint_domains[trace_idx].clone();
         let boundary_interpolating_polynomial =
             &Polynomial::interpolate(&boundary_constraints_domain, &values[trace_idx]);
@@ -349,6 +365,8 @@ where
 {
     let mut result = true;
 
+    // We already checked that the number of queries for FRI must not be zero, so
+    // `iotas` won't be empty and it's ok here to get an element without checking.
     let iota_0 = challenges.iotas[0];
 
     // Verify opening Open(H₁(D_LDE, 𝜐₀)
@@ -408,6 +426,8 @@ where
     FieldElement<F>: ByteConversion,
 {
     // Verify opening Open(p₀(D₀), 𝜐ₛ)
+    // We already checked that `fri_layers_merkle_roots` must not be empty, so it's ok
+    // here to get an element without checking.
     if !fri_decommitment.first_layer_auth_path.verify(
         &fri_layers_merkle_roots[0],
         iota,
@@ -465,6 +485,8 @@ where
             return Ok(false);
         }
 
+        // `zetas` has the same length as `fri_layers_merkle_roots`, so it's ok to get an element
+        // from `zetas` without checking
         let beta = &zetas[k];
         // v is the calculated element for the co linearity check
         let two = &FieldElement::from(2);
@@ -484,6 +506,7 @@ fn reconstruct_deep_composition_poly_evaluation<F: IsFFTField, A: AIR<Field = F>
 ) -> Result<FieldElement<F>, StarkError> {
     let primitive_root = &F::get_primitive_root_of_unity(domain.root_order as u64)
         .map_err(|error| StarkError::DeepPolyReconstruction(error.into()))?;
+    // iota[0] < 2^(`lde_root_order`), so it's ok to get an element here without checking
     let upsilon_0 = &domain.lde_roots_of_unity_coset[challenges.iotas[0]];
 
     let mut trace_terms = FieldElement::zero();
@@ -520,7 +543,7 @@ where
     A: AIR<Field = F>,
     FieldElement<F>: ByteConversion,
 {
-    check_air(air)?;
+    check_air_and_proof(air, proof)?;
 
     let mut transcript = step_1_transcript_initialization();
     let domain = Domain::new(air)?;

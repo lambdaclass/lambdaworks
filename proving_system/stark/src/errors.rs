@@ -27,10 +27,12 @@ pub enum StarkError {
     DomainCreation(FFTError),
     #[error("Could not query FRI layers: {0}")]
     FriQuery(FriError),
-    #[error("AIR trace columns field is set to zero")]
-    AIRTraceColumns,
+    #[error("Number of AIR trace columns should be {0} but it's {0}")]
+    AIRTraceColumns(usize, usize),
     #[error("AIR has no transition degrees")]
     AIRTransitionDegrees,
+    #[error("AIR FRI transition queries field is set to zero")]
+    AIRFriNumberOfQueries,
     #[error("Could not verify composition polynomial: {0}")]
     CompositionPolyVerification(AIRError),
     #[error("Could not reconstruct DEEP composition polynomial: {0}")]
@@ -39,4 +41,8 @@ pub enum StarkError {
     QueryVerification(FFTError),
     #[error("Could not evaluate constraints: {0}")]
     ConstraintEvaluation(AIRError),
+    #[error("Column index {0} is out of bounds for frame with {1} columns")]
+    FrameColIndexOutOfBounds(usize, usize),
+    #[error("Proof has no merkle roots of FRI layers")]
+    ProofFriLayersMerkleRoots,
 }
