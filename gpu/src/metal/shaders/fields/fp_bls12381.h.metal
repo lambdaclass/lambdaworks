@@ -24,15 +24,6 @@ constexpr static const constant u384 R_SQUARED = {
     0x0a76e6a6,0x09d104f1,
     0xf4df1f34,0x1c341746
 };
-// N * N_PRIME = -1
-constexpr static const constant u384 N_PRIME = {
-    0xceb06106, 0xfeaafc94,
-    0x68b316fe, 0xe268cf58,
-    0x19ecca0e, 0x8eb2db4c,
-    0x16ef2ef0, 0xc8e30b48,
-    0x286adb92, 0xd9d113e8,
-    0x89f3fffc, 0xfffcfffd
-};
 
 // Equates to `(1 << 384) - N`
 constexpr static const constant u384 R_SUB_N = {
