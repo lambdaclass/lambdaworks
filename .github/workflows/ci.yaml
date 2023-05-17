@@ -60,6 +60,11 @@ jobs:
           components: clippy
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
+      - name: Python3 Build
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+          cache: 'pip'
       - name: Generate traces
         run: make deps && make traces
       - name: Run tests and generate code coverage
@@ -82,6 +87,11 @@ jobs:
         with:
           toolchain: stable
           components: clippy
+      - name: Python3 Build
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+          cache: 'pip'
       - name: Generate traces
         run: make deps && make traces
       - name: Run tests
