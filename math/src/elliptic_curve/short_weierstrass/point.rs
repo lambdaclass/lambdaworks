@@ -19,6 +19,19 @@ impl<E: IsEllipticCurve> ShortWeierstrassProjectivePoint<E> {
         Self(ProjectivePoint::new(value))
     }
 
+    /// Creates an elliptic curve point giving the projective [x: y: z] coordinates from a slice
+    /// that will be resized to a length of 3 and filled with zeros if necessary.
+    pub fn from_slice(value: &[FieldElement<E::BaseField>]) -> Self {
+        let mut value = value.to_vec();
+        value.resize(3, FieldElement::zero());
+
+        let x = value[0].clone();
+        let y = value[1].clone();
+        let z = value[2].clone();
+
+        Self(ProjectivePoint::new([x, y, z]))
+    }
+
     /// Returns the `x` coordinate of the point.
     pub fn x(&self) -> &FieldElement<E::BaseField> {
         self.0.x()

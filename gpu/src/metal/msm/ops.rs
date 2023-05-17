@@ -1,6 +1,10 @@
 #![allow(unused)]
 use lambdaworks_math::{
     cyclic_group::IsGroup,
+    elliptic_curve::short_weierstrass::{
+        curves::bls12_381::{curve::BLS12381Curve, field_extension::BLS12381PrimeField},
+        point::ShortWeierstrassProjectivePoint,
+    },
     field::{element::FieldElement, traits::IsField},
     unsigned_integer::element::UnsignedInteger,
 };
@@ -14,6 +18,10 @@ use metal::MTLSize;
 
 use core::mem;
 
+type Point = ShortWeierstrassProjectivePoint<BLS12381Curve>;
+pub type F = BLS12381PrimeField;
+pub type FE = FieldElement<F>;
+
 /// Executes parallel ordered FFT over a slice of two-adic field elements, in Metal.
 /// Twiddle factors are required to be in bit-reverse order.
 ///
@@ -23,14 +31,16 @@ use core::mem;
 /// coefficient.
 // TODO: to support big endian architecture, copy all limbs with indices changed: 103254 -> 012345
 #[cfg(target_endian = "little")]
-pub fn pippenger<const NUM_LIMBS: usize, G>(
+pub fn pippenger<const NUM_LIMBS: usize>(
     cs: &[UnsignedInteger<NUM_LIMBS>],
-    hidings: &[G],
+    hidings: &[Point],
     state: &MetalState,
-) -> Result<G, MetalError>
-where
-    G: IsGroup,
-{
+) -> Result<Point, MetalError> {
+    use lambdaworks_math::{
+        elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::BLS12381PrimeField,
+        unsigned_integer::element::U384,
+    };
+
     debug_assert_eq!(
         cs.len(),
         hidings.len(),
@@ -51,9 +61,27 @@ where
 
     let pipeline = state.setup_pipeline("calculate_Gjs_bls12381")?;
 
-    let cs_buffer = state.alloc_buffer_data(cs);
-    let hidings_buffer = state.alloc_buffer_data(hidings);
-    let result_buffer = state.alloc_buffer::<G>(num_windows as usize);
+    let cs: Vec<u32> = cs
+        .into_iter()
+        .map(|uint| uint.to_u32_limbs())
+        .flatten()
+        .collect();
+
+    let hidings: Vec<u32> = hidings
+        .into_iter()
+        .map(|item| {
+            item.coordinates()
+                .into_iter()
+                .map(|felt| felt.value().to_u32_limbs())
+                .flatten()
+                .collect::<Vec<u32>>()
+        })
+        .flatten()
+        .collect();
+
+    let cs_buffer = state.alloc_buffer_data(&cs);
+    let hidings_buffer = state.alloc_buffer_data(&hidings);
+    let result_buffer = state.alloc_buffer::<u32>(num_windows as usize * 3 * 12);
 
     let (command_buffer, command_encoder) = state.setup_command(
         &pipeline,
@@ -72,7 +100,17 @@ where
     command_buffer.commit();
     command_buffer.wait_until_completed();
 
-    let result: Vec<G> = MetalState::retrieve_contents(&result_buffer);
+    let result: Vec<u32> = MetalState::retrieve_contents(&result_buffer);
+
+    let result: Vec<Point> = result
+        .chunks(12)
+        .map(U384::from_u32_limbs)
+        .map(|uint| FE::from_raw(&uint))
+        .collect::<Vec<FE>>()
+        .chunks(3)
+        .map(Point::from_slice)
+        .collect();
+
     // TODO: do this in GPU
     let result = result
         .into_iter()
