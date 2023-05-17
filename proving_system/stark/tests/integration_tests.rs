@@ -5,7 +5,7 @@ use lambdaworks_math::helpers::resize_to_next_power_of_two;
 use lambdaworks_stark::air::example::cairo::PublicInputs;
 use lambdaworks_stark::air::example::fibonacci_rap::{fibonacci_rap_trace, FibonacciRAP};
 use lambdaworks_stark::air::example::{
-    cairo, fibonacci_2_columns, fibonacci_f17, quadratic_air, simple_fibonacci,
+    cairo, dummy_air, fibonacci_2_columns, fibonacci_f17, quadratic_air, simple_fibonacci,
 };
 use lambdaworks_stark::cairo_vm::cairo_mem::CairoMemory;
 use lambdaworks_stark::cairo_vm::cairo_trace::CairoTrace;
@@ -301,4 +301,38 @@ fn test_prove_rap_fib() {
 
     let result = prove(&trace_cols, &fibonacci_rap, &mut ());
     assert!(verify(&result, &fibonacci_rap, &()));
+}
+
+#[test_log::test]
+fn test_prove_dummy() {
+    let trace_length = 16;
+
+    // Currently this trace has all ones in the first column.
+    // The constraints over the column holds, as it has to be
+    // either a 1 or a 0. But if they are all 1s, the generated
+    // proof does not verify. If we replace the last value of the first
+    // column with a 0, the test verifies.
+    let mut trace = dummy_air::dummy_trace(trace_length);
+
+    // UNCOMMENT THIS LINE SO THAT THE TEST PASSES:
+    trace[0][trace_length - 1] = FieldElement::zero();
+
+    let context = AirContext {
+        options: ProofOptions {
+            blowup_factor: 2,
+            fri_number_of_queries: 1,
+            coset_offset: 3,
+        },
+        trace_length,
+        trace_columns: 2,
+        transition_degrees: vec![2, 1],
+        transition_exemptions: vec![0, 2],
+        transition_offsets: vec![0, 1, 2],
+        num_transition_constraints: 2,
+    };
+
+    let dummy_air = dummy_air::DummyAIR::from(context);
+
+    let result = prove(&trace, &dummy_air, &mut ());
+    assert!(verify(&result, &dummy_air, &()));
 }
