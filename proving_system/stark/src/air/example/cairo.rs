@@ -55,6 +55,10 @@ const PERMUTATION_ARGUMENT_1: usize = 40;
 const PERMUTATION_ARGUMENT_2: usize = 41;
 const PERMUTATION_ARGUMENT_3: usize = 42;
 
+const RANGE_CHECK_0: usize = 43;
+const RANGE_CHECK_1: usize = 44;
+const RANGE_CHECK_2: usize = 45;
+
 // Frame row identifiers
 //  - Flags
 const F_DST_FP: usize = 0;
@@ -115,6 +119,10 @@ pub const PERMUTATION_ARGUMENT_COL_1: usize = 46;
 pub const PERMUTATION_ARGUMENT_COL_2: usize = 47;
 pub const PERMUTATION_ARGUMENT_COL_3: usize = 48;
 
+pub const PERMUTATION_ARGUMENT_RANGE_CHECK_COL_1: usize = 49;
+pub const PERMUTATION_ARGUMENT_RANGE_CHECK_COL_2: usize = 50;
+pub const PERMUTATION_ARGUMENT_RANGE_CHECK_COL_3: usize = 51;
+
 pub const MEMORY_COLUMNS: [usize; 8] = [
     FRAME_PC,
     FRAME_DST_ADDR,
@@ -165,13 +173,15 @@ impl CairoAIR {
                 2, 2, 2, 2, // Increasing memory auxiliary constraints.
                 2, 2, 2, 2, // Consistent memory auxiliary constraints.
                 2, 2, 2, 2, // Permutation auxiliary constraints.
+                2, 2, 2 // Permutation auxiliary constraints.
             ],
             transition_exemptions: vec![
                 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
                 1, 1, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1,
+                0, 0, 1
             ],
             transition_offsets: vec![0, 1],
-            num_transition_constraints: 43,
+            num_transition_constraints: 46,
         };
 
         Self {
@@ -409,30 +419,35 @@ impl AIR for CairoAIR {
             rap_challenges,
         );
 
-        let offsets_original = main_trace.get_cols(&[OFF_DST, OFF_OP0, OFF_OP0]).table;
-        let offsets_sorted =
-            main_trace.get_cols(&[RANGE_CHECK_COL_1, RANGE_CHECK_COL_2, RANGE_CHECK_COL_3]).table;
+        let offsets_original = main_trace.get_cols(&[OFF_DST, OFF_OP0, OFF_OP1]).table;
+        let offsets_sorted = main_trace
+            .get_cols(&[RANGE_CHECK_COL_1, RANGE_CHECK_COL_2, RANGE_CHECK_COL_3])
+            .table;
 
-        let range_check_permutation_col = generate_range_check_permutation_argument_column(&offsets_original, &offsets_sorted, rap_challenges);
+        let range_check_permutation_col = generate_range_check_permutation_argument_column(
+            &offsets_original,
+            &offsets_sorted,
+            rap_challenges,
+        );
 
         // Convert from long-format to wide-format again
         let mut aux_table = Vec::new();
         for i in 0..main_trace.n_rows() {
-            aux_table.push(addresses[4*i].clone());
-            aux_table.push(addresses[4*i + 1].clone());
-            aux_table.push(addresses[4*i + 2].clone());
-            aux_table.push(addresses[4*i + 3].clone());
-            aux_table.push(values[4*i].clone());
-            aux_table.push(values[4*i + 1].clone());
-            aux_table.push(values[4*i + 2].clone());
-            aux_table.push(values[4*i + 3].clone());
-            aux_table.push(permutation_col[4*i].clone());
-            aux_table.push(permutation_col[4*i + 1].clone());
-            aux_table.push(permutation_col[4*i + 2].clone());
-            aux_table.push(permutation_col[4*i + 3].clone());
-            aux_table.push(range_check_permutation_col[3*i].clone());
-            aux_table.push(range_check_permutation_col[3*i + 1].clone());
-            aux_table.push(range_check_permutation_col[3*i + 2].clone());
+            aux_table.push(addresses[4 * i].clone());
+            aux_table.push(addresses[4 * i + 1].clone());
+            aux_table.push(addresses[4 * i + 2].clone());
+            aux_table.push(addresses[4 * i + 3].clone());
+            aux_table.push(values[4 * i].clone());
+            aux_table.push(values[4 * i + 1].clone());
+            aux_table.push(values[4 * i + 2].clone());
+            aux_table.push(values[4 * i + 3].clone());
+            aux_table.push(permutation_col[4 * i].clone());
+            aux_table.push(permutation_col[4 * i + 1].clone());
+            aux_table.push(permutation_col[4 * i + 2].clone());
+            aux_table.push(permutation_col[4 * i + 3].clone());
+            aux_table.push(range_check_permutation_col[3 * i].clone());
+            aux_table.push(range_check_permutation_col[3 * i + 1].clone());
+            aux_table.push(range_check_permutation_col[3 * i + 2].clone());
         }
         TraceTable::new(aux_table, 12 + 3)
     }
@@ -460,6 +475,7 @@ impl AIR for CairoAIR {
         enforce_selector(&mut constraints, frame);
         memory_is_increasing(&mut constraints, frame);
         permutation_argument(&mut constraints, frame, rap_challenges);
+        permutation_argument_range_check(&mut constraints, frame, rap_challenges);
 
         constraints
     }
@@ -730,6 +746,36 @@ fn permutation_argument(
         (z - (ap0_next + alpha * vp0_next)) * p0_next - (z - (a0_next + alpha * v0_next)) * p3;
 }
 
+fn permutation_argument_range_check(
+    constraints: &mut [FE],
+    frame: &Frame<Stark252PrimeField>,
+    rap_challenges: &CairoRAPChallenges,
+) {
+    let curr = frame.get_row(0);
+    let next = frame.get_row(1);
+    let z = &rap_challenges.z_range_check;
+
+    let p0 = &curr[PERMUTATION_ARGUMENT_RANGE_CHECK_COL_1];
+    let p0_next = &next[PERMUTATION_ARGUMENT_RANGE_CHECK_COL_1];
+    let p1 = &curr[PERMUTATION_ARGUMENT_RANGE_CHECK_COL_2];
+    let p2 = &curr[PERMUTATION_ARGUMENT_RANGE_CHECK_COL_3];
+
+    let ap0_next = &next[RANGE_CHECK_COL_1];
+    let ap1 = &curr[RANGE_CHECK_COL_2];
+    let ap2 = &curr[RANGE_CHECK_COL_3];
+
+    let a0_next = &next[OFF_DST];
+    let a1 = &curr[OFF_OP0];
+    let a2 = &curr[OFF_OP1];
+
+
+    constraints[RANGE_CHECK_0] =
+        (z - ap1) * p1 - (z - a1) * p0;
+    constraints[RANGE_CHECK_1] =
+        (z - ap2) * p2 - (z - a2) * p1;
+    constraints[RANGE_CHECK_2] =
+        (z - ap0_next) * p0_next - (z - a0_next) * p2;
+}
 fn frame_inst_size(frame_row: &[FE]) -> FE {
     &frame_row[F_OP_1_VAL] + FE::one()
 }
