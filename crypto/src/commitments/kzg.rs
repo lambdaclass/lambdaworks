@@ -5,7 +5,7 @@ use lambdaworks_math::{
     cyclic_group::IsGroup,
     elliptic_curve::{short_weierstrass::errors::DeserializationError, traits::IsPairing},
     field::{element::FieldElement, traits::IsPrimeField},
-    msm::msm,
+    msm::naive::msm,
     polynomial::Polynomial,
     traits::{Deserializable, Serializable},
 };
@@ -164,6 +164,7 @@ impl<F: IsPrimeField, P: IsPairing> IsCommitmentScheme<F> for KateZaveruchaGoldb
             &coefficients,
             &self.srs.powers_main_group[..coefficients.len()],
         )
+        .expect("`hidings` is sliced by `cs`'s length")
     }
 
     #[allow(unused)]
