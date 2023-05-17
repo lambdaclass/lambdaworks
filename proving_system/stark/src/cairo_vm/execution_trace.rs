@@ -358,7 +358,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_build_execution_trace_simple_program() {
+    fn test_build_main_trace_simple_program() {
         /*
         The following trace and memory files are obtained running the following Cairo program:
         ```
@@ -477,7 +477,7 @@ mod test {
     }
 
     #[test]
-    fn test_build_execution_trace_call_func_program() {
+    fn test_build_main_trace_call_func_program() {
         /*
         The following trace and memory files are obtained running the following Cairo program:
         ```
@@ -689,7 +689,9 @@ mod test {
             vec![
                 FE::from(2),
                 FE::from(3),
-                FE::from_hex("0800000000000010fffffffffffffffffffffffffffffffffffffffffffffffb"),
+                FE::from_hex_unchecked(
+                    "0800000000000010fffffffffffffffffffffffffffffffffffffffffffffffb",
+                ),
                 FE::from(6),
                 FE::from(9),
                 FE::from(6),
@@ -799,7 +801,9 @@ mod test {
             vec![
                 FE::from(2),
                 FE::from(3),
-                FE::from_hex("0800000000000010fffffffffffffffffffffffffffffffffffffffffffffffb"),
+                FE::from_hex_unchecked(
+                    "0800000000000010fffffffffffffffffffffffffffffffffffffffffffffffb",
+                ),
                 FE::from(3),
                 FE::from(9),
                 FE::from(6),
@@ -865,7 +869,9 @@ mod test {
             vec![
                 FE::from(38),
                 FE::from(57),
-                FE::from_hex("0800000000000010ffffffffffffffffffffffffffffffffffffffffffffffcb"),
+                FE::from_hex_unchecked(
+                    "0800000000000010ffffffffffffffffffffffffffffffffffffffffffffffcb",
+                ),
                 FE::from(6),
                 FE::from(81),
                 FE::from(114),

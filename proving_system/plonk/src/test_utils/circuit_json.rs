@@ -1,9 +1,11 @@
 use super::utils::{
-    generate_domain, generate_permutation_coefficients, FrElement, FrField,
-    ORDER_R_MINUS_1_ROOT_UNITY,
+    generate_domain, generate_permutation_coefficients, ORDER_R_MINUS_1_ROOT_UNITY,
 };
 use crate::setup::{CommonPreprocessedInput, Witness};
-use lambdaworks_math::polynomial::Polynomial;
+use lambdaworks_math::{
+    elliptic_curve::short_weierstrass::curves::bls12_381::default_types::{FrElement, FrField},
+    polynomial::Polynomial,
+};
 use serde::{Deserialize, Serialize};
 
 // The json exported in go comes with Uppercase in the first letter.
@@ -34,11 +36,11 @@ pub fn common_preprocessed_input_from_json(
 ) {
     let json_input: JsonPlonkCircuit = serde_json::from_str(json_string).unwrap();
     let n = json_input.N_padded;
-    let omega = FrElement::from_hex(&json_input.Omega);
+    let omega = FrElement::from_hex_unchecked(&json_input.Omega);
     let domain = generate_domain(&omega, n);
     let permuted = generate_permutation_coefficients(&omega, n, &json_input.Permutation);
 
-    let pad = FrElement::from_hex(&json_input.Input[0]);
+    let pad = FrElement::from_hex_unchecked(&json_input.Input[0]);
 
     let s1_lagrange: Vec<FrElement> = permuted[..n].to_vec();
     let s2_lagrange: Vec<FrElement> = permuted[n..2 * n].to_vec();
@@ -95,7 +97,9 @@ pub fn pad_vector<'a>(
 }
 
 fn convert_str_vec_to_frelement_vec(ss: Vec<String>) -> Vec<FrElement> {
-    ss.iter().map(|s| FrElement::from_hex(s)).collect()
+    ss.iter()
+        .map(|s| FrElement::from_hex_unchecked(s))
+        .collect()
 }
 
 fn process_vector(vector: Vec<String>, pad: &FrElement, n: usize) -> Vec<FrElement> {

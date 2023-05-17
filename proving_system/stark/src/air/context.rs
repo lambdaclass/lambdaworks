@@ -27,6 +27,6 @@ impl AirContext {
 #[derive(Clone, Debug)]
 pub struct ProofOptions {
     pub blowup_factor: u8,
-    pub fri_number_of_queries: u8,
+    pub fri_number_of_queries: usize,
     pub coset_offset: u64,
 }

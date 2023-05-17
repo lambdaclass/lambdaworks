@@ -21,8 +21,9 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
         air: &A,
         trace_polys: &'poly [Polynomial<FieldElement<F>>],
         primitive_root: &FieldElement<F>,
+        rap_challenges: &A::RAPChallenges,
     ) -> Self {
-        let boundary_constraints = air.boundary_constraints();
+        let boundary_constraints = air.boundary_constraints(rap_challenges);
 
         Self {
             air: air.clone(),
@@ -38,6 +39,7 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
         lde_domain: &[FieldElement<F>],
         alpha_and_beta_transition_coefficients: &[(FieldElement<F>, FieldElement<F>)],
         alpha_and_beta_boundary_coefficients: &[(FieldElement<F>, FieldElement<F>)],
+        rap_challenges: &A::RAPChallenges,
     ) -> ConstraintEvaluationTable<F> {
         // The + 1 is for the boundary constraints column
         let mut evaluation_table = ConstraintEvaluationTable::new(
@@ -89,6 +91,7 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
 
         let blowup_factor = self.air.blowup_factor();
 
+        let divisors = self.air.transition_divisors();
         // Iterate over trace and domain and compute transitions
         for (i, d) in lde_domain.iter().enumerate() {
             let frame = Frame::read_from_trace(
@@ -98,10 +101,11 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
                 &self.air.context().transition_offsets,
             );
 
-            let mut evaluations = self.air.compute_transition(&frame);
+            let mut evaluations = self.air.compute_transition(&frame, rap_challenges);
             evaluations = Self::compute_constraint_composition_poly_evaluations(
                 &self.air,
                 &evaluations,
+                &divisors,
                 alpha_and_beta_transition_coefficients,
                 max_degree_power_of_two,
                 d,
@@ -146,6 +150,7 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
     pub fn compute_constraint_composition_poly_evaluations(
         air: &A,
         evaluations: &[FieldElement<F>],
+        divisors: &[Polynomial<FieldElement<F>>],
         constraint_coeffs: &[(FieldElement<F>, FieldElement<F>)],
         max_degree: u64,
         x: &FieldElement<F>,
@@ -154,7 +159,6 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
         // the trace degree may not be exactly the trace length - 1 but a smaller number.
         let trace_degree = air.context().trace_length - 1;
         let transition_degrees = air.context().transition_degrees();
-        let divisors = air.transition_divisors();
 
         let mut ret = Vec::new();
         for (((eval, transition_degree), div), (alpha, beta)) in evaluations

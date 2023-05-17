@@ -1,8 +1,7 @@
+use super::Polynomial;
 use lambdaworks_math::field::{element::FieldElement, traits::IsField};
 
-use super::Polynomial;
-
-fn fold_polynomial<F>(
+pub fn fold_polynomial<F>(
     poly: &Polynomial<FieldElement<F>>,
     beta: &FieldElement<F>,
 ) -> Polynomial<FieldElement<F>>
@@ -27,7 +26,7 @@ where
     even_poly + odd_poly
 }
 
-fn next_domain<F>(input: &[FieldElement<F>]) -> Vec<FieldElement<F>>
+pub fn next_domain<F>(input: &[FieldElement<F>]) -> Vec<FieldElement<F>>
 where
     F: IsField,
 {
@@ -39,33 +38,11 @@ where
     ret
 }
 
-/// Returns:
-/// * new polynomoial folded with FRI protocol
-/// * new domain
-/// * evaluations of the polynomial
-// TODO: Remove this
-#[allow(clippy::type_complexity)]
-pub fn next_fri_layer<F>(
-    poly: &Polynomial<FieldElement<F>>,
-    domain: &[FieldElement<F>],
-    beta: &FieldElement<F>,
-) -> (
-    Polynomial<FieldElement<F>>,
-    Vec<FieldElement<F>>,
-    Vec<FieldElement<F>>,
-)
-where
-    F: IsField,
-{
-    let ret_poly = fold_polynomial(poly, beta);
-    let ret_next_domain = next_domain(domain);
-    let ret_evaluation = ret_poly.evaluate_slice(&ret_next_domain);
-    (ret_poly, ret_next_domain, ret_evaluation)
-}
-
 #[cfg(test)]
 mod tests {
-    use super::{fold_polynomial, next_domain, next_fri_layer};
+    use crate::fri::fri_commitment::FriLayer;
+
+    use super::{fold_polynomial, next_domain};
     use lambdaworks_math::field::element::FieldElement;
     use lambdaworks_math::field::fields::u64_prime_field::U64PrimeField;
     const MODULUS: u64 = 293;
@@ -146,18 +123,20 @@ mod tests {
             FE::new(1),
         ];
 
-        let (p1, ret_next_domain, ret_evaluation) = next_fri_layer(&p0, &input_domain, &beta);
+        let next_poly = fold_polynomial(&p0, &beta);
+        let next_domain = next_domain(&input_domain);
+        let layer = FriLayer::new(next_poly, &next_domain);
 
         assert_eq!(
-            p1,
+            layer.poly,
             Polynomial::new(&[FE::new(7), FE::new(30), FE::new(23),])
         );
         assert_eq!(
-            ret_next_domain,
+            layer.domain,
             &[FE::new(25), FE::new(49), FE::new(169), FE::new(107),]
         );
         assert_eq!(
-            ret_evaluation,
+            layer.evaluation,
             &[FE::new(189), FE::new(151), FE::new(93), FE::new(207),]
         );
     }
