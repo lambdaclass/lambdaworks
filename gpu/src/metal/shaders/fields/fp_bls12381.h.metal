@@ -44,6 +44,9 @@ constexpr static const constant u384 R_SUB_N = {
     0x46010000,0x00005555
 };
 
+// MU = -N^{-1} mod (2^32)
+constexpr static const constant uint64_t MU = 4294770685;
+
 class FpBLS12381 {
 public:
     u384 inner;
@@ -205,58 +208,73 @@ private:
     // Reference:
     // - https://en.wikipedia.org/wiki/Montgomery_modular_multiplication (REDC)
     // - https://www.youtube.com/watch?v=2UmQDKcelBQ
-    constexpr static u384 mul(const u384 lhs, const u384 rhs)
+    constexpr static u384 mul(const u384 a, const u384 b)
     {
-        u384 lhs_low = lhs.low();
-        u384 lhs_high = lhs.high();
-        u384 rhs_low = rhs.low();
-        u384 rhs_high = rhs.high();
+        constexpr uint64_t NUM_LIMBS = 12;
+        metal::array<uint32_t, NUM_LIMBS> t = {};
+        metal::array<uint32_t, 2> t_extra = {};
 
-        u384 partial_t_high = lhs_high * rhs_high;
-        u384 partial_t_mid_a = lhs_high * rhs_low;
-        u384 partial_t_mid_a_low = partial_t_mid_a.low();
-        u384 partial_t_mid_a_high = partial_t_mid_a.high();
-        u384 partial_t_mid_b = rhs_high * lhs_low;
-        u384 partial_t_mid_b_low = partial_t_mid_b.low();
-        u384 partial_t_mid_b_high = partial_t_mid_b.high();
-        u384 partial_t_low = lhs_low * rhs_low;
+        u384 q = N;
 
-        u384 tmp = partial_t_mid_a_low +
-                   partial_t_mid_b_low + partial_t_low.high();
-        u384 carry = tmp.high();
-        u384 t_low = u384::from_high_low(tmp.low(), partial_t_low.low());
-        u384 t_high = partial_t_high + partial_t_mid_a_high + partial_t_mid_b_high + carry;
+        uint64_t i = NUM_LIMBS;
 
-        // Compute `m = T * N' mod R`
-        u384 m = t_low * N_PRIME;
+        while (i > 0) {
+            i -= 1;
+            // C := 0
+            uint64_t c = 0;
 
-        // Compute `t = (T + m * N) / R`
-        u384 n = N;
-        u384 n_low = n.low();
-        u384 n_high = n.high();
-        u384 m_low = m.low();
-        u384 m_high = m.high();
+            // for j=0 to N-1
+            //    (C,t[j]) := t[j] + a[j]*b[i] + C
+            uint64_t cs = 0;
+            uint64_t j = NUM_LIMBS;
+            while (j > 0) {
+                j -= 1;
+                cs = (uint64_t)t[j] + (uint64_t)a.m_limbs[j] * (uint64_t)b.m_limbs[i] + c;
+                c = cs >> 32;
+                t[j] = (uint32_t)((cs << 32) >> 32);
+            }
 
-        u384 partial_mn_high = m_high * n_high;
-        u384 partial_mn_mid_a = m_high * n_low;
-        u384 partial_mn_mid_a_low = partial_mn_mid_a.low();
-        u384 partial_mn_mid_a_high = partial_mn_mid_a.high();
-        u384 partial_mn_mid_b = n_high * m_low;
-        u384 partial_mn_mid_b_low = partial_mn_mid_b.low();
-        u384 partial_mn_mid_b_high = partial_mn_mid_b.high();
-        u384 partial_mn_low = m_low * n_low;
+            // (t[N+1],t[N]) := t[N] + C
+            cs = (uint64_t)t_extra[1] + c;
+            t_extra[0] = (uint32_t)(cs >> 32);
+            t_extra[1] = (uint32_t)((cs << 32) >> 32);
 
-        tmp = partial_mn_mid_a_low + partial_mn_mid_b_low + partial_mn_low.high();
-        carry = tmp.high();
-        u384 mn_low = u384::from_high_low(tmp.low(), partial_mn_low.low());
-        u384 mn_high = partial_mn_high + partial_mn_mid_a_high + partial_mn_mid_b_high + carry;
+            // m := t[0]*q'[0] mod D
+            uint64_t m = (((uint64_t)t[NUM_LIMBS - 1] * MU) << 32) >> 32;
 
-        u384 overflow = mn_low + u384::from_bool(t_low < mn_low);
-        u384 t_tmp = t_high + overflow;
-        u384 t = t_tmp + mn_high;
-        u384 overflows_r = u384::from_bool(t < t_tmp);
-        u384 overflows_modulus = u384::from_bool(t >= N);
+            // (C,_) := t[0] + m*q[0]
+            c = ((uint64_t)t[NUM_LIMBS - 1] + m * (uint64_t)q.m_limbs[NUM_LIMBS - 1]) >> 32;
 
-        return t + overflows_r * R_SUB_N - overflows_modulus * N;
+            // for j=1 to N-1
+            //    (C,t[j-1]) := t[j] + m*q[j] + C
+
+            j = NUM_LIMBS - 1;
+            while (j > 0) {
+                j -= 1;
+                cs = (uint64_t)t[j] + m * (uint64_t)q.m_limbs[j] + c;
+                c = cs >> 32;
+                t[j + 1] = (uint32_t)((cs << 32) >> 32);
+            }
+
+            // (C,t[N-1]) := t[N] + C
+            cs = (uint64_t)t_extra[1] + c;
+            c = cs >> 32;
+            t[0] = (uint32_t)((cs << 32) >> 32);
+
+            // t[N] := t[N+1] + C
+            t_extra[1] = t_extra[0] + (uint32_t)c;
+        }
+
+        u384 result {t};
+
+        uint64_t overflow = t_extra[0] > 0;
+        // TODO: assuming the integer represented by
+        // [t_extra[1], t[0], ..., t[NUM_LIMBS - 1]] is at most
+        // 2q in any case.
+        if (overflow || q <= result) {
+            result = result - q;
+        }
+
+        return result;
     }
 };
