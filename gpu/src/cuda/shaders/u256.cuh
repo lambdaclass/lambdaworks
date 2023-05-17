@@ -1,4 +1,4 @@
-// https://github.com/andrewmilson/ministark/blob/main/gpu-poly/src/metal/u256.h.metal
+// https://github.com/andrewmilson/ministark/blob/6e96f6b6c83b7faf38a9e015bbedf2aa7b984092/gpu/src/metal/u256.h.metal
 
 #ifndef u256_h
 #define u256_h
