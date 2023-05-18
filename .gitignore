@@ -18,5 +18,8 @@ proving_system/stark/src/cairo_run/program.trace
 proving_system/stark/cairo_programs/*.json
 proving_system/stark/cairo_programs/*.memory
 proving_system/stark/cairo_programs/*.trace
+proving_system/stark/cairo_programs/non_proof/*.json
+proving_system/stark/cairo_programs/non_proof/*.memory
+proving_system/stark/cairo_programs/non_proof/*.trace
 
 venv

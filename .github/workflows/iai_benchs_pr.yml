@@ -61,6 +61,6 @@ jobs:
         python-version: '3.9'
         cache: 'pip'
     - name: Generate traces
-      run: make deps && make traces
+      run: make traces
     - name: Run benchmarks
       run: cargo bench --no-fail-fast --bench "iai_*"

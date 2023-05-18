@@ -23,6 +23,21 @@ docker-shell:
 nix-shell:
 	nix-shell
 
+
+NON_PROOF_DIR=proving_system/stark/cairo_programs/non_proof
+NON_PROOFS:=$(wildcard $(NON_PROOF_DIR)/*.cairo)
+NON_PROOF_TRACES:=$(patsubst $(NON_PROOF_DIR)/%.cairo, $(NON_PROOF_DIR)/%.trace, $(NON_PROOFS))
+NON_PROOF_MEMORIES:=$(patsubst $(NON_PROOF_DIR)/%.cairo, $(NON_PROOF_DIR)/%.memory, $(NON_PROOFS))
+
+$(NON_PROOF_DIR)/%.json: $(NON_PROOF_DIR)/%.cairo
+	. venv/bin/activate ; \
+	cairo-compile --cairo_path="$(NON_PROOF_DIR)" $< --output $@
+
+$(NON_PROOF_DIR)/%.trace $(NON_PROOF_DIR)/%.memory: $(NON_PROOF_DIR)/%.json
+	. venv/bin/activate ; \
+	cairo-run --layout plain --program $< --trace_file $@ --memory_file $(@D)/$(*F).memory
+
+
 TEST_DIR=proving_system/stark/cairo_programs
 TEST_FILES:=$(wildcard $(TEST_DIR)/*.cairo)
 COMPILED_TESTS:=$(patsubst $(TEST_DIR)/%.cairo, $(TEST_DIR)/%.json, $(TEST_FILES))
@@ -38,7 +53,7 @@ $(TEST_DIR)/%.trace $(TEST_DIR)/%.memory: $(TEST_DIR)/%.json
 	cairo-run --layout plain --proof_mode --program $< --trace_file $@ --memory_file $(@D)/$(*F).memory
 
 
-traces: $(TEST_TRACES) $(TEST_MEMORIES)
+traces: $(NON_PROOF_TRACES) $(NON_PROOF_MEMORIES) $(TEST_TRACES) $(TEST_MEMORIES)
 
 benchmarks: traces
 	cargo criterion --workspace
@@ -48,9 +63,8 @@ benchmark: traces
 	cargo criterion --bench ${BENCH}
 
 clean:
-	rm -f $(TEST_DIR)/*.json
-	rm -f $(TEST_DIR)/*.trace
-	rm -f $(TEST_DIR)/*.memory
+	rm -f $(TEST_DIR)/*.{json,trace,memory}
+	rm -f $(NON_PROOF_DIR)/*.{json,trace,memory}
 
 flamegraph_stark: traces
 	CARGO_PROFILE_BENCH_DEBUG=true cargo flamegraph --root --bench criterion_stark -- --bench
