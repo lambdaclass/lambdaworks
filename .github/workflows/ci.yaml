@@ -29,6 +29,7 @@ jobs:
           proving_system/stark/cairo_programs/**/*.memory
         key: traces-cache-${{ hashFiles( 'proving_system/stark/cairo_programs/**/*.cairo' ) }}
         restore-keys: traces-cache-
+        enableCrossOsArchive: true
 
     # This is not pretty, but we need `make` to see the compiled programs are
     # actually newer than the sources, otherwise it will try to rebuild them
@@ -112,6 +113,7 @@ jobs:
             proving_system/stark/cairo_programs/**/*.memory
           key: traces-cache-${{ hashFiles( 'proving_system/stark/cairo_programs/**/*.cairo' ) }}
           fail-on-cache-miss: true
+          enableCrossOsArchive: true
 
       - name: Run tests and generate code coverage
         run: cargo llvm-cov --lcov --output-path lcov.info
@@ -145,6 +147,7 @@ jobs:
             proving_system/stark/cairo_programs/**/*.memory
           key: traces-cache-${{ hashFiles( 'proving_system/stark/cairo_programs/**/*.cairo' ) }}
           fail-on-cache-miss: true
+          enableCrossOsArchive: true
 
       - name: Run tests
         run: cargo test -F metal
