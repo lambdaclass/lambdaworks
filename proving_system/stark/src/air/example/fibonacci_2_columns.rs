@@ -66,6 +66,10 @@ impl AIR for Fibonacci2ColsAIR {
         vec![first_transition, second_transition]
     }
 
+    fn number_auxiliary_rap_columns(&self) -> usize {
+        0
+    }
+    
     fn boundary_constraints(
         &self,
         _rap_challenges: &Self::RAPChallenges,

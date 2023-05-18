@@ -40,9 +40,7 @@ pub trait AIR: Clone {
 
     fn build_rap_challenges<T: Transcript>(&self, transcript: &mut T) -> Self::RAPChallenges;
 
-    fn number_auxiliary_rap_columns(&self) -> usize {
-        0
-    }
+    fn number_auxiliary_rap_columns(&self) -> usize;
 
     fn compute_transition(
         &self,

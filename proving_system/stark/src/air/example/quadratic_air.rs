@@ -63,6 +63,10 @@ impl AIR for QuadraticAIR {
         vec![&second_row[0] - &first_row[0] * &first_row[0]]
     }
 
+    fn number_auxiliary_rap_columns(&self) -> usize {
+        0
+    }
+
     fn boundary_constraints(
         &self,
         _rap_challenges: &Self::RAPChallenges,

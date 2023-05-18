@@ -71,6 +71,10 @@ impl AIR for Fibonacci17AIR {
         BoundaryConstraints::from_constraints(vec![a0, a1, result])
     }
 
+    fn number_auxiliary_rap_columns(&self) -> usize {
+        0
+    }
+
     fn context(&self) -> air::context::AirContext {
         self.context.clone()
     }

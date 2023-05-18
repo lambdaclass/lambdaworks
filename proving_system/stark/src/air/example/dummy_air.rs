@@ -80,10 +80,15 @@ impl AIR for DummyAIR {
         BoundaryConstraints::from_constraints(vec![a0, a1])
     }
 
+    fn number_auxiliary_rap_columns(&self) -> usize {
+        0
+    }
+
     fn context(&self) -> air::context::AirContext {
         self.context.clone()
     }
 }
+
 
 pub fn dummy_trace<F: IsField>(trace_length: usize) -> Vec<Vec<FieldElement<F>>> {
     let mut ret: Vec<FieldElement<F>> = vec![];
