@@ -24,8 +24,8 @@ use lambdaworks_math::{
 };
 use log::info;
 
-// #[cfg(debug_assertions)]
-// use crate::air::debug::validate_trace;
+#[cfg(debug_assertions)]
+use crate::air::debug::validate_trace;
 
 struct Round1<F: IsFFTField, A: AIR<Field = F>> {
     trace_polys: Vec<Polynomial<FieldElement<F>>>,
@@ -489,21 +489,21 @@ where
     // ===================================
 
     let round_1_result = round_1_randomized_air_with_preprocessing::<F, A, _>(
-        &air,
+        air,
         trace,
         &domain,
         public_input,
         &mut transcript,
     );
 
-    // #[cfg(debug_assertions)]
-    // validate_trace(
-    //     air,
-    //     &round_1_result.trace_polys,
-    //     &domain,
-    //     public_input,
-    //     &round_1_result.rap_challenges,
-    // );
+    #[cfg(debug_assertions)]
+    validate_trace(
+        air,
+        &round_1_result.trace_polys,
+        &domain,
+        public_input,
+        &round_1_result.rap_challenges,
+    );
 
     // ===================================
     // ==========|   Round 2   |==========

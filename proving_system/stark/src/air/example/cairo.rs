@@ -1,5 +1,3 @@
-use core::num;
-
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::field::{
     element::FieldElement,
@@ -201,14 +199,14 @@ pub struct CairoRAPChallenges {
 
 fn add_program_in_public_input_section(
     addresses: &Vec<FE>,
-    values: &Vec<FE>,
+    values: &[FE],
     public_input: &PublicInputs,
 ) -> (Vec<FE>, Vec<FE>) {
     let mut a_aux = addresses.clone();
-    let mut v_aux = values.clone();
+    let mut v_aux = values.to_owned();
 
     let public_input_section = addresses.len() - public_input.program.len();
-    let continous_memory = (1..=public_input.program.len() as u64).map(|i| FieldElement::from(i));
+    let continous_memory = (1..=public_input.program.len() as u64).map(FieldElement::from);
 
     a_aux.splice(public_input_section.., continous_memory);
     v_aux.splice(public_input_section.., public_input.program.clone());
@@ -274,11 +272,6 @@ fn generate_range_check_permutation_argument_column(
     permutation_col
 }
 
-fn pad_with_zeros<F: IsFFTField>(trace: &mut TraceTable<F>, number_rows: usize) {
-    let pad = vec![FieldElement::zero(); trace.n_cols * number_rows];
-    trace.table.extend_from_slice(&pad);
-}
-
 fn pad_with_last_row<F: IsFFTField>(
     trace: &mut TraceTable<F>,
     number_rows: usize,
@@ -290,8 +283,8 @@ fn pad_with_last_row<F: IsFFTField>(
     }
     let mut pad: Vec<_> = std::iter::repeat(&last_row)
         .take(number_rows)
-        .cloned()
         .flatten()
+        .cloned()
         .collect();
     trace.table.append(&mut pad);
 }
@@ -326,10 +319,7 @@ where
     let multiple_of_three_padding =
         ((all_missing_values.len() + 2) / 3) * 3 - all_missing_values.len();
     let padding_element = FieldElement::from(*sorted_offset_representatives.last().unwrap() as u64);
-    all_missing_values.append(&mut vec![
-        padding_element.clone();
-        multiple_of_three_padding as usize
-    ]);
+    all_missing_values.append(&mut vec![padding_element; multiple_of_three_padding]);
 
     (
         all_missing_values,
@@ -373,7 +363,7 @@ impl AIR for CairoAIR {
         );
 
         let (missing_values, rc_min, rc_max) =
-            get_missing_values_offset_columns(&mut main_trace, &[OFF_DST, OFF_OP0, OFF_OP1]);
+            get_missing_values_offset_columns(&main_trace, &[OFF_DST, OFF_OP0, OFF_OP1]);
         public_input.range_check_min = Some(rc_min);
         public_input.range_check_max = Some(rc_max);
 
@@ -880,7 +870,7 @@ mod test {
         // power of two and therefore are zero
         let last_register_state = &raw_trace.rows[raw_trace.steps() - 1];
         let mut public_input = PublicInputs {
-            program: program,
+            program,
             ap_final: FieldElement::from(last_register_state.ap),
             pc_final: FieldElement::from(last_register_state.pc),
             pc_init: FieldElement::from(raw_trace.rows[0].pc),
@@ -1076,8 +1066,8 @@ mod test {
 
     #[test]
     fn test_add_missing_values_to_offsets_column() {
-        let mut main_trace = TraceTable {
-            table: (0..34 * 2).map(|x| FieldElement::from(x)).collect(),
+        let mut main_trace = TraceTable::<Stark252PrimeField> {
+            table: (0..34 * 2).map(FieldElement::from).collect(),
             n_cols: 34,
         };
         let missing_values = vec![
@@ -1090,7 +1080,7 @@ mod test {
         ];
         add_missing_values_to_offsets_column(&mut main_trace, missing_values);
 
-        let mut expected: Vec<_> = (0..34 * 2).map(|x| FieldElement::from(x)).collect();
+        let mut expected: Vec<_> = (0..34 * 2).map(FieldElement::from).collect();
         expected.append(&mut vec![FieldElement::zero(); OFF_DST]);
         expected.append(&mut vec![
             FieldElement::from(1),

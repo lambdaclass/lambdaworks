@@ -25,10 +25,7 @@ impl<F: IsFFTField> TraceTable<F> {
     }
 
     pub fn new(table: Vec<FieldElement<F>>, n_cols: usize) -> Self {
-        Self {
-            table: table,
-            n_cols: n_cols,
-        }
+        Self { table, n_cols }
     }
 
     pub fn get_cols(&self, columns: &[usize]) -> Self {
@@ -40,7 +37,7 @@ impl<F: IsFFTField> TraceTable<F> {
         }
 
         Self {
-            table: table,
+            table,
             n_cols: columns.len(),
         }
     }
@@ -157,10 +154,7 @@ mod test {
             FE::new(2),
             FE::new(3),
         ];
-        let trace_table = TraceTable {
-            table: table,
-            n_cols: 3,
-        };
+        let trace_table = TraceTable { table, n_cols: 3 };
         let subtable = trace_table.get_cols(&[0, 1]);
         assert_eq!(
             subtable.table,
@@ -201,7 +195,7 @@ mod test {
             FE::new(5),
             FE::new(6),
         ];
-        let expected_table = TraceTable::new_from_cols(&vec![
+        let expected_table = TraceTable::new_from_cols(&[
             vec![FE::new(7), FE::new(8), FE::new(9)],
             vec![FE::new(1), FE::new(3), FE::new(5)],
             vec![FE::new(2), FE::new(4), FE::new(6)],

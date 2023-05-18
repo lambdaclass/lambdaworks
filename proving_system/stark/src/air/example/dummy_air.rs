@@ -10,11 +10,7 @@ use crate::{
 };
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::field::{
-    fields::{
-        fft_friendly::stark_252_prime_field::Stark252PrimeField,
-        u64_prime_field::{F17, FE17},
-    },
-    traits::IsField,
+    fields::fft_friendly::stark_252_prime_field::Stark252PrimeField, traits::IsField,
 };
 
 #[derive(Clone)]

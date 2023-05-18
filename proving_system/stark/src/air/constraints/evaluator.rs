@@ -1,12 +1,14 @@
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsFFTField},
-    helpers,
     polynomial::Polynomial,
     traits::ByteConversion,
 };
 
-use crate::air::{debug::check_polynomial_divisibility, frame::Frame, trace::TraceTable, AIR};
+use crate::air::{frame::Frame, trace::TraceTable, AIR};
 use std::iter::zip;
+
+#[cfg(debug_assertions)]
+use crate::air::debug::check_polynomial_divisibility;
 
 use super::{boundary::BoundaryConstraints, evaluation_table::ConstraintEvaluationTable};
 
@@ -70,38 +72,16 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
             })
             .collect();
 
-        let boundary_polys_max_degree = boundary_polys
-            .iter()
-            .zip(&boundary_zerofiers)
-            .map(|(poly, zerofier)| poly.degree() - zerofier.degree())
-            .max()
-            .unwrap();
-
-        let transition_degrees = self.air.context().transition_degrees();
-        let transition_zerofiers = self.air.transition_divisors();
-        let transition_polys_max_degree = self
-            .trace_polys
-            .iter()
-            .zip(&transition_zerofiers)
-            .zip(&transition_degrees)
-            .map(|((poly, zerofier), degree)| {
-                (poly.degree() * degree).saturating_sub(zerofier.degree())
-            })
-            .max()
-            .unwrap();
-
-        let max_degree = std::cmp::max(transition_polys_max_degree, boundary_polys_max_degree);
-
         let blowup_factor = self.air.blowup_factor();
 
-        // #[cfg(debug_assertions)]
-        // for (poly, z) in boundary_polys.iter().zip(boundary_zerofiers.iter()) {
-        //     let (_, b) = poly.clone().long_division_with_remainder(z);
-        //     assert_eq!(b, Polynomial::zero());
-        // }
-        //
-        // #[cfg(debug_assertions)]
-        // let mut transition_evaluations = Vec::new();
+        #[cfg(debug_assertions)]
+        for (poly, z) in boundary_polys.iter().zip(boundary_zerofiers.iter()) {
+            let (_, b) = poly.clone().long_division_with_remainder(z);
+            assert_eq!(b, Polynomial::zero());
+        }
+
+        #[cfg(debug_assertions)]
+        let mut transition_evaluations = Vec::new();
 
         let divisors = self.air.transition_divisors();
         let boundary_term_degree_adjustment =
@@ -117,8 +97,8 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
 
             let mut evaluations = self.air.compute_transition(&frame, rap_challenges);
             //
-            // #[cfg(debug_assertions)]
-            // transition_evaluations.push(evaluations.clone());
+            #[cfg(debug_assertions)]
+            transition_evaluations.push(evaluations.clone());
 
             evaluations = Self::compute_constraint_composition_poly_evaluations(
                 &self.air,
@@ -145,8 +125,12 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
             evaluation_table.evaluations.push(evaluations);
         }
 
-        // #[cfg(debug_assertions)]
-        // check_polynomial_divisibility(&self.air, &transition_evaluations, &transition_zerofiers);
+        #[cfg(debug_assertions)]
+        check_polynomial_divisibility(
+            &self.air,
+            &transition_evaluations,
+            &self.air.transition_divisors(),
+        );
 
         evaluation_table
     }

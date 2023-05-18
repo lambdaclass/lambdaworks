@@ -31,7 +31,7 @@ impl AIR for Fibonacci17AIR {
     fn build_main_trace(
         &self,
         raw_trace: &Self::RawTrace,
-        public_input: &mut Self::PublicInput,
+        _public_input: &mut Self::PublicInput,
     ) -> TraceTable<Self::Field> {
         TraceTable::new_from_cols(raw_trace)
     }
@@ -40,7 +40,7 @@ impl AIR for Fibonacci17AIR {
         &self,
         _main_trace: &TraceTable<Self::Field>,
         _rap_challenges: &Self::RAPChallenges,
-        public_input: &Self::PublicInput,
+        _public_input: &Self::PublicInput,
     ) -> TraceTable<Self::Field> {
         TraceTable::empty()
     }
@@ -62,7 +62,7 @@ impl AIR for Fibonacci17AIR {
     fn boundary_constraints(
         &self,
         _rap_challenges: &Self::RAPChallenges,
-        public_input: &Self::PublicInput,
+        _public_input: &Self::PublicInput,
     ) -> BoundaryConstraints<Self::Field> {
         let a0 = BoundaryConstraint::new_simple(0, FieldElement::<Self::Field>::one());
         let a1 = BoundaryConstraint::new_simple(1, FieldElement::<Self::Field>::one());

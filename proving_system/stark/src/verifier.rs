@@ -19,7 +19,6 @@ use lambdaworks_math::{
         element::FieldElement,
         traits::{IsFFTField, IsField},
     },
-    helpers,
     polynomial::Polynomial,
     traits::ByteConversion,
 };
