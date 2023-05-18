@@ -125,7 +125,7 @@ jobs:
   test_macos:
     needs: build-programs
     name: Test (macOS, Apple sillicon)
-    runs-on: [self-hosted, macos-latest]
+    runs-on: [self-hosted, macOS]
     env:
       CARGO_TERM_COLOR: always
     steps:
