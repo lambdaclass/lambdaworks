@@ -45,17 +45,20 @@ pub fn artificial_trace_proofs(c: &mut Criterion) {
     });
 }
 
-fn cairo_fibonacci_benches(c: &mut Criterion) {
+fn cairo_benches(c: &mut Criterion) {
     let mut group = c.benchmark_group("CAIRO");
 
-    run_fibonacci_bench(&mut group, "fibonacci/5", "fibonacci_5");
-    run_fibonacci_bench(&mut group, "fibonacci/10", "fibonacci_10");
-    run_fibonacci_bench(&mut group, "fibonacci/30", "fibonacci_30");
-    run_fibonacci_bench(&mut group, "fibonacci/50", "fibonacci_50");
-    run_fibonacci_bench(&mut group, "fibonacci/100", "fibonacci_100");
+    run_cairo_bench(&mut group, "fibonacci/5", "fibonacci_5");
+    run_cairo_bench(&mut group, "fibonacci/10", "fibonacci_10");
+    run_cairo_bench(&mut group, "fibonacci/30", "fibonacci_30");
+    run_cairo_bench(&mut group, "fibonacci/50", "fibonacci_50");
+    run_cairo_bench(&mut group, "fibonacci/100", "fibonacci_100");
+
+    run_cairo_bench(&mut group, "factorial/8", "factorial_8");
+    run_cairo_bench(&mut group, "factorial/16", "factorial_16");
 }
 
-fn run_fibonacci_bench(group: &mut BenchmarkGroup<'_, WallTime>, benchname: &str, file: &str) {
+fn run_cairo_bench(group: &mut BenchmarkGroup<'_, WallTime>, benchname: &str, file: &str) {
     let trace = generate_cairo_trace(file);
 
     let blowup_factors = [2, 4, 8];
@@ -80,5 +83,5 @@ fn run_fibonacci_bench(group: &mut BenchmarkGroup<'_, WallTime>, benchname: &str
     }
 }
 
-criterion_group!(benches, artificial_trace_proofs, cairo_fibonacci_benches);
+criterion_group!(benches, artificial_trace_proofs, cairo_benches);
 criterion_main!(benches);
