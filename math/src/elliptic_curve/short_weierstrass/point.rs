@@ -2,13 +2,17 @@ use crate::{
     cyclic_group::IsGroup,
     elliptic_curve::{
         point::ProjectivePoint,
-        traits::{EllipticCurveError, FromAffine, IsEllipticCurve},
+        traits::{EllipticCurveError, FromAffine, IsEllipticCurve}, short_weierstrass::curves::bls12_381::field_extension::BLS12381PrimeField,
     },
     field::element::FieldElement,
     traits::{ByteConversion, Deserializable, Serializable},
+    unsigned_integer::{traits::U32Limbs, element::U384},
 };
 
-use super::{errors::DeserializationError, traits::IsShortWeierstrass};
+use super::{
+    curves::bls12_381::curve::BLS12381Curve, errors::DeserializationError,
+    traits::IsShortWeierstrass,
+};
 
 #[derive(Clone, Debug)]
 pub struct ShortWeierstrassProjectivePoint<E: IsEllipticCurve>(ProjectivePoint<E>);
@@ -250,6 +254,28 @@ where
         Self: Sized,
     {
         Self::deserialize(bytes, PointFormat::Projective, Endianness::LittleEndian)
+    }
+}
+
+impl U32Limbs for ShortWeierstrassProjectivePoint<BLS12381Curve> {
+    fn from_u32_limbs(limbs: &[u32]) -> Self {
+        type FE = FieldElement<BLS12381PrimeField>;
+
+        let coordinates = limbs
+        .chunks(12)
+        .map(U384::from_u32_limbs)
+        .map(|uint| FE::from_raw(&uint))
+        .collect::<Vec<FE>>();
+        
+        Self::from_slice(&coordinates)
+    }
+
+    fn to_u32_limbs(&self) -> Vec<u32> {
+        self.coordinates()
+            .into_iter()
+            .map(|felt| felt.value().to_u32_limbs())
+            .flatten()
+            .collect()
     }
 }
 

@@ -38,7 +38,7 @@ pub fn pippenger<const NUM_LIMBS: usize>(
 ) -> Result<Point, MetalError> {
     use lambdaworks_math::{
         elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::BLS12381PrimeField,
-        unsigned_integer::element::U384,
+        unsigned_integer::{element::U384, traits::U32Limbs},
     };
 
     debug_assert_eq!(
@@ -69,13 +69,7 @@ pub fn pippenger<const NUM_LIMBS: usize>(
 
     let hidings: Vec<u32> = hidings
         .into_iter()
-        .map(|item| {
-            item.coordinates()
-                .into_iter()
-                .map(|felt| felt.value().to_u32_limbs())
-                .flatten()
-                .collect::<Vec<u32>>()
-        })
+        .map(|point| point.to_u32_limbs())
         .flatten()
         .collect();
 
@@ -102,14 +96,7 @@ pub fn pippenger<const NUM_LIMBS: usize>(
 
     let result: Vec<u32> = MetalState::retrieve_contents(&result_buffer);
 
-    let result: Vec<Point> = result
-        .chunks(12)
-        .map(U384::from_u32_limbs)
-        .map(|uint| FE::from_raw(&uint))
-        .collect::<Vec<FE>>()
-        .chunks(3)
-        .map(Point::from_slice)
-        .collect();
+    let result: Vec<Point> = result.chunks(12 * 3).map(Point::from_u32_limbs).collect();
 
     // TODO: do this in GPU
     let result = result

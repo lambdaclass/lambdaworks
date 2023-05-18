@@ -7,6 +7,8 @@ use crate::unsigned_integer::traits::IsUnsignedInteger;
 
 use std::fmt::{self, Debug};
 
+use super::traits::U32Limbs;
+
 pub type U384 = UnsignedInteger<6>;
 pub type U256 = UnsignedInteger<4>;
 pub type U128 = UnsignedInteger<2>;
@@ -26,7 +28,10 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         Self { limbs }
     }
 
-    pub fn from_u32_limbs(limbs: &[u32]) -> Self {
+}
+
+impl<const NUM_LIMBS: usize> U32Limbs for UnsignedInteger<NUM_LIMBS> {
+    fn from_u32_limbs(limbs: &[u32]) -> Self {
         let mut limbs = limbs.to_vec();
         limbs.reverse();
         limbs.resize(NUM_LIMBS * 2, 0);
@@ -44,7 +49,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         UnsignedInteger::from_limbs(limbs_64)
     }
 
-    pub fn to_u32_limbs(&self) -> Vec<u32> {
+    fn to_u32_limbs(&self) -> Vec<u32> {
         let mut limbs_32 = vec![];
         for limb in self.limbs {
             let high = (limb >> 32) as u32;
