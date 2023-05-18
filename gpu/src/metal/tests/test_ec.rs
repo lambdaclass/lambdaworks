@@ -358,5 +358,19 @@ mod tests {
                 }).unwrap();
             }
         }
+
+        #[test]
+        fn infinity_plus_infinity_should_equal_infinity() {
+            let infinity = BLS12381Curve::generator().operate_with_self(0_u64);
+            let result = execute_kernel("bls12381_add", &infinity, &infinity);
+            let cpu_result: Vec<u32> = infinity
+                .operate_with(&infinity)
+                .coordinates()
+                .into_iter()
+                .map(|felt| felt.value().to_u32_limbs())
+                .flatten()
+                .collect();
+            assert_eq!(result, cpu_result);
+        }
     }
 }
