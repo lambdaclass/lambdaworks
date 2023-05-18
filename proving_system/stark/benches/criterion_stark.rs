@@ -74,8 +74,7 @@ fn run_cairo_bench(group: &mut BenchmarkGroup<'_, WallTime>, benchname: &str, fi
             };
             let cairo_air = cairo::CairoAIR::new(proof_options, &trace.0);
 
-            let name =
-                format!("{benchname} (blowup: {blowup_factor}, queries: {fri_number_of_queries})");
+            let name = format!("{benchname}_b{blowup_factor}_q{fri_number_of_queries})");
 
             group.bench_function(name, |bench| {
                 bench.iter(|| black_box(prove(black_box(&trace), black_box(&cairo_air))));
