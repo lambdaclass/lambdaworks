@@ -21,7 +21,7 @@ pub fn artificial_trace_proofs(c: &mut Criterion) {
     for &trace_length in [64, 128, 256, 512].iter() {
         let (trace, fibonacci_air) = generate_fib_proof_params(trace_length);
         group.throughput(Throughput::Elements(trace_length as u64));
-        group.bench_function(BenchmarkId::new("Simple Fibonacci", trace_length), |b| {
+        group.bench_function(BenchmarkId::new("fibonacci/simple", trace_length), |b| {
             b.iter(|| black_box(prove(black_box(&trace), black_box(&fibonacci_air))));
         });
     }
@@ -29,18 +29,18 @@ pub fn artificial_trace_proofs(c: &mut Criterion) {
     for &trace_length in [64, 128, 256, 512].iter() {
         let (trace, fibonacci_air) = generate_fib_2_cols_proof_params(trace_length);
         group.throughput(Throughput::Elements(trace_length as u64));
-        group.bench_function(BenchmarkId::new("2 column Fibonacci", trace_length), |b| {
+        group.bench_function(BenchmarkId::new("fibonacci/2cols", trace_length), |b| {
             b.iter(|| black_box(prove(black_box(&trace), black_box(&fibonacci_air))));
         });
     }
 
     let (trace, fibonacci_air) = generate_fib17_proof_params(4);
-    group.bench_function("Fibonacci F17", |b| {
+    group.bench_function("fibonacci/F17", |b| {
         b.iter(|| black_box(prove(black_box(&trace), black_box(&fibonacci_air))));
     });
 
     let (trace, fibonacci_air) = generate_quadratic_proof_params(16);
-    group.bench_function("Quadratic AIR", |b| {
+    group.bench_function("quadratic_air", |b| {
         b.iter(|| black_box(prove(black_box(&trace), black_box(&fibonacci_air))));
     });
 }
