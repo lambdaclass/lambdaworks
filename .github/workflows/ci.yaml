@@ -65,6 +65,8 @@ jobs:
         with:
           python-version: '3.9'
           cache: 'pip'
+      - name: Install cairo-lang and deps
+        run: pip install -r requirements.txt
       - name: Generate traces
         run: make traces
       - name: Run tests and generate code coverage
@@ -92,6 +94,8 @@ jobs:
         with:
           python-version: '3.9'
           cache: 'pip'
+      - name: Install cairo-lang and deps
+        run: pip install -r requirements.txt
       - name: Generate traces
         run: make traces
       - name: Run tests
