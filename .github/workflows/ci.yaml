@@ -15,7 +15,7 @@ jobs:
     name: Generate Cairo traces
     runs-on: ubuntu-latest
     outputs:
-      trace-path: ${{ steps.trace-path.outputs.trace-path }}
+      trace-path: ${{ steps.trace-path.outputs.path }}
     steps:
     - name: Checkout sources
       uses: actions/checkout@v3
@@ -54,7 +54,7 @@ jobs:
 
     - name: Output traces path
       id: trace-path
-      run: echo "${GITHUB_WORKSPACE}/proving_system/stark/cairo_programs" >> "$GITHUB_OUTPUT"
+      run: echo "path=${GITHUB_WORKSPACE}/proving_system/stark/cairo_programs" >> "$GITHUB_OUTPUT"
 
   compile:
     name: Compile
