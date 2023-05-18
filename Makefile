@@ -30,11 +30,9 @@ NON_PROOF_TRACES:=$(patsubst $(NON_PROOF_DIR)/%.cairo, $(NON_PROOF_DIR)/%.trace,
 NON_PROOF_MEMORIES:=$(patsubst $(NON_PROOF_DIR)/%.cairo, $(NON_PROOF_DIR)/%.memory, $(NON_PROOFS))
 
 $(NON_PROOF_DIR)/%.json: $(NON_PROOF_DIR)/%.cairo
-	. venv/bin/activate ; \
 	cairo-compile --cairo_path="$(NON_PROOF_DIR)" $< --output $@
 
 $(NON_PROOF_DIR)/%.trace $(NON_PROOF_DIR)/%.memory: $(NON_PROOF_DIR)/%.json
-	. venv/bin/activate ; \
 	cairo-run --layout plain --program $< --trace_file $@ --memory_file $(@D)/$(*F).memory
 
 
