@@ -107,6 +107,81 @@ pub fn pippenger<const NUM_LIMBS: usize>(
     Ok(result.expect("result_buffer is never empty"))
 }
 
+pub fn pippenger_sequencial<const NUM_LIMBS: usize>(
+    cs: &[UnsignedInteger<NUM_LIMBS>],
+    hidings: &[Point],
+    state: &MetalState,
+) -> Result<Point, MetalError> {
+    use lambdaworks_math::{
+        elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::BLS12381PrimeField,
+        unsigned_integer::{element::U384, traits::U32Limbs},
+    };
+
+    debug_assert_eq!(
+        cs.len(),
+        hidings.len(),
+        "Slices `cs` and `hidings` must be of the same length to compute `msm`."
+    );
+
+    const MAX_THREADS: u64 = 64;
+
+    let window_size: u32 = 4;
+    let buflen: u64 = cs.len() as u64;
+    let n_bits = 64 * NUM_LIMBS as u64;
+
+    let num_windows = (n_bits - 1) / window_size as u64 + 1;
+
+    let num_threads = MAX_THREADS.min(buflen);
+
+    debug_assert!(window_size < usize::BITS);
+
+    let pipeline = state.setup_pipeline("calculate_Gjs_bls12381_sequencial")?;
+
+    let cs: Vec<u32> = cs
+        .into_iter()
+        .map(|uint| uint.to_u32_limbs())
+        .flatten()
+        .collect();
+
+    let hidings: Vec<u32> = hidings
+        .into_iter()
+        .map(|point| point.to_u32_limbs())
+        .flatten()
+        .collect();
+
+    let bucket_count = (1 << window_size) - 1;
+    let point_bytes = 3 * 12;
+
+    let cs_buffer = state.alloc_buffer_data(&cs);
+    let hidings_buffer = state.alloc_buffer_data(&hidings);
+    let result_buffer = state.alloc_buffer::<u32>(bucket_count * point_bytes);
+
+    let (command_buffer, command_encoder) = state.setup_command(
+        &pipeline,
+        Some(&[(0, &cs_buffer), (1, &hidings_buffer), (4, &result_buffer)]),
+    );
+
+    command_encoder.set_bytes(2, std::mem::size_of::<u32>() as u64, void_ptr(&window_size));
+    command_encoder.set_bytes(3, std::mem::size_of::<u64>() as u64, void_ptr(&buflen));
+
+    let threadgroup_size = MTLSize::new(num_threads, 1, 1);
+    let threadgroup_count = MTLSize::new(num_windows, 1, 1);
+
+    command_encoder.dispatch_thread_groups(threadgroup_count, threadgroup_size);
+    command_encoder.end_encoding();
+
+    command_buffer.commit();
+    command_buffer.wait_until_completed();
+
+    let result: Vec<u32> = MetalState::retrieve_contents(&result_buffer);
+
+    let result: Vec<Point> = result.chunks(12 * 3).map(Point::from_u32_limbs).collect();
+
+    dbg!(result.clone());
+
+    Ok(result[0].clone())
+}
+
 #[cfg(test)]
 mod tests {
     use lambdaworks_math::{
@@ -170,6 +245,19 @@ mod tests {
 
             let cpu_result = pippenger::msm_with(&cs, &hidings, window_size);
             let metal_result = super::pippenger(&cs, &hidings, &state).unwrap();
+
+            prop_assert_eq!(metal_result, cpu_result);
+        }
+
+        #[test]
+        fn test_metal_pippenger_sequencial_matches_cpu(window_size in 1.._MAX_WSIZE, cs in unsigned_integer_vec(), hidings in points_vec()) {
+            let state = MetalState::new(None).unwrap();
+            let min_len = cs.len().min(hidings.len());
+            let cs = cs[..min_len].to_vec();
+            let hidings = hidings[..min_len].to_vec();
+
+            let cpu_result = pippenger::msm_with(&cs, &hidings, window_size);
+            let metal_result = super::pippenger_sequencial(&cs, &hidings, &state).unwrap();
 
             prop_assert_eq!(metal_result, cpu_result);
         }

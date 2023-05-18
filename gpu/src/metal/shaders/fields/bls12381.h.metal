@@ -4,6 +4,7 @@
 #include "ec_point.h.metal"
 #include "../test/test_bls12381.h.metal"
 #include "../msm/pippenger.h.metal"
+#include "../msm/pippenger_sequencial.h.metal"
 
 namespace {
     typedef ECPoint<FpBLS12381, 0> BLS12381;
@@ -56,4 +57,13 @@ template [[ host_name("calculate_Gjs_bls12381") ]]
     uint32_t,
     uint32_t,
     uint32_t
+);
+
+template [[ host_name("calculate_Gjs_bls12381_sequencial") ]]
+[[kernel]] void calculate_Gjs_sequencial<FpBLS12381, BLS12381>(
+    constant FpBLS12381*,
+    constant BLS12381*,
+    constant uint32_t&,
+    constant uint64_t&,
+    device BLS12381*
 );
