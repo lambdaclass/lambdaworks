@@ -164,7 +164,6 @@ fn test_prove_cairo_simple_program() {
         range_check_min: None,
         range_check_max: None,
         num_steps: raw_trace.steps(),
-        last_row_range_checks: None,
     };
 
     let result = prove(&(raw_trace, memory), &cairo_air, &mut public_input);
@@ -225,7 +224,6 @@ fn test_prove_cairo_call_func() {
         range_check_max: None,
         program,
         num_steps: raw_trace.steps(),
-        last_row_range_checks: None,
     };
 
     let result = prove(&(raw_trace, memory), &cairo_air, &mut public_input);
@@ -267,7 +265,6 @@ fn test_prove_cairo_fibonacci() {
         range_check_max: None,
         program,
         num_steps: raw_trace.steps(),
-        last_row_range_checks: None,
     };
 
     let result = prove(&(raw_trace, memory), &cairo_air, &mut public_input);

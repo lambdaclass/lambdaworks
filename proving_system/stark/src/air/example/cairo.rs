@@ -155,7 +155,6 @@ pub struct PublicInputs {
     // pub builtins: Vec<Builtin>, // list of builtins
     pub program: Vec<FE>,
     pub num_steps: usize, // number of execution steps
-    pub last_row_range_checks: Option<usize>,
 }
 
 #[derive(Clone)]
@@ -379,7 +378,6 @@ impl AIR for CairoAIR {
         public_input.range_check_max = Some(rc_max);
 
         add_missing_values_to_offsets_column(&mut main_trace, missing_values);
-        public_input.last_row_range_checks = Some(main_trace.n_rows());
 
         let padding = self.context().trace_length - main_trace.n_rows();
         pad_with_last_row(&mut main_trace, padding, &MEMORY_COLUMNS);
@@ -891,7 +889,6 @@ mod test {
             range_check_max: None,
             range_check_min: None,
             num_steps: raw_trace.steps(),
-            last_row_range_checks: None,
         };
 
         let main_trace = cairo_air.build_main_trace(&(raw_trace, memory), &mut public_input);
@@ -932,7 +929,6 @@ mod test {
             range_check_max: None,
             range_check_min: None,
             num_steps: 1,
-            last_row_range_checks: None,
         };
 
         let a = vec![
