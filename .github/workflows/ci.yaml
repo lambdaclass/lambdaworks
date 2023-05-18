@@ -11,11 +11,9 @@ concurrency:
 
 jobs:
   # Stolen from cairo-rs: https://github.com/lambdaclass/cairo-rs/blob/92a81f74a4a06636be1a32cb9886d1c9ba793050/.github/workflows/rust.yml
-  generate-traces:
+  build-programs:
     name: Generate Cairo traces
     runs-on: ubuntu-latest
-    outputs:
-      trace-path: ${{ steps.trace-path.outputs.path }}
     steps:
     - name: Checkout sources
       uses: actions/checkout@v3
@@ -31,7 +29,6 @@ jobs:
           proving_system/stark/cairo_programs/**/*.memory
         key: traces-cache-${{ hashFiles( 'proving_system/stark/cairo_programs/**/*.cairo' ) }}
         restore-keys: traces-cache-
-        enableCrossOsArchive: true
 
     # This is not pretty, but we need `make` to see the compiled programs are
     # actually newer than the sources, otherwise it will try to rebuild them
@@ -51,10 +48,6 @@ jobs:
     - name: Generate traces
       if: ${{ steps.cache-programs.outputs.cache-hit != 'true' }}
       run: make -j traces
-
-    - name: Output traces path
-      id: trace-path
-      run: echo "path=${GITHUB_WORKSPACE}/proving_system/stark/cairo_programs" >> "$GITHUB_OUTPUT"
 
   compile:
     name: Compile
@@ -96,7 +89,7 @@ jobs:
         run: make clippy
 
   test:
-    needs: generate-traces
+    needs: build-programs
     name: Test (Ubuntu)
     runs-on: ubuntu-latest
     env:
@@ -130,9 +123,9 @@ jobs:
           fail_ci_if_error: true
 
   test_macos:
-    needs: generate-traces
+    needs: build-programs
     name: Test (macOS, Apple sillicon)
-    runs-on: [self-hosted, macOS]
+    runs-on: [self-hosted, macos-latest]
     env:
       CARGO_TERM_COLOR: always
     steps:
@@ -143,22 +136,15 @@ jobs:
         with:
           toolchain: stable
           components: clippy
-      
-      - name: Is tar installed?
-        run: tar --help
 
       - name: Fetch program traces
         uses: actions/cache/restore@v3
         with:
           path: |
-            ${{ needs.generate-traces.outputs.trace-path }}/**/*.trace
-            ${{ needs.generate-traces.outputs.trace-path }}/**/*.memory
+            proving_system/stark/cairo_programs/**/*.trace
+            proving_system/stark/cairo_programs/**/*.memory
           key: traces-cache-${{ hashFiles( 'proving_system/stark/cairo_programs/**/*.cairo' ) }}
           fail-on-cache-miss: true
-          enableCrossOsArchive: true
-      - name: Relocate program traces
-        run: |
-          mv ${{ needs.generate-traces.outputs.trace-path }} proving_system/stark/cairo_programs
 
       - name: Run tests
         run: cargo test -F metal
