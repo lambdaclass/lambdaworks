@@ -201,7 +201,7 @@ fn test_prove_cairo_call_func() {
     let memory = CairoMemory::from_file(&dir_memory).unwrap();
 
     let proof_options = ProofOptions {
-        blowup_factor: 2,
+        blowup_factor: 4,
         fri_number_of_queries: 1,
         coset_offset: 3,
     };
@@ -242,7 +242,7 @@ fn test_prove_cairo_fibonacci() {
     let memory = CairoMemory::from_file(&dir_memory).expect("Cairo memory binary file not found");
 
     let proof_options = ProofOptions {
-        blowup_factor: 2,
+        blowup_factor: 4,
         fri_number_of_queries: 5,
         coset_offset: 3,
     };

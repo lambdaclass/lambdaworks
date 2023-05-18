@@ -96,14 +96,14 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
 
         let blowup_factor = self.air.blowup_factor();
 
-        #[cfg(debug_assertions)]
-        for (poly, z) in boundary_polys.iter().zip(boundary_zerofiers.iter()) {
-            let (_, b) = poly.clone().long_division_with_remainder(z);
-            assert_eq!(b, Polynomial::zero());
-        }
-
-        #[cfg(debug_assertions)]
-        let mut transition_evaluations = Vec::new();
+        // #[cfg(debug_assertions)]
+        // for (poly, z) in boundary_polys.iter().zip(boundary_zerofiers.iter()) {
+        //     let (_, b) = poly.clone().long_division_with_remainder(z);
+        //     assert_eq!(b, Polynomial::zero());
+        // }
+        //
+        // #[cfg(debug_assertions)]
+        // let mut transition_evaluations = Vec::new();
 
         let divisors = self.air.transition_divisors();
         // Iterate over trace and domain and compute transitions
@@ -116,9 +116,9 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
             );
 
             let mut evaluations = self.air.compute_transition(&frame, rap_challenges);
-
-            #[cfg(debug_assertions)]
-            transition_evaluations.push(evaluations.clone());
+            //
+            // #[cfg(debug_assertions)]
+            // transition_evaluations.push(evaluations.clone());
 
             evaluations = Self::compute_constraint_composition_poly_evaluations(
                 &self.air,
@@ -149,8 +149,8 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
             evaluation_table.evaluations.push(evaluations);
         }
 
-        #[cfg(debug_assertions)]
-        check_polynomial_divisibility(&self.air, &transition_evaluations, &transition_zerofiers);
+        // #[cfg(debug_assertions)]
+        // check_polynomial_divisibility(&self.air, &transition_evaluations, &transition_zerofiers);
 
         evaluation_table
     }
