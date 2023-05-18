@@ -32,7 +32,7 @@ fn two_col_fibonacci_benchmarks() {
 
 #[inline(never)]
 fn cairo_fibonacci_benchmarks() {
-    let trace = functions::stark::generate_cairo_trace("fibonacci_30");
+    let trace = functions::stark::generate_cairo_trace("fibonacci_10");
 
     let proof_options = ProofOptions {
         blowup_factor: 4,
@@ -50,7 +50,7 @@ fn cairo_fibonacci_benchmarks() {
 
 #[inline(never)]
 fn cairo_factorial_benchmarks() {
-    let trace = functions::stark::generate_cairo_trace("factorial_16");
+    let trace = functions::stark::generate_cairo_trace("factorial_8");
 
     let proof_options = ProofOptions {
         blowup_factor: 4,
