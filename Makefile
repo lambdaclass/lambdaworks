@@ -55,15 +55,19 @@ benchmarks: traces
 	cargo criterion --workspace
 
 # BENCHMARK should be one of the [[bench]] names in Cargo.toml
+# Benchmark groups are filtered by name, according to FILTER
+# Example: make benchmark BENCH=criterion_field FILTER=CAIRO/fibonacci/50_b4_q64
 benchmark: traces
-	cargo criterion --bench ${BENCH}
+	cargo criterion --bench ${BENCH} -- ${FILTER}
 
 clean:
 	rm -f $(TEST_DIR)/*.{json,trace,memory}
 	rm -f $(NON_PROOF_DIR)/*.{json,trace,memory}
 
-flamegraph_stark: traces
-	CARGO_PROFILE_BENCH_DEBUG=true cargo flamegraph --root --bench criterion_stark -- --bench
+# Benchmark groups are filtered by name, according to FILTER
+# Example: make flamegraph BENCH=criterion_field FILTER=CAIRO/fibonacci/50_b4_q64
+flamegraph: traces
+	CARGO_PROFILE_BENCH_DEBUG=true cargo flamegraph --root --bench ${BENCH} -- --bench ${FILTER}
 
 METALPATH = gpu/src/metal/shaders
 build-metal:
