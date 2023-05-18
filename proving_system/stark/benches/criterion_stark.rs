@@ -14,7 +14,7 @@ use lambdaworks_stark::{
 mod functions;
 mod util;
 
-pub fn proof_benchmarks(c: &mut Criterion) {
+pub fn artificial_trace_proofs(c: &mut Criterion) {
     let mut group = c.benchmark_group("STARK");
     group.sample_size(10);
 
@@ -43,39 +43,23 @@ pub fn proof_benchmarks(c: &mut Criterion) {
     group.bench_function("Quadratic AIR", |b| {
         b.iter(|| black_box(prove(black_box(&trace), black_box(&fibonacci_air))));
     });
+}
 
-    run_fibonacci_bench(
-        &mut group,
-        "Cairo Fibonacci proof generation - 5 elements",
-        "fibonacci_5",
-    );
-    run_fibonacci_bench(
-        &mut group,
-        "Cairo Fibonacci proof generation - 10 elements",
-        "fibonacci_10",
-    );
-    run_fibonacci_bench(
-        &mut group,
-        "Cairo Fibonacci proof generation - 30 elements",
-        "fibonacci_30",
-    );
-    run_fibonacci_bench(
-        &mut group,
-        "Cairo Fibonacci proof generation - 50 elements",
-        "fibonacci_50",
-    );
-    run_fibonacci_bench(
-        &mut group,
-        "Cairo Fibonacci proof generation - 100 elements",
-        "fibonacci_100",
-    );
+fn cairo_fibonacci_benches(c: &mut Criterion) {
+    let mut group = c.benchmark_group("CAIRO");
+
+    run_fibonacci_bench(&mut group, "fibonacci/5", "fibonacci_5");
+    run_fibonacci_bench(&mut group, "fibonacci/10", "fibonacci_10");
+    run_fibonacci_bench(&mut group, "fibonacci/30", "fibonacci_30");
+    run_fibonacci_bench(&mut group, "fibonacci/50", "fibonacci_50");
+    run_fibonacci_bench(&mut group, "fibonacci/100", "fibonacci_100");
 }
 
 fn run_fibonacci_bench(group: &mut BenchmarkGroup<'_, WallTime>, benchname: &str, file: &str) {
     let trace = generate_cairo_trace(file);
 
     let blowup_factors = [2, 4, 8];
-    let query_numbers = [16, 32];
+    let query_numbers = [16, 32, 64];
 
     for &blowup_factor in blowup_factors.iter() {
         for &fri_number_of_queries in query_numbers.iter() {
@@ -96,5 +80,5 @@ fn run_fibonacci_bench(group: &mut BenchmarkGroup<'_, WallTime>, benchname: &str
     }
 }
 
-criterion_group!(benches, proof_benchmarks);
+criterion_group!(benches, artificial_trace_proofs, cairo_fibonacci_benches);
 criterion_main!(benches);
