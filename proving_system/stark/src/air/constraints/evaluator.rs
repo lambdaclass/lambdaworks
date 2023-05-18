@@ -6,10 +6,6 @@ use lambdaworks_math::{
 
 use crate::air::{frame::Frame, trace::TraceTable, AIR};
 use std::iter::zip;
-
-#[cfg(debug_assertions)]
-use crate::air::debug::check_polynomial_divisibility;
-
 use super::{boundary::BoundaryConstraints, evaluation_table::ConstraintEvaluationTable};
 
 pub struct ConstraintEvaluator<'poly, F: IsFFTField, A: AIR> {
@@ -124,13 +120,6 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
 
             evaluation_table.evaluations.push(evaluations);
         }
-
-        #[cfg(debug_assertions)]
-        check_polynomial_divisibility(
-            &self.air,
-            &transition_evaluations,
-            &self.air.transition_divisors(),
-        );
 
         evaluation_table
     }
