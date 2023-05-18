@@ -143,6 +143,9 @@ jobs:
         with:
           toolchain: stable
           components: clippy
+      
+      - name: Is tar installed?
+        run: tar --help
 
       - name: Fetch program traces
         uses: actions/cache/restore@v3
