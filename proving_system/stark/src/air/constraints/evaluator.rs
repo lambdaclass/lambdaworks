@@ -4,9 +4,9 @@ use lambdaworks_math::{
     traits::ByteConversion,
 };
 
+use super::{boundary::BoundaryConstraints, evaluation_table::ConstraintEvaluationTable};
 use crate::air::{frame::Frame, trace::TraceTable, AIR};
 use std::iter::zip;
-use super::{boundary::BoundaryConstraints, evaluation_table::ConstraintEvaluationTable};
 
 pub struct ConstraintEvaluator<'poly, F: IsFFTField, A: AIR> {
     air: A,

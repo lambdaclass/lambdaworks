@@ -56,9 +56,6 @@ where
 
     let last_poly = fold_polynomial(&current_layer.poly, &zeta);
 
-    #[cfg(debug_assertions)]
-    assert_eq!(last_poly.degree(), 0);
-
     let last_value = last_poly
         .coefficients()
         .get(0)

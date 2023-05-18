@@ -507,10 +507,6 @@ impl AIR for CairoAIR {
             public_input.ap_final.clone(),
         );
 
-        // Auxiliary constraint: permutation argument initial value
-        //BoundaryConstraint::new(PERMUTATION_ARGUMENT_COL_0, 0, )
-        //public_input.program[0]
-
         // Auxiliary constraint: permutation argument final value
         let final_index = self.context.trace_length - 1;
 

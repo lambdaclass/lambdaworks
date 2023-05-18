@@ -324,3 +324,52 @@ fn test_prove_dummy() {
     let result = prove(&trace, &dummy_air, &mut ());
     assert!(verify(&result, &dummy_air, &()));
 }
+
+#[test_log::test]
+fn test_prove_cairo_simple_program_malicious() {
+    let base_dir = env!("CARGO_MANIFEST_DIR");
+    let dir_trace = base_dir.to_owned() + "/src/cairo_vm/test_data/simple_program.trace";
+    let dir_memory = base_dir.to_owned() + "/src/cairo_vm/test_data/simple_program.mem";
+
+    let raw_trace = CairoTrace::from_file(&dir_trace).unwrap();
+    let memory = CairoMemory::from_file(&dir_memory).unwrap();
+
+    let proof_options = ProofOptions {
+        blowup_factor: 4,
+        fri_number_of_queries: 1,
+        coset_offset: 3,
+    };
+
+    let program_size = 5;
+    let mut real_program = vec![];
+    for i in 1..=program_size as u64 {
+        real_program.push(memory.get(&i).unwrap().clone());
+        println!("{:}", memory.get(&i).unwrap().representative());
+    }
+
+    let mut malicious_program = real_program.clone();
+    malicious_program[1] = FieldElement::from(5);
+    malicious_program[3] = FieldElement::from(5);
+
+    let cairo_air = cairo::CairoAIR::new(proof_options, 16, raw_trace.steps());
+
+    let first_step = &raw_trace.rows[0];
+    let last_step = &raw_trace.rows[raw_trace.steps() - 1];
+
+    let mut public_input = PublicInputs {
+        pc_init: FE::from(first_step.pc),
+        ap_init: FE::from(first_step.ap),
+        fp_init: FE::from(first_step.fp),
+        pc_final: FE::from(last_step.pc),
+        ap_final: FE::from(last_step.ap),
+        program: malicious_program,
+        range_check_min: None,
+        range_check_max: None,
+        num_steps: raw_trace.steps(),
+    };
+
+    let result = prove(&(raw_trace, memory), &cairo_air, &mut public_input);
+
+    public_input.program = real_program;
+    assert!(!verify(&result, &cairo_air, &public_input));
+}
