@@ -303,9 +303,7 @@ fn test_prove_rap_fib() {
 #[test_log::test]
 fn test_prove_dummy() {
     let trace_length = 16;
-    let mut trace = dummy_air::dummy_trace(trace_length);
-
-    trace[0][trace_length - 1] = FieldElement::zero();
+    let trace = dummy_air::dummy_trace(trace_length);
 
     let context = AirContext {
         options: ProofOptions {
