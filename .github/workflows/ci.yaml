@@ -13,9 +13,9 @@ jobs:
   # Stolen from cairo-rs: https://github.com/lambdaclass/cairo-rs/blob/92a81f74a4a06636be1a32cb9886d1c9ba793050/.github/workflows/rust.yml
   build-programs:
     name: Generate Cairo traces
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
-    - name: Checkout
+    - name: Checkout sources
       uses: actions/checkout@v3
       with:
         fetch-depth: 0
@@ -25,9 +25,9 @@ jobs:
       id: cache-programs
       with:
         path: |
-          cairo_programs/**/*.trace
-          cairo_programs/**/*.memory
-        key: traces-cache-${{ hashFiles( 'cairo_programs/**/*.cairo' ) }}
+          proving_system/stark/cairo_programs/**/*.trace
+          proving_system/stark/cairo_programs/**/*.memory
+        key: traces-cache-${{ hashFiles( 'proving_system/stark/cairo_programs/**/*.cairo' ) }}
         restore-keys: traces-cache-
 
     # This is not pretty, but we need `make` to see the compiled programs are
@@ -95,7 +95,8 @@ jobs:
     env:
       CARGO_TERM_COLOR: always
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout sources
+        uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
@@ -107,9 +108,9 @@ jobs:
         uses: actions/cache/restore@v3
         with:
           path: |
-            cairo_programs/**/*.trace
-            cairo_programs/**/*.memory
-          key: traces-cache-${{ hashFiles( 'cairo_programs/**/*.cairo' ) }}
+            proving_system/stark/cairo_programs/**/*.trace
+            proving_system/stark/cairo_programs/**/*.memory
+          key: traces-cache-${{ hashFiles( 'proving_system/stark/cairo_programs/**/*.cairo' ) }}
           fail-on-cache-miss: true
 
       - name: Run tests and generate code coverage
@@ -128,7 +129,8 @@ jobs:
     env:
       CARGO_TERM_COLOR: always
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout sources
+        uses: actions/checkout@v3
       - name: Rustup toolchain install
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -139,9 +141,9 @@ jobs:
         uses: actions/cache/restore@v3
         with:
           path: |
-            cairo_programs/**/*.trace
-            cairo_programs/**/*.memory
-          key: traces-cache-${{ hashFiles( 'cairo_programs/**/*.cairo' ) }}
+            proving_system/stark/cairo_programs/**/*.trace
+            proving_system/stark/cairo_programs/**/*.memory
+          key: traces-cache-${{ hashFiles( 'proving_system/stark/cairo_programs/**/*.cairo' ) }}
           fail-on-cache-miss: true
 
       - name: Run tests
