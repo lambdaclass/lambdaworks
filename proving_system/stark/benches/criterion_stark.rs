@@ -47,6 +47,7 @@ pub fn artificial_trace_proofs(c: &mut Criterion) {
 
 fn cairo_benches(c: &mut Criterion) {
     let mut group = c.benchmark_group("CAIRO");
+    group.sample_size(10);
 
     run_cairo_bench(&mut group, "fibonacci/5", "fibonacci_5");
     run_cairo_bench(&mut group, "fibonacci/10", "fibonacci_10");
