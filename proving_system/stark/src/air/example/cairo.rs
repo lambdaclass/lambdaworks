@@ -177,13 +177,11 @@ impl CairoAIR {
                 2, 2, 2, 2, // Increasing memory auxiliary constraints.
                 2, 2, 2, 2, // Consistent memory auxiliary constraints.
                 2, 2, 2, 2, // Permutation auxiliary constraints.
-                2, 2, 2 // Permutation auxiliary constraints.
+                2, 2, 2, // Permutation auxiliary constraints.
             ],
             transition_exemptions: vec![
                 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-                1, 1, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1,
-                1, 1, 1,
-                0, 0, 1,
+                1, 1, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 1,
             ],
             transition_offsets: vec![0, 1],
             num_transition_constraints: 49,
@@ -301,7 +299,7 @@ fn pad_with_last_row<F: IsFFTField>(
 
 fn get_missing_values_offset_columns<F>(
     trace: &TraceTable<F>,
-    columns_indices: &[usize]
+    columns_indices: &[usize],
 ) -> (Vec<FieldElement<F>>, u16, u16)
 where
     F: IsFFTField + IsPrimeField,
@@ -334,7 +332,11 @@ where
         multiple_of_three_padding as usize
     ]);
 
-    (all_missing_values, sorted_offset_representatives[0], sorted_offset_representatives.last().cloned().unwrap())
+    (
+        all_missing_values,
+        sorted_offset_representatives[0],
+        sorted_offset_representatives.last().cloned().unwrap(),
+    )
 }
 
 fn add_missing_values_to_offsets_column<F: IsFFTField>(
@@ -371,7 +373,8 @@ impl AIR for CairoAIR {
             &MEMORY_COLUMNS,
         );
 
-        let (missing_values, rc_min, rc_max) = get_missing_values_offset_columns(&mut main_trace, &[OFF_DST, OFF_OP0, OFF_OP1]);
+        let (missing_values, rc_min, rc_max) =
+            get_missing_values_offset_columns(&mut main_trace, &[OFF_DST, OFF_OP0, OFF_OP1]);
         public_input.range_check_min = Some(rc_min);
         public_input.range_check_max = Some(rc_max);
 
@@ -463,6 +466,10 @@ impl AIR for CairoAIR {
         }
     }
 
+    fn number_auxiliary_rap_columns(&self) -> usize {
+        12 + 3 + 3
+    }
+
     fn compute_transition(
         &self,
         frame: &Frame<Self::Field>,
@@ -531,10 +538,19 @@ impl AIR for CairoAIR {
             BoundaryConstraint::new(PERMUTATION_ARGUMENT_COL_3, final_index, permutation_final);
 
         let one: FieldElement<Self::Field> = FieldElement::one();
-        let range_check_final_constraint = BoundaryConstraint::new(PERMUTATION_ARGUMENT_RANGE_CHECK_COL_3, final_index, one);
+        let range_check_final_constraint =
+            BoundaryConstraint::new(PERMUTATION_ARGUMENT_RANGE_CHECK_COL_3, final_index, one);
 
-        let range_check_min = BoundaryConstraint::new(RANGE_CHECK_COL_1, 0, FieldElement::from(public_input.range_check_min.unwrap() as u64));
-        let range_check_max = BoundaryConstraint::new(RANGE_CHECK_COL_3, final_index, FieldElement::from(public_input.range_check_max.unwrap() as u64));
+        let range_check_min = BoundaryConstraint::new(
+            RANGE_CHECK_COL_1,
+            0,
+            FieldElement::from(public_input.range_check_min.unwrap() as u64),
+        );
+        let range_check_max = BoundaryConstraint::new(
+            RANGE_CHECK_COL_3,
+            final_index,
+            FieldElement::from(public_input.range_check_max.unwrap() as u64),
+        );
 
         let constraints = vec![
             initial_pc,
@@ -544,7 +560,7 @@ impl AIR for CairoAIR {
             permutation_final_constraint,
             range_check_final_constraint,
             range_check_min,
-            range_check_max
+            range_check_max,
         ];
 
         BoundaryConstraints::from_constraints(constraints)
@@ -554,8 +570,8 @@ impl AIR for CairoAIR {
         self.context.clone()
     }
 
-    fn number_auxiliary_rap_columns(&self) -> usize {
-        12 + 3 + 3
+    fn composition_poly_degree_bound(&self) -> usize {
+        2 * self.context().trace_length
     }
 }
 
@@ -748,7 +764,6 @@ fn permutation_argument(
     let v2 = &curr[FRAME_OP0];
     let v3 = &curr[FRAME_OP1];
 
-
     constraints[PERMUTATION_ARGUMENT_0] =
         (z - (ap1 + alpha * vp1)) * p1 - (z - (a1 + alpha * v1)) * p0;
     constraints[PERMUTATION_ARGUMENT_1] =
@@ -789,12 +804,9 @@ fn permutation_argument_range_check(
     let a1 = &curr[OFF_OP0];
     let a2 = &curr[OFF_OP1];
 
-    constraints[RANGE_CHECK_0] =
-        (z - ap1) * p1 - (z - a1) * p0;
-    constraints[RANGE_CHECK_1] =
-        (z - ap2) * p2 - (z - a2) * p1;
-    constraints[RANGE_CHECK_2] =
-        (z - ap0_next) * p0_next - (z - a0_next) * p2;
+    constraints[RANGE_CHECK_0] = (z - ap1) * p1 - (z - a1) * p0;
+    constraints[RANGE_CHECK_1] = (z - ap2) * p2 - (z - a2) * p1;
+    constraints[RANGE_CHECK_2] = (z - ap0_next) * p0_next - (z - a0_next) * p2;
 }
 fn frame_inst_size(frame_row: &[FE]) -> FE {
     &frame_row[F_OP_1_VAL] + FE::one()

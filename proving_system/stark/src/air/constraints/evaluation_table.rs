@@ -24,10 +24,7 @@ impl<F: IsField> ConstraintEvaluationTable<F> {
         }
     }
 
-    pub fn compute_composition_poly(
-        &self,
-        offset: &FieldElement<F>,
-    ) -> Polynomial<FieldElement<F>>
+    pub fn compute_composition_poly(&self, offset: &FieldElement<F>) -> Polynomial<FieldElement<F>>
     where
         F: IsFFTField,
         Polynomial<FieldElement<F>>: FFTPoly<F>,

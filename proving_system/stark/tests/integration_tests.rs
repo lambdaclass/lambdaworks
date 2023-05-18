@@ -139,7 +139,7 @@ fn test_prove_cairo_simple_program() {
     let memory = CairoMemory::from_file(&dir_memory).unwrap();
 
     let proof_options = ProofOptions {
-        blowup_factor: 4,
+        blowup_factor: 2,
         fri_number_of_queries: 1,
         coset_offset: 3,
     };
@@ -201,7 +201,7 @@ fn test_prove_cairo_call_func() {
     let memory = CairoMemory::from_file(&dir_memory).unwrap();
 
     let proof_options = ProofOptions {
-        blowup_factor: 4,
+        blowup_factor: 2,
         fri_number_of_queries: 1,
         coset_offset: 3,
     };
@@ -242,7 +242,7 @@ fn test_prove_cairo_fibonacci() {
     let memory = CairoMemory::from_file(&dir_memory).expect("Cairo memory binary file not found");
 
     let proof_options = ProofOptions {
-        blowup_factor: 4,
+        blowup_factor: 2,
         fri_number_of_queries: 5,
         coset_offset: 3,
     };
@@ -306,15 +306,8 @@ fn test_prove_rap_fib() {
 #[test_log::test]
 fn test_prove_dummy() {
     let trace_length = 16;
-
-    // Currently this trace has all ones in the first column.
-    // The constraints over the column holds, as it has to be
-    // either a 1 or a 0. But if they are all 1s, the generated
-    // proof does not verify. If we replace the last value of the first
-    // column with a 0, the test verifies.
     let mut trace = dummy_air::dummy_trace(trace_length);
 
-    // UNCOMMENT THIS LINE SO THAT THE TEST PASSES:
     trace[0][trace_length - 1] = FieldElement::zero();
 
     let context = AirContext {

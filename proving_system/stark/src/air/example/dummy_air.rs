@@ -87,8 +87,11 @@ impl AIR for DummyAIR {
     fn context(&self) -> air::context::AirContext {
         self.context.clone()
     }
-}
 
+    fn composition_poly_degree_bound(&self) -> usize {
+        self.context().trace_length
+    }
+}
 
 pub fn dummy_trace<F: IsField>(trace_length: usize) -> Vec<Vec<FieldElement<F>>> {
     let mut ret: Vec<FieldElement<F>> = vec![];

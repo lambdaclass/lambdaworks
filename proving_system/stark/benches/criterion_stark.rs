@@ -53,6 +53,4 @@
 //
 // criterion_group!(benches, proof_benchmarks);
 // criterion_main!(benches);
-fn main() {
-
-}
+fn main() {}

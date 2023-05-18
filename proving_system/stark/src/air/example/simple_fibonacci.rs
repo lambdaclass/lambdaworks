@@ -38,6 +38,10 @@ impl AIR for FibonacciAIR {
         TraceTable::new_from_cols(raw_trace)
     }
 
+    fn composition_poly_degree_bound(&self) -> usize {
+        self.context().trace_length
+    }
+
     fn build_auxiliary_trace(
         &self,
         _main_trace: &TraceTable<Self::Field>,

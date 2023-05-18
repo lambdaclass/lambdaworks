@@ -69,7 +69,7 @@ impl AIR for Fibonacci2ColsAIR {
     fn number_auxiliary_rap_columns(&self) -> usize {
         0
     }
-    
+
     fn boundary_constraints(
         &self,
         _rap_challenges: &Self::RAPChallenges,
@@ -83,6 +83,10 @@ impl AIR for Fibonacci2ColsAIR {
 
     fn context(&self) -> air::context::AirContext {
         self.context.clone()
+    }
+
+    fn composition_poly_degree_bound(&self) -> usize {
+        self.context().trace_length
     }
 }
 

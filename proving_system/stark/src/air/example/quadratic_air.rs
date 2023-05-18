@@ -80,6 +80,10 @@ impl AIR for QuadraticAIR {
     fn context(&self) -> air::context::AirContext {
         self.context.clone()
     }
+
+    fn composition_poly_degree_bound(&self) -> usize {
+        2 * self.context().trace_length
+    }
 }
 
 pub fn quadratic_trace<F: IsField>(

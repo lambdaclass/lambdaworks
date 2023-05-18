@@ -120,6 +120,10 @@ impl AIR for FibonacciRAP {
     fn context(&self) -> AirContext {
         self.context.clone()
     }
+
+    fn composition_poly_degree_bound(&self) -> usize {
+        self.context().trace_length
+    }
 }
 
 pub fn fibonacci_rap_trace<F: IsFFTField>(

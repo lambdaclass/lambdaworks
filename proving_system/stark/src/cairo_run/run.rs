@@ -181,23 +181,11 @@ mod tests {
             // col 26
             vec![FE::from(3), FE::from(3), FE::from(9)],
             // col 27
-            vec![
-                FE::from(0x8000),
-                FE::from(0x7fff),
-                FE::from(0x7ffe),
-            ],
+            vec![FE::from(0x8000), FE::from(0x7fff), FE::from(0x7ffe)],
             // col 28
-            vec![
-                FE::from(0x7fff),
-                FE::from(0x7fff),
-                FE::from(0x7fff),
-            ],
+            vec![FE::from(0x7fff), FE::from(0x7fff), FE::from(0x7fff)],
             // col 29
-            vec![
-                FE::from(0x8001),
-                FE::from(0x8001),
-                FE::from(0x7fff),
-            ],
+            vec![FE::from(0x8001), FE::from(0x8001), FE::from(0x7fff)],
             // col 30
             vec![FE::zero(), FE::zero(), FE::zero()],
             // col 31

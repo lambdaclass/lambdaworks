@@ -42,6 +42,8 @@ pub trait AIR: Clone {
 
     fn number_auxiliary_rap_columns(&self) -> usize;
 
+    fn composition_poly_degree_bound(&self) -> usize;
+
     fn compute_transition(
         &self,
         frame: &Frame<Self::Field>,

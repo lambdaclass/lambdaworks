@@ -101,7 +101,7 @@ where
     let step = evaluations.len() / (domain_size * blowup_factor);
     match step {
         1 => Ok(evaluations),
-        _ => Ok(evaluations.into_iter().step_by(step).collect())
+        _ => Ok(evaluations.into_iter().step_by(step).collect()),
     }
 }
 
@@ -714,13 +714,9 @@ mod tests {
         .unwrap();
 
         for poly in trace_polys.iter() {
-            let lde_evaluation = evaluate_polynomial_on_lde_domain(
-                poly,
-                blowup_factor,
-                domain_size,
-                &coset_offset,
-            )
-            .unwrap();
+            let lde_evaluation =
+                evaluate_polynomial_on_lde_domain(poly, blowup_factor, domain_size, &coset_offset)
+                    .unwrap();
             assert_eq!(lde_evaluation.len(), trace_length * blowup_factor);
             for (i, evaluation) in lde_evaluation.iter().enumerate() {
                 assert_eq!(
@@ -737,10 +733,14 @@ mod tests {
         let blowup_factor: usize = 4;
         let domain_size: usize = 8;
         let offset = FE::from(3);
-        let evaluations = evaluate_polynomial_on_lde_domain(&poly, blowup_factor, domain_size, &offset).unwrap();
+        let evaluations =
+            evaluate_polynomial_on_lde_domain(&poly, blowup_factor, domain_size, &offset).unwrap();
         assert_eq!(evaluations.len(), domain_size * blowup_factor);
 
-        let primitive_root: FE = Stark252PrimeField::get_primitive_root_of_unity((domain_size * blowup_factor).trailing_zeros() as u64).unwrap();
+        let primitive_root: FE = Stark252PrimeField::get_primitive_root_of_unity(
+            (domain_size * blowup_factor).trailing_zeros() as u64,
+        )
+        .unwrap();
         for (i, eval) in evaluations.iter().enumerate() {
             assert_eq!(*eval, poly.evaluate(&(&offset * &primitive_root.pow(i))));
         }

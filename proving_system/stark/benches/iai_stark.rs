@@ -12,6 +12,4 @@
 // }
 //
 // iai::main!(simple_fibonacci_benchmarks, two_col_fibonacci_benchmarks,);
-fn main() {
-
-}
+fn main() {}

@@ -231,34 +231,15 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
 
     // TODO: Get trace polys degrees in a better way. The degree may not be trace_length - 1 in some
     // special cases.
-    let transition_divisors = air.transition_divisors();
 
-    let transition_quotients_max_degree = transition_divisors
-        .iter()
-        .zip(air.context().transition_degrees())
-        .map(|(div, degree)| (air.context().trace_length - 1) * degree - div.degree())
-        .max()
-        .unwrap();
-
-    let boundary_quotients_max_degree = boundary_quotient_degrees.iter().max().unwrap();
-
-    let max_degree = std::cmp::max(
-        transition_quotients_max_degree,
-        *boundary_quotients_max_degree,
-    );
-    let max_degree_power_of_two = helpers::next_power_of_two(max_degree as u64);
+    let boundary_term_degree_adjustment =
+        air.composition_poly_degree_bound() - air.context().trace_length;
 
     let boundary_quotient_ood_evaluations: Vec<FieldElement<F>> = boundary_c_i_evaluations
         .iter()
-        .zip(boundary_quotient_degrees)
         .zip(&challenges.boundary_coeffs)
-        .map(|((poly_eval, poly_degree), (alpha, beta))| {
-            poly_eval
-                * (alpha
-                    * challenges
-                        .z
-                        .pow(max_degree_power_of_two - poly_degree as u64)
-                    + beta)
+        .map(|(poly_eval, (alpha, beta))| {
+            poly_eval * (alpha * challenges.z.pow(boundary_term_degree_adjustment) + beta)
         })
         .collect();
 
@@ -278,7 +259,6 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
             &transition_ood_frame_evaluations,
             &divisors,
             &challenges.transition_coeffs,
-            max_degree_power_of_two,
             &challenges.z,
         );
 
