@@ -10,6 +10,45 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Stolen from cairo-rs: https://github.com/lambdaclass/cairo-rs/blob/92a81f74a4a06636be1a32cb9886d1c9ba793050/.github/workflows/rust.yml
+  build-programs:
+    name: Generate Cairo traces
+    runs-on: ubuntu-22.04
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: Fetch from cache
+      uses: actions/cache@v3
+      id: cache-programs
+      with:
+        path: |
+          cairo_programs/**/*.trace
+          cairo_programs/**/*.memory
+        key: traces-cache-${{ hashFiles( 'cairo_programs/**/*.cairo' ) }}
+        restore-keys: traces-cache-
+
+    # This is not pretty, but we need `make` to see the compiled programs are
+    # actually newer than the sources, otherwise it will try to rebuild them
+    - name: Restore timestamps
+      uses: chetan/git-restore-mtime-action@v1
+
+    - name: Python3 Build
+      if: ${{ steps.cache-programs.outputs.cache-hit != 'true' }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+        cache: 'pip'
+    - name: Install cairo-lang and deps
+      if: ${{ steps.cache-programs.outputs.cache-hit != 'true' }}
+      run: pip install -r requirements.txt
+
+    - name: Generate traces
+      if: ${{ steps.cache-programs.outputs.cache-hit != 'true' }}
+      run: make -j traces
+
   compile:
     name: Compile
     runs-on: ubuntu-latest
@@ -29,6 +68,7 @@ jobs:
 
       - name: Check benchmarks
         run: cargo bench --no-run
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
@@ -47,7 +87,9 @@ jobs:
 
       - name: Run clippy
         run: make clippy
+
   test:
+    needs: build-programs
     name: Test (Ubuntu)
     runs-on: ubuntu-latest
     env:
@@ -60,15 +102,16 @@ jobs:
           components: clippy
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
-      - name: Python3 Build
-        uses: actions/setup-python@v4
+
+      - name: Fetch program traces
+        uses: actions/cache/restore@v3
         with:
-          python-version: '3.9'
-          cache: 'pip'
-      - name: Install cairo-lang and deps
-        run: pip install -r requirements.txt
-      - name: Generate traces
-        run: make traces
+          path: |
+            cairo_programs/**/*.trace
+            cairo_programs/**/*.memory
+          key: traces-cache-${{ hashFiles( 'cairo_programs/**/*.cairo' ) }}
+          fail-on-cache-miss: true
+
       - name: Run tests and generate code coverage
         run: cargo llvm-cov --lcov --output-path lcov.info
       - name: Upload coverage to Codecov
@@ -77,7 +120,9 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: lcov.info
           fail_ci_if_error: true
+
   test_macos:
+    needs: build-programs
     name: Test (macOS, Apple sillicon)
     runs-on: [self-hosted, macOS]
     env:
@@ -89,14 +134,15 @@ jobs:
         with:
           toolchain: stable
           components: clippy
-      - name: Python3 Build
-        uses: actions/setup-python@v4
+
+      - name: Fetch program traces
+        uses: actions/cache/restore@v3
         with:
-          python-version: '3.9'
-          cache: 'pip'
-      - name: Install cairo-lang and deps
-        run: pip install -r requirements.txt
-      - name: Generate traces
-        run: make traces
+          path: |
+            cairo_programs/**/*.trace
+            cairo_programs/**/*.memory
+          key: traces-cache-${{ hashFiles( 'cairo_programs/**/*.cairo' ) }}
+          fail-on-cache-miss: true
+
       - name: Run tests
         run: cargo test -F metal
