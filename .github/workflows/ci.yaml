@@ -11,9 +11,11 @@ concurrency:
 
 jobs:
   # Stolen from cairo-rs: https://github.com/lambdaclass/cairo-rs/blob/92a81f74a4a06636be1a32cb9886d1c9ba793050/.github/workflows/rust.yml
-  build-programs:
+  generate-traces:
     name: Generate Cairo traces
     runs-on: ubuntu-latest
+    outputs:
+      trace-path: ${{ steps.trace-path.outputs.trace-path }}
     steps:
     - name: Checkout sources
       uses: actions/checkout@v3
@@ -49,6 +51,10 @@ jobs:
     - name: Generate traces
       if: ${{ steps.cache-programs.outputs.cache-hit != 'true' }}
       run: make -j traces
+
+    - name: Output traces path
+      id: trace-path
+      run: echo "${GITHUB_WORKSPACE}/proving_system/stark/cairo_programs" >> "$GITHUB_OUTPUT"
 
   compile:
     name: Compile
@@ -90,7 +96,7 @@ jobs:
         run: make clippy
 
   test:
-    needs: build-programs
+    needs: generate-traces
     name: Test (Ubuntu)
     runs-on: ubuntu-latest
     env:
@@ -113,7 +119,6 @@ jobs:
             proving_system/stark/cairo_programs/**/*.memory
           key: traces-cache-${{ hashFiles( 'proving_system/stark/cairo_programs/**/*.cairo' ) }}
           fail-on-cache-miss: true
-          enableCrossOsArchive: true
 
       - name: Run tests and generate code coverage
         run: cargo llvm-cov --lcov --output-path lcov.info
@@ -125,7 +130,7 @@ jobs:
           fail_ci_if_error: true
 
   test_macos:
-    needs: build-programs
+    needs: generate-traces
     name: Test (macOS, Apple sillicon)
     runs-on: [self-hosted, macOS]
     env:
@@ -143,11 +148,14 @@ jobs:
         uses: actions/cache/restore@v3
         with:
           path: |
-            proving_system/stark/cairo_programs/**/*.trace
-            proving_system/stark/cairo_programs/**/*.memory
+            ${{ needs.generate-traces.outputs.trace-path }}/**/*.trace
+            ${{ needs.generate-traces.outputs.trace-path }}/**/*.memory
           key: traces-cache-${{ hashFiles( 'proving_system/stark/cairo_programs/**/*.cairo' ) }}
           fail-on-cache-miss: true
           enableCrossOsArchive: true
+      - name: Relocate program traces
+        run: |
+          mv ${{ needs.generate-traces.outputs.trace-path }} proving_system/stark/cairo_programs
 
       - name: Run tests
         run: cargo test -F metal
