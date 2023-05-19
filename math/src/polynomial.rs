@@ -42,7 +42,7 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
             return Polynomial::new(&[]);
         }
 
-        let mut inverses = Vec::with_capacity(xs.len() * (xs.len() - 1) / 2);
+        let mut denominators = Vec::with_capacity(xs.len() * (xs.len() - 1) / 2);
         let mut indexes = Vec::with_capacity(xs.len());
 
         let mut idx = 0;
@@ -53,11 +53,13 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
                 if i > j {
                     // TODO: return Result here?
                     assert_ne!(xi, xj, "xs values must be unique");
-                    inverses.push((xi - xj).inv());
+                    denominators.push((xi - xj).inv());
                     idx += 1;
                 }
             }
         }
+
+        inplace_batch_inverse(&mut denominators);
 
         let mut result = Polynomial::zero();
 
@@ -68,9 +70,9 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
                     continue;
                 }
                 let denominator = if i > j {
-                    inverses[indexes[i - 1] + j].clone()
+                    denominators[indexes[i - 1] + j].clone()
                 } else {
-                    -&inverses[indexes[j - 1] + i].clone()
+                    -&denominators[indexes[j - 1] + i].clone()
                 };
                 let denominator_poly = Polynomial::new(&[denominator]);
                 let numerator = Polynomial::new(&[-x, FieldElement::one()]);
@@ -586,6 +588,26 @@ impl<F: IsField> ops::Sub<&Polynomial<FieldElement<F>>> for FieldElement<F> {
     }
 }
 
+// TODO: move to another place
+// Source: https://en.wikipedia.org/wiki/Modular_multiplicative_inverse#Multiple_inverses
+fn inplace_batch_inverse<F: IsField>(numbers: &mut [FieldElement<F>]) {
+    if numbers.is_empty() {
+        return;
+    }
+    let count = numbers.len();
+    let mut prod_prefix = Vec::with_capacity(count);
+    prod_prefix.push(numbers[0].clone());
+    for i in 1..count {
+        prod_prefix.push(&prod_prefix[i - 1] * &numbers[i]);
+    }
+    let mut bi_inv = prod_prefix[count - 1].inv();
+    for i in (1..count).rev() {
+        let ai_inv = &bi_inv * &prod_prefix[i - 1];
+        bi_inv = &bi_inv * &numbers[i];
+        numbers[i] = ai_inv;
+    }
+    numbers[0] = bi_inv;
+}
 #[cfg(test)]
 mod tests {
     use crate::field::fields::u64_prime_field::U64PrimeField;
