@@ -83,9 +83,14 @@ impl<F: IsFFTField> TraceTable<F> {
     }
 
     /// Given a step and a column index, gives stored value in that position
-    pub fn get(&self, step: usize, col: usize) -> FieldElement<F> {
+    pub fn get(&self, step: usize, col: usize) -> Result<FieldElement<F>, AIRError> {
         let idx = step * self.n_cols + col;
-        self.table[idx].clone()
+        let result = self
+            .table
+            .get(idx)
+            .ok_or(AIRError::RowIndexOutOfTableBounds(idx, self.n_rows()))?;
+
+        Ok(result.clone())
     }
 
     pub fn compute_trace_polys(&self) -> Result<Vec<Polynomial<FieldElement<F>>>, AIRError> {

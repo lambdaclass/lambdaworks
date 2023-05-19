@@ -39,7 +39,7 @@ pub fn validate_trace<F: IsFFTField, A: AIR<Field = F>>(
             let col = constraint.col;
             let step = constraint.step;
             let boundary_value = constraint.value.clone();
-            let trace_value = trace.get(step, col);
+            let trace_value = trace.get(step, col).unwrap();
 
             if boundary_value != trace_value {
                 ret = false;
