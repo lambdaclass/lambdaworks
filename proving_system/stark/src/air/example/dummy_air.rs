@@ -26,7 +26,6 @@ impl From<AirContext> for DummyAIR {
 
 impl AIR for DummyAIR {
     type Field = Stark252PrimeField;
-    // type Field = F17;
     type RawTrace = Vec<Vec<FieldElement<Self::Field>>>;
     type RAPChallenges = ();
     type PublicInput = ();

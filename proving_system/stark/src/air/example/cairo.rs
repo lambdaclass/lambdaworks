@@ -217,8 +217,8 @@ fn add_program_in_public_input_section(
 fn sort_columns_by_memory_address(adresses: Vec<FE>, values: Vec<FE>) -> (Vec<FE>, Vec<FE>) {
     let mut tuples: Vec<_> = adresses.into_iter().zip(values).collect();
     tuples.sort_by(|(x, _), (y, _)| x.representative().cmp(&y.representative()));
-    let (adresses, values): (Vec<_>, Vec<_>) = tuples.into_iter().unzip();
-    (adresses, values)
+    tuples.into_iter().unzip()
+    // (adresses, values)
 }
 
 fn generate_memory_permutation_argument_column(
@@ -355,7 +355,6 @@ impl AIR for CairoAIR {
     ) -> TraceTable<Self::Field> {
         let mut main_trace = build_cairo_execution_trace(&raw_trace.0, &raw_trace.1);
 
-        //pad_with_zeros(&mut main_trace, (public_input.program.len() >> 2) + 1);
         pad_with_last_row(
             &mut main_trace,
             (public_input.program.len() >> 2) + 1,
@@ -848,7 +847,6 @@ mod test {
         let raw_trace = CairoTrace::from_file(&dir_trace).unwrap();
         let memory = CairoMemory::from_file(&dir_memory).unwrap();
 
-        //let program: Vec<u8> = program.iter_data().collect();
         let mut program = Vec::new();
         for i in 1..=cairo_program.data_len() as u64 {
             program.push(memory.get(&i).unwrap().clone());

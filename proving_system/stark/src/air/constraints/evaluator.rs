@@ -92,7 +92,7 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
             );
 
             let mut evaluations = self.air.compute_transition(&frame, rap_challenges);
-            //
+
             #[cfg(debug_assertions)]
             transition_evaluations.push(evaluations.clone());
 
