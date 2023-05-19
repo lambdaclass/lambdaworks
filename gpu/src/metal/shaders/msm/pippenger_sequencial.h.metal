@@ -23,3 +23,43 @@ template<typename ECPoint>
         result[bucket_index] = aux + point;
     }
 }
+
+template<typename ECPoint>
+[[kernel]]
+void calculate_window(
+    constant const ECPoint* buckets [[ buffer(0) ]],
+    constant const uint64_t* buckets_len [[ buffer(1) ]],
+    constant const ECPoint& output [[ buffer(2) ]],
+
+)
+{
+    metal::array<ECPoint, buckets_len> partial_sums {}; // b_0, b_0 + b_1, b_0 + b_1 + b_2...
+    partial_sums[0] = buckets[0];
+    for (uint64_t i = 1; i < buckets_len; i++) {
+        partial_sums[i] = partial_sums[i - 1] + buckets[i];
+    }
+
+    ECPoint acc {};
+    for (uint64_t i = 0; i < buckets_len; i++) {
+        acc += partial_sums[i];
+    }
+
+    output = acc;
+}
+
+template<typename ECPoint>
+[[kernel]]
+void reduce_windows(
+    constant const ECPoint* windows [[ buffer(0) ]],
+    constant const uint64_t* windows_len [[ buffer(1) ]],
+    constant const ECPoint& output [[ buffer(2) ]],
+
+)
+{
+    ECPoint acc {};
+    for (uint64_t i = 0; i < windows_len; i++) {
+        acc += windows[i];
+    }
+
+    output = acc;
+}
