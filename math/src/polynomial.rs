@@ -119,8 +119,9 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
         } else {
             let mut n = self;
             let mut q: Vec<FieldElement<F>> = vec![FieldElement::zero(); n.degree() + 1];
+            let denominator = dividend.leading_coefficient().inv();
             while n != Polynomial::zero() && n.degree() >= dividend.degree() {
-                let new_coefficient = n.leading_coefficient() / dividend.leading_coefficient();
+                let new_coefficient = n.leading_coefficient() * &denominator;
                 q[n.degree() - dividend.degree()] = new_coefficient.clone();
                 let d = dividend.mul_with_ref(&Polynomial::new_monomial(
                     new_coefficient,
