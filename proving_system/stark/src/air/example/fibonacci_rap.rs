@@ -33,7 +33,7 @@ impl AIR for FibonacciRAP {
     type RAPChallenges = FieldElement<Self::Field>;
 
     fn build_main_trace(raw_trace: &Self::RawTrace) -> TraceTable<Self::Field> {
-        TraceTable::new_from_cols(raw_trace)
+        TraceTable::new_from_cols(raw_trace).unwrap()
     }
 
     fn build_auxiliary_trace(
@@ -58,7 +58,7 @@ impl AIR for FibonacciRAP {
                 aux_col.push(z_i * n_p_term.div(p_term));
             }
         }
-        TraceTable::new_from_cols(&[aux_col])
+        TraceTable::new_from_cols(&[aux_col]).unwrap()
     }
 
     fn build_rap_challenges<T: Transcript>(transcript: &mut T) -> Self::RAPChallenges {

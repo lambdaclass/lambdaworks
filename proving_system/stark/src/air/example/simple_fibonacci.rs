@@ -30,7 +30,7 @@ impl AIR for FibonacciAIR {
     type RAPChallenges = ();
 
     fn build_main_trace(raw_trace: &Self::RawTrace) -> TraceTable<Self::Field> {
-        TraceTable::new_from_cols(raw_trace)
+        TraceTable::new_from_cols(raw_trace).unwrap()
     }
 
     fn build_auxiliary_trace(

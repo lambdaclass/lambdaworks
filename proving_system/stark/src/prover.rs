@@ -137,7 +137,8 @@ where
         .map_err(StarkError::PolynomialEvaluation)?;
 
     // Compute commitments [t_j].
-    let lde_trace = TraceTable::new_from_cols(&lde_trace_evaluations);
+    let lde_trace = TraceTable::new_from_cols(&lde_trace_evaluations)
+        .map_err(StarkError::InterpolationAndCommitment)?;
     let (lde_trace_merkle_trees, lde_trace_merkle_roots) =
         batch_commit(lde_trace.cols().iter().collect());
 
@@ -182,7 +183,8 @@ where
         lde_trace_merkle_roots.extend_from_slice(&aux_merkle_roots);
     }
 
-    let lde_trace = TraceTable::new_from_cols(&evaluations);
+    let lde_trace =
+        TraceTable::new_from_cols(&evaluations).map_err(StarkError::RandomizedAIRPreprocessing)?;
 
     Ok(Round1 {
         trace_polys,
@@ -682,7 +684,7 @@ mod tests {
     fn test_domain_constructor() {
         let trace = simple_fibonacci::fibonacci_trace([FE::from(1), FE::from(1)], 8);
         let trace_length = trace[0].len();
-        let trace_table = TraceTable::new_from_cols(&trace);
+        let trace_table = TraceTable::new_from_cols(&trace).unwrap();
         let coset_offset = 3;
         let blowup_factor: usize = 2;
 
@@ -731,7 +733,7 @@ mod tests {
     fn test_evaluate_polynomial_on_lde_domain() {
         let trace = simple_fibonacci::fibonacci_trace([FE::from(1), FE::from(1)], 8);
         let trace_length = trace[0].len();
-        let trace_table = TraceTable::new_from_cols(&trace);
+        let trace_table = TraceTable::new_from_cols(&trace).unwrap();
         let trace_polys = trace_table.compute_trace_polys().unwrap();
         let coset_offset = 3;
         let blowup_factor: usize = 2;
@@ -774,7 +776,7 @@ mod tests {
         let trace = simple_fibonacci::fibonacci_trace([FE::from(1), FE::from(1)], 8);
         let wrong_order = 49;
         let wrong_trace_length = 2_usize.pow(wrong_order);
-        let trace_table = TraceTable::new_from_cols(&trace);
+        let trace_table = TraceTable::new_from_cols(&trace).unwrap();
         let coset_offset = 3;
         let blowup_factor: usize = 2;
 
@@ -803,7 +805,7 @@ mod tests {
     fn test_trace_length_is_not_power_of_two() {
         let trace = simple_fibonacci::fibonacci_trace([FE::from(1), FE::from(1)], 9);
         let trace_length = trace.len();
-        let trace_table = TraceTable::new_from_cols(&trace);
+        let trace_table = TraceTable::new_from_cols(&trace).unwrap();
         let coset_offset = 3;
         let blowup_factor: usize = 2;
 

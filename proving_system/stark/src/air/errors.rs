@@ -3,8 +3,8 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum AIRError {
-    #[error("AIR transition constraints field is set to zero")]
-    TransitionConstraints,
+    #[error("Number of AIR transition constraints should be {0} but it's {1}")]
+    TransitionConstraints(usize, usize),
     #[error("Could not compute AIR transition divisors: {0}")]
     TransitionDivisors(FFTError),
     #[error("Could not compute trace polynomials: {0}")]
@@ -15,4 +15,8 @@ pub enum AIRError {
     RowIndexOutOfTableBounds(usize, usize),
     #[error("Row index {0} is out of bounds for frame with {1} rows")]
     RowIndexOutOfFrameBounds(usize, usize),
+    #[error("Attempt to create table with zero columns")]
+    TableColumns,
+    #[error("Attempt to create table with rows with different lengths")]
+    TableRowLengths,
 }

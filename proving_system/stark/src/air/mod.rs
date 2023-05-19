@@ -50,8 +50,11 @@ pub trait AIR: Clone {
     ) -> BoundaryConstraints<Self::Field>;
     fn transition_divisors(&self) -> Result<Vec<Polynomial<FieldElement<Self::Field>>>, AIRError> {
         let num_transition_constraints = self.context().num_transition_constraints;
-        if num_transition_constraints == 0 {
-            return Err(AIRError::TransitionConstraints);
+        if num_transition_constraints > self.context().transition_exemptions.len() {
+            return Err(AIRError::TransitionConstraints(
+                self.context().transition_exemptions.len(),
+                num_transition_constraints,
+            ));
         }
 
         let trace_length = self.context().trace_length;

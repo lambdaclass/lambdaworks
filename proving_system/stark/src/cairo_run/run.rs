@@ -210,7 +210,8 @@ mod tests {
             vec![FE::from(0x1b), FE::from(0x1b), FE::from(0x51), FE::zero()],
             // col 33 - Selector column
             vec![FE::one(), FE::one(), FE::zero(), FE::zero()],
-        ]);
+        ])
+        .unwrap();
 
         assert_eq!(execution_trace.cols(), expected_trace.cols());
     }

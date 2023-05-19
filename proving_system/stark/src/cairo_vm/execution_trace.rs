@@ -121,7 +121,7 @@ pub fn build_cairo_execution_trace(
 
     helpers::resize_to_next_power_of_two(&mut trace_cols);
 
-    TraceTable::new_from_cols(&trace_cols)
+    TraceTable::new_from_cols(&trace_cols).unwrap()
 }
 
 /// Returns the vector of res values.
@@ -471,7 +471,8 @@ mod test {
             vec![FE::from(0x1b), FE::from(0x1b), FE::from(0x51), FE::zero()],
             // col 33 - Selector column
             vec![FE::one(), FE::one(), FE::zero(), FE::zero()],
-        ]);
+        ])
+        .unwrap();
 
         assert_eq!(execution_trace.cols(), expected_trace.cols());
     }
@@ -889,7 +890,8 @@ mod test {
                 FE::zero(),
                 FE::zero(),
             ],
-        ]);
+        ])
+        .unwrap();
 
         assert_eq!(execution_trace.cols(), expected_trace.cols());
     }

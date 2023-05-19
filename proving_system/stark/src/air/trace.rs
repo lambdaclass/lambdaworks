@@ -26,11 +26,16 @@ impl<F: IsFFTField> TraceTable<F> {
         self.n_cols == 0
     }
 
-    pub fn new_from_cols(cols: &[Vec<FieldElement<F>>]) -> Self {
-        let n_rows = cols[0].len();
-        debug_assert!(cols.iter().all(|c| c.len() == n_rows));
-
+    pub fn new_from_cols(cols: &[Vec<FieldElement<F>>]) -> Result<Self, AIRError> {
         let n_cols = cols.len();
+        if n_cols == 0 {
+            return Err(AIRError::TableColumns);
+        }
+
+        let n_rows = cols[0].len();
+        if cols.iter().any(|c| c.len() != n_rows) {
+            return Err(AIRError::TableRowLengths);
+        }
 
         let mut table = Vec::with_capacity(n_cols * n_rows);
 
@@ -39,7 +44,7 @@ impl<F: IsFFTField> TraceTable<F> {
                 table.push(col[row_idx].clone());
             }
         }
-        Self { table, n_cols }
+        Ok(Self { table, n_cols })
     }
 
     pub fn n_rows(&self) -> usize {
@@ -104,7 +109,7 @@ mod test {
         let col_1 = vec![F::from(1), F::from(2), F::from(5), F::from(13)];
         let col_2 = vec![F::from(1), F::from(3), F::from(8), F::from(21)];
 
-        let trace_table = TraceTable::new_from_cols(&[col_1.clone(), col_2.clone()]);
+        let trace_table = TraceTable::new_from_cols(&[col_1.clone(), col_2.clone()]).unwrap();
         let res_cols = trace_table.cols();
 
         assert_eq!(res_cols, vec![col_1, col_2]);
