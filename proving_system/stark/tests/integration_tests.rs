@@ -367,7 +367,11 @@ fn test_prove_cairo_simple_program_malicious() {
         num_steps: malicious_raw_trace.steps(),
     };
 
-    let result = prove(&(malicious_raw_trace, malicious_memory), &cairo_air, &mut public_input);
+    let result = prove(
+        &(malicious_raw_trace, malicious_memory),
+        &cairo_air,
+        &mut public_input,
+    );
 
     public_input.program = real_program;
     assert!(!verify(&result, &cairo_air, &public_input));
