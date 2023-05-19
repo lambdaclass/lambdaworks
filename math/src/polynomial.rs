@@ -608,6 +608,7 @@ fn inplace_batch_inverse<F: IsField>(numbers: &mut [FieldElement<F>]) {
     }
     numbers[0] = bi_inv;
 }
+
 #[cfg(test)]
 mod tests {
     use crate::field::fields::u64_prime_field::U64PrimeField;
