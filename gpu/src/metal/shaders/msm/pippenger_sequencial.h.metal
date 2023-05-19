@@ -1,29 +1,25 @@
 #pragma once
 
-
 // NOTE: 
-//   - the number of threadgroups dispatched needs to equal the number of windows.
-//   - `cs` and `hidings` need to have a minimum length of `buflen`
-//   - `group_buckets` needs to have a minimum length of `group_size` * (2^`window_size` - 1)
-//   - `result` needs to have a length equal to the number of threadgroups
-template<typename Fp, typename ECPoint>
-[[kernel]] void calculate_Gjs_sequencial(
-    constant const Fp* cs [[ buffer(0) ]],
-    constant const ECPoint* hidings [[ buffer(1) ]],
-    constant const uint32_t& _window_size [[ buffer(2) ]],
-    constant const uint64_t& _buflen [[ buffer(3) ]],
-    device ECPoint* result [[ buffer(4) ]]
+//   - result should be size 2^s - 1
+//   - result should be initialized with the point at infinity
+template<typename ECPoint>
+[[kernel]] void calculate_Pi_sum(
+    constant const ECPoint* hidings [[ buffer(0) ]],
+    constant const uint64_t& _buflen [[ buffer(1) ]],
+    device ECPoint* result [[ buffer(2) ]]
 ) {
-    //uint32_t window_size = _window_size;
+    const uint32_t WINDOWS_SIZE = 4;
+    uint32_t bucket_size = (1 << WINDOWS_SIZE) - 1;
 
-    //uint32_t windows_mask = (1 << window_size) - 1;
-    // const uint32_t bucket_count = windows_mask; TODO calculate bucket_count dynamically
-
-    metal::array<ECPoint, 15> buckets {};
-
-    for(int i = 0; i < 15; i++){
-        result[i] = buckets[i];
+    uint64_t buflen = _buflen;
+    uint32_t bucket_index;
+    ECPoint pi;
+    ECPoint aux;
+    for(uint64_t i = 0; i < buflen; i++){
+        bucket_index = i / bucket_size;
+        pi = hidings[i];
+        aux = result[bucket_index];
+        result[bucket_index] = aux + pi;
     }
 }
-
-// TODO: perform reduction to sum result in parallel (in a different kernel)
