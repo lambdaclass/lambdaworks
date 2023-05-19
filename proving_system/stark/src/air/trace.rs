@@ -34,7 +34,7 @@ impl<F: IsFFTField> TraceTable<F> {
 
         let n_rows = cols[0].len();
         if cols.iter().any(|c| c.len() != n_rows) {
-            return Err(AIRError::TableRowLengths);
+            return Err(AIRError::TableColumnLengths);
         }
 
         let mut table = Vec::with_capacity(n_cols * n_rows);
@@ -104,11 +104,13 @@ impl<F: IsFFTField> TraceTable<F> {
 
 #[cfg(test)]
 mod test {
+    use crate::air::errors::AIRError;
+
     use super::TraceTable;
     use lambdaworks_math::field::{element::FieldElement, fields::u64_prime_field::F17};
 
     #[test]
-    fn test_cols() {
+    fn test_cols_with_same_length() {
         type F = FieldElement<F17>;
 
         let col_1 = vec![F::from(1), F::from(2), F::from(5), F::from(13)];
@@ -118,5 +120,22 @@ mod test {
         let res_cols = trace_table.cols();
 
         assert_eq!(res_cols, vec![col_1, col_2]);
+    }
+
+    #[test]
+    fn test_cols_with_different_length() {
+        type F = FieldElement<F17>;
+
+        let col_1 = vec![F::from(1), F::from(2), F::from(5), F::from(13)];
+        let col_2 = vec![F::from(1), F::from(3), F::from(8)];
+
+        let trace_table = TraceTable::new_from_cols(&[col_1, col_2]);
+        assert!(matches!(trace_table, Err(AIRError::TableColumnLengths)));
+    }
+
+    #[test]
+    fn test_empty_table() {
+        let trace_table: Result<TraceTable<F17>, _> = TraceTable::new_from_cols(&[]);
+        assert!(matches!(trace_table, Err(AIRError::TableColumns)));
     }
 }

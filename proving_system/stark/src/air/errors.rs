@@ -17,6 +17,6 @@ pub enum AIRError {
     RowIndexOutOfFrameBounds(usize, usize),
     #[error("Attempt to create table with zero columns")]
     TableColumns,
-    #[error("Attempt to create table with rows with different lengths")]
-    TableRowLengths,
+    #[error("Attempt to create table with columns with different lengths")]
+    TableColumnLengths,
 }
