@@ -4,7 +4,7 @@
 //   - result should be size 2^s - 1
 //   - result should be initialized with the point at infinity
 template<typename ECPoint>
-[[kernel]] void calculate_Pi_sum(
+[[kernel]] void calculate_points_sum(
     constant const ECPoint* hidings [[ buffer(0) ]],
     constant const uint64_t& _buflen [[ buffer(1) ]],
     device ECPoint* result [[ buffer(2) ]]
