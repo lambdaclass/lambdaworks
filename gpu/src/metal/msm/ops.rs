@@ -135,7 +135,7 @@ pub fn pippenger_sequencial<const NUM_LIMBS: usize>(
 
     debug_assert!(window_size < usize::BITS);
 
-    let pipeline = state.setup_pipeline("calculate_Gjs_bls12381_sequencial")?;
+    let pipeline = state.setup_pipeline("calculate_points_sum")?;
 
     let cs: Vec<u32> = cs
         .into_iter()
@@ -150,22 +150,26 @@ pub fn pippenger_sequencial<const NUM_LIMBS: usize>(
         .collect();
 
     let bucket_count = (1 << window_size) - 1;
-    let point_bytes = 3 * 12;
+
+    let result: Vec<u32> = vec![Point::neutral_element(); bucket_count]
+        .into_iter()
+        .map(|point| point.to_u32_limbs())
+        .flatten()
+        .collect();
 
     let cs_buffer = state.alloc_buffer_data(&cs);
     let hidings_buffer = state.alloc_buffer_data(&hidings);
-    let result_buffer = state.alloc_buffer::<u32>(bucket_count * point_bytes);
+    let result_buffer = state.alloc_buffer_data(&result);
 
     let (command_buffer, command_encoder) = state.setup_command(
         &pipeline,
-        Some(&[(0, &cs_buffer), (1, &hidings_buffer), (4, &result_buffer)]),
+        Some(&[(0, &hidings_buffer), (2, &result_buffer)]),
     );
 
-    command_encoder.set_bytes(2, std::mem::size_of::<u32>() as u64, void_ptr(&window_size));
-    command_encoder.set_bytes(3, std::mem::size_of::<u64>() as u64, void_ptr(&buflen));
+    command_encoder.set_bytes(1, std::mem::size_of::<u64>() as u64, void_ptr(&buflen));
 
-    let threadgroup_size = MTLSize::new(num_threads, 1, 1);
-    let threadgroup_count = MTLSize::new(num_windows, 1, 1);
+    let threadgroup_size = MTLSize::new(1, 1, 1);
+    let threadgroup_count = MTLSize::new(1, 1, 1);
 
     command_encoder.dispatch_thread_groups(threadgroup_count, threadgroup_size);
     command_encoder.end_encoding();
@@ -175,9 +179,11 @@ pub fn pippenger_sequencial<const NUM_LIMBS: usize>(
 
     let result: Vec<u32> = MetalState::retrieve_contents(&result_buffer);
 
-    let result: Vec<Point> = result.chunks(12 * 3).map(Point::from_u32_limbs).collect();
-
-    dbg!(result.clone());
+    let point_size = 12 * 3;
+    let result: Vec<Point> = result
+        .chunks(point_size)
+        .map(Point::from_u32_limbs)
+        .collect();
 
     Ok(result[0].clone())
 }
@@ -255,6 +261,7 @@ mod tests {
             let min_len = cs.len().min(hidings.len());
             let cs = cs[..min_len].to_vec();
             let hidings = hidings[..min_len].to_vec();
+            dbg!(hidings.clone().len());
 
             let cpu_result = pippenger::msm_with(&cs, &hidings, window_size);
             let metal_result = super::pippenger_sequencial(&cs, &hidings, &state).unwrap();

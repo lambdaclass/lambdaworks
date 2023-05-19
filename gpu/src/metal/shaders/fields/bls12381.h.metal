@@ -59,8 +59,8 @@ template [[ host_name("calculate_Gjs_bls12381") ]]
     uint32_t
 );
 
-template [[ host_name("calculate_Pi_sum") ]]
-[[kernel]] void calculate_Pi_sum<BLS12381>(
+template [[ host_name("calculate_points_sum") ]]
+[[kernel]] void calculate_points_sum<BLS12381>(
     constant BLS12381*,
     constant uint64_t&,
     device BLS12381*
