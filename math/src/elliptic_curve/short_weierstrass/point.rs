@@ -116,8 +116,7 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
                 let u_square = &u * &u;
                 let v_square = &v * &v;
                 let v_cube = &v * &v_square;
-                let a =
-                    &u_square * &w - &v_cube - FieldElement::from(2) * &v_square * &v2;
+                let a = &u_square * &w - &v_cube - FieldElement::from(2) * &v_square * &v2;
                 let xp = &v * &a;
                 let yp = u * (&v_square * v2 - a) - &v_cube * u2;
                 let zp = &v_cube * w;
