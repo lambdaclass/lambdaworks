@@ -183,8 +183,16 @@ impl CairoAIR {
                 2, 2, 2, // Permutation auxiliary constraints.
             ],
             transition_exemptions: vec![
-                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-                1, 1, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 1,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // flags (16)
+                0, // inst (1)
+                0, 0, 0, // operand consraints (3)
+                1, 1, 1, 1, 0, 0, // register constraints (6)
+                0, 0, 0, 0, 0, // opcode constraints (5)
+                0, 0, 0, 1, // memory continuous (4)
+                0, 0, 0, 1, // memory value consistency (4)
+                0, 0, 0, 1, // memory permutation argument (4)
+                0, 0, 1, // range check continuous (3)
+                0, 0, 0, // range check permutation argument (3)
             ],
             transition_offsets: vec![0, 1],
             num_transition_constraints: 49,
