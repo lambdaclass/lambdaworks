@@ -141,6 +141,8 @@ where
 
             // Do the reduction step for the buckets.
             let window_item = buckets
+                // NOTE: changing this into a parallel iter drops performance, because of the
+                //  need to use multiplication in the `map` step
                 .into_iter()
                 .rev()
                 .map(|b| {
