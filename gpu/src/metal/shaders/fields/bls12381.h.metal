@@ -65,3 +65,18 @@ template [[ host_name("calculate_points_sum") ]]
     constant uint64_t&,
     device BLS12381*
 );
+
+template [[ host_name("calculate_window") ]]
+[[kernel]] void calculate_window<BLS12381>(
+    device BLS12381*,
+    constant uint64_t&,
+    device BLS12381*,
+    device BLS12381&
+);
+
+template [[ host_name("reduce_windows") ]]
+[[kernel]] void reduce_windows<BLS12381>(
+    constant BLS12381*,
+    constant uint64_t&,
+    device BLS12381&
+);

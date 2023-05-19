@@ -27,16 +27,20 @@ template<typename ECPoint>
 template<typename ECPoint>
 [[kernel]]
 void calculate_window(
-    constant const ECPoint* buckets [[ buffer(0) ]],
-    constant const uint64_t* buckets_len [[ buffer(1) ]],
-    constant const ECPoint& output [[ buffer(2) ]],
-
+    device ECPoint* buckets [[ buffer(0) ]],
+    constant const uint64_t& _buckets_len [[ buffer(1) ]],
+    device ECPoint* partial_sums [[ buffer(2) ]],
+    device ECPoint& output [[ buffer(3) ]]
 )
 {
-    metal::array<ECPoint, buckets_len> partial_sums {}; // b_0, b_0 + b_1, b_0 + b_1 + b_2...
+    uint64_t buckets_len = _buckets_len;
+
     partial_sums[0] = buckets[0];
     for (uint64_t i = 1; i < buckets_len; i++) {
-        partial_sums[i] = partial_sums[i - 1] + buckets[i];
+        ECPoint acc = partial_sums[i - 1];
+        ECPoint bucket = buckets[i];
+
+        partial_sums[i] = acc + bucket;
     }
 
     ECPoint acc {};
@@ -51,11 +55,12 @@ template<typename ECPoint>
 [[kernel]]
 void reduce_windows(
     constant const ECPoint* windows [[ buffer(0) ]],
-    constant const uint64_t* windows_len [[ buffer(1) ]],
-    constant const ECPoint& output [[ buffer(2) ]],
-
+    constant const uint64_t& _windows_len [[ buffer(1) ]],
+    device ECPoint& output [[ buffer(2) ]]
 )
 {
+    uint64_t windows_len = _windows_len;
+
     ECPoint acc {};
     for (uint64_t i = 0; i < windows_len; i++) {
         acc += windows[i];
