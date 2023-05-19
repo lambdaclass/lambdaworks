@@ -148,8 +148,14 @@ pub struct PublicInputs {
     pub fp_init: FE,
     pub pc_final: FE,
     pub ap_final: FE,
-    pub range_check_min: Option<u16>, // minimum range check value (0 < rc_min < rc_max < 2^16)
-    pub range_check_max: Option<u16>, // maximum range check value
+    // These are Option because they're not known until
+    // the trace is obtained. They represent the minimum
+    // and maximum offsets used during program execution.
+    // TODO: A possible refactor is moving them to the proof.
+    // minimum range check value (0 < range_check_min < range_check_max < 2^16)
+    pub range_check_min: Option<u16>,
+    // maximum range check value
+    pub range_check_max: Option<u16>,
     // pub builtins: Vec<Builtin>, // list of builtins
     pub program: Vec<FE>,
     pub num_steps: usize, // number of execution steps
@@ -218,7 +224,6 @@ fn sort_columns_by_memory_address(adresses: Vec<FE>, values: Vec<FE>) -> (Vec<FE
     let mut tuples: Vec<_> = adresses.into_iter().zip(values).collect();
     tuples.sort_by(|(x, _), (y, _)| x.representative().cmp(&y.representative()));
     tuples.into_iter().unzip()
-    // (adresses, values)
 }
 
 fn generate_memory_permutation_argument_column(
