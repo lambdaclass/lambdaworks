@@ -3,32 +3,32 @@ use crate::unsigned_integer::traits::IsUnsignedInteger;
 
 #[derive(Debug, thiserror::Error)]
 pub enum MSMError {
-    #[error("`cs` and `hidings` must be of the same length to compute `msm`. Got: {0} and {1}")]
+    #[error("`cs` and `points` must be of the same length to compute `msm`. Got: {0} and {1}")]
     LengthMismatch(usize, usize),
 }
 
 /// This function computes the multiscalar multiplication (MSM).
 ///
 /// Assume a group G of order r is given.
-/// Let `hidings = [g_1, ..., g_n]` be a tuple of group points in G and
+/// Let `points = [g_1, ..., g_n]` be a tuple of group points in G and
 /// let `cs = [k_1, ..., k_n]` be a tuple of scalars in the Galois field GF(r).
 ///
-/// Then, with additive notation, `msm(cs, hidings)` computes k_1 * g_1 + .... + k_n * g_n.
+/// Then, with additive notation, `msm(cs, points)` computes k_1 * g_1 + .... + k_n * g_n.
 ///
-/// If `hidings` and `cs` are empty, then `msm` returns the zero element of the group.
+/// If `points` and `cs` are empty, then `msm` returns the zero element of the group.
 ///
-/// Panics if `cs` and `hidings` have different lengths.
-pub fn msm<C, T>(cs: &[C], hidings: &[T]) -> Result<T, MSMError>
+/// Panics if `cs` and `points` have different lengths.
+pub fn msm<C, T>(cs: &[C], points: &[T]) -> Result<T, MSMError>
 where
     C: IsUnsignedInteger,
     T: IsGroup,
 {
-    if cs.len() != hidings.len() {
-        return Err(MSMError::LengthMismatch(cs.len(), hidings.len()));
+    if cs.len() != points.len() {
+        return Err(MSMError::LengthMismatch(cs.len(), points.len()));
     }
     let res = cs
         .iter()
-        .zip(hidings.iter())
+        .zip(points.iter())
         .map(|(&c, h)| h.operate_with_self(c))
         .reduce(|acc, x| acc.operate_with(&x))
         .unwrap_or_else(T::neutral_element);

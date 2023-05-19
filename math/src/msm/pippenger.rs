@@ -5,23 +5,23 @@ use super::naive::MSMError;
 /// This function computes the multiscalar multiplication (MSM).
 ///
 /// Assume a group G of order r is given.
-/// Let `hidings = [g_1, ..., g_n]` be a tuple of group points in G and
+/// Let `points = [g_1, ..., g_n]` be a tuple of group points in G and
 /// let `cs = [k_1, ..., k_n]` be a tuple of scalars in the Galois field GF(r).
 ///
-/// Then, with additive notation, `msm(cs, hidings)` computes k_1 * g_1 + .... + k_n * g_n.
+/// Then, with additive notation, `msm(cs, points)` computes k_1 * g_1 + .... + k_n * g_n.
 ///
-/// If `hidings` and `cs` are empty, then `msm` returns the zero element of the group.
+/// If `points` and `cs` are empty, then `msm` returns the zero element of the group.
 ///
-/// Panics if `cs` and `hidings` have different lengths.
+/// Panics if `cs` and `points` have different lengths.
 pub fn msm<const NUM_LIMBS: usize, G>(
     cs: &[UnsignedInteger<NUM_LIMBS>],
-    hidings: &[G],
+    points: &[G],
 ) -> Result<G, MSMError>
 where
     G: IsGroup,
 {
-    if cs.len() != hidings.len() {
-        return Err(MSMError::LengthMismatch(cs.len(), hidings.len()));
+    if cs.len() != points.len() {
+        return Err(MSMError::LengthMismatch(cs.len(), points.len()));
     }
     // When input is small enough, windows of length 2 seem faster than 1.
     const MIN_WINDOW_SIZE: usize = 2;
@@ -29,7 +29,7 @@ where
 
     let window_size = optimum_window_size(cs.len()).clamp(MIN_WINDOW_SIZE, MAX_WINDOW_SIZE);
 
-    Ok(msm_with(cs, hidings, window_size))
+    Ok(msm_with(cs, points, window_size))
 }
 
 fn optimum_window_size(data_length: usize) -> usize {
@@ -42,7 +42,7 @@ fn optimum_window_size(data_length: usize) -> usize {
 
 pub fn msm_with<const NUM_LIMBS: usize, G>(
     cs: &[UnsignedInteger<NUM_LIMBS>],
-    hidings: &[G],
+    points: &[G],
     window_size: usize,
 ) -> G
 where
@@ -67,7 +67,7 @@ where
         .rev()
         .map(|window_idx| {
             // Put in the right bucket the corresponding ps[i] for the current window.
-            cs.iter().zip(hidings).for_each(|(k, p)| {
+            cs.iter().zip(points).for_each(|(k, p)| {
                 // We truncate the number to the least significative limb.
                 // This is ok because window_size < usize::BITS.
                 let window_unmasked = (k >> (window_idx * window_size)).limbs[NUM_LIMBS - 1];
@@ -105,7 +105,7 @@ where
 //  2. It reduces all window results via a different method.
 pub fn parallel_msm_with<const NUM_LIMBS: usize, G>(
     cs: &[UnsignedInteger<NUM_LIMBS>],
-    hidings: &[G],
+    points: &[G],
     window_size: usize,
 ) -> G
 where
@@ -126,7 +126,7 @@ where
             let mut buckets = vec![G::neutral_element(); n_buckets];
             // Put in the right bucket the corresponding ps[i] for the current window.
             let shift = window_idx * window_size;
-            cs.iter().zip(hidings).for_each(|(k, p)| {
+            cs.iter().zip(points).for_each(|(k, p)| {
                 // We truncate the number to the least significative limb.
                 // This is ok because window_size < usize::BITS.
                 let window_unmasked = (k >> shift).limbs[NUM_LIMBS - 1];
@@ -201,13 +201,13 @@ mod tests {
           })]
         // Property-based test that ensures `pippenger::msm` gives same result as `naive::msm`.
         #[test]
-        fn test_pippenger_matches_naive_msm(window_size in 1.._MAX_WSIZE, cs in unsigned_integer_vec(), hidings in points_vec()) {
-            let min_len = cs.len().min(hidings.len());
+        fn test_pippenger_matches_naive_msm(window_size in 1.._MAX_WSIZE, cs in unsigned_integer_vec(), points in points_vec()) {
+            let min_len = cs.len().min(points.len());
             let cs = cs[..min_len].to_vec();
-            let hidings = hidings[..min_len].to_vec();
+            let points = points[..min_len].to_vec();
 
-            let pippenger = pippenger::msm_with(&cs, &hidings, window_size);
-            let naive = naive::msm(&cs, &hidings).unwrap();
+            let pippenger = pippenger::msm_with(&cs, &points, window_size);
+            let naive = naive::msm(&cs, &points).unwrap();
 
             prop_assert_eq!(naive, pippenger);
         }
@@ -215,13 +215,13 @@ mod tests {
         // Property-based test that ensures `pippenger::msm_with` gives same result as `pippenger::parallel_msm_with`.
         #[test]
         #[cfg(feature = "rayon")]
-        fn test_parallel_pippenger_matches_sequential(window_size in 1.._MAX_WSIZE, cs in unsigned_integer_vec(), hidings in points_vec()) {
-            let min_len = cs.len().min(hidings.len());
+        fn test_parallel_pippenger_matches_sequential(window_size in 1.._MAX_WSIZE, cs in unsigned_integer_vec(), points in points_vec()) {
+            let min_len = cs.len().min(points.len());
             let cs = cs[..min_len].to_vec();
-            let hidings = hidings[..min_len].to_vec();
+            let points = points[..min_len].to_vec();
 
-            let sequential = pippenger::msm_with(&cs, &hidings, window_size);
-            let parallel = pippenger::parallel_msm_with(&cs, &hidings, window_size);
+            let sequential = pippenger::msm_with(&cs, &points, window_size);
+            let parallel = pippenger::parallel_msm_with(&cs, &points, window_size);
 
             prop_assert_eq!(parallel, sequential);
         }
