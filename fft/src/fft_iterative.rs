@@ -34,8 +34,10 @@ where
             let w = &twiddles[group]; // a twiddle factor is used per group
 
             for i in first_in_group..first_in_next_group {
-                let y0 = &input[i] + w * &input[i + group_size / 2];
-                let y1 = &input[i] - w * &input[i + group_size / 2];
+                let wi = w * &input[i + group_size / 2];
+
+                let y0 = &input[i] + &wi;
+                let y1 = &input[i] - &wi;
 
                 input[i] = y0;
                 input[i + group_size / 2] = y1;
@@ -77,10 +79,13 @@ where
         let step_to_last = step_to_next * (group_size / 2 - 1);
 
         for group in 0..group_count {
+            let w = &twiddles[group * group_size / 2];
+
             for i in (group..=group + step_to_last).step_by(step_to_next) {
-                let w = &twiddles[group * group_size / 2];
-                let y0 = &input[i] + w * &input[i + group_count];
-                let y1 = &input[i] - w * &input[i + group_count];
+                let wi = w * &input[i + group_count];
+
+                let y0 = &input[i] + &wi;
+                let y1 = &input[i] - &wi;
 
                 input[i] = y0;
                 input[i + group_count] = y1;
