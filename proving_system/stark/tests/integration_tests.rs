@@ -331,8 +331,8 @@ fn test_prove_cairo_simple_program_malicious() {
     let dir_trace = base_dir.to_owned() + "/src/cairo_vm/test_data/simple_program.trace";
     let dir_memory = base_dir.to_owned() + "/src/cairo_vm/test_data/simple_program.mem";
 
-    let raw_trace = CairoTrace::from_file(&dir_trace).unwrap();
-    let memory = CairoMemory::from_file(&dir_memory).unwrap();
+    let malicious_raw_trace = CairoTrace::from_file(&dir_trace).unwrap();
+    let malicious_memory = CairoMemory::from_file(&dir_memory).unwrap();
 
     let proof_options = ProofOptions {
         blowup_factor: 4,
@@ -341,20 +341,19 @@ fn test_prove_cairo_simple_program_malicious() {
     };
 
     let program_size = 5;
-    let mut real_program = vec![];
+    let mut malicious_program = vec![];
     for i in 1..=program_size as u64 {
-        real_program.push(memory.get(&i).unwrap().clone());
-        println!("{:}", memory.get(&i).unwrap().representative());
+        malicious_program.push(malicious_memory.get(&i).unwrap().clone());
     }
 
-    let mut malicious_program = real_program.clone();
-    malicious_program[1] = FieldElement::from(5);
-    malicious_program[3] = FieldElement::from(5);
+    let mut real_program = malicious_program.clone();
+    real_program[1] = FieldElement::from(5);
+    real_program[3] = FieldElement::from(5);
 
-    let cairo_air = cairo::CairoAIR::new(proof_options, 16, raw_trace.steps());
+    let cairo_air = cairo::CairoAIR::new(proof_options, 16, malicious_raw_trace.steps());
 
-    let first_step = &raw_trace.rows[0];
-    let last_step = &raw_trace.rows[raw_trace.steps() - 1];
+    let first_step = &malicious_raw_trace.rows[0];
+    let last_step = &malicious_raw_trace.rows[malicious_raw_trace.steps() - 1];
 
     let mut public_input = PublicInputs {
         pc_init: FE::from(first_step.pc),
@@ -365,10 +364,10 @@ fn test_prove_cairo_simple_program_malicious() {
         program: malicious_program,
         range_check_min: None,
         range_check_max: None,
-        num_steps: raw_trace.steps(),
+        num_steps: malicious_raw_trace.steps(),
     };
 
-    let result = prove(&(raw_trace, memory), &cairo_air, &mut public_input);
+    let result = prove(&(malicious_raw_trace, malicious_memory), &cairo_air, &mut public_input);
 
     public_input.program = real_program;
     assert!(!verify(&result, &cairo_air, &public_input));
