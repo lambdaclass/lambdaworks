@@ -14,7 +14,7 @@ use crate::metal::{
     helpers::void_ptr,
 };
 
-use metal::MTLSize;
+use metal::{ComputeCommandEncoderRef, MTLSize};
 
 use core::mem;
 
@@ -151,36 +151,60 @@ pub fn pippenger_sequencial<const NUM_LIMBS: usize>(
 
     let bucket_count = (1 << window_size) - 1;
 
+    let mut results = vec![];
+    let mut results_buffer = vec![];
+
     let result: Vec<u32> = vec![Point::neutral_element(); bucket_count]
         .into_iter()
         .map(|point| point.to_u32_limbs())
         .flatten()
         .collect();
 
+    for _ in 0..num_windows {
+        results.push(result.clone());
+    }
+
     let cs_buffer = state.alloc_buffer_data(&cs);
     let hidings_buffer = state.alloc_buffer_data(&hidings);
-    let result_buffer = state.alloc_buffer_data(&result);
-
-    let (command_buffer, command_encoder) = state.setup_command(
-        &pipeline,
-        Some(&[(0, &hidings_buffer), (2, &result_buffer)]),
-    );
-
-    command_encoder.set_bytes(1, std::mem::size_of::<u64>() as u64, void_ptr(&buflen));
 
     let threadgroup_size = MTLSize::new(1, 1, 1);
     let threadgroup_count = MTLSize::new(1, 1, 1);
 
-    command_encoder.dispatch_thread_groups(threadgroup_count, threadgroup_size);
-    command_encoder.end_encoding();
+    for window_idx in 0..num_windows as usize {
+        let result_buffer = state.alloc_buffer_data(&results[window_idx]);
+        results_buffer.push(result_buffer);
 
-    command_buffer.commit();
-    command_buffer.wait_until_completed();
+        let (command_buffer, command_encoder) = state.setup_command(
+            &pipeline,
+            Some(&[
+                (0, &cs_buffer),
+                (1, &hidings_buffer),
+                (4, &results_buffer[window_idx]),
+            ]),
+        );
 
-    let result: Vec<u32> = MetalState::retrieve_contents(&result_buffer);
+        command_encoder.set_bytes(1, std::mem::size_of::<u64>() as u64, void_ptr(&buflen));
+        command_encoder.set_bytes(
+            1,
+            std::mem::size_of::<u32>() as u64,
+            void_ptr(&window_idx.clone()),
+        );
+
+        command_encoder.dispatch_thread_groups(threadgroup_count, threadgroup_size);
+        command_encoder.end_encoding();
+
+        command_buffer.commit();
+        command_buffer.wait_until_completed(); //TODO dispatch all and then wait
+    }
+
+    for (i, result_buffer) in results_buffer.iter().enumerate() {
+        results[i] = MetalState::retrieve_contents(result_buffer);
+    }
+
+    //TODO call other kernels
 
     let point_size = 12 * 3;
-    let result: Vec<Point> = result
+    let result: Vec<Point> = results[0]
         .chunks(point_size)
         .map(Point::from_u32_limbs)
         .collect();

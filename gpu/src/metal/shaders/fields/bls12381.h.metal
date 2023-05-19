@@ -60,9 +60,11 @@ template [[ host_name("calculate_Gjs_bls12381") ]]
 );
 
 template [[ host_name("calculate_points_sum") ]]
-[[kernel]] void calculate_points_sum<BLS12381>(
+[[kernel]] void calculate_points_sum<FpBLS12381, BLS12381>(
+    constant FpBLS12381*,
     constant BLS12381*,
     constant uint64_t&,
+    constant uint32_t&,
     device BLS12381*
 );
 

@@ -3,24 +3,31 @@
 // NOTE: 
 //   - result should be size 2^s - 1
 //   - result should be initialized with the point at infinity
-template<typename ECPoint>
+template<typename Fp, typename ECPoint>
 [[kernel]] void calculate_points_sum(
-    constant const ECPoint* hidings [[ buffer(0) ]],
-    constant const uint64_t& _buflen [[ buffer(1) ]],
-    device ECPoint* result [[ buffer(2) ]]
+    constant const Fp* cs [[ buffer(0) ]],
+    constant const ECPoint* hidings [[ buffer(1) ]],
+    constant const uint64_t& _buflen [[ buffer(2) ]],
+    constant const uint32_t& _window_idx [[ buffer(3) ]],
+    device ECPoint* result [[ buffer(4) ]]
 ) {
     const uint32_t WINDOWS_SIZE = 4;
     uint32_t bucket_size = (1 << WINDOWS_SIZE) - 1;
-
+    const uint32_t windows_idx = _window_idx;
+    const uint32_t offset = WINDOWS_SIZE * windows_idx;
     uint64_t buflen = _buflen;
-    uint32_t bucket_index;
-    ECPoint point;
-    ECPoint aux;
+
     for(uint64_t i = 0; i < buflen; i++){
-        bucket_index = i / bucket_size;
-        point = hidings[i];
-        aux = result[bucket_index];
-        result[bucket_index] = aux + point;
+        for(uint64_t j = 0; j < buflen; j++){
+            Fp k = cs[j];
+            uint32_t m_ij = (uint32_t)(k >> offset) & bucket_size;
+            if (m_ij != 0) {
+                uint32_t bucket_index = m_ij - 1;
+                ECPoint aux = result[bucket_index];
+                ECPoint point = hidings[i];
+                result[bucket_index] = aux + point;
+            }
+        }
     }
 }
 
