@@ -36,16 +36,45 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
     }
 
     pub fn interpolate(xs: &[FieldElement<F>], ys: &[FieldElement<F>]) -> Self {
+        // TODO: try to use the type system to avoid this assert
+        assert_eq!(xs.len(), ys.len(), "xs and ys must be the same length");
+        if xs.is_empty() {
+            return Polynomial::new(&[]);
+        }
+
+        let mut inverses = Vec::with_capacity(xs.len() * (xs.len() - 1) / 2);
+        let mut indexes = Vec::with_capacity(xs.len());
+
+        let mut idx = 0;
+
+        for (i, xi) in xs.iter().enumerate().skip(1) {
+            indexes.push(idx);
+            for (j, xj) in xs.iter().enumerate() {
+                if i > j {
+                    // TODO: return Result here?
+                    assert_ne!(xi, xj, "xs values must be unique");
+                    inverses.push((xi - xj).inv());
+                    idx += 1;
+                }
+            }
+        }
+
         let mut result = Polynomial::zero();
 
         for (i, y) in ys.iter().enumerate() {
             let mut y_term = Polynomial::new(&[y.clone()]);
             for (j, x) in xs.iter().enumerate() {
-                if i != j {
-                    let denominator = Polynomial::new(&[FieldElement::one() / (&xs[i] - x)]);
-                    let numerator = Polynomial::new(&[-x, FieldElement::one()]);
-                    y_term = y_term.mul_with_ref(&(numerator * denominator));
+                if i == j {
+                    continue;
                 }
+                let denominator = if i > j {
+                    inverses[indexes[i - 1] + j].clone()
+                } else {
+                    -&inverses[indexes[j - 1] + i].clone()
+                };
+                let denominator_poly = Polynomial::new(&[denominator]);
+                let numerator = Polynomial::new(&[-x, FieldElement::one()]);
+                y_term = y_term.mul_with_ref(&(numerator * denominator_poly));
             }
             result = result + y_term;
         }
