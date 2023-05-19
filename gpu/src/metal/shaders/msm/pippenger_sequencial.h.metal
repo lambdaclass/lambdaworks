@@ -35,10 +35,10 @@ void calculate_window(
 {
     uint64_t buckets_len = _buckets_len;
 
-    partial_sums[0] = buckets[0];
+    partial_sums[0] = buckets[buckets_len - 1];
     for (uint64_t i = 1; i < buckets_len; i++) {
         ECPoint acc = partial_sums[i - 1];
-        ECPoint bucket = buckets[i];
+        ECPoint bucket = buckets[buckets_len - i - 1];
 
         partial_sums[i] = acc + bucket;
     }
@@ -63,7 +63,8 @@ void reduce_windows(
 
     ECPoint acc {};
     for (uint64_t i = 0; i < windows_len; i++) {
-        acc += windows[i];
+        ECPoint window = windows[i];
+        acc += window * (1 << (4 * i));
     }
 
     output = acc;
