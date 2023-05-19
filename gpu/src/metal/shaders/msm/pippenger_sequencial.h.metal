@@ -14,12 +14,12 @@ template<typename ECPoint>
 
     uint64_t buflen = _buflen;
     uint32_t bucket_index;
-    ECPoint pi;
+    ECPoint point;
     ECPoint aux;
     for(uint64_t i = 0; i < buflen; i++){
         bucket_index = i / bucket_size;
-        pi = hidings[i];
+        point = hidings[i];
         aux = result[bucket_index];
-        result[bucket_index] = aux + pi;
+        result[bucket_index] = aux + point;
     }
 }
