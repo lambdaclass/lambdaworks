@@ -35,6 +35,9 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
         Self::new(&[])
     }
 
+    /// Returns a polynomial that interpolates the points with x coordinates and y coordinates given by
+    /// `xs` and `ys`.
+    /// `xs` and `ys` must be the same length, and `xs` values should be unique. If not, panics.
     pub fn interpolate(xs: &[FieldElement<F>], ys: &[FieldElement<F>]) -> Self {
         // TODO: try to use the type system to avoid this assert
         assert_eq!(xs.len(), ys.len(), "xs and ys must be the same length");
@@ -53,7 +56,7 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
                 if i > j {
                     // TODO: return Result here?
                     assert_ne!(xi, xj, "xs values must be unique");
-                    denominators.push((xi - xj).inv());
+                    denominators.push(xi - xj);
                     idx += 1;
                 }
             }
@@ -72,7 +75,7 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
                 let denominator = if i > j {
                     denominators[indexes[i - 1] + j].clone()
                 } else {
-                    -&denominators[indexes[j - 1] + i].clone()
+                    -&denominators[indexes[j - 1] + i]
                 };
                 let denominator_poly = Polynomial::new(&[denominator]);
                 let numerator = Polynomial::new(&[-x, FieldElement::one()]);
@@ -611,6 +614,8 @@ fn inplace_batch_inverse<F: IsField>(numbers: &mut [FieldElement<F>]) {
 
 #[cfg(test)]
 mod tests {
+    use proptest::{collection, prelude::*, prop_compose, proptest, strategy::Strategy};
+
     use crate::field::fields::u64_prime_field::U64PrimeField;
 
     // Some of these tests work when the finite field has order greater than 2.
@@ -880,5 +885,30 @@ mod tests {
             compose(&p, &q),
             Polynomial::new(&[FE::new(0), FE::new(0), FE::new(2)])
         );
+    }
+
+    prop_compose! {
+        fn field_element()(num in any::<u64>().prop_filter("Avoid null coefficients", |x| x != &0)) -> FE {
+            FE::from(num)
+        }
+    }
+
+    prop_compose! {
+        fn field_vec(max_exp: u8)(vec in collection::vec(field_element(), 0..1 << max_exp)) -> Vec<FE> {
+            vec
+        }
+    }
+
+    proptest! {
+        #[test]
+        fn test_batch_inverse(vec in field_vec(10)) {
+            let input: Vec<_> = vec.into_iter().filter(|x| x != &FE::zero()).collect();
+            let mut inverses = input.clone();
+            inplace_batch_inverse(&mut inverses);
+
+            for (i, x) in inverses.into_iter().enumerate() {
+                prop_assert_eq!(x * input[i], FE::one());
+            }
+        }
     }
 }
