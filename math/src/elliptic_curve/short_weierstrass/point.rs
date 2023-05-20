@@ -97,16 +97,17 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
                 if u1 != u2 || *py == FieldElement::zero() {
                     Self::neutral_element()
                 } else {
+                    let eight = FieldElement::from(8);
                     let w = E::a() * pz * pz + FieldElement::from(3) * px * px;
                     let w_square = &w * &w;
                     let s = py * pz;
                     let s_square = &s * &s;
                     let b = px * py * &s;
-                    let h = &w_square - FieldElement::from(8) * &b;
+                    let h = &w_square - &eight * &b;
                     let xp = FieldElement::from(2) * &h * &s;
                     let yp = w * (FieldElement::from(4) * &b - &h)
-                        - FieldElement::from(8) * py * py * &s_square;
-                    let zp = FieldElement::from(8) * &s * &s_square;
+                        - &eight * py * py * &s_square;
+                    let zp = &eight * &s * &s_square;
                     Self::new([xp, yp, zp])
                 }
             } else {
