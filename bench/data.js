@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1684535590395,
+  "lastUpdate": 1684549307770,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -1313,6 +1313,252 @@ window.BENCHMARK_DATA = {
             "name": "Polynomial/interpolate_fft_metal #4",
             "value": 3541137125,
             "range": "± 12326001",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47506558+MegaRedHand@users.noreply.github.com",
+            "name": "Tomás",
+            "username": "MegaRedHand"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4a6d295beafcaa66e1212b28e601c57ae8fc1c96",
+          "message": "Add parallel Pippenger's on CPU via rayon (#336)\n\n* Add pippenger CPU implementation\n\n* Fix pippenger\n\nWas indexing the `UnsignedInteger` limbs as little endian, but they are in big endian order.\n\n* Add constants for proptests\n\n* Clean up the generic params of `pippenger::msm`\n\n* Add wrapper around msm that fixes the window size\n\n* Add benchmarks\n\n* Change benchmark sizes to powers of two\n\n* Approximate optimal window size with adhoc formula\n\n* Fix heuristic\n\nWas using trailing zeros so it worked correctly only on powers of two.\nChanged it to use leading zeros and it should work now.\n\n* Add comments in CPU pippenger impl\n\n* Add CPU parallel pippenger via rayon (+benchmarks)\n\n* Fix parallel pippenger\n\n* Add window size cap\n\n* Extract heuristic to helper function\n\n* Appease clippy\n\n* Rename `hidings` -> `points`\n\n* Add comment regarding an optimization",
+          "timestamp": "2023-05-19T22:27:10Z",
+          "tree_id": "fbf895d46d2a55ec6adfe14df678bada04938454",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/4a6d295beafcaa66e1212b28e601c57ae8fc1c96"
+        },
+        "date": 1684549306649,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "Ordered FFT/Sequential from NR radix2",
+            "value": 2403038280,
+            "range": "± 8629017",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from RN radix2",
+            "value": 5172220692,
+            "range": "± 23501246",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from NR radix2 #2",
+            "value": 4943606646,
+            "range": "± 23674996",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from RN radix2 #2",
+            "value": 11220853488,
+            "range": "± 22226232",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from NR radix2 #3",
+            "value": 10288816953,
+            "range": "± 64150034",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from RN radix2 #3",
+            "value": 24052998394,
+            "range": "± 30185049",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from NR radix2 #4",
+            "value": 21586650678,
+            "range": "± 186977427",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from RN radix2 #4",
+            "value": 51422753626,
+            "range": "± 108906556",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Sequential",
+            "value": 1349164700,
+            "range": "± 4667718",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Sequential #2",
+            "value": 2842477724,
+            "range": "± 11751582",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Sequential #3",
+            "value": 5936623788,
+            "range": "± 7603321",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Sequential #4",
+            "value": 12380243636,
+            "range": "± 51422601",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Sequential",
+            "value": 81543910,
+            "range": "± 839325",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Sequential #2",
+            "value": 173038132,
+            "range": "± 1005020",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Sequential #3",
+            "value": 352401879,
+            "range": "± 806111",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Sequential #4",
+            "value": 721925294,
+            "range": "± 2221410",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial evaluation/Sequential FFT",
+            "value": 3750897124,
+            "range": "± 25113979",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial evaluation/Sequential FFT #2",
+            "value": 7815757119,
+            "range": "± 68633467",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial evaluation/Sequential FFT #3",
+            "value": 16421940198,
+            "range": "± 159042180",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial evaluation/Sequential FFT #4",
+            "value": 34752928527,
+            "range": "± 12300657",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial interpolation/Sequential FFT",
+            "value": 25944603260,
+            "range": "± 8413739",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial interpolation/Sequential FFT #2",
+            "value": 52235062420,
+            "range": "± 23984884",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial interpolation/Sequential FFT #3",
+            "value": 105036303023,
+            "range": "± 442599933",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial interpolation/Sequential FFT #4",
+            "value": 209530667257,
+            "range": "± 1265305375",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate",
+            "value": 48,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_slice",
+            "value": 114,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/add",
+            "value": 118,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/neg",
+            "value": 20,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/sub",
+            "value": 213,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/mul",
+            "value": 162,
+            "range": "± 2",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/div",
+            "value": 162,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "STARK/Simple Fibonacci/8",
+            "value": 8129004,
+            "range": "± 36244",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "STARK/Simple Fibonacci/128",
+            "value": 2348135041,
+            "range": "± 6857547",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "STARK/Simple Fibonacci/256",
+            "value": 12871499555,
+            "range": "± 30159710",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "STARK/Simple Fibonacci/512",
+            "value": 78779917036,
+            "range": "± 436461436",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "STARK/Simple Fibonacci/1024",
+            "value": 537419409709,
+            "range": "± 5036575418",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "STARK/2 column Fibonacci",
+            "value": 3082006,
+            "range": "± 24174",
             "unit": "ns/iter"
           }
         ]
