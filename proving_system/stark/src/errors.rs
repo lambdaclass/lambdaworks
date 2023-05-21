@@ -49,4 +49,6 @@ pub enum StarkError {
     ProofFriLayersMerkleRoots,
     #[error("Proof has no trace OOD frame evaluations")]
     ProofTraceFrameEvaluations,
+    #[error("Could not compute trace term using offset {0} because zerofier is zero polynomial")]
+    TraceTermZerofier(usize),
 }

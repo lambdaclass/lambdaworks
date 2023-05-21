@@ -137,6 +137,15 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
         quotient
     }
 
+    pub fn checked_div(self, dividend: &Self) -> Option<Self> {
+        if dividend == &Polynomial::zero() {
+            return None;
+        }
+
+        let (quotient, _remainder) = self.long_division_with_remainder(dividend);
+        Some(quotient)
+    }
+
     pub fn mul_with_ref(&self, factor: &Self) -> Self {
         let degree = self.degree() + factor.degree();
         let mut coefficients = vec![FieldElement::zero(); degree + 1];

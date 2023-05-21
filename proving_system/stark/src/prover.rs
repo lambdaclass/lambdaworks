@@ -422,7 +422,9 @@ fn compute_deep_composition_poly<A: AIR, F: IsFFTField>(
             // to get a value from an evaluation vector without checking
             let t_j_z = evaluations[i].clone();
             let z_shifted = z * primitive_root.pow(*offset);
-            let poly = (t_j - t_j_z) / (&x - z_shifted);
+            let poly = (t_j - t_j_z)
+                .checked_div(&(&x - z_shifted))
+                .ok_or(StarkError::TraceTermZerofier(*offset))?;
             trace_terms =
                 trace_terms + poly * &trace_terms_gammas[i * trace_frame_evaluations.len() + j];
         }
