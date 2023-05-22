@@ -5,10 +5,8 @@ use thiserror::Error;
 pub enum AIRError {
     #[error("Number of AIR transition constraints should be {0} but it's {1}")]
     TransitionConstraints(usize, usize),
-    #[error("Could not compute AIR transition divisors: {0}")]
-    TransitionDivisors(FFTError),
-    #[error("Could not compute trace polynomials: {0}")]
-    TracePolynomialsComputation(FFTError),
+    #[error(transparent)]
+    FFT(#[from] FFTError),
     #[error("Could not create constraint evaluator")]
     ConstraintEvaluatorCreation,
     #[error("Row index {0} is out of bounds for table with {1} rows")]

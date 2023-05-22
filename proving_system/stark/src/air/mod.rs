@@ -63,8 +63,7 @@ pub trait AIR: Clone {
             roots_of_unity_order as u64,
             self.context().trace_length,
             &FieldElement::<Self::Field>::one(),
-        )
-        .map_err(AIRError::TransitionDivisors)?;
+        )?;
 
         let mut result = vec![];
         let x_n = Polynomial::new_monomial(FieldElement::one(), trace_length);

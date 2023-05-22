@@ -1,5 +1,4 @@
-use lambdaworks_fft::errors::FFTError;
-use lambdaworks_fft::polynomial::FFTPoly;
+use lambdaworks_fft::{errors::FFTError, polynomial::FFTPoly};
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsFFTField},
     polynomial::Polynomial,
@@ -98,7 +97,7 @@ impl<F: IsFFTField> TraceTable<F> {
             .iter()
             .map(|col| Polynomial::interpolate_fft(col))
             .collect::<Result<Vec<Polynomial<FieldElement<F>>>, FFTError>>()
-            .map_err(AIRError::TracePolynomialsComputation)
+            .map_err(AIRError::FFT)
     }
 }
 

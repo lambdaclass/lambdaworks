@@ -125,7 +125,7 @@ where
     F: IsFFTField,
     FieldElement<F>: ByteConversion,
 {
-    let trace_polys = trace.compute_trace_polys().map_err(StarkError::AIR)?;
+    let trace_polys = trace.compute_trace_polys()?;
 
     // Evaluate those polynomials t_j on the large domain D_LDE.
     let lde_trace_evaluations = trace_polys
@@ -134,7 +134,7 @@ where
         .collect::<Result<Vec<Vec<FieldElement<F>>>, FFTError>>()?;
 
     // Compute commitments [t_j].
-    let lde_trace = TraceTable::new_from_cols(&lde_trace_evaluations).map_err(StarkError::AIR)?;
+    let lde_trace = TraceTable::new_from_cols(&lde_trace_evaluations)?;
     let (lde_trace_merkle_trees, lde_trace_merkle_roots) =
         batch_commit(lde_trace.cols().iter().collect());
 
@@ -656,10 +656,9 @@ where
 
 #[cfg(test)]
 mod tests {
-    use lambdaworks_fft::errors::FFTError;
     use lambdaworks_math::field::{
-        element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
-        traits::IsFFTField,
+        element::FieldElement, errors::FieldError,
+        fields::fft_friendly::stark_252_prime_field::Stark252PrimeField, traits::IsFFTField,
     };
 
     use crate::{
@@ -792,9 +791,10 @@ mod tests {
         };
 
         let prover_result = prove(&trace, &simple_fibonacci::FibonacciAIR::from(context));
+        dbg!(&prover_result);
         assert!(matches!(
             prover_result,
-            Err(StarkError::FFT(FFTError::RootOfUnityError(_, _)))
+            Err(StarkError::Field(FieldError::RootOfUnityError(_, _)))
         ));
     }
 
@@ -823,7 +823,7 @@ mod tests {
         let prover_result = prove(&trace, &simple_fibonacci::FibonacciAIR::from(context));
         assert!(matches!(
             prover_result,
-            Err(StarkError::AIR(AIRError::TracePolynomialsComputation(_)))
+            Err(StarkError::AIR(AIRError::FFT(_)))
         ));
     }
 }
