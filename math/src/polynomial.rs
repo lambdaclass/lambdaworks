@@ -57,7 +57,7 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
 
         for (i, xi) in xs.iter().enumerate().skip(1) {
             indexes.push(idx);
-            for (_, xj) in xs.iter().enumerate().take(i) {
+            for xj in xs.iter().take(i) {
                 if xi == xj {
                     return Err(InterpolateError::NonUniqueXs);
                 }
