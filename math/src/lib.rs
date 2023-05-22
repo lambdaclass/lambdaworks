@@ -1,4 +1,3 @@
-pub mod batch_inverse;
 pub mod cyclic_group;
 pub mod elliptic_curve;
 pub mod errors;

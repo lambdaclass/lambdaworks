@@ -1,5 +1,5 @@
 use super::field::element::FieldElement;
-use crate::{batch_inverse::inplace_batch_inverse, field::traits::IsField};
+use crate::field::traits::IsField;
 use std::ops;
 
 /// Represents the polynomial c_0 + c_1 * X + c_2 * X^2 + ... + c_n * X^n
@@ -66,7 +66,7 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
             }
         }
 
-        inplace_batch_inverse(&mut denominators);
+        FieldElement::inplace_batch_inverse(&mut denominators);
 
         let mut result = Polynomial::zero();
 
