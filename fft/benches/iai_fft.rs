@@ -1,5 +1,5 @@
 #![allow(dead_code)] // clippy has false positive in benchmarks
-use iai::black_box;
+use iai_callgrind::black_box;
 use lambdaworks_fft::roots_of_unity::get_twiddles;
 use lambdaworks_math::field::traits::RootsConfig;
 
@@ -42,8 +42,9 @@ fn seq_poly_interpolation_benchmarks() {
 }
 
 #[cfg(not(any(feature = "metal", feature = "cuda")))]
-iai::main!(
-    seq_fft_benchmarks,
+iai_callgrind::main!(
+    callgrind_args = "toggle-collect=util::*";
+    functions = seq_fft_benchmarks,
     seq_twiddles_generation_benchmarks,
     seq_bitrev_permutation_benchmarks,
     seq_poly_evaluation_benchmarks,
@@ -51,8 +52,9 @@ iai::main!(
 );
 
 #[cfg(any(feature = "metal", feature = "cuda"))]
-iai::main!(
-    seq_fft_benchmarks,
+iai_callgrind::main!(
+    callgrind_args = "toggle-collect=util::*";
+    functions = seq_fft_benchmarks,
     seq_twiddles_generation_benchmarks,
     seq_bitrev_permutation_benchmarks,
 );

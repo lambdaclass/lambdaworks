@@ -14,7 +14,7 @@ rayon = { version = "1.7.0", optional = true }
 proptest = "1.1.0"
 criterion = "0.4"
 const-random = "0.1.15"
-iai = "0.1"
+iai-callgrind.workspace = true
 
 [features]
 rayon = ["dep:rayon"]

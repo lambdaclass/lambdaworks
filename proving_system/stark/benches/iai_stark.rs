@@ -11,4 +11,7 @@ fn two_col_fibonacci_benchmarks() {
     functions::stark::prove_fib_2_cols();
 }
 
-iai::main!(simple_fibonacci_benchmarks, two_col_fibonacci_benchmarks,);
+iai_callgrind::main!(
+    callgrind_args = "toggle-collect=util::*";
+    functions = simple_fibonacci_benchmarks, two_col_fibonacci_benchmarks,
+);
