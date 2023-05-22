@@ -142,7 +142,7 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
             return None;
         }
 
-        let (quotient, _remainder) = self.long_division_with_remainder(dividend);
+        let quotient = self.div_with_ref(dividend);
         Some(quotient)
     }
 
@@ -722,6 +722,21 @@ mod tests {
         let p1 = Polynomial::new(&[four, four]);
         let p2 = Polynomial::new(&[two]);
         assert_eq!(Polynomial::new(&[two, two]), p1 / p2);
+    }
+
+    #[test]
+    fn checked_division_works() {
+        let p1 = Polynomial::new(&[FE::new(1), FE::new(3)]);
+        let p2 = Polynomial::new(&[FE::new(1), FE::new(3)]);
+        let p3 = p1.mul_with_ref(&p2);
+        assert_eq!(p3.checked_div(&p2), Some(p1));
+    }
+
+    #[test]
+    fn checked_division_by_zero_polynomial_returns_none() {
+        let p1 = Polynomial::new(&[FE::new(1), FE::new(3)]);
+        let zero = Polynomial::zero();
+        assert_eq!(p1.checked_div(&zero), None);
     }
 
     #[test]
