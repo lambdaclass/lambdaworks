@@ -27,7 +27,6 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
     pub fn from_limbs(limbs: [u64; NUM_LIMBS]) -> Self {
         Self { limbs }
     }
-
 }
 
 impl<const NUM_LIMBS: usize> U32Limbs for UnsignedInteger<NUM_LIMBS> {
@@ -587,6 +586,7 @@ impl<const NUM_LIMBS: usize> ByteConversion for UnsignedInteger<NUM_LIMBS> {
 mod tests_u384 {
     use crate::traits::ByteConversion;
     use crate::unsigned_integer::element::{UnsignedInteger, U384};
+    use crate::unsigned_integer::traits::U32Limbs;
     use proptest::prelude::*;
 
     proptest! {
