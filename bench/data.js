@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1684796477666,
+  "lastUpdate": 1684796694404,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -3653,6 +3653,252 @@ window.BENCHMARK_DATA = {
             "name": "STARK/2 column Fibonacci",
             "value": 1538507,
             "range": "± 273",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41742639+schouhy@users.noreply.github.com",
+            "name": "Sergio Chouhy",
+            "username": "schouhy"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e37a5ddc4ac75a8264374171dd30b8a0919185f4",
+          "message": "fix const_le in UnsignedInteger (#366)",
+          "timestamp": "2023-05-22T19:37:24Z",
+          "tree_id": "681d4275f1618007ae7e33df98720ce86bc65d58",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/e37a5ddc4ac75a8264374171dd30b8a0919185f4"
+        },
+        "date": 1684796693622,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "Ordered FFT/Sequential from NR radix2",
+            "value": 2255167894,
+            "range": "± 1465728",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from RN radix2",
+            "value": 3990469043,
+            "range": "± 17013834",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from NR radix2 #2",
+            "value": 4717469381,
+            "range": "± 2377966",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from RN radix2 #2",
+            "value": 8890004606,
+            "range": "± 24677988",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from NR radix2 #3",
+            "value": 9844584646,
+            "range": "± 4497921",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from RN radix2 #3",
+            "value": 19365240475,
+            "range": "± 51614346",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from NR radix2 #4",
+            "value": 20541101650,
+            "range": "± 5595858",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from RN radix2 #4",
+            "value": 41391654218,
+            "range": "± 90406357",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Sequential",
+            "value": 1294876137,
+            "range": "± 924495",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Sequential #2",
+            "value": 2717180455,
+            "range": "± 696074",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Sequential #3",
+            "value": 5688432867,
+            "range": "± 3220387",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Sequential #4",
+            "value": 11883175193,
+            "range": "± 6338462",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Sequential",
+            "value": 68568281,
+            "range": "± 1265558",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Sequential #2",
+            "value": 147845920,
+            "range": "± 1219039",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Sequential #3",
+            "value": 294754970,
+            "range": "± 2093059",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Sequential #4",
+            "value": 596575425,
+            "range": "± 2117484",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial evaluation/Sequential FFT",
+            "value": 3565617379,
+            "range": "± 1607933",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial evaluation/Sequential FFT #2",
+            "value": 7471056331,
+            "range": "± 2373660",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial evaluation/Sequential FFT #3",
+            "value": 15628379319,
+            "range": "± 7440678",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial evaluation/Sequential FFT #4",
+            "value": 32544144521,
+            "range": "± 8029123",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial interpolation/Sequential FFT",
+            "value": 21776999600,
+            "range": "± 6445548",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial interpolation/Sequential FFT #2",
+            "value": 43932844819,
+            "range": "± 34813336",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial interpolation/Sequential FFT #3",
+            "value": 88466130620,
+            "range": "± 31592904",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial interpolation/Sequential FFT #4",
+            "value": 178301343763,
+            "range": "± 41640534",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate",
+            "value": 1080,
+            "range": "± 4",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_slice",
+            "value": 66878,
+            "range": "± 246",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/add",
+            "value": 703,
+            "range": "± 14",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/neg",
+            "value": 24,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/sub",
+            "value": 1135,
+            "range": "± 38",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/mul",
+            "value": 793,
+            "range": "± 14",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/div",
+            "value": 785,
+            "range": "± 20",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "STARK/Simple Fibonacci/8",
+            "value": 5958892,
+            "range": "± 3238",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "STARK/Simple Fibonacci/128",
+            "value": 2010195454,
+            "range": "± 3509968",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "STARK/Simple Fibonacci/256",
+            "value": 11189979046,
+            "range": "± 28262644",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "STARK/Simple Fibonacci/512",
+            "value": 70438396718,
+            "range": "± 215806229",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "STARK/Simple Fibonacci/1024",
+            "value": 485775610578,
+            "range": "± 2397525521",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "STARK/2 column Fibonacci",
+            "value": 1533814,
+            "range": "± 557",
             "unit": "ns/iter"
           }
         ]
