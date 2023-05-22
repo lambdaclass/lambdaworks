@@ -9,20 +9,14 @@ use crate::{
     proof::{DeepPolynomialOpenings, StarkProof},
     transcript_to_field, Domain,
 };
-#[cfg(not(feature = "test_fiat_shamir"))]
 use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
 use lambdaworks_crypto::{fiat_shamir::transcript::Transcript, merkle_tree::merkle::MerkleTree};
-
-#[cfg(feature = "test_fiat_shamir")]
-use lambdaworks_crypto::fiat_shamir::test_transcript::TestTranscript;
-
 use lambdaworks_fft::{errors::FFTError, polynomial::FFTPoly};
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsFFTField},
     polynomial::Polynomial,
     traits::ByteConversion,
 };
-use log::info;
 
 #[cfg(debug_assertions)]
 use crate::air::debug::validate_trace;
@@ -59,314 +53,355 @@ struct Round4<F: IsFFTField> {
     query_list: Vec<FriDecommitment<F>>,
 }
 
-#[cfg(feature = "test_fiat_shamir")]
-fn round_0_transcript_initialization() -> TestTranscript {
-    TestTranscript::new()
+pub struct Prover<F: IsFFTField, A: AIR<Field = F>> {
+    air: A,
+    transcript: DefaultTranscript,
+    domain: Domain<F>,
 }
 
-#[cfg(not(feature = "test_fiat_shamir"))]
-fn round_0_transcript_initialization() -> DefaultTranscript {
-    // TODO: add strong fiat shamir
-    DefaultTranscript::new()
-}
-
-fn batch_commit<F>(
-    vectors: Vec<&Vec<FieldElement<F>>>,
-) -> (Vec<MerkleTree<F>>, Vec<FieldElement<F>>)
+impl<F: IsFFTField, A: AIR<Field = F>> Prover<F, A>
 where
-    F: IsFFTField,
     FieldElement<F>: ByteConversion,
 {
-    let trees: Vec<_> = vectors
-        .iter()
-        .map(|col| MerkleTree::build(col, Box::new(HASHER)))
-        .collect();
-
-    let roots = trees.iter().map(|tree| tree.root.clone()).collect();
-    (trees, roots)
-}
-
-fn evaluate_polynomial_on_lde_domain<F>(
-    p: &Polynomial<FieldElement<F>>,
-    blowup_factor: usize,
-    domain_size: usize,
-    offset: &FieldElement<F>,
-) -> Result<Vec<FieldElement<F>>, FFTError>
-where
-    F: IsFFTField,
-    Polynomial<FieldElement<F>>: FFTPoly<F>,
-{
-    // Evaluate those polynomials t_j on the large domain D_LDE.
-    let evaluations = p.evaluate_offset_fft(blowup_factor, Some(domain_size), offset)?;
-    let step = evaluations.len() / (domain_size * blowup_factor);
-    match step {
-        1 => Ok(evaluations),
-        _ => Ok(evaluations.into_iter().step_by(step).collect()),
+    pub fn new(air: A) -> Self {
+        let domain = Domain::new(&air);
+        Self {
+            air,
+            transcript: DefaultTranscript::new(),
+            domain,
+        }
     }
-}
 
-#[allow(clippy::type_complexity)]
-fn interpolate_and_commit<T, F>(
-    trace: &TraceTable<F>,
-    domain: &Domain<F>,
-    transcript: &mut T,
-) -> (
-    Vec<Polynomial<FieldElement<F>>>,
-    Vec<Vec<FieldElement<F>>>,
-    Vec<MerkleTree<F>>,
-    Vec<FieldElement<F>>,
-)
-where
-    T: Transcript,
-    F: IsFFTField,
-    FieldElement<F>: ByteConversion,
-{
-    let trace_polys = trace.compute_trace_polys();
+    fn round_0_transcript_initialization(&mut self) {
+        // TODO: add strong fiat shamir
+    }
 
-    // Evaluate those polynomials t_j on the large domain D_LDE.
-    let lde_trace_evaluations = trace_polys
-        .iter()
-        .map(|poly| {
-            evaluate_polynomial_on_lde_domain(
-                poly,
-                domain.blowup_factor,
-                domain.interpolation_domain_size,
-                &domain.coset_offset,
-            )
-        })
-        .collect::<Result<Vec<Vec<FieldElement<F>>>, FFTError>>()
+    fn round_1_randomized_air_with_preprocessing(
+        &mut self,
+        raw_trace: &A::RawTrace,
+        public_input: &mut A::PublicInput,
+    ) -> Round1<F, A> {
+        let main_trace = self.air.build_main_trace(raw_trace, public_input);
+
+        let (
+            mut trace_polys,
+            mut evaluations,
+            mut lde_trace_merkle_trees,
+            mut lde_trace_merkle_roots,
+        ) = interpolate_and_commit(&main_trace, &self.domain, &mut self.transcript);
+
+        let rap_challenges = self.air.build_rap_challenges(&mut self.transcript);
+
+        let aux_trace = self
+            .air
+            .build_auxiliary_trace(&main_trace, &rap_challenges, public_input);
+
+        if !aux_trace.is_empty() {
+            // Check that this is valid for interpolation
+            let (aux_trace_polys, aux_trace_polys_evaluations, aux_merkle_trees, aux_merkle_roots) =
+                interpolate_and_commit(&aux_trace, &self.domain, &mut self.transcript);
+            trace_polys.extend_from_slice(&aux_trace_polys);
+            evaluations.extend_from_slice(&aux_trace_polys_evaluations);
+            lde_trace_merkle_trees.extend_from_slice(&aux_merkle_trees);
+            lde_trace_merkle_roots.extend_from_slice(&aux_merkle_roots);
+        }
+
+        let lde_trace = TraceTable::new_from_cols(&evaluations);
+
+        Round1 {
+            trace_polys,
+            lde_trace,
+            lde_trace_merkle_roots,
+            lde_trace_merkle_trees,
+            rap_challenges,
+        }
+    }
+
+    fn round_2_compute_composition_polynomial(
+        &self,
+        round_1_result: &Round1<F, A>,
+        public_input: &A::PublicInput,
+        transition_coeffs: &[(FieldElement<F>, FieldElement<F>)],
+        boundary_coeffs: &[(FieldElement<F>, FieldElement<F>)],
+    ) -> Round2<F> {
+        // Create evaluation table
+        let evaluator = ConstraintEvaluator::new(
+            &self.air,
+            &round_1_result.trace_polys,
+            &self.domain.trace_primitive_root,
+            public_input,
+            &round_1_result.rap_challenges,
+        );
+
+        let constraint_evaluations = evaluator.evaluate(
+            &round_1_result.lde_trace,
+            &self.domain.lde_roots_of_unity_coset,
+            transition_coeffs,
+            boundary_coeffs,
+            &round_1_result.rap_challenges,
+        );
+
+        // Get the composition poly H
+        let composition_poly =
+            constraint_evaluations.compute_composition_poly(&self.domain.coset_offset);
+        let (composition_poly_even, composition_poly_odd) =
+            composition_poly.even_odd_decomposition();
+
+        let lde_composition_poly_even_evaluations = evaluate_polynomial_on_lde_domain(
+            &composition_poly_even,
+            self.domain.blowup_factor,
+            self.domain.interpolation_domain_size,
+            &self.domain.coset_offset,
+        )
+        .unwrap();
+        let lde_composition_poly_odd_evaluations = evaluate_polynomial_on_lde_domain(
+            &composition_poly_odd,
+            self.domain.blowup_factor,
+            self.domain.interpolation_domain_size,
+            &self.domain.coset_offset,
+        )
         .unwrap();
 
-    // Compute commitments [t_j].
-    let lde_trace = TraceTable::new_from_cols(&lde_trace_evaluations);
-    let (lde_trace_merkle_trees, lde_trace_merkle_roots) =
-        batch_commit(lde_trace.cols().iter().collect());
+        let (composition_poly_merkle_trees, composition_poly_roots) = batch_commit(vec![
+            &lde_composition_poly_even_evaluations,
+            &lde_composition_poly_odd_evaluations,
+        ]);
 
-    // >>>> Send commitments: [tⱼ]
-    for root in lde_trace_merkle_roots.iter() {
-        transcript.append(&root.to_bytes_be());
+        Round2 {
+            composition_poly_even,
+            lde_composition_poly_even_evaluations,
+            composition_poly_even_merkle_tree: composition_poly_merkle_trees[0].clone(),
+            composition_poly_even_root: composition_poly_roots[0].clone(),
+            composition_poly_odd,
+            lde_composition_poly_odd_evaluations,
+            composition_poly_odd_merkle_tree: composition_poly_merkle_trees[1].clone(),
+            composition_poly_odd_root: composition_poly_roots[1].clone(),
+        }
     }
 
-    (
-        trace_polys,
-        lde_trace_evaluations,
-        lde_trace_merkle_trees,
-        lde_trace_merkle_roots,
-    )
+    fn round_3_evaluate_polynomials_in_out_of_domain_element(
+        &self,
+        round_1_result: &Round1<F, A>,
+        round_2_result: &Round2<F>,
+        z: &FieldElement<F>,
+    ) -> Round3<F> {
+        let z_squared = z * z;
+
+        // Evaluate H_1 and H_2 in z^2.
+        let composition_poly_even_ood_evaluation =
+            round_2_result.composition_poly_even.evaluate(&z_squared);
+        let composition_poly_odd_ood_evaluation =
+            round_2_result.composition_poly_odd.evaluate(&z_squared);
+
+        // Returns the Out of Domain Frame for the given trace polynomials, out of domain evaluation point (called `z` in the literature),
+        // frame offsets given by the AIR and primitive root used for interpolating the trace polynomials.
+        // An out of domain frame is nothing more than the evaluation of the trace polynomials in the points required by the
+        // verifier to check the consistency between the trace and the composition polynomial.
+        //
+        // In the fibonacci example, the ood frame is simply the evaluations `[t(z), t(z * g), t(z * g^2)]`, where `t` is the trace
+        // polynomial and `g` is the primitive root of unity used when interpolating `t`.
+        let ood_trace_evaluations = Frame::get_trace_evaluations(
+            &round_1_result.trace_polys,
+            z,
+            &self.air.context().transition_offsets,
+            &self.domain.trace_primitive_root,
+        );
+        let trace_ood_frame_evaluations = Frame::new(
+            ood_trace_evaluations.into_iter().flatten().collect(),
+            round_1_result.trace_polys.len(),
+        );
+
+        Round3 {
+            trace_ood_frame_evaluations,
+            composition_poly_even_ood_evaluation,
+            composition_poly_odd_ood_evaluation,
+        }
+    }
+
+    fn round_4_compute_and_run_fri_on_the_deep_composition_polynomial(
+        &mut self,
+        round_1_result: &Round1<F, A>,
+        round_2_result: &Round2<F>,
+        round_3_result: &Round3<F>,
+        z: &FieldElement<F>,
+    ) -> Round4<F> {
+        // <<<< Receive challenges: 𝛾, 𝛾'
+        let composition_poly_coeffients = [
+            transcript_to_field(&mut self.transcript),
+            transcript_to_field(&mut self.transcript),
+        ];
+        // <<<< Receive challenges: 𝛾ⱼ, 𝛾ⱼ'
+        let trace_poly_coeffients = batch_sample_challenges(
+            self.air.context().transition_offsets.len() * self.air.context().trace_columns,
+            &mut self.transcript,
+        );
+
+        // Compute p₀ (deep composition polynomial)
+        let deep_composition_poly = compute_deep_composition_poly(
+            &self.air,
+            &round_1_result.trace_polys,
+            round_2_result,
+            round_3_result,
+            z,
+            &self.domain.trace_primitive_root,
+            &composition_poly_coeffients,
+            &trace_poly_coeffients,
+        );
+
+        // FRI commit and query phases
+        let (fri_last_value, fri_layers) = fri_commit_phase(
+            self.domain.root_order as usize,
+            deep_composition_poly,
+            &self.domain.lde_roots_of_unity_coset,
+            &mut self.transcript,
+        );
+        let (query_list, iota_0) =
+            fri_query_phase(&self.air, &self.domain, &fri_layers, &mut self.transcript);
+
+        let fri_layers_merkle_roots: Vec<_> = fri_layers
+            .iter()
+            .map(|layer| layer.merkle_tree.root.clone())
+            .collect();
+
+        let deep_poly_openings =
+            open_deep_composition_poly(&self.domain, round_1_result, round_2_result, iota_0);
+
+        Round4 {
+            fri_last_value,
+            fri_layers_merkle_roots,
+            deep_poly_openings,
+            query_list,
+        }
+    }
+
+    // FIXME remove unwrap() calls and return errors
+    pub fn prove(
+        &mut self,
+        trace: &A::RawTrace,
+        public_input: &mut A::PublicInput,
+    ) -> StarkProof<F> {
+        self.round_0_transcript_initialization();
+
+        let round_1_result = self.round_1_randomized_air_with_preprocessing(trace, public_input);
+
+        #[cfg(debug_assertions)]
+        validate_trace(
+            &self.air,
+            &round_1_result.trace_polys,
+            &self.domain,
+            public_input,
+            &round_1_result.rap_challenges,
+        );
+
+        // <<<< Receive challenges: 𝛼_j^B
+        let boundary_coeffs_alphas =
+            batch_sample_challenges(round_1_result.trace_polys.len(), &mut self.transcript);
+        // <<<< Receive challenges: 𝛽_j^B
+        let boundary_coeffs_betas =
+            batch_sample_challenges(round_1_result.trace_polys.len(), &mut self.transcript);
+        // <<<< Receive challenges: 𝛼_j^T
+        let transition_coeffs_alphas = batch_sample_challenges(
+            self.air.context().num_transition_constraints,
+            &mut self.transcript,
+        );
+        // <<<< Receive challenges: 𝛽_j^T
+        let transition_coeffs_betas = batch_sample_challenges(
+            self.air.context().num_transition_constraints,
+            &mut self.transcript,
+        );
+
+        let boundary_coeffs: Vec<_> = boundary_coeffs_alphas
+            .into_iter()
+            .zip(boundary_coeffs_betas)
+            .collect();
+        let transition_coeffs: Vec<_> = transition_coeffs_alphas
+            .into_iter()
+            .zip(transition_coeffs_betas)
+            .collect();
+
+        let round_2_result = self.round_2_compute_composition_polynomial(
+            &round_1_result,
+            public_input,
+            &transition_coeffs,
+            &boundary_coeffs,
+        );
+
+        // >>>> Send commitments: [H₁], [H₂]
+        self.transcript
+            .append(&round_2_result.composition_poly_even_root.to_bytes_be());
+        self.transcript
+            .append(&round_2_result.composition_poly_odd_root.to_bytes_be());
+
+        // <<<< Receive challenge: z
+        let z = sample_z_ood(
+            &self.domain.lde_roots_of_unity_coset,
+            &self.domain.trace_roots_of_unity,
+            &mut self.transcript,
+        );
+
+        let round_3_result = self.round_3_evaluate_polynomials_in_out_of_domain_element(
+            &round_1_result,
+            &round_2_result,
+            &z,
+        );
+
+        // >>>> Send value: H₁(z²)
+        self.transcript.append(
+            &round_3_result
+                .composition_poly_even_ood_evaluation
+                .to_bytes_be(),
+        );
+
+        // >>>> Send value: H₂(z²)
+        self.transcript.append(
+            &round_3_result
+                .composition_poly_odd_ood_evaluation
+                .to_bytes_be(),
+        );
+        // >>>> Send values: tⱼ(zgᵏ)
+        for i in 0..round_3_result.trace_ood_frame_evaluations.num_rows() {
+            for element in round_3_result.trace_ood_frame_evaluations.get_row(i).iter() {
+                self.transcript.append(&element.to_bytes_be());
+            }
+        }
+
+        // Part of this round is running FRI, which is an interactive
+        // protocol on its own. Therefore we pass it the transcript
+        // to simulate the interactions with the verifier.
+        let round_4_result = self.round_4_compute_and_run_fri_on_the_deep_composition_polynomial(
+            &round_1_result,
+            &round_2_result,
+            &round_3_result,
+            &z,
+        );
+
+        StarkProof {
+            // [tⱼ]
+            lde_trace_merkle_roots: round_1_result.lde_trace_merkle_roots,
+            // tⱼ(zgᵏ)
+            trace_ood_frame_evaluations: round_3_result.trace_ood_frame_evaluations,
+            // [H₁]
+            composition_poly_even_root: round_2_result.composition_poly_even_root,
+            // H₁(z²)
+            composition_poly_even_ood_evaluation: round_3_result
+                .composition_poly_even_ood_evaluation,
+            // [H₂]
+            composition_poly_odd_root: round_2_result.composition_poly_odd_root,
+            // H₂(z²)
+            composition_poly_odd_ood_evaluation: round_3_result.composition_poly_odd_ood_evaluation,
+            // [pₖ]
+            fri_layers_merkle_roots: round_4_result.fri_layers_merkle_roots,
+            // pₙ
+            fri_last_value: round_4_result.fri_last_value,
+            // Open(p₀(D₀), 𝜐ₛ), Open(pₖ(Dₖ), −𝜐ₛ^(2ᵏ))
+            query_list: round_4_result.query_list,
+            // Open(H₁(D_LDE, 𝜐₀), Open(H₂(D_LDE, 𝜐₀), Open(tⱼ(D_LDE), 𝜐₀)
+            deep_poly_openings: round_4_result.deep_poly_openings,
+        }
+    }
 }
 
-fn round_1_randomized_air_with_preprocessing<F: IsFFTField, A: AIR<Field = F>, T: Transcript>(
-    air: &A,
-    raw_trace: &A::RawTrace,
-    domain: &Domain<F>,
-    public_input: &mut A::PublicInput,
-    transcript: &mut T,
-) -> Round1<F, A>
-where
-    FieldElement<F>: ByteConversion,
-{
-    let main_trace = air.build_main_trace(raw_trace, public_input);
-
-    let (mut trace_polys, mut evaluations, mut lde_trace_merkle_trees, mut lde_trace_merkle_roots) =
-        interpolate_and_commit(&main_trace, domain, transcript);
-
-    let rap_challenges = air.build_rap_challenges(transcript);
-
-    let aux_trace = air.build_auxiliary_trace(&main_trace, &rap_challenges, public_input);
-
-    if !aux_trace.is_empty() {
-        // Check that this is valid for interpolation
-        let (aux_trace_polys, aux_trace_polys_evaluations, aux_merkle_trees, aux_merkle_roots) =
-            interpolate_and_commit(&aux_trace, domain, transcript);
-        trace_polys.extend_from_slice(&aux_trace_polys);
-        evaluations.extend_from_slice(&aux_trace_polys_evaluations);
-        lde_trace_merkle_trees.extend_from_slice(&aux_merkle_trees);
-        lde_trace_merkle_roots.extend_from_slice(&aux_merkle_roots);
-    }
-
-    let lde_trace = TraceTable::new_from_cols(&evaluations);
-
-    Round1 {
-        trace_polys,
-        lde_trace,
-        lde_trace_merkle_roots,
-        lde_trace_merkle_trees,
-        rap_challenges,
-    }
-}
-
-fn round_2_compute_composition_polynomial<F, A>(
-    air: &A,
-    domain: &Domain<F>,
-    round_1_result: &Round1<F, A>,
-    public_input: &A::PublicInput,
-    transition_coeffs: &[(FieldElement<F>, FieldElement<F>)],
-    boundary_coeffs: &[(FieldElement<F>, FieldElement<F>)],
-) -> Round2<F>
-where
-    F: IsFFTField,
-    A: AIR<Field = F>,
-    FieldElement<F>: ByteConversion,
-{
-    // Create evaluation table
-    let evaluator = ConstraintEvaluator::new(
-        air,
-        &round_1_result.trace_polys,
-        &domain.trace_primitive_root,
-        public_input,
-        &round_1_result.rap_challenges,
-    );
-
-    let constraint_evaluations = evaluator.evaluate(
-        &round_1_result.lde_trace,
-        &domain.lde_roots_of_unity_coset,
-        transition_coeffs,
-        boundary_coeffs,
-        &round_1_result.rap_challenges,
-    );
-
-    // Get the composition poly H
-    let composition_poly = constraint_evaluations.compute_composition_poly(&domain.coset_offset);
-    let (composition_poly_even, composition_poly_odd) = composition_poly.even_odd_decomposition();
-
-    let lde_composition_poly_even_evaluations = evaluate_polynomial_on_lde_domain(
-        &composition_poly_even,
-        domain.blowup_factor,
-        domain.interpolation_domain_size,
-        &domain.coset_offset,
-    )
-    .unwrap();
-    let lde_composition_poly_odd_evaluations = evaluate_polynomial_on_lde_domain(
-        &composition_poly_odd,
-        domain.blowup_factor,
-        domain.interpolation_domain_size,
-        &domain.coset_offset,
-    )
-    .unwrap();
-
-    let (composition_poly_merkle_trees, composition_poly_roots) = batch_commit(vec![
-        &lde_composition_poly_even_evaluations,
-        &lde_composition_poly_odd_evaluations,
-    ]);
-
-    Round2 {
-        composition_poly_even,
-        lde_composition_poly_even_evaluations,
-        composition_poly_even_merkle_tree: composition_poly_merkle_trees[0].clone(),
-        composition_poly_even_root: composition_poly_roots[0].clone(),
-        composition_poly_odd,
-        lde_composition_poly_odd_evaluations,
-        composition_poly_odd_merkle_tree: composition_poly_merkle_trees[1].clone(),
-        composition_poly_odd_root: composition_poly_roots[1].clone(),
-    }
-}
-
-fn round_3_evaluate_polynomials_in_out_of_domain_element<F: IsFFTField, A: AIR<Field = F>>(
-    air: &A,
-    domain: &Domain<F>,
-    round_1_result: &Round1<F, A>,
-    round_2_result: &Round2<F>,
-    z: &FieldElement<F>,
-) -> Round3<F>
-where
-    FieldElement<F>: ByteConversion,
-{
-    let z_squared = z * z;
-
-    // Evaluate H_1 and H_2 in z^2.
-    let composition_poly_even_ood_evaluation =
-        round_2_result.composition_poly_even.evaluate(&z_squared);
-    let composition_poly_odd_ood_evaluation =
-        round_2_result.composition_poly_odd.evaluate(&z_squared);
-
-    // Returns the Out of Domain Frame for the given trace polynomials, out of domain evaluation point (called `z` in the literature),
-    // frame offsets given by the AIR and primitive root used for interpolating the trace polynomials.
-    // An out of domain frame is nothing more than the evaluation of the trace polynomials in the points required by the
-    // verifier to check the consistency between the trace and the composition polynomial.
-    //
-    // In the fibonacci example, the ood frame is simply the evaluations `[t(z), t(z * g), t(z * g^2)]`, where `t` is the trace
-    // polynomial and `g` is the primitive root of unity used when interpolating `t`.
-    let ood_trace_evaluations = Frame::get_trace_evaluations(
-        &round_1_result.trace_polys,
-        z,
-        &air.context().transition_offsets,
-        &domain.trace_primitive_root,
-    );
-    let trace_ood_frame_evaluations = Frame::new(
-        ood_trace_evaluations.into_iter().flatten().collect(),
-        round_1_result.trace_polys.len(),
-    );
-
-    Round3 {
-        trace_ood_frame_evaluations,
-        composition_poly_even_ood_evaluation,
-        composition_poly_odd_ood_evaluation,
-    }
-}
-
-fn round_4_compute_and_run_fri_on_the_deep_composition_polynomial<
-    F: IsFFTField,
-    A: AIR<Field = F>,
-    T: Transcript,
->(
-    air: &A,
-    domain: &Domain<F>,
-    round_1_result: &Round1<F, A>,
-    round_2_result: &Round2<F>,
-    round_3_result: &Round3<F>,
-    z: &FieldElement<F>,
-    transcript: &mut T,
-) -> Round4<F>
-where
-    FieldElement<F>: ByteConversion,
-{
-    // <<<< Receive challenges: 𝛾, 𝛾'
-    let composition_poly_coeffients = [
-        transcript_to_field(transcript),
-        transcript_to_field(transcript),
-    ];
-    // <<<< Receive challenges: 𝛾ⱼ, 𝛾ⱼ'
-    let trace_poly_coeffients = batch_sample_challenges::<F, T>(
-        air.context().transition_offsets.len() * air.context().trace_columns,
-        transcript,
-    );
-
-    // Compute p₀ (deep composition polynomial)
-    let deep_composition_poly = compute_deep_composition_poly(
-        air,
-        &round_1_result.trace_polys,
-        round_2_result,
-        round_3_result,
-        z,
-        &domain.trace_primitive_root,
-        &composition_poly_coeffients,
-        &trace_poly_coeffients,
-    );
-
-    // FRI commit and query phases
-    let (fri_last_value, fri_layers) = fri_commit_phase(
-        domain.root_order as usize,
-        deep_composition_poly,
-        &domain.lde_roots_of_unity_coset,
-        transcript,
-    );
-    let (query_list, iota_0) = fri_query_phase(air, domain, &fri_layers, transcript);
-
-    let fri_layers_merkle_roots: Vec<_> = fri_layers
-        .iter()
-        .map(|layer| layer.merkle_tree.root.clone())
-        .collect();
-
-    let deep_poly_openings =
-        open_deep_composition_poly(domain, round_1_result, round_2_result, iota_0);
-
-    Round4 {
-        fri_last_value,
-        fri_layers_merkle_roots,
-        deep_poly_openings,
-        query_list,
-    }
-}
+// TODO: The following functions probably should be on other file.
 
 /// Returns the DEEP composition polynomial that the prover then commits to using
 /// FRI. This polynomial is a linear combination of the trace polynomial and the
@@ -469,161 +504,89 @@ where
     }
 }
 
-// FIXME remove unwrap() calls and return errors
-pub fn prove<F: IsFFTField, A: AIR<Field = F>>(
-    trace: &A::RawTrace,
-    air: &A,
-    public_input: &mut A::PublicInput,
-) -> StarkProof<F>
+fn batch_commit<F>(
+    vectors: Vec<&Vec<FieldElement<F>>>,
+) -> (Vec<MerkleTree<F>>, Vec<FieldElement<F>>)
 where
+    F: IsFFTField,
     FieldElement<F>: ByteConversion,
 {
-    info!("Starting proof generation...");
-
-    let domain = Domain::new(air);
-
-    let mut transcript = round_0_transcript_initialization();
-
-    // ===================================
-    // ==========|   Round 1   |==========
-    // ===================================
-
-    let round_1_result = round_1_randomized_air_with_preprocessing::<F, A, _>(
-        air,
-        trace,
-        &domain,
-        public_input,
-        &mut transcript,
-    );
-
-    #[cfg(debug_assertions)]
-    validate_trace(
-        air,
-        &round_1_result.trace_polys,
-        &domain,
-        public_input,
-        &round_1_result.rap_challenges,
-    );
-
-    // ===================================
-    // ==========|   Round 2   |==========
-    // ===================================
-
-    // <<<< Receive challenges: 𝛼_j^B
-    let boundary_coeffs_alphas =
-        batch_sample_challenges(round_1_result.trace_polys.len(), &mut transcript);
-    // <<<< Receive challenges: 𝛽_j^B
-    let boundary_coeffs_betas =
-        batch_sample_challenges(round_1_result.trace_polys.len(), &mut transcript);
-    // <<<< Receive challenges: 𝛼_j^T
-    let transition_coeffs_alphas =
-        batch_sample_challenges(air.context().num_transition_constraints, &mut transcript);
-    // <<<< Receive challenges: 𝛽_j^T
-    let transition_coeffs_betas =
-        batch_sample_challenges(air.context().num_transition_constraints, &mut transcript);
-
-    let boundary_coeffs: Vec<_> = boundary_coeffs_alphas
-        .into_iter()
-        .zip(boundary_coeffs_betas)
-        .collect();
-    let transition_coeffs: Vec<_> = transition_coeffs_alphas
-        .into_iter()
-        .zip(transition_coeffs_betas)
+    let trees: Vec<_> = vectors
+        .iter()
+        .map(|col| MerkleTree::build(col, Box::new(HASHER)))
         .collect();
 
-    let round_2_result = round_2_compute_composition_polynomial(
-        air,
-        &domain,
-        &round_1_result,
-        public_input,
-        &transition_coeffs,
-        &boundary_coeffs,
-    );
+    let roots = trees.iter().map(|tree| tree.root.clone()).collect();
+    (trees, roots)
+}
 
-    // >>>> Send commitments: [H₁], [H₂]
-    transcript.append(&round_2_result.composition_poly_even_root.to_bytes_be());
-    transcript.append(&round_2_result.composition_poly_odd_root.to_bytes_be());
+fn evaluate_polynomial_on_lde_domain<F>(
+    p: &Polynomial<FieldElement<F>>,
+    blowup_factor: usize,
+    domain_size: usize,
+    offset: &FieldElement<F>,
+) -> Result<Vec<FieldElement<F>>, FFTError>
+where
+    F: IsFFTField,
+    Polynomial<FieldElement<F>>: FFTPoly<F>,
+{
+    // Evaluate those polynomials t_j on the large domain D_LDE.
+    let evaluations = p.evaluate_offset_fft(blowup_factor, Some(domain_size), offset)?;
+    let step = evaluations.len() / (domain_size * blowup_factor);
+    match step {
+        1 => Ok(evaluations),
+        _ => Ok(evaluations.into_iter().step_by(step).collect()),
+    }
+}
 
-    // ===================================
-    // ==========|   Round 3   |==========
-    // ===================================
+#[allow(clippy::type_complexity)]
+fn interpolate_and_commit<T, F>(
+    trace: &TraceTable<F>,
+    domain: &Domain<F>,
+    transcript: &mut T,
+) -> (
+    Vec<Polynomial<FieldElement<F>>>,
+    Vec<Vec<FieldElement<F>>>,
+    Vec<MerkleTree<F>>,
+    Vec<FieldElement<F>>,
+)
+where
+    T: Transcript,
+    F: IsFFTField,
+    FieldElement<F>: ByteConversion,
+{
+    let trace_polys = trace.compute_trace_polys();
 
-    // <<<< Receive challenge: z
-    let z = sample_z_ood(
-        &domain.lde_roots_of_unity_coset,
-        &domain.trace_roots_of_unity,
-        &mut transcript,
-    );
+    // Evaluate those polynomials t_j on the large domain D_LDE.
+    let lde_trace_evaluations = trace_polys
+        .iter()
+        .map(|poly| {
+            evaluate_polynomial_on_lde_domain(
+                poly,
+                domain.blowup_factor,
+                domain.interpolation_domain_size,
+                &domain.coset_offset,
+            )
+        })
+        .collect::<Result<Vec<Vec<FieldElement<F>>>, FFTError>>()
+        .unwrap();
 
-    let round_3_result = round_3_evaluate_polynomials_in_out_of_domain_element(
-        air,
-        &domain,
-        &round_1_result,
-        &round_2_result,
-        &z,
-    );
+    // Compute commitments [t_j].
+    let lde_trace = TraceTable::new_from_cols(&lde_trace_evaluations);
+    let (lde_trace_merkle_trees, lde_trace_merkle_roots) =
+        batch_commit(lde_trace.cols().iter().collect());
 
-    // >>>> Send value: H₁(z²)
-    transcript.append(
-        &round_3_result
-            .composition_poly_even_ood_evaluation
-            .to_bytes_be(),
-    );
-
-    // >>>> Send value: H₂(z²)
-    transcript.append(
-        &round_3_result
-            .composition_poly_odd_ood_evaluation
-            .to_bytes_be(),
-    );
-    // >>>> Send values: tⱼ(zgᵏ)
-    for i in 0..round_3_result.trace_ood_frame_evaluations.num_rows() {
-        for element in round_3_result.trace_ood_frame_evaluations.get_row(i).iter() {
-            transcript.append(&element.to_bytes_be());
-        }
+    // >>>> Send commitments: [tⱼ]
+    for root in lde_trace_merkle_roots.iter() {
+        transcript.append(&root.to_bytes_be());
     }
 
-    // ===================================
-    // ==========|   Round 4   |==========
-    // ===================================
-
-    // Part of this round is running FRI, which is an interactive
-    // protocol on its own. Therefore we pass it the transcript
-    // to simulate the interactions with the verifier.
-    let round_4_result = round_4_compute_and_run_fri_on_the_deep_composition_polynomial(
-        air,
-        &domain,
-        &round_1_result,
-        &round_2_result,
-        &round_3_result,
-        &z,
-        &mut transcript,
-    );
-
-    info!("End proof generation");
-
-    StarkProof {
-        // [tⱼ]
-        lde_trace_merkle_roots: round_1_result.lde_trace_merkle_roots,
-        // tⱼ(zgᵏ)
-        trace_ood_frame_evaluations: round_3_result.trace_ood_frame_evaluations,
-        // [H₁]
-        composition_poly_even_root: round_2_result.composition_poly_even_root,
-        // H₁(z²)
-        composition_poly_even_ood_evaluation: round_3_result.composition_poly_even_ood_evaluation,
-        // [H₂]
-        composition_poly_odd_root: round_2_result.composition_poly_odd_root,
-        // H₂(z²)
-        composition_poly_odd_ood_evaluation: round_3_result.composition_poly_odd_ood_evaluation,
-        // [pₖ]
-        fri_layers_merkle_roots: round_4_result.fri_layers_merkle_roots,
-        // pₙ
-        fri_last_value: round_4_result.fri_last_value,
-        // Open(p₀(D₀), 𝜐ₛ), Open(pₖ(Dₖ), −𝜐ₛ^(2ᵏ))
-        query_list: round_4_result.query_list,
-        // Open(H₁(D_LDE, 𝜐₀), Open(H₂(D_LDE, 𝜐₀), Open(tⱼ(D_LDE), 𝜐₀)
-        deep_poly_openings: round_4_result.deep_poly_openings,
-    }
+    (
+        trace_polys,
+        lde_trace_evaluations,
+        lde_trace_merkle_trees,
+        lde_trace_merkle_roots,
+    )
 }
 
 #[cfg(test)]
