@@ -8,6 +8,7 @@ use cudarc::{
 };
 use lambdaworks_math::field::{
     element::FieldElement,
+    fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
     traits::{IsFFTField, IsField},
 };
 use std::sync::Arc;
