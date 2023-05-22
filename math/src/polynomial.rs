@@ -43,7 +43,7 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
         ys: &[FieldElement<F>],
     ) -> Result<Self, InterpolateError> {
         // TODO: try to use the type system to avoid this assert
-        if xs.len() == ys.len() {
+        if xs.len() != ys.len() {
             return Err(InterpolateError::UnequalLengths(xs.len(), ys.len()));
         }
         if xs.is_empty() {
