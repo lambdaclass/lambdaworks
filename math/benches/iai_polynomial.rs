@@ -1,5 +1,5 @@
 use const_random::const_random;
-use iai::black_box;
+use iai_callgrind::black_box;
 use util::{rand_field_elements, rand_poly, FE};
 
 mod util;
@@ -54,8 +54,9 @@ fn poly_div_benchmarks() {
     let _ = black_box(x_poly) + black_box(y_poly);
 }
 
-iai::main!(
-    poly_evaluate_benchmarks,
+iai_callgrind::main!(
+    callgrind_args = "toggle-collect=util::*";
+    functions = poly_evaluate_benchmarks,
     poly_evaluate_slice_benchmarks,
     poly_add_benchmarks,
     poly_neg_benchmarks,

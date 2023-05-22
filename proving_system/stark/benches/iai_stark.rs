@@ -1,4 +1,4 @@
-use iai::black_box;
+use iai_callgrind::black_box;
 use lambdaworks_stark::{
     air::{context::ProofOptions, example::cairo},
     fri::FieldElement,
@@ -77,9 +77,10 @@ fn cairo_factorial_benchmarks() {
     assert!(ok);
 }
 
-iai::main!(
-    simple_fibonacci_benchmarks,
-    two_col_fibonacci_benchmarks,
-    cairo_fibonacci_benchmarks,
-    cairo_factorial_benchmarks,
+iai_callgrind::main!(
+    callgrind_args = "toggle-collect=util::*";
+    functions = simple_fibonacci_benchmarks,
+                two_col_fibonacci_benchmarks,
+                cairo_fibonacci_benchmarks,
+                cairo_factorial_benchmarks,
 );
