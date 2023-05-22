@@ -347,6 +347,14 @@ where
         }
     }
 
+    pub fn checked_div(&self, dividend: &Self) -> Option<Self> {
+        if dividend == &FieldElement::zero() {
+            return None;
+        }
+
+        Some(self / dividend)
+    }
+
     /// Returns the multiplicative neutral element of the field.
     pub fn one() -> Self {
         Self { value: F::one() }
@@ -603,5 +611,28 @@ mod tests {
         let input = FrElement::from(27);
         let sqrt = input.sqrt();
         assert!(sqrt.is_none());
+    }
+
+    #[test]
+    fn checked_division_works() {
+        type FrField = Stark252PrimeField;
+        type FrElement = FieldElement<FrField>;
+
+        let f1 = FrElement::from(6);
+        let f2 = FrElement::from(2);
+        let f3 = FrElement::from(3);
+
+        assert_eq!(f1.checked_div(&f2), Some(f3));
+    }
+
+    #[test]
+    fn checked_division_by_zero_returns_none() {
+        type FrField = Stark252PrimeField;
+        type FrElement = FieldElement<FrField>;
+
+        let f1 = FrElement::from(6);
+        let zero = FrElement::zero();
+
+        assert_eq!(f1.checked_div(&zero), None);
     }
 }

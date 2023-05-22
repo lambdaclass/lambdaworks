@@ -252,7 +252,7 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
 
         let boundary_quotient_ood_evaluation = (trace_evaluation
             - boundary_interpolating_polynomial.evaluate(&challenges.z))
-            / boundary_zerofier.evaluate(&challenges.z);
+        .checked_div(&boundary_zerofier.evaluate(&challenges.z));
 
         let boundary_quotient_degree = air.context().trace_length - boundary_zerofier.degree() - 1;
 
