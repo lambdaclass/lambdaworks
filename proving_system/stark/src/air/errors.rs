@@ -21,4 +21,6 @@ pub enum AIRError {
     TableColumnLengths,
     #[error("Attempt to create frame with zero columns")]
     FrameColumns,
+    #[error("Could not compute transition divisors because exemption polynomial {0} is zero")]
+    TransitionDivisorExemption(usize),
 }

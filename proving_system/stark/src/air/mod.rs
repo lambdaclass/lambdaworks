@@ -81,7 +81,10 @@ pub trait AIR: Clone {
                     exemptions_polynomial * (&x - &roots_of_unity[roots_of_unity.len() - 1 - i])
             }
 
-            result.push(roots_of_unity_vanishing_polynomial / exemptions_polynomial);
+            let transition_divisor = roots_of_unity_vanishing_polynomial
+                .checked_div(&exemptions_polynomial)
+                .ok_or(AIRError::TransitionDivisorExemption(transition_idx))?;
+            result.push(transition_divisor);
         }
 
         Ok(result)
