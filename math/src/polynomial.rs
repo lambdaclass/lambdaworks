@@ -52,13 +52,11 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
 
         for (i, xi) in xs.iter().enumerate().skip(1) {
             indexes.push(idx);
-            for (j, xj) in xs.iter().enumerate() {
-                if i > j {
-                    // TODO: return Result here?
-                    assert_ne!(xi, xj, "xs values must be unique");
-                    denominators.push(xi - xj);
-                    idx += 1;
-                }
+            for (_, xj) in xs.iter().enumerate().take(i) {
+                // TODO: return Result here?
+                assert_ne!(xi, xj, "xs values must be unique");
+                denominators.push(xi - xj);
+                idx += 1;
             }
         }
 
