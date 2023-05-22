@@ -77,31 +77,27 @@ public:
 
     constexpr inline u256 operator>>(unsigned shift) const
     {
-        // TODO: reduce branch conditions
-        if (shift >= 256)
-        {
-            return u256(0);
-        }
-        else if (shift == 128)
-        {
-            return u256(0, high);
-        }
-        else if (shift == 0)
-        {
-            return *this;
-        }
-        else if (shift < 128)
-        {
-            return u256(high >> shift, (high << (128 - shift)) | (low >> shift));
-        }
-        else if ((256 > shift) && (shift > 128))
-        {
-            return u256(0, (high >> (shift - 128)));
-        }
-        else
-        {
-            return u256(0);
-        }
+        u128 new_low = (shift == 0) * low
+                     | (shift == 128) * high
+                     | ((shift < 128) ^ (shift == 0)) * (high << (128 - shift) | (low >> shift))
+                     | ((shift < 256) & (shift > 128)) * (high >> (shift - 128));
+
+        u128 new_high = (shift == 0) * high
+                      | ((shift < 128) ^ (shift == 0)) * (high >> shift);
+
+        // Unoptimized form:
+        // if (shift >= 256)
+        //     return u256(0);
+        // else if (shift == 128)
+        //     return u256(0, high);
+        // else if (shift == 0)
+        //     return *this;
+        // else if (shift < 128)
+        //     return u256(high >> shift, (high << (128 - shift)) | (low >> shift));
+        // else if ((256 > shift) && (shift > 128))
+        //     return u256(0, (high >> (shift - 128)));
+        // else
+        //     return u256(0);
     }
 
     constexpr u256 operator>>=(unsigned rhs)
