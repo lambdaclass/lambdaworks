@@ -104,6 +104,7 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
                 d,
             );
 
+            let d_adjustment_power = d.pow(boundary_term_degree_adjustment);
             let boundary_evaluation = zip(&boundary_polys, &boundary_zerofiers)
                 .enumerate()
                 .map(|(index, (boundary_poly, boundary_zerofier))| {
@@ -111,8 +112,7 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
                         alpha_and_beta_boundary_coefficients[index].clone();
 
                     (boundary_poly.evaluate(d) / boundary_zerofier.evaluate(d))
-                        * (&boundary_alpha * d.pow(boundary_term_degree_adjustment)
-                            + &boundary_beta)
+                        * (&boundary_alpha * &d_adjustment_power + &boundary_beta)
                 })
                 .fold(FieldElement::<F>::zero(), |acc, eval| acc + eval);
 
