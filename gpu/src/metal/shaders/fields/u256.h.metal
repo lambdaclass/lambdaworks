@@ -75,15 +75,17 @@ public:
         return !(*this > rhs);
     }
 
-    constexpr inline u256 operator>>(unsigned shift) const
+    inline u256 operator>>(const unsigned shift) const
     {
-        u128 new_low = (shift == 0) * low
-                     | (shift == 128) * high
-                     | ((shift < 128) ^ (shift == 0)) * (high << (128 - shift) | (low >> shift))
-                     | ((shift < 256) & (shift > 128)) * (high >> (shift - 128));
+        u128 new_low = low * (shift == 0)
+                     | high * (shift == 128)
+                     | (high << (128 - shift) | (low >> shift)) * ((shift < 128) ^ (shift == 0))
+                     | (high >> (shift - 128)) * ((shift < 256) & (shift > 128));
 
-        u128 new_high = (shift == 0) * high
-                      | ((shift < 128) ^ (shift == 0)) * (high >> shift);
+        u128 new_high = high * (shift == 0)
+                      | (high >> shift) * ((shift < 128) ^ (shift == 0));
+        
+        return u256(new_high, new_low);
 
         // Unoptimized form:
         // if (shift >= 256)
