@@ -148,7 +148,9 @@ jobs:
 
       - name: Run tests
         run: cargo test -F metal
+
   test_nvidia:
+    needs: build-programs
     name: Test (Ubuntu, NVIDIA GPU)
     runs-on: [self-hosted, cuda]
     env:
@@ -160,5 +162,15 @@ jobs:
         with:
           toolchain: stable
           components: clippy
+      
+      - name: Fetch program traces
+        uses: actions/cache/restore@v3
+        with:
+          path: |
+            proving_system/stark/cairo_programs/**/*.trace
+            proving_system/stark/cairo_programs/**/*.memory
+          key: traces-cache-${{ hashFiles( 'proving_system/stark/cairo_programs/**/*.cairo' ) }}
+          fail-on-cache-miss: true
+
       - name: Run tests
         run: cargo test -F cuda
