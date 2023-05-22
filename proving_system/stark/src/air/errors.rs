@@ -19,4 +19,6 @@ pub enum AIRError {
     TableColumns,
     #[error("Attempt to create table with columns with different lengths")]
     TableColumnLengths,
+    #[error("Attempt to create frame with zero columns")]
+    FrameColumns,
 }

@@ -59,7 +59,8 @@ pub fn validate_trace<F: IsFFTField, A: AIR<Field = F>>(
 
     // Iterate over trace and compute transitions
     for step in 0..trace.n_rows() {
-        let frame = Frame::read_from_trace(&trace, step, 1, &air.context().transition_offsets);
+        let frame =
+            Frame::read_from_trace(&trace, step, 1, &air.context().transition_offsets).unwrap();
 
         let evaluations = air.compute_transition(&frame, rap_challenges);
         // Iterate over each transition evaluation. When the evaluated step is not from

@@ -104,7 +104,7 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
                 i,
                 blowup_factor,
                 &self.air.context().transition_offsets,
-            );
+            )?;
 
             let mut evaluations = self.air.compute_transition(&frame, rap_challenges);
             evaluations = Self::compute_constraint_composition_poly_evaluations(

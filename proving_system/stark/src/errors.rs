@@ -9,8 +9,8 @@ pub enum StarkError {
     PolynomialEvaluation(FFTError),
     #[error("Could not interpolate and commit: {0}")]
     InterpolationAndCommitment(AIRError),
-    #[error("Could not preprocess randomized AIR: {0}")]
-    RandomizedAIRPreprocessing(AIRError),
+    #[error("Attempt to preprocess randomized AIR using table with no columns")]
+    RAPTraceColumns,
     #[error("Number of trace term gammas of DEEP composition polynomial should be {0} * {1} = {} but is {2}", .0 * .1)]
     DeepTraceTermGammas(usize, usize, usize),
     #[error("Could not get merkle proof of even composition polynomial")]

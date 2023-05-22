@@ -13,8 +13,12 @@ pub struct Frame<F: IsFFTField> {
 }
 
 impl<F: IsFFTField> Frame<F> {
-    pub fn new(data: Vec<FieldElement<F>>, row_width: usize) -> Self {
-        Self { data, row_width }
+    pub fn new(data: Vec<FieldElement<F>>, row_width: usize) -> Result<Self, AIRError> {
+        if row_width == 0 {
+            Err(AIRError::FrameColumns)
+        } else {
+            Ok(Self { data, row_width })
+        }
     }
 
     pub fn num_rows(&self) -> usize {
@@ -44,7 +48,7 @@ impl<F: IsFFTField> Frame<F> {
         step: usize,
         blowup: u8,
         offsets: &[usize],
-    ) -> Self {
+    ) -> Result<Self, AIRError> {
         // Get trace length to apply module with it when getting elements of
         // the frame from the trace.
         let trace_steps = trace.n_rows();

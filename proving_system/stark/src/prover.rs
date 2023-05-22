@@ -165,6 +165,9 @@ where
     FieldElement<F>: ByteConversion,
 {
     let main_trace = A::build_main_trace(raw_trace);
+    if main_trace.n_cols == 0 {
+        return Err(StarkError::RAPTraceColumns);
+    }
 
     let (mut trace_polys, mut evaluations, mut lde_trace_merkle_trees, mut lde_trace_merkle_roots) =
         interpolate_and_commit(&main_trace, domain, transcript)?;
@@ -183,8 +186,7 @@ where
         lde_trace_merkle_roots.extend_from_slice(&aux_merkle_roots);
     }
 
-    let lde_trace =
-        TraceTable::new_from_cols(&evaluations).map_err(StarkError::RandomizedAIRPreprocessing)?;
+    let lde_trace = TraceTable::new_from_cols(&evaluations).unwrap();
 
     Ok(Round1 {
         trace_polys,
@@ -287,10 +289,13 @@ where
         &air.context().transition_offsets,
         &domain.trace_primitive_root,
     );
+    // We already checked that the trace shouldn't have zero columns, so there will be always at least one trace polynomial, so it's
+    // ok to unwrap here
     let trace_ood_frame_evaluations = Frame::new(
         ood_trace_evaluations.into_iter().flatten().collect(),
         round_1_result.trace_polys.len(),
-    );
+    )
+    .unwrap();
 
     Round3 {
         trace_ood_frame_evaluations,
