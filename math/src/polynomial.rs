@@ -38,11 +38,16 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
     /// Returns a polynomial that interpolates the points with x coordinates and y coordinates given by
     /// `xs` and `ys`.
     /// `xs` and `ys` must be the same length, and `xs` values should be unique. If not, panics.
-    pub fn interpolate(xs: &[FieldElement<F>], ys: &[FieldElement<F>]) -> Self {
+    pub fn interpolate(
+        xs: &[FieldElement<F>],
+        ys: &[FieldElement<F>],
+    ) -> Result<Self, InterpolateError> {
         // TODO: try to use the type system to avoid this assert
-        assert_eq!(xs.len(), ys.len(), "xs and ys must be the same length");
+        if xs.len() == ys.len() {
+            return Err(InterpolateError::UnequalLengths(xs.len(), ys.len()));
+        }
         if xs.is_empty() {
-            return Polynomial::new(&[]);
+            return Ok(Polynomial::new(&[]));
         }
 
         let mut denominators = Vec::with_capacity(xs.len() * (xs.len() - 1) / 2);
@@ -53,8 +58,9 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
         for (i, xi) in xs.iter().enumerate().skip(1) {
             indexes.push(idx);
             for (_, xj) in xs.iter().enumerate().take(i) {
-                // TODO: return Result here?
-                assert_ne!(xi, xj, "xs values must be unique");
+                if xi == xj {
+                    return Err(InterpolateError::NonUniqueXs);
+                }
                 denominators.push(xi - xj);
                 idx += 1;
             }
@@ -81,7 +87,7 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
             }
             result = result + y_term;
         }
-        result
+        Ok(result)
     }
 
     pub fn evaluate(&self, x: &FieldElement<F>) -> FieldElement<F> {
@@ -255,6 +261,7 @@ where
         .collect();
 
     Polynomial::interpolate(interpolation_points.as_slice(), values.as_slice())
+        .expect("xs and ys have equal length and xs are unique")
 }
 
 impl<F: IsField> ops::Add<&Polynomial<FieldElement<F>>> for &Polynomial<FieldElement<F>> {
@@ -589,6 +596,16 @@ impl<F: IsField> ops::Sub<&Polynomial<FieldElement<F>>> for FieldElement<F> {
     }
 }
 
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum InterpolateError {
+    #[error("xs and ys must be the same length. Got: {0} != {1}")]
+    UnequalLengths(usize, usize),
+    #[error("xs values should be unique.")]
+    NonUniqueXs,
+}
+
 #[cfg(test)]
 mod tests {
     use crate::field::fields::u64_prime_field::U64PrimeField;
@@ -815,13 +832,14 @@ mod tests {
 
     #[test]
     fn interpolate_x_2_y_3() {
-        let p = Polynomial::interpolate(&[FE::new(2)], &[FE::new(3)]);
+        let p = Polynomial::interpolate(&[FE::new(2)], &[FE::new(3)]).unwrap();
         assert_eq!(FE::new(3), p.evaluate(&FE::new(2)));
     }
 
     #[test]
     fn interpolate_x_0_2_y_3_4() {
-        let p = Polynomial::interpolate(&[FE::new(0), FE::new(2)], &[FE::new(3), FE::new(4)]);
+        let p =
+            Polynomial::interpolate(&[FE::new(0), FE::new(2)], &[FE::new(3), FE::new(4)]).unwrap();
         assert_eq!(FE::new(3), p.evaluate(&FE::new(0)));
         assert_eq!(FE::new(4), p.evaluate(&FE::new(2)));
     }
@@ -831,7 +849,8 @@ mod tests {
         let p = Polynomial::interpolate(
             &[FE::new(2), FE::new(5), FE::new(7)],
             &[FE::new(10), FE::new(19), FE::new(43)],
-        );
+        )
+        .unwrap();
 
         assert_eq!(FE::new(10), p.evaluate(&FE::new(2)));
         assert_eq!(FE::new(19), p.evaluate(&FE::new(5)));
@@ -840,7 +859,8 @@ mod tests {
 
     #[test]
     fn interpolate_x_0_0_y_1_1() {
-        let p = Polynomial::interpolate(&[FE::new(0), FE::new(1)], &[FE::new(0), FE::new(1)]);
+        let p =
+            Polynomial::interpolate(&[FE::new(0), FE::new(1)], &[FE::new(0), FE::new(1)]).unwrap();
 
         assert_eq!(FE::new(0), p.evaluate(&FE::new(0)));
         assert_eq!(FE::new(1), p.evaluate(&FE::new(1)));
@@ -848,7 +868,7 @@ mod tests {
 
     #[test]
     fn interpolate_x_0_y_0() {
-        let p = Polynomial::interpolate(&[FE::new(0)], &[FE::new(0)]);
+        let p = Polynomial::interpolate(&[FE::new(0)], &[FE::new(0)]).unwrap();
         assert_eq!(FE::new(0), p.evaluate(&FE::new(0)));
     }
 

@@ -161,9 +161,12 @@ where
     ) -> Round1Result<F, CS::Commitment> {
         let domain = &common_preprocessed_input.domain;
 
-        let p_a = Polynomial::interpolate(domain, &witness.a);
-        let p_b = Polynomial::interpolate(domain, &witness.b);
-        let p_c = Polynomial::interpolate(domain, &witness.c);
+        let p_a = Polynomial::interpolate(domain, &witness.a)
+            .expect("xs and ys have equal length and xs are unique");
+        let p_b = Polynomial::interpolate(domain, &witness.b)
+            .expect("xs and ys have equal length and xs are unique");
+        let p_c = Polynomial::interpolate(domain, &witness.c)
+            .expect("xs and ys have equal length and xs are unique");
 
         let z_h = Polynomial::new_monomial(FieldElement::one(), common_preprocessed_input.n)
             - FieldElement::one();
@@ -211,7 +214,8 @@ where
             coefficients.push(new_term);
         }
 
-        let p_z = Polynomial::interpolate(&cpi.domain, &coefficients);
+        let p_z = Polynomial::interpolate(&cpi.domain, &coefficients)
+            .expect("xs and ys have equal length and xs are unique");
         let z_h = Polynomial::new_monomial(FieldElement::one(), common_preprocessed_input.n)
             - FieldElement::one();
         let p_z = self.blind_polynomial(&p_z, &z_h, 3);
@@ -250,10 +254,12 @@ where
         let z_x_omega = Polynomial::new(&z_x_omega_coefficients);
         let mut e1 = vec![FieldElement::zero(); cpi.domain.len()];
         e1[0] = FieldElement::one();
-        let l1 = Polynomial::interpolate(&cpi.domain, &e1);
+        let l1 = Polynomial::interpolate(&cpi.domain, &e1)
+            .expect("xs and ys have equal length and xs are unique");
         let mut p_pi_y = public_input.to_vec();
         p_pi_y.append(&mut vec![FieldElement::zero(); cpi.n - public_input.len()]);
-        let p_pi = Polynomial::interpolate(&cpi.domain, &p_pi_y);
+        let p_pi = Polynomial::interpolate(&cpi.domain, &p_pi_y)
+            .expect("xs and ys have equal length and xs are unique");
 
         let p_constraints =
             p_a * p_b * &cpi.qm + p_a * &cpi.ql + p_b * &cpi.qr + p_c * &cpi.qo + &cpi.qc + p_pi;

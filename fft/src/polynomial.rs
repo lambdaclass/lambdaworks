@@ -214,7 +214,7 @@ mod tests {
         let twiddles =
             get_powers_of_primitive_root(order, 1 << order, RootsConfig::Natural).unwrap();
 
-        let naive_poly = Polynomial::interpolate(&twiddles, fft_evals);
+        let naive_poly = Polynomial::interpolate(&twiddles, fft_evals).unwrap();
         let fft_poly = Polynomial::interpolate_fft(fft_evals).unwrap();
 
         (fft_poly, naive_poly)
@@ -227,7 +227,7 @@ mod tests {
         let order = fft_evals.len().trailing_zeros() as u64;
         let twiddles = get_powers_of_primitive_root_coset(order, 1 << order, offset).unwrap();
 
-        let naive_poly = Polynomial::interpolate(&twiddles, fft_evals);
+        let naive_poly = Polynomial::interpolate(&twiddles, fft_evals).unwrap();
         let fft_poly = Polynomial::interpolate_offset_fft(fft_evals, offset).unwrap();
 
         (fft_poly, naive_poly)

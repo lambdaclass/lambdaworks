@@ -55,7 +55,11 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
 
         let boundary_polys: Vec<Polynomial<FieldElement<F>>> = zip(domains, values)
             .zip(self.trace_polys)
-            .map(|((xs, ys), trace_poly)| trace_poly - &Polynomial::interpolate(&xs, &ys))
+            .map(|((xs, ys), trace_poly)| {
+                trace_poly
+                    - &Polynomial::interpolate(&xs, &ys)
+                        .expect("xs and ys have equal length and xs are unique")
+            })
             .collect();
 
         let boundary_zerofiers: Vec<Polynomial<FieldElement<F>>> = (0..n_trace_colums)
