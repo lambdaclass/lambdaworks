@@ -124,11 +124,18 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
                     let (boundary_alpha, boundary_beta) =
                         alpha_and_beta_boundary_coefficients[index].clone();
 
-                    (boundary_poly.evaluate(d) / boundary_zerofier.evaluate(d))
-                        * (&boundary_alpha
-                            * d.pow(max_degree_power_of_two - (quotient_degree as u64))
-                            + &boundary_beta)
+                    boundary_poly
+                        .evaluate(d)
+                        .checked_div(&boundary_zerofier.evaluate(d))
+                        .map(|term| {
+                            term * (&boundary_alpha
+                                * d.pow(max_degree_power_of_two - (quotient_degree as u64))
+                                + &boundary_beta)
+                        })
+                        .ok_or(AIRError::CPBoundaryConstraintDivision(index))
                 })
+                .collect::<Result<Vec<FieldElement<F>>, AIRError>>()?
+                .iter()
                 .fold(FieldElement::<F>::zero(), |acc, eval| acc + eval);
 
             evaluations.push(boundary_evaluation);
