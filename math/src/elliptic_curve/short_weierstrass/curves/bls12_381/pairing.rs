@@ -210,7 +210,6 @@ fn final_exponentiation(
     f2.pow(PHI_DIVIDED_BY_R)
 }
 
-
 #[cfg(test)]
 mod tests {
     use crate::{
@@ -239,7 +238,7 @@ mod tests {
         let g2 = g.operate_with_self(a).to_affine();
         let g3 = g.operate_with_self(b).to_affine();
         let expected = g.operate_with_self(a + b);
-        let mut r = g2.clone();
+        let mut r = g2;
         let mut f = FieldElement::one();
         add_accumulate_line(&mut r, &g3, &g1, &mut f);
         assert_eq!(r, expected);

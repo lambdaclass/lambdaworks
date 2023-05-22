@@ -1,13 +1,16 @@
-use crate::{field::{
-    element::FieldElement,
-    extensions::{
-        cubic::{CubicExtensionField, HasCubicNonResidue},
-        quadratic::{HasQuadraticNonResidue, QuadraticExtensionField},
-    },
-    fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
-    traits::IsField,
-}, traits::ByteConversion};
 use crate::unsigned_integer::element::U384;
+use crate::{
+    field::{
+        element::FieldElement,
+        extensions::{
+            cubic::{CubicExtensionField, HasCubicNonResidue},
+            quadratic::{HasQuadraticNonResidue, QuadraticExtensionField},
+        },
+        fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
+        traits::IsField,
+    },
+    traits::ByteConversion,
+};
 
 pub const BLS12381_PRIME_FIELD_ORDER: U384 = U384::from_hex_unchecked("1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab");
 
@@ -104,7 +107,6 @@ impl FieldElement<Degree2ExtensionField> {
     }
 }
 
-
 impl ByteConversion for FieldElement<Degree2ExtensionField> {
     fn to_bytes_be(&self) -> Vec<u8> {
         let mut byte_slice = FieldElement::to_bytes_be(&self.value()[0]);
@@ -138,7 +140,6 @@ impl ByteConversion for FieldElement<Degree2ExtensionField> {
         Ok(Self::new([x0, x1]))
     }
 }
-
 
 ///////////////
 #[derive(Debug, Clone)]
