@@ -12,8 +12,8 @@ use lambdaworks_stark::{
     prover::prove,
 };
 
-mod functions;
-mod util;
+pub mod functions;
+pub mod util;
 
 pub fn artificial_trace_proofs(c: &mut Criterion) {
     let mut group = c.benchmark_group("STARK");

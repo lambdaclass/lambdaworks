@@ -1,9 +1,9 @@
 use iai_callgrind::black_box;
 use lambdaworks_stark::{
     air::{context::ProofOptions, example::cairo},
+    cairo_vm::{cairo_mem::CairoMemory, cairo_trace::CairoTrace},
     fri::FieldElement,
     prover::prove,
-    verifier::verify,
 };
 
 mod functions;
@@ -13,26 +13,21 @@ mod util;
 fn simple_fibonacci_benchmarks() {
     let (trace, fibonacci_air) = functions::stark::generate_fib_proof_params(8);
 
-    let proof = black_box(prove(black_box(&trace), black_box(&fibonacci_air)));
+    let proof = prove(black_box(&trace), black_box(&fibonacci_air));
 
-    let ok = black_box(verify(black_box(&proof), black_box(&fibonacci_air)));
-
-    assert!(ok);
+    black_box(proof);
 }
 
 #[inline(never)]
 fn two_col_fibonacci_benchmarks() {
     let (trace, fibonacci_air) = functions::stark::generate_fib_2_cols_proof_params(16);
 
-    let proof = black_box(prove(black_box(&trace), black_box(&fibonacci_air)));
+    let proof = prove(black_box(&trace), black_box(&fibonacci_air));
 
-    let ok = black_box(verify(black_box(&proof), black_box(&fibonacci_air)));
-
-    assert!(ok);
+    black_box(proof);
 }
 
-#[inline(never)]
-fn cairo_fibonacci_benchmarks() {
+fn setup_cairo_fibonacci_benchmarks() -> ((CairoTrace, CairoMemory), cairo::CairoAIR) {
     let trace = functions::stark::generate_cairo_trace("fibonacci_10");
 
     let proof_options = ProofOptions {
@@ -47,15 +42,19 @@ fn cairo_fibonacci_benchmarks() {
     cairo_air.pub_inputs.ap_final = FieldElement::zero();
     cairo_air.pub_inputs.pc_final = FieldElement::zero();
 
-    let proof = black_box(prove(black_box(&trace), black_box(&cairo_air)));
-
-    let ok = black_box(verify(black_box(&proof), black_box(&cairo_air)));
-
-    assert!(ok);
+    (trace, cairo_air)
 }
 
 #[inline(never)]
-fn cairo_factorial_benchmarks() {
+fn cairo_fibonacci_benchmarks() {
+    let (trace, cairo_air) = setup_cairo_fibonacci_benchmarks();
+
+    let proof = prove(black_box(&trace), black_box(&cairo_air));
+
+    black_box(proof);
+}
+
+fn setup_cairo_factorial_benchmarks() -> ((CairoTrace, CairoMemory), cairo::CairoAIR) {
     let trace = functions::stark::generate_cairo_trace("factorial_8");
 
     let proof_options = ProofOptions {
@@ -70,15 +69,20 @@ fn cairo_factorial_benchmarks() {
     cairo_air.pub_inputs.ap_final = FieldElement::zero();
     cairo_air.pub_inputs.pc_final = FieldElement::zero();
 
-    let proof = black_box(prove(black_box(&trace), black_box(&cairo_air)));
+    (trace, cairo_air)
+}
 
-    let ok = black_box(verify(black_box(&proof), black_box(&cairo_air)));
+#[inline(never)]
+fn cairo_factorial_benchmarks() {
+    let (trace, cairo_air) = setup_cairo_factorial_benchmarks();
 
-    assert!(ok);
+    let proof = prove(black_box(&trace), black_box(&cairo_air));
+
+    black_box(proof);
 }
 
 iai_callgrind::main!(
-    callgrind_args = "toggle-collect=util::*";
+    callgrind_args = "toggle-collect=functions::*,util::*,setup_*";
     functions = simple_fibonacci_benchmarks,
                 two_col_fibonacci_benchmarks,
                 cairo_fibonacci_benchmarks,
