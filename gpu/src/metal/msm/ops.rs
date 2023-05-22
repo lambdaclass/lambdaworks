@@ -181,7 +181,7 @@ pub fn pippenger_sequencial<const NUM_LIMBS: usize>(
                 (1, &hidings_buffer),
                 (
                     4,
-                    &results_buffer[(num_windows - window_idx as u64 - 1 as u64) as usize],
+                    &results_buffer[(num_windows - 1 - window_idx as u64) as usize],
                 ),
             ]),
         );

@@ -18,15 +18,13 @@ template<typename Fp, typename ECPoint>
     uint64_t buflen = _buflen;
 
     for(uint32_t i = 0; i < buflen; i++){
-        for(uint32_t j = 0; j < buflen; j++){
-            Fp k = cs[j];
-            uint32_t m_ij = (uint32_t)(k >> offset) & bucket_size;
-            if (m_ij != 0) {
-                uint32_t bucket_index = m_ij - 1;
-                ECPoint aux = result[bucket_index];
-                ECPoint point = hidings[i];
-                result[bucket_index] = aux + point;
-            }
+        Fp k = cs[i];
+        uint32_t m_ij = (uint32_t)(k >> offset) & bucket_size;
+        if (m_ij != 0) {
+            uint32_t bucket_index = m_ij - 1;
+            ECPoint aux = result[bucket_index];
+            ECPoint point = hidings[i];
+            result[bucket_index] = aux + point;
         }
     }
 }
