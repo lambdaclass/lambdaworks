@@ -1,12 +1,13 @@
 use super::{
     air::{constraints::evaluator::ConstraintEvaluator, frame::Frame, trace::TraceTable, AIR},
-    fri::{fri, fri_commitment::FriCommitmentVec, fri_decommit::fri_decommit_layers},
+    fri::fri_commit_phase,
     sample_z_ood,
 };
 use crate::{
-    fri::HASHER,
-    proof::{DeepConsistencyCheck, StarkProof, StarkQueryProof},
-    transcript_to_field, transcript_to_usize, Domain,
+    batch_sample_challenges,
+    fri::{fri_decommit::FriDecommitment, fri_query_phase, HASHER},
+    proof::{DeepPolynomialOpenings, StarkProof},
+    transcript_to_field, Domain,
 };
 #[cfg(not(feature = "test_fiat_shamir"))]
 use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
@@ -23,27 +24,39 @@ use lambdaworks_math::{
 };
 use log::info;
 
-struct Round1<F: IsFFTField> {
+#[cfg(debug_assertions)]
+use crate::air::debug::validate_trace;
+
+struct Round1<F: IsFFTField, A: AIR<Field = F>> {
     trace_polys: Vec<Polynomial<FieldElement<F>>>,
     lde_trace: TraceTable<F>,
     lde_trace_merkle_trees: Vec<MerkleTree<F>>,
     lde_trace_merkle_roots: Vec<FieldElement<F>>,
+    rap_challenges: A::RAPChallenges,
 }
 
 struct Round2<F: IsFFTField> {
     composition_poly_even: Polynomial<FieldElement<F>>,
+    lde_composition_poly_even_evaluations: Vec<FieldElement<F>>,
+    composition_poly_even_merkle_tree: MerkleTree<F>,
+    composition_poly_even_root: FieldElement<F>,
     composition_poly_odd: Polynomial<FieldElement<F>>,
+    lde_composition_poly_odd_evaluations: Vec<FieldElement<F>>,
+    composition_poly_odd_merkle_tree: MerkleTree<F>,
+    composition_poly_odd_root: FieldElement<F>,
 }
 
 struct Round3<F: IsFFTField> {
     trace_ood_frame_evaluations: Frame<F>,
-    composition_poly_ood_evaluations: Vec<FieldElement<F>>,
+    composition_poly_even_ood_evaluation: FieldElement<F>,
+    composition_poly_odd_ood_evaluation: FieldElement<F>,
 }
 
 struct Round4<F: IsFFTField> {
+    fri_last_value: FieldElement<F>,
     fri_layers_merkle_roots: Vec<FieldElement<F>>,
-    deep_consistency_check: DeepConsistencyCheck<F>,
-    query_list: Vec<StarkQueryProof<F>>,
+    deep_poly_openings: DeepPolynomialOpenings<F>,
+    query_list: Vec<FriDecommitment<F>>,
 }
 
 #[cfg(feature = "test_fiat_shamir")]
@@ -57,80 +70,138 @@ fn round_0_transcript_initialization() -> DefaultTranscript {
     DefaultTranscript::new()
 }
 
-fn commit_original_trace<F: IsFFTField, A: AIR<Field = F>>(
-    trace: &TraceTable<F>,
-    air: &A,
-) -> Round1<F>
+fn batch_commit<F>(
+    vectors: Vec<&Vec<FieldElement<F>>>,
+) -> (Vec<MerkleTree<F>>, Vec<FieldElement<F>>)
 where
+    F: IsFFTField,
     FieldElement<F>: ByteConversion,
 {
-    // The trace M_ij is part of the input. Interpolate the polynomials t_j
-    // corresponding to the first part of the RAP.
+    let trees: Vec<_> = vectors
+        .iter()
+        .map(|col| MerkleTree::build(col, Box::new(HASHER)))
+        .collect();
+
+    let roots = trees.iter().map(|tree| tree.root.clone()).collect();
+    (trees, roots)
+}
+
+fn evaluate_polynomial_on_lde_domain<F>(
+    p: &Polynomial<FieldElement<F>>,
+    domain: &Domain<F>,
+) -> Result<Vec<FieldElement<F>>, FFTError>
+where
+    F: IsFFTField,
+    Polynomial<FieldElement<F>>: FFTPoly<F>,
+{
+    // Evaluate those polynomials t_j on the large domain D_LDE.
+    p.evaluate_offset_fft(
+        domain.blowup_factor,
+        Some(domain.interpolation_domain_size),
+        &domain.coset_offset,
+    )
+}
+
+#[allow(clippy::type_complexity)]
+fn interpolate_and_commit<T, F>(
+    trace: &TraceTable<F>,
+    domain: &Domain<F>,
+    transcript: &mut T,
+) -> (
+    Vec<Polynomial<FieldElement<F>>>,
+    Vec<Vec<FieldElement<F>>>,
+    Vec<MerkleTree<F>>,
+    Vec<FieldElement<F>>,
+)
+where
+    T: Transcript,
+    F: IsFFTField,
+    FieldElement<F>: ByteConversion,
+{
     let trace_polys = trace.compute_trace_polys();
 
     // Evaluate those polynomials t_j on the large domain D_LDE.
     let lde_trace_evaluations = trace_polys
         .iter()
-        .map(|poly| {
-            poly.evaluate_offset_fft(
-                air.options().blowup_factor as usize,
-                Some(trace.n_rows()),
-                &FieldElement::<F>::from(air.options().coset_offset),
-            )
-        })
+        .map(|poly| evaluate_polynomial_on_lde_domain(poly, domain))
         .collect::<Result<Vec<Vec<FieldElement<F>>>, FFTError>>()
         .unwrap();
 
-    let lde_trace = TraceTable::new_from_cols(&lde_trace_evaluations);
-
     // Compute commitments [t_j].
-    let lde_trace_merkle_trees = lde_trace
-        .cols()
-        .iter()
-        .map(|col| MerkleTree::build(col, Box::new(HASHER)))
-        .collect::<Vec<MerkleTree<F>>>();
+    let lde_trace = TraceTable::new_from_cols(&lde_trace_evaluations);
+    let (lde_trace_merkle_trees, lde_trace_merkle_roots) =
+        batch_commit(lde_trace.cols().iter().collect());
 
-    let lde_trace_merkle_roots = lde_trace_merkle_trees
-        .iter()
-        .map(|tree| tree.root.clone())
-        .collect();
+    // Agrega al transcript
+    // >>>> Send commitments: [tⱼ]
+    for root in lde_trace_merkle_roots.iter() {
+        transcript.append(&root.to_bytes_be());
+    }
+
+    (
+        trace_polys,
+        lde_trace_evaluations,
+        lde_trace_merkle_trees,
+        lde_trace_merkle_roots,
+    )
+}
+
+fn round_1_randomized_air_with_preprocessing<F: IsFFTField, A: AIR<Field = F>, T: Transcript>(
+    raw_trace: &A::RawTrace,
+    domain: &Domain<F>,
+    transcript: &mut T,
+) -> Round1<F, A>
+where
+    FieldElement<F>: ByteConversion,
+{
+    let main_trace = A::build_main_trace(raw_trace);
+
+    let (mut trace_polys, mut evaluations, mut lde_trace_merkle_trees, mut lde_trace_merkle_roots) =
+        interpolate_and_commit(&main_trace, domain, transcript);
+
+    let rap_challenges = A::build_rap_challenges(transcript);
+
+    let aux_trace = A::build_auxiliary_trace(&main_trace, &rap_challenges);
+
+    if !aux_trace.is_empty() {
+        // Check that this is valid for interpolation
+        let (aux_trace_polys, aux_trace_polys_evaluations, aux_merkle_trees, aux_merkle_roots) =
+            interpolate_and_commit(&aux_trace, domain, transcript);
+        trace_polys.extend_from_slice(&aux_trace_polys);
+        evaluations.extend_from_slice(&aux_trace_polys_evaluations);
+        lde_trace_merkle_trees.extend_from_slice(&aux_merkle_trees);
+        lde_trace_merkle_roots.extend_from_slice(&aux_merkle_roots);
+    }
+
+    let lde_trace = TraceTable::new_from_cols(&evaluations);
 
     Round1 {
         trace_polys,
         lde_trace,
-        lde_trace_merkle_trees,
         lde_trace_merkle_roots,
+        lde_trace_merkle_trees,
+        rap_challenges,
     }
 }
 
-fn commit_extended_trace() {
-    // TODO
-}
-
-fn round_1_randomized_air_with_preprocessing<F: IsFFTField, A: AIR<Field = F>>(
-    trace: &TraceTable<F>,
-    air: &A,
-) -> Round1<F>
-where
-    FieldElement<F>: ByteConversion,
-{
-    let round_1_result = commit_original_trace(trace, air);
-    commit_extended_trace();
-    round_1_result
-}
-
-fn round_2_compute_composition_polynomial<F: IsFFTField, A: AIR<Field = F>>(
+fn round_2_compute_composition_polynomial<F, A>(
     air: &A,
     domain: &Domain<F>,
-    round_1_result: &Round1<F>,
+    round_1_result: &Round1<F, A>,
     transition_coeffs: &[(FieldElement<F>, FieldElement<F>)],
     boundary_coeffs: &[(FieldElement<F>, FieldElement<F>)],
-) -> Round2<F> {
+) -> Round2<F>
+where
+    F: IsFFTField,
+    A: AIR<Field = F>,
+    FieldElement<F>: ByteConversion,
+{
     // Create evaluation table
     let evaluator = ConstraintEvaluator::new(
         air,
         &round_1_result.trace_polys,
         &domain.trace_primitive_root,
+        &round_1_result.rap_challenges,
     );
 
     let constraint_evaluations = evaluator.evaluate(
@@ -138,6 +209,7 @@ fn round_2_compute_composition_polynomial<F: IsFFTField, A: AIR<Field = F>>(
         &domain.lde_roots_of_unity_coset,
         transition_coeffs,
         boundary_coeffs,
+        &round_1_result.rap_challenges,
     );
 
     // Get the composition poly H
@@ -146,16 +218,32 @@ fn round_2_compute_composition_polynomial<F: IsFFTField, A: AIR<Field = F>>(
 
     let (composition_poly_even, composition_poly_odd) = composition_poly.even_odd_decomposition();
 
+    let lde_composition_poly_even_evaluations =
+        evaluate_polynomial_on_lde_domain(&composition_poly_even, domain).unwrap();
+    let lde_composition_poly_odd_evaluations =
+        evaluate_polynomial_on_lde_domain(&composition_poly_odd, domain).unwrap();
+
+    let (composition_poly_merkle_trees, composition_poly_roots) = batch_commit(vec![
+        &lde_composition_poly_even_evaluations,
+        &lde_composition_poly_odd_evaluations,
+    ]);
+
     Round2 {
         composition_poly_even,
+        lde_composition_poly_even_evaluations,
+        composition_poly_even_merkle_tree: composition_poly_merkle_trees[0].clone(),
+        composition_poly_even_root: composition_poly_roots[0].clone(),
         composition_poly_odd,
+        lde_composition_poly_odd_evaluations,
+        composition_poly_odd_merkle_tree: composition_poly_merkle_trees[1].clone(),
+        composition_poly_odd_root: composition_poly_roots[1].clone(),
     }
 }
 
 fn round_3_evaluate_polynomials_in_out_of_domain_element<F: IsFFTField, A: AIR<Field = F>>(
     air: &A,
     domain: &Domain<F>,
-    round_1_result: &Round1<F>,
+    round_1_result: &Round1<F, A>,
     round_2_result: &Round2<F>,
     z: &FieldElement<F>,
 ) -> Round3<F>
@@ -165,10 +253,10 @@ where
     let z_squared = z * z;
 
     // Evaluate H_1 and H_2 in z^2.
-    let composition_poly_ood_evaluations = vec![
-        round_2_result.composition_poly_even.evaluate(&z_squared),
-        round_2_result.composition_poly_odd.evaluate(&z_squared),
-    ];
+    let composition_poly_even_ood_evaluation =
+        round_2_result.composition_poly_even.evaluate(&z_squared);
+    let composition_poly_odd_ood_evaluation =
+        round_2_result.composition_poly_odd.evaluate(&z_squared);
 
     // Returns the Out of Domain Frame for the given trace polynomials, out of domain evaluation point (called `z` in the literature),
     // frame offsets given by the AIR and primitive root used for interpolating the trace polynomials.
@@ -183,98 +271,16 @@ where
         &air.context().transition_offsets,
         &domain.trace_primitive_root,
     );
-
-    let trace_ood_frame_data = ood_trace_evaluations.into_iter().flatten().collect();
-    let trace_ood_frame_evaluations =
-        Frame::new(trace_ood_frame_data, round_1_result.trace_polys.len());
+    let trace_ood_frame_evaluations = Frame::new(
+        ood_trace_evaluations.into_iter().flatten().collect(),
+        round_1_result.trace_polys.len(),
+    );
 
     Round3 {
         trace_ood_frame_evaluations,
-        composition_poly_ood_evaluations,
+        composition_poly_even_ood_evaluation,
+        composition_poly_odd_ood_evaluation,
     }
-}
-
-fn fri_commit_phase<F: IsFFTField, A: AIR<Field = F>, T: Transcript>(
-    air: &A,
-    domain: &Domain<F>,
-    round_1_result: &Round1<F>,
-    round_2_result: &Round2<F>,
-    z: &FieldElement<F>,
-    transcript: &mut T,
-) -> (FriCommitmentVec<F>, Vec<FieldElement<F>>)
-where
-    FieldElement<F>: ByteConversion,
-{
-    // Compute DEEP composition polynomial so we can commit to it using FRI.
-    let mut deep_composition_poly = compute_deep_composition_poly(
-        air,
-        &round_1_result.trace_polys,
-        &round_2_result.composition_poly_even,
-        &round_2_result.composition_poly_odd,
-        z,
-        &domain.trace_primitive_root,
-        transcript,
-    );
-
-    // * Do FRI on the composition polynomials
-    let lde_fri_commitment = fri(
-        &mut deep_composition_poly,
-        &domain.lde_roots_of_unity_coset,
-        transcript,
-    );
-
-    let fri_layers_merkle_roots: Vec<_> = lde_fri_commitment
-        .iter()
-        .map(|fri_commitment| fri_commitment.merkle_tree.root.clone())
-        .collect();
-
-    (lde_fri_commitment, fri_layers_merkle_roots)
-}
-
-#[allow(clippy::too_many_arguments)]
-fn fri_query_phase<F: IsFFTField, A: AIR<Field = F>, T: Transcript>(
-    air: &A,
-    domain: &Domain<F>,
-    round_1_result: &Round1<F>,
-    round_2_result: &Round2<F>,
-    q_0: usize,
-    lde_fri_commitment: &FriCommitmentVec<F>,
-    fri_layers_merkle_roots: &[FieldElement<F>],
-    transcript: &mut T,
-) -> (Vec<StarkQueryProof<F>>, DeepConsistencyCheck<F>)
-where
-    FieldElement<F>: ByteConversion,
-{
-    // Query
-    let deep_consistency_check = build_deep_consistency_check(
-        domain,
-        round_1_result,
-        q_0,
-        &round_2_result.composition_poly_even,
-        &round_2_result.composition_poly_odd,
-    );
-
-    let query_list = (0..air.context().options.fri_number_of_queries)
-        .map(|i| {
-            let q_i = if i > 0 {
-                // * Sample q_1, ..., q_m using Fiat-Shamir
-                let q = transcript_to_usize(transcript) % 2_usize.pow(domain.lde_root_order);
-                transcript.append(&q.to_be_bytes());
-                q
-            } else {
-                q_0
-            };
-
-            // * For every q_i, do FRI decommitment
-            let fri_decommitment = fri_decommit_layers(lde_fri_commitment, q_i);
-            StarkQueryProof {
-                fri_layers_merkle_roots: fri_layers_merkle_roots.to_vec(),
-                fri_decommitment,
-            }
-        })
-        .collect();
-
-    (query_list, deep_consistency_check)
 }
 
 fn round_4_compute_and_run_fri_on_the_deep_composition_polynomial<
@@ -284,33 +290,59 @@ fn round_4_compute_and_run_fri_on_the_deep_composition_polynomial<
 >(
     air: &A,
     domain: &Domain<F>,
-    round_1_result: &Round1<F>,
+    round_1_result: &Round1<F, A>,
     round_2_result: &Round2<F>,
+    round_3_result: &Round3<F>,
     z: &FieldElement<F>,
     transcript: &mut T,
 ) -> Round4<F>
 where
     FieldElement<F>: ByteConversion,
 {
-    let (lde_fri_commitment, fri_layers_merkle_roots) =
-        fri_commit_phase(air, domain, round_1_result, round_2_result, z, transcript);
-
-    let q_0 = transcript_to_usize(transcript) % 2_usize.pow(domain.lde_root_order);
-    transcript.append(&q_0.to_be_bytes());
-
-    let (query_list, deep_consistency_check) = fri_query_phase(
-        air,
-        domain,
-        round_1_result,
-        round_2_result,
-        q_0,
-        &lde_fri_commitment,
-        &fri_layers_merkle_roots,
+    // <<<< Receive challenges: 𝛾, 𝛾'
+    let composition_poly_coeffients = [
+        transcript_to_field(transcript),
+        transcript_to_field(transcript),
+    ];
+    // <<<< Receive challenges: 𝛾ⱼ, 𝛾ⱼ'
+    let trace_poly_coeffients = batch_sample_challenges::<F, T>(
+        air.context().transition_offsets.len() * air.context().trace_columns,
         transcript,
     );
+
+    // Compute p₀ (deep composition polynomial)
+    let deep_composition_poly = compute_deep_composition_poly(
+        air,
+        &round_1_result.trace_polys,
+        round_2_result,
+        round_3_result,
+        z,
+        &domain.trace_primitive_root,
+        &composition_poly_coeffients,
+        &trace_poly_coeffients,
+    );
+
+    // FRI commit and query phases
+    let (fri_last_value, fri_layers) = fri_commit_phase(
+        domain.root_order as usize,
+        deep_composition_poly,
+        &domain.lde_roots_of_unity_coset,
+        transcript,
+    );
+    let (query_list, iota_0) = fri_query_phase(air, domain, &fri_layers, transcript);
+
+    let fri_layers_merkle_roots: Vec<_> = fri_layers
+        .iter()
+        .map(|layer| layer.merkle_tree.root.clone())
+        .collect();
+
+    let deep_poly_openings =
+        open_deep_composition_poly(domain, round_1_result, round_2_result, iota_0);
+
     Round4 {
+        fri_last_value,
         fri_layers_merkle_roots,
-        deep_consistency_check,
+        deep_poly_openings,
         query_list,
     }
 }
@@ -318,141 +350,155 @@ where
 /// Returns the DEEP composition polynomial that the prover then commits to using
 /// FRI. This polynomial is a linear combination of the trace polynomial and the
 /// composition polynomial, with coefficients sampled by the verifier (i.e. using Fiat-Shamir).
-fn compute_deep_composition_poly<A: AIR, F: IsFFTField, T: Transcript>(
+#[allow(clippy::too_many_arguments)]
+fn compute_deep_composition_poly<A: AIR, F: IsFFTField>(
     air: &A,
     trace_polys: &[Polynomial<FieldElement<F>>],
-    even_composition_poly: &Polynomial<FieldElement<F>>,
-    odd_composition_poly: &Polynomial<FieldElement<F>>,
-    ood_evaluation_point: &FieldElement<F>,
+    round_2_result: &Round2<F>,
+    round_3_result: &Round3<F>,
+    z: &FieldElement<F>,
     primitive_root: &FieldElement<F>,
-    transcript: &mut T,
+    composition_poly_gammas: &[FieldElement<F>; 2],
+    trace_terms_gammas: &[FieldElement<F>],
 ) -> Polynomial<FieldElement<F>> {
-    let transition_offsets = air.context().transition_offsets;
+    // Compute composition polynomial terms of the deep composition polynomial.
+    let x = Polynomial::new_monomial(FieldElement::one(), 1);
+    let h_1 = &round_2_result.composition_poly_even;
+    let h_1_z2 = &round_3_result.composition_poly_even_ood_evaluation;
+    let h_2 = &round_2_result.composition_poly_odd;
+    let h_2_z2 = &round_3_result.composition_poly_odd_ood_evaluation;
+    let gamma = &composition_poly_gammas[0];
+    let gamma_p = &composition_poly_gammas[1];
+    let z_squared = z * z;
+
+    // 𝛾 ( H₁ − H₁(z²) ) / ( X − z² )
+    let h_1_term = gamma * (h_1 - h_1_z2) / (&x - &z_squared);
+
+    // 𝛾' ( H₂ − H₂(z²) ) / ( X − z² )
+    let h_2_term = gamma_p * (h_2 - h_2_z2) / (&x - z_squared);
 
     // Get trace evaluations needed for the trace terms of the deep composition polynomial
-    let trace_evaluations = Frame::get_trace_evaluations(
-        trace_polys,
-        ood_evaluation_point,
-        &transition_offsets,
-        primitive_root,
-    );
+    let transition_offsets = air.context().transition_offsets;
+    let trace_frame_evaluations =
+        Frame::get_trace_evaluations(trace_polys, z, &transition_offsets, primitive_root);
 
-    // Compute all the trace terms of the deep composition polynomial. There will be one
-    // term for every trace polynomial and every trace evaluation.
+    // Compute the sum of all the trace terms of the deep composition polynomial.
+    // There is one term for every trace polynomial and for every row in the frame.
+    // ∑ ⱼₖ [ 𝛾ₖ ( tⱼ − tⱼ(z) ) / ( X − zgᵏ )]
     let mut trace_terms = Polynomial::zero();
-    for (i, trace_poly) in trace_polys.iter().enumerate() {
-        for (trace_evaluation, offset) in trace_evaluations.iter().zip(&transition_offsets) {
-            let eval = trace_evaluation[i].clone();
-            let root_of_unity = ood_evaluation_point * primitive_root.pow(*offset);
-            let poly = (trace_poly.clone() - Polynomial::new_monomial(eval, 0))
-                / (Polynomial::new_monomial(FieldElement::<F>::one(), 1)
-                    - Polynomial::new_monomial(root_of_unity, 0));
-            let coeff = transcript_to_field::<F, T>(transcript);
-
-            trace_terms = trace_terms + poly * coeff;
+    for (i, t_j) in trace_polys.iter().enumerate() {
+        for (j, (evaluations, offset)) in trace_frame_evaluations
+            .iter()
+            .zip(&transition_offsets)
+            .enumerate()
+        {
+            let t_j_z = evaluations[i].clone();
+            let z_shifted = z * primitive_root.pow(*offset);
+            let poly = (t_j - t_j_z) / (&x - z_shifted);
+            trace_terms =
+                trace_terms + poly * &trace_terms_gammas[i * trace_frame_evaluations.len() + j];
         }
     }
 
-    // Get coefficients for even and odd terms of the composition polynomial H(x)
-    let gamma_even = transcript_to_field::<F, T>(transcript);
-    let gamma_odd = transcript_to_field::<F, T>(transcript);
-
-    let ood_point_squared = ood_evaluation_point * ood_evaluation_point;
-
-    let even_composition_poly_term = (even_composition_poly.clone()
-        - Polynomial::new_monomial(even_composition_poly.evaluate(&ood_point_squared), 0))
-        / (Polynomial::new_monomial(FieldElement::one(), 1)
-            - Polynomial::new_monomial(ood_point_squared.clone(), 0));
-
-    let odd_composition_poly_term = (odd_composition_poly.clone()
-        - Polynomial::new_monomial(odd_composition_poly.evaluate(&ood_point_squared), 0))
-        / (Polynomial::new_monomial(FieldElement::one(), 1)
-            - Polynomial::new_monomial(ood_point_squared.clone(), 0));
-
-    trace_terms + even_composition_poly_term * gamma_even + odd_composition_poly_term * gamma_odd
+    h_1_term + h_2_term + trace_terms
 }
 
-fn build_deep_consistency_check<F: IsFFTField>(
+fn open_deep_composition_poly<F: IsFFTField, A: AIR<Field = F>>(
     domain: &Domain<F>,
-    round_1_result: &Round1<F>,
-    index_to_verify: usize,
-    composition_poly_even: &Polynomial<FieldElement<F>>,
-    composition_poly_odd: &Polynomial<FieldElement<F>>,
-) -> DeepConsistencyCheck<F>
+    round_1_result: &Round1<F, A>,
+    round_2_result: &Round2<F>,
+    index_to_open: usize,
+) -> DeepPolynomialOpenings<F>
 where
     FieldElement<F>: ByteConversion,
 {
-    let index = index_to_verify % domain.lde_roots_of_unity_coset.len();
+    let index = index_to_open % domain.lde_roots_of_unity_coset.len();
+
+    // H₁ openings
+    let lde_composition_poly_even_proof = round_2_result
+        .composition_poly_even_merkle_tree
+        .get_proof_by_pos(index)
+        .unwrap();
+    let lde_composition_poly_even_evaluation =
+        round_2_result.lde_composition_poly_even_evaluations[index].clone();
+
+    // H₂ openings
+    let lde_composition_poly_odd_proof = round_2_result
+        .composition_poly_odd_merkle_tree
+        .get_proof_by_pos(index)
+        .unwrap();
+    let lde_composition_poly_odd_evaluation =
+        round_2_result.lde_composition_poly_odd_evaluations[index].clone();
+
+    // Trace polynomials openings
     let lde_trace_merkle_proofs = round_1_result
         .lde_trace_merkle_trees
         .iter()
         .map(|tree| tree.get_proof_by_pos(index).unwrap())
         .collect();
-
-    let d_evaluation_point = &domain.lde_roots_of_unity_coset[index];
     let lde_trace_evaluations = round_1_result.lde_trace.get_row(index).to_vec();
 
-    let composition_poly_evaluations = vec![
-        composition_poly_even.evaluate(d_evaluation_point),
-        composition_poly_odd.evaluate(d_evaluation_point),
-    ];
-
-    DeepConsistencyCheck {
-        lde_trace_merkle_roots: round_1_result.lde_trace_merkle_roots.clone(),
+    DeepPolynomialOpenings {
+        lde_composition_poly_even_proof,
+        lde_composition_poly_even_evaluation,
+        lde_composition_poly_odd_proof,
+        lde_composition_poly_odd_evaluation,
         lde_trace_merkle_proofs,
         lde_trace_evaluations,
-        composition_poly_evaluations,
     }
 }
 
 // FIXME remove unwrap() calls and return errors
-pub fn prove<F: IsFFTField, A: AIR<Field = F>>(trace: &TraceTable<F>, air: &A) -> StarkProof<F>
+pub fn prove<F: IsFFTField, A: AIR<Field = F>>(trace: &A::RawTrace, air: &A) -> StarkProof<F>
 where
     FieldElement<F>: ByteConversion,
 {
     info!("Starting proof generation...");
 
-    #[cfg(debug_assertions)]
-    trace.validate(air);
-
     let domain = Domain::new(air);
 
-    let transcript = &mut round_0_transcript_initialization();
+    let mut transcript = round_0_transcript_initialization();
 
-    // Fiat-Shamir
-    // z is the Out of domain evaluation point used in Deep FRI. It needs to be a point outside
-    // of both the roots of unity and its corresponding coset used for the lde commitment.
-    // TODO: This has to be sampled after round 2 according to the protocol
-    let z = sample_z_ood(
-        &domain.lde_roots_of_unity_coset,
-        &domain.trace_roots_of_unity,
-        transcript,
+    // ===================================
+    // ==========|   Round 1   |==========
+    // ===================================
+
+    let round_1_result =
+        round_1_randomized_air_with_preprocessing::<F, A, _>(trace, &domain, &mut transcript);
+
+    #[cfg(debug_assertions)]
+    validate_trace(
+        air,
+        &round_1_result.trace_polys,
+        &domain,
+        &round_1_result.rap_challenges,
     );
 
-    let round_1_result = round_1_randomized_air_with_preprocessing(trace, air);
+    // ===================================
+    // ==========|   Round 2   |==========
+    // ===================================
 
-    // Sample challenges for round 2
-    // These are the challenges alpha^B_j and beta^B_j
-    let boundary_coeffs: Vec<(FieldElement<F>, FieldElement<F>)> =
-        (0..round_1_result.trace_polys.len())
-            .map(|_| {
-                (
-                    transcript_to_field(transcript),
-                    transcript_to_field(transcript),
-                )
-            })
-            .collect();
+    // <<<< Receive challenges: 𝛼_j^B
+    let boundary_coeffs_alphas =
+        batch_sample_challenges(round_1_result.trace_polys.len(), &mut transcript);
+    // <<<< Receive challenges: 𝛽_j^B
+    let boundary_coeffs_betas =
+        batch_sample_challenges(round_1_result.trace_polys.len(), &mut transcript);
+    // <<<< Receive challenges: 𝛼_j^T
+    let transition_coeffs_alphas =
+        batch_sample_challenges(air.context().num_transition_constraints, &mut transcript);
+    // <<<< Receive challenges: 𝛽_j^T
+    let transition_coeffs_betas =
+        batch_sample_challenges(air.context().num_transition_constraints, &mut transcript);
 
-    // These are the challenges alpha^T_j and beta^T_j
-    let transition_coeffs: Vec<(FieldElement<F>, FieldElement<F>)> =
-        (0..air.context().num_transition_constraints)
-            .map(|_| {
-                (
-                    transcript_to_field(transcript),
-                    transcript_to_field(transcript),
-                )
-            })
-            .collect();
+    let boundary_coeffs: Vec<_> = boundary_coeffs_alphas
+        .into_iter()
+        .zip(boundary_coeffs_betas)
+        .collect();
+    let transition_coeffs: Vec<_> = transition_coeffs_alphas
+        .into_iter()
+        .zip(transition_coeffs_betas)
+        .collect();
 
     let round_2_result = round_2_compute_composition_polynomial(
         air,
@@ -460,6 +506,21 @@ where
         &round_1_result,
         &transition_coeffs,
         &boundary_coeffs,
+    );
+
+    // >>>> Send commitments: [H₁], [H₂]
+    transcript.append(&round_2_result.composition_poly_even_root.to_bytes_be());
+    transcript.append(&round_2_result.composition_poly_odd_root.to_bytes_be());
+
+    // ===================================
+    // ==========|   Round 3   |==========
+    // ===================================
+
+    // <<<< Receive challenge: z
+    let z = sample_z_ood(
+        &domain.lde_roots_of_unity_coset,
+        &domain.trace_roots_of_unity,
+        &mut transcript,
     );
 
     let round_3_result = round_3_evaluate_polynomials_in_out_of_domain_element(
@@ -470,22 +531,177 @@ where
         &z,
     );
 
+    // >>>> Send value: H₁(z²)
+    transcript.append(
+        &round_3_result
+            .composition_poly_even_ood_evaluation
+            .to_bytes_be(),
+    );
+
+    // >>>> Send value: H₂(z²)
+    transcript.append(
+        &round_3_result
+            .composition_poly_odd_ood_evaluation
+            .to_bytes_be(),
+    );
+    // >>>> Send values: tⱼ(zgᵏ)
+    for i in 0..round_3_result.trace_ood_frame_evaluations.num_rows() {
+        for element in round_3_result.trace_ood_frame_evaluations.get_row(i).iter() {
+            transcript.append(&element.to_bytes_be());
+        }
+    }
+
+    // ===================================
+    // ==========|   Round 4   |==========
+    // ===================================
+
+    // Part of this round is running FRI, which is an interactive
+    // protocol on its own. Therefore we pass it the transcript
+    // to simulate the interactions with the verifier.
     let round_4_result = round_4_compute_and_run_fri_on_the_deep_composition_polynomial(
         air,
         &domain,
         &round_1_result,
         &round_2_result,
+        &round_3_result,
         &z,
-        transcript,
+        &mut transcript,
     );
 
     info!("End proof generation");
 
     StarkProof {
-        fri_layers_merkle_roots: round_4_result.fri_layers_merkle_roots,
+        // [tⱼ]
+        lde_trace_merkle_roots: round_1_result.lde_trace_merkle_roots,
+        // tⱼ(zgᵏ)
         trace_ood_frame_evaluations: round_3_result.trace_ood_frame_evaluations,
-        composition_poly_ood_evaluations: round_3_result.composition_poly_ood_evaluations,
-        deep_consistency_check: round_4_result.deep_consistency_check,
+        // [H₁]
+        composition_poly_even_root: round_2_result.composition_poly_even_root,
+        // H₁(z²)
+        composition_poly_even_ood_evaluation: round_3_result.composition_poly_even_ood_evaluation,
+        // [H₂]
+        composition_poly_odd_root: round_2_result.composition_poly_odd_root,
+        // H₂(z²)
+        composition_poly_odd_ood_evaluation: round_3_result.composition_poly_odd_ood_evaluation,
+        // [pₖ]
+        fri_layers_merkle_roots: round_4_result.fri_layers_merkle_roots,
+        // pₙ
+        fri_last_value: round_4_result.fri_last_value,
+        // Open(p₀(D₀), 𝜐ₛ), Open(pₖ(Dₖ), −𝜐ₛ^(2ᵏ))
         query_list: round_4_result.query_list,
+        // Open(H₁(D_LDE, 𝜐₀), Open(H₂(D_LDE, 𝜐₀), Open(tⱼ(D_LDE), 𝜐₀)
+        deep_poly_openings: round_4_result.deep_poly_openings,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use lambdaworks_math::field::{
+        element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+        traits::IsFFTField,
+    };
+
+    use crate::{
+        air::{
+            context::{AirContext, ProofOptions},
+            example::simple_fibonacci,
+            trace::TraceTable,
+        },
+        Domain,
+    };
+
+    use super::evaluate_polynomial_on_lde_domain;
+
+    pub type FE = FieldElement<Stark252PrimeField>;
+
+    #[test]
+    fn test_domain_constructor() {
+        let trace = simple_fibonacci::fibonacci_trace([FE::from(1), FE::from(1)], 8);
+        let trace_length = trace[0].len();
+        let trace_table = TraceTable::new_from_cols(&trace);
+        let coset_offset = 3;
+        let blowup_factor: usize = 2;
+
+        let context = AirContext {
+            options: ProofOptions {
+                blowup_factor: blowup_factor as u8,
+                fri_number_of_queries: 1,
+                coset_offset,
+            },
+            trace_length,
+            trace_columns: trace_table.n_cols,
+            transition_degrees: vec![1],
+            transition_exemptions: vec![2],
+            transition_offsets: vec![0, 1, 2],
+            num_transition_constraints: 1,
+        };
+
+        let domain = Domain::new(&simple_fibonacci::FibonacciAIR::from(context));
+        assert_eq!(domain.blowup_factor, 2);
+        assert_eq!(domain.interpolation_domain_size, trace_length);
+        assert_eq!(domain.root_order, trace_length.trailing_zeros());
+        assert_eq!(
+            domain.lde_root_order,
+            (trace_length * blowup_factor).trailing_zeros()
+        );
+        assert_eq!(domain.coset_offset, FieldElement::from(coset_offset));
+
+        let primitive_root = Stark252PrimeField::get_primitive_root_of_unity(
+            (trace_length * blowup_factor).trailing_zeros() as u64,
+        )
+        .unwrap();
+
+        assert_eq!(
+            domain.trace_primitive_root,
+            primitive_root.pow(blowup_factor)
+        );
+        for i in 0..(trace_length * blowup_factor) {
+            assert_eq!(
+                domain.lde_roots_of_unity_coset[i],
+                FieldElement::from(coset_offset) * primitive_root.pow(i)
+            );
+        }
+    }
+
+    #[test]
+    fn test_evaluate_polynomial_on_lde_domain() {
+        let trace = simple_fibonacci::fibonacci_trace([FE::from(1), FE::from(1)], 8);
+        let trace_length = trace[0].len();
+        let trace_table = TraceTable::new_from_cols(&trace);
+        let trace_polys = trace_table.compute_trace_polys();
+        let coset_offset = 3;
+        let blowup_factor: usize = 2;
+
+        let context = AirContext {
+            options: ProofOptions {
+                blowup_factor: blowup_factor as u8,
+                fri_number_of_queries: 1,
+                coset_offset,
+            },
+            trace_length,
+            trace_columns: trace_table.n_cols,
+            transition_degrees: vec![1],
+            transition_exemptions: vec![2],
+            transition_offsets: vec![0, 1, 2],
+            num_transition_constraints: 1,
+        };
+        let coset_offset = FieldElement::from(coset_offset);
+
+        let domain = Domain::new(&simple_fibonacci::FibonacciAIR::from(context));
+        let primitive_root = Stark252PrimeField::get_primitive_root_of_unity(
+            (trace_length * blowup_factor).trailing_zeros() as u64,
+        )
+        .unwrap();
+
+        for poly in trace_polys.iter() {
+            let lde_evaluation = evaluate_polynomial_on_lde_domain(poly, &domain).unwrap();
+            assert_eq!(lde_evaluation.len(), trace_length * blowup_factor);
+            for (i, evaluation) in lde_evaluation.iter().enumerate() {
+                assert_eq!(
+                    *evaluation,
+                    poly.evaluate(&(&coset_offset * primitive_root.pow(i)))
+                );
+            }
+        }
     }
 }

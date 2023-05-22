@@ -1,3 +1,4 @@
+use crate::errors::CreationError;
 use crate::field::traits::IsField;
 use crate::unsigned_integer::element::UnsignedInteger;
 use crate::unsigned_integer::montgomery::MontgomeryAlgorithms;
@@ -459,9 +460,11 @@ impl<M, const NUM_LIMBS: usize> FieldElement<MontgomeryBackendPrimeField<M, NUM_
 where
     M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug,
 {
-    #[allow(unused)]
-    pub const fn from_hex(hex: &str) -> Self {
-        let integer = UnsignedInteger::<NUM_LIMBS>::from(hex);
+    /// Creates a `FieldElement` from a hexstring. It can contain `0x` or not.
+    /// # Panics
+    /// Panics if value is not a hexstring
+    pub const fn from_hex_unchecked(hex: &str) -> Self {
+        let integer = UnsignedInteger::<NUM_LIMBS>::from_hex_unchecked(hex);
         Self {
             value: MontgomeryAlgorithms::cios(
                 &integer,
@@ -471,17 +474,30 @@ where
             ),
         }
     }
+
+    /// Creates a `FieldElement` from a hexstring. It can contain `0x` or not.
+    /// Returns an `CreationError::InvalidHexString`if the value is not a hexstring
+    pub fn from_hex(hex: &str) -> Result<Self, CreationError> {
+        let integer = UnsignedInteger::<NUM_LIMBS>::from_hex(hex)?;
+
+        Ok(Self {
+            value: MontgomeryAlgorithms::cios(
+                &integer,
+                &MontgomeryBackendPrimeField::<M, NUM_LIMBS>::R2,
+                &M::MODULUS,
+                &MontgomeryBackendPrimeField::<M, NUM_LIMBS>::MU,
+            ),
+        })
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::elliptic_curve::short_weierstrass::curves::bls12_381::default_types::FrElement;
     use crate::field::element::FieldElement;
     use crate::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
-    use crate::field::fields::montgomery_backed_prime_fields::{
-        IsModulus, MontgomeryBackendPrimeField,
-    };
     use crate::field::test_fields::u64_test_field::U64TestField;
-    use crate::unsigned_integer::element::{UnsignedInteger, U256};
+    use crate::unsigned_integer::element::UnsignedInteger;
 
     #[test]
     fn test_std_iter_sum_field_element() {
@@ -541,12 +557,6 @@ mod tests {
     fn one_of_sqrt_roots_for_4_is_2() {
         #[derive(Clone, Debug)]
         pub struct FrConfig;
-        impl IsModulus<U256> for FrConfig {
-            const MODULUS: U256 =
-                U256::from("73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001");
-        }
-        type FrField = MontgomeryBackendPrimeField<FrConfig, 4>;
-        type FrElement = FieldElement<FrField>;
 
         let input = FrElement::from(4);
         let sqrt = input.sqrt().unwrap();
@@ -556,15 +566,6 @@ mod tests {
 
     #[test]
     fn one_of_sqrt_roots_for_25_is_5() {
-        #[derive(Clone, Debug)]
-        pub struct FrConfig;
-        impl IsModulus<U256> for FrConfig {
-            const MODULUS: U256 =
-                U256::from("73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001");
-        }
-        type FrField = MontgomeryBackendPrimeField<FrConfig, 4>;
-        type FrElement = FieldElement<FrField>;
-
         let input = FrElement::from(25);
         let sqrt = input.sqrt().unwrap();
         let result = FrElement::from(5);

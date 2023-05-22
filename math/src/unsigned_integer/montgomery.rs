@@ -93,21 +93,21 @@ mod tests {
 
     #[test]
     fn montgomery_multiplication_works_1() {
-        let x = U384::from("05ed176deb0e80b4deb7718cdaa075165f149c");
-        let y = U384::from("5f103b0bd4397d4df560eb559f38353f80eeb6");
-        let m = U384::from("cdb061954fdd36e5176f50dbdcfd349570a29ce1"); // this is prime
+        let x = U384::from_hex_unchecked("05ed176deb0e80b4deb7718cdaa075165f149c");
+        let y = U384::from_hex_unchecked("5f103b0bd4397d4df560eb559f38353f80eeb6");
+        let m = U384::from_hex_unchecked("cdb061954fdd36e5176f50dbdcfd349570a29ce1"); // this is prime
         let mu: u64 = 16085280245840369887; // negative of the inverse of `m` modulo 2^{64}
-        let c = U384::from("8d65cdee621682815d59f465d2641eea8a1274dc"); // x * y * (r^{-1}) % m, where r = 2^{64 * 6}
+        let c = U384::from_hex_unchecked("8d65cdee621682815d59f465d2641eea8a1274dc"); // x * y * (r^{-1}) % m, where r = 2^{64 * 6}
         assert_eq!(MontgomeryAlgorithms::cios(&x, &y, &m, &mu), c);
     }
 
     #[test]
     fn montgomery_multiplication_works_3() {
-        let x = U384::from("8d65cdee621682815d59f465d2641eea8a1274dc");
-        let m = U384::from("cdb061954fdd36e5176f50dbdcfd349570a29ce1"); // this is prime
-        let r_mod_m = U384::from("58dfb0e1b3dd5e674bdcde4f42eb5533b8759d33");
+        let x = U384::from_hex_unchecked("8d65cdee621682815d59f465d2641eea8a1274dc");
+        let m = U384::from_hex_unchecked("cdb061954fdd36e5176f50dbdcfd349570a29ce1"); // this is prime
+        let r_mod_m = U384::from_hex_unchecked("58dfb0e1b3dd5e674bdcde4f42eb5533b8759d33");
         let mu: u64 = 16085280245840369887; // negative of the inverse of `m` modulo 2^{64}
-        let c = U384::from("8d65cdee621682815d59f465d2641eea8a1274dc");
+        let c = U384::from_hex_unchecked("8d65cdee621682815d59f465d2641eea8a1274dc");
         assert_eq!(MontgomeryAlgorithms::cios(&x, &r_mod_m, &m, &mu), c);
     }
 }

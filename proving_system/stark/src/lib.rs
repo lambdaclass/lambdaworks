@@ -52,12 +52,22 @@ pub fn sample_z_ood<F: IsField, T: Transcript>(
     }
 }
 
+pub fn batch_sample_challenges<F: IsFFTField, T: Transcript>(
+    size: usize,
+    transcript: &mut T,
+) -> Vec<FieldElement<F>> {
+    (0..size).map(|_| transcript_to_field(transcript)).collect()
+}
+
 pub struct Domain<F: IsFFTField> {
     root_order: u32,
     lde_roots_of_unity_coset: Vec<FieldElement<F>>,
     lde_root_order: u32,
     trace_primitive_root: FieldElement<F>,
     trace_roots_of_unity: Vec<FieldElement<F>>,
+    coset_offset: FieldElement<F>,
+    blowup_factor: usize,
+    interpolation_domain_size: usize,
 }
 
 impl<F: IsFFTField> Domain<F> {
@@ -65,13 +75,13 @@ impl<F: IsFFTField> Domain<F> {
         // Initial definitions
         let blowup_factor = air.options().blowup_factor as usize;
         let coset_offset = FieldElement::<F>::from(air.options().coset_offset);
-
+        let interpolation_domain_size = air.context().trace_length;
         let root_order = air.context().trace_length.trailing_zeros();
         // * Generate Coset
         let trace_primitive_root = F::get_primitive_root_of_unity(root_order as u64).unwrap();
         let trace_roots_of_unity = get_powers_of_primitive_root_coset(
             root_order as u64,
-            air.context().trace_length,
+            interpolation_domain_size,
             &FieldElement::<F>::one(),
         )
         .unwrap();
@@ -90,6 +100,9 @@ impl<F: IsFFTField> Domain<F> {
             lde_root_order,
             trace_primitive_root,
             trace_roots_of_unity,
+            blowup_factor,
+            coset_offset,
+            interpolation_domain_size,
         }
     }
 }

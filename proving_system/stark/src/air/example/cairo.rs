@@ -1,3 +1,4 @@
+use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::field::{
     element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
 };
@@ -10,7 +11,11 @@ use crate::{
         trace::TraceTable,
         AIR,
     },
-    FE,
+    cairo_vm::{
+        cairo_mem::CairoMemory, cairo_trace::CairoTrace,
+        execution_trace::build_cairo_execution_trace,
+    },
+    transcript_to_field, FE,
 };
 
 /// Main constraint identifiers
@@ -90,17 +95,21 @@ pub struct PublicInputs {
 
 #[derive(Clone)]
 pub struct CairoAIR {
-    context: AirContext,
-    pub_inputs: PublicInputs,
+    pub context: AirContext,
+    pub pub_inputs: PublicInputs,
 }
 
 impl CairoAIR {
-    pub fn new(proof_options: ProofOptions, trace: &TraceTable<Stark252PrimeField>) -> Self {
-        let num_steps = trace.n_rows();
+    pub fn new(proof_options: ProofOptions, trace: &CairoTrace) -> Self {
+        let mut padded_num_steps = 1;
+        let num_steps = trace.steps();
+        while padded_num_steps < num_steps {
+            padded_num_steps <<= 1;
+        }
         let context = AirContext {
             options: proof_options,
-            trace_length: num_steps,
-            trace_columns: trace.n_cols,
+            trace_length: padded_num_steps,
+            trace_columns: 34,
             transition_degrees: vec![
                 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, // Flags 0-14.
                 1, // Flag 15
@@ -114,11 +123,11 @@ impl CairoAIR {
         let last_step = num_steps - 1;
 
         let pub_inputs = PublicInputs {
-            pc_init: trace.get(0, FRAME_PC),
-            ap_init: trace.get(0, FRAME_AP),
-            fp_init: trace.get(0, FRAME_FP),
-            pc_final: trace.get(last_step, FRAME_PC),
-            ap_final: trace.get(last_step, FRAME_AP),
+            pc_init: FE::from(trace.rows[0].pc),
+            ap_init: FE::from(trace.rows[0].ap),
+            fp_init: FE::from(trace.rows[0].fp),
+            pc_final: FE::from(trace.rows[last_step].pc),
+            ap_final: FE::from(trace.rows[last_step].ap),
             num_steps,
         };
 
@@ -129,10 +138,41 @@ impl CairoAIR {
     }
 }
 
+pub struct CairoRAPChallenges {
+    pub alpha: FieldElement<Stark252PrimeField>,
+    pub z: FieldElement<Stark252PrimeField>,
+}
+
 impl AIR for CairoAIR {
     type Field = Stark252PrimeField;
+    type RawTrace = (CairoTrace, CairoMemory);
+    type RAPChallenges = CairoRAPChallenges;
 
-    fn compute_transition(&self, frame: &Frame<Self::Field>) -> Vec<FieldElement<Self::Field>> {
+    fn build_main_trace(raw_trace: &Self::RawTrace) -> TraceTable<Self::Field> {
+        build_cairo_execution_trace(&raw_trace.0, &raw_trace.1)
+    }
+
+    fn build_auxiliary_trace(
+        _main_trace: &TraceTable<Self::Field>,
+        _rap_challenges: &Self::RAPChallenges,
+    ) -> TraceTable<Self::Field> {
+        // TODO: complete with CAIRO memory auxiliary columns
+
+        TraceTable::empty()
+    }
+
+    fn build_rap_challenges<T: Transcript>(transcript: &mut T) -> Self::RAPChallenges {
+        CairoRAPChallenges {
+            alpha: transcript_to_field(transcript),
+            z: transcript_to_field(transcript),
+        }
+    }
+
+    fn compute_transition(
+        &self,
+        frame: &Frame<Self::Field>,
+        _rap_challenges: &Self::RAPChallenges,
+    ) -> Vec<FieldElement<Self::Field>> {
         let mut constraints: Vec<FieldElement<Self::Field>> =
             vec![FE::zero(); self.num_transition_constraints()];
 
@@ -153,7 +193,10 @@ impl AIR for CairoAIR {
     ///  * ap_t = ap_f
     ///  * pc_0 = pc_i
     ///  * pc_t = pc_f
-    fn boundary_constraints(&self) -> BoundaryConstraints<Self::Field> {
+    fn boundary_constraints(
+        &self,
+        _rap_challenges: &Self::RAPChallenges,
+    ) -> BoundaryConstraints<Self::Field> {
         let last_step = self.context.trace_length - 1;
 
         let initial_pc =
@@ -306,11 +349,15 @@ fn frame_inst_size(frame_row: &[FE]) -> FE {
 }
 
 #[cfg(test)]
+#[cfg(debug_assertions)]
 mod test {
-    use super::*;
-    use crate::cairo_vm::{
-        cairo_mem::CairoMemory, cairo_trace::CairoTrace,
-        execution_trace::build_cairo_execution_trace,
+    use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
+    use lambdaworks_math::field::element::FieldElement;
+
+    use crate::{
+        air::{context::ProofOptions, debug::validate_trace, example::cairo::CairoAIR, AIR},
+        cairo_vm::{cairo_mem::CairoMemory, cairo_trace::CairoTrace},
+        Domain,
     };
 
     #[test]
@@ -322,15 +369,35 @@ mod test {
         let raw_trace = CairoTrace::from_file(&dir_trace).unwrap();
         let memory = CairoMemory::from_file(&dir_memory).unwrap();
 
-        let execution_trace = build_cairo_execution_trace(&raw_trace, &memory);
-
         let proof_options = ProofOptions {
             blowup_factor: 2,
             fri_number_of_queries: 1,
             coset_offset: 3,
         };
 
-        let cairo_air = CairoAIR::new(proof_options, &execution_trace);
-        assert!(execution_trace.validate(&cairo_air));
+        let mut cairo_air = CairoAIR::new(proof_options, &raw_trace);
+        // PC FINAL AND AP FINAL are not computed correctly since they are extracted after padding to
+        // power of two and therefore are zero
+        cairo_air.pub_inputs.ap_final = FieldElement::zero();
+        cairo_air.pub_inputs.pc_final = FieldElement::zero();
+
+        let main_trace = CairoAIR::build_main_trace(&(raw_trace, memory));
+        let mut trace_polys = main_trace.compute_trace_polys();
+        let mut transcript = DefaultTranscript::new();
+        let rap_challenges = CairoAIR::build_rap_challenges(&mut transcript);
+
+        let aux_trace = CairoAIR::build_auxiliary_trace(&main_trace, &rap_challenges);
+        let aux_polys = aux_trace.compute_trace_polys();
+
+        trace_polys.extend_from_slice(&aux_polys);
+
+        let domain = Domain::new(&cairo_air);
+
+        assert!(validate_trace(
+            &cairo_air,
+            &trace_polys,
+            &domain,
+            &rap_challenges
+        ));
     }
 }
