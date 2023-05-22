@@ -27,8 +27,8 @@ pub trait IsFFTField: IsField {
 
     /// Used for searching this field's implementation in other languages, e.g in MSL
     /// for executing parallel operations with the Metal API.
-    fn field_name() -> String {
-        "".to_string()
+    fn field_name() -> &'static str {
+        ""
     }
 
     /// Returns a primitive root of unity of order $2^{order}$.
