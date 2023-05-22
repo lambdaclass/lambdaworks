@@ -116,6 +116,7 @@ fn test_prove_quadratic() {
     assert!(verify(&result, &quadratic_air, &()));
 }
 
+#[ignore = "metal"]
 #[test_log::test]
 fn test_prove_cairo_simple_program() {
     /*
