@@ -20,7 +20,6 @@ use lambdaworks_stark::air::example::{
 
 use crate::util::FE;
 
-#[allow(dead_code)]
 pub fn generate_fib_proof_params(
     trace_length: usize,
 ) -> (
@@ -49,7 +48,6 @@ pub fn generate_fib_proof_params(
     (trace, fibonacci_air)
 }
 
-#[allow(dead_code)]
 pub fn generate_fib_2_cols_proof_params(
     trace_length: usize,
 ) -> (
@@ -78,6 +76,7 @@ pub fn generate_fib_2_cols_proof_params(
     (trace, fibonacci_air)
 }
 
+// Used only in criterion benches
 #[allow(dead_code)]
 pub fn generate_fib17_proof_params(
     trace_length: usize,
@@ -103,6 +102,7 @@ pub fn generate_fib17_proof_params(
     (trace, fibonacci_air)
 }
 
+// Used only in criterion benches
 #[allow(dead_code)]
 pub fn generate_quadratic_proof_params(
     trace_length: usize,
@@ -131,9 +131,6 @@ pub fn generate_quadratic_proof_params(
     (trace, quadratic_air)
 }
 
-// We added an attribute to disable the `dead_code` lint because clippy doesn't take into account
-// functions used by criterion.
-#[allow(dead_code)]
 pub fn generate_cairo_trace(filename: &str) -> (CairoTrace, CairoMemory) {
     let base_dir = format!("{}/cairo_programs/", env!("CARGO_MANIFEST_DIR"));
 
