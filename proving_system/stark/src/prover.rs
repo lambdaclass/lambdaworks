@@ -125,20 +125,16 @@ where
     F: IsFFTField,
     FieldElement<F>: ByteConversion,
 {
-    let trace_polys = trace
-        .compute_trace_polys()
-        .map_err(StarkError::InterpolationAndCommitment)?;
+    let trace_polys = trace.compute_trace_polys().map_err(StarkError::AIR)?;
 
     // Evaluate those polynomials t_j on the large domain D_LDE.
     let lde_trace_evaluations = trace_polys
         .iter()
         .map(|poly| evaluate_polynomial_on_lde_domain(poly, domain))
-        .collect::<Result<Vec<Vec<FieldElement<F>>>, FFTError>>()
-        .map_err(StarkError::PolynomialEvaluation)?;
+        .collect::<Result<Vec<Vec<FieldElement<F>>>, FFTError>>()?;
 
     // Compute commitments [t_j].
-    let lde_trace = TraceTable::new_from_cols(&lde_trace_evaluations)
-        .map_err(StarkError::InterpolationAndCommitment)?;
+    let lde_trace = TraceTable::new_from_cols(&lde_trace_evaluations).map_err(StarkError::AIR)?;
     let (lde_trace_merkle_trees, lde_trace_merkle_roots) =
         batch_commit(lde_trace.cols().iter().collect());
 
@@ -215,18 +211,15 @@ where
         &round_1_result.trace_polys,
         &domain.trace_primitive_root,
         &round_1_result.rap_challenges,
-    )
-    .map_err(StarkError::ConstraintEvaluation)?;
+    )?;
 
-    let constraint_evaluations = evaluator
-        .evaluate(
-            &round_1_result.lde_trace,
-            &domain.lde_roots_of_unity_coset,
-            transition_coeffs,
-            boundary_coeffs,
-            &round_1_result.rap_challenges,
-        )
-        .map_err(StarkError::ConstraintEvaluation)?;
+    let constraint_evaluations = evaluator.evaluate(
+        &round_1_result.lde_trace,
+        &domain.lde_roots_of_unity_coset,
+        transition_coeffs,
+        boundary_coeffs,
+        &round_1_result.rap_challenges,
+    )?;
 
     // Get the composition poly H
     let composition_poly =
@@ -235,11 +228,9 @@ where
     let (composition_poly_even, composition_poly_odd) = composition_poly.even_odd_decomposition();
 
     let lde_composition_poly_even_evaluations =
-        evaluate_polynomial_on_lde_domain(&composition_poly_even, domain)
-            .map_err(StarkError::PolynomialEvaluation)?;
+        evaluate_polynomial_on_lde_domain(&composition_poly_even, domain)?;
     let lde_composition_poly_odd_evaluations =
-        evaluate_polynomial_on_lde_domain(&composition_poly_odd, domain)
-            .map_err(StarkError::PolynomialEvaluation)?;
+        evaluate_polynomial_on_lde_domain(&composition_poly_odd, domain)?;
 
     let (composition_poly_merkle_trees, composition_poly_roots) = batch_commit(vec![
         &lde_composition_poly_even_evaluations,
@@ -350,8 +341,7 @@ where
         &domain.lde_roots_of_unity_coset,
         transcript,
     );
-    let (query_list, iota_0) =
-        fri_query_phase(air, domain, &fri_layers, transcript).map_err(StarkError::FriQuery)?;
+    let (query_list, iota_0) = fri_query_phase(air, domain, &fri_layers, transcript)?;
 
     let fri_layers_merkle_roots: Vec<_> = fri_layers
         .iter()
@@ -804,7 +794,7 @@ mod tests {
         let prover_result = prove(&trace, &simple_fibonacci::FibonacciAIR::from(context));
         assert!(matches!(
             prover_result,
-            Err(StarkError::DomainCreation(FFTError::RootOfUnityError(_, _)))
+            Err(StarkError::FFT(FFTError::RootOfUnityError(_, _)))
         ));
     }
 
@@ -833,9 +823,7 @@ mod tests {
         let prover_result = prove(&trace, &simple_fibonacci::FibonacciAIR::from(context));
         assert!(matches!(
             prover_result,
-            Err(StarkError::InterpolationAndCommitment(
-                AIRError::TracePolynomialsComputation(_)
-            ))
+            Err(StarkError::AIR(AIRError::TracePolynomialsComputation(_)))
         ));
     }
 }

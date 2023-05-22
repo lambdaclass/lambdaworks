@@ -1,14 +1,11 @@
 use lambdaworks_fft::errors::FFTError;
+use lambdaworks_math::field::errors::FieldError;
 use thiserror::Error;
 
 use crate::{air::errors::AIRError, fri::errors::FriError};
 
 #[derive(Debug, Error)]
 pub enum StarkError {
-    #[error("Could not evaluate polynomial: {0}")]
-    PolynomialEvaluation(FFTError),
-    #[error("Could not interpolate and commit: {0}")]
-    InterpolationAndCommitment(AIRError),
     #[error("Attempt to preprocess randomized AIR using table with no columns")]
     RAPTraceColumns,
     #[error("Number of trace term gammas of DEEP composition polynomial should be {0} * {1} = {} but is {2}", .0 * .1)]
@@ -25,24 +22,12 @@ pub enum StarkError {
     LDETraceMerkleProof,
     #[error("Could not get LDE trace row because index is {0} and number of trace rows is {1}")]
     LDETraceRowOutOfBounds(usize, usize),
-    #[error("Could not create domain: {0}")]
-    DomainCreation(FFTError),
-    #[error("Could not query FRI layers: {0}")]
-    FriQuery(FriError),
     #[error("Number of AIR trace columns should be {0} but it's {0}")]
     AIRTraceColumns(usize, usize),
     #[error("AIR has no transition degrees")]
     AIRTransitionDegrees,
     #[error("AIR FRI transition queries field is set to zero")]
     AIRFriNumberOfQueries,
-    #[error("Could not verify composition polynomial: {0}")]
-    CompositionPolyVerification(AIRError),
-    #[error("Could not reconstruct DEEP composition polynomial: {0}")]
-    DeepPolyReconstruction(FFTError),
-    #[error("Could not verify query: {0}")]
-    QueryVerification(FFTError),
-    #[error("Could not evaluate constraints: {0}")]
-    ConstraintEvaluation(AIRError),
     #[error("Column index {0} is out of bounds for frame with {1} columns")]
     FrameColIndexOutOfBounds(usize, usize),
     #[error("Proof has no merkle roots of FRI layers")]
@@ -55,4 +40,12 @@ pub enum StarkError {
         "Could not evaluate boundary C_i because its zerofier evaluated at OOD point returned zero"
     )]
     BoundaryCiEvaluation,
+    #[error(transparent)]
+    AIR(#[from] AIRError),
+    #[error(transparent)]
+    FFT(#[from] FFTError),
+    #[error(transparent)]
+    Field(#[from] FieldError),
+    #[error(transparent)]
+    FRI(#[from] FriError),
 }

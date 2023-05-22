@@ -266,7 +266,7 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
     let transition_divisors = air
         .transition_divisors()
         // TODO: rename this error to be more specific to the context
-        .map_err(StarkError::CompositionPolyVerification)?;
+        ?;
 
     // We already checked that the AIR should have any transition degree, so it's ok to unwrap here
     let transition_quotients_max_degree = transition_divisors
@@ -317,8 +317,7 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
             &challenges.transition_coeffs,
             max_degree_power_of_two,
             &challenges.z,
-        )
-        .map_err(StarkError::CompositionPolyVerification)?;
+        )?;
 
     let composition_poly_ood_evaluation = &boundary_quotient_ood_evaluation
         + transition_c_i_evaluations
@@ -444,8 +443,7 @@ where
         return Ok(false);
     }
 
-    let lde_primitive_root = F::get_primitive_root_of_unity(domain.lde_root_order as u64)
-        .map_err(|error| StarkError::QueryVerification(error.into()))?;
+    let lde_primitive_root = F::get_primitive_root_of_unity(domain.lde_root_order as u64)?;
     let offset = FieldElement::from(air.options().coset_offset);
     // evaluation point = offset * w ^ i in the Stark literature
     let mut evaluation_point = offset * lde_primitive_root.pow(iota);
@@ -511,8 +509,7 @@ fn reconstruct_deep_composition_poly_evaluation<F: IsFFTField, A: AIR<Field = F>
     domain: &Domain<F>,
     challenges: &Challenges<F, A>,
 ) -> Result<FieldElement<F>, StarkError> {
-    let primitive_root = &F::get_primitive_root_of_unity(domain.root_order as u64)
-        .map_err(|error| StarkError::DeepPolyReconstruction(error.into()))?;
+    let primitive_root = &F::get_primitive_root_of_unity(domain.root_order as u64)?;
     // iota[0] < 2^(`lde_root_order`), so it's ok to get an element here without checking
     let upsilon_0 = &domain.lde_roots_of_unity_coset[challenges.iotas[0]];
 
