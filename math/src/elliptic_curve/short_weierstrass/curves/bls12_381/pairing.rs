@@ -265,9 +265,15 @@ mod tests {
     }
 
     #[test]
-    fn miller_single() {
-        let p = BLS12381Curve::generator();
+    fn ate_pairing_returns_one_when_one_element_is_the_neutral_element() {
+        let p = BLS12381Curve::generator().to_affine();
+        let q = ShortWeierstrassProjectivePoint::neutral_element();
+        let result = BLS12381AtePairing::compute_batch(&[(&p.to_affine(), &q)]);
+        assert_eq!(result, FieldElement::one());
+
+        let p = ShortWeierstrassProjectivePoint::neutral_element();
         let q = BLS12381TwistCurve::generator();
-        miller(&q, &p);
+        let result = BLS12381AtePairing::compute_batch(&[(&p, &q.to_affine())]);
+        assert_eq!(result, FieldElement::one());
     }
 }
