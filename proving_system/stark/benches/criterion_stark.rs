@@ -8,6 +8,7 @@ use functions::stark::{
 };
 use lambdaworks_stark::{
     air::{context::ProofOptions, example::cairo},
+    fri::FieldElement,
     prover::prove,
 };
 
@@ -72,7 +73,12 @@ fn run_cairo_bench(group: &mut BenchmarkGroup<'_, WallTime>, benchname: &str, fi
                 fri_number_of_queries,
                 coset_offset: 3,
             };
-            let cairo_air = cairo::CairoAIR::new(proof_options, &trace.0);
+            let mut cairo_air = cairo::CairoAIR::new(proof_options, &trace.0);
+
+            // PC FINAL AND AP FINAL are not computed correctly since they are extracted after padding to
+            // power of two and therefore are zero
+            cairo_air.pub_inputs.ap_final = FieldElement::zero();
+            cairo_air.pub_inputs.pc_final = FieldElement::zero();
 
             let name = format!("{benchname}_b{blowup_factor}_q{fri_number_of_queries})");
 

@@ -1,6 +1,7 @@
 use iai::black_box;
 use lambdaworks_stark::{
     air::{context::ProofOptions, example::cairo},
+    fri::FieldElement,
     prover::prove,
     verifier::verify,
 };
@@ -39,7 +40,12 @@ fn cairo_fibonacci_benchmarks() {
         fri_number_of_queries: 32,
         coset_offset: 3,
     };
-    let cairo_air = cairo::CairoAIR::new(proof_options, &trace.0);
+    let mut cairo_air = cairo::CairoAIR::new(proof_options, &trace.0);
+
+    // PC FINAL AND AP FINAL are not computed correctly since they are extracted after padding to
+    // power of two and therefore are zero
+    cairo_air.pub_inputs.ap_final = FieldElement::zero();
+    cairo_air.pub_inputs.pc_final = FieldElement::zero();
 
     let proof = black_box(prove(black_box(&trace), black_box(&cairo_air)));
 
@@ -57,7 +63,12 @@ fn cairo_factorial_benchmarks() {
         fri_number_of_queries: 32,
         coset_offset: 3,
     };
-    let cairo_air = cairo::CairoAIR::new(proof_options, &trace.0);
+    let mut cairo_air = cairo::CairoAIR::new(proof_options, &trace.0);
+
+    // PC FINAL AND AP FINAL are not computed correctly since they are extracted after padding to
+    // power of two and therefore are zero
+    cairo_air.pub_inputs.ap_final = FieldElement::zero();
+    cairo_air.pub_inputs.pc_final = FieldElement::zero();
 
     let proof = black_box(prove(black_box(&trace), black_box(&cairo_air)));
 
