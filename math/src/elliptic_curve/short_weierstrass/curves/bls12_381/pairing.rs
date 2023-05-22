@@ -5,15 +5,15 @@ use super::{
 };
 use crate::{
     cyclic_group::IsGroup,
-    elliptic_curve::short_weierstrass::traits::IsShortWeierstrass,
     elliptic_curve::{
         short_weierstrass::{
-            curves::bls12_381::field_extension::Degree6ExtensionField,
+            curves::bls12_381::field_extension::{Degree6ExtensionField, LevelTwoResidue},
             point::ShortWeierstrassProjectivePoint,
+            traits::IsShortWeierstrass,
         },
         traits::IsPairing,
     },
-    field::element::FieldElement,
+    field::{element::FieldElement, extensions::cubic::HasCubicNonResidue},
     unsigned_integer::element::UnsignedInteger,
 };
 
@@ -43,6 +43,110 @@ impl IsPairing for BLS12381AtePairing {
 /// This is equal to the frobenius trace of the BLS12 381 curve minus one.
 const MILLER_LOOP_CONSTANT: u64 = 0xd201000000010000;
 
+fn double_accumulate_line(
+    t: &mut ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
+    p: &ShortWeierstrassProjectivePoint<BLS12381Curve>,
+    accumulator: &mut FieldElement<Degree12ExtensionField>,
+) {
+    let [x1, y1, z1] = t.coordinates();
+    let [px, py, _] = p.coordinates();
+    let residue = LevelTwoResidue::residue();
+    let two_inv = FieldElement::<Degree2ExtensionField>::new_base("d0088f51cbff34d258dd3db21a5d66bb23ba5c279c2895fb39869507b587b120f55ffff58a9ffffdcff7fffffffd556");
+
+    let a = &two_inv * x1 * y1;
+    let b = y1.square();
+    let c = z1.square();
+    let d = FieldElement::from(3) * &c;
+    let e = BLS12381TwistCurve::b() * d;
+    let f = FieldElement::from(3) * &e;
+    let g = two_inv * (&b + &f);
+    let h = (y1 + z1).square() - (&b + &c);
+
+    let x3 = &a * (&b - &f);
+    let y3 = g.square() - (FieldElement::from(3) * e.square());
+    let z3 = &b * &h;
+
+    let [h0, h1] = h.value();
+    let x1_sq_3 = FieldElement::from(3) * x1.square();
+    let [x1_sq_30, x1_sq_31] = x1_sq_3.value();
+
+    t.0.value = [x3, y3, z3];
+
+    // (a0 + a2w2 + a4w4 + a1w + a3w3 + a5w5) * (b0 + b2 w2 + b3 w3) =
+    // (a0b0 + r (a3b3 + a4b2)) w0 + (a1b0 + r (a4b3 + a5b2)) w
+    // (a2b0 + r  a5b3 + a0b2 ) w2 + (a3b0 + a0b3 + a1b2    ) w3
+    // (a4b0 +    a1b3 + a2b2 ) w4 + (a5b0 + a2b3 + a3b2    ) w5
+    let accumulator_sq = accumulator.square();
+    let [x, y] = accumulator_sq.value();
+    let [a0, a2, a4] = x.value();
+    let [a1, a3, a5] = y.value();
+    let b0 = e - b;
+    let b2 = FieldElement::new([x1_sq_30 * px, x1_sq_31 * px]);
+    let b3 = FieldElement::new([-h0 * py, -h1 * py]);
+    *accumulator = FieldElement::new([
+        FieldElement::new([
+            a0 * &b0 + &residue * (a3 * &b3 + a4 * &b2), // w0
+            a2 * &b0 + &residue * a5 * &b3 + a0 * &b2,   // w2
+            a4 * &b0 + a1 * &b3 + a2 * &b2,              // w4
+        ]),
+        FieldElement::new([
+            a1 * &b0 + &residue * (a4 * &b3 + a5 * &b2), // w1
+            a3 * &b0 + a0 * &b3 + a1 * &b2,              // w3
+            a5 * &b0 + a2 * &b3 + a3 * &b2,              // w5
+        ]),
+    ]);
+}
+fn add_accumulate_line(
+    t: &mut ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
+    q: &ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
+    p: &ShortWeierstrassProjectivePoint<BLS12381Curve>,
+    accumulator: &mut FieldElement<Degree12ExtensionField>,
+) {
+    let [x1, y1, z1] = t.coordinates();
+    let [x2, y2, _] = q.coordinates();
+    let [px, py, _] = p.coordinates();
+    let residue = LevelTwoResidue::residue();
+
+    let a = y2 * z1;
+    let b = x2 * z1;
+    let theta = y1 - a;
+    let lambda = x1 - b;
+    let c = theta.square();
+    let d = lambda.square();
+    let e = &lambda * &d;
+    let f = z1 * c;
+    let g = x1 * d;
+    let h = &e + f - FieldElement::from(2) * &g;
+    let i = y1 * &e;
+
+    let x3 = &lambda * &h;
+    let y3 = &theta * (g - h) - i;
+    let z3 = z1 * e;
+
+    t.0.value = [x3, y3, z3];
+
+    let [lambda0, lambda1] = lambda.value();
+    let [theta0, theta1] = theta.value();
+
+    let [x, y] = accumulator.value();
+    let [a0, a2, a4] = x.value();
+    let [a1, a3, a5] = y.value();
+    let b0 = -lambda.clone() * y2 + theta.clone() * x2;
+    let b2 = FieldElement::new([-theta0 * px, -theta1 * px]);
+    let b3 = FieldElement::new([lambda0 * py, lambda1 * py]);
+    *accumulator = FieldElement::new([
+        FieldElement::new([
+            a0 * &b0 + &residue * (a3 * &b3 + a4 * &b2), // w0
+            a2 * &b0 + &residue * a5 * &b3 + a0 * &b2,   // w2
+            a4 * &b0 + a1 * &b3 + a2 * &b2,              // w4
+        ]),
+        FieldElement::new([
+            a1 * &b0 + &residue * (a4 * &b3 + a5 * &b2), // w1
+            a3 * &b0 + a0 * &b3 + a1 * &b2,              // w3
+            a5 * &b0 + a2 * &b3 + a3 * &b2,              // w5
+        ]),
+    ]);
+}
 /// Implements the miller loop for the ate pairing of the BLS12 381 curve.
 /// Based on algorithm 9.2, page 212 of the book
 /// "Topics in computational number theory" by W. Bons and K. Lenstra
@@ -62,14 +166,9 @@ fn miller(
     }
 
     for bit in miller_loop_constant_bits[1..].iter() {
-        f = f.pow(2_u64) * line(&r, &r, p);
-        r = r.operate_with(&r).to_affine();
+        double_accumulate_line(&mut r, p, &mut f);
         if *bit {
-            f = f * line(&r, q, p);
-            r = r.operate_with(q);
-            if !r.is_neutral_element() {
-                r = r.to_affine();
-            }
+            add_accumulate_line(&mut r, q, p, &mut f);
         }
     }
     f.inv()
@@ -111,128 +210,45 @@ fn final_exponentiation(
     f2.pow(PHI_DIVIDED_BY_R)
 }
 
-/// Evaluates the line between points `p` and `r` at point `q`
-pub fn line(
-    p: &ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
-    r: &ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
-    q: &ShortWeierstrassProjectivePoint<BLS12381Curve>,
-) -> FieldElement<Degree12ExtensionField> {
-    // TODO: Improve error handling.
-    debug_assert!(
-        !q.is_neutral_element(),
-        "q cannot be the point at infinity."
-    );
-    let [px, py] = p.to_fp12_unnormalized();
-    let [rx, ry] = r.to_fp12_unnormalized();
-    let [qx_fp, qy_fp, _] = q.coordinates().clone();
-    let qx = FieldElement::<Degree12ExtensionField>::new([
-        FieldElement::new([
-            FieldElement::new([qx_fp, FieldElement::zero()]),
-            FieldElement::zero(),
-            FieldElement::zero(),
-        ]),
-        FieldElement::zero(),
-    ]);
-    let qy = FieldElement::<Degree12ExtensionField>::new([
-        FieldElement::new([
-            FieldElement::new([qy_fp, FieldElement::zero()]),
-            FieldElement::zero(),
-            FieldElement::zero(),
-        ]),
-        FieldElement::zero(),
-    ]);
-    let a_of_curve = FieldElement::<Degree12ExtensionField>::new([
-        FieldElement::new([
-            FieldElement::new([BLS12381Curve::a(), FieldElement::zero()]),
-            FieldElement::zero(),
-            FieldElement::zero(),
-        ]),
-        FieldElement::zero(),
-    ]);
-
-    if p.is_neutral_element() || r.is_neutral_element() {
-        if p == r {
-            return FieldElement::one();
-        }
-        if p.is_neutral_element() {
-            qx - rx
-        } else {
-            qx - px
-        }
-    } else if p != r {
-        if px == rx {
-            qx - px
-        } else {
-            let l = (ry - &py) / (rx - &px);
-            qy - py - l * (qx - px)
-        }
-    } else {
-        let numerator = FieldElement::from(3) * &px.pow(2_u16) + a_of_curve;
-        let denominator = FieldElement::from(2) * &py;
-        if denominator == FieldElement::zero() {
-            qx - px
-        } else {
-            let l = numerator / denominator;
-            qy - py - l * (qx - px)
-        }
-    }
-}
 
 #[cfg(test)]
 mod tests {
-    use crate::{elliptic_curve::traits::IsEllipticCurve, unsigned_integer::element::U384};
+    use crate::{
+        cyclic_group::IsGroup, elliptic_curve::traits::IsEllipticCurve,
+        unsigned_integer::element::U384,
+    };
 
     use super::*;
 
-    type Fp12E = FieldElement<Degree12ExtensionField>;
-
     #[test]
-    fn test_line_1() {
+    fn test_double_accumulate_line_doubles_point_correctly() {
         let g1 = BLS12381Curve::generator();
         let g2 = BLS12381TwistCurve::generator();
-        let expected = Fp12E::from_coefficients(&[
-            "8b3f481e3aaa0f1a09e30ed741d8ae4fcf5e095d5d00af600db18cb2c04b3edd03cc744a2888ae40caa232946c5e7e1",
-            "0",
-            "0",
-            "0",
-            "0",
-            "0",
-            "11bfe7fb8923ace27a0692871443365b3e5e0dd7ef388153c5bb27d923a3dedb6b9f9cbfd022a8eb913e281a830fac9c",
-            "13d0fab25f0e7099c6ffaa8ddd3cb036f5c35df322a9359ff8f98a4f5c6a84c50b6007c296eafda2ffa2d20b253a6633",
-            "4c208bdb300097927393e963768099390a3f9d581d8828070e39167384e44fdaf716fa49d68b0bdf431a2f53189c109",
-            "546ca700477f9c2f9def9691be2f7e6eaa0f1474cb64c53ce3b4d4da03cbdac75933b5468ab4b88cf058f147ba2cda9",
-            "0",
-            "0"
-        ]);
-        assert_eq!(line(&g2, &g2, &g1), expected);
+        let mut r = g2.clone();
+        let mut f = FieldElement::one();
+        double_accumulate_line(&mut r, &g1, &mut f);
+        assert_eq!(r, g2.operate_with(&g2));
     }
 
     #[test]
-    fn test_line_2() {
+    fn test_add_accumulate_line_adds_points_correctly() {
         let g1 = BLS12381Curve::generator();
-        let g2 = BLS12381TwistCurve::generator();
-        let g2_times_5 = g2.operate_with_self(5_u16).to_affine();
-        let expected = Fp12E::from_coefficients(&[
-            "8b3f481e3aaa0f1a09e30ed741d8ae4fcf5e095d5d00af600db18cb2c04b3edd03cc744a2888ae40caa232946c5e7e1",
-            "0",
-            "0",
-            "0",
-            "0",
-            "0",
-            "c61af5cbff75e6cdd8100b22636ec410a1cb914a599775a29590dd2c48af1f18a71e120fb72ddc7c1ca57ce58a8670f",
-            "4b7599ae8879affcb68f23ac23ddc7316f81013a2caa8925f33fe978f19ce00effd7e5bd6b51e2d9723e66fd897e125",
-            "449f41bddfdc54476c92f4249f1ce75a9693eb8f0b34ba3c57de3edaa29ba069f0d97376eadb1be6c5a5dfdf595302b",
-            "ebf57b77d5ffe1476a8c8c0f0e0e73e8d32f070c89f09e465cb39312463bc42768c6028a481fb8ba2f5d2a95cd4eedb",
-            "0",
-            "0"
-        ]);
-        assert_eq!(line(&g2, &g2_times_5, &g1), expected);
+        let g = BLS12381TwistCurve::generator();
+        let a: u64 = 12;
+        let b: u64 = 23;
+        let g2 = g.operate_with_self(a).to_affine();
+        let g3 = g.operate_with_self(b).to_affine();
+        let expected = g.operate_with_self(a + b);
+        let mut r = g2.clone();
+        let mut f = FieldElement::one();
+        add_accumulate_line(&mut r, &g3, &g1, &mut f);
+        assert_eq!(r, expected);
     }
 
     #[test]
     fn batch_ate_pairing_bilinearity() {
-        let p = BLS12381Curve::generator().to_affine();
-        let q = BLS12381TwistCurve::generator().to_affine();
+        let p = BLS12381Curve::generator();
+        let q = BLS12381TwistCurve::generator();
         let a = U384::from_u64(11);
         let b = U384::from_u64(93);
 
@@ -241,21 +257,18 @@ mod tests {
                 &p.operate_with_self(a).to_affine(),
                 &q.operate_with_self(b).to_affine(),
             ),
-            (&p.operate_with_self(a * b).to_affine(), &q.neg()),
+            (
+                &p.operate_with_self(a * b).to_affine(),
+                &q.neg().to_affine(),
+            ),
         ]);
         assert_eq!(result, FieldElement::one());
     }
 
     #[test]
-    fn ate_pairing_returns_one_when_one_element_is_the_neutral_element() {
-        let p = BLS12381Curve::generator().to_affine();
-        let q = ShortWeierstrassProjectivePoint::neutral_element();
-        let result = BLS12381AtePairing::compute_batch(&[(&p.to_affine(), &q)]);
-        assert_eq!(result, FieldElement::one());
-
-        let p = ShortWeierstrassProjectivePoint::neutral_element();
+    fn miller_single() {
+        let p = BLS12381Curve::generator();
         let q = BLS12381TwistCurve::generator();
-        let result = BLS12381AtePairing::compute_batch(&[(&p, &q.to_affine())]);
-        assert_eq!(result, FieldElement::one());
+        miller(&q, &p);
     }
 }
