@@ -317,7 +317,8 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
             &challenges.transition_coeffs,
             max_degree_power_of_two,
             &challenges.z,
-        );
+        )
+        .map_err(StarkError::CompositionPolyVerification)?;
 
     let composition_poly_ood_evaluation = &boundary_quotient_ood_evaluation
         + transition_c_i_evaluations

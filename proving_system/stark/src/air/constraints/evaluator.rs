@@ -114,7 +114,7 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
                 alpha_and_beta_transition_coefficients,
                 max_degree_power_of_two,
                 d,
-            );
+            )?;
 
             let boundary_evaluation = zip(&boundary_polys, &boundary_zerofiers)
                 .enumerate()
@@ -166,26 +166,29 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
         constraint_coeffs: &[(FieldElement<F>, FieldElement<F>)],
         max_degree: u64,
         x: &FieldElement<F>,
-    ) -> Vec<FieldElement<F>> {
+    ) -> Result<Vec<FieldElement<F>>, AIRError> {
         // TODO: We should get the trace degree in a better way because in some special cases
         // the trace degree may not be exactly the trace length - 1 but a smaller number.
         let trace_degree = air.context().trace_length - 1;
         let transition_degrees = air.context().transition_degrees();
 
         let mut ret = Vec::new();
-        for (((eval, transition_degree), div), (alpha, beta)) in evaluations
+        for ((((index, eval), transition_degree), div), (alpha, beta)) in evaluations
             .iter()
+            .enumerate()
             .zip(transition_degrees)
             .zip(divisors)
             .zip(constraint_coeffs)
         {
-            let zerofied_eval = eval / div.evaluate(x);
+            let zerofied_eval = eval
+                .checked_div(&div.evaluate(x))
+                .ok_or(AIRError::CPTransitionConstraintDivision(index))?;
             let zerofied_degree = trace_degree * transition_degree - div.degree();
             let result =
                 zerofied_eval * (alpha * x.pow(max_degree - (zerofied_degree as u64)) + beta);
             ret.push(result);
         }
 
-        ret
+        Ok(ret)
     }
 }

@@ -23,6 +23,10 @@ pub enum AIRError {
     FrameColumns,
     #[error("Could not compute transition divisors because exemption polynomial {0} is zero")]
     TransitionDivisorExemption(usize),
-    #[error("Could not compute composition polynomial {0} because zerofier polynomial is zero")]
+    #[error(
+        "Could not compute composition polynomial {0} because boundary zerofier polynomial is zero"
+    )]
     CPBoundaryConstraintDivision(usize),
+    #[error("Could not compute composition polynomial {0} because transition zerofier polynomial is zero")]
+    CPTransitionConstraintDivision(usize),
 }
