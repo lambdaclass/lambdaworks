@@ -376,8 +376,8 @@ mod test {
         let dir_trace = base_dir.to_owned() + "/cairo_programs/simple_program.trace";
         let dir_memory = base_dir.to_owned() + "/cairo_programs/simple_program.memory";
 
-        let raw_trace = CairoTrace::from_file(&dir_trace).unwrap();
-        let memory = CairoMemory::from_file(&dir_memory).unwrap();
+        let raw_trace = CairoTrace::from_file(&dir_trace).expect(&dir_trace);
+        let memory = CairoMemory::from_file(&dir_memory).expect(&dir_memory);
 
         let execution_trace = build_cairo_execution_trace(&raw_trace, &memory);
 
@@ -502,8 +502,8 @@ mod test {
         let dir_trace = base_dir.to_owned() + "/cairo_programs/call_func.trace";
         let dir_memory = base_dir.to_owned() + "/cairo_programs/call_func.memory";
 
-        let raw_trace = CairoTrace::from_file(&dir_trace).unwrap();
-        let memory = CairoMemory::from_file(&dir_memory).unwrap();
+        let raw_trace = CairoTrace::from_file(&dir_trace).expect(&dir_trace);
+        let memory = CairoMemory::from_file(&dir_memory).expect(&dir_memory);
 
         let execution_trace = build_cairo_execution_trace(&raw_trace, &memory);
 
