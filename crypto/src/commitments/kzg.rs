@@ -326,7 +326,7 @@ mod tests {
     #[test]
     fn poly_9000_constant_should_verify_proof() {
         let kzg = KZG::new(create_srs());
-        let p = Polynomial::<FrElement>::new(&[FieldElement::from(9000)]);
+        let p = Polynomial::new(&[FieldElement::from(9000)]);
         let p_commitment: <BLS12381AtePairing as IsPairing>::G1Point = kzg.commit(&p);
         let x = FieldElement::one();
         let y = FieldElement::from(9000);
