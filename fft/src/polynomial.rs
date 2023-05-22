@@ -382,65 +382,6 @@ mod tests {
         type F = Stark252PrimeField;
         type FE = FieldElement<F>;
 
-        #[cfg(feature = "metal")]
-        proptest! {
-            // Property-based test that ensures FFT eval. gives same result as a naive polynomial evaluation.
-            #[test]
-            fn test_fft_matches_naive_evaluation(poly in poly(8)) {
-                objc::rc::autoreleasepool(|| {
-                    let (fft_eval, naive_eval) = gen_fft_and_naive_evaluation(poly);
-                    prop_assert_eq!(fft_eval, naive_eval);
-                    Ok(())
-                }).unwrap();
-            }
-
-            // Property-based test that ensures FFT eval. with coset gives same result as a naive polynomial evaluation.
-            #[test]
-            fn test_fft_coset_matches_naive_evaluation(poly in poly(4), offset in offset(), blowup_factor in powers_of_two(4)) {
-                objc::rc::autoreleasepool(|| {
-                    let (fft_eval, naive_eval) = gen_fft_coset_and_naive_evaluation(poly, offset, blowup_factor);
-                    prop_assert_eq!(fft_eval, naive_eval);
-                    Ok(())
-                }).unwrap();
-            }
-
-            // Property-based test that ensures FFT interpolation is the same as naive.
-            #[test]
-            fn test_fft_interpolate_matches_naive(fft_evals in field_vec(4)
-                                                           .prop_filter("Avoid polynomials of size not power of two",
-                                                                        |evals| evals.len().is_power_of_two())) {
-                objc::rc::autoreleasepool(|| {
-                let (fft_poly, naive_poly) = gen_fft_and_naive_interpolate(&fft_evals);
-                prop_assert_eq!(fft_poly, naive_poly);
-                    Ok(())
-                }).unwrap();
-            }
-
-            // Property-based test that ensures FFT interpolation with an offset is the same as naive.
-            #[test]
-            fn test_fft_interpolate_coset_matches_naive(offset in offset(), fft_evals in field_vec(4)
-                                                           .prop_filter("Avoid polynomials of size not power of two",
-                                                                        |evals| evals.len().is_power_of_two())) {
-                objc::rc::autoreleasepool(|| {
-                let (fft_poly, naive_poly) = gen_fft_and_naive_coset_interpolate(&fft_evals, &offset);
-                prop_assert_eq!(fft_poly, naive_poly);
-                    Ok(())
-                }).unwrap();
-            }
-
-            // Property-based test that ensures interpolation is the inverse operation of evaluation.
-            #[test]
-            fn test_fft_interpolate_is_inverse_of_evaluate(
-                poly in poly(4).prop_filter("Avoid non pows of two", |poly| poly.coeff_len().is_power_of_two())) {
-                objc::rc::autoreleasepool(|| {
-                    let (poly, new_poly) = gen_fft_interpolate_and_evaluate(poly);
-                    prop_assert_eq!(poly, new_poly);
-                    Ok(())
-                }).unwrap()
-            }
-        }
-
-        #[cfg(not(feature = "metal"))]
         proptest! {
             // Property-based test that ensures FFT eval. gives same result as a naive polynomial evaluation.
             #[test]
