@@ -131,8 +131,8 @@ fn test_prove_cairo_simple_program() {
     ```
     */
     let base_dir = env!("CARGO_MANIFEST_DIR");
-    let dir_trace = base_dir.to_owned() + "/cairo_programs/non_proof/simple_program.trace";
-    let dir_memory = base_dir.to_owned() + "/cairo_programs/non_proof/simple_program.memory";
+    let dir_trace = base_dir.to_owned() + "/cairo_programs/simple_program.trace";
+    let dir_memory = base_dir.to_owned() + "/cairo_programs/simple_program.memory";
 
     let raw_trace = CairoTrace::from_file(&dir_trace).unwrap();
     let memory = CairoMemory::from_file(&dir_memory).unwrap();
@@ -176,9 +176,8 @@ fn test_prove_cairo_call_func() {
     ```
     */
     let base_dir = env!("CARGO_MANIFEST_DIR");
-    // TODO: find out compilation options to achieve same output
-    let dir_trace = base_dir.to_owned() + "/cairo_programs/non_proof/call_func.trace";
-    let dir_memory = base_dir.to_owned() + "/cairo_programs/non_proof/call_func.memory";
+    let dir_trace = base_dir.to_owned() + "/cairo_programs/call_func.trace";
+    let dir_memory = base_dir.to_owned() + "/cairo_programs/call_func.memory";
 
     let raw_trace = CairoTrace::from_file(&dir_trace).unwrap();
     let memory = CairoMemory::from_file(&dir_memory).unwrap();
@@ -202,8 +201,8 @@ fn test_prove_cairo_call_func() {
 #[test_log::test]
 fn test_prove_cairo_fibonacci() {
     let base_dir = env!("CARGO_MANIFEST_DIR");
-    let dir_trace = base_dir.to_owned() + "/cairo_programs/non_proof/fibonacci_5.trace";
-    let dir_memory = base_dir.to_owned() + "/cairo_programs/non_proof/fibonacci_5.memory";
+    let dir_trace = base_dir.to_owned() + "/cairo_programs/fibonacci_5.trace";
+    let dir_memory = base_dir.to_owned() + "/cairo_programs/fibonacci_5.memory";
 
     let raw_trace = CairoTrace::from_file(&dir_trace).expect("Cairo trace binary file not found");
     let memory = CairoMemory::from_file(&dir_memory).expect("Cairo memory binary file not found");

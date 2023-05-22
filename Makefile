@@ -1,8 +1,5 @@
 .PHONY: test clippy docker-shell nix-shell benchmarks benchmark docs clean traces build-cuda build-metal
 
-# Proof mode consumes too much memory with cairo-lang to execute
-# two instances at the same time in the CI without getting killed
-.NOTPARALLEL: $(TEST_TRACES) $(TEST_MEMORIES)
 
 deps:
 	pyenv install -s 3.9.15
@@ -24,18 +21,6 @@ nix-shell:
 	nix-shell
 
 
-NON_PROOF_DIR=proving_system/stark/cairo_programs/non_proof
-NON_PROOFS:=$(wildcard $(NON_PROOF_DIR)/*.cairo)
-NON_PROOF_TRACES:=$(patsubst $(NON_PROOF_DIR)/%.cairo, $(NON_PROOF_DIR)/%.trace, $(NON_PROOFS))
-NON_PROOF_MEMORIES:=$(patsubst $(NON_PROOF_DIR)/%.cairo, $(NON_PROOF_DIR)/%.memory, $(NON_PROOFS))
-
-$(NON_PROOF_DIR)/%.json: $(NON_PROOF_DIR)/%.cairo
-	cairo-compile --cairo_path="$(NON_PROOF_DIR)" $< --output $@
-
-$(NON_PROOF_DIR)/%.trace $(NON_PROOF_DIR)/%.memory: $(NON_PROOF_DIR)/%.json
-	cairo-run --layout plain --program $< --trace_file $@ --memory_file $(@D)/$(*F).memory
-
-
 TEST_DIR=proving_system/stark/cairo_programs
 TEST_FILES:=$(wildcard $(TEST_DIR)/*.cairo)
 COMPILED_TESTS:=$(patsubst $(TEST_DIR)/%.cairo, $(TEST_DIR)/%.json, $(TEST_FILES))
@@ -43,13 +28,13 @@ TEST_TRACES:=$(patsubst $(TEST_DIR)/%.cairo, $(TEST_DIR)/%.trace, $(TEST_FILES))
 TEST_MEMORIES:=$(patsubst $(TEST_DIR)/%.cairo, $(TEST_DIR)/%.memory, $(TEST_FILES))
 
 $(TEST_DIR)/%.json: $(TEST_DIR)/%.cairo
-	cairo-compile --cairo_path="$(TEST_DIR)" $< --output $@ --proof_mode
+	cairo-compile --cairo_path="$(TEST_DIR)" $< --output $@
 
 $(TEST_DIR)/%.trace $(TEST_DIR)/%.memory: $(TEST_DIR)/%.json
-	cairo-run --layout plain --proof_mode --program $< --trace_file $@ --memory_file $(@D)/$(*F).memory
+	cairo-run --layout plain --program $< --trace_file $@ --memory_file $(@D)/$(*F).memory
 
 
-traces: $(NON_PROOF_TRACES) $(NON_PROOF_MEMORIES) $(TEST_TRACES) $(TEST_MEMORIES)
+traces: $(TEST_TRACES) $(TEST_MEMORIES)
 
 benchmarks: traces
 	cargo criterion --workspace
@@ -62,7 +47,6 @@ benchmark: traces
 
 clean:
 	rm -f $(TEST_DIR)/*.{json,trace,memory}
-	rm -f $(NON_PROOF_DIR)/*.{json,trace,memory}
 
 # Benchmark groups are filtered by name, according to FILTER
 # Example: make flamegraph BENCH=criterion_field FILTER=CAIRO/fibonacci/50_b4_q64
