@@ -197,19 +197,72 @@ pub fn pippenger_sequencial<const NUM_LIMBS: usize>(
         command_buffer.wait_until_completed(); //TODO dispatch all and then wait
     }
 
-    for (i, result_buffer) in results_buffer.iter().enumerate() {
-        results[i] = MetalState::retrieve_contents(result_buffer);
-    }
-
     //TODO call other kernels
+    let pipeline = state.setup_pipeline("calculate_window")?;
 
     let point_size = 12 * 3;
-    let result: Vec<Point> = results[0]
-        .chunks(point_size)
-        .map(Point::from_u32_limbs)
+
+    let partial_sums: Vec<u32> = vec![Point::neutral_element(); bucket_count]
+        .into_iter()
+        .map(|point| point.to_u32_limbs())
+        .flatten()
         .collect();
 
-    Ok(result[0].clone())
+    let mut windows_buffer = vec![];
+    for window_idx in 0..num_windows as usize {
+        let partial_sums_buffer = state.alloc_buffer_data(&partial_sums.clone());
+        let window_result_buffer = state.alloc_buffer::<u32>(point_size);
+        windows_buffer.push(window_result_buffer);
+
+        let (command_buffer, command_encoder) = state.setup_command(
+            &pipeline,
+            Some(&[
+                (0, &results_buffer[window_idx]),
+                (2, &partial_sums_buffer),
+                (3, &windows_buffer[window_idx]),
+            ]),
+        );
+
+        command_encoder.set_bytes(1, std::mem::size_of::<u64>() as u64, void_ptr(&buflen));
+
+        command_encoder.dispatch_thread_groups(threadgroup_count, threadgroup_size);
+        command_encoder.end_encoding();
+
+        command_buffer.commit();
+        command_buffer.wait_until_completed(); //TODO dispatch all and then wait
+    }
+
+    let pipeline = state.setup_pipeline("reduce_windows")?;
+
+    let mut windows_results = vec![];
+
+    for window_buffer in windows_buffer {
+        windows_results.push(MetalState::retrieve_contents::<u32>(&window_buffer));
+    }
+
+    let windows_results = windows_results.into_iter().flatten().collect::<Vec<u32>>();
+
+    let reduce_windows_buffer = state.alloc_buffer_data(&windows_results);
+    let reduced_buffer = state.alloc_buffer::<u32>(point_size);
+
+    let (command_buffer, command_encoder) = state.setup_command(
+        &pipeline,
+        Some(&[(0, &reduce_windows_buffer), (2, &reduced_buffer)]),
+    );
+
+    command_encoder.set_bytes(1, std::mem::size_of::<u64>() as u64, void_ptr(&num_windows));
+
+    command_encoder.dispatch_thread_groups(threadgroup_count, threadgroup_size);
+    command_encoder.end_encoding();
+
+    command_buffer.commit();
+    command_buffer.wait_until_completed();
+
+    let result = MetalState::retrieve_contents::<u32>(&reduced_buffer);
+
+    let result: Point = Point::from_u32_limbs(&result);
+
+    Ok(result)
 }
 
 #[cfg(test)]
