@@ -18,12 +18,12 @@ impl MetalState {
     /// Creates a new Metal state with an optional `device` (GPU). If `None` is passed then it will use
     /// the system's default.
     pub fn new(device: Option<metal::Device>) -> Result<Self, MetalError> {
-        let device: metal::Device = device
-            .unwrap_or(metal::Device::system_default().ok_or(MetalError::MetalDeviceNotFound())?);
+        let device: metal::Device =
+            device.unwrap_or(metal::Device::system_default().ok_or(MetalError::DeviceNotFound())?);
 
         let library = device
             .new_library_with_data(LIB_DATA) // TODO: allow different files
-            .map_err(MetalError::MetalLibraryError)?;
+            .map_err(MetalError::LibraryError)?;
         let queue = device.new_command_queue();
 
         Ok(Self {
@@ -43,12 +43,12 @@ impl MetalState {
         let kernel = self
             .library
             .get_function(kernel_name, None)
-            .map_err(MetalError::MetalFunctionError)?;
+            .map_err(MetalError::FunctionError)?;
 
         let pipeline = self
             .device
             .new_compute_pipeline_state_with_function(&kernel)
-            .map_err(MetalError::MetalPipelineError)?;
+            .map_err(MetalError::PipelineError)?;
 
         Ok(pipeline)
     }

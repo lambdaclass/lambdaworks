@@ -4,6 +4,9 @@ use thiserror::Error;
 #[cfg(feature = "metal")]
 use lambdaworks_gpu::metal::abstractions::errors::MetalError;
 
+#[cfg(feature = "cuda")]
+use lambdaworks_gpu::cuda::abstractions::errors::CudaError;
+
 #[derive(Debug, Error)]
 pub enum FFTError {
     #[error("Could not calculate {1} root of unity")]
@@ -12,7 +15,10 @@ pub enum FFTError {
     InputError(usize),
     #[cfg(feature = "metal")]
     #[error("A Metal related error has ocurred")]
-    MetalError(MetalError),
+    MetalError(#[from] MetalError),
+    #[cfg(feature = "cuda")]
+    #[error("A CUDA related error has ocurred")]
+    CudaError(#[from] CudaError),
 }
 
 impl From<FieldError> for FFTError {
@@ -23,12 +29,5 @@ impl From<FieldError> for FFTError {
             }
             FieldError::RootOfUnityError(error, order) => FFTError::RootOfUnityError(error, order),
         }
-    }
-}
-
-#[cfg(feature = "metal")]
-impl From<MetalError> for FFTError {
-    fn from(error: MetalError) -> Self {
-        FFTError::MetalError(error)
     }
 }

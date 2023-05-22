@@ -1,8 +1,5 @@
 use lambdaworks_fft::polynomial::FFTPoly;
-use lambdaworks_gpu::metal::{
-    abstractions::state::MetalState,
-    fft::{ops::*, polynomial::*},
-};
+use lambdaworks_gpu::metal::{abstractions::state::MetalState, fft::ops::*};
 use lambdaworks_math::{field::traits::RootsConfig, polynomial::Polynomial};
 
 // WARN: These should always be fields supported by Metal, else the last two benches will use CPU FFT.
@@ -27,5 +24,5 @@ pub fn poly_evaluate_fft(poly: &Polynomial<FE>) {
     poly.evaluate_fft(1, None);
 }
 pub fn poly_interpolate_fft(evals: &[FE]) {
-    Polynomial::interpolate_fft(evals);
+    Polynomial::interpolate_fft(evals).unwrap();
 }
