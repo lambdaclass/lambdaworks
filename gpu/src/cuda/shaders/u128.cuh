@@ -3,14 +3,16 @@
 #ifndef u128_h
 #define u128_h
 
+typedef unsigned long long uint64_t;
+
 class u128
 {
 public:
   u128() = default;
   __device__ constexpr u128(int l) : low(l), high(0) {}
-  __device__ constexpr u128(unsigned long l) : low(l), high(0) {}
+  __device__ constexpr u128(uint64_t l) : low(l), high(0) {}
   __device__ constexpr u128(bool b) : low(b), high(0) {}
-  __device__ constexpr u128(unsigned long h, unsigned long l)
+  __device__ constexpr u128(uint64_t h, uint64_t l)
       : low(l), high(h) {}
 
   __device__ constexpr u128 operator+(const u128 rhs) const
@@ -146,10 +148,10 @@ public:
 
   __device__ u128 operator*(const u128 rhs) const
   {
-    unsigned long t_low_high = __umul64hi(low, rhs.high);
-    unsigned long t_high = __umul64hi(low, rhs.low);
-    unsigned long t_high_low = __umul64hi(high, rhs.low);
-    unsigned long t_low = low * rhs.low;
+    uint64_t t_low_high = low * rhs.high;
+    uint64_t t_high = __umul64hi(low, rhs.low);
+    uint64_t t_high_low = high * rhs.low;
+    uint64_t t_low = low * rhs.low;
     return u128(t_low_high + t_high_low + t_high, t_low);
   }
 
@@ -160,8 +162,8 @@ public:
   }
 
   // TODO: check if performance improves with a different limb size
-  unsigned long high;
-  unsigned long low;
+  uint64_t high;
+  uint64_t low;
 };
 
 #endif /* u128_h */

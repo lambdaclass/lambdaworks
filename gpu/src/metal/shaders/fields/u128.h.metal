@@ -147,9 +147,9 @@ public:
 
     u128 operator*(const u128 rhs) const
     {
-        unsigned long t_low_high = metal::mulhi(low, rhs.high);
+        unsigned long t_low_high = low * rhs.high;
         unsigned long t_high = metal::mulhi(low, rhs.low);
-        unsigned long t_high_low = metal::mulhi(high, rhs.low);
+        unsigned long t_high_low = high * rhs.low;
         unsigned long t_low = low * rhs.low;
         return u128(t_low_high + t_high_low + t_high, t_low);
 

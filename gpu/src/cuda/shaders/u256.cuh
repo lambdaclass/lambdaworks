@@ -5,17 +5,19 @@
 
 #include "u128.cuh"
 
+typedef unsigned long long uint64_t;
+
 class u256
 {
 public:
   u256() = default;
   __device__ constexpr u256(int l) : low(l), high(0) {}
-  __device__ constexpr u256(unsigned long l) : low(u128(l)), high(0) {}
+  __device__ constexpr u256(uint64_t l) : low(u128(l)), high(0) {}
   __device__ constexpr u256(u128 l) : low(l), high(0) {}
   __device__ constexpr u256(bool b) : low(b), high(0) {}
   __device__ constexpr u256(u128 h, u128 l) : low(l), high(h) {}
-  __device__ constexpr u256(unsigned long hh, unsigned long hl,
-                            unsigned long lh, unsigned long ll)
+  __device__ constexpr u256(uint64_t hh, uint64_t hl,
+                            uint64_t lh, uint64_t ll)
       : low(u128(lh, ll)), high(u128(hh, hl)) {}
 
   __device__ constexpr u256 operator+(const u256 rhs) const
@@ -77,13 +79,9 @@ public:
 
   __device__ constexpr inline u256 operator>>(unsigned shift) const
   {
-    u128 new_low = (shift == 0) * low
-                 | (shift == 128) * high
-                 | ((shift < 128) ^ (shift == 0)) * (high << (128 - shift) | (low >> shift))
-                 | ((shift < 256) & (shift > 128)) * (high >> (shift - 128));
+    u128 new_low = (shift == 0) * low | (shift == 128) * high | ((shift < 128) ^ (shift == 0)) * (high << (128 - shift) | (low >> shift)) | ((shift < 256) & (shift > 128)) * (high >> (shift - 128));
 
-    u128 new_high = (shift == 0) * high
-                 | ((shift < 128) ^ (shift == 0)) * (high >> shift);
+    u128 new_high = (shift == 0) * high | ((shift < 128) ^ (shift == 0)) * (high >> shift);
 
     return u256(new_high, new_low);
 
@@ -120,9 +118,9 @@ public:
     u128 bottom[3] = {u128(rhs.high.low), u128(rhs.low.high),
                       u128(rhs.low.low)};
 
-    unsigned long tmp3_3 = high.high * rhs.low.low;
-    unsigned long tmp0_0 = low.low * rhs.high.high;
-    unsigned long tmp2_2 = high.low * rhs.low.high;
+    uint64_t tmp3_3 = high.high * rhs.low.low;
+    uint64_t tmp0_0 = low.low * rhs.high.high;
+    uint64_t tmp2_2 = high.low * rhs.low.high;
 
     u128 tmp2_3 = u128(high.low) * bottom[2];
     u128 tmp0_3 = top[1] * bottom[2];
@@ -134,7 +132,7 @@ public:
 
     u128 tmp0_1 = top[1] * bottom[0];
     u128 second64 = u128(tmp0_1.low) + u128(tmp0_2.high);
-    unsigned long first64 = tmp0_0 + tmp0_1.high;
+    uint64_t first64 = tmp0_0 + tmp0_1.high;
 
     u128 tmp1_1 = top[0] * bottom[0];
     first64 += tmp1_1.low + tmp1_2.high;
