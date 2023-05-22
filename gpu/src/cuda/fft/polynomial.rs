@@ -79,6 +79,3 @@ fn log2(n: usize) -> Result<u64, CudaError> {
     }
     Ok(n.trailing_zeros() as u64)
 }
-
-#[cfg(test)]
-mod tests {}
