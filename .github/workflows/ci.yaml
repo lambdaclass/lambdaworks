@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Stolen from cairo-rs: https://github.com/lambdaclass/cairo-rs/blob/92a81f74a4a06636be1a32cb9886d1c9ba793050/.github/workflows/rust.yml
+  # Same as cairo-rs: https://github.com/lambdaclass/cairo-rs/blob/92a81f74a4a06636be1a32cb9886d1c9ba793050/.github/workflows/rust.yml
   build-programs:
     name: Generate Cairo traces
     runs-on: ubuntu-latest
