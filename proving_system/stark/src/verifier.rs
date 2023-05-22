@@ -263,10 +263,7 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
 
     // TODO: Get trace polys degrees in a better way. The degree may not be trace_length - 1 in some
     // special cases.
-    let transition_divisors = air
-        .transition_divisors()
-        // TODO: rename this error to be more specific to the context
-        ?;
+    let transition_divisors = air.transition_divisors()?;
 
     // We already checked that the AIR should have any transition degree, so it's ok to unwrap here
     let transition_quotients_max_degree = transition_divisors
