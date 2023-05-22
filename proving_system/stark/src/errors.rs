@@ -51,4 +51,8 @@ pub enum StarkError {
     ProofTraceFrameEvaluations,
     #[error("Could not compute trace term using offset {0} because zerofier is zero polynomial")]
     TraceTermZerofier(usize),
+    #[error(
+        "Could not evaluate boundary C_i because its zerofier evaluated at OOD point returned zero"
+    )]
+    BoundaryCiEvaluation,
 }

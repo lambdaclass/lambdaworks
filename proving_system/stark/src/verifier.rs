@@ -252,7 +252,8 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
 
         let boundary_quotient_ood_evaluation = (trace_evaluation
             - boundary_interpolating_polynomial.evaluate(&challenges.z))
-        .checked_div(&boundary_zerofier.evaluate(&challenges.z));
+        .checked_div(&boundary_zerofier.evaluate(&challenges.z))
+        .ok_or(StarkError::BoundaryCiEvaluation)?;
 
         let boundary_quotient_degree = air.context().trace_length - boundary_zerofier.degree() - 1;
 
@@ -522,7 +523,8 @@ fn reconstruct_deep_composition_poly_evaluation<F: IsFFTField, A: AIR<Field = F>
         for (row_idx, coeff) in (0..proof.trace_ood_frame_evaluations.num_rows()).zip(coeff_row) {
             let poly_evaluation = (proof.deep_poly_openings.lde_trace_evaluations[col_idx].clone()
                 - proof.trace_ood_frame_evaluations.get_row(row_idx).unwrap()[col_idx].clone())
-                / (upsilon_0 - &challenges.z * primitive_root.pow(row_idx as u64));
+            .checked_div(&(upsilon_0 - &challenges.z * primitive_root.pow(row_idx as u64)))
+            .ok_or(StarkError::TraceTermZerofier(row_idx))?;
 
             trace_terms += poly_evaluation * coeff.clone();
         }
