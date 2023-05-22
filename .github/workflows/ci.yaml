@@ -148,3 +148,17 @@ jobs:
 
       - name: Run tests
         run: cargo test -F metal
+  test_nvidia:
+    name: Test (Ubuntu, NVIDIA GPU)
+    runs-on: [self-hosted, cuda]
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v3
+      - name: Rustup toolchain install
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          components: clippy
+      - name: Run tests
+        run: cargo test -F cuda

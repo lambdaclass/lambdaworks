@@ -54,7 +54,8 @@ pub trait IsFFTField: IsField {
 /// Trait to add field behaviour to a struct.
 pub trait IsField: Debug + Clone {
     /// The underlying base type for representing elements from the field.
-    type BaseType: Clone + Debug + Hash;
+    // TODO: Relax Unpin for non cuda usage
+    type BaseType: Clone + Debug + Hash + Unpin;
 
     /// Returns the sum of `a` and `b`.
     fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType;
