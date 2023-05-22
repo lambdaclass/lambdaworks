@@ -4,7 +4,7 @@ test:
 	cargo test
 
 clippy:
-	cargo clippy --all-targets -- -D warnings
+	cargo clippy --workspace --all-targets -- -D warnings
 
 docker-shell:
 	docker build -t rust-curves .
@@ -14,7 +14,7 @@ nix-shell:
 	nix-shell
 
 benchmarks:
-	cargo criterion --bench all_benchmarks
+	cargo criterion --workspace
 
 # BENCHMARK should be one of the [[bench]] names in Cargo.toml
 benchmark:
@@ -26,6 +26,10 @@ flamegraph_stark:
 METALPATH = gpu/src/metal/shaders
 build-metal:
 	xcrun -sdk macosx metal $(METALPATH)/all.metal -o $(METALPATH)/lib.metallib
+
+CUDAPATH = gpu/src/cuda/shaders
+build-cuda:
+	nvcc -ptx $(CUDAPATH)/fft.cu -o $(CUDAPATH)/fft.ptx
 
 docs:
 	cd docs && mdbook serve --open

@@ -1,8 +1,5 @@
 use lambdaworks_fft::polynomial::FFTPoly;
-use lambdaworks_gpu::metal::{
-    abstractions::state::MetalState,
-    fft::{ops::*, polynomial::*},
-};
+use lambdaworks_gpu::metal::{abstractions::state::MetalState, fft::ops::*};
 use lambdaworks_math::{field::traits::RootsConfig, polynomial::Polynomial};
 
 // WARN: These should always be fields supported by Metal, else the last two benches will use CPU FFT.
@@ -39,6 +36,6 @@ pub fn poly_evaluate_fft(poly: &Polynomial<FE>) {
 pub fn poly_interpolate_fft(evals: &[FE]) {
     // TODO: autoreleasepool hurts perf. by 2-3%. Search for an alternative
     objc::rc::autoreleasepool(|| {
-        Polynomial::interpolate_fft(evals);
+        Polynomial::interpolate_fft(evals).unwrap();
     });
 }
