@@ -1,4 +1,35 @@
 #pragma once
+#include "../fields/bls12381.h.metal"
+#include "../fields/fp_bls12381.h.metal"
+
+namespace {
+    typedef FpBLS12381 FE;
+    typedef ECPoint<FE, 8> Point;
+}
+
+[[kernel]] void org_buckets(
+    constant const uint64_t& _window_idx  [[ buffer(0) ]],
+    constant const FE& _k                 [[ buffer(1) ]],
+    constant const Point& _p              [[ buffer(2) ]],
+    device Point* buckets                 [[ buffer(3) ]]
+)
+{
+    constexpr uint64_t WINDOW_SIZE = 4; // set to this for now
+    constexpr uint64_t NUM_LIMBS = 12;  // u384
+
+    uint64_t window_idx = _window_idx;
+    FE k = _k;
+    Point p = _p;
+
+    uint64_t window_unmasked = (k >> (window_idx * WINDOW_SIZE)).inner.m_limbs[NUM_LIMBS - 1];
+    uint64_t m_ij = window_unmasked & ((1 << WINDOW_SIZE) - 1);
+    if (m_ij != 0) {
+        uint64_t idx = (m_ij - 1);
+        Point bucket = buckets[idx];
+        buckets[idx] = bucket + p;
+    }
+}
+
 
 // NOTE: 
 //   - result should be size 2^s - 1

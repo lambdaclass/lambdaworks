@@ -6,7 +6,7 @@ use lambdaworks_math::{
         point::ShortWeierstrassProjectivePoint,
     },
     field::{element::FieldElement, traits::IsField},
-    unsigned_integer::element::UnsignedInteger,
+    unsigned_integer::{element::UnsignedInteger, traits::U32Limbs},
 };
 
 use crate::metal::{
@@ -17,6 +17,7 @@ use crate::metal::{
 use metal::{ComputeCommandEncoderRef, MTLSize};
 
 use core::mem;
+use std::ffi::c_void;
 
 type Point = ShortWeierstrassProjectivePoint<BLS12381Curve>;
 pub type F = BLS12381PrimeField;
@@ -112,201 +113,68 @@ pub fn pippenger_sequencial<const NUM_LIMBS: usize>(
     hidings: &[Point],
     state: &MetalState,
 ) -> Result<Point, MetalError> {
-    use lambdaworks_math::{
-        elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::BLS12381PrimeField,
-        unsigned_integer::{element::U384, traits::U32Limbs},
-    };
+    let window_size = 4;
 
-    debug_assert_eq!(
-        cs.len(),
-        hidings.len(),
-        "Slices `cs` and `hidings` must be of the same length to compute `msm`."
-    );
-
-    const MAX_THREADS: u64 = 64;
-
-    let window_size: u32 = 4;
-    let buflen: u64 = cs.len() as u64;
-    let n_bits = 64 * NUM_LIMBS as u64;
-
-    let num_windows = (n_bits - 1) / window_size as u64 + 1;
-
-    let num_threads = 1;
-
-    debug_assert!(window_size < usize::BITS);
-
-    let pipeline = state.setup_pipeline("calculate_points_sum")?;
-
-    let cs: Vec<u32> = cs
-        .into_iter()
-        .map(|uint| uint.to_u32_limbs())
+    debug_assert!(window_size < usize::BITS as usize);
+    let n_bits = 64 * NUM_LIMBS;
+    let num_windows = (n_bits - 1) / window_size + 1;
+    let mut buckets = vec![Point::neutral_element(); (1 << window_size) - 1];
+    let mut buckets_limbs: Vec<u32> = buckets
+        .iter()
+        .map(|b| b.to_u32_limbs())
         .flatten()
         .collect();
 
-    let hidings: Vec<u32> = hidings
-        .into_iter()
-        .map(|point| point.to_u32_limbs())
-        .flatten()
-        .collect();
+    // Metal prep
+    let org_buckets_pipe = state.setup_pipeline("org_buckets")?;
+    let buckets_buffer = state.alloc_buffer_data(&buckets_limbs);
+    let (command_buffer, command_encoder) =
+        state.setup_command(&org_buckets_pipe, Some(&[(3, &buckets_buffer)]));
 
-    let bucket_count = (1 << window_size) - 1;
+    (0..num_windows)
+        .rev()
+        .map(|window_idx| {
+            cs.iter().zip(hidings).for_each(|(k, p)| {
+                command_encoder.set_bytes(
+                    0,
+                    std::mem::size_of::<u32>() as u64,
+                    void_ptr(&window_idx),
+                );
 
-    let mut results = vec![];
-    let mut results_buffer = vec![];
+                command_encoder.set_bytes(
+                    1,
+                    12 * std::mem::size_of::<u32>() as u64,
+                    void_ptr(&k.to_u32_limbs().as_slice()),
+                );
 
-    let result: Vec<u32> = vec![Point::neutral_element(); bucket_count]
-        .into_iter()
-        .map(|point| point.to_u32_limbs())
-        .flatten()
-        .collect();
+                command_encoder.set_bytes(
+                    2,
+                    12 * 3 * std::mem::size_of::<u32>() as u64,
+                    void_ptr(&p.to_u32_limbs().as_slice()),
+                );
 
-    for _ in 0..num_windows {
-        results.push(result.clone());
-    }
+                command_encoder.dispatch_thread_groups(MTLSize::new(1, 1, 1), MTLSize::new(1, 1, 1));
+                command_encoder.end_encoding();
+                command_buffer.commit();
+                command_buffer.wait_until_completed();
+            });
 
-    let cs_buffer = state.alloc_buffer_data(&cs);
-    let hidings_buffer = state.alloc_buffer_data(&hidings);
+            buckets_limbs = MetalState::retrieve_contents(&buckets_buffer);
+            buckets = buckets_limbs.chunks(12 * 3).map(Point::from_u32_limbs).collect();
 
-    let threadgroup_size = MTLSize::new(1, 1, 1);
-    let threadgroup_count = MTLSize::new(1, 1, 1);
-
-    for window_idx in (0..num_windows as usize).rev() {
-        let result_buffer = state.alloc_buffer_data(&results[window_idx]);
-        results_buffer.push(result_buffer);
-
-        let (command_buffer, command_encoder) = state.setup_command(
-            &pipeline,
-            Some(&[
-                (0, &cs_buffer),
-                (1, &hidings_buffer),
-                (
-                    4,
-                    &results_buffer[(num_windows - 1 - window_idx as u64) as usize],
-                ),
-            ]),
-        );
-
-        command_encoder.set_bytes(
-            2,
-            std::mem::size_of::<u32>() as u64,
-            void_ptr(&(buflen as u32)),
-        );
-        command_encoder.set_bytes(
-            3,
-            std::mem::size_of::<u32>() as u64,
-            void_ptr(&(window_idx.clone() as u32)),
-        );
-
-        command_encoder.dispatch_thread_groups(threadgroup_count, threadgroup_size);
-        command_encoder.end_encoding();
-
-        command_buffer.commit();
-        command_buffer.wait_until_completed(); //TODO dispatch all and then wait
-    }
-
-    /*
-        //TODO call other kernels
-        let pipeline = state.setup_pipeline("calculate_window")?;
-
-        let point_size = 12 * 3;
-
-        let partial_sums: Vec<u32> = vec![Point::neutral_element(); bucket_count]
-            .into_iter()
-            .map(|point| point.to_u32_limbs())
-            .flatten()
-            .collect();
-
-        let mut windows_buffer = vec![];
-        for window_idx in 0..num_windows as usize {
-            let partial_sums_buffer = state.alloc_buffer_data(&partial_sums.clone());
-            let window_result_buffer = state.alloc_buffer::<u32>(point_size);
-            windows_buffer.push(window_result_buffer);
-
-            let (command_buffer, command_encoder) = state.setup_command(
-                &pipeline,
-                Some(&[
-                    (0, &results_buffer[window_idx]),
-                    (2, &partial_sums_buffer),
-                    (3, &windows_buffer[window_idx]),
-                ]),
-            );
-
-            command_encoder.set_bytes(
-                1,
-                std::mem::size_of::<u32>() as u64,
-                void_ptr(&(bucket_count as u32)),
-            );
-
-            command_encoder.dispatch_thread_groups(threadgroup_count, threadgroup_size);
-            command_encoder.end_encoding();
-
-            command_buffer.commit();
-            command_buffer.wait_until_completed(); //TODO dispatch all and then wait
-        }
-
-        let pipeline = state.setup_pipeline("reduce_windows")?;
-
-        let mut windows_results = vec![];
-
-        for window_buffer in windows_buffer {
-            windows_results.push(MetalState::retrieve_contents::<u32>(&window_buffer));
-        }
-
-        let windows_results = windows_results.into_iter().flatten().collect::<Vec<u32>>();
-
-        let reduce_windows_buffer = state.alloc_buffer_data(&windows_results);
-        let reduced_buffer = state.alloc_buffer::<u32>(point_size);
-
-        let (command_buffer, command_encoder) = state.setup_command(
-            &pipeline,
-            Some(&[(0, &reduce_windows_buffer), (2, &reduced_buffer)]),
-        );
-
-        command_encoder.set_bytes(
-            1,
-            std::mem::size_of::<u32>() as u64,
-            void_ptr(&(num_windows as u32)),
-        );
-
-        command_encoder.dispatch_thread_groups(threadgroup_count, threadgroup_size);
-        command_encoder.end_encoding();
-
-        command_buffer.commit();
-        command_buffer.wait_until_completed();
-
-        let result = MetalState::retrieve_contents::<u32>(&reduced_buffer);
-
-        let result: Point = Point::from_u32_limbs(&result);
-
-        Ok(result)
-    */
-
-    let mut buckets = vec![];
-
-    for r in results_buffer {
-        let bucket = MetalState::retrieve_contents::<u32>(&r);
-        let points = bucket
-            .chunks(12 * 3)
-            .map(Point::from_u32_limbs)
-            .collect::<Vec<Point>>();
-        buckets.push(points);
-    }
-
-    let mut windows = vec![];
-    for bucket in buckets {
-        let mut partial_sum = Point::neutral_element();
-        for (i, b) in bucket.iter().enumerate() {
-            partial_sum = partial_sum.operate_with(&b.operate_with_self(i + 1));
-        }
-        windows.push(partial_sum);
-    }
-
-    let total = windows
-        .into_iter()
-        .reduce(|f, g| f.operate_with_self((1 << 4) as u64).operate_with(&g))
-        .unwrap();
-
-    Ok(total)
+            buckets
+                .iter_mut()
+                .rev()
+                .scan(Point::neutral_element(), |m, b| {
+                    *m = m.operate_with(b); // Reduction step.
+                    *b = Point::neutral_element(); // Cleanup bucket slot to reuse in the next window.
+                    Some(m.clone())
+                })
+                .reduce(|g, m| g.operate_with(&m))
+                .unwrap_or_else(Point::neutral_element)
+        })
+        .reduce(|t, g| t.operate_with_self(1_u64 << window_size).operate_with(&g))
+        .ok_or_else(|| MetalError::MetalLibraryError("placeholder_error".to_string()))
 }
 
 #[cfg(test)]
