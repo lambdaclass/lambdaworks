@@ -31,7 +31,6 @@ struct Challenges<F: IsFFTField, A: AIR<Field = F>> {
 pub struct Verifier<F: IsFFTField, A: AIR<Field = F>> {
     air: A,
     domain: Domain<F>,
-    transcript: DefaultTranscript,
 }
 
 impl<F: IsFFTField, A: AIR<Field = F>> Verifier<F, A>
@@ -43,19 +42,19 @@ where
         Self {
             air,
             domain,
-            transcript: DefaultTranscript::new(),
         }
     }
 
-    fn step_1_transcript_initialization(&mut self) -> DefaultTranscript {
+    fn step_1_transcript_initialization(&self) -> DefaultTranscript {
         // TODO: add strong fiat shamir
         DefaultTranscript::new()
     }
 
     fn step_1_replay_rounds_and_recover_challenges(
-        &mut self,
+        &self,
         proof: &StarkProof<F>,
     ) -> Challenges<F, A> {
+        let mut transcript = DefaultTranscript::new();
         let n_trace_cols = self.air.context().trace_columns;
 
         // <<<< Receive commitments:[tⱼ]
@@ -64,29 +63,29 @@ where
         let main_columns = total_columns - aux_columns;
 
         for root in proof.lde_trace_merkle_roots.iter().take(main_columns) {
-            self.transcript.append(&root.to_bytes_be());
+            transcript.append(&root.to_bytes_be());
         }
 
-        let rap_challenges = self.air.build_rap_challenges(&mut self.transcript);
+        let rap_challenges = self.air.build_rap_challenges(&mut transcript);
 
         for root in proof.lde_trace_merkle_roots.iter().skip(main_columns) {
-            self.transcript.append(&root.to_bytes_be());
+            transcript.append(&root.to_bytes_be());
         }
 
         // These are the challenges alpha^B_j and beta^B_j
         // >>>> Send challenges: 𝛼_j^B
-        let boundary_coeffs_alphas = batch_sample_challenges(n_trace_cols, &mut self.transcript);
+        let boundary_coeffs_alphas = batch_sample_challenges(n_trace_cols, &mut transcript);
         // >>>> Send  challenges: 𝛽_j^B
-        let boundary_coeffs_betas = batch_sample_challenges(n_trace_cols, &mut self.transcript);
+        let boundary_coeffs_betas = batch_sample_challenges(n_trace_cols, &mut transcript);
         // >>>> Send challenges: 𝛼_j^T
         let transition_coeffs_alphas = batch_sample_challenges(
             self.air.context().num_transition_constraints,
-            &mut self.transcript,
+            &mut transcript,
         );
         // >>>> Send challenges: 𝛽_j^T
         let transition_coeffs_betas = batch_sample_challenges(
             self.air.context().num_transition_constraints,
-            &mut self.transcript,
+            &mut transcript,
         );
         let boundary_coeffs: Vec<_> = boundary_coeffs_alphas
             .into_iter()
@@ -99,34 +98,34 @@ where
             .collect();
 
         // <<<< Receive commitments: [H₁], [H₂]
-        self.transcript
+        transcript
             .append(&proof.composition_poly_even_root.to_bytes_be());
-        self.transcript
+        transcript
             .append(&proof.composition_poly_odd_root.to_bytes_be());
 
         // >>>> Send challenge: z
         let z = sample_z_ood(
             &self.domain.lde_roots_of_unity_coset,
             &self.domain.trace_roots_of_unity,
-            &mut self.transcript,
+            &mut transcript,
         );
 
         // <<<< Receive value: H₁(z²)
-        self.transcript
+        transcript
             .append(&proof.composition_poly_even_ood_evaluation.to_bytes_be());
         // <<<< Receive value: H₂(z²)
-        self.transcript
+        transcript
             .append(&proof.composition_poly_odd_ood_evaluation.to_bytes_be());
         // <<<< Receive values: tⱼ(zgᵏ)
         for i in 0..proof.trace_ood_frame_evaluations.num_rows() {
             for element in proof.trace_ood_frame_evaluations.get_row(i).iter() {
-                self.transcript.append(&element.to_bytes_be());
+                transcript.append(&element.to_bytes_be());
             }
         }
 
         // >>>> Send challenges: 𝛾, 𝛾'
-        let gamma_even = transcript_to_field(&mut self.transcript);
-        let gamma_odd = transcript_to_field(&mut self.transcript);
+        let gamma_even = transcript_to_field(&mut transcript);
+        let gamma_odd = transcript_to_field(&mut transcript);
 
         // >>>> Send challenges: 𝛾ⱼ, 𝛾ⱼ'
         // Get the number of trace terms the DEEP composition poly will have.
@@ -135,7 +134,7 @@ where
         let trace_term_coeffs = (0..n_trace_cols)
             .map(|_| {
                 (0..self.air.context().transition_offsets.len())
-                    .map(|_| transcript_to_field(&mut self.transcript))
+                    .map(|_| transcript_to_field(&mut transcript))
                     .collect()
             })
             .collect::<Vec<Vec<FieldElement<F>>>>();
@@ -146,21 +145,21 @@ where
         for root in merkle_roots.iter() {
             let root_bytes = root.to_bytes_be();
             // <<<< Receive commitment: [pₖ] (the first one is [p₀])
-            self.transcript.append(&root_bytes);
+            transcript.append(&root_bytes);
 
             // >>>> Send challenge 𝜁ₖ
-            let zeta = transcript_to_field(&mut self.transcript);
+            let zeta = transcript_to_field(&mut transcript);
             zetas.push(zeta);
         }
 
         // <<<< Receive value: pₙ
-        self.transcript.append(&proof.fri_last_value.to_bytes_be());
+        transcript.append(&proof.fri_last_value.to_bytes_be());
 
         // FRI query phase
         // <<<< Send challenges 𝜄ₛ (iota_s)
         let iotas = (0..self.air.options().fri_number_of_queries)
             .map(|_| {
-                transcript_to_usize(&mut self.transcript)
+                transcript_to_usize(&mut transcript)
                     % (2_usize.pow(self.domain.lde_root_order))
             })
             .collect();
@@ -179,7 +178,7 @@ where
     }
 
     fn step_2_verify_claimed_composition_polynomial(
-        &mut self,
+        &self,
         proof: &StarkProof<F>,
         public_input: &A::PublicInput,
         challenges: &Challenges<F, A>,
@@ -269,7 +268,7 @@ where
         composition_poly_claimed_ood_evaluation == composition_poly_ood_evaluation
     }
 
-    fn step_3_verify_fri(&mut self, proof: &StarkProof<F>, challenges: &Challenges<F, A>) -> bool
+    fn step_3_verify_fri(&self, proof: &StarkProof<F>, challenges: &Challenges<F, A>) -> bool
     where
         F: IsFFTField,
         FieldElement<F>: ByteConversion,
@@ -292,7 +291,7 @@ where
     }
 
     fn step_4_verify_deep_composition_polynomial(
-        &mut self,
+        &self,
         proof: &StarkProof<F>,
         challenges: &Challenges<F, A>,
     ) -> bool {
@@ -345,7 +344,7 @@ where
     }
 
     fn verify_query_and_sym_openings(
-        &mut self,
+        &self,
         fri_layers_merkle_roots: &[FieldElement<F>],
         fri_last_value: &FieldElement<F>,
         zetas: &[FieldElement<F>],
@@ -424,7 +423,7 @@ where
 
     // Reconstruct Deep(\upsilon_0) off the values in the proof
     fn reconstruct_deep_composition_poly_evaluation(
-        &mut self,
+        &self,
         proof: &StarkProof<F>,
         challenges: &Challenges<F, A>,
     ) -> FieldElement<F> {
@@ -462,7 +461,7 @@ where
         trace_terms + h_1_term * &challenges.gamma_even + h_2_term * &challenges.gamma_odd
     }
 
-    pub fn verify(&mut self, proof: &StarkProof<F>, public_input: &A::PublicInput) -> bool {
+    pub fn verify(&self, proof: &StarkProof<F>, public_input: &A::PublicInput) -> bool {
         self.step_1_transcript_initialization();
 
         let challenges = self.step_1_replay_rounds_and_recover_challenges(proof);

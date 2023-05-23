@@ -42,7 +42,7 @@ fn test_prove_fib() {
     let prover = Prover::new(fibonacci_air.clone());
     let result = prover.prove(&trace, &mut ());
 
-    let mut verifier = Verifier::new(fibonacci_air);
+    let verifier = Verifier::new(fibonacci_air);
     assert!(verifier.verify(&result, &()));
 }
 
@@ -69,7 +69,7 @@ fn test_prove_fib17() {
     let prover = Prover::new(fibonacci_air.clone());
     let result = prover.prove(&trace, &mut ());
 
-    let mut verifier = Verifier::new(fibonacci_air);
+    let verifier = Verifier::new(fibonacci_air);
     assert!(verifier.verify(&result, &()));
 }
 
@@ -97,7 +97,7 @@ fn test_prove_fib_2_cols() {
     let prover = Prover::new(fibonacci_air.clone());
     let result = prover.prove(&trace_columns, &mut ());
 
-    let mut verifier = Verifier::new(fibonacci_air);
+    let verifier = Verifier::new(fibonacci_air);
     assert!(verifier.verify(&result, &()));
 }
 
@@ -124,7 +124,7 @@ fn test_prove_quadratic() {
     let prover = Prover::new(quadratic_air.clone());
     let result = prover.prove(&trace, &mut ());
 
-    let mut verifier = Verifier::new(quadratic_air);
+    let verifier = Verifier::new(quadratic_air);
     assert!(verifier.verify(&result, &()));
 }
 
@@ -182,7 +182,7 @@ fn test_prove_cairo_simple_program() {
     let prover = Prover::new(cairo_air.clone());
     let result = prover.prove(&(raw_trace, memory), &mut public_input);
 
-    let mut verifier = Verifier::new(cairo_air);
+    let verifier = Verifier::new(cairo_air);
     assert!(verifier.verify(&result, &public_input));
 }
 
@@ -245,7 +245,7 @@ fn test_prove_cairo_call_func() {
     let prover = Prover::new(cairo_air.clone());
     let result = prover.prove(&(raw_trace, memory), &mut public_input);
 
-    let mut verifier = Verifier::new(cairo_air);
+    let verifier = Verifier::new(cairo_air);
     assert!(verifier.verify(&result, &public_input));
 }
 
@@ -289,7 +289,7 @@ fn test_prove_cairo_fibonacci() {
     let prover = Prover::new(cairo_air.clone());
     let result = prover.prove(&(raw_trace, memory), &mut public_input);
 
-    let mut verifier = Verifier::new(cairo_air);
+    let verifier = Verifier::new(cairo_air);
     assert!(verifier.verify(&result, &public_input));
 }
 
@@ -321,7 +321,7 @@ fn test_prove_rap_fib() {
     let prover = Prover::new(fibonacci_rap.clone());
     let result = prover.prove(&trace_cols, &mut ());
 
-    let mut verifier = Verifier::new(fibonacci_rap);
+    let verifier = Verifier::new(fibonacci_rap);
     assert!(verifier.verify(&result, &()));
 }
 
@@ -349,7 +349,7 @@ fn test_prove_dummy() {
     let prover = Prover::new(dummy_air.clone());
     let result = prover.prove(&trace, &mut ());
 
-    let mut verifier = Verifier::new(dummy_air);
+    let verifier = Verifier::new(dummy_air);
     assert!(verifier.verify(&result, &()));
 }
 
@@ -400,6 +400,6 @@ fn test_prove_cairo_simple_program_malicious() {
 
     public_input.program = real_program;
 
-    let mut verifier = Verifier::new(cairo_air);
+    let verifier = Verifier::new(cairo_air);
     assert!(!verifier.verify(&result, &public_input));
 }
