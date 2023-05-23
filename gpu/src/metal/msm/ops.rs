@@ -9,10 +9,7 @@ use lambdaworks_math::{
     unsigned_integer::{element::UnsignedInteger, traits::U32Limbs},
 };
 
-use crate::metal::{
-    abstractions::{errors::MetalError, state::*},
-    helpers::void_ptr,
-};
+use crate::metal::abstractions::{errors::MetalError, state::*};
 
 use metal::{ComputeCommandEncoderRef, MTLSize};
 
@@ -115,7 +112,7 @@ pub fn pippenger<const NUM_LIMBS: usize>(
                 .unwrap_or_else(Point::neutral_element)
         })
         .reduce(|t, g| t.operate_with_self(1_u64 << window_size).operate_with(&g))
-        .ok_or_else(|| MetalError::MetalLibraryError("placeholder_error".to_string()))
+        .ok_or_else(|| MetalError::LibraryError("placeholder_error".to_string()))
 }
 
 #[cfg(test)]

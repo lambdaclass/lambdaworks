@@ -21,7 +21,7 @@ pub type FpField = BLS12381PrimeField;
 pub type FpElement = FieldElement<FpField>;
 pub type Pairing = BLS12381AtePairing;
 pub type KZG = KateZaveruchaGoldberg<FrField, Pairing>;
-pub const ORDER_R_MINUS_1_ROOT_UNITY: FrElement = FrElement::from_hex("7");
+pub const ORDER_R_MINUS_1_ROOT_UNITY: FrElement = FrElement::from_hex_unchecked("7");
 
 type G1Point = <BLS12381Curve as IsEllipticCurve>::PointRepresentation;
 type G2Point = <BLS12381TwistCurve as IsEllipticCurve>::PointRepresentation;

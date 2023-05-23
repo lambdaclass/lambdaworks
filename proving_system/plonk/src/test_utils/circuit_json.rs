@@ -36,11 +36,11 @@ pub fn common_preprocessed_input_from_json(
 ) {
     let json_input: JsonPlonkCircuit = serde_json::from_str(json_string).unwrap();
     let n = json_input.N_padded;
-    let omega = FrElement::from_hex(&json_input.Omega);
+    let omega = FrElement::from_hex_unchecked(&json_input.Omega);
     let domain = generate_domain(&omega, n);
     let permuted = generate_permutation_coefficients(&omega, n, &json_input.Permutation);
 
-    let pad = FrElement::from_hex(&json_input.Input[0]);
+    let pad = FrElement::from_hex_unchecked(&json_input.Input[0]);
 
     let s1_lagrange: Vec<FrElement> = permuted[..n].to_vec();
     let s2_lagrange: Vec<FrElement> = permuted[n..2 * n].to_vec();
@@ -59,26 +59,31 @@ pub fn common_preprocessed_input_from_json(
             ql: Polynomial::interpolate(
                 &domain,
                 &process_vector(json_input.Ql, &FrElement::zero(), n),
-            ),
+            )
+            .unwrap(),
             qr: Polynomial::interpolate(
                 &domain,
                 &process_vector(json_input.Qr, &FrElement::zero(), n),
-            ),
+            )
+            .unwrap(),
             qo: Polynomial::interpolate(
                 &domain,
                 &process_vector(json_input.Qo, &FrElement::zero(), n),
-            ),
+            )
+            .unwrap(),
             qm: Polynomial::interpolate(
                 &domain,
                 &process_vector(json_input.Qm, &FrElement::zero(), n),
-            ),
+            )
+            .unwrap(),
             qc: Polynomial::interpolate(
                 &domain,
                 &process_vector(json_input.Qc, &FrElement::zero(), n),
-            ),
-            s1: Polynomial::interpolate(&domain, &s1_lagrange),
-            s2: Polynomial::interpolate(&domain, &s2_lagrange),
-            s3: Polynomial::interpolate(&domain, &s3_lagrange),
+            )
+            .unwrap(),
+            s1: Polynomial::interpolate(&domain, &s1_lagrange).unwrap(),
+            s2: Polynomial::interpolate(&domain, &s2_lagrange).unwrap(),
+            s3: Polynomial::interpolate(&domain, &s3_lagrange).unwrap(),
             s1_lagrange,
             s2_lagrange,
             s3_lagrange,
@@ -97,7 +102,9 @@ pub fn pad_vector<'a>(
 }
 
 fn convert_str_vec_to_frelement_vec(ss: Vec<String>) -> Vec<FrElement> {
-    ss.iter().map(|s| FrElement::from_hex(s)).collect()
+    ss.iter()
+        .map(|s| FrElement::from_hex_unchecked(s))
+        .collect()
 }
 
 fn process_vector(vector: Vec<String>, pad: &FrElement, n: usize) -> Vec<FrElement> {

@@ -19,7 +19,7 @@ cairo-vm = { git = "https://github.com/lambdaclass/cairo-rs/" }
 [dev-dependencies]
 hex = "0.4.3"
 criterion = "0.4"
-iai = "0.1"
+iai-callgrind.workspace = true
 env_logger = "*"
 test-log = { version = "0.2.11", features = ["log"] }
 assert_matches = "1.5.0"

@@ -100,13 +100,13 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
     /// Computes the addition of `self` and `other`.
     /// Taken from "Moonmath" (Algorithm 7, page 89)
     fn operate_with(&self, other: &Self) -> Self {
-        let [px, py, pz] = self.coordinates();
-        let [qx, qy, qz] = other.coordinates();
         if other.is_neutral_element() {
             self.clone()
         } else if self.is_neutral_element() {
             other.clone()
         } else {
+            let [px, py, pz] = self.coordinates();
+            let [qx, qy, qz] = other.coordinates();
             let u1 = qy * pz;
             let u2 = py * qz;
             let v1 = qx * pz;
@@ -115,25 +115,29 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
                 if u1 != u2 || *py == FieldElement::zero() {
                     Self::neutral_element()
                 } else {
-                    let w = E::a() * pz.pow(2_u16) + FieldElement::from(3) * px.pow(2_u16);
+                    let eight = FieldElement::from(8);
+                    let w = E::a() * pz * pz + FieldElement::from(3) * px * px;
+                    let w_square = &w * &w;
                     let s = py * pz;
+                    let s_square = &s * &s;
                     let b = px * py * &s;
-                    let h = w.pow(2_u16) - FieldElement::from(8) * &b;
+                    let h = &w_square - &eight * &b;
                     let xp = FieldElement::from(2) * &h * &s;
-                    let yp = w * (FieldElement::from(4) * &b - &h)
-                        - FieldElement::from(8) * py.pow(2_u16) * s.pow(2_u16);
-                    let zp = FieldElement::from(8) * s.pow(3_u16);
+                    let yp = w * (FieldElement::from(4) * &b - &h) - &eight * py * py * &s_square;
+                    let zp = &eight * &s * &s_square;
                     Self::new([xp, yp, zp])
                 }
             } else {
                 let u = u1 - &u2;
                 let v = v1 - &v2;
                 let w = pz * qz;
-                let a =
-                    u.pow(2_u16) * &w - v.pow(3_u16) - FieldElement::from(2) * v.pow(2_u16) * &v2;
+                let u_square = &u * &u;
+                let v_square = &v * &v;
+                let v_cube = &v * &v_square;
+                let a = &u_square * &w - &v_cube - FieldElement::from(2) * &v_square * &v2;
                 let xp = &v * &a;
-                let yp = u * (v.pow(2_u16) * v2 - a) - v.pow(3_u16) * u2;
-                let zp = v.pow(3_u16) * w;
+                let yp = u * (&v_square * v2 - a) - &v_cube * u2;
+                let zp = &v_cube * w;
                 Self::new([xp, yp, zp])
             }
         }

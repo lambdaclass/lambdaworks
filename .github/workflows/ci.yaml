@@ -26,6 +26,9 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           command: check
+
+      - name: Check benchmarks
+        run: cargo bench --no-run
   lint:
     name: Lint
     runs-on: ubuntu-latest
@@ -79,3 +82,17 @@ jobs:
           components: clippy
       - name: Run tests
         run: cargo test -F metal
+  test_nvidia:
+    name: Test (Ubuntu, NVIDIA GPU)
+    runs-on: [self-hosted, cuda]
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v3
+      - name: Rustup toolchain install
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          components: clippy
+      - name: Run tests
+        run: cargo test -F cuda

@@ -31,5 +31,6 @@ impl<F: IsField> ConstraintEvaluationTable<F> {
             .collect();
 
         Polynomial::interpolate(lde_coset, &merged_evals)
+            .expect("xs and ys have equal length and xs are unique")
     }
 }

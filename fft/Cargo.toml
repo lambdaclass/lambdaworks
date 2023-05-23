@@ -13,11 +13,11 @@ lambdaworks-gpu = { path = "../gpu", optional = true }
 proptest = "1.1.0"
 criterion = "0.4.0"
 objc = "0.2.7"
-iai = "0.1"
+iai-callgrind.workspace = true
 
 [features]
-metal = ["dep:lambdaworks-gpu"]
-cuda = ["dep:lambdaworks-gpu"]
+metal = ["dep:lambdaworks-gpu", "lambdaworks-gpu?/metal"]
+cuda = ["dep:lambdaworks-gpu", "lambdaworks-gpu?/cuda"]
 
 [[bench]]
 name = "criterion_fft"

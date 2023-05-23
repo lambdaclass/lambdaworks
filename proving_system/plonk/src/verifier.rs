@@ -92,7 +92,9 @@ impl<F: IsField, CS: IsCommitmentScheme<F>> Verifier<F, CS> {
         let l1_zeta = (zeta.pow(input.n as u64) - FieldElement::one())
             / (&zeta - FieldElement::one())
             / FieldElement::from(input.n as u64);
-        let p_pi_zeta = Polynomial::interpolate(&input.domain, &p_pi_y).evaluate(&zeta);
+        let p_pi_zeta = Polynomial::interpolate(&input.domain, &p_pi_y)
+            .expect("xs and ys have equal length and xs are unique")
+            .evaluate(&zeta);
 
         let mut p_constant_zeta = &alpha
             * &p.z_zeta_omega

@@ -9,7 +9,7 @@ use lambdaworks_math::{
 };
 
 pub const ORDER_4_ROOT_UNITY: FrElement =
-    FrElement::from_hex("8d51ccce760304d0ec030002760300000001000000000000"); // order 4
+    FrElement::from_hex_unchecked("8d51ccce760304d0ec030002760300000001000000000000"); // order 4
 
 /*  Test circuit for the program:
     public input x
@@ -43,7 +43,8 @@ pub fn test_common_preprocessed_input_1() -> CommonPreprocessedInput<FrField> {
                 FieldElement::zero(),
                 FieldElement::one(),
             ],
-        ),
+        )
+        .unwrap(),
 
         qr: Polynomial::interpolate(
             &domain,
@@ -53,7 +54,8 @@ pub fn test_common_preprocessed_input_1() -> CommonPreprocessedInput<FrField> {
                 FieldElement::zero(),
                 -FieldElement::one(),
             ],
-        ),
+        )
+        .unwrap(),
 
         qo: Polynomial::interpolate(
             &domain,
@@ -63,7 +65,8 @@ pub fn test_common_preprocessed_input_1() -> CommonPreprocessedInput<FrField> {
                 -FieldElement::one(),
                 FieldElement::zero(),
             ],
-        ),
+        )
+        .unwrap(),
 
         qm: Polynomial::interpolate(
             &domain,
@@ -73,7 +76,8 @@ pub fn test_common_preprocessed_input_1() -> CommonPreprocessedInput<FrField> {
                 FieldElement::one(),
                 FieldElement::zero(),
             ],
-        ),
+        )
+        .unwrap(),
 
         qc: Polynomial::interpolate(
             &domain,
@@ -83,11 +87,12 @@ pub fn test_common_preprocessed_input_1() -> CommonPreprocessedInput<FrField> {
                 FieldElement::zero(),
                 FieldElement::zero(),
             ],
-        ),
+        )
+        .unwrap(),
 
-        s1: Polynomial::interpolate(&domain, &s1_lagrange),
-        s2: Polynomial::interpolate(&domain, &s2_lagrange),
-        s3: Polynomial::interpolate(&domain, &s3_lagrange),
+        s1: Polynomial::interpolate(&domain, &s1_lagrange).unwrap(),
+        s2: Polynomial::interpolate(&domain, &s2_lagrange).unwrap(),
+        s3: Polynomial::interpolate(&domain, &s3_lagrange).unwrap(),
 
         s1_lagrange,
         s2_lagrange,

@@ -13,7 +13,7 @@ pub fn evaluate_fft_metal<F>(coeffs: &[FieldElement<F>]) -> Result<Vec<FieldElem
 where
     F: IsFFTField,
 {
-    let state = MetalState::new(None).unwrap();
+    let state = MetalState::new(None)?;
 
     let order = coeffs.len().trailing_zeros();
     let twiddles = gen_twiddles(order.into(), RootsConfig::BitReverse, &state)?;
@@ -29,7 +29,7 @@ pub fn interpolate_fft_metal<F>(
 where
     F: IsFFTField,
 {
-    let metal_state = MetalState::new(None).unwrap();
+    let metal_state = MetalState::new(None)?;
 
     let order = fft_evals.len().trailing_zeros();
     let twiddles = gen_twiddles(order.into(), RootsConfig::BitReverseInversed, &metal_state)?;
