@@ -327,13 +327,16 @@ fn test_prove_dummy() {
 }
 
 #[test_log::test]
-fn test_prove_cairo_simple_program_malicious() {
+fn test_verifier_rejects_proof_of_a_slightly_different_program() {
+    // The prover generates a proof for a program that
+    // is different from the one that the verifier
+    // expects.
     let base_dir = env!("CARGO_MANIFEST_DIR");
     let dir_trace = base_dir.to_owned() + "/src/cairo_vm/test_data/simple_program.trace";
     let dir_memory = base_dir.to_owned() + "/src/cairo_vm/test_data/simple_program.mem";
 
-    let malicious_raw_trace = CairoTrace::from_file(&dir_trace).unwrap();
-    let malicious_memory = CairoMemory::from_file(&dir_memory).unwrap();
+    let program_1_raw_trace = CairoTrace::from_file(&dir_trace).unwrap();
+    let program_1_memory = CairoMemory::from_file(&dir_memory).unwrap();
 
     let proof_options = ProofOptions {
         blowup_factor: 4,
@@ -342,19 +345,19 @@ fn test_prove_cairo_simple_program_malicious() {
     };
 
     let program_size = 5;
-    let mut malicious_program = vec![];
+    let mut program_1 = vec![];
     for i in 1..=program_size as u64 {
-        malicious_program.push(malicious_memory.get(&i).unwrap().clone());
+        program_1.push(program_1_memory.get(&i).unwrap().clone());
     }
 
-    let mut real_program = malicious_program.clone();
-    real_program[1] = FieldElement::from(5);
-    real_program[3] = FieldElement::from(5);
+    let mut program_2 = program_1.clone();
+    program_2[1] = FieldElement::from(5);
+    program_2[3] = FieldElement::from(5);
 
-    let cairo_air = cairo::CairoAIR::new(proof_options, 16, malicious_raw_trace.steps());
+    let cairo_air = cairo::CairoAIR::new(proof_options, 16, program_1_raw_trace.steps());
 
-    let first_step = &malicious_raw_trace.rows[0];
-    let last_step = &malicious_raw_trace.rows[malicious_raw_trace.steps() - 1];
+    let first_step = &program_1_raw_trace.rows[0];
+    let last_step = &program_1_raw_trace.rows[program_1_raw_trace.steps() - 1];
 
     let mut public_input = PublicInputs {
         pc_init: FE::from(first_step.pc),
@@ -362,18 +365,69 @@ fn test_prove_cairo_simple_program_malicious() {
         fp_init: FE::from(first_step.fp),
         pc_final: FE::from(last_step.pc),
         ap_final: FE::from(last_step.ap),
-        program: malicious_program,
+        program: program_1,
         range_check_min: None,
         range_check_max: None,
-        num_steps: malicious_raw_trace.steps(),
+        num_steps: program_1_raw_trace.steps(),
     };
 
     let result = prove(
-        &(malicious_raw_trace, malicious_memory),
+        &(program_1_raw_trace, program_1_memory),
         &cairo_air,
         &mut public_input,
     );
 
-    public_input.program = real_program;
+    // Here we change program 1 to program 2 in the public inputs.
+    public_input.program = program_2;
+    assert!(!verify(&result, &cairo_air, &public_input));
+}
+
+#[test_log::test]
+fn test_verifier_rejects_proof_with_different_range_bounds() {
+    // The verifier should reject when the ranged checks bounds
+    // are different from those of the executed program.
+    let base_dir = env!("CARGO_MANIFEST_DIR");
+    let dir_trace = base_dir.to_owned() + "/src/cairo_vm/test_data/simple_program.trace";
+    let dir_memory = base_dir.to_owned() + "/src/cairo_vm/test_data/simple_program.mem";
+
+    let raw_trace = CairoTrace::from_file(&dir_trace).unwrap();
+    let memory = CairoMemory::from_file(&dir_memory).unwrap();
+
+    let proof_options = ProofOptions {
+        blowup_factor: 4,
+        fri_number_of_queries: 1,
+        coset_offset: 3,
+    };
+
+    let program_size = 5;
+    let mut program = vec![];
+    for i in 1..=program_size as u64 {
+        program.push(memory.get(&i).unwrap().clone());
+    }
+
+    let cairo_air = cairo::CairoAIR::new(proof_options, 16, raw_trace.steps());
+
+    let first_step = &raw_trace.rows[0];
+    let last_step = &raw_trace.rows[raw_trace.steps() - 1];
+
+    let mut public_input = PublicInputs {
+        pc_init: FE::from(first_step.pc),
+        ap_init: FE::from(first_step.ap),
+        fp_init: FE::from(first_step.fp),
+        pc_final: FE::from(last_step.pc),
+        ap_final: FE::from(last_step.ap),
+        program: program,
+        range_check_min: None,
+        range_check_max: None,
+        num_steps: raw_trace.steps(),
+    };
+
+    let result = prove(&(raw_trace, memory), &cairo_air, &mut public_input);
+
+    public_input.range_check_min = Some(public_input.range_check_min.unwrap() + 1);
+    assert!(!verify(&result, &cairo_air, &public_input));
+
+    public_input.range_check_min = Some(public_input.range_check_min.unwrap() - 1);
+    public_input.range_check_max = Some(public_input.range_check_max.unwrap() - 1);
     assert!(!verify(&result, &cairo_air, &public_input));
 }
