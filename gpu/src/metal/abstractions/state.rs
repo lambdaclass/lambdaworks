@@ -1,4 +1,4 @@
-use metal::MTLResourceOptions;
+use metal::{ComputeCommandEncoderRef, MTLResourceOptions};
 
 use crate::metal::abstractions::errors::MetalError;
 
@@ -72,6 +72,16 @@ impl MetalState {
             (data.len() * size) as u64,
             MTLResourceOptions::StorageModeShared, // TODO: use managed mode
         )
+    }
+
+    pub fn set_bytes<T>(index: usize, data: &[T], encoder: &ComputeCommandEncoderRef) {
+        let size = mem::size_of::<T>();
+
+        encoder.set_bytes(
+            index as u64,
+            (data.len() * size) as u64,
+            data.as_ptr() as *const ffi::c_void,
+        );
     }
 
     /// Creates a command buffer and a compute encoder in a pipeline, optionally issuing `buffers`

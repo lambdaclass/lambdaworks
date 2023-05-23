@@ -133,30 +133,12 @@ pub fn pippenger_sequencial<const NUM_LIMBS: usize>(
 
             cs.iter().zip(hidings).for_each(|(k, p)| {
                 objc::rc::autoreleasepool(|| {
-                    let (command_buffer, command_encoder) = state.setup_command(
-                        &org_buckets_pipe,
-                        Some(&[
-                            (3, &buckets_buffer),
-                        ]),
-                    );
+                    let (command_buffer, command_encoder) =
+                        state.setup_command(&org_buckets_pipe, Some(&[(3, &buckets_buffer)]));
 
-                    command_encoder.set_bytes(
-                        0,
-                        std::mem::size_of::<u32>() as u64,
-                        void_ptr(&window_idx),
-                    );
-
-                    command_encoder.set_bytes(
-                        1,
-                        12 * std::mem::size_of::<u32>() as u64,
-                        k.to_u32_limbs().as_ptr() as *const c_void,
-                    );
-
-                    command_encoder.set_bytes(
-                        2,
-                        12 * 3 * std::mem::size_of::<u32>() as u64,
-                        p.to_u32_limbs().as_ptr() as *const c_void,
-                    );
+                    MetalState::set_bytes(0, &[window_idx], command_encoder);
+                    MetalState::set_bytes(1, &k.to_u32_limbs(), command_encoder);
+                    MetalState::set_bytes(2, &p.to_u32_limbs(), command_encoder);
 
                     command_encoder
                         .dispatch_thread_groups(MTLSize::new(1, 1, 1), MTLSize::new(1, 1, 1));
