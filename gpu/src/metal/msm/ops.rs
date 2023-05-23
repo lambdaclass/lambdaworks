@@ -125,28 +125,44 @@ pub fn pippenger_sequencial<const NUM_LIMBS: usize>(
         .flatten()
         .collect();
 
+    let k_limbs = cs
+        .iter()
+        .map(|uint| uint.to_u32_limbs())
+        .flatten()
+        .collect::<Vec<_>>();
+    let p_limbs = hidings
+        .iter()
+        .map(|uint| uint.to_u32_limbs())
+        .flatten()
+        .collect::<Vec<_>>();
+
+    let k_buffer = state.alloc_buffer_data(&k_limbs);
+    let p_buffer = state.alloc_buffer_data(&p_limbs);
+
     let org_buckets_pipe = state.setup_pipeline("org_buckets").unwrap();
     (0..num_windows)
         .rev()
         .map(|window_idx| {
             let buckets_buffer = state.alloc_buffer_data(&buckets_neutral_limbs);
 
-            cs.iter().zip(hidings).for_each(|(k, p)| {
-                objc::rc::autoreleasepool(|| {
-                    let (command_buffer, command_encoder) =
-                        state.setup_command(&org_buckets_pipe, Some(&[(3, &buckets_buffer)]));
+            //cs.iter().zip(hidings).enumerate().for_each(|(i, (k, p))| {
+            objc::rc::autoreleasepool(|| {
+                let (command_buffer, command_encoder) = state.setup_command(
+                    &org_buckets_pipe,
+                    Some(&[(1, &k_buffer), (2, &p_buffer), (3, &buckets_buffer)]),
+                );
 
-                    MetalState::set_bytes(0, &[window_idx], command_encoder);
-                    MetalState::set_bytes(1, &k.to_u32_limbs(), command_encoder);
-                    MetalState::set_bytes(2, &p.to_u32_limbs(), command_encoder);
+                MetalState::set_bytes(0, &[window_idx], command_encoder);
 
-                    command_encoder
-                        .dispatch_thread_groups(MTLSize::new(1, 1, 1), MTLSize::new(1, 1, 1));
-                    command_encoder.end_encoding();
-                    command_buffer.commit();
-                    command_buffer.wait_until_completed();
-                });
+                command_encoder.dispatch_thread_groups(
+                    MTLSize::new(1, 1, 1),
+                    MTLSize::new(cs.len() as u64, 1, 1),
+                );
+                command_encoder.end_encoding();
+                command_buffer.commit();
+                command_buffer.wait_until_completed();
             });
+            //});
 
             let mut buckets: Vec<Point> = MetalState::retrieve_contents(&buckets_buffer)
                 .chunks(12 * 3)

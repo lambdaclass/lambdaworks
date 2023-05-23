@@ -11,17 +11,18 @@ namespace {
 
 [[kernel]] void org_buckets(
     constant const uint32_t& _window_idx  [[ buffer(0) ]],
-    constant const u384& _k                 [[ buffer(1) ]],
-    constant const Point& _p              [[ buffer(2) ]],
-    device Point* buckets                 [[ buffer(3) ]]
+    constant const u384* _k               [[ buffer(1) ]],
+    constant const Point* _p              [[ buffer(2) ]],
+    device Point* buckets                 [[ buffer(3) ]],
+    const uint32_t iter_id      [[ thread_position_in_grid ]]
 )
 {
     constexpr uint32_t WINDOW_SIZE = 4; // set to this for now
     constexpr uint32_t NUM_LIMBS = 12;  // u384
 
     uint32_t window_idx = _window_idx;
-    u384 k = _k;
-    Point p = _p;
+    u384 k = _k[iter_id];
+    Point p = _p[iter_id];
 
     uint32_t window_unmasked = (k >> (window_idx * WINDOW_SIZE)).m_limbs[NUM_LIMBS - 1];
     uint32_t m_ij = window_unmasked & ((1 << WINDOW_SIZE) - 1);
