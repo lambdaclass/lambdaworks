@@ -1,12 +1,5 @@
 [workspace]
-members = [
-    "math",
-    "fft",
-    "crypto",
-    "proving_system/stark",
-    "proving_system/plonk",
-    "gpu",
-]
+members = ["math", "crypto", "proving_system/stark", "proving_system/plonk"]
 
 [workspace.dependencies]
 iai-callgrind = "0.3.1"

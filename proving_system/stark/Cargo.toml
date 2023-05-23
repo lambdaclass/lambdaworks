@@ -10,7 +10,6 @@ rust-version = "1.66"
 rand = "0.8.5"
 lambdaworks-math = { path = "../../math" }
 lambdaworks-crypto = { path = "../../crypto" }
-lambdaworks-fft = { path = "../../fft" }
 thiserror = "1.0.38"
 log = "0.4.17"
 bincode = { version = "2.0.0-rc.2", tag = "v2.0.0-rc.2", git = "https://github.com/bincode-org/bincode.git" }

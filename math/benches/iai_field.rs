@@ -1,7 +1,7 @@
 use criterion::black_box;
-use util::rand_field_elements_pair;
+use u64_utils::rand_field_elements_pair;
 
-mod util;
+mod u64_utils;
 
 #[inline(never)]
 fn fp_add_benchmarks() {

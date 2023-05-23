@@ -1,8 +1,8 @@
 use const_random::const_random;
 use iai_callgrind::black_box;
-use util::{rand_field_elements, rand_poly, FE};
+use u64_utils::{rand_field_elements, rand_poly, FE};
 
-mod util;
+mod u64_utils;
 
 const ORDER: u64 = const_random!(u64) % 8;
 

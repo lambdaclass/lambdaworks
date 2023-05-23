@@ -8,7 +8,16 @@ edition = "2021"
 [dependencies]
 rand = "0.8.5"
 thiserror = "1.0.38"
+
+# rayon
 rayon = { version = "1.7.0", optional = true }
+
+# metal
+metal = { version = "0.24.0", optional = true }
+objc = { version = "0.2.7", optional = true }
+
+# cuda
+cudarc = { version = "0.9.7", optional = true }
 
 [dev-dependencies]
 proptest = "1.1.0"
@@ -17,9 +26,13 @@ const-random = "0.1.15"
 iai-callgrind.workspace = true
 
 [features]
-rayon = ["dep:rayon"]
-
 default = ["rayon"]
+
+# gpu
+metal = ["dep:metal", "dep:objc"]
+cuda = ["dep:cudarc"]
+
+rayon = ["dep:rayon"]
 
 [[bench]]
 name = "criterion_polynomial"
@@ -41,3 +54,11 @@ harness = false
 name = "criterion_msm"
 harness = false
 required-features = ["rayon"]
+
+[[bench]]
+name = "criterion_fft"
+harness = false
+
+[[bench]]
+name = "iai_fft"
+harness = false
