@@ -113,13 +113,17 @@ pub fn pippenger_sequencial<const NUM_LIMBS: usize>(
     hidings: &[Point],
     state: &MetalState,
 ) -> Result<Point, MetalError> {
+    let point_len = hidings.len(); // == cs.len();
+    if point_len == 0 {
+        return Ok(Point::neutral_element());
+    }
+
     let window_size = 4;
     debug_assert!(window_size < usize::BITS as usize);
     let n_bits = 64 * NUM_LIMBS;
     let num_windows = (n_bits - 1) / window_size + 1;
 
     let buckets_len = (1 << window_size) - 1;
-    let point_len = hidings.len(); // == cs.len();
 
     let mut buckets_matrix = vec![Point::neutral_element(); buckets_len * point_len];
     let mut buckets_matrix_limbs: Vec<u32> = buckets_matrix
@@ -147,17 +151,11 @@ pub fn pippenger_sequencial<const NUM_LIMBS: usize>(
         .rev()
         .map(|window_idx| {
             let buckets_matrix_buffer = state.alloc_buffer_data(&buckets_matrix_limbs);
-            let buckets_result_buffer = state.alloc_buffer::<Point>(buckets_len);
 
             objc::rc::autoreleasepool(|| {
                 let (command_buffer, command_encoder) = state.setup_command(
                     &org_buckets_pipe,
-                    Some(&[
-                        (1, &k_buffer),
-                        (2, &p_buffer),
-                        (3, &buckets_matrix_buffer),
-                        (4, &buckets_result_buffer),
-                    ]),
+                    Some(&[(1, &k_buffer), (2, &p_buffer), (3, &buckets_matrix_buffer)]),
                 );
 
                 MetalState::set_bytes(0, &[window_idx], command_encoder);
@@ -177,7 +175,7 @@ pub fn pippenger_sequencial<const NUM_LIMBS: usize>(
                     .map(Point::from_u32_limbs)
                     .collect();
 
-            let mut buckets = vec![Point::neutral_element(); buckets_len];
+            let mut buckets = Vec::with_capacity(buckets_len);
 
             for i in 0..buckets_len {
                 let mut partial_sum = buckets_matrix[i].clone();
@@ -185,8 +183,7 @@ pub fn pippenger_sequencial<const NUM_LIMBS: usize>(
                 for j in 1..point_len {
                     partial_sum = partial_sum.operate_with(&buckets_matrix[i + j * buckets_len]);
                 }
-
-                buckets[i] = partial_sum;
+                buckets.push(partial_sum);
             }
 
             buckets
@@ -194,7 +191,8 @@ pub fn pippenger_sequencial<const NUM_LIMBS: usize>(
                 .rev()
                 .scan(Point::neutral_element(), |m, b| {
                     *m = m.operate_with(b); // Reduction step.
-                    *b = Point::neutral_element(); // Cleanup bucket slot to reuse in the next window.
+
+                    // TODO: Should cleanup the buffer in the position of b
                     Some(m.clone())
                 })
                 .reduce(|g, m| g.operate_with(&m))

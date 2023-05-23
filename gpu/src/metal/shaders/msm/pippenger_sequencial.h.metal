@@ -13,8 +13,7 @@ namespace {
     constant const uint32_t& _window_idx  [[ buffer(0) ]],
     constant const u384* _k               [[ buffer(1) ]],
     constant const Point* _p              [[ buffer(2) ]],
-    device Point* buckets                 [[ buffer(3) ]],
-    device Point* bucket_result           [[ buffer(4) ]],
+    device Point* buckets_matrix          [[ buffer(3) ]],
     const uint32_t thread_id      [[ thread_position_in_grid ]],
     const uint32_t thread_count   [[ threads_per_grid ]]
 )
@@ -26,30 +25,15 @@ namespace {
     u384 k = _k[thread_id];
     Point p = _p[thread_id];
 
-    uint32_t bucket_size = (1 << WINDOW_SIZE) - 1;
+    uint32_t buckets_len = (1 << WINDOW_SIZE) - 1;
 
     uint32_t window_unmasked = (k >> (window_idx * WINDOW_SIZE)).m_limbs[NUM_LIMBS - 1];
     uint32_t m_ij = window_unmasked & ((1 << WINDOW_SIZE) - 1);
     if (m_ij != 0) {
         uint64_t idx = (m_ij - 1);
-        Point bucket = buckets[thread_id * bucket_size + idx];
-        buckets[thread_id * bucket_size + idx] = bucket + p;
+        Point bucket = buckets_matrix[thread_id * buckets_len + idx];
+        buckets_matrix[thread_id * buckets_len + idx] = bucket + p;
     }
-
-    /*
-    threadgroup_barrier(metal::mem_flags::mem_threadgroup);
-
-    if (thread_id >= bucket_size) {
-        return;
-    }
-
-    Point partial_sum = buckets[thread_id];
-    for (uint32_t i = 1; i < thread_count; i++) {
-        Point bucket = buckets[thread_id + i * bucket_size];
-        partial_sum = partial_sum + bucket;
-    }
-    bucket_result[thread_id] = partial_sum;
-    */
 }
 
 
