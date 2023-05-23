@@ -14,6 +14,7 @@ const MODULUS: u64 = PRIMES[const_random!(usize) % PRIMES.len()];
 pub type FE = U64FieldElement<MODULUS>;
 
 #[allow(dead_code)]
+#[inline(never)]
 pub fn rand_field_elements(order: u64) -> Vec<FE> {
     let mut result = Vec::with_capacity(1 << order);
     for _ in 0..result.capacity() {
@@ -23,11 +24,13 @@ pub fn rand_field_elements(order: u64) -> Vec<FE> {
 }
 
 #[allow(dead_code)]
+#[inline(never)]
 pub fn rand_field_elements_pair() -> (FE, FE) {
     (FE::new(random()), FE::new(random()))
 }
 
 #[allow(dead_code)]
+#[inline(never)]
 pub fn rand_poly(order: u64) -> Polynomial<FE> {
     Polynomial::new(&rand_field_elements(order))
 }

@@ -11,6 +11,7 @@ use rand::random;
 pub type F = Stark252PrimeField;
 pub type FE = FieldElement<F>;
 
+#[inline(never)]
 pub fn rand_field_elements(order: u64) -> Vec<FE> {
     let mut result = Vec::with_capacity(1 << order);
     for _ in 0..result.capacity() {
@@ -20,6 +21,7 @@ pub fn rand_field_elements(order: u64) -> Vec<FE> {
     result
 }
 
+#[inline(never)]
 pub fn rand_poly(order: u64) -> Polynomial<FE> {
     Polynomial::new(&rand_field_elements(order))
 }

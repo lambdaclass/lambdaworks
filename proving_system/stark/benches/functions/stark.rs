@@ -15,6 +15,7 @@ use lambdaworks_stark::air::example::{
 
 use crate::util::FE;
 
+#[inline(never)]
 pub fn prove_fib(trace_length: usize) {
     let trace = simple_fibonacci::fibonacci_trace([FE::from(1), FE::from(1)], trace_length);
     let trace_length = trace[0].len();
@@ -39,6 +40,7 @@ pub fn prove_fib(trace_length: usize) {
     verify(&result, &fibonacci_air);
 }
 
+#[inline(never)]
 pub fn prove_fib_2_cols() {
     let trace_columns =
         fibonacci_2_columns::fibonacci_trace_2_columns([FE::from(1), FE::from(1)], 16);
@@ -64,6 +66,7 @@ pub fn prove_fib_2_cols() {
 }
 
 #[allow(dead_code)]
+#[inline(never)]
 pub fn prove_fib17() {
     let trace = simple_fibonacci::fibonacci_trace([FE17::from(1), FE17::from(1)], 4);
 
@@ -88,6 +91,7 @@ pub fn prove_fib17() {
 }
 
 #[allow(dead_code)]
+#[inline(never)]
 pub fn prove_quadratic() {
     let trace = quadratic_air::quadratic_trace(FE::from(3), 16);
 
@@ -115,6 +119,7 @@ pub fn prove_quadratic() {
 // functions used by criterion.
 
 #[allow(dead_code)]
+#[inline(never)]
 pub fn prove_cairo_fibonacci_5() {
     let base_dir = env!("CARGO_MANIFEST_DIR");
     let dir_trace = base_dir.to_owned() + "/src/cairo_vm/test_data/fibonacci_5.trace";
@@ -135,6 +140,7 @@ pub fn prove_cairo_fibonacci_5() {
 }
 
 #[allow(dead_code)]
+#[inline(never)]
 pub fn prove_cairo_fibonacci_10() {
     let base_dir = env!("CARGO_MANIFEST_DIR");
     let dir_trace = base_dir.to_owned() + "/src/cairo_vm/test_data/fibonacci_10.trace";
@@ -155,6 +161,7 @@ pub fn prove_cairo_fibonacci_10() {
 }
 
 #[allow(dead_code)]
+#[inline(never)]
 pub fn prove_cairo_fibonacci_30() {
     let base_dir = env!("CARGO_MANIFEST_DIR");
     let dir_trace = base_dir.to_owned() + "/src/cairo_vm/test_data/fibonacci_30.trace";
@@ -175,6 +182,7 @@ pub fn prove_cairo_fibonacci_30() {
 }
 
 #[allow(dead_code)]
+#[inline(never)]
 pub fn prove_cairo_fibonacci_50() {
     let base_dir = env!("CARGO_MANIFEST_DIR");
     let dir_trace = base_dir.to_owned() + "/src/cairo_vm/test_data/fibonacci_50.trace";
@@ -195,6 +203,7 @@ pub fn prove_cairo_fibonacci_50() {
 }
 
 #[allow(dead_code)]
+#[inline(never)]
 pub fn prove_cairo_fibonacci_100() {
     let base_dir = env!("CARGO_MANIFEST_DIR");
     let dir_trace = base_dir.to_owned() + "/src/cairo_vm/test_data/fibonacci_100.trace";

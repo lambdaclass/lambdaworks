@@ -6,44 +6,51 @@ mod util;
 #[inline(never)]
 fn fp_add_benchmarks() {
     let (x, y) = rand_field_elements_pair();
-    let _ = black_box(x) + black_box(y);
+    let res = black_box(x) + black_box(y);
+    black_box(res);
 }
 
 #[inline(never)]
 fn fp_mul_benchmarks() {
     let (x, y) = rand_field_elements_pair();
-    let _ = black_box(x) * black_box(y);
+    let res = black_box(x) * black_box(y);
+    black_box(res);
 }
 
 #[inline(never)]
 fn fp_pow_benchmarks() {
-    let (x, _) = rand_field_elements_pair();
+    let (x, _res) = rand_field_elements_pair();
     let y: u64 = 5;
-    let _ = black_box(x).pow(black_box(y));
+    let res = black_box(x).pow(black_box(y));
+    black_box(res);
 }
 
 #[inline(never)]
 fn fp_sub_benchmarks() {
     let (x, y) = rand_field_elements_pair();
-    let _ = black_box(x) - black_box(y);
+    let res = black_box(x) - black_box(y);
+    black_box(res);
 }
 
 #[inline(never)]
 fn fp_inv_benchmarks() {
-    let (x, _) = rand_field_elements_pair();
-    let _ = black_box(x).inv();
+    let (x, _res) = rand_field_elements_pair();
+    let res = black_box(x).inv();
+    black_box(res);
 }
 
 #[inline(never)]
 fn fp_div_benchmarks() {
     let (x, y) = rand_field_elements_pair();
-    let _ = black_box(x) / black_box(y);
+    let res = black_box(x) / black_box(y);
+    black_box(res);
 }
 
 #[inline(never)]
 fn fp_eq_benchmarks() {
     let (x, y) = rand_field_elements_pair();
-    let _ = black_box(x) == black_box(y);
+    let res = black_box(x) == black_box(y);
+    black_box(res);
 }
 
 iai_callgrind::main!(

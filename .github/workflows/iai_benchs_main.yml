@@ -28,5 +28,5 @@ jobs:
       uses: actions/cache/save@v3
       with:
         path: |
-          */target
-        key: ${{ runner.os }}-iai-benchmark-cache-${{ github.event.pull_request.base.sha }}
+          **/target/iai
+        key: ${{ runner.os }}-iai-benchmark-cache-${{ github.sha }}
