@@ -40,11 +40,12 @@ namespace {
         return;
     }
 
-    for (uint32_t i = 0; i < thread_count; i++) {
+    Point partial_sum = buckets[thread_id];
+    for (uint32_t i = 1; i < thread_count; i++) {
         Point bucket = buckets[thread_id + i * bucket_size];
-        Point aux = bucket_result[thread_id];
-        bucket_result[thread_id] = aux + bucket;
+        partial_sum = partial_sum + bucket;
     }
+    bucket_result[thread_id] = partial_sum;
 }
 
 
