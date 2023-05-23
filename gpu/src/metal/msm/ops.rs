@@ -171,10 +171,11 @@ pub fn pippenger_sequencial<const NUM_LIMBS: usize>(
                 command_buffer.wait_until_completed();
             });
 
-            let mut buckets_matrix: Vec<Point> = MetalState::retrieve_contents(&buckets_matrix_buffer)
-                .chunks(12 * 3)
-                .map(Point::from_u32_limbs)
-                .collect();
+            let mut buckets_matrix: Vec<Point> =
+                MetalState::retrieve_contents(&buckets_matrix_buffer)
+                    .chunks(12 * 3)
+                    .map(Point::from_u32_limbs)
+                    .collect();
 
             let mut buckets = vec![Point::neutral_element(); buckets_len];
 
@@ -182,7 +183,7 @@ pub fn pippenger_sequencial<const NUM_LIMBS: usize>(
                 let mut partial_sum = buckets_matrix[i].clone();
 
                 for j in 1..point_len {
-                    partial_sum = partial_sum.operate_with(&buckets_matrix[j + i * buckets_len]);
+                    partial_sum = partial_sum.operate_with(&buckets_matrix[i + j * buckets_len]);
                 }
 
                 buckets[i] = partial_sum;
