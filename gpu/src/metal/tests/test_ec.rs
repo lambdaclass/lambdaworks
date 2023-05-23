@@ -300,13 +300,9 @@ mod tests {
             fn add(p in rand_point(), q in rand_point()) {
                 objc::rc::autoreleasepool(|| {
                     let result = execute_kernel("bls12381_add", &p, &q);
-                    let cpu_result: Vec<u32> = p
+                    let cpu_result = p
                         .operate_with(&q)
-                        .coordinates()
-                        .into_iter()
-                        .map(|felt| felt.value().to_u32_limbs())
-                        .flatten()
-                        .collect();
+                        .to_u32_limbs();
                     prop_assert_eq!(result, cpu_result);
                     Ok(())
                 }).unwrap();
@@ -318,11 +314,7 @@ mod tests {
                     let result = execute_kernel("bls12381_add", &p, &p);
                     let cpu_result: Vec<u32> = p
                         .operate_with_self(2_u64)
-                        .coordinates()
-                        .into_iter()
-                        .map(|felt| felt.value().to_u32_limbs())
-                        .flatten()
-                        .collect();
+                        .to_u32_limbs();
                     prop_assert_eq!(result, cpu_result);
                     Ok(())
                 }).unwrap();
@@ -335,11 +327,7 @@ mod tests {
                     let result = execute_kernel("bls12381_add", &p, &infinity);
                     let cpu_result: Vec<u32> = p
                         .operate_with(&infinity)
-                        .coordinates()
-                        .into_iter()
-                        .map(|felt| felt.value().to_u32_limbs())
-                        .flatten()
-                        .collect();
+                        .to_u32_limbs();
                     prop_assert_eq!(result, cpu_result);
                     Ok(())
                 }).unwrap();
@@ -352,11 +340,7 @@ mod tests {
                     let result = execute_kernel("bls12381_add", &infinity, &p);
                     let cpu_result: Vec<u32> = infinity
                         .operate_with(&p)
-                        .coordinates()
-                        .into_iter()
-                        .map(|felt| felt.value().to_u32_limbs())
-                        .flatten()
-                        .collect();
+                        .to_u32_limbs();
                     prop_assert_eq!(result, cpu_result);
                     Ok(())
                 }).unwrap();
@@ -369,11 +353,7 @@ mod tests {
             let result = execute_kernel("bls12381_add", &infinity, &infinity);
             let cpu_result: Vec<u32> = infinity
                 .operate_with(&infinity)
-                .coordinates()
-                .into_iter()
-                .map(|felt| felt.value().to_u32_limbs())
-                .flatten()
-                .collect();
+                .to_u32_limbs();
             assert_eq!(result, cpu_result);
         }
     }
