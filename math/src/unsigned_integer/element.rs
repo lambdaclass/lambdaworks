@@ -634,7 +634,7 @@ mod tests_u384 {
     proptest! {
         #[test]
         fn test_u384_to_limbs_from_limbs_should_equal_original_value(a in any::<u128>()) {
-            let p = U384::from_u128(a as u128);
+            let p = U384::from_u128(a);
             let p_limbs = p.to_u32_limbs();
             assert_eq!(U384::from_u32_limbs(&p_limbs), p);
         }
