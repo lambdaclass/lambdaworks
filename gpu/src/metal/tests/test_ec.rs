@@ -351,9 +351,7 @@ mod tests {
         fn infinity_plus_infinity_should_equal_infinity() {
             let infinity = BLS12381Curve::generator().operate_with_self(0_u64);
             let result = execute_kernel("bls12381_add", &infinity, &infinity);
-            let cpu_result: Vec<u32> = infinity
-                .operate_with(&infinity)
-                .to_u32_limbs();
+            let cpu_result: Vec<u32> = infinity.operate_with(&infinity).to_u32_limbs();
             assert_eq!(result, cpu_result);
         }
     }
