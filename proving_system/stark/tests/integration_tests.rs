@@ -39,7 +39,7 @@ fn test_prove_fib() {
 
     let fibonacci_air = simple_fibonacci::FibonacciAIR::from(context);
 
-    let mut prover = Prover::new(fibonacci_air.clone());
+    let prover = Prover::new(fibonacci_air.clone());
     let result = prover.prove(&trace, &mut ());
 
     let mut verifier = Verifier::new(fibonacci_air);
@@ -66,7 +66,7 @@ fn test_prove_fib17() {
 
     let fibonacci_air = fibonacci_f17::Fibonacci17AIR::from(context);
 
-    let mut prover = Prover::new(fibonacci_air.clone());
+    let prover = Prover::new(fibonacci_air.clone());
     let result = prover.prove(&trace, &mut ());
 
     let mut verifier = Verifier::new(fibonacci_air);
@@ -94,7 +94,7 @@ fn test_prove_fib_2_cols() {
 
     let fibonacci_air = fibonacci_2_columns::Fibonacci2ColsAIR::from(context);
 
-    let mut prover = Prover::new(fibonacci_air.clone());
+    let prover = Prover::new(fibonacci_air.clone());
     let result = prover.prove(&trace_columns, &mut ());
 
     let mut verifier = Verifier::new(fibonacci_air);
@@ -121,7 +121,7 @@ fn test_prove_quadratic() {
 
     let quadratic_air = quadratic_air::QuadraticAIR::from(context);
 
-    let mut prover = Prover::new(quadratic_air.clone());
+    let prover = Prover::new(quadratic_air.clone());
     let result = prover.prove(&trace, &mut ());
 
     let mut verifier = Verifier::new(quadratic_air);
@@ -179,7 +179,7 @@ fn test_prove_cairo_simple_program() {
         num_steps: raw_trace.steps(),
     };
 
-    let mut prover = Prover::new(cairo_air.clone());
+    let prover = Prover::new(cairo_air.clone());
     let result = prover.prove(&(raw_trace, memory), &mut public_input);
 
     let mut verifier = Verifier::new(cairo_air);
@@ -242,7 +242,7 @@ fn test_prove_cairo_call_func() {
         num_steps: raw_trace.steps(),
     };
 
-    let mut prover = Prover::new(cairo_air.clone());
+    let prover = Prover::new(cairo_air.clone());
     let result = prover.prove(&(raw_trace, memory), &mut public_input);
 
     let mut verifier = Verifier::new(cairo_air);
@@ -286,7 +286,7 @@ fn test_prove_cairo_fibonacci() {
         num_steps: raw_trace.steps(),
     };
 
-    let mut prover = Prover::new(cairo_air.clone());
+    let prover = Prover::new(cairo_air.clone());
     let result = prover.prove(&(raw_trace, memory), &mut public_input);
 
     let mut verifier = Verifier::new(cairo_air);
@@ -318,7 +318,7 @@ fn test_prove_rap_fib() {
 
     let fibonacci_rap = FibonacciRAP::new(context);
 
-    let mut prover = Prover::new(fibonacci_rap.clone());
+    let prover = Prover::new(fibonacci_rap.clone());
     let result = prover.prove(&trace_cols, &mut ());
 
     let mut verifier = Verifier::new(fibonacci_rap);
@@ -346,7 +346,7 @@ fn test_prove_dummy() {
 
     let dummy_air = dummy_air::DummyAIR::from(context);
 
-    let mut prover = Prover::new(dummy_air.clone());
+    let prover = Prover::new(dummy_air.clone());
     let result = prover.prove(&trace, &mut ());
 
     let mut verifier = Verifier::new(dummy_air);
@@ -395,7 +395,7 @@ fn test_prove_cairo_simple_program_malicious() {
         num_steps: malicious_raw_trace.steps(),
     };
 
-    let mut prover = Prover::new(cairo_air.clone());
+    let prover = Prover::new(cairo_air.clone());
     let result = prover.prove(&(malicious_raw_trace, malicious_memory), &mut public_input);
 
     public_input.program = real_program;

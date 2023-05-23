@@ -55,7 +55,6 @@ struct Round4<F: IsFFTField> {
 
 pub struct Prover<F: IsFFTField, A: AIR<Field = F>> {
     air: A,
-    transcript: DefaultTranscript,
     domain: Domain<F>,
 }
 
@@ -67,19 +66,19 @@ where
         let domain = Domain::new(&air);
         Self {
             air,
-            transcript: DefaultTranscript::new(),
             domain,
         }
     }
 
-    fn round_0_transcript_initialization(&mut self) {
+    fn round_0_transcript_initialization(&self, _transcript: &mut impl Transcript) {
         // TODO: add strong fiat shamir
     }
 
     fn round_1_randomized_air_with_preprocessing(
-        &mut self,
+        &self,
         raw_trace: &A::RawTrace,
         public_input: &mut A::PublicInput,
+        transcript: &mut impl Transcript
     ) -> Round1<F, A> {
         let main_trace = self.air.build_main_trace(raw_trace, public_input);
 
@@ -88,9 +87,9 @@ where
             mut evaluations,
             mut lde_trace_merkle_trees,
             mut lde_trace_merkle_roots,
-        ) = interpolate_and_commit(&main_trace, &self.domain, &mut self.transcript);
+        ) = interpolate_and_commit(&main_trace, &self.domain, transcript);
 
-        let rap_challenges = self.air.build_rap_challenges(&mut self.transcript);
+        let rap_challenges = self.air.build_rap_challenges(transcript);
 
         let aux_trace = self
             .air
@@ -99,7 +98,7 @@ where
         if !aux_trace.is_empty() {
             // Check that this is valid for interpolation
             let (aux_trace_polys, aux_trace_polys_evaluations, aux_merkle_trees, aux_merkle_roots) =
-                interpolate_and_commit(&aux_trace, &self.domain, &mut self.transcript);
+                interpolate_and_commit(&aux_trace, &self.domain, transcript);
             trace_polys.extend_from_slice(&aux_trace_polys);
             evaluations.extend_from_slice(&aux_trace_polys_evaluations);
             lde_trace_merkle_trees.extend_from_slice(&aux_merkle_trees);
@@ -219,21 +218,22 @@ where
     }
 
     fn round_4_compute_and_run_fri_on_the_deep_composition_polynomial(
-        &mut self,
+        &self,
         round_1_result: &Round1<F, A>,
         round_2_result: &Round2<F>,
         round_3_result: &Round3<F>,
         z: &FieldElement<F>,
+        transcript: &mut impl Transcript
     ) -> Round4<F> {
         // <<<< Receive challenges: 𝛾, 𝛾'
         let composition_poly_coeffients = [
-            transcript_to_field(&mut self.transcript),
-            transcript_to_field(&mut self.transcript),
+            transcript_to_field(transcript),
+            transcript_to_field(transcript),
         ];
         // <<<< Receive challenges: 𝛾ⱼ, 𝛾ⱼ'
         let trace_poly_coeffients = batch_sample_challenges(
             self.air.context().transition_offsets.len() * self.air.context().trace_columns,
-            &mut self.transcript,
+            transcript,
         );
 
         // Compute p₀ (deep composition polynomial)
@@ -253,10 +253,10 @@ where
             self.domain.root_order as usize,
             deep_composition_poly,
             &self.domain.lde_roots_of_unity_coset,
-            &mut self.transcript,
+            transcript,
         );
         let (query_list, iota_0) =
-            fri_query_phase(&self.air, &self.domain, &fri_layers, &mut self.transcript);
+            fri_query_phase(&self.air, &self.domain, &fri_layers, transcript);
 
         let fri_layers_merkle_roots: Vec<_> = fri_layers
             .iter()
@@ -276,13 +276,15 @@ where
 
     // FIXME remove unwrap() calls and return errors
     pub fn prove(
-        &mut self,
+        &self,
         trace: &A::RawTrace,
         public_input: &mut A::PublicInput,
     ) -> StarkProof<F> {
-        self.round_0_transcript_initialization();
+        let mut transcript = DefaultTranscript::new();
 
-        let round_1_result = self.round_1_randomized_air_with_preprocessing(trace, public_input);
+        self.round_0_transcript_initialization(&mut transcript);
+
+        let round_1_result = self.round_1_randomized_air_with_preprocessing(trace, public_input, &mut transcript);
 
         #[cfg(debug_assertions)]
         validate_trace(
@@ -295,19 +297,19 @@ where
 
         // <<<< Receive challenges: 𝛼_j^B
         let boundary_coeffs_alphas =
-            batch_sample_challenges(round_1_result.trace_polys.len(), &mut self.transcript);
+            batch_sample_challenges(round_1_result.trace_polys.len(), &mut transcript);
         // <<<< Receive challenges: 𝛽_j^B
         let boundary_coeffs_betas =
-            batch_sample_challenges(round_1_result.trace_polys.len(), &mut self.transcript);
+            batch_sample_challenges(round_1_result.trace_polys.len(), &mut transcript);
         // <<<< Receive challenges: 𝛼_j^T
         let transition_coeffs_alphas = batch_sample_challenges(
             self.air.context().num_transition_constraints,
-            &mut self.transcript,
+            &mut transcript,
         );
         // <<<< Receive challenges: 𝛽_j^T
         let transition_coeffs_betas = batch_sample_challenges(
             self.air.context().num_transition_constraints,
-            &mut self.transcript,
+            &mut transcript,
         );
 
         let boundary_coeffs: Vec<_> = boundary_coeffs_alphas
@@ -327,16 +329,16 @@ where
         );
 
         // >>>> Send commitments: [H₁], [H₂]
-        self.transcript
+        transcript
             .append(&round_2_result.composition_poly_even_root.to_bytes_be());
-        self.transcript
+        transcript
             .append(&round_2_result.composition_poly_odd_root.to_bytes_be());
 
         // <<<< Receive challenge: z
         let z = sample_z_ood(
             &self.domain.lde_roots_of_unity_coset,
             &self.domain.trace_roots_of_unity,
-            &mut self.transcript,
+            &mut transcript,
         );
 
         let round_3_result = self.round_3_evaluate_polynomials_in_out_of_domain_element(
@@ -346,14 +348,14 @@ where
         );
 
         // >>>> Send value: H₁(z²)
-        self.transcript.append(
+        transcript.append(
             &round_3_result
                 .composition_poly_even_ood_evaluation
                 .to_bytes_be(),
         );
 
         // >>>> Send value: H₂(z²)
-        self.transcript.append(
+        transcript.append(
             &round_3_result
                 .composition_poly_odd_ood_evaluation
                 .to_bytes_be(),
@@ -361,7 +363,7 @@ where
         // >>>> Send values: tⱼ(zgᵏ)
         for i in 0..round_3_result.trace_ood_frame_evaluations.num_rows() {
             for element in round_3_result.trace_ood_frame_evaluations.get_row(i).iter() {
-                self.transcript.append(&element.to_bytes_be());
+                transcript.append(&element.to_bytes_be());
             }
         }
 
@@ -373,6 +375,7 @@ where
             &round_2_result,
             &round_3_result,
             &z,
+            &mut transcript
         );
 
         StarkProof {
