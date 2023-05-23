@@ -8,4 +8,4 @@
 #include "fields/bls12381.h.metal"
 #include "test/test_bls12381.h.metal"
 #include "test/test_unsigned_integer.h.metal"
-#include "msm/pippenger_sequencial.h.metal"
+#include "msm/pippenger.h.metal"

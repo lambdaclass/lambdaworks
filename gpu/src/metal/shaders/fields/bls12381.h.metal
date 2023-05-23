@@ -3,8 +3,6 @@
 #include "fp_bls12381.h.metal"
 #include "ec_point.h.metal"
 #include "../test/test_bls12381.h.metal"
-#include "../msm/pippenger.h.metal"
-#include "../msm/pippenger_sequencial.h.metal"
 
 namespace {
     typedef ECPoint<FpBLS12381, 0> BLS12381;
