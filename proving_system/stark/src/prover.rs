@@ -64,10 +64,7 @@ where
 {
     pub fn new(air: A) -> Self {
         let domain = Domain::new(&air);
-        Self {
-            air,
-            domain,
-        }
+        Self { air, domain }
     }
 
     fn round_0_transcript_initialization(&self, _transcript: &mut impl Transcript) {
@@ -78,7 +75,7 @@ where
         &self,
         raw_trace: &A::RawTrace,
         public_input: &mut A::PublicInput,
-        transcript: &mut impl Transcript
+        transcript: &mut impl Transcript,
     ) -> Round1<F, A> {
         let main_trace = self.air.build_main_trace(raw_trace, public_input);
 
@@ -223,7 +220,7 @@ where
         round_2_result: &Round2<F>,
         round_3_result: &Round3<F>,
         z: &FieldElement<F>,
-        transcript: &mut impl Transcript
+        transcript: &mut impl Transcript,
     ) -> Round4<F> {
         // <<<< Receive challenges: 𝛾, 𝛾'
         let composition_poly_coeffients = [
@@ -275,16 +272,13 @@ where
     }
 
     // FIXME remove unwrap() calls and return errors
-    pub fn prove(
-        &self,
-        trace: &A::RawTrace,
-        public_input: &mut A::PublicInput,
-    ) -> StarkProof<F> {
+    pub fn prove(&self, trace: &A::RawTrace, public_input: &mut A::PublicInput) -> StarkProof<F> {
         let mut transcript = DefaultTranscript::new();
 
         self.round_0_transcript_initialization(&mut transcript);
 
-        let round_1_result = self.round_1_randomized_air_with_preprocessing(trace, public_input, &mut transcript);
+        let round_1_result =
+            self.round_1_randomized_air_with_preprocessing(trace, public_input, &mut transcript);
 
         #[cfg(debug_assertions)]
         validate_trace(
@@ -329,10 +323,8 @@ where
         );
 
         // >>>> Send commitments: [H₁], [H₂]
-        transcript
-            .append(&round_2_result.composition_poly_even_root.to_bytes_be());
-        transcript
-            .append(&round_2_result.composition_poly_odd_root.to_bytes_be());
+        transcript.append(&round_2_result.composition_poly_even_root.to_bytes_be());
+        transcript.append(&round_2_result.composition_poly_odd_root.to_bytes_be());
 
         // <<<< Receive challenge: z
         let z = sample_z_ood(
@@ -375,7 +367,7 @@ where
             &round_2_result,
             &round_3_result,
             &z,
-            &mut transcript
+            &mut transcript,
         );
 
         StarkProof {

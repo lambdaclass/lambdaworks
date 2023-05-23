@@ -39,10 +39,7 @@ where
 {
     pub fn new(air: A) -> Self {
         let domain = Domain::new(&air);
-        Self {
-            air,
-            domain,
-        }
+        Self { air, domain }
     }
 
     fn step_1_transcript_initialization(&self) -> DefaultTranscript {
@@ -98,10 +95,8 @@ where
             .collect();
 
         // <<<< Receive commitments: [H₁], [H₂]
-        transcript
-            .append(&proof.composition_poly_even_root.to_bytes_be());
-        transcript
-            .append(&proof.composition_poly_odd_root.to_bytes_be());
+        transcript.append(&proof.composition_poly_even_root.to_bytes_be());
+        transcript.append(&proof.composition_poly_odd_root.to_bytes_be());
 
         // >>>> Send challenge: z
         let z = sample_z_ood(
@@ -111,11 +106,9 @@ where
         );
 
         // <<<< Receive value: H₁(z²)
-        transcript
-            .append(&proof.composition_poly_even_ood_evaluation.to_bytes_be());
+        transcript.append(&proof.composition_poly_even_ood_evaluation.to_bytes_be());
         // <<<< Receive value: H₂(z²)
-        transcript
-            .append(&proof.composition_poly_odd_ood_evaluation.to_bytes_be());
+        transcript.append(&proof.composition_poly_odd_ood_evaluation.to_bytes_be());
         // <<<< Receive values: tⱼ(zgᵏ)
         for i in 0..proof.trace_ood_frame_evaluations.num_rows() {
             for element in proof.trace_ood_frame_evaluations.get_row(i).iter() {
@@ -159,8 +152,7 @@ where
         // <<<< Send challenges 𝜄ₛ (iota_s)
         let iotas = (0..self.air.options().fri_number_of_queries)
             .map(|_| {
-                transcript_to_usize(&mut transcript)
-                    % (2_usize.pow(self.domain.lde_root_order))
+                transcript_to_usize(&mut transcript) % (2_usize.pow(self.domain.lde_root_order))
             })
             .collect();
 
