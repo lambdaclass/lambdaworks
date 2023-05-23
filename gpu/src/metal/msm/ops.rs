@@ -24,6 +24,7 @@ pub type FE = FieldElement<F>;
 pub fn pippenger<const NUM_LIMBS: usize>(
     cs: &[UnsignedInteger<NUM_LIMBS>],
     hidings: &[Point],
+    window_size: usize,
     state: &MetalState,
 ) -> Result<Point, MetalError> {
     let point_len = hidings.len(); // == cs.len();
@@ -31,10 +32,8 @@ pub fn pippenger<const NUM_LIMBS: usize>(
         return Ok(Point::neutral_element());
     }
 
-    let window_size = 4;
     let n_bits = 64 * NUM_LIMBS;
     let num_windows = (n_bits - 1) / window_size + 1;
-
     let buckets_len = (1 << window_size) - 1;
 
     let mut buckets_matrix = vec![Point::neutral_element(); buckets_len * point_len];
@@ -58,6 +57,7 @@ pub fn pippenger<const NUM_LIMBS: usize>(
 
     let k_buffer = state.alloc_buffer_data(&k_limbs);
     let p_buffer = state.alloc_buffer_data(&p_limbs);
+    let wsize_buffer = state.alloc_buffer_data(&[window_size as u32]);
 
     let org_buckets_pipe = state.setup_pipeline("org_buckets").unwrap();
     (0..num_windows)
@@ -68,7 +68,12 @@ pub fn pippenger<const NUM_LIMBS: usize>(
             objc::rc::autoreleasepool(|| {
                 let (command_buffer, command_encoder) = state.setup_command(
                     &org_buckets_pipe,
-                    Some(&[(1, &k_buffer), (2, &p_buffer), (3, &buckets_matrix_buffer)]),
+                    Some(&[
+                        (1, &wsize_buffer),
+                        (2, &k_buffer),
+                        (3, &p_buffer),
+                        (4, &buckets_matrix_buffer),
+                    ]),
                 );
 
                 MetalState::set_bytes(0, &[window_idx], command_encoder);
@@ -178,7 +183,7 @@ mod tests {
             let hidings = hidings[..min_len].to_vec();
 
             let cpu_result = pippenger::msm_with(&cs, &hidings, window_size);
-            let metal_result = super::pippenger(&cs, &hidings, &state).unwrap();
+            let metal_result = super::pippenger(&cs, &hidings, window_size, &state).unwrap();
 
             prop_assert_eq!(metal_result, cpu_result);
         }
