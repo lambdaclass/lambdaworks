@@ -1,8 +1,10 @@
-use crate::cuda::abstractions::{element::CUDAFieldElement, errors::CudaError};
-use crate::field::{
-    element::FieldElement,
-    fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
-    traits::{IsFFTField, IsField},
+use crate::{
+    field::{
+        element::FieldElement,
+        fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+        traits::{IsFFTField, IsField},
+    },
+    gpu::cuda::abstractions::{element::CUDAFieldElement, errors::CudaError},
 };
 use cudarc::{
     driver::{

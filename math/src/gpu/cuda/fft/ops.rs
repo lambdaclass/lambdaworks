@@ -1,6 +1,7 @@
-use crate::field::{element::FieldElement, traits::IsFFTField};
-
-use crate::cuda::abstractions::{errors::CudaError, state::CudaState};
+use crate::{
+    field::{element::FieldElement, traits::IsFFTField},
+    gpu::cuda::abstractions::{errors::CudaError, state::CudaState},
+};
 
 /// Executes parallel ordered FFT over a slice of two-adic field elements, in CUDA.
 /// Twiddle factors are required to be in bit-reverse order.

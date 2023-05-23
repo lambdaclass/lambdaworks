@@ -8,7 +8,7 @@ use crate::{
 };
 
 use super::ops::{fft, reverse_index};
-use crate::cuda::abstractions::{errors::CudaError, state::CudaState};
+use crate::gpu::cuda::abstractions::{errors::CudaError, state::CudaState};
 
 pub fn evaluate_fft_cuda<F>(coeffs: &[FieldElement<F>]) -> Result<Vec<FieldElement<F>>, CudaError>
 where
