@@ -25,9 +25,6 @@ test-log = { version = "0.2.11", features = ["log"] }
 assert_matches = "1.5.0"
 rstest = "0.17.0"
 
-[features]
-test_fiat_shamir = []
-
 [[bench]]
 name = "criterion_stark"
 harness = false
