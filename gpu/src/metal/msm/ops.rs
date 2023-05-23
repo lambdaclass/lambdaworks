@@ -118,8 +118,11 @@ pub fn pippenger_sequencial<const NUM_LIMBS: usize>(
     let n_bits = 64 * NUM_LIMBS;
     let num_windows = (n_bits - 1) / window_size + 1;
 
-    let mut buckets_neutral = vec![Point::neutral_element(); (1 << window_size) - 1];
-    let mut buckets_neutral_limbs: Vec<u32> = buckets_neutral
+    let buckets_len = (1 << window_size) - 1;
+    let point_len = hidings.len(); // == cs.len();
+
+    let mut buckets_matrix = vec![Point::neutral_element(); buckets_len * point_len];
+    let mut buckets_matrix_limbs: Vec<u32> = buckets_matrix
         .iter()
         .map(|b| b.to_u32_limbs())
         .flatten()
@@ -143,31 +146,47 @@ pub fn pippenger_sequencial<const NUM_LIMBS: usize>(
     (0..num_windows)
         .rev()
         .map(|window_idx| {
-            let buckets_buffer = state.alloc_buffer_data(&buckets_neutral_limbs);
+            let buckets_matrix_buffer = state.alloc_buffer_data(&buckets_matrix_limbs);
+            let buckets_result_buffer = state.alloc_buffer::<Point>(buckets_len);
 
-            //cs.iter().zip(hidings).enumerate().for_each(|(i, (k, p))| {
             objc::rc::autoreleasepool(|| {
                 let (command_buffer, command_encoder) = state.setup_command(
                     &org_buckets_pipe,
-                    Some(&[(1, &k_buffer), (2, &p_buffer), (3, &buckets_buffer)]),
+                    Some(&[
+                        (1, &k_buffer),
+                        (2, &p_buffer),
+                        (3, &buckets_matrix_buffer),
+                        (4, &buckets_result_buffer),
+                    ]),
                 );
 
                 MetalState::set_bytes(0, &[window_idx], command_encoder);
 
                 command_encoder.dispatch_thread_groups(
                     MTLSize::new(1, 1, 1),
-                    MTLSize::new(cs.len() as u64, 1, 1),
+                    MTLSize::new(point_len as u64, 1, 1),
                 );
                 command_encoder.end_encoding();
                 command_buffer.commit();
                 command_buffer.wait_until_completed();
             });
-            //});
 
-            let mut buckets: Vec<Point> = MetalState::retrieve_contents(&buckets_buffer)
+            let mut buckets_matrix: Vec<Point> = MetalState::retrieve_contents(&buckets_matrix_buffer)
                 .chunks(12 * 3)
                 .map(Point::from_u32_limbs)
                 .collect();
+
+            let mut buckets = vec![Point::neutral_element(); buckets_len];
+
+            for i in 0..buckets_len {
+                let mut partial_sum = buckets_matrix[i].clone();
+
+                for j in 1..point_len {
+                    partial_sum = partial_sum.operate_with(&buckets_matrix[j + i * buckets_len]);
+                }
+
+                buckets[i] = partial_sum;
+            }
 
             buckets
                 .iter_mut()

@@ -36,6 +36,9 @@ namespace {
         buckets[thread_id * bucket_size + idx] = bucket + p;
     }
 
+    /*
+    threadgroup_barrier(metal::mem_flags::mem_threadgroup);
+
     if (thread_id >= bucket_size) {
         return;
     }
@@ -46,6 +49,7 @@ namespace {
         partial_sum = partial_sum + bucket;
     }
     bucket_result[thread_id] = partial_sum;
+    */
 }
 
 
