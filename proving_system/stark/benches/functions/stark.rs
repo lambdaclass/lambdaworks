@@ -5,8 +5,8 @@ use lambdaworks_stark::{
         example::cairo::{self, PublicInputs},
     },
     cairo_vm::{cairo_mem::CairoMemory, cairo_trace::CairoTrace},
-    prover::prove,
-    verifier::verify,
+    prover::Prover,
+    verifier::Verifier,
 };
 
 use lambdaworks_stark::air::example::{
@@ -35,8 +35,11 @@ pub fn prove_fib(trace_length: usize) {
 
     let fibonacci_air = simple_fibonacci::FibonacciAIR::from(context);
 
-    let result = prove(&trace, &fibonacci_air, &mut ());
-    verify(&result, &fibonacci_air, &());
+    let prover = Prover::new(fibonacci_air.clone());
+    let result = prover.prove(&trace, &mut ());
+
+    let verifier = Verifier::new(fibonacci_air);
+    verifier.verify(&result, &());
 }
 
 pub fn prove_fib_2_cols() {
@@ -59,8 +62,11 @@ pub fn prove_fib_2_cols() {
 
     let fibonacci_air = fibonacci_2_columns::Fibonacci2ColsAIR::from(context);
 
-    let result = prove(&trace_columns, &fibonacci_air, &mut ());
-    verify(&result, &fibonacci_air, &());
+    let prover = Prover::new(fibonacci_air.clone());
+    let result = prover.prove(&trace_columns, &mut ());
+
+    let verifier = Verifier::new(fibonacci_air);
+    verifier.verify(&result, &());
 }
 
 #[allow(dead_code)]
@@ -83,8 +89,11 @@ pub fn prove_fib17() {
 
     let fibonacci_air = fibonacci_f17::Fibonacci17AIR::from(context);
 
-    let result = prove(&trace, &fibonacci_air, &mut ());
-    verify(&result, &fibonacci_air, &());
+    let prover = Prover::new(fibonacci_air.clone());
+    let result = prover.prove(&trace, &mut ());
+
+    let verifier = Verifier::new(fibonacci_air);
+    verifier.verify(&result, &());
 }
 
 #[allow(dead_code)]
@@ -107,8 +116,11 @@ pub fn prove_quadratic() {
 
     let quadratic_air = quadratic_air::QuadraticAIR::from(context);
 
-    let result = prove(&trace, &quadratic_air, &mut ());
-    verify(&result, &quadratic_air, &());
+    let prover = Prover::new(quadratic_air.clone());
+    let result = prover.prove(&trace, &mut ());
+
+    let verifier = Verifier::new(quadratic_air);
+    verifier.verify(&result, &());
 }
 
 // We added an attribute to disable the `dead_code` lint because clippy doesn't take into account
@@ -142,7 +154,8 @@ pub fn prove_cairo_fibonacci_5() {
         range_check_max: None,
     };
 
-    prove(&(raw_trace, memory), &cairo_air, &mut public_input);
+    let prover = Prover::new(cairo_air);
+    prover.prove(&(raw_trace, memory), &mut public_input);
 }
 
 #[allow(dead_code)]
@@ -174,7 +187,8 @@ pub fn prove_cairo_fibonacci_10() {
         range_check_max: None,
     };
 
-    prove(&(raw_trace, memory), &cairo_air, &mut public_input);
+    let prover = Prover::new(cairo_air);
+    prover.prove(&(raw_trace, memory), &mut public_input);
 }
 
 #[allow(dead_code)]
@@ -205,7 +219,8 @@ pub fn prove_cairo_fibonacci_30() {
         range_check_max: None,
     };
 
-    prove(&(raw_trace, memory), &cairo_air, &mut public_input);
+    let prover = Prover::new(cairo_air);
+    prover.prove(&(raw_trace, memory), &mut public_input);
 }
 
 #[allow(dead_code)]
@@ -236,7 +251,8 @@ pub fn prove_cairo_fibonacci_50() {
         range_check_max: None,
     };
 
-    prove(&(raw_trace, memory), &cairo_air, &mut public_input);
+    let prover = Prover::new(cairo_air);
+    prover.prove(&(raw_trace, memory), &mut public_input);
 }
 
 #[allow(dead_code)]
@@ -267,5 +283,6 @@ pub fn prove_cairo_fibonacci_100() {
         range_check_max: None,
     };
 
-    prove(&(raw_trace, memory), &cairo_air, &mut public_input);
+    let prover = Prover::new(cairo_air);
+    prover.prove(&(raw_trace, memory), &mut public_input);
 }
