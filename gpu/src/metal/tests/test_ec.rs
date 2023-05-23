@@ -1,4 +1,3 @@
-/*
 #[cfg(all(test, feature = "metal"))]
 mod tests {
     use crate::metal::abstractions::state::MetalState;
@@ -72,6 +71,7 @@ mod tests {
             fn rand_u()(n in any::<u128>()) -> U { U::from_u128(n) } // doesn't populate all limbs
         }
 
+        use lambdaworks_math::unsigned_integer::traits::U32Limbs;
         use BigOrSmallInt::{Big, Small};
 
         proptest! {
@@ -128,6 +128,7 @@ mod tests {
     }
 
     mod fp_tests {
+        use lambdaworks_math::unsigned_integer::traits::U32Limbs;
         use proptest::collection;
 
         use super::*;
@@ -239,6 +240,8 @@ mod tests {
     }
 
     mod ec_tests {
+        use lambdaworks_math::unsigned_integer::traits::U32Limbs;
+
         use super::*;
 
         pub type P = ShortWeierstrassProjectivePoint<BLS12381Curve>;
@@ -375,4 +378,3 @@ mod tests {
         }
     }
 }
-*/

@@ -119,48 +119,40 @@ pub fn pippenger_sequencial<const NUM_LIMBS: usize>(
     let n_bits = 64 * NUM_LIMBS;
     let num_windows = (n_bits - 1) / window_size + 1;
     let mut buckets = vec![Point::neutral_element(); (1 << window_size) - 1];
-    let mut buckets_limbs: Vec<u32> = buckets
-        .iter()
-        .map(|b| b.to_u32_limbs())
-        .flatten()
-        .collect();
+    let mut buckets_limbs: Vec<u32> = buckets.iter().map(|b| b.to_u32_limbs()).flatten().collect();
 
-    // Metal prep
-    let org_buckets_pipe = state.setup_pipeline("org_buckets")?;
+    let org_buckets_pipe = state.setup_pipeline("org_buckets").unwrap();
     let buckets_buffer = state.alloc_buffer_data(&buckets_limbs);
-    let (command_buffer, command_encoder) =
-        state.setup_command(&org_buckets_pipe, Some(&[(3, &buckets_buffer)]));
-
     (0..num_windows)
         .rev()
         .map(|window_idx| {
             cs.iter().zip(hidings).for_each(|(k, p)| {
-                command_encoder.set_bytes(
-                    0,
-                    std::mem::size_of::<u32>() as u64,
-                    void_ptr(&window_idx),
+                let wid_buffer = state.alloc_buffer_data(&[window_idx]);
+                let k_buffer = state.alloc_buffer_data(&k.to_u32_limbs());
+                let p_buffer = state.alloc_buffer_data(&p.to_u32_limbs());
+
+                let (command_buffer, command_encoder) = state.setup_command(
+                    &org_buckets_pipe,
+                    Some(&[
+                        (0, &wid_buffer),
+                        (1, &k_buffer),
+                        (2, &p_buffer),
+                        (3, &buckets_buffer),
+                    ]),
                 );
 
-                command_encoder.set_bytes(
-                    1,
-                    12 * std::mem::size_of::<u32>() as u64,
-                    void_ptr(&k.to_u32_limbs().as_slice()),
-                );
-
-                command_encoder.set_bytes(
-                    2,
-                    12 * 3 * std::mem::size_of::<u32>() as u64,
-                    void_ptr(&p.to_u32_limbs().as_slice()),
-                );
-
-                command_encoder.dispatch_thread_groups(MTLSize::new(1, 1, 1), MTLSize::new(1, 1, 1));
+                command_encoder
+                    .dispatch_thread_groups(MTLSize::new(1, 1, 1), MTLSize::new(1, 1, 1));
                 command_encoder.end_encoding();
                 command_buffer.commit();
                 command_buffer.wait_until_completed();
             });
 
             buckets_limbs = MetalState::retrieve_contents(&buckets_buffer);
-            buckets = buckets_limbs.chunks(12 * 3).map(Point::from_u32_limbs).collect();
+            buckets = buckets_limbs
+                .chunks(12 * 3)
+                .map(Point::from_u32_limbs)
+                .collect();
 
             buckets
                 .iter_mut()
