@@ -16,7 +16,7 @@ namespace {
     device Point* buckets                 [[ buffer(3) ]],
     device Point* bucket_result           [[ buffer(4) ]],
     const uint32_t thread_id      [[ thread_position_in_grid ]],
-    const uint32_t thread_count [[ threads_per_grid ]]
+    const uint32_t thread_count   [[ threads_per_grid ]]
 )
 {
     constexpr uint32_t WINDOW_SIZE = 4; // set to this for now
@@ -36,7 +36,7 @@ namespace {
         buckets[thread_id * bucket_size + idx] = bucket + p;
     }
 
-    if (thread_id < bucket_size) {
+    if (thread_id >= bucket_size) {
         return;
     }
 
