@@ -855,7 +855,7 @@ mod test {
             Program::from_bytes(&program_content, Some(cairo_run_config.entrypoint)).unwrap();
 
         let dir_trace = base_dir.to_owned() + "/src/cairo_vm/test_data/simple_program.trace";
-        let dir_memory = base_dir.to_owned() + "/src/cairo_vm/test_data/simple_program.mem";
+        let dir_memory = base_dir.to_owned() + "/src/cairo_vm/test_data/simple_program.memory";
 
         let raw_trace = CairoTrace::from_file(&dir_trace).unwrap();
         let memory = CairoMemory::from_file(&dir_memory).unwrap();

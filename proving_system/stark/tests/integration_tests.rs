@@ -18,6 +18,20 @@ use lambdaworks_stark::{
 
 pub type FE = FieldElement<Stark252PrimeField>;
 
+pub fn load_cairo_trace_and_memory(program_name: &str) -> (CairoTrace, CairoMemory) {
+    let base_dir = env!("CARGO_MANIFEST_DIR");
+    let dir_trace = format!("{}/src/cairo_vm/test_data/{}.trace", base_dir, program_name);
+    let dir_memory = format!(
+        "{}/src/cairo_vm/test_data/{}.memory",
+        base_dir, program_name
+    );
+
+    let raw_trace = CairoTrace::from_file(&dir_trace).unwrap();
+    let memory = CairoMemory::from_file(&dir_memory).unwrap();
+
+    (raw_trace, memory)
+}
+
 #[test_log::test]
 fn test_prove_fib() {
     let trace = simple_fibonacci::fibonacci_trace([FE::from(1), FE::from(1)], 8);
@@ -132,13 +146,7 @@ fn test_prove_cairo_simple_program() {
 
     ```
     */
-    let base_dir = env!("CARGO_MANIFEST_DIR");
-    let dir_trace = base_dir.to_owned() + "/src/cairo_vm/test_data/simple_program.trace";
-    let dir_memory = base_dir.to_owned() + "/src/cairo_vm/test_data/simple_program.mem";
-
-    let raw_trace = CairoTrace::from_file(&dir_trace).unwrap();
-    let memory = CairoMemory::from_file(&dir_memory).unwrap();
-
+    let (raw_trace, memory) = load_cairo_trace_and_memory("simple_program");
     let proof_options = ProofOptions {
         blowup_factor: 4,
         fri_number_of_queries: 1,
@@ -193,13 +201,7 @@ fn test_prove_cairo_call_func() {
 
     ```
     */
-    let base_dir = env!("CARGO_MANIFEST_DIR");
-    let dir_trace = base_dir.to_owned() + "/src/cairo_vm/test_data/call_func.trace";
-    let dir_memory = base_dir.to_owned() + "/src/cairo_vm/test_data/call_func.mem";
-
-    let raw_trace = CairoTrace::from_file(&dir_trace).unwrap();
-    let memory = CairoMemory::from_file(&dir_memory).unwrap();
-
+    let (raw_trace, memory) = load_cairo_trace_and_memory("call_func");
     let proof_options = ProofOptions {
         blowup_factor: 2,
         fri_number_of_queries: 1,
@@ -233,12 +235,7 @@ fn test_prove_cairo_call_func() {
 
 #[test_log::test]
 fn test_prove_cairo_fibonacci() {
-    let base_dir = env!("CARGO_MANIFEST_DIR");
-    let dir_trace = base_dir.to_owned() + "/src/cairo_vm/test_data/fibonacci_5.trace";
-    let dir_memory = base_dir.to_owned() + "/src/cairo_vm/test_data/fibonacci_5.memory";
-
-    let raw_trace = CairoTrace::from_file(&dir_trace).expect("Cairo trace binary file not found");
-    let memory = CairoMemory::from_file(&dir_memory).expect("Cairo memory binary file not found");
+    let (raw_trace, memory) = load_cairo_trace_and_memory("fibonacci_5");
 
     let proof_options = ProofOptions {
         blowup_factor: 2,
@@ -331,13 +328,7 @@ fn test_verifier_rejects_proof_of_a_slightly_different_program() {
     // The prover generates a proof for a program that
     // is different from the one that the verifier
     // expects.
-    let base_dir = env!("CARGO_MANIFEST_DIR");
-    let dir_trace = base_dir.to_owned() + "/src/cairo_vm/test_data/simple_program.trace";
-    let dir_memory = base_dir.to_owned() + "/src/cairo_vm/test_data/simple_program.mem";
-
-    let program_1_raw_trace = CairoTrace::from_file(&dir_trace).unwrap();
-    let program_1_memory = CairoMemory::from_file(&dir_memory).unwrap();
-
+    let (program_1_raw_trace, program_1_memory) = load_cairo_trace_and_memory("simple_program");
     let proof_options = ProofOptions {
         blowup_factor: 4,
         fri_number_of_queries: 1,
@@ -384,14 +375,9 @@ fn test_verifier_rejects_proof_of_a_slightly_different_program() {
 
 #[test_log::test]
 fn test_verifier_rejects_proof_with_different_range_bounds() {
-    // The verifier should reject when the ranged checks bounds
+    // The verifier should reject when the range checks bounds
     // are different from those of the executed program.
-    let base_dir = env!("CARGO_MANIFEST_DIR");
-    let dir_trace = base_dir.to_owned() + "/src/cairo_vm/test_data/simple_program.trace";
-    let dir_memory = base_dir.to_owned() + "/src/cairo_vm/test_data/simple_program.mem";
-
-    let raw_trace = CairoTrace::from_file(&dir_trace).unwrap();
-    let memory = CairoMemory::from_file(&dir_memory).unwrap();
+    let (raw_trace, memory) = load_cairo_trace_and_memory("simple_program");
 
     let proof_options = ProofOptions {
         blowup_factor: 4,
