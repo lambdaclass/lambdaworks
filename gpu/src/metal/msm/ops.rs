@@ -17,7 +17,8 @@ type Point = ShortWeierstrassProjectivePoint<BLS12381Curve>;
 pub type F = BLS12381PrimeField;
 pub type FE = FieldElement<F>;
 
-/// Executes parallel MSM over a slice of field elements, in Metal, using Pippenger's algorithm.
+/// Computes the multiscalar multiplication (MSM), using Pippenger's algorithm parallelized in
+/// Metal.
 pub fn pippenger<const NUM_LIMBS: usize>(
     cs: &[UnsignedInteger<NUM_LIMBS>],
     hidings: &[Point],
