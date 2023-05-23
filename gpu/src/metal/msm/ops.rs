@@ -40,19 +40,16 @@ pub fn pippenger<const NUM_LIMBS: usize>(
     // TODO: make a helper func for converting collections into limbs
     let mut buckets_matrix_limbs: Vec<u32> = buckets_matrix
         .iter()
-        .map(|b| b.to_u32_limbs())
-        .flatten()
+        .flat_map(|b| b.to_u32_limbs())
         .collect();
 
     let k_limbs = cs
         .iter()
-        .map(|uint| uint.to_u32_limbs())
-        .flatten()
+        .flat_map(|uint| uint.to_u32_limbs())
         .collect::<Vec<_>>();
     let p_limbs = hidings
         .iter()
-        .map(|uint| uint.to_u32_limbs())
-        .flatten()
+        .flat_map(|uint| uint.to_u32_limbs())
         .collect::<Vec<_>>();
 
     let k_buffer = state.alloc_buffer_data(&k_limbs);
