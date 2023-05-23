@@ -118,14 +118,18 @@ pub fn pippenger_sequencial<const NUM_LIMBS: usize>(
     let n_bits = 64 * NUM_LIMBS;
     let num_windows = (n_bits - 1) / window_size + 1;
 
+    let mut buckets_neutral = vec![Point::neutral_element(); (1 << window_size) - 1];
+    let mut buckets_neutral_limbs: Vec<u32> = buckets_neutral
+        .iter()
+        .map(|b| b.to_u32_limbs())
+        .flatten()
+        .collect();
+
     let org_buckets_pipe = state.setup_pipeline("org_buckets").unwrap();
     (0..num_windows)
         .rev()
         .map(|window_idx| {
-            let mut buckets = vec![Point::neutral_element(); (1 << window_size) - 1];
-            let mut buckets_limbs: Vec<u32> =
-                buckets.iter().map(|b| b.to_u32_limbs()).flatten().collect();
-            let buckets_buffer = state.alloc_buffer_data(&buckets_limbs);
+            let buckets_buffer = state.alloc_buffer_data(&buckets_neutral_limbs);
 
             cs.iter().zip(hidings).for_each(|(k, p)| {
                 objc::rc::autoreleasepool(|| {
@@ -151,8 +155,7 @@ pub fn pippenger_sequencial<const NUM_LIMBS: usize>(
                 });
             });
 
-            buckets_limbs = MetalState::retrieve_contents(&buckets_buffer);
-            buckets = buckets_limbs
+            let mut buckets: Vec<Point> = MetalState::retrieve_contents(&buckets_buffer)
                 .chunks(12 * 3)
                 .map(Point::from_u32_limbs)
                 .collect();
