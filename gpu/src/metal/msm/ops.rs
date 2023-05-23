@@ -59,7 +59,7 @@ pub fn pippenger<const NUM_LIMBS: usize>(
     let p_buffer = state.alloc_buffer_data(&p_limbs);
     let wsize_buffer = state.alloc_buffer_data(&[window_size as u32]);
 
-    let org_buckets_pipe = state.setup_pipeline("org_buckets").unwrap();
+    let org_buckets_pipe = state.setup_pipeline("calculate_buckets").unwrap();
     (0..num_windows)
         .rev()
         .map(|window_idx| {

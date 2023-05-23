@@ -11,7 +11,7 @@ namespace {
 
 constant constexpr uint32_t NUM_LIMBS = 12;  // u384
 
-[[kernel]] void org_buckets(
+[[kernel]] void calculate_buckets(
     constant const uint32_t& _window_idx  [[ buffer(0) ]],
     constant const uint32_t& _window_size  [[ buffer(1) ]],
     constant const u384* k_buff           [[ buffer(2) ]],
