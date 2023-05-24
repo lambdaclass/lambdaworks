@@ -25,6 +25,11 @@ public:
         Fp v1 = other.x * z;
         Fp v2 = x * other.z;
 
+        Fp two    = Fp(2).to_montgomery();
+        Fp three  = Fp(3).to_montgomery();
+        Fp four   = Fp(4).to_montgomery();
+        Fp eight  = Fp(8).to_montgomery();
+
         if (v1 == v2) {
             if (u1 != u2 || y == Fp(0)) {
                 return neutral_element();
@@ -32,24 +37,24 @@ public:
 
             Fp a_fp = Fp(A_CURVE).to_montgomery();
 
-            Fp w = a_fp * z.pow(2) + Fp(3).to_montgomery() * x.pow(2);
+            Fp w = a_fp * z*z + three * x*x;
             Fp s = y * z;
             Fp b = x * y * s;
-            Fp h = w.pow(2) - Fp(8).to_montgomery() * b;
-            Fp xp = Fp(2).to_montgomery() * h * s;
-            Fp yp = w * (Fp(4).to_montgomery() * b - h) - Fp(8).to_montgomery() * y.pow(2) * s.pow(2);
-            Fp zp = Fp(8).to_montgomery() * s.pow(3);
-              
+            Fp h = w * w - eight * b;
+            Fp xp = two * h * s;
+            Fp yp = w * (four * b - h) - eight * y*y * s*s;
+            Fp zp = eight * s*s*s;
+
             return ECPoint(xp, yp, zp);
         }
 
         Fp u = u1 - u2;
         Fp v = v1 - v2;
         Fp w = z * other.z;
-        Fp a = u.pow(2) * w - v.pow(3) - Fp(2).to_montgomery() * v.pow(2) * v2;
+        Fp a = u * u * w - v * v * v - two * v*v * v2;
         Fp xp = v * a;
-        Fp yp = u * (v.pow(2) * v2 - a) - v.pow(3) * u2;
-        Fp zp = v.pow(3) * w;
+        Fp yp = u * (v*v * v2 - a) - v *v*v * u2;
+        Fp zp = v*v*v * w;
 
         return ECPoint(xp, yp, zp);
     }
