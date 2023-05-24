@@ -29,6 +29,7 @@ jobs:
 
       - name: Check benchmarks
         run: cargo bench --no-run
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
@@ -47,6 +48,7 @@ jobs:
 
       - name: Run clippy
         run: make clippy
+
   test:
     name: Test (Ubuntu)
     runs-on: ubuntu-latest
@@ -68,6 +70,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: lcov.info
           fail_ci_if_error: true
+
   test_macos:
     name: Test (macOS, Apple sillicon)
     runs-on: [self-hosted, macOS]
@@ -80,8 +83,13 @@ jobs:
         with:
           toolchain: stable
           components: clippy
+      - name: Compile shaders
+        run: make build-metal
+      - name: Run clippy
+        run: make clippy-metal
       - name: Run tests
         run: cargo test -F metal
+
   test_nvidia:
     name: Test (Ubuntu, NVIDIA GPU)
     runs-on: [self-hosted, cuda]
@@ -94,5 +102,10 @@ jobs:
         with:
           toolchain: stable
           components: clippy
+
+      - name: Compile shaders
+        run: make build-cuda
+      - name: Run clippy
+        run: make clippy-cuda
       - name: Run tests
         run: cargo test -F cuda

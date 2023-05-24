@@ -6,6 +6,12 @@ test:
 clippy:
 	cargo clippy --workspace --all-targets -- -D warnings
 
+clippy-metal:
+	cargo clippy --workspace --all-targets -F metal -- -D warnings
+
+clippy-cuda:
+	cargo clippy --workspace --all-targets -F cuda -- -D warnings
+
 docker-shell:
 	docker build -t rust-curves .
 	docker run -it rust-curves bash
