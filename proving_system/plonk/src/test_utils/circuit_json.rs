@@ -59,26 +59,31 @@ pub fn common_preprocessed_input_from_json(
             ql: Polynomial::interpolate(
                 &domain,
                 &process_vector(json_input.Ql, &FrElement::zero(), n),
-            ),
+            )
+            .unwrap(),
             qr: Polynomial::interpolate(
                 &domain,
                 &process_vector(json_input.Qr, &FrElement::zero(), n),
-            ),
+            )
+            .unwrap(),
             qo: Polynomial::interpolate(
                 &domain,
                 &process_vector(json_input.Qo, &FrElement::zero(), n),
-            ),
+            )
+            .unwrap(),
             qm: Polynomial::interpolate(
                 &domain,
                 &process_vector(json_input.Qm, &FrElement::zero(), n),
-            ),
+            )
+            .unwrap(),
             qc: Polynomial::interpolate(
                 &domain,
                 &process_vector(json_input.Qc, &FrElement::zero(), n),
-            ),
-            s1: Polynomial::interpolate(&domain, &s1_lagrange),
-            s2: Polynomial::interpolate(&domain, &s2_lagrange),
-            s3: Polynomial::interpolate(&domain, &s3_lagrange),
+            )
+            .unwrap(),
+            s1: Polynomial::interpolate(&domain, &s1_lagrange).unwrap(),
+            s2: Polynomial::interpolate(&domain, &s2_lagrange).unwrap(),
+            s3: Polynomial::interpolate(&domain, &s3_lagrange).unwrap(),
             s1_lagrange,
             s2_lagrange,
             s3_lagrange,

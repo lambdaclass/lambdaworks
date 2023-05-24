@@ -39,11 +39,8 @@ pub fn metal_fft_benchmarks(c: &mut Criterion) {
             &(input, twiddles),
             |bench, (input, twiddles)| {
                 bench.iter(|| {
-                    // TODO: autoreleaspool hurts perf. by 2-3%. Search for an alternative
-                    objc::rc::autoreleasepool(|| {
-                        let metal_state = MetalState::new(None).unwrap();
-                        fft(input, twiddles, &metal_state).unwrap();
-                    });
+                    let metal_state = MetalState::new(None).unwrap();
+                    fft(input, twiddles, &metal_state).unwrap();
                 });
             },
         );
@@ -61,11 +58,8 @@ pub fn metal_twiddles_gen_benchmarks(c: &mut Criterion) {
 
         group.bench_with_input("Parallel (Metal)", &order, |bench, order| {
             bench.iter(|| {
-                // TODO: autoreleaspool hurts perf. by 2-3%. Search for an alternative
-                objc::rc::autoreleasepool(|| {
-                    let metal_state = MetalState::new(None).unwrap();
-                    gen_twiddles::<F>(*order, RootsConfig::Natural, &metal_state).unwrap();
-                });
+                let metal_state = MetalState::new(None).unwrap();
+                gen_twiddles::<F>(*order, RootsConfig::Natural, &metal_state).unwrap();
             });
         });
     }
@@ -83,11 +77,8 @@ pub fn metal_bitrev_permutation_benchmarks(c: &mut Criterion) {
 
         group.bench_with_input("Parallel (Metal)", &coeffs, |bench, coeffs| {
             bench.iter(|| {
-                // TODO: autoreleaspool hurts perf. by 2-3%. Search for an alternative
-                objc::rc::autoreleasepool(|| {
-                    let metal_state = MetalState::new(None).unwrap();
-                    bitrev_permutation::<F, _>(coeffs, &metal_state).unwrap();
-                });
+                let metal_state = MetalState::new(None).unwrap();
+                bitrev_permutation::<F, _>(coeffs, &metal_state).unwrap();
             });
         });
     }
@@ -106,10 +97,7 @@ pub fn metal_poly_interpolate_fft_benchmarks(c: &mut Criterion) {
 
         group.bench_with_input("Parallel FFT (Metal)", &evals, |bench, evals| {
             bench.iter(|| {
-                // TODO: autoreleaspool hurts perf. by 2-3%. Search for an alternative
-                objc::rc::autoreleasepool(|| {
-                    interpolate_fft_metal(evals).unwrap();
-                });
+                interpolate_fft_metal(evals).unwrap();
             });
         });
     }
@@ -127,10 +115,7 @@ pub fn metal_poly_evaluate_fft_benchmarks(c: &mut Criterion) {
 
         group.bench_with_input("Parallel FFT (Metal)", &poly, |bench, poly| {
             bench.iter(|| {
-                // TODO: autoreleaspool hurts perf. by 2-3%. Search for an alternative
-                objc::rc::autoreleasepool(|| {
-                    evaluate_fft_metal(poly).unwrap();
-                });
+                evaluate_fft_metal(poly).unwrap();
             });
         });
     }

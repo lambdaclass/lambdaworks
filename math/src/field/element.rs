@@ -20,6 +20,28 @@ pub struct FieldElement<F: IsField> {
     value: F::BaseType,
 }
 
+impl<F: IsField> FieldElement<F> {
+    // Source: https://en.wikipedia.org/wiki/Modular_multiplicative_inverse#Multiple_inverses
+    pub fn inplace_batch_inverse(numbers: &mut [Self]) {
+        if numbers.is_empty() {
+            return;
+        }
+        let count = numbers.len();
+        let mut prod_prefix = Vec::with_capacity(count);
+        prod_prefix.push(numbers[0].clone());
+        for i in 1..count {
+            prod_prefix.push(&prod_prefix[i - 1] * &numbers[i]);
+        }
+        let mut bi_inv = prod_prefix[count - 1].inv();
+        for i in (1..count).rev() {
+            let ai_inv = &bi_inv * &prod_prefix[i - 1];
+            bi_inv = &bi_inv * &numbers[i];
+            numbers[i] = ai_inv;
+        }
+        numbers[0] = bi_inv;
+    }
+}
+
 /// From overloading for field elements
 impl<F> From<&F::BaseType> for FieldElement<F>
 where
@@ -499,6 +521,8 @@ mod tests {
     use crate::field::test_fields::u64_test_field::U64TestField;
     use crate::unsigned_integer::element::UnsignedInteger;
 
+    use proptest::{collection, prelude::*, prop_compose, proptest, strategy::Strategy};
+
     #[test]
     fn test_std_iter_sum_field_element() {
         let n = 164;
@@ -603,5 +627,30 @@ mod tests {
         let input = FrElement::from(27);
         let sqrt = input.sqrt();
         assert!(sqrt.is_none());
+    }
+
+    prop_compose! {
+        fn field_element()(num in any::<u64>().prop_filter("Avoid null coefficients", |x| x != &0)) -> FieldElement::<Stark252PrimeField> {
+            FieldElement::<Stark252PrimeField>::from(num)
+        }
+    }
+
+    prop_compose! {
+        fn field_vec(max_exp: u8)(vec in collection::vec(field_element(), 0..1 << max_exp)) -> Vec<FieldElement::<Stark252PrimeField>> {
+            vec
+        }
+    }
+
+    proptest! {
+        #[test]
+        fn test_inplace_batch_inverse_returns_inverses(vec in field_vec(10)) {
+            let input: Vec<_> = vec.into_iter().filter(|x| x != &FieldElement::<Stark252PrimeField>::zero()).collect();
+            let mut inverses = input.clone();
+            FieldElement::inplace_batch_inverse(&mut inverses);
+
+            for (i, x) in inverses.into_iter().enumerate() {
+                prop_assert_eq!(x * &input[i], FieldElement::<Stark252PrimeField>::one());
+            }
+        }
     }
 }

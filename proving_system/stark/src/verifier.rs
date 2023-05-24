@@ -213,7 +213,8 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
         let trace_evaluation = &proof.trace_ood_frame_evaluations.get_row(0)[trace_idx];
         let boundary_constraints_domain = boundary_constraint_domains[trace_idx].clone();
         let boundary_interpolating_polynomial =
-            &Polynomial::interpolate(&boundary_constraints_domain, &values[trace_idx]);
+            &Polynomial::interpolate(&boundary_constraints_domain, &values[trace_idx])
+                .expect("xs and ys have equal length and xs are unique");
 
         let boundary_zerofier =
             boundary_constraints.compute_zerofier(&domain.trace_primitive_root, trace_idx);

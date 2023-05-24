@@ -375,7 +375,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
             }
             i += 1;
         }
-        false
+        true
     }
 
     pub const fn const_shl(self, times: usize) -> Self {
@@ -1852,6 +1852,15 @@ mod tests_u256 {
         let (b, overflow) = U256::sub(&a, &c);
         assert!(overflow);
         assert_eq!(b_expected, b);
+    }
+
+    #[test]
+    fn const_le_works() {
+        let a = U256::from_u64(334);
+        let b = U256::from_u128(333);
+        assert!(U256::const_le(&b, &a));
+        assert!(U256::const_le(&a, &a));
+        assert!(!U256::const_le(&a, &b));
     }
 
     #[test]
