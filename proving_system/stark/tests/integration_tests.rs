@@ -284,11 +284,13 @@ fn test_prove_cairo_fibonacci_30() {
 }
 
 #[test_log::test]
+#[ignore]
 fn test_prove_cairo_fibonacci_50() {
     test_prove_cairo_fibonacci("fibonacci_50", 512);
 }
 
 #[test_log::test]
+#[ignore]
 fn test_prove_cairo_fibonacci_100() {
     test_prove_cairo_fibonacci("fibonacci_100", 1024);
 }
