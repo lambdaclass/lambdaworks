@@ -51,7 +51,7 @@ pub fn pippenger(
     let p_buffer = state.alloc_buffer_data(&p_limbs);
     let wsize_buffer = state.alloc_buffer_data(&[window_size as u32]);
 
-    let org_buckets_pipe = state.setup_pipeline("calculate_buckets").unwrap();
+    let calc_buckets_pipe = state.setup_pipeline("calculate_buckets")?;
     Ok((0..num_windows)
         .rev()
         .map(|window_idx| {
@@ -59,7 +59,7 @@ pub fn pippenger(
 
             objc::rc::autoreleasepool(|| {
                 let (command_buffer, command_encoder) = state.setup_command(
-                    &org_buckets_pipe,
+                    &calc_buckets_pipe,
                     Some(&[
                         (1, &wsize_buffer),
                         (2, &k_buffer),
