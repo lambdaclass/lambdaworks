@@ -1,11 +1,9 @@
 use lambdaworks_math::{
     cyclic_group::IsGroup,
     elliptic_curve::short_weierstrass::{
-        curves::bls12_381::{curve::BLS12381Curve, field_extension::BLS12381PrimeField},
-        point::ShortWeierstrassProjectivePoint,
+        curves::bls12_381::curve::BLS12381Curve, point::ShortWeierstrassProjectivePoint,
     },
-    field::element::FieldElement,
-    unsigned_integer::{element::UnsignedInteger, traits::U32Limbs},
+    unsigned_integer::{element::U384, traits::U32Limbs},
 };
 
 use crate::metal::abstractions::{errors::MetalError, state::*};
@@ -13,13 +11,13 @@ use crate::metal::abstractions::{errors::MetalError, state::*};
 use metal::MTLSize;
 
 type Point = ShortWeierstrassProjectivePoint<BLS12381Curve>;
-pub type F = BLS12381PrimeField;
-pub type FE = FieldElement<F>;
+
+const NUM_LIMBS: usize = 6;
 
 /// Computes the multiscalar multiplication (MSM), using Pippenger's algorithm parallelized in
 /// Metal.
-pub fn pippenger<const NUM_LIMBS: usize>(
-    cs: &[UnsignedInteger<NUM_LIMBS>],
+pub fn pippenger(
+    cs: &[U384],
     hidings: &[Point],
     window_size: usize,
     state: &MetalState,
@@ -42,21 +40,12 @@ pub fn pippenger<const NUM_LIMBS: usize>(
     let num_windows = (n_bits - 1) / window_size + 1;
     let buckets_len = (1 << window_size) - 1;
 
-    let buckets_matrix = vec![Point::neutral_element(); buckets_len * point_len];
-    // TODO: make a helper func for converting collections into limbs
-    let buckets_matrix_limbs: Vec<u32> = buckets_matrix
-        .iter()
-        .flat_map(|b| b.to_u32_limbs())
-        .collect();
-
-    let k_limbs = cs
-        .iter()
-        .flat_map(|uint| uint.to_u32_limbs())
-        .collect::<Vec<_>>();
-    let p_limbs = hidings
-        .iter()
-        .flat_map(|uint| uint.to_u32_limbs())
-        .collect::<Vec<_>>();
+    let buckets_matrix_limbs = {
+        let matrix = vec![Point::neutral_element(); buckets_len * point_len];
+        Point::to_flat_u32_limbs(&matrix)
+    };
+    let k_limbs = U384::to_flat_u32_limbs(cs);
+    let p_limbs = Point::to_flat_u32_limbs(hidings);
 
     let k_buffer = state.alloc_buffer_data(&k_limbs);
     let p_buffer = state.alloc_buffer_data(&p_limbs);
@@ -90,10 +79,10 @@ pub fn pippenger<const NUM_LIMBS: usize>(
                 command_buffer.wait_until_completed();
             });
 
-            let buckets_matrix: Vec<Point> = MetalState::retrieve_contents(&buckets_matrix_buffer)
-                .chunks(12 * 3)
-                .map(Point::from_u32_limbs)
-                .collect();
+            let buckets_matrix = {
+                let limbs = MetalState::retrieve_contents(&buckets_matrix_buffer);
+                Point::from_flat_u32_limbs(&limbs)
+            };
 
             let mut buckets = Vec::with_capacity(buckets_len);
 

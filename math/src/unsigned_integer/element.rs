@@ -29,38 +29,6 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
     }
 }
 
-impl<const NUM_LIMBS: usize> U32Limbs for UnsignedInteger<NUM_LIMBS> {
-    fn from_u32_limbs(limbs: &[u32]) -> Self {
-        let mut limbs = limbs.to_vec();
-        limbs.reverse();
-        limbs.resize(NUM_LIMBS * 2, 0);
-        limbs.reverse();
-
-        let mut limbs_64 = [0; NUM_LIMBS];
-
-        for (i, pair) in limbs.chunks(2).enumerate() {
-            let high = pair[0];
-            let low = pair[1];
-            let limb = ((high as u64) << 32) + (low as u64);
-            limbs_64[i] = limb;
-        }
-
-        UnsignedInteger::from_limbs(limbs_64)
-    }
-
-    fn to_u32_limbs(&self) -> Vec<u32> {
-        let mut limbs_32 = vec![];
-        for limb in self.limbs {
-            let high = (limb >> 32) as u32;
-            let low = limb as u32;
-            limbs_32.push(high);
-            limbs_32.push(low);
-        }
-
-        limbs_32
-    }
-}
-
 impl<const NUM_LIMBS: usize> From<u128> for UnsignedInteger<NUM_LIMBS> {
     fn from(value: u128) -> Self {
         let mut limbs = [0u64; NUM_LIMBS];
@@ -621,6 +589,41 @@ impl<const NUM_LIMBS: usize> ByteConversion for UnsignedInteger<NUM_LIMBS> {
             .map_err(|_| ByteConversionError::FromLEBytesError)?;
 
         Ok(Self { limbs })
+    }
+}
+
+const U384_64BIT_NUM_LIMBS: usize = 6;
+const U384_32BIT_NUM_LIMBS: usize = 12;
+
+impl U32Limbs<U384_32BIT_NUM_LIMBS> for U384 {
+    fn from_u32_limbs(limbs: &[u32]) -> Self {
+        let mut limbs = limbs.to_vec();
+        limbs.reverse();
+        limbs.resize(U384_32BIT_NUM_LIMBS, 0);
+        limbs.reverse();
+
+        let mut limbs_64 = [0; U384_64BIT_NUM_LIMBS];
+
+        for (i, pair) in limbs.chunks(2).enumerate() {
+            let high = pair[0];
+            let low = pair[1];
+            let limb = ((high as u64) << 32) + (low as u64);
+            limbs_64[i] = limb;
+        }
+
+        UnsignedInteger::from_limbs(limbs_64)
+    }
+
+    fn to_u32_limbs(&self) -> Vec<u32> {
+        let mut limbs_32 = vec![];
+        for limb in self.limbs {
+            let high = (limb >> 32) as u32;
+            let low = limb as u32;
+            limbs_32.push(high);
+            limbs_32.push(low);
+        }
+
+        limbs_32
     }
 }
 

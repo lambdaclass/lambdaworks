@@ -264,7 +264,8 @@ where
     }
 }
 
-impl U32Limbs for ShortWeierstrassProjectivePoint<BLS12381Curve> {
+const NUM_LIMBS: usize = 36; // 12 * 3
+impl U32Limbs<NUM_LIMBS> for ShortWeierstrassProjectivePoint<BLS12381Curve> {
     fn from_u32_limbs(limbs: &[u32]) -> Self {
         type FE = FieldElement<BLS12381PrimeField>;
 
