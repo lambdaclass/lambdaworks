@@ -27,7 +27,11 @@ impl<E: IsEllipticCurve> ShortWeierstrassProjectivePoint<E> {
     /// Creates an elliptic curve point giving the projective [x: y: z] coordinates from a slice
     /// that will be resized to a length of 3 and filled with zeros if necessary.
     pub fn from_slice(value: &[FieldElement<E::BaseField>]) -> Self {
-        let mut limbs = [FieldElement::zero(); 3];
+        let mut limbs = [
+            FieldElement::zero(),
+            FieldElement::zero(),
+            FieldElement::zero(),
+        ]; // E::BaseField doesn't impl Copy, so [zero(); 3] can't work.
         let length = value.len().min(3);
 
         limbs[..length].clone_from_slice(value);
