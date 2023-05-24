@@ -11,7 +11,7 @@ use lambdaworks_math::{
         traits::{IsEllipticCurve, IsPairing},
     },
 };
-use rand::{rngs::StdRng, SeedableRng, Rng};
+use rand::{rngs::StdRng, Rng, SeedableRng};
 
 mod util;
 
