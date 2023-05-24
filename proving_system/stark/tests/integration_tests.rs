@@ -233,9 +233,8 @@ fn test_prove_cairo_call_func() {
     assert!(verify(&result, &cairo_air, &public_input));
 }
 
-#[test_log::test]
-fn test_prove_cairo_fibonacci() {
-    let (raw_trace, memory) = load_cairo_trace_and_memory("fibonacci_5");
+fn test_prove_cairo_fibonacci(file_name: &str, trace_length: usize) {
+    let (raw_trace, memory) = load_cairo_trace_and_memory(file_name);
 
     let proof_options = ProofOptions {
         blowup_factor: 2,
@@ -250,7 +249,7 @@ fn test_prove_cairo_fibonacci() {
         program.push(memory.get(&i).unwrap().clone());
     }
 
-    let cairo_air = cairo::CairoAIR::new(proof_options, 128, raw_trace.steps());
+    let cairo_air = cairo::CairoAIR::new(proof_options, trace_length, raw_trace.steps());
 
     let last_step = &raw_trace.rows[raw_trace.steps() - 1];
     let mut public_input = PublicInputs {
@@ -267,6 +266,31 @@ fn test_prove_cairo_fibonacci() {
 
     let result = prove(&(raw_trace, memory), &cairo_air, &mut public_input).unwrap();
     assert!(verify(&result, &cairo_air, &public_input));
+}
+
+#[test_log::test]
+fn test_prove_cairo_fibonacci_5() {
+    test_prove_cairo_fibonacci("fibonacci_5", 64);
+}
+
+#[test_log::test]
+fn test_prove_cairo_fibonacci_10() {
+    test_prove_cairo_fibonacci("fibonacci_10", 128);
+}
+
+#[test_log::test]
+fn test_prove_cairo_fibonacci_30() {
+    test_prove_cairo_fibonacci("fibonacci_30", 256);
+}
+
+#[test_log::test]
+fn test_prove_cairo_fibonacci_50() {
+    test_prove_cairo_fibonacci("fibonacci_50", 512);
+}
+
+#[test_log::test]
+fn test_prove_cairo_fibonacci_100() {
+    test_prove_cairo_fibonacci("fibonacci_100", 1024);
 }
 
 #[test_log::test]
@@ -366,7 +390,8 @@ fn test_verifier_rejects_proof_of_a_slightly_different_program() {
         &(program_1_raw_trace, program_1_memory),
         &cairo_air,
         &mut public_input,
-    ).unwrap();
+    )
+    .unwrap();
 
     // Here we change program 1 to program 2 in the public inputs.
     public_input.program = program_2;

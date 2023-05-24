@@ -17,7 +17,8 @@ use crate::{
         cairo_mem::CairoMemory, cairo_trace::CairoTrace,
         execution_trace::build_cairo_execution_trace,
     },
-    transcript_to_field, FE, prover::ProvingError,
+    prover::ProvingError,
+    transcript_to_field, FE,
 };
 
 /// Main constraint identifiers
@@ -380,16 +381,17 @@ impl AIR for CairoAIR {
         public_input.range_check_max = Some(rc_max);
 
         add_missing_values_to_offsets_column(&mut main_trace, missing_values);
- 
+
         if self.context().trace_length < main_trace.n_rows() {
-            return Err(ProvingError::WrongParameter("Trace length is not large enough.".to_string()))
+            return Err(ProvingError::WrongParameter(
+                "Trace length is not large enough.".to_string(),
+            ));
         }
 
         let padding = self.context().trace_length - main_trace.n_rows();
         pad_with_last_row(&mut main_trace, padding, &MEMORY_COLUMNS);
 
         Ok(main_trace)
-        
     }
 
     fn build_auxiliary_trace(
@@ -893,7 +895,9 @@ mod test {
             num_steps: raw_trace.steps(),
         };
 
-        let main_trace = cairo_air.build_main_trace(&(raw_trace, memory), &mut public_input).unwrap();
+        let main_trace = cairo_air
+            .build_main_trace(&(raw_trace, memory), &mut public_input)
+            .unwrap();
         let mut trace_polys = main_trace.compute_trace_polys();
         let mut transcript = DefaultTranscript::new();
         let rap_challenges = cairo_air.build_rap_challenges(&mut transcript);

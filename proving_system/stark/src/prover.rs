@@ -29,7 +29,7 @@ use crate::air::debug::validate_trace;
 
 #[derive(Debug)]
 pub enum ProvingError {
-    WrongParameter(String)
+    WrongParameter(String),
 }
 
 struct Round1<F: IsFFTField, A: AIR<Field = F>> {

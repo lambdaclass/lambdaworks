@@ -9,7 +9,8 @@ use crate::{
         AIR,
     },
     fri::FieldElement,
-    transcript_to_field, prover::ProvingError,
+    prover::ProvingError,
+    transcript_to_field,
 };
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::field::{

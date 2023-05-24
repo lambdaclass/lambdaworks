@@ -254,4 +254,3 @@ pub fn prove_cairo_fibonacci_100() {
 
     prove(&(raw_trace, memory), &cairo_air, &mut public_input).unwrap();
 }
-

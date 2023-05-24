@@ -6,7 +6,8 @@ use crate::{
         trace::TraceTable,
         AIR,
     },
-    fri::FieldElement, prover::ProvingError,
+    fri::FieldElement,
+    prover::ProvingError,
 };
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::field::{
