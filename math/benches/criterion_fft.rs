@@ -1,8 +1,9 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use lambdaworks_math::{fft::roots_of_unity::get_twiddles, field::traits::RootsConfig};
 
-mod functions;
-mod stark252_utils;
+mod utils;
+use utils::fft_functions;
+use utils::stark252_utils;
 
 const SIZE_ORDERS: [u64; 4] = [21, 22, 23, 24];
 
@@ -21,7 +22,7 @@ pub fn fft_benchmarks(c: &mut Criterion) {
             &(&input, twiddles_bitrev),
             |bench, (input, twiddles)| {
                 bench.iter(|| {
-                    functions::fft::ordered_fft_nr(input, twiddles);
+                    fft_functions::ordered_fft_nr(input, twiddles);
                 });
             },
         );
@@ -30,7 +31,7 @@ pub fn fft_benchmarks(c: &mut Criterion) {
             &(input, twiddles_nat),
             |bench, (input, twiddles)| {
                 bench.iter(|| {
-                    functions::fft::ordered_fft_rn(input, twiddles);
+                    fft_functions::ordered_fft_rn(input, twiddles);
                 });
             },
         );
@@ -46,7 +47,7 @@ fn twiddles_generation_benchmarks(c: &mut Criterion) {
         group.throughput(criterion::Throughput::Elements(1 << (order - 1)));
         group.bench_with_input("Sequential", &order, |bench, order| {
             bench.iter_with_large_drop(|| {
-                functions::fft::twiddles_generation(*order);
+                fft_functions::twiddles_generation(*order);
             });
         });
     }
@@ -61,7 +62,7 @@ fn bitrev_permutation_benchmarks(c: &mut Criterion) {
         group.throughput(criterion::Throughput::Elements(input.len() as u64));
         group.bench_with_input("Sequential", &input, |bench, input| {
             bench.iter_with_large_drop(|| {
-                functions::fft::bitrev_permute(input);
+                fft_functions::bitrev_permute(input);
             });
         });
     }
@@ -78,7 +79,7 @@ fn poly_evaluation_benchmarks(c: &mut Criterion) {
         ));
         group.bench_with_input("Sequential FFT", &poly, |bench, poly| {
             bench.iter_with_large_drop(|| {
-                functions::fft::poly_evaluate_fft(poly);
+                fft_functions::poly_evaluate_fft(poly);
             });
         });
     }
@@ -93,7 +94,7 @@ fn poly_interpolation_benchmarks(c: &mut Criterion) {
         group.throughput(criterion::Throughput::Elements(evals.len() as u64));
         group.bench_with_input("Sequential FFT", &evals, |bench, evals| {
             bench.iter_with_large_drop(|| {
-                functions::fft::poly_interpolate_fft(evals);
+                fft_functions::poly_interpolate_fft(evals);
             });
         });
     }

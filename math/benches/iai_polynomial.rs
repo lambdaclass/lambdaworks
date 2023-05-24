@@ -2,7 +2,8 @@ use const_random::const_random;
 use iai_callgrind::black_box;
 use u64_utils::{rand_field_elements, rand_poly, FE};
 
-mod u64_utils;
+mod utils;
+use utils::u64_utils;
 
 const ORDER: u64 = const_random!(u64) % 8;
 

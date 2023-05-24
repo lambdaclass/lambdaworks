@@ -1,7 +1,8 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use u64_utils::rand_field_elements_pair;
 
-mod u64_utils;
+mod utils;
+use utils::u64_utils;
 
 pub fn u64_ops_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("u64 FP operations");

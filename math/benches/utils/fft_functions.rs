@@ -8,7 +8,7 @@ use lambdaworks_math::fft::{
 
 use lambdaworks_math::{field::traits::RootsConfig, polynomial::Polynomial};
 
-use crate::stark252_utils::{F, FE};
+use super::stark252_utils::{F, FE};
 
 pub fn ordered_fft_nr(input: &[FE], twiddles: &[FE]) {
     let mut input = input.to_vec();
