@@ -23,11 +23,11 @@ benchmark:
 flamegraph_stark:
 	CARGO_PROFILE_BENCH_DEBUG=true cargo flamegraph --root --bench stark_benchmarks -- --bench
 
-METAL_DIR = gpu/src/metal/shaders
+METAL_DIR = math/src/gpu/metal/shaders
 build-metal:
 	xcrun -sdk macosx metal $(METAL_DIR)/all.metal -o $(METAL_DIR)/lib.metallib
 
-CUDA_DIR = gpu/src/cuda/shaders
+CUDA_DIR = math/src/gpu/cuda/shaders
 CUDA_FILES:=$(wildcard $(CUDA_DIR)/**/*.cu)
 CUDA_COMPILED:=$(patsubst $(CUDA_DIR)/%.cu, $(CUDA_DIR)/%.ptx, $(CUDA_FILES))
 
