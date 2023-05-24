@@ -53,7 +53,7 @@ fn test_prove_fib() {
 
     let fibonacci_air = simple_fibonacci::FibonacciAIR::from(context);
 
-    let result = prove(&trace, &fibonacci_air, &mut ());
+    let result = prove(&trace, &fibonacci_air, &mut ()).unwrap();
     assert!(verify(&result, &fibonacci_air, &()));
 }
 
@@ -77,7 +77,7 @@ fn test_prove_fib17() {
 
     let fibonacci_air = fibonacci_f17::Fibonacci17AIR::from(context);
 
-    let result = prove(&trace, &fibonacci_air, &mut ());
+    let result = prove(&trace, &fibonacci_air, &mut ()).unwrap();
     assert!(verify(&result, &fibonacci_air, &()));
 }
 
@@ -102,7 +102,7 @@ fn test_prove_fib_2_cols() {
 
     let fibonacci_air = fibonacci_2_columns::Fibonacci2ColsAIR::from(context);
 
-    let result = prove(&trace_columns, &fibonacci_air, &mut ());
+    let result = prove(&trace_columns, &fibonacci_air, &mut ()).unwrap();
     assert!(verify(&result, &fibonacci_air, &()));
 }
 
@@ -126,7 +126,7 @@ fn test_prove_quadratic() {
 
     let quadratic_air = quadratic_air::QuadraticAIR::from(context);
 
-    let result = prove(&trace, &quadratic_air, &mut ());
+    let result = prove(&trace, &quadratic_air, &mut ()).unwrap();
     assert!(verify(&result, &quadratic_air, &()));
 }
 
@@ -175,7 +175,7 @@ fn test_prove_cairo_simple_program() {
         num_steps: raw_trace.steps(),
     };
 
-    let result = prove(&(raw_trace, memory), &cairo_air, &mut public_input);
+    let result = prove(&(raw_trace, memory), &cairo_air, &mut public_input).unwrap();
     assert!(verify(&result, &cairo_air, &public_input));
 }
 
@@ -229,7 +229,7 @@ fn test_prove_cairo_call_func() {
         num_steps: raw_trace.steps(),
     };
 
-    let result = prove(&(raw_trace, memory), &cairo_air, &mut public_input);
+    let result = prove(&(raw_trace, memory), &cairo_air, &mut public_input).unwrap();
     assert!(verify(&result, &cairo_air, &public_input));
 }
 
@@ -265,7 +265,7 @@ fn test_prove_cairo_fibonacci() {
         num_steps: raw_trace.steps(),
     };
 
-    let result = prove(&(raw_trace, memory), &cairo_air, &mut public_input);
+    let result = prove(&(raw_trace, memory), &cairo_air, &mut public_input).unwrap();
     assert!(verify(&result, &cairo_air, &public_input));
 }
 
@@ -294,7 +294,7 @@ fn test_prove_rap_fib() {
 
     let fibonacci_rap = FibonacciRAP::new(context);
 
-    let result = prove(&trace_cols, &fibonacci_rap, &mut ());
+    let result = prove(&trace_cols, &fibonacci_rap, &mut ()).unwrap();
     assert!(verify(&result, &fibonacci_rap, &()));
 }
 
@@ -319,7 +319,7 @@ fn test_prove_dummy() {
 
     let dummy_air = dummy_air::DummyAIR::from(context);
 
-    let result = prove(&trace, &dummy_air, &mut ());
+    let result = prove(&trace, &dummy_air, &mut ()).unwrap();
     assert!(verify(&result, &dummy_air, &()));
 }
 
@@ -366,7 +366,7 @@ fn test_verifier_rejects_proof_of_a_slightly_different_program() {
         &(program_1_raw_trace, program_1_memory),
         &cairo_air,
         &mut public_input,
-    );
+    ).unwrap();
 
     // Here we change program 1 to program 2 in the public inputs.
     public_input.program = program_2;
@@ -408,7 +408,7 @@ fn test_verifier_rejects_proof_with_different_range_bounds() {
         num_steps: raw_trace.steps(),
     };
 
-    let result = prove(&(raw_trace, memory), &cairo_air, &mut public_input);
+    let result = prove(&(raw_trace, memory), &cairo_air, &mut public_input).unwrap();
 
     public_input.range_check_min = Some(public_input.range_check_min.unwrap() + 1);
     assert!(!verify(&result, &cairo_air, &public_input));

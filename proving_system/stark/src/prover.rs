@@ -27,6 +27,11 @@ use log::info;
 #[cfg(debug_assertions)]
 use crate::air::debug::validate_trace;
 
+#[derive(Debug)]
+pub enum ProvingError {
+    WrongParameter(String)
+}
+
 struct Round1<F: IsFFTField, A: AIR<Field = F>> {
     trace_polys: Vec<Polynomial<FieldElement<F>>>,
     lde_trace: TraceTable<F>,
@@ -161,11 +166,11 @@ fn round_1_randomized_air_with_preprocessing<F: IsFFTField, A: AIR<Field = F>, T
     domain: &Domain<F>,
     public_input: &mut A::PublicInput,
     transcript: &mut T,
-) -> Round1<F, A>
+) -> Result<Round1<F, A>, ProvingError>
 where
     FieldElement<F>: ByteConversion,
 {
-    let main_trace = air.build_main_trace(raw_trace, public_input);
+    let main_trace = air.build_main_trace(raw_trace, public_input)?;
 
     let (mut trace_polys, mut evaluations, mut lde_trace_merkle_trees, mut lde_trace_merkle_roots) =
         interpolate_and_commit(&main_trace, domain, transcript);
@@ -186,13 +191,13 @@ where
 
     let lde_trace = TraceTable::new_from_cols(&evaluations);
 
-    Round1 {
+    Ok(Round1 {
         trace_polys,
         lde_trace,
         lde_trace_merkle_roots,
         lde_trace_merkle_trees,
         rap_challenges,
-    }
+    })
 }
 
 fn round_2_compute_composition_polynomial<F, A>(
@@ -474,7 +479,7 @@ pub fn prove<F: IsFFTField, A: AIR<Field = F>>(
     trace: &A::RawTrace,
     air: &A,
     public_input: &mut A::PublicInput,
-) -> StarkProof<F>
+) -> Result<StarkProof<F>, ProvingError>
 where
     FieldElement<F>: ByteConversion,
 {
@@ -494,7 +499,7 @@ where
         &domain,
         public_input,
         &mut transcript,
-    );
+    )?;
 
     #[cfg(debug_assertions)]
     validate_trace(
@@ -602,7 +607,7 @@ where
 
     info!("End proof generation");
 
-    StarkProof {
+    Ok(StarkProof {
         // [tⱼ]
         lde_trace_merkle_roots: round_1_result.lde_trace_merkle_roots,
         // tⱼ(zgᵏ)
@@ -623,7 +628,7 @@ where
         query_list: round_4_result.query_list,
         // Open(H₁(D_LDE, 𝜐₀), Open(H₂(D_LDE, 𝜐₀), Open(tⱼ(D_LDE), 𝜐₀)
         deep_poly_openings: round_4_result.deep_poly_openings,
-    }
+    })
 }
 
 #[cfg(test)]

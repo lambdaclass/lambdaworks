@@ -1,3 +1,5 @@
+use crate::prover::ProvingError;
+
 use self::{
     constraints::boundary::BoundaryConstraints,
     context::{AirContext, ProofOptions},
@@ -29,7 +31,7 @@ pub trait AIR: Clone {
         &self,
         raw_trace: &Self::RawTrace,
         public_input: &mut Self::PublicInput,
-    ) -> TraceTable<Self::Field>;
+    ) -> Result<TraceTable<Self::Field>, ProvingError>;
 
     fn build_auxiliary_trace(
         &self,

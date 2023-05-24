@@ -6,7 +6,7 @@ use crate::{
         trace::TraceTable,
         AIR,
     },
-    fri::FieldElement,
+    fri::FieldElement, prover::ProvingError,
 };
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::field::{
@@ -34,11 +34,11 @@ impl AIR for QuadraticAIR {
         &self,
         raw_trace: &Self::RawTrace,
         _public_input: &mut Self::PublicInput,
-    ) -> TraceTable<Self::Field> {
-        TraceTable {
+    ) -> Result<TraceTable<Self::Field>, ProvingError> {
+        Ok(TraceTable {
             table: raw_trace.clone(),
             n_cols: 1,
-        }
+        })
     }
 
     fn build_auxiliary_trace(

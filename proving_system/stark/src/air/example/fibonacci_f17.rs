@@ -6,7 +6,7 @@ use crate::{
         trace::TraceTable,
         AIR,
     },
-    fri::FieldElement,
+    fri::FieldElement, prover::ProvingError,
 };
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::field::fields::u64_prime_field::F17;
@@ -32,8 +32,8 @@ impl AIR for Fibonacci17AIR {
         &self,
         raw_trace: &Self::RawTrace,
         _public_input: &mut Self::PublicInput,
-    ) -> TraceTable<Self::Field> {
-        TraceTable::new_from_cols(raw_trace)
+    ) -> Result<TraceTable<Self::Field>, ProvingError> {
+        Ok(TraceTable::new_from_cols(raw_trace))
     }
 
     fn build_auxiliary_trace(
