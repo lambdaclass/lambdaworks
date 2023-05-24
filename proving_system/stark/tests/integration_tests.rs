@@ -427,7 +427,7 @@ fn test_verifier_rejects_proof_with_different_range_bounds() {
         fp_init: FE::from(first_step.fp),
         pc_final: FE::from(last_step.pc),
         ap_final: FE::from(last_step.ap),
-        program: program,
+        program,
         range_check_min: None,
         range_check_max: None,
         num_steps: raw_trace.steps(),
