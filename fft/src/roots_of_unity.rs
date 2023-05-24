@@ -12,17 +12,28 @@ pub fn get_powers_of_primitive_root<F: IsFFTField>(
     count: usize,
     config: RootsConfig,
 ) -> Result<Vec<FieldElement<F>>, FFTError> {
+    if count == 0 {
+        return Ok(Vec::new());
+    }
+
     let root = F::get_primitive_root_of_unity(n)?;
 
+    //TODO: see if we can convert the successive exponentiations into an accumulated product
     let calc = |i| match config {
-        RootsConfig::Natural => root.pow(i),
-        RootsConfig::NaturalInversed => root.pow(i).inv(),
-        RootsConfig::BitReverse => root.pow(reverse_index(&i, count as u64)),
-        RootsConfig::BitReverseInversed => root.pow(reverse_index(&i, count as u64)).inv(),
+        RootsConfig::Natural | RootsConfig::NaturalInversed => root.pow(i),
+        RootsConfig::BitReverse | RootsConfig::BitReverseInversed => {
+            root.pow(reverse_index(&i, count as u64))
+        }
     };
 
-    let results = (0..count).map(calc);
-    Ok(results.collect())
+    let mut results: Vec<_> = (0..count).map(calc).collect();
+    if matches!(
+        config,
+        RootsConfig::NaturalInversed | RootsConfig::BitReverseInversed
+    ) {
+        FieldElement::inplace_batch_inverse(&mut results);
+    }
+    Ok(results)
 }
 
 /// Returns a `Vec` of the powers of a `2^n`th primitive root of unity, scaled `offset` times,
