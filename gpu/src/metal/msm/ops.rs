@@ -1,17 +1,16 @@
-#![allow(unused)]
 use lambdaworks_math::{
     cyclic_group::IsGroup,
     elliptic_curve::short_weierstrass::{
         curves::bls12_381::{curve::BLS12381Curve, field_extension::BLS12381PrimeField},
         point::ShortWeierstrassProjectivePoint,
     },
-    field::{element::FieldElement, traits::IsField},
+    field::element::FieldElement,
     unsigned_integer::{element::UnsignedInteger, traits::U32Limbs},
 };
 
 use crate::metal::abstractions::{errors::MetalError, state::*};
 
-use metal::{ComputeCommandEncoderRef, MTLSize};
+use metal::MTLSize;
 
 type Point = ShortWeierstrassProjectivePoint<BLS12381Curve>;
 pub type F = BLS12381PrimeField;
@@ -25,18 +24,27 @@ pub fn pippenger<const NUM_LIMBS: usize>(
     window_size: usize,
     state: &MetalState,
 ) -> Result<Point, MetalError> {
-    let point_len = hidings.len(); // == cs.len();
-    if point_len == 0 {
+    if cs.len() != hidings.len() {
+        return Err(MetalError::InputError(format!(
+            "cs's length ({}) and hidings length ({}) need to match.",
+            cs.len(),
+            hidings.len(),
+        )));
+    }
+
+    if cs.is_empty() {
         return Ok(Point::neutral_element());
     }
+
+    let point_len = cs.len(); // == hidings.len();
 
     let n_bits = 64 * NUM_LIMBS;
     let num_windows = (n_bits - 1) / window_size + 1;
     let buckets_len = (1 << window_size) - 1;
 
-    let mut buckets_matrix = vec![Point::neutral_element(); buckets_len * point_len];
+    let buckets_matrix = vec![Point::neutral_element(); buckets_len * point_len];
     // TODO: make a helper func for converting collections into limbs
-    let mut buckets_matrix_limbs: Vec<u32> = buckets_matrix
+    let buckets_matrix_limbs: Vec<u32> = buckets_matrix
         .iter()
         .flat_map(|b| b.to_u32_limbs())
         .collect();
@@ -55,7 +63,7 @@ pub fn pippenger<const NUM_LIMBS: usize>(
     let wsize_buffer = state.alloc_buffer_data(&[window_size as u32]);
 
     let org_buckets_pipe = state.setup_pipeline("calculate_buckets").unwrap();
-    (0..num_windows)
+    Ok((0..num_windows)
         .rev()
         .map(|window_idx| {
             let buckets_matrix_buffer = state.alloc_buffer_data(&buckets_matrix_limbs);
@@ -82,11 +90,10 @@ pub fn pippenger<const NUM_LIMBS: usize>(
                 command_buffer.wait_until_completed();
             });
 
-            let mut buckets_matrix: Vec<Point> =
-                MetalState::retrieve_contents(&buckets_matrix_buffer)
-                    .chunks(12 * 3)
-                    .map(Point::from_u32_limbs)
-                    .collect();
+            let buckets_matrix: Vec<Point> = MetalState::retrieve_contents(&buckets_matrix_buffer)
+                .chunks(12 * 3)
+                .map(Point::from_u32_limbs)
+                .collect();
 
             let mut buckets = Vec::with_capacity(buckets_len);
 
@@ -113,7 +120,7 @@ pub fn pippenger<const NUM_LIMBS: usize>(
                 .unwrap_or_else(Point::neutral_element)
         })
         .reduce(|t, g| t.operate_with_self(1_u64 << window_size).operate_with(&g))
-        .ok_or_else(|| MetalError::LibraryError("placeholder_error".to_string()))
+        .unwrap_or_else(Point::neutral_element))
 }
 
 #[cfg(test)]
@@ -121,14 +128,7 @@ mod tests {
     use lambdaworks_math::{
         cyclic_group::IsGroup,
         elliptic_curve::{
-            short_weierstrass::{
-                curves::bls12_381::{curve::BLS12381Curve, field_extension::BLS12381FieldModulus},
-                point::ShortWeierstrassProjectivePoint,
-            },
-            traits::{FromAffine, IsEllipticCurve},
-        },
-        field::{
-            fields::montgomery_backed_prime_fields::MontgomeryBackendPrimeField, traits::IsField,
+            short_weierstrass::curves::bls12_381::curve::BLS12381Curve, traits::IsEllipticCurve,
         },
         msm::pippenger,
         unsigned_integer::element::UnsignedInteger,

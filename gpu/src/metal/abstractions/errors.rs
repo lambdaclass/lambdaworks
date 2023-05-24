@@ -12,6 +12,6 @@ pub enum MetalError {
     PipelineError(String),
     #[error("Could not calculate {1} root of unity")]
     RootOfUnityError(String, u64),
-    #[error("Input length is {0}, which is not a power of two")]
-    InputError(usize),
+    #[error("Invalid input: {0}")]
+    InputError(String),
 }

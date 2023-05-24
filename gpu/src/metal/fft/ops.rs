@@ -22,7 +22,10 @@ pub fn fft<F: IsFFTField>(
     state: &MetalState,
 ) -> Result<Vec<FieldElement<F>>, MetalError> {
     if !input.len().is_power_of_two() {
-        return Err(MetalError::InputError(input.len()));
+        return Err(MetalError::InputError(format!(
+            "the input length is {}, which is not a power of two.",
+            input.len()
+        )));
     }
 
     let pipeline = state.setup_pipeline(&format!("radix2_dit_butterfly_{}", F::field_name()))?;
