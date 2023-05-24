@@ -16,23 +16,31 @@ pub fn get_powers_of_primitive_root<F: IsFFTField>(
         return Ok(Vec::new());
     }
 
-    let root = F::get_primitive_root_of_unity(n)?;
-
-    //TODO: see if we can convert the successive exponentiations into an accumulated product
-    let calc = |i| match config {
-        RootsConfig::Natural | RootsConfig::NaturalInversed => root.pow(i),
-        RootsConfig::BitReverse | RootsConfig::BitReverseInversed => {
-            root.pow(reverse_index(&i, count as u64))
-        }
+    let root = match config {
+        RootsConfig::Natural | RootsConfig::BitReverse => F::get_primitive_root_of_unity(n)?,
+        _ => F::get_primitive_root_of_unity(n)?.inv(),
+    };
+    let up_to = match config {
+        RootsConfig::Natural | RootsConfig::NaturalInversed => count,
+        _ => count.next_power_of_two(),
     };
 
-    let mut results: Vec<_> = (0..count).map(calc).collect();
+    let mut results = Vec::with_capacity(up_to);
+    results.extend((0..up_to).scan(FieldElement::one(), |state, _| {
+        let res = state.clone();
+        *state = &(*state) * &root;
+        Some(res)
+    }));
+
     if matches!(
         config,
-        RootsConfig::NaturalInversed | RootsConfig::BitReverseInversed
+        RootsConfig::BitReverse | RootsConfig::BitReverseInversed
     ) {
-        FieldElement::inplace_batch_inverse(&mut results);
+        let mut reversed = Vec::with_capacity(count);
+        reversed.extend((0..count).map(|i| results[reverse_index(&i, count as u64)].clone()));
+        results = reversed;
     }
+
     Ok(results)
 }
 
