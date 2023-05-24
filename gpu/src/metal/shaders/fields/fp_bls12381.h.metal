@@ -192,7 +192,6 @@ private:
     // Assumes `rhs` value in range [0,N)
     inline u384 sub(const u384 lhs, const u384 rhs) const
     {
-        // TODO: figure what goes on here with "constant" scope variables
         return add(lhs, ((u384)N) - rhs);
     }
 
