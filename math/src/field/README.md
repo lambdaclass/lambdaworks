@@ -2,6 +2,12 @@
 # Fields
 Every field element has type `FieldElement`. These are the concrete elements that can be added, multiplied and so on. The operations are delegated to a zero-sized struct implementing the trait `IsField` that defines the operation laws and algorithms used. There are already some basic fields defined.
 
+We have a two layered model for fields. In one layer we have algorithms and optimizations at the field level, and on the other we have algorithms at the “big int” level. Both layers are interchangeable.
+Our “Big Int” has the advantage that it’s size is fixed in compilation time through the use of generics. This removes the need for heap allocations and having logic to work with arbitrary sized numbers, and it’s not an issue because in proving system we always know the size of the fields in advance.
+Over that we build different backends with different optimizations. The main backend we are using is Montgomery, to have a fast Montgomery multiplication, but it can be changed if for the use case another one is more useful.
+
+Another important thing is that we're making sure that this is also in sync with webgpu, cuda and metal support
+
 ## How to instantiate a field element for a specific field
 ```rust
 use math::field::element::FieldElement;
