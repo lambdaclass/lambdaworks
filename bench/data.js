@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1684950749176,
+  "lastUpdate": 1685005801182,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -5849,6 +5849,150 @@ window.BENCHMARK_DATA = {
             "name": "STARK/2 column Fibonacci",
             "value": 1342527,
             "range": "± 37320",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47506558+MegaRedHand@users.noreply.github.com",
+            "name": "Tomás",
+            "username": "MegaRedHand"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3d33d9457b8279f65c959924a39ce029c0386af2",
+          "message": "Fix STARK prover benchmarks (#354)\n\n* Fix benchmark make targets\n\n* Comment most benchmarks for exploration\n\n* Generate trace and memory in bench setup\n\n* Change Polynomial::interpolate uses for FFT\n\n* Rollback one change and fix FFT with null input\n\n* Fix: benchmarks now bench `prove` call only\n\n* Add black boxes\n\n* Comment out panicking benches\n\nThese are currently panicking in main\n\n* Remove optimizations\n\nThese were moved to a separate branch\n\n* Fix panicking benches\n\n* Change blowup factors and queries used in benches\n\n* Generate traces in makefile instead of bench\n\n* Remove .memory and .trace files\n\n* Move test data\n\n* Add trace generation to workflows\n\n* Add dependency installation to workflows\n\n* Install Python in CI\n\n* Change benches names for easier filtering\n\nTo filter by name, use `cargo criterion -- \"<name>\"`\n\n* Add requirements and separate programs\n\nPrograms in non_proof are compilated and run without proof-mode\n\n* Rename STARK benches\n\n* Remove venv activation step\n\n* Remove venv activation step (all of them)\n\n* Add cairo-lang installation to CI\n\n* Generate traces in a different job\n\n* Fix path used in caches\n\n* Add enableCrossOsArchive flag to cache\n\n* Fix cross OS cache miss (hopefully)\n\n* Fix fix\n\n* Test if tar is installed\n\n* Clean up and try one more time\n\n* Rename tag\n\n* Add Cairo factorial benches\n\n* Add missing sample_size config\n\n* Change bench names for easier filtering\n\n* Make flamegraph generic, and allow filtering\n\n* Lower the time of IAI benchmarks\n\n* Update ci.yaml\n\n* Remove unneeded `allow(dead_code)`s\n\n* Remove non_proof dir\n\n* Change unwrap for expect\n\n* Add trace fetch to cuda tests job\n\n* Fix benches\n\nWere missing a patch that integration tests already had\n\n* Fix IAI workflow for pushes to main branch\n\n* Filter setup time from IAI benches\n\n---------\n\nCo-authored-by: Mauro Toscano <12560266+MauroToscano@users.noreply.github.com>",
+          "timestamp": "2023-05-25T09:04:12Z",
+          "tree_id": "4faa13d7745e479b5c90d61ced335fb57282cad1",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/3d33d9457b8279f65c959924a39ce029c0386af2"
+        },
+        "date": 1685005798468,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "Ordered FFT/Parallel (Metal)",
+            "value": 131537222,
+            "range": "± 966330",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #2",
+            "value": 256280354,
+            "range": "± 2384838",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #3",
+            "value": 488101896,
+            "range": "± 3738007",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #4",
+            "value": 980006395,
+            "range": "± 19491574",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal)",
+            "value": 36689119,
+            "range": "± 3343199",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #2",
+            "value": 72556218,
+            "range": "± 6130728",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #3",
+            "value": 137626993,
+            "range": "± 4714600",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #4",
+            "value": 274266969,
+            "range": "± 2787091",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal)",
+            "value": 30905923,
+            "range": "± 355379",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #2",
+            "value": 59083627,
+            "range": "± 381177",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #3",
+            "value": 123346207,
+            "range": "± 3759764",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #4",
+            "value": 244941875,
+            "range": "± 23412464",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal",
+            "value": 165064372,
+            "range": "± 538684",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #2",
+            "value": 330785021,
+            "range": "± 880725",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #3",
+            "value": 653984833,
+            "range": "± 3826956",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #4",
+            "value": 1304742333,
+            "range": "± 11800604",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal",
+            "value": 448090739,
+            "range": "± 6832377",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #2",
+            "value": 902705500,
+            "range": "± 12295974",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #3",
+            "value": 1802878646,
+            "range": "± 7077199",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #4",
+            "value": 3528904749,
+            "range": "± 15485824",
             "unit": "ns/iter"
           }
         ]
