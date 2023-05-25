@@ -22,6 +22,15 @@ jobs:
       with:
           toolchain: stable
     - uses: actions/checkout@v3
+    - name: Python3 Build
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+        cache: 'pip'
+    - name: Install cairo-lang and deps
+      run: pip install -r requirements.txt
+    - name: Generate traces
+      run: make traces
     - name: Run benchmark
       run: |
         cargo bench --no-fail-fast --bench "criterion_fft" \

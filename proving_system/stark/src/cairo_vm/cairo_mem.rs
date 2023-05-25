@@ -108,7 +108,7 @@ mod tests {
     fn mem_indexes_are_contiguos_when_loading_from_file_mul_program() {
         let base_dir = env!("CARGO_MANIFEST_DIR");
         dbg!(base_dir);
-        let dir = base_dir.to_owned() + "/src/cairo_vm/test_data/mul_mem.out";
+        let dir = base_dir.to_owned() + "/cairo_programs/mul_mem.out";
 
         let memory = CairoMemory::from_file(&dir).unwrap();
 

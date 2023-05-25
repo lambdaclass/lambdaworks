@@ -114,9 +114,9 @@ mod tests {
         super::run_program(None, "all_cairo", &json_filename, &dir_trace, &dir_memory).unwrap();
 
         // read trace from file
-        let raw_trace = CairoTrace::from_file(&dir_trace).unwrap();
+        let raw_trace = CairoTrace::from_file(&dir_trace).expect(&dir_trace);
         // read memory from file
-        let memory = CairoMemory::from_file(&dir_memory).unwrap();
+        let memory = CairoMemory::from_file(&dir_memory).expect(&dir_memory);
 
         let execution_trace = build_cairo_execution_trace(&raw_trace, &memory);
 
