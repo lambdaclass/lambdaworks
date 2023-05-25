@@ -132,7 +132,7 @@ fn void_ptr<T>(v: &T) -> *const core::ffi::c_void {
 
 #[cfg(test)]
 mod tests {
-    use crate::fft::roots_of_unity::get_twiddles;
+    use crate::fft::cpu::roots_of_unity::get_twiddles;
     use crate::field::{
         fields::fft_friendly::stark_252_prime_field::Stark252PrimeField, traits::RootsConfig,
     };

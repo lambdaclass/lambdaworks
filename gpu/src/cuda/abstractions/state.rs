@@ -5,8 +5,7 @@ use cudarc::{
 };
 use std::sync::Arc;
 
-const STARK256_PTX: &str =
-    include_str!("../../../../math/src/gpu/cuda/shaders/fields/stark256.ptx");
+const STARK256_PTX: &str = include_str!("../../../../math/src/gpu/cuda/shaders/field/stark256.ptx");
 
 /// Structure for abstracting basic calls to a Metal device and saving the state. Used for
 /// implementing GPU parallel computations in Apple machines.

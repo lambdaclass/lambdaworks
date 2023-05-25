@@ -7,7 +7,7 @@ use super::errors::MetalError;
 
 use core::{ffi, mem};
 
-const LIB_DATA: &[u8] = include_bytes!("../../../../math/src/gpu/metal/shaders/lib.metallib");
+const LIB_DATA: &[u8] = include_bytes!("../../../../math/src/gpu/metal/lib.metallib");
 
 /// Structure for abstracting basic calls to a Metal device and saving the state. Used for
 /// implementing GPU parallel computations in Apple machines.

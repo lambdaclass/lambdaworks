@@ -28,7 +28,7 @@ const-random = "0.1.15"
 iai-callgrind.workspace = true
 
 [features]
-default = ["rayon"]
+default = ["rayon", "metal"]
 
 # gpu
 metal = ["dep:metal", "dep:objc"]
