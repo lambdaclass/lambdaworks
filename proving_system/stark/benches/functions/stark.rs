@@ -1,17 +1,12 @@
-use lambdaworks_math::field::fields::{
-    fft_friendly::stark_252_prime_field::MontgomeryConfigStark252PrimeField,
-    montgomery_backed_prime_fields::MontgomeryBackendPrimeField, u64_prime_field::FE17,
-};
+use lambdaworks_math::field::fields::u64_prime_field::FE17;
 use lambdaworks_stark::{
     air::{
         context::{AirContext, ProofOptions},
-        example::{
-            fibonacci_2_columns::Fibonacci2ColsAIR, fibonacci_f17::Fibonacci17AIR,
-            quadratic_air::QuadraticAIR, simple_fibonacci::FibonacciAIR,
-        },
+        example::cairo,
     },
     cairo_vm::{cairo_mem::CairoMemory, cairo_trace::CairoTrace},
-    fri::{FieldElement, U64PrimeField},
+    prover::prove,
+    verifier::verify,
 };
 
 use lambdaworks_stark::air::example::{
@@ -20,19 +15,14 @@ use lambdaworks_stark::air::example::{
 
 use crate::util::FE;
 
-pub fn generate_fib_proof_params(
-    trace_length: usize,
-) -> (
-    Vec<Vec<FieldElement<MontgomeryBackendPrimeField<MontgomeryConfigStark252PrimeField, 4>>>>,
-    FibonacciAIR,
-) {
+pub fn prove_fib(trace_length: usize) {
     let trace = simple_fibonacci::fibonacci_trace([FE::from(1), FE::from(1)], trace_length);
     let trace_length = trace[0].len();
 
     let context = AirContext {
         options: ProofOptions {
-            blowup_factor: 4,
-            fri_number_of_queries: 32,
+            blowup_factor: 2,
+            fri_number_of_queries: 1,
             coset_offset: 3,
         },
         trace_length,
@@ -45,25 +35,21 @@ pub fn generate_fib_proof_params(
 
     let fibonacci_air = simple_fibonacci::FibonacciAIR::from(context);
 
-    (trace, fibonacci_air)
+    let result = prove(&trace, &fibonacci_air);
+    verify(&result, &fibonacci_air);
 }
 
-pub fn generate_fib_2_cols_proof_params(
-    trace_length: usize,
-) -> (
-    Vec<Vec<FieldElement<MontgomeryBackendPrimeField<MontgomeryConfigStark252PrimeField, 4>>>>,
-    Fibonacci2ColsAIR,
-) {
-    let trace =
-        fibonacci_2_columns::fibonacci_trace_2_columns([FE::from(1), FE::from(1)], trace_length);
+pub fn prove_fib_2_cols() {
+    let trace_columns =
+        fibonacci_2_columns::fibonacci_trace_2_columns([FE::from(1), FE::from(1)], 16);
 
     let context = AirContext {
         options: ProofOptions {
-            blowup_factor: 8,
-            fri_number_of_queries: 32,
+            blowup_factor: 2,
+            fri_number_of_queries: 1,
             coset_offset: 3,
         },
-        trace_length: trace[0].len(),
+        trace_length: trace_columns.len(),
         transition_degrees: vec![1, 1],
         transition_exemptions: vec![1, 1],
         transition_offsets: vec![0, 1],
@@ -73,24 +59,22 @@ pub fn generate_fib_2_cols_proof_params(
 
     let fibonacci_air = fibonacci_2_columns::Fibonacci2ColsAIR::from(context);
 
-    (trace, fibonacci_air)
+    let result = prove(&trace_columns, &fibonacci_air);
+    verify(&result, &fibonacci_air);
 }
 
-// Used only in criterion benches
 #[allow(dead_code)]
-pub fn generate_fib17_proof_params(
-    trace_length: usize,
-) -> (Vec<Vec<FieldElement<U64PrimeField<17>>>>, Fibonacci17AIR) {
-    let trace = simple_fibonacci::fibonacci_trace([FE17::from(1), FE17::from(1)], trace_length);
+pub fn prove_fib17() {
+    let trace = simple_fibonacci::fibonacci_trace([FE17::from(1), FE17::from(1)], 4);
 
     let context = AirContext {
         options: ProofOptions {
             blowup_factor: 2,
-            fri_number_of_queries: 32,
+            fri_number_of_queries: 1,
             coset_offset: 3,
         },
-        trace_length: trace[0].len(),
-        trace_columns: 1,
+        trace_length: trace.len(),
+        trace_columns: trace[0].len(),
         transition_degrees: vec![1],
         transition_exemptions: vec![2],
         transition_offsets: vec![0, 1, 2],
@@ -99,27 +83,22 @@ pub fn generate_fib17_proof_params(
 
     let fibonacci_air = fibonacci_f17::Fibonacci17AIR::from(context);
 
-    (trace, fibonacci_air)
+    let result = prove(&trace, &fibonacci_air);
+    verify(&result, &fibonacci_air);
 }
 
-// Used only in criterion benches
 #[allow(dead_code)]
-pub fn generate_quadratic_proof_params(
-    trace_length: usize,
-) -> (
-    Vec<FieldElement<MontgomeryBackendPrimeField<MontgomeryConfigStark252PrimeField, 4>>>,
-    QuadraticAIR,
-) {
-    let trace = quadratic_air::quadratic_trace(FE::from(3), trace_length);
+pub fn prove_quadratic() {
+    let trace = quadratic_air::quadratic_trace(FE::from(3), 16);
 
     let context = AirContext {
         options: ProofOptions {
-            blowup_factor: 8,
-            fri_number_of_queries: 32,
+            blowup_factor: 2,
+            fri_number_of_queries: 1,
             coset_offset: 3,
         },
         trace_length: trace.len(),
-        trace_columns: 1,
+        trace_columns: trace.len(),
         transition_degrees: vec![2],
         transition_exemptions: vec![1],
         transition_offsets: vec![0, 1],
@@ -128,17 +107,109 @@ pub fn generate_quadratic_proof_params(
 
     let quadratic_air = quadratic_air::QuadraticAIR::from(context);
 
-    (trace, quadratic_air)
+    let result = prove(&trace, &quadratic_air);
+    verify(&result, &quadratic_air);
 }
 
-pub fn generate_cairo_trace(filename: &str) -> (CairoTrace, CairoMemory) {
-    let base_dir = format!("{}/cairo_programs/", env!("CARGO_MANIFEST_DIR"));
+// We added an attribute to disable the `dead_code` lint because clippy doesn't take into account
+// functions used by criterion.
 
-    let trace_path = format!("{base_dir}/{filename}.trace");
-    let memory_path = format!("{base_dir}/{filename}.memory");
+#[allow(dead_code)]
+pub fn prove_cairo_fibonacci_5() {
+    let base_dir = env!("CARGO_MANIFEST_DIR");
+    let dir_trace = base_dir.to_owned() + "/src/cairo_vm/test_data/fibonacci_5.trace";
+    let dir_memory = base_dir.to_owned() + "/src/cairo_vm/test_data/fibonacci_5.memory";
 
-    let raw_trace = CairoTrace::from_file(&trace_path).expect("Cairo trace binary file not found");
-    let memory = CairoMemory::from_file(&memory_path).expect("Cairo memory binary file not found");
+    let raw_trace = CairoTrace::from_file(&dir_trace).expect("Cairo trace binary file not found");
+    let memory = CairoMemory::from_file(&dir_memory).expect("Cairo memory binary file not found");
 
-    (raw_trace, memory)
+    let proof_options = ProofOptions {
+        blowup_factor: 2,
+        fri_number_of_queries: 5,
+        coset_offset: 3,
+    };
+
+    let cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace);
+
+    prove(&(raw_trace, memory), &cairo_air);
+}
+
+#[allow(dead_code)]
+pub fn prove_cairo_fibonacci_10() {
+    let base_dir = env!("CARGO_MANIFEST_DIR");
+    let dir_trace = base_dir.to_owned() + "/src/cairo_vm/test_data/fibonacci_10.trace";
+    let dir_memory = base_dir.to_owned() + "/src/cairo_vm/test_data/fibonacci_10.memory";
+
+    let raw_trace = CairoTrace::from_file(&dir_trace).expect("Cairo trace binary file not found");
+    let memory = CairoMemory::from_file(&dir_memory).expect("Cairo memory binary file not found");
+
+    let proof_options = ProofOptions {
+        blowup_factor: 2,
+        fri_number_of_queries: 5,
+        coset_offset: 3,
+    };
+
+    let cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace);
+
+    prove(&(raw_trace, memory), &cairo_air);
+}
+
+#[allow(dead_code)]
+pub fn prove_cairo_fibonacci_30() {
+    let base_dir = env!("CARGO_MANIFEST_DIR");
+    let dir_trace = base_dir.to_owned() + "/src/cairo_vm/test_data/fibonacci_30.trace";
+    let dir_memory = base_dir.to_owned() + "/src/cairo_vm/test_data/fibonacci_30.memory";
+
+    let raw_trace = CairoTrace::from_file(&dir_trace).expect("Cairo trace binary file not found");
+    let memory = CairoMemory::from_file(&dir_memory).expect("Cairo memory binary file not found");
+
+    let proof_options = ProofOptions {
+        blowup_factor: 2,
+        fri_number_of_queries: 5,
+        coset_offset: 3,
+    };
+
+    let cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace);
+
+    prove(&(raw_trace, memory), &cairo_air);
+}
+
+#[allow(dead_code)]
+pub fn prove_cairo_fibonacci_50() {
+    let base_dir = env!("CARGO_MANIFEST_DIR");
+    let dir_trace = base_dir.to_owned() + "/src/cairo_vm/test_data/fibonacci_50.trace";
+    let dir_memory = base_dir.to_owned() + "/src/cairo_vm/test_data/fibonacci_50.memory";
+
+    let raw_trace = CairoTrace::from_file(&dir_trace).expect("Cairo trace binary file not found");
+    let memory = CairoMemory::from_file(&dir_memory).expect("Cairo memory binary file not found");
+
+    let proof_options = ProofOptions {
+        blowup_factor: 2,
+        fri_number_of_queries: 5,
+        coset_offset: 3,
+    };
+
+    let cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace);
+
+    prove(&(raw_trace, memory), &cairo_air);
+}
+
+#[allow(dead_code)]
+pub fn prove_cairo_fibonacci_100() {
+    let base_dir = env!("CARGO_MANIFEST_DIR");
+    let dir_trace = base_dir.to_owned() + "/src/cairo_vm/test_data/fibonacci_100.trace";
+    let dir_memory = base_dir.to_owned() + "/src/cairo_vm/test_data/fibonacci_100.memory";
+
+    let raw_trace = CairoTrace::from_file(&dir_trace).expect("Cairo trace binary file not found");
+    let memory = CairoMemory::from_file(&dir_memory).expect("Cairo memory binary file not found");
+
+    let proof_options = ProofOptions {
+        blowup_factor: 2,
+        fri_number_of_queries: 5,
+        coset_offset: 3,
+    };
+
+    let cairo_air = cairo::CairoAIR::new(proof_options, &raw_trace);
+
+    prove(&(raw_trace, memory), &cairo_air);
 }

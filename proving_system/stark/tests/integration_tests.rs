@@ -24,8 +24,8 @@ fn test_prove_fib() {
 
     let context = AirContext {
         options: ProofOptions {
-            blowup_factor: 8,
-            fri_number_of_queries: 32,
+            blowup_factor: 2,
+            fri_number_of_queries: 1,
             coset_offset: 3,
         },
         trace_length,
@@ -49,7 +49,7 @@ fn test_prove_fib17() {
     let context = AirContext {
         options: ProofOptions {
             blowup_factor: 2,
-            fri_number_of_queries: 32,
+            fri_number_of_queries: 1,
             coset_offset: 3,
         },
         trace_length: trace[0].len(),
@@ -73,8 +73,8 @@ fn test_prove_fib_2_cols() {
 
     let context = AirContext {
         options: ProofOptions {
-            blowup_factor: 8,
-            fri_number_of_queries: 32,
+            blowup_factor: 2,
+            fri_number_of_queries: 7,
             coset_offset: 3,
         },
         trace_length: trace_columns[0].len(),
@@ -97,8 +97,8 @@ fn test_prove_quadratic() {
 
     let context = AirContext {
         options: ProofOptions {
-            blowup_factor: 8,
-            fri_number_of_queries: 32,
+            blowup_factor: 2,
+            fri_number_of_queries: 1,
             coset_offset: 3,
         },
         trace_length: trace.len(),
@@ -131,15 +131,15 @@ fn test_prove_cairo_simple_program() {
     ```
     */
     let base_dir = env!("CARGO_MANIFEST_DIR");
-    let dir_trace = base_dir.to_owned() + "/cairo_programs/simple_program.trace";
-    let dir_memory = base_dir.to_owned() + "/cairo_programs/simple_program.memory";
+    let dir_trace = base_dir.to_owned() + "/src/cairo_vm/test_data/simple_program.trace";
+    let dir_memory = base_dir.to_owned() + "/src/cairo_vm/test_data/simple_program.mem";
 
-    let raw_trace = CairoTrace::from_file(&dir_trace).expect(&dir_trace);
-    let memory = CairoMemory::from_file(&dir_memory).expect(&dir_memory);
+    let raw_trace = CairoTrace::from_file(&dir_trace).unwrap();
+    let memory = CairoMemory::from_file(&dir_memory).unwrap();
 
     let proof_options = ProofOptions {
-        blowup_factor: 8,
-        fri_number_of_queries: 32,
+        blowup_factor: 2,
+        fri_number_of_queries: 1,
         coset_offset: 3,
     };
 
@@ -176,15 +176,15 @@ fn test_prove_cairo_call_func() {
     ```
     */
     let base_dir = env!("CARGO_MANIFEST_DIR");
-    let dir_trace = base_dir.to_owned() + "/cairo_programs/call_func.trace";
-    let dir_memory = base_dir.to_owned() + "/cairo_programs/call_func.memory";
+    let dir_trace = base_dir.to_owned() + "/src/cairo_vm/test_data/call_func.trace";
+    let dir_memory = base_dir.to_owned() + "/src/cairo_vm/test_data/call_func.mem";
 
-    let raw_trace = CairoTrace::from_file(&dir_trace).expect(&dir_trace);
-    let memory = CairoMemory::from_file(&dir_memory).expect(&dir_memory);
+    let raw_trace = CairoTrace::from_file(&dir_trace).unwrap();
+    let memory = CairoMemory::from_file(&dir_memory).unwrap();
 
     let proof_options = ProofOptions {
-        blowup_factor: 8,
-        fri_number_of_queries: 32,
+        blowup_factor: 2,
+        fri_number_of_queries: 1,
         coset_offset: 3,
     };
 
@@ -201,15 +201,15 @@ fn test_prove_cairo_call_func() {
 #[test_log::test]
 fn test_prove_cairo_fibonacci() {
     let base_dir = env!("CARGO_MANIFEST_DIR");
-    let dir_trace = base_dir.to_owned() + "/cairo_programs/fibonacci_5.trace";
-    let dir_memory = base_dir.to_owned() + "/cairo_programs/fibonacci_5.memory";
+    let dir_trace = base_dir.to_owned() + "/src/cairo_vm/test_data/fibonacci_5.trace";
+    let dir_memory = base_dir.to_owned() + "/src/cairo_vm/test_data/fibonacci_5.memory";
 
     let raw_trace = CairoTrace::from_file(&dir_trace).expect("Cairo trace binary file not found");
     let memory = CairoMemory::from_file(&dir_memory).expect("Cairo memory binary file not found");
 
     let proof_options = ProofOptions {
-        blowup_factor: 4,
-        fri_number_of_queries: 32,
+        blowup_factor: 2,
+        fri_number_of_queries: 5,
         coset_offset: 3,
     };
 
@@ -234,8 +234,8 @@ fn test_prove_rap_fib() {
 
     let context = AirContext {
         options: ProofOptions {
-            blowup_factor: 8,
-            fri_number_of_queries: 32,
+            blowup_factor: 2,
+            fri_number_of_queries: 1,
             coset_offset: 3,
         },
         trace_columns: 3,

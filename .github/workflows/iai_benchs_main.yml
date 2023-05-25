@@ -22,23 +22,11 @@ jobs:
     - uses: Swatinem/rust-cache@v2
       with:
         shared-key: ${{ runner.os }}-benchmark-build-cache
-
-    - name: Python3 Build
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.9'
-        cache: 'pip'
-    - name: Install cairo-lang and deps
-      run: pip install -r requirements.txt
-    - name: Generate traces
-      run: make traces
-
     - name: Run benchmarks
       run: cargo bench --no-fail-fast --bench "iai_*"
-
     - name: Save cache
       uses: actions/cache/save@v3
       with:
         path: |
           */target
-        key: ${{ runner.os }}-iai-benchmark-cache-${{ github.sha }}
+        key: ${{ runner.os }}-iai-benchmark-cache-${{ github.event.pull_request.base.sha }}

@@ -14,9 +14,3 @@ Cargo.lock
 flamegraph.svg
 proving_system/stark/src/cairo_run/program.memory
 proving_system/stark/src/cairo_run/program.trace
-
-proving_system/stark/cairo_programs/*.json
-proving_system/stark/cairo_programs/*.memory
-proving_system/stark/cairo_programs/*.trace
-
-venv
