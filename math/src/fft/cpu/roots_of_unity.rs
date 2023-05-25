@@ -3,7 +3,8 @@ use crate::field::{
     traits::{IsFFTField, RootsConfig},
 };
 
-use crate::fft::{bit_reversing::reverse_index, errors::FFTError};
+use super::bit_reversing::reverse_index;
+use crate::fft::errors::FFTError;
 
 /// Returns a `Vec` of the powers of a `2^n`th primitive root of unity in some configuration
 /// `config`. For example, in a `Natural` config this would yield: w^0, w^1, w^2...
@@ -61,7 +62,9 @@ pub fn get_twiddles<F: IsFFTField>(
 
 #[cfg(test)]
 mod tests {
-    use crate::fft::{bit_reversing::in_place_bit_reverse_permute, roots_of_unity::get_twiddles};
+    use crate::fft::cpu::{
+        bit_reversing::in_place_bit_reverse_permute, roots_of_unity::get_twiddles,
+    };
     use crate::field::{test_fields::u64_test_field::U64TestField, traits::RootsConfig};
     use proptest::prelude::*;
 

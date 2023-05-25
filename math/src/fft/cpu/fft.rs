@@ -99,7 +99,7 @@ where
 #[cfg(test)]
 mod tests {
     use crate::fft::{
-        bit_reversing::in_place_bit_reverse_permute, roots_of_unity::get_twiddles,
+        cpu::{bit_reversing::in_place_bit_reverse_permute, roots_of_unity::get_twiddles},
         test_helpers::naive_matrix_dft_test,
     };
     use crate::field::{test_fields::u64_test_field::U64TestField, traits::RootsConfig};

@@ -1,4 +1,5 @@
 use crate::{
+    fft::{cpu, errors::FFTError},
     field::{
         element::FieldElement,
         traits::{IsFFTField, RootsConfig},
@@ -6,12 +7,8 @@ use crate::{
     polynomial::Polynomial,
 };
 
-use crate::fft;
-
 #[cfg(feature = "metal")]
 use crate::gpu::metal::fft::polynomial::evaluate_fft_metal;
-
-use fft::{errors::FFTError, roots_of_unity::get_twiddles};
 
 pub trait FFTPoly<F: IsFFTField> {
     fn evaluate_fft(
@@ -170,9 +167,9 @@ where
     F: IsFFTField,
 {
     let order = coeffs.len().trailing_zeros();
-    let twiddles = get_twiddles(order.into(), RootsConfig::BitReverse)?;
+    let twiddles = cpu::roots_of_unity::get_twiddles(order.into(), RootsConfig::BitReverse)?;
     // Bit reverse order is needed for NR DIT FFT.
-    fft::ops::fft(coeffs, &twiddles)
+    cpu::ops::fft(coeffs, &twiddles)
 }
 
 fn interpolate_fft_cpu<F>(
@@ -182,9 +179,9 @@ where
     F: IsFFTField,
 {
     let order = fft_evals.len().trailing_zeros();
-    let twiddles = get_twiddles(order.into(), RootsConfig::BitReverseInversed)?;
+    let twiddles = cpu::roots_of_unity::get_twiddles(order.into(), RootsConfig::BitReverseInversed)?;
 
-    let coeffs = fft::ops::fft(fft_evals, &twiddles)?;
+    let coeffs = cpu::ops::fft(fft_evals, &twiddles)?;
 
     let scale_factor = FieldElement::from(fft_evals.len() as u64).inv();
     Ok(Polynomial::new(&coeffs).scale_coeffs(&scale_factor))
@@ -198,7 +195,7 @@ mod tests {
     use crate::field::traits::RootsConfig;
     use proptest::{collection, prelude::*};
 
-    use fft::roots_of_unity::{get_powers_of_primitive_root, get_powers_of_primitive_root_coset};
+    use cpu::roots_of_unity::{get_powers_of_primitive_root, get_powers_of_primitive_root_coset};
 
     use super::*;
 
