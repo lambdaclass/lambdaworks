@@ -164,7 +164,7 @@ mod tests {
     fn loads_mul_trace_from_file_correctly() {
         let base_dir = env!("CARGO_MANIFEST_DIR");
         dbg!(base_dir);
-        let dir = base_dir.to_owned() + "/cairo_programs/mul_trace.out";
+        let dir = base_dir.to_owned() + "/src/cairo_vm/test_data/mul_trace.out";
 
         let trace = CairoTrace::from_file(&dir).unwrap();
 

@@ -1,5 +1,5 @@
 func mul(x: felt, y: felt) -> (res: felt) {
-    return (res=x * y);
+    return (res = x * y);
 }
 
 func main() {
