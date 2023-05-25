@@ -590,6 +590,12 @@ impl<const NUM_LIMBS: usize> ByteConversion for UnsignedInteger<NUM_LIMBS> {
     }
 }
 
+impl<const NUM_LIMBS: usize> From<UnsignedInteger<NUM_LIMBS>> for u16 {
+    fn from(value: UnsignedInteger<NUM_LIMBS>) -> Self {
+        value.limbs[NUM_LIMBS - 1] as u16
+    }
+}
+
 #[cfg(test)]
 mod tests_u384 {
     use crate::traits::ByteConversion;

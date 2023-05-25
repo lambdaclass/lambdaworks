@@ -7,6 +7,7 @@ use crate::{
         AIR,
     },
     fri::FieldElement,
+    prover::ProvingError,
 };
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::field::{
@@ -28,22 +29,29 @@ impl AIR for QuadraticAIR {
     type Field = Stark252PrimeField;
     type RawTrace = Vec<FieldElement<Self::Field>>;
     type RAPChallenges = ();
+    type PublicInput = ();
 
-    fn build_main_trace(raw_trace: &Self::RawTrace) -> TraceTable<Self::Field> {
-        TraceTable {
+    fn build_main_trace(
+        &self,
+        raw_trace: &Self::RawTrace,
+        _public_input: &mut Self::PublicInput,
+    ) -> Result<TraceTable<Self::Field>, ProvingError> {
+        Ok(TraceTable {
             table: raw_trace.clone(),
             n_cols: 1,
-        }
+        })
     }
 
     fn build_auxiliary_trace(
+        &self,
         _main_trace: &TraceTable<Self::Field>,
         _rap_challenges: &Self::RAPChallenges,
+        _public_input: &Self::PublicInput,
     ) -> TraceTable<Self::Field> {
         TraceTable::empty()
     }
 
-    fn build_rap_challenges<T: Transcript>(_transcript: &mut T) -> Self::RAPChallenges {}
+    fn build_rap_challenges<T: Transcript>(&self, _transcript: &mut T) -> Self::RAPChallenges {}
 
     fn compute_transition(
         &self,
@@ -56,9 +64,14 @@ impl AIR for QuadraticAIR {
         vec![&second_row[0] - &first_row[0] * &first_row[0]]
     }
 
+    fn number_auxiliary_rap_columns(&self) -> usize {
+        0
+    }
+
     fn boundary_constraints(
         &self,
         _rap_challenges: &Self::RAPChallenges,
+        _public_input: &Self::PublicInput,
     ) -> BoundaryConstraints<Self::Field> {
         let a0 = BoundaryConstraint::new_simple(0, FieldElement::<Self::Field>::from(3));
 
@@ -67,6 +80,10 @@ impl AIR for QuadraticAIR {
 
     fn context(&self) -> air::context::AirContext {
         self.context.clone()
+    }
+
+    fn composition_poly_degree_bound(&self) -> usize {
+        2 * self.context().trace_length
     }
 }
 

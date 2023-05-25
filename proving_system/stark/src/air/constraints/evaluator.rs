@@ -1,13 +1,12 @@
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsFFTField},
-    helpers,
     polynomial::Polynomial,
+    traits::ByteConversion,
 };
 
+use super::{boundary::BoundaryConstraints, evaluation_table::ConstraintEvaluationTable};
 use crate::air::{frame::Frame, trace::TraceTable, AIR};
 use std::iter::zip;
-
-use super::{boundary::BoundaryConstraints, evaluation_table::ConstraintEvaluationTable};
 
 pub struct ConstraintEvaluator<'poly, F: IsFFTField, A: AIR> {
     air: A,
@@ -21,9 +20,10 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
         air: &A,
         trace_polys: &'poly [Polynomial<FieldElement<F>>],
         primitive_root: &FieldElement<F>,
+        public_input: &A::PublicInput,
         rap_challenges: &A::RAPChallenges,
     ) -> Self {
-        let boundary_constraints = air.boundary_constraints(rap_challenges);
+        let boundary_constraints = air.boundary_constraints(rap_challenges, public_input);
 
         Self {
             air: air.clone(),
@@ -40,7 +40,10 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
         alpha_and_beta_transition_coefficients: &[(FieldElement<F>, FieldElement<F>)],
         alpha_and_beta_boundary_coefficients: &[(FieldElement<F>, FieldElement<F>)],
         rap_challenges: &A::RAPChallenges,
-    ) -> ConstraintEvaluationTable<F> {
+    ) -> ConstraintEvaluationTable<F>
+    where
+        FieldElement<F>: ByteConversion,
+    {
         // The + 1 is for the boundary constraints column
         let mut evaluation_table = ConstraintEvaluationTable::new(
             self.air.context().num_transition_constraints() + 1,
@@ -69,33 +72,20 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
             })
             .collect();
 
-        let boundary_polys_max_degree = boundary_polys
-            .iter()
-            .zip(&boundary_zerofiers)
-            .map(|(poly, zerofier)| poly.degree() - zerofier.degree())
-            .max()
-            .unwrap();
-
-        let transition_degrees = self.air.context().transition_degrees();
-        let transition_zerofiers = self.air.transition_divisors();
-        let transition_polys_max_degree = self
-            .trace_polys
-            .iter()
-            .zip(&transition_zerofiers)
-            .zip(&transition_degrees)
-            .map(|((poly, zerofier), degree)| {
-                (poly.degree() * degree).saturating_sub(zerofier.degree())
-            })
-            .max()
-            .unwrap();
-
-        let max_degree = std::cmp::max(transition_polys_max_degree, boundary_polys_max_degree);
-
-        let max_degree_power_of_two = helpers::next_power_of_two(max_degree as u64);
-
         let blowup_factor = self.air.blowup_factor();
 
+        #[cfg(debug_assertions)]
+        for (poly, z) in boundary_polys.iter().zip(boundary_zerofiers.iter()) {
+            let (_, b) = poly.clone().long_division_with_remainder(z);
+            assert_eq!(b, Polynomial::zero());
+        }
+
+        #[cfg(debug_assertions)]
+        let mut transition_evaluations = Vec::new();
+
         let divisors = self.air.transition_divisors();
+        let boundary_term_degree_adjustment =
+            self.air.composition_poly_degree_bound() - self.air.context().trace_length;
         // Iterate over trace and domain and compute transitions
         for (i, d) in lde_domain.iter().enumerate() {
             let frame = Frame::read_from_trace(
@@ -106,27 +96,27 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
             );
 
             let mut evaluations = self.air.compute_transition(&frame, rap_challenges);
+
+            #[cfg(debug_assertions)]
+            transition_evaluations.push(evaluations.clone());
+
             evaluations = Self::compute_constraint_composition_poly_evaluations(
                 &self.air,
                 &evaluations,
                 &divisors,
                 alpha_and_beta_transition_coefficients,
-                max_degree_power_of_two,
                 d,
             );
 
+            let d_adjustment_power = d.pow(boundary_term_degree_adjustment);
             let boundary_evaluation = zip(&boundary_polys, &boundary_zerofiers)
                 .enumerate()
                 .map(|(index, (boundary_poly, boundary_zerofier))| {
-                    let quotient_degree = boundary_poly.degree() - boundary_zerofier.degree();
-
                     let (boundary_alpha, boundary_beta) =
                         alpha_and_beta_boundary_coefficients[index].clone();
 
                     (boundary_poly.evaluate(d) / boundary_zerofier.evaluate(d))
-                        * (&boundary_alpha
-                            * d.pow(max_degree_power_of_two - (quotient_degree as u64))
-                            + &boundary_beta)
+                        * (&boundary_alpha * &d_adjustment_power + &boundary_beta)
                 })
                 .fold(FieldElement::<F>::zero(), |acc, eval| acc + eval);
 
@@ -156,12 +146,10 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
         evaluations: &[FieldElement<F>],
         divisors: &[Polynomial<FieldElement<F>>],
         constraint_coeffs: &[(FieldElement<F>, FieldElement<F>)],
-        max_degree: u64,
         x: &FieldElement<F>,
     ) -> Vec<FieldElement<F>> {
         // TODO: We should get the trace degree in a better way because in some special cases
         // the trace degree may not be exactly the trace length - 1 but a smaller number.
-        let trace_degree = air.context().trace_length - 1;
         let transition_degrees = air.context().transition_degrees();
 
         let mut ret = Vec::new();
@@ -172,9 +160,9 @@ impl<'poly, F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<'poly, F
             .zip(constraint_coeffs)
         {
             let zerofied_eval = eval / div.evaluate(x);
-            let zerofied_degree = trace_degree * transition_degree - div.degree();
-            let result =
-                zerofied_eval * (alpha * x.pow(max_degree - (zerofied_degree as u64)) + beta);
+            let degree_adjustment = air.composition_poly_degree_bound()
+                - (air.context().trace_length * (transition_degree - 1));
+            let result = zerofied_eval * (alpha * x.pow(degree_adjustment) + beta);
             ret.push(result);
         }
 

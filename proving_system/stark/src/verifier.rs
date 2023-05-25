@@ -19,7 +19,6 @@ use lambdaworks_math::{
         element::FieldElement,
         traits::{IsFFTField, IsField},
     },
-    helpers,
     polynomial::Polynomial,
     traits::ByteConversion,
 };
@@ -74,7 +73,7 @@ where
         transcript.append(&root.to_bytes_be());
     }
 
-    let rap_challenges = A::build_rap_challenges(transcript);
+    let rap_challenges = air.build_rap_challenges(transcript);
 
     for root in proof.lde_trace_merkle_roots.iter().skip(main_columns) {
         transcript.append(&root.to_bytes_be());
@@ -190,6 +189,7 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
     air: &A,
     proof: &StarkProof<F>,
     domain: &Domain<F>,
+    public_input: &A::PublicInput,
     challenges: &Challenges<F, A>,
 ) -> bool {
     // BEGIN TRACE <-> Composition poly consistency evaluation check
@@ -197,7 +197,7 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
     let composition_poly_even_ood_evaluation = &proof.composition_poly_even_ood_evaluation;
     let composition_poly_odd_ood_evaluation = &proof.composition_poly_odd_ood_evaluation;
 
-    let boundary_constraints = air.boundary_constraints(&challenges.rap_challenges);
+    let boundary_constraints = air.boundary_constraints(&challenges.rap_challenges, public_input);
 
     let n_trace_cols = air.context().trace_columns;
 
@@ -231,34 +231,15 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
 
     // TODO: Get trace polys degrees in a better way. The degree may not be trace_length - 1 in some
     // special cases.
-    let transition_divisors = air.transition_divisors();
 
-    let transition_quotients_max_degree = transition_divisors
-        .iter()
-        .zip(air.context().transition_degrees())
-        .map(|(div, degree)| (air.context().trace_length - 1) * degree - div.degree())
-        .max()
-        .unwrap();
-
-    let boundary_quotients_max_degree = boundary_quotient_degrees.iter().max().unwrap();
-
-    let max_degree = std::cmp::max(
-        transition_quotients_max_degree,
-        *boundary_quotients_max_degree,
-    );
-    let max_degree_power_of_two = helpers::next_power_of_two(max_degree as u64);
+    let boundary_term_degree_adjustment =
+        air.composition_poly_degree_bound() - air.context().trace_length;
 
     let boundary_quotient_ood_evaluations: Vec<FieldElement<F>> = boundary_c_i_evaluations
         .iter()
-        .zip(boundary_quotient_degrees)
         .zip(&challenges.boundary_coeffs)
-        .map(|((poly_eval, poly_degree), (alpha, beta))| {
-            poly_eval
-                * (alpha
-                    * challenges
-                        .z
-                        .pow(max_degree_power_of_two - poly_degree as u64)
-                    + beta)
+        .map(|(poly_eval, (alpha, beta))| {
+            poly_eval * (alpha * challenges.z.pow(boundary_term_degree_adjustment) + beta)
         })
         .collect();
 
@@ -278,7 +259,6 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
             &transition_ood_frame_evaluations,
             &divisors,
             &challenges.transition_coeffs,
-            max_degree_power_of_two,
             &challenges.z,
         );
 
@@ -497,7 +477,7 @@ fn reconstruct_deep_composition_poly_evaluation<F: IsFFTField, A: AIR<Field = F>
     trace_terms + h_1_term * &challenges.gamma_even + h_2_term * &challenges.gamma_odd
 }
 
-pub fn verify<F, A>(proof: &StarkProof<F>, air: &A) -> bool
+pub fn verify<F, A>(proof: &StarkProof<F>, air: &A, public_input: &A::PublicInput) -> bool
 where
     F: IsFFTField,
     A: AIR<Field = F>,
@@ -509,7 +489,8 @@ where
     let challenges =
         step_1_replay_rounds_and_recover_challenges(air, proof, &domain, &mut transcript);
 
-    if !step_2_verify_claimed_composition_polynomial(air, proof, &domain, &challenges) {
+    if !step_2_verify_claimed_composition_polynomial(air, proof, &domain, public_input, &challenges)
+    {
         return false;
     }
 

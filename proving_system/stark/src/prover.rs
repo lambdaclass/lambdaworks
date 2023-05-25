@@ -27,6 +27,11 @@ use log::info;
 #[cfg(debug_assertions)]
 use crate::air::debug::validate_trace;
 
+#[derive(Debug)]
+pub enum ProvingError {
+    WrongParameter(String),
+}
+
 struct Round1<F: IsFFTField, A: AIR<Field = F>> {
     trace_polys: Vec<Polynomial<FieldElement<F>>>,
     lde_trace: TraceTable<F>,
@@ -88,18 +93,21 @@ where
 
 fn evaluate_polynomial_on_lde_domain<F>(
     p: &Polynomial<FieldElement<F>>,
-    domain: &Domain<F>,
+    blowup_factor: usize,
+    domain_size: usize,
+    offset: &FieldElement<F>,
 ) -> Result<Vec<FieldElement<F>>, FFTError>
 where
     F: IsFFTField,
     Polynomial<FieldElement<F>>: FFTPoly<F>,
 {
     // Evaluate those polynomials t_j on the large domain D_LDE.
-    p.evaluate_offset_fft(
-        domain.blowup_factor,
-        Some(domain.interpolation_domain_size),
-        &domain.coset_offset,
-    )
+    let evaluations = p.evaluate_offset_fft(blowup_factor, Some(domain_size), offset)?;
+    let step = evaluations.len() / (domain_size * blowup_factor);
+    match step {
+        1 => Ok(evaluations),
+        _ => Ok(evaluations.into_iter().step_by(step).collect()),
+    }
 }
 
 #[allow(clippy::type_complexity)]
@@ -123,7 +131,14 @@ where
     // Evaluate those polynomials t_j on the large domain D_LDE.
     let lde_trace_evaluations = trace_polys
         .iter()
-        .map(|poly| evaluate_polynomial_on_lde_domain(poly, domain))
+        .map(|poly| {
+            evaluate_polynomial_on_lde_domain(
+                poly,
+                domain.blowup_factor,
+                domain.interpolation_domain_size,
+                &domain.coset_offset,
+            )
+        })
         .collect::<Result<Vec<Vec<FieldElement<F>>>, FFTError>>()
         .unwrap();
 
@@ -132,7 +147,6 @@ where
     let (lde_trace_merkle_trees, lde_trace_merkle_roots) =
         batch_commit(lde_trace.cols().iter().collect());
 
-    // Agrega al transcript
     // >>>> Send commitments: [tⱼ]
     for root in lde_trace_merkle_roots.iter() {
         transcript.append(&root.to_bytes_be());
@@ -147,21 +161,23 @@ where
 }
 
 fn round_1_randomized_air_with_preprocessing<F: IsFFTField, A: AIR<Field = F>, T: Transcript>(
+    air: &A,
     raw_trace: &A::RawTrace,
     domain: &Domain<F>,
+    public_input: &mut A::PublicInput,
     transcript: &mut T,
-) -> Round1<F, A>
+) -> Result<Round1<F, A>, ProvingError>
 where
     FieldElement<F>: ByteConversion,
 {
-    let main_trace = A::build_main_trace(raw_trace);
+    let main_trace = air.build_main_trace(raw_trace, public_input)?;
 
     let (mut trace_polys, mut evaluations, mut lde_trace_merkle_trees, mut lde_trace_merkle_roots) =
         interpolate_and_commit(&main_trace, domain, transcript);
 
-    let rap_challenges = A::build_rap_challenges(transcript);
+    let rap_challenges = air.build_rap_challenges(transcript);
 
-    let aux_trace = A::build_auxiliary_trace(&main_trace, &rap_challenges);
+    let aux_trace = air.build_auxiliary_trace(&main_trace, &rap_challenges, public_input);
 
     if !aux_trace.is_empty() {
         // Check that this is valid for interpolation
@@ -175,19 +191,20 @@ where
 
     let lde_trace = TraceTable::new_from_cols(&evaluations);
 
-    Round1 {
+    Ok(Round1 {
         trace_polys,
         lde_trace,
         lde_trace_merkle_roots,
         lde_trace_merkle_trees,
         rap_challenges,
-    }
+    })
 }
 
 fn round_2_compute_composition_polynomial<F, A>(
     air: &A,
     domain: &Domain<F>,
     round_1_result: &Round1<F, A>,
+    public_input: &A::PublicInput,
     transition_coeffs: &[(FieldElement<F>, FieldElement<F>)],
     boundary_coeffs: &[(FieldElement<F>, FieldElement<F>)],
 ) -> Round2<F>
@@ -201,6 +218,7 @@ where
         air,
         &round_1_result.trace_polys,
         &domain.trace_primitive_root,
+        public_input,
         &round_1_result.rap_challenges,
     );
 
@@ -213,15 +231,23 @@ where
     );
 
     // Get the composition poly H
-    let composition_poly =
-        constraint_evaluations.compute_composition_poly(&domain.lde_roots_of_unity_coset);
-
+    let composition_poly = constraint_evaluations.compute_composition_poly(&domain.coset_offset);
     let (composition_poly_even, composition_poly_odd) = composition_poly.even_odd_decomposition();
 
-    let lde_composition_poly_even_evaluations =
-        evaluate_polynomial_on_lde_domain(&composition_poly_even, domain).unwrap();
-    let lde_composition_poly_odd_evaluations =
-        evaluate_polynomial_on_lde_domain(&composition_poly_odd, domain).unwrap();
+    let lde_composition_poly_even_evaluations = evaluate_polynomial_on_lde_domain(
+        &composition_poly_even,
+        domain.blowup_factor,
+        domain.interpolation_domain_size,
+        &domain.coset_offset,
+    )
+    .unwrap();
+    let lde_composition_poly_odd_evaluations = evaluate_polynomial_on_lde_domain(
+        &composition_poly_odd,
+        domain.blowup_factor,
+        domain.interpolation_domain_size,
+        &domain.coset_offset,
+    )
+    .unwrap();
 
     let (composition_poly_merkle_trees, composition_poly_roots) = batch_commit(vec![
         &lde_composition_poly_even_evaluations,
@@ -449,7 +475,11 @@ where
 }
 
 // FIXME remove unwrap() calls and return errors
-pub fn prove<F: IsFFTField, A: AIR<Field = F>>(trace: &A::RawTrace, air: &A) -> StarkProof<F>
+pub fn prove<F: IsFFTField, A: AIR<Field = F>>(
+    trace: &A::RawTrace,
+    air: &A,
+    public_input: &mut A::PublicInput,
+) -> Result<StarkProof<F>, ProvingError>
 where
     FieldElement<F>: ByteConversion,
 {
@@ -463,14 +493,20 @@ where
     // ==========|   Round 1   |==========
     // ===================================
 
-    let round_1_result =
-        round_1_randomized_air_with_preprocessing::<F, A, _>(trace, &domain, &mut transcript);
+    let round_1_result = round_1_randomized_air_with_preprocessing::<F, A, _>(
+        air,
+        trace,
+        &domain,
+        public_input,
+        &mut transcript,
+    )?;
 
     #[cfg(debug_assertions)]
     validate_trace(
         air,
         &round_1_result.trace_polys,
         &domain,
+        public_input,
         &round_1_result.rap_challenges,
     );
 
@@ -504,6 +540,7 @@ where
         air,
         &domain,
         &round_1_result,
+        public_input,
         &transition_coeffs,
         &boundary_coeffs,
     );
@@ -570,7 +607,7 @@ where
 
     info!("End proof generation");
 
-    StarkProof {
+    Ok(StarkProof {
         // [tⱼ]
         lde_trace_merkle_roots: round_1_result.lde_trace_merkle_roots,
         // tⱼ(zgᵏ)
@@ -591,14 +628,17 @@ where
         query_list: round_4_result.query_list,
         // Open(H₁(D_LDE, 𝜐₀), Open(H₂(D_LDE, 𝜐₀), Open(tⱼ(D_LDE), 𝜐₀)
         deep_poly_openings: round_4_result.deep_poly_openings,
-    }
+    })
 }
 
 #[cfg(test)]
 mod tests {
-    use lambdaworks_math::field::{
-        element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
-        traits::IsFFTField,
+    use lambdaworks_math::{
+        field::{
+            element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+            traits::IsFFTField,
+        },
+        polynomial::Polynomial,
     };
 
     use crate::{
@@ -664,37 +704,24 @@ mod tests {
     }
 
     #[test]
-    fn test_evaluate_polynomial_on_lde_domain() {
+    fn test_evaluate_polynomial_on_lde_domain_on_trace_polys() {
         let trace = simple_fibonacci::fibonacci_trace([FE::from(1), FE::from(1)], 8);
         let trace_length = trace[0].len();
         let trace_table = TraceTable::new_from_cols(&trace);
         let trace_polys = trace_table.compute_trace_polys();
-        let coset_offset = 3;
+        let coset_offset = FE::from(3);
         let blowup_factor: usize = 2;
+        let domain_size = 8;
 
-        let context = AirContext {
-            options: ProofOptions {
-                blowup_factor: blowup_factor as u8,
-                fri_number_of_queries: 1,
-                coset_offset,
-            },
-            trace_length,
-            trace_columns: trace_table.n_cols,
-            transition_degrees: vec![1],
-            transition_exemptions: vec![2],
-            transition_offsets: vec![0, 1, 2],
-            num_transition_constraints: 1,
-        };
-        let coset_offset = FieldElement::from(coset_offset);
-
-        let domain = Domain::new(&simple_fibonacci::FibonacciAIR::from(context));
         let primitive_root = Stark252PrimeField::get_primitive_root_of_unity(
             (trace_length * blowup_factor).trailing_zeros() as u64,
         )
         .unwrap();
 
         for poly in trace_polys.iter() {
-            let lde_evaluation = evaluate_polynomial_on_lde_domain(poly, &domain).unwrap();
+            let lde_evaluation =
+                evaluate_polynomial_on_lde_domain(poly, blowup_factor, domain_size, &coset_offset)
+                    .unwrap();
             assert_eq!(lde_evaluation.len(), trace_length * blowup_factor);
             for (i, evaluation) in lde_evaluation.iter().enumerate() {
                 assert_eq!(
@@ -702,6 +729,25 @@ mod tests {
                     poly.evaluate(&(&coset_offset * primitive_root.pow(i)))
                 );
             }
+        }
+    }
+
+    #[test]
+    fn test_evaluate_polynomial_on_lde_domain_edge_case() {
+        let poly = Polynomial::new_monomial(FE::one(), 8);
+        let blowup_factor: usize = 4;
+        let domain_size: usize = 8;
+        let offset = FE::from(3);
+        let evaluations =
+            evaluate_polynomial_on_lde_domain(&poly, blowup_factor, domain_size, &offset).unwrap();
+        assert_eq!(evaluations.len(), domain_size * blowup_factor);
+
+        let primitive_root: FE = Stark252PrimeField::get_primitive_root_of_unity(
+            (domain_size * blowup_factor).trailing_zeros() as u64,
+        )
+        .unwrap();
+        for (i, eval) in evaluations.iter().enumerate() {
+            assert_eq!(*eval, poly.evaluate(&(&offset * &primitive_root.pow(i))));
         }
     }
 }

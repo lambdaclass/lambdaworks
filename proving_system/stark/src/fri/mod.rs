@@ -55,6 +55,7 @@ where
     let zeta = transcript_to_field(transcript);
 
     let last_poly = fold_polynomial(&current_layer.poly, &zeta);
+
     let last_value = last_poly
         .coefficients()
         .get(0)

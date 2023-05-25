@@ -1,64 +1,101 @@
 # STARKs protocol
 In this section we describe precisely the STARKs protocol used in Lambdaworks.
 
-### Definitions and notation
-- Program size: $2^n$ rows (number of states) and $m'$ original columns (number of registers) and $m''$ RAP extended columns. Let $m=m'+m''$.
+### Definitions of values known to both prover and verifier
+- $m'$ is the number of columns of the trace matrix in first round of RAP.
+- $m''$ is the number of columns of the trace matrix in the second round of RAP.
+- $m:=m' + m''$.
+- $2^n$ is the number of rows of the trace matrix after RAP.
 - Boundary constraints polynomials $P_j^B$ for $j=1,\dots,m$.
 - Boundary constraint zerofiers $Z_j^B$ for $j=1,\dots,m$..
-- Quadratic transition constraint polynomials $P_k^T$ for $k=1,\dots,n_T$.
+- Transition constraint polynomials $P_k^T$ for $k=1,\dots,n_T$ of degree at most 3.
 - Transition constraint zerofiers $Z_j^T$ for $k=1,\dots,n_T$.
 - $b=2^l$ the blowup factor
 - $\omega$ a primitive $2^{n+l}$-th root of unity.
 - $g = \omega^{2^l}$.
-- The Small domain is the vector $D_S=(1, g, \dots, g^{2^n-1})$.
+- The interpolation domain is the vector $D_S=(1, g, \dots, g^{2^n-1})$.
 - $h$ the coset factor.
 - $Q$ number of FRI queries.
 - Low Degree Extension is the vector $D_{\text{LDE}} =(h, h\omega, h\omega^2,\dots, h\omega^{2^{n+l} - 1})$.
+- Let $d_k^T := 2^n (\deg(P_k^T) - 1)$ and let $d^B := 2^n$. Let $d := 2^{n + 1}$. Notice that $d^B \leq d$ and $d_k^T \leq d$ for all $k$. This holds because we assume all transition constraint polynomials are at most cubic.
+- We assume we have a hash function from $\mathbb{F}$ to binary strings of fixed length.
+
+### Notation
 - Given a vector $A=(y_1,\dots,y_L)$ and a function $f:\text{set}(A) \to \mathbb{F}$, denote by $f(A)$ the vector $(f(y_1),\dots,f(y_L))$. Here $\text{set}(A)$ denotes the underlying set of $A$.
-- $D$ the smallest power of two larger than $n\cdot\max\{\deg(P_k^T), \deg(P_j^B)\}_{k, j}$
 - A polynomial $p \in \mathbb{F}[X]$ induces a function $f:A \to \mathbb{F}$ for every subset $A$ of $\mathbb{F}$, where $f(a) := p(a)$.
 - Two polynomials $p, q \in \mathbb{F}[X]$ induce a function $f: A \to \mathbb{F}$ for every subset $A$ disjoint from the set of roots of $q$, where $f(a) := p(a) q(a)^{-1}$. Denote $f$ by $p/q$.
-- A hash function from $\mathbb{F}$ to binary strings of fixed length.
 
 ### Randomized AIR with Preprocessing (RAP)
 This the process in which the prover uses randomness from the verifier to complete the program trace with additional columns. This is specific to each RAP. See [here](https://hackmd.io/@aztec-network/plonk-arithmetiization-air) for more details.
 
 #### Cairo's RAP
-The execution of a Cairo program produces a memory vector $V$ and a matrix $M$ of size $L \times 3$ with the evolution of the three registers $pc, ap, fp$. Both with entries in $\mathbb{F}$.
+The execution of a Cairo program produces a memory vector $V$ and a matrix $M$ of size $L \times 3$ with the evolution of the three registers `pc`, `ap`, `fp`. All of them with entries in $\mathbb{F}$.
 
 ##### First round of RAP:
-1. Augment each row of $M$ with information about the pointed instruction as follows: For each entry $(pc_i, ap_i, fp_i)$ of $M$, unpack the $pc_i$-th value of $V$. The result is a new matrix $M \in \mathbb{F}^{L\times 33}$ with the following layout
+1. Augment each row of $M$ with information about the pointed instruction as follows: For each entry $(\text{pc}_i, \text{ap}_i, \text{fp}_i)$ of $M$, unpack the $\text{pc}_i$-th value of $V$. The result is a new matrix $M \in \mathbb{F}^{L\times 33}$ with the following layout
 ```
- A.  flags   (16) : Decoded instruction flags
- B.  res     (1)  : Res value
- C.  mem_p   (2)  : Temporary memory pointers (ap and fp)
- D.  mem_a   (4)  : Memory addresses (pc, dst_addr, op0_addr, op1_addr)
- E.  mem_v   (4)  : Memory values (inst, dst, op0, op1)
- F.  offsets (3)  : (off_dst, off_op0, off_op1)
- G.  derived (3)  : (t0, t1, mul)
+ A.  flags     (16) : Decoded instruction flags
+ B.  res       (1)  : Res value
+ C.  pointers  (2)  : Temporary memory pointers (ap and fp)
+ D.  mem_a     (4)  : Memory addresses (pc, dst_addr, op0_addr, op1_addr)
+ E.  mem_v     (4)  : Memory values (inst, dst, op0, op1)
+ F.  offsets   (3)  : (off_dst, off_op0, off_op1)
+ G.  derived   (3)  : (t0, t1, mul)
 
  A                B C  D    E    F   G
-├xxxxxxxxxxxxxxxx|x|xx|xxxx|xxxx|xxx|xxx┤
+|xxxxxxxxxxxxxxxx|x|xx|xxxx|xxxx|xxx|xxx|
 ```
-2. Let $R$ be the last row of $M$, and let $R'$ be the vector that's equal to $R$ except that it has zeroes in entries corresponding to the set of columns `mem_a, mem_v`. Let $L_{\text{pub}}$ be the length of the public input (program code). Extend $M$ with additional $L':=\lceil L_{\text{pub}}/4 \rceil$ rows to obtain a matrix $M \in \mathbb{F}^{(L + L')\times 33}$ by appending copies of the row $R'$ at the bottom (the notation $\lceil x \rceil$ means the _ceiling function_, defined as the smallest integer that is not smaller than $x$).
+1. Let $R$ be the last row of $M$, and let $R'$ be the vector that's equal to $R$ except that it has zeroes in entries corresponding to the set of columns `mem_a` and `mem_v`. Let $L_{\text{pub}}$ be the length of the public input (program code). Extend $M$ with additional $L':=\lceil L_{\text{pub}}/4 \rceil$ rows to obtain a matrix $M \in \mathbb{F}^{(L + L')\times 33}$ by appending copies of $R'$ at the bottom (the notation $\lceil x \rceil$ means the _ceiling function_, defined as the smallest integer that is not smaller than $x$).
+1. Let $r_\text{min}$ and $r_\text{max}$ be respectively the minimum and maximum values of the entries of the submatrix $M_\text{offsets}$ defined by the columns of the group `offsets`. Let $v$ be the vector of all the values between $r_\text{min}$ and $r_\text{max}$ that are not in $M_\text{offsets}$. If the length of $v$ is not a multiple of three, extend it to the nearest multiple of three using one arbitrary value of $v$.
 
-7. Pad $M$ with copies of its last row until it has a power of two number of rows. As a result we obtain a matrix $M_{\text{RAP1}}\in\mathbb{F}^{2^n\times 33}$.
+1. Let $L_v$ be the length of $v$. Add $L_v$ rows repeating the last row of $M$ in all the columns except in the group `offsets`. In that section place the values of $v$. The result is a matrix $M$ in $\mathbb{F}^{(L + L' + L_v) \times 33}$
+
+1. Pad $M$ with copies of its last row until it has a power of two number of rows. As a result we obtain a matrix $M_{\text{RAP1}}\in\mathbb{F}^{2^n\times 33}$.
 ##### Second round of RAP:
 
 The verifier sends challenges $\alpha, z \in \mathbb{F}$ (or the prover samples them from the transcript). Additional columns are added to incorporate the memory constraints. To define them the prover follows these steps:
-1. Stack the rows of the submatrix of $M$ defined by the columns `pc, dst_addr, op0_addr, op1_addr` into a vector `a` of length $4(L+L')$ (this means that the first entries of `a` are `pc[0], dst_addr[0], op0_addr[0], op1_addr[0], pc[1], dst_addr[1],...`).
-2. Stack the the rows of the submatrix defined by the columns `inst, dst, op0, op1` into a vector `v` of length $4(L+L')$.
-3. Define $M_{\text{Mem}}\in\mathbb{F}^{(L+L')\times 2}$ to be the matrix with columns `a`, `v`.
-3. Define $M_{\text{MemRepl}}\in\mathbb{F}^{(L+L')\times 2}$ to be the matrix that's equal to $M_{\text{Mem}}$ in the first $L - L_{\text{pub}}$ rows, and its last $L_{\text{pub}}$ entries are the addresses and values of the actual public memory.
-5. Sort $M_{\text{MemRepl}}$ by the first column in increasing order. The result is a matrix $M_{\text{MemReplSorted}}$ of size $(L+L')\times 2$. Denote its columns by `a'` and `b'`.
-6. Compute the vector $p$ of size $4(L+L')$ with entries 
-$$ p_i = \prod_{j=0}^i\frac{z - (\alpha a_i' + v_i')}{z - (\alpha a_i + v_i)}$$
-5. Reshape the matrix $M_{\text{MemReplSorted}}$ into a $(L+L')\times8$ in row-major. Reshape the vector $p$ into a $(L+L')\times4$ matrix in row-major.
-6. Concatenate these 12 rows. The result is a matrix $M'$ of size $(L+L') \times 12$.
-7. Pad $M'$ with copies of its last row until it has a power of two number of rows. As a result we obtain a matrix $M_{\text{RAP2}}\in\mathbb{F}^{2^n\times 12}$.
+1. Stack the rows of the submatrix of $M_{\text{RAP1}}$ defined by the columns `pc, dst_addr, op0_addr, op1_addr` into a vector `a` of length $2^{n+2}$ (this means that the first entries of `a` are `pc[0], dst_addr[0], op0_addr[0], op1_addr[0], pc[1], dst_addr[1],...`).
+1. Stack the the rows of the submatrix defined by the columns `inst, dst, op0, op1` into a vector `v` of length $2^{n+2}$.
+1. Define $M_{\text{Mem}}\in\mathbb{F}^{2^{n+2}\times 2}$ to be the matrix with columns $a$, $v$.
+1. Define $M_{\text{MemRepl}}\in\mathbb{F}^{2^{n+2}\times 2}$ to be the matrix that's equal to $M_{\text{Mem}}$ in the first $2^{n+2} - L_{\text{pub}}$ rows, and its last $L_{\text{pub}}$ entries are the addresses and values of the actual public memory (program code).
+1. Sort $M_{\text{MemRepl}}$ by the first column in increasing order. The result is a matrix $M_{\text{MemReplSorted}}$ of size $2^{n+2}\times 2$. Denote its columns by $a'$ and $v'$.
+1. Compute the vector $p$ of size $2^{n+2}$ with entries 
+$$ p_i := \prod_{j=0}^i\frac{z - (a_i' + \alpha v_i')}{z - (a_i + \alpha v_i)}$$
+1. Reshape the matrix $M_{\text{MemReplSorted}}$ into a $2^n\times 8$ in row-major. Reshape the vector $p$ into a $2^n \times 4$ matrix in row-major.
+1. Concatenate these 12 rows. The result is a matrix $M_\text{MemRAP2}$ of size $2^n \times 12$
 
-**TODO: Add $off_*$ range-check columns**
+The verifier sends challenge $z' \in \mathbb{F}$. Further columns are added to incorporate the range check constraints following these steps:
 
+1. Stack the rows of the submatrix of $M_\text{RAP1}$ defined by the columns in the group `offsets` into a vector $b$ of length $3\cdot 2^n$.
+1. Sort the values of $b$ in increasing order. Let $b'$ be the result.
+1. Compute the vector $p'$ of size $3\cdot 2^n$ with entries
+$$ p_i' := \prod_{j=0}^i\frac{z' - b_i'}{z' - b_i}$$
+1. Reshape $b'$ and $p'$ into matrices of size $2^n \times 3$ each and concatenate them into a matrix $M_\text{RangeCheckRAP2}$ of size $2^n \times 6$.
+1. Concatenate $M_\text{MemRAP2}$ and $M_\text{RangeCheckRAP2}$ into a matrix $M_\text{RAP2}$ of size $2^n \times 18$.
+
+
+Using the notation described at the beginning, $m'=33$, $m''=18$ and $m=52$. They are respectively the columns of the first and second part of the rap, and the total number of columns.
+
+
+Putting all together, the final layout of the trace is the following
+
+```
+ A.  flags      (16) : Decoded instruction flags
+ B.  res        (1)  : Res value
+ C.  pointers   (2)  : Temporary memory pointers (ap and fp)
+ D.  mem_a      (4)  : Memory addresses (pc, dst_addr, op0_addr, op1_addr)
+ E.  mem_v      (4)  : Memory values (inst, dst, op0, op1)
+ F.  offsets    (3)  : (off_dst, off_op0, off_op1)
+ G.  derived    (3)  : (t0, t1, mul)
+ H.  mem_a'     (4)  : Sorted memory addresses
+ I.  mem_v'     (4)  : Sorted memory values
+ J.  mem_p      (4)  : Memory permutation argument columns
+ K.  offsets_b' (3)  : Sorted offset columns
+ L.  offsets_p' (3)  : Range check permutation argument columns
+
+ A                B C  D    E    F   G   H    I    J    K   L
+|xxxxxxxxxxxxxxxx|x|xx|xxxx|xxxx|xxx|xxx|xxxx|xxxx|xxxx|xxx|xxx|
+```
 
 ### Vector commitment scheme
 Given a vector $A=(y_0, \dots, y_L)$. The operation $\text{Commit}(A)$ returns the root $r$ of the Merkle tree that has the hash of the elements of $A$ as leaves.
@@ -93,7 +130,7 @@ In our cases the sets $A$ will be of the form $A=(f(a), f(ab), f(ab^2), \dots, f
 - Compute $B_j := \frac{t_j - P^B_j}{Z_j^B}$.
 - Compute $C_k := \frac{P^T_k(t_1, \dots, t_m, t_1(gX), \dots, t_m(gX))}{Z_k^T}$.
 - Compute the _composition polynomial_
-$$H := \sum_{k} (\alpha_k^T X^{D-\deg(C_k)} + \beta_k^T)C_k + \sum_j (\alpha_j^BX^{D-\deg(B_j)}+\beta_j^B)B_j$$
+$$H := \sum_{k} (\alpha_k^T X^{d - d_k^T} + \beta_k^T)C_k + \sum_j (\alpha_j^BX^{d - d^B}+\beta_j^B)B_j$$
 - Decompose $H$ as 
 $$H = H_1(X^2) + XH_2(X^2)$$
 - Compute commitments $[H_1]$ and $[H_2]$.
@@ -197,7 +234,7 @@ $$
 - Compute $b_j := \frac{\tau_j^z - P^B_j(z)}{Z_j^B(z)}$
 - Compute $c_k := \frac{P^T_k(\tau_1^z, \dots, \tau_m^z, \tau_1^{gz}, \dots, \tau_m^{gz})}{Z_k^T(z)}$
 - Verify 
-$$h = \sum_{k} (\alpha_k^T z^{D-\deg(C_k)} + \beta_k^T)c_k + \sum_j (\alpha_j^B z^{D-\deg(B_j)}+\beta_j^B)b_j$$
+$$h = \sum_{k} (\alpha_k^T z^{d - d_k^T} + \beta_k^T)c_k + \sum_j (\alpha_j^B z^{d - d^B}+\beta_j^B)b_j$$
 
 
 #### Step 3: Verify FRI
@@ -229,3 +266,4 @@ $$
 $$
 \gamma\frac{\eta_1^{\upsilon_0} - \eta_1^{z^2}}{\upsilon_0 - z^2} + \gamma'\frac{\eta_2^{\upsilon_0} - \eta_2^{z^2}}{\upsilon_0 - z^2} + \sum_j \gamma_j\frac{\tau_j^{\upsilon_0} - \tau_j^{z}}{\upsilon_0 - z} + \gamma_j'\frac{\tau_j^{\upsilon_0} - \tau_j^{gz}}{\upsilon_0 - gz}
 $$
+
