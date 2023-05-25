@@ -2,7 +2,7 @@ use crate::field::errors::FieldError;
 use thiserror::Error;
 
 #[cfg(feature = "metal")]
-use crate::gpu::metal::abstractions::errors::MetalError;
+use lambdaworks_gpu::metal::abstractions::errors::MetalError;
 
 #[cfg(feature = "cuda")]
 use crate::gpu::cuda::abstractions::errors::CudaError;

@@ -3,9 +3,9 @@ use crate::{
         element::FieldElement,
         traits::{IsFFTField, RootsConfig},
     },
-    gpu::metal::abstractions::{errors::MetalError, state::MetalState},
     polynomial::Polynomial,
 };
+use lambdaworks_gpu::metal::abstractions::{errors::MetalError, state::MetalState};
 
 use super::ops::*;
 

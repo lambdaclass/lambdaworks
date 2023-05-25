@@ -2,8 +2,7 @@ use crate::field::{
     element::FieldElement,
     traits::{IsFFTField, RootsConfig},
 };
-
-use crate::gpu::metal::abstractions::{errors::MetalError, state::*};
+use lambdaworks_gpu::metal::abstractions::{errors::MetalError, state::*};
 
 use metal::MTLSize;
 
@@ -136,7 +135,7 @@ mod tests {
     use crate::field::{
         fields::fft_friendly::stark_252_prime_field::Stark252PrimeField, traits::RootsConfig,
     };
-    use crate::gpu::metal::abstractions::state::*;
+    use lambdaworks_gpu::metal::abstractions::state::*;
     use proptest::{collection, prelude::*};
 
     use super::*;
