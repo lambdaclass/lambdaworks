@@ -20,6 +20,7 @@ pub fn fft<F: IsFFTField>(
     twiddles: &[FieldElement<F>],
     state: &MetalState,
 ) -> Result<Vec<FieldElement<F>>, MetalError> {
+    // TODO: make a twiddle factor abstraction for handling invalid twiddles
     if !input.len().is_power_of_two() {
         return Err(MetalError::InputError(input.len()));
     }

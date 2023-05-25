@@ -1,4 +1,5 @@
 use crate::{
+    fft::errors::FFTError,
     field::{
         element::FieldElement,
         errors::FieldError,
@@ -8,9 +9,9 @@ use crate::{
 };
 
 use super::ops::{fft, reverse_index};
-use crate::gpu::cuda::abstractions::{errors::CudaError, state::CudaState};
+use lambdaworks_gpu::cuda::abstractions::{errors::CudaError, state::CudaState};
 
-pub fn evaluate_fft_cuda<F>(coeffs: &[FieldElement<F>]) -> Result<Vec<FieldElement<F>>, CudaError>
+pub fn evaluate_fft_cuda<F>(coeffs: &[FieldElement<F>]) -> Result<Vec<FieldElement<F>>, FFTError>
 where
     F: IsFFTField,
     F::BaseType: Unpin,
@@ -26,7 +27,7 @@ where
 /// factors. This is considered to be the inverse operation of [evaluate_fft_cuda()].
 pub fn interpolate_fft_cuda<F>(
     fft_evals: &[FieldElement<F>],
-) -> Result<Polynomial<FieldElement<F>>, CudaError>
+) -> Result<Polynomial<FieldElement<F>>, FFTError>
 where
     F: IsFFTField,
     F::BaseType: Unpin,

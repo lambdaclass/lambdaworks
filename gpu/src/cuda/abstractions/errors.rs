@@ -1,14 +1,9 @@
 use thiserror::Error;
 
-use crate::field::errors::FieldError;
-
 #[derive(Debug, Error)]
 pub enum CudaError {
     #[error("The order of polynomial + 1 should a be power of 2. Got: {0}")]
     InvalidOrder(usize),
-    #[error("An error occured while working in CPU with fields")]
-    // TODO: remove when implemented in CUDA
-    FieldError(#[from] FieldError),
     #[error("Couldn't load compiled PTX: {0}")]
     PtxError(String),
     #[error("Couldn't get CUDA function: {0}")]
