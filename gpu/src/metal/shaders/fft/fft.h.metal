@@ -23,4 +23,3 @@ template<typename Fp>
   input[i]                    = res_1; // --\/--
   input[i + half_group_size]  = res_2; // --/\--
 }
-

@@ -85,7 +85,7 @@ jobs:
           components: clippy
 
       - name: Compile shaders
-        run: make build-metal
+        run: make -B build-metal # force recompilation of shaders
       - name: Run clippy
         run: make clippy-metal
       - name: Run tests
@@ -114,7 +114,7 @@ jobs:
           method: 'network'
 
       - name: Compile shaders
-        run: make build-cuda
+        run: make -B build-cuda # force recompilation of shaders
       - name: Run clippy
         run: make clippy-cuda
       - name: Run tests
