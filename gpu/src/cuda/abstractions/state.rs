@@ -1,21 +1,15 @@
-use crate::{
-    field::{
-        element::FieldElement,
-        fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
-        traits::{IsFFTField, IsField},
-    },
-    gpu::cuda::abstractions::{element::CUDAFieldElement, errors::CudaError},
-};
+use crate::gpu::cuda::abstractions::{element::CUDAFieldElement, errors::CudaError};
 use cudarc::{
     driver::{
         safe::{CudaSlice, DeviceSlice},
-        CudaDevice, CudaFunction, LaunchAsync, LaunchConfig,
+        CudaDevice, CudaFunction, DeviceRepr, LaunchAsync, LaunchConfig,
     },
     nvrtc::safe::Ptx,
 };
 use std::sync::Arc;
 
-const STARK256_PTX: &str = include_str!("../shaders/fields/stark256.ptx");
+const STARK256_PTX: &str =
+    include_str!("../../../../math/src/gpu/cuda/shaders/fields/stark256.ptx");
 
 /// Structure for abstracting basic calls to a Metal device and saving the state. Used for
 /// implementing GPU parallel computations in Apple machines.
@@ -31,33 +25,28 @@ impl CudaState {
         let state = Self { device };
 
         // Load PTX libraries
-        state.load_library::<Stark252PrimeField>(STARK256_PTX)?;
+        state.load_library(STARK256_PTX, "stark256")?;
 
         Ok(state)
     }
 
-    fn load_library<F: IsFFTField>(&self, src: &'static str) -> Result<(), CudaError> {
-        let mod_name: &'static str = F::field_name();
+    fn load_library(&self, src: &str, mod_name: &str) -> Result<(), CudaError> {
         let functions = ["radix2_dit_butterfly"];
         self.device
             .load_ptx(Ptx::from_src(src), mod_name, &functions)
             .map_err(|err| CudaError::PtxError(err.to_string()))
     }
 
-    fn get_function<F: IsFFTField>(&self, func_name: &str) -> Result<CudaFunction, CudaError> {
-        let mod_name = F::field_name();
+    fn get_function(&self, mod_name: &str, func_name: &str) -> Result<CudaFunction, CudaError> {
         self.device
             .get_func(mod_name, func_name)
             .ok_or_else(|| CudaError::FunctionError(func_name.to_string()))
     }
 
     /// Allocates a buffer in the GPU and copies `data` into it. Returns its handle.
-    fn alloc_buffer_with_data<F: IsField>(
-        &self,
-        data: &[FieldElement<F>],
-    ) -> Result<CudaSlice<CUDAFieldElement<F>>, CudaError> {
+    fn alloc_buffer_with_data<T: DeviceRepr>(&self, data: &[T]) -> Result<CudaSlice<T>, CudaError> {
         self.device
-            .htod_sync_copy(&data.iter().map(CUDAFieldElement::from).collect::<Vec<_>>())
+            .htod_sync_copy(data)
             .map_err(|err| CudaError::AllocateMemory(err.to_string()))
     }
 

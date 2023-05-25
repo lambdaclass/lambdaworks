@@ -5,7 +5,7 @@ use thiserror::Error;
 use lambdaworks_gpu::metal::abstractions::errors::MetalError;
 
 #[cfg(feature = "cuda")]
-use crate::gpu::cuda::abstractions::errors::CudaError;
+use lambdaworks_gpu::cuda::abstractions::errors::CudaError;
 
 #[derive(Debug, Error)]
 pub enum FFTError {
