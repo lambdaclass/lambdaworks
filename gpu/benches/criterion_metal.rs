@@ -1,6 +1,6 @@
 use std::ops::Range;
 
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use lambdaworks_gpu::metal::{abstractions::state::MetalState, fft::ops::gen_twiddles};
 use lambdaworks_math::field::traits::RootsConfig;
 
@@ -98,24 +98,24 @@ fn poly_interpolation_benchmarks(c: &mut Criterion) {
 
 pub fn msm_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("Multi-scalar Multiplication");
-    group.sample_size(10); // too slow otherwise
+    let window_sizes = vec![1, 2, 4, 8, 12];
 
-    const WINDOW_SIZE: usize = 4;
+    for window_size in window_sizes {
+        for order in SIZE_ORDERS_MSM {
+            let (cs, hidings) = (rand_vec(order), rand_vec(order));
 
-    for order in SIZE_ORDERS_MSM {
-        let (cs, hidings) = (rand_vec(order), rand_vec(order));
+            group.throughput(criterion::Throughput::Elements(1 << order));
 
-        group.throughput(criterion::Throughput::Elements(1 << order));
-
-        group.bench_with_input(
-            "Parallel Pippenger (Metal)",
-            &(cs, hidings),
-            |bench, (cs, hidings)| {
-                bench.iter(|| {
-                    functions::metal::msm(&cs, &hidings, WINDOW_SIZE);
-                });
-            },
-        );
+            group.bench_with_input(
+                BenchmarkId::new("Parallel Pippenger (Metal)", window_size),
+                &(cs, hidings),
+                |bench, (cs, hidings)| {
+                    bench.iter(|| {
+                        functions::metal::msm(&cs, &hidings, window_size);
+                    });
+                },
+            );
+        }
     }
 
     group.finish();
