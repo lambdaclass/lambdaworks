@@ -25,6 +25,18 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
     pub fn from_limbs(limbs: [u64; NUM_LIMBS]) -> Self {
         Self { limbs }
     }
+
+    #[inline(always)]
+    fn div2(&mut self) {
+        let mut t = 0;
+        for i in 0..NUM_LIMBS {
+            let a = &mut self.limbs[NUM_LIMBS - i - 1];
+            let t2 = *a << 63;
+            *a >>= 1;
+            *a |= t;
+            t = t2;
+        }
+    }
 }
 
 impl<const NUM_LIMBS: usize> From<u128> for UnsignedInteger<NUM_LIMBS> {
@@ -2112,5 +2124,13 @@ mod tests_u256 {
         ];
         let expected_number = U256::from_u64(1);
         assert_eq!(U256::from_bytes_le(&bytes).unwrap(), expected_number);
+    }
+
+    #[test]
+    fn div2_works() {
+        let mut n = UnsignedInteger::<3>::from(4u64);
+        n.div2();
+
+        assert_eq!(n, UnsignedInteger::<3>::from(2u64));
     }
 }
