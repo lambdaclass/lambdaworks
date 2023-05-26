@@ -181,7 +181,6 @@ where
                     b = b - &c;
                 } else {
                     v = v - u;
-                    c.limbs[NUM_LIMBS-1] = c.limbs[NUM_LIMBS-1].wrapping_sub(b.limbs[NUM_LIMBS-1]);
                     c = c - &b;
                 }
             }
