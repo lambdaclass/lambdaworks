@@ -38,7 +38,7 @@ pub fn msm_benchmarks_with_size(
     window_sizes: &[usize],
 ) {
     assert_eq!(cs.len(), points.len());
-    let mut group = c.benchmark_group(format!("Multi-scalar Multiplication"));
+    let mut group = c.benchmark_group("Multi-scalar Multiplication");
 
     group.bench_function("Naive", |bench| {
         bench.iter(|| black_box(naive::msm(cs, points)));
