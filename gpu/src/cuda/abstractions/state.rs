@@ -5,13 +5,7 @@ use cudarc::{
 };
 use std::sync::Arc;
 
-const ROOT_DIR: &str = env!("CARGO_MANIFEST_DIR");
-const STARK256_PTX: &str = include_str!(concat!(
-    ROOT_DIR,
-    "/math/src/gpu/cuda/shaders/field/stark256.ptx"
-));
-// TODO: This should be compiled in this crate, while other crates would only have shader
-// code.
+const STARK256_PTX: &str = include_str!("../../../../math/src/gpu/cuda/shaders/field/stark256.ptx");
 
 /// Structure for abstracting basic calls to a CUDA device and saving the state. Used for
 /// implementing GPU parallel computations in CUDA.
