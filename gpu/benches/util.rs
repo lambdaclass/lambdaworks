@@ -1,11 +1,7 @@
-use lambdaworks_math::{
-    field::{
-        element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
-    },
-    polynomial::Polynomial,
-    unsigned_integer::element::UnsignedInteger,
+use lambdaworks_math::field::{
+    element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
 };
-use rand::{distributions::Standard, prelude::Distribution, random, Rng};
+use rand::{distributions::Standard, prelude::Distribution, Rng};
 
 pub type F = Stark252PrimeField;
 pub type FE = FieldElement<F>;
@@ -22,17 +18,4 @@ where
     }
 
     result
-}
-
-pub fn rand_field_elements(order: u64) -> Vec<FE> {
-    let mut result = Vec::with_capacity(1 << order);
-    for _ in 0..result.capacity() {
-        let rand_big = UnsignedInteger { limbs: random() };
-        result.push(FE::new(rand_big));
-    }
-    result
-}
-
-pub fn rand_poly(order: u64) -> Polynomial<FE> {
-    Polynomial::new(&rand_field_elements(order))
 }

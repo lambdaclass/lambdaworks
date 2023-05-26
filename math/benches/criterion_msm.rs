@@ -38,9 +38,7 @@ pub fn msm_benchmarks_with_size(
     window_sizes: &[usize],
 ) {
     assert_eq!(cs.len(), points.len());
-    let msm_size = cs.len();
-
-    let mut group = c.benchmark_group(format!("MSM benchmarks with size {msm_size}"));
+    let mut group = c.benchmark_group(format!("Multi-scalar Multiplication"));
 
     group.bench_function("Naive", |bench| {
         bench.iter(|| black_box(naive::msm(cs, points)));
@@ -55,7 +53,7 @@ pub fn msm_benchmarks_with_size(
         );
 
         group.bench_function(
-            BenchmarkId::new("Parallel Pippenger", window_size),
+            BenchmarkId::new("Parallel Pippenger (rayon)", window_size),
             |bench| {
                 bench.iter(|| black_box(pippenger::parallel_msm_with(cs, points, window_size)));
             },

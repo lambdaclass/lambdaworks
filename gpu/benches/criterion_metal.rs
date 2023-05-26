@@ -2,7 +2,7 @@ use std::ops::Range;
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use lambdaworks_gpu::metal::{abstractions::state::MetalState, fft::ops::gen_twiddles};
-use lambdaworks_math::field::traits::RootsConfig;
+use lambdaworks_math::{field::traits::RootsConfig, polynomial::Polynomial};
 
 use crate::util::{rand_vec, F};
 
@@ -15,7 +15,7 @@ const SIZE_ORDERS_MSM: Range<u64> = 1..10;
 fn fft_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("Ordered FFT");
 
-    for (order, input) in SIZE_ORDERS_FFT.zip(SIZE_ORDERS_FFT.map(util::rand_field_elements)) {
+    for (order, input) in SIZE_ORDERS_FFT.zip(SIZE_ORDERS_FFT.map(util::rand_vec)) {
         let metal_state = MetalState::new(None).unwrap();
         let twiddles = gen_twiddles::<F>(order, RootsConfig::BitReverse, &metal_state).unwrap();
 
@@ -52,7 +52,7 @@ fn twiddles_generation_benchmarks(c: &mut Criterion) {
 fn bitrev_permutation_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("Bit-reverse permutation");
 
-    for input in SIZE_ORDERS_FFT.map(util::rand_field_elements) {
+    for input in SIZE_ORDERS_FFT.map(util::rand_vec) {
         group.throughput(criterion::Throughput::Elements(input.len() as u64));
         group.bench_with_input("Parallel (Metal)", &input, |bench, input| {
             bench.iter_with_large_drop(|| {
@@ -67,7 +67,7 @@ fn bitrev_permutation_benchmarks(c: &mut Criterion) {
 fn poly_evaluation_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("Polynomial");
 
-    for poly in SIZE_ORDERS_FFT.map(util::rand_poly) {
+    for poly in SIZE_ORDERS_FFT.map(|order| Polynomial::new(&util::rand_vec(order))) {
         group.throughput(criterion::Throughput::Elements(
             poly.coefficients().len() as u64
         ));
@@ -84,7 +84,7 @@ fn poly_evaluation_benchmarks(c: &mut Criterion) {
 fn poly_interpolation_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("Polynomial");
 
-    for evals in SIZE_ORDERS_FFT.map(util::rand_field_elements) {
+    for evals in SIZE_ORDERS_FFT.map(util::rand_vec) {
         group.throughput(criterion::Throughput::Elements(evals.len() as u64));
         group.bench_with_input("interpolate_fft_metal", &evals, |bench, evals| {
             bench.iter_with_large_drop(|| {
