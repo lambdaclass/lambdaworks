@@ -176,8 +176,7 @@ where
                 }
 
                 if v < u {
-                    u = u;
-                    // Sub with borrow
+                    u = u - v;
                     b = b - &c;
                 } else {
                     v = v - u;
