@@ -13,8 +13,8 @@ const STARK256_PTX: &str = include_str!(concat!(
 // TODO: This should be compiled in this crate, while other crates would only have shader
 // code.
 
-/// Structure for abstracting basic calls to a Metal device and saving the state. Used for
-/// implementing GPU parallel computations in Apple machines.
+/// Structure for abstracting basic calls to a CUDA device and saving the state. Used for
+/// implementing GPU parallel computations in CUDA.
 pub struct CudaState {
     device: Arc<CudaDevice>,
 }
