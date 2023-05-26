@@ -7,7 +7,10 @@ use super::errors::MetalError;
 
 use core::{ffi, mem};
 
-const LIB_DATA: &[u8] = include_bytes!("../../../../math/src/gpu/metal/lib.metallib");
+const ROOT_DIR: &str = env!("CARGO_MANIFEST_DIR");
+const LIB_DATA: &[u8] = include_bytes!(concat!(ROOT_DIR, "/math/src/gpu/metal/lib.metallib"));
+// TODO: This should be compiled in this crate, while other crates would only have shader
+// code.
 
 /// Structure for abstracting basic calls to a Metal device and saving the state. Used for
 /// implementing GPU parallel computations in Apple machines.
