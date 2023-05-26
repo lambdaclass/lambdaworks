@@ -1,9 +1,11 @@
 #![allow(dead_code)] // clippy has false positive in benchmarks
 use lambdaworks_math::fft::{
-    bit_reversing::in_place_bit_reverse_permute,
-    fft_iterative::{in_place_nr_2radix_fft, in_place_rn_2radix_fft},
+    cpu::{
+        bit_reversing::in_place_bit_reverse_permute,
+        fft::{in_place_nr_2radix_fft, in_place_rn_2radix_fft},
+        roots_of_unity::get_twiddles,
+    },
     polynomial::FFTPoly,
-    roots_of_unity::get_twiddles,
 };
 
 use lambdaworks_math::{field::traits::RootsConfig, polynomial::Polynomial};

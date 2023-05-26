@@ -1,5 +1,5 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use lambdaworks_math::{fft::roots_of_unity::get_twiddles, field::traits::RootsConfig};
+use lambdaworks_math::{fft::cpu::roots_of_unity::get_twiddles, field::traits::RootsConfig};
 
 mod utils;
 use utils::fft_functions;
