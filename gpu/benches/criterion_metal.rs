@@ -1,23 +1,23 @@
+use std::ops::Range;
+
 use criterion::{criterion_group, criterion_main, Criterion};
 use lambdaworks_gpu::metal::{abstractions::state::MetalState, fft::ops::gen_twiddles};
 use lambdaworks_math::field::traits::RootsConfig;
 
-use crate::util::F;
+use crate::util::{rand_vec, F};
 
 mod functions;
 mod util;
 
-const SIZE_ORDERS: [u64; 4] = [21, 22, 23, 24];
+const SIZE_ORDERS_FFT: Range<u64> = 21..24;
+const SIZE_ORDERS_MSM: Range<u64> = 1..10;
 
 fn fft_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("Ordered FFT");
 
-    for (order, input) in SIZE_ORDERS
-        .iter()
-        .zip(SIZE_ORDERS.map(util::rand_field_elements))
-    {
+    for (order, input) in SIZE_ORDERS_FFT.zip(SIZE_ORDERS_FFT.map(util::rand_field_elements)) {
         let metal_state = MetalState::new(None).unwrap();
-        let twiddles = gen_twiddles::<F>(*order, RootsConfig::BitReverse, &metal_state).unwrap();
+        let twiddles = gen_twiddles::<F>(order, RootsConfig::BitReverse, &metal_state).unwrap();
 
         group.throughput(criterion::Throughput::Elements(input.len() as u64));
         group.bench_with_input(
@@ -37,7 +37,7 @@ fn fft_benchmarks(c: &mut Criterion) {
 fn twiddles_generation_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("FFT twiddles generation");
 
-    for order in SIZE_ORDERS {
+    for order in SIZE_ORDERS_FFT {
         group.throughput(criterion::Throughput::Elements(1 << (order - 1)));
         group.bench_with_input("Parallel (Metal)", &order, |bench, order| {
             bench.iter_with_large_drop(|| {
@@ -52,7 +52,7 @@ fn twiddles_generation_benchmarks(c: &mut Criterion) {
 fn bitrev_permutation_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("Bit-reverse permutation");
 
-    for input in SIZE_ORDERS.map(util::rand_field_elements) {
+    for input in SIZE_ORDERS_FFT.map(util::rand_field_elements) {
         group.throughput(criterion::Throughput::Elements(input.len() as u64));
         group.bench_with_input("Parallel (Metal)", &input, |bench, input| {
             bench.iter_with_large_drop(|| {
@@ -67,7 +67,7 @@ fn bitrev_permutation_benchmarks(c: &mut Criterion) {
 fn poly_evaluation_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("Polynomial");
 
-    for poly in SIZE_ORDERS.map(util::rand_poly) {
+    for poly in SIZE_ORDERS_FFT.map(util::rand_poly) {
         group.throughput(criterion::Throughput::Elements(
             poly.coefficients().len() as u64
         ));
@@ -84,7 +84,7 @@ fn poly_evaluation_benchmarks(c: &mut Criterion) {
 fn poly_interpolation_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("Polynomial");
 
-    for evals in SIZE_ORDERS.map(util::rand_field_elements) {
+    for evals in SIZE_ORDERS_FFT.map(util::rand_field_elements) {
         group.throughput(criterion::Throughput::Elements(evals.len() as u64));
         group.bench_with_input("interpolate_fft_metal", &evals, |bench, evals| {
             bench.iter_with_large_drop(|| {
@@ -96,10 +96,36 @@ fn poly_interpolation_benchmarks(c: &mut Criterion) {
     group.finish();
 }
 
+pub fn msm_benchmarks(c: &mut Criterion) {
+    let mut group = c.benchmark_group("Multi-scalar Multiplication");
+    group.sample_size(10); // too slow otherwise
+
+    const WINDOW_SIZE: usize = 4;
+
+    for order in SIZE_ORDERS_MSM {
+        let (cs, hidings) = (rand_vec(order), rand_vec(order));
+
+        group.throughput(criterion::Throughput::Elements(1 << order));
+
+        group.bench_with_input(
+            "Parallel Pippenger (Metal)",
+            &(cs, hidings),
+            |bench, (cs, hidings)| {
+                bench.iter(|| {
+                    functions::metal::msm(&cs, &hidings, WINDOW_SIZE);
+                });
+            },
+        );
+    }
+
+    group.finish();
+}
+
 criterion_group!(
     name = metal;
     config = Criterion::default().sample_size(10);
     targets =
+        msm_benchmarks,
         fft_benchmarks,
         twiddles_generation_benchmarks,
         bitrev_permutation_benchmarks,

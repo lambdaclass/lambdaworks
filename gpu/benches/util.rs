@@ -5,10 +5,24 @@ use lambdaworks_math::{
     polynomial::Polynomial,
     unsigned_integer::element::UnsignedInteger,
 };
-use rand::random;
+use rand::{distributions::Standard, prelude::Distribution, random, Rng};
 
 pub type F = Stark252PrimeField;
 pub type FE = FieldElement<F>;
+
+pub fn rand_vec<T>(order: u64) -> Vec<T>
+where
+    Standard: Distribution<T>,
+{
+    let mut rng = rand::thread_rng();
+    let mut result = Vec::with_capacity(1 << order);
+
+    for _ in 0..result.capacity() {
+        result.push(rng.gen());
+    }
+
+    result
+}
 
 pub fn rand_field_elements(order: u64) -> Vec<FE> {
     let mut result = Vec::with_capacity(1 << order);

@@ -1,6 +1,13 @@
 use lambdaworks_fft::polynomial::FFTPoly;
-use lambdaworks_gpu::metal::{abstractions::state::MetalState, fft::ops::*};
-use lambdaworks_math::{field::traits::RootsConfig, polynomial::Polynomial};
+use lambdaworks_gpu::metal::{abstractions::state::MetalState, fft::ops::*, msm::ops::pippenger};
+use lambdaworks_math::{
+    elliptic_curve::short_weierstrass::{
+        curves::bls12_381::curve::BLS12381Curve, point::ShortWeierstrassProjectivePoint,
+    },
+    field::traits::RootsConfig,
+    polynomial::Polynomial,
+    unsigned_integer::element::U384,
+};
 
 // WARN: These should always be fields supported by Metal, else the last two benches will use CPU FFT.
 use crate::util::{F, FE};
@@ -21,8 +28,14 @@ pub fn bitrev_permute(input: &[FE]) {
 }
 
 pub fn poly_evaluate_fft(poly: &Polynomial<FE>) {
-    poly.evaluate_fft(1, None);
+    poly.evaluate_fft(1, None).unwrap();
 }
 pub fn poly_interpolate_fft(evals: &[FE]) {
     Polynomial::interpolate_fft(evals).unwrap();
+}
+
+type Point = ShortWeierstrassProjectivePoint<BLS12381Curve>;
+pub fn msm(cs: &[U384], hidings: &[Point], window_size: usize) {
+    let metal_state = MetalState::new(None).unwrap();
+    pippenger(cs, hidings, window_size, &metal_state).unwrap();
 }

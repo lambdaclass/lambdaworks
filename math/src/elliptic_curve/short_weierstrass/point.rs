@@ -1,3 +1,5 @@
+use rand::{distributions::Standard, prelude::Distribution, Rng};
+
 use crate::{
     cyclic_group::IsGroup,
     elliptic_curve::{
@@ -283,6 +285,15 @@ impl U32Limbs<NUM_LIMBS> for ShortWeierstrassProjectivePoint<BLS12381Curve> {
             .iter()
             .flat_map(|felt| felt.value().to_u32_limbs())
             .collect()
+    }
+}
+
+impl Distribution<ShortWeierstrassProjectivePoint<BLS12381Curve>> for Standard {
+    fn sample<R: Rng + ?Sized>(
+        &self,
+        rng: &mut R,
+    ) -> ShortWeierstrassProjectivePoint<BLS12381Curve> {
+        BLS12381Curve::generator().operate_with_self(rng.gen::<u128>())
     }
 }
 

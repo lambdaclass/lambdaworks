@@ -1,6 +1,10 @@
 use std::convert::From;
 use std::ops::{Add, BitAnd, Mul, Shl, Shr, Sub};
 
+use rand::distributions::Standard;
+use rand::prelude::Distribution;
+use rand::Rng;
+
 use crate::errors::{ByteConversionError, CreationError};
 use crate::traits::ByteConversion;
 use crate::unsigned_integer::traits::IsUnsignedInteger;
@@ -624,6 +628,19 @@ impl U32Limbs<U384_32BIT_NUM_LIMBS> for U384 {
         }
 
         limbs_32
+    }
+}
+
+impl<const NUM_LIMBS: usize> Distribution<UnsignedInteger<NUM_LIMBS>> for Standard {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> UnsignedInteger<NUM_LIMBS> {
+        let mut limbs_vec = Vec::with_capacity(NUM_LIMBS);
+        for _ in 0..limbs_vec.capacity() {
+            limbs_vec.push(rng.gen());
+        }
+
+        let mut limbs = [0; NUM_LIMBS];
+        limbs[..NUM_LIMBS].clone_from_slice(&limbs_vec);
+        UnsignedInteger { limbs }
     }
 }
 

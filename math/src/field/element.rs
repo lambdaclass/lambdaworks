@@ -1,3 +1,7 @@
+use rand::distributions::Standard;
+use rand::prelude::Distribution;
+use rand::Rng;
+
 use crate::errors::CreationError;
 use crate::field::traits::IsField;
 use crate::unsigned_integer::element::UnsignedInteger;
@@ -510,6 +514,16 @@ where
                 &MontgomeryBackendPrimeField::<M, NUM_LIMBS>::MU,
             ),
         })
+    }
+}
+
+impl<F> Distribution<FieldElement<F>> for Standard
+where
+    F: IsField,
+    Standard: Distribution<F::BaseType>,
+{
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> FieldElement<F> {
+        FieldElement { value: rng.gen() }
     }
 }
 
