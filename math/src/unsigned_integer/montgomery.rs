@@ -8,6 +8,7 @@ impl MontgomeryAlgorithms {
     /// Notice CIOS stands for Coarsely Integrated Operand Scanning
     /// For more information see section 2.3.2 of Tolga Acar's thesis
     /// https://www.microsoft.com/en-us/research/wp-content/uploads/1998/06/97Acar.pdf
+    #[inline(always)]
     pub const fn cios<const NUM_LIMBS: usize>(
         a: &UnsignedInteger<NUM_LIMBS>,
         b: &UnsignedInteger<NUM_LIMBS>,
