@@ -27,6 +27,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
     }
 
     #[inline(always)]
+    #[allow(unused)]
     fn div2(&mut self) {
         let mut t = 0;
         for i in 0..NUM_LIMBS {
