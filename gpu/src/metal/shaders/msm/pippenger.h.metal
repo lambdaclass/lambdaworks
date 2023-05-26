@@ -33,7 +33,7 @@ constant constexpr uint32_t NUM_LIMBS = 12;  // u384
     uint32_t m_ij = window_unmasked & buckets_len;
     if (m_ij != 0) {
         uint64_t idx = (m_ij - 1);
-        Point bucket = buckets_matrix[thread_id * buckets_len + idx];
-        buckets_matrix[thread_id * buckets_len + idx] = bucket + p;
+        Point bucket = buckets_matrix[idx * thread_count + thread_id];
+        buckets_matrix[idx * thread_count + thread_id] = bucket + p;
     }
 }

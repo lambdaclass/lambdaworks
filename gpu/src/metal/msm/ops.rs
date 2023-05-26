@@ -84,17 +84,14 @@ pub fn pippenger(
                 Point::from_flat_u32_limbs(&limbs)
             };
 
-            let mut buckets = Vec::with_capacity(buckets_len);
-
-            // TODO: use iterators
-            for i in 0..buckets_len {
-                let mut partial_sum = buckets_matrix[i].clone();
-
-                for j in 1..point_len {
-                    partial_sum = partial_sum.operate_with(&buckets_matrix[i + j * buckets_len]);
-                }
-                buckets.push(partial_sum);
-            }
+            let mut buckets = buckets_matrix
+                .chunks(point_len)
+                .map(|chunk| {
+                    chunk
+                        .iter()
+                        .fold(Point::neutral_element(), |acc, b| acc.operate_with(b))
+                })
+                .collect::<Vec<_>>();
 
             buckets
                 .iter_mut()
