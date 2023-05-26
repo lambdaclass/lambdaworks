@@ -476,7 +476,6 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
 
     /// Multi-precision multiplication.
     /// Adapted from Algorithm 14.12 of "Handbook of Applied Cryptography" (https://cacr.uwaterloo.ca/hac/)
-    #[allow(unused)]
     pub const fn mul(
         a: &UnsignedInteger<NUM_LIMBS>,
         b: &UnsignedInteger<NUM_LIMBS>,
@@ -499,7 +498,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
                 j -= 1;
                 let mut k = i + j;
                 if k >= NUM_LIMBS - 1 {
-                    k -= (NUM_LIMBS - 1);
+                    k -= NUM_LIMBS - 1;
                     let uv = (lo[k] as u128) + (a.limbs[j] as u128) * (b.limbs[i] as u128) + carry;
                     carry = uv >> 64;
                     // Casting u128 to u64 takes modulo 2^{64}
