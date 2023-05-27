@@ -135,6 +135,7 @@ where
         let mut k = 0;
         let n = M::MODULUS.num_bits();
 
+        // Change shl with x = 2x
         while v > &Self::zero() {
             if u.limbs[0] & 1 == 0 {
                 u.div2();
