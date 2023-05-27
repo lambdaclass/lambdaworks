@@ -27,8 +27,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
     }
 
     #[inline(always)]
-    #[allow(unused)]
-    fn div2(&mut self) {
+    pub fn div2(&mut self) {
         let mut t = 0;
         for i in 0..NUM_LIMBS {
             let a = &mut self.limbs[NUM_LIMBS - i - 1];
@@ -37,6 +36,21 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
             *a |= t;
             t = t2;
         }
+    }
+
+    #[inline(always)]
+    pub fn num_bits(&self) -> u32 {
+        let mut ret = NUM_LIMBS as u32 * 64;
+        for i in 0..NUM_LIMBS {
+            let a = &self.limbs[NUM_LIMBS - i - 1];
+            let leading = a.leading_zeros();
+            ret -= leading;
+            if leading != 64 {
+                break;
+            }
+        }
+
+        ret
     }
 }
 

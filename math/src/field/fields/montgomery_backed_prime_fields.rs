@@ -128,7 +128,46 @@ where
         if a == &Self::ZERO {
             panic!("Division by zero error.")
         }
-        Self::pow(a, M::MODULUS - Self::BaseType::from_u64(2))
+        let mut u = M::MODULUS;
+        let v = a;
+        let mut r = Self::zero();
+        let mut s = Self::one();
+        let mut k = 0;
+        let n = M::MODULUS.num_bits();
+
+        while v > &Self::zero() {
+            if u.limbs[0] & 1 == 0 {
+                u.div2();
+                s = s << 1;
+            } else if u > *v {
+                // TODO: make add and sub in place and avoid overflow (a.k.a. add_with_carry and sub_with_borrow)
+                u = u - v;
+                u.div2();
+                r = r + s;
+                s = s << 1;
+            } else if *v >= u {
+                u = v - u;
+                u.div2();
+                s = r + s;
+                r = r << 1;
+            }
+            k += 1;
+        }
+
+        if r >= M::MODULUS {
+            r = r - M::MODULUS;
+        }
+
+        for _ in 1..k - n {
+            if r.limbs[0] & 1 == 0 {
+                r.div2();
+            } else {
+                r = r + M::MODULUS;
+                r.div2();
+            }
+        }
+
+        r
     }
 
     fn div(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
