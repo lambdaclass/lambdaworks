@@ -129,27 +129,26 @@ where
             panic!("Division by zero error.")
         }
         let mut u = M::MODULUS;
-        let v = a;
+        let mut v = a.clone();
         let mut r = Self::zero();
         let mut s = Self::one();
         let mut k = 0;
         let n = M::MODULUS.num_bits();
 
-        // Change shl with x = 2x
-        while v > &Self::zero() {
+        while v > Self::zero() {
             if u.limbs[0] & 1 == 0 {
                 u.div2();
                 s = s << 1;
-            } else if u > *v {
-                // TODO: make add and sub in place and avoid overflow (a.k.a. add_with_carry and sub_with_borrow)
-                u = u - v;
+            // TODO: what is > in Montgomery representation?
+            } else if u > v {
+                (u, _) = UnsignedInteger::sub(&u, &v);
                 u.div2();
-                r = r + s;
+                (r, _) = UnsignedInteger::add(&r, &s);
                 s = s << 1;
-            } else if *v >= u {
-                u = v - u;
-                u.div2();
-                s = r + s;
+            } else if v >= u {
+                (v, _) = UnsignedInteger::sub(&v, &u);
+                v.div2();
+                (s, _) = UnsignedInteger::add(&r, &s);
                 r = r << 1;
             }
             k += 1;
