@@ -122,7 +122,7 @@ impl CudaState {
         let twiddles_buffer =
             self.alloc_buffer_with_data(&(0..count).map(FieldElement::from).collect::<Vec<_>>())?;
 
-        assert_eq!(DeviceSlice::len(&twiddles_buffer), count);
+        assert_eq!(DeviceSlice::len(&twiddles_buffer) as usize, count as usize);
 
         Ok(CalcTwiddlesFunction::new(
             Arc::clone(&self.device),
