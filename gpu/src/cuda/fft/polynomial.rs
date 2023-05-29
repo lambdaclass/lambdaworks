@@ -1,12 +1,13 @@
 use lambdaworks_math::{
     field::{
         element::FieldElement,
+        errors::FieldError,
         traits::{IsFFTField, RootsConfig},
     },
     polynomial::Polynomial,
 };
 
-use super::ops::fft;
+use super::ops::{fft, reverse_index};
 use crate::cuda::abstractions::{errors::CudaError, state::CudaState};
 use crate::cuda::fft::ops::gen_twiddles;
 
@@ -52,6 +53,3 @@ fn log2(n: usize) -> Result<u64, CudaError> {
     }
     Ok(n.trailing_zeros() as u64)
 }
-
-#[cfg(test)]
-mod tests {}

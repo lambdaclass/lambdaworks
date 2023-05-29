@@ -6,6 +6,7 @@ use lambdaworks_math::{
 
 use super::{proof::Proof, utils::*};
 
+#[derive(Clone)]
 pub struct MerkleTree<F: IsField> {
     pub root: FieldElement<F>,
     nodes: Vec<FieldElement<F>>,

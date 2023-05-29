@@ -3,7 +3,8 @@ members = [
     "math",
     "fft",
     "crypto",
-    "proving_system/stark",
-    "proving_system/plonk",
     "gpu",
 ]
+
+[workspace.dependencies]
+iai-callgrind = "0.3.1"

@@ -78,60 +78,56 @@ public:
 
     constexpr inline u128 operator>>(unsigned shift) const
     {
-        // TODO: reduce branch conditions
-        if (shift >= 128)
-        {
-            return u128(0);
-        }
-        else if (shift == 64)
-        {
-            return u128(0, high);
-        }
-        else if (shift == 0)
-        {
-            return *this;
-        }
-        else if (shift < 64)
-        {
-            return u128(high >> shift, (high << (64 - shift)) | (low >> shift));
-        }
-        else if ((128 > shift) && (shift > 64))
-        {
-            return u128(0, (high >> (shift - 64)));
-        }
-        else
-        {
-            return u128(0);
-        }
+        uint64_t new_low = (shift == 0) * low
+                         | (shift == 64) * high
+                         | ((shift < 64) ^ (shift == 0)) * ((high << (64 - shift)) | (low >> shift))
+                         | ((shift > 64) & (shift < 128)) * (high >> (shift - 64));
+
+        uint64_t new_high = (shift == 0) * high
+                          | ((shift < 64) ^ (shift == 0)) * (high >> shift);
+
+        return u128(new_high, new_low);
+
+        // Unoptimized form:
+        // if (shift >= 128)
+        //     return u128(0);
+        // else if (shift == 64)
+        //     return u128(0, high);
+        // else if (shift == 0)
+        //     return *this;
+        // else if (shift < 64)
+        //     return u128(high >> shift, (high << (64 - shift)) | (low >> shift));
+        // else if ((128 > shift) && (shift > 64))
+        //     return u128(0, (high >> (shift - 64)));
+        // else
+        //     return u128(0);
     }
 
     constexpr inline u128 operator<<(unsigned shift) const
     {
-        // TODO: reduce branch conditions
-        if (shift >= 128)
-        {
-            return u128(0);
-        }
-        else if (shift == 64)
-        {
-            return u128(low, 0);
-        }
-        else if (shift == 0)
-        {
-            return *this;
-        }
-        else if (shift < 64)
-        {
-            return u128((high << shift) | (low >> (64 - shift)), low << shift);
-        }
-        else if ((128 > shift) && (shift > 64))
-        {
-            return u128((low >> (shift - 64)), 0);
-        }
-        else
-        {
-            return u128(0);
-        }
+        unsigned long new_low = (shift == 0) * low
+                            | ((shift < 64) ^ (shift == 0)) * (low << shift);
+
+        unsigned long new_high = (shift == 0) * high
+                            | (shift == 64) * low
+                            | ((shift < 64) ^ (shift == 0)) * (high << shift) | (low >> (64 - shift))
+                            | ((shift > 64) & (shift < 128)) * (low >> (shift - 64));
+
+        return u128(new_high, new_low);
+
+        // Unoptimized form:
+        // if (shift >= 128)
+        //     return u128(0);
+        // else if (shift == 64)
+        //     return u128(low, 0);
+        // else if (shift == 0)
+        //     return *this;
+        // else if (shift < 64)
+        //     return u128((high << shift) | (low >> (64 - shift)), low << shift);
+        // else if ((128 > shift) && (shift > 64))
+        //     return u128((low >> (shift - 64)), 0);
+        // else
+        //     return u128(0);
     }
 
     constexpr u128 operator>>=(unsigned rhs)
@@ -147,9 +143,9 @@ public:
 
     u128 operator*(const u128 rhs) const
     {
-        unsigned long t_low_high = metal::mulhi(low, rhs.high);
+        unsigned long t_low_high = low * rhs.high;
         unsigned long t_high = metal::mulhi(low, rhs.low);
-        unsigned long t_high_low = metal::mulhi(high, rhs.low);
+        unsigned long t_high_low = high * rhs.low;
         unsigned long t_low = low * rhs.low;
         return u128(t_low_high + t_high_low + t_high, t_low);
 

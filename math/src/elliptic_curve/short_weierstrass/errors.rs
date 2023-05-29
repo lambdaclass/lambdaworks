@@ -8,6 +8,8 @@ pub enum DeserializationError {
     InvalidAmountOfBytes,
     #[error("Error when creating a field from bytes")]
     FieldFromBytesError,
+    #[error("Error trying to load a pointer bigger than the supported architecture")]
+    PointerSizeError,
 }
 
 impl From<ByteConversionError> for DeserializationError {

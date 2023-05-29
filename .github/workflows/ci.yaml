@@ -26,6 +26,9 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           command: check
+
+      - name: Check benchmarks
+        run: cargo bench --no-run
   lint:
     name: Lint
     runs-on: ubuntu-latest
