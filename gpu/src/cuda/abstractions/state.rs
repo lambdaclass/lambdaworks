@@ -240,7 +240,7 @@ impl<F: IsField> CalcTwiddlesFunction<F> {
         unsafe {
             self.function
                 .clone()
-                .launch(config, (&mut self.twiddles, &self.omega))
+                .launch(config, (&self.twiddles, &self.omega))
         }
         .map_err(|err| CudaError::Launch(err.to_string()))
     }
