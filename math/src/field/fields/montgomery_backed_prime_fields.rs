@@ -143,8 +143,6 @@ where
             let mut b = Self::R2; // Avoids unnecessary reduction step.
             let mut c = Self::zero();
 
-            // Ark el mas chico es el 0
-
             while u != one && v != one {
                 while u.limbs[NUM_LIMBS - 1] & 1 == 0 {
                     u.div2();
