@@ -122,6 +122,8 @@ impl CudaState {
         let twiddles_buffer =
             self.alloc_buffer_with_data(&(0..count).map(FieldElement::from).collect::<Vec<_>>())?;
 
+        assert_eq!(DeviceSlice::len(&twiddles_buffer), count);
+
         Ok(CalcTwiddlesFunction::new(
             Arc::clone(&self.device),
             function,
@@ -224,7 +226,6 @@ impl<F: IsField> CalcTwiddlesFunction<F> {
     pub(crate) fn launch(&mut self, group_size: usize) -> Result<(), CudaError> {
         let grid_dim = (1, 1, 1); // in blocks
         let block_dim = (group_size as u32, 1, 1);
-        let block_dim = (1, 1, 1);
 
         if block_dim.0 as usize > DeviceSlice::len(&self.twiddles) {
             return Err(CudaError::IndexOutOfBounds(
