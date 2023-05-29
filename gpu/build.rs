@@ -5,12 +5,12 @@ fn compile_cuda_shaders() {
     use walkdir::WalkDir;
     const CUDA_SOURCE_DIR: &str = "src/cuda/shaders";
 
-    println!("cargo:rerun-if-changed={CUDA_SHADERS_DIR}");
+    println!("cargo:rerun-if-changed={CUDA_SOURCE_DIR}");
 
     let nvcc = option_env!("NVCC_PATH").unwrap_or("nvcc");
     let nvcc_out_dir = env::var("OUT_DIR").unwrap() + "/cuda/";
 
-    let children: Vec<_> = WalkDir::new(CUDA_SHADERS_DIR)
+    let children: Vec<_> = WalkDir::new(CUDA_SOURCE_DIR)
         .into_iter()
         .map(Result::unwrap)
         .filter(|entry| {
