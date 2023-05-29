@@ -146,18 +146,22 @@ where
             let mut b = Self::R2; // Avoids unnecessary reduction step.
             let mut c = Self::zero();
 
+            // Ark el mas chico es el 0
+
             while u != one && v != one {
                 while u.limbs[NUM_LIMBS - 1] & 1 == 0 {
                     u.div2();
                     if b.limbs[NUM_LIMBS - 1] & 1 == 0 {
                         b.div2();
                     } else {
-                        let (_,carry) = UnsignedInteger::<NUM_LIMBS>::add(&b, &modulus);
-                        b = Self::div(&b, &two);
-                        b.div2();
+                        let (mut b_added,carry) = UnsignedInteger::<NUM_LIMBS>::add(&b, &modulus);
+                        b_added.div2();
+
                         if !modulus_has_spare_bits && carry {
-                            b.limbs[0] |= 1 << 63;
+                            b_added.limbs[0] |= 1 << 63;
                         }
+                        
+                        b = b_added;
                     }
                 }
 
@@ -167,11 +171,13 @@ where
                     if c.limbs[NUM_LIMBS - 1] & 1 == 0 {
                         c.div2();
                     } else {
-                        let (_,carry) = UnsignedInteger::<NUM_LIMBS>::add(&b, &modulus);
-                        c.div2();
+                        
+                        let (mut c_added,carry) = UnsignedInteger::<NUM_LIMBS>::add(&b, &modulus);
+                        c_added.div2();
                         if !modulus_has_spare_bits && carry {
-                            c.limbs[0] |= 1 << 63;
+                            c_added.limbs[0] |= 1 << 63;
                         }
+                        c = c_added;
                     }
                 }
 
