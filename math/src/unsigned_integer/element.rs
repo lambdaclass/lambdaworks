@@ -25,6 +25,19 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
     pub fn from_limbs(limbs: [u64; NUM_LIMBS]) -> Self {
         Self { limbs }
     }
+
+    #[inline(always)]
+    #[allow(unused)]
+    fn div2(&mut self) {
+        let mut t = 0;
+        for i in 0..NUM_LIMBS {
+            let a = &mut self.limbs[NUM_LIMBS - i - 1];
+            let t2 = *a << 63;
+            *a >>= 1;
+            *a |= t;
+            t = t2;
+        }
+    }
 }
 
 impl<const NUM_LIMBS: usize> From<u128> for UnsignedInteger<NUM_LIMBS> {
@@ -143,7 +156,7 @@ impl<const NUM_LIMBS: usize> Sub<&UnsignedInteger<NUM_LIMBS>> for UnsignedIntege
 
 impl<const NUM_LIMBS: usize> Sub<UnsignedInteger<NUM_LIMBS>> for &UnsignedInteger<NUM_LIMBS> {
     type Output = UnsignedInteger<NUM_LIMBS>;
-
+    #[inline(always)]
     fn sub(self, other: UnsignedInteger<NUM_LIMBS>) -> UnsignedInteger<NUM_LIMBS> {
         self - &other
     }
@@ -154,6 +167,7 @@ impl<const NUM_LIMBS: usize> Sub<UnsignedInteger<NUM_LIMBS>> for &UnsignedIntege
 impl<const NUM_LIMBS: usize> Mul<&UnsignedInteger<NUM_LIMBS>> for &UnsignedInteger<NUM_LIMBS> {
     type Output = UnsignedInteger<NUM_LIMBS>;
 
+    #[inline(always)]
     fn mul(self, other: &UnsignedInteger<NUM_LIMBS>) -> UnsignedInteger<NUM_LIMBS> {
         let (mut n, mut t) = (0, 0);
         for i in (0..NUM_LIMBS).rev() {
@@ -197,7 +211,7 @@ impl<const NUM_LIMBS: usize> Mul<&UnsignedInteger<NUM_LIMBS>> for &UnsignedInteg
 
 impl<const NUM_LIMBS: usize> Mul<UnsignedInteger<NUM_LIMBS>> for UnsignedInteger<NUM_LIMBS> {
     type Output = UnsignedInteger<NUM_LIMBS>;
-
+    #[inline(always)]
     fn mul(self, other: UnsignedInteger<NUM_LIMBS>) -> UnsignedInteger<NUM_LIMBS> {
         &self * &other
     }
@@ -205,7 +219,7 @@ impl<const NUM_LIMBS: usize> Mul<UnsignedInteger<NUM_LIMBS>> for UnsignedInteger
 
 impl<const NUM_LIMBS: usize> Mul<&UnsignedInteger<NUM_LIMBS>> for UnsignedInteger<NUM_LIMBS> {
     type Output = UnsignedInteger<NUM_LIMBS>;
-
+    #[inline(always)]
     fn mul(self, other: &Self) -> Self {
         &self * other
     }
@@ -213,7 +227,7 @@ impl<const NUM_LIMBS: usize> Mul<&UnsignedInteger<NUM_LIMBS>> for UnsignedIntege
 
 impl<const NUM_LIMBS: usize> Mul<UnsignedInteger<NUM_LIMBS>> for &UnsignedInteger<NUM_LIMBS> {
     type Output = UnsignedInteger<NUM_LIMBS>;
-
+    #[inline(always)]
     fn mul(self, other: UnsignedInteger<NUM_LIMBS>) -> UnsignedInteger<NUM_LIMBS> {
         self * &other
     }
@@ -221,7 +235,7 @@ impl<const NUM_LIMBS: usize> Mul<UnsignedInteger<NUM_LIMBS>> for &UnsignedIntege
 
 impl<const NUM_LIMBS: usize> Shl<usize> for &UnsignedInteger<NUM_LIMBS> {
     type Output = UnsignedInteger<NUM_LIMBS>;
-
+    #[inline(always)]
     fn shl(self, times: usize) -> UnsignedInteger<NUM_LIMBS> {
         self.const_shl(times)
     }
@@ -229,7 +243,7 @@ impl<const NUM_LIMBS: usize> Shl<usize> for &UnsignedInteger<NUM_LIMBS> {
 
 impl<const NUM_LIMBS: usize> Shl<usize> for UnsignedInteger<NUM_LIMBS> {
     type Output = UnsignedInteger<NUM_LIMBS>;
-
+    #[inline(always)]
     fn shl(self, times: usize) -> UnsignedInteger<NUM_LIMBS> {
         &self << times
     }
@@ -239,7 +253,7 @@ impl<const NUM_LIMBS: usize> Shl<usize> for UnsignedInteger<NUM_LIMBS> {
 
 impl<const NUM_LIMBS: usize> Shr<usize> for &UnsignedInteger<NUM_LIMBS> {
     type Output = UnsignedInteger<NUM_LIMBS>;
-
+    #[inline(always)]
     fn shr(self, times: usize) -> UnsignedInteger<NUM_LIMBS> {
         self.const_shr(times)
     }
@@ -247,7 +261,7 @@ impl<const NUM_LIMBS: usize> Shr<usize> for &UnsignedInteger<NUM_LIMBS> {
 
 impl<const NUM_LIMBS: usize> Shr<usize> for UnsignedInteger<NUM_LIMBS> {
     type Output = UnsignedInteger<NUM_LIMBS>;
-
+    #[inline(always)]
     fn shr(self, times: usize) -> UnsignedInteger<NUM_LIMBS> {
         &self >> times
     }
@@ -257,6 +271,7 @@ impl<const NUM_LIMBS: usize> Shr<usize> for UnsignedInteger<NUM_LIMBS> {
 
 impl<const NUM_LIMBS: usize> BitAnd for UnsignedInteger<NUM_LIMBS> {
     type Output = Self;
+    #[inline(always)]
     fn bitand(self, rhs: Self) -> Self::Output {
         let mut limbs = [0; NUM_LIMBS];
         // Clippy solution is complicated in this case
@@ -269,19 +284,20 @@ impl<const NUM_LIMBS: usize> BitAnd for UnsignedInteger<NUM_LIMBS> {
 }
 
 impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
+    #[inline(always)]
     pub const fn from_u64(value: u64) -> Self {
         let mut limbs = [0u64; NUM_LIMBS];
         limbs[NUM_LIMBS - 1] = value;
         UnsignedInteger { limbs }
     }
-
+    #[inline(always)]
     pub const fn from_u128(value: u128) -> Self {
         let mut limbs = [0u64; NUM_LIMBS];
         limbs[NUM_LIMBS - 1] = value as u64;
         limbs[NUM_LIMBS - 2] = (value >> 64) as u64;
         UnsignedInteger { limbs }
     }
-
+    #[inline(always)]
     const fn is_hex_string(string: &str) -> bool {
         let len: usize = string.len();
         let bytes = string.as_bytes();
@@ -451,6 +467,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
     /// Multi-precision subtraction.
     /// Adapted from Algorithm 14.9 of "Handbook of Applied Cryptography" (https://cacr.uwaterloo.ca/hac/)
     /// Returns the results and a flag that is set if the substraction underflowed
+    #[inline(always)]
     pub const fn sub(
         a: &UnsignedInteger<NUM_LIMBS>,
         b: &UnsignedInteger<NUM_LIMBS>,
@@ -476,7 +493,6 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
 
     /// Multi-precision multiplication.
     /// Adapted from Algorithm 14.12 of "Handbook of Applied Cryptography" (https://cacr.uwaterloo.ca/hac/)
-    #[allow(unused)]
     pub const fn mul(
         a: &UnsignedInteger<NUM_LIMBS>,
         b: &UnsignedInteger<NUM_LIMBS>,
@@ -499,7 +515,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
                 j -= 1;
                 let mut k = i + j;
                 if k >= NUM_LIMBS - 1 {
-                    k -= (NUM_LIMBS - 1);
+                    k -= NUM_LIMBS - 1;
                     let uv = (lo[k] as u128) + (a.limbs[j] as u128) * (b.limbs[i] as u128) + carry;
                     carry = uv >> 64;
                     // Casting u128 to u64 takes modulo 2^{64}
@@ -587,6 +603,12 @@ impl<const NUM_LIMBS: usize> ByteConversion for UnsignedInteger<NUM_LIMBS> {
             .map_err(|_| ByteConversionError::FromLEBytesError)?;
 
         Ok(Self { limbs })
+    }
+}
+
+impl<const NUM_LIMBS: usize> From<UnsignedInteger<NUM_LIMBS>> for u16 {
+    fn from(value: UnsignedInteger<NUM_LIMBS>) -> Self {
+        value.limbs[NUM_LIMBS - 1] as u16
     }
 }
 
@@ -2107,5 +2129,13 @@ mod tests_u256 {
         ];
         let expected_number = U256::from_u64(1);
         assert_eq!(U256::from_bytes_le(&bytes).unwrap(), expected_number);
+    }
+
+    #[test]
+    fn div2_works() {
+        let mut n = UnsignedInteger::<3>::from(4u64);
+        n.div2();
+
+        assert_eq!(n, UnsignedInteger::<3>::from(2u64));
     }
 }
