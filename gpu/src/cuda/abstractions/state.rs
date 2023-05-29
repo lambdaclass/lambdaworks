@@ -242,7 +242,7 @@ impl<F: IsField> CalcTwiddlesFunction<F> {
                 .clone()
                 .launch(config, (&mut self.twiddles, &self.omega))
         }
-        .map_err(|_err| CudaError::Launch("Error at CalcTwiddlesFunction".to_string()))
+        .map_err(|err| CudaError::Launch(err.to_string()))
     }
 
     pub(crate) fn retrieve_result(self) -> Result<Vec<FieldElement<F>>, CudaError> {

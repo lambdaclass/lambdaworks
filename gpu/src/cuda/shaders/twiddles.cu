@@ -1,4 +1,4 @@
-#include "./fp_u256.cuh"
+#include "./fields/fp_u256.cuh"
 #include "./utils.h"
 
 extern "C"
