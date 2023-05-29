@@ -21,22 +21,21 @@ extern "C"
     __global__ void calc_twiddles(p256::Fp *result,
                                   const p256::Fp &_omega)
     {
-        unsigned index = threadIdx.x;
+        int index = threadIdx.x;
 
         p256::Fp omega = _omega;
-        result[index] = omega.pow(index);
+        result[index] = omega.pow((unsigned)index);
     };
 
     // NOTE: In order to calculate the inverse twiddles, call with _omega = _omega.inverse()
     __global__ void calc_twiddles_bitrev(p256::Fp *result,
                                          const p256::Fp &_omega)
     {
-        unsigned index = threadIdx.x;
-        //unsigned size = blockDim.x;
-        unsigned size = 1;
+        int index = threadIdx.x;
+        int size = blockDim.x;
 
         p256::Fp omega = _omega;
-        result[index] = omega.pow(reverse_index(index, size));
+        result[index] = omega.pow(reverse_index((unisgned)index, (unsigned)size));
     };
 
 }
