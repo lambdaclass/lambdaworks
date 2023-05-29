@@ -32,7 +32,8 @@ extern "C"
                                          const p256::Fp &_omega)
     {
         unsigned index = threadIdx.x;
-        unsigned size = blockDim.x;
+        //unsigned size = blockDim.x;
+        unsigned size = 1;
 
         p256::Fp omega = _omega;
         result[index] = omega.pow(reverse_index(index, size));
