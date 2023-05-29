@@ -7,7 +7,6 @@ use crate::{
 };
 use std::fmt::Debug;
 use std::marker::PhantomData;
-use std::ops::{Shl, Add, Sub};
 
 pub type U384PrimeField<M> = MontgomeryBackendPrimeField<M, 6>;
 pub type U256PrimeField<M> = MontgomeryBackendPrimeField<M, 4>;
@@ -135,13 +134,11 @@ where
             // Algorithm 16 (BEA for Inversion in Fp)
 
             //These can be done with const  functions
-            let one: UnsignedInteger<NUM_LIMBS> = Self::one();
-            let two: UnsignedInteger<NUM_LIMBS> = Self::one() + Self::one() ;
+            let one: UnsignedInteger<NUM_LIMBS> = UnsignedInteger::from_u64(1);
             let modulus: UnsignedInteger<NUM_LIMBS> = M::MODULUS;
-            let modulus_has_spare_bits = M::MODULUS.limbs[NUM_LIMBS-1] >> 63 == 0;
+            let modulus_has_spare_bits = M::MODULUS.limbs[0] >> 63 == 0;
 
-
-            let mut u: UnsignedInteger<NUM_LIMBS> = a.clone();
+            let mut u: UnsignedInteger<NUM_LIMBS> = *a;
             let mut v = M::MODULUS;
             let mut b = Self::R2; // Avoids unnecessary reduction step.
             let mut c = Self::zero();
@@ -154,14 +151,12 @@ where
                     if b.limbs[NUM_LIMBS - 1] & 1 == 0 {
                         b.div2();
                     } else {
-                        let (mut b_added,carry) = UnsignedInteger::<NUM_LIMBS>::add(&b, &modulus);
-                        b_added.div2();
-
+                        let carry;
+                        (b, carry) = UnsignedInteger::<NUM_LIMBS>::add(&b, &modulus);
+                        b.div2();
                         if !modulus_has_spare_bits && carry {
-                            b_added.limbs[0] |= 1 << 63;
+                            b.limbs[0] |= 1 << 63;
                         }
-                        
-                        b = b_added;
                     }
                 }
 
@@ -171,22 +166,27 @@ where
                     if c.limbs[NUM_LIMBS - 1] & 1 == 0 {
                         c.div2();
                     } else {
-                        
-                        let (mut c_added,carry) = UnsignedInteger::<NUM_LIMBS>::add(&b, &modulus);
-                        c_added.div2();
+                        let carry;
+                        (c, carry) = UnsignedInteger::<NUM_LIMBS>::add(&c, &modulus);
+                        c.div2();
                         if !modulus_has_spare_bits && carry {
-                            c_added.limbs[0] |= 1 << 63;
+                            c.limbs[0] |= 1 << 63;
                         }
-                        c = c_added;
                     }
                 }
 
-                if v < u {
+                if v <= u {
                     u = u - v;
-                    b = b - &c;
+                    if b < c {
+                        b = b + modulus;
+                    }
+                    b = b - c;
                 } else {
                     v = v - u;
-                    c = c - &b;
+                    if c < b {
+                        c = c + modulus;
+                    }
+                    c = c - b;
                 }
             }
 
@@ -430,6 +430,13 @@ mod tests_u384_prime_fields {
             U384F23Element::from(4) / U384F23Element::from(2),
             U384F23Element::from(2)
         )
+    }
+
+    #[test]
+    fn three_inverse() {
+        let a = U384F23Element::from(3);
+        let expected = U384F23Element::from(8);
+        assert_eq!(a.inv(), expected)
     }
 
     #[test]
@@ -759,10 +766,9 @@ mod tests_u256_prime_fields {
 
     #[test]
     fn div_4_2() {
-        assert_eq!(
-            U256F29Element::from(4) / U256F29Element::from(2),
-            U256F29Element::from(2)
-        )
+        let a = U256F29Element::from(4);
+        let b = U256F29Element::from(2);
+        assert_eq!(a / &b, b)
     }
 
     #[test]
