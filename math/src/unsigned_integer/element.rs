@@ -31,7 +31,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
     pub fn div2(&mut self) {
         let mut t = 0;
         for i in 0..NUM_LIMBS {
-            let a = &mut self.limbs[NUM_LIMBS - i - 1];
+            let a = &mut self.limbs[i];
             let t2 = *a << 63;
             *a >>= 1;
             *a |= t;
