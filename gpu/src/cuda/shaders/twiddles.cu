@@ -35,7 +35,7 @@ extern "C"
         int size = blockDim.x;
 
         p256::Fp omega = _omega;
-        result[index] = omega.pow(reverse_index((unisgned)index, (unsigned)size));
+        result[index] = omega.pow(reverse_index((unsigned)index, (unsigned)size));
     };
 
 }
