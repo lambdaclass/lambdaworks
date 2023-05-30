@@ -2881,7 +2881,7 @@ $L__BB1_21:
 	setp.lt.u64 	%p15, %rd217, %rd211;
 	selp.u64 	%rd220, 1, 0, %p15;
 	add.s64 	%rd221, %rd217, %rd213;
-	setp.lt.u64 	%p16, %rd221, %rd217;
+		setp.lt.u64 	%p16, %rd221, %rd217;
 	selp.u64 	%rd222, 1, 0, %p16;
 	add.s64 	%rd223, %rd221, %rd200;
 	setp.lt.u64 	%p17, %rd223, %rd221;
@@ -4459,6 +4459,44 @@ $L__BB2_21:
 	st.global.u64 	[%rd1243+8], %rd1254;
 	st.global.u64 	[%rd1243+16], %rd1255;
 	st.global.u64 	[%rd1243+24], %rd1256;
+	ret;
+
+}
+	// .globl	bitrev_permutation
+.visible .entry bitrev_permutation(
+	.param .u64 bitrev_permutation_param_0,
+	.param .u64 bitrev_permutation_param_1
+)
+{
+	.reg .pred 	%p<2>;
+	.reg .b32 	%r<8>;
+	.reg .b64 	%rd<13>;
+
+
+	ld.param.u64 	%rd1, [bitrev_permutation_param_0];
+	ld.param.u64 	%rd2, [bitrev_permutation_param_1];
+	cvta.to.global.u64 	%rd3, %rd2;
+	cvta.to.global.u64 	%rd4, %rd1;
+	mov.u32 	%r1, %tid.x;
+	mov.u32 	%r2, %ntid.x;
+	setp.eq.s32 	%p1, %r2, 1;
+	brev.b32 	%r3, %r1;
+	clz.b32 	%r4, %r2;
+	add.s32 	%r5, %r4, 1;
+	shr.u32 	%r6, %r3, %r5;
+	selp.b32 	%r7, %r1, %r6, %p1;
+	mul.wide.u32 	%rd5, %r7, 32;
+	add.s64 	%rd6, %rd4, %rd5;
+	ld.global.u64 	%rd7, [%rd6];
+	ld.global.u64 	%rd8, [%rd6+8];
+	ld.global.u64 	%rd9, [%rd6+16];
+	ld.global.u64 	%rd10, [%rd6+24];
+	mul.wide.u32 	%rd11, %r1, 32;
+	add.s64 	%rd12, %rd3, %rd11;
+	st.global.u64 	[%rd12], %rd7;
+	st.global.u64 	[%rd12+8], %rd8;
+	st.global.u64 	[%rd12+16], %rd9;
+	st.global.u64 	[%rd12+24], %rd10;
 	ret;
 
 }
