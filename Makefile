@@ -43,5 +43,4 @@ build-cuda: $(CUDA_COMPILED)
 
 CUDAPATH = gpu/src/cuda/shaders
 build-cuda:
-	nvcc -ptx $(CUDAPATH)/fft.cu -o $(CUDAPATH)/fft.ptx
 	nvcc -ptx $(CUDAPATH)/fields/stark256.cu -o $(CUDAPATH)/fields/stark256.ptx
