@@ -182,6 +182,9 @@ impl<F: IsField> Radix2DitButterflyFunction<F> {
             block_dim,
             shared_mem_bytes: 0,
         };
+        // Launching kernels must be done in an unsafe block.
+        // Calling a kernel is similar to calling a foreign-language function,
+        // as the kernel itself could be written in C or unsafe Rust.
         unsafe {
             self.function
                 .clone()
@@ -241,6 +244,9 @@ impl<F: IsField> CalcTwiddlesFunction<F> {
             block_dim,
             shared_mem_bytes: 0,
         };
+        // Launching kernels must be done in an unsafe block.
+        // Calling a kernel is similar to calling a foreign-language function,
+        // as the kernel itself could be written in C or unsafe Rust.
         unsafe {
             self.function
                 .clone()
@@ -307,6 +313,9 @@ impl<F: IsField> BitrevPermutationFunction<F> {
             block_dim,
             shared_mem_bytes: 0,
         };
+        // Launching kernels must be done in an unsafe block.
+        // Calling a kernel is similar to calling a foreign-language function,
+        // as the kernel itself could be written in C or unsafe Rust.
         unsafe {
             self.function
                 .clone()
