@@ -21,25 +21,6 @@ pub struct UnsignedInteger<const NUM_LIMBS: usize> {
     pub limbs: [u64; NUM_LIMBS],
 }
 
-impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
-    pub fn from_limbs(limbs: [u64; NUM_LIMBS]) -> Self {
-        Self { limbs }
-    }
-
-    #[inline(always)]
-    #[allow(unused)]
-    pub fn div2(&mut self) {
-        let mut t = 0;
-        for i in 0..NUM_LIMBS {
-            let a = &mut self.limbs[i];
-            let t2 = *a << 63;
-            *a >>= 1;
-            *a |= t;
-            t = t2;
-        }
-    }
-}
-
 impl<const NUM_LIMBS: usize> From<u128> for UnsignedInteger<NUM_LIMBS> {
     fn from(value: u128) -> Self {
         let mut limbs = [0u64; NUM_LIMBS];
@@ -284,12 +265,17 @@ impl<const NUM_LIMBS: usize> BitAnd for UnsignedInteger<NUM_LIMBS> {
 }
 
 impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
+    pub fn from_limbs(limbs: [u64; NUM_LIMBS]) -> Self {
+        Self { limbs }
+    }
+
     #[inline(always)]
     pub const fn from_u64(value: u64) -> Self {
         let mut limbs = [0u64; NUM_LIMBS];
         limbs[NUM_LIMBS - 1] = value;
         UnsignedInteger { limbs }
     }
+
     #[inline(always)]
     pub const fn from_u128(value: u128) -> Self {
         let mut limbs = [0u64; NUM_LIMBS];
@@ -297,6 +283,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         limbs[NUM_LIMBS - 2] = (value >> 64) as u64;
         UnsignedInteger { limbs }
     }
+
     #[inline(always)]
     const fn is_hex_string(string: &str) -> bool {
         let len: usize = string.len();
@@ -392,6 +379,37 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
             i += 1;
         }
         true
+    }
+
+    #[inline(always)]
+    pub fn shr_inplace(&mut self, times: usize) {
+        debug_assert!(
+            times < 64 * NUM_LIMBS,
+            "UnsignedInteger shift left overflows."
+        );
+        let (a, b) = (times / 64, times % 64);
+
+        if b == 0 {
+            let mut i = NUM_LIMBS;
+            while i > a {
+                i -= 1;
+                self.limbs[i] = self.limbs[i - a];
+            }
+            for i in 0..a {
+                self.limbs[i] = 0;
+            }
+
+        } else {
+            let mut i = NUM_LIMBS;
+            while i > a + 1 {
+                i -= 1;
+                self.limbs[i] = (self.limbs[i - a] >> b) | (self.limbs[i - a - 1] << (64 - b));
+            }
+            self.limbs[a] = self.limbs[0] >> b;
+            for i in 0..a {
+                self.limbs[i] = 0;
+            }
+        }
     }
 
     pub const fn const_shl(self, times: usize) -> Self {
@@ -2132,10 +2150,64 @@ mod tests_u256 {
     }
 
     #[test]
-    fn div2_works() {
+    fn shr_inplace_works_1() {
         let mut n = UnsignedInteger::<3>::from(4u64);
-        n.div2();
+        n.shr_inplace(1);
 
         assert_eq!(n, UnsignedInteger::<3>::from(2u64));
+    }
+
+    #[test]
+    fn shr_inplace_works_2() {
+        let mut n = UnsignedInteger::<3>::from(4u64);
+        n.shr_inplace(1);
+
+        assert_eq!(n, UnsignedInteger::<3>::from(2u64));
+    }
+    #[test]
+    fn shr_inplace_on_256_bit_integer_works_1() {
+        let a = U256::from_hex_unchecked("e45542992b6844553f3cb1c5ac33e7fa5");
+        let mut b = U256::from_hex_unchecked("391550a64ada11154fcf2c716b0cf9fe940");
+        b.shr_inplace(6);
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn shr_inplace_on_254_bit_integer_works_2() {
+        let a = U256::from_hex_unchecked("390aa99bead76bc0093b1bc1a8101f5ce");
+        let mut b = U256::from_hex_unchecked(
+            "72155337d5aed7801276378350203eb9c0000000000000000000000000000000",
+        );
+        b.shr_inplace(125);
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn shr_inplace_on_256_bit_integer_works_3() {
+        let a = U256::from_hex_unchecked("2ed786ab132f0b5b0cacd385dd51de3a");
+        let mut b = U256::from_hex_unchecked(
+            "2ed786ab132f0b5b0cacd385dd51de3a00000000000000000000000000000000",
+        );
+        b.shr_inplace(64 * 2);
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn shr_inplace_on_256_bit_integer_works_4() {
+        let a = U256::from_hex_unchecked("90823e0bd707f");
+        let b = U256::from_hex_unchecked(
+            "90823e0bd707f000000000000000000000000000000000000000000000000",
+        );
+        assert_eq!(&a << (64 * 3), b);
+    }
+
+    #[test]
+    fn shr_inplace_on_256_bit_integer_works_5() {
+        let a = U256::from_hex_unchecked("24208f");
+        let mut b = U256::from_hex_unchecked(
+            "90823e0bd707f000000000000000000000000000000000000000000000000",
+        );
+        b.shr_inplace(222);
+        assert_eq!(a, b);
     }
 }
