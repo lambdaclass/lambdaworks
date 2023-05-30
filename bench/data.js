@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1685468805817,
+  "lastUpdate": 1685470639058,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -2483,6 +2483,216 @@ window.BENCHMARK_DATA = {
             "name": "Polynomial/interpolate_fft_metal #4",
             "value": 3473994895,
             "range": "± 12999047",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "maigonzalez@fi.uba.ar",
+            "name": "Matías Ignacio González",
+            "username": "matias-gonz"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f6ffed48b1b96d55ff6d994195822c0e5b36acf9",
+          "message": "Add gen_twiddles implementation in CUDA (#310)\n\n* Added cuda mod and poc\n\n* Finished poc\n\n* Working CUDA FFT POC\n\n* Added cuda ptx compilation make rule\n\n* Added CUDA u256 prime field\n\n* Added CI job for testing with CUDA\n\n* Add CUDAFieldElement\n\n* Added support for u256 montgomery field\n\n* Remove unwrap()s\n\n* Add evaluate_fft_cuda\n\n* Remove default feature cuda\n\n* Remove default feature cuda\n\n* Remove unnecessary reference\n\n* Fix clippy errors\n\nNOTE: we currently don't have a linting job in the CI for the _metal_ and _cuda_ features\n\n* Fix benches error\n\n* Rename `IsTwoAdicField` -> `IsFFTField`\n\n* Fix cannot find function error\n\n* Add TODO\n\n* Interpolate fft cuda (#300)\n\n* Add interpolate_fft_cuda\r\n\r\n* Fix RootsConfig\r\n\r\n* Remove unnecessary coefficients\r\n\r\n* Add not(feature = \"cuda\")\r\n\r\n* Add unwrap for interpolate_fft\n\n* Add error handling for CUDA's fft implementation (#301)\n\n* Move cuda/field to cuda/abstractions\r\n\r\nThis is to more closely mimic the metal dir structure\r\n\r\n* Move helpers from metal to crate root\r\n\r\n* Add `CudaError`\r\n\r\n* Move functions, remove errors\r\n\r\n* Add CudaError variants for fft\r\n\r\n* Add TODO\r\n\r\n* Remove default metal feature\r\n\r\n* Fix compile errors\r\n\r\n* Fix missing imports errors\r\n\r\n* Fix compile errors\r\n\r\n* Allow dead_code in helpers module\n\n* Remove unwrap from interpolate_fft\n\n* Add calc_twiddles* CUDA functions\n\n* Fix CUDA compile errors\n\n* Fix more CUDA compile errors\n\n* Recompile metallib\n\n* Separate twiddle functions into different files\n\n* Update makefile\n\n* Compile all `.cu` files in `CUDAPATH`\n\n* Compile all `.cu` files in `CUDAPATH`\n\n* Recombine all twiddles functions in the same file\n\nSomething's up with `Fp256::inverse`.\nUsing the function inside a kernel causes compilation to freeze.\n\n* Comment out `calc_twiddles*_inv` functions\n\nThese functions slow down compilation to a halt, and are equivalent to calling `calc_twiddles*` with an inverted `_omega`\n\n* Refactor get_twiddles so that it uses cuda\n\n* Fix PTX\n\n* Fix compile errors\n\n* Fix CUDAFelt from\n\n* Fix comparision chain\n\n* Add missing slice\n\n* Add missing type annotation\n\n* Change ? to unwrap\n\n* Remove reference\n\n* Change input param type\n\n* Update param types\n\n* Update calc_twiddles_bitrev\n\n* Change root\n\n* Load all functions\n\n* Change types to unsigned\n\n* Refactor reference\n\n* Update LaunchConfig\n\n* Update Block size\n\n* Use vec!\n\n* Update blockdim\n\n* Refactor twiddles\n\n* Add twiddles.ptx\n\n* Fix imports\n\n* Remove unwraps\n\n* Fix errors\n\n* Add map_err\n\n* Add missing map_err\n\n* Remove unused import\n\n* Update interpolate_fft\n\n* Integrate _CUDA_ implementation with _fft_ crate (#298)\n\n* Add evaluate_fft_cuda\r\n\r\n* Remove default feature cuda\r\n\r\n* Remove default feature cuda\r\n\r\n* Remove unnecessary reference\r\n\r\n* Fix clippy errors\r\n\r\nNOTE: we currently don't have a linting job in the CI for the _metal_ and _cuda_ features\r\n\r\n* Fix benches error\r\n\r\n* Fix cannot find function error\r\n\r\n* Add TODO\r\n\r\n* Interpolate fft cuda (#300)\r\n\r\n* Add interpolate_fft_cuda\r\n\r\n* Fix RootsConfig\r\n\r\n* Remove unnecessary coefficients\r\n\r\n* Add not(feature = \"cuda\")\r\n\r\n* Add unwrap for interpolate_fft\r\n\r\n* Add error handling for CUDA's fft implementation (#301)\r\n\r\n* Move cuda/field to cuda/abstractions\r\n\r\nThis is to more closely mimic the metal dir structure\r\n\r\n* Move helpers from metal to crate root\r\n\r\n* Add `CudaError`\r\n\r\n* Move functions, remove errors\r\n\r\n* Add CudaError variants for fft\r\n\r\n* Add TODO\r\n\r\n* Remove default metal feature\r\n\r\n* Fix compile errors\r\n\r\n* Fix missing imports errors\r\n\r\n* Fix compile errors\r\n\r\n* Allow dead_code in helpers module\r\n\r\n* Remove unwrap from interpolate_fft\r\n\r\n* Add `CudaState` as a wrapper around cudarc primitives (#311)\r\n\r\n* Add CudaState\r\n\r\n* Use CudaState in `fft` function\r\n\r\n* Remove old attributes\r\n\r\n* Remove `unwrap`s in Metal and Cuda state init\r\n\r\n* Extract library loading to helper function\r\n\r\n* Fix compilation errors and move LaunchConfig use\r\n\r\n* Remove unnecesary modulo operation\r\n\r\nThe `threadIdx.x` builtin variable goes from 0 to `blockDim.x` (non-inclusive) so we don't need the modulo.\r\n\r\n* Add bounds checking to launch\r\n\r\n* Fix compilation errors\r\n\r\n* Fix all compile errors\r\n\r\n* Recompile fft.ptx\r\n\r\n---------\r\n\r\nCo-authored-by: matias-gonz <maigonzalez@fi.uba.ar>\n\n* Fix compile error\n\n* Fix compilation errors\n\n* Use prop_assert_eq instead of assert_eq\n\n* Remove unused fp.cuh\n\n* Don't use `prop_filter` for `field_vec`\n\nThe use of `prop_filter` slows tests down, and can cause nondeterministic test failures when the filter function true/false ratio is too low.\nIn this case, using it would cause tests with a too high max exponent to fail.\n\n* Refactor index calculation in CUDA\n\n* Fix compile errors\n\n* Update evaluate fft cuda call\n\n* Update evaluate_fft_cpu call\n\n* Remove repeated code\n\n* Remove unused constant\n\n* Add missing cfg not cuda\n\n* Fix cfg\n\n* Refactor gen_twiddles using CudaState\n\n* Fix compile errors\n\n* Add state to function call\n\n* Update GenTwiddles.launch\n\n* Fix warnings\n\n* Remove cfg\n\n* Fix cfg\n\n* Update felt condition\n\n* Remove mut\n\n* Update error\n\n* Change library import\n\n* Add namespace\n\n* Update block dim\n\n* Add casts\n\n* Fix unsigned\n\n* Update makefile\n\n* Add turbofish to gen_twiddles\n\n* Add turbofish to get_calc_twiddles\n\n* Comment code\n\n* Update omega param\n\n* Update block dim\n\n* Add assert\n\n* Add casts\n\n* Update twiddles\n\n* Fix map\n\n* Add type annotation\n\n* Add turbo fish\n\n* Add type annotation\n\n* Fix turbofish\n\n* Fix turbofish type annotation\n\n* Add assert\n\n* Add guard clause\n\n* Implement gen_twiddles in stark256 file\n\n* Template twiddles\n\n* Fix Fp\n\n* Delete unused files\n\n* Update stark256.ptx\n\n---------\n\nCo-authored-by: Estéfano Bargas <estefano.bargas@fing.edu.uy>\nCo-authored-by: Tomás <tomas.gruner@lambdaclass.com>\nCo-authored-by: Tomás <47506558+MegaRedHand@users.noreply.github.com>",
+          "timestamp": "2023-05-30T17:41:04Z",
+          "tree_id": "ab6fbb42e4c0110bdeea2208f947ab886c6858db",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/f6ffed48b1b96d55ff6d994195822c0e5b36acf9"
+        },
+        "date": 1685470638272,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "Ordered FFT/Sequential from NR radix2",
+            "value": 1499796356,
+            "range": "± 8555870",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from RN radix2",
+            "value": 2448672553,
+            "range": "± 21101437",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from NR radix2 #2",
+            "value": 3129276361,
+            "range": "± 1193422",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from RN radix2 #2",
+            "value": 5520142408,
+            "range": "± 15305800",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from NR radix2 #3",
+            "value": 6524163066,
+            "range": "± 3176275",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from RN radix2 #3",
+            "value": 11990290305,
+            "range": "± 44997619",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from NR radix2 #4",
+            "value": 13608311880,
+            "range": "± 12204431",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from RN radix2 #4",
+            "value": 25404183309,
+            "range": "± 178723180",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Sequential",
+            "value": 939702399,
+            "range": "± 220987",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Sequential #2",
+            "value": 1974730975,
+            "range": "± 514729",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Sequential #3",
+            "value": 4142537559,
+            "range": "± 7514118",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Sequential #4",
+            "value": 8656844018,
+            "range": "± 1850522",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Sequential",
+            "value": 75889551,
+            "range": "± 891475",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Sequential #2",
+            "value": 151733878,
+            "range": "± 979707",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Sequential #3",
+            "value": 302940663,
+            "range": "± 1377375",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Sequential #4",
+            "value": 611703901,
+            "range": "± 2228874",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial evaluation/Sequential FFT",
+            "value": 2474656132,
+            "range": "± 523690",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial evaluation/Sequential FFT #2",
+            "value": 5181991238,
+            "range": "± 1640416",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial evaluation/Sequential FFT #3",
+            "value": 10826851918,
+            "range": "± 8217582",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial evaluation/Sequential FFT #4",
+            "value": 22613549187,
+            "range": "± 9142262",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial interpolation/Sequential FFT",
+            "value": 2651667237,
+            "range": "± 6782636",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial interpolation/Sequential FFT #2",
+            "value": 5524374021,
+            "range": "± 3359061",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial interpolation/Sequential FFT #3",
+            "value": 11505257827,
+            "range": "± 2875018",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial interpolation/Sequential FFT #4",
+            "value": 23930970595,
+            "range": "± 16780250",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate",
+            "value": 8,
+            "range": "± 2",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_slice",
+            "value": 21,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/add",
+            "value": 71,
+            "range": "± 2",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/neg",
+            "value": 15,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/sub",
+            "value": 139,
+            "range": "± 4",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/mul",
+            "value": 101,
+            "range": "± 2",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/div",
+            "value": 102,
+            "range": "± 3",
             "unit": "ns/iter"
           }
         ]
