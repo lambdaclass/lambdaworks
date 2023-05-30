@@ -2174,7 +2174,7 @@ mod tests_u256 {
         let mut b = U256::from_hex_unchecked(
             "2ed786ab132f0b5b0cacd385dd51de3a00000000000000000000000000000000",
         );
-        b >>= 64* 2;
+        b >>= 64 * 2;
         assert_eq!(a, b);
     }
 
@@ -2184,7 +2184,7 @@ mod tests_u256 {
         let mut b = U256::from_hex_unchecked(
             "90823e0bd707f000000000000000000000000000000000000000000000000",
         );
-        b >>= 64* 3;
+        b >>= 64 * 3;
         assert_eq!(a, b);
     }
 
