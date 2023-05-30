@@ -1,6 +1,7 @@
 #include "./fp_u256.cuh"
 #include "../fft/fft.cuh"
 #include "../fft/twiddles.cuh"
+#include "../fft/bitrev_permutation.cuh"
 #include "../utils.h"
 
 namespace p256
@@ -39,9 +40,6 @@ extern "C"
         const p256::Fp *input,
         p256::Fp *result
     ) {
-        unsigned index = threadIdx.x;
-        unsigned size = blockDim.x;
-
-        result[index] = input[reverse_index(index, size)];
+        _bitrev_permutation<p256::Fp>(input, result);
     };
 }
