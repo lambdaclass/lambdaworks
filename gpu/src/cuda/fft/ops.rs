@@ -43,6 +43,9 @@ pub fn gen_twiddles<F: IsFFTField>(
     state: &CudaState,
 ) -> Result<Vec<FieldElement<F>>, CudaError> {
     let count = (1 << order) / 2;
+    if count == 0 {
+        return Ok(Vec::new());
+    }
 
     let mut function = state.get_calc_twiddles::<F>(order, config)?;
 
