@@ -445,13 +445,13 @@ impl<F: IsPrimeField> FieldElement<F> {
 
         while t != one {
             let mut i = zero.clone();
-            let mut e = FieldElement::from(2);
+            let mut e = &t * &t;
             while i.representative() < m.representative() {
                 i += FieldElement::one();
-                if t.pow(e.representative()) == one {
+                if e == one {
                     break;
                 }
-                e = e * &two;
+                e = &e * &e;
             }
 
             let b = c.pow(two.pow((m - &i - &one).representative()).representative());
