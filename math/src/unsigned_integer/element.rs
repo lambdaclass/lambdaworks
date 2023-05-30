@@ -2141,7 +2141,6 @@ mod tests_u256 {
         assert_eq!(U256::from_bytes_le(&bytes).unwrap(), expected_number);
     }
 
-
     #[test]
     fn shr_inplace_works_1() {
         let mut n = UnsignedInteger::<3>::from(4u64);
@@ -2149,6 +2148,7 @@ mod tests_u256 {
 
         assert_eq!(n, UnsignedInteger::<3>::from(2u64));
     }
+
     #[test]
     fn shr_inplace_on_256_bit_integer_works_1() {
         let a = U256::from_hex_unchecked("e45542992b6844553f3cb1c5ac33e7fa5");
