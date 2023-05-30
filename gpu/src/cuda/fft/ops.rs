@@ -1,4 +1,7 @@
-use lambdaworks_math::field::{element::FieldElement, traits::IsFFTField};
+use lambdaworks_math::field::{
+    element::FieldElement,
+    traits::{IsFFTField, RootsConfig},
+};
 
 use crate::cuda::abstractions::{errors::CudaError, state::CudaState};
 
@@ -32,6 +35,23 @@ where
 
     in_place_bit_reverse_permute(&mut output);
     Ok(output)
+}
+
+pub fn gen_twiddles<F: IsFFTField>(
+    order: u64,
+    config: RootsConfig,
+    state: &CudaState,
+) -> Result<Vec<FieldElement<F>>, CudaError> {
+    let count = (1 << order) / 2;
+    if count == 0 {
+        return Ok(Vec::new());
+    }
+
+    let mut function = state.get_calc_twiddles::<F>(order, config)?;
+
+    function.launch(count)?;
+
+    function.retrieve_result()
 }
 
 // TODO: remove after implementing in cuda

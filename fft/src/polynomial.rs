@@ -117,7 +117,7 @@ impl<F: IsFFTField> FFTPoly<F> for Polynomial<FieldElement<F>> {
 
         #[cfg(feature = "cuda")]
         {
-            if !F::field_name().is_empty() {
+            if F::field_name() == "stark256" {
                 Ok(lambdaworks_gpu::cuda::fft::polynomial::interpolate_fft_cuda(fft_evals)?)
             } else {
                 interpolate_fft_cpu(fft_evals)
@@ -186,7 +186,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    #[cfg(not(feature = "metal"))]
+    #[cfg(all(not(feature = "metal"), not(feature = "cuda")))]
     use lambdaworks_math::field::traits::IsField;
 
     use lambdaworks_math::field::traits::RootsConfig;
@@ -263,7 +263,7 @@ mod tests {
         (poly, new_poly)
     }
 
-    #[cfg(not(feature = "metal"))]
+    #[cfg(all(not(feature = "metal"), not(feature = "cuda")))]
     mod u64_field_tests {
         use super::*;
         use lambdaworks_math::field::test_fields::u64_test_field::U64TestField;

@@ -37,9 +37,20 @@ $(CUDA_DIR)/%.ptx: $(CUDA_DIR)/%.cu
 # This part compiles all .cu files in $(CUDA_DIR)
 build-cuda: $(CUDA_COMPILED)
 
-CUDAPATH = gpu/src/cuda/shaders
-build-cuda:
-	nvcc -ptx $(CUDAPATH)/fft.cu -o $(CUDAPATH)/fft.ptx
-
 docs:
 	cd docs && mdbook serve --open
+
+METAL_DIR = gpu/src/metal/shaders
+build-metal:
+	xcrun -sdk macosx metal $(METAL_DIR)/all.metal -o $(METAL_DIR)/lib.metallib
+
+
+CUDA_DIR = gpu/src/cuda/shaders
+CUDA_FILES:=$(wildcard $(CUDA_DIR)/*.cu)
+CUDA_COMPILED:=$(patsubst $(CUDA_DIR)/%.cu, $(CUDA_DIR)/%.ptx, $(CUDA_FILES))
+
+$(CUDA_DIR)/%.ptx: $(CUDA_DIR)/%.cu
+	nvcc -ptx $< -o $@
+
+# This part compiles all .cu files in $(CUDA_DIR)
+build-cuda: $(CUDA_COMPILED)
