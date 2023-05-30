@@ -387,27 +387,20 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
             times < 64 * NUM_LIMBS,
             "UnsignedInteger shift left overflows."
         );
+
         let (a, b) = (times / 64, times % 64);
 
         if b == 0 {
-            let mut i = NUM_LIMBS;
-            while i > a {
-                i -= 1;
-                self.limbs[i] = self.limbs[i - a];
-            }
-            for i in 0..a {
-                self.limbs[i] = 0;
-            }
+            self.limbs.copy_within(..NUM_LIMBS - a, a);
         } else {
-            let mut i = NUM_LIMBS;
-            while i > a + 1 {
-                i -= 1;
+            for i in (a + 1..NUM_LIMBS).rev() {
                 self.limbs[i] = (self.limbs[i - a] >> b) | (self.limbs[i - a - 1] << (64 - b));
             }
             self.limbs[a] = self.limbs[0] >> b;
-            for i in 0..a {
-                self.limbs[i] = 0;
-            }
+        }
+
+        for limb in self.limbs.iter_mut().take(a) {
+            *limb = 0;
         }
     }
 
