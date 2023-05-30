@@ -398,7 +398,6 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
             for i in 0..a {
                 self.limbs[i] = 0;
             }
-
         } else {
             let mut i = NUM_LIMBS;
             while i > a + 1 {
