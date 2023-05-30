@@ -40,3 +40,7 @@ $(CUDA_DIR)/%.ptx: $(CUDA_DIR)/%.cu
 
 # This part compiles all .cu files in $(CUDA_DIR)
 build-cuda: $(CUDA_COMPILED)
+
+CUDAPATH = gpu/src/cuda/shaders
+build-cuda:
+	nvcc -ptx $(CUDAPATH)/fft.cu -o $(CUDAPATH)/fft.ptx
