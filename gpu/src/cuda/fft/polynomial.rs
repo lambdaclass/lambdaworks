@@ -1,13 +1,12 @@
 use lambdaworks_math::{
     field::{
         element::FieldElement,
-        errors::FieldError,
         traits::{IsFFTField, RootsConfig},
     },
     polynomial::Polynomial,
 };
 
-use super::ops::{fft, reverse_index};
+use super::ops::fft;
 use crate::cuda::abstractions::{errors::CudaError, state::CudaState};
 use crate::cuda::fft::ops::gen_twiddles;
 

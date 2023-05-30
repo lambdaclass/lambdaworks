@@ -1,5 +1,6 @@
 #include "./fp_u256.cuh"
 #include "../fft/fft.cuh"
+#include "../fft/twiddles.cuh"
 #include "../utils.h"
 
 namespace p256
@@ -23,24 +24,15 @@ extern "C"
         _radix2_dit_butterfly<p256::Fp>(input, twiddles);
     }
     // NOTE: In order to calculate the inverse twiddles, call with _omega = _omega.inverse()
-    __global__ void calc_twiddles(p256::Fp *result,
-                                  const p256::Fp *_omega)
+    __global__ void calc_twiddles(p256::Fp *result, const p256::Fp *_omega)
     {
-        int index = threadIdx.x;
-
-        p256::Fp omega = _omega[0];
-        result[index] = omega.pow((unsigned)index);
+        _calc_twiddles<p256::Fp>(result, _omega);
     };
 
     // NOTE: In order to calculate the inverse twiddles, call with _omega = _omega.inverse()
-    __global__ void calc_twiddles_bitrev(p256::Fp *result,
-                                         const p256::Fp *_omega)
+    __global__ void calc_twiddles_bitrev(p256::Fp *result, const p256::Fp *_omega)
     {
-        int index = threadIdx.x;
-        int size = blockDim.x;
-
-        p256::Fp omega = _omega[0];
-        result[index] = omega.pow(reverse_index((unsigned)index, (unsigned)size));
+        _calc_twiddles_bitrev<p256::Fp>(result, _omega);
     };
 
 }
