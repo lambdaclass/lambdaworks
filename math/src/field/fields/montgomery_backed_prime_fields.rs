@@ -145,13 +145,13 @@ where
 
             while u != one && v != one {
                 while u.limbs[NUM_LIMBS - 1] & 1 == 0 {
-                    u.shr_inplace(1);
+                    u >>= 1;
                     if b.limbs[NUM_LIMBS - 1] & 1 == 0 {
-                        b.shr_inplace(1);
+                        b >>= 1;
                     } else {
                         let carry;
                         (b, carry) = UnsignedInteger::<NUM_LIMBS>::add(&b, &modulus);
-                        b.shr_inplace(1);
+                        b >>= 1;
                         if !modulus_has_spare_bits && carry {
                             b.limbs[0] |= 1 << 63;
                         }
@@ -159,14 +159,14 @@ where
                 }
 
                 while v.limbs[NUM_LIMBS - 1] & 1 == 0 {
-                    v.shr_inplace(1);
+                    v >>= 1;
 
                     if c.limbs[NUM_LIMBS - 1] & 1 == 0 {
-                        c.shr_inplace(1);
+                        c >>= 1;
                     } else {
                         let carry;
                         (c, carry) = UnsignedInteger::<NUM_LIMBS>::add(&c, &modulus);
-                        c.shr_inplace(1);
+                        c >>= 1;
                         if !modulus_has_spare_bits && carry {
                             c.limbs[0] |= 1 << 63;
                         }
