@@ -10,7 +10,7 @@ use crate::{
 pub struct MontgomeryConfigStark252PrimeField;
 impl IsModulus<U256> for MontgomeryConfigStark252PrimeField {
     const MODULUS: U256 =
-        U256::from("800000000000011000000000000000000000000000000000000000000000001");
+        U256::from_hex_unchecked("800000000000011000000000000000000000000000000000000000000000001");
 }
 
 pub type Stark252PrimeField = U256PrimeField<MontgomeryConfigStark252PrimeField>;
@@ -27,7 +27,7 @@ impl IsFFTField for Stark252PrimeField {
         ],
     };
 
-    fn field_name() -> String {
-        "stark256".to_string()
+    fn field_name() -> &'static str {
+        "stark256"
     }
 }

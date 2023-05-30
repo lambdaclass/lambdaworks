@@ -8,12 +8,18 @@ edition = "2021"
 [dependencies]
 rand = "0.8.5"
 thiserror = "1.0.38"
+rayon = { version = "1.7.0", optional = true }
 
 [dev-dependencies]
 proptest = "1.1.0"
 criterion = "0.4"
 const-random = "0.1.15"
-iai = "0.1"
+iai-callgrind.workspace = true
+
+[features]
+rayon = ["dep:rayon"]
+
+default = ["rayon"]
 
 [[bench]]
 name = "criterion_polynomial"
@@ -30,3 +36,8 @@ harness = false
 [[bench]]
 name = "iai_field"
 harness = false
+
+[[bench]]
+name = "criterion_msm"
+harness = false
+required-features = ["rayon"]

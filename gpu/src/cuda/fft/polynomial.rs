@@ -17,7 +17,7 @@ where
 {
     let state = CudaState::new()?;
     let order = log2(coeffs.len())?;
-    let twiddles = gen_twiddles(order, RootsConfig::BitReverse, &state)?;
+    let twiddles = gen_twiddles::<F>(order, RootsConfig::BitReverse, &state)?;
 
     fft(coeffs, &twiddles, &state)
 }
@@ -37,7 +37,7 @@ where
     // TODO: twiddle factors need to be handled with too much care, the FFT API shouldn't accept
     // invalid twiddle factor collections. A better solution is needed.
     let order = log2(fft_evals.len())?;
-    let twiddles = gen_twiddles(order, RootsConfig::BitReverseInversed, &state)?;
+    let twiddles = gen_twiddles::<F>(order, RootsConfig::BitReverseInversed, &state)?;
 
     let coeffs = fft(fft_evals, &twiddles, &state)?;
 
@@ -52,6 +52,3 @@ fn log2(n: usize) -> Result<u64, CudaError> {
     }
     Ok(n.trailing_zeros() as u64)
 }
-
-#[cfg(test)]
-mod tests {}

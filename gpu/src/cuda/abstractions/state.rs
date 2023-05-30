@@ -8,13 +8,12 @@ use cudarc::{
 };
 use lambdaworks_math::field::{
     element::FieldElement,
+    fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
     traits::{IsFFTField, IsField, RootsConfig},
 };
 use std::sync::Arc;
 
-const FFT_PTX: &str = include_str!("../shaders/fft.ptx");
-const GEN_TWIDDLES_PTX: &str = include_str!("../shaders/twiddles.ptx");
-const BITREV_PERMUTATION_PTX: &str = include_str!("../shaders/bitrev_permutation.ptx");
+const STARK256_PTX: &str = include_str!("../shaders/fields/stark256.ptx");
 
 /// Structure for abstracting basic calls to a Metal device and saving the state. Used for
 /// implementing GPU parallel computations in Apple machines.
@@ -30,30 +29,29 @@ impl CudaState {
         let state = Self { device };
 
         // Load PTX libraries
-        state.load_library(FFT_PTX, "fft", &["radix2_dit_butterfly"])?;
-        state.load_library(
-            GEN_TWIDDLES_PTX,
-            "twiddles",
-            &["calc_twiddles", "calc_twiddles_bitrev"],
-        )?;
-        state.load_library(
-            BITREV_PERMUTATION_PTX,
-            "bitrev_permutation",
-            &["bitrev_permutation"],
-        )?;
+        state.load_library::<Stark252PrimeField>(STARK256_PTX)?;
 
         Ok(state)
     }
 
-    fn load_library(
-        &self,
-        src: &'static str,          // Library code
-        module: &'static str,       // Module name
-        functions: &'static [&str], // List of functions
-    ) -> Result<(), CudaError> {
+    fn load_library<F: IsFFTField>(&self, src: &'static str) -> Result<(), CudaError> {
+        let mod_name: &'static str = F::field_name();
+        let functions = [
+            "radix2_dit_butterfly",
+            "calc_twiddles",
+            "calc_twiddles_bitrev",
+            "bitrev_permutation",
+        ];
         self.device
-            .load_ptx(Ptx::from_src(src), module, functions)
+            .load_ptx(Ptx::from_src(src), mod_name, &functions)
             .map_err(|err| CudaError::PtxError(err.to_string()))
+    }
+
+    fn get_function<F: IsFFTField>(&self, func_name: &str) -> Result<CudaFunction, CudaError> {
+        let mod_name = F::field_name();
+        self.device
+            .get_func(mod_name, func_name)
+            .ok_or_else(|| CudaError::FunctionError(func_name.to_string()))
     }
 
     /// Allocates a buffer in the GPU and copies `data` into it. Returns its handle.
@@ -72,10 +70,7 @@ impl CudaState {
         input: &[FieldElement<F>],
         twiddles: &[FieldElement<F>],
     ) -> Result<Radix2DitButterflyFunction<F>, CudaError> {
-        let function = self
-            .device
-            .get_func("fft", "radix2_dit_butterfly")
-            .ok_or_else(|| CudaError::FunctionError("fft::radix2_dit_butterfly".to_string()))?;
+        let function = self.get_function::<F>("radix2_dit_butterfly")?;
 
         let input_buffer = self.alloc_buffer_with_data(input)?;
         let twiddles_buffer = self.alloc_buffer_with_data(twiddles)?;
@@ -103,15 +98,14 @@ impl CudaState {
             RootsConfig::BitReverseInversed => (root.inv(), "calc_twiddles_bitrev"),
         };
 
-        let function = self
-            .device
-            .get_func("twiddles", function_name)
-            .ok_or_else(|| CudaError::FunctionError(format!("twiddles::{function_name}")))?;
+        let function = self.get_function::<F>(function_name)?;
 
         let count = (1 << order) / 2;
         let omega_buffer = self.alloc_buffer_with_data(&[root])?;
-        let twiddles_buffer =
-            self.alloc_buffer_with_data(&(0..count).map(FieldElement::from).collect::<Vec<_>>())?;
+        let twiddles: &[FieldElement<F>] = &(0..count)
+            .map(|_| FieldElement::one())
+            .collect::<Vec<FieldElement<F>>>();
+        let twiddles_buffer = self.alloc_buffer_with_data(twiddles)?;
 
         Ok(CalcTwiddlesFunction::new(
             Arc::clone(&self.device),
@@ -127,12 +121,7 @@ impl CudaState {
         input: &[FieldElement<F>],
         result: &[FieldElement<F>],
     ) -> Result<BitrevPermutationFunction<F>, CudaError> {
-        let function = self
-            .device
-            .get_func("bitrev_permutation", "bitrev_permutation")
-            .ok_or_else(|| {
-                CudaError::FunctionError("bitrev_permutation::bitrev_permutation".to_string())
-            })?;
+        let function = self.get_function::<F>("bitrev_permutation")?;
 
         let input_buffer = self.alloc_buffer_with_data(input)?;
         let result_buffer = self.alloc_buffer_with_data(result)?;

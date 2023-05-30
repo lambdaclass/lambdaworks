@@ -30,6 +30,7 @@
 - [Domb's fast modular multiplication](http://ingonyama.com/s/modular_multiplication.pdf)
 - [Rust crypto bigint](https://github.com/RustCrypto/crypto-bigint)
 - [Cairo felt](https://github.com/lambdaclass/cairo-rs/blob/main/felt/src/lib.rs)
+- [Various optimizations](https://github.com/mratsim/constantine/blob/master/docs/optimizations.md)
 
 ## Elliptic curves
 - [Pairing-friendly curves](https://members.loria.fr/AGuillevic/pairing-friendly-curves/)
