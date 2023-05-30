@@ -1,6 +1,7 @@
 #include "./fp_u256.cuh"
 #include "../fft/fft.cuh"
 #include "../fft/twiddles.cuh"
+#include "../fft/bitrev_permutation.cuh"
 #include "../utils.h"
 
 namespace p256
@@ -35,4 +36,10 @@ extern "C"
         _calc_twiddles_bitrev<p256::Fp>(result, _omega);
     };
 
+    __global__ void bitrev_permutation(
+        const p256::Fp *input,
+        p256::Fp *result
+    ) {
+        _bitrev_permutation<p256::Fp>(input, result);
+    };
 }

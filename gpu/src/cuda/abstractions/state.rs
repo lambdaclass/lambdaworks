@@ -40,6 +40,7 @@ impl CudaState {
             "radix2_dit_butterfly",
             "calc_twiddles",
             "calc_twiddles_bitrev",
+            "bitrev_permutation",
         ];
         self.device
             .load_ptx(Ptx::from_src(src), mod_name, &functions)
@@ -113,6 +114,25 @@ impl CudaState {
             twiddles_buffer,
         ))
     }
+
+    /// Returns a wrapper object over the `bitrev_permutation` function defined in `bitrev_permutation.cu`
+    pub(crate) fn get_bitrev_permutation<F: IsFFTField>(
+        &self,
+        input: &[FieldElement<F>],
+        result: &[FieldElement<F>],
+    ) -> Result<BitrevPermutationFunction<F>, CudaError> {
+        let function = self.get_function::<F>("bitrev_permutation")?;
+
+        let input_buffer = self.alloc_buffer_with_data(input)?;
+        let result_buffer = self.alloc_buffer_with_data(result)?;
+
+        Ok(BitrevPermutationFunction::new(
+            Arc::clone(&self.device),
+            function,
+            input_buffer,
+            result_buffer,
+        ))
+    }
 }
 
 pub(crate) struct Radix2DitButterflyFunction<F: IsField> {
@@ -162,6 +182,9 @@ impl<F: IsField> Radix2DitButterflyFunction<F> {
             block_dim,
             shared_mem_bytes: 0,
         };
+        // Launching kernels must be done in an unsafe block.
+        // Calling a kernel is similar to calling a foreign-language function,
+        // as the kernel itself could be written in C or unsafe Rust.
         unsafe {
             self.function
                 .clone()
@@ -221,6 +244,9 @@ impl<F: IsField> CalcTwiddlesFunction<F> {
             block_dim,
             shared_mem_bytes: 0,
         };
+        // Launching kernels must be done in an unsafe block.
+        // Calling a kernel is similar to calling a foreign-language function,
+        // as the kernel itself could be written in C or unsafe Rust.
         unsafe {
             self.function
                 .clone()
@@ -235,6 +261,73 @@ impl<F: IsField> CalcTwiddlesFunction<F> {
         } = self;
         let output = device
             .sync_reclaim(twiddles)
+            .map_err(|err| CudaError::RetrieveMemory(err.to_string()))?
+            .into_iter()
+            .map(FieldElement::from)
+            .collect();
+
+        Ok(output)
+    }
+}
+
+pub(crate) struct BitrevPermutationFunction<F: IsField> {
+    device: Arc<CudaDevice>,
+    function: CudaFunction,
+    input: CudaSlice<CUDAFieldElement<F>>,
+    result: CudaSlice<CUDAFieldElement<F>>,
+}
+
+impl<F: IsField> BitrevPermutationFunction<F> {
+    fn new(
+        device: Arc<CudaDevice>,
+        function: CudaFunction,
+        input: CudaSlice<CUDAFieldElement<F>>,
+        result: CudaSlice<CUDAFieldElement<F>>,
+    ) -> Self {
+        Self {
+            device,
+            function,
+            input,
+            result,
+        }
+    }
+
+    pub(crate) fn launch(&mut self, group_size: usize) -> Result<(), CudaError> {
+        let grid_dim = (1, 1, 1); // in blocks
+        let block_dim = (group_size as u32, 1, 1);
+
+        if block_dim.0 as usize > DeviceSlice::len(&self.input) {
+            return Err(CudaError::IndexOutOfBounds(
+                block_dim.0 as usize,
+                self.input.len(),
+            ));
+        } else if block_dim.0 as usize > DeviceSlice::len(&self.result) {
+            return Err(CudaError::IndexOutOfBounds(
+                block_dim.0 as usize,
+                self.result.len(),
+            ));
+        }
+
+        let config = LaunchConfig {
+            grid_dim,
+            block_dim,
+            shared_mem_bytes: 0,
+        };
+        // Launching kernels must be done in an unsafe block.
+        // Calling a kernel is similar to calling a foreign-language function,
+        // as the kernel itself could be written in C or unsafe Rust.
+        unsafe {
+            self.function
+                .clone()
+                .launch(config, (&mut self.input, &self.result))
+        }
+        .map_err(|err| CudaError::Launch(err.to_string()))
+    }
+
+    pub(crate) fn retrieve_result(self) -> Result<Vec<FieldElement<F>>, CudaError> {
+        let Self { device, result, .. } = self;
+        let output = device
+            .sync_reclaim(result)
             .map_err(|err| CudaError::RetrieveMemory(err.to_string()))?
             .into_iter()
             .map(FieldElement::from)
