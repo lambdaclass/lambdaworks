@@ -119,10 +119,8 @@ impl CudaState {
 
         let count = (1 << order) / 2;
         let omega_buffer = self.alloc_buffer_with_data(&[root])?;
-        let twiddles_buffer =
-            self.alloc_buffer_with_data(&(0..count).map(FieldElement::from).collect::<Vec<_>>())?;
-
-        assert_eq!(DeviceSlice::len(&twiddles_buffer) as usize, count as usize);
+        let twiddles = (0..count).map(FieldElement::one()).collect();
+        let twiddles_buffer = self.alloc_buffer_with_data(&twiddles)?;
 
         Ok(CalcTwiddlesFunction::new(
             Arc::clone(&self.device),
