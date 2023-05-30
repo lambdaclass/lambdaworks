@@ -13,9 +13,6 @@ use lambdaworks_math::field::{
 };
 use std::sync::Arc;
 
-const FFT_PTX: &str = include_str!("../shaders/fft.ptx");
-const GEN_TWIDDLES_PTX: &str = include_str!("../shaders/twiddles.ptx");
-
 const STARK256_PTX: &str = include_str!("../shaders/fields/stark256.ptx");
 
 /// Structure for abstracting basic calls to a Metal device and saving the state. Used for
@@ -32,30 +29,18 @@ impl CudaState {
         let state = Self { device };
 
         // Load PTX libraries
-        state._load_library(
-            GEN_TWIDDLES_PTX,
-            "twiddles",
-            &["calc_twiddles", "calc_twiddles_bitrev"],
-        )?;
         state.load_library::<Stark252PrimeField>(STARK256_PTX)?;
 
         Ok(state)
     }
 
-    fn _load_library(
-        &self,
-        src: &'static str,          // Library code
-        module: &'static str,       // Module name
-        functions: &'static [&str], // List of functions
-    ) -> Result<(), CudaError> {
-        self.device
-            .load_ptx(Ptx::from_src(src), module, functions)
-            .map_err(|err| CudaError::PtxError(err.to_string()))
-    }
-
     fn load_library<F: IsFFTField>(&self, src: &'static str) -> Result<(), CudaError> {
         let mod_name: &'static str = F::field_name();
-        let functions = ["radix2_dit_butterfly"];
+        let functions = [
+            "radix2_dit_butterfly",
+            "calc_twiddles",
+            "calc_twiddles_bitrev",
+        ];
         self.device
             .load_ptx(Ptx::from_src(src), mod_name, &functions)
             .map_err(|err| CudaError::PtxError(err.to_string()))
@@ -112,10 +97,7 @@ impl CudaState {
             RootsConfig::BitReverseInversed => (root.inv(), "calc_twiddles_bitrev"),
         };
 
-        let function = self
-            .device
-            .get_func("twiddles", function_name)
-            .ok_or_else(|| CudaError::FunctionError(format!("twiddles::{function_name}")))?;
+        let function = self.get_function::<F>(function_name)?;
 
         let count = (1 << order) / 2;
         let omega_buffer = self.alloc_buffer_with_data(&[root])?;
@@ -226,7 +208,7 @@ impl<F: IsField> CalcTwiddlesFunction<F> {
     pub(crate) fn launch(&mut self, group_size: usize) -> Result<(), CudaError> {
         let grid_dim = (1, 1, 1); // in blocks
         let block_dim = (group_size as u32, 1, 1);
-        assert!(group_size > 0);
+
         if block_dim.0 as usize > DeviceSlice::len(&self.twiddles) {
             return Err(CudaError::IndexOutOfBounds(
                 block_dim.0 as usize,
