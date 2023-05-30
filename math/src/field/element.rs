@@ -419,13 +419,13 @@ impl<F: IsPrimeField> FieldElement<F> {
             LegendreSymbol::One => (),
         };
 
-        let (zero, one, two) = (Self::zero(), Self::one(), Self::from(2));
+        let (one, two) = (Self::one(), Self::from(2));
 
         let mut q = Self::zero() - &one;
-        let mut s = Self::zero();
+        let mut s = 0u64;
 
         while q.is_even() {
-            s = s + &one;
+            s += 1;
             q = q / &two;
         }
 
@@ -444,17 +444,17 @@ impl<F: IsPrimeField> FieldElement<F> {
         let mut m = s;
 
         while t != one {
-            let mut i = zero.clone();
-            let mut e = FieldElement::from(2);
-            while i.representative() < m.representative() {
-                i += FieldElement::one();
-                if t.pow(e.representative()) == one {
+            let mut i = 0;
+            let mut e = &t * &t;
+            while i < m {
+                i += 1;
+                if e == one {
                     break;
                 }
-                e = e * &two;
+                e = &e * &e;
             }
 
-            let b = c.pow(two.pow((m - &i - &one).representative()).representative());
+            let b = c.pow(two.pow(m - i - 1).representative());
 
             x = x * &b;
             t = t * &b * &b;
