@@ -2141,16 +2141,9 @@ mod tests_u256 {
         assert_eq!(U256::from_bytes_le(&bytes).unwrap(), expected_number);
     }
 
+
     #[test]
     fn shr_inplace_works_1() {
-        let mut n = UnsignedInteger::<3>::from(4u64);
-        n.shr_inplace(1);
-
-        assert_eq!(n, UnsignedInteger::<3>::from(2u64));
-    }
-
-    #[test]
-    fn shr_inplace_works_2() {
         let mut n = UnsignedInteger::<3>::from(4u64);
         n.shr_inplace(1);
 
