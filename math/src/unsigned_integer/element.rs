@@ -2194,10 +2194,11 @@ mod tests_u256 {
     #[test]
     fn shr_inplace_on_256_bit_integer_works_4() {
         let a = U256::from_hex_unchecked("90823e0bd707f");
-        let b = U256::from_hex_unchecked(
+        let mut b = U256::from_hex_unchecked(
             "90823e0bd707f000000000000000000000000000000000000000000000000",
         );
-        assert_eq!(&a << (64 * 3), b);
+        b.shr_inplace(64 * 3);
+        assert_eq!(a, b);
     }
 
     #[test]
