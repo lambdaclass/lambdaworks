@@ -31,13 +31,13 @@ impl MontgomeryAlgorithms {
                 j -= 1;
                 cs = t[j] as u128 + (a.limbs[j] as u128) * (b.limbs[i] as u128) + c;
                 c = cs >> 64;
-                t[j] = ((cs << 64) >> 64) as u64;
+                t[j] = cs as u64;
             }
 
             // (t[N+1],t[N]) := t[N] + C
             cs = (t_extra[1] as u128) + c;
             t_extra[0] = (cs >> 64) as u64;
-            t_extra[1] = ((cs << 64) >> 64) as u64;
+            t_extra[1] = cs as u64;
 
             let mut c: u128;
 
@@ -74,6 +74,53 @@ impl MontgomeryAlgorithms {
         }
         result
     }
+
+    // Separated Operand Scanning Method (2.3.1)
+    #[inline(always)]
+    pub fn sos<const NUM_LIMBS: usize>(
+        a: &UnsignedInteger<NUM_LIMBS>,
+        b: &UnsignedInteger<NUM_LIMBS>,
+        q: &UnsignedInteger<NUM_LIMBS>,
+        mu: &u64,
+    ) -> UnsignedInteger<NUM_LIMBS> {
+        let (mut t_high, mut t_low) = UnsignedInteger::mul(a, b);
+
+        let mut c: u128 = 0;
+        for i in 0..NUM_LIMBS {
+            c = 0;
+            let m = (t_low.limbs[NUM_LIMBS - 1 - i] as u128 * *mu as u128) as u64;
+            for j in 0..NUM_LIMBS {
+                if i + j <= NUM_LIMBS - 1 {
+                    let cs = t_low.limbs[NUM_LIMBS - (i + j) - 1] as u128
+                        + m as u128 * (q.limbs[NUM_LIMBS - 1 - j] as u128)
+                        + c;
+                    c = cs >> 64;
+                    t_low.limbs[NUM_LIMBS - (i + j) - 1] = cs as u64;
+                } else {
+                    let cs = t_high.limbs[2 * NUM_LIMBS - (i + j) - 1] as u128
+                        + m as u128 * (q.limbs[NUM_LIMBS - 1 - j] as u128)
+                        + c;
+                    c = cs >> 64;
+                    t_high.limbs[2 * NUM_LIMBS - (i + j) - 1] = cs as u64;
+                }
+            }
+
+            let mut t = 0;
+            while c > 0 && i + t < NUM_LIMBS {
+                let cs = t_high.limbs[NUM_LIMBS - 1 - (i + t)] as u128 + c;
+                c = cs >> 64;
+                t_high.limbs[NUM_LIMBS - 1 - (i + t)] = cs as u64;
+                t += 1;
+            }
+        }
+
+        let overflow = c > 0;
+
+        if overflow || UnsignedInteger::const_le(q, &t_high) {
+            (t_high, _) = UnsignedInteger::sub(&t_high, q);
+        }
+        t_high
+    }
 }
 
 #[cfg(test)]
@@ -108,5 +155,15 @@ mod tests {
         let mu: u64 = 16085280245840369887; // negative of the inverse of `m` modulo 2^{64}
         let c = U384::from_hex_unchecked("8d65cdee621682815d59f465d2641eea8a1274dc");
         assert_eq!(MontgomeryAlgorithms::cios(&x, &r_mod_m, &m, &mu), c);
+    }
+
+    #[test]
+    fn sos_mulitplication_works() {
+        let x = U384::from_hex_unchecked("8d65cdee621682815d59f465d2641eea8a1274dc");
+        let m = U384::from_hex_unchecked("cdb061954fdd36e5176f50dbdcfd349570a29ce1"); // this is prime
+        let r_mod_m = U384::from_hex_unchecked("58dfb0e1b3dd5e674bdcde4f42eb5533b8759d33");
+        let mu: u64 = 16085280245840369887; // negative of the inverse of `m` modulo 2^{64}
+        let c = U384::from_hex_unchecked("8d65cdee621682815d59f465d2641eea8a1274dc");
+        assert_eq!(MontgomeryAlgorithms::sos(&x, &r_mod_m, &m, &mu), c);
     }
 }
