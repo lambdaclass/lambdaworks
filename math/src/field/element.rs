@@ -420,13 +420,14 @@ impl<F: IsPrimeField> FieldElement<F> {
         };
 
         let (one, two) = (Self::one(), Self::from(2));
+        let two_inv = two.inv();
 
         let mut q = Self::zero() - &one;
         let mut s = 0u64;
 
         while q.is_even() {
             s += 1;
-            q = q / &two;
+            q = q * &two_inv;
         }
 
         let mut c = {
@@ -439,7 +440,7 @@ impl<F: IsPrimeField> FieldElement<F> {
             non_qr.pow(q.representative())
         };
 
-        let mut x = self.pow(((&q + &one) / &two).representative());
+        let mut x = self.pow(((&q + &one) * &two_inv).representative());
         let mut t = self.pow(q.representative());
         let mut m = s;
 
