@@ -431,7 +431,7 @@ impl<F: IsPrimeField> FieldElement<F> {
 
         let mut c = {
             // Calculate a non residue:
-            let mut non_qr = one.clone();
+            let mut non_qr = two.clone();
             while non_qr.legendre_symbol() != LegendreSymbol::MinusOne {
                 non_qr += one.clone();
             }
