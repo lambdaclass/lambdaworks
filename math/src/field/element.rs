@@ -441,20 +441,20 @@ impl<F: IsPrimeField> FieldElement<F> {
 
         let mut x = self.pow(((&q + &one) / &two).representative());
         let mut t = self.pow(q.representative());
-        let mut m = s;
+        let mut m = FieldElement::from(s);
 
         while t != one {
-            let mut i = 0;
+            let mut i = FieldElement::zero();
             let mut e = &t * &t;
-            while i < m {
-                i += 1;
+            while i != m {
+                i = &i + &one;
                 if e == one {
                     break;
                 }
                 e = &e * &e;
             }
 
-            let b = c.pow(two.pow(m - i - 1).representative());
+            let b = c.pow(two.pow((m - &i - &one).representative()).representative());
 
             x = x * &b;
             t = t * &b * &b;
