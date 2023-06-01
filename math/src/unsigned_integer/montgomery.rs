@@ -77,13 +77,12 @@ impl MontgomeryAlgorithms {
 
     // Separated Operand Scanning Method (2.3.1)
     #[inline(always)]
-    pub fn sos<const NUM_LIMBS: usize>(
+    pub fn sos_square<const NUM_LIMBS: usize>(
         a: &UnsignedInteger<NUM_LIMBS>,
-        b: &UnsignedInteger<NUM_LIMBS>,
         q: &UnsignedInteger<NUM_LIMBS>,
         mu: &u64,
     ) -> UnsignedInteger<NUM_LIMBS> {
-        let (mut t_high, mut t_low) = UnsignedInteger::mul(a, b);
+        let (mut t_high, mut t_low) = UnsignedInteger::square(a);
 
         let mut c: u128 = 0;
         for i in 0..NUM_LIMBS {
@@ -161,9 +160,8 @@ mod tests {
     fn sos_mulitplication_works() {
         let x = U384::from_hex_unchecked("8d65cdee621682815d59f465d2641eea8a1274dc");
         let m = U384::from_hex_unchecked("cdb061954fdd36e5176f50dbdcfd349570a29ce1"); // this is prime
-        let r_mod_m = U384::from_hex_unchecked("58dfb0e1b3dd5e674bdcde4f42eb5533b8759d33");
         let mu: u64 = 16085280245840369887; // negative of the inverse of `m` modulo 2^{64}
         let c = U384::from_hex_unchecked("8d65cdee621682815d59f465d2641eea8a1274dc");
-        assert_eq!(MontgomeryAlgorithms::sos(&x, &r_mod_m, &m, &mu), c);
+        assert_eq!(MontgomeryAlgorithms::sos_square(&x, &m, &mu), c);
     }
 }

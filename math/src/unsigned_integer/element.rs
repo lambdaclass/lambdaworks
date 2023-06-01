@@ -545,6 +545,81 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         // 3.
         (Self { limbs: hi }, Self { limbs: lo })
     }
+
+    pub fn square(
+        a: &UnsignedInteger<NUM_LIMBS>,
+    ) -> (UnsignedInteger<NUM_LIMBS>, UnsignedInteger<NUM_LIMBS>) {
+        let mut hi = [0u64; NUM_LIMBS];
+        let mut lo = [0u64; NUM_LIMBS];
+
+        // Compute products between a[i] and a[j] when i != j.
+        let mut c: u128 = 0;
+        for i in 0..(NUM_LIMBS - 1) {
+            for j in (i + 1)..NUM_LIMBS {
+                if i != j {
+                    let mut k = i + j;
+                    if k <= NUM_LIMBS - 1 {
+                        let cs = lo[NUM_LIMBS - 1 - k] as u128
+                            + a.limbs[NUM_LIMBS - 1 - i] as u128
+                                * a.limbs[NUM_LIMBS - 1 - j] as u128
+                            + c;
+                        c = cs >> 64;
+                        lo[NUM_LIMBS - 1 - k] = cs as u64;
+                    } else {
+                        k -= NUM_LIMBS;
+                        let cs = hi[NUM_LIMBS - 1 - k] as u128
+                            + a.limbs[NUM_LIMBS - 1 - i] as u128
+                                * a.limbs[NUM_LIMBS - 1 - j] as u128
+                            + c;
+                        c = cs >> 64;
+                        hi[NUM_LIMBS - 1 - k] = cs as u64;
+                    }
+                }
+            }
+        }
+
+        hi[1] = hi[1] + c as u64;
+        // These terms appear twice each, so we have to multiple by two.
+        let mut hi = Self { limbs: hi };
+        let mut lo = Self { limbs: lo };
+        println!("Solo multiplicación cruzada");
+        println!("{} {}", &hi, &lo);
+        let carry = lo.limbs[0] >> 63;
+        lo = lo << 1;
+        hi = hi << 1;
+        hi.limbs[NUM_LIMBS - 1] = hi.limbs[NUM_LIMBS - 1] | carry;
+
+        println!("{} {}", hi, lo);
+
+        // The only remaning terms are the squares a[i] * a[i].
+        let mut c = 0;
+        for i in 0..NUM_LIMBS {
+            if NUM_LIMBS - 1 >= i * 2 {
+                let cs = lo.limbs[NUM_LIMBS - 1 - i * 2] as u128
+                    + a.limbs[NUM_LIMBS - 1 - i] as u128 * a.limbs[NUM_LIMBS - 1 - i] as u128
+                    + c;
+                c = cs >> 64;
+                lo.limbs[NUM_LIMBS - 1 - i * 2] = cs as u64;
+            } else {
+                let cs = hi.limbs[2 * NUM_LIMBS - 1 - i * 2] as u128
+                    + a.limbs[NUM_LIMBS - 1 - i] as u128 * a.limbs[NUM_LIMBS - 1 - i] as u128
+                    + c;
+                c = cs >> 64;
+                hi.limbs[2 * NUM_LIMBS - 1 - i * 2] = cs as u64;
+            }
+            if NUM_LIMBS - 1 > i * 2 {
+                let cs = lo.limbs[NUM_LIMBS - 2 - i * 2] as u128 + c;
+                c = cs >> 64;
+                lo.limbs[NUM_LIMBS - 2 - i * 2] = cs as u64;
+            } else {
+                let cs = hi.limbs[2 * NUM_LIMBS - 2 - i * 2] as u128 + c;
+                c = cs >> 64;
+                hi.limbs[2 * NUM_LIMBS - 2 - i * 2] = cs as u64;
+            }
+        }
+        debug_assert_eq!(c, 0);
+        (hi, lo)
+    }
 }
 
 impl<const NUM_LIMBS: usize> IsUnsignedInteger for UnsignedInteger<NUM_LIMBS> {}
@@ -1428,6 +1503,96 @@ mod tests_u384 {
         let expected_number = U384::from_u64(1);
 
         assert_eq!(U384::from_bytes_le(&bytes).unwrap(), expected_number);
+    }
+
+    #[test]
+    fn test_square() {
+        let a = U384::from_hex_unchecked("362e35606447fb568704026c25da7a304bc7bd0aea36a61d77d4151395078cfa332b9d4928a60721eece725bbc81e158");
+        let (hi, lo) = U384::square(&a);
+        println!("{} {}", &hi, &lo);
+        assert_eq!(lo, U384::from_hex_unchecked("11724caeb10c4bce5319097d74aed2246e2942b56b7365b5b2f8ceb3bb847db4828862043299d798577996e210bce40"));
+        //        assert_eq!(hi, U384::from_hex_unchecked("b7786dbe41375b7ff64dbdc65152ef7d3fdbf499485e26486201cdbfb71b5673c77eb355a1274d08cbfbc1a4cdfdfad"));
+    }
+
+    #[test]
+    fn test_square_1() {
+        let a = U384::from_limbs([0, 0, 0, 0, 0, u64::MAX]);
+        let (hi, lo) = U384::square(&a);
+        assert_eq!(
+            lo,
+            U384::from_hex_unchecked("fffffffffffffffe0000000000000001")
+        );
+        assert_eq!(hi, U384::from_hex_unchecked("0"));
+    }
+
+    #[test]
+    fn test_square_2() {
+        let a = U384::from_limbs([0, 0, 0, 0, u64::MAX, 0]);
+        let (hi, lo) = U384::square(&a);
+        println!("{} {}", &hi, &lo);
+        assert_eq!(
+            lo,
+            U384::from_hex_unchecked(
+                "fffffffffffffffe000000000000000100000000000000000000000000000000"
+            )
+        );
+        assert_eq!(hi, U384::from_hex_unchecked("0"));
+    }
+
+    #[test]
+    fn test_square_3() {
+        let a = U384::from_limbs([0, 0, 0, u64::MAX, 0, 0]);
+        let (hi, lo) = U384::square(&a);
+        println!("{} {}", &hi, &lo);
+        assert_eq!(lo, U384::from_hex_unchecked("fffffffffffffffe00000000000000010000000000000000000000000000000000000000000000000000000000000000"));
+        assert_eq!(hi, U384::from_hex_unchecked("0"));
+    }
+
+    #[test]
+    fn test_square_4() {
+        let a = U384::from_limbs([0, 0, u64::MAX, 0, 0, 0]);
+        let (hi, lo) = U384::square(&a);
+        println!("{} {}", &hi, &lo);
+        assert_eq!(lo, U384::from_hex_unchecked("0"));
+        assert_eq!(
+            hi,
+            U384::from_hex_unchecked("fffffffffffffffe0000000000000001")
+        );
+    }
+
+    #[test]
+    fn test_square_5() {
+        let a = U384::from_limbs([0, 0, u64::MAX, u64::MAX, u64::MAX, u64::MAX]);
+        let (hi, lo) = U384::square(&a);
+        println!("{} {}", &hi, &lo);
+        assert_eq!(lo, U384::from_hex_unchecked("fffffffffffffffffffffffffffffffe0000000000000000000000000000000000000000000000000000000000000001"));
+        assert_eq!(
+            hi,
+            U384::from_hex_unchecked("ffffffffffffffffffffffffffffffff")
+        );
+    }
+
+    #[test]
+    fn test_square_6() {
+        let a = U384::from_limbs([0, u64::MAX, u64::MAX, u64::MAX, u64::MAX, u64::MAX]);
+        let (hi, lo) = U384::square(&a);
+        println!("{} {}", &hi, &lo);
+        assert_eq!(lo, U384::from_hex_unchecked("fffffffffffffffe00000000000000000000000000000000000000000000000000000000000000000000000000000001"));
+        assert_eq!(
+            hi,
+            U384::from_hex_unchecked(
+                "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+            )
+        );
+    }
+
+    #[test]
+    fn test_square_7() {
+        let a = U384::from_limbs([u64::MAX, u64::MAX, u64::MAX, u64::MAX, u64::MAX, u64::MAX]);
+        let (hi, lo) = U384::square(&a);
+        println!("{} {}", &hi, &lo);
+        assert_eq!(lo, U384::from_hex_unchecked("1"));
+        assert_eq!(hi, U384::from_hex_unchecked("fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe"));
     }
 }
 
