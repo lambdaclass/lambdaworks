@@ -10,6 +10,8 @@ pub enum DeserializationError {
     FieldFromBytesError,
     #[error("Error trying to load a pointer bigger than the supported architecture")]
     PointerSizeError,
+    #[error("Invalid value")]
+    InvalidValue,
 }
 
 impl From<ByteConversionError> for DeserializationError {
@@ -17,6 +19,9 @@ impl From<ByteConversionError> for DeserializationError {
         match error {
             ByteConversionError::FromBEBytesError => DeserializationError::FieldFromBytesError,
             ByteConversionError::FromLEBytesError => DeserializationError::FieldFromBytesError,
+            ByteConversionError::InvalidValue => DeserializationError::InvalidValue,
+            ByteConversionError::PointNotInSubgroup => DeserializationError::InvalidValue,
+            ByteConversionError::ValueNotCompressed => DeserializationError::InvalidValue,
         }
     }
 }
