@@ -140,3 +140,85 @@ impl Compress for ShortWeierstrassProjectivePoint<BLS12381Curve> {
         Self::G2Point::from_affine(x, y).map_err(|_| EllipticCurveError::InvalidPoint)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::curve::{BLS12381Curve, BLS12381FieldElement};
+    use super::Compress;
+    use crate::cyclic_group::IsGroup;
+    use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
+    use crate::elliptic_curve::traits::{FromAffine, IsEllipticCurve};
+    use crate::traits::ByteConversion;
+    use crate::unsigned_integer::element::UnsignedInteger;
+
+    type G1Point = ShortWeierstrassProjectivePoint<BLS12381Curve>;
+
+    #[test]
+    fn test_zero_point() {
+        let g1 = BLS12381Curve::generator();
+
+        assert!(super::check_point_is_in_subgroup(&g1));
+        let new_x = BLS12381FieldElement::zero();
+        let new_y = BLS12381FieldElement::one() + BLS12381FieldElement::one();
+
+        let false_point2 = G1Point::from_affine(new_x, new_y).unwrap();
+
+        assert!(!super::check_point_is_in_subgroup(&false_point2));
+    }
+
+    #[test]
+    fn test_g1_compress_generator() {
+        let g = BLS12381Curve::generator();
+        let mut compressed_g = G1Point::compress_g1_point(&g).unwrap();
+        let first_byte = compressed_g[0];
+
+        let first_byte_without_control_bits = (first_byte << 3) >> 3;
+        compressed_g[0] = first_byte_without_control_bits;
+
+        let compressed_g_x = BLS12381FieldElement::from_bytes_be(&compressed_g).unwrap();
+        let g_x = g.x();
+
+        assert_eq!(*g_x, compressed_g_x);
+    }
+
+    #[test]
+    fn test_g1_compress_point_at_inf() {
+        let inf = G1Point::neutral_element();
+        let compressed_inf = G1Point::compress_g1_point(&inf).unwrap();
+        let first_byte = compressed_inf[0];
+
+        assert_eq!(first_byte >> 6, 3_u8);
+    }
+
+    #[test]
+    fn test_compress_decompress_generator() {
+        let g = BLS12381Curve::generator();
+        let mut compressed_g = G1Point::compress_g1_point(&g).unwrap();
+        let decompressed_g = G1Point::decompress_g1_point(&mut compressed_g).unwrap();
+
+        assert_eq!(g, decompressed_g);
+    }
+
+    #[test]
+    fn test_compress_decompress_2g() {
+        let g = BLS12381Curve::generator();
+        // calculate g point operate with itself
+        let g_2 = g.operate_with_self(UnsignedInteger::<4>::from("2"));
+        let mut compressed_g2 = G1Point::compress_g1_point(&g_2).unwrap();
+        let decompressed_g2 = G1Point::decompress_g1_point(&mut compressed_g2).unwrap();
+
+        assert_eq!(g_2, decompressed_g2);
+    }
+
+    #[test]
+    fn short_test_compress_and_decompress_point() {
+        let line = "8d0c6eeadd3f8529d67246f77404a4ac2d9d7fd7d50cf103d3e6abb9003e5e36d8f322663ebced6707a7f46d97b7566d";
+        let bytes = hex::decode(line).unwrap();
+        let mut input_bytes: [u8; 48] = bytes.try_into().unwrap();
+        let point = G1Point::decompress_g1_point(&mut input_bytes).unwrap();
+        let compressed = G1Point::compress_g1_point(&point).unwrap();
+        let hex_string = hex::encode(compressed);
+
+        assert_eq!("8d0c6eeadd3f8529d67246f77404a4ac2d9d7fd7d50cf103d3e6abb9003e5e36d8f322663ebced6707a7f46d97b7566d", &hex_string);
+    }
+}
