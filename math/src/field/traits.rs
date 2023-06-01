@@ -111,9 +111,97 @@ pub trait IsField: Debug + Clone {
     fn from_base_type(x: Self::BaseType) -> Self::BaseType;
 }
 
+#[derive(PartialEq)]
+pub enum LegendreSymbol {
+    MinusOne,
+    Zero,
+    One,
+}
+
 pub trait IsPrimeField: IsField {
     type RepresentativeType: IsUnsignedInteger;
 
     // Returns the representative of the value stored
     fn representative(a: &Self::BaseType) -> Self::RepresentativeType;
+
+    fn is_even(a: &Self::BaseType) -> bool {
+        Self::representative(a) & 1.into() == 0.into()
+    }
+
+    fn legendre_symbol(a: &Self::BaseType) -> LegendreSymbol {
+        let mod_minus_one = Self::neg(&Self::one());
+        let symbol = Self::pow(a, Self::representative(&mod_minus_one) >> 1);
+
+        match symbol {
+            x if Self::eq(&x, &Self::zero()) => LegendreSymbol::Zero,
+            x if Self::eq(&x, &Self::one()) => LegendreSymbol::One,
+            _ => LegendreSymbol::MinusOne,
+        }
+    }
+
+    /// Returns the two square roots of `self` if it exists
+    /// `None` if it doesn't
+    fn sqrt(a: &Self::BaseType) -> Option<(Self::BaseType, Self::BaseType)> {
+        match Self::legendre_symbol(a) {
+            LegendreSymbol::Zero => return Some((Self::zero(), Self::zero())), // self is 0
+            LegendreSymbol::MinusOne => return None, // self is quadratic non-residue
+            LegendreSymbol::One => (),
+        };
+
+        let (zero, one, two) = (Self::zero(), Self::one(), Self::from_u64(2));
+
+        let mut q = Self::neg(&Self::one());
+        let mut s = Self::zero();
+
+        while Self::is_even(&q) {
+            s = Self::add(&s, &one);
+            q = Self::div(&q, &two);
+        }
+
+        let mut c = {
+            // Calculate a non residue:
+            let mut non_qr = one.clone();
+            while Self::legendre_symbol(&non_qr) != LegendreSymbol::MinusOne {
+                non_qr = Self::add(&non_qr, &Self::one());
+            }
+
+            Self::pow(&non_qr, Self::representative(&q))
+        };
+
+        let mut x = Self::pow(
+            a,
+            Self::representative(&Self::div(&Self::add(&q, &one), &two)),
+        );
+
+        let mut t = Self::pow(a, Self::representative(&q));
+        let mut m = s;
+
+        while !Self::eq(&t, &one) {
+            let mut i = zero.clone();
+            let mut e = Self::from_u64(2);
+            while Self::representative(&i) < Self::representative(&m) {
+                i = Self::add(&i, &one);
+                if Self::eq(&Self::pow(&t, Self::representative(&e)), &one) {
+                    break;
+                }
+                e = Self::mul(&e, &two);
+            }
+
+            let b = Self::pow(
+                &c,
+                Self::representative(&Self::pow(
+                    &two,
+                    Self::representative(&Self::sub(&Self::sub(&m, &i), &one)),
+                )),
+            );
+
+            x = Self::mul(&x, &b);
+            t = Self::mul(&Self::mul(&t, &b), &b);
+            c = Self::mul(&b, &b);
+            m = i;
+        }
+
+        let neg_x = Self::neg(&x);
+        Some((x, neg_x))
+    }
 }
