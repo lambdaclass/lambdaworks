@@ -381,7 +381,7 @@ where
 }
 
 #[derive(PartialEq)]
-enum LegendreSymbol {
+pub enum LegendreSymbol {
     MinusOne,
     Zero,
     One,
@@ -397,7 +397,7 @@ impl<F: IsPrimeField> FieldElement<F> {
         self.representative() & 1.into() == 0.into()
     }
 
-    fn legendre_symbol(&self) -> LegendreSymbol {
+    pub fn legendre_symbol(&self) -> LegendreSymbol {
         let mod_minus_one: FieldElement<F> = Self::zero() - Self::one();
         let symbol = self.pow((mod_minus_one / FieldElement::from(2)).representative());
 
