@@ -553,8 +553,8 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         let mut lo = [0u64; NUM_LIMBS];
 
         // Compute products between a[i] and a[j] when i != j.
-        let mut c: u128 = 0;
         for i in 0..(NUM_LIMBS - 1) {
+            let mut c: u128 = 0;
             for j in (i + 1)..NUM_LIMBS {
                 if i != j {
                     let mut k = i + j;
@@ -576,20 +576,16 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
                     }
                 }
             }
+            hi[NUM_LIMBS - 1 - i] = c as u64;
         }
 
-        hi[1] = hi[1] + c as u64;
         // These terms appear twice each, so we have to multiple by two.
         let mut hi = Self { limbs: hi };
         let mut lo = Self { limbs: lo };
-        println!("Solo multiplicación cruzada");
-        println!("{} {}", &hi, &lo);
         let carry = lo.limbs[0] >> 63;
         lo = lo << 1;
         hi = hi << 1;
         hi.limbs[NUM_LIMBS - 1] = hi.limbs[NUM_LIMBS - 1] | carry;
-
-        println!("{} {}", hi, lo);
 
         // The only remaning terms are the squares a[i] * a[i].
         let mut c = 0;
@@ -1509,9 +1505,7 @@ mod tests_u384 {
     fn test_square() {
         let a = U384::from_hex_unchecked("362e35606447fb568704026c25da7a304bc7bd0aea36a61d77d4151395078cfa332b9d4928a60721eece725bbc81e158");
         let (hi, lo) = U384::square(&a);
-        println!("{} {}", &hi, &lo);
         assert_eq!(lo, U384::from_hex_unchecked("11724caeb10c4bce5319097d74aed2246e2942b56b7365b5b2f8ceb3bb847db4828862043299d798577996e210bce40"));
-        //        assert_eq!(hi, U384::from_hex_unchecked("b7786dbe41375b7ff64dbdc65152ef7d3fdbf499485e26486201cdbfb71b5673c77eb355a1274d08cbfbc1a4cdfdfad"));
     }
 
     #[test]
@@ -1590,7 +1584,6 @@ mod tests_u384 {
     fn test_square_7() {
         let a = U384::from_limbs([u64::MAX, u64::MAX, u64::MAX, u64::MAX, u64::MAX, u64::MAX]);
         let (hi, lo) = U384::square(&a);
-        println!("{} {}", &hi, &lo);
         assert_eq!(lo, U384::from_hex_unchecked("1"));
         assert_eq!(hi, U384::from_hex_unchecked("fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe"));
     }

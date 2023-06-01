@@ -1,6 +1,7 @@
 use crate::field::element::FieldElement;
 use crate::field::traits::IsPrimeField;
 use crate::traits::ByteConversion;
+use crate::unsigned_integer::traits::IsUnsignedInteger;
 use crate::{
     field::traits::IsField, unsigned_integer::element::UnsignedInteger,
     unsigned_integer::montgomery::MontgomeryAlgorithms,
@@ -223,6 +224,24 @@ where
 
     fn from_base_type(x: Self::BaseType) -> Self::BaseType {
         MontgomeryAlgorithms::cios(&x, &Self::R2, &M::MODULUS, &Self::MU)
+    }
+
+    fn pow<T>(a: &Self::BaseType, mut exponent: T) -> Self::BaseType
+    where
+        T: IsUnsignedInteger,
+    {
+        let mut result = Self::one();
+        let mut base = a.clone();
+        let zero = T::from(0);
+        let one = T::from(1);
+        while exponent > zero {
+            if exponent & one == one {
+                result = Self::mul(&result, &base);
+            }
+            base = MontgomeryAlgorithms::sos_square(&base, &M::MODULUS, &Self::MU);
+            exponent = exponent >> 1;
+        }
+        result
     }
 }
 
