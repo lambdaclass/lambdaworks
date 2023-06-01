@@ -129,10 +129,8 @@ impl Compress for ShortWeierstrassProjectivePoint<BLS12381Curve> {
         let x1 = BLS12381FieldElement::from_bytes_be(input1).unwrap();
         let x: FieldElement<Degree2ExtensionField> = FieldElement::new([x0, x1]);
 
-        let b_param_qfe = FieldElement::<Degree2ExtensionField>::new([
-            BLS12381FieldElement::from_hex_unchecked("0x4"),
-            BLS12381FieldElement::from_hex_unchecked("0x4"),
-        ]);
+        const VALUE: BLS12381FieldElement = BLS12381FieldElement::from_hex_unchecked("4");
+        let b_param_qfe = FieldElement::<Degree2ExtensionField>::new([VALUE, VALUE]);
 
         let y = super::sqrt::sqrt_qfe(&(x.pow(3_u64) + b_param_qfe), 0)
             .ok_or(EllipticCurveError::InvalidPoint)?;
