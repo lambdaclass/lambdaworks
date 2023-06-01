@@ -104,11 +104,8 @@ impl Compress for ShortWeierstrassProjectivePoint<BLS12381Curve> {
     fn decompress_g2_point(
         input_bytes: &mut [u8; 96],
     ) -> Result<Self::G2Point, EllipticCurveError> {
-        let binding = input_bytes[48..96].to_owned();
-        let input0 = binding.as_slice();
-        let input1 = &mut input_bytes[0..48];
+        let first_byte = input_bytes.first().unwrap();
 
-        let first_byte = input1.first().unwrap();
         // We get the first 3 bits
         let prefix_bits = first_byte >> 5;
         let first_bit = (prefix_bits & 4_u8) >> 2;
@@ -124,15 +121,17 @@ impl Compress for ShortWeierstrassProjectivePoint<BLS12381Curve> {
         }
 
         let first_byte_without_contorl_bits = (first_byte << 3) >> 3;
-        input1[0] = first_byte_without_contorl_bits;
+        input_bytes[0] = first_byte_without_contorl_bits;
 
+        let input0 = &input_bytes[48..];
+        let input1 = &input_bytes[0..48];
         let x0 = BLS12381FieldElement::from_bytes_be(input0).unwrap();
         let x1 = BLS12381FieldElement::from_bytes_be(input1).unwrap();
         let x: FieldElement<Degree2ExtensionField> = FieldElement::new([x0, x1]);
 
         let b_param_qfe = FieldElement::<Degree2ExtensionField>::new([
-            BLS12381FieldElement::from_hex("0x4").unwrap(),
-            BLS12381FieldElement::from_hex("0x4").unwrap(),
+            BLS12381FieldElement::from_hex_unchecked("0x4"),
+            BLS12381FieldElement::from_hex_unchecked("0x4"),
         ]);
 
         let y = super::sqrt::sqrt_qfe(&(x.pow(3_u64) + b_param_qfe), 0)
