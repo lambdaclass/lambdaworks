@@ -234,18 +234,34 @@ where
     where
         T: IsUnsignedInteger,
     {
-        let mut result = Self::one();
-        let mut base = a.clone();
         let zero = T::from(0);
+        if exponent == zero {
+            return Self::one();
+        }
+
         let one = T::from(1);
+        if exponent == one {
+            return *a;
+        }
+
+        let mut result = a.clone();
+        while exponent & one == zero {
+            result = Self::square(&result);
+            exponent = exponent >> 1;
+        }
+
+        let mut base = result.clone();
+        exponent = exponent >> 1;
+
         while exponent > zero {
+            base = Self::square(&base);
             if exponent & one == one {
                 result = Self::mul(&result, &base);
             }
-            base = Self::square(&base);
             exponent = exponent >> 1;
         }
-        result
+
+        return result;
     }
 }
 
