@@ -104,6 +104,22 @@ If you use ```Lambdaworks``` libraries in your research projects, please cite th
 
 ### Gadgets
 
+## Installation
+
+### Metal
+To utilize the GPU on a Mac, it's necessary to install Xcode.
+```
+xcode-select --install
+```
+Alternatively, we can install Xcode from the App Store by searching "Xcode CLI".
+
+Note: If you encounter the error `unable to find utility "metal", not a developer tool or in PATH`, make sure to re-install XCode from the App Store.
+
+Confirm installation by running the tests with the metal feature enabled:
+```
+cargo test -F metal
+```
+
 ## Documentation
 
 To serve the documentation locally, first install both [mdbook](https://rust-lang.github.io/mdBook/guide/installation.html) and the [Katex preprocessor](https://github.com/lzanini/mdbook-katex#getting-started) to render LaTeX, then run
