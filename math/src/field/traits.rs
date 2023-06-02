@@ -1,6 +1,5 @@
 use crate::unsigned_integer::traits::IsUnsignedInteger;
 
-
 use std::{fmt::Debug, hash::Hash};
 
 use super::{element::FieldElement, errors::FieldError};

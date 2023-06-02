@@ -244,13 +244,13 @@ where
             return *a;
         }
 
-        let mut result = a.clone();
+        let mut result = *a;
         while exponent & one == zero {
             result = Self::square(&result);
             exponent = exponent >> 1;
         }
 
-        let mut base = result.clone();
+        let mut base = result;
         exponent = exponent >> 1;
 
         while exponent > zero {
@@ -261,7 +261,7 @@ where
             exponent = exponent >> 1;
         }
 
-        return result;
+        result
     }
 }
 

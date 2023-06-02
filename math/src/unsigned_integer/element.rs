@@ -549,61 +549,68 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
     pub fn square(
         a: &UnsignedInteger<NUM_LIMBS>,
     ) -> (UnsignedInteger<NUM_LIMBS>, UnsignedInteger<NUM_LIMBS>) {
-        let mut hi = [0u64; NUM_LIMBS];
-        let mut lo = [0u64; NUM_LIMBS];
+        let mut hi = Self {
+            limbs: [0u64; NUM_LIMBS],
+        };
+        let mut lo = Self {
+            limbs: [0u64; NUM_LIMBS],
+        };
 
         // Compute products between a[i] and a[j] when i != j.
+        // The variable `index` below is the index of `lo` or
+        // `hi` to update
         for i in (1..NUM_LIMBS).rev() {
             let mut c: u128 = 0;
             for j in (0..i).rev() {
                 let k = i + j;
                 if k >= NUM_LIMBS - 1 {
-                    let lo_index = k + 1 - NUM_LIMBS;
-                    let cs = lo[lo_index] as u128 + a.limbs[i] as u128 * a.limbs[j] as u128 + c;
+                    let index = k + 1 - NUM_LIMBS;
+                    let cs = lo.limbs[index] as u128 + a.limbs[i] as u128 * a.limbs[j] as u128 + c;
                     c = cs >> 64;
-                    lo[lo_index] = cs as u64;
+                    lo.limbs[index] = cs as u64;
                 } else {
-                    let hi_index = k + 1;
-                    let cs = hi[hi_index] as u128 + a.limbs[i] as u128 * a.limbs[j] as u128 + c;
+                    let index = k + 1;
+                    let cs = hi.limbs[index] as u128 + a.limbs[i] as u128 * a.limbs[j] as u128 + c;
                     c = cs >> 64;
-                    hi[hi_index] = cs as u64;
+                    hi.limbs[index] = cs as u64;
                 }
             }
-            hi[i] = c as u64;
+            hi.limbs[i] = c as u64;
         }
 
-        // These terms appear twice each, so we have to multiple by two.
-        let mut hi = Self { limbs: hi };
-        let mut lo = Self { limbs: lo };
+        // All these terms should appear twice each,
+        // so we have to multiply what we got so far by two.
         let carry = lo.limbs[0] >> 63;
         lo = lo << 1;
         hi = hi << 1;
-        hi.limbs[NUM_LIMBS - 1] = hi.limbs[NUM_LIMBS - 1] | carry;
+        hi.limbs[NUM_LIMBS - 1] |= carry;
 
-        // The only remaning terms are the squares a[i] * a[i].
+        // Add the only remaning terms, which are the squares a[i] * a[i].
+        // The variable `index` below is the index of `lo` or
+        // `hi` to update
         let mut c = 0;
-        for i in 0..NUM_LIMBS {
-            if NUM_LIMBS - 1 >= i * 2 {
-                let cs = lo.limbs[NUM_LIMBS - 1 - i * 2] as u128
-                    + a.limbs[NUM_LIMBS - 1 - i] as u128 * a.limbs[NUM_LIMBS - 1 - i] as u128
-                    + c;
+        for i in (0..NUM_LIMBS).rev() {
+            if NUM_LIMBS - 1 <= i * 2 {
+                let index = 2 * i - NUM_LIMBS + 1;
+                let cs = lo.limbs[index] as u128 + a.limbs[i] as u128 * a.limbs[i] as u128 + c;
                 c = cs >> 64;
-                lo.limbs[NUM_LIMBS - 1 - i * 2] = cs as u64;
+                lo.limbs[index] = cs as u64;
             } else {
-                let cs = hi.limbs[2 * NUM_LIMBS - 1 - i * 2] as u128
-                    + a.limbs[NUM_LIMBS - 1 - i] as u128 * a.limbs[NUM_LIMBS - 1 - i] as u128
-                    + c;
+                let index = 2 * i + 1;
+                let cs = hi.limbs[index] as u128 + a.limbs[i] as u128 * a.limbs[i] as u128 + c;
                 c = cs >> 64;
-                hi.limbs[2 * NUM_LIMBS - 1 - i * 2] = cs as u64;
+                hi.limbs[index] = cs as u64;
             }
-            if NUM_LIMBS - 1 > i * 2 {
-                let cs = lo.limbs[NUM_LIMBS - 2 - i * 2] as u128 + c;
+            if NUM_LIMBS - 1 < i * 2 {
+                let index = 2 * i - NUM_LIMBS;
+                let cs = lo.limbs[index] as u128 + c;
                 c = cs >> 64;
-                lo.limbs[NUM_LIMBS - 2 - i * 2] = cs as u64;
+                lo.limbs[index] = cs as u64;
             } else {
-                let cs = hi.limbs[2 * NUM_LIMBS - 2 - i * 2] as u128 + c;
+                let index = 2 * i;
+                let cs = hi.limbs[index] as u128 + c;
                 c = cs >> 64;
-                hi.limbs[2 * NUM_LIMBS - 2 - i * 2] = cs as u64;
+                hi.limbs[index] = cs as u64;
             }
         }
         debug_assert_eq!(c, 0);
@@ -1495,10 +1502,11 @@ mod tests_u384 {
     }
 
     #[test]
-    fn test_square() {
+    fn test_square_0() {
         let a = U384::from_hex_unchecked("362e35606447fb568704026c25da7a304bc7bd0aea36a61d77d4151395078cfa332b9d4928a60721eece725bbc81e158");
         let (hi, lo) = U384::square(&a);
         assert_eq!(lo, U384::from_hex_unchecked("11724caeb10c4bce5319097d74aed2246e2942b56b7365b5b2f8ceb3bb847db4828862043299d798577996e210bce40"));
+        assert_eq!(hi, U384::from_hex_unchecked("b7786dbe41375b7ff64dbdc65152ef7d3fdbf499485e26486201cdbfb71b5673c77eb355a1274d08cbfbc1a4cdfdfad"));
     }
 
     #[test]
