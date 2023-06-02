@@ -116,7 +116,7 @@ impl MontgomeryAlgorithms {
             }
         }
 
-        // Step 3: At this point `overflow * 2^{2 * NUM_LIMBS * 64} + (hi, lo)` is multiple
+        // Step 3: At this point `overflow * 2^{2 * NUM_LIMBS * 64} + (hi, lo)` is a multiple
         // of `2^{NUM_LIMBS * 64}` and the result is obtained by dividing it by `2^{NUM_LIMBS * 64}`.
         // In other words, `lo` is zero and the result is
         // `overflow * 2^{NUM_LIMBS * 64} + hi`.
