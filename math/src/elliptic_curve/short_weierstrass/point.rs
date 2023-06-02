@@ -79,6 +79,11 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
         ])
     }
 
+    fn is_neutral_element(&self) -> bool {
+        let pz = self.z();
+        pz == &FieldElement::zero()
+    }
+
     /// Computes the addition of `self` and `other`.
     /// Taken from "Moonmath" (Algorithm 7, page 89)
     fn operate_with(&self, other: &Self) -> Self {
