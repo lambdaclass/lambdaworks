@@ -1,7 +1,16 @@
-use criterion::{criterion_group, criterion_main, Criterion, black_box};
-use lambdaworks_math::{field::{
-    element::FieldElement, fields::{fft_friendly::stark_252_prime_field::{Stark252PrimeField, MontgomeryConfigStark252PrimeField}, montgomery_backed_prime_fields::IsModulus},
-}, unsigned_integer::{montgomery::MontgomeryAlgorithms, element::U256}};
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use lambdaworks_math::{
+    field::{
+        element::FieldElement,
+        fields::{
+            fft_friendly::stark_252_prime_field::{
+                MontgomeryConfigStark252PrimeField, Stark252PrimeField,
+            },
+            montgomery_backed_prime_fields::IsModulus,
+        },
+    },
+    unsigned_integer::{element::U256, montgomery::MontgomeryAlgorithms},
+};
 
 mod util;
 
@@ -26,11 +35,23 @@ pub fn starkfield_ops_benchmarks(c: &mut Criterion) {
     });
 
     group.bench_with_input("sos_square", &x.clone(), |bench, x| {
-        bench.iter(|| MontgomeryAlgorithms::sos_square(&x.value(), &<MontgomeryConfigStark252PrimeField as IsModulus<U256>>::MODULUS, &Stark252PrimeField::MU));
+        bench.iter(|| {
+            MontgomeryAlgorithms::sos_square(
+                &x.value(),
+                &<MontgomeryConfigStark252PrimeField as IsModulus<U256>>::MODULUS,
+                &Stark252PrimeField::MU,
+            )
+        });
     });
 
     group.bench_with_input("sos_square_black_box", &x.clone(), |bench, x| {
-        bench.iter(|| MontgomeryAlgorithms::sos_square(black_box(&x.value()), black_box(&<MontgomeryConfigStark252PrimeField as IsModulus<U256>>::MODULUS), black_box(&Stark252PrimeField::MU)));
+        bench.iter(|| {
+            MontgomeryAlgorithms::sos_square(
+                black_box(&x.value()),
+                &<MontgomeryConfigStark252PrimeField as IsModulus<U256>>::MODULUS,
+                &Stark252PrimeField::MU,
+            )
+        });
     });
 
     group.bench_with_input("noop", &x.clone(), |bench, x| {

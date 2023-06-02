@@ -553,30 +553,23 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         let mut lo = [0u64; NUM_LIMBS];
 
         // Compute products between a[i] and a[j] when i != j.
-        for i in 0..(NUM_LIMBS - 1) {
+        for i in (1..NUM_LIMBS).rev() {
             let mut c: u128 = 0;
-            for j in (i + 1)..NUM_LIMBS {
-                if i != j {
-                    let mut k = i + j;
-                    if k <= NUM_LIMBS - 1 {
-                        let cs = lo[NUM_LIMBS - 1 - k] as u128
-                            + a.limbs[NUM_LIMBS - 1 - i] as u128
-                                * a.limbs[NUM_LIMBS - 1 - j] as u128
-                            + c;
-                        c = cs >> 64;
-                        lo[NUM_LIMBS - 1 - k] = cs as u64;
-                    } else {
-                        k -= NUM_LIMBS;
-                        let cs = hi[NUM_LIMBS - 1 - k] as u128
-                            + a.limbs[NUM_LIMBS - 1 - i] as u128
-                                * a.limbs[NUM_LIMBS - 1 - j] as u128
-                            + c;
-                        c = cs >> 64;
-                        hi[NUM_LIMBS - 1 - k] = cs as u64;
-                    }
+            for j in (0..i).rev() {
+                let k = i + j;
+                if k >= NUM_LIMBS - 1 {
+                    let lo_index = k + 1 - NUM_LIMBS;
+                    let cs = lo[lo_index] as u128 + a.limbs[i] as u128 * a.limbs[j] as u128 + c;
+                    c = cs >> 64;
+                    lo[lo_index] = cs as u64;
+                } else {
+                    let hi_index = k + 1;
+                    let cs = hi[hi_index] as u128 + a.limbs[i] as u128 * a.limbs[j] as u128 + c;
+                    c = cs >> 64;
+                    hi[hi_index] = cs as u64;
                 }
             }
-            hi[NUM_LIMBS - 1 - i] = c as u64;
+            hi[i] = c as u64;
         }
 
         // These terms appear twice each, so we have to multiple by two.
