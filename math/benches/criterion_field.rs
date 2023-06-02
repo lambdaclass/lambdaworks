@@ -1,7 +1,7 @@
-use criterion::{criterion_group, criterion_main, Criterion};
-use lambdaworks_math::field::{
-    element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
-};
+use criterion::{criterion_group, criterion_main, Criterion, black_box};
+use lambdaworks_math::{field::{
+    element::FieldElement, fields::{fft_friendly::stark_252_prime_field::{Stark252PrimeField, MontgomeryConfigStark252PrimeField}, montgomery_backed_prime_fields::IsModulus},
+}, unsigned_integer::{montgomery::MontgomeryAlgorithms, element::U256}};
 
 mod util;
 
@@ -23,6 +23,26 @@ pub fn starkfield_ops_benchmarks(c: &mut Criterion) {
 
     group.bench_with_input("mul", &(x.clone(), y.clone()), |bench, (x, y)| {
         bench.iter(|| x * y);
+    });
+
+    group.bench_with_input("sos_square", &x.clone(), |bench, x| {
+        bench.iter(|| MontgomeryAlgorithms::sos_square(&x.value(), &<MontgomeryConfigStark252PrimeField as IsModulus<U256>>::MODULUS, &Stark252PrimeField::MU));
+    });
+
+    group.bench_with_input("sos_square_black_box", &x.clone(), |bench, x| {
+        bench.iter(|| MontgomeryAlgorithms::sos_square(black_box(&x.value()), black_box(&<MontgomeryConfigStark252PrimeField as IsModulus<U256>>::MODULUS), black_box(&Stark252PrimeField::MU)));
+    });
+
+    group.bench_with_input("noop", &x.clone(), |bench, x| {
+        bench.iter(|| x.pow(1_u64));
+    });
+
+    group.bench_with_input("square with pow", &x.clone(), |bench, x| {
+        bench.iter(|| x.pow(2_u64));
+    });
+
+    group.bench_with_input("square with mul", &x.clone(), |bench, x| {
+        bench.iter(|| x * x);
     });
 
     group.bench_with_input("pow", &(x.clone(), 5u64), |bench, (x, y)| {

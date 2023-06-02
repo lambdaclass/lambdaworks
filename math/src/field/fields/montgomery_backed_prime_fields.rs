@@ -83,6 +83,10 @@ where
         }
         c
     }
+
+    fn square(a: &UnsignedInteger<NUM_LIMBS>) -> UnsignedInteger<NUM_LIMBS> {
+        MontgomeryAlgorithms::sos_square(a, &M::MODULUS, &Self::MU)
+    }
 }
 
 impl<M, const NUM_LIMBS: usize> IsField for MontgomeryBackendPrimeField<M, NUM_LIMBS>
@@ -238,7 +242,7 @@ where
             if exponent & one == one {
                 result = Self::mul(&result, &base);
             }
-            base = MontgomeryAlgorithms::sos_square(&base, &M::MODULUS, &Self::MU);
+            base = Self::square(&base);
             exponent = exponent >> 1;
         }
         result
