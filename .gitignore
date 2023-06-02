@@ -15,4 +15,6 @@ flamegraph.svg
 proving_system/stark/src/cairo_run/program.memory
 proving_system/stark/src/cairo_run/program.trace
 
+gpu/src/metal/shaders/lib.metallib
+
 **/.DS_Store

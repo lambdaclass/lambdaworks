@@ -84,14 +84,10 @@ jobs:
           toolchain: stable
           components: clippy
 
-      - name: Compile shaders
-        run: make -B build-metal # force recompilation of shaders
       - name: Run clippy
         run: make clippy-metal
       - name: Run tests
         run: cargo test -F metal
-      - name: Check if shaders are up to date
-        run: git diff --exit-code
 
   test_nvidia:
     name: Test (Ubuntu, NVIDIA GPU)
@@ -113,11 +109,7 @@ jobs:
           sub-packages: '["nvcc"]'
           method: 'network'
 
-      - name: Compile shaders
-        run: make -B build-cuda # force recompilation of shaders
       - name: Run clippy
         run: make clippy-cuda
       - name: Run tests
         run: cargo test -F cuda
-      - name: Check if shaders are up to date
-        run: git diff --exit-code
