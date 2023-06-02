@@ -64,7 +64,7 @@ fn compile_metal_shaders() {
     println!("cargo:warning=compiling:'{input}'->'{output}'");
 
     let cmd = Command::new("xcrun")
-        .args(&["-sdk", "macosx", "metal"])
+        .args(["-sdk", "macosx", "metal"])
         .arg(&input)
         .arg("-o")
         .arg(&output)
