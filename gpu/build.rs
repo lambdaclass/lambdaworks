@@ -1,15 +1,11 @@
 #[cfg(feature = "cuda")]
 fn compile_cuda_shaders() {
-    use std::env;
     use std::process::Command;
     use walkdir::WalkDir;
     const CUDA_SOURCE_DIR: &str = "src/cuda/shaders";
 
     // Tell cargo to invalidate the built crate whenever the source changes
     println!("cargo:rerun-if-changed={CUDA_SOURCE_DIR}");
-
-    let nvcc = option_env!("CUDA_BIN").unwrap_or("nvcc");
-    let nvcc_out_dir = env::var("OUT_DIR").unwrap() + "/cuda/";
 
     let children: Vec<_> = WalkDir::new(CUDA_SOURCE_DIR)
         .into_iter()
@@ -22,11 +18,16 @@ fn compile_cuda_shaders() {
                 .unwrap_or_default()
         })
         .map(|entry| {
-            let filename = entry.path().file_stem().unwrap();
-            let out_path = nvcc_out_dir.clone() + &filename.to_str().unwrap() + ".ptx";
-            println!("cargo:warning=compiling:{out_path}");
+            let mut out_path = entry.path().to_owned();
+            out_path.set_extension("ptx");
 
-            Command::new(nvcc)
+            println!(
+                "cargo:warning=compiling:'{}'->'{}'",
+                entry.path().display(),
+                out_path.display(),
+            );
+
+            Command::new("nvcc")
                 .arg("-ptx")
                 .arg(entry.path())
                 .arg("-o")
@@ -36,10 +37,15 @@ fn compile_cuda_shaders() {
         })
         .collect();
 
-    children.into_iter().for_each(|mut child| {
-        let status = child.wait().unwrap();
-        if !status.success() {
-            panic!("Failed to compile cuda shader");
+    children.into_iter().for_each(|child| {
+        let res = child.wait_with_output().unwrap();
+        if !res.status.success() {
+            println!();
+            println!("{}", String::from_utf8(res.stdout).unwrap());
+            println!();
+            eprintln!("{}", String::from_utf8(res.stderr).unwrap());
+            println!();
+            panic!("Compilation failed");
         }
     });
 }
@@ -47,13 +53,15 @@ fn compile_cuda_shaders() {
 #[cfg(feature = "metal")]
 fn compile_metal_shaders() {
     use std::process::Command;
-    const METAL_SHADERS_DIR: &str = "src/metal/shaders";
+    const METAL_SOURCE_DIR: &str = "src/metal/shaders";
 
     // Tell cargo to invalidate the built crate whenever the source changes
-    println!("cargo:rerun-if-changed={METAL_SHADERS_DIR}");
+    println!("cargo:rerun-if-changed={METAL_SOURCE_DIR}");
 
-    let input = METAL_SHADERS_DIR.to_owned() + "/all.metal";
-    let output = METAL_SHADERS_DIR.to_owned() + "/lib.metallib";
+    let input = METAL_SOURCE_DIR.to_owned() + "/all.metal";
+    let output = METAL_SOURCE_DIR.to_owned() + "/lib.metallib";
+
+    println!("cargo:warning=compiling:'{input}'->'{output}'");
 
     let cmd = Command::new("xcrun")
         .args(&["-sdk", "macosx", "metal"])
