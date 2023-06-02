@@ -92,6 +92,17 @@ fn fp_eq_benchmarks() {
     let _ = black_box(x) == black_box(y);
 }
 
+#[inline(never)]
+fn fp_sqrt_benchmarks() {
+    let x = FieldElement::<Stark252PrimeField>::from_hex(
+        "0x03d937c035c878245caf64531a5756109c53068da139362728feb561405371cb",
+    )
+    .unwrap();
+    // Make sure it has a square root
+    let x = &x * &x;
+    let _ = black_box(black_box(x).sqrt());
+}
+
 iai_callgrind::main!(
     callgrind_args = "toggle-collect=util::*";
     functions = fp_add_benchmarks,
@@ -100,5 +111,6 @@ iai_callgrind::main!(
     fp_sub_benchmarks,
     fp_inv_benchmarks,
     fp_div_benchmarks,
-    fp_eq_benchmarks
+    fp_eq_benchmarks,
+    fp_sqrt_benchmarks,
 );

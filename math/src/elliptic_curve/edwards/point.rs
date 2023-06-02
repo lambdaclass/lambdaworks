@@ -78,6 +78,11 @@ impl<E: IsEdwards> IsGroup for EdwardsProjectivePoint<E> {
         ])
     }
 
+    fn is_neutral_element(&self) -> bool {
+        let [px, py, pz] = self.coordinates();
+        px == &FieldElement::zero() && py == pz
+    }
+
     /// Computes the addition of `self` and `other`.
     /// Taken from "Moonmath" (Eq 5.38, page 97)
     fn operate_with(&self, other: &Self) -> Self {

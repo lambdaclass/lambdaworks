@@ -11,7 +11,7 @@ use crate::{
 use super::{errors::DeserializationError, traits::IsShortWeierstrass};
 
 #[derive(Clone, Debug)]
-pub struct ShortWeierstrassProjectivePoint<E: IsEllipticCurve>(ProjectivePoint<E>);
+pub struct ShortWeierstrassProjectivePoint<E: IsEllipticCurve>(pub ProjectivePoint<E>);
 
 impl<E: IsEllipticCurve> ShortWeierstrassProjectivePoint<E> {
     /// Creates an elliptic curve point giving the projective [x: y: z] coordinates.
@@ -77,6 +77,11 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
             FieldElement::one(),
             FieldElement::zero(),
         ])
+    }
+
+    fn is_neutral_element(&self) -> bool {
+        let pz = self.z();
+        pz == &FieldElement::zero()
     }
 
     /// Computes the addition of `self` and `other`.

@@ -127,8 +127,73 @@ where
     fn inv(a: &Self::BaseType) -> Self::BaseType {
         if a == &Self::ZERO {
             panic!("Division by zero error.")
+        } else {
+            // Guajardo Kumar Paar Pelzl
+            // Efficient Software-Implementation of Finite Fields with Applications to
+            // Cryptography
+            // Algorithm 16 (BEA for Inversion in Fp)
+
+            //These can be done with const  functions
+            let one: UnsignedInteger<NUM_LIMBS> = UnsignedInteger::from_u64(1);
+            let modulus: UnsignedInteger<NUM_LIMBS> = M::MODULUS;
+            let modulus_has_spare_bits = M::MODULUS.limbs[0] >> 63 == 0;
+
+            let mut u: UnsignedInteger<NUM_LIMBS> = *a;
+            let mut v = M::MODULUS;
+            let mut b = Self::R2; // Avoids unnecessary reduction step.
+            let mut c = Self::zero();
+
+            while u != one && v != one {
+                while u.limbs[NUM_LIMBS - 1] & 1 == 0 {
+                    u >>= 1;
+                    if b.limbs[NUM_LIMBS - 1] & 1 == 0 {
+                        b >>= 1;
+                    } else {
+                        let carry;
+                        (b, carry) = UnsignedInteger::<NUM_LIMBS>::add(&b, &modulus);
+                        b >>= 1;
+                        if !modulus_has_spare_bits && carry {
+                            b.limbs[0] |= 1 << 63;
+                        }
+                    }
+                }
+
+                while v.limbs[NUM_LIMBS - 1] & 1 == 0 {
+                    v >>= 1;
+
+                    if c.limbs[NUM_LIMBS - 1] & 1 == 0 {
+                        c >>= 1;
+                    } else {
+                        let carry;
+                        (c, carry) = UnsignedInteger::<NUM_LIMBS>::add(&c, &modulus);
+                        c >>= 1;
+                        if !modulus_has_spare_bits && carry {
+                            c.limbs[0] |= 1 << 63;
+                        }
+                    }
+                }
+
+                if v <= u {
+                    u = u - v;
+                    if b < c {
+                        b = b + modulus;
+                    }
+                    b = b - c;
+                } else {
+                    v = v - u;
+                    if c < b {
+                        c = c + modulus;
+                    }
+                    c = c - b;
+                }
+            }
+
+            if u == one {
+                b
+            } else {
+                c
+            }
         }
-        Self::pow(a, M::MODULUS - Self::BaseType::from_u64(2))
     }
 
     fn div(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
@@ -363,6 +428,13 @@ mod tests_u384_prime_fields {
             U384F23Element::from(4) / U384F23Element::from(2),
             U384F23Element::from(2)
         )
+    }
+
+    #[test]
+    fn three_inverse() {
+        let a = U384F23Element::from(3);
+        let expected = U384F23Element::from(8);
+        assert_eq!(a.inv(), expected)
     }
 
     #[test]
@@ -692,10 +764,9 @@ mod tests_u256_prime_fields {
 
     #[test]
     fn div_4_2() {
-        assert_eq!(
-            U256F29Element::from(4) / U256F29Element::from(2),
-            U256F29Element::from(2)
-        )
+        let a = U256F29Element::from(4);
+        let b = U256F29Element::from(2);
+        assert_eq!(a / &b, b)
     }
 
     #[test]

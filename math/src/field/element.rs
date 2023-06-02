@@ -381,7 +381,7 @@ where
 }
 
 #[derive(PartialEq)]
-enum LegendreSymbol {
+pub enum LegendreSymbol {
     MinusOne,
     Zero,
     One,
@@ -397,7 +397,7 @@ impl<F: IsPrimeField> FieldElement<F> {
         self.representative() & 1.into() == 0.into()
     }
 
-    fn legendre_symbol(&self) -> LegendreSymbol {
+    pub fn legendre_symbol(&self) -> LegendreSymbol {
         let mod_minus_one: FieldElement<F> = Self::zero() - Self::one();
         let symbol = self.pow((mod_minus_one / FieldElement::from(2)).representative());
 
@@ -419,19 +419,20 @@ impl<F: IsPrimeField> FieldElement<F> {
             LegendreSymbol::One => (),
         };
 
-        let (zero, one, two) = (Self::zero(), Self::one(), Self::from(2));
+        let (one, two) = (Self::one(), Self::from(2));
+        let two_inv = two.inv();
 
         let mut q = Self::zero() - &one;
-        let mut s = Self::zero();
+        let mut s = 0u64;
 
         while q.is_even() {
-            s = s + &one;
-            q = q / &two;
+            s += 1;
+            q = q * &two_inv;
         }
 
         let mut c = {
             // Calculate a non residue:
-            let mut non_qr = one.clone();
+            let mut non_qr = two.clone();
             while non_qr.legendre_symbol() != LegendreSymbol::MinusOne {
                 non_qr += one.clone();
             }
@@ -439,22 +440,22 @@ impl<F: IsPrimeField> FieldElement<F> {
             non_qr.pow(q.representative())
         };
 
-        let mut x = self.pow(((&q + &one) / &two).representative());
+        let mut x = self.pow(((&q + &one) * &two_inv).representative());
         let mut t = self.pow(q.representative());
         let mut m = s;
 
         while t != one {
-            let mut i = zero.clone();
-            let mut e = FieldElement::from(2);
-            while i.representative() < m.representative() {
-                i += FieldElement::one();
-                if t.pow(e.representative()) == one {
+            let mut i = 0;
+            let mut e = &t * &t;
+            while i < m {
+                i += 1;
+                if e == one {
                     break;
                 }
-                e = e * &two;
+                e = &e * &e;
             }
 
-            let b = c.pow(two.pow((m - &i - &one).representative()).representative());
+            let b = c.pow(two.pow(m - i - 1).representative());
 
             x = x * &b;
             t = t * &b * &b;

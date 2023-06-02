@@ -5,9 +5,10 @@ use lambdaworks_math::{
     cyclic_group::IsGroup,
     elliptic_curve::{short_weierstrass::errors::DeserializationError, traits::IsPairing},
     field::{element::FieldElement, traits::IsPrimeField},
-    msm::naive::msm,
+    msm::pippenger::msm,
     polynomial::Polynomial,
     traits::{Deserializable, Serializable},
+    unsigned_integer::element::UnsignedInteger,
 };
 use std::{marker::PhantomData, mem};
 
@@ -150,12 +151,14 @@ impl<F: IsPrimeField, P: IsPairing> KateZaveruchaGoldberg<F, P> {
     }
 }
 
-impl<F: IsPrimeField, P: IsPairing> IsCommitmentScheme<F> for KateZaveruchaGoldberg<F, P> {
+impl<const N: usize, F: IsPrimeField<RepresentativeType = UnsignedInteger<N>>, P: IsPairing>
+    IsCommitmentScheme<F> for KateZaveruchaGoldberg<F, P>
+{
     type Commitment = P::G1Point;
 
     #[allow(unused)]
     fn commit(&self, p: &Polynomial<FieldElement<F>>) -> Self::Commitment {
-        let coefficients: Vec<F::RepresentativeType> = p
+        let coefficients: Vec<_> = p
             .coefficients
             .iter()
             .map(|coefficient| coefficient.representative())

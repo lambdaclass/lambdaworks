@@ -43,14 +43,22 @@ pub fn fft_benchmarks(c: &mut Criterion) {
 
 fn twiddles_generation_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("FFT twiddles generation");
+    const CONFIGS: [(&str, RootsConfig); 4] = [
+        ("natural", RootsConfig::Natural),
+        ("natural inversed", RootsConfig::NaturalInversed),
+        ("bit-reversed", RootsConfig::BitReverse),
+        ("bit-reversed inversed", RootsConfig::BitReverseInversed),
+    ];
 
     for order in SIZE_ORDERS {
         group.throughput(criterion::Throughput::Elements(1 << (order - 1)));
-        group.bench_with_input("Sequential", &order, |bench, order| {
-            bench.iter_with_large_drop(|| {
-                functions::twiddles_generation(*order);
+        for (name, config) in CONFIGS {
+            group.bench_with_input(name, &(order, config), |bench, (order, config)| {
+                bench.iter_with_large_drop(|| {
+                    functions::twiddles_generation(*order, *config);
+                });
             });
-        });
+        }
     }
 
     group.finish();

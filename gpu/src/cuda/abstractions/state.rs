@@ -9,7 +9,7 @@ use cudarc::{
 use lambdaworks_math::field::{
     element::FieldElement,
     fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
-    traits::{IsFFTField, IsField},
+    traits::{IsFFTField, IsField, RootsConfig},
 };
 use std::sync::Arc;
 
@@ -36,7 +36,12 @@ impl CudaState {
 
     fn load_library<F: IsFFTField>(&self, src: &'static str) -> Result<(), CudaError> {
         let mod_name: &'static str = F::field_name();
-        let functions = ["radix2_dit_butterfly"];
+        let functions = [
+            "radix2_dit_butterfly",
+            "calc_twiddles",
+            "calc_twiddles_bitrev",
+            "bitrev_permutation",
+        ];
         self.device
             .load_ptx(Ptx::from_src(src), mod_name, &functions)
             .map_err(|err| CudaError::PtxError(err.to_string()))
@@ -75,6 +80,57 @@ impl CudaState {
             function,
             input_buffer,
             twiddles_buffer,
+        ))
+    }
+
+    /// Returns a wrapper object over the `calc_twiddles` function defined in `twiddles.cu`
+    pub(crate) fn get_calc_twiddles<F: IsFFTField>(
+        &self,
+        order: u64,
+        config: RootsConfig,
+    ) -> Result<CalcTwiddlesFunction<F>, CudaError> {
+        let root: FieldElement<F> = F::get_primitive_root_of_unity(order)?;
+
+        let (root, function_name) = match config {
+            RootsConfig::Natural => (root, "calc_twiddles"),
+            RootsConfig::NaturalInversed => (root.inv(), "calc_twiddles"),
+            RootsConfig::BitReverse => (root, "calc_twiddles_bitrev"),
+            RootsConfig::BitReverseInversed => (root.inv(), "calc_twiddles_bitrev"),
+        };
+
+        let function = self.get_function::<F>(function_name)?;
+
+        let count = (1 << order) / 2;
+        let omega_buffer = self.alloc_buffer_with_data(&[root])?;
+        let twiddles: &[FieldElement<F>] = &(0..count)
+            .map(|_| FieldElement::one())
+            .collect::<Vec<FieldElement<F>>>();
+        let twiddles_buffer = self.alloc_buffer_with_data(twiddles)?;
+
+        Ok(CalcTwiddlesFunction::new(
+            Arc::clone(&self.device),
+            function,
+            omega_buffer,
+            twiddles_buffer,
+        ))
+    }
+
+    /// Returns a wrapper object over the `bitrev_permutation` function defined in `bitrev_permutation.cu`
+    pub(crate) fn get_bitrev_permutation<F: IsFFTField>(
+        &self,
+        input: &[FieldElement<F>],
+        result: &[FieldElement<F>],
+    ) -> Result<BitrevPermutationFunction<F>, CudaError> {
+        let function = self.get_function::<F>("bitrev_permutation")?;
+
+        let input_buffer = self.alloc_buffer_with_data(input)?;
+        let result_buffer = self.alloc_buffer_with_data(result)?;
+
+        Ok(BitrevPermutationFunction::new(
+            Arc::clone(&self.device),
+            function,
+            input_buffer,
+            result_buffer,
         ))
     }
 }
@@ -126,6 +182,9 @@ impl<F: IsField> Radix2DitButterflyFunction<F> {
             block_dim,
             shared_mem_bytes: 0,
         };
+        // Launching kernels must be done in an unsafe block.
+        // Calling a kernel is similar to calling a foreign-language function,
+        // as the kernel itself could be written in C or unsafe Rust.
         unsafe {
             self.function
                 .clone()
@@ -138,6 +197,137 @@ impl<F: IsField> Radix2DitButterflyFunction<F> {
         let Self { device, input, .. } = self;
         let output = device
             .sync_reclaim(input)
+            .map_err(|err| CudaError::RetrieveMemory(err.to_string()))?
+            .into_iter()
+            .map(FieldElement::from)
+            .collect();
+
+        Ok(output)
+    }
+}
+
+pub(crate) struct CalcTwiddlesFunction<F: IsField> {
+    device: Arc<CudaDevice>,
+    function: CudaFunction,
+    omega: CudaSlice<CUDAFieldElement<F>>,
+    twiddles: CudaSlice<CUDAFieldElement<F>>,
+}
+
+impl<F: IsField> CalcTwiddlesFunction<F> {
+    fn new(
+        device: Arc<CudaDevice>,
+        function: CudaFunction,
+        omega: CudaSlice<CUDAFieldElement<F>>,
+        twiddles: CudaSlice<CUDAFieldElement<F>>,
+    ) -> Self {
+        Self {
+            device,
+            function,
+            omega,
+            twiddles,
+        }
+    }
+
+    pub(crate) fn launch(&mut self, group_size: usize) -> Result<(), CudaError> {
+        let grid_dim = (1, 1, 1); // in blocks
+        let block_dim = (group_size as u32, 1, 1);
+
+        if block_dim.0 as usize > DeviceSlice::len(&self.twiddles) {
+            return Err(CudaError::IndexOutOfBounds(
+                block_dim.0 as usize,
+                self.twiddles.len(),
+            ));
+        }
+
+        let config = LaunchConfig {
+            grid_dim,
+            block_dim,
+            shared_mem_bytes: 0,
+        };
+        // Launching kernels must be done in an unsafe block.
+        // Calling a kernel is similar to calling a foreign-language function,
+        // as the kernel itself could be written in C or unsafe Rust.
+        unsafe {
+            self.function
+                .clone()
+                .launch(config, (&mut self.twiddles, &self.omega))
+        }
+        .map_err(|err| CudaError::Launch(err.to_string()))
+    }
+
+    pub(crate) fn retrieve_result(self) -> Result<Vec<FieldElement<F>>, CudaError> {
+        let Self {
+            device, twiddles, ..
+        } = self;
+        let output = device
+            .sync_reclaim(twiddles)
+            .map_err(|err| CudaError::RetrieveMemory(err.to_string()))?
+            .into_iter()
+            .map(FieldElement::from)
+            .collect();
+
+        Ok(output)
+    }
+}
+
+pub(crate) struct BitrevPermutationFunction<F: IsField> {
+    device: Arc<CudaDevice>,
+    function: CudaFunction,
+    input: CudaSlice<CUDAFieldElement<F>>,
+    result: CudaSlice<CUDAFieldElement<F>>,
+}
+
+impl<F: IsField> BitrevPermutationFunction<F> {
+    fn new(
+        device: Arc<CudaDevice>,
+        function: CudaFunction,
+        input: CudaSlice<CUDAFieldElement<F>>,
+        result: CudaSlice<CUDAFieldElement<F>>,
+    ) -> Self {
+        Self {
+            device,
+            function,
+            input,
+            result,
+        }
+    }
+
+    pub(crate) fn launch(&mut self, group_size: usize) -> Result<(), CudaError> {
+        let grid_dim = (1, 1, 1); // in blocks
+        let block_dim = (group_size as u32, 1, 1);
+
+        if block_dim.0 as usize > DeviceSlice::len(&self.input) {
+            return Err(CudaError::IndexOutOfBounds(
+                block_dim.0 as usize,
+                self.input.len(),
+            ));
+        } else if block_dim.0 as usize > DeviceSlice::len(&self.result) {
+            return Err(CudaError::IndexOutOfBounds(
+                block_dim.0 as usize,
+                self.result.len(),
+            ));
+        }
+
+        let config = LaunchConfig {
+            grid_dim,
+            block_dim,
+            shared_mem_bytes: 0,
+        };
+        // Launching kernels must be done in an unsafe block.
+        // Calling a kernel is similar to calling a foreign-language function,
+        // as the kernel itself could be written in C or unsafe Rust.
+        unsafe {
+            self.function
+                .clone()
+                .launch(config, (&mut self.input, &self.result))
+        }
+        .map_err(|err| CudaError::Launch(err.to_string()))
+    }
+
+    pub(crate) fn retrieve_result(self) -> Result<Vec<FieldElement<F>>, CudaError> {
+        let Self { device, result, .. } = self;
+        let output = device
+            .sync_reclaim(result)
             .map_err(|err| CudaError::RetrieveMemory(err.to_string()))?
             .into_iter()
             .map(FieldElement::from)
