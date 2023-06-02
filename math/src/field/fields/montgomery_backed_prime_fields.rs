@@ -235,33 +235,34 @@ where
         T: IsUnsignedInteger,
     {
         let zero = T::from(0);
-        if exponent == zero {
-            return Self::one();
-        }
-
         let one = T::from(1);
-        if exponent == one {
-            return *a;
-        }
 
-        let mut result = *a;
-        while exponent & one == zero {
-            result = Self::square(&result);
-            exponent = exponent >> 1;
-        }
+        if exponent == zero {
+            Self::one()
+        } else if exponent == one {
+            *a
+        } else {
+            let mut result = *a;
 
-        let mut base = result;
-        exponent = exponent >> 1;
-
-        while exponent > zero {
-            base = Self::square(&base);
-            if exponent & one == one {
-                result = Self::mul(&result, &base);
+            while exponent & one == zero {
+                result = Self::square(&result);
+                exponent = exponent >> 1;
             }
+
+            let mut base = result;
             exponent = exponent >> 1;
+
+            while exponent > zero {
+                base = Self::square(&base);
+                if exponent & one == one {
+                    result = Self::mul(&result, &base);
+                }
+                exponent = exponent >> 1;
+            }
+
+            result
         }
 
-        result
     }
 }
 
