@@ -117,6 +117,16 @@ where
     }
 }
 
+impl<Q: Clone + Debug + HasQuadraticNonResidue> FieldElement<QuadraticExtensionField<Q>> {
+    pub fn square(&self) -> Self {
+        let [a0, a1] = self.value();
+        let v0 = a0 * a1;
+        let c0 = (a0 + a1) * (a0 + Q::residue() * a1) - &v0 - Q::residue() * &v0;
+        let c1 = &v0 + &v0;
+        Self::new([c0, c1])
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::field::fields::u64_prime_field::{U64FieldElement, U64PrimeField};
