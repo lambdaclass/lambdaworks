@@ -1,10 +1,12 @@
+use super::field_extension::{BLS12381PrimeField, Degree2ExtensionField};
 use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
 use crate::elliptic_curve::traits::IsEllipticCurve;
 use crate::{
     elliptic_curve::short_weierstrass::traits::IsShortWeierstrass, field::element::FieldElement,
 };
 
-use super::field_extension::BLS12381PrimeField;
+pub type BLS12381FieldElement = FieldElement<BLS12381PrimeField>;
+pub type BLS12381TwistCurveFieldElement = FieldElement<Degree2ExtensionField>;
 
 /// The description of the curve.
 #[derive(Clone, Debug)]
