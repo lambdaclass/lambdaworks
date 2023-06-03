@@ -46,6 +46,13 @@ impl IsField for Degree2ExtensionField {
         [&a0b0 - &a1b1, z - a0b0 - a1b1]
     }
 
+    fn square(a: &Self::BaseType) -> Self::BaseType {
+        let [a0, a1] = a;
+        let v0 = a0 * a1;
+        let c0 = (a0 + a1) * (a0 - a1);
+        let c1 = &v0 + &v0;
+        [c0, c1]
+    }
     /// Returns the component wise subtraction of `a` and `b`
     fn sub(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
         [&a[0] - &b[0], &a[1] - &b[1]]
@@ -94,16 +101,6 @@ impl IsField for Degree2ExtensionField {
     /// already have correct representations.
     fn from_base_type(x: Self::BaseType) -> Self::BaseType {
         x
-    }
-}
-
-impl FieldElement<Degree2ExtensionField> {
-    pub fn square(&self) -> Self {
-        let [a0, a1] = self.value();
-        let v0 = a0 * a1;
-        let c0 = (a0 + a1) * (a0 - a1);
-        let c1 = &v0 + &v0;
-        Self::new([c0, c1])
     }
 }
 

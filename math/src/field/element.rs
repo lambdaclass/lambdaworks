@@ -359,6 +359,12 @@ where
         }
     }
 
+    pub fn square(&self) -> Self {
+        Self {
+            value: F::square(&self.value)
+        }
+    }
+
     /// Returns `self` raised to the power of `exponent`
     pub fn pow<T>(&self, exponent: T) -> Self
     where

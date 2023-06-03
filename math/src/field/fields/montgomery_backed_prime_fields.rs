@@ -1,7 +1,6 @@
 use crate::field::element::FieldElement;
 use crate::field::traits::IsPrimeField;
 use crate::traits::ByteConversion;
-use crate::unsigned_integer::traits::IsUnsignedInteger;
 use crate::{
     field::traits::IsField, unsigned_integer::element::UnsignedInteger,
     unsigned_integer::montgomery::MontgomeryAlgorithms,
@@ -83,10 +82,6 @@ where
         }
         c
     }
-
-    fn square(a: &UnsignedInteger<NUM_LIMBS>) -> UnsignedInteger<NUM_LIMBS> {
-        MontgomeryAlgorithms::sos_square(a, &M::MODULUS, &Self::MU)
-    }
 }
 
 impl<M, const NUM_LIMBS: usize> IsField for MontgomeryBackendPrimeField<M, NUM_LIMBS>
@@ -111,6 +106,10 @@ where
 
     fn mul(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
         MontgomeryAlgorithms::cios(a, b, &M::MODULUS, &Self::MU)
+    }
+
+    fn square(a: &UnsignedInteger<NUM_LIMBS>) -> UnsignedInteger<NUM_LIMBS> {
+        MontgomeryAlgorithms::sos_square(a, &M::MODULUS, &Self::MU)
     }
 
     fn sub(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
@@ -230,39 +229,6 @@ where
         MontgomeryAlgorithms::cios(&x, &Self::R2, &M::MODULUS, &Self::MU)
     }
 
-    fn pow<T>(a: &Self::BaseType, mut exponent: T) -> Self::BaseType
-    where
-        T: IsUnsignedInteger,
-    {
-        let zero = T::from(0);
-        let one = T::from(1);
-
-        if exponent == zero {
-            Self::one()
-        } else if exponent == one {
-            *a
-        } else {
-            let mut result = *a;
-
-            while exponent & one == zero {
-                result = Self::square(&result);
-                exponent = exponent >> 1;
-            }
-
-            let mut base = result;
-            exponent = exponent >> 1;
-
-            while exponent != zero {
-                base = Self::square(&base);
-                if exponent & one == one {
-                    result = Self::mul(&result, &base);
-                }
-                exponent = exponent >> 1;
-            }
-
-            result
-        }
-    }
 }
 
 impl<M, const NUM_LIMBS: usize> IsPrimeField for MontgomeryBackendPrimeField<M, NUM_LIMBS>
