@@ -252,7 +252,7 @@ where
             let mut base = result;
             exponent = exponent >> 1;
 
-            while exponent > zero {
+            while exponent != zero {
                 base = Self::square(&base);
                 if exponent & one == one {
                     result = Self::mul(&result, &base);

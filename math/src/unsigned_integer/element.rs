@@ -546,9 +546,13 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         (Self { limbs: hi }, Self { limbs: lo })
     }
 
+    #[inline(always)]
     pub fn square(
         a: &UnsignedInteger<NUM_LIMBS>,
     ) -> (UnsignedInteger<NUM_LIMBS>, UnsignedInteger<NUM_LIMBS>) {
+        // NOTE: we use explicit `while` loops in this function because profiling pointed
+        // at iterators of the form `(<x>..<y>).rev()` as the main performance bottleneck.
+
         let mut hi = Self {
             limbs: [0u64; NUM_LIMBS],
         };
@@ -559,9 +563,13 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         // Compute products between a[i] and a[j] when i != j.
         // The variable `index` below is the index of `lo` or
         // `hi` to update
-        for i in (1..NUM_LIMBS).rev() {
+        let mut i = NUM_LIMBS;
+        while i > 1 {
+            i -= 1;
             let mut c: u128 = 0;
-            for j in (0..i).rev() {
+            let mut j = i;
+            while j > 0 {
+                j -= 1;
                 let k = i + j;
                 if k >= NUM_LIMBS - 1 {
                     let index = k + 1 - NUM_LIMBS;
@@ -589,7 +597,9 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         // The variable `index` below is the index of `lo` or
         // `hi` to update
         let mut c = 0;
-        for i in (0..NUM_LIMBS).rev() {
+        let mut i = NUM_LIMBS;
+        while i > 0 {
+            i -= 1;
             if NUM_LIMBS - 1 <= i * 2 {
                 let index = 2 * i - NUM_LIMBS + 1;
                 let cs = lo.limbs[index] as u128 + a.limbs[i] as u128 * a.limbs[i] as u128 + c;

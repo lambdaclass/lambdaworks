@@ -82,6 +82,9 @@ impl MontgomeryAlgorithms {
         q: &UnsignedInteger<NUM_LIMBS>,
         mu: &u64,
     ) -> UnsignedInteger<NUM_LIMBS> {
+        // NOTE: we use explicit `while` loops in this function because profiling pointed
+        // at iterators of the form `(<x>..<y>).rev()` as the main performance bottleneck.
+
         // Step 1: Compute `(hi, lo) = a * a`
         let (mut hi, mut lo) = UnsignedInteger::square(a);
 
@@ -89,10 +92,14 @@ impl MontgomeryAlgorithms {
         // is a multiple of both `2^{NUM_LIMBS * 64}` and
         // `q`.
         let mut c: u128 = 0;
-        for i in (0..NUM_LIMBS).rev() {
+        let mut i = NUM_LIMBS;
+        while i > 0 {
+            i -= 1;
             c = 0;
             let m = (lo.limbs[i] as u128 * *mu as u128) as u64;
-            for j in (0..NUM_LIMBS).rev() {
+            let mut j = NUM_LIMBS;
+            while j > 0 {
+                j -= 1;
                 if i + j >= NUM_LIMBS - 1 {
                     let index = i + j - (NUM_LIMBS - 1);
                     let cs = lo.limbs[index] as u128 + m as u128 * (q.limbs[j] as u128) + c;
