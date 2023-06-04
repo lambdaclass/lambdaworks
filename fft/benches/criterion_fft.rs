@@ -1,6 +1,5 @@
 #![allow(dead_code)] // clippy has false positive in benchmarks
-use criterion::{criterion_group, criterion_main, Criterion};
-use lambdaworks_fft::roots_of_unity::get_twiddles;
+use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use lambdaworks_math::field::traits::RootsConfig;
 
 mod functions;
@@ -14,26 +13,36 @@ pub fn fft_benchmarks(c: &mut Criterion) {
     for order in SIZE_ORDERS {
         group.throughput(criterion::Throughput::Elements(1 << order));
 
-        let input = util::rand_field_elements(order);
-        let twiddles_bitrev = get_twiddles(order, RootsConfig::BitReverse).unwrap();
-        let twiddles_nat = get_twiddles(order, RootsConfig::Natural).unwrap();
+        let input_nat = util::rand_field_elements(order);
+        let twiddles_nat = util::twiddles(order, RootsConfig::Natural);
+        let mut input_bitrev = input_nat.clone();
+        util::bitrev_permute(&mut input_bitrev);
+        let twiddles_bitrev = util::twiddles(order, RootsConfig::BitReverse);
 
         group.bench_with_input(
             "Sequential from NR radix2",
-            &(&input, twiddles_bitrev),
+            &(input_nat, twiddles_bitrev),
             |bench, (input, twiddles)| {
-                bench.iter(|| {
-                    functions::ordered_fft_nr(input, twiddles);
-                });
+                bench.iter_batched(
+                    || input.clone(),
+                    |mut input| {
+                        functions::ordered_fft_nr(&mut input, twiddles);
+                    },
+                    BatchSize::LargeInput,
+                );
             },
         );
         group.bench_with_input(
             "Sequential from RN radix2",
-            &(input, twiddles_nat),
+            &(input_bitrev, twiddles_nat),
             |bench, (input, twiddles)| {
-                bench.iter(|| {
-                    functions::ordered_fft_rn(input, twiddles);
-                });
+                bench.iter_batched(
+                    || input.clone(),
+                    |mut input| {
+                        functions::ordered_fft_rn(&mut input, twiddles);
+                    },
+                    BatchSize::LargeInput,
+                );
             },
         );
     }
@@ -70,9 +79,13 @@ fn bitrev_permutation_benchmarks(c: &mut Criterion) {
     for input in SIZE_ORDERS.map(util::rand_field_elements) {
         group.throughput(criterion::Throughput::Elements(input.len() as u64));
         group.bench_with_input("Sequential", &input, |bench, input| {
-            bench.iter_with_large_drop(|| {
-                functions::bitrev_permute(input);
-            });
+            bench.iter_batched(
+                || input.clone(),
+                |mut input| {
+                    functions::bitrev_permute(&mut input);
+                },
+                BatchSize::LargeInput,
+            );
         });
     }
 
