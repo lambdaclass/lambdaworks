@@ -1,14 +1,14 @@
 use lambdaworks_math::{
     field::{
         element::FieldElement,
-        errors::FieldError,
         traits::{IsFFTField, RootsConfig},
     },
     polynomial::Polynomial,
 };
 
-use super::ops::{fft, reverse_index};
+use super::ops::fft;
 use crate::cuda::abstractions::{errors::CudaError, state::CudaState};
+use crate::cuda::fft::ops::gen_twiddles;
 
 pub fn evaluate_fft_cuda<F>(coeffs: &[FieldElement<F>]) -> Result<Vec<FieldElement<F>>, CudaError>
 where
@@ -17,7 +17,7 @@ where
 {
     let state = CudaState::new()?;
     let order = log2(coeffs.len())?;
-    let twiddles = get_twiddles(order, RootsConfig::BitReverse)?;
+    let twiddles = gen_twiddles::<F>(order, RootsConfig::BitReverse, &state)?;
 
     fft(coeffs, &twiddles, &state)
 }
@@ -37,39 +37,12 @@ where
     // TODO: twiddle factors need to be handled with too much care, the FFT API shouldn't accept
     // invalid twiddle factor collections. A better solution is needed.
     let order = log2(fft_evals.len())?;
-    let twiddles = get_twiddles(order, RootsConfig::BitReverseInversed)?;
+    let twiddles = gen_twiddles::<F>(order, RootsConfig::BitReverseInversed, &state)?;
 
     let coeffs = fft(fft_evals, &twiddles, &state)?;
 
     let scale_factor = FieldElement::from(fft_evals.len() as u64).inv();
     Ok(Polynomial::new(&coeffs).scale_coeffs(&scale_factor))
-}
-
-// TODO: implement in CUDA
-fn get_twiddles<F: IsFFTField>(
-    order: u64,
-    config: RootsConfig,
-) -> Result<Vec<FieldElement<F>>, FieldError> {
-    get_powers_of_primitive_root(order, (1 << order) / 2, config)
-}
-
-// TODO: remove after implementing in cuda
-fn get_powers_of_primitive_root<F: IsFFTField>(
-    n: u64,
-    count: usize,
-    config: RootsConfig,
-) -> Result<Vec<FieldElement<F>>, FieldError> {
-    let root = F::get_primitive_root_of_unity(n)?;
-
-    let calc = |i| match config {
-        RootsConfig::Natural => root.pow(i),
-        RootsConfig::NaturalInversed => root.pow(i).inv(),
-        RootsConfig::BitReverse => root.pow(reverse_index(&i, count as u64)),
-        RootsConfig::BitReverseInversed => root.pow(reverse_index(&i, count as u64)).inv(),
-    };
-
-    let results = (0..count).map(calc);
-    Ok(results.collect())
 }
 
 // TODO: remove when fft works on non-multiple-of-two input length

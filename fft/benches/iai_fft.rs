@@ -19,8 +19,23 @@ fn seq_fft_benchmarks() {
 }
 
 #[inline(never)]
-fn seq_twiddles_generation_benchmarks() {
-    functions::twiddles_generation(black_box(SIZE_ORDER));
+fn seq_twiddles_generation_natural_benchmarks() {
+    functions::twiddles_generation(black_box(SIZE_ORDER), RootsConfig::Natural);
+}
+
+#[inline(never)]
+fn seq_twiddles_generation_natural_inversed_benchmarks() {
+    functions::twiddles_generation(black_box(SIZE_ORDER), RootsConfig::NaturalInversed);
+}
+
+#[inline(never)]
+fn seq_twiddles_generation_bitrev_benchmarks() {
+    functions::twiddles_generation(black_box(SIZE_ORDER), RootsConfig::BitReverse);
+}
+
+#[inline(never)]
+fn seq_twiddles_generation_bitrev_inversed_benchmarks() {
+    functions::twiddles_generation(black_box(SIZE_ORDER), RootsConfig::BitReverseInversed);
 }
 
 #[inline(never)]
@@ -45,7 +60,10 @@ fn seq_poly_interpolation_benchmarks() {
 iai_callgrind::main!(
     callgrind_args = "toggle-collect=util::*";
     functions = seq_fft_benchmarks,
-    seq_twiddles_generation_benchmarks,
+    seq_twiddles_generation_natural_benchmarks,
+    seq_twiddles_generation_natural_inversed_benchmarks,
+    seq_twiddles_generation_bitrev_benchmarks,
+    seq_twiddles_generation_bitrev_inversed_benchmarks,
     seq_bitrev_permutation_benchmarks,
     seq_poly_evaluation_benchmarks,
     seq_poly_interpolation_benchmarks
@@ -55,6 +73,9 @@ iai_callgrind::main!(
 iai_callgrind::main!(
     callgrind_args = "toggle-collect=util::*";
     functions = seq_fft_benchmarks,
-    seq_twiddles_generation_benchmarks,
+    seq_twiddles_generation_natural_benchmarks,
+    seq_twiddles_generation_natural_inversed_benchmarks,
+    seq_twiddles_generation_bitrev_benchmarks,
+    seq_twiddles_generation_bitrev_inversed_benchmarks,
     seq_bitrev_permutation_benchmarks,
 );

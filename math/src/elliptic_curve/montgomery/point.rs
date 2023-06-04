@@ -78,6 +78,11 @@ impl<E: IsMontgomery> IsGroup for MontgomeryProjectivePoint<E> {
         ])
     }
 
+    fn is_neutral_element(&self) -> bool {
+        let pz = self.z();
+        pz == &FieldElement::zero()
+    }
+
     /// Computes the addition of `self` and `other`.
     /// Taken from "Moonmath" (Definition 5.2.2.1, page 94)
     fn operate_with(&self, other: &Self) -> Self {

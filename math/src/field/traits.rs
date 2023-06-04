@@ -118,19 +118,22 @@ pub enum LegendreSymbol {
     One,
 }
 
-pub trait IsPrimeField: IsField {
+pub trait IsPrimeField: IsField<BaseType = Self::RepresentativeType> {
     type RepresentativeType: IsUnsignedInteger;
 
     // Returns the representative of the value stored
-    fn representative(a: &Self::BaseType) -> Self::RepresentativeType;
+    fn representative(a: &Self::BaseType) -> Self::BaseType;
 
     fn is_even(a: &Self::BaseType) -> bool {
         Self::representative(a) & 1.into() == 0.into()
     }
 
+    fn modulus_minus_one() -> Self::BaseType {
+        Self::representative(&Self::neg(&Self::one()))
+    }
+
     fn legendre_symbol(a: &Self::BaseType) -> LegendreSymbol {
-        let mod_minus_one = Self::neg(&Self::one());
-        let symbol = Self::pow(a, Self::representative(&mod_minus_one) >> 1);
+        let symbol = Self::pow(a, Self::modulus_minus_one() >> 1);
 
         match symbol {
             x if Self::eq(&x, &Self::zero()) => LegendreSymbol::Zero,
@@ -143,8 +146,8 @@ pub trait IsPrimeField: IsField {
     /// `None` if it doesn't
     fn sqrt(a: &Self::BaseType) -> Option<(Self::BaseType, Self::BaseType)> {
         match Self::legendre_symbol(a) {
-            LegendreSymbol::Zero => return Some((Self::zero(), Self::zero())), // self is 0
-            LegendreSymbol::MinusOne => return None, // self is quadratic non-residue
+            LegendreSymbol::Zero => return Some((Self::zero(), Self::zero())),
+            LegendreSymbol::MinusOne => return None,
             LegendreSymbol::One => (),
         };
 

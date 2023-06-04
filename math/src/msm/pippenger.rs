@@ -23,11 +23,8 @@ where
     if cs.len() != points.len() {
         return Err(MSMError::LengthMismatch(cs.len(), points.len()));
     }
-    // When input is small enough, windows of length 2 seem faster than 1.
-    const MIN_WINDOW_SIZE: usize = 2;
-    const MAX_WINDOW_SIZE: usize = 32;
 
-    let window_size = optimum_window_size(cs.len()).clamp(MIN_WINDOW_SIZE, MAX_WINDOW_SIZE);
+    let window_size = optimum_window_size(cs.len());
 
     Ok(msm_with(cs, points, window_size))
 }
@@ -36,7 +33,7 @@ fn optimum_window_size(data_length: usize) -> usize {
     const SCALE_FACTORS: (usize, usize) = (4, 5);
 
     // We approximate the optimum window size with: f(n) = k * log2(n), where k is a scaling factor
-    let len_isqrt = usize::BITS - data_length.leading_zeros() - 1;
+    let len_isqrt = data_length.checked_ilog2().unwrap_or(0);
     (len_isqrt as usize * SCALE_FACTORS.0) / SCALE_FACTORS.1
 }
 
@@ -48,7 +45,11 @@ pub fn msm_with<const NUM_LIMBS: usize, G>(
 where
     G: IsGroup,
 {
-    assert!(window_size < usize::BITS as usize); // Program would go OOM anyways
+    // When input is small enough, windows of length 2 seem faster than 1.
+    const MIN_WINDOW_SIZE: usize = 2;
+    const MAX_WINDOW_SIZE: usize = 32;
+
+    let window_size = window_size.clamp(MIN_WINDOW_SIZE, MAX_WINDOW_SIZE);
 
     // The number of windows of size `s` is ceil(lambda/s).
     let num_windows = (64 * NUM_LIMBS - 1) / window_size + 1;

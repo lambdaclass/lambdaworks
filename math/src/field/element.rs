@@ -12,7 +12,7 @@ use std::{
 };
 
 use super::fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField};
-use super::traits::IsPrimeField;
+use super::traits::{IsPrimeField, LegendreSymbol};
 
 /// A field element with operations algorithms defined in `F`
 #[derive(Debug, Clone)]
@@ -380,6 +380,7 @@ where
     }
 }
 
+
 impl<F: IsPrimeField> FieldElement<F> {
     // Returns the representative of the value stored
     pub fn representative(&self) -> F::RepresentativeType {
@@ -393,7 +394,68 @@ impl<F: IsPrimeField> FieldElement<F> {
     pub fn sqrt(&self) -> Option<(Self, Self)> {
         let sqrts = F::sqrt(&self.value);
         sqrts.map(|(sqrt1, sqrt2)| (Self { value: sqrt1 }, Self { value: sqrt2 }))
+
     }
+
+    pub fn legendre_symbol(&self) -> LegendreSymbol {
+        F::legendre_symbol(&self.value)
+    }
+
+// impl<F: IsPrimeField> FieldElement<F> {
+//     // Returns the two square roots of `self` if it exists
+//     // `None` if it doesn't
+//     pub fn sqrt(&self) -> Option<(Self, Self)> {
+//         match self.legendre_symbol() {
+//             LegendreSymbol::Zero => return Some((Self::zero(), Self::zero())), // self is 0
+//             LegendreSymbol::MinusOne => return None, // self is quadratic non-residue
+//             LegendreSymbol::One => (),
+//         };
+//
+//         let (one, two) = (Self::one(), Self::from(2));
+//         let two_inv = two.inv();
+//
+//         let mut q = Self::zero() - &one;
+//         let mut s = 0u64;
+//
+//         while q.is_even() {
+//             s += 1;
+//             q = q * &two_inv;
+//         }
+//
+//         let mut c = {
+//             // Calculate a non residue:
+//             let mut non_qr = two.clone();
+//             while non_qr.legendre_symbol() != LegendreSymbol::MinusOne {
+//                 non_qr += one.clone();
+//             }
+//
+//             non_qr.pow(q.representative())
+//         };
+//
+//         let mut x = self.pow(((&q + &one) * &two_inv).representative());
+//         let mut t = self.pow(q.representative());
+//         let mut m = s;
+//
+//         while t != one {
+//             let mut i = 0;
+//             let mut e = &t * &t;
+//             while i < m {
+//                 i += 1;
+//                 if e == one {
+//                     break;
+//                 }
+//                 e = &e * &e;
+//             }
+//
+//             let b = c.pow(two.pow(m - i - 1).representative());
+//
+//             x = x * &b;
+//             t = t * &b * &b;
+//             c = &b * &b;
+//             m = i;
+//         }
+//
+//         Some((x.clone(), Self::zero() - &x))
 }
 
 impl<M, const NUM_LIMBS: usize> fmt::Display

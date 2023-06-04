@@ -1,4 +1,7 @@
-use lambdaworks_math::field::{element::FieldElement, traits::IsFFTField};
+use lambdaworks_math::field::{
+    element::FieldElement,
+    traits::{IsFFTField, RootsConfig},
+};
 
 use crate::cuda::abstractions::{errors::CudaError, state::CudaState};
 
@@ -28,29 +31,37 @@ where
         function.launch(group_count, group_size)?;
     }
 
-    let mut output = function.retrieve_result()?;
+    let output = function.retrieve_result()?;
 
-    in_place_bit_reverse_permute(&mut output);
-    Ok(output)
+    bitrev_permutation(output, state)
 }
 
-// TODO: remove after implementing in cuda
-pub(crate) fn in_place_bit_reverse_permute<E>(input: &mut [E]) {
-    for i in 0..input.len() {
-        let bit_reversed_index = reverse_index(&i, input.len() as u64);
-        if bit_reversed_index > i {
-            input.swap(i, bit_reversed_index);
-        }
+pub fn gen_twiddles<F: IsFFTField>(
+    order: u64,
+    config: RootsConfig,
+    state: &CudaState,
+) -> Result<Vec<FieldElement<F>>, CudaError> {
+    let count = (1 << order) / 2;
+    if count == 0 {
+        return Ok(Vec::new());
     }
+
+    let mut function = state.get_calc_twiddles::<F>(order, config)?;
+
+    function.launch(count)?;
+
+    function.retrieve_result()
 }
 
-// TODO: remove after implementing in cuda
-pub(crate) fn reverse_index(i: &usize, size: u64) -> usize {
-    if size == 1 {
-        *i
-    } else {
-        i.reverse_bits() >> (usize::BITS - size.trailing_zeros())
-    }
+pub fn bitrev_permutation<F: IsFFTField>(
+    input: Vec<FieldElement<F>>,
+    state: &CudaState,
+) -> Result<Vec<FieldElement<F>>, CudaError> {
+    let mut function = state.get_bitrev_permutation(&input, &input)?;
+
+    function.launch(input.len())?;
+
+    function.retrieve_result()
 }
 
 #[cfg(test)]

@@ -23,12 +23,16 @@ benchmark:
 flamegraph_stark:
 	CARGO_PROFILE_BENCH_DEBUG=true cargo flamegraph --root --bench stark_benchmarks -- --bench
 
+docs:
+	cd docs && mdbook serve --open
+
 METAL_DIR = gpu/src/metal/shaders
 build-metal:
 	xcrun -sdk macosx metal $(METAL_DIR)/all.metal -o $(METAL_DIR)/lib.metallib
 
+
 CUDA_DIR = gpu/src/cuda/shaders
-CUDA_FILES:=$(wildcard $(CUDA_DIR)/**/*.cu)
+CUDA_FILES:=$(wildcard $(CUDA_DIR)/*.cu)
 CUDA_COMPILED:=$(patsubst $(CUDA_DIR)/%.cu, $(CUDA_DIR)/%.ptx, $(CUDA_FILES))
 
 $(CUDA_DIR)/%.ptx: $(CUDA_DIR)/%.cu
@@ -39,7 +43,4 @@ build-cuda: $(CUDA_COMPILED)
 
 CUDAPATH = gpu/src/cuda/shaders
 build-cuda:
-	nvcc -ptx $(CUDAPATH)/fft.cu -o $(CUDAPATH)/fft.ptx
-
-docs:
-	cd docs && mdbook serve --open
+	nvcc -ptx $(CUDAPATH)/fields/stark256.cu -o $(CUDAPATH)/fields/stark256.ptx

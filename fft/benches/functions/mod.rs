@@ -22,8 +22,8 @@ pub fn ordered_fft_rn(input: &[FE], twiddles: &[FE]) {
     in_place_rn_2radix_fft(&mut input, twiddles);
 }
 
-pub fn twiddles_generation(order: u64) {
-    get_twiddles::<F>(order, RootsConfig::Natural).unwrap();
+pub fn twiddles_generation(order: u64, config: RootsConfig) {
+    get_twiddles::<F>(order, config).unwrap();
 }
 
 pub fn bitrev_permute(input: &[FE]) {
