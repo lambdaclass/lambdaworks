@@ -1,105 +1,54 @@
 use criterion::black_box;
-use lambdaworks_math::field::{
-    element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
-};
 
 mod util;
 
 #[inline(never)]
 fn fp_add_benchmarks() {
-    let x = FieldElement::<Stark252PrimeField>::from_hex(
-        "0x03d937c035c878245caf64531a5756109c53068da139362728feb561405371cb",
-    )
-    .unwrap();
-    let y = FieldElement::<Stark252PrimeField>::from_hex(
-        "0x0208a0a10250e382e1e4bbe2880906c2791bf6275695e02fbbc6aeff9cd8b31a",
-    )
-    .unwrap();
-    let _ = black_box(x) + black_box(y);
+    let (x, y) = util::get_field_elements();
+    let _ = black_box(black_box(x) + black_box(y));
 }
 
 #[inline(never)]
 fn fp_mul_benchmarks() {
-    let x = FieldElement::<Stark252PrimeField>::from_hex(
-        "0x03d937c035c878245caf64531a5756109c53068da139362728feb561405371cb",
-    )
-    .unwrap();
-    let y = FieldElement::<Stark252PrimeField>::from_hex(
-        "0x0208a0a10250e382e1e4bbe2880906c2791bf6275695e02fbbc6aeff9cd8b31a",
-    )
-    .unwrap();
-
-    let _ = black_box(x) * black_box(y);
+    let (x, y) = util::get_field_elements();
+    let _ = black_box(black_box(x) * black_box(y));
 }
 
 #[inline(never)]
 fn fp_pow_benchmarks() {
-    let x = FieldElement::<Stark252PrimeField>::from_hex(
-        "0x03d937c035c878245caf64531a5756109c53068da139362728feb561405371cb",
-    )
-    .unwrap();
-
+    let (x, _) = util::get_field_elements();
     let y: u64 = 5;
-    let _ = black_box(x).pow(black_box(y));
+    let _ = black_box(black_box(x).pow(black_box(y)));
 }
 
 #[inline(never)]
 fn fp_sub_benchmarks() {
-    let x = FieldElement::<Stark252PrimeField>::from_hex(
-        "0x03d937c035c878245caf64531a5756109c53068da139362728feb561405371cb",
-    )
-    .unwrap();
-    let y = FieldElement::<Stark252PrimeField>::from_hex(
-        "0x0208a0a10250e382e1e4bbe2880906c2791bf6275695e02fbbc6aeff9cd8b31a",
-    )
-    .unwrap();
-    let _ = black_box(x) - black_box(y);
+    let (x, y) = util::get_field_elements();
+    let _ = black_box(black_box(x) - black_box(y));
 }
 
 #[inline(never)]
 fn fp_inv_benchmarks() {
-    let x = FieldElement::<Stark252PrimeField>::from_hex(
-        "0x03d937c035c878245caf64531a5756109c53068da139362728feb561405371cb",
-    )
-    .unwrap();
-
-    let _ = black_box(x).inv();
+    let (x, _) = util::get_field_elements();
+    let _ = black_box(black_box(x).inv());
 }
 
 #[inline(never)]
 fn fp_div_benchmarks() {
-    let x = FieldElement::<Stark252PrimeField>::from_hex(
-        "0x03d937c035c878245caf64531a5756109c53068da139362728feb561405371cb",
-    )
-    .unwrap();
-    let y = FieldElement::<Stark252PrimeField>::from_hex(
-        "0x0208a0a10250e382e1e4bbe2880906c2791bf6275695e02fbbc6aeff9cd8b31a",
-    )
-    .unwrap();
-    let _ = black_box(x) / black_box(y);
+    let (x, y) = util::get_field_elements();
+    let _ = black_box(black_box(x) / black_box(y));
 }
 
 #[inline(never)]
 fn fp_eq_benchmarks() {
-    let x = FieldElement::<Stark252PrimeField>::from_hex(
-        "0x03d937c035c878245caf64531a5756109c53068da139362728feb561405371cb",
-    )
-    .unwrap();
-    let y = FieldElement::<Stark252PrimeField>::from_hex(
-        "0x0208a0a10250e382e1e4bbe2880906c2791bf6275695e02fbbc6aeff9cd8b31a",
-    )
-    .unwrap();
-    let _ = black_box(x) == black_box(y);
+    let (x, y) = util::get_field_elements();
+    let _ = black_box(black_box(x) == black_box(y));
 }
 
 #[inline(never)]
 fn fp_sqrt_benchmarks() {
-    let x = FieldElement::<Stark252PrimeField>::from_hex(
-        "0x03d937c035c878245caf64531a5756109c53068da139362728feb561405371cb",
-    )
-    .unwrap();
     // Make sure it has a square root
-    let x = &x * &x;
+    let x = util::get_squared_field_element();
     let _ = black_box(black_box(x).sqrt());
 }
 
