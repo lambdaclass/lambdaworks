@@ -2,12 +2,12 @@
 fn compile_cuda_shaders() {
     use std::process::Command;
     use walkdir::WalkDir;
-    const CUDA_SOURCE_DIR: &str = "src/cuda/shaders";
+    let source_dir = env!("CARGO_MANIFEST_DIR").to_string() + "/src/cuda/shaders";
 
     // Tell cargo to invalidate the built crate whenever the source changes
-    println!("cargo:rerun-if-changed={CUDA_SOURCE_DIR}");
+    println!("cargo:rerun-if-changed={source_dir}");
 
-    let children: Vec<_> = WalkDir::new(CUDA_SOURCE_DIR)
+    let children: Vec<_> = WalkDir::new(source_dir)
         .into_iter()
         .map(Result::unwrap)
         .filter(|entry| {
@@ -53,13 +53,13 @@ fn compile_cuda_shaders() {
 #[cfg(feature = "metal")]
 fn compile_metal_shaders() {
     use std::process::Command;
-    const METAL_SOURCE_DIR: &str = "src/metal/shaders";
+    let source_dir = env!("CARGO_MANIFEST_DIR").to_string() + "/src/metal/shaders";
 
     // Tell cargo to invalidate the built crate whenever the source changes
-    println!("cargo:rerun-if-changed={METAL_SOURCE_DIR}");
+    println!("cargo:rerun-if-changed={source_dir}");
 
-    let input = METAL_SOURCE_DIR.to_owned() + "/all.metal";
-    let output = METAL_SOURCE_DIR.to_owned() + "/lib.metallib";
+    let input = source_dir.to_owned() + "/all.metal";
+    let output = source_dir.to_owned() + "/lib.metallib";
 
     println!("cargo:warning=compiling:'{input}'->'{output}'");
 
