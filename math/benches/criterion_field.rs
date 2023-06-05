@@ -2,14 +2,11 @@ use std::hint::black_box;
 
 use criterion::{criterion_group, criterion_main, Criterion};
 use lambdaworks_math::{
-    field::{
-        element::FieldElement,
-        fields::{
-            fft_friendly::stark_252_prime_field::{
-                MontgomeryConfigStark252PrimeField, Stark252PrimeField,
-            },
-            montgomery_backed_prime_fields::IsModulus,
+    field::fields::{
+        fft_friendly::stark_252_prime_field::{
+            MontgomeryConfigStark252PrimeField, Stark252PrimeField,
         },
+        montgomery_backed_prime_fields::IsModulus,
     },
     unsigned_integer::{element::U256, montgomery::MontgomeryAlgorithms},
 };
@@ -18,15 +15,7 @@ mod util;
 
 pub fn starkfield_ops_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("Stark FP operations");
-
-    let x = FieldElement::<Stark252PrimeField>::from_hex(
-        "0x03d937c035c878245caf64531a5756109c53068da139362728feb561405371cb",
-    )
-    .unwrap();
-    let y = FieldElement::<Stark252PrimeField>::from_hex(
-        "0x0208a0a10250e382e1e4bbe2880906c2791bf6275695e02fbbc6aeff9cd8b31a",
-    )
-    .unwrap();
+    let (x, y) = util::get_field_elements();
 
     group.bench_with_input("add", &(x.clone(), y.clone()), |bench, (x, y)| {
         bench.iter(|| x + y);

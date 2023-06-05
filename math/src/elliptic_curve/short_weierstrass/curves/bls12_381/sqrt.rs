@@ -1,5 +1,6 @@
+use crate::field::traits::LegendreSymbol;
+
 use super::{curve::BLS12381FieldElement, curve::BLS12381TwistCurveFieldElement};
-use crate::field::element::LegendreSymbol;
 use std::cmp::Ordering;
 
 #[must_use]

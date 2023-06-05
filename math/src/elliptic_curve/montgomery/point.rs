@@ -92,7 +92,6 @@ impl<E: IsMontgomery> IsGroup for MontgomeryProjectivePoint<E> {
         } else if other.is_neutral_element() {
             self.clone()
         } else {
-            // TODO: Remove repeated operations
             let [x1, y1, _] = self.to_affine().coordinates().clone();
             let [x2, y2, _] = other.to_affine().coordinates().clone();
             // In this case P == -Q
@@ -104,28 +103,27 @@ impl<E: IsMontgomery> IsGroup for MontgomeryProjectivePoint<E> {
                 // y cant be zero here because if y = 0 then
                 // P = Q = (x, 0) and P = -Q, which is the
                 // previous case.
-                let new_x_num = FieldElement::from(3) * x1.pow(2_u16)
-                    + FieldElement::from(2) * E::a() * &x1
-                    + FieldElement::from(1);
-                let new_x_den = FieldElement::from(2) * E::b() * &y1;
-                let new_x = (new_x_num / new_x_den).pow(2_u16) * E::b() - (&x1 + x2) - E::a();
+                let one = FieldElement::from(1);
+                let (a, b) = (E::a(), E::b());
 
-                let new_y_num = FieldElement::from(3) * x1.pow(2_u16)
-                    + FieldElement::from(2) * E::a() * &x1
-                    + FieldElement::from(1);
-                let new_y_den = FieldElement::from(2) * E::b() * &y1;
-                let new_y = (new_y_num / new_y_den) * (x1 - &new_x) - y1;
+                let x1a = &a * &x1;
+                let x1_square = &x1 * &x1;
+                let num = &x1_square + &x1_square + x1_square + &x1a + x1a + &one;
+                let den = (&b + &b) * &y1;
+                let div = num / den;
 
-                Self::new([new_x, new_y, FieldElement::one()])
+                let new_x = &div * &div * &b - (&x1 + x2) - a;
+                let new_y = div * (x1 - &new_x) - y1;
+
+                Self::new([new_x, new_y, one])
             // In the rest of the cases we have x1 != x2
             } else {
-                let new_x_num = &y2 - &y1;
-                let new_x_den = &x2 - &x1;
-                let new_x = (new_x_num / new_x_den).pow(2_u16) * E::b() - (&x1 + &x2) - E::a();
+                let num = &y2 - &y1;
+                let den = &x2 - &x1;
+                let div = num / den;
 
-                let new_y_num = y2 - &y1;
-                let new_y_den = x2 - &x1;
-                let new_y = (new_y_num / new_y_den) * (x1 - &new_x) - y1;
+                let new_x = &div * &div * E::b() - (&x1 + &x2) - E::a();
+                let new_y = div * (x1 - &new_x) - y1;
 
                 Self::new([new_x, new_y, FieldElement::one()])
             }

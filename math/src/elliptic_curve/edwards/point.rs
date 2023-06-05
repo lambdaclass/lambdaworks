@@ -86,17 +86,24 @@ impl<E: IsEdwards> IsGroup for EdwardsProjectivePoint<E> {
     /// Computes the addition of `self` and `other`.
     /// Taken from "Moonmath" (Eq 5.38, page 97)
     fn operate_with(&self, other: &Self) -> Self {
-        // TODO: Remove repeated operations
-        let [x1, y1, _] = self.to_affine().coordinates().clone();
-        let [x2, y2, _] = other.to_affine().coordinates().clone();
+        // This avoids dropping, which in turn saves us from having to clone the coordinates.
+        let (s_affine, o_affine) = (self.to_affine(), other.to_affine());
 
-        let num_s1 = &x1 * &y2 + &y1 * &x2;
-        let den_s1 = FieldElement::one() + E::d() * &x1 * &x2 * &y1 * &y2;
+        let [x1, y1, _] = s_affine.coordinates();
+        let [x2, y2, _] = o_affine.coordinates();
 
-        let num_s2 = &y1 * &y2 - E::a() * &x1 * &x2;
-        let den_s2 = FieldElement::one() - E::d() * x1 * x2 * y1 * y2;
+        let one = FieldElement::one();
+        let (x1y2, y1x2) = (x1 * y2, y1 * x2);
+        let (x1x2, y1y2) = (x1 * x2, y1 * y2);
+        let dx1x2y1y2 = E::d() * &x1x2 * &y1y2;
 
-        Self::new([num_s1 / den_s1, num_s2 / den_s2, FieldElement::one()])
+        let num_s1 = &x1y2 + &y1x2;
+        let den_s1 = &one + &dx1x2y1y2;
+
+        let num_s2 = &y1y2 - E::a() * &x1x2;
+        let den_s2 = &one - &dx1x2y1y2;
+
+        Self::new([&num_s1 / &den_s1, &num_s2 / &den_s2, one])
     }
 
     /// Returns the additive inverse of the projective point `p`
