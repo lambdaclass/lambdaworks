@@ -30,6 +30,12 @@ where
     pub const R2: UnsignedInteger<NUM_LIMBS> = Self::compute_r2_parameter(&M::MODULUS);
     pub const MU: u64 = Self::compute_mu_parameter(&M::MODULUS);
     pub const ZERO: UnsignedInteger<NUM_LIMBS> = UnsignedInteger::from_u64(0);
+    pub const ONE: UnsignedInteger<NUM_LIMBS> = MontgomeryAlgorithms::cios(
+        &UnsignedInteger::from_u64(1),
+        &Self::R2,
+        &M::MODULUS,
+        &Self::MU,
+    );
 
     /// Computes `- modulus^{-1} mod 2^{64}`
     /// This algorithm is given  by Dussé and Kaliski Jr. in
@@ -90,6 +96,7 @@ where
 {
     type BaseType = UnsignedInteger<NUM_LIMBS>;
 
+    #[inline(always)]
     fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
         let (sum, overflow) = UnsignedInteger::add(a, b);
         if !overflow {
@@ -104,10 +111,17 @@ where
         }
     }
 
+    #[inline(always)]
     fn mul(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
         MontgomeryAlgorithms::cios(a, b, &M::MODULUS, &Self::MU)
     }
 
+    #[inline(always)]
+    fn square(a: &UnsignedInteger<NUM_LIMBS>) -> UnsignedInteger<NUM_LIMBS> {
+        MontgomeryAlgorithms::sos_square(a, &M::MODULUS, &Self::MU)
+    }
+
+    #[inline(always)]
     fn sub(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
         if b <= a {
             a - b
@@ -116,6 +130,7 @@ where
         }
     }
 
+    #[inline(always)]
     fn neg(a: &Self::BaseType) -> Self::BaseType {
         if a == &Self::ZERO {
             *a
@@ -124,6 +139,7 @@ where
         }
     }
 
+    #[inline(always)]
     fn inv(a: &Self::BaseType) -> Self::BaseType {
         if a == &Self::ZERO {
             panic!("Division by zero error.")
@@ -196,22 +212,27 @@ where
         }
     }
 
+    #[inline(always)]
     fn div(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
         Self::mul(a, &Self::inv(b))
     }
 
+    #[inline(always)]
     fn eq(a: &Self::BaseType, b: &Self::BaseType) -> bool {
         a == b
     }
 
+    #[inline(always)]
     fn zero() -> Self::BaseType {
         Self::ZERO
     }
 
+    #[inline(always)]
     fn one() -> Self::BaseType {
-        Self::from_u64(1)
+        Self::ONE
     }
 
+    #[inline(always)]
     fn from_u64(x: u64) -> Self::BaseType {
         MontgomeryAlgorithms::cios(
             &UnsignedInteger::from_u64(x),
@@ -221,6 +242,7 @@ where
         )
     }
 
+    #[inline(always)]
     fn from_base_type(x: Self::BaseType) -> Self::BaseType {
         MontgomeryAlgorithms::cios(&x, &Self::R2, &M::MODULUS, &Self::MU)
     }

@@ -1,4 +1,5 @@
 use crate::unsigned_integer::traits::IsUnsignedInteger;
+
 use std::{fmt::Debug, hash::Hash};
 
 use super::{element::FieldElement, errors::FieldError};
@@ -63,23 +64,47 @@ pub trait IsField: Debug + Clone {
     /// Returns the multiplication of `a` and `b`.
     fn mul(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType;
 
-    /// Returns`a` raised to the power of `exponent`.
+    /// Returns the multiplication of `a` and `a`.
+    fn square(a: &Self::BaseType) -> Self::BaseType {
+        Self::mul(a, a)
+    }
+
     fn pow<T>(a: &Self::BaseType, mut exponent: T) -> Self::BaseType
     where
         T: IsUnsignedInteger,
     {
-        let mut result = Self::one();
-        let mut base = a.clone();
         let zero = T::from(0);
         let one = T::from(1);
-        while exponent > zero {
-            if exponent & one == one {
-                result = Self::mul(&result, &base);
+
+        if exponent == zero {
+            Self::one()
+        } else if exponent == one {
+            a.clone()
+        } else {
+            let mut result = a.clone();
+
+            while exponent & one == zero {
+                result = Self::square(&result);
+                exponent = exponent >> 1;
             }
-            base = Self::mul(&base, &base);
-            exponent = exponent >> 1;
+
+            if exponent == zero {
+                result
+            } else {
+                let mut base = result.clone();
+                exponent = exponent >> 1;
+
+                while exponent != zero {
+                    base = Self::square(&base);
+                    if exponent & one == one {
+                        result = Self::mul(&result, &base);
+                    }
+                    exponent = exponent >> 1;
+                }
+
+                result
+            }
         }
-        result
     }
 
     /// Returns the subtraction of `a` and `b`.
