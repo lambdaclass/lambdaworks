@@ -498,18 +498,6 @@ mod tests {
         );
     }
 
-    // #[test]
-    // fn two_is_even() {
-    //     let two = FieldElement::<Stark252PrimeField>::from(2);
-    //     assert!(two.is_even());
-    // }
-    //
-    // #[test]
-    // fn three_is_odd() {
-    //     let three = FieldElement::<Stark252PrimeField>::from(3);
-    //     assert!(!three.is_even());
-    // }
-
     #[test]
     fn one_of_sqrt_roots_for_4_is_2() {
         let input = FrElement::from(4);
