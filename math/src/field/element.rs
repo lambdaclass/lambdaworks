@@ -366,7 +366,7 @@ where
     #[inline(always)]
     pub fn square(&self) -> Self {
         Self {
-            value: F::square(&self.value)
+            value: F::square(&self.value),
         }
     }
 

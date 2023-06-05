@@ -125,8 +125,7 @@ where
     }
 }
 
-impl<Q: Clone + Debug + HasQuadraticNonResidue> FieldElement<QuadraticExtensionField<Q>> {
-}
+impl<Q: Clone + Debug + HasQuadraticNonResidue> FieldElement<QuadraticExtensionField<Q>> {}
 
 #[cfg(test)]
 mod tests {

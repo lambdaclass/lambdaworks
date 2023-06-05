@@ -1,9 +1,18 @@
 use std::hint::black_box;
 
 use criterion::{criterion_group, criterion_main, Criterion};
-use lambdaworks_math::{field::{
-    element::FieldElement, fields::{fft_friendly::stark_252_prime_field::{Stark252PrimeField, MontgomeryConfigStark252PrimeField}, montgomery_backed_prime_fields::IsModulus},
-}, unsigned_integer::{montgomery::MontgomeryAlgorithms, element::U256}};
+use lambdaworks_math::{
+    field::{
+        element::FieldElement,
+        fields::{
+            fft_friendly::stark_252_prime_field::{
+                MontgomeryConfigStark252PrimeField, Stark252PrimeField,
+            },
+            montgomery_backed_prime_fields::IsModulus,
+        },
+    },
+    unsigned_integer::{element::U256, montgomery::MontgomeryAlgorithms},
+};
 
 mod util;
 
