@@ -44,6 +44,8 @@ pub fn get_squared_field_element() -> FieldElement<Stark252PrimeField> {
 }
 
 #[allow(dead_code)]
+#[inline(never)]
+#[export_name = "util::rand_field_elements"]
 pub fn rand_field_elements(order: u64) -> Vec<FE> {
     let mut result = Vec::with_capacity(1 << order);
     for _ in 0..result.capacity() {
@@ -53,11 +55,15 @@ pub fn rand_field_elements(order: u64) -> Vec<FE> {
 }
 
 #[allow(dead_code)]
+#[inline(never)]
+#[export_name = "util::rand_field_elements_pair"]
 pub fn rand_field_elements_pair() -> (FE, FE) {
     (FE::new(random()), FE::new(random()))
 }
 
 #[allow(dead_code)]
+#[inline(never)]
+#[export_name = "util::rand_poly"]
 pub fn rand_poly(order: u64) -> Polynomial<FE> {
     Polynomial::new(&rand_field_elements(order))
 }
