@@ -512,6 +512,7 @@ mod tests {
         let sqrt = input.sqrt().unwrap();
         let result = FieldElement::from(28);
         assert_eq!(sqrt.0, result);
+        assert_eq!(sqrt.1, -result);
     }
     #[test]
     fn one_of_sqrt_roots_for_25_is_5() {
@@ -519,6 +520,7 @@ mod tests {
         let sqrt = input.sqrt().unwrap();
         let result = FrElement::from(5);
         assert_eq!(sqrt.1, result);
+        assert_eq!(sqrt.0, -result);
     }
 
     #[test]
@@ -530,6 +532,7 @@ mod tests {
         let sqrt = input.sqrt().unwrap();
         let result = FrElement::from(5);
         assert_eq!(sqrt.0, result);
+        assert_eq!(sqrt.1, -result);
     }
 
     #[test]
