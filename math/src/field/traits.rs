@@ -121,7 +121,8 @@ pub enum LegendreSymbol {
 pub trait IsPrimeField: IsField {
     type RepresentativeType: IsUnsignedInteger;
 
-    // Returns the representative of the value stored
+    /// Returns the integer representative in
+    /// the range [0, p-1], where p the modulus
     fn representative(a: &Self::BaseType) -> Self::RepresentativeType;
 
     fn modulus_minus_one() -> Self::RepresentativeType {
@@ -172,12 +173,16 @@ pub trait IsPrimeField: IsField {
 
         let one = Self::one();
         while !Self::eq(&t, &one) {
-            let mut i = 0;
-            let mut tt = t.clone();
-            while !Self::eq(&tt, &one) {
-                i += 1;
-                tt = Self::mul(&tt, &tt);
-            }
+            let i = {
+                let mut i = 0;
+                let mut t = t.clone();
+                let minus_one = Self::neg(&Self::one());
+                while !Self::eq(&t, &minus_one) {
+                    i += 1;
+                    t = Self::mul(&t, &t);
+                }
+                i + 1
+            };
 
             let b = Self::pow(&c, 1usize << (m - i - 1));
 
