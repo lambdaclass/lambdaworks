@@ -58,8 +58,8 @@ fn compile_metal_shaders() {
     // Tell cargo to invalidate the built crate whenever the source changes
     println!("cargo:rerun-if-changed={source_dir}");
 
-    let input = source_dir.to_owned() + "/all.metal";
-    let output = source_dir.to_owned() + "/lib.metallib";
+    let input = source_dir.clone() + "/all.metal";
+    let output = source_dir + "/lib.metallib";
 
     println!("cargo:warning=compiling:'{input}'->'{output}'");
 
