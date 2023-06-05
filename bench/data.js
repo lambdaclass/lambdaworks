@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1685992578256,
+  "lastUpdate": 1686001718440,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -9719,6 +9719,150 @@ window.BENCHMARK_DATA = {
             "name": "Polynomial/div",
             "value": 911,
             "range": "± 36",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41742639+schouhy@users.noreply.github.com",
+            "name": "Sergio Chouhy",
+            "username": "schouhy"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "88e3d1c1d220e9433f6e43ca2dc0fe467208e70e",
+          "message": "Implement Square Separated Operand Scanning (#406)\n\n* Add sos algorithm\n\n* WIP: Square for unsigned integer\n\n* Fix bug in square of unsigned integer. Add custom square for Montgomery Field\n\n* benches wip\n\n* improve pow in Montgomery prime fields\n\n* improve square first loop\n\n* improve code readability\n\n* minor refactor in pow for montgomery backend prime fields\n\n* minor refactor. Add comments to sos_square\n\n* remove unnecessary bench\n\n* fmt\n\n* perf: removing iterators\n\n* add square with default impl to IsField\n\n* add inline\n\n* fmt\n\n* add comment on intentional non black boxed parameters in benches\n\n---------\n\nCo-authored-by: ajgarassino <ajgarassino@gmail.com>\nCo-authored-by: Mario Rugiero <mario.rugiero@lambdaclass.com>",
+          "timestamp": "2023-06-05T21:42:52Z",
+          "tree_id": "b009fad7d7caf2faa2387b2cb5eb00755b0f7e74",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/88e3d1c1d220e9433f6e43ca2dc0fe467208e70e"
+        },
+        "date": 1686001715685,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "Ordered FFT/Parallel (Metal)",
+            "value": 129316770,
+            "range": "± 2553820",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #2",
+            "value": 254963729,
+            "range": "± 1206161",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #3",
+            "value": 487296947,
+            "range": "± 3058878",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #4",
+            "value": 970171875,
+            "range": "± 14631840",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal)",
+            "value": 34247940,
+            "range": "± 311804",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #2",
+            "value": 68232246,
+            "range": "± 596432",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #3",
+            "value": 133184155,
+            "range": "± 1056814",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #4",
+            "value": 276287250,
+            "range": "± 2916493",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal)",
+            "value": 31356534,
+            "range": "± 196219",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #2",
+            "value": 58745177,
+            "range": "± 1408977",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #3",
+            "value": 121794959,
+            "range": "± 7368394",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #4",
+            "value": 251245208,
+            "range": "± 19782465",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal",
+            "value": 163656756,
+            "range": "± 657368",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #2",
+            "value": 330011125,
+            "range": "± 5752290",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #3",
+            "value": 650504292,
+            "range": "± 2943747",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #4",
+            "value": 1306690416,
+            "range": "± 16302223",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal",
+            "value": 455603812,
+            "range": "± 3393326",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #2",
+            "value": 901351042,
+            "range": "± 6369786",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #3",
+            "value": 1737490583,
+            "range": "± 8272821",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #4",
+            "value": 3480291958,
+            "range": "± 19122426",
             "unit": "ns/iter"
           }
         ]
