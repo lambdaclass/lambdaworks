@@ -40,6 +40,8 @@ pub fn starkfield_ops_benchmarks(c: &mut Criterion) {
         bench.iter(|| x.pow(1_u64));
     });
 
+    // The non-boxed constants are intentional as they are
+    // normally computed at compile time.
     group.bench_with_input("sos_square", &x.clone(), |bench, x| {
         bench.iter(|| {
             MontgomeryAlgorithms::sos_square(
