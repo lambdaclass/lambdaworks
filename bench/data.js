@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1686003515123,
+  "lastUpdate": 1686062519604,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -10145,6 +10145,150 @@ window.BENCHMARK_DATA = {
             "name": "Polynomial/div",
             "value": 4679,
             "range": "± 242",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47506558+MegaRedHand@users.noreply.github.com",
+            "name": "Tomás",
+            "username": "MegaRedHand"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "30e6fb2e88ae92463549bb195e66ec052de827a0",
+          "message": "Compile shaders in CI (#371)\n\n* Make the GPU jobs compile the shaders\n\n* Make CI fail if shader is not up to date\n\n* Add nvcc installation to CI\n\n* Appease clippy\n\n* Remove unneeded shader files\n\n* Fix targets not recompiling\n\n* Add intial build.rs for gpu crate\n\n* Edit build script\n\n* Appease clippy\n\n* Add metal compilation to build.rs and remove shader\n\n* Fix cuda compilation script\n\n* Appease clippy\n\n* Appease 1.70 clippy\n\n* Add cuda shader to .gitignore\n\n* gitignore all compiled shader files\n\n* Use `CARGO_MANIFEST_DIR` to get full path to src\n\n* Appease clippy\n\n* Re-add allow(dead_code)",
+          "timestamp": "2023-06-06T14:35:50Z",
+          "tree_id": "1d6c9c0933f4af03fe44bd628f20c05c9ff2eed6",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/30e6fb2e88ae92463549bb195e66ec052de827a0"
+        },
+        "date": 1686062514816,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "Ordered FFT/Parallel (Metal)",
+            "value": 131328894,
+            "range": "± 4816796",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #2",
+            "value": 244635055,
+            "range": "± 6468542",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #3",
+            "value": 486175531,
+            "range": "± 9300405",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #4",
+            "value": 975001395,
+            "range": "± 16309169",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal)",
+            "value": 34986156,
+            "range": "± 332254",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #2",
+            "value": 69177204,
+            "range": "± 711105",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #3",
+            "value": 135509420,
+            "range": "± 1205654",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #4",
+            "value": 280269906,
+            "range": "± 3754499",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal)",
+            "value": 28072346,
+            "range": "± 635438",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #2",
+            "value": 54369822,
+            "range": "± 3834574",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #3",
+            "value": 116819082,
+            "range": "± 4509612",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #4",
+            "value": 241774104,
+            "range": "± 22993986",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal",
+            "value": 163926087,
+            "range": "± 1052797",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #2",
+            "value": 329485958,
+            "range": "± 1299618",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #3",
+            "value": 637564667,
+            "range": "± 9055029",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #4",
+            "value": 1315067854,
+            "range": "± 13606709",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal",
+            "value": 442629916,
+            "range": "± 6147816",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #2",
+            "value": 890679750,
+            "range": "± 9808861",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #3",
+            "value": 1740244354,
+            "range": "± 8315966",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #4",
+            "value": 3421679354,
+            "range": "± 10474205",
             "unit": "ns/iter"
           }
         ]
