@@ -3,7 +3,7 @@ use lambdaworks_math::field::{
     traits::{IsFFTField, RootsConfig},
 };
 
-use crate::{bit_reversing::reverse_index, errors::FFTError};
+use crate::{bit_reversing::in_place_bit_reverse_permute, errors::FFTError};
 
 /// Returns a `Vec` of the powers of a `2^n`th primitive root of unity in some configuration
 /// `config`. For example, in a `Natural` config this would yield: w^0, w^1, w^2...
@@ -38,9 +38,7 @@ pub fn get_powers_of_primitive_root<F: IsFFTField>(
         config,
         RootsConfig::BitReverse | RootsConfig::BitReverseInversed
     ) {
-        let mut reversed = Vec::with_capacity(count);
-        reversed.extend((0..count).map(|i| results[reverse_index(&i, count as u64)].clone()));
-        results = reversed;
+        in_place_bit_reverse_permute(&mut results);
     }
 
     Ok(results)
