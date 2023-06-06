@@ -13,11 +13,11 @@ use super::{merkle::MerkleTree, proof::Proof};
 pub type Ecgfp5 = U64PrimeField<0xFFFF_FFFF_0000_0001_u64>;
 pub type Ecgfp5FE = FieldElement<Ecgfp5>;
 
-pub type TestMerkleTreeEcgfp = MerkleTree<Ecgfp5>;
+pub type TestMerkleTreeEcgfp = MerkleTree;
 
-pub type TestMerkleTreeBls12381 = MerkleTree<BLS12381PrimeField>;
+pub type TestMerkleTreeBls12381 = MerkleTree;
 
-pub type TestProofEcgfp5 = Proof<Ecgfp5>;
+pub type TestProofEcgfp5 = Proof;
 
 #[derive(Debug, Clone)]
 

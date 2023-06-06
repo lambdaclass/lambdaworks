@@ -22,3 +22,10 @@ where
     where
         FieldElement<F>: ByteConversion;
 }
+
+pub trait IsHasher {
+    fn hash_one(&self, bytes: &[u8]) -> [u8; 32];
+
+    fn hash_two(&self, first: &[u8], second: &[u8]) -> [u8; 32];
+}
+

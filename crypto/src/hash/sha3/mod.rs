@@ -4,7 +4,7 @@ use lambdaworks_math::{
 };
 use sha3::{Digest, Sha3_256};
 
-use super::traits::IsCryptoHash;
+use super::traits::{IsCryptoHash, IsHasher};
 pub struct Sha3Hasher;
 
 /// Sha3 Hasher used over fields
@@ -91,3 +91,24 @@ impl<F: IsField> IsCryptoHash<F> for Sha3Hasher {
         FieldElement::<F>::from_bytes_le(&result_hash).unwrap()
     }
 }
+impl IsHasher for Sha3Hasher {
+    fn hash_one(&self, input: &[u8]) -> [u8; 32]
+    {
+        let mut hasher = Sha3_256::new();
+        hasher.update(input);
+        let mut result_hash = [0_u8; 32];
+        result_hash.copy_from_slice(&hasher.finalize());
+        result_hash
+    }
+
+    fn hash_two(&self, left: &[u8], right: &[u8]) -> [u8; 32] 
+    {
+        let mut hasher = Sha3_256::new();
+        hasher.update(left);
+        hasher.update(right);
+        let mut result_hash = [0_u8; 32];
+        result_hash.copy_from_slice(&hasher.finalize());
+        result_hash
+    }
+}
+
