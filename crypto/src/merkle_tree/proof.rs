@@ -16,10 +16,11 @@ pub struct Proof<T: PartialEq + Eq> {
 }
 
 impl<T: PartialEq + Eq> Proof<T> {
-    pub fn verify<H, L>(&self, root_hash: &T, mut index: usize, value: &L, hasher: &H) -> bool
+    pub fn verify<B>(&self, root_hash: &B::Node, mut index: usize, value: &B::Data) -> bool
     where
-        H: IsMerkleTreeBackend<Node = T, Data = L>,
+        B: IsMerkleTreeBackend<Node = T>,
     {
+        let hasher = B::default();
         let mut hashed_value = hasher.hash_data(value);
 
         for sibling_node in self.merkle_path.iter() {
@@ -73,14 +74,14 @@ mod tests {
         traits::{Deserializable, Serializable},
     };
 
-    use crate::merkle_tree::{merkle::MerkleTree, test_merkle::TestHasher};
+    use crate::merkle_tree::{merkle::MerkleTree, test_merkle::TestBackend};
 
     /// Small field useful for starks, sometimes called min i goldilocks
     /// Used in miden and winterfell
     // This field shouldn't be defined inside the merkle tree module
     pub type Ecgfp5 = U64PrimeField<0xFFFF_FFFF_0000_0001_u64>;
     pub type Ecgfp5FE = FieldElement<Ecgfp5>;
-    pub type TestMerkleTreeEcgfp = MerkleTree<Ecgfp5FE>;
+    pub type TestMerkleTreeEcgfp = MerkleTree<TestBackend<Ecgfp5>>;
     pub type TestProofEcgfp5 = Proof<Ecgfp5FE>;
 
     const MODULUS: u64 = 13;
@@ -116,32 +117,31 @@ mod tests {
     fn create_a_proof_over_value_that_belongs_to_a_given_merkle_tree_when_given_the_leaf_position()
     {
         let values: Vec<FE> = (1..6).map(FE::new).collect();
-        let merkle_tree = MerkleTree::<FE>::build(&values, TestHasher::new());
+        let merkle_tree = MerkleTree::<TestBackend<U64PF>>::build(&values);
         let proof = &merkle_tree.get_proof_by_pos(1).unwrap();
         assert_merkle_path(&proof.merkle_path, &[FE::new(2), FE::new(1), FE::new(1)]);
-        assert!(proof.verify(&merkle_tree.root, 1, &FE::new(2), &TestHasher::new()));
+        assert!(proof.verify::<TestBackend<U64PF>>(&merkle_tree.root, 1, &FE::new(2)));
     }
 
     #[test]
     fn merkle_proof_verifies_after_serialization_and_deserialization() {
         let values: Vec<Ecgfp5FE> = (1..6).map(Ecgfp5FE::new).collect();
-        let merkle_tree = TestMerkleTreeEcgfp::build(&values, TestHasher::new());
+        let merkle_tree = TestMerkleTreeEcgfp::build(&values);
         let proof = merkle_tree.get_proof_by_pos(1).unwrap();
         let serialize_proof = proof.serialize();
         let proof: TestProofEcgfp5 = Proof::deserialize(&serialize_proof).unwrap();
-        assert!(proof.verify(&merkle_tree.root, 1, &Ecgfp5FE::new(2), &TestHasher::new()));
+        assert!(proof.verify::<TestBackend<Ecgfp5>>(&merkle_tree.root, 1, &Ecgfp5FE::new(2)));
     }
 
     #[test]
     fn create_a_merkle_tree_with_10000_elements_and_verify_that_an_element_is_part_of_it() {
         let values: Vec<Ecgfp5FE> = (1..10000).map(Ecgfp5FE::new).collect();
-        let merkle_tree = TestMerkleTreeEcgfp::build(&values, TestHasher::new());
+        let merkle_tree = TestMerkleTreeEcgfp::build(&values);
         let proof = merkle_tree.get_proof_by_pos(9349).unwrap();
-        assert!(proof.verify(
+        assert!(proof.verify::<TestBackend<Ecgfp5>>(
             &merkle_tree.root,
             9349,
-            &Ecgfp5FE::new(9350),
-            &TestHasher::new()
+            &Ecgfp5FE::new(9350)
         ));
     }
 

@@ -11,19 +11,19 @@ pub type TestMerkleTree<F> = MerkleTree<FieldElement<F>>;
 /// This hasher is for testing purposes
 /// It adds the fields
 /// Under no circunstance it can be used in production
-pub struct TestHasher<F> {
+pub struct TestBackend<F> {
     phantom: PhantomData<F>,
 }
 
-impl<F: IsField> TestHasher<F> {
-    pub const fn new() -> Self {
+impl<F: IsField> Default for TestBackend<F> {
+    fn default() -> Self {
         Self {
-            phantom: PhantomData,
+            phantom: Default::default(),
         }
     }
 }
 
-impl<F: IsField> IsMerkleTreeBackend for TestHasher<F> {
+impl<F: IsField> IsMerkleTreeBackend for TestBackend<F> {
     type Node = FieldElement<F>;
     type Data = FieldElement<F>;
 

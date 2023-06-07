@@ -28,13 +28,13 @@ pub fn is_power_of_two(x: usize) -> bool {
     (x != 0) && ((x & (x - 1)) == 0)
 }
 
-pub fn build<H: IsMerkleTreeBackend>(
-    nodes: &mut Vec<H::Node>,
+pub fn build<B: IsMerkleTreeBackend>(
+    nodes: &mut Vec<B::Node>,
     parent_index: usize,
-    hasher: &H,
-) -> Vec<H::Node>
+    hasher: &B,
+) -> Vec<B::Node>
 where
-    H::Node: Clone,
+    B::Node: Clone,
 {
     if is_leaf(nodes.len(), parent_index) {
         return nodes.to_vec();
@@ -67,7 +67,7 @@ pub fn right_child_index(parent_index: usize) -> usize {
 mod tests {
     use lambdaworks_math::field::{element::FieldElement, fields::u64_prime_field::U64PrimeField};
 
-    use crate::merkle_tree::{test_merkle::TestHasher, traits::IsMerkleTreeBackend};
+    use crate::merkle_tree::{test_merkle::TestBackend, traits::IsMerkleTreeBackend};
 
     use super::{build, complete_until_power_of_two};
 
@@ -78,7 +78,7 @@ mod tests {
     // expected |2|4|6|8|
     fn hash_leaves_from_a_list_of_field_elemnts() {
         let values: Vec<FE> = (1..5).map(FE::new).collect();
-        let hasher = TestHasher::new();
+        let hasher = TestBackend::default();
         let hashed_leaves = hasher.hash_leaves(&values);
         let list_of_nodes = &[FE::new(2), FE::new(4), FE::new(6), FE::new(8)];
         for (leaf, expected_leaf) in hashed_leaves.iter().zip(list_of_nodes) {
@@ -110,7 +110,8 @@ mod tests {
         let mut nodes = vec![FE::zero(); leaves.len() - 1];
         nodes.extend(leaves);
 
-        let tree = build(&mut nodes, ROOT, &TestHasher::new());
+        let hasher = TestBackend::default();
+        let tree = build::<TestBackend<U64PF>>(&mut nodes, ROOT, &hasher);
         assert_eq!(tree[ROOT], FE::new(10));
     }
 }

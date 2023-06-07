@@ -1,6 +1,7 @@
+
 /// Interface to Collision Resistant Hashes.
-pub trait IsMerkleTreeBackend {
-    type Node;
+pub trait IsMerkleTreeBackend: Default {
+    type Node: PartialEq + Eq + Clone + Default;
     type Data;
 
     fn hash_data(&self, leaf: &Self::Data) -> Self::Node;
