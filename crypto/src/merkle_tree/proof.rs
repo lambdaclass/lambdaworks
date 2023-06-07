@@ -1,8 +1,9 @@
-use crate::hash::traits::IsMerkleTreeBackend;
 use lambdaworks_math::{
     elliptic_curve::short_weierstrass::errors::DeserializationError,
     traits::{Deserializable, Serializable},
 };
+
+use super::traits::IsMerkleTreeBackend;
 
 /// Stores a merkle path to some leaf.
 /// Internally, the necessary hashes are stored from root to leaf in the

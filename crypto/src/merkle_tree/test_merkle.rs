@@ -2,9 +2,7 @@ use std::marker::PhantomData;
 
 use lambdaworks_math::field::{element::FieldElement, traits::IsField};
 
-use crate::hash::traits::IsMerkleTreeBackend;
-
-use super::merkle::MerkleTree;
+use super::{merkle::MerkleTree, traits::IsMerkleTreeBackend};
 
 pub type TestMerkleTree<F> = MerkleTree<FieldElement<F>>;
 

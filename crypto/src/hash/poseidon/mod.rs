@@ -1,3 +1,5 @@
+use crate::merkle_tree::traits::IsMerkleTreeBackend;
+
 /// Poseidon implementation for curve BLS12381
 use self::parameters::Parameters;
 
@@ -6,8 +8,6 @@ use lambdaworks_math::{
     field::{element::FieldElement, traits::IsField},
 };
 use std::ops::{Add, Mul};
-
-use super::traits::IsMerkleTreeBackend;
 
 mod parameters;
 
