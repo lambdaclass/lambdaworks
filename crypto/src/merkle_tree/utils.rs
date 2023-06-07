@@ -49,8 +49,7 @@ pub fn build<F: IsField>(
     nodes: &mut Vec<FieldElement<F>>,
     parent_index: usize,
     hasher: &dyn IsCryptoHash<F>,
-)
-where
+) where
     FieldElement<F>: ByteConversion,
 {
     if is_leaf(nodes.len(), parent_index) {

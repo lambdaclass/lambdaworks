@@ -1,8 +1,5 @@
 use core::hint::black_box;
-use lambdaworks_crypto::{
-    merkle_tree::merkle::MerkleTree,
-    hash::sha3::Sha3Hasher,
-};
+use lambdaworks_crypto::{hash::sha3::Sha3Hasher, merkle_tree::merkle::MerkleTree};
 use lambdaworks_math::{
     field::element::FieldElement,
     field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
@@ -20,7 +17,6 @@ fn build_unhashed_leaves() -> Vec<FE> {
         .collect()
 }
 
-
 #[inline(never)]
 #[export_name = "util::build_hasher"]
 fn build_hasher() -> Box<Sha3Hasher> {
@@ -31,7 +27,10 @@ fn build_hasher() -> Box<Sha3Hasher> {
 fn merkle_tree_build_benchmark() {
     let unhashed_leaves = build_unhashed_leaves();
     let hasher = build_hasher();
-    let result = black_box(MerkleTree::build(black_box(&unhashed_leaves), black_box(hasher)));
+    let result = black_box(MerkleTree::build(
+        black_box(&unhashed_leaves),
+        black_box(hasher),
+    ));
     // Let's not count `drop` in our timings.
     core::mem::drop(result);
 }

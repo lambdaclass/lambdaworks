@@ -1,10 +1,7 @@
 use core::hint::black_box;
 use core::time::Duration;
 use criterion::{criterion_group, criterion_main, Criterion};
-use lambdaworks_crypto::{
-    merkle_tree::merkle::MerkleTree,
-    hash::sha3::Sha3Hasher,
-};
+use lambdaworks_crypto::{hash::sha3::Sha3Hasher, merkle_tree::merkle::MerkleTree};
 use lambdaworks_math::{
     field::element::FieldElement,
     field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
@@ -23,12 +20,16 @@ fn merkle_tree_benchmarks(c: &mut Criterion) {
         .take((1 << 20) + 1)
         .collect();
 
-    group.bench_with_input("build", unhashed_leaves.as_slice(), |bench, unhashed_leaves| {
-        bench.iter_with_large_drop(|| {
-            let hasher = Box::new(Sha3Hasher::new());
-            MerkleTree::build(unhashed_leaves, black_box(hasher))
-        });
-    });
+    group.bench_with_input(
+        "build",
+        unhashed_leaves.as_slice(),
+        |bench, unhashed_leaves| {
+            bench.iter_with_large_drop(|| {
+                let hasher = Box::new(Sha3Hasher::new());
+                MerkleTree::build(unhashed_leaves, black_box(hasher))
+            });
+        },
+    );
 }
 
 criterion_group!(merkle_tree, merkle_tree_benchmarks);
