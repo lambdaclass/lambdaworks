@@ -138,11 +138,7 @@ mod tests {
         let values: Vec<Ecgfp5FE> = (1..10000).map(Ecgfp5FE::new).collect();
         let merkle_tree = TestMerkleTreeEcgfp::build(&values);
         let proof = merkle_tree.get_proof_by_pos(9349).unwrap();
-        assert!(proof.verify::<TestBackend<Ecgfp5>>(
-            &merkle_tree.root,
-            9349,
-            &Ecgfp5FE::new(9350)
-        ));
+        assert!(proof.verify::<TestBackend<Ecgfp5>>(&merkle_tree.root, 9349, &Ecgfp5FE::new(9350)));
     }
 
     fn assert_merkle_path(values: &[FE], expected_values: &[FE]) {

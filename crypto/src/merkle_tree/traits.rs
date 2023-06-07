@@ -1,4 +1,3 @@
-
 /// Interface to Collision Resistant Hashes.
 pub trait IsMerkleTreeBackend: Default {
     type Node: PartialEq + Eq + Clone + Default;

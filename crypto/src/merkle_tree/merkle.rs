@@ -18,10 +18,9 @@ const ROOT: usize = 0;
 
 impl<B> MerkleTree<B>
 where
-    B: IsMerkleTreeBackend
+    B: IsMerkleTreeBackend,
 {
-    pub fn build(unhashed_leaves: &[B::Data]) -> Self
-    {
+    pub fn build(unhashed_leaves: &[B::Data]) -> Self {
         let hasher = B::default();
         let mut hashed_leaves: Vec<B::Node> = hasher.hash_leaves(unhashed_leaves);
 
