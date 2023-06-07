@@ -1,6 +1,7 @@
 use const_random::const_random;
 use core::hint::black_box;
 use criterion::{criterion_group, criterion_main, Criterion};
+use lambdaworks_math::polynomial::Polynomial;
 use util::{rand_field_elements, rand_poly, FE};
 
 mod util;
@@ -50,6 +51,29 @@ pub fn polynomial_benchmarks(c: &mut Criterion) {
         bench.iter_batched(
             || (x_poly.clone(), y_poly.clone()),
             |(x_poly, y_poly)| black_box(x_poly) / black_box(y_poly),
+            criterion::BatchSize::SmallInput,
+        );
+    });
+
+    group.bench_function("div by 'x - b' with generic div", |bench| {
+        let poly = rand_poly(order);
+        let m = Polynomial::new_monomial(FE::one(), 1) - rand_field_elements(1)[0];
+        bench.iter_batched(
+            || (poly.clone(), m.clone()),
+            |(poly, m)| poly / m,
+            criterion::BatchSize::SmallInput,
+        );
+    });
+
+    group.bench_function("div by 'x - b' with Ruffini", |bench| {
+        let poly = rand_poly(order);
+        let b = rand_field_elements(1)[0];
+        bench.iter_batched(
+            || (poly.clone(), b),
+            |(mut poly, b)| {
+                poly.ruffini_division_inplace(&b);
+                poly
+            },
             criterion::BatchSize::SmallInput,
         );
     });

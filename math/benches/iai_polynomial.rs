@@ -54,6 +54,14 @@ fn poly_div_benchmarks() {
     let _ = black_box(black_box(x_poly) / black_box(y_poly));
 }
 
+#[inline(never)]
+fn poly_div_ruffini_benchmarks() {
+    let mut x_poly = util::rand_poly(ORDER);
+    let b = util::rand_field_elements(1)[0];
+    black_box(&mut x_poly).ruffini_division_inplace(black_box(&b));
+    let _ = black_box(x_poly);
+}
+
 iai_callgrind::main!(
     callgrind_args = "toggle-collect=util::*";
     functions = poly_evaluate_benchmarks,
@@ -62,5 +70,6 @@ iai_callgrind::main!(
     poly_neg_benchmarks,
     poly_sub_benchmarks,
     poly_mul_benchmarks,
-    poly_div_benchmarks
+    poly_div_benchmarks,
+    poly_div_ruffini_benchmarks,
 );
