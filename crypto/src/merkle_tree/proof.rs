@@ -1,7 +1,7 @@
-use crate::hash::traits::IsHasher;
+use crate::hash::traits::IsMerkleTreeBackend;
 use lambdaworks_math::{
-    errors::ByteConversionError,
-    traits::ByteConversion,
+    elliptic_curve::short_weierstrass::errors::DeserializationError,
+    traits::{Deserializable, Serializable},
 };
 
 /// Stores a merkle path to some leaf.
@@ -17,15 +17,15 @@ pub struct Proof<T: PartialEq + Eq> {
 impl<T: PartialEq + Eq> Proof<T> {
     pub fn verify<H, L>(&self, root_hash: &T, mut index: usize, value: &L, hasher: &H) -> bool
     where
-        H: IsHasher<Type = T, UnHashedLeaf = L>,
+        H: IsMerkleTreeBackend<Node = T, Data = L>,
     {
-        let mut hashed_value = hasher.hash_leaf(value);
+        let mut hashed_value = hasher.hash_data(value);
 
         for sibling_node in self.merkle_path.iter() {
             if index % 2 == 0 {
-                hashed_value = hasher.hash_two(&hashed_value, sibling_node);
+                hashed_value = hasher.hash_new_parent(&hashed_value, sibling_node);
             } else {
-                hashed_value = hasher.hash_two(sibling_node, &hashed_value);
+                hashed_value = hasher.hash_new_parent(sibling_node, &hashed_value);
             }
 
             index >>= 1;
@@ -35,58 +35,63 @@ impl<T: PartialEq + Eq> Proof<T> {
     }
 }
 
-impl<T> ByteConversion for Proof<T>
+impl<T> Serializable for Proof<T>
 where
-    T: ByteConversion + PartialEq + Eq,
+    T: Serializable + PartialEq + Eq,
 {
-    /// Returns the byte representation of the element in big-endian order.
-    fn to_bytes_be(&self) -> Vec<u8> {
+    fn serialize(&self) -> Vec<u8> {
         self.merkle_path
             .iter()
-            .map(|node| node.to_bytes_be())
-            .flatten()
+            .flat_map(|node| node.serialize())
             .collect()
-    }
-
-    /// Returns the byte representation of the element in little-endian order.
-    fn to_bytes_le(&self) -> Vec<u8> {
-        todo!()
-    }
-
-    /// Returns the element from its byte representation in big-endian order.
-    fn from_bytes_be(bytes: &[u8]) -> Result<Self, ByteConversionError> {
-        todo!()
-    }
-
-    /// Returns the element from its byte representation in little-endian order.
-    fn from_bytes_le(bytes: &[u8]) -> Result<Self, ByteConversionError> {
-        todo!()
     }
 }
 
+impl<T> Deserializable for Proof<T>
+where
+    T: Deserializable + PartialEq + Eq,
+{
+    fn deserialize(bytes: &[u8]) -> Result<Self, DeserializationError>
+    where
+        Self: Sized,
+    {
+        let mut merkle_path = Vec::new();
+        for elem in bytes[0..].chunks(8) {
+            let node = T::deserialize(elem)?;
+            merkle_path.push(node);
+        }
+        Ok(Self { merkle_path })
+    }
+}
 #[cfg(test)]
 mod tests {
 
-    use lambdaworks_math::traits::ByteConversion;
-
-    use crate::merkle_tree::{
-        merkle::MerkleTree,
-        proof::Proof,
-        // test_merkle::{Ecgfp5FE, TestHasher, TestMerkleTreeEcgfp, TestProofEcgfp5},
+    use super::Proof;
+    use lambdaworks_math::{
+        field::{element::FieldElement, fields::u64_prime_field::U64PrimeField},
+        traits::{Deserializable, Serializable},
     };
 
-    use lambdaworks_math::field::{element::FieldElement, fields::u64_prime_field::U64PrimeField};
+    use crate::merkle_tree::{merkle::MerkleTree, test_merkle::TestHasher};
+
+    /// Small field useful for starks, sometimes called min i goldilocks
+    /// Used in miden and winterfell
+    // This field shouldn't be defined inside the merkle tree module
+    pub type Ecgfp5 = U64PrimeField<0xFFFF_FFFF_0000_0001_u64>;
+    pub type Ecgfp5FE = FieldElement<Ecgfp5>;
+    pub type TestMerkleTreeEcgfp = MerkleTree<Ecgfp5FE>;
+    pub type TestProofEcgfp5 = Proof<Ecgfp5FE>;
 
     const MODULUS: u64 = 13;
     type U64PF = U64PrimeField<MODULUS>;
     type FE = FieldElement<U64PF>;
-    /*
+
     #[test]
     fn serialize_proof_and_deserialize_using_be_it_get_a_consistent_proof() {
         let merkle_path = [Ecgfp5FE::new(2), Ecgfp5FE::new(1), Ecgfp5FE::new(1)].to_vec();
         let original_proof = TestProofEcgfp5 { merkle_path };
-        let serialize_proof = original_proof.to_bytes_be();
-        let proof: TestProofEcgfp5 = Proof::from_bytes_be(&serialize_proof).unwrap();
+        let serialize_proof = original_proof.serialize();
+        let proof: TestProofEcgfp5 = Proof::deserialize(&serialize_proof).unwrap();
 
         for (o_node, node) in original_proof.merkle_path.iter().zip(proof.merkle_path) {
             assert_eq!(*o_node, node);
@@ -97,8 +102,8 @@ mod tests {
     fn serialize_proof_and_deserialize_using_le_it_get_a_consistent_proof() {
         let merkle_path = [Ecgfp5FE::new(2), Ecgfp5FE::new(1), Ecgfp5FE::new(1)].to_vec();
         let original_proof = TestProofEcgfp5 { merkle_path };
-        let serialize_proof = original_proof.to_bytes_le();
-        let proof: TestProofEcgfp5 = Proof::from_bytes_le(&serialize_proof).unwrap();
+        let serialize_proof = original_proof.serialize();
+        let proof: TestProofEcgfp5 = Proof::deserialize(&serialize_proof).unwrap();
 
         for (o_node, node) in original_proof.merkle_path.iter().zip(proof.merkle_path) {
             assert_eq!(*o_node, node);
@@ -110,7 +115,7 @@ mod tests {
     fn create_a_proof_over_value_that_belongs_to_a_given_merkle_tree_when_given_the_leaf_position()
     {
         let values: Vec<FE> = (1..6).map(FE::new).collect();
-        let merkle_tree = MerkleTree::<U64PF>::build(&values, Box::new(TestHasher::new()));
+        let merkle_tree = MerkleTree::<FE>::build(&values, TestHasher::new());
         let proof = &merkle_tree.get_proof_by_pos(1).unwrap();
         assert_merkle_path(&proof.merkle_path, &[FE::new(2), FE::new(1), FE::new(1)]);
         assert!(proof.verify(&merkle_tree.root, 1, &FE::new(2), &TestHasher::new()));
@@ -119,17 +124,17 @@ mod tests {
     #[test]
     fn merkle_proof_verifies_after_serialization_and_deserialization() {
         let values: Vec<Ecgfp5FE> = (1..6).map(Ecgfp5FE::new).collect();
-        let merkle_tree = TestMerkleTreeEcgfp::build(&values, Box::new(TestHasher::new()));
+        let merkle_tree = TestMerkleTreeEcgfp::build(&values, TestHasher::new());
         let proof = merkle_tree.get_proof_by_pos(1).unwrap();
-        let serialize_proof = proof.to_bytes_be();
-        let proof: TestProofEcgfp5 = Proof::from_bytes_be(&serialize_proof).unwrap();
+        let serialize_proof = proof.serialize();
+        let proof: TestProofEcgfp5 = Proof::deserialize(&serialize_proof).unwrap();
         assert!(proof.verify(&merkle_tree.root, 1, &Ecgfp5FE::new(2), &TestHasher::new()));
     }
 
     #[test]
     fn create_a_merkle_tree_with_10000_elements_and_verify_that_an_element_is_part_of_it() {
         let values: Vec<Ecgfp5FE> = (1..10000).map(Ecgfp5FE::new).collect();
-        let merkle_tree = TestMerkleTreeEcgfp::build(&values, Box::new(TestHasher::new()));
+        let merkle_tree = TestMerkleTreeEcgfp::build(&values, TestHasher::new());
         let proof = merkle_tree.get_proof_by_pos(9349).unwrap();
         assert!(proof.verify(
             &merkle_tree.root,
@@ -144,5 +149,4 @@ mod tests {
             assert_eq!(node, expected_node);
         }
     }
-    */
 }

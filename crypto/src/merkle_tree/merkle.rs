@@ -1,4 +1,4 @@
-use crate::hash::traits::{IsHasher};
+use crate::hash::traits::IsMerkleTreeBackend;
 
 use super::{proof::Proof, utils::*};
 
@@ -14,9 +14,9 @@ impl<T> MerkleTree<T>
 where
     T: Clone + Default + PartialEq + Eq,
 {
-    pub fn build<H>(unhashed_leaves: &[H::UnHashedLeaf], hasher: H) -> Self
+    pub fn build<H>(unhashed_leaves: &[H::Data], hasher: H) -> Self
     where
-        H: IsHasher<Type = T>,
+        H: IsMerkleTreeBackend<Node = T>,
     {
         let mut hashed_leaves: Vec<T> = hasher.hash_leaves(unhashed_leaves);
 
@@ -65,19 +65,18 @@ mod tests {
 
     // use crate::merkle_tree::test_merkle::TestHasher;
 
-    use super::*;
-
     use lambdaworks_math::field::{element::FieldElement, fields::u64_prime_field::U64PrimeField};
+
+    use crate::merkle_tree::{merkle::MerkleTree, test_merkle::TestHasher};
 
     const MODULUS: u64 = 13;
     type U64PF = U64PrimeField<MODULUS>;
     type FE = FieldElement<U64PF>;
-    /*
     #[test]
     // expected | 10 | 3 | 7 | 1 | 2 | 3 | 4 |
     fn build_merkle_tree_from_a_power_of_two_list_of_values() {
         let values: Vec<FE> = (1..5).map(FE::new).collect();
-        let merkle_tree = MerkleTree::<U64PF>::build(&values, Box::new(TestHasher::new()));
+        let merkle_tree = MerkleTree::<FieldElement<U64PF>>::build(&values, TestHasher::new());
         assert_eq!(merkle_tree.root, FE::new(20));
     }
 
@@ -85,8 +84,7 @@ mod tests {
     // expected | 8 | 7 | 1 | 6 | 1 | 7 | 7 | 2 | 4 | 6 | 8 | 10 | 10 | 10 | 10 |
     fn build_merkle_tree_from_an_odd_set_of_leaves() {
         let values: Vec<FE> = (1..6).map(FE::new).collect();
-        let merkle_tree = MerkleTree::<U64PF>::build(&values, Box::new(TestHasher::new()));
+        let merkle_tree = MerkleTree::<FieldElement<U64PF>>::build(&values, TestHasher::new());
         assert_eq!(merkle_tree.root, FE::new(8));
     }
-    */
 }

@@ -7,7 +7,7 @@ use lambdaworks_math::{
 };
 use std::ops::{Add, Mul};
 
-use super::traits::IsHasher;
+use super::traits::IsMerkleTreeBackend;
 
 mod parameters;
 
@@ -30,11 +30,11 @@ impl Default for Poseidon<BLS12381PrimeField> {
     }
 }
 
-impl IsHasher for Poseidon<BLS12381PrimeField> {
-    type Type = FieldElement<BLS12381PrimeField>;
-    type UnHashedLeaf = Self::Type;
+impl IsMerkleTreeBackend for Poseidon<BLS12381PrimeField> {
+    type Node = FieldElement<BLS12381PrimeField>;
+    type Data = Self::Node;
 
-    fn hash_leaf(
+    fn hash_data(
         &self,
         input: &FieldElement<BLS12381PrimeField>,
     ) -> FieldElement<BLS12381PrimeField> {
@@ -47,7 +47,7 @@ impl IsHasher for Poseidon<BLS12381PrimeField> {
             .clone()
     }
 
-    fn hash_two(
+    fn hash_new_parent(
         &self,
         left: &FieldElement<BLS12381PrimeField>,
         right: &FieldElement<BLS12381PrimeField>,
@@ -279,7 +279,7 @@ mod tests {
         let b = FieldElement::zero();
 
         // poseidon.hash_one(&a);
-        poseidon.hash_two(&a, &b);
+        poseidon.hash_new_parent(&a, &b);
     }
 
     #[test]

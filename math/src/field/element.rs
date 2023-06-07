@@ -333,6 +333,15 @@ where
     }
 }
 
+impl<F> Default for FieldElement<F>
+where
+    F: IsField,
+{
+    fn default() -> Self {
+        Self { value: F::zero() }
+    }
+}
+
 /// FieldElement general implementation
 /// Most of this is delegated to the trait `F` that
 /// implements the field operations.

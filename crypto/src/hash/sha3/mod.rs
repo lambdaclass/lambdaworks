@@ -6,7 +6,7 @@ use lambdaworks_math::{
 };
 use sha3::{Digest, Sha3_256};
 
-use super::traits::IsHasher;
+use super::traits::IsMerkleTreeBackend;
 pub struct Sha3Hasher;
 
 /// Sha3 Hasher used over fields
@@ -74,22 +74,23 @@ pub struct FieldElementSha3Hasher<F> {
     phantom: PhantomData<F>,
 }
 
-impl<F> FieldElementSha3Hasher<F> {
-    pub fn new() -> Self {
-        Self{ phantom: PhantomData}
+impl<F> Default for FieldElementSha3Hasher<F> {
+    fn default() -> Self {
+        Self {
+            phantom: PhantomData,
+        }
     }
 }
 
-impl<F> IsHasher for FieldElementSha3Hasher<F>
+impl<F> IsMerkleTreeBackend for FieldElementSha3Hasher<F>
 where
     F: IsField,
     FieldElement<F>: ByteConversion,
 {
-    type Type = [u8; 32];
+    type Node = [u8; 32];
+    type Data = FieldElement<F>;
 
-    type UnHashedLeaf = FieldElement<F>;
-
-    fn hash_leaf(&self, input: &FieldElement<F>) -> [u8; 32] {
+    fn hash_data(&self, input: &FieldElement<F>) -> [u8; 32] {
         let mut hasher = Sha3_256::new();
         hasher.update(input.to_bytes_be());
         let mut result_hash = [0_u8; 32];
@@ -97,7 +98,7 @@ where
         result_hash
     }
 
-    fn hash_two(&self, left: &[u8; 32], right: &[u8; 32]) -> [u8; 32] {
+    fn hash_new_parent(&self, left: &[u8; 32], right: &[u8; 32]) -> [u8; 32] {
         let mut hasher = Sha3_256::new();
         hasher.update(left);
         hasher.update(right);
