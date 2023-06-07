@@ -32,11 +32,11 @@ impl<F: IsField> MerkleTree<F> {
         inner_nodes.extend(hashed_leaves);
 
         //Build the inner nodes of the tree
-        let nodes = build(&mut inner_nodes, ROOT, hasher.as_ref());
+        build(&mut inner_nodes, ROOT, hasher.as_ref());
 
         MerkleTree {
-            root: nodes[ROOT].clone(),
-            nodes,
+            root: inner_nodes[ROOT].clone(),
+            nodes: inner_nodes,
         }
     }
 
