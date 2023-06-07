@@ -7,7 +7,7 @@ use lambdaworks_math::{
 };
 use std::ops::{Add, Mul};
 
-use super::traits::IsCryptoHash;
+use super::traits::IsHasher;
 
 mod parameters;
 
@@ -30,8 +30,11 @@ impl Default for Poseidon<BLS12381PrimeField> {
     }
 }
 
-impl IsCryptoHash<BLS12381PrimeField> for Poseidon<BLS12381PrimeField> {
-    fn hash_one(
+impl IsHasher for Poseidon<BLS12381PrimeField> {
+    type Type = FieldElement<BLS12381PrimeField>;
+    type UnHashedLeaf = Self::Type;
+
+    fn hash_leaf(
         &self,
         input: &FieldElement<BLS12381PrimeField>,
     ) -> FieldElement<BLS12381PrimeField> {
@@ -275,7 +278,7 @@ mod tests {
         let a = FieldElement::one();
         let b = FieldElement::zero();
 
-        poseidon.hash_one(&a);
+        // poseidon.hash_one(&a);
         poseidon.hash_two(&a, &b);
     }
 

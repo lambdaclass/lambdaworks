@@ -1,10 +1,12 @@
+use std::marker::PhantomData;
+
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsField},
     traits::ByteConversion,
 };
 use sha3::{Digest, Sha3_256};
 
-use super::traits::{IsCryptoHash, IsHasher};
+use super::traits::IsHasher;
 pub struct Sha3Hasher;
 
 /// Sha3 Hasher used over fields
@@ -67,42 +69,35 @@ impl Sha3Hasher {
         a.iter().zip(b).map(|(a, b)| a ^ b).collect()
     }
 }
-impl<F: IsField> IsCryptoHash<F> for Sha3Hasher {
-    fn hash_one(&self, input: &FieldElement<F>) -> FieldElement<F>
-    where
-        FieldElement<F>: ByteConversion,
-    {
-        let mut hasher = Sha3_256::new();
-        hasher.update(input.to_bytes_be());
-        let mut result_hash = [0_u8; 32];
-        result_hash.copy_from_slice(&hasher.finalize());
-        FieldElement::<F>::from_bytes_le(&result_hash).unwrap()
-    }
 
-    fn hash_two(&self, left: &FieldElement<F>, right: &FieldElement<F>) -> FieldElement<F>
-    where
-        FieldElement<F>: ByteConversion,
-    {
-        let mut hasher = Sha3_256::new();
-        hasher.update(left.to_bytes_be());
-        hasher.update(right.to_bytes_be());
-        let mut result_hash = [0_u8; 32];
-        result_hash.copy_from_slice(&hasher.finalize());
-        FieldElement::<F>::from_bytes_le(&result_hash).unwrap()
+pub struct FieldElementSha3Hasher<F> {
+    phantom: PhantomData<F>,
+}
+
+impl<F> FieldElementSha3Hasher<F> {
+    pub fn new() -> Self {
+        Self{ phantom: PhantomData}
     }
 }
-impl IsHasher for Sha3Hasher {
-    fn hash_one(&self, input: &[u8]) -> [u8; 32]
-    {
+
+impl<F> IsHasher for FieldElementSha3Hasher<F>
+where
+    F: IsField,
+    FieldElement<F>: ByteConversion,
+{
+    type Type = [u8; 32];
+
+    type UnHashedLeaf = FieldElement<F>;
+
+    fn hash_leaf(&self, input: &FieldElement<F>) -> [u8; 32] {
         let mut hasher = Sha3_256::new();
-        hasher.update(input);
+        hasher.update(input.to_bytes_be());
         let mut result_hash = [0_u8; 32];
         result_hash.copy_from_slice(&hasher.finalize());
         result_hash
     }
 
-    fn hash_two(&self, left: &[u8], right: &[u8]) -> [u8; 32] 
-    {
+    fn hash_two(&self, left: &[u8; 32], right: &[u8; 32]) -> [u8; 32] {
         let mut hasher = Sha3_256::new();
         hasher.update(left);
         hasher.update(right);
@@ -111,4 +106,3 @@ impl IsHasher for Sha3Hasher {
         result_hash
     }
 }
-

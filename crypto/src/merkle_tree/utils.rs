@@ -3,15 +3,14 @@ use lambdaworks_math::{
     traits::ByteConversion,
 };
 
-use crate::hash::traits::{IsCryptoHash, IsHasher};
+use crate::hash::traits::IsHasher;
 
-pub fn hash_leaves(
-    values: &[impl ByteConversion],
-    hasher: &impl IsHasher,
-) -> Vec<[u8; 32]>
-{
-    values.iter().map(|val| hasher.hash_one(&val.to_bytes_be())).collect()
-}
+// pub fn hash_leaves<H: IsHasher>(values: &[H::Type], hasher: &H) -> Vec<H::Type> {
+//     values
+//         .iter()
+//         .map(|val| hasher.hash_leaf(&val))
+//         .collect()
+// }
 
 pub fn sibling_index(node_index: usize) -> usize {
     if node_index % 2 == 0 {
@@ -30,9 +29,7 @@ pub fn parent_index(node_index: usize) -> usize {
 }
 
 // The list of values is completed repeating the last value to a power of two length
-pub fn complete_until_power_of_two(
-    values: &mut Vec<[u8; 32]>,
-) -> Vec<[u8; 32]> {
+pub fn complete_until_power_of_two<O: Clone>(values: &mut Vec<O>) -> Vec<O> {
     while !is_power_of_two(values.len()) {
         values.push(values[values.len() - 1].clone())
     }
@@ -43,12 +40,11 @@ pub fn is_power_of_two(x: usize) -> bool {
     (x != 0) && ((x & (x - 1)) == 0)
 }
 
-pub fn build(
-    nodes: &mut Vec<[u8; 32]>,
+pub fn build<H: IsHasher>(
+    nodes: &mut Vec<H::Type>,
     parent_index: usize,
-    hasher: &impl IsHasher
-) -> Vec<[u8; 32]>
-{
+    hasher: &H,
+) -> Vec<H::Type> where H::Type: Clone {
     if is_leaf(nodes.len(), parent_index) {
         return nodes.to_vec();
     }
@@ -79,14 +75,14 @@ pub fn right_child_index(parent_index: usize) -> usize {
 mod tests {
     use lambdaworks_math::field::{element::FieldElement, fields::u64_prime_field::U64PrimeField};
 
-    use crate::merkle_tree::test_merkle::TestHasher;
+    // use crate::merkle_tree::test_merkle::TestHasher;
 
-    use super::{build, complete_until_power_of_two, hash_leaves};
+    use super::{build, complete_until_power_of_two};
 
     const MODULUS: u64 = 13;
     type U64PF = U64PrimeField<MODULUS>;
     type FE = FieldElement<U64PF>;
-/*
+    /*
     #[test]
     // expected |2|4|6|8|
     fn hash_leaves_from_a_list_of_field_elemnts() {

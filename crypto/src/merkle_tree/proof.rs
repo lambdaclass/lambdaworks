@@ -1,7 +1,6 @@
-use crate::hash::traits::{IsCryptoHash, IsHasher};
+use crate::hash::traits::IsHasher;
 use lambdaworks_math::{
     errors::ByteConversionError,
-    field::{element::FieldElement, traits::IsField},
     traits::ByteConversion,
 };
 
@@ -11,20 +10,16 @@ use lambdaworks_math::{
 /// `i`-th element of `merkle_path` is the sibling node in the `n - 1 - i`-th check
 /// when verifying.
 #[derive(Debug, Clone)]
-pub struct Proof {
-    pub merkle_path: Vec<[u8; 32]>,
+pub struct Proof<T: PartialEq + Eq> {
+    pub merkle_path: Vec<T>,
 }
 
-impl Proof {
-    pub fn verify(
-        &self,
-        root_hash: &[u8; 32],
-        mut index: usize,
-        value: &[u8],
-        hasher: &impl IsHasher,
-    ) -> bool
+impl<T: PartialEq + Eq> Proof<T> {
+    pub fn verify<H, L>(&self, root_hash: &T, mut index: usize, value: &L, hasher: &H) -> bool
+    where
+        H: IsHasher<Type = T, UnHashedLeaf = L>,
     {
-        let mut hashed_value = hasher.hash_one(value);
+        let mut hashed_value = hasher.hash_leaf(value);
 
         for sibling_node in self.merkle_path.iter() {
             if index % 2 == 0 {
@@ -40,11 +35,17 @@ impl Proof {
     }
 }
 
-impl ByteConversion for Proof
+impl<T> ByteConversion for Proof<T>
+where
+    T: ByteConversion + PartialEq + Eq,
 {
     /// Returns the byte representation of the element in big-endian order.
     fn to_bytes_be(&self) -> Vec<u8> {
-        self.merkle_path.concat().to_vec()
+        self.merkle_path
+            .iter()
+            .map(|node| node.to_bytes_be())
+            .flatten()
+            .collect()
     }
 
     /// Returns the byte representation of the element in little-endian order.
@@ -71,7 +72,7 @@ mod tests {
     use crate::merkle_tree::{
         merkle::MerkleTree,
         proof::Proof,
-        test_merkle::{Ecgfp5FE, TestHasher, TestMerkleTreeEcgfp, TestProofEcgfp5},
+        // test_merkle::{Ecgfp5FE, TestHasher, TestMerkleTreeEcgfp, TestProofEcgfp5},
     };
 
     use lambdaworks_math::field::{element::FieldElement, fields::u64_prime_field::U64PrimeField};
@@ -79,7 +80,7 @@ mod tests {
     const MODULUS: u64 = 13;
     type U64PF = U64PrimeField<MODULUS>;
     type FE = FieldElement<U64PF>;
-/*
+    /*
     #[test]
     fn serialize_proof_and_deserialize_using_be_it_get_a_consistent_proof() {
         let merkle_path = [Ecgfp5FE::new(2), Ecgfp5FE::new(1), Ecgfp5FE::new(1)].to_vec();
