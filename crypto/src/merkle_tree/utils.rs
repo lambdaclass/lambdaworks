@@ -28,27 +28,22 @@ pub fn is_power_of_two(x: usize) -> bool {
     (x != 0) && ((x & (x - 1)) == 0)
 }
 
-pub fn build<B: IsMerkleTreeBackend>(
-    nodes: &mut Vec<B::Node>,
-    parent_index: usize,
-    hasher: &B,
-) -> Vec<B::Node>
+pub fn build<B: IsMerkleTreeBackend>(nodes: &mut Vec<B::Node>, parent_index: usize, hasher: &B)
 where
     B::Node: Clone,
 {
     if is_leaf(nodes.len(), parent_index) {
-        return nodes.to_vec();
+        return;
     }
 
     let left_child_index = left_child_index(parent_index);
     let right_child_index = right_child_index(parent_index);
 
-    let mut nodes = build(nodes, left_child_index, hasher);
-    nodes = build(&mut nodes, right_child_index, hasher);
+    build(nodes, left_child_index, hasher);
+    build(nodes, right_child_index, hasher);
 
     nodes[parent_index] =
         hasher.hash_new_parent(&nodes[left_child_index], &nodes[right_child_index]);
-    nodes
 }
 
 pub fn is_leaf(lenght: usize, node_index: usize) -> bool {
@@ -111,7 +106,7 @@ mod tests {
         nodes.extend(leaves);
 
         let hasher = TestBackend::default();
-        let tree = build::<TestBackend<U64PF>>(&mut nodes, ROOT, &hasher);
-        assert_eq!(tree[ROOT], FE::new(10));
+        build::<TestBackend<U64PF>>(&mut nodes, ROOT, &hasher);
+        assert_eq!(nodes[ROOT], FE::new(10));
     }
 }

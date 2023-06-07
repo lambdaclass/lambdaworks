@@ -196,8 +196,10 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
         let scaled_coefficients = self
             .coefficients
             .iter()
-            .enumerate()
-            .map(|(i, coeff)| factor.pow(i) * coeff)
+            .zip(core::iter::successors(Some(FieldElement::one()), |x| {
+                Some(x * factor)
+            }))
+            .map(|(coeff, power)| power * coeff)
             .collect();
         Self {
             coefficients: scaled_coefficients,

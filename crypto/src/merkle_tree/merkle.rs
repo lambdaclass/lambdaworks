@@ -32,11 +32,11 @@ where
         inner_nodes.extend(hashed_leaves);
 
         //Build the inner nodes of the tree
-        let nodes = build(&mut inner_nodes, ROOT, &hasher);
+        build(&mut inner_nodes, ROOT, &hasher);
 
         MerkleTree {
-            root: nodes[ROOT].clone(),
-            nodes,
+            root: inner_nodes[ROOT].clone(),
+            nodes: inner_nodes,
         }
     }
 
