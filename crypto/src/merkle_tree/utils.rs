@@ -49,22 +49,20 @@ pub fn build<F: IsField>(
     nodes: &mut Vec<FieldElement<F>>,
     parent_index: usize,
     hasher: &dyn IsCryptoHash<F>,
-) -> Vec<FieldElement<F>>
-where
+) where
     FieldElement<F>: ByteConversion,
 {
     if is_leaf(nodes.len(), parent_index) {
-        return nodes.to_vec();
+        return;
     }
 
     let left_child_index = left_child_index(parent_index);
     let right_child_index = right_child_index(parent_index);
 
-    let mut nodes = build(nodes, left_child_index, hasher);
-    nodes = build(&mut nodes, right_child_index, hasher);
+    build(nodes, left_child_index, hasher);
+    build(nodes, right_child_index, hasher);
 
     nodes[parent_index] = hasher.hash_two(&nodes[left_child_index], &nodes[right_child_index]);
-    nodes
 }
 
 pub fn is_leaf(lenght: usize, node_index: usize) -> bool {
@@ -126,7 +124,7 @@ mod tests {
         let mut nodes = vec![FE::zero(); leaves.len() - 1];
         nodes.extend(leaves);
 
-        let tree = build(&mut nodes, ROOT, &TestHasher);
-        assert_eq!(tree[ROOT], FE::new(10));
+        build(&mut nodes, ROOT, &TestHasher);
+        assert_eq!(nodes[ROOT], FE::new(10));
     }
 }
