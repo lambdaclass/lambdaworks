@@ -148,6 +148,16 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
         (pa, pb)
     }
 
+    /// Computes quotient with `x - b` in place.
+    pub fn ruffini_division_inplace(&mut self, b: &FieldElement<F>) {
+        let mut c = FieldElement::zero();
+        for coeff in self.coefficients.iter_mut().rev() {
+            *coeff = &*coeff + b * &c;
+            core::mem::swap(coeff, &mut c);
+        }
+        self.coefficients.pop();
+    }
+
     /// Computes quotient and remainder of polynomial division.
     ///
     /// Output: (quotient, remainder)
@@ -883,5 +893,21 @@ mod tests {
             compose(&p, &q),
             Polynomial::new(&[FE::new(0), FE::new(0), FE::new(2)])
         );
+    }
+
+    use proptest::prelude::*;
+    proptest! {
+        #[test]
+        fn ruffini_equals_division(p in any::<Vec<u64>>(), b in any::<u64>()) {
+            let p: Vec<_> = p.into_iter().map(FE::from).collect();
+            let mut p = Polynomial::new(&p);
+            let b = FE::from(b);
+
+            let p_ref = p.clone();
+            let m = Polynomial::new_monomial(FE::one(), 1) - b;
+
+            p.ruffini_division_inplace(&b);
+            prop_assert_eq!(p, p_ref / m);
+        }
     }
 }
