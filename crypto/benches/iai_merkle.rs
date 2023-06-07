@@ -15,10 +15,8 @@ type FE = FieldElement<Stark252PrimeField>;
 fn build_unhashed_leaves() -> Vec<FE> {
     // NOTE: the values to hash don't really matter, so let's go with the easy ones.
     core::iter::successors(Some(FE::zero()), |s| Some(s + FE::one()))
-        // `(1 << 10) + 1` exploits worst cases in terms of rounding up to powers of 2.
-        // Typical size should really be about `1 << 20`, but it currently takes too long
-        // to make a single iteration with such numbers.
-        .take((1 << 10) + 1)
+        // `(1 << 20) + 1` exploits worst cases in terms of rounding up to powers of 2.
+        .take((1 << 20) + 1)
         .collect()
 }
 
