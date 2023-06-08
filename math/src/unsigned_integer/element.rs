@@ -767,6 +767,70 @@ mod tests_u384 {
     use crate::traits::ByteConversion;
     use crate::unsigned_integer::element::{UnsignedInteger, U384};
 
+    use proptest::prelude::*;
+
+    const N_LIMBS: usize = 6;
+    type Uint = U384;
+
+    proptest! {
+        #[test]
+        fn bitand(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
+            let result = Uint::from_limbs(a) & Uint::from_limbs(b);
+
+            for i in 0..N_LIMBS {
+                assert_eq!(result.limbs[i], a[i] & b[i]);
+            }
+        }
+
+        #[test]
+        fn bitand_assign(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
+            let mut result = Uint::from_limbs(a);
+            result &= Uint::from_limbs(b);
+
+            for i in 0..N_LIMBS {
+                assert_eq!(result.limbs[i], a[i] & b[i]);
+            }
+        }
+
+        #[test]
+        fn bitor(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
+            let result = Uint::from_limbs(a) | Uint::from_limbs(b);
+
+            for i in 0..N_LIMBS {
+                assert_eq!(result.limbs[i], a[i] | b[i]);
+            }
+        }
+
+        #[test]
+        fn bitor_assign(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
+            let mut result = Uint::from_limbs(a);
+            result |= Uint::from_limbs(b);
+
+            for i in 0..N_LIMBS {
+                assert_eq!(result.limbs[i], a[i] | b[i]);
+            }
+        }
+
+        #[test]
+        fn bitxor(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
+            let result = Uint::from_limbs(a) ^ Uint::from_limbs(b);
+
+            for i in 0..N_LIMBS {
+                assert_eq!(result.limbs[i], a[i] ^ b[i]);
+            }
+        }
+
+        #[test]
+        fn bitxor_assign(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
+            let mut result = Uint::from_limbs(a);
+            result ^= Uint::from_limbs(b);
+
+            for i in 0..N_LIMBS {
+                assert_eq!(result.limbs[i], a[i] ^ b[i]);
+            }
+        }
+    }
+
     #[test]
     fn construct_new_integer_from_limbs() {
         let a: U384 = UnsignedInteger {
@@ -1662,6 +1726,70 @@ mod tests_u384 {
 mod tests_u256 {
     use crate::traits::ByteConversion;
     use crate::unsigned_integer::element::{UnsignedInteger, U256};
+
+    use proptest::prelude::*;
+
+    const N_LIMBS: usize = 4;
+    type Uint = U256;
+
+    proptest! {
+        #[test]
+        fn bitand(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
+            let result = Uint::from_limbs(a) & Uint::from_limbs(b);
+
+            for i in 0..N_LIMBS {
+                assert_eq!(result.limbs[i], a[i] & b[i]);
+            }
+        }
+
+        #[test]
+        fn bitand_assign(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
+            let mut result = Uint::from_limbs(a);
+            result &= Uint::from_limbs(b);
+
+            for i in 0..N_LIMBS {
+                assert_eq!(result.limbs[i], a[i] & b[i]);
+            }
+        }
+
+        #[test]
+        fn bitor(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
+            let result = Uint::from_limbs(a) | Uint::from_limbs(b);
+
+            for i in 0..N_LIMBS {
+                assert_eq!(result.limbs[i], a[i] | b[i]);
+            }
+        }
+
+        #[test]
+        fn bitor_assign(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
+            let mut result = Uint::from_limbs(a);
+            result |= Uint::from_limbs(b);
+
+            for i in 0..N_LIMBS {
+                assert_eq!(result.limbs[i], a[i] | b[i]);
+            }
+        }
+
+        #[test]
+        fn bitxor(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
+            let result = Uint::from_limbs(a) ^ Uint::from_limbs(b);
+
+            for i in 0..N_LIMBS {
+                assert_eq!(result.limbs[i], a[i] ^ b[i]);
+            }
+        }
+
+        #[test]
+        fn bitxor_assign(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
+            let mut result = Uint::from_limbs(a);
+            result ^= Uint::from_limbs(b);
+
+            for i in 0..N_LIMBS {
+                assert_eq!(result.limbs[i], a[i] ^ b[i]);
+            }
+        }
+    }
 
     #[test]
     fn construct_new_integer_from_limbs() {
