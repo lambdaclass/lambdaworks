@@ -64,6 +64,7 @@ where
     }
 }
 
+#[derive(Clone)]
 pub struct FieldElementBackend<F> {
     phantom: PhantomData<F>,
 }
@@ -104,12 +105,11 @@ where
 
 #[cfg(test)]
 mod tests {
-
-    // use crate::merkle_tree::test_merkle::TestHasher;
-
     use lambdaworks_math::field::{element::FieldElement, fields::u64_prime_field::U64PrimeField};
 
     use crate::merkle_tree::{merkle::MerkleTree, test_merkle::TestBackend};
+
+    use super::FieldElementBackend;
 
     const MODULUS: u64 = 13;
     type U64PF = U64PrimeField<MODULUS>;
@@ -128,5 +128,13 @@ mod tests {
         let values: Vec<FE> = (1..6).map(FE::new).collect();
         let merkle_tree = MerkleTree::<TestBackend<U64PF>>::build(&values);
         assert_eq!(merkle_tree.root, FE::new(8));
+    }
+
+    #[test]
+    fn hash_data_field_element_backend_works() {
+        let values: Vec<FE> = (1..6).map(FE::new).collect();
+        let merkle_tree = MerkleTree::<FieldElementBackend<U64PF>>::build(&values);
+        let proof = merkle_tree.get_proof_by_pos(0).unwrap();
+        assert!(proof.verify::<FieldElementBackend<U64PF>>(&merkle_tree.root, 0, &values[0]));
     }
 }
