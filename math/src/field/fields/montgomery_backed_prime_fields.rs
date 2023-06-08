@@ -100,10 +100,10 @@ where
     fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
         let (sum, overflow) = UnsignedInteger::add(a, b);
         if !overflow {
-            if sum < M::MODULUS {
-                sum
-            } else {
+            if sum >= M::MODULUS {
                 sum - M::MODULUS
+            } else {
+                sum
             }
         } else {
             let (diff, _) = UnsignedInteger::sub(&sum, &M::MODULUS);
