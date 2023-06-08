@@ -684,6 +684,20 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         debug_assert_eq!(c, 0);
         (hi, lo)
     }
+
+    #[inline(always)]
+    /// Returns the number of bits needed to represent the number (0 for zero).
+    /// If nonzero, this is equivalent to one plus the floored log2 of the number.
+    pub const fn bits(&self) -> u32 {
+        let mut i = NUM_LIMBS;
+        while i > 0 {
+            if self.limbs[i - 1] != 0 {
+                return i as u32 * u64::BITS - self.limbs[i - 1].leading_zeros();
+            }
+            i -= 1;
+        }
+        return 0;
+    }
 }
 
 impl<const NUM_LIMBS: usize> IsUnsignedInteger for UnsignedInteger<NUM_LIMBS> {}
