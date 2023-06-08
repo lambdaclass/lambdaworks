@@ -1,4 +1,4 @@
-use crate::field::traits::{IsFFTField, IsField};
+use crate::field::traits::{IsFFTField, IsField, IsPrimeField};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 
@@ -50,6 +50,14 @@ impl<const MODULUS: u32> IsField for U32Field<MODULUS> {
 
     fn from_base_type(x: u32) -> u32 {
         x % MODULUS
+    }
+}
+
+impl<const MODULUS: u32> IsPrimeField for U32Field<MODULUS> {
+    type RepresentativeType = u32;
+
+    fn representative(a: &Self::BaseType) -> u32 {
+        *a
     }
 }
 
