@@ -281,7 +281,7 @@ impl<const NUM_LIMBS: usize> BitAnd for UnsignedInteger<NUM_LIMBS> {
     type Output = Self;
     #[inline(always)]
     fn bitand(self, rhs: Self) -> Self::Output {
-        let mut limbs = self.limbs;
+        let Self { mut limbs } = self;
 
         for (a_i, b_i) in limbs.iter_mut().zip(rhs.limbs.iter()) {
             *a_i &= b_i;
@@ -304,7 +304,7 @@ impl<const NUM_LIMBS: usize> BitOr for UnsignedInteger<NUM_LIMBS> {
     type Output = Self;
     #[inline(always)]
     fn bitor(self, rhs: Self) -> Self::Output {
-        let mut limbs = self.limbs;
+        let Self { mut limbs } = self;
 
         for (a_i, b_i) in limbs.iter_mut().zip(rhs.limbs.iter()) {
             *a_i |= b_i;
@@ -328,7 +328,7 @@ impl<const NUM_LIMBS: usize> BitXor for UnsignedInteger<NUM_LIMBS> {
     type Output = Self;
     #[inline(always)]
     fn bitxor(self, rhs: Self) -> Self::Output {
-        let mut limbs = self.limbs;
+        let Self { mut limbs } = self;
 
         for (a_i, b_i) in limbs.iter_mut().zip(rhs.limbs.iter()) {
             *a_i ^= b_i;
