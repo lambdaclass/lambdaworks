@@ -22,7 +22,7 @@ pub enum RootsConfig {
 /// A two-adic primitive root of unity is a number w that satisfies w^(2^n) = 1
 /// and w^(j) != 1 for every j below 2^n. With this primitive root we can generate
 /// any other root of unity we need to perform FFT.
-pub trait IsFFTField: IsField {
+pub trait IsFFTField: IsPrimeField {
     const TWO_ADICITY: u64;
     const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: Self::BaseType;
 
