@@ -1,7 +1,6 @@
-/// A backend for Merkle trees. This defines raw `Data` from
-/// which the Merkle tree is built from. It also defines the
-/// `Node` type and the hash function used to build parent nodes
-/// from children nodes.
+/// A backend for Merkle trees. This defines raw `Data` from which the Merkle
+/// tree is built from. It also defines the `Node` type and the hash function
+/// used to build parent nodes from children nodes.
 pub trait IsMerkleTreeBackend: Default {
     type Node: PartialEq + Eq + Clone + Default;
     type Data;
