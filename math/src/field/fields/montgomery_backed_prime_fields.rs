@@ -257,6 +257,18 @@ where
     fn representative(x: &Self::BaseType) -> Self::RepresentativeType {
         MontgomeryAlgorithms::cios(x, &UnsignedInteger::from_u64(1), &M::MODULUS, &Self::MU)
     }
+
+    fn field_bit_size() -> usize {
+        let mut evaluated_bit = NUM_LIMBS * 64 - 1;
+        let max_element = M::MODULUS - UnsignedInteger::<NUM_LIMBS>::from_u128(1);
+        let one = UnsignedInteger::from_u128(1);
+
+        while ((max_element >> evaluated_bit) & one) != one {
+            evaluated_bit -= 1;
+        }
+
+        evaluated_bit + 1
+    }
 }
 
 impl<M, const NUM_LIMBS: usize> ByteConversion
@@ -298,12 +310,15 @@ where
 #[cfg(test)]
 mod tests_u384_prime_fields {
     use crate::field::element::FieldElement;
-    use crate::field::fields::montgomery_backed_prime_fields::{IsModulus, U384PrimeField};
+    use crate::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
+    use crate::field::fields::montgomery_backed_prime_fields::{
+        IsModulus, U256PrimeField, U384PrimeField,
+    };
     use crate::field::traits::IsField;
     use crate::field::traits::IsPrimeField;
     use crate::traits::ByteConversion;
-    use crate::unsigned_integer::element::UnsignedInteger;
     use crate::unsigned_integer::element::U384;
+    use crate::unsigned_integer::element::{UnsignedInteger, U256};
 
     #[derive(Clone, Debug)]
     struct U384Modulus23;
@@ -313,6 +328,40 @@ mod tests_u384_prime_fields {
 
     type U384F23 = U384PrimeField<U384Modulus23>;
     type U384F23Element = FieldElement<U384F23>;
+
+    #[test]
+    fn u384_mod_23_uses_5_bits() {
+        assert_eq!(U384F23::field_bit_size(), 5);
+    }
+
+    #[test]
+    fn stark_252_prime_field_uses_252_bits() {
+        assert_eq!(Stark252PrimeField::field_bit_size(), 252);
+    }
+
+    #[test]
+    fn u256_mod_2_uses_1_bit() {
+        #[derive(Clone, Debug)]
+        struct U256Modulus1;
+        impl IsModulus<U256> for U256Modulus1 {
+            const MODULUS: U256 = UnsignedInteger::from_u64(2);
+        }
+        type U256OneField = U256PrimeField<U256Modulus1>;
+        assert_eq!(U256OneField::field_bit_size(), 1);
+    }
+
+    #[test]
+    fn u256_with_first_bit_set_uses_256_bit() {
+        #[derive(Clone, Debug)]
+        struct U256ModulusBig;
+        impl IsModulus<U256> for U256ModulusBig {
+            const MODULUS: U256 = UnsignedInteger::from_hex_unchecked(
+                "F0000000F0000000F0000000F0000000F0000000F0000000F0000000F0000000",
+            );
+        }
+        type U256OneField = U256PrimeField<U256ModulusBig>;
+        assert_eq!(U256OneField::field_bit_size(), 256);
+    }
 
     #[test]
     fn montgomery_backend_primefield_compute_r2_parameter() {

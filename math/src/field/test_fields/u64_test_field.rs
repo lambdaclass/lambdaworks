@@ -58,6 +58,16 @@ impl<const MODULUS: u64> IsPrimeField for U64Field<MODULUS> {
     fn representative(x: &u64) -> u64 {
         *x
     }
+
+    fn field_bit_size() -> usize {
+        let max_element = (MODULUS - 1) as usize;
+        let mut evaluated_bit = 63;
+
+        while ((max_element >> evaluated_bit) & 1) != 1 {
+            evaluated_bit -= 1;
+        }
+        evaluated_bit + 1
+    }
 }
 
 pub type U64TestField = U64Field<18446744069414584321>;
@@ -66,4 +76,17 @@ pub type U64TestField = U64Field<18446744069414584321>;
 impl IsFFTField for U64TestField {
     const TWO_ADICITY: u64 = 32;
     const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: u64 = 1753635133440165772;
+}
+
+#[cfg(test)]
+mod tests_u64_test_field {
+    use crate::field::test_fields::u64_test_field::U64TestField;
+
+    #[test]
+    fn bit_size_of_test_field_is_64() {
+        assert_eq!(
+            <U64TestField as crate::field::traits::IsPrimeField>::field_bit_size(),
+            64
+        );
+    }
 }

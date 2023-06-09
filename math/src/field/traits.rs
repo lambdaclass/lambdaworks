@@ -154,6 +154,8 @@ pub trait IsPrimeField: IsField {
         Self::representative(&Self::neg(&Self::one()))
     }
 
+    fn field_bit_size() -> usize;
+
     fn legendre_symbol(a: &Self::BaseType) -> LegendreSymbol {
         let symbol = Self::pow(a, Self::modulus_minus_one() >> 1);
 
