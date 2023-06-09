@@ -1,9 +1,8 @@
-use super::cuda::abstractions::{element::CUDAFieldElement, errors::CudaError};
+use super::errors::CudaError;
 use cudarc::{
     driver::{safe::CudaSlice, CudaDevice, CudaFunction, DeviceRepr},
     nvrtc::safe::Ptx,
 };
-
 use std::sync::Arc;
 
 const STARK256_PTX: &str =
@@ -28,21 +27,14 @@ impl CudaState {
         Ok(state)
     }
 
-    fn load_library<F: IsFFTField>(&self, src: &'static str) -> Result<(), CudaError> {
-        let mod_name: &'static str = F::field_name();
-        let functions = [
-            "radix2_dit_butterfly",
-            "calc_twiddles",
-            "calc_twiddles_bitrev",
-            "bitrev_permutation",
-        ];
+    pub fn load_library(&self, src: &str, mod_name: &str) -> Result<(), CudaError> {
+        let functions = ["radix2_dit_butterfly"];
         self.device
             .load_ptx(Ptx::from_src(src), mod_name, &functions)
             .map_err(|err| CudaError::PtxError(err.to_string()))
     }
 
     pub fn get_function(&self, mod_name: &str, func_name: &str) -> Result<CudaFunction, CudaError> {
-        let mod_name = F::field_name();
         self.device
             .get_func(mod_name, func_name)
             .ok_or_else(|| CudaError::FunctionError(func_name.to_string()))
@@ -54,7 +46,7 @@ impl CudaState {
         data: &[T],
     ) -> Result<CudaSlice<T>, CudaError> {
         self.device
-            .htod_sync_copy(&data.iter().map(CUDAFieldElement::from).collect::<Vec<_>>())
+            .htod_sync_copy(data)
             .map_err(|err| CudaError::AllocateMemory(err.to_string()))
     }
 
