@@ -53,7 +53,7 @@ pub fn get_powers_of_primitive_root_coset<F: IsFFTField>(
 ) -> Result<Vec<FieldElement<F>>, FFTError> {
     let root = F::get_primitive_root_of_unity(n)?;
 
-    let roots: Vec<_> = core::iter::successors(Some(offset), |x| Some(&(*x * &root)))
+    let roots: Vec<_> = core::iter::successors(Some(offset.clone()), |x| Some(x * &root))
         .take(count)
         .collect();
 
