@@ -76,12 +76,11 @@ If you use ```Lambdaworks``` libraries in your research projects, please cite th
 - BN254 (M)
 - Pasta: Pallas and Vesta (L)
 - Forms:
-
-1. Affine (H)
-2. Projective (H)
-3. Montgomery (M)
-4. Twisted Edwards (H)
-5. Jacobi (L)
+  1. Affine (H)
+  2. Projective (H)
+  3. Montgomery (M)
+  4. Twisted Edwards (H)
+  5. Jacobi (L)
 
 ### Elliptic curve operations
 
