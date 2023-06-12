@@ -60,14 +60,10 @@ impl<const MODULUS: u32> IsPrimeField for U32Field<MODULUS> {
         *a
     }
 
+    /// Returns how many bits do you need to represent the biggest field element
+    /// It expects the MODULUS to be a Prime
     fn field_bit_size() -> usize {
-        let max_element = MODULUS - 1;
-        let mut evaluated_bit = 31;
-
-        while ((max_element >> evaluated_bit) & 1) != 1 {
-            evaluated_bit -= 1;
-        }
-        evaluated_bit + 1
+        ((MODULUS - 1).ilog2() + 1) as usize
     }
 }
 

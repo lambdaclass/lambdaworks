@@ -154,6 +154,8 @@ pub trait IsPrimeField: IsField {
         Self::representative(&Self::neg(&Self::one()))
     }
 
+    /// Returns the number of bits of the max element of the field, as per field documentation, not internal representation. 
+    /// This is `log2(max FE)` rounded up
     fn field_bit_size() -> usize;
 
     fn legendre_symbol(a: &Self::BaseType) -> LegendreSymbol {
