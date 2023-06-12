@@ -1,5 +1,8 @@
 use std::convert::From;
-use std::ops::{Add, BitAnd, Mul, Shl, Shr, ShrAssign, Sub};
+use std::ops::{
+    Add, BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Mul, Shl, Shr, ShrAssign,
+    Sub,
+};
 
 use crate::errors::{ByteConversionError, CreationError};
 use crate::traits::ByteConversion;
@@ -278,13 +281,68 @@ impl<const NUM_LIMBS: usize> BitAnd for UnsignedInteger<NUM_LIMBS> {
     type Output = Self;
     #[inline(always)]
     fn bitand(self, rhs: Self) -> Self::Output {
-        let mut limbs = [0; NUM_LIMBS];
-        // Clippy solution is complicated in this case
-        #[allow(clippy::needless_range_loop)]
-        for i in 0..NUM_LIMBS {
-            limbs[i] = self.limbs[i] & rhs.limbs[i];
+        let Self { mut limbs } = self;
+
+        for (a_i, b_i) in limbs.iter_mut().zip(rhs.limbs.iter()) {
+            *a_i &= b_i;
         }
         Self { limbs }
+    }
+}
+
+impl<const NUM_LIMBS: usize> BitAndAssign for UnsignedInteger<NUM_LIMBS> {
+    fn bitand_assign(&mut self, rhs: Self) {
+        for (a_i, b_i) in self.limbs.iter_mut().zip(rhs.limbs.iter()) {
+            *a_i &= b_i;
+        }
+    }
+}
+
+/// Impl BitOr
+
+impl<const NUM_LIMBS: usize> BitOr for UnsignedInteger<NUM_LIMBS> {
+    type Output = Self;
+    #[inline(always)]
+    fn bitor(self, rhs: Self) -> Self::Output {
+        let Self { mut limbs } = self;
+
+        for (a_i, b_i) in limbs.iter_mut().zip(rhs.limbs.iter()) {
+            *a_i |= b_i;
+        }
+        Self { limbs }
+    }
+}
+
+impl<const NUM_LIMBS: usize> BitOrAssign for UnsignedInteger<NUM_LIMBS> {
+    #[inline(always)]
+    fn bitor_assign(&mut self, rhs: Self) {
+        for (a_i, b_i) in self.limbs.iter_mut().zip(rhs.limbs.iter()) {
+            *a_i |= b_i;
+        }
+    }
+}
+
+/// Impl BitXor
+
+impl<const NUM_LIMBS: usize> BitXor for UnsignedInteger<NUM_LIMBS> {
+    type Output = Self;
+    #[inline(always)]
+    fn bitxor(self, rhs: Self) -> Self::Output {
+        let Self { mut limbs } = self;
+
+        for (a_i, b_i) in limbs.iter_mut().zip(rhs.limbs.iter()) {
+            *a_i ^= b_i;
+        }
+        Self { limbs }
+    }
+}
+
+impl<const NUM_LIMBS: usize> BitXorAssign for UnsignedInteger<NUM_LIMBS> {
+    #[inline(always)]
+    fn bitxor_assign(&mut self, rhs: Self) {
+        for (a_i, b_i) in self.limbs.iter_mut().zip(rhs.limbs.iter()) {
+            *a_i ^= b_i;
+        }
     }
 }
 
@@ -626,6 +684,20 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         debug_assert_eq!(c, 0);
         (hi, lo)
     }
+
+    #[inline(always)]
+    /// Returns the number of bits needed to represent the number (0 for zero).
+    /// If nonzero, this is equivalent to one plus the floored log2 of the number.
+    pub const fn bits(&self) -> u32 {
+        let mut i = NUM_LIMBS;
+        while i > 0 {
+            if self.limbs[i - 1] != 0 {
+                return i as u32 * u64::BITS - self.limbs[i - 1].leading_zeros();
+            }
+            i -= 1;
+        }
+        0
+    }
 }
 
 impl<const NUM_LIMBS: usize> IsUnsignedInteger for UnsignedInteger<NUM_LIMBS> {}
@@ -708,6 +780,70 @@ impl<const NUM_LIMBS: usize> From<UnsignedInteger<NUM_LIMBS>> for u16 {
 mod tests_u384 {
     use crate::traits::ByteConversion;
     use crate::unsigned_integer::element::{UnsignedInteger, U384};
+
+    use proptest::prelude::*;
+
+    const N_LIMBS: usize = 6;
+    type Uint = U384;
+
+    proptest! {
+        #[test]
+        fn bitand(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
+            let result = Uint::from_limbs(a) & Uint::from_limbs(b);
+
+            for i in 0..N_LIMBS {
+                assert_eq!(result.limbs[i], a[i] & b[i]);
+            }
+        }
+
+        #[test]
+        fn bitand_assign(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
+            let mut result = Uint::from_limbs(a);
+            result &= Uint::from_limbs(b);
+
+            for i in 0..N_LIMBS {
+                assert_eq!(result.limbs[i], a[i] & b[i]);
+            }
+        }
+
+        #[test]
+        fn bitor(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
+            let result = Uint::from_limbs(a) | Uint::from_limbs(b);
+
+            for i in 0..N_LIMBS {
+                assert_eq!(result.limbs[i], a[i] | b[i]);
+            }
+        }
+
+        #[test]
+        fn bitor_assign(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
+            let mut result = Uint::from_limbs(a);
+            result |= Uint::from_limbs(b);
+
+            for i in 0..N_LIMBS {
+                assert_eq!(result.limbs[i], a[i] | b[i]);
+            }
+        }
+
+        #[test]
+        fn bitxor(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
+            let result = Uint::from_limbs(a) ^ Uint::from_limbs(b);
+
+            for i in 0..N_LIMBS {
+                assert_eq!(result.limbs[i], a[i] ^ b[i]);
+            }
+        }
+
+        #[test]
+        fn bitxor_assign(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
+            let mut result = Uint::from_limbs(a);
+            result ^= Uint::from_limbs(b);
+
+            for i in 0..N_LIMBS {
+                assert_eq!(result.limbs[i], a[i] ^ b[i]);
+            }
+        }
+    }
 
     #[test]
     fn construct_new_integer_from_limbs() {
@@ -1604,6 +1740,70 @@ mod tests_u384 {
 mod tests_u256 {
     use crate::traits::ByteConversion;
     use crate::unsigned_integer::element::{UnsignedInteger, U256};
+
+    use proptest::prelude::*;
+
+    const N_LIMBS: usize = 4;
+    type Uint = U256;
+
+    proptest! {
+        #[test]
+        fn bitand(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
+            let result = Uint::from_limbs(a) & Uint::from_limbs(b);
+
+            for i in 0..N_LIMBS {
+                assert_eq!(result.limbs[i], a[i] & b[i]);
+            }
+        }
+
+        #[test]
+        fn bitand_assign(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
+            let mut result = Uint::from_limbs(a);
+            result &= Uint::from_limbs(b);
+
+            for i in 0..N_LIMBS {
+                assert_eq!(result.limbs[i], a[i] & b[i]);
+            }
+        }
+
+        #[test]
+        fn bitor(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
+            let result = Uint::from_limbs(a) | Uint::from_limbs(b);
+
+            for i in 0..N_LIMBS {
+                assert_eq!(result.limbs[i], a[i] | b[i]);
+            }
+        }
+
+        #[test]
+        fn bitor_assign(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
+            let mut result = Uint::from_limbs(a);
+            result |= Uint::from_limbs(b);
+
+            for i in 0..N_LIMBS {
+                assert_eq!(result.limbs[i], a[i] | b[i]);
+            }
+        }
+
+        #[test]
+        fn bitxor(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
+            let result = Uint::from_limbs(a) ^ Uint::from_limbs(b);
+
+            for i in 0..N_LIMBS {
+                assert_eq!(result.limbs[i], a[i] ^ b[i]);
+            }
+        }
+
+        #[test]
+        fn bitxor_assign(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
+            let mut result = Uint::from_limbs(a);
+            result ^= Uint::from_limbs(b);
+
+            for i in 0..N_LIMBS {
+                assert_eq!(result.limbs[i], a[i] ^ b[i]);
+            }
+        }
+    }
 
     #[test]
     fn construct_new_integer_from_limbs() {

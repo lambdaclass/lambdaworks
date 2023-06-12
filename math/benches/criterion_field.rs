@@ -69,7 +69,7 @@ pub fn starkfield_ops_benchmarks(c: &mut Criterion) {
         bench.iter(|| x / y);
     });
 
-    group.bench_with_input("eq", &(x.clone(), y), |bench, (x, y)| {
+    group.bench_with_input("eq", &(x.clone(), y.clone()), |bench, (x, y)| {
         bench.iter(|| x == y);
     });
 
@@ -79,6 +79,21 @@ pub fn starkfield_ops_benchmarks(c: &mut Criterion) {
 
     group.bench_with_input("sqrt squared", &(&x * &x), |bench, x| {
         bench.iter(|| x.sqrt());
+    });
+
+    // Unsigned integer bitwise operations
+    let (x, y) = (x.value(), y.value());
+
+    group.bench_with_input("bitand", &(x, y), |bench, (&x, &y)| {
+        bench.iter(|| x & y);
+    });
+
+    group.bench_with_input("bitor", &(x, y), |bench, (&x, &y)| {
+        bench.iter(|| x | y);
+    });
+
+    group.bench_with_input("bitxor", &(x, y), |bench, (&x, &y)| {
+        bench.iter(|| x ^ y);
     });
 }
 
