@@ -59,16 +59,16 @@ If you use ```Lambdaworks``` libraries in your research projects, please cite th
 ### Finite Field Algebra
 
 - Big integer representation
-- Basic algebra: addition, multiplication, subtraction, inversion, square root (Tonelli–Shanks)
-- Field extensions
-- Number theoretic transform
-- Polynomial operations
-- Fast Fourier Transform
-- Montgomery and Barrett
+- Basic algebra: addition, multiplication, subtraction, inversion, square root (Tonelli–Shanks) ✔️
+- Field extensions ✔️
+- Number theoretic transform ✔️
+- Polynomial operations ✔️
+- Fast Fourier Transform ✔️
+- Montgomery ✔️ and Barrett
 
 ### Elliptic curve models
 
-- BLS12-381 (H)
+- BLS12-381 ✔️
 - BLS12-377 (H)
 - secp256k1 (H)
 - Ed25519 (H)
@@ -76,38 +76,38 @@ If you use ```Lambdaworks``` libraries in your research projects, please cite th
 - BN254 (M)
 - Pasta: Pallas and Vesta (L)
 - Forms:
-  1. Affine (H)
-  2. Projective (H)
+  1. Affine ✔️
+  2. Projective ✔️
   3. Montgomery (M)
   4. Twisted Edwards (H)
   5. Jacobi (L)
 
 ### Elliptic curve operations
 
-- Add, double, scalar multiplication.
-- Multiscalar multiplication (Pippenger)
-- Weyl, Tate and Ate pairings.
+- Add, double, scalar multiplication. ✔️
+- Multiscalar multiplication (Pippenger) ✔️
+- Weyl, Tate and Ate pairings. ✔️
 
 ### Arithmetization
 
 - R1CS - gadgets (H)
-- AIR (M)
-- Plonkish (H)
+- AIR ✔️
+- Plonkish ✔️
 - ACIR (L)
 
 ### Polynomial commitment schemes
 
-- KZG and variants
-- Hashing
+- KZG and variants ✔️
+- Hashing / Merkle trees ✔️
 - Inner product arguments
 - Dory (L)
 
 ### PIOP/PCS
 
 - Groth16
-- Plonk
+- Plonk ✔️
 - Marlin
-- FRI
+- FRI ✔️
 
 ### [Crypto primitives](https://github.com/RustCrypto)
 
@@ -125,7 +125,7 @@ If you use ```Lambdaworks``` libraries in your research projects, please cite th
 
 ### Protocol
 
-- Fiat-Shamir
+- Fiat-Shamir ✔️
 
 ### Gadgets
 
