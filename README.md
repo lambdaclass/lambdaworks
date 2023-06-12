@@ -24,6 +24,16 @@ If you use ```Lambdaworks``` libraries in your research projects, please cite th
   year={2023}
 }
 ```
+## Main features
+
+- [Finite Field Algebra](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/field)
+- [Polynomial operations](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/polynomial.rs)
+- [Fast Fourier Transform](https://github.com/lambdaclass/lambdaworks/tree/main/fft)
+- [Elliptic curves](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/elliptic_curve)
+- [Multiscalar multiplication](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/msm)
+- [ABI compatible KZG commitment scheme - EIP4844](https://github.com/lambdaclass/lambdaworks_kzg)
+- [CAIRO prover](https://github.com/lambdaclass/lambdaworks_cairo_prover/tree/main)
+- [PLONK prover](https://github.com/lambdaclass/lambdaworks_plonk_prover)
 
 ## Building blocks
 
