@@ -74,6 +74,12 @@ impl<const MODULUS: u64> IsPrimeField for U64PrimeField<MODULUS> {
     fn representative(x: &u64) -> u64 {
         *x
     }
+
+    /// Returns how many bits do you need to represent the biggest field element
+    /// It expects the MODULUS to be a Prime
+    fn field_bit_size() -> usize {
+        ((MODULUS - 1).ilog2() + 1) as usize
+    }
 }
 
 /// Represents an element in Fp. (E.g: 0, 1, 2 are the elements of F3)
@@ -116,6 +122,32 @@ mod tests {
     use super::*;
     const MODULUS: u64 = 13;
     type FE = FieldElement<U64PrimeField<MODULUS>>;
+
+    #[test]
+    fn bit_size_of_mod_13_field_is_4() {
+        assert_eq!(
+            <U64PrimeField<MODULUS> as crate::field::traits::IsPrimeField>::field_bit_size(),
+            4
+        );
+    }
+
+    #[test]
+    fn bit_size_of_big_mod_field_is_64() {
+        const MODULUS: u64 = 10000000000000000000;
+        assert_eq!(
+            <U64PrimeField<MODULUS> as crate::field::traits::IsPrimeField>::field_bit_size(),
+            64
+        );
+    }
+
+    #[test]
+    fn bit_size_of_63_bit_mod_field_is_63() {
+        const MODULUS: u64 = 9000000000000000000;
+        assert_eq!(
+            <U64PrimeField<MODULUS> as crate::field::traits::IsPrimeField>::field_bit_size(),
+            63
+        );
+    }
 
     #[test]
     fn two_plus_one_is_three() {
