@@ -52,9 +52,12 @@ pub fn get_powers_of_primitive_root_coset<F: IsFFTField>(
     offset: &FieldElement<F>,
 ) -> Result<Vec<FieldElement<F>>, FFTError> {
     let root = F::get_primitive_root_of_unity(n)?;
-    let results = (0..count).map(|i| root.pow(i) * offset);
 
-    Ok(results.collect())
+    let roots: Vec<_> = core::iter::successors(Some(offset), |x| Some(&(*x * &root)))
+        .take(count)
+        .collect();
+
+    Ok(roots)
 }
 
 /// Returns 2^`order` / 2 twiddle factors for FFT in some configuration `config`.
