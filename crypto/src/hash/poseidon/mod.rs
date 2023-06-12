@@ -278,7 +278,6 @@ mod tests {
         let a = FieldElement::one();
         let b = FieldElement::zero();
 
-        // poseidon.hash_one(&a);
         poseidon.hash_new_parent(&a, &b);
     }
 
