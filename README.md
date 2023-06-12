@@ -16,7 +16,7 @@ From the heights of these towers of fields, forty centuries of mathematics look 
 
 If you use ```Lambdaworks``` libraries in your research projects, please cite them using the following template:
 
-```
+``` bibtex
 @software{Lambdaworks,
   author={Lambdaworks contributors},
   title={Lambdaworks},
@@ -24,6 +24,7 @@ If you use ```Lambdaworks``` libraries in your research projects, please cite th
   year={2023}
 }
 ```
+
 ## Main features
 
 - [Finite Field Algebra](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/field)
@@ -49,7 +50,9 @@ If you use ```Lambdaworks``` libraries in your research projects, please cite th
 - Gadgets
 
 ## Blocks
+
 ### Finite Field Algebra
+
 - Big integer representation
 - Basic algebra: addition, multiplication, subtraction, inversion, square root (Tonelli–Shanks)
 - Field extensions
@@ -59,6 +62,7 @@ If you use ```Lambdaworks``` libraries in your research projects, please cite th
 - Montgomery and Barrett
 
 ### Elliptic curve models
+
 - BLS12-381 (H)
 - BLS12-377 (H)
 - secp256k1 (H)
@@ -67,6 +71,7 @@ If you use ```Lambdaworks``` libraries in your research projects, please cite th
 - BN254 (M)
 - Pasta: Pallas and Vesta (L)
 - Forms:
+
 1. Affine (H)
 2. Projective (H)
 3. Montgomery (M)
@@ -74,29 +79,34 @@ If you use ```Lambdaworks``` libraries in your research projects, please cite th
 5. Jacobi (L)
 
 ### Elliptic curve operations
+
 - Add, double, scalar multiplication.
 - Multiscalar multiplication (Pippenger)
 - Weyl, Tate and Ate pairings.
 
 ### Arithmetization
+
 - R1CS - gadgets (H)
 - AIR (M)
 - Plonkish (H)
 - ACIR (L)
 
 ### Polynomial commitment schemes
+
 - KZG and variants
 - Hashing
 - Inner product arguments
 - Dory (L)
 
 ### PIOP/PCS
+
 - Groth16
 - Plonk
 - Marlin
 - FRI
 
 ### [Crypto primitives](https://github.com/RustCrypto)
+
 - Pseudorandom generator
 - Hashes
 - Blake2
@@ -110,6 +120,7 @@ If you use ```Lambdaworks``` libraries in your research projects, please cite th
 - ElGamal
 
 ### Protocol
+
 - Fiat-Shamir
 
 ### Gadgets
@@ -118,7 +129,7 @@ If you use ```Lambdaworks``` libraries in your research projects, please cite th
 
 To serve the documentation locally, first install both [mdbook](https://rust-lang.github.io/mdBook/guide/installation.html) and the [Katex preprocessor](https://github.com/lzanini/mdbook-katex#getting-started) to render LaTeX, then run
 
-```
+``` shell
 make docs
 ```
 
