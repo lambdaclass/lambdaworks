@@ -19,6 +19,7 @@ So, we decided to build our library, focusing on performance, with clear documen
 ## Provers and Polynomial Commitment Schemes using LambdaWorks
 - [Cairo STARK LambdaWorks prover](https://github.com/lambdaclass/lambdaworks_cairo_prover/tree/main)
 - [Plonk LambdaWorks prover](https://github.com/lambdaclass/lambdaworks_plonk_prover)
+- [CairoVM Trace Generation using LambdaWorks](https://github.com/lambdaclass/cairo-rs/pull/1184)
 - [ABI compatible KZG commitment scheme - EIP-4844](https://github.com/lambdaclass/lambdaworks_kzg)
 
 ## Main crates
