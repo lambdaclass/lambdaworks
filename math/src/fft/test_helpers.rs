@@ -1,9 +1,9 @@
-use lambdaworks_math::field::{
+use crate::field::{
     element::FieldElement,
     traits::{IsFFTField, RootsConfig},
 };
 
-use crate::roots_of_unity::get_powers_of_primitive_root;
+use crate::fft::roots_of_unity::get_powers_of_primitive_root;
 
 /// Calculates the (non-unitary) Discrete Fourier Transform of `input` via the DFT matrix.
 pub fn naive_matrix_dft_test<F: IsFFTField>(input: &[FieldElement<F>]) -> Vec<FieldElement<F>> {
@@ -30,9 +30,7 @@ pub fn naive_matrix_dft_test<F: IsFFTField>(input: &[FieldElement<F>]) -> Vec<Fi
 
 #[cfg(test)]
 mod fft_helpers_test {
-    use lambdaworks_math::{
-        field::test_fields::u64_test_field::U64TestField, polynomial::Polynomial,
-    };
+    use crate::{field::test_fields::u64_test_field::U64TestField, polynomial::Polynomial};
     use proptest::{collection, prelude::*};
 
     use super::*;

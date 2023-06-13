@@ -1,4 +1,4 @@
-use lambdaworks_math::{
+use crate::{
     field::{
         element::FieldElement,
         traits::{IsFFTField, RootsConfig},
@@ -9,7 +9,7 @@ use lambdaworks_math::{
 #[cfg(feature = "metal")]
 use lambdaworks_gpu::metal::fft::polynomial::evaluate_fft_metal;
 
-use crate::{errors::FFTError, roots_of_unity::get_twiddles};
+use crate::fft::{errors::FFTError, roots_of_unity::get_twiddles};
 
 pub trait FFTPoly<F: IsFFTField> {
     fn evaluate_fft(
@@ -166,7 +166,7 @@ where
     let order = coeffs.len().trailing_zeros();
     let twiddles = get_twiddles(order.into(), RootsConfig::BitReverse)?;
     // Bit reverse order is needed for NR DIT FFT.
-    crate::ops::fft(coeffs, &twiddles)
+    crate::fft::ops::fft(coeffs, &twiddles)
 }
 
 fn interpolate_fft_cpu<F>(
@@ -178,7 +178,7 @@ where
     let order = fft_evals.len().trailing_zeros();
     let twiddles = get_twiddles(order.into(), RootsConfig::BitReverseInversed)?;
 
-    let coeffs = crate::ops::fft(fft_evals, &twiddles)?;
+    let coeffs = crate::fft::ops::fft(fft_evals, &twiddles)?;
 
     let scale_factor = FieldElement::from(fft_evals.len() as u64).inv();
     Ok(Polynomial::new(&coeffs).scale_coeffs(&scale_factor))
@@ -187,12 +187,14 @@ where
 #[cfg(test)]
 mod tests {
     #[cfg(all(not(feature = "metal"), not(feature = "cuda")))]
-    use lambdaworks_math::field::traits::IsField;
+    use crate::field::traits::IsField;
 
-    use lambdaworks_math::field::traits::RootsConfig;
+    use crate::field::traits::RootsConfig;
     use proptest::{collection, prelude::*};
 
-    use crate::roots_of_unity::{get_powers_of_primitive_root, get_powers_of_primitive_root_coset};
+    use crate::fft::roots_of_unity::{
+        get_powers_of_primitive_root, get_powers_of_primitive_root_coset,
+    };
 
     use super::*;
 
@@ -266,7 +268,7 @@ mod tests {
     #[cfg(all(not(feature = "metal"), not(feature = "cuda")))]
     mod u64_field_tests {
         use super::*;
-        use lambdaworks_math::field::test_fields::u64_test_field::U64TestField;
+        use crate::field::test_fields::u64_test_field::U64TestField;
 
         // FFT related tests
         type F = U64TestField;
@@ -363,7 +365,7 @@ mod tests {
 
     mod u256_field_tests {
         use super::*;
-        use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
+        use crate::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
 
         prop_compose! {
             fn powers_of_two(max_exp: u8)(exp in 1..max_exp) -> usize { 1 << exp }

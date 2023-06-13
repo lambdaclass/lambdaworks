@@ -1,5 +1,5 @@
-use lambdaworks_fft::polynomial::FFTPoly;
 use lambdaworks_gpu::metal::{abstractions::state::MetalState, fft::ops::*};
+use lambdaworks_math::fft::polynomial::FFTPoly;
 use lambdaworks_math::{field::traits::RootsConfig, polynomial::Polynomial};
 
 // WARN: These should always be fields supported by Metal, else the last two benches will use CPU FFT.

@@ -2,7 +2,7 @@
 
 use core::hint::black_box;
 
-use lambdaworks_fft::{
+use lambdaworks_math::fft::{
     bit_reversing::in_place_bit_reverse_permute,
     fft_iterative::{in_place_nr_2radix_fft, in_place_rn_2radix_fft},
     polynomial::FFTPoly,
