@@ -1,6 +1,6 @@
 use crate::unsigned_integer::traits::IsUnsignedInteger;
 
-use std::{fmt::Debug, hash::Hash};
+use std::{fmt::Debug};
 
 use super::{element::FieldElement, errors::FieldError};
 
@@ -56,7 +56,7 @@ pub trait IsFFTField: IsPrimeField {
 pub trait IsField: Debug + Clone {
     /// The underlying base type for representing elements from the field.
     // TODO: Relax Unpin for non cuda usage
-    type BaseType: Clone + Debug + Hash + Unpin;
+    type BaseType: Clone + Debug + Unpin;
 
     /// Returns the sum of `a` and `b`.
     fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType;
