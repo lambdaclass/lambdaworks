@@ -8,6 +8,7 @@ rand = "0.8.5"
 thiserror = "1.0.38"
 lambdaworks-math = { path = "../math" }
 lambdaworks-gpu = { path = "../gpu", optional = true }
+winter-math = { git = "https://github.com/facebook/winterfell.git", rev="18dfc30"}
 
 [dev-dependencies]
 proptest = "1.1.0"
@@ -25,4 +26,8 @@ harness = false
 
 [[bench]]
 name = "iai_fft"
+harness = false
+
+[[bench]]
+name = "criterion_wf_vs_lw_fft"
 harness = false
