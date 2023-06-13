@@ -11,11 +11,12 @@ use lambdaworks_math::{
     unsigned_integer::{element::U256, montgomery::MontgomeryAlgorithms},
 };
 
-mod util;
+mod utils;
+use utils::u64_utils;
 
 pub fn starkfield_ops_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("Stark FP operations");
-    let (x, y) = util::get_field_elements();
+    let (x, y) = u64_utils::get_field_elements();
 
     group.bench_with_input("add", &(x.clone(), y.clone()), |bench, (x, y)| {
         bench.iter(|| x + y);

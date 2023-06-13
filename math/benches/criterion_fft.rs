@@ -1,9 +1,10 @@
 #![allow(dead_code)] // clippy has false positive in benchmarks
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use lambdaworks_math::field::traits::RootsConfig;
+use utils::fft_functions;
+use utils::fft_utils;
 
-mod functions;
-mod util;
+mod utils;
 
 const SIZE_ORDERS: [u64; 4] = [21, 22, 23, 24];
 
@@ -13,11 +14,11 @@ pub fn fft_benchmarks(c: &mut Criterion) {
     for order in SIZE_ORDERS {
         group.throughput(criterion::Throughput::Elements(1 << order));
 
-        let input_nat = util::rand_field_elements(order);
-        let twiddles_nat = util::twiddles(order, RootsConfig::Natural);
+        let input_nat = fft_utils::rand_field_elements(order);
+        let twiddles_nat = fft_utils::twiddles(order, RootsConfig::Natural);
         let mut input_bitrev = input_nat.clone();
-        util::bitrev_permute(&mut input_bitrev);
-        let twiddles_bitrev = util::twiddles(order, RootsConfig::BitReverse);
+        fft_utils::bitrev_permute(&mut input_bitrev);
+        let twiddles_bitrev = fft_utils::twiddles(order, RootsConfig::BitReverse);
 
         group.bench_with_input(
             "Sequential from NR radix2",
@@ -26,7 +27,7 @@ pub fn fft_benchmarks(c: &mut Criterion) {
                 bench.iter_batched(
                     || input.clone(),
                     |mut input| {
-                        functions::ordered_fft_nr(&mut input, twiddles);
+                        fft_functions::ordered_fft_nr(&mut input, twiddles);
                     },
                     BatchSize::LargeInput,
                 );
@@ -39,7 +40,7 @@ pub fn fft_benchmarks(c: &mut Criterion) {
                 bench.iter_batched(
                     || input.clone(),
                     |mut input| {
-                        functions::ordered_fft_rn(&mut input, twiddles);
+                        fft_functions::ordered_fft_rn(&mut input, twiddles);
                     },
                     BatchSize::LargeInput,
                 );
@@ -64,7 +65,7 @@ fn twiddles_generation_benchmarks(c: &mut Criterion) {
         for (name, config) in CONFIGS {
             group.bench_with_input(name, &(order, config), |bench, (order, config)| {
                 bench.iter_with_large_drop(|| {
-                    functions::twiddles_generation(*order, *config);
+                    fft_functions::twiddles_generation(*order, *config);
                 });
             });
         }
@@ -76,13 +77,13 @@ fn twiddles_generation_benchmarks(c: &mut Criterion) {
 fn bitrev_permutation_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("Bit-reverse permutation");
 
-    for input in SIZE_ORDERS.map(util::rand_field_elements) {
+    for input in SIZE_ORDERS.map(fft_utils::rand_field_elements) {
         group.throughput(criterion::Throughput::Elements(input.len() as u64));
         group.bench_with_input("Sequential", &input, |bench, input| {
             bench.iter_batched(
                 || input.clone(),
                 |mut input| {
-                    functions::bitrev_permute(&mut input);
+                    fft_functions::bitrev_permute(&mut input);
                 },
                 BatchSize::LargeInput,
             );
@@ -95,13 +96,13 @@ fn bitrev_permutation_benchmarks(c: &mut Criterion) {
 fn poly_evaluation_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("Polynomial evaluation");
 
-    for poly in SIZE_ORDERS.map(util::rand_poly) {
+    for poly in SIZE_ORDERS.map(fft_utils::rand_poly) {
         group.throughput(criterion::Throughput::Elements(
             poly.coefficients().len() as u64
         ));
         group.bench_with_input("Sequential FFT", &poly, |bench, poly| {
             bench.iter_with_large_drop(|| {
-                functions::poly_evaluate_fft(poly);
+                fft_functions::poly_evaluate_fft(poly);
             });
         });
     }
@@ -112,11 +113,11 @@ fn poly_evaluation_benchmarks(c: &mut Criterion) {
 fn poly_interpolation_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("Polynomial interpolation");
 
-    for evals in SIZE_ORDERS.map(util::rand_field_elements) {
+    for evals in SIZE_ORDERS.map(fft_utils::rand_field_elements) {
         group.throughput(criterion::Throughput::Elements(evals.len() as u64));
         group.bench_with_input("Sequential FFT", &evals, |bench, evals| {
             bench.iter_with_large_drop(|| {
-                functions::poly_interpolate_fft(evals);
+                fft_functions::poly_interpolate_fft(evals);
             });
         });
     }

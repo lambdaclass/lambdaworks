@@ -2,9 +2,10 @@ use const_random::const_random;
 use core::hint::black_box;
 use criterion::{criterion_group, criterion_main, Criterion};
 use lambdaworks_math::polynomial::Polynomial;
-use util::{rand_field_elements, rand_poly, FE};
+use u64_utils::{rand_field_elements, rand_poly, FE};
 
-mod util;
+mod utils;
+use utils::u64_utils;
 
 pub fn polynomial_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("Polynomial");
