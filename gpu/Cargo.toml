@@ -28,7 +28,6 @@ default = []
 [dev-dependencies]
 proptest = "1.1.0"
 criterion = "0.4.0"
-lambdaworks-fft = { path = "../fft" }
 
 [build-dependencies]
 walkdir = "2.3.3"

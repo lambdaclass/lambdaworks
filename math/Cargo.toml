@@ -45,3 +45,11 @@ harness = false
 name = "criterion_msm"
 harness = false
 required-features = ["rayon"]
+
+[[bench]]
+name = "criterion_fft"
+harness = false
+
+[[bench]]
+name = "iai_fft"
+harness = false

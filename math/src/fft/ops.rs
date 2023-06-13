@@ -1,4 +1,4 @@
-use lambdaworks_math::field::{element::FieldElement, traits::IsFFTField};
+use crate::field::{element::FieldElement, traits::IsFFTField};
 
 use super::{
     bit_reversing::in_place_bit_reverse_permute, errors::FFTError,

@@ -67,7 +67,7 @@ pub fn bitrev_permutation<F: IsFFTField>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use lambdaworks_fft::roots_of_unity::get_twiddles;
+    use lambdaworks_math::fft::roots_of_unity::get_twiddles;
     use lambdaworks_math::field::{
         element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
         traits::RootsConfig,
@@ -102,7 +102,7 @@ mod tests {
             let twiddles = get_twiddles(order.into(), RootsConfig::BitReverse).unwrap();
 
             let cuda_fft = fft(&input, &twiddles, &state).unwrap();
-            let fft = lambdaworks_fft::ops::fft(&input, &twiddles).unwrap();
+            let fft = lambdaworks_math::fft::ops::fft(&input, &twiddles).unwrap();
 
             prop_assert_eq!(cuda_fft, fft);
         }

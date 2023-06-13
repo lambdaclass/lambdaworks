@@ -2,7 +2,7 @@
 
 use core::hint::black_box;
 
-use lambdaworks_fft::{
+use lambdaworks_math::fft::{
     bit_reversing::in_place_bit_reverse_permute,
     fft_iterative::{in_place_nr_2radix_fft, in_place_rn_2radix_fft},
     polynomial::FFTPoly,
@@ -11,7 +11,7 @@ use lambdaworks_fft::{
 
 use lambdaworks_math::{field::traits::RootsConfig, polynomial::Polynomial};
 
-use crate::util::{F, FE};
+use super::fft_utils::{F, FE};
 
 pub fn ordered_fft_nr(input: &mut [FE], twiddles: &[FE]) {
     in_place_nr_2radix_fft(input, twiddles);
