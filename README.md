@@ -29,6 +29,9 @@ So, we decided to build our library, focusing on performance, with clear documen
 - [Elliptic curves](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/elliptic_curve)
 - [Multiscalar multiplication](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/msm)
 
+## Exercises and Challenges
+- [Lambdaworks exercises and challenges](https://github.com/lambdaclass/lambdaworks_exercises/tree/main)
+
 ![FqJmqwtWABozHi_](https://user-images.githubusercontent.com/569014/222294400-4a9e2a46-2823-4a98-b0f4-2293d372cccb.jpeg)
 
 If you use ```Lambdaworks``` libraries in your research projects, please cite them using the following template:
