@@ -6,6 +6,8 @@ edition = "2021"
 [dependencies]
 ark-ff = { git = "https://github.com/arkworks-rs/algebra", branch = "faster-benchmarks-and-starknet-field" }
 ark-test-curves = { git = "https://github.com/arkworks-rs/algebra", branch = "faster-benchmarks-and-starknet-field" }
+ark-std = "0.4.0"
+rand = "0.8.5"
 
 [dependencies.lambdaworks-math]
 path = "../math"
