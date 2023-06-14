@@ -148,7 +148,7 @@ These are the results of execution of the benchmarks:
 | -------- | --------- | ----------- |
 | `add`    | 17.482 μs | 21.318 μs   |
 | `sub`    | 17.404 μs | 40.380 μs   |
-| `mul`    | 70.492 μs | 70.476 μs   |
+| `mul`    | 72.492 μs | 70.476 μs   |
 | `invert` | 54.055 ms | 59.939 ms   |
 | `sqrt`   |           |             |
 | `pow`    |           |             |
