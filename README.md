@@ -142,6 +142,17 @@ make docs
 
 Benchmark results are hosted [here](https://lambdaclass.github.io/lambdaworks/bench).
 
+These are the results of execution of the benchmarks:
+
+|          | arkworks  | lambdaworks |
+| -------- | --------- | ----------- |
+| `add`    | 17.482 μs | 21.318 μs   |
+| `sub`    | 17.404 μs | 40.380 μs   |
+| `mul`    | 70.492 μs | 70.476 μs   |
+| `invert` |           |             |
+| `sqrt`   |           |             |
+| `pow`    |           |             |
+
 To run them locally, you will need `cargo-criterion` and `cargo-flamegraph`. Install it with:
 
 ```bash
