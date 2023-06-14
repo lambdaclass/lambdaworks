@@ -1,3 +1,4 @@
+use rand::Rng;
 use criterion::{Criterion, criterion_group, criterion_main, black_box};
 use lambdaworks_fft::polynomial::evaluate_fft_cpu;
 use lambdaworks_math::field::element::FieldElement as LambdaFieldElement;
@@ -120,16 +121,21 @@ impl IsField for WinterfellFieldWrapper {
 
 fn fft_benches(c: &mut Criterion) {
 let mut group = c.benchmark_group("FFT");
-    let poly_winterfell = &vec![BaseElement::from(3u64); 8192];
-    let poly_lambda = &vec![LambdaFieldElement::<WinterfellFieldWrapper>::from(3u64); 8192];
+    let mut rng = rand::thread_rng();
+    let mut random_u64s: Vec<u64> = Vec::with_capacity(8192);
+    for _ in 0..8192 {
+        random_u64s.push(rng.gen());
+    }
+    let poly_winterfell: Vec<_> = random_u64s.iter().map(|x| BaseElement::from(*x)).collect();
+    let poly_lambda: Vec<_> = random_u64s.iter().map(|x| LambdaFieldElement::<WinterfellFieldWrapper>::from(*x)).collect();
     group.bench_function("winterfel_evaluate_fft", |bench| {
         bench.iter(|| {
-            black_box(run_winterfell(black_box(poly_winterfell)))
+            black_box(run_winterfell(black_box(&poly_winterfell)))
         })
     });
     group.bench_function("lambda_evaluate_fft", |bench| {
         bench.iter(|| {
-            black_box(run_lambdaworks(black_box(poly_lambda)))
+            black_box(run_lambdaworks(black_box(&poly_lambda)))
         })
     });
 }
