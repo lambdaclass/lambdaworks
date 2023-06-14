@@ -23,6 +23,10 @@ harness = false
 name = "mul"
 harness = false
 
+[[bench]]
+name = "sub"
+harness = false
+
 [profile.bench]
 lto = true
 codegen-units = 1
