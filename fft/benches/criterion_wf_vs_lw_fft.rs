@@ -1,43 +1,13 @@
-use rand::Rng;
-use criterion::{Criterion, criterion_group, criterion_main, black_box};
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use lambdaworks_fft::polynomial::evaluate_fft_cpu;
+use lambdaworks_fft::roots_of_unity::get_twiddles as get_twiddles_lambdaworks;
 use lambdaworks_math::field::element::FieldElement as LambdaFieldElement;
-use lambdaworks_math::field::traits::IsField;
 use lambdaworks_math::field::traits::{IsFFTField, IsPrimeField};
-use winter_math::fft::evaluate_poly;
-use winter_math::{
-    fft::fft_inputs::FftInputs,
-    get_power_series,
-    {fields::f64::BaseElement, FieldElement, StarkField},
-};
-const MIN_CONCURRENT_SIZE: usize = 1024;
+use lambdaworks_math::field::traits::{IsField, RootsConfig};
+use rand::Rng;
+use winter_math::fft::{evaluate_poly, get_twiddles};
+use winter_math::{fields::f64::BaseElement, FieldElement, StarkField};
 
-fn permute<E: FieldElement>(v: &mut [E]) {
-    if cfg!(feature = "concurrent") && v.len() >= MIN_CONCURRENT_SIZE {
-        #[cfg(feature = "concurrent")]
-        concurrent::permute(v);
-    } else {
-        FftInputs::permute(v);
-    }
-}
-
-pub fn get_twiddles<B>(domain_size: usize) -> Vec<B>
-where
-    B: StarkField,
-{
-    assert!(
-        domain_size.is_power_of_two(),
-        "domain size must be a power of 2"
-    );
-    assert!(
-        domain_size.ilog2() <= B::TWO_ADICITY,
-        "multiplicative subgroup of size {domain_size} does not exist in the specified base field"
-    );
-    let root = B::get_root_of_unity(domain_size.ilog2());
-    let mut twiddles = get_power_series(root, domain_size / 2);
-    permute(&mut twiddles);
-    twiddles
-}
 
 pub fn run_winterfell(poly: &[BaseElement]) {
     let mut p = poly.to_vec();
@@ -45,9 +15,22 @@ pub fn run_winterfell(poly: &[BaseElement]) {
     evaluate_poly(&mut p, &twiddles);
 }
 
-pub fn run_lambdaworks(poly: &[LambdaFieldElement<WinterfellFieldWrapper>]) -> Vec<LambdaFieldElement<WinterfellFieldWrapper>> {
+pub fn run_lambdaworks(
+    poly: &[LambdaFieldElement<WinterfellFieldWrapper>],
+) -> Vec<LambdaFieldElement<WinterfellFieldWrapper>> {
     let p = poly.clone();
     evaluate_fft_cpu(p).unwrap()
+}
+
+pub fn run_winterfell_twiddles(poly: &[BaseElement]) {
+    let p = poly.to_vec();
+    get_twiddles::<BaseElement>(p.len());
+}
+
+pub fn run_lambdaworks_twiddles(poly: &[LambdaFieldElement<WinterfellFieldWrapper>]) {
+    let p = poly.clone();
+    let order = p.len().trailing_zeros();
+    get_twiddles_lambdaworks::<WinterfellFieldWrapper>(order.into(), RootsConfig::BitReverse).unwrap();
 }
 
 #[derive(Clone, Debug)]
@@ -120,23 +103,28 @@ impl IsField for WinterfellFieldWrapper {
 }
 
 fn fft_benches(c: &mut Criterion) {
-let mut group = c.benchmark_group("FFT");
+    let mut group = c.benchmark_group("FFT");
     let mut rng = rand::thread_rng();
     let mut random_u64s: Vec<u64> = Vec::with_capacity(8192);
     for _ in 0..8192 {
         random_u64s.push(rng.gen());
     }
     let poly_winterfell: Vec<_> = random_u64s.iter().map(|x| BaseElement::from(*x)).collect();
-    let poly_lambda: Vec<_> = random_u64s.iter().map(|x| LambdaFieldElement::<WinterfellFieldWrapper>::from(*x)).collect();
-    group.bench_function("winterfel_evaluate_fft", |bench| {
-        bench.iter(|| {
-            black_box(run_winterfell(black_box(&poly_winterfell)))
-        })
+    let poly_lambda: Vec<_> = random_u64s
+        .iter()
+        .map(|x| LambdaFieldElement::<WinterfellFieldWrapper>::from(*x))
+        .collect();
+    group.bench_function("winterfell_evaluate_fft", |bench| {
+        bench.iter(|| black_box(run_winterfell(black_box(&poly_winterfell))))
     });
     group.bench_function("lambda_evaluate_fft", |bench| {
-        bench.iter(|| {
-            black_box(run_lambdaworks(black_box(&poly_lambda)))
-        })
+        bench.iter(|| black_box(run_lambdaworks(black_box(&poly_lambda))))
+    });
+    group.bench_function("winterfell_compute_twiddles", |bench| {
+        bench.iter(|| black_box(run_winterfell_twiddles(black_box(&poly_winterfell))))
+    });
+    group.bench_function("lambda_compute_twiddles", |bench| {
+        bench.iter(|| black_box(run_lambdaworks_twiddles(black_box(&poly_lambda))))
     });
 }
 
