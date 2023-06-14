@@ -18,3 +18,8 @@ criterion = { version = "0.5.1", default-features = false }
 [[bench]]
 name = "mul"
 harness = false
+
+[profile.bench]
+lto = true
+codegen-units = 1
+opt-level = 3
