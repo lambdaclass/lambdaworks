@@ -1,0 +1,18 @@
+[package]
+name = "lambdaworks-benches"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ark-ff = { git = "https://github.com/arkworks-rs/algebra", branch = "faster-benchmarks-and-starknet-field" }
+ark-test-curves = { git = "https://github.com/arkworks-rs/algebra", branch = "faster-benchmarks-and-starknet-field" }
+
+[dependencies.lambdaworks-math]
+path = "../math"
+
+[dev-dependencies]
+criterion = { version = "0.5.1", default-features = false }
+
+[[bench]]
+name = "mul"
+harness = false
