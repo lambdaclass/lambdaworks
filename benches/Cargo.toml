@@ -16,6 +16,10 @@ path = "../math"
 criterion = { version = "0.5.1", default-features = false }
 
 [[bench]]
+name = "add"
+harness = false
+
+[[bench]]
 name = "mul"
 harness = false
 
