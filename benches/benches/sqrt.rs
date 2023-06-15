@@ -14,7 +14,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         let mut rng = test_rng();
 
         let mut v = Vec::new();
-        for _i in 0..10000 {
+        for _i in 0..1000 {
             let a = F::rand(&mut rng);
             let square = a * a;
             v.push(square);
@@ -29,7 +29,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                 b.iter(|| {
                     let mut iter = v.iter();
 
-                    for _i in 0..10000 {
+                    for _i in 0..1000 {
                         let a = iter.next().unwrap();
                         black_box(black_box(a).sqrt());
                     }
@@ -45,7 +45,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         };
         let mut v = Vec::new();
         let mut buf = [0u8; 32];
-        for _i in 0..10000 {
+        for _i in 0..1000 {
             rand::thread_rng().fill_bytes(&mut buf[..]);
             let a = FieldElement::<Stark252PrimeField>::from_bytes_be(&buf).unwrap();
             let square = &a * &a;
@@ -56,7 +56,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
             b.iter(|| {
                 let mut iter = v.iter();
 
-                for _i in 0..10000 {
+                for _i in 0..1000 {
                     let a = iter.next().unwrap();
                     black_box(black_box(a).sqrt());
                 }
