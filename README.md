@@ -27,7 +27,7 @@ These are the results of execution of the benchmarks for finite field arithmetic
 | `sub`    | 15.493 μs | 14.888 μs   |
 | `mul`    | 60.462 μs | 57.014 μs   |
 | `invert` | 35.475 ms | 35.216 ms   |
-| `sqrt`   |           |             |
+| `sqrt`   | 126.39 ms | 133.74 ms   |
 | `pow`    | 12.139 ms | 12.148 ms   |
 
 To run them locally, you will need `cargo-criterion` and `cargo-flamegraph`. Install it with:
