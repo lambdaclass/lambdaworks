@@ -1,5 +1,5 @@
 use ark_ff::Field;
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
 use lambdaworks_math::traits::ByteConversion;
 use rand::RngCore;
 
@@ -25,11 +25,15 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                 BENCHMARK_NAME
             ),
             |b| {
-                b.iter(|| {
-                    for mut elem in v.iter_mut() {
-                        black_box(black_box(&mut elem).inverse_in_place());
-                    }
-                });
+                b.iter_batched(
+                    || v.clone(),
+                    |mut v| {
+                        for mut elem in v.iter_mut() {
+                            black_box(black_box(&mut elem).inverse_in_place());
+                        }
+                    },
+                    BatchSize::LargeInput,
+                );
             },
         );
     }
