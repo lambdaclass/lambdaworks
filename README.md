@@ -19,7 +19,7 @@ So, we decided to build our library, focusing on performance, with clear documen
 
 Benchmark results are hosted [here](https://lambdaclass.github.io/lambdaworks/bench).
 
-These are the results of execution of the benchmarks for finite field arithmetic using the STARK field prime (p = 3618502788666131213697322783095070105623107215331596699973092056135872020481)
+These are the results of execution of the benchmarks for finite field arithmetic using the STARK field prime (p = 3618502788666131213697322783095070105623107215331596699973092056135872020481). Benchmark results were run with AMD Ryzen 7 PRO 4750G with Radeon Graphics (32 GB RAM) using Ubuntu 20.04.6 LTS
 
 |          | arkworks  | lambdaworks |
 | -------- | --------- | ----------- |
@@ -28,7 +28,7 @@ These are the results of execution of the benchmarks for finite field arithmetic
 | `mul`    | 60.462 μs | 57.014 μs   |
 | `invert` | 35.475 ms | 35.216 ms   |
 | `sqrt`   |           |             |
-| `pow`    |           |             |
+| `pow`    | 12.139 ms | 12.148 ms   |
 
 To run them locally, you will need `cargo-criterion` and `cargo-flamegraph`. Install it with:
 
