@@ -32,7 +32,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                     for _i in 0..5000 {
                         let a = iter.next().unwrap();
                         let b = iter.next().unwrap();
-                        black_box(black_box(&a).sub(black_box(&b)));
+                        black_box(black_box(&a).sub(black_box(b)));
                     }
                 });
             },
