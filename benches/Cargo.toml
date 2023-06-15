@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-ark-ff = { git = "https://github.com/arkworks-rs/algebra", branch = "faster-benchmarks-and-starknet-field", rev = "ef8f758" }
-ark-test-curves = { git = "https://github.com/arkworks-rs/algebra", branch = "faster-benchmarks-and-starknet-field", rev = "ef8f758" }
+ark-ff = { git = "https://github.com/arkworks-rs/algebra", rev = "ef8f758" }
+ark-test-curves = { git = "https://github.com/arkworks-rs/algebra", rev = "ef8f758" }
 ark-std = "0.4.0"
 rand = "0.8.5"
 
