@@ -31,6 +31,10 @@ harness = false
 name = "invert"
 harness = false
 
+[[bench]]
+name = "pow"
+harness = false
+
 [profile.bench]
 lto = true
 codegen-units = 1
