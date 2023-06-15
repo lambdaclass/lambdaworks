@@ -144,12 +144,14 @@ Benchmark results are hosted [here](https://lambdaclass.github.io/lambdaworks/be
 
 These are the results of execution of the benchmarks:
 
+On Mac with M1:
+
 |          | arkworks  | lambdaworks |
 | -------- | --------- | ----------- |
-| `add`    | 17.482 μs | 21.318 μs   |
-| `sub`    | 17.404 μs | 40.380 μs   |
-| `mul`    | 72.492 μs | 70.476 μs   |
-| `invert` | 54.055 ms | 59.939 ms   |
+| `add`    | 15.170 μs | 13.042 μs   |
+| `sub`    | 15.493 μs | 14.888 μs   |
+| `mul`    | 60.462 μs | 57.014 μs   |
+| `invert` | 35.475 ms | 35.216 ms   |
 | `sqrt`   |           |             |
 | `pow`    |           |             |
 
