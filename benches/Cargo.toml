@@ -1,0 +1,40 @@
+[package]
+name = "lambdaworks-benches"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ark-ff = { git = "https://github.com/arkworks-rs/algebra", rev = "ef8f758" }
+ark-test-curves = { git = "https://github.com/arkworks-rs/algebra", rev = "ef8f758" }
+ark-std = "0.4.0"
+rand = "0.8.5"
+
+[dependencies.lambdaworks-math]
+path = "../math"
+
+[dev-dependencies]
+criterion = { version = "0.5.1", default-features = false }
+
+[[bench]]
+name = "add"
+harness = false
+
+[[bench]]
+name = "mul"
+harness = false
+
+[[bench]]
+name = "sub"
+harness = false
+
+[[bench]]
+name = "invert"
+harness = false
+
+[[bench]]
+name = "sqrt"
+harness = false
+
+[[bench]]
+name = "pow"
+harness = false
