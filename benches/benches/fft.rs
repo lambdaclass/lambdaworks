@@ -103,8 +103,6 @@ impl IsField for WinterfellFieldWrapper {
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
-    let mut group = c.benchmark_group("FFT");
-
     // Create a slice with 8192 random elements.
     let mut rng = rand::thread_rng();
     let mut random_u64s: Vec<u64> = Vec::with_capacity(8192);
@@ -118,16 +116,16 @@ fn criterion_benchmark(c: &mut Criterion) {
         .collect();
 
     // Benches
-    group.bench_function("fft_winterfell_evaluate_poly_fft", |bench| {
+    c.bench_function("fft | winterfell", |bench| {
         bench.iter(|| black_box(run_winterfell(black_box(&poly_winterfell))))
     });
-    group.bench_function("fft_lambda_evaluate_poly_fft", |bench| {
+    c.bench_function("fft | lambdaworks", |bench| {
         bench.iter(|| black_box(run_lambdaworks(black_box(&poly_lambda))))
     });
-    group.bench_function("fft_winterfell_compute_twiddles", |bench| {
+    c.bench_function("fft twiddles | winterfell", |bench| {
         bench.iter(|| black_box(run_winterfell_twiddles(black_box(&poly_winterfell))))
     });
-    group.bench_function("fft_lambda_compute_twiddles", |bench| {
+    c.bench_function("fft twiddles | lambdaworks", |bench| {
         bench.iter(|| black_box(run_lambdaworks_twiddles(black_box(&poly_lambda))))
     });
 }
