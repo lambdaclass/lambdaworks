@@ -7,6 +7,7 @@ edition = "2021"
 ark-ff = { git = "https://github.com/arkworks-rs/algebra", rev = "ef8f758" }
 ark-test-curves = { git = "https://github.com/arkworks-rs/algebra", rev = "ef8f758" }
 ark-std = "0.4.0"
+winter-math = { git = "https://github.com/facebook/winterfell.git", rev="18dfc30"}
 rand = "0.8.5"
 
 [dependencies.lambdaworks-math]
@@ -38,3 +39,8 @@ harness = false
 [[bench]]
 name = "pow"
 harness = false
+
+[[bench]]
+name = "fft"
+harness = false
+

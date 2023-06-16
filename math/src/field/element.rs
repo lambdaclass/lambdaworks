@@ -6,11 +6,7 @@ use crate::unsigned_integer::traits::IsUnsignedInteger;
 use std::fmt;
 use std::iter::Sum;
 use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
-use std::{
-    fmt::Debug,
-    hash::{Hash, Hasher},
-};
-
+use std::fmt::Debug;
 use super::fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField};
 use super::traits::{IsPrimeField, LegendreSymbol};
 
@@ -90,15 +86,6 @@ where
 }
 
 impl<F> Eq for FieldElement<F> where F: IsField {}
-
-impl<F> Hash for FieldElement<F>
-where
-    F: IsField,
-{
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.value.hash(state);
-    }
-}
 
 /// Addition operator overloading for field elements
 impl<F> Add<&FieldElement<F>> for &FieldElement<F>
