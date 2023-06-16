@@ -16,6 +16,11 @@ criterion = "0.4"
 const-random = "0.1.15"
 iai-callgrind.workspace = true
 
+[profile.release]
+lto = true
+opt-level = 3
+codegen-units = 1
+
 [features]
 rayon = ["dep:rayon"]
 

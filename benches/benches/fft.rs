@@ -17,8 +17,8 @@ pub fn run_winterfell(poly: &[BaseElement]) {
 pub fn run_lambdaworks(
     poly: &[LambdaFieldElement<WinterfellFieldWrapper>],
 ) -> Vec<LambdaFieldElement<WinterfellFieldWrapper>> {
-    let p = poly.clone();
-    evaluate_fft_cpu(p).unwrap()
+    let p = poly.to_vec();
+    evaluate_fft_cpu(&p).unwrap()
 }
 
 pub fn run_winterfell_twiddles(poly: &[BaseElement]) {
@@ -27,7 +27,7 @@ pub fn run_winterfell_twiddles(poly: &[BaseElement]) {
 }
 
 pub fn run_lambdaworks_twiddles(poly: &[LambdaFieldElement<WinterfellFieldWrapper>]) {
-    let p = poly.clone();
+    let p = poly.to_vec();
     let order = p.len().trailing_zeros();
     get_twiddles_lambdaworks::<WinterfellFieldWrapper>(order.into(), RootsConfig::BitReverse)
         .unwrap();
@@ -58,23 +58,23 @@ impl IsField for WinterfellFieldWrapper {
     type BaseType = BaseElement;
 
     fn add(a: &BaseElement, b: &BaseElement) -> BaseElement {
-        a.clone() + b.clone()
+        *a + *b
     }
 
     fn sub(a: &BaseElement, b: &BaseElement) -> BaseElement {
-        a.clone() - b.clone()
+        *a - *b
     }
 
     fn neg(a: &BaseElement) -> BaseElement {
-        -a.clone()
+        -*a
     }
 
     fn mul(a: &BaseElement, b: &BaseElement) -> BaseElement {
-        a.clone() * b.clone()
+        *a * *b
     }
 
     fn div(a: &BaseElement, b: &BaseElement) -> BaseElement {
-        a.clone() / b.clone()
+        *a / *b
     }
 
     fn inv(a: &BaseElement) -> BaseElement {
@@ -117,16 +117,20 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     // Benches
     c.bench_function("fft | winterfell", |bench| {
-        bench.iter(|| black_box(run_winterfell(black_box(&poly_winterfell))))
+        bench.iter(|| run_winterfell(black_box(&poly_winterfell)));
+        black_box(())
     });
     c.bench_function("fft | lambdaworks", |bench| {
-        bench.iter(|| black_box(run_lambdaworks(black_box(&poly_lambda))))
+        bench.iter(|| run_lambdaworks(black_box(&poly_lambda)));
+        black_box(())
     });
     c.bench_function("fft twiddles | winterfell", |bench| {
-        bench.iter(|| black_box(run_winterfell_twiddles(black_box(&poly_winterfell))))
+        bench.iter(|| run_winterfell_twiddles(black_box(&poly_winterfell)));
+        black_box(())
     });
     c.bench_function("fft twiddles | lambdaworks", |bench| {
-        bench.iter(|| black_box(run_lambdaworks_twiddles(black_box(&poly_lambda))))
+        bench.iter(|| run_lambdaworks_twiddles(black_box(&poly_lambda)));
+        black_box(())
     });
 }
 
