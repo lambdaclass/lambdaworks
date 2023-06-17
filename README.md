@@ -50,8 +50,6 @@ make benchmark BENCH=field
 
 You can check the generated HTML report in `target/criterion/reports/index.html`
 
-
-
 ## Provers and Polynomial Commitment Schemes using LambdaWorks
 - [Cairo STARK LambdaWorks prover](https://github.com/lambdaclass/lambdaworks_cairo_prover/tree/main)
 - [Plonk LambdaWorks prover](https://github.com/lambdaclass/lambdaworks_plonk_prover)
@@ -64,8 +62,6 @@ You can check the generated HTML report in `target/criterion/reports/index.html`
 - [Fast Fourier Transform](https://github.com/lambdaclass/lambdaworks/tree/main/fft)
 - [Elliptic curves](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/elliptic_curve)
 - [Multiscalar multiplication](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/msm)
-
-![FqJmqwtWABozHi_](https://user-images.githubusercontent.com/569014/222294400-4a9e2a46-2823-4a98-b0f4-2293d372cccb.jpeg)
 
 If you use ```Lambdaworks``` libraries in your research projects, please cite them using the following template:
 
