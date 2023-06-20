@@ -1,9 +1,11 @@
-use sha3::{Digest, Sha3_256};
+use std::result;
+
+use sha3::{Digest, Keccak256};
 
 use super::transcript::Transcript;
 
 pub struct DefaultTranscript {
-    hasher: Sha3_256,
+    hasher: Keccak256,
 }
 
 impl Transcript for DefaultTranscript {
@@ -14,6 +16,7 @@ impl Transcript for DefaultTranscript {
     fn challenge(&mut self) -> [u8; 32] {
         let mut result_hash = [0_u8; 32];
         result_hash.copy_from_slice(&self.hasher.finalize_reset());
+        result_hash.reverse();
         self.hasher.update(result_hash);
         result_hash
     }
@@ -28,7 +31,7 @@ impl Default for DefaultTranscript {
 impl DefaultTranscript {
     pub fn new() -> Self {
         Self {
-            hasher: Sha3_256::new(),
+            hasher: Keccak256::new(),
         }
     }
 }
