@@ -10,6 +10,8 @@ cargo-fuzz = true
 [dependencies]
 libfuzzer-sys = "0.4"
 lambdaworks-math = { path = "../math" }
+num-traits = "0.2"
+ibig = "0.3.6"
 
 # Prevent this from interfering with workspaces
 [workspace]
