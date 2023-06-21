@@ -4,8 +4,9 @@ use crate::{
         point::ProjectivePoint,
         traits::{EllipticCurveError, FromAffine, IsEllipticCurve},
     },
+    errors::DeserializationError,
     field::element::FieldElement,
-    traits::{ByteConversion, Deserializable, Serializable}, errors::DeserializationError,
+    traits::{ByteConversion, Deserializable, Serializable},
 };
 
 use super::traits::IsShortWeierstrass;

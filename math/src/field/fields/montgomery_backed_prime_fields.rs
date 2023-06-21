@@ -1,13 +1,15 @@
+#[cfg(not(feature = "no_std"))]
 use crate::field::element::FieldElement;
 use crate::field::traits::IsPrimeField;
+#[cfg(not(feature = "no_std"))]
 use crate::traits::ByteConversion;
 use crate::{
     field::traits::IsField, unsigned_integer::element::UnsignedInteger,
     unsigned_integer::montgomery::MontgomeryAlgorithms,
 };
 
-use core::marker::PhantomData;
 use core::fmt::Debug;
+use core::marker::PhantomData;
 
 pub type U384PrimeField<M> = MontgomeryBackendPrimeField<M, 6>;
 pub type U256PrimeField<M> = MontgomeryBackendPrimeField<M, 4>;
@@ -272,11 +274,13 @@ where
     }
 }
 
+#[cfg(not(feature = "no_std"))]
 impl<M, const NUM_LIMBS: usize> ByteConversion
     for FieldElement<MontgomeryBackendPrimeField<M, NUM_LIMBS>>
 where
     M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug,
 {
+    #[cfg(not(feature = "no_std"))]
     fn to_bytes_be(&self) -> Vec<u8> {
         MontgomeryAlgorithms::cios(
             self.value(),
@@ -287,6 +291,7 @@ where
         .to_bytes_be()
     }
 
+    #[cfg(not(feature = "no_std"))]
     fn to_bytes_le(&self) -> Vec<u8> {
         MontgomeryAlgorithms::cios(
             self.value(),
@@ -317,6 +322,8 @@ mod tests_u384_prime_fields {
     };
     use crate::field::traits::IsField;
     use crate::field::traits::IsPrimeField;
+
+    #[cfg(not(feature = "no_std"))]
     use crate::traits::ByteConversion;
     use crate::unsigned_integer::element::U384;
     use crate::unsigned_integer::element::{UnsignedInteger, U256};
@@ -642,6 +649,7 @@ mod tests_u384_prime_fields {
     }
 
     #[test]
+    #[cfg(not(feature = "no_std"))]
     fn to_bytes_from_bytes_be_is_the_identity() {
         let x = U384FP2Element::new(UnsignedInteger::from_hex_unchecked(
             "5f103b0bd4397d4df560eb559f38353f80eeb6",
@@ -650,6 +658,7 @@ mod tests_u384_prime_fields {
     }
 
     #[test]
+    #[cfg(not(feature = "no_std"))]
     fn from_bytes_to_bytes_be_is_the_identity_for_one() {
         let bytes = [
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -662,6 +671,7 @@ mod tests_u384_prime_fields {
     }
 
     #[test]
+    #[cfg(not(feature = "no_std"))]
     fn to_bytes_from_bytes_le_is_the_identity() {
         let x = U384FP2Element::new(UnsignedInteger::from_hex_unchecked(
             "5f103b0bd4397d4df560eb559f38353f80eeb6",
@@ -670,6 +680,7 @@ mod tests_u384_prime_fields {
     }
 
     #[test]
+    #[cfg(not(feature = "no_std"))]
     fn from_bytes_to_bytes_le_is_the_identity_for_one() {
         let bytes = [
             1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -688,6 +699,7 @@ mod tests_u256_prime_fields {
     use crate::field::fields::montgomery_backed_prime_fields::{IsModulus, U256PrimeField};
     use crate::field::traits::IsField;
     use crate::field::traits::IsPrimeField;
+    #[cfg(not(feature = "no_std"))]
     use crate::traits::ByteConversion;
     use crate::unsigned_integer::element::UnsignedInteger;
     use crate::unsigned_integer::element::U256;
@@ -970,6 +982,7 @@ mod tests_u256_prime_fields {
     }
 
     #[test]
+    #[cfg(not(feature = "no_std"))]
     fn to_bytes_from_bytes_be_is_the_identity() {
         let x = FP2Element::new(UnsignedInteger::from_hex_unchecked(
             "5f103b0bd4397d4df560eb559f38353f80eeb6",
@@ -978,6 +991,7 @@ mod tests_u256_prime_fields {
     }
 
     #[test]
+    #[cfg(not(feature = "no_std"))]
     fn from_bytes_to_bytes_be_is_the_identity_for_one() {
         let bytes = [
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -990,6 +1004,7 @@ mod tests_u256_prime_fields {
     }
 
     #[test]
+    #[cfg(not(feature = "no_std"))]
     fn to_bytes_from_bytes_le_is_the_identity() {
         let x = FP2Element::new(UnsignedInteger::from_hex_unchecked(
             "5f103b0bd4397d4df560eb559f38353f80eeb6",
@@ -998,6 +1013,7 @@ mod tests_u256_prime_fields {
     }
 
     #[test]
+    #[cfg(not(feature = "no_std"))]
     fn from_bytes_to_bytes_le_is_the_identity_for_one() {
         let bytes = [
             1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,

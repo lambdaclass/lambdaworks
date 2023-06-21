@@ -1,6 +1,6 @@
+use super::{element::FieldElement, errors::FieldError};
 use crate::unsigned_integer::traits::IsUnsignedInteger;
 use core::fmt::Debug;
-use super::{element::FieldElement, errors::FieldError};
 
 /// Represents different configurations that powers of roots of unity can be in. Some of these may
 /// be necessary for FFT (as twiddle factors).
@@ -40,9 +40,7 @@ pub trait IsFFTField: IsPrimeField {
             return Ok(FieldElement::one());
         }
         if order > F::TWO_ADICITY {
-            return Err(FieldError::RootOfUnityError(
-                order,
-            ));
+            return Err(FieldError::RootOfUnityError(order));
         }
         let power = 1u64 << (F::TWO_ADICITY - order);
         Ok(two_adic_primitive_root_of_unity.pow(power))

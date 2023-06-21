@@ -5,11 +5,14 @@ use core::ops::{
     Sub,
 };
 
-use crate::errors::{ByteConversionError, CreationError};
+#[cfg(not(feature = "no_std"))]
+use crate::errors::ByteConversionError;
+use crate::errors::CreationError;
+#[cfg(not(feature = "no_std"))]
 use crate::traits::ByteConversion;
 use crate::unsigned_integer::traits::IsUnsignedInteger;
 
-use core::fmt::{Debug, Display, self};
+use core::fmt::{self, Debug, Display};
 
 pub type U384 = UnsignedInteger<6>;
 pub type U256 = UnsignedInteger<4>;
@@ -810,6 +813,7 @@ impl<const NUM_LIMBS: usize> From<UnsignedInteger<NUM_LIMBS>> for u16 {
 
 #[cfg(test)]
 mod tests_u384 {
+    #[cfg(not(feature = "no_std"))]
     use crate::traits::ByteConversion;
     use crate::unsigned_integer::element::{UnsignedInteger, U384};
 
@@ -1600,6 +1604,7 @@ mod tests_u384 {
     }
 
     #[test]
+    #[cfg(not(feature = "no_std"))]
     fn to_be_bytes_works() {
         let number = U384::from_u64(1);
         let expected_bytes = [
@@ -1611,6 +1616,7 @@ mod tests_u384 {
     }
 
     #[test]
+    #[cfg(not(feature = "no_std"))]
     fn to_le_bytes_works() {
         let number = U384::from_u64(1);
         let expected_bytes = [
@@ -1622,6 +1628,7 @@ mod tests_u384 {
     }
 
     #[test]
+    #[cfg(not(feature = "no_std"))]
     fn from_bytes_be_works() {
         let bytes = [
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -1633,6 +1640,7 @@ mod tests_u384 {
     }
 
     #[test]
+    #[cfg(not(feature = "no_std"))]
     fn from_bytes_le_works() {
         let bytes = [
             1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -1644,6 +1652,7 @@ mod tests_u384 {
     }
 
     #[test]
+    #[cfg(not(feature = "no_std"))]
     fn from_bytes_be_works_with_extra_data() {
         let bytes = [
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -1656,6 +1665,7 @@ mod tests_u384 {
 
     #[test]
     #[should_panic]
+    #[cfg(not(feature = "no_std"))]
     fn from_bytes_be_errs_with_less_data() {
         let bytes = [0, 0, 0, 0, 0];
         U384::from_bytes_be(&bytes).unwrap();
@@ -1663,12 +1673,14 @@ mod tests_u384 {
 
     #[test]
     #[should_panic]
+    #[cfg(not(feature = "no_std"))]
     fn from_bytes_le_errs_with_less_data() {
         let bytes = [0, 0, 0, 0, 0];
         U384::from_bytes_le(&bytes).unwrap();
     }
 
     #[test]
+    #[cfg(not(feature = "no_std"))]
     fn from_bytes_le_works_with_extra_data() {
         let bytes = [
             1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -1765,6 +1777,7 @@ mod tests_u384 {
 
 #[cfg(test)]
 mod tests_u256 {
+    #[cfg(not(feature = "no_std"))]
     use crate::traits::ByteConversion;
     use crate::unsigned_integer::element::{UnsignedInteger, U256};
 
@@ -2497,6 +2510,7 @@ mod tests_u256 {
     }
 
     #[test]
+    #[cfg(not(feature = "no_std"))]
     fn to_be_bytes_works() {
         let number = U256::from_u64(1);
         let expected_bytes = [
@@ -2508,6 +2522,7 @@ mod tests_u256 {
     }
 
     #[test]
+    #[cfg(not(feature = "no_std"))]
     fn to_le_bytes_works() {
         let number = U256::from_u64(1);
         let expected_bytes = [
@@ -2519,6 +2534,8 @@ mod tests_u256 {
     }
 
     #[test]
+    #[cfg(not(feature = "no_std"))]
+
     fn from_bytes_be_works() {
         let bytes = [
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -2529,6 +2546,7 @@ mod tests_u256 {
     }
 
     #[test]
+    #[cfg(not(feature = "no_std"))]
     fn from_bytes_le_works() {
         let bytes = [
             1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,

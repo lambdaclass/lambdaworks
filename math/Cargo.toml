@@ -19,8 +19,8 @@ iai-callgrind.workspace = true
 
 [features]
 rayon = ["dep:rayon"]
-default = []
-no_std = ["heapless"]
+default = ["no_std"]
+no_std = []
 
 [[bench]]
 name = "criterion_elliptic_curve"

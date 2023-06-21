@@ -4,11 +4,9 @@ use crate::unsigned_integer::element::UnsignedInteger;
 use crate::unsigned_integer::montgomery::MontgomeryAlgorithms;
 use crate::unsigned_integer::traits::IsUnsignedInteger;
 use core::fmt;
+use core::fmt::Debug;
 use core::iter::Sum;
 use core::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
-use core::{
-    fmt::Debug,
-};
 
 use super::fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField};
 use super::traits::{IsPrimeField, LegendreSymbol};
@@ -19,6 +17,7 @@ pub struct FieldElement<F: IsField> {
     value: F::BaseType,
 }
 
+#[cfg(not(feature = "no_std"))]
 impl<F: IsField> FieldElement<F> {
     // Source: https://en.wikipedia.org/wiki/Modular_multiplicative_inverse#Multiple_inverses
     pub fn inplace_batch_inverse(numbers: &mut [Self]) {
@@ -459,11 +458,9 @@ where
 mod tests {
     use crate::field::element::FieldElement;
     use crate::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
+    use crate::field::fields::u64_prime_field::U64PrimeField;
     use crate::field::test_fields::u64_test_field::U64TestField;
     use crate::unsigned_integer::element::UnsignedInteger;
-    use crate::{
-        field::fields::u64_prime_field::U64PrimeField,
-    };
 
     use proptest::{collection, prelude::*, prop_compose, proptest, strategy::Strategy};
 
@@ -492,7 +489,7 @@ mod tests {
         );
     }
 
-    #[cfg(not(feature = "no-std"))]
+    #[cfg(not(feature = "no_std"))]
     #[test]
     fn test_display_montgomery_field() {
         let zero_field_element = FieldElement::<Stark252PrimeField>::from(0);
@@ -582,14 +579,14 @@ mod tests {
     }
 
     prop_compose! {
-        #[cfg(not(feature = "no-std"))]
+        #[cfg(not(feature = "no_std"))]
         fn field_vec(max_exp: u8)(vec in collection::vec(field_element(), 0..1 << max_exp)) -> Vec<FieldElement::<Stark252PrimeField>> {
             vec
         }
     }
 
     proptest! {
-        #[cfg(not(feature = "no-std"))]
+        #[cfg(not(feature = "no_std"))]
         #[test]
         fn test_inplace_batch_inverse_returns_inverses(vec in field_vec(10)) {
             let input: Vec<_> = vec.into_iter().filter(|x| x != &FieldElement::<Stark252PrimeField>::zero()).collect();

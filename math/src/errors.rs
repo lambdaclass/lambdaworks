@@ -1,4 +1,3 @@
-
 #[derive(Debug, PartialEq, Eq)]
 pub enum ByteConversionError {
     FromBEBytesError,
