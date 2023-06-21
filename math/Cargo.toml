@@ -19,7 +19,7 @@ iai-callgrind.workspace = true
 
 [features]
 rayon = ["dep:rayon"]
-default = ["no_std"]
+default = []
 no_std = []
 
 [[bench]]

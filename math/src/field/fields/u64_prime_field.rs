@@ -6,7 +6,7 @@ use crate::errors::DeserializationError;
 use crate::field::element::FieldElement;
 use crate::field::traits::{IsFFTField, IsField, IsPrimeField};
 #[cfg(not(feature = "no_std"))]
-use crate::traits::ByteConversion;
+use crate::traits::{Serializable, Deserializable, ByteConversion};
 
 /// Type representing prime fields over unsigned 64-bit integers.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
