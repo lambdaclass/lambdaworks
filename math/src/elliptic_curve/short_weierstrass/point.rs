@@ -5,10 +5,10 @@ use crate::{
         traits::{EllipticCurveError, FromAffine, IsEllipticCurve},
     },
     field::element::FieldElement,
-    traits::{ByteConversion, Deserializable, Serializable},
+    traits::{ByteConversion, Deserializable, Serializable}, errors::DeserializationError,
 };
 
-use super::{errors::DeserializationError, traits::IsShortWeierstrass};
+use super::traits::IsShortWeierstrass;
 
 #[derive(Clone, Debug)]
 pub struct ShortWeierstrassProjectivePoint<E: IsEllipticCurve>(pub ProjectivePoint<E>);

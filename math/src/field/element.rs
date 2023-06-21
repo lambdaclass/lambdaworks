@@ -8,7 +8,6 @@ use core::iter::Sum;
 use core::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
 use core::{
     fmt::Debug,
-    hash::{Hash, Hasher},
 };
 
 use super::fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField};

@@ -1,6 +1,5 @@
 use lambdaworks_math::{
-    elliptic_curve::short_weierstrass::errors::DeserializationError,
-    traits::{Deserializable, Serializable},
+    traits::{Deserializable, Serializable}, errors::DeserializationError,
 };
 
 use super::traits::IsMerkleTreeBackend;

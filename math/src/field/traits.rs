@@ -41,7 +41,6 @@ pub trait IsFFTField: IsPrimeField {
         }
         if order > F::TWO_ADICITY {
             return Err(FieldError::RootOfUnityError(
-                "Order cannot exceed 2^{F::TWO_ADICITY}".to_string(),
                 order,
             ));
         }

@@ -3,12 +3,12 @@ use crate::errors::SrsFromFileError;
 use super::traits::IsCommitmentScheme;
 use lambdaworks_math::{
     cyclic_group::IsGroup,
-    elliptic_curve::{short_weierstrass::errors::DeserializationError, traits::IsPairing},
+    elliptic_curve::{traits::IsPairing},
     field::{element::FieldElement, traits::IsPrimeField},
     msm::pippenger::msm,
     polynomial::Polynomial,
     traits::{Deserializable, Serializable},
-    unsigned_integer::element::UnsignedInteger,
+    unsigned_integer::element::UnsignedInteger, errors::DeserializationError,
 };
 use std::{marker::PhantomData, mem};
 
