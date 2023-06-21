@@ -1,6 +1,6 @@
-use std::cmp::Ordering;
-use std::convert::From;
-use std::ops::{
+use core::cmp::Ordering;
+use core::convert::From;
+use core::ops::{
     Add, BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Mul, Shl, Shr, ShrAssign,
     Sub,
 };
@@ -9,7 +9,7 @@ use crate::errors::{ByteConversionError, CreationError};
 use crate::traits::ByteConversion;
 use crate::unsigned_integer::traits::IsUnsignedInteger;
 
-use std::fmt::{self, Debug};
+use core::fmt::{Debug, Display, self};
 
 pub type U384 = UnsignedInteger<6>;
 pub type U256 = UnsignedInteger<4>;
@@ -84,7 +84,7 @@ impl<const NUM_LIMBS: usize> From<&str> for UnsignedInteger<NUM_LIMBS> {
     }
 }
 
-impl<const NUM_LIMBS: usize> fmt::Display for UnsignedInteger<NUM_LIMBS> {
+impl<const NUM_LIMBS: usize> Display for UnsignedInteger<NUM_LIMBS> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut limbs_iterator = self.limbs.iter().skip_while(|limb| **limb == 0).peekable();
 
@@ -733,6 +733,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
 
 impl<const NUM_LIMBS: usize> IsUnsignedInteger for UnsignedInteger<NUM_LIMBS> {}
 
+#[cfg(not(feature = "no_std"))]
 impl<const NUM_LIMBS: usize> ByteConversion for UnsignedInteger<NUM_LIMBS> {
     fn to_bytes_be(&self) -> Vec<u8> {
         self.limbs
@@ -1601,7 +1602,7 @@ mod tests_u384 {
     #[test]
     fn to_be_bytes_works() {
         let number = U384::from_u64(1);
-        let expected_bytes = vec![
+        let expected_bytes = [
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
         ];
@@ -1612,7 +1613,7 @@ mod tests_u384 {
     #[test]
     fn to_le_bytes_works() {
         let number = U384::from_u64(1);
-        let expected_bytes = vec![
+        let expected_bytes = [
             1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ];
@@ -1622,7 +1623,7 @@ mod tests_u384 {
 
     #[test]
     fn from_bytes_be_works() {
-        let bytes = vec![
+        let bytes = [
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
         ];
@@ -1633,7 +1634,7 @@ mod tests_u384 {
 
     #[test]
     fn from_bytes_le_works() {
-        let bytes = vec![
+        let bytes = [
             1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ];
@@ -1644,7 +1645,7 @@ mod tests_u384 {
 
     #[test]
     fn from_bytes_be_works_with_extra_data() {
-        let bytes = vec![
+        let bytes = [
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ];
@@ -1656,20 +1657,20 @@ mod tests_u384 {
     #[test]
     #[should_panic]
     fn from_bytes_be_errs_with_less_data() {
-        let bytes = vec![0, 0, 0, 0, 0];
+        let bytes = [0, 0, 0, 0, 0];
         U384::from_bytes_be(&bytes).unwrap();
     }
 
     #[test]
     #[should_panic]
     fn from_bytes_le_errs_with_less_data() {
-        let bytes = vec![0, 0, 0, 0, 0];
+        let bytes = [0, 0, 0, 0, 0];
         U384::from_bytes_le(&bytes).unwrap();
     }
 
     #[test]
     fn from_bytes_le_works_with_extra_data() {
-        let bytes = vec![
+        let bytes = [
             1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1,
         ];
@@ -1701,7 +1702,6 @@ mod tests_u384 {
     fn test_square_2() {
         let a = U384::from_limbs([0, 0, 0, 0, u64::MAX, 0]);
         let (hi, lo) = U384::square(&a);
-        println!("{} {}", &hi, &lo);
         assert_eq!(
             lo,
             U384::from_hex_unchecked(
@@ -1715,7 +1715,6 @@ mod tests_u384 {
     fn test_square_3() {
         let a = U384::from_limbs([0, 0, 0, u64::MAX, 0, 0]);
         let (hi, lo) = U384::square(&a);
-        println!("{} {}", &hi, &lo);
         assert_eq!(lo, U384::from_hex_unchecked("fffffffffffffffe00000000000000010000000000000000000000000000000000000000000000000000000000000000"));
         assert_eq!(hi, U384::from_hex_unchecked("0"));
     }
@@ -1724,7 +1723,6 @@ mod tests_u384 {
     fn test_square_4() {
         let a = U384::from_limbs([0, 0, u64::MAX, 0, 0, 0]);
         let (hi, lo) = U384::square(&a);
-        println!("{} {}", &hi, &lo);
         assert_eq!(lo, U384::from_hex_unchecked("0"));
         assert_eq!(
             hi,
@@ -1736,7 +1734,6 @@ mod tests_u384 {
     fn test_square_5() {
         let a = U384::from_limbs([0, 0, u64::MAX, u64::MAX, u64::MAX, u64::MAX]);
         let (hi, lo) = U384::square(&a);
-        println!("{} {}", &hi, &lo);
         assert_eq!(lo, U384::from_hex_unchecked("fffffffffffffffffffffffffffffffe0000000000000000000000000000000000000000000000000000000000000001"));
         assert_eq!(
             hi,
@@ -1748,7 +1745,6 @@ mod tests_u384 {
     fn test_square_6() {
         let a = U384::from_limbs([0, u64::MAX, u64::MAX, u64::MAX, u64::MAX, u64::MAX]);
         let (hi, lo) = U384::square(&a);
-        println!("{} {}", &hi, &lo);
         assert_eq!(lo, U384::from_hex_unchecked("fffffffffffffffe00000000000000000000000000000000000000000000000000000000000000000000000000000001"));
         assert_eq!(
             hi,
@@ -2503,7 +2499,7 @@ mod tests_u256 {
     #[test]
     fn to_be_bytes_works() {
         let number = U256::from_u64(1);
-        let expected_bytes = vec![
+        let expected_bytes = [
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 1,
         ];
@@ -2514,7 +2510,7 @@ mod tests_u256 {
     #[test]
     fn to_le_bytes_works() {
         let number = U256::from_u64(1);
-        let expected_bytes = vec![
+        let expected_bytes = [
             1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0,
         ];
@@ -2524,7 +2520,7 @@ mod tests_u256 {
 
     #[test]
     fn from_bytes_be_works() {
-        let bytes = vec![
+        let bytes = [
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 1,
         ];
@@ -2534,7 +2530,7 @@ mod tests_u256 {
 
     #[test]
     fn from_bytes_le_works() {
-        let bytes = vec![
+        let bytes = [
             1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0,
         ];

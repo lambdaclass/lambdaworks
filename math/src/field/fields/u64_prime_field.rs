@@ -1,6 +1,6 @@
 use crate::cyclic_group::IsGroup;
-use crate::elliptic_curve::short_weierstrass::errors::DeserializationError;
 use crate::errors::ByteConversionError::{FromBEBytesError, FromLEBytesError};
+use crate::errors::DeserializationError;
 use crate::field::element::FieldElement;
 use crate::field::traits::{IsFFTField, IsField, IsPrimeField};
 use crate::traits::{ByteConversion, Deserializable, Serializable};
@@ -298,7 +298,7 @@ mod tests {
 
     #[test]
     fn from_bytes_to_bytes_be_is_the_identity_for_one() {
-        let bytes = vec![0, 0, 0, 0, 0, 0, 0, 1];
+        let bytes = [0, 0, 0, 0, 0, 0, 0, 1];
         assert_eq!(FE::from_bytes_be(&bytes).unwrap().to_bytes_be(), bytes);
     }
 
@@ -310,7 +310,7 @@ mod tests {
 
     #[test]
     fn from_bytes_to_bytes_le_is_the_identity_for_one() {
-        let bytes = vec![1, 0, 0, 0, 0, 0, 0, 0];
+        let bytes = [1, 0, 0, 0, 0, 0, 0, 0];
         assert_eq!(FE::from_bytes_le(&bytes).unwrap().to_bytes_le(), bytes);
     }
 

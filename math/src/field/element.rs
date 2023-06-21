@@ -3,10 +3,10 @@ use crate::field::traits::IsField;
 use crate::unsigned_integer::element::UnsignedInteger;
 use crate::unsigned_integer::montgomery::MontgomeryAlgorithms;
 use crate::unsigned_integer::traits::IsUnsignedInteger;
-use std::fmt;
-use std::iter::Sum;
-use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
-use std::{
+use core::fmt;
+use core::iter::Sum;
+use core::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
+use core::{
     fmt::Debug,
     hash::{Hash, Hasher},
 };
@@ -90,15 +90,6 @@ where
 }
 
 impl<F> Eq for FieldElement<F> where F: IsField {}
-
-impl<F> Hash for FieldElement<F>
-where
-    F: IsField,
-{
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.value.hash(state);
-    }
-}
 
 /// Addition operator overloading for field elements
 impl<F> Add<&FieldElement<F>> for &FieldElement<F>
@@ -426,8 +417,7 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let value: UnsignedInteger<NUM_LIMBS> = self.representative();
-        let res = format!("{}", value);
-        write!(f, "{}", res)
+        write!(f, "{}", value)
     }
 }
 
@@ -473,7 +463,6 @@ mod tests {
     use crate::field::test_fields::u64_test_field::U64TestField;
     use crate::unsigned_integer::element::UnsignedInteger;
     use crate::{
-        elliptic_curve::short_weierstrass::curves::bls12_381::default_types::FrElement,
         field::fields::u64_prime_field::U64PrimeField,
     };
 
@@ -504,6 +493,7 @@ mod tests {
         );
     }
 
+    #[cfg(not(feature = "no-std"))]
     #[test]
     fn test_display_montgomery_field() {
         let zero_field_element = FieldElement::<Stark252PrimeField>::from(0);
@@ -523,6 +513,9 @@ mod tests {
 
     #[test]
     fn one_of_sqrt_roots_for_4_is_2() {
+        type FrField = Stark252PrimeField;
+        type FrElement = FieldElement<FrField>;
+
         let input = FrElement::from(4);
         let sqrt = input.sqrt().unwrap();
         let result = FrElement::from(2);
@@ -539,6 +532,9 @@ mod tests {
     }
     #[test]
     fn one_of_sqrt_roots_for_25_is_5() {
+        type FrField = Stark252PrimeField;
+        type FrElement = FieldElement<FrField>;
+
         let input = FrElement::from(25);
         let sqrt = input.sqrt().unwrap();
         let result = FrElement::from(5);
@@ -587,12 +583,14 @@ mod tests {
     }
 
     prop_compose! {
+        #[cfg(not(feature = "no-std"))]
         fn field_vec(max_exp: u8)(vec in collection::vec(field_element(), 0..1 << max_exp)) -> Vec<FieldElement::<Stark252PrimeField>> {
             vec
         }
     }
 
     proptest! {
+        #[cfg(not(feature = "no-std"))]
         #[test]
         fn test_inplace_batch_inverse_returns_inverses(vec in field_vec(10)) {
             let input: Vec<_> = vec.into_iter().filter(|x| x != &FieldElement::<Stark252PrimeField>::zero()).collect();

@@ -5,8 +5,9 @@ use crate::{
     field::traits::IsField, unsigned_integer::element::UnsignedInteger,
     unsigned_integer::montgomery::MontgomeryAlgorithms,
 };
-use std::fmt::Debug;
-use std::marker::PhantomData;
+
+use core::marker::PhantomData;
+use core::fmt::Debug;
 
 pub type U384PrimeField<M> = MontgomeryBackendPrimeField<M, 6>;
 pub type U256PrimeField<M> = MontgomeryBackendPrimeField<M, 4>;
@@ -650,7 +651,7 @@ mod tests_u384_prime_fields {
 
     #[test]
     fn from_bytes_to_bytes_be_is_the_identity_for_one() {
-        let bytes = vec![
+        let bytes = [
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
         ];
@@ -670,7 +671,7 @@ mod tests_u384_prime_fields {
 
     #[test]
     fn from_bytes_to_bytes_le_is_the_identity_for_one() {
-        let bytes = vec![
+        let bytes = [
             1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ];
@@ -978,7 +979,7 @@ mod tests_u256_prime_fields {
 
     #[test]
     fn from_bytes_to_bytes_be_is_the_identity_for_one() {
-        let bytes = vec![
+        let bytes = [
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 1,
         ];
@@ -998,7 +999,7 @@ mod tests_u256_prime_fields {
 
     #[test]
     fn from_bytes_to_bytes_le_is_the_identity_for_one() {
-        let bytes = vec![
+        let bytes = [
             1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0,
         ];
