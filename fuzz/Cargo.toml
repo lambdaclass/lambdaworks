@@ -12,6 +12,7 @@ libfuzzer-sys = "0.4"
 lambdaworks-math = { path = "../math" }
 num-traits = "0.2"
 ibig = "0.3.6"
+num-bigint = "0.4.3"
 
 # Prevent this from interfering with workspaces
 [workspace]
