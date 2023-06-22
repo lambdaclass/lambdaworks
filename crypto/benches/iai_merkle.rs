@@ -1,7 +1,7 @@
 use core::hint::black_box;
 use lambdaworks_crypto::{
     hash::sha3::Sha3Hasher,
-    merkle_tree::merkle::{FieldElementBackend, MerkleTree},
+    merkle_tree::merkle::{Sha3_256Backend, MerkleTree},
 };
 use lambdaworks_math::{
     field::element::FieldElement,
@@ -30,7 +30,7 @@ fn build_hasher() -> Box<Sha3Hasher> {
 #[inline(never)]
 fn merkle_tree_build_benchmark() {
     let unhashed_leaves = build_unhashed_leaves();
-    let result = black_box(MerkleTree::<FieldElementBackend<F>>::build(black_box(
+    let result = black_box(MerkleTree::<Sha3_256Backend<F>>::build(black_box(
         &unhashed_leaves,
     )));
     // Let's not count `drop` in our timings.

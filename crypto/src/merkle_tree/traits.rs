@@ -2,7 +2,7 @@
 /// tree is built from. It also defines the `Node` type and the hash function
 /// used to build parent nodes from children nodes.
 pub trait IsMerkleTreeBackend: Default {
-    type Node: PartialEq + Eq + Clone + Default;
+    type Node: PartialEq + Eq + Clone;
     type Data;
 
     /// This function takes a single variable `Data` and converts it to a node.
