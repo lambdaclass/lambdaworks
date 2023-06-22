@@ -26,3 +26,7 @@ name = "field_fuzzer"
 path = "fuzz_targets/field_fuzzer.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "field_from_hex"
+path = "fuzz_targets/field_from_hex.rs"
