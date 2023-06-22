@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::convert::From;
 use std::ops::{
     Add, BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Mul, Shl, Shr, ShrAssign,
@@ -19,9 +20,39 @@ pub type U128 = UnsignedInteger<2>;
 /// The most significant bit is in the left-most position.
 /// That is, the array `[a_n, ..., a_0]` represents the
 /// integer 2^{64 * n} * a_n + ... + 2^{64} * a_1 + a_0.
-#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct UnsignedInteger<const NUM_LIMBS: usize> {
     pub limbs: [u64; NUM_LIMBS],
+}
+
+// NOTE: manually implementing `PartialOrd` may seem unorthodox, but the
+// derived implementation had terrible performance.
+impl<const NUM_LIMBS: usize> PartialOrd for UnsignedInteger<NUM_LIMBS> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        let mut i = 0;
+        while i < NUM_LIMBS {
+            if self.limbs[i] != other.limbs[i] {
+                return Some(self.limbs[i].cmp(&other.limbs[i]));
+            }
+            i += 1;
+        }
+        Some(Ordering::Equal)
+    }
+}
+
+// NOTE: because we implemented `PartialOrd`, clippy asks us to implement
+// this manually too.
+impl<const NUM_LIMBS: usize> Ord for UnsignedInteger<NUM_LIMBS> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        let mut i = 0;
+        while i < NUM_LIMBS {
+            if self.limbs[i] != other.limbs[i] {
+                return self.limbs[i].cmp(&other.limbs[i]);
+            }
+            i += 1;
+        }
+        Ordering::Equal
+    }
 }
 
 impl<const NUM_LIMBS: usize> From<u128> for UnsignedInteger<NUM_LIMBS> {

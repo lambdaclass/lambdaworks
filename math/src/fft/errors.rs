@@ -1,4 +1,4 @@
-use lambdaworks_math::field::errors::FieldError;
+use crate::field::errors::FieldError;
 use thiserror::Error;
 
 #[cfg(feature = "metal")]

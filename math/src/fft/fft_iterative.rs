@@ -1,4 +1,4 @@
-use lambdaworks_math::field::{element::FieldElement, traits::IsFFTField};
+use crate::field::{element::FieldElement, traits::IsFFTField};
 
 /// In-Place Radix-2 NR DIT FFT algorithm over a slice of two-adic field elements.
 /// It's required that the twiddle factors are in bit-reverse order. Else this function will not
@@ -98,9 +98,9 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::test_helpers::naive_matrix_dft_test;
-    use crate::{bit_reversing::in_place_bit_reverse_permute, roots_of_unity::get_twiddles};
-    use lambdaworks_math::field::{test_fields::u64_test_field::U64TestField, traits::RootsConfig};
+    use crate::fft::test_helpers::naive_matrix_dft_test;
+    use crate::fft::{bit_reversing::in_place_bit_reverse_permute, roots_of_unity::get_twiddles};
+    use crate::field::{test_fields::u64_test_field::U64TestField, traits::RootsConfig};
     use proptest::{collection, prelude::*};
 
     use super::*;

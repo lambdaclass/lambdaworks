@@ -20,7 +20,7 @@ const MODULUS: u64 = PRIMES[const_random!(usize) % PRIMES.len()];
 pub type FE = U64FieldElement<MODULUS>;
 
 #[inline(never)]
-#[export_name = "util::fp_get_primes"]
+#[export_name = "u64_utils::fp_get_primes"]
 pub fn get_field_elements() -> (
     FieldElement<Stark252PrimeField>,
     FieldElement<Stark252PrimeField>,
@@ -37,7 +37,7 @@ pub fn get_field_elements() -> (
 }
 
 #[inline(never)]
-#[export_name = "util::fp_squared_prime"]
+#[export_name = "u64_utils::fp_squared_prime"]
 pub fn get_squared_field_element() -> FieldElement<Stark252PrimeField> {
     let (x, _) = get_field_elements();
     &x * &x
@@ -45,7 +45,7 @@ pub fn get_squared_field_element() -> FieldElement<Stark252PrimeField> {
 
 #[allow(dead_code)]
 #[inline(never)]
-#[export_name = "util::rand_field_elements"]
+#[export_name = "u64_utils::rand_field_elements"]
 pub fn rand_field_elements(order: u64) -> Vec<FE> {
     let mut result = Vec::with_capacity(1 << order);
     for _ in 0..result.capacity() {
@@ -56,14 +56,14 @@ pub fn rand_field_elements(order: u64) -> Vec<FE> {
 
 #[allow(dead_code)]
 #[inline(never)]
-#[export_name = "util::rand_field_elements_pair"]
+#[export_name = "u64_utils::rand_field_elements_pair"]
 pub fn rand_field_elements_pair() -> (FE, FE) {
     (FE::new(random()), FE::new(random()))
 }
 
 #[allow(dead_code)]
 #[inline(never)]
-#[export_name = "util::rand_poly"]
+#[export_name = "u64_utils::rand_poly"]
 pub fn rand_poly(order: u64) -> Polynomial<FE> {
     Polynomial::new(&rand_field_elements(order))
 }

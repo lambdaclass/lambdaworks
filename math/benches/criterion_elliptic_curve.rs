@@ -13,7 +13,7 @@ use lambdaworks_math::{
 };
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
-mod util;
+mod utils;
 
 type G1 = ShortWeierstrassProjectivePoint<BLS12381Curve>;
 type G2 = ShortWeierstrassProjectivePoint<BLS12381TwistCurve>;

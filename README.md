@@ -15,6 +15,40 @@ Zero-Knowledge and Validity Proofs have gained a lot of attention over the last 
 
 So, we decided to build our library, focusing on performance, with clear documentation and developer-focused. Our core team is a group of passionate people from different backgrounds and different strengths; we think that the whole is greater than just the addition of the parts. We don't want to be a compilation of every research result in the ZK space. We want this to be a library that can be used in production, not just in academic research. We want to offer developers the main building blocks and proof systems so that they can build their applications on top of this library.
 
+## 📊 Benchmarks
+
+Benchmark results are hosted [here](https://lambdaclass.github.io/lambdaworks/bench).
+
+These are the results of execution of the benchmarks for finite field arithmetic using the STARK field prime (p = 3618502788666131213697322783095070105623107215331596699973092056135872020481). Benchmark results were run with AMD Ryzen 7 PRO 4750G with Radeon Graphics (32 GB RAM) using Ubuntu 20.04.6 LTS
+
+|          | arkworks  | lambdaworks |
+| -------- | --------- | ----------- |
+| `add`    | 15.170 μs | 13.042 μs   |
+| `sub`    | 15.493 μs | 14.888 μs   |
+| `mul`    | 60.462 μs | 57.014 μs   |
+| `invert` | 35.475 ms | 35.216 ms   |
+| `sqrt`   | 126.39 ms | 133.74 ms   |
+| `pow`    | 12.139 ms | 12.148 ms   |
+
+To run them locally, you will need `cargo-criterion` and `cargo-flamegraph`. Install it with:
+
+```bash
+cargo install cargo-criterion
+```
+
+Run the complete benchmark suite with:
+
+```bash
+make benchmarks
+```
+
+Run a specific benchmark suite with `cargo`, for example to run the one for `field`:
+
+```bash
+make benchmark BENCH=field
+```
+
+You can check the generated HTML report in `target/criterion/reports/index.html`
 
 ## Provers and Polynomial Commitment Schemes using LambdaWorks
 - [Cairo STARK LambdaWorks prover](https://github.com/lambdaclass/lambdaworks_cairo_prover/tree/main)
@@ -140,27 +174,3 @@ To serve the documentation locally, first install both [mdbook](https://rust-lan
 ``` shell
 make docs
 ```
-
-## 📊 Benchmarks
-
-Benchmark results are hosted [here](https://lambdaclass.github.io/lambdaworks/bench).
-
-To run them locally, you will need `cargo-criterion` and `cargo-flamegraph`. Install it with:
-
-```bash
-cargo install cargo-criterion
-```
-
-Run the complete benchmark suite with:
-
-```bash
-make benchmarks
-```
-
-Run a specific benchmark suite with `cargo`, for example to run the one for `field`:
-
-```bash
-make benchmark BENCH=field
-```
-
-You can check the generated HTML report in `target/criterion/reports/index.html`
