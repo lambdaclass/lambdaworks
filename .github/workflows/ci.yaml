@@ -29,6 +29,11 @@ jobs:
       - name: Run cargo check for math with no_std
         run: cargo check --package lambdaworks-math --features no_std
 
+      - name: Run cargo build ensure-no_std crate
+        run: |
+          cd ensure-no_std
+          cargo build
+
       - name: Check benchmarks
         run: cargo bench --no-run
 
