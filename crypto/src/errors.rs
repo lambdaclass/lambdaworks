@@ -11,11 +11,17 @@ pub enum SrsFromFileError {
 impl From<lambdaworks_math::errors::DeserializationError> for SrsFromFileError {
     fn from(err: DeserializationError) -> SrsFromFileError {
         match err {
-            DeserializationError::InvalidAmountOfBytes => SrsFromFileError::DeserializationError(DeserializationError::InvalidAmountOfBytes),
+            DeserializationError::InvalidAmountOfBytes => {
+                SrsFromFileError::DeserializationError(DeserializationError::InvalidAmountOfBytes)
+            }
 
-            DeserializationError::FieldFromBytesError => SrsFromFileError::DeserializationError(DeserializationError::FieldFromBytesError),
+            DeserializationError::FieldFromBytesError => {
+                SrsFromFileError::DeserializationError(DeserializationError::FieldFromBytesError)
+            }
 
-            DeserializationError::PointerSizeError => SrsFromFileError::DeserializationError(DeserializationError::PointerSizeError),
+            DeserializationError::PointerSizeError => {
+                SrsFromFileError::DeserializationError(DeserializationError::PointerSizeError)
+            }
         }
     }
 }

@@ -1,5 +1,6 @@
 use lambdaworks_math::{
-    traits::{Deserializable, Serializable}, errors::DeserializationError,
+    errors::DeserializationError,
+    traits::{Deserializable, Serializable},
 };
 
 use super::traits::IsMerkleTreeBackend;
