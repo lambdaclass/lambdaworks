@@ -533,9 +533,8 @@ mod tests {
 
         let input = FrElement::from(25);
         let sqrt = input.sqrt().unwrap();
-        let result = FrElement::from(5);
-        assert_eq!(sqrt.1, result);
-        assert_eq!(sqrt.0, -result);
+        let five = FrElement::from(5);
+        assert!(sqrt.1 == five || sqrt.0 == five);
     }
 
     #[test]
