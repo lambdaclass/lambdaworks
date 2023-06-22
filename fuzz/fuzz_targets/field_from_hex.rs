@@ -15,9 +15,9 @@ fuzz_target!(|values: (String, String)| {
     let b_parsed = UBig::from_str_radix(&value_b, 16);
 
     if value_a.len() < 64 && value_b.len() < 64 && 
-       value_a.chars().all(|c| matches!(c, '0'..='9' | 'a'..='z' |'A'..='Z')) &&
-       value_b.chars().all(|c| matches!(c, '0'..='9' | 'a'..='z' |'A'..='Z')) &&
        a_parsed.is_ok() && b_parsed.is_ok() && 
+       !value_a.chars().any(|c| matches!(c, '+')) &&
+       !value_b.chars().any(|c| matches!(c, '+')) &&
        a_parsed.as_ref().unwrap() < &cairo_prime && b_parsed.as_ref().unwrap() < &cairo_prime
     {
 
