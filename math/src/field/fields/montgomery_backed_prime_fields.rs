@@ -665,7 +665,6 @@ mod tests_u384_prime_fields {
     }
 
     #[test]
-    #[cfg(feature = "std")]
     fn to_bytes_from_bytes_be_is_the_identity() {
         let x = U384FP2Element::new(UnsignedInteger::from_hex_unchecked(
             "5f103b0bd4397d4df560eb559f38353f80eeb6",
@@ -674,7 +673,6 @@ mod tests_u384_prime_fields {
     }
 
     #[test]
-    #[cfg(feature = "std")]
     fn from_bytes_to_bytes_be_is_the_identity_for_one() {
         let bytes = [
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -687,7 +685,6 @@ mod tests_u384_prime_fields {
     }
 
     #[test]
-    #[cfg(feature = "std")]
     fn to_bytes_from_bytes_le_is_the_identity() {
         let x = U384FP2Element::new(UnsignedInteger::from_hex_unchecked(
             "5f103b0bd4397d4df560eb559f38353f80eeb6",
@@ -696,7 +693,6 @@ mod tests_u384_prime_fields {
     }
 
     #[test]
-    #[cfg(feature = "std")]
     fn from_bytes_to_bytes_le_is_the_identity_for_one() {
         let bytes = [
             1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -996,7 +992,6 @@ mod tests_u256_prime_fields {
     }
 
     #[test]
-    #[cfg(feature = "std")]
     fn to_bytes_from_bytes_be_is_the_identity() {
         let x = FP2Element::new(UnsignedInteger::from_hex_unchecked(
             "5f103b0bd4397d4df560eb559f38353f80eeb6",
@@ -1005,7 +1000,6 @@ mod tests_u256_prime_fields {
     }
 
     #[test]
-    #[cfg(feature = "std")]
     fn from_bytes_to_bytes_be_is_the_identity_for_one() {
         let bytes = [
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -1018,7 +1012,6 @@ mod tests_u256_prime_fields {
     }
 
     #[test]
-    #[cfg(feature = "std")]
     fn to_bytes_from_bytes_le_is_the_identity() {
         let x = FP2Element::new(UnsignedInteger::from_hex_unchecked(
             "5f103b0bd4397d4df560eb559f38353f80eeb6",
@@ -1027,7 +1020,6 @@ mod tests_u256_prime_fields {
     }
 
     #[test]
-    #[cfg(feature = "std")]
     fn from_bytes_to_bytes_le_is_the_identity_for_one() {
         let bytes = [
             1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
