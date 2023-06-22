@@ -21,6 +21,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
+          targets: wasm32-unknown-unknown
 
       - name: Run cargo check
         run: cargo check
