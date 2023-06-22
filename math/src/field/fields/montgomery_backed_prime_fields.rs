@@ -1,3 +1,4 @@
+#[cfg(not(feature = "no_std"))]
 use crate::field::element::FieldElement;
 use crate::field::traits::IsPrimeField;
 #[cfg(not(feature = "no_std"))]
