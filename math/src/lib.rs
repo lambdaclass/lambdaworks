@@ -7,11 +7,11 @@ pub mod helpers;
 pub mod traits;
 pub mod unsigned_integer;
 // These modules don't work in no-std mode
-#[cfg(not(feature = "no_std"))]
+#[cfg(feature = "std")]
 pub mod elliptic_curve;
-#[cfg(not(feature = "no_std"))]
+#[cfg(feature = "std")]
 pub mod fft;
-#[cfg(not(feature = "no_std"))]
+#[cfg(feature = "std")]
 pub mod msm;
-#[cfg(not(feature = "no_std"))]
+#[cfg(feature = "std")]
 pub mod polynomial;

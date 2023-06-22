@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-lambdaworks-math = { path = "../math", features = ["no_std"] }
+lambdaworks-math = { path = "../math", default-features = false }
 wee_alloc = "0.4.5"
 
 [profile.dev]
