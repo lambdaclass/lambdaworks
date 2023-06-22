@@ -26,7 +26,6 @@ jobs:
       - name: Run cargo check
         run: cargo check
 
-
       - name: Run cargo check for math with no_std
         run: cargo check --package lambdaworks-math --features no_std
 
