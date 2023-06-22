@@ -812,11 +812,11 @@ impl<const NUM_LIMBS: usize> ByteConversion for UnsignedInteger<NUM_LIMBS> {
     }
 
     fn from_bytes_be(bytes: &[u8]) -> Result<Self, ByteConversionError> {
-        Ok(Self::from_bytes_be(bytes)?)
+        Self::from_bytes_be(bytes)
     }
 
     fn from_bytes_le(bytes: &[u8]) -> Result<Self, ByteConversionError> {
-        Ok(Self::from_bytes_le(bytes)?)
+        Self::from_bytes_le(bytes)
     }
 }
 
@@ -828,8 +828,6 @@ impl<const NUM_LIMBS: usize> From<UnsignedInteger<NUM_LIMBS>> for u16 {
 
 #[cfg(test)]
 mod tests_u384 {
-    #[cfg(feature = "std")]
-    use crate::traits::ByteConversion;
     use crate::unsigned_integer::element::{UnsignedInteger, U384};
 
     use proptest::prelude::*;

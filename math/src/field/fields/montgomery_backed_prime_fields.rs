@@ -324,11 +324,11 @@ where
     }
 
     fn from_bytes_be(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError> {
-        Ok(Self::from_bytes_be(bytes)?)
+        Self::from_bytes_be(bytes)
     }
 
     fn from_bytes_le(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError> {
-        Ok(Self::from_bytes_le(bytes)?)
+        Self::from_bytes_le(bytes)
     }
 }
 
@@ -716,7 +716,6 @@ mod tests_u256_prime_fields {
     use crate::field::fields::montgomery_backed_prime_fields::{IsModulus, U256PrimeField};
     use crate::field::traits::IsField;
     use crate::field::traits::IsPrimeField;
-    #[cfg(feature = "std")]
     use crate::unsigned_integer::element::UnsignedInteger;
     use crate::unsigned_integer::element::U256;
 
