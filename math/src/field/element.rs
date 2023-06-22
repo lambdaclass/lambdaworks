@@ -462,9 +462,9 @@ mod tests {
     use crate::field::test_fields::u64_test_field::U64TestField;
     #[cfg(not(feature = "no_std"))]
     use crate::unsigned_integer::element::UnsignedInteger;
-    use proptest::{prelude::*, prop_compose, proptest, strategy::Strategy};
     #[cfg(not(feature = "no_std"))]
     use proptest::collection;
+    use proptest::{prelude::*, prop_compose, proptest, strategy::Strategy};
 
     #[test]
     fn test_std_iter_sum_field_element() {
