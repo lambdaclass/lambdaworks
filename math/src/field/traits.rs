@@ -213,10 +213,7 @@ pub trait IsPrimeField: IsField {
                 i + 1
             };
 
-            let mut b = c.clone();
-            for _ in 0..(m - i - 1) {
-                b = Self::square(&b);
-            }
+            let b = (0..(m - i - 1)).fold(c, |acc, _| Self::square(&acc));
 
             c = Self::mul(&b, &b);
             x = Self::mul(&x, &b);
