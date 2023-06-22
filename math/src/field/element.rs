@@ -460,9 +460,11 @@ mod tests {
     use crate::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
     use crate::field::fields::u64_prime_field::U64PrimeField;
     use crate::field::test_fields::u64_test_field::U64TestField;
+    use proptest::{prelude::*, prop_compose, proptest, strategy::Strategy};
+    #[cfg(not(feature = "no_std"))]
     use crate::unsigned_integer::element::UnsignedInteger;
-
-    use proptest::{collection, prelude::*, prop_compose, proptest, strategy::Strategy};
+    #[cfg(not(feature = "no_std"))]
+    use proptestt::collection;
 
     #[test]
     fn test_std_iter_sum_field_element() {
@@ -530,7 +532,6 @@ mod tests {
     fn one_of_sqrt_roots_for_25_is_5() {
         type FrField = Stark252PrimeField;
         type FrElement = FieldElement<FrField>;
-
         let input = FrElement::from(25);
         let sqrt = input.sqrt().unwrap();
         let five = FrElement::from(5);
