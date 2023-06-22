@@ -275,7 +275,7 @@ where
 
 impl<M, const NUM_LIMBS: usize> FieldElement<MontgomeryBackendPrimeField<M, NUM_LIMBS>>
 where
-    M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug 
+    M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug,
 {
     pub fn to_bytes_be(&self) -> Vec<u8> {
         MontgomeryAlgorithms::cios(
@@ -320,7 +320,6 @@ where
 
     fn to_bytes_le(&self) -> Vec<u8> {
         self.to_bytes_le()
-
     }
 
     fn from_bytes_be(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError> {
