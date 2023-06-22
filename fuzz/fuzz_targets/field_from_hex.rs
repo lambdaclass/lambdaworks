@@ -24,6 +24,7 @@ fuzz_target!(|values: (String, String)| {
         let a = FieldElement::<Stark252PrimeField>::from_hex_unchecked(&value_a);
         let b = FieldElement::<Stark252PrimeField>::from_hex_unchecked(&value_b);
 
+        // Basic checks against ibig
         let cairo_ring = ModuloRing::new(&cairo_prime);
         let a_expected = cairo_ring.from(a_parsed.unwrap());
         let b_expected = cairo_ring.from(b_parsed.unwrap());
@@ -49,6 +50,45 @@ fuzz_target!(|values: (String, String)| {
         let pow = &a.pow(b.representative());
         let expected_pow = a_expected.pow(&b_expected.residue());
         assert_eq!(&(pow.to_string())[2..], expected_pow.residue().in_radix(16).to_string());
+
+        for n in [&a, &b] {
+            match n.sqrt() {
+                Some((fst_sqrt, snd_sqrt)) => {
+                    assert_eq!(fst_sqrt.square(), snd_sqrt.square(), "Squared roots don't match each other");
+                    assert_eq!(n, &fst_sqrt.square(), "Squared roots don't match original number");
+                }
+                None => {}
+            };
+        }
+
+        // Axioms soundness
+        
+        let one = FieldElement::<Stark252PrimeField>::one();
+        let zero = FieldElement::<Stark252PrimeField>::zero();
+
+        assert_eq!(&a + &zero, a, "Neutral add element a failed");
+        assert_eq!(&b + &zero, b, "Neutral mul element b failed");
+        assert_eq!(&a * &one, a, "Neutral add element a failed");
+        assert_eq!(&b * &one, b, "Neutral mul element b failed");
+
+        assert_eq!(&a + &b, &b + &a, "Commutative add property failed");
+        assert_eq!(&a * &b, &b * &a, "Commutative mul property failed");
+
+        let c = &a * &b;
+        assert_eq!((&a + &b) + &c, &a + (&b + &c), "Associative add property failed");
+        assert_eq!((&a * &b) * &c, &a * (&b * &c), "Associative mul property failed");
+
+        assert_eq!(&a * (&b + &c), &a * &b + &a * &c, "Distributive property failed");
+
+        assert_eq!(&a - &a, zero, "Inverse add a failed");
+        assert_eq!(&b - &b, zero, "Inverse add b failed");
+
+        if a != zero {
+            assert_eq!(&a * a.inv(), one, "Inverse mul a failed");
+        }
+        if b != zero {
+            assert_eq!(&b * b.inv(), one, "Inverse mul b failed");
+        }
     }
 });
 
