@@ -27,6 +27,11 @@ jobs:
         with:
           command: check
 
+      - name: Run cargo check for math with no_std
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          command: check --package lambdaworks-math --features no_std
+
       - name: Check benchmarks
         run: cargo bench --no-run
 
