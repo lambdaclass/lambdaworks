@@ -1617,7 +1617,6 @@ mod tests_u384 {
     }
 
     #[test]
-    #[cfg(feature = "std")]
     fn to_be_bytes_works() {
         let number = U384::from_u64(1);
         let expected_bytes = [
@@ -1629,7 +1628,6 @@ mod tests_u384 {
     }
 
     #[test]
-    #[cfg(feature = "std")]
     fn to_le_bytes_works() {
         let number = U384::from_u64(1);
         let expected_bytes = [
@@ -1641,7 +1639,6 @@ mod tests_u384 {
     }
 
     #[test]
-    #[cfg(feature = "std")]
     fn from_bytes_be_works() {
         let bytes = [
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -1653,7 +1650,6 @@ mod tests_u384 {
     }
 
     #[test]
-    #[cfg(feature = "std")]
     fn from_bytes_le_works() {
         let bytes = [
             1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -1665,7 +1661,6 @@ mod tests_u384 {
     }
 
     #[test]
-    #[cfg(feature = "std")]
     fn from_bytes_be_works_with_extra_data() {
         let bytes = [
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -1678,7 +1673,6 @@ mod tests_u384 {
 
     #[test]
     #[should_panic]
-    #[cfg(feature = "std")]
     fn from_bytes_be_errs_with_less_data() {
         let bytes = [0, 0, 0, 0, 0];
         U384::from_bytes_be(&bytes).unwrap();
@@ -1686,14 +1680,12 @@ mod tests_u384 {
 
     #[test]
     #[should_panic]
-    #[cfg(feature = "std")]
     fn from_bytes_le_errs_with_less_data() {
         let bytes = [0, 0, 0, 0, 0];
         U384::from_bytes_le(&bytes).unwrap();
     }
 
     #[test]
-    #[cfg(feature = "std")]
     fn from_bytes_le_works_with_extra_data() {
         let bytes = [
             1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -2521,7 +2513,6 @@ mod tests_u256 {
     }
 
     #[test]
-    #[cfg(feature = "std")]
     fn to_be_bytes_works() {
         let number = U256::from_u64(1);
         let expected_bytes = [
@@ -2533,7 +2524,6 @@ mod tests_u256 {
     }
 
     #[test]
-    #[cfg(feature = "std")]
     fn to_le_bytes_works() {
         let number = U256::from_u64(1);
         let expected_bytes = [
@@ -2545,8 +2535,6 @@ mod tests_u256 {
     }
 
     #[test]
-    #[cfg(feature = "std")]
-
     fn from_bytes_be_works() {
         let bytes = [
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -2557,7 +2545,6 @@ mod tests_u256 {
     }
 
     #[test]
-    #[cfg(feature = "std")]
     fn from_bytes_le_works() {
         let bytes = [
             1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
