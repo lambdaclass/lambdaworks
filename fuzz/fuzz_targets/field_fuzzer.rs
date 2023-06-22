@@ -52,6 +52,33 @@ fuzz_target!(|values: (u64, u64)| {
         let expected_div = &a_expected / &b_expected;
         assert_eq!(&(div.to_string())[2..], expected_div.residue().in_radix(16).to_string());
     }
+
+    let one = FieldElement::<Stark252PrimeField>::one();
+    let zero = FieldElement::<Stark252PrimeField>::zero();
+
+    assert_eq!(&a + &zero, a, "Neutral add element a failed");
+    assert_eq!(&b + &zero, b, "Neutral mul element b failed");
+    assert_eq!(&a * &one, a, "Neutral add element a failed");
+    assert_eq!(&b * &one, b, "Neutral mul element b failed");
+
+    assert_eq!(&a + &b, &b + &a, "Commutative add property failed");
+    assert_eq!(&a * &b, &b * &a, "Commutative mul property failed");
+
+    let c = &a * &b;
+    assert_eq!((&a + &b) + &c, &a + (&b + &c), "Associative add property failed");
+    assert_eq!((&a * &b) * &c, &a * (&b * &c), "Associative mul property failed");
+
+    assert_eq!(&a * (&b + &c), &a * &b + &a * &c, "Distributive property failed");
+
+    assert_eq!(&a - &a, zero, "Inverse add a failed");
+    assert_eq!(&b - &b, zero, "Inverse add b failed");
+
+    if a != zero {
+        assert_eq!(&a * a.inv(), one, "Inverse mul a failed");
+    }
+    if b != zero {
+        assert_eq!(&b * b.inv(), one, "Inverse mul b failed");
+    }
     
     
 });
