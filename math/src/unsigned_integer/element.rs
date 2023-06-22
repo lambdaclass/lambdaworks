@@ -1790,8 +1790,6 @@ mod tests_u384 {
 
 #[cfg(test)]
 mod tests_u256 {
-    #[cfg(feature = "std")]
-    use crate::traits::ByteConversion;
     use crate::unsigned_integer::element::{UnsignedInteger, U256};
 
     use proptest::prelude::*;

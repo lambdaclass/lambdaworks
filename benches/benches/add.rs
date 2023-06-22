@@ -1,7 +1,6 @@
 use std::ops::Add;
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use lambdaworks_math::traits::ByteConversion;
 use rand::RngCore;
 
 const BENCHMARK_NAME: &str = "add";

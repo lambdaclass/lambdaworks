@@ -57,7 +57,7 @@ jobs:
         run: make clippy
 
       - name: Run clippy math no std
-        run: cargo clippy --package lambdaworks-math --no-default-features
+        run: cargo clippy --package lambdaworks-math --no-default-features -- -D warnings
 
   test:
     name: Test (Ubuntu)

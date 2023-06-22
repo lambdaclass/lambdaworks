@@ -1,6 +1,5 @@
 use ark_ff::Field;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use lambdaworks_math::traits::ByteConversion;
 use rand::Rng;
 use rand::RngCore;
 
