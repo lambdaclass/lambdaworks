@@ -5,25 +5,18 @@ use lambdaworks_math::field::{
     element::FieldElement, 
     fields::fft_friendly::stark_252_prime_field::Stark252PrimeField
 };
-use num_traits::Pow;
-use lambdaworks_math::unsigned_integer::element::UnsignedInteger;
-use std::fmt::Display;
-use ibig::{ibig, modular::ModuloRing, ubig, UBig};
-use num_bigint::BigUint;
+use ibig::{modular::ModuloRing, UBig};
 
 fuzz_target!(|values: (u64, u64)| {
 
     let (value_u64_a, value_u64_b) = values;
-
     let cairo_prime = 
         UBig::from_str_radix("800000000000011000000000000000000000000000000000000000000000001", 16).unwrap();
    
     let ring = ModuloRing::new(&cairo_prime);
 
-
     let a =  FieldElement::<Stark252PrimeField>::from(value_u64_a);
     let b =  FieldElement::<Stark252PrimeField>::from(value_u64_b);
-    println!();
 
     let a_expected = ring.from(value_u64_a);
     let b_expected = ring.from(value_u64_b);
@@ -52,6 +45,18 @@ fuzz_target!(|values: (u64, u64)| {
         let expected_div = &a_expected / &b_expected;
         assert_eq!(&(div.to_string())[2..], expected_div.residue().in_radix(16).to_string());
     }
+
+    for n in [&a, &b] {
+        match n.sqrt() {
+            Some((fst_sqrt, snd_sqrt)) => {
+                assert_eq!(fst_sqrt.square(), snd_sqrt.square(), "Squared roots don't match each other");
+                assert_eq!(n, &fst_sqrt.square(), "Squared roots don't match original number");
+            }
+            None => {}
+        };
+    }
+
+    // Axioms soundness
 
     let one = FieldElement::<Stark252PrimeField>::one();
     let zero = FieldElement::<Stark252PrimeField>::zero();
