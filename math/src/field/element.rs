@@ -525,6 +525,7 @@ mod tests {
         assert_eq!(sqrt.0, result);
         assert_eq!(sqrt.1, -result);
     }
+
     #[test]
     fn one_of_sqrt_roots_for_25_is_5() {
         let input = FrElement::from(25);
@@ -532,6 +533,18 @@ mod tests {
         let result = FrElement::from(5);
         assert_eq!(sqrt.1, result);
         assert_eq!(sqrt.0, -result);
+    }
+
+    #[test]
+    fn sqrt_works_for_prime_minus_one() {
+        type FrField = Stark252PrimeField;
+        type FrElement = FieldElement<FrField>;
+
+        let input = -FrElement::from(1);
+        let sqrt = input.sqrt().unwrap();
+        assert_eq!(sqrt.0.square(), input);
+        assert_eq!(sqrt.1.square(), input);
+        assert_ne!(sqrt.0, sqrt.1);
     }
 
     #[test]
