@@ -51,6 +51,9 @@ jobs:
       - name: Run clippy
         run: make clippy
 
+      - name: Run clippy math no std
+        run: cargo clippy --package lambdaworks-math --features no_std
+
   test:
     name: Test (Ubuntu)
     runs-on: ubuntu-latest
@@ -90,6 +93,8 @@ jobs:
         run: make clippy-metal
       - name: Run tests
         run: cargo test -F metal
+      - name: Run tests in no_std
+        run: cargo test --package lambdaworks-math --features no_std
 
   test_nvidia:
     name: Test (Ubuntu, NVIDIA GPU)
