@@ -274,13 +274,10 @@ where
     }
 }
 
-#[cfg(not(feature = "no_std"))]
-impl<M, const NUM_LIMBS: usize> ByteConversion
-    for FieldElement<MontgomeryBackendPrimeField<M, NUM_LIMBS>>
+impl<M, const NUM_LIMBS: usize> FieldElement<MontgomeryBackendPrimeField<M, NUM_LIMBS>>
 where
-    M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug,
+    M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug 
 {
-    #[cfg(not(feature = "no_std"))]
     fn to_bytes_be(&self) -> Vec<u8> {
         MontgomeryAlgorithms::cios(
             self.value(),
@@ -291,7 +288,6 @@ where
         .to_bytes_be()
     }
 
-    #[cfg(not(feature = "no_std"))]
     fn to_bytes_le(&self) -> Vec<u8> {
         MontgomeryAlgorithms::cios(
             self.value(),
@@ -313,6 +309,30 @@ where
     }
 }
 
+#[cfg(not(feature = "no_std"))]
+impl<M, const NUM_LIMBS: usize> ByteConversion
+    for FieldElement<MontgomeryBackendPrimeField<M, NUM_LIMBS>>
+where
+    M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug,
+{
+    fn to_bytes_be(&self) -> Vec<u8> {
+        self.to_bytes_be()
+    }
+
+    fn to_bytes_le(&self) -> Vec<u8> {
+        self.to_bytes_le()
+
+    }
+
+    fn from_bytes_be(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError> {
+        Ok(Self::from_bytes_be(bytes)?)
+    }
+
+    fn from_bytes_le(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError> {
+        Ok(Self::from_bytes_le(bytes)?)
+    }
+}
+
 #[cfg(test)]
 mod tests_u384_prime_fields {
     use crate::field::element::FieldElement;
@@ -323,8 +343,6 @@ mod tests_u384_prime_fields {
     use crate::field::traits::IsField;
     use crate::field::traits::IsPrimeField;
 
-    #[cfg(not(feature = "no_std"))]
-    use crate::traits::ByteConversion;
     use crate::unsigned_integer::element::U384;
     use crate::unsigned_integer::element::{UnsignedInteger, U256};
 
@@ -700,7 +718,6 @@ mod tests_u256_prime_fields {
     use crate::field::traits::IsField;
     use crate::field::traits::IsPrimeField;
     #[cfg(not(feature = "no_std"))]
-    use crate::traits::ByteConversion;
     use crate::unsigned_integer::element::UnsignedInteger;
     use crate::unsigned_integer::element::U256;
 
