@@ -26,7 +26,6 @@ jobs:
       run: |
         cargo bench --no-fail-fast --bench "criterion_fft" \
                                    --bench "criterion_polynomial" \
-                                   --bench "criterion_stark" \
         -- --output-format bencher | tee output.txt
     - name: Store benchmark result
       uses: benchmark-action/github-action-benchmark@v1

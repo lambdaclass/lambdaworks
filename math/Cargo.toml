@@ -37,6 +37,10 @@ cuda = ["dep:cudarc"]
 rayon = ["dep:rayon"]
 
 [[bench]]
+name = "criterion_elliptic_curve"
+harness = false
+
+[[bench]]
 name = "criterion_polynomial"
 harness = false
 

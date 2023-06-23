@@ -65,11 +65,9 @@ impl MetalState {
 
     /// Allocates `data` in a buffer of shared memory between CPU and the device (GPU).
     pub fn alloc_buffer_data<T>(&self, data: &[T]) -> Buffer {
-        let size = mem::size_of::<T>();
-
         self.device.new_buffer_with_data(
             data.as_ptr() as *const ffi::c_void,
-            (data.len() * size) as u64,
+            std::mem::size_of_val(data) as u64,
             MTLResourceOptions::StorageModeShared, // TODO: use managed mode
         )
     }

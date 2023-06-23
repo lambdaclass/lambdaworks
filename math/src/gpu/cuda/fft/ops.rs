@@ -1,3 +1,4 @@
+<<<<<<< HEAD:math/src/gpu/cuda/fft/ops.rs
 use crate::{
     fft::errors::FFTError,
     field::{element::FieldElement, traits::IsFFTField},
@@ -5,6 +6,14 @@ use crate::{
 };
 use cudarc::driver::{LaunchAsync, LaunchConfig};
 use lambdaworks_gpu::cuda::abstractions::{errors::CudaError, state::CudaState};
+=======
+use lambdaworks_math::field::{
+    element::FieldElement,
+    traits::{IsFFTField, RootsConfig},
+};
+
+use crate::cuda::abstractions::{errors::CudaError, state::CudaState};
+>>>>>>> main:gpu/src/cuda/fft/ops.rs
 
 /// Executes parallel ordered FFT over a slice of two-adic field elements, in CUDA.
 /// Twiddle factors are required to be in bit-reverse order.
@@ -54,40 +63,57 @@ where
         .map_err(|err| CudaError::Launch(err.to_string()))?;
     }
 
+<<<<<<< HEAD:math/src/gpu/cuda/fft/ops.rs
     let mut output: Vec<FieldElement<F>> = state
         .retrieve_result(input_buffer)?
         .into_iter()
         .map(FieldElement::from)
         .collect();
+=======
+    let output = function.retrieve_result()?;
+>>>>>>> main:gpu/src/cuda/fft/ops.rs
 
-    in_place_bit_reverse_permute(&mut output);
-    Ok(output)
+    bitrev_permutation(output, state)
 }
 
-// TODO: remove after implementing in cuda
-pub(crate) fn in_place_bit_reverse_permute<E>(input: &mut [E]) {
-    for i in 0..input.len() {
-        let bit_reversed_index = reverse_index(&i, input.len() as u64);
-        if bit_reversed_index > i {
-            input.swap(i, bit_reversed_index);
-        }
+pub fn gen_twiddles<F: IsFFTField>(
+    order: u64,
+    config: RootsConfig,
+    state: &CudaState,
+) -> Result<Vec<FieldElement<F>>, CudaError> {
+    let count = (1 << order) / 2;
+    if count == 0 {
+        return Ok(Vec::new());
     }
+
+    let mut function = state.get_calc_twiddles::<F>(order, config)?;
+
+    function.launch(count)?;
+
+    function.retrieve_result()
 }
 
-// TODO: remove after implementing in cuda
-pub(crate) fn reverse_index(i: &usize, size: u64) -> usize {
-    if size == 1 {
-        *i
-    } else {
-        i.reverse_bits() >> (usize::BITS - size.trailing_zeros())
-    }
+pub fn bitrev_permutation<F: IsFFTField>(
+    input: Vec<FieldElement<F>>,
+    state: &CudaState,
+) -> Result<Vec<FieldElement<F>>, CudaError> {
+    let mut function = state.get_bitrev_permutation(&input, &input)?;
+
+    function.launch(input.len())?;
+
+    function.retrieve_result()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+<<<<<<< HEAD:math/src/gpu/cuda/fft/ops.rs
     use crate::fft::roots_of_unity::get_twiddles;
     use crate::field::{
+=======
+    use lambdaworks_math::fft::roots_of_unity::get_twiddles;
+    use lambdaworks_math::field::{
+>>>>>>> main:gpu/src/cuda/fft/ops.rs
         element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
         traits::RootsConfig,
     };
@@ -121,7 +147,11 @@ mod tests {
             let twiddles = get_twiddles(order.into(), RootsConfig::BitReverse).unwrap();
 
             let cuda_fft = fft(&input, &twiddles, &state).unwrap();
+<<<<<<< HEAD:math/src/gpu/cuda/fft/ops.rs
             let fft = crate::fft::ops::fft(&input, &twiddles).unwrap();
+=======
+            let fft = lambdaworks_math::fft::ops::fft(&input, &twiddles).unwrap();
+>>>>>>> main:gpu/src/cuda/fft/ops.rs
 
             prop_assert_eq!(cuda_fft, fft);
         }

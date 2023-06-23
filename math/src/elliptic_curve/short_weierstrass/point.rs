@@ -11,7 +11,7 @@ use crate::{
 use super::{errors::DeserializationError, traits::IsShortWeierstrass};
 
 #[derive(Clone, Debug)]
-pub struct ShortWeierstrassProjectivePoint<E: IsEllipticCurve>(ProjectivePoint<E>);
+pub struct ShortWeierstrassProjectivePoint<E: IsEllipticCurve>(pub ProjectivePoint<E>);
 
 impl<E: IsEllipticCurve> ShortWeierstrassProjectivePoint<E> {
     /// Creates an elliptic curve point giving the projective [x: y: z] coordinates.
@@ -79,6 +79,11 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
         ])
     }
 
+    fn is_neutral_element(&self) -> bool {
+        let pz = self.z();
+        pz == &FieldElement::zero()
+    }
+
     /// Computes the addition of `self` and `other`.
     /// Taken from "Moonmath" (Algorithm 7, page 89)
     fn operate_with(&self, other: &Self) -> Self {
@@ -97,28 +102,50 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
                 if u1 != u2 || *py == FieldElement::zero() {
                     Self::neutral_element()
                 } else {
-                    let eight = FieldElement::from(8);
-                    let w = E::a() * pz * pz + FieldElement::from(3) * px * px;
+                    let px_square = px * px;
+                    let three_px_square = &px_square + &px_square + &px_square;
+                    let w = E::a() * pz * pz + three_px_square;
                     let w_square = &w * &w;
+
                     let s = py * pz;
                     let s_square = &s * &s;
+                    let s_cube = &s * &s_square;
+                    let two_s_cube = &s_cube + &s_cube;
+                    let four_s_cube = &two_s_cube + &two_s_cube;
+                    let eight_s_cube = &four_s_cube + &four_s_cube;
+
                     let b = px * py * &s;
-                    let h = &w_square - &eight * &b;
-                    let xp = FieldElement::from(2) * &h * &s;
-                    let yp = w * (FieldElement::from(4) * &b - &h) - &eight * py * py * &s_square;
-                    let zp = &eight * &s * &s_square;
+                    let two_b = &b + &b;
+                    let four_b = &two_b + &two_b;
+                    let eight_b = &four_b + &four_b;
+
+                    let h = &w_square - eight_b;
+                    let hs = &h * &s;
+
+                    let pys_square = py * py * s_square;
+                    let two_pys_square = &pys_square + &pys_square;
+                    let four_pys_square = &two_pys_square + &two_pys_square;
+                    let eight_pys_square = &four_pys_square + &four_pys_square;
+
+                    let xp = &hs + &hs;
+                    let yp = w * (four_b - &h) - eight_pys_square;
+                    let zp = eight_s_cube;
                     Self::new([xp, yp, zp])
                 }
             } else {
                 let u = u1 - &u2;
                 let v = v1 - &v2;
                 let w = pz * qz;
+
                 let u_square = &u * &u;
                 let v_square = &v * &v;
                 let v_cube = &v * &v_square;
-                let a = &u_square * &w - &v_cube - FieldElement::from(2) * &v_square * &v2;
+                let v_square_v2 = &v_square * &v2;
+
+                let a = &u_square * &w - &v_cube - (&v_square_v2 + &v_square_v2);
+
                 let xp = &v * &a;
-                let yp = u * (&v_square * v2 - a) - &v_cube * u2;
+                let yp = u * (&v_square_v2 - a) - &v_cube * u2;
                 let zp = &v_cube * w;
                 Self::new([xp, yp, zp])
             }

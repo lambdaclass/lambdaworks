@@ -4,15 +4,12 @@ use crate::unsigned_integer::element::UnsignedInteger;
 use crate::unsigned_integer::montgomery::MontgomeryAlgorithms;
 use crate::unsigned_integer::traits::IsUnsignedInteger;
 use std::fmt;
+use std::fmt::Debug;
 use std::iter::Sum;
 use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
-use std::{
-    fmt::Debug,
-    hash::{Hash, Hasher},
-};
 
 use super::fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField};
-use super::traits::IsPrimeField;
+use super::traits::{IsPrimeField, LegendreSymbol};
 
 /// A field element with operations algorithms defined in `F`
 #[derive(Debug, Clone)]
@@ -90,15 +87,6 @@ where
 }
 
 impl<F> Eq for FieldElement<F> where F: IsField {}
-
-impl<F> Hash for FieldElement<F>
-where
-    F: IsField,
-{
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.value.hash(state);
-    }
-}
 
 /// Addition operator overloading for field elements
 impl<F> Add<&FieldElement<F>> for &FieldElement<F>
@@ -333,6 +321,15 @@ where
     }
 }
 
+impl<F> Default for FieldElement<F>
+where
+    F: IsField,
+{
+    fn default() -> Self {
+        Self { value: F::zero() }
+    }
+}
+
 /// FieldElement general implementation
 /// Most of this is delegated to the trait `F` that
 /// implements the field operations.
@@ -341,6 +338,7 @@ where
     F: IsField,
 {
     /// Creates a field element from `value`
+    #[inline(always)]
     pub fn new(value: F::BaseType) -> Self {
         Self {
             value: F::from_base_type(value),
@@ -348,18 +346,29 @@ where
     }
 
     /// Returns the underlying `value`
+    #[inline(always)]
     pub fn value(&self) -> &F::BaseType {
         &self.value
     }
 
     /// Returns the multiplicative inverse of `self`
+    #[inline(always)]
     pub fn inv(&self) -> Self {
         Self {
             value: F::inv(&self.value),
         }
     }
 
+    /// Returns the square of `self`
+    #[inline(always)]
+    pub fn square(&self) -> Self {
+        Self {
+            value: F::square(&self.value),
+        }
+    }
+
     /// Returns `self` raised to the power of `exponent`
+    #[inline(always)]
     pub fn pow<T>(&self, exponent: T) -> Self
     where
         T: IsUnsignedInteger,
@@ -370,21 +379,16 @@ where
     }
 
     /// Returns the multiplicative neutral element of the field.
+    #[inline(always)]
     pub fn one() -> Self {
         Self { value: F::one() }
     }
 
     /// Returns the additive neutral element of the field.
+    #[inline(always)]
     pub fn zero() -> Self {
         Self { value: F::zero() }
     }
-}
-
-#[derive(PartialEq)]
-enum LegendreSymbol {
-    MinusOne,
-    Zero,
-    One,
 }
 
 impl<F: IsPrimeField> FieldElement<F> {
@@ -393,76 +397,13 @@ impl<F: IsPrimeField> FieldElement<F> {
         F::representative(self.value())
     }
 
-    pub fn is_even(&self) -> bool {
-        self.representative() & 1.into() == 0.into()
-    }
-
-    fn legendre_symbol(&self) -> LegendreSymbol {
-        let mod_minus_one: FieldElement<F> = Self::zero() - Self::one();
-        let symbol = self.pow((mod_minus_one / FieldElement::from(2)).representative());
-
-        match symbol {
-            x if x == Self::zero() => LegendreSymbol::Zero,
-            x if x == Self::one() => LegendreSymbol::One,
-            _ => LegendreSymbol::MinusOne,
-        }
-    }
-}
-
-impl<F: IsPrimeField> FieldElement<F> {
-    // Returns the two square roots of `self` if it exists
-    // `None` if it doesn't
     pub fn sqrt(&self) -> Option<(Self, Self)> {
-        match self.legendre_symbol() {
-            LegendreSymbol::Zero => return Some((Self::zero(), Self::zero())), // self is 0
-            LegendreSymbol::MinusOne => return None, // self is quadratic non-residue
-            LegendreSymbol::One => (),
-        };
+        let sqrts = F::sqrt(&self.value);
+        sqrts.map(|(sqrt1, sqrt2)| (Self { value: sqrt1 }, Self { value: sqrt2 }))
+    }
 
-        let (zero, one, two) = (Self::zero(), Self::one(), Self::from(2));
-
-        let mut q = Self::zero() - &one;
-        let mut s = Self::zero();
-
-        while q.is_even() {
-            s = s + &one;
-            q = q / &two;
-        }
-
-        let mut c = {
-            // Calculate a non residue:
-            let mut non_qr = one.clone();
-            while non_qr.legendre_symbol() != LegendreSymbol::MinusOne {
-                non_qr += one.clone();
-            }
-
-            non_qr.pow(q.representative())
-        };
-
-        let mut x = self.pow(((&q + &one) / &two).representative());
-        let mut t = self.pow(q.representative());
-        let mut m = s;
-
-        while t != one {
-            let mut i = zero.clone();
-            let mut e = FieldElement::from(2);
-            while i.representative() < m.representative() {
-                i += FieldElement::one();
-                if t.pow(e.representative()) == one {
-                    break;
-                }
-                e = e * &two;
-            }
-
-            let b = c.pow(two.pow((m - &i - &one).representative()).representative());
-
-            x = x * &b;
-            t = t * &b * &b;
-            c = &b * &b;
-            m = i;
-        }
-
-        Some((x.clone(), Self::zero() - &x))
+    pub fn legendre_symbol(&self) -> LegendreSymbol {
+        F::legendre_symbol(&self.value)
     }
 }
 
@@ -515,11 +456,14 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::elliptic_curve::short_weierstrass::curves::bls12_381::default_types::FrElement;
     use crate::field::element::FieldElement;
     use crate::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
     use crate::field::test_fields::u64_test_field::U64TestField;
     use crate::unsigned_integer::element::UnsignedInteger;
+    use crate::{
+        elliptic_curve::short_weierstrass::curves::bls12_381::default_types::FrElement,
+        field::fields::u64_prime_field::U64PrimeField,
+    };
 
     use proptest::{collection, prelude::*, prop_compose, proptest, strategy::Strategy};
 
@@ -566,26 +510,20 @@ mod tests {
     }
 
     #[test]
-    fn two_is_even() {
-        let two = FieldElement::<Stark252PrimeField>::from(2);
-        assert!(two.is_even());
-    }
-
-    #[test]
-    fn three_is_odd() {
-        let three = FieldElement::<Stark252PrimeField>::from(3);
-        assert!(!three.is_even());
-    }
-
-    #[test]
     fn one_of_sqrt_roots_for_4_is_2() {
-        #[derive(Clone, Debug)]
-        pub struct FrConfig;
-
         let input = FrElement::from(4);
         let sqrt = input.sqrt().unwrap();
         let result = FrElement::from(2);
         assert_eq!(sqrt.0, result);
+    }
+
+    #[test]
+    fn one_of_sqrt_roots_for_5_is_28_mod_41() {
+        let input = FieldElement::<U64PrimeField<41>>::from(5);
+        let sqrt = input.sqrt().unwrap();
+        let result = FieldElement::from(28);
+        assert_eq!(sqrt.0, result);
+        assert_eq!(sqrt.1, -result);
     }
 
     #[test]
@@ -594,6 +532,19 @@ mod tests {
         let sqrt = input.sqrt().unwrap();
         let result = FrElement::from(5);
         assert_eq!(sqrt.1, result);
+        assert_eq!(sqrt.0, -result);
+    }
+
+    #[test]
+    fn sqrt_works_for_prime_minus_one() {
+        type FrField = Stark252PrimeField;
+        type FrElement = FieldElement<FrField>;
+
+        let input = -FrElement::from(1);
+        let sqrt = input.sqrt().unwrap();
+        assert_eq!(sqrt.0.square(), input);
+        assert_eq!(sqrt.1.square(), input);
+        assert_ne!(sqrt.0, sqrt.1);
     }
 
     #[test]
@@ -605,6 +556,7 @@ mod tests {
         let sqrt = input.sqrt().unwrap();
         let result = FrElement::from(5);
         assert_eq!(sqrt.0, result);
+        assert_eq!(sqrt.1, -result);
     }
 
     #[test]
