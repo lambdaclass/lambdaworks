@@ -7,7 +7,6 @@ use core::ops::{
 
 use crate::errors::ByteConversionError;
 use crate::errors::CreationError;
-#[cfg(feature = "std")]
 use crate::traits::ByteConversion;
 use crate::unsigned_integer::traits::IsUnsignedInteger;
 
@@ -732,21 +731,6 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         0
     }
 
-    pub fn to_bytes_be(&self) -> Vec<u8> {
-        self.limbs
-            .iter()
-            .flat_map(|limb| limb.to_be_bytes())
-            .collect()
-    }
-
-    pub fn to_bytes_le(&self) -> Vec<u8> {
-        self.limbs
-            .iter()
-            .rev()
-            .flat_map(|limb| limb.to_le_bytes())
-            .collect()
-    }
-
     pub fn from_bytes_be(bytes: &[u8]) -> Result<Self, ByteConversionError> {
         // We cut off extra bytes, this is useful when you use this function to generate the element from randomness
         // In the future with the right algorithm this shouldn't be needed
@@ -794,8 +778,8 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
 
 impl<const NUM_LIMBS: usize> IsUnsignedInteger for UnsignedInteger<NUM_LIMBS> {}
 
-#[cfg(feature = "std")]
 impl<const NUM_LIMBS: usize> ByteConversion for UnsignedInteger<NUM_LIMBS> {
+    #[cfg(feature = "std")]
     fn to_bytes_be(&self) -> Vec<u8> {
         self.limbs
         .iter()
@@ -803,6 +787,7 @@ impl<const NUM_LIMBS: usize> ByteConversion for UnsignedInteger<NUM_LIMBS> {
         .collect()    
     }
 
+    #[cfg(feature = "std")]
     fn to_bytes_le(&self) -> Vec<u8> {
         self.limbs
         .iter()
@@ -828,7 +813,7 @@ impl<const NUM_LIMBS: usize> From<UnsignedInteger<NUM_LIMBS>> for u16 {
 
 #[cfg(test)]
 mod tests_u384 {
-    use crate::unsigned_integer::element::{UnsignedInteger, U384};
+    use crate::{unsigned_integer::element::{UnsignedInteger, U384}, traits::ByteConversion};
 
     use proptest::prelude::*;
 
@@ -1617,6 +1602,7 @@ mod tests_u384 {
     }
 
     #[test]
+    #[cfg(feature = "std")]
     fn to_be_bytes_works() {
         let number = U384::from_u64(1);
         let expected_bytes = [
@@ -1628,6 +1614,7 @@ mod tests_u384 {
     }
 
     #[test]
+    #[cfg(feature = "std")]
     fn to_le_bytes_works() {
         let number = U384::from_u64(1);
         let expected_bytes = [
@@ -1782,7 +1769,10 @@ mod tests_u384 {
 
 #[cfg(test)]
 mod tests_u256 {
-    use crate::unsigned_integer::element::{UnsignedInteger, U256};
+    use crate::{unsigned_integer::element::{UnsignedInteger, U256}, };
+
+    #[cfg(feature = "std")]
+    use crate::unsigned_integer::element::ByteConversion;
 
     use proptest::prelude::*;
 
@@ -2513,6 +2503,7 @@ mod tests_u256 {
     }
 
     #[test]
+    #[cfg(feature = "std")]
     fn to_be_bytes_works() {
         let number = U256::from_u64(1);
         let expected_bytes = [
@@ -2524,6 +2515,7 @@ mod tests_u256 {
     }
 
     #[test]
+    #[cfg(feature = "std")]
     fn to_le_bytes_works() {
         let number = U256::from_u64(1);
         let expected_bytes = [

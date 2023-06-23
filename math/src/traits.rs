@@ -3,17 +3,17 @@ use crate::{
     field::{element::FieldElement, traits::IsField},
 };
 
-#[cfg(feature = "std")]
 use crate::errors::ByteConversionError;
 /// A trait for converting an element to and from its byte representation and
 /// for getting an element from its byte representation in big-endian or
 /// little-endian order.
-#[cfg(feature = "std")]
 pub trait ByteConversion {
-    /// Returns the byte representation of the element in big-endian order.
+    /// Returns the byte representation of the element in big-endian order.}
+    #[cfg(feature = "std")]
     fn to_bytes_be(&self) -> Vec<u8>;
 
     /// Returns the byte representation of the element in little-endian order.
+    #[cfg(feature = "std")]
     fn to_bytes_le(&self) -> Vec<u8>;
 
     /// Returns the element from its byte representation in big-endian order.
