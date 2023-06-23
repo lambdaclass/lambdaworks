@@ -748,8 +748,6 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
     }
 
     pub fn from_bytes_be(bytes: &[u8]) -> Result<Self, ByteConversionError> {
-        let mut limbs = Vec::with_capacity(NUM_LIMBS);
-
         // We cut off extra bytes, this is useful when you use this function to generate the element from randomness
         // In the future with the right algorithm this shouldn't be needed
 
@@ -757,19 +755,17 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
             .get(0..NUM_LIMBS * 8)
             .ok_or(ByteConversionError::FromBEBytesError)?;
 
-        needed_bytes.chunks_exact(8).try_for_each(|chunk| {
+        let mut limbs: [u64;NUM_LIMBS] = [0;NUM_LIMBS];
+
+        needed_bytes.chunks_exact(8).enumerate().try_for_each(|(i,chunk)| {
             let limb = u64::from_be_bytes(
                 chunk
                     .try_into()
                     .map_err(|_| ByteConversionError::FromBEBytesError)?,
             );
-            limbs.push(limb);
+            limbs[i] = limb;
             Ok::<_, ByteConversionError>(())
         })?;
-
-        let limbs: [u64; NUM_LIMBS] = limbs
-            .try_into()
-            .map_err(|_| ByteConversionError::FromBEBytesError)?;
 
         Ok(Self { limbs })
     }
@@ -779,21 +775,18 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
             .get(0..NUM_LIMBS * 8)
             .ok_or(ByteConversionError::FromBEBytesError)?;
 
-        let mut limbs = Vec::with_capacity(NUM_LIMBS);
+        let mut limbs: [u64;NUM_LIMBS] = [0;NUM_LIMBS];
 
-        needed_bytes.chunks_exact(8).rev().try_for_each(|chunk| {
+        needed_bytes.chunks_exact(8).rev().enumerate().
+        try_for_each(|(i,chunk)| {
             let limb = u64::from_le_bytes(
                 chunk
                     .try_into()
                     .map_err(|_| ByteConversionError::FromLEBytesError)?,
             );
-            limbs.push(limb);
+            limbs[i] = limb;
             Ok::<_, ByteConversionError>(())
         })?;
-
-        let limbs: [u64; NUM_LIMBS] = limbs
-            .try_into()
-            .map_err(|_| ByteConversionError::FromLEBytesError)?;
 
         Ok(Self { limbs })
     }
@@ -804,11 +797,18 @@ impl<const NUM_LIMBS: usize> IsUnsignedInteger for UnsignedInteger<NUM_LIMBS> {}
 #[cfg(feature = "std")]
 impl<const NUM_LIMBS: usize> ByteConversion for UnsignedInteger<NUM_LIMBS> {
     fn to_bytes_be(&self) -> Vec<u8> {
-        self.to_bytes_be()
+        self.limbs
+        .iter()
+        .flat_map(|limb| limb.to_be_bytes())
+        .collect()    
     }
 
     fn to_bytes_le(&self) -> Vec<u8> {
-        self.to_bytes_le()
+        self.limbs
+        .iter()
+        .rev()
+        .flat_map(|limb| limb.to_le_bytes())
+        .collect()
     }
 
     fn from_bytes_be(bytes: &[u8]) -> Result<Self, ByteConversionError> {
