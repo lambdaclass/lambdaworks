@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1687543232394,
+  "lastUpdate": 1687549776914,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -875,6 +875,150 @@ window.BENCHMARK_DATA = {
             "name": "Polynomial/div by 'x - b' with Ruffini",
             "value": 182,
             "range": "± 0",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "12560266+MauroToscano@users.noreply.github.com",
+            "name": "Mauro Toscano",
+            "username": "MauroToscano"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "408812c86eedb72e8bd6d1772de4953d4ecf5d06",
+          "message": "No std ff (#443)\n\n* WIP\n\n* fix compile\n\n* no_std_initial_version\n\n* no_std_initial_version\n\n* Delete settings.json\n\n* Delete settings.json\n\n* Re add montgomery nbackend\n\n* Update errors in crypto\n\n* Restore rayon as default dep\n\n* Fmt\n\n* missing conditional compile on import\n\n* Remove unused commit\n\n* Remove no_std as default\n\n* CI no_std\n\n* Update ci\n\n* Update ci\n\n* fix typo\n\n* fix typo\n\n* ensure-no_std crate\n\n* ensure-no_std to ci\n\n* clean, ensure std to CI\n\n* Add wasm target to ci\n\n* Lint CI\n\n* From to bytes for montgomery backend\n\n* Bit conversion\n\n* byte conversion fix\n\n* Fix\n\n* Final version\n\n* Fmt\n\n* Re added tests for no std\n\n* Re added tests for no std\n\n* Update ensure-no_std/src/main.rs\n\n* Update math/src/lib.rs\n\nCo-authored-by: Tomás <47506558+MegaRedHand@users.noreply.github.com>\n\n* Fix from in no_std\n\n* Disabled to_bytes from ByteConversion with no std\n\n* Fix clippy\n\n* Fix ensure no std\n\n* Fix ensure no std\n\n* Revert unnecesary change in byte conversion\n\n* Fix no std tests\n\n* Move CI tests no std to git CI\n\n* Fix bench\n\n---------\n\nCo-authored-by: Pablo Deymonnaz <pdeymon@fi.uba.ar>\nCo-authored-by: Tomás <47506558+MegaRedHand@users.noreply.github.com>",
+          "timestamp": "2023-06-23T19:42:12Z",
+          "tree_id": "46617e70d76eeba7e49ac8d5d27b85640f3f4aa3",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/408812c86eedb72e8bd6d1772de4953d4ecf5d06"
+        },
+        "date": 1687549773349,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "Ordered FFT/Parallel (Metal)",
+            "value": 128995088,
+            "range": "± 1941522",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #2",
+            "value": 255965760,
+            "range": "± 1643291",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #3",
+            "value": 496232875,
+            "range": "± 591924",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #4",
+            "value": 985550937,
+            "range": "± 16371035",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal)",
+            "value": 34538422,
+            "range": "± 380436",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #2",
+            "value": 68153946,
+            "range": "± 524973",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #3",
+            "value": 133025937,
+            "range": "± 1717967",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #4",
+            "value": 279720156,
+            "range": "± 3627759",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal)",
+            "value": 31034646,
+            "range": "± 248869",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #2",
+            "value": 59864798,
+            "range": "± 1220382",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #3",
+            "value": 120095384,
+            "range": "± 6368003",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #4",
+            "value": 246727968,
+            "range": "± 28812154",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal",
+            "value": 558355958,
+            "range": "± 748732",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #2",
+            "value": 1168632146,
+            "range": "± 978995",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #3",
+            "value": 2430767916,
+            "range": "± 4406203",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #4",
+            "value": 5054977354,
+            "range": "± 3440094",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal",
+            "value": 594355250,
+            "range": "± 982996",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #2",
+            "value": 1247976353,
+            "range": "± 2911749",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #3",
+            "value": 2586227520,
+            "range": "± 10415544",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #4",
+            "value": 5356110812,
+            "range": "± 10380105",
             "unit": "ns/iter"
           }
         ]
