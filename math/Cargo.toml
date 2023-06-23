@@ -31,7 +31,7 @@ iai-callgrind.workspace = true
 default = ["rayon"]
 
 # gpu
-metal = ["dep:metal", "dep:objc"]
+metal = ["dep:metal", "dep:objc", "lambdaworks-gpu/metal"]
 cuda = ["dep:cudarc"]
 
 rayon = ["dep:rayon"]
