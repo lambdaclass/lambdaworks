@@ -1,11 +1,10 @@
-.PHONY: test clippy docker-shell nix-shell benchmarks benchmark docs build-cuda build-metal
+.PHONY: test clippy docker-shell nix-shell benchmarks benchmark docs build-cuda build-metal clippy-metal test-metal
 
 test:
 	cargo test
 
 clippy:
 	cargo clippy --workspace --all-targets -- -D warnings
-
 
 clippy-cuda:
 	cargo clippy --workspace --all-targets -F cuda -- -D warnings
@@ -33,6 +32,9 @@ build-metal:
 
 clippy-metal:
 	METAL_DIR=`pwd`/${METAL_DIR} cargo clippy --workspace --all-targets -F metal -- -D warnings
+
+test-metal:
+	METAL_DIR=`pwd`/${METAL_DIR} cargo test -F metal
 
 CUDA_DIR = math/src/gpu/cuda/shaders
 CUDA_FILES:=$(wildcard $(CUDA_DIR)/**/*.cu)
