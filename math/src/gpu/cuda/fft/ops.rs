@@ -1,19 +1,9 @@
-<<<<<<< HEAD:math/src/gpu/cuda/fft/ops.rs
-use crate::{
-    fft::errors::FFTError,
-    field::{element::FieldElement, traits::IsFFTField},
-    gpu::cuda::field::element::CUDAFieldElement,
-};
-use cudarc::driver::{LaunchAsync, LaunchConfig};
-use lambdaworks_gpu::cuda::abstractions::{errors::CudaError, state::CudaState};
-=======
 use lambdaworks_math::field::{
     element::FieldElement,
     traits::{IsFFTField, RootsConfig},
 };
 
 use crate::cuda::abstractions::{errors::CudaError, state::CudaState};
->>>>>>> main:gpu/src/cuda/fft/ops.rs
 
 /// Executes parallel ordered FFT over a slice of two-adic field elements, in CUDA.
 /// Twiddle factors are required to be in bit-reverse order.
@@ -63,15 +53,7 @@ where
         .map_err(|err| CudaError::Launch(err.to_string()))?;
     }
 
-<<<<<<< HEAD:math/src/gpu/cuda/fft/ops.rs
-    let mut output: Vec<FieldElement<F>> = state
-        .retrieve_result(input_buffer)?
-        .into_iter()
-        .map(FieldElement::from)
-        .collect();
-=======
     let output = function.retrieve_result()?;
->>>>>>> main:gpu/src/cuda/fft/ops.rs
 
     bitrev_permutation(output, state)
 }
@@ -107,13 +89,8 @@ pub fn bitrev_permutation<F: IsFFTField>(
 #[cfg(test)]
 mod tests {
     use super::*;
-<<<<<<< HEAD:math/src/gpu/cuda/fft/ops.rs
-    use crate::fft::roots_of_unity::get_twiddles;
-    use crate::field::{
-=======
     use lambdaworks_math::fft::roots_of_unity::get_twiddles;
     use lambdaworks_math::field::{
->>>>>>> main:gpu/src/cuda/fft/ops.rs
         element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
         traits::RootsConfig,
     };
@@ -147,11 +124,7 @@ mod tests {
             let twiddles = get_twiddles(order.into(), RootsConfig::BitReverse).unwrap();
 
             let cuda_fft = fft(&input, &twiddles, &state).unwrap();
-<<<<<<< HEAD:math/src/gpu/cuda/fft/ops.rs
-            let fft = crate::fft::ops::fft(&input, &twiddles).unwrap();
-=======
             let fft = lambdaworks_math::fft::ops::fft(&input, &twiddles).unwrap();
->>>>>>> main:gpu/src/cuda/fft/ops.rs
 
             prop_assert_eq!(cuda_fft, fft);
         }

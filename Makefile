@@ -6,8 +6,6 @@ test:
 clippy:
 	cargo clippy --workspace --all-targets -- -D warnings
 
-clippy-metal:
-	cargo clippy --workspace --all-targets -F metal -- -D warnings
 
 clippy-cuda:
 	cargo clippy --workspace --all-targets -F cuda -- -D warnings
@@ -32,6 +30,9 @@ flamegraph_stark:
 METAL_DIR = math/src/gpu/metal/shaders
 build-metal:
 	xcrun -sdk macosx metal $(METAL_DIR)/all.metal -o $(METAL_DIR)/lib.metallib
+
+clippy-metal:
+	METAL_DIR=${METAL_DIR} cargo clippy --workspace --all-targets -F metal -- -D warnings
 
 CUDA_DIR = math/src/gpu/cuda/shaders
 CUDA_FILES:=$(wildcard $(CUDA_DIR)/**/*.cu)

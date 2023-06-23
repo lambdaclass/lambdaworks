@@ -162,21 +162,17 @@ mod tests {
     }
 
     proptest! {
-            // Property-based test that ensures Metal parallel FFT gives same result as a sequential one.
-            #[test]
-            fn test_metal_fft_matches_sequential(input in field_vec(6)) {
-                let metal_state = MetalState::new(None).unwrap();
-                let order = input.len().trailing_zeros();
-                let twiddles = get_twiddles(order.into(), RootsConfig::BitReverse).unwrap();
+        // Property-based test that ensures Metal parallel FFT gives same result as a sequential one.
+        #[test]
+        fn test_metal_fft_matches_sequential(input in field_vec(6)) {
+            let metal_state = MetalState::new(None).unwrap();
+            let order = input.len().trailing_zeros();
+            let twiddles = get_twiddles(order.into(), RootsConfig::BitReverse).unwrap();
 
-                let metal_result = super::fft(&input, &twiddles, &metal_state).unwrap();
-    <<<<<<< HEAD:math/src/gpu/metal/fft/ops.rs
-                let sequential_result = crate::fft::ops::fft(&input, &twiddles).unwrap();
-    =======
-                let sequential_result = lambdaworks_math::fft::ops::fft(&input, &twiddles).unwrap();
-    >>>>>>> main:gpu/src/metal/fft/ops.rs
+            let metal_result = super::fft(&input, &twiddles, &metal_state).unwrap();
+            let sequential_result = lambdaworks_math::fft::ops::fft(&input, &twiddles).unwrap();
 
-                prop_assert_eq!(&metal_result, &sequential_result);
-            }
+            prop_assert_eq!(&metal_result, &sequential_result);
         }
+    }
 }
