@@ -1,7 +1,7 @@
-use crate::field::traits::RootsConfig;
-use crate::gpu::metal::fft::ops::gen_twiddles;
 use criterion::{criterion_group, criterion_main, Criterion};
 use lambdaworks_gpu::metal::abstractions::state::MetalState;
+use lambdaworks_math::field::traits::RootsConfig;
+use lambdaworks_math::gpu::metal::fft::ops::gen_twiddles;
 
 use utils::fft_utils::F;
 
