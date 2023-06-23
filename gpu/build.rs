@@ -53,7 +53,7 @@ fn compile_cuda_shaders() {
 #[cfg(feature = "metal")]
 fn compile_metal_shaders() {
     use std::process::Command;
-    let source_dir = env!("METAL_DIR").to_string();
+    let source_dir = std::env::var("METAL_DIR").expect("METAL_DIR env var is not set");
 
     // Tell cargo to invalidate the built crate whenever the source changes
     println!("cargo:rerun-if-changed={source_dir}");
