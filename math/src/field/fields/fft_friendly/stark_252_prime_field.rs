@@ -1,7 +1,8 @@
 use crate::{
     field::{
+        element::FieldElement,
         fields::montgomery_backed_prime_fields::{IsModulus, U256PrimeField},
-        traits::IsFFTField, element::FieldElement,
+        traits::IsFFTField,
     },
     unsigned_integer::element::{UnsignedInteger, U256},
 };
@@ -33,32 +34,58 @@ impl IsFFTField for Stark252PrimeField {
 }
 
 impl FieldElement<Stark252PrimeField> {
-    pub fn to_bytes_be(&self) -> [u8;32] {
+    /// No std version of `to_bytes_le` from `ByteConversion` trait
+    /// This follows the convention used by
+    /// Starkware and Lambdaclass Cairo VM It's the same as ByteConversion to_bytes_le.
+    pub fn to_bytes_le(&self) -> [u8; 32] {
         let limbs = self.representative().limbs;
-        let mut bytes: [u8;32] = [0;32];
+        let mut bytes: [u8; 32] = [0; 32];
 
-        for i in 0..4 {
-            let limb_bytes = limbs[i].to_be_bytes();
-            for j in 0..8{
-                bytes[i*8+j] = limb_bytes[j]
+        for i in (0..4).rev() {
+            let limb_bytes = limbs[i].to_le_bytes();
+            for j in 0..8 {
+                // i = 3 ->
+                bytes[(3 - i) * 8 + j] = limb_bytes[j]
             }
         }
         bytes
     }
 }
 
-
 #[cfg(test)]
 mod test_stark_252_bytes_ops {
-    use crate::field::element::FieldElement;
     use super::Stark252PrimeField;
-
+    use crate::{field::element::FieldElement, traits::ByteConversion};
 
     #[test]
-    fn bytes_be() {
-        let one = FieldElement::<Stark252PrimeField>::one();
-        let bytes = one.to_bytes_be();
-        // let result = FieldElement::<Stark252PrimeField>::from_bytes_be(&bytes).unwrap();
-        // assert_eq!(one,result);
+    #[cfg(feature = "std")]
+    fn byte_serialization_for_a_number_matches_with_byte_conversion_implementation() {
+        let element = FieldElement::<Stark252PrimeField>::from_hex_unchecked(
+            "\
+            0123456701234567\
+            0123456701234567\
+            0123456701234567\
+            0123456701234567\
+        ",
+        );
+        let bytes = element.to_bytes_le();
+        let expected_bytes: [u8; 32] = ByteConversion::to_bytes_le(&element).try_into().unwrap();
+        assert_eq!(bytes, expected_bytes);
+    }
+
+    #[test]
+
+    fn byte_serialization_and_deserialization_works() {
+        let element = FieldElement::<Stark252PrimeField>::from_hex_unchecked(
+            "\
+            0123456701234567\
+            7654321076543210\
+            7654321076543210\
+            7654321076543210\
+        ",
+        );
+        let bytes = element.to_bytes_le();
+        let from_bytes = FieldElement::<Stark252PrimeField>::from_bytes_le(&bytes).unwrap();
+        assert_eq!(element, from_bytes);
     }
 }

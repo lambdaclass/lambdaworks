@@ -739,17 +739,20 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
             .get(0..NUM_LIMBS * 8)
             .ok_or(ByteConversionError::FromBEBytesError)?;
 
-        let mut limbs: [u64;NUM_LIMBS] = [0;NUM_LIMBS];
+        let mut limbs: [u64; NUM_LIMBS] = [0; NUM_LIMBS];
 
-        needed_bytes.chunks_exact(8).enumerate().try_for_each(|(i,chunk)| {
-            let limb = u64::from_be_bytes(
-                chunk
-                    .try_into()
-                    .map_err(|_| ByteConversionError::FromBEBytesError)?,
-            );
-            limbs[i] = limb;
-            Ok::<_, ByteConversionError>(())
-        })?;
+        needed_bytes
+            .chunks_exact(8)
+            .enumerate()
+            .try_for_each(|(i, chunk)| {
+                let limb = u64::from_be_bytes(
+                    chunk
+                        .try_into()
+                        .map_err(|_| ByteConversionError::FromBEBytesError)?,
+                );
+                limbs[i] = limb;
+                Ok::<_, ByteConversionError>(())
+            })?;
 
         Ok(Self { limbs })
     }
@@ -759,18 +762,21 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
             .get(0..NUM_LIMBS * 8)
             .ok_or(ByteConversionError::FromBEBytesError)?;
 
-        let mut limbs: [u64;NUM_LIMBS] = [0;NUM_LIMBS];
+        let mut limbs: [u64; NUM_LIMBS] = [0; NUM_LIMBS];
 
-        needed_bytes.chunks_exact(8).rev().enumerate().
-        try_for_each(|(i,chunk)| {
-            let limb = u64::from_le_bytes(
-                chunk
-                    .try_into()
-                    .map_err(|_| ByteConversionError::FromLEBytesError)?,
-            );
-            limbs[i] = limb;
-            Ok::<_, ByteConversionError>(())
-        })?;
+        needed_bytes
+            .chunks_exact(8)
+            .rev()
+            .enumerate()
+            .try_for_each(|(i, chunk)| {
+                let limb = u64::from_le_bytes(
+                    chunk
+                        .try_into()
+                        .map_err(|_| ByteConversionError::FromLEBytesError)?,
+                );
+                limbs[i] = limb;
+                Ok::<_, ByteConversionError>(())
+            })?;
 
         Ok(Self { limbs })
     }
@@ -782,18 +788,18 @@ impl<const NUM_LIMBS: usize> ByteConversion for UnsignedInteger<NUM_LIMBS> {
     #[cfg(feature = "std")]
     fn to_bytes_be(&self) -> Vec<u8> {
         self.limbs
-        .iter()
-        .flat_map(|limb| limb.to_be_bytes())
-        .collect()    
+            .iter()
+            .flat_map(|limb| limb.to_be_bytes())
+            .collect()
     }
 
     #[cfg(feature = "std")]
     fn to_bytes_le(&self) -> Vec<u8> {
         self.limbs
-        .iter()
-        .rev()
-        .flat_map(|limb| limb.to_le_bytes())
-        .collect()
+            .iter()
+            .rev()
+            .flat_map(|limb| limb.to_le_bytes())
+            .collect()
     }
 
     fn from_bytes_be(bytes: &[u8]) -> Result<Self, ByteConversionError> {
@@ -813,7 +819,9 @@ impl<const NUM_LIMBS: usize> From<UnsignedInteger<NUM_LIMBS>> for u16 {
 
 #[cfg(test)]
 mod tests_u384 {
-    use crate::{unsigned_integer::element::{UnsignedInteger, U384}, traits::ByteConversion};
+    #[cfg(feature = "std")]
+    use crate::traits::ByteConversion;
+    use crate::unsigned_integer::element::{UnsignedInteger, U384};
 
     use proptest::prelude::*;
 
@@ -1769,7 +1777,7 @@ mod tests_u384 {
 
 #[cfg(test)]
 mod tests_u256 {
-    use crate::{unsigned_integer::element::{UnsignedInteger, U256}, };
+    use crate::unsigned_integer::element::{UnsignedInteger, U256};
 
     #[cfg(feature = "std")]
     use crate::unsigned_integer::element::ByteConversion;

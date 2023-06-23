@@ -272,11 +272,9 @@ where
     }
 }
 
-impl<M, const NUM_LIMBS: usize> FieldElement<MontgomeryBackendPrimeField<M, NUM_LIMBS>>
-where
-    M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug,
+impl<M, const NUM_LIMBS: usize> FieldElement<MontgomeryBackendPrimeField<M, NUM_LIMBS>> where
+    M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug
 {
-  
 }
 
 impl<M, const NUM_LIMBS: usize> ByteConversion
@@ -294,7 +292,6 @@ where
         )
         .to_bytes_be()
     }
-
 
     #[cfg(feature = "std")]
     fn to_bytes_le(&self) -> Vec<u8> {

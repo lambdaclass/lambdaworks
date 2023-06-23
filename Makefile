@@ -4,13 +4,14 @@ test:
 	cargo test
 
 clippy:
-	cargo clippy --workspace --all-targets -- -D warnings
+	cargo clippy --workspace -- -D warnings
+	cargo clippy --tests
 
 clippy-metal:
-	cargo clippy --workspace --all-targets -F metal -- -D warnings
+	cargo clippy --workspace -F metal -- -D warnings
 
 clippy-cuda:
-	cargo clippy --workspace --all-targets -F cuda -- -D warnings
+	cargo clippy --workspace -F cuda -- -D warnings
 
 docker-shell:
 	docker build -t rust-curves .
