@@ -55,6 +55,8 @@ impl<F: IsFFTField> FFTPoly<F> for Polynomial<FieldElement<F>> {
 
         #[cfg(feature = "metal")]
         {
+            println!("METAL");
+
             if !F::field_name().is_empty() {
                 Ok(evaluate_fft_metal(&coeffs)?)
             } else {
@@ -80,6 +82,7 @@ impl<F: IsFFTField> FFTPoly<F> for Polynomial<FieldElement<F>> {
 
         #[cfg(all(not(feature = "metal"), not(feature = "cuda")))]
         {
+            println!("NOT METAL");
             evaluate_fft_cpu(&coeffs)
         }
     }
