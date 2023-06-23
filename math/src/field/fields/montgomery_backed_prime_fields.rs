@@ -258,6 +258,10 @@ where
         MontgomeryAlgorithms::cios(x, &UnsignedInteger::from_u64(1), &M::MODULUS, &Self::MU)
     }
 
+    fn from_representative(a: &Self::RepresentativeType) -> Self::BaseType {
+        MontgomeryAlgorithms::cios(a, &Self::R2, &M::MODULUS, &Self::MU)
+    }
+
     fn field_bit_size() -> usize {
         let mut evaluated_bit = NUM_LIMBS * 64 - 1;
         let max_element = M::MODULUS - UnsignedInteger::<NUM_LIMBS>::from_u128(1);

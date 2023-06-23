@@ -1,9 +1,8 @@
 use crate::cyclic_group::IsGroup;
-use crate::elliptic_curve::short_weierstrass::errors::DeserializationError;
 use crate::errors::ByteConversionError::{FromBEBytesError, FromLEBytesError};
 use crate::field::element::FieldElement;
 use crate::field::traits::{IsFFTField, IsField, IsPrimeField};
-use crate::traits::{ByteConversion, Deserializable, Serializable};
+use crate::traits::ByteConversion;
 
 /// Type representing prime fields over unsigned 64-bit integers.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -76,6 +75,10 @@ impl<const MODULUS: u64> IsPrimeField for U64PrimeField<MODULUS> {
         *x
     }
 
+    fn from_representative(x: &Self::RepresentativeType) -> Self::BaseType {
+        *x
+    }
+
     /// Returns how many bits do you need to represent the biggest field element
     /// It expects the MODULUS to be a Prime
     fn field_bit_size() -> usize {
@@ -115,21 +118,6 @@ impl<const MODULUS: u64> ByteConversion for U64FieldElement<MODULUS> {
     fn from_bytes_le(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError> {
         let bytes: [u8; 8] = bytes[0..8].try_into().map_err(|_| FromLEBytesError)?;
         Ok(Self::from(u64::from_le_bytes(bytes)))
-    }
-}
-
-impl<const MODULUS: u64> Serializable for FieldElement<U64PrimeField<MODULUS>> {
-    fn serialize(&self) -> Vec<u8> {
-        self.to_bytes_be()
-    }
-}
-
-impl<const MODULUS: u64> Deserializable for FieldElement<U64PrimeField<MODULUS>> {
-    fn deserialize(bytes: &[u8]) -> Result<Self, DeserializationError>
-    where
-        Self: Sized,
-    {
-        Self::from_bytes_be(bytes).map_err(|x| x.into())
     }
 }
 

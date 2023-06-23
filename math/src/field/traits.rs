@@ -144,11 +144,13 @@ pub enum LegendreSymbol {
 }
 
 pub trait IsPrimeField: IsField {
-    type RepresentativeType: IsUnsignedInteger;
+    type RepresentativeType: IsUnsignedInteger + Debug;
 
     /// Returns the integer representative in
     /// the range [0, p-1], where p the modulus
     fn representative(a: &Self::BaseType) -> Self::RepresentativeType;
+
+    fn from_representative(a: &Self::RepresentativeType) -> Self::BaseType;
 
     fn modulus_minus_one() -> Self::RepresentativeType {
         Self::representative(&Self::neg(&Self::one()))

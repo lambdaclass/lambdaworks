@@ -1,5 +1,7 @@
+use crate::elliptic_curve::short_weierstrass::errors::DeserializationError;
 use crate::errors::CreationError;
 use crate::field::traits::IsField;
+use crate::traits::{Deserializable, Serializable};
 use crate::unsigned_integer::element::UnsignedInteger;
 use crate::unsigned_integer::montgomery::MontgomeryAlgorithms;
 use crate::unsigned_integer::traits::IsUnsignedInteger;
@@ -9,7 +11,7 @@ use std::iter::Sum;
 use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
 
 use super::fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField};
-use super::traits::{IsPrimeField, LegendreSymbol};
+use super::traits::{IsFFTField, IsPrimeField, LegendreSymbol};
 
 /// A field element with operations algorithms defined in `F`
 #[derive(Debug, Clone)]
@@ -454,11 +456,29 @@ where
     }
 }
 
+impl<F: IsFFTField> Serializable for FieldElement<F> {
+    fn serialize(&self) -> Vec<u8> {
+        self.representative().serialize()
+    }
+}
+
+impl<F: IsFFTField> Deserializable for FieldElement<F> {
+    fn deserialize(bytes: &[u8]) -> Result<Self, DeserializationError>
+    where
+        Self: Sized,
+    {
+        let representative = F::RepresentativeType::deserialize(bytes)?;
+        let value = F::from_representative(&representative);
+        Ok(Self { value })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::field::element::FieldElement;
     use crate::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
     use crate::field::test_fields::u64_test_field::U64TestField;
+    use crate::traits::{Deserializable, Serializable};
     use crate::unsigned_integer::element::UnsignedInteger;
     use crate::{
         elliptic_curve::short_weierstrass::curves::bls12_381::default_types::FrElement,
@@ -604,5 +624,13 @@ mod tests {
                 prop_assert_eq!(x * &input[i], FieldElement::<Stark252PrimeField>::one());
             }
         }
+    }
+
+    #[test]
+    fn test_serialize_and_deserialize() {
+        let input = FieldElement::<Stark252PrimeField>::from(1456789002823400000);
+        let serialized = input.serialize();
+        let deserialized = FieldElement::<Stark252PrimeField>::deserialize(&serialized).unwrap();
+        assert_eq!(input, deserialized);
     }
 }

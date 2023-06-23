@@ -5,8 +5,9 @@ use std::ops::{
     Sub,
 };
 
+use crate::elliptic_curve::short_weierstrass::errors::DeserializationError;
 use crate::errors::{ByteConversionError, CreationError};
-use crate::traits::ByteConversion;
+use crate::traits::{ByteConversion, Deserializable, Serializable};
 use crate::unsigned_integer::traits::IsUnsignedInteger;
 
 use std::fmt::{self, Debug};
@@ -732,6 +733,30 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
 }
 
 impl<const NUM_LIMBS: usize> IsUnsignedInteger for UnsignedInteger<NUM_LIMBS> {}
+
+impl<const NUM_LIMBS: usize> Serializable for UnsignedInteger<NUM_LIMBS> {
+    fn serialize(&self) -> Vec<u8> {
+        self.limbs
+            .iter()
+            .flat_map(|limb| limb.to_be_bytes().to_vec())
+            .collect()
+    }
+}
+
+impl<const NUM_LIMBS: usize> Deserializable for UnsignedInteger<NUM_LIMBS> {
+    fn deserialize(bytes: &[u8]) -> Result<Self, DeserializationError>
+    where
+        Self: Sized,
+    {
+        let mut limbs = [0u64; NUM_LIMBS];
+        let mut i = 0;
+        for limb in limbs.iter_mut() {
+            *limb = u64::from_be_bytes(bytes[i..i + 8].try_into().unwrap());
+            i += 8;
+        }
+        Ok(Self { limbs })
+    }
+}
 
 impl<const NUM_LIMBS: usize> ByteConversion for UnsignedInteger<NUM_LIMBS> {
     fn to_bytes_be(&self) -> Vec<u8> {

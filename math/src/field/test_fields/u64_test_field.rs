@@ -59,6 +59,10 @@ impl<const MODULUS: u64> IsPrimeField for U64Field<MODULUS> {
         *x
     }
 
+    fn from_representative(a: &Self::RepresentativeType) -> Self::BaseType {
+        *a
+    }
+
     /// Returns how many bits do you need to represent the biggest field element
     /// It expects the MODULUS to be a Prime
     fn field_bit_size() -> usize {
