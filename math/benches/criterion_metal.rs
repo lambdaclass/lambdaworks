@@ -1,12 +1,13 @@
+use crate::field::traits::RootsConfig;
+use crate::gpu::metal::fft::ops::gen_twiddles;
 use criterion::{criterion_group, criterion_main, Criterion};
-use lambdaworks_math::field::traits::RootsConfig;
-use lambdaworks_math::gpu::metal::{abstractions::state::MetalState, fft::ops::gen_twiddles};
+use lambdaworks_gpu::metal::abstractions::state::MetalState;
 
-use utils::stark252_utils::F;
+use utils::fft_utils::F;
 
 mod utils;
+use utils::fft_utils;
 use utils::metal_functions;
-use utils::stark252_utils;
 
 const SIZE_ORDERS: [u64; 4] = [21, 22, 23, 24];
 
