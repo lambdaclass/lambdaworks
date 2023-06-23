@@ -811,7 +811,6 @@ impl<const NUM_LIMBS: usize> From<UnsignedInteger<NUM_LIMBS>> for u16 {
 
 #[cfg(test)]
 mod tests_u384 {
-    #[cfg(feature = "std")]
     use crate::traits::ByteConversion;
     use crate::unsigned_integer::element::{UnsignedInteger, U384};
 
@@ -1771,7 +1770,6 @@ mod tests_u384 {
 mod tests_u256 {
     use crate::unsigned_integer::element::{UnsignedInteger, U256};
 
-    #[cfg(feature = "std")]
     use crate::unsigned_integer::element::ByteConversion;
 
     use proptest::prelude::*;
