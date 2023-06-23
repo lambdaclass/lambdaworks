@@ -730,8 +730,29 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         }
         0
     }
+}
 
-    pub fn from_bytes_be(bytes: &[u8]) -> Result<Self, ByteConversionError> {
+impl<const NUM_LIMBS: usize> IsUnsignedInteger for UnsignedInteger<NUM_LIMBS> {}
+
+impl<const NUM_LIMBS: usize> ByteConversion for UnsignedInteger<NUM_LIMBS> {
+    #[cfg(feature = "std")]
+    fn to_bytes_be(&self) -> Vec<u8> {
+        self.limbs
+            .iter()
+            .flat_map(|limb| limb.to_be_bytes())
+            .collect()
+    }
+
+    #[cfg(feature = "std")]
+    fn to_bytes_le(&self) -> Vec<u8> {
+        self.limbs
+            .iter()
+            .rev()
+            .flat_map(|limb| limb.to_le_bytes())
+            .collect()
+    }
+
+    fn from_bytes_be(bytes: &[u8]) -> Result<Self, ByteConversionError> {
         // We cut off extra bytes, this is useful when you use this function to generate the element from randomness
         // In the future with the right algorithm this shouldn't be needed
 
@@ -757,7 +778,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         Ok(Self { limbs })
     }
 
-    pub fn from_bytes_le(bytes: &[u8]) -> Result<Self, ByteConversionError> {
+    fn from_bytes_le(bytes: &[u8]) -> Result<Self, ByteConversionError> {
         let needed_bytes = bytes
             .get(0..NUM_LIMBS * 8)
             .ok_or(ByteConversionError::FromBEBytesError)?;
@@ -779,35 +800,6 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
             })?;
 
         Ok(Self { limbs })
-    }
-}
-
-impl<const NUM_LIMBS: usize> IsUnsignedInteger for UnsignedInteger<NUM_LIMBS> {}
-
-impl<const NUM_LIMBS: usize> ByteConversion for UnsignedInteger<NUM_LIMBS> {
-    #[cfg(feature = "std")]
-    fn to_bytes_be(&self) -> Vec<u8> {
-        self.limbs
-            .iter()
-            .flat_map(|limb| limb.to_be_bytes())
-            .collect()
-    }
-
-    #[cfg(feature = "std")]
-    fn to_bytes_le(&self) -> Vec<u8> {
-        self.limbs
-            .iter()
-            .rev()
-            .flat_map(|limb| limb.to_le_bytes())
-            .collect()
-    }
-
-    fn from_bytes_be(bytes: &[u8]) -> Result<Self, ByteConversionError> {
-        Self::from_bytes_be(bytes)
-    }
-
-    fn from_bytes_le(bytes: &[u8]) -> Result<Self, ByteConversionError> {
-        Self::from_bytes_le(bytes)
     }
 }
 
