@@ -10,35 +10,28 @@ use lambdaworks_math::unsigned_integer::element::UnsignedInteger;
 
 fuzz_target!(|values: (u64, u64)| {
     let (value_u64_a, value_u64_b) = values;
-    let cairo_prime = 
-        UBig::from_str_radix("800000000000011000000000000000000000000000000000000000000000001", 16).unwrap();
-    let ring = ModuloRing::new(&cairo_prime);
 
-    let value_a =  UnsignedInteger::<4>::from(value_u64_a);
-    let value_b =  UnsignedInteger::<4>::from(value_u64_b);
+    // Basic checks against from(u64)
+    let a_expected = FieldElement::<Stark252PrimeField>::from(value_u64_a);
+    let b_expected = FieldElement::<Stark252PrimeField>::from(value_u64_b);
 
-    // let a = FieldElement::<Stark252PrimeField>::from_raw(value_a.value());
-    // let b = FieldElement::<Stark252PrimeField>::from_raw(&value_b.value());
-
-    // Basic checks against ibig
-    let cairo_ring = ModuloRing::new(&cairo_prime);
-    let a_expected = ring.from(value_u64_a);
-    let b_expected = ring.from(value_u64_b);
+    let value_a = UnsignedInteger::from(value_u64_a);
+    let value_b = UnsignedInteger::from(value_u64_b);
 
     let a = FieldElement::<Stark252PrimeField>::from_raw(&value_a);
     let b = FieldElement::<Stark252PrimeField>::from_raw(&value_b);
 
     let add = &a + &b;
     let expected_add = &a_expected + &b_expected;
-    assert_eq!(&(add.to_string())[2..], expected_add.residue().in_radix(16).to_string());
+    assert_eq!(&(add.to_string())[2..], &(expected_add.to_string())[2..]);
 
     let sub = &a - &b;
     let expected_sub = &a_expected - &b_expected;
-    assert_eq!(&(sub.to_string())[2..], expected_sub.residue().in_radix(16).to_string());
+    assert_eq!(&(sub.to_string())[2..], &(expected_sub.to_string())[2..]);
 
     let mul = &a * &b;
     let expected_mul = &a_expected * &b_expected;
-    assert_eq!(&(mul.to_string())[2..], expected_mul.residue().in_radix(16).to_string());
+    assert_eq!(&(mul.to_string())[2..], &(expected_mul.to_string())[2..]);
 
     // if !value_b.chars().all(|c| matches!(c, '0')) { 
     //     let div = &a / &b; 
@@ -47,8 +40,8 @@ fuzz_target!(|values: (u64, u64)| {
     // }
 
     let pow = &a.pow(b.representative());
-    let expected_pow = a_expected.pow(&b_expected.residue());
-    assert_eq!(&(pow.to_string())[2..], expected_pow.residue().in_radix(16).to_string());
+    let expected_pow = a_expected.pow(b_expected.representative());
+    assert_eq!(&(pow.to_string())[2..], &(expected_pow.to_string())[2..]);
 
     for n in [&a, &b] {
         match n.sqrt() {
