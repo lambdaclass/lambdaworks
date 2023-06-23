@@ -80,6 +80,8 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: lcov.info
           fail_ci_if_error: true
+      - name: Run tests with no std
+        run: cargo test --package lambdaworks-math --no-default-features
 
   test_macos:
     name: Test (macOS, Apple sillicon)
@@ -98,8 +100,6 @@ jobs:
         run: make clippy-metal
       - name: Run tests
         run: cargo test -F metal
-      - name: Run tests with no std
-        run: cargo test --package lambdaworks-math --no-default-features
 
   test_nvidia:
     name: Test (Ubuntu, NVIDIA GPU)
