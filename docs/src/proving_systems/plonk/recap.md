@@ -64,7 +64,7 @@ Gate 1: left: e, right: x, output: u = e \* x
 Gate 2: left: u, right: x, output: v = e + x
 Gate 3: left: v, right: 1, output: w = v - 1
 
-On executing the circuit, all these variables will take a concrete value. All that information can be put in table form. It will be a matrix with all left, right and output values of all the gates. One row per gate. We call the columns of this matrix $L, R, O$. Let's build them for $x=3$ and $e=2$. We get $u=6$, $v=9$ and $w=5$. So the first matrix is:
+On executing the circuit, all these variables will take a concrete value. All that information can be put in table form. It will be a matrix with all left, right and output values of all the gates. One row per gate. We call the columns of this matrix $L, R, O$. Let's build them for $x=3$ and $e=2$. We get $u=6$, $v=9$ and $w=8$. So the first matrix is:
 
 | A   | B   | C   |
 | --- | --- | --- |
