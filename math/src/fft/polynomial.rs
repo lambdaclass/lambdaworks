@@ -1,3 +1,6 @@
+#[cfg(feature = "metal")]
+use crate::gpu::metal::fft::polynomial::evaluate_fft_metal;
+
 use crate::{
     field::{
         element::FieldElement,
