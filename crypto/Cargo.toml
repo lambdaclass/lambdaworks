@@ -10,6 +10,7 @@ path = "../math"
 
 [dependencies]
 sha3 = "0.10.6"
+sha2 = "0.10.6"
 thiserror = "1.0.38"
 
 [dependencies.rand]
@@ -18,7 +19,6 @@ version = "0.8"
 [dev-dependencies]
 criterion = "0.4"
 iai-callgrind.workspace = true
-sha2 = "0.10.6"
 
 [features]
 test_fiat_shamir = []
