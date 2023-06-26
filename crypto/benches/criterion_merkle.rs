@@ -1,6 +1,6 @@
 use core::time::Duration;
 use criterion::{criterion_group, criterion_main, Criterion};
-use lambdaworks_crypto::merkle_tree::merkle::{FieldElementBackend, MerkleTree};
+use lambdaworks_crypto::merkle_tree::{merkle::MerkleTree, backends::sha3_256::Sha3_256Tree};
 use lambdaworks_math::{
     field::element::FieldElement,
     field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
@@ -24,7 +24,7 @@ fn merkle_tree_benchmarks(c: &mut Criterion) {
         unhashed_leaves.as_slice(),
         |bench, unhashed_leaves| {
             bench.iter_with_large_drop(|| {
-                MerkleTree::<FieldElementBackend<F>>::build(unhashed_leaves)
+                MerkleTree::<Sha3_256Tree<F>>::build(unhashed_leaves)
             });
         },
     );
