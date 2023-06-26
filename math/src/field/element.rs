@@ -12,6 +12,7 @@ use super::fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackend
 use super::traits::{IsPrimeField, LegendreSymbol};
 
 /// A field element with operations algorithms defined in `F`
+#[allow(clippy::derived_hash_with_manual_eq)]
 #[derive(Debug, Clone, Hash)]
 pub struct FieldElement<F: IsField> {
     value: F::BaseType,
