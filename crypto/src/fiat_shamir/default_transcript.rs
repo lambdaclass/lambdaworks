@@ -1,7 +1,4 @@
-use std::result;
-
 use sha3::{Digest, Keccak256};
-
 use super::transcript::Transcript;
 
 pub struct DefaultTranscript {
