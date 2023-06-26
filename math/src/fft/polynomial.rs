@@ -194,6 +194,10 @@ mod tests {
     use crate::field::traits::IsField;
 
     use crate::field::traits::RootsConfig;
+
+    #[cfg(feature = "metal")]
+    use crate::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
+
     use proptest::{collection, prelude::*};
 
     use crate::fft::roots_of_unity::{
@@ -450,5 +454,31 @@ mod tests {
                 prop_assert_eq!(poly, new_poly);
             }
         }
+    }
+
+    #[cfg(feature = "metal")]
+    #[test]
+    fn evaluate_fft_on_cpu_and_metal() {
+        let domain_size = 4096;
+        let coeffs: Vec<FieldElement<Stark252PrimeField>> =
+            (0..domain_size).map(|_| FieldElement::one()).collect();
+
+        let evals_cpu = evaluate_fft_cpu(&coeffs).unwrap();
+        let evals_metal = evaluate_fft_metal(&coeffs).unwrap();
+
+        evals_cpu
+            .iter()
+            .zip(evals_metal)
+            .enumerate()
+            .for_each(|(i, (eval_cpu, eval_metal))| {
+                assert_eq!(
+                    eval_cpu,
+                    &eval_metal,
+                    "Failed eval #{}. CPU: {}, Metal: {}",
+                    i,
+                    eval_cpu.representative(),
+                    eval_metal.representative()
+                );
+            });
     }
 }
