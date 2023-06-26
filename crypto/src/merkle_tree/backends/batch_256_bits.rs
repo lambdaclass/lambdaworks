@@ -1,13 +1,14 @@
 use std::marker::PhantomData;
 
+use crate::merkle_tree::traits::IsMerkleTreeBackend;
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsField},
     traits::ByteConversion,
 };
-use sha2::digest::{generic_array::GenericArray, OutputSizeUser};
-use sha3::Digest;
-
-use crate::merkle_tree::traits::IsMerkleTreeBackend;
+use sha3::{
+    digest::{generic_array::GenericArray, OutputSizeUser},
+    Digest,
+};
 
 #[derive(Clone)]
 pub struct Batch256BitsTree<F, D: Digest> {
