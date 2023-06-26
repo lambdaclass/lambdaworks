@@ -1,7 +1,7 @@
 #[cfg(feature = "cuda")]
 fn compile_cuda_shaders() {
     use std::process::Command;
-    // use walkdir::WalkDir;
+    use walkdir::WalkDir;
     let source_dir = env!("CARGO_MANIFEST_DIR").to_string() + "/src/cuda/shaders";
 
     // Tell cargo to invalidate the built crate whenever the source changes
