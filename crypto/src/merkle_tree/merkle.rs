@@ -21,7 +21,7 @@ where
 
         //The length of leaves minus one inner node in the merkle tree
 
-        // This is not so clean
+        // The first elements are overwritten by build function, it doesn't matter what it's there
         let mut inner_nodes = vec![hashed_leaves[0].clone(); hashed_leaves.len() - 1];
         inner_nodes.extend(hashed_leaves);
 
