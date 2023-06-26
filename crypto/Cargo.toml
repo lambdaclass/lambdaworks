@@ -18,6 +18,7 @@ version = "0.8"
 [dev-dependencies]
 criterion = "0.4"
 iai-callgrind.workspace = true
+sha2 = "0.10.6"
 
 [features]
 test_fiat_shamir = []
