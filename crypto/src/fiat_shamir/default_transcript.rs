@@ -1,5 +1,5 @@
-use sha3::{Digest, Keccak256};
 use super::transcript::Transcript;
+use sha3::{Digest, Keccak256};
 
 pub struct DefaultTranscript {
     hasher: Keccak256,
