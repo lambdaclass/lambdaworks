@@ -19,3 +19,5 @@ proving_system/stark/src/cairo_run/program.trace
 **/*.ptx
 
 **/.DS_Store
+
+ensure-no_std/target
