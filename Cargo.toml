@@ -2,6 +2,10 @@
 members = ["math", "crypto", "gpu", "benches"]
 exclude = ["ensure-no_std"]
 
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+
 [workspace.dependencies]
 iai-callgrind = "0.3.1"
 
