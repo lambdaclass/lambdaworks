@@ -9,8 +9,8 @@ use lambdaworks_gpu::cuda::abstractions::errors::CudaError;
 
 #[derive(Debug, Error)]
 pub enum FFTError {
-    #[error("Could not calculate {1} root of unity")]
-    RootOfUnityError(String, u64),
+    #[error("Could not calculate root of unity")]
+    RootOfUnityError(u64),
     #[error("Input length is {0}, which is not a power of two")]
     InputError(usize),
     #[cfg(feature = "metal")]
@@ -27,7 +27,7 @@ impl From<FieldError> for FFTError {
             FieldError::DivisionByZero => {
                 panic!("Can't divide by zero during FFT");
             }
-            FieldError::RootOfUnityError(error, order) => FFTError::RootOfUnityError(error, order),
+            FieldError::RootOfUnityError(order) => FFTError::RootOfUnityError(order),
         }
     }
 }

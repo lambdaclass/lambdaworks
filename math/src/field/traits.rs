@@ -1,8 +1,6 @@
-use crate::unsigned_integer::traits::IsUnsignedInteger;
-
-use std::{fmt::Debug, hash::Hash};
-
 use super::{element::FieldElement, errors::FieldError};
+use crate::unsigned_integer::traits::IsUnsignedInteger;
+use core::fmt::Debug;
 
 /// Represents different configurations that powers of roots of unity can be in. Some of these may
 /// be necessary for FFT (as twiddle factors).
@@ -42,10 +40,7 @@ pub trait IsFFTField: IsPrimeField {
             return Ok(FieldElement::one());
         }
         if order > F::TWO_ADICITY {
-            return Err(FieldError::RootOfUnityError(
-                "Order cannot exceed 2^{F::TWO_ADICITY}".to_string(),
-                order,
-            ));
+            return Err(FieldError::RootOfUnityError(order));
         }
         let power = 1u64 << (F::TWO_ADICITY - order);
         Ok(two_adic_primitive_root_of_unity.pow(power))
@@ -56,7 +51,7 @@ pub trait IsFFTField: IsPrimeField {
 pub trait IsField: Debug + Clone {
     /// The underlying base type for representing elements from the field.
     // TODO: Relax Unpin for non cuda usage
-    type BaseType: Clone + Debug + Hash + Unpin;
+    type BaseType: Clone + Debug + Unpin;
 
     /// Returns the sum of `a` and `b`.
     fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType;
@@ -213,7 +208,7 @@ pub trait IsPrimeField: IsField {
                 i + 1
             };
 
-            let b = Self::pow(&c, 1usize << (m - i - 1));
+            let b = (0..(m - i - 1)).fold(c, |acc, _| Self::square(&acc));
 
             c = Self::mul(&b, &b);
             x = Self::mul(&x, &b);

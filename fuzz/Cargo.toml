@@ -37,3 +37,4 @@ name = "field_from_raw"
 path = "fuzz_targets/field_from_raw.rs"
 test = false
 doc = false
+
