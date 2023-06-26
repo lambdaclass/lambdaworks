@@ -1,8 +1,10 @@
-
-use std::marker::PhantomData;
-use lambdaworks_math::{field::{traits::IsField, element::FieldElement}, traits::ByteConversion};
-use sha3::{Digest, Sha3_512};
 use crate::merkle_tree::traits::IsMerkleTreeBackend;
+use lambdaworks_math::{
+    field::{element::FieldElement, traits::IsField},
+    traits::ByteConversion,
+};
+use sha3::{Digest, Sha3_512};
+use std::marker::PhantomData;
 
 #[derive(Clone)]
 pub struct Sha3_512Tree<F> {
@@ -48,11 +50,10 @@ where
 
 #[cfg(test)]
 mod tests {
-    use lambdaworks_math::field::{fields::u64_prime_field::U64PrimeField, element::FieldElement};
+    use lambdaworks_math::field::{element::FieldElement, fields::u64_prime_field::U64PrimeField};
 
-    use crate::merkle_tree::{merkle::MerkleTree, backends::{sha3_512::Sha3_512Tree}};
+    use crate::merkle_tree::{backends::sha3_512::Sha3_512Tree, merkle::MerkleTree};
 
-    
     const MODULUS: u64 = 13;
     type U64PF = U64PrimeField<MODULUS>;
     type FE = FieldElement<U64PF>;
@@ -64,4 +65,3 @@ mod tests {
         assert!(proof.verify::<Sha3_512Tree<U64PF>>(&merkle_tree.root, 0, &values[0]));
     }
 }
-

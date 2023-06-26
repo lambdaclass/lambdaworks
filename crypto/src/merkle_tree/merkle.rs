@@ -58,8 +58,6 @@ where
     }
 }
 
-
-
 #[cfg(test)]
 mod tests {
     use lambdaworks_math::field::{element::FieldElement, fields::u64_prime_field::U64PrimeField};
