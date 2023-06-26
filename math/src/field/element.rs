@@ -3,10 +3,10 @@ use crate::field::traits::IsField;
 use crate::unsigned_integer::element::UnsignedInteger;
 use crate::unsigned_integer::montgomery::MontgomeryAlgorithms;
 use crate::unsigned_integer::traits::IsUnsignedInteger;
-use std::fmt;
-use std::fmt::Debug;
-use std::iter::Sum;
-use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
+use core::fmt;
+use core::fmt::Debug;
+use core::iter::Sum;
+use core::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
 
 use super::fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField};
 use super::traits::{IsPrimeField, LegendreSymbol};
@@ -17,6 +17,7 @@ pub struct FieldElement<F: IsField> {
     value: F::BaseType,
 }
 
+#[cfg(feature = "std")]
 impl<F: IsField> FieldElement<F> {
     // Source: https://en.wikipedia.org/wiki/Modular_multiplicative_inverse#Multiple_inverses
     pub fn inplace_batch_inverse(numbers: &mut [Self]) {
@@ -414,8 +415,7 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let value: UnsignedInteger<NUM_LIMBS> = self.representative();
-        let res = format!("{}", value);
-        write!(f, "{}", res)
+        write!(f, "{}", value)
     }
 }
 
@@ -458,14 +458,13 @@ where
 mod tests {
     use crate::field::element::FieldElement;
     use crate::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
+    use crate::field::fields::u64_prime_field::U64PrimeField;
     use crate::field::test_fields::u64_test_field::U64TestField;
+    #[cfg(feature = "std")]
     use crate::unsigned_integer::element::UnsignedInteger;
-    use crate::{
-        elliptic_curve::short_weierstrass::curves::bls12_381::default_types::FrElement,
-        field::fields::u64_prime_field::U64PrimeField,
-    };
-
-    use proptest::{collection, prelude::*, prop_compose, proptest, strategy::Strategy};
+    #[cfg(feature = "std")]
+    use proptest::collection;
+    use proptest::{prelude::*, prop_compose, proptest, strategy::Strategy};
 
     #[test]
     fn test_std_iter_sum_field_element() {
@@ -492,6 +491,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn test_display_montgomery_field() {
         let zero_field_element = FieldElement::<Stark252PrimeField>::from(0);
@@ -511,6 +511,9 @@ mod tests {
 
     #[test]
     fn one_of_sqrt_roots_for_4_is_2() {
+        type FrField = Stark252PrimeField;
+        type FrElement = FieldElement<FrField>;
+
         let input = FrElement::from(4);
         let sqrt = input.sqrt().unwrap();
         let result = FrElement::from(2);
@@ -525,13 +528,27 @@ mod tests {
         assert_eq!(sqrt.0, result);
         assert_eq!(sqrt.1, -result);
     }
+
     #[test]
     fn one_of_sqrt_roots_for_25_is_5() {
+        type FrField = Stark252PrimeField;
+        type FrElement = FieldElement<FrField>;
         let input = FrElement::from(25);
         let sqrt = input.sqrt().unwrap();
-        let result = FrElement::from(5);
-        assert_eq!(sqrt.1, result);
-        assert_eq!(sqrt.0, -result);
+        let five = FrElement::from(5);
+        assert!(sqrt.1 == five || sqrt.0 == five);
+    }
+
+    #[test]
+    fn sqrt_works_for_prime_minus_one() {
+        type FrField = Stark252PrimeField;
+        type FrElement = FieldElement<FrField>;
+
+        let input = -FrElement::from(1);
+        let sqrt = input.sqrt().unwrap();
+        assert_eq!(sqrt.0.square(), input);
+        assert_eq!(sqrt.1.square(), input);
+        assert_ne!(sqrt.0, sqrt.1);
     }
 
     #[test]
@@ -575,12 +592,14 @@ mod tests {
     }
 
     prop_compose! {
+        #[cfg(feature = "std")]
         fn field_vec(max_exp: u8)(vec in collection::vec(field_element(), 0..1 << max_exp)) -> Vec<FieldElement::<Stark252PrimeField>> {
             vec
         }
     }
 
     proptest! {
+        #[cfg(feature = "std")]
         #[test]
         fn test_inplace_batch_inverse_returns_inverses(vec in field_vec(10)) {
             let input: Vec<_> = vec.into_iter().filter(|x| x != &FieldElement::<Stark252PrimeField>::zero()).collect();

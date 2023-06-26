@@ -4,23 +4,22 @@ use lambdaworks_math::field::traits::RootsConfig;
 
 mod utils;
 use utils::fft_functions;
-use utils::fft_utils;
-use utils::stark252_utils;
+use utils::fft_utils::{rand_field_elements, rand_poly, twiddles};
 
 const SIZE_ORDER: u64 = 10;
 
 #[inline(never)]
 fn seq_fft_benchmarks_rn() {
-    let mut input = stark252_utils::rand_field_elements(SIZE_ORDER);
-    let twiddles_nat = fft_utils::twiddles(SIZE_ORDER, RootsConfig::Natural);
+    let mut input = rand_field_elements(SIZE_ORDER);
+    let twiddles_nat = twiddles(SIZE_ORDER, RootsConfig::Natural);
 
     fft_functions::ordered_fft_rn(black_box(&mut input), black_box(&twiddles_nat));
 }
 
 #[inline(never)]
 fn seq_fft_benchmarks_nr() {
-    let mut input = stark252_utils::rand_field_elements(SIZE_ORDER);
-    let twiddles_bitrev = fft_utils::twiddles(SIZE_ORDER, RootsConfig::BitReverse);
+    let mut input = rand_field_elements(SIZE_ORDER);
+    let twiddles_bitrev = twiddles(SIZE_ORDER, RootsConfig::BitReverse);
 
     fft_functions::ordered_fft_nr(black_box(&mut input), black_box(&twiddles_bitrev));
 }
@@ -53,25 +52,25 @@ fn seq_twiddles_generation_bitrev_inversed_benchmarks() {
 
 #[inline(never)]
 fn seq_bitrev_permutation_benchmarks() {
-    let mut input = fft_utils::rand_field_elements(SIZE_ORDER);
+    let mut input = rand_field_elements(SIZE_ORDER);
     fft_functions::bitrev_permute(black_box(&mut input));
 }
 
 #[inline(never)]
 fn seq_poly_evaluation_benchmarks() {
-    let poly = fft_utils::rand_poly(SIZE_ORDER);
+    let poly = rand_poly(SIZE_ORDER);
     let _ = black_box(fft_functions::poly_evaluate_fft(black_box(&poly)));
 }
 
 #[inline(never)]
 fn seq_poly_interpolation_benchmarks() {
-    let evals = fft_utils::rand_field_elements(SIZE_ORDER);
+    let evals = rand_field_elements(SIZE_ORDER);
     fft_functions::poly_interpolate_fft(black_box(&evals));
 }
 
 #[cfg(not(any(feature = "metal", feature = "cuda")))]
 iai_callgrind::main!(
-    callgrind_args = "toggle-collect=fft_utils::*";
+    callgrind_args = "toggle-collect=*";
     functions = seq_fft_benchmarks_nr,
     seq_fft_benchmarks_rn,
     seq_twiddles_generation_natural_benchmarks,
@@ -85,7 +84,7 @@ iai_callgrind::main!(
 
 #[cfg(any(feature = "metal", feature = "cuda"))]
 iai_callgrind::main!(
-    callgrind_args = "toggle-collect=fft_utils::*";
+    callgrind_args = "toggle-collect=*";
     functions = seq_fft_benchmarks_nr,
     seq_fft_benchmarks_rn,
     seq_twiddles_generation_natural_benchmarks,

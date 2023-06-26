@@ -2,7 +2,6 @@
 #![allow(dead_code)]
 pub mod fft_functions;
 pub mod fft_utils;
-pub mod stark252_utils;
 pub mod u64_utils;
 
 #[cfg(feature = "metal")]
