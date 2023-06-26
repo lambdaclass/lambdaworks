@@ -7,7 +7,7 @@ use crate::{
     unsigned_integer::element::{UnsignedInteger, U256},
 };
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Hash)]
 pub struct MontgomeryConfigStark252PrimeField;
 impl IsModulus<U256> for MontgomeryConfigStark252PrimeField {
     const MODULUS: U256 =
