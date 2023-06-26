@@ -1,6 +1,6 @@
 use core::time::Duration;
 use criterion::{criterion_group, criterion_main, Criterion};
-use lambdaworks_crypto::merkle_tree::{backends::hash_256_bits::{Tree256Bits}, merkle::MerkleTree};
+use lambdaworks_crypto::merkle_tree::{backends::hash_256_bits::Tree256Bits, merkle::MerkleTree};
 use lambdaworks_math::{
     field::element::FieldElement,
     field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
