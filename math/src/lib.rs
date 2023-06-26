@@ -6,6 +6,9 @@ pub mod field;
 pub mod helpers;
 pub mod traits;
 pub mod unsigned_integer;
+
+pub mod gpu;
+
 // These modules don't work in no-std mode
 #[cfg(feature = "std")]
 pub mod elliptic_curve;

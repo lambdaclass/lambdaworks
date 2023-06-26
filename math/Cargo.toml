@@ -8,8 +8,19 @@ edition = "2021"
 [dependencies]
 rand = {version = "0.8.5", default-features = false}
 thiserror = "1.0.38"
+
+# rayon
 rayon = { version = "1.7.0", optional = true }
 heapless = "0.7.16"
+
+# metal
+metal = { version = "0.24.0", optional = true }
+objc = { version = "0.2.7", optional = true }
+
+# cuda
+cudarc = { version = "0.9.7", optional = true }
+
+lambdaworks-gpu = { path = "../gpu" }
 
 [dev-dependencies]
 proptest = "1.1.0"
@@ -21,6 +32,10 @@ iai-callgrind.workspace = true
 rayon = ["dep:rayon"]
 default = ["rayon", "std"]
 std = []
+
+# gpu
+metal = ["dep:metal", "dep:objc", "lambdaworks-gpu/metal"]
+cuda = ["dep:cudarc"]
 
 [[bench]]
 name = "criterion_elliptic_curve"
@@ -54,3 +69,8 @@ harness = false
 [[bench]]
 name = "iai_fft"
 harness = false
+
+[[bench]]
+name = "criterion_metal"
+harness = false
+required-features = ["metal"]

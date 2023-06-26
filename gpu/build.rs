@@ -53,7 +53,7 @@ fn compile_cuda_shaders() {
 #[cfg(feature = "metal")]
 fn compile_metal_shaders() {
     use std::process::Command;
-    let source_dir = env!("CARGO_MANIFEST_DIR").to_string() + "/src/metal/shaders";
+    let source_dir = env!("CARGO_MANIFEST_DIR").to_string() + "/../math/src/gpu/metal/shaders";
 
     // Tell cargo to invalidate the built crate whenever the source changes
     println!("cargo:rerun-if-changed={source_dir}");

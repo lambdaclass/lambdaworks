@@ -1,5 +1,5 @@
+use crate::field::{element::FieldElement, traits::IsField};
 use cudarc::driver::safe::DeviceRepr;
-use lambdaworks_math::field::{element::FieldElement, traits::IsField};
 
 use core::ffi;
 

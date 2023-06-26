@@ -99,7 +99,7 @@ jobs:
       - name: Run clippy
         run: make clippy-metal
       - name: Run tests
-        run: cargo test -F metal
+        run: make test-metal
 
   test_nvidia:
     name: Test (Ubuntu, NVIDIA GPU)

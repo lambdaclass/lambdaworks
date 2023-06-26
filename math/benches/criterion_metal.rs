@@ -1,11 +1,13 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use lambdaworks_gpu::metal::{abstractions::state::MetalState, fft::ops::gen_twiddles};
+use lambdaworks_gpu::metal::abstractions::state::MetalState;
 use lambdaworks_math::field::traits::RootsConfig;
+use lambdaworks_math::gpu::metal::fft::ops::gen_twiddles;
 
-use crate::util::F;
+use utils::fft_utils::F;
 
-mod functions;
-mod util;
+mod utils;
+use utils::fft_utils;
+use utils::metal_functions;
 
 const SIZE_ORDERS: [u64; 4] = [21, 22, 23, 24];
 
@@ -14,7 +16,7 @@ fn fft_benchmarks(c: &mut Criterion) {
 
     for (order, input) in SIZE_ORDERS
         .iter()
-        .zip(SIZE_ORDERS.map(util::rand_field_elements))
+        .zip(SIZE_ORDERS.map(fft_utils::rand_field_elements))
     {
         let metal_state = MetalState::new(None).unwrap();
         let twiddles = gen_twiddles::<F>(*order, RootsConfig::BitReverse, &metal_state).unwrap();
@@ -25,7 +27,7 @@ fn fft_benchmarks(c: &mut Criterion) {
             &(input, twiddles),
             |bench, (input, twiddles)| {
                 bench.iter_with_large_drop(|| {
-                    functions::metal::ordered_fft(input, twiddles);
+                    metal_functions::ordered_fft(input, twiddles);
                 });
             },
         );
@@ -41,7 +43,7 @@ fn twiddles_generation_benchmarks(c: &mut Criterion) {
         group.throughput(criterion::Throughput::Elements(1 << (order - 1)));
         group.bench_with_input("Parallel (Metal)", &order, |bench, order| {
             bench.iter_with_large_drop(|| {
-                functions::metal::twiddles_generation(*order);
+                metal_functions::twiddles_generation(*order);
             });
         });
     }
@@ -52,11 +54,11 @@ fn twiddles_generation_benchmarks(c: &mut Criterion) {
 fn bitrev_permutation_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("Bit-reverse permutation");
 
-    for input in SIZE_ORDERS.map(util::rand_field_elements) {
+    for input in SIZE_ORDERS.map(fft_utils::rand_field_elements) {
         group.throughput(criterion::Throughput::Elements(input.len() as u64));
         group.bench_with_input("Parallel (Metal)", &input, |bench, input| {
             bench.iter_with_large_drop(|| {
-                functions::metal::bitrev_permute(input);
+                metal_functions::bitrev_permute(input);
             });
         });
     }
@@ -67,13 +69,13 @@ fn bitrev_permutation_benchmarks(c: &mut Criterion) {
 fn poly_evaluation_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("Polynomial");
 
-    for poly in SIZE_ORDERS.map(util::rand_poly) {
+    for poly in SIZE_ORDERS.map(fft_utils::rand_poly) {
         group.throughput(criterion::Throughput::Elements(
             poly.coefficients().len() as u64
         ));
         group.bench_with_input("evaluate_fft_metal", &poly, |bench, poly| {
             bench.iter_with_large_drop(|| {
-                functions::metal::poly_evaluate_fft(poly);
+                metal_functions::poly_evaluate_fft(poly);
             });
         });
     }
@@ -84,11 +86,11 @@ fn poly_evaluation_benchmarks(c: &mut Criterion) {
 fn poly_interpolation_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("Polynomial");
 
-    for evals in SIZE_ORDERS.map(util::rand_field_elements) {
+    for evals in SIZE_ORDERS.map(fft_utils::rand_field_elements) {
         group.throughput(criterion::Throughput::Elements(evals.len() as u64));
         group.bench_with_input("interpolate_fft_metal", &evals, |bench, evals| {
             bench.iter_with_large_drop(|| {
-                functions::metal::poly_interpolate_fft(evals);
+                metal_functions::poly_interpolate_fft(evals);
             });
         });
     }
