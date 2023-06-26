@@ -11,7 +11,7 @@ use std::iter::Sum;
 use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
 
 use super::fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField};
-use super::traits::{IsFFTField, IsPrimeField, LegendreSymbol};
+use super::traits::{IsPrimeField, LegendreSymbol};
 
 /// A field element with operations algorithms defined in `F`
 #[derive(Debug, Clone)]
@@ -456,13 +456,13 @@ where
     }
 }
 
-impl<F: IsFFTField> Serializable for FieldElement<F> {
+impl<F: IsPrimeField> Serializable for FieldElement<F> {
     fn serialize(&self) -> Vec<u8> {
         self.representative().serialize()
     }
 }
 
-impl<F: IsFFTField> Deserializable for FieldElement<F> {
+impl<F: IsPrimeField> Deserializable for FieldElement<F> {
     fn deserialize(bytes: &[u8]) -> Result<Self, DeserializationError>
     where
         Self: Sized,
@@ -477,6 +477,7 @@ impl<F: IsFFTField> Deserializable for FieldElement<F> {
 mod tests {
     use crate::field::element::FieldElement;
     use crate::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
+    use crate::field::fields::u64_prime_field::F17;
     use crate::field::test_fields::u64_test_field::U64TestField;
     use crate::traits::{Deserializable, Serializable};
     use crate::unsigned_integer::element::UnsignedInteger;
@@ -626,11 +627,41 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_serialize_and_deserialize() {
-        let input = FieldElement::<Stark252PrimeField>::from(1456789002823400000);
-        let serialized = input.serialize();
-        let deserialized = FieldElement::<Stark252PrimeField>::deserialize(&serialized).unwrap();
-        assert_eq!(input, deserialized);
+    prop_compose! {
+        fn some_stark252_felt()(base: u64, exponent: u128) -> FieldElement::<Stark252PrimeField> {
+            FieldElement::<Stark252PrimeField>::from(base).pow(exponent)
+        }
+    }
+
+    prop_compose! {
+        fn some_f17_felt()(base: u64, exponent: u128) -> FieldElement::<F17> {
+            FieldElement::<F17>::from(base).pow(exponent)
+        }
+    }
+
+    proptest! {
+        #![proptest_config(
+            ProptestConfig::default()
+          )]
+        #[test]
+        fn test_serialize_and_deserialize_stark252(felt in some_stark252_felt()) {
+            let serialized = felt.serialize();
+            let deserialized = FieldElement::<Stark252PrimeField>::deserialize(&serialized).unwrap();
+
+            prop_assert_eq!(felt, deserialized);
+        }
+    }
+
+    proptest! {
+        #![proptest_config(
+            ProptestConfig::default()
+          )]
+        #[test]
+        fn test_serialize_and_deserialize_f17(felt in some_f17_felt()) {
+            let serialized = felt.serialize();
+            let deserialized = FieldElement::<F17>::deserialize(&serialized).unwrap();
+
+            prop_assert_eq!(felt, deserialized);
+        }
     }
 }
