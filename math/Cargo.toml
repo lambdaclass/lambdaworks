@@ -1,7 +1,9 @@
 [package]
 name = "lambdaworks-math"
+description = "Modular math library for cryptography"
 version.workspace = true
 edition.workspace = true
+license.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -20,7 +22,7 @@ objc = { version = "0.2.7", optional = true }
 # cuda
 cudarc = { version = "0.9.7", optional = true }
 
-lambdaworks-gpu = { path = "../gpu" }
+lambdaworks-gpu.workspace = true
 
 [dev-dependencies]
 proptest = "1.1.0"
