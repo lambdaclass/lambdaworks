@@ -1,15 +1,18 @@
 use core::hint::black_box;
 use lambdaworks_crypto::{
     hash::sha3::Sha3Hasher,
-    merkle_tree::{backends::hash_256_bits::hash_256_bits, merkle::MerkleTree},
+    merkle_tree::{backends::hash_256_bits::Tree256Bits, merkle::MerkleTree},
 };
 use lambdaworks_math::{
     field::element::FieldElement,
     field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
 };
+use sha3::Keccak256;
 
 type F = Stark252PrimeField;
 type FE = FieldElement<Stark252PrimeField>;
+
+type TreeBackend = Tree256Bits<F, Keccak256>;
 
 #[inline(never)]
 #[export_name = "util::build_unhashed_leaves"]
@@ -30,7 +33,7 @@ fn build_hasher() -> Box<Sha3Hasher> {
 #[inline(never)]
 fn merkle_tree_build_benchmark() {
     let unhashed_leaves = build_unhashed_leaves();
-    let result = black_box(MerkleTree::<hash_256_bits<F>>::build(black_box(
+    let result = black_box(MerkleTree::<TreeBackend>::build(black_box(
         &unhashed_leaves,
     )));
     // Let's not count `drop` in our timings.

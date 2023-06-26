@@ -1,12 +1,15 @@
 use core::time::Duration;
 use criterion::{criterion_group, criterion_main, Criterion};
-use lambdaworks_crypto::merkle_tree::{backends::hash_256_bits::hash_256_bits, merkle::MerkleTree};
+use lambdaworks_crypto::merkle_tree::{backends::hash_256_bits::{Tree256Bits}, merkle::MerkleTree};
 use lambdaworks_math::{
     field::element::FieldElement,
     field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
 };
+use sha3::Keccak256;
 type F = Stark252PrimeField;
 type FE = FieldElement<F>;
+
+type TreeBackend = Tree256Bits<F, Keccak256>;
 
 fn merkle_tree_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("Merkle Tree");
@@ -23,7 +26,7 @@ fn merkle_tree_benchmarks(c: &mut Criterion) {
         "build",
         unhashed_leaves.as_slice(),
         |bench, unhashed_leaves| {
-            bench.iter_with_large_drop(|| MerkleTree::<hash_256_bits<F>>::build(unhashed_leaves));
+            bench.iter_with_large_drop(|| MerkleTree::<TreeBackend>::build(unhashed_leaves));
         },
     );
 }
