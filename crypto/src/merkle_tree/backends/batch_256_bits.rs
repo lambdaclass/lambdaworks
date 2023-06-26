@@ -4,7 +4,7 @@ use lambdaworks_math::{
     field::{element::FieldElement, traits::IsField},
     traits::ByteConversion,
 };
-use sha3::{Digest};
+use sha3::Digest;
 
 use crate::merkle_tree::traits::IsMerkleTreeBackend;
 

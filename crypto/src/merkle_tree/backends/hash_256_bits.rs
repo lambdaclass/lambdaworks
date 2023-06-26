@@ -3,7 +3,10 @@ use lambdaworks_math::{
     field::{element::FieldElement, traits::IsField},
     traits::ByteConversion,
 };
-use sha3::{Digest, digest::{generic_array::GenericArray, OutputSizeUser}};
+use sha3::{
+    digest::{generic_array::GenericArray, OutputSizeUser},
+    Digest,
+};
 use std::marker::PhantomData;
 
 #[derive(Clone)]
@@ -25,7 +28,7 @@ impl<F, D: Digest> IsMerkleTreeBackend for Tree256Bits<F, D>
 where
     F: IsField,
     FieldElement<F>: ByteConversion,
-    [u8; 32]: From<GenericArray<u8, <D as OutputSizeUser>::OutputSize>>
+    [u8; 32]: From<GenericArray<u8, <D as OutputSizeUser>::OutputSize>>,
 {
     type Node = [u8; 32];
     type Data = FieldElement<F>;
@@ -46,15 +49,20 @@ where
 
 #[cfg(test)]
 mod tests {
-    use lambdaworks_math::field::{element::FieldElement, fields::{u64_prime_field::U64PrimeField, fft_friendly::stark_252_prime_field::Stark252PrimeField}};
+    use lambdaworks_math::field::{
+        element::FieldElement,
+        fields::{
+            fft_friendly::stark_252_prime_field::Stark252PrimeField, u64_prime_field::U64PrimeField,
+        },
+    };
     use sha3::{Keccak256, Sha3_256};
 
-    use crate::merkle_tree::{merkle::MerkleTree, test_merkle::TestBackend, backends::hash_256_bits::Tree256Bits,
+    use crate::merkle_tree::{
+        backends::hash_256_bits::Tree256Bits, merkle::MerkleTree, test_merkle::TestBackend,
     };
 
     type F = Stark252PrimeField;
     type FE = FieldElement<F>;
-
 
     #[test]
     // expected | 8 | 7 | 1 | 6 | 1 | 7 | 7 | 2 | 4 | 6 | 8 | 10 | 10 | 10 | 10 |
@@ -71,7 +79,7 @@ mod tests {
     #[test]
     fn hash_data_field_element_backend_works_with_keccak() {
         let values: Vec<FE> = (1..6).map(FE::from).collect();
-        let merkle_tree = MerkleTree::<Tree256Bits<F,Keccak256>>::build(&values);
+        let merkle_tree = MerkleTree::<Tree256Bits<F, Keccak256>>::build(&values);
         let proof = merkle_tree.get_proof_by_pos(0).unwrap();
         assert!(proof.verify::<Tree256Bits<F, Keccak256>>(&merkle_tree.root, 0, &values[0]));
     }
@@ -79,7 +87,7 @@ mod tests {
     #[test]
     fn hash_data_field_element_backend_works_with_sha3() {
         let values: Vec<FE> = (1..6).map(FE::from).collect();
-        let merkle_tree = MerkleTree::<Tree256Bits<F,Sha3_256>>::build(&values);
+        let merkle_tree = MerkleTree::<Tree256Bits<F, Sha3_256>>::build(&values);
         let proof = merkle_tree.get_proof_by_pos(0).unwrap();
         assert!(proof.verify::<Tree256Bits<F, Sha3_256>>(&merkle_tree.root, 0, &values[0]));
     }
