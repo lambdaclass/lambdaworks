@@ -12,7 +12,7 @@ use super::fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackend
 use super::traits::{IsPrimeField, LegendreSymbol};
 
 /// A field element with operations algorithms defined in `F`
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash)]
 pub struct FieldElement<F: IsField> {
     value: F::BaseType,
 }
