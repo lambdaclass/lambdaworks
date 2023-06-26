@@ -9,11 +9,11 @@ use sha3::{Digest, Sha3_512};
 use crate::merkle_tree::traits::IsMerkleTreeBackend;
 
 #[derive(Clone)]
-pub struct BatchStarkProverBackend<F> {
+pub struct BatchSha3_512Tree<F> {
     phantom: PhantomData<F>,
 }
 
-impl<F> Default for BatchStarkProverBackend<F> {
+impl<F> Default for BatchSha3_512Tree<F> {
     fn default() -> Self {
         Self {
             phantom: PhantomData,
@@ -21,7 +21,7 @@ impl<F> Default for BatchStarkProverBackend<F> {
     }
 }
 
-impl<F> IsMerkleTreeBackend for BatchStarkProverBackend<F>
+impl<F> IsMerkleTreeBackend for BatchSha3_512Tree<F>
 where
     F: IsField,
     FieldElement<F>: ByteConversion,
@@ -46,5 +46,32 @@ where
         let mut result_hash = [0_u8; 64];
         result_hash.copy_from_slice(&hasher.finalize());
         result_hash
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use lambdaworks_math::field::{fields::{ fft_friendly::stark_252_prime_field::Stark252PrimeField}, element::FieldElement};
+
+    use crate::merkle_tree::{backends::batch_sha3_512::BatchSha3_512Tree, merkle::MerkleTree};
+
+    type F = Stark252PrimeField;
+    type FE = FieldElement<F>;
+
+    #[test]
+    fn hash_data_field_element_backend_works() {
+        let values = [
+            vec![FE::from(2u64),FE::from(11u64)],
+            vec![FE::from(3u64),FE::from(14u64)],
+            vec![FE::from(4u64),FE::from(7u64)],
+            vec![FE::from(5u64),FE::from(3u64)],
+            vec![FE::from(6u64),FE::from(5u64)],
+            vec![FE::from(7u64),FE::from(16u64)],
+            vec![FE::from(8u64),FE::from(19u64)],
+            vec![FE::from(9u64),FE::from(21u64)]
+        ];
+        let merkle_tree = MerkleTree::<BatchSha3_512Tree<F>>::build(&values);
+        let proof = merkle_tree.get_proof_by_pos(0).unwrap();
+        assert!(proof.verify::<BatchSha3_512Tree<F>>(&merkle_tree.root, 0, &values[0]));
     }
 }
