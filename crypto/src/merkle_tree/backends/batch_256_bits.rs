@@ -4,6 +4,7 @@ use lambdaworks_math::{
     field::{element::FieldElement, traits::IsField},
     traits::ByteConversion,
 };
+use sha2::digest::{generic_array::GenericArray, OutputSizeUser};
 use sha3::Digest;
 
 use crate::merkle_tree::traits::IsMerkleTreeBackend;
@@ -27,6 +28,7 @@ impl<F, D: Digest> IsMerkleTreeBackend for Batch256BitsTree<F, D>
 where
     F: IsField,
     FieldElement<F>: ByteConversion,
+    [u8; 32]: From<GenericArray<u8, <D as OutputSizeUser>::OutputSize>>,
 {
     type Node = [u8; 32];
     type Data = Vec<FieldElement<F>>;
