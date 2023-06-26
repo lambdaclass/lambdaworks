@@ -1,3 +1,6 @@
+#[cfg(feature = "metal")]
+use crate::gpu::metal::fft::polynomial::evaluate_fft_metal;
+
 use crate::{
     field::{
         element::FieldElement,
@@ -5,9 +8,6 @@ use crate::{
     },
     polynomial::Polynomial,
 };
-
-#[cfg(feature = "metal")]
-use lambdaworks_gpu::metal::fft::polynomial::evaluate_fft_metal;
 
 use crate::fft::{errors::FFTError, roots_of_unity::get_twiddles};
 
@@ -70,7 +70,7 @@ impl<F: IsFFTField> FFTPoly<F> for Polynomial<FieldElement<F>> {
         {
             // TODO: support multiple fields with CUDA
             if F::field_name() == "stark256" {
-                Ok(lambdaworks_gpu::cuda::fft::polynomial::evaluate_fft_cuda(
+                Ok(crate::gpu::cuda::fft::polynomial::evaluate_fft_cuda(
                     &coeffs,
                 )?)
             } else {
@@ -105,7 +105,9 @@ impl<F: IsFFTField> FFTPoly<F> for Polynomial<FieldElement<F>> {
         #[cfg(feature = "metal")]
         {
             if !F::field_name().is_empty() {
-                Ok(lambdaworks_gpu::metal::fft::polynomial::interpolate_fft_metal(fft_evals)?)
+                Ok(crate::gpu::metal::fft::polynomial::interpolate_fft_metal(
+                    fft_evals,
+                )?)
             } else {
                 println!(
                     "GPU interpolation failed for field {}. Program will fallback to CPU.",
@@ -118,7 +120,9 @@ impl<F: IsFFTField> FFTPoly<F> for Polynomial<FieldElement<F>> {
         #[cfg(feature = "cuda")]
         {
             if !F::field_name().is_empty() {
-                Ok(lambdaworks_gpu::cuda::fft::polynomial::interpolate_fft_cuda(fft_evals)?)
+                Ok(crate::gpu::cuda::fft::polynomial::interpolate_fft_cuda(
+                    fft_evals,
+                )?)
             } else {
                 interpolate_fft_cpu(fft_evals)
             }

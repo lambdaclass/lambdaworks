@@ -4,11 +4,12 @@ use crate::{
         point::ProjectivePoint,
         traits::{EllipticCurveError, FromAffine, IsEllipticCurve},
     },
+    errors::DeserializationError,
     field::element::FieldElement,
     traits::{ByteConversion, Deserializable, Serializable},
 };
 
-use super::{errors::DeserializationError, traits::IsShortWeierstrass};
+use super::traits::IsShortWeierstrass;
 
 #[derive(Clone, Debug)]
 pub struct ShortWeierstrassProjectivePoint<E: IsEllipticCurve>(pub ProjectivePoint<E>);
@@ -224,13 +225,13 @@ where
         let z: FieldElement<E::BaseField>;
 
         if endianness == Endianness::BigEndian {
-            x = FieldElement::from_bytes_be(&bytes[..len])?;
-            y = FieldElement::from_bytes_be(&bytes[len..len * 2])?;
-            z = FieldElement::from_bytes_be(&bytes[len * 2..])?;
+            x = ByteConversion::from_bytes_be(&bytes[..len])?;
+            y = ByteConversion::from_bytes_be(&bytes[len..len * 2])?;
+            z = ByteConversion::from_bytes_be(&bytes[len * 2..])?;
         } else {
-            x = FieldElement::from_bytes_le(&bytes[..len])?;
-            y = FieldElement::from_bytes_le(&bytes[len..len * 2])?;
-            z = FieldElement::from_bytes_le(&bytes[len * 2..])?;
+            x = ByteConversion::from_bytes_le(&bytes[..len])?;
+            y = ByteConversion::from_bytes_le(&bytes[len..len * 2])?;
+            z = ByteConversion::from_bytes_le(&bytes[len * 2..])?;
         }
 
         if z == FieldElement::zero() {

@@ -1,0 +1,40 @@
+[package]
+name = "fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+lambdaworks-math = { path = "../math" }
+num-traits = "0.2"
+ibig = "0.3.6"
+
+# Prevent this from interfering with workspaces
+[workspace]
+members = ["."]
+
+[profile.release]
+debug = 1
+
+[[bin]]
+name = "field_fuzzer"
+path = "fuzz_targets/field_fuzzer.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "field_from_hex"
+path = "fuzz_targets/field_from_hex.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "field_from_raw"
+path = "fuzz_targets/field_from_raw.rs"
+test = false
+doc = false
+
