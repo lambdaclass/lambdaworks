@@ -1,7 +1,10 @@
-use std::marker::PhantomData;
-use lambdaworks_math::{field::{traits::IsField, element::FieldElement}, traits::ByteConversion};
-use sha3::{Digest, Sha3_256};
 use crate::merkle_tree::traits::IsMerkleTreeBackend;
+use lambdaworks_math::{
+    field::{element::FieldElement, traits::IsField},
+    traits::ByteConversion,
+};
+use sha3::{Digest, Sha3_256};
+use std::marker::PhantomData;
 
 #[derive(Clone)]
 pub struct Sha3_256Tree<F> {
@@ -42,11 +45,12 @@ where
 
 #[cfg(test)]
 mod tests {
-    use lambdaworks_math::field::{fields::u64_prime_field::U64PrimeField, element::FieldElement};
+    use lambdaworks_math::field::{element::FieldElement, fields::u64_prime_field::U64PrimeField};
 
-    use crate::merkle_tree::{merkle::MerkleTree, test_merkle::TestBackend, backends::sha3_256::Sha3_256Tree};
+    use crate::merkle_tree::{
+        backends::sha3_256::Sha3_256Tree, merkle::MerkleTree, test_merkle::TestBackend,
+    };
 
-    
     const MODULUS: u64 = 13;
     type U64PF = U64PrimeField<MODULUS>;
     type FE = FieldElement<U64PF>;

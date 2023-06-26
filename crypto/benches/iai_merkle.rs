@@ -1,7 +1,7 @@
 use core::hint::black_box;
 use lambdaworks_crypto::{
     hash::sha3::Sha3Hasher,
-    merkle_tree::{merkle::MerkleTree, backends::sha3_256::Sha3_256Tree},
+    merkle_tree::{backends::sha3_256::Sha3_256Tree, merkle::MerkleTree},
 };
 use lambdaworks_math::{
     field::element::FieldElement,
