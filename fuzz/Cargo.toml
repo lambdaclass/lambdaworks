@@ -44,3 +44,9 @@ name = "metal_fft_diff"
 path = "fuzz_targets/metal_fft_diff.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "polynomial-fft-diff-fuzzer"
+path = "fuzz_targets/polynomial-fft-diff-fuzzer.rs"
+test = false
+doc = false
