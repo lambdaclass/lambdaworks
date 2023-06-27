@@ -1,8 +1,18 @@
 [workspace]
 members = ["math", "crypto", "gpu", "benches"]
+exclude = ["ensure-no_std"]
+
+[workspace.package]
+version = "0.1.1"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/lambdaclass/lambdaworks"
 
 [workspace.dependencies]
 iai-callgrind = "0.3.1"
+lambdaworks-crypto = { path = "./crypto", version = "0.1.1" }
+lambdaworks-gpu = { path = "./gpu", version = "0.1.1" }
+lambdaworks-math = { path = "./math", version = "0.1.1" }
 
 [profile.bench]
 lto = true

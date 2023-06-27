@@ -4,7 +4,7 @@ use lambdaworks_math::gpu::metal::fft::ops::*;
 use lambdaworks_math::{field::traits::RootsConfig, polynomial::Polynomial};
 
 // WARN: These should always be fields supported by Metal, else the last two benches will use CPU FFT.
-use super::stark252_utils::{F, FE};
+use super::fft_utils::{F, FE};
 
 pub fn ordered_fft(input: &[FE], twiddles: &[FE]) {
     let metal_state = MetalState::new(None).unwrap();

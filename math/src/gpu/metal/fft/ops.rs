@@ -1,9 +1,8 @@
-use lambdaworks_math::field::{
+use crate::field::{
     element::FieldElement,
     traits::{IsFFTField, RootsConfig},
 };
-
-use crate::metal::abstractions::{errors::MetalError, state::*};
+use lambdaworks_gpu::metal::abstractions::{errors::MetalError, state::*};
 
 use metal::MTLSize;
 
@@ -21,6 +20,7 @@ pub fn fft<F: IsFFTField>(
     twiddles: &[FieldElement<F>],
     state: &MetalState,
 ) -> Result<Vec<FieldElement<F>>, MetalError> {
+    // TODO: make a twiddle factor abstraction for handling invalid twiddles
     if !input.len().is_power_of_two() {
         return Err(MetalError::InputError(input.len()));
     }
@@ -132,11 +132,11 @@ fn void_ptr<T>(v: &T) -> *const core::ffi::c_void {
 
 #[cfg(test)]
 mod tests {
-    use crate::metal::abstractions::state::*;
-    use lambdaworks_math::fft::roots_of_unity::get_twiddles;
-    use lambdaworks_math::field::{
+    use crate::fft::roots_of_unity::get_twiddles;
+    use crate::field::{
         fields::fft_friendly::stark_252_prime_field::Stark252PrimeField, traits::RootsConfig,
     };
+    use lambdaworks_gpu::metal::abstractions::state::*;
     use proptest::{collection, prelude::*};
 
     use super::*;
@@ -169,7 +169,7 @@ mod tests {
             let twiddles = get_twiddles(order.into(), RootsConfig::BitReverse).unwrap();
 
             let metal_result = super::fft(&input, &twiddles, &metal_state).unwrap();
-            let sequential_result = lambdaworks_math::fft::ops::fft(&input, &twiddles).unwrap();
+            let sequential_result = crate::fft::ops::fft(&input, &twiddles).unwrap();
 
             prop_assert_eq!(&metal_result, &sequential_result);
         }

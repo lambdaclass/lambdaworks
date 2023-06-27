@@ -1,8 +1,11 @@
 use crate::cyclic_group::IsGroup;
-use crate::elliptic_curve::short_weierstrass::errors::DeserializationError;
+#[cfg(feature = "std")]
 use crate::errors::ByteConversionError::{FromBEBytesError, FromLEBytesError};
+#[cfg(feature = "std")]
+use crate::errors::DeserializationError;
 use crate::field::element::FieldElement;
 use crate::field::traits::{IsFFTField, IsField, IsPrimeField};
+#[cfg(feature = "std")]
 use crate::traits::{ByteConversion, Deserializable, Serializable};
 
 /// Type representing prime fields over unsigned 64-bit integers.
@@ -98,11 +101,14 @@ impl<const MODULUS: u64> IsGroup for U64FieldElement<MODULUS> {
     }
 }
 
+#[cfg(feature = "std")]
 impl<const MODULUS: u64> ByteConversion for U64FieldElement<MODULUS> {
+    #[cfg(feature = "std")]
     fn to_bytes_be(&self) -> Vec<u8> {
         u64::to_be_bytes(*self.value()).into()
     }
 
+    #[cfg(feature = "std")]
     fn to_bytes_le(&self) -> Vec<u8> {
         u64::to_le_bytes(*self.value()).into()
     }
@@ -118,12 +124,14 @@ impl<const MODULUS: u64> ByteConversion for U64FieldElement<MODULUS> {
     }
 }
 
+#[cfg(feature = "std")]
 impl<const MODULUS: u64> Serializable for FieldElement<U64PrimeField<MODULUS>> {
     fn serialize(&self) -> Vec<u8> {
         self.to_bytes_be()
     }
 }
 
+#[cfg(feature = "std")]
 impl<const MODULUS: u64> Deserializable for FieldElement<U64PrimeField<MODULUS>> {
     fn deserialize(bytes: &[u8]) -> Result<Self, DeserializationError>
     where
@@ -291,26 +299,30 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "std")]
     fn to_bytes_from_bytes_be_is_the_identity() {
         let x = FE::new(12345);
         assert_eq!(FE::from_bytes_be(&x.to_bytes_be()).unwrap(), x);
     }
 
     #[test]
+    #[cfg(feature = "std")]
     fn from_bytes_to_bytes_be_is_the_identity_for_one() {
-        let bytes = vec![0, 0, 0, 0, 0, 0, 0, 1];
+        let bytes = [0, 0, 0, 0, 0, 0, 0, 1];
         assert_eq!(FE::from_bytes_be(&bytes).unwrap().to_bytes_be(), bytes);
     }
 
     #[test]
+    #[cfg(feature = "std")]
     fn to_bytes_from_bytes_le_is_the_identity() {
         let x = FE::new(12345);
         assert_eq!(FE::from_bytes_le(&x.to_bytes_le()).unwrap(), x);
     }
 
     #[test]
+    #[cfg(feature = "std")]
     fn from_bytes_to_bytes_le_is_the_identity_for_one() {
-        let bytes = vec![1, 0, 0, 0, 0, 0, 0, 0];
+        let bytes = [1, 0, 0, 0, 0, 0, 0, 0];
         assert_eq!(FE::from_bytes_le(&bytes).unwrap().to_bytes_le(), bytes);
     }
 

@@ -1,5 +1,5 @@
 use lambdaworks_math::{
-    elliptic_curve::short_weierstrass::errors::DeserializationError,
+    errors::DeserializationError,
     traits::{Deserializable, Serializable},
 };
 

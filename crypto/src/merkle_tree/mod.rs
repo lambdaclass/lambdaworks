@@ -1,3 +1,4 @@
+pub mod backends;
 pub mod merkle;
 pub mod proof;
 #[cfg(test)]

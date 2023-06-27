@@ -63,6 +63,9 @@ You can check the generated HTML report in `target/criterion/reports/index.html`
 - [Elliptic curves](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/elliptic_curve)
 - [Multiscalar multiplication](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/msm)
 
+## Exercises and Challenges
+- [Lambdaworks exercises and challenges](https://github.com/lambdaclass/lambdaworks_exercises/tree/main)
+
 If you use ```Lambdaworks``` libraries in your research projects, please cite them using the following template:
 
 ``` bibtex

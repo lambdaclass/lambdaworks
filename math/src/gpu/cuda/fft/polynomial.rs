@@ -1,4 +1,5 @@
-use lambdaworks_math::{
+use crate::{
+    fft::errors::FFTError,
     field::{
         element::FieldElement,
         traits::{IsFFTField, RootsConfig},
@@ -10,7 +11,7 @@ use super::ops::fft;
 use crate::cuda::abstractions::{errors::CudaError, state::CudaState};
 use crate::cuda::fft::ops::gen_twiddles;
 
-pub fn evaluate_fft_cuda<F>(coeffs: &[FieldElement<F>]) -> Result<Vec<FieldElement<F>>, CudaError>
+pub fn evaluate_fft_cuda<F>(coeffs: &[FieldElement<F>]) -> Result<Vec<FieldElement<F>>, FFTError>
 where
     F: IsFFTField,
     F::BaseType: Unpin,
@@ -26,7 +27,7 @@ where
 /// factors. This is considered to be the inverse operation of [evaluate_fft_cuda()].
 pub fn interpolate_fft_cuda<F>(
     fft_evals: &[FieldElement<F>],
-) -> Result<Polynomial<FieldElement<F>>, CudaError>
+) -> Result<Polynomial<FieldElement<F>>, FFTError>
 where
     F: IsFFTField,
     F::BaseType: Unpin,

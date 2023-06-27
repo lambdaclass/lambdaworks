@@ -1,11 +1,11 @@
-use crate::metal::abstractions::{errors::MetalError, state::MetalState};
-use lambdaworks_math::{
+use crate::{
     field::{
         element::FieldElement,
         traits::{IsFFTField, RootsConfig},
     },
     polynomial::Polynomial,
 };
+use lambdaworks_gpu::metal::abstractions::{errors::MetalError, state::MetalState};
 
 use super::ops::*;
 
