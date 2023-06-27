@@ -10,7 +10,8 @@ use lambdaworks_math::{
     field::{
         fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
         element::FieldElement
-    }
+    },
+    unsigned_integer::element::UnsignedInteger
 };
 use lambdaworks_gpu::metal::abstractions::state::MetalState;
 
@@ -24,7 +25,8 @@ fuzz_target!(|values: (Vec<u64>, Vec<u64>)| {
     }
 
     for i in (0..input_raw.len()).step_by(4) {
-        inputs.push(FieldElement::<Stark252PrimeField>::from_raw(input_raw[i..i + 4]))
+        let value = UnsignedInteger::<4>::from_limbs(input_raw[i..i + 4].try_into().unwrap());
+        inputs.push(FieldElement::<Stark252PrimeField>::from_raw(&value));
     }
 
     while twiddles_raw.len() < 4 {
@@ -32,14 +34,15 @@ fuzz_target!(|values: (Vec<u64>, Vec<u64>)| {
     }
 
     for i in (0..twiddles_raw.len()).step_by(4) {
-        twiddles.push(FieldElement::<Stark252PrimeField>::from_raw(twiddles_raw[i..i + 4]))
+        let value = UnsignedInteger::<4>::from_limbs(twiddles_raw[i..i + 4].try_into().unwrap());
+        twiddles.push(FieldElement::<Stark252PrimeField>::from_raw(&value));
     }
 
-    let state = MetalState::new(None);
+    let state = MetalState::new(None).unwrap();
 
     match fft_cpu(&inputs, &twiddles) {
-        Ok(fft_result) => assert_eq!(fft_result, fft_metal(&inputs, &twiddles, state)),
-        Err(_) => assert!(fft_metal(&inputs, &twiddles, state).is_err())
+        Ok(fft_result) => assert_eq!(fft_result, fft_metal(&inputs, &twiddles, &state).unwrap()),
+        Err(_) => assert!(fft_metal(&inputs, &twiddles, &state).is_err())
     }
 });
 
