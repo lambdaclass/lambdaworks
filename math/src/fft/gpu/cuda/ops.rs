@@ -69,7 +69,7 @@ pub fn gen_twiddles<F: IsFFTField>(
         return Ok(Vec::new());
     }
 
-    let mut function = state.get_function(F::field_name(), "calc_twiddles")?;
+    let mut function = state.get_calc_twiddles::<F>(order, config)?;
 
     function.launch(count)?;
 
@@ -80,7 +80,7 @@ pub fn bitrev_permutation<F: IsFFTField>(
     input: Vec<FieldElement<F>>,
     state: &CudaState,
 ) -> Result<Vec<FieldElement<F>>, CudaError> {
-    let mut function = state.get_function(F::field_name(), "bitrev_permutation")?;
+    let mut function = state.get_bitrev_permutation(&input, &input)?;
 
     function.launch(input.len())?;
 
