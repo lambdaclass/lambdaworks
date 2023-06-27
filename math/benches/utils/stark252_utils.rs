@@ -1,6 +1,7 @@
 use lambdaworks_math::{
     field::{
         element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+        traits::RootsConfig,
     },
     polynomial::Polynomial,
     unsigned_integer::element::UnsignedInteger,
@@ -21,4 +22,11 @@ pub fn rand_field_elements(order: u64) -> Vec<FE> {
 
 pub fn rand_poly(order: u64) -> Polynomial<FE> {
     Polynomial::new(&rand_field_elements(order))
+}
+
+#[inline(never)]
+#[no_mangle]
+#[export_name = "util::get_twiddles"]
+pub fn twiddles(order: u64, config: RootsConfig) -> Vec<FE> {
+    lambdaworks_math::fft::roots_of_unity::get_twiddles(order, config).unwrap()
 }

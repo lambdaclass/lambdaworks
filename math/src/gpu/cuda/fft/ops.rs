@@ -1,3 +1,4 @@
+<<<<<<<< HEAD:math/src/fft/gpu/cuda/ops.rs
 use crate::{
     fft::errors::FFTError,
     field::{element::FieldElement, traits::IsFFTField},
@@ -5,6 +6,14 @@ use crate::{
 };
 use cudarc::driver::{LaunchAsync, LaunchConfig};
 use lambdaworks_gpu::cuda::abstractions::{errors::CudaError, state::CudaState};
+========
+use lambdaworks_math::field::{
+    element::FieldElement,
+    traits::{IsFFTField, RootsConfig},
+};
+
+use crate::cuda::abstractions::{errors::CudaError, state::CudaState};
+>>>>>>>> main:math/src/gpu/cuda/fft/ops.rs
 
 /// Executes parallel ordered FFT over a slice of two-adic field elements, in CUDA.
 /// Twiddle factors are required to be in bit-reverse order.
@@ -45,6 +54,7 @@ where
             block_dim: (group_size as u32 / 2, 1, 1),
             shared_mem_bytes: 0,
         };
+<<<<<<<< HEAD:math/src/fft/gpu/cuda/ops.rs
 
         unsafe {
             function
@@ -70,17 +80,48 @@ pub(crate) fn in_place_bit_reverse_permute<E>(input: &mut [E]) {
         let bit_reversed_index = reverse_index(&i, input.len() as u64);
         if bit_reversed_index > i {
             input.swap(i, bit_reversed_index);
+========
+
+        unsafe {
+            function
+                .clone()
+                .launch(config, (&mut input_buffer, &twiddles_buffer))
+>>>>>>>> main:math/src/gpu/cuda/fft/ops.rs
         }
+        .map_err(|err| CudaError::Launch(err.to_string()))?;
     }
+
+    let output = function.retrieve_result()?;
+
+    bitrev_permutation(output, state)
 }
 
-// TODO: remove after implementing in cuda
-pub(crate) fn reverse_index(i: &usize, size: u64) -> usize {
-    if size == 1 {
-        *i
-    } else {
-        i.reverse_bits() >> (usize::BITS - size.trailing_zeros())
+pub fn gen_twiddles<F: IsFFTField>(
+    order: u64,
+    config: RootsConfig,
+    state: &CudaState,
+) -> Result<Vec<FieldElement<F>>, CudaError> {
+    let count = (1 << order) / 2;
+    if count == 0 {
+        return Ok(Vec::new());
     }
+
+    let mut function = state.get_calc_twiddles::<F>(order, config)?;
+
+    function.launch(count)?;
+
+    function.retrieve_result()
+}
+
+pub fn bitrev_permutation<F: IsFFTField>(
+    input: Vec<FieldElement<F>>,
+    state: &CudaState,
+) -> Result<Vec<FieldElement<F>>, CudaError> {
+    let mut function = state.get_bitrev_permutation(&input, &input)?;
+
+    function.launch(input.len())?;
+
+    function.retrieve_result()
 }
 
 #[cfg(test)]

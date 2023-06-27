@@ -1,0 +1,16 @@
+[package]
+name = "ensure-no_std"
+version = "0.1.0"
+edition = "2021"
+
+
+[dependencies]
+getrandom = { version = "0.2", features = ["js"] }
+lambdaworks-math = { path = "../math", default-features = false }
+wee_alloc = "0.4.5"
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"

@@ -3,8 +3,9 @@ use crate::field::{
     traits::{IsFFTField, RootsConfig},
 };
 
-use super::bit_reversing::reverse_index;
 use crate::fft::errors::FFTError;
+
+use super::bit_reversing::in_place_bit_reverse_permute;
 
 /// Returns a `Vec` of the powers of a `2^n`th primitive root of unity in some configuration
 /// `config`. For example, in a `Natural` config this would yield: w^0, w^1, w^2...
@@ -17,23 +18,31 @@ pub fn get_powers_of_primitive_root<F: IsFFTField>(
         return Ok(Vec::new());
     }
 
-    let root = F::get_primitive_root_of_unity(n)?;
-
-    //TODO: see if we can convert the successive exponentiations into an accumulated product
-    let calc = |i| match config {
-        RootsConfig::Natural | RootsConfig::NaturalInversed => root.pow(i),
-        RootsConfig::BitReverse | RootsConfig::BitReverseInversed => {
-            root.pow(reverse_index(&i, count as u64))
-        }
+    let root = match config {
+        RootsConfig::Natural | RootsConfig::BitReverse => F::get_primitive_root_of_unity(n)?,
+        _ => F::get_primitive_root_of_unity(n)?.inv(),
+    };
+    let up_to = match config {
+        RootsConfig::Natural | RootsConfig::NaturalInversed => count,
+        // In bit reverse form we could need as many as `(1 << count.bits()) - 1` roots
+        _ => count.next_power_of_two(),
     };
 
-    let mut results: Vec<_> = (0..count).map(calc).collect();
+    let mut results = Vec::with_capacity(up_to);
+    // NOTE: a nice version would be using `core::iter::successors`. However, this is 10% faster.
+    results.extend((0..up_to).scan(FieldElement::one(), |state, _| {
+        let res = state.clone();
+        *state = &(*state) * &root;
+        Some(res)
+    }));
+
     if matches!(
         config,
-        RootsConfig::NaturalInversed | RootsConfig::BitReverseInversed
+        RootsConfig::BitReverse | RootsConfig::BitReverseInversed
     ) {
-        FieldElement::inplace_batch_inverse(&mut results);
+        in_place_bit_reverse_permute(&mut results);
     }
+
     Ok(results)
 }
 
@@ -62,9 +71,7 @@ pub fn get_twiddles<F: IsFFTField>(
 
 #[cfg(test)]
 mod tests {
-    use crate::fft::cpu::{
-        bit_reversing::in_place_bit_reverse_permute, roots_of_unity::get_twiddles,
-    };
+    use crate::fft::{bit_reversing::in_place_bit_reverse_permute, roots_of_unity::get_twiddles};
     use crate::field::{test_fields::u64_test_field::U64TestField, traits::RootsConfig};
     use proptest::prelude::*;
 

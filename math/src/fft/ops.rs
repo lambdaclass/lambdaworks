@@ -1,4 +1,5 @@
-use super::{bit_reversing::in_place_bit_reverse_permute, fft::in_place_nr_2radix_fft};
+use super::{bit_reversing::in_place_bit_reverse_permute, fft_iterative::in_place_nr_2radix_fft};
+
 use crate::{
     fft::errors::FFTError,
     field::{element::FieldElement, traits::IsFFTField},

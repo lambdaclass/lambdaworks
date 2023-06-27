@@ -21,14 +21,22 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
+          targets: wasm32-unknown-unknown
 
       - name: Run cargo check
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          command: check
+        run: cargo check
+
+      - name: Run cargo check for math with no-std
+        run: cargo check --package lambdaworks-math --no-default-features
+
+      - name: Run cargo build ensure-no_std crate
+        run: |
+          cd ensure-no_std
+          cargo build
 
       - name: Check benchmarks
         run: cargo bench --no-run
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
@@ -47,6 +55,10 @@ jobs:
 
       - name: Run clippy
         run: make clippy
+
+      - name: Run clippy math no std
+        run: cargo clippy --package lambdaworks-math --no-default-features -- -D warnings
+
   test:
     name: Test (Ubuntu)
     runs-on: ubuntu-latest
@@ -58,6 +70,8 @@ jobs:
         with:
           toolchain: stable
           components: clippy
+      - name: Run tests with no std
+        run: cargo test --package lambdaworks-math --no-default-features
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
       - name: Run tests and generate code coverage
@@ -68,6 +82,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: lcov.info
           fail_ci_if_error: true
+
   test_macos:
     name: Test (macOS, Apple sillicon)
     runs-on: [self-hosted, macOS]
@@ -80,8 +95,12 @@ jobs:
         with:
           toolchain: stable
           components: clippy
+
+      - name: Run clippy
+        run: make clippy-metal
       - name: Run tests
-        run: cargo test -F metal
+        run: make test-metal
+
   test_nvidia:
     name: Test (Ubuntu, NVIDIA GPU)
     runs-on: [self-hosted, cuda]
@@ -94,5 +113,15 @@ jobs:
         with:
           toolchain: stable
           components: clippy
+
+      - uses: Jimver/cuda-toolkit@v0.2.10
+        id: cuda-toolkit
+        with:
+          cuda: '12.1.0'
+          sub-packages: '["nvcc"]'
+          method: 'network'
+
+      - name: Run clippy
+        run: make clippy-cuda
       - name: Run tests
         run: cargo test -F cuda

@@ -1,5 +1,6 @@
+use crate::fft::errors::FFTError;
+
 use crate::{
-    fft::{cpu, errors::FFTError},
     field::{
         element::FieldElement,
         traits::{IsFFTField, RootsConfig},
@@ -7,10 +8,11 @@ use crate::{
     polynomial::Polynomial,
 };
 
+use super::{ops, roots_of_unity};
 #[cfg(feature = "cuda")]
-use super::gpu::cuda::polynomial::{evaluate_fft_cuda, interpolate_fft_cuda};
+use crate::gpu::cuda::fft::polynomial::{evaluate_fft_cuda, interpolate_fft_cuda};
 #[cfg(feature = "metal")]
-use super::gpu::metal::polynomial::{evaluate_fft_metal, interpolate_fft_metal};
+use crate::gpu::metal::fft::polynomial::{evaluate_fft_metal, interpolate_fft_metal};
 
 pub trait FFTPoly<F: IsFFTField> {
     fn evaluate_fft(
@@ -163,9 +165,9 @@ where
     F: IsFFTField,
 {
     let order = coeffs.len().trailing_zeros();
-    let twiddles = cpu::roots_of_unity::get_twiddles(order.into(), RootsConfig::BitReverse)?;
+    let twiddles = roots_of_unity::get_twiddles(order.into(), RootsConfig::BitReverse)?;
     // Bit reverse order is needed for NR DIT FFT.
-    cpu::ops::fft(coeffs, &twiddles)
+    ops::fft(coeffs, &twiddles)
 }
 
 fn interpolate_fft_cpu<F>(
@@ -175,10 +177,9 @@ where
     F: IsFFTField,
 {
     let order = fft_evals.len().trailing_zeros();
-    let twiddles =
-        cpu::roots_of_unity::get_twiddles(order.into(), RootsConfig::BitReverseInversed)?;
+    let twiddles = roots_of_unity::get_twiddles(order.into(), RootsConfig::BitReverseInversed)?;
 
-    let coeffs = cpu::ops::fft(fft_evals, &twiddles)?;
+    let coeffs = ops::fft(fft_evals, &twiddles)?;
 
     let scale_factor = FieldElement::from(fft_evals.len() as u64).inv();
     Ok(Polynomial::new(&coeffs).scale_coeffs(&scale_factor))
@@ -186,13 +187,13 @@ where
 
 #[cfg(test)]
 mod tests {
-    #[cfg(not(feature = "metal"))]
+    #[cfg(all(not(feature = "metal"), not(feature = "cuda")))]
     use crate::field::traits::IsField;
 
     use crate::field::traits::RootsConfig;
     use proptest::{collection, prelude::*};
 
-    use cpu::roots_of_unity::{get_powers_of_primitive_root, get_powers_of_primitive_root_coset};
+    use roots_of_unity::{get_powers_of_primitive_root, get_powers_of_primitive_root_coset};
 
     use super::*;
 
@@ -263,7 +264,7 @@ mod tests {
         (poly, new_poly)
     }
 
-    #[cfg(not(feature = "metal"))]
+    #[cfg(all(not(feature = "metal"), not(feature = "cuda")))]
     mod u64_field_tests {
         use super::*;
         use crate::field::test_fields::u64_test_field::U64TestField;

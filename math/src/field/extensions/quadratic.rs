@@ -1,7 +1,7 @@
 use crate::field::element::FieldElement;
 use crate::field::traits::IsField;
-use std::fmt::Debug;
-use std::marker::PhantomData;
+use core::fmt::Debug;
+use core::marker::PhantomData;
 
 /// A general quadratic extension field over `F`
 /// with quadratic non residue `Q::residue()`
@@ -60,6 +60,14 @@ where
         [&a0b0 + &a1b1 * q, z - a0b0 - a1b1]
     }
 
+    fn square(a: &[FieldElement<Q::BaseField>; 2]) -> [FieldElement<Q::BaseField>; 2] {
+        let [a0, a1] = a;
+        let v0 = a0 * a1;
+        let c0 = (a0 + a1) * (a0 + Q::residue() * a1) - &v0 - Q::residue() * &v0;
+        let c1 = &v0 + &v0;
+        [c0, c1]
+    }
+
     /// Returns the component wise subtraction of `a` and `b`
     fn sub(
         a: &[FieldElement<Q::BaseField>; 2],
@@ -116,6 +124,8 @@ where
         x
     }
 }
+
+impl<Q: Clone + Debug + HasQuadraticNonResidue> FieldElement<QuadraticExtensionField<Q>> {}
 
 #[cfg(test)]
 mod tests {

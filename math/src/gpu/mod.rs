@@ -4,9 +4,8 @@ compile_error!(
 If you were using the `--all-features` flag please read this crate's Cargo.toml"
 );
 
-//#[cfg(feature = "metal")]
-//pub mod metal;
-// Right now the metal folder only contains MSL shaders.
+#[cfg(feature = "metal")]
+pub mod metal;
 
 #[cfg(feature = "cuda")]
 pub mod cuda;

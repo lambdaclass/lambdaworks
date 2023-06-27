@@ -1,11 +1,16 @@
-use std::convert::From;
-use std::ops::{Add, BitAnd, Mul, Shl, Shr, Sub};
+use core::cmp::Ordering;
+use core::convert::From;
+use core::ops::{
+    Add, BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Mul, Shl, Shr, ShrAssign,
+    Sub,
+};
 
-use crate::errors::{ByteConversionError, CreationError};
+use crate::errors::ByteConversionError;
+use crate::errors::CreationError;
 use crate::traits::ByteConversion;
 use crate::unsigned_integer::traits::IsUnsignedInteger;
 
-use std::fmt::{self, Debug};
+use core::fmt::{self, Debug, Display};
 
 pub type U384 = UnsignedInteger<6>;
 pub type U256 = UnsignedInteger<4>;
@@ -16,14 +21,38 @@ pub type U128 = UnsignedInteger<2>;
 /// The most significant bit is in the left-most position.
 /// That is, the array `[a_n, ..., a_0]` represents the
 /// integer 2^{64 * n} * a_n + ... + 2^{64} * a_1 + a_0.
-#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct UnsignedInteger<const NUM_LIMBS: usize> {
     pub limbs: [u64; NUM_LIMBS],
 }
 
-impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
-    pub fn from_limbs(limbs: [u64; NUM_LIMBS]) -> Self {
-        Self { limbs }
+// NOTE: manually implementing `PartialOrd` may seem unorthodox, but the
+// derived implementation had terrible performance.
+impl<const NUM_LIMBS: usize> PartialOrd for UnsignedInteger<NUM_LIMBS> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        let mut i = 0;
+        while i < NUM_LIMBS {
+            if self.limbs[i] != other.limbs[i] {
+                return Some(self.limbs[i].cmp(&other.limbs[i]));
+            }
+            i += 1;
+        }
+        Some(Ordering::Equal)
+    }
+}
+
+// NOTE: because we implemented `PartialOrd`, clippy asks us to implement
+// this manually too.
+impl<const NUM_LIMBS: usize> Ord for UnsignedInteger<NUM_LIMBS> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        let mut i = 0;
+        while i < NUM_LIMBS {
+            if self.limbs[i] != other.limbs[i] {
+                return self.limbs[i].cmp(&other.limbs[i]);
+            }
+            i += 1;
+        }
+        Ordering::Equal
     }
 }
 
@@ -56,7 +85,7 @@ impl<const NUM_LIMBS: usize> From<&str> for UnsignedInteger<NUM_LIMBS> {
     }
 }
 
-impl<const NUM_LIMBS: usize> fmt::Display for UnsignedInteger<NUM_LIMBS> {
+impl<const NUM_LIMBS: usize> Display for UnsignedInteger<NUM_LIMBS> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut limbs_iterator = self.limbs.iter().skip_while(|limb| **limb == 0).peekable();
 
@@ -143,7 +172,7 @@ impl<const NUM_LIMBS: usize> Sub<&UnsignedInteger<NUM_LIMBS>> for UnsignedIntege
 
 impl<const NUM_LIMBS: usize> Sub<UnsignedInteger<NUM_LIMBS>> for &UnsignedInteger<NUM_LIMBS> {
     type Output = UnsignedInteger<NUM_LIMBS>;
-
+    #[inline(always)]
     fn sub(self, other: UnsignedInteger<NUM_LIMBS>) -> UnsignedInteger<NUM_LIMBS> {
         self - &other
     }
@@ -154,6 +183,7 @@ impl<const NUM_LIMBS: usize> Sub<UnsignedInteger<NUM_LIMBS>> for &UnsignedIntege
 impl<const NUM_LIMBS: usize> Mul<&UnsignedInteger<NUM_LIMBS>> for &UnsignedInteger<NUM_LIMBS> {
     type Output = UnsignedInteger<NUM_LIMBS>;
 
+    #[inline(always)]
     fn mul(self, other: &UnsignedInteger<NUM_LIMBS>) -> UnsignedInteger<NUM_LIMBS> {
         let (mut n, mut t) = (0, 0);
         for i in (0..NUM_LIMBS).rev() {
@@ -197,7 +227,7 @@ impl<const NUM_LIMBS: usize> Mul<&UnsignedInteger<NUM_LIMBS>> for &UnsignedInteg
 
 impl<const NUM_LIMBS: usize> Mul<UnsignedInteger<NUM_LIMBS>> for UnsignedInteger<NUM_LIMBS> {
     type Output = UnsignedInteger<NUM_LIMBS>;
-
+    #[inline(always)]
     fn mul(self, other: UnsignedInteger<NUM_LIMBS>) -> UnsignedInteger<NUM_LIMBS> {
         &self * &other
     }
@@ -205,7 +235,7 @@ impl<const NUM_LIMBS: usize> Mul<UnsignedInteger<NUM_LIMBS>> for UnsignedInteger
 
 impl<const NUM_LIMBS: usize> Mul<&UnsignedInteger<NUM_LIMBS>> for UnsignedInteger<NUM_LIMBS> {
     type Output = UnsignedInteger<NUM_LIMBS>;
-
+    #[inline(always)]
     fn mul(self, other: &Self) -> Self {
         &self * other
     }
@@ -213,7 +243,7 @@ impl<const NUM_LIMBS: usize> Mul<&UnsignedInteger<NUM_LIMBS>> for UnsignedIntege
 
 impl<const NUM_LIMBS: usize> Mul<UnsignedInteger<NUM_LIMBS>> for &UnsignedInteger<NUM_LIMBS> {
     type Output = UnsignedInteger<NUM_LIMBS>;
-
+    #[inline(always)]
     fn mul(self, other: UnsignedInteger<NUM_LIMBS>) -> UnsignedInteger<NUM_LIMBS> {
         self * &other
     }
@@ -221,7 +251,7 @@ impl<const NUM_LIMBS: usize> Mul<UnsignedInteger<NUM_LIMBS>> for &UnsignedIntege
 
 impl<const NUM_LIMBS: usize> Shl<usize> for &UnsignedInteger<NUM_LIMBS> {
     type Output = UnsignedInteger<NUM_LIMBS>;
-
+    #[inline(always)]
     fn shl(self, times: usize) -> UnsignedInteger<NUM_LIMBS> {
         self.const_shl(times)
     }
@@ -229,7 +259,7 @@ impl<const NUM_LIMBS: usize> Shl<usize> for &UnsignedInteger<NUM_LIMBS> {
 
 impl<const NUM_LIMBS: usize> Shl<usize> for UnsignedInteger<NUM_LIMBS> {
     type Output = UnsignedInteger<NUM_LIMBS>;
-
+    #[inline(always)]
     fn shl(self, times: usize) -> UnsignedInteger<NUM_LIMBS> {
         &self << times
     }
@@ -239,7 +269,7 @@ impl<const NUM_LIMBS: usize> Shl<usize> for UnsignedInteger<NUM_LIMBS> {
 
 impl<const NUM_LIMBS: usize> Shr<usize> for &UnsignedInteger<NUM_LIMBS> {
     type Output = UnsignedInteger<NUM_LIMBS>;
-
+    #[inline(always)]
     fn shr(self, times: usize) -> UnsignedInteger<NUM_LIMBS> {
         self.const_shr(times)
     }
@@ -247,9 +277,33 @@ impl<const NUM_LIMBS: usize> Shr<usize> for &UnsignedInteger<NUM_LIMBS> {
 
 impl<const NUM_LIMBS: usize> Shr<usize> for UnsignedInteger<NUM_LIMBS> {
     type Output = UnsignedInteger<NUM_LIMBS>;
-
+    #[inline(always)]
     fn shr(self, times: usize) -> UnsignedInteger<NUM_LIMBS> {
         &self >> times
+    }
+}
+
+impl<const NUM_LIMBS: usize> ShrAssign<usize> for UnsignedInteger<NUM_LIMBS> {
+    fn shr_assign(&mut self, times: usize) {
+        debug_assert!(
+            times < 64 * NUM_LIMBS,
+            "UnsignedInteger shift left overflows."
+        );
+
+        let (a, b) = (times / 64, times % 64);
+
+        if b == 0 {
+            self.limbs.copy_within(..NUM_LIMBS - a, a);
+        } else {
+            for i in (a + 1..NUM_LIMBS).rev() {
+                self.limbs[i] = (self.limbs[i - a] >> b) | (self.limbs[i - a - 1] << (64 - b));
+            }
+            self.limbs[a] = self.limbs[0] >> b;
+        }
+
+        for limb in self.limbs.iter_mut().take(a) {
+            *limb = 0;
+        }
     }
 }
 
@@ -257,24 +311,86 @@ impl<const NUM_LIMBS: usize> Shr<usize> for UnsignedInteger<NUM_LIMBS> {
 
 impl<const NUM_LIMBS: usize> BitAnd for UnsignedInteger<NUM_LIMBS> {
     type Output = Self;
+    #[inline(always)]
     fn bitand(self, rhs: Self) -> Self::Output {
-        let mut limbs = [0; NUM_LIMBS];
-        // Clippy solution is complicated in this case
-        #[allow(clippy::needless_range_loop)]
-        for i in 0..NUM_LIMBS {
-            limbs[i] = self.limbs[i] & rhs.limbs[i];
+        let Self { mut limbs } = self;
+
+        for (a_i, b_i) in limbs.iter_mut().zip(rhs.limbs.iter()) {
+            *a_i &= b_i;
         }
         Self { limbs }
     }
 }
 
+impl<const NUM_LIMBS: usize> BitAndAssign for UnsignedInteger<NUM_LIMBS> {
+    fn bitand_assign(&mut self, rhs: Self) {
+        for (a_i, b_i) in self.limbs.iter_mut().zip(rhs.limbs.iter()) {
+            *a_i &= b_i;
+        }
+    }
+}
+
+/// Impl BitOr
+
+impl<const NUM_LIMBS: usize> BitOr for UnsignedInteger<NUM_LIMBS> {
+    type Output = Self;
+    #[inline(always)]
+    fn bitor(self, rhs: Self) -> Self::Output {
+        let Self { mut limbs } = self;
+
+        for (a_i, b_i) in limbs.iter_mut().zip(rhs.limbs.iter()) {
+            *a_i |= b_i;
+        }
+        Self { limbs }
+    }
+}
+
+impl<const NUM_LIMBS: usize> BitOrAssign for UnsignedInteger<NUM_LIMBS> {
+    #[inline(always)]
+    fn bitor_assign(&mut self, rhs: Self) {
+        for (a_i, b_i) in self.limbs.iter_mut().zip(rhs.limbs.iter()) {
+            *a_i |= b_i;
+        }
+    }
+}
+
+/// Impl BitXor
+
+impl<const NUM_LIMBS: usize> BitXor for UnsignedInteger<NUM_LIMBS> {
+    type Output = Self;
+    #[inline(always)]
+    fn bitxor(self, rhs: Self) -> Self::Output {
+        let Self { mut limbs } = self;
+
+        for (a_i, b_i) in limbs.iter_mut().zip(rhs.limbs.iter()) {
+            *a_i ^= b_i;
+        }
+        Self { limbs }
+    }
+}
+
+impl<const NUM_LIMBS: usize> BitXorAssign for UnsignedInteger<NUM_LIMBS> {
+    #[inline(always)]
+    fn bitxor_assign(&mut self, rhs: Self) {
+        for (a_i, b_i) in self.limbs.iter_mut().zip(rhs.limbs.iter()) {
+            *a_i ^= b_i;
+        }
+    }
+}
+
 impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
+    pub fn from_limbs(limbs: [u64; NUM_LIMBS]) -> Self {
+        Self { limbs }
+    }
+
+    #[inline(always)]
     pub const fn from_u64(value: u64) -> Self {
         let mut limbs = [0u64; NUM_LIMBS];
         limbs[NUM_LIMBS - 1] = value;
         UnsignedInteger { limbs }
     }
 
+    #[inline(always)]
     pub const fn from_u128(value: u128) -> Self {
         let mut limbs = [0u64; NUM_LIMBS];
         limbs[NUM_LIMBS - 1] = value as u64;
@@ -282,6 +398,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         UnsignedInteger { limbs }
     }
 
+    #[inline(always)]
     const fn is_hex_string(string: &str) -> bool {
         let len: usize = string.len();
         let bytes = string.as_bytes();
@@ -451,6 +568,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
     /// Multi-precision subtraction.
     /// Adapted from Algorithm 14.9 of "Handbook of Applied Cryptography" (https://cacr.uwaterloo.ca/hac/)
     /// Returns the results and a flag that is set if the substraction underflowed
+    #[inline(always)]
     pub const fn sub(
         a: &UnsignedInteger<NUM_LIMBS>,
         b: &UnsignedInteger<NUM_LIMBS>,
@@ -476,7 +594,6 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
 
     /// Multi-precision multiplication.
     /// Adapted from Algorithm 14.12 of "Handbook of Applied Cryptography" (https://cacr.uwaterloo.ca/hac/)
-    #[allow(unused)]
     pub const fn mul(
         a: &UnsignedInteger<NUM_LIMBS>,
         b: &UnsignedInteger<NUM_LIMBS>,
@@ -499,7 +616,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
                 j -= 1;
                 let mut k = i + j;
                 if k >= NUM_LIMBS - 1 {
-                    k -= (NUM_LIMBS - 1);
+                    k -= NUM_LIMBS - 1;
                     let uv = (lo[k] as u128) + (a.limbs[j] as u128) * (b.limbs[i] as u128) + carry;
                     carry = uv >> 64;
                     // Casting u128 to u64 takes modulo 2^{64}
@@ -518,11 +635,107 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         // 3.
         (Self { limbs: hi }, Self { limbs: lo })
     }
+
+    #[inline(always)]
+    pub fn square(
+        a: &UnsignedInteger<NUM_LIMBS>,
+    ) -> (UnsignedInteger<NUM_LIMBS>, UnsignedInteger<NUM_LIMBS>) {
+        // NOTE: we use explicit `while` loops in this function because profiling pointed
+        // at iterators of the form `(<x>..<y>).rev()` as the main performance bottleneck.
+
+        let mut hi = Self {
+            limbs: [0u64; NUM_LIMBS],
+        };
+        let mut lo = Self {
+            limbs: [0u64; NUM_LIMBS],
+        };
+
+        // Compute products between a[i] and a[j] when i != j.
+        // The variable `index` below is the index of `lo` or
+        // `hi` to update
+        let mut i = NUM_LIMBS;
+        while i > 1 {
+            i -= 1;
+            let mut c: u128 = 0;
+            let mut j = i;
+            while j > 0 {
+                j -= 1;
+                let k = i + j;
+                if k >= NUM_LIMBS - 1 {
+                    let index = k + 1 - NUM_LIMBS;
+                    let cs = lo.limbs[index] as u128 + a.limbs[i] as u128 * a.limbs[j] as u128 + c;
+                    c = cs >> 64;
+                    lo.limbs[index] = cs as u64;
+                } else {
+                    let index = k + 1;
+                    let cs = hi.limbs[index] as u128 + a.limbs[i] as u128 * a.limbs[j] as u128 + c;
+                    c = cs >> 64;
+                    hi.limbs[index] = cs as u64;
+                }
+            }
+            hi.limbs[i] = c as u64;
+        }
+
+        // All these terms should appear twice each,
+        // so we have to multiply what we got so far by two.
+        let carry = lo.limbs[0] >> 63;
+        lo = lo << 1;
+        hi = hi << 1;
+        hi.limbs[NUM_LIMBS - 1] |= carry;
+
+        // Add the only remaning terms, which are the squares a[i] * a[i].
+        // The variable `index` below is the index of `lo` or
+        // `hi` to update
+        let mut c = 0;
+        let mut i = NUM_LIMBS;
+        while i > 0 {
+            i -= 1;
+            if NUM_LIMBS - 1 <= i * 2 {
+                let index = 2 * i - NUM_LIMBS + 1;
+                let cs = lo.limbs[index] as u128 + a.limbs[i] as u128 * a.limbs[i] as u128 + c;
+                c = cs >> 64;
+                lo.limbs[index] = cs as u64;
+            } else {
+                let index = 2 * i + 1;
+                let cs = hi.limbs[index] as u128 + a.limbs[i] as u128 * a.limbs[i] as u128 + c;
+                c = cs >> 64;
+                hi.limbs[index] = cs as u64;
+            }
+            if NUM_LIMBS - 1 < i * 2 {
+                let index = 2 * i - NUM_LIMBS;
+                let cs = lo.limbs[index] as u128 + c;
+                c = cs >> 64;
+                lo.limbs[index] = cs as u64;
+            } else {
+                let index = 2 * i;
+                let cs = hi.limbs[index] as u128 + c;
+                c = cs >> 64;
+                hi.limbs[index] = cs as u64;
+            }
+        }
+        debug_assert_eq!(c, 0);
+        (hi, lo)
+    }
+
+    #[inline(always)]
+    /// Returns the number of bits needed to represent the number (0 for zero).
+    /// If nonzero, this is equivalent to one plus the floored log2 of the number.
+    pub const fn bits(&self) -> u32 {
+        let mut i = NUM_LIMBS;
+        while i > 0 {
+            if self.limbs[i - 1] != 0 {
+                return i as u32 * u64::BITS - self.limbs[i - 1].leading_zeros();
+            }
+            i -= 1;
+        }
+        0
+    }
 }
 
 impl<const NUM_LIMBS: usize> IsUnsignedInteger for UnsignedInteger<NUM_LIMBS> {}
 
 impl<const NUM_LIMBS: usize> ByteConversion for UnsignedInteger<NUM_LIMBS> {
+    #[cfg(feature = "std")]
     fn to_bytes_be(&self) -> Vec<u8> {
         self.limbs
             .iter()
@@ -530,6 +743,7 @@ impl<const NUM_LIMBS: usize> ByteConversion for UnsignedInteger<NUM_LIMBS> {
             .collect()
     }
 
+    #[cfg(feature = "std")]
     fn to_bytes_le(&self) -> Vec<u8> {
         self.limbs
             .iter()
@@ -539,8 +753,6 @@ impl<const NUM_LIMBS: usize> ByteConversion for UnsignedInteger<NUM_LIMBS> {
     }
 
     fn from_bytes_be(bytes: &[u8]) -> Result<Self, ByteConversionError> {
-        let mut limbs = Vec::with_capacity(NUM_LIMBS);
-
         // We cut off extra bytes, this is useful when you use this function to generate the element from randomness
         // In the future with the right algorithm this shouldn't be needed
 
@@ -548,19 +760,20 @@ impl<const NUM_LIMBS: usize> ByteConversion for UnsignedInteger<NUM_LIMBS> {
             .get(0..NUM_LIMBS * 8)
             .ok_or(ByteConversionError::FromBEBytesError)?;
 
-        needed_bytes.chunks_exact(8).try_for_each(|chunk| {
-            let limb = u64::from_be_bytes(
-                chunk
-                    .try_into()
-                    .map_err(|_| ByteConversionError::FromBEBytesError)?,
-            );
-            limbs.push(limb);
-            Ok::<_, ByteConversionError>(())
-        })?;
+        let mut limbs: [u64; NUM_LIMBS] = [0; NUM_LIMBS];
 
-        let limbs: [u64; NUM_LIMBS] = limbs
-            .try_into()
-            .map_err(|_| ByteConversionError::FromBEBytesError)?;
+        needed_bytes
+            .chunks_exact(8)
+            .enumerate()
+            .try_for_each(|(i, chunk)| {
+                let limb = u64::from_be_bytes(
+                    chunk
+                        .try_into()
+                        .map_err(|_| ByteConversionError::FromBEBytesError)?,
+                );
+                limbs[i] = limb;
+                Ok::<_, ByteConversionError>(())
+            })?;
 
         Ok(Self { limbs })
     }
@@ -570,21 +783,21 @@ impl<const NUM_LIMBS: usize> ByteConversion for UnsignedInteger<NUM_LIMBS> {
             .get(0..NUM_LIMBS * 8)
             .ok_or(ByteConversionError::FromBEBytesError)?;
 
-        let mut limbs = Vec::with_capacity(NUM_LIMBS);
+        let mut limbs: [u64; NUM_LIMBS] = [0; NUM_LIMBS];
 
-        needed_bytes.chunks_exact(8).rev().try_for_each(|chunk| {
-            let limb = u64::from_le_bytes(
-                chunk
-                    .try_into()
-                    .map_err(|_| ByteConversionError::FromLEBytesError)?,
-            );
-            limbs.push(limb);
-            Ok::<_, ByteConversionError>(())
-        })?;
-
-        let limbs: [u64; NUM_LIMBS] = limbs
-            .try_into()
-            .map_err(|_| ByteConversionError::FromLEBytesError)?;
+        needed_bytes
+            .chunks_exact(8)
+            .rev()
+            .enumerate()
+            .try_for_each(|(i, chunk)| {
+                let limb = u64::from_le_bytes(
+                    chunk
+                        .try_into()
+                        .map_err(|_| ByteConversionError::FromLEBytesError)?,
+                );
+                limbs[i] = limb;
+                Ok::<_, ByteConversionError>(())
+            })?;
 
         Ok(Self { limbs })
     }
@@ -600,6 +813,70 @@ impl<const NUM_LIMBS: usize> From<UnsignedInteger<NUM_LIMBS>> for u16 {
 mod tests_u384 {
     use crate::traits::ByteConversion;
     use crate::unsigned_integer::element::{UnsignedInteger, U384};
+
+    use proptest::prelude::*;
+
+    const N_LIMBS: usize = 6;
+    type Uint = U384;
+
+    proptest! {
+        #[test]
+        fn bitand(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
+            let result = Uint::from_limbs(a) & Uint::from_limbs(b);
+
+            for i in 0..N_LIMBS {
+                assert_eq!(result.limbs[i], a[i] & b[i]);
+            }
+        }
+
+        #[test]
+        fn bitand_assign(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
+            let mut result = Uint::from_limbs(a);
+            result &= Uint::from_limbs(b);
+
+            for i in 0..N_LIMBS {
+                assert_eq!(result.limbs[i], a[i] & b[i]);
+            }
+        }
+
+        #[test]
+        fn bitor(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
+            let result = Uint::from_limbs(a) | Uint::from_limbs(b);
+
+            for i in 0..N_LIMBS {
+                assert_eq!(result.limbs[i], a[i] | b[i]);
+            }
+        }
+
+        #[test]
+        fn bitor_assign(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
+            let mut result = Uint::from_limbs(a);
+            result |= Uint::from_limbs(b);
+
+            for i in 0..N_LIMBS {
+                assert_eq!(result.limbs[i], a[i] | b[i]);
+            }
+        }
+
+        #[test]
+        fn bitxor(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
+            let result = Uint::from_limbs(a) ^ Uint::from_limbs(b);
+
+            for i in 0..N_LIMBS {
+                assert_eq!(result.limbs[i], a[i] ^ b[i]);
+            }
+        }
+
+        #[test]
+        fn bitxor_assign(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
+            let mut result = Uint::from_limbs(a);
+            result ^= Uint::from_limbs(b);
+
+            for i in 0..N_LIMBS {
+                assert_eq!(result.limbs[i], a[i] ^ b[i]);
+            }
+        }
+    }
 
     #[test]
     fn construct_new_integer_from_limbs() {
@@ -1324,9 +1601,10 @@ mod tests_u384 {
     }
 
     #[test]
+    #[cfg(feature = "std")]
     fn to_be_bytes_works() {
         let number = U384::from_u64(1);
-        let expected_bytes = vec![
+        let expected_bytes = [
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
         ];
@@ -1335,9 +1613,10 @@ mod tests_u384 {
     }
 
     #[test]
+    #[cfg(feature = "std")]
     fn to_le_bytes_works() {
         let number = U384::from_u64(1);
-        let expected_bytes = vec![
+        let expected_bytes = [
             1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ];
@@ -1347,7 +1626,7 @@ mod tests_u384 {
 
     #[test]
     fn from_bytes_be_works() {
-        let bytes = vec![
+        let bytes = [
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
         ];
@@ -1358,7 +1637,7 @@ mod tests_u384 {
 
     #[test]
     fn from_bytes_le_works() {
-        let bytes = vec![
+        let bytes = [
             1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ];
@@ -1369,7 +1648,7 @@ mod tests_u384 {
 
     #[test]
     fn from_bytes_be_works_with_extra_data() {
-        let bytes = vec![
+        let bytes = [
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ];
@@ -1381,20 +1660,20 @@ mod tests_u384 {
     #[test]
     #[should_panic]
     fn from_bytes_be_errs_with_less_data() {
-        let bytes = vec![0, 0, 0, 0, 0];
+        let bytes = [0, 0, 0, 0, 0];
         U384::from_bytes_be(&bytes).unwrap();
     }
 
     #[test]
     #[should_panic]
     fn from_bytes_le_errs_with_less_data() {
-        let bytes = vec![0, 0, 0, 0, 0];
+        let bytes = [0, 0, 0, 0, 0];
         U384::from_bytes_le(&bytes).unwrap();
     }
 
     #[test]
     fn from_bytes_le_works_with_extra_data() {
-        let bytes = vec![
+        let bytes = [
             1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1,
         ];
@@ -1402,12 +1681,160 @@ mod tests_u384 {
 
         assert_eq!(U384::from_bytes_le(&bytes).unwrap(), expected_number);
     }
+
+    #[test]
+    fn test_square_0() {
+        let a = U384::from_hex_unchecked("362e35606447fb568704026c25da7a304bc7bd0aea36a61d77d4151395078cfa332b9d4928a60721eece725bbc81e158");
+        let (hi, lo) = U384::square(&a);
+        assert_eq!(lo, U384::from_hex_unchecked("11724caeb10c4bce5319097d74aed2246e2942b56b7365b5b2f8ceb3bb847db4828862043299d798577996e210bce40"));
+        assert_eq!(hi, U384::from_hex_unchecked("b7786dbe41375b7ff64dbdc65152ef7d3fdbf499485e26486201cdbfb71b5673c77eb355a1274d08cbfbc1a4cdfdfad"));
+    }
+
+    #[test]
+    fn test_square_1() {
+        let a = U384::from_limbs([0, 0, 0, 0, 0, u64::MAX]);
+        let (hi, lo) = U384::square(&a);
+        assert_eq!(
+            lo,
+            U384::from_hex_unchecked("fffffffffffffffe0000000000000001")
+        );
+        assert_eq!(hi, U384::from_hex_unchecked("0"));
+    }
+
+    #[test]
+    fn test_square_2() {
+        let a = U384::from_limbs([0, 0, 0, 0, u64::MAX, 0]);
+        let (hi, lo) = U384::square(&a);
+        assert_eq!(
+            lo,
+            U384::from_hex_unchecked(
+                "fffffffffffffffe000000000000000100000000000000000000000000000000"
+            )
+        );
+        assert_eq!(hi, U384::from_hex_unchecked("0"));
+    }
+
+    #[test]
+    fn test_square_3() {
+        let a = U384::from_limbs([0, 0, 0, u64::MAX, 0, 0]);
+        let (hi, lo) = U384::square(&a);
+        assert_eq!(lo, U384::from_hex_unchecked("fffffffffffffffe00000000000000010000000000000000000000000000000000000000000000000000000000000000"));
+        assert_eq!(hi, U384::from_hex_unchecked("0"));
+    }
+
+    #[test]
+    fn test_square_4() {
+        let a = U384::from_limbs([0, 0, u64::MAX, 0, 0, 0]);
+        let (hi, lo) = U384::square(&a);
+        assert_eq!(lo, U384::from_hex_unchecked("0"));
+        assert_eq!(
+            hi,
+            U384::from_hex_unchecked("fffffffffffffffe0000000000000001")
+        );
+    }
+
+    #[test]
+    fn test_square_5() {
+        let a = U384::from_limbs([0, 0, u64::MAX, u64::MAX, u64::MAX, u64::MAX]);
+        let (hi, lo) = U384::square(&a);
+        assert_eq!(lo, U384::from_hex_unchecked("fffffffffffffffffffffffffffffffe0000000000000000000000000000000000000000000000000000000000000001"));
+        assert_eq!(
+            hi,
+            U384::from_hex_unchecked("ffffffffffffffffffffffffffffffff")
+        );
+    }
+
+    #[test]
+    fn test_square_6() {
+        let a = U384::from_limbs([0, u64::MAX, u64::MAX, u64::MAX, u64::MAX, u64::MAX]);
+        let (hi, lo) = U384::square(&a);
+        assert_eq!(lo, U384::from_hex_unchecked("fffffffffffffffe00000000000000000000000000000000000000000000000000000000000000000000000000000001"));
+        assert_eq!(
+            hi,
+            U384::from_hex_unchecked(
+                "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+            )
+        );
+    }
+
+    #[test]
+    fn test_square_7() {
+        let a = U384::from_limbs([u64::MAX, u64::MAX, u64::MAX, u64::MAX, u64::MAX, u64::MAX]);
+        let (hi, lo) = U384::square(&a);
+        assert_eq!(lo, U384::from_hex_unchecked("1"));
+        assert_eq!(hi, U384::from_hex_unchecked("fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe"));
+    }
 }
 
 #[cfg(test)]
 mod tests_u256 {
-    use crate::traits::ByteConversion;
     use crate::unsigned_integer::element::{UnsignedInteger, U256};
+
+    use crate::unsigned_integer::element::ByteConversion;
+
+    use proptest::prelude::*;
+
+    const N_LIMBS: usize = 4;
+    type Uint = U256;
+
+    proptest! {
+        #[test]
+        fn bitand(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
+            let result = Uint::from_limbs(a) & Uint::from_limbs(b);
+
+            for i in 0..N_LIMBS {
+                assert_eq!(result.limbs[i], a[i] & b[i]);
+            }
+        }
+
+        #[test]
+        fn bitand_assign(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
+            let mut result = Uint::from_limbs(a);
+            result &= Uint::from_limbs(b);
+
+            for i in 0..N_LIMBS {
+                assert_eq!(result.limbs[i], a[i] & b[i]);
+            }
+        }
+
+        #[test]
+        fn bitor(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
+            let result = Uint::from_limbs(a) | Uint::from_limbs(b);
+
+            for i in 0..N_LIMBS {
+                assert_eq!(result.limbs[i], a[i] | b[i]);
+            }
+        }
+
+        #[test]
+        fn bitor_assign(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
+            let mut result = Uint::from_limbs(a);
+            result |= Uint::from_limbs(b);
+
+            for i in 0..N_LIMBS {
+                assert_eq!(result.limbs[i], a[i] | b[i]);
+            }
+        }
+
+        #[test]
+        fn bitxor(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
+            let result = Uint::from_limbs(a) ^ Uint::from_limbs(b);
+
+            for i in 0..N_LIMBS {
+                assert_eq!(result.limbs[i], a[i] ^ b[i]);
+            }
+        }
+
+        #[test]
+        fn bitxor_assign(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
+            let mut result = Uint::from_limbs(a);
+            result ^= Uint::from_limbs(b);
+
+            for i in 0..N_LIMBS {
+                assert_eq!(result.limbs[i], a[i] ^ b[i]);
+            }
+        }
+    }
 
     #[test]
     fn construct_new_integer_from_limbs() {
@@ -2074,9 +2501,10 @@ mod tests_u256 {
     }
 
     #[test]
+    #[cfg(feature = "std")]
     fn to_be_bytes_works() {
         let number = U256::from_u64(1);
-        let expected_bytes = vec![
+        let expected_bytes = [
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 1,
         ];
@@ -2085,9 +2513,10 @@ mod tests_u256 {
     }
 
     #[test]
+    #[cfg(feature = "std")]
     fn to_le_bytes_works() {
         let number = U256::from_u64(1);
-        let expected_bytes = vec![
+        let expected_bytes = [
             1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0,
         ];
@@ -2097,7 +2526,7 @@ mod tests_u256 {
 
     #[test]
     fn from_bytes_be_works() {
-        let bytes = vec![
+        let bytes = [
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 1,
         ];
@@ -2107,11 +2536,67 @@ mod tests_u256 {
 
     #[test]
     fn from_bytes_le_works() {
-        let bytes = vec![
+        let bytes = [
             1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0,
         ];
         let expected_number = U256::from_u64(1);
         assert_eq!(U256::from_bytes_le(&bytes).unwrap(), expected_number);
+    }
+
+    #[test]
+    fn shr_inplace_works_1() {
+        let mut n = UnsignedInteger::<3>::from(4u64);
+        n >>= 1;
+
+        assert_eq!(n, UnsignedInteger::<3>::from(2u64));
+    }
+
+    #[test]
+    fn shr_inplace_on_256_bit_integer_works_1() {
+        let a = U256::from_hex_unchecked("e45542992b6844553f3cb1c5ac33e7fa5");
+        let mut b = U256::from_hex_unchecked("391550a64ada11154fcf2c716b0cf9fe940");
+        b >>= 6;
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn shr_inplace_on_254_bit_integer_works_2() {
+        let a = U256::from_hex_unchecked("390aa99bead76bc0093b1bc1a8101f5ce");
+        let mut b = U256::from_hex_unchecked(
+            "72155337d5aed7801276378350203eb9c0000000000000000000000000000000",
+        );
+        b >>= 125;
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn shr_inplace_on_256_bit_integer_works_3() {
+        let a = U256::from_hex_unchecked("2ed786ab132f0b5b0cacd385dd51de3a");
+        let mut b = U256::from_hex_unchecked(
+            "2ed786ab132f0b5b0cacd385dd51de3a00000000000000000000000000000000",
+        );
+        b >>= 64 * 2;
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn shr_inplace_on_256_bit_integer_works_4() {
+        let a = U256::from_hex_unchecked("90823e0bd707f");
+        let mut b = U256::from_hex_unchecked(
+            "90823e0bd707f000000000000000000000000000000000000000000000000",
+        );
+        b >>= 64 * 3;
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn shr_inplace_on_256_bit_integer_works_5() {
+        let a = U256::from_hex_unchecked("24208f");
+        let mut b = U256::from_hex_unchecked(
+            "90823e0bd707f000000000000000000000000000000000000000000000000",
+        );
+        b >>= 222;
+        assert_eq!(a, b);
     }
 }

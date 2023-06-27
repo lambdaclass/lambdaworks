@@ -1,6 +1,7 @@
 use criterion::{criterion_group, criterion_main, Criterion};
+use lambdaworks_gpu::metal::abstractions::state::MetalState;
 use lambdaworks_math::field::traits::RootsConfig;
-use lambdaworks_math::gpu::metal::{abstractions::state::MetalState, fft::ops::gen_twiddles};
+use lambdaworks_math::gpu::metal::fft::ops::gen_twiddles;
 
 use utils::stark252_utils::F;
 

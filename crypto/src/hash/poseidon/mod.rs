@@ -1,3 +1,5 @@
+use crate::merkle_tree::traits::IsMerkleTreeBackend;
+
 /// Poseidon implementation for curve BLS12381
 use self::parameters::Parameters;
 
@@ -6,8 +8,6 @@ use lambdaworks_math::{
     field::{element::FieldElement, traits::IsField},
 };
 use std::ops::{Add, Mul};
-
-use super::traits::IsCryptoHash;
 
 mod parameters;
 
@@ -30,8 +30,11 @@ impl Default for Poseidon<BLS12381PrimeField> {
     }
 }
 
-impl IsCryptoHash<BLS12381PrimeField> for Poseidon<BLS12381PrimeField> {
-    fn hash_one(
+impl IsMerkleTreeBackend for Poseidon<BLS12381PrimeField> {
+    type Node = FieldElement<BLS12381PrimeField>;
+    type Data = Self::Node;
+
+    fn hash_data(
         &self,
         input: &FieldElement<BLS12381PrimeField>,
     ) -> FieldElement<BLS12381PrimeField> {
@@ -44,7 +47,7 @@ impl IsCryptoHash<BLS12381PrimeField> for Poseidon<BLS12381PrimeField> {
             .clone()
     }
 
-    fn hash_two(
+    fn hash_new_parent(
         &self,
         left: &FieldElement<BLS12381PrimeField>,
         right: &FieldElement<BLS12381PrimeField>,
@@ -275,8 +278,7 @@ mod tests {
         let a = FieldElement::one();
         let b = FieldElement::zero();
 
-        poseidon.hash_one(&a);
-        poseidon.hash_two(&a, &b);
+        poseidon.hash_new_parent(&a, &b);
     }
 
     #[test]

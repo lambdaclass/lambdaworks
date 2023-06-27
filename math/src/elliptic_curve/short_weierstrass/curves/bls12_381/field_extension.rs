@@ -7,6 +7,7 @@ use crate::{
             quadratic::{HasQuadraticNonResidue, QuadraticExtensionField},
         },
         fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
+        traits::IsField,
     },
     traits::ByteConversion,
 };
@@ -22,74 +23,97 @@ impl IsModulus<U384> for BLS12381FieldModulus {
 
 pub type BLS12381PrimeField = MontgomeryBackendPrimeField<BLS12381FieldModulus, 6>;
 
-#[derive(Debug, Clone)]
-pub struct LevelOneResidue;
-impl HasQuadraticNonResidue for LevelOneResidue {
-    type BaseField = BLS12381PrimeField;
+//////////////////
+#[derive(Clone, Debug)]
+pub struct Degree2ExtensionField;
 
-    fn residue() -> FieldElement<BLS12381PrimeField> {
-        -FieldElement::one()
+impl IsField for Degree2ExtensionField {
+    type BaseType = [FieldElement<BLS12381PrimeField>; 2];
+
+    /// Returns the component wise addition of `a` and `b`
+    fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
+        [&a[0] + &b[0], &a[1] + &b[1]]
     }
-}
 
-pub type Degree2ExtensionField = QuadraticExtensionField<LevelOneResidue>;
-
-#[derive(Debug, Clone)]
-pub struct LevelTwoResidue;
-impl HasCubicNonResidue for LevelTwoResidue {
-    type BaseField = Degree2ExtensionField;
-
-    fn residue() -> FieldElement<Degree2ExtensionField> {
-        FieldElement::new([
-            FieldElement::new(U384::from_hex_unchecked("d0088f51cbff34d258dd3db21a5d66bb23ba5c279c2895fb39869507b587b120f55ffff58a9ffffdcff7fffffffd556")),
-            FieldElement::new(U384::from_hex_unchecked("d0088f51cbff34d258dd3db21a5d66bb23ba5c279c2895fb39869507b587b120f55ffff58a9ffffdcff7fffffffd555"))
-        ])
+    /// Returns the multiplication of `a` and `b` using the following
+    /// equation:
+    /// (a0 + a1 * t) * (b0 + b1 * t) = a0 * b0 + a1 * b1 * Self::residue() + (a0 * b1 + a1 * b0) * t
+    /// where `t.pow(2)` equals `Q::residue()`.
+    fn mul(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
+        let a0b0 = &a[0] * &b[0];
+        let a1b1 = &a[1] * &b[1];
+        let z = (&a[0] + &a[1]) * (&b[0] + &b[1]);
+        [&a0b0 - &a1b1, z - a0b0 - a1b1]
     }
-}
 
-pub type Degree6ExtensionField = CubicExtensionField<LevelTwoResidue>;
-
-#[derive(Debug, Clone)]
-pub struct LevelThreeResidue;
-impl HasQuadraticNonResidue for LevelThreeResidue {
-    type BaseField = Degree6ExtensionField;
-
-    fn residue() -> FieldElement<Degree6ExtensionField> {
-        FieldElement::new([
-            FieldElement::zero(),
-            FieldElement::one(),
-            FieldElement::zero(),
-        ])
+    fn square(a: &Self::BaseType) -> Self::BaseType {
+        let [a0, a1] = a;
+        let v0 = a0 * a1;
+        let c0 = (a0 + a1) * (a0 - a1);
+        let c1 = &v0 + &v0;
+        [c0, c1]
     }
-}
-
-pub type Degree12ExtensionField = QuadraticExtensionField<LevelThreeResidue>;
-
-impl FieldElement<BLS12381PrimeField> {
-    pub fn new_base(a_hex: &str) -> Self {
-        Self::new(U384::from_hex_unchecked(a_hex))
+    /// Returns the component wise subtraction of `a` and `b`
+    fn sub(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
+        [&a[0] - &b[0], &a[1] - &b[1]]
     }
-}
 
-impl FieldElement<Degree2ExtensionField> {
-    pub fn new_base(a_hex: &str) -> Self {
-        Self::new([
-            FieldElement::new(U384::from_hex_unchecked(a_hex)),
-            FieldElement::zero(),
-        ])
+    /// Returns the component wise negation of `a`
+    fn neg(a: &Self::BaseType) -> Self::BaseType {
+        [-&a[0], -&a[1]]
+    }
+
+    /// Returns the multiplicative inverse of `a`
+    /// This uses the equality `(a0 + a1 * t) * (a0 - a1 * t) = a0.pow(2) - a1.pow(2) * Q::residue()`
+    fn inv(a: &Self::BaseType) -> Self::BaseType {
+        let inv_norm = (a[0].pow(2_u64) + a[1].pow(2_u64)).inv();
+        [&a[0] * &inv_norm, -&a[1] * inv_norm]
+    }
+
+    /// Returns the division of `a` and `b`
+    fn div(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
+        Self::mul(a, &Self::inv(b))
+    }
+
+    /// Returns a boolean indicating whether `a` and `b` are equal component wise.
+    fn eq(a: &Self::BaseType, b: &Self::BaseType) -> bool {
+        a[0] == b[0] && a[1] == b[1]
+    }
+
+    /// Returns the additive neutral element of the field extension.
+    fn zero() -> Self::BaseType {
+        [FieldElement::zero(), FieldElement::zero()]
+    }
+
+    /// Returns the multiplicative neutral element of the field extension.
+    fn one() -> Self::BaseType {
+        [FieldElement::one(), FieldElement::zero()]
+    }
+
+    /// Returns the element `x * 1` where 1 is the multiplicative neutral element.
+    fn from_u64(x: u64) -> Self::BaseType {
+        [FieldElement::from(x), FieldElement::zero()]
+    }
+
+    /// Takes as input an element of BaseType and returns the internal representation
+    /// of that element in the field.
+    /// Note: for this case this is simply the identity, because the components
+    /// already have correct representations.
+    fn from_base_type(x: Self::BaseType) -> Self::BaseType {
+        x
     }
 }
 
 impl ByteConversion for FieldElement<Degree2ExtensionField> {
     fn to_bytes_be(&self) -> Vec<u8> {
-        let mut byte_slice = FieldElement::to_bytes_be(&self.value()[0]);
-        byte_slice.extend(FieldElement::to_bytes_be(&self.value()[1]));
+        let mut byte_slice = ByteConversion::to_bytes_be(&self.value()[0]);
+        byte_slice.extend(ByteConversion::to_bytes_be(&self.value()[1]));
         byte_slice
     }
 
     fn to_bytes_le(&self) -> Vec<u8> {
-        let mut byte_slice = FieldElement::to_bytes_le(&self.value()[0]);
-        byte_slice.extend(FieldElement::to_bytes_le(&self.value()[1]));
+        let mut byte_slice = ByteConversion::to_bytes_le(&self.value()[0]);
+        byte_slice.extend(ByteConversion::to_bytes_le(&self.value()[1]));
         byte_slice
     }
 
@@ -114,13 +138,54 @@ impl ByteConversion for FieldElement<Degree2ExtensionField> {
     }
 }
 
+///////////////
+#[derive(Debug, Clone)]
+pub struct LevelTwoResidue;
+impl HasCubicNonResidue for LevelTwoResidue {
+    type BaseField = Degree2ExtensionField;
+
+    fn residue() -> FieldElement<Degree2ExtensionField> {
+        FieldElement::new([
+            FieldElement::new(U384::from("1")),
+            FieldElement::new(U384::from("1")),
+        ])
+    }
+}
+
+pub type Degree6ExtensionField = CubicExtensionField<LevelTwoResidue>;
+
+#[derive(Debug, Clone)]
+pub struct LevelThreeResidue;
+impl HasQuadraticNonResidue for LevelThreeResidue {
+    type BaseField = Degree6ExtensionField;
+
+    fn residue() -> FieldElement<Degree6ExtensionField> {
+        FieldElement::new([
+            FieldElement::zero(),
+            FieldElement::one(),
+            FieldElement::zero(),
+        ])
+    }
+}
+
+pub type Degree12ExtensionField = QuadraticExtensionField<LevelThreeResidue>;
+
+impl FieldElement<BLS12381PrimeField> {
+    pub fn new_base(a_hex: &str) -> Self {
+        Self::new(U384::from(a_hex))
+    }
+}
+
+impl FieldElement<Degree2ExtensionField> {
+    pub fn new_base(a_hex: &str) -> Self {
+        Self::new([FieldElement::new(U384::from(a_hex)), FieldElement::zero()])
+    }
+}
+
 impl FieldElement<Degree6ExtensionField> {
     pub fn new_base(a_hex: &str) -> Self {
         Self::new([
-            FieldElement::new([
-                FieldElement::new(U384::from_hex_unchecked(a_hex)),
-                FieldElement::zero(),
-            ]),
+            FieldElement::new([FieldElement::new(U384::from(a_hex)), FieldElement::zero()]),
             FieldElement::zero(),
             FieldElement::zero(),
         ])
@@ -139,30 +204,30 @@ impl FieldElement<Degree12ExtensionField> {
         FieldElement::<Degree12ExtensionField>::new([
             FieldElement::new([
                 FieldElement::new([
-                    FieldElement::new(U384::from_hex_unchecked(coefficients[0])),
-                    FieldElement::new(U384::from_hex_unchecked(coefficients[1])),
+                    FieldElement::new(U384::from(coefficients[0])),
+                    FieldElement::new(U384::from(coefficients[1])),
                 ]),
                 FieldElement::new([
-                    FieldElement::new(U384::from_hex_unchecked(coefficients[2])),
-                    FieldElement::new(U384::from_hex_unchecked(coefficients[3])),
+                    FieldElement::new(U384::from(coefficients[2])),
+                    FieldElement::new(U384::from(coefficients[3])),
                 ]),
                 FieldElement::new([
-                    FieldElement::new(U384::from_hex_unchecked(coefficients[4])),
-                    FieldElement::new(U384::from_hex_unchecked(coefficients[5])),
+                    FieldElement::new(U384::from(coefficients[4])),
+                    FieldElement::new(U384::from(coefficients[5])),
                 ]),
             ]),
             FieldElement::new([
                 FieldElement::new([
-                    FieldElement::new(U384::from_hex_unchecked(coefficients[6])),
-                    FieldElement::new(U384::from_hex_unchecked(coefficients[7])),
+                    FieldElement::new(U384::from(coefficients[6])),
+                    FieldElement::new(U384::from(coefficients[7])),
                 ]),
                 FieldElement::new([
-                    FieldElement::new(U384::from_hex_unchecked(coefficients[8])),
-                    FieldElement::new(U384::from_hex_unchecked(coefficients[9])),
+                    FieldElement::new(U384::from(coefficients[8])),
+                    FieldElement::new(U384::from(coefficients[9])),
                 ]),
                 FieldElement::new([
-                    FieldElement::new(U384::from_hex_unchecked(coefficients[10])),
-                    FieldElement::new(U384::from_hex_unchecked(coefficients[11])),
+                    FieldElement::new(U384::from(coefficients[10])),
+                    FieldElement::new(U384::from(coefficients[11])),
                 ]),
             ]),
         ])
@@ -184,8 +249,20 @@ mod tests {
         let element_ones =
             Fp12E::from_coefficients(&["1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1"]);
         let element_ones_squared =
-            Fp12E::from_coefficients(&["5", "7", "3", "9", "1", "b", "4", "8", "2", "a", "0", "c"]);
+            Fp12E::from_coefficients(&["1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaa1",
+            "c",
+            "1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaa5",
+            "c",
+            "1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaa9",
+            "c",
+            "1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaa3",
+            "c",
+            "1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaa7",
+            "c",
+            "0",
+            "c"]);
         assert_eq!(element_ones.pow(2_u16), element_ones_squared);
+        assert_eq!(element_ones.square(), element_ones_squared);
     }
 
     #[test]
@@ -193,32 +270,21 @@ mod tests {
         let element_sequence =
             Fp12E::from_coefficients(&["1", "2", "5", "6", "9", "a", "3", "4", "7", "8", "b", "c"]);
 
-        let element_sequence_squared = Fp12E::from_coefficients(&[
-            "d0088f51cbff34d258dd3db21a5d66bb23ba5c279c2895fb39869507b587b120f55ffff58a9ffffdcff7fffffffd61d",
-            "d0088f51cbff34d258dd3db21a5d66bb23ba5c279c2895fb39869507b587b120f55ffff58a9ffffdcff7fffffffd66f",
-            "d0088f51cbff34d258dd3db21a5d66bb23ba5c279c2895fb39869507b587b120f55ffff58a9ffffdcff7fffffffd62a",
-            "d0088f51cbff34d258dd3db21a5d66bb23ba5c279c2895fb39869507b587b120f55ffff58a9ffffdcff7fffffffd6b0",
-            "d0088f51cbff34d258dd3db21a5d66bb23ba5c279c2895fb39869507b587b120f55ffff58a9ffffdcff7fffffffd597",
-            "d0088f51cbff34d258dd3db21a5d66bb23ba5c279c2895fb39869507b587b120f55ffff58a9ffffdcff7fffffffd6c1",
-            "e0",
-            "142",
-            "a1",
-            "167",
-            "1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaa5d",
-            "16c"
-        ]);
+        let element_sequence_squared = Fp12E::from_coefficients(&["1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffa87d",
+        "199",
+        "1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffa851",
+        "20b",
+        "1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffa955",
+        "1cd",
+        "1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffa845",
+        "1e8",
+        "1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffa8a9",
+        "202",
+        "1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaa5d",
+        "16c"]);
 
         assert_eq!(element_sequence.pow(2_u16), element_sequence_squared);
-    }
-
-    #[test]
-    fn inverse_of_u_plus_one() {
-        let z =
-            Fp12E::from_coefficients(&["0", "0", "1", "0", "0", "0", "0", "0", "0", "0", "0", "0"])
-                .pow(3_u16);
-        let one_plus_u =
-            Fp12E::from_coefficients(&["1", "1", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0"]);
-        assert_eq!(z * one_plus_u, FieldElement::one());
+        assert_eq!(element_sequence.square(), element_sequence_squared);
     }
 
     #[test]

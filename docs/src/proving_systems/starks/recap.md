@@ -158,7 +158,7 @@ There is one catch here though: how does the verifier know that `FRI` was applie
 ## Consistency check
 After commiting to `H`, the prover needs to show that `H` was constructed correctly according to the formula above. To do this, it will ask the prover to provide an evaluation of `H` on some random point `z` and evaluations of the trace at the points $t(z), t(zg)$ and $t(zg^2)$.
 
-Because the boundary and transition constraints are a public part of the protocol, the verifiers knows them, and thus the only thing it needs to compute the evaluation $H(z)$ by themselves are the three trace evaluations mentioned above. Because it asked the prover for them, it can check both sides of the equation:
+Because the boundary and transition constraints are a public part of the protocol, the verifier knows them, and thus the only thing it needs to compute the evaluation $H(z)$ by itself are the three trace evaluations mentioned above. Because it asked the prover for them, it can check both sides of the equation:
 
 $$
 H(z) = B(z) (\alpha_1 z^{D - deg(B)} + \beta_1) + C(z) (\alpha_2 z^{D - deg(C)} + \beta_2)
@@ -175,7 +175,7 @@ There are two things left the prover needs to show to complete the proof:
 - That $H$ effectively is a polynomial, i.e., that the constraints are satisfied.
 - That the evaluations the prover provided on the consistency check were indeed evaluations of the trace polynomial and composition polynomial on the out of domain point `z`.
 
-Earlier we said we would use the `FRI` protocol to commit to `H` and show the first item in the list. However, we can slightly modify the polynomial we do `FRI` on to show both the first and second items and the same time. This new modified polynomial is called the `DEEP` composition polynomial. We define it as follows:
+Earlier we said we would use the `FRI` protocol to commit to `H` and show the first item in the list. However, we can slightly modify the polynomial we do `FRI` on to show both the first and second items at the same time. This new modified polynomial is called the `DEEP` composition polynomial. We define it as follows:
 
 $$
 Deep(x) = \gamma_1 \dfrac{H(x) - H(z)}{x - z} + \gamma_2 \dfrac{t(x) - t(z)}{x - z} + \gamma_3 \dfrac{t(x) - t(zg)}{x - zg} + \gamma_4 \dfrac{t(x) - t(zg^2)}{x - zg^2}
