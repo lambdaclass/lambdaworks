@@ -1,11 +1,10 @@
 #![allow(dead_code)] // clippy has false positive in benchmarks
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
-use lambdaworks_math::fft::cpu::roots_of_unity::get_twiddles;
 use lambdaworks_math::field::traits::RootsConfig;
-mod utils;
 use utils::fft_functions;
-use utils::fft_functions::bitrev_permute;
 use utils::stark252_utils;
+
+mod utils;
 
 const SIZE_ORDERS: [u64; 4] = [21, 22, 23, 24];
 
@@ -16,10 +15,10 @@ pub fn fft_benchmarks(c: &mut Criterion) {
         group.throughput(criterion::Throughput::Elements(1 << order));
 
         let input_nat = stark252_utils::rand_field_elements(order);
-        let twiddles_nat = get_twiddles(order, RootsConfig::Natural).unwrap();
+        let twiddles_nat = stark252_utils::twiddles(order, RootsConfig::Natural);
         let mut input_bitrev = input_nat.clone();
-        bitrev_permute(&mut input_bitrev);
-        let twiddles_bitrev = get_twiddles(order, RootsConfig::BitReverse).unwrap();
+        stark252_utils::bitrev_permute(&mut input_bitrev);
+        let twiddles_bitrev = stark252_utils::twiddles(order, RootsConfig::BitReverse);
 
         group.bench_with_input(
             "Sequential from NR radix2",
@@ -84,7 +83,7 @@ fn bitrev_permutation_benchmarks(c: &mut Criterion) {
             bench.iter_batched(
                 || input.clone(),
                 |mut input| {
-                    fft_functions::bitrev_permute(&mut input);
+                    stark252_utils::bitrev_permute(&mut input);
                 },
                 BatchSize::LargeInput,
             );

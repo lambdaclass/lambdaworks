@@ -19,7 +19,6 @@ const PRIMES: [u64; 39] = [
 const MODULUS: u64 = PRIMES[const_random!(usize) % PRIMES.len()];
 pub type FE = U64FieldElement<MODULUS>;
 
-#[allow(dead_code)]
 #[inline(never)]
 #[export_name = "u64_utils::fp_get_primes"]
 pub fn get_field_elements() -> (
