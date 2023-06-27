@@ -13,29 +13,32 @@ use lambdaworks_math::{
     },
     unsigned_integer::element::UnsignedInteger
 };
+
 use lambdaworks_gpu::metal::abstractions::state::MetalState;
 
-fuzz_target!(|values: (Vec<u64>, Vec<u64>)| {
+fuzz_target!(|values: (Vec<[u64;4]>, Vec<[u64;4]>)| {
     let (mut input_raw, mut twiddles_raw) = values;
     let mut inputs = Vec::new();
     let mut twiddles = Vec::new();
 
     while input_raw.len() < 4 {
-        input_raw.push(0);
+        input_raw.push([0u64;4]);
     }
 
-    for i in (0..input_raw.len()).step_by(4) {
-        let value = UnsignedInteger::<4>::from_limbs(input_raw[i..i + 4].try_into().unwrap());
-        inputs.push(FieldElement::<Stark252PrimeField>::from_raw(&value));
+
+    for i in 0..input_raw.len() {
+        let input_value = UnsignedInteger::<4>::from_limbs(input_raw[i]);
+        inputs.push(FieldElement::<Stark252PrimeField>::from_raw(&input_value))
     }
 
     while twiddles_raw.len() < 4 {
-        twiddles_raw.push(0);
+        twiddles_raw.push([0u64;4]);
     }
 
-    for i in (0..twiddles_raw.len()).step_by(4) {
-        let value = UnsignedInteger::<4>::from_limbs(twiddles_raw[i..i + 4].try_into().unwrap());
-        twiddles.push(FieldElement::<Stark252PrimeField>::from_raw(&value));
+
+    for i in 0..twiddles_raw.len() {
+        let twiddle_value = UnsignedInteger::<4>::from_limbs(twiddles_raw[i]);
+        twiddles.push(FieldElement::<Stark252PrimeField>::from_raw(&twiddle_value))
     }
 
     let state = MetalState::new(None).unwrap();
