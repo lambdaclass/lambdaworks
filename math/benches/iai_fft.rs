@@ -4,7 +4,7 @@ use lambdaworks_math::field::traits::RootsConfig;
 
 mod utils;
 use utils::fft_functions;
-use utils::fft_utils::{rand_field_elements, rand_poly, twiddles};
+use utils::stark252_utils::{rand_field_elements, rand_poly, twiddles};
 
 const SIZE_ORDER: u64 = 10;
 
@@ -70,7 +70,7 @@ fn seq_poly_interpolation_benchmarks() {
 
 #[cfg(not(any(feature = "metal", feature = "cuda")))]
 iai_callgrind::main!(
-    callgrind_args = "toggle-collect=*";
+    callgrind_args = "toggle-collect=util::*";
     functions = seq_fft_benchmarks_nr,
     seq_fft_benchmarks_rn,
     seq_twiddles_generation_natural_benchmarks,
@@ -84,7 +84,7 @@ iai_callgrind::main!(
 
 #[cfg(any(feature = "metal", feature = "cuda"))]
 iai_callgrind::main!(
-    callgrind_args = "toggle-collect=*";
+    callgrind_args = "toggle-collect=util::*";
     functions = seq_fft_benchmarks_nr,
     seq_fft_benchmarks_rn,
     seq_twiddles_generation_natural_benchmarks,
