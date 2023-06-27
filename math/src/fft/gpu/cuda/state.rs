@@ -1,5 +1,5 @@
 use crate::{
-    fft::{errors::FFTError, gpu::cuda::state::CudaState},
+    fft::errors::FFTError,
     field::{
         element::FieldElement,
         traits::{IsFFTField, RootsConfig},
