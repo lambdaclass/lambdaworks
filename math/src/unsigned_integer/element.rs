@@ -379,7 +379,7 @@ impl<const NUM_LIMBS: usize> BitXorAssign for UnsignedInteger<NUM_LIMBS> {
 }
 
 impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
-    pub fn from_limbs(limbs: [u64; NUM_LIMBS]) -> Self {
+    pub const fn from_limbs(limbs: [u64; NUM_LIMBS]) -> Self {
         Self { limbs }
     }
 

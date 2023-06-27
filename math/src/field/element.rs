@@ -76,6 +76,10 @@ where
             value: value.clone(),
         }
     }
+
+    pub const fn const_from_raw(value: F::BaseType) -> Self {
+        Self { value }
+    }
 }
 
 /// Equality operator overloading for field elements
