@@ -3,7 +3,7 @@ use crate::{
     field::{element::FieldElement, traits::IsFFTField},
 };
 
-use super::{fft::in_place_nr_2radix_fft, bit_reversing::in_place_bit_reverse_permute};
+use super::{bit_reversing::in_place_bit_reverse_permute, fft::in_place_nr_2radix_fft};
 
 /// Executes Fast Fourier Transform over elements of a two-adic finite field `F`. Usually used for
 /// fast polynomial evaluation.
