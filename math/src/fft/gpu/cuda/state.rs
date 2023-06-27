@@ -1,8 +1,16 @@
-use super::errors::CudaError;
+use crate::{
+    fft::{errors::FFTError, gpu::cuda::state::CudaState},
+    field::{
+        element::FieldElement,
+        traits::{IsFFTField, RootsConfig},
+    },
+    gpu::cuda::field::element::CUDAFieldElement,
+};
 use cudarc::{
     driver::{safe::CudaSlice, CudaDevice, CudaFunction, DeviceRepr},
     nvrtc::safe::Ptx,
 };
+use lambdaworks_gpu::cuda::abstractions::errors::CudaError;
 use std::sync::Arc;
 
 const STARK256_PTX: &str = include_str!("../../../gpu/cuda/shaders/field/stark256.ptx");
