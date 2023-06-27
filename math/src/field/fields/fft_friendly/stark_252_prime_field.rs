@@ -65,6 +65,18 @@ impl FieldElement<Stark252PrimeField> {
     }
 }
 
+impl PartialOrd for FieldElement<Stark252PrimeField> {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+        self.representative().partial_cmp(&other.representative())
+    }
+}
+
+impl Ord for FieldElement<Stark252PrimeField> {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+        self.representative().cmp(&other.representative())
+    }
+}
+
 #[cfg(test)]
 mod test_stark_252_bytes_ops {
     use super::Stark252PrimeField;
