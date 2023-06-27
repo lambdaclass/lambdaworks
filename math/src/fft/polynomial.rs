@@ -8,11 +8,12 @@ use crate::{
     polynomial::Polynomial,
 };
 
-use super::{ops, roots_of_unity};
 #[cfg(feature = "cuda")]
-use crate::gpu::cuda::fft::polynomial::{evaluate_fft_cuda, interpolate_fft_cuda};
+use crate::fft::gpu::cuda::polynomial::{evaluate_fft_cuda, interpolate_fft_cuda};
 #[cfg(feature = "metal")]
-use crate::gpu::metal::fft::polynomial::{evaluate_fft_metal, interpolate_fft_metal};
+use crate::fft::gpu::metal::polynomial::{evaluate_fft_metal, interpolate_fft_metal};
+
+use super::cpu::{ops, roots_of_unity};
 
 pub trait FFTPoly<F: IsFFTField> {
     fn evaluate_fft(

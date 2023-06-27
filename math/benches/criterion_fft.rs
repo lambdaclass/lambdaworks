@@ -1,6 +1,6 @@
 #![allow(dead_code)] // clippy has false positive in benchmarks
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
-use lambdaworks_math::fft::roots_of_unity::get_twiddles;
+use lambdaworks_math::fft::cpu::roots_of_unity::get_twiddles;
 use lambdaworks_math::field::traits::RootsConfig;
 mod utils;
 use utils::fft_functions;

@@ -1,5 +1,5 @@
 use crate::{
-    fft::roots_of_unity::get_powers_of_primitive_root,
+    fft::cpu::roots_of_unity::get_powers_of_primitive_root,
     field::{
         element::FieldElement,
         traits::{IsFFTField, RootsConfig},

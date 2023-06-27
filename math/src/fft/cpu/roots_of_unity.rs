@@ -71,8 +71,7 @@ pub fn get_twiddles<F: IsFFTField>(
 
 #[cfg(test)]
 mod tests {
-    use crate::fft::{bit_reversing::in_place_bit_reverse_permute, roots_of_unity::get_twiddles};
-    use crate::field::{test_fields::u64_test_field::U64TestField, traits::RootsConfig};
+    use crate::{field::{test_fields::u64_test_field::U64TestField, traits::RootsConfig}, fft::cpu::{roots_of_unity::get_twiddles, bit_reversing::in_place_bit_reverse_permute}};
     use proptest::prelude::*;
 
     type F = U64TestField;

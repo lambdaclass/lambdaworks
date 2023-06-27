@@ -1,9 +1,9 @@
-use super::{bit_reversing::in_place_bit_reverse_permute, fft_iterative::in_place_nr_2radix_fft};
-
 use crate::{
     fft::errors::FFTError,
     field::{element::FieldElement, traits::IsFFTField},
 };
+
+use super::{fft::in_place_nr_2radix_fft, bit_reversing::in_place_bit_reverse_permute};
 
 /// Executes Fast Fourier Transform over elements of a two-adic finite field `F`. Usually used for
 /// fast polynomial evaluation.

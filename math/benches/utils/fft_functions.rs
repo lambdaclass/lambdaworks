@@ -1,13 +1,14 @@
 #![allow(dead_code)]
 // clippy has false positive in benchmarks
 use criterion::black_box;
-use lambdaworks_math::fft::{
-    fft_iterative::{in_place_nr_2radix_fft, in_place_rn_2radix_fft},
-    polynomial::FFTPoly,
-    {bit_reversing::in_place_bit_reverse_permute, roots_of_unity::get_twiddles},
+use lambdaworks_math::fft::cpu::{
+    bit_reversing::in_place_bit_reverse_permute,
+    fft::{in_place_nr_2radix_fft, in_place_rn_2radix_fft},
+    roots_of_unity::get_twiddles,
 };
-
-use lambdaworks_math::{field::traits::RootsConfig, polynomial::Polynomial};
+use lambdaworks_math::{
+    fft::polynomial::FFTPoly, field::traits::RootsConfig, polynomial::Polynomial,
+};
 
 use super::stark252_utils::{F, FE};
 
