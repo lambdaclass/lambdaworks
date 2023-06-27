@@ -26,8 +26,7 @@ impl CudaState {
         Ok(state)
     }
 
-    pub fn load_library<F: IsFFTField>(&self, src: &'static str) -> Result<(), CudaError> {
-        let mod_name: &'static str = F::field_name();
+    pub fn load_library(&self, src: &'static str, mod_name: &'static str) -> Result<(), CudaError> {
         let functions = [
             "radix2_dit_butterfly",
             "calc_twiddles",
