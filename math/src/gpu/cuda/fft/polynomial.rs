@@ -7,14 +7,9 @@ use crate::{
     polynomial::Polynomial,
 };
 
-<<<<<<<< HEAD:math/src/fft/gpu/cuda/polynomial.rs
-use super::ops::{fft, reverse_index};
-use lambdaworks_gpu::cuda::abstractions::{errors::CudaError, state::CudaState};
-========
 use super::ops::fft;
 use crate::cuda::abstractions::{errors::CudaError, state::CudaState};
 use crate::cuda::fft::ops::gen_twiddles;
->>>>>>>> main:math/src/gpu/cuda/fft/polynomial.rs
 
 pub fn evaluate_fft_cuda<F>(coeffs: &[FieldElement<F>]) -> Result<Vec<FieldElement<F>>, FFTError>
 where

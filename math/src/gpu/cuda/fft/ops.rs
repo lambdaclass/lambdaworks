@@ -1,4 +1,3 @@
-<<<<<<<< HEAD:math/src/fft/gpu/cuda/ops.rs
 use crate::{
     fft::errors::FFTError,
     field::{element::FieldElement, traits::IsFFTField},
@@ -6,14 +5,6 @@ use crate::{
 };
 use cudarc::driver::{LaunchAsync, LaunchConfig};
 use lambdaworks_gpu::cuda::abstractions::{errors::CudaError, state::CudaState};
-========
-use lambdaworks_math::field::{
-    element::FieldElement,
-    traits::{IsFFTField, RootsConfig},
-};
-
-use crate::cuda::abstractions::{errors::CudaError, state::CudaState};
->>>>>>>> main:math/src/gpu/cuda/fft/ops.rs
 
 /// Executes parallel ordered FFT over a slice of two-adic field elements, in CUDA.
 /// Twiddle factors are required to be in bit-reverse order.
@@ -54,39 +45,11 @@ where
             block_dim: (group_size as u32 / 2, 1, 1),
             shared_mem_bytes: 0,
         };
-<<<<<<<< HEAD:math/src/fft/gpu/cuda/ops.rs
 
         unsafe {
             function
                 .clone()
                 .launch(config, (&mut input_buffer, &twiddles_buffer))
-        }
-        .map_err(|err| CudaError::Launch(err.to_string()))?;
-    }
-
-    let mut output: Vec<FieldElement<F>> = state
-        .retrieve_result(input_buffer)?
-        .into_iter()
-        .map(FieldElement::from)
-        .collect();
-
-    in_place_bit_reverse_permute(&mut output);
-    Ok(output)
-}
-
-// TODO: remove after implementing in cuda
-pub(crate) fn in_place_bit_reverse_permute<E>(input: &mut [E]) {
-    for i in 0..input.len() {
-        let bit_reversed_index = reverse_index(&i, input.len() as u64);
-        if bit_reversed_index > i {
-            input.swap(i, bit_reversed_index);
-========
-
-        unsafe {
-            function
-                .clone()
-                .launch(config, (&mut input_buffer, &twiddles_buffer))
->>>>>>>> main:math/src/gpu/cuda/fft/ops.rs
         }
         .map_err(|err| CudaError::Launch(err.to_string()))?;
     }
