@@ -46,7 +46,7 @@ test = false
 doc = false
 
 [[bin]]
-name = "polynomial-fft-diff-fuzzer"
-path = "fuzz_targets/polynomial-fft-diff-fuzzer.rs"
+name = "polynomial_fft_diff_fuzzer"
+path = "fuzz_targets/polynomial_fft_diff_fuzzer.rs"
 test = false
 doc = false
