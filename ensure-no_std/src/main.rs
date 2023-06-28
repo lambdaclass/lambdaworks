@@ -14,8 +14,5 @@ fn panic(_info: &PanicInfo) -> ! {
     loop {}
 }
 
-#[global_allocator]
-static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
-
 #[allow(unused_imports)]
-use {lambdaworks_math};
+use lambdaworks_math;

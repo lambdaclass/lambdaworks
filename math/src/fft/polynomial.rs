@@ -1,5 +1,4 @@
-#[cfg(feature = "metal")]
-use crate::gpu::metal::fft::polynomial::evaluate_fft_metal;
+use crate::fft::errors::FFTError;
 
 use crate::{
     field::{
@@ -9,7 +8,12 @@ use crate::{
     polynomial::Polynomial,
 };
 
-use crate::fft::{errors::FFTError, roots_of_unity::get_twiddles};
+#[cfg(feature = "cuda")]
+use crate::fft::gpu::cuda::polynomial::{evaluate_fft_cuda, interpolate_fft_cuda};
+#[cfg(feature = "metal")]
+use crate::fft::gpu::metal::polynomial::{evaluate_fft_metal, interpolate_fft_metal};
+
+use super::cpu::{ops, roots_of_unity};
 
 pub trait FFTPoly<F: IsFFTField> {
     fn evaluate_fft(
@@ -70,9 +74,7 @@ impl<F: IsFFTField> FFTPoly<F> for Polynomial<FieldElement<F>> {
         {
             // TODO: support multiple fields with CUDA
             if F::field_name() == "stark256" {
-                Ok(crate::gpu::cuda::fft::polynomial::evaluate_fft_cuda(
-                    &coeffs,
-                )?)
+                Ok(evaluate_fft_cuda(&coeffs)?)
             } else {
                 evaluate_fft_cpu(&coeffs)
             }
@@ -105,9 +107,7 @@ impl<F: IsFFTField> FFTPoly<F> for Polynomial<FieldElement<F>> {
         #[cfg(feature = "metal")]
         {
             if !F::field_name().is_empty() {
-                Ok(crate::gpu::metal::fft::polynomial::interpolate_fft_metal(
-                    fft_evals,
-                )?)
+                Ok(interpolate_fft_metal(fft_evals)?)
             } else {
                 println!(
                     "GPU interpolation failed for field {}. Program will fallback to CPU.",
@@ -120,9 +120,7 @@ impl<F: IsFFTField> FFTPoly<F> for Polynomial<FieldElement<F>> {
         #[cfg(feature = "cuda")]
         {
             if !F::field_name().is_empty() {
-                Ok(crate::gpu::cuda::fft::polynomial::interpolate_fft_cuda(
-                    fft_evals,
-                )?)
+                Ok(interpolate_fft_cuda(fft_evals)?)
             } else {
                 interpolate_fft_cpu(fft_evals)
             }
@@ -168,9 +166,9 @@ where
     F: IsFFTField,
 {
     let order = coeffs.len().trailing_zeros();
-    let twiddles = get_twiddles(order.into(), RootsConfig::BitReverse)?;
+    let twiddles = roots_of_unity::get_twiddles(order.into(), RootsConfig::BitReverse)?;
     // Bit reverse order is needed for NR DIT FFT.
-    crate::fft::ops::fft(coeffs, &twiddles)
+    ops::fft(coeffs, &twiddles)
 }
 
 fn interpolate_fft_cpu<F>(
@@ -180,9 +178,9 @@ where
     F: IsFFTField,
 {
     let order = fft_evals.len().trailing_zeros();
-    let twiddles = get_twiddles(order.into(), RootsConfig::BitReverseInversed)?;
+    let twiddles = roots_of_unity::get_twiddles(order.into(), RootsConfig::BitReverseInversed)?;
 
-    let coeffs = crate::fft::ops::fft(fft_evals, &twiddles)?;
+    let coeffs = ops::fft(fft_evals, &twiddles)?;
 
     let scale_factor = FieldElement::from(fft_evals.len() as u64).inv();
     Ok(Polynomial::new(&coeffs).scale_coeffs(&scale_factor))
@@ -200,9 +198,7 @@ mod tests {
 
     use proptest::{collection, prelude::*};
 
-    use crate::fft::roots_of_unity::{
-        get_powers_of_primitive_root, get_powers_of_primitive_root_coset,
-    };
+    use roots_of_unity::{get_powers_of_primitive_root, get_powers_of_primitive_root_coset};
 
     use super::*;
 

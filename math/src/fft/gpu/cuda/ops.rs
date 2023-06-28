@@ -1,9 +1,11 @@
-use lambdaworks_math::field::{
-    element::FieldElement,
-    traits::{IsFFTField, RootsConfig},
+use crate::{
+    fft::gpu::cuda::state::CudaState,
+    field::{
+        element::FieldElement,
+        traits::{IsFFTField, RootsConfig},
+    },
 };
-
-use crate::cuda::abstractions::{errors::CudaError, state::CudaState};
+use lambdaworks_gpu::cuda::abstractions::errors::CudaError;
 
 /// Executes parallel ordered FFT over a slice of two-adic field elements, in CUDA.
 /// Twiddle factors are required to be in bit-reverse order.
@@ -16,41 +18,19 @@ pub fn fft<F>(
     input: &[FieldElement<F>],
     twiddles: &[FieldElement<F>],
     state: &CudaState,
-) -> Result<Vec<FieldElement<F>>, FFTError>
+) -> Result<Vec<FieldElement<F>>, CudaError>
 where
     F: IsFFTField,
     F::BaseType: Unpin,
 {
-    // TODO: make a twiddle factor abstraction for handling invalid twiddles
-    if !input.len().is_power_of_two() {
-        return Err(FFTError::InputError(input.len()));
-    }
-
-    let function = state.get_function(F::field_name(), "radix2_dit_butterfly")?;
-
-    let input: Vec<_> = input.iter().map(CUDAFieldElement::from).collect();
-    let twiddles: Vec<_> = twiddles.iter().map(CUDAFieldElement::from).collect();
-
-    let mut input_buffer = state.alloc_buffer_with_data(&input)?;
-    let twiddles_buffer = state.alloc_buffer_with_data(&twiddles)?;
+    let mut function = state.get_radix2_dit_butterfly(input, twiddles)?;
 
     let order = input.len().trailing_zeros();
     for stage in 0..order {
         let group_count = 1 << stage;
         let group_size = input.len() / group_count;
 
-        let config = LaunchConfig {
-            grid_dim: (group_count as u32, 1, 1),
-            block_dim: (group_size as u32 / 2, 1, 1),
-            shared_mem_bytes: 0,
-        };
-
-        unsafe {
-            function
-                .clone()
-                .launch(config, (&mut input_buffer, &twiddles_buffer))
-        }
-        .map_err(|err| CudaError::Launch(err.to_string()))?;
+        function.launch(group_count, group_size)?;
     }
 
     let output = function.retrieve_result()?;
@@ -89,7 +69,7 @@ pub fn bitrev_permutation<F: IsFFTField>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::fft::roots_of_unity::get_twiddles;
+    use crate::fft::cpu::roots_of_unity::get_twiddles;
     use crate::field::{
         element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
         traits::RootsConfig,
@@ -124,7 +104,7 @@ mod tests {
             let twiddles = get_twiddles(order.into(), RootsConfig::BitReverse).unwrap();
 
             let cuda_fft = fft(&input, &twiddles, &state).unwrap();
-            let fft = crate::fft::ops::fft(&input, &twiddles).unwrap();
+            let fft = crate::fft::cpu::ops::fft(&input, &twiddles).unwrap();
 
             prop_assert_eq!(cuda_fft, fft);
         }

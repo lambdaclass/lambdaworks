@@ -1,5 +1,8 @@
 use crate::{
-    fft::errors::FFTError,
+    fft::{
+        errors::FFTError,
+        gpu::cuda::{ops::gen_twiddles, state::CudaState},
+    },
     field::{
         element::FieldElement,
         traits::{IsFFTField, RootsConfig},
@@ -8,10 +11,9 @@ use crate::{
 };
 
 use super::ops::fft;
-use crate::cuda::abstractions::{errors::CudaError, state::CudaState};
-use crate::cuda::fft::ops::gen_twiddles;
+use lambdaworks_gpu::cuda::abstractions::errors::CudaError;
 
-pub fn evaluate_fft_cuda<F>(coeffs: &[FieldElement<F>]) -> Result<Vec<FieldElement<F>>, FFTError>
+pub fn evaluate_fft_cuda<F>(coeffs: &[FieldElement<F>]) -> Result<Vec<FieldElement<F>>, CudaError>
 where
     F: IsFFTField,
     F::BaseType: Unpin,

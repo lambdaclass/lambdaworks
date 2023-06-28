@@ -21,7 +21,7 @@ pub type U128 = UnsignedInteger<2>;
 /// The most significant bit is in the left-most position.
 /// That is, the array `[a_n, ..., a_0]` represents the
 /// integer 2^{64 * n} * a_n + ... + 2^{64} * a_1 + a_0.
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct UnsignedInteger<const NUM_LIMBS: usize> {
     pub limbs: [u64; NUM_LIMBS],
 }
