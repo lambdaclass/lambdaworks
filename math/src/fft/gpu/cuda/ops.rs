@@ -1,9 +1,10 @@
-use lambdaworks_math::field::{
-    element::FieldElement,
-    traits::{IsFFTField, RootsConfig},
+use crate::{
+    fft::errors::FFTError,
+    field::{element::FieldElement, traits::IsFFTField},
+    gpu::cuda::field::element::CUDAFieldElement,
 };
-
-use crate::cuda::abstractions::{errors::CudaError, state::CudaState};
+use cudarc::driver::{LaunchAsync, LaunchConfig};
+use lambdaworks_gpu::cuda::abstractions::{errors::CudaError, state::CudaState};
 
 /// Executes parallel ordered FFT over a slice of two-adic field elements, in CUDA.
 /// Twiddle factors are required to be in bit-reverse order.

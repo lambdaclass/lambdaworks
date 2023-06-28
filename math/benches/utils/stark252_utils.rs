@@ -1,6 +1,5 @@
-#![allow(dead_code)] // clippy has false positive in benchmarks
-use lambdaworks_math::fft::bit_reversing::in_place_bit_reverse_permute;
 use lambdaworks_math::{
+    fft::cpu::{bit_reversing::in_place_bit_reverse_permute, roots_of_unity::get_twiddles},
     field::{
         element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
         traits::RootsConfig,
@@ -44,5 +43,5 @@ pub fn rand_poly(order: u64) -> Polynomial<FE> {
 #[no_mangle]
 #[export_name = "util::get_twiddles"]
 pub fn twiddles(order: u64, config: RootsConfig) -> Vec<FE> {
-    lambdaworks_math::fft::roots_of_unity::get_twiddles(order, config).unwrap()
+    get_twiddles(order, config).unwrap()
 }

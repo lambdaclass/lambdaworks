@@ -4,4 +4,4 @@
 // TODO: Investigate this issue, having .metal sources would be better
 // than headers and a unique source.
 
-#include "fields/stark256.h.metal"
+#include "shaders/field/stark256.h.metal"
