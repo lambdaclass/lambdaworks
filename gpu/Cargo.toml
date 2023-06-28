@@ -15,7 +15,7 @@ objc = { version = "0.2.7", optional = true }
 
 [features]
 metal = ["dep:metal", "dep:objc"]
-cuda = ["dep:cudarc", "dep:walkdir"]
+cuda = ["dep:walkdir"]
 
 # Some features activate compilation of code which isn't
 # supported in all machines (e.g. metal, cuda), so we won't
