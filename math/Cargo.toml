@@ -22,6 +22,8 @@ objc = { version = "0.2.7", optional = true }
 # cuda
 cudarc = { version = "0.9.7", optional = true }
 
+lambdaworks-gpu = { workspace = true, optional = true }
+
 [dev-dependencies]
 proptest = "1.1.0"
 criterion = "0.4"
@@ -34,8 +36,13 @@ default = ["rayon", "std"]
 std = ["dep:thiserror"]
 
 # gpu
-metal = ["dep:metal", "dep:objc"]
-cuda = ["dep:cudarc"]
+metal = [
+    "dep:metal",
+    "dep:objc",
+    "dep:lambdaworks-gpu",
+    "lambdaworks-gpu?/metal",
+]
+cuda = ["dep:cudarc", "dep:lambdaworks-gpu"]
 
 [[bench]]
 name = "criterion_elliptic_curve"
