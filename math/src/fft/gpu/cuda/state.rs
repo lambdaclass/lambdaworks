@@ -1,10 +1,14 @@
 use crate::{
-    field::{element::FieldElement, traits::IsField},
+    field::{
+        element::FieldElement,
+        traits::{IsFFTField, IsField, RootsConfig},
+    },
     gpu::cuda::field::element::CUDAFieldElement,
 };
 use cudarc::{
     driver::{
-        safe::CudaSlice, safe::DeviceSlice, CudaDevice, CudaFunction, DeviceRepr, LaunchConfig,
+        safe::CudaSlice, safe::DeviceSlice, CudaDevice, CudaFunction, DeviceRepr, LaunchAsync,
+        LaunchConfig,
     },
     nvrtc::safe::Ptx,
 };
@@ -67,6 +71,57 @@ impl CudaState {
         self.device
             .sync_reclaim(src)
             .map_err(|err| CudaError::RetrieveMemory(err.to_string()))
+    }
+
+    /// Returns a wrapper object over the `calc_twiddles` function defined in `twiddles.cu`
+    pub(crate) fn get_calc_twiddles<F: IsFFTField>(
+        &self,
+        order: u64,
+        config: RootsConfig,
+    ) -> Result<CalcTwiddlesFunction<F>, CudaError> {
+        let root: FieldElement<F> = F::get_primitive_root_of_unity(order)?;
+
+        let (root, function_name) = match config {
+            RootsConfig::Natural => (root, "calc_twiddles"),
+            RootsConfig::NaturalInversed => (root.inv(), "calc_twiddles"),
+            RootsConfig::BitReverse => (root, "calc_twiddles_bitrev"),
+            RootsConfig::BitReverseInversed => (root.inv(), "calc_twiddles_bitrev"),
+        };
+
+        let function = self.get_function::<F>(function_name)?;
+
+        let count = (1 << order) / 2;
+        let omega_buffer = self.alloc_buffer_with_data(&[root])?;
+        let twiddles: &[FieldElement<F>] = &(0..count)
+            .map(|_| FieldElement::one())
+            .collect::<Vec<FieldElement<F>>>();
+        let twiddles_buffer = self.alloc_buffer_with_data(twiddles)?;
+
+        Ok(CalcTwiddlesFunction::new(
+            Arc::clone(&self.device),
+            function,
+            omega_buffer,
+            twiddles_buffer,
+        ))
+    }
+
+    /// Returns a wrapper object over the `bitrev_permutation` function defined in `bitrev_permutation.cu`
+    pub(crate) fn get_bitrev_permutation<F: IsFFTField>(
+        &self,
+        input: &[FieldElement<F>],
+        result: &[FieldElement<F>],
+    ) -> Result<BitrevPermutationFunction<F>, CudaError> {
+        let function = self.get_function::<F>("bitrev_permutation")?;
+
+        let input_buffer = self.alloc_buffer_with_data(input)?;
+        let result_buffer = self.alloc_buffer_with_data(result)?;
+
+        Ok(BitrevPermutationFunction::new(
+            Arc::clone(&self.device),
+            function,
+            input_buffer,
+            result_buffer,
+        ))
     }
 }
 
