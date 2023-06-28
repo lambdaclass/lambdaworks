@@ -11,7 +11,6 @@ use lambdaworks_math::{
     },
     unsigned_integer::element::UnsignedInteger
 };
-
 use lambdaworks_gpu::metal::abstractions::state::MetalState;
 
 fuzz_target!(|values: (Vec<[u64;4]>, Vec<[u64;4]>)| {
@@ -20,7 +19,7 @@ fuzz_target!(|values: (Vec<[u64;4]>, Vec<[u64;4]>)| {
     let mut twiddles = Vec::new();
 
     if input_raw.len() == 0 {
-        input_raw.push([0u64;4]);
+        input_raw.push([1u64;4]);
     }
 
     for i in 0..input_raw.len() {
@@ -29,7 +28,7 @@ fuzz_target!(|values: (Vec<[u64;4]>, Vec<[u64;4]>)| {
     }
 
     if twiddles_raw.len() == 0 {
-        twiddles_raw.push([0u64;4]);
+        twiddles_raw.push([1u64;4]);
     }
 
 
