@@ -1,6 +1,10 @@
 use lambdaworks_math::{
     elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::BLS12381PrimeField,
-    field::{element::FieldElement, traits::IsField},
+    field::{
+        element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+        traits::IsField,
+    },
+    unsigned_integer::element::U256,
 };
 
 type PoseidonConstants<F> = (Vec<FieldElement<F>>, Vec<Vec<FieldElement<F>>>);
@@ -78,5 +82,42 @@ impl Parameters<BLS12381PrimeField> {
         }
 
         Ok((round_constants, mds_matrix))
+    }
+}
+
+impl Parameters<Stark252PrimeField> {
+    pub fn parse(
+        round_constants_csv: &str,
+        mds_constants_csv: &str,
+    ) -> Result<PoseidonConstants<Stark252PrimeField>, String> {
+        let round_constants = round_constants_csv
+            .split(',')
+            .map(|c| FieldElement::<Stark252PrimeField>::new(U256::from_hex_unchecked(c.trim())))
+            .collect();
+
+        let mut mds_matrix = vec![];
+
+        for line in mds_constants_csv.lines() {
+            let matrix_line = line
+                .split(',')
+                .map(|c| {
+                    FieldElement::<Stark252PrimeField>::new(U256::from_hex_unchecked(c.trim()))
+                })
+                .collect();
+
+            mds_matrix.push(matrix_line);
+        }
+
+        Ok((round_constants, mds_matrix))
+
+        // Ok(Parameters {
+        //     rate: 2,
+        //     capacity: 1,
+        //     alpha: 3,
+        //     n_full_rounds: 8,
+        //     n_partial_rounds: 83,
+        //     round_constants,
+        //     mds_matrix,
+        // })
     }
 }

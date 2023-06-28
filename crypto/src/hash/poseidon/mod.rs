@@ -1,5 +1,3 @@
-use crate::merkle_tree::traits::IsMerkleTreeBackend;
-
 /// Poseidon implementation for curve BLS12381
 use self::parameters::Parameters;
 
@@ -9,7 +7,7 @@ use lambdaworks_math::{
 };
 use std::ops::{Add, Mul};
 
-mod parameters;
+pub mod parameters;
 
 pub struct Poseidon<F: IsField> {
     params: Parameters<F>,
@@ -19,7 +17,7 @@ impl Poseidon<BLS12381PrimeField> {
     pub fn new() -> Self {
         Self {
             params: Parameters::with_t2()
-                .expect("Error loading parameters for Posedon BLS12381 hasher"),
+                .expect("Error loading parameters for Poseidon BLS12381 hasher"),
         }
     }
 }
@@ -27,37 +25,6 @@ impl Poseidon<BLS12381PrimeField> {
 impl Default for Poseidon<BLS12381PrimeField> {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-impl IsMerkleTreeBackend for Poseidon<BLS12381PrimeField> {
-    type Node = FieldElement<BLS12381PrimeField>;
-    type Data = Self::Node;
-
-    fn hash_data(
-        &self,
-        input: &FieldElement<BLS12381PrimeField>,
-    ) -> FieldElement<BLS12381PrimeField> {
-        // return first element of the state (unwraps to be removed after trait changes to return Result<>)
-        // This clone could be removed
-        self.hash(&[input.clone()])
-            .unwrap()
-            .first()
-            .unwrap()
-            .clone()
-    }
-
-    fn hash_new_parent(
-        &self,
-        left: &FieldElement<BLS12381PrimeField>,
-        right: &FieldElement<BLS12381PrimeField>,
-    ) -> FieldElement<BLS12381PrimeField> {
-        // return first element of the state (unwraps to be removed after trait changes to return Result<>)
-        self.hash(&[left.clone(), right.clone()])
-            .unwrap()
-            .first()
-            .unwrap()
-            .clone()
     }
 }
 
