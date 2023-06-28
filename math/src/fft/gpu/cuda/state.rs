@@ -1,11 +1,18 @@
-use super::errors::CudaError;
+use crate::{
+    fft::{errors::FFTError, gpu::cuda::state::CudaState},
+    field::element::{FieldElement, IsFFTField, IsField},
+    gpu::cuda::field::element::CUDAFieldElement,
+};
 use cudarc::{
-    driver::{safe::CudaSlice, CudaDevice, CudaFunction, DeviceRepr},
+    driver::{
+        safe::CudaSlice, safe::DeviceSlice, CudaDevice, CudaFunction, DeviceRepr, LaunchConfig,
+    },
     nvrtc::safe::Ptx,
 };
+use lambdaworks_gpu::cuda::abstractions::errors::CudaError;
 use std::sync::Arc;
 
-const STARK256_PTX: &str = include_str!("../../../../math/src/gpu/cuda/shaders/field/stark256.ptx");
+const STARK256_PTX: &str = include_str!("../../../gpu/cuda/shaders/field/stark256.ptx");
 
 /// Structure for abstracting basic calls to a CUDA device and saving the state. Used for
 /// implementing GPU parallel computations in CUDA.
@@ -64,7 +71,7 @@ impl CudaState {
     }
 }
 
-pub(crate) struct CalcTwiddlesFunction<F: IsField> {
+pub(crate) struct CalcTwiddlesFunction<F, IsFFTField> {
     device: Arc<CudaDevice>,
     function: CudaFunction,
     omega: CudaSlice<CUDAFieldElement<F>>,
