@@ -53,7 +53,7 @@ build-cuda: $(CUDA_COMPILED)
 
 CUDAPATH = math/src/gpu/cuda/shaders
 build-cuda:
-	nvcc -ptx $(CUDAPATH)/fields/stark256.cu -o $(CUDAPATH)/fields/stark256.ptx
+	nvcc -ptx $(CUDAPATH)/field/stark256.cu -o $(CUDAPATH)/field/stark256.ptx
 
 docs:
 	cd docs && mdbook serve --open

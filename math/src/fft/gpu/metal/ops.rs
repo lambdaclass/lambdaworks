@@ -132,7 +132,7 @@ fn void_ptr<T>(v: &T) -> *const core::ffi::c_void {
 
 #[cfg(test)]
 mod tests {
-    use crate::fft::roots_of_unity::get_twiddles;
+    use crate::fft::cpu::roots_of_unity::get_twiddles;
     use crate::field::{
         fields::fft_friendly::stark_252_prime_field::Stark252PrimeField, traits::RootsConfig,
     };
@@ -169,7 +169,7 @@ mod tests {
             let twiddles = get_twiddles(order.into(), RootsConfig::BitReverse).unwrap();
 
             let metal_result = super::fft(&input, &twiddles, &metal_state).unwrap();
-            let sequential_result = crate::fft::ops::fft(&input, &twiddles).unwrap();
+            let sequential_result = crate::fft::cpu::ops::fft(&input, &twiddles).unwrap();
 
             prop_assert_eq!(&metal_result, &sequential_result);
         }
