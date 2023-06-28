@@ -5,7 +5,6 @@ use crate::{
         traits::{IsFFTField, RootsConfig},
     },
 };
-use cudarc::driver::LaunchConfig;
 use lambdaworks_gpu::cuda::abstractions::errors::CudaError;
 
 /// Executes parallel ordered FFT over a slice of two-adic field elements, in CUDA.

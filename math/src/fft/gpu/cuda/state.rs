@@ -91,7 +91,12 @@ impl CudaState {
         order: u64,
         config: RootsConfig,
     ) -> Result<CalcTwiddlesFunction<F>, CudaError> {
-        let root: FieldElement<F> = F::get_primitive_root_of_unity(order)?;
+        let root: FieldElement<F> = F::get_primitive_root_of_unity(order).map_err(|_| {
+            CudaError::FunctionError(format!(
+                "Couldn't get primitive root of unity of order {}",
+                order
+            ))
+        })?;
 
         let (root, function_name) = match config {
             RootsConfig::Natural => (root, "calc_twiddles"),
