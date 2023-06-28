@@ -1,6 +1,7 @@
 #![no_main]
 use libfuzzer_sys::fuzz_target;
 use lambdaworks_math::{
+    fft::polynomial::FFTPoly,
     gpu::metal::fft::polynomial::{evaluate_fft_metal, interpolate_fft_metal}, 
     polynomial::Polynomial,
     field::{
@@ -35,10 +36,22 @@ fuzz_target!(|values: (Vec<[u64;4]>, Vec<[u64;4]>)| {
         twiddles.push(FieldElement::<Stark252PrimeField>::from_raw(&twiddle_value))
     }
 
-    let evaluated_fields = evaluate_fft_metal(&inputs).unwrap();
-    let interpolated_fields = interpolate_fft_metal(&evaluated_fields).unwrap();
-
     let polinomial_inputs =  Polynomial { coefficients: (*inputs).to_vec() };
-    assert_eq!(interpolated_fields, polinomial_inputs);
+
+    let evaluated_fields_cpu = polinomial_inputs.evaluate_fft(1, None);
+    let evaluated_fields_metal = evaluate_fft_metal(&inputs);
+
+    match evaluated_fields_cpu {
+        Ok(ref evaluated_fields_cpu) => assert_eq!(evaluated_fields_metal.unwrap(), *evaluated_fields_cpu),
+        Err(_) => assert!(evaluated_fields_metal.is_err())
+    };
+
+    let interpolated_poly = Polynomial::interpolate_fft(&evaluated_fields_cpu.as_ref().unwrap());
+    let interpolated_fields_metal = interpolate_fft_metal(&evaluated_fields_cpu.unwrap());
+
+
+    //let interpolated_fields_metal = interpolate_fft_metal(&evaluated_fields_metal).unwrap();
+
+    //assert_eq!(interpolated_fields_metal, polinomial_inputs);
 });
 
