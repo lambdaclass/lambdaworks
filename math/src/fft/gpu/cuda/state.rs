@@ -125,6 +125,77 @@ impl CudaState {
     }
 }
 
+pub(crate) struct Radix2DitButterflyFunction<F: IsField> {
+    device: Arc<CudaDevice>,
+    function: CudaFunction,
+    input: CudaSlice<CUDAFieldElement<F>>,
+    twiddles: CudaSlice<CUDAFieldElement<F>>,
+}
+
+impl<F: IsField> Radix2DitButterflyFunction<F> {
+    fn new(
+        device: Arc<CudaDevice>,
+        function: CudaFunction,
+        input: CudaSlice<CUDAFieldElement<F>>,
+        twiddles: CudaSlice<CUDAFieldElement<F>>,
+    ) -> Self {
+        Self {
+            device,
+            function,
+            input,
+            twiddles,
+        }
+    }
+
+    pub(crate) fn launch(
+        &mut self,
+        group_count: usize,
+        group_size: usize,
+    ) -> Result<(), CudaError> {
+        let grid_dim = (group_count as u32, 1, 1); // in blocks
+        let block_dim = ((group_size / 2) as u32, 1, 1);
+
+        if block_dim.0 as usize > DeviceSlice::len(&self.twiddles) {
+            return Err(CudaError::IndexOutOfBounds(
+                block_dim.0 as usize,
+                self.twiddles.len(),
+            ));
+        } else if (grid_dim.0 * block_dim.0) as usize > DeviceSlice::len(&self.input) {
+            return Err(CudaError::IndexOutOfBounds(
+                (grid_dim.0 * block_dim.0) as usize,
+                self.input.len(),
+            ));
+        }
+
+        let config = LaunchConfig {
+            grid_dim,
+            block_dim,
+            shared_mem_bytes: 0,
+        };
+        // Launching kernels must be done in an unsafe block.
+        // Calling a kernel is similar to calling a foreign-language function,
+        // as the kernel itself could be written in C or unsafe Rust.
+        unsafe {
+            self.function
+                .clone()
+                .launch(config, (&mut self.input, &self.twiddles))
+        }
+        .map_err(|err| CudaError::Launch(err.to_string()))
+    }
+
+    pub(crate) fn retrieve_result(self) -> Result<Vec<FieldElement<F>>, CudaError> {
+        let Self { device, input, .. } = self;
+        let output = device
+            .sync_reclaim(input)
+            .map_err(|err| CudaError::RetrieveMemory(err.to_string()))?
+            .into_iter()
+            .map(FieldElement::from)
+            .collect();
+
+        Ok(output)
+    }
+}
+
 pub(crate) struct CalcTwiddlesFunction<F: IsField> {
     device: Arc<CudaDevice>,
     function: CudaFunction,
