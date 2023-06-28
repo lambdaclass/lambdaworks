@@ -1,8 +1,10 @@
 #![no_main]
 use libfuzzer_sys::fuzz_target;
 use lambdaworks_math::{
-    gpu::metal::fft::ops::fft as fft_metal, 
-    fft::ops::fft as fft_cpu, 
+    fft::{
+        gpu::metal::ops::fft as fft_metal,
+        cpu::ops::fft as fft_cpu
+    },
     field::{
         fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
         element::FieldElement
