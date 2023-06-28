@@ -13,7 +13,7 @@ use crate::{
 use super::ops::fft;
 use lambdaworks_gpu::cuda::abstractions::errors::CudaError;
 
-pub fn evaluate_fft_cuda<F>(coeffs: &[FieldElement<F>]) -> Result<Vec<FieldElement<F>>, FFTError>
+pub fn evaluate_fft_cuda<F>(coeffs: &[FieldElement<F>]) -> Result<Vec<FieldElement<F>>, CudaError>
 where
     F: IsFFTField,
     F::BaseType: Unpin,

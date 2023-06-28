@@ -1,14 +1,14 @@
 use crate::{
     field::{
         element::FieldElement,
+        fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
         traits::{IsFFTField, IsField, RootsConfig},
     },
     gpu::cuda::field::element::CUDAFieldElement,
 };
 use cudarc::{
     driver::{
-        safe::CudaSlice, safe::DeviceSlice, CudaDevice, CudaFunction, DeviceRepr, LaunchAsync,
-        LaunchConfig,
+        safe::CudaSlice, safe::DeviceSlice, CudaDevice, CudaFunction, LaunchAsync, LaunchConfig,
     },
     nvrtc::safe::Ptx,
 };
@@ -31,12 +31,13 @@ impl CudaState {
         let state = Self { device };
 
         // Load PTX libraries
-        state.load_library(STARK256_PTX, "stark256")?;
+        state.load_library::<Stark252PrimeField>(STARK256_PTX)?;
 
         Ok(state)
     }
 
-    pub fn load_library(&self, src: &'static str, mod_name: &'static str) -> Result<(), CudaError> {
+    fn load_library<F: IsFFTField>(&self, src: &'static str) -> Result<(), CudaError> {
+        let mod_name: &'static str = F::field_name();
         let functions = [
             "radix2_dit_butterfly",
             "calc_twiddles",
@@ -48,29 +49,21 @@ impl CudaState {
             .map_err(|err| CudaError::PtxError(err.to_string()))
     }
 
-    pub fn get_function(&self, mod_name: &str, func_name: &str) -> Result<CudaFunction, CudaError> {
+    fn get_function<F: IsFFTField>(&self, func_name: &str) -> Result<CudaFunction, CudaError> {
+        let mod_name = F::field_name();
         self.device
             .get_func(mod_name, func_name)
             .ok_or_else(|| CudaError::FunctionError(func_name.to_string()))
     }
 
     /// Allocates a buffer in the GPU and copies `data` into it. Returns its handle.
-    pub fn alloc_buffer_with_data<T: DeviceRepr>(
+    fn alloc_buffer_with_data<F: IsField>(
         &self,
-        data: &[T],
-    ) -> Result<CudaSlice<T>, CudaError> {
+        data: &[FieldElement<F>],
+    ) -> Result<CudaSlice<CUDAFieldElement<F>>, CudaError> {
         self.device
-            .htod_sync_copy(data)
+            .htod_sync_copy(&data.iter().map(CUDAFieldElement::from).collect::<Vec<_>>())
             .map_err(|err| CudaError::AllocateMemory(err.to_string()))
-    }
-
-    pub fn retrieve_result<T>(&self, src: CudaSlice<T>) -> Result<Vec<T>, CudaError>
-    where
-        T: Clone + Default + DeviceRepr + Unpin,
-    {
-        self.device
-            .sync_reclaim(src)
-            .map_err(|err| CudaError::RetrieveMemory(err.to_string()))
     }
 
     /// Returns a wrapper object over the `radix2_dit_butterfly` function defined in `fft.cu`
