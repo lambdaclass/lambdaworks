@@ -8,8 +8,8 @@ license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rand = {version = "0.8.5", default-features = false}
-thiserror = "1.0.38"
+rand = { version = "0.8.5", default-features = false }
+thiserror = { version = "1.0.38", optional = true }
 
 # rayon
 rayon = { version = "1.7.0", optional = true }
@@ -22,8 +22,6 @@ objc = { version = "0.2.7", optional = true }
 # cuda
 cudarc = { version = "0.9.7", optional = true }
 
-lambdaworks-gpu.workspace = true
-
 [dev-dependencies]
 proptest = "1.1.0"
 criterion = "0.4"
@@ -33,21 +31,15 @@ iai-callgrind.workspace = true
 [features]
 rayon = ["dep:rayon"]
 default = ["rayon", "std"]
-std = []
-
-# gpu
-metal = ["dep:metal", "dep:objc", "lambdaworks-gpu/metal"]
-cuda = ["dep:cudarc"]
-
-[[bench]]
-name = "criterion_elliptic_curve"
-harness = false
+std = ["dep:thiserror"]
 
 # gpu
 metal = ["dep:metal", "dep:objc"]
 cuda = ["dep:cudarc"]
 
-rayon = ["dep:rayon"]
+[[bench]]
+name = "criterion_elliptic_curve"
+harness = false
 
 [[bench]]
 name = "criterion_polynomial"
