@@ -23,17 +23,17 @@ fn compare_errors(metal_error: MetalError, fft_error: FFTError) -> bool {
     }
 }
 
-fuzz_target!(|data: Vec<[u64;4]>| {
+fuzz_target!(|data: Vec<u64>| {
     let mut inputs_raw = data;
     let mut inputs = Vec::new();
 
     if inputs_raw.len() == 0 {
-        inputs_raw.push([1u64;4]);
+        inputs_raw.push(0u64);
     }
 
     for i in 0..inputs_raw.len() {
-        let input_value = UnsignedInteger::<4>::from_limbs(inputs_raw[i]);
-        inputs.push(FieldElement::<Stark252PrimeField>::from_raw(&input_value))
+        let input_value = format!("{:x}", inputs_raw[i]);
+        inputs.push(FieldElement::<Stark252PrimeField>::from_hex_unchecked(&input_value))
     }
 
     let (fft_eval_metal, fft_eval_cpu) = match (evaluate_fft_metal(&inputs), evaluate_fft_cpu(&inputs)) {
