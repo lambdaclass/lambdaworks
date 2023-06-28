@@ -1,6 +1,5 @@
 use crate::{
-    fft::{errors::FFTError, gpu::cuda::state::CudaState},
-    field::element::{FieldElement, IsFFTField, IsField},
+    field::{element::FieldElement, traits::IsField},
     gpu::cuda::field::element::CUDAFieldElement,
 };
 use cudarc::{
@@ -71,7 +70,7 @@ impl CudaState {
     }
 }
 
-pub(crate) struct CalcTwiddlesFunction<F, IsFFTField> {
+pub(crate) struct CalcTwiddlesFunction<F: IsField> {
     device: Arc<CudaDevice>,
     function: CudaFunction,
     omega: CudaSlice<CUDAFieldElement<F>>,
