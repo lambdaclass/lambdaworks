@@ -20,46 +20,24 @@ pub fn fft<F>(
     input: &[FieldElement<F>],
     twiddles: &[FieldElement<F>],
     state: &CudaState,
-) -> Result<Vec<FieldElement<F>>, FFTError>
+) -> Result<Vec<FieldElement<F>>, CudaError>
 where
     F: IsFFTField,
     F::BaseType: Unpin,
 {
-    // TODO: make a twiddle factor abstraction for handling invalid twiddles
-    if !input.len().is_power_of_two() {
-        return Err(FFTError::InputError(input.len()));
-    }
-
-    let function = state.get_function(F::field_name(), "radix2_dit_butterfly")?;
-
-    let input: Vec<_> = input.iter().map(CUDAFieldElement::from).collect();
-    let twiddles: Vec<_> = twiddles.iter().map(CUDAFieldElement::from).collect();
-
-    let mut input_buffer = state.alloc_buffer_with_data(&input)?;
-    let twiddles_buffer = state.alloc_buffer_with_data(&twiddles)?;
+    let mut function = state.get_radix2_dit_butterfly(input, twiddles)?;
 
     let order = input.len().trailing_zeros();
     for stage in 0..order {
         let group_count = 1 << stage;
         let group_size = input.len() / group_count;
 
-        let config = LaunchConfig {
-            grid_dim: (group_count as u32, 1, 1),
-            block_dim: (group_size as u32 / 2, 1, 1),
-            shared_mem_bytes: 0,
-        };
-
-        unsafe {
-            function
-                .clone()
-                .launch(config, (&mut input_buffer, &twiddles_buffer))
-        }
-        .map_err(|err| CudaError::Launch(err.to_string()))?;
+        function.launch(group_count, group_size)?;
     }
 
     let output = function.retrieve_result()?;
 
-    Ok(bitrev_permutation(output, state)?)
+    bitrev_permutation(output, state)
 }
 
 pub fn gen_twiddles<F: IsFFTField>(

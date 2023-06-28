@@ -73,6 +73,25 @@ impl CudaState {
             .map_err(|err| CudaError::RetrieveMemory(err.to_string()))
     }
 
+    /// Returns a wrapper object over the `radix2_dit_butterfly` function defined in `fft.cu`
+    pub(crate) fn get_radix2_dit_butterfly<F: IsFFTField>(
+        &self,
+        input: &[FieldElement<F>],
+        twiddles: &[FieldElement<F>],
+    ) -> Result<Radix2DitButterflyFunction<F>, CudaError> {
+        let function = self.get_function::<F>("radix2_dit_butterfly")?;
+
+        let input_buffer = self.alloc_buffer_with_data(input)?;
+        let twiddles_buffer = self.alloc_buffer_with_data(twiddles)?;
+
+        Ok(Radix2DitButterflyFunction::new(
+            Arc::clone(&self.device),
+            function,
+            input_buffer,
+            twiddles_buffer,
+        ))
+    }
+
     /// Returns a wrapper object over the `calc_twiddles` function defined in `twiddles.cu`
     pub(crate) fn get_calc_twiddles<F: IsFFTField>(
         &self,
