@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1687970175453,
+  "lastUpdate": 1687972348044,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -4097,6 +4097,150 @@ window.BENCHMARK_DATA = {
             "name": "Polynomial/div by 'x - b' with Ruffini",
             "value": 1562,
             "range": "± 27",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "38794644+gabrielbosio@users.noreply.github.com",
+            "name": "Gabriel Bosio",
+            "username": "gabrielbosio"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4f7be9f2d9c92344237f84580bf8245d0d68f34e",
+          "message": "Fix cuda feature (#459)\n\n* Comment walkdir dep usage\n\n* Add walkdir dependency\n\n* Set walkdir as a build dependency\n\n* Fix cuda paths\n\n* Remove unused cuda state fns\n\n* Remove generic in load_library\n\n* Revert \"Remove unused cuda state fns\"\n\nThis reverts commit 5ebca0b709a419f72c80bfcdeae050a7acdaf6e0.\n\n* Move cuda state to math\n\n* Remove state mod from gpu\n\n* Fix import and linter errors\n\n* Copy crate import from ops into state\n\n* Remove state import in state module\n\n* Revert \"Move cuda state to math\" and move it using git mv\n\nThis reverts commit 033ba60cf6d391dc4cb5c805b9839e30a502062c.\n\n* Fix missing imports\n\n* Remove cudarc link\n\n* Fix typos and imports\n\n* Add state wrappers\n\n* Use LaunchAsync and add radix2 fn wrapper\n\n* Fix radix2 fn wrapper usage\n\n* Several fixes done by wrong merge\n\n* Fix imports\n\n* Fix clippy\n\n* Add cpu module usage in tests",
+          "timestamp": "2023-06-28T17:06:21Z",
+          "tree_id": "a8c2c9ed85162ee3ea5a03b8a9bc1c8a31c789a0",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/4f7be9f2d9c92344237f84580bf8245d0d68f34e"
+        },
+        "date": 1687972342122,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "Ordered FFT/Parallel (Metal)",
+            "value": 132045986,
+            "range": "± 730759",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #2",
+            "value": 254416354,
+            "range": "± 2022770",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #3",
+            "value": 484196083,
+            "range": "± 4706396",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #4",
+            "value": 981678854,
+            "range": "± 17246896",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal)",
+            "value": 34505312,
+            "range": "± 283639",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #2",
+            "value": 68398127,
+            "range": "± 653675",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #3",
+            "value": 133287732,
+            "range": "± 1320279",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #4",
+            "value": 279811718,
+            "range": "± 2153429",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal)",
+            "value": 31035638,
+            "range": "± 194498",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #2",
+            "value": 58882133,
+            "range": "± 465892",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #3",
+            "value": 126110712,
+            "range": "± 5680676",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #4",
+            "value": 250447000,
+            "range": "± 18689479",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal",
+            "value": 164802916,
+            "range": "± 1154402",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #2",
+            "value": 328614312,
+            "range": "± 2100715",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #3",
+            "value": 655285958,
+            "range": "± 3946905",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #4",
+            "value": 1309372083,
+            "range": "± 23547464",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal",
+            "value": 449252426,
+            "range": "± 2606944",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #2",
+            "value": 894246042,
+            "range": "± 6733408",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #3",
+            "value": 1744411562,
+            "range": "± 14738483",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #4",
+            "value": 3463194646,
+            "range": "± 26174029",
             "unit": "ns/iter"
           }
         ]
