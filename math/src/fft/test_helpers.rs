@@ -1,9 +1,10 @@
-use crate::field::{
-    element::FieldElement,
-    traits::{IsFFTField, RootsConfig},
+use crate::{
+    fft::cpu::roots_of_unity::get_powers_of_primitive_root,
+    field::{
+        element::FieldElement,
+        traits::{IsFFTField, RootsConfig},
+    },
 };
-
-use crate::fft::roots_of_unity::get_powers_of_primitive_root;
 
 /// Calculates the (non-unitary) Discrete Fourier Transform of `input` via the DFT matrix.
 pub fn naive_matrix_dft_test<F: IsFFTField>(input: &[FieldElement<F>]) -> Vec<FieldElement<F>> {

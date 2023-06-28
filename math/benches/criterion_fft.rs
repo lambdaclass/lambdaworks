@@ -2,7 +2,7 @@
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use lambdaworks_math::field::traits::RootsConfig;
 use utils::fft_functions;
-use utils::fft_utils;
+use utils::stark252_utils;
 
 mod utils;
 
@@ -14,11 +14,11 @@ pub fn fft_benchmarks(c: &mut Criterion) {
     for order in SIZE_ORDERS {
         group.throughput(criterion::Throughput::Elements(1 << order));
 
-        let input_nat = fft_utils::rand_field_elements(order);
-        let twiddles_nat = fft_utils::twiddles(order, RootsConfig::Natural);
+        let input_nat = stark252_utils::rand_field_elements(order);
+        let twiddles_nat = stark252_utils::twiddles(order, RootsConfig::Natural);
         let mut input_bitrev = input_nat.clone();
-        fft_utils::bitrev_permute(&mut input_bitrev);
-        let twiddles_bitrev = fft_utils::twiddles(order, RootsConfig::BitReverse);
+        stark252_utils::bitrev_permute(&mut input_bitrev);
+        let twiddles_bitrev = stark252_utils::twiddles(order, RootsConfig::BitReverse);
 
         group.bench_with_input(
             "Sequential from NR radix2",
@@ -77,13 +77,13 @@ fn twiddles_generation_benchmarks(c: &mut Criterion) {
 fn bitrev_permutation_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("Bit-reverse permutation");
 
-    for input in SIZE_ORDERS.map(fft_utils::rand_field_elements) {
+    for input in SIZE_ORDERS.map(stark252_utils::rand_field_elements) {
         group.throughput(criterion::Throughput::Elements(input.len() as u64));
         group.bench_with_input("Sequential", &input, |bench, input| {
             bench.iter_batched(
                 || input.clone(),
                 |mut input| {
-                    fft_functions::bitrev_permute(&mut input);
+                    stark252_utils::bitrev_permute(&mut input);
                 },
                 BatchSize::LargeInput,
             );
@@ -96,7 +96,7 @@ fn bitrev_permutation_benchmarks(c: &mut Criterion) {
 fn poly_evaluation_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("Polynomial evaluation");
 
-    for poly in SIZE_ORDERS.map(fft_utils::rand_poly) {
+    for poly in SIZE_ORDERS.map(stark252_utils::rand_poly) {
         group.throughput(criterion::Throughput::Elements(
             poly.coefficients().len() as u64
         ));
@@ -113,7 +113,7 @@ fn poly_evaluation_benchmarks(c: &mut Criterion) {
 fn poly_interpolation_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("Polynomial interpolation");
 
-    for evals in SIZE_ORDERS.map(fft_utils::rand_field_elements) {
+    for evals in SIZE_ORDERS.map(stark252_utils::rand_field_elements) {
         group.throughput(criterion::Throughput::Elements(evals.len() as u64));
         group.bench_with_input("Sequential FFT", &evals, |bench, evals| {
             bench.iter_with_large_drop(|| {
