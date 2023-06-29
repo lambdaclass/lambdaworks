@@ -1,9 +1,13 @@
+use lambdaworks_math::{
+    elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::BLS12381FieldModulus,
+    field::fields::fft_friendly::stark_252_prime_field::MontgomeryConfigStark252PrimeField,
+};
 use sha2::{Sha256, Sha512};
 use sha3::{Keccak256, Keccak512, Sha3_256, Sha3_512};
 
 use super::{
     batch_256_bits::Batch256BitsTree, batch_512_bits::Batch512BitsTree, hash_256_bits::Tree256Bits,
-    hash_512_bits::Tree512Bits,
+    hash_512_bits::Tree512Bits, poseidon::TreePoseidon,
 };
 
 // Trees definitions
@@ -17,6 +21,9 @@ pub type Sha2_256Tree<F> = Tree256Bits<F, Sha256>;
 pub type Sha3_512Tree<F> = Tree512Bits<F, Sha3_512>;
 pub type Keccak512Tree<F> = Tree512Bits<F, Keccak512>;
 pub type Sha2_512Tree<F> = Tree512Bits<F, Sha512>;
+
+// - Poseidon over Cairo STARKs field
+pub type PoseidonStarkFieldTree = TreePoseidon<MontgomeryConfigStark252PrimeField, 4>;
 
 // Batch trees definitions
 

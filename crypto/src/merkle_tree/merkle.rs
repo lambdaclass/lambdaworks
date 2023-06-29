@@ -58,6 +58,56 @@ where
     }
 }
 
+// impl<M, const NUM_LIMBS: usize> MerkleTree<TreePoseidon<M, NUM_LIMBS>>
+// where
+//     M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug,
+// {
+//     pub fn build(unhashed_leaves: &[<TreePoseidon<M, NUM_LIMBS> as IsMerkleTreeBackend>::Data]) -> Self {
+//         let hasher = TreePoseidon::<M, NUM_LIMBS>::default();
+//         let mut hashed_leaves: Vec<TreePoseidon<M, NUM_LIMBS>::Node> = hasher.hash_leaves(unhashed_leaves);
+
+//         //The leaf must be a power of 2 set
+//         hashed_leaves = complete_until_power_of_two(&mut hashed_leaves);
+
+//         //The length of leaves minus one inner node in the merkle tree
+
+//         // The first elements are overwritten by build function, it doesn't matter what it's there
+//         let mut inner_nodes = vec![hashed_leaves[0].clone(); hashed_leaves.len() - 1];
+//         inner_nodes.extend(hashed_leaves);
+
+//         //Build the inner nodes of the tree
+//         build(&mut inner_nodes, ROOT, &hasher);
+
+//         MerkleTree {
+//             root: inner_nodes[ROOT].clone(),
+//             nodes: inner_nodes,
+//         }
+//     }
+
+//     pub fn get_proof_by_pos(&self, pos: usize) -> Option<Proof<B::Node>> {
+//         let pos = pos + self.nodes.len() / 2;
+//         let merkle_path = self.build_merkle_path(pos);
+
+//         self.create_proof(merkle_path)
+//     }
+
+//     fn create_proof(&self, merkle_path: Vec<B::Node>) -> Option<Proof<B::Node>> {
+//         Some(Proof { merkle_path })
+//     }
+
+//     fn build_merkle_path(&self, pos: usize) -> Vec<B::Node> {
+//         let mut merkle_path = Vec::new();
+//         let mut pos = pos;
+
+//         while pos != ROOT {
+//             merkle_path.push(self.nodes[sibling_index(pos)].clone());
+//             pos = parent_index(pos);
+//         }
+
+//         merkle_path
+//     }
+// }
+
 #[cfg(test)]
 mod tests {
     use lambdaworks_math::field::{element::FieldElement, fields::u64_prime_field::U64PrimeField};

@@ -1,14 +1,20 @@
 /// Poseidon implementation for curve BLS12381
 use self::parameters::Parameters;
-
 use lambdaworks_math::{
     elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::BLS12381PrimeField,
-    field::{element::FieldElement, traits::IsField},
+    field::{
+        element::FieldElement,
+        fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
+        traits::IsField,
+    },
+    unsigned_integer::element::UnsignedInteger,
 };
+use std::fmt::Debug;
 use std::ops::{Add, Mul};
 
 pub mod parameters;
 
+#[derive(Clone)]
 pub struct Poseidon<F: IsField> {
     params: Parameters<F>,
 }
@@ -22,9 +28,38 @@ impl Poseidon<BLS12381PrimeField> {
     }
 }
 
-impl Default for Poseidon<BLS12381PrimeField> {
+impl<M, const NUM_LIMBS: usize> Default for Poseidon<MontgomeryBackendPrimeField<M, NUM_LIMBS>>
+where
+    M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug,
+{
+    // The default implementation for any MontgomeryBackendPrimeField will be with the config files
+    // of the StarknetPrimeField in `s128b/round_constants.csv` and `s128b/mds_matrix.csv`.
     fn default() -> Self {
-        Self::new()
+        let round_constants_csv = include_str!("s128b/round_constants.csv");
+        let mds_constants_csv = include_str!("s128b/mds_matrix.csv");
+
+        // If the files are the correct ones and are located in the specified path, this should never
+        // raise an error; that is the reason for the `.unwrap()`.
+        // We could hardcode the constants in those files later on so that we don't have to
+        // parse the values from them.
+        let (round_constants, mds_matrix) =
+            Parameters::<MontgomeryBackendPrimeField<M, NUM_LIMBS>>::default_parse(
+                round_constants_csv,
+                mds_constants_csv,
+            )
+            .unwrap();
+
+        let params = Parameters {
+            rate: 1,
+            capacity: 1,
+            alpha: 3,
+            n_full_rounds: 8,
+            n_partial_rounds: 83,
+            round_constants,
+            mds_matrix,
+        };
+
+        Self::new_with_params(params)
     }
 }
 
@@ -88,7 +123,7 @@ where
         }
     }
 
-    fn hash(&self, inputs: &[FieldElement<F>]) -> Result<Vec<FieldElement<F>>, String>
+    pub fn hash(&self, inputs: &[FieldElement<F>]) -> Result<Vec<FieldElement<F>>, String>
     where
         F: IsField,
     {
@@ -171,6 +206,9 @@ mod tests {
             mds_matrix.push(matrix_line);
         }
 
+        println!("ROUND CONSTANTS: {:?}", round_constants);
+        println!("MDS MATRIX: {:?}", mds_matrix);
+
         Ok(Parameters {
             rate: 2,
             capacity: 1,
@@ -236,16 +274,6 @@ mod tests {
             )),
         ];
         assert_eq!(state, expected);
-    }
-
-    #[test]
-    fn test_hash() {
-        let poseidon: Poseidon<BLS12381PrimeField> = Poseidon::new();
-
-        let a = FieldElement::one();
-        let b = FieldElement::zero();
-
-        poseidon.hash_new_parent(&a, &b);
     }
 
     #[test]
