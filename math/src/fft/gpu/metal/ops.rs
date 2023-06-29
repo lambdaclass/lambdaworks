@@ -63,6 +63,12 @@ pub fn gen_twiddles<F: IsFFTField>(
     config: RootsConfig,
     state: &MetalState,
 ) -> Result<Vec<FieldElement<F>>, MetalError> {
+    if order > 63 {
+        return Err(MetalError::FunctionError(
+            "Order should be less than or equal to 63".to_string(),
+        ));
+    }
+
     let len = (1 << order) / 2;
 
     let kernel = match config {
@@ -173,5 +179,13 @@ mod tests {
 
             prop_assert_eq!(&metal_result, &sequential_result);
         }
+    }
+
+    #[test]
+    fn gen_twiddles_with_order_greater_than_63_should_fail() {
+        let metal_state = MetalState::new(None).unwrap();
+        let twiddles = gen_twiddles::<F>(64, RootsConfig::Natural, &metal_state);
+
+        assert!(matches!(twiddles, Err(MetalError::FunctionError(_))));
     }
 }

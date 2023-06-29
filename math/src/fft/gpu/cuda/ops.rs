@@ -43,6 +43,12 @@ pub fn gen_twiddles<F: IsFFTField>(
     config: RootsConfig,
     state: &CudaState,
 ) -> Result<Vec<FieldElement<F>>, CudaError> {
+    if order > 63 {
+        return Err(CudaError::FunctionError(
+            "Order should be less than or equal to 63".to_string(),
+        ));
+    }
+
     let count = (1 << order) / 2;
     if count == 0 {
         return Ok(Vec::new());
@@ -108,5 +114,13 @@ mod tests {
 
             prop_assert_eq!(cuda_fft, fft);
         }
+    }
+
+    #[test]
+    fn gen_twiddles_with_order_greater_than_63_should_fail() {
+        let state = CudaState::new().unwrap();
+        let twiddles = gen_twiddles::<F>(64, RootsConfig::Natural, &state);
+
+        assert!(matches!(twiddles, Err(CudaError::FunctionError(_))));
     }
 }
