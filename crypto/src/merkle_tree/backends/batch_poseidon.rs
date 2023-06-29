@@ -1,3 +1,4 @@
+use crate::{hash::poseidon::Poseidon, merkle_tree::traits::IsMerkleTreeBackend};
 use lambdaworks_math::{
     field::{
         element::FieldElement,
@@ -6,10 +7,6 @@ use lambdaworks_math::{
     unsigned_integer::element::UnsignedInteger,
 };
 use std::fmt::Debug;
-
-use crate::{hash::poseidon::Poseidon, merkle_tree::traits::IsMerkleTreeBackend};
-
-use super::poseidon::TreePoseidon;
 
 #[derive(Clone)]
 pub struct BatchPoseidon<M, const NUM_LIMBS: usize>
@@ -29,7 +26,7 @@ where
     }
 }
 
-impl<M, const NUM_LIMBS: usize> IsMerkleTreeBackend for TreePoseidon<M, NUM_LIMBS>
+impl<M, const NUM_LIMBS: usize> IsMerkleTreeBackend for BatchPoseidon<M, NUM_LIMBS>
 where
     M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug,
 {
