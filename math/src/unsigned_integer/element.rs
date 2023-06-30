@@ -782,7 +782,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
 
         while i < NUM_LIMBS {
             let (w, b) = Self::sbb_limbs(self.limbs[i], rhs.limbs[i], borrow);
-            limbs[i] = w;
+            limbs[NUM_LIMBS - 1 - i] = w;
             borrow = b;
             i += 1;
         }
