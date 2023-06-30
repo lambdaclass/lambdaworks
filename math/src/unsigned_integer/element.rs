@@ -2699,4 +2699,11 @@ mod tests_u256 {
         b >>= 222;
         assert_eq!(a, b);
     }
+
+    #[test]
+    fn div_rem_works_1() {
+        let a = U256::from_u128(12678920202929299999999999282828);
+        let b = U256::from_u128(9000000000000);
+        assert_eq!((a * b).div_rem(&b), (a, U256::from_u64(0)));
+    }
 }
