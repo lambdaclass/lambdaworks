@@ -612,7 +612,7 @@ mod tests {
             FieldElement::inplace_batch_inverse(&mut inverses);
 
             for (i, x) in inverses.into_iter().enumerate() {
-                prop_assert_eq!(x * &input[i], FieldElement::<Stark252PrimeField>::one());
+                prop_assert_eq!(x * input[i], FieldElement::<Stark252PrimeField>::one());
             }
         }
     }
