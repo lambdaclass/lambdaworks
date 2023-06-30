@@ -51,6 +51,9 @@ impl FieldElement<Stark252PrimeField> {
         bytes
     }
 
+    /// No std version of `to_bytes_be` from `ByteConversion` trait
+    /// This follows the convention used by
+    /// Starkware and Lambdaclass Cairo VM It's the same as ByteConversion to_bytes_be.
     pub fn to_bytes_be(&self) -> [u8; 32] {
         let limbs = self.representative().limbs;
         let mut bytes: [u8; 32] = [0; 32];
