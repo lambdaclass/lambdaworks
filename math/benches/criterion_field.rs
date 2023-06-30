@@ -78,7 +78,7 @@ pub fn starkfield_ops_benchmarks(c: &mut Criterion) {
         bench.iter(|| x.sqrt());
     });
 
-    group.bench_with_input("sqrt squared", &(&x * &x), |bench, x| {
+    group.bench_with_input("sqrt squared", &(x * x), |bench, x| {
         bench.iter(|| x.sqrt());
     });
 
