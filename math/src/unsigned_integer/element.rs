@@ -776,15 +776,13 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
 
     #[inline(always)]
     /// Computes `a - (b + borrow)`, returning the result along with the new borrow.
-    pub const fn sbb(&self, rhs: &Self, mut borrow: u64) -> (Self, u64) {
+    pub fn sbb(&self, rhs: &Self, mut borrow: u64) -> (Self, u64) {
         let mut limbs = [0; NUM_LIMBS];
-        let mut i = 0;
 
-        while i < NUM_LIMBS {
+        for i in (0..NUM_LIMBS).rev() {
             let (w, b) = Self::sbb_limbs(self.limbs[i], rhs.limbs[i], borrow);
             limbs[i] = w;
             borrow = b;
-            i += 1;
         }
 
         (Self { limbs }, borrow)
