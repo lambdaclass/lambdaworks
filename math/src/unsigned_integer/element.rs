@@ -911,6 +911,8 @@ impl<const NUM_LIMBS: usize> From<UnsignedInteger<NUM_LIMBS>> for u16 {
 
 #[cfg(test)]
 mod tests_u384 {
+    use core::ops::Shr;
+
     use crate::traits::ByteConversion;
     use crate::unsigned_integer::element::{UnsignedInteger, U384};
 
@@ -975,6 +977,13 @@ mod tests_u384 {
             for i in 0..N_LIMBS {
                 assert_eq!(result.limbs[i], a[i] ^ b[i]);
             }
+        }
+
+        #[test]
+        fn div_rem(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
+            let a = Uint::from_limbs(a).shr(256);
+            let b = Uint::from_limbs(b).shr(256);
+            assert_eq!((a * b).div_rem(&b), (a, Uint::from_u64(0)));
         }
     }
 
@@ -1868,6 +1877,8 @@ mod tests_u384 {
 
 #[cfg(test)]
 mod tests_u256 {
+    use core::ops::Shr;
+
     use crate::unsigned_integer::element::{UnsignedInteger, U256};
 
     use crate::unsigned_integer::element::ByteConversion;
@@ -1933,6 +1944,13 @@ mod tests_u256 {
             for i in 0..N_LIMBS {
                 assert_eq!(result.limbs[i], a[i] ^ b[i]);
             }
+        }
+
+        #[test]
+        fn div_rem(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
+            let a = Uint::from_limbs(a).shr(128);
+            let b = Uint::from_limbs(b).shr(128);
+            assert_eq!((a * b).div_rem(&b), (a, Uint::from_u64(0)));
         }
     }
 
