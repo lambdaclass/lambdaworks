@@ -10,6 +10,7 @@ license.workspace = true
 [dependencies]
 lambdaworks-math.workspace = true
 sha3 = "0.10.6"
+sha2 = "0.10.6"
 thiserror = "1.0.38"
 
 [dependencies.rand]

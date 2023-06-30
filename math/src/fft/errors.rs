@@ -13,6 +13,8 @@ pub enum FFTError {
     RootOfUnityError(u64),
     #[error("Input length is {0}, which is not a power of two")]
     InputError(usize),
+    #[error("Order should be less than or equal to 63, but is {0}")]
+    OrderError(u64),
     #[cfg(feature = "metal")]
     #[error("A Metal related error has ocurred")]
     MetalError(#[from] MetalError),
