@@ -48,7 +48,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         for _i in 0..1000 {
             rand::thread_rng().fill_bytes(&mut buf[..]);
             let a = FieldElement::<Stark252PrimeField>::from_bytes_be(&buf).unwrap();
-            let square = &a * &a;
+            let square = a * a;
             v.push(square);
         }
 
