@@ -788,10 +788,24 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         (Self { limbs }, borrow)
     }
 
+    #[inline(always)]
+    /// Returns the number of bits needed to represent the number as little endian
+    fn bits_le(&self) -> usize {
+        // TODO: do better
+        let limbs :Vec<u64> = self.limbs.iter().map(Clone::clone).rev().collect();
+        let mut i = NUM_LIMBS - 1;
+        while i > 0 && limbs[i] == 0 {
+            i -= 1;
+        }
+
+        let limb = limbs[i];
+        u64::BITS as usize * (i + 1) - limb.leading_zeros() as usize
+    }
+
     /// Computes self / rhs, returns the quotient, remainder.
     pub fn div_rem(&self, rhs: &Self) -> (Self, Self) {
-        let mb = rhs.bits() as usize;
-        assert!(mb != 0, "Attempted to divide by zero");
+        assert!(*rhs != UnsignedInteger::from_u64(0), "Attempted to divide by zero");
+        let mb = rhs.bits_le() as usize;
         let mut bd = (NUM_LIMBS * u64::BITS as usize) - mb;
         let mut rem = *self;
         let mut quo = Self::from_u64(0);
