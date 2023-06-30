@@ -792,8 +792,9 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
 
     /// Computes self / rhs, returns the quotient, remainder.
     pub fn div_rem(&self, rhs: &Self) -> (Self, Self) {
-        let mb = rhs.bits();
-        let mut bd = u64::BITS - mb;
+        let mb = rhs.bits() as usize;
+        assert!(mb != 0, "Attempted to divide by zero");
+        let mut bd = (NUM_LIMBS * u64::BITS as usize) - mb;
         let mut rem = *self;
         let mut quo = Self::from_u64(0);
         let mut c = rhs.shl(bd as usize);
