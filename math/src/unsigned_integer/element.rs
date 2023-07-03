@@ -2719,10 +2719,17 @@ mod tests_u256 {
     }
 
     #[test]
-    fn div_rem_works_1() {
+    fn multiplying_and_dividing_for_number_is_number_with_remainder_0() {
         let a = U256::from_u128(12678920202929299999999999282828);
         let b = U256::from_u128(9000000000000);
         assert_eq!((a * b).div_rem(&b), (a, U256::from_u64(0)));
+    }
+
+    #[test]
+    fn div_rem_works_1() {
+        let a: UnsignedInteger<4> = U256::from_u64(8);
+        let b = U256::from_u64(3);
+        assert_eq!(a.div_rem(&b), (U256::from_u64(2), U256::from_u64(2)));
     }
 
     #[test]
