@@ -734,7 +734,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
     /// Returns the truthy value if `self != 0` and the falsy value otherwise.
     #[inline]
     const fn ct_is_nonzero(ct: u64) -> u64 {
-        Self::ct_from_lsb((ct | ct.wrapping_neg()) >> u64::BITS - 1)
+        Self::ct_from_lsb((ct | ct.wrapping_neg()) >> (u64::BITS - 1))
     }
 
     /// Returns the truthy value if `value == 1`, and the falsy value if `value == 0`.
@@ -806,11 +806,11 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
             *rhs != UnsignedInteger::from_u64(0),
             "Attempted to divide by zero"
         );
-        let mb = rhs.bits_le() as usize;
+        let mb = rhs.bits_le();
         let mut bd = (NUM_LIMBS * u64::BITS as usize) - mb;
         let mut rem = *self;
         let mut quo = Self::from_u64(0);
-        let mut c = rhs.shl(bd as usize);
+        let mut c = rhs.shl(bd);
 
         loop {
             let (mut r, borrow) = rem.sbb(&c, 0);
