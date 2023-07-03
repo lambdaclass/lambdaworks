@@ -2724,4 +2724,24 @@ mod tests_u256 {
         let b = U256::from_u128(9000000000000);
         assert_eq!((a * b).div_rem(&b), (a, U256::from_u64(0)));
     }
+
+    #[test]
+    fn div_rem_works_2() {
+        let a = U256::from_u64(500721);
+        let b = U256::from_u64(5);
+        assert_eq!(a.div_rem(&b), (U256::from_u64(100144), U256::from_u64(1)));
+    }
+
+    #[test]
+    fn div_rem_works_3() {
+        let a = U256::from_u128(4758402376589578934275873583589345);
+        let b = U256::from_u128(43950384634609);
+        assert_eq!(
+            a.div_rem(&b),
+            (
+                U256::from_u128(108267593472721187331),
+                U256::from_u128(12368508650766)
+            )
+        );
+    }
 }
