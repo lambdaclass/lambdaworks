@@ -34,6 +34,10 @@ pub trait FFTPoly<F: IsFFTField> {
         fft_evals: &[FieldElement<F>],
         offset: &FieldElement<F>,
     ) -> Result<Polynomial<FieldElement<F>>, FFTError>;
+    fn interpolate_offset_inv_fft(
+        fft_evals: &[FieldElement<F>],
+        offset_inv: &FieldElement<F>,
+    ) -> Result<Polynomial<FieldElement<F>>, FFTError>;
 }
 
 impl<F: IsFFTField> FFTPoly<F> for Polynomial<FieldElement<F>> {
@@ -139,8 +143,15 @@ impl<F: IsFFTField> FFTPoly<F> for Polynomial<FieldElement<F>> {
         fft_evals: &[FieldElement<F>],
         offset: &FieldElement<F>,
     ) -> Result<Polynomial<FieldElement<F>>, FFTError> {
+        Self::interpolate_offset_inv_fft(fft_evals, &offset.inv())
+    }
+
+    fn interpolate_offset_inv_fft(
+        fft_evals: &[FieldElement<F>],
+        offset_inv: &FieldElement<F>,
+    ) -> Result<Polynomial<FieldElement<F>>, FFTError> {
         let scaled = Polynomial::interpolate_fft(fft_evals)?;
-        Ok(scaled.scale(&offset.inv()))
+        Ok(scaled.scale(offset_inv))
     }
 }
 
@@ -436,6 +447,17 @@ mod tests {
                                                                         |evals| evals.len().is_power_of_two())) {
                 let (fft_poly, naive_poly) = gen_fft_and_naive_coset_interpolate(&fft_evals, &offset);
                 prop_assert_eq!(fft_poly, naive_poly);
+            }
+
+            // Property-based test that ensures FFT interpolation with an offset is the same as as using offset inverse.
+            #[test]
+            fn test_fft_interpolate_coset_matches_offset_inv(offset in offset(), fft_evals in field_vec(4)
+                                                           .prop_filter("Avoid polynomials of size not power of two",
+                                                                        |evals| evals.len().is_power_of_two())) {
+                let fft_poly = Polynomial::interpolate_offset_fft(&fft_evals, &offset).unwrap();
+                let fft_poly_offset_inv = Polynomial::interpolate_offset_inv_fft(&fft_evals, &offset.inv()).unwrap();
+
+                prop_assert_eq!(fft_poly, fft_poly_offset_inv);
             }
 
             // Property-based test that ensures interpolation is the inverse operation of evaluation.
