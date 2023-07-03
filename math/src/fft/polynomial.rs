@@ -27,6 +27,13 @@ pub trait FFTPoly<F: IsFFTField> {
         domain_size: Option<usize>,
         offset: &FieldElement<F>,
     ) -> Result<Vec<FieldElement<F>>, FFTError>;
+    fn evaluate_offset_fft_with_twiddles(
+        &self,
+        blowup_factor: usize,
+        domain_size: Option<usize>,
+        offset: &FieldElement<F>,
+        twiddles: &[FieldElement<F>],
+    ) -> Result<Vec<FieldElement<F>>, FFTError>;
     fn interpolate_fft(
         fft_evals: &[FieldElement<F>],
     ) -> Result<Polynomial<FieldElement<F>>, FFTError>;
@@ -98,6 +105,55 @@ impl<F: IsFFTField> FFTPoly<F> for Polynomial<FieldElement<F>> {
     ) -> Result<Vec<FieldElement<F>>, FFTError> {
         let scaled = self.scale(offset);
         scaled.evaluate_fft(blowup_factor, domain_size)
+    }
+
+    fn evaluate_offset_fft_with_twiddles(
+        &self,
+        blowup_factor: usize,
+        domain_size: Option<usize>,
+        offset: &FieldElement<F>,
+        twiddles: &[FieldElement<F>],
+    ) -> Result<Vec<FieldElement<F>>, FFTError> {
+        let scaled = self.scale(offset);
+        let domain_size = domain_size.unwrap_or(0);
+        let len =
+            std::cmp::max(scaled.coeff_len(), domain_size).next_power_of_two() * blowup_factor;
+
+        if scaled.coefficients().is_empty() {
+            return Ok(vec![FieldElement::zero(); len]);
+        }
+
+        let mut coeffs = scaled.coefficients().to_vec();
+        coeffs.resize(len, FieldElement::zero());
+        // padding with zeros will make FFT return more evaluations of the same polynomial.
+
+        #[cfg(feature = "metal")]
+        {
+            if !F::field_name().is_empty() {
+                Ok(evaluate_fft_metal(&coeffs)?)
+            } else {
+                println!(
+                    "GPU evaluation failed for field {}. Program will fallback to CPU.",
+                    std::any::type_name::<F>()
+                );
+                ops::fft(&coeffs, twiddles)
+            }
+        }
+
+        #[cfg(feature = "cuda")]
+        {
+            // TODO: support multiple fields with CUDA
+            if F::field_name() == "stark256" {
+                Ok(evaluate_fft_cuda(&coeffs)?)
+            } else {
+                ops::fft(&coeffs, twiddles)
+            }
+        }
+
+        #[cfg(all(not(feature = "metal"), not(feature = "cuda")))]
+        {
+            ops::fft(&coeffs, twiddles)
+        }
     }
 
     /// Returns a new polynomial that interpolates `(w^i, fft_evals[i])`, with `w` being a
