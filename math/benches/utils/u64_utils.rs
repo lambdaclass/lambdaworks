@@ -40,7 +40,7 @@ pub fn get_field_elements() -> (
 #[export_name = "u64_utils::fp_squared_prime"]
 pub fn get_squared_field_element() -> FieldElement<Stark252PrimeField> {
     let (x, _) = get_field_elements();
-    &x * &x
+    x * x
 }
 
 #[allow(dead_code)]
