@@ -2740,7 +2740,7 @@ mod tests_u256 {
     }
 
     #[test]
-    fn div_rem_works_3() {
+    fn div_rem_works_with_big_numbers() {
         let a = U256::from_u128(4758402376589578934275873583589345);
         let b = U256::from_u128(43950384634609);
         assert_eq!(
