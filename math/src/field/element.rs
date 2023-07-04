@@ -13,7 +13,7 @@ use super::traits::{IsPrimeField, LegendreSymbol};
 
 /// A field element with operations algorithms defined in `F`
 #[allow(clippy::derived_hash_with_manual_eq)]
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone, Hash, Copy)]
 pub struct FieldElement<F: IsField> {
     value: F::BaseType,
 }
@@ -75,6 +75,10 @@ where
         Self {
             value: value.clone(),
         }
+    }
+
+    pub const fn const_from_raw(value: F::BaseType) -> Self {
+        Self { value }
     }
 }
 
@@ -608,7 +612,7 @@ mod tests {
             FieldElement::inplace_batch_inverse(&mut inverses);
 
             for (i, x) in inverses.into_iter().enumerate() {
-                prop_assert_eq!(x * &input[i], FieldElement::<Stark252PrimeField>::one());
+                prop_assert_eq!(x * input[i], FieldElement::<Stark252PrimeField>::one());
             }
         }
     }

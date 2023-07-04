@@ -18,21 +18,21 @@ pub fn starkfield_ops_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("Stark FP operations");
     let (x, y) = u64_utils::get_field_elements();
 
-    group.bench_with_input("add", &(x.clone(), y.clone()), |bench, (x, y)| {
+    group.bench_with_input("add", &(x, y), |bench, (x, y)| {
         bench.iter(|| x + y);
     });
 
-    group.bench_with_input("mul", &(x.clone(), y.clone()), |bench, (x, y)| {
+    group.bench_with_input("mul", &(x, y), |bench, (x, y)| {
         bench.iter(|| x * y);
     });
 
-    group.bench_with_input("pow by 1", &x.clone(), |bench, x| {
+    group.bench_with_input("pow by 1", &x, |bench, x| {
         bench.iter(|| x.pow(1_u64));
     });
 
     // The non-boxed constants are intentional as they are
     // normally computed at compile time.
-    group.bench_with_input("sos_square", &x.clone(), |bench, x| {
+    group.bench_with_input("sos_square", &x, |bench, x| {
         bench.iter(|| {
             MontgomeryAlgorithms::sos_square(
                 black_box(x.value()),
@@ -42,23 +42,23 @@ pub fn starkfield_ops_benchmarks(c: &mut Criterion) {
         });
     });
 
-    group.bench_with_input("square", &x.clone(), |bench, x| {
+    group.bench_with_input("square", &x, |bench, x| {
         bench.iter(|| x.square());
     });
 
-    group.bench_with_input("square with pow", &x.clone(), |bench, x| {
+    group.bench_with_input("square with pow", &x, |bench, x| {
         bench.iter(|| x.pow(2_u64));
     });
 
-    group.bench_with_input("square with mul", &x.clone(), |bench, x| {
+    group.bench_with_input("square with mul", &x, |bench, x| {
         bench.iter(|| x * x);
     });
 
-    group.bench_with_input("pow", &(x.clone(), 5u64), |bench, (x, y)| {
+    group.bench_with_input("pow", &(x, 5u64), |bench, (x, y)| {
         bench.iter(|| x.pow(*y));
     });
 
-    group.bench_with_input("sub", &(x.clone(), y.clone()), |bench, (x, y)| {
+    group.bench_with_input("sub", &(x, y), |bench, (x, y)| {
         bench.iter(|| x - y);
     });
 
@@ -66,11 +66,11 @@ pub fn starkfield_ops_benchmarks(c: &mut Criterion) {
         bench.iter(|| x.inv());
     });
 
-    group.bench_with_input("div", &(x.clone(), y.clone()), |bench, (x, y)| {
+    group.bench_with_input("div", &(x, y), |bench, (x, y)| {
         bench.iter(|| x / y);
     });
 
-    group.bench_with_input("eq", &(x.clone(), y.clone()), |bench, (x, y)| {
+    group.bench_with_input("eq", &(x, y), |bench, (x, y)| {
         bench.iter(|| x == y);
     });
 
@@ -78,7 +78,7 @@ pub fn starkfield_ops_benchmarks(c: &mut Criterion) {
         bench.iter(|| x.sqrt());
     });
 
-    group.bench_with_input("sqrt squared", &(&x * &x), |bench, x| {
+    group.bench_with_input("sqrt squared", &(x * x), |bench, x| {
         bench.iter(|| x.sqrt());
     });
 

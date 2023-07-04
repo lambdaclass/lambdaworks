@@ -19,7 +19,7 @@ pub trait IsModulus<U>: Debug {
     const MODULUS: U;
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug, Hash, Copy)]
 pub struct MontgomeryBackendPrimeField<M, const NUM_LIMBS: usize> {
     phantom: PhantomData<M>,
 }

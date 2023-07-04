@@ -3,7 +3,7 @@
 #ifndef felt_u256_h
 #define felt_u256_h
 
-#include "u256.cuh"
+#include "../unsigned_integer/u256.cuh"
 
 template <
     /* =N **/ unsigned long N_0, unsigned long N_1, unsigned long N_2,
