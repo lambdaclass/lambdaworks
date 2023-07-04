@@ -1,13 +1,15 @@
 use lambdaworks_math::{
-    elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::BLS12381PrimeField,
-    field::{element::FieldElement, traits::IsField},
+    field::{element::FieldElement, traits::{IsPrimeField}},
 };
 
 type PoseidonConstants<F> = (Vec<FieldElement<F>>, Vec<Vec<FieldElement<F>>>);
 
-pub struct Parameters<F: IsField> {
+pub struct Parameters<F: IsPrimeField> {
+    /// Max Input/Output size. More reduces security, and increases performance by reducing the amount of digests/absorptions
     pub rate: usize,
+    /// Internal state. More increases security
     pub capacity: usize,
+    /// Exponent for the S box
     pub alpha: u32,
     pub n_full_rounds: usize,
     pub n_partial_rounds: usize,
@@ -15,68 +17,43 @@ pub struct Parameters<F: IsField> {
     pub mds_matrix: Vec<Vec<FieldElement<F>>>,
 }
 
-/// Implements hashing for BLS 12381's field.
-/// Alpha = 5 and parameters are predefined for secure implementations
-impl Parameters<BLS12381PrimeField> {
-    // t = 3 means width of input is 2
-    // sage generate_params_poseidon.sage 1 0 381 3 5 128
-    // Params: n=381, t=3, alpha=5, M=128, R_F=8, R_P=56
-    pub fn with_t3() -> Result<Self, String> {
-        let round_constants_csv = include_str!("bls12381/t3/round_constants.csv");
-        let mds_constants_csv = include_str!("bls12381/t3/mds_matrix.csv");
+pub enum DefaultPoseidonParams{
+    /// Poseidon as used by Cairo
+    /// with three inputs
+    CairoStark252,
+}
 
-        let (round_constants, mds_matrix) = Self::parse(round_constants_csv, mds_constants_csv)?;
-        Ok(Parameters {
-            rate: 2,
-            capacity: 1,
-            alpha: 5,
-            n_full_rounds: 8,
-            n_partial_rounds: 56,
-            round_constants,
-            mds_matrix,
-        })
+/// Parameters for Poseidon
+/// Mds constants and rounds constants should be used for the shared field, even if it technically can work for any field with the same configuration
+impl <F: IsPrimeField>Parameters<F> {
+    pub fn new_with(params: DefaultPoseidonParams){
+        match params {
+            DefaultPoseidonParams::CairoStark252 => 
+                Self::cairo_stark_params()
+
+        }
     }
 
-    // t = 2 means width of input size is 1
-    // sage generate_params_poseidon.sage 1 0 381 2 5 128
-    // Params: n=381, t=2, alpha=5, M=128, R_F=8, R_P=56
-    pub fn with_t2() -> Result<Parameters<BLS12381PrimeField>, String> {
-        let round_constants_csv = include_str!("bls12381/t2/round_constants.csv");
-        let mds_constants_csv = include_str!("bls12381/t2/mds_matrix.csv");
+    fn cairo_stark_params() -> Parameters<F>{
+        const round_constants: &str = include_str!("cairo_poseidon_constants/t2/round_constants.csv");
+        const mds_matrix: &str = include_str!("cairo_poseidon_constants/t2/mds_matrix.csv");
 
-        let (round_constants, mds_matrix) = Self::parse(round_constants_csv, mds_constants_csv)?;
 
-        Ok(Parameters {
-            rate: 1,
-            capacity: 1,
-            alpha: 5,
-            n_full_rounds: 8,
-            n_partial_rounds: 56,
+        const rate: usize = 1;
+        const n_full_rounds: usize = 8;
+        const n_partial_rounds: usize = 56;
+        const alpha: u32 = 5;
+        
+        Self{
+            rate,
+            capacity,
+            /// Exponent for the S box
+            alpha,
+            n_full_rounds,
+            n_partial_rounds,
             round_constants,
             mds_matrix,
-        })
-    }
-
-    pub fn parse(
-        round_constants_csv: &str,
-        mds_constants_csv: &str,
-    ) -> Result<PoseidonConstants<BLS12381PrimeField>, String> {
-        let round_constants = round_constants_csv
-            .split(',')
-            .map(|c| FieldElement::<BLS12381PrimeField>::new_base(c.trim()))
-            .collect();
-
-        let mut mds_matrix = vec![];
-
-        for line in mds_constants_csv.lines() {
-            let matrix_line = line
-                .split(',')
-                .map(|c| FieldElement::<BLS12381PrimeField>::new_base(c.trim()))
-                .collect();
-
-            mds_matrix.push(matrix_line);
         }
 
-        Ok((round_constants, mds_matrix))
     }
 }
