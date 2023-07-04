@@ -105,6 +105,49 @@ pub fn gen_twiddles<F: IsFFTField>(
     Ok(result.iter().map(FieldElement::from_raw).collect())
 }
 
+mod for_fuzzing {
+    use super::*;
+
+    pub fn gen_twiddles<F: IsFFTField>(
+        root: FieldElement<F>,
+        len: usize,
+        config: RootsConfig,
+        state: &MetalState,
+    ) -> Result<Vec<FieldElement<F>>, MetalError> {
+        let kernel = match config {
+            RootsConfig::Natural => format!("calc_twiddles_{}", F::field_name()),
+            RootsConfig::NaturalInversed => format!("calc_twiddles_inv_{}", F::field_name()),
+            RootsConfig::BitReverse => format!("calc_twiddles_bitrev_{}", F::field_name()),
+            RootsConfig::BitReverseInversed => {
+                format!("calc_twiddles_bitrev_inv_{}", F::field_name())
+            }
+        };
+
+        let pipeline = state.setup_pipeline(&kernel)?;
+
+        let result_buffer = state.alloc_buffer::<F::BaseType>(len);
+
+        objc::rc::autoreleasepool(|| {
+            let (command_buffer, command_encoder) =
+                state.setup_command(&pipeline, Some(&[(0, &result_buffer)]));
+
+            command_encoder.set_bytes(1, mem::size_of::<F::BaseType>() as u64, void_ptr(&root));
+
+            let grid_size = MTLSize::new(len as u64, 1, 1);
+            let threadgroup_size = MTLSize::new(pipeline.max_total_threads_per_threadgroup(), 1, 1);
+
+            command_encoder.dispatch_threads(grid_size, threadgroup_size);
+            command_encoder.end_encoding();
+
+            command_buffer.commit();
+            command_buffer.wait_until_completed();
+        });
+
+        let result = MetalState::retrieve_contents(&result_buffer);
+        Ok(result.iter().map(FieldElement::from_raw).collect())
+    }
+}
+
 /// Executes a parallel bit-reverse permutation with the elements of `input`, in Metal.
 pub fn bitrev_permutation<F: IsFFTField, T: Clone>(
     input: &[T],
