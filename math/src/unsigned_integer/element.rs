@@ -2726,14 +2726,14 @@ mod tests_u256 {
     }
 
     #[test]
-    fn num_8_div_rem_3_is_2_2() {
+    fn unsigned_int_8_div_rem_3_is_2_2() {
         let a: UnsignedInteger<4> = U256::from_u64(8);
         let b = U256::from_u64(3);
         assert_eq!(a.div_rem(&b), (U256::from_u64(2), U256::from_u64(2)));
     }
 
     #[test]
-    fn num_500721_div_rem_5_is_100144_1() {
+    fn unsigned_int_500721_div_rem_5_is_100144_1() {
         let a = U256::from_u64(500721);
         let b = U256::from_u64(5);
         assert_eq!(a.div_rem(&b), (U256::from_u64(100144), U256::from_u64(1)));
