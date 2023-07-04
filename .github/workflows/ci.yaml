@@ -118,8 +118,6 @@ jobs:
         id: cuda-toolkit
         with:
           cuda: '12.1.0'
-          sub-packages: '["nvcc"]'
-          method: 'network'
 
       - name: Run clippy
         run: make clippy-cuda
