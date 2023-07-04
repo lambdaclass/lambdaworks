@@ -57,3 +57,8 @@ build-cuda:
 
 docs:
 	cd docs && mdbook serve --open
+
+FUZZER = field_from_hex
+run-fuzzer:
+		cd fuzz
+		cargo +nightly fuzz run $(FUZZER)

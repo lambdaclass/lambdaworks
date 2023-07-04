@@ -165,6 +165,14 @@ If you use ```Lambdaworks``` libraries in your research projects, please cite th
 
 ### Gadgets
 
+## Fuzzers
+
+Run a specific fuzzer from the ones contained in **fuzz/fuzz_targets/** folder with`cargo`, for example to run the one for the target `field_from_hex`:
+
+```bash
+make run-fuzzer FUZZER=field_from_hex
+```
+
 ## Documentation
 
 To serve the documentation locally, first install both [mdbook](https://rust-lang.github.io/mdBook/guide/installation.html) and the [Katex preprocessor](https://github.com/lzanini/mdbook-katex#getting-started) to render LaTeX, then run
