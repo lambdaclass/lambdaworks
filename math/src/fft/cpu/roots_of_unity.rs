@@ -46,6 +46,47 @@ pub fn get_powers_of_primitive_root<F: IsFFTField>(
     Ok(results)
 }
 
+mod for_fuzzing {
+    use super::*;
+
+    pub fn get_powers_of_primitive_root<F: IsFFTField>(
+        root: FieldElement<F>,
+        count: usize,
+        config: RootsConfig,
+    ) -> Result<Vec<FieldElement<F>>, FFTError> {
+        if count == 0 {
+            return Ok(Vec::new());
+        }
+
+        let root = match config {
+            RootsConfig::Natural | RootsConfig::BitReverse => root,
+            _ => root.inv(),
+        };
+        let up_to = match config {
+            RootsConfig::Natural | RootsConfig::NaturalInversed => count,
+            // In bit reverse form we could need as many as `(1 << count.bits()) - 1` roots
+            _ => count.next_power_of_two(),
+        };
+
+        let mut results = Vec::with_capacity(up_to);
+        // NOTE: a nice version would be using `core::iter::successors`. However, this is 10% faster.
+        results.extend((0..up_to).scan(FieldElement::one(), |state, _| {
+            let res = state.clone();
+            *state = &(*state) * &root;
+            Some(res)
+        }));
+
+        if matches!(
+            config,
+            RootsConfig::BitReverse | RootsConfig::BitReverseInversed
+        ) {
+            in_place_bit_reverse_permute(&mut results);
+        }
+
+        Ok(results)
+    }
+}
+
 /// Returns a `Vec` of the powers of a `2^n`th primitive root of unity, scaled `offset` times,
 /// in a Natural configuration.
 pub fn get_powers_of_primitive_root_coset<F: IsFFTField>(
