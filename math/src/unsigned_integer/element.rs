@@ -730,6 +730,106 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         }
         0
     }
+
+    /// Returns the truthy value if `self != 0` and the falsy value otherwise.
+    #[inline]
+    const fn ct_is_nonzero(ct: u64) -> u64 {
+        Self::ct_from_lsb((ct | ct.wrapping_neg()) >> (u64::BITS - 1))
+    }
+
+    /// Returns the truthy value if `value == 1`, and the falsy value if `value == 0`.
+    /// Panics for other values.
+    const fn ct_from_lsb(value: u64) -> u64 {
+        debug_assert!(value == 0 || value == 1);
+        value.wrapping_neg()
+    }
+
+    /// Return `b` if `c` is truthy, otherwise return `a`.
+    #[inline]
+    const fn ct_select_limb(a: u64, b: u64, ct: u64) -> u64 {
+        a ^ (ct & (a ^ b))
+    }
+
+    /// Return `b` if `c` is truthy, otherwise return `a`.
+    #[inline]
+    const fn ct_select(a: &Self, b: &Self, c: u64) -> Self {
+        let mut limbs = [0_u64; NUM_LIMBS];
+
+        let mut i = 0;
+        while i < NUM_LIMBS {
+            limbs[i] = Self::ct_select_limb(a.limbs[i], b.limbs[i], c);
+            i += 1;
+        }
+
+        Self { limbs }
+    }
+
+    /// Computes `self - (rhs + borrow)`, returning the result along with the new borrow.
+    #[inline(always)]
+    const fn sbb_limbs(lhs: u64, rhs: u64, borrow: u64) -> (u64, u64) {
+        let a = lhs as u128;
+        let b = rhs as u128;
+        let borrow = (borrow >> (u64::BITS - 1)) as u128;
+        let ret = a.wrapping_sub(b + borrow);
+        (ret as u64, (ret >> u64::BITS) as u64)
+    }
+
+    #[inline(always)]
+    /// Computes `a - (b + borrow)`, returning the result along with the new borrow.
+    pub fn sbb(&self, rhs: &Self, mut borrow: u64) -> (Self, u64) {
+        let mut limbs = [0; NUM_LIMBS];
+
+        for i in (0..NUM_LIMBS).rev() {
+            let (w, b) = Self::sbb_limbs(self.limbs[i], rhs.limbs[i], borrow);
+            limbs[i] = w;
+            borrow = b;
+        }
+
+        (Self { limbs }, borrow)
+    }
+
+    #[inline(always)]
+    /// Returns the number of bits needed to represent the number as little endian
+    const fn bits_le(&self) -> usize {
+        let mut i = 0;
+        while i < NUM_LIMBS && self.limbs[i] == 0 {
+            i += 1;
+        }
+
+        let limb = self.limbs[i];
+        u64::BITS as usize * (NUM_LIMBS - i) - limb.leading_zeros() as usize
+    }
+
+    /// Computes self / rhs, returns the quotient, remainder.
+    pub fn div_rem(&self, rhs: &Self) -> (Self, Self) {
+        assert!(
+            *rhs != UnsignedInteger::from_u64(0),
+            "Attempted to divide by zero"
+        );
+        let mb = rhs.bits_le();
+        let mut bd = (NUM_LIMBS * u64::BITS as usize) - mb;
+        let mut rem = *self;
+        let mut quo = Self::from_u64(0);
+        let mut c = rhs.shl(bd);
+
+        loop {
+            let (mut r, borrow) = rem.sbb(&c, 0);
+            debug_assert!(borrow == 0 || borrow == u64::MAX);
+            rem = Self::ct_select(&r, &rem, borrow);
+            r = quo.bitor(Self::from_u64(1));
+            quo = Self::ct_select(&r, &quo, borrow);
+            if bd == 0 {
+                break;
+            }
+            bd -= 1;
+            c = c.shr(1);
+            quo = quo.shl(1);
+        }
+
+        let is_some = Self::ct_is_nonzero(mb as u64);
+        quo = Self::ct_select(&Self::from_u64(0), &quo, is_some);
+        (quo, rem)
+    }
 }
 
 impl<const NUM_LIMBS: usize> IsUnsignedInteger for UnsignedInteger<NUM_LIMBS> {}
@@ -811,6 +911,8 @@ impl<const NUM_LIMBS: usize> From<UnsignedInteger<NUM_LIMBS>> for u16 {
 
 #[cfg(test)]
 mod tests_u384 {
+    use core::ops::Shr;
+
     use crate::traits::ByteConversion;
     use crate::unsigned_integer::element::{UnsignedInteger, U384};
 
@@ -875,6 +977,13 @@ mod tests_u384 {
             for i in 0..N_LIMBS {
                 assert_eq!(result.limbs[i], a[i] ^ b[i]);
             }
+        }
+
+        #[test]
+        fn div_rem(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
+            let a = Uint::from_limbs(a).shr(256);
+            let b = Uint::from_limbs(b).shr(256);
+            assert_eq!((a * b).div_rem(&b), (a, Uint::from_u64(0)));
         }
     }
 
@@ -1768,6 +1877,8 @@ mod tests_u384 {
 
 #[cfg(test)]
 mod tests_u256 {
+    use core::ops::Shr;
+
     use crate::unsigned_integer::element::{UnsignedInteger, U256};
 
     use crate::unsigned_integer::element::ByteConversion;
@@ -1833,6 +1944,13 @@ mod tests_u256 {
             for i in 0..N_LIMBS {
                 assert_eq!(result.limbs[i], a[i] ^ b[i]);
             }
+        }
+
+        #[test]
+        fn div_rem(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
+            let a = Uint::from_limbs(a).shr(128);
+            let b = Uint::from_limbs(b).shr(128);
+            assert_eq!((a * b).div_rem(&b), (a, Uint::from_u64(0)));
         }
     }
 
@@ -2598,5 +2716,39 @@ mod tests_u256 {
         );
         b >>= 222;
         assert_eq!(a, b);
+    }
+
+    #[test]
+    fn multiplying_and_dividing_for_number_is_number_with_remainder_0() {
+        let a = U256::from_u128(12678920202929299999999999282828);
+        let b = U256::from_u128(9000000000000);
+        assert_eq!((a * b).div_rem(&b), (a, U256::from_u64(0)));
+    }
+
+    #[test]
+    fn unsigned_int_8_div_rem_3_is_2_2() {
+        let a: UnsignedInteger<4> = U256::from_u64(8);
+        let b = U256::from_u64(3);
+        assert_eq!(a.div_rem(&b), (U256::from_u64(2), U256::from_u64(2)));
+    }
+
+    #[test]
+    fn unsigned_int_500721_div_rem_5_is_100144_1() {
+        let a = U256::from_u64(500721);
+        let b = U256::from_u64(5);
+        assert_eq!(a.div_rem(&b), (U256::from_u64(100144), U256::from_u64(1)));
+    }
+
+    #[test]
+    fn div_rem_works_with_big_numbers() {
+        let a = U256::from_u128(4758402376589578934275873583589345);
+        let b = U256::from_u128(43950384634609);
+        assert_eq!(
+            a.div_rem(&b),
+            (
+                U256::from_u128(108267593472721187331),
+                U256::from_u128(12368508650766)
+            )
+        );
     }
 }

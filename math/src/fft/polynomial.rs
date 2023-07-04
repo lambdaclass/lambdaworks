@@ -217,7 +217,7 @@ where
     Polynomial::interpolate_fft(values.as_slice()).unwrap()
 }
 
-fn evaluate_fft_cpu<F>(coeffs: &[FieldElement<F>]) -> Result<Vec<FieldElement<F>>, FFTError>
+pub fn evaluate_fft_cpu<F>(coeffs: &[FieldElement<F>]) -> Result<Vec<FieldElement<F>>, FFTError>
 where
     F: IsFFTField,
 {
@@ -227,7 +227,7 @@ where
     ops::fft(coeffs, &twiddles)
 }
 
-fn interpolate_fft_cpu<F>(
+pub fn interpolate_fft_cpu<F>(
     fft_evals: &[FieldElement<F>],
 ) -> Result<Polynomial<FieldElement<F>>, FFTError>
 where

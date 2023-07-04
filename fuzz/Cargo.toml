@@ -1,15 +1,16 @@
 [package]
 name = "fuzz"
 publish = false
-version.workspace = true
-edition.workspace = true
+version = "0.1.1"
+edition = "2021"
 
 [package.metadata]
 cargo-fuzz = true
 
 [dependencies]
 libfuzzer-sys = "0.4"
-lambdaworks-math = { path = "../math" }
+lambdaworks-math = { path = "../math", features = ["metal"] }
+lambdaworks-gpu = { path = "../gpu", features = ["metal"] }
 num-traits = "0.2"
 ibig = "0.3.6"
 
@@ -38,3 +39,20 @@ path = "fuzz_targets/field_from_raw.rs"
 test = false
 doc = false
 
+[[bin]]
+name = "metal_fft_diff"
+path = "fuzz_targets/metal_fft_diff.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "polynomial_fft_diff_fuzzer"
+path = "fuzz_targets/polynomial_fft_diff_fuzzer.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "twiddles_generation"
+path = "fuzz_targets/twiddles_generation.rs"
+test = false
+doc = false
