@@ -2726,7 +2726,7 @@ mod tests_u256 {
     }
 
     #[test]
-    fn div_rem_works_1() {
+    fn 8_div_rem_3_is_2_2) {
         let a: UnsignedInteger<4> = U256::from_u64(8);
         let b = U256::from_u64(3);
         assert_eq!(a.div_rem(&b), (U256::from_u64(2), U256::from_u64(2)));
