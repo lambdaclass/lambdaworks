@@ -83,7 +83,11 @@ F: IsPrimeField  {
                 .split(',')
                 .map(|string| string.trim())
                 .map(
-                    |hex| FieldElement::<F>::from_hex(hex).expect("Wrong hex in mds file"))
+                    |hex| 
+                    { println!("Decoding {}", hex);
+                    FieldElement::<F>::from_hex(hex).expect("Wrong hex in mds file") 
+                    }
+                )
                 .collect();
 
             mds_matrix.push(matrix_line);
