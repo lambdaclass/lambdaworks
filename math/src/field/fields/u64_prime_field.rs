@@ -1,6 +1,7 @@
 use crate::cyclic_group::IsGroup;
 #[cfg(feature = "std")]
 use crate::errors::ByteConversionError::{FromBEBytesError, FromLEBytesError};
+use crate::errors::CreationError;
 #[cfg(feature = "std")]
 use crate::errors::DeserializationError;
 use crate::field::element::FieldElement;
@@ -84,6 +85,21 @@ impl<const MODULUS: u64> IsPrimeField for U64PrimeField<MODULUS> {
     fn field_bit_size() -> usize {
         ((MODULUS - 1).ilog2() + 1) as usize
     }
+
+    fn from_hex(hex_string: &str) -> Result<Self::BaseType, CreationError> {
+
+        let mut hex_string = hex_string;
+        // Remove 0x if it's on the string
+        let mut char_iterator = hex_string.chars();
+        if hex_string.len() > 2
+            && char_iterator.next().unwrap() == '0'
+            && char_iterator.next().unwrap() == 'x'
+        {
+            hex_string = &hex_string[2..];
+        }
+
+        u64::from_str_radix(hex_string, 16).map_err(|_| CreationError::InvalidHexString)
+    }
 }
 
 /// Represents an element in Fp. (E.g: 0, 1, 2 are the elements of F3)
@@ -145,7 +161,25 @@ impl<const MODULUS: u64> Deserializable for FieldElement<U64PrimeField<MODULUS>>
 mod tests {
     use super::*;
     const MODULUS: u64 = 13;
-    type FE = FieldElement<U64PrimeField<MODULUS>>;
+    type F = U64PrimeField<MODULUS>;
+    type FE = FieldElement<F>;
+
+
+    #[test]
+    fn from_hex_for_b_is_11() {
+        assert_eq!(
+            F::from_hex("B").unwrap(),
+            11
+        );
+    }
+
+    #[test]
+    fn from_hex_for_0x1_a_is_26() {
+        assert_eq!(
+            F::from_hex("0x1a").unwrap(),
+            26
+        );
+    }
 
     #[test]
     fn bit_size_of_mod_13_field_is_4() {

@@ -1,5 +1,5 @@
 use super::{element::FieldElement, errors::FieldError};
-use crate::unsigned_integer::traits::IsUnsignedInteger;
+use crate::{unsigned_integer::traits::IsUnsignedInteger, errors::CreationError};
 use core::fmt::Debug;
 
 /// Represents different configurations that powers of roots of unity can be in. Some of these may
@@ -148,6 +148,10 @@ pub trait IsPrimeField: IsField {
     fn modulus_minus_one() -> Self::RepresentativeType {
         Self::representative(&Self::neg(&Self::one()))
     }
+
+    /// Creates a BaseType from a Hex String
+    /// 0x is optional
+    fn from_hex(hex_string: &str) -> Result<Self::BaseType, CreationError>;
 
     /// Returns the number of bits of the max element of the field, as per field documentation, not internal representation.
     /// This is `log2(max FE)` rounded up
