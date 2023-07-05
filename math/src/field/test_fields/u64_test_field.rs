@@ -65,7 +65,6 @@ impl<const MODULUS: u64> IsPrimeField for U64Field<MODULUS> {
         ((MODULUS - 1).ilog2() + 1) as usize
     }
 
-    /// Unimplemented for test fields
     fn from_hex(hex_string: &str) -> Result<Self::BaseType, crate::errors::CreationError> {
         let mut hex_string = hex_string;
         // Remove 0x if it's on the string

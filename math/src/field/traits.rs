@@ -151,6 +151,7 @@ pub trait IsPrimeField: IsField {
 
     /// Creates a BaseType from a Hex String
     /// 0x is optional
+    /// Returns an `CreationError::InvalidHexString`if the value is not a hexstring
     fn from_hex(hex_string: &str) -> Result<Self::BaseType, CreationError>;
 
     /// Returns the number of bits of the max element of the field, as per field documentation, not internal representation.
