@@ -1,5 +1,5 @@
 use lambdaworks_math::{
-    field::{element::FieldElement, traits::{IsPrimeField}}, unsigned_integer::traits::IsUnsignedInteger,
+    field::{element::FieldElement, traits::{IsPrimeField}}
 };
 pub struct Parameters<F: IsPrimeField> {
     /// Max Input/Output size. More reduces security, and increases performance by reducing the amount of digests/absorptions
@@ -10,7 +10,7 @@ pub struct Parameters<F: IsPrimeField> {
     pub alpha: u32,
     pub n_full_rounds: usize,
     pub n_partial_rounds: usize,
-    pub round_constants: Vec<FieldElement<F>>,
+    pub add_round_constants: Vec<FieldElement<F>>,
     pub mds_matrix: Vec<Vec<FieldElement<F>>>,
 }
 
@@ -23,9 +23,8 @@ pub enum DefaultPoseidonParams{
 /// Parameters for Poseidon
 /// Mds constants and rounds constants should be used for the shared field, even if it technically can work for any field with the same configuration
 impl <F> Parameters<F> where
-F: IsPrimeField,
-FieldElement<F>:   { 
-    pub fn new_with(params: DefaultPoseidonParams){
+F: IsPrimeField  { 
+    pub fn new_with(params: DefaultPoseidonParams) -> Self{
         match params {
             DefaultPoseidonParams::CairoStark252 => 
                 Self::cairo_stark_params()
@@ -33,39 +32,62 @@ FieldElement<F>:   {
     }
 
     fn cairo_stark_params() -> Parameters<F>{
-        const round_constants: &str = include_str!("cairo_poseidon_constants/round_constants.csv");
-        const mds_matrix: &str = include_str!("cairo_poseidon_constants/mds_matrix.csv");
+        const ADD_ROUND_CONSTANTS_CSV: &str = include_str!("cairo_poseidon_constants/round_constants.csv");
+        const MDS_MATRIX_CSV: &str = include_str!("cairo_poseidon_constants/mds_matrix.csv");
 
+        let add_round_constants = Self::decode_add_round_constants(ADD_ROUND_CONSTANTS_CSV);
+        let mds_matrix = Self::decode_mds_matrix(MDS_MATRIX_CSV);
 
-        const rate: usize = 1;
-        const n_full_rounds: usize = 8;
-        const n_partial_rounds: usize = 56;
-        const alpha: u32 = 5;
+        const RATE: usize = 1;
+        const N_FULL_ROUNDS: usize = 8;
+        const N_PARTIAL_ROUNDS: usize = 56;
+        const ALPHA: u32 = 5;
+        const CAPACITY: usize = 1;
         
         Self{
-            rate,
-            capacity,
+            rate: RATE,
+            capacity: CAPACITY,
             /// Exponent for the S box
-            alpha,
-            n_full_rounds,
-            n_partial_rounds,
-            round_constants,
+            alpha: ALPHA,
+            n_full_rounds: N_FULL_ROUNDS,
+            n_partial_rounds: N_PARTIAL_ROUNDS,
+            add_round_constants,
             mds_matrix,
         }
-
     }
 
-
-    fn decode_round_constants(
+    fn decode_add_round_constants(
         round_constants_csv: &str,
-    ) -> Vec<F> 
-    where F::BaseType: IsUnsignedInteger
+    ) -> Vec<FieldElement<F>>
+    where F: IsPrimeField
     {
-        let round_constants = round_constants_csv
+        let arc: Vec<FieldElement<F>> = round_constants_csv
             .split(',')
-            .map(|hex| F::BaseType::from_hex_unchecked(hex))
+            .map(|string| string.trim())
+            .map(
+                |hex| 
+                FieldElement::<F>::from_hex(hex).expect("Wrong hex in arc file"))
             .collect();
+        arc
+    }
 
-        round_constants
+    fn decode_mds_matrix(
+        mds_constants_csv: &str,
+    ) -> Vec<Vec<FieldElement<F>>>
+    where F: IsPrimeField
+    {
+        let mut mds_matrix: Vec<Vec<FieldElement<F>>> = vec![];
+
+        for line in mds_constants_csv.lines() {
+            let matrix_line = line
+                .split(',')
+                .map(|string| string.trim())
+                .map(
+                    |hex| FieldElement::<F>::from_hex(hex).expect("Wrong hex in mds file"))
+                .collect();
+
+            mds_matrix.push(matrix_line);
+        }
+        mds_matrix
     }
 }
