@@ -64,6 +64,7 @@ impl<const MODULUS: u64> IsPrimeField for U64Field<MODULUS> {
     fn field_bit_size() -> usize {
         ((MODULUS - 1).ilog2() + 1) as usize
     }
+
 }
 
 pub type U64TestField = U64Field<18446744069414584321>;

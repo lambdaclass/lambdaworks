@@ -1,9 +1,6 @@
 use lambdaworks_math::{
-    field::{element::FieldElement, traits::{IsPrimeField}},
+    field::{element::FieldElement, traits::{IsPrimeField}}, unsigned_integer::traits::IsUnsignedInteger,
 };
-
-type PoseidonConstants<F> = (Vec<FieldElement<F>>, Vec<Vec<FieldElement<F>>>);
-
 pub struct Parameters<F: IsPrimeField> {
     /// Max Input/Output size. More reduces security, and increases performance by reducing the amount of digests/absorptions
     pub rate: usize,
@@ -25,18 +22,19 @@ pub enum DefaultPoseidonParams{
 
 /// Parameters for Poseidon
 /// Mds constants and rounds constants should be used for the shared field, even if it technically can work for any field with the same configuration
-impl <F: IsPrimeField>Parameters<F> {
+impl <F> Parameters<F> where
+F: IsPrimeField,
+FieldElement<F>:   { 
     pub fn new_with(params: DefaultPoseidonParams){
         match params {
             DefaultPoseidonParams::CairoStark252 => 
                 Self::cairo_stark_params()
-
         }
     }
 
     fn cairo_stark_params() -> Parameters<F>{
-        const round_constants: &str = include_str!("cairo_poseidon_constants/t2/round_constants.csv");
-        const mds_matrix: &str = include_str!("cairo_poseidon_constants/t2/mds_matrix.csv");
+        const round_constants: &str = include_str!("cairo_poseidon_constants/round_constants.csv");
+        const mds_matrix: &str = include_str!("cairo_poseidon_constants/mds_matrix.csv");
 
 
         const rate: usize = 1;
@@ -55,5 +53,19 @@ impl <F: IsPrimeField>Parameters<F> {
             mds_matrix,
         }
 
+    }
+
+
+    fn decode_round_constants(
+        round_constants_csv: &str,
+    ) -> Vec<F> 
+    where F::BaseType: IsUnsignedInteger
+    {
+        let round_constants = round_constants_csv
+            .split(',')
+            .map(|hex| F::BaseType::from_hex_unchecked(hex))
+            .collect();
+
+        round_constants
     }
 }

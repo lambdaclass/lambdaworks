@@ -270,6 +270,7 @@ where
 
         evaluated_bit + 1
     }
+
 }
 
 impl<M, const NUM_LIMBS: usize> FieldElement<MontgomeryBackendPrimeField<M, NUM_LIMBS>> where

@@ -1,6 +1,7 @@
 use crate::cyclic_group::IsGroup;
 #[cfg(feature = "std")]
 use crate::errors::ByteConversionError::{FromBEBytesError, FromLEBytesError};
+use crate::errors::CreationError;
 #[cfg(feature = "std")]
 use crate::errors::DeserializationError;
 use crate::field::element::FieldElement;
