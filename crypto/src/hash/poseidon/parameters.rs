@@ -38,16 +38,15 @@ F: IsPrimeField  {
         let add_round_constants = Self::decode_add_round_constants(ADD_ROUND_CONSTANTS_CSV);
         let mds_matrix = Self::decode_mds_matrix(MDS_MATRIX_CSV);
 
-        const RATE: usize = 1;
-        const N_FULL_ROUNDS: usize = 8;
-        const N_PARTIAL_ROUNDS: usize = 56;
-        const ALPHA: u32 = 5;
+        const RATE: usize = 2;
         const CAPACITY: usize = 1;
+        const ALPHA: u32 = 3;
+        const N_FULL_ROUNDS: usize = 8;
+        const N_PARTIAL_ROUNDS: usize = 83;
         
         Self{
             rate: RATE,
             capacity: CAPACITY,
-            /// Exponent for the S box
             alpha: ALPHA,
             n_full_rounds: N_FULL_ROUNDS,
             n_partial_rounds: N_PARTIAL_ROUNDS,
@@ -64,10 +63,11 @@ F: IsPrimeField  {
         let arc: Vec<FieldElement<F>> = round_constants_csv
             .split(',')
             .map(|string| string.trim())
+            .filter(|x| x != &"")
             .map(
-                |hex| 
-                FieldElement::<F>::from_hex(hex).expect("Wrong hex in arc file"))
-            .collect();
+                |hex|
+                FieldElement::<F>::from_hex(hex).expect("Wrong hex in arc file")
+            ).collect();
         arc
     }
 
@@ -82,11 +82,10 @@ F: IsPrimeField  {
             let matrix_line = line
                 .split(',')
                 .map(|string| string.trim())
+                .filter(|x| x != &"")
                 .map(
                     |hex| 
-                    { println!("Decoding {}", hex);
                     FieldElement::<F>::from_hex(hex).expect("Wrong hex in mds file") 
-                    }
                 )
                 .collect();
 

@@ -166,7 +166,6 @@ mod tests {
         let params = Parameters::new_with(parameters::DefaultPoseidonParams::CairoStark252);
         let poseidon = Poseidon::new_with_params(params);
         
-        poseidon.ark(&mut state, 0);
         poseidon.mix(&mut state);
 
         let expected = [
