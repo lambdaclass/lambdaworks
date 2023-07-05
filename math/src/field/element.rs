@@ -411,6 +411,14 @@ impl<F: IsPrimeField> FieldElement<F> {
     pub fn legendre_symbol(&self) -> LegendreSymbol {
         F::legendre_symbol(&self.value)
     }
+
+    /// Creates a `FieldElement` from a hexstring. It can contain `0x` or not.
+    /// Returns an `CreationError::InvalidHexString`if the value is not a hexstring
+    pub fn from_hex(hex_string: &str) -> Result<Self, CreationError> {
+        Ok(Self {
+            value: F::from_hex(hex_string)?,
+        })
+    }
 }
 
 impl<M, const NUM_LIMBS: usize> fmt::Display
@@ -441,21 +449,6 @@ where
                 &MontgomeryBackendPrimeField::<M, NUM_LIMBS>::MU,
             ),
         }
-    }
-
-    /// Creates a `FieldElement` from a hexstring. It can contain `0x` or not.
-    /// Returns an `CreationError::InvalidHexString`if the value is not a hexstring
-    pub fn from_hex(hex: &str) -> Result<Self, CreationError> {
-        let integer = UnsignedInteger::<NUM_LIMBS>::from_hex(hex)?;
-
-        Ok(Self {
-            value: MontgomeryAlgorithms::cios(
-                &integer,
-                &MontgomeryBackendPrimeField::<M, NUM_LIMBS>::R2,
-                &M::MODULUS,
-                &MontgomeryBackendPrimeField::<M, NUM_LIMBS>::MU,
-            ),
-        })
     }
 }
 
@@ -588,6 +581,13 @@ mod tests {
         let input = FrElement::from(27);
         let sqrt = input.sqrt();
         assert!(sqrt.is_none());
+    }
+
+    #[test]
+    fn from_hex_1a_is_26_for_stark252_prime_field_element() {
+        type F = Stark252PrimeField;
+        type FE = FieldElement<F>;
+        assert_eq!(FE::from_hex("1a").unwrap(), FE::from(26))
     }
 
     prop_compose! {

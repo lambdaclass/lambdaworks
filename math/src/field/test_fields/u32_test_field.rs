@@ -1,4 +1,7 @@
-use crate::field::traits::{IsFFTField, IsField, IsPrimeField};
+use crate::{
+    errors::CreationError,
+    field::traits::{IsFFTField, IsField, IsPrimeField},
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 
@@ -65,6 +68,21 @@ impl<const MODULUS: u32> IsPrimeField for U32Field<MODULUS> {
     fn field_bit_size() -> usize {
         ((MODULUS - 1).ilog2() + 1) as usize
     }
+
+    /// Unimplemented for test fields
+    fn from_hex(hex_string: &str) -> Result<Self::BaseType, crate::errors::CreationError> {
+        let mut hex_string = hex_string;
+        // Remove 0x if it's on the string
+        let mut char_iterator = hex_string.chars();
+        if hex_string.len() > 2
+            && char_iterator.next().unwrap() == '0'
+            && char_iterator.next().unwrap() == 'x'
+        {
+            hex_string = &hex_string[2..];
+        }
+
+        u32::from_str_radix(hex_string, 16).map_err(|_| CreationError::InvalidHexString)
+    }
 }
 
 // 15 * 2^27 + 1;
@@ -78,7 +96,12 @@ impl IsFFTField for U32TestField {
 
 #[cfg(test)]
 mod tests_u32_test_field {
-    use crate::field::test_fields::u32_test_field::U32TestField;
+    use crate::field::{test_fields::u32_test_field::U32TestField, traits::IsPrimeField};
+
+    #[test]
+    fn from_hex_for_b_is_11() {
+        assert_eq!(U32TestField::from_hex("B").unwrap(), 11);
+    }
 
     #[test]
     fn bit_size_of_test_field_is_31() {
