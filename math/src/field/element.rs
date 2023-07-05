@@ -587,7 +587,7 @@ mod tests {
     fn from_hex_1a_is_26_for_stark252_prime_field_element() {
         type F = Stark252PrimeField;
         type FE = FieldElement<F>;
-        assert_eq!(FE::from_hex("1a").unwrap(), FE::from(62))
+        assert_eq!(FE::from_hex("1a").unwrap(), FE::from(26))
     }
 
     prop_compose! {
