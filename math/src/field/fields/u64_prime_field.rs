@@ -87,7 +87,6 @@ impl<const MODULUS: u64> IsPrimeField for U64PrimeField<MODULUS> {
     }
 
     fn from_hex(hex_string: &str) -> Result<Self::BaseType, CreationError> {
-
         let mut hex_string = hex_string;
         // Remove 0x if it's on the string
         let mut char_iterator = hex_string.chars();
@@ -164,21 +163,14 @@ mod tests {
     type F = U64PrimeField<MODULUS>;
     type FE = FieldElement<F>;
 
-
     #[test]
     fn from_hex_for_b_is_11() {
-        assert_eq!(
-            F::from_hex("B").unwrap(),
-            11
-        );
+        assert_eq!(F::from_hex("B").unwrap(), 11);
     }
 
     #[test]
     fn from_hex_for_0x1_a_is_26() {
-        assert_eq!(
-            F::from_hex("0x1a").unwrap(),
-            26
-        );
+        assert_eq!(F::from_hex("0x1a").unwrap(), 26);
     }
 
     #[test]

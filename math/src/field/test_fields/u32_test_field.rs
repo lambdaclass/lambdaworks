@@ -1,4 +1,7 @@
-use crate::{field::traits::{IsFFTField, IsField, IsPrimeField}, errors::CreationError};
+use crate::{
+    errors::CreationError,
+    field::traits::{IsFFTField, IsField, IsPrimeField},
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 
@@ -97,12 +100,9 @@ mod tests_u32_test_field {
 
     #[test]
     fn from_hex_for_b_is_11() {
-        assert_eq!(
-            U32TestField::from_hex("B").unwrap(),
-            11
-        );
+        assert_eq!(U32TestField::from_hex("B").unwrap(), 11);
     }
-    
+
     #[test]
     fn bit_size_of_test_field_is_31() {
         assert_eq!(

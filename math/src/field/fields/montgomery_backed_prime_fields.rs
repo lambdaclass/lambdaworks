@@ -272,15 +272,13 @@ where
     }
 
     fn from_hex(hex_string: &str) -> Result<Self::BaseType, crate::errors::CreationError> {
-        let integer =Self::BaseType::from_hex(hex_string)?;
-        Ok(
-            MontgomeryAlgorithms::cios(
-                &integer,
-                &MontgomeryBackendPrimeField::<M, NUM_LIMBS>::R2,
-                &M::MODULUS,
-                &MontgomeryBackendPrimeField::<M, NUM_LIMBS>::MU
-            )
-        )
+        let integer = Self::BaseType::from_hex(hex_string)?;
+        Ok(MontgomeryAlgorithms::cios(
+            &integer,
+            &MontgomeryBackendPrimeField::<M, NUM_LIMBS>::R2,
+            &M::MODULUS,
+            &MontgomeryBackendPrimeField::<M, NUM_LIMBS>::MU,
+        ))
     }
 }
 

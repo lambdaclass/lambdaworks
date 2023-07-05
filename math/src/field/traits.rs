@@ -1,5 +1,5 @@
 use super::{element::FieldElement, errors::FieldError};
-use crate::{unsigned_integer::traits::IsUnsignedInteger, errors::CreationError};
+use crate::{errors::CreationError, unsigned_integer::traits::IsUnsignedInteger};
 use core::fmt::Debug;
 
 /// Represents different configurations that powers of roots of unity can be in. Some of these may

@@ -416,7 +416,7 @@ impl<F: IsPrimeField> FieldElement<F> {
     /// Returns an `CreationError::InvalidHexString`if the value is not a hexstring
     pub fn from_hex(hex_string: &str) -> Result<Self, CreationError> {
         Ok(Self {
-            value: F::from_hex(hex_string)?
+            value: F::from_hex(hex_string)?,
         })
     }
 }
@@ -589,7 +589,7 @@ mod tests {
         type FE = FieldElement<F>;
         assert_eq!(FE::from_hex("1a").unwrap(), FE::from(62))
     }
-    
+
     prop_compose! {
         fn field_element()(num in any::<u64>().prop_filter("Avoid null coefficients", |x| x != &0)) -> FieldElement::<Stark252PrimeField> {
             FieldElement::<Stark252PrimeField>::from(num)
