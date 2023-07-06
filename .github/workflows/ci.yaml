@@ -28,10 +28,10 @@ jobs:
         run: cargo check
 
       - name: Run cargo check for math with no-std
-        run: cargo check --package lambdaworks-math --no-default-features --target wasm32-unknown-unknown
+        run: cargo check --package lambdaworks-math --no-default-features
       
       - name: Run cargo check for math with wasm target
-        run: cargo check --package lambdaworks-math --no-default-features
+        run: cargo check --package lambdaworks-math --no-default-features --target wasm32-unknown-unknown
 
       - name: Run cargo build ensure-no_std crate
         run: |
