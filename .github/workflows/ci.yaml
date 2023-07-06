@@ -38,6 +38,11 @@ jobs:
           cd ensure-no_std
           cargo build
 
+      - name: Run cargo build ensure-no_std crate for wasm
+        run: |
+          cd ensure-no_std
+          cargo build --target wasm32-unknown-unknown
+
       - name: Check benchmarks
         run: cargo bench --no-run
 
