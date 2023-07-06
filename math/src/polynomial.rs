@@ -1,6 +1,7 @@
 use super::field::element::FieldElement;
 use crate::field::traits::IsField;
-use std::ops;
+use alloc::vec::Vec;
+use core::{ops, iter};
 
 /// Represents the polynomial c_0 + c_1 * X + c_2 * X^2 + ... + c_n * X^n
 /// as a vector of coefficients `[c_0, c_1, ... , c_n]`
@@ -26,7 +27,7 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
     }
 
     pub fn new_monomial(coefficient: FieldElement<F>, degree: usize) -> Self {
-        let mut coefficients = vec![FieldElement::zero(); degree];
+        let mut coefficients: Vec<FieldElement<F>> = iter::repeat(FieldElement::zero()).take(degree).collect();
         coefficients.push(coefficient);
         Self::new(&coefficients)
     }
@@ -44,7 +45,7 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
     ) -> Result<Self, InterpolateError> {
         // TODO: try to use the type system to avoid this assert
         if xs.len() != ys.len() {
-            return Err(InterpolateError::UnequalLengths(xs.len(), ys.len()));
+            return Err(InterpolateError::UnequalLengths);
         }
         if xs.is_empty() {
             return Ok(Polynomial::new(&[]));
@@ -95,7 +96,7 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
             .iter()
             .rev()
             .fold(FieldElement::zero(), |acc, coeff| {
-                acc * x.to_owned() + coeff
+                acc * x + coeff
             })
     }
 
@@ -166,7 +167,9 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
             (Polynomial::zero(), self)
         } else {
             let mut n = self;
-            let mut q: Vec<FieldElement<F>> = vec![FieldElement::zero(); n.degree() + 1];
+
+            let mut q: Vec<FieldElement<F>> = iter::repeat(FieldElement::zero()).take(n.degree()+1).collect();
+
             let denominator = dividend.leading_coefficient().inv();
             while n != Polynomial::zero() && n.degree() >= dividend.degree() {
                 let new_coefficient = n.leading_coefficient() * &denominator;
@@ -188,7 +191,8 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
 
     pub fn mul_with_ref(&self, factor: &Self) -> Self {
         let degree = self.degree() + factor.degree();
-        let mut coefficients = vec![FieldElement::zero(); degree + 1];
+        
+        let mut coefficients: Vec<FieldElement<F>> = iter::repeat(FieldElement::zero()).take(degree+1).collect();
 
         if self.coefficients.is_empty() || factor.coefficients.is_empty() {
             Polynomial::new(&[FieldElement::zero()])
@@ -260,7 +264,7 @@ where
 {
     let max_degree: u64 = (poly_1.degree() * poly_2.degree()) as u64;
 
-    let mut interpolation_points = vec![];
+    let mut interpolation_points = Vec::new();
     for i in 0_u64..max_degree + 1 {
         interpolation_points.push(FieldElement::<F>::from(i));
     }
@@ -609,13 +613,10 @@ impl<F: IsField> ops::Sub<&Polynomial<FieldElement<F>>> for FieldElement<F> {
     }
 }
 
-use thiserror::Error;
-
-#[derive(Debug, Error)]
+#[derive(Debug)]
 pub enum InterpolateError {
-    #[error("xs and ys must be the same length. Got: {0} != {1}")]
-    UnequalLengths(usize, usize),
-    #[error("xs values should be unique.")]
+    /// xs and ys must be the same length
+    UnequalLengths,
     NonUniqueXs,
 }
 
@@ -813,6 +814,7 @@ mod tests {
         let two = FE::new(2);
         let four = FE::new(4);
         let p = Polynomial::new_monomial(two, 1);
+        println!("Poly: {:?}", p);
         assert_eq!(p.evaluate(&two), four);
     }
 

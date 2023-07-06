@@ -1,3 +1,4 @@
+use alloc::vec::Vec;
 use crate::errors::CreationError;
 use crate::field::traits::IsField;
 use crate::unsigned_integer::element::UnsignedInteger;
@@ -18,7 +19,7 @@ pub struct FieldElement<F: IsField> {
     value: F::BaseType,
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 impl<F: IsField> FieldElement<F> {
     // Source: https://en.wikipedia.org/wiki/Modular_multiplicative_inverse#Multiple_inverses
     pub fn inplace_batch_inverse(numbers: &mut [Self]) {
