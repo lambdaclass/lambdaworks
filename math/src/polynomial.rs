@@ -814,7 +814,6 @@ mod tests {
         let two = FE::new(2);
         let four = FE::new(4);
         let p = Polynomial::new_monomial(two, 1);
-        println!("Poly: {:?}", p);
         assert_eq!(p.evaluate(&two), four);
     }
 
