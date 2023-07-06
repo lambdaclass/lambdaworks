@@ -1,3 +1,4 @@
+use alloc::vec::Vec;
 use crate::field::element::FieldElement;
 use crate::field::traits::IsPrimeField;
 use crate::traits::ByteConversion;
@@ -292,7 +293,7 @@ impl<M, const NUM_LIMBS: usize> ByteConversion
 where
     M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug,
 {
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn to_bytes_be(&self) -> Vec<u8> {
         MontgomeryAlgorithms::cios(
             self.value(),
@@ -303,7 +304,7 @@ where
         .to_bytes_be()
     }
 
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn to_bytes_le(&self) -> Vec<u8> {
         MontgomeryAlgorithms::cios(
             self.value(),

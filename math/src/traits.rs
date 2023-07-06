@@ -1,3 +1,4 @@
+use alloc::vec::Vec;
 use crate::{
     errors::DeserializationError,
     field::{element::FieldElement, traits::IsField},
@@ -9,11 +10,11 @@ use crate::errors::ByteConversionError;
 /// little-endian order.
 pub trait ByteConversion {
     /// Returns the byte representation of the element in big-endian order.}
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn to_bytes_be(&self) -> Vec<u8>;
 
     /// Returns the byte representation of the element in little-endian order.
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn to_bytes_le(&self) -> Vec<u8>;
 
     /// Returns the element from its byte representation in big-endian order.

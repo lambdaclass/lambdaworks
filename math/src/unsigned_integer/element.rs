@@ -1,3 +1,4 @@
+use alloc::vec::Vec;
 use core::cmp::Ordering;
 use core::convert::From;
 use core::ops::{
@@ -835,7 +836,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
 impl<const NUM_LIMBS: usize> IsUnsignedInteger for UnsignedInteger<NUM_LIMBS> {}
 
 impl<const NUM_LIMBS: usize> ByteConversion for UnsignedInteger<NUM_LIMBS> {
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn to_bytes_be(&self) -> Vec<u8> {
         self.limbs
             .iter()
@@ -843,7 +844,7 @@ impl<const NUM_LIMBS: usize> ByteConversion for UnsignedInteger<NUM_LIMBS> {
             .collect()
     }
 
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn to_bytes_le(&self) -> Vec<u8> {
         self.limbs
             .iter()
