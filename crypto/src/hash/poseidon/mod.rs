@@ -1,3 +1,5 @@
+mod parameters;
+mod cairo_poseidon_constants;
 use self::parameters::Parameters;
 
 use lambdaworks_math::{
@@ -5,7 +7,6 @@ use lambdaworks_math::{
 };
 use std::ops::{Add, Mul};
 
-mod parameters;
 
 pub struct Poseidon<F: IsPrimeField> {
     params: Parameters<F>,
@@ -152,6 +153,7 @@ mod tests {
     #[test]
     fn test_mix() {
         let mut state = [
+            
             FE::from_hex(
                 "13f891b043b3b740cc3e1b3051127d335f08e488322f360a776b3810b7dc690a",
             ).unwrap(),

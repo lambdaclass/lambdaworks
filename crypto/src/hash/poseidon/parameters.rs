@@ -32,18 +32,22 @@ F: IsPrimeField  {
     }
 
     fn cairo_stark_params() -> Parameters<F>{
-        const ADD_ROUND_CONSTANTS_CSV: &str = include_str!("cairo_poseidon_constants/round_constants.csv");
-        const MDS_MATRIX_CSV: &str = include_str!("cairo_poseidon_constants/mds_matrix.csv");
 
-        let add_round_constants = Self::decode_add_round_constants(ADD_ROUND_CONSTANTS_CSV);
+        FieldElement::<F>::from_raw(value);
         let mds_matrix = Self::decode_mds_matrix(MDS_MATRIX_CSV);
+
+        for row in mds_matrix.clone() {
+            for e in row {
+                print!("{:?},", e.representative().to_string());
+            }
+            println!();
+        }
 
         const RATE: usize = 2;
         const CAPACITY: usize = 1;
         const ALPHA: u32 = 3;
         const N_FULL_ROUNDS: usize = 8;
-        const N_PARTIAL_ROUNDS: usize = 83;
-        
+        const N_PARTIAL_ROUNDS: usize = 83;     
         Self{
             rate: RATE,
             capacity: CAPACITY,
