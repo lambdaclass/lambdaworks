@@ -1,3 +1,5 @@
+
+#[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 use crate::{
     errors::DeserializationError,

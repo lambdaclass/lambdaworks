@@ -1,3 +1,4 @@
+#[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 use crate::field::element::FieldElement;
 use crate::field::traits::IsPrimeField;

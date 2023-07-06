@@ -1,3 +1,4 @@
+#[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 use crate::errors::CreationError;
 use crate::field::traits::IsField;
