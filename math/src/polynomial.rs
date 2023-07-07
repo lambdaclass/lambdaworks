@@ -2,7 +2,7 @@ use super::field::element::FieldElement;
 use crate::field::traits::IsField;
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
-use core::{ops, iter};
+use core::{iter, ops};
 
 /// Represents the polynomial c_0 + c_1 * X + c_2 * X^2 + ... + c_n * X^n
 /// as a vector of coefficients `[c_0, c_1, ... , c_n]`
@@ -28,7 +28,8 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
     }
 
     pub fn new_monomial(coefficient: FieldElement<F>, degree: usize) -> Self {
-        let mut coefficients: Vec<FieldElement<F>> = iter::repeat(FieldElement::zero()).take(degree).collect();
+        let mut coefficients: Vec<FieldElement<F>> =
+            iter::repeat(FieldElement::zero()).take(degree).collect();
         coefficients.push(coefficient);
         Self::new(&coefficients)
     }
@@ -96,9 +97,7 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
         self.coefficients
             .iter()
             .rev()
-            .fold(FieldElement::zero(), |acc, coeff| {
-                acc * x + coeff
-            })
+            .fold(FieldElement::zero(), |acc, coeff| acc * x + coeff)
     }
 
     pub fn evaluate_slice(&self, input: &[FieldElement<F>]) -> Vec<FieldElement<F>> {
@@ -169,7 +168,9 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
         } else {
             let mut n = self;
 
-            let mut q: Vec<FieldElement<F>> = iter::repeat(FieldElement::zero()).take(n.degree()+1).collect();
+            let mut q: Vec<FieldElement<F>> = iter::repeat(FieldElement::zero())
+                .take(n.degree() + 1)
+                .collect();
 
             let denominator = dividend.leading_coefficient().inv();
             while n != Polynomial::zero() && n.degree() >= dividend.degree() {
@@ -192,8 +193,10 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
 
     pub fn mul_with_ref(&self, factor: &Self) -> Self {
         let degree = self.degree() + factor.degree();
-        
-        let mut coefficients: Vec<FieldElement<F>> = iter::repeat(FieldElement::zero()).take(degree+1).collect();
+
+        let mut coefficients: Vec<FieldElement<F>> = iter::repeat(FieldElement::zero())
+            .take(degree + 1)
+            .collect();
 
         if self.coefficients.is_empty() || factor.coefficients.is_empty() {
             Polynomial::new(&[FieldElement::zero()])

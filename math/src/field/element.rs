@@ -1,10 +1,10 @@
-#[cfg(feature = "alloc")]
-use alloc::vec::Vec;
 use crate::errors::CreationError;
 use crate::field::traits::IsField;
 use crate::unsigned_integer::element::UnsignedInteger;
 use crate::unsigned_integer::montgomery::MontgomeryAlgorithms;
 use crate::unsigned_integer::traits::IsUnsignedInteger;
+#[cfg(feature = "alloc")]
+use alloc::vec::Vec;
 use core::fmt;
 use core::fmt::Debug;
 use core::iter::Sum;

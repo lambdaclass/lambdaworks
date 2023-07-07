@@ -1,10 +1,9 @@
-
-#[cfg(feature = "alloc")]
-use alloc::vec::Vec;
 use crate::{
     errors::DeserializationError,
     field::{element::FieldElement, traits::IsField},
 };
+#[cfg(feature = "alloc")]
+use alloc::vec::Vec;
 
 use crate::errors::ByteConversionError;
 /// A trait for converting an element to and from its byte representation and

@@ -1,5 +1,3 @@
-#[cfg(feature = "alloc")]
-use alloc::vec::Vec;
 use crate::field::element::FieldElement;
 use crate::field::traits::IsPrimeField;
 use crate::traits::ByteConversion;
@@ -7,6 +5,8 @@ use crate::{
     field::traits::IsField, unsigned_integer::element::UnsignedInteger,
     unsigned_integer::montgomery::MontgomeryAlgorithms,
 };
+#[cfg(feature = "alloc")]
+use alloc::vec::Vec;
 
 use core::fmt::Debug;
 use core::marker::PhantomData;
