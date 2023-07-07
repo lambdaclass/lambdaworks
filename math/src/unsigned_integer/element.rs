@@ -1157,6 +1157,74 @@ mod tests_u384 {
     }
 
     #[test]
+    fn construct_new_integer_from_dec_1() {
+        let a = U384::from_dec_str("1").unwrap();
+        assert_eq!(a.limbs, [0, 0, 0, 0, 0, 1]);
+    }
+
+    #[test]
+    fn construct_new_integer_from_dec_2() {
+        let a = U384::from_dec_str("15").unwrap();
+        assert_eq!(a.limbs, [0, 0, 0, 0, 0, 15]);
+    }
+
+    #[test]
+    fn construct_new_integer_from_dec_3() {
+        let a = U384::from_dec_str("18446744073709551616").unwrap();
+        assert_eq!(a.limbs, [0, 0, 0, 0, 1, 0]);
+    }
+
+    #[test]
+    fn construct_new_integer_from_dec_4() {
+        let a = U384::from_dec_str("184467440737095516160").unwrap();
+        assert_eq!(a.limbs, [0, 0, 0, 0, 10, 0]);
+    }
+
+    #[test]
+    fn construct_new_integer_from_dec_5() {
+        let a = U384::from_dec_str("4722366482869645213695").unwrap();
+        assert_eq!(a.limbs, [0, 0, 0, 0, 255, u64::MAX]);
+    }
+
+    #[test]
+    fn construct_new_integer_from_dec_6() {
+        let a = U384::from_dec_str("1110408632367155513346836").unwrap();
+        assert_eq!(a.limbs, [0, 0, 0, 0, 60195, 6872850209053821716]);
+    }
+
+    #[test]
+    fn construct_new_integer_from_dec_7() {
+        let a = U384::from_dec_str("66092860629991288370279803883558073888453977263446474418").unwrap();
+        assert_eq!(
+            a.limbs,
+            [
+                0,
+                0,
+                0,
+                194229460750598834,
+                4171047363999149894,
+                6975114134393503410
+            ]
+        );
+    }
+
+    #[test]
+    fn construct_new_integer_from_dec_8() {
+        let a = U384::from_dec_str("3087491467896943881295768554872271030441880044814691421073017731442549147034464936390742057449079000462340371991316").unwrap();
+        assert_eq!(
+            a.limbs,
+            [
+                1445463580056702870,
+                13122285128622708909,
+                3107671372009581347,
+                11396525602857743462,
+                921361708038744867,
+                6872850209053821716
+            ]
+        );
+    }
+
+    #[test]
     fn equality_works_1() {
         let a = U384::from_hex_unchecked("1");
         let b = U384 {
