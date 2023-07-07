@@ -12,7 +12,7 @@ lambdaworks-gpu = { workspace = true, features = ["cuda"] }
 libfuzzer-sys = { workspace = true }
  
 [[bin]]
-name = "fuzz_target_1"
-path = "fuzz_targets/fuzz_target_1.rs"
+name = "polynomial_fft_diff"
+path = "fuzz_targets/polynomial_fft_diff.rs"
 test = false
 doc = false
