@@ -2066,6 +2066,74 @@ mod tests_u256 {
     }
 
     #[test]
+    fn construct_new_integer_from_dec_1() {
+        let a = U256::from_dec_str("1").unwrap();
+        assert_eq!(a.limbs, [0, 0, 0, 1]);
+    }
+
+    #[test]
+    fn construct_new_integer_from_dec_2() {
+        let a = U256::from_dec_str("15").unwrap();
+        assert_eq!(a.limbs, [0, 0, 0, 15]);
+    }
+
+    #[test]
+    fn construct_new_integer_from_dec_3() {
+        let a = U256::from_dec_str("18446744073709551616").unwrap();
+        assert_eq!(a.limbs, [0, 0, 1, 0]);
+    }
+
+    #[test]
+    fn construct_new_integer_from_dec_4() {
+        let a = U256::from_dec_str("184467440737095516160").unwrap();
+        assert_eq!(a.limbs, [0, 0, 10, 0]);
+    }
+
+    #[test]
+    fn construct_new_integer_from_dec_5() {
+        let a = U256::from_dec_str("4722366482869645213695").unwrap();
+        assert_eq!(a.limbs, [0, 0, 255, u64::MAX]);
+    }
+
+    #[test]
+    fn construct_new_integer_from_dec_6() {
+        let a = U256::from_dec_str("1110408632367155513346836").unwrap();
+        assert_eq!(a.limbs, [0, 0, 60195, 6872850209053821716]);
+    }
+
+    #[test]
+    fn construct_new_integer_from_dec_7() {
+        let a =
+            U256::from_dec_str("66092860629991288370279803883558073888453977263446474418").unwrap();
+        assert_eq!(
+            a.limbs,
+            [
+                0,
+                194229460750598834,
+                4171047363999149894,
+                6975114134393503410
+            ]
+        );
+    }
+
+    #[test]
+    fn construct_new_integer_from_dec_8() {
+        let a = U256::from_dec_str(
+            "19507169362252850253634654373914901165934018806002526957372506333098895428372",
+        )
+        .unwrap();
+        assert_eq!(
+            a.limbs,
+            [
+                3107671372009581347,
+                11396525602857743462,
+                921361708038744867,
+                6872850209053821716
+            ]
+        );
+    }
+
+    #[test]
     fn equality_works_1() {
         let a = U256::from_hex_unchecked("1");
         let b = U256 {

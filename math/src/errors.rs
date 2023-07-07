@@ -7,7 +7,7 @@ pub enum ByteConversionError {
 #[derive(Debug, PartialEq, Eq)]
 pub enum CreationError {
     InvalidHexString,
-    InvalidDecString
+    InvalidDecString,
 }
 
 #[derive(Debug, PartialEq, Eq)]
