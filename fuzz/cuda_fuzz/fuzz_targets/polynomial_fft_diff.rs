@@ -30,7 +30,7 @@ fuzz_target!(|data: Vec<u64>| {
             assert_eq!(fft_eval_cuda, fft_eval_cpu);
             (fft_eval_cuda.clone(), fft_eval_cpu.clone())
         },
-        (Err(err_cuda), Err(err_cpu)) => {
+        (Err(_), Err(_)) => {
             (inputs.clone(), inputs)
         },
         (cuda, cpu) => panic!("Evaluate results didn't match. cuda.is_err(): {}, cpu.is_err(): {}", cuda.is_err(), cpu.is_err())
@@ -40,7 +40,7 @@ fuzz_target!(|data: Vec<u64>| {
         (Ok(interpolated_cuda), Ok(interpolated_cpu)) => {
             assert_eq!(interpolated_cuda, interpolated_cpu);
         },
-        (Err(err_cuda), Err(err_cpu)) => {},
+        (Err(_), Err(_)) => {},
         (cuda, cpu) => panic!("Interpolate results didn't match. cuda.is_err(): {}, cpu.is_err(): {}", cuda.is_err(), cpu.is_err())
     };
 });
