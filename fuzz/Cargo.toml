@@ -2,7 +2,6 @@
 members = ["no_gpu_fuzz", "metal_fuzz", "cuda_fuzz"]
 
 [workspace.package]
-name = "fuzz"
 edition = "2021"
 publish = false
 version = "0.1.1"
