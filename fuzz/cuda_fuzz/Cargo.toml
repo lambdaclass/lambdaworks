@@ -16,3 +16,10 @@ name = "polynomial_fft_diff"
 path = "fuzz_targets/polynomial_fft_diff.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "twiddles_generation_diff"
+path = "fuzz_targets/twiddles_generation_diff.rs"
+test = false
+doc = false
+
