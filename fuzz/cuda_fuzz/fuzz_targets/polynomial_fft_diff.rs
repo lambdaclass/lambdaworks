@@ -2,7 +2,7 @@
 use libfuzzer_sys::fuzz_target;
 use lambdaworks_math::{
     fft::{
-        gpu::cuda::polynomial::{evaluate_fft_metal, interpolate_fft_metal},
+        gpu::cuda::polynomial::{evaluate_fft_cuda, interpolate_fft_cuda},
         polynomial::{evaluate_fft_cpu, interpolate_fft_cpu},
         errors::FFTError
     },
