@@ -833,6 +833,9 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
 
     /// Convert from a decimal string.
     pub fn from_dec_str(value: &str) -> Result<Self, CreationError> {
+        if value.is_empty() {
+            return Err(CreationError::InvalidDecString);
+        }
         let mut res = Self::from_u64(0);
         for b in value.bytes().map(|b| b.wrapping_sub(b'0')) {
             if b > 9 {
@@ -1194,7 +1197,8 @@ mod tests_u384 {
 
     #[test]
     fn construct_new_integer_from_dec_7() {
-        let a = U384::from_dec_str("66092860629991288370279803883558073888453977263446474418").unwrap();
+        let a =
+            U384::from_dec_str("66092860629991288370279803883558073888453977263446474418").unwrap();
         assert_eq!(
             a.limbs,
             [
@@ -1222,6 +1226,16 @@ mod tests_u384 {
                 6872850209053821716
             ]
         );
+    }
+
+    #[test]
+    fn construct_new_integer_from_dec_empty() {
+        assert!(U384::from_dec_str("").is_err());
+    }
+
+    #[test]
+    fn construct_new_integer_from_dec_invalid() {
+        assert!(U384::from_dec_str("0xff").is_err());
     }
 
     #[test]
@@ -2199,6 +2213,16 @@ mod tests_u256 {
                 6872850209053821716
             ]
         );
+    }
+
+    #[test]
+    fn construct_new_integer_from_dec_empty() {
+        assert!(U256::from_dec_str("").is_err());
+    }
+
+    #[test]
+    fn construct_new_integer_from_dec_invalid() {
+        assert!(U256::from_dec_str("0xff").is_err());
     }
 
     #[test]
