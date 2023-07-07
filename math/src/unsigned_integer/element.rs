@@ -830,6 +830,19 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         quo = Self::ct_select(&Self::from_u64(0), &quo, is_some);
         (quo, rem)
     }
+
+    /// Convert from a decimal string.
+    pub fn from_dec_str(value: &str) -> Result<Self, CreationError> {
+        let mut res = Self::from_u64(0);
+        for b in value.bytes().map(|b| b.wrapping_sub(b'0')) {
+            if b > 9 {
+                return Err(CreationError::InvalidDecString);
+            }
+            let r = res * Self::from(10_u64) + Self::from(b as u64);
+            res = r;
+        }
+        Ok(res)
+    }
 }
 
 impl<const NUM_LIMBS: usize> IsUnsignedInteger for UnsignedInteger<NUM_LIMBS> {}
