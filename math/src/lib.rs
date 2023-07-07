@@ -11,8 +11,6 @@ pub mod unsigned_integer;
 
 pub mod gpu;
 
-#[cfg(feature = "alloc")]
-pub mod polynomial;
 // These modules don't work in no-std mode
 #[cfg(feature = "std")]
 pub mod elliptic_curve;
@@ -20,3 +18,5 @@ pub mod elliptic_curve;
 pub mod fft;
 #[cfg(feature = "std")]
 pub mod msm;
+#[cfg(feature = "alloc")]
+pub mod polynomial;
