@@ -4,7 +4,6 @@ use lambdaworks_math::{
     fft::{
         gpu::cuda::polynomial::{evaluate_fft_cuda, interpolate_fft_cuda},
         polynomial::{evaluate_fft_cpu, interpolate_fft_cpu},
-        errors::FFTError
     },
     field::{
         fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
