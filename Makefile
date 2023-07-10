@@ -63,11 +63,6 @@ run-no-gpu-fuzzer:
 		cd fuzz/no_gpu_fuzz
 		cargo +nightly fuzz run --fuzz-dir . $(FUZZER)
 
-CUDAFUZZER = fuzz_target_1
-run-cuda-fuzzer:
-		cd fuzz/cuda_fuzz
-		cargo +nightly fuzz run --fuzz-dir . $(CUDAFUZZER)
-
 METALFUZZER = fft_diff
 run-metal-fuzzer:
 		cd fuzz/metal_fuzz
