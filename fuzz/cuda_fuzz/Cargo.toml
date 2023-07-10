@@ -9,7 +9,7 @@ cargo-fuzz = true
 [dependencies]
 lambdaworks-math = { workspace = true, features = ["cuda"] }
 lambdaworks-gpu = { workspace = true, features = ["cuda"] }
-libfuzzer-sys = { workspace = true }
+honggfuzz = "0.5.55"
  
 [[bin]]
 name = "polynomial_fft_diff"
