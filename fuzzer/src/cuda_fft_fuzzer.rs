@@ -15,7 +15,6 @@ use lambdaworks_math::{
     },
 };
 
-
 fn main() {
     loop {
         fuzz!(|data:  Vec<u64>| {
@@ -24,6 +23,10 @@ fn main() {
 
             if input_raw.len() == 0 {
                 input_raw.push(0u64);
+            }
+
+            while !input_raw.len().is_power_of_two(){
+                input_raw.push(input_raw[0]);
             }
 
             for i in 0..input_raw.len() {
