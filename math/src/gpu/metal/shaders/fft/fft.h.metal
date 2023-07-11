@@ -11,12 +11,11 @@ template<typename Fp>
     uint32_t thread_pos       [[ thread_position_in_grid ]]
 )
 {
-    uint64_t group_count = 1 << stage;
-    uint64_t half_group_size = thread_count / group_count;
-    uint64_t group = thread_pos / half_group_size;
+    uint32_t half_group_size = thread_count >> stage; // thread_count / group_count
+    uint32_t group = thread_pos >> metal::ctz(half_group_size);
 
-    uint64_t pos_in_group = thread_pos % half_group_size;
-    uint64_t i = thread_pos * 2 - pos_in_group; // multiply quotient by 2
+    uint32_t pos_in_group = thread_pos & (half_group_size - 1); // thread_pos % half_group_size
+    uint32_t i = thread_pos * 2 - pos_in_group; // multiply quotient by 2
 
     Fp w = twiddles[group];
     Fp a = input[i];
