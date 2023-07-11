@@ -17,10 +17,10 @@ namespace {
 
 template [[ host_name("radix2_dit_butterfly_stark256") ]] 
 [[kernel]] void radix2_dit_butterfly<Fp>(
-    device Fp*, 
-    constant Fp*, 
-    uint32_t, 
-    uint32_t, 
+    device Fp*,
+    constant Fp*,
+    constant uint32_t&,
+    uint32_t,
     uint32_t
 );
 

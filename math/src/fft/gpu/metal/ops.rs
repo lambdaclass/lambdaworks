@@ -34,17 +34,18 @@ pub fn fft<F: IsFFTField>(
     objc::rc::autoreleasepool(|| {
         let (command_buffer, command_encoder) = state.setup_command(
             &pipeline,
-            Some(&[(0, &input_buffer), (1, &twiddles_buffer)]),
+            Some(&[(0, &input_buffer), (1, &twiddles_buffer)]), // index 2 is stage
         );
 
         let order = input.len().trailing_zeros();
         for stage in 0..order {
-            let group_count = 1 << stage;
-            let group_size = input.len() as u64 / group_count;
+            command_encoder.set_bytes(2, mem::size_of_val(&stage) as u64, void_ptr(&stage));
 
-            let threadgroup_size = MTLSize::new(group_size / 2, 1, 1);
-            let threadgroup_count = MTLSize::new(group_count, 1, 1);
-            command_encoder.dispatch_thread_groups(threadgroup_count, threadgroup_size);
+            let grid_size = MTLSize::new(input.len() as u64 / 2, 1, 1); // one thread per butterfly
+            let threadgroup_size = MTLSize::new(pipeline.thread_execution_width(), 1, 1);
+
+            // WARN: Device should support non-uniform threadgroups (Metal3 and Apple4 or latter).
+            command_encoder.dispatch_threads(grid_size, threadgroup_size);
         }
         command_encoder.end_encoding();
 
