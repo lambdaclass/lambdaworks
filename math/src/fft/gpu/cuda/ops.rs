@@ -27,10 +27,11 @@ where
 
     let order = input.len().trailing_zeros();
     for stage in 0..order {
-        let group_count = 1 << stage;
-        let group_size = input.len() / group_count;
+        const WARP_SIZE: usize = 32;
+        let block_size = WARP_SIZE;
+        let block_count = (input.len() + block_size) / block_size;
 
-        function.launch(group_count, group_size)?;
+        function.launch(block_count, block_size)?;
     }
 
     let output = function.retrieve_result()?;

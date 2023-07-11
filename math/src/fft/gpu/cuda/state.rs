@@ -166,11 +166,11 @@ impl<F: IsField> Radix2DitButterflyFunction<F> {
 
     pub(crate) fn launch(
         &mut self,
-        group_count: usize,
-        group_size: usize,
+        block_count: usize,
+        block_size: usize,
     ) -> Result<(), CudaError> {
-        let grid_dim = (group_count as u32, 1, 1); // in blocks
-        let block_dim = ((group_size / 2) as u32, 1, 1);
+        let grid_dim = (block_count as u32, 1, 1); // in blocks
+        let block_dim = ((block_size / 2) as u32, 1, 1);
 
         if block_dim.0 as usize > DeviceSlice::len(&self.twiddles) {
             return Err(CudaError::IndexOutOfBounds(
