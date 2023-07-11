@@ -182,6 +182,22 @@ mod tests {
         }
     }
 
+    // May want to modify the order constant, takes ~5s to run on a M1.
+    #[test]
+    fn test_metal_fft_matches_sequential_large_input() {
+        const ORDER: usize = 20;
+        let input = vec![FE::one(); 1 << ORDER];
+
+        let metal_state = MetalState::new(None).unwrap();
+        let order = input.len().trailing_zeros();
+        let twiddles = get_twiddles(order.into(), RootsConfig::BitReverse).unwrap();
+
+        let metal_result = super::fft(&input, &twiddles, &metal_state).unwrap();
+        let sequential_result = crate::fft::cpu::ops::fft(&input, &twiddles).unwrap();
+
+        assert_eq!(&metal_result, &sequential_result);
+    }
+
     #[test]
     fn gen_twiddles_with_order_greater_than_63_should_fail() {
         let metal_state = MetalState::new(None).unwrap();
