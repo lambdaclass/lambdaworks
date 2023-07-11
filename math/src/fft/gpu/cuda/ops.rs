@@ -29,7 +29,7 @@ where
     for stage in 0..order {
         const WARP_SIZE: usize = 32;
         let block_size = WARP_SIZE;
-        let block_count = (input.len() + block_size) / block_size;
+        let block_count = (input.len() + block_size - 1) / block_size;
 
         function.launch(block_count, block_size)?;
     }
