@@ -117,9 +117,8 @@ mod tests {
         }
     }
 
-    // May want to modify the order constant, takes ~5s to run on a M1.
     #[test]
-    fn test_metal_fft_matches_sequential_large_input() {
+    fn test_cuda_fft_matches_sequential_large_input() {
         const ORDER: usize = 20;
         let input = vec![FE::one(); 1 << ORDER];
 
