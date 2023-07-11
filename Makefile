@@ -68,3 +68,8 @@ run-metal-fuzzer:
 		cd fuzz/metal_fuzz
 		cargo +nightly fuzz run --fuzz-dir . $(METALFUZZER)
 
+CUDAFUZZER = cuda_fft_fuzzer
+run-cuda-fuzzer:
+		cd fuzz/cuda_fuzz
+		cargo hfuzz run $(CUDAFUZZER)
+

@@ -10,6 +10,10 @@ cargo-fuzz = true
 lambdaworks-math = { workspace = true, features = ["cuda"] }
 lambdaworks-gpu = { workspace = true, features = ["cuda"] }
 honggfuzz = "0.5.55"
+
+[[bin]]
+name = "cuda_fft_fuzzer"
+path = "src/cuda_fft_fuzzer.rs"
  
 [[bin]]
 name = "polynomial_fft_diff"
