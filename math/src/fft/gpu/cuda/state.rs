@@ -170,7 +170,7 @@ impl<F: IsField> Radix2DitButterflyFunction<F> {
         block_size: usize,
     ) -> Result<(), CudaError> {
         let grid_dim = (block_count as u32, 1, 1); // in blocks
-        let block_dim = ((block_size / 2) as u32, 1, 1);
+        let block_dim = (block_count as u32, 1, 1);
 
         if block_dim.0 as usize > DeviceSlice::len(&self.twiddles) {
             return Err(CudaError::IndexOutOfBounds(
@@ -195,7 +195,7 @@ impl<F: IsField> Radix2DitButterflyFunction<F> {
         unsafe {
             self.function
                 .clone()
-                .launch(config, (&mut self.input, &self.twiddles))
+                .launch(config, (&mut self.input, &self.twiddles, &self.input.len()))
         }
         .map_err(|err| CudaError::Launch(err.to_string()))
     }
