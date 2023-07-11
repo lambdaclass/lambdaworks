@@ -17,13 +17,13 @@ path = "src/cuda_fft_fuzzer.rs"
  
 [[bin]]
 name = "polynomial_fft_diff"
-path = "fuzz_targets/polynomial_fft_diff.rs"
+path = "src/polynomial_fft_diff.rs"
 test = false
 doc = false
 
 [[bin]]
 name = "twiddles_generation_diff"
-path = "fuzz_targets/twiddles_generation_diff.rs"
+path = "src/twiddles_generation_diff.rs"
 test = false
 doc = false
 
