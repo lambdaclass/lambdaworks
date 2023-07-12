@@ -168,8 +168,8 @@ impl<F: IsField> Radix2DitButterflyFunction<F> {
         &mut self,
         block_count: usize,
         block_size: usize,
-        stage: usize,
-        butterfly_count: usize,
+        stage: u32,
+        butterfly_count: u32,
     ) -> Result<(), CudaError> {
         let grid_dim = (block_count as u32, 1, 1); // in blocks
         let block_dim = (block_count as u32, 1, 1);
@@ -197,12 +197,7 @@ impl<F: IsField> Radix2DitButterflyFunction<F> {
         unsafe {
             self.function.clone().launch(
                 config,
-                (
-                    &mut self.input,
-                    &self.twiddles,
-                    stage as usize,
-                    butterfly_count as usize,
-                ),
+                (&mut self.input, &self.twiddles, stage, butterfly_count),
             )
         }
         .map_err(|err| CudaError::Launch(err.to_string()))
