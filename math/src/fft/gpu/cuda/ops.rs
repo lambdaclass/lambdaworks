@@ -32,7 +32,7 @@ where
         let block_count = (input.len() + block_size - 1) / block_size;
         let butterfly_count = input.len() / 2;
 
-        function.launch(block_count, block_size, stage, butterfly_count)?;
+        function.launch(block_count, block_size, stage, butterfly_count as u32)?;
     }
 
     let output = function.retrieve_result()?;
