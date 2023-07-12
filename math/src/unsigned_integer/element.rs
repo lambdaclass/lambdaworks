@@ -794,7 +794,8 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         let mut i = 0;
         while i < NUM_LIMBS {
             if self.limbs[i] != 0 {
-                return u64::BITS as usize * (NUM_LIMBS - i) - self.limbs[i].leading_zeros() as usize
+                return u64::BITS as usize * (NUM_LIMBS - i)
+                    - self.limbs[i].leading_zeros() as usize;
             }
             i += 1;
         }
