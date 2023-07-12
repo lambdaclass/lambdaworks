@@ -127,7 +127,7 @@ mod tests {
         let order = input.len().trailing_zeros();
         let twiddles = get_twiddles(order.into(), RootsConfig::BitReverse).unwrap();
 
-        let cuda_result = fft(&input, &twiddles, &metal_state).unwrap();
+        let cuda_result = fft(&input, &twiddles, &state).unwrap();
         let sequential_result = crate::fft::cpu::ops::fft(&input, &twiddles).unwrap();
 
         assert_eq!(&cuda_result, &sequential_result);
