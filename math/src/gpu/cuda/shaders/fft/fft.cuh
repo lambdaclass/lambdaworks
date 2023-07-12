@@ -3,8 +3,8 @@
 template <class Fp>
 inline __device__ void _radix2_dit_butterfly(Fp *input,
                                              const Fp *twiddles,
-                                             const int &stage,
-                                             const int &butterfly_count)
+                                             const int stage,
+                                             const int butterfly_count)
 {
     if (blockIdx.x >= butterfly_count) return;
 

@@ -22,8 +22,8 @@ extern "C"
 {
     __global__ void radix2_dit_butterfly( p256::Fp *input, 
                                           const p256::Fp *twiddles,
-                                          const int &stage,
-                                          const int &butterfly_count)
+                                          const int stage,
+                                          const int butterfly_count)
     {
         _radix2_dit_butterfly<p256::Fp>(input, twiddles, stage, butterfly_count);
     }
