@@ -790,14 +790,15 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
 
     #[inline(always)]
     /// Returns the number of bits needed to represent the number as little endian
-    const fn bits_le(&self) -> usize {
+    pub const fn bits_le(&self) -> usize {
         let mut i = 0;
-        while i < NUM_LIMBS && self.limbs[i] == 0 {
+        while i < NUM_LIMBS {
+            if self.limbs[i] != 0 {
+                return u64::BITS as usize * (NUM_LIMBS - i) - self.limbs[i].leading_zeros() as usize
+            }
             i += 1;
         }
-
-        let limb = self.limbs[i];
-        u64::BITS as usize * (NUM_LIMBS - i) - limb.leading_zeros() as usize
+        0
     }
 
     /// Computes self / rhs, returns the quotient, remainder.
