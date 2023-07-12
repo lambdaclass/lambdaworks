@@ -6,7 +6,7 @@ inline __device__ void _radix2_dit_butterfly(Fp *input,
                                              const int stage,
                                              const int butterfly_count)
 {
-    if (blockIdx.x >= butterfly_count) return;
+    if (threadIdx.x >= butterfly_count) return;
 
     int group_count = 1 << stage;
     int half_group_size = butterfly_count / group_count;

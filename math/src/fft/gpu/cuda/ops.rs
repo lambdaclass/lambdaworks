@@ -28,9 +28,10 @@ where
     let order = input.len().trailing_zeros();
     for stage in 0..order {
         const WARP_SIZE: usize = 32;
+
         let block_size = WARP_SIZE;
-        let block_count = (input.len() + block_size - 1) / block_size;
         let butterfly_count = input.len() / 2;
+        let block_count = (butterfly_count + block_size - 1) / block_size;
 
         function.launch(block_count, block_size, stage, butterfly_count as u32)?;
     }
