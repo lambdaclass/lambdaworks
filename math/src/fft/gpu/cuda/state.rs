@@ -226,16 +226,14 @@ impl<F: IsField> CalcTwiddlesFunction<F> {
         }
     }
 
-    pub(crate) fn launch(&mut self, group_size: usize) -> Result<(), CudaError> {
-        let grid_dim = (1, 1, 1); // in blocks
-        let block_dim = (group_size as u32, 1, 1);
+    pub(crate) fn launch(&mut self, count: usize) -> Result<(), CudaError> {
+        const WARP_SIZE: usize = 32;
 
-        if block_dim.0 as usize > DeviceSlice::len(&self.twiddles) {
-            return Err(CudaError::IndexOutOfBounds(
-                block_dim.0 as usize,
-                self.twiddles.len(),
-            ));
-        }
+        let block_size = WARP_SIZE;
+        let block_count = (count + block_size - 1) / block_size;
+
+        let grid_dim = (block_count as u32, 1, 1); // in blocks
+        let block_dim = (block_size as u32, 1, 1);
 
         let config = LaunchConfig {
             grid_dim,
@@ -248,7 +246,7 @@ impl<F: IsField> CalcTwiddlesFunction<F> {
         unsafe {
             self.function
                 .clone()
-                .launch(config, (&mut self.twiddles, &self.omega))
+                .launch(config, (&mut self.twiddles, &self.omega, count as u32))
         }
         .map_err(|err| CudaError::Launch(err.to_string()))
     }
@@ -290,21 +288,15 @@ impl<F: IsField> BitrevPermutationFunction<F> {
         }
     }
 
-    pub(crate) fn launch(&mut self, group_size: usize) -> Result<(), CudaError> {
-        let grid_dim = (1, 1, 1); // in blocks
-        let block_dim = (group_size as u32, 1, 1);
+    pub(crate) fn launch(&mut self) -> Result<(), CudaError> {
+        const WARP_SIZE: usize = 32;
 
-        if block_dim.0 as usize > DeviceSlice::len(&self.input) {
-            return Err(CudaError::IndexOutOfBounds(
-                block_dim.0 as usize,
-                self.input.len(),
-            ));
-        } else if block_dim.0 as usize > DeviceSlice::len(&self.result) {
-            return Err(CudaError::IndexOutOfBounds(
-                block_dim.0 as usize,
-                self.result.len(),
-            ));
-        }
+        let len = self.input.len();
+        let block_size = WARP_SIZE;
+        let block_count = (len + block_size - 1) / block_size;
+
+        let grid_dim = (block_count as u32, 1, 1); // in blocks
+        let block_dim = (block_size as u32, 1, 1);
 
         let config = LaunchConfig {
             grid_dim,
@@ -317,7 +309,7 @@ impl<F: IsField> BitrevPermutationFunction<F> {
         unsafe {
             self.function
                 .clone()
-                .launch(config, (&mut self.input, &self.result))
+                .launch(config, (&mut self.input, &self.result, len))
         }
         .map_err(|err| CudaError::Launch(err.to_string()))
     }

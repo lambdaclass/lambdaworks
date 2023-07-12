@@ -25,14 +25,15 @@ where
 {
     let mut function = state.get_radix2_dit_butterfly(input, twiddles)?;
 
+    const WARP_SIZE: usize = 32;
+
+    let block_size = WARP_SIZE;
+    let butterfly_count = input.len() / 2;
+    let block_count = (butterfly_count + block_size - 1) / block_size;
+
     let order = input.len().trailing_zeros();
+
     for stage in 0..order {
-        const WARP_SIZE: usize = 32;
-
-        let block_size = WARP_SIZE;
-        let butterfly_count = input.len() / 2;
-        let block_count = (butterfly_count + block_size - 1) / block_size;
-
         function.launch(block_count, block_size, stage, butterfly_count as u32)?;
     }
 
@@ -70,7 +71,7 @@ pub fn bitrev_permutation<F: IsFFTField>(
 ) -> Result<Vec<FieldElement<F>>, CudaError> {
     let mut function = state.get_bitrev_permutation(&input, &input)?;
 
-    function.launch(input.len())?;
+    function.launch()?;
 
     function.retrieve_result()
 }

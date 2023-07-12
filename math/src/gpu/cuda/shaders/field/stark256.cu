@@ -28,21 +28,24 @@ extern "C"
         _radix2_dit_butterfly<p256::Fp>(input, twiddles, stage, butterfly_count);
     }
     // NOTE: In order to calculate the inverse twiddles, call with _omega = _omega.inverse()
-    __global__ void calc_twiddles(p256::Fp *result, const p256::Fp &_omega)
+    __global__ void calc_twiddles(p256::Fp *result, const p256::Fp &_omega, const int count)
     {
-        _calc_twiddles<p256::Fp>(result, _omega);
+        _calc_twiddles<p256::Fp>(result, _omega, count);
     };
 
     // NOTE: In order to calculate the inverse twiddles, call with _omega = _omega.inverse()
-    __global__ void calc_twiddles_bitrev(p256::Fp *result, const p256::Fp &_omega)
+    __global__ void calc_twiddles_bitrev(p256::Fp *result,
+                                         const p256::Fp &_omega,
+                                         const int count)
     {
-        _calc_twiddles_bitrev<p256::Fp>(result, _omega);
+        _calc_twiddles_bitrev<p256::Fp>(result, _omega, count);
     };
 
     __global__ void bitrev_permutation(
         const p256::Fp *input,
-        p256::Fp *result
+        p256::Fp *result,
+        const int len
     ) {
-        _bitrev_permutation<p256::Fp>(input, result);
+        _bitrev_permutation<p256::Fp>(input, result, len);
     };
 }

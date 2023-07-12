@@ -6,14 +6,16 @@ inline __device__ void _radix2_dit_butterfly(Fp *input,
                                              const int stage,
                                              const int butterfly_count)
 {
-    if (threadIdx.x >= butterfly_count) return;
+    int thread_pos = blockDim.x * blockIdx.x + threadIdx.x;
 
-    int group_count = 1 << stage;
-    int half_group_size = butterfly_count / group_count;
-    int group = threadIdx.x / half_group_size;
+    if (thread_pos >= butterfly_count) return;
+    // TODO: guard is not needed for inputs of len >=block_size * 2, only if len is pow of two
 
-    int pos_in_group = threadIdx.x % half_group_size;
-    int i = threadIdx.x * 2 - pos_in_group; // multiply quotient by 2
+    int half_group_size = butterfly_count >> stage;
+    int group = thread_pos / half_group_size;
+
+    int pos_in_group = thread_pos & (half_group_size - 1);
+    int i = thread_pos * 2 - pos_in_group; // multiply quotient by 2
 
     Fp w = twiddles[group];
     Fp a = input[i];
