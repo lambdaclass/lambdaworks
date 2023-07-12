@@ -174,18 +174,6 @@ impl<F: IsField> Radix2DitButterflyFunction<F> {
         let grid_dim = (block_count as u32, 1, 1); // in blocks
         let block_dim = (block_size as u32, 1, 1);
 
-        if block_dim.0 as usize > DeviceSlice::len(&self.twiddles) {
-            return Err(CudaError::IndexOutOfBounds(
-                block_dim.0 as usize,
-                self.twiddles.len(),
-            ));
-        } else if (grid_dim.0 * block_dim.0) as usize > DeviceSlice::len(&self.input) {
-            return Err(CudaError::IndexOutOfBounds(
-                (grid_dim.0 * block_dim.0) as usize,
-                self.input.len(),
-            ));
-        }
-
         let config = LaunchConfig {
             grid_dim,
             block_dim,
