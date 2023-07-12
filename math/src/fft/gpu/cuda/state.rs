@@ -197,7 +197,7 @@ impl<F: IsField> Radix2DitButterflyFunction<F> {
         unsafe {
             self.function.clone().launch(
                 config,
-                (&mut self.input, &self.twiddles, stage, butterfly_count),
+                (&mut self.input, &self.twiddles, stage as usize, butterfly_count as usize),
             )
         }
         .map_err(|err| CudaError::Launch(err.to_string()))
