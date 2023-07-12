@@ -30,8 +30,9 @@ where
         const WARP_SIZE: usize = 32;
         let block_size = WARP_SIZE;
         let block_count = (input.len() + block_size - 1) / block_size;
+        let butterfly_count = input.len() / 2;
 
-        function.launch(block_count, block_size)?;
+        function.launch(block_count, block_size, stage, butterfly_count)?;
     }
 
     let output = function.retrieve_result()?;
