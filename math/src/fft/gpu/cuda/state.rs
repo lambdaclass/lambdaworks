@@ -16,6 +16,7 @@ use lambdaworks_gpu::cuda::abstractions::errors::CudaError;
 use std::sync::Arc;
 
 const STARK256_PTX: &str = include_str!("../../../gpu/cuda/shaders/field/stark256.ptx");
+const WARP_SIZE: usize = 32; // the implementation will spawn threadblocks of this size.
 
 /// Structure for abstracting basic calls to a CUDA device and saving the state. Used for
 /// implementing GPU parallel computations in CUDA.
@@ -227,8 +228,6 @@ impl<F: IsField> CalcTwiddlesFunction<F> {
     }
 
     pub(crate) fn launch(&mut self, count: usize) -> Result<(), CudaError> {
-        const WARP_SIZE: usize = 32;
-
         let block_size = WARP_SIZE;
         let block_count = (count + block_size - 1) / block_size;
 
@@ -289,8 +288,6 @@ impl<F: IsField> BitrevPermutationFunction<F> {
     }
 
     pub(crate) fn launch(&mut self) -> Result<(), CudaError> {
-        const WARP_SIZE: usize = 32;
-
         let len = self.input.len();
         let block_size = WARP_SIZE;
         let block_count = (len + block_size - 1) / block_size;
