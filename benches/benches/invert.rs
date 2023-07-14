@@ -26,7 +26,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
         c.bench_function(
             &format!(
-                "{} | ark-ff - commit 14 july",
+                "{} | ark-ff - commit 14/7/2023",
                 BENCHMARK_NAME
             ),
             |b| {
