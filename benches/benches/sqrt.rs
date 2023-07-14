@@ -1,7 +1,13 @@
-use ark_ff::Field;
+use ark_ff::{Field, MontBackend, Fp256};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use lambdaworks_math::traits::ByteConversion;
 use rand::RngCore;
+
+#[derive(ark_ff::MontConfig)]
+#[modulus = "3618502788666131213697322783095070105623107215331596699973092056135872020481"]
+#[generator = "3"]
+pub struct FqConfig;
+pub type F = Fp256<MontBackend<FqConfig, 4>>;
 
 const BENCHMARK_NAME: &str = "sqrt";
 
@@ -9,7 +15,6 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     // arkworks-ff
     {
         use ark_std::{test_rng, UniformRand};
-        use ark_test_curves::starknet_fp::Fq as F;
 
         let mut rng = test_rng();
 
