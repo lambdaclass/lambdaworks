@@ -4,23 +4,26 @@
 
 // NOTE: In order to calculate the inverse twiddles, call with _omega = _omega.inverse()
 template <class Fp>
-inline __device__ void _calc_twiddles(Fp *result, const Fp &_omega)
+inline __device__ void _calc_twiddles(Fp *result, const Fp &_omega, const int count)
 {
-    int index = threadIdx.x;
+    unsigned thread_pos = blockDim.x * blockIdx.x + threadIdx.x;
+    if (thread_pos >= count) return;
+    // TODO: guard is not needed for count >=block_size * 2, if count is pow of two
 
     Fp omega = _omega;
-    result[index] = omega.pow((unsigned)index);
+    result[thread_pos] = omega.pow(thread_pos);
 };
 
 // NOTE: In order to calculate the inverse twiddles, call with _omega = _omega.inverse()
 template <class Fp>
-inline __device__ void _calc_twiddles_bitrev(Fp *result, const Fp &_omega)
+inline __device__ void _calc_twiddles_bitrev(Fp *result, const Fp &_omega, const int count)
 {
-    int index = threadIdx.x;
-    int size = blockDim.x;
+    unsigned thread_pos = blockDim.x * blockIdx.x + threadIdx.x;
+    if (thread_pos >= count) return;
+    // TODO: guard is not needed for count >=block_size * 2, if count is pow of two
 
     Fp omega = _omega;
-    result[index] = omega.pow(reverse_index((unsigned)index, (unsigned)size));
+    result[thread_pos] = omega.pow(reverse_index(thread_pos, count));
 };
 
 
