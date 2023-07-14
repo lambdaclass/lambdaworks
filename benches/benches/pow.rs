@@ -33,7 +33,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
         c.bench_function(
             &format!(
-                "{} | ark-ff - branch: faster-benchmarks-and-starknet-field",
+                "{} | ark-ff - commit 14 july",
                 BENCHMARK_NAME
             ),
             |b| {
