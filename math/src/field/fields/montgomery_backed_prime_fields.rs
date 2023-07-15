@@ -427,6 +427,15 @@ mod tests_u384_prime_fields {
         assert_eq!(x * y, c);
     }
 
+    #[test]
+    fn montgomery_backend_serialization_deserialization() {
+        let x = U384F23Element::from(11_u64);
+        let x_serialized = serde_json::to_string(&x).unwrap();
+        let x_deserialized: U384F23Element = serde_json::from_str(&x_serialized).unwrap();
+        assert_eq!(x_serialized, "{\"value\":\"0xb\"}");
+        assert_eq!(x_deserialized, x);
+    }
+
     const ORDER: usize = 23;
     #[test]
     fn two_plus_one_is_three() {
