@@ -1112,6 +1112,11 @@ mod tests_u384 {
     }
 
     #[test]
+    fn construct_new_integer_from_empty_string_errs() {
+        assert!(U384::from_hex("").is_err());
+    }
+
+    #[test]
     fn construct_new_integer_from_hex_checked_8() {
         let a = U384::from_hex("140f5177b90b4f96b61bb8ccb4f298ad2b20aaa5cf482b239e2897a787faf4660cc95597854beb235f6144d9e91f4b14").unwrap();
         assert_eq!(

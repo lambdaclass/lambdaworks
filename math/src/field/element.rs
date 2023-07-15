@@ -595,6 +595,13 @@ mod tests {
         assert_eq!(FE::from_hex("1a").unwrap(), FE::from(26))
     }
 
+    #[test]
+    fn construct_new_field_element_from_empty_string_errs() {
+        type F = Stark252PrimeField;
+        type FE = FieldElement<F>;
+        assert!(FE::from_hex("").is_err());
+    }
+
     prop_compose! {
         fn field_element()(num in any::<u64>().prop_filter("Avoid null coefficients", |x| x != &0)) -> FieldElement::<Stark252PrimeField> {
             FieldElement::<Stark252PrimeField>::from(num)
