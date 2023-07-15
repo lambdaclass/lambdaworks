@@ -476,7 +476,7 @@ impl<'de, F: IsPrimeField> Deserialize<'de> for FieldElement<F> {
             }
         }
 
-        const FIELDS: &'static [&'static str] = &["value"];
+        const FIELDS: &[&str] = &["value"];
         deserializer.deserialize_struct("FieldElement", FIELDS, FieldElementVisitor(PhantomData))
     }
 }
