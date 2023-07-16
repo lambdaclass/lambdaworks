@@ -6,14 +6,18 @@ use crate::unsigned_integer::traits::IsUnsignedInteger;
 use core::fmt;
 use core::fmt::Debug;
 use core::iter::Sum;
+#[cfg(feature = "std")]
 use core::marker::PhantomData;
 use core::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
+#[cfg(feature = "std")]
+use serde::de::{self, Deserializer, MapAccess, Visitor};
+#[cfg(feature = "std")]
+use serde::ser::{Serialize, SerializeStruct, Serializer};
+#[cfg(feature = "std")]
+use serde::Deserialize;
 
 use super::fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField};
 use super::traits::{IsPrimeField, LegendreSymbol};
-use serde::de::{self, Deserializer, MapAccess, Visitor};
-use serde::ser::{Serialize, SerializeStruct, Serializer};
-use serde::Deserialize;
 
 /// A field element with operations algorithms defined in `F`
 #[allow(clippy::derived_hash_with_manual_eq)]
@@ -425,6 +429,7 @@ impl<F: IsPrimeField> FieldElement<F> {
     }
 }
 
+#[cfg(feature = "std")]
 impl<F: IsPrimeField> Serialize for FieldElement<F> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -436,6 +441,7 @@ impl<F: IsPrimeField> Serialize for FieldElement<F> {
     }
 }
 
+#[cfg(feature = "std")]
 impl<'de, F: IsPrimeField> Deserialize<'de> for FieldElement<F> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where

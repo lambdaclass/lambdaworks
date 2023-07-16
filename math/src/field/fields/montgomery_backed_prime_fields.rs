@@ -428,6 +428,7 @@ mod tests_u384_prime_fields {
     }
 
     #[test]
+    #[cfg(feature = "std")]
     fn montgomery_backend_serialization_deserialization() {
         let x = U384F23Element::from(11_u64);
         let x_serialized = serde_json::to_string(&x).unwrap();
