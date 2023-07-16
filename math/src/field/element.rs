@@ -6,14 +6,14 @@ use crate::unsigned_integer::traits::IsUnsignedInteger;
 use core::fmt;
 use core::fmt::Debug;
 use core::iter::Sum;
-#[cfg(feature = "std")]
+#[cfg(feature = "lambdaworks-serde")]
 use core::marker::PhantomData;
 use core::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
-#[cfg(feature = "std")]
+#[cfg(feature = "lambdaworks-serde")]
 use serde::de::{self, Deserializer, MapAccess, Visitor};
-#[cfg(feature = "std")]
+#[cfg(feature = "lambdaworks-serde")]
 use serde::ser::{Serialize, SerializeStruct, Serializer};
-#[cfg(feature = "std")]
+#[cfg(feature = "lambdaworks-serde")]
 use serde::Deserialize;
 
 use super::fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField};
@@ -429,7 +429,7 @@ impl<F: IsPrimeField> FieldElement<F> {
     }
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "lambdaworks-serde")]
 impl<F: IsPrimeField> Serialize for FieldElement<F> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -441,7 +441,7 @@ impl<F: IsPrimeField> Serialize for FieldElement<F> {
     }
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "lambdaworks-serde")]
 impl<'de, F: IsPrimeField> Deserialize<'de> for FieldElement<F> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
