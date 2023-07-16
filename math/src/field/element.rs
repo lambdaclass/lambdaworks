@@ -590,6 +590,13 @@ mod tests {
         assert_eq!(FE::from_hex("1a").unwrap(), FE::from(26))
     }
 
+    #[test]
+    fn from_hex_unchecked_zero_x_1a_is_26_for_stark252_prime_field_element() {
+        type F = Stark252PrimeField;
+        type FE = FieldElement<F>;
+        assert_eq!(FE::from_hex_unchecked("0x1a"), FE::from(26))
+    }
+
     prop_compose! {
         fn field_element()(num in any::<u64>().prop_filter("Avoid null coefficients", |x| x != &0)) -> FieldElement::<Stark252PrimeField> {
             FieldElement::<Stark252PrimeField>::from(num)
