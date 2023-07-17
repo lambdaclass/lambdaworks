@@ -41,81 +41,78 @@ impl IsEdwards for BandersnatchCurve {
 #[cfg(test)]
 mod tests {
 
-    use core::ops::Mul;
-
     use super::*;
     use crate::{
-        cyclic_group::IsGroup, elliptic_curve::{traits::EllipticCurveError, montgomery::point},
+        cyclic_group::IsGroup, elliptic_curve::traits::EllipticCurveError,
         field::element::FieldElement, unsigned_integer::element::U256,
     };
 
-    use super::FqField;
 
     #[allow(clippy::upper_case_acronyms)]
     type FEE = FieldElement<BaseBandersnatchFieldElement>;
 
-    // fn point_1() -> EdwardsProjectivePoint<BandersnatchCurve> {
-    //     let x = FEE::new_base("9697B44AA99E68EA78A5E48044A88E43B4ECF5D3B1833BEA4ED1F96653C4FC2");
-    //     let y = FEE::new_base("393C141D1A492C2289B2528D0C468EEB87FAF4C35964D2470EB262F76B3E0C8");    
+    
+    fn point_1() -> EdwardsProjectivePoint<BandersnatchCurve> {
 
-    //     BandersnatchCurve::create_point_from_affine(x, y).unwrap()
-    //     }
-
-    fn f1f2g_fixed() -> EdwardsProjectivePoint<BandersnatchCurve> {
-        let x = FEE::new_base("488D26D8ECCA1C6F5BE328547612C4A2E629CA6B6509FAA1E59DF5F180271664");
-        let y = FEE::new_base("019E2A29248E9C7AE0383F7F3BF6A50D703415A980BD40D67C2D5C3BE46BE633");    
+        let x = FEE::new_base("29C132CC2C0B34C5743711777BBE42F32B79C022AD998465E1E71866A252AE18");
+        let y = FEE::new_base("2A6C669EDA123E0F157D8B50BADCD586358CAD81EEE464605E3167B6CC974166");
 
         BandersnatchCurve::create_point_from_affine(x, y).unwrap()
-        }
+    }
 
     #[test]
     fn test_scalar_mul() -> () {
-        // let f1 = FEE::new_base("9697B44AA99E68EA78A5E48044A88E43B4ECF5D3B1833BEA4ED1F96653C4FC2");
-        // let f2 = FEE::new_base("393C141D1A492C2289B2528D0C468EEB87FAF4C35964D2470EB262F76B3E0C8");    
-
-        // let f1f2 = f1.clone().mul(&f2);
 
         let g = BandersnatchCurve::generator();
-
         let result1 = g.clone().operate_with_self(5u16);
 
         assert_eq!(result1.x().clone(), FEE::new_base("68CBECE0B8FB55450410CBC058928A567EED293D168FAEF44BFDE25F943AABE0"));
 
         let scalar = U256::from_hex("1CFB69D4CA675F520CCE760202687600FF8F87007419047174FD06B52876E7E6").unwrap();
-
         let result2 = g.operate_with_self(scalar);
+
         assert_eq!(result2.x().clone(), FEE::new_base("68CBECE0B8FB55450410CBC058928A567EED293D168FAEF44BFDE25F943AABE0"));
 
-        // let f1f2g = EdwardsAffine::from_str(
-        //     "(16530491029447613915334753043669938793793987372416328257719459807614119987301, \
-        //      42481140308370805476764840229335460092474682686441442216596889726548353970772)",
-        // )
-        // .unwrap();
-        // let f1 = U256::from_hex("9697B44AA99E68EA78A5E48044A88E43B4ECF5D3B1833BEA4ED1F96653C4FC2").unwrap();
-        // let f2 = U256::from_hex("393C141D1A492C2289B2528D0C468EEB87FAF4C35964D2470EB262F76B3E0C8").unwrap();    
-
-
-        // let resultf1 = g.clone().to_affine().operate_with_self(f1);
-
-        // let resultf1f2 = resultf1.clone().operate_with_self(f2);
-
-        // let f1f2g = point_1().operate_with(&g);
-
-        // let f1f2g_fixed = f1f2g_fixed();
-        // assert_eq!(f1f2g_fixed().x(), resultf1f2.x());
-        // assert_eq!(f1f2g_fixed().y(), resultf1f2.y());
-        // assert_eq!(f1f2g_fixed().z(), resultf1f2.z());
-
-        // assert_eq!(f1f2.clone(), f1f2.clone());
-        // assert_eq!(f1f2.clone() , f1f2.clone());
     }
 
     #[test]
     fn test_create_valid_point_works(){
         let p = BandersnatchCurve::generator();
         
-
         assert_eq!(p,p.clone());
 
+    }
+
+    #[test]
+    fn create_valid_point_works(){
+        let p = point_1();
+        assert_eq!(*p.x(), FEE::new_base("29C132CC2C0B34C5743711777BBE42F32B79C022AD998465E1E71866A252AE18"));
+        assert_eq!(*p.y(), FEE::new_base("2A6C669EDA123E0F157D8B50BADCD586358CAD81EEE464605E3167B6CC974166"));
+        assert_eq!(*p.z(), FEE::new_base("1"));
+    }
+
+    #[test]
+    fn create_invalid_points_panics() {
+        assert_eq!(
+            BandersnatchCurve::create_point_from_affine(FEE::from(1), FEE::from(1)).unwrap_err(),
+            EllipticCurveError::InvalidPoint
+        )
+    }
+
+    #[test]
+    fn equality_works() {
+        let g = BandersnatchCurve::generator();
+        let g2 = g.operate_with(&g);
+        assert_ne!(&g2, &g);
+        assert_eq!(&g, &g);
+    }
+
+    #[test]
+    fn operate_with_self_works_1() {
+        let g = BandersnatchCurve::generator();
+        assert_eq!(
+            g.operate_with(&g).operate_with(&g),
+            g.operate_with_self(3_u16)
+        );
     }
 }
