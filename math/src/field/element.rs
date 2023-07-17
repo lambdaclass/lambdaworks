@@ -1,3 +1,5 @@
+use super::fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField};
+use super::traits::{IsPrimeField, LegendreSymbol};
 use crate::errors::CreationError;
 use crate::field::traits::IsField;
 use crate::unsigned_integer::element::UnsignedInteger;
@@ -7,15 +9,24 @@ use core::fmt;
 use core::fmt::Debug;
 use core::iter::Sum;
 use core::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
-
-use super::fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField};
-use super::traits::{IsPrimeField, LegendreSymbol};
+use serde::Serialize;
 
 /// A field element with operations algorithms defined in `F`
-#[allow(clippy::derived_hash_with_manual_eq)]
 #[derive(Debug, Clone, Hash, Copy)]
 pub struct FieldElement<F: IsField> {
     value: F::BaseType,
+}
+
+impl<F> Serialize for FieldElement<F>
+where
+    F: IsPrimeField,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.representative().to_string().serialize(serializer)
+    }
 }
 
 #[cfg(feature = "std")]

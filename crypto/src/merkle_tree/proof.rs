@@ -1,16 +1,16 @@
+use super::traits::IsMerkleTreeBackend;
 use lambdaworks_math::{
     errors::DeserializationError,
     traits::{Deserializable, Serializable},
 };
-
-use super::traits::IsMerkleTreeBackend;
+use serde::Serialize;
 
 /// Stores a merkle path to some leaf.
 /// Internally, the necessary hashes are stored from root to leaf in the
 /// `merkle_path` field, in such a way that, if the merkle tree is of height `n`, the
 /// `i`-th element of `merkle_path` is the sibling node in the `n - 1 - i`-th check
 /// when verifying.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Proof<T: PartialEq + Eq> {
     pub merkle_path: Vec<T>,
 }
