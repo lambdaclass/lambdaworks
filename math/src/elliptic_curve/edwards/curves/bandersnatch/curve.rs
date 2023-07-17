@@ -19,8 +19,8 @@ impl IsEllipticCurve for BandersnatchCurve {
     // Converted to Hex
     fn generator() -> Self::PointRepresentation {
         Self::PointRepresentation::new([
-            FieldElement::<Self::BaseField>::new_base("41805FAE2224FAC314FF0D6A07713EB490D7DE3F01A4C6ECF10E502BD002599D"),
-            FieldElement::<Self::BaseField>::new_base("3CC5E0409B7814DEB8D217956F2F64DC73906EF5FFC9AC291FEC2C6C42DCAC7A"),
+            FieldElement::<Self::BaseField>::new_base("29C132CC2C0B34C5743711777BBE42F32B79C022AD998465E1E71866A252AE18"),
+            FieldElement::<Self::BaseField>::new_base("2A6C669EDA123E0F157D8B50BADCD586358CAD81EEE464605E3167B6CC974166"),
             FieldElement::one()
         ])
     }
@@ -77,9 +77,14 @@ mod tests {
 
         let g = BandersnatchCurve::generator();
 
-        let result = g.operate_with_self(5u16);
+        let result1 = g.clone().operate_with_self(5u16);
 
-        assert_eq!(result.x(), f1f2g_fixed().x());
+        assert_eq!(result1.x().clone(), FEE::new_base("68CBECE0B8FB55450410CBC058928A567EED293D168FAEF44BFDE25F943AABE0"));
+
+        let scalar = U256::from_hex("1CFB69D4CA675F520CCE760202687600FF8F87007419047174FD06B52876E7E6").unwrap();
+
+        let result2 = g.operate_with_self(scalar);
+        assert_eq!(result2.x().clone(), FEE::new_base("68CBECE0B8FB55450410CBC058928A567EED293D168FAEF44BFDE25F943AABE0"));
 
         // let f1f2g = EdwardsAffine::from_str(
         //     "(16530491029447613915334753043669938793793987372416328257719459807614119987301, \
