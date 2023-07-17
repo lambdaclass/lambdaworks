@@ -28,7 +28,7 @@ impl IsEllipticCurve for BandersnatchCurve {
 
 impl IsEdwards for BandersnatchCurve {
     fn a() -> FieldElement<Self::BaseField> {
-        FieldElement::<Self::BaseField>::new_base("-5")
+        FieldElement::<Self::BaseField>::new_base("73EDA753299D7D483339D80809A1D80553BDA402FFFE5BFEFFFFFFFEFFFFFFFB")
     }
 
     fn d() -> FieldElement<Self::BaseField> {
