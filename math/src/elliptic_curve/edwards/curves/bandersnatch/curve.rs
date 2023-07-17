@@ -19,8 +19,8 @@ impl IsEllipticCurve for BandersnatchCurve {
     // Converted to Hex
     fn generator() -> Self::PointRepresentation {
         Self::PointRepresentation::new([
-            FieldElement::<Self::BaseField>::new_base("29C132CC2C0B34C5743711777BBE42F32B79C022AD998465E1E71866A252AE18"),
-            FieldElement::<Self::BaseField>::new_base("2A6C669EDA123E0F157D8B50BADCD586358CAD81EEE464605E3167B6CC974166"),
+            FieldElement::<Self::BaseField>::new_base("41805FAE2224FAC314FF0D6A07713EB490D7DE3F01A4C6ECF10E502BD002599D"),
+            FieldElement::<Self::BaseField>::new_base("3CC5E0409B7814DEB8D217956F2F64DC73906EF5FFC9AC291FEC2C6C42DCAC7A"),
             FieldElement::one()
         ])
     }
@@ -46,7 +46,7 @@ mod tests {
     use super::*;
     use crate::{
         cyclic_group::IsGroup, elliptic_curve::{traits::EllipticCurveError, montgomery::point},
-        field::element::FieldElement,
+        field::element::FieldElement, unsigned_integer::element::U256,
     };
 
     use super::FqField;
@@ -62,8 +62,8 @@ mod tests {
     //     }
 
     fn f1f2g_fixed() -> EdwardsProjectivePoint<BandersnatchCurve> {
-        let x = FEE::new_base("248BED2600CB615A6715105E8C33A48E2669775385260EDCCFFA0540A9204865");
-        let y = FEE::new_base("5DEB792D33432583D251F8EE85F7090A7BDDBC2113A10323650361F99BAF7254");    
+        let x = FEE::new_base("488D26D8ECCA1C6F5BE328547612C4A2E629CA6B6509FAA1E59DF5F180271664");
+        let y = FEE::new_base("019E2A29248E9C7AE0383F7F3BF6A50D703415A980BD40D67C2D5C3BE46BE633");    
 
         BandersnatchCurve::create_point_from_affine(x, y).unwrap()
         }
@@ -77,17 +77,29 @@ mod tests {
 
         let g = BandersnatchCurve::generator();
 
+        let result = g.operate_with_self(5u16);
+
+        assert_eq!(result.x(), f1f2g_fixed().x());
+
         // let f1f2g = EdwardsAffine::from_str(
         //     "(16530491029447613915334753043669938793793987372416328257719459807614119987301, \
         //      42481140308370805476764840229335460092474682686441442216596889726548353970772)",
         // )
         // .unwrap();
+        // let f1 = U256::from_hex("9697B44AA99E68EA78A5E48044A88E43B4ECF5D3B1833BEA4ED1F96653C4FC2").unwrap();
+        // let f2 = U256::from_hex("393C141D1A492C2289B2528D0C468EEB87FAF4C35964D2470EB262F76B3E0C8").unwrap();    
 
-        let result = g.clone().to_affine().operate_with_self(5_u16);
+
+        // let resultf1 = g.clone().to_affine().operate_with_self(f1);
+
+        // let resultf1f2 = resultf1.clone().operate_with_self(f2);
 
         // let f1f2g = point_1().operate_with(&g);
 
         // let f1f2g_fixed = f1f2g_fixed();
+        // assert_eq!(f1f2g_fixed().x(), resultf1f2.x());
+        // assert_eq!(f1f2g_fixed().y(), resultf1f2.y());
+        // assert_eq!(f1f2g_fixed().z(), resultf1f2.z());
 
         // assert_eq!(f1f2.clone(), f1f2.clone());
         // assert_eq!(f1f2.clone() , f1f2.clone());
