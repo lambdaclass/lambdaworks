@@ -18,7 +18,7 @@ pub struct FqConfig;
 /// Modulus of bandersnatch subgroup
 impl IsModulus<U256> for FqConfig {
     const MODULUS: U256 = U256::from_hex_unchecked(
-        "73EDA753299D7D483339D80809A1D80553BDA402FFFE5BFEFFFFFFFF00000001",
+        "73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001",
     );
 }
 
