@@ -1,20 +1,15 @@
-use std::ops::Mul;
-
-use ark_ff::BigInt;
-use ark_std::{test_rng, UniformRand};
-use ark_test_curves::starknet_fp::Fq as F;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use lambdaworks_math::unsigned_integer::element::UnsignedInteger;
+use std::ops::Mul;
+use utils::generate_random_elements;
+
+use crate::utils::to_lambdaworks_vec;
+
+pub mod utils;
 
 const BENCHMARK_NAME: &str = "mul";
 
 pub fn criterion_benchmark(c: &mut Criterion) {
-    let mut rng = test_rng();
-    let mut arkworks_vec = Vec::new();
-    for _i in 0..10000 {
-        let a = F::rand(&mut rng);
-        arkworks_vec.push(a);
-    }
+    let arkworks_vec = generate_random_elements();
 
     // arkworks-ff
     {
@@ -30,7 +25,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                     for _i in 0..5000 {
                         let a = iter.next().unwrap();
                         let b = iter.next().unwrap();
-                        black_box(black_box(&a).mul(black_box(b)));
+                        black_box(black_box(a).mul(black_box(b)));
                     }
                 });
             },
@@ -39,22 +34,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
     // lambdaworks-math
     {
-        use lambdaworks_math::field::{
-            element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
-        };
-        let mut lambdaworks_vec = Vec::new();
-        for arkworks_felt in arkworks_vec {
-            let big_int: BigInt<4> = arkworks_felt.into();
-            let mut limbs = big_int.0;
-            limbs.reverse();
-
-            let a: FieldElement<Stark252PrimeField> =
-                FieldElement::from(&UnsignedInteger { limbs });
-
-            assert_eq!(a.representative().limbs, limbs);
-
-            lambdaworks_vec.push(a);
-        }
+        let lambdaworks_vec = to_lambdaworks_vec(&arkworks_vec);
 
         c.bench_function(&format!("{} | lambdaworks", BENCHMARK_NAME,), |b| {
             b.iter(|| {
