@@ -2,7 +2,7 @@ mod parameters;
 mod cairo_poseidon_constants;
 use self::parameters::PermutationParameters;
 
-use lambdaworks_math::field::{element::FieldElement, traits::{IsField, IsPrimeField}};
+use lambdaworks_math::field::{element::FieldElement, traits::{IsPrimeField}};
 use std::ops::{Add, Mul};
 
 
