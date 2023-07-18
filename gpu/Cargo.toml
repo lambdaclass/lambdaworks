@@ -9,7 +9,6 @@ license.workspace = true
 
 [dependencies]
 thiserror = "1.0.38"
-rand = "0.8.5"
 metal = { version = "0.24.0", optional = true }
 objc = { version = "0.2.7", optional = true }
 
@@ -27,6 +26,7 @@ default = []
 
 [dev-dependencies]
 proptest = "1.1.0"
+rand = "0.8.5"
 
 [build-dependencies]
 walkdir = { version = "2.3.3", optional = true }
