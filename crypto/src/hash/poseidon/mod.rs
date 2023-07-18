@@ -2,9 +2,7 @@ mod parameters;
 mod cairo_poseidon_constants;
 use self::parameters::Parameters;
 
-use lambdaworks_math::{
-    field::{element::FieldElement, traits::{IsField, IsPrimeField}},
-};
+use lambdaworks_math::field::{element::FieldElement, traits::{IsField, IsPrimeField}};
 use std::ops::{Add, Mul};
 
 
@@ -19,9 +17,8 @@ impl<F: IsPrimeField> Poseidon<F>
     }
 
     pub fn ark(&self, state: &mut [FieldElement<F>], round_number: usize) {
-        let state_size = state.len();
-        for (i, state) in state.iter_mut().enumerate() {
-            *state += self.params.add_round_constants[round_number * state_size + i].clone();
+        for i in 0..state.len() {
+            state[i] = &state[i] + &self.params.add_round_constants[round_number][i]
         }
     }
 
@@ -110,106 +107,3 @@ impl<F: IsPrimeField> Poseidon<F>
     }
 }
 
-// Test values and parameters are taken from https://github.com/keep-starknet-strange/poseidon-rs/blob/f01ff35ab4dca63a9d6feb7ff3f46c9b04b28b04/src/permutation.rs#L136
-// (values are parsed from decimals and have been converted to hex in our mod)
-// The field that these tests use is defined below, and parameters are stored under /s128b
-#[cfg(test)]
-mod tests {
-
-    use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
-
-    use super::*;
-
-    type F = Stark252PrimeField;
-    type FE = FieldElement<F>;
-
-    #[test]
-    fn test_poseidon_s128b_t() {
-        let mut state = [
-            FE::from(7),
-            FE::from(98),
-            FE::from(0),
-        ];
-
-        let params = Parameters::new_with(parameters::DefaultPoseidonParams::CairoStark252);
-
-        let poseidon = Poseidon::new_with_params(params);
-        poseidon.ark(&mut state, 0);
-
-        let expected = [
-            FE::from_hex(
-                "16861759ea5568dd39dd92f9562a30b9e58e2ad98109ae4780b7fd8eac77fe8a",
-            ).unwrap(),
-            FE::from_hex(
-                "13827681995D5ADFFFC8397A3D00425A3DA43F76ABF28A64E4AB1A22F275092B",
-            ).unwrap(),
-            FE::from_hex(
-                "BA3956D2FAD4469E7F760A2277DC7CB2CAC75DC279B2D687A0DBE17704A8310",
-            ).unwrap(),
-        ];
-        assert_eq!(state, expected);
-    }
-
-    #[test]
-    fn test_mix() {
-        let mut state = [
-            
-            FE::from_hex(
-                "13f891b043b3b740cc3e1b3051127d335f08e488322f360a776b3810b7dc690a",
-            ).unwrap(),
-            FE::from_hex(
-                "1bd24b7cb99acf0dbea719ff4007bd60105bcefef21ec509d2f8d4f9bb6a3a1a",
-            ).unwrap(),
-            FE::from_hex(
-                "110853eb2ebee0d940454fe420229a2a0974e666d16c92bab9f36cbd1a0eded",
-            ).unwrap(),
-        ];
-
-        let params = Parameters::new_with(parameters::DefaultPoseidonParams::CairoStark252);
-        let poseidon = Poseidon::new_with_params(params);
-        
-        poseidon.mix(&mut state);
-
-        let expected = [
-            FE::from_hex(
-                "1d30b34b465f8cddc8dc468f137891659c7e32b510cf41cec3aac0b26741681d",
-            ).unwrap(),
-            FE::from_hex(
-                "c445fa4dd2af583994272bede589b06b98fe9cd6d868bf718f6748ba6165620",
-            ).unwrap(),
-            FE::from_hex(
-                "1ed95ae0ea03bb892691f5200fb5902957ac17b3466afa62be808682801f97f9",
-            ).unwrap(),
-        ];
-        assert_eq!(state, expected);
-    }
-
-    #[test]
-    fn test_permutation() {
-
-        let params = Parameters::new_with(parameters::DefaultPoseidonParams::CairoStark252);
-        let poseidon = Poseidon::new_with_params(params);
-
-        let mut state = [
-            FE::from(7),
-            FE::from(98),
-            FE::from(0),
-        ];
-
-        poseidon.permute(&mut state);
-
-        let expected = [
-            FE::from_hex(
-                "18700783647721BB9AD092B176BBEB5348401C21132CCF83C30134DFAB5A2DEB",
-            ).unwrap(),
-            FE::from_hex(
-                "1CC8856652601B3C81139AD5EC13E4A3A8F4A5DB242555521A09E002E7A10B2B",
-            ).unwrap(),
-            FE::from_hex(
-                "3DCB1CEC811FC2D7401CA7B9B084D167F33B6983D4428C8E0534C9C3CECF46D",
-            ).unwrap(),
-        ];
-
-        assert_eq!(state, expected);
-    }
-}

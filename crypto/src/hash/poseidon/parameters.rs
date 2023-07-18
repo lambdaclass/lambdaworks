@@ -1,6 +1,6 @@
-use lambdaworks_math::{
-    field::{element::FieldElement, traits::{IsPrimeField}}
-};
+use lambdaworks_math::field::{element::FieldElement as FE, traits::IsPrimeField};
+
+use crate::hash::poseidon::cairo_poseidon_constants::add_round_constants::ADD_ROUND_CONSTANTS_HEXSTRINGS;
 pub struct Parameters<F: IsPrimeField> {
     /// Max Input/Output size. More reduces security, and increases performance by reducing the amount of digests/absorptions
     pub rate: usize,
@@ -10,8 +10,8 @@ pub struct Parameters<F: IsPrimeField> {
     pub alpha: u32,
     pub n_full_rounds: usize,
     pub n_partial_rounds: usize,
-    pub add_round_constants: Vec<FieldElement<F>>,
-    pub mds_matrix: Vec<Vec<FieldElement<F>>>,
+    pub add_round_constants: Vec<Vec<FE<F>>>,
+    pub mds_matrix: Vec<Vec<FE<F>>>,
 }
 
 pub enum DefaultPoseidonParams{
@@ -33,15 +33,26 @@ F: IsPrimeField  {
 
     fn cairo_stark_params() -> Parameters<F>{
 
-        FieldElement::<F>::from_raw(value);
-        let mds_matrix = Self::decode_mds_matrix(MDS_MATRIX_CSV);
+        let add_round_constants_strings = ADD_ROUND_CONSTANTS_HEXSTRINGS;
 
-        for row in mds_matrix.clone() {
-            for e in row {
-                print!("{:?},", e.representative().to_string());
-            }
-            println!();
-        }
+        let add_round_constants: Vec<Vec<FE<F>>> = 
+            ADD_ROUND_CONSTANTS_HEXSTRINGS
+                .iter()
+                .map(
+                    |[x0,x1,x2]| 
+                    [ 
+                        FE::<F>::from_hex(x0).unwrap(),
+                        FE::<F>::from_hex(x1).unwrap(),
+                        FE::<F>::from_hex(x2).unwrap()
+                    ].to_vec()
+                )
+                .collect();
+
+        let mds_matrix = [
+            [FE::<F>::from(3),FE::<F>::from(1),FE::<F>::from(1)].to_vec(),
+            [FE::<F>::from(1),-FE::one(),FE::<F>::from(1)].to_vec(),
+            [FE::<F>::from(1),FE::<F>::from(1),-FE::<F>::from(2)].to_vec()
+        ].to_vec();
 
         const RATE: usize = 2;
         const CAPACITY: usize = 1;
@@ -57,44 +68,5 @@ F: IsPrimeField  {
             add_round_constants,
             mds_matrix,
         }
-    }
-
-    fn decode_add_round_constants(
-        round_constants_csv: &str,
-    ) -> Vec<FieldElement<F>>
-    where F: IsPrimeField
-    {
-        let arc: Vec<FieldElement<F>> = round_constants_csv
-            .split(',')
-            .map(|string| string.trim())
-            .filter(|x| x != &"")
-            .map(
-                |hex|
-                FieldElement::<F>::from_hex(hex).expect("Wrong hex in arc file")
-            ).collect();
-        arc
-    }
-
-    fn decode_mds_matrix(
-        mds_constants_csv: &str,
-    ) -> Vec<Vec<FieldElement<F>>>
-    where F: IsPrimeField
-    {
-        let mut mds_matrix: Vec<Vec<FieldElement<F>>> = vec![];
-
-        for line in mds_constants_csv.lines() {
-            let matrix_line = line
-                .split(',')
-                .map(|string| string.trim())
-                .filter(|x| x != &"")
-                .map(
-                    |hex| 
-                    FieldElement::<F>::from_hex(hex).expect("Wrong hex in mds file") 
-                )
-                .collect();
-
-            mds_matrix.push(matrix_line);
-        }
-        mds_matrix
     }
 }
