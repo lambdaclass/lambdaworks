@@ -1,18 +1,19 @@
 mod parameters;
 mod cairo_poseidon_constants;
-use self::parameters::Parameters;
+use self::parameters::PermutationParameters;
 
 use lambdaworks_math::field::{element::FieldElement, traits::{IsField, IsPrimeField}};
 use std::ops::{Add, Mul};
 
 
 pub struct Poseidon<F: IsPrimeField> {
-    params: Parameters<F>,
+    params: PermutationParameters<F>,
+    // Suggestion: Add the state here
 }
 
 impl<F: IsPrimeField> Poseidon<F>
 {
-    pub fn new_with_params(params: Parameters<F>) -> Self {
+    pub fn new_with_params(params: PermutationParameters<F>) -> Self {
         Poseidon { params }
     }
 
@@ -58,52 +59,4 @@ impl<F: IsPrimeField> Poseidon<F>
             self.mix(state);
         }
     }
-
-    fn ensure_permuted(&self, state: &mut [FieldElement<F>], offset: &mut usize) {
-        // offset should be <= rate, so really testing for equality
-        if *offset >= self.params.rate {
-            self.permute(state);
-            *offset = 0;
-        }
-    }
-
-    pub fn hash(&self, inputs: &[FieldElement<F>]) -> Result<Vec<FieldElement<F>>, String>
-    where
-        F: IsField,
-    {
-        let t = self.params.rate + self.params.capacity;
-        if inputs.is_empty() || inputs.len() >= self.params.n_partial_rounds - 1 {
-            return Err("Wrong input length".to_string());
-        }
-
-        let mut state = vec![FieldElement::zero(); t];
-        let mut offset: usize = 0;
-
-        let n_remaining = inputs.len() % self.params.rate;
-        if n_remaining != 0 {
-            return Err(format!(
-                "Input length {} must be a multiple of the hash rate {}",
-                inputs.len(),
-                self.params.rate
-            ));
-        }
-
-        // absorb
-        for input in inputs {
-            self.ensure_permuted(&mut state, &mut offset);
-            state[offset] += input.clone();
-            offset += 1;
-        }
-
-        // squeeze
-        let mut result = vec![FieldElement::zero(); self.params.rate];
-        for result_element in result.iter_mut().take(self.params.rate) {
-            self.ensure_permuted(&mut state, &mut offset);
-            *result_element = state[offset].clone();
-            offset += 1;
-        }
-
-        Ok(result)
-    }
 }
-
