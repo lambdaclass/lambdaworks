@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1689371065777,
+  "lastUpdate": 1689677802272,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -9641,6 +9641,150 @@ window.BENCHMARK_DATA = {
             "name": "Polynomial/div by 'x - b' with Ruffini",
             "value": 27,
             "range": "± 0",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jihoonsong.dev@gmail.com",
+            "name": "JihoonSong",
+            "username": "jihoonsong"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "595ae77dfb2909431a996104e8d4a0b59e31ab54",
+          "message": "Add serde to MontgomeryBackendPrimeField (#509)\n\n* Add serde to MontgomeryBackendPrimeField\n\n* Fix lint\n\n* Configure serde as one of std feature\n\n* Mark JSON serializer as optional dependencies\n\nPlease note that a test for `lambdaworks-serde` feature is not added to CI test.\nHowever, you can verify it with the following command.\n\ncargo test --package lambdaworks-math --features lambdaworks-serde montgomery_backend_serialization_deserialization\n\nSee #509 for detailed info.\n\n---------\n\nCo-authored-by: Jihoon Song <jihoonsong@jihoons-macbook-pro.home>\nCo-authored-by: Jihoon Song <jihoonsong@Jihoons-MacBook-Pro.local>",
+          "timestamp": "2023-07-18T10:43:49Z",
+          "tree_id": "029b16fc24bd424d9a5bdf18b6023f71925b1749",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/595ae77dfb2909431a996104e8d4a0b59e31ab54"
+        },
+        "date": 1689677797418,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "Ordered FFT/Parallel (Metal)",
+            "value": 83177149,
+            "range": "± 1225753",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #2",
+            "value": 160199278,
+            "range": "± 1817816",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #3",
+            "value": 307442229,
+            "range": "± 5003277",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #4",
+            "value": 626209291,
+            "range": "± 12652444",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal)",
+            "value": 35282919,
+            "range": "± 607376",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #2",
+            "value": 69157144,
+            "range": "± 630482",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #3",
+            "value": 135953705,
+            "range": "± 2196617",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #4",
+            "value": 277795489,
+            "range": "± 3816019",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal)",
+            "value": 26917510,
+            "range": "± 698211",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #2",
+            "value": 51154399,
+            "range": "± 3251680",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #3",
+            "value": 114250293,
+            "range": "± 6104098",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #4",
+            "value": 229929771,
+            "range": "± 10311747",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal",
+            "value": 119176826,
+            "range": "± 1685502",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #2",
+            "value": 238142271,
+            "range": "± 1795668",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #3",
+            "value": 472400885,
+            "range": "± 3031893",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #4",
+            "value": 1007016604,
+            "range": "± 20914005",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal",
+            "value": 400998010,
+            "range": "± 1238207",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #2",
+            "value": 812232791,
+            "range": "± 7815032",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #3",
+            "value": 1586348312,
+            "range": "± 6903761",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #4",
+            "value": 3135395833,
+            "range": "± 8834258",
             "unit": "ns/iter"
           }
         ]
