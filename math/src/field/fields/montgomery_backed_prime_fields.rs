@@ -19,6 +19,10 @@ pub trait IsModulus<U>: Debug {
     const MODULUS: U;
 }
 
+#[cfg_attr(
+    feature = "lambdaworks-serde",
+    derive(serde::Serialize, serde::Deserialize)
+)]
 #[derive(Clone, Debug, Hash, Copy)]
 pub struct MontgomeryBackendPrimeField<M, const NUM_LIMBS: usize> {
     phantom: PhantomData<M>,
