@@ -1,4 +1,3 @@
-
 //! Base field of bandersantch -- which is also the scalar field of BLS12-381 curve.
 
 use crate::{
@@ -9,9 +8,8 @@ use crate::{
     unsigned_integer::element::U256,
 };
 
-pub const BANDERSNATCH_PRIME_FIELD_ORDER: U256 = U256::from_hex_unchecked(
-    "73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001",
-);
+pub const BANDERSNATCH_PRIME_FIELD_ORDER: U256 =
+    U256::from_hex_unchecked("73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001");
 
 #[derive(Clone, Debug)]
 pub struct FqConfig;
