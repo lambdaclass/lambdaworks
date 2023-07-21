@@ -19,6 +19,10 @@ pub trait IsModulus<U>: Debug {
     const MODULUS: U;
 }
 
+#[cfg_attr(
+    feature = "lambdaworks-serde",
+    derive(serde::Serialize, serde::Deserialize)
+)]
 #[derive(Clone, Debug, Hash, Copy)]
 pub struct MontgomeryBackendPrimeField<M, const NUM_LIMBS: usize> {
     phantom: PhantomData<M>,
@@ -425,6 +429,16 @@ mod tests_u384_prime_fields {
         let y = U384F23Element::from(10_u64);
         let c = U384F23Element::from(110_u64);
         assert_eq!(x * y, c);
+    }
+
+    #[test]
+    #[cfg(feature = "lambdaworks-serde")]
+    fn montgomery_backend_serialization_deserialization() {
+        let x = U384F23Element::from(11_u64);
+        let x_serialized = serde_json::to_string(&x).unwrap();
+        let x_deserialized: U384F23Element = serde_json::from_str(&x_serialized).unwrap();
+        assert_eq!(x_serialized, "{\"value\":\"0xb\"}");
+        assert_eq!(x_deserialized, x);
     }
 
     const ORDER: usize = 23;
