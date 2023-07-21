@@ -832,6 +832,22 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         quo = Self::ct_select(&Self::from_u64(0), &quo, is_some);
         (quo, rem)
     }
+
+    /// Convert from a decimal string.
+    pub fn from_dec_str(value: &str) -> Result<Self, CreationError> {
+        if value.is_empty() {
+            return Err(CreationError::InvalidDecString);
+        }
+        let mut res = Self::from_u64(0);
+        for b in value.bytes().map(|b| b.wrapping_sub(b'0')) {
+            if b > 9 {
+                return Err(CreationError::InvalidDecString);
+            }
+            let r = res * Self::from(10_u64) + Self::from(b as u64);
+            res = r;
+        }
+        Ok(res)
+    }
 }
 
 impl<const NUM_LIMBS: usize> IsUnsignedInteger for UnsignedInteger<NUM_LIMBS> {}
@@ -1143,6 +1159,85 @@ mod tests_u384 {
                 6872850209053821716
             ]
         );
+    }
+
+    #[test]
+    fn construct_new_integer_from_dec_1() {
+        let a = U384::from_dec_str("1").unwrap();
+        assert_eq!(a.limbs, [0, 0, 0, 0, 0, 1]);
+    }
+
+    #[test]
+    fn construct_new_integer_from_dec_2() {
+        let a = U384::from_dec_str("15").unwrap();
+        assert_eq!(a.limbs, [0, 0, 0, 0, 0, 15]);
+    }
+
+    #[test]
+    fn construct_new_integer_from_dec_3() {
+        let a = U384::from_dec_str("18446744073709551616").unwrap();
+        assert_eq!(a.limbs, [0, 0, 0, 0, 1, 0]);
+    }
+
+    #[test]
+    fn construct_new_integer_from_dec_4() {
+        let a = U384::from_dec_str("184467440737095516160").unwrap();
+        assert_eq!(a.limbs, [0, 0, 0, 0, 10, 0]);
+    }
+
+    #[test]
+    fn construct_new_integer_from_dec_5() {
+        let a = U384::from_dec_str("4722366482869645213695").unwrap();
+        assert_eq!(a.limbs, [0, 0, 0, 0, 255, u64::MAX]);
+    }
+
+    #[test]
+    fn construct_new_integer_from_dec_6() {
+        let a = U384::from_dec_str("1110408632367155513346836").unwrap();
+        assert_eq!(a.limbs, [0, 0, 0, 0, 60195, 6872850209053821716]);
+    }
+
+    #[test]
+    fn construct_new_integer_from_dec_7() {
+        let a =
+            U384::from_dec_str("66092860629991288370279803883558073888453977263446474418").unwrap();
+        assert_eq!(
+            a.limbs,
+            [
+                0,
+                0,
+                0,
+                194229460750598834,
+                4171047363999149894,
+                6975114134393503410
+            ]
+        );
+    }
+
+    #[test]
+    fn construct_new_integer_from_dec_8() {
+        let a = U384::from_dec_str("3087491467896943881295768554872271030441880044814691421073017731442549147034464936390742057449079000462340371991316").unwrap();
+        assert_eq!(
+            a.limbs,
+            [
+                1445463580056702870,
+                13122285128622708909,
+                3107671372009581347,
+                11396525602857743462,
+                921361708038744867,
+                6872850209053821716
+            ]
+        );
+    }
+
+    #[test]
+    fn construct_new_integer_from_dec_empty() {
+        assert!(U384::from_dec_str("").is_err());
+    }
+
+    #[test]
+    fn construct_new_integer_from_dec_invalid() {
+        assert!(U384::from_dec_str("0xff").is_err());
     }
 
     #[test]
@@ -2052,6 +2147,84 @@ mod tests_u256 {
                 6872850209053821716
             ]
         );
+    }
+
+    #[test]
+    fn construct_new_integer_from_dec_1() {
+        let a = U256::from_dec_str("1").unwrap();
+        assert_eq!(a.limbs, [0, 0, 0, 1]);
+    }
+
+    #[test]
+    fn construct_new_integer_from_dec_2() {
+        let a = U256::from_dec_str("15").unwrap();
+        assert_eq!(a.limbs, [0, 0, 0, 15]);
+    }
+
+    #[test]
+    fn construct_new_integer_from_dec_3() {
+        let a = U256::from_dec_str("18446744073709551616").unwrap();
+        assert_eq!(a.limbs, [0, 0, 1, 0]);
+    }
+
+    #[test]
+    fn construct_new_integer_from_dec_4() {
+        let a = U256::from_dec_str("184467440737095516160").unwrap();
+        assert_eq!(a.limbs, [0, 0, 10, 0]);
+    }
+
+    #[test]
+    fn construct_new_integer_from_dec_5() {
+        let a = U256::from_dec_str("4722366482869645213695").unwrap();
+        assert_eq!(a.limbs, [0, 0, 255, u64::MAX]);
+    }
+
+    #[test]
+    fn construct_new_integer_from_dec_6() {
+        let a = U256::from_dec_str("1110408632367155513346836").unwrap();
+        assert_eq!(a.limbs, [0, 0, 60195, 6872850209053821716]);
+    }
+
+    #[test]
+    fn construct_new_integer_from_dec_7() {
+        let a =
+            U256::from_dec_str("66092860629991288370279803883558073888453977263446474418").unwrap();
+        assert_eq!(
+            a.limbs,
+            [
+                0,
+                194229460750598834,
+                4171047363999149894,
+                6975114134393503410
+            ]
+        );
+    }
+
+    #[test]
+    fn construct_new_integer_from_dec_8() {
+        let a = U256::from_dec_str(
+            "19507169362252850253634654373914901165934018806002526957372506333098895428372",
+        )
+        .unwrap();
+        assert_eq!(
+            a.limbs,
+            [
+                3107671372009581347,
+                11396525602857743462,
+                921361708038744867,
+                6872850209053821716
+            ]
+        );
+    }
+
+    #[test]
+    fn construct_new_integer_from_dec_empty() {
+        assert!(U256::from_dec_str("").is_err());
+    }
+
+    #[test]
+    fn construct_new_integer_from_dec_invalid() {
+        assert!(U256::from_dec_str("0xff").is_err());
     }
 
     #[test]
