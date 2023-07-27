@@ -149,7 +149,7 @@ impl<const NUM_LIMBS: usize> Sub<&UnsignedInteger<NUM_LIMBS>> for &UnsignedInteg
 
     fn sub(self, other: &UnsignedInteger<NUM_LIMBS>) -> UnsignedInteger<NUM_LIMBS> {
         let (result, overflow) = UnsignedInteger::sub(self, other);
-        assert!(!overflow, "UnsignedInteger subtraction overflow.");
+        debug_assert!(!overflow, "UnsignedInteger subtraction overflow.");
         result
     }
 }
@@ -804,7 +804,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
 
     /// Computes self / rhs, returns the quotient, remainder.
     pub fn div_rem(&self, rhs: &Self) -> (Self, Self) {
-        assert!(
+        debug_assert!(
             *rhs != UnsignedInteger::from_u64(0),
             "Attempted to divide by zero"
         );
