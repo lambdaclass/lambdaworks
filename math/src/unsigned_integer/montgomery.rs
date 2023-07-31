@@ -75,6 +75,71 @@ impl MontgomeryAlgorithms {
         result
     }
 
+    /// Compute CIOS multiplication of `a` * `b`
+    /// This is the Algorithm 2 described in the paper
+    /// "EdMSM: Multi-Scalar-Multiplication for SNARKs and Faster Montgomery multiplication"
+    /// https://eprint.iacr.org/2022/1400.pdf.
+    /// It is only suited for moduli with `q[0]` smaller than `2^63 - 1`.
+    /// `q` is the modulus
+    /// `mu` is the inverse of -q modulo 2^{64}
+    #[inline(always)]
+    pub fn cios_optimized_for_moduli_with_one_spare_bit<const NUM_LIMBS: usize>(
+        a: &UnsignedInteger<NUM_LIMBS>,
+        b: &UnsignedInteger<NUM_LIMBS>,
+        q: &UnsignedInteger<NUM_LIMBS>,
+        mu: &u64,
+    ) -> UnsignedInteger<NUM_LIMBS> {
+        let mut t = [0_u64; NUM_LIMBS];
+        let mut t_extra;
+        let mut i: usize = NUM_LIMBS;
+        while i > 0 {
+            i -= 1;
+            // C := 0
+            let mut c: u128 = 0;
+
+            // for j=0 to N-1
+            //    (C,t[j]) := t[j] + a[j]*b[i] + C
+            let mut cs: u128;
+            let mut j: usize = NUM_LIMBS;
+            while j > 0 {
+                j -= 1;
+                cs = t[j] as u128 + (a.limbs[j] as u128) * (b.limbs[i] as u128) + c;
+                c = cs >> 64;
+                t[j] = cs as u64;
+            }
+
+            t_extra = c as u64;
+
+            let mut c: u128;
+
+            // m := t[0]*q'[0] mod D
+            let m = ((t[NUM_LIMBS - 1] as u128 * *mu as u128) << 64) >> 64;
+
+            // (C,_) := t[0] + m*q[0]
+            c = (t[NUM_LIMBS - 1] as u128 + m * (q.limbs[NUM_LIMBS - 1] as u128)) >> 64;
+
+            // for j=1 to N-1
+            //    (C,t[j-1]) := t[j] + m*q[j] + C
+            let mut j: usize = NUM_LIMBS - 1;
+            while j > 0 {
+                j -= 1;
+                cs = t[j] as u128 + m * (q.limbs[j] as u128) + c;
+                c = cs >> 64;
+                t[j + 1] = ((cs << 64) >> 64) as u64;
+            }
+
+            // (C,t[N-1]) := t[N] + C
+            cs = (t_extra as u128) + c;
+            t[0] = ((cs << 64) >> 64) as u64;
+        }
+        let mut result = UnsignedInteger { limbs: t };
+
+        if UnsignedInteger::const_le(q, &result) {
+            (result, _) = UnsignedInteger::sub(&result, q);
+        }
+        result
+    }
+
     // Separated Operand Scanning Method (2.3.1)
     #[inline(always)]
     pub fn sos_square<const NUM_LIMBS: usize>(
