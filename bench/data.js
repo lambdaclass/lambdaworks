@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1689962002347,
+  "lastUpdate": 1690807377950,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -11393,6 +11393,150 @@ window.BENCHMARK_DATA = {
             "name": "Polynomial/div by 'x - b' with Ruffini",
             "value": 16,
             "range": "± 0",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mrugiero@gmail.com",
+            "name": "Mario Rugiero",
+            "username": "Oppen"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "81d831102b2b6833dd9dcc7e7fad1a0fccc2b7e4",
+          "message": "perf: replace asserts by debug_asserts (#516)\n\nRuntime assertions to validate inputs were consuming a significant\namount of time in benchmarks.\n\nMeasured on an M1, based on branch `fix_felt_benchmarks` with the\n`ark-ff` code commented out to reduce noise we observe the following\nchanges:\n\n```\nadd | lambdaworks       time:   [12.273 µs 12.278 µs 12.285 µs]\n                        change: [-63.107% -63.042% -62.979%] (p = 0.00 < 0.05)\n                        Performance has improved.\ninvert | lambdaworks    time:   [26.858 ms 26.864 ms 26.871 ms]\n                        change: [-7.8986% -7.8611% -7.8231%] (p = 0.00 < 0.05)\n                        Performance has improved.\nmul | lambdaworks       time:   [63.604 µs 63.622 µs 63.645 µs]\n                        change: [-0.1615% -0.0957% -0.0332%] (p = 0.00 < 0.05)\n                        Change within noise threshold.\npow | lambdaworks       time:   [12.594 ms 12.599 ms 12.604 ms]\n                        change: [-0.4536% -0.4009% -0.3481%] (p = 0.00 < 0.05)\n                        Change within noise threshold.\nsqrt | lambdaworks      time:   [139.76 ms 139.79 ms 139.82 ms]\n                        change: [-0.1288% -0.1015% -0.0730%] (p = 0.00 < 0.05)\n                        Change within noise threshold.\nsub | lambdaworks       time:   [13.518 µs 13.529 µs 13.542 µs]\n                        change: [-19.474% -18.102% -17.059%] (p = 0.00 < 0.05)\n                        Performance has improved.\n```",
+          "timestamp": "2023-07-31T12:30:06Z",
+          "tree_id": "8e6fb5829fac9481288cf3c4bff035b14232d841",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/81d831102b2b6833dd9dcc7e7fad1a0fccc2b7e4"
+        },
+        "date": 1690807373067,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "Ordered FFT/Parallel (Metal)",
+            "value": 73000049,
+            "range": "± 633035",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #2",
+            "value": 157526041,
+            "range": "± 3773031",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #3",
+            "value": 317515489,
+            "range": "± 1469726",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #4",
+            "value": 647805166,
+            "range": "± 19236779",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal)",
+            "value": 34522756,
+            "range": "± 423264",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #2",
+            "value": 68528407,
+            "range": "± 721390",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #3",
+            "value": 133227923,
+            "range": "± 1029193",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #4",
+            "value": 277041739,
+            "range": "± 3297910",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal)",
+            "value": 29921555,
+            "range": "± 164498",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #2",
+            "value": 58098965,
+            "range": "± 811646",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #3",
+            "value": 118993218,
+            "range": "± 5360526",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #4",
+            "value": 249630250,
+            "range": "± 14048225",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal",
+            "value": 119496245,
+            "range": "± 729632",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #2",
+            "value": 242347111,
+            "range": "± 1461062",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #3",
+            "value": 481404208,
+            "range": "± 4412294",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #4",
+            "value": 969835791,
+            "range": "± 8903079",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal",
+            "value": 405310166,
+            "range": "± 1196086",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #2",
+            "value": 812956416,
+            "range": "± 5386850",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #3",
+            "value": 1595293666,
+            "range": "± 8155044",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #4",
+            "value": 3181917167,
+            "range": "± 16150917",
             "unit": "ns/iter"
           }
         ]
