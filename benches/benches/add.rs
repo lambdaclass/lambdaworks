@@ -15,15 +15,12 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     // arkworks-ff
     {
         c.bench_function(
-            &format!(
-                "{} | ark-ff - branch: faster-benchmarks-and-starknet-field",
-                BENCHMARK_NAME
-            ),
+            &format!("{} 10000 elements | ark-ff - ef8f758", BENCHMARK_NAME),
             |b| {
                 b.iter(|| {
                     let mut iter = arkworks_vec.iter();
 
-                    for _i in 0..5000 {
+                    for _i in 0..10000 {
                         let a = iter.next().unwrap();
                         let b = iter.next().unwrap();
                         black_box(black_box(&a).add(black_box(b)));
@@ -37,17 +34,20 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     {
         let lambdaworks_vec = to_lambdaworks_vec(&arkworks_vec);
 
-        c.bench_function(&format!("{} | lambdaworks", BENCHMARK_NAME,), |b| {
-            b.iter(|| {
-                let mut iter = lambdaworks_vec.iter();
+        c.bench_function(
+            &format!("{} 10000 elements | lambdaworks", BENCHMARK_NAME,),
+            |b| {
+                b.iter(|| {
+                    let mut iter = lambdaworks_vec.iter();
 
-                for _i in 0..5000 {
-                    let a = iter.next().unwrap();
-                    let b = iter.next().unwrap();
-                    black_box(black_box(&a).add(black_box(b)));
-                }
-            });
-        });
+                    for _i in 0..10000 {
+                        let a = iter.next().unwrap();
+                        let b = iter.next().unwrap();
+                        black_box(black_box(&a).add(black_box(b)));
+                    }
+                });
+            },
+        );
     }
 }
 
