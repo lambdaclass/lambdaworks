@@ -9,15 +9,12 @@ pub mod utils;
 const BENCHMARK_NAME: &str = "invert";
 
 pub fn criterion_benchmark(c: &mut Criterion) {
-    let arkworks_vec = generate_random_elements();
+    let arkworks_vec = generate_random_elements()[0..10000].to_vec();
 
     // arkworks-ff
     {
         c.bench_function(
-            &format!(
-                "{} | ark-ff - branch: faster-benchmarks-and-starknet-field",
-                BENCHMARK_NAME
-            ),
+            &format!("{} 10000 elements| ark-ff - ef8f758", BENCHMARK_NAME),
             |b| {
                 b.iter_batched(
                     || arkworks_vec.clone(),
@@ -36,13 +33,16 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     {
         let lambdaworks_vec = to_lambdaworks_vec(&arkworks_vec);
 
-        c.bench_function(&format!("{} | lambdaworks", BENCHMARK_NAME,), |b| {
-            b.iter(|| {
-                for elem in lambdaworks_vec.iter() {
-                    black_box(black_box(&elem).inv());
-                }
-            });
-        });
+        c.bench_function(
+            &format!("{} 10000 elements | lambdaworks", BENCHMARK_NAME,),
+            |b| {
+                b.iter(|| {
+                    for elem in lambdaworks_vec.iter() {
+                        black_box(black_box(&elem).inv());
+                    }
+                });
+            },
+        );
     }
 }
 
