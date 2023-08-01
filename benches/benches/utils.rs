@@ -1,5 +1,5 @@
 use ark_ff::BigInt;
-use ark_std::{test_rng, UniformRand};
+use ark_std::{UniformRand};
 use ark_test_curves::starknet_fp::Fq;
 use lambdaworks_math::{
     field::{
@@ -7,11 +7,13 @@ use lambdaworks_math::{
     },
     unsigned_integer::element::UnsignedInteger,
 };
+use rand::SeedableRng;
 
+/// Creates 20000 random elements
 pub fn generate_random_elements() -> Vec<Fq> {
-    let mut rng = test_rng();
+    let mut rng = rand_chacha::ChaCha20Rng::seed_from_u64(9001);
     let mut arkworks_vec = Vec::new();
-    for _i in 0..10000 {
+    for _i in 0..20000 {
         let a = Fq::rand(&mut rng);
         arkworks_vec.push(a);
     }

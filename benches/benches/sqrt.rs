@@ -23,7 +23,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     {
         c.bench_function(
             &format!(
-                "{} | ark-ff - branch: faster-benchmarks-and-starknet-field",
+                "{} 10000 elements | ark-ff - ef8f758",
                 BENCHMARK_NAME
             ),
             |b| {

@@ -1,6 +1,6 @@
 use ark_ff::Field;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use rand::Rng;
+use rand::{Rng, SeedableRng};
 use utils::generate_random_elements;
 
 use crate::utils::to_lambdaworks_vec;
@@ -12,7 +12,8 @@ const BENCHMARK_NAME: &str = "pow";
 pub fn criterion_benchmark(c: &mut Criterion) {
     let arkworks_vec = generate_random_elements();
 
-    let mut rng = rand::thread_rng();
+    let mut rng = rand_chacha::ChaCha20Rng::seed_from_u64(9001);
+    
     let mut v_ints = Vec::new();
     for _i in 0..10000 {
         v_ints.push(rng.gen::<u64>());
@@ -22,7 +23,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     {
         c.bench_function(
             &format!(
-                "{} | ark-ff - branch: faster-benchmarks-and-starknet-field",
+                "{} 10000 elements | ark-ff - ef8f758",
                 BENCHMARK_NAME
             ),
             |b| {
