@@ -1,5 +1,5 @@
 use ark_ff::Field;
-use ark_std::{test_rng, UniformRand};
+use ark_std::UniformRand;
 use ark_test_curves::starknet_fp::Fq as F;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
@@ -10,7 +10,7 @@ pub mod utils;
 const BENCHMARK_NAME: &str = "sqrt";
 
 pub fn criterion_benchmark(c: &mut Criterion) {
-    let mut rng = test_rng();
+    let mut rng = <rand_chacha::ChaCha20Rng as rand::SeedableRng>::seed_from_u64(9001);
 
     let mut arkworks_vec = Vec::new();
     for _i in 0..1000 {
@@ -23,7 +23,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     {
         c.bench_function(
             &format!(
-                "{} 10000 elements | ark-ff - ef8f758",
+                "{} 1000 elements | ark-ff - ef8f758",
                 BENCHMARK_NAME
             ),
             |b| {
@@ -43,7 +43,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     {
         let lambdaworks_vec = to_lambdaworks_vec(&arkworks_vec);
 
-        c.bench_function(&format!("{} | lambdaworks", BENCHMARK_NAME,), |b| {
+        c.bench_function(&format!("{} 1000 elements | lambdaworks", BENCHMARK_NAME,), |b| {
             b.iter(|| {
                 let mut iter = lambdaworks_vec.iter();
 

@@ -33,7 +33,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     // lambdaworks-math
     {
         let lambdaworks_vec = to_lambdaworks_vec(&arkworks_vec);
-        c.bench_function(&format!("{} | lambdaworks", BENCHMARK_NAME,), |b| {
+        c.bench_function(&format!("{} 10000 elements | lambdaworks", BENCHMARK_NAME,), |b| {
             b.iter(|| {
                 let mut iter = lambdaworks_vec.iter();
 

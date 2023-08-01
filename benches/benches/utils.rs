@@ -1,5 +1,5 @@
 use ark_ff::BigInt;
-use ark_std::{UniformRand};
+use ark_std::UniformRand;
 use ark_test_curves::starknet_fp::Fq;
 use lambdaworks_math::{
     field::{
