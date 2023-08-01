@@ -225,7 +225,7 @@ mod tests {
         }
 
         #[test]
-        fn cios_vs_cios_square(a in any::<[u64; 6]>()) {
+        fn cios_vs_sos_square(a in any::<[u64; 6]>()) {
             let x = U384::from_limbs(a);
             let m = U384::from_hex_unchecked("cdb061954fdd36e5176f50dbdcfd349570a29ce1"); // this is prime
             let mu: u64 = 16085280245840369887; // negative of the inverse of `m` modulo 2^{64}
