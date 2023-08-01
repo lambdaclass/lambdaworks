@@ -23,7 +23,7 @@ impl MontgomeryAlgorithms {
             // C := 0
             let mut c: u128 = 0;
 
-            // for j=0 to N-1
+            // for j=N-1 to 0
             //    (C,t[j]) := t[j] + a[j]*b[i] + C
             let mut cs: u128;
             let mut j: usize = NUM_LIMBS;
@@ -34,21 +34,21 @@ impl MontgomeryAlgorithms {
                 t[j] = cs as u64;
             }
 
-            // (t[N+1],t[N]) := t[N] + C
+            // (t_extra[0],t_extra[1]) := t_extra[1] + C
             cs = (t_extra[1] as u128) + c;
             t_extra[0] = (cs >> 64) as u64;
             t_extra[1] = cs as u64;
 
             let mut c: u128;
 
-            // m := t[0]*q'[0] mod D
+            // m := t[N-1]*q'[N-1] mod D
             let m = ((t[NUM_LIMBS - 1] as u128 * *mu as u128) << 64) >> 64;
 
-            // (C,_) := t[0] + m*q[0]
+            // (C,_) := t[N-1] + m*q[N-1]
             c = (t[NUM_LIMBS - 1] as u128 + m * (q.limbs[NUM_LIMBS - 1] as u128)) >> 64;
 
-            // for j=1 to N-1
-            //    (C,t[j-1]) := t[j] + m*q[j] + C
+            // for j=N-1 to 1
+            //    (C,t[j+1]) := t[j] + m*q[j] + C
             let mut j: usize = NUM_LIMBS - 1;
             while j > 0 {
                 j -= 1;
@@ -57,12 +57,12 @@ impl MontgomeryAlgorithms {
                 t[j + 1] = ((cs << 64) >> 64) as u64;
             }
 
-            // (C,t[N-1]) := t[N] + C
+            // (C,t[0]) := t_extra[1] + C
             cs = (t_extra[1] as u128) + c;
             c = cs >> 64;
             t[0] = ((cs << 64) >> 64) as u64;
 
-            // t[N] := t[N+1] + C
+            // t_extra[1] := t_extra[0] + C
             t_extra[1] = t_extra[0] + c as u64;
         }
         let mut result = UnsignedInteger { limbs: t };
@@ -97,7 +97,7 @@ impl MontgomeryAlgorithms {
             // C := 0
             let mut c: u128 = 0;
 
-            // for j=0 to N-1
+            // for j=N-1 to 0
             //    (C,t[j]) := t[j] + a[j]*b[i] + C
             let mut cs: u128;
             let mut j: usize = NUM_LIMBS;
@@ -112,14 +112,14 @@ impl MontgomeryAlgorithms {
 
             let mut c: u128;
 
-            // m := t[0]*q'[0] mod D
+            // m := t[N-1]*q'[N-1] mod D
             let m = ((t[NUM_LIMBS - 1] as u128 * *mu as u128) << 64) >> 64;
 
             // (C,_) := t[0] + m*q[0]
             c = (t[NUM_LIMBS - 1] as u128 + m * (q.limbs[NUM_LIMBS - 1] as u128)) >> 64;
 
-            // for j=1 to N-1
-            //    (C,t[j-1]) := t[j] + m*q[j] + C
+            // for j=N-1 to 1
+            //    (C,t[j+1]) := t[j] + m*q[j] + C
             let mut j: usize = NUM_LIMBS - 1;
             while j > 0 {
                 j -= 1;
@@ -128,7 +128,7 @@ impl MontgomeryAlgorithms {
                 t[j + 1] = ((cs << 64) >> 64) as u64;
             }
 
-            // (C,t[N-1]) := t[N] + C
+            // (C,t[0]) := t_extra + C
             cs = (t_extra as u128) + c;
             t[0] = ((cs << 64) >> 64) as u64;
         }
