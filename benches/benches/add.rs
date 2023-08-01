@@ -38,8 +38,6 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         c.bench_function(
             &format!("{} 1000000 elements | lambdaworks", BENCHMARK_NAME,),
             |b| {
-                println!("{}", lambdaworks_vec[1]);
-
                 b.iter(|| {
                     let mut iter = lambdaworks_vec.iter();
 
@@ -54,5 +52,10 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     }
 }
 
-criterion_group!(benches, criterion_benchmark);
+criterion_group!{
+    name = benches;
+    // This can be any expression that returns a `Criterion` object.
+    config = Criterion::default().sample_size(2400);
+    targets = criterion_benchmark
+}
 criterion_main!(benches);
