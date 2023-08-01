@@ -16,6 +16,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     {
         c.bench_function(
             &format!("{} 100000 elements | ark-ff - ef8f758", BENCHMARK_NAME),
+
             |b| {
                 b.iter(|| {
                     let mut iter = arkworks_vec.iter();
@@ -37,6 +38,8 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         c.bench_function(
             &format!("{} 100000 elements | lambdaworks", BENCHMARK_NAME,),
             |b| {
+                println!("{}", lambdaworks_vec[1]);
+
                 b.iter(|| {
                     let mut iter = lambdaworks_vec.iter();
 
