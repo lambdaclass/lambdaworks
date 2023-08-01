@@ -13,7 +13,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     let mut rng = <rand_chacha::ChaCha20Rng as rand::SeedableRng>::seed_from_u64(9001);
 
     let mut arkworks_vec = Vec::new();
-    for _i in 0..100000 {
+    for _i in 0..1000 {
         let a = F::rand(&mut rng);
         let square = a * a;
         arkworks_vec.push(square);
@@ -22,12 +22,12 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     // arkworks-ff
     {
         c.bench_function(
-            &format!("{} 100000 elements | ark-ff - ef8f758", BENCHMARK_NAME),
+            &format!("{} 1000 elements | ark-ff - ef8f758", BENCHMARK_NAME),
             |b| {
                 b.iter(|| {
                     let mut iter = arkworks_vec.iter();
 
-                    for _i in 0..100000 {
+                    for _i in 0..1000 {
                         let a = iter.next().unwrap();
                         black_box(black_box(a).sqrt());
                     }
@@ -41,12 +41,12 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         let lambdaworks_vec = to_lambdaworks_vec(&arkworks_vec);
 
         c.bench_function(
-            &format!("{} 100000 elements | lambdaworks", BENCHMARK_NAME,),
+            &format!("{} 1000 elements | lambdaworks", BENCHMARK_NAME,),
             |b| {
                 b.iter(|| {
                     let mut iter = lambdaworks_vec.iter();
 
-                    for _i in 0..100000 {
+                    for _i in 0..1000 {
                         let a = iter.next().unwrap();
                         black_box(black_box(a).sqrt());
                     }
