@@ -10,7 +10,7 @@ pub mod utils;
 const BENCHMARK_NAME: &str = "pow";
 
 pub fn criterion_benchmark(c: &mut Criterion) {
-    let arkworks_vec = generate_random_elements();
+    let arkworks_vec = generate_random_elements(20000);
 
     let mut rng = rand_chacha::ChaCha20Rng::seed_from_u64(9001);
 

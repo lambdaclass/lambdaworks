@@ -7,7 +7,7 @@ pub mod utils;
 const BENCHMARK_NAME: &str = "sub";
 
 pub fn criterion_benchmark(c: &mut Criterion) {
-    let arkworks_vec = generate_random_elements();
+    let arkworks_vec = generate_random_elements(20000);
 
     // arkworks-ff
     {
