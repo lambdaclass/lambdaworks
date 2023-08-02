@@ -25,7 +25,7 @@ Differences of 3% are common for some measurements, so small differences are not
 
 ARM - M1
 
-|          | n    | arkworks  | lambdaworks |
+| Operation| N    | Arkworks  | Lambdaworks |
 | -------- | --- | --------- | ----------- |
 | `mul`    |   10k  | 115 μs | 117 μs   |
 | `add`    |   1M  | 8.6 ms  | 7.3 ms    |
@@ -35,13 +35,15 @@ ARM - M1
 
 x86 - AMD Ryzen 7 PRO 
 
-|          | n    | arkworks (ASM)  | lambdaworks |
+| Operation | N    | Arkworks (ASM)*  | Lambdaworks |
 | -------- | --- | --------- | ----------- |
 | `mul`    |   10k  | 102.7 us | 94.4 us   
 | `add`    |   1M  | 4.9 ms  | 5.6 ms    |
 | `sub`    |   1M  |  4.5 ms  |  5.3 ms   
 | `pow`    |   10k  |  10.5 ms   | 9.7 ms    |
 | `invert` |  10k   | 33.4 ms  | 37.45 ms |
+
+*assembly feature was enabled manually for that bench, and is not activated by default when running criterion
 
 To run them locally, you will need `cargo-criterion` and `cargo-flamegraph`. Install it with:
 
