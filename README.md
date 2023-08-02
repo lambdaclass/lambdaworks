@@ -19,16 +19,29 @@ So, we decided to build our library, focusing on performance, with clear documen
 
 Benchmark results are hosted [here](https://lambdaclass.github.io/lambdaworks/bench).
 
-These are the results of execution of the benchmarks for finite field arithmetic using the STARK field prime (p = 3618502788666131213697322783095070105623107215331596699973092056135872020481). Benchmark results were run with AMD Ryzen 7 PRO 4750G with Radeon Graphics (32 GB RAM) using Ubuntu 20.04.6 LTS
+These are the results of execution of the benchmarks for finite field arithmetic using the STARK field prime (p = 3618502788666131213697322783095070105623107215331596699973092056135872020481). 
 
-|          | arkworks  | lambdaworks |
-| -------- | --------- | ----------- |
-| `add`    | 15.170 μs | 13.042 μs   |
-| `sub`    | 15.493 μs | 14.888 μs   |
-| `mul`    | 60.462 μs | 57.014 μs   |
-| `invert` | 35.475 ms | 35.216 ms   |
-| `sqrt`   | 126.39 ms | 133.74 ms   |
-| `pow`    | 12.139 ms | 12.148 ms   |
+Differences of 3% are common for some measurements, so small differences are not statistically relevant.
+
+ARM - M1
+
+|          | n    | arkworks  | lambdaworks |
+| -------- | --- | --------- | ----------- |
+| `mul`    |   10k  | 115 μs | 117 μs   |
+| `add`    |   1M  | 8.6 ms  | 7.3 ms    |
+| `sub`    |   1M  | 7.57 ms   | 7.27 ms     |
+| `pow`    |   10k  | 11.5 ms   | 12.6 ms    |
+| `invert` |  10k   | 33.3 ms  | 30.7 ms   | 
+
+x86 - AMD Ryzen 7 PRO 
+
+|          | n    | arkworks (ASM)  | lambdaworks |
+| -------- | --- | --------- | ----------- |
+| `mul`    |   10k  | 102.7 us | 94.4 us   
+| `add`    |   1M  | 4.9 ms  | 5.6 ms    |
+| `sub`    |   1M  |  4.5 ms  |  5.3 ms   
+| `pow`    |   10k  |  10.5 ms   | 9.7 ms    |
+| `invert` |  10k   | 33.4 ms  | 37.45 ms |
 
 To run them locally, you will need `cargo-criterion` and `cargo-flamegraph`. Install it with:
 
