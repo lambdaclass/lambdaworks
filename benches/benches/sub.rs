@@ -47,7 +47,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     }
 }
 
-criterion_group!{
+criterion_group! {
     name = benches;
     config = Criterion::default()
         .significance_level(0.01)

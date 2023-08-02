@@ -16,7 +16,6 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     {
         c.bench_function(
             &format!("{} 1M elements | ark-ff - ef8f758", BENCHMARK_NAME),
-
             |b| {
                 b.iter(|| {
                     let mut iter = arkworks_vec.iter();
@@ -52,7 +51,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     }
 }
 
-criterion_group!{
+criterion_group! {
     name = benches;
     // This can be any expression that returns a `Criterion` object.
     config = Criterion::default()
