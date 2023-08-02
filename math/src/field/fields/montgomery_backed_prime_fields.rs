@@ -97,7 +97,7 @@ where
     /// Checks whether the most significant limb of the modulus is at
     /// most `0x7FFFFFFFFFFFFFFE`. This check is useful since special
     /// optimizations exist for this kind of moduli.
-    const fn moduli_has_one_spare_bit() -> bool {
+    const fn modulus_has_one_spare_bit() -> bool {
         M::MODULUS.limbs[0] < (1u64 << 63) - 1
     }
 }
@@ -111,21 +111,23 @@ where
     #[inline(always)]
     fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
         let (sum, overflow) = UnsignedInteger::add(a, b);
-        if !overflow {
+        if Self::modulus_has_one_spare_bit() {
             if sum >= M::MODULUS {
                 sum - M::MODULUS
             } else {
                 sum
             }
-        } else {
+        } else if overflow || sum >= M::MODULUS {
             let (diff, _) = UnsignedInteger::sub(&sum, &M::MODULUS);
             diff
+        } else {
+            sum
         }
     }
 
     #[inline(always)]
     fn mul(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
-        if Self::moduli_has_one_spare_bit() {
+        if Self::modulus_has_one_spare_bit() {
             MontgomeryAlgorithms::cios_optimized_for_moduli_with_one_spare_bit(
                 a,
                 b,
