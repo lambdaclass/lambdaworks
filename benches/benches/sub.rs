@@ -17,12 +17,11 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                 b.iter(|| {
                     let mut iter = arkworks_vec.iter();
 
-                    let mut base_acc = iter.next().unwrap().clone();
                     for _i in 0..1000000 {
+                        let a = iter.next().unwrap();
                         let b = iter.next().unwrap();
-                        base_acc = base_acc - b;
+                        black_box(a - b);
                     }
-                    base_acc
                 });
             },
         );
