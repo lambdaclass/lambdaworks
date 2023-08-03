@@ -6,7 +6,15 @@ use crate::unsigned_integer::traits::IsUnsignedInteger;
 use core::fmt;
 use core::fmt::Debug;
 use core::iter::Sum;
+#[cfg(feature = "lambdaworks-serde")]
+use core::marker::PhantomData;
 use core::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
+#[cfg(feature = "lambdaworks-serde")]
+use serde::de::{self, Deserializer, MapAccess, Visitor};
+#[cfg(feature = "lambdaworks-serde")]
+use serde::ser::{Serialize, SerializeStruct, Serializer};
+#[cfg(feature = "lambdaworks-serde")]
+use serde::Deserialize;
 
 use super::fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField};
 use super::traits::{IsPrimeField, LegendreSymbol};
@@ -423,6 +431,64 @@ impl<F: IsPrimeField> FieldElement<F> {
         Ok(Self {
             value: F::from_hex(hex_string)?,
         })
+    }
+}
+
+#[cfg(feature = "lambdaworks-serde")]
+impl<F: IsPrimeField> Serialize for FieldElement<F> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut state = serializer.serialize_struct("FieldElement", 1)?;
+        state.serialize_field("value", &F::representative(self.value()).to_string())?;
+        state.end()
+    }
+}
+
+#[cfg(feature = "lambdaworks-serde")]
+impl<'de, F: IsPrimeField> Deserialize<'de> for FieldElement<F> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(field_identifier, rename_all = "lowercase")]
+        enum Field {
+            Value,
+        }
+
+        struct FieldElementVisitor<F>(PhantomData<fn() -> F>);
+
+        impl<'de, F: IsPrimeField> Visitor<'de> for FieldElementVisitor<F> {
+            type Value = FieldElement<F>;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("struct FieldElement")
+            }
+
+            fn visit_map<M>(self, mut map: M) -> Result<FieldElement<F>, M::Error>
+            where
+                M: MapAccess<'de>,
+            {
+                let mut value = None;
+                while let Some(key) = map.next_key()? {
+                    match key {
+                        Field::Value => {
+                            if value.is_some() {
+                                return Err(de::Error::duplicate_field("value"));
+                            }
+                            value = Some(map.next_value()?);
+                        }
+                    }
+                }
+                let value = value.ok_or_else(|| de::Error::missing_field("value"))?;
+                Ok(FieldElement::from_hex(value).unwrap())
+            }
+        }
+
+        const FIELDS: &[&str] = &["value"];
+        deserializer.deserialize_struct("FieldElement", FIELDS, FieldElementVisitor(PhantomData))
     }
 }
 

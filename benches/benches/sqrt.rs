@@ -1,33 +1,31 @@
 use ark_ff::Field;
+use ark_std::UniformRand;
+use ark_test_curves::starknet_fp::Fq as F;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use lambdaworks_math::traits::ByteConversion;
-use rand::RngCore;
+
+use crate::utils::to_lambdaworks_vec;
+
+pub mod utils;
 
 const BENCHMARK_NAME: &str = "sqrt";
 
 pub fn criterion_benchmark(c: &mut Criterion) {
+    let mut rng = <rand_chacha::ChaCha20Rng as rand::SeedableRng>::seed_from_u64(9001);
+
+    let mut arkworks_vec = Vec::new();
+    for _i in 0..1000 {
+        let a = F::rand(&mut rng);
+        let square = a * a;
+        arkworks_vec.push(square);
+    }
+
     // arkworks-ff
     {
-        use ark_std::{test_rng, UniformRand};
-        use ark_test_curves::starknet_fp::Fq as F;
-
-        let mut rng = test_rng();
-
-        let mut v = Vec::new();
-        for _i in 0..1000 {
-            let a = F::rand(&mut rng);
-            let square = a * a;
-            v.push(square);
-        }
-
         c.bench_function(
-            &format!(
-                "{} | ark-ff - branch: faster-benchmarks-and-starknet-field",
-                BENCHMARK_NAME
-            ),
+            &format!("{} 1000 elements | ark-ff - ef8f758", BENCHMARK_NAME),
             |b| {
                 b.iter(|| {
-                    let mut iter = v.iter();
+                    let mut iter = arkworks_vec.iter();
 
                     for _i in 0..1000 {
                         let a = iter.next().unwrap();
@@ -40,28 +38,21 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
     // lambdaworks-math
     {
-        use lambdaworks_math::field::{
-            element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
-        };
-        let mut v = Vec::new();
-        let mut buf = [0u8; 32];
-        for _i in 0..1000 {
-            rand::thread_rng().fill_bytes(&mut buf[..]);
-            let a = FieldElement::<Stark252PrimeField>::from_bytes_be(&buf).unwrap();
-            let square = a * a;
-            v.push(square);
-        }
+        let lambdaworks_vec = to_lambdaworks_vec(&arkworks_vec);
 
-        c.bench_function(&format!("{} | lambdaworks", BENCHMARK_NAME,), |b| {
-            b.iter(|| {
-                let mut iter = v.iter();
+        c.bench_function(
+            &format!("{} 1000 elements | lambdaworks", BENCHMARK_NAME,),
+            |b| {
+                b.iter(|| {
+                    let mut iter = lambdaworks_vec.iter();
 
-                for _i in 0..1000 {
-                    let a = iter.next().unwrap();
-                    black_box(black_box(a).sqrt());
-                }
-            });
-        });
+                    for _i in 0..1000 {
+                        let a = iter.next().unwrap();
+                        black_box(black_box(a).sqrt());
+                    }
+                });
+            },
+        );
     }
 }
 

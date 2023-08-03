@@ -25,12 +25,16 @@ where
 {
     let mut function = state.get_radix2_dit_butterfly(input, twiddles)?;
 
-    let order = input.len().trailing_zeros();
-    for stage in 0..order {
-        let group_count = 1 << stage;
-        let group_size = input.len() / group_count;
+    const WARP_SIZE: usize = 32;
 
-        function.launch(group_count, group_size)?;
+    let block_size = WARP_SIZE;
+    let butterfly_count = input.len() / 2;
+    let block_count = (butterfly_count + block_size - 1) / block_size;
+
+    let order = input.len().trailing_zeros();
+
+    for stage in 0..order {
+        function.launch(block_count, block_size, stage, butterfly_count as u32)?;
     }
 
     let output = function.retrieve_result()?;
@@ -67,7 +71,7 @@ pub fn bitrev_permutation<F: IsFFTField>(
 ) -> Result<Vec<FieldElement<F>>, CudaError> {
     let mut function = state.get_bitrev_permutation(&input, &input)?;
 
-    function.launch(input.len())?;
+    function.launch()?;
 
     function.retrieve_result()
 }
@@ -114,6 +118,21 @@ mod tests {
 
             prop_assert_eq!(cuda_fft, fft);
         }
+    }
+
+    #[test]
+    fn test_cuda_fft_matches_sequential_large_input() {
+        const ORDER: usize = 20;
+        let input = vec![FE::one(); 1 << ORDER];
+
+        let state = CudaState::new().unwrap();
+        let order = input.len().trailing_zeros();
+        let twiddles = get_twiddles(order.into(), RootsConfig::BitReverse).unwrap();
+
+        let cuda_result = fft(&input, &twiddles, &state).unwrap();
+        let sequential_result = crate::fft::cpu::ops::fft(&input, &twiddles).unwrap();
+
+        assert_eq!(&cuda_result, &sequential_result);
     }
 
     #[test]
