@@ -418,11 +418,10 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
     }
 
     /// Creates an `UnsignedInteger` from a hexstring. It can contain `0x` or not.
-    /// Returns an `CreationError::InvalidHexString`if the value is not a hexstring
+    /// Returns an `CreationError::InvalidHexString`if the value is not a hexstring.
+    /// Returns a `CreationError::EmptyString` if the input string is empty.
     pub fn from_hex(value: &str) -> Result<Self, CreationError> {
         let mut string = value;
-
-        // Remove 0x if it's on the string
         let mut char_iterator = value.chars();
         if string.len() > 2
             && char_iterator.next().unwrap() == '0'
@@ -430,11 +429,12 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         {
             string = &string[2..];
         }
-
+        if string.is_empty() {
+            return Err(CreationError::EmptyString)?;
+        }
         if !Self::is_hex_string(string) {
             return Err(CreationError::InvalidHexString);
         }
-
         Ok(Self::from_hex_unchecked(string))
     }
 
@@ -1127,6 +1127,11 @@ mod tests_u384 {
     #[test]
     fn construct_new_integer_from_non_hex_errs() {
         assert!(U384::from_hex("0xTEST").is_err());
+    }
+
+    #[test]
+    fn construct_new_integer_from_empty_string_errs() {
+        assert!(U384::from_hex("").is_err());
     }
 
     #[test]
