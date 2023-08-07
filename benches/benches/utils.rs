@@ -9,11 +9,11 @@ use lambdaworks_math::{
 };
 use rand::SeedableRng;
 
-/// Creates 20000 random elements
-pub fn generate_random_elements() -> Vec<Fq> {
+/// Creates `amount` random elements
+pub fn generate_random_elements(amount: u64) -> Vec<Fq> {
     let mut rng = rand_chacha::ChaCha20Rng::seed_from_u64(9001);
     let mut arkworks_vec = Vec::new();
-    for _i in 0..20000 {
+    for _i in 0..amount {
         let a = Fq::rand(&mut rng);
         arkworks_vec.push(a);
     }

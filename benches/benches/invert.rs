@@ -9,7 +9,7 @@ pub mod utils;
 const BENCHMARK_NAME: &str = "invert";
 
 pub fn criterion_benchmark(c: &mut Criterion) {
-    let arkworks_vec = generate_random_elements()[0..10000].to_vec();
+    let arkworks_vec = generate_random_elements(10000).to_vec();
 
     // arkworks-ff
     {
