@@ -163,19 +163,19 @@ impl MontgomeryAlgorithms {
             c = 0;
             let m = (lo.limbs[i] as u128 * *mu as u128) as u64;
             let mut j = NUM_LIMBS;
+            while i + j > NUM_LIMBS - 1 {
+                j -= 1;
+                let index = i + j - (NUM_LIMBS - 1);
+                let cs = lo.limbs[index] as u128 + m as u128 * (q.limbs[j] as u128) + c;
+                c = cs >> 64;
+                lo.limbs[index] = cs as u64;
+            }
             while j > 0 {
                 j -= 1;
-                if i + j >= NUM_LIMBS - 1 {
-                    let index = i + j - (NUM_LIMBS - 1);
-                    let cs = lo.limbs[index] as u128 + m as u128 * (q.limbs[j] as u128) + c;
-                    c = cs >> 64;
-                    lo.limbs[index] = cs as u64;
-                } else {
-                    let index = i + j + 1;
-                    let cs = hi.limbs[index] as u128 + m as u128 * (q.limbs[j] as u128) + c;
-                    c = cs >> 64;
-                    hi.limbs[index] = cs as u64;
-                }
+                let index = i + j + 1;
+                let cs = hi.limbs[index] as u128 + m as u128 * (q.limbs[j] as u128) + c;
+                c = cs >> 64;
+                hi.limbs[index] = cs as u64;
             }
 
             // Carry propagation to `hi`
