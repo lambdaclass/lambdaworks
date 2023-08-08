@@ -61,6 +61,12 @@ impl<F: IsPrimeField> Poseidon<F> {
         }
         state.clone_from_slice(&new_state[0..self.params.state_size]);
     }
+    pub fn hash(&self, x: FieldElement<F>, y: FieldElement<F>) -> FieldElement<F> {
+        let mut state: Vec<FieldElement<F>> = vec![x, y, FieldElement::from(2)];
+        self.hades_permutation(&mut state);
+        let x = &state[0];
+        return x.clone();
+    }
 }
 
 #[cfg(test)]
@@ -87,11 +93,40 @@ mod tests {
         poseidon.hades_permutation(&mut state);
 
         // Compare the result to the expected output. You will need to know the expected output for your specific test case.
-        let expected_state = FieldElement::<Stark252PrimeField>::from_hex(
+        let expected_state0 = FieldElement::<Stark252PrimeField>::from_hex(
             "0x510f3a3faf4084e3b1e95fd44c30746271b48723f7ea9c8be6a9b6b5408e7e6",
         )
         .unwrap();
+        let expected_state1 = FieldElement::<Stark252PrimeField>::from_hex(
+            "0x4f511749bd4101266904288021211333fb0a514cb15381af087462fa46e6bd9",
+        )
+        .unwrap();
+        let expected_state2 = FieldElement::<Stark252PrimeField>::from_hex(
+            "0x186f6dd1a6e79cb1b66d505574c349272cd35c07c223351a0990410798bb9d8",
+        )
+        .unwrap();
 
-        assert_eq!(state[0], expected_state);
+        assert_eq!(state[0], expected_state0);
+        assert_eq!(state[1], expected_state1);
+        assert_eq!(state[2], expected_state2);
+    }
+    #[test]
+    fn test_hash() {
+        let params = PermutationParameters::new_with(DefaultPoseidonParams::CairoStark252);
+
+        let poseidon = Poseidon::new_with_params(params);
+
+        let x = FieldElement::<Stark252PrimeField>::from_hex("0x123456").unwrap();
+        let y = FieldElement::<Stark252PrimeField>::from_hex("0x789101").unwrap();
+
+        let z = poseidon.hash(x, y);
+
+        // Compare the result to the expected output. You will need to know the expected output for your specific test case.
+        let expected_state0 = FieldElement::<Stark252PrimeField>::from_hex(
+            "0x2fb6e1e8838d4b850877944f0a13340dd5810f01f5d4361c54b22b4abda3248",
+        )
+        .unwrap();
+
+        assert_eq!(z, expected_state0);
     }
 }
