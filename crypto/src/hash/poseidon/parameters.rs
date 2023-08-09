@@ -2,6 +2,7 @@ use lambdaworks_math::field::{element::FieldElement as FE, traits::IsPrimeField}
 
 use crate::hash::poseidon::cairo_poseidon_constants::round_constants::ROUND_CONSTANTS_HEXSTRINGS;
 
+#[derive(Clone)]
 pub struct PermutationParameters<F: IsPrimeField> {
     /// Exponent for the S box
     pub alpha: u32,
@@ -9,6 +10,8 @@ pub struct PermutationParameters<F: IsPrimeField> {
     pub n_partial_rounds: usize,
     pub round_constants: Vec<Vec<FE<F>>>,
     pub mds_matrix: Vec<Vec<FE<F>>>,
+    pub rate: usize,
+    pub capacity: usize,
     pub state_size: usize,
 }
 pub enum DefaultPoseidonParams {
@@ -60,6 +63,8 @@ where
             n_partial_rounds: N_PARTIAL_ROUNDS,
             round_constants,
             mds_matrix,
+            rate: RATE,
+            capacity: CAPACITY,
             state_size: RATE + CAPACITY,
         }
     }
