@@ -1,10 +1,7 @@
 use crate::hash::poseidon::parameters::{DefaultPoseidonParams, PermutationParameters};
 use crate::hash::poseidon::Poseidon;
 use crate::merkle_tree::traits::IsMerkleTreeBackend;
-use lambdaworks_math::{
-    field::{element::FieldElement, traits::IsPrimeField},
-    traits::ByteConversion,
-};
+use lambdaworks_math::field::{element::FieldElement, traits::IsPrimeField};
 
 #[derive(Clone)]
 pub struct BatchPoseidonTree<F: IsPrimeField> {
@@ -14,7 +11,6 @@ pub struct BatchPoseidonTree<F: IsPrimeField> {
 impl<F> Default for BatchPoseidonTree<F>
 where
     F: IsPrimeField,
-    FieldElement<F>: ByteConversion,
 {
     fn default() -> Self {
         let params = PermutationParameters::new_with(DefaultPoseidonParams::CairoStark252);
@@ -27,7 +23,6 @@ where
 impl<F> IsMerkleTreeBackend for BatchPoseidonTree<F>
 where
     F: IsPrimeField,
-    FieldElement<F>: ByteConversion,
 {
     type Node = FieldElement<F>;
     type Data = Vec<FieldElement<F>>;
