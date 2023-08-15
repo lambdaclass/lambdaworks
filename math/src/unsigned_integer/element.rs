@@ -972,57 +972,57 @@ mod tests_u384 {
         }
 
         #[test]
-        fn bitand_assign(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
-            let mut result = Uint::from_limbs(a);
-            result &= Uint::from_limbs(b);
+        fn bitand_assign(a in any::<Uint>(), b in any::<Uint>()) {
+            let mut result = a;
+            result &= b;
 
             for i in 0..N_LIMBS {
-                assert_eq!(result.limbs[i], a[i] & b[i]);
+                assert_eq!(result.limbs[i], a.limbs[i] & b.limbs[i]);
             }
         }
 
         #[test]
-        fn bitor(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
-            let result = Uint::from_limbs(a) | Uint::from_limbs(b);
+        fn bitor(a in any::<Uint>(), b in any::<Uint>()) {
+            let result = a | b;
 
             for i in 0..N_LIMBS {
-                assert_eq!(result.limbs[i], a[i] | b[i]);
+                assert_eq!(result.limbs[i], a.limbs[i] | b.limbs[i]);
             }
         }
 
         #[test]
-        fn bitor_assign(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
-            let mut result = Uint::from_limbs(a);
-            result |= Uint::from_limbs(b);
+        fn bitor_assign(a in any::<Uint>(), b in any::<Uint>()) {
+            let mut result = a;
+            result |= b;
 
             for i in 0..N_LIMBS {
-                assert_eq!(result.limbs[i], a[i] | b[i]);
+                assert_eq!(result.limbs[i], a.limbs[i] | b.limbs[i]);
             }
         }
 
         #[test]
-        fn bitxor(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
-            let result = Uint::from_limbs(a) ^ Uint::from_limbs(b);
+        fn bitxor(a in any::<Uint>(), b in any::<Uint>()) {
+            let result = a ^ b;
 
             for i in 0..N_LIMBS {
-                assert_eq!(result.limbs[i], a[i] ^ b[i]);
+                assert_eq!(result.limbs[i], a.limbs[i] ^ b.limbs[i]);
             }
         }
 
         #[test]
-        fn bitxor_assign(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
-            let mut result = Uint::from_limbs(a);
-            result ^= Uint::from_limbs(b);
+        fn bitxor_assign(a in any::<Uint>(), b in any::<Uint>()) {
+            let mut result = a;
+            result ^= b;
 
             for i in 0..N_LIMBS {
-                assert_eq!(result.limbs[i], a[i] ^ b[i]);
+                assert_eq!(result.limbs[i], a.limbs[i] ^ b.limbs[i]);
             }
         }
 
         #[test]
-        fn div_rem(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
-            let a = Uint::from_limbs(a).shr(256);
-            let b = Uint::from_limbs(b).shr(256);
+        fn div_rem(a in any::<Uint>(), b in any::<Uint>()) {
+            let a = a.shr(256);
+            let b = b.shr(256);
             assert_eq!((a * b).div_rem(&b), (a, Uint::from_u64(0)));
         }
     }
@@ -2014,66 +2014,66 @@ mod tests_u256 {
 
     proptest! {
         #[test]
-        fn bitand(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
-            let result = Uint::from_limbs(a) & Uint::from_limbs(b);
+        fn bitand(a in any::<Uint>(), b in any::<Uint>()) {
+            let result = a & b;
 
             for i in 0..N_LIMBS {
-                assert_eq!(result.limbs[i], a[i] & b[i]);
+                assert_eq!(result.limbs[i], a.limbs[i] & b.limbs[i]);
             }
         }
 
         #[test]
-        fn bitand_assign(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
-            let mut result = Uint::from_limbs(a);
-            result &= Uint::from_limbs(b);
+        fn bitand_assign(a in any::<Uint>(), b in any::<Uint>()) {
+            let mut result = a;
+            result &= b;
 
             for i in 0..N_LIMBS {
-                assert_eq!(result.limbs[i], a[i] & b[i]);
+                assert_eq!(result.limbs[i], a.limbs[i] & b.limbs[i]);
             }
         }
 
         #[test]
-        fn bitor(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
-            let result = Uint::from_limbs(a) | Uint::from_limbs(b);
+        fn bitor(a in any::<Uint>(), b in any::<Uint>()) {
+            let result = a | b;
 
             for i in 0..N_LIMBS {
-                assert_eq!(result.limbs[i], a[i] | b[i]);
+                assert_eq!(result.limbs[i], a.limbs[i] | b.limbs[i]);
             }
         }
 
         #[test]
-        fn bitor_assign(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
-            let mut result = Uint::from_limbs(a);
-            result |= Uint::from_limbs(b);
+        fn bitor_assign(a in any::<Uint>(), b in any::<Uint>()) {
+            let mut result = a;
+            result |= b;
 
             for i in 0..N_LIMBS {
-                assert_eq!(result.limbs[i], a[i] | b[i]);
+                assert_eq!(result.limbs[i], a.limbs[i] | b.limbs[i]);
             }
         }
 
         #[test]
-        fn bitxor(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
-            let result = Uint::from_limbs(a) ^ Uint::from_limbs(b);
+        fn bitxor(a in any::<Uint>(), b in any::<Uint>()) {
+            let result = a ^ b;
 
             for i in 0..N_LIMBS {
-                assert_eq!(result.limbs[i], a[i] ^ b[i]);
+                assert_eq!(result.limbs[i], a.limbs[i] ^ b.limbs[i]);
             }
         }
 
         #[test]
-        fn bitxor_assign(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
-            let mut result = Uint::from_limbs(a);
-            result ^= Uint::from_limbs(b);
+        fn bitxor_assign(a in any::<Uint>(), b in any::<Uint>()) {
+            let mut result = a;
+            result ^= b;
 
             for i in 0..N_LIMBS {
-                assert_eq!(result.limbs[i], a[i] ^ b[i]);
+                assert_eq!(result.limbs[i], a.limbs[i] ^ b.limbs[i]);
             }
         }
 
         #[test]
-        fn div_rem(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
-            let a = Uint::from_limbs(a).shr(128);
-            let b = Uint::from_limbs(b).shr(128);
+        fn div_rem(a in any::<Uint>(), b in any::<Uint>()) {
+            let a = a.shr(128);
+            let b = b.shr(128);
             assert_eq!((a * b).div_rem(&b), (a, Uint::from_u64(0)));
         }
     }
