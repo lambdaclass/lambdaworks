@@ -33,15 +33,15 @@ impl<F: IsPrimeField> Poseidon<F> {
     }
 
     pub fn full_round(&self, state: &mut [FieldElement<F>], round_number: usize) {
-        for i in 0..self.params.state_size {
-            state[i] = &state[i] + &self.params.round_constants[round_number][i];
-            state[i] = state[i].pow(self.params.alpha);
+        for (i, value) in state.iter_mut().enumerate() {
+            *value = &(*value) + &self.params.round_constants[round_number][i];
+            *value = value.pow(self.params.alpha);
         }
         self.mix(state);
     }
     pub fn partial_round(&self, state: &mut [FieldElement<F>], round_number: usize) {
-        for i in 0..self.params.state_size {
-            state[i] = &state[i] + &self.params.round_constants[round_number][i];
+        for (i, value) in state.iter_mut().enumerate() {
+            *value = &(*value) + &self.params.round_constants[round_number][i];
         }
 
         state[self.params.state_size - 1] =
@@ -66,7 +66,7 @@ impl<F: IsPrimeField> Poseidon<F> {
         let mut state: Vec<FieldElement<F>> = vec![x.clone(), y.clone(), FieldElement::from(2)];
         self.hades_permutation(&mut state);
         let x = &state[0];
-        return x.clone();
+        x.clone()
     }
 
     pub fn hash_single(&self, x: &FieldElement<F>) -> FieldElement<F> {
@@ -74,14 +74,14 @@ impl<F: IsPrimeField> Poseidon<F> {
             vec![x.clone(), FieldElement::zero(), FieldElement::from(1)];
         self.hades_permutation(&mut state);
         let x = &state[0];
-        return x.clone();
+        x.clone()
     }
-    pub fn hash_many(&self, inputs: &Vec<FieldElement<F>>) -> FieldElement<F> {
+    pub fn hash_many(&self, inputs: &[FieldElement<F>]) -> FieldElement<F> {
         let r = self.params.rate; // chunk size
         let m = self.params.state_size; // state size
 
         // Pad input with 1 followed by 0's (if necessary).
-        let mut values = inputs.clone();
+        let mut values = inputs.to_owned();
         values.push(FieldElement::from(1));
         values.resize(((values.len() + r - 1) / r) * r, FieldElement::zero());
 
