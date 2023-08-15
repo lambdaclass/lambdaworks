@@ -5,6 +5,10 @@ use core::ops::{
     Sub,
 };
 
+use proptest::prelude::any;
+use proptest::strategy::Strategy;
+use proptest::{arbitrary::Arbitrary, strategy::SBoxedStrategy};
+
 use crate::errors::ByteConversionError;
 use crate::errors::CreationError;
 use crate::traits::ByteConversion;
@@ -848,6 +852,10 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         }
         Ok(res)
     }
+
+    pub fn nonzero_uint() -> impl Strategy<Value = UnsignedInteger<NUM_LIMBS>> {
+        any_uint::<NUM_LIMBS>().prop_filter("is_zero", |&x| x != UnsignedInteger::from_u64(0))
+    }
 }
 
 impl<const NUM_LIMBS: usize> IsUnsignedInteger for UnsignedInteger<NUM_LIMBS> {}
@@ -925,6 +933,20 @@ impl<const NUM_LIMBS: usize> From<UnsignedInteger<NUM_LIMBS>> for u16 {
     fn from(value: UnsignedInteger<NUM_LIMBS>) -> Self {
         value.limbs[NUM_LIMBS - 1] as u16
     }
+}
+
+fn any_uint<const NUM_LIMBS: usize>() -> impl Strategy<Value = UnsignedInteger<NUM_LIMBS>> {
+    any::<[u64; NUM_LIMBS]>().prop_map(|limbs| UnsignedInteger::from_limbs(limbs))
+}
+
+impl<const NUM_LIMBS: usize> Arbitrary for UnsignedInteger<NUM_LIMBS> {
+    type Parameters = ();
+
+    fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
+        any_uint::<NUM_LIMBS>().sboxed()
+    }
+
+    type Strategy = SBoxedStrategy<Self>;
 }
 
 #[cfg(test)]
