@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1691497285533,
+  "lastUpdate": 1692217358626,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -14459,6 +14459,150 @@ window.BENCHMARK_DATA = {
             "name": "Polynomial/div by 'x - b' with Ruffini",
             "value": 2160,
             "range": "± 13",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mrugiero@gmail.com",
+            "name": "Mario Rugiero",
+            "username": "Oppen"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "4b61d6f1f41f0bc567e6ad9df080257f0d994174",
+          "message": "perf: use overflowing_add for UnsignedInteger::add (#521)\n\n* perf: use overflowing_add for UnsignedInteger::add\n\nThis allows using only `u64` variables and gives a bit more information\nto the compiler about our intent.\n\nResults on M1 with 16GB:\n```\nadd 1M elements | lambdaworks\n                        time:   [7.0109 ms 7.0278 ms 7.0465 ms]\n                        change: [-29.850% -29.645% -29.430%] (p = 0.00 < 0.01)\n                        Performance has improved.\n```\n\n* Update table\n\n---------\n\nCo-authored-by: Mauro Toscano <12560266+MauroToscano@users.noreply.github.com>",
+          "timestamp": "2023-08-16T20:07:49Z",
+          "tree_id": "f6aac0bc9700d05b29bc57c2cbe5dd4d1fac81f3",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/4b61d6f1f41f0bc567e6ad9df080257f0d994174"
+        },
+        "date": 1692217355133,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "Ordered FFT/Parallel (Metal)",
+            "value": 79632863,
+            "range": "± 817808",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #2",
+            "value": 156328092,
+            "range": "± 1939212",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #3",
+            "value": 307144520,
+            "range": "± 4931052",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #4",
+            "value": 650139125,
+            "range": "± 15806141",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal)",
+            "value": 34242300,
+            "range": "± 274850",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #2",
+            "value": 68892706,
+            "range": "± 628601",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #3",
+            "value": 132618014,
+            "range": "± 1550190",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #4",
+            "value": 280534614,
+            "range": "± 4029785",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal)",
+            "value": 29705292,
+            "range": "± 313464",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #2",
+            "value": 55633599,
+            "range": "± 2565640",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #3",
+            "value": 112380614,
+            "range": "± 3168762",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #4",
+            "value": 237094833,
+            "range": "± 14714507",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal",
+            "value": 116847235,
+            "range": "± 999872",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #2",
+            "value": 240582861,
+            "range": "± 1295139",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #3",
+            "value": 490469697,
+            "range": "± 5835783",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #4",
+            "value": 953895875,
+            "range": "± 20380488",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal",
+            "value": 406165187,
+            "range": "± 3008675",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #2",
+            "value": 789960250,
+            "range": "± 5698743",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #3",
+            "value": 1576029083,
+            "range": "± 14716353",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #4",
+            "value": 3100716916,
+            "range": "± 29424834",
             "unit": "ns/iter"
           }
         ]
