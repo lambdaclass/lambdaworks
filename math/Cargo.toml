@@ -11,7 +11,7 @@ license.workspace = true
 thiserror = { version = "1.0", optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
 serde_json = { version = "1.0", optional = true }
-proptest = "1.1.0"
+proptest = { version = "1.1.0", optional = true }
 
 # rayon
 rayon = { version = "1.7", optional = true }
@@ -30,12 +30,14 @@ rand = { version = "0.8.5", default-features = false }
 criterion = "0.4"
 const-random = "0.1.15"
 iai-callgrind.workspace = true
+proptest = "1.1.0"
 
 [features]
 rayon = ["dep:rayon"]
 default = ["rayon", "std"]
 std = ["dep:thiserror"]
 lambdaworks-serde = ["dep:serde", "dep:serde_json", "std"]
+proptest = ["dep:proptest"]
 
 # gpu
 metal = [
