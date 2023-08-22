@@ -967,9 +967,10 @@ mod tests_u384 {
     const N_LIMBS: usize = 6;
     type Uint = U384;
 
+
+    #[cfg(feature = "proptest")]
     proptest! {
         #[test]
-        #[cfg(feature = "proptest")]
         fn bitand(a in any::<Uint>(), b in any::<Uint>()) {
             let result = Uint::from_limbs(a) & Uint::from_limbs(b);
 
@@ -979,7 +980,6 @@ mod tests_u384 {
         }
 
         #[test]
-        #[cfg(feature = "proptest")]
         fn bitand_assign(a in any::<Uint>(), b in any::<Uint>()) {
             let mut result = a;
             result &= b;
@@ -990,7 +990,6 @@ mod tests_u384 {
         }
 
         #[test]
-        #[cfg(feature = "proptest")]
         fn bitor(a in any::<Uint>(), b in any::<Uint>()) {
             let result = a | b;
 
@@ -1000,7 +999,6 @@ mod tests_u384 {
         }
 
         #[test]
-        #[cfg(feature = "proptest")]
         fn bitor_assign(a in any::<Uint>(), b in any::<Uint>()) {
             let mut result = a;
             result |= b;
@@ -1011,7 +1009,6 @@ mod tests_u384 {
         }
 
         #[test]
-        #[cfg(feature = "proptest")]
         fn bitxor(a in any::<Uint>(), b in any::<Uint>()) {
             let result = a ^ b;
 
@@ -1021,7 +1018,6 @@ mod tests_u384 {
         }
 
         #[test]
-        #[cfg(feature = "proptest")]
         fn bitxor_assign(a in any::<Uint>(), b in any::<Uint>()) {
             let mut result = a;
             result ^= b;
@@ -1032,7 +1028,6 @@ mod tests_u384 {
         }
 
         #[test]
-        #[cfg(feature = "proptest")]
         fn div_rem(a in any::<Uint>(), b in any::<Uint>()) {
             let a = a.shr(256);
             let b = b.shr(256);
@@ -2025,9 +2020,9 @@ mod tests_u256 {
     const N_LIMBS: usize = 4;
     type Uint = U256;
 
+    #[cfg(feature = "proptest")]
     proptest! {
         #[test]
-        #[cfg(feature = "proptest")]
         fn bitand(a in any::<Uint>(), b in any::<Uint>()) {
             let result = a & b;
 
@@ -2037,7 +2032,6 @@ mod tests_u256 {
         }
 
         #[test]
-        #[cfg(feature = "proptest")]
         fn bitand_assign(a in any::<Uint>(), b in any::<Uint>()) {
             let mut result = a;
             result &= b;
@@ -2048,7 +2042,6 @@ mod tests_u256 {
         }
 
         #[test]
-        #[cfg(feature = "proptest")]
         fn bitor(a in any::<Uint>(), b in any::<Uint>()) {
             let result = a | b;
 
@@ -2058,7 +2051,6 @@ mod tests_u256 {
         }
 
         #[test]
-        #[cfg(feature = "proptest")]
         fn bitor_assign(a in any::<Uint>(), b in any::<Uint>()) {
             let mut result = a;
             result |= b;
@@ -2069,7 +2061,6 @@ mod tests_u256 {
         }
 
         #[test]
-        #[cfg(feature = "proptest")]
         fn bitxor(a in any::<Uint>(), b in any::<Uint>()) {
             let result = a ^ b;
 
@@ -2079,7 +2070,6 @@ mod tests_u256 {
         }
 
         #[test]
-        #[cfg(feature = "proptest")]
         fn bitxor_assign(a in any::<Uint>(), b in any::<Uint>()) {
             let mut result = a;
             result ^= b;
@@ -2090,7 +2080,6 @@ mod tests_u256 {
         }
 
         #[test]
-        #[cfg(feature = "proptest")]
         fn div_rem(a in any::<Uint>(), b in any::<Uint>()) {
             let a = a.shr(128);
             let b = b.shr(128);
