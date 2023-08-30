@@ -9,13 +9,13 @@ pub mod utils;
 const BENCHMARK_NAME: &str = "mul";
 
 pub fn criterion_benchmark(c: &mut Criterion) {
-    let arkworks_vec = generate_random_elements();
+    let arkworks_vec = generate_random_elements(20000);
 
     // arkworks-ff
     {
         c.bench_function(
             &format!(
-                "{} 10000 elements | ark-ff - commit: ef8f758 ",
+                "{} 10K elements | ark-ff - commit: ef8f758 ",
                 BENCHMARK_NAME
             ),
             |b| {
@@ -37,7 +37,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         let lambdaworks_vec = to_lambdaworks_vec(&arkworks_vec);
 
         c.bench_function(
-            &format!("{} 10000 elements | lambdaworks", BENCHMARK_NAME,),
+            &format!("{} 10K elements | lambdaworks", BENCHMARK_NAME,),
             |b| {
                 b.iter(|| {
                     let mut iter = lambdaworks_vec.iter();

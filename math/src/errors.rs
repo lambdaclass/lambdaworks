@@ -8,6 +8,7 @@ pub enum ByteConversionError {
 pub enum CreationError {
     InvalidHexString,
     InvalidDecString,
+    EmptyString,
 }
 
 #[derive(Debug, PartialEq, Eq)]
