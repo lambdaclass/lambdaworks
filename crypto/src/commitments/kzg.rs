@@ -178,8 +178,8 @@ impl<const N: usize, F: IsPrimeField<RepresentativeType = UnsignedInteger<N>>, P
         y: &FieldElement<F>,
         p: &Polynomial<FieldElement<F>>,
     ) -> Self::Commitment {
-        let value = p.evaluate(x);
-        let mut poly_to_commit = p + Polynomial::new_monomial(-&value, 0);
+        // Doesn't need y here
+        let mut poly_to_commit = p + Polynomial::new_monomial(-&*y, 0);
         poly_to_commit.ruffini_division_inplace(x);
         self.commit(&poly_to_commit)
     }
