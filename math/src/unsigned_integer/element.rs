@@ -851,8 +851,11 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
             if b > 9 {
                 return Err(CreationError::InvalidDecString);
             }
-            let r = res * Self::from(10_u64) + Self::from(b as u64);
-            res = r;
+            let (high, low) = Self::mul(&res, &Self::from(10_u64));
+            if high > Self::from_u64(0) {
+                return Err(CreationError::InvalidDecString);
+            }
+            res = low + Self::from(b as u64);
         }
         Ok(res)
     }
