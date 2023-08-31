@@ -2,11 +2,8 @@
 pub enum ByteConversionError {
     FromBEBytesError,
     FromLEBytesError,
-    #[error("Invalid value")]
     InvalidValue,
-    #[error("The point is not in the subgroup")]
     PointNotInSubgroup,
-    #[error("Value is not compressed")]
     ValueNotCompressed,
 }
 
