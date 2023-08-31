@@ -667,7 +667,7 @@ mod tests {
         type FE = FieldElement<F>;
         assert_eq!(FE::from_hex_unchecked("0x1a"), FE::from(26))
     }
-      
+    
     #[test]
     fn construct_new_field_element_from_empty_string_errs() {
         type F = Stark252PrimeField;
