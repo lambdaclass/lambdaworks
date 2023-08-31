@@ -19,6 +19,10 @@ pub trait IsModulus<U>: Debug {
     const MODULUS: U;
 }
 
+#[cfg_attr(
+    feature = "lambdaworks-serde",
+    derive(serde::Serialize, serde::Deserialize)
+)]
 #[derive(Clone, Debug, Hash, Copy)]
 pub struct MontgomeryBackendPrimeField<M, const NUM_LIMBS: usize> {
     phantom: PhantomData<M>,
@@ -37,6 +41,7 @@ where
         &M::MODULUS,
         &Self::MU,
     );
+    const MODULUS_HAS_ONE_SPARE_BIT: bool = Self::modulus_has_one_spare_bit();
 
     /// Computes `- modulus^{-1} mod 2^{64}`
     /// This algorithm is given  by Dussé and Kaliski Jr. in
@@ -89,6 +94,14 @@ where
         }
         c
     }
+
+    /// Checks whether the most significant limb of the modulus is at
+    /// most `0x7FFFFFFFFFFFFFFE`. This check is useful since special
+    /// optimizations exist for this kind of moduli.
+    #[inline(always)]
+    const fn modulus_has_one_spare_bit() -> bool {
+        M::MODULUS.limbs[0] < (1u64 << 63) - 1
+    }
 }
 
 impl<M, const NUM_LIMBS: usize> IsField for MontgomeryBackendPrimeField<M, NUM_LIMBS>
@@ -100,21 +113,32 @@ where
     #[inline(always)]
     fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
         let (sum, overflow) = UnsignedInteger::add(a, b);
-        if !overflow {
+        if Self::MODULUS_HAS_ONE_SPARE_BIT {
             if sum >= M::MODULUS {
                 sum - M::MODULUS
             } else {
                 sum
             }
-        } else {
+        } else if overflow || sum >= M::MODULUS {
             let (diff, _) = UnsignedInteger::sub(&sum, &M::MODULUS);
             diff
+        } else {
+            sum
         }
     }
 
     #[inline(always)]
     fn mul(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
-        MontgomeryAlgorithms::cios(a, b, &M::MODULUS, &Self::MU)
+        if Self::MODULUS_HAS_ONE_SPARE_BIT {
+            MontgomeryAlgorithms::cios_optimized_for_moduli_with_one_spare_bit(
+                a,
+                b,
+                &M::MODULUS,
+                &Self::MU,
+            )
+        } else {
+            MontgomeryAlgorithms::cios(a, b, &M::MODULUS, &Self::MU)
+        }
     }
 
     #[inline(always)]
@@ -425,6 +449,16 @@ mod tests_u384_prime_fields {
         let y = U384F23Element::from(10_u64);
         let c = U384F23Element::from(110_u64);
         assert_eq!(x * y, c);
+    }
+
+    #[test]
+    #[cfg(feature = "lambdaworks-serde")]
+    fn montgomery_backend_serialization_deserialization() {
+        let x = U384F23Element::from(11_u64);
+        let x_serialized = serde_json::to_string(&x).unwrap();
+        let x_deserialized: U384F23Element = serde_json::from_str(&x_serialized).unwrap();
+        assert_eq!(x_serialized, "{\"value\":\"0xb\"}");
+        assert_eq!(x_deserialized, x);
     }
 
     const ORDER: usize = 23;
