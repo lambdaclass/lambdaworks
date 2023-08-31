@@ -59,6 +59,17 @@ docs:
 	cd docs && mdbook serve --open
 
 FUZZER = field_from_hex
-run-fuzzer:
-		cd fuzz
-		cargo +nightly fuzz run $(FUZZER)
+run-no-gpu-fuzzer:
+		cd fuzz/no_gpu_fuzz
+		cargo +nightly fuzz run --fuzz-dir . $(FUZZER)
+
+METALFUZZER = fft_diff
+run-metal-fuzzer:
+		cd fuzz/metal_fuzz
+		cargo +nightly fuzz run --fuzz-dir . $(METALFUZZER)
+
+CUDAFUZZER = cuda_fft_fuzzer
+run-cuda-fuzzer:
+		cd fuzzer
+		cargo hfuzz run $(CUDAFUZZER)
+
