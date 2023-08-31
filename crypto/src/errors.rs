@@ -23,8 +23,9 @@ impl From<lambdaworks_math::errors::DeserializationError> for SrsFromFileError {
                 SrsFromFileError::DeserializationError(DeserializationError::PointerSizeError)
             }
 
-            DeserializationError::InvalidValue => 
-            SrsFromFileError::DeserializationError(DeserializationError::InvalidValue)
+            DeserializationError::InvalidValue => {
+                SrsFromFileError::DeserializationError(DeserializationError::InvalidValue)
+            }
         }
     }
 }
