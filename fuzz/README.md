@@ -25,4 +25,3 @@ The targets can be found in the `fuzz_targets` directory. Normally the name of t
 If a crash is found, an `artifacts/<target_name>` or `hfuzz_workspace/cuda_fuzz` folder will be added, inside it you'll find the different reports. To get an lldb dump, run
 * no_gpu & metal: `cargo +nightly fuzz run --fuzz-dir . <target_name> artifacts/<crash-xxx>`
 * cuda: `cargo hfuzz run-debug <target_name> hfuzz_workspace/cuda_fuzz/<name.fuzz>`
-

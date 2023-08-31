@@ -2,21 +2,28 @@
 
 template <class Fp>
 inline __device__ void _radix2_dit_butterfly(Fp *input,
-                                             const Fp *twiddles)
+                                             const Fp *twiddles,
+                                             const int stage,
+                                             const int butterfly_count)
 {
-  int group = blockIdx.x;
-  int pos_in_group = threadIdx.x;
-  int half_group_size = blockDim.x;
+    int thread_pos = blockDim.x * blockIdx.x + threadIdx.x;
 
-  int i = group * half_group_size * 2 + pos_in_group;
+    if (thread_pos >= butterfly_count) return;
+    // TODO: guard is not needed for inputs of len >=block_size * 2, only if len is pow of two
 
-  Fp w = twiddles[group];
-  Fp a = input[i];
-  Fp b = input[i + half_group_size];
+    int half_group_size = butterfly_count >> stage;
+    int group = thread_pos / half_group_size;
 
-  Fp res_1 = a + w * b;
-  Fp res_2 = a - w * b;
+    int pos_in_group = thread_pos & (half_group_size - 1);
+    int i = thread_pos * 2 - pos_in_group; // multiply quotient by 2
 
-  input[i] = res_1;                   // --\/--
-  input[i + half_group_size] = res_2; // --/\--
+    Fp w = twiddles[group];
+    Fp a = input[i];
+    Fp b = input[i + half_group_size];
+
+    Fp res_1 = a + w * b;
+    Fp res_2 = a - w * b;
+
+    input[i] = res_1;                   // --\/--
+    input[i + half_group_size] = res_2; // --/\--
 };
