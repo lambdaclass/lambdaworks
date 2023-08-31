@@ -14,7 +14,7 @@ use std::ops::Neg;
 pub type G1Point = ShortWeierstrassProjectivePoint<BLS12381Curve>;
 pub type BLS12381FieldElement = FieldElement<BLS12381PrimeField>;
 const MODULUS: U256 =
-    U256::from("73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001");
+    U256::from_hex_unchecked("73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001");
 
 pub fn check_point_is_in_subgroup(point: &G1Point) -> bool {
     let inf = G1Point::neutral_element();
@@ -39,8 +39,8 @@ pub fn decompress_g1_point(input_bytes: &mut [u8; 48]) -> Result<G1Point, ByteCo
     }
     let third_bit = prefix_bits & 1_u8;
 
-    let first_byte_without_contorl_bits = (first_byte << 3) >> 3;
-    input_bytes[0] = first_byte_without_contorl_bits;
+    let first_byte_without_control_bits = (first_byte << 3) >> 3;
+    input_bytes[0] = first_byte_without_control_bits;
 
     let x = BLS12381FieldElement::from_bytes_be(input_bytes)?;
 
