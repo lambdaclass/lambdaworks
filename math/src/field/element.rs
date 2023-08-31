@@ -665,7 +665,7 @@ mod tests {
     fn from_hex_unchecked_zero_x_1a_is_26_for_stark252_prime_field_element() {
         type F = Stark252PrimeField;
         type FE = FieldElement<F>;
-        assert_eq!(FE::from_hex_unchecked("0x1a"), FE::from(26)
+        assert_eq!(FE::from_hex_unchecked("0x1a"), FE::from(26))
     }
       
     #[test]
