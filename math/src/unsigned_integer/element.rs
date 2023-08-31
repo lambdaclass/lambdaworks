@@ -554,12 +554,13 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         b: &UnsignedInteger<NUM_LIMBS>,
     ) -> (UnsignedInteger<NUM_LIMBS>, bool) {
         let mut limbs = [0u64; NUM_LIMBS];
-        let mut carry = 0u128;
+        let mut carry = 0u64;
         let mut i = NUM_LIMBS;
         while i > 0 {
-            let c: u128 = a.limbs[i - 1] as u128 + b.limbs[i - 1] as u128 + carry;
-            limbs[i - 1] = c as u64;
-            carry = c >> 64;
+            let (x, cb) = a.limbs[i - 1].overflowing_add(b.limbs[i - 1]);
+            let (x, cc) = x.overflowing_add(carry);
+            limbs[i - 1] = x;
+            carry = (cb | cc) as u64;
             i -= 1;
         }
         (UnsignedInteger { limbs }, carry > 0)

@@ -6,8 +6,8 @@ From the heights of these towers of fields, forty centuries of mathematics look 
 [![Telegram Chat][tg-badge]][tg-url]
 [![codecov](https://img.shields.io/codecov/c/github/lambdaclass/lambdaworks)](https://codecov.io/gh/lambdaclass/lambdaworks)
 
-[tg-badge]: https://img.shields.io/static/v1?color=green&logo=telegram&label=chat&style=flat&message=join
-[tg-url]: https://t.me/+98Whlzql7Hs0MDZh
+[tg-badge]: https://img.shields.io/endpoint?url=https%3A%2F%2Ftg.sumanjay.workers.dev%2Flambdaworks%2F&logo=telegram&label=chat&color=neon
+[tg-url]: https://t.me/lambdaworks
 
 </div>
 
@@ -76,21 +76,21 @@ ARM - M1
 
 | Operation| N    | Arkworks  | Lambdaworks |
 | -------- | --- | --------- | ----------- |
-| `mul`    |   10k  | 115 μs | 117 μs   |
-| `add`    |   1M  | 8.6 ms  | 7.3 ms    |
-| `sub`    |   1M  | 7.57 ms   | 7.27 ms     |
-| `pow`    |   10k  | 11.5 ms   | 12.6 ms    |
-| `invert` |  10k   | 33.3 ms  | 30.7 ms   | 
+| `mul`    |   10k  | 112 μs | 115 μs   |
+| `add`    |   1M  | 8.5 ms  | 7.0 ms    |
+| `sub`    |   1M  | 7.53 ms   | 7.12 ms     |
+| `pow`    |   10k  | 11.2 ms   | 12.4 ms    |
+| `invert` |  10k   | 30.0 ms  | 27.2 ms   |
 
 x86 - AMD Ryzen 7 PRO 
 
 | Operation | N    | Arkworks (ASM)*  | Lambdaworks |
 | -------- | --- | --------- | ----------- |
-| `mul`    |   10k  | 102.7 us | 94.4 us   
-| `add`    |   1M  | 4.9 ms  | 5.6 ms    |
-| `sub`    |   1M  |  4.5 ms  |  5.3 ms   
-| `pow`    |   10k  |  10.5 ms   | 9.7 ms    |
-| `invert` |  10k   | 33.4 ms  | 37.45 ms |
+| `mul`    |   10k  | 118.9 us | 95.7 us   |
+| `add`    |   1M  | 6.8 ms  | 5.4 ms    |
+| `sub`    |   1M  |  6.6 ms  |  5.2 ms   |
+| `pow`    |   10k  |  10.6 ms   | 9.4 ms    |
+| `invert` |  10k   | 34.2 ms  | 35.74 ms |
 
 *assembly feature was enabled manually for that bench, and is not activated by default when running criterion
 
