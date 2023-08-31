@@ -1,22 +1,52 @@
+use crate::errors::CreationError;
 use crate::field::traits::IsField;
 use crate::unsigned_integer::element::UnsignedInteger;
 use crate::unsigned_integer::montgomery::MontgomeryAlgorithms;
 use crate::unsigned_integer::traits::IsUnsignedInteger;
-use std::fmt;
-use std::iter::Sum;
-use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
-use std::{
-    fmt::Debug,
-    hash::{Hash, Hasher},
-};
+use core::fmt;
+use core::fmt::Debug;
+use core::iter::Sum;
+#[cfg(feature = "lambdaworks-serde")]
+use core::marker::PhantomData;
+use core::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
+#[cfg(feature = "lambdaworks-serde")]
+use serde::de::{self, Deserializer, MapAccess, Visitor};
+#[cfg(feature = "lambdaworks-serde")]
+use serde::ser::{Serialize, SerializeStruct, Serializer};
+#[cfg(feature = "lambdaworks-serde")]
+use serde::Deserialize;
 
 use super::fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField};
-use super::traits::IsPrimeField;
+use super::traits::{IsPrimeField, LegendreSymbol};
 
 /// A field element with operations algorithms defined in `F`
-#[derive(Debug, Clone)]
+#[allow(clippy::derived_hash_with_manual_eq)]
+#[derive(Debug, Clone, Hash, Copy)]
 pub struct FieldElement<F: IsField> {
     value: F::BaseType,
+}
+
+#[cfg(feature = "std")]
+impl<F: IsField> FieldElement<F> {
+    // Source: https://en.wikipedia.org/wiki/Modular_multiplicative_inverse#Multiple_inverses
+    pub fn inplace_batch_inverse(numbers: &mut [Self]) {
+        if numbers.is_empty() {
+            return;
+        }
+        let count = numbers.len();
+        let mut prod_prefix = Vec::with_capacity(count);
+        prod_prefix.push(numbers[0].clone());
+        for i in 1..count {
+            prod_prefix.push(&prod_prefix[i - 1] * &numbers[i]);
+        }
+        let mut bi_inv = prod_prefix[count - 1].inv();
+        for i in (1..count).rev() {
+            let ai_inv = &bi_inv * &prod_prefix[i - 1];
+            bi_inv = &bi_inv * &numbers[i];
+            numbers[i] = ai_inv;
+        }
+        numbers[0] = bi_inv;
+    }
 }
 
 /// From overloading for field elements
@@ -54,6 +84,10 @@ where
             value: value.clone(),
         }
     }
+
+    pub const fn const_from_raw(value: F::BaseType) -> Self {
+        Self { value }
+    }
 }
 
 /// Equality operator overloading for field elements
@@ -67,15 +101,6 @@ where
 }
 
 impl<F> Eq for FieldElement<F> where F: IsField {}
-
-impl<F> Hash for FieldElement<F>
-where
-    F: IsField,
-{
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.value.hash(state);
-    }
-}
 
 /// Addition operator overloading for field elements
 impl<F> Add<&FieldElement<F>> for &FieldElement<F>
@@ -310,6 +335,15 @@ where
     }
 }
 
+impl<F> Default for FieldElement<F>
+where
+    F: IsField,
+{
+    fn default() -> Self {
+        Self { value: F::zero() }
+    }
+}
+
 /// FieldElement general implementation
 /// Most of this is delegated to the trait `F` that
 /// implements the field operations.
@@ -318,6 +352,7 @@ where
     F: IsField,
 {
     /// Creates a field element from `value`
+    #[inline(always)]
     pub fn new(value: F::BaseType) -> Self {
         Self {
             value: F::from_base_type(value),
@@ -325,18 +360,29 @@ where
     }
 
     /// Returns the underlying `value`
+    #[inline(always)]
     pub fn value(&self) -> &F::BaseType {
         &self.value
     }
 
     /// Returns the multiplicative inverse of `self`
+    #[inline(always)]
     pub fn inv(&self) -> Self {
         Self {
             value: F::inv(&self.value),
         }
     }
 
+    /// Returns the square of `self`
+    #[inline(always)]
+    pub fn square(&self) -> Self {
+        Self {
+            value: F::square(&self.value),
+        }
+    }
+
     /// Returns `self` raised to the power of `exponent`
+    #[inline(always)]
     pub fn pow<T>(&self, exponent: T) -> Self
     where
         T: IsUnsignedInteger,
@@ -347,21 +393,16 @@ where
     }
 
     /// Returns the multiplicative neutral element of the field.
+    #[inline(always)]
     pub fn one() -> Self {
         Self { value: F::one() }
     }
 
     /// Returns the additive neutral element of the field.
+    #[inline(always)]
     pub fn zero() -> Self {
         Self { value: F::zero() }
     }
-}
-
-#[derive(PartialEq)]
-enum LegendreSymbol {
-    MinusOne,
-    Zero,
-    One,
 }
 
 impl<F: IsPrimeField> FieldElement<F> {
@@ -370,76 +411,84 @@ impl<F: IsPrimeField> FieldElement<F> {
         F::representative(self.value())
     }
 
-    pub fn is_even(&self) -> bool {
-        self.representative() & 1.into() == 0.into()
+    pub fn sqrt(&self) -> Option<(Self, Self)> {
+        let sqrts = F::sqrt(&self.value);
+        sqrts.map(|(sqrt1, sqrt2)| (Self { value: sqrt1 }, Self { value: sqrt2 }))
     }
 
-    fn legendre_symbol(&self) -> LegendreSymbol {
-        let mod_minus_one: FieldElement<F> = Self::zero() - Self::one();
-        let symbol = self.pow((mod_minus_one / FieldElement::from(2)).representative());
+    pub fn legendre_symbol(&self) -> LegendreSymbol {
+        F::legendre_symbol(&self.value)
+    }
 
-        match symbol {
-            x if x == Self::zero() => LegendreSymbol::Zero,
-            x if x == Self::one() => LegendreSymbol::One,
-            _ => LegendreSymbol::MinusOne,
+    /// Creates a `FieldElement` from a hexstring. It can contain `0x` or not.
+    /// Returns an `CreationError::InvalidHexString`if the value is not a hexstring.
+    /// Returns a `CreationError::EmptyString` if the input string is empty.
+    pub fn from_hex(hex_string: &str) -> Result<Self, CreationError> {
+        if hex_string.is_empty() {
+            return Err(CreationError::EmptyString)?;
         }
+
+        Ok(Self {
+            value: F::from_hex(hex_string)?,
+        })
     }
 }
 
-impl<F: IsPrimeField> FieldElement<F> {
-    // Returns the two square roots of `self` if it exists
-    // `None` if it doesn't
-    pub fn sqrt(&self) -> Option<(Self, Self)> {
-        match self.legendre_symbol() {
-            LegendreSymbol::Zero => return Some((Self::zero(), Self::zero())), // self is 0
-            LegendreSymbol::MinusOne => return None, // self is quadratic non-residue
-            LegendreSymbol::One => (),
-        };
+#[cfg(feature = "lambdaworks-serde")]
+impl<F: IsPrimeField> Serialize for FieldElement<F> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut state = serializer.serialize_struct("FieldElement", 1)?;
+        state.serialize_field("value", &F::representative(self.value()).to_string())?;
+        state.end()
+    }
+}
 
-        let (zero, one, two) = (Self::zero(), Self::one(), Self::from(2));
-
-        let mut q = Self::zero() - &one;
-        let mut s = Self::zero();
-
-        while q.is_even() {
-            s = s + &one;
-            q = q / &two;
+#[cfg(feature = "lambdaworks-serde")]
+impl<'de, F: IsPrimeField> Deserialize<'de> for FieldElement<F> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(field_identifier, rename_all = "lowercase")]
+        enum Field {
+            Value,
         }
 
-        let mut c = {
-            // Calculate a non residue:
-            let mut non_qr = one.clone();
-            while non_qr.legendre_symbol() != LegendreSymbol::MinusOne {
-                non_qr += one.clone();
+        struct FieldElementVisitor<F>(PhantomData<fn() -> F>);
+
+        impl<'de, F: IsPrimeField> Visitor<'de> for FieldElementVisitor<F> {
+            type Value = FieldElement<F>;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("struct FieldElement")
             }
 
-            non_qr.pow(q.representative())
-        };
-
-        let mut x = self.pow(((&q + &one) / &two).representative());
-        let mut t = self.pow(q.representative());
-        let mut m = s;
-
-        while t != one {
-            let mut i = zero.clone();
-            let mut e = FieldElement::from(2);
-            while i.representative() < m.representative() {
-                i += FieldElement::one();
-                if t.pow(e.representative()) == one {
-                    break;
+            fn visit_map<M>(self, mut map: M) -> Result<FieldElement<F>, M::Error>
+            where
+                M: MapAccess<'de>,
+            {
+                let mut value = None;
+                while let Some(key) = map.next_key()? {
+                    match key {
+                        Field::Value => {
+                            if value.is_some() {
+                                return Err(de::Error::duplicate_field("value"));
+                            }
+                            value = Some(map.next_value()?);
+                        }
+                    }
                 }
-                e = e * &two;
+                let value = value.ok_or_else(|| de::Error::missing_field("value"))?;
+                Ok(FieldElement::from_hex(value).unwrap())
             }
-
-            let b = c.pow(two.pow((m - &i - &one).representative()).representative());
-
-            x = x * &b;
-            t = t * &b * &b;
-            c = &b * &b;
-            m = i;
         }
 
-        Some((x.clone(), Self::zero() - &x))
+        const FIELDS: &[&str] = &["value"];
+        deserializer.deserialize_struct("FieldElement", FIELDS, FieldElementVisitor(PhantomData))
     }
 }
 
@@ -450,8 +499,7 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let value: UnsignedInteger<NUM_LIMBS> = self.representative();
-        let res = format!("{}", value);
-        write!(f, "{}", res)
+        write!(f, "{}", value)
     }
 }
 
@@ -459,9 +507,11 @@ impl<M, const NUM_LIMBS: usize> FieldElement<MontgomeryBackendPrimeField<M, NUM_
 where
     M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug,
 {
-    #[allow(unused)]
-    pub const fn from_hex(hex: &str) -> Self {
-        let integer = UnsignedInteger::<NUM_LIMBS>::from(hex);
+    /// Creates a `FieldElement` from a hexstring. It can contain `0x` or not.
+    /// # Panics
+    /// Panics if value is not a hexstring
+    pub const fn from_hex_unchecked(hex: &str) -> Self {
+        let integer = UnsignedInteger::<NUM_LIMBS>::from_hex_unchecked(hex);
         Self {
             value: MontgomeryAlgorithms::cios(
                 &integer,
@@ -477,11 +527,13 @@ where
 mod tests {
     use crate::field::element::FieldElement;
     use crate::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
-    use crate::field::fields::montgomery_backed_prime_fields::{
-        IsModulus, MontgomeryBackendPrimeField,
-    };
+    use crate::field::fields::u64_prime_field::U64PrimeField;
     use crate::field::test_fields::u64_test_field::U64TestField;
-    use crate::unsigned_integer::element::{UnsignedInteger, U256};
+    #[cfg(feature = "std")]
+    use crate::unsigned_integer::element::UnsignedInteger;
+    #[cfg(feature = "std")]
+    use proptest::collection;
+    use proptest::{prelude::*, prop_compose, proptest, strategy::Strategy};
 
     #[test]
     fn test_std_iter_sum_field_element() {
@@ -508,6 +560,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn test_display_montgomery_field() {
         let zero_field_element = FieldElement::<Stark252PrimeField>::from(0);
@@ -526,26 +579,8 @@ mod tests {
     }
 
     #[test]
-    fn two_is_even() {
-        let two = FieldElement::<Stark252PrimeField>::from(2);
-        assert!(two.is_even());
-    }
-
-    #[test]
-    fn three_is_odd() {
-        let three = FieldElement::<Stark252PrimeField>::from(3);
-        assert!(!three.is_even());
-    }
-
-    #[test]
     fn one_of_sqrt_roots_for_4_is_2() {
-        #[derive(Clone, Debug)]
-        pub struct FrConfig;
-        impl IsModulus<U256> for FrConfig {
-            const MODULUS: U256 =
-                U256::from("73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001");
-        }
-        type FrField = MontgomeryBackendPrimeField<FrConfig, 4>;
+        type FrField = Stark252PrimeField;
         type FrElement = FieldElement<FrField>;
 
         let input = FrElement::from(4);
@@ -555,20 +590,34 @@ mod tests {
     }
 
     #[test]
-    fn one_of_sqrt_roots_for_25_is_5() {
-        #[derive(Clone, Debug)]
-        pub struct FrConfig;
-        impl IsModulus<U256> for FrConfig {
-            const MODULUS: U256 =
-                U256::from("73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001");
-        }
-        type FrField = MontgomeryBackendPrimeField<FrConfig, 4>;
-        type FrElement = FieldElement<FrField>;
+    fn one_of_sqrt_roots_for_5_is_28_mod_41() {
+        let input = FieldElement::<U64PrimeField<41>>::from(5);
+        let sqrt = input.sqrt().unwrap();
+        let result = FieldElement::from(28);
+        assert_eq!(sqrt.0, result);
+        assert_eq!(sqrt.1, -result);
+    }
 
+    #[test]
+    fn one_of_sqrt_roots_for_25_is_5() {
+        type FrField = Stark252PrimeField;
+        type FrElement = FieldElement<FrField>;
         let input = FrElement::from(25);
         let sqrt = input.sqrt().unwrap();
-        let result = FrElement::from(5);
-        assert_eq!(sqrt.1, result);
+        let five = FrElement::from(5);
+        assert!(sqrt.1 == five || sqrt.0 == five);
+    }
+
+    #[test]
+    fn sqrt_works_for_prime_minus_one() {
+        type FrField = Stark252PrimeField;
+        type FrElement = FieldElement<FrField>;
+
+        let input = -FrElement::from(1);
+        let sqrt = input.sqrt().unwrap();
+        assert_eq!(sqrt.0.square(), input);
+        assert_eq!(sqrt.1.square(), input);
+        assert_ne!(sqrt.0, sqrt.1);
     }
 
     #[test]
@@ -580,6 +629,7 @@ mod tests {
         let sqrt = input.sqrt().unwrap();
         let result = FrElement::from(5);
         assert_eq!(sqrt.0, result);
+        assert_eq!(sqrt.1, -result);
     }
 
     #[test]
@@ -602,5 +652,46 @@ mod tests {
         let input = FrElement::from(27);
         let sqrt = input.sqrt();
         assert!(sqrt.is_none());
+    }
+
+    #[test]
+    fn from_hex_1a_is_26_for_stark252_prime_field_element() {
+        type F = Stark252PrimeField;
+        type FE = FieldElement<F>;
+        assert_eq!(FE::from_hex("1a").unwrap(), FE::from(26))
+    }
+
+    #[test]
+    fn construct_new_field_element_from_empty_string_errs() {
+        type F = Stark252PrimeField;
+        type FE = FieldElement<F>;
+        assert!(FE::from_hex("").is_err());
+    }
+
+    prop_compose! {
+        fn field_element()(num in any::<u64>().prop_filter("Avoid null coefficients", |x| x != &0)) -> FieldElement::<Stark252PrimeField> {
+            FieldElement::<Stark252PrimeField>::from(num)
+        }
+    }
+
+    prop_compose! {
+        #[cfg(feature = "std")]
+        fn field_vec(max_exp: u8)(vec in collection::vec(field_element(), 0..1 << max_exp)) -> Vec<FieldElement::<Stark252PrimeField>> {
+            vec
+        }
+    }
+
+    proptest! {
+        #[cfg(feature = "std")]
+        #[test]
+        fn test_inplace_batch_inverse_returns_inverses(vec in field_vec(10)) {
+            let input: Vec<_> = vec.into_iter().filter(|x| x != &FieldElement::<Stark252PrimeField>::zero()).collect();
+            let mut inverses = input.clone();
+            FieldElement::inplace_batch_inverse(&mut inverses);
+
+            for (i, x) in inverses.into_iter().enumerate() {
+                prop_assert_eq!(x * input[i], FieldElement::<Stark252PrimeField>::one());
+            }
+        }
     }
 }

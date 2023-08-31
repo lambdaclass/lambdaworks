@@ -18,7 +18,7 @@ pub trait IsGroup: Clone + PartialEq + Eq {
         let mut result = Self::neutral_element();
         let mut base = self.clone();
 
-        while exponent > T::from(0) {
+        while exponent != T::from(0) {
             if exponent & T::from(1) == T::from(1) {
                 result = Self::operate_with(&result, &base);
             }

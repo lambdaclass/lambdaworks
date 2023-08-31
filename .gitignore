@@ -14,3 +14,10 @@ Cargo.lock
 flamegraph.svg
 proving_system/stark/src/cairo_run/program.memory
 proving_system/stark/src/cairo_run/program.trace
+
+**/*.metallib
+**/*.ptx
+
+**/.DS_Store
+
+ensure-no_std/target

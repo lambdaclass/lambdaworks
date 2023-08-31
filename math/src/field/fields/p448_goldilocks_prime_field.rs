@@ -7,12 +7,12 @@ pub type U448 = UnsignedInteger<7>;
 
 /// Goldilocks Prime p = 2^448 - 2^224 - 1
 pub const P448_GOLDILOCKS_PRIME_FIELD_ORDER: U448 =
-    U448::from("fffffffffffffffffffffffffffffffffffffffffffffffffffffffeffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+    U448::from_hex_unchecked("fffffffffffffffffffffffffffffffffffffffffffffffffffffffeffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 
 /// 448-bit unsigned integer represented as
 /// a size 8 `u64` array `limbs` of 56-bit words.
 /// The least significant word is in the left most position.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct U56x8 {
     limbs: [u64; 8],
 }

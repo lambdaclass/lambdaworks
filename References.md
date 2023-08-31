@@ -30,6 +30,7 @@
 - [Domb's fast modular multiplication](http://ingonyama.com/s/modular_multiplication.pdf)
 - [Rust crypto bigint](https://github.com/RustCrypto/crypto-bigint)
 - [Cairo felt](https://github.com/lambdaclass/cairo-rs/blob/main/felt/src/lib.rs)
+- [Various optimizations](https://github.com/mratsim/constantine/blob/master/docs/optimizations.md)
 
 ## Elliptic curves
 - [Pairing-friendly curves](https://members.loria.fr/AGuillevic/pairing-friendly-curves/)
@@ -64,3 +65,19 @@
 - [Winterfell](https://github.com/facebook/winterfell)
 - [Anatomy of a Stark](https://neptune.cash/learn/stark-anatomy/fri/)
 - [DEEP FRI video](https://www.youtube.com/watch?v=txo_kPSn59Y&list=PLcIyXLwiPilWvjvNkhMn283LV370Pk5CT&index=6)
+
+## FHE
+- [Zama](https://github.com/zama-ai/concrete-core)
+- [Sunscreen](https://github.com/Sunscreen-tech/Sunscreen)
+- [Intro to FHE](https://blog.nucypher.com/an-engineers-guide-to-fully-homomorphic-encryption/)
+- [Standard1.1](https://homomorphicencryption.org/wp-content/uploads/2018/11/HomomorphicEncryptionStandardv1.1.pdf)
+- [SEAL](https://github.com/microsoft/SEAL)
+
+## Miscellanea
+- [FastCrypto-MystenLabs](https://github.com/MystenLabs/fastcrypto/tree/main/fastcrypto-zkp)
+- [Wycheproof](https://github.com/google/wycheproof)
+- [zeroize](https://docs.rs/zeroize/latest/zeroize/)
+- [zkNotebook](https://github.com/hecmas/zkNotebook)
+- [BitwiseOperations](https://hackmd.io/vejHasuZSVWZOafBLNS_YQ)
+- [Blake3](https://github.com/BLAKE3-team/BLAKE3-specs/blob/master/blake3.pdf)
+- [OlaVM](https://github.com/Sin7Y/olavm/blob/main/docs/olavm/olavm_sepc.pdf)

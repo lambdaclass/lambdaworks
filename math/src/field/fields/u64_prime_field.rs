@@ -1,8 +1,13 @@
 use crate::cyclic_group::IsGroup;
+#[cfg(feature = "std")]
 use crate::errors::ByteConversionError::{FromBEBytesError, FromLEBytesError};
+use crate::errors::CreationError;
+#[cfg(feature = "std")]
+use crate::errors::DeserializationError;
 use crate::field::element::FieldElement;
 use crate::field::traits::{IsFFTField, IsField, IsPrimeField};
-use crate::traits::ByteConversion;
+#[cfg(feature = "std")]
+use crate::traits::{ByteConversion, Deserializable, Serializable};
 
 /// Type representing prime fields over unsigned 64-bit integers.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -74,6 +79,26 @@ impl<const MODULUS: u64> IsPrimeField for U64PrimeField<MODULUS> {
     fn representative(x: &u64) -> u64 {
         *x
     }
+
+    /// Returns how many bits do you need to represent the biggest field element
+    /// It expects the MODULUS to be a Prime
+    fn field_bit_size() -> usize {
+        ((MODULUS - 1).ilog2() + 1) as usize
+    }
+
+    fn from_hex(hex_string: &str) -> Result<Self::BaseType, CreationError> {
+        let mut hex_string = hex_string;
+        // Remove 0x if it's on the string
+        let mut char_iterator = hex_string.chars();
+        if hex_string.len() > 2
+            && char_iterator.next().unwrap() == '0'
+            && char_iterator.next().unwrap() == 'x'
+        {
+            hex_string = &hex_string[2..];
+        }
+
+        u64::from_str_radix(hex_string, 16).map_err(|_| CreationError::InvalidHexString)
+    }
 }
 
 /// Represents an element in Fp. (E.g: 0, 1, 2 are the elements of F3)
@@ -91,11 +116,14 @@ impl<const MODULUS: u64> IsGroup for U64FieldElement<MODULUS> {
     }
 }
 
+#[cfg(feature = "std")]
 impl<const MODULUS: u64> ByteConversion for U64FieldElement<MODULUS> {
+    #[cfg(feature = "std")]
     fn to_bytes_be(&self) -> Vec<u8> {
         u64::to_be_bytes(*self.value()).into()
     }
 
+    #[cfg(feature = "std")]
     fn to_bytes_le(&self) -> Vec<u8> {
         u64::to_le_bytes(*self.value()).into()
     }
@@ -111,11 +139,65 @@ impl<const MODULUS: u64> ByteConversion for U64FieldElement<MODULUS> {
     }
 }
 
+#[cfg(feature = "std")]
+impl<const MODULUS: u64> Serializable for FieldElement<U64PrimeField<MODULUS>> {
+    fn serialize(&self) -> Vec<u8> {
+        self.to_bytes_be()
+    }
+}
+
+#[cfg(feature = "std")]
+impl<const MODULUS: u64> Deserializable for FieldElement<U64PrimeField<MODULUS>> {
+    fn deserialize(bytes: &[u8]) -> Result<Self, DeserializationError>
+    where
+        Self: Sized,
+    {
+        Self::from_bytes_be(bytes).map_err(|x| x.into())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     const MODULUS: u64 = 13;
-    type FE = FieldElement<U64PrimeField<MODULUS>>;
+    type F = U64PrimeField<MODULUS>;
+    type FE = FieldElement<F>;
+
+    #[test]
+    fn from_hex_for_b_is_11() {
+        assert_eq!(F::from_hex("B").unwrap(), 11);
+    }
+
+    #[test]
+    fn from_hex_for_0x1_a_is_26() {
+        assert_eq!(F::from_hex("0x1a").unwrap(), 26);
+    }
+
+    #[test]
+    fn bit_size_of_mod_13_field_is_4() {
+        assert_eq!(
+            <U64PrimeField<MODULUS> as crate::field::traits::IsPrimeField>::field_bit_size(),
+            4
+        );
+    }
+
+    #[test]
+    fn bit_size_of_big_mod_field_is_64() {
+        const MODULUS: u64 = 10000000000000000000;
+        assert_eq!(
+            <U64PrimeField<MODULUS> as crate::field::traits::IsPrimeField>::field_bit_size(),
+            64
+        );
+    }
+
+    #[test]
+    fn bit_size_of_63_bit_mod_field_is_63() {
+        const MODULUS: u64 = 9000000000000000000;
+        assert_eq!(
+            <U64PrimeField<MODULUS> as crate::field::traits::IsPrimeField>::field_bit_size(),
+            63
+        );
+    }
 
     #[test]
     fn two_plus_one_is_three() {
@@ -243,26 +325,30 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "std")]
     fn to_bytes_from_bytes_be_is_the_identity() {
         let x = FE::new(12345);
         assert_eq!(FE::from_bytes_be(&x.to_bytes_be()).unwrap(), x);
     }
 
     #[test]
+    #[cfg(feature = "std")]
     fn from_bytes_to_bytes_be_is_the_identity_for_one() {
-        let bytes = vec![0, 0, 0, 0, 0, 0, 0, 1];
+        let bytes = [0, 0, 0, 0, 0, 0, 0, 1];
         assert_eq!(FE::from_bytes_be(&bytes).unwrap().to_bytes_be(), bytes);
     }
 
     #[test]
+    #[cfg(feature = "std")]
     fn to_bytes_from_bytes_le_is_the_identity() {
         let x = FE::new(12345);
         assert_eq!(FE::from_bytes_le(&x.to_bytes_le()).unwrap(), x);
     }
 
     #[test]
+    #[cfg(feature = "std")]
     fn from_bytes_to_bytes_le_is_the_identity_for_one() {
-        let bytes = vec![1, 0, 0, 0, 0, 0, 0, 0];
+        let bytes = [1, 0, 0, 0, 0, 0, 0, 0];
         assert_eq!(FE::from_bytes_le(&bytes).unwrap().to_bytes_le(), bytes);
     }
 
