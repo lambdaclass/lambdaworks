@@ -45,7 +45,6 @@ pub trait IsPairing {
         -> FieldElement<Self::OutputField>;
 
     /// Compute the ate pairing between point `p` in G1 and `q` in G2.
-    #[allow(unused)]
     fn compute(p: &Self::G1Point, q: &Self::G2Point) -> FieldElement<Self::OutputField> {
         Self::compute_batch(&[(p, q)])
     }

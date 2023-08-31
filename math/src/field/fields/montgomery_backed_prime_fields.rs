@@ -19,6 +19,10 @@ pub trait IsModulus<U>: Debug {
     const MODULUS: U;
 }
 
+#[cfg_attr(
+    feature = "lambdaworks-serde",
+    derive(serde::Serialize, serde::Deserialize)
+)]
 #[derive(Clone, Debug, Hash, Copy)]
 pub struct MontgomeryBackendPrimeField<M, const NUM_LIMBS: usize> {
     phantom: PhantomData<M>,
@@ -89,6 +93,13 @@ where
         }
         c
     }
+
+    /// Checks whether the most significant limb of the modulus is at
+    /// most `0x7FFFFFFFFFFFFFFE`. This check is useful since special
+    /// optimizations exist for this kind of moduli.
+    const fn moduli_has_one_spare_bit() -> bool {
+        M::MODULUS.limbs[0] < (1u64 << 63) - 1
+    }
 }
 
 impl<M, const NUM_LIMBS: usize> IsField for MontgomeryBackendPrimeField<M, NUM_LIMBS>
@@ -114,7 +125,16 @@ where
 
     #[inline(always)]
     fn mul(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
-        MontgomeryAlgorithms::cios(a, b, &M::MODULUS, &Self::MU)
+        if Self::moduli_has_one_spare_bit() {
+            MontgomeryAlgorithms::cios_optimized_for_moduli_with_one_spare_bit(
+                a,
+                b,
+                &M::MODULUS,
+                &Self::MU,
+            )
+        } else {
+            MontgomeryAlgorithms::cios(a, b, &M::MODULUS, &Self::MU)
+        }
     }
 
     #[inline(always)]
@@ -425,6 +445,16 @@ mod tests_u384_prime_fields {
         let y = U384F23Element::from(10_u64);
         let c = U384F23Element::from(110_u64);
         assert_eq!(x * y, c);
+    }
+
+    #[test]
+    #[cfg(feature = "lambdaworks-serde")]
+    fn montgomery_backend_serialization_deserialization() {
+        let x = U384F23Element::from(11_u64);
+        let x_serialized = serde_json::to_string(&x).unwrap();
+        let x_deserialized: U384F23Element = serde_json::from_str(&x_serialized).unwrap();
+        assert_eq!(x_serialized, "{\"value\":\"0xb\"}");
+        assert_eq!(x_deserialized, x);
     }
 
     const ORDER: usize = 23;
