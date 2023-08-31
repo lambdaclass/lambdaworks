@@ -24,7 +24,7 @@ pub fn check_point_is_in_subgroup(point: &G1Point) -> bool {
 
 pub fn decompress_g1_point(input_bytes: &mut [u8; 48]) -> Result<G1Point, ByteConversionError> {
     let first_byte = input_bytes.first().unwrap();
-    // We get the first 3 bits
+    // We get the 3 most significant bits
     let prefix_bits = first_byte >> 5;
     let first_bit = (prefix_bits & 4_u8) >> 2;
     // If first bit is not 1, then the value is not compressed.
