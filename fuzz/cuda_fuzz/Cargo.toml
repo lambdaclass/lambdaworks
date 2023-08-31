@@ -1,0 +1,29 @@
+[package]
+name = "cuda_fuzz"
+version.workspace = true
+edition.workspace = true
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+lambdaworks-math = { workspace = true, features = ["cuda"] }
+lambdaworks-gpu = { workspace = true, features = ["cuda"] }
+honggfuzz = "0.5.55"
+
+[[bin]]
+name = "cuda_fft_fuzzer"
+path = "src/cuda_fft_fuzzer.rs"
+ 
+[[bin]]
+name = "polynomial_fft_diff"
+path = "src/polynomial_fft_diff.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "twiddles_generation_diff"
+path = "src/twiddles_generation_diff.rs"
+test = false
+doc = false
+
