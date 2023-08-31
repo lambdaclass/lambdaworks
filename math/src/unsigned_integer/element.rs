@@ -440,23 +440,29 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
 
     /// Creates an `UnsignedInteger` from a hexstring
     /// # Panics
-    /// Panics if value is not a hexstring. Shouldn't start with `0x`
+    /// Panics if value is not a hexstring. It can contain `0x` or not.
     pub const fn from_hex_unchecked(value: &str) -> Self {
         let mut result = [0u64; NUM_LIMBS];
         let mut limb = 0;
         let mut limb_index = NUM_LIMBS - 1;
         let mut shift = 0;
-        let value = value.as_bytes();
-        let mut i: usize = value.len();
-        while i > 0 {
-            i -= 1;
-            limb |= match value[i] {
-                c @ b'0'..=b'9' => (c as u64 - '0' as u64) << shift,
-                c @ b'a'..=b'f' => (c as u64 - 'a' as u64 + 10) << shift,
-                c @ b'A'..=b'F' => (c as u64 - 'A' as u64 + 10) << shift,
-                _ => {
-                    panic!("Malformed hex expression.")
-                }
+
+        let value_bytes = value.as_bytes();
+
+        // Remove "0x" if it's at the beginning of the string
+        let mut i = 0;
+        if value_bytes.len() > 2 && value_bytes[0] == b'0' && value_bytes[1] == b'x' {
+            i = 2;
+        }
+
+        let mut j = value_bytes.len();
+        while j > i {
+            j -= 1;
+            limb |= match value_bytes[j] {
+                c @ b'0'..=b'9' => (c as u64 - b'0' as u64) << shift,
+                c @ b'a'..=b'f' => (c as u64 - b'a' as u64 + 10) << shift,
+                c @ b'A'..=b'F' => (c as u64 - b'A' as u64 + 10) << shift,
+                _ => panic!("Malformed hex expression."),
             };
             shift += 4;
             if shift == 64 && limb_index > 0 {
@@ -466,8 +472,8 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
                 shift = 0;
             }
         }
-        result[limb_index] = limb;
 
+        result[limb_index] = limb;
         UnsignedInteger { limbs: result }
     }
 
@@ -576,21 +582,22 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
     ) -> (UnsignedInteger<NUM_LIMBS>, bool) {
         let mut limbs = [0u64; NUM_LIMBS];
         // 1.
-        let mut carry = 0i128;
+        let mut carry = false;
         // 2.
         let mut i: usize = NUM_LIMBS;
         while i > 0 {
             i -= 1;
-            let c: i128 = a.limbs[i] as i128 - b.limbs[i] as i128 + carry;
+            let (x, cb) = a.limbs[i].overflowing_sub(b.limbs[i]);
+            let (x, cc) = x.overflowing_sub(carry as u64);
             // Casting i128 to u64 drops the most significant bits of i128,
             // which effectively computes residue modulo 2^{64}
             // 2.1
-            limbs[i] = c as u64;
+            limbs[i] = x;
             // 2.2
-            carry = if c < 0 { -1 } else { 0 }
+            carry = cb | cc;
         }
         // 3.
-        (Self { limbs }, carry < 0)
+        (Self { limbs }, carry)
     }
 
     /// Multi-precision multiplication.
@@ -844,8 +851,11 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
             if b > 9 {
                 return Err(CreationError::InvalidDecString);
             }
-            let r = res * Self::from(10_u64) + Self::from(b as u64);
-            res = r;
+            let (high, low) = Self::mul(&res, &Self::from(10_u64));
+            if high > Self::from_u64(0) {
+                return Err(CreationError::InvalidDecString);
+            }
+            res = low + Self::from(b as u64);
         }
         Ok(res)
     }
@@ -1044,6 +1054,12 @@ mod tests_u384 {
     #[test]
     fn construct_new_integer_from_hex_1() {
         let a = U384::from_hex_unchecked("1");
+        assert_eq!(a.limbs, [0, 0, 0, 0, 0, 1]);
+    }
+
+    #[test]
+    fn construct_new_integer_from_zero_x_1() {
+        let a = U384::from_hex_unchecked("0x1");
         assert_eq!(a.limbs, [0, 0, 0, 0, 0, 1]);
     }
 
