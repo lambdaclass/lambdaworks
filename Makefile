@@ -70,6 +70,6 @@ run-metal-fuzzer:
 
 CUDAFUZZER = cuda_fft_fuzzer
 run-cuda-fuzzer:
-		cd fuzzer
+		cd fuzz/cuda_fuzz
 		cargo hfuzz run $(CUDAFUZZER)
 
