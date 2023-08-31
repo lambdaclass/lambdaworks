@@ -576,21 +576,22 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
     ) -> (UnsignedInteger<NUM_LIMBS>, bool) {
         let mut limbs = [0u64; NUM_LIMBS];
         // 1.
-        let mut carry = 0i128;
+        let mut carry = false;
         // 2.
         let mut i: usize = NUM_LIMBS;
         while i > 0 {
             i -= 1;
-            let c: i128 = a.limbs[i] as i128 - b.limbs[i] as i128 + carry;
+            let (x, cb) = a.limbs[i].overflowing_sub(b.limbs[i]);
+            let (x, cc) = x.overflowing_sub(carry as u64);
             // Casting i128 to u64 drops the most significant bits of i128,
             // which effectively computes residue modulo 2^{64}
             // 2.1
-            limbs[i] = c as u64;
+            limbs[i] = x;
             // 2.2
-            carry = if c < 0 { -1 } else { 0 }
+            carry = cb | cc;
         }
         // 3.
-        (Self { limbs }, carry < 0)
+        (Self { limbs }, carry)
     }
 
     /// Multi-precision multiplication.
