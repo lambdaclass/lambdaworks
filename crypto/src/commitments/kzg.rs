@@ -24,7 +24,6 @@ where
     G1Point: IsGroup,
     G2Point: IsGroup,
 {
-    #[allow(unused)]
     pub fn new(powers_main_group: &[G1Point], powers_secondary_group: &[G2Point; 2]) -> Self {
         Self {
             powers_main_group: powers_main_group.into(),
@@ -143,7 +142,6 @@ pub struct KateZaveruchaGoldberg<F: IsPrimeField, P: IsPairing> {
 }
 
 impl<F: IsPrimeField, P: IsPairing> KateZaveruchaGoldberg<F, P> {
-    #[allow(unused)]
     pub fn new(srs: StructuredReferenceString<P::G1Point, P::G2Point>) -> Self {
         Self {
             srs,
@@ -157,7 +155,6 @@ impl<const N: usize, F: IsPrimeField<RepresentativeType = UnsignedInteger<N>>, P
 {
     type Commitment = P::G1Point;
 
-    #[allow(unused)]
     fn commit(&self, p: &Polynomial<FieldElement<F>>) -> Self::Commitment {
         let coefficients: Vec<_> = p
             .coefficients
@@ -171,20 +168,17 @@ impl<const N: usize, F: IsPrimeField<RepresentativeType = UnsignedInteger<N>>, P
         .expect("`points` is sliced by `cs`'s length")
     }
 
-    #[allow(unused)]
     fn open(
         &self,
         x: &FieldElement<F>,
         y: &FieldElement<F>,
         p: &Polynomial<FieldElement<F>>,
     ) -> Self::Commitment {
-        let value = p.evaluate(x);
-        let mut poly_to_commit = p + Polynomial::new_monomial(-&value, 0);
+        let mut poly_to_commit = p - y;
         poly_to_commit.ruffini_division_inplace(x);
         self.commit(&poly_to_commit)
     }
 
-    #[allow(unused)]
     fn verify(
         &self,
         x: &FieldElement<F>,

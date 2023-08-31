@@ -6,8 +6,8 @@ From the heights of these towers of fields, forty centuries of mathematics look 
 [![Telegram Chat][tg-badge]][tg-url]
 [![codecov](https://img.shields.io/codecov/c/github/lambdaclass/lambdaworks)](https://codecov.io/gh/lambdaclass/lambdaworks)
 
-[tg-badge]: https://img.shields.io/static/v1?color=green&logo=telegram&label=chat&style=flat&message=join
-[tg-url]: https://t.me/+98Whlzql7Hs0MDZh
+[tg-badge]: https://img.shields.io/endpoint?url=https%3A%2F%2Ftg.sumanjay.workers.dev%2Flambdaworks%2F&logo=telegram&label=chat&color=neon
+[tg-url]: https://t.me/lambdaworks
 
 </div>
 
