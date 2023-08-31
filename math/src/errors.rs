@@ -19,6 +19,7 @@ pub enum DeserializationError {
     InvalidAmountOfBytes,
     FieldFromBytesError,
     PointerSizeError,
+    InvalidValue
 }
 
 impl From<ByteConversionError> for DeserializationError {
@@ -26,6 +27,7 @@ impl From<ByteConversionError> for DeserializationError {
         match error {
             ByteConversionError::FromBEBytesError => DeserializationError::FieldFromBytesError,
             ByteConversionError::FromLEBytesError => DeserializationError::FieldFromBytesError,
+            _ => DeserializationError::InvalidValue
         }
     }
 }
