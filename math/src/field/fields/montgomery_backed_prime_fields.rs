@@ -93,6 +93,13 @@ where
         }
         c
     }
+
+    /// Checks whether the most significant limb of the modulus is at
+    /// most `0x7FFFFFFFFFFFFFFE`. This check is useful since special
+    /// optimizations exist for this kind of moduli.
+    const fn moduli_has_one_spare_bit() -> bool {
+        M::MODULUS.limbs[0] < (1u64 << 63) - 1
+    }
 }
 
 impl<M, const NUM_LIMBS: usize> IsField for MontgomeryBackendPrimeField<M, NUM_LIMBS>
@@ -118,7 +125,16 @@ where
 
     #[inline(always)]
     fn mul(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
-        MontgomeryAlgorithms::cios(a, b, &M::MODULUS, &Self::MU)
+        if Self::moduli_has_one_spare_bit() {
+            MontgomeryAlgorithms::cios_optimized_for_moduli_with_one_spare_bit(
+                a,
+                b,
+                &M::MODULUS,
+                &Self::MU,
+            )
+        } else {
+            MontgomeryAlgorithms::cios(a, b, &M::MODULUS, &Self::MU)
+        }
     }
 
     #[inline(always)]
