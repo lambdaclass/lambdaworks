@@ -84,18 +84,15 @@ where
     CS::Commitment: Serializable,
 {
     fn serialize(&self) -> Vec<u8> {
-        let field_elements = vec![
-            &self.a_zeta,
+        let field_elements = [&self.a_zeta,
             &self.b_zeta,
             &self.c_zeta,
             &self.s1_zeta,
             &self.s2_zeta,
             &self.z_zeta_omega,
             &self.p_non_constant_zeta,
-            &self.t_zeta,
-        ];
-        let commitments = vec![
-            &self.a_1,
+            &self.t_zeta];
+        let commitments = [&self.a_1,
             &self.b_1,
             &self.c_1,
             &self.z_1,
@@ -103,8 +100,7 @@ where
             &self.t_mid_1,
             &self.t_hi_1,
             &self.w_zeta_1,
-            &self.w_zeta_omega_1,
-        ];
+            &self.w_zeta_omega_1];
 
         let mut serialized_proof: Vec<u8> = Vec::new();
 

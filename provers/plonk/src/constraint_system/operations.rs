@@ -296,11 +296,11 @@ mod tests {
 
         let input1 = system.new_variable();
         let b = FE::from(11);
-        let result = system.add_constant(&input1, b.clone());
+        let result = system.add_constant(&input1, b);
 
         let a = FE::from(3);
 
-        let inputs = HashMap::from([(input1, FE::from(a))]);
+        let inputs = HashMap::from([(input1, a)]);
 
         let assignments = system.solve(inputs).unwrap();
         assert_eq!(assignments.get(&result).unwrap(), &(a + b));

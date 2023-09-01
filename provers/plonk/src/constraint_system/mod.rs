@@ -294,7 +294,7 @@ mod tests {
 
         // Common preprocessed input
         let common_preprocessed_input =
-            CommonPreprocessedInput::from_constraint_system(&system, &ORDER_R_MINUS_1_ROOT_UNITY);
+            CommonPreprocessedInput::from_constraint_system(system, &ORDER_R_MINUS_1_ROOT_UNITY);
 
         // Setup
         let srs = test_srs(common_preprocessed_input.n);
@@ -306,7 +306,7 @@ mod tests {
         let inputs = HashMap::from([(x, FE::from(4)), (e, FE::from(3))]);
         let assignments = system.solve(inputs).unwrap();
         let public_inputs = system.public_input_values(&assignments);
-        let witness = Witness::new(assignments, &system);
+        let witness = Witness::new(assignments, system);
 
         // 2. Generate proof
         let random_generator = TestRandomFieldGenerator {};
@@ -334,8 +334,8 @@ mod tests {
 
         let x0_initial = system.new_variable();
         let x1_initial = system.new_variable();
-        let mut x0 = x0_initial.clone();
-        let mut x1 = x1_initial.clone();
+        let mut x0 = x0_initial;
+        let mut x1 = x1_initial;
 
         for _ in 2..10001 {
             let x2 = system.add(&x1, &x0);
