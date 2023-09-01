@@ -156,7 +156,8 @@ mod tests {
         let inputs = HashMap::from([(input, FieldElement::from(a))]);
 
         let assignments = system.solve(inputs).unwrap();
-
+        
+        #[allow(clippy::needless_range_loop)]
         for i in 0..32 {
             assert_eq!(
                 assignments.get(&u32_var[i]).unwrap().representative(),
