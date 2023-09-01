@@ -9,8 +9,7 @@ use lambdaworks_math::{
     field::{
         fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
         element::FieldElement,
-    },
-    unsigned_integer::element::UnsignedInteger
+    }
 };
 
 use lambdaworks_gpu::metal::abstractions::errors::MetalError;

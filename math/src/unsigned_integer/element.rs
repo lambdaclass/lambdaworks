@@ -5,6 +5,13 @@ use core::ops::{
     Sub,
 };
 
+#[cfg(feature = "proptest")]
+use proptest::{
+    arbitrary::Arbitrary,
+    prelude::any,
+    strategy::{SBoxedStrategy, Strategy},
+};
+
 use crate::errors::ByteConversionError;
 use crate::errors::CreationError;
 use crate::traits::ByteConversion;
@@ -440,23 +447,29 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
 
     /// Creates an `UnsignedInteger` from a hexstring
     /// # Panics
-    /// Panics if value is not a hexstring. Shouldn't start with `0x`
+    /// Panics if value is not a hexstring. It can contain `0x` or not.
     pub const fn from_hex_unchecked(value: &str) -> Self {
         let mut result = [0u64; NUM_LIMBS];
         let mut limb = 0;
         let mut limb_index = NUM_LIMBS - 1;
         let mut shift = 0;
-        let value = value.as_bytes();
-        let mut i: usize = value.len();
-        while i > 0 {
-            i -= 1;
-            limb |= match value[i] {
-                c @ b'0'..=b'9' => (c as u64 - '0' as u64) << shift,
-                c @ b'a'..=b'f' => (c as u64 - 'a' as u64 + 10) << shift,
-                c @ b'A'..=b'F' => (c as u64 - 'A' as u64 + 10) << shift,
-                _ => {
-                    panic!("Malformed hex expression.")
-                }
+
+        let value_bytes = value.as_bytes();
+
+        // Remove "0x" if it's at the beginning of the string
+        let mut i = 0;
+        if value_bytes.len() > 2 && value_bytes[0] == b'0' && value_bytes[1] == b'x' {
+            i = 2;
+        }
+
+        let mut j = value_bytes.len();
+        while j > i {
+            j -= 1;
+            limb |= match value_bytes[j] {
+                c @ b'0'..=b'9' => (c as u64 - b'0' as u64) << shift,
+                c @ b'a'..=b'f' => (c as u64 - b'a' as u64 + 10) << shift,
+                c @ b'A'..=b'F' => (c as u64 - b'A' as u64 + 10) << shift,
+                _ => panic!("Malformed hex expression."),
             };
             shift += 4;
             if shift == 64 && limb_index > 0 {
@@ -466,8 +479,8 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
                 shift = 0;
             }
         }
-        result[limb_index] = limb;
 
+        result[limb_index] = limb;
         UnsignedInteger { limbs: result }
     }
 
@@ -576,21 +589,22 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
     ) -> (UnsignedInteger<NUM_LIMBS>, bool) {
         let mut limbs = [0u64; NUM_LIMBS];
         // 1.
-        let mut carry = 0i128;
+        let mut carry = false;
         // 2.
         let mut i: usize = NUM_LIMBS;
         while i > 0 {
             i -= 1;
-            let c: i128 = a.limbs[i] as i128 - b.limbs[i] as i128 + carry;
+            let (x, cb) = a.limbs[i].overflowing_sub(b.limbs[i]);
+            let (x, cc) = x.overflowing_sub(carry as u64);
             // Casting i128 to u64 drops the most significant bits of i128,
             // which effectively computes residue modulo 2^{64}
             // 2.1
-            limbs[i] = c as u64;
+            limbs[i] = x;
             // 2.2
-            carry = if c < 0 { -1 } else { 0 }
+            carry = cb | cc;
         }
         // 3.
-        (Self { limbs }, carry < 0)
+        (Self { limbs }, carry)
     }
 
     /// Multi-precision multiplication.
@@ -844,10 +858,18 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
             if b > 9 {
                 return Err(CreationError::InvalidDecString);
             }
-            let r = res * Self::from(10_u64) + Self::from(b as u64);
-            res = r;
+            let (high, low) = Self::mul(&res, &Self::from(10_u64));
+            if high > Self::from_u64(0) {
+                return Err(CreationError::InvalidDecString);
+            }
+            res = low + Self::from(b as u64);
         }
         Ok(res)
+    }
+
+    #[cfg(feature = "proptest")]
+    pub fn nonzero_uint() -> impl Strategy<Value = UnsignedInteger<NUM_LIMBS>> {
+        any_uint::<NUM_LIMBS>().prop_filter("is_zero", |&x| x != UnsignedInteger::from_u64(0))
     }
 }
 
@@ -928,21 +950,32 @@ impl<const NUM_LIMBS: usize> From<UnsignedInteger<NUM_LIMBS>> for u16 {
     }
 }
 
+#[cfg(feature = "proptest")]
+fn any_uint<const NUM_LIMBS: usize>() -> impl Strategy<Value = UnsignedInteger<NUM_LIMBS>> {
+    any::<[u64; NUM_LIMBS]>().prop_map(|limbs| UnsignedInteger::from_limbs(limbs))
+}
+
+#[cfg(feature = "proptest")]
+impl<const NUM_LIMBS: usize> Arbitrary for UnsignedInteger<NUM_LIMBS> {
+    type Parameters = ();
+
+    fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
+        any_uint::<NUM_LIMBS>().sboxed()
+    }
+
+    type Strategy = SBoxedStrategy<Self>;
+}
+
 #[cfg(test)]
 mod tests_u384 {
-    use core::ops::Shr;
 
     use crate::traits::ByteConversion;
     use crate::unsigned_integer::element::{UnsignedInteger, U384};
 
-    use proptest::prelude::*;
-
-    const N_LIMBS: usize = 6;
-    type Uint = U384;
-
+    #[cfg(feature = "proptest")]
     proptest! {
         #[test]
-        fn bitand(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
+        fn bitand(a in any::<Uint>(), b in any::<Uint>()) {
             let result = Uint::from_limbs(a) & Uint::from_limbs(b);
 
             for i in 0..N_LIMBS {
@@ -951,57 +984,57 @@ mod tests_u384 {
         }
 
         #[test]
-        fn bitand_assign(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
-            let mut result = Uint::from_limbs(a);
-            result &= Uint::from_limbs(b);
+        fn bitand_assign(a in any::<Uint>(), b in any::<Uint>()) {
+            let mut result = a;
+            result &= b;
 
             for i in 0..N_LIMBS {
-                assert_eq!(result.limbs[i], a[i] & b[i]);
+                assert_eq!(result.limbs[i], a.limbs[i] & b.limbs[i]);
             }
         }
 
         #[test]
-        fn bitor(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
-            let result = Uint::from_limbs(a) | Uint::from_limbs(b);
+        fn bitor(a in any::<Uint>(), b in any::<Uint>()) {
+            let result = a | b;
 
             for i in 0..N_LIMBS {
-                assert_eq!(result.limbs[i], a[i] | b[i]);
+                assert_eq!(result.limbs[i], a.limbs[i] | b.limbs[i]);
             }
         }
 
         #[test]
-        fn bitor_assign(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
-            let mut result = Uint::from_limbs(a);
-            result |= Uint::from_limbs(b);
+        fn bitor_assign(a in any::<Uint>(), b in any::<Uint>()) {
+            let mut result = a;
+            result |= b;
 
             for i in 0..N_LIMBS {
-                assert_eq!(result.limbs[i], a[i] | b[i]);
+                assert_eq!(result.limbs[i], a.limbs[i] | b.limbs[i]);
             }
         }
 
         #[test]
-        fn bitxor(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
-            let result = Uint::from_limbs(a) ^ Uint::from_limbs(b);
+        fn bitxor(a in any::<Uint>(), b in any::<Uint>()) {
+            let result = a ^ b;
 
             for i in 0..N_LIMBS {
-                assert_eq!(result.limbs[i], a[i] ^ b[i]);
+                assert_eq!(result.limbs[i], a.limbs[i] ^ b.limbs[i]);
             }
         }
 
         #[test]
-        fn bitxor_assign(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
-            let mut result = Uint::from_limbs(a);
-            result ^= Uint::from_limbs(b);
+        fn bitxor_assign(a in any::<Uint>(), b in any::<Uint>()) {
+            let mut result = a;
+            result ^= b;
 
             for i in 0..N_LIMBS {
-                assert_eq!(result.limbs[i], a[i] ^ b[i]);
+                assert_eq!(result.limbs[i], a.limbs[i] ^ b.limbs[i]);
             }
         }
 
         #[test]
-        fn div_rem(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
-            let a = Uint::from_limbs(a).shr(256);
-            let b = Uint::from_limbs(b).shr(256);
+        fn div_rem(a in any::<Uint>(), b in any::<Uint>()) {
+            let a = a.shr(256);
+            let b = b.shr(256);
             assert_eq!((a * b).div_rem(&b), (a, Uint::from_u64(0)));
         }
     }
@@ -1044,6 +1077,12 @@ mod tests_u384 {
     #[test]
     fn construct_new_integer_from_hex_1() {
         let a = U384::from_hex_unchecked("1");
+        assert_eq!(a.limbs, [0, 0, 0, 0, 0, 1]);
+    }
+
+    #[test]
+    fn construct_new_integer_from_zero_x_1() {
+        let a = U384::from_hex_unchecked("0x1");
         assert_eq!(a.limbs, [0, 0, 0, 0, 0, 1]);
     }
 
@@ -1980,79 +2019,74 @@ mod tests_u384 {
 
 #[cfg(test)]
 mod tests_u256 {
-    use core::ops::Shr;
 
     use crate::unsigned_integer::element::{UnsignedInteger, U256};
 
     use crate::unsigned_integer::element::ByteConversion;
 
-    use proptest::prelude::*;
-
-    const N_LIMBS: usize = 4;
-    type Uint = U256;
-
+    #[cfg(feature = "proptest")]
     proptest! {
         #[test]
-        fn bitand(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
-            let result = Uint::from_limbs(a) & Uint::from_limbs(b);
+        fn bitand(a in any::<Uint>(), b in any::<Uint>()) {
+            let result = a & b;
 
             for i in 0..N_LIMBS {
-                assert_eq!(result.limbs[i], a[i] & b[i]);
+                assert_eq!(result.limbs[i], a.limbs[i] & b.limbs[i]);
             }
         }
 
         #[test]
-        fn bitand_assign(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
-            let mut result = Uint::from_limbs(a);
-            result &= Uint::from_limbs(b);
+        fn bitand_assign(a in any::<Uint>(), b in any::<Uint>()) {
+            let mut result = a;
+            result &= b;
 
             for i in 0..N_LIMBS {
-                assert_eq!(result.limbs[i], a[i] & b[i]);
+                assert_eq!(result.limbs[i], a.limbs[i] & b.limbs[i]);
             }
         }
 
         #[test]
-        fn bitor(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
-            let result = Uint::from_limbs(a) | Uint::from_limbs(b);
+        fn bitor(a in any::<Uint>(), b in any::<Uint>()) {
+            let result = a | b;
 
             for i in 0..N_LIMBS {
-                assert_eq!(result.limbs[i], a[i] | b[i]);
+                assert_eq!(result.limbs[i], a.limbs[i] | b.limbs[i]);
             }
         }
 
         #[test]
-        fn bitor_assign(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
-            let mut result = Uint::from_limbs(a);
-            result |= Uint::from_limbs(b);
+        fn bitor_assign(a in any::<Uint>(), b in any::<Uint>()) {
+            let mut result = a;
+            result |= b;
 
             for i in 0..N_LIMBS {
-                assert_eq!(result.limbs[i], a[i] | b[i]);
+                assert_eq!(result.limbs[i], a.limbs[i] | b.limbs[i]);
             }
         }
 
         #[test]
-        fn bitxor(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
-            let result = Uint::from_limbs(a) ^ Uint::from_limbs(b);
+        fn bitxor(a in any::<Uint>(), b in any::<Uint>()) {
+            let result = a ^ b;
 
             for i in 0..N_LIMBS {
-                assert_eq!(result.limbs[i], a[i] ^ b[i]);
+                assert_eq!(result.limbs[i], a.limbs[i] ^ b.limbs[i]);
             }
         }
 
         #[test]
-        fn bitxor_assign(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
-            let mut result = Uint::from_limbs(a);
-            result ^= Uint::from_limbs(b);
+        fn bitxor_assign(a in any::<Uint>(), b in any::<Uint>()) {
+            let mut result = a;
+            result ^= b;
 
             for i in 0..N_LIMBS {
-                assert_eq!(result.limbs[i], a[i] ^ b[i]);
+                assert_eq!(result.limbs[i], a.limbs[i] ^ b.limbs[i]);
             }
         }
 
         #[test]
-        fn div_rem(a in any::<[u64; N_LIMBS]>(), b in any::<[u64; N_LIMBS]>()) {
-            let a = Uint::from_limbs(a).shr(128);
-            let b = Uint::from_limbs(b).shr(128);
+        fn div_rem(a in any::<Uint>(), b in any::<Uint>()) {
+            let a = a.shr(128);
+            let b = b.shr(128);
             assert_eq!((a * b).div_rem(&b), (a, Uint::from_u64(0)));
         }
     }

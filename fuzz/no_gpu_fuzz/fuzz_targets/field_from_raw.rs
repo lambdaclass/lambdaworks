@@ -21,16 +21,16 @@ fuzz_target!(|values: (u64, u64)| {
     let a = FieldElement::<Stark252PrimeField>::from_raw(&value_a);
     let b = FieldElement::<Stark252PrimeField>::from_raw(&value_b);
 
-    let a_expected = ring.from(value_u64_a);
-    let b_expected = ring.from(value_u64_b);
+    let _a_expected = ring.from(value_u64_a);
+    let _b_expected = ring.from(value_u64_b);
 
-    let add_u64 = &a + &b;
+    let _add_u64 = &a + &b;
     
-    let sub_u64 = &a - &b;
+    let _sub_u64 = &a - &b;
     
-    let mul_u64 = &a * &b;
+    let _mul_u64 = &a * &b;
     
-    let pow = &a.pow(b.representative());
+    let _pow = &a.pow(b.representative());
     
     if value_u64_b != 0 {
         

@@ -41,6 +41,7 @@ where
         &M::MODULUS,
         &Self::MU,
     );
+    const MODULUS_HAS_ONE_SPARE_BIT: bool = Self::modulus_has_one_spare_bit();
 
     /// Computes `- modulus^{-1} mod 2^{64}`
     /// This algorithm is given  by Dussé and Kaliski Jr. in
@@ -97,7 +98,8 @@ where
     /// Checks whether the most significant limb of the modulus is at
     /// most `0x7FFFFFFFFFFFFFFE`. This check is useful since special
     /// optimizations exist for this kind of moduli.
-    const fn moduli_has_one_spare_bit() -> bool {
+    #[inline(always)]
+    const fn modulus_has_one_spare_bit() -> bool {
         M::MODULUS.limbs[0] < (1u64 << 63) - 1
     }
 }
@@ -111,21 +113,23 @@ where
     #[inline(always)]
     fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
         let (sum, overflow) = UnsignedInteger::add(a, b);
-        if !overflow {
+        if Self::MODULUS_HAS_ONE_SPARE_BIT {
             if sum >= M::MODULUS {
                 sum - M::MODULUS
             } else {
                 sum
             }
-        } else {
+        } else if overflow || sum >= M::MODULUS {
             let (diff, _) = UnsignedInteger::sub(&sum, &M::MODULUS);
             diff
+        } else {
+            sum
         }
     }
 
     #[inline(always)]
     fn mul(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
-        if Self::moduli_has_one_spare_bit() {
+        if Self::MODULUS_HAS_ONE_SPARE_BIT {
             MontgomeryAlgorithms::cios_optimized_for_moduli_with_one_spare_bit(
                 a,
                 b,

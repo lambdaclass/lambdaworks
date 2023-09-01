@@ -1,58 +1,16 @@
-[package]
-name = "fuzz"
+[workspace]
+members = ["no_gpu_fuzz", "metal_fuzz", "cuda_fuzz"]
+
+[workspace.package]
+edition = "2021"
 publish = false
 version = "0.1.1"
-edition = "2021"
 
-[package.metadata]
-cargo-fuzz = true
-
-[dependencies]
+[workspace.dependencies]
+lambdaworks-math = { path = "../math" }
+lambdaworks-gpu = { path = "../gpu" }
 libfuzzer-sys = "0.4"
-lambdaworks-math = { path = "../math", features = ["metal"] }
-lambdaworks-gpu = { path = "../gpu", features = ["metal"] }
-num-traits = "0.2"
-ibig = "0.3.6"
-
-# Prevent this from interfering with workspaces
-[workspace]
-members = ["."]
 
 [profile.release]
 debug = 1
 
-[[bin]]
-name = "field_fuzzer"
-path = "fuzz_targets/field_fuzzer.rs"
-test = false
-doc = false
-
-[[bin]]
-name = "field_from_hex"
-path = "fuzz_targets/field_from_hex.rs"
-test = false
-doc = false
-
-[[bin]]
-name = "field_from_raw"
-path = "fuzz_targets/field_from_raw.rs"
-test = false
-doc = false
-
-[[bin]]
-name = "metal_fft_diff"
-path = "fuzz_targets/metal_fft_diff.rs"
-test = false
-doc = false
-
-[[bin]]
-name = "polynomial_fft_diff_fuzzer"
-path = "fuzz_targets/polynomial_fft_diff_fuzzer.rs"
-test = false
-doc = false
-
-[[bin]]
-name = "twiddles_generation"
-path = "fuzz_targets/twiddles_generation.rs"
-test = false
-doc = false
