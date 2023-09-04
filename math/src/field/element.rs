@@ -1,6 +1,6 @@
 use crate::errors::CreationError;
-use crate::field::traits::IsField;
 use crate::field::errors::FieldError;
+use crate::field::traits::IsField;
 use crate::unsigned_integer::element::UnsignedInteger;
 use crate::unsigned_integer::montgomery::MontgomeryAlgorithms;
 use crate::unsigned_integer::traits::IsUnsignedInteger;
@@ -370,8 +370,7 @@ where
     #[inline(always)]
     pub fn inv(&self) -> Result<Self, FieldError> {
         let value = F::inv(&self.value)?;
-        Ok(Self {value})
-
+        Ok(Self { value })
     }
 
     /// Returns the square of `self`

@@ -1,7 +1,7 @@
 use crate::{
     errors::CreationError,
-    field::traits::{IsFFTField, IsField, IsPrimeField},
     field::errors::FieldError,
+    field::traits::{IsFFTField, IsField, IsPrimeField},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]

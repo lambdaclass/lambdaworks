@@ -1,6 +1,6 @@
 use crate::field::element::FieldElement;
-use crate::field::traits::IsField;
 use crate::field::errors::FieldError;
+use crate::field::traits::IsField;
 use core::fmt::Debug;
 use core::marker::PhantomData;
 
@@ -71,7 +71,9 @@ where
     }
 
     /// Returns the multiplicative inverse of `a`
-    fn inv(a: &[FieldElement<Q::BaseField>; 3]) -> Result<[FieldElement<Q::BaseField>; 3], FieldError> {
+    fn inv(
+        a: &[FieldElement<Q::BaseField>; 3],
+    ) -> Result<[FieldElement<Q::BaseField>; 3], FieldError> {
         let three = FieldElement::from(3_u64);
 
         let d = a[0].pow(3_u64)

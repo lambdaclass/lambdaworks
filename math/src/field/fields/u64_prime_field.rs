@@ -5,8 +5,8 @@ use crate::errors::CreationError;
 #[cfg(feature = "std")]
 use crate::errors::DeserializationError;
 use crate::field::element::FieldElement;
-use crate::field::traits::{IsFFTField, IsField, IsPrimeField};
 use crate::field::errors::FieldError;
+use crate::field::traits::{IsFFTField, IsField, IsPrimeField};
 #[cfg(feature = "std")]
 use crate::traits::{ByteConversion, Deserializable, Serializable};
 

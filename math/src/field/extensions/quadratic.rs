@@ -1,6 +1,6 @@
 use crate::field::element::FieldElement;
-use crate::field::traits::IsField;
 use crate::field::errors::FieldError;
+use crate::field::traits::IsField;
 use core::fmt::Debug;
 use core::marker::PhantomData;
 
@@ -84,8 +84,12 @@ where
 
     /// Returns the multiplicative inverse of `a`
     /// This uses the equality `(a0 + a1 * t) * (a0 - a1 * t) = a0.pow(2) - a1.pow(2) * Q::residue()`
-    fn inv(a: &[FieldElement<Q::BaseField>; 2]) -> Result<[FieldElement<Q::BaseField>; 2], FieldError> {
-        let inv_norm = (a[0].pow(2_u64) - Q::residue() * a[1].pow(2_u64)).inv().unwrap();
+    fn inv(
+        a: &[FieldElement<Q::BaseField>; 2],
+    ) -> Result<[FieldElement<Q::BaseField>; 2], FieldError> {
+        let inv_norm = (a[0].pow(2_u64) - Q::residue() * a[1].pow(2_u64))
+            .inv()
+            .unwrap();
         Ok([&a[0] * &inv_norm, -&a[1] * inv_norm])
     }
 

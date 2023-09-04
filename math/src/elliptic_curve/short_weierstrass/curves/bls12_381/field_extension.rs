@@ -2,13 +2,13 @@ use crate::unsigned_integer::element::U384;
 use crate::{
     field::{
         element::FieldElement,
+        errors::FieldError,
         extensions::{
             cubic::{CubicExtensionField, HasCubicNonResidue},
             quadratic::{HasQuadraticNonResidue, QuadraticExtensionField},
         },
         fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
         traits::IsField,
-        errors::FieldError,
     },
     traits::ByteConversion,
 };
