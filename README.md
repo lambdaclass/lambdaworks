@@ -16,16 +16,22 @@ Zero-Knowledge and Validity Proofs have gained a lot of attention over the last 
 So, we decided to build our library, focusing on performance, with clear documentation and developer-focused. Our core team is a group of passionate people from different backgrounds and different strengths; we think that the whole is greater than just the addition of the parts. We don't want to be a compilation of every research result in the ZK space. We want this to be a library that can be used in production, not just in academic research. We want to offer developers the main building blocks and proof systems so that they can build their applications on top of this library.
 
 ## Provers and Polynomial Commitment Schemes using LambdaWorks
+
+All provers are being migrated to Lambdaworks library
+
+Right now Plonk prover is in this repo, you can find the others here:
+
 - [Cairo STARK LambdaWorks prover](https://github.com/lambdaclass/lambdaworks_cairo_prover/tree/main)
-- [Plonk LambdaWorks prover](https://github.com/lambdaclass/lambdaworks_plonk_prover)
 - [CairoVM Trace Generation using LambdaWorks](https://github.com/lambdaclass/cairo-rs/pull/1184)
 - [ABI compatible KZG commitment scheme - EIP-4844](https://github.com/lambdaclass/lambdaworks_kzg)
 
 ## Main crates
 
-- [Finite Field Algebra](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/field)
-- [Polynomial operations](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/polynomial.rs)
-- [Fast Fourier Transform](https://github.com/lambdaclass/lambdaworks/tree/main/fft)
+- [Math](https://github.com/lambdaclass/lambdaworks/tree/main/math)
+- [Crypto primitives](https://github.com/lambdaclass/lambdaworks/crypto)
+- [Plonk Prover](https://github.com/lambdaclass/lambdaworks/provers/plonk)
+
+### Crypto
 - [Elliptic curves](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/elliptic_curve)
 - [Multiscalar multiplication](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/msm)
 
@@ -113,6 +119,70 @@ make benchmark BENCH=field
 ```
 
 You can check the generated HTML report in `target/criterion/reports/index.html`
+
+# Lambdaworks Plonk Prover
+A fast implementation of the [Plonk](https://eprint.iacr.org/2019/953) zk-protocol written in Rust. This is part of the [Lambdaworks](https://github.com/lambdaclass/lambdaworks) zero-knowledge framework. It includes a high-level API to seamlessly build your own circuits.
+
+<div>
+
+[![Telegram Chat][tg-badge]][tg-url]
+
+[tg-badge]: https://img.shields.io/static/v1?color=green&logo=telegram&label=chat&style=flat&message=join
+[tg-url]: https://t.me/+98Whlzql7Hs0MDZh
+
+</div>
+
+This prover is still in development and may contain bugs. It is not intended to be used in production yet.
+
+## Building a circuit
+The following code creates a circuit with two public inputs `x`, `y` and asserts `x * e = y`:
+
+```rust
+let system = &mut ConstraintSystem::<FrField>::new();
+let x = system.new_public_input();
+let y = system.new_public_input();
+let e = system.new_variable();
+
+let z = system.mul(&x, &e);    
+system.assert_eq(&y, &z);;
+```
+
+## Generating a proof
+### Setup
+A setup is needed in order to generate a proof for a new circuit. The following code generates a verifying key that will be used by both the prover and the verifier:
+
+```rust
+let common = CommonPreprocessedInput::from_constraint_system(&system, &ORDER_R_MINUS_1_ROOT_UNITY);
+let srs = test_srs(common.n);
+let kzg = KZG::new(srs); // The commitment scheme for plonk.
+let verifying_key = setup(&common, &kzg);
+```
+
+### Prover
+First, we fix values for `x` and `e` and solve the constraint system:
+```rust
+let inputs = HashMap::from([(x, FieldElement::from(4)), (e, FieldElement::from(3))]);
+let assignments = system.solve(inputs).unwrap();
+```
+
+Finally, we call the prover:
+```rust
+let witness = Witness::new(assignments, &system);
+let public_inputs = system.public_input_values(&assignments);
+let prover = Prover::new(kzg.clone(), TestRandomFieldGenerator {});
+let proof = prover.prove(&witness, &public_inputs, &common, &verifying_key);
+```
+
+## Verifying a proof
+Just call the verifier:
+
+```rust
+let verifier = Verifier::new(kzg);
+assert!(verifier.verify(&proof, &public_inputs, &common, &verifying_key));
+```
+
+# More info
+You can find more info in the [documentation](https://lambdaclass.github.io/lambdaworks_plonk_prover/).
 
 ## 📚 References
 
