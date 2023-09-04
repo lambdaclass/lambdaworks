@@ -1,5 +1,6 @@
 use crate::errors::CreationError;
 use crate::field::traits::IsField;
+use crate::field::errors::FieldError;
 use crate::unsigned_integer::element::UnsignedInteger;
 use crate::unsigned_integer::montgomery::MontgomeryAlgorithms;
 use crate::unsigned_integer::traits::IsUnsignedInteger;
@@ -39,7 +40,7 @@ impl<F: IsField> FieldElement<F> {
         for i in 1..count {
             prod_prefix.push(&prod_prefix[i - 1] * &numbers[i]);
         }
-        let mut bi_inv = prod_prefix[count - 1].inv();
+        let mut bi_inv = prod_prefix[count - 1].inv().unwrap();
         for i in (1..count).rev() {
             let ai_inv = &bi_inv * &prod_prefix[i - 1];
             bi_inv = &bi_inv * &numbers[i];
@@ -367,10 +368,10 @@ where
 
     /// Returns the multiplicative inverse of `self`
     #[inline(always)]
-    pub fn inv(&self) -> Self {
-        Self {
-            value: F::inv(&self.value),
-        }
+    pub fn inv(&self) -> Result<Self, FieldError> {
+        let value = F::inv(&self.value)?;
+        Ok(Self {value})
+
     }
 
     /// Returns the square of `self`

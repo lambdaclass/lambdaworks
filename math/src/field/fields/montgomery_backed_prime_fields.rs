@@ -1,5 +1,6 @@
 use crate::field::element::FieldElement;
 use crate::field::traits::IsPrimeField;
+use crate::field::errors::FieldError;
 use crate::traits::ByteConversion;
 use crate::{
     field::traits::IsField, unsigned_integer::element::UnsignedInteger,
@@ -165,7 +166,7 @@ where
     }
 
     #[inline(always)]
-    fn inv(a: &Self::BaseType) -> Self::BaseType {
+    fn inv(a: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
         if a == &Self::ZERO {
             panic!("Division by zero error.")
         } else {
@@ -230,16 +231,16 @@ where
             }
 
             if u == one {
-                b
+                Ok(b)
             } else {
-                c
+                Ok(c)
             }
         }
     }
 
     #[inline(always)]
     fn div(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
-        Self::mul(a, &Self::inv(b))
+        Self::mul(a, &Self::inv(b).unwrap())
     }
 
     #[inline(always)]
@@ -522,7 +523,7 @@ mod tests_u384_prime_fields {
     #[test]
     fn inv_2() {
         let a: U384F23Element = U384F23Element::from(2);
-        assert_eq!(&a * a.inv(), U384F23Element::from(1));
+        assert_eq!(&a * a.inv().unwrap(), U384F23Element::from(1));
     }
 
     #[test]
@@ -558,7 +559,7 @@ mod tests_u384_prime_fields {
     fn three_inverse() {
         let a = U384F23Element::from(3);
         let expected = U384F23Element::from(8);
-        assert_eq!(a.inv(), expected)
+        assert_eq!(a.inv().unwrap(), expected)
     }
 
     #[test]
@@ -867,7 +868,7 @@ mod tests_u256_prime_fields {
     #[test]
     fn inv_2() {
         let a: U256F29Element = U256F29Element::from(2);
-        assert_eq!(&a * a.inv(), U256F29Element::from(1));
+        assert_eq!(&a * a.inv().unwrap(), U256F29Element::from(1));
     }
 
     #[test]

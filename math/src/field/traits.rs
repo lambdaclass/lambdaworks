@@ -109,7 +109,7 @@ pub trait IsField: Debug + Clone {
     fn neg(a: &Self::BaseType) -> Self::BaseType;
 
     /// Returns the multiplicative inverse of `a`.
-    fn inv(a: &Self::BaseType) -> Self::BaseType;
+    fn inv(a: &Self::BaseType) -> Result<Self::BaseType, FieldError>;
 
     /// Returns the division of `a` and `b`.
     fn div(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType;
