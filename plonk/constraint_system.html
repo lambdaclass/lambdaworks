@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Benchmarks - docs</title>
+        <title>Circuit API - docs</title>
                 
 
         <!-- Custom HTML head -->
@@ -82,7 +82,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="../introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><div><strong aria-hidden="true">2.</strong> FFT Library</div></li><li><ol class="section"><li class="chapter-item expanded "><a href="../fft/benchmarks.html" class="active"><strong aria-hidden="true">2.1.</strong> Benchmarks</a></li></ol></li><li class="chapter-item expanded "><div><strong aria-hidden="true">3.</strong> Plonk</div></li><li><ol class="section"><li class="chapter-item expanded "><a href="../plonk/recap.html"><strong aria-hidden="true">3.1.</strong> Recap</a></li><li class="chapter-item expanded "><a href="../plonk/protocol.html"><strong aria-hidden="true">3.2.</strong> Protocol</a></li><li class="chapter-item expanded "><a href="../plonk/implementation.html"><strong aria-hidden="true">3.3.</strong> Implementation</a></li><li class="chapter-item expanded "><a href="../plonk/constraint_system.html"><strong aria-hidden="true">3.4.</strong> Circuit API</a></li></ol></li></ol>            </div>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="../introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><div><strong aria-hidden="true">2.</strong> FFT Library</div></li><li><ol class="section"><li class="chapter-item expanded "><a href="../fft/benchmarks.html"><strong aria-hidden="true">2.1.</strong> Benchmarks</a></li></ol></li><li class="chapter-item expanded "><div><strong aria-hidden="true">3.</strong> Plonk</div></li><li><ol class="section"><li class="chapter-item expanded "><a href="../plonk/recap.html"><strong aria-hidden="true">3.1.</strong> Recap</a></li><li class="chapter-item expanded "><a href="../plonk/protocol.html"><strong aria-hidden="true">3.2.</strong> Protocol</a></li><li class="chapter-item expanded "><a href="../plonk/implementation.html"><strong aria-hidden="true">3.3.</strong> Implementation</a></li><li class="chapter-item expanded "><a href="../plonk/constraint_system.html" class="active"><strong aria-hidden="true">3.4.</strong> Circuit API</a></li></ol></li></ol>            </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
 
@@ -144,40 +144,111 @@
                 <div id="content" class="content">
                     <main>
                         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.12.0/dist/katex.min.css" integrity="sha384-AfEj0r4/OFrOo5t7NnNe46zW/tFgW6x/bCJG8FqQCEo3+Aro6EYUG4+cU+KJWu/X" crossorigin="anonymous">
-<h1 id="fft-benchmarks"><a class="header" href="#fft-benchmarks">FFT Benchmarks</a></h1>
-<h2 id="polynomial-interpolation-methods-comparison"><a class="header" href="#polynomial-interpolation-methods-comparison">Polynomial interpolation methods comparison</a></h2>
-<p>Three methods of polynomial interpolation were benchmarked, with different input sizes each time:</p>
-<ul>
-<li><strong>CPU Lagrange:</strong> Finding the Lagrange polynomial of a set of random points via a naive algorithm (see <code>math/src/polynomial.rs:interpolate()</code>)</li>
-<li><strong>CPU FFT:</strong> Finding the lowest degree polynomial that interpolates pairs of twiddle factors and Fourier coefficients (the results of applying the Fourier transform to the coefficients of a polynomial) (see <code>math/src/polynomial.rs:interpolate_fft()</code>).</li>
-<li><strong>GPU FFT (Metal):</strong> Same as CPU FFT but the FFT algorithm is run on the GPU via the Metal API (Apple).</li>
-</ul>
-<p>these were run with criterion-rs in a MacBook Pro M1 (18.3), statistically measuring the total run time of one iteration. The field used was a 256 bit STARK-friendly prime field.</p>
-<p>All values of time are in milliseconds. Those cases which were greater than 30 seconds were marked respectively as they're too slow and weren't worth to be benchmarked. The input size refers to <em>d + 1</em> where <em>d</em> is the polynomial's degree (so size is amount of coefficients).</p>
-<table><thead><tr><th>Input size</th><th>CPU Lagrange</th><th>CPU FFT</th><th>GPU FFT (Metal)</th></tr></thead><tbody>
-<tr><td>2^4</td><td>2.2 ms</td><td>0.2 ms</td><td>2.5 ms</td></tr>
-<tr><td>2^5</td><td>9.6 ms</td><td>0.4 ms</td><td>2.5 ms</td></tr>
-<tr><td>2^6</td><td>42.6 ms</td><td>0.8 ms</td><td>2.5 ms</td></tr>
-<tr><td>2^7</td><td>200.8 ms</td><td>1.7 ms</td><td>2.9 ms</td></tr>
-<tr><td>...</td><td>...</td><td>..</td><td>..</td></tr>
-<tr><td>2^21</td><td>&gt;30000 ms</td><td>28745  ms</td><td>574.2 ms</td></tr>
-<tr><td>2^22</td><td>&gt;30000 ms</td><td>&gt;30000 ms</td><td>1144.9 ms</td></tr>
-<tr><td>2^23</td><td>&gt;30000 ms</td><td>&gt;30000 ms</td><td>2340.1 ms</td></tr>
-<tr><td>2^24</td><td>&gt;30000 ms</td><td>&gt;30000 ms</td><td>4652.9 ms</td></tr>
-</tbody></table>
-<p><strong>NOTE:</strong> Metal FFT execution includes the Metal state setup, twiddle factors generation and a bit-reverse permutation.</p>
+<h1 id="circuit-api"><a class="header" href="#circuit-api">Circuit API</a></h1>
+<p>In this section, we'll discuss how to build your own constraint system to prove the execution of a particular program.</p>
+<h2 id="simple-example"><a class="header" href="#simple-example">Simple Example</a></h2>
+<p>Let's take the following simple program as an example. We have two public inputs: <code>x</code> and <code>y</code>. We want to prove to a verifier that we know a private input <code>e</code> such that <code>x * e = y</code>. You can achieve this by building the following constraint system:</p>
+<pre><pre class="playground"><code class="language-rust">use lambdaworks_plonk::constraint_system::ConstraintSystem;
+use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::default_types::FrField;
+
+fn main() {
+    let system = &amp;mut ConstraintSystem::&lt;FrField&gt;::new();
+    let x = system.new_public_input();
+    let y = system.new_public_input();
+    let e = system.new_variable();
+
+    let z = system.mul(&amp;x, &amp;e);
+    
+    // This constraint system asserts that x * e == y
+    system.assert_eq(&amp;y, &amp;z);
+}
+</code></pre></pre>
+<p>This code creates a constraint system over the field of the BLS12381 curve. Then, it creates three variables: two public inputs <code>x</code> and <code>y</code>, and a private variable <code>e</code>. Note that every variable is private except for the public inputs. Finally, it adds the constraints that represent a multiplication and an assertion.</p>
+<p>Before generating proofs for this system, we need to run a setup and obtain a verifying key:</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let common = CommonPreprocessedInput::from_constraint_system(&amp;system, &amp;ORDER_R_MINUS_1_ROOT_UNITY);
+let srs = test_srs(common.n);
+let kzg = KZG::new(srs); // The commitment scheme for plonk.
+let vk = setup(&amp;common, &amp;kzg);
+<span class="boring">}
+</span></code></pre></pre>
+<p>Now we can generate proofs for our system. We just need to specify the public inputs and obtain a witness that is a solution for our constraint system:</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let inputs = HashMap::from([(x, FieldElement::from(4)), (e, FieldElement::from(3))]);
+let assignments = system.solve(inputs).unwrap();
+let witness = Witness::new(assignments, &amp;system);
+<span class="boring">}
+</span></code></pre></pre>
+<p>Once you have all these ingredients, you can call the prover:</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let public_inputs = system.public_input_values(&amp;assignments);
+let prover = Prover::new(kzg.clone(), TestRandomFieldGenerator {});
+let proof = prover.prove(&amp;witness, &amp;public_inputs, &amp;common, &amp;vk);
+<span class="boring">}
+</span></code></pre></pre>
+<p>and verify:</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let verifier = Verifier::new(kzg);
+assert!(verifier.verify(&amp;proof, &amp;public_inputs, &amp;common, &amp;vk));
+<span class="boring">}
+</span></code></pre></pre>
+<h2 id="building-complex-systems"><a class="header" href="#building-complex-systems">Building Complex Systems</a></h2>
+<p>Some operations are common, and it makes sense to wrap the set of constraints that do these operations in a function and use it several times. Lambdaworks comes with a collection of functions to help you build your own constraint systems, such as conditionals, inverses, and hash functions.</p>
+<p>However, if you have an operation that does not come with Lambdaworks, you can easily extend Lambdaworks functionality. Suppose that the exponentiation operation is something common in your program. You can write the <a href="https://en.wikipedia.org/wiki/Exponentiation_by_squaring">square and multiply</a> algorithm and put it inside a function:</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub fn pow(
+    system: &amp;mut ConstraintSystem&lt;FrField&gt;,
+    base: Variable,
+    exponent: Variable,
+) -&gt; Variable {
+    let exponent_bits = system.new_u32(&amp;exponent);
+    let mut result = system.new_constant(FieldElement::one());
+
+    for i in 0..32 {
+        if i != 0 {
+            result = system.mul(&amp;result, &amp;result);
+        }
+        let result_times_base = system.mul(&amp;result, &amp;base);
+        result = system.if_else(&amp;exponent_bits[i], &amp;result_times_base, &amp;result);
+    }
+    result
+}
+<span class="boring">}
+</span></code></pre></pre>
+<p>This function can then be used to modify our simple program from the previous section. The following circuit checks that the prover knows <code>e</code> such that <code>pow(x, e) = y</code>:</p>
+<pre><pre class="playground"><code class="language-rust">use lambdaworks_plonk::constraint_system::ConstraintSystem;
+use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::default_types::FrField;
+
+fn main() {
+    let system = &amp;mut ConstraintSystem::&lt;FrField&gt;::new();
+    let x = system.new_public_input();
+    let y = system.new_public_input();
+    let e = system.new_variable();
+
+    let z = pow(system, &amp;x, &amp;e);
+    system.assert_eq(&amp;y, &amp;z);
+}
+</code></pre></pre>
+<p>You can keep composing these functions in order to create more complex systems.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                                                    <a rel="prev" href="../introduction.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                                    <a rel="prev" href="../plonk/implementation.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
                         
-                                                    <a rel="next" href="../plonk/recap.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
-                                <i class="fa fa-angle-right"></i>
-                            </a>
                         
                         <div style="clear: both"></div>
                     </nav>
@@ -185,13 +256,10 @@
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                                    <a rel="prev" href="../introduction.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                    <a rel="prev" href="../plonk/implementation.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
                 
-                                    <a rel="next" href="../plonk/recap.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
-                        <i class="fa fa-angle-right"></i>
-                    </a>
                             </nav>
 
         </div>
