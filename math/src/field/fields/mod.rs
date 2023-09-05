@@ -5,3 +5,5 @@ pub mod montgomery_backed_prime_fields;
 pub mod p448_goldilocks_prime_field;
 /// Implementation of prime fields over 64 bit unsigned integers.
 pub mod u64_prime_field;
+/// Implemenation of the Babybear Prime field p = 2^31 - 2^27 + 1
+pub mod babybear;
