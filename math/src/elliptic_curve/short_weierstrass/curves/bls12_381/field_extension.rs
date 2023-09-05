@@ -67,7 +67,7 @@ impl IsField for Degree2ExtensionField {
     /// Returns the multiplicative inverse of `a`
     /// This uses the equality `(a0 + a1 * t) * (a0 - a1 * t) = a0.pow(2) - a1.pow(2) * Q::residue()`
     fn inv(a: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
-        let inv_norm = (a[0].pow(2_u64) + a[1].pow(2_u64)).inv().unwrap();
+        let inv_norm = (a[0].pow(2_u64) + a[1].pow(2_u64)).inv()?;
         Ok([&a[0] * &inv_norm, -&a[1] * inv_norm])
     }
 

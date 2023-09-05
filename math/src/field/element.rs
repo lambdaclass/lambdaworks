@@ -30,9 +30,9 @@ pub struct FieldElement<F: IsField> {
 #[cfg(feature = "std")]
 impl<F: IsField> FieldElement<F> {
     // Source: https://en.wikipedia.org/wiki/Modular_multiplicative_inverse#Multiple_inverses
-    pub fn inplace_batch_inverse(numbers: &mut [Self]) {
+    pub fn inplace_batch_inverse(numbers: &mut [Self]) -> Result<(), FieldError> {
         if numbers.is_empty() {
-            return;
+            return Ok(());
         }
         let count = numbers.len();
         let mut prod_prefix = Vec::with_capacity(count);
@@ -40,13 +40,14 @@ impl<F: IsField> FieldElement<F> {
         for i in 1..count {
             prod_prefix.push(&prod_prefix[i - 1] * &numbers[i]);
         }
-        let mut bi_inv = prod_prefix[count - 1].inv().unwrap();
+        let mut bi_inv = prod_prefix[count - 1].inv()?;
         for i in (1..count).rev() {
             let ai_inv = &bi_inv * &prod_prefix[i - 1];
             bi_inv = &bi_inv * &numbers[i];
             numbers[i] = ai_inv;
         }
         numbers[0] = bi_inv;
+        Ok(())
     }
 }
 
