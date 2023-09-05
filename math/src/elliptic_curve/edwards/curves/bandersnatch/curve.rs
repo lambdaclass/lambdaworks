@@ -1,4 +1,4 @@
-pub use super::field_extension::FqField;
+pub use super::field::FqField;
 use crate::elliptic_curve::edwards::point::EdwardsProjectivePoint;
 use crate::elliptic_curve::traits::IsEllipticCurve;
 use crate::{elliptic_curve::edwards::traits::IsEdwards, field::element::FieldElement};
