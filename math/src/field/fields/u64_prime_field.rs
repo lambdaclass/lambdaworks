@@ -248,9 +248,9 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
     fn inv_0_error() {
-        FE::new(0).inv();
+        let result = FE::new(0).inv();
+        assert!(matches!(result, Err(FieldError::InvZeroError)));
     }
 
     #[test]

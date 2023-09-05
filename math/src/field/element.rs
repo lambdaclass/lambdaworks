@@ -695,7 +695,7 @@ mod tests {
         fn test_inplace_batch_inverse_returns_inverses(vec in field_vec(10)) {
             let input: Vec<_> = vec.into_iter().filter(|x| x != &FieldElement::<Stark252PrimeField>::zero()).collect();
             let mut inverses = input.clone();
-            FieldElement::inplace_batch_inverse(&mut inverses);
+            let _ = FieldElement::inplace_batch_inverse(&mut inverses);
 
             for (i, x) in inverses.into_iter().enumerate() {
                 prop_assert_eq!(x * input[i], FieldElement::<Stark252PrimeField>::one());

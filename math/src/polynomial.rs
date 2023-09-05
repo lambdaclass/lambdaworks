@@ -66,7 +66,7 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
             }
         }
 
-        FieldElement::inplace_batch_inverse(&mut denominators);
+        let _ = FieldElement::inplace_batch_inverse(&mut denominators);
 
         let mut result = Polynomial::zero();
 
