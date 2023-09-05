@@ -112,4 +112,3 @@ jobs:
         run: make clippy-metal
       - name: Run tests
         run: make test-metal
-        
