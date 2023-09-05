@@ -86,62 +86,62 @@ fn solve_constraint<F: IsField>(
     ) {
         ((Some(a), Some(b), None), _) => {
             if ct.qo != FE::zero() {
-                let c = -(a * &ct.ql + b * &ct.qr + a * b * &ct.qm + &ct.qc) * ct.qo.inv();
+                let c = -(a * &ct.ql + b * &ct.qr + a * b * &ct.qm + &ct.qc) * ct.qo.inv().unwrap();
                 assignments.insert(constraint.o, c);
             }
         }
         ((Some(a), None, Some(c)), _) => {
             let denominator = &ct.qr + a * &ct.qm;
             if denominator != FE::zero() {
-                let b = -(a * &ct.ql + c * &ct.qo + &ct.qc) * denominator.inv();
+                let b = -(a * &ct.ql + c * &ct.qo + &ct.qc) * denominator.inv().unwrap();
                 assignments.insert(constraint.r, b);
             }
         }
         ((None, Some(b), Some(c)), _) => {
             let denominator = &ct.ql + b * &ct.qm;
             if denominator != FE::zero() {
-                let a = -(b * &ct.qr + c * &ct.qo + &ct.qc) * denominator.inv();
+                let a = -(b * &ct.qr + c * &ct.qo + &ct.qc) * denominator.inv().unwrap();
                 assignments.insert(constraint.l, a);
             }
         }
         ((Some(a), None, None), _) => {
             let b_coefficient = &ct.qr + a * &ct.qm;
             if b_coefficient == FE::zero() && ct.qo != FE::zero() {
-                let c = -(a * &ct.ql + &ct.qc) * ct.qo.inv();
+                let c = -(a * &ct.ql + &ct.qc) * ct.qo.inv().unwrap();
                 assignments.insert(constraint.o, c);
             } else if b_coefficient != FE::zero() && ct.qo == FE::zero() {
-                let b = -(a * &ct.ql + &ct.qc) * b_coefficient.inv();
+                let b = -(a * &ct.ql + &ct.qc) * b_coefficient.inv().unwrap();
                 assignments.insert(constraint.r, b);
             }
         }
         ((None, Some(b), None), _) => {
             let a_coefficient = &ct.ql + b * &ct.qm;
             if a_coefficient == FE::zero() && ct.qo != FE::zero() {
-                let c = -(b * &ct.qr + &ct.qc) * ct.qo.inv();
+                let c = -(b * &ct.qr + &ct.qc) * ct.qo.inv().unwrap();
                 assignments.insert(constraint.o, c);
             } else if a_coefficient != FE::zero() && ct.qo == FE::zero() {
-                let a = -(b * &ct.qr + &ct.qc) * a_coefficient.inv();
+                let a = -(b * &ct.qr + &ct.qc) * a_coefficient.inv().unwrap();
                 assignments.insert(constraint.l, a);
             }
         }
         ((None, None, Some(c)), (false, true, true, _)) => {
-            let a = -(c * &ct.qo + &ct.qc) * ct.ql.inv();
+            let a = -(c * &ct.qo + &ct.qc) * ct.ql.inv().unwrap();
             assignments.insert(constraint.l, a);
         }
         ((None, None, Some(c)), (true, false, true, _)) => {
-            let b = -(c * &ct.qo + &ct.qc) * ct.qr.inv();
+            let b = -(c * &ct.qo + &ct.qc) * ct.qr.inv().unwrap();
             assignments.insert(constraint.r, b);
         }
         ((None, None, None), (true, true, true, false)) => {
-            let c = -&ct.qc * ct.qo.inv();
+            let c = -&ct.qc * ct.qo.inv().unwrap();
             assignments.insert(constraint.o, c);
         }
         ((None, None, None), (true, false, true, true)) => {
-            let b = -&ct.qc * ct.qr.inv();
+            let b = -&ct.qc * ct.qr.inv().unwrap();
             assignments.insert(constraint.r, b);
         }
         ((None, None, None), (false, true, true, true)) => {
-            let a = -&ct.qc * ct.ql.inv();
+            let a = -&ct.qc * ct.ql.inv().unwrap();
             assignments.insert(constraint.l, a);
         }
         _ => {}

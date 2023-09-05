@@ -38,7 +38,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
             |b| {
                 b.iter(|| {
                     for elem in lambdaworks_vec.iter() {
-                        black_box(black_box(&elem).inv());
+                        black_box(black_box(&elem).inv().unwrap());
                     }
                 });
             },
