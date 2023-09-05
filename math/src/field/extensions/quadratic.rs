@@ -87,9 +87,7 @@ where
     fn inv(
         a: &[FieldElement<Q::BaseField>; 2],
     ) -> Result<[FieldElement<Q::BaseField>; 2], FieldError> {
-        let inv_norm = (a[0].pow(2_u64) - Q::residue() * a[1].pow(2_u64))
-            .inv()
-            ?;
+        let inv_norm = (a[0].pow(2_u64) - Q::residue() * a[1].pow(2_u64)).inv()?;
         Ok([&a[0] * &inv_norm, -&a[1] * inv_norm])
     }
 
