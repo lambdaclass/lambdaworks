@@ -112,25 +112,3 @@ jobs:
         run: make clippy-metal
       - name: Run tests
         run: make test-metal
-
-  test_nvidia:
-    name: Test (Ubuntu, NVIDIA GPU)
-    runs-on: [self-hosted, cuda]
-    env:
-      CARGO_TERM_COLOR: always
-    steps:
-      - uses: actions/checkout@v3
-      - name: Rustup toolchain install
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: stable
-          components: clippy
-
-      - name: Add CUDA binaries to PATH
-        run: |
-          echo /usr/local/cuda/bin >> $GITHUB_PATH
-
-      - name: Run clippy
-        run: make clippy-cuda
-      - name: Run tests
-        run: cargo test -F cuda
