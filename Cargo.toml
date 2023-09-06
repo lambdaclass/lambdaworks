@@ -1,5 +1,5 @@
 [workspace]
-members = ["math", "crypto", "gpu", "benches", "provers/plonk"]
+members = ["math", "crypto", "gpu", "benches", "provers/plonk", "provers/stark"]
 exclude = ["ensure-no_std"]
 
 [workspace.package]
