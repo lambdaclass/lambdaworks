@@ -497,7 +497,7 @@ where
             .collect();
 
         let mut zh_eval = zh.evaluate_offset_fft(1, Some(degree), offset).unwrap();
-        FieldElement::inplace_batch_inverse(&mut zh_eval);
+        FieldElement::inplace_batch_inverse(&mut zh_eval).unwrap();
         let c: Vec<_> = p_eval
             .iter()
             .zip(zh_eval.iter())

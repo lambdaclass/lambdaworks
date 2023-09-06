@@ -2,6 +2,7 @@ use crate::unsigned_integer::element::U384;
 use crate::{
     field::{
         element::FieldElement,
+        errors::FieldError,
         extensions::{
             cubic::{CubicExtensionField, HasCubicNonResidue},
             quadratic::{HasQuadraticNonResidue, QuadraticExtensionField},
@@ -65,14 +66,14 @@ impl IsField for Degree2ExtensionField {
 
     /// Returns the multiplicative inverse of `a`
     /// This uses the equality `(a0 + a1 * t) * (a0 - a1 * t) = a0.pow(2) - a1.pow(2) * Q::residue()`
-    fn inv(a: &Self::BaseType) -> Self::BaseType {
-        let inv_norm = (a[0].pow(2_u64) + a[1].pow(2_u64)).inv();
-        [&a[0] * &inv_norm, -&a[1] * inv_norm]
+    fn inv(a: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
+        let inv_norm = (a[0].pow(2_u64) + a[1].pow(2_u64)).inv()?;
+        Ok([&a[0] * &inv_norm, -&a[1] * inv_norm])
     }
 
     /// Returns the division of `a` and `b`
     fn div(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
-        Self::mul(a, &Self::inv(b))
+        Self::mul(a, &Self::inv(b).unwrap())
     }
 
     /// Returns a boolean indicating whether `a` and `b` are equal component wise.

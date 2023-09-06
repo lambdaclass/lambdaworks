@@ -1,4 +1,5 @@
 use crate::errors::CreationError;
+use crate::field::errors::FieldError;
 use crate::field::traits::IsField;
 use crate::unsigned_integer::element::UnsignedInteger;
 use crate::unsigned_integer::montgomery::MontgomeryAlgorithms;
@@ -29,9 +30,9 @@ pub struct FieldElement<F: IsField> {
 #[cfg(feature = "std")]
 impl<F: IsField> FieldElement<F> {
     // Source: https://en.wikipedia.org/wiki/Modular_multiplicative_inverse#Multiple_inverses
-    pub fn inplace_batch_inverse(numbers: &mut [Self]) {
+    pub fn inplace_batch_inverse(numbers: &mut [Self]) -> Result<(), FieldError> {
         if numbers.is_empty() {
-            return;
+            return Ok(());
         }
         let count = numbers.len();
         let mut prod_prefix = Vec::with_capacity(count);
@@ -39,13 +40,14 @@ impl<F: IsField> FieldElement<F> {
         for i in 1..count {
             prod_prefix.push(&prod_prefix[i - 1] * &numbers[i]);
         }
-        let mut bi_inv = prod_prefix[count - 1].inv();
+        let mut bi_inv = prod_prefix[count - 1].inv()?;
         for i in (1..count).rev() {
             let ai_inv = &bi_inv * &prod_prefix[i - 1];
             bi_inv = &bi_inv * &numbers[i];
             numbers[i] = ai_inv;
         }
         numbers[0] = bi_inv;
+        Ok(())
     }
 }
 
@@ -367,10 +369,9 @@ where
 
     /// Returns the multiplicative inverse of `self`
     #[inline(always)]
-    pub fn inv(&self) -> Self {
-        Self {
-            value: F::inv(&self.value),
-        }
+    pub fn inv(&self) -> Result<Self, FieldError> {
+        let value = F::inv(&self.value)?;
+        Ok(Self { value })
     }
 
     /// Returns the square of `self`
@@ -694,7 +695,7 @@ mod tests {
         fn test_inplace_batch_inverse_returns_inverses(vec in field_vec(10)) {
             let input: Vec<_> = vec.into_iter().filter(|x| x != &FieldElement::<Stark252PrimeField>::zero()).collect();
             let mut inverses = input.clone();
-            FieldElement::inplace_batch_inverse(&mut inverses);
+            FieldElement::inplace_batch_inverse(&mut inverses).unwrap();
 
             for (i, x) in inverses.into_iter().enumerate() {
                 prop_assert_eq!(x * input[i], FieldElement::<Stark252PrimeField>::one());

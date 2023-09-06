@@ -70,7 +70,7 @@ mod tests {
         let output = system.new_variable();
         system.assert_eq(&z, &output);
 
-        let inputs = HashMap::from([(v, FE::from(2)), (w, FE::from(2).inv())]);
+        let inputs = HashMap::from([(v, FE::from(2)), (w, FE::from(2).inv().unwrap())]);
 
         let assignments = system.solve(inputs).unwrap();
         assert_eq!(assignments.get(&output).unwrap(), &FE::one());

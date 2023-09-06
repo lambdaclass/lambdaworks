@@ -20,7 +20,7 @@ pub fn get_powers_of_primitive_root<F: IsFFTField>(
 
     let root = match config {
         RootsConfig::Natural | RootsConfig::BitReverse => F::get_primitive_root_of_unity(n)?,
-        _ => F::get_primitive_root_of_unity(n)?.inv(),
+        _ => F::get_primitive_root_of_unity(n)?.inv().unwrap(),
     };
     let up_to = match config {
         RootsConfig::Natural | RootsConfig::NaturalInversed => count,

@@ -42,7 +42,7 @@ impl<E: IsEllipticCurve> ProjectivePoint<E> {
     pub fn to_affine(&self) -> Self {
         let [x, y, z] = self.coordinates();
         assert_ne!(z, &FieldElement::zero());
-        let inv_z = z.inv();
+        let inv_z = z.inv().unwrap();
         ProjectivePoint::new([x * &inv_z, y * inv_z, FieldElement::one()])
     }
 }

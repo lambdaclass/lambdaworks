@@ -29,6 +29,9 @@ impl From<FieldError> for FFTError {
             FieldError::DivisionByZero => {
                 panic!("Can't divide by zero during FFT");
             }
+            FieldError::InvZeroError => {
+                panic!("Can't calculate inverse of zero during FFT");
+            }
             FieldError::RootOfUnityError(order) => FFTError::RootOfUnityError(order),
         }
     }

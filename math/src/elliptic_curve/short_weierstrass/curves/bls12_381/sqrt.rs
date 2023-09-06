@@ -48,7 +48,7 @@ pub fn sqrt_qfe(
             match gamma {
                 LegendreSymbol::One => {
                     let two = BLS12381FieldElement::from(2u64);
-                    let two_inv = two.inv();
+                    let two_inv = two.inv().unwrap();
                     // calculate the square root of alpha
                     let (y_sqrt1, y_sqrt2) = alpha.sqrt()?;
                     let mut delta = (a.clone() + y_sqrt1) * two_inv.clone();
@@ -59,7 +59,7 @@ pub fn sqrt_qfe(
                     };
                     let (x_sqrt_1, x_sqrt_2) = delta.sqrt()?;
                     let x_0 = select_sqrt_value_from_third_bit(x_sqrt_1, x_sqrt_2, third_bit);
-                    let x_1 = b * (two * x_0.clone()).inv();
+                    let x_1 = b * (two * x_0.clone()).inv().unwrap();
                     Some(BLS12381TwistCurveFieldElement::new([x_0, x_1]))
                 }
                 LegendreSymbol::MinusOne => None,
