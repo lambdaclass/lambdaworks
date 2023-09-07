@@ -79,10 +79,10 @@ fuzz_target!(|values: (u64, u64)| {
     assert_eq!(&b - &b, zero, "Inverse add b failed");
 
     if a != zero {
-        assert_eq!(&a * a.inv(), one, "Inverse mul a failed");
+        assert_eq!(&a * a.inv().unwrap(), one, "Inverse mul a failed");
     }
     if b != zero {
-        assert_eq!(&b * b.inv(), one, "Inverse mul b failed");
+        assert_eq!(&b * b.inv().unwrap(), one, "Inverse mul b failed");
     }
     
     

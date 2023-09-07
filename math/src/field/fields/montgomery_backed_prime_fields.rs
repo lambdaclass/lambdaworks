@@ -1,4 +1,5 @@
 use crate::field::element::FieldElement;
+use crate::field::errors::FieldError;
 use crate::field::traits::IsPrimeField;
 use crate::traits::ByteConversion;
 use crate::{
@@ -165,9 +166,9 @@ where
     }
 
     #[inline(always)]
-    fn inv(a: &Self::BaseType) -> Self::BaseType {
+    fn inv(a: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
         if a == &Self::ZERO {
-            panic!("Division by zero error.")
+            Err(FieldError::InvZeroError)
         } else {
             // Guajardo Kumar Paar Pelzl
             // Efficient Software-Implementation of Finite Fields with Applications to
@@ -230,16 +231,16 @@ where
             }
 
             if u == one {
-                b
+                Ok(b)
             } else {
-                c
+                Ok(c)
             }
         }
     }
 
     #[inline(always)]
     fn div(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
-        Self::mul(a, &Self::inv(b))
+        Self::mul(a, &Self::inv(b).unwrap())
     }
 
     #[inline(always)]
@@ -352,6 +353,7 @@ where
 #[cfg(test)]
 mod tests_u384_prime_fields {
     use crate::field::element::FieldElement;
+    use crate::field::errors::FieldError;
     use crate::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
     use crate::field::fields::montgomery_backed_prime_fields::{
         IsModulus, U256PrimeField, U384PrimeField,
@@ -514,15 +516,15 @@ mod tests_u384_prime_fields {
     }
 
     #[test]
-    #[should_panic]
     fn inv_0_error() {
-        U384F23Element::from(0).inv();
+        let result = U384F23Element::from(0).inv();
+        assert!(matches!(result, Err(FieldError::InvZeroError)))
     }
 
     #[test]
     fn inv_2() {
         let a: U384F23Element = U384F23Element::from(2);
-        assert_eq!(&a * a.inv(), U384F23Element::from(1));
+        assert_eq!(&a * a.inv().unwrap(), U384F23Element::from(1));
     }
 
     #[test]
@@ -558,7 +560,7 @@ mod tests_u384_prime_fields {
     fn three_inverse() {
         let a = U384F23Element::from(3);
         let expected = U384F23Element::from(8);
-        assert_eq!(a.inv(), expected)
+        assert_eq!(a.inv().unwrap(), expected)
     }
 
     #[test]
@@ -741,6 +743,7 @@ mod tests_u384_prime_fields {
 #[cfg(test)]
 mod tests_u256_prime_fields {
     use crate::field::element::FieldElement;
+    use crate::field::errors::FieldError;
     use crate::field::fields::montgomery_backed_prime_fields::{IsModulus, U256PrimeField};
     use crate::field::traits::IsField;
     use crate::field::traits::IsPrimeField;
@@ -859,15 +862,15 @@ mod tests_u256_prime_fields {
     }
 
     #[test]
-    #[should_panic]
     fn inv_0_error() {
-        U256F29Element::from(0).inv();
+        let result = U256F29Element::from(0).inv();
+        assert!(matches!(result, Err(FieldError::InvZeroError)));
     }
 
     #[test]
     fn inv_2() {
         let a: U256F29Element = U256F29Element::from(2);
-        assert_eq!(&a * a.inv(), U256F29Element::from(1));
+        assert_eq!(&a * a.inv().unwrap(), U256F29Element::from(1));
     }
 
     #[test]

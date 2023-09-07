@@ -162,7 +162,7 @@ where
                     if *v == FE::zero() {
                         FE::zero()
                     } else {
-                        v.inv()
+                        v.inv().unwrap()
                     }
                 },
                 input: Column::L,
@@ -333,7 +333,10 @@ mod tests {
         let inputs = HashMap::from([(v, FE::from(2)), (w, FE::from(0))]);
 
         let assignments = system.solve(inputs).unwrap();
-        assert_eq!(assignments.get(&v_inverse).unwrap(), &FE::from(2).inv());
+        assert_eq!(
+            assignments.get(&v_inverse).unwrap(),
+            &FE::from(2).inv().unwrap()
+        );
         assert_eq!(assignments.get(&v_is_zero).unwrap(), &FE::zero());
 
         assert_eq!(assignments.get(&w_inverse).unwrap(), &FE::from(0));

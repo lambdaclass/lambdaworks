@@ -1,5 +1,6 @@
 use crate::{
     errors::CreationError,
+    field::errors::FieldError,
     field::traits::{IsFFTField, IsField, IsPrimeField},
 };
 
@@ -26,12 +27,14 @@ impl<const MODULUS: u64> IsField for U64Field<MODULUS> {
     }
 
     fn div(a: &u64, b: &u64) -> u64 {
-        Self::mul(a, &Self::inv(b))
+        Self::mul(a, &Self::inv(b).unwrap())
     }
 
-    fn inv(a: &u64) -> u64 {
-        assert_ne!(*a, 0, "Cannot invert zero element");
-        Self::pow(a, MODULUS - 2)
+    fn inv(a: &u64) -> Result<u64, FieldError> {
+        if *a == 0 {
+            return Err(FieldError::InvZeroError);
+        }
+        Ok(Self::pow(a, MODULUS - 2))
     }
 
     fn eq(a: &u64, b: &u64) -> bool {

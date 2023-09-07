@@ -1,4 +1,5 @@
 use crate::field::element::FieldElement;
+use crate::field::errors::FieldError;
 use crate::field::traits::IsField;
 use core::fmt::Debug;
 use core::marker::PhantomData;
@@ -70,19 +71,21 @@ where
     }
 
     /// Returns the multiplicative inverse of `a`
-    fn inv(a: &[FieldElement<Q::BaseField>; 3]) -> [FieldElement<Q::BaseField>; 3] {
+    fn inv(
+        a: &[FieldElement<Q::BaseField>; 3],
+    ) -> Result<[FieldElement<Q::BaseField>; 3], FieldError> {
         let three = FieldElement::from(3_u64);
 
         let d = a[0].pow(3_u64)
             + a[1].pow(3_u64) * Q::residue()
             + a[2].pow(3_u64) * Q::residue().pow(2_u64)
             - three * &a[0] * &a[1] * &a[2] * Q::residue();
-        let inv = d.inv();
-        [
+        let inv = d.inv()?;
+        Ok([
             (a[0].pow(2_u64) - &a[1] * &a[2] * Q::residue()) * &inv,
             (-&a[0] * &a[1] + a[2].pow(2_u64) * Q::residue()) * &inv,
             (-&a[0] * &a[2] + a[1].pow(2_u64)) * &inv,
-        ]
+        ])
     }
 
     /// Returns the division of `a` and `b`
@@ -90,7 +93,7 @@ where
         a: &[FieldElement<Q::BaseField>; 3],
         b: &[FieldElement<Q::BaseField>; 3],
     ) -> [FieldElement<Q::BaseField>; 3] {
-        Self::mul(a, &Self::inv(b))
+        Self::mul(a, &Self::inv(b).unwrap())
     }
 
     /// Returns a boolean indicating whether `a` and `b` are equal component wise.
@@ -241,13 +244,13 @@ mod tests {
     fn test_inv() {
         let a = FEE::new([FE::new(12), FE::new(5), FE::new(3)]);
         let expected_result = FEE::new([FE::new(2), FE::new(2), FE::new(3)]);
-        assert_eq!(a.inv(), expected_result);
+        assert_eq!(a.inv().unwrap(), expected_result);
     }
 
     #[test]
     fn test_inv_1() {
         let a = FEE::new([FE::new(1), FE::new(0), FE::new(1)]);
         let expected_result = FEE::new([FE::new(8), FE::new(3), FE::new(5)]);
-        assert_eq!(a.inv(), expected_result);
+        assert_eq!(a.inv().unwrap(), expected_result);
     }
 }

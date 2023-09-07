@@ -1,3 +1,4 @@
+use crate::field::errors::FieldError;
 use crate::field::traits::IsField;
 use crate::unsigned_integer::element::UnsignedInteger;
 
@@ -117,12 +118,18 @@ impl IsField for P448GoldilocksPrimeField {
         Self::sub(&zero, a)
     }
 
-    fn inv(a: &U56x8) -> U56x8 {
-        Self::pow(a, P448_GOLDILOCKS_PRIME_FIELD_ORDER - U448::from_u64(2))
+    fn inv(a: &U56x8) -> Result<U56x8, FieldError> {
+        if *a == Self::zero() {
+            return Err(FieldError::InvZeroError);
+        }
+        Ok(Self::pow(
+            a,
+            P448_GOLDILOCKS_PRIME_FIELD_ORDER - U448::from_u64(2),
+        ))
     }
 
     fn div(a: &U56x8, b: &U56x8) -> U56x8 {
-        let b_inv = Self::inv(b);
+        let b_inv = Self::inv(b).unwrap();
         Self::mul(a, &b_inv)
     }
 
