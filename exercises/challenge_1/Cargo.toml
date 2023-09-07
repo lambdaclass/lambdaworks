@@ -1,0 +1,10 @@
+[package]
+name = "block_cypher"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+lambdaworks-math = { git = "https://github.com/lambdaclass/lambdaworks.git" }
+rand = "0.8.5"
