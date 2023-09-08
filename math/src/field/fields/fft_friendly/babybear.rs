@@ -2,9 +2,9 @@ use crate::{
     field::{
         element::FieldElement,
         fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
-        traits::IsFFTField, 
+        traits::IsFFTField,
     },
-    unsigned_integer::element::{U64, UnsignedInteger},
+    unsigned_integer::element::{UnsignedInteger, U64},
 };
 
 pub type U64MontgomeryBackendPrimeField<T> = MontgomeryBackendPrimeField<T, 1>;
@@ -16,16 +16,15 @@ impl IsModulus<U64> for MontgomeryConfigBabybear31PrimeField {
     const MODULUS: U64 = U64::from_u64(2013265921);
 }
 
-pub type Babybear31PrimeField = U64MontgomeryBackendPrimeField<MontgomeryConfigBabybear31PrimeField>;
+pub type Babybear31PrimeField =
+    U64MontgomeryBackendPrimeField<MontgomeryConfigBabybear31PrimeField>;
 
 // 21^(2^24)=1 mod 2013265921
 // 2^27(2^4-1)+1 where n=27 (two-adicity) and k=2^4+1
 impl IsFFTField for Babybear31PrimeField {
     const TWO_ADICITY: u64 = 27;
 
-    const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: Self::BaseType = UnsignedInteger{
-        limbs: [21],
-    };
+    const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: Self::BaseType = UnsignedInteger { limbs: [21] };
 
     fn field_name() -> &'static str {
         "babybear31"
@@ -112,5 +111,4 @@ mod test_babybear_31_bytes_ops {
         let from_bytes = FieldElement::<Babybear31PrimeField>::from_bytes_be(&bytes).unwrap();
         assert_eq!(element, from_bytes);
     }
-    
 }
