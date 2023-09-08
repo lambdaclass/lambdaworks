@@ -1,0 +1,12 @@
+[package]
+name = "irreducibull"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+lambdaworks-math = { git = "https://github.com/lambdaclass/lambdaworks", rev = "d8f14cb"}
+lambdaworks-crypto = { git = "https://github.com/lambdaclass/lambdaworks", rev = "d8f14cb"}
+# lambdaworks-plonk = { git = "https://github.com/lambdaclass/lambdaworks_plonk_prover", rev="07e36bf"}
+lambdaworks-plonk = { path = "path/to/local/lambdaworks_plonk_prover"}
