@@ -1,7 +1,7 @@
 use crate::cyclic_group::IsGroup;
 use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
 use crate::elliptic_curve::traits::IsEllipticCurve;
-use crate::unsigned_integer::element::U384;
+use crate::unsigned_integer::u64_word::element::U384;
 use crate::{
     elliptic_curve::short_weierstrass::traits::IsShortWeierstrass, field::element::FieldElement,
 };
@@ -91,7 +91,7 @@ mod tests {
             traits::IsEllipticCurve,
         },
         field::element::FieldElement,
-        unsigned_integer::element::U384,
+        unsigned_integer::u64_word::element::U384,
     };
 
     use super::BLS12381TwistCurve;

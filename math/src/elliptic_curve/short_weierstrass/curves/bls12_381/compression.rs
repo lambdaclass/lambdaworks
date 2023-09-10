@@ -3,7 +3,7 @@ use crate::cyclic_group::IsGroup;
 use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
 use crate::elliptic_curve::traits::FromAffine;
 use crate::field::element::FieldElement;
-use crate::unsigned_integer::element::U256;
+use crate::unsigned_integer::u64_word::element::U256;
 use crate::{
     elliptic_curve::short_weierstrass::curves::bls12_381::curve::BLS12381Curve,
     errors::ByteConversionError, traits::ByteConversion,
@@ -104,7 +104,7 @@ mod tests {
     use crate::elliptic_curve::short_weierstrass::curves::bls12_381::curve::BLS12381Curve;
     use crate::elliptic_curve::traits::{FromAffine, IsEllipticCurve};
     use crate::traits::ByteConversion;
-    use crate::unsigned_integer::element::UnsignedInteger;
+    use crate::unsigned_integer::u32_word::element::UnsignedInteger;
 
     use super::{compress_g1_point, decompress_g1_point};
 

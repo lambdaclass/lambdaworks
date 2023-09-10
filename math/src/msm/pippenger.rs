@@ -1,4 +1,4 @@
-use crate::{cyclic_group::IsGroup, unsigned_integer::element::UnsignedInteger};
+use crate::{cyclic_group::IsGroup, unsigned_integer::u64_word::element::UnsignedInteger};
 
 use super::naive::MSMError;
 
@@ -166,7 +166,7 @@ mod tests {
         elliptic_curve::{
             short_weierstrass::curves::bls12_381::curve::BLS12381Curve, traits::IsEllipticCurve,
         },
-        unsigned_integer::element::UnsignedInteger,
+        unsigned_integer::u64_word::element::UnsignedInteger,
     };
     use proptest::{collection, prelude::*, prop_assert_eq, prop_compose, proptest};
 

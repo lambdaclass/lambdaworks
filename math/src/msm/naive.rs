@@ -1,5 +1,5 @@
 use crate::cyclic_group::IsGroup;
-use crate::unsigned_integer::traits::IsUnsignedInteger;
+use crate::unsigned_integer::u32_word::traits::IsUnsignedInteger;
 
 #[derive(Debug, thiserror::Error)]
 pub enum MSMError {

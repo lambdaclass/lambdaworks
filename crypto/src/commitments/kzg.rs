@@ -9,7 +9,7 @@ use lambdaworks_math::{
     msm::pippenger::msm,
     polynomial::Polynomial,
     traits::{Deserializable, Serializable},
-    unsigned_integer::element::UnsignedInteger,
+    unsigned_integer::u64_word::element::UnsignedInteger,
 };
 use std::{marker::PhantomData, mem};
 

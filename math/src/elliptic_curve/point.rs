@@ -65,7 +65,7 @@ mod tests {
     };
     use crate::elliptic_curve::short_weierstrass::curves::test_curve_2::TestCurve2;
     use crate::field::element::FieldElement;
-    use crate::unsigned_integer::element::U384;
+    use crate::unsigned_integer::u64_word::element::U384;
     //use crate::elliptic_curve::curves::test_curve_2::TestCurve2;
     use crate::elliptic_curve::traits::{EllipticCurveError, IsEllipticCurve};
     use crate::field::extensions::quadratic::QuadraticExtensionFieldElement;

@@ -3,7 +3,7 @@ use lambdaworks_math::{
         element::FieldElement,
         fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
     },
-    unsigned_integer::element::UnsignedInteger,
+    unsigned_integer::u64_word::element::UnsignedInteger,
 };
 
 /// Converts a hash, represented by an array of bytes, into a vector of field elements

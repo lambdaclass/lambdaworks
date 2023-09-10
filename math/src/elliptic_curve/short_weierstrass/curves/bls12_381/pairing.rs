@@ -14,7 +14,7 @@ use crate::{
         traits::IsPairing,
     },
     field::{element::FieldElement, extensions::cubic::HasCubicNonResidue},
-    unsigned_integer::element::UnsignedInteger,
+    unsigned_integer::u64_word::element::UnsignedInteger,
 };
 
 #[derive(Clone)]
@@ -214,7 +214,7 @@ fn final_exponentiation(
 mod tests {
     use crate::{
         cyclic_group::IsGroup, elliptic_curve::traits::IsEllipticCurve,
-        unsigned_integer::element::U384,
+        unsigned_integer::u64_word::element::U384,
     };
 
     use super::*;

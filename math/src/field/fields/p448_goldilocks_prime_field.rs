@@ -1,5 +1,5 @@
 use crate::field::traits::IsField;
-use crate::unsigned_integer::element::UnsignedInteger;
+use crate::unsigned_integer::u64_word::element::UnsignedInteger;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct P448GoldilocksPrimeField;

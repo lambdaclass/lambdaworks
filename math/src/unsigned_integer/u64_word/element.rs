@@ -15,7 +15,7 @@ use proptest::{
 use crate::errors::ByteConversionError;
 use crate::errors::CreationError;
 use crate::traits::ByteConversion;
-use crate::unsigned_integer::traits::IsUnsignedInteger;
+use crate::unsigned_integer::u32_word::traits::IsUnsignedInteger;
 
 use core::fmt::{self, Debug, Display};
 
@@ -970,7 +970,7 @@ impl<const NUM_LIMBS: usize> Arbitrary for UnsignedInteger<NUM_LIMBS> {
 mod tests_u384 {
 
     use crate::traits::ByteConversion;
-    use crate::unsigned_integer::element::{UnsignedInteger, U384};
+    use crate::unsigned_integer::u64_word::element::{UnsignedInteger, U384};
 
     #[cfg(feature = "proptest")]
     proptest! {
@@ -2020,9 +2020,9 @@ mod tests_u384 {
 #[cfg(test)]
 mod tests_u256 {
 
-    use crate::unsigned_integer::element::{UnsignedInteger, U256};
+    use crate::unsigned_integer::u64_word::element::{UnsignedInteger, U256};
 
-    use crate::unsigned_integer::element::ByteConversion;
+    use crate::unsigned_integer::u64_word::element::ByteConversion;
 
     #[cfg(feature = "proptest")]
     proptest! {

@@ -1,4 +1,4 @@
-use crate::unsigned_integer::element::U384;
+use crate::unsigned_integer::u64_word::element::U384;
 use crate::{
     field::{
         element::FieldElement,

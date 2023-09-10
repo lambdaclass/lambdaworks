@@ -1,4 +1,4 @@
-use crate::unsigned_integer::traits::IsUnsignedInteger;
+use crate::unsigned_integer::u32_word::traits::IsUnsignedInteger;
 
 pub trait IsGroup: Clone + PartialEq + Eq {
     /// Returns the neutral element of the group. The equality

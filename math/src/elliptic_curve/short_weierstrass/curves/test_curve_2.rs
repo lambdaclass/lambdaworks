@@ -3,7 +3,7 @@ use crate::elliptic_curve::traits::IsEllipticCurve;
 use crate::field::fields::montgomery_backed_prime_fields::{
     IsModulus, MontgomeryBackendPrimeField,
 };
-use crate::unsigned_integer::element::U384;
+use crate::unsigned_integer::u64_word::element::U384;
 use crate::{
     elliptic_curve::short_weierstrass::traits::IsShortWeierstrass,
     field::{
