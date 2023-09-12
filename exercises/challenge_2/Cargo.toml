@@ -1,0 +1,10 @@
+[package]
+name = "template_solution_srs_1"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+lambdaworks-crypto = { git = "https://github.com/lambdaclass/lambdaworks", rev = "366ac95" }
+lambdaworks-math= { git = "https://github.com/lambdaclass/lambdaworks", rev = "366ac95" }

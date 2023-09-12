@@ -63,7 +63,7 @@ pub fn starkfield_ops_benchmarks(c: &mut Criterion) {
     });
 
     group.bench_with_input("inv", &x, |bench, x| {
-        bench.iter(|| x.inv());
+        bench.iter(|| x.inv().unwrap());
     });
 
     group.bench_with_input("div", &(x, y), |bench, (x, y)| {

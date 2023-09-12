@@ -16,16 +16,22 @@ Zero-Knowledge and Validity Proofs have gained a lot of attention over the last 
 So, we decided to build our library, focusing on performance, with clear documentation and developer-focused. Our core team is a group of passionate people from different backgrounds and different strengths; we think that the whole is greater than just the addition of the parts. We don't want to be a compilation of every research result in the ZK space. We want this to be a library that can be used in production, not just in academic research. We want to offer developers the main building blocks and proof systems so that they can build their applications on top of this library.
 
 ## Provers and Polynomial Commitment Schemes using LambdaWorks
+
+All provers are being migrated to Lambdaworks library
+
+Right now Plonk prover is in this repo, you can find the others here:
+
 - [Cairo STARK LambdaWorks prover](https://github.com/lambdaclass/lambdaworks_cairo_prover/tree/main)
-- [Plonk LambdaWorks prover](https://github.com/lambdaclass/lambdaworks_plonk_prover)
 - [CairoVM Trace Generation using LambdaWorks](https://github.com/lambdaclass/cairo-rs/pull/1184)
 - [ABI compatible KZG commitment scheme - EIP-4844](https://github.com/lambdaclass/lambdaworks_kzg)
 
 ## Main crates
 
-- [Finite Field Algebra](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/field)
-- [Polynomial operations](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/polynomial.rs)
-- [Fast Fourier Transform](https://github.com/lambdaclass/lambdaworks/tree/main/fft)
+- [Math](https://github.com/lambdaclass/lambdaworks/tree/main/math)
+- [Crypto primitives](https://github.com/lambdaclass/lambdaworks/tree/main/crypto)
+- [Plonk Prover](https://github.com/lambdaclass/lambdaworks/tree/main/provers/plonk)
+
+### Crypto
 - [Elliptic curves](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/elliptic_curve)
 - [Multiscalar multiplication](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/msm)
 

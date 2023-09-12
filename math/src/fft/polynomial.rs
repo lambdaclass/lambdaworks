@@ -140,7 +140,7 @@ impl<F: IsFFTField> FFTPoly<F> for Polynomial<FieldElement<F>> {
         offset: &FieldElement<F>,
     ) -> Result<Polynomial<FieldElement<F>>, FFTError> {
         let scaled = Polynomial::interpolate_fft(fft_evals)?;
-        Ok(scaled.scale(&offset.inv()))
+        Ok(scaled.scale(&offset.inv().unwrap()))
     }
 }
 
@@ -182,7 +182,7 @@ where
 
     let coeffs = ops::fft(fft_evals, &twiddles)?;
 
-    let scale_factor = FieldElement::from(fft_evals.len() as u64).inv();
+    let scale_factor = FieldElement::from(fft_evals.len() as u64).inv().unwrap();
     Ok(Polynomial::new(&coeffs).scale_coeffs(&scale_factor))
 }
 

@@ -36,6 +36,6 @@ where
 
     let coeffs = fft(fft_evals, &twiddles, &metal_state)?;
 
-    let scale_factor = FieldElement::from(fft_evals.len() as u64).inv();
+    let scale_factor = FieldElement::from(fft_evals.len() as u64).inv().unwrap();
     Ok(Polynomial::new(&coeffs).scale_coeffs(&scale_factor))
 }

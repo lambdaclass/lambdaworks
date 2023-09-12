@@ -5,6 +5,7 @@ use crate::errors::CreationError;
 #[cfg(feature = "std")]
 use crate::errors::DeserializationError;
 use crate::field::element::FieldElement;
+use crate::field::errors::FieldError;
 use crate::field::traits::{IsFFTField, IsField, IsPrimeField};
 #[cfg(feature = "std")]
 use crate::traits::{ByteConversion, Deserializable, Serializable};
@@ -42,12 +43,14 @@ impl<const MODULUS: u64> IsField for U64PrimeField<MODULUS> {
     }
 
     fn div(a: &u64, b: &u64) -> u64 {
-        Self::mul(a, &Self::inv(b))
+        Self::mul(a, &Self::inv(b).unwrap())
     }
 
-    fn inv(a: &u64) -> u64 {
-        debug_assert_ne!(*a, 0, "Cannot invert zero element");
-        Self::pow(a, MODULUS - 2)
+    fn inv(a: &u64) -> Result<u64, FieldError> {
+        if *a == 0 {
+            return Err(FieldError::InvZeroError);
+        }
+        Ok(Self::pow(a, MODULUS - 2))
     }
 
     fn eq(a: &u64, b: &u64) -> bool {
@@ -245,15 +248,15 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
     fn inv_0_error() {
-        FE::new(0).inv();
+        let result = FE::new(0).inv();
+        assert!(matches!(result, Err(FieldError::InvZeroError)));
     }
 
     #[test]
     fn inv_2() {
         let a: FE = FE::new(2);
-        assert_eq!(a * a.inv(), FE::new(1));
+        assert_eq!(a * a.inv().unwrap(), FE::new(1));
     }
 
     #[test]
