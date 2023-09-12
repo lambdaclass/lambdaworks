@@ -168,7 +168,7 @@ where
 mod tests {
     use lambdaworks_math::{
         field::fields::montgomery_backed_prime_fields::{IsModulus, U384PrimeField},
-        unsigned_integer::element::U384,
+        unsigned_integer::u64_word::element::U384,
     };
 
     use super::*;

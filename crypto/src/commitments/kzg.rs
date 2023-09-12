@@ -269,7 +269,7 @@ mod tests {
         field::element::FieldElement,
         polynomial::Polynomial,
         traits::{Deserializable, Serializable},
-        unsigned_integer::element::U256,
+        unsigned_integer::u64_word::element::U256,
     };
 
     use crate::commitments::traits::IsCommitmentScheme;

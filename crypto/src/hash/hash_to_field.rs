@@ -72,7 +72,7 @@ mod tests {
             element::FieldElement,
             fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
         },
-        unsigned_integer::element::UnsignedInteger,
+        unsigned_integer::u64_word::element::UnsignedInteger,
     };
 
     use crate::hash::{hash_to_field::hash_to_field, sha3::Sha3Hasher};

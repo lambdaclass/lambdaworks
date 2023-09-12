@@ -1,4 +1,4 @@
-// // Uint representation and operation using 32-bit limbs. Let the cryptography spread everywhere!!!
+// Uint representation and operation using 32-bit limbs. Let the cryptography spread everywhere!!!
 
 use core::cmp::Ordering;
 use core::convert::From;
@@ -598,8 +598,8 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
             i -= 1;
             let (x, cb) = a.limbs[i].overflowing_sub(b.limbs[i]);
             let (x, cc) = x.overflowing_sub(carry as u32);
-            // Casting i128 to u32 drops the most significant bits of i128,
-            // which effectively computes residue modulo 2^{64}
+            // Casting i64 to u32 drops the most significant bits of i64,
+            // which effectively computes residue modulo 2^{32}
             // 2.1
             limbs[i] = x;
             // 2.2
@@ -636,7 +636,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
                     k -= NUM_LIMBS - 1;
                     let uv = (lo[k] as u64) + (a.limbs[j] as u64) * (b.limbs[i] as u64) + carry;
                     carry = uv >> 32;
-                    // Casting u64 to u32 takes modulo 2^{64}
+                    // Casting u64 to u32 takes modulo 2^{32}
                     lo[k] = uv as u32;
                 } else {
                     let uv =
