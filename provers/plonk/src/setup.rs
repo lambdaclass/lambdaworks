@@ -29,7 +29,7 @@ impl<F: IsField> Witness<F> {
             c: abc[2 * n..].to_vec(),
         }
     }
-    
+
     // Getters
     pub fn get_a(&self) -> &Vec<FieldElement<F>> {
         &self.a
