@@ -11,7 +11,6 @@ use lambdaworks_math::field::{element::FieldElement, traits::IsField};
 use lambdaworks_math::polynomial::Polynomial;
 use lambdaworks_math::traits::{ByteConversion, Serializable};
 
-// TODO: implement getters
 pub struct Witness<F: IsField> {
     pub a: Vec<FieldElement<F>>,
     pub b: Vec<FieldElement<F>>,
@@ -30,9 +29,21 @@ impl<F: IsField> Witness<F> {
             c: abc[2 * n..].to_vec(),
         }
     }
+    
+    // Getters
+    pub fn get_a(&self) -> &Vec<FieldElement<F>> {
+        &self.a
+    }
+
+    pub fn get_b(&self) -> &Vec<FieldElement<F>> {
+        &self.b
+    }
+
+    pub fn get_c(&self) -> &Vec<FieldElement<F>> {
+        &self.c
+    }
 }
 
-// TODO: implement getters
 #[derive(Clone)]
 pub struct CommonPreprocessedInput<F: IsField> {
     pub n: usize,
@@ -98,6 +109,66 @@ impl<F: IsFFTField> CommonPreprocessedInput<F> {
             s2_lagrange,
             s3_lagrange,
         }
+    }
+
+    //Getters
+    pub fn get_n(&self) -> usize {
+        self.n
+    }
+
+    pub fn get_domain(&self) -> &Vec<FieldElement<F>> {
+        &self.domain
+    }
+
+    pub fn get_omega(&self) -> &FieldElement<F> {
+        &self.omega
+    }
+
+    pub fn get_k1(&self) -> &FieldElement<F> {
+        &self.k1
+    }
+
+    pub fn get_ql(&self) -> &Polynomial<FieldElement<F>> {
+        &self.ql
+    }
+
+    pub fn get_qr(&self) -> &Polynomial<FieldElement<F>> {
+        &self.qr
+    }
+    pub fn get_qo(&self) -> &Polynomial<FieldElement<F>> {
+        &self.qo
+    }
+
+    pub fn get_qm(&self) -> &Polynomial<FieldElement<F>> {
+        &self.qm
+    }
+
+    pub fn get_qc(&self) -> &Polynomial<FieldElement<F>> {
+        &self.qc
+    }
+
+    pub fn get_s1(&self) -> &Polynomial<FieldElement<F>> {
+        &self.s1
+    }
+
+    pub fn get_s2(&self) -> &Polynomial<FieldElement<F>> {
+        &self.s2
+    }
+
+    pub fn get_s3(&self) -> &Polynomial<FieldElement<F>> {
+        &self.s3
+    }
+
+    pub fn get_s1_lagrange(&self) -> &Vec<FieldElement<F>> {
+        &self.s1_lagrange
+    }
+
+    pub fn get_s2_lagrange(&self) -> &Vec<FieldElement<F>> {
+        &self.s2_lagrange
+    }
+
+    pub fn get_s3_lagrange(&self) -> &Vec<FieldElement<F>> {
+        &self.s3_lagrange
     }
 }
 
