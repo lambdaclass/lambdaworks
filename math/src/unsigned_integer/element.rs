@@ -22,6 +22,7 @@ use core::fmt::{self, Debug, Display};
 pub type U384 = UnsignedInteger<6>;
 pub type U256 = UnsignedInteger<4>;
 pub type U128 = UnsignedInteger<2>;
+pub type U64 = UnsignedInteger<1>;
 
 /// A big unsigned integer in base 2^{64} represented
 /// as fixed-size array `limbs` of `u64` components.
