@@ -1,9 +1,9 @@
 use crate::errors::CreationError;
 use crate::field::errors::FieldError;
 use crate::field::traits::IsField;
+use crate::unsigned_integer::u32_word::traits::IsUnsignedInteger;
 use crate::unsigned_integer::u64_word::element::UnsignedInteger;
 use crate::unsigned_integer::u64_word::montgomery::MontgomeryAlgorithms;
-use crate::unsigned_integer::u32_word::traits::IsUnsignedInteger;
 use core::fmt;
 use core::fmt::Debug;
 use core::iter::Sum;

@@ -14,10 +14,10 @@ use proptest::{
     strategy::{SBoxedStrategy, Strategy},
 };
 
+use super::traits::IsUnsignedInteger;
 use crate::errors::ByteConversionError;
 use crate::errors::CreationError;
 use crate::traits::ByteConversion;
-use super::traits::IsUnsignedInteger;
 
 use core::fmt::{self, Debug, Display};
 
@@ -305,7 +305,7 @@ impl<const NUM_LIMBS: usize> ShrAssign<usize> for UnsignedInteger<NUM_LIMBS> {
             self.limbs.copy_within(..NUM_LIMBS - a, a);
         } else {
             for i in (a + 1..NUM_LIMBS).rev() {
-                self.limbs[i] = (self.limbs[i - a] >> b) | (self.limbs[i - a - 1] << (64 - b));
+                self.limbs[i] = (self.limbs[i - a] >> b) | (self.limbs[i - a - 1] << (32 - b));
             }
             self.limbs[a] = self.limbs[0] >> b;
         }
@@ -639,8 +639,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
                     // Casting u64 to u32 takes modulo 2^{32}
                     lo[k] = uv as u32;
                 } else {
-                    let uv =
-                        (hi[k + 1] as u64) + (a.limbs[j] as u64) * (b.limbs[i] as u64) + carry;
+                    let uv = (hi[k + 1] as u64) + (a.limbs[j] as u64) * (b.limbs[i] as u64) + carry;
                     carry = uv >> 32;
                     // Casting u64 to u32 takes modulo 2^{64}
                     hi[k + 1] = uv as u32;
@@ -1126,7 +1125,6 @@ mod tests_u384_32word {
 
         let exp5 = (&a + &c) * &d;
         let exp6 = &a * &d + &c * &d;
-        assert_eq!(exp5, exp6); 
+        assert_eq!(exp5, exp6);
     }*/
-
 }

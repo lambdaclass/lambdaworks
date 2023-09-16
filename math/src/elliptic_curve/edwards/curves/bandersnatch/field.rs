@@ -5,7 +5,7 @@ use crate::{
         element::FieldElement,
         fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
     },
-    unsigned_integer::element::U256,
+    unsigned_integer::u64_word::element::U256,
 };
 
 pub const BANDERSNATCH_PRIME_FIELD_ORDER: U256 =

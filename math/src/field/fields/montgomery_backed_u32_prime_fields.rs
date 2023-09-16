@@ -1,4 +1,5 @@
 use crate::field::element::FieldElement;
+use crate::field::errors::FieldError;
 use crate::field::traits::IsPrimeField;
 use crate::traits::ByteConversion;
 use crate::{
@@ -162,9 +163,9 @@ where
     }
 
     #[inline(always)]
-    fn inv(a: &Self::BaseType) -> Self::BaseType {
+    fn inv(a: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
         if a == &Self::ZERO {
-            panic!("Division by zero error.")
+            Err(FieldError::DivisionByZero)
         } else {
             // Guajardo Kumar Paar Pelzl
             // Efficient Software-Implementation of Finite Fields with Applications to
@@ -173,10 +174,10 @@ where
 
             //These can be done with const  functions
             let one: UnsignedInteger<NUM_LIMBS> = UnsignedInteger::from_u32(1);
-            let modulus: UnsignedInteger<NUM_LIMBS> = M::MODULUS;
+            let modulus = M::MODULUS;
             let modulus_has_spare_bits = M::MODULUS.limbs[0] >> 31 == 0;
 
-            let mut u: UnsignedInteger<NUM_LIMBS> = *a;
+            let mut u = *a;
             let mut v = M::MODULUS;
             let mut b = Self::R2; // Avoids unnecessary reduction step.
             let mut c = Self::zero();
@@ -227,16 +228,17 @@ where
             }
 
             if u == one {
-                b
+                Ok(b)
             } else {
-                c
+                Ok(c)
             }
         }
     }
 
     #[inline(always)]
     fn div(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
-        Self::mul(a, &Self::inv(b))
+
+        Self::mul(a, &Self::inv(b).unwrap())
     }
 
     #[inline(always)]
@@ -350,15 +352,16 @@ where
 mod tests_u384_prime_fields_u32_limb {
     use crate::field::element::FieldElement;
     use crate::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
-    use crate::field::fields::montgomery_backed_prime_fields::{
-        IsModulus, U256PrimeField, U384PrimeField,
-    };
     use crate::field::traits::IsField;
     use crate::field::traits::IsPrimeField;
     #[cfg(feature = "std")]
     use crate::traits::ByteConversion;
     use crate::unsigned_integer::u32_word::element::U384;
     use crate::unsigned_integer::u32_word::element::{UnsignedInteger, U256};
+    
+    use super::U256PrimeField32;
+    use super::U384PrimeField32;
+    use super::IsModulus;
 
     #[derive(Clone, Debug)]
     struct U384Modulus23;
@@ -366,17 +369,12 @@ mod tests_u384_prime_fields_u32_limb {
         const MODULUS: U384 = UnsignedInteger::from_u32(23);
     }
 
-    type U384F23 = U384PrimeField<U384Modulus23>;
+    type U384F23 = U384PrimeField32<U384Modulus23>;
     type U384F23Element = FieldElement<U384F23>;
 
     #[test]
     fn u384_mod_23_uses_5_bits() {
         assert_eq!(U384F23::field_bit_size(), 5);
-    }
-
-    #[test]
-    fn stark_252_prime_field_uses_252_bits() {
-        assert_eq!(Stark252PrimeField::field_bit_size(), 252);
     }
 
     #[test]
@@ -386,7 +384,7 @@ mod tests_u384_prime_fields_u32_limb {
         impl IsModulus<U256> for U256Modulus1 {
             const MODULUS: U256 = UnsignedInteger::from_u32(2);
         }
-        type U256OneField = U256PrimeField<U256Modulus1>;
+        type U256OneField = U256PrimeField32<U256Modulus1>;
         assert_eq!(U256OneField::field_bit_size(), 1);
     }
 
@@ -399,15 +397,12 @@ mod tests_u384_prime_fields_u32_limb {
                 "F0000000F0000000F0000000F0000000F0000000F0000000F0000000F0000000",
             );
         }
-        type U256OneField = U256PrimeField<U256ModulusBig>;
+        type U256OneField = U256PrimeField32<U256ModulusBig>;
         assert_eq!(U256OneField::field_bit_size(), 256);
     }
 
     #[test]
     fn montgomery_backend_primefield_compute_mu_parameter() {
-        assert_eq!(U384F23::MU, 3208129404123400281);
+        assert_eq!(U384F23::MU, 373475417);
     }
-
-    type FP2 = U256PrimeField<ModulusP2>;
-    type FP2Element = FieldElement<FP2>;
 }
