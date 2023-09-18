@@ -77,6 +77,14 @@ jobs:
     env:
       CARGO_TERM_COLOR: always
     steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          components: clippy
+
+      - name: Set up cargo cache
+        uses: Swatinem/rust-cache@v2
 
       - name: Python3 build
         uses: actions/setup-python@v4
@@ -86,15 +94,6 @@ jobs:
 
       - name: Install cairo-lang toolchain and dependencies
         run: pip install -r requirements.txt
-
-      - uses: actions/checkout@v3
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: stable
-          components: clippy
-
-      - name: Set up cargo cache
-        uses: Swatinem/rust-cache@v2
 
       - name: Run tests with no std
         run: cargo test --package lambdaworks-math --no-default-features
