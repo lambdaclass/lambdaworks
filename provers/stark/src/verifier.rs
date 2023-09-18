@@ -249,7 +249,7 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
         .into_iter()
         .unzip();
 
-    FieldElement::inplace_batch_inverse(&mut boundary_c_i_evaluations_den);
+    FieldElement::inplace_batch_inverse(&mut boundary_c_i_evaluations_den).unwrap();
 
     let boundary_degree_z = challenges.z.pow(boundary_term_degree_adjustment);
     let boundary_quotient_ood_evaluation: FieldElement<F> = boundary_c_i_evaluations_num
@@ -373,7 +373,7 @@ where
         .iter()
         .map(|iota_n| &domain.lde_roots_of_unity_coset[*iota_n] - z_squared)
         .collect::<Vec<FieldElement<F>>>();
-    FieldElement::inplace_batch_inverse(&mut denom_inv);
+    FieldElement::inplace_batch_inverse(&mut denom_inv).unwrap();
 
     challenges
         .iotas
@@ -431,7 +431,7 @@ where
                             - &challenges.z * primitive_root.pow(row_idx as u64)
                     })
                     .collect::<Vec<FieldElement<F>>>();
-                FieldElement::inplace_batch_inverse(&mut divisors);
+                FieldElement::inplace_batch_inverse(&mut divisors).unwrap();
                 let deep_poly_evaluation = reconstruct_deep_composition_poly_evaluation(
                     proof, challenges, denom_inv, &divisors, i,
                 );

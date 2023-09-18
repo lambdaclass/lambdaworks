@@ -66,7 +66,7 @@ impl<F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
                         .iter()
                         .map(|v| v.clone() - point)
                         .collect::<Vec<FieldElement<F>>>();
-                    FieldElement::inplace_batch_inverse(&mut evals);
+                    FieldElement::inplace_batch_inverse(&mut evals).unwrap();
                     evals
                 })
                 .collect::<Vec<Vec<FieldElement<F>>>>();
@@ -174,7 +174,7 @@ impl<F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
         .map(|v| v - &one)
         .collect::<Vec<_>>();
 
-        FieldElement::inplace_batch_inverse(&mut zerofier_evaluations);
+        FieldElement::inplace_batch_inverse(&mut zerofier_evaluations).unwrap();
 
         // Iterate over trace and domain and compute transitions
         let evaluations_t_iter;
