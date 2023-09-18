@@ -73,6 +73,11 @@ build-cuda:
 docs:
 	cd docs && mdbook serve --open
 
+STARK_DESERIALIZE_FUZZER = deserialize_stark_proof
+proof-deserializer-fuzzer:
+		cd fuzz/deserialize_stark_proof
+		cargo +nightly fuzz run --fuzz-dir . $(STARK_DESERIALIZE_FUZZER)
+		
 FUZZER = field_from_hex
 run-no-gpu-fuzzer:
 		cd fuzz/no_gpu_fuzz
