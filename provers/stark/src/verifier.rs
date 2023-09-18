@@ -264,7 +264,9 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
         &challenges.rap_challenges,
     );
 
-    let denominator = (&challenges.z.pow(trace_length) - FieldElement::<F>::one()).inv().unwrap();
+    let denominator = (&challenges.z.pow(trace_length) - FieldElement::<F>::one())
+        .inv()
+        .unwrap();
 
     let exemption = air
         .transition_exemptions_verifier(
