@@ -77,6 +77,16 @@ jobs:
     env:
       CARGO_TERM_COLOR: always
     steps:
+
+      - name: Python3 build
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+          cache: "pip"
+
+      - name: Install cairo-lang toolchain and dependencies
+        run: pip install -r requirements.txt
+
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -108,12 +118,6 @@ jobs:
     env:
       CARGO_TERM_COLOR: always
     steps:
-
-      - name: Python3 build
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.9"
-          cache: "pip"
 
       - name: Install cairo-lang toolchain and dependencies
         run: pip install -r requirements.txt
