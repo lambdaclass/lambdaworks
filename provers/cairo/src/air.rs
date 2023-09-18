@@ -584,8 +584,7 @@ fn generate_memory_permutation_argument_column(
         .zip(values_sorted)
         .map(|(ap, vp)| z - (ap + alpha * vp))
         .collect();
-    FieldElement::inplace_batch_inverse(&mut denom)
-    .unwrap();
+    FieldElement::inplace_batch_inverse(&mut denom).unwrap();
     // Returns the cumulative products of the numerators and denominators
     addresses_original
         .iter()
@@ -606,8 +605,7 @@ fn generate_range_check_permutation_argument_column(
     let z = &rap_challenges.z_range_check;
 
     let mut denom: Vec<_> = offset_column_sorted.iter().map(|x| z - x).collect();
-    FieldElement::inplace_batch_inverse(&mut denom)
-    .unwrap();
+    FieldElement::inplace_batch_inverse(&mut denom).unwrap();
 
     offset_column_original
         .iter()
