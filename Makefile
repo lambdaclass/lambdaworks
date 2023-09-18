@@ -52,7 +52,7 @@ build-metal:
 clippy-metal:
 	cargo clippy --workspace --all-targets -F metal -- -D warnings
 
-test-metal:
+test-metal: $(COMPILED_CAIRO0_PROGRAMS)
 	cargo test -F metal
 
 CUDA_DIR = math/src/gpu/cuda/shaders
