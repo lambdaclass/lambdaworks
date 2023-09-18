@@ -93,7 +93,7 @@ jobs:
         uses: taiki-e/install-action@cargo-llvm-cov
 
       - name: Run tests and generate code coverage
-        run: cargo llvm-cov --lcov --output-path lcov.info
+        run: make coverage
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
