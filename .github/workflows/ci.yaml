@@ -117,11 +117,8 @@ jobs:
     env:
       CARGO_TERM_COLOR: always
     steps:
-
-      - name: Install cairo-lang toolchain and dependencies
-        run: pip install -r requirements.txt
-
       - uses: actions/checkout@v3
+
       - name: Rustup toolchain install
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -130,5 +127,6 @@ jobs:
 
       - name: Run clippy
         run: make clippy-metal
+        
       - name: Run tests
         run: make test-metal
