@@ -1,13 +1,16 @@
-use lambdaworks_math::field::{fields::{
-    fft_friendly::stark_252_prime_field::Stark252PrimeField,
-    u64_prime_field::{F17, FE17},
-}, element::FieldElement};
+use lambdaworks_math::field::{
+    element::FieldElement,
+    fields::{
+        fft_friendly::stark_252_prime_field::Stark252PrimeField,
+        u64_prime_field::{F17, FE17},
+    },
+};
 
 use crate::{
     examples::{
         dummy_air::{self, DummyAIR},
-        fibonacci_2_columns::{self, Fibonacci2ColsAIR},
         fibonacci_2_cols_shifted::{self, Fibonacci2ColsShifted},
+        fibonacci_2_columns::{self, Fibonacci2ColsAIR},
         fibonacci_rap::{fibonacci_rap_trace, FibonacciRAP, FibonacciRAPPublicInputs},
         quadratic_air::{self, QuadraticAIR, QuadraticPublicInputs},
         simple_fibonacci::{self, FibonacciAIR, FibonacciPublicInputs},
@@ -70,8 +73,7 @@ fn test_prove_fib17() {
 
 #[test_log::test]
 fn test_prove_fib_2_cols() {
-    let trace =
-        fibonacci_2_columns::compute_trace([Felt252::from(1), Felt252::from(1)], 16);
+    let trace = fibonacci_2_columns::compute_trace([Felt252::from(1), Felt252::from(1)], 16);
 
     let proof_options = ProofOptions::default_test_options();
 
@@ -105,16 +107,14 @@ fn test_prove_fib_2_cols_shifted() {
         claimed_index,
     };
 
-    let proof = prove::<Stark252PrimeField, Fibonacci2ColsShifted<_>>(
-        &trace,
+    let proof =
+        prove::<Stark252PrimeField, Fibonacci2ColsShifted<_>>(&trace, &pub_inputs, &proof_options)
+            .unwrap();
+    assert!(verify::<Stark252PrimeField, Fibonacci2ColsShifted<_>>(
+        &proof,
         &pub_inputs,
-        &proof_options,
-    )
-    .unwrap();
-    assert!(verify::<
-        Stark252PrimeField,
-        Fibonacci2ColsShifted<_>,
-    >(&proof, &pub_inputs, &proof_options));
+        &proof_options
+    ));
 }
 
 #[test_log::test]

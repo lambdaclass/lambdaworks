@@ -140,10 +140,11 @@ pub fn compute_trace<F: IsFFTField>(
     TraceTable::new_from_cols(&[col0, col1])
 }
 
-
 #[cfg(test)]
-mod tests{
-    use lambdaworks_math::field::{element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField};
+mod tests {
+    use lambdaworks_math::field::{
+        element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+    };
 
     use super::compute_trace;
 
@@ -159,13 +160,37 @@ mod tests{
     #[test]
     fn trace_of_8_rows_is_correctly_calculated() {
         let trace = compute_trace(FieldElement::<Stark252PrimeField>::one(), 8);
-        assert_eq!(trace.get_row(0), vec![FieldElement::one(), FieldElement::one()]);
-        assert_eq!(trace.get_row(1), vec![FieldElement::one(), FieldElement::from(2)]);
-        assert_eq!(trace.get_row(2), vec![FieldElement::from(2), FieldElement::from(3)]);
-        assert_eq!(trace.get_row(3), vec![FieldElement::from(3), FieldElement::from(5)]);
-        assert_eq!(trace.get_row(4), vec![FieldElement::from(5), FieldElement::from(8)]);
-        assert_eq!(trace.get_row(5), vec![FieldElement::from(8), FieldElement::from(13)]);
-        assert_eq!(trace.get_row(6), vec![FieldElement::from(13), FieldElement::from(21)]);
-        assert_eq!(trace.get_row(7), vec![FieldElement::from(21), FieldElement::from(34)]);
+        assert_eq!(
+            trace.get_row(0),
+            vec![FieldElement::one(), FieldElement::one()]
+        );
+        assert_eq!(
+            trace.get_row(1),
+            vec![FieldElement::one(), FieldElement::from(2)]
+        );
+        assert_eq!(
+            trace.get_row(2),
+            vec![FieldElement::from(2), FieldElement::from(3)]
+        );
+        assert_eq!(
+            trace.get_row(3),
+            vec![FieldElement::from(3), FieldElement::from(5)]
+        );
+        assert_eq!(
+            trace.get_row(4),
+            vec![FieldElement::from(5), FieldElement::from(8)]
+        );
+        assert_eq!(
+            trace.get_row(5),
+            vec![FieldElement::from(8), FieldElement::from(13)]
+        );
+        assert_eq!(
+            trace.get_row(6),
+            vec![FieldElement::from(13), FieldElement::from(21)]
+        );
+        assert_eq!(
+            trace.get_row(7),
+            vec![FieldElement::from(21), FieldElement::from(34)]
+        );
     }
 }
