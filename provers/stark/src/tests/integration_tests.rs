@@ -71,7 +71,7 @@ fn test_prove_fib17() {
 #[test_log::test]
 fn test_prove_fib_2_cols() {
     let trace =
-        fibonacci_2_columns::fibonacci_trace_2_columns([Felt252::from(1), Felt252::from(1)], 16);
+        fibonacci_2_columns::compute_trace([Felt252::from(1), Felt252::from(1)], 16);
 
     let proof_options = ProofOptions::default_test_options();
 
