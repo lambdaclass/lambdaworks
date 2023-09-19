@@ -2,6 +2,8 @@ use super::field_extension::BLS12381PrimeField;
 use crate::cyclic_group::IsGroup;
 use crate::elliptic_curve::short_weierstrass::curves::bls12_381::curve::BLS12381Curve;
 use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
+use crate::elliptic_curve::short_weierstrass::traits::IsShortWeierstrass;
+use crate::elliptic_curve::traits::FromAffine;
 use crate::field::element::FieldElement;
 use crate::unsigned_integer::element::U256;
 
@@ -14,12 +16,14 @@ use std::{cmp::Ordering, ops::Neg};
 
 pub type G1Point = ShortWeierstrassProjectivePoint<BLS12381Curve>;
 pub type BLS12381FieldElement = FieldElement<BLS12381PrimeField>;
-const MODULUS: U256 =
+pub const SUBGROUP_ORDER: U256 =
     U256::from_hex_unchecked("73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001");
 
-pub fn check_point_is_in_subgroup(point: &G1Point) -> bool {
-    let inf = G1Point::neutral_element();
-    let aux_point = point.operate_with_self(MODULUS);
+pub fn check_point_is_in_subgroup<SW: IsShortWeierstrass>(
+    point: &ShortWeierstrassProjectivePoint<SW>,
+) -> bool {
+    let inf = ShortWeierstrassProjectivePoint::<SW>::neutral_element();
+    let aux_point = point.operate_with_self(SUBGROUP_ORDER);
     inf == aux_point
 }
 

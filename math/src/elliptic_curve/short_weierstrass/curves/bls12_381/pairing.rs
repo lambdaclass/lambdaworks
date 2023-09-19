@@ -1,16 +1,22 @@
-use super::field_extension::{Degree12ExtensionField, Degree2ExtensionField};
-use crate::{
-    elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::Degree6ExtensionField,
-    field::element::FieldElement, unsigned_integer::element::UnsignedInteger,
+use super::{
+    compression::check_point_is_in_subgroup,
+    curve::BLS12381Curve,
+    field_extension::{Degree12ExtensionField, Degree2ExtensionField},
+    twist::BLS12381TwistCurve,
 };
-
-use super::{curve::BLS12381Curve, twist::BLS12381TwistCurve};
 use crate::{
     cyclic_group::IsGroup,
-    elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::LevelTwoResidue,
-    elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint,
-    elliptic_curve::short_weierstrass::traits::IsShortWeierstrass,
-    elliptic_curve::traits::IsPairing, field::extensions::cubic::HasCubicNonResidue,
+    elliptic_curve::{
+        short_weierstrass::{
+            curves::bls12_381::field_extension::{Degree6ExtensionField, LevelTwoResidue},
+            point::ShortWeierstrassProjectivePoint,
+            traits::IsShortWeierstrass,
+        },
+        traits::IsPairing,
+    },
+    errors::PairingError,
+    field::{element::FieldElement, extensions::cubic::HasCubicNonResidue},
+    unsigned_integer::element::UnsignedInteger,
 };
 
 #[derive(Clone)]
@@ -21,18 +27,23 @@ impl IsPairing for BLS12381AtePairing {
     type OutputField = Degree12ExtensionField;
 
     /// Compute the product of the ate pairings for a list of point pairs.
+    //NOTE: Should we switch this to an result?
+    //Should we continue and skip elements if it doesn't work out
     fn compute_batch(
         pairs: &[(&Self::G1Point, &Self::G2Point)],
-    ) -> FieldElement<Self::OutputField> {
+    ) -> Result<FieldElement<Self::OutputField>, PairingError> {
         let mut result = FieldElement::one();
         for (p, q) in pairs {
+            if !check_point_is_in_subgroup(p) || !check_point_is_in_subgroup(q) {
+                return Err(PairingError::PointNotInSubgroup);
+            }
             if !p.is_neutral_element() && !q.is_neutral_element() {
                 let p = p.to_affine();
                 let q = q.to_affine();
                 result = result * miller(&q, &p);
             }
         }
-        final_exponentiation(&result)
+        Ok(final_exponentiation(&result))
     }
 }
 
@@ -255,7 +266,8 @@ mod tests {
                 &p.operate_with_self(a * b).to_affine(),
                 &q.neg().to_affine(),
             ),
-        ]);
+        ])
+        .unwrap();
         assert_eq!(result, FieldElement::one());
     }
 
@@ -263,12 +275,12 @@ mod tests {
     fn ate_pairing_returns_one_when_one_element_is_the_neutral_element() {
         let p = BLS12381Curve::generator().to_affine();
         let q = ShortWeierstrassProjectivePoint::neutral_element();
-        let result = BLS12381AtePairing::compute_batch(&[(&p.to_affine(), &q)]);
+        let result = BLS12381AtePairing::compute_batch(&[(&p.to_affine(), &q)]).unwrap();
         assert_eq!(result, FieldElement::one());
 
         let p = ShortWeierstrassProjectivePoint::neutral_element();
         let q = BLS12381TwistCurve::generator();
-        let result = BLS12381AtePairing::compute_batch(&[(&p, &q.to_affine())]);
+        let result = BLS12381AtePairing::compute_batch(&[(&p, &q.to_affine())]).unwrap();
         assert_eq!(result, FieldElement::one());
     }
 }
