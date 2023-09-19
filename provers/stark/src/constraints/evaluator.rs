@@ -39,8 +39,8 @@ impl<F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
         &self,
         lde_trace: &TraceTable<F>,
         domain: &Domain<F>,
-        alpha_and_beta_transition_coefficients: &[(FieldElement<F>, FieldElement<F>)],
-        alpha_and_beta_boundary_coefficients: &[(FieldElement<F>, FieldElement<F>)],
+        alpha_and_beta_transition_coefficients: &[FieldElement<F>],
+        alpha_and_beta_boundary_coefficients: &[FieldElement<F>],
         rap_challenges: &A::RAPChallenges,
     ) -> ConstraintEvaluationTable<F>
     where
@@ -103,7 +103,7 @@ impl<F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
             .map(|i| {
                 (0..number_of_b_constraints)
                     .zip(alpha_and_beta_boundary_coefficients)
-                    .fold(FieldElement::zero(), |acc, (index, (_, beta))| {
+                    .fold(FieldElement::zero(), |acc, (index, beta)| {
                         acc + &boundary_zerofiers_inverse_evaluations[index][i]
                             * beta
                             * &boundary_polys_evaluations[index][i]
@@ -184,7 +184,7 @@ impl<F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
                     .zip(alpha_and_beta_transition_coefficients)
                     .fold(
                         FieldElement::zero(),
-                        |acc, (((eval, exemption), _), (_, beta))| {
+                        |acc, (((eval, exemption), _), beta)| {
                             #[cfg(feature = "parallel")]
                             let zerofier = zerofier.clone();
 
