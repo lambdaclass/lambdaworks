@@ -221,8 +221,6 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
     //let n_trace_cols = air.context().trace_columns;
     // special cases.
     let trace_length = air.trace_length();
-    let composition_poly_degree_bound = air.composition_poly_degree_bound();
-    let boundary_term_degree_adjustment = composition_poly_degree_bound - trace_length;
     let number_of_b_constraints = boundary_constraints.constraints.len();
 
     // Following naming conventions from https://www.notamonadtutorial.com/diving-deep-fri/
@@ -251,12 +249,11 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
 
     FieldElement::inplace_batch_inverse(&mut boundary_c_i_evaluations_den).unwrap();
 
-    let boundary_degree_z = challenges.z.pow(boundary_term_degree_adjustment);
     let boundary_quotient_ood_evaluation: FieldElement<F> = boundary_c_i_evaluations_num
         .iter()
         .zip(&boundary_c_i_evaluations_den)
         .zip(&challenges.boundary_coeffs)
-        .map(|((num, den), (alpha, beta))| num * den * (alpha * &boundary_degree_z + beta))
+        .map(|((num, den), (_, beta))| num * den * beta)
         .fold(FieldElement::<F>::zero(), |acc, x| acc + x);
 
     let transition_ood_frame_evaluations = air.compute_transition(
@@ -276,19 +273,6 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
         .map(|poly| poly.evaluate(&challenges.z))
         .collect::<Vec<FieldElement<F>>>();
 
-    let max_degree = air
-        .context()
-        .transition_degrees()
-        .iter()
-        .max()
-        .expect("has maximum degree");
-    let degree_adjustments = (1..=*max_degree)
-        .map(|transition_degree| {
-            let degree_adjustment =
-                composition_poly_degree_bound - (trace_length * (transition_degree - 1));
-            challenges.z.pow(degree_adjustment)
-        })
-        .collect::<Vec<FieldElement<F>>>();
     let unity = &FieldElement::one();
     let transition_c_i_evaluations_sum = transition_ood_frame_evaluations
         .iter()
@@ -297,15 +281,12 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
         .zip(&challenges.transition_coeffs)
         .fold(
             FieldElement::zero(),
-            |acc, (((eval, degree), except), (alpha, beta))| {
+            |acc, (((eval, _), except), (_, beta))| {
                 let except = except
                     .checked_sub(1)
                     .map(|i| &exemption[i])
                     .unwrap_or(unity);
-                acc + &denominator
-                    * eval
-                    * (alpha * &degree_adjustments[degree - 1] + beta)
-                    * except
+                acc + &denominator * eval * beta * except
             },
         );
 
