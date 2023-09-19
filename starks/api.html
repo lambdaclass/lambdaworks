@@ -1,0 +1,350 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js light">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>High Level API - docs</title>
+                
+
+        <!-- Custom HTML head -->
+        
+
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+                <link rel="icon" href="../favicon.svg">
+                        <link rel="shortcut icon" href="../favicon.png">
+                <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+                <link rel="stylesheet" href="../css/print.css" media="print">
+        
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+                <link rel="stylesheet" href="../fonts/fonts.css">
+        
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../highlight.css">
+        <link rel="stylesheet" href="../tomorrow-night.css">
+        <link rel="stylesheet" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        
+            </head>
+    <body>
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded "><a href="../introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><div><strong aria-hidden="true">2.</strong> FFT Library</div></li><li><ol class="section"><li class="chapter-item expanded "><a href="../fft/benchmarks.html"><strong aria-hidden="true">2.1.</strong> Benchmarks</a></li></ol></li><li class="chapter-item expanded "><div><strong aria-hidden="true">3.</strong> Plonk</div></li><li><ol class="section"><li class="chapter-item expanded "><a href="../plonk/recap.html"><strong aria-hidden="true">3.1.</strong> Recap</a></li><li class="chapter-item expanded "><a href="../plonk/protocol.html"><strong aria-hidden="true">3.2.</strong> Protocol</a></li><li class="chapter-item expanded "><a href="../plonk/implementation.html"><strong aria-hidden="true">3.3.</strong> Implementation</a></li><li class="chapter-item expanded "><a href="../plonk/constraint_system.html"><strong aria-hidden="true">3.4.</strong> Circuit API</a></li></ol></li><li class="chapter-item expanded "><a href="../starks/starks.html"><strong aria-hidden="true">4.</strong> STARKs</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../starks/recap.html"><strong aria-hidden="true">4.1.</strong> Recap</a></li><li class="chapter-item expanded "><a href="../starks/protocol_overview.html"><strong aria-hidden="true">4.2.</strong> Protocol overview</a></li><li class="chapter-item expanded "><a href="../starks/protocol.html"><strong aria-hidden="true">4.3.</strong> Protocol</a></li><li class="chapter-item expanded "><a href="../starks/implementation.html"><strong aria-hidden="true">4.4.</strong> Implementation</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../starks/api.html" class="active"><strong aria-hidden="true">4.4.1.</strong> High Level API</a></li><li class="chapter-item expanded "><a href="../starks/under_the_hood.html"><strong aria-hidden="true">4.4.2.</strong> Under the hood</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../starks/cairo.html"><strong aria-hidden="true">5.</strong> Cairo</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../starks/cairo_trace_succinct.html"><strong aria-hidden="true">5.1.</strong> Trace Formal Description</a></li><li class="chapter-item expanded "><a href="../starks/cairo_trace_descriptive.html"><strong aria-hidden="true">5.2.</strong> Trace Detailed Description</a></li><li class="chapter-item expanded "><a href="../starks/cairo_rap.html"><strong aria-hidden="true">5.3.</strong> RAP</a></li><li class="chapter-item expanded "><a href="../starks/virtual_cols.html"><strong aria-hidden="true">5.4.</strong> Virtual Columns</a></li><li class="chapter-item expanded "><a href="../starks/builtins.html"><strong aria-hidden="true">5.5.</strong> Built-ins</a></li><li class="chapter-item expanded "><a href="../starks/cairo_cli.html"><strong aria-hidden="true">5.6.</strong> CLI</a></li></ol></li></ol>            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                                                <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                                            </div>
+
+                    <h1 class="menu-title">docs</h1>
+
+                    <div class="right-buttons">
+                                                <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                                                                        
+                    </div>
+                </div>
+
+                                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+                
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.12.0/dist/katex.min.css" integrity="sha384-AfEj0r4/OFrOo5t7NnNe46zW/tFgW6x/bCJG8FqQCEo3+Aro6EYUG4+cU+KJWu/X" crossorigin="anonymous">
+<h1 id="high-level-api-fibonacci-example"><a class="header" href="#high-level-api-fibonacci-example">High level API: Fibonacci example</a></h1>
+<p>Let's go over the main test we use for our prover, where we compute a STARK proof for a fibonacci trace with 4 rows and then verify it.</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn test_prove_fib() {
+    let trace = simple_fibonacci::fibonacci_trace([FE::from(1), FE::from(1)], 8);
+    let proof_options = ProofOptions::default_test_options();
+
+    let pub_inputs = FibonacciPublicInputs {
+        a0: FE::one(),
+        a1: FE::one(),
+    };
+
+    let proof = prove::&lt;F, FibonacciAIR&lt;F&gt;&gt;(&amp;trace, &amp;pub_inputs, &amp;proof_options).unwrap();
+    assert!(verify::&lt;F, FibonacciAIR&lt;F&gt;&gt;(&amp;proof, &amp;pub_inputs, &amp;proof_options));
+}
+<span class="boring">}
+</span></code></pre></pre>
+<p>The proving system revolves around the <code>prove</code> function, that takes a trace, public inputs and proof options as inputs to generate a proof, and a <code>verify</code> function that takes the generated proof, the public inputs and the proof options as inputs, outputting <code>true</code> when the proof is verified correctly and <code>false</code> otherwise. Note that the public inputs and proof options should be the same for both. Public inputs should be shared by the Cairo runner to prover and verifier, and the proof options should have been agreed on beforehand by the two entities beforehand.</p>
+<p>Below we go over the main things involved in this code.</p>
+<h2 id="air"><a class="header" href="#air">AIR</a></h2>
+<p>To prove the integrity of a fibonacci trace, we first need to define what it means for a trace to be valid. As we've talked about in the recap, this involves defining an <code>AIR</code> for our computation where we specify both the boundary and transition constraints for a fibonacci sequence.</p>
+<p>In code, this is done through the <code>AIR</code> trait. Implementing <code>AIR</code> requires defining a couple methods, but the two most important ones are <code>boundary_constraints</code> and <code>compute_transition</code>, which encode the boundary and transition constraints of our computation.</p>
+<h3 id="boundary-constraints"><a class="header" href="#boundary-constraints">Boundary Constraints</a></h3>
+<p>For our Fibonacci <code>AIR</code>, boundary constraints look like this:</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn boundary_constraints(
+    &amp;self,
+    _rap_challenges: &amp;Self::RAPChallenges,
+) -&gt; BoundaryConstraints&lt;Self::Field&gt; {
+    let a0 = BoundaryConstraint::new_simple(0, self.pub_inputs.a0.clone());
+    let a1 = BoundaryConstraint::new_simple(1, self.pub_inputs.a1.clone());
+
+    BoundaryConstraints::from_constraints(vec![a0, a1])
+}
+<span class="boring">}
+</span></code></pre></pre>
+<p>The <code>BoundaryConstraint</code> struct represents a specific boundary constraint, meaning &quot;column <code>i</code> at row <code>j</code> should be equal to <code>x</code>&quot;. In this case, because we have only one column, we are using the <code>new_simple</code> method to simply say </p>
+<ul>
+<li>Row <code>0</code> should equal the public input <code>a0</code>, which in the typical fibonacci is set to 1.</li>
+<li>Row <code>1</code> should equal the public input <code>a1</code>, which in the typical fibonacci is set to 1.</li>
+</ul>
+<p>In the case of multiple columns, the <code>new</code> method exists so you can also specify column number.</p>
+<p>After instantiating each of these constraints, we return all of them through the struct <code>BoundaryConstraints</code>.</p>
+<h3 id="transition-constraints"><a class="header" href="#transition-constraints">Transition Constraints</a></h3>
+<p>The way we specify our fibonacci transition constraint looks like this:</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn compute_transition(
+    &amp;self,
+    frame: &amp;air::frame::Frame&lt;Self::Field&gt;,
+    _rap_challenges: &amp;Self::RAPChallenges,
+) -&gt; Vec&lt;FieldElement&lt;Self::Field&gt;&gt; {
+    let first_row = frame.get_row(0);
+    let second_row = frame.get_row(1);
+    let third_row = frame.get_row(2);
+
+    vec![third_row[0] - second_row[0] - first_row[0]]
+}
+<span class="boring">}
+</span></code></pre></pre>
+<p>It's not completely obvious why this is how we chose to express transition constraints, so let's talk a little about it. </p>
+<p>What we need to specify in this method is the relationship that has to hold between the current step of computation and the previous ones. For this, we get a <code>Frame</code> as an argument. This is a struct holding the current step (i.e. the current row of the trace) and all previous ones needed to encode our constraint. In our case, this is the current row and the two previous ones. To access rows we use the <code>get_row</code> method. The current step is always the last row (in our case <code>2</code>), with the others coming before it.</p>
+<p>In our <code>compute_transition</code> method we get the three rows we need and return</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>third_row[0] - second_row[0] - first_row[0]
+<span class="boring">}
+</span></code></pre></pre>
+<p>which is the value that needs to be zero for our constraint to hold. Because we support multiple transition constraints, we actually return a vector with one value per constraint, so the first element holds the first constraint value and so on.</p>
+<h2 id="tracetable"><a class="header" href="#tracetable">TraceTable</a></h2>
+<p>After defining our AIR, we create our specific trace to prove against it. </p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let trace = fibonacci_trace([FE17::new(1), FE17::new(1)], 4);
+
+let trace_table = TraceTable {
+    table: trace.clone(),
+    num_cols: 1,
+};
+<span class="boring">}
+</span></code></pre></pre>
+<p><code>TraceTable</code> is the struct holding execution traces; the <code>num_cols</code> says how many columns the trace has, the <code>table</code> field is a <code>vec</code> holding the actual values of the trace in row-major form, meaning if the trace looks like this</p>
+<pre><code>| 1  | 2  |
+| 3  | 4  |
+| 5  | 6  |
+</code></pre>
+<p>then its corresponding <code>TraceTable</code> is </p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let trace_table = TraceTable {
+    table: vec![1, 2, 3, 4, 5, 6],
+    num_cols: 2,
+};
+<span class="boring">}
+</span></code></pre></pre>
+<p>In our example, <code>fibonacci_trace</code> is just a helper function we use to generate the fibonacci trace with <code>4</code> rows and <code>[1, 1]</code> as the first two values.</p>
+<h2 id="air-context"><a class="header" href="#air-context">AIR Context</a></h2>
+<p>After specifying our constraints and trace, the only thing left to do is provide a few parameters related to the STARK protocol and our <code>AIR</code>. These specify things such as the number of columns of the trace and proof configuration, among others. They are all encapsulated in the <code>AirContext</code> struct, which in our example we instantiate like this:</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let context = AirContext {
+    options: ProofOptions {
+        blowup_factor: 2,
+        fri_number_of_queries: 1,
+        coset_offset: 3,
+    },
+    trace_columns: trace_table.n_cols,
+    transition_degrees: vec![1],
+    transition_exemptions: vec![2],
+    transition_offsets: vec![0, 1, 2],
+    num_transition_constraints: 1,
+};
+<span class="boring">}
+</span></code></pre></pre>
+<p>Let's go over each of them:</p>
+<ul>
+<li><code>options</code> requires a <code>ProofOptions</code> struct holding specific parameters related to the STARK protocol to be used when proving. They are:
+<ul>
+<li>The <code>blowup_factor</code> used for the trace LDE extension, a parameter related to the security of the protocol.</li>
+<li>The number of queries performed by the verifier when doing <code>FRI</code>, also related to security.</li>
+<li>The <code>offset</code> used for the LDE coset. This depends on the field being used for the STARK proof.</li>
+</ul>
+</li>
+<li><code>trace_columns</code> are the number of columns of the trace, respectively.</li>
+<li><code>transition_degrees</code> holds the degree of each transition constraint.</li>
+<li><code>transition_exemptions</code> is a <code>Vec</code> which tells us, for each column, the number of rows the transition constraints should not apply, starting from the end of the trace. In the example, the transition constraints won't apply on the last two rows of the trace.</li>
+<li><code>transition_offsets</code> holds the indexes that define a frame for our <code>AIR</code>. In our fibonacci case, these are <code>[0, 1, 2]</code> because we need the current row and the two previous one to define our transition constraint.</li>
+<li><code>num_transition_constraints</code> simply says how many transition constraints our <code>AIR</code> has.</li>
+</ul>
+<h2 id="proving-execution"><a class="header" href="#proving-execution">Proving execution</a></h2>
+<p>Having defined all of the above, proving our fibonacci example amounts to instantiating the necessary structs and then calling <code>prove</code> passing the trace, public inputs and proof options. We use a simple implementation of a hasher called <code>TestHasher</code> to handle merkle proof building.</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let proof = prove(&amp;trace_table, &amp;pub_inputs, &amp;proof_options);
+<span class="boring">}
+</span></code></pre></pre>
+<p>Verifying is then done by passing the proof of execution along with the same <code>AIR</code> to the <code>verify</code> function.</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>assert!(verify(&amp;proof, &amp;pub_inputs, &amp;proof_options));
+<span class="boring">}
+</span></code></pre></pre>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                                                    <a rel="prev" href="../starks/implementation.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+                        
+                                                    <a rel="next" href="../starks/under_the_hood.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+                        
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                                    <a rel="prev" href="../starks/implementation.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+                
+                                    <a rel="next" href="../starks/under_the_hood.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+                            </nav>
+
+        </div>
+
+        
+        
+        
+                <script type="text/javascript">
+            window.playground_copyable = true;
+        </script>
+        
+        
+                <script src="../elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../searcher.js" type="text/javascript" charset="utf-8"></script>
+        
+        <script src="../clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+        
+        
+    </body>
+</html>

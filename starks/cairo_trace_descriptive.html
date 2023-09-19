@@ -1,0 +1,322 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js light">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Trace Detailed Description - docs</title>
+                
+
+        <!-- Custom HTML head -->
+        
+
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+                <link rel="icon" href="../favicon.svg">
+                        <link rel="shortcut icon" href="../favicon.png">
+                <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+                <link rel="stylesheet" href="../css/print.css" media="print">
+        
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+                <link rel="stylesheet" href="../fonts/fonts.css">
+        
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../highlight.css">
+        <link rel="stylesheet" href="../tomorrow-night.css">
+        <link rel="stylesheet" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        
+            </head>
+    <body>
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded "><a href="../introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><div><strong aria-hidden="true">2.</strong> FFT Library</div></li><li><ol class="section"><li class="chapter-item expanded "><a href="../fft/benchmarks.html"><strong aria-hidden="true">2.1.</strong> Benchmarks</a></li></ol></li><li class="chapter-item expanded "><div><strong aria-hidden="true">3.</strong> Plonk</div></li><li><ol class="section"><li class="chapter-item expanded "><a href="../plonk/recap.html"><strong aria-hidden="true">3.1.</strong> Recap</a></li><li class="chapter-item expanded "><a href="../plonk/protocol.html"><strong aria-hidden="true">3.2.</strong> Protocol</a></li><li class="chapter-item expanded "><a href="../plonk/implementation.html"><strong aria-hidden="true">3.3.</strong> Implementation</a></li><li class="chapter-item expanded "><a href="../plonk/constraint_system.html"><strong aria-hidden="true">3.4.</strong> Circuit API</a></li></ol></li><li class="chapter-item expanded "><a href="../starks/starks.html"><strong aria-hidden="true">4.</strong> STARKs</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../starks/recap.html"><strong aria-hidden="true">4.1.</strong> Recap</a></li><li class="chapter-item expanded "><a href="../starks/protocol_overview.html"><strong aria-hidden="true">4.2.</strong> Protocol overview</a></li><li class="chapter-item expanded "><a href="../starks/protocol.html"><strong aria-hidden="true">4.3.</strong> Protocol</a></li><li class="chapter-item expanded "><a href="../starks/implementation.html"><strong aria-hidden="true">4.4.</strong> Implementation</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../starks/api.html"><strong aria-hidden="true">4.4.1.</strong> High Level API</a></li><li class="chapter-item expanded "><a href="../starks/under_the_hood.html"><strong aria-hidden="true">4.4.2.</strong> Under the hood</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../starks/cairo.html"><strong aria-hidden="true">5.</strong> Cairo</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../starks/cairo_trace_succinct.html"><strong aria-hidden="true">5.1.</strong> Trace Formal Description</a></li><li class="chapter-item expanded "><a href="../starks/cairo_trace_descriptive.html" class="active"><strong aria-hidden="true">5.2.</strong> Trace Detailed Description</a></li><li class="chapter-item expanded "><a href="../starks/cairo_rap.html"><strong aria-hidden="true">5.3.</strong> RAP</a></li><li class="chapter-item expanded "><a href="../starks/virtual_cols.html"><strong aria-hidden="true">5.4.</strong> Virtual Columns</a></li><li class="chapter-item expanded "><a href="../starks/builtins.html"><strong aria-hidden="true">5.5.</strong> Built-ins</a></li><li class="chapter-item expanded "><a href="../starks/cairo_cli.html"><strong aria-hidden="true">5.6.</strong> CLI</a></li></ol></li></ol>            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                                                <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                                            </div>
+
+                    <h1 class="menu-title">docs</h1>
+
+                    <div class="right-buttons">
+                                                <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                                                                        
+                    </div>
+                </div>
+
+                                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+                
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.12.0/dist/katex.min.css" integrity="sha384-AfEj0r4/OFrOo5t7NnNe46zW/tFgW6x/bCJG8FqQCEo3+Aro6EYUG4+cU+KJWu/X" crossorigin="anonymous">
+<h1 id="cairo-execution-trace"><a class="header" href="#cairo-execution-trace">Cairo execution trace</a></h1>
+<h2 id="raw-materials"><a class="header" href="#raw-materials">Raw materials</a></h2>
+<p>After the execution of a Cairo program in the Cairo VM, three files are generated that are the core components for the construction of the execution trace, needed for the proving system:</p>
+<ul>
+<li><strong>trace file</strong>: Has the information on the state of the three Cairo VM registers <code>ap</code>, 
+<code>fp</code>, and <code>pc</code> at every cycle of the execution of the program. To reduce ambiguity in terms,
+we should call these the <em>register states</em> of the Cairo VM, and leave the term <em>trace</em> to 
+the final product that is passed to the prover to generate a proof.</li>
+<li><strong>memory file</strong>: A file with the information of the VM's memory at the end of the program
+run, after the memory has been relocated.</li>
+<li><strong>public inputs</strong>: A file with all the information that must be publicly available to the prover
+and verifier, such as the total number of execution steps, public memory, used builtins and 
+their respective addresses range in memory.</li>
+</ul>
+<p>The next section will explain in detail how these elements are used to build the final execution
+trace. </p>
+<h2 id="construction-details"><a class="header" href="#construction-details">Construction details</a></h2>
+<p>The execution trace is built in two stages. In the first one, the information on the files 
+described in the previous section is aggregated to build a main trace table.
+In the second stage, there is an interaction with the verifier to add some extension
+columns to the main trace.</p>
+<h3 id="main-trace-construction"><a class="header" href="#main-trace-construction">Main trace construction</a></h3>
+<p>The layout of the main execution trace is as follows:</p>
+<pre><code> A.  flags     (16): Decoded instruction flags
+ B.  res       (1): Res value
+ C.  pointers  (2): Temporary memory pointers (ap and fp)
+ D.  mem_a     (4): Memory addresses (pc, dst_addr, op0_addr, op1_addr)
+ E.  mem_v     (4): Memory values (inst, dst, op0, op1)
+ F.  offsets   (3)  : (off_dst, off_op0, off_op1)
+ G.  derived   (3)  : (t0, t1, mul)
+
+ A                B C  D    E    F   G
+|xxxxxxxxxxxxxxxx|x|xx|xxxx|xxxx|xxx|xxx|
+</code></pre>
+<p>Each letter from A to G represents some subsection of columns, and the number specifies how many
+columns correspond to that subsection.</p>
+<h4 id="cairo-instructions"><a class="header" href="#cairo-instructions">Cairo instructions</a></h4>
+<p>It is important to have in mind the information that each executed Cairo instruction holds, since it
+is a key component of the construction of the execution trace. For a detailed explanation of how the
+building components of the instruction interact to change the VM state, refer to the Cairo
+whitepaper, sections 4.4 and 4.5.</p>
+<p>Structure of the 63-bit that forms the first word of each instruction:</p>
+<pre><code> ┌─────────────────────────────────────────────────────────────────────────┐
+ │                     off_dst (biased representation)                     │
+ ├─────────────────────────────────────────────────────────────────────────┤
+ │                     off_op0 (biased representation)                     │
+ ├─────────────────────────────────────────────────────────────────────────┤
+ │                     off_op1 (biased representation)                     │
+ ├─────┬─────┬───────┬───────┬───────────┬────────┬───────────────────┬────┤
+ │ dst │ op0 │  op1  │  res  │    pc     │   ap   │      opcode       │ 0  │
+ │ reg │ reg │  src  │ logic │  update   │ update │                   │    │
+ ├─────┼─────┼───┬───┼───┬───┼───┬───┬───┼───┬────┼────┬────┬────┬────┼────┤
+ │  0  │  1  │ 2 │ 3 │ 4 │ 5 │ 6 │ 7 │ 8 │ 9 │ 10 │ 11 │ 12 │ 13 │ 14 │ 15 │
+ └─────┴─────┴───┴───┴───┴───┴───┴───┴───┴───┴────┴────┴────┴────┴────┴────┘
+</code></pre>
+<h4 id="columns"><a class="header" href="#columns">Columns</a></h4>
+<p>The construction of the following columns corresponds to a colloquial explanation of what is done in
+the <code>build_cairo_execution_trace</code> function.</p>
+<h5 id="section-a---flags"><a class="header" href="#section-a---flags">Section A - Flags</a></h5>
+<p>The flags section <strong>A</strong> corresponds to the 16 bits that represent the configuration of the <code>dst_reg</code>,
+<code>op0_reg</code>, <code>op1_src</code>, <code>res_logic</code>, <code>pc_update</code>, <code>ap_update</code> and <code>opcode</code> flags, as well as the zero 
+flag. So there is one column for each bit of the flags decomposition. </p>
+<h5 id="section-c---temporary-memory-pointers"><a class="header" href="#section-c---temporary-memory-pointers">Section C - Temporary memory pointers</a></h5>
+<p>The two columns in this section, as well as the <code>pc</code> column from section <strong>D</strong>, are the most trivial.
+For each step of the register states, the corresponding values are added to the columns, which are 
+pointers to some memory cell in the VM's memory. </p>
+<h5 id="section-d---memory-addresses"><a class="header" href="#section-d---memory-addresses">Section D - Memory addresses</a></h5>
+<p>As already mentioned, the first column of this section, <code>pc</code>, is trivially obtained from the register 
+states for each cycle.<br />
+Columns <code>dst_addr</code>, <code>op0_addr</code>, and <code>op1_addr</code> from section <strong>D</strong> are addresses constructed from pointers
+stored at <code>ap</code> or <code>fp</code>, and their respective offsets <code>off_dst</code>, <code>off_op0</code> and <code>off_op1</code>. The exact way these
+are computed depends on the particular values of the flags for each instruction.</p>
+<h5 id="section-e---memory-values"><a class="header" href="#section-e---memory-values">Section E - Memory values</a></h5>
+<p>The <code>inst</code> column, is obtained by fetching in memory the value stored at pointer <code>pc</code>, which 
+corresponds to a 63-bit Cairo instruction.
+Columns <code>dst</code>, <code>op0</code>, and <code>op1</code> are computed by fetching in memory by their respective addresses.</p>
+<h5 id="section-f---offsetsrange-checked-values"><a class="header" href="#section-f---offsetsrange-checked-values">Section F - Offsets/Range-checked values</a></h5>
+<p>These columns represent integer values that are used to construct addresses <code>dst_addr</code>, <code>op0_addr</code> and 
+<code>op1_addr</code> and are decoded directly from the instruction. 
+These values have the property to be numbered in the range from 0 to 2^16.</p>
+<h5 id="section-b---res"><a class="header" href="#section-b---res">Section B - Res</a></h5>
+<p>This column is computed depending on the decoded <code>opcode</code> and <code>res_logic</code> of every instruction.
+In some cases, <code>res</code> is unused in the instruction, and the value for (<code>dst</code>)^(-1) is used in that
+place as an optimization.</p>
+<h5 id="section-g---derived"><a class="header" href="#section-g---derived">Section G - Derived</a></h5>
+<p>To have constraints of max degree two, some more columns are derived from the already calculated,
+<code>t0</code>, <code>t1</code>, and <code>mul</code>:</p>
+<ul>
+<li><code>t0</code> is the product of the values of <code>DST</code> and the <code>PC_JNZ</code> flag for each step. </li>
+<li><code>t1</code> is the product of <code>t0</code> and <code>res</code> for each step.</li>
+<li><code>mul</code> is the product of <code>op0</code> and <code>op1</code> for each step.</li>
+</ul>
+<h4 id="range-check-and-memory-holes"><a class="header" href="#range-check-and-memory-holes">Range check and Memory holes</a></h4>
+<p>For the values constrained between ranges <span class="katex"><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em;"></span><span class="mord">0</span></span></span></span> and <span class="katex"><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8141em;"></span><span class="mord"><span class="mord">2</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8141em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">1</span></span></span></span></span></span></span></span><span class="mord">6</span></span></span></span>, the offsets, the prover uses a permutation argument to optimize enforcing this. In particular, it checks an ordered list with the offsets are the same as the original one, is continuous, the first value is <span class="katex"><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.5806em;vertical-align:-0.15em;"></span><span class="mord mathnormal" style="margin-right:0.02778em;">r</span><span class="mord"><span class="mord mathnormal">c</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3117em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight">min</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span>, and the last one is less than <span class="katex"><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.5806em;vertical-align:-0.15em;"></span><span class="mord mathnormal" style="margin-right:0.02778em;">r</span><span class="mord"><span class="mord mathnormal">c</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.1514em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight">ma</span><span class="mord mathnormal mtight">x</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span>.</p>
+<p>Since not all values are used, there may be unused values, and so the ordered offset may not be continuous. These unused values are called holes, and they need to be filled with the missing values, so the checks can be done.</p>
+<p>This is explained in section 9.9 of the Cairo Paper</p>
+<p>In the case of memory, something similar happens, where the values should be continuous, but if there are built-ins, this may not be the case. For example, the built-in may be using addresses in ranges higher than the ones used by the program. </p>
+<p>To fix this, holes in the memory cells are filled, just like the ones of the RC. </p>
+<p>It's something important to note that when filling the holes, we can't use dedicated columns like <code>op0_addr</code>, since this would break the constraints. For this to work, we either need new columns for holes, or make use of subcolumns, which are explained in their dedicated section. </p>
+<p>No matter which approach is used , either by subcolumns or columns, we will need cells where the constraints of the range check and memory are applied, but not the specific ones related to the instructions. </p>
+<p>Finally, using these columns, we can fill the holes without breaking the constraint system.</p>
+<h4 id="dummy-memory-accesses"><a class="header" href="#dummy-memory-accesses">Dummy memory accesses</a></h4>
+<p>As part of proving the execution of a Cairo program, we need to prove that memory used by the program extends the public memory. This is important since public memory contains for example the bytecode that was executed and the outputs.</p>
+<p>The bytecode is something critical for the verifier to not only know that something was executed correctly but to know what was executed.</p>
+<p>To do this, we the permutation check, which that proves the memory is continuous and single-valued</p>
+<p>To do this, the permutation check of the memory is modified.</p>
+<p>Initially, we had <span class="katex"><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.10903em;">M</span></span></span></span>, <span class="katex"><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.22222em;">V</span></span></span></span> and <span class="katex"><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.7519em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.10903em;">M</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.7519em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mtight">′</span></span></span></span></span></span></span></span></span></span></span></span>, <span class="katex"><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.7519em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.22222em;">V</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.7519em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mtight">′</span></span></span></span></span></span></span></span></span></span></span></span> pairs of memory addresses and values, where <span class="katex"><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.10903em;">M</span></span></span></span> and <span class="katex"><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.22222em;">V</span></span></span></span> are the values as used and without order, and <span class="katex"><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.7519em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.10903em;">M</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.7519em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mtight">′</span></span></span></span></span></span></span></span></span></span></span></span>, <span class="katex"><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.7519em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.22222em;">V</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.7519em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mtight">′</span></span></span></span></span></span></span></span></span></span></span></span> the pairs ordered by address. </p>
+<p>For the public memory, we will add it directly to <span class="katex"><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.7519em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.10903em;">M</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.7519em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mtight">′</span></span></span></span></span></span></span></span></span></span></span></span>, <span class="katex"><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.7519em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.22222em;">V</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.7519em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mtight">′</span></span></span></span></span></span></span></span></span></span></span></span>. We also need to add dummy accesses to the pairs <span class="katex"><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.10903em;">M</span></span></span></span> <span class="katex"><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.22222em;">V</span></span></span></span>. These dummy accesses are just pairs of <span class="katex"><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mopen">(</span><span class="mord mathnormal" style="margin-right:0.10903em;">M</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord mathnormal" style="margin-right:0.22222em;">V</span><span class="mclose">)</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mopen">(</span><span class="mord">0</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord">0</span><span class="mclose">)</span></span></span></span>.</p>
+<p>This change makes the statement that <span class="katex"><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1.0019em;vertical-align:-0.25em;"></span><span class="mopen">(</span><span class="mord"><span class="mord mathnormal" style="margin-right:0.10903em;">M</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.7519em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mtight">′</span></span></span></span></span></span></span></span></span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.22222em;">V</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.7519em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mtight">′</span></span></span></span></span></span></span></span></span><span class="mclose">)</span></span></span></span> is a permutation of <span class="katex"><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mopen">(</span><span class="mord mathnormal" style="margin-right:0.10903em;">M</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord mathnormal" style="margin-right:0.22222em;">V</span><span class="mclose">)</span></span></span></span>, which means that they are the same values in a different order, no longer true. This means that the two cumulative products used to check the statement are no longer equal, and their division </p>
+<p>Luckily, we can know the new expected value on the verifier, since we have access to the public memory. Even more, it's this fact that enables the verifier to check the memory is an extension of the public memory. </p>
+<p>The math is quite straightforward. When the memory was the same, we expected a final value <span class="katex"><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6389em;vertical-align:-0.2083em;"></span><span class="mord"><span class="mord mathnormal">p</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3011em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight">n</span><span class="mbin mtight">−</span><span class="mord mtight">1</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.2083em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.6444em;"></span><span class="mord">1</span></span></span></span>. This came from two cumulative products that should equal, one from the unordered pairs, and one from the ordered ones.</p>
+<p>Now, adding zeros to one side and the real values to the other unbalances the cumulative products, so the verifier will need to balance it by dividing <span class="katex"><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6389em;vertical-align:-0.2083em;"></span><span class="mord"><span class="mord mathnormal">p</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3011em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight">n</span><span class="mbin mtight">−</span><span class="mord mtight">1</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.2083em;"><span></span></span></span></span></span></span></span></span></span> by the extra factors that appeared with the addition of the public memory. Doing so will make the final value <span class="katex"><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em;"></span><span class="mord">1</span></span></span></span> again.</p>
+<p>Since they only depend on the public memory, the verifier has enough data to recalculate them and use them. Even more, if the prover lies, the equality that the verifier is expecting won't hold.</p>
+<p>In reality, instead of dividing and expecting the result to equal to <span class="katex"><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em;"></span><span class="mord">1</span></span></span></span>, we can just check the equality against the new expected value, and avoid doing that inversion.</p>
+<p>All of this is explained in section 9.8 of the Cairo paper. </p>
+<h4 id="trace-extension--padding"><a class="header" href="#trace-extension--padding">Trace extension / Padding</a></h4>
+<p>The last step is padding the trace to a power of two for efficiency. We may also need to pad the trace if for some reason some unbalance is given by the layout.</p>
+<p>For this, we will copy the last executed instruction until reaching the desired length. </p>
+<p>But there's a trick. If the last executed instruction is any instruction, and it's copied, the transition constraints won't be satisfied. To be able to do this, we need to use something called &quot;proof mode&quot;. In proof mode, the main function of the program is wrapped in another one, which calls it and returns to an infinite loop. This loop is a jump relative 0.</p>
+<p>Since this loop can be executed many times without changing the validity of the trace, it can be copied as many times as
+needed, solving the issues mentioned before.</p>
+<h4 id="summary"><a class="header" href="#summary">Summary</a></h4>
+<p>To construct the execution trace, we augment the <code>RegisterStates</code> with the information obtained from the Memory. This includes decoding instruction of each steps, and writing all the data needed to check the execution is valid.</p>
+<p>Additionally, memory holes have to be filled, public memory added, and a final pad using an infinite loop is needed for everything to work properly.</p>
+<p>Adding all of that, we create an execution trace that's ready for the prover to generate a proof. </p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                                                    <a rel="prev" href="../starks/cairo_trace_succinct.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+                        
+                                                    <a rel="next" href="../starks/cairo_rap.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+                        
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                                    <a rel="prev" href="../starks/cairo_trace_succinct.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+                
+                                    <a rel="next" href="../starks/cairo_rap.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+                            </nav>
+
+        </div>
+
+        
+        
+        
+                <script type="text/javascript">
+            window.playground_copyable = true;
+        </script>
+        
+        
+                <script src="../elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../searcher.js" type="text/javascript" charset="utf-8"></script>
+        
+        <script src="../clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+        
+        
+    </body>
+</html>
