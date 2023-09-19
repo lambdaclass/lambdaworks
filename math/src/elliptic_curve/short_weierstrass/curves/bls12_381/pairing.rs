@@ -289,7 +289,7 @@ mod tests {
         let p = ShortWeierstrassProjectivePoint::new([
             FieldElement::one(),
             FieldElement::one(),
-            FieldElement::one()
+            FieldElement::one(),
         ]);
         let q = ShortWeierstrassProjectivePoint::neutral_element();
         let result = BLS12381AtePairing::compute_batch(&[(&p.to_affine(), &q)]);
