@@ -45,6 +45,9 @@ benchmark:
 flamegraph_stark:
 	CARGO_PROFILE_BENCH_DEBUG=true cargo flamegraph --root --bench stark_benchmarks -- --bench
 
+coverage: $(COMPILED_CAIRO0_PROGRAMS)
+	cargo llvm-cov nextest --lcov --output-path lcov.info
+	
 METAL_DIR = math/src/gpu/metal
 build-metal:
 	xcrun -sdk macosx metal $(METAL_DIR)/all.metal -o $(METAL_DIR)/lib.metallib
