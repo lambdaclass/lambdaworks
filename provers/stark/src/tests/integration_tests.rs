@@ -1,12 +1,13 @@
-use lambdaworks_math::field::fields::{
+use lambdaworks_math::field::{fields::{
     fft_friendly::stark_252_prime_field::Stark252PrimeField,
     u64_prime_field::{F17, FE17},
-};
+}, element::FieldElement};
 
 use crate::{
     examples::{
         dummy_air::{self, DummyAIR},
         fibonacci_2_columns::{self, Fibonacci2ColsAIR},
+        fibonacci_2_rows::{self, Fibonacci2Rows},
         fibonacci_rap::{fibonacci_rap_trace, FibonacciRAP, FibonacciRAPPublicInputs},
         quadratic_air::{self, QuadraticAIR, QuadraticPublicInputs},
         simple_fibonacci::{self, FibonacciAIR, FibonacciPublicInputs},
@@ -88,6 +89,31 @@ fn test_prove_fib_2_cols() {
     assert!(verify::<
         Stark252PrimeField,
         Fibonacci2ColsAIR<Stark252PrimeField>,
+    >(&proof, &pub_inputs, &proof_options));
+}
+
+#[test_log::test]
+fn test_prove_fib_2_rows() {
+    let trace = fibonacci_2_rows::compute_trace(FieldElement::one(), 16);
+
+    let claimed_index = 14;
+    let claimed_value = trace.get_row(claimed_index)[0];
+    let proof_options = ProofOptions::default_test_options();
+
+    let pub_inputs = fibonacci_2_rows::PublicInputs {
+        claimed_value,
+        claimed_index,
+    };
+
+    let proof = prove::<Stark252PrimeField, Fibonacci2Rows<_>>(
+        &trace,
+        &pub_inputs,
+        &proof_options,
+    )
+    .unwrap();
+    assert!(verify::<
+        Stark252PrimeField,
+        Fibonacci2Rows<_>,
     >(&proof, &pub_inputs, &proof_options));
 }
 
