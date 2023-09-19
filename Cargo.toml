@@ -1,6 +1,7 @@
 [workspace]
-members = ["math", "crypto", "gpu", "benches", "provers/plonk"]
+members = ["math", "crypto", "gpu", "benches", "provers/plonk", "provers/stark", "provers/cairo"]
 exclude = ["ensure-no_std"]
+resolver = "2"
 
 [workspace.package]
 version = "0.1.3"
@@ -10,9 +11,10 @@ repository = "https://github.com/lambdaclass/lambdaworks"
 
 [workspace.dependencies]
 iai-callgrind = "0.3.1"
-lambdaworks-crypto = { path = "./crypto", version = "0.1.3" }
-lambdaworks-gpu = { path = "./gpu", version = "0.1.3" }
-lambdaworks-math = { path = "./math", version = "0.1.3" }
+lambdaworks-crypto = { path = "./crypto" }
+lambdaworks-gpu = { path = "./gpu" }
+lambdaworks-math = { path = "./math" }
+stark-platinum-prover = { path = "./provers/stark" }
 
 [profile.bench]
 lto = true
