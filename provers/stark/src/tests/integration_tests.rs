@@ -7,7 +7,7 @@ use crate::{
     examples::{
         dummy_air::{self, DummyAIR},
         fibonacci_2_columns::{self, Fibonacci2ColsAIR},
-        fibonacci_2_rows::{self, Fibonacci2Rows},
+        fibonacci_2_cols_shifted::{self, Fibonacci2ColsShifted},
         fibonacci_rap::{fibonacci_rap_trace, FibonacciRAP, FibonacciRAPPublicInputs},
         quadratic_air::{self, QuadraticAIR, QuadraticPublicInputs},
         simple_fibonacci::{self, FibonacciAIR, FibonacciPublicInputs},
@@ -93,19 +93,19 @@ fn test_prove_fib_2_cols() {
 }
 
 #[test_log::test]
-fn test_prove_fib_2_rows() {
-    let trace = fibonacci_2_rows::compute_trace(FieldElement::one(), 16);
+fn test_prove_fib_2_cols_shifted() {
+    let trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::one(), 16);
 
     let claimed_index = 14;
     let claimed_value = trace.get_row(claimed_index)[0];
     let proof_options = ProofOptions::default_test_options();
 
-    let pub_inputs = fibonacci_2_rows::PublicInputs {
+    let pub_inputs = fibonacci_2_cols_shifted::PublicInputs {
         claimed_value,
         claimed_index,
     };
 
-    let proof = prove::<Stark252PrimeField, Fibonacci2Rows<_>>(
+    let proof = prove::<Stark252PrimeField, Fibonacci2ColsShifted<_>>(
         &trace,
         &pub_inputs,
         &proof_options,
@@ -113,7 +113,7 @@ fn test_prove_fib_2_rows() {
     .unwrap();
     assert!(verify::<
         Stark252PrimeField,
-        Fibonacci2Rows<_>,
+        Fibonacci2ColsShifted<_>,
     >(&proof, &pub_inputs, &proof_options));
 }
 

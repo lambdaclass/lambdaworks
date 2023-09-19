@@ -20,7 +20,7 @@ where
 }
 
 #[derive(Clone, Debug)]
-pub struct Fibonacci2Rows<F>
+pub struct Fibonacci2ColsShifted<F>
 where
     F: IsFFTField,
 {
@@ -29,7 +29,8 @@ where
     pub_inputs: PublicInputs<F>,
 }
 
-impl<F> AIR for Fibonacci2Rows<F>
+/// Fibonacci AIR for a two column 
+impl<F> AIR for Fibonacci2ColsShifted<F>
 where
     F: IsFFTField,
 {
