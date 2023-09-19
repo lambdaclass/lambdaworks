@@ -9,13 +9,7 @@ cargo-fuzz = true
 [dependencies]
 lambdaworks-math = { workspace = true }
 libfuzzer-sys = { workspace = true }
-
-[dependencies.lambdaworks-stark]
-path = ".."
-
-# Prevent this from interfering with workspaces
-[workspace]
-members = ["."]
+stark-platinum-prover = { workspace = true }
 
 [[bin]]
 name = "deserialize_stark_proof"
