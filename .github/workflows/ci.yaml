@@ -95,12 +95,14 @@ jobs:
       - name: Install cairo-lang toolchain and dependencies
         run: pip install -r requirements.txt
 
+      - name: Install testing tools
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest,cargo-llvm-cov
+
       - name: Run tests with no std
         run: cargo test --package lambdaworks-math --no-default-features
-
-      - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@cargo-llvm-cov
-
+        
       - name: Run tests and generate code coverage
         run: make coverage
 
