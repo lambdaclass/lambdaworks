@@ -29,10 +29,10 @@ where
     pub_inputs: PublicInputs<F>,
 }
 
-/// The AIR for to a 2 column trace, where each column is a Fibonacci
-/// sequence and the second column is constrained to be the shift of the first one.
-/// That is, if `Col0_i` and `Col1_i` denote the i-th entry of each column, then
-/// `Col0_{i+1}` equals `Col1_{i}` for all `i`. Also, `Col0_0` is constrained to be `1`.
+/// The AIR for to a 2 column trace, where each column is a Fibonacci sequence and the
+/// second column is constrained to be the shift of the first one. That is, if `Col0_i`
+/// and `Col1_i` denote the i-th entry of each column, then `Col0_{i+1}` equals `Col1_{i}`
+/// for all `i`. Also, `Col0_0` is constrained to be `1`.
 impl<F> AIR for Fibonacci2ColsShifted<F>
 where
     F: IsFFTField,
