@@ -283,4 +283,16 @@ mod tests {
         let result = BLS12381AtePairing::compute_batch(&[(&p, &q.to_affine())]).unwrap();
         assert_eq!(result, FieldElement::one());
     }
+
+    #[test]
+    fn ate_pairing_errors_when_one_element_is_not_in_subgroup() {
+        let p = ShortWeierstrassProjectivePoint::new([
+            FieldElement::one(),
+            FieldElement::one(),
+            FieldElement::one()
+        ]);
+        let q = ShortWeierstrassProjectivePoint::neutral_element();
+        let result = BLS12381AtePairing::compute_batch(&[(&p.to_affine(), &q)]);
+        assert!(result.is_err())
+    }
 }
