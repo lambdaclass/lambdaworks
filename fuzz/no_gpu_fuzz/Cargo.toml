@@ -35,7 +35,7 @@ doc = false
 
 [[bin]]
 name = "deserialize_stark_proof"
-path = "fuzz_targets/deserialize.rs"
+path = "fuzz_targets/deserialize_stark_proof.rs"
 test = false
 doc = false
 

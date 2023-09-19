@@ -1,5 +1,5 @@
 [workspace]
-members = ["no_gpu_fuzz", "metal_fuzz", "cuda_fuzz", "deserialize_stark_proof"]
+members = ["no_gpu_fuzz", "metal_fuzz", "cuda_fuzz"]
 resolver = "2"
 
 [workspace.package]
