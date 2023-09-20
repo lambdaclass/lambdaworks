@@ -10,6 +10,8 @@ cargo-fuzz = true
 lambdaworks-math = { workspace = true }
 lambdaworks-gpu = { workspace = true }
 libfuzzer-sys = { workspace = true }
+stark-platinum-prover = { workspace = true }
+
 num-traits = "0.2"
 ibig = "0.3.6"
 
@@ -30,4 +32,11 @@ name = "field_from_raw"
 path = "fuzz_targets/field_from_raw.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "deserialize_stark_proof"
+path = "fuzz_targets/deserialize_stark_proof.rs"
+test = false
+doc = false
+
 
