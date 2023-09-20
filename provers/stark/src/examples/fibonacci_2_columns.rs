@@ -22,6 +22,8 @@ where
     pub_inputs: FibonacciPublicInputs<F>,
 }
 
+/// The AIR for to a 2 column trace, where the columns form a Fibonacci sequence when
+/// stacked in row-major order.
 impl<F> AIR for Fibonacci2ColsAIR<F>
 where
     F: IsFFTField,
@@ -110,7 +112,7 @@ where
     }
 }
 
-pub fn fibonacci_trace_2_columns<F: IsFFTField>(
+pub fn compute_trace<F: IsFFTField>(
     initial_values: [FieldElement<F>; 2],
     trace_length: usize,
 ) -> TraceTable<F> {
