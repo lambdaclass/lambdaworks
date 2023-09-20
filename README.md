@@ -56,6 +56,21 @@ If you use ```Lambdaworks``` libraries in your research projects, please cite th
 
 ## Fuzzers
 
+Fuzzers are divided between the ones that use only the CPU, the ones that use Metal, and the ones that use CUDA.
+
+CPU Fuzzers can be run with the command ```bash make run-fuzzer FUZZER=fuzzer_name```
+
+For example:
+
+```bash
+make run-fuzzer FUZZER=field_from_hex
+```
+
+The list of fuzzers can be found in `fuzz/no_gpu_fuzz`
+
+Fuzzers for FTT in Metal and Cuda can be run with `make run-metal-fuzzer` and `make run-cuda-fuzzer`
+
+
 Run a specific fuzzer from the ones contained in **fuzz/fuzz_targets/** folder with`cargo`, for example to run the one for the target `field_from_hex`:
 
 ```bash
