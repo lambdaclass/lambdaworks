@@ -145,7 +145,7 @@ How does \\(C\\) encode the transition constraints? We mentioned above that thes
 With the boundary and transition constraint polynomials in hand, we build the `composition polynomial` \\(H\\) as follows: The verifier will sample four numbers \\(\beta_1, \beta_2\\) and \\(H\\) will be
 
 $$
-H(x) = \beta_1 B(x)  + \beta_2 C(x)
+H(x) = \beta_1 B(x) + \beta_2 C(x)
 $$
 
 
@@ -166,7 +166,7 @@ After commiting to `H`, the prover needs to show that `H` was constructed correc
 Because the boundary and transition constraints are a public part of the protocol, the verifier knows them, and thus the only thing it needs to compute the evaluation \\((z)\\) by itself are the three trace evaluations mentioned above. Because it asked the prover for them, it can check both sides of the equation:
 
 $$
-H(z) =  \beta_1 B(z)+ \beta_2 C(z)
+H(z) = \beta_1 B(z) + \beta_2 C(z)
 $$
 
 and be convinced that \\(H\\) was constructed correctly.

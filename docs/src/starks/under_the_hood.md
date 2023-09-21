@@ -21,7 +21,7 @@ We will once again use the fibonacci example as an ilustration. Recall from the 
 - Take the evaluation $H(z)$ along with the trace evaluations the prover provided.
 - Reconstruct the evaluations $B(z)$ and $C(z)$ from the trace evaluations. Check that the claimed evaluation $H(z)$ the prover gave us actually satisfies
     $$
-    H(z) = \beta_1 B(z)  + \beta_2 C(z)
+    H(z) = \beta_1 B(z) + \beta_2 C(z)
     $$
 - Take the evaluations $H(x_0)$ and $t(x_0)$.
 - Check that the claimed evaluation $Deep(x_0)$ the prover gave us actually satisfies
