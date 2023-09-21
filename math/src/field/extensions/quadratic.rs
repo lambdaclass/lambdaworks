@@ -17,7 +17,6 @@ pub type QuadraticExtensionFieldElement<T> = FieldElement<QuadraticExtensionFiel
 /// a square root of `residue()`.
 pub trait HasQuadraticNonResidue {
     type BaseField: IsField;
-
     fn residue() -> FieldElement<Self::BaseField>;
 }
 

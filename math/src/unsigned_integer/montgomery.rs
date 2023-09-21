@@ -2,9 +2,9 @@ use super::element::UnsignedInteger;
 
 pub struct MontgomeryAlgorithms;
 impl MontgomeryAlgorithms {
-    /// Compute CIOS multiplication of `a` * `b`
-    /// `q` is the modulus
-    /// `mu` is the inverse of -q modulo 2^{64}
+    /// Compute CIOS multiplication of `a` * `b` where
+    /// `q` is the modulus,
+    /// `mu` is the inverse of -q modulo 2^{64}.
     /// Notice CIOS stands for Coarsely Integrated Operand Scanning
     /// For more information see section 2.3.2 of Tolga Acar's thesis
     /// https://www.microsoft.com/en-us/research/wp-content/uploads/1998/06/97Acar.pdf

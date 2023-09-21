@@ -1,12 +1,15 @@
+use super::curve::{BLS12381TwistCurveFieldElement, SEED};
+use super::field_extension::{Degree12ExtensionField, Degree2ExtensionField};
 use crate::cyclic_group::IsGroup;
+use crate::elliptic_curve::point::ProjectivePoint;
 use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
 use crate::elliptic_curve::traits::IsEllipticCurve;
+use crate::field::extensions::quadratic::QuadraticExtensionField;
+use crate::field::traits::IsField;
 use crate::unsigned_integer::element::U384;
 use crate::{
     elliptic_curve::short_weierstrass::traits::IsShortWeierstrass, field::element::FieldElement,
 };
-
-use super::field_extension::{Degree12ExtensionField, Degree2ExtensionField};
 
 const GENERATOR_X_0: U384 = U384::from_hex_unchecked("024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02b4510b647ae3d1770bac0326a805bbefd48056c8c121bdb8");
 const GENERATOR_X_1: U384 = U384::from_hex_unchecked("13e02b6052719f607dacd3a088274f65596bd0d09920b61ab5da61bbdc7f5049334cf11213945d57e5ac7d055d042b7e");
@@ -46,7 +49,72 @@ impl IsShortWeierstrass for BLS12381TwistCurve {
     }
 }
 
+impl BLS12381TwistCurve {
+    pub fn is_on_curve(point: &<Self as IsEllipticCurve>::PointRepresentation) -> bool {
+        let [x, y, z] = point.coordinates();
+
+        let lhs = {
+            let y_sq = <Self as IsEllipticCurve>::BaseField::square(y.value());
+            <Self as IsEllipticCurve>::BaseField::mul(&y_sq, z.value())
+        };
+
+        let rhs = {
+            let x_sq = <Self as IsEllipticCurve>::BaseField::square(x.value());
+            let x_cubed = <Self as IsEllipticCurve>::BaseField::mul(&x_sq, x.value());
+
+            let z_sq = <Self as IsEllipticCurve>::BaseField::square(z.value());
+            let z_cubed = <Self as IsEllipticCurve>::BaseField::mul(&z_sq, z.value());
+
+            let z_cubed_with_b =
+                <Self as IsEllipticCurve>::BaseField::mul(&z_cubed, &Self::b().value());
+
+            <Self as IsEllipticCurve>::BaseField::add(&x_cubed, &z_cubed_with_b)
+        };
+
+        lhs == rhs
+    }
+}
 impl ShortWeierstrassProjectivePoint<BLS12381TwistCurve> {
+    /// Returns the "Untwist-Frobenius-Twist" endomorphism
+    pub fn psi(&self) -> Self {
+        // Coefficients borrowed from https://github.com/Consensys/gnark-crypto/blob/55489ac07ca1a88bf0b830a29625fcb0d8879a48/ecc/bls12-381/bls12-381.go#L132C1-L135C138
+        let psi_coeff_x = FieldElement::<<BLS12381TwistCurve as IsEllipticCurve>::BaseField>::new([
+            FieldElement::zero(),
+            FieldElement::new(U384::from_hex_unchecked("1A0111EA397FE699EC02408663D4DE85AA0D857D89759AD4897D29650FB85F9B409427EB4F49FFFD8BFD00000000AAAD"))
+        ]);
+
+        let psi_coeff_y = FieldElement::<<BLS12381TwistCurve as IsEllipticCurve>::BaseField>::new([
+            FieldElement::new(U384::from_hex_unchecked("135203E60180A68EE2E9C448D77A2CD91C3DEDD930B1CF60EF396489F61EB45E304466CF3E67FA0AF1EE7B04121BDEA2")),
+            FieldElement::new(U384::from_hex_unchecked("6AF0E0437FF400B6831E36D6BD17FFE48395DABC2D3435E77F76E17009241C5EE67992F72EC05F4C81084FBEDE3CC09"))
+        ]);
+
+        let frob_map_x = Degree2ExtensionField::frobenius_map(self.x().value());
+        let frob_map_x_with_psi_coeff_x =
+            Degree2ExtensionField::mul(&frob_map_x, &psi_coeff_x.value());
+
+        let frob_map_y = Degree2ExtensionField::frobenius_map(self.y().value());
+        let frob_map_y_with_psi_coeff_y =
+            Degree2ExtensionField::mul(&frob_map_y, &psi_coeff_y.value());
+
+        let frob_map_z = Degree2ExtensionField::frobenius_map(self.z().value());
+
+        <BLS12381TwistCurve as IsEllipticCurve>::PointRepresentation::new([
+            FieldElement::new(frob_map_x_with_psi_coeff_x),
+            FieldElement::new(frob_map_y_with_psi_coeff_y),
+            FieldElement::new(frob_map_z),
+        ])
+    }
+
+    /// Returns true if the point is in the prime subgroup `G_2` of order `r`.
+    /// Makes use of endomorphism for efficient point multiplication.
+    pub fn is_in_subgroup(&self) -> bool {
+        let seed_times_p = self.operate_with_self(SEED);
+        let psi_plus_seed_times_p = self.psi().operate_with(&seed_times_p);
+
+        Degree2ExtensionField::is_zero(psi_plus_seed_times_p.z().value())
+            && BLS12381TwistCurve::is_on_curve(&psi_plus_seed_times_p)
+    }
+
     /// This function is related to the map ψ: E_twist(𝔽p²) -> E(𝔽p¹²).
     /// Given an affine point G in E_twist(𝔽p²) returns x, y such that
     /// ψ(G) = (x', y', 1) with x' = x * x'' and y' = y * y''
@@ -80,6 +148,9 @@ impl ShortWeierstrassProjectivePoint<BLS12381TwistCurve> {
 
 #[cfg(test)]
 mod tests {
+    use proptest::prelude::Arbitrary;
+
+    use super::BLS12381TwistCurve;
     use crate::{
         cyclic_group::IsGroup,
         elliptic_curve::{
@@ -94,7 +165,6 @@ mod tests {
         unsigned_integer::element::U384,
     };
 
-    use super::BLS12381TwistCurve;
     type Level0FE = FieldElement<BLS12381PrimeField>;
     type Level1FE = FieldElement<Degree2ExtensionField>;
 
@@ -153,5 +223,17 @@ mod tests {
         let q = BLS12381TwistCurve::create_point_from_affine(qx, qy).unwrap();
         let expected = BLS12381TwistCurve::create_point_from_affine(expectedx, expectedy).unwrap();
         assert_eq!(p.operate_with(&q), expected);
+    }
+
+    #[test]
+    fn check_generator_g2_in_subgroup() {
+        let gen = BLS12381TwistCurve::generator();
+        assert!(gen.is_in_subgroup());
+    }
+
+    #[test]
+    fn check_arbitrary_g2_point_in_subgroup() {
+        let arb_point = BLS12381TwistCurve::generator().operate_with_self(420_u32);
+        assert!(arb_point.is_in_subgroup());
     }
 }

@@ -1,12 +1,24 @@
 use super::field_extension::{BLS12381PrimeField, Degree2ExtensionField};
+use crate::cyclic_group::IsGroup;
 use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
 use crate::elliptic_curve::traits::IsEllipticCurve;
+use crate::unsigned_integer::element::*;
 use crate::{
     elliptic_curve::short_weierstrass::traits::IsShortWeierstrass, field::element::FieldElement,
 };
 
 pub type BLS12381FieldElement = FieldElement<BLS12381PrimeField>;
 pub type BLS12381TwistCurveFieldElement = FieldElement<Degree2ExtensionField>;
+
+/// Cube Root of Unity in G1.
+pub const CUBE_ROOT_OF_UNITY_G1: U384 = U384::from_hex_unchecked(
+    "5f19672fdf76ce51ba69c6076a0f77eaddb3a93be6f89688de17d813620a00022e01fffffffefffe",
+);
+/// Cube Root of Unity in G2.
+pub const CUBE_ROOT_OF_UNITY_G2: U384 = U384::from_hex_unchecked("1a0111ea397fe699ec02408663d4de85aa0d857d89759ad4897d29650fb85f9b409427eb4f49fffd8bfd00000000aaac");
+
+/// Seed value for BLS-12 381 curve.
+pub const SEED: u128 = 0xd201000000010000;
 
 /// The description of the curve.
 #[derive(Clone, Debug)]
@@ -32,6 +44,29 @@ impl IsShortWeierstrass for BLS12381Curve {
 
     fn b() -> FieldElement<Self::BaseField> {
         FieldElement::from(4)
+    }
+}
+
+impl ShortWeierstrassProjectivePoint<BLS12381Curve> {
+    /// Returns phi(p) where `phi: (x,y)->(ux,y)` and `u` is the Cube Root of Unity in `G_1`
+    pub fn phi(&self) -> Self {
+        let mut a = self.clone();
+        a.0.value[0] = a.x() * FieldElement::new(CUBE_ROOT_OF_UNITY_G1);
+
+        a
+    }
+
+    /// Returns true if the point is in the prime subgroup $G_1$ of order $r$.
+    /// Makes use of endomorphism for efficient point multiplication.
+    // Ref: 4.1, https://eprint.iacr.org/2022/352.pdf
+    pub fn is_in_subgroup(&self) -> bool {
+        // -z^2[p]
+        // As z value is negative, we dont need to negate it. Negating the final result is enough.
+        let lhs = self.operate_with_self(SEED).operate_with_self(SEED).neg();
+
+        let rhs = self.phi();
+
+        lhs == rhs
     }
 }
 
@@ -106,7 +141,8 @@ mod tests {
         let y_sq_0 = x.pow(3_u16) + four;
         let y_sq_1 = y.pow(2_u16);
 
-        assert_eq!(y_sq_0, y_sq_1);
+        assert_eq!(y_sq_0, y_sq_1); // Check in Affine form
+        assert!(g2)
     }
 
     #[test]
@@ -116,5 +152,17 @@ mod tests {
             g.operate_with(&g).operate_with(&g),
             g.operate_with_self(3_u16)
         );
+    }
+
+    #[test]
+    fn check_generator_g1_in_subgroup() {
+        let gen = BLS12381Curve::generator();
+        assert!(gen.is_in_subgroup());
+    }
+
+    #[test]
+    fn check_arbitrary_g1_point_in_subgroup() {
+        let arb_point = BLS12381Curve::generator().operate_with_self(100_u32);
+        assert!(arb_point.is_in_subgroup());
     }
 }

@@ -30,7 +30,11 @@ impl IsPairing for BLS12381AtePairing {
     ) -> FieldElement<Self::OutputField> {
         let mut result = FieldElement::one();
         for (p, q) in pairs {
-            if !p.is_neutral_element() && !q.is_neutral_element() {
+            if (**p).is_in_subgroup()
+                && (**q).is_in_subgroup()
+                && !p.is_neutral_element()
+                && !q.is_neutral_element()
+            {
                 let p = p.to_affine();
                 let q = q.to_affine();
                 result = result * miller(&q, &p);
@@ -261,6 +265,7 @@ mod tests {
                 &q.neg().to_affine(),
             ),
         ]);
+
         assert_eq!(result, FieldElement::one());
     }
 
