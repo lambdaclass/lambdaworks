@@ -1,5 +1,7 @@
 .PHONY: test clippy docker-shell nix-shell benchmarks benchmark docs build-cuda build-metal clippy-metal test-metal coverage clean
 
+FUZZ_DIR = fuzz/no_gpu_fuzz
+
 ROOT_DIR:=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 
 CAIRO0_PROGRAMS_DIR=provers/cairo/cairo_programs/cairo0
@@ -76,22 +78,16 @@ build-cuda:
 docs:
 	cd docs && mdbook serve --open
 
-STARK_DESERIALIZE_FUZZER = deserialize_stark_proof
-proof-deserializer-fuzzer:
-		cd fuzz/deserialize_stark_proof
-		cargo +nightly fuzz run --fuzz-dir . $(STARK_DESERIALIZE_FUZZER)
-		
-FUZZER = field_from_hex
-run-no-gpu-fuzzer:
-		cd fuzz/no_gpu_fuzz
-		cargo +nightly fuzz run --fuzz-dir . $(FUZZER)
+run-fuzzer:
+		cargo +nightly fuzz run --fuzz-dir $(FUZZ_DIR) $(FUZZER)
 
-METALFUZZER = fft_diff
+proof-deserializer-fuzzer:
+		cargo +nightly fuzz run --fuzz-dir $(FUZZ_DIR)  deserialize_stark_proof
+		
 run-metal-fuzzer:
 		cd fuzz/metal_fuzz
-		cargo +nightly fuzz run --fuzz-dir . $(METALFUZZER)
+		cargo +nightly fuzz run --fuzz-dir  $(FUZZ_DIR) fft_diff
 
-CUDAFUZZER = cuda_fft_fuzzer
 run-cuda-fuzzer:
 		cd fuzz/cuda_fuzz
 		cargo hfuzz run $(CUDAFUZZER)
