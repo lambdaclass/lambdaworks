@@ -24,6 +24,9 @@ jobs:
           toolchain: stable
           targets: wasm32-unknown-unknown
 
+      - name: Set up cargo cache
+        uses: Swatinem/rust-cache@v2
+
       - name: Run cargo check
         run: cargo check
 

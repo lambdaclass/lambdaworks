@@ -11,6 +11,8 @@ From the heights of these towers of fields, forty centuries of mathematics look 
 
 </div>
 
+## [Documentation](https://lambdaclass.github.io/lambdaworks)
+
 Zero-Knowledge and Validity Proofs have gained a lot of attention over the last few years. We strongly believe in this potential and that is why we decided to start working in this challenging ecosystem, where math, cryptography and distributed systems meet. The main barrier in the beginning was not the cryptography or math but the lack of good libraries which are performant and developer friendly. There are some exceptions, though, like gnark or halo2. Some have nice APIs and are easy to work with, but they are not written in Rust, and some are written in Rust but have poor programming and engineering practices. Most of them don't have support for CUDA, Metal and WebGPU or distributed FFT calculation using schedulers like Dask.
 
 So, we decided to build our library, focusing on performance, with clear documentation and developer-focused. Our core team is a group of passionate people from different backgrounds and different strengths; we think that the whole is greater than just the addition of the parts. We don't want to be a compilation of every research result in the ZK space. We want this to be a library that can be used in production, not just in academic research. We want to offer developers the main building blocks and proof systems so that they can build their applications on top of this library.
@@ -55,6 +57,21 @@ If you use ```Lambdaworks``` libraries in your research projects, please cite th
 ### Gadgets
 
 ## Fuzzers
+
+Fuzzers are divided between the ones that use only the CPU, the ones that use Metal, and the ones that use CUDA.
+
+CPU Fuzzers can be run with the command ```bash make run-fuzzer FUZZER=fuzzer_name```
+
+For example:
+
+```bash
+make run-fuzzer FUZZER=field_from_hex
+```
+
+The list of fuzzers can be found in `fuzz/no_gpu_fuzz`
+
+Fuzzers for FTT in Metal and Cuda can be run with `make run-metal-fuzzer` and `make run-cuda-fuzzer`
+
 
 Run a specific fuzzer from the ones contained in **fuzz/fuzz_targets/** folder with`cargo`, for example to run the one for the target `field_from_hex`:
 
