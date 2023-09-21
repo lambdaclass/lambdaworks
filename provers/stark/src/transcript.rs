@@ -10,7 +10,8 @@ use lambdaworks_math::{
 use sha3::{Digest, Keccak256};
 
 pub trait IsStarkTranscript<F: IsField> {
-    fn append(&mut self, new_bytes: &[u8]);
+    fn append_field_element(&mut self, element: &FieldElement<F>);
+    fn append_bytes(&mut self, new_bytes: &[u8]);
     fn state(&self) -> [u8; 32];
     fn sample_field_element(&mut self) -> FieldElement<F>;
     fn sample_u64(&mut self, upper_bound: u64) -> u64;
@@ -84,7 +85,20 @@ impl StoneProverTranscript {
 }
 
 impl IsStarkTranscript<Stark252PrimeField> for StoneProverTranscript {
-    fn append(&mut self, new_bytes: &[u8]) {
+    fn append_field_element(&mut self, element: &FieldElement<Stark252PrimeField>) {
+        let limbs = element.value().limbs;
+        let mut bytes: [u8; 32] = [0; 32];
+
+        for i in (0..4).rev() {
+            let limb_bytes = limbs[i].to_be_bytes();
+            for j in 0..8 {
+                bytes[i * 8 + j] = limb_bytes[j]
+            }
+        }
+        self.append_bytes(&bytes);
+    }
+
+    fn append_bytes(&mut self, new_bytes: &[u8]) {
         let mut result_hash = [0_u8; 32];
         result_hash.copy_from_slice(&self.hash.clone().finalize_reset());
         result_hash.reverse();
@@ -94,6 +108,12 @@ impl IsStarkTranscript<Stark252PrimeField> for StoneProverTranscript {
         self.hash = keccak_hash(&[&new_seed, new_bytes].concat());
         self.counter = 0;
         self.spare_bytes.clear();
+    }
+
+    fn state(&self) -> [u8; 32] {
+        let mut state = [0u8; 32];
+        state.copy_from_slice(&self.hash.clone().finalize());
+        state
     }
 
     fn sample_field_element(&mut self) -> FieldElement<Stark252PrimeField> {
@@ -110,12 +130,6 @@ impl IsStarkTranscript<Stark252PrimeField> for StoneProverTranscript {
         bytes.copy_from_slice(&self.sample(8));
         let u64_val: u64 = u64::from_be_bytes(bytes);
         u64_val % upper_bound
-    }
-
-    fn state(&self) -> [u8; 32] {
-        let mut state = [0u8; 32];
-        state.copy_from_slice(&self.hash.clone().finalize());
-        state
     }
 }
 
@@ -308,7 +322,7 @@ mod tests {
     #[test]
     fn sample_bytes_from_stone_prover_channel() {
         let mut transcript = StoneProverTranscript::new(&[0x01, 0x02, 0x03]);
-        transcript.append(&[0x04, 0x05, 0x06]);
+        transcript.append_bytes(&[0x04, 0x05, 0x06]);
         assert_eq!(
             transcript.sample(32),
             vec![
@@ -363,7 +377,7 @@ mod tests {
                 0x26, 0x2f, 0x5f, 0x7c,
             ]
         );
-        transcript.append(&[0x03, 0x02]);
+        transcript.append_bytes(&[0x03, 0x02]);
         assert_eq!(
             transcript.sample(32),
             vec![
@@ -377,7 +391,7 @@ mod tests {
     #[test]
     fn sample_numbers_and_field_elements_from_stone_prover_channel() {
         let mut transcript = StoneProverTranscript::new(&[0x01, 0x02]);
-        transcript.append(&[0x01, 0x02]);
+        transcript.append_bytes(&[0x01, 0x02]);
         assert_eq!(transcript.sample(4), vec![0x06, 0xe5, 0x36, 0xf5]);
         assert_eq!(transcript.sample_u64(16), 5);
     }
@@ -386,7 +400,7 @@ mod tests {
     fn fibonacci_transcript_replicate() {
         let mut transcript = StoneProverTranscript::new(&[0xca, 0xfe, 0xca, 0xfe]);
         // Send hash of trace commitment
-        transcript.append(
+        transcript.append_bytes(
             &decode_hex("0eb9dcc0fb1854572a01236753ce05139d392aa3aeafe72abff150fe21175594")
                 .unwrap(),
         );
@@ -398,7 +412,7 @@ mod tests {
             )
         );
         // Send hash of composition poly commitment H(z)
-        transcript.append(
+        transcript.append_bytes(
             &decode_hex("7cdd8d5fe3bd62254a417e2e260e0fed4fccdb6c9005e828446f645879394f38")
                 .unwrap(),
         );
@@ -410,19 +424,19 @@ mod tests {
             )
         );
         // Append t_j(z), H(z)
-        transcript.append(&send_field_element(
+        transcript.append_field_element(&FE::from_hex_unchecked(
             "70d8181785336cc7e0a0a1078a79ee6541ca0803ed3ff716de5a13c41684037",
         ));
-        transcript.append(&send_field_element(
+        transcript.append_field_element(&FE::from_hex_unchecked(
             "29808fc8b7480a69295e4b61600480ae574ca55f8d118100940501b789c1630",
         ));
-        transcript.append(&send_field_element(
+        transcript.append_field_element(&FE::from_hex_unchecked(
             "7d8110f21d1543324cc5e472ab82037eaad785707f8cae3d64c5b9034f0abd2",
         ));
-        transcript.append(&send_field_element(
+        transcript.append_field_element(&FE::from_hex_unchecked(
             "1b58470130218c122f71399bf1e04cf75a6e8556c4751629d5ce8c02cc4e62d",
         ));
-        transcript.append(&send_field_element(
+        transcript.append_field_element(&FE::from_hex_unchecked(
             "1c0b7c2275e36d62dfb48c791be122169dcc00c616c63f8efb2c2a504687e85",
         ));
         // Sample challenge Gamma to collapse the terms of the deep composition polynomial (batch open).
@@ -441,7 +455,7 @@ mod tests {
             )
         );
         // FRI: Send hash of commitment at Layer 1
-        transcript.append(
+        transcript.append_bytes(
             &decode_hex("49c5672520e20eccc72aa28d6fa0d7ef446f1ede38d7c64fbb95d0f34a281803")
                 .unwrap(),
         );
@@ -453,69 +467,69 @@ mod tests {
             )
         );
         // Send field element at final layer of FRI
-        transcript.append(&send_field_element(
+        transcript.append_field_element(&FE::from_hex_unchecked(
             "702ddae5809ad82a82556eed2d202202d770962b7d4d82581e183df3efa2da6",
         ));
         // Send proof of work
-        transcript.append(&[0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x30, 0x4d]); // Eight bytes
-                                                                              // Sample query indices
+        transcript.append_bytes(&[0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x30, 0x4d]); // Eight bytes
+                                                                                    // Sample query indices
         assert_eq!(transcript.sample_u64(8), 0);
 
-        transcript.append(&send_field_element(
+        transcript.append_field_element(&FE::from_hex_unchecked(
             "643e5520c60d06219b27b34da0856a2c23153efe9da75c6036f362c8f19615e",
         ));
-        transcript.append(&send_field_element(
+        transcript.append_field_element(&FE::from_hex_unchecked(
             "165d7fb12913882268bb8cf470c81f42349fde7dec7b0a90526d142d6a61205",
         ));
-        transcript.append(&send_field_element(
+        transcript.append_field_element(&FE::from_hex_unchecked(
             "1bc1aadf39f2faee64d84cb25f7a95d3dceac1016258a39fc90c9d370e69ea2",
         ));
-        transcript.append(&send_field_element(
+        transcript.append_field_element(&FE::from_hex_unchecked(
             "69a2804ed6ec78ed9744730b8f37e0bdcb6021821384f56fad92ebd2959edf4",
         ));
 
-        transcript.append(
+        transcript.append_bytes(
             &decode_hex("0160a780da72e50c596b9b6712bd040475d30777a4fef2c9f9be3a7fbaa98072")
                 .unwrap(),
         );
-        transcript.append(
+        transcript.append_bytes(
             &decode_hex("993b044db22444c0c0ebf1095b9a51faeb001c9b4dea36abe905f7162620dbbd")
                 .unwrap(),
         );
-        transcript.append(
+        transcript.append_bytes(
             &decode_hex("5017abeca33fa82576b5c5c2c61792693b48c9d4414a407eef66b6029dae07ea")
                 .unwrap(),
         );
 
-        transcript.append(&send_field_element(
+        transcript.append_field_element(&FE::from_hex_unchecked(
             "483069de80bf48a1b5ca2f55bdeb9ec3ed1b7bf9c794c3c8832f14928124cbb",
         ));
-        transcript.append(&send_field_element(
+        transcript.append_field_element(&FE::from_hex_unchecked(
             "1cf5d5ed8348c3dee617bceff2d59cb14099d2978b1f7f928027dbbded1d66f",
         ));
 
-        transcript.append(
+        transcript.append_bytes(
             &decode_hex("6a23307160a636ea45c08f6b56e7585a850b5e14170a6c63f4d166a2220a7c2f")
                 .unwrap(),
         );
-        transcript.append(
+        transcript.append_bytes(
             &decode_hex("7950888c0355c204a1e83ecbee77a0a6a89f93d41cc2be6b39ddd1e727cc9650")
                 .unwrap(),
         );
-        transcript.append(
+        transcript.append_bytes(
             &decode_hex("58befe2c5de74cc5a002aa82ea219c5b242e761b45fd266eb95521e9f53f44eb")
                 .unwrap(),
         );
 
-        transcript.append(&send_field_element(
+        transcript.append_field_element(&FE::from_hex_unchecked(
             "724fcd17f8649ed5e180d4e98ba7e8900c8da2643f5ed548773b145230cf12d",
         ));
 
-        transcript.append(
+        transcript.append_bytes(
             &decode_hex("f1f135fc9228ae46afe83d108b256dda8a6ad63e05d630be1f8b461bf2dccf3d")
                 .unwrap(),
         );
-        transcript.append(
+        transcript.append_bytes(
             &decode_hex("3fdabd3f5fae2bf405d423417141678f4b9afa5666b00790baac61116c5ea8af")
                 .unwrap(),
         );

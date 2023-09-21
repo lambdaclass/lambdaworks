@@ -34,7 +34,7 @@ where
     fri_layer_list.push(current_layer.clone());
     let mut current_poly = p_0;
     // >>>> Send commitment: [p₀]
-    transcript.append(&current_layer.merkle_tree.root);
+    transcript.append_bytes(&current_layer.merkle_tree.root);
 
     let mut coset_offset = coset_offset.clone();
 
@@ -51,7 +51,7 @@ where
         fri_layer_list.push(current_layer.clone()); // TODO: remove this clone
 
         // >>>> Send commitment: [pₖ]
-        transcript.append(new_data);
+        transcript.append_bytes(new_data);
     }
 
     // <<<< Receive challenge: 𝜁ₙ₋₁
@@ -66,7 +66,7 @@ where
         .clone();
 
     // >>>> Send value: pₙ
-    transcript.append(&last_value.to_bytes_be());
+    transcript.append_field_element(&last_value);
 
     (last_value, fri_layer_list)
 }

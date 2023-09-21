@@ -128,7 +128,7 @@ where
     let (lde_trace_merkle_tree, lde_trace_merkle_root) = batch_commit(&lde_trace.rows());
 
     // >>>> Send commitments: [tⱼ]
-    transcript.append(&lde_trace_merkle_root);
+    transcript.append_bytes(&lde_trace_merkle_root);
 
     (
         trace_polys,
@@ -361,7 +361,7 @@ where
     let transcript_challenge = transcript.state();
     let nonce = generate_nonce_with_grinding(&transcript_challenge, grinding_factor)
         .expect("nonce not found");
-    transcript.append(&nonce.to_be_bytes());
+    transcript.append_bytes(&nonce.to_be_bytes());
 
     let (query_list, iotas) = fri_query_phase(air, domain_size, &fri_layers, transcript);
 
@@ -660,7 +660,7 @@ where
     );
 
     // >>>> Send commitments: [H₁], [H₂]
-    transcript.append(&round_2_result.composition_poly_root);
+    transcript.append_bytes(&round_2_result.composition_poly_root);
 
     #[cfg(feature = "instruments")]
     let elapsed2 = timer2.elapsed();
@@ -692,22 +692,14 @@ where
     );
 
     // >>>> Send value: H₁(z²)
-    transcript.append(
-        &round_3_result
-            .composition_poly_even_ood_evaluation
-            .to_bytes_be(),
-    );
+    transcript.append_field_element(&round_3_result.composition_poly_even_ood_evaluation);
 
     // >>>> Send value: H₂(z²)
-    transcript.append(
-        &round_3_result
-            .composition_poly_odd_ood_evaluation
-            .to_bytes_be(),
-    );
+    transcript.append_field_element(&round_3_result.composition_poly_odd_ood_evaluation);
     // >>>> Send values: tⱼ(zgᵏ)
     for row in round_3_result.trace_ood_evaluations.iter() {
         for element in row.iter() {
-            transcript.append(&element.to_bytes_be());
+            transcript.append_field_element(&element);
         }
     }
 
