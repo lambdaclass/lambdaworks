@@ -69,8 +69,6 @@ impl IsField for Mersenne31Field {
         Self::add(&prod_lo, &prod_hi)
     }
 
-    //todo: override power implementation to delegate to bitshifting if multiple of 2
-
     // Need to optimize
     fn sub(a: &u32, b: &u32) -> u32 {
         Self::add(a, &Self::neg(b))
