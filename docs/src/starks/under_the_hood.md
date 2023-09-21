@@ -21,7 +21,7 @@ We will once again use the fibonacci example as an ilustration. Recall from the 
 - Take the evaluation $H(z)$ along with the trace evaluations the prover provided.
 - Reconstruct the evaluations $B(z)$ and $C(z)$ from the trace evaluations. Check that the claimed evaluation $H(z)$ the prover gave us actually satisfies
     $$
-    H(z) = B(z) (\alpha_1 z^{D - deg(B)} + \beta_1) + C(z) (\alpha_2 z^{D - deg(C)} + \beta_2)
+    H(z) = \beta_1 B(z) + \beta_2 C(z)
     $$
 - Take the evaluations $H(x_0)$ and $t(x_0)$.
 - Check that the claimed evaluation $Deep(x_0)$ the prover gave us actually satisfies
@@ -94,13 +94,13 @@ let constraint_evaluations = evaluator.evaluate(
 This function call will return the evaluations of the boundary terms 
 
 $$
-B_i(x) (\alpha_i x^{D - deg(B)} + \beta_i)
+\beta_i^B B_i(x)
 $$
 
 and constraint terms
 
 $$
-C_i(x) (\alpha_i x^{D - deg(C)} + \beta_i)
+\beta_i^T C_i(x)
 $$
 
 for every $i$. The `constraint_evaluations` value returned is a `ConstraintEvaluationTable` struct, which is nothing more than a big list of evaluations of each polynomial required to construct `H`.

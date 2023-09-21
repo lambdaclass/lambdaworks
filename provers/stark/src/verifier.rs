@@ -45,8 +45,8 @@ where
     A: AIR<Field = F>,
 {
     z: FieldElement<F>,
-    boundary_coeffs: Vec<(FieldElement<F>, FieldElement<F>)>,
-    transition_coeffs: Vec<(FieldElement<F>, FieldElement<F>)>,
+    boundary_coeffs: Vec<FieldElement<F>>,
+    transition_coeffs: Vec<FieldElement<F>>,
     trace_term_coeffs: Vec<Vec<FieldElement<F>>>,
     gamma_even: FieldElement<F>,
     gamma_odd: FieldElement<F>,
@@ -88,31 +88,14 @@ where
     // ===================================
 
     // These are the challenges alpha^B_j and beta^B_j
-    // >>>> Send challenges: 𝛼_j^B
-    let boundary_coeffs_alphas = batch_sample_challenges(
-        air.boundary_constraints(&rap_challenges).constraints.len(),
-        transcript,
-    );
     // >>>> Send  challenges: 𝛽_j^B
-    let boundary_coeffs_betas = batch_sample_challenges(
+    let boundary_coeffs = batch_sample_challenges(
         air.boundary_constraints(&rap_challenges).constraints.len(),
         transcript,
     );
-    // >>>> Send challenges: 𝛼_j^T
-    let transition_coeffs_alphas =
-        batch_sample_challenges(air.context().num_transition_constraints, transcript);
     // >>>> Send challenges: 𝛽_j^T
-    let transition_coeffs_betas =
+    let transition_coeffs =
         batch_sample_challenges(air.context().num_transition_constraints, transcript);
-    let boundary_coeffs: Vec<_> = boundary_coeffs_alphas
-        .into_iter()
-        .zip(boundary_coeffs_betas)
-        .collect();
-
-    let transition_coeffs: Vec<_> = transition_coeffs_alphas
-        .into_iter()
-        .zip(transition_coeffs_betas)
-        .collect();
 
     // <<<< Receive commitments: [H₁], [H₂]
     transcript.append(&proof.composition_poly_root);
@@ -221,8 +204,6 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
     //let n_trace_cols = air.context().trace_columns;
     // special cases.
     let trace_length = air.trace_length();
-    let composition_poly_degree_bound = air.composition_poly_degree_bound();
-    let boundary_term_degree_adjustment = composition_poly_degree_bound - trace_length;
     let number_of_b_constraints = boundary_constraints.constraints.len();
 
     // Following naming conventions from https://www.notamonadtutorial.com/diving-deep-fri/
@@ -251,12 +232,11 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
 
     FieldElement::inplace_batch_inverse(&mut boundary_c_i_evaluations_den).unwrap();
 
-    let boundary_degree_z = challenges.z.pow(boundary_term_degree_adjustment);
     let boundary_quotient_ood_evaluation: FieldElement<F> = boundary_c_i_evaluations_num
         .iter()
         .zip(&boundary_c_i_evaluations_den)
         .zip(&challenges.boundary_coeffs)
-        .map(|((num, den), (alpha, beta))| num * den * (alpha * &boundary_degree_z + beta))
+        .map(|((num, den), beta)| num * den * beta)
         .fold(FieldElement::<F>::zero(), |acc, x| acc + x);
 
     let transition_ood_frame_evaluations = air.compute_transition(
@@ -276,38 +256,19 @@ fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>
         .map(|poly| poly.evaluate(&challenges.z))
         .collect::<Vec<FieldElement<F>>>();
 
-    let max_degree = air
-        .context()
-        .transition_degrees()
-        .iter()
-        .max()
-        .expect("has maximum degree");
-    let degree_adjustments = (1..=*max_degree)
-        .map(|transition_degree| {
-            let degree_adjustment =
-                composition_poly_degree_bound - (trace_length * (transition_degree - 1));
-            challenges.z.pow(degree_adjustment)
-        })
-        .collect::<Vec<FieldElement<F>>>();
     let unity = &FieldElement::one();
     let transition_c_i_evaluations_sum = transition_ood_frame_evaluations
         .iter()
         .zip(&air.context().transition_degrees)
         .zip(&air.context().transition_exemptions)
         .zip(&challenges.transition_coeffs)
-        .fold(
-            FieldElement::zero(),
-            |acc, (((eval, degree), except), (alpha, beta))| {
-                let except = except
-                    .checked_sub(1)
-                    .map(|i| &exemption[i])
-                    .unwrap_or(unity);
-                acc + &denominator
-                    * eval
-                    * (alpha * &degree_adjustments[degree - 1] + beta)
-                    * except
-            },
-        );
+        .fold(FieldElement::zero(), |acc, (((eval, _), except), beta)| {
+            let except = except
+                .checked_sub(1)
+                .map(|i| &exemption[i])
+                .unwrap_or(unity);
+            acc + &denominator * eval * beta * except
+        });
 
     let composition_poly_ood_evaluation =
         &boundary_quotient_ood_evaluation + transition_c_i_evaluations_sum;

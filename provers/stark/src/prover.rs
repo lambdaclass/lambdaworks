@@ -226,8 +226,8 @@ fn round_2_compute_composition_polynomial<F, A>(
     air: &A,
     domain: &Domain<F>,
     round_1_result: &Round1<F, A>,
-    transition_coeffs: &[(FieldElement<F>, FieldElement<F>)],
-    boundary_coeffs: &[(FieldElement<F>, FieldElement<F>)],
+    transition_coefficients: &[FieldElement<F>],
+    boundary_coefficients: &[FieldElement<F>],
 ) -> Round2<F>
 where
     F: IsFFTField,
@@ -241,8 +241,8 @@ where
     let constraint_evaluations = evaluator.evaluate(
         &round_1_result.lde_trace,
         domain,
-        transition_coeffs,
-        boundary_coeffs,
+        transition_coefficients,
+        boundary_coefficients,
         &round_1_result.rap_challenges,
     );
 
@@ -641,42 +641,23 @@ where
     #[cfg(feature = "instruments")]
     let timer2 = Instant::now();
 
-    // <<<< Receive challenges: 𝛼_j^B
-    let boundary_coeffs_alphas = batch_sample_challenges(
-        air.boundary_constraints(&round_1_result.rap_challenges)
-            .constraints
-            .len(),
-        &mut transcript,
-    );
     // <<<< Receive challenges: 𝛽_j^B
-    let boundary_coeffs_betas = batch_sample_challenges(
+    let boundary_coefficients = batch_sample_challenges(
         air.boundary_constraints(&round_1_result.rap_challenges)
             .constraints
             .len(),
         &mut transcript,
     );
-    // <<<< Receive challenges: 𝛼_j^T
-    let transition_coeffs_alphas =
-        batch_sample_challenges(air.context().num_transition_constraints, &mut transcript);
     // <<<< Receive challenges: 𝛽_j^T
-    let transition_coeffs_betas =
+    let transition_coefficients =
         batch_sample_challenges(air.context().num_transition_constraints, &mut transcript);
-
-    let boundary_coeffs: Vec<_> = boundary_coeffs_alphas
-        .into_iter()
-        .zip(boundary_coeffs_betas)
-        .collect();
-    let transition_coeffs: Vec<_> = transition_coeffs_alphas
-        .into_iter()
-        .zip(transition_coeffs_betas)
-        .collect();
 
     let round_2_result = round_2_compute_composition_polynomial(
         &air,
         &domain,
         &round_1_result,
-        &transition_coeffs,
-        &boundary_coeffs,
+        &transition_coefficients,
+        &boundary_coefficients,
     );
 
     // >>>> Send commitments: [H₁], [H₂]

@@ -52,7 +52,6 @@ Both prover and verifier compute the following.
 
 - The interpolation domain: the vector $D_S=(1, g, \dots, g^{2^n-1})$.
 - The Low Degree Extension $D_{\text{LDE}} =(h, h\omega, h\omega^2,\dots, h\omega^{2^{n+l} - 1})$. Recall $2^l$ is the blowup factor.
-- Let $d_k^T := 2^n (\deg(P_k^T) - 1)$ and let $d^B := 2^n$. Let $d := 2^{n + 1}$. Notice that $d^B \leq d$ and $d_k^T \leq d$ for all $k$. This holds because we assume all transition constraint polynomials are at most cubic.
 
 ### Notation of important operations
 #### Vector commitment scheme
@@ -98,7 +97,7 @@ In our cases the sets $A$ will be of the form $A=(f(a), f(ab), f(ab^2), \dots, f
 - Compute $B_j := \frac{t_j - P^B_j}{Z_j^B}$.
 - Compute $C_k := \frac{P^T_k(t_1, \dots, t_m, t_1(gX), \dots, t_m(gX))}{Z_k^T}$.
 - Compute the _composition polynomial_
-  $$H := \sum_{k} (\alpha_k^T X^{d - d_k^T} + \beta_k^T)C_k + \sum_j (\alpha_j^BX^{d - d^B}+\beta_j^B)B_j$$
+  $$H := \sum_{k} \beta_k^TC_k + \sum_j \beta_j^BB_j$$
 - Decompose $H$ as
   $$H = H_1(X^2) + XH_2(X^2)$$
 - Compute commitments $[H_1]$ and $[H_2]$.
@@ -227,7 +226,7 @@ Check that $\text{Keccak256}(x || y)$ has $c$ leading zeroes.
 - Compute $b_j := \frac{\tau_j^z - P^B_j(z)}{Z_j^B(z)}$
 - Compute $c_k := \frac{P^T_k(\tau_1^z, \dots, \tau_m^z, \tau_1^{gz}, \dots, \tau_m^{gz})}{Z_k^T(z)}$
 - Verify
-  $$h = \sum_{k} (\alpha_k^T z^{d - d_k^T} + \beta_k^T)c_k + \sum_j (\alpha_j^B z^{d - d^B}+\beta_j^B)b_j$$
+  $$h = \sum_{k} \beta_k^Tc_k + \sum_j \beta_j^Bb_j$$
 
 #### Step 3: Verify FRI
 
