@@ -1,5 +1,4 @@
 use super::{
-    compression::check_point_is_in_subgroup,
     curve::BLS12381Curve,
     field_extension::{Degree12ExtensionField, Degree2ExtensionField},
     twist::BLS12381TwistCurve,
@@ -16,8 +15,11 @@ use crate::{
     },
     errors::PairingError,
     field::{element::FieldElement, extensions::cubic::HasCubicNonResidue},
-    unsigned_integer::element::UnsignedInteger,
+    unsigned_integer::element::{UnsignedInteger, U256},
 };
+
+pub const SUBGROUP_ORDER: U256 =
+    U256::from_hex_unchecked("73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001");
 
 #[derive(Clone)]
 pub struct BLS12381AtePairing;
@@ -34,7 +36,7 @@ impl IsPairing for BLS12381AtePairing {
     ) -> Result<FieldElement<Self::OutputField>, PairingError> {
         let mut result = FieldElement::one();
         for (p, q) in pairs {
-            if !check_point_is_in_subgroup(p) || !check_point_is_in_subgroup(q) {
+            if !p.is_in_subgroup(SUBGROUP_ORDER) || !q.is_in_subgroup(SUBGROUP_ORDER) {
                 return Err(PairingError::PointNotInSubgroup);
             }
             if !p.is_neutral_element() && !q.is_neutral_element() {
