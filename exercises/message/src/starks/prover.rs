@@ -744,6 +744,12 @@ where
         .collect()
 }
 
+strct StoneProverTranscript {
+    counter: usize,
+    spare_bytes: Vec<u8>,
+    hash: dyn Transcript,
+}
+
 // FIXME remove unwrap() calls and return errors
 pub fn prove<F, A>(
     main_trace: &TraceTable<F>,

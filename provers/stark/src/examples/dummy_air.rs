@@ -1,4 +1,3 @@
-use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::field::{
     element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
     traits::IsFFTField,
@@ -11,6 +10,7 @@ use crate::{
     proof::options::ProofOptions,
     trace::TraceTable,
     traits::AIR,
+    transcript::IsStarkTranscript,
 };
 
 #[derive(Clone)]
@@ -53,7 +53,11 @@ impl AIR for DummyAIR {
         TraceTable::empty()
     }
 
-    fn build_rap_challenges<T: Transcript>(&self, _transcript: &mut T) -> Self::RAPChallenges {}
+    fn build_rap_challenges(
+        &self,
+        _transcript: &mut impl IsStarkTranscript<Self::Field>,
+    ) -> Self::RAPChallenges {
+    }
     fn compute_transition(
         &self,
         frame: &Frame<Self::Field>,

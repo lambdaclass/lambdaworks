@@ -1,6 +1,5 @@
 use std::ops::Div;
 
-use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsFFTField},
     helpers::resize_to_next_power_of_two,
@@ -14,7 +13,7 @@ use crate::{
     proof::options::ProofOptions,
     trace::TraceTable,
     traits::AIR,
-    transcript::transcript_to_field,
+    transcript::IsStarkTranscript,
 };
 
 #[derive(Clone)]
@@ -96,8 +95,11 @@ where
         TraceTable::new_from_cols(&[aux_col])
     }
 
-    fn build_rap_challenges<T: Transcript>(&self, transcript: &mut T) -> Self::RAPChallenges {
-        transcript_to_field(transcript)
+    fn build_rap_challenges(
+        &self,
+        transcript: &mut impl IsStarkTranscript<F>,
+    ) -> Self::RAPChallenges {
+        transcript.sample_field_element()
     }
 
     fn number_auxiliary_rap_columns(&self) -> usize {
