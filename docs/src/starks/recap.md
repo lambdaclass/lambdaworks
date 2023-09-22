@@ -142,15 +142,14 @@ $$
 How does \\(C\\) encode the transition constraints? We mentioned above that these are satisfied if the polynomial in the numerator vanishes in the elements \\(\{g^0, g^1, g^2, g^3, g^4, g^5\}\\). As with \\(B\\), this is the same as showing that \\(C(x)\\) is a polynomial instead of a rational function.
 
 ### Constructing \\(H\\)
-With the boundary and transition constraint polynomials in hand, we build the `composition polynomial` \\(H\\) as follows: The verifier will sample four numbers \\(\alpha_1, \alpha_2, \beta_1, \beta_2\\) and \\(H\\) will be
+With the boundary and transition constraint polynomials in hand, we build the `composition polynomial` \\(H\\) as follows: The verifier will sample four numbers \\(\beta_1, \beta_2\\) and \\(H\\) will be
 
 $$
-H(x) = B(x) (\alpha_1 x^{D - deg(B)} + \beta_1) + C(x) (\alpha_2 x^{D - deg(C)} + \beta_2)
+H(x) = \beta_1 B(x) + \beta_2 C(x)
 $$
 
-where \\(D\\) is the smallest power of two greater than the degrees of both \\(B\\) and \\(C\\), so for example if \\(deg(B) = 3\\) and \\(deg(C) = 6\\), then \\(D = 8\\).
 
-Why not just take \\(H(x) = B(x) + C(x)\\)? The reason for the alphas and betas is to make the resulting \\(H\\) be always different and unpredictable for the prover, so they can't precompute stuff beforehand. The \\(x^{D - deg(...)}\\) term is there to adjust the degree of the constraints. This ensures the soundness of the protocol according to the [ethSTARK documentation](https://eprint.iacr.org/2021/582.pdf).
+Why not just take \\(H(x) = B(x) + C(x)\\)? The reason for the betas is to make the resulting \\(H\\) be always different and unpredictable for the prover, so they can't precompute stuff beforehand.
 
 With what we discussed above, showing that the constraints are satisfied is equivalent to saying that `H` is a polynomial and not a rational function (we are simplifying things a bit here, but it works for our purposes).
 
@@ -167,7 +166,7 @@ After commiting to `H`, the prover needs to show that `H` was constructed correc
 Because the boundary and transition constraints are a public part of the protocol, the verifier knows them, and thus the only thing it needs to compute the evaluation \\((z)\\) by itself are the three trace evaluations mentioned above. Because it asked the prover for them, it can check both sides of the equation:
 
 $$
-H(z) = B(z) (\alpha_1 z^{D - deg(B)} + \beta_1) + C(z) (\alpha_2 z^{D - deg(C)} + \beta_2)
+H(z) = \beta_1 B(z) + \beta_2 C(z)
 $$
 
 and be convinced that \\(H\\) was constructed correctly.
@@ -231,7 +230,7 @@ We summarize below the steps required in a STARK proof for both prover and verif
 - Take the evaluations \\(H(z)\\), \\(H(x_0)\\), \\(t(z)\\), \\(t(zg)\\), \\(t(zg^2)\\) and \\(t(x_0)\\) the prover provided.
 - Reconstruct the evaluations \\(B(z)\\) and \\(C(z)\\) from the trace evaluations we were given. Check that the claimed evaluation \\(H(z)\\) the prover gave us actually satisfies
     $$
-    H(z) = B(z) (\alpha_1 z^{D - deg(B)} + \beta_1) + C(z) (\alpha_2 z^{D - deg(C)} + \beta_2)
+    H(z) =  \beta_1 B(z) + \beta_2 C(z)
     $$
 - Check that the claimed evaluation \\(Deep(x_0)\\) the prover gave us actually satisfies
     $$
