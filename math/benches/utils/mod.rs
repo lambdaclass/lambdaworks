@@ -2,6 +2,8 @@
 #![allow(dead_code)]
 pub mod fft_functions;
 pub mod stark252_utils;
+pub mod u32_mont_utils;
+pub mod u32_utils;
 pub mod u64_goldilocks_utils;
 pub mod u64_utils;
 

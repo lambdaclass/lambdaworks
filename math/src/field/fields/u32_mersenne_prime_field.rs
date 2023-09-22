@@ -12,7 +12,7 @@ use crate::{
 /// Invariants:
 ///      31st bit is clear
 ///      n < MODULUS
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Hash, PartialOrd, Ord, PartialEq, Eq)]
 pub struct Mersenne31Field;
 
 impl Mersenne31Field {
