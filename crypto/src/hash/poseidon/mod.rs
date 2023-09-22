@@ -121,7 +121,7 @@ where
         }
     }
 
-    fn hash(&self, inputs: &[FieldElement<F>]) -> Result<Vec<FieldElement<F>>, String>
+    pub fn hash(&self, inputs: &[FieldElement<F>]) -> Result<Vec<FieldElement<F>>, String>
     where
         F: IsField,
     {
