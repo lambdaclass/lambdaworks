@@ -680,7 +680,7 @@ where
     // >>>> Send values: tⱼ(zgᵏ)
     for row in round_3_result.trace_ood_evaluations.iter() {
         for element in row.iter() {
-            transcript.append_field_element(&element);
+            transcript.append_field_element(element);
         }
     }
 

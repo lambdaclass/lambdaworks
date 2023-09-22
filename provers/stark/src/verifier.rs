@@ -103,7 +103,7 @@ where
     // <<<< Receive values: tⱼ(zgᵏ)
     for i in 0..proof.trace_ood_frame_evaluations.num_rows() {
         for element in proof.trace_ood_frame_evaluations.get_row(i).iter() {
-            transcript.append_field_element(&element);
+            transcript.append_field_element(element);
         }
     }
 

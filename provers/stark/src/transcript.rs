@@ -252,7 +252,33 @@ mod tests {
     }
 
     #[test]
-    fn sample_numbers_and_field_elements_from_stone_prover_channel() {
+    fn test_sample_bytes() {
+        let mut transcript = StoneProverTranscript::new(&[0x01, 0x02]);
+        assert_eq!(
+            transcript.sample(8),
+            vec![89, 27, 84, 161, 127, 200, 195, 181]
+        );
+    }
+
+    #[test]
+    fn test_sample_field_element() {
+        let mut transcript = StoneProverTranscript::new(&[0x01, 0x02]);
+        assert_eq!(
+            transcript.sample_field_element(),
+            FE::from_hex_unchecked(
+                "20b962ed1a29c942e11dc63c00b51de816bcd8bf9acd221f3fa55e5201d69be"
+            )
+        );
+    }
+
+    #[test]
+    fn test_sample_u64_element() {
+        let mut transcript = StoneProverTranscript::new(&[0x01, 0x02]);
+        assert_eq!(transcript.sample_u64(1024), 949);
+    }
+
+    #[test]
+    fn test_sample_u64_after_appending_and_sampling_bytes() {
         let mut transcript = StoneProverTranscript::new(&[0x01, 0x02]);
         transcript.append_bytes(&[0x01, 0x02]);
         assert_eq!(transcript.sample(4), vec![0x06, 0xe5, 0x36, 0xf5]);
