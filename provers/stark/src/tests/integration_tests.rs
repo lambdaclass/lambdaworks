@@ -46,35 +46,37 @@ fn test_prove_fib() {
     );
 }
 
-// #[test_log::test]
-// fn test_prove_fib17() {
-//     let trace = simple_fibonacci::fibonacci_trace([FE17::from(1), FE17::from(1)], 4);
-//
-//     let proof_options = ProofOptions {
-//         blowup_factor: 2,
-//         fri_number_of_queries: 7,
-//         coset_offset: 3,
-//         grinding_factor: 1,
-//     };
-//
-//     let pub_inputs = FibonacciPublicInputs {
-//         a0: FE17::one(),
-//         a1: FE17::one(),
-//     };
-//
-//     let proof = prove::<F17, FibonacciAIR<F17>>(
-//         &trace,
-//         &pub_inputs,
-//         &proof_options,
-//         StoneProverTranscript::new(&[]),
-//     )
-//     .unwrap();
-//     assert!(verify::<F17, FibonacciAIR<F17>>(
-//         &proof,
-//         &pub_inputs,
-//         &proof_options,
-//     ));
-// }
+#[test_log::test]
+fn test_prove_fib17() {
+    type FE = FieldElement<Stark252PrimeField>;
+    let trace = simple_fibonacci::fibonacci_trace([FE::from(1), FE::from(1)], 4);
+
+    let proof_options = ProofOptions {
+        blowup_factor: 2,
+        fri_number_of_queries: 7,
+        coset_offset: 3,
+        grinding_factor: 1,
+    };
+
+    let pub_inputs = FibonacciPublicInputs {
+        a0: FE::one(),
+        a1: FE::one(),
+    };
+
+    let proof = prove::<_, FibonacciAIR<_>>(
+        &trace,
+        &pub_inputs,
+        &proof_options,
+        StoneProverTranscript::new(&[]),
+    )
+    .unwrap();
+    assert!(verify::<_, FibonacciAIR<_>>(
+        &proof,
+        &pub_inputs,
+        &proof_options,
+        StoneProverTranscript::new(&[]),
+    ));
+}
 
 #[test_log::test]
 fn test_prove_fib_2_cols() {
