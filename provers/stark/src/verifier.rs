@@ -3,12 +3,7 @@ use std::time::Instant;
 
 //use itertools::multizip;
 #[cfg(not(feature = "test_fiat_shamir"))]
-use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
-use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use log::error;
-
-#[cfg(feature = "test_fiat_shamir")]
-use lambdaworks_crypto::fiat_shamir::test_transcript::TestTranscript;
 
 use lambdaworks_math::{
     field::{
@@ -18,6 +13,8 @@ use lambdaworks_math::{
     traits::ByteConversion,
 };
 
+use crate::transcript::IsStarkTranscript;
+
 use super::{
     config::{BatchedMerkleTreeBackend, FriMerkleTreeBackend},
     domain::Domain,
@@ -25,19 +22,8 @@ use super::{
     grinding::hash_transcript_with_int_and_get_leading_zeros,
     proof::{options::ProofOptions, stark::StarkProof},
     traits::AIR,
-    transcript::{batch_sample_challenges, sample_z_ood, transcript_to_field, transcript_to_u32},
+    transcript::{batch_sample_challenges, sample_z_ood},
 };
-
-#[cfg(feature = "test_fiat_shamir")]
-fn step_1_transcript_initialization() -> TestTranscript {
-    TestTranscript::new()
-}
-
-#[cfg(not(feature = "test_fiat_shamir"))]
-fn step_1_transcript_initialization() -> DefaultTranscript {
-    // TODO: add strong fiat shamir
-    DefaultTranscript::new()
-}
 
 struct Challenges<F, A>
 where
@@ -56,17 +42,16 @@ where
     leading_zeros_count: u8, // number of leading zeros in the grinding
 }
 
-fn step_1_replay_rounds_and_recover_challenges<F, A, T>(
+fn step_1_replay_rounds_and_recover_challenges<F, A>(
     air: &A,
     proof: &StarkProof<F>,
     domain: &Domain<F>,
-    transcript: &mut T,
+    transcript: &mut impl IsStarkTranscript<F>,
 ) -> Challenges<F, A>
 where
     F: IsFFTField,
     FieldElement<F>: ByteConversion,
     A: AIR<Field = F>,
-    T: Transcript,
 {
     // ===================================
     // ==========|   Round 1   |==========
@@ -75,12 +60,12 @@ where
     // <<<< Receive commitments:[tⱼ]
     let total_columns = air.context().trace_columns;
 
-    transcript.append(&proof.lde_trace_merkle_roots[0]);
+    transcript.append_bytes(&proof.lde_trace_merkle_roots[0]);
 
     let rap_challenges = air.build_rap_challenges(transcript);
 
     if let Some(root) = proof.lde_trace_merkle_roots.get(1) {
-        transcript.append(root);
+        transcript.append_bytes(root);
     }
 
     // ===================================
@@ -98,7 +83,7 @@ where
         batch_sample_challenges(air.context().num_transition_constraints, transcript);
 
     // <<<< Receive commitments: [H₁], [H₂]
-    transcript.append(&proof.composition_poly_root);
+    transcript.append_bytes(&proof.composition_poly_root);
 
     // ===================================
     // ==========|   Round 3   |==========
@@ -112,13 +97,13 @@ where
     );
 
     // <<<< Receive value: H₁(z²)
-    transcript.append(&proof.composition_poly_even_ood_evaluation.to_bytes_be());
+    transcript.append_field_element(&proof.composition_poly_even_ood_evaluation);
     // <<<< Receive value: H₂(z²)
-    transcript.append(&proof.composition_poly_odd_ood_evaluation.to_bytes_be());
+    transcript.append_field_element(&proof.composition_poly_odd_ood_evaluation);
     // <<<< Receive values: tⱼ(zgᵏ)
     for i in 0..proof.trace_ood_frame_evaluations.num_rows() {
         for element in proof.trace_ood_frame_evaluations.get_row(i).iter() {
-            transcript.append(&element.to_bytes_be());
+            transcript.append_field_element(element);
         }
     }
 
@@ -127,8 +112,8 @@ where
     // ===================================
 
     // >>>> Send challenges: 𝛾, 𝛾'
-    let gamma_even = transcript_to_field(transcript);
-    let gamma_odd = transcript_to_field(transcript);
+    let gamma_even = transcript.sample_field_element();
+    let gamma_odd = transcript.sample_field_element();
 
     // >>>> Send challenges: 𝛾ⱼ, 𝛾ⱼ'
     // Get the number of trace terms the DEEP composition poly will have.
@@ -137,7 +122,7 @@ where
     let trace_term_coeffs = (0..total_columns)
         .map(|_| {
             (0..air.context().transition_offsets.len())
-                .map(|_| transcript_to_field(transcript))
+                .map(|_| transcript.sample_field_element())
                 .collect()
         })
         .collect::<Vec<Vec<FieldElement<F>>>>();
@@ -149,29 +134,29 @@ where
         .iter()
         .map(|root| {
             // <<<< Receive commitment: [pₖ] (the first one is [p₀])
-            transcript.append(root);
+            transcript.append_bytes(root);
 
             // >>>> Send challenge 𝜁ₖ
-            transcript_to_field(transcript)
+            transcript.sample_field_element()
         })
         .collect::<Vec<FieldElement<F>>>();
 
     // <<<< Receive value: pₙ
-    transcript.append(&proof.fri_last_value.to_bytes_be());
+    transcript.append_field_element(&proof.fri_last_value);
 
     // Receive grinding value
     // 1) Receive challenge from the transcript
-    let transcript_challenge = transcript.challenge();
+    let transcript_challenge = transcript.state();
     let nonce = proof.nonce;
     let leading_zeros_count =
         hash_transcript_with_int_and_get_leading_zeros(&transcript_challenge, nonce);
-    transcript.append(&nonce.to_be_bytes());
+    transcript.append_bytes(&nonce.to_be_bytes());
 
     // FRI query phase
     // <<<< Send challenges 𝜄ₛ (iota_s)
     let iota_max: usize = 2_usize.pow(domain.lde_root_order);
     let iotas: Vec<usize> = (0..air.options().fri_number_of_queries)
-        .map(|_| (transcript_to_u32(transcript) as usize) % iota_max)
+        .map(|_| (transcript.sample_u64(iota_max as u64) as usize) % iota_max)
         .collect();
 
     Challenges {
@@ -523,6 +508,7 @@ pub fn verify<F, A>(
     proof: &StarkProof<F>,
     pub_input: &A::PublicInputs,
     proof_options: &ProofOptions,
+    mut transcript: impl IsStarkTranscript<F>,
 ) -> bool
 where
     F: IsFFTField,
@@ -539,7 +525,6 @@ where
     #[cfg(feature = "instruments")]
     let timer1 = Instant::now();
 
-    let mut transcript = step_1_transcript_initialization();
     let air = A::new(proof.trace_length, pub_input, proof_options);
     let domain = Domain::new(&air);
 

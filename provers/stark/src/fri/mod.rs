@@ -2,7 +2,6 @@ pub mod fri_commitment;
 pub mod fri_decommit;
 mod fri_functions;
 
-use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::field::traits::{IsFFTField, IsField};
 use lambdaworks_math::traits::ByteConversion;
 pub use lambdaworks_math::{
@@ -10,17 +9,18 @@ pub use lambdaworks_math::{
     polynomial::Polynomial,
 };
 
+use crate::transcript::IsStarkTranscript;
+
 use self::fri_commitment::FriLayer;
 use self::fri_decommit::FriDecommitment;
 use self::fri_functions::fold_polynomial;
 
 use super::traits::AIR;
-use super::transcript::{transcript_to_field, transcript_to_u32};
 
-pub fn fri_commit_phase<F: IsField + IsFFTField, T: Transcript>(
+pub fn fri_commit_phase<F: IsField + IsFFTField>(
     number_layers: usize,
     p_0: Polynomial<FieldElement<F>>,
-    transcript: &mut T,
+    transcript: &mut impl IsStarkTranscript<F>,
     coset_offset: &FieldElement<F>,
     domain_size: usize,
 ) -> (FieldElement<F>, Vec<FriLayer<F>>)
@@ -34,13 +34,13 @@ where
     fri_layer_list.push(current_layer.clone());
     let mut current_poly = p_0;
     // >>>> Send commitment: [p₀]
-    transcript.append(&current_layer.merkle_tree.root);
+    transcript.append_bytes(&current_layer.merkle_tree.root);
 
     let mut coset_offset = coset_offset.clone();
 
     for _ in 1..number_layers {
         // <<<< Receive challenge 𝜁ₖ₋₁
-        let zeta = transcript_to_field(transcript);
+        let zeta = transcript.sample_field_element();
         coset_offset = coset_offset.square();
         domain_size /= 2;
 
@@ -51,11 +51,11 @@ where
         fri_layer_list.push(current_layer.clone()); // TODO: remove this clone
 
         // >>>> Send commitment: [pₖ]
-        transcript.append(new_data);
+        transcript.append_bytes(new_data);
     }
 
     // <<<< Receive challenge: 𝜁ₙ₋₁
-    let zeta = transcript_to_field(transcript);
+    let zeta = transcript.sample_field_element();
 
     let last_poly = fold_polynomial(&current_poly, &zeta);
 
@@ -66,27 +66,26 @@ where
         .clone();
 
     // >>>> Send value: pₙ
-    transcript.append(&last_value.to_bytes_be());
+    transcript.append_field_element(&last_value);
 
     (last_value, fri_layer_list)
 }
 
-pub fn fri_query_phase<F, A, T>(
+pub fn fri_query_phase<F, A>(
     air: &A,
     domain_size: usize,
     fri_layers: &Vec<FriLayer<F>>,
-    transcript: &mut T,
+    transcript: &mut impl IsStarkTranscript<F>,
 ) -> (Vec<FriDecommitment<F>>, Vec<usize>)
 where
     F: IsFFTField,
     A: AIR<Field = F>,
-    T: Transcript,
     FieldElement<F>: ByteConversion,
 {
     if !fri_layers.is_empty() {
         let number_of_queries = air.options().fri_number_of_queries;
         let iotas = (0..number_of_queries)
-            .map(|_| (transcript_to_u32(transcript) as usize) % domain_size)
+            .map(|_| (transcript.sample_u64(domain_size as u64)) as usize)
             .collect::<Vec<usize>>();
         let query_list = iotas
             .iter()

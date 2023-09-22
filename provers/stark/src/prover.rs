@@ -1,13 +1,6 @@
 #[cfg(feature = "instruments")]
 use std::time::Instant;
 
-#[cfg(not(feature = "test_fiat_shamir"))]
-use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
-use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
-
-#[cfg(feature = "test_fiat_shamir")]
-use lambdaworks_crypto::fiat_shamir::test_transcript::TestTranscript;
-
 use lambdaworks_math::fft::{errors::FFTError, polynomial::FFTPoly};
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsFFTField},
@@ -21,7 +14,7 @@ use rayon::prelude::{IndexedParallelIterator, IntoParallelRefIterator, ParallelI
 
 #[cfg(debug_assertions)]
 use crate::debug::validate_trace;
-use crate::transcript::sample_z_ood;
+use crate::transcript::{sample_z_ood, IsStarkTranscript};
 
 use super::config::{BatchedMerkleTree, Commitment};
 use super::constraints::evaluator::ConstraintEvaluator;
@@ -34,7 +27,7 @@ use super::proof::options::ProofOptions;
 use super::proof::stark::{DeepPolynomialOpenings, StarkProof};
 use super::trace::TraceTable;
 use super::traits::AIR;
-use super::transcript::{batch_sample_challenges, transcript_to_field};
+use super::transcript::batch_sample_challenges;
 
 #[derive(Debug)]
 pub enum ProvingError {
@@ -81,17 +74,6 @@ struct Round4<F: IsFFTField> {
     nonce: u64,
 }
 
-#[cfg(feature = "test_fiat_shamir")]
-fn round_0_transcript_initialization() -> TestTranscript {
-    TestTranscript::new()
-}
-
-#[cfg(not(feature = "test_fiat_shamir"))]
-fn round_0_transcript_initialization() -> DefaultTranscript {
-    // TODO: add strong fiat shamir
-    DefaultTranscript::new()
-}
-
 fn batch_commit<F>(vectors: &[Vec<FieldElement<F>>]) -> (BatchedMerkleTree<F>, Commitment)
 where
     F: IsFFTField,
@@ -122,10 +104,10 @@ where
 }
 
 #[allow(clippy::type_complexity)]
-fn interpolate_and_commit<T, F>(
+fn interpolate_and_commit<F>(
     trace: &TraceTable<F>,
     domain: &Domain<F>,
-    transcript: &mut T,
+    transcript: &mut impl IsStarkTranscript<F>,
 ) -> (
     Vec<Polynomial<FieldElement<F>>>,
     Vec<Vec<FieldElement<F>>>,
@@ -133,7 +115,6 @@ fn interpolate_and_commit<T, F>(
     Commitment,
 )
 where
-    T: Transcript,
     F: IsFFTField,
     FieldElement<F>: ByteConversion + Send + Sync,
 {
@@ -147,7 +128,7 @@ where
     let (lde_trace_merkle_tree, lde_trace_merkle_root) = batch_commit(&lde_trace.rows());
 
     // >>>> Send commitments: [tⱼ]
-    transcript.append(&lde_trace_merkle_root);
+    transcript.append_bytes(&lde_trace_merkle_root);
 
     (
         trace_polys,
@@ -183,11 +164,11 @@ where
         .unwrap()
 }
 
-fn round_1_randomized_air_with_preprocessing<F: IsFFTField, A: AIR<Field = F>, T: Transcript>(
+fn round_1_randomized_air_with_preprocessing<F: IsFFTField, A: AIR<Field = F>>(
     air: &A,
     main_trace: &TraceTable<F>,
     domain: &Domain<F>,
-    transcript: &mut T,
+    transcript: &mut impl IsStarkTranscript<F>,
 ) -> Result<Round1<F, A>, ProvingError>
 where
     FieldElement<F>: ByteConversion + Send + Sync,
@@ -326,7 +307,6 @@ where
 fn round_4_compute_and_run_fri_on_the_deep_composition_polynomial<
     F: IsFFTField,
     A: AIR<Field = F>,
-    T: Transcript,
 >(
     air: &A,
     domain: &Domain<F>,
@@ -334,7 +314,7 @@ fn round_4_compute_and_run_fri_on_the_deep_composition_polynomial<
     round_2_result: &Round2<F>,
     round_3_result: &Round3<F>,
     z: &FieldElement<F>,
-    transcript: &mut T,
+    transcript: &mut impl IsStarkTranscript<F>,
 ) -> Round4<F>
 where
     FieldElement<F>: ByteConversion + Send + Sync,
@@ -344,11 +324,11 @@ where
 
     // <<<< Receive challenges: 𝛾, 𝛾'
     let composition_poly_coeffients = [
-        transcript_to_field(transcript),
-        transcript_to_field(transcript),
+        transcript.sample_field_element(),
+        transcript.sample_field_element(),
     ];
     // <<<< Receive challenges: 𝛾ⱼ, 𝛾ⱼ'
-    let trace_poly_coeffients = batch_sample_challenges::<F, T>(
+    let trace_poly_coeffients = batch_sample_challenges::<F>(
         air.context().transition_offsets.len() * air.context().trace_columns,
         transcript,
     );
@@ -378,10 +358,10 @@ where
 
     // grinding: generate nonce and append it to the transcript
     let grinding_factor = air.context().proof_options.grinding_factor;
-    let transcript_challenge = transcript.challenge();
+    let transcript_challenge = transcript.state();
     let nonce = generate_nonce_with_grinding(&transcript_challenge, grinding_factor)
         .expect("nonce not found");
-    transcript.append(&nonce.to_be_bytes());
+    transcript.append_bytes(&nonce.to_be_bytes());
 
     let (query_list, iotas) = fri_query_phase(air, domain_size, &fri_layers, transcript);
 
@@ -581,6 +561,7 @@ pub fn prove<F, A>(
     main_trace: &TraceTable<F>,
     pub_inputs: &A::PublicInputs,
     proof_options: &ProofOptions,
+    mut transcript: impl IsStarkTranscript<F>,
 ) -> Result<StarkProof<F>, ProvingError>
 where
     F: IsFFTField,
@@ -590,13 +571,12 @@ where
 {
     info!("Started proof generation...");
     #[cfg(feature = "instruments")]
-    println!("- Started round 0: Transcript Initialization");
+    println!("- Started round 0: Air Initialization");
     #[cfg(feature = "instruments")]
     let timer0 = Instant::now();
 
     let air = A::new(main_trace.n_rows(), pub_inputs, proof_options);
     let domain = Domain::new(&air);
-    let mut transcript = round_0_transcript_initialization();
 
     #[cfg(feature = "instruments")]
     let elapsed0 = timer0.elapsed();
@@ -612,7 +592,7 @@ where
     #[cfg(feature = "instruments")]
     let timer1 = Instant::now();
 
-    let round_1_result = round_1_randomized_air_with_preprocessing::<F, A, _>(
+    let round_1_result = round_1_randomized_air_with_preprocessing::<F, A>(
         &air,
         main_trace,
         &domain,
@@ -661,7 +641,7 @@ where
     );
 
     // >>>> Send commitments: [H₁], [H₂]
-    transcript.append(&round_2_result.composition_poly_root);
+    transcript.append_bytes(&round_2_result.composition_poly_root);
 
     #[cfg(feature = "instruments")]
     let elapsed2 = timer2.elapsed();
@@ -693,22 +673,14 @@ where
     );
 
     // >>>> Send value: H₁(z²)
-    transcript.append(
-        &round_3_result
-            .composition_poly_even_ood_evaluation
-            .to_bytes_be(),
-    );
+    transcript.append_field_element(&round_3_result.composition_poly_even_ood_evaluation);
 
     // >>>> Send value: H₂(z²)
-    transcript.append(
-        &round_3_result
-            .composition_poly_odd_ood_evaluation
-            .to_bytes_be(),
-    );
+    transcript.append_field_element(&round_3_result.composition_poly_odd_ood_evaluation);
     // >>>> Send values: tⱼ(zgᵏ)
     for row in round_3_result.trace_ood_evaluations.iter() {
         for element in row.iter() {
-            transcript.append(&element.to_bytes_be());
+            transcript.append_field_element(element);
         }
     }
 

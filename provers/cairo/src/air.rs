@@ -1,7 +1,6 @@
 use std::ops::Range;
 
 use cairo_vm::without_std::collections::HashMap;
-use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::{
     errors::DeserializationError,
     field::{
@@ -17,7 +16,7 @@ use stark_platinum_prover::{
     prover::{prove, ProvingError},
     trace::TraceTable,
     traits::AIR,
-    transcript::transcript_to_field,
+    transcript::{IsStarkTranscript, StoneProverTranscript},
     verifier::verify,
 };
 
@@ -790,11 +789,14 @@ impl AIR for CairoAIR {
         TraceTable::new(aux_table, self.number_auxiliary_rap_columns())
     }
 
-    fn build_rap_challenges<T: Transcript>(&self, transcript: &mut T) -> Self::RAPChallenges {
+    fn build_rap_challenges(
+        &self,
+        transcript: &mut impl IsStarkTranscript<Self::Field>,
+    ) -> Self::RAPChallenges {
         CairoRAPChallenges {
-            alpha_memory: transcript_to_field(transcript),
-            z_memory: transcript_to_field(transcript),
-            z_range_check: transcript_to_field(transcript),
+            alpha_memory: transcript.sample_field_element(),
+            z_memory: transcript.sample_field_element(),
+            z_range_check: transcript.sample_field_element(),
         }
     }
 
@@ -1252,7 +1254,12 @@ pub fn generate_cairo_proof(
     pub_input: &PublicInputs,
     proof_options: &ProofOptions,
 ) -> Result<StarkProof<Stark252PrimeField>, ProvingError> {
-    prove::<Stark252PrimeField, CairoAIR>(trace, pub_input, proof_options)
+    prove::<Stark252PrimeField, CairoAIR>(
+        trace,
+        pub_input,
+        proof_options,
+        StoneProverTranscript::new(&[]),
+    )
 }
 
 /// Wrapper function for verifying Cairo proofs without the need to specify
@@ -1263,7 +1270,12 @@ pub fn verify_cairo_proof(
     pub_input: &PublicInputs,
     proof_options: &ProofOptions,
 ) -> bool {
-    verify::<Stark252PrimeField, CairoAIR>(proof, pub_input, proof_options)
+    verify::<Stark252PrimeField, CairoAIR>(
+        proof,
+        pub_input,
+        proof_options,
+        StoneProverTranscript::new(&[]),
+    )
 }
 
 #[cfg(test)]
