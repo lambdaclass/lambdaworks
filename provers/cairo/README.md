@@ -39,8 +39,6 @@ CLI currently runs with 100 bits of conjecturable security
   - [Requirements](#requirements)
   - [How to try it](#how-to-try-it)
     - [🚀 Prove and verify](#-prove-and-verify)
-    - [Using Docker compiler for Cairo 0 programs](#using-docker-compiler-for-cairo-0-programs)
-    - [Using cairo-compile for Cairo 0 programs](#using-cairo-compile-for-cairo-0-programs)
     - [Using WASM verifier](#using-wasm-verifier)
   - [Running tests](#running-tests)
   - [Running fuzzers](#running-fuzzers)
@@ -73,10 +71,30 @@ To be added:
 
 ### 🚀 Prove and verify
 
-To prove Cairo 0 programs without arguments you can use:
+To compile and prove Cairo 0 programs without arguments you can use:
+
+```bash
+  make compile_and_prove PROGRAM=<program_path> PROOF_PATH=<output_proof_path>
+```
+
+For example:
+
+```bash
+  make prove PROGRAM_PATH=cairo_programs/cairo0/fibonacci_5.json PROOF_PATH=fibonacci_5.proof
+```
+
+Notice for compilation either `cairo-lang` or `docker` is required
+
+If the program is already compiled you can use:
 
 ```bash
 make prove PROGRAM_PATH=<compiled_program_path> PROOF_PATH=<output_proof_path>
+```
+
+For example:
+
+```bash
+make prove PROGRAM_PATH=cairo_programs/cairo0/fibonacci_5.json PROOF_PATH=program_proof.proof
 ```
 
 To verify a proof you can use:
@@ -88,50 +106,13 @@ make verify PROOF_PATH=<proof_path>
 For example:
 
 ```bash
-make prove PROGRAM_PATH=fibonacci.json PROOF_PATH=fibonacci_proof
-make verify PROOF_PATH=fibonacci_proof
+make verify PROOF_PATH=fibonacci_5.proof
 ```
 
 To prove and verify with a single command you can use:
 
 ```bash
 make run_all PROGRAM_PATH=<proof_path>
-```
-
-### Using Docker compiler for Cairo 0 programs
-
-Build the compiler image with:
-
-```bash
-make docker_build_cairo_compiler
-```
-
-Then for example, if you have a Cairo program in the project folder, you can use:
-
-```bash
-make docker_compile_and_run_all PROGRAM=program_name.cairo
-```
-
-Or
-
-```bash
-make docker_compile_and_prove PROGRAM=program_name.cairo PROOF_PATH=proof_path
-```
-
-### Using cairo-compile for Cairo 0 programs
-
-If you have `cairo-lang` installed, you can use it instead of the Dockerfile
-
-Then for example, if you have some Cairo program in the project folder, you can use:
-
-```bash
-make compile_and_run_all PROGRAM=program_name.cairo
-```
-
-Or 
-
-```bash
-make compile_and_prove PROGRAM=program_name.cairo PROOF_PATH=proof_path
 ```
 
 ### Using WASM verifier
