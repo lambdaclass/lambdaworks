@@ -31,7 +31,7 @@ const R_INV: U256 =
 pub struct StoneProverTranscript {
     hash: Keccak256,
     seed_increment: U256,
-    counter: usize,
+    counter: u32,
     spare_bytes: Vec<u8>,
 }
 
@@ -48,7 +48,7 @@ impl StoneProverTranscript {
 
     pub fn sample_block(&mut self, used_bytes: usize) -> Vec<u8> {
         let mut first_part: Vec<u8> = self.hash.clone().finalize().to_vec();
-        let mut counter_bytes: Vec<u8> = vec![0; 24]
+        let mut counter_bytes: Vec<u8> = vec![0; 28]
             .into_iter()
             .chain(self.counter.to_be_bytes().to_vec())
             .collect();
