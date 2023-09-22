@@ -43,7 +43,7 @@ pub trait IsFFTField: IsPrimeField {
             return Err(FieldError::RootOfUnityError(order));
         }
         let log_power = F::TWO_ADICITY - order;
-        let root = (0..log_power).fold(two_adic_primitive_root_of_unity, |acc, _| &acc * &acc);
+        let root = (0..log_power).fold(two_adic_primitive_root_of_unity, |acc, _| acc.square());
         Ok(root)
     }
 }
