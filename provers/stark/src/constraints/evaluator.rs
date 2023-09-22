@@ -39,8 +39,8 @@ impl<F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
         &self,
         lde_trace: &TraceTable<F>,
         domain: &Domain<F>,
-        alpha_and_beta_transition_coefficients: &[(FieldElement<F>, FieldElement<F>)],
-        alpha_and_beta_boundary_coefficients: &[(FieldElement<F>, FieldElement<F>)],
+        transition_coefficients: &[FieldElement<F>],
+        boundary_coefficients: &[FieldElement<F>],
         rap_challenges: &A::RAPChallenges,
     ) -> ConstraintEvaluationTable<F>
     where
@@ -72,14 +72,6 @@ impl<F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
                 .collect::<Vec<Vec<FieldElement<F>>>>();
 
         let trace_length = self.air.trace_length();
-        let composition_poly_degree_bound = self.air.composition_poly_degree_bound();
-        let boundary_term_degree_adjustment = composition_poly_degree_bound - trace_length;
-        // Maybe we can do this more efficiently by taking the offset's power and then using successors for roots of unity
-        let d_adjustment_power = domain
-            .lde_roots_of_unity_coset
-            .iter()
-            .map(|d| d.pow(boundary_term_degree_adjustment))
-            .collect::<Vec<FieldElement<F>>>();
 
         #[cfg(all(debug_assertions, not(feature = "parallel")))]
         let boundary_polys: Vec<Polynomial<FieldElement<F>>> = Vec::new();
@@ -108,13 +100,12 @@ impl<F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
         let boundary_eval_iter = 0..domain.lde_roots_of_unity_coset.len();
 
         let boundary_evaluation = boundary_eval_iter
-            .zip(&d_adjustment_power)
-            .map(|(i, d)| {
+            .map(|i| {
                 (0..number_of_b_constraints)
-                    .zip(alpha_and_beta_boundary_coefficients)
-                    .fold(FieldElement::zero(), |acc, (index, (alpha, beta))| {
+                    .zip(boundary_coefficients)
+                    .fold(FieldElement::zero(), |acc, (index, beta)| {
                         acc + &boundary_zerofiers_inverse_evaluations[index][i]
-                            * (alpha * d + beta)
+                            * beta
                             * &boundary_polys_evaluations[index][i]
                     })
             })
@@ -136,28 +127,6 @@ impl<F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
         let transition_exemptions_evaluations =
             evaluate_transition_exemptions(transition_exemptions, domain);
         let num_exemptions = self.air.context().num_transition_exemptions;
-        let context = self.air.context();
-        let max_transition_degree = *context.transition_degrees.iter().max().unwrap();
-
-        #[cfg(feature = "parallel")]
-        let degree_adjustments_iter = (1..=max_transition_degree).into_par_iter();
-
-        #[cfg(not(feature = "parallel"))]
-        let degree_adjustments_iter = 1..=max_transition_degree;
-
-        let degree_adjustments: Vec<Vec<FieldElement<F>>> = degree_adjustments_iter
-            .map(|transition_degree| {
-                domain
-                    .lde_roots_of_unity_coset
-                    .iter()
-                    .map(|d| {
-                        let degree_adjustment = composition_poly_degree_bound
-                            - (trace_length * (transition_degree - 1));
-                        d.pow(degree_adjustment)
-                    })
-                    .collect()
-            })
-            .collect();
 
         let blowup_factor_order = u64::from(blowup_factor.trailing_zeros());
 
@@ -212,22 +181,20 @@ impl<F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
                     .iter()
                     .zip(&self.air.context().transition_exemptions)
                     .zip(&self.air.context().transition_degrees)
-                    .zip(alpha_and_beta_transition_coefficients)
+                    .zip(transition_coefficients)
                     .fold(
                         FieldElement::zero(),
-                        |acc, (((eval, exemption), degree), (alpha, beta))| {
+                        |acc, (((eval, exemption), _), beta)| {
                             #[cfg(feature = "parallel")]
                             let zerofier = zerofier.clone();
 
                             if *exemption == 0 {
-                                acc + zerofier
-                                    * (alpha * &degree_adjustments[degree - 1][i] + beta)
-                                    * eval
+                                acc + zerofier * beta * eval
                             } else {
                                 //TODO: change how exemptions are indexed!
                                 if num_exemptions == 1 {
                                     acc + zerofier
-                                        * (alpha * &degree_adjustments[degree - 1][i] + beta)
+                                        * beta
                                         * eval
                                         * &transition_exemptions_evaluations[0][i]
                                 } else {
@@ -247,7 +214,7 @@ impl<F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
                                         .expect("is there");
 
                                     acc + zerofier
-                                        * (alpha * &degree_adjustments[degree - 1][i] + beta)
+                                        * beta
                                         * eval
                                         * &transition_exemptions_evaluations[index][i]
                                 }
@@ -295,9 +262,7 @@ impl<F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
             .zip(constraint_coeffs)
             .fold(
                 FieldElement::<F>::zero(),
-                |acc, (((ev, degree), inv), (alpha, beta))| {
-                    acc + ev * (alpha * degree + beta) * inv
-                },
+                |acc, (((ev, _), inv), (_, beta))| acc + ev * beta * inv,
             )
     }
 }
