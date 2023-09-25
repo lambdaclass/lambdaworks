@@ -289,7 +289,7 @@ mod tests {
         // This corresponds to the following run.
         // Air: `Fibonacci2ColsShifted`
         // `trace_length`: 4
-        // `blowup_factor`: 2
+        // `blowup_factor`: 4
         // `fri_number_of_queries`: 1
         let mut transcript = StoneProverTranscript::new(&[0xca, 0xfe, 0xca, 0xfe]);
         // Send hash of trace commitment
@@ -374,7 +374,7 @@ mod tests {
         // This corresponds to the following run.
         // Air: `Fibonacci2ColsShifted`
         // `trace_length`: 4
-        // `blowup_factor`: 6
+        // `blowup_factor`: 64
         // `fri_number_of_queries`: 2
         let mut transcript = StoneProverTranscript::new(&[0xfa, 0xfa, 0xfa, 0xee]);
         // Send hash of trace commitment

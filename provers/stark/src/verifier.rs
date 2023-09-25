@@ -613,6 +613,13 @@ pub mod tests {
     fn test_compatibility_transcript() {
         let trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::one(), 4);
 
+        for (i, col) in trace.cols().iter().enumerate() {
+            println!("column {}:", i);
+            for elem in col.iter() {
+                println!("      {}", elem);
+            }
+        }
+
         let claimed_index = 3;
         let claimed_value = trace.get_row(claimed_index)[0];
         let mut proof_options = ProofOptions::default_test_options();
@@ -624,7 +631,7 @@ pub mod tests {
             claimed_index,
         };
 
-        let transcript_init_seed = [0xca, 0xfe, 0xca, 0xfe];
+        let transcript_init_seed = [0xfa, 0xfa, 0xfa, 0xee];
 
         // Prover's side
         let proof = prove::<Stark252PrimeField, Fibonacci2ColsShifted<_>>(
@@ -638,6 +645,11 @@ pub mod tests {
         // Verifier's side
         let air = Fibonacci2ColsShifted::new(proof.trace_length, &pub_inputs, &proof_options);
         let domain = Domain::new(&air);
+
+        for elem in domain.lde_roots_of_unity_coset.iter() {
+            println!("{}", elem);
+        }
+        
 
         let challenges = step_1_replay_rounds_and_recover_challenges(
             &air,

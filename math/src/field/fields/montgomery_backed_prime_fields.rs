@@ -319,13 +319,13 @@ where
 {
     #[cfg(feature = "std")]
     fn to_bytes_be(&self) -> Vec<u8> {
-        MontgomeryAlgorithms::cios(
-            self.value(),
-            &UnsignedInteger::from_u64(1),
-            &M::MODULUS,
-            &MontgomeryBackendPrimeField::<M, NUM_LIMBS>::MU,
-        )
-        .to_bytes_be()
+        // MontgomeryAlgorithms::cios(
+        //     self.value(),
+        //     &UnsignedInteger::from_u64(1),
+        //     &M::MODULUS,
+        //     &MontgomeryBackendPrimeField::<M, NUM_LIMBS>::MU,
+        // )
+        self.value().to_bytes_be()
     }
 
     #[cfg(feature = "std")]

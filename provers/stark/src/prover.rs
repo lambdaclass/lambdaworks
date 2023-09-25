@@ -1,6 +1,7 @@
 #[cfg(feature = "instruments")]
 use std::time::Instant;
 
+use lambdaworks_math::fft::cpu::bit_reversing::in_place_bit_reverse_permute;
 use lambdaworks_math::fft::{errors::FFTError, polynomial::FFTPoly};
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsFFTField},
@@ -103,6 +104,22 @@ where
     }
 }
 
+fn apply_permutation<F: IsFFTField>(vector: &mut Vec<FieldElement<F>>, permutation: &[usize]) {
+    assert_eq!(
+        vector.len(),
+        permutation.len(),
+        "Vector and permutation must have the same length"
+    );
+
+    let mut temp = Vec::with_capacity(vector.len());
+    for &index in permutation {
+        temp.push(vector[index].clone());
+    }
+
+    vector.clear();
+    vector.extend(temp);
+}
+
 #[allow(clippy::type_complexity)]
 fn interpolate_and_commit<F>(
     trace: &TraceTable<F>,
@@ -121,7 +138,30 @@ where
     let trace_polys = trace.compute_trace_polys();
 
     // Evaluate those polynomials t_j on the large domain D_LDE.
-    let lde_trace_evaluations = compute_lde_trace_evaluations(&trace_polys, domain);
+    let mut lde_trace_evaluations = compute_lde_trace_evaluations(&trace_polys, domain);
+
+    // TODO: Reordering for SHARP compatibility
+    let mut permutation = Vec::new();
+    let n = domain.interpolation_domain_size;
+    let mut indices: Vec<usize> = (0..domain.blowup_factor).collect();
+    in_place_bit_reverse_permute(&mut indices);
+    for i in indices.iter() {
+        for j in 0..n {
+            permutation.push(i + j * domain.blowup_factor)
+        }
+    }
+
+    for col in lde_trace_evaluations.iter_mut() {
+        apply_permutation(col, &permutation);
+        for i in 0..domain.blowup_factor {
+            let col_coset = &mut col[(i * n)..((i + 1) * n)];
+            let mut temp = col_coset.to_owned();
+            in_place_bit_reverse_permute(&mut temp);
+            for (i, elem) in col_coset.iter_mut().enumerate() {
+                *elem = temp[i].clone();
+            }
+        }
+    }
 
     // Compute commitments [t_j].
     let lde_trace = TraceTable::new_from_cols(&lde_trace_evaluations);
@@ -767,9 +807,15 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::num::ParseIntError;
+
     use crate::{
-        examples::simple_fibonacci::{self, FibonacciPublicInputs},
+        examples::{
+            fibonacci_2_cols_shifted::{self, Fibonacci2ColsShifted},
+            simple_fibonacci::{self, FibonacciPublicInputs},
+        },
         proof::options::ProofOptions,
+        transcript::StoneProverTranscript,
         Felt252,
     };
 
@@ -877,5 +923,79 @@ mod tests {
         for (i, eval) in evaluations.iter().enumerate() {
             assert_eq!(*eval, poly.evaluate(&(offset * primitive_root.pow(i))));
         }
+    }
+
+    pub fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
+        (0..s.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
+            .collect()
+    }
+
+    #[test]
+    fn test_trace_commitment_is_compatible_with_stone_prover_1() {
+        let trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::one(), 4);
+
+        let claimed_index = 3;
+        let claimed_value = trace.get_row(claimed_index)[0];
+        let mut proof_options = ProofOptions::default_test_options();
+        proof_options.blowup_factor = 4;
+        proof_options.coset_offset = 3;
+
+        let pub_inputs = fibonacci_2_cols_shifted::PublicInputs {
+            claimed_value,
+            claimed_index,
+        };
+
+        let transcript_init_seed = [0xca, 0xfe, 0xca, 0xfe];
+
+        let air = Fibonacci2ColsShifted::new(trace.n_rows(), &pub_inputs, &proof_options);
+        let domain = Domain::new(&air);
+
+
+        let (_, _, _, trace_commitment) = interpolate_and_commit(
+            &trace,
+            &domain,
+            &mut StoneProverTranscript::new(&transcript_init_seed),
+        );
+
+        assert_eq!(
+            &trace_commitment.to_vec(),
+            &decode_hex("0eb9dcc0fb1854572a01236753ce05139d392aa3aeafe72abff150fe21175594")
+                .unwrap()
+        );
+    }
+    #[test]
+    fn test_trace_commitment_is_compatible_with_stone_prover_2() {
+        let trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::one(), 4);
+
+        let claimed_index = 3;
+        let claimed_value = trace.get_row(claimed_index)[0];
+        let mut proof_options = ProofOptions::default_test_options();
+        proof_options.blowup_factor = 64;
+        proof_options.coset_offset = 3;
+
+        let pub_inputs = fibonacci_2_cols_shifted::PublicInputs {
+            claimed_value,
+            claimed_index,
+        };
+
+        let transcript_init_seed = [0xfa, 0xfa, 0xfa, 0xee];
+
+        let air = Fibonacci2ColsShifted::new(trace.n_rows(), &pub_inputs, &proof_options);
+        let domain = Domain::new(&air);
+
+
+        let (_, _, _, trace_commitment) = interpolate_and_commit(
+            &trace,
+            &domain,
+            &mut StoneProverTranscript::new(&transcript_init_seed),
+        );
+
+        assert_eq!(
+            &trace_commitment.to_vec(),
+            &decode_hex("99d8d4342895c4e35a084f8ea993036be06f51e7fa965734ed9c7d41104f0848")
+                .unwrap()
+        );
     }
 }
