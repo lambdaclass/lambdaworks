@@ -661,16 +661,21 @@ where
     #[cfg(feature = "instruments")]
     let timer2 = Instant::now();
 
-    // <<<< Receive challenges: 𝛽_j^B
-    let boundary_coefficients = batch_sample_challenges(
-        air.boundary_constraints(&round_1_result.rap_challenges)
-            .constraints
-            .len(),
-        &mut transcript,
-    );
-    // <<<< Receive challenges: 𝛽_j^T
-    let transition_coefficients =
-        batch_sample_challenges(air.context().num_transition_constraints, &mut transcript);
+    // <<<< Receive challenge: 𝛽
+    let beta = transcript.sample_field_element();
+    let num_boundary_constraints = air
+        .boundary_constraints(&round_1_result.rap_challenges)
+        .constraints
+        .len();
+
+    let num_transition_constriants = air.context().num_transition_constraints;
+
+    let mut coefficients: Vec<_> = (1..num_boundary_constraints + num_transition_constriants + 1)
+        .map(|i| beta.pow(i))
+        .collect();
+
+    let boundary_coefficients: Vec<_> = coefficients.drain(..num_boundary_constraints).collect();
+    let transition_coefficients = coefficients;
 
     let round_2_result = round_2_compute_composition_polynomial(
         &air,
