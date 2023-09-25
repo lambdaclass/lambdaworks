@@ -17,16 +17,11 @@ impl IsModulus<U256> for MontgomeryConfigStark252PrimeField {
 pub type Stark252PrimeField = U256PrimeField<MontgomeryConfigStark252PrimeField>;
 
 impl IsFFTField for Stark252PrimeField {
-    const TWO_ADICITY: u64 = 48;
+    const TWO_ADICITY: u64 = 192;
     // Change this line for a new function like `from_limbs`.
-    const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: U256 = UnsignedInteger {
-        limbs: [
-            219038664817244121,
-            2879838607450979157,
-            15244050560987562958,
-            16338897044258952332,
-        ],
-    };
+    const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: U256 = UnsignedInteger::from_hex_unchecked(
+        "5282db87529cfa3f0464519c8b0fa5ad187148e11a61616070024f42f8ef94",
+    );
 
     fn field_name() -> &'static str {
         "stark256"

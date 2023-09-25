@@ -1,10 +1,11 @@
 use itertools::Itertools;
-use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::{
     fft::cpu::roots_of_unity::get_powers_of_primitive_root_coset,
     field::{element::FieldElement, traits::IsFFTField},
     polynomial::Polynomial,
 };
+
+use crate::transcript::IsStarkTranscript;
 
 use super::{
     constraints::boundary::BoundaryConstraints, context::AirContext, frame::Frame,
@@ -29,7 +30,10 @@ pub trait AIR: Clone {
         rap_challenges: &Self::RAPChallenges,
     ) -> TraceTable<Self::Field>;
 
-    fn build_rap_challenges<T: Transcript>(&self, transcript: &mut T) -> Self::RAPChallenges;
+    fn build_rap_challenges(
+        &self,
+        transcript: &mut impl IsStarkTranscript<Self::Field>,
+    ) -> Self::RAPChallenges;
 
     fn number_auxiliary_rap_columns(&self) -> usize;
 

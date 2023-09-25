@@ -1,4 +1,3 @@
-use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
 use lambdaworks_math::{
     errors::DeserializationError,
     field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
@@ -13,6 +12,7 @@ use stark_platinum_prover::{
     },
     trace::TraceTable,
     traits::AIR,
+    transcript::StoneProverTranscript,
 };
 
 use crate::{
@@ -240,7 +240,7 @@ fn check_simple_cairo_trace_evaluates_to_zero() {
     let (main_trace, public_input) =
         generate_prover_args(&program_content, &None, CairoLayout::Plain).unwrap();
     let mut trace_polys = main_trace.compute_trace_polys();
-    let mut transcript = DefaultTranscript::new();
+    let mut transcript = StoneProverTranscript::new(&[]);
 
     let proof_options = ProofOptions::default_test_options();
     let cairo_air = CairoAIR::new(main_trace.n_rows(), &public_input, &proof_options);
