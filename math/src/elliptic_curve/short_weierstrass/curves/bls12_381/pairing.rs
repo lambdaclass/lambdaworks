@@ -29,8 +29,6 @@ impl IsPairing for BLS12381AtePairing {
     type OutputField = Degree12ExtensionField;
 
     /// Compute the product of the ate pairings for a list of point pairs.
-    //NOTE: Should we switch this to an result?
-    //Should we continue and skip elements if it doesn't work out
     fn compute_batch(
         pairs: &[(&Self::G1Point, &Self::G2Point)],
     ) -> Result<FieldElement<Self::OutputField>, PairingError> {
