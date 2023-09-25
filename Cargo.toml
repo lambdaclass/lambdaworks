@@ -17,6 +17,6 @@ lambdaworks-math = { path = "./math" }
 stark-platinum-prover = { path = "./provers/stark" }
 
 [profile.release]
-lto = true
 codegen-units = 1
 opt-level = 3
+lto = true
