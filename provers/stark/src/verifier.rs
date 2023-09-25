@@ -602,3 +602,56 @@ where
 
     true
 }
+
+#[cfg(test)]
+pub mod tests {
+    use lambdaworks_math::field::{element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField};
+
+    use crate::{examples::fibonacci_2_cols_shifted::{self, Fibonacci2ColsShifted}, proof::options::ProofOptions, transcript::StoneProverTranscript, verifier::step_1_replay_rounds_and_recover_challenges, domain::Domain, prover::prove, traits::AIR};
+
+    #[test]
+    fn test_compatibility_transcript() {
+        let trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::one(), 4);
+
+        let claimed_index = 3;
+        let claimed_value = trace.get_row(claimed_index)[0];
+        let mut proof_options = ProofOptions::default_test_options();
+        proof_options.blowup_factor = 2;
+        proof_options.coset_offset = 3;
+
+        let pub_inputs = fibonacci_2_cols_shifted::PublicInputs {
+            claimed_value,
+            claimed_index,
+        };
+
+        let transcript_init_seed = [0xca, 0xfe, 0xca, 0xfe];
+
+        // Prover's side
+        let proof = prove::<Stark252PrimeField, Fibonacci2ColsShifted<_>>(
+            &trace,
+            &pub_inputs,
+            &proof_options,
+            StoneProverTranscript::new(&transcript_init_seed),
+        )
+        .unwrap();
+
+        // Verifier's side
+        let air = Fibonacci2ColsShifted::new(proof.trace_length, &pub_inputs, &proof_options);
+        let domain = Domain::new(&air);
+
+        let challenges = step_1_replay_rounds_and_recover_challenges(
+            &air,
+            &proof,
+            &domain,
+            &mut StoneProverTranscript::new(&transcript_init_seed),
+        );
+
+        let beta = challenges.boundary_coeffs[0];
+        assert_eq!(
+            FieldElement::from_hex_unchecked(
+                "86105fff7b04ed4068ecccb8dbf1ed223bd45cd26c3532d6c80a818dbd4fa7"
+            ),
+            beta
+        );
+    }
+}
