@@ -15,8 +15,3 @@ lambdaworks-crypto = { path = "./crypto" }
 lambdaworks-gpu = { path = "./gpu" }
 lambdaworks-math = { path = "./math" }
 stark-platinum-prover = { path = "./provers/stark" }
-
-[profile.release]
-codegen-units = 1
-opt-level = 3
-lto = true
