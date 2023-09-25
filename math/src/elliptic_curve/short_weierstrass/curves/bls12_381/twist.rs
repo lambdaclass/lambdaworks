@@ -1,10 +1,8 @@
-use super::curve::{BLS12381TwistCurveFieldElement, SEED};
+use super::curve::SEED;
 use super::field_extension::{Degree12ExtensionField, Degree2ExtensionField};
 use crate::cyclic_group::IsGroup;
-use crate::elliptic_curve::point::ProjectivePoint;
 use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
 use crate::elliptic_curve::traits::IsEllipticCurve;
-use crate::field::extensions::quadratic::QuadraticExtensionField;
 use crate::field::traits::IsField;
 use crate::unsigned_integer::element::U384;
 use crate::{
@@ -148,8 +146,6 @@ impl ShortWeierstrassProjectivePoint<BLS12381TwistCurve> {
 
 #[cfg(test)]
 mod tests {
-    use proptest::prelude::Arbitrary;
-
     use super::BLS12381TwistCurve;
     use crate::{
         cyclic_group::IsGroup,

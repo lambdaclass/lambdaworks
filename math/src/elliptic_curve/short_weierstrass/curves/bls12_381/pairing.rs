@@ -13,6 +13,7 @@ use crate::{
         },
         traits::IsPairing,
     },
+    errors::PairingError,
     field::{element::FieldElement, extensions::cubic::HasCubicNonResidue},
     unsigned_integer::element::UnsignedInteger,
 };
@@ -27,20 +28,19 @@ impl IsPairing for BLS12381AtePairing {
     /// Compute the product of the ate pairings for a list of point pairs.
     fn compute_batch(
         pairs: &[(&Self::G1Point, &Self::G2Point)],
-    ) -> FieldElement<Self::OutputField> {
+    ) -> Result<FieldElement<Self::OutputField>, PairingError> {
         let mut result = FieldElement::one();
         for (p, q) in pairs {
-            if (**p).is_in_subgroup()
-                && (**q).is_in_subgroup()
-                && !p.is_neutral_element()
-                && !q.is_neutral_element()
-            {
+            if !(**p).is_in_subgroup() || !(**q).is_in_subgroup() {
+                return Err(PairingError::PointNotInSubgroup);
+            }
+            if !p.is_neutral_element() && !q.is_neutral_element() {
                 let p = p.to_affine();
                 let q = q.to_affine();
                 result = result * miller(&q, &p);
             }
         }
-        final_exponentiation(&result)
+        Ok(final_exponentiation(&result))
     }
 }
 
@@ -264,7 +264,8 @@ mod tests {
                 &p.operate_with_self(a * b).to_affine(),
                 &q.neg().to_affine(),
             ),
-        ]);
+        ])
+        .unwrap();
 
         assert_eq!(result, FieldElement::one());
     }
@@ -273,12 +274,12 @@ mod tests {
     fn ate_pairing_returns_one_when_one_element_is_the_neutral_element() {
         let p = BLS12381Curve::generator().to_affine();
         let q = ShortWeierstrassProjectivePoint::neutral_element();
-        let result = BLS12381AtePairing::compute_batch(&[(&p.to_affine(), &q)]);
+        let result = BLS12381AtePairing::compute_batch(&[(&p.to_affine(), &q)]).unwrap();
         assert_eq!(result, FieldElement::one());
 
         let p = ShortWeierstrassProjectivePoint::neutral_element();
         let q = BLS12381TwistCurve::generator();
-        let result = BLS12381AtePairing::compute_batch(&[(&p, &q.to_affine())]);
+        let result = BLS12381AtePairing::compute_batch(&[(&p, &q.to_affine())]).unwrap();
         assert_eq!(result, FieldElement::one());
     }
 }

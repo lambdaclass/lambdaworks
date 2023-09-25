@@ -141,8 +141,7 @@ mod tests {
         let y_sq_0 = x.pow(3_u16) + four;
         let y_sq_1 = y.pow(2_u16);
 
-        assert_eq!(y_sq_0, y_sq_1); // Check in Affine form
-        assert!(g2)
+        assert_eq!(y_sq_0, y_sq_1);
     }
 
     #[test]

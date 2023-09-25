@@ -93,7 +93,7 @@ pub fn compress_g1_point(point: &G1Point) -> Vec<u8> {
 
 #[cfg(test)]
 mod tests {
-    use super::{BLS12381FieldElement, G1Point, MODULUS};
+    use super::{BLS12381FieldElement, G1Point};
     use crate::cyclic_group::IsGroup;
     use crate::elliptic_curve::short_weierstrass::curves::bls12_381::curve::BLS12381Curve;
     use crate::elliptic_curve::traits::{FromAffine, IsEllipticCurve};

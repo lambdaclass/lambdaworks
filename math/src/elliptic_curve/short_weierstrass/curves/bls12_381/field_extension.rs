@@ -1,5 +1,5 @@
 use crate::field::extensions::quadratic::QuadraticExtensionFieldElement;
-use crate::unsigned_integer::element::{UnsignedInteger, U384};
+use crate::unsigned_integer::element::U384;
 use crate::{
     field::{
         element::FieldElement,
@@ -12,8 +12,6 @@ use crate::{
     },
     traits::ByteConversion,
 };
-
-use super::curve::BLS12381FieldElement;
 
 pub const BLS12381_PRIME_FIELD_ORDER: U384 = U384::from_hex_unchecked("1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab");
 

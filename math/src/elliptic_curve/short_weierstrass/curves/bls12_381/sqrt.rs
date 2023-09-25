@@ -1,8 +1,5 @@
-use crate::{
-    elliptic_curve::short_weierstrass::traits::IsShortWeierstrass, field::traits::LegendreSymbol,
-};
-
 use super::{curve::BLS12381FieldElement, curve::BLS12381TwistCurveFieldElement};
+use crate::field::traits::LegendreSymbol;
 use std::cmp::Ordering;
 #[must_use]
 pub fn select_sqrt_value_from_third_bit(

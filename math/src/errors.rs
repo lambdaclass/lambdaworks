@@ -31,3 +31,8 @@ impl From<ByteConversionError> for DeserializationError {
         }
     }
 }
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum PairingError {
+    PointNotInSubgroup,
+}
