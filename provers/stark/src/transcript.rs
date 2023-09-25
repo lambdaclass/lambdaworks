@@ -34,14 +34,6 @@ pub trait IsStarkTranscript<F: IsField> {
     }
 }
 
-fn keccak_hash(data: &[u8]) -> [u8; 32] {
-    let mut hasher = Keccak256::new();
-    hasher.update(data);
-    let mut result_hash = [0_u8; 32];
-    result_hash.copy_from_slice(&hasher.finalize_reset());
-    result_hash
-}
-
 pub struct StoneProverTranscript {
     state: [u8; 32],
     seed_increment: U256,
@@ -58,11 +50,19 @@ impl StoneProverTranscript {
     );
     pub fn new(public_input_data: &[u8]) -> Self {
         StoneProverTranscript {
-            state: keccak_hash(public_input_data),
+            state: Self::keccak_hash(public_input_data),
             seed_increment: U256::from_hex_unchecked("1"),
             counter: 0,
             spare_bytes: vec![],
         }
+    }
+
+    fn keccak_hash(data: &[u8]) -> [u8; 32] {
+        let mut hasher = Keccak256::new();
+        hasher.update(data);
+        let mut result_hash = [0_u8; 32];
+        result_hash.copy_from_slice(&hasher.finalize_reset());
+        result_hash
     }
 
     pub fn sample_block(&mut self, used_bytes: usize) -> Vec<u8> {
@@ -73,7 +73,7 @@ impl StoneProverTranscript {
             .collect();
         self.counter += 1;
         first_part.append(&mut counter_bytes);
-        let block = keccak_hash(&first_part);
+        let block = Self::keccak_hash(&first_part);
         self.spare_bytes.extend(&block[used_bytes..]);
         block[..used_bytes].to_vec()
     }
@@ -124,7 +124,7 @@ impl IsStarkTranscript<Stark252PrimeField> for StoneProverTranscript {
 
         let digest = U256::from_bytes_be(&self.state).unwrap();
         let new_seed = (digest + self.seed_increment).to_bytes_be();
-        self.state = keccak_hash(&[&new_seed, new_bytes].concat());
+        self.state = Self::keccak_hash(&[&new_seed, new_bytes].concat());
         self.counter = 0;
         self.spare_bytes.clear();
     }
