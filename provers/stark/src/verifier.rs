@@ -22,7 +22,7 @@ use super::{
     grinding::hash_transcript_with_int_and_get_leading_zeros,
     proof::{options::ProofOptions, stark::StarkProof},
     traits::AIR,
-    transcript::{batch_sample_challenges, sample_z_ood},
+    transcript::batch_sample_challenges,
 };
 
 struct Challenges<F, A>
@@ -90,10 +90,9 @@ where
     // ===================================
 
     // >>>> Send challenge: z
-    let z = sample_z_ood(
+    let z = transcript.sample_z_ood(
         &domain.lde_roots_of_unity_coset,
         &domain.trace_roots_of_unity,
-        transcript,
     );
 
     // <<<< Receive value: H₁(z²)
