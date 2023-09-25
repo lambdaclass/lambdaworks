@@ -14,7 +14,7 @@ use rayon::prelude::{IndexedParallelIterator, IntoParallelRefIterator, ParallelI
 
 #[cfg(debug_assertions)]
 use crate::debug::validate_trace;
-use crate::transcript::{sample_z_ood, IsStarkTranscript};
+use crate::transcript::IsStarkTranscript;
 
 use super::config::{BatchedMerkleTree, Commitment};
 use super::constraints::evaluator::ConstraintEvaluator;
@@ -658,10 +658,9 @@ where
     let timer3 = Instant::now();
 
     // <<<< Receive challenge: z
-    let z = sample_z_ood(
+    let z = transcript.sample_z_ood(
         &domain.lde_roots_of_unity_coset,
         &domain.trace_roots_of_unity,
-        &mut transcript,
     );
 
     let round_3_result = round_3_evaluate_polynomials_in_out_of_domain_element(

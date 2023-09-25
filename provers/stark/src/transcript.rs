@@ -2,7 +2,7 @@ use lambdaworks_math::{
     field::{
         element::FieldElement,
         fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
-        traits::{IsFFTField, IsField, IsPrimeField},
+        traits::{IsFFTField, IsField},
     },
     traits::ByteConversion,
     unsigned_integer::element::U256,
@@ -15,31 +15,50 @@ pub trait IsStarkTranscript<F: IsField> {
     fn state(&self) -> [u8; 32];
     fn sample_field_element(&mut self) -> FieldElement<F>;
     fn sample_u64(&mut self, upper_bound: u64) -> u64;
+    fn sample_z_ood(
+        &mut self,
+        lde_roots_of_unity_coset: &[FieldElement<F>],
+        trace_roots_of_unity: &[FieldElement<F>],
+    ) -> FieldElement<F>
+    where
+        FieldElement<F>: ByteConversion,
+    {
+        loop {
+            let value: FieldElement<F> = self.sample_field_element();
+            if !lde_roots_of_unity_coset.iter().any(|x| x == &value)
+                && !trace_roots_of_unity.iter().any(|x| x == &value)
+            {
+                return value;
+            }
+        }
+    }
 }
 
-fn keccak_hash(data: &[u8]) -> Keccak256 {
+fn keccak_hash(data: &[u8]) -> [u8; 32] {
     let mut hasher = Keccak256::new();
     hasher.update(data);
-    hasher
+    let mut result_hash = [0_u8; 32];
+    result_hash.copy_from_slice(&hasher.finalize_reset());
+    result_hash
 }
 
-const MODULUS_MAX_MULTIPLE: U256 =
-    U256::from_hex_unchecked("f80000000000020f00000000000000000000000000000000000000000000001f");
-const R_INV: U256 =
-    U256::from_hex_unchecked("0x40000000000001100000000000012100000000000000000000000000000000");
-
 pub struct StoneProverTranscript {
-    hash: Keccak256,
+    state: [u8; 32],
     seed_increment: U256,
     counter: u32,
     spare_bytes: Vec<u8>,
 }
 
 impl StoneProverTranscript {
+    const MODULUS_MAX_MULTIPLE: U256 = U256::from_hex_unchecked(
+        "f80000000000020f00000000000000000000000000000000000000000000001f",
+    );
+    const R_INV: U256 = U256::from_hex_unchecked(
+        "0x40000000000001100000000000012100000000000000000000000000000000",
+    );
     pub fn new(public_input_data: &[u8]) -> Self {
-        let hash = keccak_hash(public_input_data);
         StoneProverTranscript {
-            hash,
+            state: keccak_hash(public_input_data),
             seed_increment: U256::from_hex_unchecked("1"),
             counter: 0,
             spare_bytes: vec![],
@@ -47,14 +66,14 @@ impl StoneProverTranscript {
     }
 
     pub fn sample_block(&mut self, used_bytes: usize) -> Vec<u8> {
-        let mut first_part: Vec<u8> = self.hash.clone().finalize().to_vec();
+        let mut first_part: Vec<u8> = self.state.to_vec();
         let mut counter_bytes: Vec<u8> = vec![0; 28]
             .into_iter()
             .chain(self.counter.to_be_bytes().to_vec())
             .collect();
         self.counter += 1;
         first_part.append(&mut counter_bytes);
-        let block = keccak_hash(&first_part).finalize().to_vec();
+        let block = keccak_hash(&first_part);
         self.spare_bytes.extend(&block[used_bytes..]);
         block[..used_bytes].to_vec()
     }
@@ -100,28 +119,26 @@ impl IsStarkTranscript<Stark252PrimeField> for StoneProverTranscript {
 
     fn append_bytes(&mut self, new_bytes: &[u8]) {
         let mut result_hash = [0_u8; 32];
-        result_hash.copy_from_slice(&self.hash.clone().finalize_reset());
+        result_hash.copy_from_slice(&self.state);
         result_hash.reverse();
 
-        let digest = U256::from_bytes_be(&self.hash.clone().finalize()).unwrap();
+        let digest = U256::from_bytes_be(&self.state).unwrap();
         let new_seed = (digest + self.seed_increment).to_bytes_be();
-        self.hash = keccak_hash(&[&new_seed, new_bytes].concat());
+        self.state = keccak_hash(&[&new_seed, new_bytes].concat());
         self.counter = 0;
         self.spare_bytes.clear();
     }
 
     fn state(&self) -> [u8; 32] {
-        let mut state = [0u8; 32];
-        state.copy_from_slice(&self.hash.clone().finalize());
-        state
+        self.state
     }
 
     fn sample_field_element(&mut self) -> FieldElement<Stark252PrimeField> {
         let mut result = self.sample_big_int();
-        while result >= MODULUS_MAX_MULTIPLE {
+        while result >= Self::MODULUS_MAX_MULTIPLE {
             result = self.sample_big_int();
         }
-        FieldElement::new(result) * FieldElement::new(R_INV)
+        FieldElement::new(result) * FieldElement::new(Self::R_INV)
     }
 
     fn sample_u64(&mut self, upper_bound: u64) -> u64 {
@@ -130,24 +147,6 @@ impl IsStarkTranscript<Stark252PrimeField> for StoneProverTranscript {
         bytes.copy_from_slice(&self.sample(8));
         let u64_val: u64 = u64::from_be_bytes(bytes);
         u64_val % upper_bound
-    }
-}
-
-pub fn sample_z_ood<F: IsPrimeField>(
-    lde_roots_of_unity_coset: &[FieldElement<F>],
-    trace_roots_of_unity: &[FieldElement<F>],
-    transcript: &mut impl IsStarkTranscript<F>,
-) -> FieldElement<F>
-where
-    FieldElement<F>: ByteConversion,
-{
-    loop {
-        let value: FieldElement<F> = transcript.sample_field_element();
-        if !lde_roots_of_unity_coset.iter().any(|x| x == &value)
-            && !trace_roots_of_unity.iter().any(|x| x == &value)
-        {
-            return value;
-        }
     }
 }
 
