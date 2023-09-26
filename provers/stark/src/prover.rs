@@ -95,7 +95,6 @@ where
     F: IsFFTField,
     Polynomial<FieldElement<F>>: FFTPoly<F>,
 {
-    // Evaluate those polynomials t_j on the large domain D_LDE.
     let evaluations = p.evaluate_offset_fft(blowup_factor, Some(domain_size), offset)?;
     let step = evaluations.len() / (domain_size * blowup_factor);
     match step {
@@ -668,14 +667,14 @@ where
         .constraints
         .len();
 
-    let num_transition_constriants = air.context().num_transition_constraints;
+    let num_transition_constraints = air.context().num_transition_constraints;
 
-    let mut coefficients: Vec<_> = (1..num_boundary_constraints + num_transition_constriants + 1)
+    let mut coefficients: Vec<_> = (1..num_boundary_constraints + num_transition_constraints + 1)
         .map(|i| beta.pow(i))
         .collect();
 
-    let boundary_coefficients: Vec<_> = coefficients.drain(..num_boundary_constraints).collect();
-    let transition_coefficients = coefficients;
+    let transition_coefficients: Vec<_> = coefficients.drain(..num_transition_constraints).collect();
+    let boundary_coefficients = coefficients;
 
     let round_2_result = round_2_compute_composition_polynomial(
         &air,

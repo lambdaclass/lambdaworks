@@ -304,7 +304,7 @@ mod tests {
                 "86105fff7b04ed4068ecccb8dbf1ed223bd45cd26c3532d6c80a818dbd4fa7"
             )
         );
-        // Send hash of composition poly commitment H(z)
+        // Send hash of composition poly commitment H
         transcript.append_bytes(
             &decode_hex("7cdd8d5fe3bd62254a417e2e260e0fed4fccdb6c9005e828446f645879394f38")
                 .unwrap(),

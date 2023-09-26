@@ -72,15 +72,18 @@ where
     // ==========|   Round 2   |==========
     // ===================================
 
-    // These are the challenges alpha^B_j and beta^B_j
-    // >>>> Send  challenges: 𝛽_j^B
-    let boundary_coeffs = batch_sample_challenges(
-        air.boundary_constraints(&rap_challenges).constraints.len(),
-        transcript,
-    );
-    // >>>> Send challenges: 𝛽_j^T
-    let transition_coeffs =
-        batch_sample_challenges(air.context().num_transition_constraints, transcript);
+    // <<<< Receive challenge: 𝛽
+    let beta = transcript.sample_field_element();
+    let num_boundary_constraints = air.boundary_constraints(&rap_challenges).constraints.len();
+
+    let num_transition_constraints = air.context().num_transition_constraints;
+
+    let mut coefficients: Vec<_> = (1..num_boundary_constraints + num_transition_constraints + 1)
+        .map(|i| beta.pow(i))
+        .collect();
+
+    let transition_coeffs: Vec<_> = coefficients.drain(..num_transition_constraints).collect();
+    let boundary_coeffs = coefficients;
 
     // <<<< Receive commitments: [H₁], [H₂]
     transcript.append_bytes(&proof.composition_poly_root);
@@ -605,12 +608,31 @@ where
 
 #[cfg(test)]
 pub mod tests {
-    use lambdaworks_math::field::{element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField};
+    use std::num::ParseIntError;
 
-    use crate::{examples::fibonacci_2_cols_shifted::{self, Fibonacci2ColsShifted}, proof::options::ProofOptions, transcript::StoneProverTranscript, verifier::step_1_replay_rounds_and_recover_challenges, domain::Domain, prover::prove, traits::AIR};
+    use lambdaworks_math::field::{
+        element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+    };
+
+    use crate::{
+        domain::Domain,
+        examples::fibonacci_2_cols_shifted::{self, Fibonacci2ColsShifted},
+        proof::options::ProofOptions,
+        prover::prove,
+        traits::AIR,
+        transcript::StoneProverTranscript,
+        verifier::step_1_replay_rounds_and_recover_challenges,
+    };
+
+    pub fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
+        (0..s.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
+            .collect()
+    }
 
     #[test]
-    fn test_compatibility_transcript() {
+    fn test_sharp_compatibility() {
         let trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::one(), 4);
 
         let claimed_index = 3;
@@ -626,7 +648,6 @@ pub mod tests {
 
         let transcript_init_seed = [0xca, 0xfe, 0xca, 0xfe];
 
-        // Prover's side
         let proof = prove::<Stark252PrimeField, Fibonacci2ColsShifted<_>>(
             &trace,
             &pub_inputs,
@@ -635,11 +656,8 @@ pub mod tests {
         )
         .unwrap();
 
-        // Verifier's side
         let air = Fibonacci2ColsShifted::new(proof.trace_length, &pub_inputs, &proof_options);
         let domain = Domain::new(&air);
-
-
         let challenges = step_1_replay_rounds_and_recover_challenges(
             &air,
             &proof,
@@ -647,12 +665,32 @@ pub mod tests {
             &mut StoneProverTranscript::new(&transcript_init_seed),
         );
 
-        let beta = challenges.boundary_coeffs[0];
         assert_eq!(
+            proof.lde_trace_merkle_roots[0].to_vec(),
+            decode_hex("0eb9dcc0fb1854572a01236753ce05139d392aa3aeafe72abff150fe21175594").unwrap()
+        );
+
+        let beta = challenges.transition_coeffs[0];
+        assert_eq!(
+            beta,
             FieldElement::from_hex_unchecked(
                 "86105fff7b04ed4068ecccb8dbf1ed223bd45cd26c3532d6c80a818dbd4fa7"
             ),
-            beta
         );
+        assert_eq!(challenges.transition_coeffs[1], beta.pow(2u64));
+        assert_eq!(challenges.boundary_coeffs[0], beta.pow(3u64));
+        assert_eq!(challenges.boundary_coeffs[1], beta.pow(4u64));
+
+        assert_eq!(
+            proof.composition_poly_root.to_vec(),
+            decode_hex("7cdd8d5fe3bd62254a417e2e260e0fed4fccdb6c9005e828446f645879394f38").unwrap()
+        );
+
+        // assert_eq!(
+        //     challenges.z,
+        //     FieldElement::from_hex_unchecked(
+        //         "317629e783794b52cd27ac3a5e418c057fec9dd42f2b537cdb3f24c95b3e550"
+        //     )
+        // );
     }
 }
