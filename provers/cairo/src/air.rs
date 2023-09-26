@@ -637,7 +637,7 @@ impl AIR for CairoAIR {
     ) -> Self {
         debug_assert!(trace_length.is_power_of_two());
 
-        let mut trace_columns = 34 + 4 + 15 + 4;
+        let mut trace_columns = 59;
         let mut transition_degrees = vec![
             2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, // Flags 0-14.
             1, // Flag 15
@@ -803,7 +803,7 @@ impl AIR for CairoAIR {
     fn number_auxiliary_rap_columns(&self) -> usize {
         // RANGE_CHECK_COL_i + MEMORY_INCREASING_i + MEMORY_CONSISTENCY_i + PERMUTATION_ARGUMENT_COL_i +
         // + PERMUTATION_ARGUMENT_RANGE_CHECK_COL_i
-        4 + 5 + 5 + 5 + 4
+        23
     }
 
     fn compute_transition(

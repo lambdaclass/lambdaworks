@@ -355,7 +355,7 @@ where
                 ];
 
                 // Verify openings Open(tⱼ(D_LDE), 𝜐₀)
-                proof
+                result &= proof
                     .lde_trace_merkle_roots
                     .iter()
                     .zip(&deep_poly_opening.lde_trace_merkle_proofs)
