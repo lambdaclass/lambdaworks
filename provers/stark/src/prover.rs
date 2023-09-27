@@ -1,6 +1,7 @@
 #[cfg(feature = "instruments")]
 use std::time::Instant;
 
+use lambdaworks_crypto::merkle_tree::proof::Proof;
 use lambdaworks_math::fft::cpu::bit_reversing::in_place_bit_reverse_permute;
 use lambdaworks_math::fft::{errors::FFTError, polynomial::FFTPoly};
 use lambdaworks_math::{
@@ -13,6 +14,7 @@ use log::info;
 #[cfg(feature = "parallel")]
 use rayon::prelude::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 
+use crate::config::BatchedMerkleTreeBackend;
 #[cfg(debug_assertions)]
 use crate::debug::validate_trace;
 use crate::transcript::IsStarkTranscript;
@@ -119,6 +121,31 @@ fn apply_permutation<F: IsFFTField>(vector: &mut Vec<FieldElement<F>>, permutati
     vector.extend(temp);
 }
 
+/// This function returns the permutation that converts lambdaworks ordering of columns to the one used in the stone prover
+pub fn get_stone_prover_domain_permutation(domain_size: usize, blowup_factor: usize) -> Vec<usize> {
+    let mut permutation = Vec::new();
+    let n = domain_size;
+
+    let mut indices: Vec<usize> = (0..blowup_factor).collect();
+    in_place_bit_reverse_permute(&mut indices);
+
+    for i in indices.iter() {
+        for j in 0..n {
+            permutation.push(i + j * blowup_factor)
+        }
+    }
+
+    for i in 0..blowup_factor {
+        let coset_indices = &mut permutation[(i * n)..((i + 1) * n)];
+        let mut temp = coset_indices.to_owned();
+        in_place_bit_reverse_permute(&mut temp);
+        for (i, elem) in coset_indices.iter_mut().enumerate() {
+            *elem = temp[i].clone();
+        }
+    }
+    permutation.to_vec()
+}
+
 #[allow(clippy::type_complexity)]
 fn interpolate_and_commit<F>(
     trace: &TraceTable<F>,
@@ -137,33 +164,19 @@ where
     let trace_polys = trace.compute_trace_polys();
 
     // Evaluate those polynomials t_j on the large domain D_LDE.
-    let mut lde_trace_evaluations = compute_lde_trace_evaluations(&trace_polys, domain);
+    let lde_trace_evaluations = compute_lde_trace_evaluations(&trace_polys, domain);
 
-    // TODO: Reordering for SHARP compatibility
-    let mut permutation = Vec::new();
-    let n = domain.interpolation_domain_size;
-    let mut indices: Vec<usize> = (0..domain.blowup_factor).collect();
-    in_place_bit_reverse_permute(&mut indices);
-    for i in indices.iter() {
-        for j in 0..n {
-            permutation.push(i + j * domain.blowup_factor)
-        }
-    }
+    let permutation =
+        get_stone_prover_domain_permutation(domain.interpolation_domain_size, domain.blowup_factor);
 
-    for col in lde_trace_evaluations.iter_mut() {
+    let mut lde_trace_permuted = lde_trace_evaluations.clone();
+
+    for col in lde_trace_permuted.iter_mut() {
         apply_permutation(col, &permutation);
-        for i in 0..domain.blowup_factor {
-            let col_coset = &mut col[(i * n)..((i + 1) * n)];
-            let mut temp = col_coset.to_owned();
-            in_place_bit_reverse_permute(&mut temp);
-            for (i, elem) in col_coset.iter_mut().enumerate() {
-                *elem = temp[i].clone();
-            }
-        }
     }
 
     // Compute commitments [t_j].
-    let lde_trace = TraceTable::new_from_cols(&lde_trace_evaluations);
+    let lde_trace = TraceTable::new_from_cols(&lde_trace_permuted);
     let (lde_trace_merkle_tree, lde_trace_merkle_root) = batch_commit(&lde_trace.rows());
 
     // >>>> Send commitments: [tⱼ]
@@ -554,6 +567,7 @@ fn open_deep_composition_poly<F: IsFFTField, A: AIR<Field = F>>(
 where
     FieldElement<F>: ByteConversion,
 {
+    let permutation = get_stone_prover_domain_permutation(domain.interpolation_domain_size, domain.blowup_factor);
     indexes_to_open
         .iter()
         .map(|index_to_open| {
@@ -572,17 +586,18 @@ where
             let lde_composition_poly_odd_evaluation =
                 round_2_result.lde_composition_poly_odd_evaluations[index].clone();
 
+            let lde_trace_evaluations = round_1_result.lde_trace.get_row(index).to_vec();
+
+            let index = permutation[index];
             // Trace polynomials openings
             #[cfg(feature = "parallel")]
             let merkle_trees_iter = round_1_result.lde_trace_merkle_trees.par_iter();
             #[cfg(not(feature = "parallel"))]
             let merkle_trees_iter = round_1_result.lde_trace_merkle_trees.iter();
 
-            let lde_trace_merkle_proofs = merkle_trees_iter
+            let lde_trace_merkle_proofs: Vec<Proof<[u8; 32]>> = merkle_trees_iter
                 .map(|tree| tree.get_proof_by_pos(index).unwrap())
                 .collect();
-
-            let lde_trace_evaluations = round_1_result.lde_trace.get_row(index).to_vec();
 
             DeepPolynomialOpenings {
                 lde_composition_poly_proof,
@@ -673,7 +688,8 @@ where
         .map(|i| beta.pow(i))
         .collect();
 
-    let transition_coefficients: Vec<_> = coefficients.drain(..num_transition_constraints).collect();
+    let transition_coefficients: Vec<_> =
+        coefficients.drain(..num_transition_constraints).collect();
     let boundary_coefficients = coefficients;
 
     let round_2_result = round_2_compute_composition_polynomial(
@@ -956,7 +972,6 @@ mod tests {
         let air = Fibonacci2ColsShifted::new(trace.n_rows(), &pub_inputs, &proof_options);
         let domain = Domain::new(&air);
 
-
         let (_, _, _, trace_commitment) = interpolate_and_commit(
             &trace,
             &domain,
@@ -988,7 +1003,6 @@ mod tests {
 
         let air = Fibonacci2ColsShifted::new(trace.n_rows(), &pub_inputs, &proof_options);
         let domain = Domain::new(&air);
-
 
         let (_, _, _, trace_commitment) = interpolate_and_commit(
             &trace,
