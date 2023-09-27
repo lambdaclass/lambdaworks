@@ -1,7 +1,7 @@
 use crate::field::element::FieldElement;
 use crate::field::errors::FieldError;
 use crate::field::traits::IsPrimeField;
-use crate::traits::ByteConversion;
+use crate::traits::{ByteConversion, Serializable};
 use crate::{
     field::traits::IsField, unsigned_integer::element::UnsignedInteger,
     unsigned_integer::montgomery::MontgomeryAlgorithms,
@@ -319,13 +319,13 @@ where
 {
     #[cfg(feature = "std")]
     fn to_bytes_be(&self) -> Vec<u8> {
-        // MontgomeryAlgorithms::cios(
-        //     self.value(),
-        //     &UnsignedInteger::from_u64(1),
-        //     &M::MODULUS,
-        //     &MontgomeryBackendPrimeField::<M, NUM_LIMBS>::MU,
-        // )
-        self.value().to_bytes_be()
+        MontgomeryAlgorithms::cios(
+            self.value(),
+            &UnsignedInteger::from_u64(1),
+            &M::MODULUS,
+            &MontgomeryBackendPrimeField::<M, NUM_LIMBS>::MU,
+        )
+        .to_bytes_be()
     }
 
     #[cfg(feature = "std")]
@@ -350,6 +350,14 @@ where
     }
 }
 
+impl<M, const NUM_LIMBS: usize> Serializable for FieldElement<MontgomeryBackendPrimeField<M, NUM_LIMBS>>
+where
+    M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug,
+{
+    fn serialize(&self) -> Vec<u8> {
+        self.value().to_bytes_be()
+    }
+}
 #[cfg(test)]
 mod tests_u384_prime_fields {
     use crate::field::element::FieldElement;

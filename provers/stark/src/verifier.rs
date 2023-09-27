@@ -10,10 +10,10 @@ use lambdaworks_math::{
         element::FieldElement,
         traits::{IsFFTField, IsField},
     },
-    traits::ByteConversion,
+    traits::Serializable,
 };
 
-use crate::{transcript::IsStarkTranscript, prover::get_stone_prover_domain_permutation};
+use crate::{prover::get_stone_prover_domain_permutation, transcript::IsStarkTranscript};
 
 use super::{
     config::{BatchedMerkleTreeBackend, FriMerkleTreeBackend},
@@ -22,7 +22,6 @@ use super::{
     grinding::hash_transcript_with_int_and_get_leading_zeros,
     proof::{options::ProofOptions, stark::StarkProof},
     traits::AIR,
-    transcript::batch_sample_challenges,
 };
 
 struct Challenges<F, A>
@@ -50,7 +49,7 @@ fn step_1_replay_rounds_and_recover_challenges<F, A>(
 ) -> Challenges<F, A>
 where
     F: IsFFTField,
-    FieldElement<F>: ByteConversion,
+    FieldElement<F>: Serializable,
     A: AIR<Field = F>,
 {
     // ===================================
@@ -273,7 +272,7 @@ fn step_3_verify_fri<F, A>(
 ) -> bool
 where
     F: IsFFTField,
-    FieldElement<F>: ByteConversion,
+    FieldElement<F>: Serializable,
     A: AIR<Field = F>,
 {
     // verify FRI
@@ -312,9 +311,10 @@ fn step_4_verify_deep_composition_polynomial<F: IsFFTField, A: AIR<Field = F>>(
     challenges: &Challenges<F, A>,
 ) -> bool
 where
-    FieldElement<F>: ByteConversion,
+    FieldElement<F>: Serializable,
 {
-    let permutation = get_stone_prover_domain_permutation(domain.interpolation_domain_size, domain.blowup_factor);
+    let permutation =
+        get_stone_prover_domain_permutation(domain.interpolation_domain_size, domain.blowup_factor);
     let primitive_root = &F::get_primitive_root_of_unity(domain.root_order as u64).unwrap();
     let z_squared = &challenges.z.square();
     let mut denom_inv = challenges
@@ -401,7 +401,7 @@ fn verify_query_and_sym_openings<F: IsField + IsFFTField>(
     two_inv: &FieldElement<F>,
 ) -> bool
 where
-    FieldElement<F>: ByteConversion,
+    FieldElement<F>: Serializable,
 {
     let fri_layers_merkle_roots = &proof.fri_layers_merkle_roots;
     let evaluation_point_vec: Vec<FieldElement<F>> =
@@ -516,7 +516,7 @@ pub fn verify<F, A>(
 where
     F: IsFFTField,
     A: AIR<Field = F>,
-    FieldElement<F>: ByteConversion,
+    FieldElement<F>: Serializable,
 {
     // Verify there are enough queries
     if proof.query_list.len() < proof_options.fri_number_of_queries {

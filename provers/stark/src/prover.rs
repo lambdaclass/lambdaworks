@@ -4,17 +4,16 @@ use std::time::Instant;
 use lambdaworks_crypto::merkle_tree::proof::Proof;
 use lambdaworks_math::fft::cpu::bit_reversing::in_place_bit_reverse_permute;
 use lambdaworks_math::fft::{errors::FFTError, polynomial::FFTPoly};
+use lambdaworks_math::traits::Serializable;
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsFFTField},
     polynomial::Polynomial,
-    traits::ByteConversion,
 };
 use log::info;
 
 #[cfg(feature = "parallel")]
 use rayon::prelude::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 
-use crate::config::BatchedMerkleTreeBackend;
 #[cfg(debug_assertions)]
 use crate::debug::validate_trace;
 use crate::transcript::IsStarkTranscript;
@@ -41,7 +40,7 @@ struct Round1<F, A>
 where
     F: IsFFTField,
     A: AIR<Field = F>,
-    FieldElement<F>: ByteConversion,
+    FieldElement<F>: Serializable,
 {
     trace_polys: Vec<Polynomial<FieldElement<F>>>,
     lde_trace: TraceTable<F>,
@@ -53,7 +52,7 @@ where
 struct Round2<F>
 where
     F: IsFFTField,
-    FieldElement<F>: ByteConversion,
+    FieldElement<F>: Serializable,
 {
     composition_poly_even: Polynomial<FieldElement<F>>,
     lde_composition_poly_even_evaluations: Vec<FieldElement<F>>,
@@ -80,7 +79,7 @@ struct Round4<F: IsFFTField> {
 fn batch_commit<F>(vectors: &[Vec<FieldElement<F>>]) -> (BatchedMerkleTree<F>, Commitment)
 where
     F: IsFFTField,
-    FieldElement<F>: ByteConversion,
+    FieldElement<F>: Serializable,
 {
     let tree = BatchedMerkleTree::<F>::build(vectors);
     let commitment = tree.root;
@@ -159,7 +158,7 @@ fn interpolate_and_commit<F>(
 )
 where
     F: IsFFTField,
-    FieldElement<F>: ByteConversion + Send + Sync,
+    FieldElement<F>: Serializable + Send + Sync,
 {
     let trace_polys = trace.compute_trace_polys();
 
@@ -223,7 +222,7 @@ fn round_1_randomized_air_with_preprocessing<F: IsFFTField, A: AIR<Field = F>>(
     transcript: &mut impl IsStarkTranscript<F>,
 ) -> Result<Round1<F, A>, ProvingError>
 where
-    FieldElement<F>: ByteConversion + Send + Sync,
+    FieldElement<F>: Serializable + Send + Sync,
 {
     let (mut trace_polys, mut evaluations, main_merkle_tree, main_merkle_root) =
         interpolate_and_commit(main_trace, domain, transcript);
@@ -266,7 +265,7 @@ where
     F: IsFFTField,
     A: AIR<Field = F> + Send + Sync,
     A::RAPChallenges: Send + Sync,
-    FieldElement<F>: ByteConversion + Send + Sync,
+    FieldElement<F>: Serializable + Send + Sync,
 {
     // Create evaluation table
     let evaluator = ConstraintEvaluator::new(air, &round_1_result.rap_challenges);
@@ -325,7 +324,7 @@ fn round_3_evaluate_polynomials_in_out_of_domain_element<F: IsFFTField, A: AIR<F
     z: &FieldElement<F>,
 ) -> Round3<F>
 where
-    FieldElement<F>: ByteConversion,
+    FieldElement<F>: Serializable,
 {
     let z_squared = z.square();
 
@@ -369,7 +368,7 @@ fn round_4_compute_and_run_fri_on_the_deep_composition_polynomial<
     transcript: &mut impl IsStarkTranscript<F>,
 ) -> Round4<F>
 where
-    FieldElement<F>: ByteConversion + Send + Sync,
+    FieldElement<F>: Serializable + Send + Sync,
 {
     let coset_offset_u64 = air.context().proof_options.coset_offset;
     let coset_offset = FieldElement::<F>::from(coset_offset_u64);
@@ -451,7 +450,7 @@ fn compute_deep_composition_poly<A, F>(
 where
     A: AIR,
     F: IsFFTField,
-    FieldElement<F>: ByteConversion + Send + Sync,
+    FieldElement<F>: Serializable + Send + Sync,
 {
     // Compute composition polynomial terms of the deep composition polynomial.
     let h_1 = &round_2_result.composition_poly_even;
@@ -532,7 +531,7 @@ fn compute_trace_term<F>(
 ) -> Polynomial<FieldElement<F>>
 where
     F: IsFFTField,
-    FieldElement<F>: ByteConversion + Send + Sync,
+    FieldElement<F>: Serializable + Send + Sync,
 {
     let i_times_trace_frame_evaluation = i * trace_frame_length;
     let iter_trace_gammas = trace_terms_gammas
@@ -565,7 +564,7 @@ fn open_deep_composition_poly<F: IsFFTField, A: AIR<Field = F>>(
     indexes_to_open: &[usize], // list of iotas
 ) -> Vec<DeepPolynomialOpenings<F>>
 where
-    FieldElement<F>: ByteConversion,
+    FieldElement<F>: Serializable,
 {
     let permutation = get_stone_prover_domain_permutation(domain.interpolation_domain_size, domain.blowup_factor);
     indexes_to_open
@@ -621,7 +620,7 @@ where
     F: IsFFTField,
     A: AIR<Field = F> + Send + Sync,
     A::RAPChallenges: Send + Sync,
-    FieldElement<F>: ByteConversion + Send + Sync,
+    FieldElement<F>: Serializable + Send + Sync,
 {
     info!("Started proof generation...");
     #[cfg(feature = "instruments")]

@@ -1,7 +1,7 @@
 use crate::merkle_tree::traits::IsMerkleTreeBackend;
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsField},
-    traits::ByteConversion,
+    traits::Serializable,
 };
 use sha3::{
     digest::{generic_array::GenericArray, OutputSizeUser},
@@ -27,7 +27,7 @@ impl<F, D: Digest> Default for Tree256Bits<F, D> {
 impl<F, D: Digest> IsMerkleTreeBackend for Tree256Bits<F, D>
 where
     F: IsField,
-    FieldElement<F>: ByteConversion,
+    FieldElement<F>: Serializable,
     [u8; 32]: From<GenericArray<u8, <D as OutputSizeUser>::OutputSize>>,
 {
     type Node = [u8; 32];
@@ -35,7 +35,7 @@ where
 
     fn hash_data(&self, input: &FieldElement<F>) -> [u8; 32] {
         let mut hasher = D::new();
-        hasher.update(input.to_bytes_be());
+        hasher.update(input.serialize());
         hasher.finalize().into()
     }
 
