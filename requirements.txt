@@ -1,0 +1,6 @@
+ecdsa==0.18.0
+bitarray==2.7.3
+fastecdsa==2.2.3
+sympy==1.11.1
+typeguard==2.13.3
+cairo-lang==0.11.0

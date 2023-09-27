@@ -22,6 +22,7 @@ use core::fmt::{self, Debug, Display};
 pub type U384 = UnsignedInteger<6>;
 pub type U256 = UnsignedInteger<4>;
 pub type U128 = UnsignedInteger<2>;
+pub type U64 = UnsignedInteger<1>;
 
 /// A big unsigned integer in base 2^{64} represented
 /// as fixed-size array `limbs` of `u64` components.
@@ -706,7 +707,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         while i > 0 {
             i -= 1;
             if NUM_LIMBS - 1 <= i * 2 {
-                let index = 2 * i - NUM_LIMBS + 1;
+                let index = 2 * i + 1 - NUM_LIMBS;
                 let cs = lo.limbs[index] as u128 + a.limbs[i] as u128 * a.limbs[i] as u128 + c;
                 c = cs >> 64;
                 lo.limbs[index] = cs as u64;

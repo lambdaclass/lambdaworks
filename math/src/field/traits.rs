@@ -42,8 +42,9 @@ pub trait IsFFTField: IsPrimeField {
         if order > F::TWO_ADICITY {
             return Err(FieldError::RootOfUnityError(order));
         }
-        let power = 1u64 << (F::TWO_ADICITY - order);
-        Ok(two_adic_primitive_root_of_unity.pow(power))
+        let log_power = F::TWO_ADICITY - order;
+        let root = (0..log_power).fold(two_adic_primitive_root_of_unity, |acc, _| acc.square());
+        Ok(root)
     }
 }
 
@@ -109,7 +110,7 @@ pub trait IsField: Debug + Clone {
     fn neg(a: &Self::BaseType) -> Self::BaseType;
 
     /// Returns the multiplicative inverse of `a`.
-    fn inv(a: &Self::BaseType) -> Self::BaseType;
+    fn inv(a: &Self::BaseType) -> Result<Self::BaseType, FieldError>;
 
     /// Returns the division of `a` and `b`.
     fn div(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType;
