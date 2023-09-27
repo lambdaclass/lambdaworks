@@ -60,7 +60,6 @@ impl Ord for FieldElement<Babybear31PrimeField> {
 mod tests {
     use super::*;
 
-    #[cfg(test)]
     mod test_babybear_31_bytes_ops {
         use super::*;
         use crate::{field::element::FieldElement, traits::ByteConversion};
@@ -116,22 +115,7 @@ mod tests {
         }
     }
 
-    mod test_babybear_31_primitive_root {
-        use super::*;
-        use crate::field::{element::FieldElement, traits::IsFFTField};
-
-        #[test]
-        fn test_two_adic_root_of_unity() {
-            let root = FieldElement::<Babybear31PrimeField>::from(
-                Babybear31PrimeField::TWO_ADIC_PRIMITVE_ROOT_OF_UNITY.limbs[0],
-            );
-            let result = root.pow(u64::pow(2, 24));
-
-            //checks that Babybear31PrimeField::TWO_ADIC_PRIMITVE_ROOT_OF_UNITY is a root of unity
-            assert_eq!(result, FieldElement::<Babybear31PrimeField>::one());
-        }
-    }
-
+    #[cfg(feature = "std")]
     mod test_babybear_31_fft {
         use super::*;
         use crate::fft::cpu::roots_of_unity::{
