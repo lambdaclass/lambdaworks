@@ -117,12 +117,11 @@ mod tests {
     mod test_babybear_31_primitive_root {
         use super::super::Babybear31PrimeField;
         use crate::field::{element::FieldElement, traits::IsFFTField};
-        use serde::__private::ToString;
 
         #[test]
         fn test_two_adic_root_of_unity() {
-            let root = FieldElement::<Babybear31PrimeField>::from_hex_unchecked(
-                &Babybear31PrimeField::TWO_ADIC_PRIMITVE_ROOT_OF_UNITY.to_string(),
+            let root = FieldElement::<Babybear31PrimeField>::from(
+                Babybear31PrimeField::TWO_ADIC_PRIMITVE_ROOT_OF_UNITY.limbs[0],
             );
             let result = root.pow(u64::pow(2, 24));
 
@@ -142,7 +141,7 @@ mod tests {
             traits::{IsFFTField, RootsConfig},
         };
         use crate::polynomial::Polynomial;
-        use proptest::{std_facade::Vec, collection, prelude::*};
+        use proptest::{collection, prelude::*, std_facade::Vec};
 
         fn gen_fft_and_naive_evaluation<F: IsFFTField>(
             poly: Polynomial<FieldElement<F>>,
