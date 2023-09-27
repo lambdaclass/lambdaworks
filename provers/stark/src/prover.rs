@@ -1,6 +1,7 @@
 #[cfg(feature = "instruments")]
 use std::time::Instant;
 
+use itertools::Itertools;
 use lambdaworks_crypto::merkle_tree::proof::Proof;
 use lambdaworks_math::fft::cpu::bit_reversing::in_place_bit_reverse_permute;
 use lambdaworks_math::fft::{errors::FFTError, polynomial::FFTPoly};
@@ -134,14 +135,14 @@ pub fn get_stone_prover_domain_permutation(domain_size: usize, blowup_factor: us
         }
     }
 
-    for i in 0..blowup_factor {
-        let coset_indices = &mut permutation[(i * n)..((i + 1) * n)];
+    for coset_indices in permutation.chunks_mut(n) {
         let mut temp = coset_indices.to_owned();
         in_place_bit_reverse_permute(&mut temp);
-        for (i, elem) in coset_indices.iter_mut().enumerate() {
-            *elem = temp[i].clone();
+        for (j, elem) in coset_indices.iter_mut().enumerate() {
+            *elem = temp[j];
         }
     }
+
     permutation.to_vec()
 }
 
@@ -566,7 +567,8 @@ fn open_deep_composition_poly<F: IsFFTField, A: AIR<Field = F>>(
 where
     FieldElement<F>: Serializable,
 {
-    let permutation = get_stone_prover_domain_permutation(domain.interpolation_domain_size, domain.blowup_factor);
+    let permutation =
+        get_stone_prover_domain_permutation(domain.interpolation_domain_size, domain.blowup_factor);
     indexes_to_open
         .iter()
         .map(|index_to_open| {

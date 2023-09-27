@@ -681,17 +681,5 @@ pub mod tests {
         assert_eq!(challenges.transition_coeffs[1], beta.pow(2u64));
         assert_eq!(challenges.boundary_coeffs[0], beta.pow(3u64));
         assert_eq!(challenges.boundary_coeffs[1], beta.pow(4u64));
-
-        // assert_eq!(
-        //     proof.composition_poly_root.to_vec(),
-        //     decode_hex("7cdd8d5fe3bd62254a417e2e260e0fed4fccdb6c9005e828446f645879394f38").unwrap()
-        // );
-
-        // assert_eq!(
-        //     challenges.z,
-        //     FieldElement::from_hex_unchecked(
-        //         "317629e783794b52cd27ac3a5e418c057fec9dd42f2b537cdb3f24c95b3e550"
-        //     )
-        // );
     }
 }
