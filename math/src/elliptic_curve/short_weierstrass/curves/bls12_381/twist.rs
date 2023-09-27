@@ -64,7 +64,7 @@ impl BLS12381TwistCurve {
             let z_cubed = <Self as IsEllipticCurve>::BaseField::mul(&z_sq, z.value());
 
             let z_cubed_with_b =
-                <Self as IsEllipticCurve>::BaseField::mul(&z_cubed, &Self::b().value());
+                <Self as IsEllipticCurve>::BaseField::mul(&z_cubed, Self::b().value());
 
             <Self as IsEllipticCurve>::BaseField::add(&x_cubed, &z_cubed_with_b)
         };
@@ -88,11 +88,11 @@ impl ShortWeierstrassProjectivePoint<BLS12381TwistCurve> {
 
         let frob_map_x = Degree2ExtensionField::frobenius_map(self.x().value());
         let frob_map_x_with_psi_coeff_x =
-            Degree2ExtensionField::mul(&frob_map_x, &psi_coeff_x.value());
+            Degree2ExtensionField::mul(&frob_map_x, psi_coeff_x.value());
 
         let frob_map_y = Degree2ExtensionField::frobenius_map(self.y().value());
         let frob_map_y_with_psi_coeff_y =
-            Degree2ExtensionField::mul(&frob_map_y, &psi_coeff_y.value());
+            Degree2ExtensionField::mul(&frob_map_y, psi_coeff_y.value());
 
         let frob_map_z = Degree2ExtensionField::frobenius_map(self.z().value());
 

@@ -1,15 +1,13 @@
-use super::curve::BLS12381FieldElement;
+use super::curve::{BLS12381Curve, BLS12381FieldElement};
 use crate::cyclic_group::IsGroup;
 use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
 use crate::elliptic_curve::traits::FromAffine;
 use crate::unsigned_integer::element::U256;
-use crate::{
-    elliptic_curve::short_weierstrass::curves::bls12_381::curve::BLS12381Curve,
-    errors::ByteConversionError, traits::ByteConversion,
-};
+use crate::{errors::ByteConversionError, traits::ByteConversion};
 use std::cmp::Ordering;
 use std::ops::Neg;
 
+#[allow(dead_code)] // This is done to not let clippy warn. Must be removed when MODULUS is used.
 const MODULUS: U256 =
     U256::from_hex_unchecked("73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001");
 

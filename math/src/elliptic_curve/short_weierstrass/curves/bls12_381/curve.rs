@@ -2,7 +2,6 @@ use super::field_extension::{BLS12381PrimeField, Degree2ExtensionField};
 use crate::cyclic_group::IsGroup;
 use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
 use crate::elliptic_curve::traits::IsEllipticCurve;
-use crate::unsigned_integer::element::*;
 use crate::{
     elliptic_curve::short_weierstrass::traits::IsShortWeierstrass, field::element::FieldElement,
 };
@@ -10,12 +9,21 @@ use crate::{
 pub type BLS12381FieldElement = FieldElement<BLS12381PrimeField>;
 pub type BLS12381TwistCurveFieldElement = FieldElement<Degree2ExtensionField>;
 
-/// Cube Root of Unity in G1.
-pub const CUBE_ROOT_OF_UNITY_G1: U384 = U384::from_hex_unchecked(
+/// Cube Root of Unity in the base field of BLS12-381.
+pub const CUBE_ROOT_OF_UNITY_G1: BLS12381FieldElement = BLS12381FieldElement::from_hex_unchecked(
     "5f19672fdf76ce51ba69c6076a0f77eaddb3a93be6f89688de17d813620a00022e01fffffffefffe",
 );
-/// Cube Root of Unity in G2.
-pub const CUBE_ROOT_OF_UNITY_G2: U384 = U384::from_hex_unchecked("1a0111ea397fe699ec02408663d4de85aa0d857d89759ad4897d29650fb85f9b409427eb4f49fffd8bfd00000000aaac");
+
+/// Cube Root of Unity in the degree-2 extension field of BLS12-381
+pub const CUBE_ROOT_OF_UNITY_G2: BLS12381TwistCurveFieldElement = BLS12381TwistCurveFieldElement::const_from_raw([FieldElement::<BLS12381PrimeField>::from_hex_unchecked("1a0111ea397fe699ec02408663d4de85aa0d857d89759ad4897d29650fb85f9b409427eb4f49fffd8bfd00000000aaac"), FieldElement::<BLS12381PrimeField>::from_hex_unchecked("0")]);
+
+pub const CUBE_ROOT_OF_UNITY_G2_SQUARE: BLS12381TwistCurveFieldElement =
+    BLS12381TwistCurveFieldElement::const_from_raw([
+        FieldElement::<BLS12381PrimeField>::from_hex_unchecked(
+            "5f19672fdf76ce51ba69c6076a0f77eaddb3a93be6f89688de17d813620a00022e01fffffffefffe",
+        ),
+        FieldElement::<BLS12381PrimeField>::from_hex_unchecked("0"),
+    ]);
 
 /// Seed value for BLS-12 381 curve.
 pub const SEED: u128 = 0xd201000000010000;
@@ -51,7 +59,7 @@ impl ShortWeierstrassProjectivePoint<BLS12381Curve> {
     /// Returns phi(p) where `phi: (x,y)->(ux,y)` and `u` is the Cube Root of Unity in `G_1`
     pub fn phi(&self) -> Self {
         let mut a = self.clone();
-        a.0.value[0] = a.x() * FieldElement::new(CUBE_ROOT_OF_UNITY_G1);
+        a.0.value[0] = a.x() * CUBE_ROOT_OF_UNITY_G1;
 
         a
     }

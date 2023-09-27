@@ -1,5 +1,5 @@
 use super::{
-    curve::BLS12381Curve,
+    curve::{BLS12381Curve, CUBE_ROOT_OF_UNITY_G2, CUBE_ROOT_OF_UNITY_G2_SQUARE},
     field_extension::{Degree12ExtensionField, Degree2ExtensionField},
     twist::BLS12381TwistCurve,
 };
@@ -31,7 +31,7 @@ impl IsPairing for BLS12381AtePairing {
     ) -> Result<FieldElement<Self::OutputField>, PairingError> {
         let mut result = FieldElement::one();
         for (p, q) in pairs {
-            if !(**p).is_in_subgroup() || !(**q).is_in_subgroup() {
+            if !p.is_in_subgroup() || !q.is_in_subgroup() {
                 return Err(PairingError::PointNotInSubgroup);
             }
             if !p.is_neutral_element() && !q.is_neutral_element() {
@@ -184,16 +184,20 @@ fn frobenius_square(
 ) -> FieldElement<Degree12ExtensionField> {
     let [a, b] = f.value();
     let w_raised_to_p_squared_minus_one = FieldElement::<Degree6ExtensionField>::new_base("1a0111ea397fe699ec02408663d4de85aa0d857d89759ad4897d29650fb85f9b409427eb4f49fffd8bfd00000000aaad");
-    let omega_3 = FieldElement::<Degree2ExtensionField>::new_base("1a0111ea397fe699ec02408663d4de85aa0d857d89759ad4897d29650fb85f9b409427eb4f49fffd8bfd00000000aaac");
-    let omega_3_squared = FieldElement::<Degree2ExtensionField>::new_base(
-        "5f19672fdf76ce51ba69c6076a0f77eaddb3a93be6f89688de17d813620a00022e01fffffffefffe",
-    );
 
     let [a0, a1, a2] = a.value();
     let [b0, b1, b2] = b.value();
 
-    let f0 = FieldElement::new([a0.clone(), a1 * &omega_3, a2 * &omega_3_squared]);
-    let f1 = FieldElement::new([b0.clone(), b1 * omega_3, b2 * omega_3_squared]);
+    let f0 = FieldElement::new([
+        a0.clone(),
+        a1 * CUBE_ROOT_OF_UNITY_G2,
+        a2 * CUBE_ROOT_OF_UNITY_G2_SQUARE,
+    ]);
+    let f1 = FieldElement::new([
+        b0.clone(),
+        b1 * CUBE_ROOT_OF_UNITY_G2,
+        b2 * CUBE_ROOT_OF_UNITY_G2_SQUARE,
+    ]);
 
     FieldElement::new([f0, f1 * w_raised_to_p_squared_minus_one])
 }
