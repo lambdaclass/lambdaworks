@@ -350,7 +350,8 @@ where
     }
 }
 
-impl<M, const NUM_LIMBS: usize> Serializable for FieldElement<MontgomeryBackendPrimeField<M, NUM_LIMBS>>
+impl<M, const NUM_LIMBS: usize> Serializable
+    for FieldElement<MontgomeryBackendPrimeField<M, NUM_LIMBS>>
 where
     M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug,
 {

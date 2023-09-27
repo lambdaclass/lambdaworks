@@ -1,7 +1,6 @@
 #[cfg(feature = "instruments")]
 use std::time::Instant;
 
-use itertools::Itertools;
 use lambdaworks_crypto::merkle_tree::proof::Proof;
 use lambdaworks_math::fft::cpu::bit_reversing::in_place_bit_reverse_permute;
 use lambdaworks_math::fft::{errors::FFTError, polynomial::FFTPoly};
@@ -121,7 +120,7 @@ fn apply_permutation<F: IsFFTField>(vector: &mut Vec<FieldElement<F>>, permutati
     vector.extend(temp);
 }
 
-/// This function returns the permutation that converts lambdaworks ordering of columns to the one used in the stone prover
+/// This function returns the permutation that converts lambdaworks ordering of rows to the one used in the stone prover
 pub fn get_stone_prover_domain_permutation(domain_size: usize, blowup_factor: usize) -> Vec<usize> {
     let mut permutation = Vec::new();
     let n = domain_size;
