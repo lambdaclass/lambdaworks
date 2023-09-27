@@ -23,7 +23,7 @@ pub type Babybear31PrimeField =
 // 21^(2^24)=1 mod 2013265921
 // 2^27(2^4-1)+1 where n=27 (two-adicity) and k=2^4+1
 impl IsFFTField for Babybear31PrimeField {
-    const TWO_ADICITY: u64 = 27;
+    const TWO_ADICITY: u64 = 24;
 
     const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: Self::BaseType = UnsignedInteger { limbs: [21] };
 
@@ -114,6 +114,27 @@ mod tests {
         }
     }
 
+    mod test_babybear_31_primitive_root {
+        use super::super::Babybear31PrimeField;
+        use crate::field::{element::FieldElement, traits::IsFFTField};
+
+        #[test]
+        fn test_two_adic_primitive_root_of_unity() {
+            let root = FieldElement::<Babybear31PrimeField>::from_hex_unchecked(
+                &Babybear31PrimeField::TWO_ADIC_PRIMITVE_ROOT_OF_UNITY.to_string(),
+            );
+            let result = root.pow(u64::pow(2, 24));
+
+            //checks that Babybear31PrimeField::TWO_ADIC_PRIMITVE_ROOT_OF_UNITY is a root of unity
+            assert_eq!(result, FieldElement::<Babybear31PrimeField>::one());
+
+            //checks that Babybear31PrimeField::TWO_ADIC_PRIMITVE_ROOT_OF_UNITY is primitive
+            for i in 2..u64::pow(2, 24) {
+                assert_ne!(root.pow(i), FieldElement::<Babybear31PrimeField>::one());
+            }
+        }
+    }
+
     mod test_babybear_31_fft {
         use super::super::Babybear31PrimeField;
         use crate::fft::cpu::roots_of_unity::{
@@ -125,7 +146,7 @@ mod tests {
             traits::{IsFFTField, RootsConfig},
         };
         use crate::polynomial::Polynomial;
-        use proptest::{collection, prelude::*, std_facade::string::ToString};
+        use proptest::{collection, prelude::*};
 
         fn gen_fft_and_naive_evaluation<F: IsFFTField>(
             poly: Polynomial<FieldElement<F>>,
@@ -193,22 +214,6 @@ mod tests {
             let new_poly = Polynomial::interpolate_fft(&eval).unwrap();
 
             (poly, new_poly)
-        }
-
-        #[test]
-        fn test_two_adic_primitive_root_of_unity() {
-            let root = FieldElement::<Babybear31PrimeField>::from_hex_unchecked(
-                &Babybear31PrimeField::TWO_ADIC_PRIMITVE_ROOT_OF_UNITY.to_string(),
-            );
-            let result = root.pow(u64::pow(2, 24));
-
-            //checks that Babybear31PrimeField::TWO_ADIC_PRIMITVE_ROOT_OF_UNITY is a root of unity
-            assert_eq!(result, FieldElement::<Babybear31PrimeField>::one());
-
-            //checks that Babybear31PrimeField::TWO_ADIC_PRIMITVE_ROOT_OF_UNITY is primitive
-            for i in 2..u64::pow(2, 24) {
-                assert_ne!(root.pow(i), FieldElement::<Babybear31PrimeField>::one());
-            }
         }
 
         prop_compose! {
