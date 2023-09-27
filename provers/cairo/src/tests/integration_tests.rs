@@ -43,7 +43,7 @@ fn test_prove_cairo_fibonacci_5() {
 fn test_verifier_rejects_wrong_authentication_paths() {
     // Setup
     let proof_options = ProofOptions::default_test_options();
-    let program_content = std::fs::read(&cairo0_program_path("fibonacci_5.json")).unwrap();
+    let program_content = std::fs::read(cairo0_program_path("fibonacci_5.json")).unwrap();
     let (main_trace, pub_inputs) =
         generate_prover_args(&program_content, &None, CairoLayout::Plain).unwrap();
 
@@ -56,10 +56,7 @@ fn test_verifier_rejects_wrong_authentication_paths() {
     let mut original_path = proof.deep_poly_openings[query].lde_trace_merkle_proofs[merkle_tree]
         .merkle_path
         .clone();
-    let aux = original_path[0];
-    original_path[0] = original_path[1];
-    original_path[1] = aux;
-
+    original_path.swap(0, 1);
     // For the test to make sense, we have to make sure
     // that the two hashes are different.
     assert_ne!(original_path[0], original_path[1]);
