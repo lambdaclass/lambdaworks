@@ -58,9 +58,11 @@ impl Ord for FieldElement<Babybear31PrimeField> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     #[cfg(test)]
     mod test_babybear_31_bytes_ops {
-        use super::super::Babybear31PrimeField;
+        use super::*;
         use crate::{field::element::FieldElement, traits::ByteConversion};
 
         #[test]
@@ -115,7 +117,7 @@ mod tests {
     }
 
     mod test_babybear_31_primitive_root {
-        use super::super::Babybear31PrimeField;
+        use super::*;
         use crate::field::{element::FieldElement, traits::IsFFTField};
 
         #[test]
@@ -131,7 +133,7 @@ mod tests {
     }
 
     mod test_babybear_31_fft {
-        use super::super::Babybear31PrimeField;
+        use super::*;
         use crate::fft::cpu::roots_of_unity::{
             get_powers_of_primitive_root, get_powers_of_primitive_root_coset,
         };
