@@ -40,6 +40,33 @@ fn test_prove_cairo_fibonacci_5() {
 }
 
 #[test_log::test]
+fn test_verifier_rejects_wrong_authentication_paths() {
+    // Setup
+    let proof_options = ProofOptions::default_test_options();
+    let program_content = std::fs::read(&cairo0_program_path("fibonacci_5.json")).unwrap();
+    let (main_trace, pub_inputs) = generate_prover_args(&program_content, &None, CairoLayout::Plain).unwrap();
+
+    // Generate the proof
+    let mut proof = generate_cairo_proof(&main_trace, &pub_inputs, &proof_options).unwrap();
+
+    // Change order of authentication path hashes
+    let query = 0;
+    let merkle_tree = 0;
+    let mut original_path = proof.deep_poly_openings[query].lde_trace_merkle_proofs[merkle_tree].merkle_path.clone();
+    let aux = original_path[0];
+    original_path[0] = original_path[1];
+    original_path[1] = aux;
+
+    // For the test to make sense, we have to make sure
+    // that the two hashes are different. 
+    assert_ne!(original_path[0], original_path[1]);
+    proof.deep_poly_openings[query].lde_trace_merkle_proofs[merkle_tree].merkle_path = original_path;
+
+    // Verifier should reject the proof
+    assert!(!verify_cairo_proof(&proof, &pub_inputs, &proof_options));
+}
+
+#[test_log::test]
 fn test_prove_cairo_fibonacci_1000() {
     let layout = CairoLayout::Plain;
     test_prove_cairo_program(&cairo0_program_path("fibonacci_1000.json"), &None, layout);
