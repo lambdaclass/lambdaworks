@@ -87,6 +87,11 @@ fn main() {
             let input_path = &args[2];
             let output_path = &args[3];
 
+            if input_path.contains(".cairo") {
+                println!("\nYou are trying to prove a non compiled Cairo program. Please compile it before sending it to the prover.\n");
+                return;
+            }
+
             let Some((proof, pub_inputs)) = generate_proof(input_path, &proof_options) else {
                 return;
             };
