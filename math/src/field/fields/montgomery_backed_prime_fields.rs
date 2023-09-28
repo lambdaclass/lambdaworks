@@ -355,6 +355,7 @@ impl<M, const NUM_LIMBS: usize> Serializable
 where
     M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug,
 {
+    #[cfg(feature = "std")]
     fn serialize(&self) -> Vec<u8> {
         self.value().to_bytes_be()
     }
