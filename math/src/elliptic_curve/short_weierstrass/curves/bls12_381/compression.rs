@@ -6,8 +6,14 @@ use crate::elliptic_curve::traits::FromAffine;
 use crate::field::element::FieldElement;
 use crate::unsigned_integer::element::U256;
 use crate::{
-    elliptic_curve::short_weierstrass::curves::bls12_381::curve::BLS12381Curve,
-    errors::ByteConversionError, traits::ByteConversion,
+    cyclic_group::IsGroup,
+    elliptic_curve::short_weierstrass::{
+        curves::bls12_381::curve::BLS12381Curve, point::ShortWeierstrassProjectivePoint,
+    },
+    elliptic_curve::traits::FromAffine,
+    errors::ByteConversionError,
+    field::element::FieldElement,
+    traits::ByteConversion,
 };
 #[cfg(feature = "std")]
 use std::{cmp::Ordering, ops::Neg};
@@ -61,7 +67,7 @@ pub fn decompress_g1_point(input_bytes: &mut [u8; 48]) -> Result<G1Point, ByteCo
         G1Point::from_affine(x, y.clone()).map_err(|_| ByteConversionError::InvalidValue)?;
 
     point
-        .is_in_subgroup(SUBGROUP_ORDER)
+        .is_in_subgroup()
         .then_some(point)
         .ok_or(ByteConversionError::PointNotInSubgroup)
 }
@@ -97,7 +103,6 @@ pub fn compress_g1_point(point: &G1Point) -> Vec<u8> {
 mod tests {
     use super::{BLS12381FieldElement, G1Point};
     use crate::elliptic_curve::short_weierstrass::curves::bls12_381::curve::BLS12381Curve;
-    use crate::elliptic_curve::short_weierstrass::curves::bls12_381::pairing::SUBGROUP_ORDER;
     use crate::elliptic_curve::traits::{FromAffine, IsEllipticCurve};
 
     #[cfg(feature = "std")]
@@ -111,13 +116,13 @@ mod tests {
     fn test_zero_point() {
         let g1 = BLS12381Curve::generator();
 
-        assert!(g1.is_in_subgroup(SUBGROUP_ORDER));
+        assert!(g1.is_in_subgroup());
         let new_x = BLS12381FieldElement::zero();
         let new_y = BLS12381FieldElement::one() + BLS12381FieldElement::one();
 
         let false_point2 = G1Point::from_affine(new_x, new_y).unwrap();
 
-        assert!(!false_point2.is_in_subgroup(SUBGROUP_ORDER));
+        assert!(!false_point2.is_in_subgroup());
     }
 
     #[cfg(feature = "std")]

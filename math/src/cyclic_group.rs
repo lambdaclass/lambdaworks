@@ -11,13 +11,6 @@ pub trait IsGroup: Clone + PartialEq + Eq {
         self == &Self::neutral_element()
     }
 
-    /// This method checks whether the element belongs to the `order`-torsion subgroup.
-    /// That is, the subgroup formed by all elements `P` such that (in additive notation) `order * P` is the neutral element.
-    fn is_in_subgroup<T: IsUnsignedInteger>(&self, order: T) -> bool {
-        let aux_point = self.operate_with_self(order);
-        aux_point.is_neutral_element()
-    }
-
     /// Applies the group operation `times` times with itself
     /// The operation can be addition or multiplication depending on
     /// the notation of the particular group.
