@@ -72,7 +72,6 @@ impl ShortWeierstrassProjectivePoint<BLS12381Curve> {
         a
     }
 
-    /// TODO: Add description of endomorphism equivalency
     pub fn is_in_subgroup(&self) -> bool {
         self.operate_with_self(MILLER_LOOP_CONSTANT)
             .operate_with_self(MILLER_LOOP_CONSTANT)
