@@ -11,12 +11,12 @@ use sha3::{
 };
 
 #[derive(Clone)]
-pub struct BatchBackend<F, D: Digest, const NUM_BYTES: usize> {
+pub struct FieldElementVectorBackend<F, D: Digest, const NUM_BYTES: usize> {
     phantom1: PhantomData<F>,
     phantom2: PhantomData<D>,
 }
 
-impl<F, D: Digest, const NUM_BYTES: usize> Default for BatchBackend<F, D, NUM_BYTES> {
+impl<F, D: Digest, const NUM_BYTES: usize> Default for FieldElementVectorBackend<F, D, NUM_BYTES> {
     fn default() -> Self {
         Self {
             phantom1: PhantomData,
@@ -25,7 +25,8 @@ impl<F, D: Digest, const NUM_BYTES: usize> Default for BatchBackend<F, D, NUM_BY
     }
 }
 
-impl<F, D: Digest, const NUM_BYTES: usize> IsMerkleTreeBackend for BatchBackend<F, D, NUM_BYTES>
+impl<F, D: Digest, const NUM_BYTES: usize> IsMerkleTreeBackend
+    for FieldElementVectorBackend<F, D, NUM_BYTES>
 where
     F: IsField,
     FieldElement<F>: ByteConversion,
@@ -62,7 +63,9 @@ mod tests {
     use sha2::Sha512;
     use sha3::{Keccak256, Keccak512, Sha3_256, Sha3_512};
 
-    use crate::merkle_tree::{backends::batch::BatchBackend, merkle::MerkleTree};
+    use crate::merkle_tree::{
+        backends::field_element_vector::FieldElementVectorBackend, merkle::MerkleTree,
+    };
 
     type F = Stark252PrimeField;
     type FE = FieldElement<F>;
@@ -79,9 +82,13 @@ mod tests {
             vec![FE::from(8u64), FE::from(19u64)],
             vec![FE::from(9u64), FE::from(21u64)],
         ];
-        let merkle_tree = MerkleTree::<BatchBackend<F, Sha3_256, 32>>::build(&values);
+        let merkle_tree = MerkleTree::<FieldElementVectorBackend<F, Sha3_256, 32>>::build(&values);
         let proof = merkle_tree.get_proof_by_pos(0).unwrap();
-        assert!(proof.verify::<BatchBackend<F, Sha3_256, 32>>(&merkle_tree.root, 0, &values[0]));
+        assert!(proof.verify::<FieldElementVectorBackend<F, Sha3_256, 32>>(
+            &merkle_tree.root,
+            0,
+            &values[0]
+        ));
     }
 
     #[test]
@@ -96,9 +103,13 @@ mod tests {
             vec![FE::from(8u64), FE::from(19u64)],
             vec![FE::from(9u64), FE::from(21u64)],
         ];
-        let merkle_tree = MerkleTree::<BatchBackend<F, Keccak256, 32>>::build(&values);
+        let merkle_tree = MerkleTree::<FieldElementVectorBackend<F, Keccak256, 32>>::build(&values);
         let proof = merkle_tree.get_proof_by_pos(0).unwrap();
-        assert!(proof.verify::<BatchBackend<F, Keccak256, 32>>(&merkle_tree.root, 0, &values[0]));
+        assert!(proof.verify::<FieldElementVectorBackend<F, Keccak256, 32>>(
+            &merkle_tree.root,
+            0,
+            &values[0]
+        ));
     }
 
     #[test]
@@ -113,9 +124,13 @@ mod tests {
             vec![FE::from(8u64), FE::from(19u64)],
             vec![FE::from(9u64), FE::from(21u64)],
         ];
-        let merkle_tree = MerkleTree::<BatchBackend<F, Sha3_512, 64>>::build(&values);
+        let merkle_tree = MerkleTree::<FieldElementVectorBackend<F, Sha3_512, 64>>::build(&values);
         let proof = merkle_tree.get_proof_by_pos(0).unwrap();
-        assert!(proof.verify::<BatchBackend<F, Sha3_512, 64>>(&merkle_tree.root, 0, &values[0]));
+        assert!(proof.verify::<FieldElementVectorBackend<F, Sha3_512, 64>>(
+            &merkle_tree.root,
+            0,
+            &values[0]
+        ));
     }
 
     #[test]
@@ -130,9 +145,13 @@ mod tests {
             vec![FE::from(8u64), FE::from(19u64)],
             vec![FE::from(9u64), FE::from(21u64)],
         ];
-        let merkle_tree = MerkleTree::<BatchBackend<F, Keccak512, 64>>::build(&values);
+        let merkle_tree = MerkleTree::<FieldElementVectorBackend<F, Keccak512, 64>>::build(&values);
         let proof = merkle_tree.get_proof_by_pos(0).unwrap();
-        assert!(proof.verify::<BatchBackend<F, Keccak512, 64>>(&merkle_tree.root, 0, &values[0]));
+        assert!(proof.verify::<FieldElementVectorBackend<F, Keccak512, 64>>(
+            &merkle_tree.root,
+            0,
+            &values[0]
+        ));
     }
 
     #[test]
@@ -147,8 +166,12 @@ mod tests {
             vec![FE::from(8u64), FE::from(19u64)],
             vec![FE::from(9u64), FE::from(21u64)],
         ];
-        let merkle_tree = MerkleTree::<BatchBackend<F, Sha512, 64>>::build(&values);
+        let merkle_tree = MerkleTree::<FieldElementVectorBackend<F, Sha512, 64>>::build(&values);
         let proof = merkle_tree.get_proof_by_pos(0).unwrap();
-        assert!(proof.verify::<BatchBackend<F, Sha512, 64>>(&merkle_tree.root, 0, &values[0]));
+        assert!(proof.verify::<FieldElementVectorBackend<F, Sha512, 64>>(
+            &merkle_tree.root,
+            0,
+            &values[0]
+        ));
     }
 }

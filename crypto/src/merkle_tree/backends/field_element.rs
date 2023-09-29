@@ -10,12 +10,12 @@ use sha3::{
 use std::marker::PhantomData;
 
 #[derive(Clone)]
-pub struct SingleBackend<F, D: Digest, const NUM_BYTES: usize> {
+pub struct FieldElementBackend<F, D: Digest, const NUM_BYTES: usize> {
     phantom1: PhantomData<F>,
     phantom2: PhantomData<D>,
 }
 
-impl<F, D: Digest, const NUM_BYTES: usize> Default for SingleBackend<F, D, NUM_BYTES> {
+impl<F, D: Digest, const NUM_BYTES: usize> Default for FieldElementBackend<F, D, NUM_BYTES> {
     fn default() -> Self {
         Self {
             phantom1: PhantomData,
@@ -24,7 +24,8 @@ impl<F, D: Digest, const NUM_BYTES: usize> Default for SingleBackend<F, D, NUM_B
     }
 }
 
-impl<F, D: Digest, const NUM_BYTES: usize> IsMerkleTreeBackend for SingleBackend<F, D, NUM_BYTES>
+impl<F, D: Digest, const NUM_BYTES: usize> IsMerkleTreeBackend
+    for FieldElementBackend<F, D, NUM_BYTES>
 where
     F: IsField,
     FieldElement<F>: ByteConversion,
@@ -54,7 +55,7 @@ mod tests {
     };
     use sha3::{Keccak256, Keccak512, Sha3_256, Sha3_512};
 
-    use crate::merkle_tree::{backends::single::SingleBackend, merkle::MerkleTree};
+    use crate::merkle_tree::{backends::field_element::FieldElementBackend, merkle::MerkleTree};
 
     type F = Stark252PrimeField;
     type FE = FieldElement<F>;
@@ -62,32 +63,48 @@ mod tests {
     #[test]
     fn hash_data_field_element_backend_works_with_keccak_256() {
         let values: Vec<FE> = (1..6).map(FE::from).collect();
-        let merkle_tree = MerkleTree::<SingleBackend<F, Keccak256, 32>>::build(&values);
+        let merkle_tree = MerkleTree::<FieldElementBackend<F, Keccak256, 32>>::build(&values);
         let proof = merkle_tree.get_proof_by_pos(0).unwrap();
-        assert!(proof.verify::<SingleBackend<F, Keccak256, 32>>(&merkle_tree.root, 0, &values[0]));
+        assert!(proof.verify::<FieldElementBackend<F, Keccak256, 32>>(
+            &merkle_tree.root,
+            0,
+            &values[0]
+        ));
     }
 
     #[test]
     fn hash_data_field_element_backend_works_with_sha3_256() {
         let values: Vec<FE> = (1..6).map(FE::from).collect();
-        let merkle_tree = MerkleTree::<SingleBackend<F, Sha3_256, 32>>::build(&values);
+        let merkle_tree = MerkleTree::<FieldElementBackend<F, Sha3_256, 32>>::build(&values);
         let proof = merkle_tree.get_proof_by_pos(0).unwrap();
-        assert!(proof.verify::<SingleBackend<F, Sha3_256, 32>>(&merkle_tree.root, 0, &values[0]));
+        assert!(proof.verify::<FieldElementBackend<F, Sha3_256, 32>>(
+            &merkle_tree.root,
+            0,
+            &values[0]
+        ));
     }
 
     #[test]
     fn hash_data_field_element_backend_works_with_keccak_512() {
         let values: Vec<FE> = (1..6).map(FE::from).collect();
-        let merkle_tree = MerkleTree::<SingleBackend<F, Keccak512, 64>>::build(&values);
+        let merkle_tree = MerkleTree::<FieldElementBackend<F, Keccak512, 64>>::build(&values);
         let proof = merkle_tree.get_proof_by_pos(0).unwrap();
-        assert!(proof.verify::<SingleBackend<F, Keccak512, 64>>(&merkle_tree.root, 0, &values[0]));
+        assert!(proof.verify::<FieldElementBackend<F, Keccak512, 64>>(
+            &merkle_tree.root,
+            0,
+            &values[0]
+        ));
     }
 
     #[test]
     fn hash_data_field_element_backend_works_with_sha3_512() {
         let values: Vec<FE> = (1..6).map(FE::from).collect();
-        let merkle_tree = MerkleTree::<SingleBackend<F, Sha3_512, 64>>::build(&values);
+        let merkle_tree = MerkleTree::<FieldElementBackend<F, Sha3_512, 64>>::build(&values);
         let proof = merkle_tree.get_proof_by_pos(0).unwrap();
-        assert!(proof.verify::<SingleBackend<F, Sha3_512, 64>>(&merkle_tree.root, 0, &values[0]));
+        assert!(proof.verify::<FieldElementBackend<F, Sha3_512, 64>>(
+            &merkle_tree.root,
+            0,
+            &values[0]
+        ));
     }
 }
