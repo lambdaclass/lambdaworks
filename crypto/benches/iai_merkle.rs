@@ -1,7 +1,7 @@
 use core::hint::black_box;
 use lambdaworks_crypto::{
     hash::sha3::Sha3Hasher,
-    merkle_tree::{backends::hash_256_bits::Tree256Bits, merkle::MerkleTree},
+    merkle_tree::{backends::field_element::FieldElementBackend, merkle::MerkleTree},
 };
 use lambdaworks_math::{
     field::element::FieldElement,
@@ -12,7 +12,7 @@ use sha3::Keccak256;
 type F = Stark252PrimeField;
 type FE = FieldElement<Stark252PrimeField>;
 
-type TreeBackend = Tree256Bits<F, Keccak256>;
+type TreeBackend = FieldElementBackend<F, Keccak256, 32>;
 
 #[inline(never)]
 #[export_name = "util::build_unhashed_leaves"]
