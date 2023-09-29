@@ -1,9 +1,7 @@
 use sha2::{Sha256, Sha512};
 use sha3::{Keccak256, Keccak512, Sha3_256, Sha3_512};
 
-use super::{
-    batch::BatchBackend, single::SingleBackend
-};
+use super::{batch::BatchBackend, single::SingleBackend};
 
 // Field element backend definitions
 

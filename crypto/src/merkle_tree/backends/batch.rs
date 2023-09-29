@@ -60,7 +60,7 @@ mod tests {
         element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
     };
     use sha2::Sha512;
-    use sha3::{Keccak256, Sha3_256, Sha3_512, Keccak512};
+    use sha3::{Keccak256, Keccak512, Sha3_256, Sha3_512};
 
     use crate::merkle_tree::{backends::batch::BatchBackend, merkle::MerkleTree};
 
