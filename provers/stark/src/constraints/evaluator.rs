@@ -13,9 +13,8 @@ use rayon::prelude::{
 
 #[cfg(all(debug_assertions, not(feature = "parallel")))]
 use crate::debug::check_boundary_polys_divisibility;
-use crate::domain::Domain;
+use crate::{domain::Domain, prover::{Prover, IsStarkProver}};
 use crate::frame::Frame;
-use crate::prover::evaluate_polynomial_on_lde_domain;
 use crate::trace::TraceTable;
 use crate::traits::AIR;
 
@@ -282,7 +281,7 @@ where
 
     exemptions_iter
         .map(|exemption| {
-            evaluate_polynomial_on_lde_domain(
+            Prover::evaluate_polynomial_on_lde_domain(
                 exemption,
                 domain.blowup_factor,
                 domain.interpolation_domain_size,

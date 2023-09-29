@@ -13,11 +13,10 @@ use stark_platinum_prover::{
     context::AirContext,
     frame::Frame,
     proof::{options::ProofOptions, stark::StarkProof},
-    prover::{prove, ProvingError},
+    prover::{ProvingError, Prover, IsStarkProver},
     trace::TraceTable,
     traits::AIR,
-    transcript::{IsStarkTranscript, StoneProverTranscript},
-    verifier::verify,
+    transcript::{IsStarkTranscript, StoneProverTranscript}, verifier::{Verifier, IsStarkVerifier},
 };
 
 use crate::Felt252;
@@ -1254,7 +1253,7 @@ pub fn generate_cairo_proof(
     pub_input: &PublicInputs,
     proof_options: &ProofOptions,
 ) -> Result<StarkProof<Stark252PrimeField>, ProvingError> {
-    prove::<Stark252PrimeField, CairoAIR>(
+    Prover::prove::<Stark252PrimeField, CairoAIR>(
         trace,
         pub_input,
         proof_options,
@@ -1270,7 +1269,7 @@ pub fn verify_cairo_proof(
     pub_input: &PublicInputs,
     proof_options: &ProofOptions,
 ) -> bool {
-    verify::<Stark252PrimeField, CairoAIR>(
+    Verifier::verify::<Stark252PrimeField, CairoAIR>(
         proof,
         pub_input,
         proof_options,
