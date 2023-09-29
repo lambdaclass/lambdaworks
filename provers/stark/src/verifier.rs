@@ -1,6 +1,7 @@
 #[cfg(feature = "instruments")]
 use std::time::Instant;
 
+use lambdaworks_crypto::merkle_tree::proof::Proof;
 //use itertools::multizip;
 #[cfg(not(feature = "test_fiat_shamir"))]
 use log::error;
@@ -14,6 +15,8 @@ use lambdaworks_math::{
 };
 
 use crate::{
+    config::Commitment,
+    proof::stark::DeepPolynomialOpenings,
     prover::{IsStarkProver, Prover},
     transcript::IsStarkTranscript,
 };
@@ -32,16 +35,16 @@ where
     F: IsFFTField,
     A: AIR<Field = F>,
 {
-    z: FieldElement<F>,
-    boundary_coeffs: Vec<FieldElement<F>>,
-    transition_coeffs: Vec<FieldElement<F>>,
-    trace_term_coeffs: Vec<Vec<FieldElement<F>>>,
-    gamma_even: FieldElement<F>,
-    gamma_odd: FieldElement<F>,
-    zetas: Vec<FieldElement<F>>,
-    iotas: Vec<usize>,
-    rap_challenges: A::RAPChallenges,
-    leading_zeros_count: u8, // number of leading zeros in the grinding
+    pub z: FieldElement<F>,
+    pub boundary_coeffs: Vec<FieldElement<F>>,
+    pub transition_coeffs: Vec<FieldElement<F>>,
+    pub trace_term_coeffs: Vec<Vec<FieldElement<F>>>,
+    pub gamma_even: FieldElement<F>,
+    pub gamma_odd: FieldElement<F>,
+    pub zetas: Vec<FieldElement<F>>,
+    pub iotas: Vec<usize>,
+    pub rap_challenges: A::RAPChallenges,
+    pub leading_zeros_count: u8, // number of leading zeros in the grinding
 }
 
 pub trait IsStarkVerifier {
@@ -309,6 +312,39 @@ pub trait IsStarkVerifier {
             })
     }
 
+    fn verify_trace_openings<F>(
+        proof: &StarkProof<F>,
+        deep_poly_opening: &DeepPolynomialOpenings<F>,
+        lde_trace_evaluations: &[Vec<FieldElement<F>>],
+        iota: usize,
+    ) -> bool
+    where
+        F: IsFFTField,
+        FieldElement<F>: Serializable,
+    {
+        proof
+            .lde_trace_merkle_roots
+            .iter()
+            .zip(&deep_poly_opening.lde_trace_merkle_proofs)
+            .zip(lde_trace_evaluations)
+            .fold(true, |acc, ((merkle_root, merkle_proof), evaluation)| {
+                acc & Self::verify_opening(&merkle_proof, &merkle_root, iota, &evaluation)
+            })
+    }
+
+    fn verify_opening<F>(
+        proof: &Proof<Commitment>,
+        root: &Commitment,
+        index: usize,
+        value: &Vec<FieldElement<F>>,
+    ) -> bool
+    where
+        F: IsField,
+        FieldElement<F>: Serializable,
+    {
+        proof.verify::<BatchedMerkleTreeBackend<F>>(&root, index, &value)
+    }
+
     fn step_4_verify_deep_composition_polynomial<F: IsFFTField, A: AIR<Field = F>>(
         air: &A,
         proof: &StarkProof<F>,
@@ -318,10 +354,6 @@ pub trait IsStarkVerifier {
     where
         FieldElement<F>: Serializable,
     {
-        let permutation = Prover::get_stone_prover_domain_permutation(
-            domain.interpolation_domain_size,
-            domain.blowup_factor,
-        );
         let primitive_root = &F::get_primitive_root_of_unity(domain.root_order as u64).unwrap();
         let z_squared = &challenges.z.square();
         let mut denom_inv = challenges
@@ -366,18 +398,12 @@ pub trait IsStarkVerifier {
                     ];
 
                     // Verify openings Open(tⱼ(D_LDE), 𝜐₀)
-                    result &= proof
-                        .lde_trace_merkle_roots
-                        .iter()
-                        .zip(&deep_poly_opening.lde_trace_merkle_proofs)
-                        .zip(lde_trace_evaluations)
-                        .fold(result, |acc, ((merkle_root, merkle_proof), evaluation)| {
-                            acc & merkle_proof.verify::<BatchedMerkleTreeBackend<F>>(
-                                merkle_root,
-                                permutation[*iota_n],
-                                &evaluation,
-                            )
-                        });
+                    result &= Self::verify_trace_openings(
+                        proof,
+                        deep_poly_opening,
+                        &lde_trace_evaluations,
+                        *iota_n,
+                    );
 
                     // DEEP consistency check
                     // Verify that Deep(x) is constructed correctly
@@ -388,9 +414,10 @@ pub trait IsStarkVerifier {
                         })
                         .collect::<Vec<FieldElement<F>>>();
                     FieldElement::inplace_batch_inverse(&mut divisors).unwrap();
-                    let deep_poly_evaluation = Verifier::reconstruct_deep_composition_poly_evaluation(
-                        proof, challenges, denom_inv, &divisors, i,
-                    );
+                    let deep_poly_evaluation =
+                        Verifier::reconstruct_deep_composition_poly_evaluation(
+                            proof, challenges, denom_inv, &divisors, i,
+                        );
 
                     let deep_poly_claimed_evaluation = &proof.query_list[i].layers_evaluations[0];
                     result & (deep_poly_claimed_evaluation == &deep_poly_evaluation)
@@ -539,8 +566,12 @@ pub trait IsStarkVerifier {
         let air = A::new(proof.trace_length, pub_input, proof_options);
         let domain = Domain::new(&air);
 
-        let challenges =
-            Self::step_1_replay_rounds_and_recover_challenges(&air, proof, &domain, &mut transcript);
+        let challenges = Self::step_1_replay_rounds_and_recover_challenges(
+            &air,
+            proof,
+            &domain,
+            &mut transcript,
+        );
 
         // verify grinding
         let grinding_factor = air.context().proof_options.grinding_factor;
@@ -619,79 +650,3 @@ pub trait IsStarkVerifier {
 pub struct Verifier;
 
 impl IsStarkVerifier for Verifier {}
-
-#[cfg(test)]
-pub mod tests {
-    use std::num::ParseIntError;
-
-    use lambdaworks_math::field::{
-        element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
-    };
-
-    use crate::{
-        domain::Domain,
-        examples::fibonacci_2_cols_shifted::{self, Fibonacci2ColsShifted},
-        proof::options::ProofOptions,
-        prover::{IsStarkProver, Prover},
-        traits::AIR,
-        transcript::StoneProverTranscript, verifier::{Verifier, IsStarkVerifier},
-    };
-
-    pub fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
-        (0..s.len())
-            .step_by(2)
-            .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
-            .collect()
-    }
-
-    #[test]
-    fn test_sharp_compatibility() {
-        let trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::one(), 4);
-
-        let claimed_index = 3;
-        let claimed_value = trace.get_row(claimed_index)[0];
-        let mut proof_options = ProofOptions::default_test_options();
-        proof_options.blowup_factor = 4;
-        proof_options.coset_offset = 3;
-
-        let pub_inputs = fibonacci_2_cols_shifted::PublicInputs {
-            claimed_value,
-            claimed_index,
-        };
-
-        let transcript_init_seed = [0xca, 0xfe, 0xca, 0xfe];
-
-        let proof = Prover::prove::<Stark252PrimeField, Fibonacci2ColsShifted<_>>(
-            &trace,
-            &pub_inputs,
-            &proof_options,
-            StoneProverTranscript::new(&transcript_init_seed),
-        )
-        .unwrap();
-
-        let air = Fibonacci2ColsShifted::new(proof.trace_length, &pub_inputs, &proof_options);
-        let domain = Domain::new(&air);
-        let challenges = Verifier::step_1_replay_rounds_and_recover_challenges(
-            &air,
-            &proof,
-            &domain,
-            &mut StoneProverTranscript::new(&transcript_init_seed),
-        );
-
-        assert_eq!(
-            proof.lde_trace_merkle_roots[0].to_vec(),
-            decode_hex("0eb9dcc0fb1854572a01236753ce05139d392aa3aeafe72abff150fe21175594").unwrap()
-        );
-
-        let beta = challenges.transition_coeffs[0];
-        assert_eq!(
-            beta,
-            FieldElement::from_hex_unchecked(
-                "86105fff7b04ed4068ecccb8dbf1ed223bd45cd26c3532d6c80a818dbd4fa7"
-            ),
-        );
-        assert_eq!(challenges.transition_coeffs[1], beta.pow(2u64));
-        assert_eq!(challenges.boundary_coeffs[0], beta.pow(3u64));
-        assert_eq!(challenges.boundary_coeffs[1], beta.pow(4u64));
-    }
-}

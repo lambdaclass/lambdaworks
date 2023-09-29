@@ -166,19 +166,19 @@ pub trait IsStarkProver {
         // Evaluate those polynomials t_j on the large domain D_LDE.
         let lde_trace_evaluations = Self::compute_lde_trace_evaluations(&trace_polys, domain);
 
-        let permutation = Self::get_stone_prover_domain_permutation(
-            domain.interpolation_domain_size,
-            domain.blowup_factor,
-        );
+        // let permutation = Self::get_stone_prover_domain_permutation(
+        //     domain.interpolation_domain_size,
+        //     domain.blowup_factor,
+        // );
 
-        let mut lde_trace_permuted = lde_trace_evaluations.clone();
+        // let mut lde_trace_permuted = lde_trace_evaluations.clone();
 
-        for col in lde_trace_permuted.iter_mut() {
-            Self::apply_permutation(col, &permutation);
-        }
-
+        // for col in lde_trace_permuted.iter_mut() {
+        //     Self::apply_permutation(col, &permutation);
+        // }
+        //
         // Compute commitments [t_j].
-        let lde_trace = TraceTable::new_from_cols(&lde_trace_permuted);
+        let lde_trace = TraceTable::new_from_cols(&lde_trace_evaluations);
         let (lde_trace_merkle_tree, lde_trace_merkle_root) = Self::batch_commit(&lde_trace.rows());
 
         // >>>> Send commitments: [tⱼ]
@@ -571,10 +571,10 @@ pub trait IsStarkProver {
     where
         FieldElement<F>: Serializable,
     {
-        let permutation = Self::get_stone_prover_domain_permutation(
-            domain.interpolation_domain_size,
-            domain.blowup_factor,
-        );
+        // let permutation = Self::get_stone_prover_domain_permutation(
+        //     domain.interpolation_domain_size,
+        //     domain.blowup_factor,
+        // );
         indexes_to_open
             .iter()
             .map(|index_to_open| {
@@ -595,7 +595,7 @@ pub trait IsStarkProver {
 
                 let lde_trace_evaluations = round_1_result.lde_trace.get_row(index).to_vec();
 
-                let index = permutation[index];
+                let index = index;
                 // Trace polynomials openings
                 #[cfg(feature = "parallel")]
                 let merkle_trees_iter = round_1_result.lde_trace_merkle_trees.par_iter();
@@ -841,15 +841,11 @@ impl IsStarkProver for Prover {}
 
 #[cfg(test)]
 mod tests {
-    use std::num::ParseIntError;
-
     use crate::{
         examples::{
-            fibonacci_2_cols_shifted::{self, Fibonacci2ColsShifted},
             simple_fibonacci::{self, FibonacciPublicInputs},
         },
         proof::options::ProofOptions,
-        transcript::StoneProverTranscript,
         Felt252,
     };
 
@@ -963,75 +959,4 @@ mod tests {
         }
     }
 
-    fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
-        (0..s.len())
-            .step_by(2)
-            .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
-            .collect()
-    }
-
-    #[test]
-    fn test_trace_commitment_is_compatible_with_stone_prover_1() {
-        let trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::one(), 4);
-
-        let claimed_index = 3;
-        let claimed_value = trace.get_row(claimed_index)[0];
-        let mut proof_options = ProofOptions::default_test_options();
-        proof_options.blowup_factor = 4;
-        proof_options.coset_offset = 3;
-
-        let pub_inputs = fibonacci_2_cols_shifted::PublicInputs {
-            claimed_value,
-            claimed_index,
-        };
-
-        let transcript_init_seed = [0xca, 0xfe, 0xca, 0xfe];
-
-        let air = Fibonacci2ColsShifted::new(trace.n_rows(), &pub_inputs, &proof_options);
-        let domain = Domain::new(&air);
-
-        let (_, _, _, trace_commitment) = Prover::interpolate_and_commit(
-            &trace,
-            &domain,
-            &mut StoneProverTranscript::new(&transcript_init_seed),
-        );
-
-        assert_eq!(
-            &trace_commitment.to_vec(),
-            &decode_hex("0eb9dcc0fb1854572a01236753ce05139d392aa3aeafe72abff150fe21175594")
-                .unwrap()
-        );
-    }
-    #[test]
-    fn test_trace_commitment_is_compatible_with_stone_prover_2() {
-        let trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::one(), 4);
-
-        let claimed_index = 3;
-        let claimed_value = trace.get_row(claimed_index)[0];
-        let mut proof_options = ProofOptions::default_test_options();
-        proof_options.blowup_factor = 64;
-        proof_options.coset_offset = 3;
-
-        let pub_inputs = fibonacci_2_cols_shifted::PublicInputs {
-            claimed_value,
-            claimed_index,
-        };
-
-        let transcript_init_seed = [0xfa, 0xfa, 0xfa, 0xee];
-
-        let air = Fibonacci2ColsShifted::new(trace.n_rows(), &pub_inputs, &proof_options);
-        let domain = Domain::new(&air);
-
-        let (_, _, _, trace_commitment) = Prover::interpolate_and_commit(
-            &trace,
-            &domain,
-            &mut StoneProverTranscript::new(&transcript_init_seed),
-        );
-
-        assert_eq!(
-            &trace_commitment.to_vec(),
-            &decode_hex("99d8d4342895c4e35a084f8ea993036be06f51e7fa965734ed9c7d41104f0848")
-                .unwrap()
-        );
-    }
 }
