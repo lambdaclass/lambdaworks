@@ -6,6 +6,8 @@ CAIRO0_PROGRAMS_DIR=cairo_programs/cairo0
 CAIRO0_PROGRAMS:=$(wildcard $(CAIRO0_PROGRAMS_DIR)/*.cairo)
 COMPILED_CAIRO0_PROGRAMS:=$(patsubst $(CAIRO0_PROGRAMS_DIR)/%.cairo, $(CAIRO0_PROGRAMS_DIR)/%.json, $(CAIRO0_PROGRAMS))
 
+# Variable to give compiled Cairo programas a proper name. It extracts the file extension and adds
+# the .json extension to it.
 COMPILED_PROGRAM=$(basename $(PROGRAM)).json
 
 # Rule to compile Cairo programs for testing purposes.
