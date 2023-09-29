@@ -11,12 +11,12 @@ use sha3::{
 };
 
 #[derive(Clone)]
-pub struct BatchBackend<F, D: Digest, const BITSIZE: usize> {
+pub struct BatchBackend<F, D: Digest, const NUM_BYTES: usize> {
     phantom1: PhantomData<F>,
     phantom2: PhantomData<D>,
 }
 
-impl<F, D: Digest, const BITSIZE: usize> Default for BatchBackend<F, D, BITSIZE> {
+impl<F, D: Digest, const NUM_BYTES: usize> Default for BatchBackend<F, D, NUM_BYTES> {
     fn default() -> Self {
         Self {
             phantom1: PhantomData,
@@ -25,30 +25,30 @@ impl<F, D: Digest, const BITSIZE: usize> Default for BatchBackend<F, D, BITSIZE>
     }
 }
 
-impl<F, D: Digest, const BITSIZE: usize> IsMerkleTreeBackend for BatchBackend<F, D, BITSIZE>
+impl<F, D: Digest, const NUM_BYTES: usize> IsMerkleTreeBackend for BatchBackend<F, D, NUM_BYTES>
 where
     F: IsField,
     FieldElement<F>: ByteConversion,
-    [u8; BITSIZE]: From<GenericArray<u8, <D as OutputSizeUser>::OutputSize>>,
+    [u8; NUM_BYTES]: From<GenericArray<u8, <D as OutputSizeUser>::OutputSize>>,
 {
-    type Node = [u8; BITSIZE];
+    type Node = [u8; NUM_BYTES];
     type Data = Vec<FieldElement<F>>;
 
-    fn hash_data(&self, input: &Vec<FieldElement<F>>) -> [u8; BITSIZE] {
+    fn hash_data(&self, input: &Vec<FieldElement<F>>) -> [u8; NUM_BYTES] {
         let mut hasher = D::new();
         for element in input.iter() {
             hasher.update(element.to_bytes_be());
         }
-        let mut result_hash = [0_u8; BITSIZE];
+        let mut result_hash = [0_u8; NUM_BYTES];
         result_hash.copy_from_slice(&hasher.finalize());
         result_hash
     }
 
-    fn hash_new_parent(&self, left: &[u8; BITSIZE], right: &[u8; BITSIZE]) -> [u8; BITSIZE] {
+    fn hash_new_parent(&self, left: &[u8; NUM_BYTES], right: &[u8; NUM_BYTES]) -> [u8; NUM_BYTES] {
         let mut hasher = D::new();
         hasher.update(left);
         hasher.update(right);
-        let mut result_hash = [0_u8; BITSIZE];
+        let mut result_hash = [0_u8; NUM_BYTES];
         result_hash.copy_from_slice(&hasher.finalize());
         result_hash
     }

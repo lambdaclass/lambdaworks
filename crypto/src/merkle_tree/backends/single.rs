@@ -10,12 +10,12 @@ use sha3::{
 use std::marker::PhantomData;
 
 #[derive(Clone)]
-pub struct SingleBackend<F, D: Digest, const NUM_BITS: usize> {
+pub struct SingleBackend<F, D: Digest, const NUM_BYTES: usize> {
     phantom1: PhantomData<F>,
     phantom2: PhantomData<D>,
 }
 
-impl<F, D: Digest, const NUM_BITS: usize> Default for SingleBackend<F, D, NUM_BITS> {
+impl<F, D: Digest, const NUM_BYTES: usize> Default for SingleBackend<F, D, NUM_BYTES> {
     fn default() -> Self {
         Self {
             phantom1: PhantomData,
@@ -24,22 +24,22 @@ impl<F, D: Digest, const NUM_BITS: usize> Default for SingleBackend<F, D, NUM_BI
     }
 }
 
-impl<F, D: Digest, const NUM_BITS: usize> IsMerkleTreeBackend for SingleBackend<F, D, NUM_BITS>
+impl<F, D: Digest, const NUM_BYTES: usize> IsMerkleTreeBackend for SingleBackend<F, D, NUM_BYTES>
 where
     F: IsField,
     FieldElement<F>: ByteConversion,
-    [u8; NUM_BITS]: From<GenericArray<u8, <D as OutputSizeUser>::OutputSize>>,
+    [u8; NUM_BYTES]: From<GenericArray<u8, <D as OutputSizeUser>::OutputSize>>,
 {
-    type Node = [u8; NUM_BITS];
+    type Node = [u8; NUM_BYTES];
     type Data = FieldElement<F>;
 
-    fn hash_data(&self, input: &FieldElement<F>) -> [u8; NUM_BITS] {
+    fn hash_data(&self, input: &FieldElement<F>) -> [u8; NUM_BYTES] {
         let mut hasher = D::new();
         hasher.update(input.to_bytes_be());
         hasher.finalize().into()
     }
 
-    fn hash_new_parent(&self, left: &[u8; NUM_BITS], right: &[u8; NUM_BITS]) -> [u8; NUM_BITS] {
+    fn hash_new_parent(&self, left: &[u8; NUM_BYTES], right: &[u8; NUM_BYTES]) -> [u8; NUM_BYTES] {
         let mut hasher = D::new();
         hasher.update(left);
         hasher.update(right);
