@@ -5,7 +5,7 @@ use super::{
     batch::BatchBackend, single::SingleBackend
 };
 
-// Field element data backend definitions
+// Field element backend definitions
 
 // - With 256 bit
 pub type Sha3_256Backend<F> = SingleBackend<F, Sha3_256, 32>;
@@ -17,7 +17,7 @@ pub type Sha3_512Backend<F> = SingleBackend<F, Sha3_512, 64>;
 pub type Keccak512Backend<F> = SingleBackend<F, Keccak512, 64>;
 pub type Sha2_512Backend<F> = SingleBackend<F, Sha512, 64>;
 
-// Vector field element data backend definitions
+// Vector of field elements backend definitions
 
 // - With 256 bit
 pub type BatchSha3_256Backend<F> = BatchBackend<F, Sha3_256, 32>;
