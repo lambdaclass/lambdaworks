@@ -1,4 +1,3 @@
-use crate::field::extensions::quadratic::QuadraticExtensionFieldElement;
 use crate::unsigned_integer::element::U384;
 use crate::{
     field::{
@@ -110,17 +109,7 @@ impl IsField for Degree2ExtensionField {
 impl Degree2ExtensionField {
     /// Returns the frobenius map which is always conjugate of a field element.
     pub fn frobenius_map(elem: &<Self as IsField>::BaseType) -> <Self as IsField>::BaseType {
-        let fe: FieldElement<QuadraticExtensionField<MyQuadraticNonResidue>> =
-            QuadraticExtensionFieldElement::new([elem[0].clone(), elem[1].clone()]);
-        let frob_map = fe.conjugate();
-
-        [frob_map.value()[0].clone(), frob_map.value()[1].clone()]
-    }
-
-    /// Returns the boolean indicating whether the given field element is zero.
-    pub fn is_zero(elem: &<Self as IsField>::BaseType) -> bool {
-        elem[0] == FieldElement::<BLS12381PrimeField>::zero()
-            && elem[1] == FieldElement::<BLS12381PrimeField>::zero()
+        [elem[0].clone(), -&elem[1]]
     }
 }
 
@@ -159,17 +148,6 @@ impl ByteConversion for FieldElement<Degree2ExtensionField> {
 }
 
 /////////////
-
-#[derive(Debug, Clone)]
-pub struct MyQuadraticNonResidue;
-
-impl HasQuadraticNonResidue for MyQuadraticNonResidue {
-    type BaseField = BLS12381PrimeField;
-
-    fn residue() -> FieldElement<Self::BaseField> {
-        -FieldElement::one()
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct LevelTwoResidue;
@@ -274,16 +252,6 @@ mod tests {
 
     use super::*;
     type Fp12E = FieldElement<Degree12ExtensionField>;
-
-    #[test]
-    fn conjugate_works() {
-        let a: QuadraticExtensionFieldElement<MyQuadraticNonResidue> =
-            QuadraticExtensionFieldElement::zero();
-        let mut expected = a.conjugate();
-        expected = expected.conjugate();
-
-        assert_eq!(a, expected);
-    }
 
     #[test]
     fn element_squared_1() {

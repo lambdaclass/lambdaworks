@@ -49,29 +49,15 @@ impl IsShortWeierstrass for BLS12381TwistCurve {
 
 impl BLS12381TwistCurve {
     pub fn is_on_curve(point: &<Self as IsEllipticCurve>::PointRepresentation) -> bool {
-        let [x, y, z] = point.coordinates();
-
-        let lhs = {
-            let y_sq = <Self as IsEllipticCurve>::BaseField::square(y.value());
-            <Self as IsEllipticCurve>::BaseField::mul(&y_sq, z.value())
-        };
-
-        let rhs = {
-            let x_sq = <Self as IsEllipticCurve>::BaseField::square(x.value());
-            let x_cubed = <Self as IsEllipticCurve>::BaseField::mul(&x_sq, x.value());
-
-            let z_sq = <Self as IsEllipticCurve>::BaseField::square(z.value());
-            let z_cubed = <Self as IsEllipticCurve>::BaseField::mul(&z_sq, z.value());
-
-            let z_cubed_with_b =
-                <Self as IsEllipticCurve>::BaseField::mul(&z_cubed, Self::b().value());
-
-            <Self as IsEllipticCurve>::BaseField::add(&x_cubed, &z_cubed_with_b)
-        };
-
-        lhs == rhs
+        if point.z() == &FieldElement::zero() {
+            true
+        } else {
+            let point = point.to_affine();
+            Self::defining_equation(&point.x(), &point.y()) == FieldElement::zero()
+        }
     }
 }
+
 impl ShortWeierstrassProjectivePoint<BLS12381TwistCurve> {
     /// Returns the "Untwist-Frobenius-Twist" endomorphism
     pub fn psi(&self) -> Self {
@@ -109,8 +95,7 @@ impl ShortWeierstrassProjectivePoint<BLS12381TwistCurve> {
         let seed_times_p = self.operate_with_self(SEED);
         let psi_plus_seed_times_p = self.psi().operate_with(&seed_times_p);
 
-        Degree2ExtensionField::is_zero(psi_plus_seed_times_p.z().value())
-            && BLS12381TwistCurve::is_on_curve(&psi_plus_seed_times_p)
+        psi_plus_seed_times_p.z() == &FieldElement::zero()
     }
 
     /// This function is related to the map ψ: E_twist(𝔽p²) -> E(𝔽p¹²).
