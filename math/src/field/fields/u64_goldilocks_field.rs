@@ -123,7 +123,7 @@ impl IsPrimeField for Goldilocks64Field {
     type RepresentativeType = u64;
 
     fn representative(x: &u64) -> u64 {
-        let mut u = x.clone();
+        let mut u = *x;
         if u >= Self::ORDER {
             u -= Self::ORDER;
         }
@@ -165,9 +165,7 @@ fn reduce_128(x: u128) -> u64 {
     //NOTE: add optimized unsafe for different architectures
     let (res_wrapped, carry) = t0.overflowing_add(t1);
     // Below cannot overflow unless the assumption if x + y < 2**64 + ORDER is incorrect.
-    let t2 = res_wrapped + Goldilocks64Field::NEG_ORDER * u64::from(carry);
-
-    t2
+    res_wrapped + Goldilocks64Field::NEG_ORDER * u64::from(carry)
 }
 
 #[inline(always)]
@@ -177,7 +175,7 @@ fn exp_acc<const N: usize>(base: &u64, tail: &u64) -> u64 {
 
 #[must_use]
 fn exp_power_of_2<const POWER_LOG: usize>(base: &u64) -> u64 {
-    let mut res = base.clone();
+    let mut res = *base;
     for _ in 0..POWER_LOG {
         res = Goldilocks64Field::square(&res);
     }

@@ -8,7 +8,7 @@ use crate::{
 
 pub type U64MontgomeryBackendPrimeField<T> = MontgomeryBackendPrimeField<T, 1>;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MontgomeryConfigU64GoldilocksPrimeField;
 impl IsModulus<U64> for MontgomeryConfigU64GoldilocksPrimeField {
     //Babybear Prime p = 2^64 - 2^32 + 1
