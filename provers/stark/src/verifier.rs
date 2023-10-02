@@ -10,10 +10,10 @@ use lambdaworks_math::{
         element::FieldElement,
         traits::{IsFFTField, IsField},
     },
-    traits::ByteConversion,
+    traits::Serializable,
 };
 
-use crate::transcript::IsStarkTranscript;
+use crate::{prover::get_stone_prover_domain_permutation, transcript::IsStarkTranscript};
 
 use super::{
     config::{BatchedMerkleTreeBackend, FriMerkleTreeBackend},
@@ -22,7 +22,6 @@ use super::{
     grinding::hash_transcript_with_int_and_get_leading_zeros,
     proof::{options::ProofOptions, stark::StarkProof},
     traits::AIR,
-    transcript::batch_sample_challenges,
 };
 
 struct Challenges<F, A>
@@ -50,7 +49,7 @@ fn step_1_replay_rounds_and_recover_challenges<F, A>(
 ) -> Challenges<F, A>
 where
     F: IsFFTField,
-    FieldElement<F>: ByteConversion,
+    FieldElement<F>: Serializable,
     A: AIR<Field = F>,
 {
     // ===================================
@@ -72,15 +71,18 @@ where
     // ==========|   Round 2   |==========
     // ===================================
 
-    // These are the challenges alpha^B_j and beta^B_j
-    // >>>> Send  challenges: 𝛽_j^B
-    let boundary_coeffs = batch_sample_challenges(
-        air.boundary_constraints(&rap_challenges).constraints.len(),
-        transcript,
-    );
-    // >>>> Send challenges: 𝛽_j^T
-    let transition_coeffs =
-        batch_sample_challenges(air.context().num_transition_constraints, transcript);
+    // <<<< Receive challenge: 𝛽
+    let beta = transcript.sample_field_element();
+    let num_boundary_constraints = air.boundary_constraints(&rap_challenges).constraints.len();
+
+    let num_transition_constraints = air.context().num_transition_constraints;
+
+    let mut coefficients: Vec<_> = (1..num_boundary_constraints + num_transition_constraints + 1)
+        .map(|i| beta.pow(i))
+        .collect();
+
+    let transition_coeffs: Vec<_> = coefficients.drain(..num_transition_constraints).collect();
+    let boundary_coeffs = coefficients;
 
     // <<<< Receive commitments: [H₁], [H₂]
     transcript.append_bytes(&proof.composition_poly_root);
@@ -270,7 +272,7 @@ fn step_3_verify_fri<F, A>(
 ) -> bool
 where
     F: IsFFTField,
-    FieldElement<F>: ByteConversion,
+    FieldElement<F>: Serializable,
     A: AIR<Field = F>,
 {
     // verify FRI
@@ -309,8 +311,10 @@ fn step_4_verify_deep_composition_polynomial<F: IsFFTField, A: AIR<Field = F>>(
     challenges: &Challenges<F, A>,
 ) -> bool
 where
-    FieldElement<F>: ByteConversion,
+    FieldElement<F>: Serializable,
 {
+    let permutation =
+        get_stone_prover_domain_permutation(domain.interpolation_domain_size, domain.blowup_factor);
     let primitive_root = &F::get_primitive_root_of_unity(domain.root_order as u64).unwrap();
     let z_squared = &challenges.z.square();
     let mut denom_inv = challenges
@@ -363,7 +367,7 @@ where
                     .fold(result, |acc, ((merkle_root, merkle_proof), evaluation)| {
                         acc & merkle_proof.verify::<BatchedMerkleTreeBackend<F>>(
                             merkle_root,
-                            *iota_n,
+                            permutation[*iota_n],
                             &evaluation,
                         )
                     });
@@ -397,7 +401,7 @@ fn verify_query_and_sym_openings<F: IsField + IsFFTField>(
     two_inv: &FieldElement<F>,
 ) -> bool
 where
-    FieldElement<F>: ByteConversion,
+    FieldElement<F>: Serializable,
 {
     let fri_layers_merkle_roots = &proof.fri_layers_merkle_roots;
     let evaluation_point_vec: Vec<FieldElement<F>> =
@@ -512,7 +516,7 @@ pub fn verify<F, A>(
 where
     F: IsFFTField,
     A: AIR<Field = F>,
-    FieldElement<F>: ByteConversion,
+    FieldElement<F>: Serializable,
 {
     // Verify there are enough queries
     if proof.query_list.len() < proof_options.fri_number_of_queries {
@@ -601,4 +605,81 @@ where
     }
 
     true
+}
+
+#[cfg(test)]
+pub mod tests {
+    use std::num::ParseIntError;
+
+    use lambdaworks_math::field::{
+        element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+    };
+
+    use crate::{
+        domain::Domain,
+        examples::fibonacci_2_cols_shifted::{self, Fibonacci2ColsShifted},
+        proof::options::ProofOptions,
+        prover::prove,
+        traits::AIR,
+        transcript::StoneProverTranscript,
+        verifier::step_1_replay_rounds_and_recover_challenges,
+    };
+
+    pub fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
+        (0..s.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
+            .collect()
+    }
+
+    #[test]
+    fn test_sharp_compatibility() {
+        let trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::one(), 4);
+
+        let claimed_index = 3;
+        let claimed_value = trace.get_row(claimed_index)[0];
+        let mut proof_options = ProofOptions::default_test_options();
+        proof_options.blowup_factor = 4;
+        proof_options.coset_offset = 3;
+
+        let pub_inputs = fibonacci_2_cols_shifted::PublicInputs {
+            claimed_value,
+            claimed_index,
+        };
+
+        let transcript_init_seed = [0xca, 0xfe, 0xca, 0xfe];
+
+        let proof = prove::<Stark252PrimeField, Fibonacci2ColsShifted<_>>(
+            &trace,
+            &pub_inputs,
+            &proof_options,
+            StoneProverTranscript::new(&transcript_init_seed),
+        )
+        .unwrap();
+
+        let air = Fibonacci2ColsShifted::new(proof.trace_length, &pub_inputs, &proof_options);
+        let domain = Domain::new(&air);
+        let challenges = step_1_replay_rounds_and_recover_challenges(
+            &air,
+            &proof,
+            &domain,
+            &mut StoneProverTranscript::new(&transcript_init_seed),
+        );
+
+        assert_eq!(
+            proof.lde_trace_merkle_roots[0].to_vec(),
+            decode_hex("0eb9dcc0fb1854572a01236753ce05139d392aa3aeafe72abff150fe21175594").unwrap()
+        );
+
+        let beta = challenges.transition_coeffs[0];
+        assert_eq!(
+            beta,
+            FieldElement::from_hex_unchecked(
+                "86105fff7b04ed4068ecccb8dbf1ed223bd45cd26c3532d6c80a818dbd4fa7"
+            ),
+        );
+        assert_eq!(challenges.transition_coeffs[1], beta.pow(2u64));
+        assert_eq!(challenges.boundary_coeffs[0], beta.pow(3u64));
+        assert_eq!(challenges.boundary_coeffs[1], beta.pow(4u64));
+    }
 }

@@ -3,7 +3,7 @@ pub mod fri_decommit;
 mod fri_functions;
 
 use lambdaworks_math::field::traits::{IsFFTField, IsField};
-use lambdaworks_math::traits::ByteConversion;
+use lambdaworks_math::traits::Serializable;
 pub use lambdaworks_math::{
     field::{element::FieldElement, fields::u64_prime_field::U64PrimeField},
     polynomial::Polynomial,
@@ -25,7 +25,7 @@ pub fn fri_commit_phase<F: IsField + IsFFTField>(
     domain_size: usize,
 ) -> (FieldElement<F>, Vec<FriLayer<F>>)
 where
-    FieldElement<F>: ByteConversion,
+    FieldElement<F>: Serializable,
 {
     let mut domain_size = domain_size;
 
@@ -80,7 +80,7 @@ pub fn fri_query_phase<F, A>(
 where
     F: IsFFTField,
     A: AIR<Field = F>,
-    FieldElement<F>: ByteConversion,
+    FieldElement<F>: Serializable,
 {
     if !fri_layers.is_empty() {
         let number_of_queries = air.options().fri_number_of_queries;

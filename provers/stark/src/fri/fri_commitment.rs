@@ -5,7 +5,7 @@ use lambdaworks_math::{
         traits::{IsFFTField, IsField},
     },
     polynomial::Polynomial,
-    traits::ByteConversion,
+    traits::Serializable,
 };
 
 use crate::config::FriMerkleTree;
@@ -14,7 +14,7 @@ use crate::config::FriMerkleTree;
 pub struct FriLayer<F>
 where
     F: IsField,
-    FieldElement<F>: ByteConversion,
+    FieldElement<F>: Serializable,
 {
     pub evaluation: Vec<FieldElement<F>>,
     pub merkle_tree: FriMerkleTree<F>,
@@ -25,7 +25,7 @@ where
 impl<F> FriLayer<F>
 where
     F: IsField + IsFFTField,
-    FieldElement<F>: ByteConversion,
+    FieldElement<F>: Serializable,
 {
     pub fn new(
         poly: &Polynomial<FieldElement<F>>,
