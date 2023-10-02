@@ -46,7 +46,7 @@ impl IsField for Goldilocks64Field {
 
     fn neg(a: &u64) -> u64 {
         //NOTE: This should be conducted as a canonical u64;
-        Self::sub(&Self::ORDER,a)
+        Self::sub(&Self::ORDER, a)
     }
 
     /// Returns the multiplicative inverse of `a`.
@@ -54,7 +54,7 @@ impl IsField for Goldilocks64Field {
         if *a == Self::zero() {
             return Err(FieldError::InvZeroError);
         }
-        
+
         // a^11
         let t2 = Self::mul(&Self::square(a), a);
 
@@ -63,7 +63,7 @@ impl IsField for Goldilocks64Field {
 
         // compute base^111111 (6 ones) by repeatedly squaring t3 3 times and multiplying by t3
         let t6 = exp_acc::<3>(&t3, &t3);
-        let t60 =Self::square(&t6);
+        let t60 = Self::square(&t6);
         let t7 = Self::mul(&t60, a);
 
         // compute base^111111111111 (12 ones)
@@ -83,7 +83,6 @@ impl IsField for Goldilocks64Field {
         let t63 = exp_acc::<32>(&t31, &t31);
 
         Ok(Self::mul(&Self::square(&t63), a))
-
     }
 
     /// Returns the division of `a` and `b`.
@@ -311,10 +310,7 @@ mod tests {
 
     #[test]
     fn pow_p_neg_1() {
-        assert_eq!(
-            F::pow(&F::from_base_type(2), F::ORDER - 1),
-            F::one()
-        )
+        assert_eq!(F::pow(&F::from_base_type(2), F::ORDER - 1), F::one())
     }
 
     #[test]
