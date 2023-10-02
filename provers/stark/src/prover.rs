@@ -54,18 +54,15 @@ where
     F: IsFFTField,
     FieldElement<F>: Serializable,
 {
-    composition_poly_even: Polynomial<FieldElement<F>>,
-    lde_composition_poly_even_evaluations: Vec<FieldElement<F>>,
+    composition_poly_parts: Vec<Polynomial<FieldElement<F>>>,
+    lde_composition_poly_evaluations: Vec<Vec<FieldElement<F>>>,
     composition_poly_merkle_tree: BatchedMerkleTree<F>,
     composition_poly_root: Commitment,
-    composition_poly_odd: Polynomial<FieldElement<F>>,
-    lde_composition_poly_odd_evaluations: Vec<FieldElement<F>>,
 }
 
 pub struct Round3<F: IsFFTField> {
     trace_ood_evaluations: Vec<Vec<FieldElement<F>>>,
-    composition_poly_even_ood_evaluation: FieldElement<F>,
-    composition_poly_odd_ood_evaluation: FieldElement<F>,
+    composition_poly_parts_ood_evaluation: Vec<FieldElement<F>>,
 }
 
 pub struct Round4<F: IsFFTField> {
@@ -166,17 +163,6 @@ pub trait IsStarkProver {
         // Evaluate those polynomials t_j on the large domain D_LDE.
         let lde_trace_evaluations = Self::compute_lde_trace_evaluations(&trace_polys, domain);
 
-        // let permutation = Self::get_stone_prover_domain_permutation(
-        //     domain.interpolation_domain_size,
-        //     domain.blowup_factor,
-        // );
-
-        // let mut lde_trace_permuted = lde_trace_evaluations.clone();
-
-        // for col in lde_trace_permuted.iter_mut() {
-        //     Self::apply_permutation(col, &permutation);
-        // }
-        //
         // Compute commitments [t_j].
         let lde_trace = TraceTable::new_from_cols(&lde_trace_evaluations);
         let (lde_trace_merkle_tree, lde_trace_merkle_root) = Self::batch_commit(&lde_trace.rows());
@@ -284,40 +270,40 @@ pub trait IsStarkProver {
         // Get the composition poly H
         let composition_poly =
             constraint_evaluations.compute_composition_poly(&domain.coset_offset);
-        let (composition_poly_even, composition_poly_odd) =
-            composition_poly.even_odd_decomposition();
 
-        let lde_composition_poly_even_evaluations = Self::evaluate_polynomial_on_lde_domain(
-            &composition_poly_even,
-            domain.blowup_factor,
-            domain.interpolation_domain_size,
-            &domain.coset_offset,
-        )
-        .unwrap();
-        let lde_composition_poly_odd_evaluations = Self::evaluate_polynomial_on_lde_domain(
-            &composition_poly_odd,
-            domain.blowup_factor,
-            domain.interpolation_domain_size,
-            &domain.coset_offset,
-        )
-        .unwrap();
+        let number_of_parts = 2;
+        let composition_poly_parts = composition_poly.break_in_parts(number_of_parts);
+        let lde_composition_poly_parts_evaluations: Vec<_> = composition_poly_parts
+            .iter()
+            .map(|part| {
+                Self::evaluate_polynomial_on_lde_domain(
+                    part,
+                    domain.blowup_factor,
+                    domain.interpolation_domain_size,
+                    &domain.coset_offset,
+                )
+                .unwrap()
+            })
+            .collect();
 
         // TODO: Remove clones
-        let composition_poly_evaluations: Vec<Vec<_>> = lde_composition_poly_even_evaluations
-            .iter()
-            .zip(&lde_composition_poly_odd_evaluations)
-            .map(|(a, b)| vec![a.clone(), b.clone()])
-            .collect();
+        let mut lde_composition_poly_evaluations = Vec::new();
+        for i in 0..lde_composition_poly_parts_evaluations[0].len() {
+            let mut row = Vec::new();
+            for j in 0..number_of_parts {
+                row.push(lde_composition_poly_parts_evaluations[j][i].clone());
+            }
+            lde_composition_poly_evaluations.push(row);
+        }
+
         let (composition_poly_merkle_tree, composition_poly_root) =
-            Self::batch_commit(&composition_poly_evaluations);
+            Self::batch_commit(&lde_composition_poly_evaluations);
 
         Round2 {
-            composition_poly_even,
-            lde_composition_poly_even_evaluations,
+            lde_composition_poly_evaluations: lde_composition_poly_parts_evaluations,
+            composition_poly_parts,
             composition_poly_merkle_tree,
             composition_poly_root,
-            composition_poly_odd,
-            lde_composition_poly_odd_evaluations,
         }
     }
 
@@ -331,13 +317,15 @@ pub trait IsStarkProver {
     where
         FieldElement<F>: Serializable,
     {
-        let z_squared = z.square();
+        let z_power = z.pow(round_2_result.composition_poly_parts.len());
 
-        // Evaluate H_1 and H_2 in z^2.
-        let composition_poly_even_ood_evaluation =
-            round_2_result.composition_poly_even.evaluate(&z_squared);
-        let composition_poly_odd_ood_evaluation =
-            round_2_result.composition_poly_odd.evaluate(&z_squared);
+        // Evaluate H_i in z^N for all i, where N is the number of parts the composition poly was
+        // broken into.
+        let composition_poly_parts_ood_evaluation: Vec<_> = round_2_result
+            .composition_poly_parts
+            .iter()
+            .map(|part| part.evaluate(&z_power))
+            .collect();
 
         // Returns the Out of Domain Frame for the given trace polynomials, out of domain evaluation point (called `z` in the literature),
         // frame offsets given by the AIR and primitive root used for interpolating the trace polynomials.
@@ -355,8 +343,7 @@ pub trait IsStarkProver {
 
         Round3 {
             trace_ood_evaluations,
-            composition_poly_even_ood_evaluation,
-            composition_poly_odd_ood_evaluation,
+            composition_poly_parts_ood_evaluation,
         }
     }
 
@@ -379,10 +366,10 @@ pub trait IsStarkProver {
         let coset_offset = FieldElement::<F>::from(coset_offset_u64);
 
         // <<<< Receive challenges: 𝛾, 𝛾'
-        let composition_poly_coeffients = [
-            transcript.sample_field_element(),
-            transcript.sample_field_element(),
-        ];
+        let gammas: Vec<_> = (0..round_2_result.lde_composition_poly_evaluations.len())
+            .map(|_| transcript.sample_field_element())
+            .collect();
+
         // <<<< Receive challenges: 𝛾ⱼ, 𝛾ⱼ'
         let trace_poly_coeffients = batch_sample_challenges::<F>(
             air.context().transition_offsets.len() * air.context().trace_columns,
@@ -397,7 +384,7 @@ pub trait IsStarkProver {
             round_3_result,
             z,
             &domain.trace_primitive_root,
-            &composition_poly_coeffients,
+            &gammas,
             &trace_poly_coeffients,
         );
 
@@ -449,7 +436,7 @@ pub trait IsStarkProver {
         round_3_result: &Round3<F>,
         z: &FieldElement<F>,
         primitive_root: &FieldElement<F>,
-        composition_poly_gammas: &[FieldElement<F>; 2],
+        composition_poly_gammas: &[FieldElement<F>],
         trace_terms_gammas: &[FieldElement<F>],
     ) -> Polynomial<FieldElement<F>>
     where
@@ -458,21 +445,21 @@ pub trait IsStarkProver {
         FieldElement<F>: Serializable + Send + Sync,
     {
         // Compute composition polynomial terms of the deep composition polynomial.
-        let h_1 = &round_2_result.composition_poly_even;
-        let h_1_z2 = &round_3_result.composition_poly_even_ood_evaluation;
-        let h_2 = &round_2_result.composition_poly_odd;
-        let h_2_z2 = &round_3_result.composition_poly_odd_ood_evaluation;
-        let gamma = &composition_poly_gammas[0];
-        let gamma_p = &composition_poly_gammas[1];
-        let z_squared = z.square();
+        // let h_1 = &round_2_result.composition_poly_even;
+        // let h_1_z2 = &round_3_result.composition_poly_even_ood_evaluation;
+        // let gamma = &composition_poly_gammas[0];
+        let z_power = z.pow(round_2_result.composition_poly_parts.len());
 
-        // 𝛾 ( H₁ − H₁(z²) ) / ( X − z² )
-        let mut h_1_term = gamma * (h_1 - h_1_z2);
-        h_1_term.ruffini_division_inplace(&z_squared);
-
-        // 𝛾' ( H₂ − H₂(z²) ) / ( X − z² )
-        let mut h_2_term = gamma_p * (h_2 - h_2_z2);
-        h_2_term.ruffini_division_inplace(&z_squared);
+        // ∑ᵢ 𝛾ᵢ ( Hᵢ − Hᵢ(z^N) ) / ( X − z^N )
+        let mut h_terms = Polynomial::zero();
+        for (i, part) in round_2_result.composition_poly_parts.iter().enumerate() {
+            // h_i_eval is the evaluation of the i-th part of the composition polynomial at z^N,
+            // where N is the number of parts of the composition polynomial.
+            let h_i_eval = &round_3_result.composition_poly_parts_ood_evaluation[i];
+            let h_i_term = &composition_poly_gammas[i] * (part - h_i_eval);
+            h_terms = h_terms + h_i_term;
+        }
+        h_terms.ruffini_division_inplace(&z_power);
 
         // Get trace evaluations needed for the trace terms of the deep composition polynomial
         let transition_offsets = &air.context().transition_offsets;
@@ -486,7 +473,7 @@ pub trait IsStarkProver {
         let trace_frame_length = trace_frame_evaluations.len();
 
         #[cfg(feature = "parallel")]
-        let trace_term = trace_polys
+        let trace_terms = trace_polys
             .par_iter()
             .enumerate()
             .fold(
@@ -506,7 +493,7 @@ pub trait IsStarkProver {
             .reduce(|| Polynomial::zero(), |a, b| a + b);
 
         #[cfg(not(feature = "parallel"))]
-        let trace_term =
+        let trace_terms =
             trace_polys
                 .iter()
                 .enumerate()
@@ -522,7 +509,7 @@ pub trait IsStarkProver {
                     )
                 });
 
-        h_1_term + h_2_term + trace_term
+        h_terms + trace_terms
     }
 
     fn compute_trace_term<F>(
@@ -586,12 +573,11 @@ pub trait IsStarkProver {
                     .unwrap();
 
                 // H₁ openings
-                let lde_composition_poly_even_evaluation =
-                    round_2_result.lde_composition_poly_even_evaluations[index].clone();
-
-                // H₂ openings
-                let lde_composition_poly_odd_evaluation =
-                    round_2_result.lde_composition_poly_odd_evaluations[index].clone();
+                let lde_composition_poly_parts_evaluation: Vec<_> = round_2_result
+                    .lde_composition_poly_evaluations
+                    .iter()
+                    .map(|part| part[index].clone())
+                    .collect();
 
                 let lde_trace_evaluations = round_1_result.lde_trace.get_row(index).to_vec();
 
@@ -608,8 +594,7 @@ pub trait IsStarkProver {
 
                 DeepPolynomialOpenings {
                     lde_composition_poly_proof,
-                    lde_composition_poly_even_evaluation,
-                    lde_composition_poly_odd_evaluation,
+                    lde_composition_poly_parts_evaluation,
                     lde_trace_merkle_proofs,
                     lde_trace_evaluations,
                 }
@@ -739,11 +724,11 @@ pub trait IsStarkProver {
             &z,
         );
 
-        // >>>> Send value: H₁(z²)
-        transcript.append_field_element(&round_3_result.composition_poly_even_ood_evaluation);
+        // >>>> Send values: Hᵢ(z^N)
+        for element in round_3_result.composition_poly_parts_ood_evaluation.iter() {
+            transcript.append_field_element(element);
+        }
 
-        // >>>> Send value: H₂(z²)
-        transcript.append_field_element(&round_3_result.composition_poly_odd_ood_evaluation);
         // >>>> Send values: tⱼ(zgᵏ)
         for row in round_3_result.trace_ood_evaluations.iter() {
             for element in row.iter() {
@@ -814,11 +799,9 @@ pub trait IsStarkProver {
             trace_ood_frame_evaluations,
             // [H₁] and [H₂]
             composition_poly_root: round_2_result.composition_poly_root,
-            // H₁(z²)
-            composition_poly_even_ood_evaluation: round_3_result
-                .composition_poly_even_ood_evaluation,
-            // H₂(z²)
-            composition_poly_odd_ood_evaluation: round_3_result.composition_poly_odd_ood_evaluation,
+            // Hᵢ(z^N)
+            composition_poly_parts_ood_evaluation: round_3_result
+                .composition_poly_parts_ood_evaluation,
             // [pₖ]
             fri_layers_merkle_roots: round_4_result.fri_layers_merkle_roots,
             // pₙ
@@ -842,9 +825,7 @@ impl IsStarkProver for Prover {}
 #[cfg(test)]
 mod tests {
     use crate::{
-        examples::{
-            simple_fibonacci::{self, FibonacciPublicInputs},
-        },
+        examples::simple_fibonacci::{self, FibonacciPublicInputs},
         proof::options::ProofOptions,
         Felt252,
     };
@@ -947,7 +928,8 @@ mod tests {
         let domain_size: usize = 8;
         let offset = Felt252::from(3);
         let evaluations =
-            Prover::evaluate_polynomial_on_lde_domain(&poly, blowup_factor, domain_size, &offset).unwrap();
+            Prover::evaluate_polynomial_on_lde_domain(&poly, blowup_factor, domain_size, &offset)
+                .unwrap();
         assert_eq!(evaluations.len(), domain_size * blowup_factor);
 
         let primitive_root: Felt252 = Stark252PrimeField::get_primitive_root_of_unity(
@@ -958,5 +940,4 @@ mod tests {
             assert_eq!(*eval, poly.evaluate(&(offset * primitive_root.pow(i))));
         }
     }
-
 }

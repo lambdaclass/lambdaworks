@@ -39,8 +39,7 @@ where
     pub boundary_coeffs: Vec<FieldElement<F>>,
     pub transition_coeffs: Vec<FieldElement<F>>,
     pub trace_term_coeffs: Vec<Vec<FieldElement<F>>>,
-    pub gamma_even: FieldElement<F>,
-    pub gamma_odd: FieldElement<F>,
+    pub gammas: Vec<FieldElement<F>>,
     pub zetas: Vec<FieldElement<F>>,
     pub iotas: Vec<usize>,
     pub rap_challenges: A::RAPChallenges,
@@ -105,10 +104,10 @@ pub trait IsStarkVerifier {
             &domain.trace_roots_of_unity,
         );
 
-        // <<<< Receive value: H₁(z²)
-        transcript.append_field_element(&proof.composition_poly_even_ood_evaluation);
-        // <<<< Receive value: H₂(z²)
-        transcript.append_field_element(&proof.composition_poly_odd_ood_evaluation);
+        // <<<< Receive value: Hᵢ(z^N)
+        for element in proof.composition_poly_parts_ood_evaluation.iter() {
+            transcript.append_field_element(element);
+        }
         // <<<< Receive values: tⱼ(zgᵏ)
         for i in 0..proof.trace_ood_frame_evaluations.num_rows() {
             for element in proof.trace_ood_frame_evaluations.get_row(i).iter() {
@@ -121,8 +120,9 @@ pub trait IsStarkVerifier {
         // ===================================
 
         // >>>> Send challenges: 𝛾, 𝛾'
-        let gamma_even = transcript.sample_field_element();
-        let gamma_odd = transcript.sample_field_element();
+        let gammas: Vec<_> = (0..proof.composition_poly_parts_ood_evaluation.len())
+            .map(|_| transcript.sample_field_element())
+            .collect();
 
         // >>>> Send challenges: 𝛾ⱼ, 𝛾ⱼ'
         // Get the number of trace terms the DEEP composition poly will have.
@@ -173,8 +173,7 @@ pub trait IsStarkVerifier {
             boundary_coeffs,
             transition_coeffs,
             trace_term_coeffs,
-            gamma_even,
-            gamma_odd,
+            gammas,
             zetas,
             iotas,
             rap_challenges,
@@ -189,9 +188,6 @@ pub trait IsStarkVerifier {
         challenges: &Challenges<F, A>,
     ) -> bool {
         // BEGIN TRACE <-> Composition poly consistency evaluation check
-        // These are H_1(z^2) and H_2(z^2)
-        let composition_poly_even_ood_evaluation = &proof.composition_poly_even_ood_evaluation;
-        let composition_poly_odd_ood_evaluation = &proof.composition_poly_odd_ood_evaluation;
 
         let boundary_constraints = air.boundary_constraints(&challenges.rap_challenges);
 
@@ -267,8 +263,13 @@ pub trait IsStarkVerifier {
         let composition_poly_ood_evaluation =
             &boundary_quotient_ood_evaluation + transition_c_i_evaluations_sum;
 
-        let composition_poly_claimed_ood_evaluation = composition_poly_even_ood_evaluation
-            + &challenges.z * composition_poly_odd_ood_evaluation;
+        let composition_poly_claimed_ood_evaluation = proof
+            .composition_poly_parts_ood_evaluation
+            .iter()
+            .rev()
+            .fold(FieldElement::zero(), |acc, coeff| {
+                acc * &challenges.z + coeff
+            });
 
         composition_poly_claimed_ood_evaluation == composition_poly_ood_evaluation
     }
@@ -372,15 +373,7 @@ pub trait IsStarkVerifier {
             .fold(
                 true,
                 |mut result, (i, ((iota_n, deep_poly_opening), denom_inv))| {
-                    let evaluations = vec![
-                        deep_poly_opening
-                            .lde_composition_poly_even_evaluation
-                            .clone(),
-                        deep_poly_opening
-                            .lde_composition_poly_odd_evaluation
-                            .clone(),
-                    ];
-
+                    let evaluations = &deep_poly_opening.lde_composition_poly_parts_evaluation;
                     // Verify opening Open(H₁(D_LDE, 𝜐₀) and Open(H₂(D_LDE, 𝜐₀),
                     result &= deep_poly_opening
                         .lde_composition_poly_proof
@@ -531,15 +524,18 @@ pub trait IsStarkVerifier {
                 trace_terms + trace_i
             });
 
-        let h_1_upsilon_0 = &proof.deep_poly_openings[i].lde_composition_poly_even_evaluation;
-        let h_1_zsquared = &proof.composition_poly_even_ood_evaluation;
-        let h_2_upsilon_0 = &proof.deep_poly_openings[i].lde_composition_poly_odd_evaluation;
-        let h_2_zsquared = &proof.composition_poly_odd_ood_evaluation;
+        let mut h_terms = FieldElement::zero();
+        for (j, h_i_upsilon) in proof.deep_poly_openings[i]
+            .lde_composition_poly_parts_evaluation
+            .iter()
+            .enumerate()
+        {
+            let h_i_zpower = &proof.composition_poly_parts_ood_evaluation[j];
+            let h_i_term = (h_i_upsilon - h_i_zpower) * &challenges.gammas[j];
+            h_terms = h_terms + h_i_term;
+        }
 
-        let h_1_term = (h_1_upsilon_0 - h_1_zsquared) * denom_inv;
-        let h_2_term = (h_2_upsilon_0 - h_2_zsquared) * denom_inv;
-
-        trace_term + h_1_term * &challenges.gamma_even + h_2_term * &challenges.gamma_odd
+        trace_term + h_terms * denom_inv
     }
 
     fn verify<F, A>(

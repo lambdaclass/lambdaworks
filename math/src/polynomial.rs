@@ -237,17 +237,19 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
     ///
     /// In general, the decomposition satisfies the following:
     /// `poly(x)` = `even(x^2)` + X * `odd(x^2)`
-    pub fn even_odd_decomposition(&self) -> (Self, Self) {
+    pub fn break_in_parts(&self, number_of_parts: usize) -> Vec<Self> {
         let coef = self.coefficients();
-        let even_coef: Vec<FieldElement<F>> = coef.iter().step_by(2).cloned().collect();
-
-        // odd coeficients of poly are multiplied by beta
-        let odd_coef: Vec<FieldElement<F>> = coef.iter().skip(1).step_by(2).cloned().collect();
-
-        Polynomial::pad_with_zero_coefficients(
-            &Polynomial::new(&even_coef),
-            &Polynomial::new(&odd_coef),
-        )
+        let mut parts: Vec<Self> = Vec::with_capacity(number_of_parts);
+        for i in 0..number_of_parts {
+            let coeffs: Vec<_> = coef
+                .iter()
+                .skip(i)
+                .step_by(number_of_parts)
+                .cloned()
+                .collect();
+            parts.push(Polynomial::new(&coeffs));
+        }
+        parts
     }
 }
 
