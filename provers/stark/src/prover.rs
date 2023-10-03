@@ -243,6 +243,29 @@ pub trait IsStarkProver {
         })
     }
 
+    fn commit_composition_polynomial<F>(
+        lde_composition_poly_parts_evaluations: &[Vec<FieldElement<F>>],
+        domain: &Domain<F>
+    ) -> (BatchedMerkleTree<F>, Commitment)
+    where
+        F: IsFFTField,
+        FieldElement<F>: Serializable,
+    {
+        // TODO: Remove clones
+        let number_of_parts = lde_composition_poly_parts_evaluations.len();
+        let mut lde_composition_poly_evaluations = Vec::new();
+        for i in 0..lde_composition_poly_parts_evaluations[0].len() {
+            let mut row = Vec::new();
+            for j in 0..number_of_parts {
+                row.push(lde_composition_poly_parts_evaluations[j][i].clone());
+                println!("{:?}", lde_composition_poly_parts_evaluations[j][i]);
+            }
+            lde_composition_poly_evaluations.push(row);
+        }
+
+        Self::batch_commit(&lde_composition_poly_evaluations)
+    }
+
     fn round_2_compute_composition_polynomial<F, A>(
         air: &A,
         domain: &Domain<F>,
@@ -271,7 +294,7 @@ pub trait IsStarkProver {
         let composition_poly =
             constraint_evaluations.compute_composition_poly(&domain.coset_offset);
 
-        let number_of_parts = 2;
+        let number_of_parts = 1;
         let composition_poly_parts = composition_poly.break_in_parts(number_of_parts);
         let lde_composition_poly_parts_evaluations: Vec<_> = composition_poly_parts
             .iter()
@@ -286,18 +309,8 @@ pub trait IsStarkProver {
             })
             .collect();
 
-        // TODO: Remove clones
-        let mut lde_composition_poly_evaluations = Vec::new();
-        for i in 0..lde_composition_poly_parts_evaluations[0].len() {
-            let mut row = Vec::new();
-            for j in 0..number_of_parts {
-                row.push(lde_composition_poly_parts_evaluations[j][i].clone());
-            }
-            lde_composition_poly_evaluations.push(row);
-        }
-
         let (composition_poly_merkle_tree, composition_poly_root) =
-            Self::batch_commit(&lde_composition_poly_evaluations);
+            Self::commit_composition_polynomial(&lde_composition_poly_parts_evaluations, domain);
 
         Round2 {
             lde_composition_poly_evaluations: lde_composition_poly_parts_evaluations,
@@ -572,7 +585,7 @@ pub trait IsStarkProver {
                     .get_proof_by_pos(index)
                     .unwrap();
 
-                // H₁ openings
+                // Hi openings
                 let lde_composition_poly_parts_evaluation: Vec<_> = round_2_result
                     .lde_composition_poly_evaluations
                     .iter()
@@ -676,10 +689,9 @@ pub trait IsStarkProver {
 
         let num_transition_constraints = air.context().num_transition_constraints;
 
-        let mut coefficients: Vec<_> =
-            (1..num_boundary_constraints + num_transition_constraints + 1)
-                .map(|i| beta.pow(i))
-                .collect();
+        let mut coefficients: Vec<_> = (0..num_boundary_constraints + num_transition_constraints)
+            .map(|i| beta.pow(i))
+            .collect();
 
         let transition_coefficients: Vec<_> =
             coefficients.drain(..num_transition_constraints).collect();

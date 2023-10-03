@@ -84,7 +84,7 @@ pub trait IsStarkVerifier {
         let num_transition_constraints = air.context().num_transition_constraints;
 
         let mut coefficients: Vec<_> =
-            (1..num_boundary_constraints + num_transition_constraints + 1)
+            (0..num_boundary_constraints + num_transition_constraints)
                 .map(|i| beta.pow(i))
                 .collect();
 

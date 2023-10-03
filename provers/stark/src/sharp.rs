@@ -19,7 +19,7 @@ use crate::{
 pub struct SHARP;
 
 impl SHARP {
-    fn apply_permutation<F: IsFFTField>(vector: &mut Vec<FieldElement<F>>, permutation: &[usize]) {
+    fn apply_permutation<T: Clone>(vector: &mut Vec<T>, permutation: &[usize]) {
         assert_eq!(
             vector.len(),
             permutation.len(),
@@ -109,6 +109,43 @@ impl IsStarkProver for SHARP {
             lde_trace_merkle_root,
         )
     }
+
+    fn commit_composition_polynomial<F>(
+        lde_composition_poly_parts_evaluations: &[Vec<FieldElement<F>>],
+        domain: &Domain<F>,
+    ) -> (BatchedMerkleTree<F>, Commitment)
+    where
+        F: IsFFTField,
+        FieldElement<F>: Serializable,
+    {
+        // TODO: Remove clones
+        let number_of_parts = lde_composition_poly_parts_evaluations.len();
+
+        let mut lde_composition_poly_evaluations = Vec::new();
+        for i in 0..lde_composition_poly_parts_evaluations[0].len() {
+            let mut row = Vec::new();
+            for j in 0..number_of_parts {
+                row.push(lde_composition_poly_parts_evaluations[j][i].clone());
+            }
+            lde_composition_poly_evaluations.push(row);
+        }
+
+        let permutation = Self::get_stone_prover_domain_permutation(
+            domain.interpolation_domain_size,
+            domain.blowup_factor,
+        );
+
+        Self::apply_permutation(&mut lde_composition_poly_evaluations, &permutation);
+
+        let mut lde_composition_poly_evaluations_merged = Vec::new();
+        for chunk in lde_composition_poly_evaluations.chunks(2) {
+            let (mut chunk0, chunk1) = (chunk[0].clone(), &chunk[1]);
+            chunk0.extend_from_slice(chunk1);
+            lde_composition_poly_evaluations_merged.push(chunk0);
+        }
+
+        Self::batch_commit(&lde_composition_poly_evaluations_merged)
+    }
 }
 
 pub struct SHARV {}
@@ -160,7 +197,7 @@ pub mod tests {
         sharp::{SHARP, SHARV},
         traits::AIR,
         transcript::StoneProverTranscript,
-        verifier::IsStarkVerifier,
+        verifier::{IsStarkVerifier, Verifier},
     };
 
     fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
@@ -236,6 +273,39 @@ pub mod tests {
     }
 
     #[test]
+    fn test_sharp_fibonacci_happy_path() {
+        let trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::one(), 4);
+
+        let claimed_index = 3;
+        let claimed_value = trace.get_row(claimed_index)[0];
+        let mut proof_options = ProofOptions::default_test_options();
+        proof_options.blowup_factor = 4;
+        proof_options.coset_offset = 3;
+
+        let pub_inputs = fibonacci_2_cols_shifted::PublicInputs {
+            claimed_value,
+            claimed_index,
+        };
+
+        let transcript_init_seed = [0xca, 0xfe, 0xca, 0xfe];
+
+        let proof = SHARP::prove::<Stark252PrimeField, Fibonacci2ColsShifted<_>>(
+            &trace,
+            &pub_inputs,
+            &proof_options,
+            StoneProverTranscript::new(&transcript_init_seed),
+        )
+        .unwrap();
+
+        assert!(Verifier::verify::<Stark252PrimeField, Fibonacci2ColsShifted<_>>(
+            &proof,
+            &pub_inputs,
+            &proof_options,
+            StoneProverTranscript::new(&transcript_init_seed)
+        ));
+    }
+
+    #[test]
     fn test_sharp_compatibility() {
         let trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::one(), 4);
 
@@ -274,15 +344,58 @@ pub mod tests {
             decode_hex("0eb9dcc0fb1854572a01236753ce05139d392aa3aeafe72abff150fe21175594").unwrap()
         );
 
-        let beta = challenges.transition_coeffs[0];
+        assert_eq!(challenges.transition_coeffs[0], FieldElement::one());
+        let beta = challenges.transition_coeffs[1];
         assert_eq!(
             beta,
             FieldElement::from_hex_unchecked(
                 "86105fff7b04ed4068ecccb8dbf1ed223bd45cd26c3532d6c80a818dbd4fa7"
             ),
         );
-        assert_eq!(challenges.transition_coeffs[1], beta.pow(2u64));
-        assert_eq!(challenges.boundary_coeffs[0], beta.pow(3u64));
-        assert_eq!(challenges.boundary_coeffs[1], beta.pow(4u64));
+        assert_eq!(challenges.boundary_coeffs[0], beta.pow(2u64));
+        assert_eq!(challenges.boundary_coeffs[1], beta.pow(3u64));
+
+        assert_eq!(
+            proof.composition_poly_root.to_vec(),
+            decode_hex("7cdd8d5fe3bd62254a417e2e260e0fed4fccdb6c9005e828446f645879394f38").unwrap()
+        );
+
+        assert_eq!(
+            challenges.z,
+            FieldElement::from_hex_unchecked(
+                "317629e783794b52cd27ac3a5e418c057fec9dd42f2b537cdb3f24c95b3e550"
+            )
+        );
+
+        assert_eq!(
+            proof.trace_ood_frame_evaluations.get_row(0)[0],
+            FieldElement::from_hex_unchecked(
+                "70d8181785336cc7e0a0a1078a79ee6541ca0803ed3ff716de5a13c41684037",
+            )
+        );
+        assert_eq!(
+            proof.trace_ood_frame_evaluations.get_row(1)[0],
+            FieldElement::from_hex_unchecked(
+                "29808fc8b7480a69295e4b61600480ae574ca55f8d118100940501b789c1630",
+            )
+        );
+        assert_eq!(
+            proof.trace_ood_frame_evaluations.get_row(0)[1],
+            FieldElement::from_hex_unchecked(
+                "7d8110f21d1543324cc5e472ab82037eaad785707f8cae3d64c5b9034f0abd2",
+            )
+        );
+        assert_eq!(
+            proof.trace_ood_frame_evaluations.get_row(1)[1],
+            FieldElement::from_hex_unchecked(
+                "1b58470130218c122f71399bf1e04cf75a6e8556c4751629d5ce8c02cc4e62d",
+            )
+        );
+        assert_eq!(
+            proof.composition_poly_parts_ood_evaluation[0],
+            FieldElement::from_hex_unchecked(
+                "1c0b7c2275e36d62dfb48c791be122169dcc00c616c63f8efb2c2a504687e85",
+            )
+        );
     }
 }
