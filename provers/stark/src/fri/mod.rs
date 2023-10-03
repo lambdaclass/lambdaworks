@@ -75,18 +75,14 @@ pub fn fri_query_phase<F, A>(
     air: &A,
     domain_size: usize,
     fri_layers: &Vec<FriLayer<F>>,
-    transcript: &mut impl IsStarkTranscript<F>,
-) -> (Vec<FriDecommitment<F>>, Vec<usize>)
+    iotas: &[usize],
+) -> Vec<FriDecommitment<F>>
 where
     F: IsFFTField,
     A: AIR<Field = F>,
     FieldElement<F>: Serializable,
 {
     if !fri_layers.is_empty() {
-        let number_of_queries = air.options().fri_number_of_queries;
-        let iotas = (0..number_of_queries)
-            .map(|_| (transcript.sample_u64(domain_size as u64)) as usize)
-            .collect::<Vec<usize>>();
         let query_list = iotas
             .iter()
             .map(|iota_s| {
@@ -119,8 +115,8 @@ where
             })
             .collect();
 
-        (query_list, iotas)
+        query_list
     } else {
-        (vec![], vec![])
+        vec![]
     }
 }

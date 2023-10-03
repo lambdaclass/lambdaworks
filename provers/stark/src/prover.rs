@@ -294,7 +294,7 @@ pub trait IsStarkProver {
         let composition_poly =
             constraint_evaluations.compute_composition_poly(&domain.coset_offset);
 
-        let number_of_parts = 1;
+        let number_of_parts = 2;
         let composition_poly_parts = composition_poly.break_in_parts(number_of_parts);
         let lde_composition_poly_parts_evaluations: Vec<_> = composition_poly_parts
             .iter()
@@ -419,7 +419,10 @@ pub trait IsStarkProver {
             .expect("nonce not found");
         transcript.append_bytes(&nonce.to_be_bytes());
 
-        let (query_list, iotas) = fri_query_phase(air, domain_size, &fri_layers, transcript);
+        let number_of_queries = air.options().fri_number_of_queries;
+
+        let iotas = Self::sample_query_indexes(number_of_queries, &domain, transcript);
+        let query_list = fri_query_phase(air, domain_size, &fri_layers, &iotas);
 
         let fri_layers_merkle_roots: Vec<_> = fri_layers
             .iter()
@@ -436,6 +439,12 @@ pub trait IsStarkProver {
             query_list,
             nonce,
         }
+    }
+
+    fn sample_query_indexes<F: IsFFTField>(number_of_queries: usize, domain: &Domain<F>, transcript: &mut impl IsStarkTranscript<F>) -> Vec<usize> {    
+        (0..number_of_queries)
+        .map(|_| (transcript.sample_u64(domain.lde_roots_of_unity_coset.len() as u64)) as usize)
+        .collect::<Vec<usize>>()
     }
 
     /// Returns the DEEP composition polynomial that the prover then commits to using
