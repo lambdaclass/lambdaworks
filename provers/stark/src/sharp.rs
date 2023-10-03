@@ -1,3 +1,4 @@
+use lambdaworks_crypto::merkle_tree::proof::Proof;
 use lambdaworks_math::{
     fft::cpu::bit_reversing::in_place_bit_reverse_permute,
     field::{element::FieldElement, traits::IsFFTField},
@@ -146,6 +147,64 @@ impl IsStarkProver for SHARP {
 
         Self::batch_commit(&lde_composition_poly_evaluations_merged)
     }
+
+    fn open_composition_poly<F>(
+        domain: &Domain<F>,
+        composition_poly_merkle_tree: &BatchedMerkleTree<F>,
+        lde_composition_poly_evaluations: &[Vec<FieldElement<F>>],
+        index: usize
+    ) -> (Proof<Commitment>, Vec<FieldElement<F>>)
+    where
+        F: IsFFTField,
+        FieldElement<F>: Serializable
+    {
+        let permutation = Self::get_stone_prover_domain_permutation(
+            domain.interpolation_domain_size,
+            domain.blowup_factor,
+        );
+        let proof = composition_poly_merkle_tree
+            .get_proof_by_pos(index)
+            .unwrap();
+
+        // Hi openings
+        let mut permuted = lde_composition_poly_evaluations.clone().to_vec();
+        Self::apply_permutation(&mut permuted[0], &permutation);
+        let lde_composition_poly_parts_evaluation: Vec<_> = permuted
+            .iter()
+            .map(|part| vec![part[index * 2].clone(), part[index * 2 + 1].clone()])
+            .flatten()
+            .collect();
+
+        (proof, lde_composition_poly_parts_evaluation)
+    }
+
+
+    fn open_trace_polys<F>(
+        domain: &Domain<F>,
+        lde_trace_merkle_trees: &Vec<BatchedMerkleTree<F>>,
+        lde_trace: &TraceTable<F>,
+        index: usize,
+    ) -> (Vec<Proof<Commitment>>, Vec<FieldElement<F>>)
+    where
+        F: IsFFTField,
+        FieldElement<F>: Serializable
+    {
+        let permutation = Self::get_stone_prover_domain_permutation(domain.interpolation_domain_size, domain.blowup_factor);
+        let lde_trace_evaluations = lde_trace.get_row(permutation[index * 2]).to_vec();
+
+        let index = index;
+        // Trace polynomials openings
+        #[cfg(feature = "parallel")]
+        let merkle_trees_iter = lde_trace_merkle_trees.par_iter();
+        #[cfg(not(feature = "parallel"))]
+        let merkle_trees_iter = lde_trace_merkle_trees.iter();
+
+        let lde_trace_merkle_proofs: Vec<Proof<[u8; 32]>> = merkle_trees_iter
+            .map(|tree| tree.get_proof_by_pos(index * 2).unwrap())
+            .collect();
+
+        (lde_trace_merkle_proofs, lde_trace_evaluations)
+    }
 }
 
 pub struct SHARV {}
@@ -174,7 +233,7 @@ impl IsStarkVerifier for SHARV {
             .fold(true, |acc, ((merkle_root, merkle_proof), evaluation)| {
                 acc & merkle_proof.verify::<BatchedMerkleTreeBackend<F>>(
                     merkle_root,
-                    permutation[iota],
+                    iota * 2,
                     &evaluation,
                 )
             })
@@ -297,7 +356,7 @@ pub mod tests {
         )
         .unwrap();
 
-        assert!(Verifier::verify::<Stark252PrimeField, Fibonacci2ColsShifted<_>>(
+        assert!(SHARV::verify::<Stark252PrimeField, Fibonacci2ColsShifted<_>>(
             &proof,
             &pub_inputs,
             &proof_options,

@@ -245,7 +245,7 @@ pub trait IsStarkProver {
 
     fn commit_composition_polynomial<F>(
         lde_composition_poly_parts_evaluations: &[Vec<FieldElement<F>>],
-        domain: &Domain<F>
+        domain: &Domain<F>,
     ) -> (BatchedMerkleTree<F>, Commitment)
     where
         F: IsFFTField,
@@ -562,6 +562,54 @@ pub trait IsStarkProver {
         trace_terms + trace_int
     }
 
+    fn open_composition_poly<F>(
+        domain: &Domain<F>,
+        composition_poly_merkle_tree: &BatchedMerkleTree<F>,
+        lde_composition_poly_evaluations: &[Vec<FieldElement<F>>],
+        index: usize,
+    ) -> (Proof<Commitment>, Vec<FieldElement<F>>)
+    where
+        F: IsFFTField,
+        FieldElement<F>: Serializable,
+    {
+        let proof = composition_poly_merkle_tree
+            .get_proof_by_pos(index)
+            .unwrap();
+
+        // Hi openings
+        let lde_composition_poly_parts_evaluation: Vec<_> = lde_composition_poly_evaluations
+            .iter()
+            .map(|part| part[index].clone())
+            .collect();
+
+        (proof, lde_composition_poly_parts_evaluation)
+    }
+
+    fn open_trace_polys<F>(
+        domain: &Domain<F>,
+        lde_trace_merkle_trees: &Vec<BatchedMerkleTree<F>>,
+        lde_trace: &TraceTable<F>,
+        index: usize,
+    ) -> (Vec<Proof<Commitment>>, Vec<FieldElement<F>>)
+    where
+        F: IsFFTField,
+        FieldElement<F>: Serializable
+    {
+        let lde_trace_evaluations = lde_trace.get_row(index).to_vec();
+
+        // Trace polynomials openings
+        #[cfg(feature = "parallel")]
+        let merkle_trees_iter = lde_trace_merkle_trees.par_iter();
+        #[cfg(not(feature = "parallel"))]
+        let merkle_trees_iter = lde_trace_merkle_trees.iter();
+
+        let lde_trace_merkle_proofs: Vec<Proof<[u8; 32]>> = merkle_trees_iter
+            .map(|tree| tree.get_proof_by_pos(index).unwrap())
+            .collect();
+
+        (lde_trace_merkle_proofs, lde_trace_evaluations)
+    }
+
     fn open_deep_composition_poly<F: IsFFTField, A: AIR<Field = F>>(
         domain: &Domain<F>,
         round_1_result: &Round1<F, A>,
@@ -571,39 +619,24 @@ pub trait IsStarkProver {
     where
         FieldElement<F>: Serializable,
     {
-        // let permutation = Self::get_stone_prover_domain_permutation(
-        //     domain.interpolation_domain_size,
-        //     domain.blowup_factor,
-        // );
         indexes_to_open
             .iter()
             .map(|index_to_open| {
                 let index = index_to_open % domain.lde_roots_of_unity_coset.len();
 
-                let lde_composition_poly_proof = round_2_result
-                    .composition_poly_merkle_tree
-                    .get_proof_by_pos(index)
-                    .unwrap();
+                let (lde_composition_poly_proof, lde_composition_poly_parts_evaluation) = Self::open_composition_poly(
+                    domain,
+                    &round_2_result.composition_poly_merkle_tree,
+                    &round_2_result.lde_composition_poly_evaluations,
+                    index,
+                );
 
-                // Hi openings
-                let lde_composition_poly_parts_evaluation: Vec<_> = round_2_result
-                    .lde_composition_poly_evaluations
-                    .iter()
-                    .map(|part| part[index].clone())
-                    .collect();
-
-                let lde_trace_evaluations = round_1_result.lde_trace.get_row(index).to_vec();
-
-                let index = index;
-                // Trace polynomials openings
-                #[cfg(feature = "parallel")]
-                let merkle_trees_iter = round_1_result.lde_trace_merkle_trees.par_iter();
-                #[cfg(not(feature = "parallel"))]
-                let merkle_trees_iter = round_1_result.lde_trace_merkle_trees.iter();
-
-                let lde_trace_merkle_proofs: Vec<Proof<[u8; 32]>> = merkle_trees_iter
-                    .map(|tree| tree.get_proof_by_pos(index).unwrap())
-                    .collect();
+                let (lde_trace_merkle_proofs, lde_trace_evaluations) = Self::open_trace_polys(
+                    domain,
+                    &round_1_result.lde_trace_merkle_trees,
+                    &round_1_result.lde_trace,
+                    index
+                );
 
                 DeepPolynomialOpenings {
                     lde_composition_poly_proof,

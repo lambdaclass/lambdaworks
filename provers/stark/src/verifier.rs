@@ -346,6 +346,24 @@ pub trait IsStarkVerifier {
         proof.verify::<BatchedMerkleTreeBackend<F>>(&root, index, &value)
     }
 
+    fn verify_composition_poly_opening<F>(
+        domain: &Domain<F>,
+        lde_composition_poly_proof: &Proof<Commitment>,
+        composition_poly_merkle_root: &Commitment,
+        iota: &usize,
+        evaluations: &Vec<FieldElement<F>>
+    ) -> bool
+    where
+        F: IsFFTField,
+        FieldElement<F>: Serializable
+    {
+        lde_composition_poly_proof.verify::<BatchedMerkleTreeBackend<F>>(
+            composition_poly_merkle_root,
+            *iota,
+            evaluations,
+        )
+    }
+
     fn step_4_verify_deep_composition_polynomial<F: IsFFTField, A: AIR<Field = F>>(
         air: &A,
         proof: &StarkProof<F>,
@@ -373,15 +391,14 @@ pub trait IsStarkVerifier {
             .fold(
                 true,
                 |mut result, (i, ((iota_n, deep_poly_opening), denom_inv))| {
-                    let evaluations = &deep_poly_opening.lde_composition_poly_parts_evaluation;
                     // Verify opening Open(H₁(D_LDE, 𝜐₀) and Open(H₂(D_LDE, 𝜐₀),
-                    result &= deep_poly_opening
-                        .lde_composition_poly_proof
-                        .verify::<BatchedMerkleTreeBackend<F>>(
-                            &proof.composition_poly_root,
-                            *iota_n,
-                            &evaluations,
-                        );
+                    result &= Self::verify_composition_poly_opening(
+                        domain,
+                        &deep_poly_opening.lde_composition_poly_proof,
+                        &proof.composition_poly_root,
+                        iota_n,
+                        &deep_poly_opening.lde_composition_poly_parts_evaluation,
+                    );
 
                     let num_main_columns =
                         air.context().trace_columns - air.number_auxiliary_rap_columns();
