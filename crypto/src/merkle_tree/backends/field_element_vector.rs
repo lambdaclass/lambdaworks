@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use crate::merkle_tree::traits::IsMerkleTreeBackend;
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsField},
-    traits::ByteConversion,
+    traits::Serializable,
 };
 use sha3::{
     digest::{generic_array::GenericArray, OutputSizeUser},
@@ -29,7 +29,7 @@ impl<F, D: Digest, const NUM_BYTES: usize> IsMerkleTreeBackend
     for FieldElementVectorBackend<F, D, NUM_BYTES>
 where
     F: IsField,
-    FieldElement<F>: ByteConversion,
+    FieldElement<F>: Serializable,
     [u8; NUM_BYTES]: From<GenericArray<u8, <D as OutputSizeUser>::OutputSize>>,
 {
     type Node = [u8; NUM_BYTES];
@@ -38,7 +38,7 @@ where
     fn hash_data(&self, input: &Vec<FieldElement<F>>) -> [u8; NUM_BYTES] {
         let mut hasher = D::new();
         for element in input.iter() {
-            hasher.update(element.to_bytes_be());
+            hasher.update(element.serialize());
         }
         let mut result_hash = [0_u8; NUM_BYTES];
         result_hash.copy_from_slice(&hasher.finalize());

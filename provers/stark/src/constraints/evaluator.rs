@@ -3,7 +3,7 @@ use lambdaworks_math::{
     fft::cpu::roots_of_unity::get_powers_of_primitive_root_coset,
     field::{element::FieldElement, traits::IsFFTField},
     polynomial::Polynomial,
-    traits::ByteConversion,
+    traits::Serializable,
 };
 
 #[cfg(feature = "parallel")]
@@ -44,7 +44,7 @@ impl<F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
         rap_challenges: &A::RAPChallenges,
     ) -> ConstraintEvaluationTable<F>
     where
-        FieldElement<F>: ByteConversion + Send + Sync,
+        FieldElement<F>: Serializable + Send + Sync,
         A: Send + Sync,
         A::RAPChallenges: Send + Sync,
     {

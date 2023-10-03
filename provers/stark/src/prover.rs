@@ -1,11 +1,13 @@
 #[cfg(feature = "instruments")]
 use std::time::Instant;
 
+use lambdaworks_crypto::merkle_tree::proof::Proof;
+use lambdaworks_math::fft::cpu::bit_reversing::in_place_bit_reverse_permute;
 use lambdaworks_math::fft::{errors::FFTError, polynomial::FFTPoly};
+use lambdaworks_math::traits::Serializable;
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsFFTField},
     polynomial::Polynomial,
-    traits::ByteConversion,
 };
 use log::info;
 
@@ -38,7 +40,7 @@ struct Round1<F, A>
 where
     F: IsFFTField,
     A: AIR<Field = F>,
-    FieldElement<F>: ByteConversion,
+    FieldElement<F>: Serializable,
 {
     trace_polys: Vec<Polynomial<FieldElement<F>>>,
     lde_trace: TraceTable<F>,
@@ -50,7 +52,7 @@ where
 struct Round2<F>
 where
     F: IsFFTField,
-    FieldElement<F>: ByteConversion,
+    FieldElement<F>: Serializable,
 {
     composition_poly_even: Polynomial<FieldElement<F>>,
     lde_composition_poly_even_evaluations: Vec<FieldElement<F>>,
@@ -77,7 +79,7 @@ struct Round4<F: IsFFTField> {
 fn batch_commit<F>(vectors: &[Vec<FieldElement<F>>]) -> (BatchedMerkleTree<F>, Commitment)
 where
     F: IsFFTField,
-    FieldElement<F>: ByteConversion,
+    FieldElement<F>: Serializable,
 {
     let tree = BatchedMerkleTree::<F>::build(vectors);
     let commitment = tree.root;
@@ -94,13 +96,53 @@ where
     F: IsFFTField,
     Polynomial<FieldElement<F>>: FFTPoly<F>,
 {
-    // Evaluate those polynomials t_j on the large domain D_LDE.
     let evaluations = p.evaluate_offset_fft(blowup_factor, Some(domain_size), offset)?;
     let step = evaluations.len() / (domain_size * blowup_factor);
     match step {
         1 => Ok(evaluations),
         _ => Ok(evaluations.into_iter().step_by(step).collect()),
     }
+}
+
+fn apply_permutation<F: IsFFTField>(vector: &mut Vec<FieldElement<F>>, permutation: &[usize]) {
+    assert_eq!(
+        vector.len(),
+        permutation.len(),
+        "Vector and permutation must have the same length"
+    );
+
+    let mut temp = Vec::with_capacity(vector.len());
+    for &index in permutation {
+        temp.push(vector[index].clone());
+    }
+
+    vector.clear();
+    vector.extend(temp);
+}
+
+/// This function returns the permutation that converts lambdaworks ordering of rows to the one used in the stone prover
+pub fn get_stone_prover_domain_permutation(domain_size: usize, blowup_factor: usize) -> Vec<usize> {
+    let mut permutation = Vec::new();
+    let n = domain_size;
+
+    let mut indices: Vec<usize> = (0..blowup_factor).collect();
+    in_place_bit_reverse_permute(&mut indices);
+
+    for i in indices.iter() {
+        for j in 0..n {
+            permutation.push(i + j * blowup_factor)
+        }
+    }
+
+    for coset_indices in permutation.chunks_mut(n) {
+        let mut temp = coset_indices.to_owned();
+        in_place_bit_reverse_permute(&mut temp);
+        for (j, elem) in coset_indices.iter_mut().enumerate() {
+            *elem = temp[j];
+        }
+    }
+
+    permutation.to_vec()
 }
 
 #[allow(clippy::type_complexity)]
@@ -116,15 +158,24 @@ fn interpolate_and_commit<F>(
 )
 where
     F: IsFFTField,
-    FieldElement<F>: ByteConversion + Send + Sync,
+    FieldElement<F>: Serializable + Send + Sync,
 {
     let trace_polys = trace.compute_trace_polys();
 
     // Evaluate those polynomials t_j on the large domain D_LDE.
     let lde_trace_evaluations = compute_lde_trace_evaluations(&trace_polys, domain);
 
+    let permutation =
+        get_stone_prover_domain_permutation(domain.interpolation_domain_size, domain.blowup_factor);
+
+    let mut lde_trace_permuted = lde_trace_evaluations.clone();
+
+    for col in lde_trace_permuted.iter_mut() {
+        apply_permutation(col, &permutation);
+    }
+
     // Compute commitments [t_j].
-    let lde_trace = TraceTable::new_from_cols(&lde_trace_evaluations);
+    let lde_trace = TraceTable::new_from_cols(&lde_trace_permuted);
     let (lde_trace_merkle_tree, lde_trace_merkle_root) = batch_commit(&lde_trace.rows());
 
     // >>>> Send commitments: [tⱼ]
@@ -171,7 +222,7 @@ fn round_1_randomized_air_with_preprocessing<F: IsFFTField, A: AIR<Field = F>>(
     transcript: &mut impl IsStarkTranscript<F>,
 ) -> Result<Round1<F, A>, ProvingError>
 where
-    FieldElement<F>: ByteConversion + Send + Sync,
+    FieldElement<F>: Serializable + Send + Sync,
 {
     let (mut trace_polys, mut evaluations, main_merkle_tree, main_merkle_root) =
         interpolate_and_commit(main_trace, domain, transcript);
@@ -214,7 +265,7 @@ where
     F: IsFFTField,
     A: AIR<Field = F> + Send + Sync,
     A::RAPChallenges: Send + Sync,
-    FieldElement<F>: ByteConversion + Send + Sync,
+    FieldElement<F>: Serializable + Send + Sync,
 {
     // Create evaluation table
     let evaluator = ConstraintEvaluator::new(air, &round_1_result.rap_challenges);
@@ -273,7 +324,7 @@ fn round_3_evaluate_polynomials_in_out_of_domain_element<F: IsFFTField, A: AIR<F
     z: &FieldElement<F>,
 ) -> Round3<F>
 where
-    FieldElement<F>: ByteConversion,
+    FieldElement<F>: Serializable,
 {
     let z_squared = z.square();
 
@@ -317,7 +368,7 @@ fn round_4_compute_and_run_fri_on_the_deep_composition_polynomial<
     transcript: &mut impl IsStarkTranscript<F>,
 ) -> Round4<F>
 where
-    FieldElement<F>: ByteConversion + Send + Sync,
+    FieldElement<F>: Serializable + Send + Sync,
 {
     let coset_offset_u64 = air.context().proof_options.coset_offset;
     let coset_offset = FieldElement::<F>::from(coset_offset_u64);
@@ -399,7 +450,7 @@ fn compute_deep_composition_poly<A, F>(
 where
     A: AIR,
     F: IsFFTField,
-    FieldElement<F>: ByteConversion + Send + Sync,
+    FieldElement<F>: Serializable + Send + Sync,
 {
     // Compute composition polynomial terms of the deep composition polynomial.
     let h_1 = &round_2_result.composition_poly_even;
@@ -480,7 +531,7 @@ fn compute_trace_term<F>(
 ) -> Polynomial<FieldElement<F>>
 where
     F: IsFFTField,
-    FieldElement<F>: ByteConversion + Send + Sync,
+    FieldElement<F>: Serializable + Send + Sync,
 {
     let i_times_trace_frame_evaluation = i * trace_frame_length;
     let iter_trace_gammas = trace_terms_gammas
@@ -513,8 +564,10 @@ fn open_deep_composition_poly<F: IsFFTField, A: AIR<Field = F>>(
     indexes_to_open: &[usize], // list of iotas
 ) -> Vec<DeepPolynomialOpenings<F>>
 where
-    FieldElement<F>: ByteConversion,
+    FieldElement<F>: Serializable,
 {
+    let permutation =
+        get_stone_prover_domain_permutation(domain.interpolation_domain_size, domain.blowup_factor);
     indexes_to_open
         .iter()
         .map(|index_to_open| {
@@ -533,17 +586,18 @@ where
             let lde_composition_poly_odd_evaluation =
                 round_2_result.lde_composition_poly_odd_evaluations[index].clone();
 
+            let lde_trace_evaluations = round_1_result.lde_trace.get_row(index).to_vec();
+
+            let index = permutation[index];
             // Trace polynomials openings
             #[cfg(feature = "parallel")]
             let merkle_trees_iter = round_1_result.lde_trace_merkle_trees.par_iter();
             #[cfg(not(feature = "parallel"))]
             let merkle_trees_iter = round_1_result.lde_trace_merkle_trees.iter();
 
-            let lde_trace_merkle_proofs = merkle_trees_iter
+            let lde_trace_merkle_proofs: Vec<Proof<[u8; 32]>> = merkle_trees_iter
                 .map(|tree| tree.get_proof_by_pos(index).unwrap())
                 .collect();
-
-            let lde_trace_evaluations = round_1_result.lde_trace.get_row(index).to_vec();
 
             DeepPolynomialOpenings {
                 lde_composition_poly_proof,
@@ -567,7 +621,7 @@ where
     F: IsFFTField,
     A: AIR<Field = F> + Send + Sync,
     A::RAPChallenges: Send + Sync,
-    FieldElement<F>: ByteConversion + Send + Sync,
+    FieldElement<F>: Serializable + Send + Sync,
 {
     info!("Started proof generation...");
     #[cfg(feature = "instruments")]
@@ -621,16 +675,22 @@ where
     #[cfg(feature = "instruments")]
     let timer2 = Instant::now();
 
-    // <<<< Receive challenges: 𝛽_j^B
-    let boundary_coefficients = batch_sample_challenges(
-        air.boundary_constraints(&round_1_result.rap_challenges)
-            .constraints
-            .len(),
-        &mut transcript,
-    );
-    // <<<< Receive challenges: 𝛽_j^T
-    let transition_coefficients =
-        batch_sample_challenges(air.context().num_transition_constraints, &mut transcript);
+    // <<<< Receive challenge: 𝛽
+    let beta = transcript.sample_field_element();
+    let num_boundary_constraints = air
+        .boundary_constraints(&round_1_result.rap_challenges)
+        .constraints
+        .len();
+
+    let num_transition_constraints = air.context().num_transition_constraints;
+
+    let mut coefficients: Vec<_> = (1..num_boundary_constraints + num_transition_constraints + 1)
+        .map(|i| beta.pow(i))
+        .collect();
+
+    let transition_coefficients: Vec<_> =
+        coefficients.drain(..num_transition_constraints).collect();
+    let boundary_coefficients = coefficients;
 
     let round_2_result = round_2_compute_composition_polynomial(
         &air,
@@ -767,9 +827,15 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::num::ParseIntError;
+
     use crate::{
-        examples::simple_fibonacci::{self, FibonacciPublicInputs},
+        examples::{
+            fibonacci_2_cols_shifted::{self, Fibonacci2ColsShifted},
+            simple_fibonacci::{self, FibonacciPublicInputs},
+        },
         proof::options::ProofOptions,
+        transcript::StoneProverTranscript,
         Felt252,
     };
 
@@ -877,5 +943,77 @@ mod tests {
         for (i, eval) in evaluations.iter().enumerate() {
             assert_eq!(*eval, poly.evaluate(&(offset * primitive_root.pow(i))));
         }
+    }
+
+    pub fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
+        (0..s.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
+            .collect()
+    }
+
+    #[test]
+    fn test_trace_commitment_is_compatible_with_stone_prover_1() {
+        let trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::one(), 4);
+
+        let claimed_index = 3;
+        let claimed_value = trace.get_row(claimed_index)[0];
+        let mut proof_options = ProofOptions::default_test_options();
+        proof_options.blowup_factor = 4;
+        proof_options.coset_offset = 3;
+
+        let pub_inputs = fibonacci_2_cols_shifted::PublicInputs {
+            claimed_value,
+            claimed_index,
+        };
+
+        let transcript_init_seed = [0xca, 0xfe, 0xca, 0xfe];
+
+        let air = Fibonacci2ColsShifted::new(trace.n_rows(), &pub_inputs, &proof_options);
+        let domain = Domain::new(&air);
+
+        let (_, _, _, trace_commitment) = interpolate_and_commit(
+            &trace,
+            &domain,
+            &mut StoneProverTranscript::new(&transcript_init_seed),
+        );
+
+        assert_eq!(
+            &trace_commitment.to_vec(),
+            &decode_hex("0eb9dcc0fb1854572a01236753ce05139d392aa3aeafe72abff150fe21175594")
+                .unwrap()
+        );
+    }
+    #[test]
+    fn test_trace_commitment_is_compatible_with_stone_prover_2() {
+        let trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::one(), 4);
+
+        let claimed_index = 3;
+        let claimed_value = trace.get_row(claimed_index)[0];
+        let mut proof_options = ProofOptions::default_test_options();
+        proof_options.blowup_factor = 64;
+        proof_options.coset_offset = 3;
+
+        let pub_inputs = fibonacci_2_cols_shifted::PublicInputs {
+            claimed_value,
+            claimed_index,
+        };
+
+        let transcript_init_seed = [0xfa, 0xfa, 0xfa, 0xee];
+
+        let air = Fibonacci2ColsShifted::new(trace.n_rows(), &pub_inputs, &proof_options);
+        let domain = Domain::new(&air);
+
+        let (_, _, _, trace_commitment) = interpolate_and_commit(
+            &trace,
+            &domain,
+            &mut StoneProverTranscript::new(&transcript_init_seed),
+        );
+
+        assert_eq!(
+            &trace_commitment.to_vec(),
+            &decode_hex("99d8d4342895c4e35a084f8ea993036be06f51e7fa965734ed9c7d41104f0848")
+                .unwrap()
+        );
     }
 }
