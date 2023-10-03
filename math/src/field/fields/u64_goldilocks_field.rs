@@ -12,6 +12,7 @@ pub struct Goldilocks64Field;
 
 impl Goldilocks64Field {
     const ORDER: u64 = 0xFFFF_FFFF_0000_0001;
+    // Two's complement of `ORDER` i.e. `2^64 - ORDER = 2^32 - 1`
     const NEG_ORDER: u64 = Self::ORDER.wrapping_neg();
 }
 
@@ -28,11 +29,11 @@ impl IsField for Goldilocks64Field {
             //TODO: add assume and branch hint()
             sum += Self::NEG_ORDER
         }
-        sum
+        Self::representative(&sum)
     }
 
     fn mul(a: &u64, b: &u64) -> u64 {
-        reduce_128(u128::from(*a) * u128::from(*b))
+        Self::representative(&reduce_128(u128::from(*a) * u128::from(*b)))
     }
 
     fn sub(a: &u64, b: &u64) -> u64 {
@@ -41,17 +42,16 @@ impl IsField for Goldilocks64Field {
         if under {
             diff -= Self::NEG_ORDER;
         }
-        diff
+        Self::representative(&diff)
     }
 
     fn neg(a: &u64) -> u64 {
-        //NOTE: This should be conducted as a canonical u64;
-        Self::sub(&Self::ORDER, a)
+        Self::sub(&Self::ORDER, &Self::representative(a))
     }
 
     /// Returns the multiplicative inverse of `a`.
     fn inv(a: &u64) -> Result<u64, FieldError> {
-        if *a == Self::zero() {
+        if *a == Self::zero() || *a == Self::ORDER {
             return Err(FieldError::InvZeroError);
         }
 
@@ -94,7 +94,7 @@ impl IsField for Goldilocks64Field {
     /// Returns a boolean indicating whether `a` and `b` are equal or not.
     fn eq(a: &u64, b: &u64) -> bool {
         //TODO: Check if this is a canonical check may have to change to representative
-        a == b
+        Self::representative(a) == Self::representative(b)
     }
 
     /// Returns the additive neutral element.
@@ -109,13 +109,13 @@ impl IsField for Goldilocks64Field {
 
     /// Returns the element `x * 1` where 1 is the multiplicative neutral element.
     fn from_u64(x: u64) -> u64 {
-        x
+        Self::representative(&x)
     }
 
     /// Takes as input an element of BaseType and returns the internal representation
     /// of that element in the field.
     fn from_base_type(x: u64) -> u64 {
-        x
+        Self::representative(&x)
     }
 }
 
@@ -187,6 +187,11 @@ mod tests {
     use super::*;
     type F = Goldilocks64Field;
 
+    // Over the Goldilocks field, the following set of equations hold
+    // p               = 0
+    // 2^64 - 2^32 + 1 = 0
+    // 2^64            = 2^32 - 1
+
     #[test]
     fn from_hex_for_b_is_11() {
         assert_eq!(F::from_hex("B").unwrap(), 11);
@@ -206,7 +211,7 @@ mod tests {
     }
 
     #[test]
-    fn one_plus_1_is_2() {
+    fn one_plus_one_is_two() {
         let a = F::one();
         let b = F::one();
         let c = F::add(&a, &b);
@@ -214,7 +219,7 @@ mod tests {
     }
 
     #[test]
-    fn neg_1_plus_1_is_0() {
+    fn neg_one_plus_one_is_zero() {
         let a = F::neg(&F::one());
         let b = F::one();
         let c = F::add(&a, &b);
@@ -222,7 +227,7 @@ mod tests {
     }
 
     #[test]
-    fn neg_1_plus_2_is_1() {
+    fn neg_one_plus_two_is_one() {
         let a = F::neg(&F::one());
         let b = F::from_base_type(2u64);
         let c = F::add(&a, &b);
@@ -230,7 +235,7 @@ mod tests {
     }
 
     #[test]
-    fn max_order_plus_1_is_0() {
+    fn max_order_plus_one_is_zero() {
         let a = F::from_base_type(F::ORDER - 1);
         let b = F::one();
         let c = F::add(&a, &b);
@@ -252,7 +257,7 @@ mod tests {
     }
 
     #[test]
-    fn one_sub_1_is_0() {
+    fn one_sub_one_is_zero() {
         let a = F::one();
         let b = F::one();
         let c = F::sub(&a, &b);
@@ -260,7 +265,7 @@ mod tests {
     }
 
     #[test]
-    fn zero_sub_1_is_order_minus_1() {
+    fn zero_sub_one_is_order_minus_1() {
         let a = F::zero();
         let b = F::one();
         let c = F::sub(&a, &b);
@@ -268,7 +273,7 @@ mod tests {
     }
 
     #[test]
-    fn neg_1_sub_neg_1_is_0() {
+    fn neg_one_sub_neg_one_is_zero() {
         let a = F::neg(&F::one());
         let b = F::neg(&F::one());
         let c = F::sub(&a, &b);
@@ -276,7 +281,7 @@ mod tests {
     }
 
     #[test]
-    fn neg_1_sub_1_is_neg_1() {
+    fn neg_one_sub_one_is_neg_one() {
         let a = F::neg(&F::one());
         let b = F::zero();
         let c = F::sub(&a, &b);
@@ -292,14 +297,14 @@ mod tests {
     }
 
     #[test]
-    fn mul_2_3_is_6() {
+    fn mul_two_three_is_six() {
         let a = F::from_base_type(2);
         let b = F::from_base_type(3);
         assert_eq!(a * b, F::from_base_type(6));
     }
 
     #[test]
-    fn mul_order_neg_1() {
+    fn mul_order_neg_one() {
         let a = F::from_base_type(F::ORDER - 1);
         let b = F::from_base_type(F::ORDER - 1);
         let c = F::mul(&a, &b);
@@ -307,30 +312,30 @@ mod tests {
     }
 
     #[test]
-    fn pow_p_neg_1() {
+    fn pow_p_neg_one() {
         assert_eq!(F::pow(&F::from_base_type(2), F::ORDER - 1), F::one())
     }
 
     #[test]
-    fn inv_0_error() {
+    fn inv_zero_error() {
         let result = F::inv(&F::zero());
         assert!(matches!(result, Err(FieldError::InvZeroError)));
     }
 
     #[test]
-    fn inv_2() {
+    fn inv_two() {
         let result = F::inv(&F::from_base_type(2u64)).unwrap();
         // sage: 1 / F(2) = 9223372034707292161
         assert_eq!(result, 9223372034707292161);
     }
 
     #[test]
-    fn pow_2_3() {
+    fn pow_two_three() {
         assert_eq!(F::pow(&F::from_base_type(2), 3_u64), 8)
     }
 
     #[test]
-    fn div_1() {
+    fn div_one() {
         assert_eq!(F::div(&F::from_base_type(2), &F::from_base_type(1)), 2)
     }
 
@@ -363,11 +368,51 @@ mod tests {
     }
 
     #[test]
+    fn from_u64_zero_test() {
+        let num = F::from_u64(0);
+        assert_eq!(num, F::zero());
+    }
+
+    #[test]
+    fn from_u64_max_test() {
+        let num = F::from_u64(u64::MAX);
+        assert_eq!(num, u32::MAX as u64 - 1);
+    }
+
+    #[test]
+    fn from_u64_order_test() {
+        let num = F::from_u64(F::ORDER);
+        assert_eq!(num, F::zero());
+    }
+
+    #[test]
     fn creating_a_field_element_from_its_representative_returns_the_same_element_1() {
         let change = 1;
         let f1 = F::from_base_type(F::ORDER + change);
         let f2 = F::from_base_type(F::representative(&f1));
         assert_eq!(f1, f2);
+    }
+
+    #[test]
+    fn reduct_128() {
+        let x = u128::MAX;
+        let y = reduce_128(x);
+        // The following equalitiy sequence holds, modulo p = 2^64 - 2^32 + 1
+        // 2^128 - 1 = (2^64 - 1) * (2^64 + 1)
+        //           = (2^32 - 1 - 1) * (2^32 - 1 + 1)
+        //           = (2^32 - 2) * (2^32)
+        //           = 2^64 - 2 * 2^32
+        //           = 2^64 - 2^33
+        //           = 2^32 - 1 - 2^33
+        //           = - 2^32 - 1
+        let expected_result = F::neg(&F::add(&F::from_base_type(2_u64.pow(32)), &F::one()));
+        assert_eq!(y, expected_result);
+    }
+
+    #[test]
+    fn u64_max_as_representative_less_than_u32_max_sub_1() {
+        let f = F::from_base_type(u64::MAX);
+        assert_eq!(F::representative(&f), u32::MAX as u64 - 1)
     }
 
     #[test]
