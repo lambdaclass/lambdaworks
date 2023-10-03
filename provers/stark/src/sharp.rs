@@ -205,6 +205,13 @@ impl IsStarkProver for SHARP {
 
         (lde_trace_merkle_proofs, lde_trace_evaluations)
     }
+
+    fn sample_query_indexes<F: IsFFTField>(number_of_queries: usize, domain: &Domain<F>, transcript: &mut impl IsStarkTranscript<F>) -> Vec<usize> {    
+        let domain_size = domain.lde_roots_of_unity_coset.len() as u64;
+        (0..number_of_queries)
+        .map(|_| (transcript.sample_u64(domain_size >> 1)) as usize)
+        .collect::<Vec<usize>>()
+    }
 }
 
 pub struct SHARV {}
@@ -237,6 +244,13 @@ impl IsStarkVerifier for SHARV {
                     &evaluation,
                 )
             })
+    }
+
+    fn sample_query_indexes<F: IsFFTField>(number_of_queries: usize, domain: &Domain<F>, transcript: &mut impl IsStarkTranscript<F>) -> Vec<usize> {    
+        let domain_size = domain.lde_roots_of_unity_coset.len() as u64;
+        (0..number_of_queries)
+        .map(|_| (transcript.sample_u64(domain_size >> 1)) as usize)
+        .collect::<Vec<usize>>()
     }
 }
 

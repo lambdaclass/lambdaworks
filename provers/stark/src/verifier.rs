@@ -47,6 +47,12 @@ where
 }
 
 pub trait IsStarkVerifier {
+    fn sample_query_indexes<F: IsFFTField>(number_of_queries: usize, domain: &Domain<F>, transcript: &mut impl IsStarkTranscript<F>) -> Vec<usize> {    
+        (0..number_of_queries)
+        .map(|_| (transcript.sample_u64(domain.lde_roots_of_unity_coset.len() as u64)) as usize)
+        .collect::<Vec<usize>>()
+    }
+
     fn step_1_replay_rounds_and_recover_challenges<F, A>(
         air: &A,
         proof: &StarkProof<F>,
@@ -163,10 +169,8 @@ pub trait IsStarkVerifier {
 
         // FRI query phase
         // <<<< Send challenges 𝜄ₛ (iota_s)
-        let iota_max: usize = 2_usize.pow(domain.lde_root_order);
-        let iotas: Vec<usize> = (0..air.options().fri_number_of_queries)
-            .map(|_| (transcript.sample_u64(iota_max as u64) as usize) % iota_max)
-            .collect();
+        let number_of_queries = air.options().fri_number_of_queries;
+        let iotas = Self::sample_query_indexes(number_of_queries, &domain, transcript);
 
         Challenges {
             z,

@@ -420,7 +420,6 @@ pub trait IsStarkProver {
         transcript.append_bytes(&nonce.to_be_bytes());
 
         let number_of_queries = air.options().fri_number_of_queries;
-
         let iotas = Self::sample_query_indexes(number_of_queries, &domain, transcript);
         let query_list = fri_query_phase(air, domain_size, &fri_layers, &iotas);
 
