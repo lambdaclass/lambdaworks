@@ -147,16 +147,20 @@ pub trait IsStarkVerifier {
 
         // FRI commit phase
         let merkle_roots = &proof.fri_layers_merkle_roots;
-        let zetas = merkle_roots
+        let mut zetas = merkle_roots
             .iter()
+            .skip(1)
             .map(|root| {
+                // >>>> Send challenge 𝜁ₖ
+                let element = transcript.sample_field_element();
                 // <<<< Receive commitment: [pₖ] (the first one is [p₀])
                 transcript.append_bytes(root);
-
-                // >>>> Send challenge 𝜁ₖ
-                transcript.sample_field_element()
+                element
             })
             .collect::<Vec<FieldElement<F>>>();
+
+        // >>>> Send challenge 𝜁ₙ₋₁
+        zetas.push(transcript.sample_field_element());
 
         // <<<< Receive value: pₙ
         transcript.append_field_element(&proof.fri_last_value);

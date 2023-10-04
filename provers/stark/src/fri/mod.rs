@@ -53,7 +53,7 @@ pub trait IsFri {
         fri_layer_list.push(current_layer.clone());
         let mut current_poly = p_0;
         // >>>> Send commitment: [p₀]
-        transcript.append_bytes(&current_layer.merkle_tree.root);
+        // transcript.append_bytes(&current_layer.merkle_tree.root);
 
         let mut coset_offset = coset_offset.clone();
 
