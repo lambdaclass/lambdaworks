@@ -16,6 +16,8 @@ use rayon::prelude::{IndexedParallelIterator, IntoParallelRefIterator, ParallelI
 
 #[cfg(debug_assertions)]
 use crate::debug::validate_trace;
+use crate::fri::fri_commitment::FriLayer;
+use crate::fri::{Fri, IsFri};
 use crate::transcript::IsStarkTranscript;
 
 use super::config::{BatchedMerkleTree, Commitment};
@@ -23,7 +25,6 @@ use super::constraints::evaluator::ConstraintEvaluator;
 use super::domain::Domain;
 use super::frame::Frame;
 use super::fri::fri_decommit::FriDecommitment;
-use super::fri::{fri_commit_phase, fri_query_phase};
 use super::grinding::generate_nonce_with_grinding;
 use super::proof::options::ProofOptions;
 use super::proof::stark::{DeepPolynomialOpenings, StarkProof};
@@ -74,6 +75,28 @@ pub struct Round4<F: IsFFTField> {
 }
 
 pub trait IsStarkProver {
+    fn fri_commit_phase<F>(
+        number_layers: usize,
+        p_0: Polynomial<FieldElement<F>>,
+        transcript: &mut impl IsStarkTranscript<F>,
+        coset_offset: &FieldElement<F>,
+        domain_size: usize,
+    ) -> (FieldElement<F>, Vec<FriLayer<F>>)
+    where
+        F: IsFFTField,
+        FieldElement<F>: Serializable,
+    {
+        Fri::fri_commit_phase(number_layers, p_0, transcript, &coset_offset, domain_size)
+    }
+
+    fn fri_query_phase<F>(fri_layers: &Vec<FriLayer<F>>, iotas: &[usize]) -> Vec<FriDecommitment<F>>
+    where
+        F: IsFFTField,
+        FieldElement<F>: Serializable,
+    {
+        Fri::fri_query_phase(fri_layers, iotas)
+    }
+
     fn batch_commit<F>(vectors: &[Vec<FieldElement<F>>]) -> (BatchedMerkleTree<F>, Commitment)
     where
         F: IsFFTField,
@@ -245,7 +268,7 @@ pub trait IsStarkProver {
 
     fn commit_composition_polynomial<F>(
         lde_composition_poly_parts_evaluations: &[Vec<FieldElement<F>>],
-        domain: &Domain<F>,
+        _domain: &Domain<F>,
     ) -> (BatchedMerkleTree<F>, Commitment)
     where
         F: IsFFTField,
@@ -258,7 +281,6 @@ pub trait IsStarkProver {
             let mut row = Vec::new();
             for j in 0..number_of_parts {
                 row.push(lde_composition_poly_parts_evaluations[j][i].clone());
-                println!("{:?}", lde_composition_poly_parts_evaluations[j][i]);
             }
             lde_composition_poly_evaluations.push(row);
         }
@@ -404,7 +426,7 @@ pub trait IsStarkProver {
         let domain_size = domain.lde_roots_of_unity_coset.len();
 
         // FRI commit and query phases
-        let (fri_last_value, fri_layers) = fri_commit_phase(
+        let (fri_last_value, fri_layers) = Self::fri_commit_phase(
             domain.root_order as usize,
             deep_composition_poly,
             transcript,
@@ -421,7 +443,7 @@ pub trait IsStarkProver {
 
         let number_of_queries = air.options().fri_number_of_queries;
         let iotas = Self::sample_query_indexes(number_of_queries, &domain, transcript);
-        let query_list = fri_query_phase(air, domain_size, &fri_layers, &iotas);
+        let query_list = Self::fri_query_phase(&fri_layers, &iotas);
 
         let fri_layers_merkle_roots: Vec<_> = fri_layers
             .iter()
@@ -440,10 +462,14 @@ pub trait IsStarkProver {
         }
     }
 
-    fn sample_query_indexes<F: IsFFTField>(number_of_queries: usize, domain: &Domain<F>, transcript: &mut impl IsStarkTranscript<F>) -> Vec<usize> {    
+    fn sample_query_indexes<F: IsFFTField>(
+        number_of_queries: usize,
+        domain: &Domain<F>,
+        transcript: &mut impl IsStarkTranscript<F>,
+    ) -> Vec<usize> {
         (0..number_of_queries)
-        .map(|_| (transcript.sample_u64(domain.lde_roots_of_unity_coset.len() as u64)) as usize)
-        .collect::<Vec<usize>>()
+            .map(|_| (transcript.sample_u64(domain.lde_roots_of_unity_coset.len() as u64)) as usize)
+            .collect::<Vec<usize>>()
     }
 
     /// Returns the DEEP composition polynomial that the prover then commits to using
@@ -571,7 +597,7 @@ pub trait IsStarkProver {
     }
 
     fn open_composition_poly<F>(
-        domain: &Domain<F>,
+        _domain: &Domain<F>,
         composition_poly_merkle_tree: &BatchedMerkleTree<F>,
         lde_composition_poly_evaluations: &[Vec<FieldElement<F>>],
         index: usize,
@@ -594,14 +620,14 @@ pub trait IsStarkProver {
     }
 
     fn open_trace_polys<F>(
-        domain: &Domain<F>,
+        _domain: &Domain<F>,
         lde_trace_merkle_trees: &Vec<BatchedMerkleTree<F>>,
         lde_trace: &TraceTable<F>,
         index: usize,
     ) -> (Vec<Proof<Commitment>>, Vec<FieldElement<F>>)
     where
         F: IsFFTField,
-        FieldElement<F>: Serializable
+        FieldElement<F>: Serializable,
     {
         let lde_trace_evaluations = lde_trace.get_row(index).to_vec();
 
@@ -632,18 +658,19 @@ pub trait IsStarkProver {
             .map(|index_to_open| {
                 let index = index_to_open % domain.lde_roots_of_unity_coset.len();
 
-                let (lde_composition_poly_proof, lde_composition_poly_parts_evaluation) = Self::open_composition_poly(
-                    domain,
-                    &round_2_result.composition_poly_merkle_tree,
-                    &round_2_result.lde_composition_poly_evaluations,
-                    index,
-                );
+                let (lde_composition_poly_proof, lde_composition_poly_parts_evaluation) =
+                    Self::open_composition_poly(
+                        domain,
+                        &round_2_result.composition_poly_merkle_tree,
+                        &round_2_result.lde_composition_poly_evaluations,
+                        index,
+                    );
 
                 let (lde_trace_merkle_proofs, lde_trace_evaluations) = Self::open_trace_polys(
                     domain,
                     &round_1_result.lde_trace_merkle_trees,
                     &round_1_result.lde_trace,
-                    index
+                    index,
                 );
 
                 DeepPolynomialOpenings {

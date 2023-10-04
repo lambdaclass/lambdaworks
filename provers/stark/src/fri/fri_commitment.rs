@@ -1,10 +1,8 @@
 use lambdaworks_math::{
-    fft::polynomial::FFTPoly,
     field::{
         element::FieldElement,
         traits::{IsFFTField, IsField},
     },
-    polynomial::Polynomial,
     traits::Serializable,
 };
 
@@ -28,20 +26,15 @@ where
     FieldElement<F>: Serializable,
 {
     pub fn new(
-        poly: &Polynomial<FieldElement<F>>,
-        coset_offset: &FieldElement<F>,
+        evaluation: &[FieldElement<F>],
+        merkle_tree: FriMerkleTree<F>,
+        coset_offset: FieldElement<F>,
         domain_size: usize,
     ) -> Self {
-        let evaluation = poly
-            .evaluate_offset_fft(1, Some(domain_size), coset_offset)
-            .unwrap(); // TODO: return error
-
-        let merkle_tree = FriMerkleTree::build(&evaluation);
-
         Self {
-            evaluation,
+            evaluation: evaluation.to_vec(),
             merkle_tree,
-            coset_offset: coset_offset.clone(),
+            coset_offset,
             domain_size,
         }
     }

@@ -12,9 +12,8 @@ use crate::{
     proof::stark::StarkProof,
     prover::IsStarkProver,
     trace::TraceTable,
-    traits::AIR,
     transcript::IsStarkTranscript,
-    verifier::{Challenges, IsStarkVerifier},
+    verifier::IsStarkVerifier,
 };
 
 pub struct SHARP;
@@ -152,11 +151,11 @@ impl IsStarkProver for SHARP {
         domain: &Domain<F>,
         composition_poly_merkle_tree: &BatchedMerkleTree<F>,
         lde_composition_poly_evaluations: &[Vec<FieldElement<F>>],
-        index: usize
+        index: usize,
     ) -> (Proof<Commitment>, Vec<FieldElement<F>>)
     where
         F: IsFFTField,
-        FieldElement<F>: Serializable
+        FieldElement<F>: Serializable,
     {
         let permutation = Self::get_stone_prover_domain_permutation(
             domain.interpolation_domain_size,
@@ -178,7 +177,6 @@ impl IsStarkProver for SHARP {
         (proof, lde_composition_poly_parts_evaluation)
     }
 
-
     fn open_trace_polys<F>(
         domain: &Domain<F>,
         lde_trace_merkle_trees: &Vec<BatchedMerkleTree<F>>,
@@ -187,9 +185,12 @@ impl IsStarkProver for SHARP {
     ) -> (Vec<Proof<Commitment>>, Vec<FieldElement<F>>)
     where
         F: IsFFTField,
-        FieldElement<F>: Serializable
+        FieldElement<F>: Serializable,
     {
-        let permutation = Self::get_stone_prover_domain_permutation(domain.interpolation_domain_size, domain.blowup_factor);
+        let permutation = Self::get_stone_prover_domain_permutation(
+            domain.interpolation_domain_size,
+            domain.blowup_factor,
+        );
         let lde_trace_evaluations = lde_trace.get_row(permutation[index * 2]).to_vec();
 
         let index = index;
@@ -206,11 +207,15 @@ impl IsStarkProver for SHARP {
         (lde_trace_merkle_proofs, lde_trace_evaluations)
     }
 
-    fn sample_query_indexes<F: IsFFTField>(number_of_queries: usize, domain: &Domain<F>, transcript: &mut impl IsStarkTranscript<F>) -> Vec<usize> {    
+    fn sample_query_indexes<F: IsFFTField>(
+        number_of_queries: usize,
+        domain: &Domain<F>,
+        transcript: &mut impl IsStarkTranscript<F>,
+    ) -> Vec<usize> {
         let domain_size = domain.lde_roots_of_unity_coset.len() as u64;
         (0..number_of_queries)
-        .map(|_| (transcript.sample_u64(domain_size >> 1)) as usize)
-        .collect::<Vec<usize>>()
+            .map(|_| (transcript.sample_u64(domain_size >> 1)) as usize)
+            .collect::<Vec<usize>>()
     }
 }
 
@@ -227,11 +232,6 @@ impl IsStarkVerifier for SHARV {
         F: IsFFTField,
         FieldElement<F>: Serializable,
     {
-        // TODO: this is for the POC. Blowup factor should be more easily accesible from the
-        // verifier
-        let blowup_factor = proof.trace_length / lde_trace_evaluations[0].len();
-        let permutation =
-            SHARP::get_stone_prover_domain_permutation(proof.trace_length, blowup_factor);
         proof
             .lde_trace_merkle_roots
             .iter()
@@ -246,11 +246,15 @@ impl IsStarkVerifier for SHARV {
             })
     }
 
-    fn sample_query_indexes<F: IsFFTField>(number_of_queries: usize, domain: &Domain<F>, transcript: &mut impl IsStarkTranscript<F>) -> Vec<usize> {    
+    fn sample_query_indexes<F: IsFFTField>(
+        number_of_queries: usize,
+        domain: &Domain<F>,
+        transcript: &mut impl IsStarkTranscript<F>,
+    ) -> Vec<usize> {
         let domain_size = domain.lde_roots_of_unity_coset.len() as u64;
         (0..number_of_queries)
-        .map(|_| (transcript.sample_u64(domain_size >> 1)) as usize)
-        .collect::<Vec<usize>>()
+            .map(|_| (transcript.sample_u64(domain_size >> 1)) as usize)
+            .collect::<Vec<usize>>()
     }
 }
 
@@ -270,7 +274,7 @@ pub mod tests {
         sharp::{SHARP, SHARV},
         traits::AIR,
         transcript::StoneProverTranscript,
-        verifier::{IsStarkVerifier, Verifier},
+        verifier::IsStarkVerifier,
     };
 
     fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
@@ -370,12 +374,14 @@ pub mod tests {
         )
         .unwrap();
 
-        assert!(SHARV::verify::<Stark252PrimeField, Fibonacci2ColsShifted<_>>(
-            &proof,
-            &pub_inputs,
-            &proof_options,
-            StoneProverTranscript::new(&transcript_init_seed)
-        ));
+        assert!(
+            SHARV::verify::<Stark252PrimeField, Fibonacci2ColsShifted<_>>(
+                &proof,
+                &pub_inputs,
+                &proof_options,
+                StoneProverTranscript::new(&transcript_init_seed)
+            )
+        );
     }
 
     #[test]

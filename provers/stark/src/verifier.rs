@@ -17,7 +17,6 @@ use lambdaworks_math::{
 use crate::{
     config::Commitment,
     proof::stark::DeepPolynomialOpenings,
-    prover::{IsStarkProver, Prover},
     transcript::IsStarkTranscript,
 };
 
@@ -351,7 +350,7 @@ pub trait IsStarkVerifier {
     }
 
     fn verify_composition_poly_opening<F>(
-        domain: &Domain<F>,
+        _domain: &Domain<F>,
         lde_composition_poly_proof: &Proof<Commitment>,
         composition_poly_merkle_root: &Commitment,
         iota: &usize,
