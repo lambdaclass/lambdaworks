@@ -476,11 +476,25 @@ pub mod tests {
                 "1c0b7c2275e36d62dfb48c791be122169dcc00c616c63f8efb2c2a504687e85",
             )
         );
+
+        // gamma
         assert_eq!(
-            challenges.gammas[0],
+            challenges.trace_term_coeffs[0][0],
             FieldElement::from_hex_unchecked(
                 "a0c79c1c77ded19520873d9c2440451974d23302e451d13e8124cf82fc15dd"
             )
-        )
+        );
+
+        assert_eq!(
+            challenges.zetas[0],
+            FieldElement::from_hex_unchecked(
+                "5c6b5a66c9fda19f583f0b10edbaade98d0e458288e62c2fa40e3da2b293cef"
+            )
+        );
+
+        // assert_eq!(
+        //     proof.fri_layers_merkle_roots[1].to_vec(),
+        //     decode_hex("49c5672520e20eccc72aa28d6fa0d7ef446f1ede38d7c64fbb95d0f34a281803").unwrap()
+        // );
     }
 }

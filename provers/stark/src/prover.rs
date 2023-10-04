@@ -316,7 +316,7 @@ pub trait IsStarkProver {
         let composition_poly =
             constraint_evaluations.compute_composition_poly(&domain.coset_offset);
 
-        let number_of_parts = 1;
+        let number_of_parts = 2;
         let composition_poly_parts = composition_poly.break_in_parts(number_of_parts);
         let lde_composition_poly_parts_evaluations: Vec<_> = composition_poly_parts
             .iter()
@@ -400,16 +400,22 @@ pub trait IsStarkProver {
         let coset_offset_u64 = air.context().proof_options.coset_offset;
         let coset_offset = FieldElement::<F>::from(coset_offset_u64);
 
+        let gamma = transcript.sample_field_element();
+        let n_terms_composition_poly = round_2_result.lde_composition_poly_evaluations.len();
+        let n_terms_trace = air.context().transition_offsets.len() * air.context().trace_columns;
+
         // <<<< Receive challenges: 𝛾, 𝛾'
-        let gammas: Vec<_> = (0..round_2_result.lde_composition_poly_evaluations.len())
-            .map(|_| transcript.sample_field_element())
+        let mut deep_composition_coefficients: Vec<_> =
+            core::iter::successors(Some(FieldElement::one()), |x| Some(x * &gamma))
+                .take(n_terms_composition_poly + n_terms_trace)
+                .collect();
+
+        let gammas: Vec<_> = deep_composition_coefficients
+            .drain(..n_terms_composition_poly)
             .collect();
 
         // <<<< Receive challenges: 𝛾ⱼ, 𝛾ⱼ'
-        let trace_poly_coeffients = batch_sample_challenges::<F>(
-            air.context().transition_offsets.len() * air.context().trace_columns,
-            transcript,
-        );
+        let trace_poly_coeffients = deep_composition_coefficients;
 
         // Compute p₀ (deep composition polynomial)
         let deep_composition_poly = Self::compute_deep_composition_poly(
@@ -757,9 +763,10 @@ pub trait IsStarkProver {
 
         let num_transition_constraints = air.context().num_transition_constraints;
 
-        let mut coefficients: Vec<_> = (0..num_boundary_constraints + num_transition_constraints)
-            .map(|i| beta.pow(i))
-            .collect();
+        let mut coefficients: Vec<_> =
+            core::iter::successors(Some(FieldElement::one()), |x| Some(x * &beta))
+                .take(num_boundary_constraints + num_transition_constraints)
+                .collect();
 
         let transition_coefficients: Vec<_> =
             coefficients.drain(..num_transition_constraints).collect();

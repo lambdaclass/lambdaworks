@@ -125,25 +125,27 @@ pub trait IsStarkVerifier {
         // ==========|   Round 4   |==========
         // ===================================
 
-        // >>>> Send challenges: 𝛾, 𝛾'
-        let gammas: Vec<_> = (0..proof.composition_poly_parts_ood_evaluation.len())
-            .map(|_| transcript.sample_field_element())
+        let n_terms_composition_poly = proof.composition_poly_parts_ood_evaluation.len();
+        let n_terms_trace = air.context().transition_offsets.len() * air.context().trace_columns;
+        let gamma = transcript.sample_field_element();
+
+        // <<<< Receive challenges: 𝛾, 𝛾'
+        let mut deep_composition_coefficients: Vec<_> =
+            core::iter::successors(Some(FieldElement::one()), |x| Some(x * &gamma))
+                .take(n_terms_composition_poly + n_terms_trace)
+                .collect();
+
+        let gammas: Vec<_> = deep_composition_coefficients
+            .drain(..n_terms_composition_poly)
             .collect();
 
-        // >>>> Send challenges: 𝛾ⱼ, 𝛾ⱼ'
-        // Get the number of trace terms the DEEP composition poly will have.
-        // One coefficient will be sampled for each of them.
-        // TODO: try remove this, call transcript inside for and move gamma declarations
-        let trace_term_coeffs = (0..total_columns)
-            .map(|_| {
-                (0..air.context().transition_offsets.len())
-                    .map(|_| transcript.sample_field_element())
-                    .collect()
-            })
-            .collect::<Vec<Vec<FieldElement<F>>>>();
+        // <<<< Receive challenges: 𝛾ⱼ, 𝛾ⱼ'
+        let trace_term_coeffs: Vec<_> = deep_composition_coefficients
+            .chunks(air.context().trace_columns)
+            .map(|chunk| chunk.to_vec())
+            .collect();
 
         // FRI commit phase
-
         let merkle_roots = &proof.fri_layers_merkle_roots;
         let zetas = merkle_roots
             .iter()
