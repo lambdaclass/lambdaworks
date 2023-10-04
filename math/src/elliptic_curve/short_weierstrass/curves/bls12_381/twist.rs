@@ -95,7 +95,7 @@ impl ShortWeierstrassProjectivePoint<BLS12381TwistCurve> {
         let seed_times_p = self.operate_with_self(SEED);
         let psi_plus_seed_times_p = self.psi().operate_with(&seed_times_p);
 
-        psi_plus_seed_times_p.z() == &FieldElement::zero()
+        BLS12381TwistCurve::is_on_curve(&psi_plus_seed_times_p)
     }
 
     /// This function is related to the map ψ: E_twist(𝔽p²) -> E(𝔽p¹²).

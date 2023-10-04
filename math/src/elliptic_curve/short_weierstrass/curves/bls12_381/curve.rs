@@ -25,7 +25,10 @@ pub const CUBE_ROOT_OF_UNITY_G2_SQUARE: BLS12381TwistCurveFieldElement =
         FieldElement::<BLS12381PrimeField>::from_hex_unchecked("0"),
     ]);
 
-/// Seed value for BLS-12 381 curve.
+/// Seed is −𝑥 where 𝑥 is the parameter of the construction 6.6 for 𝑘 ≡ 0(mod6)
+/// given in https://theory.stanford.edu/~dfreeman/papers/taxonomy.pdf (p. 27).
+/// Order of prime subgroup: 𝑟(x) = 𝜙(x).
+/// Size of the extension field: 𝑞(𝑥) = 1∕3(𝑥 − 1)²(𝑥ᵏᐟ³ − 𝑥ᵏᐟ⁶ + 1) + 𝑥. 
 pub const SEED: u128 = 0xd201000000010000;
 
 /// The description of the curve.
