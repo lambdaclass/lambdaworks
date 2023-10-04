@@ -141,7 +141,7 @@ pub trait IsStarkVerifier {
 
         // <<<< Receive challenges: 𝛾ⱼ, 𝛾ⱼ'
         let trace_term_coeffs: Vec<_> = deep_composition_coefficients
-            .chunks(air.context().trace_columns)
+            .chunks(air.context().transition_offsets.len())
             .map(|chunk| chunk.to_vec())
             .collect();
 
