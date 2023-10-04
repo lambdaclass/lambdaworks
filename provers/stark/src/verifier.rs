@@ -15,9 +15,7 @@ use lambdaworks_math::{
 };
 
 use crate::{
-    config::Commitment,
-    proof::stark::DeepPolynomialOpenings,
-    transcript::IsStarkTranscript,
+    config::Commitment, proof::stark::DeepPolynomialOpenings, transcript::IsStarkTranscript,
 };
 
 use super::{
@@ -46,10 +44,14 @@ where
 }
 
 pub trait IsStarkVerifier {
-    fn sample_query_indexes<F: IsFFTField>(number_of_queries: usize, domain: &Domain<F>, transcript: &mut impl IsStarkTranscript<F>) -> Vec<usize> {    
+    fn sample_query_indexes<F: IsFFTField>(
+        number_of_queries: usize,
+        domain: &Domain<F>,
+        transcript: &mut impl IsStarkTranscript<F>,
+    ) -> Vec<usize> {
         (0..number_of_queries)
-        .map(|_| (transcript.sample_u64(domain.lde_roots_of_unity_coset.len() as u64)) as usize)
-        .collect::<Vec<usize>>()
+            .map(|_| (transcript.sample_u64(domain.lde_roots_of_unity_coset.len() as u64)) as usize)
+            .collect::<Vec<usize>>()
     }
 
     fn step_1_replay_rounds_and_recover_challenges<F, A>(
@@ -88,10 +90,9 @@ pub trait IsStarkVerifier {
 
         let num_transition_constraints = air.context().num_transition_constraints;
 
-        let mut coefficients: Vec<_> =
-            (0..num_boundary_constraints + num_transition_constraints)
-                .map(|i| beta.pow(i))
-                .collect();
+        let mut coefficients: Vec<_> = (0..num_boundary_constraints + num_transition_constraints)
+            .map(|i| beta.pow(i))
+            .collect();
 
         let transition_coeffs: Vec<_> = coefficients.drain(..num_transition_constraints).collect();
         let boundary_coeffs = coefficients;
@@ -109,15 +110,15 @@ pub trait IsStarkVerifier {
             &domain.trace_roots_of_unity,
         );
 
+        // <<<< Receive values: tⱼ(zgᵏ)
+        for i in 0..proof.trace_ood_frame_evaluations.num_columns() {
+            for j in 0..proof.trace_ood_frame_evaluations.num_rows() {
+                transcript.append_field_element(&proof.trace_ood_frame_evaluations.get_row(j)[i]);
+            }
+        }
         // <<<< Receive value: Hᵢ(z^N)
         for element in proof.composition_poly_parts_ood_evaluation.iter() {
             transcript.append_field_element(element);
-        }
-        // <<<< Receive values: tⱼ(zgᵏ)
-        for i in 0..proof.trace_ood_frame_evaluations.num_rows() {
-            for element in proof.trace_ood_frame_evaluations.get_row(i).iter() {
-                transcript.append_field_element(element);
-            }
         }
 
         // ===================================
@@ -354,11 +355,11 @@ pub trait IsStarkVerifier {
         lde_composition_poly_proof: &Proof<Commitment>,
         composition_poly_merkle_root: &Commitment,
         iota: &usize,
-        evaluations: &Vec<FieldElement<F>>
+        evaluations: &Vec<FieldElement<F>>,
     ) -> bool
     where
         F: IsFFTField,
-        FieldElement<F>: Serializable
+        FieldElement<F>: Serializable,
     {
         lde_composition_poly_proof.verify::<BatchedMerkleTreeBackend<F>>(
             composition_poly_merkle_root,

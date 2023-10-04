@@ -316,7 +316,7 @@ pub trait IsStarkProver {
         let composition_poly =
             constraint_evaluations.compute_composition_poly(&domain.coset_offset);
 
-        let number_of_parts = 2;
+        let number_of_parts = 1;
         let composition_poly_parts = composition_poly.break_in_parts(number_of_parts);
         let lde_composition_poly_parts_evaluations: Vec<_> = composition_poly_parts
             .iter()
@@ -804,16 +804,16 @@ pub trait IsStarkProver {
             &z,
         );
 
+        // >>>> Send values: tⱼ(zgᵏ)
+        for i in 0..round_3_result.trace_ood_evaluations[0].len() {
+            for j in 0..round_3_result.trace_ood_evaluations.len() {
+                transcript.append_field_element(&round_3_result.trace_ood_evaluations[j][i]);
+            }
+        }
+
         // >>>> Send values: Hᵢ(z^N)
         for element in round_3_result.composition_poly_parts_ood_evaluation.iter() {
             transcript.append_field_element(element);
-        }
-
-        // >>>> Send values: tⱼ(zgᵏ)
-        for row in round_3_result.trace_ood_evaluations.iter() {
-            for element in row.iter() {
-                transcript.append_field_element(element);
-            }
         }
 
         #[cfg(feature = "instruments")]
