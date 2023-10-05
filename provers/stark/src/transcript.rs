@@ -4,7 +4,7 @@ use lambdaworks_math::{
         fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
         traits::{IsFFTField, IsField},
     },
-    traits::ByteConversion,
+    traits::{ByteConversion, Serializable},
     unsigned_integer::element::U256,
 };
 use sha3::{Digest, Keccak256};
@@ -21,7 +21,7 @@ pub trait IsStarkTranscript<F: IsField> {
         trace_roots_of_unity: &[FieldElement<F>],
     ) -> FieldElement<F>
     where
-        FieldElement<F>: ByteConversion,
+        FieldElement<F>: Serializable,
     {
         loop {
             let value: FieldElement<F> = self.sample_field_element();
@@ -155,7 +155,7 @@ pub fn batch_sample_challenges<F: IsFFTField>(
     transcript: &mut impl IsStarkTranscript<F>,
 ) -> Vec<FieldElement<F>>
 where
-    FieldElement<F>: ByteConversion,
+    FieldElement<F>: Serializable,
 {
     (0..size)
         .map(|_| transcript.sample_field_element())
@@ -289,7 +289,7 @@ mod tests {
         // This corresponds to the following run.
         // Air: `Fibonacci2ColsShifted`
         // `trace_length`: 4
-        // `blowup_factor`: 2
+        // `blowup_factor`: 4
         // `fri_number_of_queries`: 1
         let mut transcript = StoneProverTranscript::new(&[0xca, 0xfe, 0xca, 0xfe]);
         // Send hash of trace commitment
@@ -304,7 +304,7 @@ mod tests {
                 "86105fff7b04ed4068ecccb8dbf1ed223bd45cd26c3532d6c80a818dbd4fa7"
             )
         );
-        // Send hash of composition poly commitment H(z)
+        // Send hash of composition poly commitment H
         transcript.append_bytes(
             &decode_hex("7cdd8d5fe3bd62254a417e2e260e0fed4fccdb6c9005e828446f645879394f38")
                 .unwrap(),
@@ -374,7 +374,7 @@ mod tests {
         // This corresponds to the following run.
         // Air: `Fibonacci2ColsShifted`
         // `trace_length`: 4
-        // `blowup_factor`: 6
+        // `blowup_factor`: 64
         // `fri_number_of_queries`: 2
         let mut transcript = StoneProverTranscript::new(&[0xfa, 0xfa, 0xfa, 0xee]);
         // Send hash of trace commitment
