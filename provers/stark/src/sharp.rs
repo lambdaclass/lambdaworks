@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 use lambdaworks_crypto::merkle_tree::{proof::Proof, traits::IsMerkleTreeBackend};
 use lambdaworks_math::{
     fft::{cpu::bit_reversing::in_place_bit_reverse_permute, polynomial::FFTPoly},
@@ -9,7 +11,7 @@ use lambdaworks_math::{
 use crate::{
     config::{BatchedMerkleTree, BatchedMerkleTreeBackend, Commitment, FriMerkleTree},
     domain::Domain,
-    fri::{fri_commitment::FriLayer, IsFri},
+    fri::{fri_commitment::FriLayer, IsFri, fri_decommit::FriDecommitment},
     proof::stark::StarkProof,
     prover::IsStarkProver,
     trace::TraceTable,
@@ -17,9 +19,15 @@ use crate::{
     verifier::IsStarkVerifier,
 };
 
-pub struct SHARP;
+pub struct SHARP<F: IsFFTField> {
+    phantom: PhantomData<F>
+}
 
-impl SHARP {
+impl<F> SHARP<F> 
+where
+    F: IsFFTField,
+    FieldElement<F>: Serializable
+{
     fn apply_permutation<T: Clone>(vector: &mut Vec<T>, permutation: &[usize]) {
         assert_eq!(
             vector.len(),
@@ -64,18 +72,21 @@ impl SHARP {
     }
 }
 
-impl IsStarkProver for SHARP {
-    fn fri_commit_phase<F, B>(
+impl<F> IsStarkProver for SHARP<F>
+where
+    F: IsFFTField,
+    FieldElement<F>: Serializable
+{
+    type Field = F;
+    type MerkleTreeBackend = BatchedMerkleTreeBackend<F>;
+
+    fn fri_commit_phase(
         number_layers: usize,
-        p_0: Polynomial<FieldElement<F>>,
-        transcript: &mut impl IsStarkTranscript<F>,
-        coset_offset: &FieldElement<F>,
+        p_0: Polynomial<FieldElement<Self::Field>>,
+        transcript: &mut impl IsStarkTranscript<Self::Field>,
+        coset_offset: &FieldElement<Self::Field>,
         domain_size: usize,
-    ) -> (FieldElement<F>, Vec<FriLayer<F, B>>)
-    where
-        F: IsFFTField,
-        FieldElement<F>: Serializable,
-        B: IsMerkleTreeBackend
+    ) -> (FieldElement<Self::Field>, Vec<FriLayer<Self::Field, Self::MerkleTreeBackend>>)
     {
         SHARPCompatibleFri::fri_commit_phase(
             number_layers,
@@ -85,21 +96,26 @@ impl IsStarkProver for SHARP {
             domain_size,
         )
     }
+    
+    fn fri_query_phase(fri_layers: &Vec<FriLayer<Self::Field, Self::MerkleTreeBackend>>, iotas: &[usize]) -> Vec<FriDecommitment<Self::Field>>
+    {
+        SHARPCompatibleFri::fri_query_phase(fri_layers, iotas)
+    }
 
     #[allow(clippy::type_complexity)]
-    fn interpolate_and_commit<F>(
-        trace: &TraceTable<F>,
-        domain: &Domain<F>,
-        transcript: &mut impl IsStarkTranscript<F>,
+    fn interpolate_and_commit(
+        trace: &TraceTable<Self::Field>,
+        domain: &Domain<Self::Field>,
+        transcript: &mut impl IsStarkTranscript<Self::Field>,
     ) -> (
-        Vec<Polynomial<FieldElement<F>>>,
-        Vec<Vec<FieldElement<F>>>,
+        Vec<Polynomial<FieldElement<Self::Field>>>,
+        Vec<Vec<FieldElement<Self::Field>>>,
         BatchedMerkleTree<F>,
         Commitment,
     )
     where
         F: IsFFTField,
-        FieldElement<F>: Serializable + Send + Sync,
+        FieldElement<Self::Field>: Serializable + Send + Sync,
     {
         let trace_polys = trace.compute_trace_polys();
 
@@ -132,13 +148,13 @@ impl IsStarkProver for SHARP {
         )
     }
 
-    fn commit_composition_polynomial<F>(
-        lde_composition_poly_parts_evaluations: &[Vec<FieldElement<F>>],
+    fn commit_composition_polynomial(
+        lde_composition_poly_parts_evaluations: &[Vec<FieldElement<Self::Field>>],
         domain: &Domain<F>,
     ) -> (BatchedMerkleTree<F>, Commitment)
     where
         F: IsFFTField,
-        FieldElement<F>: Serializable,
+        FieldElement<Self::Field>: Serializable,
     {
         // TODO: Remove clones
         let number_of_parts = lde_composition_poly_parts_evaluations.len();
@@ -169,15 +185,15 @@ impl IsStarkProver for SHARP {
         Self::batch_commit(&lde_composition_poly_evaluations_merged)
     }
 
-    fn open_composition_poly<F>(
+    fn open_composition_poly(
         domain: &Domain<F>,
         composition_poly_merkle_tree: &BatchedMerkleTree<F>,
-        lde_composition_poly_evaluations: &[Vec<FieldElement<F>>],
+        lde_composition_poly_evaluations: &[Vec<FieldElement<Self::Field>>],
         index: usize,
-    ) -> (Proof<Commitment>, Vec<FieldElement<F>>)
+    ) -> (Proof<Commitment>, Vec<FieldElement<Self::Field>>)
     where
         F: IsFFTField,
-        FieldElement<F>: Serializable,
+        FieldElement<Self::Field>: Serializable,
     {
         let permutation = Self::get_stone_prover_domain_permutation(
             domain.interpolation_domain_size,
@@ -199,15 +215,15 @@ impl IsStarkProver for SHARP {
         (proof, lde_composition_poly_parts_evaluation)
     }
 
-    fn open_trace_polys<F>(
-        domain: &Domain<F>,
+    fn open_trace_polys(
+        domain: &Domain<Self::Field>,
         lde_trace_merkle_trees: &Vec<BatchedMerkleTree<F>>,
-        lde_trace: &TraceTable<F>,
+        lde_trace: &TraceTable<Self::Field>,
         index: usize,
-    ) -> (Vec<Proof<Commitment>>, Vec<FieldElement<F>>)
+    ) -> (Vec<Proof<Commitment>>, Vec<FieldElement<Self::Field>>)
     where
         F: IsFFTField,
-        FieldElement<F>: Serializable,
+        FieldElement<Self::Field>: Serializable,
     {
         let permutation = Self::get_stone_prover_domain_permutation(
             domain.interpolation_domain_size,
@@ -229,10 +245,10 @@ impl IsStarkProver for SHARP {
         (lde_trace_merkle_proofs, lde_trace_evaluations)
     }
 
-    fn sample_query_indexes<F: IsFFTField>(
+    fn sample_query_indexes(
         number_of_queries: usize,
-        domain: &Domain<F>,
-        transcript: &mut impl IsStarkTranscript<F>,
+        domain: &Domain<Self::Field>,
+        transcript: &mut impl IsStarkTranscript<Self::Field>,
     ) -> Vec<usize> {
         let domain_size = domain.lde_roots_of_unity_coset.len() as u64;
         (0..number_of_queries)
@@ -280,15 +296,24 @@ impl IsStarkVerifier for SHARV {
     }
 }
 
-pub struct SHARPCompatibleFri;
+pub struct SHARPCompatibleFri<F> {
+    phantom: F
+}
 
-impl IsFri for SHARPCompatibleFri {
-    fn new_fri_layer<F>(
-        poly: &Polynomial<FieldElement<F>>,
-        coset_offset: &FieldElement<F>,
+impl<F> IsFri for SHARPCompatibleFri<F>
+where
+    F: IsFFTField,
+    FieldElement<F>: Serializable,
+{
+    type Field = F;
+    type MerkleTreeBackend = BatchedMerkleTreeBackend<F>;
+
+    fn new_fri_layer(
+        poly: &Polynomial<FieldElement<Self::Field>>,
+        coset_offset: &FieldElement<Self::Field>,
         domain_size: usize,
         degree_bound: usize,
-    ) -> crate::fri::fri_commitment::FriLayer<F, B>
+    ) -> crate::fri::fri_commitment::FriLayer<Self::Field, Self::MerkleTreeBackend>
     where
         F: IsFFTField,
         FieldElement<F>: Serializable,
@@ -307,7 +332,8 @@ impl IsFri for SHARPCompatibleFri {
             println!("{:?}", elem);
         }
 
-        let merkle_tree = FriMerkleTree::build(&evaluation);
+        // TODO: Fix leaves
+        let merkle_tree = BatchedMerkleTree::build(&vec![evaluation.clone()]);
 
         FriLayer::new(&evaluation, merkle_tree, coset_offset.clone(), domain_size)
     }
@@ -421,7 +447,7 @@ pub mod tests {
 
         let transcript_init_seed = [0xca, 0xfe, 0xca, 0xfe];
 
-        let proof = SHARP::prove::<Stark252PrimeField, Fibonacci2ColsShifted<_>>(
+        let proof = SHARP::prove::<Fibonacci2ColsShifted<_>>(
             &trace,
             &pub_inputs,
             &proof_options,
@@ -456,7 +482,7 @@ pub mod tests {
 
         let transcript_init_seed = [0xca, 0xfe, 0xca, 0xfe];
 
-        let proof = SHARP::prove::<Stark252PrimeField, Fibonacci2ColsShifted<_>>(
+        let proof = SHARP::prove::<Fibonacci2ColsShifted<_>>(
             &trace,
             &pub_inputs,
             &proof_options,

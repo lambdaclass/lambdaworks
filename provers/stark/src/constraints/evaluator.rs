@@ -271,7 +271,7 @@ fn evaluate_transition_exemptions<F: IsFFTField>(
     domain: &Domain<F>,
 ) -> Vec<Vec<FieldElement<F>>>
 where
-    FieldElement<F>: Send + Sync,
+    FieldElement<F>: Send + Sync + Serializable,
     Polynomial<FieldElement<F>>: Send + Sync,
 {
     #[cfg(feature = "parallel")]

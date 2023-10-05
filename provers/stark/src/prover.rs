@@ -77,47 +77,40 @@ pub struct Round4<F: IsFFTField> {
 }
 
 pub trait IsStarkProver {
+    type Field: IsFFTField;
     type MerkleTreeBackend: IsMerkleTreeBackend<Node = [u8; 32]> + Clone;
 
-    fn fri_commit_phase<F>(
+    fn fri_commit_phase(
         number_layers: usize,
-        p_0: Polynomial<FieldElement<F>>,
-        transcript: &mut impl IsStarkTranscript<F>,
-        coset_offset: &FieldElement<F>,
+        p_0: Polynomial<FieldElement<Self::Field>>,
+        transcript: &mut impl IsStarkTranscript<Self::Field>,
+        coset_offset: &FieldElement<Self::Field>,
         domain_size: usize,
-    ) -> (FieldElement<F>, Vec<FriLayer<F, Self::MerkleTreeBackend>>)
+    ) -> (FieldElement<Self::Field>, Vec<FriLayer<Self::Field, Self::MerkleTreeBackend>>)
     where
-        F: IsFFTField,
-        FieldElement<F>: Serializable;
+        FieldElement<Self::Field>: Serializable;
 
-    fn fri_query_phase<F, B>(fri_layers: &Vec<FriLayer<F, B>>, iotas: &[usize]) -> Vec<FriDecommitment<F>>
+    fn fri_query_phase(fri_layers: &Vec<FriLayer<Self::Field, Self::MerkleTreeBackend>>, iotas: &[usize]) -> Vec<FriDecommitment<Self::Field>>
     where
-        F: IsFFTField,
-        FieldElement<F>: Serializable,
-        B: IsMerkleTreeBackend
-    {
-        Fri::fri_query_phase(fri_layers, iotas)
-    }
+        FieldElement<Self::Field>: Serializable;
 
-    fn batch_commit<F>(vectors: &[Vec<FieldElement<F>>]) -> (BatchedMerkleTree<F>, Commitment)
+    fn batch_commit(vectors: &[Vec<FieldElement<Self::Field>>]) -> (BatchedMerkleTree<Self::Field>, Commitment)
     where
-        F: IsFFTField,
-        FieldElement<F>: Serializable,
+        FieldElement<Self::Field>: Serializable,
     {
-        let tree = BatchedMerkleTree::<F>::build(vectors);
+        let tree = BatchedMerkleTree::<Self::Field>::build(vectors);
         let commitment = tree.root;
         (tree, commitment)
     }
 
-    fn evaluate_polynomial_on_lde_domain<F>(
-        p: &Polynomial<FieldElement<F>>,
+    fn evaluate_polynomial_on_lde_domain(
+        p: &Polynomial<FieldElement<Self::Field>>,
         blowup_factor: usize,
         domain_size: usize,
-        offset: &FieldElement<F>,
-    ) -> Result<Vec<FieldElement<F>>, FFTError>
+        offset: &FieldElement<Self::Field>,
+    ) -> Result<Vec<FieldElement<Self::Field>>, FFTError>
     where
-        F: IsFFTField,
-        Polynomial<FieldElement<F>>: FFTPoly<F>,
+        Polynomial<FieldElement<Self::Field>>: FFTPoly<Self::Field>,
     {
         let evaluations = p.evaluate_offset_fft(blowup_factor, Some(domain_size), offset)?;
         let step = evaluations.len() / (domain_size * blowup_factor);
@@ -127,7 +120,7 @@ pub trait IsStarkProver {
         }
     }
 
-    fn apply_permutation<F: IsFFTField>(vector: &mut Vec<FieldElement<F>>, permutation: &[usize]) {
+    fn apply_permutation(vector: &mut Vec<FieldElement<Self::Field>>, permutation: &[usize]) {
         assert_eq!(
             vector.len(),
             permutation.len(),
@@ -169,19 +162,18 @@ pub trait IsStarkProver {
     }
 
     #[allow(clippy::type_complexity)]
-    fn interpolate_and_commit<F>(
-        trace: &TraceTable<F>,
-        domain: &Domain<F>,
-        transcript: &mut impl IsStarkTranscript<F>,
+    fn interpolate_and_commit(
+        trace: &TraceTable<Self::Field>,
+        domain: &Domain<Self::Field>,
+        transcript: &mut impl IsStarkTranscript<Self::Field>,
     ) -> (
-        Vec<Polynomial<FieldElement<F>>>,
-        Vec<Vec<FieldElement<F>>>,
-        BatchedMerkleTree<F>,
+        Vec<Polynomial<FieldElement<Self::Field>>>,
+        Vec<Vec<FieldElement<Self::Field>>>,
+        BatchedMerkleTree<Self::Field>,
         Commitment,
     )
     where
-        F: IsFFTField,
-        FieldElement<F>: Serializable + Send + Sync,
+        FieldElement<Self::Field>: Serializable + Send + Sync,
     {
         let trace_polys = trace.compute_trace_polys();
 
@@ -203,13 +195,12 @@ pub trait IsStarkProver {
         )
     }
 
-    fn compute_lde_trace_evaluations<F>(
-        trace_polys: &[Polynomial<FieldElement<F>>],
-        domain: &Domain<F>,
-    ) -> Vec<Vec<FieldElement<F>>>
+    fn compute_lde_trace_evaluations(
+        trace_polys: &[Polynomial<FieldElement<Self::Field>>],
+        domain: &Domain<Self::Field>,
+    ) -> Vec<Vec<FieldElement<Self::Field>>>
     where
-        F: IsFFTField,
-        FieldElement<F>: Send + Sync,
+        FieldElement<Self::Field>: Send + Sync,
     {
         #[cfg(not(feature = "parallel"))]
         let trace_polys_iter = trace_polys.iter();
@@ -225,18 +216,18 @@ pub trait IsStarkProver {
                     &domain.coset_offset,
                 )
             })
-            .collect::<Result<Vec<Vec<FieldElement<F>>>, FFTError>>()
+            .collect::<Result<Vec<Vec<FieldElement<Self::Field>>>, FFTError>>()
             .unwrap()
     }
 
-    fn round_1_randomized_air_with_preprocessing<F: IsFFTField, A: AIR<Field = F>>(
+    fn round_1_randomized_air_with_preprocessing<A: AIR<Field = Self::Field>>(
         air: &A,
-        main_trace: &TraceTable<F>,
-        domain: &Domain<F>,
-        transcript: &mut impl IsStarkTranscript<F>,
-    ) -> Result<Round1<F, A>, ProvingError>
+        main_trace: &TraceTable<Self::Field>,
+        domain: &Domain<Self::Field>,
+        transcript: &mut impl IsStarkTranscript<Self::Field>,
+    ) -> Result<Round1<Self::Field, A>, ProvingError>
     where
-        FieldElement<F>: Serializable + Send + Sync,
+        FieldElement<Self::Field>: Serializable + Send + Sync,
     {
         let (mut trace_polys, mut evaluations, main_merkle_tree, main_merkle_root) =
             Self::interpolate_and_commit(main_trace, domain, transcript);
@@ -268,13 +259,12 @@ pub trait IsStarkProver {
         })
     }
 
-    fn commit_composition_polynomial<F>(
-        lde_composition_poly_parts_evaluations: &[Vec<FieldElement<F>>],
-        _domain: &Domain<F>,
-    ) -> (BatchedMerkleTree<F>, Commitment)
+    fn commit_composition_polynomial(
+        lde_composition_poly_parts_evaluations: &[Vec<FieldElement<Self::Field>>],
+        _domain: &Domain<Self::Field>,
+    ) -> (BatchedMerkleTree<Self::Field>, Commitment)
     where
-        F: IsFFTField,
-        FieldElement<F>: Serializable,
+        FieldElement<Self::Field>: Serializable,
     {
         // TODO: Remove clones
         let number_of_parts = lde_composition_poly_parts_evaluations.len();
@@ -290,18 +280,17 @@ pub trait IsStarkProver {
         Self::batch_commit(&lde_composition_poly_evaluations)
     }
 
-    fn round_2_compute_composition_polynomial<F, A>(
+    fn round_2_compute_composition_polynomial<A>(
         air: &A,
-        domain: &Domain<F>,
-        round_1_result: &Round1<F, A>,
-        transition_coefficients: &[FieldElement<F>],
-        boundary_coefficients: &[FieldElement<F>],
-    ) -> Round2<F>
+        domain: &Domain<Self::Field>,
+        round_1_result: &Round1<Self::Field, A>,
+        transition_coefficients: &[FieldElement<Self::Field>],
+        boundary_coefficients: &[FieldElement<Self::Field>],
+    ) -> Round2<Self::Field>
     where
-        F: IsFFTField,
-        A: AIR<Field = F> + Send + Sync,
+        A: AIR<Field = Self::Field> + Send + Sync,
         A::RAPChallenges: Send + Sync,
-        FieldElement<F>: Serializable + Send + Sync,
+        FieldElement<Self::Field>: Serializable + Send + Sync,
     {
         // Create evaluation table
         let evaluator = ConstraintEvaluator::new(air, &round_1_result.rap_challenges);
@@ -318,7 +307,7 @@ pub trait IsStarkProver {
         let composition_poly =
             constraint_evaluations.compute_composition_poly(&domain.coset_offset);
 
-        let number_of_parts = 1;
+        let number_of_parts = 2;
         let composition_poly_parts = composition_poly.break_in_parts(number_of_parts);
         let lde_composition_poly_parts_evaluations: Vec<_> = composition_poly_parts
             .iter()
@@ -344,15 +333,15 @@ pub trait IsStarkProver {
         }
     }
 
-    fn round_3_evaluate_polynomials_in_out_of_domain_element<F: IsFFTField, A: AIR<Field = F>>(
+    fn round_3_evaluate_polynomials_in_out_of_domain_element<A: AIR<Field = Self::Field>>(
         air: &A,
-        domain: &Domain<F>,
-        round_1_result: &Round1<F, A>,
-        round_2_result: &Round2<F>,
-        z: &FieldElement<F>,
-    ) -> Round3<F>
+        domain: &Domain<Self::Field>,
+        round_1_result: &Round1<Self::Field, A>,
+        round_2_result: &Round2<Self::Field>,
+        z: &FieldElement<Self::Field>,
+    ) -> Round3<Self::Field>
     where
-        FieldElement<F>: Serializable,
+        FieldElement<Self::Field>: Serializable,
     {
         let z_power = z.pow(round_2_result.composition_poly_parts.len());
 
@@ -385,22 +374,21 @@ pub trait IsStarkProver {
     }
 
     fn round_4_compute_and_run_fri_on_the_deep_composition_polynomial<
-        F: IsFFTField,
-        A: AIR<Field = F>,
+        A: AIR<Field = Self::Field>,
     >(
         air: &A,
-        domain: &Domain<F>,
-        round_1_result: &Round1<F, A>,
-        round_2_result: &Round2<F>,
-        round_3_result: &Round3<F>,
-        z: &FieldElement<F>,
-        transcript: &mut impl IsStarkTranscript<F>,
-    ) -> Round4<F>
+        domain: &Domain<Self::Field>,
+        round_1_result: &Round1<Self::Field, A>,
+        round_2_result: &Round2<Self::Field>,
+        round_3_result: &Round3<Self::Field>,
+        z: &FieldElement<Self::Field>,
+        transcript: &mut impl IsStarkTranscript<Self::Field>,
+    ) -> Round4<Self::Field>
     where
-        FieldElement<F>: Serializable + Send + Sync,
+        FieldElement<Self::Field>: Serializable + Send + Sync,
     {
         let coset_offset_u64 = air.context().proof_options.coset_offset;
-        let coset_offset = FieldElement::<F>::from(coset_offset_u64);
+        let coset_offset = FieldElement::<Self::Field>::from(coset_offset_u64);
 
         let gamma = transcript.sample_field_element();
         let n_terms_composition_poly = round_2_result.lde_composition_poly_evaluations.len();
@@ -470,10 +458,10 @@ pub trait IsStarkProver {
         }
     }
 
-    fn sample_query_indexes<F: IsFFTField>(
+    fn sample_query_indexes(
         number_of_queries: usize,
-        domain: &Domain<F>,
-        transcript: &mut impl IsStarkTranscript<F>,
+        domain: &Domain<Self::Field>,
+        transcript: &mut impl IsStarkTranscript<Self::Field>,
     ) -> Vec<usize> {
         (0..number_of_queries)
             .map(|_| (transcript.sample_u64(domain.lde_roots_of_unity_coset.len() as u64)) as usize)
@@ -484,20 +472,19 @@ pub trait IsStarkProver {
     /// FRI. This polynomial is a linear combination of the trace polynomial and the
     /// composition polynomial, with coefficients sampled by the verifier (i.e. using Fiat-Shamir).
     #[allow(clippy::too_many_arguments)]
-    fn compute_deep_composition_poly<A, F>(
+    fn compute_deep_composition_poly<A>(
         air: &A,
-        trace_polys: &[Polynomial<FieldElement<F>>],
-        round_2_result: &Round2<F>,
-        round_3_result: &Round3<F>,
-        z: &FieldElement<F>,
-        primitive_root: &FieldElement<F>,
-        composition_poly_gammas: &[FieldElement<F>],
-        trace_terms_gammas: &[FieldElement<F>],
-    ) -> Polynomial<FieldElement<F>>
+        trace_polys: &[Polynomial<FieldElement<Self::Field>>],
+        round_2_result: &Round2<Self::Field>,
+        round_3_result: &Round3<Self::Field>,
+        z: &FieldElement<Self::Field>,
+        primitive_root: &FieldElement<Self::Field>,
+        composition_poly_gammas: &[FieldElement<Self::Field>],
+        trace_terms_gammas: &[FieldElement<Self::Field>],
+    ) -> Polynomial<FieldElement<Self::Field>>
     where
         A: AIR,
-        F: IsFFTField,
-        FieldElement<F>: Serializable + Send + Sync,
+        FieldElement<Self::Field>: Serializable + Send + Sync,
     {
         let z_power = z.pow(round_2_result.composition_poly_parts.len());
 
@@ -563,18 +550,17 @@ pub trait IsStarkProver {
         h_terms + trace_terms
     }
 
-    fn compute_trace_term<F>(
-        trace_terms: &Polynomial<FieldElement<F>>,
-        (i, t_j): (usize, &Polynomial<FieldElement<F>>),
+    fn compute_trace_term(
+        trace_terms: &Polynomial<FieldElement<Self::Field>>,
+        (i, t_j): (usize, &Polynomial<FieldElement<Self::Field>>),
         trace_frame_length: usize,
-        trace_terms_gammas: &[FieldElement<F>],
-        trace_frame_evaluations: &[Vec<FieldElement<F>>],
+        trace_terms_gammas: &[FieldElement<Self::Field>],
+        trace_frame_evaluations: &[Vec<FieldElement<Self::Field>>],
         transition_offsets: &[usize],
-        (z, primitive_root): (&FieldElement<F>, &FieldElement<F>),
-    ) -> Polynomial<FieldElement<F>>
+        (z, primitive_root): (&FieldElement<Self::Field>, &FieldElement<Self::Field>),
+    ) -> Polynomial<FieldElement<Self::Field>>
     where
-        F: IsFFTField,
-        FieldElement<F>: Serializable + Send + Sync,
+        FieldElement<Self::Field>: Serializable + Send + Sync,
     {
         let i_times_trace_frame_evaluation = i * trace_frame_length;
         let iter_trace_gammas = trace_terms_gammas
@@ -600,15 +586,14 @@ pub trait IsStarkProver {
         trace_terms + trace_int
     }
 
-    fn open_composition_poly<F>(
-        _domain: &Domain<F>,
-        composition_poly_merkle_tree: &BatchedMerkleTree<F>,
-        lde_composition_poly_evaluations: &[Vec<FieldElement<F>>],
+    fn open_composition_poly(
+        _domain: &Domain<Self::Field>,
+        composition_poly_merkle_tree: &BatchedMerkleTree<Self::Field>,
+        lde_composition_poly_evaluations: &[Vec<FieldElement<Self::Field>>],
         index: usize,
-    ) -> (Proof<Commitment>, Vec<FieldElement<F>>)
+    ) -> (Proof<Commitment>, Vec<FieldElement<Self::Field>>)
     where
-        F: IsFFTField,
-        FieldElement<F>: Serializable,
+        FieldElement<Self::Field>: Serializable,
     {
         let proof = composition_poly_merkle_tree
             .get_proof_by_pos(index)
@@ -623,15 +608,14 @@ pub trait IsStarkProver {
         (proof, lde_composition_poly_parts_evaluation)
     }
 
-    fn open_trace_polys<F>(
-        _domain: &Domain<F>,
-        lde_trace_merkle_trees: &Vec<BatchedMerkleTree<F>>,
-        lde_trace: &TraceTable<F>,
+    fn open_trace_polys(
+        _domain: &Domain<Self::Field>,
+        lde_trace_merkle_trees: &Vec<BatchedMerkleTree<Self::Field>>,
+        lde_trace: &TraceTable<Self::Field>,
         index: usize,
-    ) -> (Vec<Proof<Commitment>>, Vec<FieldElement<F>>)
+    ) -> (Vec<Proof<Commitment>>, Vec<FieldElement<Self::Field>>)
     where
-        F: IsFFTField,
-        FieldElement<F>: Serializable,
+        FieldElement<Self::Field>: Serializable,
     {
         let lde_trace_evaluations = lde_trace.get_row(index).to_vec();
 
@@ -648,14 +632,14 @@ pub trait IsStarkProver {
         (lde_trace_merkle_proofs, lde_trace_evaluations)
     }
 
-    fn open_deep_composition_poly<F: IsFFTField, A: AIR<Field = F>>(
-        domain: &Domain<F>,
-        round_1_result: &Round1<F, A>,
-        round_2_result: &Round2<F>,
+    fn open_deep_composition_poly<A: AIR<Field = Self::Field>>(
+        domain: &Domain<Self::Field>,
+        round_1_result: &Round1<Self::Field, A>,
+        round_2_result: &Round2<Self::Field>,
         indexes_to_open: &[usize], // list of iotas
-    ) -> Vec<DeepPolynomialOpenings<F>>
+    ) -> Vec<DeepPolynomialOpenings<Self::Field>>
     where
-        FieldElement<F>: Serializable,
+        FieldElement<Self::Field>: Serializable,
     {
         indexes_to_open
             .iter()
@@ -688,17 +672,16 @@ pub trait IsStarkProver {
     }
 
     // FIXME remove unwrap() calls and return errors
-    fn prove<F, A>(
-        main_trace: &TraceTable<F>,
+    fn prove<A>(
+        main_trace: &TraceTable<Self::Field>,
         pub_inputs: &A::PublicInputs,
         proof_options: &ProofOptions,
-        mut transcript: impl IsStarkTranscript<F>,
-    ) -> Result<StarkProof<F>, ProvingError>
+        mut transcript: impl IsStarkTranscript<Self::Field>,
+    ) -> Result<StarkProof<Self::Field>, ProvingError>
     where
-        F: IsFFTField,
-        A: AIR<Field = F> + Send + Sync,
+        A: AIR<Field = Self::Field> + Send + Sync,
         A::RAPChallenges: Send + Sync,
-        FieldElement<F>: Serializable + Send + Sync,
+        FieldElement<Self::Field>: Serializable + Send + Sync,
     {
         info!("Started proof generation...");
         #[cfg(feature = "instruments")]
@@ -723,7 +706,7 @@ pub trait IsStarkProver {
         #[cfg(feature = "instruments")]
         let timer1 = Instant::now();
 
-        let round_1_result = Self::round_1_randomized_air_with_preprocessing::<F, A>(
+        let round_1_result = Self::round_1_randomized_air_with_preprocessing::<A>(
             &air,
             main_trace,
             &domain,
@@ -907,10 +890,15 @@ pub struct Prover<F: IsFFTField> {
     phantom: PhantomData<F>
 }
 
-impl IsStarkProver for Prover {
+impl<F> IsStarkProver for Prover<F> 
+where
+    F: IsFFTField,
+    FieldElement<F>: Serializable
+{
+    type Field = F;
     type MerkleTreeBackend = FriMerkleTreeBackend<F>;
 
-    fn fri_commit_phase<F>(
+    fn fri_commit_phase(
         number_layers: usize,
         p_0: Polynomial<FieldElement<F>>,
         transcript: &mut impl IsStarkTranscript<F>,
@@ -922,6 +910,13 @@ impl IsStarkProver for Prover {
         FieldElement<F>: Serializable 
     {
         Fri::fri_commit_phase(number_layers, p_0, transcript, &coset_offset, domain_size)
+    }
+
+    fn fri_query_phase(fri_layers: &Vec<FriLayer<Self::Field, Self::MerkleTreeBackend>>, iotas: &[usize]) -> Vec<FriDecommitment<Self::Field>>
+    where
+        FieldElement<Self::Field>: Serializable,
+    {
+        Fri::fri_query_phase(fri_layers, iotas)
     }
 }
 
