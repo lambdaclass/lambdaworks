@@ -15,7 +15,7 @@ use lambdaworks_math::{
 };
 
 use crate::{
-    config::Commitment, proof::stark::DeepPolynomialOpenings, transcript::IsStarkTranscript,
+    config::Commitment, proof::stark::DeepPolynomialOpenings, transcript::IsStarkTranscript, grinding,
 };
 
 use super::{
@@ -167,11 +167,15 @@ pub trait IsStarkVerifier {
 
         // Receive grinding value
         // 1) Receive challenge from the transcript
-        let transcript_challenge = transcript.state();
-        let nonce = proof.nonce;
-        let leading_zeros_count =
-            hash_transcript_with_int_and_get_leading_zeros(&transcript_challenge, nonce);
-        transcript.append_bytes(&nonce.to_be_bytes());
+        let security_bits = air.context().proof_options.grinding_factor;
+        let mut leading_zeros_count = 0;
+        if security_bits > 0 {
+            let transcript_challenge = transcript.state();
+            let nonce = proof.nonce;
+            leading_zeros_count =
+                hash_transcript_with_int_and_get_leading_zeros(&transcript_challenge, nonce);
+            transcript.append_bytes(&nonce.to_be_bytes());
+        }
 
         // FRI query phase
         // <<<< Send challenges 𝜄ₛ (iota_s)

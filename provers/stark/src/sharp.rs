@@ -533,7 +533,7 @@ pub mod tests {
         let mut proof_options = ProofOptions::default_test_options();
         proof_options.blowup_factor = 4;
         proof_options.coset_offset = 3;
-        proof_options.grinding_factor = 15;
+        proof_options.grinding_factor = 0;
 
         let pub_inputs = fibonacci_2_cols_shifted::PublicInputs {
             claimed_value,
@@ -652,6 +652,15 @@ pub mod tests {
             )
         );
 
-        println!("{:?}", proof.nonce);
+        assert_eq!(
+            challenges.iotas[0],
+            1
+        );
+
+        assert_eq!(
+            proof.deep_poly_openings[0].lde_trace_evaluations[0],
+            FieldElement::from_hex_unchecked("4de0d56f9cf97dff326c26592fbd4ae9ee756080b12c51cfe4864e9b8734f43")
+        );
+        //assert_eq!(proof.query_list[0].layers_evaluations_sym);
     }
 }
