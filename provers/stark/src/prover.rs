@@ -30,7 +30,6 @@ use super::proof::options::ProofOptions;
 use super::proof::stark::{DeepPolynomialOpenings, StarkProof};
 use super::trace::TraceTable;
 use super::traits::AIR;
-use super::transcript::batch_sample_challenges;
 
 #[derive(Debug)]
 pub enum ProvingError {
@@ -410,12 +409,12 @@ pub trait IsStarkProver {
                 .take(n_terms_composition_poly + n_terms_trace)
                 .collect();
 
-        let gammas: Vec<_> = deep_composition_coefficients
-            .drain(..n_terms_composition_poly)
+        let trace_poly_coeffients: Vec<_> = deep_composition_coefficients
+            .drain(..n_terms_trace)
             .collect();
 
         // <<<< Receive challenges: 𝛾ⱼ, 𝛾ⱼ'
-        let trace_poly_coeffients = deep_composition_coefficients;
+        let gammas = deep_composition_coefficients;
 
         // Compute p₀ (deep composition polynomial)
         let deep_composition_poly = Self::compute_deep_composition_poly(
@@ -497,10 +496,6 @@ pub trait IsStarkProver {
         F: IsFFTField,
         FieldElement<F>: Serializable + Send + Sync,
     {
-        // Compute composition polynomial terms of the deep composition polynomial.
-        // let h_1 = &round_2_result.composition_poly_even;
-        // let h_1_z2 = &round_3_result.composition_poly_even_ood_evaluation;
-        // let gamma = &composition_poly_gammas[0];
         let z_power = z.pow(round_2_result.composition_poly_parts.len());
 
         // ∑ᵢ 𝛾ᵢ ( Hᵢ − Hᵢ(z^N) ) / ( X − z^N )

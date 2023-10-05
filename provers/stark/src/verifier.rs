@@ -135,15 +135,15 @@ pub trait IsStarkVerifier {
                 .take(n_terms_composition_poly + n_terms_trace)
                 .collect();
 
-        let gammas: Vec<_> = deep_composition_coefficients
-            .drain(..n_terms_composition_poly)
-            .collect();
-
-        // <<<< Receive challenges: 𝛾ⱼ, 𝛾ⱼ'
         let trace_term_coeffs: Vec<_> = deep_composition_coefficients
+            .drain(..n_terms_trace)
+            .collect::<Vec<_>>()
             .chunks(air.context().transition_offsets.len())
             .map(|chunk| chunk.to_vec())
             .collect();
+
+        // <<<< Receive challenges: 𝛾ⱼ, 𝛾ⱼ'
+        let gammas = deep_composition_coefficients;
 
         // FRI commit phase
         let merkle_roots = &proof.fri_layers_merkle_roots;

@@ -52,12 +52,10 @@ pub trait IsFri {
         let mut current_layer = Self::new_fri_layer(&p_0, coset_offset, domain_size);
         fri_layer_list.push(current_layer.clone());
         let mut current_poly = p_0;
-        // >>>> Send commitment: [p₀]
-        // transcript.append_bytes(&current_layer.merkle_tree.root);
 
         let mut coset_offset = coset_offset.clone();
 
-        for _ in 1..number_layers {
+        for i in 1..number_layers {
             // <<<< Receive challenge 𝜁ₖ₋₁
             let zeta = transcript.sample_field_element();
             coset_offset = coset_offset.square();
