@@ -9,7 +9,7 @@ use lambdaworks_math::{
 };
 
 use crate::{
-    config::{BatchedMerkleTree, BatchedMerkleTreeBackend, Commitment, FriMerkleTree},
+    config::{BatchedMerkleTree, BatchedMerkleTreeBackend, Commitment},
     domain::Domain,
     fri::{fri_commitment::FriLayer, IsFri, fri_decommit::FriDecommitment},
     proof::stark::StarkProof,
@@ -332,10 +332,69 @@ where
             println!("{:?}", elem);
         }
 
+        let mut to_commit = Vec::new();
+        for chunk in evaluation.chunks(2) {
+            to_commit.push(vec![chunk[0].clone(), chunk[1].clone()]);
+        }
+
         // TODO: Fix leaves
-        let merkle_tree = BatchedMerkleTree::build(&vec![evaluation.clone()]);
+        let merkle_tree = BatchedMerkleTree::build(&to_commit);
 
         FriLayer::new(&evaluation, merkle_tree, coset_offset.clone(), domain_size)
+    }
+
+
+    fn fri_query_phase(
+        fri_layers: &Vec<FriLayer<Self::Field, Self::MerkleTreeBackend>>,
+        iotas: &[usize],
+    ) -> Vec<FriDecommitment<Self::Field>>
+    where
+        FieldElement<Self::Field>: Serializable,
+    {
+        if !fri_layers.is_empty() {
+            let query_list = iotas
+                .iter()
+                .map(|iota_s| {
+                    // <<<< Receive challenge 𝜄ₛ (iota_s)
+                    let mut layers_auth_paths_sym = vec![];
+                    let mut layers_evaluations_sym = vec![];
+                    let mut layers_evaluations = vec![];
+                    let mut layers_auth_paths = vec![];
+
+                    let blowup_factor = fri_layers[0].evaluation.len() / (1 << fri_layers.len());
+                    let permutation = SHARP::get_stone_prover_domain_permutation(
+                        (1 << fri_layers.len()),
+                        blowup_factor,
+                    );
+                    let permuted_iota = permutation[*iota_s];
+
+                    for layer in fri_layers {
+                        // symmetric element
+                        let index = iota_s % layer.domain_size;
+                        let index_sym = (iota_s + layer.domain_size / 2) % layer.domain_size;
+                        let evaluation_sym = layer.evaluation[index_sym].clone();
+                        let auth_path_sym = layer.merkle_tree.get_proof_by_pos((permuted_iota % layer.domain_size) >> 1).unwrap();
+                        let evaluation = layer.evaluation[index].clone();
+                        let auth_path = layer.merkle_tree.get_proof_by_pos((permuted_iota % layer.domain_size) >> 1).unwrap();
+                        layers_auth_paths_sym.push(auth_path_sym);
+                        layers_evaluations_sym.push(evaluation_sym);
+                        layers_evaluations.push(evaluation);
+                        layers_auth_paths.push(auth_path);
+                    }
+
+                    FriDecommitment {
+                        layers_auth_paths_sym,
+                        layers_evaluations_sym,
+                        layers_evaluations,
+                        layers_auth_paths,
+                    }
+                })
+                .collect();
+
+            query_list
+        } else {
+            vec![]
+        }
     }
 }
 
@@ -474,6 +533,7 @@ pub mod tests {
         let mut proof_options = ProofOptions::default_test_options();
         proof_options.blowup_factor = 4;
         proof_options.coset_offset = 3;
+        proof_options.grinding_factor = 15;
 
         let pub_inputs = fibonacci_2_cols_shifted::PublicInputs {
             claimed_value,
@@ -577,5 +637,21 @@ pub mod tests {
             proof.fri_layers_merkle_roots[1].to_vec(),
             decode_hex("327d47da86f5961ee012b2b0e412de16023ffba97c82bfe85102f00daabd49fb").unwrap()
         );
+
+        assert_eq!(
+            challenges.zetas[1],
+            FieldElement::from_hex_unchecked(
+                "13c337c9dc727bea9eef1f82cab86739f17acdcef562f9e5151708f12891295"
+            )
+        );
+
+        assert_eq!(
+            proof.fri_last_value,
+            FieldElement::from_hex_unchecked(
+                "43fedf9f9e3d1469309862065c7d7ca0e7e9ce451906e9c01553056f695aec9"
+            )
+        );
+
+        println!("{:?}", proof.nonce);
     }
 }

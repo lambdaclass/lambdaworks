@@ -79,7 +79,7 @@ pub trait IsFri {
             .coefficients()
             .get(0)
             .unwrap_or(&FieldElement::zero())
-            .clone();
+            .clone() * FieldElement::from(2);
 
         // >>>> Send value: pₙ
         transcript.append_field_element(&last_value);
