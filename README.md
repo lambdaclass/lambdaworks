@@ -11,6 +11,8 @@ From the heights of these towers of fields, forty centuries of mathematics look 
 
 </div>
 
+## [Documentation](https://lambdaclass.github.io/lambdaworks)
+
 ## List of features
 
 Disclaimer: This list contains cryptographic primitives and mathematical structures that we want to support in Lambdaworks. It can be expanded later to include new primitives. If you find there is a mistake or there has been an update in another library, please let us know.
@@ -71,8 +73,6 @@ We are currently working to make the CAIRO prover compatible with the Stone Prov
 | Supernova       | :x:         |          |             |       |
 | Protostar       | :x:         |          |             |       |
 | Protogalaxy     | :x:         |          |             |       |
-
-## [Documentation](https://lambdaclass.github.io/lambdaworks)
 
 Zero-Knowledge and Validity Proofs have gained a lot of attention over the last few years. We strongly believe in this potential and that is why we decided to start working in this challenging ecosystem, where math, cryptography and distributed systems meet. The main barrier in the beginning was not the cryptography or math but the lack of good libraries which are performant and developer friendly. There are some exceptions, though, like gnark or halo2. Some have nice APIs and are easy to work with, but they are not written in Rust, and some are written in Rust but have poor programming and engineering practices. Most of them don't have support for CUDA, Metal and WebGPU or distributed FFT calculation using schedulers like Dask.
 
