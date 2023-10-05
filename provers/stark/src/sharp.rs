@@ -1,14 +1,15 @@
 use lambdaworks_crypto::merkle_tree::proof::Proof;
 use lambdaworks_math::{
-    fft::cpu::bit_reversing::in_place_bit_reverse_permute,
+    fft::{cpu::bit_reversing::in_place_bit_reverse_permute, polynomial::FFTPoly},
     field::{element::FieldElement, traits::IsFFTField},
     polynomial::Polynomial,
     traits::Serializable,
 };
 
 use crate::{
-    config::{BatchedMerkleTree, BatchedMerkleTreeBackend, Commitment},
+    config::{BatchedMerkleTree, BatchedMerkleTreeBackend, Commitment, FriMerkleTree},
     domain::Domain,
+    fri::{fri_commitment::FriLayer, IsFri},
     proof::stark::StarkProof,
     prover::IsStarkProver,
     trace::TraceTable,
@@ -255,6 +256,33 @@ impl IsStarkVerifier for SHARV {
         (0..number_of_queries)
             .map(|_| (transcript.sample_u64(domain_size >> 1)) as usize)
             .collect::<Vec<usize>>()
+    }
+}
+
+pub struct SHARPCompatibleFri;
+
+impl IsFri for SHARPCompatibleFri {
+    fn new_fri_layer<F>(
+        poly: &Polynomial<FieldElement<F>>,
+        coset_offset: &FieldElement<F>,
+        domain_size: usize,
+        degree_bound: usize,
+    ) -> crate::fri::fri_commitment::FriLayer<F>
+    where
+        F: IsFFTField,
+        FieldElement<F>: Serializable,
+    {
+        let mut evaluation = poly
+            .evaluate_offset_fft(1, Some(domain_size), coset_offset)
+            .unwrap(); // TODO: return error
+
+        let blowup_factor = domain_size / (1 << degree_bound);
+        let permutation = SHARP::get_stone_prover_domain_permutation(domain_size, blowup_factor);
+        SHARP::apply_permutation(&mut evaluation, &permutation);
+
+        let merkle_tree = FriMerkleTree::build(&evaluation);
+
+        FriLayer::new(&evaluation, merkle_tree, coset_offset.clone(), domain_size)
     }
 }
 

@@ -22,6 +22,7 @@ pub trait IsFri {
         poly: &Polynomial<FieldElement<F>>,
         coset_offset: &FieldElement<F>,
         domain_size: usize,
+        log_degree_bound: usize,
     ) -> FriLayer<F>
     where
         F: IsFFTField,
@@ -49,7 +50,7 @@ pub trait IsFri {
         let mut domain_size = domain_size;
 
         let mut fri_layer_list = Vec::with_capacity(number_layers);
-        let mut current_layer = Self::new_fri_layer(&p_0, coset_offset, domain_size);
+        let mut current_layer = Self::new_fri_layer(&p_0, coset_offset, domain_size, number_layers);
         fri_layer_list.push(current_layer.clone());
         let mut current_poly = p_0;
 
@@ -62,8 +63,8 @@ pub trait IsFri {
             domain_size /= 2;
 
             // Compute layer polynomial and domain
-            current_poly = fold_polynomial(&current_poly, &zeta);
-            current_layer = Self::new_fri_layer(&current_poly, &coset_offset, domain_size);
+            current_poly = fold_polynomial(&current_poly, &zeta) * FieldElement::from(2);
+            current_layer = Self::new_fri_layer(&current_poly, &coset_offset, domain_size, number_layers);
             let new_data = &current_layer.merkle_tree.root;
             fri_layer_list.push(current_layer.clone()); // TODO: remove this clone
 
