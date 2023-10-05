@@ -2,15 +2,19 @@ pub mod fri_commitment;
 pub mod fri_decommit;
 mod fri_functions;
 
+use std::marker::PhantomData;
+
+use lambdaworks_crypto::merkle_tree::merkle::MerkleTree;
+use lambdaworks_crypto::merkle_tree::traits::IsMerkleTreeBackend;
 use lambdaworks_math::fft::polynomial::FFTPoly;
-use lambdaworks_math::field::traits::{IsFFTField, IsField};
+use lambdaworks_math::field::traits::{IsFFTField, IsField, IsPrimeField};
 use lambdaworks_math::traits::Serializable;
 pub use lambdaworks_math::{
     field::{element::FieldElement, fields::u64_prime_field::U64PrimeField},
     polynomial::Polynomial,
 };
 
-use crate::config::FriMerkleTree;
+use crate::config::{FriMerkleTree, FriMerkleTreeBackend};
 use crate::transcript::IsStarkTranscript;
 
 use self::fri_commitment::FriLayer;
@@ -18,34 +22,27 @@ use self::fri_decommit::FriDecommitment;
 use self::fri_functions::fold_polynomial;
 
 pub trait IsFri {
-    fn new_fri_layer<F>(
-        poly: &Polynomial<FieldElement<F>>,
-        coset_offset: &FieldElement<F>,
+    type Field: IsPrimeField;
+    type MerkleTreeBackend: IsMerkleTreeBackend<Node = [u8; 32]> + Clone;
+
+    fn new_fri_layer(
+        poly: &Polynomial<FieldElement<Self::Field>>,
+        coset_offset: &FieldElement<Self::Field>,
         domain_size: usize,
         log_degree_bound: usize,
-    ) -> FriLayer<F>
+    ) -> FriLayer<Self::Field, Self::MerkleTreeBackend>
     where
-        F: IsFFTField,
-        FieldElement<F>: Serializable,
-    {
-        let evaluation = poly
-            .evaluate_offset_fft(1, Some(domain_size), coset_offset)
-            .unwrap(); // TODO: return error
+        FieldElement<Self::Field>: Serializable;
 
-        let merkle_tree = FriMerkleTree::build(&evaluation);
-
-        FriLayer::new(&evaluation, merkle_tree, coset_offset.clone(), domain_size)
-    }
-
-    fn fri_commit_phase<F: IsField + IsFFTField>(
+    fn fri_commit_phase(
         number_layers: usize,
-        p_0: Polynomial<FieldElement<F>>,
-        transcript: &mut impl IsStarkTranscript<F>,
-        coset_offset: &FieldElement<F>,
+        p_0: Polynomial<FieldElement<Self::Field>>,
+        transcript: &mut impl IsStarkTranscript<Self::Field>,
+        coset_offset: &FieldElement<Self::Field>,
         domain_size: usize,
-    ) -> (FieldElement<F>, Vec<FriLayer<F>>)
+    ) -> (FieldElement<Self::Field>, Vec<FriLayer<Self::Field, Self::MerkleTreeBackend>>)
     where
-        FieldElement<F>: Serializable,
+        FieldElement<Self::Field>: Serializable,
     {
         let mut domain_size = domain_size;
 
@@ -64,7 +61,8 @@ pub trait IsFri {
 
             // Compute layer polynomial and domain
             current_poly = fold_polynomial(&current_poly, &zeta) * FieldElement::from(2);
-            current_layer = Self::new_fri_layer(&current_poly, &coset_offset, domain_size, number_layers);
+            current_layer =
+                Self::new_fri_layer(&current_poly, &coset_offset, domain_size, number_layers);
             let new_data = &current_layer.merkle_tree.root;
             fri_layer_list.push(current_layer.clone()); // TODO: remove this clone
 
@@ -89,10 +87,12 @@ pub trait IsFri {
         (last_value, fri_layer_list)
     }
 
-    fn fri_query_phase<F>(fri_layers: &Vec<FriLayer<F>>, iotas: &[usize]) -> Vec<FriDecommitment<F>>
+    fn fri_query_phase(
+        fri_layers: &Vec<FriLayer<Self::Field, Self::MerkleTreeBackend>>,
+        iotas: &[usize],
+    ) -> Vec<FriDecommitment<Self::Field>>
     where
-        F: IsFFTField,
-        FieldElement<F>: Serializable,
+        FieldElement<Self::Field>: Serializable,
     {
         if !fri_layers.is_empty() {
             let query_list = iotas
@@ -134,6 +134,34 @@ pub trait IsFri {
     }
 }
 
-pub struct Fri;
+pub struct Fri<F>
+where
+    F: IsFFTField,
+    FieldElement<F>: Serializable,
+{
+    phantom: PhantomData<F>,
+}
 
-impl IsFri for Fri {}
+impl<F> IsFri for Fri<F>
+where
+    F: IsFFTField,
+    FieldElement<F>: Serializable,
+{
+    type Field = F;
+    type MerkleTreeBackend = FriMerkleTreeBackend<F>;
+    fn new_fri_layer(
+        poly: &Polynomial<FieldElement<F>>,
+        coset_offset: &FieldElement<F>,
+        domain_size: usize,
+        log_degree_bound: usize,
+    ) -> FriLayer<F, Self::MerkleTreeBackend>
+    {
+        let evaluation = poly
+            .evaluate_offset_fft(1, Some(domain_size), coset_offset)
+            .unwrap(); // TODO: return error
+
+        let merkle_tree = MerkleTree::build(&evaluation);
+
+        FriLayer::new(&evaluation, merkle_tree, coset_offset.clone(), domain_size)
+    }
+}

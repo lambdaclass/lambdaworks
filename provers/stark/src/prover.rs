@@ -1,7 +1,9 @@
+use std::marker::PhantomData;
 #[cfg(feature = "instruments")]
 use std::time::Instant;
 
 use lambdaworks_crypto::merkle_tree::proof::Proof;
+use lambdaworks_crypto::merkle_tree::traits::IsMerkleTreeBackend;
 use lambdaworks_math::fft::cpu::bit_reversing::in_place_bit_reverse_permute;
 use lambdaworks_math::fft::{errors::FFTError, polynomial::FFTPoly};
 use lambdaworks_math::traits::Serializable;
@@ -14,6 +16,7 @@ use log::info;
 #[cfg(feature = "parallel")]
 use rayon::prelude::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 
+use crate::config::FriMerkleTreeBackend;
 #[cfg(debug_assertions)]
 use crate::debug::validate_trace;
 use crate::fri::fri_commitment::FriLayer;
@@ -74,24 +77,24 @@ pub struct Round4<F: IsFFTField> {
 }
 
 pub trait IsStarkProver {
+    type MerkleTreeBackend: IsMerkleTreeBackend<Node = [u8; 32]> + Clone;
+
     fn fri_commit_phase<F>(
         number_layers: usize,
         p_0: Polynomial<FieldElement<F>>,
         transcript: &mut impl IsStarkTranscript<F>,
         coset_offset: &FieldElement<F>,
         domain_size: usize,
-    ) -> (FieldElement<F>, Vec<FriLayer<F>>)
+    ) -> (FieldElement<F>, Vec<FriLayer<F, Self::MerkleTreeBackend>>)
     where
         F: IsFFTField,
-        FieldElement<F>: Serializable,
-    {
-        Fri::fri_commit_phase(number_layers, p_0, transcript, &coset_offset, domain_size)
-    }
+        FieldElement<F>: Serializable;
 
-    fn fri_query_phase<F>(fri_layers: &Vec<FriLayer<F>>, iotas: &[usize]) -> Vec<FriDecommitment<F>>
+    fn fri_query_phase<F, B>(fri_layers: &Vec<FriLayer<F, B>>, iotas: &[usize]) -> Vec<FriDecommitment<F>>
     where
         F: IsFFTField,
         FieldElement<F>: Serializable,
+        B: IsMerkleTreeBackend
     {
         Fri::fri_query_phase(fri_layers, iotas)
     }
@@ -900,9 +903,27 @@ pub trait IsStarkProver {
     }
 }
 
-pub struct Prover;
+pub struct Prover<F: IsFFTField> {
+    phantom: PhantomData<F>
+}
 
-impl IsStarkProver for Prover {}
+impl IsStarkProver for Prover {
+    type MerkleTreeBackend = FriMerkleTreeBackend<F>;
+
+    fn fri_commit_phase<F>(
+        number_layers: usize,
+        p_0: Polynomial<FieldElement<F>>,
+        transcript: &mut impl IsStarkTranscript<F>,
+        coset_offset: &FieldElement<F>,
+        domain_size: usize,
+    ) -> (FieldElement<F>, Vec<FriLayer<F, Self::MerkleTreeBackend>>)
+    where
+        F: IsFFTField,
+        FieldElement<F>: Serializable 
+    {
+        Fri::fri_commit_phase(number_layers, p_0, transcript, &coset_offset, domain_size)
+    }
+}
 
 #[cfg(test)]
 mod tests {

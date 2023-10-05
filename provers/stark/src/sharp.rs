@@ -1,4 +1,4 @@
-use lambdaworks_crypto::merkle_tree::proof::Proof;
+use lambdaworks_crypto::merkle_tree::{proof::Proof, traits::IsMerkleTreeBackend};
 use lambdaworks_math::{
     fft::{cpu::bit_reversing::in_place_bit_reverse_permute, polynomial::FFTPoly},
     field::{element::FieldElement, traits::IsFFTField},
@@ -65,6 +65,27 @@ impl SHARP {
 }
 
 impl IsStarkProver for SHARP {
+    fn fri_commit_phase<F, B>(
+        number_layers: usize,
+        p_0: Polynomial<FieldElement<F>>,
+        transcript: &mut impl IsStarkTranscript<F>,
+        coset_offset: &FieldElement<F>,
+        domain_size: usize,
+    ) -> (FieldElement<F>, Vec<FriLayer<F, B>>)
+    where
+        F: IsFFTField,
+        FieldElement<F>: Serializable,
+        B: IsMerkleTreeBackend
+    {
+        SHARPCompatibleFri::fri_commit_phase(
+            number_layers,
+            p_0,
+            transcript,
+            coset_offset,
+            domain_size,
+        )
+    }
+
     #[allow(clippy::type_complexity)]
     fn interpolate_and_commit<F>(
         trace: &TraceTable<F>,
@@ -267,7 +288,7 @@ impl IsFri for SHARPCompatibleFri {
         coset_offset: &FieldElement<F>,
         domain_size: usize,
         degree_bound: usize,
-    ) -> crate::fri::fri_commitment::FriLayer<F>
+    ) -> crate::fri::fri_commitment::FriLayer<F, B>
     where
         F: IsFFTField,
         FieldElement<F>: Serializable,
@@ -277,8 +298,14 @@ impl IsFri for SHARPCompatibleFri {
             .unwrap(); // TODO: return error
 
         let blowup_factor = domain_size / (1 << degree_bound);
-        let permutation = SHARP::get_stone_prover_domain_permutation(domain_size, blowup_factor);
+        let permutation =
+            SHARP::get_stone_prover_domain_permutation(domain_size / blowup_factor, blowup_factor);
         SHARP::apply_permutation(&mut evaluation, &permutation);
+
+        println!("Capa");
+        for elem in evaluation.iter() {
+            println!("{:?}", elem);
+        }
 
         let merkle_tree = FriMerkleTree::build(&evaluation);
 
@@ -507,7 +534,7 @@ pub mod tests {
 
         // gamma
         assert_eq!(
-            challenges.trace_term_coeffs[0][0],
+            challenges.trace_term_coeffs[0][1],
             FieldElement::from_hex_unchecked(
                 "a0c79c1c77ded19520873d9c2440451974d23302e451d13e8124cf82fc15dd"
             )
@@ -520,9 +547,9 @@ pub mod tests {
             )
         );
 
-        // assert_eq!(
-        //     proof.fri_layers_merkle_roots[1].to_vec(),
-        //     decode_hex("49c5672520e20eccc72aa28d6fa0d7ef446f1ede38d7c64fbb95d0f34a281803").unwrap()
-        // );
+        assert_eq!(
+            proof.fri_layers_merkle_roots[1].to_vec(),
+            decode_hex("327d47da86f5961ee012b2b0e412de16023ffba97c82bfe85102f00daabd49fb").unwrap()
+        );
     }
 }

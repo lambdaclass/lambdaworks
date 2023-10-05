@@ -1,3 +1,4 @@
+use lambdaworks_crypto::merkle_tree::{merkle::MerkleTree, traits::IsMerkleTreeBackend};
 use lambdaworks_math::{
     field::{
         element::FieldElement,
@@ -6,28 +7,28 @@ use lambdaworks_math::{
     traits::Serializable,
 };
 
-use crate::config::FriMerkleTree;
-
 #[derive(Clone)]
-pub struct FriLayer<F>
+pub struct FriLayer<F, B>
 where
     F: IsField,
     FieldElement<F>: Serializable,
+    B: IsMerkleTreeBackend,
 {
     pub evaluation: Vec<FieldElement<F>>,
-    pub merkle_tree: FriMerkleTree<F>,
+    pub merkle_tree: MerkleTree<B>,
     pub coset_offset: FieldElement<F>,
     pub domain_size: usize,
 }
 
-impl<F> FriLayer<F>
+impl<F, B> FriLayer<F, B>
 where
     F: IsField + IsFFTField,
     FieldElement<F>: Serializable,
+    B: IsMerkleTreeBackend,
 {
     pub fn new(
         evaluation: &[FieldElement<F>],
-        merkle_tree: FriMerkleTree<F>,
+        merkle_tree: MerkleTree<B>,
         coset_offset: FieldElement<F>,
         domain_size: usize,
     ) -> Self {
