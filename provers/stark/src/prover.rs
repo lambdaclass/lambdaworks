@@ -86,15 +86,23 @@ pub trait IsStarkProver {
         transcript: &mut impl IsStarkTranscript<Self::Field>,
         coset_offset: &FieldElement<Self::Field>,
         domain_size: usize,
-    ) -> (FieldElement<Self::Field>, Vec<FriLayer<Self::Field, Self::MerkleTreeBackend>>)
+    ) -> (
+        FieldElement<Self::Field>,
+        Vec<FriLayer<Self::Field, Self::MerkleTreeBackend>>,
+    )
     where
         FieldElement<Self::Field>: Serializable;
 
-    fn fri_query_phase(fri_layers: &Vec<FriLayer<Self::Field, Self::MerkleTreeBackend>>, iotas: &[usize]) -> Vec<FriDecommitment<Self::Field>>
+    fn fri_query_phase(
+        fri_layers: &Vec<FriLayer<Self::Field, Self::MerkleTreeBackend>>,
+        iotas: &[usize],
+    ) -> Vec<FriDecommitment<Self::Field>>
     where
         FieldElement<Self::Field>: Serializable;
 
-    fn batch_commit(vectors: &[Vec<FieldElement<Self::Field>>]) -> (BatchedMerkleTree<Self::Field>, Commitment)
+    fn batch_commit(
+        vectors: &[Vec<FieldElement<Self::Field>>],
+    ) -> (BatchedMerkleTree<Self::Field>, Commitment)
     where
         FieldElement<Self::Field>: Serializable,
     {
@@ -373,9 +381,7 @@ pub trait IsStarkProver {
         }
     }
 
-    fn round_4_compute_and_run_fri_on_the_deep_composition_polynomial<
-        A: AIR<Field = Self::Field>,
-    >(
+    fn round_4_compute_and_run_fri_on_the_deep_composition_polynomial<A: AIR<Field = Self::Field>>(
         air: &A,
         domain: &Domain<Self::Field>,
         round_1_result: &Round1<Self::Field, A>,
@@ -431,11 +437,14 @@ pub trait IsStarkProver {
         );
 
         // grinding: generate nonce and append it to the transcript
-        let grinding_factor = air.context().proof_options.grinding_factor;
-        let transcript_challenge = transcript.state();
-        let nonce = generate_nonce_with_grinding(&transcript_challenge, grinding_factor)
-            .expect("nonce not found");
-        transcript.append_bytes(&nonce.to_be_bytes());
+        let security_bits = air.context().proof_options.grinding_factor;
+        let mut nonce = 0;
+        if security_bits > 0 {
+            let transcript_challenge = transcript.state();
+            nonce = generate_nonce_with_grinding(&transcript_challenge, security_bits)
+                .expect("nonce not found");
+            transcript.append_bytes(&nonce.to_be_bytes());
+        }
 
         let number_of_queries = air.options().fri_number_of_queries;
         let iotas = Self::sample_query_indexes(number_of_queries, &domain, transcript);
@@ -887,13 +896,13 @@ pub trait IsStarkProver {
 }
 
 pub struct Prover<F: IsFFTField> {
-    phantom: PhantomData<F>
+    phantom: PhantomData<F>,
 }
 
-impl<F> IsStarkProver for Prover<F> 
+impl<F> IsStarkProver for Prover<F>
 where
     F: IsFFTField,
-    FieldElement<F>: Serializable
+    FieldElement<F>: Serializable,
 {
     type Field = F;
     type MerkleTreeBackend = FriMerkleTreeBackend<F>;
@@ -907,12 +916,15 @@ where
     ) -> (FieldElement<F>, Vec<FriLayer<F, Self::MerkleTreeBackend>>)
     where
         F: IsFFTField,
-        FieldElement<F>: Serializable 
+        FieldElement<F>: Serializable,
     {
         Fri::fri_commit_phase(number_layers, p_0, transcript, &coset_offset, domain_size)
     }
 
-    fn fri_query_phase(fri_layers: &Vec<FriLayer<Self::Field, Self::MerkleTreeBackend>>, iotas: &[usize]) -> Vec<FriDecommitment<Self::Field>>
+    fn fri_query_phase(
+        fri_layers: &Vec<FriLayer<Self::Field, Self::MerkleTreeBackend>>,
+        iotas: &[usize],
+    ) -> Vec<FriDecommitment<Self::Field>>
     where
         FieldElement<Self::Field>: Serializable,
     {

@@ -11,7 +11,7 @@ use lambdaworks_math::{
 use crate::{
     config::{BatchedMerkleTree, BatchedMerkleTreeBackend, Commitment},
     domain::Domain,
-    fri::{fri_commitment::FriLayer, IsFri, fri_decommit::FriDecommitment},
+    fri::{fri_commitment::FriLayer, fri_decommit::FriDecommitment, IsFri},
     proof::stark::StarkProof,
     prover::IsStarkProver,
     trace::TraceTable,
@@ -20,13 +20,13 @@ use crate::{
 };
 
 pub struct SHARP<F: IsFFTField> {
-    phantom: PhantomData<F>
+    phantom: PhantomData<F>,
 }
 
-impl<F> SHARP<F> 
+impl<F> SHARP<F>
 where
     F: IsFFTField,
-    FieldElement<F>: Serializable
+    FieldElement<F>: Serializable,
 {
     fn apply_permutation<T: Clone>(vector: &mut Vec<T>, permutation: &[usize]) {
         assert_eq!(
@@ -75,7 +75,7 @@ where
 impl<F> IsStarkProver for SHARP<F>
 where
     F: IsFFTField,
-    FieldElement<F>: Serializable
+    FieldElement<F>: Serializable,
 {
     type Field = F;
     type MerkleTreeBackend = BatchedMerkleTreeBackend<F>;
@@ -86,8 +86,10 @@ where
         transcript: &mut impl IsStarkTranscript<Self::Field>,
         coset_offset: &FieldElement<Self::Field>,
         domain_size: usize,
-    ) -> (FieldElement<Self::Field>, Vec<FriLayer<Self::Field, Self::MerkleTreeBackend>>)
-    {
+    ) -> (
+        FieldElement<Self::Field>,
+        Vec<FriLayer<Self::Field, Self::MerkleTreeBackend>>,
+    ) {
         SHARPCompatibleFri::fri_commit_phase(
             number_layers,
             p_0,
@@ -96,9 +98,11 @@ where
             domain_size,
         )
     }
-    
-    fn fri_query_phase(fri_layers: &Vec<FriLayer<Self::Field, Self::MerkleTreeBackend>>, iotas: &[usize]) -> Vec<FriDecommitment<Self::Field>>
-    {
+
+    fn fri_query_phase(
+        fri_layers: &Vec<FriLayer<Self::Field, Self::MerkleTreeBackend>>,
+        iotas: &[usize],
+    ) -> Vec<FriDecommitment<Self::Field>> {
         SHARPCompatibleFri::fri_query_phase(fri_layers, iotas)
     }
 
@@ -297,7 +301,7 @@ impl IsStarkVerifier for SHARV {
 }
 
 pub struct SHARPCompatibleFri<F> {
-    phantom: F
+    phantom: F,
 }
 
 impl<F> IsFri for SHARPCompatibleFri<F>
@@ -343,7 +347,6 @@ where
         FriLayer::new(&evaluation, merkle_tree, coset_offset.clone(), domain_size)
     }
 
-
     fn fri_query_phase(
         fri_layers: &Vec<FriLayer<Self::Field, Self::MerkleTreeBackend>>,
         iotas: &[usize],
@@ -373,9 +376,15 @@ where
                         let index = iota_s % layer.domain_size;
                         let index_sym = (iota_s + layer.domain_size / 2) % layer.domain_size;
                         let evaluation_sym = layer.evaluation[index_sym].clone();
-                        let auth_path_sym = layer.merkle_tree.get_proof_by_pos((permuted_iota % layer.domain_size) >> 1).unwrap();
+                        let auth_path_sym = layer
+                            .merkle_tree
+                            .get_proof_by_pos((permuted_iota % layer.domain_size) >> 1)
+                            .unwrap();
                         let evaluation = layer.evaluation[index].clone();
-                        let auth_path = layer.merkle_tree.get_proof_by_pos((permuted_iota % layer.domain_size) >> 1).unwrap();
+                        let auth_path = layer
+                            .merkle_tree
+                            .get_proof_by_pos((permuted_iota % layer.domain_size) >> 1)
+                            .unwrap();
                         layers_auth_paths_sym.push(auth_path_sym);
                         layers_evaluations_sym.push(evaluation_sym);
                         layers_evaluations.push(evaluation);
@@ -534,6 +543,7 @@ pub mod tests {
         proof_options.blowup_factor = 4;
         proof_options.coset_offset = 3;
         proof_options.grinding_factor = 0;
+        proof_options.fri_number_of_queries = 1;
 
         let pub_inputs = fibonacci_2_cols_shifted::PublicInputs {
             claimed_value,
@@ -652,15 +662,22 @@ pub mod tests {
             )
         );
 
-        assert_eq!(
-            challenges.iotas[0],
-            1
-        );
+        assert_eq!(challenges.iotas[0], 1);
 
         assert_eq!(
             proof.deep_poly_openings[0].lde_trace_evaluations[0],
-            FieldElement::from_hex_unchecked("4de0d56f9cf97dff326c26592fbd4ae9ee756080b12c51cfe4864e9b8734f43")
+            FieldElement::from_hex_unchecked(
+                "4de0d56f9cf97dff326c26592fbd4ae9ee756080b12c51cfe4864e9b8734f43"
+            )
         );
+
+        assert_eq!(
+            proof.deep_poly_openings[0].lde_trace_evaluations[1],
+            FieldElement::from_hex_unchecked(
+                "1bc1aadf39f2faee64d84cb25f7a95d3dceac1016258a39fc90c9d370e69e8e"
+            )
+        );
+        
         //assert_eq!(proof.query_list[0].layers_evaluations_sym);
     }
 }
