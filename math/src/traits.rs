@@ -29,9 +29,9 @@ pub trait ByteConversion {
 
 /// Serialize function without args
 /// Used for serialization when formatting options are not relevant
-#[cfg(feature = "std")]
 pub trait Serializable {
     /// Default serialize without args
+    #[cfg(feature = "std")]
     fn serialize(&self) -> Vec<u8>;
 }
 
