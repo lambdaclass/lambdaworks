@@ -517,8 +517,7 @@ pub trait IsStarkVerifier {
                         auth_path.verify::<FriMerkleTreeBackend<F>>(merkle_root, iota, evaluation);
                     let beta = &zetas[k];
                     // v is the calculated element for the co linearity check
-                    v = (&v + evaluation_sym) * two_inv
-                        + beta * (&v - evaluation_sym) * two_inv * evaluation_point_inv;
+                    v = (&v + evaluation_sym) + beta * (&v - evaluation_sym) * evaluation_point_inv;
 
                     // Check that next value is the given by the prover
                     if k < fri_decommitment.layers_evaluations.len() - 1 {
