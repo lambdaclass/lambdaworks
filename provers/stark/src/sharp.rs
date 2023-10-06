@@ -227,16 +227,16 @@ where
 
             openings.push(DeepPolynomialOpenings {
                 lde_composition_poly_proof: lde_composition_poly_proof.clone(),
-                lde_composition_poly_parts_evaluation: lde_composition_poly_parts_evaluation.clone(),
+                lde_composition_poly_parts_evaluation: lde_composition_poly_parts_evaluation.clone().into_iter().step_by(2).collect(),
                 lde_trace_merkle_proofs,
                 lde_trace_evaluations,
             });
 
             openings_symmetric.push(DeepPolynomialOpenings {
                 lde_composition_poly_proof,
-                lde_composition_poly_parts_evaluation,
+                lde_composition_poly_parts_evaluation: lde_composition_poly_parts_evaluation.into_iter().skip(1).step_by(2).collect(),
                 lde_trace_merkle_proofs: lde_trace_sym_merkle_proofs,
-                lde_trace_evaluations: lde_trace_sym_evaluations,
+                lde_trace_evaluations: lde_trace_sym_evaluations
             });
         }
 
@@ -684,7 +684,7 @@ pub mod tests {
 
         // Composition poly sym
         assert_eq!(
-            proof.deep_poly_openings[0].lde_composition_poly_parts_evaluation[1],
+            proof.deep_poly_openings_sym[0].lde_composition_poly_parts_evaluation[0],
             FieldElement::from_hex_unchecked(
                 "190f1b0acb7858bd3f5285b68befcf32b436a5f1e3a280e1f42565c1f35c2c3"
             )
