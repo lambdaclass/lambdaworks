@@ -332,6 +332,19 @@ pub trait IsStarkVerifier {
                 result
             })
     }
+    fn query_challenge_to_merkle_root_index<F: IsFFTField>(
+        index: usize,
+        domain: &Domain<F>,
+    ) -> usize {
+        index
+    }
+
+    fn query_challenge_to_merkle_root_index_sym<F: IsFFTField>(
+        index: usize,
+        domain: &Domain<F>,
+    ) -> usize {
+        index + domain.lde_roots_of_unity_coset.len() / 2
+    }
 
     fn verify_trace_openings<F>(
         domain: &Domain<F>,
@@ -350,31 +363,29 @@ pub trait IsStarkVerifier {
             deep_poly_opening.lde_trace_evaluations[num_main_columns..].to_vec(),
         ];
 
+        let index = Self::query_challenge_to_merkle_root_index(iota, domain);
         let openings_are_valid = proof
             .lde_trace_merkle_roots
             .iter()
             .zip(&deep_poly_opening.lde_trace_merkle_proofs)
             .zip(lde_trace_evaluations)
             .fold(true, |acc, ((merkle_root, merkle_proof), evaluation)| {
-                acc & Self::verify_opening(&merkle_proof, &merkle_root, iota, &evaluation)
+                acc & Self::verify_opening(&merkle_proof, &merkle_root, index, &evaluation)
             });
 
         let lde_trace_evaluations_sym = vec![
             deep_poly_opening_sym.lde_trace_evaluations[..num_main_columns].to_vec(),
             deep_poly_opening_sym.lde_trace_evaluations[num_main_columns..].to_vec(),
         ];
+
+        let index_sym = Self::query_challenge_to_merkle_root_index_sym(iota, domain);
         let openings_sym_are_valid = proof
             .lde_trace_merkle_roots
             .iter()
             .zip(&deep_poly_opening_sym.lde_trace_merkle_proofs)
             .zip(lde_trace_evaluations_sym)
             .fold(true, |acc, ((merkle_root, merkle_proof), evaluation)| {
-                acc & Self::verify_opening(
-                    &merkle_proof,
-                    &merkle_root,
-                    iota + domain.lde_roots_of_unity_coset.len() / 2,
-                    &evaluation,
-                )
+                acc & Self::verify_opening(&merkle_proof, &merkle_root, index_sym, &evaluation)
             });
         openings_are_valid & openings_sym_are_valid
     }

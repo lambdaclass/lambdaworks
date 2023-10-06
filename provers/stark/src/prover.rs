@@ -290,7 +290,7 @@ pub trait IsStarkProver {
         let composition_poly =
             constraint_evaluations.compute_composition_poly(&domain.coset_offset);
 
-        let number_of_parts = 2;
+        let number_of_parts = 1;
         let composition_poly_parts = composition_poly.break_in_parts(number_of_parts);
         let lde_composition_poly_parts_evaluations: Vec<_> = composition_poly_parts
             .iter()
@@ -624,7 +624,10 @@ pub trait IsStarkProver {
         round_1_result: &Round1<Self::Field, A>,
         round_2_result: &Round2<Self::Field>,
         indexes_to_open: &[usize], // list of iotas
-    ) -> (Vec<DeepPolynomialOpenings<Self::Field>>, Vec<DeepPolynomialOpenings<Self::Field>>)
+    ) -> (
+        Vec<DeepPolynomialOpenings<Self::Field>>,
+        Vec<DeepPolynomialOpenings<Self::Field>>,
+    )
     where
         FieldElement<Self::Field>: Serializable,
     {
@@ -634,9 +637,11 @@ pub trait IsStarkProver {
             .collect();
 
         let all_indexes = vec![indexes_symmetric, indexes_to_open.to_vec()];
-        let mut openings: Vec<_> = all_indexes
-            .iter()
-            .map(|indexes| indexes.iter().map(|index_to_open| {
+        let mut openings: Vec<_> =
+            all_indexes
+                .iter()
+                .map(|indexes| {
+                    indexes.iter().map(|index_to_open| {
                 let index = index_to_open % domain.lde_roots_of_unity_coset.len();
 
                 let (lde_composition_poly_proof, lde_composition_poly_parts_evaluation) =
@@ -660,8 +665,9 @@ pub trait IsStarkProver {
                     lde_trace_merkle_proofs,
                     lde_trace_evaluations,
                 }
-            }).collect())
-            .collect();
+            }).collect()
+                })
+                .collect();
         (openings.pop().unwrap(), openings.pop().unwrap())
     }
 

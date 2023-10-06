@@ -15,11 +15,12 @@ use crate::{
     config::{BatchedMerkleTree, BatchedMerkleTreeBackend, Commitment},
     domain::Domain,
     fri::{fri_commitment::FriLayer, fri_decommit::FriDecommitment, IsFri},
-    proof::stark::{StarkProof, DeepPolynomialOpenings},
+    proof::stark::{DeepPolynomialOpenings, StarkProof},
     prover::{IsStarkProver, Round1, Round2},
     trace::TraceTable,
+    traits::AIR,
     transcript::IsStarkTranscript,
-    verifier::IsStarkVerifier, traits::AIR,
+    verifier::IsStarkVerifier,
 };
 
 pub struct SHARP<F: IsFFTField> {
@@ -195,7 +196,10 @@ where
         round_1_result: &Round1<Self::Field, A>,
         round_2_result: &Round2<Self::Field>,
         indexes_to_open: &[usize], // list of iotas
-    ) -> (Vec<DeepPolynomialOpenings<Self::Field>>, Vec<DeepPolynomialOpenings<Self::Field>>)
+    ) -> (
+        Vec<DeepPolynomialOpenings<Self::Field>>,
+        Vec<DeepPolynomialOpenings<Self::Field>>,
+    )
     where
         FieldElement<Self::Field>: Serializable,
     {
@@ -218,25 +222,33 @@ where
             );
 
             let (lde_composition_poly_proof, lde_composition_poly_parts_evaluation) =
-            Self::open_composition_poly(
-                domain,
-                &round_2_result.composition_poly_merkle_tree,
-                &round_2_result.lde_composition_poly_evaluations,
-                *index,
-            );
+                Self::open_composition_poly(
+                    domain,
+                    &round_2_result.composition_poly_merkle_tree,
+                    &round_2_result.lde_composition_poly_evaluations,
+                    *index,
+                );
 
             openings.push(DeepPolynomialOpenings {
                 lde_composition_poly_proof: lde_composition_poly_proof.clone(),
-                lde_composition_poly_parts_evaluation: lde_composition_poly_parts_evaluation.clone().into_iter().step_by(2).collect(),
+                lde_composition_poly_parts_evaluation: lde_composition_poly_parts_evaluation
+                    .clone()
+                    .into_iter()
+                    .step_by(2)
+                    .collect(),
                 lde_trace_merkle_proofs,
                 lde_trace_evaluations,
             });
 
             openings_symmetric.push(DeepPolynomialOpenings {
                 lde_composition_poly_proof,
-                lde_composition_poly_parts_evaluation: lde_composition_poly_parts_evaluation.into_iter().skip(1).step_by(2).collect(),
+                lde_composition_poly_parts_evaluation: lde_composition_poly_parts_evaluation
+                    .into_iter()
+                    .skip(1)
+                    .step_by(2)
+                    .collect(),
                 lde_trace_merkle_proofs: lde_trace_sym_merkle_proofs,
-                lde_trace_evaluations: lde_trace_sym_evaluations
+                lde_trace_evaluations: lde_trace_sym_evaluations,
             });
         }
 
@@ -258,31 +270,43 @@ where
 pub struct SHARV {}
 
 impl IsStarkVerifier for SHARV {
-    // fn verify_trace_openings<F>(
-    //     domain: &Domain<F>,
-    //     num_main_columns: usize,
-    //     proof: &StarkProof<F>,
-    //     deep_poly_opening: &DeepPolynomialOpenings<F>,
-    //     deep_poly_opening_sym: &DeepPolynomialOpenings<F>,
-    //     iota: usize,
-    // ) -> bool
-    // where
-    //     F: IsFFTField,
-    //     FieldElement<F>: Serializable,
-    // {
-    //     proof
-    //         .lde_trace_merkle_roots
-    //         .iter()
-    //         .zip(&deep_poly_opening.lde_trace_merkle_proofs)
-    //         .zip(lde_trace_evaluations)
-    //         .fold(true, |acc, ((merkle_root, merkle_proof), evaluation)| {
-    //             acc & merkle_proof.verify::<BatchedMerkleTreeBackend<F>>(
-    //                 merkle_root,
-    //                 iota * 2,
-    //                 &evaluation,
-    //             )
-    //         })
-    // }
+    fn query_challenge_to_merkle_root_index<F: IsFFTField>(
+        index: usize,
+        domain: &Domain<F>,
+    ) -> usize {
+        index * 2
+    }
+    fn query_challenge_to_merkle_root_index_sym<F: IsFFTField>(
+        index: usize,
+        domain: &Domain<F>,
+    ) -> usize {
+        index * 2 + 1
+    }
+
+    fn verify_composition_poly_opening<F>(
+        domain: &Domain<F>,
+        deep_poly_opening: &DeepPolynomialOpenings<F>,
+        deep_poly_opening_sym: &DeepPolynomialOpenings<F>,
+        composition_poly_merkle_root: &Commitment,
+        iota: &usize,
+    ) -> bool
+    where
+        F: IsFFTField,
+        FieldElement<F>: Serializable,
+    {
+        let mut value = deep_poly_opening.lde_composition_poly_parts_evaluation.clone();
+        value.extend_from_slice(&deep_poly_opening_sym.lde_composition_poly_parts_evaluation);
+
+        let openings_are_valid = deep_poly_opening
+            .lde_composition_poly_proof
+            .verify::<BatchedMerkleTreeBackend<F>>(
+            composition_poly_merkle_root,
+            *iota,
+            &value,
+        );
+
+        openings_are_valid
+    }
 
     fn sample_query_indexes<F: IsFFTField>(
         number_of_queries: usize,
