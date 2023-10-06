@@ -40,8 +40,10 @@ pub struct StarkProof<F: IsFFTField> {
     pub fri_last_value: FieldElement<F>,
     // Open(p₀(D₀), 𝜐ₛ), Opwn(pₖ(Dₖ), −𝜐ₛ^(2ᵏ))
     pub query_list: Vec<FriDecommitment<F>>,
-    // Open(H₁(D_LDE, 𝜐₀), Open(H₂(D_LDE, 𝜐₀), Open(tⱼ(D_LDE), 𝜐₀)
+    // Open(H₁(D_LDE, 𝜐ᵢ), Open(H₂(D_LDE, 𝜐ᵢ), Open(tⱼ(D_LDE), 𝜐ᵢ)
     pub deep_poly_openings: Vec<DeepPolynomialOpenings<F>>,
+    // Open(H₁(D_LDE, -𝜐ᵢ), Open(H₂(D_LDE, -𝜐ᵢ), Open(tⱼ(D_LDE), -𝜐ᵢ)
+    pub deep_poly_openings_sym: Vec<DeepPolynomialOpenings<F>>,
     // nonce obtained from grinding
     pub nonce: u64,
 }
@@ -421,6 +423,8 @@ where
             fri_last_value,
             query_list,
             deep_poly_openings,
+            // FIXME
+            deep_poly_openings_sym: Vec::new(),
             nonce,
         })
     }

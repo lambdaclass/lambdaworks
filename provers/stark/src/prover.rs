@@ -72,6 +72,7 @@ pub struct Round4<F: IsFFTField> {
     fri_last_value: FieldElement<F>,
     fri_layers_merkle_roots: Vec<Commitment>,
     deep_poly_openings: Vec<DeepPolynomialOpenings<F>>,
+    deep_poly_openings_sym: Vec<DeepPolynomialOpenings<F>>,
     query_list: Vec<FriDecommitment<F>>,
     nonce: u64,
 }
@@ -432,10 +433,19 @@ pub trait IsStarkProver {
         let deep_poly_openings =
             Self::open_deep_composition_poly(domain, round_1_result, round_2_result, &iotas);
 
+        let iotas_sym: Vec<_> = iotas
+            .iter()
+            .map(|iota| iota + domain.lde_roots_of_unity_coset.len() / 2)
+            .collect();
+
+        let deep_poly_openings_sym =
+            Self::open_deep_composition_poly(domain, round_1_result, round_2_result, &iotas_sym);
+
         Round4 {
             fri_last_value,
             fri_layers_merkle_roots,
             deep_poly_openings,
+            deep_poly_openings_sym,
             query_list,
             nonce,
         }
@@ -861,6 +871,8 @@ pub trait IsStarkProver {
             query_list: round_4_result.query_list,
             // Open(H₁(D_LDE, 𝜐₀), Open(H₂(D_LDE, 𝜐₀), Open(tⱼ(D_LDE), 𝜐₀)
             deep_poly_openings: round_4_result.deep_poly_openings,
+            // Open(H₁(D_LDE, 𝜐₀), Open(H₂(D_LDE, 𝜐₀), Open(tⱼ(D_LDE), 𝜐₀)
+            deep_poly_openings_sym: round_4_result.deep_poly_openings_sym,
             // nonce obtained from grinding
             nonce: round_4_result.nonce,
 

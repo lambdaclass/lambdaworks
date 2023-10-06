@@ -49,8 +49,7 @@ pub trait IsFri {
         let mut domain_size = domain_size;
 
         let mut fri_layer_list = Vec::with_capacity(number_layers);
-        let mut current_layer = Self::new_fri_layer(&p_0, coset_offset, domain_size);
-        fri_layer_list.push(current_layer.clone());
+        let mut current_layer: FriLayer<Self::Field, Self::MerkleTreeBackend>;
         let mut current_poly = p_0;
 
         let mut coset_offset = coset_offset.clone();
