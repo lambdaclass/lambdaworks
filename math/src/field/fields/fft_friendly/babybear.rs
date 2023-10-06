@@ -115,7 +115,7 @@ mod tests {
         }
     }
 
-    #[cfg(feature = "std")]
+    #[cfg(not(feature = "instruments"))]
     mod test_babybear_31_fft {
         use super::*;
         use crate::fft::cpu::roots_of_unity::{
