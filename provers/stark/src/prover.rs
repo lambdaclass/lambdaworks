@@ -45,11 +45,11 @@ where
     A: AIR<Field = F>,
     FieldElement<F>: Serializable,
 {
-    trace_polys: Vec<Polynomial<FieldElement<F>>>,
-    lde_trace: TraceTable<F>,
-    lde_trace_merkle_trees: Vec<BatchedMerkleTree<F>>,
-    lde_trace_merkle_roots: Vec<Commitment>,
-    rap_challenges: A::RAPChallenges,
+    pub(crate) trace_polys: Vec<Polynomial<FieldElement<F>>>,
+    pub(crate) lde_trace: TraceTable<F>,
+    pub(crate) lde_trace_merkle_trees: Vec<BatchedMerkleTree<F>>,
+    pub(crate) lde_trace_merkle_roots: Vec<Commitment>,
+    pub(crate) rap_challenges: A::RAPChallenges,
 }
 
 pub struct Round2<F>
@@ -57,10 +57,10 @@ where
     F: IsFFTField,
     FieldElement<F>: Serializable,
 {
-    composition_poly_parts: Vec<Polynomial<FieldElement<F>>>,
-    lde_composition_poly_evaluations: Vec<Vec<FieldElement<F>>>,
-    composition_poly_merkle_tree: BatchedMerkleTree<F>,
-    composition_poly_root: Commitment,
+    pub(crate) composition_poly_parts: Vec<Polynomial<FieldElement<F>>>,
+    pub(crate) lde_composition_poly_evaluations: Vec<Vec<FieldElement<F>>>,
+    pub(crate) composition_poly_merkle_tree: BatchedMerkleTree<F>,
+    pub(crate) composition_poly_root: Commitment,
 }
 
 pub struct Round3<F: IsFFTField> {
@@ -290,7 +290,7 @@ pub trait IsStarkProver {
         let composition_poly =
             constraint_evaluations.compute_composition_poly(&domain.coset_offset);
 
-        let number_of_parts = 2;
+        let number_of_parts = 1;
         let composition_poly_parts = composition_poly.break_in_parts(number_of_parts);
         let lde_composition_poly_parts_evaluations: Vec<_> = composition_poly_parts
             .iter()
@@ -430,16 +430,8 @@ pub trait IsStarkProver {
             .map(|layer| layer.merkle_tree.root)
             .collect();
 
-        let deep_poly_openings =
+        let (deep_poly_openings, deep_poly_openings_sym) =
             Self::open_deep_composition_poly(domain, round_1_result, round_2_result, &iotas);
-
-        let iotas_sym: Vec<_> = iotas
-            .iter()
-            .map(|iota| iota + domain.lde_roots_of_unity_coset.len() / 2)
-            .collect();
-
-        let deep_poly_openings_sym =
-            Self::open_deep_composition_poly(domain, round_1_result, round_2_result, &iotas_sym);
 
         Round4 {
             fri_last_value,
@@ -625,18 +617,26 @@ pub trait IsStarkProver {
         (lde_trace_merkle_proofs, lde_trace_evaluations)
     }
 
+    /// Open the deep composition polynomial on a list of indexes
+    /// and their symmetric elements.
     fn open_deep_composition_poly<A: AIR<Field = Self::Field>>(
         domain: &Domain<Self::Field>,
         round_1_result: &Round1<Self::Field, A>,
         round_2_result: &Round2<Self::Field>,
         indexes_to_open: &[usize], // list of iotas
-    ) -> Vec<DeepPolynomialOpenings<Self::Field>>
+    ) -> (Vec<DeepPolynomialOpenings<Self::Field>>, Vec<DeepPolynomialOpenings<Self::Field>>)
     where
         FieldElement<Self::Field>: Serializable,
     {
-        indexes_to_open
+        let indexes_symmetric: Vec<_> = indexes_to_open
             .iter()
-            .map(|index_to_open| {
+            .map(|iota| iota + domain.lde_roots_of_unity_coset.len() / 2)
+            .collect();
+
+        let all_indexes = vec![&indexes_symmetric, indexes_to_open];
+        let mut openings: Vec<_> = all_indexes
+            .iter()
+            .map(|indexes| indexes.iter().map(|index_to_open| {
                 let index = index_to_open % domain.lde_roots_of_unity_coset.len();
 
                 let (lde_composition_poly_proof, lde_composition_poly_parts_evaluation) =
@@ -660,8 +660,9 @@ pub trait IsStarkProver {
                     lde_trace_merkle_proofs,
                     lde_trace_evaluations,
                 }
-            })
-            .collect()
+            }).collect())
+            .collect();
+        (openings.pop().unwrap(), openings.pop().unwrap())
     }
 
     // FIXME remove unwrap() calls and return errors

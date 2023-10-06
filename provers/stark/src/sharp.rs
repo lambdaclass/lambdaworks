@@ -15,11 +15,11 @@ use crate::{
     config::{BatchedMerkleTree, BatchedMerkleTreeBackend, Commitment},
     domain::Domain,
     fri::{fri_commitment::FriLayer, fri_decommit::FriDecommitment, IsFri},
-    proof::stark::StarkProof,
-    prover::IsStarkProver,
+    proof::stark::{StarkProof, DeepPolynomialOpenings},
+    prover::{IsStarkProver, Round1, Round2},
     trace::TraceTable,
     transcript::IsStarkTranscript,
-    verifier::IsStarkVerifier,
+    verifier::IsStarkVerifier, traits::AIR,
 };
 
 pub struct SHARP<F: IsFFTField> {
@@ -172,10 +172,9 @@ where
     {
         let domain_size = domain.lde_roots_of_unity_coset.len();
         let lde_trace_evaluations = lde_trace
-            .get_row(reverse_index(index * 2, domain_size as u64))
+            .get_row(reverse_index(index, domain_size as u64))
             .to_vec();
 
-        let index = index;
         // Trace polynomials openings
         #[cfg(feature = "parallel")]
         let merkle_trees_iter = lde_trace_merkle_trees.par_iter();
@@ -183,10 +182,65 @@ where
         let merkle_trees_iter = lde_trace_merkle_trees.iter();
 
         let lde_trace_merkle_proofs: Vec<Proof<[u8; 32]>> = merkle_trees_iter
-            .map(|tree| tree.get_proof_by_pos(index * 2).unwrap())
+            .map(|tree| tree.get_proof_by_pos(index).unwrap())
             .collect();
 
         (lde_trace_merkle_proofs, lde_trace_evaluations)
+    }
+
+    /// Open the deep composition polynomial on a list of indexes
+    /// and their symmetric elements.
+    fn open_deep_composition_poly<A: AIR<Field = Self::Field>>(
+        domain: &Domain<Self::Field>,
+        round_1_result: &Round1<Self::Field, A>,
+        round_2_result: &Round2<Self::Field>,
+        indexes_to_open: &[usize], // list of iotas
+    ) -> (Vec<DeepPolynomialOpenings<Self::Field>>, Vec<DeepPolynomialOpenings<Self::Field>>)
+    where
+        FieldElement<Self::Field>: Serializable,
+    {
+        let mut openings = Vec::new();
+        let mut openings_symmetric = Vec::new();
+
+        for index in indexes_to_open.iter() {
+            let (lde_trace_merkle_proofs, lde_trace_evaluations) = Self::open_trace_polys(
+                domain,
+                &round_1_result.lde_trace_merkle_trees,
+                &round_1_result.lde_trace,
+                index * 2,
+            );
+
+            let (lde_trace_sym_merkle_proofs, lde_trace_sym_evaluations) = Self::open_trace_polys(
+                domain,
+                &round_1_result.lde_trace_merkle_trees,
+                &round_1_result.lde_trace,
+                index * 2 + 1,
+            );
+
+            let (lde_composition_poly_proof, lde_composition_poly_parts_evaluation) =
+            Self::open_composition_poly(
+                domain,
+                &round_2_result.composition_poly_merkle_tree,
+                &round_2_result.lde_composition_poly_evaluations,
+                *index,
+            );
+
+            openings.push(DeepPolynomialOpenings {
+                lde_composition_poly_proof: lde_composition_poly_proof.clone(),
+                lde_composition_poly_parts_evaluation: lde_composition_poly_parts_evaluation.clone(),
+                lde_trace_merkle_proofs,
+                lde_trace_evaluations,
+            });
+
+            openings_symmetric.push(DeepPolynomialOpenings {
+                lde_composition_poly_proof,
+                lde_composition_poly_parts_evaluation,
+                lde_trace_merkle_proofs: lde_trace_sym_merkle_proofs,
+                lde_trace_evaluations: lde_trace_sym_evaluations,
+            });
+        }
+
+        (openings, openings_symmetric)
     }
 
     fn sample_query_indexes(
@@ -294,15 +348,12 @@ where
                     let mut layers_evaluations = vec![];
                     let mut layers_auth_paths = vec![];
 
-                    let mut index = *iota_s;
+                    let mut index = *iota_s >> 1;
                     for layer in fri_layers {
                         // symmetric element
-                        let mut evaluation_permuted = layer.evaluation.clone();
-                        in_place_bit_reverse_permute(&mut evaluation_permuted);
-
-                        let evaluation_sym = evaluation_permuted[index * 2 + 1].clone();
+                        let evaluation_sym = layer.evaluation[index * 2 + 1].clone();
                         let auth_path = layer.merkle_tree.get_proof_by_pos(index).unwrap();
-                        let evaluation = evaluation_permuted[index].clone();
+                        let evaluation = layer.evaluation[index].clone();
                         layers_auth_paths.push(auth_path);
                         layers_evaluations_sym.push(evaluation_sym);
                         layers_evaluations.push(evaluation);
@@ -563,7 +614,7 @@ pub mod tests {
         );
 
         assert_eq!(
-            proof.fri_layers_merkle_roots[1].to_vec(),
+            proof.fri_layers_merkle_roots[0].to_vec(),
             decode_hex("327d47da86f5961ee012b2b0e412de16023ffba97c82bfe85102f00daabd49fb").unwrap()
         );
 
@@ -644,7 +695,7 @@ pub mod tests {
 
         // Deep composition poly layer 1
         assert_eq!(
-            proof.query_list[0].layers_evaluations[1],
+            proof.query_list[0].layers_evaluations[0],
             FieldElement::from_hex_unchecked(
                 "684991e76e5c08db17f33ea7840596be876d92c143f863e77cad10548289fd0"
             )
