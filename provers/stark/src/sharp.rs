@@ -2,7 +2,10 @@ use std::marker::PhantomData;
 
 use lambdaworks_crypto::merkle_tree::{proof::Proof, traits::IsMerkleTreeBackend};
 use lambdaworks_math::{
-    fft::{cpu::bit_reversing::in_place_bit_reverse_permute, polynomial::FFTPoly},
+    fft::{
+        cpu::bit_reversing::{in_place_bit_reverse_permute, reverse_index},
+        polynomial::FFTPoly,
+    },
     field::{element::FieldElement, traits::IsFFTField},
     polynomial::Polynomial,
     traits::Serializable,
@@ -21,55 +24,6 @@ use crate::{
 
 pub struct SHARP<F: IsFFTField> {
     phantom: PhantomData<F>,
-}
-
-impl<F> SHARP<F>
-where
-    F: IsFFTField,
-    FieldElement<F>: Serializable,
-{
-    fn apply_permutation<T: Clone>(vector: &mut Vec<T>, permutation: &[usize]) {
-        assert_eq!(
-            vector.len(),
-            permutation.len(),
-            "Vector and permutation must have the same length"
-        );
-
-        let mut temp = Vec::with_capacity(vector.len());
-        for &index in permutation {
-            temp.push(vector[index].clone());
-        }
-
-        vector.clear();
-        vector.extend(temp);
-    }
-    /// This function returns the permutation that converts lambdaworks ordering of rows to the one used in the stone prover
-    pub fn get_stone_prover_domain_permutation(
-        domain_size: usize,
-        blowup_factor: usize,
-    ) -> Vec<usize> {
-        let mut permutation = Vec::new();
-        let n = domain_size;
-
-        let mut indices: Vec<usize> = (0..blowup_factor).collect();
-        in_place_bit_reverse_permute(&mut indices);
-
-        for i in indices.iter() {
-            for j in 0..n {
-                permutation.push(i + j * blowup_factor)
-            }
-        }
-
-        for coset_indices in permutation.chunks_mut(n) {
-            let mut temp = coset_indices.to_owned();
-            in_place_bit_reverse_permute(&mut temp);
-            for (j, elem) in coset_indices.iter_mut().enumerate() {
-                *elem = temp[j];
-            }
-        }
-
-        permutation.to_vec()
-    }
 }
 
 impl<F> IsStarkProver for SHARP<F>
@@ -126,15 +80,10 @@ where
         // Evaluate those polynomials t_j on the large domain D_LDE.
         let lde_trace_evaluations = Self::compute_lde_trace_evaluations(&trace_polys, domain);
 
-        let permutation = Self::get_stone_prover_domain_permutation(
-            domain.interpolation_domain_size,
-            domain.blowup_factor,
-        );
-
         let mut lde_trace_permuted = lde_trace_evaluations.clone();
 
         for col in lde_trace_permuted.iter_mut() {
-            Self::apply_permutation(col, &permutation);
+            in_place_bit_reverse_permute(col);
         }
 
         // Compute commitments [t_j].
@@ -154,7 +103,6 @@ where
 
     fn commit_composition_polynomial(
         lde_composition_poly_parts_evaluations: &[Vec<FieldElement<Self::Field>>],
-        domain: &Domain<F>,
     ) -> (BatchedMerkleTree<F>, Commitment)
     where
         F: IsFFTField,
@@ -172,12 +120,7 @@ where
             lde_composition_poly_evaluations.push(row);
         }
 
-        let permutation = Self::get_stone_prover_domain_permutation(
-            domain.interpolation_domain_size,
-            domain.blowup_factor,
-        );
-
-        Self::apply_permutation(&mut lde_composition_poly_evaluations, &permutation);
+        in_place_bit_reverse_permute(&mut lde_composition_poly_evaluations);
 
         let mut lde_composition_poly_evaluations_merged = Vec::new();
         for chunk in lde_composition_poly_evaluations.chunks(2) {
@@ -199,17 +142,16 @@ where
         F: IsFFTField,
         FieldElement<Self::Field>: Serializable,
     {
-        let permutation = Self::get_stone_prover_domain_permutation(
-            domain.interpolation_domain_size,
-            domain.blowup_factor,
-        );
         let proof = composition_poly_merkle_tree
             .get_proof_by_pos(index)
             .unwrap();
 
         // Hi openings
         let mut permuted = lde_composition_poly_evaluations.clone().to_vec();
-        Self::apply_permutation(&mut permuted[0], &permutation);
+        for part in permuted.iter_mut() {
+            in_place_bit_reverse_permute(part);
+        }
+
         let lde_composition_poly_parts_evaluation: Vec<_> = permuted
             .iter()
             .map(|part| vec![part[index * 2].clone(), part[index * 2 + 1].clone()])
@@ -229,11 +171,12 @@ where
         F: IsFFTField,
         FieldElement<Self::Field>: Serializable,
     {
-        let permutation = Self::get_stone_prover_domain_permutation(
-            domain.interpolation_domain_size,
-            domain.blowup_factor,
-        );
-        let lde_trace_evaluations = lde_trace.get_row(permutation[index * 2]).to_vec();
+        let lde_trace_evaluations = lde_trace
+            .get_row(reverse_index(
+                index * 2,
+                domain.lde_roots_of_unity_coset.len() as u64,
+            ))
+            .to_vec();
 
         let index = index;
         // Trace polynomials openings
@@ -316,7 +259,6 @@ where
         poly: &Polynomial<FieldElement<Self::Field>>,
         coset_offset: &FieldElement<Self::Field>,
         domain_size: usize,
-        degree_bound: usize,
     ) -> crate::fri::fri_commitment::FriLayer<Self::Field, Self::MerkleTreeBackend>
     where
         F: IsFFTField,
@@ -326,15 +268,7 @@ where
             .evaluate_offset_fft(1, Some(domain_size), coset_offset)
             .unwrap(); // TODO: return error
 
-        let blowup_factor = domain_size / (1 << degree_bound);
-        let permutation =
-            SHARP::get_stone_prover_domain_permutation(domain_size / blowup_factor, blowup_factor);
-        SHARP::apply_permutation(&mut evaluation, &permutation);
-
-        println!("Capa");
-        for elem in evaluation.iter() {
-            println!("{:?}", elem);
-        }
+        in_place_bit_reverse_permute(&mut evaluation);
 
         let mut to_commit = Vec::new();
         for chunk in evaluation.chunks(2) {
@@ -359,40 +293,28 @@ where
                 .iter()
                 .map(|iota_s| {
                     // <<<< Receive challenge 𝜄ₛ (iota_s)
-                    let mut layers_auth_paths_sym = vec![];
                     let mut layers_evaluations_sym = vec![];
                     let mut layers_evaluations = vec![];
                     let mut layers_auth_paths = vec![];
 
-                    let blowup_factor = fri_layers[0].evaluation.len() / (1 << fri_layers.len());
-                    let permutation = SHARP::get_stone_prover_domain_permutation(
-                        (1 << fri_layers.len()),
-                        blowup_factor,
-                    );
-                    let permuted_iota = permutation[*iota_s];
-
+                    let mut index = *iota_s;
                     for layer in fri_layers {
                         // symmetric element
-                        let index = iota_s % layer.domain_size;
-                        let index_sym = (iota_s + layer.domain_size / 2) % layer.domain_size;
-                        let evaluation_sym = layer.evaluation[index_sym].clone();
-                        let auth_path_sym = layer
-                            .merkle_tree
-                            .get_proof_by_pos((permuted_iota % layer.domain_size) >> 1)
-                            .unwrap();
-                        let evaluation = layer.evaluation[index].clone();
-                        let auth_path = layer
-                            .merkle_tree
-                            .get_proof_by_pos((permuted_iota % layer.domain_size) >> 1)
-                            .unwrap();
-                        layers_auth_paths_sym.push(auth_path_sym);
+                        let mut evaluation_permuted = layer.evaluation.clone();
+                        in_place_bit_reverse_permute(&mut evaluation_permuted);
+
+                        let evaluation_sym = evaluation_permuted[index * 2 + 1].clone();
+                        let auth_path = layer.merkle_tree.get_proof_by_pos(index).unwrap();
+                        let evaluation = evaluation_permuted[index].clone();
+                        layers_auth_paths.push(auth_path);
                         layers_evaluations_sym.push(evaluation_sym);
                         layers_evaluations.push(evaluation);
-                        layers_auth_paths.push(auth_path);
+
+                        index >>= 1;
                     }
 
                     FriDecommitment {
-                        layers_auth_paths_sym,
+                        layers_auth_paths_sym: Vec::new(),
                         layers_evaluations_sym,
                         layers_evaluations,
                         layers_auth_paths,
@@ -664,6 +586,7 @@ pub mod tests {
 
         assert_eq!(challenges.iotas[0], 1);
 
+        // Trace Col 0
         assert_eq!(
             proof.deep_poly_openings[0].lde_trace_evaluations[0],
             FieldElement::from_hex_unchecked(
@@ -671,13 +594,63 @@ pub mod tests {
             )
         );
 
+        // Trace Col 1
         assert_eq!(
             proof.deep_poly_openings[0].lde_trace_evaluations[1],
             FieldElement::from_hex_unchecked(
                 "1bc1aadf39f2faee64d84cb25f7a95d3dceac1016258a39fc90c9d370e69e8e"
             )
         );
-        
-        //assert_eq!(proof.query_list[0].layers_evaluations_sym);
+
+        // Composition poly
+        assert_eq!(
+            proof.deep_poly_openings[0].lde_composition_poly_parts_evaluation[0],
+            FieldElement::from_hex_unchecked(
+                "2b54852557db698e97253e9d110d60e9bf09f1d358b4c1a96f9f3cf9d2e8755"
+            )
+        );
+
+        // Composition poly sym
+        assert_eq!(
+            proof.deep_poly_openings[0].lde_composition_poly_parts_evaluation[1],
+            FieldElement::from_hex_unchecked(
+                "190f1b0acb7858bd3f5285b68befcf32b436a5f1e3a280e1f42565c1f35c2c3"
+            )
+        );
+
+        // Composition poly auth path layer 0
+        assert_eq!(
+            proof.deep_poly_openings[0]
+                .lde_composition_poly_proof
+                .merkle_path[0]
+                .to_vec(),
+            decode_hex("403b75a122eaf90a298e5d3db2cc7ca096db478078122379a6e3616e72da7546").unwrap()
+        );
+
+        // Composition poly auth path layer 1
+        assert_eq!(
+            proof.deep_poly_openings[0]
+                .lde_composition_poly_proof
+                .merkle_path[1]
+                .to_vec(),
+            decode_hex("07950888c0355c204a1e83ecbee77a0a6a89f93d41cc2be6b39ddd1e727cc965").unwrap()
+        );
+
+        // Composition poly auth path layer 2
+        assert_eq!(
+            proof.deep_poly_openings[0]
+                .lde_composition_poly_proof
+                .merkle_path[2]
+                .to_vec(),
+            decode_hex("58befe2c5de74cc5a002aa82ea219c5b242e761b45fd266eb95521e9f53f44eb").unwrap()
+        );
+
+        // Deep composition poly layer 1
+        assert_eq!(
+            proof.query_list[0].layers_evaluations[1],
+            FieldElement::from_hex_unchecked(
+                "684991e76e5c08db17f33ea7840596be876d92c143f863e77cad10548289fd0"
+            )
+        );
     }
 }

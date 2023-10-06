@@ -7,14 +7,14 @@ use std::marker::PhantomData;
 use lambdaworks_crypto::merkle_tree::merkle::MerkleTree;
 use lambdaworks_crypto::merkle_tree::traits::IsMerkleTreeBackend;
 use lambdaworks_math::fft::polynomial::FFTPoly;
-use lambdaworks_math::field::traits::{IsFFTField, IsField, IsPrimeField};
+use lambdaworks_math::field::traits::{IsFFTField, IsPrimeField};
 use lambdaworks_math::traits::Serializable;
 pub use lambdaworks_math::{
     field::{element::FieldElement, fields::u64_prime_field::U64PrimeField},
     polynomial::Polynomial,
 };
 
-use crate::config::{FriMerkleTree, FriMerkleTreeBackend};
+use crate::config::FriMerkleTreeBackend;
 use crate::transcript::IsStarkTranscript;
 
 use self::fri_commitment::FriLayer;
@@ -29,7 +29,6 @@ pub trait IsFri {
         poly: &Polynomial<FieldElement<Self::Field>>,
         coset_offset: &FieldElement<Self::Field>,
         domain_size: usize,
-        log_degree_bound: usize,
     ) -> FriLayer<Self::Field, Self::MerkleTreeBackend>
     where
         FieldElement<Self::Field>: Serializable;
@@ -40,20 +39,23 @@ pub trait IsFri {
         transcript: &mut impl IsStarkTranscript<Self::Field>,
         coset_offset: &FieldElement<Self::Field>,
         domain_size: usize,
-    ) -> (FieldElement<Self::Field>, Vec<FriLayer<Self::Field, Self::MerkleTreeBackend>>)
+    ) -> (
+        FieldElement<Self::Field>,
+        Vec<FriLayer<Self::Field, Self::MerkleTreeBackend>>,
+    )
     where
         FieldElement<Self::Field>: Serializable,
     {
         let mut domain_size = domain_size;
 
         let mut fri_layer_list = Vec::with_capacity(number_layers);
-        let mut current_layer = Self::new_fri_layer(&p_0, coset_offset, domain_size, number_layers);
+        let mut current_layer = Self::new_fri_layer(&p_0, coset_offset, domain_size);
         fri_layer_list.push(current_layer.clone());
         let mut current_poly = p_0;
 
         let mut coset_offset = coset_offset.clone();
 
-        for i in 1..number_layers {
+        for _ in 1..number_layers {
             // <<<< Receive challenge 𝜁ₖ₋₁
             let zeta = transcript.sample_field_element();
             coset_offset = coset_offset.square();
@@ -61,8 +63,7 @@ pub trait IsFri {
 
             // Compute layer polynomial and domain
             current_poly = fold_polynomial(&current_poly, &zeta) * FieldElement::from(2);
-            current_layer =
-                Self::new_fri_layer(&current_poly, &coset_offset, domain_size, number_layers);
+            current_layer = Self::new_fri_layer(&current_poly, &coset_offset, domain_size);
             let new_data = &current_layer.merkle_tree.root;
             fri_layer_list.push(current_layer.clone()); // TODO: remove this clone
 
@@ -79,7 +80,8 @@ pub trait IsFri {
             .coefficients()
             .get(0)
             .unwrap_or(&FieldElement::zero())
-            .clone() * FieldElement::from(2);
+            .clone()
+            * FieldElement::from(2);
 
         // >>>> Send value: pₙ
         transcript.append_field_element(&last_value);
@@ -153,9 +155,7 @@ where
         poly: &Polynomial<FieldElement<F>>,
         coset_offset: &FieldElement<F>,
         domain_size: usize,
-        log_degree_bound: usize,
-    ) -> FriLayer<F, Self::MerkleTreeBackend>
-    {
+    ) -> FriLayer<F, Self::MerkleTreeBackend> {
         let evaluation = poly
             .evaluate_offset_fft(1, Some(domain_size), coset_offset)
             .unwrap(); // TODO: return error

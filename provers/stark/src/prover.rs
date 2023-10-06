@@ -144,31 +144,6 @@ pub trait IsStarkProver {
         vector.extend(temp);
     }
 
-    /// This function returns the permutation that converts lambdaworks ordering of rows to the one used in the stone prover
-    fn get_stone_prover_domain_permutation(domain_size: usize, blowup_factor: usize) -> Vec<usize> {
-        let mut permutation = Vec::new();
-        let n = domain_size;
-
-        let mut indices: Vec<usize> = (0..blowup_factor).collect();
-        in_place_bit_reverse_permute(&mut indices);
-
-        for i in indices.iter() {
-            for j in 0..n {
-                permutation.push(i + j * blowup_factor)
-            }
-        }
-
-        for coset_indices in permutation.chunks_mut(n) {
-            let mut temp = coset_indices.to_owned();
-            in_place_bit_reverse_permute(&mut temp);
-            for (j, elem) in coset_indices.iter_mut().enumerate() {
-                *elem = temp[j];
-            }
-        }
-
-        permutation.to_vec()
-    }
-
     #[allow(clippy::type_complexity)]
     fn interpolate_and_commit(
         trace: &TraceTable<Self::Field>,
@@ -269,7 +244,6 @@ pub trait IsStarkProver {
 
     fn commit_composition_polynomial(
         lde_composition_poly_parts_evaluations: &[Vec<FieldElement<Self::Field>>],
-        _domain: &Domain<Self::Field>,
     ) -> (BatchedMerkleTree<Self::Field>, Commitment)
     where
         FieldElement<Self::Field>: Serializable,
@@ -331,7 +305,7 @@ pub trait IsStarkProver {
             .collect();
 
         let (composition_poly_merkle_tree, composition_poly_root) =
-            Self::commit_composition_polynomial(&lde_composition_poly_parts_evaluations, domain);
+            Self::commit_composition_polynomial(&lde_composition_poly_parts_evaluations);
 
         Round2 {
             lde_composition_poly_evaluations: lde_composition_poly_parts_evaluations,
