@@ -290,7 +290,7 @@ pub trait IsStarkProver {
         let composition_poly =
             constraint_evaluations.compute_composition_poly(&domain.coset_offset);
 
-        let number_of_parts = 1;
+        let number_of_parts = 2;
         let composition_poly_parts = composition_poly.break_in_parts(number_of_parts);
         let lde_composition_poly_parts_evaluations: Vec<_> = composition_poly_parts
             .iter()
@@ -633,7 +633,7 @@ pub trait IsStarkProver {
             .map(|iota| iota + domain.lde_roots_of_unity_coset.len() / 2)
             .collect();
 
-        let all_indexes = vec![&indexes_symmetric, indexes_to_open];
+        let all_indexes = vec![indexes_symmetric, indexes_to_open.to_vec()];
         let mut openings: Vec<_> = all_indexes
             .iter()
             .map(|indexes| indexes.iter().map(|index_to_open| {

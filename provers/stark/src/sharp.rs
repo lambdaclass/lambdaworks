@@ -258,29 +258,31 @@ where
 pub struct SHARV {}
 
 impl IsStarkVerifier for SHARV {
-    fn verify_trace_openings<F>(
-        proof: &StarkProof<F>,
-        deep_poly_opening: &crate::proof::stark::DeepPolynomialOpenings<F>,
-        lde_trace_evaluations: &[Vec<FieldElement<F>>],
-        iota: usize,
-    ) -> bool
-    where
-        F: IsFFTField,
-        FieldElement<F>: Serializable,
-    {
-        proof
-            .lde_trace_merkle_roots
-            .iter()
-            .zip(&deep_poly_opening.lde_trace_merkle_proofs)
-            .zip(lde_trace_evaluations)
-            .fold(true, |acc, ((merkle_root, merkle_proof), evaluation)| {
-                acc & merkle_proof.verify::<BatchedMerkleTreeBackend<F>>(
-                    merkle_root,
-                    iota * 2,
-                    &evaluation,
-                )
-            })
-    }
+    // fn verify_trace_openings<F>(
+    //     domain: &Domain<F>,
+    //     num_main_columns: usize,
+    //     proof: &StarkProof<F>,
+    //     deep_poly_opening: &DeepPolynomialOpenings<F>,
+    //     deep_poly_opening_sym: &DeepPolynomialOpenings<F>,
+    //     iota: usize,
+    // ) -> bool
+    // where
+    //     F: IsFFTField,
+    //     FieldElement<F>: Serializable,
+    // {
+    //     proof
+    //         .lde_trace_merkle_roots
+    //         .iter()
+    //         .zip(&deep_poly_opening.lde_trace_merkle_proofs)
+    //         .zip(lde_trace_evaluations)
+    //         .fold(true, |acc, ((merkle_root, merkle_proof), evaluation)| {
+    //             acc & merkle_proof.verify::<BatchedMerkleTreeBackend<F>>(
+    //                 merkle_root,
+    //                 iota * 2,
+    //                 &evaluation,
+    //             )
+    //         })
+    // }
 
     fn sample_query_indexes<F: IsFFTField>(
         number_of_queries: usize,

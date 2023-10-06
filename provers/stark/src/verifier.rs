@@ -334,23 +334,49 @@ pub trait IsStarkVerifier {
     }
 
     fn verify_trace_openings<F>(
+        domain: &Domain<F>,
+        num_main_columns: usize,
         proof: &StarkProof<F>,
         deep_poly_opening: &DeepPolynomialOpenings<F>,
-        lde_trace_evaluations: &[Vec<FieldElement<F>>],
+        deep_poly_opening_sym: &DeepPolynomialOpenings<F>,
         iota: usize,
     ) -> bool
     where
         F: IsFFTField,
         FieldElement<F>: Serializable,
     {
-        proof
+        let lde_trace_evaluations = vec![
+            deep_poly_opening.lde_trace_evaluations[..num_main_columns].to_vec(),
+            deep_poly_opening.lde_trace_evaluations[num_main_columns..].to_vec(),
+        ];
+
+        let openings_are_valid = proof
             .lde_trace_merkle_roots
             .iter()
             .zip(&deep_poly_opening.lde_trace_merkle_proofs)
             .zip(lde_trace_evaluations)
             .fold(true, |acc, ((merkle_root, merkle_proof), evaluation)| {
                 acc & Self::verify_opening(&merkle_proof, &merkle_root, iota, &evaluation)
-            })
+            });
+
+        let lde_trace_evaluations_sym = vec![
+            deep_poly_opening_sym.lde_trace_evaluations[..num_main_columns].to_vec(),
+            deep_poly_opening_sym.lde_trace_evaluations[num_main_columns..].to_vec(),
+        ];
+        let openings_sym_are_valid = proof
+            .lde_trace_merkle_roots
+            .iter()
+            .zip(&deep_poly_opening_sym.lde_trace_merkle_proofs)
+            .zip(lde_trace_evaluations_sym)
+            .fold(true, |acc, ((merkle_root, merkle_proof), evaluation)| {
+                acc & Self::verify_opening(
+                    &merkle_proof,
+                    &merkle_root,
+                    iota + domain.lde_roots_of_unity_coset.len() / 2,
+                    &evaluation,
+                )
+            });
+        openings_are_valid & openings_sym_are_valid
     }
 
     fn verify_opening<F>(
@@ -367,21 +393,33 @@ pub trait IsStarkVerifier {
     }
 
     fn verify_composition_poly_opening<F>(
-        _domain: &Domain<F>,
-        lde_composition_poly_proof: &Proof<Commitment>,
+        domain: &Domain<F>,
+        deep_poly_opening: &DeepPolynomialOpenings<F>,
+        deep_poly_opening_sym: &DeepPolynomialOpenings<F>,
         composition_poly_merkle_root: &Commitment,
         iota: &usize,
-        evaluations: &Vec<FieldElement<F>>,
     ) -> bool
     where
         F: IsFFTField,
         FieldElement<F>: Serializable,
     {
-        lde_composition_poly_proof.verify::<BatchedMerkleTreeBackend<F>>(
+        let openings_are_valid = deep_poly_opening
+            .lde_composition_poly_proof
+            .verify::<BatchedMerkleTreeBackend<F>>(
             composition_poly_merkle_root,
             *iota,
-            evaluations,
-        )
+            &deep_poly_opening.lde_composition_poly_parts_evaluation,
+        );
+
+        let openings_sym_are_valid = deep_poly_opening_sym
+            .lde_composition_poly_proof
+            .verify::<BatchedMerkleTreeBackend<F>>(
+            composition_poly_merkle_root,
+            *iota + domain.lde_roots_of_unity_coset.len() / 2,
+            &deep_poly_opening_sym.lde_composition_poly_parts_evaluation,
+        );
+
+        openings_are_valid & openings_sym_are_valid
     }
 
     fn step_4_verify_trace_and_composition_openings<F: IsFFTField, A: AIR<Field = F>>(
@@ -393,35 +431,37 @@ pub trait IsStarkVerifier {
     where
         FieldElement<F>: Serializable,
     {
-        challenges.iotas.iter().zip(&proof.deep_poly_openings).fold(
-            true,
-            |mut result, (iota_n, deep_poly_opening)| {
-                // Verify opening Open(H₁(D_LDE, 𝜐₀) and Open(H₂(D_LDE, 𝜐₀),
-                result &= Self::verify_composition_poly_opening(
-                    domain,
-                    &deep_poly_opening.lde_composition_poly_proof,
-                    &proof.composition_poly_root,
-                    iota_n,
-                    &deep_poly_opening.lde_composition_poly_parts_evaluation,
-                );
+        challenges
+            .iotas
+            .iter()
+            .zip(&proof.deep_poly_openings)
+            .zip(&proof.deep_poly_openings_sym)
+            .fold(
+                true,
+                |mut result, ((iota_n, deep_poly_opening), deep_poly_openings_sym)| {
+                    // Verify opening Open(H₁(D_LDE, 𝜐₀) and Open(H₂(D_LDE, 𝜐₀),
+                    result &= Self::verify_composition_poly_opening(
+                        domain,
+                        &deep_poly_opening,
+                        &deep_poly_openings_sym,
+                        &proof.composition_poly_root,
+                        iota_n,
+                    );
 
-                let num_main_columns =
-                    air.context().trace_columns - air.number_auxiliary_rap_columns();
-                let lde_trace_evaluations = vec![
-                    deep_poly_opening.lde_trace_evaluations[..num_main_columns].to_vec(),
-                    deep_poly_opening.lde_trace_evaluations[num_main_columns..].to_vec(),
-                ];
-
-                // Verify openings Open(tⱼ(D_LDE), 𝜐₀)
-                result &= Self::verify_trace_openings(
-                    proof,
-                    deep_poly_opening,
-                    &lde_trace_evaluations,
-                    *iota_n,
-                );
-                result
-            },
-        )
+                    let num_main_columns =
+                        air.context().trace_columns - air.number_auxiliary_rap_columns();
+                    // Verify openings Open(tⱼ(D_LDE), 𝜐₀)
+                    result &= Self::verify_trace_openings(
+                        domain,
+                        num_main_columns,
+                        proof,
+                        deep_poly_opening,
+                        deep_poly_openings_sym,
+                        *iota_n,
+                    );
+                    result
+                },
+            )
     }
 
     fn verify_query_and_sym_openings<F: IsField + IsFFTField>(
