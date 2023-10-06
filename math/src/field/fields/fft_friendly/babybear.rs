@@ -115,7 +115,7 @@ mod tests {
         }
     }
 
-    #[cfg(not(feature = "instruments"))]
+    #[cfg(feature = "std")]
     mod test_babybear_31_fft {
         use super::*;
         use crate::fft::cpu::roots_of_unity::{
@@ -252,6 +252,7 @@ mod tests {
 
             // Property-based test that ensures FFT interpolation is the same as naive..
             #[test]
+            #[cfg(not(feature = "instruments"))]
             fn test_fft_interpolate_matches_naive(fft_evals in field_vec(4)
                                                            .prop_filter("Avoid polynomials of size not power of two",
                                                                         |evals| evals.len().is_power_of_two())) {
@@ -261,6 +262,7 @@ mod tests {
 
             // Property-based test that ensures FFT interpolation with an offset is the same as naive.
             #[test]
+            #[cfg(not(feature = "instruments"))]
             fn test_fft_interpolate_coset_matches_naive(offset in offset(), fft_evals in field_vec(4)
                                                            .prop_filter("Avoid polynomials of size not power of two",
                                                                         |evals| evals.len().is_power_of_two())) {
@@ -270,6 +272,7 @@ mod tests {
 
             // Property-based test that ensures interpolation is the inverse operation of evaluation.
             #[test]
+            #[cfg(not(feature = "instruments"))]
             fn test_fft_interpolate_is_inverse_of_evaluate(
                 poly in poly(4).prop_filter("Avoid non pows of two", |poly| poly.coeff_len().is_power_of_two())) {
                 let (poly, new_poly) = gen_fft_interpolate_and_evaluate(poly);
