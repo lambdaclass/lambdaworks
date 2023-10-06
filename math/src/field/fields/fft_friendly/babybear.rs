@@ -245,6 +245,7 @@ mod tests {
 
             // Property-based test that ensures FFT eval. with coset gives same result as a naive polynomial evaluation.
             #[test]
+            #[cfg(not(feature = "instruments"))]
             fn test_fft_coset_matches_naive_evaluation(poly in poly(4), offset in offset(), blowup_factor in powers_of_two(4)) {
                 let (fft_eval, naive_eval) = gen_fft_coset_and_naive_evaluation(poly, offset, blowup_factor);
                 prop_assert_eq!(fft_eval, naive_eval);
