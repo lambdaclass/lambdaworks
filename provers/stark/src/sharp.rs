@@ -539,11 +539,13 @@ pub mod tests {
             &mut StoneProverTranscript::new(&transcript_init_seed),
         );
 
+        // Trace commitment
         assert_eq!(
             proof.lde_trace_merkle_roots[0].to_vec(),
             decode_hex("0eb9dcc0fb1854572a01236753ce05139d392aa3aeafe72abff150fe21175594").unwrap()
         );
 
+        // Challenge to create the composition polynomial
         assert_eq!(challenges.transition_coeffs[0], FieldElement::one());
         let beta = challenges.transition_coeffs[1];
         assert_eq!(
@@ -555,11 +557,13 @@ pub mod tests {
         assert_eq!(challenges.boundary_coeffs[0], beta.pow(2u64));
         assert_eq!(challenges.boundary_coeffs[1], beta.pow(3u64));
 
+        // Composition polynomial commitment
         assert_eq!(
             proof.composition_poly_root.to_vec(),
             decode_hex("7cdd8d5fe3bd62254a417e2e260e0fed4fccdb6c9005e828446f645879394f38").unwrap()
         );
 
+        // Challenge to sample out of domain
         assert_eq!(
             challenges.z,
             FieldElement::from_hex_unchecked(
@@ -567,6 +571,7 @@ pub mod tests {
             )
         );
 
+        // Out ouf domain sampling: t_j, H_j and t_j shifted.
         assert_eq!(
             proof.trace_ood_frame_evaluations.get_row(0)[0],
             FieldElement::from_hex_unchecked(
@@ -606,6 +611,7 @@ pub mod tests {
             )
         );
 
+        // Challenge to fold FRI polynomial
         assert_eq!(
             challenges.zetas[0],
             FieldElement::from_hex_unchecked(
@@ -613,11 +619,13 @@ pub mod tests {
             )
         );
 
+        // Commitment of first layer of FRI
         assert_eq!(
             proof.fri_layers_merkle_roots[0].to_vec(),
             decode_hex("327d47da86f5961ee012b2b0e412de16023ffba97c82bfe85102f00daabd49fb").unwrap()
         );
 
+        // Challenge to fold FRI polynomial
         assert_eq!(
             challenges.zetas[1],
             FieldElement::from_hex_unchecked(
@@ -647,6 +655,22 @@ pub mod tests {
             proof.deep_poly_openings[0].lde_trace_evaluations[1],
             FieldElement::from_hex_unchecked(
                 "1bc1aadf39f2faee64d84cb25f7a95d3dceac1016258a39fc90c9d370e69e8e"
+            )
+        );
+
+        // Trace Col 0 symmetric
+        assert_eq!(
+            proof.deep_poly_openings_sym[0].lde_trace_evaluations[0],
+            FieldElement::from_hex_unchecked(
+                "321f2a9063068310cd93d9a6d042b516118a9f7f4ed3ae301b79b16478cb0c6"
+            )
+        );
+
+        // Trace Col 1 symmetric
+        assert_eq!(
+            proof.deep_poly_openings_sym[0].lde_trace_evaluations[1],
+            FieldElement::from_hex_unchecked(
+                "643e5520c60d06219b27b34da0856a2c23153efe9da75c6036f362c8f196186"
             )
         );
 
