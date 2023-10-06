@@ -146,15 +146,14 @@ where
             .get_proof_by_pos(index)
             .unwrap();
 
-        // Hi openings
-        let mut permuted = lde_composition_poly_evaluations.clone().to_vec();
-        for part in permuted.iter_mut() {
-            in_place_bit_reverse_permute(part);
-        }
-
-        let lde_composition_poly_parts_evaluation: Vec<_> = permuted
+        let lde_composition_poly_parts_evaluation: Vec<_> = lde_composition_poly_evaluations
             .iter()
-            .map(|part| vec![part[index * 2].clone(), part[index * 2 + 1].clone()])
+            .map(|part| {
+                vec![
+                    part[reverse_index(index * 2, part.len() as u64)].clone(),
+                    part[reverse_index(index * 2 + 1, part.len() as u64)].clone(),
+                ]
+            })
             .flatten()
             .collect();
 
@@ -171,11 +170,9 @@ where
         F: IsFFTField,
         FieldElement<Self::Field>: Serializable,
     {
+        let domain_size = domain.lde_roots_of_unity_coset.len();
         let lde_trace_evaluations = lde_trace
-            .get_row(reverse_index(
-                index * 2,
-                domain.lde_roots_of_unity_coset.len() as u64,
-            ))
+            .get_row(reverse_index(index * 2, domain_size as u64))
             .to_vec();
 
         let index = index;
