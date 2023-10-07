@@ -21,53 +21,38 @@ List of symbols:
 - 🏗️ means that the feature is partially implemented or is under active construction.
 - :x: means that the feature is not currently supported.
 
-| Finite Fields  | Lambdaworks        | Arkworks           | Halo2    | GNARK | Constantine |
+| Finite Fields  | Lambdaworks        | Arkworks           | Halo2    | gnark | Constantine |
 | -------------- | ------------------ | ------------------ | --- | ----- | ----------- |
 | StarkField 252 | :heavy_check_mark: | :heavy_check_mark: |     |       |             |
 | Mersenne 31    | 🏗️           |                    |     |       |             |
 | Baby Bear      | 🏗️           |                    |     |       |             |
 | MiniGoldilocks | 🏗️           |                    |     |       |             |
-
-| ZK friendly Hash function | Lambdaworks | Arkworks           | Halo2    | GNARK | Constantine |
-| ------------------------- | ----------- | ------------------ | --- | ----- | ----------- |
+| **ZK friendly Hash function** | **Lambdaworks** | **Arkworks** | **Halo2** | **gnark** | **Constantine** |
 | Poseidon                  | 🏗️    | :heavy_check_mark: |     |       |             |
 | Pedersen                  | 🏗️    | :heavy_check_mark: |     |       |             |
 | Rescue Prime XLIX         | :x:         |                    |     |       |             |
-
-| Elliptic Curves | Lambdaworks        | Arkworks           | Halo2    | GNARK              | Constantine |
-| --------------- | ------------------ | ------------------ | --- | ------------------ | ----------- |
+| **Elliptic Curves** | **Lambdaworks** | **Arkworks** | **Halo2** | **gnark** | **Constantine** |
 | BLS12-381       | :heavy_check_mark: | :heavy_check_mark: |     |                    |             |
 | BLS12-377       | 🏗️           | :heavy_check_mark: |     | :heavy_check_mark: |             |
 | BN-254          | :x:                | :heavy_check_mark: |     |                    |             |
 | Pallas          | :x:                | :heavy_check_mark: |     |                    |             |
 | Vesta           | :x:                | :heavy_check_mark: |     |                    |             |
 | Bandersnatch    | 🏗️           | :heavy_check_mark: |     |                    |             |
-
-| STARKs       | Lambdaworks        | Arkworks | Halo2    | GNARK | Constantine |
-| ------------ | ------------------ | -------- | --- | ----- | ----------- |
+| **STARKs**       | **Lambdaworks** | **Arkworks** | **Halo2** | **gnark** | **Constantine** |
 | STARK Prover | :heavy_check_mark: | :x:      |     | :x:   |             |
 | CAIRO Prover | 🏗️           | :x:      |     | :x:   |             |
-
-We are currently working to make the CAIRO prover compatible with the Stone Prover
-
-| SNARKs  | Lambdaworks | Arkworks           | Halo2    | GNARK              | Constantine |
-| ------- | ----------- | ------------------ | --- | ------------------ | ----------- |
+| **SNARKs**  |**Lambdaworks** | **Arkworks** | **Halo2** | **gnark** | **Constantine** |
 | Groth16 | :x:         | :heavy_check_mark: |     | :heavy_check_mark: |             |
 | Plonk   | 🏗️    | :x:                |     | :heavy_check_mark: |             |
 | Spartan | :x:         | :heavy_check_mark: |     |                    |             |
 | Marlin  | :x:         | :heavy_check_mark: |     |                    |             |
 | GKR     | :x:         | :heavy_check_mark: |     | :heavy_check_mark: |             |
-
-
-| Polynomial Commitment Schemes | Lambdaworks        | Halo2    | Arkworks           | GNARK              | Constantine |
-| ----------------------------- | ------------------ | --- | ------------------ | ------------------ | ----------- |
+| **Polynomial Commitment Schemes** | **Lambdaworks** | **Arkworks** | **Halo2** | **gnark** | **Constantine** |
 | FRI                           | 🏗️           |     | :x:                | :heavy_check_mark: |             |
 | IPA                           | :x:                |     | :heavy_check_mark: |                    |             |
 | Hyrax                         | :x:                |     | :x:                |                    |             |
 | KZG10                         | :heavy_check_mark: |     | :heavy_check_mark: | :heavy_check_mark: |             |
-
-| Folding Schemes | Lambdaworks | Arkworks | Halo2 | GNARK | Constantine |
-| --------------- | ----------- | -------- | ---   | ----- | ----------- |
+| **Folding Schemes** | **Lambdaworks** | **Arkworks** | **Halo2** | **gnark** | **Constantine** |
 | Nova            | :x:         |          |       |       |             |
 | Supernova       | :x:         |          |       |       |             |
 | Protostar       | :x:         |          |       |       |             |
