@@ -8,12 +8,12 @@
 
 CLI currently runs with 100 bits of conjecturable security
 
-## [Cairo Platinum Prover Docs]([lambdaclass.github.io/lambdaworks/](https://github.com/lambdaclass/lambdaworks/blob/main/provers/cairo/README.md))
+## [Cairo Platinum Prover Docs](<[lambdaclass.github.io/lambdaworks/](https://github.com/lambdaclass/lambdaworks/blob/main/provers/cairo/README.md)>)
 
 ## Requirements
 
 - Cargo 1.69+
-  
+
 ## Usage
 
 Note: to use cairo compiler with docker, build the image by running:
@@ -23,6 +23,7 @@ Note: to use cairo compiler with docker, build the image by running:
 ```
 
 ### 🚀 Prove and verify
+
 Sample Cairo 0 programs can be found [here](https://github.com/lambdaclass/lambdaworks/tree/main/provers/cairo/cairo_programs/cairo0) (need to be compiled first).
 
 Notice for compilation either `cairo-lang` or `docker` is required
@@ -42,7 +43,7 @@ make prove PROGRAM_PATH=cairo_programs/cairo0/fibonacci_5.json PROOF_PATH=progra
 ```
 
 To verify a proof you can use:
-  
+
 ```bash
 make verify PROOF_PATH=<proof_path>
 ```
@@ -56,11 +57,11 @@ make verify PROOF_PATH=fibonacci_5.proof
 To prove and verify with a single command you can use:
 
 ```bash
-make run_all PROOF_PATH=<proof_path>
+make run_all PROGRAM_PATH=<compiled_program_path>
 ```
 
 For example:
 
 ```bash
-make run_all PROOF_PATH=fibonacci_5.proof
+make run_all PROGRAM_PATH=cairo_programs/cairo0/fibonacci_5.json
 ```
