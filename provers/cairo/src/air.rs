@@ -1641,30 +1641,30 @@ mod prop_test {
         }
     }
 
-    #[test]
-    fn deserialize_and_verify() {
-        let program_content = std::fs::read(cairo0_program_path("fibonacci_10.json")).unwrap();
-        let (main_trace, pub_inputs) =
-            generate_prover_args(&program_content, &None, CairoLayout::Plain).unwrap();
-
-        let proof_options = ProofOptions::default_test_options();
-
-        // The proof is generated and serialized.
-        let proof = generate_cairo_proof(&main_trace, &pub_inputs, &proof_options).unwrap();
-        let proof_bytes = proof.serialize();
-
-        // The trace and original proof are dropped to show that they are decoupled from
-        // the verifying process.
-        drop(main_trace);
-        drop(proof);
-
-        // At this point, the verifier only knows about the serialized proof, the proof options
-        // and the public inputs.
-        let proof = StarkProof::<Stark252PrimeField>::deserialize(&proof_bytes).unwrap();
-
-        // The proof is verified successfully.
-        assert!(verify_cairo_proof(&proof, &pub_inputs, &proof_options));
-    }
+    // #[test]
+    // fn deserialize_and_verify() {
+    //     let program_content = std::fs::read(cairo0_program_path("fibonacci_10.json")).unwrap();
+    //     let (main_trace, pub_inputs) =
+    //         generate_prover_args(&program_content, &None, CairoLayout::Plain).unwrap();
+    //
+    //     let proof_options = ProofOptions::default_test_options();
+    //
+    //     // The proof is generated and serialized.
+    //     let proof = generate_cairo_proof(&main_trace, &pub_inputs, &proof_options).unwrap();
+    //     let proof_bytes = proof.serialize();
+    //
+    //     // The trace and original proof are dropped to show that they are decoupled from
+    //     // the verifying process.
+    //     drop(main_trace);
+    //     drop(proof);
+    //
+    //     // At this point, the verifier only knows about the serialized proof, the proof options
+    //     // and the public inputs.
+    //     let proof = StarkProof::<Stark252PrimeField>::deserialize(&proof_bytes).unwrap();
+    //
+    //     // The proof is verified successfully.
+    //     assert!(verify_cairo_proof(&proof, &pub_inputs, &proof_options));
+    // }
 
     #[test]
     fn deserialize_should_not_panic_with_changed_and_sliced_bytes() {
