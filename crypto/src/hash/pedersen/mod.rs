@@ -52,7 +52,7 @@ impl Pedersen<StarkCurve> {
         add_points(&mut acc, &y[..248], &self.params.points_p3); // Add b_low * P3
         add_points(&mut acc, &y[248..252], &self.params.points_p4); // Add b_high * P4
 
-        acc.x().clone()
+        acc.to_affine().x().clone()
     }
 }
 
@@ -72,7 +72,7 @@ mod tests {
     use super::*;
 
     // Test case ported from:
-    //   https://github.com/starkware-libs/crypto-cpp/blob/95864fbe11d5287e345432dbe1e80dea3c35fc58/src/starkware/crypto/ffi/crypto_lib_test.go
+    // https://github.com/starkware-libs/crypto-cpp/blob/95864fbe11d5287e345432dbe1e80dea3c35fc58/src/starkware/crypto/ffi/crypto_lib_test.go
     
     #[test]
     fn test_stark_curve() {

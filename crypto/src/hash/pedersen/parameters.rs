@@ -27,12 +27,12 @@ impl PedersenParameters<StarkCurve> {
         // Ordered as shift_point, points_p1, points_p2, points_p3, points_p4
         let all_points: Vec<ShortWeierstrassProjectivePoint<StarkCurve>> =
             Self::parse_affine_points(field_elements_csv);
-        assert_eq!(all_points.len(), 1 + 248 + 4 + 248 + 4);
+        assert_eq!(all_points.len(), 1891); // Hard-coded lookup table size, equal to that of starknet-rs
 
         let (shift_point, remaining) = all_points.split_at(1);
-        let (points_p1, remaining) = remaining.split_at(248);
-        let (points_p2, remaining) = remaining.split_at(4);
-        let (points_p3, points_p4) = remaining.split_at(248);
+        let (points_p1, remaining) = remaining.split_at(930);
+        let (points_p2, remaining) = remaining.split_at(15);
+        let (points_p3, points_p4) = remaining.split_at(930);
 
         let curve_const_bits = 4;
         Self {
@@ -55,11 +55,22 @@ impl PedersenParameters<StarkCurve> {
             .chunks(2)
             .map(|point| {
                 ShortWeierstrassProjectivePoint::<StarkCurve>::from_affine(
-                    FieldElement::<Stark252PrimeField>::from_hex_unchecked(point[0]),
-                    FieldElement::<Stark252PrimeField>::from_hex_unchecked(point[1]),
+                    FieldElement::<Stark252PrimeField>::from_hex_unchecked(point[0].trim()),
+                    FieldElement::<Stark252PrimeField>::from_hex_unchecked(point[1].trim()),
                 )
                 .unwrap()
             })
             .collect()
     }
 }
+
+
+
+
+
+
+
+
+
+
+
