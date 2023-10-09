@@ -63,14 +63,3 @@ impl PedersenParameters<StarkCurve> {
             .collect()
     }
 }
-
-
-
-
-
-
-
-
-
-
-

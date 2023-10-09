@@ -73,7 +73,7 @@ mod tests {
 
     // Test case ported from:
     // https://github.com/starkware-libs/crypto-cpp/blob/95864fbe11d5287e345432dbe1e80dea3c35fc58/src/starkware/crypto/ffi/crypto_lib_test.go
-    
+
     #[test]
     fn test_stark_curve() {
         let pedersen_stark_curve_params = PedersenParameters::<StarkCurve>::new();
