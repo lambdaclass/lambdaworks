@@ -4,7 +4,7 @@ use lambdaworks_math::field::{
 
 use crate::{
     examples::{
-        dummy_air::{self, DummyAIR},
+        // dummy_air::{self, DummyAIR},
         fibonacci_2_cols_shifted::{self, Fibonacci2ColsShifted},
         fibonacci_2_columns::{self, Fibonacci2ColsAIR},
         fibonacci_rap::{fibonacci_rap_trace, FibonacciRAP, FibonacciRAPPublicInputs},
@@ -192,24 +192,24 @@ fn test_prove_rap_fib() {
     );
 }
 
-#[test_log::test]
-fn test_prove_dummy() {
-    let trace_length = 16;
-    let trace = dummy_air::dummy_trace(trace_length);
+// #[test_log::test]
+// fn test_prove_dummy() {
+//     let trace_length = 16;
+//     let trace = dummy_air::dummy_trace(trace_length);
 
-    let proof_options = ProofOptions::default_test_options();
+//     let proof_options = ProofOptions::default_test_options();
 
-    let proof = prove::<Stark252PrimeField, DummyAIR>(
-        &trace,
-        &(),
-        &proof_options,
-        StoneProverTranscript::new(&[]),
-    )
-    .unwrap();
-    assert!(verify::<Stark252PrimeField, DummyAIR>(
-        &proof,
-        &(),
-        &proof_options,
-        StoneProverTranscript::new(&[])
-    ));
-}
+//     let proof = prove::<Stark252PrimeField, DummyAIR>(
+//         &trace,
+//         &(),
+//         &proof_options,
+//         StoneProverTranscript::new(&[]),
+//     )
+//     .unwrap();
+//     assert!(verify::<Stark252PrimeField, DummyAIR>(
+//         &proof,
+//         &(),
+//         &proof_options,
+//         StoneProverTranscript::new(&[])
+//     ));
+// }

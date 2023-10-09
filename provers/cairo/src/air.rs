@@ -21,6 +21,7 @@ use stark_platinum_prover::{
 };
 
 use crate::Felt252;
+use stark_platinum_prover::table::Table;
 
 use super::{cairo_mem::CairoMemory, register_states::RegisterStates};
 
@@ -708,19 +709,16 @@ impl AIR for CairoAIR {
         main_trace: &TraceTable<Self::Field>,
         rap_challenges: &Self::RAPChallenges,
     ) -> TraceTable<Self::Field> {
-        let addresses_original = main_trace
-            .get_cols(&[
-                FRAME_PC,
-                FRAME_DST_ADDR,
-                FRAME_OP0_ADDR,
-                FRAME_OP1_ADDR,
-                EXTRA_ADDR,
-            ])
-            .table;
+        let addresses_original = main_trace.get_columns(&[
+            FRAME_PC,
+            FRAME_DST_ADDR,
+            FRAME_OP0_ADDR,
+            FRAME_OP1_ADDR,
+            EXTRA_ADDR,
+        ]);
 
-        let values_original = main_trace
-            .get_cols(&[FRAME_INST, FRAME_DST, FRAME_OP0, FRAME_OP1, EXTRA_VAL])
-            .table;
+        let values_original =
+            main_trace.get_columns(&[FRAME_INST, FRAME_DST, FRAME_OP0, FRAME_OP1, EXTRA_VAL]);
 
         let (addresses, values) = add_pub_memory_in_public_input_section(
             &addresses_original,
@@ -739,9 +737,8 @@ impl AIR for CairoAIR {
         );
 
         // Range Check
-        let offsets_original = main_trace
-            .get_cols(&[OFF_DST, OFF_OP0, OFF_OP1, RC_HOLES])
-            .table;
+        let offsets_original = main_trace.get_columns(&[OFF_DST, OFF_OP0, OFF_OP1, RC_HOLES]);
+
         let mut offsets_sorted: Vec<u16> = offsets_original
             .iter()
             .map(|x| x.representative().into())
@@ -759,34 +756,36 @@ impl AIR for CairoAIR {
         );
 
         // Convert from long-format to wide-format again
-        let mut aux_table = Vec::new();
+        let mut aux_data = Vec::new();
         for i in 0..main_trace.n_rows() {
-            aux_table.push(offsets_sorted[4 * i]);
-            aux_table.push(offsets_sorted[4 * i + 1]);
-            aux_table.push(offsets_sorted[4 * i + 2]);
-            aux_table.push(offsets_sorted[4 * i + 3]);
-            aux_table.push(addresses[5 * i]);
-            aux_table.push(addresses[5 * i + 1]);
-            aux_table.push(addresses[5 * i + 2]);
-            aux_table.push(addresses[5 * i + 3]);
-            aux_table.push(addresses[5 * i + 4]);
-            aux_table.push(values[5 * i]);
-            aux_table.push(values[5 * i + 1]);
-            aux_table.push(values[5 * i + 2]);
-            aux_table.push(values[5 * i + 3]);
-            aux_table.push(values[5 * i + 4]);
-            aux_table.push(permutation_col[5 * i]);
-            aux_table.push(permutation_col[5 * i + 1]);
-            aux_table.push(permutation_col[5 * i + 2]);
-            aux_table.push(permutation_col[5 * i + 3]);
-            aux_table.push(permutation_col[5 * i + 4]);
-            aux_table.push(range_check_permutation_col[4 * i]);
-            aux_table.push(range_check_permutation_col[4 * i + 1]);
-            aux_table.push(range_check_permutation_col[4 * i + 2]);
-            aux_table.push(range_check_permutation_col[4 * i + 3]);
+            aux_data.push(offsets_sorted[4 * i]);
+            aux_data.push(offsets_sorted[4 * i + 1]);
+            aux_data.push(offsets_sorted[4 * i + 2]);
+            aux_data.push(offsets_sorted[4 * i + 3]);
+            aux_data.push(addresses[5 * i]);
+            aux_data.push(addresses[5 * i + 1]);
+            aux_data.push(addresses[5 * i + 2]);
+            aux_data.push(addresses[5 * i + 3]);
+            aux_data.push(addresses[5 * i + 4]);
+            aux_data.push(values[5 * i]);
+            aux_data.push(values[5 * i + 1]);
+            aux_data.push(values[5 * i + 2]);
+            aux_data.push(values[5 * i + 3]);
+            aux_data.push(values[5 * i + 4]);
+            aux_data.push(permutation_col[5 * i]);
+            aux_data.push(permutation_col[5 * i + 1]);
+            aux_data.push(permutation_col[5 * i + 2]);
+            aux_data.push(permutation_col[5 * i + 3]);
+            aux_data.push(permutation_col[5 * i + 4]);
+            aux_data.push(range_check_permutation_col[4 * i]);
+            aux_data.push(range_check_permutation_col[4 * i + 1]);
+            aux_data.push(range_check_permutation_col[4 * i + 2]);
+            aux_data.push(range_check_permutation_col[4 * i + 3]);
         }
 
-        TraceTable::new(aux_table, self.number_auxiliary_rap_columns())
+        let aux_table = Table::new(&aux_data, self.number_auxiliary_rap_columns());
+
+        TraceTable { table: aux_table }
     }
 
     fn build_rap_challenges(

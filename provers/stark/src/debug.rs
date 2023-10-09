@@ -27,7 +27,7 @@ pub fn validate_trace<F: IsFFTField, A: AIR<Field = F>>(
                 .unwrap()
         })
         .collect();
-    let trace = TraceTable::new_from_cols(&trace_columns);
+    let trace = TraceTable::new(&trace_columns);
 
     // --------- VALIDATE BOUNDARY CONSTRAINTS ------------
     air.boundary_constraints(rap_challenges)

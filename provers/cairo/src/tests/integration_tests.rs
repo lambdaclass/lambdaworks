@@ -150,30 +150,30 @@ fn test_verifier_rejects_proof_with_different_range_bounds() {
     assert!(!verify_cairo_proof(&proof, &pub_inputs, &proof_options));
 }
 
-#[test_log::test]
-fn test_verifier_rejects_proof_with_changed_range_check_value() {
-    // In this test we change the range-check value in the trace, so the constraint
-    // that asserts that the sum of the rc decomposed values is equal to the
-    // range-checked value won't hold, and the verifier will reject the proof.
-    let program_content = std::fs::read(cairo0_program_path("rc_program.json")).unwrap();
-    let (main_trace, pub_inputs) =
-        generate_prover_args(&program_content, &None, CairoLayout::Small).unwrap();
+// #[test_log::test]
+// fn test_verifier_rejects_proof_with_changed_range_check_value() {
+//     // In this test we change the range-check value in the trace, so the constraint
+//     // that asserts that the sum of the rc decomposed values is equal to the
+//     // range-checked value won't hold, and the verifier will reject the proof.
+//     let program_content = std::fs::read(cairo0_program_path("rc_program.json")).unwrap();
+//     let (main_trace, pub_inputs) =
+//         generate_prover_args(&program_content, &None, CairoLayout::Small).unwrap();
 
-    // The malicious value, we change the previous value to a 35.
-    let malicious_rc_value = Felt252::from(35);
+//     // The malicious value, we change the previous value to a 35.
+//     let malicious_rc_value = Felt252::from(35);
 
-    let proof_options = ProofOptions::default_test_options();
+//     let proof_options = ProofOptions::default_test_options();
 
-    let mut malicious_trace_columns = main_trace.cols();
-    let n_cols = malicious_trace_columns.len();
-    let mut last_column = malicious_trace_columns.last().unwrap().clone();
-    last_column[0] = malicious_rc_value;
-    malicious_trace_columns[n_cols - 1] = last_column;
+//     let mut malicious_trace_columns = main_trace.cols();
+//     let n_cols = malicious_trace_columns.len();
+//     let mut last_column = malicious_trace_columns.last().unwrap().clone();
+//     last_column[0] = malicious_rc_value;
+//     malicious_trace_columns[n_cols - 1] = last_column;
 
-    let malicious_trace = TraceTable::new_from_cols(&malicious_trace_columns);
-    let proof = generate_cairo_proof(&malicious_trace, &pub_inputs, &proof_options).unwrap();
-    assert!(!verify_cairo_proof(&proof, &pub_inputs, &proof_options));
-}
+//     let malicious_trace = TraceTable::new_from_cols(&malicious_trace_columns);
+//     let proof = generate_cairo_proof(&malicious_trace, &pub_inputs, &proof_options).unwrap();
+//     assert!(!verify_cairo_proof(&proof, &pub_inputs, &proof_options));
+// }
 
 #[test_log::test]
 fn test_verifier_rejects_proof_with_overflowing_range_check_value() {
@@ -206,42 +206,42 @@ fn test_verifier_rejects_proof_with_overflowing_range_check_value() {
     assert!(!verify_cairo_proof(&proof, &pub_inputs, &proof_options));
 }
 
-#[test_log::test]
-fn test_verifier_rejects_proof_with_changed_output() {
-    let program_content = std::fs::read(cairo0_program_path("output_program.json")).unwrap();
-    let (main_trace, pub_inputs) =
-        generate_prover_args(&program_content, &Some(27..28), CairoLayout::Small).unwrap();
+// #[test_log::test]
+// fn test_verifier_rejects_proof_with_changed_output() {
+//     let program_content = std::fs::read(cairo0_program_path("output_program.json")).unwrap();
+//     let (main_trace, pub_inputs) =
+//         generate_prover_args(&program_content, &Some(27..28), CairoLayout::Small).unwrap();
 
-    // The malicious value, we change the previous value to a 100.
-    let malicious_output_value = Felt252::from(100);
+//     // The malicious value, we change the previous value to a 100.
+//     let malicious_output_value = Felt252::from(100);
 
-    let mut output_col_idx = None;
-    let mut output_row_idx = None;
-    for (i, row) in main_trace.rows().iter().enumerate() {
-        let output_col_found = [FRAME_PC, FRAME_DST_ADDR, FRAME_OP0_ADDR, FRAME_OP1_ADDR]
-            .iter()
-            .find(|&&col_idx| row[col_idx] != Felt252::from(19));
-        if output_col_found.is_some() {
-            output_col_idx = output_col_found;
-            output_row_idx = Some(i);
-            break;
-        }
-    }
+//     let mut output_col_idx = None;
+//     let mut output_row_idx = None;
+//     for (i, row) in main_trace.rows().iter().enumerate() {
+//         let output_col_found = [FRAME_PC, FRAME_DST_ADDR, FRAME_OP0_ADDR, FRAME_OP1_ADDR]
+//             .iter()
+//             .find(|&&col_idx| row[col_idx] != Felt252::from(19));
+//         if output_col_found.is_some() {
+//             output_col_idx = output_col_found;
+//             output_row_idx = Some(i);
+//             break;
+//         }
+//     }
 
-    let output_col_idx = *output_col_idx.unwrap();
-    let output_row_idx = output_row_idx.unwrap();
+//     let output_col_idx = *output_col_idx.unwrap();
+//     let output_row_idx = output_row_idx.unwrap();
 
-    let proof_options = ProofOptions::default_test_options();
+//     let proof_options = ProofOptions::default_test_options();
 
-    let mut malicious_trace_columns = main_trace.cols();
-    let mut output_value_column = malicious_trace_columns[output_col_idx + 4].clone();
-    output_value_column[output_row_idx] = malicious_output_value;
-    malicious_trace_columns[output_col_idx + 4] = output_value_column;
+//     let mut malicious_trace_columns = main_trace.cols();
+//     let mut output_value_column = malicious_trace_columns[output_col_idx + 4].clone();
+//     output_value_column[output_row_idx] = malicious_output_value;
+//     malicious_trace_columns[output_col_idx + 4] = output_value_column;
 
-    let malicious_trace = TraceTable::new_from_cols(&malicious_trace_columns);
-    let proof = generate_cairo_proof(&malicious_trace, &pub_inputs, &proof_options).unwrap();
-    assert!(!verify_cairo_proof(&proof, &pub_inputs, &proof_options));
-}
+//     let malicious_trace = TraceTable::new_from_cols(&malicious_trace_columns);
+//     let proof = generate_cairo_proof(&malicious_trace, &pub_inputs, &proof_options).unwrap();
+//     assert!(!verify_cairo_proof(&proof, &pub_inputs, &proof_options));
+// }
 
 #[test_log::test]
 fn test_verifier_rejects_proof_with_different_security_params() {

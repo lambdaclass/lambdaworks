@@ -17,6 +17,7 @@ pub mod traits;
 pub mod transcript;
 pub mod utils;
 pub mod verifier;
+pub mod table;
 
 #[cfg(test)]
 pub mod tests;

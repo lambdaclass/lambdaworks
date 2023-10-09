@@ -76,7 +76,7 @@ impl<F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
         #[cfg(all(debug_assertions, not(feature = "parallel")))]
         let boundary_polys: Vec<Polynomial<FieldElement<F>>> = Vec::new();
 
-        let n_col = lde_trace.n_cols;
+        let n_col = lde_trace.n_cols();
         let n_elem = domain.lde_roots_of_unity_coset.len();
         let boundary_polys_evaluations = boundary_constraints
             .constraints
@@ -85,6 +85,7 @@ impl<F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
                 let col = constraint.col;
                 lde_trace
                     .table
+                    .data
                     .iter()
                     .skip(col)
                     .step_by(n_col)

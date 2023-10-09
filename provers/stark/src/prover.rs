@@ -175,7 +175,7 @@ where
     }
 
     // Compute commitments [t_j].
-    let lde_trace = TraceTable::new_from_cols(&lde_trace_permuted);
+    let lde_trace = TraceTable::new(&lde_trace_permuted);
     let (lde_trace_merkle_tree, lde_trace_merkle_root) = batch_commit(&lde_trace.rows());
 
     // >>>> Send commitments: [tⱼ]
@@ -243,7 +243,7 @@ where
         lde_trace_merkle_roots.push(aux_merkle_root);
     }
 
-    let lde_trace = TraceTable::new_from_cols(&evaluations);
+    let lde_trace = TraceTable::new(&evaluations);
 
     Ok(Round1 {
         trace_polys,
