@@ -34,7 +34,7 @@ impl PedersenParameters<StarkCurve> {
         let (points_p2, remaining) = remaining.split_at(4);
         let (points_p3, points_p4) = remaining.split_at(248);
 
-		let curve_const_bits = 4;
+        let curve_const_bits = 4;
         Self {
             curve_const_bits,
             table_size: (1 << curve_const_bits) - 1,
@@ -46,7 +46,9 @@ impl PedersenParameters<StarkCurve> {
         }
     }
 
-    fn parse_affine_points(field_elements_csv: &str) -> Vec<ShortWeierstrassProjectivePoint<StarkCurve>> {
+    fn parse_affine_points(
+        field_elements_csv: &str,
+    ) -> Vec<ShortWeierstrassProjectivePoint<StarkCurve>> {
         field_elements_csv
             .split(',')
             .collect::<Vec<&str>>()
