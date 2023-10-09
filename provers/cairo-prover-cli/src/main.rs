@@ -8,7 +8,7 @@ use stark_platinum_prover::proof::stark::StarkProof;
 
 use std::time::Instant;
 
-use clap::{Parser, Subcommand, Args};
+use clap::{Args, Parser, Subcommand};
 
 #[derive(Parser, Debug)]
 #[command(author = "Lambdaworks", version, about)]
@@ -111,9 +111,7 @@ fn main() {
                 return;
             }
 
-            let Some((proof, pub_inputs)) 
-                = generate_proof(&args.input_path, &proof_options) 
-            else {
+            let Some((proof, pub_inputs)) = generate_proof(&args.input_path, &proof_options) else {
                 return;
             };
 
@@ -128,7 +126,7 @@ fn main() {
                 return;
             };
             println!("Proof written to {}", args.output_path);
-        },
+        }
         ProverEntity::Verify(args) => {
             let Ok(program_content) = std::fs::read(&args.input_path) else {
                 println!("Error opening {} file", args.input_path);
@@ -159,13 +157,12 @@ fn main() {
             };
 
             verify_proof(proof, pub_inputs, &proof_options);
-
-        },
+        }
         ProverEntity::ProveAndVerify(args) => {
             let Some((proof, pub_inputs)) = generate_proof(&args.input_path, &proof_options) else {
                 return;
             };
             verify_proof(proof, pub_inputs, &proof_options);
-        },
+        }
     }
 }
