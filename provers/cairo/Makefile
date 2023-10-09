@@ -18,15 +18,6 @@ $(CAIRO0_PROGRAMS_DIR)/%.json: $(CAIRO0_PROGRAMS_DIR)/%.cairo
 build: 
 	cargo build --release
 
-prove: build
-	cargo run --release prove $(PROGRAM_PATH) $(PROOF_PATH)
-
-verify: build
-	cargo run --release verify $(PROOF_PATH)
-
-run_all: build
-	cargo run --release prove_and_verify $(PROGRAM_PATH)
-
 test: $(COMPILED_CAIRO0_PROGRAMS)
 	cargo test
 

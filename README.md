@@ -78,6 +78,7 @@ Right now Plonk prover is in this repo, you can find the others here:
 - [Math](https://github.com/lambdaclass/lambdaworks/tree/main/math)
 - [Crypto primitives](https://github.com/lambdaclass/lambdaworks/tree/main/crypto)
 - [Plonk Prover](https://github.com/lambdaclass/lambdaworks/tree/main/provers/plonk)
+- [Cairo Prover CLI](https://github.com/lambdaclass/lambdaworks/tree/main/provers/cairo-prover-cli)
 
 ### Crypto
 - [Elliptic curves](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/elliptic_curve)
