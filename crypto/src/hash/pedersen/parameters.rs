@@ -1,23 +1,29 @@
 use lambdaworks_math::{
     elliptic_curve::{
         short_weierstrass::{
-            curves::stark_curve::StarkCurve, point::ShortWeierstrassProjectivePoint,
+            curves::stark_curve::StarkCurve, point::ShortWeierstrassProjectivePoint, traits::IsShortWeierstrass,
         },
-        traits::{FromAffine, IsEllipticCurve},
+        traits::FromAffine,
     },
     field::{
         element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
     },
 };
 
-pub struct PedersenParameters<EC: IsEllipticCurve> {
+pub struct PedersenParameters<SW: IsShortWeierstrass> {
     pub curve_const_bits: usize,
     pub table_size: usize,
-    pub shift_point: ShortWeierstrassProjectivePoint<EC>,
-    pub points_p1: Vec<ShortWeierstrassProjectivePoint<EC>>,
-    pub points_p2: Vec<ShortWeierstrassProjectivePoint<EC>>,
-    pub points_p3: Vec<ShortWeierstrassProjectivePoint<EC>>,
-    pub points_p4: Vec<ShortWeierstrassProjectivePoint<EC>>,
+    pub shift_point: ShortWeierstrassProjectivePoint<SW>,
+    pub points_p1: Vec<ShortWeierstrassProjectivePoint<SW>>,
+    pub points_p2: Vec<ShortWeierstrassProjectivePoint<SW>>,
+    pub points_p3: Vec<ShortWeierstrassProjectivePoint<SW>>,
+    pub points_p4: Vec<ShortWeierstrassProjectivePoint<SW>>,
+}
+
+impl Default for PedersenParameters<StarkCurve> {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl PedersenParameters<StarkCurve> {

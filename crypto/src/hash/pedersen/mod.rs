@@ -16,6 +16,13 @@ pub struct Pedersen<EC: IsShortWeierstrass> {
     params: PedersenParameters<EC>,
 }
 
+impl Default for Pedersen<StarkCurve> {
+    fn default() -> Self {
+        let pedersen_stark_default_params = PedersenParameters::<StarkCurve>::default();
+        Self::new_with_params(pedersen_stark_default_params)
+    }
+}
+
 impl Pedersen<StarkCurve> {
     pub fn new_with_params(params: PedersenParameters<StarkCurve>) -> Self {
         Self { params }
@@ -52,7 +59,7 @@ impl Pedersen<StarkCurve> {
         add_points(&mut acc, &y[..248], &self.params.points_p3); // Add b_low * P3
         add_points(&mut acc, &y[248..252], &self.params.points_p4); // Add b_high * P4
 
-        acc.to_affine().x().clone()
+        *acc.to_affine().x()
     }
 }
 
@@ -76,8 +83,7 @@ mod tests {
 
     #[test]
     fn test_stark_curve() {
-        let pedersen_stark_curve_params = PedersenParameters::<StarkCurve>::new();
-        let pedersen = Pedersen::<StarkCurve>::new_with_params(pedersen_stark_curve_params);
+        let pedersen = Pedersen::<StarkCurve>::default();
 
         let x = FieldElement::<Stark252PrimeField>::from_hex_unchecked(
             "03d937c035c878245caf64531a5756109c53068da139362728feb561405371cb",
