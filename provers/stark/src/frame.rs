@@ -1,6 +1,5 @@
-use crate::table::Table;
-
 use super::trace::TraceTable;
+use crate::table::Table;
 use lambdaworks_math::{
     errors::DeserializationError,
     field::{element::FieldElement, traits::IsFFTField},
