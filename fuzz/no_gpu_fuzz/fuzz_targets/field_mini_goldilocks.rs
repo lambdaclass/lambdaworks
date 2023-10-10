@@ -9,10 +9,10 @@ use ibig::{modular::ModuloRing, UBig};
 fuzz_target!(|values: (u64, u64)| {
 
     let (value_u64_a, value_u64_b) = values;
-    let mersenne_prime = 
+    let goldilocks_prime = 
         UBig::from(2u64^64 - 2u64^32 + 1u64 );
 
-    let ring = ModuloRing::new(&mersenne_prime);
+    let ring = ModuloRing::new(&goldilocks_prime);
 
     let a =  FieldElement::<Goldilocks64Field>::from(value_u64_a);
     let b =  FieldElement::<Goldilocks64Field>::from(value_u64_b);

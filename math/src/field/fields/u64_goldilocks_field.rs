@@ -3,8 +3,10 @@ use core::fmt::{self, Display};
 use crate::{
     errors::CreationError,
     field::{
+        element::FieldElement,
         errors::FieldError,
-        traits::{IsField, IsPrimeField}, extensions::quadratic::{HasQuadraticNonResidue, QuadraticExtensionField}, element::FieldElement,
+        extensions::quadratic::{HasQuadraticNonResidue, QuadraticExtensionField},
+        traits::{IsField, IsPrimeField},
     },
 };
 
@@ -188,7 +190,6 @@ pub type Mersenne31ComplexQuadraticExtensionField = QuadraticExtensionField<Gold
 
 impl HasQuadraticNonResidue for Goldilocks64Field {
     type BaseField = Goldilocks64Field;
-
 
     // Verifiable in Sage with
     // `R.<x> = GF(p)[]; assert (x^2 - 7).is_irreducible()`
