@@ -1139,7 +1139,7 @@ mod tests_u256_prime_fields {
     type GoldilocksElement = FieldElement<GoldilocksField>;
 
     #[test]
-    fn test_off_by_one_bug() {
+    fn test_cios_overflow_case() {
         let a = GoldilocksElement::from(732582227915286439);
         let b = GoldilocksElement::from(3906369333256140342);
         let expected_sum = GoldilocksElement::from(4638951561171426781);
