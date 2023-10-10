@@ -132,5 +132,5 @@ pub fn compute_trace<F: IsFFTField>(
         ret2.push(new_val + ret2[i - 1].clone());
     }
 
-    TraceTable::new(&[ret1, ret2])
+    TraceTable::from_columns(&[ret1, ret2])
 }

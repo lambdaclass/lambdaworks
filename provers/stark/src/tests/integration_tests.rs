@@ -206,6 +206,7 @@ fn test_prove_dummy() {
         StoneProverTranscript::new(&[]),
     )
     .unwrap();
+
     assert!(verify::<Stark252PrimeField, DummyAIR>(
         &proof,
         &(),

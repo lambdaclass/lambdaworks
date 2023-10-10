@@ -24,7 +24,7 @@ impl<F: IsFFTField> Table<F> {
         }
     }
 
-    pub fn new_from_columns(columns: &[Vec<FieldElement<F>>]) -> Self {
+    pub fn from_columns(columns: &[Vec<FieldElement<F>>]) -> Self {
         if columns.is_empty() {
             return Self::new(&Vec::new(), 0);
         }

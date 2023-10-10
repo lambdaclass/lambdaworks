@@ -74,7 +74,7 @@ where
         main_trace: &TraceTable<Self::Field>,
         gamma: &Self::RAPChallenges,
     ) -> TraceTable<Self::Field> {
-        let main_segment_cols = main_trace.cols();
+        let main_segment_cols = main_trace.columns();
         let not_perm = &main_segment_cols[0];
         let perm = &main_segment_cols[1];
 
@@ -92,7 +92,7 @@ where
                 aux_col.push(z_i * n_p_term.div(p_term));
             }
         }
-        TraceTable::new(&[aux_col])
+        TraceTable::from_columns(&[aux_col])
     }
 
     fn build_rap_challenges(
@@ -186,7 +186,7 @@ pub fn fibonacci_rap_trace<F: IsFFTField>(
     let mut trace_cols = vec![fib_seq, fib_permuted];
     resize_to_next_power_of_two(&mut trace_cols);
 
-    TraceTable::new(&trace_cols)
+    TraceTable::from_columns(&trace_cols)
 }
 
 #[cfg(test)]
@@ -229,13 +229,13 @@ mod test {
         ];
         resize_to_next_power_of_two(&mut expected_trace);
 
-        assert_eq!(trace.cols(), expected_trace);
+        assert_eq!(trace.columns(), expected_trace);
     }
 
     #[test]
     fn aux_col() {
         let trace = fibonacci_rap_trace([FE17::from(1), FE17::from(1)], 64);
-        let trace_cols = trace.cols();
+        let trace_cols = trace.columns();
 
         let not_perm = trace_cols[0].clone();
         let perm = trace_cols[1].clone();

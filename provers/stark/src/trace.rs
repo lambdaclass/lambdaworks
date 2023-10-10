@@ -1,3 +1,4 @@
+use crate::table::Table;
 use lambdaworks_math::fft::errors::FFTError;
 use lambdaworks_math::fft::polynomial::FFTPoly;
 use lambdaworks_math::{
@@ -5,29 +6,28 @@ use lambdaworks_math::{
     polynomial::Polynomial,
 };
 
-use crate::table::Table;
-
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
 pub struct TraceTable<F: IsFFTField> {
     pub table: Table<F>,
 }
 
 impl<F: IsFFTField> TraceTable<F> {
-    pub fn new(columns: &[Vec<FieldElement<F>>]) -> Self {
-        Self {
-            table: Table::new_from_columns(columns),
-        }
+    pub fn new(data: &[FieldElement<F>], n_columns: usize) -> Self {
+        let table = Table::new(data, n_columns);
+        Self { table }
     }
+
+    pub fn from_columns(columns: &[Vec<FieldElement<F>>]) -> Self {
+        let table = Table::from_columns(columns);
+        Self { table }
+    }
+
     pub fn empty() -> Self {
-        Self::new(&Vec::new())
+        Self::new(&Vec::new(), 0)
     }
 
     pub fn is_empty(&self) -> bool {
         self.table.width == 0
-    }
-
-    pub fn get_columns(&self, columns: &[usize]) -> Vec<FieldElement<F>> {
-        self.table.get_columns(columns)
     }
 
     pub fn n_rows(&self) -> usize {
@@ -39,14 +39,7 @@ impl<F: IsFFTField> TraceTable<F> {
     }
 
     pub fn rows(&self) -> Vec<Vec<FieldElement<F>>> {
-        let n_rows = self.n_rows();
-        (0..n_rows)
-            .map(|row_idx| {
-                self.table.data
-                    [(row_idx * self.n_cols())..(row_idx * self.n_cols() + self.n_cols())]
-                    .to_vec()
-            })
-            .collect()
+        self.table.rows()
     }
 
     pub fn get_row(&self, row_idx: usize) -> &[FieldElement<F>] {
@@ -58,17 +51,21 @@ impl<F: IsFFTField> TraceTable<F> {
         self.get_row(self.n_rows() - 1)
     }
 
-    pub fn cols(&self) -> Vec<Vec<FieldElement<F>>> {
+    pub fn columns(&self) -> Vec<Vec<FieldElement<F>>> {
         self.table.columns()
     }
 
-    /// Given a step and a column index, gives stored value in that position
+    pub fn get_columns(&self, columns: &[usize]) -> Vec<FieldElement<F>> {
+        self.table.get_columns(columns)
+    }
+
+    /// Given a row and a column index, gives stored value in that position
     pub fn get(&self, row: usize, col: usize) -> FieldElement<F> {
         self.table.get(row, col)
     }
 
     pub fn compute_trace_polys(&self) -> Vec<Polynomial<FieldElement<F>>> {
-        self.cols()
+        self.columns()
             .iter()
             .map(|col| Polynomial::interpolate_fft(col))
             .collect::<Result<Vec<Polynomial<FieldElement<F>>>, FFTError>>()
@@ -118,8 +115,8 @@ mod test {
         let col_1 = vec![FE::from(1), FE::from(2), FE::from(5), FE::from(13)];
         let col_2 = vec![FE::from(1), FE::from(3), FE::from(8), FE::from(21)];
 
-        let trace_table = TraceTable::new(&[col_1.clone(), col_2.clone()]);
-        let res_cols = trace_table.cols();
+        let trace_table = TraceTable::from_columns(&[col_1.clone(), col_2.clone()]);
+        let res_cols = trace_table.columns();
 
         assert_eq!(res_cols, vec![col_1, col_2]);
     }
@@ -135,12 +132,12 @@ mod test {
             FE::new(5),
             FE::new(6),
         ];
-        let expected_table = TraceTable::new(&[
+        let expected_table = TraceTable::from_columns(&[
             vec![FE::new(7), FE::new(8), FE::new(9)],
             vec![FE::new(1), FE::new(3), FE::new(5)],
             vec![FE::new(2), FE::new(4), FE::new(6)],
         ]);
-        let table1 = TraceTable::new(&table1_columns);
+        let table1 = TraceTable::from_columns(&table1_columns);
         assert_eq!(table1.concatenate(new_columns, 2), expected_table)
     }
 }

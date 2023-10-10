@@ -1,3 +1,14 @@
+use crate::{
+    air::{
+        generate_cairo_proof, verify_cairo_proof, CairoAIR, MemorySegment, MemorySegmentMap,
+        PublicInputs, FRAME_DST_ADDR, FRAME_OP0_ADDR, FRAME_OP1_ADDR, FRAME_PC,
+    },
+    cairo_layout::CairoLayout,
+    execution_trace::build_main_trace,
+    runner::run::{generate_prover_args, run_program},
+    tests::utils::{cairo0_program_path, test_prove_cairo_program},
+    Felt252,
+};
 use lambdaworks_math::{
     errors::DeserializationError,
     field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
@@ -13,18 +24,6 @@ use stark_platinum_prover::{
     trace::TraceTable,
     traits::AIR,
     transcript::StoneProverTranscript,
-};
-
-use crate::{
-    air::{
-        generate_cairo_proof, verify_cairo_proof, CairoAIR, MemorySegment, MemorySegmentMap,
-        PublicInputs, FRAME_DST_ADDR, FRAME_OP0_ADDR, FRAME_OP1_ADDR, FRAME_PC,
-    },
-    cairo_layout::CairoLayout,
-    execution_trace::build_main_trace,
-    runner::run::{generate_prover_args, run_program},
-    tests::utils::{cairo0_program_path, test_prove_cairo_program},
-    Felt252,
 };
 
 #[test_log::test]
@@ -164,13 +163,13 @@ fn test_verifier_rejects_proof_with_changed_range_check_value() {
 
     let proof_options = ProofOptions::default_test_options();
 
-    let mut malicious_trace_columns = main_trace.cols();
+    let mut malicious_trace_columns = main_trace.columns();
     let n_cols = malicious_trace_columns.len();
     let mut last_column = malicious_trace_columns.last().unwrap().clone();
     last_column[0] = malicious_rc_value;
     malicious_trace_columns[n_cols - 1] = last_column;
 
-    let malicious_trace = TraceTable::new(&malicious_trace_columns);
+    let malicious_trace = TraceTable::from_columns(&malicious_trace_columns);
     let proof = generate_cairo_proof(&malicious_trace, &pub_inputs, &proof_options).unwrap();
     assert!(!verify_cairo_proof(&proof, &pub_inputs, &proof_options));
 }
@@ -233,12 +232,12 @@ fn test_verifier_rejects_proof_with_changed_output() {
 
     let proof_options = ProofOptions::default_test_options();
 
-    let mut malicious_trace_columns = main_trace.cols();
+    let mut malicious_trace_columns = main_trace.columns();
     let mut output_value_column = malicious_trace_columns[output_col_idx + 4].clone();
     output_value_column[output_row_idx] = malicious_output_value;
     malicious_trace_columns[output_col_idx + 4] = output_value_column;
 
-    let malicious_trace = TraceTable::new(&malicious_trace_columns);
+    let malicious_trace = TraceTable::from_columns(&malicious_trace_columns);
     let proof = generate_cairo_proof(&malicious_trace, &pub_inputs, &proof_options).unwrap();
     assert!(!verify_cairo_proof(&proof, &pub_inputs, &proof_options));
 }

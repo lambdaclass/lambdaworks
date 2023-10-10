@@ -292,7 +292,7 @@ pub fn build_cairo_execution_trace(
         add_rc_builtin_columns(&mut trace_cols, range_check_builtin_range.clone(), memory);
     }
 
-    TraceTable::new(&trace_cols)
+    TraceTable::from_columns(&trace_cols)
 }
 
 // Build range-check builtin columns: rc_0, rc_1, ... , rc_7, rc_value
@@ -620,7 +620,7 @@ mod test {
             FieldElement::from(7),
             FieldElement::from(7),
         ];
-        let table = TraceTable::<Stark252PrimeField>::new(&columns);
+        let table = TraceTable::<Stark252PrimeField>::from_columns(&columns);
 
         let (col, rc_min, rc_max) = get_rc_holes(&table, &[0, 1, 2]);
         assert_eq!(col, expected_col);
@@ -659,7 +659,7 @@ mod test {
             Felt252::from(6),
         ];
 
-        let rc_holes_column = main_trace.cols()[35].clone();
+        let rc_holes_column = main_trace.columns()[35].clone();
 
         assert_eq!(expected_rc_holes_column, rc_holes_column);
     }
@@ -736,12 +736,12 @@ mod test {
         trace_cols[FRAME_DST_ADDR][1] = Felt252::from(9);
         trace_cols[FRAME_OP0_ADDR][1] = Felt252::from(10);
         trace_cols[FRAME_OP1_ADDR][1] = Felt252::from(11);
-        let mut trace = TraceTable::new(&trace_cols);
+        let mut trace = TraceTable::from_columns(&trace_cols);
 
         let memory_holes = vec![Felt252::from(4), Felt252::from(7), Felt252::from(8)];
         fill_memory_holes(&mut trace, &memory_holes);
 
-        let extra_addr = &trace.cols()[EXTRA_ADDR];
+        let extra_addr = &trace.columns()[EXTRA_ADDR];
         assert_eq!(extra_addr, &memory_holes)
     }
 }
