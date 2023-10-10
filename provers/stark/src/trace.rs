@@ -55,8 +55,20 @@ impl<F: IsFFTField> TraceTable<F> {
         self.table.columns()
     }
 
-    pub fn get_columns(&self, columns: &[usize]) -> Vec<FieldElement<F>> {
-        self.table.get_columns(columns)
+    /// Given a slice of integer numbers representing column indexes, merge these columns into
+    /// a one-dimensional vector.
+    ///
+    /// The particular way they are merged is not really important since this function is used to
+    /// aggreagate values distributed across various columns with no importance on their ordering,
+    /// such as to sort them.
+    pub fn merge_columns(&self, column_indexes: &[usize]) -> Vec<FieldElement<F>> {
+        let mut data = Vec::with_capacity(self.n_rows() * column_indexes.len());
+        for row_index in 0..self.n_rows() {
+            for column in column_indexes {
+                data.push(self.table.data[row_index * self.n_cols() + column].clone());
+            }
+        }
+        data
     }
 
     /// Given a row and a column index, gives stored value in that position

@@ -710,7 +710,7 @@ impl AIR for CairoAIR {
         main_trace: &TraceTable<Self::Field>,
         rap_challenges: &Self::RAPChallenges,
     ) -> TraceTable<Self::Field> {
-        let addresses_original = main_trace.get_columns(&[
+        let addresses_original = main_trace.merge_columns(&[
             FRAME_PC,
             FRAME_DST_ADDR,
             FRAME_OP0_ADDR,
@@ -719,7 +719,7 @@ impl AIR for CairoAIR {
         ]);
 
         let values_original =
-            main_trace.get_columns(&[FRAME_INST, FRAME_DST, FRAME_OP0, FRAME_OP1, EXTRA_VAL]);
+            main_trace.merge_columns(&[FRAME_INST, FRAME_DST, FRAME_OP0, FRAME_OP1, EXTRA_VAL]);
 
         let (addresses, values) = add_pub_memory_in_public_input_section(
             &addresses_original,
@@ -738,7 +738,7 @@ impl AIR for CairoAIR {
         );
 
         // Range Check
-        let offsets_original = main_trace.get_columns(&[OFF_DST, OFF_OP0, OFF_OP1, RC_HOLES]);
+        let offsets_original = main_trace.merge_columns(&[OFF_DST, OFF_OP0, OFF_OP1, RC_HOLES]);
 
         let mut offsets_sorted: Vec<u16> = offsets_original
             .iter()

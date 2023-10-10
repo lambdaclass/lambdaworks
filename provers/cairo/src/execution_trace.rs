@@ -52,7 +52,7 @@ pub fn build_main_trace(
     let mut main_trace = build_cairo_execution_trace(register_states, memory, public_input);
 
     let mut address_cols =
-        main_trace.get_columns(&[FRAME_PC, FRAME_DST_ADDR, FRAME_OP0_ADDR, FRAME_OP1_ADDR]);
+        main_trace.merge_columns(&[FRAME_PC, FRAME_DST_ADDR, FRAME_OP0_ADDR, FRAME_OP1_ADDR]);
 
     address_cols.sort_by_key(|x| x.representative());
 
@@ -100,7 +100,7 @@ fn add_pub_memory_dummy_accesses(
 /// NOTE: These extreme values should be received as public inputs in the future and not
 /// calculated here.
 fn get_rc_holes(trace: &CairoTraceTable, columns_indices: &[usize]) -> (Vec<Felt252>, u16, u16) {
-    let offset_columns = trace.get_columns(columns_indices);
+    let offset_columns = trace.merge_columns(columns_indices);
 
     let mut sorted_offset_representatives: Vec<u16> = offset_columns
         .iter()
@@ -138,7 +138,7 @@ fn fill_rc_holes(trace: &mut CairoTraceTable, holes: &[Felt252]) {
     });
 
     // Fill the rest of the RC_HOLES column to avoid inexistent zeros
-    let mut offsets = trace.get_columns(&[OFF_DST, OFF_OP0, OFF_OP1, RC_HOLES]);
+    let mut offsets = trace.merge_columns(&[OFF_DST, OFF_OP0, OFF_OP1, RC_HOLES]);
 
     offsets.sort_by_key(|x| x.representative());
     let greatest_offset = offsets.last().unwrap();
