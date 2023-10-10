@@ -73,14 +73,13 @@ pub trait IsFri {
         // <<<< Receive challenge: 𝜁ₙ₋₁
         let zeta = transcript.sample_field_element();
 
-        let last_poly = fold_polynomial(&current_poly, &zeta);
+        let last_poly = fold_polynomial(&current_poly, &zeta) * FieldElement::from(2);
 
         let last_value = last_poly
             .coefficients()
             .get(0)
             .unwrap_or(&FieldElement::zero())
-            .clone()
-            * FieldElement::from(2);
+            .clone();
 
         // >>>> Send value: pₙ
         transcript.append_field_element(&last_value);
@@ -106,13 +105,14 @@ pub trait IsFri {
                     let mut layers_auth_paths = vec![];
 
                     for layer in fri_layers {
-                        // symmetric element
                         let index = iota_s % layer.domain_size;
+                        let evaluation = layer.evaluation[index].clone();
+                        let auth_path = layer.merkle_tree.get_proof_by_pos(index).unwrap();
+                        // symmetric element
                         let index_sym = (iota_s + layer.domain_size / 2) % layer.domain_size;
                         let evaluation_sym = layer.evaluation[index_sym].clone();
                         let auth_path_sym = layer.merkle_tree.get_proof_by_pos(index_sym).unwrap();
-                        let evaluation = layer.evaluation[index].clone();
-                        let auth_path = layer.merkle_tree.get_proof_by_pos(index).unwrap();
+
                         layers_auth_paths_sym.push(auth_path_sym);
                         layers_evaluations_sym.push(evaluation_sym);
                         layers_evaluations.push(evaluation);

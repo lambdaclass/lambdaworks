@@ -319,7 +319,7 @@ pub trait IsStarkVerifier {
             .enumerate()
             .fold(true, |mut result, (i, ((proof_s, iota_s), eval))| {
                 // this is done in constant time
-                result &= Verifier::verify_query_and_sym_openings(
+                result &= Self::verify_query_and_sym_openings(
                     proof,
                     &challenges.zetas,
                     *iota_s,
@@ -343,7 +343,7 @@ pub trait IsStarkVerifier {
         index: usize,
         domain: &Domain<F>,
     ) -> usize {
-        index + domain.lde_roots_of_unity_coset.len() / 2
+        (index + domain.lde_roots_of_unity_coset.len() / 2) % domain.lde_roots_of_unity_coset.len()
     }
 
     fn verify_trace_openings<F>(
@@ -475,6 +475,31 @@ pub trait IsStarkVerifier {
             )
     }
 
+    fn verify_fri_layer_openings<F>(
+        merkle_root: &Commitment,
+        auth_path: &Proof<Commitment>,
+        auth_path_sym: &Proof<Commitment>,
+        evaluation: &FieldElement<F>,
+        evaluation_sym: &FieldElement<F>,
+        domain_length: usize,
+        iota: usize,
+    ) -> bool
+    where
+        F: IsFFTField,
+        FieldElement<F>: Serializable,
+    {
+        let index = iota % domain_length;
+        let index_sym = (iota + domain_length / 2) % domain_length;
+
+        // Verify opening Open(pₖ(Dₖ), −𝜐ₛ^(2ᵏ))
+        let eval_sym_ok =
+            auth_path_sym.verify::<FriMerkleTreeBackend<F>>(merkle_root, index_sym, evaluation_sym);
+
+        let eval_ok = auth_path.verify::<FriMerkleTreeBackend<F>>(merkle_root, index, evaluation);
+
+        eval_ok & eval_sym_ok
+    }
+
     fn verify_query_and_sym_openings<F: IsField + IsFFTField>(
         proof: &StarkProof<F>,
         zetas: &[FieldElement<F>],
@@ -489,12 +514,12 @@ pub trait IsStarkVerifier {
         FieldElement<F>: Serializable,
     {
         let fri_layers_merkle_roots = &proof.fri_layers_merkle_roots;
-        let evaluation_point_vec: Vec<FieldElement<F>> =
-            core::iter::successors(Some(evaluation_point_inverse.clone()), |evaluation_point| {
-                Some(evaluation_point.square())
-            })
-            .take(fri_layers_merkle_roots.len())
-            .collect();
+        let evaluation_point_vec: Vec<FieldElement<F>> = core::iter::successors(
+            Some(evaluation_point_inverse.square()),
+            |evaluation_point| Some(evaluation_point.square()),
+        )
+        .take(fri_layers_merkle_roots.len())
+        .collect();
 
         let pi0 = deep_composition_evaluation;
         let pi0_sym = deep_composition_evaluation_sym;
@@ -516,6 +541,8 @@ pub trait IsStarkVerifier {
         fri_layers_merkle_roots
             .iter()
             .enumerate()
+            .zip(&fri_decommitment.layers_auth_paths)
+            .zip(&fri_decommitment.layers_evaluations)
             .zip(&fri_decommitment.layers_auth_paths_sym)
             .zip(&fri_decommitment.layers_evaluations_sym)
             .zip(evaluation_point_vec)
@@ -523,11 +550,10 @@ pub trait IsStarkVerifier {
                 true,
                 |result,
                  (
-                    (((k, merkle_root), auth_path_sym), evaluation_sym),
+                    (((((k, merkle_root), auth_path), evaluation), auth_path_sym), evaluation_sym),
                     evaluation_point_inv,
                 )| {
                     let domain_length = 1 << (domain.lde_root_order - (k + 1) as u32);
-                    let layer_evaluation_index_sym = (iota + domain_length / 2) % domain_length;
                     // Since we always derive the current layer from the previous layer
                     // We start with the second one, skipping the first, so previous is layer is the first one
                     // This is the current layer's evaluation domain length.
@@ -535,10 +561,14 @@ pub trait IsStarkVerifier {
                     // layer is, so we can check the merkle paths at the right index.
 
                     // Verify opening Open(pₖ(Dₖ), −𝜐ₛ^(2ᵏ))
-                    let auth_sym = &auth_path_sym.verify::<FriMerkleTreeBackend<F>>(
+                    let openings_ok = Self::verify_fri_layer_openings(
                         merkle_root,
-                        layer_evaluation_index_sym,
+                        auth_path,
+                        auth_path_sym,
+                        &v,
                         evaluation_sym,
+                        domain_length,
+                        iota,
                     );
 
                     let beta = &zetas[k + 1];
@@ -546,10 +576,10 @@ pub trait IsStarkVerifier {
                     v = (&v + evaluation_sym) + beta * (&v - evaluation_sym) * evaluation_point_inv;
 
                     // Check that next value is the given by the prover
-                    if k < fri_decommitment.layers_evaluations.len() {
-                        result & auth_sym
+                    if k < fri_decommitment.layers_evaluations.len() - 1 {
+                        result & openings_ok
                     } else {
-                        result & (v == proof.fri_last_value) & auth_sym
+                        result & (v == proof.fri_last_value) & openings_ok
                     }
                 },
             )
@@ -567,37 +597,28 @@ pub trait IsStarkVerifier {
         let mut deep_poly_evaluations_sym = Vec::new();
         for (i, iota) in challenges.iotas.iter().enumerate() {
             // Reconstruct deep composition evaluation
-            let z_squared = &challenges.z.square();
             let primitive_root = &F::get_primitive_root_of_unity(domain.root_order as u64).unwrap();
 
-            let denom_composition = &domain.lde_roots_of_unity_coset[*iota] - z_squared;
-
-            let mut denoms_trace = (0..proof.trace_ood_frame_evaluations.num_rows())
-                .map(|row_idx| {
-                    &domain.lde_roots_of_unity_coset[*iota]
-                        - &challenges.z * primitive_root.pow(row_idx as u64)
-                })
-                .collect::<Vec<FieldElement<F>>>();
-            FieldElement::inplace_batch_inverse(&mut denoms_trace).unwrap();
-
-            deep_poly_evaluations.push(Verifier::reconstruct_deep_composition_poly_evaluation(
+            let index = Self::query_challenge_to_merkle_root_index(*iota, domain);
+            let evaluation_point = &domain.lde_roots_of_unity_coset[index];
+            deep_poly_evaluations.push(Self::reconstruct_deep_composition_poly_evaluation(
                 proof,
+                evaluation_point,
+                &primitive_root,
                 challenges,
-                &denom_composition,
-                &denoms_trace,
                 &proof.deep_poly_openings[i].lde_trace_evaluations,
                 &proof.deep_poly_openings[i].lde_composition_poly_parts_evaluation,
-                i,
             ));
 
-            deep_poly_evaluations_sym.push(Verifier::reconstruct_deep_composition_poly_evaluation(
+            let index = Self::query_challenge_to_merkle_root_index_sym(*iota, domain);
+            let evaluation_point = &domain.lde_roots_of_unity_coset[index];
+            deep_poly_evaluations_sym.push(Self::reconstruct_deep_composition_poly_evaluation(
                 proof,
+                evaluation_point,
+                &primitive_root,
                 challenges,
-                &denom_composition,
-                &denoms_trace,
                 &proof.deep_poly_openings_sym[i].lde_trace_evaluations,
                 &proof.deep_poly_openings_sym[i].lde_composition_poly_parts_evaluation,
-                i,
             ));
         }
         (deep_poly_evaluations, deep_poly_evaluations_sym)
@@ -606,13 +627,18 @@ pub trait IsStarkVerifier {
     // Reconstruct Deep(\upsilon_0) off the values in the proof
     fn reconstruct_deep_composition_poly_evaluation<F: IsFFTField, A: AIR<Field = F>>(
         proof: &StarkProof<F>,
+        evaluation_point: &FieldElement<F>,
+        primitive_root: &FieldElement<F>,
         challenges: &Challenges<F, A>,
-        denom_composition: &FieldElement<F>,
-        denoms_trace: &[FieldElement<F>],
         lde_trace_evaluations: &[FieldElement<F>],
         lde_composition_poly_parts_evaluation: &[FieldElement<F>],
-        i: usize,
     ) -> FieldElement<F> {
+
+        let mut denoms_trace = (0..proof.trace_ood_frame_evaluations.num_rows())
+            .map(|row_idx| evaluation_point - &challenges.z * primitive_root.pow(row_idx as u64))
+            .collect::<Vec<FieldElement<F>>>();
+        FieldElement::inplace_batch_inverse(&mut denoms_trace).unwrap();
+
         let trace_term = (0..proof.trace_ood_frame_evaluations.num_columns())
             .zip(&challenges.trace_term_coeffs)
             .fold(FieldElement::zero(), |trace_terms, (col_idx, coeff_row)| {
@@ -627,14 +653,19 @@ pub trait IsStarkVerifier {
                 trace_terms + trace_i
             });
 
+        let number_of_parts = lde_composition_poly_parts_evaluation.len();
+        let z_pow = &challenges.z.pow(number_of_parts);
+
+        let denom_composition = (evaluation_point - z_pow).inv().unwrap();
         let mut h_terms = FieldElement::zero();
         for (j, h_i_upsilon) in lde_composition_poly_parts_evaluation.iter().enumerate() {
             let h_i_zpower = &proof.composition_poly_parts_ood_evaluation[j];
             let h_i_term = (h_i_upsilon - h_i_zpower) * &challenges.gammas[j];
             h_terms = h_terms + h_i_term;
         }
+        h_terms = h_terms * denom_composition;
 
-        trace_term + h_terms * denom_composition
+        trace_term + h_terms
     }
 
     fn verify<F, A>(

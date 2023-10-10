@@ -292,6 +292,8 @@ pub trait IsStarkProver {
 
         let number_of_parts = air.composition_poly_degree_bound() / air.trace_length();
         let composition_poly_parts = composition_poly.break_in_parts(number_of_parts);
+
+
         let lde_composition_poly_parts_evaluations: Vec<_> = composition_poly_parts
             .iter()
             .map(|part| {
@@ -468,9 +470,10 @@ pub trait IsStarkProver {
         trace_terms_gammas: &[FieldElement<Self::Field>],
     ) -> Polynomial<FieldElement<Self::Field>>
     where
-        A: AIR,
+        A: AIR<Field = Self::Field>,
         FieldElement<Self::Field>: Serializable + Send + Sync,
     {
+        let domain = Domain::new(air);
         let z_power = z.pow(round_2_result.composition_poly_parts.len());
 
         // ∑ᵢ 𝛾ᵢ ( Hᵢ − Hᵢ(z^N) ) / ( X − z^N )
@@ -482,6 +485,7 @@ pub trait IsStarkProver {
             let h_i_term = &composition_poly_gammas[i] * (part - h_i_eval);
             h_terms = h_terms + h_i_term;
         }
+        assert_eq!(h_terms.evaluate(&z_power), FieldElement::zero());
         h_terms.ruffini_division_inplace(&z_power);
 
         // Get trace evaluations needed for the trace terms of the deep composition polynomial

@@ -294,16 +294,15 @@ impl IsStarkVerifier for SHARV {
         F: IsFFTField,
         FieldElement<F>: Serializable,
     {
-        let mut value = deep_poly_opening.lde_composition_poly_parts_evaluation.clone();
+        let mut value = deep_poly_opening
+            .lde_composition_poly_parts_evaluation
+            .clone();
         value.extend_from_slice(&deep_poly_opening_sym.lde_composition_poly_parts_evaluation);
 
-        let openings_are_valid = deep_poly_opening
-            .lde_composition_poly_proof
-            .verify::<BatchedMerkleTreeBackend<F>>(
-            composition_poly_merkle_root,
-            *iota,
-            &value,
-        );
+        let openings_are_valid =
+            deep_poly_opening
+                .lde_composition_poly_proof
+                .verify::<BatchedMerkleTreeBackend<F>>(composition_poly_merkle_root, *iota, &value);
 
         openings_are_valid
     }
@@ -317,6 +316,26 @@ impl IsStarkVerifier for SHARV {
         (0..number_of_queries)
             .map(|_| (transcript.sample_u64(domain_size >> 1)) as usize)
             .collect::<Vec<usize>>()
+    }
+    fn verify_fri_layer_openings<F>(
+        merkle_root: &Commitment,
+        auth_path: &Proof<Commitment>,
+        auth_path_sym: &Proof<Commitment>,
+        evaluation: &FieldElement<F>,
+        evaluation_sym: &FieldElement<F>,
+        domain_length: usize,
+        iota: usize,
+    ) -> bool
+    where
+        F: IsFFTField,
+        FieldElement<F>: Serializable,
+    {
+        let index = iota % domain_length;
+
+        let evaluations = vec![evaluation.clone(), evaluation_sym.clone()];
+
+        // Verify opening Open(pₖ(Dₖ), −𝜐ₛ^(2ᵏ))
+        auth_path_sym.verify::<BatchedMerkleTreeBackend<F>>(merkle_root, index, &evaluations)
     }
 }
 
@@ -369,29 +388,25 @@ where
             let query_list = iotas
                 .iter()
                 .map(|iota_s| {
-                    // <<<< Receive challenge 𝜄ₛ (iota_s)
-                    let mut layers_evaluations_sym = vec![];
-                    let mut layers_evaluations = vec![];
-                    let mut layers_auth_paths = vec![];
+                    let mut layers_evaluations_sym = Vec::new();
+                    let mut layers_auth_paths_sym = Vec::new();
 
                     let mut index = *iota_s >> 1;
                     for layer in fri_layers {
                         // symmetric element
-                        let evaluation_sym = layer.evaluation[index * 2 + 1].clone();
-                        let auth_path = layer.merkle_tree.get_proof_by_pos(index).unwrap();
-                        let evaluation = layer.evaluation[index].clone();
-                        layers_auth_paths.push(auth_path);
+                        let evaluation_sym = layer.evaluation[index].clone();
+                        let auth_path_sym = layer.merkle_tree.get_proof_by_pos(index).unwrap();
                         layers_evaluations_sym.push(evaluation_sym);
-                        layers_evaluations.push(evaluation);
+                        layers_auth_paths_sym.push(auth_path_sym);
 
                         index >>= 1;
                     }
 
                     FriDecommitment {
-                        layers_auth_paths_sym: Vec::new(),
+                        layers_auth_paths: layers_auth_paths_sym.clone(),
+                        layers_evaluations: layers_evaluations_sym.clone(),
+                        layers_auth_paths_sym,
                         layers_evaluations_sym,
-                        layers_evaluations,
-                        layers_auth_paths,
                     }
                 })
                 .collect();
@@ -745,9 +760,9 @@ pub mod tests {
 
         // Deep composition poly layer 1
         assert_eq!(
-            proof.query_list[0].layers_evaluations[0],
+            proof.query_list[0].layers_evaluations_sym[0],
             FieldElement::from_hex_unchecked(
-                "684991e76e5c08db17f33ea7840596be876d92c143f863e77cad10548289fd0"
+                "0684991e76e5c08db17f33ea7840596be876d92c143f863e77cad10548289fd0"
             )
         );
     }
