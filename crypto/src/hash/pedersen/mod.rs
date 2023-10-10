@@ -2,34 +2,33 @@ use lambdaworks_math::{
     cyclic_group::IsGroup,
     elliptic_curve::short_weierstrass::{
         curves::stark_curve::StarkCurve, point::ShortWeierstrassProjectivePoint,
-        traits::IsShortWeierstrass,
     },
     field::{
         element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
     },
 };
 
-pub mod parameters;
+mod parameters;
 use self::parameters::PedersenParameters;
 
-pub struct Pedersen<EC: IsShortWeierstrass> {
-    params: PedersenParameters<EC>,
+pub struct Pedersen {
+    params: PedersenParameters,
 }
 
-impl Default for Pedersen<StarkCurve> {
+impl Default for Pedersen {
     fn default() -> Self {
-        let pedersen_stark_default_params = PedersenParameters::<StarkCurve>::default();
+        let pedersen_stark_default_params = PedersenParameters::default();
         Self::new_with_params(pedersen_stark_default_params)
     }
 }
 
-impl Pedersen<StarkCurve> {
-    pub fn new_with_params(params: PedersenParameters<StarkCurve>) -> Self {
+impl Pedersen {
+    pub fn new_with_params(params: PedersenParameters) -> Self {
         Self { params }
     }
 
-    /// Taken from Jonathan Lei's starknet-rs
-    /// https://github.com/xJonathanLEI/starknet-rs/blob/4ab2f36872435ce57b1d8f55856702a6a30f270a/starknet-crypto/src/pedersen_hash.rs
+    // Taken from Jonathan Lei's starknet-rs
+    // https://github.com/xJonathanLEI/starknet-rs/blob/4ab2f36872435ce57b1d8f55856702a6a30f270a/starknet-crypto/src/pedersen_hash.rs
     pub fn hash(
         &self,
         x: &FieldElement<Stark252PrimeField>,
@@ -83,7 +82,7 @@ mod tests {
 
     #[test]
     fn test_stark_curve() {
-        let pedersen = Pedersen::<StarkCurve>::default();
+        let pedersen = Pedersen::default();
 
         let x = FieldElement::<Stark252PrimeField>::from_hex_unchecked(
             "03d937c035c878245caf64531a5756109c53068da139362728feb561405371cb",
