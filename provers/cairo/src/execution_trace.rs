@@ -88,7 +88,7 @@ fn add_pub_memory_dummy_accesses(
     last_memory_hole_idx: usize,
 ) {
     for i in 0..pub_memory_len {
-        main_trace.add_to_column(last_memory_hole_idx + i, &Felt252::zero(), EXTRA_ADDR);
+        main_trace.set_or_extend(last_memory_hole_idx + i, EXTRA_ADDR, &Felt252::zero());
     }
 }
 
@@ -134,7 +134,7 @@ fn get_rc_holes(trace: &CairoTraceTable, columns_indices: &[usize]) -> (Vec<Felt
 /// Fills holes found in the range-checked columns.
 fn fill_rc_holes(trace: &mut CairoTraceTable, holes: &[Felt252]) {
     holes.iter().enumerate().for_each(|(i, hole)| {
-        trace.add_to_column(i, hole, RC_HOLES);
+        trace.set_or_extend(i, RC_HOLES, hole);
     });
 
     // Fill the rest of the RC_HOLES column to avoid inexistent zeros
@@ -143,7 +143,7 @@ fn fill_rc_holes(trace: &mut CairoTraceTable, holes: &[Felt252]) {
     offsets.sort_by_key(|x| x.representative());
     let greatest_offset = offsets.last().unwrap();
     (holes.len()..trace.n_rows()).for_each(|i| {
-        trace.add_to_column(i, greatest_offset, RC_HOLES);
+        trace.set_or_extend(i, RC_HOLES, greatest_offset);
     });
 }
 
@@ -187,7 +187,7 @@ fn get_memory_holes(sorted_addrs: &[Felt252], codelen: usize) -> Vec<Felt252> {
 /// Fill memory holes in the extra address column of the trace with the missing addresses.
 fn fill_memory_holes(trace: &mut CairoTraceTable, memory_holes: &[Felt252]) {
     memory_holes.iter().enumerate().for_each(|(i, hole)| {
-        trace.add_to_column(i, hole, EXTRA_ADDR);
+        trace.set_or_extend(i, EXTRA_ADDR, hole);
     });
 }
 

@@ -6,6 +6,12 @@ use lambdaworks_math::{
     polynomial::Polynomial,
 };
 
+/// A two-dimensional representation of an execution trace of the STARK
+/// protocol.
+///
+/// For the moment it is mostly a wrapper around the `Table` struct. It is a
+/// layer above the raw two-dimensional table, with functionality relevant to the
+/// STARK protocol.
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
 pub struct TraceTable<F: IsFFTField> {
     pub table: Table<F>,
@@ -45,6 +51,12 @@ impl<F: IsFFTField> TraceTable<F> {
     pub fn get_row(&self, row_idx: usize) -> &[FieldElement<F>] {
         let row_offset = row_idx * self.n_cols();
         &self.table.data[row_offset..row_offset + self.n_cols()]
+    }
+
+    pub fn get_row_mut(&mut self, row_idx: usize) -> &mut [FieldElement<F>] {
+        let n_cols = self.n_cols();
+        let row_offset = row_idx * n_cols;
+        &mut self.table.data[row_offset..row_offset + n_cols]
     }
 
     pub fn last_row(&self) -> &[FieldElement<F>] {
@@ -97,21 +109,37 @@ impl<F: IsFFTField> TraceTable<F> {
         Self { table }
     }
 
-    pub fn pad_with_last_row(&mut self, number_rows: usize) {
+    /// Given the padding length, appends the last row of the trace table
+    /// that many times.
+    /// This is useful for example when the desired trace length should be power
+    /// of two, and only the last row is the one that can be appended without affecting
+    /// the integrity of the constraints.
+    pub fn pad_with_last_row(&mut self, padding_len: usize) {
         let last_row = self.last_row().to_vec();
-        (0..number_rows).for_each(|_| {
+        (0..padding_len).for_each(|_| {
             self.table.append_row(&last_row);
         })
     }
 
-    pub fn add_to_column(&mut self, i: usize, value: &FieldElement<F>, col: usize) {
-        let trace_idx = i * self.n_cols() + col;
-        if trace_idx >= self.table.data.len() {
+    /// Given a row index, a column index and a value, tries to set that location
+    /// of the trace with the given value.
+    /// The row_idx passed as argument may be greater than the max row index by 1. In this case,
+    /// last row of the trace is cloned, and the value is set in that cloned row. Then, the row is
+    /// appended to the end of the trace.
+    pub fn set_or_extend(&mut self, row_idx: usize, col_idx: usize, value: &FieldElement<F>) {
+        debug_assert!(col_idx < self.n_cols());
+        // NOTE: This is not very nice, but for how the function is being used at the moment,
+        // the passed `row_idx` should never be greater than `self.n_rows() + 1`. This is just
+        // an integrity check for ease in the developing process, we should think a better alternative
+        // in the future.
+        debug_assert!(row_idx <= self.n_rows() + 1);
+        if row_idx >= self.n_rows() {
             let mut last_row = self.last_row().to_vec();
-            last_row[col] = value.clone();
+            last_row[col_idx] = value.clone();
             self.table.append_row(&last_row)
         } else {
-            self.table.data[trace_idx] = value.clone();
+            let row = self.get_row_mut(row_idx);
+            row[col_idx] = value.clone();
         }
     }
 }
