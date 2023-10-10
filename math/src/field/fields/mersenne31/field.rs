@@ -1,12 +1,11 @@
-use core::ops::BitXorAssign;
-
 use crate::{
     errors::CreationError,
     field::{
         errors::FieldError,
-        traits::{IsField, IsPrimeField},
+        traits::{IsField, IsPrimeField}, element::FieldElement,
     },
 };
+use core::{ops::BitXorAssign, fmt::{Display, self}};
 
 /// Represents a 31 bit integer value
 /// Invariants:
@@ -107,7 +106,7 @@ impl IsField for Mersenne31Field {
     }
 
     /// Returns the additive neutral element.
-    fn zero() -> u32 {
+    fn zero() -> Self::BaseType {
         0u32
     }
 
@@ -162,6 +161,24 @@ impl IsPrimeField for Mersenne31Field {
             hex_string = &hex_string[2..];
         }
         u32::from_str_radix(hex_string, 16).map_err(|_| CreationError::InvalidHexString)
+    }
+}
+
+impl FieldElement<Mersenne31Field> {
+
+    pub fn to_bytes_le(&self) -> Vec<u8> {
+        self.representative().to_le_bytes().to_vec()
+    }
+
+    pub fn to_bytes_be(&self) -> Vec<u8> {
+        self.representative().to_be_bytes().to_vec()
+    }
+}
+
+impl Display for FieldElement<Mersenne31Field> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:x}", self.representative())?;
+        Ok(())
     }
 }
 
