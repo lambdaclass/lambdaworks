@@ -1,8 +1,10 @@
+use core::fmt::{self, Display};
+
 use crate::{
     errors::CreationError,
     field::{
         errors::FieldError,
-        traits::{IsField, IsPrimeField},
+        traits::{IsField, IsPrimeField}, extensions::quadratic::{HasQuadraticNonResidue, QuadraticExtensionField}, element::FieldElement,
     },
 };
 
@@ -180,6 +182,26 @@ fn exp_power_of_2<const POWER_LOG: usize>(base: &u64) -> u64 {
         res = Goldilocks64Field::square(&res);
     }
     res
+}
+
+pub type Mersenne31ComplexQuadraticExtensionField = QuadraticExtensionField<Goldilocks64Field>;
+
+impl HasQuadraticNonResidue for Goldilocks64Field {
+    type BaseField = Goldilocks64Field;
+
+
+    // Verifiable in Sage with
+    // `R.<x> = GF(p)[]; assert (x^2 - 7).is_irreducible()`
+    fn residue() -> FieldElement<Goldilocks64Field> {
+        FieldElement::from(Goldilocks64Field::from_u64(7u64))
+    }
+}
+
+impl Display for FieldElement<Goldilocks64Field> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:x}", self.representative())?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
