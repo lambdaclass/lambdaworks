@@ -8,28 +8,28 @@ use lambdaworks_math::field::{
 use ibig::{modular::ModuloRing, UBig};
 fuzz_target!(|values: (u32, u32)| {
 
-    let (value_u64_a, value_u64_b) = values;
+    let (value_u32_a, value_u32_b) = values;
     let mersenne_prime = 
         UBig::from(2u32^32 - 1u32);
    
     let ring = ModuloRing::new(&mersenne_prime);
 
-    let a =  FieldElement::<Mersenne31Field>::from(value_u64_a as u64);
-    let b =  FieldElement::<Mersenne31Field>::from(value_u64_b as u64);
+    let a =  FieldElement::<Mersenne31Field>::from(value_u32_a as u64);
+    let b =  FieldElement::<Mersenne31Field>::from(value_u32_b as u64);
 
-    let a_expected = ring.from(value_u64_a);
-    let b_expected = ring.from(value_u64_b);
+    let a_expected = ring.from(value_u32_a);
+    let b_expected = ring.from(value_u32_b);
 
-    let add_u64 = &a + &b;
+    let add_u32 = &a + &b;
     let addition = &a_expected + &b_expected;
     
-    assert_eq!(add_u64.to_string(), addition.residue().to_string());
+    assert_eq!(add_u32.to_string(), addition.residue().to_string());
 
-    let sub_u64 = &a - &b;
+    let sub_u32 = &a - &b;
     let substraction = &a_expected - &b_expected;
     assert_eq!(sub_u64.to_string(), substraction.residue().to_string());
     
-    let mul_u64 = &a * &b;
+    let mul_u32 = &a * &b;
     let multiplication = &a_expected * &b_expected;
     assert_eq!(mul_u64.to_string(), multiplication.residue().to_string());
 
@@ -37,7 +37,7 @@ fuzz_target!(|values: (u32, u32)| {
     let expected_pow = a_expected.pow(&b_expected.residue());
     assert_eq!(pow.to_string(), expected_pow.residue().to_string());
     
-    if value_u64_b != 0 {
+    if value_u32_b != 0 {
         
         let div = &a / &b; 
         assert_eq!(&div * &b, a.clone());
@@ -83,6 +83,4 @@ fuzz_target!(|values: (u32, u32)| {
     if b != zero {
         assert_eq!(&b * b.inv().unwrap(), one, "Inverse mul b failed");
     }
-    
-    
 });

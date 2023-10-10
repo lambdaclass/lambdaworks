@@ -1,11 +1,12 @@
 use crate::{
     errors::CreationError,
     field::{
+        element::FieldElement,
         errors::FieldError,
-        traits::{IsField, IsPrimeField}, element::FieldElement,
+        traits::{IsField, IsPrimeField},
     },
 };
-use core::{ops::BitXorAssign, fmt::{Display, self}};
+use core::fmt::{self, Display};
 
 /// Represents a 31 bit integer value
 /// Invariants:
@@ -45,14 +46,16 @@ impl IsField for Mersenne31Field {
 
     /// Returns the sum of `a` and `b`.
     fn add(a: &u32, b: &u32) -> u32 {
-        let mut sum = a + b;
-        // If sum's most significant bit is set, we clear it and add 1, since 2^31 = 1 mod p.
-        // This addition of 1 cannot overflow 2^31, since sum has a max of
-        // 2 * (2^31 - 1) = 2^32 - 2.
-        let msb = sum & (1 << 31);
-        sum.bitxor_assign(msb);
-        sum += u32::from(msb != 0);
+        // Avoids conditional https://github.com/Plonky3/Plonky3/blob/6049a30c3b1f5351c3eb0f7c994dc97e8f68d10d/mersenne-31/src/lib.rs#L249
+        // Working with i32 means we get a flag which informs us if overflow happens
+        let (sum_i32, over) = (*a as i32).overflowing_add(*b as i32);
+        let sum_u32 = sum_i32 as u32;
+        let sum_corr = sum_u32.wrapping_sub(MERSENNE_31_PRIME_FIELD_ORDER);
+
         //assert 31 bit clear
+        // If self + rhs did not overflow, return it.
+        // If self + rhs overflowed, sum_corr = self + rhs - (2**31 - 1).
+        let sum = if over { sum_corr } else { sum_u32 };
         debug_assert!((sum >> 31) == 0);
         Self::as_representative(&sum)
     }
@@ -68,9 +71,14 @@ impl IsField for Mersenne31Field {
         Self::add(&prod_lo, &prod_hi)
     }
 
-    // Need to optimize
     fn sub(a: &u32, b: &u32) -> u32 {
-        Self::add(a, &Self::neg(b))
+        let (mut sub, over) = a.overflowing_sub(*b);
+
+        // If we didn't overflow we have the correct value.
+        // Otherwise we have added 2**32 = 2**31 + 1 mod 2**31 - 1.
+        // Hence we need to remove the most significant bit and subtract 1.
+        sub -= over as u32;
+        sub & MERSENNE_31_PRIME_FIELD_ORDER
     }
 
     /// Returns the additive inverse of `a`.
@@ -165,7 +173,6 @@ impl IsPrimeField for Mersenne31Field {
 }
 
 impl FieldElement<Mersenne31Field> {
-
     pub fn to_bytes_le(&self) -> Vec<u8> {
         self.representative().to_le_bytes().to_vec()
     }

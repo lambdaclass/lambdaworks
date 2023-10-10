@@ -1,11 +1,11 @@
 use crate::field::{
-    errors::FieldError,
-    traits::IsField, 
-    extensions::{
-        quadratic::{HasQuadraticNonResidue, QuadraticExtensionField}, 
-        cubic::{CubicExtensionField, HasCubicNonResidue}
-    }, 
     element::FieldElement,
+    errors::FieldError,
+    extensions::{
+        cubic::{CubicExtensionField, HasCubicNonResidue},
+        quadratic::{HasQuadraticNonResidue, QuadraticExtensionField},
+    },
+    traits::IsField,
 };
 
 use super::field::Mersenne31Field;
@@ -100,7 +100,6 @@ pub type Mersenne31ComplexQuadraticExtensionField = QuadraticExtensionField<Mers
 impl HasQuadraticNonResidue for Mersenne31Complex {
     type BaseField = Mersenne31Complex;
 
-
     // Verifiable in Sage with
     // ```sage
     // p = 2**31 - 1  # Mersenne31
@@ -112,14 +111,10 @@ impl HasQuadraticNonResidue for Mersenne31Complex {
     // assert f2.is_irreducible()
     // ```
     fn residue() -> FieldElement<Mersenne31Complex> {
-        FieldElement::from(
-            &Mersenne31Complex::from_base_type(
-                [
-                    FieldElement::<Mersenne31Field>::from(2), 
-                    FieldElement::<Mersenne31Field>::one()
-                ]
-            )
-        )
+        FieldElement::from(&Mersenne31Complex::from_base_type([
+            FieldElement::<Mersenne31Field>::from(2),
+            FieldElement::<Mersenne31Field>::one(),
+        ]))
     }
 }
 
@@ -139,18 +134,12 @@ impl HasCubicNonResidue for Mersenne31Complex {
     // assert f2.is_irreducible()
     // ```
     fn residue() -> FieldElement<Mersenne31Complex> {
-        FieldElement::from(
-            &Mersenne31Complex::from_base_type(
-                [
-                    FieldElement::<Mersenne31Field>::zero(), 
-                    FieldElement::<Mersenne31Field>::from(5)
-                ]
-            )
-        )
-
+        FieldElement::from(&Mersenne31Complex::from_base_type([
+            FieldElement::<Mersenne31Field>::zero(),
+            FieldElement::<Mersenne31Field>::from(5),
+        ]))
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -160,28 +149,31 @@ mod tests {
 
     type Fi = Mersenne31Complex;
     type F = FieldElement<Mersenne31Field>;
-    
+
     //NOTE: from_u64 reflects from_real
     //NOTE: for imag use from_base_type
 
     #[test]
     fn add_real_one_plus_one_is_two() {
-        assert_eq!(Fi::add(&Fi::one(),&Fi::one()), Fi::from_u64(2))
+        assert_eq!(Fi::add(&Fi::one(), &Fi::one()), Fi::from_u64(2))
     }
 
     #[test]
     fn add_real_neg_one_plus_one_is_zero() {
-        assert_eq!(Fi::add(&Fi::neg(&Fi::one()),&Fi::one()), Fi::zero())
+        assert_eq!(Fi::add(&Fi::neg(&Fi::one()), &Fi::one()), Fi::zero())
     }
 
     #[test]
     fn add_real_neg_one_plus_two_is_one() {
-        assert_eq!(Fi::add(&Fi::neg(&Fi::one()),&Fi::from_u64(2)), Fi::one())
+        assert_eq!(Fi::add(&Fi::neg(&Fi::one()), &Fi::from_u64(2)), Fi::one())
     }
 
     #[test]
     fn add_real_neg_one_plus_neg_one_is_order_sub_two() {
-        assert_eq!(Fi::add(&Fi::neg(&Fi::one()), &Fi::neg(&Fi::one())), Fi::from_u64((MERSENNE_31_PRIME_FIELD_ORDER - 2).into()))
+        assert_eq!(
+            Fi::add(&Fi::neg(&Fi::one()), &Fi::neg(&Fi::one())),
+            Fi::from_u64((MERSENNE_31_PRIME_FIELD_ORDER - 2).into())
+        )
     }
 
     #[test]
@@ -189,7 +181,7 @@ mod tests {
         //Manually declare the complex part to one
         let one = Fi::from_base_type([F::zero(), F::one()]);
         let two = Fi::from_base_type([F::zero(), F::from(2)]);
-        assert_eq!(Fi::add(&one,&one), two)
+        assert_eq!(Fi::add(&one, &one), two)
     }
 
     #[test]
@@ -197,7 +189,7 @@ mod tests {
         //Manually declare the complex part to one
         let neg_one = Fi::from_base_type([F::zero(), -F::one()]);
         let one = Fi::from_base_type([F::zero(), F::one()]);
-        assert_eq!(Fi::add(&neg_one,&one), Fi::zero())
+        assert_eq!(Fi::add(&neg_one, &one), Fi::zero())
     }
 
     #[test]
@@ -205,13 +197,16 @@ mod tests {
         let neg_one = Fi::from_base_type([F::zero(), -F::one()]);
         let two = Fi::from_base_type([F::zero(), F::from(2)]);
         let one = Fi::from_base_type([F::zero(), F::one()]);
-        assert_eq!(Fi::add(&neg_one,&two), one)
+        assert_eq!(Fi::add(&neg_one, &two), one)
     }
 
     #[test]
     fn add_complex_neg_one_plus_neg_one_imag_is_order_sub_two() {
         let neg_one = Fi::from_base_type([F::zero(), -F::one()]);
-        assert_eq!(Fi::add(&neg_one, &neg_one)[1], F::new(MERSENNE_31_PRIME_FIELD_ORDER - 2))
+        assert_eq!(
+            Fi::add(&neg_one, &neg_one)[1],
+            F::new(MERSENNE_31_PRIME_FIELD_ORDER - 2)
+        )
     }
 
     #[test]
@@ -227,7 +222,6 @@ mod tests {
         let a = Fi::from_base_type([-F::one(), -F::one()]);
         let b = Fi::from_base_type([F::one(), F::one()]);
         assert_eq!(Fi::add(&a, &b), Fi::zero())
-
     }
 
     #[test]
@@ -236,57 +230,65 @@ mod tests {
         let b = Fi::from_base_type([F::one(), F::one()]);
         let c = Fi::from_base_type([F::from(2), F::from(3)]);
         assert_eq!(Fi::add(&a, &b), c)
-
     }
 
     #[test]
     fn sub_real_one_sub_one_is_zero() {
-        assert_eq!(Fi::sub(&Fi::one(),&Fi::one()), Fi::zero())
+        assert_eq!(Fi::sub(&Fi::one(), &Fi::one()), Fi::zero())
     }
 
     #[test]
     fn sub_real_two_sub_two_is_zero() {
-        assert_eq!(Fi::sub(&Fi::from_u64(2u64),&Fi::from_u64(2u64)), Fi::zero())
+        assert_eq!(
+            Fi::sub(&Fi::from_u64(2u64), &Fi::from_u64(2u64)),
+            Fi::zero()
+        )
     }
 
     #[test]
     fn sub_real_neg_one_sub_neg_one_is_zero() {
-        assert_eq!(Fi::sub(&Fi::neg(&Fi::one()),&Fi::neg(&Fi::one())), Fi::zero())
+        assert_eq!(
+            Fi::sub(&Fi::neg(&Fi::one()), &Fi::neg(&Fi::one())),
+            Fi::zero()
+        )
     }
 
     #[test]
     fn sub_real_two_sub_one_is_one() {
-        assert_eq!(Fi::sub(&Fi::from_u64(2),&Fi::one()), Fi::one())
+        assert_eq!(Fi::sub(&Fi::from_u64(2), &Fi::one()), Fi::one())
     }
 
     #[test]
     fn sub_real_neg_one_sub_zero_is_neg_one() {
-        assert_eq!(Fi::sub(&Fi::neg(&Fi::one()),&Fi::zero()), Fi::neg(&Fi::one()))
+        assert_eq!(
+            Fi::sub(&Fi::neg(&Fi::one()), &Fi::zero()),
+            Fi::neg(&Fi::one())
+        )
     }
 
     #[test]
     fn sub_complex_one_sub_one_is_zero() {
         let one = Fi::from_base_type([F::zero(), F::one()]);
-        assert_eq!(Fi::sub(&one,&one), Fi::zero())
+        assert_eq!(Fi::sub(&one, &one), Fi::zero())
     }
 
     #[test]
     fn sub_complex_two_sub_two_is_zero() {
         let two = Fi::from_base_type([F::zero(), F::from(2)]);
-        assert_eq!(Fi::sub(&two,&two), Fi::zero())
+        assert_eq!(Fi::sub(&two, &two), Fi::zero())
     }
 
     #[test]
     fn sub_complex_neg_one_sub_neg_one_is_zero() {
         let neg_one = Fi::from_base_type([F::zero(), -F::one()]);
-        assert_eq!(Fi::sub(&neg_one,&neg_one), Fi::zero())
+        assert_eq!(Fi::sub(&neg_one, &neg_one), Fi::zero())
     }
 
     #[test]
     fn sub_complex_two_sub_one_is_one() {
         let two = Fi::from_base_type([F::zero(), F::from(2)]);
         let one = Fi::from_base_type([F::zero(), F::one()]);
-        assert_eq!(Fi::sub(&two,&one), one)
+        assert_eq!(Fi::sub(&two, &one), one)
     }
 
     #[test]
