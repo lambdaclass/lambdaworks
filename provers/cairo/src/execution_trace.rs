@@ -781,17 +781,6 @@ mod test {
         fill_memory_holes(&mut trace, &memory_holes);
 
         let extra_addr = &trace.cols()[EXTRA_ADDR];
-
-        extra_addr
-            .iter()
-            .for_each(|a| println!("EXTRA ADDR: {}", a));
-
-        println!();
-
-        memory_holes
-            .iter()
-            .for_each(|a| println!("MEMORY HOLE: {}", a));
-
         assert_eq!(extra_addr, &memory_holes)
     }
 }
