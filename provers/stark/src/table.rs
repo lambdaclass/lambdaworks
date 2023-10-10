@@ -1,5 +1,8 @@
 use lambdaworks_math::field::{element::FieldElement, traits::IsFFTField};
 
+/// A two-dimensional Table holding field elements, arranged in a row-major order.
+/// This is the basic underlying data structure used for any two-dimensional component in the
+/// the STARK protocol implementation, such as the `TraceTable` and the `EvaluationFrame`.
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
 pub struct Table<F: IsFFTField> {
     pub data: Vec<FieldElement<F>>,
@@ -16,6 +19,12 @@ impl<F: IsFFTField> Table<F> {
                 height: 0,
             };
         }
+
+        debug_assert!((|d: &[FieldElement<F>]| {
+            let rows: Vec<Vec<FieldElement<F>>> = d.chunks(width).map(|c| c.to_vec()).collect();
+            rows.iter().all(|r| r.len() == rows[0].len())
+        })(data));
+
         let height = data.len() / width;
         Self {
             data: data.to_vec(),
