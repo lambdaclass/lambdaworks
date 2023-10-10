@@ -267,9 +267,7 @@ fn check_simple_cairo_trace_evaluates_to_zero() {
     let program_content = std::fs::read(cairo0_program_path("simple_program.json")).unwrap();
     let (main_trace, public_input) =
         generate_prover_args(&program_content, &None, CairoLayout::Plain).unwrap();
-    println!("LAEEEKL");
     let mut trace_polys = main_trace.compute_trace_polys();
-    println!("LILILL");
     let mut transcript = StoneProverTranscript::new(&[]);
 
     let proof_options = ProofOptions::default_test_options();

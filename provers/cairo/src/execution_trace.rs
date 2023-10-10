@@ -64,32 +64,20 @@ pub fn build_main_trace(
     let (rc_holes, rc_min, rc_max) = get_rc_holes(&main_trace, &[OFF_DST, OFF_OP0, OFF_OP1]);
     public_input.range_check_min = Some(rc_min);
     public_input.range_check_max = Some(rc_max);
-    println!("1");
     let _ = main_trace.cols();
     fill_rc_holes(&mut main_trace, &rc_holes);
 
-    println!("2");
-    let _ = main_trace.cols();
     let memory_holes = get_memory_holes(&address_cols, public_input.codelen);
-    // let memory_holes = get_memory_holes(&address_cols, public_input.public_memory.len());
 
-    println!("3");
-    let _ = main_trace.cols();
     if !memory_holes.is_empty() {
         fill_memory_holes(&mut main_trace, &memory_holes);
     }
 
-    println!("4");
-    let _ = main_trace.cols();
     add_pub_memory_dummy_accesses(
         &mut main_trace,
         public_input.public_memory.len(),
         memory_holes.len(),
     );
-
-    println!("5");
-    let _ = main_trace.cols();
-    println!("6");
 
     let trace_len_next_power_of_two = main_trace.n_rows().next_power_of_two();
     let padding = trace_len_next_power_of_two - main_trace.n_rows();
