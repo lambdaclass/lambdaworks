@@ -675,6 +675,7 @@ impl AIR for CairoAIR {
             num_transition_constraints += 1; // range-check builtin value decomposition constraint
         }
         let num_transition_exemptions =1_usize;
+        
         let context = AirContext {
             proof_options: proof_options.clone(),
             trace_columns,

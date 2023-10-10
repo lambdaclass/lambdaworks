@@ -9,7 +9,6 @@ use crate::table::Table;
 
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
 pub struct TraceTable<F: IsFFTField> {
-    /// `table` is row-major trace element description
     pub table: Table<F>,
 }
 
@@ -88,12 +87,28 @@ impl<F: IsFFTField> TraceTable<F> {
         let table = Table::new(&data, self.n_cols() + n_cols);
         Self { table }
     }
+
+    pub fn pad_with_last_row(&mut self, number_rows: usize) {
+        let last_row = self.last_row().to_vec();
+        (0..number_rows).for_each(|_| {
+            self.table.append_row(&last_row);
+        })
+    }
+
+    pub fn add_to_column(&mut self, i: usize, value: &FieldElement<F>, col: usize) {
+        let trace_idx = i * self.n_cols() + col;
+        if trace_idx >= self.table.data.len() {
+            let mut last_row = self.last_row().to_vec();
+            last_row[col] = value.clone();
+            self.table.append_row(&last_row)
+        } else {
+            self.table.data[trace_idx] = value.clone();
+        }
+    }
 }
 
 #[cfg(test)]
 mod test {
-    use crate::table::Table;
-
     use super::TraceTable;
     use lambdaworks_math::field::{element::FieldElement, fields::u64_prime_field::F17};
     type FE = FieldElement<F17>;

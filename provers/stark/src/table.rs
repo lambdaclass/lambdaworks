@@ -28,7 +28,6 @@ impl<F: IsFFTField> Table<F> {
         if columns.is_empty() {
             return Self::new(&Vec::new(), 0);
         }
-        columns.iter().for_each(|c| println!("COL: {}", c.len()));
         let height = columns[0].len();
         debug_assert!(columns.iter().all(|c| c.len() == height));
 
