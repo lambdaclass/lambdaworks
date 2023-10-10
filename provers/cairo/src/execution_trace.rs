@@ -64,7 +64,6 @@ pub fn build_main_trace(
     let (rc_holes, rc_min, rc_max) = get_rc_holes(&main_trace, &[OFF_DST, OFF_OP0, OFF_OP1]);
     public_input.range_check_min = Some(rc_min);
     public_input.range_check_max = Some(rc_max);
-    let _ = main_trace.cols();
     fill_rc_holes(&mut main_trace, &rc_holes);
 
     let memory_holes = get_memory_holes(&address_cols, public_input.codelen);
