@@ -1,3 +1,5 @@
+use crate::table::Table;
+
 use super::trace::TraceTable;
 use lambdaworks_math::{
     errors::DeserializationError,
@@ -8,32 +10,29 @@ use lambdaworks_math::{
 
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Frame<F: IsFFTField> {
-    // Vector of rows
-    data: Vec<FieldElement<F>>,
-    row_width: usize,
+    table: Table<F>,
 }
 
 impl<F: IsFFTField> Frame<F> {
     pub fn new(data: Vec<FieldElement<F>>, row_width: usize) -> Self {
-        Self { data, row_width }
+        let table = Table::new(&data, row_width);
+        Self { table }
     }
 
-    pub fn num_rows(&self) -> usize {
-        self.data.len() / self.row_width
+    pub fn n_rows(&self) -> usize {
+        self.table.height
     }
 
-    pub fn num_columns(&self) -> usize {
-        self.row_width
+    pub fn n_cols(&self) -> usize {
+        self.table.width
     }
 
     pub fn get_row(&self, row_idx: usize) -> &[FieldElement<F>] {
-        let row_offset = row_idx * self.row_width;
-        &self.data[row_offset..row_offset + self.row_width]
+        self.table.get_row(row_idx)
     }
 
     pub fn get_row_mut(&mut self, row_idx: usize) -> &mut [FieldElement<F>] {
-        let row_offset = row_idx * self.row_width;
-        &mut self.data[row_offset..row_offset + self.row_width]
+        self.table.get_row_mut(row_idx)
     }
 
     pub fn read_from_trace(
@@ -89,17 +88,17 @@ where
 {
     fn serialize(&self) -> Vec<u8> {
         let mut bytes = vec![];
-        bytes.extend(self.data.len().to_be_bytes());
-        let felt_len = if self.data.is_empty() {
+        bytes.extend(self.table.data.len().to_be_bytes());
+        let felt_len = if self.table.data.is_empty() {
             0
         } else {
-            self.data[0].to_bytes_be().len()
+            self.table.data[0].to_bytes_be().len()
         };
         bytes.extend(felt_len.to_be_bytes());
-        for felt in &self.data {
+        for felt in &self.table.data {
             bytes.extend(felt.to_bytes_be());
         }
-        bytes.extend(self.row_width.to_be_bytes());
+        bytes.extend(self.table.width.to_be_bytes());
         bytes
     }
 }
@@ -189,8 +188,8 @@ mod prop_test {
             let serialized = frame.serialize();
             let deserialized: Frame<Stark252PrimeField> = Frame::deserialize(&serialized).unwrap();
 
-            prop_assert_eq!(frame.data, deserialized.data);
-            prop_assert_eq!(frame.row_width, deserialized.row_width);
+            prop_assert_eq!(frame.table.data, deserialized.table.data);
+            prop_assert_eq!(frame.table.width, deserialized.table.width);
         }
     }
 }

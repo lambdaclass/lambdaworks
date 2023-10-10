@@ -49,14 +49,11 @@ impl<F: IsFFTField> TraceTable<F> {
     }
 
     pub fn get_row(&self, row_idx: usize) -> &[FieldElement<F>] {
-        let row_offset = row_idx * self.n_cols();
-        &self.table.data[row_offset..row_offset + self.n_cols()]
+        self.table.get_row(row_idx)
     }
 
     pub fn get_row_mut(&mut self, row_idx: usize) -> &mut [FieldElement<F>] {
-        let n_cols = self.n_cols();
-        let row_offset = row_idx * n_cols;
-        &mut self.table.data[row_offset..row_offset + n_cols]
+        self.table.get_row_mut(row_idx)
     }
 
     pub fn last_row(&self) -> &[FieldElement<F>] {

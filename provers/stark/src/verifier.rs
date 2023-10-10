@@ -102,7 +102,7 @@ where
     // <<<< Receive value: H₂(z²)
     transcript.append_field_element(&proof.composition_poly_odd_ood_evaluation);
     // <<<< Receive values: tⱼ(zgᵏ)
-    for i in 0..proof.trace_ood_frame_evaluations.num_rows() {
+    for i in 0..proof.trace_ood_frame_evaluations.n_rows() {
         for element in proof.trace_ood_frame_evaluations.get_row(i).iter() {
             transcript.append_field_element(element);
         }
@@ -374,7 +374,7 @@ where
 
                 // DEEP consistency check
                 // Verify that Deep(x) is constructed correctly
-                let mut divisors = (0..proof.trace_ood_frame_evaluations.num_rows())
+                let mut divisors = (0..proof.trace_ood_frame_evaluations.n_rows())
                     .map(|row_idx| {
                         &domain.lde_roots_of_unity_coset[*iota_n]
                             - &challenges.z * primitive_root.pow(row_idx as u64)
@@ -481,10 +481,10 @@ fn reconstruct_deep_composition_poly_evaluation<F: IsFFTField, A: AIR<Field = F>
     divisors: &[FieldElement<F>],
     i: usize,
 ) -> FieldElement<F> {
-    let trace_term = (0..proof.trace_ood_frame_evaluations.num_columns())
+    let trace_term = (0..proof.trace_ood_frame_evaluations.n_cols())
         .zip(&challenges.trace_term_coeffs)
         .fold(FieldElement::zero(), |trace_terms, (col_idx, coeff_row)| {
-            let trace_i = (0..proof.trace_ood_frame_evaluations.num_rows())
+            let trace_i = (0..proof.trace_ood_frame_evaluations.n_rows())
                 .zip(coeff_row)
                 .fold(FieldElement::zero(), |trace_t, (row_idx, coeff)| {
                     let poly_evaluation =

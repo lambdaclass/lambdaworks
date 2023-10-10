@@ -5,7 +5,7 @@ use lambdaworks_math::field::{element::FieldElement, traits::IsFFTField};
 /// the STARK protocol implementation, such as the `TraceTable` and the `EvaluationFrame`.
 /// Since this struct is a representation of a two-dimensional table, all rows should have the same
 /// length.
-#[derive(Clone, Default, Debug, PartialEq, Eq)]
+#[derive(Clone, Default, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Table<F: IsFFTField> {
     pub data: Vec<FieldElement<F>>,
     pub width: usize,
@@ -70,6 +70,13 @@ impl<F: IsFFTField> Table<F> {
     pub fn get_row(&self, row_idx: usize) -> &[FieldElement<F>] {
         let row_offset = row_idx * self.width;
         &self.data[row_offset..row_offset + self.width]
+    }
+
+    /// Given a row index, returns a mutable reference to that row as a slice of field elements.
+    pub fn get_row_mut(&mut self, row_idx: usize) -> &mut [FieldElement<F>] {
+        let n_cols = self.width;
+        let row_offset = row_idx * n_cols;
+        &mut self.data[row_offset..row_offset + n_cols]
     }
 
     /// Given a slice of field elements representing a row, appends it to

@@ -620,12 +620,12 @@ mod prop_test {
                 deserialized.lde_trace_merkle_roots
             );
             prop_assert_eq!(
-                stark_proof.trace_ood_frame_evaluations.num_columns(),
-                deserialized.trace_ood_frame_evaluations.num_columns()
+                stark_proof.trace_ood_frame_evaluations.n_cols(),
+                deserialized.trace_ood_frame_evaluations.n_cols()
             );
             prop_assert_eq!(
-                stark_proof.trace_ood_frame_evaluations.num_rows(),
-                deserialized.trace_ood_frame_evaluations.num_rows()
+                stark_proof.trace_ood_frame_evaluations.n_rows(),
+                deserialized.trace_ood_frame_evaluations.n_rows()
             );
             prop_assert_eq!(
                 stark_proof.composition_poly_root,
