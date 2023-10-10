@@ -36,6 +36,7 @@ pub struct UnsignedInteger<const NUM_LIMBS: usize> {
 
 // NOTE: manually implementing `PartialOrd` may seem unorthodox, but the
 // derived implementation had terrible performance.
+#[allow(clippy::incorrect_partial_ord_impl_on_ord_type)]
 impl<const NUM_LIMBS: usize> PartialOrd for UnsignedInteger<NUM_LIMBS> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         let mut i = 0;

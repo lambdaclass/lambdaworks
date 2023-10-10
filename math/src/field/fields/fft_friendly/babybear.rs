@@ -30,18 +30,6 @@ impl FieldElement<Babybear31PrimeField> {
     }
 }
 
-impl PartialOrd for FieldElement<Babybear31PrimeField> {
-    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
-        self.representative().partial_cmp(&other.representative())
-    }
-}
-
-impl Ord for FieldElement<Babybear31PrimeField> {
-    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
-        self.representative().cmp(&other.representative())
-    }
-}
-
 #[cfg(test)]
 mod test_babybear_31_bytes_ops {
     use super::Babybear31PrimeField;
