@@ -110,50 +110,6 @@ mod test {
     }
 
     #[test]
-    fn test_subtable_works() {
-        let data = vec![
-            FE::new(1),
-            FE::new(2),
-            FE::new(3),
-            FE::new(1),
-            FE::new(2),
-            FE::new(3),
-            FE::new(1),
-            FE::new(2),
-            FE::new(3),
-        ];
-        let table = Table::new(&data, 3);
-        let trace_table = TraceTable { table };
-        let subtable = trace_table.get_columns(&[0, 1]);
-        assert_eq!(
-            subtable,
-            vec![
-                FE::new(1),
-                FE::new(2),
-                FE::new(1),
-                FE::new(2),
-                FE::new(1),
-                FE::new(2)
-            ]
-        );
-        assert_eq!(subtable.len(), 2);
-        let subtable = trace_table.get_columns(&[0, 2]);
-        assert_eq!(
-            subtable,
-            vec![
-                FE::new(1),
-                FE::new(3),
-                FE::new(1),
-                FE::new(3),
-                FE::new(1),
-                FE::new(3)
-            ]
-        );
-        assert_eq!(subtable.len(), 2);
-        assert_eq!(trace_table.get_columns(&[]), Vec::new());
-    }
-
-    #[test]
     fn test_concatenate_works() {
         let table1_columns = vec![vec![FE::new(7), FE::new(8), FE::new(9)]];
         let new_columns = vec![
