@@ -9,6 +9,13 @@ pub struct Table<F: IsFFTField> {
 
 impl<F: IsFFTField> Table<F> {
     pub fn new(data: &[FieldElement<F>], width: usize) -> Self {
+        if width == 0 {
+            return Self {
+                data: Vec::new(),
+                width,
+                height: 0,
+            };
+        }
         let height = data.len() / width;
         Self {
             data: data.to_vec(),
@@ -18,6 +25,10 @@ impl<F: IsFFTField> Table<F> {
     }
 
     pub fn new_from_columns(columns: &[Vec<FieldElement<F>>]) -> Self {
+        if columns.is_empty() {
+            return Self::new(&Vec::new(), 0);
+        }
+        columns.iter().for_each(|c| println!("COL: {}", c.len()));
         let height = columns[0].len();
         debug_assert!(columns.iter().all(|c| c.len() == height));
 

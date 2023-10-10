@@ -22,6 +22,8 @@ use crate::{
 fn test_prove_fib() {
     let trace = simple_fibonacci::fibonacci_trace([Felt252::from(1), Felt252::from(1)], 8);
 
+    println!("LALAL");
+
     let proof_options = ProofOptions::default_test_options();
 
     let pub_inputs = FibonacciPublicInputs {
