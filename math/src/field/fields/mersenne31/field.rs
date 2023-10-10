@@ -89,17 +89,20 @@ impl IsField for Mersenne31Field {
 
     /// Returns the multiplicative inverse of `a`.
     fn inv(a: &u32) -> Result<u32, FieldError> {
-        if *a == Self::zero() {
+        if *a == Self::zero() || *a == MERSENNE_31_PRIME_FIELD_ORDER {
             return Err(FieldError::InvZeroError);
         }
-        let p1_1 = Self::mul(&Self::pow(a, 4u32), a);
-        let p4 = Self::mul(&Self::square(&p1_1), &p1_1);
-        let p8 = Self::mul(&Self::pow(&p4, 16u32), &p4);
-        let p16 = Self::mul(&Self::pow(&p8, 256u32), &p8);
-        let p24 = Self::mul(&Self::pow(&p16, 256u32), &p8);
-        let p28 = Self::mul(&Self::pow(&p24, 16u32), &p4);
-        let p29_1 = Self::mul(&Self::pow(&p28, 8u32), &p1_1);
-        Ok(p29_1)
+        let p101 = Self::mul(&Self::pow(a, 4u32), a);
+        let p1111 = Self::mul(&Self::square(&p101), &p101);
+        let p11111111 = Self::mul(&Self::pow(&p1111, 16u32), &p1111);
+        let p111111110000 = Self::pow(&p11111111, 16u32);
+        let p111111111111 = Self::mul(&p111111110000, &p1111);
+        let p1111111111111111 = Self::mul(&Self::pow(&p111111110000, 16u32), &p11111111);
+        let p1111111111111111111111111111 =
+            Self::mul(&Self::pow(&p1111111111111111, 4096u32), &p111111111111);
+        let p1111111111111111111111111111101 =
+            Self::mul(&Self::pow(&p1111111111111111111111111111, 8u32), &p101);
+        Ok(p1111111111111111111111111111101)
     }
 
     /// Returns the division of `a` and `b`.
@@ -192,6 +195,7 @@ impl Display for FieldElement<Mersenne31Field> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rand::Rng;
     type F = Mersenne31Field;
 
     #[test]
@@ -357,6 +361,23 @@ mod tests {
             F::div(&F::from_base_type(4), &F::from_base_type(3)),
             1431655766
         )
+    }
+
+    #[test]
+    pub fn test_inv_div() {
+        let mut rng = rand::thread_rng();
+        let x = F::from_base_type(rng.gen::<u32>());
+        let y = F::from_base_type(rng.gen::<u32>());
+        let z = F::from_base_type(rng.gen::<u32>());
+        assert_eq!(F::mul(&x, &F::inv(&x).unwrap()), F::one());
+        assert_eq!(F::mul(&F::inv(&x).unwrap(), &x), F::one());
+        assert_eq!(
+            F::inv(&F::square(&x)).unwrap(),
+            F::square(&F::inv(&x).unwrap())
+        );
+        assert_eq!(F::mul(&F::div(&x, &y), &y), x);
+        assert_eq!(F::div(&x, &F::mul(&y, &z)), F::div(&F::div(&x, &y), &z));
+        assert_eq!(F::div(&F::mul(&x, &y), &z), F::mul(&x, &F::div(&y, &z)));
     }
 
     #[test]

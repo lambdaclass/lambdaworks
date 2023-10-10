@@ -1,6 +1,6 @@
 use const_random::const_random;
 use lambdaworks_math::{
-    field::element::FieldElement, field::fields::u32_mersenne_prime_field::Mersenne31Field,
+    field::element::FieldElement, field::fields::mersenne31::field::Mersenne31Field,
     field::fields::u64_prime_field::U64FieldElement, polynomial::Polynomial,
 };
 use rand::random;

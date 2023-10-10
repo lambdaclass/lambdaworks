@@ -3,46 +3,44 @@
 use libfuzzer_sys::fuzz_target;
 use lambdaworks_math::field::{
     element::FieldElement, 
-    fields::mersenne31::mersenne31::Mersenne31Field,
+    fields::{
+        mersenne31::field::Mersenne31Field,
+        fft_friendly::u64_mersenne_montgomery_field::Mersenne31MontgomeryPrimeField,
+    }
 };
-use ibig::{modular::ModuloRing, UBig};
+
 fuzz_target!(|values: (u32, u32)| {
 
     let (value_u32_a, value_u32_b) = values;
-    let mersenne_prime = 
-        UBig::from(2u32^32 - 1u32);
    
-    let ring = ModuloRing::new(&mersenne_prime);
-
     let a =  FieldElement::<Mersenne31Field>::from(value_u32_a as u64);
     let b =  FieldElement::<Mersenne31Field>::from(value_u32_b as u64);
 
-    let a_expected = ring.from(value_u32_a);
-    let b_expected = ring.from(value_u32_b);
+    let a_expected = FieldElement::<Mersenne31MontgomeryPrimeField>::from(value_u32_a as u64);
+    let b_expected = FieldElement::<Mersenne31MontgomeryPrimeField>::from(value_u32_b as u64);
 
     let add_u32 = &a + &b;
     let addition = &a_expected + &b_expected;
     
-    assert_eq!(add_u32.to_string(), addition.residue().to_string());
+    assert_eq!(add_u32.representative() as u64, addition.representative().limbs[0]);
 
     let sub_u32 = &a - &b;
     let substraction = &a_expected - &b_expected;
-    assert_eq!(sub_u64.to_string(), substraction.residue().to_string());
+    assert_eq!(sub_u32.representative() as u64, substraction.representative().limbs[0]);
     
     let mul_u32 = &a * &b;
     let multiplication = &a_expected * &b_expected;
-    assert_eq!(mul_u64.to_string(), multiplication.residue().to_string());
+    assert_eq!(mul_u32.representative() as u64, multiplication.representative().limbs[0]);
 
     let pow = &a.pow(b.representative());
-    let expected_pow = a_expected.pow(&b_expected.residue());
-    assert_eq!(pow.to_string(), expected_pow.residue().to_string());
+    let expected_pow = a_expected.pow(b_expected.representative());
+    assert_eq!(pow.representative() as u64, expected_pow.representative().limbs[0]);
     
-    if value_u32_b != 0 {
-        
+    if value_u32_b != 0 && b.inv().is_ok() && b_expected.inv().is_ok() {
         let div = &a / &b; 
         assert_eq!(&div * &b, a.clone());
         let expected_div = &a_expected / &b_expected;
-        assert_eq!(&(div.to_string())[2..], expected_div.residue().in_radix(16).to_string());
+        assert_eq!(div.representative() as u64, expected_div.representative().limbs[0]);
     }
 
     for n in [&a, &b] {
