@@ -8,6 +8,7 @@ use lambdaworks_math::{
     },
 };
 
+mod constants;
 mod parameters;
 use self::parameters::PedersenParameters;
 
