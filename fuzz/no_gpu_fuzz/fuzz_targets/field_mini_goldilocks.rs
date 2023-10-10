@@ -3,46 +3,45 @@
 use libfuzzer_sys::fuzz_target;
 use lambdaworks_math::field::{
     element::FieldElement, 
-    fields::u64_goldilocks_field::Goldilocks64Field,
+    fields::{
+        u64_prime_field::U64FieldElement,
+        u64_goldilocks_field::Goldilocks64Field,
+    },
 };
-use ibig::{modular::ModuloRing, UBig};
+
 fuzz_target!(|values: (u64, u64)| {
 
     let (value_u64_a, value_u64_b) = values;
-    let goldilocks_prime = 
-        UBig::from(2u64^64 - 2u64^32 + 1u64 );
-
-    let ring = ModuloRing::new(&goldilocks_prime);
 
     let a =  FieldElement::<Goldilocks64Field>::from(value_u64_a);
     let b =  FieldElement::<Goldilocks64Field>::from(value_u64_b);
 
-    let a_expected = ring.from(value_u64_a);
-    let b_expected = ring.from(value_u64_b);
+    let a_expected = U64FieldElement::<{Goldilocks64Field::ORDER}>::from(value_u64_a);
+    let b_expected = U64FieldElement::<{Goldilocks64Field::ORDER}>::from(value_u64_b);
 
     let add_u64 = &a + &b;
     let addition = &a_expected + &b_expected;
 
-    assert_eq!(add_u64.to_string(), addition.residue().to_string());
+    assert_eq!(add_u64.representative(), addition.representative());
 
     let sub_u64 = &a - &b;
     let substraction = &a_expected - &b_expected;
-    assert_eq!(sub_u64.to_string(), substraction.residue().to_string());
+    assert_eq!(sub_u64.representative(), substraction.representative());
 
     let mul_u64 = &a * &b;
     let multiplication = &a_expected * &b_expected;
-    assert_eq!(mul_u64.to_string(), multiplication.residue().to_string());
+    assert_eq!(mul_u64.representative(), multiplication.representative());
 
     let pow = &a.pow(b.representative());
-    let expected_pow = a_expected.pow(&b_expected.residue());
-    assert_eq!(pow.to_string(), expected_pow.residue().to_string());
+    let expected_pow = a_expected.pow(b_expected.representative());
+    assert_eq!(pow.representative(), expected_pow.representative());
 
-    if value_u64_b != 0 {
+    if value_u64_b != 0 && b.inv().is_ok() && b_expected.inv().is_ok() { 
 
         let div = &a / &b; 
         assert_eq!(&div * &b, a.clone());
         let expected_div = &a_expected / &b_expected;
-        assert_eq!(&(div.to_string())[2..], expected_div.residue().in_radix(16).to_string());
+        assert_eq!(div.representative(), expected_div.representative());
     }
 
     for n in [&a, &b] {
@@ -83,6 +82,4 @@ fuzz_target!(|values: (u64, u64)| {
     if b != zero {
         assert_eq!(&b * b.inv().unwrap(), one, "Inverse mul b failed");
     }
-
-
 });

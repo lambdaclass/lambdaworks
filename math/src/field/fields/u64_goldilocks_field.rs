@@ -15,9 +15,9 @@ use crate::{
 pub struct Goldilocks64Field;
 
 impl Goldilocks64Field {
-    const ORDER: u64 = 0xFFFF_FFFF_0000_0001;
+    pub const ORDER: u64 = 0xFFFF_FFFF_0000_0001;
     // Two's complement of `ORDER` i.e. `2^64 - ORDER = 2^32 - 1`
-    const NEG_ORDER: u64 = Self::ORDER.wrapping_neg();
+    pub const NEG_ORDER: u64 = Self::ORDER.wrapping_neg();
 }
 
 //NOTE: This implementation was inspired by and borrows from the work done by the Plonky3 team
@@ -161,12 +161,10 @@ fn reduce_128(x: u128) -> u64 {
 
     let (mut t0, borrow) = x_lo.overflowing_sub(x_hi_hi);
     if borrow {
-        //TODO: add branch hinting
         t0 -= Goldilocks64Field::NEG_ORDER // Cannot underflow
     }
 
     let t1 = x_hi_lo * Goldilocks64Field::NEG_ORDER;
-    //NOTE: add optimized unsafe for different architectures
     let (res_wrapped, carry) = t0.overflowing_add(t1);
     // Below cannot overflow unless the assumption if x + y < 2**64 + ORDER is incorrect.
     res_wrapped + Goldilocks64Field::NEG_ORDER * u64::from(carry)
@@ -214,7 +212,6 @@ mod tests {
     // p               = 0
     // 2^64 - 2^32 + 1 = 0
     // 2^64            = 2^32 - 1
-
     #[test]
     fn from_hex_for_b_is_11() {
         assert_eq!(F::from_hex("B").unwrap(), 11);
