@@ -60,14 +60,7 @@ impl<F: IsFFTField> TraceTable<F> {
     }
 
     pub fn cols(&self) -> Vec<Vec<FieldElement<F>>> {
-        let n_rows = self.n_rows();
-        (0..self.n_cols())
-            .map(|col_idx| {
-                (0..n_rows)
-                    .map(|row_idx| self.table.data[row_idx * self.n_cols() + col_idx].clone())
-                    .collect()
-            })
-            .collect()
+        self.table.columns()
     }
 
     /// Given a step and a column index, gives stored value in that position
@@ -97,83 +90,86 @@ impl<F: IsFFTField> TraceTable<F> {
     }
 }
 
-// #[cfg(test)]
-// mod test {
-//     use super::TraceTable;
-//     use lambdaworks_math::field::{element::FieldElement, fields::u64_prime_field::F17};
-//     type FE = FieldElement<F17>;
+#[cfg(test)]
+mod test {
+    use crate::table::Table;
 
-//     #[test]
-//     fn test_cols() {
-//         let col_1 = vec![FE::from(1), FE::from(2), FE::from(5), FE::from(13)];
-//         let col_2 = vec![FE::from(1), FE::from(3), FE::from(8), FE::from(21)];
+    use super::TraceTable;
+    use lambdaworks_math::field::{element::FieldElement, fields::u64_prime_field::F17};
+    type FE = FieldElement<F17>;
 
-//         let trace_table = TraceTable::new_from_cols(&[col_1.clone(), col_2.clone()]);
-//         let res_cols = trace_table.cols();
+    #[test]
+    fn test_cols() {
+        let col_1 = vec![FE::from(1), FE::from(2), FE::from(5), FE::from(13)];
+        let col_2 = vec![FE::from(1), FE::from(3), FE::from(8), FE::from(21)];
 
-//         assert_eq!(res_cols, vec![col_1, col_2]);
-//     }
+        let trace_table = TraceTable::new(&[col_1.clone(), col_2.clone()]);
+        let res_cols = trace_table.cols();
 
-//     #[test]
-//     fn test_subtable_works() {
-//         let table = vec![
-//             FE::new(1),
-//             FE::new(2),
-//             FE::new(3),
-//             FE::new(1),
-//             FE::new(2),
-//             FE::new(3),
-//             FE::new(1),
-//             FE::new(2),
-//             FE::new(3),
-//         ];
-//         let trace_table = TraceTable { table, n_cols: 3 };
-//         let subtable = trace_table.get_cols(&[0, 1]);
-//         assert_eq!(
-//             subtable.table,
-//             vec![
-//                 FE::new(1),
-//                 FE::new(2),
-//                 FE::new(1),
-//                 FE::new(2),
-//                 FE::new(1),
-//                 FE::new(2)
-//             ]
-//         );
-//         assert_eq!(subtable.n_cols, 2);
-//         let subtable = trace_table.get_cols(&[0, 2]);
-//         assert_eq!(
-//             subtable.table,
-//             vec![
-//                 FE::new(1),
-//                 FE::new(3),
-//                 FE::new(1),
-//                 FE::new(3),
-//                 FE::new(1),
-//                 FE::new(3)
-//             ]
-//         );
-//         assert_eq!(subtable.n_cols, 2);
-//         assert_eq!(trace_table.get_cols(&[]), TraceTable::empty());
-//     }
+        assert_eq!(res_cols, vec![col_1, col_2]);
+    }
 
-//     #[test]
-//     fn test_concatenate_works() {
-//         let table1_columns = vec![vec![FE::new(7), FE::new(8), FE::new(9)]];
-//         let new_columns = vec![
-//             FE::new(1),
-//             FE::new(2),
-//             FE::new(3),
-//             FE::new(4),
-//             FE::new(5),
-//             FE::new(6),
-//         ];
-//         let expected_table = TraceTable::new_from_cols(&[
-//             vec![FE::new(7), FE::new(8), FE::new(9)],
-//             vec![FE::new(1), FE::new(3), FE::new(5)],
-//             vec![FE::new(2), FE::new(4), FE::new(6)],
-//         ]);
-//         let table1 = TraceTable::new_from_cols(&table1_columns);
-//         assert_eq!(table1.concatenate(new_columns, 2), expected_table)
-//     }
-// }
+    #[test]
+    fn test_subtable_works() {
+        let data = vec![
+            FE::new(1),
+            FE::new(2),
+            FE::new(3),
+            FE::new(1),
+            FE::new(2),
+            FE::new(3),
+            FE::new(1),
+            FE::new(2),
+            FE::new(3),
+        ];
+        let table = Table::new(&data, 3);
+        let trace_table = TraceTable { table };
+        let subtable = trace_table.get_columns(&[0, 1]);
+        assert_eq!(
+            subtable,
+            vec![
+                FE::new(1),
+                FE::new(2),
+                FE::new(1),
+                FE::new(2),
+                FE::new(1),
+                FE::new(2)
+            ]
+        );
+        assert_eq!(subtable.len(), 2);
+        let subtable = trace_table.get_columns(&[0, 2]);
+        assert_eq!(
+            subtable,
+            vec![
+                FE::new(1),
+                FE::new(3),
+                FE::new(1),
+                FE::new(3),
+                FE::new(1),
+                FE::new(3)
+            ]
+        );
+        assert_eq!(subtable.len(), 2);
+        assert_eq!(trace_table.get_columns(&[]), Vec::new());
+    }
+
+    #[test]
+    fn test_concatenate_works() {
+        let table1_columns = vec![vec![FE::new(7), FE::new(8), FE::new(9)]];
+        let new_columns = vec![
+            FE::new(1),
+            FE::new(2),
+            FE::new(3),
+            FE::new(4),
+            FE::new(5),
+            FE::new(6),
+        ];
+        let expected_table = TraceTable::new(&[
+            vec![FE::new(7), FE::new(8), FE::new(9)],
+            vec![FE::new(1), FE::new(3), FE::new(5)],
+            vec![FE::new(2), FE::new(4), FE::new(6)],
+        ]);
+        let table1 = TraceTable::new(&table1_columns);
+        assert_eq!(table1.concatenate(new_columns, 2), expected_table)
+    }
+}

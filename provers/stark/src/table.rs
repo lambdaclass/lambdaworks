@@ -3,8 +3,8 @@ use lambdaworks_math::field::{element::FieldElement, traits::IsFFTField};
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
 pub struct Table<F: IsFFTField> {
     pub data: Vec<FieldElement<F>>,
-    pub(crate) width: usize,
-    pub(crate) height: usize,
+    pub width: usize,
+    pub height: usize,
 }
 
 impl<F: IsFFTField> Table<F> {
@@ -43,6 +43,11 @@ impl<F: IsFFTField> Table<F> {
     pub fn get_row(&self, row_idx: usize) -> &[FieldElement<F>] {
         let row_offset = row_idx * self.width;
         &self.data[row_offset..row_offset + self.width]
+    }
+
+    pub fn append_row(&mut self, row: &[FieldElement<F>]) {
+        self.data.extend_from_slice(row);
+        self.height += 1
     }
 
     pub fn last_row(&self) -> &[FieldElement<F>] {

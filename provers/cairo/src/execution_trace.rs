@@ -64,20 +64,32 @@ pub fn build_main_trace(
     let (rc_holes, rc_min, rc_max) = get_rc_holes(&main_trace, &[OFF_DST, OFF_OP0, OFF_OP1]);
     public_input.range_check_min = Some(rc_min);
     public_input.range_check_max = Some(rc_max);
+    println!("1");
+    let _ = main_trace.cols();
     fill_rc_holes(&mut main_trace, &rc_holes);
 
+    println!("2");
+    let _ = main_trace.cols();
     let memory_holes = get_memory_holes(&address_cols, public_input.codelen);
     // let memory_holes = get_memory_holes(&address_cols, public_input.public_memory.len());
 
+    println!("3");
+    let _ = main_trace.cols();
     if !memory_holes.is_empty() {
         fill_memory_holes(&mut main_trace, &memory_holes);
     }
 
+    println!("4");
+    let _ = main_trace.cols();
     add_pub_memory_dummy_accesses(
         &mut main_trace,
         public_input.public_memory.len(),
         memory_holes.len(),
     );
+
+    println!("5");
+    let _ = main_trace.cols();
+    println!("6");
 
     let trace_len_next_power_of_two = main_trace.n_rows().next_power_of_two();
     let padding = trace_len_next_power_of_two - main_trace.n_rows();
@@ -105,12 +117,9 @@ fn add_pub_memory_dummy_accesses(
 
 fn pad_with_last_row<F: IsFFTField>(trace: &mut TraceTable<F>, number_rows: usize) {
     let last_row = trace.last_row().to_vec();
-    let mut pad: Vec<_> = std::iter::repeat(&last_row)
-        .take(number_rows)
-        .flatten()
-        .cloned()
-        .collect();
-    trace.table.data.append(&mut pad);
+    (0..number_rows).for_each(|_| {
+        trace.table.append_row(&last_row);
+    })
 }
 
 /// Gets holes from the range-checked columns. These holes must be filled for the
@@ -229,7 +238,7 @@ fn add_to_column(
     if trace_idx >= trace.table.data.len() {
         let mut last_row = trace.last_row().to_vec();
         last_row[col] = *value;
-        trace.table.data.append(&mut last_row);
+        trace.table.append_row(&mut last_row)
     } else {
         trace.table.data[trace_idx] = *value;
     }
@@ -617,174 +626,185 @@ fn decompose_rc_values_into_trace_columns(rc_values: &[&Felt252]) -> [Vec<Felt25
     decomposition_columns.try_into().unwrap()
 }
 
-// #[cfg(test)]
-// mod test {
-//     use crate::air::EXTRA_VAL;
+#[cfg(test)]
+mod test {
+    use crate::air::EXTRA_VAL;
 
-//     use super::*;
-//     use lambdaworks_math::field::element::FieldElement;
+    use super::*;
+    use lambdaworks_math::field::element::FieldElement;
 
-//     #[test]
-//     fn test_rc_decompose() {
-//         let fifteen = Felt252::from_hex("000F000F000F000F000F000F000F000F").unwrap();
-//         let sixteen = Felt252::from_hex("00100010001000100010001000100010").unwrap();
-//         let one_two_three = Felt252::from_hex("00010002000300040005000600070008").unwrap();
+    #[test]
+    fn test_rc_decompose() {
+        let fifteen = Felt252::from_hex("000F000F000F000F000F000F000F000F").unwrap();
+        let sixteen = Felt252::from_hex("00100010001000100010001000100010").unwrap();
+        let one_two_three = Felt252::from_hex("00010002000300040005000600070008").unwrap();
 
-//         let decomposition_columns =
-//             decompose_rc_values_into_trace_columns(&[&fifteen, &sixteen, &one_two_three]);
+        let decomposition_columns =
+            decompose_rc_values_into_trace_columns(&[&fifteen, &sixteen, &one_two_three]);
 
-//         for row in &decomposition_columns {
-//             assert_eq!(row[0], Felt252::from_hex("F").unwrap());
-//             assert_eq!(row[1], Felt252::from_hex("10").unwrap());
-//         }
+        for row in &decomposition_columns {
+            assert_eq!(row[0], Felt252::from_hex("F").unwrap());
+            assert_eq!(row[1], Felt252::from_hex("10").unwrap());
+        }
 
-//         assert_eq!(decomposition_columns[0][2], Felt252::from_hex("8").unwrap());
-//         assert_eq!(decomposition_columns[1][2], Felt252::from_hex("7").unwrap());
-//         assert_eq!(decomposition_columns[2][2], Felt252::from_hex("6").unwrap());
-//         assert_eq!(decomposition_columns[3][2], Felt252::from_hex("5").unwrap());
-//         assert_eq!(decomposition_columns[4][2], Felt252::from_hex("4").unwrap());
-//         assert_eq!(decomposition_columns[5][2], Felt252::from_hex("3").unwrap());
-//         assert_eq!(decomposition_columns[6][2], Felt252::from_hex("2").unwrap());
-//         assert_eq!(decomposition_columns[7][2], Felt252::from_hex("1").unwrap());
-//     }
+        assert_eq!(decomposition_columns[0][2], Felt252::from_hex("8").unwrap());
+        assert_eq!(decomposition_columns[1][2], Felt252::from_hex("7").unwrap());
+        assert_eq!(decomposition_columns[2][2], Felt252::from_hex("6").unwrap());
+        assert_eq!(decomposition_columns[3][2], Felt252::from_hex("5").unwrap());
+        assert_eq!(decomposition_columns[4][2], Felt252::from_hex("4").unwrap());
+        assert_eq!(decomposition_columns[5][2], Felt252::from_hex("3").unwrap());
+        assert_eq!(decomposition_columns[6][2], Felt252::from_hex("2").unwrap());
+        assert_eq!(decomposition_columns[7][2], Felt252::from_hex("1").unwrap());
+    }
 
-//     #[test]
-//     fn test_fill_range_check_values() {
-//         let columns = vec![
-//             vec![FieldElement::from(1); 3],
-//             vec![FieldElement::from(4); 3],
-//             vec![FieldElement::from(7); 3],
-//         ];
-//         let expected_col = vec![
-//             FieldElement::from(2),
-//             FieldElement::from(3),
-//             FieldElement::from(5),
-//             FieldElement::from(6),
-//             FieldElement::from(7),
-//             FieldElement::from(7),
-//         ];
-//         let table = TraceTable::<Stark252PrimeField>::new_from_cols(&columns);
+    #[test]
+    fn test_fill_range_check_values() {
+        let columns = vec![
+            vec![FieldElement::from(1); 3],
+            vec![FieldElement::from(4); 3],
+            vec![FieldElement::from(7); 3],
+        ];
+        let expected_col = vec![
+            FieldElement::from(2),
+            FieldElement::from(3),
+            FieldElement::from(5),
+            FieldElement::from(6),
+            FieldElement::from(7),
+            FieldElement::from(7),
+        ];
+        let table = TraceTable::<Stark252PrimeField>::new(&columns);
 
-//         let (col, rc_min, rc_max) = get_rc_holes(&table, &[0, 1, 2]);
-//         assert_eq!(col, expected_col);
-//         assert_eq!(rc_min, 1);
-//         assert_eq!(rc_max, 7);
-//     }
+        let (col, rc_min, rc_max) = get_rc_holes(&table, &[0, 1, 2]);
+        assert_eq!(col, expected_col);
+        assert_eq!(rc_min, 1);
+        assert_eq!(rc_max, 7);
+    }
 
-//     #[test]
-//     fn test_add_missing_values_to_rc_holes_column() {
-//         let mut row = vec![Felt252::from(5); 36];
-//         row[35] = Felt252::zero();
-//         let data = row.repeat(8);
-//         let table = Table::new(data, 36);
+    #[test]
+    fn test_add_missing_values_to_rc_holes_column() {
+        let mut row = vec![Felt252::from(5); 36];
+        row[35] = Felt252::zero();
+        let data = row.repeat(8);
+        let table = Table::new(&data, 36);
 
-//         let mut main_trace = TraceTable::<Stark252PrimeField> { table };
+        let mut main_trace = TraceTable::<Stark252PrimeField> { table };
 
-//         let rc_holes = vec![
-//             Felt252::from(1),
-//             Felt252::from(2),
-//             Felt252::from(3),
-//             Felt252::from(4),
-//             Felt252::from(5),
-//             Felt252::from(6),
-//         ];
+        let rc_holes = vec![
+            Felt252::from(1),
+            Felt252::from(2),
+            Felt252::from(3),
+            Felt252::from(4),
+            Felt252::from(5),
+            Felt252::from(6),
+        ];
 
-//         fill_rc_holes(&mut main_trace, &rc_holes);
+        fill_rc_holes(&mut main_trace, &rc_holes);
 
-//         let expected_rc_holes_column = vec![
-//             Felt252::from(1),
-//             Felt252::from(2),
-//             Felt252::from(3),
-//             Felt252::from(4),
-//             Felt252::from(5),
-//             Felt252::from(6),
-//             Felt252::from(6),
-//             Felt252::from(6),
-//         ];
+        let expected_rc_holes_column = vec![
+            Felt252::from(1),
+            Felt252::from(2),
+            Felt252::from(3),
+            Felt252::from(4),
+            Felt252::from(5),
+            Felt252::from(6),
+            Felt252::from(6),
+            Felt252::from(6),
+        ];
 
-//         let rc_holes_column = main_trace.cols()[35].clone();
+        let rc_holes_column = main_trace.cols()[35].clone();
 
-//         assert_eq!(expected_rc_holes_column, rc_holes_column);
-//     }
+        assert_eq!(expected_rc_holes_column, rc_holes_column);
+    }
 
-//     #[test]
-//     fn test_get_memory_holes_no_codelen() {
-//         // We construct a sorted addresses list [1, 2, 3, 6, 7, 8, 9, 13, 14, 15], and
-//         // set codelen = 0. With this value of codelen, any holes present between
-//         // the min and max addresses should be returned by the function.
-//         let mut addrs: Vec<Felt252> = (1..4).map(Felt252::from).collect();
-//         let addrs_extension: Vec<Felt252> = (6..10).map(Felt252::from).collect();
-//         addrs.extend_from_slice(&addrs_extension);
-//         let addrs_extension: Vec<Felt252> = (13..16).map(Felt252::from).collect();
-//         addrs.extend_from_slice(&addrs_extension);
-//         let codelen = 0;
+    #[test]
+    fn test_get_memory_holes_no_codelen() {
+        // We construct a sorted addresses list [1, 2, 3, 6, 7, 8, 9, 13, 14, 15], and
+        // set codelen = 0. With this value of codelen, any holes present between
+        // the min and max addresses should be returned by the function.
+        let mut addrs: Vec<Felt252> = (1..4).map(Felt252::from).collect();
+        let addrs_extension: Vec<Felt252> = (6..10).map(Felt252::from).collect();
+        addrs.extend_from_slice(&addrs_extension);
+        let addrs_extension: Vec<Felt252> = (13..16).map(Felt252::from).collect();
+        addrs.extend_from_slice(&addrs_extension);
+        let codelen = 0;
 
-//         let expected_memory_holes = vec![
-//             Felt252::from(4),
-//             Felt252::from(5),
-//             Felt252::from(10),
-//             Felt252::from(11),
-//             Felt252::from(12),
-//         ];
-//         let calculated_memory_holes = get_memory_holes(&addrs, codelen);
+        let expected_memory_holes = vec![
+            Felt252::from(4),
+            Felt252::from(5),
+            Felt252::from(10),
+            Felt252::from(11),
+            Felt252::from(12),
+        ];
+        let calculated_memory_holes = get_memory_holes(&addrs, codelen);
 
-//         assert_eq!(expected_memory_holes, calculated_memory_holes);
-//     }
+        assert_eq!(expected_memory_holes, calculated_memory_holes);
+    }
 
-//     #[test]
-//     fn test_get_memory_holes_inside_program_section() {
-//         // We construct a sorted addresses list [1, 2, 3, 8, 9] and we
-//         // set a codelen of 9. Since all the holes will be inside the
-//         // program segment (meaning from addresses 1 to 9), the function
-//         // should not return any of them.
-//         let mut addrs: Vec<Felt252> = (1..4).map(Felt252::from).collect();
-//         let addrs_extension: Vec<Felt252> = (8..10).map(Felt252::from).collect();
-//         addrs.extend_from_slice(&addrs_extension);
-//         let codelen = 9;
+    #[test]
+    fn test_get_memory_holes_inside_program_section() {
+        // We construct a sorted addresses list [1, 2, 3, 8, 9] and we
+        // set a codelen of 9. Since all the holes will be inside the
+        // program segment (meaning from addresses 1 to 9), the function
+        // should not return any of them.
+        let mut addrs: Vec<Felt252> = (1..4).map(Felt252::from).collect();
+        let addrs_extension: Vec<Felt252> = (8..10).map(Felt252::from).collect();
+        addrs.extend_from_slice(&addrs_extension);
+        let codelen = 9;
 
-//         let calculated_memory_holes = get_memory_holes(&addrs, codelen);
-//         let expected_memory_holes: Vec<Felt252> = Vec::new();
+        let calculated_memory_holes = get_memory_holes(&addrs, codelen);
+        let expected_memory_holes: Vec<Felt252> = Vec::new();
 
-//         assert_eq!(expected_memory_holes, calculated_memory_holes);
-//     }
+        assert_eq!(expected_memory_holes, calculated_memory_holes);
+    }
 
-//     #[test]
-//     fn test_get_memory_holes_outside_program_section() {
-//         // We construct a sorted addresses list [1, 2, 3, 8, 9] and we
-//         // set a codelen of 6. The holes found inside the program section,
-//         // i.e. in the address range between 1 to 6, should not be returned.
-//         // So addresses 4, 5 and 6 will no be returned, only address 7.
-//         let mut addrs: Vec<Felt252> = (1..4).map(Felt252::from).collect();
-//         let addrs_extension: Vec<Felt252> = (8..10).map(Felt252::from).collect();
-//         addrs.extend_from_slice(&addrs_extension);
-//         let codelen = 6;
+    #[test]
+    fn test_get_memory_holes_outside_program_section() {
+        // We construct a sorted addresses list [1, 2, 3, 8, 9] and we
+        // set a codelen of 6. The holes found inside the program section,
+        // i.e. in the address range between 1 to 6, should not be returned.
+        // So addresses 4, 5 and 6 will no be returned, only address 7.
+        let mut addrs: Vec<Felt252> = (1..4).map(Felt252::from).collect();
+        let addrs_extension: Vec<Felt252> = (8..10).map(Felt252::from).collect();
+        addrs.extend_from_slice(&addrs_extension);
+        let codelen = 6;
 
-//         let calculated_memory_holes = get_memory_holes(&addrs, codelen);
-//         let expected_memory_holes = vec![Felt252::from(7)];
+        let calculated_memory_holes = get_memory_holes(&addrs, codelen);
+        let expected_memory_holes = vec![Felt252::from(7)];
 
-//         assert_eq!(expected_memory_holes, calculated_memory_holes);
-//     }
+        assert_eq!(expected_memory_holes, calculated_memory_holes);
+    }
 
-//     #[test]
-//     fn test_fill_memory_holes() {
-//         const TRACE_COL_LEN: usize = 2;
-//         const NUM_TRACE_COLS: usize = EXTRA_VAL + 1;
+    #[test]
+    fn test_fill_memory_holes() {
+        const TRACE_COL_LEN: usize = 2;
+        const NUM_TRACE_COLS: usize = EXTRA_VAL + 1;
 
-//         let mut trace_cols = vec![vec![Felt252::zero(); TRACE_COL_LEN]; NUM_TRACE_COLS];
-//         trace_cols[FRAME_PC][0] = Felt252::one();
-//         trace_cols[FRAME_DST_ADDR][0] = Felt252::from(2);
-//         trace_cols[FRAME_OP0_ADDR][0] = Felt252::from(3);
-//         trace_cols[FRAME_OP1_ADDR][0] = Felt252::from(5);
-//         trace_cols[FRAME_PC][1] = Felt252::from(6);
-//         trace_cols[FRAME_DST_ADDR][1] = Felt252::from(9);
-//         trace_cols[FRAME_OP0_ADDR][1] = Felt252::from(10);
-//         trace_cols[FRAME_OP1_ADDR][1] = Felt252::from(11);
-//         let mut trace = TraceTable::new_from_cols(&trace_cols);
+        let mut trace_cols = vec![vec![Felt252::zero(); TRACE_COL_LEN]; NUM_TRACE_COLS];
+        trace_cols[FRAME_PC][0] = Felt252::one();
+        trace_cols[FRAME_DST_ADDR][0] = Felt252::from(2);
+        trace_cols[FRAME_OP0_ADDR][0] = Felt252::from(3);
+        trace_cols[FRAME_OP1_ADDR][0] = Felt252::from(5);
+        trace_cols[FRAME_PC][1] = Felt252::from(6);
+        trace_cols[FRAME_DST_ADDR][1] = Felt252::from(9);
+        trace_cols[FRAME_OP0_ADDR][1] = Felt252::from(10);
+        trace_cols[FRAME_OP1_ADDR][1] = Felt252::from(11);
+        let mut trace = TraceTable::new(&trace_cols);
 
-//         let memory_holes = vec![Felt252::from(4), Felt252::from(7), Felt252::from(8)];
-//         fill_memory_holes(&mut trace, &memory_holes);
+        let memory_holes = vec![Felt252::from(4), Felt252::from(7), Felt252::from(8)];
+        fill_memory_holes(&mut trace, &memory_holes);
 
-//         let extra_addr = &trace.cols()[EXTRA_ADDR];
-//         assert_eq!(extra_addr, &memory_holes)
-//     }
-// }
+        let extra_addr = &trace.cols()[EXTRA_ADDR];
+
+        extra_addr
+            .iter()
+            .for_each(|a| println!("EXTRA ADDR: {}", a));
+
+        println!();
+
+        memory_holes
+            .iter()
+            .for_each(|a| println!("MEMORY HOLE: {}", a));
+
+        assert_eq!(extra_addr, &memory_holes)
+    }
+}
