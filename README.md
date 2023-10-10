@@ -194,6 +194,7 @@ The following links, repos and projects have been important in the development o
 - [Ministark](https://github.com/andrewmilson/ministark)
 - [Sandstorm](https://github.com/andrewmilson/sandstorm)
 - [STARK-101](https://starkware.co/stark-101/)
+- [starknet-rs](https://github.com/xJonathanLEI/starknet-rs/)
 - [Risc0](https://github.com/risc0/risc0)
 - [Neptune](https://github.com/Neptune-Crypto)
 - [Summary on FRI low degree test](https://eprint.iacr.org/2022/1216)
