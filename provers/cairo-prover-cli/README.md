@@ -16,48 +16,31 @@ CLI currently runs with 100 bits of conjecturable security
 
 ## [Cairo Platinum Prover Docs](<[lambdaclass.github.io/lambdaworks/](https://github.com/lambdaclass/lambdaworks/blob/main/provers/cairo/README.md)>)
 
-## Requirements
+### Usage:
 
-- Cargo 1.69+
+To prove programs Cairo has to be compiled. For compilation you need to have `cairo-lang` or `docker` installed.
 
-## Usage
-
-Note: to use cairo compiler with docker, build the image by running:
+When using Docker, start by creating the container image with:
 
 ```**bash**
   make docker_build_cairo_compiler
 ```
 
-### 🚀 Prove and verify
+Examples of Cairo 0 programs can be found [here](https://github.com/lambdaclass/lambdaworks/tree/main/provers/cairo/cairo_programs/cairo0)
 
 
-#### Usage:
-
-**To compile your program you can use:**
-
-Notice for compilation either `cairo-lang` or `docker` is required. Sample Cairo 0 programs can be found [here](https://github.com/lambdaclass/lambdaworks/tree/main/provers/cairo/cairo_programs/cairo0)
+**To compile and generate a proof you can use:**
 
 ```bash
-make compile PROGRAM_PATH=<uncompiled_program_path> 
+make compile_and_prove PROGRAM_PATH=<program_path> PROOF_PATH=<output_proof_path>
 ```
 
 For example:
 
 ```bash
-make compile PROGRAM_PATH=cairo_programs/cairo0/fibonacci_5.cairo
+make compile_and_prove PROGRAM_PATH=cairo_programs/cairo0/fibonacci_5.cairo PROOF_PATH=cairo_programs/cairo0/fibonacci_5.proof
 ```
 
-**To create proof for a program you can use:**
-
-```bash
-make prove PROGRAM_PATH=<compiled_program_path> PROOF_PATH=<output_proof_path>
-```
-
-For example:
-
-```bash
-make prove PROGRAM_PATH=cairo_programs/cairo0/fibonacci_5.json PROOF_PATH=program_proof.proof
-```
 
 **To verify a proof you can use:**
 
@@ -71,6 +54,32 @@ For example:
 make verify PROOF_PATH=fibonacci_5.proof
 ```
 
+**To compile Cairo:**
+
+```bash
+make compile PROGRAM_PATH=<uncompiled_program_path> 
+```
+
+For example:
+
+```bash
+make compile PROGRAM_PATH=cairo_programs/cairo0/fibonacci_5.cairo
+```
+
+**To prove a compiled program:**
+
+```bash
+make prove PROGRAM_PATH=<compiled_program_path> PROOF_PATH=<output_proof_path>
+```
+
+For example:
+
+```bash
+make prove PROGRAM_PATH=cairo_programs/cairo0/fibonacci_5.json PROOF_PATH=program_proof.proof
+```
+
+
+
 **To prove and verify with a single command you can use:**
 
 ```bash
@@ -83,17 +92,7 @@ For example:
 make run_all PROGRAM_PATH=cairo_programs/cairo0/fibonacci_5.json
 ```
 
-**To compile and generate proof you can use:**
 
-```bash
-make compile_and_prove PROGRAM_PATH=<program_path> PROOF_PATH=<output_proof_path>
-```
-
-For example:
-
-```bash
-make compile_and_prove PROGRAM_PATH=cairo_programs/cairo0/fibonacci_5.cairo PROOF_PATH=cairo_programs/cairo0/fibonacci_5.proof
-```
 
 **To compile, proof, prove and verify at the same time you can use:**
 
