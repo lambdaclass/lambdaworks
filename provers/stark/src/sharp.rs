@@ -270,17 +270,29 @@ where
 pub struct SHARV {}
 
 impl IsStarkVerifier for SHARV {
-    fn query_challenge_to_merkle_root_index<F: IsFFTField>(
-        index: usize,
-        domain: &Domain<F>,
-    ) -> usize {
+    fn query_challenge_to_merkle_root_index(index: usize, domain_size: usize) -> usize {
         index * 2
     }
-    fn query_challenge_to_merkle_root_index_sym<F: IsFFTField>(
-        index: usize,
-        domain: &Domain<F>,
-    ) -> usize {
+    fn query_challenge_to_merkle_root_index_sym(index: usize, domain_size: usize) -> usize {
         index * 2 + 1
+    }
+
+    fn query_challenge_to_evaluation_point<F: IsFFTField>(
+        iota: usize,
+        domain: &Domain<F>,
+    ) -> FieldElement<F> {
+        domain.lde_roots_of_unity_coset
+            [reverse_index(iota * 2, domain.lde_roots_of_unity_coset.len() as u64)]
+        .clone()
+    }
+
+    fn query_challenge_to_evaluation_point_sym<F: IsFFTField>(
+        iota: usize,
+        domain: &Domain<F>,
+    ) -> FieldElement<F> {
+        domain.lde_roots_of_unity_coset
+            [reverse_index(iota * 2 + 1, domain.lde_roots_of_unity_coset.len() as u64)]
+        .clone()
     }
 
     fn verify_composition_poly_opening<F>(
@@ -332,10 +344,14 @@ impl IsStarkVerifier for SHARV {
     {
         let index = iota % domain_length;
 
-        let evaluations = vec![evaluation.clone(), evaluation_sym.clone()];
+        let evaluations = if index % 2 == 1 {
+            vec![evaluation_sym.clone(), evaluation.clone()]
+        } else {
+            vec![evaluation.clone(), evaluation_sym.clone()]
+        };
 
         // Verify opening Open(pₖ(Dₖ), −𝜐ₛ^(2ᵏ))
-        auth_path_sym.verify::<BatchedMerkleTreeBackend<F>>(merkle_root, index, &evaluations)
+        auth_path_sym.verify::<BatchedMerkleTreeBackend<F>>(merkle_root, index ^ 1, &evaluations)
     }
 }
 
@@ -391,11 +407,11 @@ where
                     let mut layers_evaluations_sym = Vec::new();
                     let mut layers_auth_paths_sym = Vec::new();
 
-                    let mut index = *iota_s >> 1;
+                    let mut index = *iota_s;
                     for layer in fri_layers {
                         // symmetric element
-                        let evaluation_sym = layer.evaluation[index].clone();
-                        let auth_path_sym = layer.merkle_tree.get_proof_by_pos(index).unwrap();
+                        let evaluation_sym = layer.evaluation[index ^ 1].clone();
+                        let auth_path_sym = layer.merkle_tree.get_proof_by_pos(index ^ 1).unwrap();
                         layers_evaluations_sym.push(evaluation_sym);
                         layers_auth_paths_sym.push(auth_path_sym);
 
@@ -518,6 +534,8 @@ pub mod tests {
         let mut proof_options = ProofOptions::default_test_options();
         proof_options.blowup_factor = 4;
         proof_options.coset_offset = 3;
+        proof_options.grinding_factor = 0;
+        proof_options.fri_number_of_queries = 1;
 
         let pub_inputs = fibonacci_2_cols_shifted::PublicInputs {
             claimed_value,
@@ -595,6 +613,7 @@ pub mod tests {
                 "86105fff7b04ed4068ecccb8dbf1ed223bd45cd26c3532d6c80a818dbd4fa7"
             ),
         );
+
         assert_eq!(challenges.boundary_coeffs[0], beta.pow(2u64));
         assert_eq!(challenges.boundary_coeffs[1], beta.pow(3u64));
 
@@ -758,12 +777,33 @@ pub mod tests {
             decode_hex("58befe2c5de74cc5a002aa82ea219c5b242e761b45fd266eb95521e9f53f44eb").unwrap()
         );
 
+        assert_eq!(proof.query_list.len(), 1);
+
+        assert_eq!(proof.query_list[0].layers_evaluations_sym.len(), 1);
+
+        assert_eq!(
+            proof.query_list[0].layers_auth_paths_sym[0]
+                .merkle_path
+                .len(),
+            2
+        );
+
         // Deep composition poly layer 1
         assert_eq!(
             proof.query_list[0].layers_evaluations_sym[0],
             FieldElement::from_hex_unchecked(
                 "0684991e76e5c08db17f33ea7840596be876d92c143f863e77cad10548289fd0"
             )
+        );
+
+        assert_eq!(
+            proof.query_list[0].layers_auth_paths_sym[0].merkle_path[0].to_vec(),
+            decode_hex("0683622478e9e93cc2d18754872f043619f030b494d7ec8e003b1cbafe83b67b").unwrap()
+        );
+
+        assert_eq!(
+            proof.query_list[0].layers_auth_paths_sym[0].merkle_path[1].to_vec(),
+            decode_hex("7985d945abe659a7502698051ec739508ed6bab594984c7f25e095a0a57a2e55").unwrap()
         );
     }
 }
