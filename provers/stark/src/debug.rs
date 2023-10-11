@@ -98,9 +98,9 @@ pub fn check_boundary_polys_divisibility<F: IsFFTField>(
     }
 }
 
-/// Checks that the one-dimensional array `data` can be interpreted as valid two-dimensional
-/// array, returning a true when valid and false when its not.
-pub fn check_2d_array_integrity<F>(data: &[FieldElement<F>], width: usize) -> bool
+/// Validates that the one-dimensional array `data` can be interpreted as two-dimensional
+/// array, returning a true when valid and false when not.
+pub fn validate_2d_structure<F>(data: &[FieldElement<F>], width: usize) -> bool
 where
     F: IsFFTField,
 {
