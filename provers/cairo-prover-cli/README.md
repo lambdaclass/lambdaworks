@@ -88,3 +88,9 @@ make run_all PROGRAM_PATH=cairo_programs/cairo0/fibonacci_5.json
 ```bash
 make compile_and_run_all PROGRAM_PATH=<program_path>
 ```
+
+For example:
+
+```bash
+make compile_and_run_all PROGRAM_PATH=cairo_programs/cairo0/fibonacci_5.cairo
+```
