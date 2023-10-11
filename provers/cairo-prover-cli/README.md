@@ -24,7 +24,7 @@ CLI currently runs with 100 bits of conjecturable security
 
 Note: to use cairo compiler with docker, build the image by running:
 
-```bash
+```**bash**
   make docker_build_cairo_compiler
 ```
 
@@ -32,11 +32,23 @@ Note: to use cairo compiler with docker, build the image by running:
 
 Sample Cairo 0 programs can be found [here](https://github.com/lambdaclass/lambdaworks/tree/main/provers/cairo/cairo_programs/cairo0) (need to be compiled first).
 
-Notice for compilation either `cairo-lang` or `docker` is required
-
 #### Usage:
 
-To create prove for a program you can use:
+To compile your program you can use:
+
+(Notice for compilation either `cairo-lang` or `docker` is required)
+
+```bash
+make compile PROGRAM_PATH=<program_path> 
+```
+
+For example:
+
+```bash
+make compile PROGRAM_PATH=cairo_programs/cairo0/fibonacci_5.cairo
+```
+
+To create proof for a program you can use:
 
 ```bash
 make prove PROGRAM_PATH=<compiled_program_path> PROOF_PATH=<output_proof_path>
