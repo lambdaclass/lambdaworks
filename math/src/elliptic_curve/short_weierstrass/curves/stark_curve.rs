@@ -11,6 +11,19 @@ use crate::{
 #[derive(Clone, Debug)]
 pub struct StarkCurve;
 
+impl StarkCurve {
+    pub const fn from_affine_hex_string(
+        x_hex: &str,
+        y_hex: &str,
+    ) -> ShortWeierstrassProjectivePoint<Self> {
+        ShortWeierstrassProjectivePoint::new([
+            FieldElement::<Stark252PrimeField>::from_hex_unchecked(x_hex),
+            FieldElement::<Stark252PrimeField>::from_hex_unchecked(y_hex),
+            FieldElement::<Stark252PrimeField>::from_hex_unchecked("1"),
+        ])
+    }
+}
+
 impl IsEllipticCurve for StarkCurve {
     type BaseField = Stark252PrimeField;
     type PointRepresentation = ShortWeierstrassProjectivePoint<Self>;
