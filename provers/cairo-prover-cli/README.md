@@ -38,7 +38,7 @@ Note: to use cairo compiler with docker, build the image by running:
 Notice for compilation either `cairo-lang` or `docker` is required. Sample Cairo 0 programs can be found [here](https://github.com/lambdaclass/lambdaworks/tree/main/provers/cairo/cairo_programs/cairo0)
 
 ```bash
-make compile PROGRAM_PATH=<program_path> 
+make compile PROGRAM_PATH=<uncompiled_program_path> 
 ```
 
 For example:
