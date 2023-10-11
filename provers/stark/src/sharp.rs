@@ -23,11 +23,11 @@ use crate::{
     verifier::IsStarkVerifier,
 };
 
-pub struct SHARP<F: IsFFTField> {
+pub struct StoneCompatibleProver<F: IsFFTField> {
     phantom: PhantomData<F>,
 }
 
-impl<F> IsStarkProver for SHARP<F>
+impl<F> IsStarkProver for StoneCompatibleProver<F>
 where
     F: IsFFTField,
     FieldElement<F>: Serializable,
@@ -45,7 +45,7 @@ where
         FieldElement<Self::Field>,
         Vec<FriLayer<Self::Field, Self::MerkleTreeBackend>>,
     ) {
-        SHARPCompatibleFri::fri_commit_phase(
+        StoneCompatibleFri::fri_commit_phase(
             number_layers,
             p_0,
             transcript,
@@ -58,7 +58,7 @@ where
         fri_layers: &Vec<FriLayer<Self::Field, Self::MerkleTreeBackend>>,
         iotas: &[usize],
     ) -> Vec<FriDecommitment<Self::Field>> {
-        SHARPCompatibleFri::fri_query_phase(fri_layers, iotas)
+        StoneCompatibleFri::fri_query_phase(fri_layers, iotas)
     }
 
     #[allow(clippy::type_complexity)]
@@ -267,9 +267,9 @@ where
     }
 }
 
-pub struct SHARV {}
+pub struct StoneCompatibleVerifier {}
 
-impl IsStarkVerifier for SHARV {
+impl IsStarkVerifier for StoneCompatibleVerifier {
     fn query_challenge_to_merkle_root_index(index: usize, domain_size: usize) -> usize {
         index * 2
     }
@@ -355,11 +355,11 @@ impl IsStarkVerifier for SHARV {
     }
 }
 
-pub struct SHARPCompatibleFri<F> {
+pub struct StoneCompatibleFri<F> {
     phantom: F,
 }
 
-impl<F> IsFri for SHARPCompatibleFri<F>
+impl<F> IsFri for StoneCompatibleFri<F>
 where
     F: IsFFTField,
     FieldElement<F>: Serializable,
@@ -447,7 +447,7 @@ pub mod tests {
         examples::fibonacci_2_cols_shifted::{self, Fibonacci2ColsShifted},
         proof::options::ProofOptions,
         prover::IsStarkProver,
-        sharp::{SHARP, SHARV},
+        sharp::{StoneCompatibleProver, StoneCompatibleVerifier},
         traits::AIR,
         transcript::StoneProverTranscript,
         verifier::IsStarkVerifier,
@@ -480,7 +480,7 @@ pub mod tests {
         let air = Fibonacci2ColsShifted::new(trace.n_rows(), &pub_inputs, &proof_options);
         let domain = Domain::new(&air);
 
-        let (_, _, _, trace_commitment) = SHARP::interpolate_and_commit(
+        let (_, _, _, trace_commitment) = StoneCompatibleProver::interpolate_and_commit(
             &trace,
             &domain,
             &mut StoneProverTranscript::new(&transcript_init_seed),
@@ -512,7 +512,7 @@ pub mod tests {
         let air = Fibonacci2ColsShifted::new(trace.n_rows(), &pub_inputs, &proof_options);
         let domain = Domain::new(&air);
 
-        let (_, _, _, trace_commitment) = SHARP::interpolate_and_commit(
+        let (_, _, _, trace_commitment) = StoneCompatibleProver::interpolate_and_commit(
             &trace,
             &domain,
             &mut StoneProverTranscript::new(&transcript_init_seed),
@@ -544,7 +544,7 @@ pub mod tests {
 
         let transcript_init_seed = [0xca, 0xfe, 0xca, 0xfe];
 
-        let proof = SHARP::prove::<Fibonacci2ColsShifted<_>>(
+        let proof = StoneCompatibleProver::prove::<Fibonacci2ColsShifted<_>>(
             &trace,
             &pub_inputs,
             &proof_options,
@@ -553,7 +553,7 @@ pub mod tests {
         .unwrap();
 
         assert!(
-            SHARV::verify::<Stark252PrimeField, Fibonacci2ColsShifted<_>>(
+            StoneCompatibleVerifier::verify::<Stark252PrimeField, Fibonacci2ColsShifted<_>>(
                 &proof,
                 &pub_inputs,
                 &proof_options,
@@ -563,7 +563,7 @@ pub mod tests {
     }
 
     #[test]
-    fn test_sharp_compatibility() {
+    fn test_stone_compatibility() {
         let trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::one(), 4);
 
         let claimed_index = 3;
@@ -581,7 +581,7 @@ pub mod tests {
 
         let transcript_init_seed = [0xca, 0xfe, 0xca, 0xfe];
 
-        let proof = SHARP::prove::<Fibonacci2ColsShifted<_>>(
+        let proof = StoneCompatibleProver::prove::<Fibonacci2ColsShifted<_>>(
             &trace,
             &pub_inputs,
             &proof_options,
@@ -591,7 +591,7 @@ pub mod tests {
 
         let air = Fibonacci2ColsShifted::new(proof.trace_length, &pub_inputs, &proof_options);
         let domain = Domain::new(&air);
-        let challenges = SHARV::step_1_replay_rounds_and_recover_challenges(
+        let challenges = StoneCompatibleVerifier::step_1_replay_rounds_and_recover_challenges(
             &air,
             &proof,
             &domain,
