@@ -111,7 +111,8 @@ fn main() {
                 return;
             }
 
-            let Some((proof, pub_inputs)) = generate_proof(&args.program_path, &proof_options) else {
+            let Some((proof, pub_inputs)) = generate_proof(&args.program_path, &proof_options)
+            else {
                 return;
             };
 
@@ -159,7 +160,8 @@ fn main() {
             verify_proof(proof, pub_inputs, &proof_options);
         }
         ProverEntity::ProveAndVerify(args) => {
-            let Some((proof, pub_inputs)) = generate_proof(&args.program_path, &proof_options) else {
+            let Some((proof, pub_inputs)) = generate_proof(&args.program_path, &proof_options)
+            else {
                 return;
             };
             verify_proof(proof, pub_inputs, &proof_options);
