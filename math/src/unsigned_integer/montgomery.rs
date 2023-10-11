@@ -67,7 +67,7 @@ impl MontgomeryAlgorithms {
         }
         let mut result = UnsignedInteger { limbs: t };
 
-        let overflow = t_extra[0] > 0;
+        let overflow = t_extra[1] > 0;
 
         if overflow || UnsignedInteger::const_le(q, &result) {
             (result, _) = UnsignedInteger::sub(&result, q);
