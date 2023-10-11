@@ -24,8 +24,6 @@ Output builtin is finished, and range check is supported but it's not sound yet.
 
 We expect to have something working in a good state by mid August 2023.
 
-CLI currently runs with 100 bits of conjecturable security
-
 ## [Documentation]([lambdaclass.github.io/lambdaworks/](https://lambdaclass.github.io/lambdaworks/starks/cairo.html))
 
 ## Table of Contents
