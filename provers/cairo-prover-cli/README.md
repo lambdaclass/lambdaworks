@@ -83,6 +83,18 @@ For example:
 make run_all PROGRAM_PATH=cairo_programs/cairo0/fibonacci_5.json
 ```
 
+**To compile and generate proof you can use:**
+
+```bash
+make compile_and_prove PROGRAM_PATH=<program_path> PROOF_PATH=<output_proof_path>
+```
+
+For example:
+
+```bash
+make compile_and_prove PROGRAM_PATH=cairo_programs/cairo0/fibonacci_5.cairo PROOF_PATH=cairo_programs/cairo0/fibonacci_5.proof
+```
+
 **To compile, proof, prove and verify at the same time you can use:**
 
 ```bash
