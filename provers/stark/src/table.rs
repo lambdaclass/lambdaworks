@@ -26,11 +26,7 @@ impl<F: IsFFTField> Table<F> {
         }
 
         // Check that the one-dimensional data makes sense to be interpreted as a 2D one.
-        debug_assert!((|d: &[FieldElement<F>]| {
-            let rows: Vec<Vec<FieldElement<F>>> = d.chunks(width).map(|c| c.to_vec()).collect();
-            rows.iter().all(|r| r.len() == rows[0].len())
-        })(data));
-
+        debug_assert!(crate::debug::check_2d_array_integrity(&data, width));
         let height = data.len() / width;
 
         Self {

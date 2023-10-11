@@ -97,3 +97,13 @@ pub fn check_boundary_polys_divisibility<F: IsFFTField>(
         }
     }
 }
+
+/// Checks that the one-dimensional array `data` can be interpreted as valid two-dimensional
+/// array, returning a true when valid and false when its not.
+pub fn check_2d_array_integrity<F>(data: &[FieldElement<F>], width: usize) -> bool
+where
+    F: IsFFTField,
+{
+    let rows: Vec<Vec<FieldElement<F>>> = data.chunks(width).map(|c| c.to_vec()).collect();
+    rows.iter().all(|r| r.len() == rows[0].len())
+}
