@@ -12,6 +12,7 @@ use core::marker::PhantomData;
 
 pub type U384PrimeField<M> = MontgomeryBackendPrimeField<M, 6>;
 pub type U256PrimeField<M> = MontgomeryBackendPrimeField<M, 4>;
+pub type U64PrimeField<M> = MontgomeryBackendPrimeField<M, 1>;
 
 /// This trait is necessary for us to be able to use unsigned integer types bigger than
 /// `u128` (the biggest native `unit`) as constant generics.
@@ -759,8 +760,10 @@ mod tests_u256_prime_fields {
     use crate::field::traits::IsPrimeField;
     #[cfg(feature = "std")]
     use crate::traits::ByteConversion;
-    use crate::unsigned_integer::element::UnsignedInteger;
     use crate::unsigned_integer::element::U256;
+    use crate::unsigned_integer::element::{UnsignedInteger, U64};
+
+    use super::U64PrimeField;
 
     #[derive(Clone, Debug)]
     struct U256Modulus29;
@@ -1121,5 +1124,25 @@ mod tests_u256_prime_fields {
         let a = U256F29Element::from_hex_unchecked("1d");
         let b = U256F29Element::zero();
         assert_eq!(a, b);
+    }
+
+    // Goldilocks
+    #[derive(Clone, Debug)]
+    struct GoldilocksModulus;
+    impl IsModulus<U64> for GoldilocksModulus {
+        const MODULUS: U64 = UnsignedInteger {
+            limbs: [18446744069414584321],
+        };
+    }
+
+    type GoldilocksField = U64PrimeField<GoldilocksModulus>;
+    type GoldilocksElement = FieldElement<GoldilocksField>;
+
+    #[test]
+    fn test_cios_overflow_case() {
+        let a = GoldilocksElement::from(732582227915286439);
+        let b = GoldilocksElement::from(3906369333256140342);
+        let expected_sum = GoldilocksElement::from(4638951561171426781);
+        assert_eq!(a + b, expected_sum);
     }
 }
