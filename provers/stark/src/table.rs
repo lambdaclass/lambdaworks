@@ -26,7 +26,7 @@ impl<F: IsFFTField> Table<F> {
         }
 
         // Check that the one-dimensional data makes sense to be interpreted as a 2D one.
-        debug_assert!(crate::debug::check_2d_array_integrity(&data, width));
+        debug_assert!(crate::debug::check_2d_array_integrity(data, width));
         let height = data.len() / width;
 
         Self {
