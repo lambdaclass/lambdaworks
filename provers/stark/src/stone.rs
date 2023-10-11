@@ -447,7 +447,7 @@ pub mod tests {
         examples::fibonacci_2_cols_shifted::{self, Fibonacci2ColsShifted},
         proof::options::ProofOptions,
         prover::IsStarkProver,
-        sharp::{StoneCompatibleProver, StoneCompatibleVerifier},
+        stone::{StoneCompatibleProver, StoneCompatibleVerifier},
         traits::AIR,
         transcript::StoneProverTranscript,
         verifier::IsStarkVerifier,
@@ -526,7 +526,7 @@ pub mod tests {
     }
 
     #[test]
-    fn test_sharp_fibonacci_happy_path() {
+    fn test_stone_fibonacci_happy_path() {
         let trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::one(), 4);
 
         let claimed_index = 3;
