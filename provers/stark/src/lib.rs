@@ -12,12 +12,12 @@ pub mod fri;
 pub mod grinding;
 pub mod proof;
 pub mod prover;
+pub mod table;
 pub mod trace;
 pub mod traits;
 pub mod transcript;
 pub mod utils;
 pub mod verifier;
-pub mod table;
 
 #[cfg(test)]
 pub mod tests;
