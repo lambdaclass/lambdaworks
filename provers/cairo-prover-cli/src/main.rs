@@ -29,18 +29,18 @@ enum ProverEntity {
 
 #[derive(Args, Debug)]
 struct ProveArgs {
-    input_path: String,
-    output_path: String,
+    program_path: String,
+    proof_path: String,
 }
 
 #[derive(Args, Debug)]
 struct VerifyArgs {
-    input_path: String,
+    proof_path: String,
 }
 
 #[derive(Args, Debug)]
 struct ProveAndVerifyArgs {
-    input_path: String,
+    program_path: String,
 }
 
 fn generate_proof(
@@ -106,12 +106,12 @@ fn main() {
     match args.entity {
         ProverEntity::Prove(args) => {
             // verify input file is .cairo
-            if args.input_path.contains(".cairo") {
+            if args.program_path.contains(".cairo") {
                 println!("\nYou are trying to prove a non compiled Cairo program. Please compile it before sending it to the prover.\n");
                 return;
             }
 
-            let Some((proof, pub_inputs)) = generate_proof(&args.input_path, &proof_options) else {
+            let Some((proof, pub_inputs)) = generate_proof(&args.program_path, &proof_options) else {
                 return;
             };
 
@@ -121,45 +121,45 @@ fn main() {
             bytes.extend(proof_bytes);
             bytes.extend(pub_inputs.serialize());
 
-            let Ok(()) = std::fs::write(&args.output_path, bytes) else {
-                println!("Error writing proof to file: {}", args.output_path);
+            let Ok(()) = std::fs::write(&args.proof_path, bytes) else {
+                println!("Error writing proof to file: {}", args.proof_path);
                 return;
             };
-            println!("Proof written to {}", args.output_path);
+            println!("Proof written to {}", args.proof_path);
         }
         ProverEntity::Verify(args) => {
-            let Ok(program_content) = std::fs::read(&args.input_path) else {
-                println!("Error opening {} file", args.input_path);
+            let Ok(program_content) = std::fs::read(&args.proof_path) else {
+                println!("Error opening {} file", args.proof_path);
                 return;
             };
             let mut bytes = program_content.as_slice();
             if bytes.len() < 8 {
-                println!("Error reading proof from file: {}", args.input_path);
+                println!("Error reading proof from file: {}", args.proof_path);
                 return;
             }
 
             let proof_len = usize::from_be_bytes(bytes[0..8].try_into().unwrap());
             bytes = &bytes[8..];
             if bytes.len() < proof_len {
-                println!("Error reading proof from file: {}", args.input_path);
+                println!("Error reading proof from file: {}", args.proof_path);
                 return;
             }
             let Ok(proof) = StarkProof::<Stark252PrimeField>::deserialize(&bytes[0..proof_len])
             else {
-                println!("Error reading proof from file: {}", args.input_path);
+                println!("Error reading proof from file: {}", args.proof_path);
                 return;
             };
             bytes = &bytes[proof_len..];
 
             let Ok(pub_inputs) = PublicInputs::deserialize(bytes) else {
-                println!("Error reading proof from file: {}", args.input_path);
+                println!("Error reading proof from file: {}", args.proof_path);
                 return;
             };
 
             verify_proof(proof, pub_inputs, &proof_options);
         }
         ProverEntity::ProveAndVerify(args) => {
-            let Some((proof, pub_inputs)) = generate_proof(&args.input_path, &proof_options) else {
+            let Some((proof, pub_inputs)) = generate_proof(&args.program_path, &proof_options) else {
                 return;
             };
             verify_proof(proof, pub_inputs, &proof_options);

@@ -25,5 +25,12 @@ verify: build
 run_all: build
 	cargo run --release prove-and-verify $(PROGRAM_PATH)
 	
+compile_and_run_all: build
+	@cairo-compile --proof_mode $(PROGRAM_PATH) > $(COMPILED_PROGRAM) 2>/dev/null || \
+	docker run -v $(ROOT_DIR):/pwd cairo --proof_mode /pwd/$(PROGRAM_PATH) > $(COMPILED_PROGRAM)
+	@echo "Compiling done \n"
+	@cargo run --release prove-and-verify $(COMPILED_PROGRAM)
+	@rm $(COMPILED_PROGRAM)
+
 clippy:
 	cargo clippy --workspace --all-targets -- -D warnings

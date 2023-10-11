@@ -30,13 +30,12 @@ Note: to use cairo compiler with docker, build the image by running:
 
 ### 🚀 Prove and verify
 
-Sample Cairo 0 programs can be found [here](https://github.com/lambdaclass/lambdaworks/tree/main/provers/cairo/cairo_programs/cairo0) (need to be compiled first).
 
 #### Usage:
 
-To compile your program you can use:
+**To compile your program you can use:**
 
-(Notice for compilation either `cairo-lang` or `docker` is required)
+Notice for compilation either `cairo-lang` or `docker` is required. Sample Cairo 0 programs can be found [here](https://github.com/lambdaclass/lambdaworks/tree/main/provers/cairo/cairo_programs/cairo0)
 
 ```bash
 make compile PROGRAM_PATH=<program_path> 
@@ -48,7 +47,7 @@ For example:
 make compile PROGRAM_PATH=cairo_programs/cairo0/fibonacci_5.cairo
 ```
 
-To create proof for a program you can use:
+**To create proof for a program you can use:**
 
 ```bash
 make prove PROGRAM_PATH=<compiled_program_path> PROOF_PATH=<output_proof_path>
@@ -60,7 +59,7 @@ For example:
 make prove PROGRAM_PATH=cairo_programs/cairo0/fibonacci_5.json PROOF_PATH=program_proof.proof
 ```
 
-To verify a proof you can use:
+**To verify a proof you can use:**
 
 ```bash
 make verify PROOF_PATH=<proof_path>
@@ -72,7 +71,7 @@ For example:
 make verify PROOF_PATH=fibonacci_5.proof
 ```
 
-To prove and verify with a single command you can use:
+**To prove and verify with a single command you can use:**
 
 ```bash
 make run_all PROGRAM_PATH=<compiled_program_path>
@@ -82,4 +81,10 @@ For example:
 
 ```bash
 make run_all PROGRAM_PATH=cairo_programs/cairo0/fibonacci_5.json
+```
+
+**To compile, proof, prove and verify at the same time you can use:**
+
+```bash
+make compile_and_run_all PROGRAM_PATH=<program_path>
 ```
