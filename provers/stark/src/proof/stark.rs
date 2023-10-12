@@ -1,17 +1,14 @@
 use lambdaworks_crypto::merkle_tree::proof::Proof;
 use lambdaworks_math::{
-    errors::DeserializationError,
     field::{element::FieldElement, traits::IsFFTField},
-    traits::{ByteConversion, Deserializable, Serializable},
 };
 
 use crate::{
     config::Commitment,
     frame::Frame,
     fri::fri_decommit::FriDecommitment,
-    utils::{deserialize_proof, serialize_proof},
 };
-use core::mem;
+
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct DeepPolynomialOpenings<F: IsFFTField> {

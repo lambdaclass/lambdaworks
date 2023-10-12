@@ -1567,7 +1567,6 @@ mod test {
 #[cfg(test)]
 mod prop_test {
     use lambdaworks_math::{
-        errors::DeserializationError,
         field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
         traits::{Deserializable, Serializable},
     };
