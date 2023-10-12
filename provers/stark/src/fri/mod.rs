@@ -101,7 +101,6 @@ pub trait IsFri {
                     // <<<< Receive challenge 𝜄ₛ (iota_s)
                     let mut layers_auth_paths_sym = vec![];
                     let mut layers_evaluations_sym = vec![];
-                    let mut layers_evaluations = vec![];
                     let mut layers_auth_paths = vec![];
 
                     for layer in fri_layers {
@@ -115,14 +114,12 @@ pub trait IsFri {
 
                         layers_auth_paths_sym.push(auth_path_sym);
                         layers_evaluations_sym.push(evaluation_sym);
-                        layers_evaluations.push(evaluation);
                         layers_auth_paths.push(auth_path);
                     }
 
                     FriDecommitment {
                         layers_auth_paths_sym,
                         layers_evaluations_sym,
-                        layers_evaluations,
                         layers_auth_paths,
                     }
                 })

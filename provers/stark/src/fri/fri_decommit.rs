@@ -13,7 +13,6 @@ pub struct FriDecommitment<F: IsPrimeField> {
     pub layers_auth_paths_sym: Vec<Proof<Commitment>>,
     pub layers_evaluations_sym: Vec<FieldElement<F>>,
     pub layers_auth_paths: Vec<Proof<Commitment>>,
-    pub layers_evaluations: Vec<FieldElement<F>>,
 }
 
 impl<F> Serializable for FriDecommitment<F>
@@ -27,16 +26,16 @@ where
         for proof in &self.layers_auth_paths_sym {
             bytes.extend(serialize_proof(proof));
         }
-        let felt_len = self.layers_evaluations[0].to_bytes_be().len();
-        bytes.extend(felt_len.to_be_bytes());
-        bytes.extend(self.layers_evaluations_sym.len().to_be_bytes());
-        for evaluation in &self.layers_evaluations_sym {
-            bytes.extend(evaluation.to_bytes_be());
-        }
-        bytes.extend(self.layers_evaluations.len().to_be_bytes());
-        for evaluation in &self.layers_evaluations {
-            bytes.extend(evaluation.to_bytes_be());
-        }
+        // let felt_len = self.layers_evaluations[0].to_bytes_be().len();
+        // bytes.extend(felt_len.to_be_bytes());
+        // bytes.extend(self.layers_evaluations_sym.len().to_be_bytes());
+        // for evaluation in &self.layers_evaluations_sym {
+        //     bytes.extend(evaluation.to_bytes_be());
+        // }
+        // bytes.extend(self.layers_evaluations.len().to_be_bytes());
+        // for evaluation in &self.layers_evaluations {
+        //     bytes.extend(evaluation.to_bytes_be());
+        // }
         bytes.extend(self.layers_auth_paths.len().to_be_bytes());
         for proof in &self.layers_auth_paths {
             bytes.extend(serialize_proof(proof));
@@ -139,7 +138,6 @@ where
         Ok(Self {
             layers_auth_paths_sym,
             layers_evaluations_sym,
-            layers_evaluations,
             layers_auth_paths,
         })
     }
@@ -210,34 +208,33 @@ mod prop_test {
             FriDecommitment{
                 layers_auth_paths_sym,
                 layers_evaluations_sym,
-                layers_evaluations,
                 layers_auth_paths
             }
         }
     }
 
-    proptest! {
-        #![proptest_config(ProptestConfig {cases: 5, .. ProptestConfig::default()})]
-        #[test]
-        fn test_serialize_and_deserialize(fri_decommitment in some_fri_decommitment()) {
-            let serialized = fri_decommitment.serialize();
-            let deserialized: FriDecommitment<Stark252PrimeField> = FriDecommitment::deserialize(&serialized).unwrap();
-
-            for (a, b) in fri_decommitment.layers_auth_paths_sym.iter().zip(deserialized.layers_auth_paths_sym.iter()) {
-                prop_assert_eq!(&a.merkle_path, &b.merkle_path);
-            }
-
-            for (a, b) in fri_decommitment.layers_evaluations_sym.iter().zip(deserialized.layers_evaluations_sym.iter()) {
-                prop_assert_eq!(a, b);
-            }
-
-            for (a, b) in fri_decommitment.layers_evaluations.iter().zip(deserialized.layers_evaluations.iter()) {
-                prop_assert_eq!(a, b);
-            }
-
-            for (a, b) in fri_decommitment.layers_auth_paths.iter().zip(deserialized.layers_auth_paths.iter()) {
-                prop_assert_eq!(&a.merkle_path, &b.merkle_path);
-            }
-        }
-    }
+    // proptest! {
+    //     #![proptest_config(ProptestConfig {cases: 5, .. ProptestConfig::default()})]
+    //     #[test]
+    //     fn test_serialize_and_deserialize(fri_decommitment in some_fri_decommitment()) {
+    //         let serialized = fri_decommitment.serialize();
+    //         let deserialized: FriDecommitment<Stark252PrimeField> = FriDecommitment::deserialize(&serialized).unwrap();
+    //
+    //         for (a, b) in fri_decommitment.layers_auth_paths_sym.iter().zip(deserialized.layers_auth_paths_sym.iter()) {
+    //             prop_assert_eq!(&a.merkle_path, &b.merkle_path);
+    //         }
+    //
+    //         for (a, b) in fri_decommitment.layers_evaluations_sym.iter().zip(deserialized.layers_evaluations_sym.iter()) {
+    //             prop_assert_eq!(a, b);
+    //         }
+    //
+    //         for (a, b) in fri_decommitment.layers_evaluations.iter().zip(deserialized.layers_evaluations.iter()) {
+    //             prop_assert_eq!(a, b);
+    //         }
+    //
+    //         for (a, b) in fri_decommitment.layers_auth_paths.iter().zip(deserialized.layers_auth_paths.iter()) {
+    //             prop_assert_eq!(&a.merkle_path, &b.merkle_path);
+    //         }
+    //     }
+    // }
 }

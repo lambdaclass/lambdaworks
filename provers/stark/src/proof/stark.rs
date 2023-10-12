@@ -503,7 +503,6 @@ mod prop_test {
             FriDecommitment{
                 layers_auth_paths_sym,
                 layers_evaluations_sym,
-                layers_evaluations,
                 layers_auth_paths
             }
         }

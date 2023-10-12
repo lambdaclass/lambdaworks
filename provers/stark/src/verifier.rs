@@ -554,7 +554,6 @@ pub trait IsStarkVerifier {
             .iter()
             .enumerate()
             .zip(&fri_decommitment.layers_auth_paths)
-            .zip(&fri_decommitment.layers_evaluations)
             .zip(&fri_decommitment.layers_auth_paths_sym)
             .zip(&fri_decommitment.layers_evaluations_sym)
             .zip(evaluation_point_vec)
@@ -562,7 +561,7 @@ pub trait IsStarkVerifier {
                 true,
                 |result,
                  (
-                    (((((k, merkle_root), auth_path), evaluation), auth_path_sym), evaluation_sym),
+                    ((((k, merkle_root), auth_path), auth_path_sym), evaluation_sym),
                     evaluation_point_inv,
                 )| {
                     let domain_length = 1 << (domain.lde_root_order - (k + 1) as u32);
@@ -588,7 +587,7 @@ pub trait IsStarkVerifier {
                     v = (&v + evaluation_sym) + beta * (&v - evaluation_sym) * evaluation_point_inv;
 
                     // Check that next value is the given by the prover
-                    if k < fri_decommitment.layers_evaluations.len() - 1 {
+                    if k < fri_decommitment.layers_evaluations_sym.len() - 1 {
                         result & openings_ok
                     } else {
                         result & (v == proof.fri_last_value) & openings_ok
