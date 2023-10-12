@@ -5,54 +5,14 @@ use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark2
 use lambdaworks_math::traits::{Deserializable, Serializable};
 use stark_platinum_prover::proof::options::{ProofOptions, SecurityLevel};
 use stark_platinum_prover::proof::stark::StarkProof;
+mod commands;
+use clap::Parser;
 
 use std::env;
 use std::fs::File;
 use std::io::{Error, ErrorKind};
 use std::process::Command;
 use std::time::Instant;
-
-use clap::{Args, Parser, Subcommand};
-
-#[derive(Parser, Debug)]
-#[command(author = "Lambdaworks", version, about)]
-struct ProverArgs {
-    #[clap(subcommand)]
-    entity: ProverEntity,
-}
-
-#[derive(Subcommand, Debug)]
-enum ProverEntity {
-    #[clap(about = "Compile a given cairo program")]
-    Compile(CompileArgs),
-    #[clap(about = "Generate a proof for a given compiled cairo program")]
-    Prove(ProveArgs),
-    #[clap(about = "Verify a proof for a given compiled cairo program")]
-    Verify(VerifyArgs),
-    #[clap(about = "Generate and verify a proof for a given compiled cairo program")]
-    ProveAndVerify(ProveAndVerifyArgs),
-}
-
-#[derive(Args, Debug)]
-struct CompileArgs {
-    program_path: String,
-}
-
-#[derive(Args, Debug)]
-struct ProveArgs {
-    program_path: String,
-    proof_path: String,
-}
-
-#[derive(Args, Debug)]
-struct VerifyArgs {
-    proof_path: String,
-}
-
-#[derive(Args, Debug)]
-struct ProveAndVerifyArgs {
-    program_path: String,
-}
 
 /// Get current directory and return it as a String
 fn get_root_dir() -> Result<String, Error> {
@@ -103,6 +63,23 @@ fn docker_compile(program_path: &String, out_file_path: &String) -> Result<(), E
     }
 
     Ok(())
+}
+
+/// Attemps to compile the Cairo program
+/// with either `cairo-compile` or `docker``
+fn try_compile(program_path: &String, out_file_path: &String) -> Result<(), Error> {
+    if cairo_compile(program_path, &out_file_path).is_ok()
+        || docker_compile(program_path, &out_file_path).is_ok()
+    {
+        println!("Compiled cairo program");
+        Ok(())
+    } else {
+        println!("Failed to compile cairo program\nEnsure cairo-compile or docker is installed (and running)");
+        Err(Error::new(
+            ErrorKind::Other,
+            "fail to compile cairo program",
+        ))
+    }
 }
 
 fn generate_proof(
@@ -164,20 +141,13 @@ fn verify_proof(
 fn main() {
     let proof_options = ProofOptions::new_secure(SecurityLevel::Conjecturable100Bits, 3);
 
-    let args: ProverArgs = ProverArgs::parse();
+    let args: commands::ProverArgs = commands::ProverArgs::parse();
     match args.entity {
-        ProverEntity::Compile(args) => {
+        commands::ProverEntity::Compile(args) => {
             let out_file_path = args.program_path.replace(".cairo", ".json");
-
-            if cairo_compile(&args.program_path, &out_file_path).is_ok()
-                || docker_compile(&args.program_path, &out_file_path).is_ok()
-            {
-                println!("Compiled cairo program");
-            } else {
-                println!("Failed to compile cairo program\nEnsure cairo-compile or docker is installed (and running)")
-            }
+            _ = try_compile(&args.program_path, &out_file_path);
         }
-        ProverEntity::Prove(args) => {
+        commands::ProverEntity::Prove(args) => {
             // verify input file is .cairo
             if args.program_path.contains(".cairo") {
                 println!("\nYou are trying to prove a non compiled Cairo program. Please compile it before sending it to the prover.\n");
@@ -201,7 +171,7 @@ fn main() {
             };
             println!("Proof written to {}", args.proof_path);
         }
-        ProverEntity::Verify(args) => {
+        commands::ProverEntity::Verify(args) => {
             let Ok(program_content) = std::fs::read(&args.proof_path) else {
                 println!("Error opening {} file", args.proof_path);
                 return;
@@ -232,12 +202,28 @@ fn main() {
 
             verify_proof(proof, pub_inputs, &proof_options);
         }
-        ProverEntity::ProveAndVerify(args) => {
+        commands::ProverEntity::ProveAndVerify(args) => {
             let Some((proof, pub_inputs)) = generate_proof(&args.program_path, &proof_options)
             else {
                 return;
             };
             verify_proof(proof, pub_inputs, &proof_options);
+        }
+        commands::ProverEntity::CompileAndProve(args) => {
+            let out_file_path = args.program_path.replace(".cairo", ".json");
+            if try_compile(&args.program_path, &out_file_path).is_ok() {
+                generate_proof(&out_file_path, &proof_options);
+            }
+        }
+        commands::ProverEntity::CompileAndRunAll(args) => {
+            let out_file_path = args.program_path.replace(".cairo", ".json");
+            if try_compile(&args.program_path, &out_file_path).is_ok() {
+                let Some((proof, pub_inputs)) = generate_proof(&out_file_path, &proof_options)
+                else {
+                    return;
+                };
+                verify_proof(proof, pub_inputs, &proof_options);
+            }
         }
     }
 }
