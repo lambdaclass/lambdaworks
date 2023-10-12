@@ -182,7 +182,7 @@ where
         let composition_poly_even_parts_evaluation_bytes =
             self.composition_poly_parts_ood_evaluation[0].to_bytes_be();
         bytes.extend(
-           composition_poly_even_parts_evaluation_bytes 
+            composition_poly_even_parts_evaluation_bytes
                 .len()
                 .to_be_bytes(),
         );

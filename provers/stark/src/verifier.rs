@@ -16,12 +16,11 @@ use lambdaworks_math::{
 };
 
 use crate::{
-    config::Commitment, proof::stark::DeepPolynomialOpenings,
-    transcript::IsStarkTranscript,
+    config::Commitment, proof::stark::DeepPolynomialOpenings, transcript::IsStarkTranscript,
 };
 
 use super::{
-    config::{BatchedMerkleTreeBackend},
+    config::BatchedMerkleTreeBackend,
     domain::Domain,
     fri::fri_decommit::FriDecommitment,
     grinding::hash_transcript_with_int_and_get_leading_zeros,

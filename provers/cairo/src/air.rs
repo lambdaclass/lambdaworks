@@ -13,10 +13,11 @@ use stark_platinum_prover::{
     context::AirContext,
     frame::Frame,
     proof::{options::ProofOptions, stark::StarkProof},
-    prover::{ProvingError, Prover, IsStarkProver},
+    prover::{IsStarkProver, Prover, ProvingError},
     trace::TraceTable,
     traits::AIR,
-    transcript::{IsStarkTranscript, StoneProverTranscript}, verifier::{Verifier, IsStarkVerifier},
+    transcript::{IsStarkTranscript, StoneProverTranscript},
+    verifier::{IsStarkVerifier, Verifier},
 };
 
 use crate::Felt252;

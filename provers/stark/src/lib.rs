@@ -17,7 +17,6 @@ pub mod traits;
 pub mod transcript;
 pub mod utils;
 pub mod verifier;
-pub mod stone;
 
 #[cfg(test)]
 pub mod tests;

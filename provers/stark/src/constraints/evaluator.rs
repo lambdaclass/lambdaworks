@@ -13,10 +13,13 @@ use rayon::prelude::{
 
 #[cfg(all(debug_assertions, not(feature = "parallel")))]
 use crate::debug::check_boundary_polys_divisibility;
-use crate::{domain::Domain, prover::{Prover, IsStarkProver}};
 use crate::frame::Frame;
 use crate::trace::TraceTable;
 use crate::traits::AIR;
+use crate::{
+    domain::Domain,
+    prover::{IsStarkProver, Prover},
+};
 
 use super::{boundary::BoundaryConstraints, evaluation_table::ConstraintEvaluationTable};
 

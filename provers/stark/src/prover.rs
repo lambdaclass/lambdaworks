@@ -959,7 +959,8 @@ mod tests {
         },
         proof::options::ProofOptions,
         transcript::StoneProverTranscript,
-        Felt252, verifier::{Verifier, IsStarkVerifier},
+        verifier::{IsStarkVerifier, Verifier},
+        Felt252,
     };
 
     use super::*;
