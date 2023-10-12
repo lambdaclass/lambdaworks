@@ -161,7 +161,6 @@ pub trait IsStarkProver {
         Commitment,
     )
     where
-        Self::Field: IsFFTField,
         FieldElement<Self::Field>: Serializable + Send + Sync,
     {
         let trace_polys = trace.compute_trace_polys();
@@ -258,7 +257,6 @@ pub trait IsStarkProver {
         lde_composition_poly_parts_evaluations: &[Vec<FieldElement<Self::Field>>],
     ) -> (BatchedMerkleTree<Self::Field>, Commitment)
     where
-        Self::Field: IsFFTField,
         FieldElement<Self::Field>: Serializable,
     {
         // TODO: Remove clones
@@ -602,7 +600,6 @@ pub trait IsStarkProver {
         index: usize,
     ) -> (Proof<Commitment>, Vec<FieldElement<Self::Field>>)
     where
-        Self::Field: IsFFTField,
         FieldElement<Self::Field>: Serializable,
     {
         let proof = composition_poly_merkle_tree
@@ -629,7 +626,6 @@ pub trait IsStarkProver {
         index: usize,
     ) -> (Vec<Proof<Commitment>>, Vec<FieldElement<Self::Field>>)
     where
-        Self::Field: IsFFTField,
         FieldElement<Self::Field>: Serializable,
     {
         let domain_size = domain.lde_roots_of_unity_coset.len();
