@@ -931,9 +931,15 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::num::ParseIntError;
+
     use crate::{
-        examples::simple_fibonacci::{self, FibonacciPublicInputs},
+        examples::{
+            fibonacci_2_cols_shifted::{self, Fibonacci2ColsShifted},
+            simple_fibonacci::{self, FibonacciPublicInputs},
+        },
         proof::options::ProofOptions,
+        transcript::StoneProverTranscript,
         Felt252,
     };
 
@@ -1046,5 +1052,12 @@ mod tests {
         for (i, eval) in evaluations.iter().enumerate() {
             assert_eq!(*eval, poly.evaluate(&(offset * primitive_root.pow(i))));
         }
+    }
+
+    pub fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
+        (0..s.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
+            .collect()
     }
 }
