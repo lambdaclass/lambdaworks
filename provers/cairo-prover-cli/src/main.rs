@@ -87,7 +87,6 @@ fn docker_compile(program_path: &String, out_file_path: &String) -> Result<(), E
 /// with either `cairo-compile` or `docker``
 fn try_compile(program_path: &String, out_file_path: &String) -> Result<(), Error> {
     if !program_path.contains(".cairo") {
-        println!("The program provided is not an uncompiled .cairo program");
         return Err(Error::new(
             ErrorKind::Other,
             "File provided is not a Cairo uncompiled",
@@ -97,13 +96,11 @@ fn try_compile(program_path: &String, out_file_path: &String) -> Result<(), Erro
     if cairo_compile(program_path, out_file_path).is_ok()
         || docker_compile(program_path, out_file_path).is_ok()
     {
-        println!("Compiled cairo program");
         Ok(())
     } else {
-        println!("Failed to compile cairo program\nEnsure cairo-compile or docker is installed (and running)");
         Err(Error::new(
             ErrorKind::Other,
-            "Failed to compile cairo program",
+            "Failed to compile cairo program, neither cairo-compile nor docker found",
         ))
     }
 }
@@ -171,7 +168,11 @@ fn main() {
     match args.entity {
         commands::ProverEntity::Compile(args) => {
             let out_file_path = args.program_path.replace(".cairo", ".json");
-            _ = try_compile(&args.program_path, &out_file_path);
+            if let Err(err) = try_compile(&args.program_path, &out_file_path) {
+                println!("{}", err);
+            } else {
+                println!("Compiled cairo program");
+            }
         }
         commands::ProverEntity::Prove(args) => {
             // verify input file is .cairo
@@ -237,18 +238,28 @@ fn main() {
         }
         commands::ProverEntity::CompileAndProve(args) => {
             let out_file_path = args.program_path.replace(".cairo", ".json");
-            if try_compile(&args.program_path, &out_file_path).is_ok() {
-                generate_proof(&out_file_path, &proof_options);
+            match try_compile(&args.program_path, &out_file_path) {
+                Ok(_) => {
+                    generate_proof(&out_file_path, &proof_options);
+                }
+                Err(err) => {
+                    println!("{}", err)
+                }
             }
         }
         commands::ProverEntity::CompileAndRunAll(args) => {
             let out_file_path = args.program_path.replace(".cairo", ".json");
-            if try_compile(&args.program_path, &out_file_path).is_ok() {
-                let Some((proof, pub_inputs)) = generate_proof(&out_file_path, &proof_options)
-                else {
-                    return;
-                };
-                verify_proof(proof, pub_inputs, &proof_options);
+            match try_compile(&args.program_path, &out_file_path) {
+                Ok(_) => {
+                    let Some((proof, pub_inputs)) = generate_proof(&out_file_path, &proof_options)
+                    else {
+                        return;
+                    };
+                    verify_proof(proof, pub_inputs, &proof_options);
+                }
+                Err(err) => {
+                    println!("{}", err)
+                }
             }
         }
     }
