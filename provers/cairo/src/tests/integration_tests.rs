@@ -1,6 +1,4 @@
-use lambdaworks_math::{
-    field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
-};
+use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
 use stark_platinum_prover::{
     debug::validate_trace,
     domain::Domain,
