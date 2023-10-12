@@ -16,7 +16,7 @@ use lambdaworks_math::{
 
 use crate::{
     config::Commitment, grinding, proof::stark::DeepPolynomialOpenings,
-    transcript::IsStarkTranscript,
+    transcript::IsStarkTranscript, stone::StoneCompatibleVerifier,
 };
 
 use super::{
@@ -506,7 +506,7 @@ pub trait IsStarkVerifier {
         };
 
         // Verify opening Open(pₖ(Dₖ), −𝜐ₛ^(2ᵏ))
-        auth_path_sym.verify::<BatchedMerkleTreeBackend<F>>(merkle_root, index ^ 1, &evaluations)
+        auth_path_sym.verify::<BatchedMerkleTreeBackend<F>>(merkle_root, index >> 1, &evaluations)
     }
 
     fn verify_query_and_sym_openings<F: IsField + IsFFTField>(
@@ -533,6 +533,7 @@ pub trait IsStarkVerifier {
         let pi0 = deep_composition_evaluation;
         let pi0_sym = deep_composition_evaluation_sym;
         let mut v = (pi0 + pi0_sym) + &zetas[0] * (pi0 - pi0_sym) * evaluation_point_inverse;
+        let mut index = iota;
 
         // For each fri layer merkle proof check:
         // That each merkle path verifies
@@ -576,8 +577,10 @@ pub trait IsStarkVerifier {
                         &v,
                         evaluation_sym,
                         domain_length,
-                        iota,
+                        index,
                     );
+
+                    index >>= 1;
 
                     let beta = &zetas[k + 1];
                     // v is the calculated element for the co linearity check
@@ -778,6 +781,5 @@ pub trait IsStarkVerifier {
     }
 }
 
-pub struct Verifier;
+pub type Verifier = StoneCompatibleVerifier;
 
-impl IsStarkVerifier for Verifier {}

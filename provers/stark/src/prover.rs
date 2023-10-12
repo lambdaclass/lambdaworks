@@ -21,6 +21,7 @@ use crate::config::{BatchedMerkleTreeBackend, FriMerkleTreeBackend};
 use crate::debug::validate_trace;
 use crate::fri::fri_commitment::FriLayer;
 use crate::fri::{Fri, IsFri};
+use crate::stone::StoneCompatibleProver;
 use crate::transcript::IsStarkTranscript;
 
 use super::config::{BatchedMerkleTree, Commitment};
@@ -943,17 +944,7 @@ pub trait IsStarkProver {
     }
 }
 
-pub struct Prover<F: IsFFTField> {
-    phantom: PhantomData<F>,
-}
-
-impl<F> IsStarkProver for Prover<F>
-where
-    F: IsFFTField,
-    FieldElement<F>: Serializable,
-{
-    type Field = F;
-}
+pub type Prover<F> = StoneCompatibleProver<F>;
 
 #[cfg(test)]
 mod tests {
