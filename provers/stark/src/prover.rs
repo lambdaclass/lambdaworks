@@ -4,7 +4,7 @@ use std::time::Instant;
 
 use lambdaworks_crypto::merkle_tree::proof::Proof;
 use lambdaworks_crypto::merkle_tree::traits::IsMerkleTreeBackend;
-use lambdaworks_math::fft::cpu::bit_reversing::in_place_bit_reverse_permute;
+use lambdaworks_math::fft::cpu::bit_reversing::{in_place_bit_reverse_permute, reverse_index};
 use lambdaworks_math::fft::{errors::FFTError, polynomial::FFTPoly};
 use lambdaworks_math::traits::Serializable;
 use lambdaworks_math::{
@@ -157,6 +157,7 @@ pub trait IsStarkProver {
         Commitment,
     )
     where
+        Self::Field: IsFFTField,
         FieldElement<Self::Field>: Serializable + Send + Sync,
     {
         let trace_polys = trace.compute_trace_polys();
@@ -164,8 +165,14 @@ pub trait IsStarkProver {
         // Evaluate those polynomials t_j on the large domain D_LDE.
         let lde_trace_evaluations = Self::compute_lde_trace_evaluations(&trace_polys, domain);
 
+        let mut lde_trace_permuted = lde_trace_evaluations.clone();
+
+        for col in lde_trace_permuted.iter_mut() {
+            in_place_bit_reverse_permute(col);
+        }
+
         // Compute commitments [t_j].
-        let lde_trace = TraceTable::new_from_cols(&lde_trace_evaluations);
+        let lde_trace = TraceTable::new_from_cols(&lde_trace_permuted);
         let (lde_trace_merkle_tree, lde_trace_merkle_root) = Self::batch_commit(&lde_trace.rows());
 
         // >>>> Send commitments: [tⱼ]
@@ -247,10 +254,12 @@ pub trait IsStarkProver {
         lde_composition_poly_parts_evaluations: &[Vec<FieldElement<Self::Field>>],
     ) -> (BatchedMerkleTree<Self::Field>, Commitment)
     where
+        Self::Field: IsFFTField,
         FieldElement<Self::Field>: Serializable,
     {
         // TODO: Remove clones
         let number_of_parts = lde_composition_poly_parts_evaluations.len();
+
         let mut lde_composition_poly_evaluations = Vec::new();
         for i in 0..lde_composition_poly_parts_evaluations[0].len() {
             let mut row = Vec::new();
@@ -260,7 +269,16 @@ pub trait IsStarkProver {
             lde_composition_poly_evaluations.push(row);
         }
 
-        Self::batch_commit(&lde_composition_poly_evaluations)
+        in_place_bit_reverse_permute(&mut lde_composition_poly_evaluations);
+
+        let mut lde_composition_poly_evaluations_merged = Vec::new();
+        for chunk in lde_composition_poly_evaluations.chunks(2) {
+            let (mut chunk0, chunk1) = (chunk[0].clone(), &chunk[1]);
+            chunk0.extend_from_slice(chunk1);
+            lde_composition_poly_evaluations_merged.push(chunk0);
+        }
+
+        Self::batch_commit(&lde_composition_poly_evaluations_merged)
     }
 
     fn round_2_compute_composition_polynomial<A>(
@@ -292,7 +310,6 @@ pub trait IsStarkProver {
 
         let number_of_parts = air.composition_poly_degree_bound() / air.trace_length();
         let composition_poly_parts = composition_poly.break_in_parts(number_of_parts);
-
 
         let lde_composition_poly_parts_evaluations: Vec<_> = composition_poly_parts
             .iter()
@@ -450,8 +467,9 @@ pub trait IsStarkProver {
         domain: &Domain<Self::Field>,
         transcript: &mut impl IsStarkTranscript<Self::Field>,
     ) -> Vec<usize> {
+        let domain_size = domain.lde_roots_of_unity_coset.len() as u64;
         (0..number_of_queries)
-            .map(|_| (transcript.sample_u64(domain.lde_roots_of_unity_coset.len() as u64)) as usize)
+            .map(|_| (transcript.sample_u64(domain_size >> 1)) as usize)
             .collect::<Vec<usize>>()
     }
 
@@ -576,37 +594,47 @@ pub trait IsStarkProver {
     }
 
     fn open_composition_poly(
-        _domain: &Domain<Self::Field>,
+        domain: &Domain<Self::Field>,
         composition_poly_merkle_tree: &BatchedMerkleTree<Self::Field>,
         lde_composition_poly_evaluations: &[Vec<FieldElement<Self::Field>>],
         index: usize,
     ) -> (Proof<Commitment>, Vec<FieldElement<Self::Field>>)
     where
+        Self::Field: IsFFTField,
         FieldElement<Self::Field>: Serializable,
     {
         let proof = composition_poly_merkle_tree
             .get_proof_by_pos(index)
             .unwrap();
 
-        // Hi openings
         let lde_composition_poly_parts_evaluation: Vec<_> = lde_composition_poly_evaluations
             .iter()
-            .map(|part| part[index].clone())
+            .map(|part| {
+                vec![
+                    part[reverse_index(index * 2, part.len() as u64)].clone(),
+                    part[reverse_index(index * 2 + 1, part.len() as u64)].clone(),
+                ]
+            })
+            .flatten()
             .collect();
 
         (proof, lde_composition_poly_parts_evaluation)
     }
 
     fn open_trace_polys(
-        _domain: &Domain<Self::Field>,
+        domain: &Domain<Self::Field>,
         lde_trace_merkle_trees: &Vec<BatchedMerkleTree<Self::Field>>,
         lde_trace: &TraceTable<Self::Field>,
         index: usize,
     ) -> (Vec<Proof<Commitment>>, Vec<FieldElement<Self::Field>>)
     where
+        Self::Field: IsFFTField,
         FieldElement<Self::Field>: Serializable,
     {
-        let lde_trace_evaluations = lde_trace.get_row(index).to_vec();
+        let domain_size = domain.lde_roots_of_unity_coset.len();
+        let lde_trace_evaluations = lde_trace
+            .get_row(reverse_index(index, domain_size as u64))
+            .to_vec();
 
         // Trace polynomials openings
         #[cfg(feature = "parallel")]
@@ -635,44 +663,56 @@ pub trait IsStarkProver {
     where
         FieldElement<Self::Field>: Serializable,
     {
-        let indexes_symmetric: Vec<_> = indexes_to_open
-            .iter()
-            .map(|iota| iota + domain.lde_roots_of_unity_coset.len() / 2)
-            .collect();
+        let mut openings = Vec::new();
+        let mut openings_symmetric = Vec::new();
 
-        let all_indexes = vec![indexes_symmetric, indexes_to_open.to_vec()];
-        let mut openings: Vec<_> =
-            all_indexes
-                .iter()
-                .map(|indexes| {
-                    indexes.iter().map(|index_to_open| {
-                let index = index_to_open % domain.lde_roots_of_unity_coset.len();
+        for index in indexes_to_open.iter() {
+            let (lde_trace_merkle_proofs, lde_trace_evaluations) = Self::open_trace_polys(
+                domain,
+                &round_1_result.lde_trace_merkle_trees,
+                &round_1_result.lde_trace,
+                index * 2,
+            );
 
-                let (lde_composition_poly_proof, lde_composition_poly_parts_evaluation) =
-                    Self::open_composition_poly(
-                        domain,
-                        &round_2_result.composition_poly_merkle_tree,
-                        &round_2_result.lde_composition_poly_evaluations,
-                        index,
-                    );
+            let (lde_trace_sym_merkle_proofs, lde_trace_sym_evaluations) = Self::open_trace_polys(
+                domain,
+                &round_1_result.lde_trace_merkle_trees,
+                &round_1_result.lde_trace,
+                index * 2 + 1,
+            );
 
-                let (lde_trace_merkle_proofs, lde_trace_evaluations) = Self::open_trace_polys(
+            let (lde_composition_poly_proof, lde_composition_poly_parts_evaluation) =
+                Self::open_composition_poly(
                     domain,
-                    &round_1_result.lde_trace_merkle_trees,
-                    &round_1_result.lde_trace,
-                    index,
+                    &round_2_result.composition_poly_merkle_tree,
+                    &round_2_result.lde_composition_poly_evaluations,
+                    *index,
                 );
 
-                DeepPolynomialOpenings {
-                    lde_composition_poly_proof,
-                    lde_composition_poly_parts_evaluation,
-                    lde_trace_merkle_proofs,
-                    lde_trace_evaluations,
-                }
-            }).collect()
-                })
-                .collect();
-        (openings.pop().unwrap(), openings.pop().unwrap())
+            openings.push(DeepPolynomialOpenings {
+                lde_composition_poly_proof: lde_composition_poly_proof.clone(),
+                lde_composition_poly_parts_evaluation: lde_composition_poly_parts_evaluation
+                    .clone()
+                    .into_iter()
+                    .step_by(2)
+                    .collect(),
+                lde_trace_merkle_proofs,
+                lde_trace_evaluations,
+            });
+
+            openings_symmetric.push(DeepPolynomialOpenings {
+                lde_composition_poly_proof,
+                lde_composition_poly_parts_evaluation: lde_composition_poly_parts_evaluation
+                    .into_iter()
+                    .skip(1)
+                    .step_by(2)
+                    .collect(),
+                lde_trace_merkle_proofs: lde_trace_sym_merkle_proofs,
+                lde_trace_evaluations: lde_trace_sym_evaluations,
+            });
+        }
+
+        (openings, openings_symmetric)
     }
 
     // FIXME remove unwrap() calls and return errors
