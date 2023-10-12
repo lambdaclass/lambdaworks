@@ -35,7 +35,7 @@ Examples of Cairo 0 programs can be found [here](https://github.com/lambdaclass/
 cairo-platinum-prover-cli compile-and-prove <program_path> <output_proof_path>
 ```
 
-(note: if you don't have the CLI compile you can replace `cairo-platinum-prover-cli` with `cargo run --release`)
+(note: if you don't have the CLI as a binary you can replace `cairo-platinum-prover-cli` with `cargo run --release`)
 
 For example:
 
