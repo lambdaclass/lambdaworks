@@ -105,7 +105,6 @@ pub trait IsFri {
 
                     for layer in fri_layers {
                         let index = iota_s % layer.domain_size;
-                        let evaluation = layer.evaluation[index].clone();
                         let auth_path = layer.merkle_tree.get_proof_by_pos(index).unwrap();
                         // symmetric element
                         let index_sym = (iota_s + layer.domain_size / 2) % layer.domain_size;
