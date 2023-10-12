@@ -11,6 +11,7 @@ use rayon::prelude::{
     IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
 };
 
+use super::boundary::BoundaryConstraints;
 #[cfg(all(debug_assertions, not(feature = "parallel")))]
 use crate::debug::check_boundary_polys_divisibility;
 use crate::domain::Domain;
@@ -18,8 +19,6 @@ use crate::frame::Frame;
 use crate::prover::evaluate_polynomial_on_lde_domain;
 use crate::trace::TraceTable;
 use crate::traits::AIR;
-
-use super::{boundary::BoundaryConstraints, evaluations::ConstraintEvaluations};
 
 pub struct ConstraintEvaluator<F: IsFFTField, A: AIR> {
     air: A,
@@ -42,7 +41,7 @@ impl<F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
         transition_coefficients: &[FieldElement<F>],
         boundary_coefficients: &[FieldElement<F>],
         rap_challenges: &A::RAPChallenges,
-    ) -> ConstraintEvaluations<F>
+    ) -> Vec<FieldElement<F>>
     where
         FieldElement<F>: Serializable + Send + Sync,
         A: Send + Sync,
@@ -223,7 +222,7 @@ impl<F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
             })
             .collect::<Vec<FieldElement<F>>>();
 
-        ConstraintEvaluations::new(evaluations_t)
+        evaluations_t
     }
 
     /// Given `evaluations` T_i(x) of the trace polynomial composed with the constraint

@@ -279,7 +279,8 @@ where
     );
 
     // Get the composition poly H
-    let composition_poly = constraint_evaluations.compute_composition_poly(&domain.coset_offset);
+    let composition_poly =
+        Polynomial::interpolate_offset_fft(&constraint_evaluations, &domain.coset_offset).unwrap();
     let (composition_poly_even, composition_poly_odd) = composition_poly.even_odd_decomposition();
 
     let lde_composition_poly_even_evaluations = evaluate_polynomial_on_lde_domain(
