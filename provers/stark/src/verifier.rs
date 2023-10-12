@@ -7,20 +7,21 @@ use lambdaworks_crypto::merkle_tree::proof::Proof;
 use log::error;
 
 use lambdaworks_math::{
+    fft::cpu::bit_reversing::reverse_index,
     field::{
         element::FieldElement,
         traits::{IsFFTField, IsField},
     },
-    traits::Serializable, fft::cpu::bit_reversing::reverse_index,
+    traits::Serializable,
 };
 
 use crate::{
-    config::Commitment, grinding, proof::stark::DeepPolynomialOpenings,
-    transcript::IsStarkTranscript, stone::StoneCompatibleVerifier,
+    config::Commitment, proof::stark::DeepPolynomialOpenings,
+    transcript::IsStarkTranscript,
 };
 
 use super::{
-    config::{BatchedMerkleTreeBackend, FriMerkleTreeBackend},
+    config::{BatchedMerkleTreeBackend},
     domain::Domain,
     fri::fri_decommit::FriDecommitment,
     grinding::hash_transcript_with_int_and_get_leading_zeros,
@@ -780,6 +781,6 @@ pub trait IsStarkVerifier {
         true
     }
 }
+pub struct Verifier {}
 
-pub type Verifier = StoneCompatibleVerifier;
-
+impl IsStarkVerifier for Verifier {}
