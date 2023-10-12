@@ -497,13 +497,10 @@ mod prop_test {
         fn some_fri_decommitment()(
             layers_auth_paths_sym in proof_vec(),
             layers_evaluations_sym in field_vec(),
-            layers_evaluations in field_vec(),
-            layers_auth_paths in proof_vec()
         ) -> FriDecommitment<Stark252PrimeField> {
             FriDecommitment{
                 layers_auth_paths_sym,
                 layers_evaluations_sym,
-                layers_auth_paths
             }
         }
     }

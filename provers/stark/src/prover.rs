@@ -495,7 +495,6 @@ pub trait IsStarkProver {
         A: AIR<Field = Self::Field>,
         FieldElement<Self::Field>: Serializable + Send + Sync,
     {
-        let domain = Domain::new(air);
         let z_power = z.pow(round_2_result.composition_poly_parts.len());
 
         // ∑ᵢ 𝛾ᵢ ( Hᵢ − Hᵢ(z^N) ) / ( X − z^N )
@@ -598,7 +597,6 @@ pub trait IsStarkProver {
     }
 
     fn open_composition_poly(
-        domain: &Domain<Self::Field>,
         composition_poly_merkle_tree: &BatchedMerkleTree<Self::Field>,
         lde_composition_poly_evaluations: &[Vec<FieldElement<Self::Field>>],
         index: usize,
@@ -687,7 +685,6 @@ pub trait IsStarkProver {
 
             let (lde_composition_poly_proof, lde_composition_poly_parts_evaluation) =
                 Self::open_composition_poly(
-                    domain,
                     &round_2_result.composition_poly_merkle_tree,
                     &round_2_result.lde_composition_poly_evaluations,
                     *index,

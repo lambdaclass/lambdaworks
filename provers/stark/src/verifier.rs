@@ -72,8 +72,6 @@ pub trait IsStarkVerifier {
         // ===================================
 
         // <<<< Receive commitments:[tⱼ]
-        let total_columns = air.context().trace_columns;
-
         transcript.append_bytes(&proof.lde_trace_merkle_roots[0]);
 
         let rap_challenges = air.build_rap_challenges(transcript);
@@ -332,10 +330,10 @@ pub trait IsStarkVerifier {
                 result
             })
     }
-    fn query_challenge_to_merkle_root_index(index: usize, domain_size: usize) -> usize {
+    fn query_challenge_to_merkle_root_index(index: usize) -> usize {
         index * 2
     }
-    fn query_challenge_to_merkle_root_index_sym(index: usize, domain_size: usize) -> usize {
+    fn query_challenge_to_merkle_root_index_sym(index: usize) -> usize {
         index * 2 + 1
     }
 
@@ -358,7 +356,6 @@ pub trait IsStarkVerifier {
     }
 
     fn verify_trace_openings<F>(
-        domain: &Domain<F>,
         num_main_columns: usize,
         proof: &StarkProof<F>,
         deep_poly_opening: &DeepPolynomialOpenings<F>,
@@ -374,8 +371,7 @@ pub trait IsStarkVerifier {
             deep_poly_opening.lde_trace_evaluations[num_main_columns..].to_vec(),
         ];
 
-        let index =
-            Self::query_challenge_to_merkle_root_index(iota, domain.lde_roots_of_unity_coset.len());
+        let index = Self::query_challenge_to_merkle_root_index(iota);
         let openings_are_valid = proof
             .lde_trace_merkle_roots
             .iter()
@@ -390,10 +386,7 @@ pub trait IsStarkVerifier {
             deep_poly_opening_sym.lde_trace_evaluations[num_main_columns..].to_vec(),
         ];
 
-        let index_sym = Self::query_challenge_to_merkle_root_index_sym(
-            iota,
-            domain.lde_roots_of_unity_coset.len(),
-        );
+        let index_sym = Self::query_challenge_to_merkle_root_index_sym(iota);
         let openings_sym_are_valid = proof
             .lde_trace_merkle_roots
             .iter()
@@ -419,7 +412,6 @@ pub trait IsStarkVerifier {
     }
 
     fn verify_composition_poly_opening<F>(
-        domain: &Domain<F>,
         deep_poly_opening: &DeepPolynomialOpenings<F>,
         deep_poly_opening_sym: &DeepPolynomialOpenings<F>,
         composition_poly_merkle_root: &Commitment,
@@ -445,7 +437,6 @@ pub trait IsStarkVerifier {
     fn step_4_verify_trace_and_composition_openings<F: IsFFTField, A: AIR<Field = F>>(
         air: &A,
         proof: &StarkProof<F>,
-        domain: &Domain<F>,
         challenges: &Challenges<F, A>,
     ) -> bool
     where
@@ -461,7 +452,6 @@ pub trait IsStarkVerifier {
                 |mut result, ((iota_n, deep_poly_opening), deep_poly_openings_sym)| {
                     // Verify opening Open(H₁(D_LDE, 𝜐₀) and Open(H₂(D_LDE, 𝜐₀),
                     result &= Self::verify_composition_poly_opening(
-                        domain,
                         &deep_poly_opening,
                         &deep_poly_openings_sym,
                         &proof.composition_poly_root,
@@ -472,7 +462,6 @@ pub trait IsStarkVerifier {
                         air.context().trace_columns - air.number_auxiliary_rap_columns();
                     // Verify openings Open(tⱼ(D_LDE), 𝜐₀)
                     result &= Self::verify_trace_openings(
-                        domain,
                         num_main_columns,
                         proof,
                         deep_poly_opening,
@@ -486,7 +475,6 @@ pub trait IsStarkVerifier {
 
     fn verify_fri_layer_openings<F>(
         merkle_root: &Commitment,
-        auth_path: &Proof<Commitment>,
         auth_path_sym: &Proof<Commitment>,
         evaluation: &FieldElement<F>,
         evaluation_sym: &FieldElement<F>,
@@ -551,7 +539,6 @@ pub trait IsStarkVerifier {
         fri_layers_merkle_roots
             .iter()
             .enumerate()
-            .zip(&fri_decommitment.layers_auth_paths)
             .zip(&fri_decommitment.layers_auth_paths_sym)
             .zip(&fri_decommitment.layers_evaluations_sym)
             .zip(evaluation_point_vec)
@@ -559,7 +546,7 @@ pub trait IsStarkVerifier {
                 true,
                 |result,
                  (
-                    ((((k, merkle_root), auth_path), auth_path_sym), evaluation_sym),
+                    (((k, merkle_root), auth_path_sym), evaluation_sym),
                     evaluation_point_inv,
                 )| {
                     let domain_length = 1 << (domain.lde_root_order - (k + 1) as u32);
@@ -572,7 +559,6 @@ pub trait IsStarkVerifier {
                     // Verify opening Open(pₖ(Dₖ), −𝜐ₛ^(2ᵏ))
                     let openings_ok = Self::verify_fri_layer_openings(
                         merkle_root,
-                        auth_path,
                         auth_path_sym,
                         &v,
                         evaluation_sym,
@@ -755,7 +741,7 @@ pub trait IsStarkVerifier {
         let timer4 = Instant::now();
 
         #[allow(clippy::let_and_return)]
-        if !Self::step_4_verify_trace_and_composition_openings(&air, proof, &domain, &challenges) {
+        if !Self::step_4_verify_trace_and_composition_openings(&air, proof, &challenges) {
             error!("DEEP Composition Polynomial verification failed");
             return false;
         }

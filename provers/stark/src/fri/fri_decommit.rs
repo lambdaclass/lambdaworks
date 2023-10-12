@@ -12,7 +12,6 @@ use crate::utils::{deserialize_proof, serialize_proof};
 pub struct FriDecommitment<F: IsPrimeField> {
     pub layers_auth_paths_sym: Vec<Proof<Commitment>>,
     pub layers_evaluations_sym: Vec<FieldElement<F>>,
-    pub layers_auth_paths: Vec<Proof<Commitment>>,
 }
 
 impl<F> Serializable for FriDecommitment<F>
@@ -23,9 +22,9 @@ where
     fn serialize(&self) -> Vec<u8> {
         let mut bytes = vec![];
         bytes.extend(self.layers_auth_paths_sym.len().to_be_bytes());
-        for proof in &self.layers_auth_paths_sym {
-            bytes.extend(serialize_proof(proof));
-        }
+        // for proof in &self.layers_auth_paths_sym {
+        //     bytes.extend(serialize_proof(proof));
+        // }
         // let felt_len = self.layers_evaluations[0].to_bytes_be().len();
         // bytes.extend(felt_len.to_be_bytes());
         // bytes.extend(self.layers_evaluations_sym.len().to_be_bytes());
@@ -36,10 +35,10 @@ where
         // for evaluation in &self.layers_evaluations {
         //     bytes.extend(evaluation.to_bytes_be());
         // }
-        bytes.extend(self.layers_auth_paths.len().to_be_bytes());
-        for proof in &self.layers_auth_paths {
-            bytes.extend(serialize_proof(proof));
-        }
+        // bytes.extend(self.layers_auth_paths.len().to_be_bytes());
+        // for proof in &self.layers_auth_paths {
+        //     bytes.extend(serialize_proof(proof));
+        // }
         bytes
     }
 }
@@ -138,7 +137,6 @@ where
         Ok(Self {
             layers_auth_paths_sym,
             layers_evaluations_sym,
-            layers_auth_paths,
         })
     }
 }
@@ -202,13 +200,10 @@ mod prop_test {
         fn some_fri_decommitment()(
             layers_auth_paths_sym in proof_vec(),
             layers_evaluations_sym in field_vec(),
-            layers_evaluations in field_vec(),
-            layers_auth_paths in proof_vec()
         ) -> FriDecommitment<Stark252PrimeField> {
             FriDecommitment{
                 layers_auth_paths_sym,
                 layers_evaluations_sym,
-                layers_auth_paths
             }
         }
     }

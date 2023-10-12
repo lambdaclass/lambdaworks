@@ -334,7 +334,6 @@ where
 fn step_4_verify_deep_composition_polynomial<F: IsFFTField, A: AIR<Field = F>>(
     air: &A,
     proof: &StarkProof<F>,
-    domain: &Domain<F>,
     challenges: &Challenges<F, A>,
 ) -> bool
 where
@@ -605,7 +604,7 @@ where
     let timer4 = Instant::now();
 
     #[allow(clippy::let_and_return)]
-    if !step_4_verify_deep_composition_polynomial(&air, proof, &domain, &challenges) {
+    if !step_4_verify_deep_composition_polynomial(&air, proof, &challenges) {
         error!("DEEP Composition Polynomial verification failed");
         return false;
     }
