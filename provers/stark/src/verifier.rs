@@ -11,7 +11,7 @@ use lambdaworks_math::{
         element::FieldElement,
         traits::{IsFFTField, IsField},
     },
-    traits::Serializable,
+    traits::Serializable, fft::cpu::bit_reversing::reverse_index,
 };
 
 use crate::{
@@ -50,8 +50,9 @@ pub trait IsStarkVerifier {
         domain: &Domain<F>,
         transcript: &mut impl IsStarkTranscript<F>,
     ) -> Vec<usize> {
+        let domain_size = domain.lde_roots_of_unity_coset.len() as u64;
         (0..number_of_queries)
-            .map(|_| (transcript.sample_u64(domain.lde_roots_of_unity_coset.len() as u64)) as usize)
+            .map(|_| (transcript.sample_u64(domain_size >> 1)) as usize)
             .collect::<Vec<usize>>()
     }
 
@@ -332,26 +333,28 @@ pub trait IsStarkVerifier {
             })
     }
     fn query_challenge_to_merkle_root_index(index: usize, domain_size: usize) -> usize {
-        index
+        index * 2
     }
-
     fn query_challenge_to_merkle_root_index_sym(index: usize, domain_size: usize) -> usize {
-        (index + domain_size / 2) % domain_size
+        index * 2 + 1
     }
 
     fn query_challenge_to_evaluation_point<F: IsFFTField>(
         iota: usize,
         domain: &Domain<F>,
     ) -> FieldElement<F> {
-        domain.lde_roots_of_unity_coset[iota].clone()
+        domain.lde_roots_of_unity_coset
+            [reverse_index(iota * 2, domain.lde_roots_of_unity_coset.len() as u64)]
+        .clone()
     }
 
     fn query_challenge_to_evaluation_point_sym<F: IsFFTField>(
         iota: usize,
         domain: &Domain<F>,
     ) -> FieldElement<F> {
-        let domain_size = domain.lde_roots_of_unity_coset.len();
-        domain.lde_roots_of_unity_coset[(iota + domain_size / 2) % domain_size].clone()
+        domain.lde_roots_of_unity_coset
+            [reverse_index(iota * 2 + 1, domain.lde_roots_of_unity_coset.len() as u64)]
+        .clone()
     }
 
     fn verify_trace_openings<F>(
@@ -426,23 +429,17 @@ pub trait IsStarkVerifier {
         F: IsFFTField,
         FieldElement<F>: Serializable,
     {
-        let openings_are_valid = deep_poly_opening
-            .lde_composition_poly_proof
-            .verify::<BatchedMerkleTreeBackend<F>>(
-            composition_poly_merkle_root,
-            *iota,
-            &deep_poly_opening.lde_composition_poly_parts_evaluation,
-        );
+        let mut value = deep_poly_opening
+            .lde_composition_poly_parts_evaluation
+            .clone();
+        value.extend_from_slice(&deep_poly_opening_sym.lde_composition_poly_parts_evaluation);
 
-        let openings_sym_are_valid = deep_poly_opening_sym
-            .lde_composition_poly_proof
-            .verify::<BatchedMerkleTreeBackend<F>>(
-            composition_poly_merkle_root,
-            *iota + domain.lde_roots_of_unity_coset.len() / 2,
-            &deep_poly_opening_sym.lde_composition_poly_parts_evaluation,
-        );
+        let openings_are_valid =
+            deep_poly_opening
+                .lde_composition_poly_proof
+                .verify::<BatchedMerkleTreeBackend<F>>(composition_poly_merkle_root, *iota, &value);
 
-        openings_are_valid & openings_sym_are_valid
+        openings_are_valid
     }
 
     fn step_4_verify_trace_and_composition_openings<F: IsFFTField, A: AIR<Field = F>>(
@@ -501,15 +498,15 @@ pub trait IsStarkVerifier {
         FieldElement<F>: Serializable,
     {
         let index = iota % domain_length;
-        let index_sym = (iota + domain_length / 2) % domain_length;
+
+        let evaluations = if index % 2 == 1 {
+            vec![evaluation_sym.clone(), evaluation.clone()]
+        } else {
+            vec![evaluation.clone(), evaluation_sym.clone()]
+        };
 
         // Verify opening Open(pₖ(Dₖ), −𝜐ₛ^(2ᵏ))
-        let eval_sym_ok =
-            auth_path_sym.verify::<FriMerkleTreeBackend<F>>(merkle_root, index_sym, evaluation_sym);
-
-        let eval_ok = auth_path.verify::<FriMerkleTreeBackend<F>>(merkle_root, index, evaluation);
-
-        eval_ok & eval_sym_ok
+        auth_path_sym.verify::<BatchedMerkleTreeBackend<F>>(merkle_root, index ^ 1, &evaluations)
     }
 
     fn verify_query_and_sym_openings<F: IsField + IsFFTField>(

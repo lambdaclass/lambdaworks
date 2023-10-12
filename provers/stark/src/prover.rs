@@ -16,11 +16,12 @@ use log::info;
 #[cfg(feature = "parallel")]
 use rayon::prelude::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 
-use crate::config::FriMerkleTreeBackend;
+use crate::config::{BatchedMerkleTreeBackend, FriMerkleTreeBackend};
 #[cfg(debug_assertions)]
 use crate::debug::validate_trace;
 use crate::fri::fri_commitment::FriLayer;
 use crate::fri::{Fri, IsFri};
+use crate::stone::StoneCompatibleFri;
 use crate::transcript::IsStarkTranscript;
 
 use super::config::{BatchedMerkleTree, Commitment};
@@ -79,7 +80,6 @@ pub struct Round4<F: IsFFTField> {
 
 pub trait IsStarkProver {
     type Field: IsFFTField;
-    type MerkleTreeBackend: IsMerkleTreeBackend<Node = [u8; 32]> + Clone;
 
     fn fri_commit_phase(
         number_layers: usize,
@@ -89,17 +89,29 @@ pub trait IsStarkProver {
         domain_size: usize,
     ) -> (
         FieldElement<Self::Field>,
-        Vec<FriLayer<Self::Field, Self::MerkleTreeBackend>>,
+        Vec<FriLayer<Self::Field, BatchedMerkleTreeBackend<Self::Field>>>,
     )
     where
-        FieldElement<Self::Field>: Serializable;
+        FieldElement<Self::Field>: Serializable,
+    {
+        StoneCompatibleFri::fri_commit_phase(
+            number_layers,
+            p_0,
+            transcript,
+            coset_offset,
+            domain_size,
+        )
+    }
 
     fn fri_query_phase(
-        fri_layers: &Vec<FriLayer<Self::Field, Self::MerkleTreeBackend>>,
+        fri_layers: &Vec<FriLayer<Self::Field, BatchedMerkleTreeBackend<Self::Field>>>,
         iotas: &[usize],
     ) -> Vec<FriDecommitment<Self::Field>>
     where
-        FieldElement<Self::Field>: Serializable;
+        FieldElement<Self::Field>: Serializable,
+    {
+        StoneCompatibleFri::fri_query_phase(fri_layers, iotas)
+    }
 
     fn batch_commit(
         vectors: &[Vec<FieldElement<Self::Field>>],
@@ -942,31 +954,6 @@ where
     FieldElement<F>: Serializable,
 {
     type Field = F;
-    type MerkleTreeBackend = FriMerkleTreeBackend<F>;
-
-    fn fri_commit_phase(
-        number_layers: usize,
-        p_0: Polynomial<FieldElement<F>>,
-        transcript: &mut impl IsStarkTranscript<F>,
-        coset_offset: &FieldElement<F>,
-        domain_size: usize,
-    ) -> (FieldElement<F>, Vec<FriLayer<F, Self::MerkleTreeBackend>>)
-    where
-        F: IsFFTField,
-        FieldElement<F>: Serializable,
-    {
-        Fri::fri_commit_phase(number_layers, p_0, transcript, &coset_offset, domain_size)
-    }
-
-    fn fri_query_phase(
-        fri_layers: &Vec<FriLayer<Self::Field, Self::MerkleTreeBackend>>,
-        iotas: &[usize],
-    ) -> Vec<FriDecommitment<Self::Field>>
-    where
-        FieldElement<Self::Field>: Serializable,
-    {
-        Fri::fri_query_phase(fri_layers, iotas)
-    }
 }
 
 #[cfg(test)]

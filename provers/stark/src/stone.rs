@@ -33,122 +33,12 @@ where
     FieldElement<F>: Serializable,
 {
     type Field = F;
-    type MerkleTreeBackend = BatchedMerkleTreeBackend<F>;
-
-    fn fri_commit_phase(
-        number_layers: usize,
-        p_0: Polynomial<FieldElement<Self::Field>>,
-        transcript: &mut impl IsStarkTranscript<Self::Field>,
-        coset_offset: &FieldElement<Self::Field>,
-        domain_size: usize,
-    ) -> (
-        FieldElement<Self::Field>,
-        Vec<FriLayer<Self::Field, Self::MerkleTreeBackend>>,
-    ) {
-        StoneCompatibleFri::fri_commit_phase(
-            number_layers,
-            p_0,
-            transcript,
-            coset_offset,
-            domain_size,
-        )
-    }
-
-    fn fri_query_phase(
-        fri_layers: &Vec<FriLayer<Self::Field, Self::MerkleTreeBackend>>,
-        iotas: &[usize],
-    ) -> Vec<FriDecommitment<Self::Field>> {
-        StoneCompatibleFri::fri_query_phase(fri_layers, iotas)
-    }
-
 }
 
 pub struct StoneCompatibleVerifier {}
 
 impl IsStarkVerifier for StoneCompatibleVerifier {
-    fn query_challenge_to_merkle_root_index(index: usize, domain_size: usize) -> usize {
-        index * 2
-    }
-    fn query_challenge_to_merkle_root_index_sym(index: usize, domain_size: usize) -> usize {
-        index * 2 + 1
-    }
 
-    fn query_challenge_to_evaluation_point<F: IsFFTField>(
-        iota: usize,
-        domain: &Domain<F>,
-    ) -> FieldElement<F> {
-        domain.lde_roots_of_unity_coset
-            [reverse_index(iota * 2, domain.lde_roots_of_unity_coset.len() as u64)]
-        .clone()
-    }
-
-    fn query_challenge_to_evaluation_point_sym<F: IsFFTField>(
-        iota: usize,
-        domain: &Domain<F>,
-    ) -> FieldElement<F> {
-        domain.lde_roots_of_unity_coset
-            [reverse_index(iota * 2 + 1, domain.lde_roots_of_unity_coset.len() as u64)]
-        .clone()
-    }
-
-    fn verify_composition_poly_opening<F>(
-        domain: &Domain<F>,
-        deep_poly_opening: &DeepPolynomialOpenings<F>,
-        deep_poly_opening_sym: &DeepPolynomialOpenings<F>,
-        composition_poly_merkle_root: &Commitment,
-        iota: &usize,
-    ) -> bool
-    where
-        F: IsFFTField,
-        FieldElement<F>: Serializable,
-    {
-        let mut value = deep_poly_opening
-            .lde_composition_poly_parts_evaluation
-            .clone();
-        value.extend_from_slice(&deep_poly_opening_sym.lde_composition_poly_parts_evaluation);
-
-        let openings_are_valid =
-            deep_poly_opening
-                .lde_composition_poly_proof
-                .verify::<BatchedMerkleTreeBackend<F>>(composition_poly_merkle_root, *iota, &value);
-
-        openings_are_valid
-    }
-
-    fn sample_query_indexes<F: IsFFTField>(
-        number_of_queries: usize,
-        domain: &Domain<F>,
-        transcript: &mut impl IsStarkTranscript<F>,
-    ) -> Vec<usize> {
-        let domain_size = domain.lde_roots_of_unity_coset.len() as u64;
-        (0..number_of_queries)
-            .map(|_| (transcript.sample_u64(domain_size >> 1)) as usize)
-            .collect::<Vec<usize>>()
-    }
-    fn verify_fri_layer_openings<F>(
-        merkle_root: &Commitment,
-        auth_path: &Proof<Commitment>,
-        auth_path_sym: &Proof<Commitment>,
-        evaluation: &FieldElement<F>,
-        evaluation_sym: &FieldElement<F>,
-        domain_length: usize,
-        iota: usize,
-    ) -> bool
-    where
-        F: IsFFTField,
-        FieldElement<F>: Serializable,
-    {
-        let index = iota % domain_length;
-
-        let evaluations = if index % 2 == 1 {
-            vec![evaluation_sym.clone(), evaluation.clone()]
-        } else {
-            vec![evaluation.clone(), evaluation_sym.clone()]
-        };
-
-        // Verify opening Open(pₖ(Dₖ), −𝜐ₛ^(2ᵏ))
-        auth_path_sym.verify::<BatchedMerkleTreeBackend<F>>(merkle_root, index ^ 1, &evaluations)
-    }
 }
 
 pub struct StoneCompatibleFri<F> {
