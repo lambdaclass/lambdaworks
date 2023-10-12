@@ -19,7 +19,7 @@ use crate::prover::evaluate_polynomial_on_lde_domain;
 use crate::trace::TraceTable;
 use crate::traits::AIR;
 
-use super::{boundary::BoundaryConstraints, evaluation_table::ConstraintEvaluationTable};
+use super::{boundary::BoundaryConstraints, evaluations::ConstraintEvaluations};
 
 pub struct ConstraintEvaluator<F: IsFFTField, A: AIR> {
     air: A,
@@ -42,17 +42,12 @@ impl<F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
         transition_coefficients: &[FieldElement<F>],
         boundary_coefficients: &[FieldElement<F>],
         rap_challenges: &A::RAPChallenges,
-    ) -> ConstraintEvaluationTable<F>
+    ) -> ConstraintEvaluations<F>
     where
         FieldElement<F>: Serializable + Send + Sync,
         A: Send + Sync,
         A::RAPChallenges: Send + Sync,
     {
-        // The + 1 is for the boundary constraints column
-        let mut evaluation_table = ConstraintEvaluationTable::new(
-            self.air.context().num_transition_constraints() + 1,
-            &domain.lde_roots_of_unity_coset,
-        );
         let boundary_constraints = &self.boundary_constraints;
         let number_of_b_constraints = boundary_constraints.constraints.len();
         let boundary_zerofiers_inverse_evaluations: Vec<Vec<FieldElement<F>>> =
@@ -228,9 +223,7 @@ impl<F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
             })
             .collect::<Vec<FieldElement<F>>>();
 
-        evaluation_table.evaluations_acc = evaluations_t;
-
-        evaluation_table
+        ConstraintEvaluations::new(evaluations_t)
     }
 
     /// Given `evaluations` T_i(x) of the trace polynomial composed with the constraint

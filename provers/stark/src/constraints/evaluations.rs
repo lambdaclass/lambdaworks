@@ -8,20 +8,14 @@ use lambdaworks_math::{
 };
 
 #[derive(Clone, Debug)]
-pub struct ConstraintEvaluationTable<F: IsField> {
+pub struct ConstraintEvaluations<F: IsField> {
     // Accumulation of the evaluation of the constraints
     pub evaluations_acc: Vec<FieldElement<F>>,
-    pub trace_length: usize,
 }
 
-impl<F: IsField> ConstraintEvaluationTable<F> {
-    pub fn new(_n_cols: usize, domain: &[FieldElement<F>]) -> Self {
-        let evaluations_acc = Vec::with_capacity(domain.len());
-
-        ConstraintEvaluationTable {
-            evaluations_acc,
-            trace_length: domain.len(),
-        }
+impl<F: IsField> ConstraintEvaluations<F> {
+    pub fn new(evaluations_acc: Vec<FieldElement<F>>) -> Self {
+        ConstraintEvaluations { evaluations_acc }
     }
 
     pub fn compute_composition_poly(&self, offset: &FieldElement<F>) -> Polynomial<FieldElement<F>>

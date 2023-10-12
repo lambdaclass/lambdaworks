@@ -1,3 +1,3 @@
 pub mod boundary;
-pub mod evaluation_table;
+pub mod evaluations;
 pub mod evaluator;
