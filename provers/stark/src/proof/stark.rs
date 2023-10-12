@@ -295,7 +295,7 @@ where
 
         bytes = &bytes[8..];
 
-        let composition_poly_parts_ood_evaluation = FieldElement::from_bytes_be(
+        let _composition_poly_parts_ood_evaluation = FieldElement::from_bytes_be(
             bytes
                 .get(..felt_len)
                 .ok_or(DeserializationError::InvalidAmountOfBytes)?,
@@ -441,16 +441,16 @@ mod prop_test {
             element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
         },
     };
-    use proptest::{collection, prelude::*, prop_compose, proptest};
+    use proptest::{collection, prelude::*, prop_compose};
 
     use crate::{
         config::{Commitment, COMMITMENT_SIZE},
         frame::Frame,
         fri::fri_decommit::FriDecommitment,
     };
-    use lambdaworks_math::traits::{Deserializable, Serializable};
+    use lambdaworks_math::traits::{Deserializable};
 
-    use super::{DeepPolynomialOpenings, StarkProof};
+    use super::{StarkProof};
 
     type FE = FieldElement<Stark252PrimeField>;
 

@@ -15,7 +15,7 @@ use log::info;
 #[cfg(feature = "parallel")]
 use rayon::prelude::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 
-use crate::config::{BatchedMerkleTreeBackend, FriMerkleTreeBackend};
+use crate::config::{BatchedMerkleTreeBackend};
 #[cfg(debug_assertions)]
 use crate::debug::validate_trace;
 use crate::fri::fri_commitment::FriLayer;
@@ -445,7 +445,7 @@ pub trait IsStarkProver {
         }
 
         let number_of_queries = air.options().fri_number_of_queries;
-        let iotas = Self::sample_query_indexes(number_of_queries, &domain, transcript);
+        let iotas = Self::sample_query_indexes(number_of_queries, domain, transcript);
         let query_list = Self::fri_query_phase(&fri_layers, &iotas);
 
         let fri_layers_merkle_roots: Vec<_> = fri_layers
@@ -611,13 +611,12 @@ pub trait IsStarkProver {
 
         let lde_composition_poly_parts_evaluation: Vec<_> = lde_composition_poly_evaluations
             .iter()
-            .map(|part| {
+            .flat_map(|part| {
                 vec![
                     part[reverse_index(index * 2, part.len() as u64)].clone(),
                     part[reverse_index(index * 2 + 1, part.len() as u64)].clone(),
                 ]
             })
-            .flatten()
             .collect();
 
         (proof, lde_composition_poly_parts_evaluation)

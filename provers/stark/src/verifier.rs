@@ -179,7 +179,7 @@ pub trait IsStarkVerifier {
         // FRI query phase
         // <<<< Send challenges 𝜄ₛ (iota_s)
         let number_of_queries = air.options().fri_number_of_queries;
-        let iotas = Self::sample_query_indexes(number_of_queries, &domain, transcript);
+        let iotas = Self::sample_query_indexes(number_of_queries, domain, transcript);
 
         Challenges {
             z,
@@ -378,7 +378,7 @@ pub trait IsStarkVerifier {
             .zip(&deep_poly_opening.lde_trace_merkle_proofs)
             .zip(lde_trace_evaluations)
             .fold(true, |acc, ((merkle_root, merkle_proof), evaluation)| {
-                acc & Self::verify_opening(&merkle_proof, &merkle_root, index, &evaluation)
+                acc & Self::verify_opening(merkle_proof, merkle_root, index, &evaluation)
             });
 
         let lde_trace_evaluations_sym = vec![
@@ -393,7 +393,7 @@ pub trait IsStarkVerifier {
             .zip(&deep_poly_opening_sym.lde_trace_merkle_proofs)
             .zip(lde_trace_evaluations_sym)
             .fold(true, |acc, ((merkle_root, merkle_proof), evaluation)| {
-                acc & Self::verify_opening(&merkle_proof, &merkle_root, index_sym, &evaluation)
+                acc & Self::verify_opening(merkle_proof, merkle_root, index_sym, &evaluation)
             });
         openings_are_valid & openings_sym_are_valid
     }
@@ -408,7 +408,7 @@ pub trait IsStarkVerifier {
         F: IsField,
         FieldElement<F>: Serializable,
     {
-        proof.verify::<BatchedMerkleTreeBackend<F>>(&root, index, &value)
+        proof.verify::<BatchedMerkleTreeBackend<F>>(root, index, value)
     }
 
     fn verify_composition_poly_opening<F>(
@@ -426,12 +426,11 @@ pub trait IsStarkVerifier {
             .clone();
         value.extend_from_slice(&deep_poly_opening_sym.lde_composition_poly_parts_evaluation);
 
-        let openings_are_valid =
-            deep_poly_opening
-                .lde_composition_poly_proof
-                .verify::<BatchedMerkleTreeBackend<F>>(composition_poly_merkle_root, *iota, &value);
+        
 
-        openings_are_valid
+        deep_poly_opening
+                .lde_composition_poly_proof
+                .verify::<BatchedMerkleTreeBackend<F>>(composition_poly_merkle_root, *iota, &value)
     }
 
     fn step_4_verify_trace_and_composition_openings<F: IsFFTField, A: AIR<Field = F>>(
@@ -452,8 +451,8 @@ pub trait IsStarkVerifier {
                 |mut result, ((iota_n, deep_poly_opening), deep_poly_openings_sym)| {
                     // Verify opening Open(H₁(D_LDE, 𝜐₀) and Open(H₂(D_LDE, 𝜐₀),
                     result &= Self::verify_composition_poly_opening(
-                        &deep_poly_opening,
-                        &deep_poly_openings_sym,
+                        deep_poly_opening,
+                        deep_poly_openings_sym,
                         &proof.composition_poly_root,
                         iota_n,
                     );
@@ -600,7 +599,7 @@ pub trait IsStarkVerifier {
             deep_poly_evaluations.push(Self::reconstruct_deep_composition_poly_evaluation(
                 proof,
                 &evaluation_point,
-                &primitive_root,
+                primitive_root,
                 challenges,
                 &proof.deep_poly_openings[i].lde_trace_evaluations,
                 &proof.deep_poly_openings[i].lde_composition_poly_parts_evaluation,
@@ -610,7 +609,7 @@ pub trait IsStarkVerifier {
             deep_poly_evaluations_sym.push(Self::reconstruct_deep_composition_poly_evaluation(
                 proof,
                 &evaluation_point,
-                &primitive_root,
+                primitive_root,
                 challenges,
                 &proof.deep_poly_openings_sym[i].lde_trace_evaluations,
                 &proof.deep_poly_openings_sym[i].lde_composition_poly_parts_evaluation,
@@ -655,7 +654,7 @@ pub trait IsStarkVerifier {
         for (j, h_i_upsilon) in lde_composition_poly_parts_evaluation.iter().enumerate() {
             let h_i_zpower = &proof.composition_poly_parts_ood_evaluation[j];
             let h_i_term = (h_i_upsilon - h_i_zpower) * &challenges.gammas[j];
-            h_terms = h_terms + h_i_term;
+            h_terms += h_i_term;
         }
         h_terms = h_terms * denom_composition;
 

@@ -161,12 +161,9 @@ mod prop_test {
     use lambdaworks_math::field::{
         element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
     };
-    use proptest::{collection, prelude::*, prop_compose, proptest};
+    use proptest::{collection, prelude::*, prop_compose};
 
-    use lambdaworks_math::traits::{Deserializable, Serializable};
-
-    use crate::frame::Frame;
-
+    
     type FE = FieldElement<Stark252PrimeField>;
 
     prop_compose! {

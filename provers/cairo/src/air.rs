@@ -1575,7 +1575,7 @@ mod prop_test {
     use stark_platinum_prover::proof::{options::ProofOptions, stark::StarkProof};
 
     use crate::{
-        air::{generate_cairo_proof, verify_cairo_proof},
+        air::{generate_cairo_proof},
         cairo_layout::CairoLayout,
         runner::run::generate_prover_args,
         tests::utils::cairo0_program_path,

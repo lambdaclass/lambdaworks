@@ -6,7 +6,7 @@ use lambdaworks_math::field::traits::IsPrimeField;
 use lambdaworks_math::traits::{ByteConversion, Deserializable, Serializable};
 
 use crate::config::Commitment;
-use crate::utils::{deserialize_proof, serialize_proof};
+use crate::utils::{deserialize_proof};
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct FriDecommitment<F: IsPrimeField> {
@@ -147,9 +147,9 @@ mod prop_test {
     use lambdaworks_math::field::{
         element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
     };
-    use proptest::{collection, prelude::*, prop_compose, proptest};
+    use proptest::{collection, prelude::*, prop_compose};
 
-    use lambdaworks_math::traits::{Deserializable, Serializable};
+    
 
     use crate::config::{Commitment, COMMITMENT_SIZE};
 
