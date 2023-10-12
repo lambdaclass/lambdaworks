@@ -6,6 +6,10 @@ use lambdaworks_math::traits::{Deserializable, Serializable};
 use stark_platinum_prover::proof::options::{ProofOptions, SecurityLevel};
 use stark_platinum_prover::proof::stark::StarkProof;
 
+use std::env;
+use std::fs::File;
+use std::io::{Error, ErrorKind};
+use std::process::Command;
 use std::time::Instant;
 
 use clap::{Args, Parser, Subcommand};
@@ -19,12 +23,19 @@ struct ProverArgs {
 
 #[derive(Subcommand, Debug)]
 enum ProverEntity {
+    #[clap(about = "Compile a given cairo program")]
+    Compile(CompileArgs),
     #[clap(about = "Generate a proof for a given compiled cairo program")]
     Prove(ProveArgs),
     #[clap(about = "Verify a proof for a given compiled cairo program")]
     Verify(VerifyArgs),
     #[clap(about = "Generate and verify a proof for a given compiled cairo program")]
     ProveAndVerify(ProveAndVerifyArgs),
+}
+
+#[derive(Args, Debug)]
+struct CompileArgs {
+    program_path: String,
 }
 
 #[derive(Args, Debug)]
@@ -41,6 +52,56 @@ struct VerifyArgs {
 #[derive(Args, Debug)]
 struct ProveAndVerifyArgs {
     program_path: String,
+}
+
+/// Get current directory and return it as a String
+fn get_root_dir() -> Result<String, Error> {
+    let path_buf = env::current_dir()?.canonicalize()?;
+    if let Some(path) = path_buf.to_str() {
+        return Ok(path.to_string());
+    }
+
+    Err(Error::new(ErrorKind::NotFound, "not found"))
+}
+
+/// Attemps to compile the Cairo program with `cairo-compile`
+/// and then save it to the desired path.  
+/// Returns `Ok` on success else returns `Error`
+fn cairo_compile(program_path: &String, out_file_path: &String) -> Result<(), Error> {
+    let out_file = File::create(out_file_path)?;
+
+    if let Err(err) = Command::new("cairo-compile")
+        .arg("--proof_mode")
+        .arg(program_path)
+        .stdout(out_file)
+        .spawn()
+    {
+        return Err(err);
+    }
+
+    Ok(())
+}
+
+/// Attemps to compile the Cairo program with `docker`
+/// and then save it to the desired path.  
+/// Returns `Ok` on success else returns `Error`
+fn docker_compile(program_path: &String, out_file_path: &String) -> Result<(), Error> {
+    let out_file = File::create(out_file_path)?;
+    let root_dir = get_root_dir()?;
+    if let Err(err) = Command::new("docker")
+        .arg("run")
+        .arg("-v")
+        .arg(format!("{}/:/pwd", root_dir))
+        .arg("cairo")
+        .arg("--proof_mode")
+        .arg(format!("/pwd/{}", program_path))
+        .stdout(out_file)
+        .spawn()
+    {
+        return Err(err);
+    }
+
+    Ok(())
 }
 
 fn generate_proof(
@@ -104,6 +165,17 @@ fn main() {
 
     let args: ProverArgs = ProverArgs::parse();
     match args.entity {
+        ProverEntity::Compile(args) => {
+            let out_file_path = args.program_path.replace(".cairo", ".json");
+
+            if cairo_compile(&args.program_path, &out_file_path).is_ok()
+                || docker_compile(&args.program_path, &out_file_path).is_ok()
+            {
+                println!("Compiled cairo program");
+            } else {
+                println!("Failed to compile cairo program\nEnsure cairo-compile or docker is installed (and running)")
+            }
+        }
         ProverEntity::Prove(args) => {
             // verify input file is .cairo
             if args.program_path.contains(".cairo") {

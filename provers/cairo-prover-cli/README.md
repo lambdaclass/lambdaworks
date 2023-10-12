@@ -105,3 +105,6 @@ For example:
 ```bash
 make compile_and_run_all PROGRAM_PATH=cairo_programs/cairo0/fibonacci_5.cairo
 ```
+
+AGREGAR COMO INSTALAR LA CLI COMO BINARIO
+`cargo uninstall`
