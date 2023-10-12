@@ -24,8 +24,6 @@ Output builtin is finished, and range check is supported but it's not sound yet.
 
 We expect to have something working in a good state by mid August 2023.
 
-CLI currently runs with 100 bits of conjecturable security
-
 ## [Documentation]([lambdaclass.github.io/lambdaworks/](https://lambdaclass.github.io/lambdaworks/starks/cairo.html))
 
 ## Table of Contents
@@ -71,50 +69,7 @@ To be added:
 
 ### 🚀 Prove and verify
 
-To compile and prove Cairo 0 programs without arguments you can use:
-
-```bash
-  make compile_and_prove PROGRAM=<program_path> PROOF_PATH=<output_proof_path>
-```
-
-For example:
-
-```bash
-  make prove PROGRAM_PATH=cairo_programs/cairo0/fibonacci_5.json PROOF_PATH=fibonacci_5.proof
-```
-
-Notice for compilation either `cairo-lang` or `docker` is required
-
-If the program is already compiled you can use:
-
-```bash
-make prove PROGRAM_PATH=<compiled_program_path> PROOF_PATH=<output_proof_path>
-```
-
-For example:
-
-```bash
-make prove PROGRAM_PATH=cairo_programs/cairo0/fibonacci_5.json PROOF_PATH=program_proof.proof
-```
-
-To verify a proof you can use:
-  
-```bash
-make verify PROOF_PATH=<proof_path>
-```
-
-For example:
-
-```bash
-make verify PROOF_PATH=fibonacci_5.proof
-```
-
-To prove and verify with a single command you can use:
-
-```bash
-make run_all PROGRAM_PATH=<proof_path>
-```
-
+To prove and verify a program through the CLI, refer to the [CLI documentation](https://lambdaclass.github.io/lambdaworks/tree/main/provers/cairo-prover-cli/README.md).
 ### Using WASM verifier
 
 To use the verifier in WASM, generate a npm package using `wasm-pack`
