@@ -11,7 +11,7 @@ use clap::Parser;
 use std::env;
 use std::fs::File;
 use std::io::{Error, ErrorKind};
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::time::Instant;
 
 /// Get current directory and return it as a String
@@ -33,6 +33,7 @@ fn cairo_compile(program_path: &String, out_file_path: &String) -> Result<(), Er
     match Command::new("cairo-compile")
         .arg("--proof_mode")
         .arg(program_path)
+        .stderr(Stdio::null())
         .stdout(out_file)
         .spawn()
     {
@@ -61,13 +62,20 @@ fn docker_compile(program_path: &String, out_file_path: &String) -> Result<(), E
         .arg("cairo")
         .arg("--proof_mode")
         .arg(format!("/pwd/{}", program_path))
+        .stderr(Stdio::null())
         .stdout(out_file)
         .spawn()
     {
         Ok(mut child) => {
             // wait for spawned proccess to finish
             match child.wait() {
-                Ok(_) => Ok(()),
+                Ok(status) => match status.code() {
+                    Some(0) => Ok(()), // exit success
+                    _ => Err(Error::new(
+                        ErrorKind::Other,
+                        "File provided is not a Cairo uncompiled",
+                    )),
+                },
                 Err(err) => Err(err),
             }
         }
@@ -78,6 +86,14 @@ fn docker_compile(program_path: &String, out_file_path: &String) -> Result<(), E
 /// Attemps to compile the Cairo program
 /// with either `cairo-compile` or `docker``
 fn try_compile(program_path: &String, out_file_path: &String) -> Result<(), Error> {
+    if !program_path.contains(".cairo") {
+        println!("The program provided is not an uncompiled .cairo program");
+        return Err(Error::new(
+            ErrorKind::Other,
+            "File provided is not a Cairo uncompiled",
+        ));
+    }
+
     if cairo_compile(program_path, out_file_path).is_ok()
         || docker_compile(program_path, out_file_path).is_ok()
     {
@@ -87,7 +103,7 @@ fn try_compile(program_path: &String, out_file_path: &String) -> Result<(), Erro
         println!("Failed to compile cairo program\nEnsure cairo-compile or docker is installed (and running)");
         Err(Error::new(
             ErrorKind::Other,
-            "fail to compile cairo program",
+            "Failed to compile cairo program",
         ))
     }
 }
