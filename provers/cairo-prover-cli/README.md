@@ -22,7 +22,7 @@ To prove programs Cairo has to be compiled. For compilation you need to have `ca
 
 When using Docker, start by creating the container image with:
 
-```**bash**
+```bash
   make docker_build_cairo_compiler
 ```
 
@@ -32,50 +32,52 @@ Examples of Cairo 0 programs can be found [here](https://github.com/lambdaclass/
 **To compile and generate a proof you can use:**
 
 ```bash
-make compile_and_prove PROGRAM_PATH=<program_path> PROOF_PATH=<output_proof_path>
+cairo-platinum-prover-cli compile-and-prove <program_path> <output_proof_path>
 ```
+
+(note: if you don't have the CLI compile you can replace `cairo-platinum-prover-cli` with `cargo run --release`)
 
 For example:
 
 ```bash
-make compile_and_prove PROGRAM_PATH=cairo_programs/cairo0/fibonacci_5.cairo PROOF_PATH=cairo_programs/cairo0/fibonacci_5.proof
+cairo-platinum-prover-cli compile-and-prove cairo_programs/cairo0/fibonacci_5.cairo cairo_programs/cairo0/fibonacci_5.proof
 ```
 
 
 **To verify a proof you can use:**
 
 ```bash
-make verify PROOF_PATH=<proof_path>
+cairo-platinum-prover-cli verify <proof_path>
 ```
 
 For example:
 
 ```bash
-make verify PROOF_PATH=fibonacci_5.proof
+cairo-platinum-prover-cli verify fibonacci_5.proof
 ```
 
 **To compile Cairo:**
 
 ```bash
-make compile PROGRAM_PATH=<uncompiled_program_path> 
+cairo-platinum-prover-cli compile <uncompiled_program_path> 
 ```
 
 For example:
 
 ```bash
-make compile PROGRAM_PATH=cairo_programs/cairo0/fibonacci_5.cairo
+cairo-platinum-prover-cli compile cairo_programs/cairo0/fibonacci_5.cairo
 ```
 
 **To prove a compiled program:**
 
 ```bash
-make prove PROGRAM_PATH=<compiled_program_path> PROOF_PATH=<output_proof_path>
+cairo-platinum-prover-cli prove <compiled_program_path> <output_proof_path>
 ```
 
 For example:
 
 ```bash
-make prove PROGRAM_PATH=cairo_programs/cairo0/fibonacci_5.json PROOF_PATH=program_proof.proof
+cairo-platinum-prover-cli prove cairo_programs/cairo0/fibonacci_5.json program_proof.proof
 ```
 
 
@@ -83,13 +85,13 @@ make prove PROGRAM_PATH=cairo_programs/cairo0/fibonacci_5.json PROOF_PATH=progra
 **To prove and verify with a single command you can use:**
 
 ```bash
-make run_all PROGRAM_PATH=<compiled_program_path>
+cairo-platinum-prover-cli run_all <compiled_program_path>
 ```
 
 For example:
 
 ```bash
-make run_all PROGRAM_PATH=cairo_programs/cairo0/fibonacci_5.json
+cairo-platinum-prover-cli run_all cairo_programs/cairo0/fibonacci_5.json
 ```
 
 
@@ -97,14 +99,20 @@ make run_all PROGRAM_PATH=cairo_programs/cairo0/fibonacci_5.json
 **To compile, proof, prove and verify at the same time you can use:**
 
 ```bash
-make compile_and_run_all PROGRAM_PATH=<program_path>
+cairo-platinum-prover-cli compile_and_run_all <program_path>
 ```
 
 For example:
 
 ```bash
-make compile_and_run_all PROGRAM_PATH=cairo_programs/cairo0/fibonacci_5.cairo
+cairo-platinum-prover-cli compile_and_run_all cairo_programs/cairo0/fibonacci_5.cairo
 ```
 
-AGREGAR COMO INSTALAR LA CLI COMO BINARIO
-`cargo uninstall`
+**To install as a binary run the command on the root directory of the CLI:**
+```bash
+cargo install --path .
+```
+**You can uninstall it with:**
+```bash
+cargo uninstall
+```

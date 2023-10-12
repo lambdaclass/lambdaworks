@@ -30,16 +30,21 @@ fn get_root_dir() -> Result<String, Error> {
 fn cairo_compile(program_path: &String, out_file_path: &String) -> Result<(), Error> {
     let out_file = File::create(out_file_path)?;
 
-    if let Err(err) = Command::new("cairo-compile")
+    match Command::new("cairo-compile")
         .arg("--proof_mode")
         .arg(program_path)
         .stdout(out_file)
         .spawn()
     {
-        return Err(err);
+        Ok(mut child) => {
+            // wait for spawned proccess to finish
+            match child.wait() {
+                Ok(_) => Ok(()),
+                Err(err) => Err(err),
+            }
+        }
+        Err(err) => Err(err),
     }
-
-    Ok(())
 }
 
 /// Attemps to compile the Cairo program with `docker`
@@ -48,7 +53,7 @@ fn cairo_compile(program_path: &String, out_file_path: &String) -> Result<(), Er
 fn docker_compile(program_path: &String, out_file_path: &String) -> Result<(), Error> {
     let out_file = File::create(out_file_path)?;
     let root_dir = get_root_dir()?;
-    if let Err(err) = Command::new("docker")
+    match Command::new("docker")
         .arg("run")
         .arg("--rm")
         .arg("-v")
@@ -59,17 +64,22 @@ fn docker_compile(program_path: &String, out_file_path: &String) -> Result<(), E
         .stdout(out_file)
         .spawn()
     {
-        return Err(err);
+        Ok(mut child) => {
+            // wait for spawned proccess to finish
+            match child.wait() {
+                Ok(_) => Ok(()),
+                Err(err) => Err(err),
+            }
+        }
+        Err(err) => Err(err),
     }
-
-    Ok(())
 }
 
 /// Attemps to compile the Cairo program
 /// with either `cairo-compile` or `docker``
 fn try_compile(program_path: &String, out_file_path: &String) -> Result<(), Error> {
-    if cairo_compile(program_path, &out_file_path).is_ok()
-        || docker_compile(program_path, &out_file_path).is_ok()
+    if cairo_compile(program_path, out_file_path).is_ok()
+        || docker_compile(program_path, out_file_path).is_ok()
     {
         println!("Compiled cairo program");
         Ok(())
@@ -113,7 +123,7 @@ fn generate_proof(
         }
     };
 
-    println!("Time spent in proving: {:?} \n", timer.elapsed());
+    println!("  Time spent in proving: {:?} \n", timer.elapsed());
 
     Some((proof, pub_inputs))
 }
@@ -127,7 +137,7 @@ fn verify_proof(
 
     println!("Verifying ...");
     let proof_verified = verify_cairo_proof(&proof, &pub_inputs, proof_options);
-    println!("Time spent in verifying: {:?} \n", timer.elapsed());
+    println!("  Time spent in verifying: {:?} \n", timer.elapsed());
 
     if proof_verified {
         println!("Verification succeded");
