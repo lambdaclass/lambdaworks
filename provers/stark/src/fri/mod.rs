@@ -6,6 +6,7 @@ use std::marker::PhantomData;
 
 use lambdaworks_crypto::merkle_tree::merkle::MerkleTree;
 use lambdaworks_crypto::merkle_tree::traits::IsMerkleTreeBackend;
+use lambdaworks_math::fft::cpu::bit_reversing::in_place_bit_reverse_permute;
 use lambdaworks_math::fft::polynomial::FFTPoly;
 use lambdaworks_math::field::traits::{IsFFTField, IsPrimeField};
 use lambdaworks_math::traits::Serializable;
@@ -14,7 +15,7 @@ pub use lambdaworks_math::{
     polynomial::Polynomial,
 };
 
-use crate::config::FriMerkleTreeBackend;
+use crate::config::{BatchedMerkleTree, BatchedMerkleTreeBackend, FriMerkleTreeBackend};
 use crate::transcript::IsStarkTranscript;
 
 use self::fri_commitment::FriLayer;
@@ -98,28 +99,24 @@ pub trait IsFri {
             let query_list = iotas
                 .iter()
                 .map(|iota_s| {
-                    // <<<< Receive challenge 𝜄ₛ (iota_s)
-                    let mut layers_auth_paths_sym = vec![];
-                    let mut layers_evaluations_sym = vec![];
-                    let mut layers_auth_paths = vec![];
+                    let mut layers_evaluations_sym = Vec::new();
+                    let mut layers_auth_paths_sym = Vec::new();
 
+                    let mut index = *iota_s;
                     for layer in fri_layers {
-                        let index = iota_s % layer.domain_size;
-                        let auth_path = layer.merkle_tree.get_proof_by_pos(index).unwrap();
                         // symmetric element
-                        let index_sym = (iota_s + layer.domain_size / 2) % layer.domain_size;
-                        let evaluation_sym = layer.evaluation[index_sym].clone();
-                        let auth_path_sym = layer.merkle_tree.get_proof_by_pos(index_sym).unwrap();
-
-                        layers_auth_paths_sym.push(auth_path_sym);
+                        let evaluation_sym = layer.evaluation[index ^ 1].clone();
+                        let auth_path_sym = layer.merkle_tree.get_proof_by_pos(index ^ 1).unwrap();
                         layers_evaluations_sym.push(evaluation_sym);
-                        layers_auth_paths.push(auth_path);
+                        layers_auth_paths_sym.push(auth_path_sym);
+
+                        index >>= 1;
                     }
 
                     FriDecommitment {
+                        layers_auth_paths: layers_auth_paths_sym.clone(),
                         layers_auth_paths_sym,
                         layers_evaluations_sym,
-                        layers_auth_paths,
                     }
                 })
                 .collect();
@@ -145,17 +142,30 @@ where
     FieldElement<F>: Serializable,
 {
     type Field = F;
-    type MerkleTreeBackend = FriMerkleTreeBackend<F>;
+    type MerkleTreeBackend = BatchedMerkleTreeBackend<F>;
+
     fn new_fri_layer(
-        poly: &Polynomial<FieldElement<F>>,
-        coset_offset: &FieldElement<F>,
+        poly: &Polynomial<FieldElement<Self::Field>>,
+        coset_offset: &FieldElement<Self::Field>,
         domain_size: usize,
-    ) -> FriLayer<F, Self::MerkleTreeBackend> {
-        let evaluation = poly
+    ) -> crate::fri::fri_commitment::FriLayer<Self::Field, Self::MerkleTreeBackend>
+    where
+        F: IsFFTField,
+        FieldElement<F>: Serializable,
+    {
+        let mut evaluation = poly
             .evaluate_offset_fft(1, Some(domain_size), coset_offset)
             .unwrap(); // TODO: return error
 
-        let merkle_tree = MerkleTree::build(&evaluation);
+        in_place_bit_reverse_permute(&mut evaluation);
+
+        let mut to_commit = Vec::new();
+        for chunk in evaluation.chunks(2) {
+            to_commit.push(vec![chunk[0].clone(), chunk[1].clone()]);
+        }
+
+        // TODO: Fix leaves
+        let merkle_tree = BatchedMerkleTree::build(&to_commit);
 
         FriLayer::new(&evaluation, merkle_tree, coset_offset.clone(), domain_size)
     }

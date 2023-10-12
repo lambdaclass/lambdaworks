@@ -21,7 +21,6 @@ use crate::config::{BatchedMerkleTreeBackend, FriMerkleTreeBackend};
 use crate::debug::validate_trace;
 use crate::fri::fri_commitment::FriLayer;
 use crate::fri::{Fri, IsFri};
-use crate::stone::StoneCompatibleFri;
 use crate::transcript::IsStarkTranscript;
 
 use super::config::{BatchedMerkleTree, Commitment};
@@ -94,7 +93,7 @@ pub trait IsStarkProver {
     where
         FieldElement<Self::Field>: Serializable,
     {
-        StoneCompatibleFri::fri_commit_phase(
+        Fri::fri_commit_phase(
             number_layers,
             p_0,
             transcript,
@@ -110,7 +109,7 @@ pub trait IsStarkProver {
     where
         FieldElement<Self::Field>: Serializable,
     {
-        StoneCompatibleFri::fri_query_phase(fri_layers, iotas)
+        Fri::fri_query_phase(fri_layers, iotas)
     }
 
     fn batch_commit(
