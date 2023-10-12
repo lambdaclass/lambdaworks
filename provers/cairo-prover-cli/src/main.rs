@@ -90,6 +90,7 @@ fn docker_compile(program_path: &String, out_file_path: &String) -> Result<(), E
     let root_dir = get_root_dir()?;
     if let Err(err) = Command::new("docker")
         .arg("run")
+        .arg("--rm")
         .arg("-v")
         .arg(format!("{}/:/pwd", root_dir))
         .arg("cairo")
