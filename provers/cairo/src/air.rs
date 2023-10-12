@@ -1661,11 +1661,9 @@ mod prop_test {
 
         // At this point, the verifier only knows about the serialized proof, the proof options
         // and the public inputs.
-        let proof: StarkProof::<Stark252PrimeField> = serde_cbor::from_slice(&proof_bytes).unwrap();
+        let proof: StarkProof<Stark252PrimeField> = serde_cbor::from_slice(&proof_bytes).unwrap();
 
         // The proof is verified successfully.
         assert!(verify_cairo_proof(&proof, &pub_inputs, &proof_options));
     }
-
-
 }

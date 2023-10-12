@@ -4,7 +4,6 @@ mod fri_functions;
 
 use std::marker::PhantomData;
 
-
 use lambdaworks_crypto::merkle_tree::traits::IsMerkleTreeBackend;
 use lambdaworks_math::fft::cpu::bit_reversing::in_place_bit_reverse_permute;
 use lambdaworks_math::fft::polynomial::FFTPoly;

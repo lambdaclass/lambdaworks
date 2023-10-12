@@ -15,7 +15,7 @@ use log::info;
 #[cfg(feature = "parallel")]
 use rayon::prelude::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 
-use crate::config::{BatchedMerkleTreeBackend};
+use crate::config::BatchedMerkleTreeBackend;
 #[cfg(debug_assertions)]
 use crate::debug::validate_trace;
 use crate::fri::fri_commitment::FriLayer;

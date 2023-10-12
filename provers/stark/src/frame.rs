@@ -163,7 +163,6 @@ mod prop_test {
     };
     use proptest::{collection, prelude::*, prop_compose};
 
-    
     type FE = FieldElement<Stark252PrimeField>;
 
     prop_compose! {

@@ -426,11 +426,9 @@ pub trait IsStarkVerifier {
             .clone();
         value.extend_from_slice(&deep_poly_opening_sym.lde_composition_poly_parts_evaluation);
 
-        
-
         deep_poly_opening
-                .lde_composition_poly_proof
-                .verify::<BatchedMerkleTreeBackend<F>>(composition_poly_merkle_root, *iota, &value)
+            .lde_composition_poly_proof
+            .verify::<BatchedMerkleTreeBackend<F>>(composition_poly_merkle_root, *iota, &value)
     }
 
     fn step_4_verify_trace_and_composition_openings<F: IsFFTField, A: AIR<Field = F>>(

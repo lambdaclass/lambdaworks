@@ -47,4 +47,3 @@ pub struct StarkProof<F: IsFFTField> {
     // nonce obtained from grinding
     pub nonce: u64,
 }
-

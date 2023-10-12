@@ -145,8 +145,7 @@ fn main() {
                 println!("Error reading proof from file: {}", args.proof_path);
                 return;
             }
-            let Ok(proof) = serde_cbor::from_slice(&bytes[0..proof_len])
-            else {
+            let Ok(proof) = serde_cbor::from_slice(&bytes[0..proof_len]) else {
                 println!("Error reading proof from file: {}", args.proof_path);
                 return;
             };
