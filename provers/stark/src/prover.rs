@@ -1,10 +1,10 @@
-use std::marker::PhantomData;
 #[cfg(feature = "instruments")]
 use std::time::Instant;
 
 use lambdaworks_crypto::merkle_tree::proof::Proof;
 use lambdaworks_math::fft::cpu::bit_reversing::{in_place_bit_reverse_permute, reverse_index};
 use lambdaworks_math::fft::{errors::FFTError, polynomial::FFTPoly};
+use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
 use lambdaworks_math::traits::Serializable;
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsFFTField},
@@ -75,6 +75,23 @@ pub struct Round4<F: IsFFTField> {
     query_list: Vec<FriDecommitment<F>>,
     nonce: u64,
 }
+pub fn evaluate_polynomial_on_lde_domain<F>(
+    p: &Polynomial<FieldElement<F>>,
+    blowup_factor: usize,
+    domain_size: usize,
+    offset: &FieldElement<F>,
+) -> Result<Vec<FieldElement<F>>, FFTError>
+where
+    F: IsFFTField,
+    Polynomial<FieldElement<F>>: FFTPoly<F>,
+{
+    let evaluations = p.evaluate_offset_fft(blowup_factor, Some(domain_size), offset)?;
+    let step = evaluations.len() / (domain_size * blowup_factor);
+    match step {
+        1 => Ok(evaluations),
+        _ => Ok(evaluations.into_iter().step_by(step).collect()),
+    }
+}
 
 pub trait IsStarkProver {
     type Field: IsFFTField;
@@ -114,23 +131,6 @@ pub trait IsStarkProver {
         let tree = BatchedMerkleTree::<Self::Field>::build(vectors);
         let commitment = tree.root;
         (tree, commitment)
-    }
-
-    fn evaluate_polynomial_on_lde_domain(
-        p: &Polynomial<FieldElement<Self::Field>>,
-        blowup_factor: usize,
-        domain_size: usize,
-        offset: &FieldElement<Self::Field>,
-    ) -> Result<Vec<FieldElement<Self::Field>>, FFTError>
-    where
-        Polynomial<FieldElement<Self::Field>>: FFTPoly<Self::Field>,
-    {
-        let evaluations = p.evaluate_offset_fft(blowup_factor, Some(domain_size), offset)?;
-        let step = evaluations.len() / (domain_size * blowup_factor);
-        match step {
-            1 => Ok(evaluations),
-            _ => Ok(evaluations.into_iter().step_by(step).collect()),
-        }
     }
 
     fn apply_permutation(vector: &mut Vec<FieldElement<Self::Field>>, permutation: &[usize]) {
@@ -203,7 +203,7 @@ pub trait IsStarkProver {
 
         trace_polys_iter
             .map(|poly| {
-                Self::evaluate_polynomial_on_lde_domain(
+                evaluate_polynomial_on_lde_domain(
                     poly,
                     domain.blowup_factor,
                     domain.interpolation_domain_size,
@@ -316,7 +316,7 @@ pub trait IsStarkProver {
         let lde_composition_poly_parts_evaluations: Vec<_> = composition_poly_parts
             .iter()
             .map(|part| {
-                Self::evaluate_polynomial_on_lde_domain(
+                evaluate_polynomial_on_lde_domain(
                     part,
                     domain.blowup_factor,
                     domain.interpolation_domain_size,
@@ -928,16 +928,10 @@ pub trait IsStarkProver {
     }
 }
 
-pub struct Prover<F: IsFFTField> {
-    phantom: PhantomData<F>,
-}
+pub struct Prover;
 
-impl<F> IsStarkProver for Prover<F>
-where
-    F: IsFFTField,
-    FieldElement<F>: Serializable,
-{
-    type Field = F;
+impl IsStarkProver for Prover {
+    type Field = Stark252PrimeField;
 }
 
 #[cfg(test)]
@@ -1029,13 +1023,9 @@ mod tests {
         .unwrap();
 
         for poly in trace_polys.iter() {
-            let lde_evaluation = Prover::evaluate_polynomial_on_lde_domain(
-                poly,
-                blowup_factor,
-                domain_size,
-                &coset_offset,
-            )
-            .unwrap();
+            let lde_evaluation =
+                evaluate_polynomial_on_lde_domain(poly, blowup_factor, domain_size, &coset_offset)
+                    .unwrap();
             assert_eq!(lde_evaluation.len(), trace_length * blowup_factor);
             for (i, evaluation) in lde_evaluation.iter().enumerate() {
                 assert_eq!(
@@ -1053,8 +1043,7 @@ mod tests {
         let domain_size: usize = 8;
         let offset = Felt252::from(3);
         let evaluations =
-            Prover::evaluate_polynomial_on_lde_domain(&poly, blowup_factor, domain_size, &offset)
-                .unwrap();
+            evaluate_polynomial_on_lde_domain(&poly, blowup_factor, domain_size, &offset).unwrap();
         assert_eq!(evaluations.len(), domain_size * blowup_factor);
 
         let primitive_root: Felt252 = Stark252PrimeField::get_primitive_root_of_unity(
@@ -1165,10 +1154,7 @@ mod tests {
         )
         .unwrap();
 
-        assert!(Verifier::verify::<
-            Stark252PrimeField,
-            Fibonacci2ColsShifted<_>,
-        >(
+        assert!(Verifier::verify::<Fibonacci2ColsShifted<_>>(
             &proof,
             &pub_inputs,
             &proof_options,
@@ -1364,7 +1350,7 @@ mod tests {
             )
         );
 
-        // Composition poly auth path layer 0
+        // Composition poly auth path level 0
         assert_eq!(
             proof.deep_poly_openings[0]
                 .lde_composition_poly_proof
@@ -1373,7 +1359,7 @@ mod tests {
             decode_hex("403b75a122eaf90a298e5d3db2cc7ca096db478078122379a6e3616e72da7546").unwrap()
         );
 
-        // Composition poly auth path layer 1
+        // Composition poly auth path level 1
         assert_eq!(
             proof.deep_poly_openings[0]
                 .lde_composition_poly_proof
@@ -1382,7 +1368,7 @@ mod tests {
             decode_hex("07950888c0355c204a1e83ecbee77a0a6a89f93d41cc2be6b39ddd1e727cc965").unwrap()
         );
 
-        // Composition poly auth path layer 2
+        // Composition poly auth path level 2
         assert_eq!(
             proof.deep_poly_openings[0]
                 .lde_composition_poly_proof
@@ -1402,7 +1388,7 @@ mod tests {
             2
         );
 
-        // Deep composition poly layer 1
+        // FRI layer 1 evaluation symmetric
         assert_eq!(
             proof.query_list[0].layers_evaluations_sym[0],
             FieldElement::from_hex_unchecked(
@@ -1410,11 +1396,13 @@ mod tests {
             )
         );
 
+        // FRI layer 1 auth path level 0
         assert_eq!(
             proof.query_list[0].layers_auth_paths_sym[0].merkle_path[0].to_vec(),
             decode_hex("0683622478e9e93cc2d18754872f043619f030b494d7ec8e003b1cbafe83b67b").unwrap()
         );
 
+        // FRI layer 1 auth path level 1
         assert_eq!(
             proof.query_list[0].layers_auth_paths_sym[0].merkle_path[1].to_vec(),
             decode_hex("7985d945abe659a7502698051ec739508ed6bab594984c7f25e095a0a57a2e55").unwrap()

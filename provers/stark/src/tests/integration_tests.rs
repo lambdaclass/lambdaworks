@@ -36,10 +36,7 @@ fn test_prove_fib() {
         StoneProverTranscript::new(&[]),
     )
     .unwrap();
-    assert!(Verifier::verify::<
-        Stark252PrimeField,
-        FibonacciAIR<Stark252PrimeField>,
-    >(
+    assert!(Verifier::verify::<FibonacciAIR<Stark252PrimeField>>(
         &proof,
         &pub_inputs,
         &proof_options,
@@ -71,7 +68,7 @@ fn test_prove_fib17() {
         StoneProverTranscript::new(&[]),
     )
     .unwrap();
-    assert!(Verifier::verify::<_, FibonacciAIR<_>>(
+    assert!(Verifier::verify::<FibonacciAIR<_>>(
         &proof,
         &pub_inputs,
         &proof_options,
@@ -97,10 +94,7 @@ fn test_prove_fib_2_cols() {
         StoneProverTranscript::new(&[]),
     )
     .unwrap();
-    assert!(Verifier::verify::<
-        Stark252PrimeField,
-        Fibonacci2ColsAIR<Stark252PrimeField>,
-    >(
+    assert!(Verifier::verify::<Fibonacci2ColsAIR<Stark252PrimeField>>(
         &proof,
         &pub_inputs,
         &proof_options,
@@ -128,10 +122,7 @@ fn test_prove_fib_2_cols_shifted() {
         StoneProverTranscript::new(&[]),
     )
     .unwrap();
-    assert!(Verifier::verify::<
-        Stark252PrimeField,
-        Fibonacci2ColsShifted<_>,
-    >(
+    assert!(Verifier::verify::<Fibonacci2ColsShifted<_>>(
         &proof,
         &pub_inputs,
         &proof_options,
@@ -156,10 +147,7 @@ fn test_prove_quadratic() {
         StoneProverTranscript::new(&[]),
     )
     .unwrap();
-    assert!(Verifier::verify::<
-        Stark252PrimeField,
-        QuadraticAIR<Stark252PrimeField>,
-    >(
+    assert!(Verifier::verify::<QuadraticAIR<Stark252PrimeField>>(
         &proof,
         &pub_inputs,
         &proof_options,
@@ -187,10 +175,7 @@ fn test_prove_rap_fib() {
         StoneProverTranscript::new(&[]),
     )
     .unwrap();
-    assert!(Verifier::verify::<
-        Stark252PrimeField,
-        FibonacciRAP<Stark252PrimeField>,
-    >(
+    assert!(Verifier::verify::<FibonacciRAP<Stark252PrimeField>>(
         &proof,
         &pub_inputs,
         &proof_options,
@@ -208,7 +193,7 @@ fn test_prove_dummy() {
     let proof =
         Prover::prove::<DummyAIR>(&trace, &(), &proof_options, StoneProverTranscript::new(&[]))
             .unwrap();
-    assert!(Verifier::verify::<Stark252PrimeField, DummyAIR>(
+    assert!(Verifier::verify::<DummyAIR>(
         &proof,
         &(),
         &proof_options,

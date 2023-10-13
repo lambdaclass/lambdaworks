@@ -1270,7 +1270,7 @@ pub fn verify_cairo_proof(
     pub_input: &PublicInputs,
     proof_options: &ProofOptions,
 ) -> bool {
-    Verifier::verify::<Stark252PrimeField, CairoAIR>(
+    Verifier::verify::<CairoAIR>(
         proof,
         pub_input,
         proof_options,
