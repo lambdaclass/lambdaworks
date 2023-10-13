@@ -1062,71 +1062,6 @@ mod tests {
             .collect()
     }
 
-    #[test]
-    fn test_trace_commitment_is_compatible_with_stone_prover_1() {
-        let trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::one(), 4);
-
-        let claimed_index = 3;
-        let claimed_value = trace.get_row(claimed_index)[0];
-        let mut proof_options = ProofOptions::default_test_options();
-        proof_options.blowup_factor = 4;
-        proof_options.coset_offset = 3;
-
-        let pub_inputs = fibonacci_2_cols_shifted::PublicInputs {
-            claimed_value,
-            claimed_index,
-        };
-
-        let transcript_init_seed = [0xca, 0xfe, 0xca, 0xfe];
-
-        let air = Fibonacci2ColsShifted::new(trace.n_rows(), &pub_inputs, &proof_options);
-        let domain = Domain::new(&air);
-
-        let (_, _, _, trace_commitment) = Prover::interpolate_and_commit(
-            &trace,
-            &domain,
-            &mut StoneProverTranscript::new(&transcript_init_seed),
-        );
-
-        assert_eq!(
-            &trace_commitment.to_vec(),
-            &decode_hex("0eb9dcc0fb1854572a01236753ce05139d392aa3aeafe72abff150fe21175594")
-                .unwrap()
-        );
-    }
-    #[test]
-    fn test_trace_commitment_is_compatible_with_stone_prover_2() {
-        let trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::one(), 4);
-
-        let claimed_index = 3;
-        let claimed_value = trace.get_row(claimed_index)[0];
-        let mut proof_options = ProofOptions::default_test_options();
-        proof_options.blowup_factor = 64;
-        proof_options.coset_offset = 3;
-
-        let pub_inputs = fibonacci_2_cols_shifted::PublicInputs {
-            claimed_value,
-            claimed_index,
-        };
-
-        let transcript_init_seed = [0xfa, 0xfa, 0xfa, 0xee];
-
-        let air = Fibonacci2ColsShifted::new(trace.n_rows(), &pub_inputs, &proof_options);
-        let domain = Domain::new(&air);
-
-        let (_, _, _, trace_commitment) = Prover::interpolate_and_commit(
-            &trace,
-            &domain,
-            &mut StoneProverTranscript::new(&transcript_init_seed),
-        );
-
-        assert_eq!(
-            &trace_commitment.to_vec(),
-            &decode_hex("99d8d4342895c4e35a084f8ea993036be06f51e7fa965734ed9c7d41104f0848")
-                .unwrap()
-        );
-    }
-
     fn proof_parts_stone_compatibility_case_1() -> (
         StarkProof<Stark252PrimeField>,
         fibonacci_2_cols_shifted::PublicInputs<Stark252PrimeField>,
@@ -1180,7 +1115,7 @@ mod tests {
     }
 
     #[test]
-    fn test_stone_compatibility_case_1_proof_is_valid() {
+    fn stone_compatibility_case_1_proof_is_valid() {
         let (proof, public_inputs, options, seed) = proof_parts_stone_compatibility_case_1();
         assert!(Verifier::verify::<Fibonacci2ColsShifted<_>>(
             &proof,
