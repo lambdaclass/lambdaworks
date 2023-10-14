@@ -1341,7 +1341,7 @@ mod tests {
             decode_hex("993b044db22444c0c0ebf1095b9a51faeb001c9b4dea36abe905f7162620dbbd").unwrap()
         );
 
-        // Trace poly auth path level 3 
+        // Trace poly auth path level 3
         assert_eq!(
             proof.deep_poly_openings[0].lde_trace_merkle_proofs[0].merkle_path[3].to_vec(),
             decode_hex("5017abeca33fa82576b5c5c2c61792693b48c9d4414a407eef66b6029dae07ea").unwrap()
@@ -1442,6 +1442,97 @@ mod tests {
         assert_eq!(
             proof.query_list[0].layers_auth_paths_sym[0].merkle_path[1].to_vec(),
             decode_hex("7985d945abe659a7502698051ec739508ed6bab594984c7f25e095a0a57a2e55").unwrap()
+        );
+    }
+
+    fn proof_parts_stone_compatibility_case_2() -> (
+        StarkProof<Stark252PrimeField>,
+        fibonacci_2_cols_shifted::PublicInputs<Stark252PrimeField>,
+        ProofOptions,
+        [u8; 4],
+    ) {
+        let trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::from(12345), 512);
+
+        let claimed_index = 420;
+        let claimed_value = trace.get_row(claimed_index)[0];
+        let mut proof_options = ProofOptions::default_test_options();
+        proof_options.blowup_factor = 1 << 6;
+        proof_options.coset_offset = 3;
+        proof_options.grinding_factor = 0;
+        proof_options.fri_number_of_queries = 1;
+
+        let pub_inputs = fibonacci_2_cols_shifted::PublicInputs {
+            claimed_value,
+            claimed_index,
+        };
+
+        let transcript_init_seed = [0xfa, 0xfa, 0xfa, 0xee];
+
+        let proof = Prover::prove::<Fibonacci2ColsShifted<_>>(
+            &trace,
+            &pub_inputs,
+            &proof_options,
+            StoneProverTranscript::new(&transcript_init_seed),
+        )
+        .unwrap();
+        (proof, pub_inputs, proof_options, transcript_init_seed)
+    }
+
+    fn stone_compatibility_case_2_proof() -> StarkProof<Stark252PrimeField> {
+        let (proof, _, _, _) = proof_parts_stone_compatibility_case_2();
+        proof
+    }
+
+    fn stone_compatibility_case_2_challenges(
+    ) -> Challenges<Stark252PrimeField, Fibonacci2ColsShifted<Stark252PrimeField>> {
+        let (proof, public_inputs, options, seed) = proof_parts_stone_compatibility_case_2();
+
+        let air = Fibonacci2ColsShifted::new(proof.trace_length, &public_inputs, &options);
+        let domain = Domain::new(&air);
+        Verifier::step_1_replay_rounds_and_recover_challenges(
+            &air,
+            &proof,
+            &domain,
+            &mut StoneProverTranscript::new(&seed),
+        )
+    }
+
+    #[test]
+    fn stone_compatibility_case_2_trace_commitment() {
+        let proof = stone_compatibility_case_2_proof();
+
+        assert_eq!(
+            proof.lde_trace_merkle_roots[0].to_vec(),
+            decode_hex("6d31dd00038974bde5fe0c5e3a765f8ddc822a5df3254fca85a1950ae0208cbe").unwrap()
+        );
+    }
+
+    #[test]
+    fn stone_compatibility_case_2_fri_query_iota_challenge() {
+        let challenges = stone_compatibility_case_2_challenges();
+        assert_eq!(challenges.iotas[0], 4239);
+    }
+
+    #[test]
+    fn stone_compatibility_case_2_fri_query_phase_layer_7_evaluation_symmetric() {
+        let proof = stone_compatibility_case_2_proof();
+
+        assert_eq!(
+            proof.query_list[0].layers_evaluations_sym[7],
+            FieldElement::from_hex_unchecked(
+                "7aa40c5a4e30b44fee5bcc47c54072a435aa35c1a31b805cad8126118cc6860"
+            )
+        );
+    }
+
+    #[test]
+    fn stone_compatibility_case_2_fri_query_phase_layer_8_authentication_path() {
+        let proof = stone_compatibility_case_2_proof();
+
+        // FRI layer 7 auth path level 5
+        assert_eq!(
+            proof.query_list[0].layers_auth_paths_sym[7].merkle_path[5].to_vec(),
+            decode_hex("f12f159b548ca2c571a270870d43e7ec2ead78b3e93b635738c31eb9bcda3dda").unwrap()
         );
     }
 }
