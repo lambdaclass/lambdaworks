@@ -150,7 +150,7 @@ impl IsField for Mersenne31Field {
 impl IsPrimeField for Mersenne31Field {
     type RepresentativeType = u32;
 
-    // Since our invariant guarantees that `value` fits in 31 bits, there is only one possible
+    // Since our invariant guarantees that `value` fits in 31 bits, there is only one possible value
     // `value` that is not canonical, namely 2^31 - 1 = p = 0.
     fn representative(x: &u32) -> u32 {
         debug_assert!((x >> 31) == 0);
