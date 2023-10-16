@@ -30,6 +30,7 @@ impl FieldElement<U64GoldilocksPrimeField> {
     }
 }
 
+#[allow(clippy::incorrect_partial_ord_impl_on_ord_type)]
 impl PartialOrd for FieldElement<U64GoldilocksPrimeField> {
     fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
         self.representative().partial_cmp(&other.representative())
