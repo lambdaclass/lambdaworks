@@ -4,43 +4,49 @@ use libfuzzer_sys::fuzz_target;
 use lambdaworks_math::field::{
     element::FieldElement, 
     fields::{
-        mersenne31::field::Mersenne31Field,
-        fft_friendly::u64_mersenne_montgomery_field::Mersenne31MontgomeryPrimeField,
+        mersenne31::field::{Mersenne31Field, MERSENNE_31_PRIME_FIELD_ORDER},
     }
 };
+use p3_mersenne_31::Mersenne31;
+use p3_field::{Field, PrimeField32, PrimeField64, AbstractField};
 
 fuzz_target!(|values: (u32, u32)| {
+    // Note: we filter values outside of order as it triggers an assert within plonky3 disallowing values n >= Self::Order
+    if values.0 >= MERSENNE_31_PRIME_FIELD_ORDER || values.1 >= MERSENNE_31_PRIME_FIELD_ORDER {
+        return
+    }
 
     let (value_u32_a, value_u32_b) = values;
    
     let a =  FieldElement::<Mersenne31Field>::from(value_u32_a as u64);
     let b =  FieldElement::<Mersenne31Field>::from(value_u32_b as u64);
 
-    let a_expected = FieldElement::<Mersenne31MontgomeryPrimeField>::from(value_u32_a as u64);
-    let b_expected = FieldElement::<Mersenne31MontgomeryPrimeField>::from(value_u32_b as u64);
+    // Note: if we parse using from_canonical_u32 fails due to check that n < Self::Order
+    let a_expected = Mersenne31::from_canonical_u32(value_u32_a);
+    let b_expected = Mersenne31::from_canonical_u32(value_u32_b);
 
     let add_u32 = &a + &b;
-    let addition = &a_expected + &b_expected;
+    let addition = a_expected + b_expected;
     
-    assert_eq!(add_u32.representative() as u64, addition.representative().limbs[0]);
+    assert_eq!(add_u32.representative(), addition.as_canonical_u32());
 
     let sub_u32 = &a - &b;
-    let substraction = &a_expected - &b_expected;
-    assert_eq!(sub_u32.representative() as u64, substraction.representative().limbs[0]);
+    let substraction = a_expected - b_expected;
+    assert_eq!(sub_u32.representative(), substraction.as_canonical_u32());
     
     let mul_u32 = &a * &b;
-    let multiplication = &a_expected * &b_expected;
-    assert_eq!(mul_u32.representative() as u64, multiplication.representative().limbs[0]);
+    let multiplication = a_expected * b_expected;
+    assert_eq!(mul_u32.representative(), multiplication.as_canonical_u32());
 
     let pow = &a.pow(b.representative());
-    let expected_pow = a_expected.pow(b_expected.representative());
-    assert_eq!(pow.representative() as u64, expected_pow.representative().limbs[0]);
+    let expected_pow = a_expected.exp_u64(b_expected.as_canonical_u64());
+    assert_eq!(pow.representative(), expected_pow.as_canonical_u32());
     
-    if value_u32_b != 0 && b.inv().is_ok() && b_expected.inv().is_ok() {
+    if value_u32_b != 0 && b.inv().is_ok() && b_expected.try_inverse().is_some() {
         let div = &a / &b; 
         assert_eq!(&div * &b, a.clone());
-        let expected_div = &a_expected / &b_expected;
-        assert_eq!(div.representative() as u64, expected_div.representative().limbs[0]);
+        let expected_div = a_expected / b_expected;
+        assert_eq!(div.representative(), expected_div.as_canonical_u32());
     }
 
     for n in [&a, &b] {
