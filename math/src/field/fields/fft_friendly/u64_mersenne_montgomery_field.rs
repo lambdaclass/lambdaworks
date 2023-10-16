@@ -30,6 +30,7 @@ impl FieldElement<Mersenne31MontgomeryPrimeField> {
     }
 }
 
+#[deny(clippy::incorrect_partial_ord_impl_on_ord_type)]
 impl PartialOrd for FieldElement<Mersenne31MontgomeryPrimeField> {
     fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
         self.representative().partial_cmp(&other.representative())
