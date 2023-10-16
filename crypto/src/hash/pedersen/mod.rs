@@ -35,31 +35,34 @@ impl Pedersen {
         x: &FieldElement<Stark252PrimeField>,
         y: &FieldElement<Stark252PrimeField>,
     ) -> FieldElement<Stark252PrimeField> {
-        let add_points =
-            |acc: &mut ShortWeierstrassProjectivePoint<StarkCurve>,
-             bits: &[bool],
-             prep: &[ShortWeierstrassProjectivePoint<StarkCurve>]| {
-                bits.chunks(self.params.curve_const_bits)
-                    .enumerate()
-                    .for_each(|(i, v)| {
-                        let offset = bools_to_usize_le(v);
-                        if offset > 0 {
-                            // Table lookup at 'offset-1' in table for chunk 'i'
-                            *acc = acc.operate_with(&prep[i * self.params.table_size + offset - 1]);
-                        }
-                    });
-            };
-
         let x = x.to_bits_le();
         let y = y.to_bits_le();
         let mut acc = self.params.shift_point.clone();
 
-        add_points(&mut acc, &x[..248], &self.params.points_p1); // Add a_low * P1
-        add_points(&mut acc, &x[248..252], &self.params.points_p2); // Add a_high * P2
-        add_points(&mut acc, &y[..248], &self.params.points_p3); // Add b_low * P3
-        add_points(&mut acc, &y[248..252], &self.params.points_p4); // Add b_high * P4
+        self.add_points(&mut acc, &x[..248], &self.params.points_p1); // Add a_low * P1
+        self.add_points(&mut acc, &x[248..252], &self.params.points_p2); // Add a_high * P2
+        self.add_points(&mut acc, &y[..248], &self.params.points_p3); // Add b_low * P3
+        self.add_points(&mut acc, &y[248..252], &self.params.points_p4); // Add b_high * P4
 
         *acc.to_affine().x()
+    }
+
+    #[inline]
+    fn add_points(
+        &self,
+        acc: &mut ShortWeierstrassProjectivePoint<StarkCurve>,
+        bits: &[bool],
+        prep: &[ShortWeierstrassProjectivePoint<StarkCurve>],
+    ) {
+        bits.chunks(self.params.curve_const_bits)
+            .enumerate()
+            .for_each(|(i, v)| {
+                let offset = bools_to_usize_le(v);
+                if offset > 0 {
+                    // Table lookup at 'offset-1' in table for chunk 'i'
+                    *acc = acc.operate_with(&prep[i * self.params.table_size + offset - 1]);
+                }
+            })
     }
 }
 
