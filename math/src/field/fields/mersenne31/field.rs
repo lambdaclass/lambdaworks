@@ -176,10 +176,12 @@ impl IsPrimeField for Mersenne31Field {
 }
 
 impl FieldElement<Mersenne31Field> {
+    #[cfg(feature = "std")]
     pub fn to_bytes_le(&self) -> Vec<u8> {
         self.representative().to_le_bytes().to_vec()
     }
 
+    #[cfg(feature = "std")]
     pub fn to_bytes_be(&self) -> Vec<u8> {
         self.representative().to_be_bytes().to_vec()
     }
