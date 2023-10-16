@@ -8,6 +8,8 @@ use lambdaworks_math::field::{
         u64_goldilocks_field::Goldilocks64Field,
     },
 };
+use p3_goldilocks::Goldilocks;
+use p3_field::{Field, PrimeField64, AbstractField};
 
 fuzz_target!(|values: (u64, u64)| {
 
@@ -16,32 +18,32 @@ fuzz_target!(|values: (u64, u64)| {
     let a =  FieldElement::<Goldilocks64Field>::from(value_u64_a);
     let b =  FieldElement::<Goldilocks64Field>::from(value_u64_b);
 
-    let a_expected = U64FieldElement::<{Goldilocks64Field::ORDER}>::from(value_u64_a);
-    let b_expected = U64FieldElement::<{Goldilocks64Field::ORDER}>::from(value_u64_b);
+    let a_expected = Goldilocks::from_canonical_u64(value_u64_a);
+    let b_expected = Goldilocks::from_canonical_u64(value_u64_b);
 
     let add_u64 = &a + &b;
-    let addition = &a_expected + &b_expected;
+    let addition = a_expected + b_expected;
 
-    assert_eq!(add_u64.representative(), addition.representative());
+    assert_eq!(add_u64.representative(), addition.as_canonical_u64());
 
     let sub_u64 = &a - &b;
-    let substraction = &a_expected - &b_expected;
-    assert_eq!(sub_u64.representative(), substraction.representative());
+    let substraction = a_expected - b_expected;
+    assert_eq!(sub_u64.representative(), substraction.as_canonical_u64());
 
     let mul_u64 = &a * &b;
-    let multiplication = &a_expected * &b_expected;
-    assert_eq!(mul_u64.representative(), multiplication.representative());
+    let multiplication = a_expected  * b_expected;
+    assert_eq!(mul_u64.representative(), multiplication.as_canonical_u64());
 
     let pow = &a.pow(b.representative());
-    let expected_pow = a_expected.pow(b_expected.representative());
-    assert_eq!(pow.representative(), expected_pow.representative());
+    let expected_pow = a_expected.exp_u64(b_expected.as_canonical_u64());
+    assert_eq!(pow.representative(), expected_pow.as_canonical_u64());
 
-    if value_u64_b != 0 && b.inv().is_ok() && b_expected.inv().is_ok() { 
+    if value_u64_b != 0 && b.inv().is_ok() && b_expected.try_inverse().is_some() { 
 
         let div = &a / &b; 
         assert_eq!(&div * &b, a.clone());
-        let expected_div = &a_expected / &b_expected;
-        assert_eq!(div.representative(), expected_div.representative());
+        let expected_div = a_expected / b_expected;
+        assert_eq!(div.representative(), expected_div.as_canonical_u64());
     }
 
     for n in [&a, &b] {
