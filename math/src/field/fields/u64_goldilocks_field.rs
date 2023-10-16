@@ -30,7 +30,6 @@ impl IsField for Goldilocks64Field {
         let (sum, over) = a.overflowing_add(*b);
         let (mut sum, over) = sum.overflowing_add(u64::from(over) * Self::NEG_ORDER);
         if over {
-            //TODO: add assume and branch hint()
             sum += Self::NEG_ORDER
         }
         Self::representative(&sum)
@@ -97,7 +96,6 @@ impl IsField for Goldilocks64Field {
 
     /// Returns a boolean indicating whether `a` and `b` are equal or not.
     fn eq(a: &u64, b: &u64) -> bool {
-        //TODO: Check if this is a canonical check may have to change to representative
         Self::representative(a) == Self::representative(b)
     }
 
