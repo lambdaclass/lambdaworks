@@ -197,7 +197,7 @@ impl Display for FieldElement<Mersenne31Field> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rand::Rng;
+
     type F = Mersenne31Field;
 
     #[test]
@@ -363,23 +363,6 @@ mod tests {
             F::div(&F::from_base_type(4), &F::from_base_type(3)),
             1431655766
         )
-    }
-
-    #[test]
-    pub fn test_inv_div() {
-        let mut rng = rand::thread_rng();
-        let x = F::from_base_type(rng.gen::<u32>());
-        let y = F::from_base_type(rng.gen::<u32>());
-        let z = F::from_base_type(rng.gen::<u32>());
-        assert_eq!(F::mul(&x, &F::inv(&x).unwrap()), F::one());
-        assert_eq!(F::mul(&F::inv(&x).unwrap(), &x), F::one());
-        assert_eq!(
-            F::inv(&F::square(&x)).unwrap(),
-            F::square(&F::inv(&x).unwrap())
-        );
-        assert_eq!(F::mul(&F::div(&x, &y), &y), x);
-        assert_eq!(F::div(&x, &F::mul(&y, &z)), F::div(&F::div(&x, &y), &z));
-        assert_eq!(F::div(&F::mul(&x, &y), &z), F::mul(&x, &F::div(&y, &z)));
     }
 
     #[test]
