@@ -30,6 +30,14 @@ impl Pedersen {
 
     // Taken from Jonathan Lei's starknet-rs
     // https://github.com/xJonathanLEI/starknet-rs/blob/4ab2f36872435ce57b1d8f55856702a6a30f270a/starknet-crypto/src/pedersen_hash.rs
+
+    /// Implements Starkware version of Pedersen hash of x and y.
+    /// Divides each of x and y into 4-bit chunks, and uses lookup tables to accumulate pre-calculated
+    /// points corresponding to a given chunk.
+    /// Accumulation starts from a "shift_point" whose points are derived from digits of pi.
+    /// Pre-calculated points are multiples by powers of 2 of the "shift_point".
+    ///
+    /// Find specification at https://docs.starkware.co/starkex/crypto/pedersen-hash-function.html
     pub fn hash(
         &self,
         x: &FieldElement<Stark252PrimeField>,
@@ -47,7 +55,8 @@ impl Pedersen {
         *acc.to_affine().x()
     }
 
-    #[inline]
+    /// Performs lookup to find the constant point corresponding to 4-bit chunks of given input.
+    /// Keeps adding up those points to the given accumulation point.
     fn add_points(
         &self,
         acc: &mut ShortWeierstrassProjectivePoint<StarkCurve>,
