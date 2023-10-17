@@ -220,28 +220,28 @@ mod tests {
         }
     }
 
-    // proptest! {
-    //     #![proptest_config(ProptestConfig {cases: 5, .. ProptestConfig::default()})]
-    //     #[test]
-    //     fn test_serialize_and_deserialize(fri_decommitment in some_fri_decommitment()) {
-    //         let serialized = fri_decommitment.serialize();
-    //         let deserialized: FriDecommitment<Stark252PrimeField> = FriDecommitment::deserialize(&serialized).unwrap();
-    //
-    //         for (a, b) in fri_decommitment.layers_auth_paths_sym.iter().zip(deserialized.layers_auth_paths_sym.iter()) {
-    //             prop_assert_eq!(&a.merkle_path, &b.merkle_path);
-    //         }
-    //
-    //         for (a, b) in fri_decommitment.layers_evaluations_sym.iter().zip(deserialized.layers_evaluations_sym.iter()) {
-    //             prop_assert_eq!(a, b);
-    //         }
-    //
-    //         for (a, b) in fri_decommitment.layers_evaluations.iter().zip(deserialized.layers_evaluations.iter()) {
-    //             prop_assert_eq!(a, b);
-    //         }
-    //
-    //         for (a, b) in fri_decommitment.layers_auth_paths.iter().zip(deserialized.layers_auth_paths.iter()) {
-    //             prop_assert_eq!(&a.merkle_path, &b.merkle_path);
-    //         }
-    //     }
-    // }
+    proptest! {
+        #![proptest_config(ProptestConfig {cases: 5, .. ProptestConfig::default()})]
+        #[test]
+        fn test_serialize_and_deserialize(fri_decommitment in some_fri_decommitment()) {
+            let serialized = fri_decommitment.serialize();
+            let deserialized: FriDecommitment<Stark252PrimeField> = FriDecommitment::deserialize(&serialized).unwrap();
+
+            for (a, b) in fri_decommitment.layers_auth_paths_sym.iter().zip(deserialized.layers_auth_paths_sym.iter()) {
+                prop_assert_eq!(&a.merkle_path, &b.merkle_path);
+            }
+
+            for (a, b) in fri_decommitment.layers_evaluations_sym.iter().zip(deserialized.layers_evaluations_sym.iter()) {
+                prop_assert_eq!(a, b);
+            }
+
+            for (a, b) in fri_decommitment.layers_evaluations.iter().zip(deserialized.layers_evaluations.iter()) {
+                prop_assert_eq!(a, b);
+            }
+
+            for (a, b) in fri_decommitment.layers_auth_paths.iter().zip(deserialized.layers_auth_paths.iter()) {
+                prop_assert_eq!(&a.merkle_path, &b.merkle_path);
+            }
+        }
+    }
 }

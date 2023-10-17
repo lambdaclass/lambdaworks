@@ -180,16 +180,16 @@ mod tests {
         }
     }
 
-    // proptest! {
-    //     #![proptest_config(ProptestConfig {cases: 5, .. ProptestConfig::default()})]
-    //     #[test]
-    //     fn test_serialize_and_deserialize(data in field_vec(), row_width in any::<usize>()) {
-    //         let frame = Frame::new(data, row_width);
-    //         let serialized = frame.serialize();
-    //         let deserialized: Frame<Stark252PrimeField> = Frame::deserialize(&serialized).unwrap();
-    //
-    //         prop_assert_eq!(frame.data, deserialized.data);
-    //         prop_assert_eq!(frame.row_width, deserialized.row_width);
-    //     }
-    // }
+    proptest! {
+        #![proptest_config(ProptestConfig {cases: 5, .. ProptestConfig::default()})]
+        #[test]
+        fn test_serialize_and_deserialize(data in field_vec(), row_width in any::<usize>()) {
+            let frame = Frame::new(data, row_width);
+            let serialized = frame.serialize();
+            let deserialized: Frame<Stark252PrimeField> = Frame::deserialize(&serialized).unwrap();
+
+            prop_assert_eq!(frame.data, deserialized.data);
+            prop_assert_eq!(frame.row_width, deserialized.row_width);
+        }
+    }
 }

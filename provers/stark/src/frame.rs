@@ -1,9 +1,7 @@
 use super::trace::TraceTable;
 use lambdaworks_math::{
-    errors::DeserializationError,
     field::{element::FieldElement, traits::IsFFTField},
     polynomial::Polynomial,
-    traits::{ByteConversion, Deserializable, Serializable},
 };
 
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]

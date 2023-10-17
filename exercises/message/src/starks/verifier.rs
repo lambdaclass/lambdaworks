@@ -334,6 +334,7 @@ where
 fn step_4_verify_deep_composition_polynomial<F: IsFFTField, A: AIR<Field = F>>(
     air: &A,
     proof: &StarkProof<F>,
+    domain: &Domain<F>,
     challenges: &Challenges<F, A>,
 ) -> bool
 where
