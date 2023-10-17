@@ -892,6 +892,13 @@ pub trait IsStarkProver {
 mod tests {
     use std::num::ParseIntError;
 
+    fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
+        (0..s.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
+            .collect()
+    }
+
     use crate::{
         examples::{
             fibonacci_2_cols_shifted::{self, Fibonacci2ColsShifted},
@@ -1003,13 +1010,6 @@ mod tests {
         for (i, eval) in evaluations.iter().enumerate() {
             assert_eq!(*eval, poly.evaluate(&(offset * primitive_root.pow(i))));
         }
-    }
-
-    pub fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
-        (0..s.len())
-            .step_by(2)
-            .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
-            .collect()
     }
 
     fn proof_parts_stone_compatibility_case_1() -> (
