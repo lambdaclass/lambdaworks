@@ -26,7 +26,7 @@ When using Docker, start by creating the container image with:
   make docker_build_cairo_compiler
 ```
 
-Examples of Cairo 0 programs can be found [here](https://github.com/lambdaclass/lambdaworks/tree/main/provers/cairo/cairo_programs/cairo0)
+Examples of Cairo 0 programs can be found [here](https://github.com/lambdaclass/lambdaworks/tree/main/provers/cairo/cairo-prover-lib/cairo_programs/cairo0)
 
 
 **To compile and generate a proof you can use:**
@@ -38,7 +38,7 @@ make compile_and_prove PROGRAM_PATH=<program_path> PROOF_PATH=<output_proof_path
 For example:
 
 ```bash
-make compile_and_prove PROGRAM_PATH=cairo_programs/cairo0/fibonacci_5.cairo PROOF_PATH=cairo_programs/cairo0/fibonacci_5.proof
+make compile_and_prove PROGRAM_PATH=cairo-prover-lib/cairo_programs/cairo0/fibonacci_5.cairo PROOF_PATH=cairo-prover-lib/cairo_programs/cairo0/fibonacci_5.proof
 ```
 
 
@@ -63,7 +63,7 @@ make compile PROGRAM_PATH=<uncompiled_program_path>
 For example:
 
 ```bash
-make compile PROGRAM_PATH=cairo_programs/cairo0/fibonacci_5.cairo
+make compile PROGRAM_PATH=cairo-prover-lib/cairo_programs/cairo0/fibonacci_5.cairo
 ```
 
 **To prove a compiled program:**
@@ -75,7 +75,7 @@ make prove PROGRAM_PATH=<compiled_program_path> PROOF_PATH=<output_proof_path>
 For example:
 
 ```bash
-make prove PROGRAM_PATH=cairo_programs/cairo0/fibonacci_5.json PROOF_PATH=program_proof.proof
+make prove PROGRAM_PATH=cairo-prover-lib/cairo_programs/cairo0/fibonacci_5.json PROOF_PATH=program_proof.proof
 ```
 
 
@@ -89,7 +89,7 @@ make run_all PROGRAM_PATH=<compiled_program_path>
 For example:
 
 ```bash
-make run_all PROGRAM_PATH=cairo_programs/cairo0/fibonacci_5.json
+make run_all PROGRAM_PATH=cairo-prover-lib/cairo_programs/cairo0/fibonacci_5.json
 ```
 
 
@@ -103,5 +103,5 @@ make compile_and_run_all PROGRAM_PATH=<program_path>
 For example:
 
 ```bash
-make compile_and_run_all PROGRAM_PATH=cairo_programs/cairo0/fibonacci_5.cairo
+make compile_and_run_all PROGRAM_PATH=cairo-prover-lib/cairo_programs/cairo0/fibonacci_5.cairo
 ```
