@@ -1,9 +1,7 @@
 use super::trace::TraceTable;
 use lambdaworks_math::{
-    errors::DeserializationError,
     field::{element::FieldElement, traits::IsFFTField},
     polynomial::Polynomial,
-    traits::{ByteConversion, Deserializable, Serializable},
 };
 
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -79,118 +77,5 @@ impl<F: IsFFTField> Frame<F> {
                     .collect::<Vec<FieldElement<F>>>()
             })
             .collect()
-    }
-}
-
-impl<F> Serializable for Frame<F>
-where
-    F: IsFFTField,
-    FieldElement<F>: ByteConversion,
-{
-    fn serialize(&self) -> Vec<u8> {
-        let mut bytes = vec![];
-        bytes.extend(self.data.len().to_be_bytes());
-        let felt_len = if self.data.is_empty() {
-            0
-        } else {
-            self.data[0].to_bytes_be().len()
-        };
-        bytes.extend(felt_len.to_be_bytes());
-        for felt in &self.data {
-            bytes.extend(felt.to_bytes_be());
-        }
-        bytes.extend(self.row_width.to_be_bytes());
-        bytes
-    }
-}
-
-impl<F> Deserializable for Frame<F>
-where
-    F: IsFFTField,
-    FieldElement<F>: ByteConversion,
-{
-    fn deserialize(bytes: &[u8]) -> Result<Self, DeserializationError>
-    where
-        Self: Sized,
-    {
-        let mut bytes = bytes;
-        let data_len = usize::from_be_bytes(
-            bytes
-                .get(..8)
-                .ok_or(DeserializationError::InvalidAmountOfBytes)?
-                .try_into()
-                .map_err(|_| DeserializationError::InvalidAmountOfBytes)?,
-        );
-        bytes = &bytes[8..];
-
-        let felt_len = usize::from_be_bytes(
-            bytes
-                .get(..8)
-                .ok_or(DeserializationError::InvalidAmountOfBytes)?
-                .try_into()
-                .map_err(|_| DeserializationError::InvalidAmountOfBytes)?,
-        );
-        bytes = &bytes[8..];
-
-        let mut data = vec![];
-        for _ in 0..data_len {
-            let felt = FieldElement::<F>::from_bytes_be(
-                bytes
-                    .get(..felt_len)
-                    .ok_or(DeserializationError::InvalidAmountOfBytes)?,
-            )?;
-            data.push(felt);
-            bytes = &bytes[felt_len..];
-        }
-
-        let row_width = usize::from_be_bytes(
-            bytes
-                .get(..8)
-                .ok_or(DeserializationError::InvalidAmountOfBytes)?
-                .try_into()
-                .map_err(|_| DeserializationError::InvalidAmountOfBytes)?,
-        );
-
-        Ok(Self::new(data, row_width))
-    }
-}
-
-#[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
-#[cfg(test)]
-mod prop_test {
-    use lambdaworks_math::field::{
-        element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
-    };
-    use proptest::{collection, prelude::*, prop_compose, proptest};
-
-    use lambdaworks_math::traits::{Deserializable, Serializable};
-
-    use crate::frame::Frame;
-
-    type FE = FieldElement<Stark252PrimeField>;
-
-    prop_compose! {
-        fn some_felt()(base in any::<u64>(), exponent in any::<u128>()) -> FE {
-            FE::from(base).pow(exponent)
-        }
-    }
-
-    prop_compose! {
-        fn field_vec()(vec in collection::vec(some_felt(), 16)) -> Vec<FE> {
-            vec
-        }
-    }
-
-    proptest! {
-        #![proptest_config(ProptestConfig {cases: 5, .. ProptestConfig::default()})]
-        #[test]
-        fn test_serialize_and_deserialize(data in field_vec(), row_width in any::<usize>()) {
-            let frame = Frame::new(data, row_width);
-            let serialized = frame.serialize();
-            let deserialized: Frame<Stark252PrimeField> = Frame::deserialize(&serialized).unwrap();
-
-            prop_assert_eq!(frame.data, deserialized.data);
-            prop_assert_eq!(frame.row_width, deserialized.row_width);
-        }
     }
 }

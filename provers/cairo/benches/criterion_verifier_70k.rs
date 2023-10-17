@@ -18,7 +18,8 @@ fn load_proof_and_pub_inputs(input_path: &str) -> (StarkProof<Stark252PrimeField
     let mut bytes = program_content.as_slice();
     let proof_len = usize::from_be_bytes(bytes[0..8].try_into().unwrap());
     bytes = &bytes[8..];
-    let proof = StarkProof::<Stark252PrimeField>::deserialize(&bytes[0..proof_len]).unwrap();
+    let proof: StarkProof<Stark252PrimeField> =
+        serde_cbor::from_slice(&bytes[0..proof_len]).unwrap();
     bytes = &bytes[proof_len..];
 
     let public_inputs = PublicInputs::deserialize(bytes).unwrap();
