@@ -1,4 +1,4 @@
-use cairo_platinum_prover::air::{verify_cairo_proof, PublicInputs};
+use platinum_prover::air::{verify_cairo_proof, PublicInputs};
 use criterion::{
     black_box, criterion_group, criterion_main, measurement::WallTime, BenchmarkGroup, Criterion,
 };

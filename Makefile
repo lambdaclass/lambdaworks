@@ -4,7 +4,7 @@ FUZZ_DIR = fuzz/no_gpu_fuzz
 
 ROOT_DIR:=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 
-CAIRO0_PROGRAMS_DIR=provers/cairo/cairo-prover-lib/cairo_programs/cairo0
+CAIRO0_PROGRAMS_DIR=provers/cairo/cairo_programs/cairo0
 CAIRO0_PROGRAMS:=$(wildcard $(CAIRO0_PROGRAMS_DIR)/*.cairo)
 COMPILED_CAIRO0_PROGRAMS:=$(patsubst $(CAIRO0_PROGRAMS_DIR)/%.cairo, $(CAIRO0_PROGRAMS_DIR)/%.json, $(CAIRO0_PROGRAMS))
 
