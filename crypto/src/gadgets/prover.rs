@@ -27,6 +27,12 @@ fn eval_multilinear_polynomial<T: IsField>(
     var_assignment: u64,
     p: &Polynomial<FieldElement<T>>,
 ) -> FieldElement<T> {
+    assert_eq!(
+        p.coefficients.len() & p.coefficients.len() - 1,
+        0,
+        "the number of coefficientes of the polynomial is not a power of 2"
+    );
+
     let mut eval = p.coefficients[0].clone();
 
     for i in 1..p.coefficients.len() {
@@ -68,7 +74,10 @@ mod test_prover {
             _ => FieldElement::<Babybear31PrimeField>::zero(),
         };
 
-        assert_eq!(msg, FieldElement::<Babybear31PrimeField>::from_hex_unchecked("9"));
+        assert_eq!(
+            msg,
+            FieldElement::<Babybear31PrimeField>::from_hex_unchecked("9")
+        );
     }
 
     #[test]
