@@ -26,8 +26,11 @@ pub fn sumcheck_prover(round: u64, p: poly) -> ProverMessage {
     }
 }
 
-fn eval_monomial(exp: u64) {
+fn eval_polynomial(var_asignment: u64, p: poly) {
     
+    for var in 0..p.len() {
+        
+    }
 }
 
 #[cfg(test)]
