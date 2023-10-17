@@ -1,7 +1,5 @@
+use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::IsField;
-use lambdaworks_math::field::{
-    element::FieldElement, fields::fft_friendly::babybear::Babybear31PrimeField,
-};
 use lambdaworks_math::polynomial::Polynomial;
 
 pub enum ProverMessage<T: IsField> {
@@ -9,22 +7,23 @@ pub enum ProverMessage<T: IsField> {
     Polynomial(Polynomial<FieldElement<T>>),
 }
 
-pub fn sumcheck_prover(
-    round: u64,
-    p: Polynomial<FieldElement<Babybear31PrimeField>>,
-) -> ProverMessage<Babybear31PrimeField> {
+pub fn sumcheck_prover<F: IsField>(round: u64, p: Polynomial<FieldElement<F>>) -> ProverMessage<F> {
     if round == 0 {
-        ProverMessage::Sum(FieldElement::<Babybear31PrimeField>::one())
+        let mut acc = FieldElement::<F>::zero();
+        for i in 0..p.coefficients.len() {
+            acc += eval_multilinear_polynomial(i as u64, &p);
+        }
+        ProverMessage::Sum(acc)
     } else if round == 1 {
-        ProverMessage::Sum(FieldElement::<Babybear31PrimeField>::one())
+        ProverMessage::Sum(FieldElement::<F>::one())
     } else {
-        ProverMessage::Sum(FieldElement::<Babybear31PrimeField>::one())
+        ProverMessage::Sum(FieldElement::<F>::one())
     }
 }
 
 //point evaluation for multilinear polynomial
 //number of elements of the polynomial must be a power of 2
-fn eval_polynomial<T: IsField> (
+fn eval_multilinear_polynomial<T: IsField>(
     var_assignment: u64,
     p: &Polynomial<FieldElement<T>>,
 ) -> FieldElement<T> {
@@ -35,7 +34,7 @@ fn eval_polynomial<T: IsField> (
         let mut assign = var_assignment;
 
         let mut mult = FieldElement::<T>::one();
-        while (var > 0) {
+        while var > 0 {
             if var % 2 == 1 && assign % 2 == 0 {
                 mult = FieldElement::<T>::zero();
                 break;
@@ -52,10 +51,29 @@ fn eval_polynomial<T: IsField> (
 #[cfg(test)]
 mod test_prover {
     use super::*;
+    use lambdaworks_math::field::fields::fft_friendly::babybear::Babybear31PrimeField;
+
+    #[test]
+    fn test_sumcheck_initial_value() {
+        //1 + x_1 + x_2 + x_2 x_1
+        let poly = Polynomial::new(&[
+            FieldElement::<Babybear31PrimeField>::one(),
+            FieldElement::<Babybear31PrimeField>::one(),
+            FieldElement::<Babybear31PrimeField>::one(),
+            FieldElement::<Babybear31PrimeField>::one(),
+        ]);
+
+        let msg = match sumcheck_prover(0, poly) {
+            ProverMessage::Sum(x) => x,
+            _ => FieldElement::<Babybear31PrimeField>::zero(),
+        };
+
+        assert_eq!(msg, FieldElement::<Babybear31PrimeField>::from_hex_unchecked("9"));
+    }
 
     #[test]
     fn test_polynomial_evaluation() {
-        //1 + x_2 + x_1 + x_2 x_1
+        //1 + x_1 + x_2 + x_2 x_1
         let poly = Polynomial::new(&[
             FieldElement::<Babybear31PrimeField>::one(),
             FieldElement::<Babybear31PrimeField>::one(),
@@ -64,24 +82,24 @@ mod test_prover {
         ]);
         //x_2 = x_1 = 0
         assert_eq!(
-            eval_polynomial(0, &poly),
+            eval_multilinear_polynomial(0, &poly),
             FieldElement::<Babybear31PrimeField>::one()
         );
         //x_2 = 0, x_1 = 1
         assert_eq!(
-            eval_polynomial(1, &poly),
+            eval_multilinear_polynomial(1, &poly),
             FieldElement::<Babybear31PrimeField>::one()
                 + FieldElement::<Babybear31PrimeField>::one()
         );
         //x_2 = 1 x_1 = 0
         assert_eq!(
-            eval_polynomial(2, &poly),
+            eval_multilinear_polynomial(2, &poly),
             FieldElement::<Babybear31PrimeField>::one()
                 + FieldElement::<Babybear31PrimeField>::one()
         );
         //x_2 = 1 x_1 = 1
         assert_eq!(
-            eval_polynomial(3, &poly),
+            eval_multilinear_polynomial(3, &poly),
             FieldElement::<Babybear31PrimeField>::one()
                 + FieldElement::<Babybear31PrimeField>::one()
                 + FieldElement::<Babybear31PrimeField>::one()
