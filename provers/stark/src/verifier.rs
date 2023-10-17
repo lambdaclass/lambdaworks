@@ -333,12 +333,6 @@ pub trait IsStarkVerifier {
                 result
             })
     }
-    fn query_challenge_to_merkle_root_index(index: usize) -> usize {
-        index * 2
-    }
-    fn query_challenge_to_merkle_root_index_sym(index: usize) -> usize {
-        index * 2 + 1
-    }
 
     fn query_challenge_to_evaluation_point(
         iota: usize,
@@ -370,7 +364,7 @@ pub trait IsStarkVerifier {
         proof.verify::<BatchedMerkleTreeBackend<Self::Field>>(root, index, value)
     }
 
-    /// Verify opening Open(tⱼ(D_LDE), 𝜐) and Open(tⱼ(D_LDE), -𝜐) for all trace polynomials,
+    /// Verify opening Open(tⱼ(D_LDE), 𝜐) and Open(tⱼ(D_LDE), -𝜐) for all trace polynomials tⱼ,
     /// where 𝜐 and -𝜐 are the elements corresponding to the index challenge `iota`.
     fn verify_trace_openings(
         num_main_columns: usize,
@@ -387,7 +381,7 @@ pub trait IsStarkVerifier {
             deep_poly_openings.lde_trace_evaluations[num_main_columns..].to_vec(),
         ];
 
-        let index = Self::query_challenge_to_merkle_root_index(iota);
+        let index = iota * 2;
         let openings_are_valid = proof
             .lde_trace_merkle_roots
             .iter()
@@ -402,7 +396,7 @@ pub trait IsStarkVerifier {
             deep_poly_openings_sym.lde_trace_evaluations[num_main_columns..].to_vec(),
         ];
 
-        let index_sym = Self::query_challenge_to_merkle_root_index_sym(iota);
+        let index_sym = iota * 2 + 1;
         let openings_sym_are_valid = proof
             .lde_trace_merkle_roots
             .iter()
