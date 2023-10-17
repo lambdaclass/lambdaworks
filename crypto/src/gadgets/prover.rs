@@ -11,7 +11,7 @@ pub fn sumcheck_prover<F: IsField>(round: u64, p: Polynomial<FieldElement<F>>) -
     if round == 0 {
         let mut acc = FieldElement::<F>::zero();
         for i in 0..p.coefficients.len() {
-            acc += eval_multilinear_polynomial(i as u64, &p);
+            acc += eval_binary_multilinear_polynomial(i as u64, &p);
         }
         ProverMessage::Sum(acc)
     } else if round == 1 {
@@ -21,9 +21,9 @@ pub fn sumcheck_prover<F: IsField>(round: u64, p: Polynomial<FieldElement<F>>) -
     }
 }
 
-//point evaluation for multilinear polynomial
-//number of elements of the polynomial must be a power of 2
-fn eval_multilinear_polynomial<T: IsField>(
+/// point evaluation for multilinear polynomial for binary value assignments
+/// number of elements of the polynomial must be a power of 2
+fn eval_binary_multilinear_polynomial<T: IsField>(
     var_assignment: u64,
     p: &Polynomial<FieldElement<T>>,
 ) -> FieldElement<T> {
@@ -91,24 +91,24 @@ mod test_prover {
         ]);
         //x_2 = x_1 = 0
         assert_eq!(
-            eval_multilinear_polynomial(0, &poly),
+            eval_binary_multilinear_polynomial(0, &poly),
             FieldElement::<Babybear31PrimeField>::one()
         );
         //x_2 = 0, x_1 = 1
         assert_eq!(
-            eval_multilinear_polynomial(1, &poly),
+            eval_binary_multilinear_polynomial(1, &poly),
             FieldElement::<Babybear31PrimeField>::one()
                 + FieldElement::<Babybear31PrimeField>::one()
         );
         //x_2 = 1 x_1 = 0
         assert_eq!(
-            eval_multilinear_polynomial(2, &poly),
+            eval_binary_multilinear_polynomial(2, &poly),
             FieldElement::<Babybear31PrimeField>::one()
                 + FieldElement::<Babybear31PrimeField>::one()
         );
         //x_2 = 1 x_1 = 1
         assert_eq!(
-            eval_multilinear_polynomial(3, &poly),
+            eval_binary_multilinear_polynomial(3, &poly),
             FieldElement::<Babybear31PrimeField>::one()
                 + FieldElement::<Babybear31PrimeField>::one()
                 + FieldElement::<Babybear31PrimeField>::one()
