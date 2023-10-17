@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1697553332915,
+  "lastUpdate": 1697569111990,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -10055,6 +10055,150 @@ window.BENCHMARK_DATA = {
             "name": "Polynomial/div by 'x - b' with Ruffini",
             "value": 101,
             "range": "± 6",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41742639+schouhy@users.noreply.github.com",
+            "name": "Sergio Chouhy",
+            "username": "schouhy"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a1f2fa7ad06eb85536a1b0852542a815b0f80b3c",
+          "message": "Stark: Stone prover compatibility end to end for Fibonacci AIR (#596)\n\n* add test\n\n* make trace commitment SHARP compatible\n\n* wip\n\n* use powers of a single challenge for the boundary and transition coefficients\n\n* add permutation to match sharp compatible commitments on the trace\n\n* change trait bound from ByteConversion to Serializable\n\n* minor refactor\n\n* fmt, clippy\n\n* move std feature to inner trait function in Serializable\n\n* add IsStarkProver and IsStarkVerifier traits\n\n* proof of concept\n\n* composition poly breaker\n\n* WIP: commitment composition poly works. Opens are broken.\n\n* WIP Refactor open_trace_polys and open_composition_poly\n\n* Refactor sample iotas\n\n* Refactor sample iotas\n\n* make fri a trait\n\n* change trace ood evaluations in transcript\n\n* wip\n\n* sample gammas as power of a single challenge\n\n* fix z fri sampling\n\n* wip\n\n* wip\n\n* wip, broken\n\n* Compiles but fibonacci_5 does not work\n\n* Opens of query phase and OOD broken. Commit phase of FRI works.\n\n* Dont append to the transcript when grinding factor is zero\n\n* skip grinding factor when security bits is zero\n\n* remove permutation function\n\n* fmt\n\n* fix standard verifier\n\n* removes deep consistency check and openings of the first layer of fri for each query\n\n* SHARP computes the trace and composition polynomial openings and their symmetric elements consistently\n\n* Test symmetric elements in trace openings to compute deep composition polynomial\n\n* Composition polynomial opening evaluations are splitted between symmetric and not. The authentication paths remain equal\n\n* check openings in symmetric elements\n\n* make verifier sharp compatible\n\n* compute number of parts\n\n* fix verify fri for original prover\n\n* fix verify sym in stone prover\n\n* rename\n\n* rename file\n\n* wip\n\n* remove unnecessary variable\n\n* wip\n\n* move verifier\n\n* move fri\n\n* fix open\n\n* move stone to prover\n\n* remove file\n\n* fmt\n\n* clippy\n\n* clippy\n\n* remove redundant trait bounds\n\n* remove custom serialization/deserialization and replace it with serde_cbor\n\n* fmt\n\n* clippy\n\n* remove old files after merge from main\n\n* fmt\n\n* make field a type of IsStarkVerifier\n\n* remove frame serialization\n\n* separate compatibility test into individual tests\n\n* remove redundant test\n\n* add test case 2\n\n* minor refactor. add docs\n\n* minor refactor\n\n* remove unnecessary method\n\n* revert unintended changes to exercises\n\n* clippy\n\n* remove isFri trait\n\n* move Prover definition to the top of the file\n\n* update  docs and add unit test\n\n* minor refactors. clippy\n\n* remove unused trait method\n\n* Move function only used for tests, to tests\n\n---------\n\nCo-authored-by: Agustin <agustin@pop-os.localdomain>\nCo-authored-by: MauroFab <maurotoscano2@gmail.com>",
+          "timestamp": "2023-10-17T18:39:36Z",
+          "tree_id": "8a3bbe933499f1fa222b16676afc8b61010f40a6",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/a1f2fa7ad06eb85536a1b0852542a815b0f80b3c"
+        },
+        "date": 1697569107765,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "Ordered FFT/Parallel (Metal)",
+            "value": 96709291,
+            "range": "± 10922609",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #2",
+            "value": 159255263,
+            "range": "± 4032066",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #3",
+            "value": 305754666,
+            "range": "± 5205265",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #4",
+            "value": 607407604,
+            "range": "± 17691302",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal)",
+            "value": 34510858,
+            "range": "± 586791",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #2",
+            "value": 67232865,
+            "range": "± 574259",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #3",
+            "value": 132588954,
+            "range": "± 362436",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #4",
+            "value": 274776510,
+            "range": "± 1258164",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal)",
+            "value": 27819497,
+            "range": "± 893058",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #2",
+            "value": 53507935,
+            "range": "± 2954437",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #3",
+            "value": 106999948,
+            "range": "± 6934415",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #4",
+            "value": 241193298,
+            "range": "± 11175116",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal",
+            "value": 118520853,
+            "range": "± 1154948",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #2",
+            "value": 238856604,
+            "range": "± 1230388",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #3",
+            "value": 491925437,
+            "range": "± 5151128",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #4",
+            "value": 982654583,
+            "range": "± 14631880",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal",
+            "value": 407424333,
+            "range": "± 2710792",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #2",
+            "value": 794036854,
+            "range": "± 6510413",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #3",
+            "value": 1567799749,
+            "range": "± 14919128",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #4",
+            "value": 3125214353,
+            "range": "± 22831261",
             "unit": "ns/iter"
           }
         ]
