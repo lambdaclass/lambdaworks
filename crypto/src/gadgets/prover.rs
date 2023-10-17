@@ -1,18 +1,18 @@
+use lambdaworks_math::field::traits::IsField;
 use lambdaworks_math::field::{
     element::FieldElement, fields::fft_friendly::babybear::Babybear31PrimeField,
 };
-
 use lambdaworks_math::polynomial::Polynomial;
 
-pub enum ProverMessage {
-    Sum(FieldElement<Babybear31PrimeField>),
-    Polynomial(Polynomial<FieldElement<Babybear31PrimeField>>),
+pub enum ProverMessage<T: IsField> {
+    Sum(FieldElement<T>),
+    Polynomial(Polynomial<FieldElement<T>>),
 }
 
 pub fn sumcheck_prover(
     round: u64,
     p: Polynomial<FieldElement<Babybear31PrimeField>>,
-) -> ProverMessage {
+) -> ProverMessage<Babybear31PrimeField> {
     if round == 0 {
         ProverMessage::Sum(FieldElement::<Babybear31PrimeField>::one())
     } else if round == 1 {
@@ -23,20 +23,21 @@ pub fn sumcheck_prover(
 }
 
 //point evaluation for multilinear polynomial
-fn eval_polynomial(
+//number of elements of the polynomial must be a power of 2
+fn eval_polynomial<T: IsField> (
     var_assignment: u64,
-    p: &Polynomial<FieldElement<Babybear31PrimeField>>,
-) -> FieldElement<Babybear31PrimeField> {
+    p: &Polynomial<FieldElement<T>>,
+) -> FieldElement<T> {
     let mut eval = p.coefficients[0].clone();
 
     for i in 1..p.coefficients.len() {
         let mut var = i as u64;
         let mut assign = var_assignment;
 
-        let mut mult = FieldElement::<Babybear31PrimeField>::one();
+        let mut mult = FieldElement::<T>::one();
         while (var > 0) {
             if var % 2 == 1 && assign % 2 == 0 {
-                mult = FieldElement::<Babybear31PrimeField>::zero();
+                mult = FieldElement::<T>::zero();
                 break;
             }
             var = var >> 1;
