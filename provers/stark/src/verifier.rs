@@ -326,7 +326,6 @@ pub trait IsStarkVerifier {
                     &challenges.zetas,
                     *iota_s,
                     proof_s,
-                    domain,
                     eval,
                     &deep_poly_evaluations[i],
                     &deep_poly_evaluations_sym[i],
@@ -480,35 +479,38 @@ pub trait IsStarkVerifier {
         auth_path_sym: &Proof<Commitment>,
         evaluation: &FieldElement<Self::Field>,
         evaluation_sym: &FieldElement<Self::Field>,
-        domain_length: usize,
         iota: usize,
     ) -> bool
     where
         FieldElement<Self::Field>: Serializable,
     {
-        let index = iota % domain_length;
-
-        let evaluations = if index % 2 == 1 {
+        let evaluations = if iota % 2 == 1 {
             vec![evaluation_sym.clone(), evaluation.clone()]
         } else {
             vec![evaluation.clone(), evaluation_sym.clone()]
         };
 
-        // Verify opening Open(pₖ(Dₖ), −𝜐ₛ^(2ᵏ))
         auth_path_sym.verify::<BatchedMerkleTreeBackend<Self::Field>>(
             merkle_root,
-            index >> 1,
+            iota >> 1,
             &evaluations,
         )
     }
 
+    /// Verify a single FRI query
+    /// `zetas`: the vector of all challenges sent by the verifier to the prover at the commit
+    /// phase to fold polynomials.
+    /// `iota`: the index challenge of this FRI query. This index uniquely determines two elements 𝜐 and -𝜐
+    /// of the evaluation domain of FRI layer 0.
+    /// `evaluation_point_inv`: precomputed value of 𝜐⁻¹.
+    /// `deep_composition_evaluation`: precomputed value of p₀(𝜐), where p₀ is the deep composition polynomial.
+    /// `deep_composition_evaluation_sym`: precomputed value of p₀(-𝜐), where p₀ is the deep composition polynomial.
     fn verify_query_and_sym_openings(
         proof: &StarkProof<Self::Field>,
         zetas: &[FieldElement<Self::Field>],
         iota: usize,
         fri_decommitment: &FriDecommitment<Self::Field>,
-        domain: &Domain<Self::Field>,
-        evaluation_point_inverse: FieldElement<Self::Field>,
+        evaluation_point_inv: FieldElement<Self::Field>,
         deep_composition_evaluation: &FieldElement<Self::Field>,
         deep_composition_evaluation_sym: &FieldElement<Self::Field>,
     ) -> bool
@@ -516,31 +518,24 @@ pub trait IsStarkVerifier {
         FieldElement<Self::Field>: Serializable,
     {
         let fri_layers_merkle_roots = &proof.fri_layers_merkle_roots;
-        let evaluation_point_vec: Vec<FieldElement<Self::Field>> = core::iter::successors(
-            Some(evaluation_point_inverse.square()),
-            |evaluation_point| Some(evaluation_point.square()),
-        )
-        .take(fri_layers_merkle_roots.len())
-        .collect();
+        let evaluation_point_vec: Vec<FieldElement<Self::Field>> =
+            core::iter::successors(Some(evaluation_point_inv.square()), |evaluation_point| {
+                Some(evaluation_point.square())
+            })
+            .take(fri_layers_merkle_roots.len())
+            .collect();
 
-        let pi0 = deep_composition_evaluation;
-        let pi0_sym = deep_composition_evaluation_sym;
-        let mut v = (pi0 + pi0_sym) + &zetas[0] * (pi0 - pi0_sym) * evaluation_point_inverse;
+        let p0_eval = deep_composition_evaluation;
+        let p0_eval_sym = deep_composition_evaluation_sym;
+
+        // Reconstruct p₁(𝜐²)
+        let mut v =
+            (p0_eval + p0_eval_sym) + &zetas[0] * (p0_eval - p0_eval_sym) * evaluation_point_inv;
         let mut index = iota;
 
-        // For each fri layer merkle proof check:
-        // That each merkle path verifies
-
-        // Sample beta with fiat shamir
-        // Compute v = [P_i(z_i) + P_i(-z_i)] / 2 + beta * [P_i(z_i) - P_i(-z_i)] / (2 * z_i)
-        // Where P_i is the folded polynomial of the i-th fiat shamir round
-        // z_i is obtained from the first z (that was derived through Fiat-Shamir) through a known calculation
-        // The calculation is, given the index, index % length_of_evaluation_domain
-
-        // Check that v = P_{i+1}(z_i)
-
-        // For each (merkle_root, merkle_auth_path) / fold
-        // With the auth path containining the element that the path proves it's existence
+        // For each FRI layer, starting from the layer 1: use the proof to verify the validity of value pᵢ(−𝜐^(2ⁱ)) (given by the prover) and
+        // pᵢ(𝜐^(2ⁱ)) (computed on the previous iteration by the verifier). Then use them to obtain pᵢ₊₁(𝜐^(2ⁱ⁺¹)).
+        // Finally, check that the final value coincides with the given by the prover.
         fri_layers_merkle_roots
             .iter()
             .enumerate()
@@ -551,36 +546,32 @@ pub trait IsStarkVerifier {
                 true,
                 |result,
                  (
-                    (((k, merkle_root), auth_path_sym), evaluation_sym),
+                    (((i, merkle_root), auth_path_sym), evaluation_sym),
                     evaluation_point_inv,
                 )| {
-                    let domain_length = 1 << (domain.lde_root_order - (k + 1) as u32);
-                    // Since we always derive the current layer from the previous layer
-                    // We start with the second one, skipping the first, so previous is layer is the first one
-                    // This is the current layer's evaluation domain length.
-                    // We need it to know what the decommitment index for the current
-                    // layer is, so we can check the merkle paths at the right index.
-
-                    // Verify opening Open(pₖ(Dₖ), −𝜐ₛ^(2ᵏ))
+                    // Verify opening Open(pᵢ(Dₖ), −𝜐^(2ⁱ)) and Open(pᵢ(Dₖ), 𝜐^(2ⁱ)).
+                    // `v` is pᵢ(𝜐^(2ⁱ)).
+                    // `evaluation_sym` is pᵢ(−𝜐^(2ⁱ)).
                     let openings_ok = Self::verify_fri_layer_openings(
                         merkle_root,
                         auth_path_sym,
                         &v,
                         evaluation_sym,
-                        domain_length,
                         index,
                     );
 
+                    // Update `v` with next value pᵢ₊₁(𝜐^(2ⁱ⁺¹)).
+                    v = (&v + evaluation_sym) + &zetas[i + 1] * (&v - evaluation_sym) * evaluation_point_inv;
+
+                    // Update index for next iteration. The index of the squares in the next layer
+                    // is obtained by halving the current index. This is due to the bit-reverse
+                    // ordering of the elements in the Merkle tree.
                     index >>= 1;
 
-                    let beta = &zetas[k + 1];
-                    // v is the calculated element for the co linearity check
-                    v = (&v + evaluation_sym) + beta * (&v - evaluation_sym) * evaluation_point_inv;
-
-                    // Check that next value is the given by the prover
-                    if k < fri_decommitment.layers_evaluations_sym.len() - 1 {
+                    if i < fri_decommitment.layers_evaluations_sym.len() - 1 {
                         result & openings_ok
                     } else {
+                        // Check that final value is the given by the prover
                         result & (v == proof.fri_last_value) & openings_ok
                     }
                 },
