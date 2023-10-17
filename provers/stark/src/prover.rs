@@ -112,22 +112,6 @@ pub trait IsStarkProver {
         (tree, commitment)
     }
 
-    fn apply_permutation(vector: &mut Vec<FieldElement<Self::Field>>, permutation: &[usize]) {
-        assert_eq!(
-            vector.len(),
-            permutation.len(),
-            "Vector and permutation must have the same length"
-        );
-
-        let mut temp = Vec::with_capacity(vector.len());
-        for &index in permutation {
-            temp.push(vector[index].clone());
-        }
-
-        vector.clear();
-        vector.extend(temp);
-    }
-
     #[allow(clippy::type_complexity)]
     fn interpolate_and_commit(
         trace: &TraceTable<Self::Field>,
