@@ -8,7 +8,7 @@
 
 This prover is still in development and may contain bugs. It is not intended to be used in production yet.
 
-Please check issues under security label, and wait for them to be resolved if they are relevant your project.
+Please check issues under security label, and wait for them to be resolved if they are relevant to your project.
 
 Output builtin is finished, and range check is supported but it's not sound yet.
 
