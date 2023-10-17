@@ -12,9 +12,9 @@ use crate::{
         simple_fibonacci::{self, FibonacciAIR, FibonacciPublicInputs},
     },
     proof::options::ProofOptions,
-    prover::prove,
+    prover::{IsStarkProver, Prover},
     transcript::StoneProverTranscript,
-    verifier::verify,
+    verifier::{IsStarkVerifier, Verifier},
     Felt252,
 };
 
@@ -29,21 +29,19 @@ fn test_prove_fib() {
         a1: Felt252::one(),
     };
 
-    let proof = prove::<Stark252PrimeField, FibonacciAIR<Stark252PrimeField>>(
+    let proof = Prover::prove::<FibonacciAIR<Stark252PrimeField>>(
         &trace,
         &pub_inputs,
         &proof_options,
         StoneProverTranscript::new(&[]),
     )
     .unwrap();
-    assert!(
-        verify::<Stark252PrimeField, FibonacciAIR<Stark252PrimeField>>(
-            &proof,
-            &pub_inputs,
-            &proof_options,
-            StoneProverTranscript::new(&[]),
-        )
-    );
+    assert!(Verifier::verify::<FibonacciAIR<Stark252PrimeField>>(
+        &proof,
+        &pub_inputs,
+        &proof_options,
+        StoneProverTranscript::new(&[]),
+    ));
 }
 
 #[test_log::test]
@@ -63,14 +61,14 @@ fn test_prove_fib17() {
         a1: FE::one(),
     };
 
-    let proof = prove::<_, FibonacciAIR<_>>(
+    let proof = Prover::prove::<FibonacciAIR<_>>(
         &trace,
         &pub_inputs,
         &proof_options,
         StoneProverTranscript::new(&[]),
     )
     .unwrap();
-    assert!(verify::<_, FibonacciAIR<_>>(
+    assert!(Verifier::verify::<FibonacciAIR<_>>(
         &proof,
         &pub_inputs,
         &proof_options,
@@ -89,17 +87,14 @@ fn test_prove_fib_2_cols() {
         a1: Felt252::one(),
     };
 
-    let proof = prove::<Stark252PrimeField, Fibonacci2ColsAIR<Stark252PrimeField>>(
+    let proof = Prover::prove::<Fibonacci2ColsAIR<Stark252PrimeField>>(
         &trace,
         &pub_inputs,
         &proof_options,
         StoneProverTranscript::new(&[]),
     )
     .unwrap();
-    assert!(verify::<
-        Stark252PrimeField,
-        Fibonacci2ColsAIR<Stark252PrimeField>,
-    >(
+    assert!(Verifier::verify::<Fibonacci2ColsAIR<Stark252PrimeField>>(
         &proof,
         &pub_inputs,
         &proof_options,
@@ -120,14 +115,14 @@ fn test_prove_fib_2_cols_shifted() {
         claimed_index,
     };
 
-    let proof = prove::<Stark252PrimeField, Fibonacci2ColsShifted<_>>(
+    let proof = Prover::prove::<Fibonacci2ColsShifted<_>>(
         &trace,
         &pub_inputs,
         &proof_options,
         StoneProverTranscript::new(&[]),
     )
     .unwrap();
-    assert!(verify::<Stark252PrimeField, Fibonacci2ColsShifted<_>>(
+    assert!(Verifier::verify::<Fibonacci2ColsShifted<_>>(
         &proof,
         &pub_inputs,
         &proof_options,
@@ -145,21 +140,19 @@ fn test_prove_quadratic() {
         a0: Felt252::from(3),
     };
 
-    let proof = prove::<Stark252PrimeField, QuadraticAIR<Stark252PrimeField>>(
+    let proof = Prover::prove::<QuadraticAIR<Stark252PrimeField>>(
         &trace,
         &pub_inputs,
         &proof_options,
         StoneProverTranscript::new(&[]),
     )
     .unwrap();
-    assert!(
-        verify::<Stark252PrimeField, QuadraticAIR<Stark252PrimeField>>(
-            &proof,
-            &pub_inputs,
-            &proof_options,
-            StoneProverTranscript::new(&[])
-        )
-    );
+    assert!(Verifier::verify::<QuadraticAIR<Stark252PrimeField>>(
+        &proof,
+        &pub_inputs,
+        &proof_options,
+        StoneProverTranscript::new(&[])
+    ));
 }
 
 #[test_log::test]
@@ -175,21 +168,19 @@ fn test_prove_rap_fib() {
         a1: Felt252::one(),
     };
 
-    let proof = prove::<Stark252PrimeField, FibonacciRAP<Stark252PrimeField>>(
+    let proof = Prover::prove::<FibonacciRAP<Stark252PrimeField>>(
         &trace,
         &pub_inputs,
         &proof_options,
         StoneProverTranscript::new(&[]),
     )
     .unwrap();
-    assert!(
-        verify::<Stark252PrimeField, FibonacciRAP<Stark252PrimeField>>(
-            &proof,
-            &pub_inputs,
-            &proof_options,
-            StoneProverTranscript::new(&[])
-        )
-    );
+    assert!(Verifier::verify::<FibonacciRAP<Stark252PrimeField>>(
+        &proof,
+        &pub_inputs,
+        &proof_options,
+        StoneProverTranscript::new(&[])
+    ));
 }
 
 #[test_log::test]
@@ -199,14 +190,10 @@ fn test_prove_dummy() {
 
     let proof_options = ProofOptions::default_test_options();
 
-    let proof = prove::<Stark252PrimeField, DummyAIR>(
-        &trace,
-        &(),
-        &proof_options,
-        StoneProverTranscript::new(&[]),
-    )
-    .unwrap();
-    assert!(verify::<Stark252PrimeField, DummyAIR>(
+    let proof =
+        Prover::prove::<DummyAIR>(&trace, &(), &proof_options, StoneProverTranscript::new(&[]))
+            .unwrap();
+    assert!(Verifier::verify::<DummyAIR>(
         &proof,
         &(),
         &proof_options,

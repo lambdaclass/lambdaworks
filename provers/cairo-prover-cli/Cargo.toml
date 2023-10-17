@@ -10,6 +10,7 @@ name = "cairo-platinum-prover-cli"
 path = "src/main.rs"
 
 [dependencies]
+serde_cbor = { version = "0.11.1"}
 lambdaworks-math = { workspace = true , features = ["lambdaworks-serde"] }
 stark-platinum-prover = { workspace = true, features = ["wasm"] }
 cairo-platinum-prover = { workspace = true}
