@@ -204,16 +204,11 @@ pub trait IsStarkVerifier {
     where
         A: AIR<Field = Self::Field>,
     {
-        // BEGIN TRACE <-> Composition poly consistency evaluation check
-
         let boundary_constraints = air.boundary_constraints(&challenges.rap_challenges);
 
-        //let n_trace_cols = air.context().trace_columns;
-        // special cases.
         let trace_length = air.trace_length();
         let number_of_b_constraints = boundary_constraints.constraints.len();
 
-        // Following naming conventions from https://www.notamonadtutorial.com/diving-deep-fri/
         let (boundary_c_i_evaluations_num, mut boundary_c_i_evaluations_den): (
             Vec<FieldElement<Self::Field>>,
             Vec<FieldElement<Self::Field>>,
@@ -356,12 +351,12 @@ pub trait IsStarkVerifier {
         proof: &Proof<Commitment>,
         root: &Commitment,
         index: usize,
-        value: &Vec<FieldElement<Self::Field>>,
+        value: &[FieldElement<Self::Field>],
     ) -> bool
     where
         FieldElement<Self::Field>: Serializable,
     {
-        proof.verify::<BatchedMerkleTreeBackend<Self::Field>>(root, index, value)
+        proof.verify::<BatchedMerkleTreeBackend<Self::Field>>(root, index, &value.to_owned())
     }
 
     /// Verify opening Open(tⱼ(D_LDE), 𝜐) and Open(tⱼ(D_LDE), -𝜐) for all trace polynomials tⱼ,

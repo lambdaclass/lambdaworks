@@ -260,13 +260,11 @@ pub trait IsStarkProver {
         FieldElement<Self::Field>: Serializable,
     {
         // TODO: Remove clones
-        let number_of_parts = lde_composition_poly_parts_evaluations.len();
-
         let mut lde_composition_poly_evaluations = Vec::new();
         for i in 0..lde_composition_poly_parts_evaluations[0].len() {
             let mut row = Vec::new();
-            for j in 0..number_of_parts {
-                row.push(lde_composition_poly_parts_evaluations[j][i].clone());
+            for evaluation in lde_composition_poly_parts_evaluations.iter() {
+                row.push(evaluation[i].clone());
             }
             lde_composition_poly_evaluations.push(row);
         }
@@ -621,7 +619,7 @@ pub trait IsStarkProver {
 
     fn open_trace_polys(
         domain: &Domain<Self::Field>,
-        lde_trace_merkle_trees: &Vec<BatchedMerkleTree<Self::Field>>,
+        lde_trace_merkle_trees: &[BatchedMerkleTree<Self::Field>],
         lde_trace: &TraceTable<Self::Field>,
         index: usize,
     ) -> (Vec<Proof<Commitment>>, Vec<FieldElement<Self::Field>>)
