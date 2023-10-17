@@ -19,7 +19,7 @@ use crate::config::BatchedMerkleTreeBackend;
 #[cfg(debug_assertions)]
 use crate::debug::validate_trace;
 use crate::fri::fri_commitment::FriLayer;
-use crate::fri::{Fri, IsFri};
+use crate::fri;
 use crate::transcript::IsStarkTranscript;
 
 use super::config::{BatchedMerkleTree, Commitment};
@@ -95,32 +95,6 @@ where
 
 pub trait IsStarkProver {
     type Field: IsFFTField;
-
-    fn fri_commit_phase(
-        number_layers: usize,
-        p_0: Polynomial<FieldElement<Self::Field>>,
-        transcript: &mut impl IsStarkTranscript<Self::Field>,
-        coset_offset: &FieldElement<Self::Field>,
-        domain_size: usize,
-    ) -> (
-        FieldElement<Self::Field>,
-        Vec<FriLayer<Self::Field, BatchedMerkleTreeBackend<Self::Field>>>,
-    )
-    where
-        FieldElement<Self::Field>: Serializable,
-    {
-        Fri::fri_commit_phase(number_layers, p_0, transcript, coset_offset, domain_size)
-    }
-
-    fn fri_query_phase(
-        fri_layers: &Vec<FriLayer<Self::Field, BatchedMerkleTreeBackend<Self::Field>>>,
-        iotas: &[usize],
-    ) -> Vec<FriDecommitment<Self::Field>>
-    where
-        FieldElement<Self::Field>: Serializable,
-    {
-        Fri::fri_query_phase(fri_layers, iotas)
-    }
 
     fn batch_commit(
         vectors: &[Vec<FieldElement<Self::Field>>],
@@ -422,7 +396,7 @@ pub trait IsStarkProver {
         let domain_size = domain.lde_roots_of_unity_coset.len();
 
         // FRI commit and query phases
-        let (fri_last_value, fri_layers) = Self::fri_commit_phase(
+        let (fri_last_value, fri_layers) = fri::commit_phase(
             domain.root_order as usize,
             deep_composition_poly,
             transcript,
@@ -442,7 +416,7 @@ pub trait IsStarkProver {
 
         let number_of_queries = air.options().fri_number_of_queries;
         let iotas = Self::sample_query_indexes(number_of_queries, domain, transcript);
-        let query_list = Self::fri_query_phase(&fri_layers, &iotas);
+        let query_list = fri::query_phase(&fri_layers, &iotas);
 
         let fri_layers_merkle_roots: Vec<_> = fri_layers
             .iter()
