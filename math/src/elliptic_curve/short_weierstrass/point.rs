@@ -16,7 +16,7 @@ pub struct ShortWeierstrassProjectivePoint<E: IsEllipticCurve>(pub ProjectivePoi
 
 impl<E: IsEllipticCurve> ShortWeierstrassProjectivePoint<E> {
     /// Creates an elliptic curve point giving the projective [x: y: z] coordinates.
-    pub fn new(value: [FieldElement<E::BaseField>; 3]) -> Self {
+    pub const fn new(value: [FieldElement<E::BaseField>; 3]) -> Self {
         Self(ProjectivePoint::new(value))
     }
 
