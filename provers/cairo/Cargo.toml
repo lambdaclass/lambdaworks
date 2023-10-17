@@ -14,3 +14,4 @@ lambdaworks-math = { workspace = true , features = ["lambdaworks-serde"] }
 stark-platinum-prover = { workspace = true, features = ["wasm"] }
 cairo-platinum-prover = { workspace = true}
 clap = { version = "4.4.6", features = ["derive"] }
+serde_cbor = { version = "0.11.1" }
