@@ -18,6 +18,7 @@ use rayon::prelude::{IndexedParallelIterator, IntoParallelRefIterator, ParallelI
 #[cfg(debug_assertions)]
 use crate::debug::validate_trace;
 use crate::fri;
+use crate::proof::stark::DeepPolynomialOpenings;
 use crate::transcript::IsStarkTranscript;
 
 use super::config::{BatchedMerkleTree, Commitment};
@@ -27,7 +28,7 @@ use super::frame::Frame;
 use super::fri::fri_decommit::FriDecommitment;
 use super::grinding::generate_nonce_with_grinding;
 use super::proof::options::ProofOptions;
-use super::proof::stark::{DeepPolynomialOpenings, StarkProof};
+use super::proof::stark::{DeepPolynomialOpening, StarkProof};
 use super::trace::TraceTable;
 use super::traits::AIR;
 
@@ -74,8 +75,8 @@ pub struct Round3<F: IsFFTField> {
 pub struct Round4<F: IsFFTField> {
     fri_last_value: FieldElement<F>,
     fri_layers_merkle_roots: Vec<Commitment>,
-    deep_poly_openings: Vec<DeepPolynomialOpenings<F>>,
-    deep_poly_openings_sym: Vec<DeepPolynomialOpenings<F>>,
+    deep_poly_openings: DeepPolynomialOpenings<F>,
+    deep_poly_openings_sym: DeepPolynomialOpenings<F>,
     query_list: Vec<FriDecommitment<F>>,
     nonce: u64,
 }
@@ -628,10 +629,10 @@ pub trait IsStarkProver {
         domain: &Domain<Self::Field>,
         round_1_result: &Round1<Self::Field, A>,
         round_2_result: &Round2<Self::Field>,
-        indexes_to_open: &[usize], // list of iotas
+        indexes_to_open: &[usize],
     ) -> (
-        Vec<DeepPolynomialOpenings<Self::Field>>,
-        Vec<DeepPolynomialOpenings<Self::Field>>,
+        DeepPolynomialOpenings<Self::Field>,
+        DeepPolynomialOpenings<Self::Field>,
     )
     where
         FieldElement<Self::Field>: Serializable,
@@ -661,7 +662,7 @@ pub trait IsStarkProver {
                     *index,
                 );
 
-            openings.push(DeepPolynomialOpenings {
+            openings.push(DeepPolynomialOpening {
                 lde_composition_poly_proof: lde_composition_poly_proof.clone(),
                 lde_composition_poly_parts_evaluation: lde_composition_poly_parts_evaluation
                     .clone()
@@ -672,7 +673,7 @@ pub trait IsStarkProver {
                 lde_trace_evaluations,
             });
 
-            openings_symmetric.push(DeepPolynomialOpenings {
+            openings_symmetric.push(DeepPolynomialOpening {
                 lde_composition_poly_proof,
                 lde_composition_poly_parts_evaluation: lde_composition_poly_parts_evaluation
                     .into_iter()
@@ -954,10 +955,6 @@ mod tests {
         assert_eq!(domain.blowup_factor, 2);
         assert_eq!(domain.interpolation_domain_size, trace_length);
         assert_eq!(domain.root_order, trace_length.trailing_zeros());
-        assert_eq!(
-            domain.lde_root_order,
-            (trace_length * blowup_factor).trailing_zeros()
-        );
         assert_eq!(domain.coset_offset, FieldElement::from(coset_offset));
 
         let primitive_root = Stark252PrimeField::get_primitive_root_of_unity(

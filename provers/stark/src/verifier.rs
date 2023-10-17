@@ -16,7 +16,7 @@ use lambdaworks_math::{
 };
 
 use crate::{
-    config::Commitment, proof::stark::DeepPolynomialOpenings, transcript::IsStarkTranscript,
+    config::Commitment, proof::stark::DeepPolynomialOpening, transcript::IsStarkTranscript,
 };
 
 use super::{
@@ -27,6 +27,12 @@ use super::{
     proof::{options::ProofOptions, stark::StarkProof},
     traits::AIR,
 };
+
+pub struct Verifier {}
+
+impl IsStarkVerifier for Verifier {
+    type Field = Stark252PrimeField;
+}
 
 pub struct Challenges<F, A>
 where
@@ -43,6 +49,8 @@ where
     pub rap_challenges: A::RAPChallenges,
     pub leading_zeros_count: u8, // number of leading zeros in the grinding
 }
+
+pub type DeepPolynomialEvaluations<F> = (Vec<FieldElement<F>>, Vec<FieldElement<F>>);
 
 pub trait IsStarkVerifier {
     type Field: IsFFTField;
@@ -209,6 +217,7 @@ pub trait IsStarkVerifier {
         let trace_length = air.trace_length();
         let number_of_b_constraints = boundary_constraints.constraints.len();
 
+        #[allow(clippy::type_complexity)]
         let (boundary_c_i_evaluations_num, mut boundary_c_i_evaluations_den): (
             Vec<FieldElement<Self::Field>>,
             Vec<FieldElement<Self::Field>>,
@@ -364,8 +373,8 @@ pub trait IsStarkVerifier {
     fn verify_trace_openings(
         num_main_columns: usize,
         proof: &StarkProof<Self::Field>,
-        deep_poly_openings: &DeepPolynomialOpenings<Self::Field>,
-        deep_poly_openings_sym: &DeepPolynomialOpenings<Self::Field>,
+        deep_poly_openings: &DeepPolynomialOpening<Self::Field>,
+        deep_poly_openings_sym: &DeepPolynomialOpening<Self::Field>,
         iota: usize,
     ) -> bool
     where
@@ -406,8 +415,8 @@ pub trait IsStarkVerifier {
     /// Verify opening Open(Hᵢ(D_LDE), 𝜐) and Open(Hᵢ(D_LDE), -𝜐) for all parts Hᵢof the composition
     /// polynomial, where 𝜐 and -𝜐 are the elements corresponding to the index challenge `iota`.
     fn verify_composition_poly_opening(
-        deep_poly_openings: &DeepPolynomialOpenings<Self::Field>,
-        deep_poly_openings_sym: &DeepPolynomialOpenings<Self::Field>,
+        deep_poly_openings: &DeepPolynomialOpening<Self::Field>,
+        deep_poly_openings_sym: &DeepPolynomialOpening<Self::Field>,
         composition_poly_merkle_root: &Commitment,
         iota: &usize,
     ) -> bool
@@ -573,10 +582,7 @@ pub trait IsStarkVerifier {
         challenges: &Challenges<Self::Field, A>,
         domain: &Domain<Self::Field>,
         proof: &StarkProof<Self::Field>,
-    ) -> (
-        Vec<FieldElement<Self::Field>>,
-        Vec<FieldElement<Self::Field>>,
-    )
+    ) -> DeepPolynomialEvaluations<Self::Field>
     where
         A: AIR<Field = Self::Field>,
     {
@@ -753,9 +759,4 @@ pub trait IsStarkVerifier {
 
         true
     }
-}
-pub struct Verifier {}
-
-impl IsStarkVerifier for Verifier {
-    type Field = Stark252PrimeField;
 }
