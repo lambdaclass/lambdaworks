@@ -15,10 +15,8 @@ use log::info;
 #[cfg(feature = "parallel")]
 use rayon::prelude::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 
-use crate::config::BatchedMerkleTreeBackend;
 #[cfg(debug_assertions)]
 use crate::debug::validate_trace;
-use crate::fri::fri_commitment::FriLayer;
 use crate::fri;
 use crate::transcript::IsStarkTranscript;
 
@@ -32,6 +30,12 @@ use super::proof::options::ProofOptions;
 use super::proof::stark::{DeepPolynomialOpenings, StarkProof};
 use super::trace::TraceTable;
 use super::traits::AIR;
+
+pub struct Prover;
+
+impl IsStarkProver for Prover {
+    type Field = Stark252PrimeField;
+}
 
 #[derive(Debug)]
 pub enum ProvingError {
@@ -899,13 +903,6 @@ pub trait IsStarkProver {
         })
     }
 }
-
-pub struct Prover;
-
-impl IsStarkProver for Prover {
-    type Field = Stark252PrimeField;
-}
-
 #[cfg(test)]
 mod tests {
     use std::num::ParseIntError;
