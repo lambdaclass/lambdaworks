@@ -1,19 +1,4 @@
-use crate::{
-    air::{
-        generate_cairo_proof, verify_cairo_proof, CairoAIR, MemorySegment, MemorySegmentMap,
-        PublicInputs, FRAME_DST_ADDR, FRAME_OP0_ADDR, FRAME_OP1_ADDR, FRAME_PC,
-    },
-    cairo_layout::CairoLayout,
-    execution_trace::build_main_trace,
-    runner::run::{generate_prover_args, run_program},
-    tests::utils::{cairo0_program_path, test_prove_cairo_program},
-    Felt252,
-};
-use lambdaworks_math::{
-    errors::DeserializationError,
-    field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
-    traits::{Deserializable, Serializable},
-};
+use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
 use stark_platinum_prover::{
     debug::validate_trace,
     domain::Domain,
@@ -298,7 +283,7 @@ fn deserialize_and_verify() {
 
     // The proof is generated and serialized.
     let proof = generate_cairo_proof(&main_trace, &pub_inputs, &proof_options).unwrap();
-    let proof_bytes = proof.serialize();
+    let proof_bytes: Vec<u8> = serde_cbor::to_vec(&proof).unwrap();
 
     // The trace and original proof are dropped to show that they are decoupled from
     // the verifying process.
@@ -307,38 +292,8 @@ fn deserialize_and_verify() {
 
     // At this point, the verifier only knows about the serialized proof, the proof options
     // and the public inputs.
-    let proof = StarkProof::<Stark252PrimeField>::deserialize(&proof_bytes).unwrap();
+    let proof: StarkProof<Stark252PrimeField> = serde_cbor::from_slice(&proof_bytes).unwrap();
 
     // The proof is verified successfully.
     assert!(verify_cairo_proof(&proof, &pub_inputs, &proof_options));
-}
-
-#[test]
-fn deserialize_should_not_panic_with_changed_and_sliced_bytes() {
-    let program_content = std::fs::read(cairo0_program_path("fibonacci_10.json")).unwrap();
-    let (main_trace, pub_inputs) =
-        generate_prover_args(&program_content, &None, CairoLayout::Plain).unwrap();
-
-    let proof_options = ProofOptions::default_test_options();
-
-    // The proof is generated and serialized.
-    let proof = generate_cairo_proof(&main_trace, &pub_inputs, &proof_options).unwrap();
-    let mut proof_bytes = proof.serialize();
-
-    // The trace and original proof are dropped to show that they are decoupled from
-    // the verifying process.
-    drop(main_trace);
-    drop(proof);
-
-    for byte in proof_bytes.iter_mut().take(21664) {
-        *byte = 255;
-    }
-    proof_bytes = proof_bytes[0..517].to_vec();
-
-    assert_eq!(
-        DeserializationError::InvalidAmountOfBytes,
-        StarkProof::<Stark252PrimeField>::deserialize(&proof_bytes)
-            .err()
-            .unwrap()
-    );
 }

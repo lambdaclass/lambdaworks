@@ -15,10 +15,9 @@ use super::boundary::BoundaryConstraints;
 #[cfg(all(debug_assertions, not(feature = "parallel")))]
 use crate::debug::check_boundary_polys_divisibility;
 use crate::domain::Domain;
-use crate::frame::Frame;
-use crate::prover::evaluate_polynomial_on_lde_domain;
 use crate::trace::TraceTable;
 use crate::traits::AIR;
+use crate::{frame::Frame, prover::evaluate_polynomial_on_lde_domain};
 
 pub struct ConstraintEvaluator<F: IsFFTField, A: AIR> {
     air: A,
@@ -265,7 +264,7 @@ fn evaluate_transition_exemptions<F: IsFFTField>(
     domain: &Domain<F>,
 ) -> Vec<Vec<FieldElement<F>>>
 where
-    FieldElement<F>: Send + Sync,
+    FieldElement<F>: Send + Sync + Serializable,
     Polynomial<FieldElement<F>>: Send + Sync,
 {
     #[cfg(feature = "parallel")]

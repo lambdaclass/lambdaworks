@@ -6,8 +6,42 @@ use lambdaworks_math::traits::{Deserializable, Serializable};
 use stark_platinum_prover::proof::options::{ProofOptions, SecurityLevel};
 use stark_platinum_prover::proof::stark::StarkProof;
 
-use std::env;
 use std::time::Instant;
+
+use clap::{Args, Parser, Subcommand};
+
+#[derive(Parser, Debug)]
+#[command(author = "Lambdaworks", version, about)]
+struct ProverArgs {
+    #[clap(subcommand)]
+    entity: ProverEntity,
+}
+
+#[derive(Subcommand, Debug)]
+enum ProverEntity {
+    #[clap(about = "Generate a proof for a given compiled cairo program")]
+    Prove(ProveArgs),
+    #[clap(about = "Verify a proof for a given compiled cairo program")]
+    Verify(VerifyArgs),
+    #[clap(about = "Generate and verify a proof for a given compiled cairo program")]
+    ProveAndVerify(ProveAndVerifyArgs),
+}
+
+#[derive(Args, Debug)]
+struct ProveArgs {
+    program_path: String,
+    proof_path: String,
+}
+
+#[derive(Args, Debug)]
+struct VerifyArgs {
+    proof_path: String,
+}
+
+#[derive(Args, Debug)]
+struct ProveAndVerifyArgs {
+    program_path: String,
+}
 
 fn generate_proof(
     input_path: &String,
@@ -68,96 +102,68 @@ fn verify_proof(
 fn main() {
     let proof_options = ProofOptions::new_secure(SecurityLevel::Conjecturable100Bits, 3);
 
-    let args: Vec<String> = env::args().collect();
-
-    if args.len() < 2 {
-        println!("Usage: cargo run <command> [arguments]");
-        return;
-    }
-
-    let command = &args[1];
-
-    match command.as_str() {
-        "prove" => {
-            if args.len() < 4 {
-                println!("Usage: cargo run prove <input_path> <output_path>");
-                return;
-            }
-
-            let input_path = &args[2];
-            let output_path = &args[3];
-
-            if input_path.contains(".cairo") {
+    let args: ProverArgs = ProverArgs::parse();
+    match args.entity {
+        ProverEntity::Prove(args) => {
+            // verify input file is .cairo
+            if args.program_path.contains(".cairo") {
                 println!("\nYou are trying to prove a non compiled Cairo program. Please compile it before sending it to the prover.\n");
                 return;
             }
 
-            let Some((proof, pub_inputs)) = generate_proof(input_path, &proof_options) else {
+            let Some((proof, pub_inputs)) = generate_proof(&args.program_path, &proof_options)
+            else {
                 return;
             };
 
             let mut bytes = vec![];
-            let proof_bytes = proof.serialize();
+            let proof_bytes: Vec<u8> = serde_cbor::to_vec(&proof).unwrap();
             bytes.extend(proof_bytes.len().to_be_bytes());
             bytes.extend(proof_bytes);
             bytes.extend(pub_inputs.serialize());
 
-            let Ok(()) = std::fs::write(output_path, bytes) else {
-                println!("Error writing proof to file: {output_path}");
+            let Ok(()) = std::fs::write(&args.proof_path, bytes) else {
+                println!("Error writing proof to file: {}", args.proof_path);
                 return;
             };
-            println!("Proof written to {output_path}");
+            println!("Proof written to {}", args.proof_path);
         }
-        "verify" => {
-            if args.len() < 3 {
-                println!("Usage: cargo run verify <input_path>");
-                return;
-            }
-
-            let input_path = &args[2];
-            let Ok(program_content) = std::fs::read(input_path) else {
-                println!("Error opening {input_path} file");
+        ProverEntity::Verify(args) => {
+            let Ok(program_content) = std::fs::read(&args.proof_path) else {
+                println!("Error opening {} file", args.proof_path);
                 return;
             };
             let mut bytes = program_content.as_slice();
             if bytes.len() < 8 {
-                println!("Error reading proof from file: {input_path}");
+                println!("Error reading proof from file: {}", args.proof_path);
                 return;
             }
+
             let proof_len = usize::from_be_bytes(bytes[0..8].try_into().unwrap());
             bytes = &bytes[8..];
             if bytes.len() < proof_len {
-                println!("Error reading proof from file: {input_path}");
+                println!("Error reading proof from file: {}", args.proof_path);
                 return;
             }
-            let Ok(proof) = StarkProof::<Stark252PrimeField>::deserialize(&bytes[0..proof_len])
-            else {
-                println!("Error reading proof from file: {input_path}");
+            let Ok(proof) = serde_cbor::from_slice(&bytes[0..proof_len]) else {
+                println!("Error reading proof from file: {}", args.proof_path);
                 return;
             };
             bytes = &bytes[proof_len..];
 
             let Ok(pub_inputs) = PublicInputs::deserialize(bytes) else {
-                println!("Error reading proof from file: {input_path}");
+                println!("Error reading proof from file: {}", args.proof_path);
                 return;
             };
 
             verify_proof(proof, pub_inputs, &proof_options);
         }
-        "prove_and_verify" => {
-            if args.len() < 3 {
-                println!("Usage: cargo run prove_and_verify <input_path>");
-                return;
-            }
-
-            let input_path = &args[2];
-            let Some((proof, pub_inputs)) = generate_proof(input_path, &proof_options) else {
+        ProverEntity::ProveAndVerify(args) => {
+            let Some((proof, pub_inputs)) = generate_proof(&args.program_path, &proof_options)
+            else {
                 return;
             };
             verify_proof(proof, pub_inputs, &proof_options);
-        }
-        _ => {
-            println!("Unknown command: {}", command);
         }
     }
 }
