@@ -12,7 +12,7 @@ pub struct ProjectivePoint<E: IsEllipticCurve> {
 
 impl<E: IsEllipticCurve> ProjectivePoint<E> {
     /// Creates an elliptic curve point giving the projective [x: y: z] coordinates.
-    pub fn new(value: [FieldElement<E::BaseField>; 3]) -> Self {
+    pub const fn new(value: [FieldElement<E::BaseField>; 3]) -> Self {
         Self { value }
     }
 
