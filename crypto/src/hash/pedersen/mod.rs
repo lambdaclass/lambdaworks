@@ -47,17 +47,17 @@ impl Pedersen {
         let y = y.to_bits_le();
         let mut acc = self.params.shift_point.clone();
 
-        self.add_points(&mut acc, &x[..248], &self.params.points_p1); // Add a_low * P1
-        self.add_points(&mut acc, &x[248..252], &self.params.points_p2); // Add a_high * P2
-        self.add_points(&mut acc, &y[..248], &self.params.points_p3); // Add b_low * P3
-        self.add_points(&mut acc, &y[248..252], &self.params.points_p4); // Add b_high * P4
+        self.lookup_and_accumulate(&mut acc, &x[..248], &self.params.points_p1); // Add a_low * P1
+        self.lookup_and_accumulate(&mut acc, &x[248..252], &self.params.points_p2); // Add a_high * P2
+        self.lookup_and_accumulate(&mut acc, &y[..248], &self.params.points_p3); // Add b_low * P3
+        self.lookup_and_accumulate(&mut acc, &y[248..252], &self.params.points_p4); // Add b_high * P4
 
         *acc.to_affine().x()
     }
 
     /// Performs lookup to find the constant point corresponding to 4-bit chunks of given input.
     /// Keeps adding up those points to the given accumulation point.
-    fn add_points(
+    fn lookup_and_accumulate(
         &self,
         acc: &mut ShortWeierstrassProjectivePoint<StarkCurve>,
         bits: &[bool],
