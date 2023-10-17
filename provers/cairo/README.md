@@ -18,7 +18,7 @@ CLI currently runs with 100 bits of conjecturable security
 
 ### Usage:
 
-To prove programs Cairo has to be compiled. For compilation you need to have `cairo-lang` or `docker` installed.
+To prove Cairo programs, they first need to be compiled. For compilation you need to have `cairo-lang` or `docker` installed.
 
 When using Docker, start by creating the container image with:
 
