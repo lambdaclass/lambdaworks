@@ -89,7 +89,7 @@ fn try_compile(program_path: &String, out_file_path: &String) -> Result<(), Erro
     if !program_path.contains(".cairo") {
         return Err(Error::new(
             ErrorKind::Other,
-            "File provided is not a Cairo uncompiled",
+            "Provided file is not a Cairo source file",
         ));
     }
 
