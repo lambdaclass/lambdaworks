@@ -227,16 +227,11 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
         }
     }
 
-    /// For the given polynomial, returns a tuple `(even, odd)` of polynomials
-    /// with the even and odd coefficients respectively.
-    /// Note that `even` and `odd` ARE NOT actually even/odd polynomials themselves.
+    /// Returns a vector of polynomials [p₀, p₁, ..., p_{d-1}], where d is `number_of_parts`, such that `self` equals
+    /// p₀(Xᵈ) + Xp₁(Xᵈ) + ... + X^(d-1)p_{d-1}(Xᵈ).
     ///
-    /// Example: if poly = 3 X^3 + X^2 + 2X + 1, then
-    /// `poly.even_odd_decomposition = (even, odd)` with
-    /// `even` = X + 1 and `odd` = 3X + 1.
-    ///
-    /// In general, the decomposition satisfies the following:
-    /// `poly(x)` = `even(x^2)` + X * `odd(x^2)`
+    /// Example: if d = 2 and `self` is 3 X^3 + X^2 + 2X + 1, then `poly.break_in_parts(2)`
+    /// returns a vector with two polynomials `(p₀, p₁)`, where p₀ = X + 1 and p₁ = 3X + 2.
     pub fn break_in_parts(&self, number_of_parts: usize) -> Vec<Self> {
         let coef = self.coefficients();
         let mut parts: Vec<Self> = Vec::with_capacity(number_of_parts);
@@ -895,6 +890,20 @@ mod tests {
             compose(&p, &q),
             Polynomial::new(&[FE::new(0), FE::new(0), FE::new(2)])
         );
+    }
+
+    #[test]
+    fn break_in_parts() {
+        // p = 3 X^3 + X^2 + 2X + 1
+        let p = Polynomial::new(&[FE::new(1), FE::new(2), FE::new(1), FE::new(3)]);
+        let p0_expected = Polynomial::new(&[FE::new(1), FE::new(1)]);
+        let p1_expected = Polynomial::new(&[FE::new(2), FE::new(3)]);
+        let parts = p.break_in_parts(2);
+        assert_eq!(parts.len(), 2);
+        let p0 = &parts[0];
+        let p1 = &parts[1];
+        assert_eq!(p0, &p0_expected);
+        assert_eq!(p1, &p1_expected);
     }
 
     use proptest::prelude::*;
