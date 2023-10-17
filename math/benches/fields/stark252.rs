@@ -36,7 +36,7 @@ pub fn rand_field_elements(num: usize) -> Vec<(F, F)> {
 pub fn starkfield_ops_benchmarks(c: &mut Criterion) {
     let input: Vec<Vec<(F, F)>> = [1, 10, 100, 1000, 10000, 100000, 1000000]
         .into_iter()
-        .map(|i| rand_field_elements)
+        .map(|i| rand_field_elements(i))
         .collect::<Vec<_>>();
     let mut group = c.benchmark_group("Stark FP operations");
 
