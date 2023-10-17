@@ -1,3 +1,14 @@
+use crate::{
+    air::{
+        generate_cairo_proof, verify_cairo_proof, CairoAIR, MemorySegment, MemorySegmentMap,
+        PublicInputs, FRAME_DST_ADDR, FRAME_OP0_ADDR, FRAME_OP1_ADDR, FRAME_PC,
+    },
+    cairo_layout::CairoLayout,
+    execution_trace::build_main_trace,
+    runner::run::{generate_prover_args, run_program},
+    tests::utils::{cairo0_program_path, test_prove_cairo_program},
+    Felt252,
+};
 use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
 use stark_platinum_prover::{
     debug::validate_trace,
