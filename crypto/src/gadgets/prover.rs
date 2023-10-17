@@ -2,21 +2,17 @@ use lambdaworks_math::field::{
     element::FieldElement, fields::fft_friendly::babybear::Babybear31PrimeField,
 };
 
-/*
-A polynomial is a vector
-if the polynomial is a_{n-1}* x^{n-1}+ ...+a_0
-the vector is [a_0, a_1,...., a_{n-1}]
-where i=i_1...i_n, that is i_j are the digits of i in base 2, and x^i= x_1^{i_1}.... x_n^{i_n}
-For n variables, this vector will be of length 2^n
-*/
-pub type poly = Vec<FieldElement<Babybear31PrimeField>>;
+use lambdaworks_math::polynomial::Polynomial;
 
 pub enum ProverMessage {
     Sum(FieldElement<Babybear31PrimeField>),
-    Polynomial(poly),
+    Polynomial(Polynomial<FieldElement<Babybear31PrimeField>>),
 }
 
-pub fn sumcheck_prover(round: u64, p: poly) -> ProverMessage {
+pub fn sumcheck_prover(
+    round: u64,
+    p: Polynomial<FieldElement<Babybear31PrimeField>>,
+) -> ProverMessage {
     if round == 0 {
         ProverMessage::Sum(FieldElement::<Babybear31PrimeField>::one())
     } else if round == 1 {
@@ -26,16 +22,69 @@ pub fn sumcheck_prover(round: u64, p: poly) -> ProverMessage {
     }
 }
 
-fn eval_polynomial(var_asignment: u64, p: poly) {
-    
-    for var in 0..p.len() {
-        
+//point evaluation for multilinear polynomial
+fn eval_polynomial(
+    var_assignment: u64,
+    p: &Polynomial<FieldElement<Babybear31PrimeField>>,
+) -> FieldElement<Babybear31PrimeField> {
+    let mut eval = p.coefficients[0].clone();
+
+    for i in 1..p.coefficients.len() {
+        let mut var = i as u64;
+        let mut assign = var_assignment;
+
+        let mut mult = FieldElement::<Babybear31PrimeField>::one();
+        while (var > 0) {
+            if var % 2 == 1 && assign % 2 == 0 {
+                mult = FieldElement::<Babybear31PrimeField>::zero();
+                break;
+            }
+            var = var >> 1;
+            assign = assign >> 1;
+        }
+
+        eval += p.coefficients[i].clone() * mult;
     }
+    eval
 }
 
 #[cfg(test)]
 mod test_prover {
+    use super::*;
 
     #[test]
-    fn aaa() {}
+    fn test_polynomial_evaluation() {
+        //1 + x_2 + x_1 + x_2 x_1
+        let poly = Polynomial::new(&[
+            FieldElement::<Babybear31PrimeField>::one(),
+            FieldElement::<Babybear31PrimeField>::one(),
+            FieldElement::<Babybear31PrimeField>::one(),
+            FieldElement::<Babybear31PrimeField>::one(),
+        ]);
+        //x_2 = x_1 = 0
+        assert_eq!(
+            eval_polynomial(0, &poly),
+            FieldElement::<Babybear31PrimeField>::one()
+        );
+        //x_2 = 0, x_1 = 1
+        assert_eq!(
+            eval_polynomial(1, &poly),
+            FieldElement::<Babybear31PrimeField>::one()
+                + FieldElement::<Babybear31PrimeField>::one()
+        );
+        //x_2 = 1 x_1 = 0
+        assert_eq!(
+            eval_polynomial(2, &poly),
+            FieldElement::<Babybear31PrimeField>::one()
+                + FieldElement::<Babybear31PrimeField>::one()
+        );
+        //x_2 = 1 x_1 = 1
+        assert_eq!(
+            eval_polynomial(3, &poly),
+            FieldElement::<Babybear31PrimeField>::one()
+                + FieldElement::<Babybear31PrimeField>::one()
+                + FieldElement::<Babybear31PrimeField>::one()
+                + FieldElement::<Babybear31PrimeField>::one()
+        );
+    }
 }
