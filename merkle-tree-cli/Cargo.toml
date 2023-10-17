@@ -1,0 +1,13 @@
+[package]
+name = "merkle-tree-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "merkle-tree-cli"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4.4.6", features = ["derive"] }
