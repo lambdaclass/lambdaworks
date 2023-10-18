@@ -31,6 +31,6 @@ pub struct GenerateProofArgs {
 #[derive(Args, Debug)]
 pub struct VerifyArgs {
     pub root_path: String,
-    pub position: usize,
+    pub index: usize,
     pub proof_path: String,
 }
