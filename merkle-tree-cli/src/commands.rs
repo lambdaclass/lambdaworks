@@ -19,7 +19,7 @@ pub enum MerkleEntity {
 
 #[derive(Args, Debug)]
 pub struct GenerateMerkleTreeArgs {
-    pub elements: String,
+    pub tree_path: String,
 }
 
 #[derive(Args, Debug)]
