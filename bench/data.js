@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1697657701643,
+  "lastUpdate": 1697659330570,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -11513,6 +11513,300 @@ window.BENCHMARK_DATA = {
             "name": "Polynomial/interpolate_fft_metal #4",
             "value": 3147655791,
             "range": "± 18371234",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "62400508+juan518munoz@users.noreply.github.com",
+            "name": "juan518munoz",
+            "username": "juan518munoz"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8f7b415f56292e153cd7764a3212c14cad9aa2d2",
+          "message": "Cairo reorganized (#607)\n\n* initial commit\n\n* modified README\n\n* fix cairo programs dir\n\n* Update provers/cairo/README.md\n\nCo-authored-by: Mariano A. Nicolini <mariano.nicolini.91@gmail.com>\n\n* Update provers/cairo/README.md\n\nCo-authored-by: Mariano A. Nicolini <mariano.nicolini.91@gmail.com>\n\n* Fix cargo\n\n* Re organized\n\n* Remove proof\n\n* Update readme\n\n* Fmt\n\n* CLI feature\n\n* CLI Fix\n\n* Fmt\n\n---------\n\nCo-authored-by: Jmunoz <juan.munoz@lambdaclass.com>\nCo-authored-by: Mauro Toscano <12560266+MauroToscano@users.noreply.github.com>\nCo-authored-by: Mariano A. Nicolini <mariano.nicolini.91@gmail.com>\nCo-authored-by: MauroFab <maurotoscano2@gmail.com>",
+          "timestamp": "2023-10-18T19:14:15Z",
+          "tree_id": "e130fbbd180d9040ab5537d06cd7968eec722e64",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/8f7b415f56292e153cd7764a3212c14cad9aa2d2"
+        },
+        "date": 1697659329332,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "Ordered FFT/Sequential from NR radix2",
+            "value": 1011599857,
+            "range": "± 43832179",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from RN radix2",
+            "value": 3500096998,
+            "range": "± 36557475",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from NR radix2 #2",
+            "value": 2066492116,
+            "range": "± 34929326",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from RN radix2 #2",
+            "value": 7790034700,
+            "range": "± 53901665",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from NR radix2 #3",
+            "value": 4313462799,
+            "range": "± 67069254",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from RN radix2 #3",
+            "value": 16739820862,
+            "range": "± 74808827",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from NR radix2 #4",
+            "value": 8853727979,
+            "range": "± 73574694",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from RN radix2 #4",
+            "value": 36024162661,
+            "range": "± 327975652",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/natural",
+            "value": 37547737,
+            "range": "± 896140",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/natural inversed",
+            "value": 36845539,
+            "range": "± 1612795",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/bit-reversed",
+            "value": 68043364,
+            "range": "± 2060923",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/bit-reversed inversed",
+            "value": 66720195,
+            "range": "± 2371191",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/natural #2",
+            "value": 75328830,
+            "range": "± 1820387",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/natural inversed #2",
+            "value": 73881440,
+            "range": "± 1593165",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/bit-reversed #2",
+            "value": 138142860,
+            "range": "± 3456142",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/bit-reversed inversed #2",
+            "value": 135294809,
+            "range": "± 2675620",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/natural #3",
+            "value": 145706099,
+            "range": "± 4233979",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/natural inversed #3",
+            "value": 148894187,
+            "range": "± 3465227",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/bit-reversed #3",
+            "value": 281500578,
+            "range": "± 4872617",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/bit-reversed inversed #3",
+            "value": 272535455,
+            "range": "± 6421664",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/natural #4",
+            "value": 287436006,
+            "range": "± 4803256",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/natural inversed #4",
+            "value": 295459025,
+            "range": "± 4597948",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/bit-reversed #4",
+            "value": 548930869,
+            "range": "± 9275715",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/bit-reversed inversed #4",
+            "value": 561637851,
+            "range": "± 25020279",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Sequential",
+            "value": 62820323,
+            "range": "± 1431819",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Sequential #2",
+            "value": 131667410,
+            "range": "± 1994461",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Sequential #3",
+            "value": 264225849,
+            "range": "± 5756937",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Sequential #4",
+            "value": 510006224,
+            "range": "± 10364355",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial evaluation/Sequential FFT",
+            "value": 1222377483,
+            "range": "± 11069952",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial evaluation/Sequential FFT #2",
+            "value": 2564861951,
+            "range": "± 22818316",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial evaluation/Sequential FFT #3",
+            "value": 5293245749,
+            "range": "± 20814899",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial evaluation/Sequential FFT #4",
+            "value": 11069209611,
+            "range": "± 124225992",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial interpolation/Sequential FFT",
+            "value": 1336579266,
+            "range": "± 22036155",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial interpolation/Sequential FFT #2",
+            "value": 2778437755,
+            "range": "± 32887064",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial interpolation/Sequential FFT #3",
+            "value": 5724569960,
+            "range": "± 51732400",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial interpolation/Sequential FFT #4",
+            "value": 11956932600,
+            "range": "± 77396661",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate",
+            "value": 210,
+            "range": "± 6",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_slice",
+            "value": 1685,
+            "range": "± 80",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/add",
+            "value": 271,
+            "range": "± 8",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/neg",
+            "value": 124,
+            "range": "± 7",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/sub",
+            "value": 402,
+            "range": "± 32",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/mul",
+            "value": 1879,
+            "range": "± 184",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/div",
+            "value": 1190,
+            "range": "± 80",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/div by 'x - b' with generic div",
+            "value": 5601,
+            "range": "± 340",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/div by 'x - b' with Ruffini",
+            "value": 217,
+            "range": "± 9",
             "unit": "ns/iter"
           }
         ]
