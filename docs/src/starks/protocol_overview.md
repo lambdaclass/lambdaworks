@@ -38,7 +38,7 @@ Given a vector $Y = (y_0, \dots, y_M)$, commiting to $Y$ means the following. Th
 In STARKs, all commited vectors are of the form $Y = (p(d_1), \dots, p(d_M))$ for some polynomial $p$ and some domain fixed domain $D = (d_1, \dots, d_M)$. The domain is always known to the prover and the verifier.
 
 ## FRI
-The FRI protocol is a potent tool to prove that the commitment of a vector $(p(d_1), \dots, p(d_M))$ corresponds to the evaluations of a polynomial $p$ of a certain degree. The degree is a configuration of the protocol.
+The FRI protocol is a powerful tool to prove that the commitment of a vector $(p(d_1), \dots, p(d_M))$ corresponds to the evaluations of a polynomial $p$ of degree smaller than a certain bound. This bound is a configuration of the protocol. More generally, given a commitment of such a vector $(p(d_1), \dots, p(d_M))$, the protocol can be used to prove that a transformed vector $(F(p_d_1), \dots, F(p(d_M)))$ corresponds to the evaluations of a polynomial $q$ of a bounded degree, where $F:mathbb{F} \to \mathbb{F}$ is a public function known to the prover and the verifier.
 
 ## Polynomial commitments
 STARK uses a univariate polynomial commitment scheme. The following is what is expected from the **commit** and **open** protocols:
@@ -50,7 +50,7 @@ Let's see how both of these protocols work in detail. Some configuration paramet
 - A vector $D=(d_1,\dots,d_M)$, with $d_i$ in $\mathbb{F}$ for all $i$ and $d_i\neq d_j$ for all $i\neq j$.
 - An integer $k > 0$.
 
-The commitment scheme will only work for polynomials of degree at most $N$. This means anyone can commit to any polynomial, but the Open protocol will pass only for polynomials satisfying that degree bound.
+The commitment scheme will only work for polynomials of degree strictly less than $N$. This means: anyone can commit to any polynomial, but the Open protocol will pass only for polynomials satisfying that degree bound.
 
 ### Commit
 Given a polynomial $p$, the commitment $[p]$ is just the commitment of the vector $(p(d_1), \dots, p(d_M))$. That is, $[p]$ is the root of the Merkle tree of the vector of evaluations of $p$ at $D$.
@@ -62,11 +62,7 @@ The prover holds the polynomial $p$, and the verifier only the commitment $[p]$ 
 
 The protocol has three steps:
 
-- **FRI on $p$**: First, the prover and the verifier engage in a FRI protocol for polynomials of degree at most $N$ to check that $[p]$ is the commitment of such a polynomial. We will assume from now on that the degree of $p$ is at most $N$. There is an optimization that completely removes this step—more on that [later](#optimize-the-open-protocol-reusing-fri-internal-challenges).
-
-- **FRI on $(p-y)/(x-z)$**: Since $p(z) = y$, the polynomial $p$ can be written as $p = y + (x - z) q$ for some polynomial $q$. The prover computes the commitment $[q]$ and sends it to the verifier. Now they engage in a FRI protocol for polynomials of degree at most $N-1$, which convinces the verifier that $[q]$ is the commitment of a polynomial of degree at most $N-1$. 
-
-- **Point checks**: From the point of view of the verifier the commitments $[p]$ and $[q]$ are still potentially unrelated. Therefore, there is a check to ensure that $q$ was computed properly from $p$ following the formula $q = (p-y)/(x-z)$ and that $[q]$ is its commitment. To do this, the verifier challenges the prover to open $[p]$ and $[q]$ as vectors. They use the open protocol of the vector commitment scheme to reveal the values $p(d_i)$ and $q(d_i)$ for some random point $d_i \in D$ chosen by the verifier. Next he checks that $p(d_i) = y + (d_i - z) q(d_i) $. They repeat this last part $k$ times and, as we'll analyze in the next section, this whole thing will convince the verifier that $p = y + (x -z) q$ as polynomials with overwhelming probability (about $(N/M)^k$). Finally, the verifier deduces that $p(z) = y$ from this equality.
+- **FRI on $(p-y)/(x-z)$**: Since $p(z) = y$, the polynomial $p$ can be written as $p = y + (x - z) q$ for some polynomial $q$. The prover and the verifier engage in a FRI protocol for polynomials of degree at most $N-1$, which convinces the verifier that $[p]$ is the commitment of a polynomial such that $F(p)$ is of degree at most $N-1$, where $F(x) + (x - y)/(x-z)$. 
 
 ### Soundness
 Let's analyze why the open protocol is sound. Keep in mind that the prover always has to provide a commitment $[q]$ of a polynomial of degree at most $N-1$ that satisfies $p(d_i) = y + (d_i - z) q(d_i)$ for the chosen values of the verifier. That's the goal. An essential but subtle part of the soundness is that $D$ is a vector of length $M>N$. To understand why let's see what would happen if $N = M$.
