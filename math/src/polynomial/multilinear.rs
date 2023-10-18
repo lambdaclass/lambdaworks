@@ -50,6 +50,7 @@ where
     // this follows the implementation used in Spartan that evaluates in O(n) using memoized algorithm in Thaler.
     pub fn evaluate(&self, x: &[FieldElement<F>]) -> FieldElement<F> {
         assert_eq!(x.len(), self.evals.len());
+        // TODO: convert this to support a sparse representation by setting ell = max_degree(Vec<Term>)
         let ell = self.evals.len();
 
         let mut chis: Vec<FieldElement<F>> = vec![FieldElement::<F>::one(); 2usize.pow(ell as u32)];
@@ -72,9 +73,10 @@ where
         }
 
         assert_eq!(chis.len(), self.evals.len());
+        //TODO: index based on degreee of eval[i[ chis[]
         //TODO: merge this implementation with mul_with_ref
         #[cfg(feature = "rayon")]
-        let dot_product = (0..chis.len())
+        let dot_product = (0..self.evals.len())
             .into_par_iter()
             .map(|i| &chis[i] * &self.evals[i])
             .sum();
@@ -211,133 +213,3 @@ impl<F: IsField> ops::Mul for MultilinearExtension<FieldElement<F>> where
         self.mul_with_ref(&rhs)
     }
 }
-
-/*
-#[cfg(test)]
-mod tests {
-    use crate::{DenseMultilinearExtension, MultilinearExtension};
-    use ark_ff::{Field, Zero};
-    use ark_std::{ops::Neg, test_rng, vec::Vec, UniformRand};
-    use ark_test_curves::bls12_381::Fr;
-
-    /// utility: evaluate multilinear extension (in form of data array) at a random point
-    fn evaluate_data_array<F: Field>(data: &[F], point: &[F]) -> F {
-        if data.len() != (1 << point.len()) {
-            panic!("Data size mismatch with number of variables. ")
-        }
-
-        let nv = point.len();
-        let mut a = data.to_vec();
-
-        for i in 1..nv + 1 {
-            let r = point[i - 1];
-            for b in 0..(1 << (nv - i)) {
-                a[b] = a[b << 1] * (F::one() - r) + a[(b << 1) + 1] * r;
-            }
-        }
-        a[0]
-    }
-
-    #[test]
-    fn evaluate_at_a_point() {
-        let mut rng = test_rng();
-        let poly = DenseMultilinearExtension::rand(10, &mut rng);
-        for _ in 0..10 {
-            let point: Vec<_> = (0..10).map(|_| Fr::rand(&mut rng)).collect();
-            assert_eq!(
-                evaluate_data_array(&poly.evaluations, &point),
-                poly.evaluate(&point).unwrap()
-            )
-        }
-    }
-
-    #[test]
-    fn relabel_polynomial() {
-        let mut rng = test_rng();
-        for _ in 0..20 {
-            let mut poly = DenseMultilinearExtension::rand(10, &mut rng);
-            let mut point: Vec<_> = (0..10).map(|_| Fr::rand(&mut rng)).collect();
-
-            let expected = poly.evaluate(&point);
-
-            poly.relabel_in_place(2, 2, 1); // should have no effect
-            assert_eq!(expected, poly.evaluate(&point));
-
-            poly.relabel_in_place(3, 4, 1); // should switch 3 and 4
-            point.swap(3, 4);
-            assert_eq!(expected, poly.evaluate(&point));
-
-            poly.relabel_in_place(7, 5, 1);
-            point.swap(7, 5);
-            assert_eq!(expected, poly.evaluate(&point));
-
-            poly.relabel_in_place(2, 5, 3);
-            point.swap(2, 5);
-            point.swap(3, 6);
-            point.swap(4, 7);
-            assert_eq!(expected, poly.evaluate(&point));
-
-            poly.relabel_in_place(7, 0, 2);
-            point.swap(0, 7);
-            point.swap(1, 8);
-            assert_eq!(expected, poly.evaluate(&point));
-
-            poly.relabel_in_place(0, 9, 1);
-            point.swap(0, 9);
-            assert_eq!(expected, poly.evaluate(&point));
-        }
-    }
-
-    #[test]
-    fn arithmetic() {
-        const NV: usize = 10;
-        let mut rng = test_rng();
-        for _ in 0..20 {
-            let point: Vec<_> = (0..NV).map(|_| Fr::rand(&mut rng)).collect();
-            let poly1 = DenseMultilinearExtension::rand(NV, &mut rng);
-            let poly2 = DenseMultilinearExtension::rand(NV, &mut rng);
-            let v1 = poly1.evaluate(&point).unwrap();
-            let v2 = poly2.evaluate(&point).unwrap();
-            // test add
-            assert_eq!((&poly1 + &poly2).evaluate(&point).unwrap(), v1 + v2);
-            // test sub
-            assert_eq!((&poly1 - &poly2).evaluate(&point).unwrap(), v1 - v2);
-            // test negate
-            assert_eq!(poly1.clone().neg().evaluate(&point).unwrap(), -v1);
-            // test add assign
-            {
-                let mut poly1 = poly1.clone();
-                poly1 += &poly2;
-                assert_eq!(poly1.evaluate(&point).unwrap(), v1 + v2)
-            }
-            // test sub assign
-            {
-                let mut poly1 = poly1.clone();
-                poly1 -= &poly2;
-                assert_eq!(poly1.evaluate(&point).unwrap(), v1 - v2)
-            }
-            // test add assign with scalar
-            {
-                let mut poly1 = poly1.clone();
-                let scalar = Fr::rand(&mut rng);
-                poly1 += (scalar, &poly2);
-                assert_eq!(poly1.evaluate(&point).unwrap(), v1 + scalar * v2)
-            }
-            // test additive identity
-            {
-                assert_eq!(&poly1 + &DenseMultilinearExtension::zero(), poly1);
-                assert_eq!(&DenseMultilinearExtension::zero() + &poly1, poly1);
-                {
-                    let mut poly1_cloned = poly1.clone();
-                    poly1_cloned += &DenseMultilinearExtension::zero();
-                    assert_eq!(&poly1_cloned, &poly1);
-                    let mut zero = DenseMultilinearExtension::zero();
-                    let scalar = Fr::rand(&mut rng);
-                    zero += (scalar, &poly1);
-                    assert_eq!(zero.evaluate(&point).unwrap(), scalar * v1);
-                }
-            }
-        }
-    }
-}
-*/
