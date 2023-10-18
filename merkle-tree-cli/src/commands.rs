@@ -25,10 +25,12 @@ pub struct GenerateMerkleTreeArgs {
 #[derive(Args, Debug)]
 pub struct GenerateProofArgs {
     pub tree_path: String,
+    pub position: usize,
 }
 
 #[derive(Args, Debug)]
 pub struct VerifyArgs {
-    pub proof_path: String,
     pub root_path: String,
+    pub position: usize,
+    pub proof_path: String,
 }

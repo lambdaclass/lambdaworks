@@ -10,60 +10,65 @@ use lambdaworks_math::{
     field::element::FieldElement,
     traits::{Deserializable, Serializable},
 };
-use std::fs;
+use std::{fs, io};
 
 type FE = FieldElement<BLS12381PrimeField>;
 
-fn generate_merkle_tree(tree_path: String) {
-    let values: Vec<FE> = fs::read_to_string(tree_path)
-        .expect("Unable to read file")
+fn load_tree_values(tree_path: String) -> Result<Vec<FE>, io::Error> {
+    Ok(fs::read_to_string(tree_path)?
         .lines()
         .map(FE::from_hex_unchecked)
-        .collect();
-
-    let merkle_tree = MerkleTree::<Poseidon<BLS12381PrimeField>>::build(&values);
-    let limbs = merkle_tree.root.value().limbs;
-    println!("Generated merkle tree with root: {:?}", limbs)
-
-    // save root to file?
+        .collect())
 }
 
-fn generate_merkle_proof() {
-    // create tree from file
-    let values: Vec<FE> = fs::read_to_string("sample_tree.csv")
-        .unwrap_or_default() // handle error here
-        .lines()
-        .map(FE::from_hex_unchecked)
-        .collect();
+fn generate_merkle_tree(tree_path: String) -> Result<(), io::Error> {
+    let values: Vec<FE> = load_tree_values(tree_path)?;
+
+    let merkle_tree = MerkleTree::<Poseidon<BLS12381PrimeField>>::build(&values);
+    let root = merkle_tree.root.representative().to_string();
+    println!("Generated merkle tree with root: {:?}", root); // save to file?
+    Ok(())
+}
+
+fn generate_merkle_proof(tree_path: String, pos: usize) -> Result<(), io::Error> {
+    let values: Vec<FE> = load_tree_values(tree_path)?;
 
     let merkle_tree = MerkleTree::<Poseidon<BLS12381PrimeField>>::build(&values);
 
-    // create proof by pos?
-    let proof = merkle_tree.get_proof_by_pos(1).unwrap();
+    let Some(proof) = merkle_tree.get_proof_by_pos(pos) else {
+        return Err(io::Error::new(
+            io::ErrorKind::Other,
+            "Could not generate proof",
+        ));
+    };
 
-    // serialize proof to file
     let data = proof.serialize();
-    fs::write("sample_proof.csv", data).expect("Unable to write file");
+    fs::write("sample_proof.csv", data)
 }
 
-fn verify_merkle_proof() {
-    // read root from file (limbs, format?)
-    let root_hash = FE::from_hex_unchecked("0x1");
+fn verify_merkle_proof(root_path: String, pos: usize) -> Result<(), io::Error> {
+    let root_hash = FE::from_hex_unchecked(&fs::read_to_string(root_path)?);
 
     // deserialize proof from file
     let bytes = fs::read("sample_proof.csv").expect("Unable to read file");
-    let proof: Proof<FE> = Proof::deserialize(&bytes).unwrap();
+    let proof: Proof<FE> = Proof::deserialize(&bytes).map_err(|_| {
+        io::Error::new(
+            io::ErrorKind::Other,
+            "Could not deserialize proof from file",
+        )
+    })?;
 
-    proof.verify::<Poseidon<BLS12381PrimeField>>(&root_hash, 1, &FE::from_hex_unchecked("0x1"));
+    proof.verify::<Poseidon<BLS12381PrimeField>>(&root_hash, pos, &FE::from_hex_unchecked("0x1"));
+    Ok(())
 }
 
 fn main() {
     let args: MerkleArgs = MerkleArgs::parse();
-    match args.entity {
-        MerkleEntity::GenerateMerkleTree(args) => {
-            generate_merkle_tree(args.tree_path);
-        }
-        MerkleEntity::GenerateProof(_args) => generate_merkle_proof(),
-        MerkleEntity::VerifyProof(_args) => verify_merkle_proof(),
+    if let Err(e) = match args.entity {
+        MerkleEntity::GenerateMerkleTree(args) => generate_merkle_tree(args.tree_path),
+        MerkleEntity::GenerateProof(args) => generate_merkle_proof(args.tree_path, args.position),
+        MerkleEntity::VerifyProof(args) => verify_merkle_proof(args.root_path, args.position),
+    } {
+        println!("Error while running command: {:?}", e);
     }
 }
