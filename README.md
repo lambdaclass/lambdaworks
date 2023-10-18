@@ -70,7 +70,6 @@ So, we decided to build our library, focusing on performance, with clear documen
 - [Crypto primitives](https://github.com/lambdaclass/lambdaworks/tree/main/crypto)
 - [Plonk Prover](https://github.com/lambdaclass/lambdaworks/tree/main/provers/plonk)
 - [Cairo Prover](https://github.com/lambdaclass/lambdaworks/tree/main/provers/cairo)
-- [Cairo Prover CLI](https://github.com/lambdaclass/lambdaworks/tree/main/provers/cairo-prover-cli)
 
 If you are interested in proving Cairo programs, use the Cairo Prover CLI. 
 
