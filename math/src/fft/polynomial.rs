@@ -5,7 +5,7 @@ use crate::{
         element::FieldElement,
         traits::{IsFFTField, RootsConfig},
     },
-    polynomial::Polynomial,
+    polynomial::polynomial::Polynomial,
 };
 
 #[cfg(feature = "cuda")]
