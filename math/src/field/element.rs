@@ -221,6 +221,15 @@ where
     }
 }
 
+impl<F> SubAssign<&FieldElement<F>> for FieldElement<F>
+where
+    F: IsField,
+{
+    fn sub_assign(&mut self, rhs: &FieldElement<F>) {
+        *self = &*self - rhs
+    }
+}
+
 impl<F> Sub<FieldElement<F>> for &FieldElement<F>
 where
     F: IsField,
