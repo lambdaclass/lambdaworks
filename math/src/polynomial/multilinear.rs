@@ -1,7 +1,6 @@
 use crate::field::element::FieldElement;
 use crate::field::traits::IsField;
-use core::ops::{Index, Neg};
-use std::ops;
+use std::ops::{self, Neg};
 
 #[cfg(feature = "rayon")]
 use rayon::prelude::*;
@@ -15,12 +14,12 @@ impl<F: IsField> MultilinearExtension<FieldElement<F>>
 where
     <F as IsField>::BaseType: Send + Sync,
 {
-    pub fn new(evals: Vec<FieldElement<F>>) -> Self {
+    pub fn new(evals: &[FieldElement<F>]) -> Self {
         assert_eq!(
             evals.len(),
             (2usize).pow((evals.len() as f64).log2() as u32)
         );
-        Self { evals }
+        Self { evals: evals.to_vec() }
     }
 
     pub const fn zero() -> Self {
@@ -41,10 +40,6 @@ where
 
     pub fn to_vec(&self) -> Vec<FieldElement<F>> {
         self.evals.clone()
-    }
-
-    pub fn index(&self, index: usize) -> &FieldElement<F> {
-        &self.evals[index]
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &FieldElement<F>> {
@@ -69,13 +64,15 @@ where
                 .par_iter_mut()
                 .zip(evals_right.par_iter_mut())
                 .for_each(|(x, y)| {
-                    *y = *x * r;
+                    // TODO: remove this clone
+                    *y = x.clone() * r;
                     *x -= &*y;
                 });
             size *= 2;
         }
 
         assert_eq!(chis.len(), self.evals.len());
+        //TODO: merge this implementation with mul_with_ref
         #[cfg(feature = "rayon")]
         let dot_product = (0..chis.len())
             .into_par_iter()
@@ -85,9 +82,25 @@ where
         let dot_product = (0..a.len()).map(|i| a[i] * b[i]).sum();
         dot_product
     }
+
+    pub fn mul_with_ref(&self, other: &Self) -> Self {
+        let degree = self.len() + other.len();
+        let mut coefficients = vec![FieldElement::zero(); degree + 1];
+
+        if self.evals.is_empty() || other.evals.is_empty() {
+            Self::new(&[FieldElement::zero()])
+        } else {
+            for i in 0..=other.len() {
+                for j in 0..=self.len() {
+                    coefficients[i + j] += &other.evals[i] * &self.evals[j];
+                }
+            }
+            Self::new(&coefficients)
+        }
+    }
 }
 
-impl<F: IsField> Index<usize> for MultilinearExtension<FieldElement<F>> {
+impl<F: IsField> ops::Index<usize> for MultilinearExtension<FieldElement<F>> {
     type Output = FieldElement<F>;
 
     fn index(&self, index: usize) -> &Self::Output {
@@ -109,10 +122,10 @@ impl<'a, 'b, F: IsField> ops::Add<&'a MultilinearExtension<FieldElement<F>>>
     type Output = MultilinearExtension<FieldElement<F>>;
 
     fn add(self, rhs: &'a MultilinearExtension<FieldElement<F>>) -> Self::Output {
-        if rhs.evals.len() == 0 {
+        if rhs.evals.is_empty() {
             return self.clone();
         }
-        if self.evals.len() == 0 {
+        if self.evals.is_empty() {
             return rhs.clone();
         }
         assert_eq!(self.evals.len(), rhs.evals.len());
@@ -139,8 +152,9 @@ impl<'a, F: IsField> ops::AddAssign<(FieldElement<F>, &'a MultilinearExtension<F
         &mut self,
         (f, other): (FieldElement<F>, &'a MultilinearExtension<FieldElement<F>>),
     ) {
+        #[allow(clippy::suspicious_op_assign_impl)]
         let other = Self {
-            evals: other.evals.iter().map(|x| f * x).collect(),
+            evals: other.evals.iter().map(|x| &f * x).collect(),
         };
         *self = &*self + &other;
     }
@@ -159,6 +173,7 @@ impl<'a, 'b, F: IsField> ops::Sub<&'a MultilinearExtension<FieldElement<F>>>
 {
     type Output = MultilinearExtension<FieldElement<F>>;
 
+    #[allow(clippy::suspicious_arithmetic_impl)]
     fn sub(self, rhs: &'a MultilinearExtension<FieldElement<F>>) -> Self::Output {
         self + &rhs.clone().neg()
     }
@@ -183,8 +198,17 @@ impl<F: IsField> ops::Neg for MultilinearExtension<FieldElement<F>> {
 
     fn neg(self) -> Self::Output {
         Self::Output {
-            evals: self.evals.iter().map(|x| -*x).collect(),
+            evals: self.evals.iter().map(|x| -x).collect(),
         }
+    }
+}
+
+impl<F: IsField> ops::Mul for MultilinearExtension<FieldElement<F>> where
+<F as IsField>::BaseType: Send + Sync {
+    type Output = MultilinearExtension<FieldElement<F>>;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        self.mul_with_ref(&rhs)
     }
 }
 

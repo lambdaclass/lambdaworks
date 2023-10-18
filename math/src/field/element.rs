@@ -9,7 +9,7 @@ use core::fmt::Debug;
 use core::iter::Sum;
 #[cfg(feature = "lambdaworks-serde")]
 use core::marker::PhantomData;
-use core::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
+use core::ops::{Add, AddAssign, Div, Mul, Neg, Sub, SubAssign};
 #[cfg(feature = "lambdaworks-serde")]
 use serde::de::{self, Deserializer, MapAccess, Visitor};
 #[cfg(feature = "lambdaworks-serde")]
@@ -204,6 +204,15 @@ where
 
     fn sub(self, rhs: &FieldElement<F>) -> Self::Output {
         &self - rhs
+    }
+}
+
+impl<F> SubAssign<&FieldElement<F>> for FieldElement<F>
+where
+    F: IsField,
+{
+    fn sub_assign(&mut self, rhs: &FieldElement<F>) {
+        *self = &*self - rhs
     }
 }
 
