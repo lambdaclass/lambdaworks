@@ -14,16 +14,10 @@ use core::iter::Sum;
     feature = "lambdaworks-serde-string"
 ))]
 use core::marker::PhantomData;
-use core::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
-#[cfg(any(
-    feature = "lambdaworks-serde-binary",
-    feature = "lambdaworks-serde-string"
-))]
-use serde::de::{self, Deserializer, MapAccess, SeqAccess, Visitor};
-#[cfg(any(
-    feature = "lambdaworks-serde-binary",
-    feature = "lambdaworks-serde-string"
-))]
+use core::ops::{Add, AddAssign, Div, Mul, Neg, Sub, SubAssign};
+#[cfg(feature = "lambdaworks-serde")]
+use serde::de::{self, Deserializer, MapAccess, Visitor};
+#[cfg(feature = "lambdaworks-serde")]
 use serde::ser::{Serialize, SerializeStruct, Serializer};
 #[cfg(any(
     feature = "lambdaworks-serde-binary",
@@ -218,6 +212,15 @@ where
 
     fn sub(self, rhs: &FieldElement<F>) -> Self::Output {
         &self - rhs
+    }
+}
+
+impl<F> SubAssign<&FieldElement<F>> for FieldElement<F>
+where
+    F: IsField,
+{
+    fn sub_assign(&mut self, rhs: &FieldElement<F>) {
+        *self = &*self - rhs
     }
 }
 
