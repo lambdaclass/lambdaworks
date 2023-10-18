@@ -31,9 +31,7 @@ pub fn naive_matrix_dft_test<F: IsFFTField>(input: &[FieldElement<F>]) -> Vec<Fi
 
 #[cfg(test)]
 mod fft_helpers_test {
-    use crate::{
-        field::test_fields::u64_test_field::U64TestField, polynomial::polynomial::Polynomial,
-    };
+    use crate::{field::test_fields::u64_test_field::U64TestField, polynomial::Polynomial};
     use proptest::{collection, prelude::*};
 
     use super::*;
