@@ -1,8 +1,8 @@
 use lambdaworks_crypto::commitments::traits::IsCommitmentScheme;
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::fft::polynomial::FFTPoly;
-use lambdaworks_math::field::{element::FieldElement, traits::IsField};
 use lambdaworks_math::field::traits::IsFFTField;
+use lambdaworks_math::field::{element::FieldElement, traits::IsField};
 use lambdaworks_math::traits::{ByteConversion, Serializable};
 
 pub struct ProvingKey {
@@ -52,7 +52,6 @@ pub fn setup() -> KeyWrapper {
         },
     }
 }
-
 
 #[cfg(test)]
 mod tests {

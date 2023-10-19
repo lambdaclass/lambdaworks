@@ -1,9 +1,9 @@
 use lambdaworks_crypto::commitments::traits::IsCommitmentScheme;
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
-use lambdaworks_math::{field::traits::IsField, traits::ByteConversion};
 use lambdaworks_math::fft::polynomial::FFTPoly;
 use lambdaworks_math::field::traits::IsFFTField;
 use lambdaworks_math::traits::{Deserializable, IsRandomFieldElementGenerator, Serializable};
+use lambdaworks_math::{field::traits::IsField, traits::ByteConversion};
 
 use crate::setup::ProvingKey;
 
@@ -24,8 +24,7 @@ pub struct Groth16Prover {
     // todo!
 }
 
-impl Groth16Prover
-{
+impl Groth16Prover {
     fn new() -> Self {
         Self {}
     }

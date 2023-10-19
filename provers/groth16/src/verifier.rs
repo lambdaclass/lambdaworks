@@ -15,12 +15,7 @@ impl Verifier {
     }
 
     // todo! check if args should be extended (e.g. public_input)
-    pub fn verify(
-        &self,
-        p: &Proof,
-        vk: &VerifyingKey,
-    ) -> bool
-    {
+    pub fn verify(&self, p: &Proof, vk: &VerifyingKey) -> bool {
         // todo!
         true
     }
