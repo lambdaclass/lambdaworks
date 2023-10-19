@@ -8,8 +8,8 @@ use lambdaworks_crypto::{
 use lambdaworks_math::{
     elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::BLS12381PrimeField,
     field::element::FieldElement,
-    traits::{Deserializable, Serializable},
 };
+use serde::{Deserialize, Serialize};
 use std::{fs, io};
 
 type FE = FieldElement<BLS12381PrimeField>;
@@ -42,8 +42,8 @@ fn generate_merkle_proof(tree_path: String, pos: usize) -> Result<(), io::Error>
         ));
     };
 
-    let data = proof.serialize();
-    let proof_path = tree_path.replace(".csv", format!("_{pos}.proof").as_str());
+    let data = serde_json::to_string(&proof).unwrap();
+    let proof_path = tree_path.replace(".csv", format!("_proof_{pos}.json").as_str());
     fs::write(proof_path, data)
 }
 
@@ -54,17 +54,17 @@ fn verify_merkle_proof(
 ) -> Result<(), io::Error> {
     let root_hash = FE::from_hex_unchecked(&fs::read_to_string(root_path)?);
 
-    let bytes = fs::read(proof_path)?;
-    let proof: Proof<FE> = Proof::deserialize(&bytes)
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{:?}", e)))?;
+    // let bytes = fs::read(proof_path)?;
+    // let proof: Proof<FE> = Proof::deserialize(&bytes)
+    //     .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("deserealization: {:?}", e)))?;
 
-    // value is the leaf we start from
-    let res = proof.verify::<Poseidon<BLS12381PrimeField>>(
-        &root_hash,
-        index,
-        &FE::from_hex_unchecked("0x12345"),
-    );
-    println!("Proof verified: {:?}", res);
+    // // value is the leaf we start from
+    // let res = proof.verify::<Poseidon<BLS12381PrimeField>>(
+    //     &root_hash,
+    //     index,
+    //     &FE::from_hex_unchecked("0x12345"),
+    // );
+    // println!("Proof verified: {:?}", res);
     Ok(())
 }
 
