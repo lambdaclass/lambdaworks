@@ -34,7 +34,7 @@ These values are determined the program,  the specifications of the AIR being us
 - $m$ is the total number of columns: $m := m' + m''$.
 - $P_k^T$ denote the transition constraint polynomials for $k=1,\dots,n_T$. We are assuming these are of degree at most 2.
 - $Z_j^T$ denote the transition constraint zerofiers for $k=1,\dots,n_T$.
-- $b=2^l$ is the *[blowup factor](/starks/protocol_overview.html#general-case-the-blowup-factor)*.
+- $b=2^l$ is the *[blowup factor](/starks/protocol_overview.html#fri)*.
 - $c$ is the *grinding factor*.
 - $Q$ is number of FRI queries.
 - We assume there is a fixed hash function from $\mathbb{F}$ to binary strings. We also assume all Merkle trees are constructed using this hash function.
@@ -59,7 +59,7 @@ Both prover and verifier compute the following.
 
 Given a vector $A=(y_0, \dots, y_L)$. The operation $\text{Commit}(A)$ returns the root $r$ of the Merkle tree that has the hash of the elements of $A$ as leaves.
 
-For $i\in[0,2^{n+k})$, the operation $\text{Open}(A, i)$ returns the pair $(y_i, s)$, where is the authentication path to the Merkle tree root.
+For $i\in[0,2^{n+k})$, the operation $\text{Open}(A, i)$ returns the pair $(y_i, s)$, where $s$ is the authentication path to the Merkle tree root.
 
 The operation $\text{Verify}(i,y,r,s)$ returns _Accept_ or _Reject_ depending on whether the $i$-th element of $A$ is $y$. It checks whether the authentication path $s$ is compatible with $i$, $y$ and the Merkle tree root $r$.
 
@@ -67,7 +67,7 @@ The operation $\text{Verify}(i,y,r,s)$ returns _Accept_ or _Reject_ depending on
 In our cases the sets $A$ will be of the form $A=(f(a), f(ab), f(ab^2), \dots, f(ab^L))$ for some elements $a,b\in\mathbb{F}$. It will be convenient to use the following abuse of notation. We will write $\text{Open}(A, ab^i)$ to mean $\text{Open}(A, i)$. Similarly, we will write $\text{Verify}(ab^i, y, r, s)$ instead of $\text{Verify}(i, y, r, s)$. Note that this is only notation and $\text{Verify}(ab^i, y, r, s)$ is only checking that the $y$ is the $i$-th element of the commited vector. 
 
 ##### Batch
-As we mentioned in the protocol overview. When committing to multiple vectors $A_1, \dots, A_k$, where $A_i = (y_0^{(i), \dots, y_L^{(i)}})$ one can build a single Merkle tree. Its $j$-th leaf is the concatenation of all the $j$-th coordinates of all vectors, that is, $(y_j^{(1)}||\dots||y_j^{(k)})$. The commitment to this batch of vectors is the root of this Merkle tree.
+As we mentioned in the [protocol overview](protocol_overview.html#batch). When committing to multiple vectors $A_1, \dots, A_k$, where $A_i = (y_0^{(i), \dots, y_L^{(i)}})$ one can build a single Merkle tree. Its $j$-th leaf is the concatenation of all the $j$-th coordinates of all vectors, that is, $(y_j^{(1)}||\dots||y_j^{(k)})$. The commitment to this batch of vectors is the root of this Merkle tree.
 
 ## Protocol
 

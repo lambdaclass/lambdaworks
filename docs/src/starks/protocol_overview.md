@@ -11,7 +11,7 @@ Then the verifier chooses a random point $z$ and challenges the prover to reveal
 In summary, at a very high level, the STARK protocol can be organized into three major parts:
 
 - Arithmetization and commitment of execution trace.
-- Construction of composition polynomial $H$.
+- Construction and commitment of composition polynomial $H$.
 - Opening of polynomials at random $z$.
 
 # Arithmetization
@@ -50,17 +50,18 @@ Suppose the vector $Y=(y_1, \dots, y_M)$ is the vector of evaluations of a polyn
 More precisely, the protocol depends on the following parameters
 
 - Powers of two $N = 2^n$ and $M = 2^m$ with $n < m$.
-- A vector $D=(d_1,\dots,d_M)$, with $d_i$ in $\mathbb{F}$ for all $i$ and $d_i\neq d_j$ for all $i\neq j$.
+- A vector $D=(d_1,\dots,d_M)$, with $d_i = h\omega^i$, with $h$ a nonzero value in $\mathbb{F}$ and $\omega$ a primitive $M$-root of unity
 
 A prover holds a vector $Y=(y_1,\dots,y_M)$, and the verifier holds the commitment $[Y]$ of it. The result of the FRI protocol will be _Accept_ if the unique polynomial $p$ of degree less than $M-1$ such that $Y=(p(d_1),\dots,p(d_M))$ has degree less than $N-1$. Even more precisely, the protocol proves that $Y$ is very close to a vector $(p(d_1),\dots,p(d_M))$ with $p$ of degree less than $N-1$, but it may differ in negligible proportion of the coordinates.
 
+The number $b = M/N = 2^{m-n}$ is called the **blowup factor** and the security of the protocol depends in part on this parameter. The specific shape of the domain set $D$ has some symmetric properties important for the inner workings of FRI, such as $-d_i \in D$ for all $i$.
 ### Variant useful for STARKs
 
-FRI is usually described as above. In STARK, FRI is used as a building block of the polynomial commitment scheme of the next section. For it, a small variant of FRI is needed.
+FRI is usually described as above. In STARK, FRI is used as a building block for the polynomial commitment scheme of the next section. For that, a small variant of FRI is needed.
 
 Suppose the prover holds a vector $Y = (y_1, \dots, y_M)$ and the verifier holds its commitment $[Y]$ as before. Suppose further that both parties know a function $F$ that takes two field elements and outputs another field element. For example $F$ could be the function $F(a,b) = a + b^{-1}$. More precisely, the kind of functions we need are $F: \mathbb{F} \times D \to \mathbb{F}$.
 
-The protocol can be used to prove that the transformed vector $(F(y_1, d_1), \dots, F(y_M, d_M))$ is the vector of evaluations of a polynomial $q$ of degree at most $N-1$. Or more precisely, it differs only in a negligible proportion of the coordinates. Note that in this variant, the verifier holds originally the commitment of the vector $Y$ and not the commitment of the transformed vector. In the example, the verifier holds the commitment $[Y]$ and FRI will return _Accept_ if $(y_1 + d_1^{-1}, \dots, y_M + d_M^{-1})$ is the vector of evaluations of a polynomial of degree at most $N-1$.
+The protocol can be used to prove that the transformed vector $(F(y_1, d_1), \dots, F(y_M, d_M))$ is the vector of evaluations of a polynomial $q$ of degree at most $N-1$. Note that in this variant, the verifier holds originally the commitment of the vector $Y$ and not the commitment of the transformed vector. In the example, the verifier holds the commitment $[Y]$ and FRI will return _Accept_ if $(y_1 + d_1^{-1}, \dots, y_M + d_M^{-1})$ is the vector of evaluations of a polynomial of degree at most $N-1$.
 
 ## Polynomial commitments
 
@@ -72,7 +73,7 @@ STARK uses a univariate polynomial commitment scheme. The following is what is e
 Let's see how both of these protocols work in detail. The same configuration parameters of FRI are needed:
 
 - Powers of two $N = 2^n$ and $M = 2^m$ with $n < m$.
-- A vector $D=(d_1,\dots,d_M)$, with $d_i$ in $\mathbb{F}$ for all $i$ and $d_i\neq d_j$ for all $i\neq j$.
+- A vector $D=(d_1,\dots,d_M)$, with $d_i = h\omega^i$, with $h$ a nonzero value in $\mathbb{F}$ and $\omega$ a primitive $M$-root of unity
 
 The commitment scheme will only work for polynomials of degree at most $N$ (polynomials of degree $N$ are allowed). This means: anyone can commit to any polynomial, but the Open protocol will pass only for polynomials satisfying that degree bound.
 
@@ -106,37 +107,31 @@ Suppose the prover is trying to cheat and sends the commitment $[Y]$ of a vector
 
 During proof generation, polynomials are committed and opened several times. Computing these for each polynomial independently is costly. In this section, we'll see how batching polynomials can reduce the amount of computation. Let $P=\{p_1, \dots, p_L\}$ be a set of polynomials. We will commit and open $P$ as a whole. We note this batch commitment as $[P]$.
 
-We need the same configuration parameters as before: $N=2^n$, $M=2^m$ with $N<M$, a vector $D=(d_1, \dots, d_M)$ and $k>0$.
+We need the same configuration parameters as before: $N=2^n$, $M=2^m$ with $N<M$, a vector $D=(d_1, \dots, d_M)$.
 
-As described earlier, to commit to a single polynomial $p$, a Merkle tree is built over the vector $(p(d_1), \dots, p(d_m))$. When committing to a batch of polynomials $P=\{p_1, \dots, p_n\}$, the leaves of the Merkle tree are instead the concatenation of the polynomial evaluations. That is, in the batch setting, the Merkle tree is built for the vector $(p_1(d_1)||\dots||p_L(d_1), \dots, p_L(d_m)||\dots||p_n(d_m))$. The commitment $[P]$ is the root of this Merkle tree. This reduces the proof size: we only need one Merkle tree for $L$ polynomials. The verifier can then only ask for values in batches. When the verifier chooses an index $i$, the prover sends $p_1 (d_i) , \dots , p_L (d_i)$ along with one authentication path. The verifier on his side computes the concatenation $p_1(d_i)||\dots||p_L(d_i)$ and validates it with the authentication path and $[P]$. This also reduces the computational time. By traversing the Merkle tree one time, it can reveal several components simultaneously.
+As described earlier, to commit to a single polynomial $p$, a Merkle tree is built over the vector $(p(d_1), \dots, p(d_m))$. When committing to a batch of polynomials $P=\{p_1, \dots, p_n\}$, the leaves of the Merkle tree are instead the concatenation of the polynomial evaluations. That is, in the batch setting, the Merkle tree is built for the vector
+$$(p_1(d_1)||\dots||p_L(d_1), \dots, p_L(d_m)||\dots||p_n(d_m)).$$
+The commitment $[P]$ is the root of this Merkle tree. This reduces the proof size: we only need one Merkle tree for $L$ polynomials. The verifier can then only ask for values in batches. When the verifier chooses an index $i$, the prover sends $p_1 (d_i) , \dots , p_L (d_i)$ along with one authentication path. The verifier on his side computes the concatenation $p_1(d_i)||\dots||p_L(d_i)$ and validates it with the authentication path and $[P]$. This also reduces the computational time. By traversing the Merkle tree one time, it can reveal several components simultaneously.
 
-The batch open protocol proceeds similarly to the case of a single polynomial. The prover will try to convince the verifier that the committed polynomials $P$ at $z$ evaluate to some values $y_i = p_i(z)$. In the batch case, the prover will construct the following polynomial:
-
-$$
-Q:=\sum_{i=1}^{L}\gamma_i\frac{p_i-y_i}{X-z}
-$$
-
-Where $\gamma_i$ are challenges provided by the verifier. The prover commits to $Q$ and sends $[Q]$ to the verifier. Then the prover and verifier continue similarly to the normal open protocol for $Q$ only. This means they engage in a FRI protocol for polynomials of degree at most $N-1$ for $Q$. Then they engage in the point checks for $Q$. Here, for each challenge $d_i$, the prover uses one authentication path for $[Q]$ to reveal $Q(d_i)$ and use one authentication path for $[P]$ to batch reveal values $p_1(d_i),\dots, p_L(d_i)$. Successful point checks here mean that $Q(d_i) = \sum_i \gamma_i(p_i(d_i) - y_i) / (d_i - z)$.
+The batch open protocol proceeds similarly to the case of a single polynomial. The verifier sends evaluations points $z_1,\dots,z_L$ to the prover at which they wish to know the value of $p_1(z_1), \dots, p_k(z_L)$. The prover will try to convince the verifier that the committed polynomials $P$, evaluate to some values $y_i = p_i(z_i)$. There is a generalization of the [variant](#variant-useful-for-starks) of FRI where the function $F$ takes more parameters, and in this case is $$F(a_1, \dots, a_L, b) = \sum_{i=1}^L \gamma_i (a_i - y_i) / (b - z_i).$$
+Where $\gamma_i$ are challenges provided by the verifier. Then FRI return _Accept_ if and only if the vector $$(F(p_1(d_1), \dots, p_L(d_1), d_1), \dots, F(p_1(d_M),\dots, p_L(d_M), d_M))$$
+is close to the vector of evaluations of a polynomial $q$ of degree at most $N-1$. If this is the case, the verifier accepts the openings. In the context of STARKs, the polynomial $q$ is called the **DEEP** composition polynomial.
 
 This is equivalent to running the open protocol $L$ times, one for each term $p_i$ and $y_i$. Note that this optimization makes a huge difference, as we only need to run the FRI protocol once instead of running it once for each polynomial.
 
-### Optimize the open protocol reusing FRI internal challenges
-
-There is an optimization for the open protocol to avoid running FRI to check that $p$ is of degree at most $N$. The idea is as follows. Part of FRI protocol for $[q]$, to check that it is of degree at most $N-1$, involves revealing values of $q$ at other random points $d_i$ also chosen by the verifier. These are part of the internal workings of FRI. These challenges are unrelated to what we mentioned before. So if one removes the FRI check for $p$, the point checks of the open protocol need to be performed on these challenges $d_i$ of the FRI protocol for $[q]$. This optimization is included in the formal description of the protocol.
-
 ## References
 
-- [Transparent Polynomial Commitment Scheme with Polylogarithmic Communication Complexity](https://eprint.iacr.org/2019/1020)
 - [Summary on FRI low degree test](https://eprint.iacr.org/2022/1216)
 - [DEEP FRI](https://eprint.iacr.org/2019/336)
 - [Thank goodness it's FRIday](https://vitalik.ca/general/2017/11/22/starks_part_2.html)
 - [Diving DEEP FRI](https://blog.lambdaclass.com/diving-deep-fri/)
+- [Transparent Polynomial Commitment Scheme with Polylogarithmic Communication Complexity](https://eprint.iacr.org/2019/1020)
 
 # High-level description of the protocol
 
 The protocol is split into rounds. Each round more or less represents an interaction with the verifier. Each round will generally start by getting a challenge from the verifier.
 
-The prover will need to interpolate polynomials, and he will always do it over the set $D_S = \{g^i \}_{i=0}^{2^n-1} \subseteq \mathbb{F}$, where $g$ is a $2^n$ root of unity in $\mathbb{F}$. Also, the vector commitments will be performed over the set $D_{LDE} = (h, h \omega, h \omega^2, \dots, h \omega^{2^{n + l}})$ where $\omega$ is a $2^{n + l}$ root of unity and $h$ is some field element. This is the set we denoted $D$ in the commitment scheme section. The specific choices for the shapes of these sets are motivated by optimizations at a code level.
+The prover will need to interpolate polynomials, and he will always do it over the set $D_S = \{g^i \}_{i=0}^{2^n-1} \subseteq \mathbb{F}$, where $g$ is a $2^n$ root of unity in $\mathbb{F}$. Also, the vector commitments will be performed over the set $D_{LDE} = (h, h \omega, h \omega^2, \dots, h \omega^{2^{n + l}})$ where $\omega$ is a $2^{n + l}$ root of unity and $h$ is some field element. This is the set we denoted $D$ in the commitment scheme section.
 
 ## Round 1: Arithmetization and commitment of the execution trace
 
