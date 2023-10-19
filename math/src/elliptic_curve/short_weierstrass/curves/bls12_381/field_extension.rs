@@ -1,5 +1,3 @@
-use crate::errors::DeserializationError;
-use crate::traits::Deserializable;
 use crate::unsigned_integer::element::U384;
 use crate::{
     field::{
@@ -25,16 +23,6 @@ impl IsModulus<U384> for BLS12381FieldModulus {
 }
 
 pub type BLS12381PrimeField = MontgomeryBackendPrimeField<BLS12381FieldModulus, 6>;
-
-#[cfg(feature = "std")]
-impl Deserializable for FieldElement<BLS12381PrimeField<>> {
-    fn deserialize(bytes: &[u8]) -> Result<Self, DeserializationError>
-    where
-        Self: Sized,
-    {
-        Self::from_bytes_be(bytes).map_err(|x| x.into())
-    }
-}
 
 //////////////////
 #[derive(Clone, Debug)]
