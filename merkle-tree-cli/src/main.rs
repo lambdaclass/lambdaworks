@@ -9,14 +9,16 @@ use lambdaworks_math::{
     elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::BLS12381PrimeField,
     field::element::FieldElement,
 };
-use std::{fs::{self, File}, io::{self, BufWriter, Write}};
+use std::{
+    fs::{self, File},
+    io::{self, BufWriter, Write},
+};
 
 type FE = FieldElement<BLS12381PrimeField>;
 
 fn load_fe_from_file(file_path: &String) -> Result<FE, io::Error> {
-    FE::from_hex(&fs::read_to_string(file_path)?).map_err(|e| {
-        io::Error::new(io::ErrorKind::Other, format!("{:?}", e))
-    })
+    FE::from_hex(&fs::read_to_string(file_path)?)
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{:?}", e)))
 }
 
 fn load_tree_values(tree_path: &String) -> Result<Vec<FE>, io::Error> {
@@ -62,7 +64,7 @@ fn verify_merkle_proof(
     root_path: String,
     index: usize,
     proof_path: String,
-    leaf_path: String
+    leaf_path: String,
 ) -> Result<(), io::Error> {
     let root_hash: FE = load_fe_from_file(&root_path)?;
 
@@ -71,12 +73,11 @@ fn verify_merkle_proof(
 
     let leaf: FE = load_fe_from_file(&leaf_path)?;
 
-    let res = proof.verify::<Poseidon<BLS12381PrimeField>>(
-        &root_hash,
-        index,
-        &leaf,
-    );
-    println!("Proof verified: {:?}", res);
+    match proof.verify::<Poseidon<BLS12381PrimeField>>(&root_hash, index, &leaf) {
+        true => println!("Merkle proof verified succesfully"),
+        false => println!("Merkle proof failed verifying"),
+    }
+
     Ok(())
 }
 
