@@ -96,8 +96,8 @@ As we mentioned in the protocol overview. When committing to multiple vectors $A
 
 #### Round 2: Construction of composition polynomial $H$
  
-- Sample $\alpha_1^B,\dots,\alpha_{m}^B$ and $\beta_1^B,\dots,\beta_{m}^B$ in $\mathbb{F}$ from the transcript.
-- Sample $\alpha_1^T,\dots,\alpha_{n_T}^T$ and $\beta_1^T,\dots,\beta_{n_T}^T$ in $\mathbb{F}$ from the transcript.
+- Sample $\beta_1^B,\dots,\beta_{m}^B$ in $\mathbb{F}$ from the transcript.
+- Sample $\beta_1^T,\dots,\beta_{n_T}^T$ in $\mathbb{F}$ from the transcript.
 - Compute $B_j := \frac{t_j - P^B_j}{Z_j^B}$.
 - Compute $C_k := \frac{P^T_k(t_1, \dots, t_m, t_1(gX), \dots, t_m(gX))}{Z_k^T}$.
 - Compute the _composition polynomial_
@@ -235,11 +235,11 @@ Check that $\text{Keccak256}(x || y)$ has $c$ leading zeroes.
 #### Step 3: Verify FRI
 
 - Reconstruct the deep composition polynomial values at $\upsilon_s$ and $-\upsilon_s$. That is, define
-        $$\pi_0^{\upsilon_s}:=
-        \gamma\frac{\eta_1^{\upsilon_s} - \eta_1^{z^2}}{\upsilon_s - z^2} + \gamma'\frac{\eta_2^{\upsilon_s} - \eta_2^{z^2}}{\upsilon_s - z^2} + \sum_j \gamma_j\frac{\tau_j^{\upsilon_s} - \tau_j^{z}}{\upsilon_s - z} + \gamma_j'\frac{\tau_j^{\upsilon_s} - \tau_j^{gz}}{\upsilon_s - gz}
-        $$
-        $$\pi_0^{-\upsilon_s}:=
-        \gamma\frac{\eta_1^{-\upsilon_s} - \eta_1^{z^2}}{-\upsilon_s - z^2} + \gamma'\frac{\eta_2^{-\upsilon_s} - \eta_2^{z^2}}{-\upsilon_s - z^2} + \sum_j \gamma_j\frac{\tau_j^{-\upsilon_s} - \tau_j^{z}}{-\upsilon_s - z} + \gamma_j'\frac{\tau_j^{-\upsilon_s} - \tau_j^{gz}}{-\upsilon_s - gz}
+        $$\begin{align}\pi_0^{\upsilon_s}&:=
+        \gamma\frac{\eta_1^{\upsilon_s} - \eta_1^{z^2}}{\upsilon_s - z^2} + \gamma'\frac{\eta_2^{\upsilon_s} - \eta_2^{z^2}}{\upsilon_s - z^2} + \sum_j \gamma_j\frac{\tau_j^{\upsilon_s} - \tau_j^{z}}{\upsilon_s - z} + \gamma_j'\frac{\tau_j^{\upsilon_s} - \tau_j^{gz}}{\upsilon_s - gz}, \\
+        \pi_0^{-\upsilon_s}&:=
+        \gamma\frac{\eta_1^{-\upsilon_s} - \eta_1^{z^2}}{-\upsilon_s - z^2} + \gamma'\frac{\eta_2^{-\upsilon_s} - \eta_2^{z^2}}{-\upsilon_s - z^2} + \sum_j \gamma_j\frac{\tau_j^{-\upsilon_s} - \tau_j^{z}}{-\upsilon_s - z} + \gamma_j'\frac{\tau_j^{-\upsilon_s} - \tau_j^{gz}}{-\upsilon_s - gz}.
+        \end{align}
         $$
 - For all $s=0,\dots,Q-1$:
   - For all $k=0,\dots,n-1$:
@@ -265,9 +265,13 @@ Check that $\text{Keccak256}(x || y)$ has $c$ leading zeroes.
         - $\text{Verify}((-\upsilon_s, \eta_1^{\upsilon_s}), \mathbf{H}_1, \mathfrak{h}_1')$.
         - $\text{Verify}((-\upsilon_s, \eta_2^{\upsilon_s}), \mathbf{H}_2, \mathfrak{h}_2')$.
 
-# Other
 
-## Notes on Optimizations
+## Notes on Optimizations and variants
+### Sampling of challenges variant
+To build the composition the prover samples challenges $\beta_k^T$ and $\beta_j^B$ for $k = 1,\dots,n_T$ and $j=1,\dots,m$. A variant of this is sampling a single challenge $\beta$ and defining $\beta_k^T$ and $\beta_j^B$ as powers of $\beta$. That is, define $\beta_k^T := \beta^{k-1}$ for $k=1,\dots,n_T$ and $\beta_j^B := \beta^{j + n_T - 1}$ for $j =1, \dots, m$.
+
+The same variant applies for the challenges $\gamma, \gamma', \gamma_j, \gamma_j'$ for $j = 1, \dots, m$ used to build the deep composition polynomial. In this case the variant samples a single challenge $\alpha$ and defines $\gamma_j := \alpha^j$, $\gamma_j' := \alpha^{j + m - 1}$ for all $j=1,\dots,m$, and $\gamma := \alpha^{2m}, \gamma' := \alpha^{2m+1}$.
+
 ### Batch inversion
 Inversions of finite field elements are slow. There is a very well known trick to batch invert many elements at once replacing inversions by multiplications. See [here](https://en.wikipedia.org/wiki/Modular_multiplicative_inverse#Multiple_inverses) for the algorithm.
 
@@ -275,10 +279,10 @@ Inversions of finite field elements are slow. There is a very well known trick t
 One of the most computationally intensive operations performed is polynomial division. These can be optimized by utilizing [Fast Fourier Transform](http://web.cecs.pdx.edu/~maier/cs584/Lectures/lect07b-11-MG.pdf) (FFT) to divide each field element in Lagrange form.
 
 ### Ruffini's rule
-In specific scenarios, such as dividing by a polynomial of the form (x-a), [Ruffini's rule](https://en.wikipedia.org/wiki/Ruffini%27s_rule) can be employed to further enhance performance.
+In specific scenarios, such as dividing by a polynomial of the form $X-a$, for example when building the deep composition polynomial, [Ruffini's rule](https://en.wikipedia.org/wiki/Ruffini%27s_rule) can be employed to further enhance performance.
 
 ### Bit-reversal ordering of Merkle tree leaves
-As one can see from inspecting the protocol, there are multiple times where, for a polynomial $p$, the prover sends both openings $\text{Open}(p(D), ab^i)$ and $\text{Open}(p(D), -h\omega^i)$. This implies, a priori, sending two authentication paths. Domains can be indexed using bit-reverse ordering to reduce this to a single authentication path for both openings as follows.
+As one can see from inspecting the protocol, there are multiple times where, for a polynomial $p$, the prover sends both openings $\text{Open}(p(D), h\omega^i)$ and $\text{Open}(p(D), -h\omega^i)$. This implies, a priori, sending two authentication paths. Domains can be indexed using bit-reverse ordering to reduce this to a single authentication path for both openings, as follows.
 
 The natural way of building a Merkle tree to commit to a vector $(p(h), p(h\omega), p(h\omega^2), \dots, p(h\omega^{2^k-1}))$, is assigning the value $p(h\omega^i)$ to leaf $i$. If this is the case, the value $p(h\omega^i)$ is at position $i$ and the value $p(-h\omega^i)$ is at position $i + 2^{k-1}$. This is because $-1$ equals $\omega{2^{k-1}}$ for the value $\omega$ used in the protocol.
 
