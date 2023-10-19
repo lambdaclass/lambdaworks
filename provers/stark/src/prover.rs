@@ -138,7 +138,7 @@ pub trait IsStarkProver {
         }
 
         // Compute commitments [t_j].
-        let lde_trace = TraceTable::new_from_cols(&lde_trace_permuted);
+        let lde_trace = TraceTable::from_columns(&lde_trace_permuted);
         let (lde_trace_merkle_tree, lde_trace_merkle_root) = Self::batch_commit(&lde_trace.rows());
 
         // >>>> Send commitments: [tⱼ]
@@ -205,7 +205,7 @@ pub trait IsStarkProver {
             lde_trace_merkle_roots.push(aux_merkle_root);
         }
 
-        let lde_trace = TraceTable::new_from_cols(&evaluations);
+        let lde_trace = TraceTable::from_columns(&evaluations);
 
         Ok(Round1 {
             trace_polys,
@@ -269,7 +269,8 @@ pub trait IsStarkProver {
 
         // Get the composition poly H
         let composition_poly =
-            constraint_evaluations.compute_composition_poly(&domain.coset_offset);
+            Polynomial::interpolate_offset_fft(&constraint_evaluations, &domain.coset_offset)
+                .unwrap();
 
         let number_of_parts = air.composition_poly_degree_bound() / air.trace_length();
         let composition_poly_parts = composition_poly.break_in_parts(number_of_parts);

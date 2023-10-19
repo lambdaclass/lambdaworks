@@ -1,4 +1,4 @@
-use cairo_platinum_prover::{cairo_mem::CairoMemory, register_states::RegisterStates};
+use platinum_prover::{cairo_mem::CairoMemory, register_states::RegisterStates};
 
 pub fn generate_cairo_trace(filename: &str) -> (RegisterStates, CairoMemory) {
     let base_dir = env!("CARGO_MANIFEST_DIR").to_string() + "/src/cairo_vm/test_data/";
