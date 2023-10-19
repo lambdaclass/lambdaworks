@@ -9,7 +9,7 @@ use lambdaworks_math::{
     elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::BLS12381PrimeField,
     field::element::FieldElement,
 };
-use std::{fs, io};
+use std::{fs::{self, File}, io::{self, BufWriter, Write, BufReader}};
 
 type FE = FieldElement<BLS12381PrimeField>;
 
@@ -41,23 +41,28 @@ fn generate_merkle_proof(tree_path: String, pos: usize) -> Result<(), io::Error>
         ));
     };
 
-    let data = serde_json::to_string(&proof).unwrap();
     let proof_path = tree_path.replace(".csv", format!("_proof_{pos}.json").as_str());
-    fs::write(proof_path, data)
+    let file = File::create(proof_path)?;
+    let mut writer = BufWriter::new(file);
+    serde_json::to_writer_pretty(&mut writer, &proof)?;
+    writer.flush()
 }
 
 fn verify_merkle_proof(
-    root_path: String,
-    index: usize,
+    _root_path: String,
+    _index: usize,
     proof_path: String,
 ) -> Result<(), io::Error> {
-    let root_hash = FE::from_hex_unchecked(&fs::read_to_string(root_path)?);
+    // let _root_hash = FE::from_hex_unchecked(&fs::read_to_string(root_path)?);
 
-    // let bytes = fs::read(proof_path)?;
-    // let proof: Proof<FE> = Proof::deserialize(&bytes)
-    //     .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("deserealization: {:?}", e)))?;
+    // Open the file in read-only mode with buffer.
+    let file = File::open(proof_path)?;
+    let reader = BufReader::new(file);
 
-    // // value is the leaf we start from
+    // Read the JSON contents of the file as an instance of `User`.
+    let _proof: Proof<FE> = serde_json::from_reader(reader)?;
+
+    // value is the leaf we start from
     // let res = proof.verify::<Poseidon<BLS12381PrimeField>>(
     //     &root_hash,
     //     index,
