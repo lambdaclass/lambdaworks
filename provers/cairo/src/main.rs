@@ -1,8 +1,8 @@
-use cairo_platinum_prover::air::{generate_cairo_proof, verify_cairo_proof, PublicInputs};
-use cairo_platinum_prover::cairo_layout::CairoLayout;
-use cairo_platinum_prover::runner::run::generate_prover_args;
 use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
 use lambdaworks_math::traits::{Deserializable, Serializable};
+use platinum_prover::air::{generate_cairo_proof, verify_cairo_proof, PublicInputs};
+use platinum_prover::cairo_layout::CairoLayout;
+use platinum_prover::runner::run::generate_prover_args;
 use stark_platinum_prover::proof::options::{ProofOptions, SecurityLevel};
 use stark_platinum_prover::proof::stark::StarkProof;
 
@@ -117,7 +117,7 @@ fn main() {
             };
 
             let mut bytes = vec![];
-            let proof_bytes = proof.serialize();
+            let proof_bytes: Vec<u8> = serde_cbor::to_vec(&proof).unwrap();
             bytes.extend(proof_bytes.len().to_be_bytes());
             bytes.extend(proof_bytes);
             bytes.extend(pub_inputs.serialize());
@@ -145,8 +145,7 @@ fn main() {
                 println!("Error reading proof from file: {}", args.proof_path);
                 return;
             }
-            let Ok(proof) = StarkProof::<Stark252PrimeField>::deserialize(&bytes[0..proof_len])
-            else {
+            let Ok(proof) = serde_cbor::from_slice(&bytes[0..proof_len]) else {
                 println!("Error reading proof from file: {}", args.proof_path);
                 return;
             };

@@ -1,8 +1,8 @@
-use cairo_platinum_prover::{
-    air::generate_cairo_proof, cairo_layout::CairoLayout, runner::run::generate_prover_args,
-};
 use criterion::{
     black_box, criterion_group, criterion_main, measurement::WallTime, BenchmarkGroup, Criterion,
+};
+use platinum_prover::{
+    air::generate_cairo_proof, cairo_layout::CairoLayout, runner::run::generate_prover_args,
 };
 use stark_platinum_prover::proof::options::{ProofOptions, SecurityLevel};
 
