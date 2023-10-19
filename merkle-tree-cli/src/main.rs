@@ -9,7 +9,6 @@ use lambdaworks_math::{
     elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::BLS12381PrimeField,
     field::element::FieldElement,
 };
-use serde::{Deserialize, Serialize};
 use std::{fs, io};
 
 type FE = FieldElement<BLS12381PrimeField>;
