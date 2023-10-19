@@ -9,7 +9,7 @@ pub struct MerkleArgs {
 
 #[derive(Subcommand, Debug)]
 pub enum MerkleEntity {
-    #[clap(about = "Generate a merkle tree and root")]
+    #[clap(about = "Generate a merkle tree")]
     GenerateMerkleTree(GenerateMerkleTreeArgs),
     #[clap(about = "Generate a merkle proof")]
     GenerateProof(GenerateProofArgs),
