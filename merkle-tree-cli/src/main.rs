@@ -33,11 +33,13 @@ fn generate_merkle_tree(tree_path: String) -> Result<(), io::Error> {
 
     let merkle_tree = MerkleTree::<Poseidon<BLS12381PrimeField>>::build(&values);
     let root = merkle_tree.root.representative().to_string();
-    println!("Generated merkle tree with root: {:?}", root); // save to file?
-
-    let root_path = tree_path.replace(".csv", "_root.txt");
-    fs::write(root_path, root)?;
-    println!("Saved to file");
+    println!("Generated merkle tree with root: {:?}", root);
+    
+    let generated_tree_path = tree_path.replace(".csv", ".json");
+    let file = File::create(generated_tree_path)?;
+    let mut writer = BufWriter::new(file);
+    serde_json::to_writer_pretty(&mut writer, &merkle_tree)?;
+    println!("Saved tree to file");
     Ok(())
 }
 

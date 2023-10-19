@@ -1,6 +1,6 @@
 use super::{proof::Proof, traits::IsMerkleTreeBackend, utils::*};
 
-#[derive(Clone)]
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct MerkleTree<B: IsMerkleTreeBackend> {
     pub root: B::Node,
     nodes: Vec<B::Node>,
