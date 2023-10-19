@@ -27,7 +27,8 @@ pub fn validate_trace<F: IsFFTField, A: AIR<Field = F>>(
                 .unwrap()
         })
         .collect();
-    let trace = TraceTable::new_from_cols(&trace_columns);
+
+    let trace = TraceTable::from_columns(&trace_columns);
 
     // --------- VALIDATE BOUNDARY CONSTRAINTS ------------
     air.boundary_constraints(rap_challenges)
@@ -95,4 +96,14 @@ pub fn check_boundary_polys_divisibility<F: IsFFTField>(
             error!("Boundary poly {} is not divisible by its zerofier", i);
         }
     }
+}
+
+/// Validates that the one-dimensional array `data` can be interpreted as two-dimensional
+/// array, returning a true when valid and false when not.
+pub fn validate_2d_structure<F>(data: &[FieldElement<F>], width: usize) -> bool
+where
+    F: IsFFTField,
+{
+    let rows: Vec<Vec<FieldElement<F>>> = data.chunks(width).map(|c| c.to_vec()).collect();
+    rows.iter().all(|r| r.len() == rows[0].len())
 }
