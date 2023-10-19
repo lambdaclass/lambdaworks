@@ -130,8 +130,8 @@ fn generate_proof(
     println!("Making proof ...");
     let proof = match generate_cairo_proof(&main_trace, &pub_inputs, proof_options) {
         Ok(p) => p,
-        Err(e) => {
-            println!("Error generating proof: {:?}", e);
+        Err(err) => {
+            eprintln!("Error generating proof: {:?}", err);
             return None;
         }
     };
@@ -242,7 +242,7 @@ fn main() {
                     generate_proof(&out_file_path, &proof_options);
                 }
                 Err(err) => {
-                    println!("{}", err)
+                    eprintln!("{}", err)
                 }
             }
         }
@@ -257,7 +257,7 @@ fn main() {
                     verify_proof(proof, pub_inputs, &proof_options);
                 }
                 Err(err) => {
-                    println!("{}", err)
+                    eprintln!("{}", err)
                 }
             }
         }
