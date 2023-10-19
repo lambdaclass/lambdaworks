@@ -32,52 +32,52 @@ Examples of Cairo 0 programs can be found [here](https://github.com/lambdaclass/
 **To compile and generate a proof you can use:**
 
 ```bash
-cairo-platinum-prover-cli compile-and-prove <program_path> <output_proof_path>
+platinum-prover compile-and-prove <program_path> <output_proof_path>
 ```
 
-(note: if you don't have the CLI as a binary you can replace `cairo-platinum-prover-cli` with `cargo run --release`)
+( if you don't have the CLI as a binary you can replace `platinum-prover` with `cargo run --release --features="cli"`)
 
 For example:
 
 ```bash
-cairo-platinum-prover-cli compile-and-prove cairo_programs/cairo0/fibonacci_5.cairo cairo_programs/cairo0/fibonacci_5.proof
+platinum-prover compile-and-prove cairo_programs/cairo0/fibonacci_5.cairo cairo_programs/cairo0/fibonacci_5.proof
 ```
 
 
 **To verify a proof you can use:**
 
 ```bash
-cairo-platinum-prover-cli verify <proof_path>
+platinum-prover verify <proof_path>
 ```
 
 For example:
 
 ```bash
-cairo-platinum-prover-cli verify fibonacci_5.proof
+platinum-prover verify fibonacci_5.proof
 ```
 
 **To compile Cairo:**
 
 ```bash
-cairo-platinum-prover-cli compile <uncompiled_program_path> 
+platinum-prover compile <uncompiled_program_path> 
 ```
 
 For example:
 
 ```bash
-cairo-platinum-prover-cli compile cairo_programs/cairo0/fibonacci_5.cairo
+platinum-prover compile cairo_programs/cairo0/fibonacci_5.cairo
 ```
 
 **To prove a compiled program:**
 
 ```bash
-cairo-platinum-prover-cli prove <compiled_program_path> <output_proof_path>
+platinum-prover prove <compiled_program_path> <output_proof_path>
 ```
 
 For example:
 
 ```bash
-cairo-platinum-prover-cli prove cairo_programs/cairo0/fibonacci_5.json program_proof.proof
+platinum-prover prove cairo_programs/cairo0/fibonacci_5.json program_proof.proof
 ```
 
 
@@ -85,13 +85,13 @@ cairo-platinum-prover-cli prove cairo_programs/cairo0/fibonacci_5.json program_p
 **To prove and verify with a single command you can use:**
 
 ```bash
-cairo-platinum-prover-cli run_all <compiled_program_path>
+platinum-prover run_all <compiled_program_path>
 ```
 
 For example:
 
 ```bash
-cairo-platinum-prover-cli run_all cairo_programs/cairo0/fibonacci_5.json
+platinum-prover run_all cairo_programs/cairo0/fibonacci_5.json
 ```
 
 
@@ -99,18 +99,18 @@ cairo-platinum-prover-cli run_all cairo_programs/cairo0/fibonacci_5.json
 **To compile, proof, prove and verify at the same time you can use:**
 
 ```bash
-cairo-platinum-prover-cli compile_and_run_all <program_path>
+platinum-prover compile_and_run_all <program_path>
 ```
 
 For example:
 
 ```bash
-cairo-platinum-prover-cli compile_and_run_all cairo_programs/cairo0/fibonacci_5.cairo
+platinum-prover compile_and_run_all cairo_programs/cairo0/fibonacci_5.cairo
 ```
 
 **To install as a binary run the command on the root directory of the CLI:**
 ```bash
-cargo install --path .
+cargo install --features="cli" --path .
 ```
 **You can uninstall it with:**
 ```bash
@@ -150,52 +150,52 @@ Examples of Cairo 0 programs can be found [here](https://github.com/lambdaclass/
 **To compile and generate a proof you can use:**
 
 ```bash
-cairo-platinum-prover-cli compile-and-prove <program_path> <output_proof_path>
+platinum-prover compile-and-prove <program_path> <output_proof_path>
 ```
 
-(note: if you don't have the CLI as a binary you can replace `cairo-platinum-prover-cli` with `cargo run --release --features="cli"`)
+( if you don't have the CLI as a binary you can replace `cairo-platinum-prover` with `cargo run --release --features="cli"`)
 
 For example:
 
 ```bash
-cairo-platinum-prover-cli compile-and-prove cairo_programs/cairo0/fibonacci_5.cairo cairo_programs/cairo0/fibonacci_5.proof
+platinum-prover compile-and-prove cairo_programs/cairo0/fibonacci_5.cairo cairo_programs/cairo0/fibonacci_5.proof
 ```
 
 
 **To verify a proof you can use:**
 
 ```bash
-cairo-platinum-prover-cli verify <proof_path>
+platinum-prover verify <proof_path>
 ```
 
 For example:
 
 ```bash
-cairo-platinum-prover-cli verify fibonacci_5.proof
+platinum-prover verify fibonacci_5.proof
 ```
 
 **To compile Cairo:**
 
 ```bash
-cairo-platinum-prover-cli compile <uncompiled_program_path> 
+platinum-prover compile <uncompiled_program_path> 
 ```
 
 For example:
 
 ```bash
-cairo-platinum-prover-cli compile cairo_programs/cairo0/fibonacci_5.cairo
+platinum-prover compile cairo_programs/cairo0/fibonacci_5.cairo
 ```
 
 **To prove a compiled program:**
 
 ```bash
-cairo-platinum-prover-cli prove <compiled_program_path> <output_proof_path>
+platinum-prover prove <compiled_program_path> <output_proof_path>
 ```
 
 For example:
 
 ```bash
-cairo-platinum-prover-cli prove cairo_programs/cairo0/fibonacci_5.json program_proof.proof
+platinum-prover prove cairo_programs/cairo0/fibonacci_5.json program_proof.proof
 ```
 
 
@@ -203,13 +203,13 @@ cairo-platinum-prover-cli prove cairo_programs/cairo0/fibonacci_5.json program_p
 **To prove and verify with a single command you can use:**
 
 ```bash
-cairo-platinum-prover-cli run_all <compiled_program_path>
+platinum-prover run_all <compiled_program_path>
 ```
 
 For example:
 
 ```bash
-cairo-platinum-prover-cli run_all cairo_programs/cairo0/fibonacci_5.json
+platinum-prover run_all cairo_programs/cairo0/fibonacci_5.json
 ```
 
 
@@ -217,36 +217,22 @@ cairo-platinum-prover-cli run_all cairo_programs/cairo0/fibonacci_5.json
 **To compile, proof, prove and verify at the same time you can use:**
 
 ```bash
-cairo-platinum-prover-cli compile_and_run_all <program_path>
+platinum-prover compile_and_run_all <program_path>
 ```
 
 For example:
 
 ```bash
-cairo-platinum-prover-cli compile_and_run_all cairo_programs/cairo0/fibonacci_5.cairo
+platinum-prover compile_and_run_all cairo_programs/cairo0/fibonacci_5.cairo
 ```
 
 **To install as a binary run the command on the root directory of the CLI:**
 ```bash
-cargo install --path .
+cargo install --features="cli" --path .   
 ```
 **You can uninstall it with:**
 ```bash
 cargo uninstall
-```
-```
-cargo install --path .
-```
-**You can uninstall it with:**
-```bash
-cargo uninstall
-```
-cargo install --path .
-```
-**You can uninstall it with:**
-```bash
-cargo uninstall
-```
 ```
 
 ### Using WASM verifier
