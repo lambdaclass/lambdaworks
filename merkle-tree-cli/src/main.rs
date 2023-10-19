@@ -34,7 +34,7 @@ fn generate_merkle_tree(tree_path: String) -> Result<(), io::Error> {
     let merkle_tree = MerkleTree::<Poseidon<BLS12381PrimeField>>::build(&values);
     let root = merkle_tree.root.representative().to_string();
     println!("Generated merkle tree with root: {:?}", root);
-    
+
     let generated_tree_path = tree_path.replace(".csv", ".json");
     let file = File::create(generated_tree_path)?;
     let mut writer = BufWriter::new(file);
