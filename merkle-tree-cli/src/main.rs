@@ -9,14 +9,20 @@ use lambdaworks_math::{
     elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::BLS12381PrimeField,
     field::element::FieldElement,
 };
-use std::{fs::{self, File}, io::{self, BufWriter, Write, BufReader}};
+use std::{fs::{self, File}, io::{self, BufWriter, Write}};
 
 type FE = FieldElement<BLS12381PrimeField>;
+
+fn load_fe_from_file(file_path: &String) -> Result<FE, io::Error> {
+    FE::from_hex(&fs::read_to_string(file_path)?).map_err(|e| {
+        io::Error::new(io::ErrorKind::Other, format!("{:?}", e))
+    })
+}
 
 fn load_tree_values(tree_path: &String) -> Result<Vec<FE>, io::Error> {
     Ok(fs::read_to_string(tree_path)?
         .lines()
-        .map(FE::from_hex_unchecked)
+        .map(FE::from_hex_unchecked) // remove hex_unchecked for hex
         .collect())
 }
 
@@ -26,6 +32,10 @@ fn generate_merkle_tree(tree_path: String) -> Result<(), io::Error> {
     let merkle_tree = MerkleTree::<Poseidon<BLS12381PrimeField>>::build(&values);
     let root = merkle_tree.root.representative().to_string();
     println!("Generated merkle tree with root: {:?}", root); // save to file?
+
+    let root_path = tree_path.replace(".csv", "_root.txt");
+    fs::write(root_path, root)?;
+    println!("Saved to file");
     Ok(())
 }
 
@@ -49,26 +59,24 @@ fn generate_merkle_proof(tree_path: String, pos: usize) -> Result<(), io::Error>
 }
 
 fn verify_merkle_proof(
-    _root_path: String,
-    _index: usize,
+    root_path: String,
+    index: usize,
     proof_path: String,
+    leaf_path: String
 ) -> Result<(), io::Error> {
-    // let _root_hash = FE::from_hex_unchecked(&fs::read_to_string(root_path)?);
+    let root_hash: FE = load_fe_from_file(&root_path)?;
 
-    // Open the file in read-only mode with buffer.
-    let file = File::open(proof_path)?;
-    let reader = BufReader::new(file);
+    let file_str = fs::read_to_string(proof_path)?;
+    let proof: Proof<FE> = serde_json::from_str(&file_str)?;
 
-    // Read the JSON contents of the file as an instance of `User`.
-    let _proof: Proof<FE> = serde_json::from_reader(reader)?;
+    let leaf: FE = load_fe_from_file(&leaf_path)?;
 
-    // value is the leaf we start from
-    // let res = proof.verify::<Poseidon<BLS12381PrimeField>>(
-    //     &root_hash,
-    //     index,
-    //     &FE::from_hex_unchecked("0x12345"),
-    // );
-    // println!("Proof verified: {:?}", res);
+    let res = proof.verify::<Poseidon<BLS12381PrimeField>>(
+        &root_hash,
+        index,
+        &leaf,
+    );
+    println!("Proof verified: {:?}", res);
     Ok(())
 }
 
@@ -78,7 +86,7 @@ fn main() {
         MerkleEntity::GenerateMerkleTree(args) => generate_merkle_tree(args.tree_path),
         MerkleEntity::GenerateProof(args) => generate_merkle_proof(args.tree_path, args.position),
         MerkleEntity::VerifyProof(args) => {
-            verify_merkle_proof(args.root_path, args.index, args.proof_path)
+            verify_merkle_proof(args.root_path, args.index, args.proof_path, args.leaf_path)
         }
     } {
         println!("Error while running command: {:?}", e);

@@ -33,4 +33,5 @@ pub struct VerifyArgs {
     pub root_path: String,
     pub index: usize,
     pub proof_path: String,
+    pub leaf_path: String,
 }
