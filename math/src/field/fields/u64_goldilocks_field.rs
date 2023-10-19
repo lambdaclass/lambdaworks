@@ -182,7 +182,7 @@ fn exp_power_of_2<const POWER_LOG: usize>(base: &u64) -> u64 {
     res
 }
 
-pub type Mersenne31ComplexQuadraticExtensionField = QuadraticExtensionField<Goldilocks64Field>;
+pub type Goldilocks64ExtensionField = QuadraticExtensionField<Goldilocks64Field>;
 
 impl HasQuadraticNonResidue for Goldilocks64Field {
     type BaseField = Goldilocks64Field;
