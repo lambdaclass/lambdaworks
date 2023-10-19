@@ -43,16 +43,16 @@ The root of the Merkle tree is said to be the **commitment** of $Y$, and we deno
 
 ## FRI
 
-In STARKs, all commited vectors are of the form $Y = (p(d_1), \dots, p(d_M))$ for some polynomial $p$ and some domain fixed domain $D = (d_1, \dots, d_M)$. The domain is always known to the prover and the verifier. But it can be proved, as long as $M$ is less than the total number of field elements, that every vector $(y_0, \dots, y_M)$ is equal to $(p(d_1), \dots, p(d_M))$ for a unique polynomial $p$ of degree at most $M-1$. This is called the Lagrange interpolation theorem. It means, there is a unique polynomial of degree at most $M-1$ such that $p(d_i) = y_i$ for all $i$. And $M-1$ is an upper bound to the degree of $p$. It could be less. For example, the vector of all ones $Y = (1,1,\dots,1)$ is the evaluation of the constant polynomial $p = 1$, which has degree $0$.
+In STARKs, all commited vectors are of the form $Y = (p(d_1), \dots, p(d_M))$ for some polynomial $p$ and some fixed domain $D = (d_1, \dots, d_M)$. The domain is always known to the prover and the verifier. It can be proved, as long as $M$ is less than the total number of field elements, that every vector $(y_0, \dots, y_M)$ is equal to $(p(d_1), \dots, p(d_M))$ for a unique polynomial $p$ of degree at most $M-1$. This is called the Lagrange interpolation theorem. It means, there is a unique polynomial of degree at most $M-1$ such that $p(d_i) = y_i$ for all $i$. And $M-1$ is an upper bound to the degree of $p$. It could be less. For example, the vector of all ones $Y = (1,1,\dots,1)$ is the evaluation of the constant polynomial $p = 1$, which has degree $0$.
 
-Suppose the vector $Y=(y_1, \dots, y_M)$ is the vector of evaluations of a polynomial $p$ of degree strictly less than $M-1$. And suppose one party holds the vector $Y$ and another party holds only the commitment $[Y]$ of it. The FRI protocol is an efficient interactive protocol in which the former can convince the latter that the commitment they hold corresponds to the vector of evaluations of a polynomial $p$ of degree strictly less than $M$.
+Suppose the vector $Y=(y_1, \dots, y_M)$ is the vector of evaluations of a polynomial $p$ of degree strictly less than $M-1$. Suppose one party holds the vector $Y$ and another party holds only the commitment $[Y]$ of it. The FRI protocol is an efficient interactive protocol with which the former can convince the latter that the commitment they hold corresponds to the vector of evaluations of a polynomial $p$ of degree strictly less than $M$.
 
 More precisely, the protocol depends on the following parameters
 
 - Powers of two $N = 2^n$ and $M = 2^m$ with $n < m$.
 - A vector $D=(d_1,\dots,d_M)$, with $d_i$ in $\mathbb{F}$ for all $i$ and $d_i\neq d_j$ for all $i\neq j$.
 
-A prover holds a vector $Y=(y_1,\dots,y_M)$ and the verifier holds the commitment $[Y]$ of it. The result of the FRI protocol will be _Accept_ if the unique polynomial $p$ of degree less than $M-1$ such that $Y=(p(d_1),\dots,p(d_M))$ has degree less than $N-1$. Even more precisely, the protocol proves that $Y$ is very close to a vector $(p(d_1),\dots,p(d_M))$ with $p$ of degree less than $N-1$, but it may differ in negligible proportion of the coordinates.
+A prover holds a vector $Y=(y_1,\dots,y_M)$, and the verifier holds the commitment $[Y]$ of it. The result of the FRI protocol will be _Accept_ if the unique polynomial $p$ of degree less than $M-1$ such that $Y=(p(d_1),\dots,p(d_M))$ has degree less than $N-1$. Even more precisely, the protocol proves that $Y$ is very close to a vector $(p(d_1),\dots,p(d_M))$ with $p$ of degree less than $N-1$, but it may differ in negligible proportion of the coordinates.
 
 ### Variant useful for STARKs
 
@@ -60,7 +60,7 @@ FRI is usually described as above. In STARK, FRI is used as a building block of 
 
 Suppose the prover holds a vector $Y = (y_1, \dots, y_M)$ and the verifier holds its commitment $[Y]$ as before. Suppose further that both parties know a function $F$ that takes two field elements and outputs another field element. For example $F$ could be the function $F(a,b) = a + b^{-1}$. More precisely, the kind of functions we need are $F: \mathbb{F} \times D \to \mathbb{F}$.
 
-The protocol can be used to prove that the transformed vector $(F(y_1, d_1), \dots, F(y_M, d_M))$ is the vector of evaluations of a polynomial $q$ of degree at most $N-1$. Or more precisely, it differs only in a negligible proportion of the coordinates. Note that in this variant, the verifier holds originally the commitment of the vector $Y$, and not the commitment of the transformed vector. In the example, the verifier holds the commitment $[Y]$ and FRI will return _Accept_ if $(y_1 + d_1^{-1}, \dots, y_M + d_M^{-1})$ is the vector of evaluations of a polynomial of degree at most $N-1$.
+The protocol can be used to prove that the transformed vector $(F(y_1, d_1), \dots, F(y_M, d_M))$ is the vector of evaluations of a polynomial $q$ of degree at most $N-1$. Or more precisely, it differs only in a negligible proportion of the coordinates. Note that in this variant, the verifier holds originally the commitment of the vector $Y$ and not the commitment of the transformed vector. In the example, the verifier holds the commitment $[Y]$ and FRI will return _Accept_ if $(y_1 + d_1^{-1}, \dots, y_M + d_M^{-1})$ is the vector of evaluations of a polynomial of degree at most $N-1$.
 
 ## Polynomial commitments
 
@@ -92,13 +92,15 @@ Let's see why this makes sense.
 
 ### Completeness
 
-If the prover is honest, $p$ is of degree at most $N$ and $y$ equals $p(z)$. That means that $p - y = (X - z) q$ for some polynomial $q$. Since $p$ is of degree at most $N$, then $q$ is of degree at most $N-1$. The vector $(q(d_1), \dots, q(d_M))$ is then a vector of evaluations of a polynomial of degree at most $N-1$. And it is equal to $(F(p(d_1), d_1), \dots, F(p(d_M), d_M))$. So the FRI protocol will succeed.
+If the prover is honest, $p$ is of degree at most $N$ and $y$ equals $p(z)$. That means that
+$$p - y = (X - z) q$$
+for some polynomial $q$. Since $p$ is of degree at most $N$, then $q$ is of degree at most $N-1$. The vector $(q(d_1), \dots, q(d_M))$ is then a vector of evaluations of a polynomial of degree at most $N-1$. And it is equal to $(F(p(d_1), d_1), \dots, F(p(d_M), d_M))$. So the FRI protocol will succeed.
 
 ### Soundness
 
 Let's sketch an idea of the soundness. Note that the value $z$ is chosen by the verifier after receiving the commitment $[p]$ of $p$. So the prover does not know in advance, at the moment of sending $[p]$, what $z$ will be.
 
-Suppose the prover is trying to cheat and sends the commitment $[Y]$ of a vector $Y=(y_1,\dots,y_M)$ that's not the vector of evaluations of a polynomial of degree at most $N$. Then the coordinates of the transformed vector are $(y_i - y) / (d_i - z)$. Since $z$ was chosen by the verifier, dividing by $d_i - z$ shuffles all the elements in a very unpredictable way for the prover. So it is extremely unlikely that the cheating prover is able to craft an invalid vector $Y$ such that the transformed vector turns out to be of degree at most $N-1$. The expected degree of the polynomial associated to a random vector is $M-1$.
+Suppose the prover is trying to cheat and sends the commitment $[Y]$ of a vector $Y=(y_1,\dots,y_M)$ that's not the vector of evaluations of a polynomial of degree at most $N$. Then the coordinates of the transformed vector are $(y_i - y) / (d_i - z)$. Since $z$ was chosen by the verifier, dividing by $d_i - z$ shuffles all the elements in a very unpredictable way for the prover. So it is extremely unlikely that the cheating prover can craft an invalid vector $Y$ such that the transformed vector turns out to be of degree at most $N-1$. The expected degree of the polynomial associated with a random vector is $M-1$.
 
 ### Batch
 
@@ -150,11 +152,11 @@ As mentioned before, if some constraints cannot be expressed locally, more colum
 
 Note that we can compose the polynomials $t_j$, the ones that interpolate the columns of the trace $T$, with the multivariate constraint polynomials as follows.
 $$Q_k^T(x) = P_k^T(t_1(x), \dots, t_m(x), t_1(g x), \dots, t_m(\omega x))$$
-These result in univariate polynomials. And the same can be done for the boundary constraints. Since $T_{i,j} = t_j(g^i)$, these univariate polynomials vanish at every element of $D$ if and only if the trace $T$ is valid.
+These result in univariate polynomials. The same can be done for the boundary constraints. Since $T_{i,j} = t_j(g^i)$, these univariate polynomials vanish at every element of $D$ if and only if the trace $T$ is valid.
 
 As we already mentioned, this is assuming that transitions only depend on the current and previous state. But it can be generalized to include _frames_ with three or more rows or more context for each constraint. For example, in the Fibonacci case, the most natural way is to encode it as one transition constraint that depends on a row and the two preceding it, as we already did in the Recap section. The STARK protocol checks whether the function $\frac{Q_k^T}{X^{2^n} - 1}$ is a polynomial instead of checking that the polynomial is zero over the domain $D =\{g_i\}_{i=0}^{2^n-1}$. The two statements are equivalent.
 
-The verifier could check that all $\frac{Q_k^T}{X^{2^n} - 1}$ are polynomials one by one, and the same for the polynomials coming from the boundary constraints. But this is inefficient; the same can be obtained with a single polynomial. To do this, the prover samples challenges and obtains a random linear combination of these polynomials. The result of this is denoted by $H$ and is called the composition polynomial. It integrates all the constraints by adding them up. So after computing $H$, the prover commits to it and sends the commitment to the verifier. The rest of the protocol aims to prove that $H$ was constructed correctly and is a polynomial, which can only be true if the prover has a valid extension of the original trace.
+The verifier could check that all $\frac{Q_k^T}{X^{2^n} - 1}$ are polynomials one by one, and the same for the polynomials coming from the boundary constraints. However, this is inefficient; the same can be obtained with a single polynomial. To do this, the prover samples challenges and obtains a random linear combination of these polynomials. The result of this is denoted by $H$ and is called the composition polynomial. It integrates all the constraints by adding them up. So after computing $H$, the prover commits to it and sends the commitment to the verifier. The rest of the protocol aims to prove that $H$ was constructed correctly and is a polynomial, which can only be true if the prover has a valid extension of the original trace.
 
 ## Round 3: Evaluation of polynomials at $z$
 
@@ -163,3 +165,4 @@ The verifier must check that $H$ was constructed according to the protocol rules
 ## Round 4: Run batch open protocol
 
 In this round, the prover and verifier engage in the batch open protocol of the polynomial commitment scheme described above to validate all the evaluations at $z$ from the previous round.
+
