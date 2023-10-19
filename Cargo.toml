@@ -1,5 +1,5 @@
 [workspace]
-members = ["math", "crypto", "gpu", "benches", "provers/plonk", "provers/stark", "provers/cairo", "provers/cairo-prover-cli", "merkle-tree-cli"]
+members = ["math", "crypto", "gpu", "benches", "provers/plonk", "provers/stark", "provers/cairo", "merkle-tree-cli"]
 exclude = ["ensure-no_std"]
 resolver = "2"
 
