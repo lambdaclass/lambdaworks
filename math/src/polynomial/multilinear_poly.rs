@@ -4,6 +4,7 @@ use crate::polynomial::multilinear_term::MultiLinearMonomial;
 use crate::polynomial::term::Term;
 
 /// Represents a multilinear polynomials as a collection of multilinear monomials
+#[derive(Debug, PartialEq)]
 pub struct MultilinearPolynomial<F: IsField + IsPrimeField>
 where
     <F as IsField>::BaseType: Send + Sync,
@@ -32,4 +33,42 @@ where
     }
 }
 
-// TODO: add tests
+#[cfg(test)]
+mod tests {
+    use crate::field::element::FieldElement;
+    use crate::field::fields::u64_prime_field::U64PrimeField;
+    use crate::polynomial::multilinear_poly::MultilinearPolynomial;
+    use crate::polynomial::multilinear_term::MultiLinearMonomial;
+
+    const ORDER: u64 = 101;
+    type F = U64PrimeField<ORDER>;
+    type FE = FieldElement<F>;
+
+    #[test]
+    fn test_partial_evaluation() {
+        // 3ab + 4bc
+        // partially evaluate b = 2
+        // expected result = 6a + 8c
+        // a = 1, b = 2, c = 3
+        let poly = MultilinearPolynomial::new(vec![
+            MultiLinearMonomial::new((FE::new(3), vec![1, 2])),
+            MultiLinearMonomial::new((FE::new(4), vec![2, 3])),
+        ]);
+        let result = poly.partial_evaluate(&[(2, FE::new(2))]);
+        assert_eq!(
+            result,
+            MultilinearPolynomial {
+                terms: vec![
+                    MultiLinearMonomial {
+                        coeff: FE::new(6),
+                        vars: vec![1]
+                    },
+                    MultiLinearMonomial {
+                        coeff: FE::new(8),
+                        vars: vec![3]
+                    }
+                ]
+            }
+        );
+    }
+}
