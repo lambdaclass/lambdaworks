@@ -5,14 +5,14 @@ use std::ops::{self, Neg};
 #[cfg(feature = "rayon")]
 use rayon::prelude::*;
 
-use super::term::{MultiVariateMonomial, Term};
+use super::{MultiLinearTerm, Term};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MultilinearExtension<F: IsField + IsPrimeField + Default>
 where
     <F as IsField>::BaseType: Send + Sync,
 {
-    pub evals: Vec<MultiVariateMonomial<F>>,
+    pub evals: Vec<MultiLinearTerm<F>>,
 }
 
 impl<F: IsField + IsPrimeField + Default> MultilinearExtension<F>

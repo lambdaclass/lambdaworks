@@ -20,9 +20,11 @@ where
     /// Create a new `Term` from a tuple of the form `(coeff, (power))`
     fn new(term: (FieldElement<F>, Vec<(usize, usize)>)) -> Self {
         //todo: Check
+        let mut vars = term.1;
+        vars.sort();
         MultiVariateMonomial {
             coeff: term.0,
-            vars: term.1,
+            vars: vars,
         }
     }
 }
@@ -56,7 +58,7 @@ where
     /// Evaluates `self` at the point `p`.
     fn evaluate(&self, p: &[FieldElement<F>]) -> FieldElement<F> {
         // check the number of evaluations points is equal to the number of variables
-        assert_eq!(self.max_var(), p.len());
+        assert!(self.max_var() <= p.len() - 1);
         // var_id is index of p
         let eval = self
             .vars
