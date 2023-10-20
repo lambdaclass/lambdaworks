@@ -32,52 +32,50 @@ Examples of Cairo 0 programs can be found [here](https://github.com/lambdaclass/
 **To compile and generate a proof you can use:**
 
 ```bash
-platinum-prover compile-and-prove <program_path> <output_proof_path>
+cargo run --release --features="cli" compile-and-prove <program_path> <output_proof_path>
 ```
-
-( if you don't have the CLI as a binary you can replace `platinum-prover` with `cargo run --release --features="cli"`)
 
 For example:
 
 ```bash
-platinum-prover compile-and-prove cairo_programs/cairo0/fibonacci_5.cairo cairo_programs/cairo0/fibonacci_5.proof
+cargo run --release --features="cli" compile-and-prove cairo_programs/cairo0/fibonacci_5.cairo cairo_programs/cairo0/fibonacci_5.proof
 ```
 
 
 **To verify a proof you can use:**
 
 ```bash
-platinum-prover verify <proof_path>
+cargo run --release --features="cli" verify <proof_path>
 ```
 
 For example:
 
 ```bash
-platinum-prover verify fibonacci_5.proof
+cargo run --release --features="cli" verify fibonacci_5.proof
 ```
 
 **To compile Cairo:**
 
 ```bash
-platinum-prover compile <uncompiled_program_path> 
+cargo run --release --features="cli" compile <uncompiled_program_path> 
 ```
 
 For example:
 
 ```bash
-platinum-prover compile cairo_programs/cairo0/fibonacci_5.cairo
+cargo run --release --features="cli" compile cairo_programs/cairo0/fibonacci_5.cairo
 ```
 
 **To prove a compiled program:**
 
 ```bash
-platinum-prover prove <compiled_program_path> <output_proof_path>
+cargo run --release --features="cli" prove <compiled_program_path> <output_proof_path>
 ```
 
 For example:
 
 ```bash
-platinum-prover prove cairo_programs/cairo0/fibonacci_5.json program_proof.proof
+cargo run --release --features="cli" prove cairo_programs/cairo0/fibonacci_5.json program_proof.proof
 ```
 
 
@@ -85,13 +83,13 @@ platinum-prover prove cairo_programs/cairo0/fibonacci_5.json program_proof.proof
 **To prove and verify with a single command you can use:**
 
 ```bash
-platinum-prover run_all <compiled_program_path>
+cargo run --release --features="cli" run_all <compiled_program_path>
 ```
 
 For example:
 
 ```bash
-platinum-prover run_all cairo_programs/cairo0/fibonacci_5.json
+cargo run --release --features="cli" run_all cairo_programs/cairo0/fibonacci_5.json
 ```
 
 
@@ -99,138 +97,30 @@ platinum-prover run_all cairo_programs/cairo0/fibonacci_5.json
 **To compile, proof, prove and verify at the same time you can use:**
 
 ```bash
-platinum-prover compile_and_run_all <program_path>
+cargo run --release --features="cli" compile_and_run_all <program_path>
 ```
 
 For example:
 
 ```bash
-platinum-prover compile_and_run_all cairo_programs/cairo0/fibonacci_5.cairo
+cargo run --release --features="cli" compile_and_run_all cairo_programs/cairo0/fibonacci_5.cairo
 ```
+
+### Run CLI as a binary
 
 **To install as a binary run the command on the root directory of the CLI:**
 ```bash
 cargo install --features="cli" --path .
 ```
-**You can uninstall it with:**
+
+To run the CLI as a binary instead of using cargo replace `cargo run --release --features="cli"` with `platinum-prover`.
+
+for example:
 ```bash
-cargo uninstall
-```
-<div align="center">
-
-# Lambdaworks Cairo Platinum Prover CLI
-
-</div>
-
-## ⚠️ Disclaimer
-
-This prover is still in development and may contain bugs. It is not intended to be used in production yet.
-
-Please check issues under security label, and wait for them to be resolved if they are relevant your project.
-
-Output builtin is finished, and range check is supported but it's not sound yet.
-
-CLI currently runs with 100 bits of conjecturable security
-
-## [Cairo Platinum Prover Docs](<[lambdaclass.github.io/lambdaworks/](https://github.com/lambdaclass/lambdaworks/blob/main/provers/cairo/README.md)>)
-
-### Usage:
-
-To prove programs Cairo has to be compiled. For compilation you need to have `cairo-lang` or `docker` installed.
-
-When using Docker, start by creating the container image with:
-
-```bash
-  make docker_build_cairo_compiler
+platinum-prover cairo_programs/cairo0/fibonacci_5.cairo cairo_programs/cairo0/fibonacci_5.proof
 ```
 
-Examples of Cairo 0 programs can be found [here](https://github.com/lambdaclass/lambdaworks/tree/main/provers/cairo/cairo_programs/cairo0)
-
-
-**To compile and generate a proof you can use:**
-
-```bash
-platinum-prover compile-and-prove <program_path> <output_proof_path>
-```
-
-( if you don't have the CLI as a binary you can replace `cairo-platinum-prover` with `cargo run --release --features="cli"`)
-
-For example:
-
-```bash
-platinum-prover compile-and-prove cairo_programs/cairo0/fibonacci_5.cairo cairo_programs/cairo0/fibonacci_5.proof
-```
-
-
-**To verify a proof you can use:**
-
-```bash
-platinum-prover verify <proof_path>
-```
-
-For example:
-
-```bash
-platinum-prover verify fibonacci_5.proof
-```
-
-**To compile Cairo:**
-
-```bash
-platinum-prover compile <uncompiled_program_path> 
-```
-
-For example:
-
-```bash
-platinum-prover compile cairo_programs/cairo0/fibonacci_5.cairo
-```
-
-**To prove a compiled program:**
-
-```bash
-platinum-prover prove <compiled_program_path> <output_proof_path>
-```
-
-For example:
-
-```bash
-platinum-prover prove cairo_programs/cairo0/fibonacci_5.json program_proof.proof
-```
-
-
-
-**To prove and verify with a single command you can use:**
-
-```bash
-platinum-prover run_all <compiled_program_path>
-```
-
-For example:
-
-```bash
-platinum-prover run_all cairo_programs/cairo0/fibonacci_5.json
-```
-
-
-
-**To compile, proof, prove and verify at the same time you can use:**
-
-```bash
-platinum-prover compile_and_run_all <program_path>
-```
-
-For example:
-
-```bash
-platinum-prover compile_and_run_all cairo_programs/cairo0/fibonacci_5.cairo
-```
-
-**To install as a binary run the command on the root directory of the CLI:**
-```bash
-cargo install --features="cli" --path .   
-```
-**You can uninstall it with:**
+**You can uninstall the binary with:**
 ```bash
 cargo uninstall
 ```
