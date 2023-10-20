@@ -97,13 +97,13 @@ cargo run --release --features="cli" run_all cairo_programs/cairo0/fibonacci_5.j
 **To compile, proof, prove and verify at the same time you can use:**
 
 ```bash
-cargo run --release --features="cli" compile_and_run_all <program_path>
+cargo run --release --features="cli" compile-and-run-all <program_path>
 ```
 
 For example:
 
 ```bash
-cargo run --release --features="cli" compile_and_run_all cairo_programs/cairo0/fibonacci_5.cairo
+cargo run --release --features="cli" compile-and-run-all cairo_programs/cairo0/fibonacci_5.cairo
 ```
 
 ### Run CLI as a binary
