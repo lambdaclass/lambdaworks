@@ -10,6 +10,7 @@ use lambdaworks_math::{
 use std::ops::{Add, Mul};
 
 mod parameters;
+pub mod shared_tests;
 
 pub struct Poseidon<F: IsField> {
     params: Parameters<F>,
@@ -165,7 +166,7 @@ where
 // (values are parsed from decimals and have been converted to hex in our mod)
 // The field that these tests use is defined below, and parameters are stored under /s128b
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use lambdaworks_math::{
         field::fields::montgomery_backed_prime_fields::{IsModulus, U384PrimeField},
         unsigned_integer::element::U384,

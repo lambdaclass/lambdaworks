@@ -21,6 +21,7 @@ rand = "0.8.5"
 
 [features]
 test_fiat_shamir = []
+poseidon_test = []
 
 [[bench]]
 name = "criterion_merkle"
@@ -29,3 +30,7 @@ harness = false
 [[bench]]
 name = "iai_merkle"
 harness = false
+
+[[bench]]
+name = "criterion_poseidon"
+harness= false
