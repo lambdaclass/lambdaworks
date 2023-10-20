@@ -239,7 +239,22 @@ fn main() {
             let out_file_path = args.program_path.replace(".cairo", ".json");
             match try_compile(&args.program_path, &out_file_path) {
                 Ok(_) => {
-                    generate_proof(&out_file_path, &proof_options);
+                    let Some((proof, pub_inputs)) = generate_proof(&out_file_path, &proof_options)
+                    else {
+                        return;
+                    };
+
+                    let mut bytes = vec![];
+                    let proof_bytes: Vec<u8> = serde_cbor::to_vec(&proof).unwrap();
+                    bytes.extend(proof_bytes.len().to_be_bytes());
+                    bytes.extend(proof_bytes);
+                    bytes.extend(pub_inputs.serialize());
+
+                    let Ok(()) = std::fs::write(&args.proof_path, bytes) else {
+                        println!("Error writing proof to file: {}", args.proof_path);
+                        return;
+                    };
+                    println!("Proof written to {}", args.proof_path);
                 }
                 Err(err) => {
                     eprintln!("{}", err)
