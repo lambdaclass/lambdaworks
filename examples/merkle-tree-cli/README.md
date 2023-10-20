@@ -2,6 +2,8 @@
 
 # Lambdaworks Merklee Tree CLI
 
+Simple Merkle Tree CLI that uses [Poseidon hash](https://www.poseidon-hash.info/).
+
 </div>
 
 ### Usage:
