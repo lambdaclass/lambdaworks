@@ -4,6 +4,7 @@ use crate::polynomial::multilinear_term::MultiLinearMonomial;
 use crate::polynomial::term::Term;
 
 /// Represents a multilinear polynomials as a collection of multilinear monomials
+// TODO: add checks to track the max degree and number of variables.
 #[derive(Debug, PartialEq)]
 pub struct MultilinearPolynomial<F: IsField + IsPrimeField>
 where
@@ -21,8 +22,23 @@ where
         Self { terms }
     }
 
+    /// Evaluates `self` at the point `p`.
+    /// Note: assumes p contains points for all variables aka is not sparse.
+    fn evaluate(&self, p: &[FieldElement<F>]) -> FieldElement<F> {
+        // check the number of evaluations points is equal to the number of variables
+        // var_id is index of p
+        self
+            .terms
+            .iter()
+            .fold(FieldElement::<F>::zero(), |mut acc, term| {
+                acc += term.evaluate(p);
+                acc
+        })
+    }
+
     /// Selectively assign values to variables in the polynomial, returns a reduced
     /// polynomial after assignment evaluation
+    // TODO: can we change this to modify in place to remove the extract allocation
     fn partial_evaluate(&self, assignments: &[(usize, FieldElement<F>)]) -> Self {
         let updated_monomials: Vec<MultiLinearMonomial<F>> = self
             .terms
@@ -69,6 +85,40 @@ mod tests {
                     }
                 ]
             }
+        );
+    }
+
+    #[test]
+    fn test_dense_evaluation() {
+        // 3abc + 4abc
+        // evaluate: a = 1, b = 2, c = 3
+        // expected result = 42
+        // a = 1, b = 2, c = 3
+        let poly = MultilinearPolynomial::new(vec![
+            MultiLinearMonomial::new((FE::new(3), vec![0, 1, 2])),
+            MultiLinearMonomial::new((FE::new(4), vec![0, 1, 2])),
+        ]);
+        let result = poly.evaluate(&[FE::one(), FE::new(2), FE::new(3)]);
+        assert_eq!(
+            result,
+            FE::new(42)
+        );
+    }
+
+    #[test]
+    fn test_sparse_evaluation() {
+        // 3ab + 4bc
+        // evaluate: a = 1, b = 2, c = 3
+        // expected result = 42
+        // a = 1, b = 2, c = 3
+        let poly = MultilinearPolynomial::new(vec![
+            MultiLinearMonomial::new((FE::new(3), vec![0, 1])),
+            MultiLinearMonomial::new((FE::new(4), vec![1, 2])),
+        ]);
+        let result = poly.evaluate(&[FE::one(), FE::new(2), FE::new(3)]);
+        assert_eq!(
+            result,
+            FE::new(30)
         );
     }
 }
