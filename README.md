@@ -80,6 +80,10 @@ If you are interested in proving Cairo programs, use the Cairo Prover CLI.
 Finite Field crate fully supports no-std with `no-default-features`
 
 Both Math and Crypto support wasm with target `wasm32-unknown-unknown` by default, with `std` feature.
+
+## Examples - mini apps
+- [Merkle Tree CLI](https://github.com/lambdaclass/lambdaworks/tree/main/examples/merkle-tree-cli)
+
 ## Exercises and Challenges
 - [Lambdaworks exercises and challenges](https://github.com/lambdaclass/lambdaworks_exercises/tree/main)
 
