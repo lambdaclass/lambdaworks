@@ -685,11 +685,9 @@ pub trait IsStarkVerifier {
 
         // verify grinding
         let security_bits = air.context().proof_options.grinding_factor;
-        if security_bits > 0 {
-            if !grinding::is_valid_nonce(&challenges.grinding_seed, proof.nonce, security_bits) {
-                error!("Grinding factor not satisfied");
-                return false;
-            }
+        if security_bits > 0 && !grinding::is_valid_nonce(&challenges.grinding_seed, proof.nonce, security_bits) {
+            error!("Grinding factor not satisfied");
+            return false;
         }
 
         #[cfg(feature = "instruments")]
