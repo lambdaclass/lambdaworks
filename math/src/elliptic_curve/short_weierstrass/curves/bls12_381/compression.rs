@@ -103,14 +103,15 @@ pub fn compress_g1_point(point: &G1Point) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::{BLS12381FieldElement, G1Point};
-    use crate::cyclic_group::IsGroup;
     use crate::elliptic_curve::short_weierstrass::curves::bls12_381::curve::BLS12381Curve;
     use crate::elliptic_curve::traits::{FromAffine, IsEllipticCurve};
-    use crate::traits::ByteConversion;
-    use crate::unsigned_integer::element::UnsignedInteger;
 
     #[cfg(feature = "std")]
     use super::{compress_g1_point, decompress_g1_point};
+    #[cfg(feature = "std")]
+    use crate::{
+        cyclic_group::IsGroup, traits::ByteConversion, unsigned_integer::element::UnsignedInteger,
+    };
 
     #[test]
     fn test_zero_point() {

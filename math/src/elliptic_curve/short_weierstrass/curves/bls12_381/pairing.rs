@@ -4,9 +4,7 @@ use crate::{
     field::element::FieldElement, unsigned_integer::element::UnsignedInteger,
 };
 
-#[cfg(feature = "std")]
 use super::{curve::BLS12381Curve, twist::BLS12381TwistCurve};
-#[cfg(feature = "std")]
 use crate::{
     cyclic_group::IsGroup,
     elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::LevelTwoResidue,
@@ -17,7 +15,6 @@ use crate::{
 
 #[derive(Clone)]
 pub struct BLS12381AtePairing;
-#[cfg(feature = "std")]
 impl IsPairing for BLS12381AtePairing {
     type G1Point = ShortWeierstrassProjectivePoint<BLS12381Curve>;
     type G2Point = ShortWeierstrassProjectivePoint<BLS12381TwistCurve>;
@@ -39,10 +36,8 @@ impl IsPairing for BLS12381AtePairing {
     }
 }
 
-#[cfg(feature = "std")]
 /// This is equal to the frobenius trace of the BLS12 381 curve minus one.
 const MILLER_LOOP_CONSTANT: u64 = 0xd201000000010000;
-#[cfg(feature = "std")]
 fn double_accumulate_line(
     t: &mut ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
     p: &ShortWeierstrassProjectivePoint<BLS12381Curve>,
@@ -96,7 +91,6 @@ fn double_accumulate_line(
         ]),
     ]);
 }
-#[cfg(feature = "std")]
 fn add_accumulate_line(
     t: &mut ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
     q: &ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
@@ -151,7 +145,6 @@ fn add_accumulate_line(
 /// Implements the miller loop for the ate pairing of the BLS12 381 curve.
 /// Based on algorithm 9.2, page 212 of the book
 /// "Topics in computational number theory" by W. Bons and K. Lenstra
-#[cfg(feature = "std")]
 #[allow(unused)]
 fn miller(
     q: &ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
@@ -221,7 +214,6 @@ mod tests {
 
     use super::*;
 
-    #[cfg(feature = "std")]
     #[test]
     fn test_double_accumulate_line_doubles_point_correctly() {
         let g1 = BLS12381Curve::generator();
@@ -232,7 +224,6 @@ mod tests {
         assert_eq!(r, g2.operate_with(&g2));
     }
 
-    #[cfg(feature = "std")]
     #[test]
     fn test_add_accumulate_line_adds_points_correctly() {
         let g1 = BLS12381Curve::generator();
@@ -248,7 +239,6 @@ mod tests {
         assert_eq!(r, expected);
     }
 
-    #[cfg(feature = "std")]
     #[test]
     fn batch_ate_pairing_bilinearity() {
         let p = BLS12381Curve::generator();
@@ -269,7 +259,6 @@ mod tests {
         assert_eq!(result, FieldElement::one());
     }
 
-    #[cfg(feature = "std")]
     #[test]
     fn ate_pairing_returns_one_when_one_element_is_the_neutral_element() {
         let p = BLS12381Curve::generator().to_affine();
