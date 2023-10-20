@@ -5,6 +5,7 @@ use std::ops;
 // pub mod multivariate;
 pub mod multilinear_poly;
 pub mod multilinear_term;
+pub mod multivariate_poly;
 pub mod multivariate_term;
 pub mod term;
 
