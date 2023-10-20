@@ -1,19 +1,10 @@
-use std::ops::AddAssign;
-
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use lambdaworks_math::{
     cyclic_group::IsGroup,
-    elliptic_curve::{
-        short_weierstrass::{
-            curves::stark_curve::StarkCurve, point::ShortWeierstrassProjectivePoint,
-        },
-        traits::{FromAffine, IsEllipticCurve},
-    },
-    field::{
-        element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
-    },
+    elliptic_curve::{short_weierstrass::curves::stark_curve::StarkCurve, traits::IsEllipticCurve},
 };
 use starknet_curve::{curve_params::GENERATOR, AffinePoint, ProjectivePoint};
+use std::ops::AddAssign;
 
 const BENCHMARK_NAME: &str = "point";
 
