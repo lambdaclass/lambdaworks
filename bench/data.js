@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1697659330570,
+  "lastUpdate": 1697826453077,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -11807,6 +11807,150 @@ window.BENCHMARK_DATA = {
             "name": "Polynomial/div by 'x - b' with Ruffini",
             "value": 217,
             "range": "± 9",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "62400508+juan518munoz@users.noreply.github.com",
+            "name": "juan518munoz",
+            "username": "juan518munoz"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6d686d3005c025a9a2da47c90ef4dc75228967ac",
+          "message": "CLI improvements - followup (#603)\n\n* migrate cli to extern crate\n\n* add clap4 for cli handling\n\n* cargo fmt\n\n* readme changes\n\n* Add disclaimer readme\n\n* Remove bit security text from cairo prover crate\n\n* add compile option to makefile\n\n* add compile and run all to makefile\n\n* add example to readme\n\n* cargo fmt\n\n* add compile and prove to makefile\n\n* better readme\n\n* add quiet flag to makefile binaries\n\n* reorganized readme\n\n* initial commit\n\n* add remove after compile to docker run\n\n* externalize commands\n\n* Update README\n\n* cargo fmt\n\n* update README\n\n* err handling for non existing files\n\n* moved prints to err handler\n\n* Update provers/cairo-prover-cli/src/main.rs\n\nCo-authored-by: Mariano A. Nicolini <mariano.nicolini.91@gmail.com>\n\n* stark curve, pedersen hash, precalculated points (#597)\n\n* stark curve, pedersen hash, precalculated points\n\n* lint\n\n* lint + array index fixes\n\n* cargo fmt\n\n* clippy\n\n* fmt\n\n* ref to starknet-rs\n\n* reviews\n\n* constant points moved to another file\n\n* move 'from_affine_hex_string' to starkcurve\n\n* make add_points a private fn\n\n* docs for pedersen\n\n* rename add_points -> lookup_and_accumulate\n\n---------\n\nCo-authored-by: Mariano A. Nicolini <mariano.nicolini.91@gmail.com>\n\n* Addition fuzzer for Stark Field (#601)\n\n* Add fuzzer\n\n* Remove artifacts\n\n---------\n\nCo-authored-by: Mariano A. Nicolini <mariano.nicolini.91@gmail.com>\n\n* update README\n\n* Update Makefile\n\n* update README bin\n\n* changed println for eprintln\n\n* fix README\n\n* rmv fuzz and wasm from README\n\n---------\n\nCo-authored-by: Jmunoz <juan.munoz@lambdaclass.com>\nCo-authored-by: Mariano A. Nicolini <mariano.nicolini.91@gmail.com>\nCo-authored-by: MauroFab <maurotoscano2@gmail.com>\nCo-authored-by: irfan <IRFANBOZKURT123@GMAIL.COM>\nCo-authored-by: Mauro Toscano <12560266+MauroToscano@users.noreply.github.com>",
+          "timestamp": "2023-10-20T18:06:45Z",
+          "tree_id": "a9b32edd6c63bf0926a468d79e3d39453c5ebbe8",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/6d686d3005c025a9a2da47c90ef4dc75228967ac"
+        },
+        "date": 1697826448129,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "Ordered FFT/Parallel (Metal)",
+            "value": 98238472,
+            "range": "± 4349828",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #2",
+            "value": 159132724,
+            "range": "± 14049041",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #3",
+            "value": 306286145,
+            "range": "± 2845789",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #4",
+            "value": 612408792,
+            "range": "± 31916216",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal)",
+            "value": 34367410,
+            "range": "± 384259",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #2",
+            "value": 68075305,
+            "range": "± 911721",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #3",
+            "value": 133483552,
+            "range": "± 591638",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #4",
+            "value": 286020593,
+            "range": "± 2101313",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal)",
+            "value": 29647960,
+            "range": "± 310623",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #2",
+            "value": 55705983,
+            "range": "± 2205231",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #3",
+            "value": 112749535,
+            "range": "± 2919139",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #4",
+            "value": 241977388,
+            "range": "± 7888407",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal",
+            "value": 116717875,
+            "range": "± 569680",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #2",
+            "value": 237875013,
+            "range": "± 1608643",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #3",
+            "value": 490296520,
+            "range": "± 5223011",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #4",
+            "value": 967902416,
+            "range": "± 13679593",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal",
+            "value": 404326281,
+            "range": "± 4578206",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #2",
+            "value": 789941166,
+            "range": "± 7339159",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #3",
+            "value": 1579340083,
+            "range": "± 25654235",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #4",
+            "value": 3129161124,
+            "range": "± 35265682",
             "unit": "ns/iter"
           }
         ]
