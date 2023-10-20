@@ -99,12 +99,47 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
             let u2 = py * qz;
             let v1 = qx * pz;
             let v2 = px * qz;
+            if v1 == v2 {
+                if u1 != u2 || *py == FieldElement::zero() {
+                    Self::neutral_element()
+                } else {
+                    let px_square = px.square();
+                    let three_px_square = &px_square + &px_square + &px_square;
+                    let w = E::a() * &pz.square()+ three_px_square;
+                    let w_square = w.square();
+
+                    let s = py * pz;
+                    let s_square = s.square();
+                    let s_cube = &s * &s_square;
+                    let two_s_cube = &s_cube + &s_cube;
+                    let four_s_cube = &two_s_cube + &two_s_cube;
+                    let eight_s_cube = &four_s_cube + &four_s_cube;
+
+                    let b = px * py * &s;
+                    let two_b = &b + &b;
+                    let four_b = &two_b + &two_b;
+                    let eight_b = &four_b + &four_b;
+
+                    let h = &w_square - eight_b;
+                    let hs = &h * &s;
+
+                    let pys_square = py.square() * s_square;
+                    let two_pys_square = &pys_square + &pys_square;
+                    let four_pys_square = &two_pys_square + &two_pys_square;
+                    let eight_pys_square = &four_pys_square + &four_pys_square;
+
+                    let xp = &hs + &hs;
+                    let yp = w * (four_b - &h) - eight_pys_square;
+                    let zp = eight_s_cube;
+                    Self::new([xp, yp, zp])
+                }
+            } else {
                 let u = u1 - &u2;
                 let v = v1 - &v2;
                 let w = pz * qz;
 
                 let u_square = u.square();
-                let v_square = v.square();
+                let v_square = &v * &v;
                 let v_cube = &v * &v_square;
                 let v_square_v2 = &v_square * &v2;
 
@@ -114,6 +149,7 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
                 let yp = u * (&v_square_v2 - a) - &v_cube * u2;
                 let zp = &v_cube * w;
                 Self::new([xp, yp, zp])
+            }
         }
     }
 
