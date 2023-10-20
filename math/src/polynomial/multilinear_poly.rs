@@ -1,25 +1,27 @@
 use crate::field::element::FieldElement;
 use crate::field::traits::{IsField, IsPrimeField};
-use crate::polynomial::term::{MultiLinearMonomial, MultiLinearTerm};
+use crate::polynomial::multilinear_term::MultiLinearMonomial;
+use crate::polynomial::term::Term;
 
-// TODO: add documentation
-pub struct SparseMultilinearPolynomial<F: IsField + IsPrimeField + Default>
+/// Represents a multilinear polynomials as a collection of multilinear monomials
+pub struct MultilinearPolynomial<F: IsField + IsPrimeField>
 where
     <F as IsField>::BaseType: Send + Sync,
 {
     pub terms: Vec<MultiLinearMonomial<F>>,
 }
 
-impl<F: IsField + IsPrimeField + Default> SparseMultilinearPolynomial<F>
+impl<F: IsField + IsPrimeField> MultilinearPolynomial<F>
 where
     <F as IsField>::BaseType: Send + Sync,
 {
-    // TODO: add documentation
+    /// Build a new multilinear polynomial, from collection of multilinear monomials
     fn new(terms: Vec<MultiLinearMonomial<F>>) -> Self {
         Self { terms }
     }
 
-    // TODO: add documentation
+    /// Selectively assign values to variables in the polynomial, returns a reduced
+    /// polynomial after assignment evaluation
     fn partial_evaluate(&self, assignments: &[(usize, FieldElement<F>)]) -> Self {
         let updated_monomials: Vec<MultiLinearMonomial<F>> = self
             .terms
