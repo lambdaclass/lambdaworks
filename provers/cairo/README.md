@@ -125,12 +125,6 @@ platinum-prover cairo_programs/cairo0/fibonacci_5.cairo cairo_programs/cairo0/fi
 cargo uninstall
 ```
 
-### Using WASM verifier
-
-To use the verifier in WASM, generate a npm package using `wasm-pack`
-
-As a shortcut, you can call
-`make build_wasm`
 ## Running tests
 To run tests, simply use
 ```
@@ -143,19 +137,6 @@ If you have built the cairo-compile docker image, that will be used for compilin
 Be sure to build the docker image if you don't want to install the `cairo-lang` toolchain:
 ```
 make docker_build_cairo_compiler
-```
-
-## Running fuzzers
-To run a fuzzer, simply use 
-
-```
-make fuzzer <name of the fuzzer>
-```
-
-if you don´t have the tools for fuzzing installed use
-
-```
-make fuzzer_tools
 ```
 
 ## To be added
