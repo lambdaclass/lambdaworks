@@ -1,6 +1,6 @@
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::IsField;
-use lambdaworks_math::polynomial::Polynomial;
+use lambdaworks_math::polynomial::multilinear_poly;
 
 pub enum ProverMessage<T: IsField> {
     Sum(FieldElement<T>),
