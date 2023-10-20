@@ -7,20 +7,21 @@ use lambdaworks_math::{
         short_weierstrass::{
             curves::stark_curve::StarkCurve, point::ShortWeierstrassProjectivePoint,
         },
-        traits::FromAffine,
+        traits::{FromAffine, IsEllipticCurve},
     },
     field::{
         element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
     },
 };
-use starknet_curve::{AffinePoint, ProjectivePoint};
+use starknet_curve::{AffinePoint, ProjectivePoint, curve_params::{GENERATOR},
+};
 
 const BENCHMARK_NAME: &str = "point";
 
-pub fn criterion_benchmark(c: &mut Criterion) {
+pub fn criterion_benchmark(c: &mut Criterion) { 
     let point = AffinePoint::from_x(42u64.into()).unwrap();
 
-    let initial_projective_point = ProjectivePoint::from(&point);
+    let initial_projective_point = ProjectivePoint::from(&GENERATOR);
     let second_project_point = initial_projective_point;
 
     // This is the code we are going to bench
@@ -51,14 +52,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         );
     }
 
-    let x = FieldElement::<Stark252PrimeField>::from(42);
-
-    let y = FieldElement::<Stark252PrimeField>::from_hex_unchecked(
-        "011743d4867c1261920c023e4f6529a69aa0dc6df18100835078fba5d83b9dfa",
-    );
-
-    let initial_projective_point =
-        ShortWeierstrassProjectivePoint::<StarkCurve>::from_affine(x, y).unwrap();
+    let initial_projective_point = StarkCurve::generator();
     let second_projective_point = initial_projective_point.clone();
 
     // This is the code we are going to bench
