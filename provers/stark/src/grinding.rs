@@ -23,8 +23,8 @@ pub fn is_valid_nonce(seed: &[u8; 32], nonce: u64, grinding_factor: u8) -> bool 
 
 /// Performs grinding, returning a new nonce for the proof.
 /// The nonce generated is such that:
-/// Hash(Hash(prefix || seed || grinding_factor) || nonce) has at least `grinding_factor` to the
-/// left.
+/// Hash(Hash(prefix || seed || grinding_factor) || nonce) has at least `grinding_factor` zeros
+/// to the left.
 /// `prefix` is the bit-string `0x123456789abcded`
 ///
 /// # Parameters
