@@ -9,7 +9,7 @@ use core::fmt::Debug;
 use core::iter::Sum;
 #[cfg(feature = "lambdaworks-serde")]
 use core::marker::PhantomData;
-use core::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
+use core::ops::{Add, AddAssign, Div, Mul, Neg, Sub, MulAssign, SubAssign};
 #[cfg(feature = "lambdaworks-serde")]
 use serde::de::{self, Deserializer, MapAccess, Visitor};
 #[cfg(feature = "lambdaworks-serde")]
@@ -152,6 +152,7 @@ where
 }
 
 /// AddAssign operator overloading for field elements
+//TODO: Don't use an add assign against a value
 impl<F> AddAssign<FieldElement<F>> for FieldElement<F>
 where
     F: IsField,
@@ -160,6 +161,17 @@ where
         self.value = F::add(&self.value, &rhs.value);
     }
 }
+
+/// AddAssign operator overloading for field elements
+impl<F> AddAssign<&FieldElement<F>> for FieldElement<F>
+where
+    F: IsField,
+{
+    fn add_assign(&mut self, rhs: &FieldElement<F>) {
+        self.value = F::add(&self.value, &rhs.value);
+    }
+}
+
 
 /// Sum operator for field elements
 impl<F> Sum<FieldElement<F>> for FieldElement<F>
@@ -218,6 +230,16 @@ where
     }
 }
 
+/// SubAssign operator overloading for field elements
+impl<F> SubAssign<&FieldElement<F>> for FieldElement<F>
+where
+    F: IsField,
+{
+    fn sub_assign(&mut self, rhs: &FieldElement<F>) {
+        self.value = F::sub(&self.value, &rhs.value);
+    }
+}
+
 /// Multiplication operator overloading for field elements*/
 impl<F> Mul<&FieldElement<F>> for &FieldElement<F>
 where
@@ -262,6 +284,16 @@ where
 
     fn mul(self, rhs: FieldElement<F>) -> Self::Output {
         self * &rhs
+    }
+}
+
+/// MulAssign operator overloading for field elements
+impl<F> MulAssign<&FieldElement<F>> for FieldElement<F>
+where
+    F: IsField,
+{
+    fn mul_assign(&mut self, rhs: &FieldElement<F>) {
+        self.value = F::mul(&self.value, &rhs.value);
     }
 }
 

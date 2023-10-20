@@ -1,3 +1,5 @@
+use core::ops::{MulAssign, AddAssign};
+
 use crate::{
     cyclic_group::IsGroup,
     elliptic_curve::{
@@ -70,6 +72,46 @@ impl<E: IsShortWeierstrass> FromAffine<E::BaseField> for ShortWeierstrassProject
     }
 }
 
+impl <E: IsShortWeierstrass>ShortWeierstrassProjectivePoint<E> {
+    fn double_in_place(&mut self) -> &mut Self {
+        let xx = self.x().square();
+        let yy = self.y().square();
+        let yyyy = &yy * &yy;
+        
+        let zz = self.z().square();
+        
+        let s_intermediate = (self.x() + &yy).square() - &xx - &yyyy;
+        let s = &s_intermediate + &s_intermediate;
+
+        let m_intermediate = &xx + &xx;
+        let mut m = &m_intermediate + &m_intermediate + &xx;
+        m += zz.square() * E::a();
+
+        // x = m.square()
+        self.0.value[0] = m.square();
+        self.0.value[0] -= &(&s + &s);
+
+        // y = y * z
+        self.0.value[2] = &self.0.value[2] *&self.0.value[1];
+        self.0.value[2] = &self.0.value[2] + &self.0.value[2];
+
+        self.0.value[1] = s;
+        self.0.value[1] = &self.0.value[1] - &self.0.value[0];
+        self.0.value[1] *= &m;
+
+        let mut eight_times = self.0.value[1].clone();
+        
+        eight_times = &eight_times + &eight_times;
+        eight_times = &eight_times + &eight_times;
+        eight_times = &eight_times + &eight_times;
+
+        self.0.value[1] -= &eight_times;
+
+        self
+
+    }
+}
+
 impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
     /// The point at infinity.
     fn neutral_element() -> Self {
@@ -88,68 +130,67 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
     /// Computes the addition of `self` and `other`.
     /// Taken from "Moonmath" (Algorithm 7, page 89)
     fn operate_with(&self, other: &Self) -> Self {
-        if other.is_neutral_element() {
-            self.clone()
-        } else if self.is_neutral_element() {
-            other.clone()
+        if self.is_neutral_element() {
+            return other.clone()
+        }
+
+        if other.is_neutral_element(){
+            return self.clone()
+        }
+
+        let z1z1 = self.x().square();
+        let z2z2 = self.z().square();
+
+        let mut u1 = self.x().clone();
+        u1 *= &z2z2;
+        
+        let mut u2 = other.x().clone();
+        u2 *= &z1z1;
+
+        let mut s1 = self.y().clone();
+        s1 *= other.z();
+        s1 *= &z2z2;
+
+        let mut s2 = other.y().clone();
+        s2 *= self.z();
+        s2 *= &z1z1;
+
+        if u1 == u2 && s1 == s2 {
+            let copy = self;
+            copy.clone().double_in_place();
+            return copy.clone()
         } else {
-            let [px, py, pz] = self.coordinates();
-            let [qx, qy, qz] = other.coordinates();
-            let u1 = qy * pz;
-            let u2 = py * qz;
-            let v1 = qx * pz;
-            let v2 = px * qz;
-            if v1 == v2 {
-                if u1 != u2 || *py == FieldElement::zero() {
-                    Self::neutral_element()
-                } else {
-                    let px_square = px.square();
-                    let three_px_square = &px_square + &px_square + &px_square;
-                    let w = E::a() * &pz.square()+ three_px_square;
-                    let w_square = w.square();
+            let mut h = u2;
+            h -= &u1;
 
-                    let s = py * pz;
-                    let s_square = s.square();
-                    let s_cube = &s * &s_square;
-                    let two_s_cube = &s_cube + &s_cube;
-                    let four_s_cube = &two_s_cube + &two_s_cube;
-                    let eight_s_cube = &four_s_cube + &four_s_cube;
+            let mut i = h.clone();
+            i = (&i + &i).square();
+            
+            let mut j = -&h;
+            j *= &i;
 
-                    let b = px * py * &s;
-                    let two_b = &b + &b;
-                    let four_b = &two_b + &two_b;
-                    let eight_b = &four_b + &four_b;
+            let mut r = s2;
+            r-= &s1;
+            r = &r + &r;
 
-                    let h = &w_square - eight_b;
-                    let hs = &h * &s;
+            let mut v = u1;
+            v *= &i;
+            
+            let mut x = r.clone();
+            x = x.square();
+            x += &j;
+            x -= &(&v + &v);
 
-                    let pys_square = py.square() * s_square;
-                    let two_pys_square = &pys_square + &pys_square;
-                    let four_pys_square = &two_pys_square + &two_pys_square;
-                    let eight_pys_square = &four_pys_square + &four_pys_square;
+            v -= &x;
+            let mut y = s1;
+            y = &y + &y;
+    
+            y = &r * &v + &y * &j;
 
-                    let xp = &hs + &hs;
-                    let yp = w * (four_b - &h) - eight_pys_square;
-                    let zp = eight_s_cube;
-                    Self::new([xp, yp, zp])
-                }
-            } else {
-                let u = u1 - &u2;
-                let v = v1 - &v2;
-                let w = pz * qz;
-
-                let u_square = u.square();
-                let v_square = &v * &v;
-                let v_cube = &v * &v_square;
-                let v_square_v2 = &v_square * &v2;
-
-                let a = &u_square * &w - &v_cube - (&v_square_v2 + &v_square_v2);
-
-                let xp = &v * &a;
-                let yp = u * (&v_square_v2 - a) - &v_cube * u2;
-                let zp = &v_cube * w;
-                Self::new([xp, yp, zp])
-            }
+            let mut z = self.z() * other.z();
+            z = &z + &z;
+            z *= &h;
+            return Self::new([x,y,z])
         }
     }
 
