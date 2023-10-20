@@ -76,8 +76,8 @@ fn verify_merkle_proof(
     let leaf: FE = load_fe_from_file(&leaf_path)?;
 
     match proof.verify::<Poseidon<BLS12381PrimeField>>(&root_hash, index, &leaf) {
-        true => println!("Merkle proof verified succesfully"),
-        false => println!("Merkle proof failed verifying"),
+        true => println!("\x1b[32mMerkle proof verified succesfully\x1b[0m"),
+        false => println!("\x1b[31mMerkle proof failed verifying\x1b[0m"),
     }
 
     Ok(())
