@@ -4,6 +4,7 @@ use crate::polynomial::term::Term;
 
 /// Struct for (coeff: FieldElement<F>, terms: Vec<usize>) representing a multilinear
 /// monomial in a sparse format.
+// TODO: add check that var labels are 0 indexed
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MultiLinearMonomial<F: IsField + IsPrimeField>
 where
@@ -59,8 +60,8 @@ where
     // TODO: test this
     /// Evaluates `self` at the point `p`.
     fn evaluate(&self, p: &[FieldElement<F>]) -> FieldElement<F> {
-        // check the number of evaluations points is equal to the number of variables
-        assert_eq!(self.max_var(), p.len());
+        // Check that p contains the proper amount of elements in dense form.
+        assert!(self.max_var() <= p.len() - 1);
         // var_id is index of p
         let eval = self
             .vars
@@ -70,6 +71,7 @@ where
     }
 
     /// Assign values to one or more variables in the monomial
+    // TODO: can we change this to modify in place to remove the extract allocation?
     fn partial_evaluate(&self, assignments: &[(usize, FieldElement<F>)]) -> Self {
         let mut new_coefficient = self.coeff.clone();
         let mut unassigned_variables = self.vars.to_vec();
