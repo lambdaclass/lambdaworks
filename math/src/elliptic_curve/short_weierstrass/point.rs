@@ -6,10 +6,13 @@ use crate::{
     },
     errors::DeserializationError,
     field::element::FieldElement,
-    traits::{ByteConversion, Deserializable, Serializable},
+    traits::{ByteConversion, Deserializable},
 };
 
 use super::traits::IsShortWeierstrass;
+
+#[cfg(feature = "std")]
+use crate::traits::Serializable;
 
 #[derive(Clone, Debug)]
 pub struct ShortWeierstrassProjectivePoint<E: IsEllipticCurve>(pub ProjectivePoint<E>);

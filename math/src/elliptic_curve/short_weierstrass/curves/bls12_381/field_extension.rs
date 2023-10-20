@@ -1,17 +1,17 @@
-use crate::unsigned_integer::element::U384;
-use crate::{
-    field::{
-        element::FieldElement,
-        errors::FieldError,
-        extensions::{
-            cubic::{CubicExtensionField, HasCubicNonResidue},
-            quadratic::{HasQuadraticNonResidue, QuadraticExtensionField},
-        },
-        fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
-        traits::IsField,
+use crate::field::{
+    element::FieldElement,
+    errors::FieldError,
+    extensions::{
+        cubic::{CubicExtensionField, HasCubicNonResidue},
+        quadratic::{HasQuadraticNonResidue, QuadraticExtensionField},
     },
-    traits::ByteConversion,
+    fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
+    traits::IsField,
 };
+use crate::unsigned_integer::element::U384;
+
+#[cfg(feature = "std")]
+use crate::traits::ByteConversion;
 
 pub const BLS12381_PRIME_FIELD_ORDER: U384 = U384::from_hex_unchecked("1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab");
 
