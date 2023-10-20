@@ -112,7 +112,7 @@ fn generate_proof(
     let timer = Instant::now();
 
     let Ok(program_content) = std::fs::read(input_path) else {
-        println!("Error opening {input_path} file");
+        eprintln!("Error opening {input_path} file");
         return None;
     };
 
@@ -120,7 +120,7 @@ fn generate_proof(
     let layout = CairoLayout::Plain;
 
     let Ok((main_trace, pub_inputs)) = generate_prover_args(&program_content, &None, layout) else {
-        println!("Error generating prover args");
+        eprintln!("Error generating prover args");
         return None;
     };
 
@@ -161,6 +161,24 @@ fn verify_proof(
     proof_verified
 }
 
+fn write_proof(
+    proof: StarkProof<Stark252PrimeField>,
+    pub_inputs: PublicInputs,
+    proof_path: String,
+) {
+    let mut bytes = vec![];
+    let proof_bytes: Vec<u8> = serde_cbor::to_vec(&proof).unwrap();
+    bytes.extend(proof_bytes.len().to_be_bytes());
+    bytes.extend(proof_bytes);
+    bytes.extend(pub_inputs.serialize());
+
+    let Ok(()) = std::fs::write(&proof_path, bytes) else {
+        eprintln!("Error writing proof to file: {}", &proof_path);
+        return;
+    };
+    println!("Proof written to {}", &proof_path);
+}
+
 fn main() {
     let proof_options = ProofOptions::new_secure(SecurityLevel::Conjecturable100Bits, 3);
 
@@ -169,7 +187,7 @@ fn main() {
         commands::ProverEntity::Compile(args) => {
             let out_file_path = args.program_path.replace(".cairo", ".json");
             if let Err(err) = try_compile(&args.program_path, &out_file_path) {
-                println!("{}", err);
+                eprintln!("{}", err);
             } else {
                 println!("Compiled cairo program");
             }
@@ -177,7 +195,7 @@ fn main() {
         commands::ProverEntity::Prove(args) => {
             // verify input file is .cairo
             if args.program_path.contains(".cairo") {
-                println!("\nYou are trying to prove a non compiled Cairo program. Please compile it before sending it to the prover.\n");
+                eprintln!("\nYou are trying to prove a non compiled Cairo program. Please compile it before sending it to the prover.\n");
                 return;
             }
 
@@ -186,33 +204,23 @@ fn main() {
                 return;
             };
 
-            let mut bytes = vec![];
-            let proof_bytes: Vec<u8> = serde_cbor::to_vec(&proof).unwrap();
-            bytes.extend(proof_bytes.len().to_be_bytes());
-            bytes.extend(proof_bytes);
-            bytes.extend(pub_inputs.serialize());
-
-            let Ok(()) = std::fs::write(&args.proof_path, bytes) else {
-                println!("Error writing proof to file: {}", args.proof_path);
-                return;
-            };
-            println!("Proof written to {}", args.proof_path);
+            write_proof(proof, pub_inputs, args.proof_path);
         }
         commands::ProverEntity::Verify(args) => {
             let Ok(program_content) = std::fs::read(&args.proof_path) else {
-                println!("Error opening {} file", args.proof_path);
+                eprintln!("Error opening {} file", args.proof_path);
                 return;
             };
             let mut bytes = program_content.as_slice();
             if bytes.len() < 8 {
-                println!("Error reading proof from file: {}", args.proof_path);
+                eprintln!("Error reading proof from file: {}", args.proof_path);
                 return;
             }
 
             let proof_len = usize::from_be_bytes(bytes[0..8].try_into().unwrap());
             bytes = &bytes[8..];
             if bytes.len() < proof_len {
-                println!("Error reading proof from file: {}", args.proof_path);
+                eprintln!("Error reading proof from file: {}", args.proof_path);
                 return;
             }
             let Ok(proof) = serde_cbor::from_slice(&bytes[0..proof_len]) else {
@@ -229,6 +237,11 @@ fn main() {
             verify_proof(proof, pub_inputs, &proof_options);
         }
         commands::ProverEntity::ProveAndVerify(args) => {
+            if args.program_path.contains(".cairo") {
+                eprintln!("\nYou are trying to prove a non compiled Cairo program. Please compile it before sending it to the prover.\n");
+                return;
+            }
+
             let Some((proof, pub_inputs)) = generate_proof(&args.program_path, &proof_options)
             else {
                 return;
@@ -244,17 +257,7 @@ fn main() {
                         return;
                     };
 
-                    let mut bytes = vec![];
-                    let proof_bytes: Vec<u8> = serde_cbor::to_vec(&proof).unwrap();
-                    bytes.extend(proof_bytes.len().to_be_bytes());
-                    bytes.extend(proof_bytes);
-                    bytes.extend(pub_inputs.serialize());
-
-                    let Ok(()) = std::fs::write(&args.proof_path, bytes) else {
-                        println!("Error writing proof to file: {}", args.proof_path);
-                        return;
-                    };
-                    println!("Proof written to {}", args.proof_path);
+                    write_proof(proof, pub_inputs, args.proof_path);
                 }
                 Err(err) => {
                     eprintln!("{}", err)
