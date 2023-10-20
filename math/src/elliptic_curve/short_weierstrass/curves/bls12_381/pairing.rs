@@ -221,6 +221,7 @@ mod tests {
 
     use super::*;
 
+    #[cfg(feature = "std")]
     #[test]
     fn test_double_accumulate_line_doubles_point_correctly() {
         let g1 = BLS12381Curve::generator();
@@ -231,6 +232,7 @@ mod tests {
         assert_eq!(r, g2.operate_with(&g2));
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn test_add_accumulate_line_adds_points_correctly() {
         let g1 = BLS12381Curve::generator();
@@ -246,6 +248,7 @@ mod tests {
         assert_eq!(r, expected);
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn batch_ate_pairing_bilinearity() {
         let p = BLS12381Curve::generator();
@@ -266,6 +269,7 @@ mod tests {
         assert_eq!(result, FieldElement::one());
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn ate_pairing_returns_one_when_one_element_is_the_neutral_element() {
         let p = BLS12381Curve::generator().to_affine();

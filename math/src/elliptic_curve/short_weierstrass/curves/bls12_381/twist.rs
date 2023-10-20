@@ -108,6 +108,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn serialize_deserialize_generator() {
         let g = BLS12381TwistCurve::generator();

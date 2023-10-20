@@ -296,6 +296,7 @@ mod tests {
         BLS12381Curve::create_point_from_affine(x, y).unwrap()
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn byte_conversion_from_and_to_be() {
         let expected_point = point();
@@ -309,6 +310,7 @@ mod tests {
         assert_eq!(expected_point, result.unwrap());
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn byte_conversion_from_and_to_le() {
         let expected_point = point();
@@ -322,6 +324,7 @@ mod tests {
         assert_eq!(expected_point, result.unwrap());
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn byte_conversion_from_and_to_with_mixed_le_and_be_does_not_work() {
         let bytes = point().serialize(PointFormat::Projective, Endianness::LittleEndian);
@@ -338,6 +341,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn byte_conversion_from_and_to_with_mixed_be_and_le_does_not_work() {
         let bytes = point().serialize(PointFormat::Projective, Endianness::BigEndian);

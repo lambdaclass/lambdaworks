@@ -109,6 +109,7 @@ mod tests {
     use crate::traits::ByteConversion;
     use crate::unsigned_integer::element::UnsignedInteger;
 
+    #[cfg(feature = "std")]
     use super::{compress_g1_point, decompress_g1_point};
 
     #[test]
@@ -124,6 +125,7 @@ mod tests {
         assert!(!super::check_point_is_in_subgroup(&false_point2));
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn test_g1_compress_generator() {
         let g = BLS12381Curve::generator();
@@ -139,6 +141,7 @@ mod tests {
         assert_eq!(*g_x, compressed_g_x);
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn test_g1_compress_point_at_inf() {
         let inf = G1Point::neutral_element();
@@ -148,6 +151,7 @@ mod tests {
         assert_eq!(*first_byte >> 6, 3_u8);
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn test_compress_decompress_generator() {
         let g = BLS12381Curve::generator();
@@ -159,6 +163,7 @@ mod tests {
         assert_eq!(g, decompressed_g);
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn test_compress_decompress_2g() {
         let g = BLS12381Curve::generator();
