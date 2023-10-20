@@ -37,7 +37,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
     {
         c.bench_function(
-            &format!("{} Point Addition | Starknet RS ", BENCHMARK_NAME),
+            &format!("{} 10k Operations | Starknet RS ", BENCHMARK_NAME),
             |b| {
                 b.iter(|| {
                     let mut projective_point = initial_projective_point.clone();
@@ -75,7 +75,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
     {
         c.bench_function(
-            &format!("{} Point Addition | Lambdaworks", BENCHMARK_NAME),
+            &format!("{} 10k Operations | Lambdaworks", BENCHMARK_NAME),
             |b| {
                 b.iter(|| {
                     let mut projective_point = initial_projective_point.clone();
@@ -93,56 +93,3 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
 criterion_group!(benches, criterion_benchmark);
 criterion_main!(benches);
-
-/*
-pub fn criterion_benchmark(c: &mut Criterion) {
-    let point = AffinePoint::from_x(42u8.into()).unwrap();
-
-    let mut initial_projective_point = ProjectivePoint::from(&point);
-    let second_project_point = initial_projective_point.clone();
-    {
-        c.bench_function(
-            &format!(
-                "{} Point Addition | Starkent RS ",
-                BENCHMARK_NAME
-            ),
-            |b| {
-                b.iter(|| {
-                    let mut projective_point = initial_projective_point.clone();
-                    for _i in 0..1000{
-                        black_box(projective_point).add_assign(black_box(&black_box(second_project_point)))
-                    }
-
-                });
-            },
-        );
-    }
-
-    let x = FieldElement::<Stark252PrimeField>::from(42);
-
-    let y = FieldElement::<Stark252PrimeField>::from_hex_unchecked("011743d4867c1261920c023e4f6529a69aa0dc6df18100835078fba5d83b9dfa");
-
-    let mut initial_projective_point = ShortWeierstrassProjectivePoint::<StarkCurve>::from_affine(x, y).unwrap();
-    let second_projective_point = initial_projective_point.clone();
-
-    {
-        c.bench_function(
-            &format!(
-                "{} Point Addition | Lambdaworks",
-                BENCHMARK_NAME
-            ),
-            |b| {
-                b.iter(|| {
-                    let mut projective_point = initial_projective_point.clone();
-                    for _i in 0..1000 {
-                        black_box(projective_point.operate_with(black_box(&second_projective_point)));
-                    }
-                });
-            },
-        );
-    }
-}
-
-criterion_group!(benches, criterion_benchmark);
-criterion_main!(benches);
-*/
