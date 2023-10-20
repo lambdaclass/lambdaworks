@@ -18,7 +18,7 @@ where
     <F as IsField>::BaseType: Send + Sync,
 {
     /// Create a new `Term` from a tuple of the form `(coeff, (variables))`
-    fn new(term: (FieldElement<F>, Vec<usize>)) -> Self {
+    pub fn new(term: (FieldElement<F>, Vec<usize>)) -> Self {
         // sort variables in increasing order
         let mut vars = term.1;
         vars.sort();
@@ -88,7 +88,6 @@ where
 #[cfg(test)]
 mod tests {
     use crate::field::element::FieldElement;
-    use crate::field::fields::fft_friendly::babybear::Babybear31PrimeField;
     use crate::field::fields::u64_prime_field::U64PrimeField;
     use crate::polynomial::multilinear_term::MultiLinearMonomial;
     use crate::polynomial::term::Term;
