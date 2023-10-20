@@ -70,6 +70,40 @@ impl<E: IsShortWeierstrass> FromAffine<E::BaseField> for ShortWeierstrassProject
     }
 }
 
+
+fn  double<E: IsShortWeierstrass>(px: &FieldElement<<E as IsEllipticCurve>::BaseField>, py: &FieldElement<<E as IsEllipticCurve>::BaseField>, pz: &FieldElement<<E as IsEllipticCurve>::BaseField>) ->  ShortWeierstrassProjectivePoint<E>{
+    let px_square = px.square();
+    let three_px_square = &px_square + &px_square + &px_square;
+    let w = E::a() * &pz.square()+ three_px_square;
+    let w_square = w.square();
+
+    let s = py * pz;
+    let s_square = s.square();
+    let s_cube = &s * &s_square;
+    let two_s_cube = &s_cube + &s_cube;
+    let four_s_cube = &two_s_cube + &two_s_cube;
+    let eight_s_cube = &four_s_cube + &four_s_cube;
+
+    let b = px * py * &s;
+    let two_b = &b + &b;
+    let four_b = &two_b + &two_b;
+    let eight_b = &four_b + &four_b;
+
+    let h = &w_square - eight_b;
+    let hs = &h * &s;
+
+    let pys_square = py.square() * s_square;
+    let two_pys_square = &pys_square + &pys_square;
+    let four_pys_square = &two_pys_square + &two_pys_square;
+    let eight_pys_square = &four_pys_square + &four_pys_square;
+
+    let xp = &hs + &hs;
+    let yp = w * (four_b - &h) - eight_pys_square;
+    let zp = eight_s_cube;
+    ShortWeierstrassProjectivePoint::<E>::new([xp, yp, zp])
+}
+
+
 impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
     /// The point at infinity.
     fn neutral_element() -> Self {
@@ -103,35 +137,7 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
                 if u1 != u2 || *py == FieldElement::zero() {
                     Self::neutral_element()
                 } else {
-                    let px_square = px.square();
-                    let three_px_square = &px_square + &px_square + &px_square;
-                    let w = E::a() * &pz.square()+ three_px_square;
-                    let w_square = w.square();
-
-                    let s = py * pz;
-                    let s_square = s.square();
-                    let s_cube = &s * &s_square;
-                    let two_s_cube = &s_cube + &s_cube;
-                    let four_s_cube = &two_s_cube + &two_s_cube;
-                    let eight_s_cube = &four_s_cube + &four_s_cube;
-
-                    let b = px * py * &s;
-                    let two_b = &b + &b;
-                    let four_b = &two_b + &two_b;
-                    let eight_b = &four_b + &four_b;
-
-                    let h = &w_square - eight_b;
-                    let hs = &h * &s;
-
-                    let pys_square = py.square() * s_square;
-                    let two_pys_square = &pys_square + &pys_square;
-                    let four_pys_square = &two_pys_square + &two_pys_square;
-                    let eight_pys_square = &four_pys_square + &four_pys_square;
-
-                    let xp = &hs + &hs;
-                    let yp = w * (four_b - &h) - eight_pys_square;
-                    let zp = eight_s_cube;
-                    Self::new([xp, yp, zp])
+                    double(&px,&py,&pz)
                 }
             } else {
                 let u = u1 - &u2;
