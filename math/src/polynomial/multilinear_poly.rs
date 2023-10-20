@@ -89,7 +89,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dense_evaluation() {
+    fn test_all_vars_evaluation() {
         // 3abc + 4abc
         // evaluate: a = 1, b = 2, c = 3
         // expected result = 42
@@ -106,10 +106,10 @@ mod tests {
     }
 
     #[test]
-    fn test_sparse_evaluation() {
+    fn test_partial_vars_evaluation() {
         // 3ab + 4bc
         // evaluate: a = 1, b = 2, c = 3
-        // expected result = 42
+        // expected result = 30
         // a = 1, b = 2, c = 3
         let poly = MultilinearPolynomial::new(vec![
             MultiLinearMonomial::new((FE::new(3), vec![0, 1])),
