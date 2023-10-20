@@ -264,7 +264,7 @@ fn main() {
                 }
             }
         }
-        commands::ProverEntity::CompileAndRunAll(args) => {
+        commands::ProverEntity::CompileProveAndVerify(args) => {
             let out_file_path = args.program_path.replace(".cairo", ".json");
             match try_compile(&args.program_path, &out_file_path) {
                 Ok(_) => {
