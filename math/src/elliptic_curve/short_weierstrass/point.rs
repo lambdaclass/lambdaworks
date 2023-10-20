@@ -183,6 +183,7 @@ where
     FieldElement<E::BaseField>: ByteConversion,
 {
     /// Serialize the points in the given format
+    #[cfg(feature = "std")]
     pub fn serialize(&self, _point_format: PointFormat, endianness: Endianness) -> Vec<u8> {
         // TODO: Add more compact serialization formats
         // Uncompressed affine / Compressed
@@ -249,6 +250,7 @@ where
     }
 }
 
+#[cfg(feature = "std")]
 impl<E> Serializable for ShortWeierstrassProjectivePoint<E>
 where
     E: IsShortWeierstrass,

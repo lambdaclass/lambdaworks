@@ -105,6 +105,7 @@ impl IsField for Degree2ExtensionField {
     }
 }
 
+#[cfg(feature = "std")]
 impl ByteConversion for FieldElement<Degree2ExtensionField> {
     fn to_bytes_be(&self) -> Vec<u8> {
         let mut byte_slice = ByteConversion::to_bytes_be(&self.value()[0]);

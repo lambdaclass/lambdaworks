@@ -19,6 +19,7 @@ use crate::{
 
 #[derive(Clone)]
 pub struct BLS12381AtePairing;
+#[cfg(feature = "std")]
 impl IsPairing for BLS12381AtePairing {
     type G1Point = ShortWeierstrassProjectivePoint<BLS12381Curve>;
     type G2Point = ShortWeierstrassProjectivePoint<BLS12381TwistCurve>;
@@ -150,6 +151,7 @@ fn add_accumulate_line(
 /// Implements the miller loop for the ate pairing of the BLS12 381 curve.
 /// Based on algorithm 9.2, page 212 of the book
 /// "Topics in computational number theory" by W. Bons and K. Lenstra
+#[cfg(feature = "std")]
 #[allow(unused)]
 fn miller(
     q: &ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,

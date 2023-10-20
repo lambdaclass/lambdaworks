@@ -8,7 +8,8 @@ use crate::{
     elliptic_curve::short_weierstrass::curves::bls12_381::curve::BLS12381Curve,
     errors::ByteConversionError, traits::ByteConversion,
 };
-use std::cmp::Ordering;
+use core::cmp::Ordering;
+#[cfg(feature = "std")]
 use std::ops::Neg;
 
 pub type G1Point = ShortWeierstrassProjectivePoint<BLS12381Curve>;
@@ -22,6 +23,7 @@ pub fn check_point_is_in_subgroup(point: &G1Point) -> bool {
     inf == aux_point
 }
 
+#[cfg(feature = "std")]
 pub fn decompress_g1_point(input_bytes: &mut [u8; 48]) -> Result<G1Point, ByteConversionError> {
     let first_byte = input_bytes.first().unwrap();
     // We get the 3 most significant bits
@@ -71,6 +73,7 @@ pub fn decompress_g1_point(input_bytes: &mut [u8; 48]) -> Result<G1Point, ByteCo
         .ok_or(ByteConversionError::PointNotInSubgroup)
 }
 
+#[cfg(feature = "std")]
 pub fn compress_g1_point(point: &G1Point) -> Vec<u8> {
     if *point == G1Point::neutral_element() {
         // point is at infinity
