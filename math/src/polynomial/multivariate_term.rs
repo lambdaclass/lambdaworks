@@ -1,11 +1,11 @@
 use crate::field::element::FieldElement;
-use crate::field::traits::{IsField, IsPrimeField};
+use crate::field::traits::IsField;
 use crate::polynomial::term::Term;
 
 /// Wrapper struct for (coeff: FieldElement<F>, terms: Vec<usize>) representing a multivariate monomial in a sparse format.
 // This sparse form is inspired by https://doc.sagemath.org/html/en/reference/polynomial_rings/sage/rings/polynomial/polydict.html
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct MultiVariateMonomial<F: IsField + IsPrimeField>
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct MultivariateMonomial<F: IsField>
 where
     <F as IsField>::BaseType: Send + Sync,
 {
@@ -13,23 +13,23 @@ where
     pub vars: Vec<(usize, usize)>,
 }
 
-impl<F: IsField + IsPrimeField> MultiVariateMonomial<F>
+impl<F: IsField> MultivariateMonomial<F>
 where
     <F as IsField>::BaseType: Send + Sync,
 {
     /// Create a new `Term` from a tuple of the form `(coeff, (power))`
-    fn new(term: (FieldElement<F>, Vec<(usize, usize)>)) -> Self {
+    pub fn new(term: (FieldElement<F>, Vec<(usize, usize)>)) -> Self {
         //todo: Check
         let mut vars = term.1;
         vars.sort();
-        MultiVariateMonomial {
+        MultivariateMonomial {
             coeff: term.0,
-            vars: vars,
+            vars,
         }
     }
 }
 
-impl<F: IsField + IsPrimeField> Term<F> for MultiVariateMonomial<F>
+impl<F: IsField> Term<F> for MultivariateMonomial<F>
 where
     <F as IsField>::BaseType: Send + Sync,
 {
@@ -58,7 +58,7 @@ where
     /// Evaluates `self` at the point `p`.
     fn evaluate(&self, p: &[FieldElement<F>]) -> FieldElement<F> {
         // check the number of evaluations points is equal to the number of variables
-        assert!(self.max_var() <= p.len() - 1);
+        assert!(self.max_var() < p.len());
         // var_id is index of p
         let eval = self
             .vars
@@ -69,7 +69,108 @@ where
         eval * &self.coeff
     }
 
+    //TODO: this needs work and should modify in place
     fn partial_evaluate(&self, assignments: &[(usize, FieldElement<F>)]) -> Self {
-        todo!()
+        let mut new_coefficient = self.coeff.clone();
+        let mut unassigned_variables = self.vars.to_vec();
+        let mut var_ids: Vec<usize> = unassigned_variables.iter().map(|x| x.0).collect();
+        println!("var_ids {:?}", var_ids);
+
+        for (var_id, assignment) in assignments {
+            if var_ids.contains(var_id) {
+                new_coefficient = new_coefficient * assignment;
+                println!("new_coeff {:?}", new_coefficient);
+                unassigned_variables.retain(|&id| id.0 != *var_id);
+                var_ids.retain(|&id| id != *var_id);
+            }
+        }
+
+        Self::new((new_coefficient, unassigned_variables))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::field::fields::u64_prime_field::U64PrimeField;
+
+    use super::*;
+
+    const ORDER: u64 = 101;
+    type F = U64PrimeField<ORDER>;
+    type FE = FieldElement<F>;
+
+    #[test]
+    fn build_multivariate_monomial() {
+        let monomial = MultivariateMonomial::new((FE::new(5), vec![(10, 1), (5, 1), (6, 1)]));
+
+        // should build and sort the var_id's
+        assert_eq!(
+            monomial,
+            MultivariateMonomial {
+                coeff: FE::new(5),
+                vars: vec![(5, 1), (6, 1), (10, 1)]
+            }
+        );
+    }
+
+    #[test]
+    fn test_partial_evaluation() {
+        // 5ab partially evaluate b = 2
+        // expected result = 10a
+        let five_a_b = MultivariateMonomial::new((FE::new(5), vec![(1, 1), (2, 1)]));
+        let maybe_10_a = five_a_b.partial_evaluate(&[(2, FE::new(2))]);
+        assert_eq!(
+            maybe_10_a,
+            MultivariateMonomial {
+                coeff: FE::new(10),
+                vars: vec![(1, 1)]
+            }
+        );
+
+        println!("a");
+
+        // 6abcd evaluate a = 5, c = 3
+        // expected = 90bd
+        let six_a_b_c_d =
+            MultivariateMonomial::new((FE::new(6), vec![(1, 1), (2, 1), (3, 1), (4, 1)]));
+        let maybe_90_b_d = six_a_b_c_d.partial_evaluate(&[(1, FE::new(5)), (3, FE::new(3))]);
+        assert_eq!(
+            maybe_90_b_d,
+            MultivariateMonomial {
+                coeff: FE::new(90),
+                vars: vec![(2, 1), (4, 1)]
+            }
+        );
+        println!("b");
+
+        // assign every variable
+        // 5ab partially evaluate a= 3, b = 2
+        // expected result = 30
+        let five_a_b = MultivariateMonomial::new((FE::new(5), vec![(1, 1), (2, 1)]));
+        let maybe_30 = five_a_b.partial_evaluate(&[(1, FE::new(3)), (2, FE::new(2))]);
+        assert_eq!(
+            maybe_30,
+            MultivariateMonomial {
+                coeff: FE::new(30),
+                vars: vec![]
+            }
+        );
+
+        println!("c");
+        // ignore repeated assignments
+        // 6abcd evaluate a = 5, c = 3, a = 9
+        // expected = 90bd
+        // should ignore the second assignment for a, as first already got rid of a
+        let six_a_b_c_d =
+            MultivariateMonomial::new((FE::new(6), vec![(1, 1), (2, 1), (3, 1), (4, 1)]));
+        let maybe_90_b_d =
+            six_a_b_c_d.partial_evaluate(&[(1, FE::new(5)), (3, FE::new(3)), (1, FE::new(9))]);
+        assert_eq!(
+            maybe_90_b_d,
+            MultivariateMonomial {
+                coeff: FE::new(90),
+                vars: vec![(2, 1), (4, 1)]
+            }
+        );
     }
 }
