@@ -6,16 +6,16 @@ use crate::polynomial::term::Term;
 // This sparse form is inspired by https://doc.sagemath.org/html/en/reference/polynomial_rings/sage/rings/polynomial/polydict.html
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MultiVariateMonomial<F: IsField + IsPrimeField>
-    where
-        <F as IsField>::BaseType: Send + Sync,
+where
+    <F as IsField>::BaseType: Send + Sync,
 {
     pub coeff: FieldElement<F>,
     pub vars: Vec<(usize, usize)>,
 }
 
 impl<F: IsField + IsPrimeField> MultiVariateMonomial<F>
-    where
-        <F as IsField>::BaseType: Send + Sync,
+where
+    <F as IsField>::BaseType: Send + Sync,
 {
     /// Create a new `Term` from a tuple of the form `(coeff, (power))`
     fn new(term: (FieldElement<F>, Vec<(usize, usize)>)) -> Self {
@@ -28,8 +28,8 @@ impl<F: IsField + IsPrimeField> MultiVariateMonomial<F>
 }
 
 impl<F: IsField + IsPrimeField> Term<F> for MultiVariateMonomial<F>
-    where
-        <F as IsField>::BaseType: Send + Sync,
+where
+    <F as IsField>::BaseType: Send + Sync,
 {
     /// Returns the total degree of `self`. This is the sum of all variable
     /// powers in `self`

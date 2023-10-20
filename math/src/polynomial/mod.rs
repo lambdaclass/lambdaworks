@@ -4,9 +4,9 @@ use std::ops;
 
 // pub mod multivariate;
 mod multilinear_poly;
-pub mod term;
 mod multilinear_term;
 mod multivariate_term;
+pub mod term;
 
 /// Represents the polynomial c_0 + c_1 * X + c_2 * X^2 + ... + c_n * X^n
 /// as a vector of coefficients `[c_0, c_1, ... , c_n]`
