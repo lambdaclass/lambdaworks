@@ -13,8 +13,6 @@ use lambdaworks_math::{
         element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
     },
 };
-use starknet_curve::{AffinePoint, ProjectivePoint, curve_params::{GENERATOR},
-};
 
 const BENCHMARK_NAME: &str = "point";
 

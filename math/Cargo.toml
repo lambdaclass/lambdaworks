@@ -86,3 +86,7 @@ harness = false
 name = "criterion_metal"
 harness = false
 required-features = ["metal"]
+
+[[bench]]
+name = "iai_point_add"
+harness = false
