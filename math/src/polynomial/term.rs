@@ -1,5 +1,5 @@
+use crate::field::element::FieldElement;
 use crate::field::traits::IsField;
-use crate::field::{element::FieldElement, traits::IsPrimeField};
 use std::fmt::Debug;
 
 /// Describes the interface for a term (monomial) of a multivariate polynomial.

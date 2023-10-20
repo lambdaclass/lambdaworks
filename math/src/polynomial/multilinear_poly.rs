@@ -18,27 +18,29 @@ where
     <F as IsField>::BaseType: Send + Sync,
 {
     /// Build a new multilinear polynomial, from collection of multilinear monomials
+    #[allow(dead_code)]
     fn new(terms: Vec<MultiLinearMonomial<F>>) -> Self {
         Self { terms }
     }
 
     /// Evaluates `self` at the point `p`.
     /// Note: assumes p contains points for all variables aka is not sparse.
+    #[allow(dead_code)]
     fn evaluate(&self, p: &[FieldElement<F>]) -> FieldElement<F> {
         // check the number of evaluations points is equal to the number of variables
         // var_id is index of p
-        self
-            .terms
+        self.terms
             .iter()
             .fold(FieldElement::<F>::zero(), |mut acc, term| {
                 acc += term.evaluate(p);
                 acc
-        })
+            })
     }
 
     /// Selectively assign values to variables in the polynomial, returns a reduced
     /// polynomial after assignment evaluation
     // TODO: can we change this to modify in place to remove the extract allocation
+    #[allow(dead_code)]
     fn partial_evaluate(&self, assignments: &[(usize, FieldElement<F>)]) -> Self {
         let updated_monomials: Vec<MultiLinearMonomial<F>> = self
             .terms
@@ -51,10 +53,9 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::field::element::FieldElement;
     use crate::field::fields::u64_prime_field::U64PrimeField;
-    use crate::polynomial::multilinear_poly::MultilinearPolynomial;
-    use crate::polynomial::multilinear_term::MultiLinearMonomial;
+
+    use super::*;
 
     const ORDER: u64 = 101;
     type F = U64PrimeField<ORDER>;
@@ -99,10 +100,7 @@ mod tests {
             MultiLinearMonomial::new((FE::new(4), vec![0, 1, 2])),
         ]);
         let result = poly.evaluate(&[FE::one(), FE::new(2), FE::new(3)]);
-        assert_eq!(
-            result,
-            FE::new(42)
-        );
+        assert_eq!(result, FE::new(42));
     }
 
     #[test]
@@ -116,9 +114,6 @@ mod tests {
             MultiLinearMonomial::new((FE::new(4), vec![1, 2])),
         ]);
         let result = poly.evaluate(&[FE::one(), FE::new(2), FE::new(3)]);
-        assert_eq!(
-            result,
-            FE::new(30)
-        );
+        assert_eq!(result, FE::new(30));
     }
 }

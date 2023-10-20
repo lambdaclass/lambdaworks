@@ -61,7 +61,7 @@ where
     /// Evaluates `self` at the point `p`.
     fn evaluate(&self, p: &[FieldElement<F>]) -> FieldElement<F> {
         // Check that p contains the proper amount of elements in dense form.
-        assert!(self.max_var() <= p.len() - 1);
+        assert!(self.max_var() < p.len());
         // var_id is index of p
         let eval = self
             .vars
@@ -79,6 +79,7 @@ where
         for (var_id, assignment) in assignments {
             if unassigned_variables.contains(var_id) {
                 new_coefficient = new_coefficient * assignment;
+                println!("new_coeff {:?}", new_coefficient);
                 unassigned_variables.retain(|&id| id != *var_id);
             }
         }
@@ -89,10 +90,8 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::field::element::FieldElement;
+    use super::*;
     use crate::field::fields::u64_prime_field::U64PrimeField;
-    use crate::polynomial::multilinear_term::MultiLinearMonomial;
-    use crate::polynomial::term::Term;
 
     const ORDER: u64 = 101;
     type F = U64PrimeField<ORDER>;
