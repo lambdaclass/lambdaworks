@@ -122,8 +122,8 @@ mod test {
     }
 
     #[test]
-    fn test_invalid_nonce_grinding_factor_21() {
-        // This setting would pass for grinding factor 20 instead of 21. The nonce is invalid
+    fn test_invalid_nonce_grinding_factor_19() {
+        // This setting would pass for grinding factor 20 instead of 19. The nonce is invalid
         // here because the grinding factor is part of the inner hash, changing the outer hash
         // and the resulting number of leading zeros.
         let seed = [
@@ -131,7 +131,7 @@ mod test {
             11, 225, 219, 206, 108, 224, 165, 25, 72, 189, 96, 218, 95,
         ];
         let nonce = 0x2c5db8;
-        let grinding_factor = 21;
+        let grinding_factor = 19;
         assert!(!is_valid_nonce(&seed, nonce, grinding_factor));
     }
 
