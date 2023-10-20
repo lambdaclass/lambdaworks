@@ -21,11 +21,11 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     let point = AffinePoint::from_x(42u64.into()).unwrap();
 
     let initial_projective_point = ProjectivePoint::from(&point);
-    let second_project_point = initial_projective_point.clone();
+    let second_project_point = initial_projective_point;
 
     // This is the code we are going to bench
     // We test it once outside the bench to check the result matches with Lambdaworks
-    let mut projective_point = initial_projective_point.clone();
+    let mut projective_point = initial_projective_point;
     for _i in 0..10000 {
         projective_point.add_assign(&second_project_point);
     }
@@ -40,7 +40,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
             &format!("{} 10k Operations | Starknet RS ", BENCHMARK_NAME),
             |b| {
                 b.iter(|| {
-                    let mut projective_point = initial_projective_point.clone();
+                    let mut projective_point = initial_projective_point;
                     // We loop to have a higher variance of numbers, and make the time of the clones not relevant
                     for _i in 0..10000 {
                         projective_point.add_assign(&second_project_point);
