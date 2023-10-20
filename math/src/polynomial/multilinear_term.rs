@@ -6,16 +6,16 @@ use crate::polynomial::term::Term;
 /// monomial in a sparse format.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MultiLinearMonomial<F: IsField + IsPrimeField>
-    where
-        <F as IsField>::BaseType: Send + Sync,
+where
+    <F as IsField>::BaseType: Send + Sync,
 {
     pub coeff: FieldElement<F>,
     pub vars: Vec<usize>,
 }
 
 impl<F: IsField + IsPrimeField> MultiLinearMonomial<F>
-    where
-        <F as IsField>::BaseType: Send + Sync,
+where
+    <F as IsField>::BaseType: Send + Sync,
 {
     /// Create a new `Term` from a tuple of the form `(coeff, (variables))`
     fn new(term: (FieldElement<F>, Vec<usize>)) -> Self {
@@ -31,10 +31,9 @@ impl<F: IsField + IsPrimeField> MultiLinearMonomial<F>
 }
 
 impl<F: IsField + IsPrimeField> Term<F> for MultiLinearMonomial<F>
-    where
-        <F as IsField>::BaseType: Send + Sync,
+where
+    <F as IsField>::BaseType: Send + Sync,
 {
-
     /// Returns the total degree of `self`. This is the count of all variables
     fn degree(&self) -> usize {
         self.vars.len()
@@ -57,6 +56,7 @@ impl<F: IsField + IsPrimeField> Term<F> for MultiLinearMonomial<F>
         *self.vars.last().unwrap()
     }
 
+    // TODO: test this
     /// Evaluates `self` at the point `p`.
     fn evaluate(&self, p: &[FieldElement<F>]) -> FieldElement<F> {
         // check the number of evaluations points is equal to the number of variables
@@ -65,24 +65,19 @@ impl<F: IsField + IsPrimeField> Term<F> for MultiLinearMonomial<F>
         let eval = self
             .vars
             .iter()
-            .fold(FieldElement::<F>::one(), |acc, x| {
-                acc * p[*x].clone()
-            });
+            .fold(FieldElement::<F>::one(), |acc, x| acc * p[*x].clone());
         eval * &self.coeff
     }
 
-    // TODO: add documentation
+    /// Assign values to one or more variables in the monomial
     fn partial_evaluate(&self, assignments: &[(usize, FieldElement<F>)]) -> Self {
         let mut new_coefficient = self.coeff.clone();
-        let mut unassigned_variables: Vec<usize> = vec![];
+        let mut unassigned_variables = self.vars.to_vec();
 
-        // TODO: should not allow double assignments
-        //  i.e repeated var_id
         for (var_id, assignment) in assignments {
-            if self.vars.contains(var_id) {
+            if unassigned_variables.contains(var_id) {
                 new_coefficient = new_coefficient * assignment;
-            } else {
-                unassigned_variables.push(*var_id);
+                unassigned_variables.retain(|&id| id != *var_id);
             }
         }
 
@@ -90,24 +85,84 @@ impl<F: IsField + IsPrimeField> Term<F> for MultiLinearMonomial<F>
     }
 }
 
-// TODO: add test to show that construction from non sorted vars work
-// TODO: test partial evaluation
-//        - also show that you cannot repeat var_id
-
-
 #[cfg(test)]
 mod tests {
     use crate::field::element::FieldElement;
     use crate::field::fields::fft_friendly::babybear::Babybear31PrimeField;
     use crate::field::fields::u64_prime_field::U64PrimeField;
     use crate::polynomial::multilinear_term::MultiLinearMonomial;
+    use crate::polynomial::term::Term;
 
-    const ORDER: u64 = 23;
+    const ORDER: u64 = 101;
     type F = U64PrimeField<ORDER>;
     type FE = FieldElement<F>;
 
     #[test]
     fn build_multilinear_monomial() {
         let monomial = MultiLinearMonomial::new((FE::new(5), vec![10, 5, 6]));
+
+        // should build and sort the var_id's
+        assert_eq!(
+            monomial,
+            MultiLinearMonomial {
+                coeff: FE::new(5),
+                vars: vec![5, 6, 10]
+            }
+        );
+    }
+
+    #[test]
+    fn test_partial_evaluation() {
+        // 5ab partially evaluate b = 2
+        // expected result = 10a
+        let five_a_b = MultiLinearMonomial::new((FE::new(5), vec![1, 2]));
+        let maybe_10_a = five_a_b.partial_evaluate(&[(2, FE::new(2))]);
+        assert_eq!(
+            maybe_10_a,
+            MultiLinearMonomial {
+                coeff: FE::new(10),
+                vars: vec![1]
+            }
+        );
+
+        // 6abcd evaluate a = 5, c = 3
+        // expected = 90bd
+        let six_a_b_c_d = MultiLinearMonomial::new((FE::new(6), vec![1, 2, 3, 4]));
+        let maybe_90_b_d = six_a_b_c_d.partial_evaluate(&[(1, FE::new(5)), (3, FE::new(3))]);
+        assert_eq!(
+            maybe_90_b_d,
+            MultiLinearMonomial {
+                coeff: FE::new(90),
+                vars: vec![2, 4]
+            }
+        );
+
+        // assign every variable
+        // 5ab partially evaluate a= 3, b = 2
+        // expected result = 30
+        let five_a_b = MultiLinearMonomial::new((FE::new(5), vec![1, 2]));
+        let maybe_30 = five_a_b.partial_evaluate(&[(1, FE::new(3)), (2, FE::new(2))]);
+        assert_eq!(
+            maybe_30,
+            MultiLinearMonomial {
+                coeff: FE::new(30),
+                vars: vec![]
+            }
+        );
+
+        // ignore repeated assignments
+        // 6abcd evaluate a = 5, c = 3, a = 9
+        // expected = 90bd
+        // should ignore the second assignment for a, as first already got rid of a
+        let six_a_b_c_d = MultiLinearMonomial::new((FE::new(6), vec![1, 2, 3, 4]));
+        let maybe_90_b_d =
+            six_a_b_c_d.partial_evaluate(&[(1, FE::new(5)), (3, FE::new(3)), (1, FE::new(9))]);
+        assert_eq!(
+            maybe_90_b_d,
+            MultiLinearMonomial {
+                coeff: FE::new(90),
+                vars: vec![2, 4]
+            }
+        );
     }
 }
