@@ -16,8 +16,7 @@ use lambdaworks_math::{
 };
 
 use crate::{
-    config::Commitment, proof::stark::DeepPolynomialOpening,
-    transcript::IsStarkTranscript,
+    config::Commitment, proof::stark::DeepPolynomialOpening, transcript::IsStarkTranscript,
 };
 
 use super::{
@@ -196,7 +195,7 @@ pub trait IsStarkVerifier {
             zetas,
             iotas,
             rap_challenges,
-            grinding_seed
+            grinding_seed,
         }
     }
 
