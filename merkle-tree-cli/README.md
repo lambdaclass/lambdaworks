@@ -42,3 +42,9 @@ For example:
 ```bash
 cargo run verify-proof root.txt 0 sample_tree_proof_0.json leaf.txt
 ```
+
+## 📚 References
+
+The following links, repos and projects have been important in the development of this library and we want to thank and acknowledge them. 
+
+- [Clap4](https://epage.github.io/blog/2022/09/clap4/)
