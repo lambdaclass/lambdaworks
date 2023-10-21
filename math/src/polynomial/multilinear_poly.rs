@@ -31,7 +31,7 @@ where
     /// Evaluates `self` at the point `p`.
     /// Note: assumes p contains points for all variables aka is not sparse.
     #[allow(dead_code)]
-    fn evaluate(&self, p: &[FieldElement<F>]) -> FieldElement<F> {
+    pub fn evaluate(&self, p: &[FieldElement<F>]) -> FieldElement<F> {
         // check the number of evaluations points is equal to the number of variables
         // var_id is index of p
         self.terms
@@ -46,7 +46,7 @@ where
     /// polynomial after assignment evaluation
     // TODO: can we change this to modify in place to remove the extract allocation
     #[allow(dead_code)]
-    fn partial_evaluate(&self, assignments: &[(usize, FieldElement<F>)]) -> Self {
+    pub fn partial_evaluate(&self, assignments: &[(usize, FieldElement<F>)]) -> Self {
         let updated_monomials: Vec<MultiLinearMonomial<F>> = self
             .terms
             .iter()
