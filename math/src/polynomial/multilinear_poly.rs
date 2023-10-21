@@ -11,7 +11,7 @@ where
     <F as IsField>::BaseType: Send + Sync,
 {
     pub terms: Vec<MultiLinearMonomial<F>>,
-    n_vars: usize, // number of variables
+    pub n_vars: usize, // number of variables
 }
 
 impl<F: IsField> MultilinearPolynomial<F>
