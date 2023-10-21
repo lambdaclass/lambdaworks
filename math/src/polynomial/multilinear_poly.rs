@@ -20,7 +20,7 @@ where
 {
     /// Build a new multilinear polynomial, from collection of multilinear monomials
     #[allow(dead_code)]
-    fn new(terms: Vec<MultiLinearMonomial<F>>) -> Self {
+    pub fn new(terms: Vec<MultiLinearMonomial<F>>) -> Self {
         let n = terms.iter().fold(
             0,
             |acc, m| if m.max_var() > acc { m.max_var() } else { acc },
