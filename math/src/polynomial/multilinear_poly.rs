@@ -1,12 +1,12 @@
 use crate::field::element::FieldElement;
-use crate::field::traits::{IsField, IsPrimeField};
+use crate::field::traits::IsField;
 use crate::polynomial::multilinear_term::MultiLinearMonomial;
 use crate::polynomial::term::Term;
 
 /// Represents a multilinear polynomials as a collection of multilinear monomials
 // TODO: add checks to track the max degree and number of variables.
 #[derive(Debug, PartialEq)]
-pub struct MultilinearPolynomial<F: IsField + IsPrimeField>
+pub struct MultilinearPolynomial<F: IsField>
 where
     <F as IsField>::BaseType: Send + Sync,
 {
@@ -14,7 +14,7 @@ where
     n_vars: usize, // number of variables
 }
 
-impl<F: IsField + IsPrimeField> MultilinearPolynomial<F>
+impl<F: IsField> MultilinearPolynomial<F>
 where
     <F as IsField>::BaseType: Send + Sync,
 {
