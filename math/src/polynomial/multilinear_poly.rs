@@ -11,6 +11,7 @@ where
     <F as IsField>::BaseType: Send + Sync,
 {
     pub terms: Vec<MultiLinearMonomial<F>>,
+    n_vars: usize, // number of variables
 }
 
 impl<F: IsField + IsPrimeField> MultilinearPolynomial<F>
@@ -20,7 +21,11 @@ where
     /// Build a new multilinear polynomial, from collection of multilinear monomials
     #[allow(dead_code)]
     fn new(terms: Vec<MultiLinearMonomial<F>>) -> Self {
-        Self { terms }
+        let n = terms.iter().fold(
+            0,
+            |acc, m| if m.max_var() > acc { m.max_var() } else { acc },
+        );
+        Self { terms, n_vars: n }
     }
 
     /// Evaluates `self` at the point `p`.
@@ -84,7 +89,8 @@ mod tests {
                         coeff: FE::new(8),
                         vars: vec![3]
                     }
-                ]
+                ],
+                n_vars: 3,
             }
         );
     }
