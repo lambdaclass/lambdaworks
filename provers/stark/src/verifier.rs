@@ -19,8 +19,6 @@ use crate::{
     config::Commitment, proof::stark::DeepPolynomialOpening, transcript::IsStarkTranscript,
 };
 
-use crate::transcript::IsStarkTranscript;
-
 use super::{
     config::BatchedMerkleTreeBackend,
     domain::Domain,
