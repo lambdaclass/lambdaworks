@@ -1,7 +1,6 @@
 use lambdaworks_math::{
     field::element::FieldElement,
-    field::fields::fft_friendly::u64_goldilocks::U64GoldilocksPrimeField,
-    polynomial::Polynomial,
+    field::fields::fft_friendly::u64_goldilocks::U64GoldilocksPrimeField, polynomial::Polynomial,
 };
 use rand::random;
 

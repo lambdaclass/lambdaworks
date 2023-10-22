@@ -2,9 +2,8 @@ use std::hint::black_box;
 
 use criterion::Criterion;
 use lambdaworks_math::field::{
-        element::FieldElement,
-        fields::u64_goldilocks_field::Goldilocks64Field,
-    };
+    element::FieldElement, fields::u64_goldilocks_field::Goldilocks64Field,
+};
 use rand::random;
 
 pub type F = FieldElement<Goldilocks64Field>;
@@ -165,8 +164,7 @@ pub fn u64_goldilocks_ops_benchmarks(c: &mut Criterion) {
     for i in input.clone().into_iter() {
         group.bench_with_input(format!("bitand {:?}", &i.len()), &i, |bench, i| {
             // Note: we should strive to have the number of limbs be generic... ideally this benchmark group itself should have a generic type that we call into from the main runner.
-            let i: Vec<(u64, u64)> =
-                i.iter().map(|(x, y)| (*x.value(), *y.value())).collect();
+            let i: Vec<(u64, u64)> = i.iter().map(|(x, y)| (*x.value(), *y.value())).collect();
             bench.iter(|| {
                 for (x, y) in &i {
                     black_box(black_box(*x) & black_box(*y));
@@ -177,8 +175,7 @@ pub fn u64_goldilocks_ops_benchmarks(c: &mut Criterion) {
 
     for i in input.clone().into_iter() {
         group.bench_with_input(format!("bitor {:?}", &i.len()), &i, |bench, i| {
-            let i: Vec<(u64, u64)> =
-                i.iter().map(|(x, y)| (*x.value(), *y.value())).collect();
+            let i: Vec<(u64, u64)> = i.iter().map(|(x, y)| (*x.value(), *y.value())).collect();
             bench.iter(|| {
                 for (x, y) in &i {
                     black_box(black_box(*x) | black_box(*y));
@@ -189,8 +186,7 @@ pub fn u64_goldilocks_ops_benchmarks(c: &mut Criterion) {
 
     for i in input.clone().into_iter() {
         group.bench_with_input(format!("bitxor {:?}", &i.len()), &i, |bench, i| {
-            let i: Vec<(u64, u64)> =
-                i.iter().map(|(x, y)| (*x.value(), *y.value())).collect();
+            let i: Vec<(u64, u64)> = i.iter().map(|(x, y)| (*x.value(), *y.value())).collect();
             bench.iter(|| {
                 for (x, y) in &i {
                     black_box(black_box(*x) ^ black_box(*y));
