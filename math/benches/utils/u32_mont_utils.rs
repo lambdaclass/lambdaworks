@@ -18,7 +18,7 @@ const MODULUS: u64 = PRIMES[const_random!(usize) % PRIMES.len()];
 pub type FE = U64FieldElement<MODULUS>;
 
 #[inline(never)]
-#[export_name = "u32_utils::fp_get_mersenne_mont_primes"]
+#[export_name = "u32_utils::fp_get_mersenne31_mont_primes"]
 pub fn get_field_elements() -> (
     FieldElement<Mersenne31MontgomeryPrimeField>,
     FieldElement<Mersenne31MontgomeryPrimeField>,
@@ -29,7 +29,7 @@ pub fn get_field_elements() -> (
 }
 
 #[inline(never)]
-#[export_name = "u32_utils::fp_squared_mersenne_mont_prime"]
+#[export_name = "u32_utils::fp_squared_mersenne31_mont_prime"]
 pub fn get_squared_field_element() -> FieldElement<Mersenne31MontgomeryPrimeField> {
     let (x, _) = get_field_elements();
     x * x
@@ -37,7 +37,7 @@ pub fn get_squared_field_element() -> FieldElement<Mersenne31MontgomeryPrimeFiel
 
 #[allow(dead_code)]
 #[inline(never)]
-#[export_name = "u32_utils::rand_field_mersenne_mont_elements"]
+#[export_name = "u32_utils::rand_field_mersenne31_mont_elements"]
 pub fn rand_field_elements(order: u64) -> Vec<FE> {
     let mut result = Vec::with_capacity(1 << order);
     for _ in 0..result.capacity() {
@@ -48,14 +48,14 @@ pub fn rand_field_elements(order: u64) -> Vec<FE> {
 
 #[allow(dead_code)]
 #[inline(never)]
-#[export_name = "u32_utils::rand_field_mersenne_mont_elements_pair"]
+#[export_name = "u32_utils::rand_field_mersenne31_mont_elements_pair"]
 pub fn rand_field_elements_pair() -> (FE, FE) {
     (FE::new(random()), FE::new(random()))
 }
 
 #[allow(dead_code)]
 #[inline(never)]
-#[export_name = "u32_utils::rand_mersenne_mont_poly"]
+#[export_name = "u32_utils::rand_mersenne31_mont_poly"]
 pub fn rand_poly(order: u64) -> Polynomial<FE> {
     Polynomial::new(&rand_field_elements(order))
 }
