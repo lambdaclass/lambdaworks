@@ -1,10 +1,7 @@
 use std::hint::black_box;
 
 use criterion::Criterion;
-use lambdaworks_math::field::{
-    element::FieldElement,
-    fields::mersenne31::field::Mersenne31Field,
-};
+use lambdaworks_math::field::{element::FieldElement, fields::mersenne31::field::Mersenne31Field};
 use rand::random;
 
 pub type F = FieldElement<Mersenne31Field>;
@@ -165,8 +162,7 @@ pub fn mersenne31_ops_benchmarks(c: &mut Criterion) {
     for i in input.clone().into_iter() {
         group.bench_with_input(format!("bitand {:?}", &i.len()), &i, |bench, i| {
             // Note: we should strive to have the number of limbs be generic... ideally this benchmark group itself should have a generic type that we call into from the main runner.
-            let i: Vec<(u32, u32)> =
-                i.iter().map(|(x, y)| (*x.value(), *y.value())).collect();
+            let i: Vec<(u32, u32)> = i.iter().map(|(x, y)| (*x.value(), *y.value())).collect();
             bench.iter(|| {
                 for (x, y) in &i {
                     black_box(black_box(*x) & black_box(*y));
@@ -177,8 +173,7 @@ pub fn mersenne31_ops_benchmarks(c: &mut Criterion) {
 
     for i in input.clone().into_iter() {
         group.bench_with_input(format!("bitor {:?}", &i.len()), &i, |bench, i| {
-            let i: Vec<(u32, u32)> =
-                i.iter().map(|(x, y)| (*x.value(), *y.value())).collect();
+            let i: Vec<(u32, u32)> = i.iter().map(|(x, y)| (*x.value(), *y.value())).collect();
             bench.iter(|| {
                 for (x, y) in &i {
                     black_box(black_box(*x) | black_box(*y));
@@ -189,8 +184,7 @@ pub fn mersenne31_ops_benchmarks(c: &mut Criterion) {
 
     for i in input.clone().into_iter() {
         group.bench_with_input(format!("bitxor {:?}", &i.len()), &i, |bench, i| {
-            let i: Vec<(u32, u32)> =
-                i.iter().map(|(x, y)| (*x.value(), *y.value())).collect();
+            let i: Vec<(u32, u32)> = i.iter().map(|(x, y)| (*x.value(), *y.value())).collect();
             bench.iter(|| {
                 for (x, y) in &i {
                     black_box(black_box(*x) ^ black_box(*y));
