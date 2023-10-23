@@ -2,7 +2,7 @@ use crate::elliptic_curve::traits::IsEllipticCurve;
 use crate::field::element::FieldElement;
 use std::fmt::Debug;
 
-/// Represents an elliptic curve point using the projective short Weierstrass form:
+/// Represents an elliptic curve point using the projective jacobian
 /// y^2 * z = x^3 + a * x * z^2 + b * z^3,
 /// where `x`, `y` and `z` variables are field elements.
 #[derive(Debug, Clone)]
@@ -43,7 +43,9 @@ impl<E: IsEllipticCurve> ProjectivePoint<E> {
         let [x, y, z] = self.coordinates();
         assert_ne!(z, &FieldElement::zero());
         let inv_z = z.inv().unwrap();
-        ProjectivePoint::new([x * &inv_z, y * inv_z, FieldElement::one()])
+        let inv_z_square = inv_z.square();
+        let inv_z_cube = &inv_z * &inv_z_square;
+        ProjectivePoint::new([x * &inv_z_square, y * inv_z_cube, FieldElement::one()])
     }
 }
 
