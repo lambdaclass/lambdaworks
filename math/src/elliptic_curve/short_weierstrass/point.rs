@@ -1,3 +1,5 @@
+use core::ops::{AddAssign, Deref, MulAssign, Neg};
+
 use crate::{
     cyclic_group::IsGroup,
     elliptic_curve::{
@@ -111,6 +113,57 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         self.0.value[1] -= &eight_times_yyyy;
 
         self
+    }
+
+    fn operate_with_affine(&self, other: &Self) -> Self {
+        if self.is_neutral_element() {
+            return Self::new([other.x().clone(), other.y().clone(), FieldElement::one()]);
+        }
+
+        let z1z1 = self.z().square();
+
+        let mut u2 = other.x().clone();
+        u2 *= &z1z1;
+
+        let mut s2 = self.z().clone();
+        s2 *= other.y();
+        s2 *= &z1z1;
+
+        if self.x().clone() == u2 && self.y().clone() == s2 {
+            Self::double_in_place(&mut self.clone()).to_owned()
+        } else {
+            let mut h = u2;
+            h -= self.x();
+
+            let hh = h.square();
+
+            let mut i = hh;
+            i = &i + &i + &i + &i; // possible error here
+
+            let mut j = -&h;
+            j *= &i;
+
+            let mut r = s2;
+            r -= &self.y();
+            r = &r + &r; // possible error here
+
+            let mut v = self.x().clone();
+            v *= &i;
+
+            let mut ret_x = r.square();
+            ret_x += &j;
+            ret_x -= &v;
+            ret_x -= &v;
+
+            v -= &self.x();
+            let mut ret_y = self.y() + self.y();
+            ret_y *= &j;
+            ret_y += r * (v - &ret_x);
+
+            let mut ret_z = self.x().clone() * &h;
+            ret_z = &ret_z + &ret_z;
+            Self::new([ret_x, ret_y, ret_z])
+        }
     }
 }
 
