@@ -202,9 +202,9 @@ He computes $\bar p_{c} := pi(\zeta) + \alpha \bar z_\omega (\bar c + \gamma) (\
 This is the _constant_ part of the linearization of $p$. So adding it to what the prover claims to be $\bar p_{nc}$, he obtains
 $$p(\zeta) = \bar p_{c} + \bar p_{nc}$$
 
-With respect to $t(\zeta)$, this is actually already $/bar t$.
+With respect to $t(\zeta)$, this is actually already $\bar{t}$.
 
-#### Compute $[t_{\text{partial}}]_1$ and $[p_{nc}]_1$
+#### Compute $[t_{\text{partial}} ]_1$ and $[p_{nc} ]_1$
 
 He computes these off the commitments in the proof as follows
 $$[t_{\text{partial}}]_1 = [t_{lo}]_1 + \zeta^{ N + 2 }[t_{mid}]_1 + \zeta^{ 2 (N + 2) }[t_{hi}]_1$$
