@@ -2,7 +2,12 @@ use crate::field::element::FieldElement;
 use crate::field::traits::IsField;
 use std::fmt::Debug;
 
-/// Describes the interface for a term (monomial) of a multivariate polynomial.
+/// Term represents an abstraction of individual monomial term of a polynomial.
+/// Ex:
+///     Unvariate: (coeff) -> FieldElement<F>
+///     Multilinear: (coeff, Vec<var_id>) -> (FieldElement<F>, Vec<usize>)
+///     MultiVariate: (coeff, Vec<(var_id, power)>) -> (FieldLElement<F>, Vec<(usize, usize))
+// NOTE: open question whether we condense the Multilinear and Multivariate terms in to a single Multivariate term and iterator using .chunks()
 pub trait Term<F: IsField>: Clone + Debug + Send + Sync {
     /// Returns the total degree of `self`. This is the sum of all variable
     /// powers in `self`
