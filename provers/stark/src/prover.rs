@@ -78,7 +78,7 @@ pub struct Round4<F: IsFFTField> {
     deep_poly_openings: DeepPolynomialOpenings<F>,
     deep_poly_openings_sym: DeepPolynomialOpenings<F>,
     query_list: Vec<FriDecommitment<F>>,
-    nonce: u64,
+    nonce: Option<u64>,
 }
 pub fn evaluate_polynomial_on_lde_domain<F>(
     p: &Polynomial<FieldElement<F>>,
@@ -396,12 +396,13 @@ pub trait IsStarkProver {
 
         // grinding: generate nonce and append it to the transcript
         let security_bits = air.context().proof_options.grinding_factor;
-        let mut nonce = 0;
+        let mut nonce = None;
         if security_bits > 0 {
             let transcript_challenge = transcript.state();
-            nonce = generate_nonce_with_grinding(&transcript_challenge, security_bits)
+            let nonce_value = generate_nonce_with_grinding(&transcript_challenge, security_bits)
                 .expect("nonce not found");
-            transcript.append_bytes(&nonce.to_be_bytes());
+            transcript.append_bytes(&nonce_value.to_be_bytes());
+            nonce = Some(nonce_value);
         }
 
         let number_of_queries = air.options().fri_number_of_queries;

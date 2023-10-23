@@ -40,7 +40,7 @@ pub struct StarkProof<F: IsFFTField> {
     // Open(H₁(D_LDE, -𝜐ᵢ), Open(H₂(D_LDE, -𝜐ᵢ), Open(tⱼ(D_LDE), -𝜐ᵢ)
     pub deep_poly_openings_sym: DeepPolynomialOpenings<F>,
     // nonce obtained from grinding
-    pub nonce: u64,
+    pub nonce: Option<u64>,
 }
 
 impl<F> Serializable for StarkProof<F>
@@ -138,6 +138,10 @@ where
                     .cloned()
                     .collect::<Vec<_>>(),
             );
+        }
+
+        if let Some(nonce_value) = self.nonce {
+            output.extend_from_slice(&nonce_value.to_be_bytes());
         }
 
         let decommitment = &self.query_list[0];
