@@ -189,10 +189,10 @@ Firstly, the verifier needs to compute all the challenges. For that, he follows 
 - Add $\bar a, \bar b, \bar c, \bar s_{\sigma1}, \bar s_{\sigma2}, \bar z_\omega$ to the transcript.
 - Sample a challenge $\upsilon$.
 
-#### Compute $pi(\zeta)$
+#### Compute $pi ( \zeta )$
 
 Also he needs compute a few values off all these data. First, he computes the $PI$ matrix with the public inputs and outputs. He needs to compute $pi(\zeta)$, where $pi$ is the interpolation of $PI$ at the domain $H$. But he doesn't need to compute $pi$. He can instead compute $pi(\zeta)$ as
-$$ \sum_{i = 0 }^n L_i(\zeta) (PI)_i,$$
+$$\sum_{i = 0 }^n L_i(\zeta) (PI)_i,$$
 where $n$ is the number of public inputs and $L_i$ is the Lagrange basis at the domain $H$.
 
 #### Compute claimed values $p(\zeta)$ and $t(\zeta)$
@@ -207,14 +207,14 @@ With respect to $t(\zeta)$, this is actually already $/bar t$.
 #### Compute $[t_{\text{partial}}]_1$ and $[p_{nc}]_1$
 
 He computes these off the commitments in the proof as follows
-$$ [t_{\text{partial}}]_1 = [t_{lo}]_1 + \zeta^{ N + 2 }[t_{mid}]_1 + \zeta^{ 2 (N+2) }[t_{hi}]_1 $$
+$$[t_{\text{partial}}]_1 = [t_{lo}]_1 + \zeta^{ N + 2 }[t_{mid}]_1 + \zeta^{ 2 (N + 2) }[t_{hi}]_1$$
 
 For $[p_{nc}]_1$, first compute
 
 $$
 \begin{aligned}
 [\hat p_{nc1} ]_1 &= \bar a[q_L]_1 + \bar b[q_R]_1 + (\bar a\bar b)[q_M]_1 + \bar c[q_O]_1 + [q_C]_1 \\
-[\hat p_{nc2} ]_1 &= (\bar a + \beta\zeta + \gamma)(\bar b + \beta k_1\zeta + \gamma)(\bar c + \beta k_2\zeta + \gamma)[z]_1 - (\bar a + \beta \bar s_{\sigma1} + \gamma)(\bar b + \beta \bar s_{\sigma2} + \gamma)\beta \bar z_\omega [S_{\sigma3}]_1 \\
+[\hat p_{nc2} ]_1 &= (\bar a + \beta\zeta + \gamma)(\bar b + \beta k_1 \zeta + \gamma)(\bar c + \beta k_2 \zeta + \gamma)[z]_1 - (\bar a + \beta \bar s_{\sigma1} + \gamma)(\bar b + \beta \bar s_{\sigma2} + \gamma)\beta \bar z_\omega [S_{\sigma3}]_1 \\
 [\hat p_{nc3} ]_1 &= L_1(\zeta)[z]_1
 \end{aligned}
 $$
