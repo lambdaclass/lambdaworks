@@ -1,4 +1,4 @@
-use core::ops::{MulAssign, AddAssign};
+use core::ops::{AddAssign, MulAssign};
 
 use crate::{
     cyclic_group::IsGroup,
@@ -72,14 +72,14 @@ impl<E: IsShortWeierstrass> FromAffine<E::BaseField> for ShortWeierstrassProject
     }
 }
 
-impl <E: IsShortWeierstrass>ShortWeierstrassProjectivePoint<E> {
+impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
     fn double_in_place(&mut self) -> &mut Self {
         let xx = self.x().square();
         let yy = self.y().square();
         let yyyy = &yy * &yy;
-        
+
         let zz = self.z().square();
-        
+
         let s_intermediate = (self.x() + &yy).square() - &xx - &yyyy;
         let s = &s_intermediate + &s_intermediate;
 
@@ -92,7 +92,7 @@ impl <E: IsShortWeierstrass>ShortWeierstrassProjectivePoint<E> {
         self.0.value[0] -= &(&s + &s);
 
         // y = y * z
-        self.0.value[2] = &self.0.value[2] *&self.0.value[1];
+        self.0.value[2] = &self.0.value[2] * &self.0.value[1];
         self.0.value[2] = &self.0.value[2] + &self.0.value[2];
 
         self.0.value[1] = s;
@@ -100,7 +100,7 @@ impl <E: IsShortWeierstrass>ShortWeierstrassProjectivePoint<E> {
         self.0.value[1] *= &m;
 
         let mut eight_times = self.0.value[1].clone();
-        
+
         eight_times = &eight_times + &eight_times;
         eight_times = &eight_times + &eight_times;
         eight_times = &eight_times + &eight_times;
@@ -108,7 +108,6 @@ impl <E: IsShortWeierstrass>ShortWeierstrassProjectivePoint<E> {
         self.0.value[1] -= &eight_times;
 
         self
-
     }
 }
 
@@ -131,11 +130,11 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
     /// Taken from "Moonmath" (Algorithm 7, page 89)
     fn operate_with(&self, other: &Self) -> Self {
         if self.is_neutral_element() {
-            return other.clone()
+            return other.clone();
         }
 
-        if other.is_neutral_element(){
-            return self.clone()
+        if other.is_neutral_element() {
+            return self.clone();
         }
 
         let z1z1 = self.x().square();
@@ -143,7 +142,7 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
 
         let mut u1 = self.x().clone();
         u1 *= &z2z2;
-        
+
         let mut u2 = other.x().clone();
         u2 *= &z1z1;
 
@@ -158,24 +157,24 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
         if u1 == u2 && s1 == s2 {
             let copy = self;
             copy.clone().double_in_place();
-            return copy.clone()
+            return copy.clone();
         } else {
             let mut h = u2;
             h -= &u1;
 
             let mut i = h.clone();
             i = (&i + &i).square();
-            
+
             let mut j = -&h;
             j *= &i;
 
             let mut r = s2;
-            r-= &s1;
+            r -= &s1;
             r = &r + &r;
 
             let mut v = u1;
             v *= &i;
-            
+
             let mut x = r.clone();
             x = x.square();
             x += &j;
@@ -184,13 +183,13 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
             v -= &x;
             let mut y = s1;
             y = &y + &y;
-    
+
             y = &r * &v + &y * &j;
 
             let mut z = self.z() * other.z();
             z = &z + &z;
             z *= &h;
-            return Self::new([x,y,z])
+            return Self::new([x, y, z]);
         }
     }
 
@@ -420,5 +419,14 @@ mod tests {
             result.unwrap_err(),
             DeserializationError::InvalidAmountOfBytes
         );
+    }
+
+    #[test]
+    fn doubling_a_point_works() {
+        let point = point();
+        let expected = todo!();
+
+        let res_operate_with_self = point.operate_with_self(2u16);
+        let res_operate_with = point.operate_with(&point);
     }
 }
