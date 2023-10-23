@@ -1,12 +1,12 @@
 use crate::field::element::FieldElement;
-use crate::field::traits::{IsField, IsPrimeField};
-use crate::polynomial::term::Term;
+use crate::field::traits::IsField;
+use crate::polynomial::traits::term::Term;
 
 /// Struct for (coeff: FieldElement<F>, terms: Vec<usize>) representing a multilinear
 /// monomial in a sparse format.
 // TODO: add check that var labels are 0 indexed
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct MultiLinearMonomial<F: IsField + IsPrimeField>
+pub struct MultiLinearMonomial<F: IsField>
 where
     <F as IsField>::BaseType: Send + Sync,
 {
@@ -14,7 +14,7 @@ where
     pub vars: Vec<usize>,
 }
 
-impl<F: IsField + IsPrimeField> MultiLinearMonomial<F>
+impl<F: IsField> MultiLinearMonomial<F>
 where
     <F as IsField>::BaseType: Send + Sync,
 {
@@ -31,7 +31,7 @@ where
     }
 }
 
-impl<F: IsField + IsPrimeField> Term<F> for MultiLinearMonomial<F>
+impl<F: IsField> Term<F> for MultiLinearMonomial<F>
 where
     <F as IsField>::BaseType: Send + Sync,
 {

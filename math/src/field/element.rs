@@ -220,7 +220,7 @@ where
     F: IsField,
 {
     fn sub_assign(&mut self, rhs: &FieldElement<F>) {
-        *self = &*self - rhs
+        self.value = F::sub(&self.value, &rhs.value);
     }
 }
 
