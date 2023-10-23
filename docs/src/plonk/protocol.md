@@ -51,7 +51,7 @@ This is called the linearization trick. The polynomial $f$ is called the _linear
 ## Setup
 
 There's a one time setup phase to compute some values common to any execution and proof of the particular circuit. Precisely, the following commitments are computed and published.
-$$[q_L]_1 , [q_R ]_1 , [q_M ]_1 , [q_O ]_1 , [q_C ]_1 , [S_{\sigma 1} ]_1 , [S_{\sigma 2} ]_1 , [S_{\sigma 3} ]_1$$
+$$[ q_L]_1 , [ q_R ]_1 , [ q_M ]_1 , [ q_O ]_1 , [ q_C ]_1 , [ S_{\sigma 1} ]_1 , [ S_{\sigma 2} ]_1 , [ S_{\sigma 3} ]_1$$
 
 ## Proving algorithm
 
