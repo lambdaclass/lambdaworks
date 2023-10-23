@@ -85,7 +85,6 @@ mod tests {
         elliptic_curve::{
             short_weierstrass::{
                 curves::bls12_381::field_extension::{BLS12381PrimeField, Degree2ExtensionField},
-                point::{Endianness, PointFormat, ShortWeierstrassProjectivePoint},
                 traits::IsShortWeierstrass,
             },
             traits::IsEllipticCurve,
@@ -98,6 +97,11 @@ mod tests {
     type Level0FE = FieldElement<BLS12381PrimeField>;
     type Level1FE = FieldElement<Degree2ExtensionField>;
 
+    #[cfg(feature = "std")]
+    use crate::elliptic_curve::short_weierstrass::point::{
+        Endianness, PointFormat, ShortWeierstrassProjectivePoint,
+    };
+
     #[test]
     fn create_generator() {
         let g = BLS12381TwistCurve::generator();
@@ -108,6 +112,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn serialize_deserialize_generator() {
         let g = BLS12381TwistCurve::generator();

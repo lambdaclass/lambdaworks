@@ -32,50 +32,50 @@ Examples of Cairo 0 programs can be found [here](https://github.com/lambdaclass/
 **To compile and generate a proof you can use:**
 
 ```bash
-make compile_and_prove PROGRAM_PATH=<program_path> PROOF_PATH=<output_proof_path>
+cargo run --release --features="cli" compile-and-prove <program_path> <output_proof_path>
 ```
 
 For example:
 
 ```bash
-make compile_and_prove PROGRAM_PATH=cairo-prover-lib/cairo_programs/cairo0/fibonacci_5.cairo PROOF_PATH=cairo-prover-lib/cairo_programs/cairo0/fibonacci_5.proof
+cargo run --release --features="cli" compile-and-prove cairo_programs/cairo0/fibonacci_5.cairo cairo_programs/cairo0/fibonacci_5.proof
 ```
 
 
 **To verify a proof you can use:**
 
 ```bash
-make verify PROOF_PATH=<proof_path>
+cargo run --release --features="cli" verify <proof_path>
 ```
 
 For example:
 
 ```bash
-make verify PROOF_PATH=fibonacci_5.proof
+cargo run --release --features="cli" verify fibonacci_5.proof
 ```
 
 **To compile Cairo:**
 
 ```bash
-make compile PROGRAM_PATH=<uncompiled_program_path> 
+cargo run --release --features="cli" compile <uncompiled_program_path> 
 ```
 
 For example:
 
 ```bash
-make compile PROGRAM_PATH=cairo-prover-lib/cairo_programs/cairo0/fibonacci_5.cairo
+cargo run --release --features="cli" compile cairo_programs/cairo0/fibonacci_5.cairo
 ```
 
 **To prove a compiled program:**
 
 ```bash
-make prove PROGRAM_PATH=<compiled_program_path> PROOF_PATH=<output_proof_path>
+cargo run --release --features="cli" prove <compiled_program_path> <output_proof_path>
 ```
 
 For example:
 
 ```bash
-make prove PROGRAM_PATH=cairo-prover-lib/cairo_programs/cairo0/fibonacci_5.json PROOF_PATH=program_proof.proof
+cargo run --release --features="cli" prove cairo_programs/cairo0/fibonacci_5.json program_proof.proof
 ```
 
 
@@ -83,33 +83,48 @@ make prove PROGRAM_PATH=cairo-prover-lib/cairo_programs/cairo0/fibonacci_5.json 
 **To prove and verify with a single command you can use:**
 
 ```bash
-make run_all PROGRAM_PATH=<compiled_program_path>
+cargo run --release --features="cli" prove-and-verify <compiled_program_path>
 ```
 
 For example:
 
 ```bash
-make run_all PROGRAM_PATH=cairo-prover-lib/cairo_programs/cairo0/fibonacci_5.json
+cargo run --release --features="cli" prove-and-verify cairo_programs/cairo0/fibonacci_5.json
 ```
+
+
 
 **To compile, proof, prove and verify at the same time you can use:**
 
 ```bash
-make compile_and_run_all PROGRAM_PATH=<program_path>
+cargo run --release --features="cli" compile-prove-and-verify <program_path>
 ```
 
 For example:
 
 ```bash
-make compile_and_run_all PROGRAM_PATH=cairo-prover-lib/cairo_programs/cairo0/fibonacci_5.cairo
+cargo run --release --features="cli" compile-prove-and-verify cairo_programs/cairo0/fibonacci_5.cairo
 ```
 
-### Using WASM verifier
+### Run CLI as a binary
 
-To use the verifier in WASM, generate a npm package using `wasm-pack`
+**To install as a binary run the command on the root directory of the CLI:**
+```bash
+cargo install --features="cli" --path .
+```
 
-As a shortcut, you can call
-`make build_wasm`
+To run the CLI as a binary instead of using cargo replace `cargo run --release --features="cli"` with `platinum-prover`.
+
+for example, the command to generate a proof becomes:
+```bash
+platinum-prover prove cairo_programs/cairo0/fibonacci_5.json cairo_programs/cairo0/fibonacci_5.proof
+```
+
+**You can uninstall the binary with:**
+```bash
+cargo uninstall
+```
+
 ## Running tests
 To run tests, simply use
 ```
@@ -122,19 +137,6 @@ If you have built the cairo-compile docker image, that will be used for compilin
 Be sure to build the docker image if you don't want to install the `cairo-lang` toolchain:
 ```
 make docker_build_cairo_compiler
-```
-
-## Running fuzzers
-To run a fuzzer, simply use 
-
-```
-make fuzzer <name of the fuzzer>
-```
-
-if you don´t have the tools for fuzzing installed use
-
-```
-make fuzzer_tools
 ```
 
 ## To be added
