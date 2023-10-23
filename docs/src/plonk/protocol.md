@@ -165,7 +165,7 @@ Compute $\bar p_{nc} := p_{nc}(\zeta)$ and $\bar t = t(\zeta)$.
 ### Proof
 
 The proof is:
-$$[a]_1, [b]_1, [c]_1, [z]_1, [t_{lo} ]_1, [t_{mid} ]_1, [t_{hi} ]_1, \bar a, \bar b, \bar c, \bar s_{\sigma1}, \bar s_{\sigma2}, \bar z_\omega, \pi_{\text{batch}}, \pi_{\text{single}}, \bar p_{nc}, \bar t$$
+$$[a]_1, [b]_1 , [c]_1, [z]_1, [t_{lo} ]_1, [t_{mid} ]_1, [t_{hi} ]_1, \bar{a}, \bar{b}, \bar{c}, \bar{s_{\sigma1}}, \bar{s_{\sigma2}}, \bar{z_\omega}, \pi_{\text{batch}}, \pi_{\text{single}}, \bar p_{nc}, \bar t$$
 
 ## Verification algorithm
 
