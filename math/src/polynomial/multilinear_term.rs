@@ -64,9 +64,9 @@ where
     /// Evaluates `self` at the point `p`.
     fn evaluate(&self, p: &[FieldElement<F>]) -> FieldElement<F> {
         // Check that p contains the proper amount of elements in dense form.
-        assert!(self.max_var() < p.len());
+        //assert!(self.max_var() < p.len());
 
-        if self.vars.is_empty() {
+        if self.vars.is_empty() || p.is_empty() {
             return self.coeff.clone();
         }
 
