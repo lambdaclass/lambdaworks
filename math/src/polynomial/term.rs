@@ -15,6 +15,7 @@ pub trait Term<F: IsField>: Clone + Debug + Send + Sync {
     fn powers(&self) -> Vec<usize>;
 
     /// Fetches the max variable by id from the sparse list of id's this is used to ensure the upon evaluation the correct number of points are supplied
+    /// Note: returns 0 if constant term
     fn max_var(&self) -> usize;
 
     /// Evaluates `self` at the point `p`.

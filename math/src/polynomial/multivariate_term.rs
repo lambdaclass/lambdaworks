@@ -52,13 +52,21 @@ where
     /// Fetches the max variable by id from the sparse list of id's this is used to ensure the upon evaluation the correct number of points are supplied
     // Sparse variables are stored in increasing var_id therefore we grab the last one
     fn max_var(&self) -> usize {
-        self.vars.last().unwrap().0
+        match self.vars.last() {
+            Some(&var) => var.0,
+            None => 0,
+        }
     }
 
     /// Evaluates `self` at the point `p`.
     fn evaluate(&self, p: &[FieldElement<F>]) -> FieldElement<F> {
         // check the number of evaluations points is equal to the number of variables
         assert!(self.max_var() < p.len());
+
+        if self.vars.is_empty() {
+            return self.coeff.clone();
+        }
+
         // var_id is index of p
         let eval = self
             .vars
@@ -111,6 +119,13 @@ mod tests {
                 vars: vec![(5, 1), (6, 1), (10, 1)]
             }
         );
+    }
+
+    #[test]
+    fn evaluate_constant_multivariate_monomial() {
+        let monomial = MultivariateMonomial::new((FE::new(5), vec![]));
+
+        assert_eq!(monomial.evaluate(&[FE::new(1)]), FE::new(5),);
     }
 
     #[test]

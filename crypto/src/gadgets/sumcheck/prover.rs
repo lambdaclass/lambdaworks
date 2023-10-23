@@ -2,7 +2,7 @@ use std::ops::AddAssign;
 
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::IsField;
-use lambdaworks_math::polynomial::multilinear_poly::MultilinearPolynomial;
+use lambdaworks_math::polynomial::{multilinear_poly, Polynomial};
 
 pub enum ProverMessage<F: IsField>
 where
@@ -52,8 +52,7 @@ mod test_prover {
     use std::vec;
 
     use super::*;
-    use lambdaworks_math::field::fields::fft_friendly::babybear::Babybear31PrimeField;
-    use lambdaworks_math::polynomial::multilinear_term::MultiLinearMonomial;
+    use lambdaworks_math::{field::fields::fft_friendly::babybear::Babybear31PrimeField, polynomial::Polynomial};
 
     #[test]
     fn test_sumcheck_initial_value() {

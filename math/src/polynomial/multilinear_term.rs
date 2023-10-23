@@ -54,7 +54,10 @@ where
     /// evaluation the correct number of points are supplied
     fn max_var(&self) -> usize {
         // Sparse variables are stored in increasing var_id therefore we grab the last one
-        *self.vars.last().unwrap()
+        match self.vars.last() {
+            Some(&max_var) => max_var,
+            None => 0,
+        }
     }
 
     // TODO: test this
@@ -62,6 +65,11 @@ where
     fn evaluate(&self, p: &[FieldElement<F>]) -> FieldElement<F> {
         // Check that p contains the proper amount of elements in dense form.
         assert!(self.max_var() < p.len());
+
+        if self.vars.is_empty() {
+            return self.coeff.clone();
+        }
+
         // var_id is index of p
         let eval = self
             .vars
@@ -109,6 +117,13 @@ mod tests {
                 vars: vec![5, 6, 10]
             }
         );
+    }
+
+    #[test]
+    fn evaluate_constant_multilinear_monomial() {
+        let monomial = MultiLinearMonomial::new((FE::new(5), vec![]));
+
+        assert_eq!(monomial.evaluate(&[FE::new(1)]), FE::new(5),);
     }
 
     #[test]
