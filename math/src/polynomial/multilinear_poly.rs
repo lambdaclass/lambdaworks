@@ -19,8 +19,15 @@ where
 {
     /// Build a new multilinear polynomial, from collection of multilinear monomials
     #[allow(dead_code)]
-    fn new(terms: Vec<MultiLinearMonomial<F>>) -> Self {
-        Self { terms }
+    pub fn new(terms: Vec<MultiLinearMonomial<F>>) -> Self {
+        let n = terms.iter().fold(
+            0,
+            |acc, m| if m.max_var() > acc { m.max_var() } else { acc },
+        );
+        Self {
+            terms,
+            n_vars: if n == 0 { 0 } else { n + 1 },
+        } //we add +1 because variables indices start from 0
     }
 
     /// Evaluates `self` at the point `p`.
