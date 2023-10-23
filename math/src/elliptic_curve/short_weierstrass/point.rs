@@ -137,8 +137,8 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
             return self.clone();
         }
 
-        let z1z1 = self.x().square();
-        let z2z2 = self.z().square();
+        let z1z1 = self.z().square();
+        let z2z2 = other.z().square();
 
         let mut u1 = self.x().clone();
         u1 *= &z2z2;
@@ -154,7 +154,9 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
         s2 *= self.z();
         s2 *= &z1z1;
 
+        println!("ESTOY POR ENTRAR!!");
         if u1 == u2 && s1 == s2 {
+            println!("ENTRE IGUALDAD!");
             let copy = self;
             copy.clone().double_in_place();
             return copy.clone();
@@ -433,9 +435,19 @@ mod tests {
         let res_operate_with_self = point.operate_with_self(2u16);
         let res_operate_with = point.operate_with(&point);
 
-        // assert_eq!(affine_expected, res_operate_with_self);
-        // assert_eq!(affine_expected, res_operate_with);
-
         assert_eq!(res_operate_with, res_operate_with_self);
+        assert_eq!(affine_expected, res_operate_with);
+    }
+
+    #[test]
+    fn operate_with_other_works() {
+        let point1 = point();
+        // let expected = todo!();
+
+        let x = FEE::new_base("0x19ef02aaa2ef2235cecd25a89259c3b24e3cf7260875f4617851d890786e6e63d50678d219d493dd99c3ed2eb550117b");
+        let y = FEE::new_base("0x1775eadaa2a956d21df7447b1eb4860152bfb7ed991efbfaf47aa84079690280b5192e0bdc1a54dc2d348e2debe0f6d3");
+        let point2 = BLS12381Curve::create_point_from_affine(x, y).unwrap();
+
+        let res = point1.operate_with(&point2);
     }
 }
