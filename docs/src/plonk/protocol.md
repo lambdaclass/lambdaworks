@@ -51,7 +51,7 @@ This is called the linearization trick. The polynomial $f$ is called the _linear
 ## Setup
 
 There's a one time setup phase to compute some values common to any execution and proof of the particular circuit. Precisely, the following commitments are computed and published.
-$$[ q_L]_1 , [ q_R ]_1 , [ q_M ]_1 , [ q_O ]_1 , [ q_C ]_1 , [ S_{\sigma 1} ]_1 , [ S_{\sigma 2} ]_1 , [ S_{\sigma 3} ]_1$$
+$$[ q_L]_1 , [ q_R ]_1 , [ q_M ]_1 , [ q_O ]_1 , [ q_C ]_1 , [ S_{\sigma 1 } ]_1 , [ S_{\sigma_2 } ]_1 , [ S_{\sigma 3 } ]_1$$
 
 ## Proving algorithm
 
@@ -64,7 +64,7 @@ The prover computes the trace matrix $T$ as described in the first sections. Tha
 ### Round 1
 
 Add to the transcript the following:
-$$[S_{\sigma1} ]_1, [S_{\sigma2} ]_1, [S_{\sigma3} ]_1, [q_L ]_1, [q_R ]_1, [q_M ]_1, [q_O ]_1, [q_C ]_1$$
+$$[S_{\sigma_1 } ]_1, [S_{\sigma_2 } ]_1, [S_{\sigma_3 } ]_1, [q_L ]_1, [q_R ]_1, [q_M ]_1, [q_O ]_1, [q_C ]_1$$
 
 Compute polynomials $a',b',c'$ as the interpolation polynomials of the columns of $T$ at the domain $H$.
 Sample random $b_1, b_2, b_3, b_4, b_5, b_6$
