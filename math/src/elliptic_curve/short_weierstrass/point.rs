@@ -424,9 +424,18 @@ mod tests {
     #[test]
     fn doubling_a_point_works() {
         let point = point();
-        let expected = todo!();
+        // let expected = todo!();
+
+        let x = FEE::new_base("0x19ef02aaa2ef2235cecd25a89259c3b24e3cf7260875f4617851d890786e6e63d50678d219d493dd99c3ed2eb550117b");
+        let y = FEE::new_base("0x1775eadaa2a956d21df7447b1eb4860152bfb7ed991efbfaf47aa84079690280b5192e0bdc1a54dc2d348e2debe0f6d3");
+        let affine_expected = BLS12381Curve::create_point_from_affine(x, y).unwrap();
 
         let res_operate_with_self = point.operate_with_self(2u16);
         let res_operate_with = point.operate_with(&point);
+
+        // assert_eq!(affine_expected, res_operate_with_self);
+        // assert_eq!(affine_expected, res_operate_with);
+
+        assert_eq!(res_operate_with, res_operate_with_self);
     }
 }
