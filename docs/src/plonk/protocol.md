@@ -221,17 +221,17 @@ $$
 
 Then $[p_{nc} ]_1 = [p_{nc1} ]_1 + [p_{nc2} ]_1 + [p_{nc3} ]_1$.
 
-#### Compute claimed value $f_{\text{batch}}(\zeta)$ and $[f_{\text{batch}}]_1$
+#### Compute claimed value $f_{\text{batch} } (\zeta)$ and $[f_{{batch} }]_1$
 
-Compute $f_{\text{batch}}(\zeta)$ as
+Compute $f_{\text{batch}} (\zeta)$ as
 
 $$
-f_{\text{batch}}(\zeta) =
+f_{\text{batch}} (\zeta) =
 \bar t +\upsilon \bar p_{nc} + \upsilon^2 \bar a + \upsilon^3 \bar b + \upsilon^4 \bar c + \upsilon^5 \bar s_{\sigma1} + \upsilon^6 \bar s_{\sigma2}
 $$
 
 Also, the commitment of the polynomial $f_{\text{batch}}$ is
-$$[f_{\text{batch}}]_1 = [t_{\text{partial}}]_1 +\upsilon [p_{nc}]_1 + \upsilon^2 [a]_1 + \upsilon^3 [b]_1 + \upsilon^4 [c]_1 + \upsilon^5 [S_{\sigma1}]_1 + \upsilon^6 [S_{\sigma2}]_1$$
+$$[f_{\text{batch} }]_1 = [t_{\text{partial}}]_1 + \upsilon [p_{nc}]_1 + \upsilon^2 [a]_1 + \upsilon^3 [b]_1 + \upsilon^4 [c]_1 + \upsilon^5 [S_{\sigma1}]_1 + \upsilon^6 [S_{\sigma2}]_1$$
 
 ### Proof check
 
