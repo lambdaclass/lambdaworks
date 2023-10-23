@@ -448,6 +448,12 @@ mod tests {
         let y = FEE::new_base("0x1775eadaa2a956d21df7447b1eb4860152bfb7ed991efbfaf47aa84079690280b5192e0bdc1a54dc2d348e2debe0f6d3");
         let point2 = BLS12381Curve::create_point_from_affine(x, y).unwrap();
 
+        let x_expected = FEE::new_base("0x187e2a213b898e849a1a3c5e52e9064a064134d4fc01cb05fdf78a95db555bad9efd3487728781a1aa0e403f10a9486e");
+        let y_expected = FEE::new_base("0x110c7cfa8feb88441edd28c69137704460d4f881d004655385bd1ab92977d1b793149d99c32bb5c26d696c467f59f7ea");
+        let expected = BLS12381Curve::create_point_from_affine(x_expected, y_expected).unwrap();
+
         let res = point1.operate_with(&point2);
+
+        assert_eq!(res, expected);
     }
 }
