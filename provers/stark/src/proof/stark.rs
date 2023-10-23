@@ -141,7 +141,7 @@ where
         }
 
         if let Some(nonce_value) = self.nonce {
-            output.extend_from_slice(&nonce_value.to_be_bytes());
+            output.extend_from_slice(&nonce_value.to_le_bytes());
         }
 
         let decommitment = &self.query_list[0];
