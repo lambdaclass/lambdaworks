@@ -1,5 +1,5 @@
 [package]
-name = "groth16"
+name = "lambdaworks-groth16"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
