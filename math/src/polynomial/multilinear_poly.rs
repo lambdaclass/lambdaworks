@@ -27,7 +27,7 @@ where
         );
         Self {
             terms,
-            n_vars: n + 1,
+            n_vars: if n == 0 { 0 } else { n + 1 },
         } //we add +1 because variables indices start from 0
     }
 
