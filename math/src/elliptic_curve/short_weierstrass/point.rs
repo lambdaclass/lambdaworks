@@ -73,6 +73,7 @@ impl<E: IsShortWeierstrass> FromAffine<E::BaseField> for ShortWeierstrassProject
 }
 
 impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
+    /// Taken from <http://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#addition-madd-2007-bl>
     fn double_in_place(&mut self) -> &mut Self {
         let xx = self.x().square();
         let yy = self.y().square();
@@ -127,7 +128,7 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
     }
 
     /// Computes the addition of `self` and `other`.
-    /// Taken from "Moonmath" (Algorithm 7, page 89)
+    /// Taken from <http://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#addition-madd-2007-bl>
     fn operate_with(&self, other: &Self) -> Self {
         if self.is_neutral_element() {
             return other.clone();
@@ -155,7 +156,6 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
         s2 *= &z1z1;
 
         if u1 == u2 && s1 == s2 {
-            println!("ENTER THE VOID!");
             let mut copy = self.clone();
             let res = copy.double_in_place();
             return res.clone();

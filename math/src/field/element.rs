@@ -9,7 +9,7 @@ use core::fmt::Debug;
 use core::iter::Sum;
 #[cfg(feature = "lambdaworks-serde")]
 use core::marker::PhantomData;
-use core::ops::{Add, AddAssign, Div, Mul, Neg, Sub, MulAssign, SubAssign};
+use core::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub, SubAssign};
 #[cfg(feature = "lambdaworks-serde")]
 use serde::de::{self, Deserializer, MapAccess, Visitor};
 #[cfg(feature = "lambdaworks-serde")]
@@ -171,7 +171,6 @@ where
         self.value = F::add(&self.value, &rhs.value);
     }
 }
-
 
 /// Sum operator for field elements
 impl<F> Sum<FieldElement<F>> for FieldElement<F>
