@@ -77,10 +77,10 @@ where
         eval * &self.coeff
     }
 
-    //TODO: this needs work and should modify in place
     fn partial_evaluate(&self, assignments: &[(usize, FieldElement<F>)]) -> Self {
+        println!("{:?} {:?}", assignments.len(), self.max_var());
         assert!(
-            assignments.len() < self.max_var(),
+            assignments.len() <= self.max_var(),
             "More assignments than variables present in input"
         );
         let mut new_coefficient = self.coeff.clone();

@@ -95,7 +95,7 @@ mod tests {
                         vars: vec![3]
                     }
                 ],
-                n_vars: 3,
+                n_vars: 4,
             }
         );
     }
