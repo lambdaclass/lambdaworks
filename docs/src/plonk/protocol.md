@@ -165,7 +165,7 @@ Compute $\bar p_{nc} := p_{nc}(\zeta)$ and $\bar t = t(\zeta)$.
 ### Proof
 
 The proof is:
-$$[a]_1, [b]_1 , [c]_1, [z]_1, [t_{lo} ]_1, [t_{mid} ]_1, [t_{hi} ]_1, \bar{a}, \bar{b}, \bar{c}, \bar{s_{\sigma1}}, \bar{s_{\sigma2}}, \bar{z_\omega}, \pi_{\text{batch}}, \pi_{\text{single}}, \bar p_{nc}, \bar t$$
+$$[a]_1, [b]_1 , [c]_1, [z]_1, [t_{lo} ]_1, [t_{mid} ]_1, [t_{hi} ]_1, \bar{a}, \bar{b}, \bar{c}, \bar{s_{\sigma1}}, \bar{s_{\sigma2}}, \bar{z_\omega}, \pi_{\mathrm{batch}}, \pi_{\mathrm{single}}, \bar p_{nc}, \bar t$$
 
 ## Verification algorithm
 
@@ -238,9 +238,9 @@ $$[f_{\mathrm{batch} }]_1 = [t_{\mathrm{partial}}]_1 + \upsilon [p_{nc}]_1 + \up
 Now the verifier has all the necessary values to proceed with the checks.
 
 - Check that $p(\zeta)$ equals $(\zeta^N - 1)t(\zeta)$.
-- Verify the opening of $f_{\text{batch}}$ at $\zeta$. That is, check that $\text{Verify}([f_{\mathrm{batch}}]_1, \pi_{\mathrm{batch}}, \zeta, f_{\mathrm{batch}}(\zeta))$ outputs _Accept_.
+- Verify the opening of $f_{\text{batch}}$ at $\zeta$. That is, check that $\mathrm{Verify}([f_{\mathrm{batch} } ]_1, \pi_{\mathrm{batch}}, \zeta, f_{\mathrm{batch} } (\zeta))$ outputs _Accept_.
 - Verify the opening of $z$ at $\zeta\omega$. That is, check the validity of the proof $\pi_{single}$ using the commitment $[z]_1$ and the value $\bar z_\omega$.
-That is, check that $\text{Verify}([z]_1, \pi_{\mathrm{single}}, \zeta \omega, \bar z_\omega)$ outputs _Accept_.
+That is, check that $\mathrm{Verify}([z]_1, \pi_{\mathrm{single}}, \zeta \omega, \bar z_\omega)$ outputs _Accept_.
 
 If all checks pass, he outputs _Accept_. Otherwise outputs _Reject_.
 
