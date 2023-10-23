@@ -2,9 +2,7 @@ use std::ops::AddAssign;
 
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::IsField;
-use lambdaworks_math::polynomial::{
-    multilinear_poly::MultilinearPolynomial, multilinear_term::MultiLinearMonomial,
-};
+use lambdaworks_math::polynomial::multilinear_poly::MultilinearPolynomial;
 
 pub enum ProverMessage<F: IsField>
 where
@@ -25,7 +23,7 @@ where
         for value in 0..2u64.pow(poly.n_vars as u32) {
             let mut assign_numbers: Vec<u64> = Vec::new();
             let mut assign_value = value;
-            
+
             for _bit in 0..poly.n_vars {
                 assign_numbers.push(assign_value % 2);
                 assign_value = assign_value >> 1;
@@ -37,7 +35,6 @@ where
                 .iter()
                 .map(|x| FieldElement::<F>::from(*x))
                 .collect::<Vec<FieldElement<F>>>();
-            
 
             acc.add_assign(poly.evaluate(&assign));
         }
@@ -56,6 +53,7 @@ mod test_prover {
 
     use super::*;
     use lambdaworks_math::field::fields::fft_friendly::babybear::Babybear31PrimeField;
+    use lambdaworks_math::polynomial::multilinear_term::MultiLinearMonomial;
 
     #[test]
     fn test_sumcheck_initial_value() {
@@ -64,8 +62,7 @@ mod test_prover {
             MultiLinearMonomial::new((FieldElement::<Babybear31PrimeField>::from(1), vec![]));
         let x0: MultiLinearMonomial<lambdaworks_math::field::fields::montgomery_backed_prime_fields::MontgomeryBackendPrimeField<lambdaworks_math::field::fields::fft_friendly::babybear::MontgomeryConfigBabybear31PrimeField, 1>> =
             MultiLinearMonomial::new((FieldElement::<Babybear31PrimeField>::from(1), vec![0]));
-        let x1 =
-            MultiLinearMonomial::new((FieldElement::<Babybear31PrimeField>::from(1), vec![1]));
+        let x1 = MultiLinearMonomial::new((FieldElement::<Babybear31PrimeField>::from(1), vec![1]));
         let x01 =
             MultiLinearMonomial::new((FieldElement::<Babybear31PrimeField>::from(1), vec![0, 1]));
 
