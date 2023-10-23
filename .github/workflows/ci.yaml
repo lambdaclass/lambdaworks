@@ -30,6 +30,10 @@ jobs:
       - name: Run cargo check
         run: cargo check
 
+      - name: Run cargo check cli
+        run: |
+          cargo check --features cli
+          
       - name: Run cargo check for math with no-std
         run: cargo check --package lambdaworks-math --no-default-features
       
@@ -96,7 +100,7 @@ jobs:
           cache: "pip"
 
       - name: Install cairo-lang toolchain and dependencies
-        run: pip install -r requirements.txt
+        run: pip install -r provers/cairo/requirements.txt
 
       - name: Install testing tools
         uses: taiki-e/install-action@v2

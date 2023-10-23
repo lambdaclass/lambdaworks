@@ -1,7 +1,6 @@
 use crate::elliptic_curve::traits::IsEllipticCurve;
 use crate::field::element::FieldElement;
-use std::fmt::Debug;
-
+use core::fmt::Debug;
 /// Represents an elliptic curve point using the projective short Weierstrass form:
 /// y^2 * z = x^3 + a * x * z^2 + b * z^3,
 /// where `x`, `y` and `z` variables are field elements.
@@ -12,7 +11,7 @@ pub struct ProjectivePoint<E: IsEllipticCurve> {
 
 impl<E: IsEllipticCurve> ProjectivePoint<E> {
     /// Creates an elliptic curve point giving the projective [x: y: z] coordinates.
-    pub fn new(value: [FieldElement<E::BaseField>; 3]) -> Self {
+    pub const fn new(value: [FieldElement<E::BaseField>; 3]) -> Self {
         Self { value }
     }
 
