@@ -1,6 +1,6 @@
 use crate::field::element::FieldElement;
 use crate::field::traits::IsField;
-use crate::polynomial::term::Term;
+use crate::polynomial::traits::term::Term;
 
 /// Struct for (coeff: FieldElement<F>, terms: Vec<usize>) representing a multilinear
 /// monomial in a sparse format.

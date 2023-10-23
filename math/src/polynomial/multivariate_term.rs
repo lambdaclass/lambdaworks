@@ -1,6 +1,6 @@
 use crate::field::element::FieldElement;
 use crate::field::traits::IsField;
-use crate::polynomial::term::Term;
+use crate::polynomial::traits::term::Term;
 
 /// Wrapper struct for (coeff: FieldElement<F>, terms: Vec<usize>) representing a multivariate monomial in a sparse format.
 // This sparse form is inspired by https://doc.sagemath.org/html/en/reference/polynomial_rings/sage/rings/polynomial/polydict.html
