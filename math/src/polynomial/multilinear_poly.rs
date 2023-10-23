@@ -25,7 +25,7 @@ where
             0,
             |acc, m| if m.max_var() > acc { m.max_var() } else { acc },
         );
-        Self { terms, n_vars: n }
+        Self { terms, n_vars: n+1 }//we add +1 because variables indices start from 0
     }
 
     /// Evaluates `self` at the point `p`.
