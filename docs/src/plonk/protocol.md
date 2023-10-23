@@ -189,13 +189,13 @@ Firstly, the verifier needs to compute all the challenges. For that, he follows 
 - Add $\bar a, \bar b, \bar c, \bar s_{\sigma1}, \bar s_{\sigma2}, \bar z_\omega$ to the transcript.
 - Sample a challenge $\upsilon$.
 
-#### Compute $pi ( \zeta )$
+#### Compute $p.i ( \zeta )$
 
 Also he needs compute a few values off all these data. First, he computes the $PI$ matrix with the public inputs and outputs. He needs to compute $pi(\zeta)$, where $pi$ is the interpolation of $PI$ at the domain $H$. But he doesn't need to compute $pi$. He can instead compute $pi(\zeta)$ as
 $$\sum_{i = 0 }^n L_i(\zeta) (PI)_i,$$
 where $n$ is the number of public inputs and $L_i$ is the Lagrange basis at the domain $H$.
 
-#### Compute claimed values $p(\zeta)$ and $t(\zeta)$
+#### Compute claimed values of $p( \zeta )$ and $t( \zeta )$
 
 He computes $\bar p_{c} := pi(\zeta) + \alpha \bar z_\omega (\bar c + \gamma) (\bar a + \beta \bar s_{\sigma1} + \gamma) (\bar b + \beta \bar s_{\sigma2} + \gamma) - \alpha^2 L_1(\zeta)$
 
@@ -204,10 +204,10 @@ $$p(\zeta) = \bar p_{c} + \bar p_{nc}$$
 
 With respect to $t(\zeta)$, this is actually already $\bar{t}$.
 
-#### Compute $[t_{\text{partial}} ]_1$ and $[p_{nc} ]_1$
+#### Compute $[t_{\mathrm{partial}} ]_1$ and $[p_{nc} ]_1$
 
 He computes these off the commitments in the proof as follows
-$$[t_{\text{partial}}]_1 = [t_{lo}]_1 + \zeta^{ N + 2 }[t_{mid}]_1 + \zeta^{ 2 (N + 2) }[t_{hi}]_1$$
+$$[t_{\mathrm{partial}}]_1 = [t_{lo}]_1 + \zeta^{ N + 2 }[t_{mid}]_1 + \zeta^{ 2 (N + 2) }[t_{hi}]_1$$
 
 For $[p_{nc}]_1$, first compute
 
@@ -226,21 +226,21 @@ Then $[p_{nc} ]_1 = [p_{nc1} ]_1 + [p_{nc2} ]_1 + [p_{nc3} ]_1$.
 Compute $f_{\text{batch}} (\zeta)$ as
 
 $$
-f_{\text{batch}} (\zeta) =
+f_{\mathrm{batch}} (\zeta) =
 \bar t +\upsilon \bar p_{nc} + \upsilon^2 \bar a + \upsilon^3 \bar b + \upsilon^4 \bar c + \upsilon^5 \bar s_{\sigma1} + \upsilon^6 \bar s_{\sigma2}
 $$
 
 Also, the commitment of the polynomial $f_{\text{batch}}$ is
-$$[f_{\text{batch} }]_1 = [t_{\text{partial}}]_1 + \upsilon [p_{nc}]_1 + \upsilon^2 [a]_1 + \upsilon^3 [b]_1 + \upsilon^4 [c]_1 + \upsilon^5 [S_{\sigma1}]_1 + \upsilon^6 [S_{\sigma2}]_1$$
+$$[f_{\mathrm{batch} }]_1 = [t_{\mathrm{partial}}]_1 + \upsilon [p_{nc}]_1 + \upsilon^2 [a]_1 + \upsilon^3 [b]_1 + \upsilon^4 [c]_1 + \upsilon^5 [S_{\sigma1}]_1 + \upsilon^6 [S_{\sigma2}]_1$$
 
 ### Proof check
 
 Now the verifier has all the necessary values to proceed with the checks.
 
 - Check that $p(\zeta)$ equals $(\zeta^N - 1)t(\zeta)$.
-- Verify the opening of $f_{\text{batch}}$ at $\zeta$. That is, check that $\text{Verify}([f_{\text{batch}}]_1, \pi_{\text{batch}}, \zeta, f_{\text{batch}}(\zeta))$ outputs _Accept_.
+- Verify the opening of $f_{\text{batch}}$ at $\zeta$. That is, check that $\text{Verify}([f_{\mathrm{batch}}]_1, \pi_{\mathrm{batch}}, \zeta, f_{\mathrm{batch}}(\zeta))$ outputs _Accept_.
 - Verify the opening of $z$ at $\zeta\omega$. That is, check the validity of the proof $\pi_{single}$ using the commitment $[z]_1$ and the value $\bar z_\omega$.
-That is, check that $\text{Verify}([z]_1, \pi_{\text{single}}, \zeta\omega, \bar z_\omega)$ outputs _Accept_.
+That is, check that $\text{Verify}([z]_1, \pi_{\mathrm{single}}, \zeta \omega, \bar z_\omega)$ outputs _Accept_.
 
 If all checks pass, he outputs _Accept_. Otherwise outputs _Reject_.
 
