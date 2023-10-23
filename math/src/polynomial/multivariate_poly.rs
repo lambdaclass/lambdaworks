@@ -131,4 +131,37 @@ mod tests {
         let result = poly.evaluate(&[FE::one(), FE::new(2), FE::new(3)]);
         assert_eq!(result, FE::new(30));
     }
+
+    #[test]
+    #[should_panic(expected = "Incorrect number of vars")]
+    fn test_evaluate_incorrect_vars_len() {
+        // 3ab + 4bc
+        // evaluate: a = 1, b = 2, c = 3
+        // expected result = 30
+        // a = 1, b = 2, c = 3
+        let poly = MultivariatePolynomial::new(&[
+            MultivariateMonomial::new((FE::new(3), vec![(0, 1), (1, 1)])),
+            MultivariateMonomial::new((FE::new(4), vec![(1, 1), (2, 1)])),
+        ]);
+        let _ = poly.evaluate(&[FE::one(), FE::new(2)]);
+    }
+
+    #[test]
+    #[should_panic(expected = "More assignments than variables present in input")]
+    fn test_partial_evaluation_incorrect_var_len() {
+        // 3ab + 4bc
+        // partially evaluate b = 2
+        // expected result = 6a + 8c
+        // a = 1, b = 2, c = 3
+        let poly = MultivariatePolynomial::new(&[
+            MultivariateMonomial::new((FE::new(3), vec![(1, 1), (2, 1)])),
+            MultivariateMonomial::new((FE::new(4), vec![(2, 1), (3, 1)])),
+        ]);
+        let _ = poly.partial_evaluate(&[
+            (2, FE::new(2)),
+            (1, FE::new(2)),
+            (3, FE::new(2)),
+            (4, FE::new(2)),
+        ]);
+    }
 }

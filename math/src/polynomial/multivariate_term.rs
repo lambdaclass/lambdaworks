@@ -61,7 +61,7 @@ where
     /// Evaluates `self` at the point `p`.
     fn evaluate(&self, p: &[FieldElement<F>]) -> FieldElement<F> {
         // check the number of evaluations points is equal to the number of variables
-        assert!(self.max_var() < p.len());
+        assert!(self.max_var() < p.len(), "Incorrect number of vars");
 
         if self.vars.is_empty() {
             return self.coeff.clone();
@@ -79,15 +79,17 @@ where
 
     //TODO: this needs work and should modify in place
     fn partial_evaluate(&self, assignments: &[(usize, FieldElement<F>)]) -> Self {
+        assert!(
+            assignments.len() < self.max_var(),
+            "More assignments than variables present in input"
+        );
         let mut new_coefficient = self.coeff.clone();
         let mut unassigned_variables = self.vars.to_vec();
         let mut var_ids: Vec<usize> = unassigned_variables.iter().map(|x| x.0).collect();
-        println!("var_ids {:?}", var_ids);
 
         for (var_id, assignment) in assignments {
             if var_ids.contains(var_id) {
                 new_coefficient = new_coefficient * assignment;
-                println!("new_coeff {:?}", new_coefficient);
                 unassigned_variables.retain(|&id| id.0 != *var_id);
                 var_ids.retain(|&id| id != *var_id);
             }
@@ -142,8 +144,6 @@ mod tests {
             }
         );
 
-        println!("a");
-
         // 6abcd evaluate a = 5, c = 3
         // expected = 90bd
         let six_a_b_c_d =
@@ -156,7 +156,6 @@ mod tests {
                 vars: vec![(2, 1), (4, 1)]
             }
         );
-        println!("b");
 
         // assign every variable
         // 5ab partially evaluate a= 3, b = 2
@@ -171,7 +170,6 @@ mod tests {
             }
         );
 
-        println!("c");
         // ignore repeated assignments
         // 6abcd evaluate a = 5, c = 3, a = 9
         // expected = 90bd
