@@ -64,7 +64,7 @@ mod test_prover {
         let x01 =
             MultiLinearMonomial::new((FieldElement::<Babybear31PrimeField>::from(1), vec![0, 1]));
 
-        let poly = MultilinearPolynomial::new(vec![constant,x0,x1,x01]);
+        let poly = MultilinearPolynomial::new(vec![constant, x0, x1, x01]);
 
         let msg = match sumcheck_prover(0, poly) {
             ProverMessage::Sum(x) => x,
