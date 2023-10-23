@@ -141,6 +141,7 @@ where
         }
 
         if let Some(nonce_value) = self.nonce {
+            // FRI/Proof of Work: POW
             output.extend_from_slice(&nonce_value.to_be_bytes());
         }
 
@@ -150,7 +151,10 @@ where
             .iter()
             .zip(decommitment.layers_auth_paths_sym.iter())
         {
+            // FRI/Decommitment/Layer 1: Row .., Column ..:
             output.extend_from_slice(&evaluation.serialize());
+
+            // FRI/Decommitment/Layer 1: For node ..:
             output.extend_from_slice(
                 &path
                     .merkle_path
