@@ -1,7 +1,7 @@
 use crate::field::element::FieldElement;
 use crate::field::traits::IsField;
 
-use super::{multivariate_term::MultivariateMonomial, term::Term};
+use super::{multivariate_term::MultivariateMonomial, traits::term::Term};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MultivariatePolynomial<F: IsField + Default>

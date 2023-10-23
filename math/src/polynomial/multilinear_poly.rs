@@ -1,7 +1,7 @@
 use crate::field::element::FieldElement;
 use crate::field::traits::IsField;
 use crate::polynomial::multilinear_term::MultiLinearMonomial;
-use crate::polynomial::term::Term;
+use crate::polynomial::traits::term::Term;
 
 /// Represents a multilinear polynomials as a collection of multilinear monomials
 // TODO: add checks to track the max degree and number of variables.

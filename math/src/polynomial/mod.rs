@@ -7,7 +7,7 @@ pub mod multilinear_poly;
 pub mod multilinear_term;
 pub mod multivariate_poly;
 pub mod multivariate_term;
-pub mod term;
+pub mod traits;
 
 /// Represents the polynomial c_0 + c_1 * X + c_2 * X^2 + ... + c_n * X^n
 /// as a vector of coefficients `[c_0, c_1, ... , c_n]`
