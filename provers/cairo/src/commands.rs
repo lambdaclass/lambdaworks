@@ -20,7 +20,7 @@ pub enum ProverEntity {
     #[clap(about = "Compile and prove a given cairo program")]
     CompileAndProve(CompileAndProveArgs),
     #[clap(about = "Compile, prove and verify a given cairo program")]
-    CompileAndRunAll(CompileAndRunAllArgs),
+    CompileProveAndVerify(CompileAndRunAllArgs),
 }
 
 #[derive(Args, Debug)]

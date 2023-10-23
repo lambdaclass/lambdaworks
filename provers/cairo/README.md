@@ -83,13 +83,13 @@ cargo run --release --features="cli" prove cairo_programs/cairo0/fibonacci_5.jso
 **To prove and verify with a single command you can use:**
 
 ```bash
-cargo run --release --features="cli" run_all <compiled_program_path>
+cargo run --release --features="cli" prove-and-verify <compiled_program_path>
 ```
 
 For example:
 
 ```bash
-cargo run --release --features="cli" run_all cairo_programs/cairo0/fibonacci_5.json
+cargo run --release --features="cli" prove-and-verify cairo_programs/cairo0/fibonacci_5.json
 ```
 
 
@@ -97,13 +97,13 @@ cargo run --release --features="cli" run_all cairo_programs/cairo0/fibonacci_5.j
 **To compile, proof, prove and verify at the same time you can use:**
 
 ```bash
-cargo run --release --features="cli" compile_and_run_all <program_path>
+cargo run --release --features="cli" compile-prove-and-verify <program_path>
 ```
 
 For example:
 
 ```bash
-cargo run --release --features="cli" compile_and_run_all cairo_programs/cairo0/fibonacci_5.cairo
+cargo run --release --features="cli" compile-prove-and-verify cairo_programs/cairo0/fibonacci_5.cairo
 ```
 
 ### Run CLI as a binary
@@ -115,9 +115,9 @@ cargo install --features="cli" --path .
 
 To run the CLI as a binary instead of using cargo replace `cargo run --release --features="cli"` with `platinum-prover`.
 
-for example:
+for example, the command to generate a proof becomes:
 ```bash
-platinum-prover cairo_programs/cairo0/fibonacci_5.cairo cairo_programs/cairo0/fibonacci_5.proof
+platinum-prover prove cairo_programs/cairo0/fibonacci_5.json cairo_programs/cairo0/fibonacci_5.proof
 ```
 
 **You can uninstall the binary with:**
