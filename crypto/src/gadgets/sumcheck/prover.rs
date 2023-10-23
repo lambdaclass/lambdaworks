@@ -1,10 +1,11 @@
 use std::ops::AddAssign;
 
 use lambdaworks_math::field::element::FieldElement;
-use lambdaworks_math::field::traits::IsField;
+use lambdaworks_math::field::traits::{IsField, IsPrimeField};
 use lambdaworks_math::polynomial::multilinear_poly::MultilinearPolynomial;
 
-pub enum ProverMessage<F: IsField>
+/// sumcheck prover message
+pub enum ProverMessage<F: IsPrimeField>
 where
     <F as IsField>::BaseType: Send + Sync,
 {
@@ -12,18 +13,36 @@ where
     Polynomial(MultilinearPolynomial<F>),
 }
 
-pub fn sumcheck_prover<F: IsField>(round: u64, poly: MultilinearPolynomial<F>) -> ProverMessage<F>
+/// prover struct for sumcheck protocol
+pub struct Prover<F: IsPrimeField>
 where
     <F as IsField>::BaseType: Send + Sync,
 {
-    if round == 0 {
+    poly: MultilinearPolynomial<F>,
+    round: u64,
+}
+
+impl<F: IsPrimeField> Prover<F>
+where
+    <F as IsField>::BaseType: Send + Sync,
+{
+    /// Constructor for prover takes a multilinear polynomial
+    pub fn new(poly: MultilinearPolynomial<F>) -> Prover<F> {
+        Prover {
+            poly: poly,
+            round: 0,
+        }
+    }
+
+    /// Generates a valid sum of the polynomial
+    pub fn generate_valid_sum(&self) -> FieldElement<F> {
         let mut acc = FieldElement::<F>::zero();
 
-        for value in 0..2u64.pow(poly.n_vars as u32) {
+        for value in 0..2u64.pow(self.poly.n_vars as u32) {
             let mut assign_numbers: Vec<u64> = Vec::new();
             let mut assign_value = value;
 
-            for _bit in 0..poly.n_vars {
+            for _bit in 0..self.poly.n_vars {
                 assign_numbers.push(assign_value % 2);
                 assign_value = assign_value >> 1;
             }
@@ -33,14 +52,10 @@ where
                 .map(|x| FieldElement::<F>::from(*x))
                 .collect::<Vec<FieldElement<F>>>();
 
-            acc.add_assign(poly.evaluate(&assign));
+            acc.add_assign(self.poly.evaluate(&assign));
         }
 
-        ProverMessage::Sum(acc)
-    } else if round == 1 {
-        ProverMessage::Sum(FieldElement::<F>::one())
-    } else {
-        ProverMessage::Sum(FieldElement::<F>::one())
+        acc
     }
 }
 
@@ -66,10 +81,8 @@ mod test_prover {
 
         let poly = MultilinearPolynomial::new(vec![constant, x0, x1, x01]);
 
-        let msg = match sumcheck_prover(0, poly) {
-            ProverMessage::Sum(x) => x,
-            _ => FieldElement::<Babybear31PrimeField>::zero(),
-        };
+        let prover = Prover::new(poly);
+        let msg = prover.generate_valid_sum();
 
         assert_eq!(msg, FieldElement::<Babybear31PrimeField>::from(9));
     }
