@@ -52,8 +52,7 @@ where
     }
 
     /// Executes the i-th round of the sumcheck protocol
-    pub fn send_poly(&self)  {
-
+    pub fn send_poly(&mut self) {
         for value in 0..2u64.pow(self.poly.n_vars as u32 - self.round + 1) {
             let mut assign_numbers: Vec<u64> = Vec::new();
             let mut assign_value = value;
@@ -68,12 +67,11 @@ where
                 .map(|x| FieldElement::<F>::from(*x))
                 .collect::<Vec<FieldElement<F>>>();
 
-            let peval: Vec<_> = (self.round as usize + 1..self.poly.n_vars)
-                .into_iter()
-                .zip(assign.iter())
-                .collect();
-        }
+            let numbers: Vec<usize> = (self.round as usize + 1..self.poly.n_vars).collect();
+            let peval: Vec<(usize, FieldElement<F>)> = numbers.into_iter().zip(assign).collect();
 
+            self.poly.add(self.poly.partial_evaluate(&peval[0..]));
+        }
     }
 }
 
