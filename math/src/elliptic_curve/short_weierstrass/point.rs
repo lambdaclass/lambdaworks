@@ -115,7 +115,6 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         self
     }
 
-    #[allow(dead_code)] // temporary, function definition will probably be moved from here
     fn operate_with_affine(&self, other: &Self) -> Self {
         if self.is_neutral_element() {
             return Self::new([other.x().clone(), other.y().clone(), FieldElement::one()]);
