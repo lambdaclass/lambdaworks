@@ -106,7 +106,6 @@ where
         let size_g2_point = mem::size_of::<G2Point>();
 
         for i in 0..main_group_len {
-            println!("ENTRE G1");
             // The second unwrap shouldn't fail since the amount of bytes is fixed
             let point = G1Point::deserialize(
                 bytes[i * size_g1_point + MAIN_GROUP_OFFSET
@@ -115,7 +114,6 @@ where
                     .unwrap(),
             )?;
             main_group.push(point);
-            println!("PASE G1");
         }
 
         let g2s_offset = size_g1_point * main_group_len + 12;
