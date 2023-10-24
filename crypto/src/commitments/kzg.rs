@@ -400,17 +400,17 @@ mod tests {
         ));
     }
 
-    // #[test]
-    // fn serialize_deserialize_srs() {
-    //     let srs = create_srs();
-    //     let bytes = srs.serialize();
-    //     let deserialized: StructuredReferenceString<
-    //         ShortWeierstrassProjectivePoint<BLS12381Curve>,
-    //         ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
-    //     > = StructuredReferenceString::deserialize(&bytes).unwrap();
+    #[test]
+    fn serialize_deserialize_srs() {
+        let srs = create_srs();
+        let bytes = srs.serialize();
+        let deserialized: StructuredReferenceString<
+            ShortWeierstrassProjectivePoint<BLS12381Curve>,
+            ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
+        > = StructuredReferenceString::deserialize(&bytes).unwrap();
 
-    //     assert_eq!(srs, deserialized);
-    // }
+        assert_eq!(srs, deserialized);
+    }
 
     #[test]
     fn load_srs_from_file() {

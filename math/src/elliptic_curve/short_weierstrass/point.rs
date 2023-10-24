@@ -285,7 +285,9 @@ where
             } else {
                 Err(DeserializationError::FieldFromBytesError)
             }
-        } else if E::defining_equation(&(&x / &z), &(&y / &z)) == FieldElement::zero() {
+        } else if E::defining_equation(&(&x / &z.pow(2u32)), &(&y / &z.pow(3u32)))
+            == FieldElement::zero()
+        {
             Ok(Self::new([x, y, z]))
         } else {
             Err(DeserializationError::FieldFromBytesError)
