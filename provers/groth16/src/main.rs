@@ -407,22 +407,6 @@ fn main() {
         h_evaluated_encrypted.operate_with_self(t_eval.representative()),
     );
 
-    // println!(
-    //     "p_encr_eval: {}",
-    //     g1.operate_with_self(p_eval.representative())
-    //         .to_affine()
-    //         .x()
-    //         .representative()
-    // );
-    // println!(
-    //     "ht_encr_eval: {}",
-    //     g1.operate_with_self(h_eval.representative())
-    //         .operate_with_self(t_eval.representative())
-    //         .to_affine()
-    //         .x()
-    //         .representative()
-    // );
-
     // let one = FrElement::new(U384 {
     //     limbs: [0, 0, 0, 0, 0, 1],
     // });
