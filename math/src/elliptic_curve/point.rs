@@ -37,11 +37,17 @@ impl<E: IsEllipticCurve> ProjectivePoint<E> {
     }
 
     /// Creates the same point in affine coordinates. That is,
-    /// returns [x / z: y / z: 1] where `self` is [x: y: z].
+    /// returns [x / z^2: y / z^3: 1] where `self` is [x: y: z].
     /// Panics if `self` is the point at infinity.
     pub fn to_affine(&self) -> Self {
         let [x, y, z] = self.coordinates();
-        assert_ne!(z, &FieldElement::zero());
+        if z == &FieldElement::zero() {
+            return ProjectivePoint::new([
+                FieldElement::zero(),
+                FieldElement::zero(),
+                FieldElement::zero(),
+            ]);
+        }
         let inv_z = z.inv().unwrap();
         let inv_z_square = inv_z.square();
         let inv_z_cube = &inv_z * &inv_z_square;

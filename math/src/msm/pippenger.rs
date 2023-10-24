@@ -188,7 +188,7 @@ mod tests {
 
     prop_compose! {
         fn point()(power: u128) -> <BLS12381Curve as IsEllipticCurve>::PointRepresentation {
-            BLS12381Curve::generator().operate_with_self(power)
+            BLS12381Curve::generator().operate_with_self(power).to_affine()
         }
     }
 
@@ -209,8 +209,8 @@ mod tests {
             let cs = cs[..min_len].to_vec();
             let points = points[..min_len].to_vec();
 
-            let pippenger = pippenger::msm_with(&cs, &points, window_size);
-            let naive = naive::msm(&cs, &points).unwrap();
+            let pippenger = pippenger::msm_with(&cs, &points, window_size).to_affine();
+            let naive = naive::msm(&cs, &points).unwrap().to_affine();
 
             prop_assert_eq!(naive, pippenger);
         }
@@ -223,8 +223,8 @@ mod tests {
             let cs = cs[..min_len].to_vec();
             let points = points[..min_len].to_vec();
 
-            let sequential = pippenger::msm_with(&cs, &points, window_size);
-            let parallel = pippenger::parallel_msm_with(&cs, &points, window_size);
+            let sequential = pippenger::msm_with(&cs, &points, window_size).to_affine();
+            let parallel = pippenger::parallel_msm_with(&cs, &points, window_size).to_affine();
 
             prop_assert_eq!(parallel, sequential);
         }

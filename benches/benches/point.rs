@@ -18,9 +18,6 @@ use starknet_curve::{curve_params::GENERATOR, AffinePoint, ProjectivePoint};
 const BENCHMARK_NAME: &str = "point";
 
 pub fn criterion_benchmark(c: &mut Criterion) {
-    /*
-    let point = AffinePoint::from_x(42u64.into()).unwrap();
-
     let initial_projective_point = ProjectivePoint::from(&GENERATOR);
     let second_project_point = initial_projective_point;
 
@@ -34,7 +31,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     let starknet_rs_x = AffinePoint::from(&projective_point).x.to_string();
     println!("Starknet RS result X: {} ", starknet_rs_x);
     let starknet_rs_y = AffinePoint::from(&projective_point).y.to_string();
-    print!("Starknet RS result Y: {} ", starknet_rs_y);
+    println!("Starknet RS result Y: {} ", starknet_rs_y);
 
     {
         c.bench_function(
@@ -51,7 +48,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
             },
         );
     }
-    */
+
     let initial_projective_point = StarkCurve::generator();
     let second_projective_point = initial_projective_point.clone();
 

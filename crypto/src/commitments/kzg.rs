@@ -400,30 +400,15 @@ mod tests {
         ));
     }
 
-    // #[test]
-    // fn serialize_deserialize_srs() {
-    //     let srs = create_srs();
-    //     let bytes = srs.serialize();
-    //     let deserialized: StructuredReferenceString<
-    //         ShortWeierstrassProjectivePoint<BLS12381Curve>,
-    //         ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
-    //     > = StructuredReferenceString::deserialize(&bytes).unwrap();
-
-    //     assert_eq!(srs, deserialized);
-    // }
-
     #[test]
-    fn load_srs_from_file() {
-        type TestSrsType = StructuredReferenceString<
+    fn serialize_deserialize_srs() {
+        let srs = create_srs();
+        let bytes = srs.serialize();
+        let deserialized: StructuredReferenceString<
             ShortWeierstrassProjectivePoint<BLS12381Curve>,
             ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
-        >;
+        > = StructuredReferenceString::deserialize(&bytes).unwrap();
 
-        let base_dir = env!("CARGO_MANIFEST_DIR");
-        let srs_file = base_dir.to_owned() + "/src/commitments/test_srs/srs_3_g1_elements.bin";
-
-        let srs = TestSrsType::from_file(&srs_file).unwrap();
-
-        assert_eq!(srs.powers_main_group.len(), 3);
+        assert_eq!(srs, deserialized);
     }
 }
