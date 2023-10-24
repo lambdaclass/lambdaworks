@@ -258,13 +258,14 @@ fn main() {
         [0, 1, 0, 0, 1, 0]  [1, 0, 0, 0, 0, 0]  [0, 0, 0, 0, 0, 1]
         [5, 0, 0, 0, 0, 1]  [1, 0, 0, 0, 0, 0]  [0, 0, 1, 0, 0, 0]
     */
-    // Will correspond to rows of QAP matrices
+    // Gate indices. Will correspond to rows of QAP matrices. TODO: Roots of unity
     let gate_indices = vec![
         FrElement::from_hex_unchecked("1"),
         FrElement::from_hex_unchecked("2"),
         FrElement::from_hex_unchecked("3"),
         FrElement::from_hex_unchecked("4"),
     ];
+
     // t(x) = (x-1)(x-2)(x-3)(x-4) = [24, -50, 35, -10, 1]
     let t_coefficients = vec![
         FrElement::from_hex_unchecked("0x18"),
@@ -353,7 +354,7 @@ fn main() {
     // p(x) = A.s * B.s - C.s
     let p = l_dot_s * r_dot_s - o_dot_s;
     let p_degree = p.degree();
-    // h(x) = (A.s * B.s - C.s) / t(x)
+    // h(x) = p(x) / t(x) = (A.s * B.s - C.s) / t(x)
     let (h, remainder) = &p.clone().long_division_with_remainder(&t);
     // must have no remainder
     assert_eq!(0, remainder.degree());
@@ -368,6 +369,7 @@ fn main() {
     let g1: G1Point = BLS12381Curve::generator();
     let g2: G2Point = BLS12381TwistCurve::generator();
 
+    // Point of evaluation. TODO: Fiat-Shamir
     let tau: FrElement = FrElement::new(U256 {
         limbs: [
             rng.gen::<u64>(),
@@ -377,9 +379,24 @@ fn main() {
         ],
     });
 
+    let alpha_shift = FrElement::new(U256 {
+        limbs: [
+            rng.gen::<u64>(),
+            rng.gen::<u64>(),
+            rng.gen::<u64>(),
+            rng.gen::<u64>(),
+        ],
+    });
+
+    // t(tau)
     let t_eval = t.evaluate(&tau);
+    // [tau],[tau^2],[tau^3],...,[tau^n]
     let encrypted_powers_of_tau: Vec<G1Point> = (0..p_degree + 1)
         .map(|exp| g1.operate_with_self(tau.pow(exp as u128).representative()))
+        .collect();
+    // [alpha*tau],[alpha*tau^2],[alpha*tau^3],...,[alpha*tau^n]
+    let encrypted_shifted_powers_of_tau: Vec<G1Point> = (0..p_degree + 1)
+        .map(|exp| g1.operate_with_self((tau.pow(exp as u128) * &alpha_shift).representative()))
         .collect();
 
     //////////////////////////////////////////////////////////////////////
@@ -394,6 +411,16 @@ fn main() {
         .reduce(|acc, x| acc.operate_with(&x))
         .unwrap();
 
+    let p_evaluated_encrypted_shifted = p
+        .coefficients()
+        .iter()
+        .enumerate()
+        .map(|(i, coeff)| {
+            encrypted_shifted_powers_of_tau[i].operate_with_self(coeff.representative())
+        })
+        .reduce(|acc, x| acc.operate_with(&x))
+        .unwrap();
+
     let h_evaluated_encrypted = h
         .coefficients()
         .iter()
@@ -402,6 +429,13 @@ fn main() {
         .reduce(|acc, x| acc.operate_with(&x))
         .unwrap();
 
+    // check alpha shift
+    assert_eq!(
+        p_evaluated_encrypted_shifted,
+        p_evaluated_encrypted.operate_with_self(alpha_shift.representative()),
+    );
+
+    // check computational integrity - polynomial divisibility
     assert_eq!(
         p_evaluated_encrypted,
         h_evaluated_encrypted.operate_with_self(t_eval.representative()),
