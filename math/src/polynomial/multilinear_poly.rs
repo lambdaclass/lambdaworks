@@ -57,6 +57,12 @@ where
             .collect();
         Self::new(updated_monomials)
     }
+
+    /// Adds a polynomial
+    /// This functions concatenates both vectors of terms
+    pub fn add(&mut self, poly: MultilinearPolynomial<F>) {
+        self.terms.extend(poly.terms);
+    }
 }
 
 #[cfg(test)]
