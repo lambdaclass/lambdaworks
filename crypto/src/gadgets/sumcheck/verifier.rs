@@ -34,26 +34,54 @@ where
     }
 
     /// Verify the current round of the protocol, advance round if successful
-    pub fn verify_round(
-        &mut self,
-        prover_message: ProverMessage<F>,
-    ) -> Result<bool, String> {
-        // verify that the poly is univariate
-        // evaluate the poly at 0 and 1, ensure the sum is the same as the round sum
-        // to check if the poly is the true poly, then we need to generate some random challenge
-        // both the prover polynomial and the true polynomial at that point
-        // if we can't do the true polynomial, then we have to save the value then apply sum check again
-        todo!()
+    pub fn verify_round(&mut self, prover_message: ProverMessage<F>) -> Result<bool, String> {
+        // extract the polynomial from prover message
+        // TODO: always polynomial, so we should enforce that at the method level (new type!)
+        let ProverMessage::Polynomial(univariate_poly) = prover_message else {
+            return Err("expected prover message to be a polynomial".to_string());
+        };
+
+        // verify that the polynomial is univariate
+        // TODO: can't check this now, need to update the polynomial logic
+        //  need to assume this is the case for now
+
+        // evaluate prover polynomial at 0 and 1, ensure the sum is equal to the claimed sum
+        // this proves that the current polynomial is related to the last polynomial sent by the
+        // prover
+        let p_0 = univariate_poly.evaluate(&[FieldElement::zero()]);
+        let p_1 = univariate_poly.evaluate(&[FieldElement::one()]);
+        if self.round_sum != p_0 + p_1 {
+            return Ok(false);
+        }
+
+        // now we need to check that the current poly is the same as the true poly
+        // we do this by sampling a random challenge from the field and evaluating both
+        // polynomials at that point
+        let challenge = self.generate_and_store_challenge();
+        let prover_poly_eval = univariate_poly.evaluate(&[challenge]);
+
+        // we can only generate the true eval if we are at the last round
+        return if self.is_last_round() {
+            let true_poly_eval = self.poly.evaluate(self.challenges.as_slice());
+            Ok(prover_poly_eval == true_poly_eval)
+        } else {
+            // defer poly verification to the next round of the protocol
+            self.round += 1;
+            self.round_sum = prover_poly_eval;
+            Ok(true)
+        };
     }
 
     /// Generate challenge for current round
-    pub fn generate_challenge(&mut self) -> Option<FieldElement<F>> {
+    pub fn generate_and_store_challenge(&mut self) -> FieldElement<F> {
+        // should check if we already have a challenge for this round
+        // if we do return that, if we do not then generate it
         todo!()
     }
 
     /// Returns true if the current round is the last round
     fn is_last_round(&self) -> bool {
         // in sumcheck, we have number of variable rounds
-        self.round == self.poly.n_vars
+        self.round == self.poly.n_vars as u64
     }
 }
