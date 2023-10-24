@@ -53,7 +53,7 @@ mod tests {
     }
 
     #[test]
-    fn test_inv() {
+    fn test_inv_quadratic() {
         let a = Fee::new([FE::from(12), FE::from(5)]);
         let inv_norm = (FE::from(12).pow(2_u64)
             - QuadraticBabybearField::residue() * FE::from(5).pow(2_u64))
@@ -61,5 +61,20 @@ mod tests {
         .unwrap();
         let expected_result = Fee::new([FE::from(12) * &inv_norm, -&FE::from(5) * inv_norm]);
         assert_eq!(a.inv().unwrap(), expected_result);
+    }
+
+    #[test]
+    fn test_div_quadratic() {
+        let a = Fee::new([FE::from(12), FE::from(5)]);
+        let b = Fee::new([-FE::from(4), FE::from(2)]);
+        let expected_result = &a * b.inv().unwrap();
+        assert_eq!(a / b, expected_result);
+    }
+
+    #[test]
+    fn test_conjugate_quadratic() {
+        let a = Fee::new([FE::from(12), FE::from(5)]);
+        let expected_result = Fee::new([FE::from(12), -FE::from(5)]);
+        assert_eq!(a.conjugate(), expected_result);
     }
 }
