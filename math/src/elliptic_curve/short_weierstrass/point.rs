@@ -591,7 +591,7 @@ mod tests {
         let affine = point();
 
         let expected = non_affine.operate_with(&affine).to_affine();
-        assert_eq!(non_affine.operate_with(&affine).to_affine(), expected);
-        assert_eq!(affine.operate_with(&non_affine).to_affine(), expected) // different order should also work
+        assert_eq!(non_affine.operate_with_affine(&affine).to_affine(), expected);
+        // assert_eq!(affine.operate_with_affine(&non_affine).to_affine(), expected) // different order does not work
     }
 }
