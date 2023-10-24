@@ -1,7 +1,7 @@
 use crate::{
     errors::TermError,
     field::{element::FieldElement, traits::IsField},
-    polynomial::{multivariate_term::MultivariateMonomial, term::Term},
+    polynomial::{multivariate_term::MultivariateMonomial, traits::term::Term},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
