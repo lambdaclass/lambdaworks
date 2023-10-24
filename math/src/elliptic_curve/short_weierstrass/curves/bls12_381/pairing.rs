@@ -1,20 +1,16 @@
-use super::{
-    curve::BLS12381Curve,
-    field_extension::{Degree12ExtensionField, Degree2ExtensionField},
-    twist::BLS12381TwistCurve,
+use super::field_extension::{Degree12ExtensionField, Degree2ExtensionField};
+use crate::{
+    elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::Degree6ExtensionField,
+    field::element::FieldElement, unsigned_integer::element::UnsignedInteger,
 };
+
+use super::{curve::BLS12381Curve, twist::BLS12381TwistCurve};
 use crate::{
     cyclic_group::IsGroup,
-    elliptic_curve::{
-        short_weierstrass::{
-            curves::bls12_381::field_extension::{Degree6ExtensionField, LevelTwoResidue},
-            point::ShortWeierstrassProjectivePoint,
-            traits::IsShortWeierstrass,
-        },
-        traits::IsPairing,
-    },
-    field::{element::FieldElement, extensions::cubic::HasCubicNonResidue},
-    unsigned_integer::element::UnsignedInteger,
+    elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::LevelTwoResidue,
+    elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint,
+    elliptic_curve::short_weierstrass::traits::IsShortWeierstrass,
+    elliptic_curve::traits::IsPairing, field::extensions::cubic::HasCubicNonResidue,
 };
 
 #[derive(Clone)]
@@ -42,7 +38,6 @@ impl IsPairing for BLS12381AtePairing {
 
 /// This is equal to the frobenius trace of the BLS12 381 curve minus one.
 const MILLER_LOOP_CONSTANT: u64 = 0xd201000000010000;
-
 fn double_accumulate_line(
     t: &mut ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
     p: &ShortWeierstrassProjectivePoint<BLS12381Curve>,

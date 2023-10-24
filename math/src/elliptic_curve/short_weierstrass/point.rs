@@ -6,10 +6,13 @@ use crate::{
     },
     errors::DeserializationError,
     field::element::FieldElement,
-    traits::{ByteConversion, Deserializable, Serializable},
+    traits::{ByteConversion, Deserializable},
 };
 
 use super::traits::IsShortWeierstrass;
+
+#[cfg(feature = "std")]
+use crate::traits::Serializable;
 
 #[derive(Clone, Debug)]
 pub struct ShortWeierstrassProjectivePoint<E: IsEllipticCurve>(pub ProjectivePoint<E>);
@@ -183,6 +186,7 @@ where
     FieldElement<E::BaseField>: ByteConversion,
 {
     /// Serialize the points in the given format
+    #[cfg(feature = "std")]
     pub fn serialize(&self, _point_format: PointFormat, endianness: Endianness) -> Vec<u8> {
         // TODO: Add more compact serialization formats
         // Uncompressed affine / Compressed
@@ -249,6 +253,7 @@ where
     }
 }
 
+#[cfg(feature = "std")]
 impl<E> Serializable for ShortWeierstrassProjectivePoint<E>
 where
     E: IsShortWeierstrass,
@@ -275,22 +280,26 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::elliptic_curve::short_weierstrass::curves::bls12_381::curve::BLS12381Curve;
+
+    #[cfg(feature = "std")]
     use crate::{
-        elliptic_curve::short_weierstrass::curves::bls12_381::{
-            curve::BLS12381Curve, field_extension::BLS12381PrimeField,
-        },
+        elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::BLS12381PrimeField,
         field::element::FieldElement,
     };
 
+    #[cfg(feature = "std")]
     #[allow(clippy::upper_case_acronyms)]
     type FEE = FieldElement<BLS12381PrimeField>;
 
+    #[cfg(feature = "std")]
     fn point() -> ShortWeierstrassProjectivePoint<BLS12381Curve> {
         let x = FEE::new_base("36bb494facde72d0da5c770c4b16d9b2d45cfdc27604a25a1a80b020798e5b0dbd4c6d939a8f8820f042a29ce552ee5");
         let y = FEE::new_base("7acf6e49cc000ff53b06ee1d27056734019c0a1edfa16684da41ebb0c56750f73bc1b0eae4c6c241808a5e485af0ba0");
         BLS12381Curve::create_point_from_affine(x, y).unwrap()
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn byte_conversion_from_and_to_be() {
         let expected_point = point();
@@ -304,6 +313,7 @@ mod tests {
         assert_eq!(expected_point, result.unwrap());
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn byte_conversion_from_and_to_le() {
         let expected_point = point();
@@ -317,6 +327,7 @@ mod tests {
         assert_eq!(expected_point, result.unwrap());
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn byte_conversion_from_and_to_with_mixed_le_and_be_does_not_work() {
         let bytes = point().serialize(PointFormat::Projective, Endianness::LittleEndian);
@@ -333,6 +344,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn byte_conversion_from_and_to_with_mixed_be_and_le_does_not_work() {
         let bytes = point().serialize(PointFormat::Projective, Endianness::BigEndian);
