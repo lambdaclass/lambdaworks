@@ -4,22 +4,14 @@ use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::{IsField, IsPrimeField};
 use lambdaworks_math::polynomial::multilinear_poly::MultilinearPolynomial;
 
-/// sumcheck prover message
-pub enum ProverMessage<F: IsPrimeField>
-where
-    <F as IsField>::BaseType: Send + Sync,
-{
-    Sum(FieldElement<F>),
-    Polynomial(MultilinearPolynomial<F>),
-}
-
 /// prover struct for sumcheck protocol
 pub struct Prover<F: IsPrimeField>
 where
     <F as IsField>::BaseType: Send + Sync,
 {
     poly: MultilinearPolynomial<F>,
-    round: u64,
+    round: u32,
+    r: Vec<FieldElement<F>>,
 }
 
 impl<F: IsPrimeField> Prover<F>
@@ -30,7 +22,8 @@ where
     pub fn new(poly: MultilinearPolynomial<F>) -> Prover<F> {
         Prover {
             poly: poly,
-            round: 0,
+            round: 0,      // current round of the protocol
+            r: Vec::new(), // random challenges
         }
     }
 
@@ -57,17 +50,41 @@ where
 
         acc
     }
+
+    /// Executes the i-th round of the sumcheck protocol
+    pub fn send_poly(&self)  {
+
+        for value in 0..2u64.pow(self.poly.n_vars as u32 - self.round + 1) {
+            let mut assign_numbers: Vec<u64> = Vec::new();
+            let mut assign_value = value;
+
+            for _bit in 0..self.poly.n_vars as u32 - self.round + 1 {
+                assign_numbers.push(assign_value % 2);
+                assign_value = assign_value >> 1;
+            }
+
+            let assign = assign_numbers
+                .iter()
+                .map(|x| FieldElement::<F>::from(*x))
+                .collect::<Vec<FieldElement<F>>>();
+
+            let peval: Vec<_> = (self.round as usize + 1..self.poly.n_vars)
+                .into_iter()
+                .zip(assign.iter())
+                .collect();
+        }
+
+    }
 }
 
 #[cfg(test)]
 mod test_prover {
-    use std::vec;
-
     use super::*;
     use lambdaworks_math::{
         field::fields::fft_friendly::babybear::Babybear31PrimeField,
         polynomial::multilinear_term::MultiLinearMonomial,
     };
+    use std::vec;
 
     #[test]
     fn test_sumcheck_initial_value() {
