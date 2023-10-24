@@ -41,6 +41,7 @@ impl IsPairing for BN254AtePairing {
 }
 
 /// This is equal to the frobenius trace of the BN 254 curve minus one.
+#[allow(unused)]
 const MILLER_LOOP_CONSTANT: u64 = 0xFFFFFFFFF;
 
 #[allow(unused)]
