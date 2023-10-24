@@ -147,7 +147,7 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(point_1, expected_result);
+        assert_eq!(point_1.to_affine(), expected_result.to_affine());
     }
 
     #[test]

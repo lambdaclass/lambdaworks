@@ -169,7 +169,9 @@ mod tests {
     fn test_compress_decompress_2g() {
         let g = BLS12381Curve::generator();
         // calculate g point operate with itself
-        let g_2 = g.operate_with_self(UnsignedInteger::<4>::from("2"));
+        let g_2 = g
+            .operate_with_self(UnsignedInteger::<4>::from("2"))
+            .to_affine();
 
         let compressed_g2 = compress_g1_point(&g_2);
         let mut compressed_g2_slice: [u8; 48] = compressed_g2.try_into().unwrap();
