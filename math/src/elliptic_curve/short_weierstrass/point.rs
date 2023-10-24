@@ -589,4 +589,14 @@ mod tests {
         let res = point1.operate_with_affine(&point2).to_affine();
         assert_eq!(res, expected);
     }
+
+    #[test]
+    fn operate_with_affine_addition_beetwen_non_affine_and_affine_works() {
+        let non_affine = non_affine_point();
+        let affine = point();
+
+        let expected = non_affine.operate_with(&affine).to_affine();
+        assert_eq!(non_affine.operate_with(&affine).to_affine(), expected);
+        assert_eq!(affine.operate_with(&non_affine).to_affine(), expected) // different order should also work
+    }
 }
