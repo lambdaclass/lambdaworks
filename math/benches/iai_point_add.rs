@@ -17,7 +17,7 @@ use lambdaworks_math::{
 const BENCHMARK_NAME: &str = "point";
 
 #[inline(never)]
-pub fn add_for_bench() -> ShortWeierstrassProjectivePoint<StarkCurve> { 
+pub fn add_for_bench() -> ShortWeierstrassProjectivePoint<StarkCurve> {
     let initial_projective_point = StarkCurve::generator();
     let second_projective_point = initial_projective_point.clone();
 
@@ -35,6 +35,3 @@ iai_callgrind::main!(
     callgrind_args = "toggle-collect=util::*";
     functions = add_for_bench,
 );
-
-
-
