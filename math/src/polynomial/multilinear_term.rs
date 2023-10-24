@@ -1,6 +1,6 @@
 use crate::{
     field::{element::FieldElement, traits::IsField},
-    polynomial::term::Term,
+    polynomial::traits::term::Term,
 };
 
 /// Struct for (coeff: FieldElement<F>, terms: Vec<usize>) representing a multilinear
