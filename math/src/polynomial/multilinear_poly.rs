@@ -1,7 +1,7 @@
 use crate::{
     errors::TermError,
     field::{element::FieldElement, traits::IsField},
-    polynomial::{multilinear_term::MultiLinearMonomial, term::Term},
+    polynomial::{multilinear_term::MultiLinearMonomial, traits::term::Term},
 };
 
 /// Represents a multilinear polynomials as a collection of multilinear monomials
