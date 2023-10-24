@@ -2,6 +2,8 @@ use crate::gadgets::sumcheck::prover::ProverMessage;
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::{IsField, IsPrimeField};
 use lambdaworks_math::polynomial::multilinear_poly::MultilinearPolynomial;
+use rand_chacha::rand_core::{RngCore, SeedableRng};
+use rand_chacha::ChaCha20Rng;
 
 /// Sumcheck Verifier
 pub struct Verifier<F: IsPrimeField>
@@ -46,8 +48,7 @@ where
         //  need to assume this is the case for now
 
         // evaluate prover polynomial at 0 and 1, ensure the sum is equal to the claimed sum
-        // this proves that the current polynomial is related to the last polynomial sent by the
-        // prover
+        // this proves that the current polynomial is related to the last round of the protocol
         let p_0 = univariate_poly.evaluate(&[FieldElement::zero()]);
         let p_1 = univariate_poly.evaluate(&[FieldElement::one()]);
         if self.round_sum != p_0 + p_1 {
@@ -60,7 +61,7 @@ where
         let challenge = self.generate_and_store_challenge();
         let prover_poly_eval = univariate_poly.evaluate(&[challenge]);
 
-        // we can only generate the true eval if we are at the last round
+        // we can only generate the true eval if we are on the last round
         return if self.is_last_round() {
             let true_poly_eval = self.poly.evaluate(self.challenges.as_slice());
             Ok(prover_poly_eval == true_poly_eval)
@@ -74,9 +75,18 @@ where
 
     /// Generate challenge for current round
     pub fn generate_and_store_challenge(&mut self) -> FieldElement<F> {
-        // should check if we already have a challenge for this round
-        // if we do return that, if we do not then generate it
-        todo!()
+        // TODO: get rid of clone, you most likely don't need to own the FieldElement
+        return if self.challenges.len() == self.round as usize {
+            // we already have a challenge for this round
+            self.challenges[self.round as usize].clone()
+        } else {
+            // generate and store the random challenge
+            // TODO: maybe pass rng during instantiation?
+            let mut rng = ChaCha20Rng::from_entropy();
+            let random_challenge = FieldElement::new(F::from_u64(rng.next_u64()));
+            self.challenges[self.round as usize] = random_challenge.clone();
+            random_challenge
+        };
     }
 
     /// Returns true if the current round is the last round
