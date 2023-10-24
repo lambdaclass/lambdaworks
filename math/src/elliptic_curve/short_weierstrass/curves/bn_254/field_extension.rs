@@ -1,33 +1,34 @@
-use crate::unsigned_integer::element::U256;
 use crate::field::{
-        element::FieldElement,
-        extensions::{
-            cubic::{CubicExtensionField, HasCubicNonResidue},
-            quadratic::{HasQuadraticNonResidue, QuadraticExtensionField},
-        },
-        fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
-    };
+    element::FieldElement,
+    extensions::{
+        cubic::{CubicExtensionField, HasCubicNonResidue},
+        quadratic::{HasQuadraticNonResidue, QuadraticExtensionField},
+    },
+    fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
+};
+use crate::unsigned_integer::element::U256;
 
-pub const BN256_PRIME_FIELD_ORDER: U256 = U256::from_hex_unchecked("30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47");
+pub const BN254_PRIME_FIELD_ORDER: U256 =
+    U256::from_hex_unchecked("30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47");
 
-// Fp for BN256
+// Fp for BN254
 #[derive(Clone, Debug)]
-pub struct BN256FieldModulus;
-impl IsModulus<U256> for BN256FieldModulus {
-    const MODULUS: U256 = BN256_PRIME_FIELD_ORDER;
+pub struct BN254FieldModulus;
+impl IsModulus<U256> for BN254FieldModulus {
+    const MODULUS: U256 = BN254_PRIME_FIELD_ORDER;
 }
 
 //Note this should implement IsField to optimize operations
-pub type BN256PrimeField = MontgomeryBackendPrimeField<BN256FieldModulus, 4>;
+pub type BN254PrimeField = MontgomeryBackendPrimeField<BN254FieldModulus, 4>;
 
-pub type Degree2ExtensionField = QuadraticExtensionField<BN256PrimeField>;
+pub type Degree2ExtensionField = QuadraticExtensionField<BN254PrimeField>;
 
 //Note: This should imple IsField for optimization purposes
-impl HasQuadraticNonResidue for BN256PrimeField {
-    type BaseField = BN256PrimeField;
+impl HasQuadraticNonResidue for BN254PrimeField {
+    type BaseField = BN254PrimeField;
 
     //TODO: add sage
-    fn residue() -> FieldElement<BN256PrimeField> {
+    fn residue() -> FieldElement<BN254PrimeField> {
         -FieldElement::one()
     }
 }
@@ -39,10 +40,7 @@ impl HasCubicNonResidue for LevelTwoResidue {
 
     //TODO: add sage
     fn residue() -> FieldElement<Degree2ExtensionField> {
-        FieldElement::new([
-            FieldElement::from(9),
-            FieldElement::one(),
-        ])
+        FieldElement::new([FieldElement::from(9), FieldElement::one()])
     }
 }
 
@@ -64,7 +62,7 @@ impl HasQuadraticNonResidue for LevelThreeResidue {
 
 pub type Degree12ExtensionField = QuadraticExtensionField<LevelThreeResidue>;
 
-impl FieldElement<BN256PrimeField> {
+impl FieldElement<BN254PrimeField> {
     pub fn new_base(a_hex: &str) -> Self {
         Self::new(U256::from(a_hex))
     }
@@ -131,7 +129,7 @@ impl FieldElement<Degree12ExtensionField> {
 #[cfg(test)]
 mod tests {
     use crate::elliptic_curve::{
-        short_weierstrass::curves::bn_256::twist::BN256TwistCurve, traits::IsEllipticCurve,
+        short_weierstrass::curves::bn_254::twist::BN254TwistCurve, traits::IsEllipticCurve,
     };
 
     use super::*;

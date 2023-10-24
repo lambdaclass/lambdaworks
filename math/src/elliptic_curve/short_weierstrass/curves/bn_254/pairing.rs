@@ -1,13 +1,13 @@
 use super::{
-    curve::BN256Curve,
+    curve::BN254Curve,
     field_extension::{Degree12ExtensionField, Degree2ExtensionField},
-    twist::BN256TwistCurve,
+    twist::BN254TwistCurve,
 };
 use crate::{
     cyclic_group::IsGroup,
     elliptic_curve::{
         short_weierstrass::{
-            curves::bn_256::field_extension::{Degree6ExtensionField, LevelTwoResidue},
+            curves::bn_254::field_extension::{Degree6ExtensionField, LevelTwoResidue},
             point::ShortWeierstrassProjectivePoint,
             traits::IsShortWeierstrass,
         },
@@ -18,10 +18,10 @@ use crate::{
 };
 
 #[derive(Clone)]
-pub struct BN256AtePairing;
-impl IsPairing for BN256AtePairing {
-    type G1Point = ShortWeierstrassProjectivePoint<BN256Curve>;
-    type G2Point = ShortWeierstrassProjectivePoint<BN256TwistCurve>;
+pub struct BN254AtePairing;
+impl IsPairing for BN254AtePairing {
+    type G1Point = ShortWeierstrassProjectivePoint<BN254Curve>;
+    type G2Point = ShortWeierstrassProjectivePoint<BN254TwistCurve>;
     type OutputField = Degree12ExtensionField;
 
     /// Compute the product of the ate pairings for a list of point pairs.
@@ -40,26 +40,30 @@ impl IsPairing for BN256AtePairing {
     }
 }
 
-/// This is equal to the frobenius trace of the BLS12 381 curve minus one.
-const MILLER_LOOP_CONSTANT: u64 = 0xd201000000010000;
+/// This is equal to the frobenius trace of the BN 254 curve minus one.
+const MILLER_LOOP_CONSTANT: u64 = 0xFFFFFFFFF;
 
+#[allow(unused)]
 fn double_accumulate_line(
-    t: &mut ShortWeierstrassProjectivePoint<BN256TwistCurve>,
-    p: &ShortWeierstrassProjectivePoint<BN256Curve>,
+    t: &mut ShortWeierstrassProjectivePoint<BN254TwistCurve>,
+    p: &ShortWeierstrassProjectivePoint<BN254Curve>,
     accumulator: &mut FieldElement<Degree12ExtensionField>,
-) {}
+) {
+}
 
+#[allow(unused)]
 fn add_accumulate_line(
-    t: &mut ShortWeierstrassProjectivePoint<BN256TwistCurve>,
-    q: &ShortWeierstrassProjectivePoint<BN256TwistCurve>,
-    p: &ShortWeierstrassProjectivePoint<BN256Curve>,
+    t: &mut ShortWeierstrassProjectivePoint<BN254TwistCurve>,
+    q: &ShortWeierstrassProjectivePoint<BN254TwistCurve>,
+    p: &ShortWeierstrassProjectivePoint<BN254Curve>,
     accumulator: &mut FieldElement<Degree12ExtensionField>,
-) {}
+) {
+}
 
 #[allow(unused)]
 fn miller(
-    q: &ShortWeierstrassProjectivePoint<BN256TwistCurve>,
-    p: &ShortWeierstrassProjectivePoint<BN256Curve>,
+    q: &ShortWeierstrassProjectivePoint<BN254TwistCurve>,
+    p: &ShortWeierstrassProjectivePoint<BN254Curve>,
 ) -> FieldElement<Degree12ExtensionField> {
     FieldElement::one()
 }
