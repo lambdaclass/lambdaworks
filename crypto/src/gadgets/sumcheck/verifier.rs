@@ -33,10 +33,9 @@ where
         }
     }
 
-    /// Verify the ith round of the protocol, advance round if successful
+    /// Verify the current round of the protocol, advance round if successful
     pub fn verify_round(
         &mut self,
-        round: u64,
         prover_message: ProverMessage<F>,
     ) -> Result<bool, String> {
         // verify that the poly is univariate
@@ -52,9 +51,9 @@ where
         todo!()
     }
 
-    /// Determines what the last round of the protocol will be given the poly
-    fn last_round(&self) -> u64 {
+    /// Returns true if the current round is the last round
+    fn is_last_round(&self) -> bool {
         // in sumcheck, we have number of variable rounds
-        self.poly.n_vars as u64
+        self.round == self.poly.n_vars
     }
 }
