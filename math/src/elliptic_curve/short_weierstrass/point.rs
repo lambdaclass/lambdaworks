@@ -558,17 +558,6 @@ mod tests {
     }
 
     #[test]
-    fn operate_with_affine_add_self_to_self_result_is_double() {
-        let point = point();
-
-        let mut expected = point.clone();
-        expected.double_in_place();
-
-        let res = point.operate_with_affine(&point);
-        assert_eq!(res, expected)
-    }
-
-    #[test]
     fn operate_with_affine_with_non_affine_does_not_work() {
         let point = non_affine_point();
         let other = non_affine_point();
@@ -588,6 +577,17 @@ mod tests {
         let expected = point1.operate_with(&point2).to_affine();
         let res = point1.operate_with_affine(&point2).to_affine();
         assert_eq!(res, expected);
+    }
+
+    #[test]
+    fn operate_with_affine_add_self_to_self_result_is_double() {
+        let point = point();
+
+        let mut expected = point.clone();
+        expected.double_in_place();
+
+        let res = point.operate_with_affine(&point);
+        assert_eq!(res, expected)
     }
 
     #[test]
