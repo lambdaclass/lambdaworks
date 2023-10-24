@@ -115,6 +115,7 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         self
     }
 
+    #[allow(dead_code)] // temporary, function definition will probably be moved from here
     fn operate_with_affine(&self, other: &Self) -> Self {
         if self.is_neutral_element() {
             return Self::new([other.x().clone(), other.y().clone(), FieldElement::one()]);
@@ -591,7 +592,10 @@ mod tests {
         let affine = point();
 
         let expected = non_affine.operate_with(&affine).to_affine();
-        assert_eq!(non_affine.operate_with_affine(&affine).to_affine(), expected);
+        assert_eq!(
+            non_affine.operate_with_affine(&affine).to_affine(),
+            expected
+        );
         // assert_eq!(affine.operate_with_affine(&non_affine).to_affine(), expected) // different order does not work
     }
 }
