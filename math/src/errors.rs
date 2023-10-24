@@ -31,3 +31,9 @@ impl From<ByteConversionError> for DeserializationError {
         }
     }
 }
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum TermError {
+    InvalidEvaluationPoint,
+    InvalidPartialEvaluationPoint,
+}
