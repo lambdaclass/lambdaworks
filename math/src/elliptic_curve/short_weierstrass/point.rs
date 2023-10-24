@@ -515,4 +515,14 @@ mod tests {
 
         assert_eq!(res, expected);
     }
+
+    #[test]
+    fn operate_with_affine_if_self_is_zero_result_is_other() {
+        let zero: ShortWeierstrassProjectivePoint<BLS12381Curve> =
+            ShortWeierstrassProjectivePoint::neutral_element();
+        let other = point();
+
+        let res = zero.operate_with_affine(&other);
+        assert_eq!(res, other);
+    }
 }
