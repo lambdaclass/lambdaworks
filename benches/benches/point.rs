@@ -13,14 +13,12 @@ use lambdaworks_math::{
         element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
     },
 };
-use starknet_curve::{AffinePoint, ProjectivePoint, curve_params::{GENERATOR},
-};
+use starknet_curve::{curve_params::GENERATOR, AffinePoint, ProjectivePoint};
 
 const BENCHMARK_NAME: &str = "point";
 
-pub fn criterion_benchmark(c: &mut Criterion) { 
-
-    /* 
+pub fn criterion_benchmark(c: &mut Criterion) {
+    /*
     let point = AffinePoint::from_x(42u64.into()).unwrap();
 
     let initial_projective_point = ProjectivePoint::from(&GENERATOR);

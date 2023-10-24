@@ -2,7 +2,7 @@ use crate::{
     cyclic_group::IsGroup,
     field::{element::FieldElement, traits::IsField},
 };
-use std::fmt::Debug;
+use core::fmt::Debug;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum EllipticCurveError {
