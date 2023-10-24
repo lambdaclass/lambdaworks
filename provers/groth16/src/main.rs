@@ -379,6 +379,9 @@ fn main() {
         ],
     });
 
+    // [t(tau)]_1
+    let t_evaluated_encrypted_g1 = g1.operate_with_self(t.evaluate(&tau).representative());
+
     let alpha_shift = FrElement::new(U256 {
         limbs: [
             rng.gen::<u64>(),
@@ -387,19 +390,24 @@ fn main() {
             rng.gen::<u64>(),
         ],
     });
+    // [alpha]_2
+    let alpha_shift_encrypted_g2 = g2.operate_with_self(alpha_shift.representative());
 
-    // t(tau)
-    let t_eval = t.evaluate(&tau);
-    // [tau],[tau^2],[tau^3],...,[tau^n]
-    let encrypted_powers_of_tau: Vec<G1Point> = (0..p_degree + 1)
+    // [tau]_1,[tau^2]_1,[tau^3]_1,...,[tau^n]_1
+    let encrypted_powers_of_tau_g1: Vec<G1Point> = (0..p_degree + 1)
         .map(|exp| g1.operate_with_self(tau.pow(exp as u128).representative()))
         .collect();
-    // [alpha*tau],[alpha*tau^2],[alpha*tau^3],...,[alpha*tau^n]
-    let encrypted_shifted_powers_of_tau: Vec<G1Point> = (0..p_degree + 1)
+    // [alpha*tau]_1,[alpha*tau^2]_1,[alpha*tau^3]_1,...,[alpha*tau^n]_1
+    let encrypted_shifted_powers_of_tau_g1: Vec<G1Point> = (0..p_degree + 1)
         .map(|exp| {
             g1.operate_with_self(tau.pow(exp as u128).representative())
                 .operate_with_self((&alpha_shift).representative())
         })
+        .collect();
+
+    // [tau]_2,[tau^2]_2,[tau^3]_2,...,[tau^n]_2
+    let encrypted_powers_of_tau_g2: Vec<G2Point> = (0..p_degree + 1)
+        .map(|exp| g2.operate_with_self(tau.pow(exp as u128).representative()))
         .collect();
 
     //////////////////////////////////////////////////////////////////////
@@ -416,52 +424,56 @@ fn main() {
         ],
     });
 
-    let p_evaluated_encrypted = p
+    let p_evaluated_encrypted_g1 = p
         .coefficients()
         .iter()
         .enumerate()
         .map(|(i, coeff)| {
-            encrypted_powers_of_tau[i]
+            encrypted_powers_of_tau_g1[i]
                 .operate_with_self(coeff.representative())
                 .operate_with_self((&delta_shift).representative())
         })
         .reduce(|acc, x| acc.operate_with(&x))
         .unwrap();
 
-    let p_evaluated_encrypted_shifted = p
+    let p_evaluated_encrypted_shifted_g1 = p
         .coefficients()
         .iter()
         .enumerate()
         .map(|(i, coeff)| {
-            encrypted_shifted_powers_of_tau[i]
+            encrypted_shifted_powers_of_tau_g1[i]
                 .operate_with_self(coeff.representative())
                 .operate_with_self((&delta_shift).representative())
         })
         .reduce(|acc, x| acc.operate_with(&x))
         .unwrap();
 
-    let h_evaluated_encrypted = h
+    let h_evaluated_encrypted_g2 = h
         .coefficients()
         .iter()
         .enumerate()
         .map(|(i, coeff)| {
-            encrypted_powers_of_tau[i]
+            encrypted_powers_of_tau_g2[i]
                 .operate_with_self(coeff.representative())
                 .operate_with_self((&delta_shift).representative())
         })
         .reduce(|acc, x| acc.operate_with(&x))
         .unwrap();
+
+    //////////////////////////////////////////////////////////////////////
+    ////////////////////////////// Verify ////////////////////////////////
+    //////////////////////////////////////////////////////////////////////
 
     // check alpha shift
     assert_eq!(
-        p_evaluated_encrypted_shifted,
-        p_evaluated_encrypted.operate_with_self(alpha_shift.representative()),
+        Pairing::compute(&p_evaluated_encrypted_g1, &alpha_shift_encrypted_g2,),
+        Pairing::compute(&p_evaluated_encrypted_shifted_g1, &g2,)
     );
 
     // check computational integrity - polynomial divisibility
     assert_eq!(
-        p_evaluated_encrypted,
-        h_evaluated_encrypted.operate_with_self(t_eval.representative()),
+        Pairing::compute(&p_evaluated_encrypted_g1, &g2),
+        Pairing::compute(&t_evaluated_encrypted_g1, &h_evaluated_encrypted_g2)
     );
 
     // let one = FrElement::new(U384 {
