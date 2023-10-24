@@ -1,6 +1,7 @@
-use crate::field::element::FieldElement;
-use crate::field::traits::IsField;
-use crate::polynomial::traits::term::Term;
+use crate::{
+    field::{element::FieldElement, traits::IsField},
+    polynomial::term::Term,
+};
 
 /// Struct for (coeff: FieldElement<F>, terms: Vec<usize>) representing a multilinear
 /// monomial in a sparse format.
@@ -63,9 +64,6 @@ where
     // TODO: test this
     /// Evaluates `self` at the point `p`.
     fn evaluate(&self, p: &[FieldElement<F>]) -> FieldElement<F> {
-        // Check that p contains the proper amount of elements in dense form.
-        //assert!(self.max_var() < p.len());
-
         if self.vars.is_empty() || p.is_empty() {
             return self.coeff.clone();
         }
@@ -74,20 +72,26 @@ where
         let eval = self
             .vars
             .iter()
-            .fold(FieldElement::<F>::one(), |acc, x| acc * p[*x].clone());
+            .fold(FieldElement::<F>::one(), |acc, x| acc * &p[*x]);
         eval * &self.coeff
     }
 
     /// Assign values to one or more variables in the monomial
     // TODO: can we change this to modify in place to remove the extract allocation?
+    //TODO: add valid variable check
     fn partial_evaluate(&self, assignments: &[(usize, FieldElement<F>)]) -> Self {
+        //constant term
+        if self.vars.is_empty() || assignments.is_empty() {
+            //Since term is already constant we return itself
+            return self.clone();
+        }
+
         let mut new_coefficient = self.coeff.clone();
         let mut unassigned_variables = self.vars.to_vec();
 
         for (var_id, assignment) in assignments {
             if unassigned_variables.contains(var_id) {
                 new_coefficient = new_coefficient * assignment;
-                println!("new_coeff {:?}", new_coefficient);
                 unassigned_variables.retain(|&id| id != *var_id);
             }
         }
@@ -123,7 +127,7 @@ mod tests {
     fn evaluate_constant_multilinear_monomial() {
         let monomial = MultiLinearMonomial::new((FE::new(5), vec![]));
 
-        assert_eq!(monomial.evaluate(&[FE::new(1)]), FE::new(5),);
+        assert_eq!(monomial.evaluate(&[FE::new(1)]), FE::new(5));
     }
 
     #[test]

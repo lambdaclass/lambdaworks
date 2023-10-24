@@ -1,6 +1,7 @@
-use crate::field::element::FieldElement;
-use crate::field::traits::IsField;
-use crate::polynomial::traits::term::Term;
+use crate::{
+    field::{element::FieldElement, traits::IsField},
+    polynomial::term::Term,
+};
 
 /// Wrapper struct for (coeff: FieldElement<F>, terms: Vec<usize>) representing a multivariate monomial in a sparse format.
 // This sparse form is inspired by https://doc.sagemath.org/html/en/reference/polynomial_rings/sage/rings/polynomial/polydict.html
@@ -61,8 +62,6 @@ where
     /// Evaluates `self` at the point `p`.
     fn evaluate(&self, p: &[FieldElement<F>]) -> FieldElement<F> {
         // check the number of evaluations points is equal to the number of variables
-        assert!(self.max_var() < p.len(), "Incorrect number of vars");
-
         if self.vars.is_empty() {
             return self.coeff.clone();
         }
@@ -77,12 +76,8 @@ where
         eval * &self.coeff
     }
 
+    //TODO: add valid variable check
     fn partial_evaluate(&self, assignments: &[(usize, FieldElement<F>)]) -> Self {
-        println!("{:?} {:?}", assignments.len(), self.max_var());
-        assert!(
-            assignments.len() <= self.max_var(),
-            "More assignments than variables present in input"
-        );
         let mut new_coefficient = self.coeff.clone();
         let mut unassigned_variables = self.vars.to_vec();
         let mut var_ids: Vec<usize> = unassigned_variables.iter().map(|x| x.0).collect();
