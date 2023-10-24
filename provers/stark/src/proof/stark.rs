@@ -88,6 +88,11 @@ where
         // FRI/Commitment/Last Layer: Coefficients
         output.extend_from_slice(&self.fri_last_value.serialize());
 
+        if let Some(nonce_value) = self.nonce {
+            // FRI/Proof of Work: POW
+            output.extend_from_slice(&nonce_value.to_be_bytes());
+        }
+
         // FRI/Decommitment/Layer 0/Virtual Oracle/Trace ..: Row .., Column ..
         for opening in self.deep_poly_openings.iter() {
             for elem in opening.lde_trace_evaluations.iter() {
@@ -138,11 +143,6 @@ where
                     .cloned()
                     .collect::<Vec<_>>(),
             );
-        }
-
-        if let Some(nonce_value) = self.nonce {
-            // FRI/Proof of Work: POW
-            output.extend_from_slice(&nonce_value.to_be_bytes());
         }
 
         let decommitment = &self.query_list[0];
