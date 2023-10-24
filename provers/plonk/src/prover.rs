@@ -778,9 +778,9 @@ mod tests {
             FpElement::from_hex_unchecked("7726dc031bd26122395153ca428d5e6dea0a64c1f9b3b1bb2f2508a5eb6ea0ea0363294fad3160858bc87e46d3422fd"),
             FpElement::from_hex_unchecked("8db0c15bfd77df7fe66284c3b04e6043eaba99ef6a845d4f7255fd0da95f2fb8e474df2e7f8e1a38829f7a9612a9b87"),
         ).unwrap();
-        assert_eq!(round_1.a_1, a_1_expected);
-        assert_eq!(round_1.b_1, b_1_expected);
-        assert_eq!(round_1.c_1, c_1_expected);
+        assert_eq!(round_1.a_1.to_affine(), a_1_expected);
+        assert_eq!(round_1.b_1.to_affine(), b_1_expected);
+        assert_eq!(round_1.c_1.to_affine(), c_1_expected);
     }
 
     #[test]
@@ -797,7 +797,7 @@ mod tests {
             FpElement::from_hex_unchecked("3e8322968c3496cf1b5786d4d71d158a646ec90c14edf04e758038e1f88dcdfe8443fcecbb75f3074a872a380391742"),
             FpElement::from_hex_unchecked("11eac40d09796ff150004e7b858d83ddd9fe995dced0b3fbd7535d6e361729b25d488799da61fdf1d7b5022684053327"),
         ).unwrap();
-        assert_eq!(result_2.z_1, z_1_expected);
+        assert_eq!(result_2.z_1.to_affine(), z_1_expected);
     }
 
     #[test]
@@ -829,9 +829,9 @@ mod tests {
         ).unwrap();
         let t_hi_1_expected = ShortWeierstrassProjectivePoint::<BLS12381Curve>::neutral_element();
 
-        assert_eq!(round_3.t_lo_1, t_lo_1_expected);
-        assert_eq!(round_3.t_mid_1, t_mid_1_expected);
-        assert_eq!(round_3.t_hi_1, t_hi_1_expected);
+        assert_eq!(round_3.t_lo_1.to_affine(), t_lo_1_expected);
+        assert_eq!(round_3.t_mid_1.to_affine(), t_mid_1_expected);
+        assert_eq!(round_3.t_hi_1.to_affine(), t_hi_1_expected);
     }
 
     #[test]
@@ -914,7 +914,7 @@ mod tests {
             &round_4,
             upsilon(),
         );
-        assert_eq!(round_5.w_zeta_1, expected_w_zeta_1);
-        assert_eq!(round_5.w_zeta_omega_1, expected_w_zeta_omega_1);
+        assert_eq!(round_5.w_zeta_1.to_affine(), expected_w_zeta_1);
+        assert_eq!(round_5.w_zeta_omega_1.to_affine(), expected_w_zeta_omega_1);
     }
 }

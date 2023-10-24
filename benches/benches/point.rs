@@ -31,7 +31,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     let starknet_rs_x = AffinePoint::from(&projective_point).x.to_string();
     println!("Starknet RS result X: {} ", starknet_rs_x);
     let starknet_rs_y = AffinePoint::from(&projective_point).y.to_string();
-    print!("Starknet RS result Y: {} ", starknet_rs_y);
+    println!("Starknet RS result Y: {} ", starknet_rs_y);
 
     {
         c.bench_function(

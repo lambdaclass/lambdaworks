@@ -209,8 +209,8 @@ mod tests {
             let cs = cs[..min_len].to_vec();
             let points = points[..min_len].to_vec();
 
-            let pippenger = pippenger::msm_with(&cs, &points, window_size);
-            let naive = naive::msm(&cs, &points).unwrap();
+            let pippenger = pippenger::msm_with(&cs, &points, window_size).to_affine();
+            let naive = naive::msm(&cs, &points).unwrap().to_affine();
 
             prop_assert_eq!(naive, pippenger);
         }
@@ -225,9 +225,6 @@ mod tests {
 
             let sequential = pippenger::msm_with(&cs, &points, window_size).to_affine();
             let parallel = pippenger::parallel_msm_with(&cs, &points, window_size).to_affine();
-
-            println!("seq: {:?}", sequential);
-            println!("par: {:?}", parallel);
 
             prop_assert_eq!(parallel, sequential);
         }

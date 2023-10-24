@@ -206,13 +206,13 @@ mod tests {
             FpElement::from_hex_unchecked("d84d52582fd95bfa7672f7cef9dd4d0b1b4a54d33f244fdb97df71c7d45fd5c5329296b633c9ed23b8475ee47b9d99")
         ).unwrap();
 
-        assert_eq!(vk.ql_1, expected_ql);
-        assert_eq!(vk.qr_1, expected_qr);
-        assert_eq!(vk.qo_1, expected_qo);
-        assert_eq!(vk.qm_1, expected_qm);
+        assert_eq!(vk.ql_1.to_affine(), expected_ql);
+        assert_eq!(vk.qr_1.to_affine(), expected_qr);
+        assert_eq!(vk.qo_1.to_affine(), expected_qo);
+        assert_eq!(vk.qm_1.to_affine(), expected_qm);
 
-        assert_eq!(vk.s1_1, expected_s1);
-        assert_eq!(vk.s2_1, expected_s2);
-        assert_eq!(vk.s3_1, expected_s3);
+        assert_eq!(vk.s1_1.to_affine(), expected_s1);
+        assert_eq!(vk.s2_1.to_affine(), expected_s2);
+        assert_eq!(vk.s3_1.to_affine(), expected_s3);
     }
 }
