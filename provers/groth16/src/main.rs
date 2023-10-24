@@ -17,21 +17,19 @@ use lambdaworks_math::{
 
 use lambdaworks_math::{
     elliptic_curve::short_weierstrass::{
-        curves::bls12_381::default_types::FrField, point::ShortWeierstrassProjectivePoint,
+        curves::bls12_381::default_types::{FrElement, FrField},
+        point::ShortWeierstrassProjectivePoint,
     },
     traits::{Deserializable, Serializable},
     unsigned_integer::element::U256,
 };
 
 use lambdaworks_crypto::commitments::kzg::KateZaveruchaGoldberg;
-use lambdaworks_crypto::commitments::kzg::StructuredReferenceString;
-use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::BLS12381PrimeField;
 
 use rand::Rng; // 0.8.5
 
 pub type Curve = BLS12381Curve;
 pub type TwistedCurve = BLS12381TwistCurve;
-pub type FpField = BLS12381PrimeField;
 pub type Pairing = BLS12381AtePairing;
 pub type KZG = KateZaveruchaGoldberg<FrField, Pairing>;
 
@@ -53,8 +51,6 @@ pub type G2Point = <BLS12381TwistCurve as IsEllipticCurve>::PointRepresentation;
 
 //     StructuredReferenceString::new(&powers_main_group, &powers_secondary_group)
 // }
-
-pub type FrElement = FieldElement<BLS12381PrimeField>;
 
 fn get_test_QAP_L(gate_indices: &Vec<FrElement>) -> Vec<Polynomial<FrElement>> {
     vec![
@@ -372,23 +368,16 @@ fn main() {
     let g1: G1Point = BLS12381Curve::generator();
     let g2: G2Point = BLS12381TwistCurve::generator();
 
-    let tau: FrElement = FrElement::new(U384 {
+    let tau: FrElement = FrElement::new(U256 {
         limbs: [
-            0,
-            0,
-            0,
-            0,
-            0,
-            // rng.gen::<u64>(),
-            // rng.gen::<u64>(),
-            // rng.gen::<u64>(),
-            // rng.gen::<u64>(),
-            // rng.gen::<u64>(),
+            rng.gen::<u64>(),
+            rng.gen::<u64>(),
+            rng.gen::<u64>(),
             rng.gen::<u64>(),
         ],
     });
 
-    let t_eval: FrElement = t.evaluate(&tau);
+    let t_eval = t.evaluate(&tau);
     let encrypted_powers_of_tau: Vec<G1Point> = (0..p_degree + 1)
         .map(|exp| g1.operate_with_self(tau.pow(exp as u128).representative()))
         .collect();
@@ -405,46 +394,17 @@ fn main() {
         .reduce(|acc, x| acc.operate_with(&x))
         .unwrap();
 
-    // let h_evaluated_encrypted = h
-    //     .coefficients()
-    //     .iter()
-    //     .enumerate()
-    //     .map(|(i, coeff)| encrypted_powers_of_tau[i].operate_with_self(coeff.representative()))
-    //     .reduce(|acc, x| acc.operate_with(&x))
-    //     .unwrap();
-
-    // assert_eq!(
-    //     p_evaluated_encrypted,
-    //     h_evaluated_encrypted.operate_with_self(t_eval.representative())
-    // );
+    let h_evaluated_encrypted = h
+        .coefficients()
+        .iter()
+        .enumerate()
+        .map(|(i, coeff)| encrypted_powers_of_tau[i].operate_with_self(coeff.representative()))
+        .reduce(|acc, x| acc.operate_with(&x))
+        .unwrap();
 
     assert_eq!(
-        254456384290497905729429807891_u128,
-        324838577152447_u128 * 783331790580653_u128
-    ); // WORKS FINE
-
-    assert_eq!(
-        // WORKS FINE
-        g1.operate_with_self(254456384290497905729429807891_u128),
-        g1.operate_with_self(324838577152447_u128)
-            .operate_with_self(783331790580653_u128),
-    );
-
-    let p_eval: FrElement = p.evaluate(&tau);
-    let h_eval: FrElement = h.evaluate(&tau);
-
-    assert_eq!(p_eval, h_eval.clone() * t_eval.clone()); // WORKS FINE
-    assert_eq!(
-        // WORKS FINE
-        g1.operate_with_self(p_eval.representative()),
-        g1.operate_with_self((h_eval.clone() * t_eval.clone()).representative())
-    );
-
-    assert_eq!(
-        // FAILS!!
-        g1.operate_with_self(p_eval.representative()),
-        g1.operate_with_self(h_eval.representative())
-            .operate_with_self(t_eval.representative()),
+        p_evaluated_encrypted,
+        h_evaluated_encrypted.operate_with_self(t_eval.representative()),
     );
 
     // println!(
@@ -462,12 +422,6 @@ fn main() {
     //         .x()
     //         .representative()
     // );
-
-    assert_eq!(
-        g1.operate_with_self(254456384290497905729429807891_u128),
-        g1.operate_with_self(324838577152447_u128)
-            .operate_with_self(783331790580653_u128),
-    );
 
     // let one = FrElement::new(U384 {
     //     limbs: [0, 0, 0, 0, 0, 1],
