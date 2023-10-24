@@ -221,7 +221,7 @@ mod tests {
         let mut r = g2.clone();
         let mut f = FieldElement::one();
         double_accumulate_line(&mut r, &g1, &mut f);
-        assert_eq!(r, g2.operate_with(&g2));
+        assert_eq!(r, g2.operate_with(&g2).to_affine());
     }
 
     #[test]
@@ -236,7 +236,7 @@ mod tests {
         let mut r = g2;
         let mut f = FieldElement::one();
         add_accumulate_line(&mut r, &g3, &g1, &mut f);
-        assert_eq!(r, expected);
+        assert_eq!(r, expected.to_affine());
     }
 
     #[test]

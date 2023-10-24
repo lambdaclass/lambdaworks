@@ -81,7 +81,10 @@ mod tests {
         let c: [u64; 2] = [2, 3];
         let g = TestCurve1::generator();
         let hiding = [g.operate_with_self(3_u16), g.operate_with_self(4_u16)];
-        assert_eq!(msm(&c, &hiding).unwrap(), g.operate_with_self(18_u16));
+        assert_eq!(
+            msm(&c, &hiding).unwrap().to_affine(),
+            g.operate_with_self(18_u16).to_affine()
+        );
     }
 
     #[test]

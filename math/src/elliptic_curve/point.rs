@@ -102,8 +102,8 @@ mod tests {
     fn operate_with_self_works_1() {
         let g = TestCurve1::generator();
         assert_eq!(
-            g.operate_with(&g).operate_with(&g),
-            g.operate_with_self(3_u16)
+            g.operate_with(&g).operate_with(&g).to_affine(),
+            g.operate_with_self(3_u16).to_affine()
         );
     }
 
@@ -147,7 +147,7 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(point_1, expected_result);
+        assert_eq!(point_1.to_affine(), expected_result.to_affine());
     }
 
     #[test]
