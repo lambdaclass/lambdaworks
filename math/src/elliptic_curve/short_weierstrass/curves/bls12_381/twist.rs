@@ -157,6 +157,6 @@ mod tests {
         let p = BLS12381TwistCurve::create_point_from_affine(px, py).unwrap();
         let q = BLS12381TwistCurve::create_point_from_affine(qx, qy).unwrap();
         let expected = BLS12381TwistCurve::create_point_from_affine(expectedx, expectedy).unwrap();
-        assert_eq!(p.operate_with(&q), expected);
+        assert_eq!(p.operate_with(&q).to_affine(), expected);
     }
 }
