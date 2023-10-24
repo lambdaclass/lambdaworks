@@ -1,4 +1,5 @@
 use super::trace::TraceTable;
+use crate::table::Table;
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsFFTField},
     polynomial::Polynomial,
@@ -6,32 +7,29 @@ use lambdaworks_math::{
 
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Frame<F: IsFFTField> {
-    // Vector of rows
-    data: Vec<FieldElement<F>>,
-    row_width: usize,
+    table: Table<F>,
 }
 
 impl<F: IsFFTField> Frame<F> {
     pub fn new(data: Vec<FieldElement<F>>, row_width: usize) -> Self {
-        Self { data, row_width }
+        let table = Table::new(&data, row_width);
+        Self { table }
     }
 
-    pub fn num_rows(&self) -> usize {
-        self.data.len() / self.row_width
+    pub fn n_rows(&self) -> usize {
+        self.table.height
     }
 
-    pub fn num_columns(&self) -> usize {
-        self.row_width
+    pub fn n_cols(&self) -> usize {
+        self.table.width
     }
 
     pub fn get_row(&self, row_idx: usize) -> &[FieldElement<F>] {
-        let row_offset = row_idx * self.row_width;
-        &self.data[row_offset..row_offset + self.row_width]
+        self.table.get_row(row_idx)
     }
 
     pub fn get_row_mut(&mut self, row_idx: usize) -> &mut [FieldElement<F>] {
-        let row_offset = row_idx * self.row_width;
-        &mut self.data[row_offset..row_offset + self.row_width]
+        self.table.get_row_mut(row_idx)
     }
 
     pub fn read_from_trace(
@@ -52,7 +50,7 @@ impl<F: IsFFTField> Frame<F> {
             })
             .collect();
 
-        Self::new(data, trace.n_cols)
+        Self::new(data, trace.table.width)
     }
 
     /// Given a slice of trace polynomials, an evaluation point `x`, the frame offsets

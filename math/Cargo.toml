@@ -27,10 +27,11 @@ lambdaworks-gpu = { workspace = true, optional = true }
 
 [dev-dependencies]
 rand = { version = "0.8.5", default-features = false }
-criterion = "0.4"
+criterion = "0.5.1"
 const-random = "0.1.15"
 iai-callgrind.workspace = true
 proptest = "1.1.0"
+pprof = { version = "0.13.0", features = ["criterion","flamegraph"] }
 
 [features]
 rayon = ["dep:rayon"]
