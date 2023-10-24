@@ -1,6 +1,6 @@
 use crate::elliptic_curve::traits::IsEllipticCurve;
 use crate::field::element::FieldElement;
-use std::fmt::Debug;
+use core::fmt::Debug;
 
 /// Represents an elliptic curve point using the projective jacobian
 /// y^2 * z = x^3 + a * x * z^2 + b * z^3,

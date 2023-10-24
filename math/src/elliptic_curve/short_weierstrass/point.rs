@@ -131,7 +131,9 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         s2 *= &z1z1;
 
         if self.x().clone() == u2 && self.y().clone() == s2 {
-            return Self::double_in_place(&mut self.clone()).to_owned();
+            let mut copy = self.clone();
+            let res = copy.double_in_place();
+            return res.clone();
         }
 
         let mut h = u2;
