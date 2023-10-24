@@ -396,18 +396,35 @@ fn main() {
         .collect();
     // [alpha*tau],[alpha*tau^2],[alpha*tau^3],...,[alpha*tau^n]
     let encrypted_shifted_powers_of_tau: Vec<G1Point> = (0..p_degree + 1)
-        .map(|exp| g1.operate_with_self((tau.pow(exp as u128) * &alpha_shift).representative()))
+        .map(|exp| {
+            g1.operate_with_self(tau.pow(exp as u128).representative())
+                .operate_with_self((&alpha_shift).representative())
+        })
         .collect();
 
     //////////////////////////////////////////////////////////////////////
     ////////////////////////////// Prove /////////////////////////////////
     //////////////////////////////////////////////////////////////////////
 
+    // Sample delta for zk-ness
+    let delta_shift = FrElement::new(U256 {
+        limbs: [
+            rng.gen::<u64>(),
+            rng.gen::<u64>(),
+            rng.gen::<u64>(),
+            rng.gen::<u64>(),
+        ],
+    });
+
     let p_evaluated_encrypted = p
         .coefficients()
         .iter()
         .enumerate()
-        .map(|(i, coeff)| encrypted_powers_of_tau[i].operate_with_self(coeff.representative()))
+        .map(|(i, coeff)| {
+            encrypted_powers_of_tau[i]
+                .operate_with_self(coeff.representative())
+                .operate_with_self((&delta_shift).representative())
+        })
         .reduce(|acc, x| acc.operate_with(&x))
         .unwrap();
 
@@ -416,7 +433,9 @@ fn main() {
         .iter()
         .enumerate()
         .map(|(i, coeff)| {
-            encrypted_shifted_powers_of_tau[i].operate_with_self(coeff.representative())
+            encrypted_shifted_powers_of_tau[i]
+                .operate_with_self(coeff.representative())
+                .operate_with_self((&delta_shift).representative())
         })
         .reduce(|acc, x| acc.operate_with(&x))
         .unwrap();
@@ -425,7 +444,11 @@ fn main() {
         .coefficients()
         .iter()
         .enumerate()
-        .map(|(i, coeff)| encrypted_powers_of_tau[i].operate_with_self(coeff.representative()))
+        .map(|(i, coeff)| {
+            encrypted_powers_of_tau[i]
+                .operate_with_self(coeff.representative())
+                .operate_with_self((&delta_shift).representative())
+        })
         .reduce(|acc, x| acc.operate_with(&x))
         .unwrap();
 
