@@ -134,45 +134,36 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
             return Self::double_in_place(&mut self.clone()).to_owned();
         }
 
-        // H = U2-X1
         let mut h = u2;
         h -= self.x();
 
-        // HH = H^2
         let mut hh = h.clone();
         hh = hh.square();
 
-        // I = 4*HH
         let mut i = hh.clone();
         i = i.double().double();
 
-        // J = -H*I
         let mut j = h.clone();
         j = j.neg();
         j *= &i;
 
-        // R = 2*(S2-Y1)
         let mut r = s2;
         r -= self.y();
         r = r.double();
 
-        // V = X1*I
         let mut v = self.x().clone();
         v *= &i;
 
-        // X3 = R^2 + J - 2*V
         let mut ret_x = r.square();
         ret_x += &j;
         ret_x -= &v.double();
 
-        // Y3 = R*(V-X3) + 2*Y1*J -- intended calc - not working
         v -= &ret_x;
         let mut ret_y = self.y().double();
         ret_y *= &j;
         v *= &r;
         ret_y += v;
 
-        // Z3 = 2 * Z1 * H;
         let mut ret_z = self.z().clone();
         ret_z *= &h;
         ret_z = ret_z.double();
