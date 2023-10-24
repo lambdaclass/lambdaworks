@@ -23,7 +23,7 @@ use super::{
     config::BatchedMerkleTreeBackend,
     domain::Domain,
     fri::fri_decommit::FriDecommitment,
-    grinding::hash_transcript_with_int_and_get_leading_zeros,
+    grinding,
     proof::{options::ProofOptions, stark::StarkProof},
     traits::AIR,
 };
@@ -47,7 +47,7 @@ where
     pub zetas: Vec<FieldElement<F>>,
     pub iotas: Vec<usize>,
     pub rap_challenges: A::RAPChallenges,
-    pub leading_zeros_count: u8, // number of leading zeros in the grinding
+    pub grinding_seed: [u8; 32],
 }
 
 pub type DeepPolynomialEvaluations<F> = (Vec<FieldElement<F>>, Vec<FieldElement<F>>);
@@ -174,16 +174,11 @@ pub trait IsStarkVerifier {
         transcript.append_field_element(&proof.fri_last_value);
 
         // Receive grinding value
-        // 1) Receive challenge from the transcript
         let security_bits = air.context().proof_options.grinding_factor;
-        let mut leading_zeros_count = 0;
+        let mut grinding_seed = [0u8; 32];
         if security_bits > 0 {
             if let Some(nonce_value) = proof.nonce {
-                let transcript_challenge = transcript.state();
-                leading_zeros_count = hash_transcript_with_int_and_get_leading_zeros(
-                    &transcript_challenge,
-                    nonce_value,
-                );
+                grinding_seed = transcript.state();
                 transcript.append_bytes(&nonce_value.to_be_bytes());
             }
         }
@@ -202,7 +197,7 @@ pub trait IsStarkVerifier {
             zetas,
             iotas,
             rap_challenges,
-            leading_zeros_count,
+            grinding_seed,
         }
     }
 
@@ -691,10 +686,16 @@ pub trait IsStarkVerifier {
         );
 
         // verify grinding
-        let grinding_factor = air.context().proof_options.grinding_factor;
-        if challenges.leading_zeros_count < grinding_factor {
-            error!("Grinding factor not satisfied");
-            return false;
+        let security_bits = air.context().proof_options.grinding_factor;
+        if security_bits > 0 {
+            let nonce_is_valid = proof.nonce.map_or(false, |nonce_value| {
+                grinding::is_valid_nonce(&challenges.grinding_seed, nonce_value, security_bits)
+            });
+
+            if !nonce_is_valid {
+                error!("Grinding factor not satisfied");
+                return false;
+            }
         }
 
         #[cfg(feature = "instruments")]

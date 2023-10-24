@@ -26,7 +26,7 @@ use super::constraints::evaluator::ConstraintEvaluator;
 use super::domain::Domain;
 use super::frame::Frame;
 use super::fri::fri_decommit::FriDecommitment;
-use super::grinding::generate_nonce_with_grinding;
+use super::grinding;
 use super::proof::options::ProofOptions;
 use super::proof::stark::{DeepPolynomialOpening, StarkProof};
 use super::trace::TraceTable;
@@ -398,8 +398,7 @@ pub trait IsStarkProver {
         let security_bits = air.context().proof_options.grinding_factor;
         let mut nonce = None;
         if security_bits > 0 {
-            let transcript_challenge = transcript.state();
-            let nonce_value = generate_nonce_with_grinding(&transcript_challenge, security_bits)
+            let nonce_value = grinding::generate_nonce(&transcript.state(), security_bits)
                 .expect("nonce not found");
             transcript.append_bytes(&nonce_value.to_be_bytes());
             nonce = Some(nonce_value);
