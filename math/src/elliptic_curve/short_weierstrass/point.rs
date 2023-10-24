@@ -1,5 +1,3 @@
-use core::ops::{AddAssign, MulAssign};
-
 use crate::{
     cyclic_group::IsGroup,
     elliptic_curve::{
@@ -75,17 +73,19 @@ impl<E: IsShortWeierstrass> FromAffine<E::BaseField> for ShortWeierstrassProject
 impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
     /// Taken from <http://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#addition-madd-2007-bl>
     fn double_in_place(&mut self) -> &mut Self {
+        // PERF: Add case for E::a() == 0
+
         let xx = self.x().square();
         let yy = self.y().square();
         let yyyy = &yy * &yy;
 
         let zz = self.z().square();
 
+        // S = 2*((X1+YY)^2-XX-YYYY)
         let s_intermediate = (self.x() + &yy).square() - &xx - &yyyy;
         let s = &s_intermediate + &s_intermediate;
 
-        let m_intermediate = &xx + &xx;
-        let mut m = &m_intermediate + &xx;
+        let mut m = &xx + &xx + &xx;
         m += zz.square() * E::a();
 
         // x = m.square()
@@ -100,13 +100,12 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         self.0.value[1] = &self.0.value[1] - &self.0.value[0];
         self.0.value[1] *= &m;
 
-        let mut eight_times = yyyy.clone();
+        let mut eight_times_yyyy = yyyy.clone();
+        eight_times_yyyy = &eight_times_yyyy + &eight_times_yyyy;
+        eight_times_yyyy = &eight_times_yyyy + &eight_times_yyyy;
+        eight_times_yyyy = &eight_times_yyyy + &eight_times_yyyy;
 
-        eight_times = &eight_times + &eight_times;
-        eight_times = &eight_times + &eight_times;
-        eight_times = &eight_times + &eight_times;
-
-        self.0.value[1] -= &eight_times;
+        self.0.value[1] -= &eight_times_yyyy;
 
         self
     }
@@ -159,39 +158,39 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
             let mut copy = self.clone();
             let res = copy.double_in_place();
             return res.clone();
-        } else {
-            let mut h = u2;
-            h -= &u1;
-
-            let mut i = h.clone();
-            i = (&i + &i).square();
-
-            let mut j = -&h;
-            j *= &i;
-
-            let mut r = s2;
-            r -= &s1;
-            r = &r + &r;
-
-            let mut v = u1;
-            v *= &i;
-
-            let mut x = r.clone();
-            x = x.square();
-            x += &j;
-            x -= &(&v + &v);
-
-            v -= &x;
-            let mut y = s1;
-            y = &y + &y;
-
-            y = &r * &v + &y * &j;
-
-            let mut z = self.z() * other.z();
-            z = &z + &z;
-            z *= &h;
-            return Self::new([x, y, z]);
         }
+
+        let mut h = u2;
+        h -= &u1;
+
+        let mut i = h.clone();
+        i = (&i + &i).square();
+
+        let mut j = -&h;
+        j *= &i;
+
+        let mut r = s2;
+        r -= &s1;
+        r = &r + &r;
+
+        let mut v = u1;
+        v *= &i;
+
+        let mut x = r.clone();
+        x = x.square();
+        x += &j;
+        x -= &(&v + &v);
+
+        v -= &x;
+        let mut y = s1;
+        y = &y + &y;
+
+        y = &r * &v + &y * &j;
+
+        let mut z = self.z() * other.z();
+        z = &z + &z;
+        z *= &h;
+        Self::new([x, y, z])
     }
 
     /// Returns the additive inverse of the projective point `p`
@@ -447,7 +446,7 @@ mod tests {
         let y_expected = FEE::new_base("0x110c7cfa8feb88441edd28c69137704460d4f881d004655385bd1ab92977d1b793149d99c32bb5c26d696c467f59f7ea");
         let expected = BLS12381Curve::create_point_from_affine(x_expected, y_expected).unwrap();
 
-        let res = point1.operate_with(&point2);
+        let res = point1.operate_with(&point2).to_affine();
 
         assert_eq!(res, expected);
     }
