@@ -5,8 +5,8 @@ use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark2
 use serde::{Deserialize, Serialize};
 use stark_platinum_prover::proof::options::ProofOptions;
 use stark_platinum_prover::proof::stark::StarkProof;
+use stark_platinum_prover::transcript::StoneProverTranscript;
 use stark_platinum_prover::verifier::{IsStarkVerifier, Verifier};
-use stark_platinum_prover::transcript::{StoneProverTranscript};
 use std::collections::HashMap;
 use std::ops::Range;
 use wasm_bindgen::prelude::wasm_bindgen;
@@ -32,7 +32,12 @@ pub fn verify_cairo_proof_wasm(
     proof_options: &ProofOptions,
 ) -> bool {
     let pub_input: PublicInputs = serde_cbor::from_slice(pub_input_serialized).unwrap();
-    Verifier::verify::<CairoAIR>(&proof.0, &pub_input, proof_options, StoneProverTranscript::new(&[]))
+    Verifier::verify::<CairoAIR>(
+        &proof.0,
+        &pub_input,
+        proof_options,
+        StoneProverTranscript::new(&[]),
+    )
 }
 
 #[wasm_bindgen]
