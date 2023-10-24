@@ -226,6 +226,9 @@ mod tests {
             let sequential = pippenger::msm_with(&cs, &points, window_size).to_affine();
             let parallel = pippenger::parallel_msm_with(&cs, &points, window_size).to_affine();
 
+            println!("seq: {:?}", sequential);
+            println!("par: {:?}", parallel);
+
             prop_assert_eq!(parallel, sequential);
         }
     }

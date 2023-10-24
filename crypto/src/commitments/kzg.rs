@@ -106,6 +106,7 @@ where
         let size_g2_point = mem::size_of::<G2Point>();
 
         for i in 0..main_group_len {
+            println!("ENTRE G1");
             // The second unwrap shouldn't fail since the amount of bytes is fixed
             let point = G1Point::deserialize(
                 bytes[i * size_g1_point + MAIN_GROUP_OFFSET
@@ -114,6 +115,7 @@ where
                     .unwrap(),
             )?;
             main_group.push(point);
+            println!("PASE G1");
         }
 
         let g2s_offset = size_g1_point * main_group_len + 12;
@@ -411,19 +413,4 @@ mod tests {
 
         assert_eq!(srs, deserialized);
     }
-
-    // #[test]
-    // fn load_srs_from_file() {
-    //     type TestSrsType = StructuredReferenceString<
-    //         ShortWeierstrassProjectivePoint<BLS12381Curve>,
-    //         ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
-    //     >;
-
-    //     let base_dir = env!("CARGO_MANIFEST_DIR");
-    //     let srs_file = base_dir.to_owned() + "/src/commitments/test_srs/srs_3_g1_elements.bin";
-
-    //     let srs = TestSrsType::from_file(&srs_file).unwrap();
-
-    //     assert_eq!(srs.powers_main_group.len(), 3);
-    // }
 }
