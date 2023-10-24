@@ -1,4 +1,4 @@
-use core::ops::{AddAssign, Deref, MulAssign, Neg};
+use core::ops::Neg;
 
 use crate::{
     cyclic_group::IsGroup,
