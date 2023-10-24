@@ -22,29 +22,29 @@ mod tests {
     use super::*;
 
     type FE = FieldElement<Babybear31PrimeField>;
-    type FEE = QuadraticBabybearFieldElement;
+    type Fee = QuadraticBabybearFieldElement;
 
     #[test]
     fn test_add_quadratic() {
-        let a = FEE::new([FE::from(0), FE::from(3)]);
-        let b = FEE::new([-FE::from(2), FE::from(8)]);
-        let expected_result = FEE::new([FE::from(0) - FE::from(2), FE::from(3) + FE::from(8)]);
+        let a = Fee::new([FE::from(0), FE::from(3)]);
+        let b = Fee::new([-FE::from(2), FE::from(8)]);
+        let expected_result = Fee::new([FE::from(0) - FE::from(2), FE::from(3) + FE::from(8)]);
         assert_eq!(a + b, expected_result);
     }
 
     #[test]
     fn test_sub_quadratic() {
-        let a = FEE::new([FE::from(0), FE::from(3)]);
-        let b = FEE::new([-FE::from(2), FE::from(8)]);
-        let expected_result = FEE::new([FE::from(0) + FE::from(2), FE::from(3) - FE::from(8)]);
+        let a = Fee::new([FE::from(0), FE::from(3)]);
+        let b = Fee::new([-FE::from(2), FE::from(8)]);
+        let expected_result = Fee::new([FE::from(0) + FE::from(2), FE::from(3) - FE::from(8)]);
         assert_eq!(a - b, expected_result);
     }
 
     #[test]
     fn test_mul_quadratic() {
-        let a = FEE::new([FE::from(12), FE::from(5)]);
-        let b = FEE::new([-FE::from(4), FE::from(2)]);
-        let expected_result = FEE::new([
+        let a = Fee::new([FE::from(12), FE::from(5)]);
+        let b = Fee::new([-FE::from(4), FE::from(2)]);
+        let expected_result = Fee::new([
             FE::from(12) * (-FE::from(4))
                 + FE::from(5) * FE::from(2) * QuadraticBabybearField::residue(),
             FE::from(12) * FE::from(2) + FE::from(5) * (-FE::from(4)),
@@ -54,12 +54,12 @@ mod tests {
 
     #[test]
     fn test_inv() {
-        let a = FEE::new([FE::from(12), FE::from(5)]);
+        let a = Fee::new([FE::from(12), FE::from(5)]);
         let inv_norm = (FE::from(12).pow(2_u64)
             - QuadraticBabybearField::residue() * FE::from(5).pow(2_u64))
         .inv()
         .unwrap();
-        let expected_result = FEE::new([FE::from(12) * &inv_norm, -&FE::from(5) * inv_norm]);
+        let expected_result = Fee::new([FE::from(12) * &inv_norm, -&FE::from(5) * inv_norm]);
         assert_eq!(a.inv().unwrap(), expected_result);
     }
 }
