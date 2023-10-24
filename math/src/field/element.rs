@@ -413,6 +413,14 @@ where
         }
     }
 
+    /// Returns the square of `self`
+    #[inline(always)]
+    pub fn double(&self) -> Self {
+        Self {
+            value: F::add(&self.value, &self.value),
+        }
+    }
+
     /// Returns `self` raised to the power of `exponent`
     #[inline(always)]
     pub fn pow<T>(&self, exponent: T) -> Self

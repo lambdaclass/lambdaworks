@@ -120,7 +120,8 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
             return Self::new([other.x().clone(), other.y().clone(), FieldElement::one()]);
         }
 
-        let z1z1 = self.z().square();
+        let mut z1z1 = self.z().clone();
+        z1z1 = z1z1.square();
 
         let mut u2 = other.x().clone();
         u2 *= &z1z1;
@@ -132,36 +133,49 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         if self.x().clone() == u2 && self.y().clone() == s2 {
             Self::double_in_place(&mut self.clone()).to_owned()
         } else {
+            // H = U2-X1
             let mut h = u2;
             h -= self.x();
 
-            let hh = h.square();
+            // HH = H^2
+            let mut hh = h.clone();
+            hh = hh.square();
 
-            let mut i = hh;
-            i = &i + &i + &i + &i; // possible error here
+            // I = 4*HH
+            let mut i = hh.clone();
+            i = i.double().double();
 
-            let mut j = -&h;
+            // J = -H*I
+            let mut j = h.clone();
+            j = j.neg();
             j *= &i;
 
+            // R = 2*(S2-Y1)
             let mut r = s2;
-            r -= &self.y();
-            r = &r + &r; // possible error here
+            r -= self.y();
+            r = r.double();
 
+            // V = X1*I
             let mut v = self.x().clone();
             v *= &i;
 
+            // X3 = R^2 + J - 2*V
             let mut ret_x = r.square();
             ret_x += &j;
-            ret_x -= &v;
-            ret_x -= &v;
-
-            v -= &self.x();
-            let mut ret_y = self.y() + self.y();
+            ret_x -= &v.double();
+            
+            // Y3 = R*(V-X3) + 2*Y1*J
+            let mut ret_y = self.y().double();
             ret_y *= &j;
-            ret_y += r * (v - &ret_x);
+            v -= self.x();
+            v *= &r;
+            ret_y += v;
 
-            let mut ret_z = self.x().clone() * &h;
-            ret_z = &ret_z + &ret_z;
+            // Z3 = 2 * Z1 * H;
+            let mut ret_z = self.z().clone();
+            ret_z *= &h;
+            ret_z = ret_z.double();
+
             Self::new([ret_x, ret_y, ret_z])
         }
     }
@@ -392,6 +406,10 @@ mod tests {
         BLS12381Curve::create_point_from_affine(x, y).unwrap()
     }
 
+    fn non_affine_point() -> ShortWeierstrassProjectivePoint<BLS12381Curve> {
+        ShortWeierstrassProjectivePoint::new([FEE::one(), FEE::one(), FEE::new_base("36bb494facde72d0da5c770c4b16d9b2d45cfdc27604a25a1a80b020798e5b0dbd4c6d939a8f8820f042a29ce552ee5")])
+    }
+
     #[cfg(feature = "std")]
     #[test]
     fn byte_conversion_from_and_to_be() {
@@ -500,6 +518,20 @@ mod tests {
     }
 
     #[test]
+    fn converting_non_affine_point_to_affine_works() {
+        let point = non_affine_point();
+        let affined = point.clone().to_affine();
+        assert_ne!(point, affined);
+    }
+
+    #[test]
+    fn convert_affine_point_to_affine_gives_same_point() {
+        let affine_point = point();
+        let affined = point().clone().to_affine();
+        assert_eq!(affine_point, affined)
+    }
+
+    #[test]
     fn operate_with_other_works() {
         let point1 = point();
 
@@ -512,7 +544,6 @@ mod tests {
         let expected = BLS12381Curve::create_point_from_affine(x_expected, y_expected).unwrap();
 
         let res = point1.operate_with(&point2).to_affine();
-
         assert_eq!(res, expected);
     }
 
@@ -524,5 +555,38 @@ mod tests {
 
         let res = zero.operate_with_affine(&other);
         assert_eq!(res, other);
+    }
+
+    #[test]
+    fn operate_with_affine_add_self_to_self_result_is_double() {
+        let point = point();
+
+        let mut expected = point.clone();
+        expected.double_in_place();
+
+        let res = point.operate_with_affine(&point);
+        assert_eq!(res, expected)
+    }
+
+    #[test]
+    fn operate_with_affine_with_non_affine_does_not_work() {
+        let point = non_affine_point();
+        let other = non_affine_point();
+
+        let expected = point.operate_with(&other).to_affine();
+        let res = point.operate_with_affine(&other);
+        assert_ne!(res, expected)
+    }
+
+    #[test]
+    fn operate_with_affine_addition_works() {
+        let point1 = point();
+        let x = FEE::new_base("0x19ef02aaa2ef2235cecd25a89259c3b24e3cf7260875f4617851d890786e6e63d50678d219d493dd99c3ed2eb550117b");
+        let y = FEE::new_base("0x1775eadaa2a956d21df7447b1eb4860152bfb7ed991efbfaf47aa84079690280b5192e0bdc1a54dc2d348e2debe0f6d3");
+        let point2 = BLS12381Curve::create_point_from_affine(x, y).unwrap();
+
+        let expected = point1.operate_with(&point2).to_affine();
+        let res = point1.operate_with_affine(&point2).to_affine();
+        assert_eq!(res, expected);
     }
 }
