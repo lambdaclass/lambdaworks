@@ -1,26 +1,25 @@
-use std::ops::{Add, AddAssign};
-
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use lambdaworks_math::{
     cyclic_group::IsGroup,
     elliptic_curve::{short_weierstrass::curves::stark_curve::StarkCurve, traits::IsEllipticCurve},
 };
 use starknet_curve::{curve_params::GENERATOR, AffinePoint, ProjectivePoint};
+use std::ops::{Add, AddAssign};
 
 const BENCHMARK_NAME: &str = "point";
 
 pub fn point_double_projective(c: &mut Criterion) {
     let starknet_rs_projective_generator = ProjectivePoint::from_affine_point(&GENERATOR);
 
-    let mut initial_point = starknet_rs_projective_generator.clone();
-    let copied_point = starknet_rs_projective_generator.clone();
+    let mut initial_point = starknet_rs_projective_generator;
+    let copied_point = starknet_rs_projective_generator;
 
     {
         c.bench_function(
             &format!("{} Projective Double | Starknet RS ", BENCHMARK_NAME),
             |b| {
                 b.iter(|| {
-                    let mut initial_point = starknet_rs_projective_generator.clone();
+                    let mut initial_point = starknet_rs_projective_generator;
                     initial_point.add_assign(&copied_point);
                     initial_point
                 });
@@ -56,11 +55,11 @@ pub fn point_double_projective(c: &mut Criterion) {
         lambdaworks_affine_generator.operate_with(&lambdaworks_affine_generator);
     println!(
         "Lambdaworks result - X: {}",
-        test_lambda_result.to_affine().x().to_string()
+        test_lambda_result.to_affine().x()
     );
     println!(
         "Lambdaworks result - Y: {}",
-        test_lambda_result.to_affine().y().to_string()
+        test_lambda_result.to_affine().y()
     );
 }
 
@@ -214,7 +213,7 @@ pub fn point_add_affine_affine(c: &mut Criterion) {
             &format!("{} 10k Add Affine-Affine | Starknet RS ", BENCHMARK_NAME),
             |b| {
                 b.iter(|| {
-                    let mut point_rs = starknet_rs_initial_point.clone();
+                    let mut point_rs = *starknet_rs_initial_point;
                     for _i in 0..10000 {
                         point_rs.add_assign(black_box(&starknet_rs_affine_generator));
                     }
@@ -224,7 +223,7 @@ pub fn point_add_affine_affine(c: &mut Criterion) {
         );
     }
 
-    let mut point_rs = starknet_rs_initial_point.clone();
+    let mut point_rs = *starknet_rs_initial_point;
     for _i in 0..10000 {
         point_rs.add_assign(&starknet_rs_affine_generator);
     }
