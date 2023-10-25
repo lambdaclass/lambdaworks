@@ -142,7 +142,6 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         let [px, py, pz] = self.coordinates();
         let [qx, qy, _qz] = other.coordinates();
 
-        // let z1z1 = self.z().square();
         let z1z1 = pz * pz;
 
         let u2 = qx * &z1z1;
