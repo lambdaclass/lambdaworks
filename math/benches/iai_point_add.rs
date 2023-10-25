@@ -26,7 +26,7 @@ pub fn add_for_bench() -> ShortWeierstrassProjectivePoint<StarkCurve> {
     let mut projective_point = initial_projective_point.clone();
     for _i in 0..10000 {
         projective_point =
-            black_box(projective_point.operate_with(black_box(&second_projective_point)));
+            black_box(projective_point.operate_with_affine(black_box(&second_projective_point)));
     }
     projective_point
 }

@@ -70,8 +70,8 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                     let mut projective_point = lambdaworks_rs_initial_projective.clone();
                     for _i in 0..10000 {
                         projective_point = projective_point
-                            .operate_with_affine(black_box(&lambdaworks_affine_generator))
-                            .unwrap();
+                            .operate_with_affine(black_box(&lambdaworks_affine_generator));
+                        // .unwrap();
                     }
                     projective_point
                 });
