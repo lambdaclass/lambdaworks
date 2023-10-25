@@ -43,7 +43,11 @@ impl<E: IsEllipticCurve> ProjectivePoint<E> {
         // If it's the point at infinite
         if z == &FieldElement::zero() {
             // We make sure all the points in the infinite have the same values
-            return Self::new([FieldElement::zero(),FieldElement::one(),FieldElement::zero()]);
+            return Self::new([
+                FieldElement::zero(),
+                FieldElement::one(),
+                FieldElement::zero(),
+            ]);
         };
         let inv_z = z.inv().unwrap();
         ProjectivePoint::new([x * &inv_z, y * inv_z, FieldElement::one()])
