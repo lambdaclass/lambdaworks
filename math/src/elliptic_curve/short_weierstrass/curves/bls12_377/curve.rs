@@ -69,8 +69,8 @@ mod tests {
         let point_1 = point_1();
         let point_2 = &point_1.operate_with(&point_1).to_affine();
 
-        let first_algorithm_result = point_1.operate_with(&point_2).to_affine();
-        let second_algorithm_result = point_1.operate_with_affine(&point_2).to_affine();
+        let first_algorithm_result = point_1.operate_with(point_2).to_affine();
+        let second_algorithm_result = point_1.operate_with_affine(point_2).to_affine();
 
         assert_eq!(first_algorithm_result, second_algorithm_result);
     }
@@ -80,8 +80,8 @@ mod tests {
         let point_1 = point_1();
         let point_2 = &point_1.operate_with_self(42424242u128).to_affine();
 
-        let first_algorithm_result = point_1.operate_with(&point_2).to_affine();
-        let second_algorithm_result = point_1.operate_with_affine(&point_2).to_affine();
+        let first_algorithm_result = point_1.operate_with(point_2).to_affine();
+        let second_algorithm_result = point_1.operate_with_affine(point_2).to_affine();
 
         assert_eq!(first_algorithm_result, second_algorithm_result);
     }
