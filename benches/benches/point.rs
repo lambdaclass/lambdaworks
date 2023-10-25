@@ -3,15 +3,7 @@ use std::ops::AddAssign;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use lambdaworks_math::{
     cyclic_group::IsGroup,
-    elliptic_curve::{
-        short_weierstrass::{
-            curves::stark_curve::StarkCurve, point::ShortWeierstrassProjectivePoint,
-        },
-        traits::{FromAffine, IsEllipticCurve},
-    },
-    field::{
-        element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
-    },
+    elliptic_curve::{short_weierstrass::curves::stark_curve::StarkCurve, traits::IsEllipticCurve},
 };
 use starknet_curve::{curve_params::GENERATOR, AffinePoint, ProjectivePoint};
 
@@ -28,10 +20,10 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         projective_point.add_assign(&second_project_point);
     }
 
-    let starknet_rs_x = AffinePoint::from(&projective_point).x.to_string();
-    println!("Starknet RS result X: {} ", starknet_rs_x);
-    let starknet_rs_y = AffinePoint::from(&projective_point).y.to_string();
-    println!("Starknet RS result Y: {} ", starknet_rs_y);
+    let starknet_rs_x = AffinePoint::from(&projective_point).x;
+    println!("Starknet RS result - X: {:#x} ", starknet_rs_x);
+    let starknet_rs_y = AffinePoint::from(&projective_point).y;
+    println!("Starknet RS result - Y: {:#x} ", starknet_rs_y);
 
     {
         c.bench_function(
@@ -41,7 +33,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                     let mut projective_point = initial_projective_point;
                     // We loop to have a higher variance of numbers, and make the time of the clones not relevant
                     for _i in 0..10000 {
-                        projective_point.add_assign(&second_project_point);
+                        black_box(projective_point.add_assign(black_box(&second_project_point)));
                     }
                     projective_point
                 });
@@ -61,8 +53,8 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     }
     let lambdaworks_x = projective_point.to_affine().x().to_string();
     let lambdaworks_y = projective_point.to_affine().y().to_string();
-    println!("Lambdaworks result, X: {}", lambdaworks_x);
-    println!("Lambdaworks result, Y: {}", lambdaworks_y);
+    println!("Lambdaworks result - X: {}", lambdaworks_x);
+    println!("Lambdaworks result - Y: {}", lambdaworks_y);
 
     {
         c.bench_function(

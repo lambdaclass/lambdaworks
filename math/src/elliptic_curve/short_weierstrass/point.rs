@@ -82,6 +82,7 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
 
         let xx = self.x().square();
         let yy = self.y().square();
+
         let yyyy = &yy * &yy;
 
         let zz = self.z().square();
@@ -105,7 +106,7 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         self.0.value[1] = &self.0.value[1] - &self.0.value[0];
         self.0.value[1] *= &m;
 
-        let mut eight_times_yyyy = yyyy.clone();
+        let mut eight_times_yyyy = yyyy;
         eight_times_yyyy = &eight_times_yyyy + &eight_times_yyyy;
         eight_times_yyyy = &eight_times_yyyy + &eight_times_yyyy;
         eight_times_yyyy = &eight_times_yyyy + &eight_times_yyyy;
@@ -253,6 +254,7 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
         let mut z = self.z() * other.z();
         z = &z + &z;
         z *= &h;
+
         Self::new([x, y, z])
     }
 
