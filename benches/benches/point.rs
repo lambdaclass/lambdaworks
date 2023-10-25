@@ -111,8 +111,8 @@ pub fn point_add_projective_affine(c: &mut Criterion) {
                 b.iter(|| {
                     let mut projective_point = lambdaworks_rs_initial_projective.clone();
                     for _i in 0..10000 {
-                        projective_point =
-                            projective_point.operate_with(black_box(&lambdaworks_affine_generator));
+                        projective_point = projective_point
+                            .operate_with_affine(black_box(&lambdaworks_affine_generator));
                     }
                     projective_point
                 });
