@@ -236,12 +236,26 @@ fn main() {
     /////////////////////////////// QAP //////////////////////////////////
     //////////////////////////////////////////////////////////////////////
     /*
+        sym_1 = x * x
+        y = sym_1 * x
+        sym_2 = y + x
+        ~out = sym_2 + 5
+
         A                   B                   C
         [0, 1, 0, 0, 0, 0]  [0, 1, 0, 0, 0, 0]  [0, 0, 0, 1, 0, 0]
         [0, 0, 0, 1, 0, 0]  [0, 1, 0, 0, 0, 0]  [0, 0, 0, 0, 1, 0]
         [0, 1, 0, 0, 1, 0]  [1, 0, 0, 0, 0, 0]  [0, 0, 0, 0, 0, 1]
         [5, 0, 0, 0, 0, 1]  [1, 0, 0, 0, 0, 0]  [0, 0, 1, 0, 0, 0]
     */
+
+    let number_of_public_vars = 1;
+    let number_of_private_vars = 5;
+    let number_of_total_vars = number_of_public_vars + number_of_private_vars;
+
+    let number_of_gates = 4;
+
+    let max_degree = number_of_total_vars + 1;
+
     // Gate indices. Will correspond to rows of QAP matrices. TODO: Roots of unity
     let gate_indices = vec![
         FrElement::from_hex_unchecked("1"),
@@ -252,6 +266,11 @@ fn main() {
     let mut l = get_test_QAP_L(&gate_indices);
     let mut r = get_test_QAP_R(&gate_indices);
     let mut o = get_test_QAP_O(&gate_indices);
+    {
+        assert_eq!(l.len(), r.len());
+        assert_eq!(r.len(), o.len());
+        assert_eq!(number_of_total_vars, o.len());
+    }
 
     // t(x) = (x-1)(x-2)(x-3)(x-4) = [24, -50, 35, -10, 1]
     let t = Polynomial::new(&[
@@ -262,19 +281,67 @@ fn main() {
         FrElement::from_hex_unchecked("0x1"),
     ]);
 
+    let num_of_variables = l.len();
+    let num_of_gates = l[0].degree() + 1;
+
+    //////////////////////////////////////////////////////////////////////
+    ////////////////////////////// Setup /////////////////////////////////
+    //////////////////////////////////////////////////////////////////////
+
+    // Config
+    let mut rng = rand::thread_rng();
+
+    let g1: G1Point = BLS12381Curve::generator();
+    let g2: G2Point = BLS12381TwistCurve::generator();
+
+    // Point of evaluation. TODO: Fiat-Shamir
+    let tau: FrElement = FrElement::new(U256 {
+        limbs: [
+            rng.gen::<u64>(),
+            rng.gen::<u64>(),
+            rng.gen::<u64>(),
+            rng.gen::<u64>(),
+        ],
+    });
+
+    // [t(tau)]_1
+    let t_evaluated_g1 = g1.operate_with_self(t.evaluate(&tau).representative());
+
+    let alpha_shift = FrElement::new(U256 {
+        limbs: [
+            rng.gen::<u64>(),
+            rng.gen::<u64>(),
+            rng.gen::<u64>(),
+            rng.gen::<u64>(),
+        ],
+    });
+    // [alpha]_2
+    let alpha_g2 = g2.operate_with_self(alpha_shift.representative());
+
+    // [tau]_1,[tau^2]_1,[tau^3]_1,...,[tau^n]_1
+    let powers_of_tau_g1: Vec<G1Point> = (0..max_degree + 1)
+        .map(|exp: usize| g1.operate_with_self(tau.pow(exp as u128).representative()))
+        .collect();
+    // [alpha*tau]_1,[alpha*tau^2]_1,[alpha*tau^3]_1,...,[alpha*tau^n]_1
+    let shifted_powers_of_tau_g1: Vec<G1Point> = (0..max_degree + 1)
+        .map(|exp| {
+            g1.operate_with_self(tau.pow(exp as u128).representative())
+                .operate_with_self((&alpha_shift).representative())
+        })
+        .collect();
+
+    // [tau]_2,[tau^2]_2,[tau^3]_2,...,[tau^n]_2
+    let powers_of_tau_g2: Vec<G2Point> = (0..max_degree + 1)
+        .map(|exp| g2.operate_with_self(tau.pow(exp as u128).representative()))
+        .collect();
+
+    //////////////////////////////////////////////////////////////////////
+    ////////////////////////////// Prove /////////////////////////////////
+    //////////////////////////////////////////////////////////////////////
+
     // aka the secret assignments, w vector, s vector
     let witness_vector =
         ["0x1", "0x3", "0x23", "0x9", "0x1b", "0x1e"].map(|e| FrElement::from_hex_unchecked(e));
-
-    // Assert input integrity
-    {
-        assert_eq!(l.len(), r.len());
-        assert_eq!(r.len(), o.len());
-        assert_eq!(witness_vector.len(), o.len());
-    }
-
-    let num_of_variables = l.len();
-    let num_of_gates = l[0].degree() + 1;
 
     // Compute A[0].s, A[1].s,..., B[0].s, ..., C[0].s, C[1].s, ..., C[n].s
     for i in 0..num_of_variables {
@@ -331,63 +398,6 @@ fn main() {
             o_dot_s.evaluate(&gate_indices[3])
         );
     }
-
-    let max_degree = (&l_dot_s).degree() + (&r_dot_s).degree();
-
-    //////////////////////////////////////////////////////////////////////
-    ////////////////////////////// Setup /////////////////////////////////
-    //////////////////////////////////////////////////////////////////////
-
-    // Config
-    let mut rng = rand::thread_rng();
-
-    let g1: G1Point = BLS12381Curve::generator();
-    let g2: G2Point = BLS12381TwistCurve::generator();
-
-    // Point of evaluation. TODO: Fiat-Shamir
-    let tau: FrElement = FrElement::new(U256 {
-        limbs: [
-            rng.gen::<u64>(),
-            rng.gen::<u64>(),
-            rng.gen::<u64>(),
-            rng.gen::<u64>(),
-        ],
-    });
-
-    // [t(tau)]_1
-    let t_evaluated_g1 = g1.operate_with_self(t.evaluate(&tau).representative());
-
-    let alpha_shift = FrElement::new(U256 {
-        limbs: [
-            rng.gen::<u64>(),
-            rng.gen::<u64>(),
-            rng.gen::<u64>(),
-            rng.gen::<u64>(),
-        ],
-    });
-    // [alpha]_2
-    let alpha_g2 = g2.operate_with_self(alpha_shift.representative());
-
-    // [tau]_1,[tau^2]_1,[tau^3]_1,...,[tau^n]_1
-    let powers_of_tau_g1: Vec<G1Point> = (0..max_degree + 1)
-        .map(|exp: usize| g1.operate_with_self(tau.pow(exp as u128).representative()))
-        .collect();
-    // [alpha*tau]_1,[alpha*tau^2]_1,[alpha*tau^3]_1,...,[alpha*tau^n]_1
-    let shifted_powers_of_tau_g1: Vec<G1Point> = (0..max_degree + 1)
-        .map(|exp| {
-            g1.operate_with_self(tau.pow(exp as u128).representative())
-                .operate_with_self((&alpha_shift).representative())
-        })
-        .collect();
-
-    // [tau]_2,[tau^2]_2,[tau^3]_2,...,[tau^n]_2
-    let powers_of_tau_g2: Vec<G2Point> = (0..max_degree + 1)
-        .map(|exp| g2.operate_with_self(tau.pow(exp as u128).representative()))
-        .collect();
-
-    //////////////////////////////////////////////////////////////////////
-    ////////////////////////////// Prove /////////////////////////////////
-    //////////////////////////////////////////////////////////////////////
 
     // Sample delta for zk-ness
     // let delta_shift = FrElement::new(U256 {
