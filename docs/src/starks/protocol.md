@@ -4,14 +4,12 @@ In this section we describe precisely the STARKs protocol used in Lambdaworks.
 
 We begin with some additional considerations and notation for most of the relevant objects and values to refer to them later on.
 
+### Grinding
+This is a technique to increase the soundness of the protocol by adding proof of work. It works as follows. At some fixed point in the protocol, the prover needs to find a string `nonce` such that `H(H(prefix || state || grinding_factor) || nonce)` has `grinding_factor` number of zeros to the left, where `H` is a hash function, `prefix` is the bit-string `0x0123456789abcded` and `state` is the state of the transcript. Here `x || y` denotes the concatenation of the bit-strings `x` and `y`.
+
 ### Transcript
 
 The Fiat-Shamir heuristic is used to make the protocol noninteractive. We assume there is a transcript object to which values can be added and from which challenges can be sampled.
-
-### Grinding
-This is a technique to increase the soundness of the protocol by adding proof of work. It works as follows. At some fixed point in the protocol, a value $x$ is derived in a deterministic way from all the interactions between the prover and the verifier up to that point (the state of the transcript). The prover needs to find a string $y$ such that $H(x || y)$ begins with a predefined number of zeroes. Here $x || y$ denotes the concatenation of $x$ and $y$, seen as bit strings.
-The number of zeroes is called the *grinding factor*. The hash function $H$ can be any hash function, independent of other hash functions used in the rest of the protocol. In Lambdaworks we use Keccak256.
-
 
 ## General notation
 
