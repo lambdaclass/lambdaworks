@@ -51,6 +51,11 @@ impl<E: IsEllipticCurve> ShortWeierstrassProjectivePoint<E> {
     pub fn to_affine(&self) -> Self {
         Self(self.0.to_affine())
     }
+
+    /// Evaluates if the point is in affine coordinates.
+    pub fn is_affine(&self) -> bool {
+        self.z() == &FieldElement::one()
+    }
 }
 
 impl<E: IsEllipticCurve> PartialEq for ShortWeierstrassProjectivePoint<E> {
@@ -116,9 +121,24 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         self
     }
 
-    fn operate_with_affine(&self, other: &Self) -> Self {
+    /// Taken from <http://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#addition-madd-2007-bl>
+    ///
+    /// Operates between `self` and `other`.
+    ///
+    /// Returns an error if `other` is not in affine coordinates.
+    ///
+    /// Otherwise, returns the addition of `self` and `other`.
+    fn operate_with_affine(&self, other: &Self) -> Result<Self, EllipticCurveError> {
+        if !other.is_affine() {
+            return Err(EllipticCurveError::InvalidPoint);
+        }
+
         if self.is_neutral_element() {
-            return Self::new([other.x().clone(), other.y().clone(), FieldElement::one()]);
+            return Ok(Self::new([
+                other.x().clone(),
+                other.y().clone(),
+                FieldElement::one(),
+            ]));
         }
 
         let mut z1z1 = self.z().clone();
@@ -134,7 +154,7 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         if self.x().clone() == u2 && self.y().clone() == s2 {
             let mut copy = self.clone();
             let res = copy.double_in_place();
-            return res.clone();
+            return Ok(res.clone());
         }
 
         let mut h = u2;
@@ -157,21 +177,21 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         let mut v = self.x().clone();
         v *= &i;
 
-        let mut ret_x = r.square();
-        ret_x += &j;
-        ret_x -= &v.double();
+        let mut x = r.square();
+        x += &j;
+        x -= &v.double();
 
-        v -= &ret_x;
-        let mut ret_y = self.y().double();
-        ret_y *= &j;
+        v -= &x;
+        let mut y = self.y().double();
+        y *= &j;
         v *= &r;
-        ret_y += v;
+        y += v;
 
-        let mut ret_z = self.z().clone();
-        ret_z *= &h;
-        ret_z = ret_z.double();
+        let mut z = self.z().clone();
+        z *= &h;
+        z = z.double();
 
-        Self::new([ret_x, ret_y, ret_z])
+        Ok(Self::new([x, y, z]))
     }
 }
 
@@ -550,18 +570,17 @@ mod tests {
             ShortWeierstrassProjectivePoint::neutral_element();
         let other = point();
 
-        let res = zero.operate_with_affine(&other);
+        let res = zero.operate_with_affine(&other).unwrap();
         assert_eq!(res, other);
     }
 
     #[test]
-    fn operate_with_affine_with_non_affine_does_not_work() {
+    fn operate_with_affine_with_non_affine_is_err() {
         let point = non_affine_point();
         let other = non_affine_point();
 
-        let expected = point.operate_with(&other).to_affine();
         let res = point.operate_with_affine(&other);
-        assert_ne!(res, expected)
+        assert!(res.is_err());
     }
 
     #[test]
@@ -572,7 +591,7 @@ mod tests {
         let point2 = BLS12381Curve::create_point_from_affine(x, y).unwrap();
 
         let expected = point1.operate_with(&point2).to_affine();
-        let res = point1.operate_with_affine(&point2).to_affine();
+        let res = point1.operate_with_affine(&point2).unwrap().to_affine();
         assert_eq!(res, expected);
     }
 
@@ -583,7 +602,7 @@ mod tests {
         let mut expected = point.clone();
         expected.double_in_place();
 
-        let res = point.operate_with_affine(&point);
+        let res = point.operate_with_affine(&point).unwrap();
         assert_eq!(res, expected)
     }
 
@@ -594,7 +613,7 @@ mod tests {
 
         let expected = non_affine.operate_with(&affine).to_affine();
         assert_eq!(
-            non_affine.operate_with_affine(&affine).to_affine(),
+            non_affine.operate_with_affine(&affine).unwrap().to_affine(),
             expected
         );
         // assert_eq!(affine.operate_with_affine(&non_affine).to_affine(), expected) // different order does not work
