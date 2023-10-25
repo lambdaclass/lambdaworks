@@ -94,7 +94,7 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
             return self.clone();
         }
 
-        if v == *py {
+        if u == *py {
             /*
             let u2 = py * qz;
 
@@ -103,10 +103,14 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
                 if u1 != u2 || *py == FieldElement::zero() {
                     Self::neutral_element()
              */
-            if u != *px || *py == FieldElement::zero() {
-                return Self::new([FieldElement::zero(),FieldElement::one(),FieldElement::zero()]);
+            if v != *px || *py == FieldElement::zero() {
+                return Self::new([
+                    FieldElement::zero(),
+                    FieldElement::one(),
+                    FieldElement::zero(),
+                ]);
             } else {
-               return self.double();
+                return self.double();
             }
         }
 
@@ -114,15 +118,15 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         let v = &v - px;
         let vv = &v * &v;
         let uu = &u * &u;
-        let vvv = &v*&vv;
-        let r = &vv*px;
-        let a = &uu*pz - &vvv - &r - &r;
-        
-        let x = &v*&a;
-        let y = &u*(&r-&a) - &vvv*py;
+        let vvv = &v * &vv;
+        let r = &vv * px;
+        let a = &uu * pz - &vvv - &r - &r;
+
+        let x = &v * &a;
+        let y = &u * (&r - &a) - &vvv * py;
         let z = &vvv * pz;
 
-        Self::new([x,y,z])
+        Self::new([x, y, z])
     }
 }
 
