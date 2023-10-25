@@ -36,22 +36,6 @@ pub type KZG = KateZaveruchaGoldberg<FrField, Pairing>;
 pub type G1Point = <BLS12381Curve as IsEllipticCurve>::PointRepresentation;
 pub type G2Point = <BLS12381TwistCurve as IsEllipticCurve>::PointRepresentation;
 
-/// Generates a test SRS for the BLS12381 curve
-/// n is the number of constraints in the system.
-
-// pub fn test_srs(n: usize) -> StructuredReferenceString<G1Point, G2Point> {
-//     let s = FrElement::from(2);
-//     let g1 = <BLS12381Curve as IsEllipticCurve>::generator();
-//     let g2 = <BLS12381TwistCurve as IsEllipticCurve>::generator();
-
-//     let powers_main_group: Vec<G1Point> = (0..n + 3)
-//         .map(|exp| g1.operate_with_self(s.pow(exp as u64).representative()))
-//         .collect();
-//     let powers_secondary_group = [g2.clone(), g2.operate_with_self(s.representative())];
-
-//     StructuredReferenceString::new(&powers_main_group, &powers_secondary_group)
-// }
-
 fn get_test_QAP_L(gate_indices: &Vec<FrElement>) -> Vec<Polynomial<FrElement>> {
     vec![
         Polynomial::interpolate(
@@ -265,20 +249,18 @@ fn main() {
         FrElement::from_hex_unchecked("3"),
         FrElement::from_hex_unchecked("4"),
     ];
+    let mut l = get_test_QAP_L(&gate_indices);
+    let mut r = get_test_QAP_R(&gate_indices);
+    let mut o = get_test_QAP_O(&gate_indices);
 
     // t(x) = (x-1)(x-2)(x-3)(x-4) = [24, -50, 35, -10, 1]
-    let t_coefficients = vec![
+    let t = Polynomial::new(&[
         FrElement::from_hex_unchecked("0x18"),
         -FrElement::from_hex_unchecked("0x32"),
         FrElement::from_hex_unchecked("0x23"),
         -FrElement::from_hex_unchecked("0xa"),
         FrElement::from_hex_unchecked("0x1"),
-    ];
-    let t = Polynomial::new(&t_coefficients);
-
-    let mut l_variable_polynomials = get_test_QAP_L(&gate_indices);
-    let mut r_variable_polynomials = get_test_QAP_R(&gate_indices);
-    let mut o_variable_polynomials = get_test_QAP_O(&gate_indices);
+    ]);
 
     // aka the secret assignments, w vector, s vector
     let witness_vector =
@@ -286,42 +268,42 @@ fn main() {
 
     // Assert input integrity
     {
-        assert_eq!(l_variable_polynomials.len(), r_variable_polynomials.len());
-        assert_eq!(r_variable_polynomials.len(), o_variable_polynomials.len());
-        assert_eq!(witness_vector.len(), o_variable_polynomials.len());
+        assert_eq!(l.len(), r.len());
+        assert_eq!(r.len(), o.len());
+        assert_eq!(witness_vector.len(), o.len());
     }
 
-    let num_of_variables = l_variable_polynomials.len();
-    let num_of_gates = l_variable_polynomials[0].degree() + 1;
+    let num_of_variables = l.len();
+    let num_of_gates = l[0].degree() + 1;
 
     // Compute A[0].s, A[1].s,..., B[0].s, ..., C[0].s, C[1].s, ..., C[n].s
     for i in 0..num_of_variables {
         // A[i] *= s[i]
-        l_variable_polynomials[i] = l_variable_polynomials[i].scale_coeffs(&witness_vector[i]);
+        l[i] = l[i].scale_coeffs(&witness_vector[i]);
         // B[i] *= s[i]
-        r_variable_polynomials[i] = r_variable_polynomials[i].scale_coeffs(&witness_vector[i]);
+        r[i] = r[i].scale_coeffs(&witness_vector[i]);
         // C[i] *= s[i]
-        o_variable_polynomials[i] = o_variable_polynomials[i].scale_coeffs(&witness_vector[i]);
+        o[i] = o[i].scale_coeffs(&witness_vector[i]);
     }
+
     // Now compute A.s by summing up polynomials A[0].s, A[1].s, ..., A[n].s
     // Similarly for B.s and C.s
-
     let mut l_dot_s_coeffs = vec![FrElement::from_hex_unchecked("0"); num_of_gates];
     let mut r_dot_s_coeffs = vec![FrElement::from_hex_unchecked("0"); num_of_gates];
     let mut o_dot_s_coeffs = vec![FrElement::from_hex_unchecked("0"); num_of_gates];
     for row in 0..num_of_gates {
         for col in 0..num_of_variables {
-            let l_current_poly_coeffs = l_variable_polynomials[col].coefficients();
+            let l_current_poly_coeffs = l[col].coefficients();
             if l_current_poly_coeffs.len() != 0 {
                 l_dot_s_coeffs[row] += l_current_poly_coeffs[row].clone();
             }
 
-            let r_current_poly_coeffs = r_variable_polynomials[col].coefficients();
+            let r_current_poly_coeffs = r[col].coefficients();
             if r_current_poly_coeffs.len() != 0 {
                 r_dot_s_coeffs[row] += r_current_poly_coeffs[row].clone();
             }
 
-            let o_current_poly_coeffs = o_variable_polynomials[col].coefficients();
+            let o_current_poly_coeffs = o[col].coefficients();
             if o_current_poly_coeffs.len() != 0 {
                 o_dot_s_coeffs[row] += o_current_poly_coeffs[row].clone();
             }
@@ -330,7 +312,6 @@ fn main() {
     let l_dot_s = Polynomial::new(&l_dot_s_coeffs);
     let r_dot_s = Polynomial::new(&r_dot_s_coeffs);
     let o_dot_s = Polynomial::new(&o_dot_s_coeffs);
-
     // Assert correctness of assignments
     {
         assert_eq!(
@@ -351,13 +332,7 @@ fn main() {
         );
     }
 
-    // p(x) = A.s * B.s - C.s
-    let p = l_dot_s * r_dot_s - o_dot_s;
-    let p_degree = p.degree();
-    // h(x) = p(x) / t(x) = (A.s * B.s - C.s) / t(x)
-    let (h, remainder) = &p.clone().long_division_with_remainder(&t);
-    // must have no remainder
-    assert_eq!(0, remainder.degree());
+    let max_degree = (&l_dot_s).degree() + (&r_dot_s).degree();
 
     //////////////////////////////////////////////////////////////////////
     ////////////////////////////// Setup /////////////////////////////////
@@ -394,11 +369,11 @@ fn main() {
     let alpha_g2 = g2.operate_with_self(alpha_shift.representative());
 
     // [tau]_1,[tau^2]_1,[tau^3]_1,...,[tau^n]_1
-    let powers_of_tau_g1: Vec<G1Point> = (0..p_degree + 1)
-        .map(|exp| g1.operate_with_self(tau.pow(exp as u128).representative()))
+    let powers_of_tau_g1: Vec<G1Point> = (0..max_degree + 1)
+        .map(|exp: usize| g1.operate_with_self(tau.pow(exp as u128).representative()))
         .collect();
     // [alpha*tau]_1,[alpha*tau^2]_1,[alpha*tau^3]_1,...,[alpha*tau^n]_1
-    let shifted_powers_of_tau_g1: Vec<G1Point> = (0..p_degree + 1)
+    let shifted_powers_of_tau_g1: Vec<G1Point> = (0..max_degree + 1)
         .map(|exp| {
             g1.operate_with_self(tau.pow(exp as u128).representative())
                 .operate_with_self((&alpha_shift).representative())
@@ -406,7 +381,7 @@ fn main() {
         .collect();
 
     // [tau]_2,[tau^2]_2,[tau^3]_2,...,[tau^n]_2
-    let powers_of_tau_g2: Vec<G2Point> = (0..p_degree + 1)
+    let powers_of_tau_g2: Vec<G2Point> = (0..max_degree + 1)
         .map(|exp| g2.operate_with_self(tau.pow(exp as u128).representative()))
         .collect();
 
@@ -415,23 +390,29 @@ fn main() {
     //////////////////////////////////////////////////////////////////////
 
     // Sample delta for zk-ness
-    let delta_shift = FrElement::new(U256 {
-        limbs: [
-            rng.gen::<u64>(),
-            rng.gen::<u64>(),
-            rng.gen::<u64>(),
-            rng.gen::<u64>(),
-        ],
-    });
+    // let delta_shift = FrElement::new(U256 {
+    //     limbs: [
+    //         rng.gen::<u64>(),
+    //         rng.gen::<u64>(),
+    //         rng.gen::<u64>(),
+    //         rng.gen::<u64>(),
+    //     ],
+    // });
+
+    // p(x) = A.s * B.s - C.s
+    let p = &l_dot_s * &r_dot_s - &o_dot_s;
+    // h(x) = p(x) / t(x) = (A.s * B.s - C.s) / t(x)
+    let (h, remainder) = &p.clone().long_division_with_remainder(&t);
+    // must have no remainder
+    assert_eq!(0, remainder.degree());
 
     let p_evaluated_g1 = p
         .coefficients()
         .iter()
         .enumerate()
         .map(|(i, coeff)| {
-            powers_of_tau_g1[i]
-                .operate_with_self(coeff.representative())
-                .operate_with_self((&delta_shift).representative())
+            powers_of_tau_g1[i].operate_with_self(coeff.representative())
+            // .operate_with_self((&delta_shift).representative())
         })
         .reduce(|acc, x| acc.operate_with(&x))
         .unwrap();
@@ -441,9 +422,8 @@ fn main() {
         .iter()
         .enumerate()
         .map(|(i, coeff)| {
-            shifted_powers_of_tau_g1[i]
-                .operate_with_self(coeff.representative())
-                .operate_with_self((&delta_shift).representative())
+            shifted_powers_of_tau_g1[i].operate_with_self(coeff.representative())
+            // .operate_with_self((&delta_shift).representative())
         })
         .reduce(|acc, x| acc.operate_with(&x))
         .unwrap();
@@ -453,9 +433,8 @@ fn main() {
         .iter()
         .enumerate()
         .map(|(i, coeff)| {
-            powers_of_tau_g2[i]
-                .operate_with_self(coeff.representative())
-                .operate_with_self((&delta_shift).representative())
+            powers_of_tau_g2[i].operate_with_self(coeff.representative())
+            // .operate_with_self((&delta_shift).representative())
         })
         .reduce(|acc, x| acc.operate_with(&x))
         .unwrap();
