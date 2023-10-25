@@ -128,7 +128,7 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
     /// Returns an error if `other` is not in affine coordinates.
     ///
     /// Otherwise, returns the addition of `self` and `other`.
-    fn operate_with_affine(&self, other: &Self) -> Result<Self, EllipticCurveError> {
+    pub fn operate_with_affine(&self, other: &Self) -> Result<Self, EllipticCurveError> {
         if !other.is_affine() {
             return Err(EllipticCurveError::InvalidPoint);
         }
