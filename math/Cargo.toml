@@ -83,6 +83,10 @@ name = "iai_fft"
 harness = false
 
 [[bench]]
+name = "iai_point_add"
+harness = false
+
+[[bench]]
 name = "criterion_metal"
 harness = false
 required-features = ["metal"]
