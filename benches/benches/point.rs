@@ -24,7 +24,7 @@ pub fn point_double_projective(c: &mut Criterion) {
 
     {
         c.bench_function(
-            &format!("{} One double | Starknet RS ", BENCHMARK_NAME),
+            &format!("{} Projective Double | Starknet RS ", BENCHMARK_NAME),
             |b| {
                 b.iter(|| {
                     let mut initial_point = starknet_rs_projective_generator.clone();
@@ -43,7 +43,7 @@ pub fn point_double_projective(c: &mut Criterion) {
 
     {
         c.bench_function(
-            &format!("{} One Double | Lambdaworks", BENCHMARK_NAME),
+            &format!("{} Projective Double | Lambdaworks", BENCHMARK_NAME),
             |b| {
                 b.iter(|| {
                     lambdaworks_affine_generator.operate_with(black_box(&lambdaworks_affine_generator))
@@ -139,7 +139,7 @@ pub fn point_add_projective_projective(c: &mut Criterion) {
 
     {
         c.bench_function(
-            &format!("{} 10k Operations with Affine (Add) | Starknet RS ", BENCHMARK_NAME),
+            &format!("{} 10k Operations Projective-Projective (Add) | Starknet RS ", BENCHMARK_NAME),
             |b| {
                 b.iter(|| {
                     let mut projective_point_rs = starknet_rs_initial_projective;
@@ -171,7 +171,7 @@ pub fn point_add_projective_projective(c: &mut Criterion) {
 
     {
         c.bench_function(
-            &format!("{} 10k Operations with Affine (Add) | Lambdaworks", BENCHMARK_NAME),
+            &format!("{} 10k Operations with Projective-Projective (Add) | Lambdaworks", BENCHMARK_NAME),
             |b| {
                 b.iter(|| {
                     let mut projective_point = lambdaworks_rs_initial_projective.clone();
@@ -252,5 +252,5 @@ pub fn point_add_affine_affine(c: &mut Criterion) {
 }
 
 
-criterion_group!(benches, point_add_projective_affine, point_double_projective);
+criterion_group!(benches, point_add_projective_affine, point_double_projective, point_add_projective_projective);
 criterion_main!(benches);
