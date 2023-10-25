@@ -120,15 +120,16 @@ pub fn point_add_projective_affine(c: &mut Criterion) {
 }
 
 
+
 pub fn point_add_projective_projective(c: &mut Criterion) {
-    let starknet_rs_affine_generator = GENERATOR;
+    let starknet_rs_projective_generator = ProjectivePoint::from_affine_point(&GENERATOR);
 
     let starknet_rs_initial_projective = ProjectivePoint::from_affine_point(&GENERATOR.add(&GENERATOR));
     // This is the code we are going to bench
     // We test it once outside the bench to check the result matches with Lambdaworks
     let mut projective_point_rs = starknet_rs_initial_projective;
     for _i in 0..10000 {
-        projective_point_rs.add_assign(&starknet_rs_affine_generator);
+        projective_point_rs.add_assign(&starknet_rs_projective_generator);
     }
 
     let starknet_rs_x = AffinePoint::from(&projective_point_rs).x;
@@ -143,7 +144,7 @@ pub fn point_add_projective_projective(c: &mut Criterion) {
                 b.iter(|| {
                     let mut projective_point_rs = starknet_rs_initial_projective;
                     for _i in 0..10000 {
-                        projective_point_rs.add_assign(black_box(&starknet_rs_affine_generator));
+                        projective_point_rs.add_assign(black_box(&starknet_rs_projective_generator));
                     }
                     projective_point_rs
                 });
@@ -184,7 +185,6 @@ pub fn point_add_projective_projective(c: &mut Criterion) {
         );
     }
 }
-
 
 pub fn point_add_affine_affine(c: &mut Criterion) {
     let starknet_rs_affine_generator = GENERATOR;
