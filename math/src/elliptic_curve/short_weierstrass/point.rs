@@ -95,6 +95,14 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         }
 
         if v == *py {
+            /*
+            let u2 = py * qz;
+
+
+            if v1 == v2 {
+                if u1 != u2 || *py == FieldElement::zero() {
+                    Self::neutral_element()
+             */
             if u != *px || *py == FieldElement::zero() {
                 return Self::new([FieldElement::zero(),FieldElement::one(),FieldElement::zero()]);
             } else {
