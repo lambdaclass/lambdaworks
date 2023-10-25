@@ -36,6 +36,41 @@ pub type KZG = KateZaveruchaGoldberg<FrField, Pairing>;
 pub type G1Point = <BLS12381Curve as IsEllipticCurve>::PointRepresentation;
 pub type G2Point = <BLS12381TwistCurve as IsEllipticCurve>::PointRepresentation;
 
+pub struct ToxicWaste {
+    pub tau: FrElement,
+    pub alpha: FrElement,
+    pub beta: FrElement,
+}
+
+impl ToxicWaste {
+    fn sample_field_elem() -> FrElement {
+        // Config
+        let mut rng = rand::thread_rng();
+        FrElement::new(U256 {
+            limbs: [
+                rng.gen::<u64>(),
+                rng.gen::<u64>(),
+                rng.gen::<u64>(),
+                rng.gen::<u64>(),
+            ],
+        })
+    }
+
+    pub fn new() -> Self {
+        Self {
+            tau: Self::sample_field_elem(),
+            alpha: Self::sample_field_elem(),
+            beta: Self::sample_field_elem(),
+        }
+    }
+}
+
+impl Default for ToxicWaste {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 fn get_test_QAP_L(gate_indices: &Vec<FrElement>) -> Vec<Polynomial<FrElement>> {
     vec![
         Polynomial::interpolate(
@@ -288,33 +323,18 @@ fn main() {
     ////////////////////////////// Setup /////////////////////////////////
     //////////////////////////////////////////////////////////////////////
 
-    // Config
-    let mut rng = rand::thread_rng();
-
     let g1: G1Point = BLS12381Curve::generator();
     let g2: G2Point = BLS12381TwistCurve::generator();
 
+    let toxic_waste = ToxicWaste::default();
+
     // Point of evaluation. TODO: Fiat-Shamir
-    let tau: FrElement = FrElement::new(U256 {
-        limbs: [
-            rng.gen::<u64>(),
-            rng.gen::<u64>(),
-            rng.gen::<u64>(),
-            rng.gen::<u64>(),
-        ],
-    });
+    let tau = toxic_waste.tau;
 
     // [t(tau)]_1
     let t_evaluated_g1 = g1.operate_with_self(t.evaluate(&tau).representative());
 
-    let alpha_shift = FrElement::new(U256 {
-        limbs: [
-            rng.gen::<u64>(),
-            rng.gen::<u64>(),
-            rng.gen::<u64>(),
-            rng.gen::<u64>(),
-        ],
-    });
+    let alpha_shift = toxic_waste.alpha;
     // [alpha]_2
     let alpha_g2 = g2.operate_with_self(alpha_shift.representative());
 
