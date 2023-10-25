@@ -128,7 +128,7 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
     /// Returns an error if `other` is not in affine coordinates.
     ///
     /// Otherwise, returns the addition of `self` and `other`.
-    fn operate_with_affine(&self, other: &Self) -> Result<Self, EllipticCurveError> {
+    pub fn operate_with_affine(&self, other: &Self) -> Result<Self, EllipticCurveError> {
         if !other.is_affine() {
             return Err(EllipticCurveError::InvalidPoint);
         }
@@ -141,17 +141,18 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
             ]));
         }
 
-        let mut z1z1 = self.z().clone();
-        z1z1 = z1z1.square();
+        let z1z1 = self.z().square();
+        // z1z1 = z1z1.square();
 
-        let mut u2 = other.x().clone();
-        u2 *= &z1z1;
+        let u2 = other.x() * &z1z1;
+        // u2 *= &z1z1;
 
-        let mut s2 = self.z().clone();
-        s2 *= other.y();
-        s2 *= &z1z1;
+        let s2 = self.z() * other.y() * &z1z1;
+        // let mut s2 = self.z();
+        // s2 *= other.y();
+        // s2 *= &z1z1;
 
-        if self.x().clone() == u2 && self.y().clone() == s2 {
+        if *self.x() == u2 && *self.y() == s2 {
             let mut copy = self.clone();
             let res = copy.double_in_place();
             return Ok(res.clone());
@@ -160,22 +161,26 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         let mut h = u2;
         h -= self.x();
 
-        let mut hh = h.clone();
-        hh = hh.square();
+        // let mut hh = h.clone();
+        // hh = hh.square();
+        let hh = h.square();
 
-        let mut i = hh.clone();
-        i = i.double().double();
+        let i = hh.double().double();
+        // i = i.double().double();
 
-        let mut j = h.clone();
-        j = j.neg();
-        j *= &i;
+        // let mut j = h.clone();
+        // j = j.neg();
+        // j *= &i;
+
+        let j = -&h * &i;
 
         let mut r = s2;
         r -= self.y();
         r = r.double();
 
-        let mut v = self.x().clone();
-        v *= &i;
+        // let mut v = self.x().clone();
+        // v *= &i;
+        let mut v = self.x() * &i;
 
         let mut x = r.square();
         x += &j;
@@ -187,9 +192,10 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         v *= &r;
         y += v;
 
-        let mut z = self.z().clone();
-        z *= &h;
-        z = z.double();
+        // let mut z = self.z().clone();
+        // z *= &h;
+        // z = z.double();
+        let z = (self.z() * &h).double();
 
         Ok(Self::new([x, y, z]))
     }
