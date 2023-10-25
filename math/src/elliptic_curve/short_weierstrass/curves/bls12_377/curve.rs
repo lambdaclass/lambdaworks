@@ -65,6 +65,38 @@ mod tests {
     }
 
     #[test]
+    fn add_point1_2point1_with_both_algorithms_matches() {
+        let point_1 = point_1();
+        let point_2 = &point_1.operate_with(&point_1).to_affine();
+
+        let first_algorithm_result = point_1.operate_with(&point_2).to_affine();
+        let second_algorithm_result = point_1.operate_with_affine(&point_2).to_affine();
+        
+        assert_eq!(first_algorithm_result, second_algorithm_result);
+    }
+
+    #[test]
+    fn add_point1_and_42424242point1_with_both_algorithms_matches() {
+        let point_1 = point_1();
+        let point_2 = &point_1.operate_with_self(42424242u128).to_affine();
+
+        let first_algorithm_result = point_1.operate_with(&point_2).to_affine();
+        let second_algorithm_result = point_1.operate_with_affine(&point_2).to_affine();
+        
+        assert_eq!(first_algorithm_result, second_algorithm_result);
+    }
+
+    #[test]
+    fn add_point1_with_point1_both_algorithms_matches() {
+        let point_1 = point_1().to_affine();
+
+        let first_algorithm_result = point_1.operate_with(&point_1).to_affine();
+        let second_algorithm_result = point_1.operate_with_affine(&point_1).to_affine();
+        
+        assert_eq!(first_algorithm_result, second_algorithm_result);
+    }
+
+    #[test]
     fn create_valid_point_works() {
         let p = point_1();
         assert_eq!(*p.x(), FEE::new_base("134e4cc122cb62a06767fb98e86f2d5f77e2a12fefe23bb0c4c31d1bd5348b88d6f5e5dee2b54db4a2146cc9f249eea"));
