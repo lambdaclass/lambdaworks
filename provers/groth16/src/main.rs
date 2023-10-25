@@ -307,15 +307,6 @@ fn main() {
         assert_eq!(number_of_total_vars, o.len());
     }
 
-    // t(x) = (x-1)(x-2)(x-3)(x-4) = [24, -50, 35, -10, 1]
-    let t = Polynomial::new(&[
-        FrElement::from_hex_unchecked("0x18"),
-        -FrElement::from_hex_unchecked("0x32"),
-        FrElement::from_hex_unchecked("0x23"),
-        -FrElement::from_hex_unchecked("0xa"),
-        FrElement::from_hex_unchecked("0x1"),
-    ]);
-
     let num_of_variables = l.len();
     let num_of_gates = l[0].degree() + 1;
 
@@ -325,6 +316,15 @@ fn main() {
 
     let g1: G1Point = BLS12381Curve::generator();
     let g2: G2Point = BLS12381TwistCurve::generator();
+
+    // t(x) = (x-1)(x-2)(x-3)(x-4) = [24, -50, 35, -10, 1]
+    let t = Polynomial::new(&[
+        FrElement::from_hex_unchecked("0x18"),
+        -FrElement::from_hex_unchecked("0x32"),
+        FrElement::from_hex_unchecked("0x23"),
+        -FrElement::from_hex_unchecked("0xa"),
+        FrElement::from_hex_unchecked("0x1"),
+    ]);
 
     let toxic_waste = ToxicWaste::default();
 
