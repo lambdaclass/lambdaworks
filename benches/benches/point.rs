@@ -1,4 +1,4 @@
-use std::ops::AddAssign;
+use std::ops::{AddAssign, Add};
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use lambdaworks_math::{
@@ -10,47 +10,49 @@ use starknet_curve::{curve_params::GENERATOR, AffinePoint, ProjectivePoint};
 const BENCHMARK_NAME: &str = "point";
 
 pub fn criterion_benchmark(c: &mut Criterion) {
-    let initial_projective_point = ProjectivePoint::from(&GENERATOR);
-    let second_project_point = initial_projective_point;
+    let starknet_rs_affine_generator = GENERATOR;
 
+    let starknet_rs_initial_projective = ProjectivePoint::from_affine_point(&GENERATOR.add(&GENERATOR));
     // This is the code we are going to bench
     // We test it once outside the bench to check the result matches with Lambdaworks
-    let mut projective_point = initial_projective_point;
+    let mut projective_point_rs = starknet_rs_initial_projective;
     for _i in 0..10000 {
-        projective_point.add_assign(&second_project_point);
+        projective_point_rs.add_assign(&starknet_rs_affine_generator);
     }
 
-    let starknet_rs_x = AffinePoint::from(&projective_point).x;
+
+    let starknet_rs_x = AffinePoint::from(&projective_point_rs).x;
     println!("Starknet RS result - X: {:#x} ", starknet_rs_x);
-    let starknet_rs_y = AffinePoint::from(&projective_point).y;
+    let starknet_rs_y = AffinePoint::from(&projective_point_rs).y;
     println!("Starknet RS result - Y: {:#x} ", starknet_rs_y);
 
     {
         c.bench_function(
-            &format!("{} 10k Operations | Starknet RS ", BENCHMARK_NAME),
+            &format!("{} 10k Operations with Affine | Starknet RS ", BENCHMARK_NAME),
             |b| {
                 b.iter(|| {
-                    let mut projective_point = initial_projective_point;
-                    // We loop to have a higher variance of numbers, and make the time of the clones not relevant
+                    let mut projective_point_rs = starknet_rs_initial_projective;
                     for _i in 0..10000 {
-                        black_box(projective_point.add_assign(black_box(&second_project_point)));
+                        projective_point_rs.add_assign(black_box(&starknet_rs_affine_generator));
                     }
-                    projective_point
+                    projective_point_rs
                 });
             },
         );
     }
 
-    let initial_projective_point = StarkCurve::generator();
-    let second_projective_point = initial_projective_point.clone();
+    let lambdaworks_affine_generator = StarkCurve::generator();
 
     // This is the code we are going to bench
     // We test it once outside the bench to check the result matches with Starknet RS
-    let mut projective_point = initial_projective_point.clone();
+    let lambdaworks_rs_initial_projective = StarkCurve::generator().operate_with(&StarkCurve::generator());
+
+    let mut projective_point = lambdaworks_rs_initial_projective.clone();
     for _i in 0..10000 {
         projective_point =
-            black_box(projective_point.operate_with(black_box(&second_projective_point)));
+            black_box(projective_point.operate_with(black_box(&lambdaworks_affine_generator)));
     }
+
     let lambdaworks_x = projective_point.to_affine().x().to_string();
     let lambdaworks_y = projective_point.to_affine().y().to_string();
     println!("Lambdaworks result - X: {}", lambdaworks_x);
@@ -61,11 +63,10 @@ pub fn criterion_benchmark(c: &mut Criterion) {
             &format!("{} 10k Operations | Lambdaworks", BENCHMARK_NAME),
             |b| {
                 b.iter(|| {
-                    let mut projective_point = initial_projective_point.clone();
+                    let mut projective_point = lambdaworks_rs_initial_projective.clone();
                     for _i in 0..10000 {
-                        projective_point = black_box(
-                            projective_point.operate_with(black_box(&second_projective_point)),
-                        );
+                        projective_point =
+                            projective_point.operate_with_affine(black_box(&lambdaworks_affine_generator)).unwrap();
                     }
                     projective_point
                 });
