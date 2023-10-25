@@ -29,8 +29,8 @@ pub fn point_double_projective(c: &mut Criterion) {
     }
 
     initial_point.add_assign(&copied_point);
-    println!("Starknet RS result X - {:#x}", AffinePoint::from(&initial_point).x);
-    println!("Starknet RS result Y - {:#x}", AffinePoint::from(&initial_point).y);
+    println!("Starknet RS result - X: {:#x}", AffinePoint::from(&initial_point).x);
+    println!("Starknet RS result - Y: {:#x} \n", AffinePoint::from(&initial_point).y);
 
     let lambdaworks_affine_generator = StarkCurve::generator();
 
@@ -46,8 +46,8 @@ pub fn point_double_projective(c: &mut Criterion) {
     }
 
     let test_lambda_result = lambdaworks_affine_generator.operate_with(&lambdaworks_affine_generator);
-    println!("Lambdaworks result - X: {:?}", test_lambda_result.to_affine().x().to_string());
-    println!("Lambdaworks result - Y: {:?}", test_lambda_result.to_affine().y().to_string());
+    println!("Lambdaworks result - X: {}", test_lambda_result.to_affine().x().to_string());
+    println!("Lambdaworks result - Y: {}", test_lambda_result.to_affine().y().to_string());
 }
 
 
@@ -80,7 +80,7 @@ pub fn point_add_projective_affine(c: &mut Criterion) {
     let starknet_rs_x = AffinePoint::from(&projective_point_rs).x;
     println!("Starknet RS result - X: {:#x} ", starknet_rs_x);
     let starknet_rs_y = AffinePoint::from(&projective_point_rs).y;
-    println!("Starknet RS result - Y: {:#x} ", starknet_rs_y);
+    println!("Starknet RS result - Y: {:#x} \n", starknet_rs_y);
 
     let lambdaworks_affine_generator = StarkCurve::generator();
 
@@ -149,7 +149,7 @@ pub fn point_add_projective_projective(c: &mut Criterion) {
     let starknet_rs_x = AffinePoint::from(&projective_point_rs).x;
     println!("Starknet RS result - X: {:#x} ", starknet_rs_x);
     let starknet_rs_y = AffinePoint::from(&projective_point_rs).y;
-    println!("Starknet RS result - Y: {:#x} ", starknet_rs_y);
+    println!("Starknet RS result - Y: {:#x} \n", starknet_rs_y);
 
 
     let lambdaworks_affine_generator = StarkCurve::generator();
@@ -189,7 +189,7 @@ pub fn point_add_affine_affine(c: &mut Criterion) {
     let starknet_rs_affine_generator = GENERATOR;
 
     let starknet_rs_initial_point= &GENERATOR.add(&GENERATOR);
-    
+
     {
         c.bench_function(
             &format!("{} 10k Add Affine-Affine | Starknet RS ", BENCHMARK_NAME),
@@ -213,7 +213,7 @@ pub fn point_add_affine_affine(c: &mut Criterion) {
     let starknet_rs_x = point_rs.x;
     println!("Starknet RS result - X: {:#x} ", starknet_rs_x);
     let starknet_rs_y = &point_rs.y;
-    println!("Starknet RS result - Y: {:#x} ", starknet_rs_y);
+    println!("Starknet RS result - Y: {:#x} \n", starknet_rs_y);
 
     let lambdaworks_affine_generator = StarkCurve::generator();
 
