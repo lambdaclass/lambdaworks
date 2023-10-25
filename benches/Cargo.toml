@@ -11,7 +11,6 @@ rand = "0.8.5"
 rand_chacha = "0.3.1"
 starknet-curve = { git = "https://github.com/xJonathanLEI/starknet-rs" }
 starknet-ff = { git = "https://github.com/xJonathanLEI/starknet-rs" }
-hex = "0.4.3"
 
 [dependencies.lambdaworks-math]
 path = "../math"
