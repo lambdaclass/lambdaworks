@@ -34,11 +34,13 @@ where
         }
     }
 
-    pub fn get_proof_by_pos(&self, pos: usize) -> Result<Option<Proof<B::Node>>, std::io::Error> {
+    pub fn get_proof_by_pos(&self, pos: usize) -> Option<Proof<B::Node>> {
         let pos = pos + self.nodes.len() / 2;
-        let merkle_path = self.build_merkle_path(pos)?;
+        let Ok(merkle_path) = self.build_merkle_path(pos) else {
+            return None;
+        };
 
-        Ok(self.create_proof(merkle_path))
+        self.create_proof(merkle_path)
     }
 
     fn create_proof(&self, merkle_path: Vec<B::Node>) -> Option<Proof<B::Node>> {
