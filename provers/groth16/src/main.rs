@@ -381,7 +381,7 @@ fn main() {
     // [A_i(tau)]_1, [B_i(tau)]_1, [B_i(tau)]_2
     let mut l_tau_g1: Vec<G1Point> = vec![];
     let mut r_tau_g1: Vec<G1Point> = vec![];
-    let mut o_tau_g1_temp: Vec<G1Point> = vec![];
+    let mut o_tau_g1_temp: Vec<G1Point> = vec![]; // TODO:remove
 
     let mut r_tau_g2: Vec<G2Point> = vec![];
     let mut verifier_k_tau_g1: Vec<G1Point> = vec![];
@@ -394,7 +394,7 @@ fn main() {
         let o_i_tau = o[i].evaluate(&tau);
         let k_i_tau = &gamma_inv * (&beta * &l_i_tau + &alpha * &r_i_tau + &o_i_tau);
 
-        o_tau_g1_temp.push(g1.operate_with_self(o_i_tau.representative()));
+        o_tau_g1_temp.push(g1.operate_with_self(o_i_tau.representative())); // TODO:remove
 
         l_tau_g1.push(g1.operate_with_self(l_i_tau.representative()));
         r_tau_g1.push(g1.operate_with_self(r_i_tau.representative()));
@@ -408,7 +408,7 @@ fn main() {
         let o_i_tau = o[i].evaluate(&tau);
         let k_i_tau = &delta_inv * (&beta * &l_i_tau + &alpha * &r_i_tau + &o_i_tau);
 
-        o_tau_g1_temp.push(g1.operate_with_self(o_i_tau.representative()));
+        o_tau_g1_temp.push(g1.operate_with_self(o_i_tau.representative())); // TODO:remove
 
         l_tau_g1.push(g1.operate_with_self(l_i_tau.representative()));
         r_tau_g1.push(g1.operate_with_self(r_i_tau.representative()));
@@ -418,7 +418,7 @@ fn main() {
 
     // [delta^{-1} * t(tau) * tau^0]_1, [delta^{-1} * t(tau) * tau^1]_1, ..., [delta^{-1} * t(tau) * tau^m]_1
     let t_tau_times_delta_inv = &delta_inv * t.evaluate(&tau);
-    let z_powers_of_tau_temp_g1: Vec<G1Point> = (0..num_of_gates + 1)
+    let z_powers_of_tau_temp_g1: Vec<G1Point> = (0..num_of_gates + 1) // TODO:remove
         .map(|exp: usize| {
             g1.operate_with_self((&t.evaluate(&tau) * tau.pow(exp as u128)).representative())
         })
@@ -447,7 +447,7 @@ fn main() {
         alpha_g1_times_beta_g2: Pairing::compute(&alpha_g1, &beta_g2),
         delta_g2: delta_g2.clone(),
         gamma_g2: g2.operate_with_self(gamma.representative()),
-        verifier_k_tau_g1,
+        verifier_k_tau_g1: verifier_k_tau_g1.clone(),
     };
 
     //////////////////////////////////////////////////////////////////////
@@ -456,8 +456,9 @@ fn main() {
 
     // aka the secret assignments, w vector, s vector
     // Includes the public inputs from the beginning.
-    let witness_vector =
-        ["0x1", "0x3", "0x23", "0x9", "0x1b", "0x1e"].map(|e| FrElement::from_hex_unchecked(e));
+    let witness_vector = ["0x1", "0x3", "0x23", "0x9", "0x1b", "0x1e"]
+        .map(|e| FrElement::from_hex_unchecked(e))
+        .to_vec();
 
     // Compute A.s by summing up polynomials A[0].s, A[1].s, ..., A[n].s
     // In other words, assign the witness coefficients / execution values
@@ -532,6 +533,13 @@ fn main() {
         g1.operate_with_self(A_s.evaluate(&tau).representative())
     );
 
+    let B_s_temp_g1 = witness_vector
+        .iter()
+        .enumerate()
+        .map(|(i, coeff)| r_tau_g1[i].operate_with_self(coeff.representative()))
+        .reduce(|acc, x| acc.operate_with(&x))
+        .unwrap();
+
     let B_s_g2 = witness_vector
         .iter()
         .enumerate()
@@ -579,8 +587,71 @@ fn main() {
 
     ////////////////// introduce shifts
 
-    let only_private_coefficients =
-        witness_vector.as_slice()[witness_vector.len() - number_of_private_vars..].to_vec();
+    let t_tau_h_tau_g1 = h
+        .coefficients()
+        .iter()
+        .enumerate()
+        .map(|(i, coeff)| z_powers_of_tau_g1[i].operate_with_self(coeff.representative()))
+        .reduce(|acc, x| acc.operate_with(&x))
+        .unwrap();
+
+    // Did we construct t_tau_h_tau_g1 correctly?
+    // Remove the shifting to make sure
+    assert_eq!(
+        Pairing::compute(&t_tau_h_tau_temp_g1, &g2),
+        Pairing::compute(&t_tau_h_tau_g1, &verif_key.delta_g2)
+    );
+
+    println!("{}", verifier_k_tau_g1.len() == number_of_public_vars);
+    println!("{}", verifier_k_tau_g1.len() == number_of_public_vars);
+
+    let K_s_verifier_g1 = (0..number_of_public_vars)
+        .map(|i| verifier_k_tau_g1[i].operate_with_self(witness_vector[i].representative()))
+        .reduce(|acc, x| acc.operate_with(&x))
+        .unwrap();
+
+    let K_s_prover_g1 = (number_of_public_vars..number_of_total_vars)
+        .map(|i| {
+            prover_k_tau_g1[i - number_of_public_vars]
+                .operate_with_self(witness_vector[i].representative())
+        })
+        .reduce(|acc, x| acc.operate_with(&x))
+        .unwrap();
+
+    // Can we reconstruct K?
+
+    assert_eq!(
+        K_s_verifier_g1
+            .operate_with_self(gamma.representative())
+            .operate_with(&K_s_prover_g1.operate_with_self(delta.representative())),
+        A_s_g1
+            .operate_with_self(beta.representative())
+            .operate_with(&B_s_temp_g1.operate_with_self(alpha.representative()))
+            .operate_with(&C_s_temp_g1)
+    );
+
+    // assert_eq!(
+    //     Pairing::compute(&K_s_verifier_g1, &verif_key.gamma_g2)
+    //         + Pairing::compute(&K_s_prover_g1, &verif_key.delta_g2),
+    //     Pairing::compute(
+    // &(A_s_g1
+    //     .operate_with_self(beta.representative())
+    //     .operate_with(&B_s_temp_g1.operate_with_self(alpha.representative()))
+    //     .operate_with(&C_s_temp_g1)),
+    //         &g2
+    //     )
+    // );
+
+    // assert_eq!(
+    //     verif_key.alpha_g1_times_beta_g2
+    //         + Pairing::compute(&K_s_verifier_g1, &verif_key.gamma_g2)
+    //         + Pairing::compute(&K_s_prover_g1, &verif_key.delta_g2)
+    //         + Pairing::compute(&t_tau_h_tau_g1, &verif_key.delta_g2),
+    //     Pairing::compute(
+    //         &A_s_g1.operate_with(&prov_key.alpha_g1),
+    //         &B_s_g2.operate_with(&prov_key.beta_g2)
+    //     ),
+    // );
 
     //////////////////
 
