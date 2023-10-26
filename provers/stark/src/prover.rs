@@ -1360,9 +1360,7 @@ mod tests {
         assert_eq!(proof.query_list[0].layers_evaluations_sym.len(), 1);
 
         assert_eq!(
-            proof.query_list[0].layers_auth_paths[0]
-                .merkle_path
-                .len(),
+            proof.query_list[0].layers_auth_paths[0].merkle_path.len(),
             2
         );
     }

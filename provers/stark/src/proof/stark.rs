@@ -152,11 +152,10 @@ where
         let queries: Vec<_> = self
             .query_list
             .iter()
-            .map(|decommitment| {
+            .flat_map(|decommitment| {
                 let index = decommitment.query_index;
                 vec![index * 2, index * 2 + 1]
             })
-            .flatten()
             .collect();
 
         for i in 0..self.deep_poly_openings[0].lde_trace_merkle_proofs.len() {
@@ -164,13 +163,12 @@ where
                 .deep_poly_openings
                 .iter()
                 .zip(self.deep_poly_openings_sym.iter())
-                .map(|(opening, opening_sym)| {
+                .flat_map(|(opening, opening_sym)| {
                     vec![
                         &opening.lde_trace_merkle_proofs[i],
                         &opening_sym.lde_trace_merkle_proofs[i],
                     ]
                 })
-                .flatten()
                 .collect();
             let nodes = merge_authentication_paths(trace_auth_paths, queries.clone());
             for node in nodes.iter() {
