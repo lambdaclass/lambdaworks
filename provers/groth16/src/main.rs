@@ -1,31 +1,21 @@
-use std::ops::Mul;
-
 // use groth16::prover::Groth16Prover;
 // use groth16::setup::setup;
 // use groth16::verifier;
 // use verifier::Verifier;
+use lambdaworks_crypto::commitments::kzg::KateZaveruchaGoldberg;
 use lambdaworks_math::{
     cyclic_group::IsGroup,
     elliptic_curve::short_weierstrass::curves::bls12_381::{
-        curve::BLS12381Curve, pairing::BLS12381AtePairing, twist::BLS12381TwistCurve,
+        curve::BLS12381Curve,
+        default_types::{FrElement, FrField},
+        pairing::BLS12381AtePairing,
+        twist::BLS12381TwistCurve,
     },
     elliptic_curve::traits::{IsEllipticCurve, IsPairing},
-    field::{element::FieldElement, fields::u64_prime_field::U64PrimeField},
+    field::element::FieldElement,
     polynomial::Polynomial,
-    unsigned_integer::element::{UnsignedInteger, U384},
-};
-
-use lambdaworks_math::{
-    elliptic_curve::short_weierstrass::{
-        curves::bls12_381::default_types::{FrElement, FrField},
-        point::ShortWeierstrassProjectivePoint,
-    },
-    traits::{Deserializable, Serializable},
     unsigned_integer::element::U256,
 };
-
-use lambdaworks_crypto::commitments::kzg::KateZaveruchaGoldberg;
-
 use rand::Rng;
 
 pub type Curve = BLS12381Curve;
@@ -81,226 +71,46 @@ pub struct ProvingKey {
     pub beta_g2: G2Point,
     pub delta_g1: G1Point,
     pub delta_g2: G2Point,
-    // [A_0(tau)]_1, [A_1(tau)]_1, ..., [A_n(tau)]_1
+    // [A_0(τ)]_1, [A_1(τ)]_1, ..., [A_n(τ)]_1
     pub l_tau_g1: Vec<G1Point>,
-    // [B_0(tau)]_1, [B_1(tau)]_1, ..., [B_n(tau)]_1
+    // [B_0(τ)]_1, [B_1(τ)]_1, ..., [B_n(τ)]_1
     pub r_tau_g1: Vec<G1Point>,
-    // [B_0(tau)]_2, [B_1(tau)]_2, ..., [B_n(tau)]_2
+    // [B_0(τ)]_2, [B_1(τ)]_2, ..., [B_n(τ)]_2
     pub r_tau_g2: Vec<G2Point>,
-    // [K_{k+1}(tau)]_1, [K_{k+2}(tau)]_1, ..., [K_n(tau)]_1
-    // where K_i(tau) = ƍ^{-1} * (β*l(tau) + α*r(tau) + o(tau))
+    // [K_{k+1}(τ)]_1, [K_{k+2}(τ)]_1, ..., [K_n(τ)]_1
+    // where K_i(τ) = ƍ^{-1} * (β*l(τ) + α*r(τ) + o(τ))
     // and "k" is the number of public inputs
     pub prover_k_tau_g1: Vec<G1Point>,
-    // [delta^{-1} * t(tau) * tau^0]_1, [delta^{-1} * t(tau) * tau^1]_1, ..., [delta^{-1} * t(tau) * tau^m]_1
+    // [delta^{-1} * t(τ) * tau^0]_1, [delta^{-1} * t(τ) * τ^1]_1, ..., [delta^{-1} * t(τ) * τ^m]_1
     pub z_powers_of_tau_g1: Vec<G1Point>,
 }
+
+pub type Proof = (G1Point, G2Point, G1Point);
 
 pub struct VerifyingKey {
     // e([alpha]_1, [beta]_2) computed during setup as it's a constant
     pub alpha_g1_times_beta_g2: FieldElement<<Pairing as IsPairing>::OutputField>,
     pub delta_g2: G2Point,
     pub gamma_g2: G2Point,
-    // [K_0(tau)]_1, [K_1(tau)]_1, ..., [K_k(tau)]_1
-    // where K_i(tau) = ƍ^{-1} * (β*l(tau) + α*r(tau) + o(tau))
+    // [K_0(τ)]_1, [K_1(τ)]_1, ..., [K_k(τ)]_1
+    // where K_i(τ) = γ^{-1} * (β*l(τ) + α*r(τ) + o(τ))
     // and "k" is the number of public inputs
     pub verifier_k_tau_g1: Vec<G1Point>,
 }
 
-pub type Proof = (G1Point, G2Point, G1Point);
-
-fn get_test_QAP_L(gate_indices: &[FrElement]) -> Vec<Polynomial<FrElement>> {
-    vec![
-        Polynomial::interpolate(
-            &gate_indices,
-            &[
-                FrElement::from_hex_unchecked("0"),
-                FrElement::from_hex_unchecked("0"),
-                FrElement::from_hex_unchecked("0"),
-                FrElement::from_hex_unchecked("5"),
-            ],
-        )
-        .unwrap(),
-        Polynomial::interpolate(
-            &gate_indices,
-            &[
-                FrElement::from_hex_unchecked("1"),
-                FrElement::from_hex_unchecked("0"),
-                FrElement::from_hex_unchecked("1"),
-                FrElement::from_hex_unchecked("0"),
-            ],
-        )
-        .unwrap(),
-        Polynomial::interpolate(
-            &gate_indices,
-            &[
-                FrElement::from_hex_unchecked("0"),
-                FrElement::from_hex_unchecked("0"),
-                FrElement::from_hex_unchecked("0"),
-                FrElement::from_hex_unchecked("0"),
-            ],
-        )
-        .unwrap(),
-        Polynomial::interpolate(
-            &gate_indices,
-            &[
-                FrElement::from_hex_unchecked("0"),
-                FrElement::from_hex_unchecked("1"),
-                FrElement::from_hex_unchecked("0"),
-                FrElement::from_hex_unchecked("0"),
-            ],
-        )
-        .unwrap(),
-        Polynomial::interpolate(
-            &gate_indices,
-            &[
-                FrElement::from_hex_unchecked("0"),
-                FrElement::from_hex_unchecked("0"),
-                FrElement::from_hex_unchecked("1"),
-                FrElement::from_hex_unchecked("0"),
-            ],
-        )
-        .unwrap(),
-        Polynomial::interpolate(
-            &gate_indices,
-            &[
-                FrElement::from_hex_unchecked("0"),
-                FrElement::from_hex_unchecked("0"),
-                FrElement::from_hex_unchecked("0"),
-                FrElement::from_hex_unchecked("1"),
-            ],
-        )
-        .unwrap(),
-    ]
-}
-
-fn get_test_QAP_R(gate_indices: &[FrElement]) -> Vec<Polynomial<FrElement>> {
-    vec![
-        Polynomial::interpolate(
-            &gate_indices,
-            &[
-                FrElement::from_hex_unchecked("0"),
-                FrElement::from_hex_unchecked("0"),
-                FrElement::from_hex_unchecked("1"),
-                FrElement::from_hex_unchecked("1"),
-            ],
-        )
-        .unwrap(),
-        Polynomial::interpolate(
-            &gate_indices,
-            &[
-                FrElement::from_hex_unchecked("1"),
-                FrElement::from_hex_unchecked("1"),
-                FrElement::from_hex_unchecked("0"),
-                FrElement::from_hex_unchecked("0"),
-            ],
-        )
-        .unwrap(),
-        Polynomial::interpolate(
-            &gate_indices,
-            &[
-                FrElement::from_hex_unchecked("0"),
-                FrElement::from_hex_unchecked("0"),
-                FrElement::from_hex_unchecked("0"),
-                FrElement::from_hex_unchecked("0"),
-            ],
-        )
-        .unwrap(),
-        Polynomial::interpolate(
-            &gate_indices,
-            &[
-                FrElement::from_hex_unchecked("0"),
-                FrElement::from_hex_unchecked("0"),
-                FrElement::from_hex_unchecked("0"),
-                FrElement::from_hex_unchecked("0"),
-            ],
-        )
-        .unwrap(),
-        Polynomial::interpolate(
-            &gate_indices,
-            &[
-                FrElement::from_hex_unchecked("0"),
-                FrElement::from_hex_unchecked("0"),
-                FrElement::from_hex_unchecked("0"),
-                FrElement::from_hex_unchecked("0"),
-            ],
-        )
-        .unwrap(),
-        Polynomial::interpolate(
-            &gate_indices,
-            &[
-                FrElement::from_hex_unchecked("0"),
-                FrElement::from_hex_unchecked("0"),
-                FrElement::from_hex_unchecked("0"),
-                FrElement::from_hex_unchecked("0"),
-            ],
-        )
-        .unwrap(),
-    ]
-}
-
-fn get_test_QAP_O(gate_indices: &[FrElement]) -> Vec<Polynomial<FrElement>> {
-    vec![
-        Polynomial::interpolate(
-            &gate_indices,
-            &[
-                FrElement::from_hex_unchecked("0"),
-                FrElement::from_hex_unchecked("0"),
-                FrElement::from_hex_unchecked("0"),
-                FrElement::from_hex_unchecked("0"),
-            ],
-        )
-        .unwrap(),
-        Polynomial::interpolate(
-            &gate_indices,
-            &[
-                FrElement::from_hex_unchecked("0"),
-                FrElement::from_hex_unchecked("0"),
-                FrElement::from_hex_unchecked("0"),
-                FrElement::from_hex_unchecked("0"),
-            ],
-        )
-        .unwrap(),
-        Polynomial::interpolate(
-            &gate_indices,
-            &[
-                FrElement::from_hex_unchecked("0"),
-                FrElement::from_hex_unchecked("0"),
-                FrElement::from_hex_unchecked("0"),
-                FrElement::from_hex_unchecked("1"),
-            ],
-        )
-        .unwrap(),
-        Polynomial::interpolate(
-            &gate_indices,
-            &[
-                FrElement::from_hex_unchecked("1"),
-                FrElement::from_hex_unchecked("0"),
-                FrElement::from_hex_unchecked("0"),
-                FrElement::from_hex_unchecked("0"),
-            ],
-        )
-        .unwrap(),
-        Polynomial::interpolate(
-            &gate_indices,
-            &[
-                FrElement::from_hex_unchecked("0"),
-                FrElement::from_hex_unchecked("1"),
-                FrElement::from_hex_unchecked("0"),
-                FrElement::from_hex_unchecked("0"),
-            ],
-        )
-        .unwrap(),
-        Polynomial::interpolate(
-            &gate_indices,
-            &[
-                FrElement::from_hex_unchecked("0"),
-                FrElement::from_hex_unchecked("0"),
-                FrElement::from_hex_unchecked("1"),
-                FrElement::from_hex_unchecked("0"),
-            ],
-        )
-        .unwrap(),
-    ]
+fn build_test_variable_polynomial(
+    gate_indices: &[FrElement],
+    from_matrix: &Vec<Vec<&str>>,
+) -> Vec<Polynomial<FrElement>> {
+    let mut polynomials = vec![];
+    for i in 0..from_matrix.len() {
+        let mut y_indices = vec![];
+        for string in &from_matrix[i] {
+            y_indices.push(FrElement::from_hex_unchecked(*string));
+        }
+        polynomials.push(Polynomial::interpolate(&gate_indices, &y_indices).unwrap());
+    }
+    polynomials
 }
 
 fn main() {
@@ -312,37 +122,56 @@ fn main() {
         y = sym_1 * x
         sym_2 = y + x
         ~out = sym_2 + 5
-
-        A                   B                   C
-        [0, 1, 0, 0, 0, 0]  [0, 1, 0, 0, 0, 0]  [0, 0, 0, 1, 0, 0]
-        [0, 0, 0, 1, 0, 0]  [0, 1, 0, 0, 0, 0]  [0, 0, 0, 0, 1, 0]
-        [0, 1, 0, 0, 1, 0]  [1, 0, 0, 0, 0, 0]  [0, 0, 0, 0, 0, 1]
-        [5, 0, 0, 0, 0, 1]  [1, 0, 0, 0, 0, 0]  [0, 0, 1, 0, 0, 0]
-
-        m+1 rows, n+1 cols
     */
+
+    // TODO: Roots of unity
+    let gate_indices = ["0x1", "0x2", "0x3", "0x4"].map(|e| FrElement::from_hex_unchecked(e));
+    let num_of_gates = gate_indices.len();
 
     let number_of_public_vars = 1;
     let number_of_private_vars = 5;
     let number_of_total_vars = number_of_public_vars + number_of_private_vars;
 
-    // Gate indices. Will correspond to rows of QAP matrices. TODO: Roots of unity
-    let gate_indices = [
-        FrElement::from_hex_unchecked("1"),
-        FrElement::from_hex_unchecked("2"),
-        FrElement::from_hex_unchecked("3"),
-        FrElement::from_hex_unchecked("4"),
-    ];
-    let l = get_test_QAP_L(&gate_indices);
-    let r = get_test_QAP_R(&gate_indices);
-    let o = get_test_QAP_O(&gate_indices);
-    {
-        assert_eq!(l.len(), r.len());
-        assert_eq!(r.len(), o.len());
-        assert_eq!(number_of_total_vars, o.len());
-    }
-
-    let num_of_gates = l[0].degree() + 1;
+    let l = build_test_variable_polynomial(
+        &gate_indices,
+        &[
+            ["0", "0", "0", "5"],
+            ["1", "0", "1", "0"],
+            ["0", "0", "0", "0"],
+            ["0", "1", "0", "0"],
+            ["0", "0", "1", "0"],
+            ["0", "0", "0", "1"],
+        ]
+        .map(|col| col.to_vec())
+        .to_vec(),
+    );
+    let r = build_test_variable_polynomial(
+        &gate_indices,
+        &[
+            ["0", "0", "1", "1"],
+            ["1", "1", "0", "0"],
+            ["0", "0", "0", "0"],
+            ["0", "0", "0", "0"],
+            ["0", "0", "0", "0"],
+            ["0", "0", "0", "0"],
+        ]
+        .map(|col| col.to_vec())
+        .to_vec(),
+    );
+    let o = build_test_variable_polynomial(
+        &gate_indices,
+        &[
+            ["0", "0", "0", "0"],
+            ["0", "0", "0", "0"],
+            ["0", "0", "0", "1"],
+            ["1", "0", "0", "0"],
+            ["0", "1", "0", "0"],
+            ["0", "0", "1", "0"],
+        ]
+        .map(|col| col.to_vec())
+        .to_vec(),
+    );
+    assert!(l.len() == r.len() && r.len() == o.len() && o.len() == number_of_total_vars);
 
     //////////////////////////////////////////////////////////////////////
     ////////////////////////////// Setup /////////////////////////////////
@@ -351,37 +180,22 @@ fn main() {
     let g1: G1Point = BLS12381Curve::generator();
     let g2: G2Point = BLS12381TwistCurve::generator();
 
-    // t(x) = (x-1)(x-2)(x-3)(x-4) = [24, -50, 35, -10, 1]
-    let t = Polynomial::new(&[
-        FrElement::from_hex_unchecked("0x18"),
-        -FrElement::from_hex_unchecked("0x32"),
-        FrElement::from_hex_unchecked("0x23"),
-        -FrElement::from_hex_unchecked("0xa"),
-        FrElement::from_hex_unchecked("0x1"),
-    ]);
+    let t = gate_indices
+        .map(|x_index| Polynomial::new(&[-x_index, FieldElement::one()]))
+        .into_iter()
+        .fold(
+            Polynomial::new(&[FieldElement::one()]),
+            |acc, factor_poly| acc * factor_poly,
+        );
 
-    let toxic_waste = ToxicWaste::default();
+    let tw = ToxicWaste::default();
 
-    // Point of evaluation.
-    let tau = toxic_waste.tau;
+    let delta_inv = tw.delta.inv().unwrap();
+    let gamma_inv = tw.gamma.inv().unwrap();
 
-    let alpha = toxic_waste.alpha;
-    let beta = toxic_waste.beta;
-
-    let delta = toxic_waste.delta;
-    let delta_inv = delta.inv().unwrap();
-
-    let gamma = toxic_waste.gamma;
-    let gamma_inv = gamma.inv().unwrap();
-
-    let alpha_g1 = g1.operate_with_self(alpha.representative());
-    let beta_g2 = g2.operate_with_self(beta.representative());
-    let delta_g2 = g2.operate_with_self(delta.representative());
-
-    // [A_i(tau)]_1, [B_i(tau)]_1, [B_i(tau)]_2
+    // [A_i(τ)]_1, [B_i(τ)]_1, [B_i(τ)]_2
     let mut l_tau_g1: Vec<G1Point> = vec![];
     let mut r_tau_g1: Vec<G1Point> = vec![];
-    let mut o_tau_g1_temp: Vec<G1Point> = vec![]; // TODO:remove
 
     let mut r_tau_g2: Vec<G2Point> = vec![];
     let mut verifier_k_tau_g1: Vec<G1Point> = vec![];
@@ -389,12 +203,10 @@ fn main() {
 
     // Public variables
     for i in 0..number_of_public_vars {
-        let l_i_tau = l[i].evaluate(&tau);
-        let r_i_tau = r[i].evaluate(&tau);
-        let o_i_tau = o[i].evaluate(&tau);
-        let k_i_tau = &gamma_inv * (&beta * &l_i_tau + &alpha * &r_i_tau + &o_i_tau);
-
-        o_tau_g1_temp.push(g1.operate_with_self(o_i_tau.representative())); // TODO:remove
+        let l_i_tau = l[i].evaluate(&tw.tau);
+        let r_i_tau = r[i].evaluate(&tw.tau);
+        let o_i_tau = o[i].evaluate(&tw.tau);
+        let k_i_tau = &gamma_inv * (&tw.beta * &l_i_tau + &tw.alpha * &r_i_tau + &o_i_tau);
 
         l_tau_g1.push(g1.operate_with_self(l_i_tau.representative()));
         r_tau_g1.push(g1.operate_with_self(r_i_tau.representative()));
@@ -403,12 +215,10 @@ fn main() {
     }
     // Private variables
     for i in number_of_public_vars..number_of_total_vars {
-        let l_i_tau = l[i].evaluate(&tau);
-        let r_i_tau = r[i].evaluate(&tau);
-        let o_i_tau = o[i].evaluate(&tau);
-        let k_i_tau = &delta_inv * (&beta * &l_i_tau + &alpha * &r_i_tau + &o_i_tau);
-
-        o_tau_g1_temp.push(g1.operate_with_self(o_i_tau.representative())); // TODO:remove
+        let l_i_tau = l[i].evaluate(&tw.tau);
+        let r_i_tau = r[i].evaluate(&tw.tau);
+        let o_i_tau = o[i].evaluate(&tw.tau);
+        let k_i_tau = &delta_inv * (&tw.beta * &l_i_tau + &tw.alpha * &r_i_tau + &o_i_tau);
 
         l_tau_g1.push(g1.operate_with_self(l_i_tau.representative()));
         r_tau_g1.push(g1.operate_with_self(r_i_tau.representative()));
@@ -416,38 +226,38 @@ fn main() {
         prover_k_tau_g1.push(g1.operate_with_self(k_i_tau.representative()));
     }
 
-    // [delta^{-1} * t(tau) * tau^0]_1, [delta^{-1} * t(tau) * tau^1]_1, ..., [delta^{-1} * t(tau) * tau^m]_1
-    let t_tau_times_delta_inv = &delta_inv * t.evaluate(&tau);
-    let z_powers_of_tau_temp_g1: Vec<G1Point> = (0..num_of_gates + 1) // TODO:remove
-        .map(|exp: usize| {
-            g1.operate_with_self((&t.evaluate(&tau) * tau.pow(exp as u128)).representative())
-        })
-        .collect();
-
+    // [delta^{-1} * t(τ) * τ^0]_1, [delta^{-1} * t(τ) * τ^1]_1, ..., [delta^{-1} * t(τ) * τ^m]_1
+    let t_tau_times_delta_inv = &delta_inv * t.evaluate(&tw.tau);
     let z_powers_of_tau_g1: Vec<G1Point> = (0..num_of_gates + 1)
         .map(|exp: usize| {
-            g1.operate_with_self((&t_tau_times_delta_inv * tau.pow(exp as u128)).representative())
+            g1.operate_with_self(
+                (&t_tau_times_delta_inv * tw.tau.pow(exp as u128)).representative(),
+            )
         })
         .collect();
 
-    let prov_key = ProvingKey {
+    let alpha_g1 = g1.operate_with_self(tw.alpha.representative());
+    let beta_g2 = g2.operate_with_self(tw.beta.representative());
+    let delta_g2 = g2.operate_with_self(tw.delta.representative());
+
+    let pk = ProvingKey {
         alpha_g1: alpha_g1.clone(),
-        beta_g1: g1.operate_with_self(beta.representative()),
+        beta_g1: g1.operate_with_self(tw.beta.representative()),
         beta_g2: beta_g2.clone(),
-        delta_g1: g1.operate_with_self(delta.representative()),
+        delta_g1: g1.operate_with_self(tw.delta.representative()),
         delta_g2: delta_g2.clone(),
-        l_tau_g1: l_tau_g1.clone(),
-        r_tau_g1: r_tau_g1.clone(),
-        r_tau_g2: r_tau_g2.clone(),
-        prover_k_tau_g1: prover_k_tau_g1.clone(),
+        l_tau_g1,
+        r_tau_g1,
+        r_tau_g2,
+        prover_k_tau_g1,
         z_powers_of_tau_g1: z_powers_of_tau_g1.clone(),
     };
 
-    let verif_key = VerifyingKey {
+    let vk = VerifyingKey {
         alpha_g1_times_beta_g2: Pairing::compute(&alpha_g1, &beta_g2),
-        delta_g2: delta_g2.clone(),
-        gamma_g2: g2.operate_with_self(gamma.representative()),
-        verifier_k_tau_g1: verifier_k_tau_g1.clone(),
+        delta_g2,
+        gamma_g2: g2.operate_with_self(tw.gamma.representative()),
+        verifier_k_tau_g1,
     };
 
     //////////////////////////////////////////////////////////////////////
@@ -463,131 +273,39 @@ fn main() {
     // Compute A.s by summing up polynomials A[0].s, A[1].s, ..., A[n].s
     // In other words, assign the witness coefficients / execution values
     // Similarly for B.s and C.s
-    let mut A_s_coeffs = vec![FrElement::from_hex_unchecked("0"); num_of_gates];
-    let mut B_s_coeffs = vec![FrElement::from_hex_unchecked("0"); num_of_gates];
-    let mut C_s_coeffs = vec![FrElement::from_hex_unchecked("0"); num_of_gates];
+    let mut l_coeffs = vec![FrElement::from_hex_unchecked("0"); num_of_gates];
+    let mut r_coeffs = vec![FrElement::from_hex_unchecked("0"); num_of_gates];
+    let mut o_coeffs = vec![FrElement::from_hex_unchecked("0"); num_of_gates];
     for row in 0..num_of_gates {
         for col in 0..number_of_total_vars {
-            let current_variable_assigned_l = &l[col] * &witness_vector[col];
-            let l_current_poly_coeffs = current_variable_assigned_l.coefficients();
-            if l_current_poly_coeffs.len() != 0 {
-                A_s_coeffs[row] += l_current_poly_coeffs[row].clone();
+            let current_l_assigned = &l[col] * &witness_vector[col];
+            let current_l_coeffs = current_l_assigned.coefficients();
+            if current_l_coeffs.len() != 0 {
+                l_coeffs[row] += current_l_coeffs[row].clone();
             }
 
-            let current_variable_assigned_r = &r[col] * &witness_vector[col];
-            let r_current_poly_coeffs = current_variable_assigned_r.coefficients();
-            if r_current_poly_coeffs.len() != 0 {
-                B_s_coeffs[row] += r_current_poly_coeffs[row].clone();
+            let current_r_assigned = &r[col] * &witness_vector[col];
+            let current_r_coeffs = current_r_assigned.coefficients();
+            if current_r_coeffs.len() != 0 {
+                r_coeffs[row] += current_r_coeffs[row].clone();
             }
 
-            let current_variable_assigned_o = &o[col] * &witness_vector[col];
-            let o_current_poly_coeffs = current_variable_assigned_o.coefficients();
-            if o_current_poly_coeffs.len() != 0 {
-                C_s_coeffs[row] += o_current_poly_coeffs[row].clone();
+            let current_o_assigned = &o[col] * &witness_vector[col];
+            let current_o_coeffs = current_o_assigned.coefficients();
+            if current_o_coeffs.len() != 0 {
+                o_coeffs[row] += current_o_coeffs[row].clone();
             }
         }
     }
-    let A_s = Polynomial::new(&A_s_coeffs);
-    let B_s = Polynomial::new(&B_s_coeffs);
-    let C_s = Polynomial::new(&C_s_coeffs);
-    // Assert correctness of assignments
-    {
-        assert_eq!(
-            A_s.evaluate(&gate_indices[0]) * B_s.evaluate(&gate_indices[0]),
-            C_s.evaluate(&gate_indices[0])
-        );
-        assert_eq!(
-            A_s.evaluate(&gate_indices[1]) * B_s.evaluate(&gate_indices[1]),
-            C_s.evaluate(&gate_indices[1])
-        );
-        assert_eq!(
-            A_s.evaluate(&gate_indices[2]) * B_s.evaluate(&gate_indices[2]),
-            C_s.evaluate(&gate_indices[2])
-        );
-        assert_eq!(
-            A_s.evaluate(&gate_indices[3]) * B_s.evaluate(&gate_indices[3]),
-            C_s.evaluate(&gate_indices[3])
-        );
-    }
+    let l_assigned = Polynomial::new(&l_coeffs);
+    let r_assigned = Polynomial::new(&r_coeffs);
+    let o_assigned = Polynomial::new(&o_coeffs);
 
     // h(x) = p(x) / t(x) = (A.s * B.s - C.s) / t(x)
-    let (h, remainder) = (&A_s * &B_s - &C_s).long_division_with_remainder(&t);
+    let (h, remainder) = (&l_assigned * &r_assigned - &o_assigned).long_division_with_remainder(&t);
     assert_eq!(0, remainder.degree()); // must have no remainder
 
-    // Did we assign coefficients correctly?
-    assert_eq!(
-        A_s.evaluate(&tau) * B_s.evaluate(&tau),
-        C_s.evaluate(&tau) + h.evaluate(&tau) * t.evaluate(&tau)
-    );
-
-    let A_s_g1 = witness_vector
-        .iter()
-        .enumerate()
-        .map(|(i, coeff)| l_tau_g1[i].operate_with_self(coeff.representative()))
-        .reduce(|acc, x| acc.operate_with(&x))
-        .unwrap();
-
-    // Was encrypted evaluation correct?
-    assert_eq!(
-        A_s_g1,
-        g1.operate_with_self(A_s.evaluate(&tau).representative())
-    );
-
-    let B_s_temp_g1 = witness_vector
-        .iter()
-        .enumerate()
-        .map(|(i, coeff)| r_tau_g1[i].operate_with_self(coeff.representative()))
-        .reduce(|acc, x| acc.operate_with(&x))
-        .unwrap();
-
-    let B_s_g2 = witness_vector
-        .iter()
-        .enumerate()
-        .map(|(i, coeff)| r_tau_g2[i].operate_with_self(coeff.representative()))
-        .reduce(|acc, x| acc.operate_with(&x))
-        .unwrap();
-
-    // Was encrypted evaluation correct?
-    assert_eq!(
-        B_s_g2,
-        g2.operate_with_self(B_s.evaluate(&tau).representative())
-    );
-
-    let C_s_temp_g1 = witness_vector
-        .iter()
-        .enumerate()
-        .map(|(i, coeff)| o_tau_g1_temp[i].operate_with_self(coeff.representative()))
-        .reduce(|acc, x| acc.operate_with(&x))
-        .unwrap();
-
-    // Was encrypted evaluation correct?
-    assert_eq!(
-        C_s_temp_g1,
-        g1.operate_with_self(C_s.evaluate(&tau).representative())
-    );
-
-    let t_tau_h_tau_temp_g1 = h
-        .coefficients()
-        .iter()
-        .enumerate()
-        .map(|(i, coeff)| z_powers_of_tau_temp_g1[i].operate_with_self(coeff.representative()))
-        .reduce(|acc, x| acc.operate_with(&x))
-        .unwrap();
-
-    // Was encrypted evaluation correct?
-    assert_eq!(
-        t_tau_h_tau_temp_g1,
-        g1.operate_with_self((h.evaluate(&tau) * t.evaluate(&tau)).representative())
-    );
-
-    assert_eq!(
-        Pairing::compute(&A_s_g1, &B_s_g2),
-        Pairing::compute(&C_s_temp_g1.operate_with(&t_tau_h_tau_temp_g1), &g2)
-    );
-
-    ////////////////// introduce shifts
-
-    let t_tau_h_tau_g1 = h
+    let t_tau_h_tau_assigned_g1 = h
         .coefficients()
         .iter()
         .enumerate()
@@ -595,85 +313,59 @@ fn main() {
         .reduce(|acc, x| acc.operate_with(&x))
         .unwrap();
 
-    // Did we construct t_tau_h_tau_g1 correctly?
-    // Remove the shifting to make sure
-    assert_eq!(
-        Pairing::compute(&t_tau_h_tau_temp_g1, &g2),
-        Pairing::compute(&t_tau_h_tau_g1, &verif_key.delta_g2)
-    );
-
-    let K_s_verifier_g1 = (0..number_of_public_vars)
-        .map(|i| verifier_k_tau_g1[i].operate_with_self(witness_vector[i].representative()))
+    let l_tau_assigned_g1 = witness_vector
+        .iter()
+        .enumerate()
+        .map(|(i, coeff)| pk.l_tau_g1[i].operate_with_self(coeff.representative()))
         .reduce(|acc, x| acc.operate_with(&x))
         .unwrap();
 
-    let K_s_prover_g1 = (number_of_public_vars..number_of_total_vars)
+    let r_tau_assigned_g2 = witness_vector
+        .iter()
+        .enumerate()
+        .map(|(i, coeff)| pk.r_tau_g2[i].operate_with_self(coeff.representative()))
+        .reduce(|acc, x| acc.operate_with(&x))
+        .unwrap();
+
+    // [γ^{-1} * (β*l(τ) + α*r(τ) + o(τ))]_1
+    let k_tau_assigned_verifier_g1 = (0..number_of_public_vars)
+        .map(|i| vk.verifier_k_tau_g1[i].operate_with_self(witness_vector[i].representative()))
+        .reduce(|acc, x| acc.operate_with(&x))
+        .unwrap();
+
+    // [ƍ^{-1} * (β*l(τ) + α*r(τ) + o(τ))]_1
+    let k_tau_assigned_prover_g1 = (number_of_public_vars..number_of_total_vars)
         .map(|i| {
-            prover_k_tau_g1[i - number_of_public_vars]
+            pk.prover_k_tau_g1[i - number_of_public_vars]
                 .operate_with_self(witness_vector[i].representative())
         })
         .reduce(|acc, x| acc.operate_with(&x))
         .unwrap();
 
-    // Is K correctly constructed?
-    assert_eq!(
-        Pairing::compute(&K_s_verifier_g1, &verif_key.gamma_g2)
-            * Pairing::compute(&K_s_prover_g1, &verif_key.delta_g2),
-        Pairing::compute(
-            &(A_s_g1
-                .operate_with_self(beta.representative())
-                .operate_with(&B_s_temp_g1.operate_with_self(alpha.representative()))
-                .operate_with(&C_s_temp_g1)),
-            &g2
-        )
-    );
-
-    // Ultimate check
-    assert_eq!(
-        verif_key.alpha_g1_times_beta_g2
-            * Pairing::compute(&K_s_verifier_g1, &verif_key.gamma_g2)
-            * Pairing::compute(&K_s_prover_g1, &verif_key.delta_g2)
-            * Pairing::compute(&t_tau_h_tau_g1, &verif_key.delta_g2),
-        Pairing::compute(
-            &A_s_g1.operate_with(&prov_key.alpha_g1),
-            &B_s_g2.operate_with(&prov_key.beta_g2)
-        ),
-    );
-
-    //////////////////
-
-    //////////////////
-
-    // // Zk(t) = delta^{-1} * t(tau) * tau^k
-    // // [h(tau)t(tau)]_1 = h_i * [Zk(tau)]_1
-    // let delta_inv_t_tau_h_tau_g1 = h
-    //     .coefficients()
-    //     .iter()
-    //     .enumerate()
-    //     .map(|(i, coeff)| {
-    //         powers_of_tau_for_h_g1[i].operate_with_self(coeff.representative())
-    //         // .operate_with_self((&delta_shift).representative())
-    //     })
-    //     .reduce(|acc, x| acc.operate_with(&x))
-    //     .unwrap();
-
     //////////////////////////////////////////////////////////////////////
     ////////////////////////////// Verify ////////////////////////////////
     //////////////////////////////////////////////////////////////////////
 
-    // // check alpha shift
-    // assert_eq!(
-    //     Pairing::compute(&p_evaluated_g1, &alpha_g2,),
-    //     Pairing::compute(&p_evaluated_shifted_g1, &g2,)
-    // );
+    /*
+        SNARK verification without ZK
 
-    // // check computational integrity - polynomial divisibility
-    // assert_eq!(
-    //     Pairing::compute(&p_evaluated_g1, &g2),
-    //     Pairing::compute(&t_evaluated_g1, &z_k_evaluated_g1)
-    // );
-
-    // let one = FrElement::new(U384 {
-    //     limbs: [0, 0, 0, 0, 0, 1],
-    // });
+        (A.s + α) * (B.s + β) =
+            αβ +
+            δ * δ^{-1} * (
+                t(τ)*h(τ) + β*A(τ) + α*B(τ) + C(τ)
+            ) +
+            γ * γ^{-1} * (
+                β*A(τ) + α*B(τ) + C(τ)
+            )
+    */
+    assert_eq!(
+        vk.alpha_g1_times_beta_g2
+            * Pairing::compute(&t_tau_h_tau_assigned_g1, &vk.delta_g2)
+            * Pairing::compute(&k_tau_assigned_prover_g1, &vk.delta_g2)
+            * Pairing::compute(&k_tau_assigned_verifier_g1, &vk.gamma_g2),
+        Pairing::compute(
+            &l_tau_assigned_g1.operate_with(&pk.alpha_g1),
+            &r_tau_assigned_g2.operate_with(&pk.beta_g2)
+        ),
+    );
 }
