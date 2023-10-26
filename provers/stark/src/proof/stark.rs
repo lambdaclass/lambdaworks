@@ -62,7 +62,7 @@ pub struct StoneCompatibleSerializer;
 
 impl StoneCompatibleSerializer {
     #[allow(unused)]
-    fn serialize_proof<A>(
+    pub fn serialize_proof<A>(
         proof: &StarkProof<Stark252PrimeField>,
         public_inputs: &A::PublicInputs,
         proof_options: &ProofOptions,
