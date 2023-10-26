@@ -545,7 +545,7 @@ fn main() {
         g2.operate_with_self(B_s.evaluate(&tau).representative())
     );
 
-    let C_s_g1 = witness_vector
+    let C_s_temp_g1 = witness_vector
         .iter()
         .enumerate()
         .map(|(i, coeff)| o_tau_g1_temp[i].operate_with_self(coeff.representative()))
@@ -554,11 +554,11 @@ fn main() {
 
     // Was encrypted evaluation correct?
     assert_eq!(
-        C_s_g1,
+        C_s_temp_g1,
         g1.operate_with_self(C_s.evaluate(&tau).representative())
     );
 
-    let t_tau_h_tau_g1 = h
+    let t_tau_h_tau_temp_g1 = h
         .coefficients()
         .iter()
         .enumerate()
@@ -568,14 +568,23 @@ fn main() {
 
     // Was encrypted evaluation correct?
     assert_eq!(
-        t_tau_h_tau_g1,
+        t_tau_h_tau_temp_g1,
         g1.operate_with_self((h.evaluate(&tau) * t.evaluate(&tau)).representative())
     );
 
     assert_eq!(
         Pairing::compute(&A_s_g1, &B_s_g2),
-        Pairing::compute(&C_s_g1.operate_with(&t_tau_h_tau_g1), &g2)
+        Pairing::compute(&C_s_temp_g1.operate_with(&t_tau_h_tau_temp_g1), &g2)
     );
+
+    ////////////////// introduce shifts
+
+    let only_private_coefficients =
+        witness_vector.as_slice()[witness_vector.len() - number_of_private_vars..].to_vec();
+
+    //////////////////
+
+    //////////////////
 
     // // Zk(t) = delta^{-1} * t(tau) * tau^k
     // // [h(tau)t(tau)]_1 = h_i * [Zk(tau)]_1
