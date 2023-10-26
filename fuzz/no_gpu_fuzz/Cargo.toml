@@ -34,6 +34,13 @@ test = false
 doc = false
 
 [[bin]]
+name = "stark_field_addition"
+path = "fuzz_targets/stark_field_addition.rs"
+test = false
+doc = false
+
+
+[[bin]]
 name = "deserialize_stark_proof"
 path = "fuzz_targets/deserialize_stark_proof.rs"
 test = false

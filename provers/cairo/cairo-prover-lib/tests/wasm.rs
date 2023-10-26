@@ -1,7 +1,7 @@
 #[cfg(feature = "wasm")]
-use cairo_platinum_prover::wasm_wrappers::deserialize_proof_wasm;
+use platinum_prover::wasm_wrappers::deserialize_proof_wasm;
 #[cfg(feature = "wasm")]
-use cairo_platinum_prover::wasm_wrappers::verify_cairo_proof_wasm;
+use platinum_prover::wasm_wrappers::verify_cairo_proof_wasm;
 #[cfg(feature = "wasm")]
 use stark_platinum_prover::proof::options::ProofOptions;
 
