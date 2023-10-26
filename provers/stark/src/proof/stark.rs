@@ -455,7 +455,7 @@ mod tests {
         let claimed_index = 420;
         let claimed_value = trace.get_row(claimed_index)[0];
         let proof_options = ProofOptions {
-            blowup_factor: 1 << 6,
+            blowup_factor: 64,
             coset_offset: 3,
             grinding_factor: 0,
             fri_number_of_queries: 1,
