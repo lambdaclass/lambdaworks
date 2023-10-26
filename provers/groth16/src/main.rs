@@ -85,6 +85,46 @@ pub struct ProvingKey {
     pub z_powers_of_tau_g1: Vec<G1Point>,
 }
 
+fn calculate_h(qap: &QAP, w: &[FrElement]) -> Polynomial<FrElement> {
+    // Compute A.s by summing up polynomials A[0].s, A[1].s, ..., A[n].s
+    // In other words, assign the witness coefficients / execution values
+    // Similarly for B.s and C.s
+    let mut l_coeffs = vec![FrElement::from_hex_unchecked("0"); qap.num_of_gates];
+    let mut r_coeffs = vec![FrElement::from_hex_unchecked("0"); qap.num_of_gates];
+    let mut o_coeffs = vec![FrElement::from_hex_unchecked("0"); qap.num_of_gates];
+    for row in 0..qap.num_of_gates {
+        for col in 0..qap.num_of_total_inputs {
+            let current_l_assigned = &qap.l[col] * &w[col];
+            let current_l_coeffs = current_l_assigned.coefficients();
+            if current_l_coeffs.len() != 0 {
+                l_coeffs[row] += current_l_coeffs[row].clone();
+            }
+
+            let current_r_assigned = &qap.r[col] * &w[col];
+            let current_r_coeffs = current_r_assigned.coefficients();
+            if current_r_coeffs.len() != 0 {
+                r_coeffs[row] += current_r_coeffs[row].clone();
+            }
+
+            let current_o_assigned = &qap.o[col] * &w[col];
+            let current_o_coeffs = current_o_assigned.coefficients();
+            if current_o_coeffs.len() != 0 {
+                o_coeffs[row] += current_o_coeffs[row].clone();
+            }
+        }
+    }
+    let l_assigned = Polynomial::new(&l_coeffs);
+    let r_assigned = Polynomial::new(&r_coeffs);
+    let o_assigned = Polynomial::new(&o_coeffs);
+
+    // h(x) = p(x) / t(x) = (A.s * B.s - C.s) / t(x)
+    let (h, remainder) =
+        (&l_assigned * &r_assigned - &o_assigned).long_division_with_remainder(&qap.t);
+    assert_eq!(0, remainder.degree()); // must have no remainder
+
+    h
+}
+
 pub type Proof = (G1Point, G2Point, G1Point);
 
 pub struct VerifyingKey {
@@ -98,17 +138,17 @@ pub struct VerifyingKey {
     pub verifier_k_tau_g1: Vec<G1Point>,
 }
 
-struct QAP<FrElement> {
+struct QAP {
     pub num_of_public_inputs: usize,
     pub num_of_total_inputs: usize,
     pub num_of_gates: usize,
-    pub gate_indices: Vec<FrElement>,
     pub l: Vec<Polynomial<FrElement>>,
     pub r: Vec<Polynomial<FrElement>>,
     pub o: Vec<Polynomial<FrElement>>,
+    pub t: Polynomial<FrElement>,
 }
 
-impl QAP<FrElement> {
+impl QAP {
     fn new(
         num_of_public_inputs: usize,
         gate_indices: Vec<FrElement>,
@@ -119,6 +159,12 @@ impl QAP<FrElement> {
         let l_len = l.len();
         let r_len = r.len();
         assert!(l_len == r_len && r_len == o.len() && num_of_public_inputs <= l_len);
+
+        let mut target_poly = Polynomial::new(&[FrElement::one()]);
+        for gate_index in &gate_indices {
+            target_poly = target_poly * Polynomial::new(&[-gate_index, FieldElement::one()]);
+        }
+
         Self {
             num_of_public_inputs,
             num_of_total_inputs: l_len,
@@ -126,7 +172,7 @@ impl QAP<FrElement> {
             l: Self::build_test_variable_polynomial(&gate_indices, &l),
             r: Self::build_test_variable_polynomial(&gate_indices, &r),
             o: Self::build_test_variable_polynomial(&gate_indices, &o),
-            gate_indices,
+            t: target_poly,
         }
     }
 
@@ -143,14 +189,6 @@ impl QAP<FrElement> {
             polynomials.push(Polynomial::interpolate(gate_indices, &y_indices).unwrap());
         }
         polynomials
-    }
-
-    pub fn interpolate_target_polynomial(&self) -> Polynomial<FrElement> {
-        let mut target_poly = Polynomial::new(&[FrElement::one()]);
-        for gate_index in &self.gate_indices {
-            target_poly = target_poly * Polynomial::new(&[-gate_index, FieldElement::one()]);
-        }
-        target_poly
     }
 }
 
@@ -210,8 +248,6 @@ fn main() {
     let g1: G1Point = BLS12381Curve::generator();
     let g2: G2Point = BLS12381TwistCurve::generator();
 
-    let t = qap.interpolate_target_polynomial();
-
     let tw = ToxicWaste::default();
 
     let delta_inv = tw.delta.inv().unwrap();
@@ -251,7 +287,7 @@ fn main() {
     }
 
     // [delta^{-1} * t(τ) * τ^0]_1, [delta^{-1} * t(τ) * τ^1]_1, ..., [delta^{-1} * t(τ) * τ^m]_1
-    let t_tau_times_delta_inv = &delta_inv * t.evaluate(&tw.tau);
+    let t_tau_times_delta_inv = &delta_inv * qap.t.evaluate(&tw.tau);
     let z_powers_of_tau_g1: Vec<G1Point> = (0..qap.num_of_gates + 1)
         .map(|exp: usize| {
             g1.operate_with_self(
@@ -290,44 +326,11 @@ fn main() {
 
     // aka the secret assignments, w vector, s vector
     // Includes the public inputs from the beginning.
-    let witness_vector = ["0x1", "0x3", "0x23", "0x9", "0x1b", "0x1e"]
+    let w = ["0x1", "0x3", "0x23", "0x9", "0x1b", "0x1e"]
         .map(|e| FrElement::from_hex_unchecked(e))
         .to_vec();
 
-    // Compute A.s by summing up polynomials A[0].s, A[1].s, ..., A[n].s
-    // In other words, assign the witness coefficients / execution values
-    // Similarly for B.s and C.s
-    let mut l_coeffs = vec![FrElement::from_hex_unchecked("0"); qap.num_of_gates];
-    let mut r_coeffs = vec![FrElement::from_hex_unchecked("0"); qap.num_of_gates];
-    let mut o_coeffs = vec![FrElement::from_hex_unchecked("0"); qap.num_of_gates];
-    for row in 0..qap.num_of_gates {
-        for col in 0..qap.num_of_total_inputs {
-            let current_l_assigned = &qap.l[col] * &witness_vector[col];
-            let current_l_coeffs = current_l_assigned.coefficients();
-            if current_l_coeffs.len() != 0 {
-                l_coeffs[row] += current_l_coeffs[row].clone();
-            }
-
-            let current_r_assigned = &qap.r[col] * &witness_vector[col];
-            let current_r_coeffs = current_r_assigned.coefficients();
-            if current_r_coeffs.len() != 0 {
-                r_coeffs[row] += current_r_coeffs[row].clone();
-            }
-
-            let current_o_assigned = &qap.o[col] * &witness_vector[col];
-            let current_o_coeffs = current_o_assigned.coefficients();
-            if current_o_coeffs.len() != 0 {
-                o_coeffs[row] += current_o_coeffs[row].clone();
-            }
-        }
-    }
-    let l_assigned = Polynomial::new(&l_coeffs);
-    let r_assigned = Polynomial::new(&r_coeffs);
-    let o_assigned = Polynomial::new(&o_coeffs);
-
-    // h(x) = p(x) / t(x) = (A.s * B.s - C.s) / t(x)
-    let (h, remainder) = (&l_assigned * &r_assigned - &o_assigned).long_division_with_remainder(&t);
-    assert_eq!(0, remainder.degree()); // must have no remainder
+    let h = calculate_h(&qap, &w);
 
     let t_tau_h_tau_assigned_g1 = h
         .coefficients()
@@ -337,14 +340,14 @@ fn main() {
         .reduce(|acc, x| acc.operate_with(&x))
         .unwrap();
 
-    let l_tau_assigned_g1 = witness_vector
+    let l_tau_assigned_g1 = w
         .iter()
         .enumerate()
         .map(|(i, coeff)| pk.l_tau_g1[i].operate_with_self(coeff.representative()))
         .reduce(|acc, x| acc.operate_with(&x))
         .unwrap();
 
-    let r_tau_assigned_g2 = witness_vector
+    let r_tau_assigned_g2 = w
         .iter()
         .enumerate()
         .map(|(i, coeff)| pk.r_tau_g2[i].operate_with_self(coeff.representative()))
@@ -353,7 +356,7 @@ fn main() {
 
     // [γ^{-1} * (β*l(τ) + α*r(τ) + o(τ))]_1
     let k_tau_assigned_verifier_g1 = (0..qap.num_of_public_inputs)
-        .map(|i| vk.verifier_k_tau_g1[i].operate_with_self(witness_vector[i].representative()))
+        .map(|i| vk.verifier_k_tau_g1[i].operate_with_self(w[i].representative()))
         .reduce(|acc, x| acc.operate_with(&x))
         .unwrap();
 
@@ -361,7 +364,7 @@ fn main() {
     let k_tau_assigned_prover_g1 = (qap.num_of_public_inputs..qap.num_of_total_inputs)
         .map(|i| {
             pk.prover_k_tau_g1[i - qap.num_of_public_inputs]
-                .operate_with_self(witness_vector[i].representative())
+                .operate_with_self(w[i].representative())
         })
         .reduce(|acc, x| acc.operate_with(&x))
         .unwrap();
