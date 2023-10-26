@@ -101,7 +101,7 @@ impl StoneCompatibleSerializer {
         }
 
         let mut result = Vec::new();
-        let mut level_indexes: BTreeSet<usize> = queries.to_vec().into_iter().collect();
+        let mut level_indexes: BTreeSet<usize> = queries.iter().copied().collect();
         let merkle_tree_height = authentication_paths[0].merkle_path.len();
         for tree_level in 0..merkle_tree_height {
             for node_index in level_indexes.iter() {
@@ -250,7 +250,7 @@ impl StoneCompatibleSerializer {
 
     fn append_fri_query_phase_inner_layers(
         proof: &StarkProof<Stark252PrimeField>,
-        fri_query_indexes: &Vec<usize>,
+        fri_query_indexes: &[usize],
         output: &mut Vec<u8>,
     ) {
         let mut fri_layers_evaluations: HashMap<(u64, usize, usize), FieldElement<_>> =
@@ -270,7 +270,7 @@ impl StoneCompatibleSerializer {
             }
         }
 
-        let mut indexes_previous_layer = fri_query_indexes.clone();
+        let mut indexes_previous_layer = fri_query_indexes.to_owned();
         for i in 0..proof.query_list[0].layers_evaluations_sym.len() {
             let reconstructed_row_col: BTreeSet<_> = indexes_previous_layer
                 .iter()
