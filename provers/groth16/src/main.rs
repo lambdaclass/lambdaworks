@@ -90,7 +90,7 @@ pub struct ProvingKey {
     // [K_{k+1}(tau)]_1, [K_{k+2}(tau)]_1, ..., [K_n(tau)]_1
     // where K_i(tau) = ƍ^{-1} * (β*l(tau) + α*r(tau) + o(tau))
     // and "k" is the number of public inputs
-    pub prover_k_g1: Vec<G1Point>,
+    pub prover_k_tau_g1: Vec<G1Point>,
     // [delta^{-1} * t(tau) * tau^0]_1, [delta^{-1} * t(tau) * tau^1]_1, ..., [delta^{-1} * t(tau) * tau^m]_1
     pub z_tau_g1: Vec<G1Point>,
 }
@@ -103,8 +103,10 @@ pub struct VerifyingKey {
     // [K_0(tau)]_1, [K_1(tau)]_1, ..., [K_k(tau)]_1
     // where K_i(tau) = ƍ^{-1} * (β*l(tau) + α*r(tau) + o(tau))
     // and "k" is the number of public inputs
-    pub prover_k_g1: Vec<G1Point>,
+    pub verifier_k_tau_g1: Vec<G1Point>,
 }
+
+pub type Proof = (G1Point, G2Point, G1Point);
 
 fn get_test_QAP_L(gate_indices: &[FrElement]) -> Vec<Polynomial<FrElement>> {
     vec![
@@ -367,9 +369,6 @@ fn main() {
     // Point of evaluation. TODO: Fiat-Shamir
     let tau = toxic_waste.tau;
 
-    // t(tau)
-    let t_tau = t.evaluate(&tau);
-
     let alpha = toxic_waste.alpha;
     let beta = toxic_waste.beta;
 
@@ -379,49 +378,47 @@ fn main() {
     let gamma = toxic_waste.gamma;
     let gamma_inv = gamma.inv().unwrap();
 
-    ///////// Construct proving key
-
-    // [alpha]_1
     let alpha_g1 = g1.operate_with_self(alpha.representative());
-    // [beta]_1
-    let beta_g1 = g1.operate_with_self(beta.representative());
-    // [beta]_2
     let beta_g2 = g2.operate_with_self(beta.representative());
-    // [delta]_1
-    let delta_g1 = g1.operate_with_self(delta.representative());
-    // [delta]_2
     let delta_g2 = g2.operate_with_self(delta.representative());
 
     // [A_i(tau)]_1, [B_i(tau)]_1, [B_i(tau)]_2
     let mut l_tau_g1: Vec<G1Point> = vec![];
     let mut r_tau_g1: Vec<G1Point> = vec![];
     let mut r_tau_g2: Vec<G2Point> = vec![];
-    for i in 0..number_of_total_vars {
-        let l_i_tau = l[i].evaluate(&tau).representative();
-        let r_i_tau = r[i].evaluate(&tau).representative();
+    let mut verifier_k_tau_g1: Vec<G1Point> = vec![];
+    let mut prover_k_tau_g1: Vec<G1Point> = vec![];
 
-        l_tau_g1.push(g1.operate_with_self(l_i_tau));
-        r_tau_g1.push(g1.operate_with_self(r_i_tau));
-        r_tau_g2.push(g2.operate_with_self(r_i_tau));
+    // Public variables
+    for i in 0..number_of_public_vars {
+        let l_i_tau = l[i].evaluate(&tau);
+        let r_i_tau = r[i].evaluate(&tau);
+        let o_i_tau = o[i].evaluate(&tau);
+        let k_i_tau = &gamma_inv * (&beta * &l_i_tau + &alpha * &r_i_tau + &o_i_tau);
+
+        l_tau_g1.push(g1.operate_with_self(l_i_tau.representative()));
+        r_tau_g1.push(g1.operate_with_self(r_i_tau.representative()));
+        r_tau_g2.push(g2.operate_with_self(r_i_tau.representative()));
+        verifier_k_tau_g1.push(g1.operate_with_self(k_i_tau.representative()));
     }
 
-    // Kᵖ = ƍ^{-1} * (β*l(tau) + α*r(tau) + o(tau)) for all i
-    // Verifier will multiply this by delta
-    let prover_k_g1: Vec<G1Point> = (number_of_public_vars..num_of_variables)
-        .map(|i| {
-            g1.operate_with_self(
-                (&delta_inv
-                    * (&beta * l[i].evaluate(&tau)
-                        + &alpha * r[i].evaluate(&tau)
-                        + o[i].evaluate(&tau)))
-                .representative(),
-            )
-        })
-        .collect();
+    // Private variables
+    for i in number_of_public_vars..num_of_variables {
+        let l_i_tau = l[i].evaluate(&tau);
+        let r_i_tau = r[i].evaluate(&tau);
+        let o_i_tau = o[i].evaluate(&tau);
+        let k_i_tau = &delta_inv * (&beta * &l_i_tau + &alpha * &r_i_tau + &o_i_tau);
+
+        l_tau_g1.push(g1.operate_with_self(l_i_tau.representative()));
+        r_tau_g1.push(g1.operate_with_self(r_i_tau.representative()));
+        r_tau_g2.push(g2.operate_with_self(r_i_tau.representative()));
+        prover_k_tau_g1.push(g1.operate_with_self(k_i_tau.representative()));
+    }
 
     // This one is Z_i(t), for prover to calculate [h(tau)z(tau)]_1
     // Zk(t) = delta^{-1} * t(tau) * tau^i
     // Verifier will multiply this by delta
+    let t_tau = t.evaluate(&tau);
     let t_tau_times_delta_inv = &delta_inv * &t_tau;
     let z_tau_g1: Vec<G1Point> = (0..max_degree + 1)
         .map(|exp: usize| {
@@ -431,40 +428,22 @@ fn main() {
 
     let proving_key = ProvingKey {
         alpha_g1: alpha_g1.clone(),
-        beta_g1,
+        beta_g1: g1.operate_with_self(beta.representative()),
         beta_g2: beta_g2.clone(),
-        delta_g1,
+        delta_g1: g1.operate_with_self(delta.representative()),
         delta_g2: delta_g2.clone(),
         l_tau_g1,
         r_tau_g1,
         r_tau_g2,
-        prover_k_g1: prover_k_g1.clone(),
+        prover_k_tau_g1,
         z_tau_g1,
     };
-
-    ///////// Construct verification key
-
-    let gamma_g2 = g2.operate_with_self(gamma.representative());
-
-    // Kᵛ = γ^{-1} * (β*l + α*r + o)(tau) for all i
-    // Verifier will multiply this by gamma
-    let public_K_g1: Vec<G1Point> = (0..number_of_public_vars)
-        .map(|i| {
-            g1.operate_with_self(
-                (&gamma_inv
-                    * (&beta * l[i].evaluate(&tau)
-                        + &alpha * r[i].evaluate(&tau)
-                        + o[i].evaluate(&tau)))
-                .representative(),
-            )
-        })
-        .collect();
 
     let verification_key = VerifyingKey {
         alpha_g1_times_beta_g2: Pairing::compute(&alpha_g1, &beta_g2),
         delta_g2: delta_g2.clone(),
-        gamma_g2,
-        prover_k_g1,
+        gamma_g2: g2.operate_with_self(gamma.representative()),
+        verifier_k_tau_g1,
     };
 
     //////////////////////////////////////////////////////////////////////
