@@ -12,7 +12,7 @@ use lambdaworks_math::{
         twist::BLS12381TwistCurve,
     },
     elliptic_curve::traits::{IsEllipticCurve, IsPairing},
-    field::{element::FieldElement, traits::IsField},
+    field::element::FieldElement,
     polynomial::Polynomial,
     unsigned_integer::element::U256,
 };
@@ -310,7 +310,7 @@ fn main() {
         r_tau_g1,
         r_tau_g2,
         prover_k_tau_g1,
-        z_powers_of_tau_g1: z_powers_of_tau_g1.clone(),
+        z_powers_of_tau_g1,
     };
 
     let vk = VerifyingKey {
@@ -336,7 +336,7 @@ fn main() {
         .coefficients()
         .iter()
         .enumerate()
-        .map(|(i, coeff)| z_powers_of_tau_g1[i].operate_with_self(coeff.representative()))
+        .map(|(i, coeff)| pk.z_powers_of_tau_g1[i].operate_with_self(coeff.representative()))
         .reduce(|acc, x| acc.operate_with(&x))
         .unwrap();
 
@@ -354,12 +354,6 @@ fn main() {
         .reduce(|acc, x| acc.operate_with(&x))
         .unwrap();
 
-    // [γ^{-1} * (β*l(τ) + α*r(τ) + o(τ))]_1
-    let k_tau_assigned_verifier_g1 = (0..qap.num_of_public_inputs)
-        .map(|i| vk.verifier_k_tau_g1[i].operate_with_self(w[i].representative()))
-        .reduce(|acc, x| acc.operate_with(&x))
-        .unwrap();
-
     // [ƍ^{-1} * (β*l(τ) + α*r(τ) + o(τ))]_1
     let k_tau_assigned_prover_g1 = (qap.num_of_public_inputs..qap.num_of_total_inputs)
         .map(|i| {
@@ -372,6 +366,12 @@ fn main() {
     //////////////////////////////////////////////////////////////////////
     ////////////////////////////// Verify ////////////////////////////////
     //////////////////////////////////////////////////////////////////////
+
+    // [γ^{-1} * (β*l(τ) + α*r(τ) + o(τ))]_1
+    let k_tau_assigned_verifier_g1 = (0..qap.num_of_public_inputs)
+        .map(|i| vk.verifier_k_tau_g1[i].operate_with_self(w[i].representative()))
+        .reduce(|acc, x| acc.operate_with(&x))
+        .unwrap();
 
     /*
         SNARK verification without ZK
