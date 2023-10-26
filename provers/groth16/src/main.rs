@@ -26,7 +26,7 @@ use lambdaworks_math::{
 
 use lambdaworks_crypto::commitments::kzg::KateZaveruchaGoldberg;
 
-use rand::Rng; // 0.8.5
+use rand::Rng;
 
 pub type Curve = BLS12381Curve;
 pub type TwistedCurve = BLS12381TwistCurve;
@@ -40,6 +40,8 @@ pub struct ToxicWaste {
     pub tau: FrElement,
     pub alpha: FrElement,
     pub beta: FrElement,
+    pub gamma: FrElement,
+    pub delta: FrElement,
 }
 
 impl ToxicWaste {
@@ -61,6 +63,8 @@ impl ToxicWaste {
             tau: Self::sample_field_elem(),
             alpha: Self::sample_field_elem(),
             beta: Self::sample_field_elem(),
+            gamma: Self::sample_field_elem(),
+            delta: Self::sample_field_elem(),
         }
     }
 }
@@ -71,7 +75,38 @@ impl Default for ToxicWaste {
     }
 }
 
-fn get_test_QAP_L(gate_indices: &Vec<FrElement>) -> Vec<Polynomial<FrElement>> {
+pub struct ProvingKey {
+    pub alpha_g1: G1Point,
+    pub beta_g1: G1Point,
+    pub beta_g2: G2Point,
+    pub delta_g1: G1Point,
+    pub delta_g2: G2Point,
+    // [A_0(tau)]_1, [A_1(tau)]_1, ..., [A_n(tau)]_1
+    pub l_tau_g1: Vec<G1Point>,
+    // [B_0(tau)]_1, [B_1(tau)]_1, ..., [B_n(tau)]_1
+    pub r_tau_g1: Vec<G1Point>,
+    // [B_0(tau)]_2, [B_1(tau)]_2, ..., [B_n(tau)]_2
+    pub r_tau_g2: Vec<G2Point>,
+    // [K_{k+1}(tau)]_1, [K_{k+2}(tau)]_1, ..., [K_n(tau)]_1
+    // where K_i(tau) = ƍ^{-1} * (β*l(tau) + α*r(tau) + o(tau))
+    // and "k" is the number of public inputs
+    pub prover_k_g1: Vec<G1Point>,
+    // [delta^{-1} * t(tau) * tau^0]_1, [delta^{-1} * t(tau) * tau^1]_1, ..., [delta^{-1} * t(tau) * tau^m]_1
+    pub z_tau_g1: Vec<G1Point>,
+}
+
+pub struct VerifyingKey {
+    // e([alpha]_1, [beta]_2) computed during setup as it's a constant
+    pub alpha_g1_times_beta_g2: FieldElement<<Pairing as IsPairing>::OutputField>,
+    pub delta_g2: G2Point,
+    pub gamma_g2: G2Point,
+    // [K_0(tau)]_1, [K_1(tau)]_1, ..., [K_k(tau)]_1
+    // where K_i(tau) = ƍ^{-1} * (β*l(tau) + α*r(tau) + o(tau))
+    // and "k" is the number of public inputs
+    pub prover_k_g1: Vec<G1Point>,
+}
+
+fn get_test_QAP_L(gate_indices: &[FrElement]) -> Vec<Polynomial<FrElement>> {
     vec![
         Polynomial::interpolate(
             &gate_indices,
@@ -136,7 +171,7 @@ fn get_test_QAP_L(gate_indices: &Vec<FrElement>) -> Vec<Polynomial<FrElement>> {
     ]
 }
 
-fn get_test_QAP_R(gate_indices: &Vec<FrElement>) -> Vec<Polynomial<FrElement>> {
+fn get_test_QAP_R(gate_indices: &[FrElement]) -> Vec<Polynomial<FrElement>> {
     vec![
         Polynomial::interpolate(
             &gate_indices,
@@ -201,7 +236,7 @@ fn get_test_QAP_R(gate_indices: &Vec<FrElement>) -> Vec<Polynomial<FrElement>> {
     ]
 }
 
-fn get_test_QAP_O(gate_indices: &Vec<FrElement>) -> Vec<Polynomial<FrElement>> {
+fn get_test_QAP_O(gate_indices: &[FrElement]) -> Vec<Polynomial<FrElement>> {
     vec![
         Polynomial::interpolate(
             &gate_indices,
@@ -281,18 +316,19 @@ fn main() {
         [0, 0, 0, 1, 0, 0]  [0, 1, 0, 0, 0, 0]  [0, 0, 0, 0, 1, 0]
         [0, 1, 0, 0, 1, 0]  [1, 0, 0, 0, 0, 0]  [0, 0, 0, 0, 0, 1]
         [5, 0, 0, 0, 0, 1]  [1, 0, 0, 0, 0, 0]  [0, 0, 1, 0, 0, 0]
+
+        m+1 rows, n+1 cols
     */
 
     let number_of_public_vars = 1;
     let number_of_private_vars = 5;
     let number_of_total_vars = number_of_public_vars + number_of_private_vars;
+    let max_degree = number_of_total_vars + 1;
 
     let number_of_gates = 4;
 
-    let max_degree = number_of_total_vars + 1;
-
     // Gate indices. Will correspond to rows of QAP matrices. TODO: Roots of unity
-    let gate_indices = vec![
+    let gate_indices = [
         FrElement::from_hex_unchecked("1"),
         FrElement::from_hex_unchecked("2"),
         FrElement::from_hex_unchecked("3"),
@@ -331,159 +367,224 @@ fn main() {
     // Point of evaluation. TODO: Fiat-Shamir
     let tau = toxic_waste.tau;
 
-    // [t(tau)]_1
-    let t_evaluated_g1 = g1.operate_with_self(t.evaluate(&tau).representative());
+    // t(tau)
+    let t_tau = t.evaluate(&tau);
 
-    let alpha_shift = toxic_waste.alpha;
-    // [alpha]_2
-    let alpha_g2 = g2.operate_with_self(alpha_shift.representative());
+    let alpha = toxic_waste.alpha;
+    let beta = toxic_waste.beta;
 
-    // [tau]_1,[tau^2]_1,[tau^3]_1,...,[tau^n]_1
-    let powers_of_tau_g1: Vec<G1Point> = (0..max_degree + 1)
-        .map(|exp: usize| g1.operate_with_self(tau.pow(exp as u128).representative()))
-        .collect();
-    // [alpha*tau]_1,[alpha*tau^2]_1,[alpha*tau^3]_1,...,[alpha*tau^n]_1
-    let shifted_powers_of_tau_g1: Vec<G1Point> = (0..max_degree + 1)
-        .map(|exp| {
-            g1.operate_with_self(tau.pow(exp as u128).representative())
-                .operate_with_self((&alpha_shift).representative())
+    let delta = toxic_waste.delta;
+    let delta_inv = delta.inv().unwrap();
+
+    let gamma = toxic_waste.gamma;
+    let gamma_inv = gamma.inv().unwrap();
+
+    ///////// Construct proving key
+
+    // [alpha]_1
+    let alpha_g1 = g1.operate_with_self(alpha.representative());
+    // [beta]_1
+    let beta_g1 = g1.operate_with_self(beta.representative());
+    // [beta]_2
+    let beta_g2 = g2.operate_with_self(beta.representative());
+    // [delta]_1
+    let delta_g1 = g1.operate_with_self(delta.representative());
+    // [delta]_2
+    let delta_g2 = g2.operate_with_self(delta.representative());
+
+    // [A_i(tau)]_1, [B_i(tau)]_1, [B_i(tau)]_2
+    let mut l_tau_g1: Vec<G1Point> = vec![];
+    let mut r_tau_g1: Vec<G1Point> = vec![];
+    let mut r_tau_g2: Vec<G2Point> = vec![];
+    for i in 0..number_of_total_vars {
+        let l_i_tau = l[i].evaluate(&tau).representative();
+        let r_i_tau = r[i].evaluate(&tau).representative();
+
+        l_tau_g1.push(g1.operate_with_self(l_i_tau));
+        r_tau_g1.push(g1.operate_with_self(r_i_tau));
+        r_tau_g2.push(g2.operate_with_self(r_i_tau));
+    }
+
+    // Kᵖ = ƍ^{-1} * (β*l(tau) + α*r(tau) + o(tau)) for all i
+    // Verifier will multiply this by delta
+    let prover_k_g1: Vec<G1Point> = (number_of_public_vars..num_of_variables)
+        .map(|i| {
+            g1.operate_with_self(
+                (&delta_inv
+                    * (&beta * l[i].evaluate(&tau)
+                        + &alpha * r[i].evaluate(&tau)
+                        + o[i].evaluate(&tau)))
+                .representative(),
+            )
         })
         .collect();
 
-    // [tau]_2,[tau^2]_2,[tau^3]_2,...,[tau^n]_2
-    let powers_of_tau_g2: Vec<G2Point> = (0..max_degree + 1)
-        .map(|exp| g2.operate_with_self(tau.pow(exp as u128).representative()))
+    // This one is Z_i(t), for prover to calculate [h(tau)z(tau)]_1
+    // Zk(t) = delta^{-1} * t(tau) * tau^i
+    // Verifier will multiply this by delta
+    let t_tau_times_delta_inv = &delta_inv * &t_tau;
+    let z_tau_g1: Vec<G1Point> = (0..max_degree + 1)
+        .map(|exp: usize| {
+            g1.operate_with_self((&t_tau_times_delta_inv * tau.pow(exp as u128)).representative())
+        })
         .collect();
+
+    let proving_key = ProvingKey {
+        alpha_g1: alpha_g1.clone(),
+        beta_g1,
+        beta_g2: beta_g2.clone(),
+        delta_g1,
+        delta_g2: delta_g2.clone(),
+        l_tau_g1,
+        r_tau_g1,
+        r_tau_g2,
+        prover_k_g1: prover_k_g1.clone(),
+        z_tau_g1,
+    };
+
+    ///////// Construct verification key
+
+    let gamma_g2 = g2.operate_with_self(gamma.representative());
+
+    // Kᵛ = γ^{-1} * (β*l + α*r + o)(tau) for all i
+    // Verifier will multiply this by gamma
+    let public_K_g1: Vec<G1Point> = (0..number_of_public_vars)
+        .map(|i| {
+            g1.operate_with_self(
+                (&gamma_inv
+                    * (&beta * l[i].evaluate(&tau)
+                        + &alpha * r[i].evaluate(&tau)
+                        + o[i].evaluate(&tau)))
+                .representative(),
+            )
+        })
+        .collect();
+
+    let verification_key = VerifyingKey {
+        alpha_g1_times_beta_g2: Pairing::compute(&alpha_g1, &beta_g2),
+        delta_g2: delta_g2.clone(),
+        gamma_g2,
+        prover_k_g1,
+    };
 
     //////////////////////////////////////////////////////////////////////
     ////////////////////////////// Prove /////////////////////////////////
     //////////////////////////////////////////////////////////////////////
 
     // aka the secret assignments, w vector, s vector
+    // Includes the public inputs from the beginning.
     let witness_vector =
         ["0x1", "0x3", "0x23", "0x9", "0x1b", "0x1e"].map(|e| FrElement::from_hex_unchecked(e));
 
-    // Compute A[0].s, A[1].s,..., B[0].s, ..., C[0].s, C[1].s, ..., C[n].s
-    for i in 0..num_of_variables {
-        // A[i] *= s[i]
-        l[i] = l[i].scale_coeffs(&witness_vector[i]);
-        // B[i] *= s[i]
-        r[i] = r[i].scale_coeffs(&witness_vector[i]);
-        // C[i] *= s[i]
-        o[i] = o[i].scale_coeffs(&witness_vector[i]);
-    }
-
-    // Now compute A.s by summing up polynomials A[0].s, A[1].s, ..., A[n].s
+    // Compute A.s by summing up polynomials A[0].s, A[1].s, ..., A[n].s
+    // In other words, assign the witness coefficients / execution values
     // Similarly for B.s and C.s
-    let mut l_dot_s_coeffs = vec![FrElement::from_hex_unchecked("0"); num_of_gates];
-    let mut r_dot_s_coeffs = vec![FrElement::from_hex_unchecked("0"); num_of_gates];
-    let mut o_dot_s_coeffs = vec![FrElement::from_hex_unchecked("0"); num_of_gates];
+    let mut A_s_coeffs = vec![FrElement::from_hex_unchecked("0"); num_of_gates];
+    let mut B_s_coeffs = vec![FrElement::from_hex_unchecked("0"); num_of_gates];
+    let mut C_s_coeffs = vec![FrElement::from_hex_unchecked("0"); num_of_gates];
     for row in 0..num_of_gates {
         for col in 0..num_of_variables {
-            let l_current_poly_coeffs = l[col].coefficients();
+            let current_variable_assigned_l = &l[col] * &witness_vector[col];
+            let l_current_poly_coeffs = current_variable_assigned_l.coefficients();
             if l_current_poly_coeffs.len() != 0 {
-                l_dot_s_coeffs[row] += l_current_poly_coeffs[row].clone();
+                A_s_coeffs[row] += l_current_poly_coeffs[row].clone();
             }
 
-            let r_current_poly_coeffs = r[col].coefficients();
+            let current_variable_assigned_r = &r[col] * &witness_vector[col];
+            let r_current_poly_coeffs = current_variable_assigned_r.coefficients();
             if r_current_poly_coeffs.len() != 0 {
-                r_dot_s_coeffs[row] += r_current_poly_coeffs[row].clone();
+                B_s_coeffs[row] += r_current_poly_coeffs[row].clone();
             }
 
-            let o_current_poly_coeffs = o[col].coefficients();
+            let current_variable_assigned_o = &o[col] * &witness_vector[col];
+            let o_current_poly_coeffs = current_variable_assigned_o.coefficients();
             if o_current_poly_coeffs.len() != 0 {
-                o_dot_s_coeffs[row] += o_current_poly_coeffs[row].clone();
+                C_s_coeffs[row] += o_current_poly_coeffs[row].clone();
             }
         }
     }
-    let l_dot_s = Polynomial::new(&l_dot_s_coeffs);
-    let r_dot_s = Polynomial::new(&r_dot_s_coeffs);
-    let o_dot_s = Polynomial::new(&o_dot_s_coeffs);
+    let A_s = Polynomial::new(&A_s_coeffs);
+    let B_s = Polynomial::new(&B_s_coeffs);
+    let C_s = Polynomial::new(&C_s_coeffs);
     // Assert correctness of assignments
     {
         assert_eq!(
-            l_dot_s.evaluate(&gate_indices[0]) * r_dot_s.evaluate(&gate_indices[0]),
-            o_dot_s.evaluate(&gate_indices[0])
+            A_s.evaluate(&gate_indices[0]) * B_s.evaluate(&gate_indices[0]),
+            C_s.evaluate(&gate_indices[0])
         );
         assert_eq!(
-            l_dot_s.evaluate(&gate_indices[1]) * r_dot_s.evaluate(&gate_indices[1]),
-            o_dot_s.evaluate(&gate_indices[1])
+            A_s.evaluate(&gate_indices[1]) * B_s.evaluate(&gate_indices[1]),
+            C_s.evaluate(&gate_indices[1])
         );
         assert_eq!(
-            l_dot_s.evaluate(&gate_indices[2]) * r_dot_s.evaluate(&gate_indices[2]),
-            o_dot_s.evaluate(&gate_indices[2])
+            A_s.evaluate(&gate_indices[2]) * B_s.evaluate(&gate_indices[2]),
+            C_s.evaluate(&gate_indices[2])
         );
         assert_eq!(
-            l_dot_s.evaluate(&gate_indices[3]) * r_dot_s.evaluate(&gate_indices[3]),
-            o_dot_s.evaluate(&gate_indices[3])
+            A_s.evaluate(&gate_indices[3]) * B_s.evaluate(&gate_indices[3]),
+            C_s.evaluate(&gate_indices[3])
         );
     }
 
-    // Sample delta for zk-ness
-    // let delta_shift = FrElement::new(U256 {
-    //     limbs: [
-    //         rng.gen::<u64>(),
-    //         rng.gen::<u64>(),
-    //         rng.gen::<u64>(),
-    //         rng.gen::<u64>(),
-    //     ],
-    // });
-
-    // p(x) = A.s * B.s - C.s
-    let p = &l_dot_s * &r_dot_s - &o_dot_s;
     // h(x) = p(x) / t(x) = (A.s * B.s - C.s) / t(x)
-    let (h, remainder) = &p.clone().long_division_with_remainder(&t);
-    // must have no remainder
-    assert_eq!(0, remainder.degree());
+    let (h, remainder) = (&A_s * &B_s - &C_s).long_division_with_remainder(&t);
+    assert_eq!(0, remainder.degree()); // must have no remainder
 
-    let p_evaluated_g1 = p
-        .coefficients()
-        .iter()
-        .enumerate()
-        .map(|(i, coeff)| {
-            powers_of_tau_g1[i].operate_with_self(coeff.representative())
-            // .operate_with_self((&delta_shift).representative())
-        })
-        .reduce(|acc, x| acc.operate_with(&x))
-        .unwrap();
+    // // [tau]_2,[tau^2]_2,[tau^3]_2,...,[tau^n]_2
+    // let powers_of_tau_g2: Vec<G2Point> = (0..max_degree + 1)
+    //     .map(|exp| g2.operate_with_self(tau.pow(exp as u128).representative()))
+    //     .collect();
 
-    let p_evaluated_shifted_g1 = p
-        .coefficients()
-        .iter()
-        .enumerate()
-        .map(|(i, coeff)| {
-            shifted_powers_of_tau_g1[i].operate_with_self(coeff.representative())
-            // .operate_with_self((&delta_shift).representative())
-        })
-        .reduce(|acc, x| acc.operate_with(&x))
-        .unwrap();
+    // let p_evaluated_g1 = p
+    //     .coefficients()
+    //     .iter()
+    //     .enumerate()
+    //     .map(|(i, coeff)| {
+    //         powers_of_tau_g1[i].operate_with_self(coeff.representative())
+    //         // .operate_with_self((&delta_shift).representative())
+    //     })
+    //     .reduce(|acc, x| acc.operate_with(&x))
+    //     .unwrap();
 
-    let h_evaluated_g2 = h
-        .coefficients()
-        .iter()
-        .enumerate()
-        .map(|(i, coeff)| {
-            powers_of_tau_g2[i].operate_with_self(coeff.representative())
-            // .operate_with_self((&delta_shift).representative())
-        })
-        .reduce(|acc, x| acc.operate_with(&x))
-        .unwrap();
+    // let p_evaluated_shifted_g1 = p
+    //     .coefficients()
+    //     .iter()
+    //     .enumerate()
+    //     .map(|(i, coeff)| {
+    //         shifted_powers_of_tau_g1[i].operate_with_self(coeff.representative())
+    //         // .operate_with_self((&delta_shift).representative())
+    //     })
+    //     .reduce(|acc, x| acc.operate_with(&x))
+    //     .unwrap();
+
+    // // Zk(t) = delta^{-1} * t(tau) * tau^k
+    // // [h(tau)t(tau)]_1 = h_i * [Zk(tau)]_1
+    // let delta_inv_t_tau_h_tau_g1 = h
+    //     .coefficients()
+    //     .iter()
+    //     .enumerate()
+    //     .map(|(i, coeff)| {
+    //         powers_of_tau_for_h_g1[i].operate_with_self(coeff.representative())
+    //         // .operate_with_self((&delta_shift).representative())
+    //     })
+    //     .reduce(|acc, x| acc.operate_with(&x))
+    //     .unwrap();
 
     //////////////////////////////////////////////////////////////////////
     ////////////////////////////// Verify ////////////////////////////////
     //////////////////////////////////////////////////////////////////////
 
-    // check alpha shift
-    assert_eq!(
-        Pairing::compute(&p_evaluated_g1, &alpha_g2,),
-        Pairing::compute(&p_evaluated_shifted_g1, &g2,)
-    );
+    // // check alpha shift
+    // assert_eq!(
+    //     Pairing::compute(&p_evaluated_g1, &alpha_g2,),
+    //     Pairing::compute(&p_evaluated_shifted_g1, &g2,)
+    // );
 
-    // check computational integrity - polynomial divisibility
-    assert_eq!(
-        Pairing::compute(&p_evaluated_g1, &g2),
-        Pairing::compute(&t_evaluated_g1, &h_evaluated_g2)
-    );
+    // // check computational integrity - polynomial divisibility
+    // assert_eq!(
+    //     Pairing::compute(&p_evaluated_g1, &g2),
+    //     Pairing::compute(&t_evaluated_g1, &z_k_evaluated_g1)
+    // );
 
     // let one = FrElement::new(U384 {
     //     limbs: [0, 0, 0, 0, 0, 1],
