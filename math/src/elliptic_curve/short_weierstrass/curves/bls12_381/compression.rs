@@ -1,10 +1,4 @@
 use super::field_extension::BLS12381PrimeField;
-use crate::cyclic_group::IsGroup;
-use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
-use crate::elliptic_curve::short_weierstrass::traits::IsShortWeierstrass;
-use crate::elliptic_curve::traits::FromAffine;
-use crate::field::element::FieldElement;
-use crate::unsigned_integer::element::U256;
 use crate::{
     cyclic_group::IsGroup,
     elliptic_curve::short_weierstrass::{

@@ -1,6 +1,5 @@
 use super::{
-    compression::BLS12381FieldElement,
-    curve::{BLS12381Curve, BLS12381TwistCurveFieldElement},
+    curve::BLS12381Curve,
     field_extension::{Degree12ExtensionField, Degree2ExtensionField},
     twist::BLS12381TwistCurve,
 };
@@ -48,74 +47,8 @@ impl IsPairing for BLS12381AtePairing {
     }
 }
 
-pub const CUBE_ROOT_OF_UNITY_G1: BLS12381FieldElement = FieldElement::from_hex_unchecked(
-    "5f19672fdf76ce51ba69c6076a0f77eaddb3a93be6f89688de17d813620a00022e01fffffffefffe",
-);
-
-pub const ENDO_U: BLS12381TwistCurveFieldElement =
-BLS12381TwistCurveFieldElement::const_from_raw([
-    FieldElement::from_hex_unchecked("0"),
-    FieldElement::from_hex_unchecked("1a0111ea397fe699ec02408663d4de85aa0d857d89759ad4897d29650fb85f9b409427eb4f49fffd8bfd00000000aaad")
-]);
-
-pub const ENDO_V: BLS12381TwistCurveFieldElement =
-BLS12381TwistCurveFieldElement::const_from_raw([
-    FieldElement::from_hex_unchecked("135203e60180a68ee2e9c448d77a2cd91c3dedd930b1cf60ef396489f61eb45e304466cf3e67fa0af1ee7b04121bdea2"),
-    FieldElement::from_hex_unchecked("6af0e0437ff400b6831e36d6bd17ffe48395dabc2d3435e77f76e17009241c5ee67992f72ec05f4c81084fbede3cc09")
-]);
-
-impl ShortWeierstrassProjectivePoint<BLS12381Curve> {
-    /// Returns phi(p) where `phi: (x,y)->(ux,y)` and `u` is the Cube Root of Unity in `G_1`
-    fn phi(&self) -> Self {
-        let mut a = self.clone();
-        a.0.value[0] = a.x() * CUBE_ROOT_OF_UNITY_G1;
-        a
-    }
-
-    pub fn is_in_subgroup(&self) -> bool {
-        self.operate_with_self(MILLER_LOOP_CONSTANT)
-            .operate_with_self(MILLER_LOOP_CONSTANT)
-            .neg()
-            == self.phi()
-    }
-}
-
-impl FieldElement<Degree2ExtensionField> {
-    //TODO: Expose this function in extensions/qaudratic.rs
-    pub fn conjugate(&self) -> Self {
-        let [a, b] = self.value();
-        Self::new([a.clone(), -b])
-    }
-}
-
-impl ShortWeierstrassProjectivePoint<BLS12381TwistCurve> {
-    fn is_on_curve(&self) -> bool {
-        let [x, y, z] = self.coordinates();
-        y.square() * z == (x.square() * x) + (z.square() * z * BLS12381TwistCurve::b())
-    }
-
-    // psi(p) = u o frob o u**-1 where u:E'->E iso from the twist to E
-    fn psi(&self) -> Self {
-        let [x, y, z] = self.coordinates();
-        Self::new([
-            x.conjugate() * ENDO_U,
-            y.conjugate() * ENDO_V,
-            z.conjugate(),
-        ])
-    }
-
-    // https://eprint.iacr.org/2019/814.pdf, 3.1
-    // z*psi^3 - psi^2 + 1 = 0 <==> -z*(psi o phi) + phi + 1 = 0
-    pub fn is_in_subgroup(&self) -> bool {
-        let res = self
-            .psi()
-            .operate_with(&self.operate_with_self(MILLER_LOOP_CONSTANT));
-        res.is_on_curve() && res.is_neutral_element()
-    }
-}
-
 /// This is equal to the frobenius trace of the BLS12 381 curve minus one or seed value z.
-const MILLER_LOOP_CONSTANT: u64 = 0xd201000000010000;
+pub const MILLER_LOOP_CONSTANT: u64 = 0xd201000000010000;
 fn double_accumulate_line(
     t: &mut ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
     p: &ShortWeierstrassProjectivePoint<BLS12381Curve>,
@@ -361,50 +294,5 @@ mod tests {
         let q = ShortWeierstrassProjectivePoint::neutral_element();
         let result = BLS12381AtePairing::compute_batch(&[(&p.to_affine(), &q)]);
         assert!(result.is_err())
-    }
-
-    #[test]
-    fn generator_g1_is_in_subgroup() {
-        let g = BLS12381Curve::generator();
-        assert!(g.is_in_subgroup())
-    }
-
-    #[test]
-    fn arbitrary_g1_point_is_in_subgroup() {
-        let p = BLS12381Curve::generator().operate_with_self(20_u64);
-        assert!(p.is_in_subgroup())
-    }
-
-    #[test]
-    fn generator_g2_is_in_subgroup() {
-        let g = BLS12381TwistCurve::generator();
-        assert!(g.is_in_subgroup())
-    }
-
-    #[test]
-    fn arbitrary_g2_point_is_in_subgroup() {
-        let p = BLS12381TwistCurve::generator().operate_with_self(20_u64);
-        assert!(p.is_in_subgroup())
-    }
-
-    #[test]
-    fn generator_g2_is_on_curve() {
-        let g = BLS12381TwistCurve::generator();
-        assert!(g.is_on_curve())
-    }
-
-    #[test]
-    fn arbitrary_g2_point_is_on_curve() {
-        let p = BLS12381TwistCurve::generator().operate_with_self(20_u64);
-        assert!(p.is_on_curve())
-    }
-
-    #[test]
-    fn g2_conjugate_works() {
-        let a = FieldElement::<Degree2ExtensionField>::zero();
-        let mut expected = a.conjugate();
-        expected = expected.conjugate();
-
-        assert_eq!(a, expected);
     }
 }

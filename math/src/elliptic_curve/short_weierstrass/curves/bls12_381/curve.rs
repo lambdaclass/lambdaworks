@@ -1,9 +1,16 @@
 use super::field_extension::{BLS12381PrimeField, Degree2ExtensionField};
+use super::pairing::MILLER_LOOP_CONSTANT;
+use super::twist::BLS12381TwistCurve;
+use crate::cyclic_group::IsGroup;
 use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
 use crate::elliptic_curve::traits::IsEllipticCurve;
+use crate::unsigned_integer::element::U256;
 use crate::{
     elliptic_curve::short_weierstrass::traits::IsShortWeierstrass, field::element::FieldElement,
 };
+
+pub const SUBGROUP_ORDER: U256 =
+    U256::from_hex_unchecked("73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001");
 
 pub type BLS12381FieldElement = FieldElement<BLS12381PrimeField>;
 pub type BLS12381TwistCurveFieldElement = FieldElement<Degree2ExtensionField>;
@@ -35,18 +42,151 @@ impl IsShortWeierstrass for BLS12381Curve {
     }
 }
 
+pub const CUBE_ROOT_OF_UNITY_G1: BLS12381FieldElement = FieldElement::from_hex_unchecked(
+    "5f19672fdf76ce51ba69c6076a0f77eaddb3a93be6f89688de17d813620a00022e01fffffffefffe",
+);
+
+pub const ENDO_U: BLS12381TwistCurveFieldElement =
+BLS12381TwistCurveFieldElement::const_from_raw([
+    FieldElement::from_hex_unchecked("0"),
+    FieldElement::from_hex_unchecked("1a0111ea397fe699ec02408663d4de85aa0d857d89759ad4897d29650fb85f9b409427eb4f49fffd8bfd00000000aaad")
+]);
+
+pub const ENDO_V: BLS12381TwistCurveFieldElement =
+BLS12381TwistCurveFieldElement::const_from_raw([
+    FieldElement::from_hex_unchecked("135203e60180a68ee2e9c448d77a2cd91c3dedd930b1cf60ef396489f61eb45e304466cf3e67fa0af1ee7b04121bdea2"),
+    FieldElement::from_hex_unchecked("6af0e0437ff400b6831e36d6bd17ffe48395dabc2d3435e77f76e17009241c5ee67992f72ec05f4c81084fbede3cc09")
+]);
+
+impl ShortWeierstrassProjectivePoint<BLS12381Curve> {
+    /// Returns phi(p) where `phi: (x,y)->(ux,y)` and `u` is the Cube Root of Unity in the base prime field
+    fn phi(&self) -> Self {
+        let mut a = self.clone();
+        a.0.value[0] = a.x() * CUBE_ROOT_OF_UNITY_G1;
+        a
+    }
+
+    pub fn is_in_subgroup(&self) -> bool {
+        self.operate_with_self(MILLER_LOOP_CONSTANT)
+            .operate_with_self(MILLER_LOOP_CONSTANT)
+            .neg()
+            == self.phi()
+    }
+}
+
+impl ShortWeierstrassProjectivePoint<BLS12381TwistCurve> {
+    // https://eprint.iacr.org/2022/352.pdf 4.2 (7)
+    // psi(p) = u o frob o u**-1, where u is the isomorphism u:E'(𝔽ₚ₆) −> E(𝔽ₚ₁₂) from the twist to E
+    fn psi(&self) -> Self {
+        let [x, y, z] = self.coordinates();
+        Self::new([
+            x.conjugate() * ENDO_U,
+            y.conjugate() * ENDO_V,
+            z.conjugate(),
+        ])
+    }
+
+    // https://eprint.iacr.org/2022/352.pdf 4.2 ()
+    /// check psi(P) = uP, where u = SEED.
+    pub fn is_in_subgroup(&self) -> bool {
+        self.psi() == self.operate_with_self(MILLER_LOOP_CONSTANT).neg()
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use rand::random;
+
     use super::*;
     use crate::{
-        cyclic_group::IsGroup, elliptic_curve::traits::EllipticCurveError,
+        cyclic_group::IsGroup,
+        elliptic_curve::{
+            short_weierstrass::curves::bls12_381::field_extension::BLS12381_PRIME_FIELD_ORDER,
+            traits::EllipticCurveError,
+        },
         field::element::FieldElement,
+        unsigned_integer::element::U64,
     };
 
-    use super::BLS12381Curve;
+    // -15132376222941642751 = MILLER_LOOP_CONSTANT + 1 = -d20100000000ffff
+    // we want the positive of this coordinate based on x^2 - tx + q
+    pub const TRACE_OF_FROBENIUS: U256 = U256::from_u64(15132376222941642751);
+
+    const ENDO_U_2: BLS12381TwistCurveFieldElement =
+    BLS12381TwistCurveFieldElement::const_from_raw([
+        FieldElement::from_hex_unchecked("1a0111ea397fe699ec02408663d4de85aa0d857d89759ad4897d29650fb85f9b409427eb4f49fffd8bfd00000000aaac"),
+        FieldElement::from_hex_unchecked("0")
+    ]);
+
+    const ENDO_V_2: BLS12381TwistCurveFieldElement =
+    BLS12381TwistCurveFieldElement::const_from_raw([
+        FieldElement::from_hex_unchecked("1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaaa"),
+        FieldElement::from_hex_unchecked("0")
+    ]);
+
+    const G1_COFACTOR: U64 = U64::from_hex_unchecked("0xd201000000010001");
+
+    // Cmoputes the psi^2() 'Untwist Frobenius Endomorphism'
+    fn psi_2(
+        p: &ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
+    ) -> ShortWeierstrassProjectivePoint<BLS12381TwistCurve> {
+        let [x, y, z] = p.coordinates();
+        // Since power of frobenius map is 2 we apply once as applying twice is inverse
+        ShortWeierstrassProjectivePoint::new([x * ENDO_U_2, y * ENDO_V_2, z.clone()])
+    }
+
+    fn random_g1_point() -> ShortWeierstrassProjectivePoint<BLS12381Curve> {
+        let mut x = FEE::from(random::<u64>());
+        let mut y = FEE::from(random::<u64>());
+        while BLS12381Curve::create_point_from_affine(x.clone(), y.clone()).is_err() {
+            x = FEE::from(random::<u64>());
+            y = FEE::from(random::<u64>());
+        }
+        BLS12381Curve::create_point_from_affine(x, y).unwrap()
+    }
+
+    fn random_g2_point() -> ShortWeierstrassProjectivePoint<BLS12381TwistCurve> {
+        let mut x = FTE::from(random::<u64>());
+        let mut y = FTE::from(random::<u64>());
+        while BLS12381TwistCurve::create_point_from_affine(x.clone(), y.clone()).is_err() {
+            x = FTE::from(random::<u64>());
+            y = FTE::from(random::<u64>());
+        }
+        BLS12381TwistCurve::create_point_from_affine(x, y).unwrap()
+    }
+
+    fn point_not_in_g1_subgroup() -> ShortWeierstrassProjectivePoint<BLS12381Curve> {
+        let mut p = random_g1_point();
+        let mut r_p = p.operate_with_self(SUBGROUP_ORDER);
+        while r_p.is_neutral_element() {
+            p = random_g1_point();
+            r_p = p.operate_with_self(SUBGROUP_ORDER);
+            println!("not yet");
+        }
+        p
+    }
+
+    fn point_not_in_g2_subgroup() -> ShortWeierstrassProjectivePoint<BLS12381TwistCurve> {
+        let mut p = random_g2_point();
+        let mut r_p = p.operate_with_self(SUBGROUP_ORDER);
+        while r_p.is_neutral_element() {
+            p = random_g2_point();
+            r_p = p.operate_with_self(SUBGROUP_ORDER);
+            println!("not yet");
+        }
+        p
+    }
+
+    fn point_in_g1_subgroup() -> ShortWeierstrassProjectivePoint<BLS12381Curve> {
+        let p = random_g1_point();
+        let h_p = p.operate_with_self(G1_COFACTOR);
+        h_p
+    }
 
     #[allow(clippy::upper_case_acronyms)]
     type FEE = FieldElement<BLS12381PrimeField>;
+    #[allow(clippy::upper_case_acronyms)]
+    type FTE = FieldElement<Degree2ExtensionField>;
 
     fn point_1() -> ShortWeierstrassProjectivePoint<BLS12381Curve> {
         let x = FEE::new_base("36bb494facde72d0da5c770c4b16d9b2d45cfdc27604a25a1a80b020798e5b0dbd4c6d939a8f8820f042a29ce552ee5");
@@ -116,5 +256,63 @@ mod tests {
             g.operate_with(&g).operate_with(&g),
             g.operate_with_self(3_u16)
         );
+    }
+
+    #[test]
+    fn generator_g1_is_in_subgroup() {
+        let g = BLS12381Curve::generator();
+        assert!(g.is_in_subgroup())
+    }
+
+    #[test]
+    fn arbitrary_g1_point_is_in_subgroup() {
+        let g = BLS12381Curve::generator().operate_with_self(32u64);
+        assert!(g.is_in_subgroup())
+    }
+
+    //TODO
+    #[test]
+    fn arbitrary_g1_point_not_in_subgroup() {
+        assert!(!p.is_in_subgroup())
+    }
+
+    #[test]
+    fn generator_g2_is_in_subgroup() {
+        let g = BLS12381TwistCurve::generator();
+        assert!(g.is_in_subgroup())
+    }
+
+    #[test]
+    fn arbitrary_g2_point_is_in_subgroup() {
+        let g = BLS12381TwistCurve::generator().operate_with_self(32u64);
+        assert!(g.is_in_subgroup())
+    }
+
+    //`TODO`
+    #[test]
+    fn arbitrary_g2_point_not_in_subgroup() {
+        let p = point_not_in_g2_subgroup();
+        assert!(!p.is_in_subgroup())
+    }
+
+    #[test]
+    fn g2_conjugate_works() {
+        let a = FieldElement::<Degree2ExtensionField>::zero();
+        let mut expected = a.conjugate();
+        expected = expected.conjugate();
+
+        assert_eq!(a, expected);
+    }
+
+    #[test]
+    fn untwist_morphism_has_minimal_poly() {
+        // generator
+        let p = BLS12381TwistCurve::generator();
+        let psi_2 = psi_2(&p);
+        let tx = p.psi().operate_with_self(TRACE_OF_FROBENIUS).neg();
+        let q = p.operate_with_self(BLS12381_PRIME_FIELD_ORDER);
+        // Minimal Polynomial of Untwist Frobenius Endomorphism: X^2 + tX + q, where X = psh(P) -> psi(p)^2 - t * psi(p) + q * p = 0
+        let min_poly = psi_2.operate_with(&tx.neg()).operate_with(&q);
+        assert!(min_poly.is_neutral_element())
     }
 }
