@@ -62,6 +62,30 @@ pub struct StoneCompatibleSerializer;
 
 impl StoneCompatibleSerializer {
     #[allow(unused)]
+    fn serialize_proof<A>(
+        proof: &StarkProof<Stark252PrimeField>,
+        public_inputs: &A::PublicInputs,
+        proof_options: &ProofOptions,
+    ) -> Vec<u8>
+    where
+        A: AIR<Field = Stark252PrimeField>,
+        A::PublicInputs: Serializable,
+    {
+        let mut output = Vec::<u8>::new();
+        Self::append_trace_commitment(proof, &mut output);
+        Self::append_composition_polynomial_commitment(proof, &mut output);
+        Self::append_out_of_domain_evaluations(proof, &mut output);
+        Self::append_fri_commit_phase_commitments(proof, &mut output);
+        Self::append_proof_of_work_nonce(proof, &mut output);
+        let fri_query_indexes =
+            Self::reconstruct_fri_query_indexes::<A>(&proof, &public_inputs, &proof_options);
+        Self::append_fri_query_phase_first_layer(proof, &fri_query_indexes, &mut output);
+        Self::append_fri_query_phase_inner_layers(proof, &fri_query_indexes, &mut output);
+
+        output
+    }
+
+    #[allow(unused)]
     fn merge_authentication_paths(
         authentication_paths: &[&Proof<Commitment>],
         queries: &[usize],
@@ -92,29 +116,7 @@ impl StoneCompatibleSerializer {
         result
     }
 
-    #[allow(unused)]
-    fn serialize<A>(
-        proof: &StarkProof<Stark252PrimeField>,
-        public_inputs: &A::PublicInputs,
-        proof_options: &ProofOptions,
-    ) -> Vec<u8>
-    where
-        A: AIR<Field = Stark252PrimeField>,
-        A::PublicInputs: Serializable,
-    {
-        let mut transcript = StoneProverTranscript::new(&public_inputs.serialize());
-        let air = A::new(proof.trace_length, public_inputs, proof_options);
-        let domain = Domain::<Stark252PrimeField>::new(&air);
-        let challenges = Verifier::step_1_replay_rounds_and_recover_challenges(
-            &air,
-            &proof,
-            &domain,
-            &mut transcript,
-        );
-        let fri_query_indexes = challenges.iotas;
-
-        let mut output = Vec::<u8>::new();
-        // Original/Commit on Trace: Commitment
+    fn append_trace_commitment(proof: &StarkProof<Stark252PrimeField>, output: &mut Vec<u8>) {
         output.extend_from_slice(
             &proof
                 .lde_trace_merkle_roots
@@ -123,9 +125,19 @@ impl StoneCompatibleSerializer {
                 .cloned()
                 .collect::<Vec<_>>(),
         );
-        // Out Of Domain Sampling/Commit on Trace
-        output.extend_from_slice(&proof.composition_poly_root);
+    }
 
+    fn append_composition_polynomial_commitment(
+        proof: &StarkProof<Stark252PrimeField>,
+        output: &mut Vec<u8>,
+    ) {
+        output.extend_from_slice(&proof.composition_poly_root);
+    }
+
+    fn append_out_of_domain_evaluations(
+        proof: &StarkProof<Stark252PrimeField>,
+        output: &mut Vec<u8>,
+    ) {
         for i in 0..proof.trace_ood_frame_evaluations.n_cols() {
             for j in 0..proof.trace_ood_frame_evaluations.n_rows() {
                 output
@@ -140,8 +152,12 @@ impl StoneCompatibleSerializer {
         for elem in proof.composition_poly_parts_ood_evaluation.iter() {
             output.extend_from_slice(&elem.serialize());
         }
+    }
 
-        // /STARK/FRI/Commitment/Layer ..
+    fn append_fri_commit_phase_commitments(
+        proof: &StarkProof<Stark252PrimeField>,
+        output: &mut Vec<u8>,
+    ) {
         output.extend_from_slice(
             &proof
                 .fri_layers_merkle_roots
@@ -151,14 +167,19 @@ impl StoneCompatibleSerializer {
                 .collect::<Vec<_>>(),
         );
 
-        // FRI/Commitment/Last Layer: Coefficients
         output.extend_from_slice(&proof.fri_last_value.serialize());
-
+    }
+    fn append_proof_of_work_nonce(proof: &StarkProof<Stark252PrimeField>, output: &mut Vec<u8>) {
         if let Some(nonce_value) = proof.nonce {
-            // FRI/Proof of Work: POW
             output.extend_from_slice(&nonce_value.to_be_bytes());
         }
+    }
 
+    fn append_fri_query_phase_first_layer(
+        proof: &StarkProof<Stark252PrimeField>,
+        fri_query_indexes: &[usize],
+        output: &mut Vec<u8>,
+    ) {
         let mut fri_first_layer_openings: Vec<_> = proof
             .deep_poly_openings
             .iter()
@@ -225,7 +246,13 @@ impl StoneCompatibleSerializer {
         for node in nodes.iter() {
             output.extend_from_slice(node);
         }
+    }
 
+    fn append_fri_query_phase_inner_layers(
+        proof: &StarkProof<Stark252PrimeField>,
+        fri_query_indexes: &Vec<usize>,
+        output: &mut Vec<u8>,
+    ) {
         let mut fri_layers_evaluations: HashMap<(u64, usize, usize), FieldElement<_>> =
             HashMap::new();
         for (decommitment, query_index) in proof.query_list.iter().zip(fri_query_indexes.iter()) {
@@ -283,8 +310,27 @@ impl StoneCompatibleSerializer {
                 output.extend_from_slice(node);
             }
         }
+    }
 
-        output
+    fn reconstruct_fri_query_indexes<A>(
+        proof: &StarkProof<Stark252PrimeField>,
+        public_inputs: &A::PublicInputs,
+        proof_options: &ProofOptions,
+    ) -> Vec<usize>
+    where
+        A: AIR<Field = Stark252PrimeField>,
+        A::PublicInputs: Serializable,
+    {
+        let mut transcript = StoneProverTranscript::new(&public_inputs.serialize());
+        let air = A::new(proof.trace_length, public_inputs, proof_options);
+        let domain = Domain::<Stark252PrimeField>::new(&air);
+        let challenges = Verifier::step_1_replay_rounds_and_recover_challenges(
+            &air,
+            &proof,
+            &domain,
+            &mut transcript,
+        );
+        challenges.iotas
     }
 }
 
@@ -388,7 +434,7 @@ mod tests {
             117, 87, 201,
         ];
 
-        let serialized_proof = StoneCompatibleSerializer::serialize::<Fibonacci2ColsShifted<_>>(
+        let serialized_proof = StoneCompatibleSerializer::serialize_proof::<Fibonacci2ColsShifted<_>>(
             &proof,
             &pub_inputs,
             &proof_options,
@@ -483,7 +529,7 @@ mod tests {
             202, 193, 129, 242,
         ];
 
-        let serialized_proof = StoneCompatibleSerializer::serialize::<Fibonacci2ColsShifted<_>>(
+        let serialized_proof = StoneCompatibleSerializer::serialize_proof::<Fibonacci2ColsShifted<_>>(
             &proof,
             &pub_inputs,
             &proof_options,
@@ -750,7 +796,7 @@ mod tests {
             183, 47, 228, 161, 87, 75, 132, 11, 107, 45, 45, 160, 169, 115, 73, 0, 14, 163,
         ];
 
-        let serialized_proof = StoneCompatibleSerializer::serialize::<Fibonacci2ColsShifted<_>>(
+        let serialized_proof = StoneCompatibleSerializer::serialize_proof::<Fibonacci2ColsShifted<_>>(
             &proof,
             &pub_inputs,
             &proof_options,
@@ -831,7 +877,7 @@ mod tests {
             134, 72, 157, 118, 238, 0, 156,
         ];
 
-        let serialized_proof = StoneCompatibleSerializer::serialize::<Fibonacci2ColsShifted<_>>(
+        let serialized_proof = StoneCompatibleSerializer::serialize_proof::<Fibonacci2ColsShifted<_>>(
             &proof,
             &pub_inputs,
             &proof_options,
@@ -1069,7 +1115,7 @@ mod tests {
             210, 33, 191, 114, 98, 40, 235, 19, 219, 101, 88, 189,
         ];
 
-        let serialized_proof = StoneCompatibleSerializer::serialize::<Fibonacci2ColsShifted<_>>(
+        let serialized_proof = StoneCompatibleSerializer::serialize_proof::<Fibonacci2ColsShifted<_>>(
             &proof,
             &pub_inputs,
             &proof_options,
