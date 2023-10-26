@@ -47,8 +47,9 @@ pub struct StarkProof<F: IsFFTField> {
 
 fn merge_authentication_paths(
     authentication_paths: Vec<&Proof<Commitment>>,
-    mut queries: BTreeSet<u64>,
+    queries: Vec<u64>,
 ) -> Vec<Commitment> {
+    debug_assert_eq!(queries.len(), authentication_paths.len());
     let mut path_hash_map: HashMap<(u64, u64), Commitment> = HashMap::new();
     for (index_prev_layer, path) in queries.iter().zip(authentication_paths.iter()) {
         let mut node_index = *index_prev_layer;
@@ -58,6 +59,7 @@ fn merge_authentication_paths(
         }
     }
 
+    let mut queries: BTreeSet<_> = queries.into_iter().collect();
     let mut output = Vec::new();
     let merkle_tree_height = authentication_paths[0].merkle_path.len();
     for k in 0..merkle_tree_height {
@@ -147,7 +149,7 @@ where
         }
 
         // FRI/Decommitment/Layer 0/Virtual Oracle/Trace 0
-        let queries: BTreeSet<_> = self
+        let queries: Vec<_> = self
             .query_list
             .iter()
             .map(|decommitment| {
@@ -161,7 +163,14 @@ where
             let trace_auth_paths: Vec<_> = self
                 .deep_poly_openings
                 .iter()
-                .map(|opening| &opening.lde_trace_merkle_proofs[i])
+                .zip(self.deep_poly_openings_sym.iter())
+                .map(|(opening, opening_sym)| {
+                    vec![
+                        &opening.lde_trace_merkle_proofs[i],
+                        &opening_sym.lde_trace_merkle_proofs[i],
+                    ]
+                })
+                .flatten()
                 .collect();
             let nodes = merge_authentication_paths(trace_auth_paths, queries.clone());
             for node in nodes.iter() {
@@ -179,8 +188,7 @@ where
             }
         }
 
-
-        let queries: BTreeSet<_> = self
+        let queries: Vec<_> = self
             .query_list
             .iter()
             .map(|decommitment| decommitment.query_index)
@@ -247,7 +255,7 @@ where
                 .map(|decommitment| &decommitment.layers_auth_paths[i])
                 .collect();
 
-            let queries: BTreeSet<_> = self
+            let queries: Vec<_> = self
                 .query_list
                 .iter()
                 .map(|decommitment| decommitment.query_index >> (1 + i))
@@ -686,6 +694,37 @@ mod tests {
 
         let serialized_proof = proof.serialize();
         assert_eq!(serialized_proof, expected_bytes);
+        // assert_eq!(proof.serialize().len(), expected_bytes.len());
+    }
+
+    #[test]
+    fn test_serialization_compatible_with_stone_4() {
+        let trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::one(), 512);
+
+        let claimed_index = 501;
+        let claimed_value = trace.get_row(claimed_index)[0];
+        let mut proof_options = ProofOptions::default_test_options();
+        proof_options.blowup_factor = 8;
+        proof_options.coset_offset = 3;
+        proof_options.grinding_factor = 0;
+        proof_options.fri_number_of_queries = 2;
+
+        let pub_inputs = fibonacci_2_cols_shifted::PublicInputs {
+            claimed_value,
+            claimed_index,
+        };
+
+        let transcript_init_seed = [0xfa, 0xfa, 0xfa, 0xee];
+
+        let proof = Prover::prove::<Fibonacci2ColsShifted<_>>(
+            &trace,
+            &pub_inputs,
+            &proof_options,
+            StoneProverTranscript::new(&transcript_init_seed),
+        )
+        .unwrap();
+
+        let serialized_proof = proof.serialize();
         // assert_eq!(proof.serialize().len(), expected_bytes.len());
     }
 }
