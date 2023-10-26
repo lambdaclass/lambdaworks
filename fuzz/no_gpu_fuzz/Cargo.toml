@@ -29,11 +29,6 @@ path = "fuzz_targets/field_mini_goldilocks.rs"
 test = false
 doc = false
 
-[[bin]]
-name = "field_mini_goldilocks_extension"
-path = "fuzz_targets/field_mini_goldilocks_extension.rs"
-test = false
-doc = false
 
 [[bin]]
 name = "field_from_hex"
