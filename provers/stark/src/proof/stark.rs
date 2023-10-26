@@ -90,7 +90,7 @@ impl StoneCompatibleSerializer {
         output
     }
 
-    fn serialize<A>(
+    pub fn serialize<A>(
         proof: &StarkProof<Stark252PrimeField>,
         public_inputs: &A::PublicInputs,
         proof_options: &ProofOptions,
