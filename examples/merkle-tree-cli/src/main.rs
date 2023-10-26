@@ -45,14 +45,10 @@ fn generate_merkle_tree(tree_path: String) -> Result<(), io::Error> {
 
 fn generate_merkle_proof(tree_path: String, pos: usize) -> Result<(), io::Error> {
     let values: Vec<FE> = load_tree_values(&tree_path)?;
-
     let merkle_tree = MerkleTree::<Poseidon<BLS12381PrimeField>>::build(&values);
 
-    let Some(proof) = merkle_tree.get_proof_by_pos(pos) else {
-        return Err(io::Error::new(
-            io::ErrorKind::Other,
-            "Could not generate proof",
-        ));
+    let Ok(Some(proof)) = merkle_tree.get_proof_by_pos(pos) else {
+        return Err(io::Error::new(io::ErrorKind::Other, "Index out of bounds"));
     };
 
     let proof_path = tree_path.replace(".csv", format!("_proof_{pos}.json").as_str());

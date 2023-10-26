@@ -34,27 +34,32 @@ where
         }
     }
 
-    pub fn get_proof_by_pos(&self, pos: usize) -> Option<Proof<B::Node>> {
+    pub fn get_proof_by_pos(&self, pos: usize) -> Result<Option<Proof<B::Node>>, std::io::Error> {
         let pos = pos + self.nodes.len() / 2;
-        let merkle_path = self.build_merkle_path(pos);
+        let merkle_path = self.build_merkle_path(pos)?;
 
-        self.create_proof(merkle_path)
+        Ok(self.create_proof(merkle_path))
     }
 
     fn create_proof(&self, merkle_path: Vec<B::Node>) -> Option<Proof<B::Node>> {
         Some(Proof { merkle_path })
     }
 
-    fn build_merkle_path(&self, pos: usize) -> Vec<B::Node> {
+    fn build_merkle_path(&self, pos: usize) -> Result<Vec<B::Node>, std::io::Error> {
         let mut merkle_path = Vec::new();
         let mut pos = pos;
 
         while pos != ROOT {
-            merkle_path.push(self.nodes[sibling_index(pos)].clone());
+            let Some(node) = self.nodes.get(sibling_index(pos)) else {
+                // out of bounds, exit returning the current merkle_path
+                return Err(std::io::Error::from(std::io::ErrorKind::InvalidInput));
+            };
+            merkle_path.push(node.clone());
+
             pos = parent_index(pos);
         }
 
-        merkle_path
+        Ok(merkle_path)
     }
 }
 
