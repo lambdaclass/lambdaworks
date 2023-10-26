@@ -281,11 +281,12 @@ mod tests {
 
         let claimed_index = 3;
         let claimed_value = trace.get_row(claimed_index)[0];
-        let mut proof_options = ProofOptions::default_test_options();
-        proof_options.blowup_factor = 4;
-        proof_options.coset_offset = 3;
-        proof_options.grinding_factor = 0;
-        proof_options.fri_number_of_queries = 1;
+        let proof_options = ProofOptions {
+            blowup_factor: 4,
+            coset_offset: 3,
+            grinding_factor: 0,
+            fri_number_of_queries: 1,
+        };
 
         let pub_inputs = fibonacci_2_cols_shifted::PublicInputs {
             claimed_value,
@@ -356,11 +357,12 @@ mod tests {
 
         let claimed_index = 420;
         let claimed_value = trace.get_row(claimed_index)[0];
-        let mut proof_options = ProofOptions::default_test_options();
-        proof_options.blowup_factor = 1 << 6;
-        proof_options.coset_offset = 3;
-        proof_options.grinding_factor = 0;
-        proof_options.fri_number_of_queries = 1;
+        let proof_options = ProofOptions {
+            blowup_factor: 1 << 6,
+            coset_offset: 3,
+            grinding_factor: 0,
+            fri_number_of_queries: 1,
+        };
 
         let pub_inputs = fibonacci_2_cols_shifted::PublicInputs {
             claimed_value,
@@ -618,11 +620,12 @@ mod tests {
 
         let claimed_index = 2;
         let claimed_value = trace.get_row(claimed_index)[0];
-        let mut proof_options = ProofOptions::default_test_options();
-        proof_options.blowup_factor = 2;
-        proof_options.coset_offset = 3;
-        proof_options.grinding_factor = 0;
-        proof_options.fri_number_of_queries = 2;
+        let proof_options = ProofOptions {
+            blowup_factor: 2,
+            coset_offset: 3,
+            grinding_factor: 0,
+            fri_number_of_queries: 2,
+        };
 
         let pub_inputs = fibonacci_2_cols_shifted::PublicInputs {
             claimed_value,
@@ -693,11 +696,12 @@ mod tests {
 
         let claimed_index = 111;
         let claimed_value = trace.get_row(claimed_index)[0];
-        let mut proof_options = ProofOptions::default_test_options();
-        proof_options.blowup_factor = 4;
-        proof_options.coset_offset = 3;
-        proof_options.grinding_factor = 0;
-        proof_options.fri_number_of_queries = 3;
+        let proof_options = ProofOptions {
+            blowup_factor: 4,
+            coset_offset: 3,
+            grinding_factor: 0,
+            fri_number_of_queries: 3,
+        };
 
         let pub_inputs = fibonacci_2_cols_shifted::PublicInputs {
             claimed_value,
