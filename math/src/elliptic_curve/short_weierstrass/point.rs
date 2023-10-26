@@ -6,15 +6,18 @@ use crate::{
     },
     errors::DeserializationError,
     field::element::FieldElement,
-    traits::{ByteConversion, Deserializable, Serializable},
+    traits::{ByteConversion, Deserializable},
 };
 
 use super::traits::IsShortWeierstrass;
 
+#[cfg(feature = "std")]
+use crate::traits::Serializable;
+
 #[derive(Clone, Debug)]
 pub struct ShortWeierstrassProjectivePoint<E: IsEllipticCurve>(pub ProjectivePoint<E>);
 
-impl<E: IsEllipticCurve> ShortWeierstrassProjectivePoint<E> {
+impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
     /// Creates an elliptic curve point giving the projective [x: y: z] coordinates.
     pub const fn new(value: [FieldElement<E::BaseField>; 3]) -> Self {
         Self(ProjectivePoint::new(value))
@@ -45,6 +48,80 @@ impl<E: IsEllipticCurve> ShortWeierstrassProjectivePoint<E> {
     /// Panics if `self` is the point at infinity.
     pub fn to_affine(&self) -> Self {
         Self(self.0.to_affine())
+    }
+
+    fn double(&self) -> Self {
+        let [px, py, pz] = self.coordinates();
+
+        let px_square = px * px;
+        let three_px_square = &px_square + &px_square + &px_square;
+        let w = E::a() * pz * pz + three_px_square;
+        let w_square = &w * &w;
+
+        let s = py * pz;
+        let s_square = &s * &s;
+        let s_cube = &s * &s_square;
+        let two_s_cube = &s_cube + &s_cube;
+        let four_s_cube = &two_s_cube + &two_s_cube;
+        let eight_s_cube = &four_s_cube + &four_s_cube;
+
+        let b = px * py * &s;
+        let two_b = &b + &b;
+        let four_b = &two_b + &two_b;
+        let eight_b = &four_b + &four_b;
+
+        let h = &w_square - eight_b;
+        let hs = &h * &s;
+
+        let pys_square = py * py * s_square;
+        let two_pys_square = &pys_square + &pys_square;
+        let four_pys_square = &two_pys_square + &two_pys_square;
+        let eight_pys_square = &four_pys_square + &four_pys_square;
+
+        let xp = &hs + &hs;
+        let yp = w * (four_b - &h) - eight_pys_square;
+        let zp = eight_s_cube;
+        Self::new([xp, yp, zp])
+    }
+
+    pub fn operate_with_affine(&self, other: &Self) -> Self {
+        let [px, py, pz] = self.coordinates();
+        let [qx, qy, _qz] = other.coordinates();
+        let u = qy * pz;
+        let v = qx * pz;
+
+        if self.is_neutral_element() {
+            return other.clone();
+        }
+        if other.is_neutral_element() {
+            return self.clone();
+        }
+
+        if u == *py {
+            if v != *px || *py == FieldElement::zero() {
+                return Self::new([
+                    FieldElement::zero(),
+                    FieldElement::one(),
+                    FieldElement::zero(),
+                ]);
+            } else {
+                return self.double();
+            }
+        }
+
+        let u = &u - py;
+        let v = &v - px;
+        let vv = &v * &v;
+        let uu = &u * &u;
+        let vvv = &v * &vv;
+        let r = &vv * px;
+        let a = &uu * pz - &vvv - &r - &r;
+
+        let x = &v * &a;
+        let y = &u * (&r - &a) - &vvv * py;
+        let z = &vvv * pz;
+
+        Self::new([x, y, z])
     }
 }
 
@@ -103,35 +180,7 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
                 if u1 != u2 || *py == FieldElement::zero() {
                     Self::neutral_element()
                 } else {
-                    let px_square = px * px;
-                    let three_px_square = &px_square + &px_square + &px_square;
-                    let w = E::a() * pz * pz + three_px_square;
-                    let w_square = &w * &w;
-
-                    let s = py * pz;
-                    let s_square = &s * &s;
-                    let s_cube = &s * &s_square;
-                    let two_s_cube = &s_cube + &s_cube;
-                    let four_s_cube = &two_s_cube + &two_s_cube;
-                    let eight_s_cube = &four_s_cube + &four_s_cube;
-
-                    let b = px * py * &s;
-                    let two_b = &b + &b;
-                    let four_b = &two_b + &two_b;
-                    let eight_b = &four_b + &four_b;
-
-                    let h = &w_square - eight_b;
-                    let hs = &h * &s;
-
-                    let pys_square = py * py * s_square;
-                    let two_pys_square = &pys_square + &pys_square;
-                    let four_pys_square = &two_pys_square + &two_pys_square;
-                    let eight_pys_square = &four_pys_square + &four_pys_square;
-
-                    let xp = &hs + &hs;
-                    let yp = w * (four_b - &h) - eight_pys_square;
-                    let zp = eight_s_cube;
-                    Self::new([xp, yp, zp])
+                    self.double()
                 }
             } else {
                 let u = u1 - &u2;
@@ -183,6 +232,7 @@ where
     FieldElement<E::BaseField>: ByteConversion,
 {
     /// Serialize the points in the given format
+    #[cfg(feature = "std")]
     pub fn serialize(&self, _point_format: PointFormat, endianness: Endianness) -> Vec<u8> {
         // TODO: Add more compact serialization formats
         // Uncompressed affine / Compressed
@@ -249,6 +299,7 @@ where
     }
 }
 
+#[cfg(feature = "std")]
 impl<E> Serializable for ShortWeierstrassProjectivePoint<E>
 where
     E: IsShortWeierstrass,
@@ -275,22 +326,26 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::elliptic_curve::short_weierstrass::curves::bls12_381::curve::BLS12381Curve;
+
+    #[cfg(feature = "std")]
     use crate::{
-        elliptic_curve::short_weierstrass::curves::bls12_381::{
-            curve::BLS12381Curve, field_extension::BLS12381PrimeField,
-        },
+        elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::BLS12381PrimeField,
         field::element::FieldElement,
     };
 
+    #[cfg(feature = "std")]
     #[allow(clippy::upper_case_acronyms)]
     type FEE = FieldElement<BLS12381PrimeField>;
 
+    #[cfg(feature = "std")]
     fn point() -> ShortWeierstrassProjectivePoint<BLS12381Curve> {
         let x = FEE::new_base("36bb494facde72d0da5c770c4b16d9b2d45cfdc27604a25a1a80b020798e5b0dbd4c6d939a8f8820f042a29ce552ee5");
         let y = FEE::new_base("7acf6e49cc000ff53b06ee1d27056734019c0a1edfa16684da41ebb0c56750f73bc1b0eae4c6c241808a5e485af0ba0");
         BLS12381Curve::create_point_from_affine(x, y).unwrap()
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn byte_conversion_from_and_to_be() {
         let expected_point = point();
@@ -304,6 +359,7 @@ mod tests {
         assert_eq!(expected_point, result.unwrap());
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn byte_conversion_from_and_to_le() {
         let expected_point = point();
@@ -317,6 +373,7 @@ mod tests {
         assert_eq!(expected_point, result.unwrap());
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn byte_conversion_from_and_to_with_mixed_le_and_be_does_not_work() {
         let bytes = point().serialize(PointFormat::Projective, Endianness::LittleEndian);
@@ -333,6 +390,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn byte_conversion_from_and_to_with_mixed_be_and_le_does_not_work() {
         let bytes = point().serialize(PointFormat::Projective, Endianness::BigEndian);
