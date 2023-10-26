@@ -100,7 +100,6 @@ where
                 FriDecommitment {
                     layers_auth_paths: layers_auth_paths_sym,
                     layers_evaluations_sym,
-                    query_index: *iota_s as u64,
                 }
             })
             .collect();

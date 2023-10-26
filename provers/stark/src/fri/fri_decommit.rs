@@ -10,6 +10,4 @@ use crate::config::Commitment;
 pub struct FriDecommitment<F: IsPrimeField> {
     pub layers_auth_paths: Vec<Proof<Commitment>>,
     pub layers_evaluations_sym: Vec<FieldElement<F>>,
-    // FIXME: Currently we need this for proof serialization compatible with Stone. Remove it.
-    pub query_index: u64,
 }

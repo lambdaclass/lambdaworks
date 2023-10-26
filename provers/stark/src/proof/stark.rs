@@ -2,11 +2,24 @@ use std::collections::{BTreeSet, HashMap};
 
 use lambdaworks_crypto::merkle_tree::proof::Proof;
 use lambdaworks_math::{
-    field::{element::FieldElement, traits::IsFFTField},
+    field::{
+        element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+        traits::IsFFTField,
+    },
     traits::Serializable,
 };
 
-use crate::{config::Commitment, frame::Frame, fri::fri_decommit::FriDecommitment};
+use crate::{
+    config::Commitment,
+    domain::Domain,
+    frame::Frame,
+    fri::fri_decommit::FriDecommitment,
+    traits::AIR,
+    transcript::StoneProverTranscript,
+    verifier::{IsStarkVerifier, Verifier},
+};
+
+use super::options::ProofOptions;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct DeepPolynomialOpening<F: IsFFTField> {
@@ -45,45 +58,62 @@ pub struct StarkProof<F: IsFFTField> {
     pub nonce: Option<u64>,
 }
 
-fn merge_authentication_paths(
-    authentication_paths: Vec<&Proof<Commitment>>,
-    queries: Vec<u64>,
-) -> Vec<Commitment> {
-    debug_assert_eq!(queries.len(), authentication_paths.len());
-    let mut path_hash_map: HashMap<(u64, u64), Commitment> = HashMap::new();
-    for (index_prev_layer, path) in queries.iter().zip(authentication_paths.iter()) {
-        let mut node_index = *index_prev_layer;
-        for (k, node) in path.merkle_path.iter().enumerate() {
-            path_hash_map.insert((k as u64, node_index ^ 1), *node);
-            node_index >>= 1;
-        }
-    }
+pub struct StoneCompatibleSerializer;
 
-    let mut queries: BTreeSet<_> = queries.into_iter().collect();
-    let mut output = Vec::new();
-    let merkle_tree_height = authentication_paths[0].merkle_path.len();
-    for k in 0..merkle_tree_height {
-        for index in queries.iter() {
-            if !queries.contains(&(index ^ 1)) {
-                let node = &path_hash_map[&(k as u64, index ^ 1)];
-                output.push(*node);
+impl StoneCompatibleSerializer {
+    fn merge_authentication_paths(
+        authentication_paths: Vec<&Proof<Commitment>>,
+        queries: Vec<usize>,
+    ) -> Vec<Commitment> {
+        debug_assert_eq!(queries.len(), authentication_paths.len());
+        let mut path_hash_map: HashMap<(u64, usize), Commitment> = HashMap::new();
+        for (index_prev_layer, path) in queries.iter().zip(authentication_paths.iter()) {
+            let mut node_index = *index_prev_layer;
+            for (k, node) in path.merkle_path.iter().enumerate() {
+                path_hash_map.insert((k as u64, node_index ^ 1), *node);
+                node_index >>= 1;
             }
         }
-        queries = queries.iter().map(|index| index >> 1).collect();
-    }
-    output
-}
 
-impl<F> Serializable for StarkProof<F>
-where
-    F: IsFFTField,
-    FieldElement<F>: Serializable,
-{
-    fn serialize(&self) -> Vec<u8> {
+        let mut queries: BTreeSet<_> = queries.into_iter().collect();
+        let mut output = Vec::new();
+        let merkle_tree_height = authentication_paths[0].merkle_path.len();
+        for k in 0..merkle_tree_height {
+            for index in queries.iter() {
+                if !queries.contains(&(index ^ 1)) {
+                    let node = &path_hash_map[&(k as u64, index ^ 1)];
+                    output.push(*node);
+                }
+            }
+            queries = queries.iter().map(|index| index >> 1).collect();
+        }
+        output
+    }
+
+    fn serialize<A>(
+        proof: &StarkProof<Stark252PrimeField>,
+        public_inputs: &A::PublicInputs,
+        proof_options: &ProofOptions,
+    ) -> Vec<u8>
+    where
+        A: AIR<Field = Stark252PrimeField>,
+        A::PublicInputs: Serializable,
+    {
+        let mut transcript = StoneProverTranscript::new(&public_inputs.serialize());
+        let air = A::new(proof.trace_length, public_inputs, proof_options);
+        let domain = Domain::<Stark252PrimeField>::new(&air);
+        let challenges = Verifier::step_1_replay_rounds_and_recover_challenges(
+            &air,
+            &proof,
+            &domain,
+            &mut transcript,
+        );
+        let queries = challenges.iotas;
+
         let mut output = Vec::<u8>::new();
         // Original/Commit on Trace: Commitment
         output.extend_from_slice(
-            &self
+            &proof
                 .lde_trace_merkle_roots
                 .iter()
                 .flatten()
@@ -91,24 +121,26 @@ where
                 .collect::<Vec<_>>(),
         );
         // Out Of Domain Sampling/Commit on Trace
-        output.extend_from_slice(&self.composition_poly_root);
+        output.extend_from_slice(&proof.composition_poly_root);
 
-        for i in 0..self.trace_ood_frame_evaluations.n_cols() {
-            for j in 0..self.trace_ood_frame_evaluations.n_rows() {
+        for i in 0..proof.trace_ood_frame_evaluations.n_cols() {
+            for j in 0..proof.trace_ood_frame_evaluations.n_rows() {
                 output
                     // Out Of Domain Sampling/OODS values: ..
-                    .extend_from_slice(&self.trace_ood_frame_evaluations.get_row(j)[i].serialize());
+                    .extend_from_slice(
+                        &proof.trace_ood_frame_evaluations.get_row(j)[i].serialize(),
+                    );
             }
         }
 
         // Out Of Domain Sampling/OODS values: ..
-        for elem in self.composition_poly_parts_ood_evaluation.iter() {
+        for elem in proof.composition_poly_parts_ood_evaluation.iter() {
             output.extend_from_slice(&elem.serialize());
         }
 
         // /STARK/FRI/Commitment/Layer ..
         output.extend_from_slice(
-            &self
+            &proof
                 .fri_layers_merkle_roots
                 .iter()
                 .flatten()
@@ -117,24 +149,18 @@ where
         );
 
         // FRI/Commitment/Last Layer: Coefficients
-        output.extend_from_slice(&self.fri_last_value.serialize());
+        output.extend_from_slice(&proof.fri_last_value.serialize());
 
-        if let Some(nonce_value) = self.nonce {
+        if let Some(nonce_value) = proof.nonce {
             // FRI/Proof of Work: POW
             output.extend_from_slice(&nonce_value.to_be_bytes());
         }
 
-        let queries: Vec<_> = self
-            .query_list
-            .iter()
-            .map(|decommitment| decommitment.query_index)
-            .collect();
-
-        let mut openings_ordered: Vec<_> = self
+        let mut openings_ordered: Vec<_> = proof
             .deep_poly_openings
             .iter()
-            .zip(self.deep_poly_openings_sym.iter())
-            .zip(queries)
+            .zip(proof.deep_poly_openings_sym.iter())
+            .zip(queries.iter())
             .collect();
 
         openings_ordered.sort_by(|a, b| a.1.cmp(&b.1));
@@ -156,20 +182,16 @@ where
         }
 
         // FRI/Decommitment/Layer 0/Virtual Oracle/Trace 0
-        let queries: Vec<_> = self
-            .query_list
+        let queries_trace: Vec<_> = queries
             .iter()
-            .flat_map(|decommitment| {
-                let index = decommitment.query_index;
-                vec![index * 2, index * 2 + 1]
-            })
+            .flat_map(|query| vec![query * 2, query * 2 + 1])
             .collect();
 
-        for i in 0..self.deep_poly_openings[0].lde_trace_merkle_proofs.len() {
-            let trace_auth_paths: Vec<_> = self
+        for i in 0..proof.deep_poly_openings[0].lde_trace_merkle_proofs.len() {
+            let trace_auth_paths: Vec<_> = proof
                 .deep_poly_openings
                 .iter()
-                .zip(self.deep_poly_openings_sym.iter())
+                .zip(proof.deep_poly_openings_sym.iter())
                 .flat_map(|(opening, opening_sym)| {
                     vec![
                         &opening.lde_trace_merkle_proofs[i],
@@ -177,7 +199,7 @@ where
                     ]
                 })
                 .collect();
-            let nodes = merge_authentication_paths(trace_auth_paths, queries.clone());
+            let nodes = Self::merge_authentication_paths(trace_auth_paths, queries_trace.clone());
             for node in nodes.iter() {
                 output.extend_from_slice(node);
             }
@@ -193,39 +215,30 @@ where
             }
         }
 
-        let queries: Vec<_> = self
-            .query_list
-            .iter()
-            .map(|decommitment| decommitment.query_index)
-            .collect();
-        let composition_auth_paths: Vec<_> = self
+        let composition_auth_paths: Vec<_> = proof
             .deep_poly_openings
             .iter()
             .map(|opening| &opening.lde_composition_poly_proof)
             .collect();
-        let nodes = merge_authentication_paths(composition_auth_paths, queries.clone());
+        let nodes = Self::merge_authentication_paths(composition_auth_paths, queries.clone());
         for node in nodes.iter() {
             output.extend_from_slice(node);
         }
 
-        let query_to_row_col = |index: u64| (index >> 1, index % 2);
+        let query_to_row_col = |index: usize| (index >> 1, index % 2);
 
-        let mut indexes_prev_layer: BTreeSet<u64> = self
-            .query_list
-            .iter()
-            .map(|decommitment| decommitment.query_index)
-            .collect();
+        let mut indexes_prev_layer = queries.clone();
 
-        let mut elements_hash_map: HashMap<(u64, u64, u64), FieldElement<F>> = HashMap::new();
-        for decommitment in self.query_list.iter() {
-            let mut index = decommitment.query_index;
+        let mut elements_hash_map: HashMap<(u64, usize, usize), FieldElement<_>> = HashMap::new();
+        for (decommitment, query_index) in proof.query_list.iter().zip(queries.iter()) {
+            let mut index = *query_index;
             for (i, element) in decommitment.layers_evaluations_sym.iter().enumerate() {
                 elements_hash_map.insert((i as u64, index >> 1, (index + 1) % 2), element.clone());
                 index >>= 1;
             }
         }
 
-        for i in 0..self.query_list[0].layers_evaluations_sym.len() {
+        for i in 0..proof.query_list[0].layers_evaluations_sym.len() {
             let reconstructed_row_col: BTreeSet<_> = indexes_prev_layer
                 .iter()
                 .map(|index| query_to_row_col(*index))
@@ -249,19 +262,15 @@ where
 
             indexes_prev_layer = indexes_prev_layer.iter().map(|index| index >> 1).collect();
 
-            let authentication_paths: Vec<_> = self
+            let authentication_paths: Vec<_> = proof
                 .query_list
                 .iter()
                 .map(|decommitment| &decommitment.layers_auth_paths[i])
                 .collect();
 
-            let queries: Vec<_> = self
-                .query_list
-                .iter()
-                .map(|decommitment| decommitment.query_index >> (1 + i))
-                .collect();
+            let queries: Vec<_> = queries.iter().map(|index| index >> (1 + i)).collect();
 
-            let nodes = merge_authentication_paths(authentication_paths, queries);
+            let nodes = Self::merge_authentication_paths(authentication_paths, queries);
             for node in nodes.iter() {
                 output.extend_from_slice(node);
             }
@@ -280,7 +289,7 @@ mod tests {
 
     use crate::{
         examples::fibonacci_2_cols_shifted::{self, Fibonacci2ColsShifted},
-        proof::options::ProofOptions,
+        proof::{options::ProofOptions, stark::StoneCompatibleSerializer},
         prover::{IsStarkProver, Prover},
         transcript::StoneProverTranscript,
     };
@@ -371,7 +380,11 @@ mod tests {
             117, 87, 201,
         ];
 
-        let serialized_proof = proof.serialize();
+        let serialized_proof = StoneCompatibleSerializer::serialize::<Fibonacci2ColsShifted<_>>(
+            &proof,
+            &pub_inputs,
+            &proof_options,
+        );
         assert_eq!(serialized_proof, expected_bytes);
     }
 
@@ -462,7 +475,11 @@ mod tests {
             202, 193, 129, 242,
         ];
 
-        let serialized_proof = proof.serialize();
+        let serialized_proof = StoneCompatibleSerializer::serialize::<Fibonacci2ColsShifted<_>>(
+            &proof,
+            &pub_inputs,
+            &proof_options,
+        );
         assert_eq!(serialized_proof, expected_bytes);
     }
 
@@ -725,7 +742,11 @@ mod tests {
             183, 47, 228, 161, 87, 75, 132, 11, 107, 45, 45, 160, 169, 115, 73, 0, 14, 163,
         ];
 
-        let serialized_proof = proof.serialize();
+        let serialized_proof = StoneCompatibleSerializer::serialize::<Fibonacci2ColsShifted<_>>(
+            &proof,
+            &pub_inputs,
+            &proof_options,
+        );
         assert_eq!(serialized_proof, expected_bytes);
     }
 
@@ -802,7 +823,11 @@ mod tests {
             134, 72, 157, 118, 238, 0, 156,
         ];
 
-        let serialized_proof = proof.serialize();
+        let serialized_proof = StoneCompatibleSerializer::serialize::<Fibonacci2ColsShifted<_>>(
+            &proof,
+            &pub_inputs,
+            &proof_options,
+        );
         assert_eq!(serialized_proof, expected_bytes);
     }
 
@@ -1035,7 +1060,12 @@ mod tests {
             196, 109, 236, 149, 52, 82, 251, 14, 201, 97, 226, 75, 177, 52, 16, 249, 36, 158, 103,
             210, 33, 191, 114, 98, 40, 235, 19, 219, 101, 88, 189,
         ];
-        let serialized_proof = proof.serialize();
+
+        let serialized_proof = StoneCompatibleSerializer::serialize::<Fibonacci2ColsShifted<_>>(
+            &proof,
+            &pub_inputs,
+            &proof_options,
+        );
         assert_eq!(serialized_proof, expected_bytes);
     }
 }
