@@ -1,4 +1,4 @@
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeSet, HashMap, HashSet};
 
 use lambdaworks_crypto::merkle_tree::proof::Proof;
 use lambdaworks_math::{
@@ -61,36 +61,39 @@ pub struct StarkProof<F: IsFFTField> {
 pub struct StoneCompatibleSerializer;
 
 impl StoneCompatibleSerializer {
+    #[allow(unused)]
     fn merge_authentication_paths(
-        authentication_paths: Vec<&Proof<Commitment>>,
-        queries: Vec<usize>,
+        authentication_paths: &[&Proof<Commitment>],
+        queries: &[usize],
     ) -> Vec<Commitment> {
         debug_assert_eq!(queries.len(), authentication_paths.len());
-        let mut path_hash_map: HashMap<(u64, usize), Commitment> = HashMap::new();
-        for (index_prev_layer, path) in queries.iter().zip(authentication_paths.iter()) {
-            let mut node_index = *index_prev_layer;
-            for (k, node) in path.merkle_path.iter().enumerate() {
-                path_hash_map.insert((k as u64, node_index ^ 1), *node);
+        let mut merkle_tree: HashMap<(usize, usize), Commitment> = HashMap::new();
+        for (index_previous_layer, path) in queries.iter().zip(authentication_paths.iter()) {
+            let mut node_index = *index_previous_layer;
+            for (tree_level, node) in path.merkle_path.iter().enumerate() {
+                merkle_tree.insert((tree_level, node_index ^ 1), *node);
                 node_index >>= 1;
             }
         }
 
-        let mut queries: BTreeSet<_> = queries.into_iter().collect();
-        let mut output = Vec::new();
+        let mut result = Vec::new();
+        let mut level_indexes: BTreeSet<usize> = queries.to_vec().into_iter().collect();
         let merkle_tree_height = authentication_paths[0].merkle_path.len();
-        for k in 0..merkle_tree_height {
-            for index in queries.iter() {
-                if !queries.contains(&(index ^ 1)) {
-                    let node = &path_hash_map[&(k as u64, index ^ 1)];
-                    output.push(*node);
+        for tree_level in 0..merkle_tree_height {
+            for node_index in level_indexes.iter() {
+                let sibling_index = node_index ^ 1;
+                if !level_indexes.contains(&sibling_index) {
+                    let node = &merkle_tree[&(tree_level, sibling_index)];
+                    result.push(*node);
                 }
             }
-            queries = queries.iter().map(|index| index >> 1).collect();
+            level_indexes = level_indexes.iter().map(|index| *index >> 1).collect();
         }
-        output
+        result
     }
 
-    pub fn serialize<A>(
+    #[allow(unused)]
+    fn serialize<A>(
         proof: &StarkProof<Stark252PrimeField>,
         public_inputs: &A::PublicInputs,
         proof_options: &ProofOptions,
@@ -108,7 +111,7 @@ impl StoneCompatibleSerializer {
             &domain,
             &mut transcript,
         );
-        let queries = challenges.iotas;
+        let fri_query_indexes = challenges.iotas;
 
         let mut output = Vec::<u8>::new();
         // Original/Commit on Trace: Commitment
@@ -156,23 +159,20 @@ impl StoneCompatibleSerializer {
             output.extend_from_slice(&nonce_value.to_be_bytes());
         }
 
-        let mut openings_ordered: Vec<_> = proof
+        let mut fri_first_layer_openings: Vec<_> = proof
             .deep_poly_openings
             .iter()
             .zip(proof.deep_poly_openings_sym.iter())
-            .zip(queries.iter())
+            .zip(fri_query_indexes.iter())
             .collect();
+        // Remove repeated values
+        let mut seen = HashSet::new();
+        fri_first_layer_openings.retain(|&(_, b)| seen.insert(b));
+        // Sort by increasing value of query
+        fri_first_layer_openings.sort_by(|a, b| a.1.cmp(&b.1));
 
-        openings_ordered.sort_by(|a, b| a.1.cmp(&b.1));
-
-        let mut openings_ordered_without_repetitions = vec![openings_ordered[0]];
-        for i in 1..(openings_ordered.len()) {
-            if openings_ordered[i].1 != openings_ordered[i - 1].1 {
-                openings_ordered_without_repetitions.push(openings_ordered[i]);
-            }
-        }
         // FRI/Decommitment/Layer 0/Virtual Oracle/Trace ..: Row .., Column ..
-        for ((opening, opening_sym), _) in openings_ordered_without_repetitions.iter() {
+        for ((opening, opening_sym), _) in fri_first_layer_openings.iter() {
             for elem in opening.lde_trace_evaluations.iter() {
                 output.extend_from_slice(&elem.serialize());
             }
@@ -182,13 +182,13 @@ impl StoneCompatibleSerializer {
         }
 
         // FRI/Decommitment/Layer 0/Virtual Oracle/Trace 0
-        let queries_trace: Vec<_> = queries
+        let fri_trace_query_indexes: Vec<_> = fri_query_indexes
             .iter()
             .flat_map(|query| vec![query * 2, query * 2 + 1])
             .collect();
 
         for i in 0..proof.deep_poly_openings[0].lde_trace_merkle_proofs.len() {
-            let trace_auth_paths: Vec<_> = proof
+            let fri_trace_paths: Vec<_> = proof
                 .deep_poly_openings
                 .iter()
                 .zip(proof.deep_poly_openings_sym.iter())
@@ -199,14 +199,15 @@ impl StoneCompatibleSerializer {
                     ]
                 })
                 .collect();
-            let nodes = Self::merge_authentication_paths(trace_auth_paths, queries_trace.clone());
+            let nodes =
+                Self::merge_authentication_paths(&fri_trace_paths, &fri_trace_query_indexes);
             for node in nodes.iter() {
                 output.extend_from_slice(node);
             }
         }
 
         // FRI/Decommitment/Layer 0/Virtual Oracle/Trace ..: Row .., Column ..
-        for ((opening, opening_sym), _) in openings_ordered_without_repetitions.iter() {
+        for ((opening, opening_sym), _) in fri_first_layer_openings.iter() {
             for elem in opening.lde_composition_poly_parts_evaluation.iter() {
                 output.extend_from_slice(&elem.serialize());
             }
@@ -215,33 +216,38 @@ impl StoneCompatibleSerializer {
             }
         }
 
-        let composition_auth_paths: Vec<_> = proof
+        let fri_composition_paths: Vec<_> = proof
             .deep_poly_openings
             .iter()
             .map(|opening| &opening.lde_composition_poly_proof)
             .collect();
-        let nodes = Self::merge_authentication_paths(composition_auth_paths, queries.clone());
+        let nodes = Self::merge_authentication_paths(&fri_composition_paths, &fri_query_indexes);
         for node in nodes.iter() {
             output.extend_from_slice(node);
         }
 
-        let query_to_row_col = |index: usize| (index >> 1, index % 2);
-
-        let mut indexes_prev_layer = queries.clone();
-
-        let mut elements_hash_map: HashMap<(u64, usize, usize), FieldElement<_>> = HashMap::new();
-        for (decommitment, query_index) in proof.query_list.iter().zip(queries.iter()) {
-            let mut index = *query_index;
+        let mut fri_layers_evaluations: HashMap<(u64, usize, usize), FieldElement<_>> =
+            HashMap::new();
+        for (decommitment, query_index) in proof.query_list.iter().zip(fri_query_indexes.iter()) {
+            let mut query_layer_index = *query_index;
             for (i, element) in decommitment.layers_evaluations_sym.iter().enumerate() {
-                elements_hash_map.insert((i as u64, index >> 1, (index + 1) % 2), element.clone());
-                index >>= 1;
+                fri_layers_evaluations.insert(
+                    (
+                        i as u64,
+                        query_layer_index >> 1,
+                        (query_layer_index + 1) % 2,
+                    ),
+                    element.clone(),
+                );
+                query_layer_index >>= 1;
             }
         }
 
+        let mut indexes_previous_layer = fri_query_indexes.clone();
         for i in 0..proof.query_list[0].layers_evaluations_sym.len() {
-            let reconstructed_row_col: BTreeSet<_> = indexes_prev_layer
+            let reconstructed_row_col: BTreeSet<_> = indexes_previous_layer
                 .iter()
-                .map(|index| query_to_row_col(*index))
+                .map(|index| (index >> 1, index % 2))
                 .collect();
 
             let reconstructed_row_col_sym: BTreeSet<_> = reconstructed_row_col
@@ -255,22 +261,24 @@ impl StoneCompatibleSerializer {
 
             for element in row_col_to_send
                 .iter()
-                .map(|(row, col)| &elements_hash_map[&(i as u64, *row, *col)])
+                .map(|(row, col)| &fri_layers_evaluations[&(i as u64, *row, *col)])
             {
                 output.extend_from_slice(&element.serialize());
             }
 
-            indexes_prev_layer = indexes_prev_layer.iter().map(|index| index >> 1).collect();
+            indexes_previous_layer = indexes_previous_layer
+                .iter()
+                .map(|index| index >> 1)
+                .collect();
 
-            let authentication_paths: Vec<_> = proof
+            let layer_auth_paths: Vec<_> = proof
                 .query_list
                 .iter()
                 .map(|decommitment| &decommitment.layers_auth_paths[i])
                 .collect();
 
-            let queries: Vec<_> = queries.iter().map(|index| index >> (1 + i)).collect();
-
-            let nodes = Self::merge_authentication_paths(authentication_paths, queries);
+            let nodes =
+                Self::merge_authentication_paths(&layer_auth_paths, &indexes_previous_layer);
             for node in nodes.iter() {
                 output.extend_from_slice(node);
             }
