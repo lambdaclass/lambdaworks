@@ -1,4 +1,4 @@
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap};
 
 use lambdaworks_crypto::merkle_tree::proof::Proof;
 use lambdaworks_math::{
@@ -54,7 +54,7 @@ fn merge_authentication_paths(
     for (index_prev_layer, path) in queries.iter().zip(authentication_paths.iter()) {
         let mut node_index = *index_prev_layer;
         for (k, node) in path.merkle_path.iter().enumerate() {
-            path_hash_map.insert((k as u64, (node_index ^ 1) as u64), node.clone());
+            path_hash_map.insert((k as u64, node_index ^ 1), *node);
             node_index >>= 1;
         }
     }
@@ -66,7 +66,7 @@ fn merge_authentication_paths(
         for index in queries.iter() {
             if !queries.contains(&(index ^ 1)) {
                 let node = &path_hash_map[&(k as u64, index ^ 1)];
-                output.push(node.clone());
+                output.push(*node);
             }
         }
         queries = queries.iter().map(|index| index >> 1).collect();
@@ -722,7 +722,7 @@ mod tests {
         )
         .unwrap();
 
-        let serialized_proof = proof.serialize();
+        let _serialized_proof = proof.serialize();
         // assert_eq!(proof.serialize().len(), expected_bytes.len());
     }
 }
