@@ -4,17 +4,16 @@ use criterion::Criterion;
 use lambdaworks_math::field::{
     element::FieldElement, fields::u64_goldilocks_field::Goldilocks64Field,
 };
-use rand::random;
+use rand::Rng;
+use rand::SeedableRng;
 
 pub type F = FieldElement<Goldilocks64Field>;
 
-#[inline(never)]
-#[no_mangle]
-#[export_name = "util::rand_goldilocks_field_elements"]
 pub fn rand_field_elements(num: usize) -> Vec<(F, F)> {
+    let mut rng = rand_chacha::ChaCha20Rng::seed_from_u64(9001);
     let mut result = Vec::with_capacity(num);
     for _ in 0..result.capacity() {
-        result.push((F::new(random()), F::new(random())));
+        result.push((F::new(rng.gen::<u64>()), F::new(rng.gen::<u64>())));
     }
     result
 }
