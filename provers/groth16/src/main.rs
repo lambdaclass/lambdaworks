@@ -602,9 +602,6 @@ fn main() {
         Pairing::compute(&t_tau_h_tau_g1, &verif_key.delta_g2)
     );
 
-    println!("{}", verifier_k_tau_g1.len() == number_of_public_vars);
-    println!("{}", verifier_k_tau_g1.len() == number_of_public_vars);
-
     let K_s_verifier_g1 = (0..number_of_public_vars)
         .map(|i| verifier_k_tau_g1[i].operate_with_self(witness_vector[i].representative()))
         .reduce(|acc, x| acc.operate_with(&x))
@@ -618,29 +615,18 @@ fn main() {
         .reduce(|acc, x| acc.operate_with(&x))
         .unwrap();
 
-    // Can we reconstruct K?
-
+    // Is K correctly constructed?
     assert_eq!(
-        K_s_verifier_g1
-            .operate_with_self(gamma.representative())
-            .operate_with(&K_s_prover_g1.operate_with_self(delta.representative())),
-        A_s_g1
-            .operate_with_self(beta.representative())
-            .operate_with(&B_s_temp_g1.operate_with_self(alpha.representative()))
-            .operate_with(&C_s_temp_g1)
+        Pairing::compute(&K_s_verifier_g1, &verif_key.gamma_g2)
+            * Pairing::compute(&K_s_prover_g1, &verif_key.delta_g2),
+        Pairing::compute(
+            &(A_s_g1
+                .operate_with_self(beta.representative())
+                .operate_with(&B_s_temp_g1.operate_with_self(alpha.representative()))
+                .operate_with(&C_s_temp_g1)),
+            &g2
+        )
     );
-
-    // assert_eq!(
-    //     Pairing::compute(&K_s_verifier_g1, &verif_key.gamma_g2)
-    //         + Pairing::compute(&K_s_prover_g1, &verif_key.delta_g2),
-    //     Pairing::compute(
-    // &(A_s_g1
-    //     .operate_with_self(beta.representative())
-    //     .operate_with(&B_s_temp_g1.operate_with_self(alpha.representative()))
-    //     .operate_with(&C_s_temp_g1)),
-    //         &g2
-    //     )
-    // );
 
     // assert_eq!(
     //     verif_key.alpha_g1_times_beta_g2
