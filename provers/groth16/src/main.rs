@@ -628,16 +628,17 @@ fn main() {
         )
     );
 
-    // assert_eq!(
-    //     verif_key.alpha_g1_times_beta_g2
-    //         + Pairing::compute(&K_s_verifier_g1, &verif_key.gamma_g2)
-    //         + Pairing::compute(&K_s_prover_g1, &verif_key.delta_g2)
-    //         + Pairing::compute(&t_tau_h_tau_g1, &verif_key.delta_g2),
-    //     Pairing::compute(
-    //         &A_s_g1.operate_with(&prov_key.alpha_g1),
-    //         &B_s_g2.operate_with(&prov_key.beta_g2)
-    //     ),
-    // );
+    // Ultimate check
+    assert_eq!(
+        verif_key.alpha_g1_times_beta_g2
+            * Pairing::compute(&K_s_verifier_g1, &verif_key.gamma_g2)
+            * Pairing::compute(&K_s_prover_g1, &verif_key.delta_g2)
+            * Pairing::compute(&t_tau_h_tau_g1, &verif_key.delta_g2),
+        Pairing::compute(
+            &A_s_g1.operate_with(&prov_key.alpha_g1),
+            &B_s_g2.operate_with(&prov_key.beta_g2)
+        ),
+    );
 
     //////////////////
 
