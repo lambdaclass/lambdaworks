@@ -95,8 +95,6 @@ impl ShortWeierstrassProjectivePoint<BLS12381TwistCurve> {
 
 #[cfg(test)]
 mod tests {
-    use rand::random;
-
     use super::*;
     use crate::{
         cyclic_group::IsGroup,
@@ -105,7 +103,6 @@ mod tests {
             traits::EllipticCurveError,
         },
         field::element::FieldElement,
-        unsigned_integer::element::U64,
     };
 
     // -15132376222941642751 = MILLER_LOOP_CONSTANT + 1 = -d20100000000ffff
@@ -124,8 +121,6 @@ mod tests {
         FieldElement::from_hex_unchecked("0")
     ]);
 
-    const G1_COFACTOR: U64 = U64::from_hex_unchecked("0xd201000000010001");
-
     // Cmoputes the psi^2() 'Untwist Frobenius Endomorphism'
     fn psi_2(
         p: &ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
@@ -133,54 +128,6 @@ mod tests {
         let [x, y, z] = p.coordinates();
         // Since power of frobenius map is 2 we apply once as applying twice is inverse
         ShortWeierstrassProjectivePoint::new([x * ENDO_U_2, y * ENDO_V_2, z.clone()])
-    }
-
-    fn random_g1_point() -> ShortWeierstrassProjectivePoint<BLS12381Curve> {
-        let mut x = FEE::from(random::<u64>());
-        let mut y = FEE::from(random::<u64>());
-        while BLS12381Curve::create_point_from_affine(x.clone(), y.clone()).is_err() {
-            x = FEE::from(random::<u64>());
-            y = FEE::from(random::<u64>());
-        }
-        BLS12381Curve::create_point_from_affine(x, y).unwrap()
-    }
-
-    fn random_g2_point() -> ShortWeierstrassProjectivePoint<BLS12381TwistCurve> {
-        let mut x = FTE::from(random::<u64>());
-        let mut y = FTE::from(random::<u64>());
-        while BLS12381TwistCurve::create_point_from_affine(x.clone(), y.clone()).is_err() {
-            x = FTE::from(random::<u64>());
-            y = FTE::from(random::<u64>());
-        }
-        BLS12381TwistCurve::create_point_from_affine(x, y).unwrap()
-    }
-
-    fn point_not_in_g1_subgroup() -> ShortWeierstrassProjectivePoint<BLS12381Curve> {
-        let mut p = random_g1_point();
-        let mut r_p = p.operate_with_self(SUBGROUP_ORDER);
-        while r_p.is_neutral_element() {
-            p = random_g1_point();
-            r_p = p.operate_with_self(SUBGROUP_ORDER);
-            println!("not yet");
-        }
-        p
-    }
-
-    fn point_not_in_g2_subgroup() -> ShortWeierstrassProjectivePoint<BLS12381TwistCurve> {
-        let mut p = random_g2_point();
-        let mut r_p = p.operate_with_self(SUBGROUP_ORDER);
-        while r_p.is_neutral_element() {
-            p = random_g2_point();
-            r_p = p.operate_with_self(SUBGROUP_ORDER);
-            println!("not yet");
-        }
-        p
-    }
-
-    fn point_in_g1_subgroup() -> ShortWeierstrassProjectivePoint<BLS12381Curve> {
-        let p = random_g1_point();
-        let h_p = p.operate_with_self(G1_COFACTOR);
-        h_p
     }
 
     #[allow(clippy::upper_case_acronyms)]
@@ -273,6 +220,7 @@ mod tests {
     //TODO
     #[test]
     fn arbitrary_g1_point_not_in_subgroup() {
+        let p = BLS12381Curve::generator().operate_with_self(32u64);
         assert!(!p.is_in_subgroup())
     }
 
@@ -291,13 +239,13 @@ mod tests {
     //`TODO`
     #[test]
     fn arbitrary_g2_point_not_in_subgroup() {
-        let p = point_not_in_g2_subgroup();
+        let p = BLS12381TwistCurve::generator().operate_with_self(32u64);
         assert!(!p.is_in_subgroup())
     }
 
     #[test]
     fn g2_conjugate_works() {
-        let a = FieldElement::<Degree2ExtensionField>::zero();
+        let a = FTE::zero();
         let mut expected = a.conjugate();
         expected = expected.conjugate();
 
