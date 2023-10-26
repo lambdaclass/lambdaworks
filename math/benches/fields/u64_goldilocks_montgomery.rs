@@ -16,19 +16,21 @@ use lambdaworks_math::{
         montgomery::MontgomeryAlgorithms,
     },
 };
-use rand::random;
+use rand::{Rng, SeedableRng};
 
 pub type F = FieldElement<U64GoldilocksPrimeField>;
 const NUM_LIMBS: usize = 1;
 
-#[inline(never)]
-#[no_mangle]
-#[export_name = "util::rand_u64goldilocks_mont_field_elements"]
 pub fn rand_field_elements(num: usize) -> Vec<(F, F)> {
+    let mut rng = rand_chacha::ChaCha20Rng::seed_from_u64(9001);
     let mut result = Vec::with_capacity(num);
     for _ in 0..result.capacity() {
-        let rand_a = UnsignedInteger { limbs: random() };
-        let rand_b = UnsignedInteger { limbs: random() };
+        let rand_a = UnsignedInteger {
+            limbs: [rng.gen::<u64>()],
+        };
+        let rand_b = UnsignedInteger {
+            limbs: [rng.gen::<u64>()],
+        };
         result.push((F::new(rand_a), F::new(rand_b)));
     }
     result
