@@ -1360,7 +1360,7 @@ mod tests {
         assert_eq!(proof.query_list[0].layers_evaluations_sym.len(), 1);
 
         assert_eq!(
-            proof.query_list[0].layers_auth_paths_sym[0]
+            proof.query_list[0].layers_auth_paths[0]
                 .merkle_path
                 .len(),
             2
@@ -1385,13 +1385,13 @@ mod tests {
 
         // FRI layer 1 auth path level 0
         assert_eq!(
-            proof.query_list[0].layers_auth_paths_sym[0].merkle_path[0].to_vec(),
+            proof.query_list[0].layers_auth_paths[0].merkle_path[0].to_vec(),
             decode_hex("0683622478e9e93cc2d18754872f043619f030b494d7ec8e003b1cbafe83b67b").unwrap()
         );
 
         // FRI layer 1 auth path level 1
         assert_eq!(
-            proof.query_list[0].layers_auth_paths_sym[0].merkle_path[1].to_vec(),
+            proof.query_list[0].layers_auth_paths[0].merkle_path[1].to_vec(),
             decode_hex("7985d945abe659a7502698051ec739508ed6bab594984c7f25e095a0a57a2e55").unwrap()
         );
     }
@@ -1482,7 +1482,7 @@ mod tests {
 
         // FRI layer 7 auth path level 5
         assert_eq!(
-            proof.query_list[0].layers_auth_paths_sym[7].merkle_path[5].to_vec(),
+            proof.query_list[0].layers_auth_paths[7].merkle_path[5].to_vec(),
             decode_hex("f12f159b548ca2c571a270870d43e7ec2ead78b3e93b635738c31eb9bcda3dda").unwrap()
         );
     }

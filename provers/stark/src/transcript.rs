@@ -130,7 +130,7 @@ impl IsStarkTranscript<Stark252PrimeField> for StoneProverTranscript {
     }
 
     fn state(&self) -> [u8; 32] {
-        self.state
+        Self::keccak_hash(&self.state)
     }
 
     fn sample_field_element(&mut self) -> FieldElement<Stark252PrimeField> {

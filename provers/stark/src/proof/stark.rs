@@ -1,3 +1,5 @@
+use std::collections::{BTreeSet, HashMap, HashSet};
+
 use lambdaworks_crypto::merkle_tree::proof::Proof;
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsFFTField},
@@ -41,6 +43,33 @@ pub struct StarkProof<F: IsFFTField> {
     pub deep_poly_openings_sym: DeepPolynomialOpenings<F>,
     // nonce obtained from grinding
     pub nonce: Option<u64>,
+}
+
+fn merge_authentication_paths(
+    authentication_paths: Vec<&Proof<Commitment>>,
+    mut queries: BTreeSet<u64>,
+) -> Vec<Commitment> {
+    let mut path_hash_map: HashMap<(u64, u64), Commitment> = HashMap::new();
+    for (index_prev_layer, path) in queries.iter().zip(authentication_paths.iter()) {
+        let mut node_index = *index_prev_layer;
+        for (k, node) in path.merkle_path.iter().enumerate() {
+            path_hash_map.insert((k as u64, (node_index ^ 1) as u64), node.clone());
+            node_index >>= 1;
+        }
+    }
+
+    let mut output = Vec::new();
+    let merkle_tree_height = authentication_paths[0].merkle_path.len();
+    for k in 0..merkle_tree_height {
+        for index in queries.iter() {
+            if !queries.contains(&(index ^ 1)) {
+                let node = &path_hash_map[&(k as u64, index ^ 1)];
+                output.push(node.clone());
+            }
+        }
+        queries = queries.iter().map(|index| index >> 1).collect();
+    }
+    output
 }
 
 impl<F> Serializable for StarkProof<F>
@@ -93,76 +122,141 @@ where
             output.extend_from_slice(&nonce_value.to_be_bytes());
         }
 
-        // FRI/Decommitment/Layer 0/Virtual Oracle/Trace ..: Row .., Column ..
-        for opening in self.deep_poly_openings.iter() {
-            for elem in opening.lde_trace_evaluations.iter() {
-                output.extend_from_slice(&elem.serialize());
-            }
-        }
-        for opening in self.deep_poly_openings_sym.iter() {
-            for elem in opening.lde_trace_evaluations.iter() {
-                output.extend_from_slice(&elem.serialize());
-            }
-        }
-
-        // FRI/Decommitment/Layer 0/Virtual Oracle/Trace 0
-        for opening in self.deep_poly_openings.iter() {
-            for proof in opening.lde_trace_merkle_proofs.iter() {
-                output.extend_from_slice(
-                    &proof
-                        .merkle_path
-                        .iter()
-                        .skip(1)
-                        .flatten()
-                        .cloned()
-                        .collect::<Vec<_>>(),
-                )
-            }
-        }
-
-        // FRI/Decommitment/Layer 0/Virtual Oracle/Trace ..: Row .., Column ..
-        for opening in self.deep_poly_openings.iter() {
-            for elem in opening.lde_composition_poly_parts_evaluation.iter() {
-                output.extend_from_slice(&elem.serialize());
-            }
-        }
-        for opening in self.deep_poly_openings_sym.iter() {
-            for elem in opening.lde_composition_poly_parts_evaluation.iter() {
-                output.extend_from_slice(&elem.serialize());
-            }
-        }
-
-        // FRI/Decommitment/Layer 0/Virtual Oracle/Trace 0
-        for opening in self.deep_poly_openings.iter() {
-            output.extend_from_slice(
-                &opening
-                    .lde_composition_poly_proof
-                    .merkle_path
-                    .iter()
-                    .flatten()
-                    .cloned()
-                    .collect::<Vec<_>>(),
-            );
-        }
-
-        let decommitment = &self.query_list[0];
-        for (evaluation, path) in decommitment
-            .layers_evaluations_sym
+        let queries: Vec<_> = self
+            .query_list
             .iter()
-            .zip(decommitment.layers_auth_paths_sym.iter())
-        {
-            // FRI/Decommitment/Layer 1: Row .., Column ..:
-            output.extend_from_slice(&evaluation.serialize());
+            .map(|decommitment| decommitment.query_index)
+            .collect();
 
-            // FRI/Decommitment/Layer 1: For node ..:
-            output.extend_from_slice(
-                &path
-                    .merkle_path
-                    .iter()
-                    .flatten()
-                    .cloned()
-                    .collect::<Vec<_>>(),
-            )
+        let mut openings_ordered: Vec<_> = self
+            .deep_poly_openings
+            .iter()
+            .zip(self.deep_poly_openings_sym.iter())
+            .zip(queries)
+            .collect();
+        openings_ordered.sort_by(|a, b| a.1.cmp(&b.1));
+
+        // FRI/Decommitment/Layer 0/Virtual Oracle/Trace ..: Row .., Column ..
+        for ((opening, opening_sym), _) in openings_ordered.iter() {
+            for elem in opening.lde_trace_evaluations.iter() {
+                output.extend_from_slice(&elem.serialize());
+            }
+            for elem in opening_sym.lde_trace_evaluations.iter() {
+                output.extend_from_slice(&elem.serialize());
+            }
+        }
+
+        // FRI/Decommitment/Layer 0/Virtual Oracle/Trace 0
+        let queries: BTreeSet<_> = self
+            .query_list
+            .iter()
+            .map(|decommitment| {
+                let index = decommitment.query_index;
+                vec![index * 2, index * 2 + 1]
+            })
+            .flatten()
+            .collect();
+
+        for i in 0..self.deep_poly_openings[0].lde_trace_merkle_proofs.len() {
+            let trace_auth_paths: Vec<_> = self
+                .deep_poly_openings
+                .iter()
+                .map(|opening| &opening.lde_trace_merkle_proofs[i])
+                .collect();
+            let nodes = merge_authentication_paths(trace_auth_paths, queries.clone());
+            for node in nodes.iter() {
+                output.extend_from_slice(node);
+            }
+        }
+
+        // FRI/Decommitment/Layer 0/Virtual Oracle/Trace ..: Row .., Column ..
+        for ((opening, opening_sym), _) in openings_ordered.iter() {
+            for elem in opening.lde_composition_poly_parts_evaluation.iter() {
+                output.extend_from_slice(&elem.serialize());
+            }
+            for elem in opening_sym.lde_composition_poly_parts_evaluation.iter() {
+                output.extend_from_slice(&elem.serialize());
+            }
+        }
+
+
+        let queries: BTreeSet<_> = self
+            .query_list
+            .iter()
+            .map(|decommitment| decommitment.query_index)
+            .collect();
+        let composition_auth_paths: Vec<_> = self
+            .deep_poly_openings
+            .iter()
+            .map(|opening| &opening.lde_composition_poly_proof)
+            .collect();
+        let nodes = merge_authentication_paths(composition_auth_paths, queries.clone());
+        for node in nodes.iter() {
+            output.extend_from_slice(node);
+        }
+
+        let query_to_row_col = |index: u64| (index >> 1, index % 2);
+
+        let mut indexes_prev_layer: BTreeSet<u64> = self
+            .query_list
+            .iter()
+            .map(|decommitment| decommitment.query_index)
+            .collect();
+
+        let mut elements_hash_map: HashMap<(u64, u64, u64), FieldElement<F>> = HashMap::new();
+        for decommitment in self.query_list.iter() {
+            let mut index = decommitment.query_index;
+            for (i, element) in decommitment.layers_evaluations_sym.iter().enumerate() {
+                elements_hash_map.insert((i as u64, index >> 1, (index + 1) % 2), element.clone());
+                index >>= 1;
+            }
+        }
+
+        for i in 0..self.query_list[0].layers_evaluations_sym.len() {
+            let reconstructed_row_col: BTreeSet<_> = indexes_prev_layer
+                .iter()
+                .map(|index| query_to_row_col(*index))
+                .collect();
+
+            let reconstructed_row_col_sym: BTreeSet<_> = reconstructed_row_col
+                .iter()
+                .map(|(x, y)| (*x, 1 - y))
+                .collect();
+
+            let row_col_to_send: Vec<_> = reconstructed_row_col_sym
+                .difference(&reconstructed_row_col)
+                .collect();
+
+            // println!("indexes prev layer {:#?}", indexes_prev_layer);
+            // println!("reconstructed {:#?}", reconstructed_row_col);
+            // println!("reconstructed_sym {:#?}", reconstructed_row_col_sym);
+            // println!("to_send{:#?}", row_col_to_send);
+
+            for element in row_col_to_send
+                .iter()
+                .map(|(row, col)| &elements_hash_map[&(i as u64, *row, *col)])
+            {
+                output.extend_from_slice(&element.serialize());
+            }
+
+            indexes_prev_layer = indexes_prev_layer.iter().map(|index| index >> 1).collect();
+
+            let authentication_paths: Vec<_> = self
+                .query_list
+                .iter()
+                .map(|decommitment| &decommitment.layers_auth_paths[i])
+                .collect();
+
+            let queries: BTreeSet<_> = self
+                .query_list
+                .iter()
+                .map(|decommitment| decommitment.query_index >> (1 + i))
+                .collect();
+
+            let nodes = merge_authentication_paths(authentication_paths, queries);
+            for node in nodes.iter() {
+                output.extend_from_slice(node);
+            }
         }
 
         output
@@ -251,7 +345,9 @@ mod tests {
             224, 149, 160, 165, 122, 46, 85,
         ];
 
-        assert_eq!(proof.serialize(), expected_bytes);
+        let serialized_proof = proof.serialize();
+        // assert_eq!(serialized_proof, expected_bytes[..serialized_proof.len()]);
+        assert_eq!(serialized_proof, expected_bytes);
     }
 
     #[test]
@@ -512,6 +608,84 @@ mod tests {
             87, 56, 195, 30, 185, 188, 218, 61, 218,
         ];
 
-        assert_eq!(proof.serialize(), expected_bytes);
+        let serialized_proof = proof.serialize();
+        // assert_eq!(serialized_proof, expected_bytes[..serialized_proof.len()]);
+        assert_eq!(serialized_proof, expected_bytes);
+    }
+
+    #[test]
+    fn test_serialization_compatible_with_stone_3() {
+        let trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::one(), 4);
+
+        let claimed_index = 2;
+        let claimed_value = trace.get_row(claimed_index)[0];
+        let mut proof_options = ProofOptions::default_test_options();
+        proof_options.blowup_factor = 2;
+        proof_options.coset_offset = 3;
+        proof_options.grinding_factor = 0;
+        proof_options.fri_number_of_queries = 2;
+
+        let pub_inputs = fibonacci_2_cols_shifted::PublicInputs {
+            claimed_value,
+            claimed_index,
+        };
+
+        let transcript_init_seed = [0xfa, 0xfa, 0xfa, 0x05];
+
+        let proof = Prover::prove::<Fibonacci2ColsShifted<_>>(
+            &trace,
+            &pub_inputs,
+            &proof_options,
+            StoneProverTranscript::new(&transcript_init_seed),
+        )
+        .unwrap();
+
+        let expected_bytes = [
+            9, 161, 59, 243, 85, 60, 44, 155, 163, 203, 128, 147, 203, 253, 93, 16, 137, 42, 94,
+            225, 173, 254, 120, 1, 43, 167, 254, 15, 49, 148, 2, 50, 112, 240, 25, 178, 216, 72,
+            70, 231, 161, 79, 30, 65, 65, 163, 126, 218, 111, 207, 165, 237, 188, 163, 129, 244,
+            79, 65, 179, 98, 185, 141, 169, 184, 2, 224, 120, 55, 13, 11, 229, 171, 11, 26, 0, 152,
+            239, 187, 39, 156, 60, 35, 107, 121, 239, 144, 169, 220, 73, 65, 146, 117, 245, 229,
+            100, 176, 0, 173, 110, 129, 15, 156, 197, 8, 217, 178, 193, 97, 14, 230, 60, 144, 146,
+            78, 67, 141, 46, 85, 174, 178, 26, 19, 148, 219, 3, 55, 92, 83, 0, 132, 101, 96, 25,
+            109, 138, 159, 10, 99, 136, 116, 10, 199, 56, 207, 240, 26, 151, 120, 88, 67, 179, 215,
+            120, 173, 239, 72, 198, 82, 232, 72, 1, 172, 173, 144, 213, 76, 22, 127, 0, 72, 44,
+            171, 193, 184, 166, 253, 72, 24, 112, 22, 190, 115, 212, 178, 92, 97, 99, 126, 166,
+            200, 24, 11, 0, 208, 127, 57, 158, 172, 136, 206, 28, 74, 3, 148, 188, 254, 92, 246, 6,
+            21, 36, 101, 68, 44, 29, 246, 16, 253, 182, 16, 134, 222, 34, 171, 10, 50, 72, 57, 138,
+            80, 31, 191, 74, 187, 125, 127, 218, 71, 254, 69, 239, 146, 47, 20, 178, 242, 198, 165,
+            89, 64, 154, 223, 35, 137, 0, 4, 5, 59, 242, 121, 200, 185, 62, 201, 138, 199, 239,
+            163, 252, 205, 202, 200, 154, 43, 143, 166, 128, 63, 102, 22, 5, 58, 205, 48, 101, 153,
+            229, 101, 7, 51, 41, 162, 227, 93, 103, 1, 119, 157, 40, 0, 161, 176, 143, 13, 53, 64,
+            172, 166, 74, 71, 4, 177, 30, 109, 56, 217, 15, 172, 148, 119, 0, 1, 40, 225, 211, 37,
+            67, 227, 195, 75, 15, 184, 75, 35, 121, 152, 11, 206, 130, 181, 93, 52, 26, 222, 54,
+            225, 164, 206, 119, 98, 49, 127, 1, 245, 239, 229, 226, 164, 147, 237, 23, 92, 189,
+            192, 202, 171, 211, 97, 221, 103, 41, 20, 123, 42, 73, 255, 19, 182, 16, 44, 170, 91,
+            163, 241, 3, 122, 35, 184, 126, 224, 183, 84, 233, 162, 161, 139, 249, 241, 173, 181,
+            44, 40, 254, 122, 243, 31, 209, 50, 95, 136, 54, 66, 182, 182, 120, 86, 1, 200, 25, 46,
+            236, 199, 14, 120, 215, 166, 119, 142, 184, 187, 93, 210, 70, 99, 209, 109, 106, 7, 38,
+            13, 86, 113, 77, 40, 239, 101, 112, 47, 2, 80, 119, 11, 163, 93, 205, 89, 30, 136, 45,
+            112, 44, 157, 216, 11, 39, 148, 121, 29, 189, 236, 115, 33, 204, 138, 68, 69, 217, 20,
+            115, 169, 5, 14, 205, 72, 77, 54, 231, 218, 153, 95, 162, 175, 218, 232, 63, 190, 166,
+            244, 88, 215, 208, 135, 139, 66, 119, 107, 105, 209, 86, 146, 86, 139, 2, 52, 60, 90,
+            10, 156, 32, 31, 52, 138, 33, 75, 142, 77, 0, 167, 160, 116, 5, 177, 241, 191, 160,
+            205, 157, 11, 224, 168, 248, 210, 225, 35, 28, 249, 169, 95, 21, 155, 125, 184, 161,
+            209, 104, 28, 40, 157, 113, 186, 88, 83, 80, 52, 130, 162, 139, 20, 152, 253, 6, 236,
+            251, 188, 248, 74, 4, 181, 182, 58, 177, 192, 59, 163, 195, 81, 130, 157, 172, 83, 19,
+            95, 154, 110, 231, 215, 197, 194, 110, 72, 128, 190, 56, 79, 9, 172, 162, 149, 5, 108,
+            160, 150, 81, 89, 78, 150, 224, 135, 169, 244, 241, 159, 175, 93, 181, 31, 51, 9, 22,
+            35, 81, 246, 77, 55, 220, 237, 81, 100, 28, 53, 3, 165, 50, 173, 72, 251, 221, 49, 23,
+            13, 89, 42, 133, 30, 63, 194, 243, 45, 174, 34, 155, 36, 79, 240, 224, 206, 37, 188, 8,
+            116, 167, 121, 4, 187, 99, 142, 63, 0, 145, 62, 73, 105, 161, 176, 53, 52, 191, 59,
+            245, 54, 167, 210, 245, 249, 120, 229, 12, 155, 239, 183, 194, 135, 177, 56, 178, 58,
+            160, 91, 150, 227, 246, 178, 85, 108, 40, 184, 194, 27, 26, 69, 123, 157, 102, 5, 160,
+            67, 214, 70, 230, 193, 247, 230, 160, 216, 63, 190, 140, 254, 146, 225, 33, 59, 17, 12,
+            136, 71, 130, 119, 25, 77, 220, 93, 118, 222, 224, 63, 100, 26, 8, 194, 69, 148, 27,
+            254, 137, 14, 150, 162,
+        ];
+
+        let serialized_proof = proof.serialize();
+        assert_eq!(serialized_proof, expected_bytes);
+        // assert_eq!(proof.serialize().len(), expected_bytes.len());
     }
 }

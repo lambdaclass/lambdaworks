@@ -537,7 +537,7 @@ pub trait IsStarkVerifier {
         fri_layers_merkle_roots
             .iter()
             .enumerate()
-            .zip(&fri_decommitment.layers_auth_paths_sym)
+            .zip(&fri_decommitment.layers_auth_paths)
             .zip(&fri_decommitment.layers_evaluations_sym)
             .zip(evaluation_point_vec)
             .fold(
