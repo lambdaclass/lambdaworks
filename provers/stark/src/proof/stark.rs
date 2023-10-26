@@ -136,10 +136,17 @@ where
             .zip(self.deep_poly_openings_sym.iter())
             .zip(queries)
             .collect();
+
         openings_ordered.sort_by(|a, b| a.1.cmp(&b.1));
 
+        let mut openings_ordered_without_repetitions = vec![openings_ordered[0].clone()];
+        for i in 1..(openings_ordered.len()) {
+            if openings_ordered[i].1 != openings_ordered[i-1].1 {
+                openings_ordered_without_repetitions.push(openings_ordered[i].clone());
+            }
+        }
         // FRI/Decommitment/Layer 0/Virtual Oracle/Trace ..: Row .., Column ..
-        for ((opening, opening_sym), _) in openings_ordered.iter() {
+        for ((opening, opening_sym), _) in openings_ordered_without_repetitions.iter() {
             for elem in opening.lde_trace_evaluations.iter() {
                 output.extend_from_slice(&elem.serialize());
             }
