@@ -78,7 +78,7 @@ impl StoneCompatibleSerializer {
         Self::append_fri_commit_phase_commitments(proof, &mut output);
         Self::append_proof_of_work_nonce(proof, &mut output);
         let fri_query_indexes =
-            Self::reconstruct_fri_query_indexes::<A>(&proof, &public_inputs, &proof_options);
+            Self::reconstruct_fri_query_indexes::<A>(proof, public_inputs, proof_options);
         Self::append_fri_query_phase_first_layer(proof, &fri_query_indexes, &mut output);
         Self::append_fri_query_phase_inner_layers(proof, &fri_query_indexes, &mut output);
 
@@ -190,7 +190,7 @@ impl StoneCompatibleSerializer {
         let mut seen = HashSet::new();
         fri_first_layer_openings.retain(|&(_, b)| seen.insert(b));
         // Sort by increasing value of query
-        fri_first_layer_openings.sort_by(|a, b| a.1.cmp(&b.1));
+        fri_first_layer_openings.sort_by(|a, b| a.1.cmp(b.1));
 
         // FRI/Decommitment/Layer 0/Virtual Oracle/Trace ..: Row .., Column ..
         for ((opening, opening_sym), _) in fri_first_layer_openings.iter() {
@@ -242,7 +242,7 @@ impl StoneCompatibleSerializer {
             .iter()
             .map(|opening| &opening.lde_composition_poly_proof)
             .collect();
-        let nodes = Self::merge_authentication_paths(&fri_composition_paths, &fri_query_indexes);
+        let nodes = Self::merge_authentication_paths(&fri_composition_paths, fri_query_indexes);
         for node in nodes.iter() {
             output.extend_from_slice(node);
         }
@@ -264,7 +264,7 @@ impl StoneCompatibleSerializer {
                         query_layer_index >> 1,
                         (query_layer_index + 1) % 2,
                     ),
-                    element.clone(),
+                    *element,
                 );
                 query_layer_index >>= 1;
             }
@@ -326,7 +326,7 @@ impl StoneCompatibleSerializer {
         let domain = Domain::<Stark252PrimeField>::new(&air);
         let challenges = Verifier::step_1_replay_rounds_and_recover_challenges(
             &air,
-            &proof,
+            proof,
             &domain,
             &mut transcript,
         );
