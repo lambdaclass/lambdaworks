@@ -23,8 +23,8 @@ fn load_fe_from_file(file_path: &String) -> Result<FE, io::Error> {
 
 fn load_tree_values(tree_path: &String) -> Result<Vec<FE>, io::Error> {
     Ok(fs::read_to_string(tree_path)?
-        .lines()
-        .map(FE::from_hex_unchecked) // remove hex_unchecked for hex
+        .split(";")
+        .map(FE::from_hex_unchecked)
         .collect())
 }
 
@@ -86,7 +86,7 @@ fn verify_merkle_proof(
 fn main() {
     let args: MerkleArgs = MerkleArgs::parse();
     if let Err(e) = match args.entity {
-        MerkleEntity::GenerateMerkleTree(args) => generate_merkle_tree(args.tree_path),
+        MerkleEntity::GenerateTree(args) => generate_merkle_tree(args.tree_path),
         MerkleEntity::GenerateProof(args) => generate_merkle_proof(args.tree_path, args.position),
         MerkleEntity::VerifyProof(args) => {
             verify_merkle_proof(args.root_path, args.index, args.proof_path, args.leaf_path)
