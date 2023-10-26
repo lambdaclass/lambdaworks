@@ -52,8 +52,11 @@ where
     }
 
     /// Executes the i-th round of the sumcheck protocol
+    /// The variable round records the current round and the variable that is currently fixed
+    /// This function always fixes the first variable
+    /// We assume that the variables in 0..round have already been assigned
     pub fn send_poly(&mut self) {
-        for value in 0..2u64.pow(self.poly.n_vars as u32 - self.round + 1) {
+        for value in 0..2u64.pow(self.poly.n_vars as u32 - self.round - 1) {
             let mut assign_numbers: Vec<u64> = Vec::new();
             let mut assign_value = value;
 
@@ -83,6 +86,22 @@ mod test_prover {
         polynomial::multilinear_term::MultiLinearMonomial,
     };
     use std::vec;
+
+    #[test]
+    fn test_send_poly_round0() {
+        //Test the polynomial 1 + x_0 + x_1 + x_0 x_1
+        //If x_0 is fixed, the resulting polynomial should be 5+3x_0
+        let constant =
+            MultiLinearMonomial::new((FieldElement::<Babybear31PrimeField>::from(1), vec![]));
+        let x0 = MultiLinearMonomial::new((FieldElement::<Babybear31PrimeField>::from(1), vec![0]));
+        let x1 = MultiLinearMonomial::new((FieldElement::<Babybear31PrimeField>::from(1), vec![1]));
+        let x01 =
+            MultiLinearMonomial::new((FieldElement::<Babybear31PrimeField>::from(1), vec![0, 1]));
+
+        let poly = MultilinearPolynomial::new(vec![constant, x0, x1, x01]);
+
+        let prover = Prover::new(poly);
+    }
 
     #[test]
     fn test_sumcheck_initial_value() {
