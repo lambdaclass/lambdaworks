@@ -1,6 +1,6 @@
 /// Implemenation of the Babybear Prime field p = 2^31 - 2^27 + 1
 pub mod babybear;
-/// Implemenation of the quartic extension of the babybear field
-pub mod quartic_babybear;
+/// Implemenation of the quadratic extension of the babybear field
+pub mod quadratic_babybear;
 /// Implementation of two-adic prime field over 256 bit unsigned integers.
 pub mod stark_252_prime_field;

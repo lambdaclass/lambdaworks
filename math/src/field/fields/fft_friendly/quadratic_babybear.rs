@@ -47,7 +47,7 @@ mod tests {
 
         let x = QuarticBabybearFieldElement::new([a.clone(), b.clone()]);
         let y = QuarticBabybearFieldElement::new([c.clone(), d.clone()]);
-        let expected_result = QuarticBabybearFieldElement::new([a+c, b+d]);
+        let expected_result = QuarticBabybearFieldElement::new([a + c, b + d]);
         assert_eq!(x + y, expected_result);
     }
 
