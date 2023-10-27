@@ -5,7 +5,7 @@ use crate::{
     elliptic_curve::short_weierstrass::traits::IsShortWeierstrass, field::element::FieldElement,
 };
 
-use super::field_extension::{Degree2ExtensionField, Degree12ExtensionField};
+use super::field_extension::{Degree12ExtensionField, Degree2ExtensionField};
 
 // X_0 : 10857046999023057135944570762232829481370756359578518086990519993285655852781
 const GENERATOR_X_0: U256 =
@@ -76,7 +76,6 @@ impl ShortWeierstrassProjectivePoint<BN254TwistCurve> {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use crate::{
@@ -89,7 +88,7 @@ mod tests {
             traits::IsEllipticCurve,
         },
         field::element::FieldElement,
-        unsigned_integer::element::U256,
+        unsigned_integer::element::{U256, U384},
     };
 
     use super::BN254TwistCurve;
