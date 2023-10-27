@@ -3,7 +3,7 @@ use crate::cairo_layout::CairoLayout;
 use crate::cairo_mem::CairoMemory;
 use crate::execution_trace::build_main_trace;
 use crate::register_states::RegisterStates;
-
+use cairo_vm::types::program::Program;
 use super::vec_writer::VecWriter;
 use cairo_vm::cairo_run::{self, EncodeTraceError};
 
@@ -177,6 +177,41 @@ pub fn generate_prover_args(
 
     Ok((main_trace, pub_inputs))
 }
+
+pub fn generate_prover_args_from_trace(
+    trace_bin_path: &String,
+    memory_bin_path: &String,
+    // program_content: &[u8],
+    // output_range: &Option<Range<u64>>,
+    // layout: CairoLayout,
+) -> Result<(TraceTable<Stark252PrimeField>, PublicInputs), Error> {
+    // ## Generating the prover args
+    let register_states = RegisterStates::from_file(&trace_bin_path).expect("Cairo trace bin file not found");
+    let memory = CairoMemory::from_file(&memory_bin_path).expect("Cairo memory binary file not found");
+
+    // data length
+    // let program_content = std::fs::read(program_content)?;
+    // let program = Program::from_bytes(&program_content, &None).unwrap();
+    let data_len = 0_usize;
+    
+    
+    //let range_check_builtin_included = program.iter_builtins().any(|builtin| builtin.name() == "range_check_builtin");
+    // range_check_builtin_range = &None;
+    // let range_check_builtin_range = range_check.map(|(start, end)| Range {
+    //     start: start as u64,
+    //     end: end as u64,
+    // });
+
+    let memory_segments = MemorySegmentMap::new();
+        
+    let mut pub_inputs = PublicInputs::from_regs_and_mem(&register_states, &memory, data_len, &memory_segments);
+    //Build_main_trace(register_states, cairo_mem, .., ..)
+    let main_trace = build_main_trace(&register_states, &memory, &mut pub_inputs);
+
+    Ok((main_trace, pub_inputs))
+
+}
+
 
 fn create_memory_segment_map(
     range_check_builtin_range: Option<Range<u64>>,

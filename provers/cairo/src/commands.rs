@@ -39,7 +39,6 @@ pub struct ProveArgs {
 pub struct ProveTraceArgs {
     pub trace_bin_path: String,
     pub memory_bin_path: String,
-    pub program_path: String,
     pub proof_path: String,
 }
 

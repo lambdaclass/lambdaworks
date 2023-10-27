@@ -8,6 +8,7 @@ use platinum_prover::cairo_mem::CairoMemory;
 use platinum_prover::execution_trace::build_main_trace;
 use platinum_prover::register_states::RegisterStates;
 use platinum_prover::runner::run::generate_prover_args;
+use platinum_prover::runner::run::generate_prover_args_from_trace;
 use stark_platinum_prover::proof::options::{ProofOptions, SecurityLevel};
 use stark_platinum_prover::proof::stark::StarkProof;
 mod commands;
@@ -149,37 +150,25 @@ fn generate_proof(
 fn generate_proof_from_trace(
     trace_bin_path: &String,
     memory_bin_path: &String,
-    program_path: &String,
     proof_options: &ProofOptions,
 ) -> Option<(StarkProof<Stark252PrimeField>, PublicInputs)> {
     // ## Generating the prover args
-    let register_states = RegisterStates::from_file(&trace_bin_path).expect("Cairo trace bin file not found");
-    let memory = CairoMemory::from_file(&memory_bin_path).expect("Cairo memory binary file not found");
-    
-    let program_content = std::fs::read(program_path)?;
-    let program = Program::from_bytes(&program_content, &None).unwrap();
-    let data_len = program.data_len();
-    
-    
-    //let range_check_builtin_included = program.iter_builtins().any(|builtin| builtin.name() == "range_check_builtin");
-    range_check_builtin_range = &None;
 
-    let memory_segments = MemorySegmentMap::new();
-       
-    let mut public_inputs = PublicInputs::from_regs_and_mem(&register_states, &memory, data_len, &memory_segments);
-    //Build_main_trace(register_states, cairo_mem, .., ..)
-    let trace = build_main_trace(&register_states, &memory, &mut public_inputs);
+    let Ok((main_trace, pub_inputs)) = generate_prover_args_from_trace(&trace_bin_path, &memory_bin_path) else {
+        eprintln!("Error generating prover args");
+        return None;
+    };
 
     // ## Prove
-    // prove(trace, public_inputs)
-    let proof = match generate_cairo_proof(&trace, &public_inputs, proof_options) {
+    // prove(trace, pub_inputs)
+    let proof = match generate_cairo_proof(&main_trace, &pub_inputs, proof_options) {
         Ok(p) => p,
         Err(err) => {
             eprintln!("Error generating proof: {:?}", err);
             return None;
         }
     };
-    Some((proof, public_inputs))
+    Some((proof, pub_inputs))
 
 }
 
@@ -250,7 +239,7 @@ fn main() {
         commands::ProverEntity::Prove(args) => {
             // verify input file is .cairo
             if args.program_path.contains(".cairo") {
-                eprintln!("\nYou are trying to prove a non compiled Cairo program. Please compile it before sending it to the prover.\n");
+                println!("\nYou are trying to prove a non compiled Cairo program. Please compile it before sending it to the prover.\n");
                 return;
             }
 
@@ -267,12 +256,12 @@ fn main() {
                 eprintln!("\n Please provide *.bin files for the memory and trace output files.\n");
                 return;
             }
-            if args.program_path.contains(".cairo") {
-                eprintln!("\nPlease provide a compiled json program instead of a cairo file.\n");
-                return;
-            }
+            // if args.program_path.contains(".cairo") {
+            //     eprintln!("\nPlease provide a compiled json program instead of a cairo file.\n");
+            //     return;
+            // }
 
-            let Some((proof, pub_inputs)) = generate_proof_from_trace(&args.trace_bin_path, &args.memory_bin_path, &args.program_path, &proof_options)
+            let Some((proof, pub_inputs)) = generate_proof_from_trace(&args.trace_bin_path, &args.memory_bin_path, &proof_options)
             else {
                 return;
             };
