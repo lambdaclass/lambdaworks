@@ -1,5 +1,5 @@
 [package]
-name = "groth16"
+name = "lambdaworks-groth16"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,3 +12,4 @@ lambdaworks-math.workspace = true
 lambdaworks-crypto.workspace = true
 serde = "1.0"
 serde_json = "1.0"
+rand = "0.8.5"

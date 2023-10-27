@@ -34,29 +34,8 @@ docker_build_cairo_compiler:
 docker_compile_cairo:
 	docker run -v $(ROOT_DIR):/pwd cairo --proof_mode /pwd/$(PROGRAM) > $(COMPILED_PROGRAM)
 
-compile:
-	cairo-compile --proof_mode $(PROGRAM_PATH) > $(COMPILED_PROGRAM) 2>/dev/null || \
-	docker run -v $(ROOT_DIR):/pwd cairo --proof_mode /pwd/$(PROGRAM_PATH) > $(COMPILED_PROGRAM)
-
-prove:
-	cargo run --quiet --release prove $(PROGRAM_PATH) $(PROOF_PATH)
-
-verify:
-	cargo run --quiet --release verify $(PROOF_PATH)
-
-run_all:
-	cargo run --quiet --release prove-and-verify $(PROGRAM_PATH)
-
-compile_and_run_all:
-	@cairo-compile --proof_mode $(PROGRAM_PATH) > $(COMPILED_PROGRAM) 2>/dev/null || \
-	docker run -v $(ROOT_DIR):/pwd cairo --proof_mode /pwd/$(PROGRAM_PATH) > $(COMPILED_PROGRAM)
-	@echo "Compiling done \n"
-	@cargo run --quiet --release prove-and-verify $(COMPILED_PROGRAM) $(PROOF_PATH)
-	@rm $(COMPILED_PROGRAM)
-
 clippy:
 	cargo clippy --workspace --all-targets -- -D warnings
-
 
 benchmarks_sequential: $(COMPILED_CAIRO0_PROGRAMS)
 	cargo bench
@@ -70,31 +49,7 @@ benchmarks_parallel_all: $(COMPILED_CAIRO0_PROGRAMS)
 
 build_metal:
 	cargo b --features metal --release
-
-target/release/cairo-platinum-prover:
-	cargo build --bin cairo-platinum-prover --release --features instruments
 	
-docker_compile_and_run_all: target/release/cairo-platinum-prover
-	@echo "Compiling program with docker"
-	docker run -v $(ROOT_DIR):/pwd cairo --proof_mode /pwd/$(PROGRAM) > $(COMPILED_PROGRAM)
-	@echo "Compiling done \n"
-	@cargo run --bin cairo-platinum-prover --features instruments --quiet --release prove_and_verify $(COMPILED_PROGRAM)
-	@rm $(COMPILED_PROGRAM)
-
-docker_compile_and_prove: target/release/cairo-platinum-prover
-	@echo "Compiling program with docker"
-	@docker run -v $(ROOT_DIR):/pwd cairo --proof_mode /pwd/$(PROGRAM) > $(COMPILED_PROGRAM)
-	@echo "Compiling done \n"
-	@cargo run --bin cairo-platinum-prover --features instruments --quiet --release prove $(COMPILED_PROGRAM) $(PROOF_PATH)
-	@rm $(COMPILED_PROGRAM)
-
-compile_and_prove: target/release/cairo-platinum-prover
-	@echo "Compiling program with cairo-compile"
-	@cairo-compile --proof_mode $(PROGRAM) --output $(COMPILED_PROGRAM)
-	@echo "Compiling done \n"
-	@cargo run --bin cairo-platinum-prover --features instruments --quiet --release prove $(COMPILED_PROGRAM) $(PROOF_PATH)
-	@rm $(COMPILED_PROGRAM)
-
 clean:
 	rm -f $(CAIRO0_PROGRAMS_DIR)/*.json
 	rm -f $(CAIRO0_PROGRAMS_DIR)/*.trace
