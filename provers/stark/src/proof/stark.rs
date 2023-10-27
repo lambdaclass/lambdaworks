@@ -63,7 +63,6 @@ pub struct StarkProof<F: IsFFTField> {
 pub struct StoneCompatibleSerializer;
 
 impl StoneCompatibleSerializer {
-    #[allow(unused)]
     pub fn serialize_proof<A>(
         proof: &StarkProof<Stark252PrimeField>,
         public_inputs: &A::PublicInputs,
