@@ -28,7 +28,7 @@ To run the demo of Stone Prover compatibility run:
 
 A fork of the stone prover with an additional command to make a proof with Lambdaworks and verify with Stone will be created.
 
-You can then cd to the downloaded Stone, and follow the instructions to test it by yourself
+You can then cd to the downloaded Stone Prover, and follow the instructions to make a proof with Platinum and verify it with Stone
 
 ```cd ../stone-demo```
 
