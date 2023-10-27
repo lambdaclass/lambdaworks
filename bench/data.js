@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1698272958636,
+  "lastUpdate": 1698413464713,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -1313,6 +1313,150 @@ window.BENCHMARK_DATA = {
             "name": "Polynomial/div by 'x - b' with Ruffini",
             "value": 181,
             "range": "± 0",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "33334338+PatStiles@users.noreply.github.com",
+            "name": "PatStiles",
+            "username": "PatStiles"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "592b9760348dcda20cc73469df57a92442345546",
+          "message": "Feat(field): add Mini goldilocks Field (#622)\n\n* init\n\n* finish trait functions need to debug canon\n\n* add montgomery field\n\n* add benches + fix clippy\n\n* fix tests\n\n* clean up and bench fix\n\n* add extension and hook up fuzzer\n\n* fmt\n\n* add fuzzing\n\n* fuzz against plonky3\n\n* fix lint by adding deny statement\n\n* fix comments + rm fuzz crash corpus\n\n* fix nt\n\n* add fuzz\n\n* refactor benchmarks\n\n* rm extraneous fuzz\n\n* fmt\n\n* fmt + clippy\n\n* Update fuzz/no_gpu_fuzz/fuzz_targets/field_mini_goldilocks.rs\n\n* Update fuzz/no_gpu_fuzz/Cargo.toml\n\n* Update fuzz/no_gpu_fuzz/Cargo.toml\n\n* Polish bench\n\n* Add seed to montgomery goldilocks\n\n---------\n\nCo-authored-by: Mariano A. Nicolini <mariano.nicolini.91@gmail.com>",
+          "timestamp": "2023-10-27T13:03:49Z",
+          "tree_id": "80b9ec6b4eca32c823f78553a6ca8e54a8a843d8",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/592b9760348dcda20cc73469df57a92442345546"
+        },
+        "date": 1698413460416,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "Ordered FFT/Parallel (Metal)",
+            "value": 98274738,
+            "range": "± 9835249",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #2",
+            "value": 168193776,
+            "range": "± 19433273",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #3",
+            "value": 319913999,
+            "range": "± 2346747",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #4",
+            "value": 615682521,
+            "range": "± 13782112",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal)",
+            "value": 34289211,
+            "range": "± 413524",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #2",
+            "value": 68124509,
+            "range": "± 474556",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #3",
+            "value": 133632401,
+            "range": "± 581479",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #4",
+            "value": 284010364,
+            "range": "± 2946197",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal)",
+            "value": 27238207,
+            "range": "± 675168",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #2",
+            "value": 57786795,
+            "range": "± 821515",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #3",
+            "value": 113724390,
+            "range": "± 4477286",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #4",
+            "value": 235919083,
+            "range": "± 10103230",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal",
+            "value": 118513464,
+            "range": "± 655497",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #2",
+            "value": 239635027,
+            "range": "± 1203725",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #3",
+            "value": 488502468,
+            "range": "± 3574540",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #4",
+            "value": 967364021,
+            "range": "± 17401760",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal",
+            "value": 407954614,
+            "range": "± 1956986",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #2",
+            "value": 800106542,
+            "range": "± 4090087",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #3",
+            "value": 1581559125,
+            "range": "± 6368703",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #4",
+            "value": 3075532270,
+            "range": "± 26736197",
             "unit": "ns/iter"
           }
         ]
