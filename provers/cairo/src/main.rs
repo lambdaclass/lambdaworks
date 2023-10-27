@@ -261,7 +261,6 @@ fn main() {
                 eprintln!("\n Please provide *.bin files for the memory and trace output files.\n");
                 return;
             }
-
             let Some((proof, pub_inputs)) = generate_proof_from_trace(
                 &args.trace_bin_path,
                 &args.memory_bin_path,
