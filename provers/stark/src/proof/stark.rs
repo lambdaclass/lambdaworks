@@ -174,10 +174,10 @@ impl StoneCompatibleSerializer {
     /// H_1(d_i), H_1(-d_i), ..., H_s(d_i), H_s(-d_i),
     /// where s is the number of parts into which the composition polynomial was broken.
     ///
-    /// Let TAuthPath be the merged authentication paths of the FRI query indexes i_1, ..., i_k for
+    /// Let TraceMergedPaths be the merged authentication paths of the FRI query indexes i_1, ..., i_k for
     /// the trace Merkle Tree. (See the `merge_authentication_paths` method)
     /// 
-    /// Let HAuthPath be the merged authentication paths of the FRI query indexes i_1, ..., i_k for
+    /// Let CompositionMergedPaths be the merged authentication paths of the FRI query indexes i_1, ..., i_k for
     /// the composition polynomial Merkle Tree.
     /// 
     /// If i_1, ..., i_k are all the FRI query indexes sorted in increasing order and without repeated
@@ -186,7 +186,7 @@ impl StoneCompatibleSerializer {
     ///
     /// For example, if there are 6 queries [3, 1, 5, 2, 1, 3], then this method appends the
     /// following to the output:
-    /// `BT_1 | BT_2 | BT_3 | BT_5 | TAuthPath | BH_1 | BH_2 | BH_3 | BH_5 | HAuthPath`
+    /// `BT_1 | BT_2 | BT_3 | BT_5 | TraceMergedPaths | BH_1 | BH_2 | BH_3 | BH_5 | CompositionMergedPaths`
     fn append_fri_query_phase_first_layer(
         proof: &StarkProof<Stark252PrimeField>,
         fri_query_indexes: &[usize],
