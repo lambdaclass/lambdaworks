@@ -268,15 +268,12 @@ impl StoneCompatibleSerializer {
     ///         previous layers.
     /// - Z_i = X - Y, the elements that the verifier needs but cannot compute from previous layers.
     ///         sorted by increasing value of query.  
-    /// - MergedPathsLayer_i: the merged authentication paths for all p_i(-d_j)
+    /// - MergedPathsLayer_i: the merged authentication paths for all p_i(-d_j) and p_i(d_j).
     ///
     /// This method appends:
     ///
-    /// | Z_1 | MergedPathsLayer_1 |
-    /// | Z_2 | MergedPathsLayer_2 |
-    /// ...
-    ///
-    /// for each layer
+    /// | Z_1 | MergedPathsLayer_1 | Z_2 | MergedPathsLayer_2 | ... | Z_n | MergedPathsLayer_n
+    /// where n is the total number of FRI layers.
     fn append_fri_query_phase_inner_layers(
         proof: &StarkProof<Stark252PrimeField>,
         fri_query_indexes: &[usize],
