@@ -165,7 +165,7 @@ impl StoneCompatibleSerializer {
     ///
     /// Each FRI query index `i` determines a pair of elements `d_i` and `-d_i` on the domain of the
     /// first layer.
-    /// 
+    ///
     /// Let BT_i be the concatenation of the bytes of the following values
     /// t_1(d_i), t_1(-d_i), t_2(d_i), t_2(-d_i), ..., t_m(d_i), t_m(-d_i),
     /// where m is the total number of columns, including RAP extended ones.
@@ -176,10 +176,10 @@ impl StoneCompatibleSerializer {
     ///
     /// Let TraceMergedPaths be the merged authentication paths of the FRI query indexes i_1, ..., i_k for
     /// the trace Merkle Tree. (See the `merge_authentication_paths` method)
-    /// 
+    ///
     /// Let CompositionMergedPaths be the merged authentication paths of the FRI query indexes i_1, ..., i_k for
     /// the composition polynomial Merkle Tree.
-    /// 
+    ///
     /// If i_1, ..., i_k are all the FRI query indexes sorted in increasing order and without repeated
     /// values, then this method appends
     /// BT_{i_1} | BT_{i_2} | ... | BT_{i_k} | PT | BH_{i_1} | BH_{i_2} | ... | B_{i_k} | PH to the output.
@@ -405,10 +405,7 @@ impl StoneCompatibleSerializer {
 
 #[cfg(test)]
 mod tests {
-    use lambdaworks_math::{
-        field::{element::FieldElement, traits::IsFFTField},
-        traits::Serializable,
-    };
+    use lambdaworks_math::{field::element::FieldElement, traits::Serializable};
 
     use crate::{
         examples::fibonacci_2_cols_shifted::{self, Fibonacci2ColsShifted},
@@ -416,19 +413,6 @@ mod tests {
         prover::{IsStarkProver, Prover},
         transcript::StoneProverTranscript,
     };
-
-    fn fibonacci_transcript_initialization_seed<F>(
-        claimed_index: u64,
-        claimed_value: &FieldElement<F>,
-    ) -> Vec<u8>
-    where
-        F: IsFFTField,
-        FieldElement<F>: Serializable,
-    {
-        let mut transcript_init_seed = claimed_index.to_be_bytes().to_vec();
-        transcript_init_seed.extend_from_slice(&claimed_value.serialize());
-        transcript_init_seed
-    }
 
     #[test]
     fn test_serialization_compatible_with_stone_1() {
@@ -448,14 +432,11 @@ mod tests {
             claimed_index,
         };
 
-        let transcript_init_seed =
-            fibonacci_transcript_initialization_seed(claimed_index as u64, &claimed_value);
-
         let proof = Prover::prove::<Fibonacci2ColsShifted<_>>(
             &trace,
             &pub_inputs,
             &proof_options,
-            StoneProverTranscript::new(&transcript_init_seed),
+            StoneProverTranscript::new(&pub_inputs.serialize()),
         )
         .unwrap();
 
@@ -529,14 +510,11 @@ mod tests {
             claimed_index,
         };
 
-        let transcript_init_seed =
-            fibonacci_transcript_initialization_seed(claimed_index as u64, &claimed_value);
-
         let proof = Prover::prove::<Fibonacci2ColsShifted<_>>(
             &trace,
             &pub_inputs,
             &proof_options,
-            StoneProverTranscript::new(&transcript_init_seed),
+            StoneProverTranscript::new(&pub_inputs.serialize()),
         )
         .unwrap();
         let expected_bytes = [
@@ -624,14 +602,11 @@ mod tests {
             claimed_index,
         };
 
-        let transcript_init_seed =
-            fibonacci_transcript_initialization_seed(claimed_index as u64, &claimed_value);
-
         let proof = Prover::prove::<Fibonacci2ColsShifted<_>>(
             &trace,
             &pub_inputs,
             &proof_options,
-            StoneProverTranscript::new(&transcript_init_seed),
+            StoneProverTranscript::new(&pub_inputs.serialize()),
         )
         .unwrap();
 
@@ -891,14 +866,11 @@ mod tests {
             claimed_index,
         };
 
-        let transcript_init_seed =
-            fibonacci_transcript_initialization_seed(claimed_index as u64, &claimed_value);
-
         let proof = Prover::prove::<Fibonacci2ColsShifted<_>>(
             &trace,
             &pub_inputs,
             &proof_options,
-            StoneProverTranscript::new(&transcript_init_seed),
+            StoneProverTranscript::new(&pub_inputs.serialize()),
         )
         .unwrap();
 
@@ -972,14 +944,11 @@ mod tests {
             claimed_index,
         };
 
-        let transcript_init_seed =
-            fibonacci_transcript_initialization_seed(claimed_index as u64, &claimed_value);
-
         let proof = Prover::prove::<Fibonacci2ColsShifted<_>>(
             &trace,
             &pub_inputs,
             &proof_options,
-            StoneProverTranscript::new(&transcript_init_seed),
+            StoneProverTranscript::new(&pub_inputs.serialize()),
         )
         .unwrap();
 
