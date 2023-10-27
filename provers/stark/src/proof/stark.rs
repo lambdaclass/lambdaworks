@@ -164,26 +164,24 @@ impl StoneCompatibleSerializer {
     ///
     /// Each FRI query index `i` determines a pair of elements `d_i` and `-d_i` on the domain of the
     /// first layer.
-    ///
     /// Let BT_i be the concatenation of the bytes of the following values
     /// t_1(d_i), t_1(-d_i), t_2(d_i), t_2(-d_i), ..., t_m(d_i), t_m(-d_i),
     /// where m is the total number of columns, including RAP extended ones.
-    ///
     /// Similarly, let BH_i be the concatenation of the bytes of the following elements
     /// H_1(d_i), H_1(-d_i), ..., H_s(d_i), H_s(-d_i),
     /// where s is the number of parts into which the composition polynomial was broken.
     ///
-    /// Let TraceMergedPaths be the merged authentication paths of the FRI query indexes i_1, ..., i_k for
-    /// the trace Merkle Tree. (See the `merge_authentication_paths` method)
-    ///
-    /// Let CompositionMergedPaths be the merged authentication paths of the FRI query indexes i_1, ..., i_k for
-    /// the composition polynomial Merkle Tree.
-    ///
     /// If i_1, ..., i_k are all the FRI query indexes sorted in increasing order and without repeated
-    /// values, then this method appends
-    /// BT_{i_1} | BT_{i_2} | ... | BT_{i_k} | PT | BH_{i_1} | BH_{i_2} | ... | B_{i_k} | PH to the output.
+    /// values, then this method appends the following to the output:
     ///
-    /// For example, if there are 6 queries [3, 1, 5, 2, 1, 3], then this method appends the
+    /// BT_{i_1} | BT_{i_2} | ... | BT_{i_k} | TraceMergedPaths | BH_{i_1} | BH_{i_2} | ... | B_{i_k} | CompositionMergedPaths.
+    ///
+    /// Where TraceMergedPaths is the merged authentication paths of the trace Merkle tree for all queries
+    /// and similarly, CompositionMergedPaths is the merged authentication paths of the composition polynomial
+    /// Merkle tree for all queries (see the `merge_authentication_paths` method).
+    ///
+    /// Example:
+    /// If there are 6 queries [3, 1, 5, 2, 1, 3], then this method appends the
     /// following to the output:
     /// `BT_1 | BT_2 | BT_3 | BT_5 | TraceMergedPaths | BH_1 | BH_2 | BH_3 | BH_5 | CompositionMergedPaths`
     fn append_fri_query_phase_first_layer(
@@ -256,6 +254,29 @@ impl StoneCompatibleSerializer {
         }
     }
 
+    /// Appends the values and authentication paths needed for the inner layers of FRI.
+    /// Just as in the append_fri_query_phase_first_layer, for each layer, the authentication
+    /// paths are merged and the redundant field elements are not sent, in order to optimize
+    /// the size of the proof. When having multiple queries we can have repeated field elements
+    /// for two reasons: either we are sending two times the same field element because of
+    /// a repeated query, or we are sending a field element that the verifier could simply
+    /// derive from values from previous layers.
+    ///
+    /// For each layer i there are:
+    /// - X_i = { p_i(-d_j), p_i(d_j) for all queries j }, the elements the verifier needs.
+    /// - Y_i = { p_i( d_j) for all queries j }, the elements that the verifier computes from
+    ///         previous layers.
+    /// - Z_i = X - Y, the elements that the verifier needs but cannot compute from previous layers.
+    ///         sorted by increasing value of query.  
+    /// - MergedPathsLayer_i: the merged authentication paths for all p_i(-d_j)
+    ///
+    /// This method appends:
+    ///
+    /// | Z_1 | MergedPathsLayer_1 |
+    /// | Z_2 | MergedPathsLayer_2 |
+    /// ...
+    ///
+    /// for each layer
     fn append_fri_query_phase_inner_layers(
         proof: &StarkProof<Stark252PrimeField>,
         fri_query_indexes: &[usize],
@@ -321,12 +342,10 @@ impl StoneCompatibleSerializer {
     }
 
     #[allow(unused)]
-    /// Computes a single authentication path out of `n` authentication paths for `n` leaves.
-    /// This means it takes `n` authentication paths and extracts from them a single one that
-    /// has the minimum required nodes to reach the Merkle root, assuming all corresponding `n`
-    /// leaf values are provided. The nodes of the merged authentication path are sorted from level
-    /// 0 to the hightest level of the Merkle tree, and nodes at the same level are sorted from
-    /// left to right.
+    /// Merges `n` authentication paths for `n` leaves into a list of the minimal number of nodes
+    /// needed to reach the Merkle root for all of them. The nodes of the merged authentication
+    /// paths are sorted from level 0 to the hightest level of the Merkle tree, and nodes at the
+    /// same level are sorted from left to right.
     ///
     /// Let's consider some examples. Suppose the Merkle tree is as follows:
     ///
@@ -350,7 +369,7 @@ impl StoneCompatibleSerializer {
     /// `leaf_indexes`: The leaf indexes corresponding to the authentication paths.
     ///
     /// Output:
-    /// The merged authentication path
+    /// The merged authentication paths
     fn merge_authentication_paths(
         authentication_paths: &[&Proof<Commitment>],
         leaf_indexes: &[usize],
