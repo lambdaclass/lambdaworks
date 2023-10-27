@@ -1,15 +1,16 @@
 use super::field_extension::BLS12381PrimeField;
 use crate::cyclic_group::IsGroup;
+use crate::elliptic_curve::short_weierstrass::curves::bls12_381::curve::BLS12381Curve;
 use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
-use crate::elliptic_curve::traits::FromAffine;
 use crate::field::element::FieldElement;
 use crate::unsigned_integer::element::U256;
+
+#[cfg(feature = "std")]
 use crate::{
-    elliptic_curve::short_weierstrass::curves::bls12_381::curve::BLS12381Curve,
-    errors::ByteConversionError, traits::ByteConversion,
+    elliptic_curve::traits::FromAffine, errors::ByteConversionError, traits::ByteConversion,
 };
-use std::cmp::Ordering;
-use std::ops::Neg;
+#[cfg(feature = "std")]
+use std::{cmp::Ordering, ops::Neg};
 
 pub type G1Point = ShortWeierstrassProjectivePoint<BLS12381Curve>;
 pub type BLS12381FieldElement = FieldElement<BLS12381PrimeField>;
@@ -22,6 +23,7 @@ pub fn check_point_is_in_subgroup(point: &G1Point) -> bool {
     inf == aux_point
 }
 
+#[cfg(feature = "std")]
 pub fn decompress_g1_point(input_bytes: &mut [u8; 48]) -> Result<G1Point, ByteConversionError> {
     let first_byte = input_bytes.first().unwrap();
     // We get the 3 most significant bits
@@ -71,6 +73,7 @@ pub fn decompress_g1_point(input_bytes: &mut [u8; 48]) -> Result<G1Point, ByteCo
         .ok_or(ByteConversionError::PointNotInSubgroup)
 }
 
+#[cfg(feature = "std")]
 pub fn compress_g1_point(point: &G1Point) -> Vec<u8> {
     if *point == G1Point::neutral_element() {
         // point is at infinity
@@ -100,13 +103,15 @@ pub fn compress_g1_point(point: &G1Point) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::{BLS12381FieldElement, G1Point};
-    use crate::cyclic_group::IsGroup;
     use crate::elliptic_curve::short_weierstrass::curves::bls12_381::curve::BLS12381Curve;
     use crate::elliptic_curve::traits::{FromAffine, IsEllipticCurve};
-    use crate::traits::ByteConversion;
-    use crate::unsigned_integer::element::UnsignedInteger;
 
+    #[cfg(feature = "std")]
     use super::{compress_g1_point, decompress_g1_point};
+    #[cfg(feature = "std")]
+    use crate::{
+        cyclic_group::IsGroup, traits::ByteConversion, unsigned_integer::element::UnsignedInteger,
+    };
 
     #[test]
     fn test_zero_point() {
@@ -121,6 +126,7 @@ mod tests {
         assert!(!super::check_point_is_in_subgroup(&false_point2));
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn test_g1_compress_generator() {
         let g = BLS12381Curve::generator();
@@ -136,6 +142,7 @@ mod tests {
         assert_eq!(*g_x, compressed_g_x);
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn test_g1_compress_point_at_inf() {
         let inf = G1Point::neutral_element();
@@ -145,6 +152,7 @@ mod tests {
         assert_eq!(*first_byte >> 6, 3_u8);
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn test_compress_decompress_generator() {
         let g = BLS12381Curve::generator();
@@ -156,6 +164,7 @@ mod tests {
         assert_eq!(g, decompressed_g);
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn test_compress_decompress_2g() {
         let g = BLS12381Curve::generator();

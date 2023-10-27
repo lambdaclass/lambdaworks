@@ -1,8 +1,15 @@
-use lambdaworks_math::{
-    errors::DeserializationError,
-    field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
-    traits::{Deserializable, Serializable},
+use crate::{
+    air::{
+        generate_cairo_proof, verify_cairo_proof, CairoAIR, MemorySegment, MemorySegmentMap,
+        PublicInputs, FRAME_DST_ADDR, FRAME_OP0_ADDR, FRAME_OP1_ADDR, FRAME_PC,
+    },
+    cairo_layout::CairoLayout,
+    execution_trace::build_main_trace,
+    runner::run::{generate_prover_args, run_program},
+    tests::utils::{cairo0_program_path, test_prove_cairo_program},
+    Felt252,
 };
+use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
 use stark_platinum_prover::{
     debug::validate_trace,
     domain::Domain,
@@ -15,18 +22,6 @@ use stark_platinum_prover::{
     transcript::StoneProverTranscript,
 };
 
-use crate::{
-    air::{
-        generate_cairo_proof, verify_cairo_proof, CairoAIR, MemorySegment, MemorySegmentMap,
-        PublicInputs, FRAME_DST_ADDR, FRAME_OP0_ADDR, FRAME_OP1_ADDR, FRAME_PC,
-    },
-    cairo_layout::CairoLayout,
-    execution_trace::build_main_trace,
-    runner::run::{generate_prover_args, run_program},
-    tests::utils::{cairo0_program_path, test_prove_cairo_program},
-    Felt252,
-};
-
 #[test_log::test]
 fn test_prove_cairo_simple_program() {
     let layout = CairoLayout::Plain;
@@ -37,6 +32,34 @@ fn test_prove_cairo_simple_program() {
 fn test_prove_cairo_fibonacci_5() {
     let layout = CairoLayout::Plain;
     test_prove_cairo_program(&cairo0_program_path("fibonacci_5.json"), &None, layout);
+}
+
+#[test_log::test]
+fn test_verifier_rejects_wrong_authentication_paths() {
+    // Setup
+    let proof_options = ProofOptions::default_test_options();
+    let program_content = std::fs::read(cairo0_program_path("fibonacci_5.json")).unwrap();
+    let (main_trace, pub_inputs) =
+        generate_prover_args(&program_content, &None, CairoLayout::Plain).unwrap();
+
+    // Generate the proof
+    let mut proof = generate_cairo_proof(&main_trace, &pub_inputs, &proof_options).unwrap();
+
+    // Change order of authentication path hashes
+    let query = 0;
+    let merkle_tree = 0;
+    let mut original_path = proof.deep_poly_openings[query].lde_trace_merkle_proofs[merkle_tree]
+        .merkle_path
+        .clone();
+    original_path.swap(0, 1);
+    // For the test to make sense, we have to make sure
+    // that the two hashes are different.
+    assert_ne!(original_path[0], original_path[1]);
+    proof.deep_poly_openings[query].lde_trace_merkle_proofs[merkle_tree].merkle_path =
+        original_path;
+
+    // Verifier should reject the proof
+    assert!(!verify_cairo_proof(&proof, &pub_inputs, &proof_options));
 }
 
 #[test_log::test]
@@ -136,13 +159,13 @@ fn test_verifier_rejects_proof_with_changed_range_check_value() {
 
     let proof_options = ProofOptions::default_test_options();
 
-    let mut malicious_trace_columns = main_trace.cols();
+    let mut malicious_trace_columns = main_trace.columns();
     let n_cols = malicious_trace_columns.len();
     let mut last_column = malicious_trace_columns.last().unwrap().clone();
     last_column[0] = malicious_rc_value;
     malicious_trace_columns[n_cols - 1] = last_column;
 
-    let malicious_trace = TraceTable::new_from_cols(&malicious_trace_columns);
+    let malicious_trace = TraceTable::from_columns(&malicious_trace_columns);
     let proof = generate_cairo_proof(&malicious_trace, &pub_inputs, &proof_options).unwrap();
     assert!(!verify_cairo_proof(&proof, &pub_inputs, &proof_options));
 }
@@ -205,12 +228,12 @@ fn test_verifier_rejects_proof_with_changed_output() {
 
     let proof_options = ProofOptions::default_test_options();
 
-    let mut malicious_trace_columns = main_trace.cols();
+    let mut malicious_trace_columns = main_trace.columns();
     let mut output_value_column = malicious_trace_columns[output_col_idx + 4].clone();
     output_value_column[output_row_idx] = malicious_output_value;
     malicious_trace_columns[output_col_idx + 4] = output_value_column;
 
-    let malicious_trace = TraceTable::new_from_cols(&malicious_trace_columns);
+    let malicious_trace = TraceTable::from_columns(&malicious_trace_columns);
     let proof = generate_cairo_proof(&malicious_trace, &pub_inputs, &proof_options).unwrap();
     assert!(!verify_cairo_proof(&proof, &pub_inputs, &proof_options));
 }
@@ -271,7 +294,7 @@ fn deserialize_and_verify() {
 
     // The proof is generated and serialized.
     let proof = generate_cairo_proof(&main_trace, &pub_inputs, &proof_options).unwrap();
-    let proof_bytes = proof.serialize();
+    let proof_bytes: Vec<u8> = serde_cbor::to_vec(&proof).unwrap();
 
     // The trace and original proof are dropped to show that they are decoupled from
     // the verifying process.
@@ -280,38 +303,8 @@ fn deserialize_and_verify() {
 
     // At this point, the verifier only knows about the serialized proof, the proof options
     // and the public inputs.
-    let proof = StarkProof::<Stark252PrimeField>::deserialize(&proof_bytes).unwrap();
+    let proof: StarkProof<Stark252PrimeField> = serde_cbor::from_slice(&proof_bytes).unwrap();
 
     // The proof is verified successfully.
     assert!(verify_cairo_proof(&proof, &pub_inputs, &proof_options));
-}
-
-#[test]
-fn deserialize_should_not_panic_with_changed_and_sliced_bytes() {
-    let program_content = std::fs::read(cairo0_program_path("fibonacci_10.json")).unwrap();
-    let (main_trace, pub_inputs) =
-        generate_prover_args(&program_content, &None, CairoLayout::Plain).unwrap();
-
-    let proof_options = ProofOptions::default_test_options();
-
-    // The proof is generated and serialized.
-    let proof = generate_cairo_proof(&main_trace, &pub_inputs, &proof_options).unwrap();
-    let mut proof_bytes = proof.serialize();
-
-    // The trace and original proof are dropped to show that they are decoupled from
-    // the verifying process.
-    drop(main_trace);
-    drop(proof);
-
-    for byte in proof_bytes.iter_mut().take(21664) {
-        *byte = 255;
-    }
-    proof_bytes = proof_bytes[0..517].to_vec();
-
-    assert_eq!(
-        DeserializationError::InvalidAmountOfBytes,
-        StarkProof::<Stark252PrimeField>::deserialize(&proof_bytes)
-            .err()
-            .unwrap()
-    );
 }

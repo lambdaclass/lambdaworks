@@ -46,6 +46,26 @@ impl FieldElement<Stark252PrimeField> {
         bytes
     }
 
+    /// This follows the convention used by starknet-rs
+    pub fn to_bits_le(&self) -> [bool; 256] {
+        let limbs = self.representative().limbs;
+        let mut bits = [false; 256];
+
+        for i in (0..4).rev() {
+            let limb_bytes = limbs[i].to_le_bytes();
+            let limb_bytes_starting_index = (3 - i) * 8;
+            for (j, byte) in limb_bytes.iter().enumerate() {
+                let byte_index = (limb_bytes_starting_index + j) * 8;
+                for k in 0..8 {
+                    let bit_index = byte_index + k;
+                    let bit_value = (byte >> k) & 1 == 1;
+                    bits[bit_index] = bit_value;
+                }
+            }
+        }
+        bits
+    }
+
     /// No std version of `to_bytes_be` from `ByteConversion` trait
     /// This follows the convention used by
     /// Starkware and Lambdaclass Cairo VM It's the same as ByteConversion to_bytes_be.
@@ -63,6 +83,7 @@ impl FieldElement<Stark252PrimeField> {
     }
 }
 
+#[allow(clippy::incorrect_partial_ord_impl_on_ord_type)]
 impl PartialOrd for FieldElement<Stark252PrimeField> {
     fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
         self.representative().partial_cmp(&other.representative())

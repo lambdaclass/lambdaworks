@@ -1,6 +1,6 @@
 use crate::elliptic_curve::traits::IsEllipticCurve;
 use crate::field::element::FieldElement;
-use std::fmt::Debug;
+use core::fmt::Debug;
 
 /// Trait to add elliptic curves behaviour to a struct.
 pub trait IsMontgomery: IsEllipticCurve + Clone + Debug {
