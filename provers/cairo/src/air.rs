@@ -13,14 +13,15 @@ use stark_platinum_prover::{
     context::AirContext,
     frame::Frame,
     proof::{options::ProofOptions, stark::StarkProof},
-    prover::{prove, ProvingError},
+    prover::{IsStarkProver, Prover, ProvingError},
     trace::TraceTable,
     traits::AIR,
     transcript::{IsStarkTranscript, StoneProverTranscript},
-    verifier::verify,
+    verifier::{IsStarkVerifier, Verifier},
 };
 
 use crate::Felt252;
+use stark_platinum_prover::table::Table;
 
 use super::{cairo_mem::CairoMemory, register_states::RegisterStates};
 
@@ -673,7 +674,8 @@ impl AIR for CairoAIR {
             transition_exemptions.push(0); // range-check builtin exemption
             num_transition_constraints += 1; // range-check builtin value decomposition constraint
         }
-        let num_transition_exemptions =1_usize;
+        let num_transition_exemptions = 1_usize;
+
         let context = AirContext {
             proof_options: proof_options.clone(),
             trace_columns,
@@ -708,19 +710,16 @@ impl AIR for CairoAIR {
         main_trace: &TraceTable<Self::Field>,
         rap_challenges: &Self::RAPChallenges,
     ) -> TraceTable<Self::Field> {
-        let addresses_original = main_trace
-            .get_cols(&[
-                FRAME_PC,
-                FRAME_DST_ADDR,
-                FRAME_OP0_ADDR,
-                FRAME_OP1_ADDR,
-                EXTRA_ADDR,
-            ])
-            .table;
+        let addresses_original = main_trace.merge_columns(&[
+            FRAME_PC,
+            FRAME_DST_ADDR,
+            FRAME_OP0_ADDR,
+            FRAME_OP1_ADDR,
+            EXTRA_ADDR,
+        ]);
 
-        let values_original = main_trace
-            .get_cols(&[FRAME_INST, FRAME_DST, FRAME_OP0, FRAME_OP1, EXTRA_VAL])
-            .table;
+        let values_original =
+            main_trace.merge_columns(&[FRAME_INST, FRAME_DST, FRAME_OP0, FRAME_OP1, EXTRA_VAL]);
 
         let (addresses, values) = add_pub_memory_in_public_input_section(
             &addresses_original,
@@ -739,9 +738,8 @@ impl AIR for CairoAIR {
         );
 
         // Range Check
-        let offsets_original = main_trace
-            .get_cols(&[OFF_DST, OFF_OP0, OFF_OP1, RC_HOLES])
-            .table;
+        let offsets_original = main_trace.merge_columns(&[OFF_DST, OFF_OP0, OFF_OP1, RC_HOLES]);
+
         let mut offsets_sorted: Vec<u16> = offsets_original
             .iter()
             .map(|x| x.representative().into())
@@ -759,34 +757,36 @@ impl AIR for CairoAIR {
         );
 
         // Convert from long-format to wide-format again
-        let mut aux_table = Vec::new();
+        let mut aux_data = Vec::new();
         for i in 0..main_trace.n_rows() {
-            aux_table.push(offsets_sorted[4 * i]);
-            aux_table.push(offsets_sorted[4 * i + 1]);
-            aux_table.push(offsets_sorted[4 * i + 2]);
-            aux_table.push(offsets_sorted[4 * i + 3]);
-            aux_table.push(addresses[5 * i]);
-            aux_table.push(addresses[5 * i + 1]);
-            aux_table.push(addresses[5 * i + 2]);
-            aux_table.push(addresses[5 * i + 3]);
-            aux_table.push(addresses[5 * i + 4]);
-            aux_table.push(values[5 * i]);
-            aux_table.push(values[5 * i + 1]);
-            aux_table.push(values[5 * i + 2]);
-            aux_table.push(values[5 * i + 3]);
-            aux_table.push(values[5 * i + 4]);
-            aux_table.push(permutation_col[5 * i]);
-            aux_table.push(permutation_col[5 * i + 1]);
-            aux_table.push(permutation_col[5 * i + 2]);
-            aux_table.push(permutation_col[5 * i + 3]);
-            aux_table.push(permutation_col[5 * i + 4]);
-            aux_table.push(range_check_permutation_col[4 * i]);
-            aux_table.push(range_check_permutation_col[4 * i + 1]);
-            aux_table.push(range_check_permutation_col[4 * i + 2]);
-            aux_table.push(range_check_permutation_col[4 * i + 3]);
+            aux_data.push(offsets_sorted[4 * i]);
+            aux_data.push(offsets_sorted[4 * i + 1]);
+            aux_data.push(offsets_sorted[4 * i + 2]);
+            aux_data.push(offsets_sorted[4 * i + 3]);
+            aux_data.push(addresses[5 * i]);
+            aux_data.push(addresses[5 * i + 1]);
+            aux_data.push(addresses[5 * i + 2]);
+            aux_data.push(addresses[5 * i + 3]);
+            aux_data.push(addresses[5 * i + 4]);
+            aux_data.push(values[5 * i]);
+            aux_data.push(values[5 * i + 1]);
+            aux_data.push(values[5 * i + 2]);
+            aux_data.push(values[5 * i + 3]);
+            aux_data.push(values[5 * i + 4]);
+            aux_data.push(permutation_col[5 * i]);
+            aux_data.push(permutation_col[5 * i + 1]);
+            aux_data.push(permutation_col[5 * i + 2]);
+            aux_data.push(permutation_col[5 * i + 3]);
+            aux_data.push(permutation_col[5 * i + 4]);
+            aux_data.push(range_check_permutation_col[4 * i]);
+            aux_data.push(range_check_permutation_col[4 * i + 1]);
+            aux_data.push(range_check_permutation_col[4 * i + 2]);
+            aux_data.push(range_check_permutation_col[4 * i + 3]);
         }
 
-        TraceTable::new(aux_table, self.number_auxiliary_rap_columns())
+        let aux_table = Table::new(&aux_data, self.number_auxiliary_rap_columns());
+
+        TraceTable { table: aux_table }
     }
 
     fn build_rap_challenges(
@@ -1254,7 +1254,7 @@ pub fn generate_cairo_proof(
     pub_input: &PublicInputs,
     proof_options: &ProofOptions,
 ) -> Result<StarkProof<Stark252PrimeField>, ProvingError> {
-    prove::<Stark252PrimeField, CairoAIR>(
+    Prover::prove::<CairoAIR>(
         trace,
         pub_input,
         proof_options,
@@ -1270,7 +1270,7 @@ pub fn verify_cairo_proof(
     pub_input: &PublicInputs,
     proof_options: &ProofOptions,
 ) -> bool {
-    verify::<Stark252PrimeField, CairoAIR>(
+    Verifier::verify::<CairoAIR>(
         proof,
         pub_input,
         proof_options,
@@ -1567,7 +1567,6 @@ mod test {
 #[cfg(test)]
 mod prop_test {
     use lambdaworks_math::{
-        errors::DeserializationError,
         field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
         traits::{Deserializable, Serializable},
     };
@@ -1652,7 +1651,7 @@ mod prop_test {
 
         // The proof is generated and serialized.
         let proof = generate_cairo_proof(&main_trace, &pub_inputs, &proof_options).unwrap();
-        let proof_bytes = proof.serialize();
+        let proof_bytes: Vec<u8> = serde_cbor::to_vec(&proof).unwrap();
 
         // The trace and original proof are dropped to show that they are decoupled from
         // the verifying process.
@@ -1661,49 +1660,9 @@ mod prop_test {
 
         // At this point, the verifier only knows about the serialized proof, the proof options
         // and the public inputs.
-        let proof = StarkProof::<Stark252PrimeField>::deserialize(&proof_bytes).unwrap();
+        let proof: StarkProof<Stark252PrimeField> = serde_cbor::from_slice(&proof_bytes).unwrap();
 
         // The proof is verified successfully.
         assert!(verify_cairo_proof(&proof, &pub_inputs, &proof_options));
-    }
-
-    #[test]
-    fn deserialize_should_not_panic_with_changed_and_sliced_bytes() {
-        let program_content = std::fs::read(cairo0_program_path("fibonacci_10.json")).unwrap();
-        let (main_trace, pub_inputs) =
-            generate_prover_args(&program_content, &None, CairoLayout::Plain).unwrap();
-
-        let proof_options = ProofOptions::default_test_options();
-
-        // The proof is generated and serialized.
-        let proof = generate_cairo_proof(&main_trace, &pub_inputs, &proof_options).unwrap();
-        let mut proof_bytes = proof.serialize();
-
-        // The trace and original proof are dropped to show that they are decoupled from
-        // the verifying process.
-        drop(main_trace);
-        drop(proof);
-
-        for byte in proof_bytes.iter_mut().take(21664) {
-            *byte = 255;
-        }
-        proof_bytes = proof_bytes[0..517].to_vec();
-
-        assert_eq!(
-            DeserializationError::InvalidAmountOfBytes,
-            StarkProof::<Stark252PrimeField>::deserialize(&proof_bytes)
-                .err()
-                .unwrap()
-        );
-    }
-
-    #[test]
-    fn deserialize_empty_proof_should_give_error() {
-        assert_eq!(
-            DeserializationError::InvalidAmountOfBytes,
-            StarkProof::<Stark252PrimeField>::deserialize(&[])
-                .err()
-                .unwrap()
-        );
     }
 }

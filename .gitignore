@@ -23,3 +23,4 @@ proving_system/stark/src/cairo_run/program.trace
 ensure-no_std/target
 # Files from fuzzers are inside a corpus folder
 **/corpus/**
+**/artifacts/**

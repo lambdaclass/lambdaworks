@@ -1,5 +1,5 @@
 [workspace]
-members = ["math", "crypto", "gpu", "benches", "provers/plonk", "provers/stark", "provers/cairo"]
+members = ["math", "crypto", "gpu", "benches", "provers/plonk", "provers/stark", "provers/cairo", "provers/cairo"]
 exclude = ["ensure-no_std"]
 resolver = "2"
 
@@ -15,6 +15,7 @@ lambdaworks-crypto = { path = "./crypto", version = "0.2.0" }
 lambdaworks-gpu = { path = "./gpu", version = "0.2.0" }
 lambdaworks-math = { path = "./math", version = "0.2.0" }
 stark-platinum-prover = { path = "./provers/stark", version = "0.2.0" }
+cairo-platinum-prover = { path = "./provers/cairo", version = "0.2.0" }
 
 [profile.bench]
 lto = true
