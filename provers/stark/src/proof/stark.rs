@@ -320,6 +320,7 @@ impl StoneCompatibleSerializer {
                 .difference(&reconstructed_row_col)
                 .collect();
 
+            // Append Z_i
             for element in row_col_to_send
                 .iter()
                 .map(|(row, col)| &fri_layers_evaluations[&(i as u64, *row, *col)])
@@ -327,7 +328,6 @@ impl StoneCompatibleSerializer {
                 output.extend_from_slice(&element.serialize());
             }
 
-            // Compute and send merged authentication paths
             indexes_previous_layer = indexes_previous_layer
                 .iter()
                 .map(|index| index >> 1)
@@ -339,6 +339,7 @@ impl StoneCompatibleSerializer {
                 .map(|decommitment| &decommitment.layers_auth_paths[i])
                 .collect();
 
+            // Append MergedPathsLayer_i
             let nodes =
                 Self::merge_authentication_paths(&layer_auth_paths, &indexes_previous_layer);
             for node in nodes.iter() {
