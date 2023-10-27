@@ -26,6 +26,18 @@ pub type KZG = KateZaveruchaGoldberg<FrField, Pairing>;
 pub type G1Point = <BLS12381Curve as IsEllipticCurve>::PointRepresentation;
 pub type G2Point = <BLS12381TwistCurve as IsEllipticCurve>::PointRepresentation;
 
+fn sample_field_elem() -> FrElement {
+    let mut rng = rand::thread_rng();
+    FrElement::new(U256 {
+        limbs: [
+            rng.gen::<u64>(),
+            rng.gen::<u64>(),
+            rng.gen::<u64>(),
+            rng.gen::<u64>(),
+        ],
+    })
+}
+
 pub struct ToxicWaste {
     pub tau: FrElement,
     pub alpha: FrElement,
@@ -35,26 +47,13 @@ pub struct ToxicWaste {
 }
 
 impl ToxicWaste {
-    fn sample_field_elem() -> FrElement {
-        // Config
-        let mut rng = rand::thread_rng();
-        FrElement::new(U256 {
-            limbs: [
-                rng.gen::<u64>(),
-                rng.gen::<u64>(),
-                rng.gen::<u64>(),
-                rng.gen::<u64>(),
-            ],
-        })
-    }
-
     pub fn new() -> Self {
         Self {
-            tau: Self::sample_field_elem(),
-            alpha: Self::sample_field_elem(),
-            beta: Self::sample_field_elem(),
-            gamma: Self::sample_field_elem(),
-            delta: Self::sample_field_elem(),
+            tau: sample_field_elem(),
+            alpha: sample_field_elem(),
+            beta: sample_field_elem(),
+            gamma: sample_field_elem(),
+            delta: sample_field_elem(),
         }
     }
 }
@@ -256,7 +255,6 @@ fn main() {
     // [A_i(τ)]_1, [B_i(τ)]_1, [B_i(τ)]_2
     let mut l_tau_g1: Vec<G1Point> = vec![];
     let mut r_tau_g1: Vec<G1Point> = vec![];
-
     let mut r_tau_g2: Vec<G2Point> = vec![];
     let mut verifier_k_tau_g1: Vec<G1Point> = vec![];
     let mut prover_k_tau_g1: Vec<G1Point> = vec![];
@@ -324,6 +322,11 @@ fn main() {
     ////////////////////////////// Prove /////////////////////////////////
     //////////////////////////////////////////////////////////////////////
 
+    // Sample zk-shifts r and s
+
+    let r = sample_field_elem();
+    let s = sample_field_elem();
+
     // aka the secret assignments, w vector, s vector
     // Includes the public inputs from the beginning.
     let w = ["0x1", "0x3", "0x23", "0x9", "0x1b", "0x1e"]
@@ -332,25 +335,30 @@ fn main() {
 
     let h = calculate_h(&qap, &w);
 
+    // [π_1]_1
+    let mut pi1_g1 = w
+        .iter()
+        .enumerate()
+        .map(|(i, coeff)| pk.l_tau_g1[i].operate_with_self(coeff.representative()))
+        .reduce(|acc, x| acc.operate_with(&x))
+        .unwrap()
+        .operate_with(&pk.alpha_g1);
+
+    // [π_2]_2
+    let mut pi2_g2 = w
+        .iter()
+        .enumerate()
+        .map(|(i, coeff)| pk.r_tau_g2[i].operate_with_self(coeff.representative()))
+        .reduce(|acc, x| acc.operate_with(&x))
+        .unwrap()
+        .operate_with(&pk.beta_g2);
+
+    // [ƍ^{-1} * t(τ)*h(τ)]_1
     let t_tau_h_tau_assigned_g1 = h
         .coefficients()
         .iter()
         .enumerate()
         .map(|(i, coeff)| pk.z_powers_of_tau_g1[i].operate_with_self(coeff.representative()))
-        .reduce(|acc, x| acc.operate_with(&x))
-        .unwrap();
-
-    let l_tau_assigned_g1 = w
-        .iter()
-        .enumerate()
-        .map(|(i, coeff)| pk.l_tau_g1[i].operate_with_self(coeff.representative()))
-        .reduce(|acc, x| acc.operate_with(&x))
-        .unwrap();
-
-    let r_tau_assigned_g2 = w
-        .iter()
-        .enumerate()
-        .map(|(i, coeff)| pk.r_tau_g2[i].operate_with_self(coeff.representative()))
         .reduce(|acc, x| acc.operate_with(&x))
         .unwrap();
 
@@ -363,36 +371,57 @@ fn main() {
         .reduce(|acc, x| acc.operate_with(&x))
         .unwrap();
 
-    //////////////////////////////////////////////////////////////////////
-    ////////////////////////////// Verify ////////////////////////////////
-    //////////////////////////////////////////////////////////////////////
-
+    // Verifier's
     // [γ^{-1} * (β*l(τ) + α*r(τ) + o(τ))]_1
     let k_tau_assigned_verifier_g1 = (0..qap.num_of_public_inputs)
         .map(|i| vk.verifier_k_tau_g1[i].operate_with_self(w[i].representative()))
         .reduce(|acc, x| acc.operate_with(&x))
         .unwrap();
 
-    /*
-        SNARK verification without ZK
+    // [π_3]_1
+    let mut pi3_g1 = t_tau_h_tau_assigned_g1.operate_with(&k_tau_assigned_prover_g1);
 
-        (A.s + α) * (B.s + β) =
-            αβ +
-            δ * δ^{-1} * (
-                t(τ)*h(τ) + β*A(τ) + α*B(τ) + C(τ)
-            ) +
-            γ * γ^{-1} * (
-                β*A(τ) + α*B(τ) + C(τ)
-            )
-    */
+    // Verify without ZK
+
     assert_eq!(
-        vk.alpha_g1_times_beta_g2
-            * Pairing::compute(&t_tau_h_tau_assigned_g1, &vk.delta_g2)
-            * Pairing::compute(&k_tau_assigned_prover_g1, &vk.delta_g2)
+        Pairing::compute(&pi3_g1, &vk.delta_g2)
+            * &vk.alpha_g1_times_beta_g2
             * Pairing::compute(&k_tau_assigned_verifier_g1, &vk.gamma_g2),
-        Pairing::compute(
-            &l_tau_assigned_g1.operate_with(&pk.alpha_g1),
-            &r_tau_assigned_g2.operate_with(&pk.beta_g2)
-        ),
+        Pairing::compute(&pi1_g1, &pi2_g2),
+    );
+
+    ////////////////////////////// Introduce ZK
+
+    pi1_g1 = pi1_g1.operate_with(&pk.delta_g1.operate_with_self(r.representative()));
+    pi2_g2 = pi2_g2.operate_with(&pk.delta_g2.operate_with_self(s.representative()));
+
+    // [π_2]_1
+    let pi2_g1 = w
+        .iter()
+        .enumerate()
+        .map(|(i, coeff)| pk.r_tau_g1[i].operate_with_self(coeff.representative()))
+        .reduce(|acc, x| acc.operate_with(&x))
+        .unwrap()
+        .operate_with(&pk.beta_g1)
+        // zk
+        .operate_with(&pk.delta_g1.operate_with_self(s.representative()));
+
+    // s[π_1]_1
+    pi3_g1 = pi3_g1
+        .operate_with(&pi1_g1.operate_with_self(s.representative()))
+        // r[π_2]_1
+        .operate_with(&pi2_g1.operate_with_self(r.representative()))
+        // -rs[ƍ]_1
+        .operate_with(&pk.delta_g1.operate_with_self((-(&r * &s)).representative()));
+
+    // //////////////////////////////////////////////////////////////////////
+    // ////////////////////////////// Verify ////////////////////////////////
+    // //////////////////////////////////////////////////////////////////////
+
+    assert_eq!(
+        Pairing::compute(&pi3_g1, &vk.delta_g2)
+            * vk.alpha_g1_times_beta_g2
+            * Pairing::compute(&k_tau_assigned_verifier_g1, &vk.gamma_g2),
+        Pairing::compute(&pi1_g1, &pi2_g2),
     );
 }
