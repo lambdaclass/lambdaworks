@@ -65,57 +65,29 @@ impl StoneCompatibleSerializer {
     pub fn serialize_proof<A>(
         proof: &StarkProof<Stark252PrimeField>,
         public_inputs: &A::PublicInputs,
-        proof_options: &ProofOptions,
+        options: &ProofOptions,
     ) -> Vec<u8>
     where
         A: AIR<Field = Stark252PrimeField>,
         A::PublicInputs: Serializable,
     {
-        let mut output = Vec::<u8>::new();
+        let mut output = Vec::new();
+
         Self::append_trace_commitment(proof, &mut output);
         Self::append_composition_polynomial_commitment(proof, &mut output);
         Self::append_out_of_domain_evaluations(proof, &mut output);
         Self::append_fri_commit_phase_commitments(proof, &mut output);
         Self::append_proof_of_work_nonce(proof, &mut output);
-        let fri_query_indexes =
-            Self::reconstruct_fri_query_indexes::<A>(proof, public_inputs, proof_options);
+
+        let fri_query_indexes = Self::get_fri_query_indexes::<A>(proof, public_inputs, options);
         Self::append_fri_query_phase_first_layer(proof, &fri_query_indexes, &mut output);
         Self::append_fri_query_phase_inner_layers(proof, &fri_query_indexes, &mut output);
 
         output
     }
 
-    #[allow(unused)]
-    fn merge_authentication_paths(
-        authentication_paths: &[&Proof<Commitment>],
-        queries: &[usize],
-    ) -> Vec<Commitment> {
-        debug_assert_eq!(queries.len(), authentication_paths.len());
-        let mut merkle_tree: HashMap<(usize, usize), Commitment> = HashMap::new();
-        for (index_previous_layer, path) in queries.iter().zip(authentication_paths.iter()) {
-            let mut node_index = *index_previous_layer;
-            for (tree_level, node) in path.merkle_path.iter().enumerate() {
-                merkle_tree.insert((tree_level, node_index ^ 1), *node);
-                node_index >>= 1;
-            }
-        }
-
-        let mut result = Vec::new();
-        let mut level_indexes: BTreeSet<usize> = queries.iter().copied().collect();
-        let merkle_tree_height = authentication_paths[0].merkle_path.len();
-        for tree_level in 0..merkle_tree_height {
-            for node_index in level_indexes.iter() {
-                let sibling_index = node_index ^ 1;
-                if !level_indexes.contains(&sibling_index) {
-                    let node = &merkle_tree[&(tree_level, sibling_index)];
-                    result.push(*node);
-                }
-            }
-            level_indexes = level_indexes.iter().map(|index| *index >> 1).collect();
-        }
-        result
-    }
-
+    /// Appends the root bytes of the Merkle tree for the main trace, and if there is a RAP round,
+    /// it also appends the root bytes of the Merkle tree for the extended columns.
     fn append_trace_commitment(proof: &StarkProof<Stark252PrimeField>, output: &mut Vec<u8>) {
         output.extend_from_slice(
             &proof
@@ -127,6 +99,7 @@ impl StoneCompatibleSerializer {
         );
     }
 
+    /// Appends the root bytes of the Merkle tree for the composition polynomial.
     fn append_composition_polynomial_commitment(
         proof: &StarkProof<Stark252PrimeField>,
         output: &mut Vec<u8>,
@@ -134,6 +107,15 @@ impl StoneCompatibleSerializer {
         output.extend_from_slice(&proof.composition_poly_root);
     }
 
+    /// Appends the bytes of the evaluations of the trace `t_1, ..., t_m` and composition polynomial parts
+    /// `H_1, ..., H_s` at the out of domain challenge `z`, its shifts `g^i z` and its power `z^s`, respectively.
+    /// These are sorted as follows: first the evaluations of the trace in increasing order of
+    /// trace column and shift number. Then all the evaluations of the parts of the composition
+    /// polynomial. That is:
+    ///
+    /// t_1(z), ..., t_m(z), t_1(gz), ..., t_m(gz), ..., t_1(g^K z), ..., t_m(g^K z), H_1(z^s), ..., H_s(z^s).
+    ///
+    /// Here, K is the length of the frame size.
     fn append_out_of_domain_evaluations(
         proof: &StarkProof<Stark252PrimeField>,
         output: &mut Vec<u8>,
@@ -141,14 +123,12 @@ impl StoneCompatibleSerializer {
         for i in 0..proof.trace_ood_frame_evaluations.n_cols() {
             for j in 0..proof.trace_ood_frame_evaluations.n_rows() {
                 output
-                    // Out Of Domain Sampling/OODS values: ..
                     .extend_from_slice(
                         &proof.trace_ood_frame_evaluations.get_row(j)[i].serialize(),
                     );
             }
         }
 
-        // Out Of Domain Sampling/OODS values: ..
         for elem in proof.composition_poly_parts_ood_evaluation.iter() {
             output.extend_from_slice(&elem.serialize());
         }
@@ -312,7 +292,67 @@ impl StoneCompatibleSerializer {
         }
     }
 
-    fn reconstruct_fri_query_indexes<A>(
+    #[allow(unused)]
+    /// Computes a single authentication path out of `n` authentication paths for `n` leaves.
+    /// This means it takes `n` authentication paths and extracts from them a single one that
+    /// has the minimum required nodes to reach the Merkle root, assuming all corresponding `n`
+    /// leaf values are provided. The nodes of the merged authentication path are sorted from level
+    /// 0 to the hightest level of the Merkle tree, and nodes at the same level are sorted from
+    /// left to right.
+    ///
+    /// Let's consider some examples. Suppose the Merkle tree is as follows:
+    ///
+    /// Root              ABCD
+    ///                  /    \
+    /// Level 1         AB    CD
+    ///                /  \  /  \
+    /// Level 0       A   B C    D
+    /// Leaf index    0   1 2    3
+    ///
+    /// All authentication paths are `pA = [B, CD]`, `pB = [A, CD]`, `pC = [D, AB]` and `pD = [C, AB]`.
+    ///
+    /// (1) `merge_authentication_paths([pA, pB], [0, 1]) = [CD]`.
+    /// (2) `merge_authentication_paths([pC, pA], [2, 0]) = [B, D]`.
+    /// (3) `merge_authentication_paths([pA, pD], [0, 3]) = [B, C]`.
+    /// (4) `merge_authentication_paths([pA, pD, pB], [0, 3, 1]) = [C]`.
+    /// (5) `merge_authentication_paths([pA, pB, pC, pD], [0, 1, 2, 3]) = []`.
+    ///
+    /// Input:
+    /// `authentication_paths`: The authentication paths to be merged.
+    /// `leaf_indexes`: The leaf indexes corresponding to the authentication paths.
+    ///
+    /// Output:
+    /// The merged authentication path
+    fn merge_authentication_paths(
+        authentication_paths: &[&Proof<Commitment>],
+        leaf_indexes: &[usize],
+    ) -> Vec<Commitment> {
+        debug_assert_eq!(leaf_indexes.len(), authentication_paths.len());
+        let mut merkle_tree: HashMap<(usize, usize), Commitment> = HashMap::new();
+        for (index_previous_layer, path) in leaf_indexes.iter().zip(authentication_paths.iter()) {
+            let mut node_index = *index_previous_layer;
+            for (tree_level, node) in path.merkle_path.iter().enumerate() {
+                merkle_tree.insert((tree_level, node_index ^ 1), *node);
+                node_index >>= 1;
+            }
+        }
+
+        let mut result = Vec::new();
+        let mut level_indexes: BTreeSet<usize> = leaf_indexes.iter().copied().collect();
+        let merkle_tree_height = authentication_paths[0].merkle_path.len();
+        for tree_level in 0..merkle_tree_height {
+            for node_index in level_indexes.iter() {
+                let sibling_index = node_index ^ 1;
+                if !level_indexes.contains(&sibling_index) {
+                    let node = &merkle_tree[&(tree_level, sibling_index)];
+                    result.push(*node);
+                }
+            }
+            level_indexes = level_indexes.iter().map(|index| *index >> 1).collect();
+        }
+        result
+    }
+    fn get_fri_query_indexes<A>(
         proof: &StarkProof<Stark252PrimeField>,
         public_inputs: &A::PublicInputs,
         proof_options: &ProofOptions,
