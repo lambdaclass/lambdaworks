@@ -348,7 +348,6 @@ impl StoneCompatibleSerializer {
         }
     }
 
-    #[allow(unused)]
     /// Merges `n` authentication paths for `n` leaves into a list of the minimal number of nodes
     /// needed to reach the Merkle root for all of them. The nodes of the merged authentication
     /// paths are sorted from level 0 to the hightest level of the Merkle tree, and nodes at the
