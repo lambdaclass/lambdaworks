@@ -20,13 +20,11 @@ This prover is still in development and may contain bugs. It is not intended to 
 
 ## [Documentation](https://lambdaclass.github.io/lambdaworks/starks/cairo.html)
 
-**To test compatibility with stone prover**
+## To test compatibility with stone prover
 
-To run the demo of Stone Prover compatibility run:
+Fetch the submodule with the Stone fork compatibility demo with:
 
 ```git submodule update --init --recursive```
-
-A fork of the stone prover with an additional command to make a proof with Lambdaworks and verify with Stone will be created.
 
 You can then cd to the downloaded Stone Prover, and follow the instructions to make a proof with Platinum and verify it with Stone
 
