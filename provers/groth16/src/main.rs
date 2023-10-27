@@ -1,3 +1,5 @@
+use rand::Rng;
+
 // use groth16::prover::Groth16Prover;
 // use groth16::setup::setup;
 // use groth16::verifier;
@@ -16,7 +18,7 @@ use lambdaworks_math::{
     polynomial::Polynomial,
     unsigned_integer::element::U256,
 };
-use rand::Rng;
+use lambdaworks_math::msm::naive::msm;
 
 pub type Curve = BLS12381Curve;
 pub type TwistedCurve = BLS12381TwistCurve;
@@ -216,8 +218,8 @@ fn main() {
             ["0", "0", "1", "0"],
             ["0", "0", "0", "1"],
         ]
-        .map(|col| col.to_vec())
-        .to_vec(),
+            .map(|col| col.to_vec())
+            .to_vec(),
         [
             ["0", "0", "1", "1"],
             ["1", "1", "0", "0"],
@@ -226,8 +228,8 @@ fn main() {
             ["0", "0", "0", "0"],
             ["0", "0", "0", "0"],
         ]
-        .map(|col| col.to_vec())
-        .to_vec(),
+            .map(|col| col.to_vec())
+            .to_vec(),
         [
             ["0", "0", "0", "0"],
             ["0", "0", "0", "0"],
@@ -236,8 +238,8 @@ fn main() {
             ["0", "1", "0", "0"],
             ["0", "0", "1", "0"],
         ]
-        .map(|col| col.to_vec())
-        .to_vec(),
+            .map(|col| col.to_vec())
+            .to_vec(),
     );
 
     //////////////////////////////////////////////////////////////////////
@@ -401,10 +403,9 @@ fn main() {
     // //////////////////////////////////////////////////////////////////////
 
     // [γ^{-1} * (β*l(τ) + α*r(τ) + o(τ))]_1
-    let k_tau_assigned_verifier_g1 = (0..qap.num_of_public_inputs)
-        .map(|i| vk.verifier_k_tau_g1[i].operate_with_self(w[i].representative()))
-        .reduce(|acc, x| acc.operate_with(&x))
-        .unwrap();
+
+    let w_representatives = w.iter().map(|i| i.representative());
+    let k_tau_assigned_verifier_g1 = msm(&vk.verifier_k_tau_g1.as_slice(), &w_representatives).unwrap();
 
     assert_eq!(
         Pairing::compute(&pi3_g1, &vk.delta_g2)
