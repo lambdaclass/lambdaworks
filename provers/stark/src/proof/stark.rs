@@ -272,7 +272,8 @@ impl StoneCompatibleSerializer {
     ///
     /// This method appends:
     ///
-    /// | Z_1 | MergedPathsLayer_1 | Z_2 | MergedPathsLayer_2 | ... | Z_n | MergedPathsLayer_n,
+    /// Z_1 | MergedPathsLayer_1 | Z_2 | MergedPathsLayer_2 | ... | Z_n | MergedPathsLayer_n,
+    ///
     /// where n is the total number of FRI layers.
     fn append_fri_query_phase_inner_layers(
         proof: &StarkProof<Stark252PrimeField>,
