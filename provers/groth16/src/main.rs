@@ -288,9 +288,8 @@ fn main() {
     let t_tau_times_delta_inv = &delta_inv * qap.t.evaluate(&tw.tau);
     let z_powers_of_tau_g1: Vec<G1Point> = (0..qap.num_of_gates + 1)
         .map(|exp: usize| {
-            g1.operate_with_self(
-                (&t_tau_times_delta_inv * tw.tau.pow(exp as u128)).representative(),
-            )
+            g1.operate_with_self((tw.tau.pow(exp as u128)).representative())
+                .operate_with_self((&t_tau_times_delta_inv).representative())
         })
         .collect();
 
@@ -322,10 +321,7 @@ fn main() {
     ////////////////////////////// Prove /////////////////////////////////
     //////////////////////////////////////////////////////////////////////
 
-    // Sample zk-shifts r and s
-
-    let r = sample_field_elem();
-    let s = sample_field_elem();
+    let is_zk = true;
 
     // aka the secret assignments, w vector, s vector
     // Includes the public inputs from the beginning.
@@ -371,52 +367,44 @@ fn main() {
         .reduce(|acc, x| acc.operate_with(&x))
         .unwrap();
 
-    // Verifier's
+    // [π_3]_1
+    let mut pi3_g1 = t_tau_h_tau_assigned_g1.operate_with(&k_tau_assigned_prover_g1);
+
+    if is_zk {
+        let r = sample_field_elem();
+        let s = sample_field_elem();
+
+        pi1_g1 = pi1_g1.operate_with(&pk.delta_g1.operate_with_self(r.representative()));
+        pi2_g2 = pi2_g2.operate_with(&pk.delta_g2.operate_with_self(s.representative()));
+
+        // [π_2]_1
+        let pi2_g1 = w
+            .iter()
+            .enumerate()
+            .map(|(i, coeff)| pk.r_tau_g1[i].operate_with_self(coeff.representative()))
+            .reduce(|acc, x| acc.operate_with(&x))
+            .unwrap()
+            .operate_with(&pk.beta_g1)
+            .operate_with(&pk.delta_g1.operate_with_self(s.representative()));
+
+        pi3_g1 = pi3_g1
+            // s[π_1]_1
+            .operate_with(&pi1_g1.operate_with_self(s.representative()))
+            // r[π_2]_1
+            .operate_with(&pi2_g1.operate_with_self(r.representative()))
+            // -rs[ƍ]_1
+            .operate_with(&pk.delta_g1.operate_with_self((-(&r * &s)).representative()));
+    }
+
+    // //////////////////////////////////////////////////////////////////////
+    // ////////////////////////////// Verify ////////////////////////////////
+    // //////////////////////////////////////////////////////////////////////
+
     // [γ^{-1} * (β*l(τ) + α*r(τ) + o(τ))]_1
     let k_tau_assigned_verifier_g1 = (0..qap.num_of_public_inputs)
         .map(|i| vk.verifier_k_tau_g1[i].operate_with_self(w[i].representative()))
         .reduce(|acc, x| acc.operate_with(&x))
         .unwrap();
-
-    // [π_3]_1
-    let mut pi3_g1 = t_tau_h_tau_assigned_g1.operate_with(&k_tau_assigned_prover_g1);
-
-    // Verify without ZK
-
-    assert_eq!(
-        Pairing::compute(&pi3_g1, &vk.delta_g2)
-            * &vk.alpha_g1_times_beta_g2
-            * Pairing::compute(&k_tau_assigned_verifier_g1, &vk.gamma_g2),
-        Pairing::compute(&pi1_g1, &pi2_g2),
-    );
-
-    ////////////////////////////// Introduce ZK
-
-    pi1_g1 = pi1_g1.operate_with(&pk.delta_g1.operate_with_self(r.representative()));
-    pi2_g2 = pi2_g2.operate_with(&pk.delta_g2.operate_with_self(s.representative()));
-
-    // [π_2]_1
-    let pi2_g1 = w
-        .iter()
-        .enumerate()
-        .map(|(i, coeff)| pk.r_tau_g1[i].operate_with_self(coeff.representative()))
-        .reduce(|acc, x| acc.operate_with(&x))
-        .unwrap()
-        .operate_with(&pk.beta_g1)
-        // zk
-        .operate_with(&pk.delta_g1.operate_with_self(s.representative()));
-
-    // s[π_1]_1
-    pi3_g1 = pi3_g1
-        .operate_with(&pi1_g1.operate_with_self(s.representative()))
-        // r[π_2]_1
-        .operate_with(&pi2_g1.operate_with_self(r.representative()))
-        // -rs[ƍ]_1
-        .operate_with(&pk.delta_g1.operate_with_self((-(&r * &s)).representative()));
-
-    // //////////////////////////////////////////////////////////////////////
-    // ////////////////////////////// Verify ////////////////////////////////
-    // //////////////////////////////////////////////////////////////////////
 
     assert_eq!(
         Pairing::compute(&pi3_g1, &vk.delta_g2)
