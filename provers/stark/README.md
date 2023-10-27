@@ -26,7 +26,7 @@ Fetch the submodule with the Stone fork compatibility demo with:
 
 ```git submodule update --init --recursive```
 
-You can then cd to the downloaded Stone Prover, and follow the instructions to make a proof with Platinum and verify it with Stone
+You can then cd to the downloaded Stone Prover, and follow the README instructions to make a proof with Platinum and verify it with Stone
 
 ```cd ../stone-demo```
 
