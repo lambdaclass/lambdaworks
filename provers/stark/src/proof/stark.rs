@@ -58,6 +58,8 @@ pub struct StarkProof<F: IsFFTField> {
     pub nonce: Option<u64>,
 }
 
+/// Serializes a stark proof compatible with the
+/// stone prover (https://github.com/starkware-libs/stone-prover/)
 pub struct StoneCompatibleSerializer;
 
 impl StoneCompatibleSerializer {
