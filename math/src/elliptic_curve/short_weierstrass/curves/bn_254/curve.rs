@@ -1,6 +1,4 @@
 use super::field_extension::BN254PrimeField;
-
-use crate::elliptic_curve::short_weierstrass::curves::bls12_377::curve::BLS12377Curve;
 use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
 use crate::elliptic_curve::traits::IsEllipticCurve;
 
@@ -43,7 +41,7 @@ impl IsShortWeierstrass for BN254Curve {
 mod test {
     use crate::cyclic_group::IsGroup;
     use crate::elliptic_curve::{
-        short_weierstrass::curves::bn254::curve::BN254Curve, traits::IsEllipticCurve,
+        short_weierstrass::curves::bn_254::curve::BN254Curve, traits::IsEllipticCurve,
     };
 
     #[test]
