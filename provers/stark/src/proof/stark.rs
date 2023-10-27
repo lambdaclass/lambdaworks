@@ -164,16 +164,22 @@ impl StoneCompatibleSerializer {
     /// needed for the first layer of FRI. Next we describe the order in which these are appended.
     ///
     /// Each FRI query index `i` determines a pair of elements `d_i` and `-d_i` on the domain of the
-    /// first layer. Let BT_i be the concatenation of the bytes of the following values
+    /// first layer.
+    /// 
+    /// Let BT_i be the concatenation of the bytes of the following values
     /// t_1(d_i), t_1(-d_i), t_2(d_i), t_2(-d_i), ..., t_m(d_i), t_m(-d_i),
-    /// where m is the total number of columns, including RAP extended ones. And let TAuthPath be the
-    /// merged authentication path of all of of them. See the `merge_authentication_paths` method.
+    /// where m is the total number of columns, including RAP extended ones.
     ///
     /// Similarly, let BH_i be the concatenation of the bytes of the following elements
     /// H_1(d_i), H_1(-d_i), ..., H_s(d_i), H_s(-d_i),
-    /// where s is the number of parts into which the composition polynomial was broken. And let
-    /// HAuthPath be their merged authentication path.
+    /// where s is the number of parts into which the composition polynomial was broken.
     ///
+    /// Let TAuthPath be the merged authentication paths of the FRI query indexes i_1, ..., i_k for
+    /// the trace Merkle Tree. (See the `merge_authentication_paths` method)
+    /// 
+    /// Let HAuthPath be the merged authentication paths of the FRI query indexes i_1, ..., i_k for
+    /// the composition polynomial Merkle Tree.
+    /// 
     /// If i_1, ..., i_k are all the FRI query indexes sorted in increasing order and without repeated
     /// values, then this method appends
     /// BT_{i_1} | BT_{i_2} | ... | BT_{i_k} | PT | BH_{i_1} | BH_{i_2} | ... | B_{i_k} | PH to the output.
