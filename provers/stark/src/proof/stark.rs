@@ -58,8 +58,8 @@ pub struct StarkProof<F: IsFFTField> {
     pub nonce: Option<u64>,
 }
 
-/// Serializes a stark proof compatible with the
-/// stone prover (https://github.com/starkware-libs/stone-prover/)
+/// Serializer compatible with Stone prover
+/// (https://github.com/starkware-libs/stone-prover/)
 pub struct StoneCompatibleSerializer;
 
 impl StoneCompatibleSerializer {
@@ -164,26 +164,24 @@ impl StoneCompatibleSerializer {
     ///
     /// Each FRI query index `i` determines a pair of elements `d_i` and `-d_i` on the domain of the
     /// first layer.
-    ///
     /// Let BT_i be the concatenation of the bytes of the following values
     /// t_1(d_i), t_1(-d_i), t_2(d_i), t_2(-d_i), ..., t_m(d_i), t_m(-d_i),
     /// where m is the total number of columns, including RAP extended ones.
-    ///
     /// Similarly, let BH_i be the concatenation of the bytes of the following elements
     /// H_1(d_i), H_1(-d_i), ..., H_s(d_i), H_s(-d_i),
     /// where s is the number of parts into which the composition polynomial was broken.
     ///
-    /// Let TraceMergedPaths be the merged authentication paths of the FRI query indexes i_1, ..., i_k for
-    /// the trace Merkle Tree. (See the `merge_authentication_paths` method)
-    ///
-    /// Let CompositionMergedPaths be the merged authentication paths of the FRI query indexes i_1, ..., i_k for
-    /// the composition polynomial Merkle Tree.
-    ///
     /// If i_1, ..., i_k are all the FRI query indexes sorted in increasing order and without repeated
-    /// values, then this method appends
-    /// BT_{i_1} | BT_{i_2} | ... | BT_{i_k} | PT | BH_{i_1} | BH_{i_2} | ... | B_{i_k} | PH to the output.
+    /// values, then this method appends the following to the output:
     ///
-    /// For example, if there are 6 queries [3, 1, 5, 2, 1, 3], then this method appends the
+    /// BT_{i_1} | BT_{i_2} | ... | BT_{i_k} | TraceMergedPaths | BH_{i_1} | BH_{i_2} | ... | B_{i_k} | CompositionMergedPaths.
+    ///
+    /// Where TraceMergedPaths is the merged authentication paths of the trace Merkle tree for all queries
+    /// and similarly, CompositionMergedPaths is the merged authentication paths of the composition polynomial
+    /// Merkle tree for all queries (see the `merge_authentication_paths` method).
+    ///
+    /// Example:
+    /// If there are 6 queries [3, 1, 5, 2, 1, 3], then this method appends the
     /// following to the output:
     /// `BT_1 | BT_2 | BT_3 | BT_5 | TraceMergedPaths | BH_1 | BH_2 | BH_3 | BH_5 | CompositionMergedPaths`
     fn append_fri_query_phase_first_layer(
@@ -203,6 +201,7 @@ impl StoneCompatibleSerializer {
         // Sort by increasing value of query
         fri_first_layer_openings.sort_by(|a, b| a.1.cmp(b.1));
 
+        // Append BT_{i_1} | BT_{i_2} | ... | BT_{i_k}
         for ((opening, opening_sym), _) in fri_first_layer_openings.iter() {
             for elem in opening.lde_trace_evaluations.iter() {
                 output.extend_from_slice(&elem.serialize());
@@ -217,6 +216,7 @@ impl StoneCompatibleSerializer {
             .flat_map(|query| vec![query * 2, query * 2 + 1])
             .collect();
 
+        // Append TraceMergedPaths
         for i in 0..proof.deep_poly_openings[0].lde_trace_merkle_proofs.len() {
             let fri_trace_paths: Vec<_> = proof
                 .deep_poly_openings
@@ -236,6 +236,7 @@ impl StoneCompatibleSerializer {
             }
         }
 
+        // Append BH_{i_1} | BH_{i_2} | ... | B_{i_k}
         for ((opening, opening_sym), _) in fri_first_layer_openings.iter() {
             for elem in opening.lde_composition_poly_parts_evaluation.iter() {
                 output.extend_from_slice(&elem.serialize());
@@ -245,6 +246,7 @@ impl StoneCompatibleSerializer {
             }
         }
 
+        // Append CompositionMergedPaths
         let fri_composition_paths: Vec<_> = proof
             .deep_poly_openings
             .iter()
@@ -256,6 +258,27 @@ impl StoneCompatibleSerializer {
         }
     }
 
+    /// Appends the values and authentication paths needed for the inner layers of FRI.
+    /// Just as in the append_fri_query_phase_first_layer, for each layer, the authentication
+    /// paths are merged and the redundant field elements are not sent, in order to optimize
+    /// the size of the proof. When having multiple queries we can have repeated field elements
+    /// for two reasons: either we are sending two times the same field element because of
+    /// a repeated query, or we are sending a field element that the verifier could simply
+    /// derive from values from previous layers.
+    ///
+    /// For each layer i there are:
+    /// - X_i = { p_i(-d_j), p_i(d_j) for all queries j }, the elements the verifier needs.
+    /// - Y_i = { p_i( d_j) for all queries j }, the elements that the verifier computes from
+    ///         previous layers.
+    /// - Z_i = X_i - Y_i, the elements that the verifier needs but cannot compute from previous layers.
+    ///         sorted by increasing value of query.  
+    /// - MergedPathsLayer_i: the merged authentication paths for all p_i(-d_j) and p_i(d_j).
+    ///
+    /// This method appends:
+    ///
+    /// Z_1 | MergedPathsLayer_1 | Z_2 | MergedPathsLayer_2 | ... | Z_n | MergedPathsLayer_n,
+    ///
+    /// where n is the total number of FRI layers.
     fn append_fri_query_phase_inner_layers(
         proof: &StarkProof<Stark252PrimeField>,
         fri_query_indexes: &[usize],
@@ -280,20 +303,24 @@ impl StoneCompatibleSerializer {
 
         let mut indexes_previous_layer = fri_query_indexes.to_owned();
         for i in 0..proof.query_list[0].layers_evaluations_sym.len() {
+            // Compute set Y_i
             let reconstructed_row_col: BTreeSet<_> = indexes_previous_layer
                 .iter()
                 .map(|index| (index >> 1, index % 2))
                 .collect();
 
+            // Compute set X_i
             let reconstructed_row_col_sym: BTreeSet<_> = reconstructed_row_col
                 .iter()
                 .map(|(x, y)| (*x, 1 - y))
                 .collect();
 
+            // Compute set Z_i
             let row_col_to_send: Vec<_> = reconstructed_row_col_sym
                 .difference(&reconstructed_row_col)
                 .collect();
 
+            // Append Z_i
             for element in row_col_to_send
                 .iter()
                 .map(|(row, col)| &fri_layers_evaluations[&(i as u64, *row, *col)])
@@ -312,6 +339,7 @@ impl StoneCompatibleSerializer {
                 .map(|decommitment| &decommitment.layers_auth_paths[i])
                 .collect();
 
+            // Append MergedPathsLayer_i
             let nodes =
                 Self::merge_authentication_paths(&layer_auth_paths, &indexes_previous_layer);
             for node in nodes.iter() {
@@ -320,13 +348,10 @@ impl StoneCompatibleSerializer {
         }
     }
 
-    #[allow(unused)]
-    /// Computes a single authentication path out of `n` authentication paths for `n` leaves.
-    /// This means it takes `n` authentication paths and extracts from them a single one that
-    /// has the minimum required nodes to reach the Merkle root, assuming all corresponding `n`
-    /// leaf values are provided. The nodes of the merged authentication path are sorted from level
-    /// 0 to the hightest level of the Merkle tree, and nodes at the same level are sorted from
-    /// left to right.
+    /// Merges `n` authentication paths for `n` leaves into a list of the minimal number of nodes
+    /// needed to reach the Merkle root for all of them. The nodes of the merged authentication
+    /// paths are sorted from level 0 to the hightest level of the Merkle tree, and nodes at the
+    /// same level are sorted from left to right.
     ///
     /// Let's consider some examples. Suppose the Merkle tree is as follows:
     ///
@@ -350,7 +375,7 @@ impl StoneCompatibleSerializer {
     /// `leaf_indexes`: The leaf indexes corresponding to the authentication paths.
     ///
     /// Output:
-    /// The merged authentication path
+    /// The merged authentication paths
     fn merge_authentication_paths(
         authentication_paths: &[&Proof<Commitment>],
         leaf_indexes: &[usize],
@@ -404,10 +429,7 @@ impl StoneCompatibleSerializer {
 
 #[cfg(test)]
 mod tests {
-    use lambdaworks_math::{
-        field::{element::FieldElement, traits::IsFFTField},
-        traits::Serializable,
-    };
+    use lambdaworks_math::{field::element::FieldElement, traits::Serializable};
 
     use crate::{
         examples::fibonacci_2_cols_shifted::{self, Fibonacci2ColsShifted},
@@ -415,19 +437,6 @@ mod tests {
         prover::{IsStarkProver, Prover},
         transcript::StoneProverTranscript,
     };
-
-    fn fibonacci_transcript_initialization_seed<F>(
-        claimed_index: u64,
-        claimed_value: &FieldElement<F>,
-    ) -> Vec<u8>
-    where
-        F: IsFFTField,
-        FieldElement<F>: Serializable,
-    {
-        let mut transcript_init_seed = claimed_index.to_be_bytes().to_vec();
-        transcript_init_seed.extend_from_slice(&claimed_value.serialize());
-        transcript_init_seed
-    }
 
     #[test]
     fn test_serialization_compatible_with_stone_1() {
@@ -447,14 +456,11 @@ mod tests {
             claimed_index,
         };
 
-        let transcript_init_seed =
-            fibonacci_transcript_initialization_seed(claimed_index as u64, &claimed_value);
-
         let proof = Prover::prove::<Fibonacci2ColsShifted<_>>(
             &trace,
             &pub_inputs,
             &proof_options,
-            StoneProverTranscript::new(&transcript_init_seed),
+            StoneProverTranscript::new(&pub_inputs.serialize()),
         )
         .unwrap();
 
@@ -528,14 +534,11 @@ mod tests {
             claimed_index,
         };
 
-        let transcript_init_seed =
-            fibonacci_transcript_initialization_seed(claimed_index as u64, &claimed_value);
-
         let proof = Prover::prove::<Fibonacci2ColsShifted<_>>(
             &trace,
             &pub_inputs,
             &proof_options,
-            StoneProverTranscript::new(&transcript_init_seed),
+            StoneProverTranscript::new(&pub_inputs.serialize()),
         )
         .unwrap();
         let expected_bytes = [
@@ -623,14 +626,11 @@ mod tests {
             claimed_index,
         };
 
-        let transcript_init_seed =
-            fibonacci_transcript_initialization_seed(claimed_index as u64, &claimed_value);
-
         let proof = Prover::prove::<Fibonacci2ColsShifted<_>>(
             &trace,
             &pub_inputs,
             &proof_options,
-            StoneProverTranscript::new(&transcript_init_seed),
+            StoneProverTranscript::new(&pub_inputs.serialize()),
         )
         .unwrap();
 
@@ -890,14 +890,11 @@ mod tests {
             claimed_index,
         };
 
-        let transcript_init_seed =
-            fibonacci_transcript_initialization_seed(claimed_index as u64, &claimed_value);
-
         let proof = Prover::prove::<Fibonacci2ColsShifted<_>>(
             &trace,
             &pub_inputs,
             &proof_options,
-            StoneProverTranscript::new(&transcript_init_seed),
+            StoneProverTranscript::new(&pub_inputs.serialize()),
         )
         .unwrap();
 
@@ -971,14 +968,11 @@ mod tests {
             claimed_index,
         };
 
-        let transcript_init_seed =
-            fibonacci_transcript_initialization_seed(claimed_index as u64, &claimed_value);
-
         let proof = Prover::prove::<Fibonacci2ColsShifted<_>>(
             &trace,
             &pub_inputs,
             &proof_options,
-            StoneProverTranscript::new(&transcript_init_seed),
+            StoneProverTranscript::new(&pub_inputs.serialize()),
         )
         .unwrap();
 
