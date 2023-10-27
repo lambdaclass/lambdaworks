@@ -13,6 +13,8 @@ pub enum ProverEntity {
     Compile(CompileArgs),
     #[clap(about = "Generate a proof for a given compiled cairo program")]
     Prove(ProveArgs),
+    #[clap(about = "Generate a proof from a given trace of a cairo program execution")]
+    ProveTrace(ProveTraceArgs),
     #[clap(about = "Verify a proof for a given compiled cairo program")]
     Verify(VerifyArgs),
     #[clap(about = "Generate and verify a proof for a given compiled cairo program")]
@@ -30,6 +32,13 @@ pub struct CompileArgs {
 
 #[derive(Args, Debug)]
 pub struct ProveArgs {
+    pub program_path: String,
+    pub proof_path: String,
+}
+#[derive(Args, Debug)]
+pub struct ProveTraceArgs {
+    pub trace_bin_path: String,
+    pub memory_bin_path: String,
     pub program_path: String,
     pub proof_path: String,
 }
