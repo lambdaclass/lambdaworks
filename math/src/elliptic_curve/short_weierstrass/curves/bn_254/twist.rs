@@ -5,7 +5,7 @@ use crate::{
     elliptic_curve::short_weierstrass::traits::IsShortWeierstrass, field::element::FieldElement,
 };
 
-use super::field_extension::{Degree2ExtensionField, Degree12ExtensionField};
+use super::field_extension::{Degree12ExtensionField, Degree2ExtensionField};
 
 // X_0 : 10857046999023057135944570762232829481370756359578518086990519993285655852781
 const GENERATOR_X_0: U256 =
@@ -69,7 +69,6 @@ impl ShortWeierstrassProjectivePoint<BN254TwistCurve> {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use crate::{
@@ -82,7 +81,7 @@ mod tests {
             traits::IsEllipticCurve,
         },
         field::element::FieldElement,
-        unsigned_integer::element::U256,
+        unsigned_integer::element::{U256, U384},
     };
 
     use super::BN254TwistCurve;
@@ -91,7 +90,7 @@ mod tests {
 
     #[cfg(feature = "std")]
     use crate::elliptic_curve::short_weierstrass::point::{
-        Endianness, PointFormat, ShortWeierstrassProjectivePoint
+        Endianness, PointFormat, ShortWeierstrassProjectivePoint,
     };
 
     #[test]
@@ -120,28 +119,30 @@ mod tests {
     #[test]
     fn add_points() {
         let px = Level1FE::new([
-            Level0FE::new(U256::from_hex_unchecked("0")),
-            Level0FE::new(U256::from_hex_unchecked("0"))
+            Level0FE::new(U256::from_hex_unchecked("b7b3ccb18ad732d1a8b3e40484b7363f75cef89af6f8db06c35f88148b9706619e23a79d7ec4da022e8f99e4aad1e1a")),
+            Level0FE::new(U256::from_hex_unchecked("0"))  // Assuming imaginary part is 0
         ]);
         let py = Level1FE::new([
-            Level0FE::new(U256::from_hex_unchecked("0")),
-            Level0FE::new(U256::from_hex_unchecked("0"))
+            Level0FE::new(U256::from_hex_unchecked("83c7351a041b93078edcd824cfbf0986238a5537abf31c39bda0100f15080982abb5bae91cabb6e2ae057912c174f75")),
+            Level0FE::new(U256::from_hex_unchecked("0"))  // Assuming imaginary part is 0
         ]);
+
+        // Similarly for point Q
         let qx = Level1FE::new([
-            Level0FE::new(U256::from_hex_unchecked("0")),
-            Level0FE::new(U256::from_hex_unchecked("0"))
+            Level0FE::new(U256::from_hex_unchecked("848d4c38b6cabfba64b43091135755cffcd6da65f6eb9a9529ce6ffd359f180642aa9393e66db97f7a8542c1d8e27dc")),
+            Level0FE::new(U256::from_hex_unchecked("0"))  // Assuming imaginary part is 0
         ]);
         let qy = Level1FE::new([
-            Level0FE::new(U256::from_hex_unchecked("0")),
-            Level0FE::new(U256::from_hex_unchecked("0"))
+            Level0FE::new(U256::from_hex_unchecked("ca390d05f986dba142f6f9b6d5467118bce40e10b4b2ffe86cc80ebbd1f1ccbe2a539d6fb6f570030691c3c62d84eca")),
+            Level0FE::new(U256::from_hex_unchecked("0"))  // Assuming imaginary part is 0
         ]);
         let expectedx = Level1FE::new([
+            Level0FE::new(U256::from_hex_unchecked("189abdeda1abc26e67f36216d2270212eff2161639eca25d9625229a476b204e80dda02a82cff695f6ea71d033741ae5")),
             Level0FE::new(U256::from_hex_unchecked("0")),
-            Level0FE::new(U256::from_hex_unchecked("0"))
         ]);
         let expectedy = Level1FE::new([
+            Level0FE::new(U256::from_hex_unchecked("18a35df258be38d31c58019d5f1a0bd68f399bc961e58e16afb74eaf0c3585ffd8cca6bffa32f4ee776a12adb24d4359")),
             Level0FE::new(U256::from_hex_unchecked("0")),
-            Level0FE::new(U256::from_hex_unchecked("0"))
         ]);
         let p = BN254TwistCurve::create_point_from_affine(px, py).unwrap();
         let q = BN254TwistCurve::create_point_from_affine(qx, qy).unwrap();
