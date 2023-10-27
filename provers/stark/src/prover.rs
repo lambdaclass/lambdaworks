@@ -78,7 +78,7 @@ pub struct Round4<F: IsFFTField> {
     deep_poly_openings: DeepPolynomialOpenings<F>,
     deep_poly_openings_sym: DeepPolynomialOpenings<F>,
     query_list: Vec<FriDecommitment<F>>,
-    nonce: u64,
+    nonce: Option<u64>,
 }
 pub fn evaluate_polynomial_on_lde_domain<F>(
     p: &Polynomial<FieldElement<F>>,
@@ -396,11 +396,12 @@ pub trait IsStarkProver {
 
         // grinding: generate nonce and append it to the transcript
         let security_bits = air.context().proof_options.grinding_factor;
-        let mut nonce = 0;
+        let mut nonce = None;
         if security_bits > 0 {
-            nonce = grinding::generate_nonce(&transcript.state(), security_bits)
+            let nonce_value = grinding::generate_nonce(&transcript.state(), security_bits)
                 .expect("nonce not found");
-            transcript.append_bytes(&nonce.to_be_bytes());
+            transcript.append_bytes(&nonce_value.to_be_bytes());
+            nonce = Some(nonce_value);
         }
 
         let number_of_queries = air.options().fri_number_of_queries;
@@ -1359,9 +1360,7 @@ mod tests {
         assert_eq!(proof.query_list[0].layers_evaluations_sym.len(), 1);
 
         assert_eq!(
-            proof.query_list[0].layers_auth_paths_sym[0]
-                .merkle_path
-                .len(),
+            proof.query_list[0].layers_auth_paths[0].merkle_path.len(),
             2
         );
     }
@@ -1384,13 +1383,13 @@ mod tests {
 
         // FRI layer 1 auth path level 0
         assert_eq!(
-            proof.query_list[0].layers_auth_paths_sym[0].merkle_path[0].to_vec(),
+            proof.query_list[0].layers_auth_paths[0].merkle_path[0].to_vec(),
             decode_hex("0683622478e9e93cc2d18754872f043619f030b494d7ec8e003b1cbafe83b67b").unwrap()
         );
 
         // FRI layer 1 auth path level 1
         assert_eq!(
-            proof.query_list[0].layers_auth_paths_sym[0].merkle_path[1].to_vec(),
+            proof.query_list[0].layers_auth_paths[0].merkle_path[1].to_vec(),
             decode_hex("7985d945abe659a7502698051ec739508ed6bab594984c7f25e095a0a57a2e55").unwrap()
         );
     }
@@ -1481,7 +1480,7 @@ mod tests {
 
         // FRI layer 7 auth path level 5
         assert_eq!(
-            proof.query_list[0].layers_auth_paths_sym[7].merkle_path[5].to_vec(),
+            proof.query_list[0].layers_auth_paths[7].merkle_path[5].to_vec(),
             decode_hex("f12f159b548ca2c571a270870d43e7ec2ead78b3e93b635738c31eb9bcda3dda").unwrap()
         );
     }
