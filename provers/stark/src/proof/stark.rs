@@ -201,6 +201,7 @@ impl StoneCompatibleSerializer {
         // Sort by increasing value of query
         fri_first_layer_openings.sort_by(|a, b| a.1.cmp(b.1));
 
+        // Append `BT_1 | BT_2 | .... | BT_k `
         for ((opening, opening_sym), _) in fri_first_layer_openings.iter() {
             for elem in opening.lde_trace_evaluations.iter() {
                 output.extend_from_slice(&elem.serialize());
@@ -215,6 +216,7 @@ impl StoneCompatibleSerializer {
             .flat_map(|query| vec![query * 2, query * 2 + 1])
             .collect();
 
+        // Append TraceMergedPaths
         for i in 0..proof.deep_poly_openings[0].lde_trace_merkle_proofs.len() {
             let fri_trace_paths: Vec<_> = proof
                 .deep_poly_openings
@@ -234,6 +236,7 @@ impl StoneCompatibleSerializer {
             }
         }
 
+        // Append BH_1 | BH_2 | BH_3 | BH_5
         for ((opening, opening_sym), _) in fri_first_layer_openings.iter() {
             for elem in opening.lde_composition_poly_parts_evaluation.iter() {
                 output.extend_from_slice(&elem.serialize());
@@ -243,6 +246,7 @@ impl StoneCompatibleSerializer {
             }
         }
 
+        // Append CompositionMergedPaths
         let fri_composition_paths: Vec<_> = proof
             .deep_poly_openings
             .iter()
@@ -266,7 +270,7 @@ impl StoneCompatibleSerializer {
     /// - X_i = { p_i(-d_j), p_i(d_j) for all queries j }, the elements the verifier needs.
     /// - Y_i = { p_i( d_j) for all queries j }, the elements that the verifier computes from
     ///         previous layers.
-    /// - Z_i = X - Y, the elements that the verifier needs but cannot compute from previous layers.
+    /// - Z_i = X_i - Y_i, the elements that the verifier needs but cannot compute from previous layers.
     ///         sorted by increasing value of query.  
     /// - MergedPathsLayer_i: the merged authentication paths for all p_i(-d_j) and p_i(d_j).
     ///
@@ -299,16 +303,19 @@ impl StoneCompatibleSerializer {
 
         let mut indexes_previous_layer = fri_query_indexes.to_owned();
         for i in 0..proof.query_list[0].layers_evaluations_sym.len() {
+            // Compute set Y_i
             let reconstructed_row_col: BTreeSet<_> = indexes_previous_layer
                 .iter()
                 .map(|index| (index >> 1, index % 2))
                 .collect();
 
+            // Compute set X_i
             let reconstructed_row_col_sym: BTreeSet<_> = reconstructed_row_col
                 .iter()
                 .map(|(x, y)| (*x, 1 - y))
                 .collect();
 
+            // Compute set Z_i
             let row_col_to_send: Vec<_> = reconstructed_row_col_sym
                 .difference(&reconstructed_row_col)
                 .collect();
@@ -320,6 +327,7 @@ impl StoneCompatibleSerializer {
                 output.extend_from_slice(&element.serialize());
             }
 
+            // Compute and send merged authentication paths
             indexes_previous_layer = indexes_previous_layer
                 .iter()
                 .map(|index| index >> 1)
