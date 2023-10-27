@@ -8,6 +8,9 @@ use crate::field::{
 };
 use crate::unsigned_integer::element::U256;
 
+#[cfg(feature = "std")]
+use crate::traits::ByteConversion;
+
 pub const BN254_PRIME_FIELD_ORDER: U256 =
     U256::from_hex_unchecked("30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47");
 
@@ -30,6 +33,41 @@ impl HasQuadraticNonResidue for BN254PrimeField {
     //TODO: add sage
     fn residue() -> FieldElement<BN254PrimeField> {
         -FieldElement::one()
+    }
+}
+
+#[cfg(feature = "std")]
+impl ByteConversion for FieldElement<Degree2ExtensionField> {
+    fn to_bytes_be(&self) -> Vec<u8> {
+        let mut byte_slice = ByteConversion::to_bytes_be(&self.value()[0]);
+        byte_slice.extend(ByteConversion::to_bytes_be(&self.value()[1]));
+        byte_slice
+    }
+
+    fn to_bytes_le(&self) -> Vec<u8> {
+        let mut byte_slice = ByteConversion::to_bytes_le(&self.value()[0]);
+        byte_slice.extend(ByteConversion::to_bytes_le(&self.value()[1]));
+        byte_slice
+    }
+
+    fn from_bytes_be(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
+    where
+        Self: std::marker::Sized,
+    {
+        const BYTES_PER_FIELD: usize = 48;
+        let x0 = FieldElement::from_bytes_be(&bytes[0..BYTES_PER_FIELD])?;
+        let x1 = FieldElement::from_bytes_be(&bytes[BYTES_PER_FIELD..BYTES_PER_FIELD * 2])?;
+        Ok(Self::new([x0, x1]))
+    }
+
+    fn from_bytes_le(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
+    where
+        Self: std::marker::Sized,
+    {
+        const BYTES_PER_FIELD: usize = 48;
+        let x0 = FieldElement::from_bytes_le(&bytes[0..BYTES_PER_FIELD])?;
+        let x1 = FieldElement::from_bytes_le(&bytes[BYTES_PER_FIELD..BYTES_PER_FIELD * 2])?;
+        Ok(Self::new([x0, x1]))
     }
 }
 
@@ -134,4 +172,53 @@ mod tests {
 
     use super::*;
     type Fp12E = FieldElement<Degree12ExtensionField>;
+
+    #[test]
+    fn element_squared_1() {
+        // base = 1 + u + (1 + u)v + (1 + u)v^2 + ((1+u) + (1 + u)v + (1+ u)v^2)w
+        let element_ones =
+            Fp12E::from_coefficients(&["1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1"]);
+        let element_ones_squared =
+            Fp12E::from_coefficients(&["1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaa1",
+            "c",
+            "1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaa5",
+            "c",
+            "1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaa9",
+            "c",
+            "1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaa3",
+            "c",
+            "1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaa7",
+            "c",
+            "0",
+            "c"]);
+        assert_eq!(element_ones.pow(2_u16), element_ones_squared);
+        assert_eq!(element_ones.square(), element_ones_squared);
+    }
+
+    #[test]
+    fn element_squared_2() {
+        let element_sequence =
+            Fp12E::from_coefficients(&["1", "2", "5", "6", "9", "a", "3", "4", "7", "8", "b", "c"]);
+
+        let element_sequence_squared = Fp12E::from_coefficients(&["1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffa87d",
+        "199",
+        "1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffa851",
+        "20b",
+        "1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffa955",
+        "1cd",
+        "1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffa845",
+        "1e8",
+        "1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffa8a9",
+        "202",
+        "1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaa5d",
+        "16c"]);
+
+        assert_eq!(element_sequence.pow(2_u16), element_sequence_squared);
+        assert_eq!(element_sequence.square(), element_sequence_squared);
+    }
+
+    #[test]
+    fn to_fp12_unnormalized_computes_correctly() {
+        todo!()
+    }
 }
