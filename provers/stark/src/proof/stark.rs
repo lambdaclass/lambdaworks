@@ -174,13 +174,13 @@ impl StoneCompatibleSerializer {
     ///
     /// If i_1, ..., i_k are all the FRI query indexes sorted in increasing order and without repeated
     /// values, then this method appends the following to the output:
-    /// 
+    ///
     /// BT_{i_1} | BT_{i_2} | ... | BT_{i_k} | TraceMergedPaths | BH_{i_1} | BH_{i_2} | ... | B_{i_k} | CompositionMergedPaths.
     ///
     /// Where TraceMergedPaths is the merged authentication paths of the trace Merkle tree for all queries
     /// and similarly, CompositionMergedPaths is the merged authentication paths of the composition polynomial
     /// Merkle tree for all queries (see the `merge_authentication_paths` method).
-    /// 
+    ///
     /// Example:
     /// If there are 6 queries [3, 1, 5, 2, 1, 3], then this method appends the
     /// following to the output:
@@ -255,6 +255,27 @@ impl StoneCompatibleSerializer {
         }
     }
 
+    /// Appends the values and authentication paths needed for the inner layers of FRI.
+    /// Just as in the append_fri_query_phase_first_layer, for each layer, the authentication
+    /// paths are merged and the redundant field elements are not sent, in order to optimize
+    /// the size of the proof. When having multiple queries we can have repeated field elements
+    /// for two reasons: either we are sending two times the same field element because of
+    /// a repeated query, or we are sending a field element that the verifier could simply
+    /// derive from values from previous layers.
+    ///
+    /// For each layer i there are:
+    /// - X_i = { p_i(-d_j), p_i(d_j) for all queries j }, the elements the verifier needs.
+    /// - Y_i = { p_i( d_j) for all queries j }, the elements that the verifier computes.
+    /// - Z_i = X - Y, the elements that the verifier needs but cannot compute from previous layers.
+    /// - MergedPathsLayer_i: the merged authentication paths for all p_i(-d_j)
+    ///
+    /// This method appends:
+    ///
+    /// | Z_1 | MergedPathsLayer_1 |
+    /// | Z_2 | MergedPathsLayer_2 |
+    /// ...
+    ///
+    /// for each layer
     fn append_fri_query_phase_inner_layers(
         proof: &StarkProof<Stark252PrimeField>,
         fri_query_indexes: &[usize],
@@ -321,7 +342,7 @@ impl StoneCompatibleSerializer {
 
     #[allow(unused)]
     /// Merges `n` authentication paths for `n` leaves into a list of the minimal number of nodes
-    /// needed to reach the Merkle root for all of them. The nodes of the merged authentication 
+    /// needed to reach the Merkle root for all of them. The nodes of the merged authentication
     /// paths are sorted from level 0 to the hightest level of the Merkle tree, and nodes at the
     /// same level are sorted from left to right.
     ///
