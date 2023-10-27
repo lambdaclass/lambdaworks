@@ -148,19 +148,23 @@ fn generate_proof(
 }
 
 fn generate_proof_from_trace(
-    trace_bin_path: &String,
-    memory_bin_path: &String,
+    trace_bin_path: &str,
+    memory_bin_path: &str,
     proof_options: &ProofOptions,
 ) -> Option<(StarkProof<Stark252PrimeField>, PublicInputs)> {
     // ## Generating the prover args
-
-    let Ok((main_trace, pub_inputs)) = generate_prover_args_from_trace(&trace_bin_path, &memory_bin_path) else {
+    let timer = Instant::now();
+    let Ok((main_trace, pub_inputs)) =
+        generate_prover_args_from_trace(trace_bin_path, memory_bin_path)
+    else {
         eprintln!("Error generating prover args");
         return None;
     };
+    println!("  Time spent: {:?} \n", timer.elapsed());
 
     // ## Prove
-    // prove(trace, pub_inputs)
+    let timer = Instant::now();
+    println!("Making proof ...");
     let proof = match generate_cairo_proof(&main_trace, &pub_inputs, proof_options) {
         Ok(p) => p,
         Err(err) => {
@@ -168,8 +172,9 @@ fn generate_proof_from_trace(
             return None;
         }
     };
-    Some((proof, pub_inputs))
+    println!("  Time spent in proving: {:?} \n", timer.elapsed());
 
+    Some((proof, pub_inputs))
 }
 
 fn verify_proof(
@@ -256,18 +261,16 @@ fn main() {
                 eprintln!("\n Please provide *.bin files for the memory and trace output files.\n");
                 return;
             }
-            // if args.program_path.contains(".cairo") {
-            //     eprintln!("\nPlease provide a compiled json program instead of a cairo file.\n");
-            //     return;
-            // }
 
-            let Some((proof, pub_inputs)) = generate_proof_from_trace(&args.trace_bin_path, &args.memory_bin_path, &proof_options)
-            else {
+            let Some((proof, pub_inputs)) = generate_proof_from_trace(
+                &args.trace_bin_path,
+                &args.memory_bin_path,
+                &proof_options,
+            ) else {
                 return;
             };
 
             write_proof(proof, pub_inputs, args.proof_path);
-
         }
         commands::ProverEntity::Verify(args) => {
             let Ok(program_content) = std::fs::read(&args.proof_path) else {
