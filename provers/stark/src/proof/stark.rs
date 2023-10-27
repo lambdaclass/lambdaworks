@@ -63,7 +63,6 @@ pub struct StarkProof<F: IsFFTField> {
 pub struct StoneCompatibleSerializer;
 
 impl StoneCompatibleSerializer {
-    #[allow(unused)]
     pub fn serialize_proof<A>(
         proof: &StarkProof<Stark252PrimeField>,
         public_inputs: &A::PublicInputs,
@@ -165,6 +164,7 @@ impl StoneCompatibleSerializer {
     ///
     /// Each FRI query index `i` determines a pair of elements `d_i` and `-d_i` on the domain of the
     /// first layer.
+    ///
     /// Let BT_i be the concatenation of the bytes of the following values
     /// t_1(d_i), t_1(-d_i), t_2(d_i), t_2(-d_i), ..., t_m(d_i), t_m(-d_i),
     /// where m is the total number of columns, including RAP extended ones.
