@@ -201,7 +201,7 @@ impl StoneCompatibleSerializer {
         // Sort by increasing value of query
         fri_first_layer_openings.sort_by(|a, b| a.1.cmp(b.1));
 
-        // Append `BT_1 | BT_2 | .... | BT_k `
+        // Append BT_{i_1} | BT_{i_2} | ... | BT_{i_k}
         for ((opening, opening_sym), _) in fri_first_layer_openings.iter() {
             for elem in opening.lde_trace_evaluations.iter() {
                 output.extend_from_slice(&elem.serialize());
@@ -236,7 +236,7 @@ impl StoneCompatibleSerializer {
             }
         }
 
-        // Append BH_1 | BH_2 | BH_3 | BH_5
+        // Append BH_{i_1} | BH_{i_2} | ... | B_{i_k}
         for ((opening, opening_sym), _) in fri_first_layer_openings.iter() {
             for elem in opening.lde_composition_poly_parts_evaluation.iter() {
                 output.extend_from_slice(&elem.serialize());
