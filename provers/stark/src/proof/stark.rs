@@ -113,7 +113,7 @@ impl StoneCompatibleSerializer {
     /// trace column and shift number. Then all the evaluations of the parts of the composition
     /// polynomial. That is:
     ///
-    /// t_1(z), ..., t_m(z), t_1(gz), ..., t_m(gz), ..., t_1(g^K z), ..., t_m(g^K z), H_1(z^s), ..., H_s(z^s).
+    /// t_1(z), ..., t_1(g^K z), t_2(z), ..., t_2(g^K z), ..., t_m(g z), ..., t_m(g^K z), H_1(z^s), ..., H_s(z^s).
     ///
     /// Here, K is the length of the frame size.
     fn append_out_of_domain_evaluations(
@@ -122,10 +122,9 @@ impl StoneCompatibleSerializer {
     ) {
         for i in 0..proof.trace_ood_frame_evaluations.n_cols() {
             for j in 0..proof.trace_ood_frame_evaluations.n_rows() {
-                output
-                    .extend_from_slice(
-                        &proof.trace_ood_frame_evaluations.get_row(j)[i].serialize(),
-                    );
+                output.extend_from_slice(
+                    &proof.trace_ood_frame_evaluations.get_row(j)[i].serialize(),
+                );
             }
         }
 
@@ -134,6 +133,7 @@ impl StoneCompatibleSerializer {
         }
     }
 
+    /// Appends the commitments to the inner layers of FRI followed by the element of the last layer.
     fn append_fri_commit_phase_commitments(
         proof: &StarkProof<Stark252PrimeField>,
         output: &mut Vec<u8>,
@@ -149,12 +149,36 @@ impl StoneCompatibleSerializer {
 
         output.extend_from_slice(&proof.fri_last_value.serialize());
     }
+
+    /// Appends the proof of work nonce in case there is one. There could be none if the `grinding_factor`
+    /// was set to 0 during proof generation. In that case nothing is appended.
     fn append_proof_of_work_nonce(proof: &StarkProof<Stark252PrimeField>, output: &mut Vec<u8>) {
         if let Some(nonce_value) = proof.nonce {
             output.extend_from_slice(&nonce_value.to_be_bytes());
         }
     }
 
+    /// Appends the values and authentication paths of the trace and composition polynomial parts
+    /// needed for the first layer of FRI. Next we describe the order in which these are appended.
+    ///
+    /// Each FRI query index `i` determines a pair of elements `d_i` and `-d_i` on the domain of the
+    /// first layer. Let BT_i be the concatenation of the bytes of the following values
+    /// t_1(d_i), t_1(-d_i), t_2(d_i), t_2(-d_i), ..., t_m(d_i), t_m(-d_i),
+    /// where m is the total number of columns, including RAP extended ones. And let TAuthPath be the
+    /// merged authentication path of all of of them. See the `merge_authentication_paths` method.
+    ///
+    /// Similarly, let BH_i be the concatenation of the bytes of the following elements
+    /// H_1(d_i), H_1(-d_i), ..., H_s(d_i), H_s(-d_i),
+    /// where s is the number of parts into which the composition polynomial was broken. And let
+    /// HAuthPath be their merged authentication path.
+    ///
+    /// If i_1, ..., i_k are all the FRI query indexes sorted in increasing order and without repeated
+    /// values, then this method appends
+    /// BT_{i_1} | BT_{i_2} | ... | BT_{i_k} | PT | BH_{i_1} | BH_{i_2} | ... | B_{i_k} | PH to the output.
+    ///
+    /// For example, if there are 6 queries [3, 1, 5, 2, 1, 3], then this method appends the
+    /// following to the output:
+    /// `BT_1 | BT_2 | BT_3 | BT_5 | TAuthPath | BH_1 | BH_2 | BH_3 | BH_5 | HAuthPath`
     fn append_fri_query_phase_first_layer(
         proof: &StarkProof<Stark252PrimeField>,
         fri_query_indexes: &[usize],
@@ -168,11 +192,10 @@ impl StoneCompatibleSerializer {
             .collect();
         // Remove repeated values
         let mut seen = HashSet::new();
-        fri_first_layer_openings.retain(|&(_, b)| seen.insert(b));
+        fri_first_layer_openings.retain(|&(_, index)| seen.insert(index));
         // Sort by increasing value of query
         fri_first_layer_openings.sort_by(|a, b| a.1.cmp(b.1));
 
-        // FRI/Decommitment/Layer 0/Virtual Oracle/Trace ..: Row .., Column ..
         for ((opening, opening_sym), _) in fri_first_layer_openings.iter() {
             for elem in opening.lde_trace_evaluations.iter() {
                 output.extend_from_slice(&elem.serialize());
@@ -182,7 +205,6 @@ impl StoneCompatibleSerializer {
             }
         }
 
-        // FRI/Decommitment/Layer 0/Virtual Oracle/Trace 0
         let fri_trace_query_indexes: Vec<_> = fri_query_indexes
             .iter()
             .flat_map(|query| vec![query * 2, query * 2 + 1])
@@ -207,7 +229,6 @@ impl StoneCompatibleSerializer {
             }
         }
 
-        // FRI/Decommitment/Layer 0/Virtual Oracle/Trace ..: Row .., Column ..
         for ((opening, opening_sym), _) in fri_first_layer_openings.iter() {
             for elem in opening.lde_composition_poly_parts_evaluation.iter() {
                 output.extend_from_slice(&elem.serialize());
