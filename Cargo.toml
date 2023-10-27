@@ -11,7 +11,8 @@ repository = "https://github.com/lambdaclass/lambdaworks"
 
 [workspace.dependencies]
 iai-callgrind = "0.3.1"
-lambdaworks-crypto = { path = "./crypto" }
-lambdaworks-gpu = { path = "./gpu" }
-lambdaworks-math = { path = "./math" }
-stark-platinum-prover = { path = "./provers/stark" }
+lambdaworks-crypto = { path = "./crypto", version = "0.2.0" }
+lambdaworks-gpu = { path = "./gpu", version = "0.2.0" }
+lambdaworks-math = { path = "./math", version = "0.2.0" }
+stark-platinum-prover = { path = "./provers/stark", version = "0.2.0" }
+cairo-platinum-prover = { path = "./provers/cairo", version = "0.2.0" }
