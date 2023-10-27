@@ -17,7 +17,7 @@ use std::{
 type FE = FieldElement<BLS12381PrimeField>;
 
 fn load_fe_from_file(file_path: &String) -> Result<FE, io::Error> {
-    FE::from_hex(&fs::read_to_string(file_path)?)
+    FE::from_hex(&fs::read_to_string(file_path)?.replace('\n', ""))
         .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{:?}", e)))
 }
 
