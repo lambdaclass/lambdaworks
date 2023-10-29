@@ -19,7 +19,6 @@ impl IsEllipticCurve for BN254Curve {
     //Affine Coordinates
     fn generator() -> Self::PointRepresentation {
         Self::PointRepresentation::new([
-            // I don't believe in this ut i gotta represent this in the other file
             FieldElement::<Self::BaseField>::new_base("1"),
             FieldElement::<Self::BaseField>::new_base("2"),
             FieldElement::one(),
