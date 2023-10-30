@@ -24,9 +24,9 @@ List of symbols:
 | Finite Fields  | Lambdaworks        | Arkworks           | Halo2    | gnark | Constantine |
 | -------------- | ------------------ | ------------------ | --- | ----- | ----------- |
 | StarkField 252 | :heavy_check_mark: | :heavy_check_mark: |     |       |             |
-| Mersenne 31    | 🏗️           |                    |     |       |             |
-| Baby Bear      | 🏗️           |                    |     |       |             |
-| MiniGoldilocks | 🏗️           |                    |     |       |             |
+| Mersenne 31    | 🏗️                 |                    |     |       |             |
+| Baby Bear      | 🏗️                 |                    |     |       |             |
+| MiniGoldilocks | 🏗️                 |                    |     |       |             |
 | **ZK friendly Hash function** | **Lambdaworks** | **Arkworks** | **Halo2** | **gnark** | **Constantine** |
 | Poseidon                  | 🏗️    | :heavy_check_mark: |     |       |             |
 | Pedersen                  | 🏗️    | :heavy_check_mark: |     |       |             |
@@ -43,15 +43,15 @@ List of symbols:
 | CAIRO Prover | 🏗️           | :x:      |     | :x:   |             |
 | **SNARKs**  |**Lambdaworks** | **Arkworks** | **Halo2** | **gnark** | **Constantine** |
 | Groth16 | :x:         | :heavy_check_mark: |     | :heavy_check_mark: |             |
-| Plonk   | 🏗️    | :x:                |     | :heavy_check_mark: |             |
+| Plonk   | 🏗️          | :x:                | ✔️    | :heavy_check_mark: |             |
 | Spartan | :x:         | :heavy_check_mark: |     |                    |             |
 | Marlin  | :x:         | :heavy_check_mark: |     |                    |             |
 | GKR     | :x:         | :heavy_check_mark: |     | :heavy_check_mark: |             |
 | **Polynomial Commitment Schemes** | **Lambdaworks** | **Arkworks** | **Halo2** | **gnark** | **Constantine** |
-| FRI                           | 🏗️           |     | :x:                | :heavy_check_mark: |             |
-| IPA                           | :x:                |     | :heavy_check_mark: |                    |             |
-| Hyrax                         | :x:                |     | :x:                |                    |             |
-| KZG10                         | :heavy_check_mark: |     | :heavy_check_mark: | :heavy_check_mark: |             |
+| FRI                           | 🏗️                  |   :x:        | :x:       | :heavy_check_mark: |             |
+| IPA                           | :x:                |   ✔️           | :heavy_check_mark: |           |             |
+| Hyrax                         | :x:                |               | :x:       |                    |             |
+| KZG10                         | :heavy_check_mark: |   ✔️  | :heavy_check_mark: | :heavy_check_mark: |             |
 | **Folding Schemes** | **Lambdaworks** | **Arkworks** | **Halo2** | **gnark** | **Constantine** |
 | Nova            | :x:         |          |       |       |             |
 | Supernova       | :x:         |          |       |       |             |
