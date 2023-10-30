@@ -20,17 +20,25 @@ This prover is still in development and may contain bugs. It is not intended to 
 
 ## [Documentation](https://lambdaclass.github.io/lambdaworks/starks/cairo.html)
 
+## To test compatibility with stone prover
+
+Fetch the submodule with the Stone fork compatibility demo with:
+
+```git submodule update --init --recursive```
+
+You can then cd to the downloaded Stone Prover, and follow the README instructions to make a proof with Platinum and verify it with Stone
+
+```cd ../stone-demo```
+
 ## To be added
 
 -  Winterfell api compatibility
--  Add more parallelizationd
+-  Add more parallelization
 -  Optimizations
   - Skip layers
   - Stop FRI
-  - Batch FRI queries (improves proof size)
   - Others
 -  Optimized backend for mini goldilocks
--  Pedersen Builtin
 -  Pick hash configuration with ProofOptions
 -  Support FFTx for CUDA
 -  Tracing tools
