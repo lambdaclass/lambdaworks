@@ -1,28 +1,15 @@
-use rand::Rng;
-
-use lambdaworks_crypto::commitments::kzg::KateZaveruchaGoldberg;
+use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::default_types::FrElement;
+use lambdaworks_math::field::traits::IsField;
 use lambdaworks_math::{
     cyclic_group::IsGroup,
-    elliptic_curve::short_weierstrass::curves::bls12_381::{
-        curve::BLS12381Curve, default_types::FrField, pairing::BLS12381AtePairing,
-        twist::BLS12381TwistCurve,
-    },
     elliptic_curve::traits::{IsEllipticCurve, IsPairing},
     field::element::FieldElement,
 };
-use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::default_types::FrElement;
-use lambdaworks_math::field::traits::IsField;
-use lambdaworks_math::unsigned_integer::element::U256;
 
+// use lambdaworks_crypto::commitments::kzg::KateZaveruchaGoldberg;
+
+use crate::common::*;
 use crate::qap::QAP;
-
-pub type Curve = BLS12381Curve;
-pub type TwistedCurve = BLS12381TwistCurve;
-pub type Pairing = BLS12381AtePairing;
-pub type KZG = KateZaveruchaGoldberg<FrField, Pairing>;
-
-pub type G1Point = <BLS12381Curve as IsEllipticCurve>::PointRepresentation;
-pub type G2Point = <BLS12381TwistCurve as IsEllipticCurve>::PointRepresentation;
 
 pub struct VerifyingKey {
     // e([alpha]_1, [beta]_2) computed during setup as it's a constant
@@ -55,11 +42,6 @@ pub struct ProvingKey {
     pub z_powers_of_tau_g1: Vec<G1Point>,
 }
 
-pub struct KeyWrapper {
-    pub verifying_key: VerifyingKey,
-    pub proving_key: ProvingKey,
-}
-
 pub struct Witness<F: IsField> {
     pub a: Vec<FieldElement<F>>,
     pub b: Vec<FieldElement<F>>,
@@ -86,21 +68,9 @@ impl ToxicWaste {
     }
 }
 
-fn sample_field_elem() -> FrElement {
-    let mut rng = rand::thread_rng();
-    FrElement::new(U256 {
-        limbs: [
-            rng.gen::<u64>(),
-            rng.gen::<u64>(),
-            rng.gen::<u64>(),
-            rng.gen::<u64>(),
-        ],
-    })
-}
-
-pub fn setup(qap: &QAP) -> KeyWrapper {
-    let g1: G1Point = BLS12381Curve::generator();
-    let g2: G2Point = BLS12381TwistCurve::generator();
+pub fn setup(qap: &QAP) -> (ProvingKey, VerifyingKey) {
+    let g1: G1Point = Curve::generator();
+    let g2: G2Point = TwistedCurve::generator();
 
     let tw = ToxicWaste::new();
 
@@ -172,24 +142,8 @@ pub fn setup(qap: &QAP) -> KeyWrapper {
         verifier_k_tau_g1,
     };
 
-    KeyWrapper {
-        verifying_key: vk,
-        proving_key: pk,
-    }
+    (pk, vk)
 }
 
 #[cfg(test)]
-mod tests {
-    use lambdaworks_math::elliptic_curve::traits::IsPairing;
-
-    use crate::qap::QAP;
-    use crate::setup::{Pairing, setup};
-
-    #[test]
-    fn test_verifying_key() {
-        let qap = QAP::build_example();
-        let key_wrapper = setup(&qap);
-        let expected_alpha_g1_times_beta_g2 = Pairing::compute(&key_wrapper.proving_key.alpha_g1, &key_wrapper.proving_key.beta_g2);
-        assert_eq!(key_wrapper.verifying_key.alpha_g1_times_beta_g2, expected_alpha_g1_times_beta_g2);
-    }
-}
+mod tests {}

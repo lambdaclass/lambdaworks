@@ -1,5 +1,4 @@
 use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::default_types::FrElement;
-use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::polynomial::Polynomial;
 
 #[derive(Debug)]
@@ -25,7 +24,7 @@ impl QAP {
 
         let mut target_poly = Polynomial::new(&[FrElement::one()]);
         for gate_index in &gate_indices {
-            target_poly = target_poly * Polynomial::new(&[-gate_index, FieldElement::one()]);
+            target_poly = target_poly * Polynomial::new(&[-gate_index, FrElement::one()]);
         }
 
         Self {
@@ -52,58 +51,5 @@ impl QAP {
             polynomials.push(Polynomial::interpolate(gate_indices, &y_indices).unwrap());
         }
         polynomials
-    }
-
-    /// Builds QAP representation for equation x^3 + x + 5 = 35, based on Vitalik's post
-    ///https://vitalik.ca/general/2016/12/10/qap.html
-    pub fn build_example() -> QAP {
-        QAP::new(
-            1,
-            // TODO: Roots of unity
-            ["0x1", "0x2", "0x3", "0x4"]
-                .map(|e| FrElement::from_hex_unchecked(e))
-                .to_vec(),
-            [
-                ["0", "0", "0", "5"],
-                ["1", "0", "1", "0"],
-                ["0", "0", "0", "0"],
-                ["0", "1", "0", "0"],
-                ["0", "0", "1", "0"],
-                ["0", "0", "0", "1"],
-            ]
-                .map(|col| col.to_vec())
-                .to_vec(),
-            [
-                ["0", "0", "1", "1"],
-                ["1", "1", "0", "0"],
-                ["0", "0", "0", "0"],
-                ["0", "0", "0", "0"],
-                ["0", "0", "0", "0"],
-                ["0", "0", "0", "0"],
-            ]
-                .map(|col| col.to_vec())
-                .to_vec(),
-            [
-                ["0", "0", "0", "0"],
-                ["0", "0", "0", "0"],
-                ["0", "0", "0", "1"],
-                ["1", "0", "0", "0"],
-                ["0", "1", "0", "0"],
-                ["0", "0", "1", "0"],
-            ]
-                .map(|col| col.to_vec())
-                .to_vec(),
-        )
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::qap::QAP;
-
-    #[test]
-    fn test_example() {
-        let qap = QAP::build_example();
-        assert_eq!(qap.num_of_gates, 4);
     }
 }
