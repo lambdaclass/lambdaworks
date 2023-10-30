@@ -2,7 +2,6 @@ use crate::common::*;
 use crate::prover::Proof;
 use crate::setup::VerifyingKey;
 
-use lambdaworks_math::msm::naive::msm;
 use lambdaworks_math::{cyclic_group::IsGroup, elliptic_curve::traits::IsPairing};
 
 pub fn verify(vk: &VerifyingKey, proof: &Proof, pub_inputs: &[FrElement]) -> bool {

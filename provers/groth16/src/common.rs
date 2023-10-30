@@ -7,7 +7,8 @@ use lambdaworks_math::{
         pairing::BLS12381AtePairing,
         twist::BLS12381TwistCurve,
     },
-    elliptic_curve::traits::IsEllipticCurve,
+    elliptic_curve::traits::{IsEllipticCurve, IsPairing},
+    field::element::FieldElement,
 };
 use rand::Rng;
 
@@ -22,8 +23,9 @@ pub type KZG = KateZaveruchaGoldberg<FrField, Pairing>;
 
 pub type G1Point = <BLS12381Curve as IsEllipticCurve>::PointRepresentation;
 pub type G2Point = <BLS12381TwistCurve as IsEllipticCurve>::PointRepresentation;
+pub type PairingOutput = FieldElement<<Pairing as IsPairing>::OutputField>;
 
-pub fn sample_field_elem() -> FrElement {
+pub fn sample_fr_elem() -> FrElement {
     let mut rng = rand::thread_rng();
     FrElement::new(U256 {
         limbs: [

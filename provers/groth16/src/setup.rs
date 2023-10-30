@@ -1,19 +1,13 @@
-use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::default_types::FrElement;
-use lambdaworks_math::field::traits::IsField;
+use crate::common::*;
+use crate::qap::QAP;
 use lambdaworks_math::{
     cyclic_group::IsGroup,
     elliptic_curve::traits::{IsEllipticCurve, IsPairing},
-    field::element::FieldElement,
 };
-
-// use lambdaworks_crypto::commitments::kzg::KateZaveruchaGoldberg;
-
-use crate::common::*;
-use crate::qap::QAP;
 
 pub struct VerifyingKey {
     // e([alpha]_1, [beta]_2) computed during setup as it's a constant
-    pub alpha_g1_times_beta_g2: FieldElement<<Pairing as IsPairing>::OutputField>,
+    pub alpha_g1_times_beta_g2: PairingOutput,
     pub delta_g2: G2Point,
     pub gamma_g2: G2Point,
     // [K_0(τ)]_1, [K_1(τ)]_1, ..., [K_k(τ)]_1
@@ -42,28 +36,22 @@ pub struct ProvingKey {
     pub z_powers_of_tau_g1: Vec<G1Point>,
 }
 
-pub struct Witness<F: IsField> {
-    pub a: Vec<FieldElement<F>>,
-    pub b: Vec<FieldElement<F>>,
-    pub c: Vec<FieldElement<F>>,
-}
-
-pub struct ToxicWaste {
-    pub tau: FrElement,
-    pub alpha: FrElement,
-    pub beta: FrElement,
-    pub gamma: FrElement,
-    pub delta: FrElement,
+struct ToxicWaste {
+    tau: FrElement,
+    alpha: FrElement,
+    beta: FrElement,
+    gamma: FrElement,
+    delta: FrElement,
 }
 
 impl ToxicWaste {
     pub fn new() -> Self {
         Self {
-            tau: sample_field_elem(),
-            alpha: sample_field_elem(),
-            beta: sample_field_elem(),
-            gamma: sample_field_elem(),
-            delta: sample_field_elem(),
+            tau: sample_fr_elem(),
+            alpha: sample_fr_elem(),
+            beta: sample_fr_elem(),
+            gamma: sample_fr_elem(),
+            delta: sample_fr_elem(),
         }
     }
 }
@@ -144,6 +132,3 @@ pub fn setup(qap: &QAP) -> (ProvingKey, VerifyingKey) {
 
     (pk, vk)
 }
-
-#[cfg(test)]
-mod tests {}

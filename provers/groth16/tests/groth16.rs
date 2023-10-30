@@ -1,7 +1,4 @@
-use lambdaworks_groth16::{
-    common::*, prover::generate_proof, setup::setup, test_utils::circuit_1::qap_example_circuit_1,
-    verifier::verify,
-};
+use lambdaworks_groth16::{common::*, generate_proof, qap_example_circuit_1, setup, verify};
 
 #[test]
 fn test_groth16() {
