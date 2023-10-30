@@ -42,7 +42,7 @@ pub fn generate_nonce(seed: &[u8; 32], grinding_factor: u8) -> Option<u64> {
     let limit = 1 << (64 - grinding_factor);
 
     #[cfg(not(feature = "parallel"))]
-    return (0..u64::MAX).into_iter().find(|&candidate_nonce| {
+    return (0..u64::MAX).find(|&candidate_nonce| {
         is_valid_nonce_for_inner_hash(&inner_hash, candidate_nonce, limit)
     });
 
