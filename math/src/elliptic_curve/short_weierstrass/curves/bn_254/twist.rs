@@ -42,14 +42,17 @@ impl IsEllipticCurve for BN254TwistCurve {
         ])
     }
 }
-
+const BX_POINT: U256 =
+    U256::from_hex_unchecked("0x2b149d40ceb8aaae81be18991be06ac3b5b4c5e559dbefa33267e6dc24a138e5");
+const BY_POINT: U256 =
+    U256::from_hex_unchecked("0x9713b03af0fed4cd2cafadeed8fdf4a74fa084e52d1852e4a2bd0685c315d2");
 impl IsShortWeierstrass for BN254TwistCurve {
     fn a() -> FieldElement<Self::BaseField> {
         FieldElement::zero()
     }
 
     fn b() -> FieldElement<Self::BaseField> {
-        FieldElement::new([FieldElement::from(4), FieldElement::from(4)])
+        FieldElement::new([FieldElement::new(BX_POINT), FieldElement::new(BY_POINT)])
     }
 }
 
@@ -120,52 +123,52 @@ mod tests {
     fn add_points() {
         let px = Level1FE::new([
             Level0FE::new(U256::from_hex_unchecked(
-                "24b5da2f6e95abba5b57be0fc16add2b2a4ee52450079095b5b64742d13bfa6b",
+                "2b4580f90a0e9fa8b93997b04e615edc9402fe4fe3d0ba28eb999ce0f81d0dc",
             )),
             Level0FE::new(U256::from_hex_unchecked(
-                "2b4580f90a0e9fa8b93997b04e615edc9402fe4fe3d0ba28eb999ce0f81d0dc",
+                "24b5da2f6e95abba5b57be0fc16add2b2a4ee52450079095b5b64742d13bfa6b",
             )),
         ]);
         let py = Level1FE::new([
             Level0FE::new(U256::from_hex_unchecked(
-                "1952b0717cbd43394858dce7095bb5756f53a03cca162bf498eaef57c10d384c",
+                "12eefcc585ca0b8a84927abb81b801c79c639ef587493b3dc1b6487f0d79e3cb",
             )),
             Level0FE::new(U256::from_hex_unchecked(
-                "12eefcc585ca0b8a84927abb81b801c79c639ef587493b3dc1b6487f0d79e3cb",
+                "1952b0717cbd43394858dce7095bb5756f53a03cca162bf498eaef57c10d384c",
             )),
         ]);
 
         // Similarly for point Q
         let qx = Level1FE::new([
             Level0FE::new(U256::from_hex_unchecked(
-                "27cad5af482e60b7dc08f30c10fd632cf4de741279fa8464f8cd7f52a2b565e0",
+                "279b8ee0886dcf8e1bd526c09adf9447e02b545a12ebd1e6bfba393a05a37f0d",
             )),
             Level0FE::new(U256::from_hex_unchecked(
-                "279b8ee0886dcf8e1bd526c09adf9447e02b545a12ebd1e6bfba393a05a37f0d",
+                "27cad5af482e60b7dc08f30c10fd632cf4de741279fa8464f8cd7f52a2b565e0",
             )),
         ]);
         let qy = Level1FE::new([
             Level0FE::new(U256::from_hex_unchecked(
-                "14864350e4f2bdef7b39914359838a6bd53bda430dae1adf6ea541ad28a6de81",
+                "a110620524dd503d81a0467c03bcb94f2d015e18fbc3e48bec76c700ad9d28a",
             )),
             Level0FE::new(U256::from_hex_unchecked(
-                "a110620524dd503d81a0467c03bcb94f2d015e18fbc3e48bec76c700ad9d28a",
-            )), // Assuming imaginary part is 0
+                "14864350e4f2bdef7b39914359838a6bd53bda430dae1adf6ea541ad28a6de81",
+            )),
         ]);
         let expectedx = Level1FE::new([
             Level0FE::new(U256::from_hex_unchecked(
-                "248dc631199b98f427ae38c65de8fc03ad5fe320d8aaf56e98e842a89447e43e",
+                "279b8ee0886dcf8e1bd526c09adf9447e02b545a12ebd1e6bfba393a05a37f0d",
             )),
             Level0FE::new(U256::from_hex_unchecked(
-                "279b8ee0886dcf8e1bd526c09adf9447e02b545a12ebd1e6bfba393a05a37f0d",
+                "248dc631199b98f427ae38c65de8fc03ad5fe320d8aaf56e98e842a89447e43e",
             )),
         ]);
         let expectedy = Level1FE::new([
             Level0FE::new(U256::from_hex_unchecked(
-                "14864350e4f2bdef7b39914359838a6bd53bda430dae1adf6ea541ad28a6de81",
+                "a110620524dd503d81a0467c03bcb94f2d015e18fbc3e48bec76c700ad9d28a",
             )),
             Level0FE::new(U256::from_hex_unchecked(
-                "a110620524dd503d81a0467c03bcb94f2d015e18fbc3e48bec76c700ad9d28a",
+                "14864350e4f2bdef7b39914359838a6bd53bda430dae1adf6ea541ad28a6de81",
             )),
         ]);
         let p = BN254TwistCurve::create_point_from_affine(px, py).unwrap();
