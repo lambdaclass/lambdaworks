@@ -1,7 +1,4 @@
-use crate::common::*;
-use crate::prover::Proof;
-use crate::setup::VerifyingKey;
-
+use crate::{common::*, Proof, VerifyingKey};
 use lambdaworks_math::{cyclic_group::IsGroup, elliptic_curve::traits::IsPairing};
 
 pub fn verify(vk: &VerifyingKey, proof: &Proof, pub_inputs: &[FrElement]) -> bool {

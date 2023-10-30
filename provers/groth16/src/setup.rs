@@ -1,5 +1,4 @@
-use crate::common::*;
-use crate::qap::QAP;
+use crate::{common::*, QAP};
 use lambdaworks_math::{
     cyclic_group::IsGroup,
     elliptic_curve::traits::{IsEllipticCurve, IsPairing},

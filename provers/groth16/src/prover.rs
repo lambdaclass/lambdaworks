@@ -1,7 +1,5 @@
-use crate::setup::ProvingKey;
-use crate::{common::*, qap::QAP};
-use lambdaworks_math::msm::naive::msm;
-use lambdaworks_math::{cyclic_group::IsGroup, polynomial::Polynomial};
+use crate::{common::*, ProvingKey, QAP};
+use lambdaworks_math::{cyclic_group::IsGroup, msm::naive::msm, polynomial::Polynomial};
 
 pub struct Proof {
     pub pi1: G1Point,
