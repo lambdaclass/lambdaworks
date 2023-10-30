@@ -53,9 +53,9 @@ wasm-bindgen-test = "0.3.0"
 
 [features]
 test_fiat_shamir = []
-instruments = []                   # This enables timing prints in prover and verifier
+instruments = ["stark-platinum-prover/instruments"]# This enables timing prints in prover and verifier
 metal = ["lambdaworks-math/metal"]
-parallel = ["dep:rayon"]
+parallel = ["dep:rayon", "stark-platinum-prover/parallel"]
 wasm = ["dep:wasm-bindgen", "dep:serde-wasm-bindgen", "dep:web-sys"]
 cli = ["dep:clap"]
 [target.'cfg(not(all(target_arch = "wasm32", target_os = "unknown")))'.dev-dependencies]
