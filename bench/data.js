@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1698675458583,
+  "lastUpdate": 1698679244801,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -3065,6 +3065,150 @@ window.BENCHMARK_DATA = {
             "name": "Polynomial/div by 'x - b' with Ruffini",
             "value": 459,
             "range": "± 1",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "62400508+juan518munoz@users.noreply.github.com",
+            "name": "juan518munoz",
+            "username": "juan518munoz"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "14ae37148ce559d886378f3fd4e6b38fe43c84da",
+          "message": "Merkle cli (#618)\n\n* initial commit\n\n* basic generate tree func\n\n* fun declarations\n\n* comments, steps of each func\n\n* err handling\n\n* format & argument use\n\n* serde incl\n\n* remove wrong deserialize\n\n* remove useless imports\n\n* updated toml\n\n* working verify command\n\n* fmt & better output\n\n* serialize merkle tree to json\n\n* fmt\n\n* fix cargo toml\n\n* update README\n\n* add clap4 to references\n\n* add rest of references to README\n\n* add release flag to readme\n\n* colored verifycation output\n\n* move merkle-cli to examples dir\n\n* update main README\n\n* update merkle tree cli README\n\n* renamed command, better README\n\n* wrap gen proof inside result\n\n* fix get_proof_by_pos\n\n* remove newline when reading leaf\n\n---------\n\nCo-authored-by: Jmunoz <juan.munoz@lambdaclass.com>\nCo-authored-by: Mariano A. Nicolini <mariano.nicolini.91@gmail.com>",
+          "timestamp": "2023-10-30T14:49:44Z",
+          "tree_id": "f0f0eae950d359161309a1d30d66f9c9ba4aae3e",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/14ae37148ce559d886378f3fd4e6b38fe43c84da"
+        },
+        "date": 1698679239502,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "Ordered FFT/Parallel (Metal)",
+            "value": 113972012,
+            "range": "± 7441110",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #2",
+            "value": 220116291,
+            "range": "± 16743007",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #3",
+            "value": 444563115,
+            "range": "± 19205799",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #4",
+            "value": 800108562,
+            "range": "± 32625548",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal)",
+            "value": 44561697,
+            "range": "± 2057070",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #2",
+            "value": 93001260,
+            "range": "± 6805601",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #3",
+            "value": 166326277,
+            "range": "± 5862011",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #4",
+            "value": 328701927,
+            "range": "± 10923241",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal)",
+            "value": 51662850,
+            "range": "± 6069067",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #2",
+            "value": 91781510,
+            "range": "± 16789721",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #3",
+            "value": 141900929,
+            "range": "± 9690690",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #4",
+            "value": 288868718,
+            "range": "± 13455045",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal",
+            "value": 159175537,
+            "range": "± 9076329",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #2",
+            "value": 314178271,
+            "range": "± 14506671",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #3",
+            "value": 658982895,
+            "range": "± 27449451",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #4",
+            "value": 1359773875,
+            "range": "± 77916498",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal",
+            "value": 498057021,
+            "range": "± 34135210",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #2",
+            "value": 945411146,
+            "range": "± 25584468",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #3",
+            "value": 1714795229,
+            "range": "± 41909401",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #4",
+            "value": 3961287166,
+            "range": "± 160478257",
             "unit": "ns/iter"
           }
         ]
