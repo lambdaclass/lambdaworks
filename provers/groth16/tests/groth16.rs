@@ -16,7 +16,7 @@ fn test_groth16() {
         .map(|e| FrElement::from_hex_unchecked(e))
         .to_vec();
 
-    let proof = generate_proof(&w, &qap, &pk);
+    let proof = generate_proof(true, &w, &qap, &pk);
 
     let accept = verify(&vk, &proof, &w[..qap.num_of_public_inputs]);
     assert!(accept);
