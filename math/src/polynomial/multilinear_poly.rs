@@ -126,6 +126,51 @@ mod tests {
     type FE = FieldElement<F>;
 
     #[test]
+    fn test_add() {
+        // polynomial 3t_1t_2 + 4t_2t_3
+        let mut poly1 = MultilinearPolynomial::new(vec![
+            MultiLinearMonomial::new((FE::new(3), vec![1, 2])),
+            MultiLinearMonomial::new((FE::new(4), vec![2, 3])),
+        ]);
+
+        // polynomial 2t_1t_2 - 4t_2t_3
+        let poly2 = MultilinearPolynomial::new(vec![
+            MultiLinearMonomial::new((FE::new(2), vec![1, 2])),
+            MultiLinearMonomial::new((-FE::new(4), vec![2, 3])),
+        ]);
+
+        // polynomial 5t_1t_2 + 6t_2t_3
+        let expected = MultilinearPolynomial::new(vec![
+            MultiLinearMonomial::new((FE::new(5), vec![1, 2])),
+            MultiLinearMonomial::new((FE::new(0), vec![2, 3])),
+        ]);
+
+        poly1.add(poly2);
+        assert_eq!(poly1, expected);
+    }
+
+    #[test]
+    fn test_add_monomial() {
+        // polynomial 3t_1t_2 + 4t_2t_3
+        let mut poly = MultilinearPolynomial::new(vec![
+            MultiLinearMonomial::new((FE::new(3), vec![1, 2])),
+            MultiLinearMonomial::new((FE::new(4), vec![2, 3])),
+        ]);
+
+        // monomial 3t_1t_2
+        let mono = MultiLinearMonomial::new((FE::new(3), vec![1, 2]));
+
+        // expected result 6t_1t_2 + 4t_2t_3
+        let expected = MultilinearPolynomial::new(vec![
+            MultiLinearMonomial::new((FE::new(6), vec![1, 2])),
+            MultiLinearMonomial::new((FE::new(4), vec![2, 3])),
+        ]);
+
+        poly.add_monomial(&mono);
+        assert_eq!(poly, expected);
+    }
+
+    #[test]
     fn test_partial_evaluation() {
         // 3ab + 4bc
         // partially evaluate b = 2
