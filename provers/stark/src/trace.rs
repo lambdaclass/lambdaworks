@@ -18,8 +18,7 @@ pub struct TraceTable<F: IsFFTField> {
     pub table: Table<F>,
 }
 
-impl<F: IsFFTField> TraceTable<F> 
-{
+impl<F: IsFFTField> TraceTable<F> {
     pub fn new(data: &[FieldElement<F>], n_columns: usize) -> Self {
         let table = Table::new(data, n_columns);
         Self { table }
@@ -87,16 +86,17 @@ impl<F: IsFFTField> TraceTable<F>
         self.table.get(row, col)
     }
 
-    pub fn compute_trace_polys(&self) -> Vec<Polynomial<FieldElement<F>>> where FieldElement<F>: Send + Sync {
-        
+    pub fn compute_trace_polys(&self) -> Vec<Polynomial<FieldElement<F>>>
+    where
+        FieldElement<F>: Send + Sync,
+    {
         let columns = self.columns();
         #[cfg(feature = "parallel")]
         let iter = columns.par_iter();
         #[cfg(not(feature = "parallel"))]
         let iter = columns.iter();
 
-        iter
-            .map(|col| Polynomial::interpolate_fft(col))
+        iter.map(|col| Polynomial::interpolate_fft(col))
             .collect::<Result<Vec<Polynomial<FieldElement<F>>>, FFTError>>()
             .unwrap()
     }
