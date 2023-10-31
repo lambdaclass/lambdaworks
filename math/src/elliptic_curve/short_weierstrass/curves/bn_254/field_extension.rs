@@ -215,8 +215,4 @@ mod tests {
         assert_eq!(element_sequence.square(), element_sequence_squared);
     }
 
-    #[test]
-    fn to_fp12_unnormalized_computes_correctly() {
-        todo!()
-    }
 }
