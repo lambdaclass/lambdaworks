@@ -1,59 +1,73 @@
 <div align="center">
 
-# 🌟 Lambdaworks Stark Platinum Prover 🌟
+# Lambdaworks Merklee Tree CLI
 
-<img src="https://github.com/lambdaclass/lambdaworks_stark_platinum/assets/569014/ad8d7943-f011-49b5-a0c5-f07e5ef4133e" alt="drawing" width="300"/>
-
-## An open-source STARK prover, drop-in replacement for Winterfell.
+Simple Merkle Tree CLI that uses [Poseidon hash](https://www.poseidon-hash.info/).
 
 </div>
 
-[![Telegram Chat][tg-badge]][tg-url]
+### Usage:
 
-[tg-badge]: https://img.shields.io/static/v1?color=green&logo=telegram&label=chat&style=flat&message=join
-[tg-url]: https://t.me/+98Whlzql7Hs0MDZh
+### To create a Merkle Tree and save it to a file you can use:
 
+```bash
+cargo run --release generate-tree <TREE_PATH>
+```
 
-## ⚠️ Disclaimer
+The format of a tree `csv` file is as follows:
+```
+elem1;elem2;...;elemN
+```
+For example, the provided **`sample_tree.csv`** looks like this:
+```
+0x12345;0x6789A;0xBCDEF
+```
 
-This prover is still in development and may contain bugs. It is not intended to be used in production yet. 
+**`generate-tree` example:**
 
-## [Documentation](https://lambdaclass.github.io/lambdaworks/starks/cairo.html)
+```bash
+cargo run --release generate-tree sample_tree.csv
+```
 
-## To test compatibility with stone prover
+### To generate proof for a Merkle Tree you can use: 
 
-Fetch the submodule with the Stone fork compatibility demo with:
+```bash
+cargo run --release generate-proof <TREE_PATH> <POSITION>
+```
 
-```git submodule update --init --recursive```
+**`generate-proof` example:**
 
-You can then cd to the downloaded Stone Prover, and follow the README instructions to make a proof with Platinum and verify it with Stone
+```bash
+cargo run --release generate-proof sample_tree.csv 0
+```
 
-```cd ../stone-demo```
+### To verify a proof you can use:
 
-## To be added
+```bash
+cargo run --release verify-proof <ROOT_PATH> <INDEX> <PROOF_PATH> <LEAF_PATH>
+```
 
--  Winterfell api compatibility
--  Add more parallelization
--  Optimizations
-  - Skip layers
-  - Stop FRI
-  - Others
--  Optimized backend for mini goldilocks
--  Pick hash configuration with ProofOptions
--  Support FFTx for CUDA
--  Tracing tools
--  Virtual columns
+The format of a root `txt` file is a simple text file which only containts the root as a hex string. Using the root that yields the merkle tree generated from the `sample_tree` provided, **`root.txt`** would look like this:
+```
+0xa3bbbb9eac9f79d18862b802ea79f87e75efc37d4f4af4464976784c14a851b69c09aa04b1e8a8d1eb9825b713dc6ca
+```
 
-## Requirements
+Likewise, the format of a leaf `txt` file is a simple text file which only contains the leaf as a hex string. Using the first element (index 0) of the provided `sample_tree.csv` as out leaf, **`leaf.txt`** would look like this:
+```
+0x12345
+```
 
-- Cargo 1.69+
-  
-## How to try it
+**`verify-proof` example:**
+
+```bash
+cargo run --release verify-proof root.txt 0 sample_tree_proof_0.json leaf.txt
+```
 
 ## 📚 References
 
 The following links, repos and projects have been important in the development of this library and we want to thank and acknowledge them. 
 
+- [Clap4](https://epage.github.io/blog/2022/09/clap4/)
 - [Starkware](https://starkware.co/)
 - [Winterfell](https://github.com/facebook/winterfell)
 - [Anatomy of a Stark](https://aszepieniec.github.io/stark-anatomy/overview)
@@ -80,12 +94,3 @@ The following links, repos and projects have been important in the development o
 - [EthSTARK](https://github.com/starkware-libs/ethSTARK/tree/master)
 - [CAIRO whitepaper](https://eprint.iacr.org/2021/1063.pdf)
 - [Gnark](https://github.com/Consensys/gnark)
-
-## 🌞 Related Projects
-
-- [CAIRO VM - Rust](https://github.com/lambdaclass/cairo-vm)
-- [CAIRO VM - Go](https://github.com/lambdaclass/cairo_vm.go)
-- [Lambdaworks](https://github.com/lambdaclass/lambdaworks)
-- [CAIRO native](https://github.com/lambdaclass/cairo_native/)
-- [StarkNet in Rust](https://github.com/lambdaclass/starknet_in_rust)
-- [StarkNet Stack](https://github.com/lambdaclass/starknet_stack)

@@ -98,7 +98,7 @@ where
                 }
 
                 FriDecommitment {
-                    layers_auth_paths_sym,
+                    layers_auth_paths: layers_auth_paths_sym,
                     layers_evaluations_sym,
                 }
             })

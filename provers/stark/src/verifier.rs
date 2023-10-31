@@ -177,8 +177,10 @@ pub trait IsStarkVerifier {
         let security_bits = air.context().proof_options.grinding_factor;
         let mut grinding_seed = [0u8; 32];
         if security_bits > 0 {
-            grinding_seed = transcript.state();
-            transcript.append_bytes(&proof.nonce.to_be_bytes());
+            if let Some(nonce_value) = proof.nonce {
+                grinding_seed = transcript.state();
+                transcript.append_bytes(&nonce_value.to_be_bytes());
+            }
         }
 
         // FRI query phase
@@ -535,7 +537,7 @@ pub trait IsStarkVerifier {
         fri_layers_merkle_roots
             .iter()
             .enumerate()
-            .zip(&fri_decommitment.layers_auth_paths_sym)
+            .zip(&fri_decommitment.layers_auth_paths)
             .zip(&fri_decommitment.layers_evaluations_sym)
             .zip(evaluation_point_vec)
             .fold(
@@ -685,11 +687,15 @@ pub trait IsStarkVerifier {
 
         // verify grinding
         let security_bits = air.context().proof_options.grinding_factor;
-        if security_bits > 0
-            && !grinding::is_valid_nonce(&challenges.grinding_seed, proof.nonce, security_bits)
-        {
-            error!("Grinding factor not satisfied");
-            return false;
+        if security_bits > 0 {
+            let nonce_is_valid = proof.nonce.map_or(false, |nonce_value| {
+                grinding::is_valid_nonce(&challenges.grinding_seed, nonce_value, security_bits)
+            });
+
+            if !nonce_is_valid {
+                error!("Grinding factor not satisfied");
+                return false;
+            }
         }
 
         #[cfg(feature = "instruments")]
