@@ -61,47 +61,44 @@ pub fn setup(qap: &QAP) -> (ProvingKey, VerifyingKey) {
 
     let tw = ToxicWaste::new();
 
+    // [A_i(τ)]_1, [B_i(τ)]_1, [B_i(τ)]_2, [K_i(τ)]_1
+    let mut l_tau_g1: Vec<G1Point> = Vec::with_capacity(qap.num_of_total_inputs);
+    let mut r_tau_g1: Vec<G1Point> = Vec::with_capacity(qap.num_of_total_inputs);
+    let mut r_tau_g2: Vec<G2Point> = Vec::with_capacity(qap.num_of_total_inputs);
+    let mut verifier_k_tau_g1: Vec<G1Point> = Vec::with_capacity(qap.num_of_public_inputs);
+    let num_of_private_inputs = qap.num_of_total_inputs - qap.num_of_public_inputs;
+    let mut prover_k_tau_g1: Vec<G1Point> = Vec::with_capacity(num_of_private_inputs);
+
     let delta_inv = tw.delta.inv().unwrap();
     let gamma_inv = tw.gamma.inv().unwrap();
-
-    // [A_i(τ)]_1, [B_i(τ)]_1, [B_i(τ)]_2
-    let mut l_tau_g1: Vec<G1Point> = vec![];
-    let mut r_tau_g1: Vec<G1Point> = vec![];
-    let mut r_tau_g2: Vec<G2Point> = vec![];
-    let mut verifier_k_tau_g1: Vec<G1Point> = vec![];
-    let mut prover_k_tau_g1: Vec<G1Point> = vec![];
-
-    // Public variables
-    for i in 0..qap.num_of_public_inputs {
+    for i in 0..qap.num_of_total_inputs {
         let l_i_tau = qap.l[i].evaluate(&tw.tau);
         let r_i_tau = qap.r[i].evaluate(&tw.tau);
-        let o_i_tau = qap.o[i].evaluate(&tw.tau);
-        let k_i_tau = &gamma_inv * (&tw.beta * &l_i_tau + &tw.alpha * &r_i_tau + &o_i_tau);
 
         l_tau_g1.push(g1.operate_with_self(l_i_tau.representative()));
         r_tau_g1.push(g1.operate_with_self(r_i_tau.representative()));
         r_tau_g2.push(g2.operate_with_self(r_i_tau.representative()));
-        verifier_k_tau_g1.push(g1.operate_with_self(k_i_tau.representative()));
-    }
-    // Private variables
-    for i in qap.num_of_public_inputs..qap.num_of_total_inputs {
-        let l_i_tau = qap.l[i].evaluate(&tw.tau);
-        let r_i_tau = qap.r[i].evaluate(&tw.tau);
-        let o_i_tau = qap.o[i].evaluate(&tw.tau);
-        let k_i_tau = &delta_inv * (&tw.beta * &l_i_tau + &tw.alpha * &r_i_tau + &o_i_tau);
 
-        l_tau_g1.push(g1.operate_with_self(l_i_tau.representative()));
-        r_tau_g1.push(g1.operate_with_self(r_i_tau.representative()));
-        r_tau_g2.push(g2.operate_with_self(r_i_tau.representative()));
-        prover_k_tau_g1.push(g1.operate_with_self(k_i_tau.representative()));
+        let o_i_tau = qap.o[i].evaluate(&tw.tau);
+        let k_i_tau_unshifted = &tw.beta * &l_i_tau + &tw.alpha * &r_i_tau + &o_i_tau;
+        if i < qap.num_of_public_inputs {
+            // Public variables
+            let k_i_tau = &gamma_inv * k_i_tau_unshifted;
+            verifier_k_tau_g1.push(g1.operate_with_self(k_i_tau.representative()));
+        } else {
+            // Private variables
+            let k_i_tau = &delta_inv * k_i_tau_unshifted;
+            prover_k_tau_g1.push(g1.operate_with_self(k_i_tau.representative()));
+        }
     }
 
     // [delta^{-1} * t(τ) * τ^0]_1, [delta^{-1} * t(τ) * τ^1]_1, ..., [delta^{-1} * t(τ) * τ^m]_1
     let t_tau_times_delta_inv = &delta_inv * qap.t.evaluate(&tw.tau);
     let z_powers_of_tau_g1: Vec<G1Point> = (0..qap.num_of_gates + 1)
         .map(|exp: usize| {
-            g1.operate_with_self((tw.tau.pow(exp as u128)).representative())
-                .operate_with_self((&t_tau_times_delta_inv).representative())
+            g1.operate_with_self(
+                (&t_tau_times_delta_inv * tw.tau.pow(exp as u128)).representative(),
+            )
         })
         .collect();
 
@@ -109,25 +106,24 @@ pub fn setup(qap: &QAP) -> (ProvingKey, VerifyingKey) {
     let beta_g2 = g2.operate_with_self(tw.beta.representative());
     let delta_g2 = g2.operate_with_self(tw.delta.representative());
 
-    let pk = ProvingKey {
-        alpha_g1: alpha_g1.clone(),
-        beta_g1: g1.operate_with_self(tw.beta.representative()),
-        beta_g2: beta_g2.clone(),
-        delta_g1: g1.operate_with_self(tw.delta.representative()),
-        delta_g2: delta_g2.clone(),
-        l_tau_g1,
-        r_tau_g1,
-        r_tau_g2,
-        prover_k_tau_g1,
-        z_powers_of_tau_g1,
-    };
-
-    let vk = VerifyingKey {
-        alpha_g1_times_beta_g2: Pairing::compute(&alpha_g1, &beta_g2),
-        delta_g2,
-        gamma_g2: g2.operate_with_self(tw.gamma.representative()),
-        verifier_k_tau_g1,
-    };
-
-    (pk, vk)
+    (
+        ProvingKey {
+            alpha_g1: alpha_g1.clone(),
+            beta_g1: g1.operate_with_self(tw.beta.representative()),
+            beta_g2: beta_g2.clone(),
+            delta_g1: g1.operate_with_self(tw.delta.representative()),
+            delta_g2: delta_g2.clone(),
+            l_tau_g1,
+            r_tau_g1,
+            r_tau_g2,
+            prover_k_tau_g1,
+            z_powers_of_tau_g1,
+        },
+        VerifyingKey {
+            alpha_g1_times_beta_g2: Pairing::compute(&alpha_g1, &beta_g2),
+            delta_g2,
+            gamma_g2: g2.operate_with_self(tw.gamma.representative()),
+            verifier_k_tau_g1,
+        },
+    )
 }

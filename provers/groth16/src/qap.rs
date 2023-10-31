@@ -36,6 +36,28 @@ impl QAP {
         }
     }
 
+    pub fn calculate_h_coefficients(&self, w: &[FrElement]) -> Vec<FrElement> {
+        let p = self.calculate_p(w);
+
+        // h(x) = p(x) / t(x)
+        let (h, remainder) = p.long_division_with_remainder(&self.t);
+        assert_eq!(0, remainder.degree()); // must have no remainder
+
+        h.coefficients().to_vec()
+    }
+
+    fn calculate_p(&self, w: &[FrElement]) -> Polynomial<FrElement> {
+        // Compute A.s by summing up polynomials A[0].s, A[1].s, ..., A[n].s
+        // In other words, assign the witness coefficients / execution values
+        // Similarly for B.s and C.s
+
+        let l = Self::assign_to_variable_polynomials(&self.l, w);
+        let r = Self::assign_to_variable_polynomials(&self.r, w);
+        let o = Self::assign_to_variable_polynomials(&self.o, w);
+
+        &l * &r - &o
+    }
+
     fn build_target_polynomial(gate_indices: &[FrElement]) -> Polynomial<FrElement> {
         let mut target_poly = Polynomial::new(&[FrElement::one()]);
         for gate_index in gate_indices {
@@ -57,5 +79,17 @@ impl QAP {
             polynomials.push(Polynomial::interpolate(gate_indices, &y_indices).unwrap());
         }
         polynomials
+    }
+
+    fn assign_to_variable_polynomials(
+        var_polynomials: &[Polynomial<FrElement>],
+        w: &[FrElement],
+    ) -> Polynomial<FrElement> {
+        var_polynomials
+            .iter()
+            .zip(w)
+            .map(|(poly, coeff)| poly.mul_with_ref(&Polynomial::new_monomial(coeff.clone(), 0)))
+            .reduce(|poly1, poly2| poly1 + poly2)
+            .unwrap()
     }
 }
