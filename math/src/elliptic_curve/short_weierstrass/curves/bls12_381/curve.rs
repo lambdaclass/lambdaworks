@@ -103,6 +103,7 @@ mod tests {
             traits::EllipticCurveError,
         },
         field::element::FieldElement,
+        unsigned_integer::element::U384,
     };
 
     // -15132376222941642751 = MILLER_LOOP_CONSTANT + 1 = -d20100000000ffff
@@ -220,7 +221,9 @@ mod tests {
     //TODO
     #[test]
     fn arbitrary_g1_point_not_in_subgroup() {
-        let p = BLS12381Curve::generator().operate_with_self(32u64);
+        let x = FEE::new_base("178212cbe4a3026c051d4f867364b3ea84af623f93233b347ffcd3d6b16f16e0a7aedbe1c78d33c6beca76b2b75c8486");
+        let y = FEE::new_base("13a8b1347e5b43bc4051754b2a29928b5df78cf03ca3b1f73d0424b09fccdef116c9f0ecbec7420a99b2dd785209e9d");
+        let p = BLS12381Curve::create_point_from_affine(x, y).unwrap();
         assert!(!p.is_in_subgroup())
     }
 
@@ -239,7 +242,16 @@ mod tests {
     //`TODO`
     #[test]
     fn arbitrary_g2_point_not_in_subgroup() {
-        let p = BLS12381TwistCurve::generator().operate_with_self(32u64);
+        let x = FTE::new([
+            FEE::new(U384::from_hex_unchecked("97798b4a61ac301bbee71e36b5174e2f4adfe3e1729bdae1fcc9965ae84181be373aa80414823eed694f1270014012d")),
+            FEE::new(U384::from_hex_unchecked("c9852cc6e61868966249aec153b50b29b3c22409f4c7880fd13121981c103c8ef84d9ea29b552431360e82cf69219fa"))
+        ]);
+        let y = FTE::new([
+            FEE::new(U384::from_hex_unchecked("16cb3a60f3fa52c8273aceeb94c4c7303e8074aa9eedec7355bbb1e8cceedd4ec1497f573f62822140377b8e339619ed")),
+            FEE::new(U384::from_hex_unchecked("1cd919b08afe06bebe9adf6223a55868a6fd8b77efc5c67b60fff39be36e9b44b7f10db16827c83b43ad2dad1947778"))
+        ]);
+
+        let p = BLS12381TwistCurve::create_point_from_affine(x, y).unwrap();
         assert!(!p.is_in_subgroup())
     }
 
