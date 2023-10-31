@@ -40,14 +40,22 @@ where
     /// Build a new multilinear polynomial, from collection of multilinear monomials
     #[allow(dead_code)]
     pub fn new(terms: Vec<MultiLinearMonomial<F>>) -> Self {
-        let n = terms.iter().fold(
-            0,
-            |acc, m| if m.max_var() > acc { m.max_var() } else { acc },
-        );
-        Self {
-            terms,
-            n_vars: if n == 0 { 0 } else { n + 1 },
-        } //we add +1 because variables indices start from 0
+        if !terms.is_empty() {
+            let n = terms.iter().fold(
+                0,
+                |acc, m| if m.max_var() > acc { m.max_var() } else { acc },
+            );
+            Self {
+                terms,
+                n_vars: if n == 0 { 0 } else { n + 1 },
+            } //we add +1 because variables indices start from 0
+              // if terms is empty, we create an empty polynomial with 0 variables
+        } else {
+            Self {
+                terms: Vec::<MultiLinearMonomial<F>>::new(),
+                n_vars: 0,
+            }
+        }
     }
 
     /// Evaluates `self` at the point `p`.
@@ -83,13 +91,29 @@ where
         for term in poly.terms.iter() {
             self.add_monomial(&term);
         }
+        self.update_nvars();
+    }
+
+    fn update_nvars(&mut self) {
+        let n = self.terms.iter().fold(
+            0,
+            |acc, m| if m.max_var() > acc { m.max_var() } else { acc },
+        );
+        self.n_vars = if n == 0 { 0 } else { n + 1 };
     }
 
     fn add_monomial(&mut self, mono: &MultiLinearMonomial<F>) {
+        let mut added = false; // flag to check if the monomial was added or not
+
         for term in self.terms.iter_mut() {
             if term.vars == mono.vars {
                 term.coeff.add_assign(mono.coeff.clone());
+                added = true;
             }
+        }
+
+        if !added {
+            self.terms.push(mono.clone());
         }
     }
 
@@ -145,6 +169,20 @@ mod tests {
 
         poly1.add(poly2);
         assert_eq!(poly1, expected);
+
+        // polynomial 2t_1t_2 - 4t_2t_3
+        let poly2 = MultilinearPolynomial::new(vec![
+            MultiLinearMonomial::new((FE::new(2), vec![1, 2])),
+            MultiLinearMonomial::new((-FE::new(4), vec![2, 3])),
+        ]);
+        let mut poly_empty = MultilinearPolynomial::<F>::new(vec![]);
+        poly_empty.add(poly2);
+        // polynomial 2t_1t_2 - 4t_2t_3
+        let poly2 = MultilinearPolynomial::new(vec![
+            MultiLinearMonomial::new((FE::new(2), vec![1, 2])),
+            MultiLinearMonomial::new((-FE::new(4), vec![2, 3])),
+        ]);
+        assert_eq!(poly_empty, poly2);
     }
 
     #[test]
