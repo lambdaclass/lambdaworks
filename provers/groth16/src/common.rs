@@ -8,14 +8,9 @@ use lambdaworks_math::{
         twist::BLS12381TwistCurve,
     },
     elliptic_curve::traits::{IsEllipticCurve, IsPairing},
-    field::{
-        element::FieldElement,
-        traits::{IsFFTField, IsField},
-    },
+    field::{element::FieldElement, traits::IsFFTField},
 };
 use rand::Rng;
-
-pub const ORDER_R_MINUS_1_ROOT_UNITY: FrElement = FrElement::from_hex_unchecked("7");
 
 pub type Curve = BLS12381Curve;
 pub type TwistedCurve = BLS12381TwistCurve;

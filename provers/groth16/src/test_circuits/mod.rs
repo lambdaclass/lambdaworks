@@ -1,11 +1,14 @@
-use crate::{common::*, qap::QAP};
+use crate::{common::*, QAP};
 
-/// Builds QAP representation for equation x^3 + x + 5 = 35, based on Vitalik's post
-///https://vitalik.ca/general/2016/12/10/qap.html
+/*
+Represents x^3 + x + 5 = 35, based on https://vitalik.ca/general/2016/12/10/qap.html
+    sym_1 = x * x
+    y = sym_1 * x
+    sym_2 = y + x
+    ~out = sym_2 + 5
+*/
 pub fn qap_example_circuit_1() -> QAP {
-    let number_of_gates: usize = 4;
     let num_of_public_inputs = 1;
-
     let [l, r, o] = [
         [
             ["0", "0", "0", "5"],
@@ -32,13 +35,6 @@ pub fn qap_example_circuit_1() -> QAP {
             ["0", "0", "1", "0"],
         ],
     ]
-    .map(|matrix| matrix.map(|col| col.to_vec()).to_vec());
-
-    QAP::from_hex_matrices(
-        num_of_public_inputs,
-        generate_domain(number_of_gates),
-        l,
-        r,
-        o,
-    )
+    .map(|matrix| matrix.map(|row| row.map(|elem| FrElement::from_hex_unchecked(elem)).to_vec()));
+    QAP::from_variable_matrices(num_of_public_inputs, &l, &r, &o)
 }

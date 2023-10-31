@@ -61,17 +61,19 @@ pub fn setup(qap: &QAP) -> (ProvingKey, VerifyingKey) {
 
     let tw = ToxicWaste::new();
 
+    let num_of_total_inputs = qap.l.len();
+
     // [A_i(τ)]_1, [B_i(τ)]_1, [B_i(τ)]_2, [K_i(τ)]_1
-    let mut l_tau_g1: Vec<G1Point> = Vec::with_capacity(qap.num_of_total_inputs);
-    let mut r_tau_g1: Vec<G1Point> = Vec::with_capacity(qap.num_of_total_inputs);
-    let mut r_tau_g2: Vec<G2Point> = Vec::with_capacity(qap.num_of_total_inputs);
+    let mut l_tau_g1: Vec<G1Point> = Vec::with_capacity(num_of_total_inputs);
+    let mut r_tau_g1: Vec<G1Point> = Vec::with_capacity(num_of_total_inputs);
+    let mut r_tau_g2: Vec<G2Point> = Vec::with_capacity(num_of_total_inputs);
     let mut verifier_k_tau_g1: Vec<G1Point> = Vec::with_capacity(qap.num_of_public_inputs);
-    let num_of_private_inputs = qap.num_of_total_inputs - qap.num_of_public_inputs;
+    let num_of_private_inputs = num_of_total_inputs - qap.num_of_public_inputs;
     let mut prover_k_tau_g1: Vec<G1Point> = Vec::with_capacity(num_of_private_inputs);
 
     let delta_inv = tw.delta.inv().unwrap();
     let gamma_inv = tw.gamma.inv().unwrap();
-    for i in 0..qap.num_of_total_inputs {
+    for i in 0..num_of_total_inputs {
         let l_i_tau = qap.l[i].evaluate(&tw.tau);
         let r_i_tau = qap.r[i].evaluate(&tw.tau);
 
@@ -93,8 +95,8 @@ pub fn setup(qap: &QAP) -> (ProvingKey, VerifyingKey) {
     }
 
     // [delta^{-1} * t(τ) * τ^0]_1, [delta^{-1} * t(τ) * τ^1]_1, ..., [delta^{-1} * t(τ) * τ^m]_1
-    let t_tau_times_delta_inv = &delta_inv * qap.t.evaluate(&tw.tau);
-    let z_powers_of_tau_g1: Vec<G1Point> = (0..qap.num_of_gates + 1)
+    let t_tau_times_delta_inv = &delta_inv * qap.vanishing_polynomial().evaluate(&tw.tau);
+    let z_powers_of_tau_g1: Vec<G1Point> = (0..qap.num_of_gates() + 1)
         .map(|exp: usize| {
             g1.operate_with_self(
                 (&t_tau_times_delta_inv * tw.tau.pow(exp as u128)).representative(),
