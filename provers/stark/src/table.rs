@@ -1,11 +1,19 @@
-use lambdaworks_math::field::{element::FieldElement, traits::IsFFTField};
+use lambdaworks_math::{
+    field::{element::FieldElement, traits::IsFFTField},
+    traits::ByteConversion,
+};
+use serde::{
+    de::{MapAccess, SeqAccess, Visitor},
+    ser::SerializeStruct,
+    Deserialize, Serialize, Serializer,
+};
 
 /// A two-dimensional Table holding field elements, arranged in a row-major order.
 /// This is the basic underlying data structure used for any two-dimensional component in the
 /// the STARK protocol implementation, such as the `TraceTable` and the `EvaluationFrame`.
 /// Since this struct is a representation of a two-dimensional table, all rows should have the same
 /// length.
-#[derive(Clone, Default, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Default, Debug, PartialEq, Eq)]
 pub struct Table<F: IsFFTField> {
     pub data: Vec<FieldElement<F>>,
     pub width: usize,
@@ -104,5 +112,114 @@ impl<F: IsFFTField> Table<F> {
     pub fn get(&self, row: usize, col: usize) -> FieldElement<F> {
         let idx = row * self.width + col;
         self.data[idx].clone()
+    }
+}
+
+// #[cfg(feature = "lambdaworks-serde")]
+impl<F: IsFFTField> Serialize for Table<F>
+where
+    FieldElement<F>: ByteConversion,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut state = serializer.serialize_struct("Table", 3)?;
+        state.serialize_field("data", &self.data)?;
+        state.serialize_field("width", &self.width)?;
+        state.serialize_field("height", &self.height)?;
+        state.end()
+    }
+}
+
+// #[cfg(feature = "lambdaworks-serde")]
+impl<'de, F: IsFFTField> Deserialize<'de> for Table<F>
+where
+    FieldElement<F>: ByteConversion,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(field_identifier, rename_all = "lowercase")]
+        enum Field {
+            Data,
+            Width,
+            Height,
+        }
+
+        struct TableVisitor<F: IsFFTField>(std::marker::PhantomData<F>);
+
+        impl<'de, F: IsFFTField> Visitor<'de> for TableVisitor<F> {
+            type Value = Table<F>;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("struct Table")
+            }
+
+            fn visit_seq<V>(self, mut seq: V) -> Result<Table<F>, V::Error>
+            where
+                V: SeqAccess<'de>,
+            {
+                let data = seq
+                    .next_element()?
+                    .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
+                let width = seq
+                    .next_element()?
+                    .ok_or_else(|| serde::de::Error::invalid_length(1, &self))?;
+                let height = seq
+                    .next_element()?
+                    .ok_or_else(|| serde::de::Error::invalid_length(2, &self))?;
+                Ok(Table {
+                    data,
+                    width,
+                    height,
+                })
+            }
+
+            fn visit_map<V>(self, mut map: V) -> Result<Table<F>, V::Error>
+            where
+                V: MapAccess<'de>,
+            {
+                let mut data = None;
+                let mut width = None;
+                let mut height = None;
+
+                while let Some(key) = map.next_key()? {
+                    match key {
+                        Field::Data => {
+                            if data.is_some() {
+                                return Err(serde::de::Error::duplicate_field("data"));
+                            }
+                            data = Some(map.next_value()?);
+                        }
+                        Field::Width => {
+                            if width.is_some() {
+                                return Err(serde::de::Error::duplicate_field("width"));
+                            }
+                            width = Some(map.next_value()?);
+                        }
+                        Field::Height => {
+                            if height.is_some() {
+                                return Err(serde::de::Error::duplicate_field("height"));
+                            }
+                            height = Some(map.next_value()?);
+                        }
+                    }
+                }
+                let data = data.ok_or_else(|| serde::de::Error::missing_field("data"))?;
+                let width = width.ok_or_else(|| serde::de::Error::missing_field("width"))?;
+                let height = height.ok_or_else(|| serde::de::Error::missing_field("height"))?;
+                Ok(Table {
+                    data,
+                    width,
+                    height,
+                })
+            }
+        }
+
+        const FIELDS: &'static [&'static str] = &["data", "width", "height"];
+        deserializer.deserialize_struct("Table", FIELDS, TableVisitor(std::marker::PhantomData))
     }
 }

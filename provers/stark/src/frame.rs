@@ -3,9 +3,15 @@ use crate::table::Table;
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsFFTField},
     polynomial::Polynomial,
+    traits::ByteConversion,
+};
+use serde::{
+    de::{SeqAccess, Visitor},
+    ser::SerializeStruct,
+    Deserialize, Serialize, Serializer,
 };
 
-#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Frame<F: IsFFTField> {
     table: Table<F>,
 }
@@ -75,5 +81,76 @@ impl<F: IsFFTField> Frame<F> {
                     .collect::<Vec<FieldElement<F>>>()
             })
             .collect()
+    }
+}
+
+impl<F: IsFFTField> Serialize for Frame<F>
+where
+    FieldElement<F>: ByteConversion,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut state = serializer.serialize_struct("Frame", 1)?;
+        state.serialize_field("table", &self.table)?;
+        state.end()
+    }
+}
+
+impl<'de, F: IsFFTField> Deserialize<'de> for Frame<F> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        // Declare fields of the struct
+        #[derive(Deserialize)]
+        #[serde(field_identifier, rename_all = "lowercase")]
+        enum Field {
+            Table,
+        }
+
+        // Visitor of struct to deserialize
+        struct FrameVisitor<F: IsFFTField>(std::marker::PhantomData<F>);
+
+        impl<'de, F: IsFFTField> Visitor<'de> for FrameVisitor<F> {
+            type Value = Frame<F>;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("struct Frame")
+            }
+
+            fn visit_seq<V>(self, mut seq: V) -> Result<Frame<F>, V::Error>
+            where
+                V: SeqAccess<'de>,
+            {
+                let table = seq
+                    .next_element()?
+                    .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
+                Ok(Frame { table })
+            }
+
+            fn visit_map<V>(self, mut map: V) -> Result<Frame<F>, V::Error>
+            where
+                V: serde::de::MapAccess<'de>,
+            {
+                let mut table = None;
+                while let Some(key) = map.next_key()? {
+                    match key {
+                        Field::Table => {
+                            if table.is_some() {
+                                return Err(serde::de::Error::duplicate_field("table"));
+                            }
+                            table = Some(map.next_value()?);
+                        }
+                    }
+                }
+                let table = table.ok_or_else(|| serde::de::Error::missing_field("table"))?;
+                Ok(Frame { table })
+            }
+        }
+
+        const FIELDS: &'static [&'static str] = &["table"];
+        deserializer.deserialize_struct("Frame", FIELDS, FrameVisitor(std::marker::PhantomData))
     }
 }

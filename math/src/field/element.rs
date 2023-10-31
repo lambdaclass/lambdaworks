@@ -1,6 +1,9 @@
+use crate::elliptic_curve::short_weierstrass::curves::bls12_381::compression::check_point_is_in_subgroup;
 use crate::errors::CreationError;
 use crate::field::errors::FieldError;
 use crate::field::traits::IsField;
+use crate::traits::ByteConversion;
+use crate::unsigned_integer;
 use crate::unsigned_integer::element::UnsignedInteger;
 use crate::unsigned_integer::montgomery::MontgomeryAlgorithms;
 use crate::unsigned_integer::traits::IsUnsignedInteger;
@@ -13,7 +16,7 @@ use core::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
 #[cfg(feature = "lambdaworks-serde")]
 use serde::de::{self, Deserializer, MapAccess, Visitor};
 #[cfg(feature = "lambdaworks-serde")]
-use serde::ser::{Serialize, SerializeStruct, Serializer};
+use serde::ser::{Serialize, SerializeSeq, SerializeStruct, Serializer};
 #[cfg(feature = "lambdaworks-serde")]
 use serde::Deserialize;
 
@@ -436,16 +439,40 @@ impl<F: IsPrimeField> FieldElement<F> {
 }
 
 #[cfg(feature = "lambdaworks-serde")]
-impl<F: IsPrimeField> Serialize for FieldElement<F> {
+impl<F: IsPrimeField> Serialize for FieldElement<F>
+where
+    FieldElement<F>: ByteConversion,
+{
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
         let mut state = serializer.serialize_struct("FieldElement", 1)?;
-        state.serialize_field("value", &F::representative(self.value()).to_string())?;
+        state.serialize_field("value", &self.to_bytes_le())?;
         state.end()
     }
 }
+
+// // // Implement serialization for vector of FieldElements
+// #[derive(Clone, Default, Debug, PartialEq, Eq)]
+// pub struct FieldElements<F: IsPrimeField>(Vec<FieldElement<F>>);
+
+// #[cfg(feature = "lambdaworks-serde")]
+// impl<F: IsPrimeField> Serialize for FieldElements<F>
+// where
+//     FieldElement<F>: ByteConversion,
+// {
+//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+//     where
+//         S: Serializer,
+//     {
+//         let mut seq = serializer.serialize_seq(Some(self.0.len()))?;
+//         for element in self.0.iter() {
+//             seq.serialize_element(&element.to_bytes_be())?;
+//         }
+//         seq.end()
+//     }
+// }
 
 #[cfg(feature = "lambdaworks-serde")]
 impl<'de, F: IsPrimeField> Deserialize<'de> for FieldElement<F> {
@@ -693,7 +720,7 @@ mod tests {
         #[cfg(feature = "std")]
         #[test]
         fn test_inplace_batch_inverse_returns_inverses(vec in field_vec(10)) {
-            let input: Vec<_> = vec.into_iter().filter(|x| x != &FieldElement::<Stark252PrimeField>::zero()).collect();
+                let input: Vec<_> = vec.into_iter().filter(|x| x != &FieldElement::<Stark252PrimeField>::zero()).collect();
             let mut inverses = input.clone();
             FieldElement::inplace_batch_inverse(&mut inverses).unwrap();
 

@@ -3,10 +3,11 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 use lambdaworks_crypto::merkle_tree::proof::Proof;
 use lambdaworks_math::{
     field::{
-        element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
-        traits::IsFFTField,
+        element::FieldElement,
+        fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+        traits::{IsFFTField, IsPrimeField},
     },
-    traits::Serializable,
+    traits::{ByteConversion, Serializable},
 };
 
 use crate::{
@@ -19,9 +20,15 @@ use crate::{
     verifier::{IsStarkVerifier, Verifier},
 };
 
+use serde::{
+    de::{MapAccess, SeqAccess, Visitor},
+    ser::SerializeStruct,
+    Deserialize, Deserializer, Serialize, Serializer,
+};
+
 use super::options::ProofOptions;
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone)]
 pub struct DeepPolynomialOpening<F: IsFFTField> {
     pub lde_composition_poly_proof: Proof<Commitment>,
     pub lde_composition_poly_parts_evaluation: Vec<FieldElement<F>>,
@@ -29,9 +36,161 @@ pub struct DeepPolynomialOpening<F: IsFFTField> {
     pub lde_trace_evaluations: Vec<FieldElement<F>>,
 }
 
+// #[cfg(feature = "lambdaworks-serde")]
+impl<F: IsFFTField> Serialize for DeepPolynomialOpening<F>
+where
+    FieldElement<F>: ByteConversion,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut state = serializer.serialize_struct("DeepPolynomialOpening", 4)?;
+        state.serialize_field(
+            "lde_composition_poly_proof",
+            &self.lde_composition_poly_proof,
+        )?;
+        state.serialize_field(
+            "lde_composition_poly_parts_evaluation",
+            &self.lde_composition_poly_parts_evaluation,
+        )?;
+        state.serialize_field("lde_trace_merkle_proofs", &self.lde_trace_merkle_proofs)?;
+        state.serialize_field("lde_trace_evaluations", &self.lde_trace_evaluations)?;
+        state.end()
+    }
+}
+
+// #[cfg(feature = "lambdaworks-serde")]
+impl<'de, F: IsFFTField> Deserialize<'de> for DeepPolynomialOpening<F>
+where
+    FieldElement<F>: ByteConversion,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(field_identifier, rename_all = "lowercase")]
+        enum Field {
+            LdeCompositionPolyProof,
+            LdeCompositionPolyPartsEvaluation,
+            LdeTraceMerkleProofs,
+            LdeTraceEvaluations,
+        }
+
+        struct DeepPolynomialOpeningVisitor<F: IsFFTField>(std::marker::PhantomData<F>);
+
+        impl<'de, F: IsFFTField> Visitor<'de> for DeepPolynomialOpeningVisitor<F> {
+            type Value = DeepPolynomialOpening<F>;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("struct DeepPolynomialOpening")
+            }
+
+            fn visit_seq<V>(self, mut seq: V) -> Result<DeepPolynomialOpening<F>, V::Error>
+            where
+                V: SeqAccess<'de>,
+            {
+                let lde_composition_poly_proof = seq
+                    .next_element()?
+                    .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
+                let lde_composition_poly_parts_evaluation = seq
+                    .next_element()?
+                    .ok_or_else(|| serde::de::Error::invalid_length(1, &self))?;
+                let lde_trace_merkle_proofs = seq
+                    .next_element()?
+                    .ok_or_else(|| serde::de::Error::invalid_length(2, &self))?;
+                let lde_trace_evaluations = seq
+                    .next_element()?
+                    .ok_or_else(|| serde::de::Error::invalid_length(3, &self))?;
+                Ok(DeepPolynomialOpening {
+                    lde_composition_poly_proof,
+                    lde_composition_poly_parts_evaluation,
+                    lde_trace_merkle_proofs,
+                    lde_trace_evaluations,
+                })
+            }
+
+            fn visit_map<V>(self, mut map: V) -> Result<DeepPolynomialOpening<F>, V::Error>
+            where
+                V: MapAccess<'de>,
+            {
+                let mut lde_composition_poly_proof = None;
+                let mut lde_composition_poly_parts_evaluation = None;
+                let mut lde_trace_merkle_proofs = None;
+                let mut lde_trace_evaluations = None;
+
+                while let Some(key) = map.next_key()? {
+                    match key {
+                        Field::LdeCompositionPolyProof => {
+                            if lde_composition_poly_proof.is_some() {
+                                return Err(serde::de::Error::duplicate_field(
+                                    "lde_composition_poly_proof",
+                                ));
+                            }
+                            lde_composition_poly_proof = Some(map.next_value()?);
+                        }
+                        Field::LdeCompositionPolyPartsEvaluation => {
+                            if lde_composition_poly_parts_evaluation.is_some() {
+                                return Err(serde::de::Error::duplicate_field(
+                                    "lde_composition_poly_parts_evaluation",
+                                ));
+                            }
+                        }
+                        Field::LdeTraceMerkleProofs => {
+                            if lde_trace_merkle_proofs.is_some() {
+                                return Err(serde::de::Error::duplicate_field(
+                                    "lde_trace_merkle_proofs",
+                                ));
+                            }
+                        }
+                        Field::LdeTraceEvaluations => {
+                            if lde_trace_evaluations.is_some() {
+                                return Err(serde::de::Error::duplicate_field(
+                                    "lde_trace_evaluations",
+                                ));
+                            }
+                        }
+                    }
+                }
+
+                let lde_composition_poly_proof = lde_composition_poly_proof
+                    .ok_or_else(|| serde::de::Error::missing_field("lde_composition_poly_proof"))?;
+                let lde_composition_poly_parts_evaluation = lde_composition_poly_parts_evaluation
+                    .ok_or_else(|| {
+                    serde::de::Error::missing_field("lde_composition_poly_parts_evaluation")
+                })?;
+                let lde_trace_merkle_proofs = lde_trace_merkle_proofs
+                    .ok_or_else(|| serde::de::Error::missing_field("lde_trace_merkle_proofs"))?;
+                let lde_trace_evaluations = lde_trace_evaluations
+                    .ok_or_else(|| serde::de::Error::missing_field("lde_trace_evaluations"))?;
+
+                Ok(DeepPolynomialOpening {
+                    lde_composition_poly_proof,
+                    lde_composition_poly_parts_evaluation,
+                    lde_trace_merkle_proofs,
+                    lde_trace_evaluations,
+                })
+            }
+        }
+
+        const FIELDS: &'static [&'static str] = &[
+            "lde_composition_poly_proof",
+            "lde_composition_poly_parts_evaluation",
+            "lde_trace_merkle_proofs",
+            "lde_trace_evaluations",
+        ];
+        deserializer.deserialize_struct(
+            "DeepPolynomialOpening",
+            FIELDS,
+            DeepPolynomialOpeningVisitor(std::marker::PhantomData),
+        )
+    }
+}
+
 pub type DeepPolynomialOpenings<F> = Vec<DeepPolynomialOpening<F>>;
 
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug)]
 pub struct StarkProof<F: IsFFTField> {
     // Length of the execution trace
     pub trace_length: usize,
@@ -56,6 +215,269 @@ pub struct StarkProof<F: IsFFTField> {
     pub deep_poly_openings_sym: DeepPolynomialOpenings<F>,
     // nonce obtained from grinding
     pub nonce: Option<u64>,
+}
+
+impl<F: IsFFTField> Serialize for StarkProof<F>
+where
+    FieldElement<F>: ByteConversion,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut state = serializer.serialize_struct("StarkProof", 11)?;
+        state.serialize_field("trace_length", &self.trace_length)?;
+        state.serialize_field("lde_trace_merkle_roots", &self.lde_trace_merkle_roots)?;
+        state.serialize_field(
+            "trace_ood_frame_evaluations",
+            &self.trace_ood_frame_evaluations,
+        )?;
+        state.serialize_field("composition_poly_root", &self.composition_poly_root)?;
+        state.serialize_field(
+            "composition_poly_parts_ood_evaluation",
+            &self.composition_poly_parts_ood_evaluation,
+        )?;
+        state.serialize_field("fri_layers_merkle_roots", &self.fri_layers_merkle_roots)?;
+        state.serialize_field("fri_last_value", &self.fri_last_value)?;
+        state.serialize_field("query_list", &self.query_list)?;
+        state.serialize_field("deep_poly_openings", &self.deep_poly_openings)?;
+        state.serialize_field("deep_poly_openings_sym", &self.deep_poly_openings_sym)?;
+        state.serialize_field("nonce", &self.nonce)?;
+        state.end()
+    }
+}
+
+// #[cfg(feature = "lambdaworks-serde")]
+impl<'de, F: IsFFTField> Deserialize<'de> for StarkProof<F> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        // Declare fields of the struct
+        #[derive(Deserialize)]
+        #[serde(field_identifier, rename_all = "lowercase")]
+        enum Field {
+            TraceLength,
+            LdeTraceMerkleRoots,
+            TraceOodFrameEvaluations,
+            CompositionPolyRoot,
+            CompositionPolyPartsOodEvaluation,
+            FriLayersMerkleRoots,
+            FriLastValue,
+            QueryList,
+            DeepPolyOpenings,
+            DeepPolyOpeningsSym,
+            Nonce,
+        }
+
+        // Visitor of struct to deserialize
+        struct StarkProofVisitor<F: IsFFTField>(std::marker::PhantomData<F>);
+
+        impl<'de, F: IsFFTField> Visitor<'de> for StarkProofVisitor<F> {
+            type Value = StarkProof<F>;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("struct StarkProof")
+            }
+
+            fn visit_seq<V>(self, mut seq: V) -> Result<StarkProof<F>, V::Error>
+            where
+                V: SeqAccess<'de>,
+            {
+                let trace_length = seq
+                    .next_element()?
+                    .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
+                let lde_trace_merkle_roots = seq
+                    .next_element()?
+                    .ok_or_else(|| serde::de::Error::invalid_length(1, &self))?;
+                let trace_ood_frame_evaluations = seq
+                    .next_element()?
+                    .ok_or_else(|| serde::de::Error::invalid_length(2, &self))?;
+                let composition_poly_root = seq
+                    .next_element()?
+                    .ok_or_else(|| serde::de::Error::invalid_length(3, &self))?;
+                let composition_poly_parts_ood_evaluation = seq
+                    .next_element()?
+                    .ok_or_else(|| serde::de::Error::invalid_length(4, &self))?;
+                let fri_layers_merkle_roots = seq
+                    .next_element()?
+                    .ok_or_else(|| serde::de::Error::invalid_length(5, &self))?;
+                let fri_last_value = seq
+                    .next_element()?
+                    .ok_or_else(|| serde::de::Error::invalid_length(6, &self))?;
+                let query_list = seq
+                    .next_element()?
+                    .ok_or_else(|| serde::de::Error::invalid_length(7, &self))?;
+                let deep_poly_openings = seq
+                    .next_element()?
+                    .ok_or_else(|| serde::de::Error::invalid_length(8, &self))?;
+                let deep_poly_openings_sym = seq
+                    .next_element()?
+                    .ok_or_else(|| serde::de::Error::invalid_length(9, &self))?;
+                let nonce = seq
+                    .next_element()?
+                    .ok_or_else(|| serde::de::Error::invalid_length(10, &self))?;
+                Ok(StarkProof {
+                    trace_length,
+                    lde_trace_merkle_roots,
+                    trace_ood_frame_evaluations,
+                    composition_poly_root,
+                    composition_poly_parts_ood_evaluation,
+                    fri_layers_merkle_roots,
+                    fri_last_value,
+                    query_list,
+                    deep_poly_openings,
+                    deep_poly_openings_sym,
+                    nonce,
+                })
+            }
+
+            fn visit_map<V>(self, mut map: V) -> Result<StarkProof<F>, V::Error>
+            where
+                V: serde::de::MapAccess<'de>,
+            {
+                let mut trace_length = None;
+                let mut lde_trace_merkle_roots = None;
+                let mut trace_ood_frame_evaluations = None;
+                let mut composition_poly_root = None;
+                let mut composition_poly_parts_ood_evaluation = None;
+                let mut fri_layers_merkle_roots = None;
+                let mut fri_last_value = None;
+                let mut query_list = None;
+                let mut deep_poly_openings = None;
+                let mut deep_poly_openings_sym = None;
+                let mut nonce = None;
+
+                while let Some(key) = map.next_key()? {
+                    match key {
+                        Field::TraceLength => {
+                            if trace_length.is_some() {
+                                return Err(serde::de::Error::duplicate_field("trace_length"));
+                            }
+                            trace_length = Some(map.next_value()?);
+                        }
+                        Field::LdeTraceMerkleRoots => {
+                            if lde_trace_merkle_roots.is_some() {
+                                return Err(serde::de::Error::duplicate_field(
+                                    "lde_trace_merkle_roots",
+                                ));
+                            }
+                            lde_trace_merkle_roots = Some(map.next_value()?);
+                        }
+                        Field::TraceOodFrameEvaluations => {
+                            if trace_ood_frame_evaluations.is_some() {
+                                return Err(serde::de::Error::duplicate_field(
+                                    "trace_ood_frame_evaluations",
+                                ));
+                            }
+                            trace_ood_frame_evaluations = Some(map.next_value()?);
+                        }
+                        Field::CompositionPolyRoot => {
+                            if composition_poly_root.is_some() {
+                                return Err(serde::de::Error::duplicate_field(
+                                    "composition_poly_root",
+                                ));
+                            }
+                        }
+                        Field::CompositionPolyPartsOodEvaluation => {
+                            if composition_poly_parts_ood_evaluation.is_some() {
+                                return Err(serde::de::Error::duplicate_field(
+                                    "composition_poly_parts_ood_evaluation",
+                                ));
+                            }
+                        }
+                        Field::FriLastValue => {
+                            if fri_last_value.is_some() {
+                                return Err(serde::de::Error::duplicate_field("fri_last_value"));
+                            }
+                        }
+                        Field::QueryList => {
+                            if query_list.is_some() {
+                                return Err(serde::de::Error::duplicate_field("query_list"));
+                            }
+                        }
+                        Field::DeepPolyOpenings => {
+                            if deep_poly_openings.is_some() {
+                                return Err(serde::de::Error::duplicate_field(
+                                    "deep_poly_openings",
+                                ));
+                            }
+                        }
+                        Field::DeepPolyOpeningsSym => {
+                            if deep_poly_openings_sym.is_some() {
+                                return Err(serde::de::Error::duplicate_field(
+                                    "deep_poly_openings_sym",
+                                ));
+                            }
+                        }
+                        Field::Nonce => {
+                            if nonce.is_some() {
+                                return Err(serde::de::Error::duplicate_field("nonce"));
+                            }
+                        }
+                    }
+                }
+
+                let trace_length = trace_length
+                    .ok_or_else(|| serde::de::Error::missing_field("trace_length"))?;
+                let lde_trace_merkle_roots = lde_trace_merkle_roots
+                    .ok_or_else(|| serde::de::Error::missing_field("lde_trace_merkle_roots"))?;
+                let trace_ood_frame_evaluations = trace_ood_frame_evaluations
+                    .ok_or_else(|| {
+                    serde::de::Error::missing_field("trace_ood_frame_evaluations")
+                })?;
+                let composition_poly_root = composition_poly_root
+                    .ok_or_else(|| serde::de::Error::missing_field("composition_poly_root"))?;
+                let composition_poly_parts_ood_evaluation = composition_poly_parts_ood_evaluation
+                    .ok_or_else(|| {
+                    serde::de::Error::missing_field("composition_poly_parts_ood_evaluation")
+                })?;
+                let fri_layers_merkle_roots = fri_layers_merkle_roots
+                    .ok_or_else(|| serde::de::Error::missing_field("fri_layers_merkle_roots"))?;
+                let fri_last_value = fri_last_value
+                    .ok_or_else(|| serde::de::Error::missing_field("fri_last_value"))?;
+                let query_list = query_list
+                    .ok_or_else(|| serde::de::Error::missing_field("query_list"))?;
+                let deep_poly_openings = deep_poly_openings
+                    .ok_or_else(|| serde::de::Error::missing_field("deep_poly_openings"))?;
+                let deep_poly_openings_sym = deep_poly_openings_sym
+                    .ok_or_else(|| serde::de::Error::missing_field("deep_poly_openings_sym"))?;
+                let nonce = nonce.ok_or_else(|| serde::de::Error::missing_field("nonce"))?;
+                Ok(StarkProof {
+                    trace_length,
+                    lde_trace_merkle_roots,
+                    trace_ood_frame_evaluations,
+                    composition_poly_root,
+                    composition_poly_parts_ood_evaluation,
+                    fri_layers_merkle_roots,
+                    fri_last_value,
+                    query_list,
+                    deep_poly_openings,
+                    deep_poly_openings_sym,
+                    nonce,
+                })
+            }
+        }
+
+        const FIELDS: &'static [&'static str] = &[
+            "trace_length",
+            "lde_trace_merkle_roots",
+            "trace_ood_frame_evaluations",
+            "composition_poly_root",
+            "composition_poly_parts_ood_evaluation",
+            "fri_layers_merkle_roots",
+            "fri_last_value",
+            "query_list",
+            "deep_poly_openings",
+            "deep_poly_openings_sym",
+            "nonce",
+        ];
+        deserializer.deserialize_struct(
+            "StarkProof",
+            FIELDS,
+            StarkProofVisitor(std::marker::PhantomData),
+        )
+    }
 }
 
 /// Serializer compatible with Stone prover
