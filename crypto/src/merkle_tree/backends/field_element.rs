@@ -33,13 +33,13 @@ impl<F, D: Digest, const NUM_BYTES: usize> IsMerkleTreeBackend
     for FieldElementBackend<F, D, NUM_BYTES>
 where
     F: IsField,
-    FieldElement<F>: Serializable,
+    FieldElement<F>: Serializable + Sync + Send,
     [u8; NUM_BYTES]: From<GenericArray<u8, <D as OutputSizeUser>::OutputSize>>,
 {
     type Node = [u8; NUM_BYTES];
     type Data = FieldElement<F>;
 
-    fn hash_data(&self, input: &FieldElement<F>) -> [u8; NUM_BYTES] {
+    fn hash_data(input: &FieldElement<F>) -> [u8; NUM_BYTES] {
         let mut hasher = D::new();
         hasher.update(input.serialize());
         hasher.finalize().into()
@@ -73,6 +73,7 @@ where
 impl<F> IsMerkleTreeBackend for TreePoseidon<F>
 where
     F: IsPrimeField,
+    FieldElement<F>: Sync + Send
 {
     type Node = FieldElement<F>;
     type Data = FieldElement<F>;
