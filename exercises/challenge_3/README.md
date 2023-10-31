@@ -12,4 +12,4 @@ P = p_1(X) * 0 + p_2(X) * 0 + p_3(X) * 0 + p_4(X)
 ```  
 At the current moment, the X is equal to `42`.
 
-Suddenly Gohan, and Piccolo recieve a message from Bulma that the scouters verify the sensed power level of individual enemies using KZG and for multiple enemies with batched KZG method. Vegeta knows for sure that the power level of Gohan is `p_4(X) = 9000`, so he will know if we change that. If only the team had a way to trick their opponents to believe that their total power level is `P > 9000` - then the enemies will surely flee.
+Suddenly Gohan, and Piccolo receive a message from Bulma that the scouters verify the sensed power level of individual enemies using KZG and for multiple enemies with batched KZG method. Vegeta knows for sure that the power level of Gohan is `p_4(X) = 9000`, so he will know if we change that. If only the team had a way to trick their opponents to believe that their total power level is `P > 9000` - then the enemies will surely flee.
