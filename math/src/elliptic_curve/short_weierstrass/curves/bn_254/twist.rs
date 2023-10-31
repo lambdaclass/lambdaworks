@@ -42,10 +42,7 @@ impl IsEllipticCurve for BN254TwistCurve {
         ])
     }
 }
-const BX_POINT: U256 =
-    U256::from_hex_unchecked("0x2b149d40ceb8aaae81be18991be06ac3b5b4c5e559dbefa33267e6dc24a138e5");
-const BY_POINT: U256 =
-    U256::from_hex_unchecked("0x9713b03af0fed4cd2cafadeed8fdf4a74fa084e52d1852e4a2bd0685c315d2");
+
 impl IsShortWeierstrass for BN254TwistCurve {
     fn a() -> FieldElement<Self::BaseField> {
         FieldElement::zero()
