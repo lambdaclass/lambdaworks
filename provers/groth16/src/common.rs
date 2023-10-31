@@ -8,9 +8,14 @@ use lambdaworks_math::{
         twist::BLS12381TwistCurve,
     },
     elliptic_curve::traits::{IsEllipticCurve, IsPairing},
-    field::element::FieldElement,
+    field::{
+        element::FieldElement,
+        traits::{IsFFTField, IsField},
+    },
 };
 use rand::Rng;
+
+pub const ORDER_R_MINUS_1_ROOT_UNITY: FrElement = FrElement::from_hex_unchecked("7");
 
 pub type Curve = BLS12381Curve;
 pub type TwistedCurve = BLS12381TwistCurve;
@@ -34,5 +39,15 @@ pub fn sample_fr_elem() -> FrElement {
             rng.gen::<u64>(),
             rng.gen::<u64>(),
         ],
+    })
+}
+
+/// Generates a domain to interpolate: 1, omega, omega², ..., omega^size
+pub fn generate_domain(number_of_gates: usize) -> Vec<FrElement> {
+    let omega =
+        FrField::get_primitive_root_of_unity(number_of_gates.trailing_zeros() as u64).unwrap();
+    (1..number_of_gates).fold(vec![FieldElement::one()], |mut acc, _| {
+        acc.push(acc.last().unwrap() * &omega);
+        acc
     })
 }
