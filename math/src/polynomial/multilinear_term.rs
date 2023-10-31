@@ -1,5 +1,5 @@
 use crate::field::element::FieldElement;
-use crate::field::traits::{IsPrimeField, IsField};
+use crate::field::traits::{IsField, IsPrimeField};
 use crate::polynomial::term::Term;
 use std::fmt::Display;
 
@@ -20,7 +20,19 @@ where
     <F as IsField>::BaseType: Send + Sync,
 {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "{}", self.coeff.representative())
+        let mut output = String::new();
+
+        output.push_str(&self.coeff.representative().to_string()[0..]);
+        if self.vars.len() > 0 {
+            output.push_str(".");
+            for var in &self.vars[0..self.vars.len() - 1] {
+                output.push_str(&format!("t_{var}")[0..]);
+                output.push_str(".");
+            }
+            output.push_str(&format!("t_{}", self.vars[self.vars.len() - 1]));
+        }
+
+        write!(f, "{}", output)
     }
 }
 

@@ -2,6 +2,7 @@ use crate::field::element::FieldElement;
 use crate::field::traits::{IsField, IsPrimeField};
 use crate::polynomial::multilinear_term::MultiLinearMonomial;
 use crate::polynomial::term::Term;
+use std::fmt::Display;
 
 /// Represents a multilinear polynomials as a collection of multilinear monomials
 // TODO: add checks to track the max degree and number of variables.
@@ -12,6 +13,23 @@ where
 {
     pub terms: Vec<MultiLinearMonomial<F>>,
     pub n_vars: usize, // number of variables
+}
+
+impl<F: IsPrimeField> Display for MultilinearPolynomial<F>
+where
+    <F as IsField>::BaseType: Send + Sync,
+{
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let mut output: String = String::new();
+        let monomials = self.terms.clone();
+
+        for elem in &monomials[0..monomials.len() - 1] {
+            output.push_str(&elem.to_string()[0..]);
+            output.push_str(" + ");
+        }
+        output.push_str(&monomials[monomials.len() - 1].to_string());
+        write!(f, "{}", output)
+    }
 }
 
 impl<F: IsPrimeField> MultilinearPolynomial<F>
