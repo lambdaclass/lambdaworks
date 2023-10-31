@@ -55,26 +55,54 @@ where
     /// The variable round records the current round and the variable that is currently fixed
     /// This function always fixes the first variable
     /// We assume that the variables in 0..round have already been assigned
-    pub fn send_poly(&mut self) {
+    pub fn send_poly(&mut self) -> MultilinearPolynomial<F> {
+        let mut new_poly = MultilinearPolynomial::<F>::new(vec![]);
+
+        // value is the number with the assignments to the variables
+        // we use the bits of value
         for value in 0..2u64.pow(self.poly.n_vars as u32 - self.round - 1) {
             let mut assign_numbers: Vec<u64> = Vec::new();
             let mut assign_value = value;
 
-            for _bit in 0..self.poly.n_vars as u32 - self.round + 1 {
+            // extracts the bits from assign_value and puts them in assign_numbers
+            for _bit in 0..self.poly.n_vars as u32 - self.round - 1 {
                 assign_numbers.push(assign_value % 2);
                 assign_value = assign_value >> 1;
             }
 
+            // converts all bits into field elements
             let assign = assign_numbers
                 .iter()
                 .map(|x| FieldElement::<F>::from(*x))
                 .collect::<Vec<FieldElement<F>>>();
 
             let numbers: Vec<usize> = (self.round as usize + 1..self.poly.n_vars).collect();
-            let peval: Vec<(usize, FieldElement<F>)> = numbers.into_iter().zip(assign).collect();
+            let var_assignments: Vec<(usize, FieldElement<F>)> =
+                numbers.into_iter().zip(assign).collect();
 
-            self.poly.add(self.poly.partial_evaluate(&peval[0..]));
+            new_poly.add(self.poly.partial_evaluate(&var_assignments[0..]));
         }
+        new_poly
+    }
+
+    /// Receives a random challenge from the verifier
+    /// Also receives the round number
+    pub fn receive_challenge(
+        &mut self,
+        r_elem: FieldElement<F>,
+        round: u32,
+    ) -> Result<String, String> {
+        match round {
+            _ if round != self.round + 1 || round as usize != self.r.len() + 1 => {
+                return Err("the round numbers do not agree".to_string())
+            }
+            _ => round,
+        };
+
+        self.round += 1;
+        self.r.push(r_elem);
+
+        Ok("challenge received".to_string())
     }
 }
 
@@ -89,8 +117,8 @@ mod test_prover {
 
     #[test]
     fn test_send_poly_round0() {
-        //Test the polynomial 1 + x_0 + x_1 + x_0 x_1
-        //If x_0 is fixed, the resulting polynomial should be 5+3x_0
+        //Test the polynomial 1 + t_0 + t_1 + t_0 t_1
+        //If t_0 is fixed, the resulting polynomial should be 3+3t_0
         let constant =
             MultiLinearMonomial::new((FieldElement::<Babybear31PrimeField>::from(1), vec![]));
         let x0 = MultiLinearMonomial::new((FieldElement::<Babybear31PrimeField>::from(1), vec![0]));
@@ -102,9 +130,18 @@ mod test_prover {
 
         let mut prover = Prover::new(poly);
 
-        println!("{}", prover.poly);
-        prover.send_poly();
-        println!("{}", prover.poly);
+        let expected = MultilinearPolynomial::new(vec![
+            MultiLinearMonomial::new((FieldElement::<Babybear31PrimeField>::from(3), vec![])),
+            MultiLinearMonomial::new((FieldElement::<Babybear31PrimeField>::from(3), vec![0])),
+        ]);
+
+        let result = prover.send_poly();
+
+        assert_eq!(result.n_vars, expected.n_vars);
+        for i in 0..result.terms.len() {
+            assert_eq!(result.terms[i].coeff, expected.terms[i].coeff);
+            assert_eq!(result.terms[i].vars, expected.terms[i].vars);
+        }
     }
 
     #[test]
