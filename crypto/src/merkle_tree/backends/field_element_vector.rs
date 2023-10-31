@@ -36,11 +36,12 @@ where
     F: IsField,
     FieldElement<F>: Serializable,
     [u8; NUM_BYTES]: From<GenericArray<u8, <D as OutputSizeUser>::OutputSize>>,
+    Vec<FieldElement<F>>: Sync + Send
 {
     type Node = [u8; NUM_BYTES];
     type Data = Vec<FieldElement<F>>;
 
-    fn hash_data(&self, input: &Vec<FieldElement<F>>) -> [u8; NUM_BYTES] {
+    fn hash_data(input: &Vec<FieldElement<F>>) -> [u8; NUM_BYTES] {
         let mut hasher = D::new();
         for element in input.iter() {
             hasher.update(element.serialize());
@@ -80,11 +81,13 @@ where
 impl<F> IsMerkleTreeBackend for BatchPoseidonTree<F>
 where
     F: IsPrimeField,
+    Vec<FieldElement<F>>: Sync + Send,
+    FieldElement<F>: Sync + Send
 {
     type Node = FieldElement<F>;
     type Data = Vec<FieldElement<F>>;
 
-    fn hash_data(&self, input: &Vec<FieldElement<F>>) -> FieldElement<F> {
+    fn hash_data(input: &Vec<FieldElement<F>>) -> FieldElement<F> {
         self.poseidon.hash_many(input)
     }
 
