@@ -32,50 +32,50 @@ Examples of Cairo 0 programs can be found [here](https://github.com/lambdaclass/
 **To compile and generate a proof you can use:**
 
 ```bash
-cargo run --release --features="cli" compile-and-prove <program_path> <output_proof_path>
+cargo run --release --features=cli,instruments,parallel compile-and-prove <program_path> <output_proof_path>
 ```
 
 For example:
 
 ```bash
-cargo run --release --features="cli" compile-and-prove cairo_programs/cairo0/fibonacci_5.cairo cairo_programs/cairo0/fibonacci_5.proof
+cargo run --release --features=cli,instruments,parallel compile-and-prove cairo_programs/cairo0/fibonacci_5.cairo cairo_programs/cairo0/fibonacci_5.proof
 ```
 
 
 **To verify a proof you can use:**
 
 ```bash
-cargo run --release --features="cli" verify <proof_path>
+cargo run --release --features=cli,instruments,parallel verify <proof_path>
 ```
 
 For example:
 
 ```bash
-cargo run --release --features="cli" verify fibonacci_5.proof
+cargo run --release --features=cli,instruments,parallel verify fibonacci_5.proof
 ```
 
 **To compile Cairo:**
 
 ```bash
-cargo run --release --features="cli" compile <uncompiled_program_path> 
+cargo run --release --features=cli,instruments,parallel compile <uncompiled_program_path> 
 ```
 
 For example:
 
 ```bash
-cargo run --release --features="cli" compile cairo_programs/cairo0/fibonacci_5.cairo
+cargo run --release --features=cli,instruments,parallel compile cairo_programs/cairo0/fibonacci_5.cairo
 ```
 
 **To prove a compiled program:**
 
 ```bash
-cargo run --release --features="cli" prove <compiled_program_path> <output_proof_path>
+cargo run --release --features=cli,instruments,parallel prove <compiled_program_path> <output_proof_path>
 ```
 
 For example:
 
 ```bash
-cargo run --release --features="cli" prove cairo_programs/cairo0/fibonacci_5.json program_proof.proof
+cargo run --release --features=cli,instruments,parallel prove cairo_programs/cairo0/fibonacci_5.json program_proof.proof
 ```
 
 
@@ -83,13 +83,13 @@ cargo run --release --features="cli" prove cairo_programs/cairo0/fibonacci_5.jso
 **To prove and verify with a single command you can use:**
 
 ```bash
-cargo run --release --features="cli" prove-and-verify <compiled_program_path>
+cargo run --release --features=cli,instruments,parallel prove-and-verify <compiled_program_path>
 ```
 
 For example:
 
 ```bash
-cargo run --release --features="cli" prove-and-verify cairo_programs/cairo0/fibonacci_5.json
+cargo run --release --features=cli,instruments,parallel prove-and-verify cairo_programs/cairo0/fibonacci_5.json
 ```
 
 
@@ -97,23 +97,23 @@ cargo run --release --features="cli" prove-and-verify cairo_programs/cairo0/fibo
 **To compile, proof, prove and verify at the same time you can use:**
 
 ```bash
-cargo run --release --features="cli" compile-prove-and-verify <program_path>
+cargo run --release --features=cli,instruments,parallel compile-prove-and-verify <program_path>
 ```
 
 For example:
 
 ```bash
-cargo run --release --features="cli" compile-prove-and-verify cairo_programs/cairo0/fibonacci_5.cairo
+cargo run --release --features=cli,instruments,parallel compile-prove-and-verify cairo_programs/cairo0/fibonacci_5.cairo
 ```
 
 ### Run CLI as a binary
 
 **To install as a binary run the command on the root directory of the CLI:**
 ```bash
-cargo install --features="cli" --path .
+cargo install --features=cli,instruments,parallel --path .
 ```
 
-To run the CLI as a binary instead of using cargo replace `cargo run --release --features="cli"` with `platinum-prover`.
+To run the CLI as a binary instead of using cargo replace `cargo run --release --features=cli,instruments,parallel` with `platinum-prover`.
 
 for example, the command to generate a proof becomes:
 ```bash
