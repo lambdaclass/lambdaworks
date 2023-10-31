@@ -25,7 +25,9 @@ impl Rescue {
     pub fn permutation(&self, state: &mut Vec<FieldElement<Stark252PrimeField>>)  {
     
         let alpha: u64 = 3;
-        let alpha_inv:u128 = 180331931428153586757283157844700080811;
+        // alpha_inv = 2412335192444087475798215188730046737082071476887731133315394704090581346987
+        let alpha_inv = FieldElement::<Stark252PrimeField>::from_hex("0x555555555555560AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB").unwrap();
+        let alpha_inv_pow: &lambdaworks_math::unsigned_integer::element::UnsignedInteger<4> = alpha_inv.value();
 
         let m = self.width;
         let n = self.n;
@@ -203,7 +205,7 @@ impl Rescue {
         }
            
         for i in 0..m {
-            state[i] = state[i].pow(alpha_inv);
+            state[i] = state[i].pow(*alpha_inv_pow);
         }
 
         let mut temp = vec![zero; m];
@@ -221,7 +223,6 @@ impl Rescue {
 
       }
 
-}
 
 #[cfg(test)]
 mod tests {
@@ -232,7 +233,7 @@ mod tests {
         let rescue = Rescue::new(2, 1, 1, 27);
         let x = FieldElement::<Stark252PrimeField>::from(1);
         let y = FieldElement::<Stark252PrimeField>::from(1);
-        let expected = FieldElement::<Stark252PrimeField>::from_hex("0x4c86df57efef446181b4d8100b2fdcf31dff0d9bcdf2f5f6a13a23074de804f").unwrap();
+        let expected = FieldElement::<Stark252PrimeField>::from_hex("0x4e0b0546c8be06d77db150a9d084632149c740dbd33cb5aa900d32070cefb8").unwrap();
         let result = rescue.hash(&x, &y);
         assert_eq!(result, expected);
     }
@@ -242,8 +243,11 @@ mod tests {
         let rescue = Rescue::new(2, 1, 1, 27);
         let x = FieldElement::<Stark252PrimeField>::from_hex("0x1234328495738291039").unwrap();
         let y = FieldElement::<Stark252PrimeField>::from_hex("0x456").unwrap();
-        let expected = FieldElement::<Stark252PrimeField>::from_hex("0x589ac0f0fa3e90bd535733bac64227065947f5703b94be031a6a1c4f723dcdd").unwrap();
+        let expected = FieldElement::<Stark252PrimeField>::from_hex("0x59808e6f7968f6c0544f62395d0a98d4e3e09b8f33fb588185a1ccbb3f43f3e").unwrap();
         let result = rescue.hash(&x, &y);
         assert_eq!(result, expected);
     }
 }
+
+}
+
