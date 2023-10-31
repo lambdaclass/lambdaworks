@@ -34,7 +34,7 @@ serde_cbor = { version = "0.11.1" }
 # For cli
 clap = { version = "4.4.6", features = ["derive"], optional = true }
 # Parallelization crates
-rayon = { version = "1.7.0", optional = true }
+rayon = { version = "1.8.0", optional = true }
 
 # wasm
 wasm-bindgen = { version = "0.2", optional = true }
@@ -53,9 +53,9 @@ wasm-bindgen-test = "0.3.0"
 
 [features]
 test_fiat_shamir = []
-instruments = []                   # This enables timing prints in prover and verifier
+instruments = ["stark-platinum-prover/instruments"]# This enables timing prints in prover and verifier
 metal = ["lambdaworks-math/metal"]
-parallel = ["dep:rayon"]
+parallel = ["dep:rayon", "stark-platinum-prover/parallel"]
 wasm = ["dep:wasm-bindgen", "dep:serde-wasm-bindgen", "dep:web-sys"]
 cli = ["dep:clap"]
 [target.'cfg(not(all(target_arch = "wasm32", target_os = "unknown")))'.dev-dependencies]
