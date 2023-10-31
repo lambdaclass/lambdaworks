@@ -109,7 +109,7 @@ where
         for (var_id, assignment) in assignments {
             if unassigned_variables.contains(var_id) {
                 new_coefficient = new_coefficient * assignment;
-                println!("new_coeff {:?}", new_coefficient);
+                //println!("new_coeff {:?}", new_coefficient);
                 unassigned_variables.retain(|&id| id != *var_id);
             }
         }
