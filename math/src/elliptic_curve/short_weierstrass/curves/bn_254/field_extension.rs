@@ -54,7 +54,7 @@ impl ByteConversion for FieldElement<Degree2ExtensionField> {
     where
         Self: std::marker::Sized,
     {
-        const BYTES_PER_FIELD: usize = 48;
+        const BYTES_PER_FIELD: usize = 32;
         let x0 = FieldElement::from_bytes_be(&bytes[0..BYTES_PER_FIELD])?;
         let x1 = FieldElement::from_bytes_be(&bytes[BYTES_PER_FIELD..BYTES_PER_FIELD * 2])?;
         Ok(Self::new([x0, x1]))
@@ -64,7 +64,7 @@ impl ByteConversion for FieldElement<Degree2ExtensionField> {
     where
         Self: std::marker::Sized,
     {
-        const BYTES_PER_FIELD: usize = 48;
+        const BYTES_PER_FIELD: usize = 32;
         let x0 = FieldElement::from_bytes_le(&bytes[0..BYTES_PER_FIELD])?;
         let x1 = FieldElement::from_bytes_le(&bytes[BYTES_PER_FIELD..BYTES_PER_FIELD * 2])?;
         Ok(Self::new([x0, x1]))
@@ -166,9 +166,6 @@ impl FieldElement<Degree12ExtensionField> {
 
 #[cfg(test)]
 mod tests {
-    use crate::elliptic_curve::{
-        short_weierstrass::curves::bn_254::twist::BN254TwistCurve, traits::IsEllipticCurve,
-    };
 
     use super::*;
     type Fp12E = FieldElement<Degree12ExtensionField>;
@@ -197,6 +194,7 @@ mod tests {
 
     #[test]
     fn element_squared_2() {
+        // base = 1 + u + (1 + u)v + (1 + u)v^2 + ((1+u) + (1 + u)v + (1+ u)v^2)w
         let element_sequence =
             Fp12E::from_coefficients(&["1", "2", "5", "6", "9", "a", "3", "4", "7", "8", "b", "c"]);
 
