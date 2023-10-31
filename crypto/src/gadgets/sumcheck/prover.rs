@@ -100,9 +100,11 @@ mod test_prover {
 
         let poly = MultilinearPolynomial::new(vec![constant, x0, x1, x01]);
 
-        let prover = Prover::new(poly);
+        let mut prover = Prover::new(poly);
 
-        println!("{:?}",prover.poly);
+        println!("{}", prover.poly);
+        prover.send_poly();
+        println!("{}", prover.poly);
     }
 
     #[test]

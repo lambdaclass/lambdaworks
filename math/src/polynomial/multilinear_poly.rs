@@ -2,6 +2,7 @@ use crate::field::element::FieldElement;
 use crate::field::traits::{IsField, IsPrimeField};
 use crate::polynomial::multilinear_term::MultiLinearMonomial;
 use crate::polynomial::term::Term;
+use core::ops::AddAssign;
 use std::fmt::Display;
 
 /// Represents a multilinear polynomials as a collection of multilinear monomials
@@ -79,7 +80,38 @@ where
     /// Adds a polynomial
     /// This functions concatenates both vectors of terms
     pub fn add(&mut self, poly: MultilinearPolynomial<F>) {
-        self.terms.extend(poly.terms);
+        for term in poly.terms.iter() {
+            self.add_monomial(&term);
+        }
+        //self.terms.extend(poly.terms);
+        //self.clean();
+        //self.simplify();
+    }
+
+    fn add_monomial(&mut self, mono: &MultiLinearMonomial<F>) {
+        for term in self.terms.iter_mut() {
+            if term.vars == mono.vars {
+                term.coeff.add_assign(mono.coeff.clone());
+            }
+        }
+    }
+
+    /// Removes all terms with coefficient 0
+    fn clean(&mut self) {
+        self.terms.retain(|t| t.coeff != FieldElement::<F>::zero());
+    }
+
+    fn simplify(&mut self) {
+        for i in 0..self.terms.len() {
+            for j in i..self.terms.len() {
+                if self.terms[i].vars == self.terms[j].vars {
+                    let a = self.terms[j].coeff.clone();
+                    self.terms[i].coeff.add_assign(a);
+                    self.terms[j].coeff = FieldElement::<F>::zero();
+                }
+            }
+        }
+        self.clean();
     }
 }
 

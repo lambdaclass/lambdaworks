@@ -1,6 +1,7 @@
 use crate::field::element::FieldElement;
 use crate::field::traits::{IsField, IsPrimeField};
 use crate::polynomial::term::Term;
+use std::cmp::Eq;
 use std::fmt::Display;
 
 /// Struct for (coeff: FieldElement<F>, terms: Vec<usize>) representing a multilinear
