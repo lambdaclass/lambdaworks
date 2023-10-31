@@ -118,7 +118,6 @@ where
             self.terms.push(mono.clone());
         }
     }
-
 }
 
 #[cfg(test)]
