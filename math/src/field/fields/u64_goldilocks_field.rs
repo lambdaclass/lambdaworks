@@ -7,7 +7,7 @@ use crate::{
         errors::FieldError,
         extensions::quadratic::{HasQuadraticNonResidue, QuadraticExtensionField},
         traits::{IsField, IsPrimeField},
-    },
+    }, traits::ByteConversion,
 };
 
 /// Goldilocks Prime Field F_p where p = 2^64 - 2^32 + 1;
@@ -18,6 +18,28 @@ impl Goldilocks64Field {
     pub const ORDER: u64 = 0xFFFF_FFFF_0000_0001;
     // Two's complement of `ORDER` i.e. `2^64 - ORDER = 2^32 - 1`
     pub const NEG_ORDER: u64 = Self::ORDER.wrapping_neg();
+}
+
+impl ByteConversion for u64 {
+    fn to_bytes_be(&self) -> Vec<u8> {
+        todo!()
+    }
+
+    fn to_bytes_le(&self) -> Vec<u8> {
+        todo!()
+    }
+
+    fn from_bytes_be(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
+    where
+        Self: Sized {
+        todo!()
+    }
+
+    fn from_bytes_le(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
+    where
+        Self: Sized {
+        todo!()
+    }
 }
 
 //NOTE: This implementation was inspired by and borrows from the work done by the Plonky3 team

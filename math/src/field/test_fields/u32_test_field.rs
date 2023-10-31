@@ -1,12 +1,34 @@
 use crate::{
     errors::CreationError,
     field::errors::FieldError,
-    field::traits::{IsFFTField, IsField, IsPrimeField},
+    field::traits::{IsFFTField, IsField, IsPrimeField}, traits::ByteConversion,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 
 pub struct U32Field<const MODULUS: u32>;
+
+impl ByteConversion for u32 {
+    fn to_bytes_be(&self) -> Vec<u8> {
+        todo!()
+    }
+
+    fn to_bytes_le(&self) -> Vec<u8> {
+        todo!()
+    }
+
+    fn from_bytes_be(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
+    where
+        Self: Sized {
+        todo!()
+    }
+
+    fn from_bytes_le(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
+    where
+        Self: Sized {
+        todo!()
+    }
+}
 
 impl<const MODULUS: u32> IsField for U32Field<MODULUS> {
     type BaseType = u32;

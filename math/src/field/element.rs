@@ -1,6 +1,7 @@
 use crate::errors::CreationError;
 use crate::field::errors::FieldError;
 use crate::field::traits::IsField;
+use crate::traits::ByteConversion;
 use crate::unsigned_integer::element::UnsignedInteger;
 use crate::unsigned_integer::montgomery::MontgomeryAlgorithms;
 use crate::unsigned_integer::traits::IsUnsignedInteger;
@@ -21,7 +22,6 @@ use super::fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackend
 use super::traits::{IsPrimeField, LegendreSymbol};
 
 /// A field element with operations algorithms defined in `F`
-#[allow(clippy::derived_hash_with_manual_eq)]
 #[derive(Debug, Clone, Hash, Copy)]
 pub struct FieldElement<F: IsField> {
     value: F::BaseType,
@@ -442,7 +442,8 @@ impl<F: IsPrimeField> Serialize for FieldElement<F> {
         S: Serializer,
     {
         let mut state = serializer.serialize_struct("FieldElement", 1)?;
-        state.serialize_field("value", &F::representative(self.value()).to_string())?;
+        // state.serialize_field("value", &F::representative(self.value()).to_string())?;
+        state.serialize_field("value", &self.value.to_bytes_be())?;
         state.end()
     }
 }

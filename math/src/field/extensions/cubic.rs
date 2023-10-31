@@ -1,6 +1,7 @@
 use crate::field::element::FieldElement;
 use crate::field::errors::FieldError;
 use crate::field::traits::IsField;
+use crate::traits::ByteConversion;
 use core::fmt::Debug;
 use core::marker::PhantomData;
 
@@ -22,6 +23,31 @@ pub trait HasCubicNonResidue {
     /// This function must return an element that is not a cube in Fp,
     /// that is, a cubic non-residue.
     fn residue() -> FieldElement<Self::BaseField>;
+}
+
+impl<F> ByteConversion for [FieldElement<F>; 3]
+where
+    F: IsField,
+{
+    fn to_bytes_be(&self) -> Vec<u8> {
+        todo!()
+    }
+
+    fn to_bytes_le(&self) -> Vec<u8> {
+        todo!()
+    }
+
+    fn from_bytes_be(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
+    where
+        Self: Sized {
+        todo!()
+    }
+
+    fn from_bytes_le(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
+    where
+        Self: Sized {
+        todo!()
+    }
 }
 
 impl<Q> IsField for CubicExtensionField<Q>
