@@ -47,7 +47,7 @@ pub struct Round1<F, A>
 where
     F: IsFFTField,
     A: AIR<Field = F>,
-    FieldElement<F>: Serializable,
+    FieldElement<F>: Serializable + Sync + Send,
 {
     pub(crate) trace_polys: Vec<Polynomial<FieldElement<F>>>,
     pub(crate) lde_trace: TraceTable<F>,
@@ -59,7 +59,7 @@ where
 pub struct Round2<F>
 where
     F: IsFFTField,
-    FieldElement<F>: Serializable,
+    FieldElement<F>: Serializable + Sync + Send,
 {
     pub(crate) composition_poly_parts: Vec<Polynomial<FieldElement<F>>>,
     pub(crate) lde_composition_poly_evaluations: Vec<Vec<FieldElement<F>>>,
@@ -105,7 +105,7 @@ pub trait IsStarkProver {
         vectors: &[Vec<FieldElement<Self::Field>>],
     ) -> (BatchedMerkleTree<Self::Field>, Commitment)
     where
-        FieldElement<Self::Field>: Serializable,
+        FieldElement<Self::Field>: Serializable + Sync + Send,
     {
         let tree = BatchedMerkleTree::<Self::Field>::build(vectors);
         let commitment = tree.root;
@@ -220,7 +220,7 @@ pub trait IsStarkProver {
         lde_composition_poly_parts_evaluations: &[Vec<FieldElement<Self::Field>>],
     ) -> (BatchedMerkleTree<Self::Field>, Commitment)
     where
-        FieldElement<Self::Field>: Serializable,
+        FieldElement<Self::Field>: Serializable + Sync + Send,
     {
         // TODO: Remove clones
         let mut lde_composition_poly_evaluations = Vec::new();
@@ -307,7 +307,7 @@ pub trait IsStarkProver {
         z: &FieldElement<Self::Field>,
     ) -> Round3<Self::Field>
     where
-        FieldElement<Self::Field>: Serializable,
+        FieldElement<Self::Field>: Serializable + Sync + Send,
     {
         let z_power = z.pow(round_2_result.composition_poly_parts.len());
 
@@ -562,7 +562,7 @@ pub trait IsStarkProver {
         index: usize,
     ) -> (Proof<Commitment>, Vec<FieldElement<Self::Field>>)
     where
-        FieldElement<Self::Field>: Serializable,
+        FieldElement<Self::Field>: Serializable + Sync + Send,
     {
         let proof = composition_poly_merkle_tree
             .get_proof_by_pos(index)
@@ -588,7 +588,7 @@ pub trait IsStarkProver {
         index: usize,
     ) -> (Vec<Proof<Commitment>>, Vec<FieldElement<Self::Field>>)
     where
-        FieldElement<Self::Field>: Serializable,
+        FieldElement<Self::Field>: Serializable + Sync + Send,
     {
         let domain_size = domain.lde_roots_of_unity_coset.len();
         let lde_trace_evaluations = lde_trace
@@ -620,7 +620,7 @@ pub trait IsStarkProver {
         DeepPolynomialOpenings<Self::Field>,
     )
     where
-        FieldElement<Self::Field>: Serializable,
+        FieldElement<Self::Field>: Serializable + Sync + Send,
     {
         let mut openings = Vec::new();
         let mut openings_symmetric = Vec::new();
