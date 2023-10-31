@@ -5,7 +5,7 @@ use crate::{
     elliptic_curve::short_weierstrass::traits::IsShortWeierstrass, field::element::FieldElement,
 };
 
-use super::field_extension::{Degree12ExtensionField, Degree2ExtensionField};
+use super::field_extension::Degree2ExtensionField;
 
 // X_0 : 10857046999023057135944570762232829481370756359578518086990519993285655852781
 const GENERATOR_X_0: U256 =
@@ -60,22 +60,6 @@ impl IsShortWeierstrass for BN254TwistCurve {
     }
 }
 
-impl ShortWeierstrassProjectivePoint<BN254TwistCurve> {
-    /// This function is related to the map ψ: E_twist(𝔽p²) -> E(𝔽p¹²).
-    /// Given an affine point G in E_twist(𝔽p²) returns x, y such that
-    /// ψ(G) = (x', y', 1) with x' = x * x'' and y' = y * y''
-    /// for some x'', y'' in 𝔽p².
-    /// This is meant only to be used in the miller loop of the
-    /// ate pairing before the final exponentiation.
-    /// This is because elements in 𝔽p² raised to that
-    /// power are 1 and so the final result of the ate pairing
-    /// doens't depend on having this function output the exact
-    /// values of x' and y'. And it is enough to work with x and y.
-    pub fn to_fp12_unnormalized(&self) -> [FieldElement<Degree12ExtensionField>; 2] {
-        todo!()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use crate::{
@@ -88,7 +72,7 @@ mod tests {
             traits::IsEllipticCurve,
         },
         field::element::FieldElement,
-        unsigned_integer::element::{U256, U384},
+        unsigned_integer::element::U256,
     };
 
     use super::BN254TwistCurve;

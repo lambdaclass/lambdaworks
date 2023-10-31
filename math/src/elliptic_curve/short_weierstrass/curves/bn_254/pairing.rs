@@ -1,20 +1,10 @@
-use super::{
-    curve::BN254Curve,
-    field_extension::{Degree12ExtensionField, Degree2ExtensionField},
-    twist::BN254TwistCurve,
-};
+use super::{curve::BN254Curve, field_extension::Degree12ExtensionField, twist::BN254TwistCurve};
 use crate::{
     cyclic_group::IsGroup,
     elliptic_curve::{
-        short_weierstrass::{
-            curves::bn_254::field_extension::{Degree6ExtensionField, LevelTwoResidue},
-            point::ShortWeierstrassProjectivePoint,
-            traits::IsShortWeierstrass,
-        },
-        traits::IsPairing,
+        short_weierstrass::point::ShortWeierstrassProjectivePoint, traits::IsPairing,
     },
-    field::{element::FieldElement, extensions::cubic::HasCubicNonResidue},
-    unsigned_integer::element::UnsignedInteger,
+    field::element::FieldElement,
 };
 
 #[derive(Clone)]
