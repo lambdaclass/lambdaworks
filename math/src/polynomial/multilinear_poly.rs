@@ -119,24 +119,6 @@ where
         }
     }
 
-    /// Removes all terms with coefficient 0
-    fn clean(&mut self) {
-        self.terms.retain(|t| t.coeff != FieldElement::<F>::zero());
-    }
-
-    // finds all the terms with the same variables and add them all together
-    fn simplify(&mut self) {
-        for i in 0..self.terms.len() {
-            for j in i..self.terms.len() {
-                if self.terms[i].vars == self.terms[j].vars {
-                    let a = self.terms[j].coeff.clone();
-                    self.terms[i].coeff.add_assign(a);
-                    self.terms[j].coeff = FieldElement::<F>::zero();
-                }
-            }
-        }
-        self.clean();
-    }
 }
 
 #[cfg(test)]
