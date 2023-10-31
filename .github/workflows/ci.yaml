@@ -30,10 +30,14 @@ jobs:
       - name: Run cargo check
         run: cargo check
 
-      - name: Run cargo check cli
+      - name: Run cargo check cli and stark instruments
         run: |
-          cargo check --features cli
-          
+          cargo check --features cli,instruments
+      
+      - name: Run cargo check cli, stark instruments and parallel
+        run: |
+          cargo check --features cli,instruments,parallel
+
       - name: Run cargo check for math with no-std
         run: cargo check --package lambdaworks-math --no-default-features
       
@@ -54,7 +58,7 @@ jobs:
           cargo build --target wasm32-unknown-unknown
 
       - name: Check benchmarks
-        run: cargo bench --no-run
+        run: cargo check --benches
 
   lint:
     name: Lint

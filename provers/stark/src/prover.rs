@@ -487,7 +487,7 @@ pub trait IsStarkProver {
             .fold(
                 || Polynomial::zero(),
                 |trace_terms, (i, t_j)| {
-                    compute_trace_term(
+                    Self::compute_trace_term(
                         &trace_terms,
                         (i, t_j),
                         trace_frame_length,

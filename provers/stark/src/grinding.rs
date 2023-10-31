@@ -1,3 +1,5 @@
+#[cfg(feature = "parallel")]
+use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use sha3::{Digest, Keccak256};
 
 const PREFIX: [u8; 8] = [0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xed];
@@ -38,8 +40,16 @@ pub fn is_valid_nonce(seed: &[u8; 32], nonce: u64, grinding_factor: u8) -> bool 
 pub fn generate_nonce(seed: &[u8; 32], grinding_factor: u8) -> Option<u64> {
     let inner_hash = get_inner_hash(seed, grinding_factor);
     let limit = 1 << (64 - grinding_factor);
-    (0..u64::MAX)
-        .find(|&candidate_nonce| is_valid_nonce_for_inner_hash(&inner_hash, candidate_nonce, limit))
+
+    #[cfg(not(feature = "parallel"))]
+    return (0..u64::MAX).find(|&candidate_nonce| {
+        is_valid_nonce_for_inner_hash(&inner_hash, candidate_nonce, limit)
+    });
+
+    #[cfg(feature = "parallel")]
+    return (0..u64::MAX).into_par_iter().find_any(|&candidate_nonce| {
+        is_valid_nonce_for_inner_hash(&inner_hash, candidate_nonce, limit)
+    });
 }
 
 /// Checks if the leftmost 8 bytes of `Hash(inner_hash || candidate_nonce)` are less than `limit`
