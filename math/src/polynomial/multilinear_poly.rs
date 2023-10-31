@@ -83,9 +83,6 @@ where
         for term in poly.terms.iter() {
             self.add_monomial(&term);
         }
-        //self.terms.extend(poly.terms);
-        //self.clean();
-        //self.simplify();
     }
 
     fn add_monomial(&mut self, mono: &MultiLinearMonomial<F>) {
@@ -101,6 +98,7 @@ where
         self.terms.retain(|t| t.coeff != FieldElement::<F>::zero());
     }
 
+    // finds all the terms with the same variables and add them all together
     fn simplify(&mut self) {
         for i in 0..self.terms.len() {
             for j in i..self.terms.len() {
