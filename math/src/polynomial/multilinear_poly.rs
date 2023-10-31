@@ -94,6 +94,7 @@ where
         self.update_nvars();
     }
 
+    /// Updates the value of n_vars
     fn update_nvars(&mut self) {
         let n = self.terms.iter().fold(
             0,
@@ -102,6 +103,7 @@ where
         self.n_vars = if n == 0 { 0 } else { n + 1 };
     }
 
+    /// Addition of monomial
     fn add_monomial(&mut self, mono: &MultiLinearMonomial<F>) {
         let mut added = false; // flag to check if the monomial was added or not
 
