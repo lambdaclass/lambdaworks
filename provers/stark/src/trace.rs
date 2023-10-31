@@ -5,6 +5,8 @@ use lambdaworks_math::{
     field::{element::FieldElement, traits::IsFFTField},
     polynomial::Polynomial,
 };
+#[cfg(feature = "parallel")]
+use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 
 /// A two-dimensional representation of an execution trace of the STARK
 /// protocol.
