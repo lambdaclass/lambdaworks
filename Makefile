@@ -21,11 +21,8 @@ test: $(COMPILED_CAIRO0_PROGRAMS)
 	cargo test
 
 clippy:
-	cargo clippy --workspace -- -D warnings
+	cargo clippy --workspace --all-targets -- -D warnings
 	cargo clippy --tests
-
-clippy-metal:
-	cargo clippy --workspace -F metal -- -D warnings
 
 clippy-cuda:
 	cargo clippy --workspace -F cuda -- -D warnings
