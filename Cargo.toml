@@ -21,3 +21,12 @@ cairo-platinum-prover = { path = "./provers/cairo", version = "0.2.0" }
 lto = true
 codegen-units = 1
 opt-level = 3
+
+[profile.ci]
+inherits = "release"
+opt-level = 3
+lto = false
+
+# 131 s no linker o2
+# 110 llm o2 linker
+# 102 llm o1 linker
