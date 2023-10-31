@@ -112,7 +112,7 @@ jobs:
           tool: cargo-nextest,cargo-llvm-cov
 
       - name: Run tests with no std
-        run: cargo test --package lambdaworks-math --no-default-features
+        run: cargo test --profile ci --package lambdaworks-math --no-default-features
         
       - name: Run tests and generate code coverage
         run: make coverage
