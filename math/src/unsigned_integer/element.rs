@@ -2718,14 +2718,14 @@ mod tests_u256 {
     fn shift_left_on_256_bit_integer_works_1() {
         let a = U256::from_hex_unchecked("1");
         let b = U256::from_hex_unchecked("10");
-        assert_eq!(a << 4, b);
+        assert_eq!(a << 4usize, b);
     }
 
     #[test]
     fn shift_left_on_256_bit_integer_works_2() {
         let a = U256::from_u64(1);
         let b = U256::from_u128(1_u128 << 64);
-        assert_eq!(a << 64, b);
+        assert_eq!(a << 64usize, b);
     }
 
     #[test]
@@ -2739,7 +2739,7 @@ mod tests_u256 {
     fn shift_left_on_256_bit_integer_works_4() {
         let a = U256::from_hex_unchecked("e45542992b6844553f3cb1c5ac33e7fa5");
         let b = U256::from_hex_unchecked("391550a64ada11154fcf2c716b0cf9fe940");
-        assert_eq!(a << 6, b);
+        assert_eq!(a << 6usize, b);
     }
 
     #[test]
@@ -2773,7 +2773,7 @@ mod tests_u256 {
     fn shift_right_on_256_bit_integer_works_1() {
         let a = U256::from_hex_unchecked("1");
         let b = U256::from_hex_unchecked("10");
-        assert_eq!(b >> 4, a);
+        assert_eq!(b >> 4u32, a);
     }
 
     #[test]
@@ -2787,7 +2787,7 @@ mod tests_u256 {
     fn shift_right_on_256_bit_integer_works_3() {
         let a = U256::from_hex_unchecked("e45542992b6844553f3cb1c5ac33e7fa5");
         let b = U256::from_hex_unchecked("391550a64ada11154fcf2c716b0cf9fe940");
-        assert_eq!(b >> 6, a);
+        assert_eq!(b >> 6u32, a);
     }
 
     #[test]
@@ -2796,7 +2796,7 @@ mod tests_u256 {
         let b = U256::from_hex_unchecked(
             "72155337d5aed7801276378350203eb9c0000000000000000000000000000000",
         );
-        assert_eq!(&b >> 125, a);
+        assert_eq!(&b >> 125 as usize, a);
     }
 
     #[test]
@@ -2805,7 +2805,7 @@ mod tests_u256 {
             "ba6ab46f9a9a2f20e4061b67ce4d8c3da98091cf990d7b14ef47ffe27370abbd",
         );
         let b = U256::from_hex_unchecked("174d568df35345e41c80c36cf9c");
-        assert_eq!(a >> 151, b);
+        assert_eq!(a >> 151 as usize, b);
     }
 
     #[test]

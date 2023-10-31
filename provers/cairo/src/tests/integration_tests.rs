@@ -120,8 +120,8 @@ fn test_verifier_rejects_proof_of_a_slightly_different_program() {
 
     // We modify the original program and verify using this new "corrupted" version
     let mut corrupted_program = pub_input.public_memory.clone();
-    corrupted_program.insert(Felt252::one(), Felt252::from(5));
-    corrupted_program.insert(Felt252::from(3), Felt252::from(5));
+    corrupted_program.insert(Felt252::one(), Felt252::from(5u64));
+    corrupted_program.insert(Felt252::from(3u64), Felt252::from(5u64));
 
     // Here we use the corrupted version of the program in the public inputs
     pub_input.public_memory = corrupted_program;
@@ -155,7 +155,7 @@ fn test_verifier_rejects_proof_with_changed_range_check_value() {
         generate_prover_args(&program_content, &None, CairoLayout::Small).unwrap();
 
     // The malicious value, we change the previous value to a 35.
-    let malicious_rc_value = Felt252::from(35);
+    let malicious_rc_value = Felt252::from(35u64);
 
     let proof_options = ProofOptions::default_test_options();
 
@@ -208,14 +208,14 @@ fn test_verifier_rejects_proof_with_changed_output() {
         generate_prover_args(&program_content, &Some(27..28), CairoLayout::Small).unwrap();
 
     // The malicious value, we change the previous value to a 100.
-    let malicious_output_value = Felt252::from(100);
+    let malicious_output_value = Felt252::from(100u64);
 
     let mut output_col_idx = None;
     let mut output_row_idx = None;
     for (i, row) in main_trace.rows().iter().enumerate() {
         let output_col_found = [FRAME_PC, FRAME_DST_ADDR, FRAME_OP0_ADDR, FRAME_OP1_ADDR]
             .iter()
-            .find(|&&col_idx| row[col_idx] != Felt252::from(19));
+            .find(|&&col_idx| row[col_idx] != Felt252::from(19u64));
         if output_col_found.is_some() {
             output_col_idx = output_col_found;
             output_row_idx = Some(i);

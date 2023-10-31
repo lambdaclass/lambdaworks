@@ -20,7 +20,7 @@ use crate::{
 
 #[test_log::test]
 fn test_prove_fib() {
-    let trace = simple_fibonacci::fibonacci_trace([Felt252::from(1), Felt252::from(1)], 8);
+    let trace = simple_fibonacci::fibonacci_trace([Felt252::from(1u64), Felt252::from(1u64)], 8);
 
     let proof_options = ProofOptions::default_test_options();
 
@@ -47,7 +47,7 @@ fn test_prove_fib() {
 #[test_log::test]
 fn test_prove_fib17() {
     type FE = FieldElement<Stark252PrimeField>;
-    let trace = simple_fibonacci::fibonacci_trace([FE::from(1), FE::from(1)], 4);
+    let trace = simple_fibonacci::fibonacci_trace([FE::from(1u64), FE::from(1u64)], 4);
 
     let proof_options = ProofOptions {
         blowup_factor: 2,
@@ -78,7 +78,7 @@ fn test_prove_fib17() {
 
 #[test_log::test]
 fn test_prove_fib_2_cols() {
-    let trace = fibonacci_2_columns::compute_trace([Felt252::from(1), Felt252::from(1)], 16);
+    let trace = fibonacci_2_columns::compute_trace([Felt252::from(1u64), Felt252::from(1u64)], 16);
 
     let proof_options = ProofOptions::default_test_options();
 
@@ -132,12 +132,12 @@ fn test_prove_fib_2_cols_shifted() {
 
 #[test_log::test]
 fn test_prove_quadratic() {
-    let trace = quadratic_air::quadratic_trace(Felt252::from(3), 4);
+    let trace = quadratic_air::quadratic_trace(Felt252::from(3u64), 4);
 
     let proof_options = ProofOptions::default_test_options();
 
     let pub_inputs = QuadraticPublicInputs {
-        a0: Felt252::from(3),
+        a0: Felt252::from(3u64),
     };
 
     let proof = Prover::prove::<QuadraticAIR<Stark252PrimeField>>(
@@ -158,7 +158,7 @@ fn test_prove_quadratic() {
 #[test_log::test]
 fn test_prove_rap_fib() {
     let steps = 16;
-    let trace = fibonacci_rap_trace([Felt252::from(1), Felt252::from(1)], steps);
+    let trace = fibonacci_rap_trace([Felt252::from(1u64), Felt252::from(1u64)], steps);
 
     let proof_options = ProofOptions::default_test_options();
 

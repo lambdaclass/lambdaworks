@@ -479,7 +479,7 @@ mod tests {
     #[test]
     fn assert_opcode_flag_is_correct() {
         // Instruction A
-        let value = Felt252::from(0x480680017fff8000);
+        let value = Felt252::from(0x480680017fff8000u64);
 
         assert_eq!(CairoOpcode::try_from(&value), Ok(CairoOpcode::AssertEq));
     }
@@ -487,7 +487,7 @@ mod tests {
     #[test]
     fn call_opcode_flag_is_correct() {
         // Instruction B
-        let value = Felt252::from(0x1104800180018000);
+        let value = Felt252::from(0x1104800180018000u64);
 
         assert_eq!(CairoOpcode::try_from(&value), Ok(CairoOpcode::Call));
     }
@@ -495,7 +495,7 @@ mod tests {
     #[test]
     fn ret_opcode_flag_is_correct() {
         // Instruction C
-        let value = Felt252::from(0x208b7fff7fff7ffe);
+        let value = Felt252::from(0x208b7fff7fff7ffeu64);
 
         assert_eq!(CairoOpcode::try_from(&value), Ok(CairoOpcode::Ret));
     }
@@ -503,7 +503,7 @@ mod tests {
     #[test]
     fn nop_opcode_flag_is_correct() {
         // Instruction D
-        let value = Felt252::from(0xa0680017fff7fff);
+        let value = Felt252::from(0xa0680017fff7fffu64);
 
         assert_eq!(CairoOpcode::try_from(&value), Ok(CairoOpcode::NOp));
     }
@@ -511,7 +511,7 @@ mod tests {
     #[test]
     fn regular_pc_update_flag_is_correct() {
         // Instruction A
-        let value = Felt252::from(0x480680017fff8000);
+        let value = Felt252::from(0x480680017fff8000u64);
 
         assert_eq!(PcUpdate::try_from(&value), Ok(PcUpdate::Regular));
     }
@@ -519,7 +519,7 @@ mod tests {
     #[test]
     fn jump_pc_update_flag_is_correct() {
         // Instruction C
-        let value = Felt252::from(0x208b7fff7fff7ffe);
+        let value = Felt252::from(0x208b7fff7fff7ffeu64);
 
         assert_eq!(PcUpdate::try_from(&value), Ok(PcUpdate::Jump));
     }
@@ -527,7 +527,7 @@ mod tests {
     #[test]
     fn jumprel_pc_update_flag_is_correct() {
         // Instruction B
-        let value = Felt252::from(0x1104800180018000);
+        let value = Felt252::from(0x1104800180018000u64);
 
         assert_eq!(PcUpdate::try_from(&value), Ok(PcUpdate::JumpRel));
     }
@@ -535,7 +535,7 @@ mod tests {
     #[test]
     fn jnz_pc_update_flag_is_correct() {
         // Instruction D
-        let value = Felt252::from(0xa0680017fff7fff);
+        let value = Felt252::from(0xa0680017fff7fffu64);
 
         assert_eq!(PcUpdate::try_from(&value), Ok(PcUpdate::Jnz));
     }
@@ -543,7 +543,7 @@ mod tests {
     #[test]
     fn regular_ap_update_flag_is_correct() {
         // Instruction C
-        let value = Felt252::from(0x208b7fff7fff7ffe);
+        let value = Felt252::from(0x208b7fff7fff7ffeu64);
 
         assert_eq!(ApUpdate::try_from(&value), Ok(ApUpdate::Regular));
     }
@@ -551,7 +551,7 @@ mod tests {
     #[test]
     fn add_ap_update_flag_is_correct() {
         // Instruction H
-        let value = Felt252::from(0x40780017fff7fff);
+        let value = Felt252::from(0x40780017fff7fffu64);
 
         assert_eq!(ApUpdate::try_from(&value), Ok(ApUpdate::Add));
     }
@@ -559,7 +559,7 @@ mod tests {
     #[test]
     fn add1_ap_update_flag_is_correct() {
         // Instruction A
-        let value = Felt252::from(0x480680017fff8000);
+        let value = Felt252::from(0x480680017fff8000u64);
 
         assert_eq!(ApUpdate::try_from(&value), Ok(ApUpdate::Add1));
     }
@@ -567,7 +567,7 @@ mod tests {
     #[test]
     fn op1_res_logic_flag_is_correct() {
         // Instruction A
-        let value = Felt252::from(0x480680017fff8000);
+        let value = Felt252::from(0x480680017fff8000u64);
 
         assert_eq!(ResLogic::try_from(&value), Ok(ResLogic::Op1));
     }
@@ -575,7 +575,7 @@ mod tests {
     #[test]
     fn add_res_logic_flag_is_correct() {
         // Instruction E
-        let value = Felt252::from(0x48327ffc7ffa8000);
+        let value = Felt252::from(0x48327ffc7ffa8000u64);
 
         assert_eq!(ResLogic::try_from(&value), Ok(ResLogic::Add));
     }
@@ -583,7 +583,7 @@ mod tests {
     #[test]
     fn mul_res_logic_flag_is_correct() {
         // Instruction G
-        let value = Felt252::from(0x48507fff7ffe8000);
+        let value = Felt252::from(0x48507fff7ffe8000u64);
 
         assert_eq!(ResLogic::try_from(&value), Ok(ResLogic::Mul));
     }
@@ -591,7 +591,7 @@ mod tests {
     #[test]
     fn op0_op1_src_flag_is_correct() {
         // Instruction F
-        let value = Felt252::from(0x4000800d7ff07fff);
+        let value = Felt252::from(0x4000800d7ff07fffu64);
 
         assert_eq!(Op1Src::try_from(&value), Ok(Op1Src::Op0));
     }
@@ -599,7 +599,7 @@ mod tests {
     #[test]
     fn imm_op1_src_flag_is_correct() {
         // Instruction A
-        let value = Felt252::from(0x480680017fff8000);
+        let value = Felt252::from(0x480680017fff8000u64);
 
         assert_eq!(Op1Src::try_from(&value), Ok(Op1Src::Imm));
     }
@@ -607,7 +607,7 @@ mod tests {
     #[test]
     fn ap_op1_src_flag_is_correct() {
         // Instruction E
-        let value = Felt252::from(0x48327ffc7ffa8000);
+        let value = Felt252::from(0x48327ffc7ffa8000u64);
 
         assert_eq!(Op1Src::try_from(&value), Ok(Op1Src::AP));
     }
@@ -615,7 +615,7 @@ mod tests {
     #[test]
     fn fp_op1_src_flag_is_correct() {
         // Instruction C
-        let value = Felt252::from(0x208b7fff7fff7ffe);
+        let value = Felt252::from(0x208b7fff7fff7ffeu64);
 
         assert_eq!(Op1Src::try_from(&value), Ok(Op1Src::FP));
     }
@@ -623,7 +623,7 @@ mod tests {
     #[test]
     fn ap_op0_reg_flag_is_correct() {
         // Instruction B
-        let value = Felt252::from(0x1104800180018000);
+        let value = Felt252::from(0x1104800180018000u64);
 
         assert_eq!(Op0Reg::try_from(&value), Ok(Op0Reg::AP));
     }
@@ -631,7 +631,7 @@ mod tests {
     #[test]
     fn fp_op0_reg_flag_is_correct() {
         // Instruction A
-        let value = Felt252::from(0x480680017fff8000);
+        let value = Felt252::from(0x480680017fff8000u64);
 
         assert_eq!(Op0Reg::try_from(&value), Ok(Op0Reg::FP));
     }
@@ -639,7 +639,7 @@ mod tests {
     #[test]
     fn ap_dst_reg_flag_is_correct() {
         // Instruction A
-        let value = Felt252::from(0x480680017fff8000);
+        let value = Felt252::from(0x480680017fff8000u64);
 
         assert_eq!(DstReg::try_from(&value), Ok(DstReg::AP));
     }
@@ -647,14 +647,14 @@ mod tests {
     #[test]
     fn fp_dst_reg_flag_is_correct() {
         // Instruction C
-        let value = Felt252::from(0x208b7fff7fff7ffe);
+        let value = Felt252::from(0x208b7fff7fff7ffeu64);
 
         assert_eq!(DstReg::try_from(&value), Ok(DstReg::FP));
     }
 
     #[test]
     fn decoded_flags_of_assert_are_correct() {
-        let value = Felt252::from(0x400380837ffb8000);
+        let value = Felt252::from(0x400380837ffb8000u64);
         let expected_flags = CairoInstructionFlags {
             opcode: CairoOpcode::AssertEq,
             pc_update: PcUpdate::Regular,

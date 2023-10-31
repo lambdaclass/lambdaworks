@@ -926,7 +926,7 @@ mod tests {
             a0: Felt252::one(),
             a1: Felt252::one(),
         };
-        let trace = simple_fibonacci::fibonacci_trace([Felt252::from(1), Felt252::from(1)], 8);
+        let trace = simple_fibonacci::fibonacci_trace([Felt252::from(1u64), Felt252::from(1u64)], 8);
         let trace_length = trace.n_rows();
         let coset_offset = 3;
         let blowup_factor: usize = 2;
@@ -968,10 +968,10 @@ mod tests {
 
     #[test]
     fn test_evaluate_polynomial_on_lde_domain_on_trace_polys() {
-        let trace = simple_fibonacci::fibonacci_trace([Felt252::from(1), Felt252::from(1)], 8);
+        let trace = simple_fibonacci::fibonacci_trace([Felt252::from(1u64), Felt252::from(1u64)], 8);
         let trace_length = trace.n_rows();
         let trace_polys = trace.compute_trace_polys();
-        let coset_offset = Felt252::from(3);
+        let coset_offset = Felt252::from(3u64);
         let blowup_factor: usize = 2;
         let domain_size = 8;
 
@@ -999,7 +999,7 @@ mod tests {
         let poly = Polynomial::new_monomial(Felt252::one(), 8);
         let blowup_factor: usize = 4;
         let domain_size: usize = 8;
-        let offset = Felt252::from(3);
+        let offset = Felt252::from(3u64);
         let evaluations =
             evaluate_polynomial_on_lde_domain(&poly, blowup_factor, domain_size, &offset).unwrap();
         assert_eq!(evaluations.len(), domain_size * blowup_factor);
@@ -1400,7 +1400,7 @@ mod tests {
         ProofOptions,
         [u8; 4],
     ) {
-        let trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::from(12345), 512);
+        let trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::from(12345u64), 512);
 
         let claimed_index = 420;
         let claimed_value = trace.get_row(claimed_index)[0];

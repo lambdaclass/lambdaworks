@@ -566,7 +566,7 @@ fn decompose_rc_values_into_trace_columns(rc_values: &[&Felt252]) -> [Vec<Felt25
                 .collect(),
         );
 
-        rc_base_types = rc_base_types.iter().map(|&x| x >> 16).collect();
+        rc_base_types = rc_base_types.iter().map(|&x| x >> 16usize).collect();
     }
 
     // This can't fail since we have 8 pushes
@@ -608,17 +608,17 @@ mod test {
     #[test]
     fn test_fill_range_check_values() {
         let columns = vec![
-            vec![FieldElement::from(1); 3],
-            vec![FieldElement::from(4); 3],
-            vec![FieldElement::from(7); 3],
+            vec![FieldElement::from(1u64); 3],
+            vec![FieldElement::from(4u64); 3],
+            vec![FieldElement::from(7u64); 3],
         ];
         let expected_col = vec![
-            FieldElement::from(2),
-            FieldElement::from(3),
-            FieldElement::from(5),
-            FieldElement::from(6),
-            FieldElement::from(7),
-            FieldElement::from(7),
+            FieldElement::from(2u64),
+            FieldElement::from(3u64),
+            FieldElement::from(5u64),
+            FieldElement::from(6u64),
+            FieldElement::from(7u64),
+            FieldElement::from(7u64),
         ];
         let table = TraceTable::<Stark252PrimeField>::from_columns(&columns);
 
@@ -630,7 +630,7 @@ mod test {
 
     #[test]
     fn test_add_missing_values_to_rc_holes_column() {
-        let mut row = vec![Felt252::from(5); 36];
+        let mut row = vec![Felt252::from(5u64); 36];
         row[35] = Felt252::zero();
         let data = row.repeat(8);
         let table = Table::new(&data, 36);
@@ -638,25 +638,25 @@ mod test {
         let mut main_trace = TraceTable::<Stark252PrimeField> { table };
 
         let rc_holes = vec![
-            Felt252::from(1),
-            Felt252::from(2),
-            Felt252::from(3),
-            Felt252::from(4),
-            Felt252::from(5),
-            Felt252::from(6),
+            Felt252::from(1u64),
+            Felt252::from(2u64),
+            Felt252::from(3u64),
+            Felt252::from(4u64),
+            Felt252::from(5u64),
+            Felt252::from(6u64),
         ];
 
         fill_rc_holes(&mut main_trace, &rc_holes);
 
         let expected_rc_holes_column = vec![
-            Felt252::from(1),
-            Felt252::from(2),
-            Felt252::from(3),
-            Felt252::from(4),
-            Felt252::from(5),
-            Felt252::from(6),
-            Felt252::from(6),
-            Felt252::from(6),
+            Felt252::from(1u64),
+            Felt252::from(2u64),
+            Felt252::from(3u64),
+            Felt252::from(4u64),
+            Felt252::from(5u64),
+            Felt252::from(6u64),
+            Felt252::from(6u64),
+            Felt252::from(6u64),
         ];
 
         let rc_holes_column = main_trace.columns()[35].clone();
@@ -669,19 +669,19 @@ mod test {
         // We construct a sorted addresses list [1, 2, 3, 6, 7, 8, 9, 13, 14, 15], and
         // set codelen = 0. With this value of codelen, any holes present between
         // the min and max addresses should be returned by the function.
-        let mut addrs: Vec<Felt252> = (1..4).map(Felt252::from).collect();
-        let addrs_extension: Vec<Felt252> = (6..10).map(Felt252::from).collect();
+        let mut addrs: Vec<Felt252> = (1..4u64).map(Felt252::from).collect();
+        let addrs_extension: Vec<Felt252> = (6..10u64).map(Felt252::from).collect();
         addrs.extend_from_slice(&addrs_extension);
-        let addrs_extension: Vec<Felt252> = (13..16).map(Felt252::from).collect();
+        let addrs_extension: Vec<Felt252> = (13..16u64).map(Felt252::from).collect();
         addrs.extend_from_slice(&addrs_extension);
         let codelen = 0;
 
         let expected_memory_holes = vec![
-            Felt252::from(4),
-            Felt252::from(5),
-            Felt252::from(10),
-            Felt252::from(11),
-            Felt252::from(12),
+            Felt252::from(4u64),
+            Felt252::from(5u64),
+            Felt252::from(10u64),
+            Felt252::from(11u64),
+            Felt252::from(12u64),
         ];
         let calculated_memory_holes = get_memory_holes(&addrs, codelen);
 
@@ -694,8 +694,8 @@ mod test {
         // set a codelen of 9. Since all the holes will be inside the
         // program segment (meaning from addresses 1 to 9), the function
         // should not return any of them.
-        let mut addrs: Vec<Felt252> = (1..4).map(Felt252::from).collect();
-        let addrs_extension: Vec<Felt252> = (8..10).map(Felt252::from).collect();
+        let mut addrs: Vec<Felt252> = (1..4u64).map(Felt252::from).collect();
+        let addrs_extension: Vec<Felt252> = (8..10u64).map(Felt252::from).collect();
         addrs.extend_from_slice(&addrs_extension);
         let codelen = 9;
 
@@ -711,13 +711,13 @@ mod test {
         // set a codelen of 6. The holes found inside the program section,
         // i.e. in the address range between 1 to 6, should not be returned.
         // So addresses 4, 5 and 6 will no be returned, only address 7.
-        let mut addrs: Vec<Felt252> = (1..4).map(Felt252::from).collect();
-        let addrs_extension: Vec<Felt252> = (8..10).map(Felt252::from).collect();
+        let mut addrs: Vec<Felt252> = (1..4u64).map(Felt252::from).collect();
+        let addrs_extension: Vec<Felt252> = (8..10u64).map(Felt252::from).collect();
         addrs.extend_from_slice(&addrs_extension);
         let codelen = 6;
 
         let calculated_memory_holes = get_memory_holes(&addrs, codelen);
-        let expected_memory_holes = vec![Felt252::from(7)];
+        let expected_memory_holes = vec![Felt252::from(7u64)];
 
         assert_eq!(expected_memory_holes, calculated_memory_holes);
     }
@@ -729,16 +729,16 @@ mod test {
 
         let mut trace_cols = vec![vec![Felt252::zero(); TRACE_COL_LEN]; NUM_TRACE_COLS];
         trace_cols[FRAME_PC][0] = Felt252::one();
-        trace_cols[FRAME_DST_ADDR][0] = Felt252::from(2);
-        trace_cols[FRAME_OP0_ADDR][0] = Felt252::from(3);
-        trace_cols[FRAME_OP1_ADDR][0] = Felt252::from(5);
-        trace_cols[FRAME_PC][1] = Felt252::from(6);
-        trace_cols[FRAME_DST_ADDR][1] = Felt252::from(9);
-        trace_cols[FRAME_OP0_ADDR][1] = Felt252::from(10);
-        trace_cols[FRAME_OP1_ADDR][1] = Felt252::from(11);
+        trace_cols[FRAME_DST_ADDR][0] = Felt252::from(2u64);
+        trace_cols[FRAME_OP0_ADDR][0] = Felt252::from(3u64);
+        trace_cols[FRAME_OP1_ADDR][0] = Felt252::from(5u64);
+        trace_cols[FRAME_PC][1] = Felt252::from(6u64);
+        trace_cols[FRAME_DST_ADDR][1] = Felt252::from(9u64);
+        trace_cols[FRAME_OP0_ADDR][1] = Felt252::from(10u64);
+        trace_cols[FRAME_OP1_ADDR][1] = Felt252::from(11u64);
         let mut trace = TraceTable::from_columns(&trace_cols);
 
-        let memory_holes = vec![Felt252::from(4), Felt252::from(7), Felt252::from(8)];
+        let memory_holes = vec![Felt252::from(4u64), Felt252::from(7u64), Felt252::from(8u64)];
         fill_memory_holes(&mut trace, &memory_holes);
 
         let extra_addr = &trace.columns()[EXTRA_ADDR];

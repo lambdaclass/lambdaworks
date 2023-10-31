@@ -194,8 +194,8 @@ mod tests {
     #[test]
     fn decode_instruction_flags_and_offsets() {
         let data = HashMap::from([
-            (1u64, Felt252::from(0x480680017fff8000)),
-            (2u64, Felt252::from(0x1104800180018000)),
+            (1u64, Felt252::from(0x480680017fff8000u64)),
+            (2u64, Felt252::from(0x1104800180018000u64)),
         ]);
 
         let memory = CairoMemory::new(data);

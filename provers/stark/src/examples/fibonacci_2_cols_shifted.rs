@@ -185,31 +185,31 @@ mod tests {
         );
         assert_eq!(
             trace.get_row(1),
-            vec![FieldElement::one(), FieldElement::from(2)]
+            vec![FieldElement::one(), FieldElement::from(2u64)]
         );
         assert_eq!(
             trace.get_row(2),
-            vec![FieldElement::from(2), FieldElement::from(3)]
+            vec![FieldElement::from(2u64), FieldElement::from(3u64)]
         );
         assert_eq!(
             trace.get_row(3),
-            vec![FieldElement::from(3), FieldElement::from(5)]
+            vec![FieldElement::from(3u64), FieldElement::from(5u64)]
         );
         assert_eq!(
             trace.get_row(4),
-            vec![FieldElement::from(5), FieldElement::from(8)]
+            vec![FieldElement::from(5u64), FieldElement::from(8u64)]
         );
         assert_eq!(
             trace.get_row(5),
-            vec![FieldElement::from(8), FieldElement::from(13)]
+            vec![FieldElement::from(8u64), FieldElement::from(13u64)]
         );
         assert_eq!(
             trace.get_row(6),
-            vec![FieldElement::from(13), FieldElement::from(21)]
+            vec![FieldElement::from(13u64), FieldElement::from(21u64)]
         );
         assert_eq!(
             trace.get_row(7),
-            vec![FieldElement::from(21), FieldElement::from(34)]
+            vec![FieldElement::from(21u64), FieldElement::from(34u64)]
         );
     }
 }

@@ -12,6 +12,8 @@ thiserror = { version = "1.0", optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
 serde_json = { version = "1.0", optional = true }
 proptest = { version = "1.1.0", optional = true }
+winterfell = { git = "https://github.com/facebook/winterfell" }
+winter-utils = { git = "https://github.com/facebook/winterfell" }
 
 # rayon
 rayon = { version = "1.7", optional = true }

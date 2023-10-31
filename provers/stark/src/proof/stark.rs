@@ -610,7 +610,7 @@ mod tests {
 
     #[test]
     fn test_serialization_compatible_with_stone_case_3() {
-        let trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::from(12345), 512);
+        let trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::from(12345u64), 512);
 
         let claimed_index = 420;
         let claimed_value = trace.get_row(claimed_index)[0];

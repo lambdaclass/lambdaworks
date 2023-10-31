@@ -949,7 +949,7 @@ fn compute_instr_constraints(constraints: &mut [Felt252], frame: &Frame<Stark252
     }
 
     // Instruction unpacking
-    let two = Felt252::from(2);
+    let two = Felt252::from(2u64);
     let b16 = two.pow(16u32);
     let b32 = two.pow(32u32);
     let b48 = two.pow(48u32);
@@ -974,7 +974,7 @@ fn compute_operand_constraints(constraints: &mut [Felt252], frame: &Frame<Stark2
     let pc = &curr[FRAME_PC];
 
     let one = Felt252::one();
-    let b15 = Felt252::from(2).pow(15u32);
+    let b15 = Felt252::from(2u64).pow(15u32);
 
     constraints[DST_ADDR] =
         curr[F_DST_FP] * fp + (one - curr[F_DST_FP]) * ap + (curr[OFF_DST] - b15)
@@ -997,7 +997,7 @@ fn compute_register_constraints(constraints: &mut [Felt252], frame: &Frame<Stark
     let next = frame.get_row(1);
 
     let one = Felt252::one();
-    let two = Felt252::from(2);
+    let two = Felt252::from(2u64);
 
     // ap and fp constraints
     constraints[NEXT_AP] =
@@ -1317,8 +1317,8 @@ mod test {
             pc_final: FieldElement::zero(),
             ap_final: FieldElement::zero(),
             public_memory: HashMap::from([
-                (FieldElement::one(), FieldElement::from(10)),
-                (FieldElement::from(2), FieldElement::from(20)),
+                (FieldElement::one(), FieldElement::from(10u64)),
+                (FieldElement::from(2u64), FieldElement::from(20u64)),
             ]),
             range_check_max: None,
             range_check_min: None,
@@ -1333,10 +1333,10 @@ mod test {
             FieldElement::one(),
             FieldElement::one(),
             FieldElement::zero(),
-            FieldElement::from(2),
-            FieldElement::from(2),
-            FieldElement::from(2),
-            FieldElement::from(2),
+            FieldElement::from(2u64),
+            FieldElement::from(2u64),
+            FieldElement::from(2u64),
+            FieldElement::from(2u64),
             FieldElement::zero(),
         ];
         let v = vec![
@@ -1360,11 +1360,11 @@ mod test {
                 FieldElement::one(),
                 FieldElement::one(),
                 FieldElement::one(),
-                FieldElement::from(2),
-                FieldElement::from(2),
-                FieldElement::from(2),
-                FieldElement::from(2),
-                FieldElement::from(2),
+                FieldElement::from(2u64),
+                FieldElement::from(2u64),
+                FieldElement::from(2u64),
+                FieldElement::from(2u64),
+                FieldElement::from(2u64),
             ]
         );
         assert_eq!(
@@ -1374,12 +1374,12 @@ mod test {
                 FieldElement::one(),
                 FieldElement::zero(),
                 FieldElement::zero(),
-                FieldElement::from(10),
+                FieldElement::from(10u64),
                 FieldElement::zero(),
                 FieldElement::zero(),
                 FieldElement::zero(),
                 FieldElement::zero(),
-                FieldElement::from(20),
+                FieldElement::from(20u64),
             ]
         );
     }
@@ -1393,9 +1393,9 @@ mod test {
             pc_final: FieldElement::zero(),
             ap_final: FieldElement::zero(),
             public_memory: HashMap::from([
-                (FieldElement::one(), FieldElement::from(10)),
-                (FieldElement::from(2), FieldElement::from(20)),
-                (FieldElement::from(20), FieldElement::from(40)),
+                (FieldElement::one(), FieldElement::from(10u64)),
+                (FieldElement::from(2u64), FieldElement::from(20u64)),
+                (FieldElement::from(20u64), FieldElement::from(40u64)),
             ]),
             range_check_max: None,
             range_check_min: None,
@@ -1453,12 +1453,12 @@ mod test {
                 FieldElement::one(),
                 FieldElement::one(),
                 FieldElement::one(),
-                FieldElement::from(2),
+                FieldElement::from(2u64),
                 FieldElement::one(),
                 FieldElement::one(),
                 FieldElement::one(),
                 FieldElement::one(),
-                FieldElement::from(20),
+                FieldElement::from(20u64),
             ]
         );
         assert_eq!(
@@ -1468,17 +1468,17 @@ mod test {
                 FieldElement::one(),
                 FieldElement::zero(),
                 FieldElement::zero(),
-                FieldElement::from(10),
+                FieldElement::from(10u64),
                 FieldElement::zero(),
                 FieldElement::zero(),
                 FieldElement::zero(),
                 FieldElement::zero(),
-                FieldElement::from(20),
+                FieldElement::from(20u64),
                 FieldElement::zero(),
                 FieldElement::zero(),
                 FieldElement::zero(),
                 FieldElement::zero(),
-                FieldElement::from(40),
+                FieldElement::from(40u64),
             ]
         );
     }
@@ -1486,34 +1486,34 @@ mod test {
     #[test]
     fn test_build_auxiliary_trace_sort_columns_by_memory_address() {
         let a = vec![
-            FieldElement::from(2),
+            FieldElement::from(2u64),
             FieldElement::one(),
-            FieldElement::from(3),
-            FieldElement::from(2),
+            FieldElement::from(3u64),
+            FieldElement::from(2u64),
         ];
         let v = vec![
-            FieldElement::from(6),
-            FieldElement::from(4),
-            FieldElement::from(5),
-            FieldElement::from(6),
+            FieldElement::from(6u64),
+            FieldElement::from(4u64),
+            FieldElement::from(5u64),
+            FieldElement::from(6u64),
         ];
         let (ap, vp) = sort_columns_by_memory_address(a, v);
         assert_eq!(
             ap,
             vec![
                 FieldElement::one(),
-                FieldElement::from(2),
-                FieldElement::from(2),
-                FieldElement::from(3)
+                FieldElement::from(2u64),
+                FieldElement::from(2u64),
+                FieldElement::from(3u64)
             ]
         );
         assert_eq!(
             vp,
             vec![
-                FieldElement::from(4),
-                FieldElement::from(6),
-                FieldElement::from(6),
-                FieldElement::from(5),
+                FieldElement::from(4u64),
+                FieldElement::from(6u64),
+                FieldElement::from(6u64),
+                FieldElement::from(5u64),
             ]
         );
     }
@@ -1521,28 +1521,28 @@ mod test {
     #[test]
     fn test_build_auxiliary_trace_generate_permutation_argument_column() {
         let a = vec![
-            FieldElement::from(3),
+            FieldElement::from(3u64),
             FieldElement::one(),
-            FieldElement::from(2),
+            FieldElement::from(2u64),
         ];
         let v = vec![
-            FieldElement::from(5),
+            FieldElement::from(5u64),
             FieldElement::one(),
-            FieldElement::from(2),
+            FieldElement::from(2u64),
         ];
         let ap = vec![
             FieldElement::one(),
-            FieldElement::from(2),
-            FieldElement::from(3),
+            FieldElement::from(2u64),
+            FieldElement::from(3u64),
         ];
         let vp = vec![
             FieldElement::one(),
-            FieldElement::from(2),
-            FieldElement::from(5),
+            FieldElement::from(2u64),
+            FieldElement::from(5u64),
         ];
         let rap_challenges = CairoRAPChallenges {
-            alpha_memory: FieldElement::from(15),
-            z_memory: FieldElement::from(10),
+            alpha_memory: FieldElement::from(15u64),
+            z_memory: FieldElement::from(10u64),
             z_range_check: FieldElement::zero(),
         };
         let p = generate_memory_permutation_argument_column(a, v, &ap, &vp, &rap_challenges);

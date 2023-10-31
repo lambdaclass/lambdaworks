@@ -152,7 +152,7 @@ mod test {
         //   * a7 = 32
         let a0 = BoundaryConstraint::new_simple(0, one);
         let a1 = BoundaryConstraint::new_simple(1, one);
-        let result = BoundaryConstraint::new_simple(7, FieldElement::<PrimeField>::from(32));
+        let result = BoundaryConstraint::new_simple(7, FieldElement::<PrimeField>::from(32u64));
 
         let constraints = BoundaryConstraints::from_constraints(vec![a0, a1, result]);
 

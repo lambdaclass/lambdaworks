@@ -564,7 +564,7 @@ mod tests {
     #[cfg(feature = "std")]
     #[test]
     fn test_display_montgomery_field() {
-        let zero_field_element = FieldElement::<Stark252PrimeField>::from(0);
+        let zero_field_element = FieldElement::<Stark252PrimeField>::from(0u64);
         assert_eq!(format!("{}", zero_field_element), "0x0");
 
         let some_field_element =
@@ -584,9 +584,9 @@ mod tests {
         type FrField = Stark252PrimeField;
         type FrElement = FieldElement<FrField>;
 
-        let input = FrElement::from(4);
+        let input = FrElement::from(4u64);
         let sqrt = input.sqrt().unwrap();
-        let result = FrElement::from(2);
+        let result = FrElement::from(2u64);
         assert_eq!(sqrt.0, result);
     }
 
@@ -603,9 +603,9 @@ mod tests {
     fn one_of_sqrt_roots_for_25_is_5() {
         type FrField = Stark252PrimeField;
         type FrElement = FieldElement<FrField>;
-        let input = FrElement::from(25);
+        let input = FrElement::from(25u64);
         let sqrt = input.sqrt().unwrap();
-        let five = FrElement::from(5);
+        let five = FrElement::from(5u64);
         assert!(sqrt.1 == five || sqrt.0 == five);
     }
 
@@ -614,7 +614,7 @@ mod tests {
         type FrField = Stark252PrimeField;
         type FrElement = FieldElement<FrField>;
 
-        let input = -FrElement::from(1);
+        let input = -FrElement::from(1u64);
         let sqrt = input.sqrt().unwrap();
         assert_eq!(sqrt.0.square(), input);
         assert_eq!(sqrt.1.square(), input);
@@ -626,9 +626,9 @@ mod tests {
         type FrField = Stark252PrimeField;
         type FrElement = FieldElement<FrField>;
 
-        let input = FrElement::from(25);
+        let input = FrElement::from(25u64);
         let sqrt = input.sqrt().unwrap();
-        let result = FrElement::from(5);
+        let result = FrElement::from(5u64);
         assert_eq!(sqrt.0, result);
         assert_eq!(sqrt.1, -result);
     }
@@ -638,9 +638,9 @@ mod tests {
         type FrField = Stark252PrimeField;
         type FrElement = FieldElement<FrField>;
 
-        let input = FrElement::from(0);
+        let input = FrElement::from(0u64);
         let sqrt = input.sqrt().unwrap();
-        let result = FrElement::from(0);
+        let result = FrElement::from(0u64);
         assert_eq!(sqrt.0, result);
         assert_eq!(sqrt.1, result);
     }
@@ -650,7 +650,7 @@ mod tests {
         type FrField = Stark252PrimeField;
         type FrElement = FieldElement<FrField>;
 
-        let input = FrElement::from(27);
+        let input = FrElement::from(27u64);
         let sqrt = input.sqrt();
         assert!(sqrt.is_none());
     }
@@ -659,14 +659,14 @@ mod tests {
     fn from_hex_1a_is_26_for_stark252_prime_field_element() {
         type F = Stark252PrimeField;
         type FE = FieldElement<F>;
-        assert_eq!(FE::from_hex("1a").unwrap(), FE::from(26))
+        assert_eq!(FE::from_hex("1a").unwrap(), FE::from(26u64))
     }
 
     #[test]
     fn from_hex_unchecked_zero_x_1a_is_26_for_stark252_prime_field_element() {
         type F = Stark252PrimeField;
         type FE = FieldElement<F>;
-        assert_eq!(FE::from_hex_unchecked("0x1a"), FE::from(26))
+        assert_eq!(FE::from_hex_unchecked("0x1a"), FE::from(26u64))
     }
 
     #[test]

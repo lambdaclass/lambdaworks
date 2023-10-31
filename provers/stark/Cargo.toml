@@ -11,6 +11,8 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 lambdaworks-math = { workspace = true , features = ["lambdaworks-serde"] }
 lambdaworks-crypto.workspace = true
+winterfell = { git = "https://github.com/facebook/winterfell" }
+winter-utils = { git = "https://github.com/facebook/winterfell" }
 
 rand = "0.8.5"
 thiserror = "1.0.38"
