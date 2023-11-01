@@ -167,7 +167,20 @@ fn write_proof(
     proof_path: String,
 ) {
     let mut bytes = vec![];
-    let proof_bytes: Vec<u8> = serde_bare::ser::to_vec(&proof).unwrap();
+
+    // cbor serialization (original)
+    let proof_bytes: Vec<u8> = serde_cbor::ser::to_vec(&proof).unwrap();
+    println!("Cbor: proof size: {} bytes", proof_bytes.len());
+
+    // rmp serialization
+    let proof_bytes: Vec<u8> = rmp_serde::to_vec(&proof).unwrap();
+    println!("Rmp: proof size: {} bytes", proof_bytes.len());
+
+    // bincode serialization
+    let proof_bytes: Vec<u8> =
+        bincode::serde::encode_to_vec(&proof, bincode::config::standard()).unwrap();
+    println!("Bincode: proof size: {} bytes", proof_bytes.len());
+
     bytes.extend(proof_bytes.len().to_be_bytes());
     bytes.extend(proof_bytes);
     bytes.extend(pub_inputs.serialize());
@@ -223,7 +236,11 @@ fn main() {
                 eprintln!("Error reading proof from file: {}", args.proof_path);
                 return;
             }
-            let Ok(proof) = serde_bare::from_slice(&bytes[0..proof_len]) else {
+
+            let Ok((proof, _)) = bincode::serde::decode_from_slice(
+                &bytes[0..proof_len],
+                bincode::config::standard(),
+            ) else {
                 println!("Error reading proof from file: {}", args.proof_path);
                 return;
             };
@@ -235,6 +252,7 @@ fn main() {
             };
 
             verify_proof(proof, pub_inputs, &proof_options);
+            let foo: u32 = -1;
         }
         commands::ProverEntity::ProveAndVerify(args) => {
             if args.program_path.contains(".cairo") {
@@ -279,5 +297,24 @@ fn main() {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    // use super::;
+
+    #[test]
+    fn test_field_serialization() {
+        type F = lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
+        type FE = stark_platinum_prover::fri::FieldElement<F>;
+        let field: FE = FE::from(26);
+
+        let serial = bincode::serde::encode_to_vec(&field, bincode::config::standard()).unwrap();
+
+        let (field_deserial, _): (FE, _) =
+            bincode::serde::decode_from_slice(&serial, bincode::config::standard()).unwrap();
+
+        assert_eq!(field, field_deserial);
     }
 }

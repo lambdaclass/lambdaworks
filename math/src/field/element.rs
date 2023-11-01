@@ -11,6 +11,7 @@ use core::iter::Sum;
 #[cfg(feature = "lambdaworks-serde")]
 use core::marker::PhantomData;
 use core::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
+use serde::de::SeqAccess;
 #[cfg(feature = "lambdaworks-serde")]
 use serde::de::{self, Deserializer, MapAccess, Visitor};
 #[cfg(feature = "lambdaworks-serde")]
@@ -485,8 +486,24 @@ impl<'de, F: IsPrimeField> Deserialize<'de> for FieldElement<F> {
                     }
                 }
                 let value = value.ok_or_else(|| de::Error::missing_field("value"))?;
-                let val: F::BaseType = ByteConversion::from_bytes_be(&value).unwrap();
-                Ok(FieldElement::new(val))
+                let val = F::BaseType::from_bytes_be(&value).unwrap();
+                Ok(FieldElement::from_raw(&val))
+            }
+
+            fn visit_seq<S>(self, mut seq: S) -> Result<FieldElement<F>, S::Error>
+            where
+                S: SeqAccess<'de>,
+            {
+                let mut value: Option<Vec<u8>> = None;
+                while let Some(val) = seq.next_element()? {
+                    if value.is_some() {
+                        return Err(de::Error::duplicate_field("value"));
+                    }
+                    value = Some(val);
+                }
+                let value = value.ok_or_else(|| de::Error::missing_field("value"))?;
+                let val = F::BaseType::from_bytes_be(&value).unwrap();
+                Ok(FieldElement::from_raw(&val))
             }
         }
 
