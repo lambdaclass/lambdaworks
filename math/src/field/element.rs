@@ -1,6 +1,7 @@
 use crate::errors::CreationError;
 use crate::field::errors::FieldError;
 use crate::field::traits::IsField;
+#[cfg(feature = "lambdaworks-serde")]
 use crate::traits::ByteConversion;
 use crate::unsigned_integer::element::UnsignedInteger;
 use crate::unsigned_integer::montgomery::MontgomeryAlgorithms;
