@@ -90,7 +90,7 @@ run-cuda-fuzzer:
 		cargo hfuzz run $(CUDAFUZZER)
 
 build_wasm:
-	cd provers/cairo && wasm-pack build --target=web -- --features wasm
+	cd provers/cairo && wasm-pack build --release --target=web -- --features wasm
 
 test_wasm:
-	cd provers/cairo && wasm-pack test --node -- --features wasm 
+	cd provers/cairo && wasm-pack test --release  --node -- --features wasm 
