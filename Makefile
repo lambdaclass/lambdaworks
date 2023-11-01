@@ -92,5 +92,5 @@ run-cuda-fuzzer:
 build_wasm:
 	cd provers/cairo && wasm-pack build --release --target=web -- --features wasm
 
-test_wasm:
-	cd provers/cairo && wasm-pack test --release  --node -- --features wasm 
+test_wasm_with_firefox:
+	cd provers/cairo && wasm-pack test --release --firefox --headless -- --features wasm
