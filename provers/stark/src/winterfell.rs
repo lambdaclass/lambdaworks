@@ -16,21 +16,20 @@ use lambdaworks_math::{
     traits::ByteConversion,
     unsigned_integer::element::U256,
 };
-use web_sys::console::assert;
 use winterfell::{
     crypto::{DefaultRandomCoin, ElementHasher},
     math::ExtensibleField,
     matrix::ColMatrix,
     Air, AirContext, Assertion, AuxTraceRandElements, ConstraintCompositionCoefficients,
     DefaultConstraintEvaluator, DefaultTraceLde, EvaluationFrame, ProofOptions, Prover,
-    StarkDomain, Trace, TraceInfo, TracePolyTable, TraceTable, TransitionConstraintDegree,
+    StarkDomain, Trace, TraceInfo, TracePolyTable, TraceTable, TransitionConstraintDegree, FieldExtension,
 };
 use winterfell::{
     math::{ExtensionOf, FieldElement as IsWinterFieldElement, StarkField},
     Deserializable, Serializable,
 };
 
-use crate::{traits::AIR, constraints::boundary::{BoundaryConstraint, BoundaryConstraints}};
+use crate::{traits::AIR, constraints::boundary::{BoundaryConstraint, BoundaryConstraints}, examples::fibonacci_2_cols_shifted::PublicInputs};
 
 // WINTERFELL FIBONACCI AIR
 // ================================================================================================
@@ -209,9 +208,34 @@ where
     fn new(
         trace_length: usize,
         pub_inputs: &Self::PublicInputs,
-        proof_options: &crate::proof::options::ProofOptions,
+        lambda_proof_options: &crate::proof::options::ProofOptions,
     ) -> Self {
-        todo!()
+        let winter_trace_info = TraceInfo::new(2, trace_length);
+        let lambda_context = crate::context::AirContext {
+            proof_options: lambda_proof_options.clone(),
+            transition_degrees: vec![1, 1],
+            transition_exemptions: vec![1, 1],
+            transition_offsets: vec![0, 1],
+            num_transition_constraints: 2,
+            trace_columns: 2,
+            num_transition_exemptions: 2
+        };
+
+        let winter_proof_options = ProofOptions::new(
+            lambda_proof_options.fri_number_of_queries as usize,
+            lambda_proof_options.blowup_factor as usize,
+            lambda_proof_options.grinding_factor as u32,
+            FieldExtension::None,
+            2,
+            0, // TODO: Check
+        );
+
+        Self {
+            winterfell_air: A::new(winter_trace_info, pub_inputs.clone(), winter_proof_options),
+            public_inputs: pub_inputs.clone(),
+            air_context: lambda_context,
+            composition_poly_degree_bound: 16
+        }
     }
 
     fn build_auxiliary_trace(
@@ -220,7 +244,7 @@ where
         rap_challenges: &Self::RAPChallenges,
     ) -> crate::trace::TraceTable<Self::Field> {
         // Not supported
-        todo!()
+        crate::trace::TraceTable::empty()
     }
 
     fn build_rap_challenges(
@@ -228,7 +252,7 @@ where
         transcript: &mut impl crate::transcript::IsStarkTranscript<Self::Field>,
     ) -> Self::RAPChallenges {
         // Not supported
-        todo!()
+        ()
     }
 
     fn number_auxiliary_rap_columns(&self) -> usize {
@@ -249,7 +273,7 @@ where
             frame.get_row(0).clone().to_vec(),
             frame.get_row(1).clone().to_vec(),
         );
-        let mut result = Vec::new();
+        let mut result = vec![LambdaFieldElement::zero(); self.num_transition_constraints()];
         self.winterfell_air.evaluate_transition::<LambdaFieldElement<Stark252PrimeField>>(&frame, &[], & mut result); // Periodic values not supported
         result
     }
@@ -282,33 +306,72 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{proof::options::ProofOptions, prover::{Prover, IsStarkProver}};
+    use crate::{proof::options::ProofOptions, prover::{Prover, IsStarkProver}, transcript::StoneProverTranscript, verifier::{Verifier, IsStarkVerifier}};
+    use crate::trace::TraceTable as LambdaTraceTable;
+
+    pub fn build_proof_options(use_extension_field: bool) -> winterfell::ProofOptions {
+        use winterfell::{FieldExtension, ProofOptions};
+    
+        let extension = if use_extension_field {
+            FieldExtension::Quadratic
+        } else {
+            FieldExtension::None
+        };
+        ProofOptions::new(28, 8, 0, extension, 4, 7)
+    }
+
+    pub fn build_trace(
+        sequence_length: usize,
+    ) -> TraceTable<LambdaFieldElement<Stark252PrimeField>> {
+        assert!(
+            sequence_length.is_power_of_two(),
+            "sequence length must be a power of 2"
+        );
+
+        let mut trace = TraceTable::new(TRACE_WIDTH, sequence_length / 2);
+        trace.fill(
+            |state| {
+                state[0] = LambdaFieldElement::one();
+                state[1] = LambdaFieldElement::one();
+            },
+            |_, state| {
+                state[0] += state[1];
+                state[1] += state[0];
+            },
+        );
+        
+        trace
+    }
 
     #[test]
-    fn test_2() {
+    fn test_1() {
         //let trace = simple_fibonacci::fibonacci_trace([Felt252::from(1u64), Felt252::from(1u64)], 8);
 
-        let proof_options = ProofOptions::default_test_options();
+        //let proof_options = build_proof_options(false);
+        let lambda_proof_options = ProofOptions::default_test_options();
+        //let fib_prover = FibProver::new(proof_options);
+        let trace = build_trace(16);
+        let pub_inputs = trace.get_column(1)[7];
 
-        let pub_inputs = FibonacciPublicInputs {
-            a0: LambdaFieldElement::<Stark252PrimeField>::one(),
-            a1: LambdaFieldElement::<Stark252PrimeField>::one(),
-        };
+        let mut columns = Vec::new();
+        for i in 0..trace.width() {
+            columns.push(trace.get_column(i).to_owned());
+        }
+
+        let lambda_trace = LambdaTraceTable::from_columns(&columns);
 
         let proof = Prover::prove::<Adapter<FibAir>>(
-            &trace,
+            &lambda_trace,
             &pub_inputs,
-            &proof_options,
+            &lambda_proof_options,
             StoneProverTranscript::new(&[]),
         )
-        
         .unwrap();
-        assert!(Verifier::verify::<FibonacciAIR<Stark252PrimeField>>(
+        assert!(Verifier::verify::<Adapter<FibAir>>(
             &proof,
             &pub_inputs,
-            &proof_options,
+            &lambda_proof_options,
             StoneProverTranscript::new(&[]),
         ));
-        */
     }
 }
