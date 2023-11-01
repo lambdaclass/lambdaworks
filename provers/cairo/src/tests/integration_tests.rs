@@ -6,7 +6,9 @@ use crate::{
     cairo_layout::CairoLayout,
     execution_trace::build_main_trace,
     runner::run::{generate_prover_args, run_program},
-    tests::utils::{cairo0_program_path, test_prove_cairo_program, test_prove_cairo_program_from_trace},
+    tests::utils::{
+        cairo0_program_path, test_prove_cairo_program, test_prove_cairo_program_from_trace,
+    },
     Felt252,
 };
 use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
@@ -36,7 +38,10 @@ fn test_prove_cairo_fibonacci_5() {
 
 #[test_log::test]
 fn test_prove_cairo_fibonacci_5_from_trace() {
-    test_prove_cairo_program_from_trace(&cairo0_program_path("fibonacci_5_trace.bin"),&cairo0_program_path("fibonacci_5_memory.bin"));
+    test_prove_cairo_program_from_trace(
+        &cairo0_program_path("fibonacci_5_trace.bin"),
+        &cairo0_program_path("fibonacci_5_memory.bin"),
+    );
 }
 
 #[test_log::test]

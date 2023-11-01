@@ -183,20 +183,22 @@ pub fn generate_prover_args_from_trace(
     memory_bin_path: &String,
 ) -> Result<(TraceTable<Stark252PrimeField>, PublicInputs), Error> {
     // ## Generating the prover args
-    let register_states = RegisterStates::from_file(&trace_bin_path).expect("Cairo trace bin file not found");
-    let memory = CairoMemory::from_file(&memory_bin_path).expect("Cairo memory binary file not found");
+    let register_states =
+        RegisterStates::from_file(&trace_bin_path).expect("Cairo trace bin file not found");
+    let memory =
+        CairoMemory::from_file(&memory_bin_path).expect("Cairo memory binary file not found");
 
     // data length
-    let data_len = 0_usize;    
+    let data_len = 0_usize;
 
-    let memory_segments = MemorySegmentMap::new();        
-    let mut pub_inputs = PublicInputs::from_regs_and_mem(&register_states, &memory, data_len, &memory_segments);
-    
+    let memory_segments = MemorySegmentMap::new();
+    let mut pub_inputs =
+        PublicInputs::from_regs_and_mem(&register_states, &memory, data_len, &memory_segments);
+
     let main_trace = build_main_trace(&register_states, &memory, &mut pub_inputs);
 
     Ok((main_trace, pub_inputs))
 }
-
 
 fn create_memory_segment_map(
     range_check_builtin_range: Option<Range<u64>>,

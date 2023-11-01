@@ -39,13 +39,10 @@ pub fn test_prove_cairo_program(
     assert!(verify_cairo_proof(&proof, &pub_inputs, &proof_options));
 }
 
-pub fn test_prove_cairo_program_from_trace(
-    trace_bin_path: &String,
-    memory_bin_path: &String,
-) {
+pub fn test_prove_cairo_program_from_trace(trace_bin_path: &String, memory_bin_path: &String) {
     let proof_options = ProofOptions::default_test_options();
     let (main_trace, pub_inputs) =
-    generate_prover_args_from_trace(&trace_bin_path, &memory_bin_path).unwrap();
+        generate_prover_args_from_trace(&trace_bin_path, &memory_bin_path).unwrap();
     let proof = generate_cairo_proof(&main_trace, &pub_inputs, &proof_options).unwrap();
     assert!(verify_cairo_proof(&proof, &pub_inputs, &proof_options));
 }
