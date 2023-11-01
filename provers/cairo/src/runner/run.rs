@@ -179,14 +179,14 @@ pub fn generate_prover_args(
 }
 
 pub fn generate_prover_args_from_trace(
-    trace_bin_path: &String,
-    memory_bin_path: &String,
+    trace_bin_path: &str,
+    memory_bin_path: &str,
 ) -> Result<(TraceTable<Stark252PrimeField>, PublicInputs), Error> {
     // ## Generating the prover args
     let register_states =
-        RegisterStates::from_file(&trace_bin_path).expect("Cairo trace bin file not found");
+        RegisterStates::from_file(trace_bin_path).expect("Cairo trace bin file not found");
     let memory =
-        CairoMemory::from_file(&memory_bin_path).expect("Cairo memory binary file not found");
+        CairoMemory::from_file(memory_bin_path).expect("Cairo memory binary file not found");
 
     // data length
     let data_len = 0_usize;
