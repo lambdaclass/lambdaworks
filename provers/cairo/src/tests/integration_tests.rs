@@ -6,7 +6,7 @@ use crate::{
     cairo_layout::CairoLayout,
     execution_trace::build_main_trace,
     runner::run::{generate_prover_args, run_program},
-    tests::utils::{cairo0_program_path, test_prove_cairo_program},
+    tests::utils::{cairo0_program_path, test_prove_cairo_program, test_prove_cairo_program_from_trace},
     Felt252,
 };
 use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
@@ -32,6 +32,11 @@ fn test_prove_cairo_simple_program() {
 fn test_prove_cairo_fibonacci_5() {
     let layout = CairoLayout::Plain;
     test_prove_cairo_program(&cairo0_program_path("fibonacci_5.json"), &None, layout);
+}
+
+#[test_log::test]
+fn test_prove_cairo_fibonacci_5_from_trace() {
+    test_prove_cairo_program_from_trace(&cairo0_program_path("fibonacci_5_trace.bin"),&cairo0_program_path("fibonacci_5_memory.bin"));
 }
 
 #[test_log::test]
@@ -67,13 +72,6 @@ fn test_prove_cairo_fibonacci_1000() {
     let layout = CairoLayout::Plain;
     test_prove_cairo_program(&cairo0_program_path("fibonacci_1000.json"), &None, layout);
 }
-
-// #[cfg_attr(feature = "metal", ignore)]
-// #[test_log::test]
-// fn test_prove_cairo_fibonacci_casm() {
-//     let layout = CairoLayout::Plain;
-//     test_prove_cairo1_program(&cairo1_program_path("fibonacci_cairo1_mod.casm"), layout);
-// }
 
 #[test_log::test]
 fn test_prove_cairo_rc_program() {

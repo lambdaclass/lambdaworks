@@ -1,12 +1,7 @@
-use cairo_vm::types::program::{self};
-use cairo_vm::types::program::Program;
 use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
 use lambdaworks_math::traits::{Deserializable, Serializable};
-use platinum_prover::air::{generate_cairo_proof, verify_cairo_proof, PublicInputs, MemorySegmentMap};
+use platinum_prover::air::{generate_cairo_proof, verify_cairo_proof, PublicInputs};
 use platinum_prover::cairo_layout::CairoLayout;
-use platinum_prover::cairo_mem::CairoMemory;
-use platinum_prover::execution_trace::build_main_trace;
-use platinum_prover::register_states::RegisterStates;
 use platinum_prover::runner::run::generate_prover_args;
 use platinum_prover::runner::run::generate_prover_args_from_trace;
 use stark_platinum_prover::proof::options::{ProofOptions, SecurityLevel};

@@ -6,6 +6,7 @@ use crate::{
     air::{generate_cairo_proof, verify_cairo_proof},
     cairo_layout::CairoLayout,
     runner::run::generate_prover_args,
+    runner::run::generate_prover_args_from_trace,
 };
 
 pub fn cairo0_program_path(program_name: &str) -> String {
@@ -35,5 +36,16 @@ pub fn test_prove_cairo_program(
         generate_prover_args(&program_content, output_range, layout).unwrap();
     let proof = generate_cairo_proof(&main_trace, &pub_inputs, &proof_options).unwrap();
 
+    assert!(verify_cairo_proof(&proof, &pub_inputs, &proof_options));
+}
+
+pub fn test_prove_cairo_program_from_trace(
+    trace_bin_path: &String,
+    memory_bin_path: &String,
+) {
+    let proof_options = ProofOptions::default_test_options();
+    let (main_trace, pub_inputs) =
+    generate_prover_args_from_trace(&trace_bin_path, &memory_bin_path).unwrap();
+    let proof = generate_cairo_proof(&main_trace, &pub_inputs, &proof_options).unwrap();
     assert!(verify_cairo_proof(&proof, &pub_inputs, &proof_options));
 }
