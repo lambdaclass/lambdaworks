@@ -18,32 +18,25 @@ pub struct Stark252PrimeFieldProof(StarkProof<Stark252PrimeField>);
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Eq, PartialEq, Hash)]
 pub struct FE(FieldElement<Stark252PrimeField>);
 
-#[wasm_bindgen]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MemorySegmentMap(HashMap<MemorySegment, Range<u64>>);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MemoryMap(HashMap<FE, FE>);
 
 #[wasm_bindgen]
 pub fn verify_cairo_proof_wasm(
-    proof: &Stark252PrimeFieldProof,
+    proof: &[u8],
     pub_input_serialized: &[u8],
     proof_options: &ProofOptions,
 ) -> bool {
     let pub_input: PublicInputs = serde_cbor::from_slice(pub_input_serialized).unwrap();
+    let proof: StarkProof<Stark252PrimeField> = serde_cbor::from_slice(proof).unwrap();
+
     Verifier::verify::<CairoAIR>(
-        &proof.0,
+        &proof,
         &pub_input,
         proof_options,
         StoneProverTranscript::new(&[]),
     )
-}
-
-#[wasm_bindgen]
-pub fn deserialize_proof_wasm(proof: &[u8]) -> Stark252PrimeFieldProof {
-    let proof_inner: StarkProof<Stark252PrimeField> = serde_cbor::from_slice(proof).unwrap();
-    Stark252PrimeFieldProof(proof_inner)
 }
 
 #[wasm_bindgen]
