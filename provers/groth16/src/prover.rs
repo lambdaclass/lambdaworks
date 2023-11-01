@@ -31,9 +31,10 @@ pub fn generate_proof(w: &[FrElement], qap: &QAP, pk: &ProvingKey, is_zk: bool) 
     )
     .unwrap();
     // [ƍ^{-1} * (β*l(τ) + α*r(τ) + o(τ))]_1
-    let num_of_private_inputs = qap.num_of_total_inputs - qap.num_of_public_inputs;
+    let num_of_total_inputs = qap.l.len();
+    let num_of_private_inputs = num_of_total_inputs - qap.num_of_public_inputs;
     let k_tau_assigned_prover_g1 = msm(
-        &w[qap.num_of_public_inputs..qap.num_of_total_inputs],
+        &w[qap.num_of_public_inputs..num_of_total_inputs],
         &pk.prover_k_tau_g1[0..num_of_private_inputs],
     )
     .unwrap();

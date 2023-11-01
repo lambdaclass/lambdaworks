@@ -2,12 +2,6 @@ use lambdaworks_groth16::{common::*, generate_proof, qap_example_circuit_1, setu
 
 #[test]
 fn test_groth16() {
-    /*
-        sym_1 = x * x
-        y = sym_1 * x
-        sym_2 = y + x
-        ~out = sym_2 + 5
-    */
     let qap = qap_example_circuit_1();
 
     let (pk, vk) = setup(&qap);
