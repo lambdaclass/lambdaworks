@@ -18,6 +18,8 @@ where
     transition_degrees: Vec<usize>,
     transition_exemptions: Vec<usize>,
     transition_offsets: Vec<usize>,
+    trace_columns: usize,
+    composition_poly_degree_bound: usize,
 }
 
 #[derive(Clone)]
@@ -29,7 +31,6 @@ where
     winterfell_air: A,
     public_inputs: AirAdapterPublicInputs<A>,
     air_context: crate::context::AirContext,
-    composition_poly_degree_bound: usize,
 }
 
 impl<A> AirAdapter<A>
@@ -63,7 +64,8 @@ where
         pub_inputs: &Self::PublicInputs,
         lambda_proof_options: &crate::proof::options::ProofOptions,
     ) -> Self {
-        let winter_trace_info = TraceInfo::new(2, trace_length);
+        let winter_trace_info = TraceInfo::new(pub_inputs.trace_columns, trace_length);
+        let trace_columns = winter_trace_info.layout().main_trace_width() + winter_trace_info.layout().aux_trace_width();
         let winter_proof_options = ProofOptions::new(
             lambda_proof_options.fri_number_of_queries,
             lambda_proof_options.blowup_factor as usize,
@@ -85,16 +87,15 @@ where
             transition_degrees: pub_inputs.transition_degrees.to_owned(),
             transition_exemptions: pub_inputs.transition_exemptions.to_owned(),
             transition_offsets: pub_inputs.transition_offsets.to_owned(),
-            num_transition_constraints: 2,
-            trace_columns: 2,
-            num_transition_exemptions: 2,
+            num_transition_constraints: winterfell_context.num_transition_constraints(),
+            trace_columns,
+            num_transition_exemptions: winterfell_context.num_transition_exemptions(),
         };
 
         Self {
             winterfell_air,
             public_inputs: pub_inputs.clone(),
             air_context: lambda_context,
-            composition_poly_degree_bound: 16,
         }
     }
 
@@ -120,7 +121,7 @@ where
     }
 
     fn composition_poly_degree_bound(&self) -> usize {
-        self.composition_poly_degree_bound
+        self.public_inputs.composition_poly_degree_bound
     }
 
     fn compute_transition(
@@ -185,6 +186,8 @@ mod tests {
             transition_degrees: vec![1, 1],
             transition_exemptions: vec![1, 1],
             transition_offsets: vec![0, 1],
+            composition_poly_degree_bound: 8,
+            trace_columns: 2
         };
 
         let proof = Prover::prove::<AirAdapter<FibAir>>(
