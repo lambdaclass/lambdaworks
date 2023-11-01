@@ -73,6 +73,13 @@ fn test_prove_cairo_fibonacci_1000() {
     test_prove_cairo_program(&cairo0_program_path("fibonacci_1000.json"), &None, layout);
 }
 
+// #[cfg_attr(feature = "metal", ignore)]
+// #[test_log::test]
+// fn test_prove_cairo_fibonacci_casm() {
+//     let layout = CairoLayout::Plain;
+//     test_prove_cairo1_program(&cairo1_program_path("fibonacci_cairo1_mod.casm"), layout);
+// }
+
 #[test_log::test]
 fn test_prove_cairo_rc_program() {
     let layout = CairoLayout::Small;

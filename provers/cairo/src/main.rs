@@ -239,7 +239,7 @@ fn main() {
         commands::ProverEntity::Prove(args) => {
             // verify input file is .cairo
             if args.program_path.contains(".cairo") {
-                println!("\nYou are trying to prove a non compiled Cairo program. Please compile it before sending it to the prover.\n");
+                eprintln!("\nYou are trying to prove a non compiled Cairo program. Please compile it before sending it to the prover.\n");
                 return;
             }
 

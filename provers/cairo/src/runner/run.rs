@@ -3,6 +3,7 @@ use crate::cairo_layout::CairoLayout;
 use crate::cairo_mem::CairoMemory;
 use crate::execution_trace::build_main_trace;
 use crate::register_states::RegisterStates;
+
 use super::vec_writer::VecWriter;
 use cairo_vm::cairo_run::{self, EncodeTraceError};
 
@@ -123,9 +124,6 @@ pub fn run_program(
     let register_states = RegisterStates::from_bytes_le(&trace_vec).unwrap();
 
     let data_len = runner.get_program().data_len();
-    println!("11111111111111111111111111");
-    println!("{:?}", data_len);
-    println!("2222222222222222222222222");
 
     let range_check_builtin_included = runner
         .get_program()
