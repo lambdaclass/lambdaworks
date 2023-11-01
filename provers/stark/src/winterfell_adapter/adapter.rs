@@ -9,7 +9,7 @@ use lambdaworks_math::field::{
 use winterfell::{Air, EvaluationFrame, FieldExtension, ProofOptions, TraceInfo, TraceTable};
 
 #[derive(Clone)]
-pub struct AdapterPublicInputs<A>
+pub struct AirAdapterPublicInputs<A>
 where
     A: Air<BaseField = FieldElement<Stark252PrimeField>>,
     A::PublicInputs: Clone,
@@ -21,18 +21,18 @@ where
 }
 
 #[derive(Clone)]
-pub struct Adapter<A>
+pub struct AirAdapter<A>
 where
     A: Air<BaseField = FieldElement<Stark252PrimeField>>,
     A::PublicInputs: Clone,
 {
     winterfell_air: A,
-    public_inputs: AdapterPublicInputs<A>,
+    public_inputs: AirAdapterPublicInputs<A>,
     air_context: crate::context::AirContext,
     composition_poly_degree_bound: usize,
 }
 
-impl<A> Adapter<A>
+impl<A> AirAdapter<A>
 where
     A: Air<BaseField = FieldElement<Stark252PrimeField>> + Clone,
     A::PublicInputs: Clone,
@@ -49,14 +49,14 @@ where
     }
 }
 
-impl<A> AIR for Adapter<A>
+impl<A> AIR for AirAdapter<A>
 where
     A: Air<BaseField = FieldElement<Stark252PrimeField>> + Clone,
     A::PublicInputs: Clone,
 {
     type Field = Stark252PrimeField;
     type RAPChallenges = (); // RAP Challenges not supported?
-    type PublicInputs = AdapterPublicInputs<A>;
+    type PublicInputs = AirAdapterPublicInputs<A>;
 
     fn new(
         trace_length: usize,
@@ -179,22 +179,22 @@ mod tests {
     #[test]
     fn prove_and_verify_a_winterfell_fibonacci_air() {
         let lambda_proof_options = ProofOptions::default_test_options();
-        let trace = Adapter::<FibAir>::convert_winterfell_trace_table(build_trace(16));
-        let pub_inputs = AdapterPublicInputs {
+        let trace = AirAdapter::<FibAir>::convert_winterfell_trace_table(build_trace(16));
+        let pub_inputs = AirAdapterPublicInputs {
             winterfell_public_inputs: trace.columns()[1][7],
             transition_degrees: vec![1, 1],
             transition_exemptions: vec![1, 1],
             transition_offsets: vec![0, 1],
         };
 
-        let proof = Prover::prove::<Adapter<FibAir>>(
+        let proof = Prover::prove::<AirAdapter<FibAir>>(
             &trace,
             &pub_inputs,
             &lambda_proof_options,
             StoneProverTranscript::new(&[]),
         )
         .unwrap();
-        assert!(Verifier::verify::<Adapter<FibAir>>(
+        assert!(Verifier::verify::<AirAdapter<FibAir>>(
             &proof,
             &pub_inputs,
             &lambda_proof_options,
