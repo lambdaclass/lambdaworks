@@ -11,9 +11,8 @@ use core::iter::Sum;
 #[cfg(feature = "lambdaworks-serde")]
 use core::marker::PhantomData;
 use core::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
-use serde::de::SeqAccess;
 #[cfg(feature = "lambdaworks-serde")]
-use serde::de::{self, Deserializer, MapAccess, Visitor};
+use serde::de::{self, Deserializer, MapAccess, SeqAccess, Visitor};
 #[cfg(feature = "lambdaworks-serde")]
 use serde::ser::{Serialize, SerializeStruct, Serializer};
 #[cfg(feature = "lambdaworks-serde")]
