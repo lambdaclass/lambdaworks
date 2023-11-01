@@ -22,6 +22,7 @@ test: $(COMPILED_CAIRO0_PROGRAMS)
 
 clippy:
 	cargo clippy --workspace --all-targets -- -D warnings
+	cargo clippy --workspace --all-targets --features wasm -- -D warnings
 	cargo clippy --tests
 
 clippy-cuda:

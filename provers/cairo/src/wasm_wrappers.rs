@@ -1,5 +1,4 @@
 use super::air::{CairoAIR, PublicInputs};
-use crate::air::MemorySegment;
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
 use serde::{Deserialize, Serialize};
@@ -8,7 +7,6 @@ use stark_platinum_prover::proof::stark::StarkProof;
 use stark_platinum_prover::transcript::StoneProverTranscript;
 use stark_platinum_prover::verifier::{IsStarkVerifier, Verifier};
 use std::collections::HashMap;
-use std::ops::Range;
 use wasm_bindgen::prelude::wasm_bindgen;
 
 #[wasm_bindgen]
