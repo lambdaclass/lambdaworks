@@ -116,6 +116,21 @@ mod test_prover {
     use std::vec;
 
     #[test]
+    fn test_receive_challenge () {
+        let poly = MultilinearPolynomial::<Babybear31PrimeField>::new(vec![]);
+
+        let mut prover = Prover::new(poly);
+
+        let elem = FieldElement::<Babybear31PrimeField>::from(5);
+        let answer = prover.receive_challenge(elem.clone(), 1);
+        
+        assert_eq!(prover.round, 1);
+        assert_eq!(prover.r.len(), 1);
+        assert_eq!(prover.r[0],elem);
+        assert_eq!(answer, Ok("challenge received".to_string()));
+    }
+
+    #[test]
     fn test_send_poly_round0() {
         //Test the polynomial 1 + t_0 + t_1 + t_0 t_1
         //If t_0 is fixed, the resulting polynomial should be 3+3t_0
