@@ -18,7 +18,6 @@ pub struct Stark252PrimeFieldProof(StarkProof<Stark252PrimeField>);
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Eq, PartialEq, Hash)]
 pub struct FE(FieldElement<Stark252PrimeField>);
 
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MemoryMap(HashMap<FE, FE>);
 
