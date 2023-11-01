@@ -1,5 +1,5 @@
 use lambdaworks_math::field::{
-    element::FieldElement as LambdaFieldElement,
+    element::FieldElement,
     fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
 };
 use winterfell::{Air, EvaluationFrame, FieldExtension, ProofOptions, TraceInfo};
@@ -12,7 +12,7 @@ use crate::{
 #[derive(Clone)]
 pub struct Adapter<A>
 where
-    A: Air<BaseField = LambdaFieldElement<Stark252PrimeField>>,
+    A: Air<BaseField = FieldElement<Stark252PrimeField>>,
     A::PublicInputs: Clone,
 {
     winterfell_air: A,
@@ -23,7 +23,7 @@ where
 
 impl<A> AIR for Adapter<A>
 where
-    A: Air<BaseField = LambdaFieldElement<Stark252PrimeField>> + Clone,
+    A: Air<BaseField = FieldElement<Stark252PrimeField>> + Clone,
     A::PublicInputs: Clone,
 {
     type Field = Stark252PrimeField;
@@ -93,14 +93,14 @@ where
         &self,
         frame: &crate::frame::Frame<Self::Field>,
         _rap_challenges: &Self::RAPChallenges,
-    ) -> Vec<LambdaFieldElement<Self::Field>> {
+    ) -> Vec<FieldElement<Self::Field>> {
         let frame = EvaluationFrame::from_rows(
             frame.get_row(0).to_vec(),
             frame.get_row(1).to_vec(),
         );
-        let mut result = vec![LambdaFieldElement::zero(); self.num_transition_constraints()];
+        let mut result = vec![FieldElement::zero(); self.num_transition_constraints()];
         self.winterfell_air
-            .evaluate_transition::<LambdaFieldElement<Stark252PrimeField>>(
+            .evaluate_transition::<FieldElement<Stark252PrimeField>>(
                 &frame,
                 &[],
                 &mut result,

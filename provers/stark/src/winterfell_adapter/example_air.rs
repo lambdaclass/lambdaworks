@@ -1,36 +1,25 @@
 
-use lambdaworks_math::{
-    field::{
-        element::FieldElement as LambdaFieldElement,
-        fields::{
-            fft_friendly::stark_252_prime_field::Stark252PrimeField,
-        },
-        traits::{IsField},
-    },
-};
+use lambdaworks_math::field::{
+        element::FieldElement,
+        fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+    };
 use winterfell::{
     Air, AirContext, Assertion, EvaluationFrame, ProofOptions, TraceInfo, TraceTable, TransitionConstraintDegree,
 };
-use winterfell::{
-    math::{FieldElement as IsWinterFieldElement},
-};
+use winterfell::math::FieldElement as IsWinterfellFieldElement;
 
-use crate::{traits::AIR};
-
-// WINTERFELL FIBONACCI AIR
-// ================================================================================================
 
 pub const TRACE_WIDTH: usize = 2;
 
 #[derive(Clone)]
 pub struct FibAir {
-    context: AirContext<LambdaFieldElement<Stark252PrimeField>>,
-    result: LambdaFieldElement<Stark252PrimeField>,
+    context: AirContext<FieldElement<Stark252PrimeField>>,
+    result: FieldElement<Stark252PrimeField>,
 }
 
 impl Air for FibAir {
-    type BaseField = LambdaFieldElement<Stark252PrimeField>;
-    type PublicInputs = LambdaFieldElement<Stark252PrimeField>;
+    type BaseField = FieldElement<Stark252PrimeField>;
+    type PublicInputs = FieldElement<Stark252PrimeField>;
 
     // CONSTRUCTOR
     // --------------------------------------------------------------------------------------------
@@ -50,7 +39,7 @@ impl Air for FibAir {
         &self.context
     }
 
-    fn evaluate_transition<E: IsWinterFieldElement + From<Self::BaseField>>(
+    fn evaluate_transition<E: IsWinterfellFieldElement + From<Self::BaseField>>(
         &self,
         frame: &EvaluationFrame<E>,
         _periodic_values: &[E],
@@ -83,7 +72,7 @@ impl Air for FibAir {
  
 pub fn build_trace(
     sequence_length: usize,
-) -> TraceTable<LambdaFieldElement<Stark252PrimeField>> {
+) -> TraceTable<FieldElement<Stark252PrimeField>> {
     assert!(
         sequence_length.is_power_of_two(),
         "sequence length must be a power of 2"
@@ -92,8 +81,8 @@ pub fn build_trace(
     let mut trace = TraceTable::new(TRACE_WIDTH, sequence_length / 2);
     trace.fill(
         |state| {
-            state[0] = LambdaFieldElement::one();
-            state[1] = LambdaFieldElement::one();
+            state[0] = FieldElement::one();
+            state[1] = FieldElement::one();
         },
         |_, state| {
             state[0] += state[1];

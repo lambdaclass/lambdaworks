@@ -1,16 +1,12 @@
 use core::{ops::{DivAssign, MulAssign, SubAssign, Shr, Shl, ShrAssign}, slice, mem};
-use winterfell::{
-    math::ExtensibleField,
-};
+use winterfell::math::ExtensibleField;
 use winter_utils::{Randomizable, AsBytes, DeserializationError};
-use winterfell::{math::{FieldElement as IsWinterFieldElement, StarkField}, Deserializable, Serializable};
-use crate::{field::{element::FieldElement as LambdaFieldElement, fields::{fft_friendly::stark_252_prime_field::Stark252PrimeField}, traits::IsField}, unsigned_integer::element::U256, traits::ByteConversion};
-
+use winterfell::{math::{FieldElement as IsWinterfellFieldElement, StarkField}, Deserializable, Serializable};
+use crate::{field::{element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField}, unsigned_integer::element::U256, traits::ByteConversion};
 use super::fields::{fft_friendly::stark_252_prime_field::MontgomeryConfigStark252PrimeField, montgomery_backed_prime_fields::IsModulus};
 
-// Implementation example
-// https://github.com/facebook/winterfell/blob/772e6ad4e0bb1cfb3660e18fd2355708f9979daf/math/src/field/f62/mod.rs#L78
-impl IsWinterFieldElement for LambdaFieldElement<Stark252PrimeField> {
+
+impl IsWinterfellFieldElement for FieldElement<Stark252PrimeField> {
     type PositiveInteger = U256;
     type BaseField = Self;
     const EXTENSION_DEGREE: usize = 1;
@@ -20,7 +16,7 @@ impl IsWinterFieldElement for LambdaFieldElement<Stark252PrimeField> {
     const ONE: Self = Self::from_hex_unchecked("1");
 
     fn inv(self) -> Self {
-        LambdaFieldElement::inv(&self).unwrap()
+        FieldElement::inv(&self).unwrap()
     }
 
     fn conjugate(&self) -> Self {
@@ -103,7 +99,7 @@ impl ShrAssign for U256 {
 }
 
 #[cfg(feature = "std")]
-impl StarkField for LambdaFieldElement<Stark252PrimeField> {
+impl StarkField for FieldElement<Stark252PrimeField> {
     const MODULUS: Self::PositiveInteger = <MontgomeryConfigStark252PrimeField as IsModulus<U256>>::MODULUS;
 
     const MODULUS_BITS: u32 = 252;
@@ -125,20 +121,20 @@ impl StarkField for LambdaFieldElement<Stark252PrimeField> {
     }
 }
 
-impl Deserializable for LambdaFieldElement<Stark252PrimeField> {
+impl Deserializable for FieldElement<Stark252PrimeField> {
     fn read_from<R: winter_utils::ByteReader>(_source: &mut R) -> Result<Self, winter_utils::DeserializationError> {
         todo!()
     }
 }
 
-impl Serializable for LambdaFieldElement<Stark252PrimeField> {
+impl Serializable for FieldElement<Stark252PrimeField> {
     fn write_into<W: winter_utils::ByteWriter>(&self, _target: &mut W) {
         todo!()
     }
 }
 
 
-impl Randomizable for LambdaFieldElement<Stark252PrimeField> {
+impl Randomizable for FieldElement<Stark252PrimeField> {
     const VALUE_SIZE: usize = 8;
 
     fn from_random_bytes(_source: &[u8]) -> Option<Self> {
@@ -146,51 +142,51 @@ impl Randomizable for LambdaFieldElement<Stark252PrimeField> {
     }
 }
 
-impl AsBytes for LambdaFieldElement<Stark252PrimeField> {
+impl AsBytes for FieldElement<Stark252PrimeField> {
     fn as_bytes(&self) -> &[u8] {
         todo!()
     }
 }
 
-impl From<u8> for LambdaFieldElement<Stark252PrimeField> {
+impl From<u8> for FieldElement<Stark252PrimeField> {
     fn from(value: u8) -> Self {
         Self::from(value as u64)
     }
 }
-impl From<u16> for LambdaFieldElement<Stark252PrimeField> {
+impl From<u16> for FieldElement<Stark252PrimeField> {
     fn from(value: u16) -> Self {
         Self::from(value as u64)
     }
 }
-impl From<u32> for LambdaFieldElement<Stark252PrimeField> {
+impl From<u32> for FieldElement<Stark252PrimeField> {
     fn from(value: u32) -> Self {
         Self::from(value as u64)
     }
 }
-impl From<u128> for LambdaFieldElement<Stark252PrimeField> {
+impl From<u128> for FieldElement<Stark252PrimeField> {
     fn from(_value: u128) -> Self {
         todo!()
     }
 }
 
-impl DivAssign<LambdaFieldElement<Stark252PrimeField>> for LambdaFieldElement<Stark252PrimeField> {
-    fn div_assign(&mut self, rhs: LambdaFieldElement<Stark252PrimeField>) {
+impl DivAssign<FieldElement<Stark252PrimeField>> for FieldElement<Stark252PrimeField> {
+    fn div_assign(&mut self, rhs: FieldElement<Stark252PrimeField>) {
         *self *= rhs.inv();
     }
 }
 
-impl MulAssign<LambdaFieldElement<Stark252PrimeField>> for LambdaFieldElement<Stark252PrimeField> {
-    fn mul_assign(&mut self, rhs: LambdaFieldElement<Stark252PrimeField>) {
+impl MulAssign<FieldElement<Stark252PrimeField>> for FieldElement<Stark252PrimeField> {
+    fn mul_assign(&mut self, rhs: FieldElement<Stark252PrimeField>) {
         *self = *self * rhs;
     }
 }
-impl SubAssign<LambdaFieldElement<Stark252PrimeField>> for LambdaFieldElement<Stark252PrimeField> {
-    fn sub_assign(&mut self, rhs: LambdaFieldElement<Stark252PrimeField>) {
+impl SubAssign<FieldElement<Stark252PrimeField>> for FieldElement<Stark252PrimeField> {
+    fn sub_assign(&mut self, rhs: FieldElement<Stark252PrimeField>) {
         *self = *self - rhs;
     }
 }
 
-impl<'a> TryFrom<&'a [u8]> for LambdaFieldElement<Stark252PrimeField> {
+impl<'a> TryFrom<&'a [u8]> for FieldElement<Stark252PrimeField> {
     type Error = DeserializationError;
 
     fn try_from(_value: &'a [u8]) -> Result<Self, Self::Error> {
@@ -198,7 +194,7 @@ impl<'a> TryFrom<&'a [u8]> for LambdaFieldElement<Stark252PrimeField> {
     }
 }
 
-impl ExtensibleField<2> for LambdaFieldElement<Stark252PrimeField> {
+impl ExtensibleField<2> for FieldElement<Stark252PrimeField> {
     #[inline(always)]
     fn mul(a: [Self; 2], b: [Self; 2]) -> [Self; 2] {
         let z = a[0] * b[0];
@@ -222,7 +218,7 @@ impl ExtensibleField<2> for LambdaFieldElement<Stark252PrimeField> {
 /// Defines a cubic extension of the base field over an irreducible polynomial x<sup>3</sup> +
 /// 2x + 2. Thus, an extension element is defined as α + β * φ + γ * φ^2, where φ is a root of this
 /// polynomial, and α, β and γ are base field elements.
-impl ExtensibleField<3> for LambdaFieldElement<Stark252PrimeField> {
+impl ExtensibleField<3> for FieldElement<Stark252PrimeField> {
     #[inline(always)]
     fn mul(a: [Self; 3], b: [Self; 3]) -> [Self; 3] {
         // performs multiplication in the extension field using 6 multiplications, 8 additions,
@@ -259,33 +255,12 @@ impl ExtensibleField<3> for LambdaFieldElement<Stark252PrimeField> {
     fn frobenius(x: [Self; 3]) -> [Self; 3] {
         // coefficients were computed using SageMath
         [
-            x[0] + LambdaFieldElement::<Stark252PrimeField>::from(2061766055618274781u64) * x[1]
-                + LambdaFieldElement::<Stark252PrimeField>::from(786836585661389001u64) * x[2],
-            LambdaFieldElement::<Stark252PrimeField>::from(2868591307402993000u64) * x[1]
-                + LambdaFieldElement::<Stark252PrimeField>::from(3336695525575160559u64) * x[2],
-            LambdaFieldElement::<Stark252PrimeField>::from(2699230790596717670u64) * x[1]
-                + LambdaFieldElement::<Stark252PrimeField>::from(1743033688129053336u64) * x[2],
+            x[0] + FieldElement::<Stark252PrimeField>::from(2061766055618274781u64) * x[1]
+                + FieldElement::<Stark252PrimeField>::from(786836585661389001u64) * x[2],
+            FieldElement::<Stark252PrimeField>::from(2868591307402993000u64) * x[1]
+                + FieldElement::<Stark252PrimeField>::from(3336695525575160559u64) * x[2],
+            FieldElement::<Stark252PrimeField>::from(2699230790596717670u64) * x[1]
+                + FieldElement::<Stark252PrimeField>::from(1743033688129053336u64) * x[2],
         ]
     }
-}
-
-#[cfg(test)]
-mod tests {
-    
-
-    pub fn build_proof_options(use_extension_field: bool) -> winterfell::ProofOptions {
-        use winterfell::{FieldExtension, ProofOptions};
-    
-        let extension = if use_extension_field {
-            FieldExtension::Quadratic
-        } else {
-            FieldExtension::None
-        };
-        ProofOptions::new(28, 8, 0, extension, 4, 7)
-    }
-
-    #[test]
-    fn test_1() {
-        let _options = build_proof_options(false);
-            }
 }
