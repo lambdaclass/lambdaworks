@@ -37,10 +37,12 @@ impl<F> ByteConversion for [FieldElement<F>; 2]
 where
     F: IsField,
 {
+    #[cfg(feature = "std")]
     fn to_bytes_be(&self) -> Vec<u8> {
         todo!()
     }
 
+    #[cfg(feature = "std")]
     fn to_bytes_le(&self) -> Vec<u8> {
         todo!()
     }

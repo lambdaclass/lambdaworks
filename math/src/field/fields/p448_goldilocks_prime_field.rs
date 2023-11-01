@@ -21,10 +21,12 @@ pub struct U56x8 {
 }
 
 impl ByteConversion for U56x8 {
+    #[cfg(feature = "std")]
     fn to_bytes_be(&self) -> Vec<u8> {
         todo!()
     }
 
+    #[cfg(feature = "std")]
     fn to_bytes_le(&self) -> Vec<u8> {
         todo!()
     }

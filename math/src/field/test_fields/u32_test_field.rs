@@ -10,10 +10,12 @@ use crate::{
 pub struct U32Field<const MODULUS: u32>;
 
 impl ByteConversion for u32 {
+    #[cfg(feature = "std")]
     fn to_bytes_be(&self) -> Vec<u8> {
         todo!()
     }
 
+    #[cfg(feature = "std")]
     fn to_bytes_le(&self) -> Vec<u8> {
         todo!()
     }
