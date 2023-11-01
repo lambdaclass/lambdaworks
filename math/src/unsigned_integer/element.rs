@@ -2796,7 +2796,7 @@ mod tests_u256 {
         let b = U256::from_hex_unchecked(
             "72155337d5aed7801276378350203eb9c0000000000000000000000000000000",
         );
-        assert_eq!(&b >> 125 as usize, a);
+        assert_eq!(&b >> 125_usize, a);
     }
 
     #[test]
@@ -2805,7 +2805,7 @@ mod tests_u256 {
             "ba6ab46f9a9a2f20e4061b67ce4d8c3da98091cf990d7b14ef47ffe27370abbd",
         );
         let b = U256::from_hex_unchecked("174d568df35345e41c80c36cf9c");
-        assert_eq!(a >> 151 as usize, b);
+        assert_eq!(a >> 151_usize, b);
     }
 
     #[test]

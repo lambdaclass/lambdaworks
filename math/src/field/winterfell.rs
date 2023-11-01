@@ -1,10 +1,10 @@
-use core::{ops::{DivAssign, MulAssign, SubAssign, Shr, Shl, ShrAssign}, slice, mem, marker::PhantomData};
+use core::{ops::{DivAssign, MulAssign, SubAssign, Shr, Shl, ShrAssign}, slice, mem};
 use winterfell::{
-    Air, AirContext, Assertion, EvaluationFrame, TraceInfo, TransitionConstraintDegree, ProofOptions, math::ExtensibleField, Prover, crypto::{ElementHasher, DefaultRandomCoin}, TraceTable, DefaultTraceLde, DefaultConstraintEvaluator, matrix::ColMatrix, StarkDomain, TracePolyTable, AuxTraceRandElements, ConstraintCompositionCoefficients, Trace,
+    math::ExtensibleField,
 };
 use winter_utils::{Randomizable, AsBytes, DeserializationError};
-use winterfell::{math::{FieldElement as IsWinterFieldElement, ExtensionOf, StarkField}, Deserializable, Serializable};
-use crate::{field::{element::FieldElement as LambdaFieldElement, fields::{montgomery_backed_prime_fields::MontgomeryBackendPrimeField, fft_friendly::stark_252_prime_field::Stark252PrimeField}, traits::IsField}, unsigned_integer::element::U256, traits::ByteConversion};
+use winterfell::{math::{FieldElement as IsWinterFieldElement, StarkField}, Deserializable, Serializable};
+use crate::{field::{element::FieldElement as LambdaFieldElement, fields::{fft_friendly::stark_252_prime_field::Stark252PrimeField}, traits::IsField}, unsigned_integer::element::U256, traits::ByteConversion};
 
 use super::fields::{fft_friendly::stark_252_prime_field::MontgomeryConfigStark252PrimeField, montgomery_backed_prime_fields::IsModulus};
 
@@ -24,7 +24,7 @@ impl IsWinterFieldElement for LambdaFieldElement<Stark252PrimeField> {
     }
 
     fn conjugate(&self) -> Self {
-        self.clone()
+        *self
     }
 
     fn base_element(&self, i: usize) -> Self::BaseField {
@@ -121,18 +121,18 @@ impl StarkField for LambdaFieldElement<Stark252PrimeField> {
     }
 
     fn as_int(&self) -> Self::PositiveInteger {
-        Self::representative(&self)
+        Self::representative(self)
     }
 }
 
 impl Deserializable for LambdaFieldElement<Stark252PrimeField> {
-    fn read_from<R: winter_utils::ByteReader>(source: &mut R) -> Result<Self, winter_utils::DeserializationError> {
+    fn read_from<R: winter_utils::ByteReader>(_source: &mut R) -> Result<Self, winter_utils::DeserializationError> {
         todo!()
     }
 }
 
 impl Serializable for LambdaFieldElement<Stark252PrimeField> {
-    fn write_into<W: winter_utils::ByteWriter>(&self, target: &mut W) {
+    fn write_into<W: winter_utils::ByteWriter>(&self, _target: &mut W) {
         todo!()
     }
 }
@@ -141,7 +141,7 @@ impl Serializable for LambdaFieldElement<Stark252PrimeField> {
 impl Randomizable for LambdaFieldElement<Stark252PrimeField> {
     const VALUE_SIZE: usize = 8;
 
-    fn from_random_bytes(source: &[u8]) -> Option<Self> {
+    fn from_random_bytes(_source: &[u8]) -> Option<Self> {
         todo!()
     }
 }
@@ -168,14 +168,14 @@ impl From<u32> for LambdaFieldElement<Stark252PrimeField> {
     }
 }
 impl From<u128> for LambdaFieldElement<Stark252PrimeField> {
-    fn from(value: u128) -> Self {
+    fn from(_value: u128) -> Self {
         todo!()
     }
 }
 
 impl DivAssign<LambdaFieldElement<Stark252PrimeField>> for LambdaFieldElement<Stark252PrimeField> {
     fn div_assign(&mut self, rhs: LambdaFieldElement<Stark252PrimeField>) {
-        *self = *self * rhs.inv();
+        *self *= rhs.inv();
     }
 }
 
@@ -193,7 +193,7 @@ impl SubAssign<LambdaFieldElement<Stark252PrimeField>> for LambdaFieldElement<St
 impl<'a> TryFrom<&'a [u8]> for LambdaFieldElement<Stark252PrimeField> {
     type Error = DeserializationError;
 
-    fn try_from(value: &'a [u8]) -> Result<Self, Self::Error> {
+    fn try_from(_value: &'a [u8]) -> Result<Self, Self::Error> {
         todo!()
     }
 }
@@ -271,7 +271,7 @@ impl ExtensibleField<3> for LambdaFieldElement<Stark252PrimeField> {
 
 #[cfg(test)]
 mod tests {
-    use winterfell::TraceTable;
+    
 
     pub fn build_proof_options(use_extension_field: bool) -> winterfell::ProofOptions {
         use winterfell::{FieldExtension, ProofOptions};
@@ -286,6 +286,6 @@ mod tests {
 
     #[test]
     fn test_1() {
-        let options = build_proof_options(false);
+        let _options = build_proof_options(false);
             }
 }

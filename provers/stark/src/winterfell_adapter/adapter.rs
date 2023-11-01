@@ -47,7 +47,7 @@ where
         };
 
         let winter_proof_options = ProofOptions::new(
-            lambda_proof_options.fri_number_of_queries as usize,
+            lambda_proof_options.fri_number_of_queries,
             lambda_proof_options.blowup_factor as usize,
             lambda_proof_options.grinding_factor as u32,
             FieldExtension::None,
@@ -65,8 +65,8 @@ where
 
     fn build_auxiliary_trace(
         &self,
-        main_trace: &crate::trace::TraceTable<Self::Field>,
-        rap_challenges: &Self::RAPChallenges,
+        _main_trace: &crate::trace::TraceTable<Self::Field>,
+        _rap_challenges: &Self::RAPChallenges,
     ) -> crate::trace::TraceTable<Self::Field> {
         // Not supported
         crate::trace::TraceTable::empty()
@@ -74,10 +74,10 @@ where
 
     fn build_rap_challenges(
         &self,
-        transcript: &mut impl crate::transcript::IsStarkTranscript<Self::Field>,
+        _transcript: &mut impl crate::transcript::IsStarkTranscript<Self::Field>,
     ) -> Self::RAPChallenges {
         // Not supported
-        ()
+        
     }
 
     fn number_auxiliary_rap_columns(&self) -> usize {
@@ -92,11 +92,11 @@ where
     fn compute_transition(
         &self,
         frame: &crate::frame::Frame<Self::Field>,
-        rap_challenges: &Self::RAPChallenges,
+        _rap_challenges: &Self::RAPChallenges,
     ) -> Vec<LambdaFieldElement<Self::Field>> {
         let frame = EvaluationFrame::from_rows(
-            frame.get_row(0).clone().to_vec(),
-            frame.get_row(1).clone().to_vec(),
+            frame.get_row(0).to_vec(),
+            frame.get_row(1).to_vec(),
         );
         let mut result = vec![LambdaFieldElement::zero(); self.num_transition_constraints()];
         self.winterfell_air
@@ -110,7 +110,7 @@ where
 
     fn boundary_constraints(
         &self,
-        rap_challenges: &Self::RAPChallenges,
+        _rap_challenges: &Self::RAPChallenges,
     ) -> crate::constraints::boundary::BoundaryConstraints<Self::Field> {
         let mut result = Vec::new();
         for assertion in self.winterfell_air.get_assertions() {
@@ -146,7 +146,7 @@ mod tests {
         prover::{IsStarkProver, Prover},
         transcript::StoneProverTranscript,
         verifier::{IsStarkVerifier, Verifier},
-        winterfell_adapter::example_air::{build_trace, FibAir, TRACE_WIDTH},
+        winterfell_adapter::example_air::{build_trace, FibAir},
     };
 
     #[test]

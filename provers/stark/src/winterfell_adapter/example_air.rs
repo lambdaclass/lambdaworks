@@ -1,35 +1,21 @@
-use core::{
-    marker::PhantomData,
-    mem,
-    ops::{DivAssign, MulAssign, Shl, Shr, ShrAssign, SubAssign},
-    slice,
-};
+
 use lambdaworks_math::{
     field::{
         element::FieldElement as LambdaFieldElement,
         fields::{
             fft_friendly::stark_252_prime_field::Stark252PrimeField,
-            montgomery_backed_prime_fields::MontgomeryBackendPrimeField,
         },
-        traits::{IsFFTField, IsField},
+        traits::{IsField},
     },
-    traits::ByteConversion,
-    unsigned_integer::element::U256,
 };
 use winterfell::{
-    crypto::{DefaultRandomCoin, ElementHasher},
-    math::ExtensibleField,
-    matrix::ColMatrix,
-    Air, AirContext, Assertion, AuxTraceRandElements, ConstraintCompositionCoefficients,
-    DefaultConstraintEvaluator, DefaultTraceLde, EvaluationFrame, ProofOptions, Prover,
-    StarkDomain, Trace, TraceInfo, TracePolyTable, TraceTable, TransitionConstraintDegree, FieldExtension,
+    Air, AirContext, Assertion, EvaluationFrame, ProofOptions, TraceInfo, TraceTable, TransitionConstraintDegree,
 };
 use winterfell::{
-    math::{ExtensionOf, FieldElement as IsWinterFieldElement, StarkField},
-    Deserializable, Serializable,
+    math::{FieldElement as IsWinterFieldElement},
 };
 
-use crate::{traits::AIR, constraints::boundary::{BoundaryConstraint, BoundaryConstraints}, examples::fibonacci_2_cols_shifted::PublicInputs};
+use crate::{traits::AIR};
 
 // WINTERFELL FIBONACCI AIR
 // ================================================================================================
