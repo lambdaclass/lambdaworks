@@ -31,13 +31,15 @@ impl ByteConversion for U56x8 {
 
     fn from_bytes_be(_bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
     where
-        Self: Sized {
+        Self: Sized,
+    {
         todo!()
     }
 
     fn from_bytes_le(_bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
     where
-        Self: Sized {
+        Self: Sized,
+    {
         todo!()
     }
 }

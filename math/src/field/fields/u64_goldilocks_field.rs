@@ -7,7 +7,8 @@ use crate::{
         errors::FieldError,
         extensions::quadratic::{HasQuadraticNonResidue, QuadraticExtensionField},
         traits::{IsField, IsPrimeField},
-    }, traits::ByteConversion,
+    },
+    traits::ByteConversion,
 };
 
 /// Goldilocks Prime Field F_p where p = 2^64 - 2^32 + 1;
@@ -31,13 +32,15 @@ impl ByteConversion for u64 {
 
     fn from_bytes_be(_bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
     where
-        Self: Sized {
+        Self: Sized,
+    {
         todo!()
     }
 
     fn from_bytes_le(_bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
     where
-        Self: Sized {
+        Self: Sized,
+    {
         todo!()
     }
 }
