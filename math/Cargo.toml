@@ -13,6 +13,7 @@ serde = { version = "1.0", features = ["derive"], optional = true }
 serde_json = { version = "1.0", optional = true }
 proptest = { version = "1.1.0", optional = true }
 
+
 # rayon
 rayon = { version = "1.7", optional = true }
 
@@ -24,6 +25,7 @@ objc = { version = "0.2.7", optional = true }
 cudarc = { version = "0.9.7", optional = true }
 
 lambdaworks-gpu = { workspace = true, optional = true }
+
 
 [dev-dependencies]
 rand = { version = "0.8.5", default-features = false }
