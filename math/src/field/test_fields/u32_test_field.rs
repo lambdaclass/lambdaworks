@@ -1,7 +1,8 @@
 use crate::{
     errors::CreationError,
     field::errors::FieldError,
-    field::traits::{IsFFTField, IsField, IsPrimeField}, traits::ByteConversion,
+    field::traits::{IsFFTField, IsField, IsPrimeField},
+    traits::ByteConversion,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -17,15 +18,17 @@ impl ByteConversion for u32 {
         todo!()
     }
 
-    fn from_bytes_be(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
+    fn from_bytes_be(_bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
     where
-        Self: Sized {
+        Self: Sized,
+    {
         todo!()
     }
 
-    fn from_bytes_le(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
+    fn from_bytes_le(_bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
     where
-        Self: Sized {
+        Self: Sized,
+    {
         todo!()
     }
 }

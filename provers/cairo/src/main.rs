@@ -167,7 +167,7 @@ fn write_proof(
     proof_path: String,
 ) {
     let mut bytes = vec![];
-    let proof_bytes: Vec<u8> = serde_cbor::to_vec(&proof).unwrap();
+    let proof_bytes: Vec<u8> = serde_bare::ser::to_vec(&proof).unwrap();
     bytes.extend(proof_bytes.len().to_be_bytes());
     bytes.extend(proof_bytes);
     bytes.extend(pub_inputs.serialize());
@@ -223,7 +223,7 @@ fn main() {
                 eprintln!("Error reading proof from file: {}", args.proof_path);
                 return;
             }
-            let Ok(proof) = serde_cbor::from_slice(&bytes[0..proof_len]) else {
+            let Ok(proof) = serde_bare::from_slice(&bytes[0..proof_len]) else {
                 println!("Error reading proof from file: {}", args.proof_path);
                 return;
             };
