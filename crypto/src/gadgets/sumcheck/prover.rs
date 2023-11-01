@@ -76,10 +76,12 @@ where
                 .map(|x| FieldElement::<F>::from(*x))
                 .collect::<Vec<FieldElement<F>>>();
 
+            // zips the variables to assign and their values
             let numbers: Vec<usize> = (self.round as usize + 1..self.poly.n_vars).collect();
             let var_assignments: Vec<(usize, FieldElement<F>)> =
                 numbers.into_iter().zip(assign).collect();
 
+            // creates a new polynomial from the assignments
             new_poly.add(self.poly.partial_evaluate(&var_assignments[0..]));
         }
         new_poly
@@ -104,6 +106,14 @@ where
 
         Ok("challenge received".to_string())
     }
+
+    fn assign_challenges(&mut self) -> MultilinearPolynomial<F> {
+        let values = self.r.clone();
+        let vars: Vec<usize> = (0..self.round as usize).collect();
+        let var_assignments: Vec<(usize, FieldElement<F>)> = vars.into_iter().zip(values).collect();
+
+        self.poly.partial_evaluate(&var_assignments)
+    }
 }
 
 #[cfg(test)]
@@ -116,17 +126,22 @@ mod test_prover {
     use std::vec;
 
     #[test]
-    fn test_receive_challenge () {
+    fn test_assign_challenges () {
+        
+    }
+
+    #[test]
+    fn test_receive_challenge() {
         let poly = MultilinearPolynomial::<Babybear31PrimeField>::new(vec![]);
 
         let mut prover = Prover::new(poly);
 
         let elem = FieldElement::<Babybear31PrimeField>::from(5);
         let answer = prover.receive_challenge(elem.clone(), 1);
-        
+
         assert_eq!(prover.round, 1);
         assert_eq!(prover.r.len(), 1);
-        assert_eq!(prover.r[0],elem);
+        assert_eq!(prover.r[0], elem);
         assert_eq!(answer, Ok("challenge received".to_string()));
     }
 
