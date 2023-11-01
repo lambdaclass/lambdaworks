@@ -9,7 +9,6 @@ use lambdaworks_math::{
 };
 use std::ops::{Add, Mul};
 
-pub mod benchmark_tests;
 mod parameters;
 
 pub struct Poseidon<F: IsField> {
