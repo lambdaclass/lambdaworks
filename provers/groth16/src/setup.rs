@@ -64,8 +64,6 @@ pub fn setup(qap: &QAP) -> (ProvingKey, VerifyingKey) {
 
     let tw = ToxicWaste::new();
 
-    let num_of_total_inputs = qap.l.len();
-
     let l_tau: Vec<_> = qap.l.iter().map(|p| p.evaluate(&tw.tau)).collect();
     let r_tau: Vec<_> = qap.r.iter().map(|p| p.evaluate(&tw.tau)).collect();
 
@@ -87,41 +85,39 @@ pub fn setup(qap: &QAP) -> (ProvingKey, VerifyingKey) {
         })
         .collect();
 
-    let t_tau_times_delta_inv = &delta_inv * qap.vanishing_polynomial().evaluate(&tw.tau);
-    let z_powers_of_tau_g1: Vec<G1Point> = (0..qap.num_of_gates() + 1)
-        .map(|exp: usize| {
-            g1.operate_with_self(
-                (&t_tau_times_delta_inv * tw.tau.pow(exp as u128)).representative(),
-            )
-        })
-        .collect();
-
     let alpha_g1 = g1.operate_with_self(tw.alpha.representative());
     let beta_g2 = g2.operate_with_self(tw.beta.representative());
+
+    let alpha_g1_times_beta_g2 = Pairing::compute(&alpha_g1, &beta_g2);
+
     let delta_g2 = g2.operate_with_self(tw.delta.representative());
 
     (
         ProvingKey {
-            alpha_g1: alpha_g1.clone(),
+            alpha_g1,
             beta_g1: g1.operate_with_self(tw.beta.representative()),
-            beta_g2: beta_g2.clone(),
+            beta_g2,
             delta_g1: g1.operate_with_self(tw.delta.representative()),
             delta_g2: delta_g2.clone(),
-            l_tau_g1: batch_operate(&l_tau, &g1), // [A_i(τ)]_1
-            r_tau_g1: batch_operate(&r_tau, &g1), // [B_i(τ)]_1
-            r_tau_g2: batch_operate(&r_tau, &g2), // [B_i(τ)]_2
-            // [K_i(τ)]_1
-            prover_k_tau_g1: batch_operate(
-                &k_tau[qap.num_of_public_inputs..num_of_total_inputs],
+            l_tau_g1: batch_operate(&l_tau, &g1),
+            r_tau_g1: batch_operate(&r_tau, &g1),
+            r_tau_g2: batch_operate(&r_tau, &g2),
+            prover_k_tau_g1: batch_operate(&k_tau[qap.num_of_public_inputs..], &g1),
+            z_powers_of_tau_g1: batch_operate(
+                &core::iter::successors(
+                    Some(&delta_inv * qap.vanishing_polynomial().evaluate(&tw.tau)),
+                    |prev| Some(prev * &tw.tau),
+                )
+                .take(qap.num_of_gates())
+                .collect::<Vec<_>>(),
                 &g1,
             ),
-            z_powers_of_tau_g1,
         },
         VerifyingKey {
-            alpha_g1_times_beta_g2: Pairing::compute(&alpha_g1, &beta_g2),
+            alpha_g1_times_beta_g2,
             delta_g2,
             gamma_g2: g2.operate_with_self(tw.gamma.representative()),
-            verifier_k_tau_g1: batch_operate(&k_tau[0..qap.num_of_public_inputs], &g1),
+            verifier_k_tau_g1: batch_operate(&k_tau[..qap.num_of_public_inputs], &g1),
         },
     )
 }
