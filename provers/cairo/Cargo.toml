@@ -40,7 +40,6 @@ rayon = { version = "1.8.0", optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
 serde-wasm-bindgen = { version = "0.5", optional = true }
 web-sys = { version = "0.3.64", features = ['console'], optional = true }
-rmp-serde = "1.1.2"
 
 [dev-dependencies]
 hex = "0.4.3"
