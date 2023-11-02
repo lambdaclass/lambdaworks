@@ -83,7 +83,7 @@ where
         _main_trace: &TraceTable<Self::Field>,
         _rap_challenges: &Self::RAPChallenges,
     ) -> TraceTable<Self::Field> {
-        TraceTable::empty()
+        TraceTable::empty(1)
     }
 
     fn build_rap_challenges(

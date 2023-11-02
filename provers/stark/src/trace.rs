@@ -17,21 +17,22 @@ use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
 pub struct TraceTable<F: IsFFTField> {
     pub table: Table<F>,
+    pub step_size: usize,
 }
 
 impl<F: IsFFTField> TraceTable<F> {
-    pub fn new(data: &[FieldElement<F>], n_columns: usize) -> Self {
+    pub fn new(data: &[FieldElement<F>], n_columns: usize, step_size: usize) -> Self {
         let table = Table::new(data, n_columns);
-        Self { table }
+        Self { table, step_size }
     }
 
-    pub fn from_columns(columns: &[Vec<FieldElement<F>>]) -> Self {
+    pub fn from_columns(columns: &[Vec<FieldElement<F>>], step_size: usize) -> Self {
         let table = Table::from_columns(columns);
-        Self { table }
+        Self { table, step_size }
     }
 
-    pub fn empty() -> Self {
-        Self::new(&Vec::new(), 0)
+    pub fn empty(step_size: usize) -> Self {
+        Self::new(&Vec::new(), 0, step_size)
     }
 
     pub fn is_empty(&self) -> bool {
@@ -40,6 +41,11 @@ impl<F: IsFFTField> TraceTable<F> {
 
     pub fn n_rows(&self) -> usize {
         self.table.height
+    }
+
+    pub fn num_steps(&self) -> usize {
+        debug_assert!((self.table.height % self.step_size) == 0);
+        self.table.height / self.step_size
     }
 
     pub fn n_cols(&self) -> usize {
