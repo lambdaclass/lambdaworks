@@ -1,5 +1,8 @@
 use crate::{common::*, ProvingKey, QAP};
+use lambdaworks_math::errors::DeserializationError;
+use lambdaworks_math::traits::{Deserializable, Serializable};
 use lambdaworks_math::{cyclic_group::IsGroup, msm::pippenger::msm};
+use std::mem::size_of;
 
 pub struct Proof {
     pub pi1: G1Point,
@@ -66,4 +69,80 @@ pub fn generate_proof(w: &[FrElement], qap: &QAP, pk: &ProvingKey) -> Proof {
         .operate_with(&pk.delta_g1.operate_with_self((-(&r * &s)).representative()));
 
     Proof { pi1, pi2, pi3 }
+}
+
+impl Serializable for Proof {
+    fn serialize(&self) -> Vec<u8> {
+        let mut bytes: Vec<u8> = Vec::new();
+        [
+            serialize_commitment(&self.pi1),
+            serialize_commitment(&self.pi2),
+            serialize_commitment(&self.pi3),
+        ]
+        .iter()
+        .for_each(|serialized| {
+            bytes.extend_from_slice(&(serialized.len() as u32).to_be_bytes());
+            bytes.extend_from_slice(&serialized);
+        });
+        bytes
+    }
+}
+
+impl Deserializable for Proof {
+    fn deserialize(bytes: &[u8]) -> Result<Self, DeserializationError>
+    where
+        Self: Sized,
+    {
+        let (offset, pi1) = deserialize_commitment::<G1Point>(bytes, 0)?;
+        let (offset, pi2) = deserialize_commitment::<G2Point>(bytes, offset)?;
+        let (_, pi3) = deserialize_commitment::<G1Point>(bytes, offset)?;
+        Ok(Proof { pi1, pi2, pi3 })
+    }
+}
+
+fn serialize_commitment<Commitment: Serializable>(cm: &Commitment) -> Vec<u8> {
+    cm.serialize()
+}
+
+fn deserialize_commitment<Commitment: Deserializable>(
+    bytes: &[u8],
+    offset: usize,
+) -> Result<(usize, Commitment), DeserializationError> {
+    let mut offset = offset;
+    let element_size_bytes: [u8; size_of::<u32>()] = bytes
+        .get(offset..offset + size_of::<u32>())
+        .ok_or(DeserializationError::InvalidAmountOfBytes)?
+        .try_into()
+        .map_err(|_| DeserializationError::InvalidAmountOfBytes)?;
+    let element_size = u32::from_be_bytes(element_size_bytes) as usize;
+    offset += size_of::<u32>();
+    let commitment = Commitment::deserialize(
+        bytes
+            .get(offset..offset + element_size)
+            .ok_or(DeserializationError::InvalidAmountOfBytes)?,
+    )?;
+    offset += element_size;
+    Ok((offset, commitment))
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::common::*;
+    use lambdaworks_math::elliptic_curve::traits::IsEllipticCurve;
+
+    use super::*;
+
+    #[test]
+    fn serde() {
+        let proof = Proof {
+            pi1: Curve::generator().operate_with_self(sample_fr_elem().representative()),
+            pi2: TwistedCurve::generator().operate_with_self(sample_fr_elem().representative()),
+            pi3: Curve::generator().operate_with_self(sample_fr_elem().representative()),
+        };
+        let deserialized_proof = Proof::deserialize(&proof.serialize()).unwrap();
+
+        assert_eq!(proof.pi1, deserialized_proof.pi1);
+        assert_eq!(proof.pi2, deserialized_proof.pi2);
+        assert_eq!(proof.pi3, deserialized_proof.pi3);
+    }
 }

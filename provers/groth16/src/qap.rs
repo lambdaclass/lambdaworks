@@ -31,16 +31,6 @@ impl QAP {
         }
     }
 
-    pub fn calculate_h_coefficients(&self, w: &[FrElement]) -> Vec<FrElement> {
-        // h(x) = p(x) / t(x)
-        let (h, remainder) = self
-            .calculate_p(w)
-            .long_division_with_remainder(&self.vanishing_polynomial());
-        assert_eq!(0, remainder.degree()); // must have no remainder
-
-        h.coefficients().to_vec()
-    }
-
     // t(X) = Z_H(x) = x^k-1 as our domain is roots of unity
     pub fn vanishing_polynomial(&self) -> Polynomial<FrElement> {
         Polynomial::new_monomial(FrElement::one(), self.num_of_gates()) - FrElement::one()
@@ -52,6 +42,16 @@ impl QAP {
 
     pub fn num_of_private_inputs(&self) -> usize {
         self.l.len() - self.num_of_public_inputs
+    }
+
+    pub fn calculate_h_coefficients(&self, w: &[FrElement]) -> Vec<FrElement> {
+        // h(x) = p(x) / t(x)
+        let (h, remainder) = self
+            .calculate_p(w)
+            .long_division_with_remainder(&self.vanishing_polynomial());
+        assert_eq!(0, remainder.degree()); // must have no remainder
+
+        h.coefficients().to_vec()
     }
 
     fn calculate_p(&self, w: &[FrElement]) -> Polynomial<FrElement> {
