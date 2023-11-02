@@ -201,7 +201,6 @@ fn main() {
                 eprintln!("\nYou are trying to prove a non compiled Cairo program. Please compile it before sending it to the prover.\n");
                 return;
             }
-            println!("{:?}", args.program_path);
 
             let Some((proof, pub_inputs)) = generate_proof(&args.program_path, &proof_options)
             else {
