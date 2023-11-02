@@ -78,7 +78,7 @@ fn generate_merkle_proof(tree_path: String, pos: usize) -> Result<(), io::Error>
     {
         let proof_path = tree_path.replace(".csv", format!("_proof_{pos}.proof").as_str());
         let mut file = File::create(proof_path)?;
-        let bytes = bincode::serde::encode_to_vec(&proof, bincode::config::standard()).unwrap(); // handle unwrap
+        let bytes = bincode::serde::encode_to_vec(proof, bincode::config::standard()).unwrap(); // handle unwrap
         file.write_all(&bytes)
     }
 }
