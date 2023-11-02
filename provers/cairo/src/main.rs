@@ -203,20 +203,11 @@ fn write_proof(
     proof_path: String,
 ) {
     let mut bytes = vec![];
+
     let proof_bytes: Vec<u8> =
-        bincode::serde::encode_to_vec(proof, bincode::config::standard()).unwrap();
+        bincode::serde::encode_to_vec(&proof, bincode::config::standard()).unwrap();
 
-    let pub_inputs_bytes: Vec<u8> =
-        bincode::serde::encode_to_vec(&pub_inputs, bincode::config::standard()).unwrap();
-
-    // This should be reworked
-    // Public inputs shouldn't be stored in the proof if the verifier wants to check them
-
-    // An u32 is enough for storing proofs up to 32 GiB
-    // They shouldn't exceed the order of kbs
-    // Reading an usize leads to problem in WASM (32 bit vs 64 bit architecture)
-
-    bytes.extend((proof_bytes.len() as u32).to_le_bytes());
+    bytes.extend(proof_bytes.len().to_be_bytes());
     bytes.extend(proof_bytes);
     bytes.extend(pub_inputs_bytes);
 
