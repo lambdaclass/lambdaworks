@@ -31,11 +31,6 @@ impl QAP {
         }
     }
 
-    // t(X) = Z_H(x) = x^k-1 as our domain is roots of unity
-    pub fn vanishing_polynomial(&self) -> Polynomial<FrElement> {
-        Polynomial::new_monomial(FrElement::one(), self.num_of_gates()) - FrElement::one()
-    }
-
     pub fn num_of_gates(&self) -> usize {
         self.l[0].degree() + 1
     }
@@ -45,15 +40,16 @@ impl QAP {
     }
 
     pub fn calculate_h_coefficients(&self, w: &[FrElement]) -> Vec<FrElement> {
-        let offset = ORDER_R_MINUS_1_ROOT_UNITY;
+        let offset = &ORDER_R_MINUS_1_ROOT_UNITY;
         let degree = self.num_of_gates() * 2;
 
-        let [l, r, o] = self.scale_and_accumulate_variable_polynomials(w, degree, &offset);
+        let [l, r, o] = self.scale_and_accumulate_variable_polynomials(w, degree, offset);
 
-        let mut t = self
-            .vanishing_polynomial()
-            .evaluate_offset_fft(1, Some(degree), &offset)
-            .unwrap();
+        // Change to evaluation vector
+        let mut t = (Polynomial::new_monomial(FrElement::one(), self.num_of_gates())
+            - FrElement::one())
+        .evaluate_offset_fft(1, Some(degree), offset)
+        .unwrap();
         FrElement::inplace_batch_inverse(&mut t).unwrap();
 
         let h_evaluated = l
@@ -64,7 +60,7 @@ impl QAP {
             .map(|(((l, r), o), t)| (l * r - o) * t)
             .collect::<Vec<_>>();
 
-        Polynomial::interpolate_offset_fft(&h_evaluated, &offset)
+        Polynomial::interpolate_offset_fft(&h_evaluated, offset)
             .unwrap()
             .coefficients()
             .to_vec()

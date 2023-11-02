@@ -105,7 +105,9 @@ pub fn setup(qap: &QAP) -> (ProvingKey, VerifyingKey) {
             prover_k_tau_g1: batch_operate(&k_tau[qap.num_of_public_inputs..], &g1),
             z_powers_of_tau_g1: batch_operate(
                 &core::iter::successors(
-                    Some(&delta_inv * qap.vanishing_polynomial().evaluate(&tw.tau)),
+                    // Start from delta^{-1} * t(τ)
+                    // Note that t(τ) = (τ^N - 1) because our domain is roots of unity
+                    Some(&delta_inv * (&tw.tau.pow(qap.num_of_gates()) - FrElement::one())),
                     |prev| Some(prev * &tw.tau),
                 )
                 .take(qap.num_of_gates())
