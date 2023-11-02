@@ -456,7 +456,10 @@ impl<F: IsPrimeField> Serialize for FieldElement<F> {
     }
 }
 
-#[cfg(all(feature = "lambdaworks-serde-binary", feature = "lambdaworks-serde-string"))]
+#[cfg(all(
+    feature = "lambdaworks-serde-binary",
+    feature = "lambdaworks-serde-string"
+))]
 impl<F: IsPrimeField> Serialize for FieldElement<F> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -534,7 +537,10 @@ impl<'de, F: IsPrimeField> Deserialize<'de> for FieldElement<F> {
     }
 }
 
-#[cfg(all(feature = "lambdaworks-serde-binary", feature = "lambdaworks-serde-string"))]
+#[cfg(all(
+    feature = "lambdaworks-serde-binary",
+    feature = "lambdaworks-serde-string"
+))]
 impl<'de, F: IsPrimeField> Deserialize<'de> for FieldElement<F> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
