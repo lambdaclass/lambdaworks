@@ -41,8 +41,8 @@ pub fn sample_fr_elem() -> FrElement {
 pub fn generate_domain(number_of_gates: usize) -> Vec<FrElement> {
     let omega =
         FrField::get_primitive_root_of_unity(number_of_gates.trailing_zeros() as u64).unwrap();
-    (1..number_of_gates).fold(vec![FieldElement::one()], |mut acc, _| {
-        acc.push(acc.last().unwrap() * &omega);
-        acc
-    })
+
+    core::iter::successors(Some(FieldElement::one()), |x| Some(x * &omega))
+        .take(number_of_gates)
+        .collect()
 }
