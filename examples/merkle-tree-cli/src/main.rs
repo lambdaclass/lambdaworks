@@ -9,9 +9,13 @@ use lambdaworks_math::{
     elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::BLS12381PrimeField,
     field::element::FieldElement,
 };
+#[cfg(feature = "verbose")]
+use std::io::BufWriter;
+#[cfg(not(feature = "verbose"))]
+use std::io::Read;
 use std::{
     fs::{self, File},
-    io::{self, BufWriter, Write},
+    io::{self, Write},
 };
 
 type FE = FieldElement<BLS12381PrimeField>;
@@ -35,10 +39,21 @@ fn generate_merkle_tree(tree_path: String) -> Result<(), io::Error> {
     let root = merkle_tree.root.representative().to_string();
     println!("Generated merkle tree with root: {:?}", root);
 
-    let generated_tree_path = tree_path.replace(".csv", ".json");
-    let file = File::create(generated_tree_path)?;
-    let mut writer = BufWriter::new(file);
-    serde_json::to_writer_pretty(&mut writer, &merkle_tree)?;
+    #[cfg(feature = "verbose")]
+    {
+        let generated_tree_path = tree_path.replace(".csv", ".json");
+        let file = File::create(generated_tree_path)?;
+        let mut writer = BufWriter::new(file);
+        serde_json::to_writer_pretty(&mut writer, &merkle_tree)?;
+    }
+    #[cfg(not(feature = "verbose"))]
+    {
+        let generated_tree_path = tree_path.replace(".csv", ".tree");
+        let mut file = File::create(generated_tree_path)?;
+        let bytes =
+            bincode::serde::encode_to_vec(&merkle_tree, bincode::config::standard()).unwrap(); // handle unwrap
+        file.write_all(&bytes)?;
+    }
     println!("Saved tree to file");
     Ok(())
 }
@@ -51,11 +66,21 @@ fn generate_merkle_proof(tree_path: String, pos: usize) -> Result<(), io::Error>
         return Err(io::Error::new(io::ErrorKind::Other, "Index out of bounds"));
     };
 
-    let proof_path = tree_path.replace(".csv", format!("_proof_{pos}.json").as_str());
-    let file = File::create(proof_path)?;
-    let mut writer = BufWriter::new(file);
-    serde_json::to_writer_pretty(&mut writer, &proof)?;
-    writer.flush()
+    #[cfg(feature = "verbose")]
+    {
+        let proof_path = tree_path.replace(".csv", format!("_proof_{pos}.json").as_str());
+        let file = File::create(proof_path)?;
+        let mut writer = BufWriter::new(file);
+        serde_json::to_writer_pretty(&mut writer, &proof)?;
+        writer.flush()
+    }
+    #[cfg(not(feature = "verbose"))]
+    {
+        let proof_path = tree_path.replace(".csv", format!("_proof_{pos}.proof").as_str());
+        let mut file = File::create(proof_path)?;
+        let bytes = bincode::serde::encode_to_vec(&proof, bincode::config::standard()).unwrap(); // handle unwrap
+        file.write_all(&bytes)
+    }
 }
 
 fn verify_merkle_proof(
@@ -66,14 +91,31 @@ fn verify_merkle_proof(
 ) -> Result<(), io::Error> {
     let root_hash: FE = load_fe_from_file(&root_path)?;
 
-    let file_str = fs::read_to_string(proof_path)?;
-    let proof: Proof<FE> = serde_json::from_str(&file_str)?;
-
     let leaf: FE = load_fe_from_file(&leaf_path)?;
 
-    match proof.verify::<Poseidon<BLS12381PrimeField>>(&root_hash, index, &leaf) {
-        true => println!("\x1b[32mMerkle proof verified succesfully\x1b[0m"),
-        false => println!("\x1b[31mMerkle proof failed verifying\x1b[0m"),
+    #[cfg(feature = "verbose")]
+    {
+        let file_str = fs::read_to_string(proof_path)?;
+        let proof: Proof<FE> = serde_json::from_str(&file_str)?;
+
+        match proof.verify::<Poseidon<BLS12381PrimeField>>(&root_hash, index, &leaf) {
+            true => println!("\x1b[32mMerkle proof verified succesfully\x1b[0m"),
+            false => println!("\x1b[31mMerkle proof failed verifying\x1b[0m"),
+        }
+    }
+    #[cfg(not(feature = "verbose"))]
+    {
+        let mut file = File::open(proof_path)?;
+        let mut buffer = Vec::new();
+        file.read_to_end(&mut buffer)?;
+        let (proof, _): (Proof<FE>, _) =
+            bincode::serde::decode_from_slice(&buffer, bincode::config::standard()).unwrap();
+        // handle unwrap
+
+        match proof.verify::<Poseidon<BLS12381PrimeField>>(&root_hash, index, &leaf) {
+            true => println!("\x1b[32mMerkle proof verified succesfully\x1b[0m"),
+            false => println!("\x1b[31mMerkle proof failed verifying\x1b[0m"),
+        }
     }
 
     Ok(())
