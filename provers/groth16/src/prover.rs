@@ -13,13 +13,13 @@ pub struct Proof {
 impl Proof {
     pub fn new(w: &[FrElement], qap: &QAP, pk: &ProvingKey) -> Self {
         let h_coefficients = qap
-            .calculate_h_coefficients(&w)
-            .into_iter()
+            .calculate_h_coefficients(w)
+            .iter()
             .map(|elem| elem.representative())
             .collect::<Vec<_>>();
 
         let w = w
-            .into_iter()
+            .iter()
             .map(|elem| elem.representative())
             .collect::<Vec<_>>();
 
