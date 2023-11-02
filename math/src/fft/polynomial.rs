@@ -1,12 +1,12 @@
 use crate::fft::errors::FFTError;
 
-use crate::{
-    field::{
+use crate::field::traits::IsField;
+use crate::polynomial::traits::polynomial::IsPolynomial;
+use crate::polynomial::univariate::UnivariatePolynomial;
+use crate::field::{
         element::FieldElement,
         traits::{IsFFTField, RootsConfig},
-    },
-    polynomial::Polynomial,
-};
+    };
 
 #[cfg(feature = "cuda")]
 use crate::fft::gpu::cuda::polynomial::{evaluate_fft_cuda, interpolate_fft_cuda};
@@ -15,7 +15,7 @@ use crate::fft::gpu::metal::polynomial::{evaluate_fft_metal, interpolate_fft_met
 
 use super::cpu::{ops, roots_of_unity};
 
-pub trait FFTPoly<F: IsFFTField> {
+pub trait FFTPoly<F: IsFFTField + IsField> {
     fn evaluate_fft(
         &self,
         blowup_factor: usize,
@@ -29,14 +29,17 @@ pub trait FFTPoly<F: IsFFTField> {
     ) -> Result<Vec<FieldElement<F>>, FFTError>;
     fn interpolate_fft(
         fft_evals: &[FieldElement<F>],
-    ) -> Result<Polynomial<FieldElement<F>>, FFTError>;
+    ) -> Result<UnivariatePolynomial<F>, FFTError>;
     fn interpolate_offset_fft(
         fft_evals: &[FieldElement<F>],
         offset: &FieldElement<F>,
-    ) -> Result<Polynomial<FieldElement<F>>, FFTError>;
+    ) -> Result<UnivariatePolynomial<F>, FFTError>;
 }
 
-impl<F: IsFFTField> FFTPoly<F> for Polynomial<FieldElement<F>> {
+impl<F: IsFFTField + IsField> FFTPoly<F> for UnivariatePolynomial<F>
+where
+    <F as IsField>::BaseType: Send + Sync,
+ {
     /// Returns `N` evaluations of this polynomial using FFT (so the results
     /// are P(w^i), with w being a primitive root of unity).
     /// `N = max(self.coeff_len(), domain_size).next_power_of_two() * blowup_factor`.
@@ -47,13 +50,13 @@ impl<F: IsFFTField> FFTPoly<F> for Polynomial<FieldElement<F>> {
         domain_size: Option<usize>,
     ) -> Result<Vec<FieldElement<F>>, FFTError> {
         let domain_size = domain_size.unwrap_or(0);
-        let len = std::cmp::max(self.coeff_len(), domain_size).next_power_of_two() * blowup_factor;
+        let len = std::cmp::max(self.len(), domain_size).next_power_of_two() * blowup_factor;
 
-        if self.coefficients().is_empty() {
+        if self.coeffs().is_empty() {
             return Ok(vec![FieldElement::zero(); len]);
         }
 
-        let mut coeffs = self.coefficients().to_vec();
+        let mut coeffs = self.coeffs().to_vec();
         coeffs.resize(len, FieldElement::zero());
         // padding with zeros will make FFT return more evaluations of the same polynomial.
 
@@ -138,27 +141,28 @@ impl<F: IsFFTField> FFTPoly<F> for Polynomial<FieldElement<F>> {
     fn interpolate_offset_fft(
         fft_evals: &[FieldElement<F>],
         offset: &FieldElement<F>,
-    ) -> Result<Polynomial<FieldElement<F>>, FFTError> {
-        let scaled = Polynomial::interpolate_fft(fft_evals)?;
+    ) -> Result<UnivariatePolynomial<F>, FFTError> {
+        let scaled = UnivariatePolynomial::interpolate_fft(fft_evals)?;
         Ok(scaled.scale(&offset.inv().unwrap()))
     }
 }
 
 pub fn compose_fft<F>(
-    poly_1: &Polynomial<FieldElement<F>>,
-    poly_2: &Polynomial<FieldElement<F>>,
-) -> Polynomial<FieldElement<F>>
+    poly_1: &UnivariatePolynomial<F>,
+    poly_2: &UnivariatePolynomial<F>,
+) -> UnivariatePolynomial<F>
 where
     F: IsFFTField,
+    <F as IsField>::BaseType: Send + Sync,
 {
     let poly_2_evaluations = poly_2.evaluate_fft(1, None).unwrap();
 
     let values: Vec<_> = poly_2_evaluations
         .iter()
-        .map(|value| poly_1.evaluate(value))
+        .map(|value| poly_1.evaluate(&[value.clone()]).unwrap())
         .collect();
 
-    Polynomial::interpolate_fft(values.as_slice()).unwrap()
+    UnivariatePolynomial::interpolate_fft(values.as_slice()).unwrap()
 }
 
 pub fn evaluate_fft_cpu<F>(coeffs: &[FieldElement<F>]) -> Result<Vec<FieldElement<F>>, FFTError>
@@ -173,9 +177,10 @@ where
 
 pub fn interpolate_fft_cpu<F>(
     fft_evals: &[FieldElement<F>],
-) -> Result<Polynomial<FieldElement<F>>, FFTError>
+) -> Result<UnivariatePolynomial<F>, FFTError>
 where
     F: IsFFTField,
+    <F as IsField>::BaseType: Send + Sync,
 {
     let order = fft_evals.len().trailing_zeros();
     let twiddles = roots_of_unity::get_twiddles(order.into(), RootsConfig::BitReverseInversed)?;
@@ -183,7 +188,7 @@ where
     let coeffs = ops::fft(fft_evals, &twiddles)?;
 
     let scale_factor = FieldElement::from(fft_evals.len() as u64).inv().unwrap();
-    Ok(Polynomial::new(&coeffs).scale_coeffs(&scale_factor))
+    Ok(UnivariatePolynomial::new(1, &coeffs).scale_coeffs(&scale_factor))
 }
 
 #[cfg(test)]
@@ -191,17 +196,21 @@ mod tests {
     #[cfg(all(not(feature = "metal"), not(feature = "cuda")))]
     use crate::field::traits::IsField;
 
-    use crate::field::traits::RootsConfig;
+    use crate::{field::traits::RootsConfig, polynomial::univariate::UnivariatePolynomial};
     use proptest::{collection, prelude::*};
 
     use roots_of_unity::{get_powers_of_primitive_root, get_powers_of_primitive_root_coset};
 
     use super::*;
 
-    fn gen_fft_and_naive_evaluation<F: IsFFTField>(
-        poly: Polynomial<FieldElement<F>>,
-    ) -> (Vec<FieldElement<F>>, Vec<FieldElement<F>>) {
-        let len = poly.coeff_len().next_power_of_two();
+    fn gen_fft_and_naive_evaluation<F: IsFFTField + IsField>
+    (
+        poly: UnivariatePolynomial<F>,
+    )
+    -> (Vec<FieldElement<F>>, Vec<FieldElement<F>>)
+    where
+        <F as IsField>::BaseType: Send + Sync, {
+        let len = poly.len().next_power_of_two();
         let order = len.trailing_zeros();
         let twiddles =
             get_powers_of_primitive_root(order.into(), len, RootsConfig::Natural).unwrap();
@@ -213,11 +222,13 @@ mod tests {
     }
 
     fn gen_fft_coset_and_naive_evaluation<F: IsFFTField>(
-        poly: Polynomial<FieldElement<F>>,
+        poly: UnivariatePolynomial<F>,
         offset: FieldElement<F>,
         blowup_factor: usize,
-    ) -> (Vec<FieldElement<F>>, Vec<FieldElement<F>>) {
-        let len = poly.coeff_len().next_power_of_two();
+    ) -> (Vec<FieldElement<F>>, Vec<FieldElement<F>>)
+    where
+        <F as IsField>::BaseType: Send + Sync, {
+        let len = poly.len().next_power_of_two();
         let order = (len * blowup_factor).trailing_zeros();
         let twiddles =
             get_powers_of_primitive_root_coset(order.into(), len * blowup_factor, &offset).unwrap();
@@ -232,13 +243,15 @@ mod tests {
 
     fn gen_fft_and_naive_interpolate<F: IsFFTField>(
         fft_evals: &[FieldElement<F>],
-    ) -> (Polynomial<FieldElement<F>>, Polynomial<FieldElement<F>>) {
+    ) -> (UnivariatePolynomial<F>, UnivariatePolynomial<F>)
+    where
+        <F as IsField>::BaseType: Send + Sync, {
         let order = fft_evals.len().trailing_zeros() as u64;
         let twiddles =
             get_powers_of_primitive_root(order, 1 << order, RootsConfig::Natural).unwrap();
 
-        let naive_poly = Polynomial::interpolate(&twiddles, fft_evals).unwrap();
-        let fft_poly = Polynomial::interpolate_fft(fft_evals).unwrap();
+        let naive_poly = UnivariatePolynomial::interpolate(&twiddles, fft_evals).unwrap();
+        let fft_poly = UnivariatePolynomial::interpolate_fft(fft_evals).unwrap();
 
         (fft_poly, naive_poly)
     }
@@ -246,21 +259,25 @@ mod tests {
     fn gen_fft_and_naive_coset_interpolate<F: IsFFTField>(
         fft_evals: &[FieldElement<F>],
         offset: &FieldElement<F>,
-    ) -> (Polynomial<FieldElement<F>>, Polynomial<FieldElement<F>>) {
+    ) -> (UnivariatePolynomial<F>, UnivariatePolynomial<F>)
+    where
+        <F as IsField>::BaseType: Send + Sync, {
         let order = fft_evals.len().trailing_zeros() as u64;
         let twiddles = get_powers_of_primitive_root_coset(order, 1 << order, offset).unwrap();
 
-        let naive_poly = Polynomial::interpolate(&twiddles, fft_evals).unwrap();
-        let fft_poly = Polynomial::interpolate_offset_fft(fft_evals, offset).unwrap();
+        let naive_poly = UnivariatePolynomial::interpolate(&twiddles, fft_evals).unwrap();
+        let fft_poly = UnivariatePolynomial::interpolate_offset_fft(fft_evals, offset).unwrap();
 
         (fft_poly, naive_poly)
     }
 
-    fn gen_fft_interpolate_and_evaluate<F: IsFFTField>(
-        poly: Polynomial<FieldElement<F>>,
-    ) -> (Polynomial<FieldElement<F>>, Polynomial<FieldElement<F>>) {
+    fn gen_fft_interpolate_and_evaluate<F: IsFFTField + IsField>(
+        poly: UnivariatePolynomial<F>,
+    ) -> (UnivariatePolynomial<F>, UnivariatePolynomial<F>)
+    where
+        <F as IsField>::BaseType: Send + Sync, {
         let eval = poly.evaluate_fft(1, None).unwrap();
-        let new_poly = Polynomial::interpolate_fft(&eval).unwrap();
+        let new_poly = UnivariatePolynomial::interpolate_fft(&eval).unwrap();
 
         (poly, new_poly)
     }
@@ -298,13 +315,13 @@ mod tests {
             }
         }
         prop_compose! {
-            fn poly(max_exp: u8)(coeffs in field_vec(max_exp)) -> Polynomial<FE> {
-                Polynomial::new(&coeffs)
+            fn poly(max_exp: u8)(coeffs in field_vec(max_exp)) -> UnivariatePolynomial<F> {
+                UnivariatePolynomial::new(1, &coeffs)
             }
         }
         prop_compose! {
-            fn poly_with_non_power_of_two_coeffs(max_exp: u8)(coeffs in non_power_of_two_sized_field_vec(max_exp)) -> Polynomial<FE> {
-                Polynomial::new(&coeffs)
+            fn poly_with_non_power_of_two_coeffs(max_exp: u8)(coeffs in non_power_of_two_sized_field_vec(max_exp)) -> UnivariatePolynomial<F> {
+                UnivariatePolynomial::new(1, &coeffs)
             }
         }
 
@@ -345,7 +362,7 @@ mod tests {
             #[test]
             fn test_fft_interpolate_is_inverse_of_evaluate(poly in poly(4)
                                                            .prop_filter("Avoid polynomials of size not power of two",
-                                                                        |poly| poly.coeff_len().is_power_of_two())) {
+                                                                        |poly| poly.len().is_power_of_two())) {
                 let (poly, new_poly) = gen_fft_interpolate_and_evaluate(poly);
 
                 prop_assert_eq!(poly, new_poly);
@@ -354,11 +371,11 @@ mod tests {
 
         #[test]
         fn composition_fft_works() {
-            let p = Polynomial::new(&[FE::new(0), FE::new(2)]);
-            let q = Polynomial::new(&[FE::new(0), FE::new(0), FE::new(0), FE::new(1)]);
+            let p = UnivariatePolynomial::new(1, &[FE::new(0), FE::new(2)]);
+            let q = UnivariatePolynomial::new(1, &[FE::new(0), FE::new(0), FE::new(0), FE::new(1)]);
             assert_eq!(
                 compose_fft(&p, &q),
-                Polynomial::new(&[FE::new(0), FE::new(0), FE::new(0), FE::new(2)])
+                UnivariatePolynomial::new(1, &[FE::new(0), FE::new(0), FE::new(0), FE::new(2)])
             );
         }
     }
@@ -391,13 +408,13 @@ mod tests {
             }
         }
         prop_compose! {
-            fn poly(max_exp: u8)(coeffs in field_vec(max_exp)) -> Polynomial<FE> {
-                Polynomial::new(&coeffs)
+            fn poly(max_exp: u8)(coeffs in field_vec(max_exp)) -> UnivariatePolynomial<F> {
+                UnivariatePolynomial::new(1, &coeffs)
             }
         }
         prop_compose! {
-            fn poly_with_non_power_of_two_coeffs(max_exp: u8)(coeffs in non_power_of_two_sized_field_vec(max_exp)) -> Polynomial<FE> {
-                Polynomial::new(&coeffs)
+            fn poly_with_non_power_of_two_coeffs(max_exp: u8)(coeffs in non_power_of_two_sized_field_vec(max_exp)) -> UnivariatePolynomial<F> {
+                UnivariatePolynomial::new(1, &coeffs)
             }
         }
 
@@ -441,7 +458,7 @@ mod tests {
             // Property-based test that ensures interpolation is the inverse operation of evaluation.
             #[test]
             fn test_fft_interpolate_is_inverse_of_evaluate(
-                poly in poly(4).prop_filter("Avoid non pows of two", |poly| poly.coeff_len().is_power_of_two())) {
+                poly in poly(4).prop_filter("Avoid non pows of two", |poly| poly.len().is_power_of_two())) {
                 let (poly, new_poly) = gen_fft_interpolate_and_evaluate(poly);
                 prop_assert_eq!(poly, new_poly);
             }

@@ -31,7 +31,7 @@ pub fn naive_matrix_dft_test<F: IsFFTField>(input: &[FieldElement<F>]) -> Vec<Fi
 
 #[cfg(test)]
 mod fft_helpers_test {
-    use crate::{field::test_fields::u64_test_field::U64TestField, polynomial::Polynomial};
+    use crate::{field::test_fields::u64_test_field::U64TestField, polynomial::{univariate::UnivariatePolynomial, traits::polynomial::IsPolynomial}};
     use proptest::{collection, prelude::*};
 
     use super::*;
@@ -61,10 +61,10 @@ mod fft_helpers_test {
         fn test_dft_same_as_eval(coeffs in field_vec(8)) {
             let dft = naive_matrix_dft_test(&coeffs);
 
-            let poly = Polynomial::new(&coeffs);
+            let poly = UnivariatePolynomial::new(1, &coeffs);
             let order = coeffs.len().trailing_zeros();
             let twiddles = get_powers_of_primitive_root(order.into(), coeffs.len(), RootsConfig::Natural).unwrap();
-            let evals: Vec<FE> = twiddles.iter().map(|x| poly.evaluate(x)).collect();
+            let evals: Vec<FE> = twiddles.iter().map(|x| poly.evaluate(&[x.clone()]).unwrap()).collect();
 
             prop_assert_eq!(evals, dft);
         }

@@ -1,26 +1,31 @@
+use core::fmt::Display;
+
 use crate::{
     errors::TermError,
-    field::{element::FieldElement, traits::IsField},
-    polynomial::{multilinear_term::MultiLinearMonomial, term::Term},
+    field::{
+        element::FieldElement,
+        traits::{IsField, IsPrimeField},
+    },
+    polynomial::{terms::multilinear::MultilinearMonomial, traits::term::Term},
 };
 
 /// Represents a multilinear polynomials as a collection of multilinear monomials
 // TODO: add checks to track the max degree and number of variables.
 #[derive(Debug, PartialEq)]
-pub struct MultilinearPolynomial<F: IsField>
+pub struct MultilinearPolynomial<F: IsField + IsPrimeField>
 where
     <F as IsField>::BaseType: Send + Sync,
 {
-    pub terms: Vec<MultiLinearMonomial<F>>,
+    pub terms: Vec<MultilinearMonomial<F>>,
     pub n_vars: usize, // number of variables
 }
 
-impl<F: IsField> MultilinearPolynomial<F>
+impl<F: IsField + IsPrimeField> MultilinearPolynomial<F>
 where
     <F as IsField>::BaseType: Send + Sync,
 {
     /// Build a new multilinear polynomial, from collection of multilinear monomials
-    pub fn new(terms: &[MultiLinearMonomial<F>]) -> Self {
+    pub fn new(terms: &[MultilinearMonomial<F>]) -> Self {
         let n = terms.iter().fold(
             0,
             |acc, m| if m.max_var() > acc { m.max_var() } else { acc },
@@ -60,12 +65,29 @@ where
             return Err(TermError::InvalidPartialEvaluationPoint);
         }
 
-        let updated_monomials: Vec<MultiLinearMonomial<F>> = self
+        let updated_monomials: Vec<MultilinearMonomial<F>> = self
             .terms
             .iter()
             .map(|term| term.partial_evaluate(assignments))
             .collect();
         Ok(Self::new(&updated_monomials))
+    }
+}
+
+impl<F: IsField + IsPrimeField> Display for MultilinearPolynomial<F>
+where
+    <F as IsField>::BaseType: Send + Sync,
+{
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let mut output: String = String::new();
+        let monomials = self.terms.clone();
+
+        for elem in &monomials[0..monomials.len() - 1] {
+            output.push_str(&elem.to_string()[0..]);
+            output.push_str(" + ");
+        }
+        output.push_str(&monomials[monomials.len() - 1].to_string());
+        write!(f, "{}", output)
     }
 }
 
@@ -86,19 +108,19 @@ mod tests {
         // expected result = 6a + 8c
         // a = 1, b = 2, c = 3
         let poly = MultilinearPolynomial::new(&[
-            MultiLinearMonomial::new((FE::new(3), vec![1, 2])),
-            MultiLinearMonomial::new((FE::new(4), vec![2, 3])),
+            MultilinearMonomial::new((FE::new(3), vec![1, 2])),
+            MultilinearMonomial::new((FE::new(4), vec![2, 3])),
         ]);
         let result = poly.partial_evaluate(&[(2, FE::new(2))]);
         assert_eq!(
             result.unwrap(),
             MultilinearPolynomial {
                 terms: vec![
-                    MultiLinearMonomial {
+                    MultilinearMonomial {
                         coeff: FE::new(6),
                         vars: vec![1]
                     },
-                    MultiLinearMonomial {
+                    MultilinearMonomial {
                         coeff: FE::new(8),
                         vars: vec![3]
                     }
@@ -115,8 +137,8 @@ mod tests {
         // expected result = 42
         // a = 1, b = 2, c = 3
         let poly = MultilinearPolynomial::new(&[
-            MultiLinearMonomial::new((FE::new(3), vec![0, 1, 2])),
-            MultiLinearMonomial::new((FE::new(4), vec![0, 1, 2])),
+            MultilinearMonomial::new((FE::new(3), vec![0, 1, 2])),
+            MultilinearMonomial::new((FE::new(4), vec![0, 1, 2])),
         ]);
         let result = poly.evaluate(&[FE::one(), FE::new(2), FE::new(3)]);
         assert_eq!(result.unwrap(), FE::new(42));
@@ -129,8 +151,8 @@ mod tests {
         // expected result = 30
         // a = 1, b = 2, c = 3
         let poly = MultilinearPolynomial::new(&[
-            MultiLinearMonomial::new((FE::new(3), vec![0, 1])),
-            MultiLinearMonomial::new((FE::new(4), vec![1, 2])),
+            MultilinearMonomial::new((FE::new(3), vec![0, 1])),
+            MultilinearMonomial::new((FE::new(4), vec![1, 2])),
         ]);
         let result = poly.evaluate(&[FE::one(), FE::new(2), FE::new(3)]);
         assert_eq!(result.unwrap(), FE::new(30));
@@ -143,8 +165,8 @@ mod tests {
         // expected result = 30
         // a = 1, b = 2, c = 3
         let poly = MultilinearPolynomial::new(&[
-            MultiLinearMonomial::new((FE::new(3), vec![0, 1])),
-            MultiLinearMonomial::new((FE::new(4), vec![1, 2])),
+            MultilinearMonomial::new((FE::new(3), vec![0, 1])),
+            MultilinearMonomial::new((FE::new(4), vec![1, 2])),
         ]);
         assert!(poly.evaluate(&[FE::one(), FE::new(2)]).is_err());
     }
@@ -156,8 +178,8 @@ mod tests {
         // expected result = 6a + 8c
         // a = 1, b = 2, c = 3
         let poly = MultilinearPolynomial::new(&[
-            MultiLinearMonomial::new((FE::new(3), vec![1, 2])),
-            MultiLinearMonomial::new((FE::new(4), vec![2, 3])),
+            MultilinearMonomial::new((FE::new(3), vec![1, 2])),
+            MultilinearMonomial::new((FE::new(4), vec![2, 3])),
         ]);
         assert!(poly
             .partial_evaluate(&[

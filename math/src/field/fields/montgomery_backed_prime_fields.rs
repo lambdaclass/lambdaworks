@@ -28,7 +28,7 @@ pub trait IsModulus<U>: Debug {
     ),
     derive(serde::Serialize, serde::Deserialize)
 )]
-#[derive(Clone, Debug, Hash, Copy)]
+#[derive(Clone, Debug, Hash, Copy, PartialEq)]
 pub struct MontgomeryBackendPrimeField<M, const NUM_LIMBS: usize> {
     phantom: PhantomData<M>,
 }
