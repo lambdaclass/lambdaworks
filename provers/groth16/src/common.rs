@@ -10,7 +10,7 @@ use lambdaworks_math::{
     elliptic_curve::traits::{IsEllipticCurve, IsPairing},
     field::{element::FieldElement, traits::IsFFTField},
 };
-use rand::Rng;
+use rand::{Rng, SeedableRng};
 
 pub type Curve = BLS12381Curve;
 pub type TwistedCurve = BLS12381TwistCurve;
@@ -26,7 +26,7 @@ pub type G2Point = <BLS12381TwistCurve as IsEllipticCurve>::PointRepresentation;
 pub type PairingOutput = FieldElement<<Pairing as IsPairing>::OutputField>;
 
 pub fn sample_fr_elem() -> FrElement {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand_chacha::ChaCha20Rng::seed_from_u64(9001);
     FrElement::new(U256 {
         limbs: [
             rng.gen::<u64>(),
