@@ -10,6 +10,7 @@ use crate::{
         extensions::quadratic::{HasQuadraticNonResidue, QuadraticExtensionField},
         traits::{IsField, IsPrimeField},
     },
+    traits::ByteConversion,
 };
 
 /// Goldilocks Prime Field F_p where p = 2^64 - 2^32 + 1;

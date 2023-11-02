@@ -2,6 +2,7 @@ use crate::{
     errors::CreationError,
     field::errors::FieldError,
     field::traits::{IsFFTField, IsField, IsPrimeField},
+    traits::ByteConversion,
 };
 
 #[cfg(feature = "lambdaworks-serde-binary")]

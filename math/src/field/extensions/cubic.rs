@@ -22,37 +22,7 @@ pub type CubicExtensionFieldElement<F, T> = FieldElement<CubicExtensionField<F, 
 pub trait HasCubicNonResidue<F: IsField> {
     /// This function must return an element that is not a cube in Fp,
     /// that is, a cubic non-residue.
-    fn residue() -> FieldElement<F>;
-}
-
-#[cfg(feature = "lambdaworks-serde-binary")]
-impl<F> ByteConversion for [FieldElement<F>; 3]
-where
-    F: IsField,
-{
-    #[cfg(feature = "alloc")]
-    fn to_bytes_be(&self) -> alloc::vec::Vec<u8> {
-        unimplemented!()
-    }
-
-    #[cfg(feature = "alloc")]
-    fn to_bytes_le(&self) -> alloc::vec::Vec<u8> {
-        unimplemented!()
-    }
-
-    fn from_bytes_be(_bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
-    where
-        Self: Sized,
-    {
-        unimplemented!()
-    }
-
-    fn from_bytes_le(_bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
-    where
-        Self: Sized,
-    {
-        unimplemented!()
-    }
+    fn residue() -> FieldElement<Self::BaseField>;
 }
 
 impl<F, Q> IsField for CubicExtensionField<F, Q>
