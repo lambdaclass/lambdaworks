@@ -50,6 +50,10 @@ impl QAP {
         self.l[0].degree() + 1
     }
 
+    pub fn num_of_private_inputs(&self) -> usize {
+        self.l.len() - self.num_of_public_inputs
+    }
+
     fn calculate_p(&self, w: &[FrElement]) -> Polynomial<FrElement> {
         let l = Self::scale_and_accumulate_variable_polynomial(&self.l, w);
         let r = Self::scale_and_accumulate_variable_polynomial(&self.r, w);
