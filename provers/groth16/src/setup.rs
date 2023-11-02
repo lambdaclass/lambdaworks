@@ -1,7 +1,10 @@
 use crate::{common::*, QAP};
 use lambdaworks_math::{
     cyclic_group::IsGroup,
-    elliptic_curve::traits::{IsEllipticCurve, IsPairing},
+    elliptic_curve::{
+        short_weierstrass::{point::ShortWeierstrassProjectivePoint, traits::IsShortWeierstrass},
+        traits::{IsEllipticCurve, IsPairing},
+    },
 };
 
 pub struct VerifyingKey {
@@ -63,40 +66,27 @@ pub fn setup(qap: &QAP) -> (ProvingKey, VerifyingKey) {
 
     let num_of_total_inputs = qap.l.len();
 
-    // [A_i(τ)]_1, [B_i(τ)]_1, [B_i(τ)]_2, [K_i(τ)]_1
-    let mut l_tau_g1: Vec<G1Point> = Vec::with_capacity(num_of_total_inputs);
-    let mut r_tau_g1: Vec<G1Point> = Vec::with_capacity(num_of_total_inputs);
-    let mut r_tau_g2: Vec<G2Point> = Vec::with_capacity(num_of_total_inputs);
-    let mut verifier_k_tau_g1: Vec<G1Point> = Vec::with_capacity(qap.num_of_public_inputs);
-    let num_of_private_inputs = num_of_total_inputs - qap.num_of_public_inputs;
-    let mut prover_k_tau_g1: Vec<G1Point> = Vec::with_capacity(num_of_private_inputs);
+    let l_tau: Vec<_> = qap.l.iter().map(|p| p.evaluate(&tw.tau)).collect();
+    let r_tau: Vec<_> = qap.r.iter().map(|p| p.evaluate(&tw.tau)).collect();
 
     let mut to_be_inversed = [tw.delta.clone(), tw.gamma.clone()];
     FrElement::inplace_batch_inverse(&mut to_be_inversed).unwrap();
     let [delta_inv, gamma_inv] = to_be_inversed;
 
-    for i in 0..num_of_total_inputs {
-        let l_i_tau = qap.l[i].evaluate(&tw.tau);
-        let r_i_tau = qap.r[i].evaluate(&tw.tau);
+    let k_tau: Vec<_> = l_tau
+        .iter()
+        .zip(&r_tau)
+        .enumerate()
+        .map(|(i, (l, r))| {
+            let unshifted = &tw.beta * l + &tw.alpha * r + &qap.o[i].evaluate(&tw.tau);
+            if i < qap.num_of_public_inputs {
+                &gamma_inv * &unshifted
+            } else {
+                &delta_inv * &unshifted
+            }
+        })
+        .collect();
 
-        l_tau_g1.push(g1.operate_with_self(l_i_tau.representative()));
-        r_tau_g1.push(g1.operate_with_self(r_i_tau.representative()));
-        r_tau_g2.push(g2.operate_with_self(r_i_tau.representative()));
-
-        let o_i_tau = qap.o[i].evaluate(&tw.tau);
-        let k_i_tau_unshifted = &tw.beta * &l_i_tau + &tw.alpha * &r_i_tau + &o_i_tau;
-        if i < qap.num_of_public_inputs {
-            // Public variables
-            let k_i_tau = &gamma_inv * k_i_tau_unshifted;
-            verifier_k_tau_g1.push(g1.operate_with_self(k_i_tau.representative()));
-        } else {
-            // Private variables
-            let k_i_tau = &delta_inv * k_i_tau_unshifted;
-            prover_k_tau_g1.push(g1.operate_with_self(k_i_tau.representative()));
-        }
-    }
-
-    // [delta^{-1} * t(τ) * τ^0]_1, [delta^{-1} * t(τ) * τ^1]_1, ..., [delta^{-1} * t(τ) * τ^m]_1
     let t_tau_times_delta_inv = &delta_inv * qap.vanishing_polynomial().evaluate(&tw.tau);
     let z_powers_of_tau_g1: Vec<G1Point> = (0..qap.num_of_gates() + 1)
         .map(|exp: usize| {
@@ -117,17 +107,31 @@ pub fn setup(qap: &QAP) -> (ProvingKey, VerifyingKey) {
             beta_g2: beta_g2.clone(),
             delta_g1: g1.operate_with_self(tw.delta.representative()),
             delta_g2: delta_g2.clone(),
-            l_tau_g1,
-            r_tau_g1,
-            r_tau_g2,
-            prover_k_tau_g1,
+            l_tau_g1: batch_operate(&l_tau, &g1), // [A_i(τ)]_1
+            r_tau_g1: batch_operate(&r_tau, &g1), // [B_i(τ)]_1
+            r_tau_g2: batch_operate(&r_tau, &g2), // [B_i(τ)]_2
+            // [K_i(τ)]_1
+            prover_k_tau_g1: batch_operate(
+                &k_tau[qap.num_of_public_inputs..num_of_total_inputs],
+                &g1,
+            ),
             z_powers_of_tau_g1,
         },
         VerifyingKey {
             alpha_g1_times_beta_g2: Pairing::compute(&alpha_g1, &beta_g2),
             delta_g2,
             gamma_g2: g2.operate_with_self(tw.gamma.representative()),
-            verifier_k_tau_g1,
+            verifier_k_tau_g1: batch_operate(&k_tau[0..qap.num_of_public_inputs], &g1),
         },
     )
+}
+
+fn batch_operate<E: IsShortWeierstrass>(
+    elems: &[FrElement],
+    point: &ShortWeierstrassProjectivePoint<E>,
+) -> Vec<ShortWeierstrassProjectivePoint<E>> {
+    elems
+        .iter()
+        .map(|elem| point.operate_with_self(elem.representative()))
+        .collect()
 }
