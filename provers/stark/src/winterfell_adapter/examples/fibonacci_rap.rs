@@ -1,13 +1,15 @@
 use lambdaworks_math::field::{
     element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
 };
+use rand::seq::SliceRandom;
+use rand::thread_rng;
 use winterfell::math::FieldElement as IsWinterfellFieldElement;
 use winterfell::{
     Air, AirContext, Assertion, EvaluationFrame, ProofOptions, TraceInfo, TraceTable,
     TransitionConstraintDegree,
 };
 
-pub const TRACE_WIDTH: usize = 2;
+pub const TRACE_WIDTH: usize = 3;
 
 #[derive(Clone)]
 pub struct FibonacciRAP {
@@ -25,10 +27,11 @@ impl Air for FibonacciRAP {
         let degrees = vec![
             TransitionConstraintDegree::new(1),
             TransitionConstraintDegree::new(1),
+            TransitionConstraintDegree::new(2),
         ];
         assert_eq!(TRACE_WIDTH, trace_info.width());
         FibonacciRAP {
-            context: AirContext::new(trace_info, degrees, 3, options),
+            context: AirContext::new(trace_info, degrees, 4, options),
             result: pub_inputs,
         }
     }
@@ -45,6 +48,7 @@ impl Air for FibonacciRAP {
     ) {
         let current = frame.current();
         let next = frame.next();
+
         // expected state width is 2 field elements
         debug_assert_eq!(TRACE_WIDTH, current.len());
         debug_assert_eq!(TRACE_WIDTH, next.len());
@@ -76,9 +80,14 @@ pub fn build_trace(sequence_length: usize) -> TraceTable<FieldElement<Stark252Pr
     for i in 2..(sequence_length + 1) {
         fibonacci.push(fibonacci[i - 2] + fibonacci[i - 1])
     }
-    
+
+    let mut permuted = fibonacci[..fibonacci.len() - 1].to_vec();
+    let mut rng = thread_rng();
+    permuted.shuffle(&mut rng);
+
     TraceTable::init(vec![
         fibonacci[..fibonacci.len() - 1].to_vec(),
         fibonacci[1..].to_vec(),
+        permuted,
     ])
 }
