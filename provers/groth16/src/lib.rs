@@ -6,7 +6,7 @@ mod setup;
 mod test_circuits;
 mod verifier;
 
-pub use prover::{generate_proof, Proof};
+pub use prover::Proof;
 pub use qap::QAP;
 pub use setup::{setup, ProvingKey, VerifyingKey};
 pub use verifier::verify;
