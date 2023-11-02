@@ -38,8 +38,8 @@ pprof = { version = "0.13.0", features = ["criterion","flamegraph"] }
 rayon = ["dep:rayon"]
 default = ["rayon", "std"]
 std = ["dep:thiserror"]
-lambdaworks-serde = ["dep:serde", "dep:serde_json", "std"]
-lambdaworks-serde-verbose = ["dep:serde", "dep:serde_json", "std", "lambdaworks-serde"]
+lambdaworks-serde-binary = ["dep:serde", "dep:serde_json", "std"]
+lambdaworks-serde-string = ["dep:serde", "dep:serde_json", "std", "lambdaworks-serde-binary"]
 proptest = ["dep:proptest"]
 
 # gpu
