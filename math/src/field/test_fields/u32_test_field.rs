@@ -12,26 +12,26 @@ pub struct U32Field<const MODULUS: u32>;
 impl ByteConversion for u32 {
     #[cfg(feature = "std")]
     fn to_bytes_be(&self) -> Vec<u8> {
-        todo!()
+        unimplemented!()
     }
 
     #[cfg(feature = "std")]
     fn to_bytes_le(&self) -> Vec<u8> {
-        todo!()
+        unimplemented!()
     }
 
     fn from_bytes_be(_bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
     where
         Self: Sized,
     {
-        todo!()
+        unimplemented!()
     }
 
     fn from_bytes_le(_bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
     where
         Self: Sized,
     {
-        todo!()
+        unimplemented!()
     }
 }
 
