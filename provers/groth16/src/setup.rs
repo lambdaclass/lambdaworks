@@ -71,8 +71,10 @@ pub fn setup(qap: &QAP) -> (ProvingKey, VerifyingKey) {
     let num_of_private_inputs = num_of_total_inputs - qap.num_of_public_inputs;
     let mut prover_k_tau_g1: Vec<G1Point> = Vec::with_capacity(num_of_private_inputs);
 
-    let delta_inv = tw.delta.inv().unwrap();
-    let gamma_inv = tw.gamma.inv().unwrap();
+    let mut to_be_inversed = [tw.delta.clone(), tw.gamma.clone()];
+    FrElement::inplace_batch_inverse(&mut to_be_inversed).unwrap();
+    let [delta_inv, gamma_inv] = to_be_inversed;
+
     for i in 0..num_of_total_inputs {
         let l_i_tau = qap.l[i].evaluate(&tw.tau);
         let r_i_tau = qap.r[i].evaluate(&tw.tau);
