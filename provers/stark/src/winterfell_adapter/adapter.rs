@@ -174,13 +174,13 @@ mod tests {
         prover::{IsStarkProver, Prover},
         transcript::StoneProverTranscript,
         verifier::{IsStarkVerifier, Verifier},
-        winterfell_adapter::example_air::{build_trace, FibAir},
+        winterfell_adapter::examples::{fibonacci_2_terms::{FibAir2Terms, self}, fibonacci_rap::{FibonacciRAP, self}},
     };
 
     #[test]
-    fn prove_and_verify_a_winterfell_fibonacci_air() {
+    fn prove_and_verify_a_winterfell_fibonacci_2_terms_air() {
         let lambda_proof_options = ProofOptions::default_test_options();
-        let trace = AirAdapter::<FibAir>::convert_winterfell_trace_table(build_trace(16));
+        let trace = AirAdapter::<FibAir2Terms>::convert_winterfell_trace_table(fibonacci_2_terms::build_trace(16));
         let pub_inputs = AirAdapterPublicInputs {
             winterfell_public_inputs: trace.columns()[1][7],
             transition_degrees: vec![1, 1],
@@ -190,14 +190,43 @@ mod tests {
             trace_columns: 2
         };
 
-        let proof = Prover::prove::<AirAdapter<FibAir>>(
+        let proof = Prover::prove::<AirAdapter<FibAir2Terms>>(
             &trace,
             &pub_inputs,
             &lambda_proof_options,
             StoneProverTranscript::new(&[]),
         )
         .unwrap();
-        assert!(Verifier::verify::<AirAdapter<FibAir>>(
+        assert!(Verifier::verify::<AirAdapter<FibAir2Terms>>(
+            &proof,
+            &pub_inputs,
+            &lambda_proof_options,
+            StoneProverTranscript::new(&[]),
+        ));
+    }
+
+
+    #[test]
+    fn prove_and_verify_a_winterfell_fibonacci_rap_air() {
+        let lambda_proof_options = ProofOptions::default_test_options();
+        let trace = AirAdapter::<FibonacciRAP>::convert_winterfell_trace_table(fibonacci_rap::build_trace(16));
+        let pub_inputs = AirAdapterPublicInputs {
+            winterfell_public_inputs: trace.columns()[1][15],
+            transition_degrees: vec![1, 1],
+            transition_exemptions: vec![1, 1],
+            transition_offsets: vec![0, 1],
+            composition_poly_degree_bound: 16,
+            trace_columns: 2
+        };
+
+        let proof = Prover::prove::<AirAdapter<FibonacciRAP>>(
+            &trace,
+            &pub_inputs,
+            &lambda_proof_options,
+            StoneProverTranscript::new(&[]),
+        )
+        .unwrap();
+        assert!(Verifier::verify::<AirAdapter<FibonacciRAP>>(
             &proof,
             &pub_inputs,
             &lambda_proof_options,

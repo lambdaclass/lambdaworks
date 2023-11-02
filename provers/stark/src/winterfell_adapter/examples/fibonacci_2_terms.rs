@@ -12,12 +12,12 @@ use winterfell::math::FieldElement as IsWinterfellFieldElement;
 pub const TRACE_WIDTH: usize = 2;
 
 #[derive(Clone)]
-pub struct FibAir {
+pub struct FibAir2Terms {
     context: AirContext<FieldElement<Stark252PrimeField>>,
     result: FieldElement<Stark252PrimeField>,
 }
 
-impl Air for FibAir {
+impl Air for FibAir2Terms {
     type BaseField = FieldElement<Stark252PrimeField>;
     type PublicInputs = FieldElement<Stark252PrimeField>;
 
@@ -29,7 +29,7 @@ impl Air for FibAir {
             TransitionConstraintDegree::new(1),
         ];
         assert_eq!(TRACE_WIDTH, trace_info.width());
-        FibAir {
+        FibAir2Terms {
             context: AirContext::new(trace_info, degrees, 3, options),
             result: pub_inputs,
         }
