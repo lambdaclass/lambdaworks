@@ -7,7 +7,7 @@ fn test_groth16_1() {
     let (pk, vk) = setup(&qap);
 
     let w = ["0x1", "0x3", "0x23", "0x9", "0x1b", "0x1e"] // x = 3
-        .map(|e| FrElement::from_hex_unchecked(e))
+        .map(FrElement::from_hex_unchecked)
         .to_vec();
 
     let serialized_proof = Proof::new(&w, &qap, &pk).serialize();
@@ -24,7 +24,7 @@ fn test_groth16_2() {
     let (pk, vk) = setup(&qap);
 
     let w = ["0x1", "0x1", "0x7", "0x1", "0x1", "0x2"] // x = 1
-        .map(|e| FrElement::from_hex_unchecked(e))
+        .map(FrElement::from_hex_unchecked)
         .to_vec();
 
     let serialized_proof = Proof::new(&w, &qap, &pk).serialize();
