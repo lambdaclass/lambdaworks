@@ -40,8 +40,7 @@ pub fn verify_cairo_proof_wasm(proof_bytes: &[u8], proof_options: &ProofOptions)
     };
     let bytes = &bytes[proof_len..];
 
-    let Ok((pub_inputs, _)) =
-        bincode::serde::decode_from_slice(bytes, bincode::config::standard())
+    let Ok((pub_inputs, _)) = bincode::serde::decode_from_slice(bytes, bincode::config::standard())
     else {
         return false;
     };
