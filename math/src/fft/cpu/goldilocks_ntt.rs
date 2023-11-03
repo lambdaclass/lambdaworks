@@ -2,7 +2,7 @@ use crate::field::{fields::u64_goldilocks_field::Goldilocks64Field, element::Fie
 
 pub type F = FieldElement<Goldilocks64Field>;
 
-use rand::{rngs::StdRng, Rng, SeedableRng};
+use rand::{thread_rng,Rng};
 
 
 pub const fn log2_ceil(value: usize) -> usize {
@@ -169,7 +169,7 @@ pub fn apply_intt(n:usize, values: &mut [F]){
 
 
 pub fn randomize(n : usize) -> Vec<F>{
-    let mut rng = StdRng::seed_from_u64(42);
+    let mut rng = thread_rng();
 
     let mut random_vector:Vec<F> = Vec::with_capacity(n);
 
