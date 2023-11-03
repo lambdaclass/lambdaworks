@@ -472,7 +472,8 @@ impl<F: IsPrimeField> Serialize for FieldElement<F> {
         S: Serializer,
     {
         let mut state = serializer.serialize_struct("FieldElement", 1)?;
-        state.serialize_field("value", &F::representative(self.value()).to_string())?;
+        let data = self.value().to_bytes_be();
+        state.serialize_field("value", &data)?;
         state.end()
     }
 }
@@ -565,7 +566,7 @@ impl<'de, F: IsPrimeField> Deserialize<'de> for FieldElement<F> {
             where
                 M: MapAccess<'de>,
             {
-                let mut value = None;
+                let mut value: Option<Vec<u8>> = None;
                 while let Some(key) = map.next_key()? {
                     match key {
                         Field::Value => {
@@ -575,6 +576,38 @@ impl<'de, F: IsPrimeField> Deserialize<'de> for FieldElement<F> {
                             value = Some(map.next_value()?);
                         }
                     }
+                }
+                let value = value.ok_or_else(|| de::Error::missing_field("value"))?;
+                let val = F::BaseType::from_bytes_be(&value).unwrap();
+                Ok(FieldElement::from_raw(&val))
+            }
+
+            fn visit_seq<S>(self, mut seq: S) -> Result<FieldElement<F>, S::Error>
+            where
+                S: SeqAccess<'de>,
+            {
+                let mut value: Option<Vec<u8>> = None;
+                while let Some(val) = seq.next_element()? {
+                    if value.is_some() {
+                        return Err(de::Error::duplicate_field("value"));
+                    }
+                    value = Some(val);
+                }
+                let value = value.ok_or_else(|| de::Error::missing_field("value"))?;
+                let val = F::BaseType::from_bytes_be(&value).unwrap();
+                Ok(FieldElement::from_raw(&val))
+            }
+
+            fn visit_seq<S>(self, mut seq: S) -> Result<FieldElement<F>, S::Error>
+            where
+                S: SeqAccess<'de>,
+            {
+                let mut value = None;
+                while let Some(val) = seq.next_element()? {
+                    if value.is_some() {
+                        return Err(de::Error::duplicate_field("value"));
+                    }
+                    value = Some(val);
                 }
                 let value = value.ok_or_else(|| de::Error::missing_field("value"))?;
                 Ok(FieldElement::from_hex(value).unwrap())
