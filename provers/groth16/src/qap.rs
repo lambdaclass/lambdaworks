@@ -45,7 +45,7 @@ impl QAP {
 
         let [l, r, o] = self.scale_and_accumulate_variable_polynomials(w, degree, offset);
 
-        // Change to evaluation vector
+        // TODO: Change to a vector of offsetted evaluations of x^N-1
         let mut t = (Polynomial::new_monomial(FrElement::one(), self.num_of_gates())
             - FrElement::one())
         .evaluate_offset_fft(1, Some(degree), offset)

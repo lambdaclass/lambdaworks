@@ -82,7 +82,7 @@ impl Proof {
         .iter()
         .for_each(|serialized| {
             bytes.extend_from_slice(&(serialized.len() as u32).to_be_bytes());
-            bytes.extend_from_slice(&serialized);
+            bytes.extend_from_slice(serialized);
         });
         bytes
     }
