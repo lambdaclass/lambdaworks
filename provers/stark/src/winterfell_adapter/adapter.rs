@@ -7,7 +7,7 @@ use crate::{
 use lambdaworks_math::field::{
     element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
 };
-use winterfell::{Air, EvaluationFrame, FieldExtension, ProofOptions, TraceInfo, TraceTable, Trace, AuxTraceRandElements};
+use winterfell::{Air, EvaluationFrame, FieldExtension, ProofOptions, TraceInfo, TraceTable, Trace, AuxTraceRandElements, TraceLayout};
 
 #[derive(Clone)]
 pub struct AirAdapterPublicInputs<A>
@@ -19,7 +19,7 @@ where
     transition_degrees: Vec<usize>,
     transition_exemptions: Vec<usize>,
     transition_offsets: Vec<usize>,
-    trace_columns: usize,
+    trace_info: TraceInfo,
     composition_poly_degree_bound: usize,
 }
 
@@ -79,8 +79,6 @@ where
         pub_inputs: &Self::PublicInputs,
         lambda_proof_options: &crate::proof::options::ProofOptions,
     ) -> Self {
-        let winter_trace_info = TraceInfo::new(pub_inputs.trace_columns, trace_length);
-        let trace_columns = winter_trace_info.layout().main_trace_width() + winter_trace_info.layout().aux_trace_width();
         let winter_proof_options = ProofOptions::new(
             lambda_proof_options.fri_number_of_queries,
             lambda_proof_options.blowup_factor as usize,
@@ -91,7 +89,7 @@ where
         );
 
         let winterfell_air = A::new(
-            winter_trace_info,
+            pub_inputs.trace_info.clone(),
             pub_inputs.winterfell_public_inputs.clone(),
             winter_proof_options,
         );
@@ -103,7 +101,7 @@ where
             transition_exemptions: pub_inputs.transition_exemptions.to_owned(),
             transition_offsets: pub_inputs.transition_offsets.to_owned(),
             num_transition_constraints: winterfell_context.num_transition_constraints(),
-            trace_columns,
+            trace_columns: pub_inputs.trace_info.width(),
             num_transition_exemptions: winterfell_context.num_transition_exemptions(),
         };
 
@@ -173,7 +171,7 @@ where
             frame.get_row(1)[..num_main_columns].to_vec()
         );
 
-        let mut main_result = vec![FieldElement::zero(); num_main_columns];
+        let mut main_result = vec![FieldElement::zero(); self.winterfell_air.context().num_main_transition_constraints()];
         self.winterfell_air
             .evaluate_transition::<FieldElement<Stark252PrimeField>>(&main_frame, &[], &mut main_result); // Periodic values not supported
 
@@ -186,7 +184,7 @@ where
                 frame.get_row(1)[num_main_columns..].to_vec()
             );
             
-            let mut aux_result = vec![FieldElement::zero(); num_aux_columns];
+            let mut aux_result = vec![FieldElement::zero(); self.winterfell_air.context().num_aux_transition_constraints()];
             self.winterfell_air.evaluate_aux_transition(
                 &main_frame,
                 &aux_frame,
@@ -216,7 +214,7 @@ where
 
         let mut rand_elements = AuxTraceRandElements::new();
         rand_elements.add_segment_elements(rap_challenges.clone());
-        
+
         for assertion in self.winterfell_air.get_aux_assertions(&rand_elements) {
             assert!(assertion.is_single());
             result.push(BoundaryConstraint::new(
@@ -250,7 +248,7 @@ mod tests {
         prover::{IsStarkProver, Prover},
         transcript::StoneProverTranscript,
         verifier::{IsStarkVerifier, Verifier},
-        winterfell_adapter::examples::{fibonacci_2_terms::{FibAir2Terms, self}, fibonacci_rap::{FibonacciRAP, self}},
+        winterfell_adapter::examples::{fibonacci_2_terms::{FibAir2Terms, self}, fibonacci_rap::{FibonacciRAP, self, RapTraceTable}},
     };
 
     #[test]
@@ -263,7 +261,7 @@ mod tests {
             transition_exemptions: vec![1, 1],
             transition_offsets: vec![0, 1],
             composition_poly_degree_bound: 8,
-            trace_columns: 2
+            trace_info: TraceInfo::new(2, 8)
         };
 
         let proof = Prover::prove::<AirAdapter<FibAir2Terms, TraceTable<_>>>(
@@ -281,28 +279,30 @@ mod tests {
         ));
     }
 
-
     #[test]
     fn prove_and_verify_a_winterfell_fibonacci_rap_air() {
         let lambda_proof_options = ProofOptions::default_test_options();
-        let trace = AirAdapter::<FibonacciRAP, TraceTable<_>>::convert_winterfell_trace_table(fibonacci_rap::build_trace(16));
+        let trace = AirAdapter::<FibonacciRAP, RapTraceTable<_>>::convert_winterfell_trace_table(fibonacci_rap::build_trace(16));
+        let trace_layout = TraceLayout::new(3, [1], [1]);
+        let trace_info = TraceInfo::new_multi_segment(trace_layout, 16, vec![]);
+        let fibonacci_result =  trace.columns()[1][15];
         let pub_inputs = AirAdapterPublicInputs {
-            winterfell_public_inputs: trace.columns()[1][15],
-            transition_degrees: vec![1, 1],
-            transition_exemptions: vec![1, 1],
+            winterfell_public_inputs: fibonacci_result,
+            transition_degrees: vec![1, 1, 2],
+            transition_exemptions: vec![1, 1, 1],
             transition_offsets: vec![0, 1],
-            composition_poly_degree_bound: 16,
-            trace_columns: 2
+            composition_poly_degree_bound: 32,
+            trace_info
         };
 
-        let proof = Prover::prove::<AirAdapter<FibonacciRAP, TraceTable<_>>>(
+        let proof = Prover::prove::<AirAdapter<FibonacciRAP, RapTraceTable<_>>>(
             &trace,
             &pub_inputs,
             &lambda_proof_options,
             StoneProverTranscript::new(&[]),
         )
         .unwrap();
-        assert!(Verifier::verify::<AirAdapter<FibonacciRAP, TraceTable<_>>>(
+        assert!(Verifier::verify::<AirAdapter<FibonacciRAP, RapTraceTable<_>>>(
             &proof,
             &pub_inputs,
             &lambda_proof_options,
