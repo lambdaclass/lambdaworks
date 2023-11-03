@@ -140,22 +140,30 @@ mod test_prover {
 
         let mut prover = Prover::new(poly);
 
-        prover.receive_challenge(FieldElement::<Babybear31PrimeField>::from(5), 1);
+        let _ = prover.receive_challenge(FieldElement::<Babybear31PrimeField>::from(5), 1);
 
         let new_poly = prover.assign_challenges();
 
-        println!("{}", new_poly);
+        let _ = prover.receive_challenge(FieldElement::<Babybear31PrimeField>::from(5), 2);
 
-        let answer = prover.receive_challenge(FieldElement::<Babybear31PrimeField>::from(5), 2);
+        let result = prover.assign_challenges();
 
-        match answer {
-            Err(a) => println!("{}", a),
-            Ok(a) => println!("{}", a),
+        // Expected polynomial 1 + 25 + 5t_2 + t_2t_3
+        let constant1 =
+            MultiLinearMonomial::new((FieldElement::<Babybear31PrimeField>::from(1), vec![]));
+        let constant25 =
+            MultiLinearMonomial::new((FieldElement::<Babybear31PrimeField>::from(25), vec![]));
+        let t2 =
+            MultiLinearMonomial::new((FieldElement::<Babybear31PrimeField>::from(5), vec![2]));
+        let t23 =
+            MultiLinearMonomial::new((FieldElement::<Babybear31PrimeField>::from(1), vec![2,3]));
+        let expected = MultilinearPolynomial::new(vec![constant1, constant25, t2, t23]);
+
+        assert_eq!(result.n_vars, expected.n_vars);
+        for i in 0..result.terms.len() {
+            assert_eq!(result.terms[i].coeff, expected.terms[i].coeff);
+            assert_eq!(result.terms[i].vars, expected.terms[i].vars);
         }
-
-        let new_poly = prover.assign_challenges();
-
-        println!("{}", new_poly);
     }
 
     #[test]
