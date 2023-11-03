@@ -17,7 +17,7 @@ fn test_prove_cairo1_program_wasm() {
     assert!(verify_cairo_proof_wasm(&PROOF, &proof_options));
 }
 
-// Test case is fibo5
+// Test case is fibo5, with default test options
 #[cfg(feature = "wasm")]
 static PROOF: [u8; 25388] = [
     187, 90, 0, 0, 64, 2, 197, 227, 209, 214, 234, 176, 74, 98, 199, 182, 19, 90, 139, 127, 49, 93,
