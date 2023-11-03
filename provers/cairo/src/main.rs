@@ -1,9 +1,8 @@
 use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
-use lambdaworks_math::traits::{Deserializable, Serializable};
 use platinum_prover::air::{generate_cairo_proof, verify_cairo_proof, PublicInputs};
 use platinum_prover::cairo_layout::CairoLayout;
 use platinum_prover::runner::run::generate_prover_args;
-use stark_platinum_prover::proof::options::{ProofOptions, SecurityLevel};
+use stark_platinum_prover::proof::options::ProofOptions;
 use stark_platinum_prover::proof::stark::StarkProof;
 mod commands;
 use clap::Parser;
@@ -168,7 +167,7 @@ fn write_proof(
 ) {
     let mut bytes = vec![];
     let proof_bytes: Vec<u8> =
-        bincode::serde::encode_to_vec(&proof, bincode::config::standard()).unwrap();
+        bincode::serde::encode_to_vec(proof, bincode::config::standard()).unwrap();
 
     let pub_inputs_bytes: Vec<u8> =
         bincode::serde::encode_to_vec(&pub_inputs, bincode::config::standard()).unwrap();
@@ -193,8 +192,8 @@ fn write_proof(
 }
 
 fn main() {
-    let proof_options = ProofOptions::default_test_options();
-
+    let proof_options = ProofOptions::new_secure(SecurityLevel::Conjecturable100Bits, 3);
+    
     let args: commands::ProverArgs = commands::ProverArgs::parse();
     match args.entity {
         commands::ProverEntity::Compile(args) => {
@@ -249,7 +248,7 @@ fn main() {
             bytes = &bytes[proof_len..];
 
             let Ok((pub_inputs, _)) =
-                bincode::serde::decode_from_slice(&bytes, bincode::config::standard())
+                bincode::serde::decode_from_slice(bytes, bincode::config::standard())
             else {
                 println!("Error reading proof from file: {}", args.proof_path);
                 return;
