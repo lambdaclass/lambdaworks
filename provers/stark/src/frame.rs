@@ -40,7 +40,8 @@ impl<F: IsFFTField> Frame<F> {
     ) -> Self {
         // Get trace length to apply module with it when getting elements of
         // the frame from the trace.
-        let trace_steps = trace.n_rows();
+        let trace_steps = trace.num_steps();
+
         let data = offsets
             .iter()
             .flat_map(|frame_row_idx| {

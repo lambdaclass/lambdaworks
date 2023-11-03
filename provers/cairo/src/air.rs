@@ -786,7 +786,10 @@ impl AIR for CairoAIR {
 
         let aux_table = Table::new(&aux_data, self.number_auxiliary_rap_columns());
 
-        TraceTable { table: aux_table }
+        TraceTable {
+            table: aux_table,
+            step_size: 1,
+        }
     }
 
     fn build_rap_challenges(

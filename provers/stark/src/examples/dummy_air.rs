@@ -118,5 +118,5 @@ pub fn dummy_trace<F: IsFFTField>(trace_length: usize) -> TraceTable<F> {
         ret.push(ret[i - 1].clone() + ret[i - 2].clone());
     }
 
-    TraceTable::from_columns(&[vec![FieldElement::<F>::one(); trace_length], ret])
+    TraceTable::from_columns(&[vec![FieldElement::<F>::one(); trace_length], ret], 1)
 }

@@ -12,7 +12,15 @@ pub struct Table<F: IsFFTField> {
     pub height: usize,
 }
 
-impl<F: IsFFTField> Table<F> {
+#[derive(Debug)]
+pub struct TableView<'t, F: IsFFTField> {
+    pub data: &'t [FieldElement<F>],
+    pub table_row_offset: usize,
+    pub width: usize,
+    pub height: usize,
+}
+
+impl<'t, F: IsFFTField> Table<F> {
     /// Crates a new Table instance from a one-dimensional array in row major order
     /// and the intended width of the table.
     pub fn new(data: &[FieldElement<F>], width: usize) -> Self {
@@ -75,6 +83,18 @@ impl<F: IsFFTField> Table<F> {
         &mut self.data[row_offset..row_offset + n_cols]
     }
 
+    pub fn get_table_view(&'t self, from_idx: usize, num_rows: usize) -> TableView<'t, F> {
+        let from_offset = from_idx * self.width;
+        let data = &self.data[from_offset..from_offset + self.width * num_rows];
+
+        TableView {
+            data,
+            table_row_offset: from_idx,
+            width: self.width,
+            height: num_rows,
+        }
+    }
+
     /// Given a slice of field elements representing a row, appends it to
     /// the end of the table.
     pub fn append_row(&mut self, row: &[FieldElement<F>]) {
@@ -101,8 +121,25 @@ impl<F: IsFFTField> Table<F> {
     }
 
     /// Given row and column indexes, returns the stored field element in that position of the table.
-    pub fn get(&self, row: usize, col: usize) -> FieldElement<F> {
+    pub fn get(&self, row: usize, col: usize) -> &FieldElement<F> {
         let idx = row * self.width + col;
-        self.data[idx].clone()
+        &self.data[idx]
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::Felt252;
+
+    #[test]
+    fn get_rows_slice_works() {
+        let data: Vec<Felt252> = (0..=11).map(Felt252::from).collect();
+        let table = Table::new(&data, 3);
+
+        let slice = table.get_rows_slice(1, 2);
+        let expected_slice: Vec<Felt252> = (3..=8).map(Felt252::from).collect();
+
+        assert_eq!(slice, expected_slice);
     }
 }

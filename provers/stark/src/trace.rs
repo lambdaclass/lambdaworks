@@ -1,4 +1,4 @@
-use crate::table::Table;
+use crate::table::{Table, TableView};
 use lambdaworks_math::fft::errors::FFTError;
 use lambdaworks_math::fft::polynomial::FFTPoly;
 use lambdaworks_math::{
@@ -20,7 +20,19 @@ pub struct TraceTable<F: IsFFTField> {
     pub step_size: usize,
 }
 
-impl<F: IsFFTField> TraceTable<F> {
+#[derive(Debug)]
+pub struct StepView<'t, F: IsFFTField> {
+    pub table_view: TableView<'t, F>,
+    pub step_offset: usize,
+}
+
+// impl<'a, F: IsFFTField> StepView<'a, F> {
+//     pub fn new(step: usize) -> StepView<'a, F> {
+
+//     }
+// }
+
+impl<'t, F: IsFFTField> TraceTable<F> {
     pub fn new(data: &[FieldElement<F>], n_columns: usize, step_size: usize) -> Self {
         let table = Table::new(data, n_columns);
         Self { table, step_size }
@@ -46,6 +58,20 @@ impl<F: IsFFTField> TraceTable<F> {
     pub fn num_steps(&self) -> usize {
         debug_assert!((self.table.height % self.step_size) == 0);
         self.table.height / self.step_size
+    }
+
+    pub fn step_to_row(&self, step: usize) -> usize {
+        self.step_size * step
+    }
+
+    pub fn step_view(&'t self, step_idx: usize) -> StepView<'t, F> {
+        let row_idx = self.step_to_row(step_idx);
+        let table_view = self.table.get_table_view(row_idx, self.step_size);
+
+        StepView {
+            table_view,
+            step_offset: step_idx,
+        }
     }
 
     pub fn n_cols(&self) -> usize {
@@ -89,7 +115,7 @@ impl<F: IsFFTField> TraceTable<F> {
     }
 
     /// Given a row and a column index, gives stored value in that position
-    pub fn get(&self, row: usize, col: usize) -> FieldElement<F> {
+    pub fn get(&self, row: usize, col: usize) -> &FieldElement<F> {
         self.table.get(row, col)
     }
 
@@ -108,18 +134,18 @@ impl<F: IsFFTField> TraceTable<F> {
             .unwrap()
     }
 
-    pub fn concatenate(&self, new_cols: Vec<FieldElement<F>>, n_cols: usize) -> Self {
-        let mut data = Vec::new();
-        let mut i = 0;
-        for row_index in (0..self.table.data.len()).step_by(self.table.width) {
-            data.append(&mut self.table.data[row_index..row_index + self.table.width].to_vec());
-            data.append(&mut new_cols[i..(i + n_cols)].to_vec());
-            i += n_cols;
-        }
+    // pub fn concatenate(&self, new_cols: Vec<FieldElement<F>>, n_cols: usize) -> Self {
+    //     let mut data = Vec::new();
+    //     let mut i = 0;
+    //     for row_index in (0..self.table.data.len()).step_by(self.table.width) {
+    //         data.append(&mut self.table.data[row_index..row_index + self.table.width].to_vec());
+    //         data.append(&mut new_cols[i..(i + n_cols)].to_vec());
+    //         i += n_cols;
+    //     }
 
-        let table = Table::new(&data, self.n_cols() + n_cols);
-        Self { table }
-    }
+    //     let table = Table::new(&data, self.n_cols() + n_cols);
+    //     Self { table }
+    // }
 
     /// Given the padding length, appends the last row of the trace table
     /// that many times.
@@ -167,29 +193,32 @@ mod test {
         let col_1 = vec![FE::from(1), FE::from(2), FE::from(5), FE::from(13)];
         let col_2 = vec![FE::from(1), FE::from(3), FE::from(8), FE::from(21)];
 
-        let trace_table = TraceTable::from_columns(&[col_1.clone(), col_2.clone()]);
+        let trace_table = TraceTable::from_columns(&[col_1.clone(), col_2.clone()], 1);
         let res_cols = trace_table.columns();
 
         assert_eq!(res_cols, vec![col_1, col_2]);
     }
 
-    #[test]
-    fn test_concatenate_works() {
-        let table1_columns = vec![vec![FE::new(7), FE::new(8), FE::new(9)]];
-        let new_columns = vec![
-            FE::new(1),
-            FE::new(2),
-            FE::new(3),
-            FE::new(4),
-            FE::new(5),
-            FE::new(6),
-        ];
-        let expected_table = TraceTable::from_columns(&[
-            vec![FE::new(7), FE::new(8), FE::new(9)],
-            vec![FE::new(1), FE::new(3), FE::new(5)],
-            vec![FE::new(2), FE::new(4), FE::new(6)],
-        ]);
-        let table1 = TraceTable::from_columns(&table1_columns);
-        assert_eq!(table1.concatenate(new_columns, 2), expected_table)
-    }
+    // #[test]
+    // fn test_concatenate_works() {
+    //     let table1_columns = vec![vec![FE::new(7), FE::new(8), FE::new(9)]];
+    //     let new_columns = vec![
+    //         FE::new(1),
+    //         FE::new(2),
+    //         FE::new(3),
+    //         FE::new(4),
+    //         FE::new(5),
+    //         FE::new(6),
+    //     ];
+    //     let expected_table = TraceTable::from_columns(
+    //         &[
+    //             vec![FE::new(7), FE::new(8), FE::new(9)],
+    //             vec![FE::new(1), FE::new(3), FE::new(5)],
+    //             vec![FE::new(2), FE::new(4), FE::new(6)],
+    //         ],
+    //         1,
+    //     );
+    //     let table1 = TraceTable::from_columns(&table1_columns, 1);
+    //     assert_eq!(table1.concatenate(new_columns, 2), expected_table)
+    // }
 }
