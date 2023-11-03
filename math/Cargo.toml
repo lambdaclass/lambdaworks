@@ -39,7 +39,7 @@ rayon = ["dep:rayon"]
 default = ["rayon", "std"]
 std = ["dep:thiserror"]
 lambdaworks-serde-binary = ["dep:serde", "dep:serde_json", "std"]
-lambdaworks-serde-string = ["dep:serde", "dep:serde_json", "std", "lambdaworks-serde-binary"]
+lambdaworks-serde-string = ["dep:serde", "dep:serde_json", "std"]
 proptest = ["dep:proptest"]
 
 # gpu

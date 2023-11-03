@@ -46,7 +46,7 @@ fn generate_merkle_tree(tree_path: String) -> Result<(), io::Error> {
         let mut writer = BufWriter::new(file);
         serde_json::to_writer_pretty(&mut writer, &merkle_tree)?;
     }
-    #[cfg(not(feature = "verbose"))]
+    #[cfg(feature = "binary")]
     {
         let generated_tree_path = tree_path.replace(".csv", ".tree");
         let mut file = File::create(generated_tree_path)?;
@@ -74,7 +74,7 @@ fn generate_merkle_proof(tree_path: String, pos: usize) -> Result<(), io::Error>
         serde_json::to_writer_pretty(&mut writer, &proof)?;
         writer.flush()
     }
-    #[cfg(not(feature = "verbose"))]
+    #[cfg(feature = "binary")]
     {
         let proof_path = tree_path.replace(".csv", format!("_proof_{pos}.proof").as_str());
         let mut file = File::create(proof_path)?;
@@ -103,7 +103,7 @@ fn verify_merkle_proof(
             false => println!("\x1b[31mMerkle proof failed verifying\x1b[0m"),
         }
     }
-    #[cfg(not(feature = "verbose"))]
+    #[cfg(feature = "binary")]
     {
         let mut file = File::open(proof_path)?;
         let mut buffer = Vec::new();
