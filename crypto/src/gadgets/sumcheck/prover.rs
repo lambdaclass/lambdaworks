@@ -107,6 +107,8 @@ where
         Ok("challenge received".to_string())
     }
 
+    /// Assign the random challenges to the polynomial
+    /// Returns a new polynomial with the challenges assigned
     fn assign_challenges(&mut self) -> MultilinearPolynomial<F> {
         let values = self.r.clone();
         let vars: Vec<usize> = (0..self.round as usize).collect();
@@ -142,7 +144,7 @@ mod test_prover {
 
         let _ = prover.receive_challenge(FieldElement::<Babybear31PrimeField>::from(5), 1);
 
-        let new_poly = prover.assign_challenges();
+        let _ = prover.assign_challenges();
 
         let _ = prover.receive_challenge(FieldElement::<Babybear31PrimeField>::from(5), 2);
 
