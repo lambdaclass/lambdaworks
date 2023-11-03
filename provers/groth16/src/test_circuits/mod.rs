@@ -35,6 +35,6 @@ pub fn qap_example_circuit_1() -> QAP {
             ["0", "0", "1", "0"],
         ],
     ]
-    .map(|matrix| matrix.map(|row| row.map(|elem| FrElement::from_hex_unchecked(elem)).to_vec()));
+    .map(|matrix| matrix.map(|row| row.map(FrElement::from_hex_unchecked).to_vec()));
     QAP::from_variable_matrices(num_of_public_inputs, &l, &r, &o)
 }

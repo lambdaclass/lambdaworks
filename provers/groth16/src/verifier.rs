@@ -5,7 +5,7 @@ pub fn verify(vk: &VerifyingKey, proof: &Proof, pub_inputs: &[FrElement]) -> boo
     // [γ^{-1} * (β*l(τ) + α*r(τ) + o(τ))]_1
     let k_tau_assigned_verifier_g1 = msm(
         &pub_inputs
-            .into_iter()
+            .iter()
             .map(|elem| elem.representative())
             .collect::<Vec<_>>(),
         &vk.verifier_k_tau_g1,

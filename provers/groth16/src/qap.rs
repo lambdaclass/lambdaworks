@@ -31,31 +31,39 @@ impl QAP {
         }
     }
 
-    pub fn calculate_h_coefficients(&self, w: &[FrElement]) -> Vec<FrElement> {
-        // h(x) = p(x) / t(x)
-        let (h, remainder) = self
-            .calculate_p(w)
-            .long_division_with_remainder(&self.vanishing_polynomial());
-        assert_eq!(0, remainder.degree()); // must have no remainder
-
-        h.coefficients().to_vec()
-    }
-
-    // t(X) = Z_H(x) = x^k-1 as our domain is roots of unity
-    pub fn vanishing_polynomial(&self) -> Polynomial<FrElement> {
-        Polynomial::new_monomial(FrElement::one(), self.num_of_gates()) - FrElement::one()
-    }
-
     pub fn num_of_gates(&self) -> usize {
         self.l[0].degree() + 1
     }
 
-    fn calculate_p(&self, w: &[FrElement]) -> Polynomial<FrElement> {
-        let l = Self::scale_and_accumulate_variable_polynomial(&self.l, w);
-        let r = Self::scale_and_accumulate_variable_polynomial(&self.r, w);
-        let o = Self::scale_and_accumulate_variable_polynomial(&self.o, w);
+    pub fn num_of_private_inputs(&self) -> usize {
+        self.l.len() - self.num_of_public_inputs
+    }
 
-        &l * &r - &o
+    pub fn calculate_h_coefficients(&self, w: &[FrElement]) -> Vec<FrElement> {
+        let offset = &ORDER_R_MINUS_1_ROOT_UNITY;
+        let degree = self.num_of_gates() * 2;
+
+        let [l, r, o] = self.scale_and_accumulate_variable_polynomials(w, degree, offset);
+
+        // Change to evaluation vector
+        let mut t = (Polynomial::new_monomial(FrElement::one(), self.num_of_gates())
+            - FrElement::one())
+        .evaluate_offset_fft(1, Some(degree), offset)
+        .unwrap();
+        FrElement::inplace_batch_inverse(&mut t).unwrap();
+
+        let h_evaluated = l
+            .iter()
+            .zip(&r)
+            .zip(&o)
+            .zip(&t)
+            .map(|(((l, r), o), t)| (l * r - o) * t)
+            .collect::<Vec<_>>();
+
+        Polynomial::interpolate_offset_fft(&h_evaluated, offset)
+            .unwrap()
+            .coefficients()
+            .to_vec()
     }
 
     fn build_variable_polynomials(from_matrix: &[Vec<FrElement>]) -> Vec<Polynomial<FrElement>> {
@@ -68,15 +76,21 @@ impl QAP {
     // Compute A.s by summing up polynomials A[0].s, A[1].s, ..., A[n].s
     // In other words, assign the witness coefficients / execution values
     // Similarly for B.s and C.s
-    fn scale_and_accumulate_variable_polynomial(
-        var_polynomials: &[Polynomial<FrElement>],
+    fn scale_and_accumulate_variable_polynomials(
+        &self,
         w: &[FrElement],
-    ) -> Polynomial<FrElement> {
-        var_polynomials
-            .iter()
-            .zip(w)
-            .map(|(poly, coeff)| poly.mul_with_ref(&Polynomial::new_monomial(coeff.clone(), 0)))
-            .reduce(|poly1, poly2| poly1 + poly2)
-            .unwrap()
+        degree: usize,
+        offset: &FrElement,
+    ) -> [Vec<FrElement>; 3] {
+        [&self.l, &self.r, &self.o].map(|var_polynomials| {
+            var_polynomials
+                .iter()
+                .zip(w)
+                .map(|(poly, coeff)| poly.mul_with_ref(&Polynomial::new_monomial(coeff.clone(), 0)))
+                .reduce(|poly1, poly2| poly1 + poly2)
+                .unwrap()
+                .evaluate_offset_fft(1, Some(degree), offset)
+                .unwrap()
+        })
     }
 }
