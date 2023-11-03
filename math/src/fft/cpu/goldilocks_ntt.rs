@@ -99,7 +99,7 @@ pub fn radix_2_ntt(n:usize, values: &mut [F]){
 
     let length = values.len();
 
-    if(n==0 || length<1){
+    if n==0 || length<1 {
         return;
     }
 
