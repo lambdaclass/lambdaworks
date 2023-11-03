@@ -9,9 +9,9 @@ use lambdaworks_math::{
     elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::BLS12381PrimeField,
     field::element::FieldElement,
 };
-#[cfg(feature = "verbose")]
+#[cfg(feature = "string")]
 use std::io::BufWriter;
-#[cfg(not(feature = "verbose"))]
+#[cfg(not(feature = "string"))] // binary
 use std::io::Read;
 use std::{
     fs::{self, File},
@@ -39,7 +39,7 @@ fn generate_merkle_tree(tree_path: String) -> Result<(), io::Error> {
     let root = merkle_tree.root.representative().to_string();
     println!("Generated merkle tree with root: {:?}", root);
 
-    #[cfg(feature = "verbose")]
+    #[cfg(feature = "string")]
     {
         let generated_tree_path = tree_path.replace(".csv", ".json");
         let file = File::create(generated_tree_path)?;
@@ -66,7 +66,7 @@ fn generate_merkle_proof(tree_path: String, pos: usize) -> Result<(), io::Error>
         return Err(io::Error::new(io::ErrorKind::Other, "Index out of bounds"));
     };
 
-    #[cfg(feature = "verbose")]
+    #[cfg(feature = "string")]
     {
         let proof_path = tree_path.replace(".csv", format!("_proof_{pos}.json").as_str());
         let file = File::create(proof_path)?;
@@ -74,7 +74,7 @@ fn generate_merkle_proof(tree_path: String, pos: usize) -> Result<(), io::Error>
         serde_json::to_writer_pretty(&mut writer, &proof)?;
         writer.flush()
     }
-    #[cfg(feature = "binary")]
+    #[cfg(not(feature = "string"))] // binary
     {
         let proof_path = tree_path.replace(".csv", format!("_proof_{pos}.proof").as_str());
         let mut file = File::create(proof_path)?;
@@ -93,7 +93,7 @@ fn verify_merkle_proof(
 
     let leaf: FE = load_fe_from_file(&leaf_path)?;
 
-    #[cfg(feature = "verbose")]
+    #[cfg(feature = "string")]
     {
         let file_str = fs::read_to_string(proof_path)?;
         let proof: Proof<FE> = serde_json::from_str(&file_str)?;
@@ -103,7 +103,7 @@ fn verify_merkle_proof(
             false => println!("\x1b[31mMerkle proof failed verifying\x1b[0m"),
         }
     }
-    #[cfg(feature = "binary")]
+    #[cfg(not(feature = "string"))] // binary
     {
         let mut file = File::open(proof_path)?;
         let mut buffer = Vec::new();

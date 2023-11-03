@@ -22,7 +22,10 @@ pub trait IsModulus<U>: Debug {
 }
 
 #[cfg_attr(
-    feature = "lambdaworks-serde-binary",
+    any(
+        feature = "lambdaworks-serde-binary",
+        feature = "lambdaworks-serde-string"
+    ),
     derive(serde::Serialize, serde::Deserialize)
 )]
 #[derive(Clone, Debug, Hash, Copy)]

@@ -12,14 +12,26 @@ use crate::unsigned_integer::traits::IsUnsignedInteger;
 use core::fmt;
 use core::fmt::Debug;
 use core::iter::Sum;
-#[cfg(feature = "lambdaworks-serde-binary")]
+#[cfg(any(
+    feature = "lambdaworks-serde-binary",
+    feature = "lambdaworks-serde-string"
+))]
 use core::marker::PhantomData;
 use core::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
-#[cfg(feature = "lambdaworks-serde-binary")]
+#[cfg(any(
+    feature = "lambdaworks-serde-binary",
+    feature = "lambdaworks-serde-string"
+))]
 use serde::de::{self, Deserializer, MapAccess, SeqAccess, Visitor};
-#[cfg(feature = "lambdaworks-serde-binary")]
+#[cfg(any(
+    feature = "lambdaworks-serde-binary",
+    feature = "lambdaworks-serde-string"
+))]
 use serde::ser::{Serialize, SerializeStruct, Serializer};
-#[cfg(feature = "lambdaworks-serde-binary")]
+#[cfg(any(
+    feature = "lambdaworks-serde-binary",
+    feature = "lambdaworks-serde-string"
+))]
 use serde::Deserialize;
 
 use super::fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField};
