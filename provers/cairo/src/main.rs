@@ -2,7 +2,7 @@ use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark2
 use platinum_prover::air::{generate_cairo_proof, verify_cairo_proof, PublicInputs};
 use platinum_prover::cairo_layout::CairoLayout;
 use platinum_prover::runner::run::generate_prover_args;
-use stark_platinum_prover::proof::options::ProofOptions;
+use stark_platinum_prover::proof::options::{ProofOptions, SecurityLevel};
 use stark_platinum_prover::proof::stark::StarkProof;
 mod commands;
 use clap::Parser;
@@ -193,7 +193,7 @@ fn write_proof(
 
 fn main() {
     let proof_options = ProofOptions::new_secure(SecurityLevel::Conjecturable100Bits, 3);
-    
+
     let args: commands::ProverArgs = commands::ProverArgs::parse();
     match args.entity {
         commands::ProverEntity::Compile(args) => {
