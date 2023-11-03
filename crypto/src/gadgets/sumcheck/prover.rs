@@ -126,8 +126,36 @@ mod test_prover {
     use std::vec;
 
     #[test]
-    fn test_assign_challenges () {
-        
+    fn test_assign_challenges() {
+        // Test polynomial 1 + t_0t_1 + t_1t_2 + t_2t_3
+        let constant =
+            MultiLinearMonomial::new((FieldElement::<Babybear31PrimeField>::from(1), vec![]));
+        let x01 =
+            MultiLinearMonomial::new((FieldElement::<Babybear31PrimeField>::from(1), vec![0, 1]));
+        let x12 =
+            MultiLinearMonomial::new((FieldElement::<Babybear31PrimeField>::from(1), vec![1, 2]));
+        let x23 =
+            MultiLinearMonomial::new((FieldElement::<Babybear31PrimeField>::from(1), vec![2, 3]));
+        let poly = MultilinearPolynomial::new(vec![constant, x01, x12, x23]);
+
+        let mut prover = Prover::new(poly);
+
+        prover.receive_challenge(FieldElement::<Babybear31PrimeField>::from(5), 1);
+
+        let new_poly = prover.assign_challenges();
+
+        println!("{}", new_poly);
+
+        let answer = prover.receive_challenge(FieldElement::<Babybear31PrimeField>::from(5), 2);
+
+        match answer {
+            Err(a) => println!("{}", a),
+            Ok(a) => println!("{}", a),
+        }
+
+        let new_poly = prover.assign_challenges();
+
+        println!("{}", new_poly);
     }
 
     #[test]
