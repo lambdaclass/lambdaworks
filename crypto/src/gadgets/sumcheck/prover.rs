@@ -203,8 +203,14 @@ mod test_prover {
 
         // expected polynomial (0x34)+(0xb)t_2
         let expected = MultilinearPolynomial::new(vec![
-            MultiLinearMonomial::new((FieldElement::<Babybear31PrimeField>::from_hex_unchecked("34"), vec![])),
-            MultiLinearMonomial::new((FieldElement::<Babybear31PrimeField>::from_hex_unchecked("b"), vec![2])),
+            MultiLinearMonomial::new((
+                FieldElement::<Babybear31PrimeField>::from_hex_unchecked("34"),
+                vec![],
+            )),
+            MultiLinearMonomial::new((
+                FieldElement::<Babybear31PrimeField>::from_hex_unchecked("b"),
+                vec![2],
+            )),
         ]);
 
         assert_eq!(result.n_vars, expected.n_vars);
