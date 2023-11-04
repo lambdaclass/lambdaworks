@@ -92,7 +92,7 @@ where
     }
 
     /// Receives a random challenge from the verifier
-    /// Also receives the round number
+    /// Also receives the round number which corresponds to the challenge number
     pub fn receive_challenge(
         &mut self,
         r_elem: FieldElement<F>,
@@ -147,11 +147,7 @@ mod test_prover {
         let mut prover = Prover::new(poly);
 
         let _ = prover.receive_challenge(FieldElement::<Babybear31PrimeField>::from(5), 1);
-
-        let _ = prover.assign_challenges();
-
         let _ = prover.receive_challenge(FieldElement::<Babybear31PrimeField>::from(5), 2);
-
         let result = prover.assign_challenges();
 
         // Expected polynomial 1 + 25 + 5t_2 + t_2t_3
@@ -159,10 +155,9 @@ mod test_prover {
             MultiLinearMonomial::new((FieldElement::<Babybear31PrimeField>::from(1), vec![]));
         let constant25 =
             MultiLinearMonomial::new((FieldElement::<Babybear31PrimeField>::from(25), vec![]));
-        let t2 =
-            MultiLinearMonomial::new((FieldElement::<Babybear31PrimeField>::from(5), vec![2]));
+        let t2 = MultiLinearMonomial::new((FieldElement::<Babybear31PrimeField>::from(5), vec![2]));
         let t23 =
-            MultiLinearMonomial::new((FieldElement::<Babybear31PrimeField>::from(1), vec![2,3]));
+            MultiLinearMonomial::new((FieldElement::<Babybear31PrimeField>::from(1), vec![2, 3]));
         let expected = MultilinearPolynomial::new(vec![constant1, constant25, t2, t23]);
 
         assert_eq!(result.n_vars, expected.n_vars);
@@ -185,6 +180,29 @@ mod test_prover {
         assert_eq!(prover.r.len(), 1);
         assert_eq!(prover.r[0], elem);
         assert_eq!(answer, Ok("challenge received".to_string()));
+    }
+
+    #[test]
+    fn test_send_poly_round2() {
+        // Test polynomial 1 + t_0t_1 + t_1t_2 + t_2t_3
+        let constant =
+            MultiLinearMonomial::new((FieldElement::<Babybear31PrimeField>::from(1), vec![]));
+        let x01 =
+            MultiLinearMonomial::new((FieldElement::<Babybear31PrimeField>::from(1), vec![0, 1]));
+        let x12 =
+            MultiLinearMonomial::new((FieldElement::<Babybear31PrimeField>::from(1), vec![1, 2]));
+        let x23 =
+            MultiLinearMonomial::new((FieldElement::<Babybear31PrimeField>::from(1), vec![2, 3]));
+        let poly = MultilinearPolynomial::new(vec![constant, x01, x12, x23]);
+
+        let mut prover = Prover::new(poly);
+
+        let _ = prover.receive_challenge(FieldElement::<Babybear31PrimeField>::from(5), 1);
+        let _ = prover.receive_challenge(FieldElement::<Babybear31PrimeField>::from(5), 2);
+        let current_poly = prover.send_poly();
+
+        println!("{}", prover.poly);
+        println!("{}", prover.assign_challenges());
     }
 
     #[test]
