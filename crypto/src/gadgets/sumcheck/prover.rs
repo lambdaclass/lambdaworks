@@ -56,16 +56,20 @@ where
     /// This function always fixes the first variable
     /// We assume that the variables in 0..round have already been assigned
     pub fn send_poly(&mut self) -> MultilinearPolynomial<F> {
+        // new_poly is the polynomial to be returned
         let mut new_poly = MultilinearPolynomial::<F>::new(vec![]);
+
+        // assign the current random challenges
+        let current_poly = self.assign_challenges();
 
         // value is the number with the assignments to the variables
         // we use the bits of value
-        for value in 0..2u64.pow(self.poly.n_vars as u32 - self.round - 1) {
+        for value in 0..2u64.pow(current_poly.n_vars as u32 - self.round - 1) {
             let mut assign_numbers: Vec<u64> = Vec::new();
             let mut assign_value = value;
 
             // extracts the bits from assign_value and puts them in assign_numbers
-            for _bit in 0..self.poly.n_vars as u32 - self.round - 1 {
+            for _bit in 0..current_poly.n_vars as u32 - self.round - 1 {
                 assign_numbers.push(assign_value % 2);
                 assign_value = assign_value >> 1;
             }
@@ -77,7 +81,7 @@ where
                 .collect::<Vec<FieldElement<F>>>();
 
             // zips the variables to assign and their values
-            let numbers: Vec<usize> = (self.round as usize + 1..self.poly.n_vars).collect();
+            let numbers: Vec<usize> = (self.round as usize + 1..current_poly.n_vars).collect();
             let var_assignments: Vec<(usize, FieldElement<F>)> =
                 numbers.into_iter().zip(assign).collect();
 
