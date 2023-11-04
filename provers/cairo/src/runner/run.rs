@@ -190,8 +190,9 @@ pub fn generate_prover_args_from_trace(
 
     // data length
     let data_len = 0_usize;
+    let range_check_builtin_range: Option<Range<u64>> = None;
+    let memory_segments = create_memory_segment_map(range_check_builtin_range, &None);
 
-    let memory_segments = MemorySegmentMap::new();
     let mut pub_inputs =
         PublicInputs::from_regs_and_mem(&register_states, &memory, data_len, &memory_segments);
 
