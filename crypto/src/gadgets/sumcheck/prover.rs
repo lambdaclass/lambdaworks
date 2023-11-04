@@ -86,7 +86,7 @@ where
                 numbers.into_iter().zip(assign).collect();
 
             // creates a new polynomial from the assignments
-            new_poly.add(self.poly.partial_evaluate(&var_assignments[0..]));
+            new_poly.add(current_poly.partial_evaluate(&var_assignments[0..]));
         }
         new_poly
     }
@@ -199,10 +199,19 @@ mod test_prover {
 
         let _ = prover.receive_challenge(FieldElement::<Babybear31PrimeField>::from(5), 1);
         let _ = prover.receive_challenge(FieldElement::<Babybear31PrimeField>::from(5), 2);
-        let current_poly = prover.send_poly();
+        let result = prover.send_poly();
 
-        println!("{}", prover.poly);
-        println!("{}", prover.assign_challenges());
+        // expected polynomial (0x34)+(0xb)t_2
+        let expected = MultilinearPolynomial::new(vec![
+            MultiLinearMonomial::new((FieldElement::<Babybear31PrimeField>::from_hex_unchecked("34"), vec![])),
+            MultiLinearMonomial::new((FieldElement::<Babybear31PrimeField>::from_hex_unchecked("b"), vec![2])),
+        ]);
+
+        assert_eq!(result.n_vars, expected.n_vars);
+        for i in 0..result.terms.len() {
+            assert_eq!(result.terms[i].coeff, expected.terms[i].coeff);
+            assert_eq!(result.terms[i].vars, expected.terms[i].vars);
+        }
     }
 
     #[test]
