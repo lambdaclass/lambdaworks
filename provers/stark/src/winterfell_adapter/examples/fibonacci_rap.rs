@@ -189,7 +189,7 @@ impl Air for FibonacciRAP {
         &self,
         main_frame: &EvaluationFrame<F>,
         aux_frame: &EvaluationFrame<E>,
-        periodic_values: &[F],
+        _periodic_values: &[F],
         aux_rand_elements: &winterfell::AuxTraceRandElements<E>,
         result: &mut [E],
     ) where
@@ -218,7 +218,7 @@ impl Air for FibonacciRAP {
 
     fn get_aux_assertions<E: IsWinterfellFieldElement<BaseField = Self::BaseField>>(
         &self,
-        aux_rand_elements: &winterfell::AuxTraceRandElements<E>,
+        _aux_rand_elements: &winterfell::AuxTraceRandElements<E>,
     ) -> Vec<Assertion<E>> {
         let last_step = self.trace_length() - 1;
         vec![Assertion::single(3, last_step, Self::BaseField::ONE.into())]

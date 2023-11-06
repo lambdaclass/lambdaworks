@@ -8,8 +8,7 @@ use lambdaworks_math::field::{
     element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
 };
 use winterfell::{
-    Air, AuxTraceRandElements, EvaluationFrame, FieldExtension, ProofOptions, Trace, TraceInfo,
-    TraceLayout, TraceTable,
+    Air, AuxTraceRandElements, EvaluationFrame, FieldExtension, ProofOptions, Trace, TraceInfo, TraceTable,
 };
 
 #[derive(Clone)]
@@ -86,7 +85,7 @@ where
     type PublicInputs = AirAdapterPublicInputs<A>;
 
     fn new(
-        trace_length: usize,
+        _trace_length: usize,
         pub_inputs: &Self::PublicInputs,
         lambda_proof_options: &crate::proof::options::ProofOptions,
     ) -> Self {
