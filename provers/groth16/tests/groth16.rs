@@ -1,8 +1,8 @@
-use lambdaworks_groth16::{common::*, qap_example_circuit_1, setup, verify, Proof, Prover};
+use lambdaworks_groth16::{common::*, setup, verify, vitalik_qap, Proof, Prover};
 
 #[test]
-fn test_groth16_1() {
-    let qap = qap_example_circuit_1(); // x^3 + x + 5 = 35
+fn vitalik_1() {
+    let qap = vitalik_qap(); // x^3 + x + 5 = 35
 
     let (pk, vk) = setup(&qap);
 
@@ -18,8 +18,8 @@ fn test_groth16_1() {
 }
 
 #[test]
-fn test_groth16_2() {
-    let qap = qap_example_circuit_1(); // x^3 + x + 5 = 35
+fn vitalik_2() {
+    let qap = vitalik_qap(); // x^3 + x + 5 = 35
 
     let (pk, vk) = setup(&qap);
 
