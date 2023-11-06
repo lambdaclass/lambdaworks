@@ -25,7 +25,7 @@ ark-std = "0.4.0"
 
 [[bin]]
 name = "curve_bn254"
-path = "fuzz_targets/curve_bn256.rs"
+path = "fuzz_targets/curve_bn254.rs"
 test = false
 doc = false
 
