@@ -88,7 +88,7 @@ impl QuadraticArithmeticProgram {
 
     fn pad_rows(column: &[Vec<FrElement>], pad: &[Vec<FrElement>]) -> Vec<Vec<FrElement>> {
         let mut col_as_vec = column.to_vec();
-        col_as_vec.extend_from_slice(&pad);
+        col_as_vec.extend_from_slice(pad);
         col_as_vec
     }
 
