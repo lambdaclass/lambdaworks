@@ -8,7 +8,8 @@ use lambdaworks_math::field::{
     element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
 };
 use winterfell::{
-    Air, AuxTraceRandElements, EvaluationFrame, FieldExtension, ProofOptions, Trace, TraceInfo, TraceTable,
+    Air, AuxTraceRandElements, EvaluationFrame, FieldExtension, ProofOptions, Trace, TraceInfo,
+    TraceTable,
 };
 
 #[derive(Clone)]
