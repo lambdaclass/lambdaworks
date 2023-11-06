@@ -8,10 +8,8 @@ use crate::field::{
     fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
     traits::IsField,
 };
-use crate::unsigned_integer::element::U384;
-
-#[cfg(feature = "std")]
 use crate::traits::ByteConversion;
+use crate::unsigned_integer::element::U384;
 
 pub const BLS12381_PRIME_FIELD_ORDER: U384 = U384::from_hex_unchecked("1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab");
 
@@ -105,14 +103,15 @@ impl IsField for Degree2ExtensionField {
     }
 }
 
-#[cfg(feature = "std")]
 impl ByteConversion for FieldElement<Degree2ExtensionField> {
+    #[cfg(feature = "std")]
     fn to_bytes_be(&self) -> Vec<u8> {
         let mut byte_slice = ByteConversion::to_bytes_be(&self.value()[0]);
         byte_slice.extend(ByteConversion::to_bytes_be(&self.value()[1]));
         byte_slice
     }
 
+    #[cfg(feature = "std")]
     fn to_bytes_le(&self) -> Vec<u8> {
         let mut byte_slice = ByteConversion::to_bytes_le(&self.value()[0]);
         byte_slice.extend(ByteConversion::to_bytes_le(&self.value()[1]));
@@ -121,7 +120,7 @@ impl ByteConversion for FieldElement<Degree2ExtensionField> {
 
     fn from_bytes_be(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
     where
-        Self: std::marker::Sized,
+        Self: core::marker::Sized,
     {
         const BYTES_PER_FIELD: usize = 48;
         let x0 = FieldElement::from_bytes_be(&bytes[0..BYTES_PER_FIELD])?;
@@ -131,7 +130,7 @@ impl ByteConversion for FieldElement<Degree2ExtensionField> {
 
     fn from_bytes_le(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
     where
-        Self: std::marker::Sized,
+        Self: core::marker::Sized,
     {
         const BYTES_PER_FIELD: usize = 48;
         let x0 = FieldElement::from_bytes_le(&bytes[0..BYTES_PER_FIELD])?;
