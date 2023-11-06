@@ -19,12 +19,12 @@ use rayon::prelude::{IndexedParallelIterator, IntoParallelRefIterator, ParallelI
 use crate::debug::validate_trace;
 use crate::fri;
 use crate::proof::stark::DeepPolynomialOpenings;
+use crate::table::Table;
 use crate::transcript::IsStarkTranscript;
 
 use super::config::{BatchedMerkleTree, Commitment};
 use super::constraints::evaluator::ConstraintEvaluator;
 use super::domain::Domain;
-use super::frame::Frame;
 use super::fri::fri_decommit::FriDecommitment;
 use super::grinding;
 use super::proof::options::ProofOptions;
@@ -138,7 +138,7 @@ pub trait IsStarkProver {
         }
 
         // Compute commitments [t_j].
-        let lde_trace = TraceTable::from_columns(&lde_trace_permuted, trace.step_size);
+        let lde_trace = TraceTable::from_columns(lde_trace_permuted, 1);
         let (lde_trace_merkle_tree, lde_trace_merkle_root) = Self::batch_commit(&lde_trace.rows());
 
         // >>>> Send commitments: [tⱼ]
@@ -205,7 +205,7 @@ pub trait IsStarkProver {
             lde_trace_merkle_roots.push(aux_merkle_root);
         }
 
-        let lde_trace = TraceTable::from_columns(&evaluations, main_trace.step_size);
+        let lde_trace = TraceTable::from_columns(evaluations, 1);
 
         Ok(Round1 {
             trace_polys,
@@ -326,7 +326,7 @@ pub trait IsStarkProver {
         //
         // In the fibonacci example, the ood frame is simply the evaluations `[t(z), t(z * g), t(z * g^2)]`, where `t` is the trace
         // polynomial and `g` is the primitive root of unity used when interpolating `t`.
-        let trace_ood_evaluations = Frame::get_trace_evaluations(
+        let trace_ood_evaluations = crate::trace::get_trace_evaluations(
             &round_1_result.trace_polys,
             z,
             &air.context().transition_offsets,
@@ -853,7 +853,7 @@ pub trait IsStarkProver {
 
         info!("End proof generation");
 
-        let trace_ood_frame_evaluations = Frame::new(
+        let trace_ood_evaluations = Table::new(
             round_3_result
                 .trace_ood_evaluations
                 .into_iter()
@@ -866,7 +866,7 @@ pub trait IsStarkProver {
             // [tⱼ]
             lde_trace_merkle_roots: round_1_result.lde_trace_merkle_roots,
             // tⱼ(zgᵏ)
-            trace_ood_frame_evaluations,
+            trace_ood_evaluations,
             // [H₁] and [H₂]
             composition_poly_root: round_2_result.composition_poly_root,
             // Hᵢ(z^N)
@@ -1129,25 +1129,25 @@ mod tests {
         let proof = stone_compatibility_case_1_proof();
 
         assert_eq!(
-            proof.trace_ood_frame_evaluations.get_row(0)[0],
+            proof.trace_ood_evaluations.get_row(0)[0],
             FieldElement::from_hex_unchecked(
                 "70d8181785336cc7e0a0a1078a79ee6541ca0803ed3ff716de5a13c41684037",
             )
         );
         assert_eq!(
-            proof.trace_ood_frame_evaluations.get_row(1)[0],
+            proof.trace_ood_evaluations.get_row(1)[0],
             FieldElement::from_hex_unchecked(
                 "29808fc8b7480a69295e4b61600480ae574ca55f8d118100940501b789c1630",
             )
         );
         assert_eq!(
-            proof.trace_ood_frame_evaluations.get_row(0)[1],
+            proof.trace_ood_evaluations.get_row(0)[1],
             FieldElement::from_hex_unchecked(
                 "7d8110f21d1543324cc5e472ab82037eaad785707f8cae3d64c5b9034f0abd2",
             )
         );
         assert_eq!(
-            proof.trace_ood_frame_evaluations.get_row(1)[1],
+            proof.trace_ood_evaluations.get_row(1)[1],
             FieldElement::from_hex_unchecked(
                 "1b58470130218c122f71399bf1e04cf75a6e8556c4751629d5ce8c02cc4e62d",
             )

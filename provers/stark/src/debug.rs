@@ -29,7 +29,7 @@ pub fn validate_trace<F: IsFFTField, A: AIR<Field = F>>(
         .collect();
 
     // FIXME: We should not hardcode this 1 in the second argument.
-    let trace = TraceTable::from_columns(&trace_columns, 1);
+    let trace = TraceTable::from_columns(trace_columns, 1);
 
     // --------- VALIDATE BOUNDARY CONSTRAINTS ------------
     air.boundary_constraints(rap_challenges)

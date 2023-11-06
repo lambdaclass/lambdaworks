@@ -162,7 +162,7 @@ pub fn compute_trace<F: IsFFTField>(
         col1.push(y.clone());
     }
 
-    TraceTable::from_columns(&[col0, col1], 1)
+    TraceTable::from_columns(vec![col0, col1], 1)
 }
 
 #[cfg(test)]

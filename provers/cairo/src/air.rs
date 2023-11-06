@@ -784,7 +784,7 @@ impl AIR for CairoAIR {
             aux_data.push(range_check_permutation_col[4 * i + 3]);
         }
 
-        let aux_table = Table::new(&aux_data, self.number_auxiliary_rap_columns());
+        let aux_table = Table::new(aux_data, self.number_auxiliary_rap_columns());
 
         TraceTable {
             table: aux_table,
