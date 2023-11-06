@@ -17,39 +17,12 @@ impl HasQuadraticNonResidue for Babybear31PrimeField {
     }
 }
 
-/// Quartic field extension of Babybear
-pub type QuarticBabybearField = QuadraticExtensionField<QuadraticBabybearField>;
-
-/// Field element type for the quartic extension of Babybear
-pub type QuarticBabybearFieldElement = QuadraticExtensionFieldElement<QuadraticBabybearField>;
-
-impl HasQuadraticNonResidue for QuadraticBabybearField {
-    type BaseField = QuadraticBabybearField;
-
-    fn residue() -> QuadraticBabybearFieldElement {
-        -FieldElement::one()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     type FE = FieldElement<Babybear31PrimeField>;
     type Fee = QuadraticBabybearFieldElement;
-
-    #[test]
-    fn test_add_quartic() {
-        let a = Fee::new([FE::from(0), FE::from(3)]);
-        let b = Fee::new([-FE::from(2), FE::from(8)]);
-        let c = Fee::new([FE::from(3), FE::from(5)]);
-        let d = Fee::new([-FE::from(2), FE::from(8)]);
-
-        let x = QuarticBabybearFieldElement::new([a.clone(), b.clone()]);
-        let y = QuarticBabybearFieldElement::new([c.clone(), d.clone()]);
-        let expected_result = QuarticBabybearFieldElement::new([a + c, b + d]);
-        assert_eq!(x + y, expected_result);
-    }
 
     #[test]
     fn test_add_quadratic() {
