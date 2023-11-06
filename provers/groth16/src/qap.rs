@@ -2,14 +2,14 @@ use crate::common::*;
 use lambdaworks_math::{fft::polynomial::FFTPoly, polynomial::Polynomial};
 
 #[derive(Debug)]
-pub struct QAP {
+pub struct QuadraticArithmeticProgram {
     pub num_of_public_inputs: usize,
     pub l: Vec<Polynomial<FrElement>>,
     pub r: Vec<Polynomial<FrElement>>,
     pub o: Vec<Polynomial<FrElement>>,
 }
 
-impl QAP {
+impl QuadraticArithmeticProgram {
     pub fn from_variable_matrices(
         num_of_public_inputs: usize,
         l: &[Vec<FrElement>],

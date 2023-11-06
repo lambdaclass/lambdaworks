@@ -1,4 +1,4 @@
-use lambdaworks_groth16::{common::*, qap_example_circuit_1, setup, verify, Proof};
+use lambdaworks_groth16::{common::*, qap_example_circuit_1, setup, verify, Proof, Prover};
 
 #[test]
 fn test_groth16_1() {
@@ -10,7 +10,7 @@ fn test_groth16_1() {
         .map(FrElement::from_hex_unchecked)
         .to_vec();
 
-    let serialized_proof = Proof::new(&w, &qap, &pk).serialize();
+    let serialized_proof = Prover::prove(&w, &qap, &pk).serialize();
     let deserialized_proof = Proof::deserialize(&serialized_proof).unwrap();
 
     let accept = verify(&vk, &deserialized_proof, &w[..qap.num_of_public_inputs]);
@@ -27,7 +27,7 @@ fn test_groth16_2() {
         .map(FrElement::from_hex_unchecked)
         .to_vec();
 
-    let serialized_proof = Proof::new(&w, &qap, &pk).serialize();
+    let serialized_proof = Prover::prove(&w, &qap, &pk).serialize();
     let deserialized_proof = Proof::deserialize(&serialized_proof).unwrap();
 
     let accept = verify(&vk, &deserialized_proof, &w[..qap.num_of_public_inputs]);

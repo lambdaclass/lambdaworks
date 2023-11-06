@@ -1,4 +1,4 @@
-use crate::{common::*, QAP};
+use crate::{common::*, QuadraticArithmeticProgram};
 use lambdaworks_math::{
     cyclic_group::IsGroup,
     elliptic_curve::{
@@ -58,7 +58,7 @@ impl ToxicWaste {
     }
 }
 
-pub fn setup(qap: &QAP) -> (ProvingKey, VerifyingKey) {
+pub fn setup(qap: &QuadraticArithmeticProgram) -> (ProvingKey, VerifyingKey) {
     let g1: G1Point = Curve::generator();
     let g2: G2Point = TwistedCurve::generator();
 
