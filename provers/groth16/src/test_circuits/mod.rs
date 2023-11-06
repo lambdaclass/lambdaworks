@@ -88,7 +88,7 @@ pub fn test_qap_2() -> QuadraticArithmeticProgram {
     .map(|matrix| {
         matrix.map(|row| {
             row.map(|elem| {
-                if elem.starts_with("-") {
+                if elem.starts_with('-') {
                     -FrElement::from_hex_unchecked(&elem.chars().skip(1).collect::<String>())
                 } else {
                     FrElement::from_hex_unchecked(elem)

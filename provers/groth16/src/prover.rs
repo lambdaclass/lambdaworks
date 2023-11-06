@@ -67,7 +67,7 @@ pub struct Prover;
 impl Prover {
     pub fn prove(w: &[FrElement], qap: &QuadraticArithmeticProgram, pk: &ProvingKey) -> Proof {
         let h_coefficients = qap
-            .calculate_h_coefficients(&w)
+            .calculate_h_coefficients(w)
             .iter()
             .map(|elem| elem.representative())
             .collect::<Vec<_>>();
