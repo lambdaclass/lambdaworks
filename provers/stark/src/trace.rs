@@ -25,7 +25,7 @@ impl<F: IsFFTField> TraceTable<F> {
         Self { table }
     }
 
-    pub fn from_columns(columns: &[Vec<FieldElement<F>>]) -> Self {
+    pub fn from_columns(columns: Vec<Vec<FieldElement<F>>>) -> Self {
         let table = Table::from_columns(columns);
         Self { table }
     }
@@ -185,7 +185,7 @@ mod test {
         let col_1 = vec![FE::from(1), FE::from(2), FE::from(5), FE::from(13)];
         let col_2 = vec![FE::from(1), FE::from(3), FE::from(8), FE::from(21)];
 
-        let trace_table = TraceTable::from_columns(&[col_1.clone(), col_2.clone()]);
+        let trace_table = TraceTable::from_columns(vec![col_1.clone(), col_2.clone()]);
         let res_cols = trace_table.columns();
 
         assert_eq!(res_cols, vec![col_1, col_2]);
@@ -202,12 +202,12 @@ mod test {
             FE::new(5),
             FE::new(6),
         ];
-        let expected_table = TraceTable::from_columns(&[
+        let expected_table = TraceTable::from_columns(vec![
             vec![FE::new(7), FE::new(8), FE::new(9)],
             vec![FE::new(1), FE::new(3), FE::new(5)],
             vec![FE::new(2), FE::new(4), FE::new(6)],
         ]);
-        let table1 = TraceTable::from_columns(&table1_columns);
+        let table1 = TraceTable::from_columns(table1_columns);
         assert_eq!(table1.concatenate(new_columns, 2), expected_table)
     }
 }

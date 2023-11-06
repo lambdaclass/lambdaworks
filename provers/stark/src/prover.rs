@@ -138,7 +138,7 @@ pub trait IsStarkProver {
         }
 
         // Compute commitments [t_j].
-        let lde_trace = TraceTable::from_columns(&lde_trace_permuted);
+        let lde_trace = TraceTable::from_columns(lde_trace_permuted);
         let (lde_trace_merkle_tree, lde_trace_merkle_root) = Self::batch_commit(&lde_trace.rows());
 
         // >>>> Send commitments: [tⱼ]
@@ -205,7 +205,7 @@ pub trait IsStarkProver {
             lde_trace_merkle_roots.push(aux_merkle_root);
         }
 
-        let lde_trace = TraceTable::from_columns(&evaluations);
+        let lde_trace = TraceTable::from_columns(evaluations);
 
         Ok(Round1 {
             trace_polys,

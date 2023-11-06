@@ -30,14 +30,14 @@ impl<F: IsFFTField> Table<F> {
         let height = data.len() / width;
 
         Self {
-            data: data.to_vec(),
+            data: data,
             width,
             height,
         }
     }
 
     /// Creates a Table instance from a vector of the intended columns.
-    pub fn from_columns(columns: &[Vec<FieldElement<F>>]) -> Self {
+    pub fn from_columns(columns: Vec<Vec<FieldElement<F>>>) -> Self {
         if columns.is_empty() {
             return Self::new(Vec::new(), 0);
         }
@@ -48,9 +48,10 @@ impl<F: IsFFTField> Table<F> {
 
         let width = columns.len();
         let mut data = Vec::with_capacity(width * height);
+
         for row_idx in 0..height {
-            for column in columns {
-                data.push(column[row_idx].to_owned());
+            for column in columns.iter() {
+                data.push(column[row_idx].clone());
             }
         }
 

@@ -2,7 +2,7 @@ use super::trace::TraceTable;
 use crate::table::Table;
 use lambdaworks_math::field::{element::FieldElement, traits::IsFFTField};
 
-#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Frame<F: IsFFTField> {
     table: Table<F>,
 }

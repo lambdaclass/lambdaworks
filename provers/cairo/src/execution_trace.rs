@@ -292,7 +292,7 @@ pub fn build_cairo_execution_trace(
         add_rc_builtin_columns(&mut trace_cols, range_check_builtin_range.clone(), memory);
     }
 
-    TraceTable::from_columns(&trace_cols)
+    TraceTable::from_columns(trace_cols)
 }
 
 // Build range-check builtin columns: rc_0, rc_1, ... , rc_7, rc_value
@@ -620,7 +620,7 @@ mod test {
             FieldElement::from(7),
             FieldElement::from(7),
         ];
-        let table = TraceTable::<Stark252PrimeField>::from_columns(&columns);
+        let table = TraceTable::<Stark252PrimeField>::from_columns(columns);
 
         let (col, rc_min, rc_max) = get_rc_holes(&table, &[0, 1, 2]);
         assert_eq!(col, expected_col);
@@ -736,7 +736,7 @@ mod test {
         trace_cols[FRAME_DST_ADDR][1] = Felt252::from(9);
         trace_cols[FRAME_OP0_ADDR][1] = Felt252::from(10);
         trace_cols[FRAME_OP1_ADDR][1] = Felt252::from(11);
-        let mut trace = TraceTable::from_columns(&trace_cols);
+        let mut trace = TraceTable::from_columns(trace_cols);
 
         let memory_holes = vec![Felt252::from(4), Felt252::from(7), Felt252::from(8)];
         fill_memory_holes(&mut trace, &memory_holes);
