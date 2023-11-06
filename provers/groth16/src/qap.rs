@@ -21,13 +21,17 @@ impl QuadraticArithmeticProgram {
         assert_eq!(num_of_total_inputs, o.len());
         assert!(num_of_total_inputs > 0);
         assert!(num_of_public_inputs <= num_of_total_inputs);
-        assert!(l[0].len() <= num_of_total_inputs);
 
+        let pad = Self::get_pad(l[0].len(), num_of_total_inputs);
+
+        let l = Self::pad_column(l, &pad);
+        let r = Self::pad_column(r, &pad);
+        let o = Self::pad_column(o, &pad);
         Self {
             num_of_public_inputs,
-            l: Self::build_variable_polynomials(l),
-            r: Self::build_variable_polynomials(r),
-            o: Self::build_variable_polynomials(o),
+            l: Self::build_variable_polynomials(&l),
+            r: Self::build_variable_polynomials(&r),
+            o: Self::build_variable_polynomials(&o),
         }
     }
 
@@ -37,6 +41,10 @@ impl QuadraticArithmeticProgram {
 
     pub fn num_of_private_inputs(&self) -> usize {
         self.l.len() - self.num_of_public_inputs
+    }
+
+    pub fn num_of_total_inputs(&self) -> usize {
+        self.l.len()
     }
 
     pub fn calculate_h_coefficients(&self, w: &[FrElement]) -> Vec<FrElement> {
@@ -64,6 +72,23 @@ impl QuadraticArithmeticProgram {
             .unwrap()
             .coefficients()
             .to_vec()
+    }
+
+    fn padding_constraint(col_count: usize) -> Vec<FrElement> {
+        vec![FrElement::zero(); col_count]
+    }
+
+    fn get_pad(num_of_gates: usize, num_of_total_inputs: usize) -> Vec<Vec<FrElement>> {
+        vec![
+            Self::padding_constraint(num_of_gates);
+            num_of_total_inputs.next_power_of_two() - num_of_total_inputs
+        ]
+    }
+
+    fn pad_column(column: &[Vec<FrElement>], pad: &[Vec<FrElement>]) -> Vec<Vec<FrElement>> {
+        let mut col_as_vec = column.to_vec();
+        col_as_vec.extend_from_slice(&pad);
+        col_as_vec
     }
 
     fn build_variable_polynomials(from_matrix: &[Vec<FrElement>]) -> Vec<Polynomial<FrElement>> {

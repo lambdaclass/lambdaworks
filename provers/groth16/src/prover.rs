@@ -66,8 +66,10 @@ impl Proof {
 pub struct Prover;
 impl Prover {
     pub fn prove(w: &[FrElement], qap: &QuadraticArithmeticProgram, pk: &ProvingKey) -> Proof {
+        let w = Self::pad_witness(w, qap.num_of_total_inputs());
+
         let h_coefficients = qap
-            .calculate_h_coefficients(w)
+            .calculate_h_coefficients(&w)
             .iter()
             .map(|elem| elem.representative())
             .collect::<Vec<_>>();
@@ -124,6 +126,13 @@ impl Prover {
             .operate_with(&pk.delta_g1.operate_with_self((-(&r * &s)).representative()));
 
         Proof { pi1, pi2, pi3 }
+    }
+
+    fn pad_witness(w: &[FrElement], num_of_total_inputs: usize) -> Vec<FrElement> {
+        let pad = vec![FrElement::zero(); num_of_total_inputs - w.len()];
+        let mut extended_w = w.to_vec();
+        extended_w.extend_from_slice(&pad);
+        extended_w
     }
 }
 
