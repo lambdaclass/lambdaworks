@@ -75,7 +75,7 @@ cargo run --release --features=cli,instruments,parallel prove <compiled_program_
 For example:
 
 ```bash
-cargo run --release --features=cli,instruments,parallel prove cairo_programs/cairo0/fibonacci_5.json program_proof.proof
+cargo run --release --features=cli,instruments,parallel prove cairo_programs/cairo0/fibonacci_5.json cairo_programs/cairo0/fibonacci_5.proof
 ```
 
 
