@@ -82,11 +82,15 @@ where
         frame: &Frame<Self::Field>,
         _rap_challenges: &Self::RAPChallenges,
     ) -> Vec<FieldElement<Self::Field>> {
-        let first_row = frame.get_row(0);
-        let second_row = frame.get_row(1);
-        let third_row = frame.get_row(2);
+        let first_step = frame.get_evaluation_step(0);
+        let second_step = frame.get_evaluation_step(1);
+        let third_step = frame.get_evaluation_step(2);
 
-        vec![third_row[0].clone() - second_row[0].clone() - first_row[0].clone()]
+        let a0 = first_step.get_evaluation_element(0, 0);
+        let a1 = second_step.get_evaluation_element(0, 0);
+        let a2 = third_step.get_evaluation_element(0, 0);
+
+        vec![a2 - a1 - a0]
     }
 
     fn boundary_constraints(
