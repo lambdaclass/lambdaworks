@@ -20,7 +20,7 @@ pub struct TraceTable<F: IsFFTField> {
 }
 
 impl<F: IsFFTField> TraceTable<F> {
-    pub fn new(data: &[FieldElement<F>], n_columns: usize) -> Self {
+    pub fn new(data: Vec<FieldElement<F>>, n_columns: usize) -> Self {
         let table = Table::new(data, n_columns);
         Self { table }
     }
@@ -31,7 +31,7 @@ impl<F: IsFFTField> TraceTable<F> {
     }
 
     pub fn empty() -> Self {
-        Self::new(&Vec::new(), 0)
+        Self::new(Vec::new(), 0)
     }
 
     pub fn is_empty(&self) -> bool {
@@ -111,7 +111,7 @@ impl<F: IsFFTField> TraceTable<F> {
             i += n_cols;
         }
 
-        let table = Table::new(&data, self.n_cols() + n_cols);
+        let table = Table::new(data, self.n_cols() + n_cols);
         Self { table }
     }
 
@@ -148,6 +148,30 @@ impl<F: IsFFTField> TraceTable<F> {
             row[col_idx] = value.clone();
         }
     }
+}
+
+/// Given a slice of trace polynomials, an evaluation point `x`, the frame offsets
+/// corresponding to the computation of the transitions, and a primitive root,
+/// outputs the trace evaluations of each trace polynomial over the values used to
+/// compute a transition.
+/// Example: For a simple Fibonacci computation, if t(x) is the trace polynomial of
+/// the computation, this will output evaluations t(x), t(g * x), t(g^2 * z).
+pub fn get_trace_evaluations<F: IsFFTField>(
+    trace_polys: &[Polynomial<FieldElement<F>>],
+    x: &FieldElement<F>,
+    frame_offsets: &[usize],
+    primitive_root: &FieldElement<F>,
+) -> Vec<Vec<FieldElement<F>>> {
+    frame_offsets
+        .iter()
+        .map(|offset| x * primitive_root.pow(*offset))
+        .map(|eval_point| {
+            trace_polys
+                .iter()
+                .map(|poly| poly.evaluate(&eval_point))
+                .collect::<Vec<FieldElement<F>>>()
+        })
+        .collect()
 }
 
 #[cfg(test)]

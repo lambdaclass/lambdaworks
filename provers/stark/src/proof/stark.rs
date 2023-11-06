@@ -12,8 +12,8 @@ use lambdaworks_math::{
 use crate::{
     config::Commitment,
     domain::Domain,
-    frame::Frame,
     fri::fri_decommit::FriDecommitment,
+    table::Table,
     traits::AIR,
     transcript::StoneProverTranscript,
     verifier::{IsStarkVerifier, Verifier},
@@ -39,7 +39,7 @@ pub struct StarkProof<F: IsFFTField> {
     // [tⱼ]
     pub lde_trace_merkle_roots: Vec<Commitment>,
     // tⱼ(zgᵏ)
-    pub trace_ood_frame_evaluations: Frame<F>,
+    pub trace_ood_frame_evaluations: Table<F>,
     // Commitments to Hᵢ
     pub composition_poly_root: Commitment,
     // Hᵢ(z^N)
@@ -121,8 +121,8 @@ impl StoneCompatibleSerializer {
         proof: &StarkProof<Stark252PrimeField>,
         output: &mut Vec<u8>,
     ) {
-        for i in 0..proof.trace_ood_frame_evaluations.n_cols() {
-            for j in 0..proof.trace_ood_frame_evaluations.n_rows() {
+        for i in 0..proof.trace_ood_frame_evaluations.width {
+            for j in 0..proof.trace_ood_frame_evaluations.height {
                 output.extend_from_slice(
                     &proof.trace_ood_frame_evaluations.get_row(j)[i].serialize(),
                 );

@@ -15,7 +15,7 @@ pub struct Table<F: IsFFTField> {
 impl<F: IsFFTField> Table<F> {
     /// Crates a new Table instance from a one-dimensional array in row major order
     /// and the intended width of the table.
-    pub fn new(data: &[FieldElement<F>], width: usize) -> Self {
+    pub fn new(data: Vec<FieldElement<F>>, width: usize) -> Self {
         // Check if the intented width is 0, used for creating an empty table.
         if width == 0 {
             return Self {
@@ -26,7 +26,7 @@ impl<F: IsFFTField> Table<F> {
         }
 
         // Check that the one-dimensional data makes sense to be interpreted as a 2D one.
-        assert!(crate::debug::validate_2d_structure(data, width));
+        assert!(crate::debug::validate_2d_structure(&data, width));
         let height = data.len() / width;
 
         Self {
@@ -39,7 +39,7 @@ impl<F: IsFFTField> Table<F> {
     /// Creates a Table instance from a vector of the intended columns.
     pub fn from_columns(columns: &[Vec<FieldElement<F>>]) -> Self {
         if columns.is_empty() {
-            return Self::new(&Vec::new(), 0);
+            return Self::new(Vec::new(), 0);
         }
         let height = columns[0].len();
 
@@ -50,11 +50,11 @@ impl<F: IsFFTField> Table<F> {
         let mut data = Vec::with_capacity(width * height);
         for row_idx in 0..height {
             for column in columns {
-                data.push(column[row_idx].clone());
+                data.push(column[row_idx].to_owned());
             }
         }
 
-        Self::new(&data, width)
+        Self::new(data, width)
     }
 
     /// Returns a vector of vectors of field elements representing the table rows

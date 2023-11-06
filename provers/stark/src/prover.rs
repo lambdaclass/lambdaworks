@@ -19,12 +19,12 @@ use rayon::prelude::{IndexedParallelIterator, IntoParallelRefIterator, ParallelI
 use crate::debug::validate_trace;
 use crate::fri;
 use crate::proof::stark::DeepPolynomialOpenings;
+use crate::table::Table;
 use crate::transcript::IsStarkTranscript;
 
 use super::config::{BatchedMerkleTree, Commitment};
 use super::constraints::evaluator::ConstraintEvaluator;
 use super::domain::Domain;
-use super::frame::Frame;
 use super::fri::fri_decommit::FriDecommitment;
 use super::grinding;
 use super::proof::options::ProofOptions;
@@ -326,7 +326,7 @@ pub trait IsStarkProver {
         //
         // In the fibonacci example, the ood frame is simply the evaluations `[t(z), t(z * g), t(z * g^2)]`, where `t` is the trace
         // polynomial and `g` is the primitive root of unity used when interpolating `t`.
-        let trace_ood_evaluations = Frame::get_trace_evaluations(
+        let trace_ood_evaluations = crate::trace::get_trace_evaluations(
             &round_1_result.trace_polys,
             z,
             &air.context().transition_offsets,
@@ -853,7 +853,7 @@ pub trait IsStarkProver {
 
         info!("End proof generation");
 
-        let trace_ood_frame_evaluations = Frame::new(
+        let trace_ood_frame_evaluations = Table::new(
             round_3_result
                 .trace_ood_evaluations
                 .into_iter()

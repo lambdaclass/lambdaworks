@@ -633,7 +633,7 @@ mod test {
         let mut row = vec![Felt252::from(5); 36];
         row[35] = Felt252::zero();
         let data = row.repeat(8);
-        let table = Table::new(&data, 36);
+        let table = Table::new(data, 36);
 
         let mut main_trace = TraceTable::<Stark252PrimeField> { table };
 
