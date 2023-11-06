@@ -1,3 +1,5 @@
+use std::usize;
+
 use lambdaworks_math::field::{
     element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
     traits::IsField,
@@ -5,7 +7,13 @@ use lambdaworks_math::field::{
 
 type RescuePrimeConstants<F> = (Vec<FieldElement<F>>, Vec<Vec<FieldElement<F>>>);
 
-pub struct Parameters<F: IsField> {
+// A Rescue Prime Hash Family is fully determined by the tuple of primary parameters which are:
+// p - Prime Field
+// m - width of the hash field 
+// c_p - capacity 
+// s - security level (80 <= s <= 512)
+
+pub struct Parameters<F: IsField, const WIDTH: usize, const CAPACITY: usize, const SECURITY_LEVEL: usize> {
     pub m: usize,
     pub rate: usize,
     pub capacity: usize,
