@@ -33,7 +33,7 @@ impl<'a, F: IsFFTField> StepView<'a, F> {
 }
 
 impl<'t, F: IsFFTField> TraceTable<F> {
-    pub fn new(data: &[FieldElement<F>], n_columns: usize, step_size: usize) -> Self {
+    pub fn new(data: Vec<FieldElement<F>>, n_columns: usize, step_size: usize) -> Self {
         let table = Table::new(data, n_columns);
         Self { table, step_size }
     }
@@ -44,7 +44,7 @@ impl<'t, F: IsFFTField> TraceTable<F> {
     }
 
     pub fn empty(step_size: usize) -> Self {
-        Self::new(&Vec::new(), 0, step_size)
+        Self::new(Vec::new(), 0, step_size)
     }
 
     pub fn is_empty(&self) -> bool {

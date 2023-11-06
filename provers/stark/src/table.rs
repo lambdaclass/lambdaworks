@@ -12,7 +12,7 @@ pub struct Table<F: IsFFTField> {
     pub height: usize,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TableView<'t, F: IsFFTField> {
     pub data: &'t [FieldElement<F>],
     pub table_row_offset: usize,
@@ -21,6 +21,20 @@ pub struct TableView<'t, F: IsFFTField> {
 }
 
 impl<'t, F: IsFFTField> TableView<'t, F> {
+    pub fn new(
+        data: &'t [FieldElement<F>],
+        table_row_offset: usize,
+        width: usize,
+        height: usize,
+    ) -> Self {
+        Self {
+            data,
+            width,
+            table_row_offset,
+            height,
+        }
+    }
+
     pub fn get(&self, row: usize, col: usize) -> &FieldElement<F> {
         let idx = row * self.width + col;
         &self.data[idx]
@@ -143,11 +157,11 @@ mod test {
     #[test]
     fn get_rows_slice_works() {
         let data: Vec<Felt252> = (0..=11).map(Felt252::from).collect();
-        let table = Table::new(&data, 3);
+        let table = Table::new(data, 3);
 
-        let slice = table.get_rows_slice(1, 2);
-        let expected_slice: Vec<Felt252> = (3..=8).map(Felt252::from).collect();
+        let slice = table.get_table_view(1, 2);
+        let expected_data: Vec<Felt252> = (3..=8).map(Felt252::from).collect();
 
-        assert_eq!(slice, expected_slice);
+        assert_eq!(slice.data, expected_data);
     }
 }

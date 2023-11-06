@@ -1,9 +1,6 @@
 use super::trace::TraceTable;
-use crate::trace::StepView;
-use lambdaworks_math::{
-    field::{element::FieldElement, traits::IsFFTField},
-    polynomial::Polynomial,
-};
+use crate::{table::Table, trace::StepView};
+use lambdaworks_math::field::traits::IsFFTField;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Frame<'t, F: IsFFTField> {
@@ -56,8 +53,10 @@ impl<'t, F: IsFFTField> Frame<'t, F> {
     }
 }
 
-impl<F: IsFFTField> From<&Table<F>> for Frame<F> {
+impl<'t, F: IsFFTField> From<&'t Table<F>> for Frame<'t, F> {
     fn from(value: &Table<F>) -> Self {
+        let data = value.data;
+
         Self::new(value.data.clone(), value.width)
     }
 }
