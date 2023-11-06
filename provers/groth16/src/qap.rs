@@ -1,15 +1,16 @@
-use crate::common::*;
 use lambdaworks_math::{fft::polynomial::FFTPoly, polynomial::Polynomial};
 
+use crate::common::*;
+
 #[derive(Debug)]
-pub struct QAP {
+pub struct QuadraticArithmeticProgram {
     pub num_of_public_inputs: usize,
     pub l: Vec<Polynomial<FrElement>>,
     pub r: Vec<Polynomial<FrElement>>,
     pub o: Vec<Polynomial<FrElement>>,
 }
 
-impl QAP {
+impl QuadraticArithmeticProgram {
     pub fn from_variable_matrices(
         num_of_public_inputs: usize,
         l: &[Vec<FrElement>],
@@ -48,8 +49,8 @@ impl QAP {
         // TODO: Change to a vector of offsetted evaluations of x^N-1
         let mut t = (Polynomial::new_monomial(FrElement::one(), self.num_of_gates())
             - FrElement::one())
-        .evaluate_offset_fft(1, Some(degree), offset)
-        .unwrap();
+            .evaluate_offset_fft(1, Some(degree), offset)
+            .unwrap();
         FrElement::inplace_batch_inverse(&mut t).unwrap();
 
         let h_evaluated = l

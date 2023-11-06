@@ -1,4 +1,5 @@
-use crate::{common::*, QAP};
+use crate::common::*;
+use crate::qap::QuadraticArithmeticProgram;
 
 /*
 Represents x^3 + x + 5 = 35, based on https://vitalik.ca/general/2016/12/10/qap.html
@@ -7,7 +8,7 @@ Represents x^3 + x + 5 = 35, based on https://vitalik.ca/general/2016/12/10/qap.
     sym_2 = y + x
     ~out = sym_2 + 5
 */
-pub fn qap_example_circuit_1() -> QAP {
+pub fn qap_example_circuit_1() -> QuadraticArithmeticProgram {
     let num_of_public_inputs = 1;
     let [l, r, o] = [
         [
@@ -35,6 +36,6 @@ pub fn qap_example_circuit_1() -> QAP {
             ["0", "0", "1", "0"],
         ],
     ]
-    .map(|matrix| matrix.map(|row| row.map(FrElement::from_hex_unchecked).to_vec()));
-    QAP::from_variable_matrices(num_of_public_inputs, &l, &r, &o)
+        .map(|matrix| matrix.map(|row| row.map(FrElement::from_hex_unchecked).to_vec()));
+    QuadraticArithmeticProgram::from_variable_matrices(num_of_public_inputs, &l, &r, &o)
 }
