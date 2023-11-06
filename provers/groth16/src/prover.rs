@@ -131,8 +131,6 @@ impl Prover {
 mod tests {
     use lambdaworks_math::elliptic_curve::traits::IsEllipticCurve;
 
-    use crate::common::*;
-
     use super::*;
 
     #[test]
