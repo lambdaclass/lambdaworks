@@ -15,7 +15,6 @@ fn test_groth16_1() {
         .map(FrElement::from_hex_unchecked)
         .to_vec();
 
-    let prover = Prover::default();
     let serialized_proof = Prover::prove(&w, &qap, &pk).serialize();
     let deserialized_proof = Proof::deserialize(&serialized_proof).unwrap();
 

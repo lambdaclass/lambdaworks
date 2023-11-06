@@ -13,7 +13,7 @@ pub fn verify(vk: &VerifyingKey, proof: &Proof, pub_inputs: &[FrElement]) -> boo
             .collect::<Vec<_>>(),
         &vk.verifier_k_tau_g1,
     )
-        .unwrap();
+    .unwrap();
 
     Pairing::compute(&proof.pi3, &vk.delta_g2)
         * vk.alpha_g1_times_beta_g2.clone()

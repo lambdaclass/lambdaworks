@@ -49,8 +49,8 @@ impl QuadraticArithmeticProgram {
         // TODO: Change to a vector of offsetted evaluations of x^N-1
         let mut t = (Polynomial::new_monomial(FrElement::one(), self.num_of_gates())
             - FrElement::one())
-            .evaluate_offset_fft(1, Some(degree), offset)
-            .unwrap();
+        .evaluate_offset_fft(1, Some(degree), offset)
+        .unwrap();
         FrElement::inplace_batch_inverse(&mut t).unwrap();
 
         let h_evaluated = l

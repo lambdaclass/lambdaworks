@@ -36,6 +36,6 @@ pub fn qap_example_circuit_1() -> QuadraticArithmeticProgram {
             ["0", "0", "1", "0"],
         ],
     ]
-        .map(|matrix| matrix.map(|row| row.map(FrElement::from_hex_unchecked).to_vec()));
+    .map(|matrix| matrix.map(|row| row.map(FrElement::from_hex_unchecked).to_vec()));
     QuadraticArithmeticProgram::from_variable_matrices(num_of_public_inputs, &l, &r, &o)
 }

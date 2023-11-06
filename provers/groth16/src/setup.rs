@@ -1,3 +1,5 @@
+use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::compression::G1Point;
+use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::default_types::FrElement;
 use lambdaworks_math::{
     cyclic_group::IsGroup,
     elliptic_curve::{
@@ -5,10 +7,8 @@ use lambdaworks_math::{
         traits::{IsEllipticCurve, IsPairing},
     },
 };
-use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::compression::G1Point;
-use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::default_types::FrElement;
 
-use crate::common::{Curve, G2Point, Pairing, PairingOutput, sample_fr_elem, TwistedCurve};
+use crate::common::{sample_fr_elem, Curve, G2Point, Pairing, PairingOutput, TwistedCurve};
 use crate::qap::QuadraticArithmeticProgram;
 
 pub struct VerifyingKey {
@@ -114,8 +114,8 @@ pub fn setup(qap: &QuadraticArithmeticProgram) -> (ProvingKey, VerifyingKey) {
                     Some(&delta_inv * (&tw.tau.pow(qap.num_of_gates()) - FrElement::one())),
                     |prev| Some(prev * &tw.tau),
                 )
-                    .take(qap.num_of_gates())
-                    .collect::<Vec<_>>(),
+                .take(qap.num_of_gates())
+                .collect::<Vec<_>>(),
                 &g1,
             ),
         },

@@ -1,12 +1,8 @@
 use std::mem::size_of;
 
-use serde::Serialize;
-
-use lambdaworks_crypto::commitments::traits::IsCommitmentScheme;
-use lambdaworks_math::{cyclic_group::IsGroup, msm::pippenger::msm};
 use lambdaworks_math::errors::DeserializationError;
-use lambdaworks_math::field::traits::IsField;
-use lambdaworks_math::traits::{ByteConversion, Deserializable, Serializable};
+use lambdaworks_math::traits::{Deserializable, Serializable};
+use lambdaworks_math::{cyclic_group::IsGroup, msm::pippenger::msm};
 
 use crate::common::*;
 use crate::qap::QuadraticArithmeticProgram;
@@ -26,17 +22,20 @@ impl Serializable for Proof {
             serialize_commitment(&self.pi2),
             serialize_commitment(&self.pi3),
         ]
-            .iter()
-            .for_each(|serialized| {
-                bytes.extend_from_slice(&(serialized.len() as u32).to_be_bytes());
-                bytes.extend_from_slice(serialized);
-            });
+        .iter()
+        .for_each(|serialized| {
+            bytes.extend_from_slice(&(serialized.len() as u32).to_be_bytes());
+            bytes.extend_from_slice(serialized);
+        });
         bytes
     }
 }
 
 impl Deserializable for Proof {
-    fn deserialize(bytes: &[u8]) -> Result<Self, DeserializationError> where Self: Sized {
+    fn deserialize(bytes: &[u8]) -> Result<Self, DeserializationError>
+    where
+        Self: Sized,
+    {
         let (offset, pi1) = deserialize_commitment::<G1Point>(bytes, 0)?;
         let (offset, pi2) = deserialize_commitment::<G2Point>(bytes, offset)?;
         let (_, pi3) = deserialize_commitment::<G1Point>(bytes, offset)?;
@@ -107,14 +106,14 @@ impl Prover {
             &h_coefficients,
             &pk.z_powers_of_tau_g1[..h_coefficients.len()],
         )
-            .unwrap();
+        .unwrap();
 
         // [ƍ^{-1} * (β*l(τ) + α*r(τ) + o(τ))]_1
         let k_tau_assigned_prover_g1 = msm(
             &w[qap.num_of_public_inputs..],
             &pk.prover_k_tau_g1[..qap.num_of_private_inputs()],
         )
-            .unwrap();
+        .unwrap();
 
         // [π_2]_1
         let pi2_g1 = msm(&w, &pk.r_tau_g1)
