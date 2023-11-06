@@ -1,13 +1,11 @@
-
 use lambdaworks_math::field::{
-        element::FieldElement,
-        fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
-    };
-use winterfell::{
-    Air, AirContext, Assertion, EvaluationFrame, ProofOptions, TraceInfo, TraceTable, TransitionConstraintDegree,
+    element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
 };
 use winterfell::math::FieldElement as IsWinterfellFieldElement;
-
+use winterfell::{
+    Air, AirContext, Assertion, EvaluationFrame, ProofOptions, TraceInfo, TraceTable,
+    TransitionConstraintDegree,
+};
 
 pub const TRACE_WIDTH: usize = 2;
 
@@ -69,10 +67,8 @@ impl Air for FibAir2Terms {
         ]
     }
 }
- 
-pub fn build_trace(
-    sequence_length: usize,
-) -> TraceTable<FieldElement<Stark252PrimeField>> {
+
+pub fn build_trace(sequence_length: usize) -> TraceTable<FieldElement<Stark252PrimeField>> {
     assert!(
         sequence_length.is_power_of_two(),
         "sequence length must be a power of 2"
@@ -89,6 +85,6 @@ pub fn build_trace(
             state[1] += state[0];
         },
     );
-    
+
     trace
 }

@@ -738,7 +738,11 @@ mod test {
         trace_cols[FRAME_OP1_ADDR][1] = Felt252::from(11u64);
         let mut trace = TraceTable::from_columns(&trace_cols);
 
-        let memory_holes = vec![Felt252::from(4u64), Felt252::from(7u64), Felt252::from(8u64)];
+        let memory_holes = vec![
+            Felt252::from(4u64),
+            Felt252::from(7u64),
+            Felt252::from(8u64),
+        ];
         fill_memory_holes(&mut trace, &memory_holes);
 
         let extra_addr = &trace.columns()[EXTRA_ADDR];

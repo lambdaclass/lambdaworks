@@ -3,16 +3,12 @@ use lambdaworks_math::field::{
 };
 use rand::seq::SliceRandom;
 use rand::thread_rng;
+use winter_utils::{collections::Vec, uninit_vector};
 use winterfell::math::FieldElement as IsWinterfellFieldElement;
+use winterfell::{math::StarkField, matrix::ColMatrix, Trace, TraceLayout};
 use winterfell::{
     Air, AirContext, Assertion, EvaluationFrame, ProofOptions, TraceInfo, TraceTable,
     TransitionConstraintDegree,
-};
-use winter_utils::{collections::Vec, uninit_vector};
-use winterfell::{
-    math::{StarkField},
-    matrix::ColMatrix,
-    Trace, TraceLayout,
 };
 
 use crate::winterfell_adapter::adapter::FromColumns;
@@ -40,7 +36,11 @@ impl<B: StarkField> RapTraceTable<B> {
         let trace_length = columns[0].len();
 
         for column in columns.iter().skip(1) {
-            assert_eq!(column.len(), trace_length, "all columns traces must have the same length");
+            assert_eq!(
+                column.len(),
+                trace_length,
+                "all columns traces must have the same length"
+            );
         }
 
         Self {
@@ -123,16 +123,21 @@ impl<B: StarkField> Trace for RapTraceTable<B> {
         let mut rap_column = vec![E::ZERO; self.length()];
         let gamma = rand_elements[0];
 
-        rap_column[0] = (<B as Into<E>>::into(self.get(0, 0)) + gamma) / (<B as Into<E>>::into(self.get(2, 0)) + gamma);
+        rap_column[0] = (<B as Into<E>>::into(self.get(0, 0)) + gamma)
+            / (<B as Into<E>>::into(self.get(2, 0)) + gamma);
         for step in 1..self.length() {
-            rap_column[step] = (<B as Into<E>>::into(self.get(0, step)) + gamma) / (<B as Into<E>>::into(self.get(2, step)) + gamma) * rap_column[step - 1];
+            rap_column[step] = (<B as Into<E>>::into(self.get(0, step)) + gamma)
+                / (<B as Into<E>>::into(self.get(2, step)) + gamma)
+                * rap_column[step - 1];
         }
 
         Some(ColMatrix::new(vec![rap_column]))
     }
 }
 
-impl FromColumns<FieldElement<Stark252PrimeField>> for RapTraceTable<FieldElement<Stark252PrimeField>> {
+impl FromColumns<FieldElement<Stark252PrimeField>>
+    for RapTraceTable<FieldElement<Stark252PrimeField>>
+{
     fn from_cols(columns: Vec<Vec<FieldElement<Stark252PrimeField>>>) -> Self {
         RapTraceTable::init(columns)
     }
@@ -155,16 +160,9 @@ impl Air for FibonacciRAP {
             TransitionConstraintDegree::new(1),
             TransitionConstraintDegree::new(1),
         ];
-        let aux_degrees = vec![
-            TransitionConstraintDegree::new(2),
-        ];
+        let aux_degrees = vec![TransitionConstraintDegree::new(2)];
         FibonacciRAP {
-            context: AirContext::new_multi_segment(trace_info,
-                degrees,
-                aux_degrees,
-                3,
-                1,
-                options),
+            context: AirContext::new_multi_segment(trace_info, degrees, aux_degrees, 3, 1, options),
             result: pub_inputs,
         }
     }
@@ -188,15 +186,16 @@ impl Air for FibonacciRAP {
     }
 
     fn evaluate_aux_transition<F, E>(
-            &self,
-            main_frame: &EvaluationFrame<F>,
-            aux_frame: &EvaluationFrame<E>,
-            periodic_values: &[F],
-            aux_rand_elements: &winterfell::AuxTraceRandElements<E>,
-            result: &mut [E],
-        ) where
-            F: IsWinterfellFieldElement<BaseField = Self::BaseField>,
-            E: IsWinterfellFieldElement<BaseField = Self::BaseField> + winterfell::math::ExtensionOf<F>, {
+        &self,
+        main_frame: &EvaluationFrame<F>,
+        aux_frame: &EvaluationFrame<E>,
+        periodic_values: &[F],
+        aux_rand_elements: &winterfell::AuxTraceRandElements<E>,
+        result: &mut [E],
+    ) where
+        F: IsWinterfellFieldElement<BaseField = Self::BaseField>,
+        E: IsWinterfellFieldElement<BaseField = Self::BaseField> + winterfell::math::ExtensionOf<F>,
+    {
         let gamma = aux_rand_elements.get_segment_elements(0)[0];
         let curr_aux = aux_frame.current();
         let next_aux = aux_frame.next();
@@ -204,7 +203,8 @@ impl Air for FibonacciRAP {
 
         // curr_aux[0] * ((next_main[0] + gamma) / (next_main[2] + gamma)) = next_aux[0]
         // curr_aux[0] * (next_main[0] + gamma) - next_aux[0] * (next_main[2] + gamma) == 0
-        result[0] = curr_aux[0] * (<F as Into<E>>::into(next_main[0]) + gamma) - next_aux[0] * (<F as Into<E>>::into(next_main[2]) + gamma);
+        result[0] = curr_aux[0] * (<F as Into<E>>::into(next_main[0]) + gamma)
+            - next_aux[0] * (<F as Into<E>>::into(next_main[2]) + gamma);
     }
 
     fn get_assertions(&self) -> Vec<Assertion<Self::BaseField>> {
@@ -217,13 +217,11 @@ impl Air for FibonacciRAP {
     }
 
     fn get_aux_assertions<E: IsWinterfellFieldElement<BaseField = Self::BaseField>>(
-            &self,
-            aux_rand_elements: &winterfell::AuxTraceRandElements<E>,
-        ) -> Vec<Assertion<E>> {
+        &self,
+        aux_rand_elements: &winterfell::AuxTraceRandElements<E>,
+    ) -> Vec<Assertion<E>> {
         let last_step = self.trace_length() - 1;
-        vec![
-            Assertion::single(3, last_step, Self::BaseField::ONE.into())
-        ]
+        vec![Assertion::single(3, last_step, Self::BaseField::ONE.into())]
     }
 }
 

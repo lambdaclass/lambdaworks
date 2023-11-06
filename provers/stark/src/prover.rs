@@ -926,7 +926,8 @@ mod tests {
             a0: Felt252::one(),
             a1: Felt252::one(),
         };
-        let trace = simple_fibonacci::fibonacci_trace([Felt252::from(1u64), Felt252::from(1u64)], 8);
+        let trace =
+            simple_fibonacci::fibonacci_trace([Felt252::from(1u64), Felt252::from(1u64)], 8);
         let trace_length = trace.n_rows();
         let coset_offset = 3;
         let blowup_factor: usize = 2;
@@ -968,7 +969,8 @@ mod tests {
 
     #[test]
     fn test_evaluate_polynomial_on_lde_domain_on_trace_polys() {
-        let trace = simple_fibonacci::fibonacci_trace([Felt252::from(1u64), Felt252::from(1u64)], 8);
+        let trace =
+            simple_fibonacci::fibonacci_trace([Felt252::from(1u64), Felt252::from(1u64)], 8);
         let trace_length = trace.n_rows();
         let trace_polys = trace.compute_trace_polys();
         let coset_offset = Felt252::from(3u64);

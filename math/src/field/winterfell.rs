@@ -1,16 +1,31 @@
-use core::{ops::{DivAssign, MulAssign, SubAssign, Shr, Shl, ShrAssign}, slice, mem};
+use super::fields::{
+    fft_friendly::stark_252_prime_field::MontgomeryConfigStark252PrimeField,
+    montgomery_backed_prime_fields::IsModulus,
+};
+use crate::{
+    field::{
+        element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+    },
+    traits::ByteConversion,
+    unsigned_integer::element::U256,
+};
+use core::{
+    mem,
+    ops::{DivAssign, MulAssign, Shl, Shr, ShrAssign, SubAssign},
+    slice,
+};
+use winter_utils::{AsBytes, DeserializationError, Randomizable};
 use winterfell::math::ExtensibleField;
-use winter_utils::{Randomizable, AsBytes, DeserializationError};
-use winterfell::{math::{FieldElement as IsWinterfellFieldElement, StarkField}, Deserializable, Serializable};
-use crate::{field::{element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField}, unsigned_integer::element::U256, traits::ByteConversion};
-use super::fields::{fft_friendly::stark_252_prime_field::MontgomeryConfigStark252PrimeField, montgomery_backed_prime_fields::IsModulus};
-
+use winterfell::{
+    math::{FieldElement as IsWinterfellFieldElement, StarkField},
+    Deserializable, Serializable,
+};
 
 impl IsWinterfellFieldElement for FieldElement<Stark252PrimeField> {
     type PositiveInteger = U256;
     type BaseField = Self;
     const EXTENSION_DEGREE: usize = 1;
-    const ELEMENT_BYTES: usize =  32;
+    const ELEMENT_BYTES: usize = 32;
     const IS_CANONICAL: bool = false; // Check if related to montgomery
     const ZERO: Self = Self::from_hex_unchecked("0");
     const ONE: Self = Self::from_hex_unchecked("1");
@@ -63,7 +78,6 @@ impl IsWinterfellFieldElement for FieldElement<Stark252PrimeField> {
 
         Ok(slice::from_raw_parts(p as *const Self, len))
     }
-
 }
 
 impl From<u32> for U256 {
@@ -100,7 +114,8 @@ impl ShrAssign for U256 {
 
 #[cfg(feature = "std")]
 impl StarkField for FieldElement<Stark252PrimeField> {
-    const MODULUS: Self::PositiveInteger = <MontgomeryConfigStark252PrimeField as IsModulus<U256>>::MODULUS;
+    const MODULUS: Self::PositiveInteger =
+        <MontgomeryConfigStark252PrimeField as IsModulus<U256>>::MODULUS;
 
     const MODULUS_BITS: u32 = 252;
 
@@ -108,9 +123,8 @@ impl StarkField for FieldElement<Stark252PrimeField> {
 
     const TWO_ADICITY: u32 = 192;
 
-    const TWO_ADIC_ROOT_OF_UNITY: Self = Self::from_hex_unchecked(
-        "5282db87529cfa3f0464519c8b0fa5ad187148e11a61616070024f42f8ef94",
-    );
+    const TWO_ADIC_ROOT_OF_UNITY: Self =
+        Self::from_hex_unchecked("5282db87529cfa3f0464519c8b0fa5ad187148e11a61616070024f42f8ef94");
 
     fn get_modulus_le_bytes() -> Vec<u8> {
         Self::MODULUS.to_bytes_le()
@@ -122,7 +136,9 @@ impl StarkField for FieldElement<Stark252PrimeField> {
 }
 
 impl Deserializable for FieldElement<Stark252PrimeField> {
-    fn read_from<R: winter_utils::ByteReader>(_source: &mut R) -> Result<Self, winter_utils::DeserializationError> {
+    fn read_from<R: winter_utils::ByteReader>(
+        _source: &mut R,
+    ) -> Result<Self, winter_utils::DeserializationError> {
         todo!()
     }
 }
@@ -132,7 +148,6 @@ impl Serializable for FieldElement<Stark252PrimeField> {
         todo!()
     }
 }
-
 
 impl Randomizable for FieldElement<Stark252PrimeField> {
     const VALUE_SIZE: usize = 8;

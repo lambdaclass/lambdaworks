@@ -7,7 +7,10 @@ use crate::{
 use lambdaworks_math::field::{
     element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
 };
-use winterfell::{Air, EvaluationFrame, FieldExtension, ProofOptions, TraceInfo, TraceTable, Trace, AuxTraceRandElements, TraceLayout};
+use winterfell::{
+    Air, AuxTraceRandElements, EvaluationFrame, FieldExtension, ProofOptions, Trace, TraceInfo,
+    TraceLayout, TraceTable,
+};
 
 #[derive(Clone)]
 pub struct AirAdapterPublicInputs<A>
@@ -27,7 +30,9 @@ pub trait FromColumns<A> {
     fn from_cols(columns: Vec<Vec<A>>) -> Self;
 }
 
-impl FromColumns<FieldElement<Stark252PrimeField>> for TraceTable<FieldElement<Stark252PrimeField>> {
+impl FromColumns<FieldElement<Stark252PrimeField>>
+    for TraceTable<FieldElement<Stark252PrimeField>>
+{
     fn from_cols(columns: Vec<Vec<FieldElement<Stark252PrimeField>>>) -> Self {
         TraceTable::init(columns)
     }
@@ -38,19 +43,23 @@ pub struct AirAdapter<A, T>
 where
     A: Air<BaseField = FieldElement<Stark252PrimeField>>,
     A::PublicInputs: Clone,
-    T: Trace<BaseField=FieldElement<Stark252PrimeField>> + Clone + FromColumns<FieldElement<Stark252PrimeField>>,
+    T: Trace<BaseField = FieldElement<Stark252PrimeField>>
+        + Clone
+        + FromColumns<FieldElement<Stark252PrimeField>>,
 {
     winterfell_air: A,
     public_inputs: AirAdapterPublicInputs<A>,
     air_context: crate::context::AirContext,
-    phantom: PhantomData<T>
+    phantom: PhantomData<T>,
 }
 
 impl<A, T> AirAdapter<A, T>
 where
     A: Air<BaseField = FieldElement<Stark252PrimeField>> + Clone,
     A::PublicInputs: Clone,
-    T: Trace<BaseField=FieldElement<Stark252PrimeField>> + Clone + FromColumns<FieldElement<Stark252PrimeField>>,
+    T: Trace<BaseField = FieldElement<Stark252PrimeField>>
+        + Clone
+        + FromColumns<FieldElement<Stark252PrimeField>>,
 {
     pub fn convert_winterfell_trace_table(
         trace: TraceTable<FieldElement<Stark252PrimeField>>,
@@ -68,7 +77,9 @@ impl<A, T> AIR for AirAdapter<A, T>
 where
     A: Air<BaseField = FieldElement<Stark252PrimeField>> + Clone,
     A::PublicInputs: Clone,
-    T: Trace<BaseField=FieldElement<Stark252PrimeField>> + Clone + FromColumns<FieldElement<Stark252PrimeField>>,
+    T: Trace<BaseField = FieldElement<Stark252PrimeField>>
+        + Clone
+        + FromColumns<FieldElement<Stark252PrimeField>>,
 {
     type Field = Stark252PrimeField;
     type RAPChallenges = Vec<FieldElement<Stark252PrimeField>>;
@@ -109,7 +120,7 @@ where
             winterfell_air,
             public_inputs: pub_inputs.clone(),
             air_context: lambda_context,
-            phantom: PhantomData
+            phantom: PhantomData,
         }
     }
 
@@ -119,7 +130,9 @@ where
         rap_challenges: &Self::RAPChallenges,
     ) -> crate::trace::TraceTable<Self::Field> {
         // We only support one-stage RAP.
-        if let Some(winter_trace) = T::from_cols(main_trace.columns()).build_aux_segment(&[], rap_challenges) {
+        if let Some(winter_trace) =
+            T::from_cols(main_trace.columns()).build_aux_segment(&[], rap_challenges)
+        {
             let mut columns = Vec::new();
             for i in 0..winter_trace.num_cols() {
                 columns.push(winter_trace.get_column(i).to_owned());
@@ -168,12 +181,21 @@ where
 
         let main_frame = EvaluationFrame::from_rows(
             frame.get_row(0)[..num_main_columns].to_vec(),
-            frame.get_row(1)[..num_main_columns].to_vec()
+            frame.get_row(1)[..num_main_columns].to_vec(),
         );
 
-        let mut main_result = vec![FieldElement::zero(); self.winterfell_air.context().num_main_transition_constraints()];
+        let mut main_result = vec![
+            FieldElement::zero();
+            self.winterfell_air
+                .context()
+                .num_main_transition_constraints()
+        ];
         self.winterfell_air
-            .evaluate_transition::<FieldElement<Stark252PrimeField>>(&main_frame, &[], &mut main_result); // Periodic values not supported
+            .evaluate_transition::<FieldElement<Stark252PrimeField>>(
+                &main_frame,
+                &[],
+                &mut main_result,
+            ); // Periodic values not supported
 
         if self.winterfell_air.trace_layout().num_aux_segments() == 1 {
             let mut rand_elements = AuxTraceRandElements::new();
@@ -181,16 +203,21 @@ where
 
             let aux_frame = EvaluationFrame::from_rows(
                 frame.get_row(0)[num_main_columns..].to_vec(),
-                frame.get_row(1)[num_main_columns..].to_vec()
+                frame.get_row(1)[num_main_columns..].to_vec(),
             );
-            
-            let mut aux_result = vec![FieldElement::zero(); self.winterfell_air.context().num_aux_transition_constraints()];
+
+            let mut aux_result = vec![
+                FieldElement::zero();
+                self.winterfell_air
+                    .context()
+                    .num_aux_transition_constraints()
+            ];
             self.winterfell_air.evaluate_aux_transition(
                 &main_frame,
                 &aux_frame,
                 &[],
                 &rand_elements,
-                &mut aux_result
+                &mut aux_result,
             );
 
             main_result.extend_from_slice(&aux_result);
@@ -248,20 +275,25 @@ mod tests {
         prover::{IsStarkProver, Prover},
         transcript::StoneProverTranscript,
         verifier::{IsStarkVerifier, Verifier},
-        winterfell_adapter::examples::{fibonacci_2_terms::{FibAir2Terms, self}, fibonacci_rap::{FibonacciRAP, self, RapTraceTable}},
+        winterfell_adapter::examples::{
+            fibonacci_2_terms::{self, FibAir2Terms},
+            fibonacci_rap::{self, FibonacciRAP, RapTraceTable},
+        },
     };
 
     #[test]
     fn prove_and_verify_a_winterfell_fibonacci_2_terms_air() {
         let lambda_proof_options = ProofOptions::default_test_options();
-        let trace = AirAdapter::<FibAir2Terms, TraceTable<_>>::convert_winterfell_trace_table(fibonacci_2_terms::build_trace(16));
+        let trace = AirAdapter::<FibAir2Terms, TraceTable<_>>::convert_winterfell_trace_table(
+            fibonacci_2_terms::build_trace(16),
+        );
         let pub_inputs = AirAdapterPublicInputs {
             winterfell_public_inputs: trace.columns()[1][7],
             transition_degrees: vec![1, 1],
             transition_exemptions: vec![1, 1],
             transition_offsets: vec![0, 1],
             composition_poly_degree_bound: 8,
-            trace_info: TraceInfo::new(2, 8)
+            trace_info: TraceInfo::new(2, 8),
         };
 
         let proof = Prover::prove::<AirAdapter<FibAir2Terms, TraceTable<_>>>(
@@ -282,17 +314,19 @@ mod tests {
     #[test]
     fn prove_and_verify_a_winterfell_fibonacci_rap_air() {
         let lambda_proof_options = ProofOptions::default_test_options();
-        let trace = AirAdapter::<FibonacciRAP, RapTraceTable<_>>::convert_winterfell_trace_table(fibonacci_rap::build_trace(16));
+        let trace = AirAdapter::<FibonacciRAP, RapTraceTable<_>>::convert_winterfell_trace_table(
+            fibonacci_rap::build_trace(16),
+        );
         let trace_layout = TraceLayout::new(3, [1], [1]);
         let trace_info = TraceInfo::new_multi_segment(trace_layout, 16, vec![]);
-        let fibonacci_result =  trace.columns()[1][15];
+        let fibonacci_result = trace.columns()[1][15];
         let pub_inputs = AirAdapterPublicInputs {
             winterfell_public_inputs: fibonacci_result,
             transition_degrees: vec![1, 1, 2],
             transition_exemptions: vec![1, 1, 1],
             transition_offsets: vec![0, 1],
             composition_poly_degree_bound: 32,
-            trace_info
+            trace_info,
         };
 
         let proof = Prover::prove::<AirAdapter<FibonacciRAP, RapTraceTable<_>>>(
@@ -302,11 +336,13 @@ mod tests {
             StoneProverTranscript::new(&[]),
         )
         .unwrap();
-        assert!(Verifier::verify::<AirAdapter<FibonacciRAP, RapTraceTable<_>>>(
-            &proof,
-            &pub_inputs,
-            &lambda_proof_options,
-            StoneProverTranscript::new(&[]),
-        ));
+        assert!(
+            Verifier::verify::<AirAdapter<FibonacciRAP, RapTraceTable<_>>>(
+                &proof,
+                &pub_inputs,
+                &lambda_proof_options,
+                StoneProverTranscript::new(&[]),
+            )
+        );
     }
 }
