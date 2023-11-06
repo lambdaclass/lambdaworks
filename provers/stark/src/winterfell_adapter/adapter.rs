@@ -269,6 +269,8 @@ where
 
 #[cfg(test)]
 mod tests {
+    use winterfell::TraceLayout;
+
     use super::*;
     use crate::{
         proof::options::ProofOptions,
