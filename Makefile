@@ -22,6 +22,8 @@ test: $(COMPILED_CAIRO0_PROGRAMS)
 
 clippy:
 	cargo clippy --workspace --all-targets -- -D warnings
+	cargo clippy --workspace --all-targets --features wasm -- -D warnings
+	cargo clippy --workspace --all-targets --features cli -- -D warnings
 	cargo clippy --tests
 
 clippy-cuda:
@@ -89,3 +91,8 @@ run-cuda-fuzzer:
 		cd fuzz/cuda_fuzz
 		cargo hfuzz run $(CUDAFUZZER)
 
+build_wasm:
+	cd provers/cairo && wasm-pack build --release --target=web -- --features wasm
+
+test_wasm_with_firefox:
+	cd provers/cairo && wasm-pack test --release --firefox --headless -- --features wasm
