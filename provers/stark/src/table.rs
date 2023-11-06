@@ -30,7 +30,7 @@ impl<F: IsFFTField> Table<F> {
         let height = data.len() / width;
 
         Self {
-            data: data,
+            data,
             width,
             height,
         }
