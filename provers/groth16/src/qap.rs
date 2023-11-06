@@ -24,9 +24,9 @@ impl QuadraticArithmeticProgram {
 
         let pad = Self::get_pad(l[0].len(), num_of_total_inputs);
 
-        let l = Self::pad_column(l, &pad);
-        let r = Self::pad_column(r, &pad);
-        let o = Self::pad_column(o, &pad);
+        let l = Self::pad_rows(l, &pad);
+        let r = Self::pad_rows(r, &pad);
+        let o = Self::pad_rows(o, &pad);
         Self {
             num_of_public_inputs,
             l: Self::build_variable_polynomials(&l),
@@ -85,7 +85,7 @@ impl QuadraticArithmeticProgram {
         ]
     }
 
-    fn pad_column(column: &[Vec<FrElement>], pad: &[Vec<FrElement>]) -> Vec<Vec<FrElement>> {
+    fn pad_rows(column: &[Vec<FrElement>], pad: &[Vec<FrElement>]) -> Vec<Vec<FrElement>> {
         let mut col_as_vec = column.to_vec();
         col_as_vec.extend_from_slice(&pad);
         col_as_vec
