@@ -1,0 +1,12 @@
+[package]
+name = "winterfell_adapter"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+lambdaworks-math = { path = "../math" }
+stark-platinum-prover = { path = "../provers/stark" }
+winterfell = { git = "https://github.com/facebook/winterfell" }
+winter-utils = { git = "https://github.com/facebook/winterfell" }
+rand = "0.8.5"
