@@ -23,11 +23,12 @@ impl QuadraticArithmeticProgram {
         assert!(num_of_total_inputs > 0);
         assert!(num_of_public_inputs <= num_of_total_inputs);
 
-        let pad = Self::get_pad(l[0].len(), num_of_total_inputs);
+        let num_of_gates = l[0].len();
+        let pad_zeroes = num_of_gates.next_power_of_two() - num_of_gates;
+        let l = Self::apply_padding(l, pad_zeroes);
+        let r = Self::apply_padding(r, pad_zeroes);
+        let o = Self::apply_padding(o, pad_zeroes);
 
-        let l = Self::pad_rows(l, &pad);
-        let r = Self::pad_rows(r, &pad);
-        let o = Self::pad_rows(o, &pad);
         Self {
             num_of_public_inputs,
             l: Self::build_variable_polynomials(&l),
@@ -75,21 +76,16 @@ impl QuadraticArithmeticProgram {
             .to_vec()
     }
 
-    fn padding_constraint(col_count: usize) -> Vec<FrElement> {
-        vec![FrElement::zero(); col_count]
-    }
-
-    fn get_pad(num_of_gates: usize, num_of_total_inputs: usize) -> Vec<Vec<FrElement>> {
-        vec![
-            Self::padding_constraint(num_of_gates);
-            num_of_total_inputs.next_power_of_two() - num_of_total_inputs
-        ]
-    }
-
-    fn pad_rows(column: &[Vec<FrElement>], pad: &[Vec<FrElement>]) -> Vec<Vec<FrElement>> {
-        let mut col_as_vec = column.to_vec();
-        col_as_vec.extend_from_slice(pad);
-        col_as_vec
+    fn apply_padding(columns: &[Vec<FrElement>], pad_zeroes: usize) -> Vec<Vec<FrElement>> {
+        let from_slice = vec![FrElement::zero(); pad_zeroes];
+        columns
+            .iter()
+            .map(|column| {
+                let mut new_column = column.clone();
+                new_column.extend_from_slice(&from_slice);
+                new_column
+            })
+            .collect::<Vec<_>>()
     }
 
     fn build_variable_polynomials(from_matrix: &[Vec<FrElement>]) -> Vec<Polynomial<FrElement>> {

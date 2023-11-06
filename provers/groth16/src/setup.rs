@@ -110,7 +110,7 @@ pub fn setup(qap: &QuadraticArithmeticProgram) -> (ProvingKey, VerifyingKey) {
                     Some(&delta_inv * (&tw.tau.pow(qap.num_of_gates()) - FrElement::one())),
                     |prev| Some(prev * &tw.tau),
                 )
-                .take(qap.num_of_gates())
+                .take(qap.num_of_gates() * 2)
                 .collect::<Vec<_>>(),
                 &g1,
             ),
