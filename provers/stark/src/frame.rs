@@ -9,7 +9,6 @@ pub struct Frame<F: IsFFTField> {
 
 impl<F: IsFFTField> Frame<F> {
     pub fn new(data: Vec<FieldElement<F>>, row_width: usize) -> Self {
-        // let table = Table::new(&data, row_width);
         let table = Table::new(data, row_width);
         Self { table }
     }

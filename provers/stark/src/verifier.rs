@@ -120,9 +120,9 @@ pub trait IsStarkVerifier {
         );
 
         // <<<< Receive values: tⱼ(zgᵏ)
-        for i in 0..proof.trace_ood_frame_evaluations.width {
-            for j in 0..proof.trace_ood_frame_evaluations.height {
-                transcript.append_field_element(&proof.trace_ood_frame_evaluations.get_row(j)[i]);
+        for i in 0..proof.trace_ood_evaluations.width {
+            for j in 0..proof.trace_ood_evaluations.height {
+                transcript.append_field_element(&proof.trace_ood_evaluations.get_row(j)[i]);
             }
         }
         // <<<< Receive value: Hᵢ(z^N)
@@ -224,7 +224,7 @@ pub trait IsStarkVerifier {
                 let step = boundary_constraints.constraints[index].step;
                 let point = &domain.trace_primitive_root.pow(step as u64);
                 let trace_idx = boundary_constraints.constraints[index].col;
-                let trace_evaluation = &proof.trace_ood_frame_evaluations.get_row(0)[trace_idx];
+                let trace_evaluation = &proof.trace_ood_evaluations.get_row(0)[trace_idx];
                 let boundary_zerofier_challenges_z_den = &challenges.z - point;
 
                 let boundary_quotient_ood_evaluation_num =
@@ -250,7 +250,7 @@ pub trait IsStarkVerifier {
                 .fold(FieldElement::<Self::Field>::zero(), |acc, x| acc + x);
 
         let transition_ood_frame_evaluations = air.compute_transition(
-            &(&proof.trace_ood_frame_evaluations).into(),
+            &(&proof.trace_ood_evaluations).into(),
             &challenges.rap_challenges,
         );
 
@@ -621,22 +621,23 @@ pub trait IsStarkVerifier {
         lde_trace_evaluations: &[FieldElement<Self::Field>],
         lde_composition_poly_parts_evaluation: &[FieldElement<Self::Field>],
     ) -> FieldElement<Self::Field> {
-        let mut denoms_trace = (0..proof.trace_ood_frame_evaluations.height)
+        let mut denoms_trace = (0..proof.trace_ood_evaluations.height)
             .map(|row_idx| evaluation_point - &challenges.z * primitive_root.pow(row_idx as u64))
             .collect::<Vec<FieldElement<Self::Field>>>();
         FieldElement::inplace_batch_inverse(&mut denoms_trace).unwrap();
 
-        let trace_term = (0..proof.trace_ood_frame_evaluations.width)
+        let trace_term = (0..proof.trace_ood_evaluations.width)
             .zip(&challenges.trace_term_coeffs)
             .fold(FieldElement::zero(), |trace_terms, (col_idx, coeff_row)| {
-                let trace_i = (0..proof.trace_ood_frame_evaluations.height)
-                    .zip(coeff_row)
-                    .fold(FieldElement::zero(), |trace_t, (row_idx, coeff)| {
+                let trace_i = (0..proof.trace_ood_evaluations.height).zip(coeff_row).fold(
+                    FieldElement::zero(),
+                    |trace_t, (row_idx, coeff)| {
                         let poly_evaluation = (lde_trace_evaluations[col_idx].clone()
-                            - proof.trace_ood_frame_evaluations.get_row(row_idx)[col_idx].clone())
+                            - proof.trace_ood_evaluations.get_row(row_idx)[col_idx].clone())
                             * &denoms_trace[row_idx];
                         trace_t + &poly_evaluation * coeff
-                    });
+                    },
+                );
                 trace_terms + trace_i
             });
 

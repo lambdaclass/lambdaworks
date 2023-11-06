@@ -853,7 +853,7 @@ pub trait IsStarkProver {
 
         info!("End proof generation");
 
-        let trace_ood_frame_evaluations = Table::new(
+        let trace_ood_evaluations = Table::new(
             round_3_result
                 .trace_ood_evaluations
                 .into_iter()
@@ -866,7 +866,7 @@ pub trait IsStarkProver {
             // [tⱼ]
             lde_trace_merkle_roots: round_1_result.lde_trace_merkle_roots,
             // tⱼ(zgᵏ)
-            trace_ood_frame_evaluations,
+            trace_ood_evaluations,
             // [H₁] and [H₂]
             composition_poly_root: round_2_result.composition_poly_root,
             // Hᵢ(z^N)
@@ -1129,25 +1129,25 @@ mod tests {
         let proof = stone_compatibility_case_1_proof();
 
         assert_eq!(
-            proof.trace_ood_frame_evaluations.get_row(0)[0],
+            proof.trace_ood_evaluations.get_row(0)[0],
             FieldElement::from_hex_unchecked(
                 "70d8181785336cc7e0a0a1078a79ee6541ca0803ed3ff716de5a13c41684037",
             )
         );
         assert_eq!(
-            proof.trace_ood_frame_evaluations.get_row(1)[0],
+            proof.trace_ood_evaluations.get_row(1)[0],
             FieldElement::from_hex_unchecked(
                 "29808fc8b7480a69295e4b61600480ae574ca55f8d118100940501b789c1630",
             )
         );
         assert_eq!(
-            proof.trace_ood_frame_evaluations.get_row(0)[1],
+            proof.trace_ood_evaluations.get_row(0)[1],
             FieldElement::from_hex_unchecked(
                 "7d8110f21d1543324cc5e472ab82037eaad785707f8cae3d64c5b9034f0abd2",
             )
         );
         assert_eq!(
-            proof.trace_ood_frame_evaluations.get_row(1)[1],
+            proof.trace_ood_evaluations.get_row(1)[1],
             FieldElement::from_hex_unchecked(
                 "1b58470130218c122f71399bf1e04cf75a6e8556c4751629d5ce8c02cc4e62d",
             )
