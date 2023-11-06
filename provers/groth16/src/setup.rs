@@ -1,5 +1,4 @@
-use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::compression::G1Point;
-use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::default_types::FrElement;
+use crate::{common::*, QuadraticArithmeticProgram};
 use lambdaworks_math::{
     cyclic_group::IsGroup,
     elliptic_curve::{
@@ -7,9 +6,6 @@ use lambdaworks_math::{
         traits::{IsEllipticCurve, IsPairing},
     },
 };
-
-use crate::common::{sample_fr_elem, Curve, G2Point, Pairing, PairingOutput, TwistedCurve};
-use crate::qap::QuadraticArithmeticProgram;
 
 pub struct VerifyingKey {
     // e([alpha]_1, [beta]_2) computed during setup as it's a constant
