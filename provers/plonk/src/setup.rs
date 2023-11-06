@@ -75,7 +75,7 @@ impl<F: IsFFTField> CommonPreprocessedInput<F> {
 
         let permutation = get_permutation(&lro);
         let permuted =
-            generate_permutation_coefficients(&omega, n, &permutation, order_r_minus_1_root_unity);
+            generate_permutation_coefficients(&domain, &permutation, order_r_minus_1_root_unity);
 
         let s1_lagrange: Vec<_> = permuted[..n].to_vec();
         let s2_lagrange: Vec<_> = permuted[n..2 * n].to_vec();

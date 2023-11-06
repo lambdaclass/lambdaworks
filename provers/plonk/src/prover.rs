@@ -341,33 +341,38 @@ where
     fn round_2(
         &self,
         witness: &Witness<F>,
-        common_preprocessed_input: &CommonPreprocessedInput<F>,
+        cpi: &CommonPreprocessedInput<F>,
         beta: FieldElement<F>,
         gamma: FieldElement<F>,
     ) -> Round2Result<F, CS::Commitment> {
-        let cpi = common_preprocessed_input;
-        let mut coefficients: Vec<FieldElement<F>> = vec![FieldElement::one()];
+        let mut z_evaluations: Vec<FieldElement<F>> = vec![FieldElement::one()];
         let (s1, s2, s3) = (&cpi.s1_lagrange, &cpi.s2_lagrange, &cpi.s3_lagrange);
 
         let k2 = &cpi.k1 * &cpi.k1;
 
         let lp = |w: &FieldElement<F>, eta: &FieldElement<F>| w + &beta * eta + &gamma;
 
+        let z_nums: Vec<_> = (0..&cpi.n - 1)
+            .map(|i| {
+                lp(&witness.a[i], &cpi.domain[i])
+                    * lp(&witness.b[i], &(&cpi.domain[i] * &cpi.k1))
+                    * lp(&witness.c[i], &(&cpi.domain[i] * &k2))
+            })
+            .collect();
+        let mut z_denoms: Vec<_> = (0..&cpi.n - 1)
+            .map(|i| {
+                lp(&witness.a[i], &s1[i]) * lp(&witness.b[i], &s2[i]) * lp(&witness.c[i], &s3[i])
+            })
+            .collect();
+        FieldElement::inplace_batch_inverse(&mut z_denoms).unwrap();
+
         for i in 0..&cpi.n - 1 {
-            let (a_i, b_i, c_i) = (&witness.a[i], &witness.b[i], &witness.c[i]);
-            let num = lp(a_i, &cpi.domain[i])
-                * lp(b_i, &(&cpi.domain[i] * &cpi.k1))
-                * lp(c_i, &(&cpi.domain[i] * &k2));
-            let den = lp(a_i, &s1[i]) * lp(b_i, &s2[i]) * lp(c_i, &s3[i]);
-            let new_factor = num / den;
-            let new_term = coefficients.last().unwrap() * &new_factor;
-            coefficients.push(new_term);
+            z_evaluations.push(z_evaluations.last().unwrap() * (&z_nums[i] * &z_denoms[i]));
         }
 
-        let p_z = Polynomial::interpolate_fft(&coefficients)
+        let p_z = Polynomial::interpolate_fft(&z_evaluations)
             .expect("xs and ys have equal length and xs are unique");
-        let z_h = Polynomial::new_monomial(FieldElement::one(), common_preprocessed_input.n)
-            - FieldElement::one();
+        let z_h = Polynomial::new_monomial(FieldElement::one(), cpi.n) - FieldElement::one();
         let p_z = self.blind_polynomial(&p_z, &z_h, 3);
         let z_1 = self.commitment_scheme.commit(&p_z);
         Round2Result {
