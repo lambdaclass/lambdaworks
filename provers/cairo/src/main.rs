@@ -1,5 +1,4 @@
 use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
-use lambdaworks_math::traits::{Deserializable, Serializable};
 use platinum_prover::air::{generate_cairo_proof, verify_cairo_proof, PublicInputs};
 use platinum_prover::cairo_layout::CairoLayout;
 use platinum_prover::runner::run::generate_prover_args;
@@ -167,15 +166,28 @@ fn write_proof(
     proof_path: String,
 ) {
     let mut bytes = vec![];
-    let proof_bytes: Vec<u8> = serde_cbor::to_vec(&proof).unwrap();
-    bytes.extend(proof_bytes.len().to_be_bytes());
+    let proof_bytes: Vec<u8> =
+        bincode::serde::encode_to_vec(proof, bincode::config::standard()).unwrap();
+
+    let pub_inputs_bytes: Vec<u8> =
+        bincode::serde::encode_to_vec(&pub_inputs, bincode::config::standard()).unwrap();
+
+    // This should be reworked
+    // Public inputs shouldn't be stored in the proof if the verifier wants to check them
+
+    // An u32 is enough for storing proofs up to 32 GiB
+    // They shouldn't exceed the order of kbs
+    // Reading an usize leads to problem in WASM (32 bit vs 64 bit architecture)
+
+    bytes.extend((proof_bytes.len() as u32).to_le_bytes());
     bytes.extend(proof_bytes);
-    bytes.extend(pub_inputs.serialize());
+    bytes.extend(pub_inputs_bytes);
 
     let Ok(()) = std::fs::write(&proof_path, bytes) else {
         eprintln!("Error writing proof to file: {}", &proof_path);
         return;
     };
+
     println!("Proof written to {}", &proof_path);
 }
 
@@ -217,19 +229,27 @@ fn main() {
                 return;
             }
 
-            let proof_len = usize::from_be_bytes(bytes[0..8].try_into().unwrap());
-            bytes = &bytes[8..];
+            // Proof len was stored as an u32, 4u8 needs to be read
+            let proof_len = u32::from_le_bytes(bytes[0..4].try_into().unwrap()) as usize;
+
+            bytes = &bytes[4..];
             if bytes.len() < proof_len {
                 eprintln!("Error reading proof from file: {}", args.proof_path);
                 return;
             }
-            let Ok(proof) = serde_cbor::from_slice(&bytes[0..proof_len]) else {
+
+            let Ok((proof, _)) = bincode::serde::decode_from_slice(
+                &bytes[0..proof_len],
+                bincode::config::standard(),
+            ) else {
                 println!("Error reading proof from file: {}", args.proof_path);
                 return;
             };
             bytes = &bytes[proof_len..];
 
-            let Ok(pub_inputs) = PublicInputs::deserialize(bytes) else {
+            let Ok((pub_inputs, _)) =
+                bincode::serde::decode_from_slice(bytes, bincode::config::standard())
+            else {
                 println!("Error reading proof from file: {}", args.proof_path);
                 return;
             };
