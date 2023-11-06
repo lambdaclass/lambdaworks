@@ -20,17 +20,17 @@ pub struct TraceTable<F: IsFFTField> {
     pub step_size: usize,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct StepView<'t, F: IsFFTField> {
     pub table_view: TableView<'t, F>,
     pub step_offset: usize,
 }
 
-// impl<'a, F: IsFFTField> StepView<'a, F> {
-//     pub fn new(step: usize) -> StepView<'a, F> {
-
-//     }
-// }
+impl<'a, F: IsFFTField> StepView<'a, F> {
+    pub fn get_evaluation_element(&self, row_idx: usize, col_idx: usize) -> &FieldElement<F> {
+        self.table_view.get(row_idx, col_idx)
+    }
+}
 
 impl<'t, F: IsFFTField> TraceTable<F> {
     pub fn new(data: &[FieldElement<F>], n_columns: usize, step_size: usize) -> Self {

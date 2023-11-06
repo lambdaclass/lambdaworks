@@ -63,13 +63,18 @@ impl AIR for DummyAIR {
         frame: &Frame<Self::Field>,
         _rap_challenges: &Self::RAPChallenges,
     ) -> Vec<FieldElement<Self::Field>> {
-        let first_row = frame.get_row(0);
-        let second_row = frame.get_row(1);
-        let third_row = frame.get_row(2);
+        let first_step = frame.get_evaluation_step(0);
+        let second_step = frame.get_evaluation_step(1);
+        let third_step = frame.get_evaluation_step(2);
 
-        let f_constraint = first_row[0] * (first_row[0] - FieldElement::one());
+        let flag = first_step.get_evaluation_element(0, 0);
+        let a0 = first_step.get_evaluation_element(0, 1);
+        let a1 = second_step.get_evaluation_element(0, 1);
+        let a2 = second_step.get_evaluation_element(0, 1);
 
-        let fib_constraint = third_row[1] - second_row[1] - first_row[1];
+        let f_constraint = flag * (flag - FieldElement::one());
+
+        let fib_constraint = a2 - a1 - a0;
 
         vec![f_constraint, fib_constraint]
     }

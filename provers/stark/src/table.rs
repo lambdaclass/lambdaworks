@@ -12,12 +12,19 @@ pub struct Table<F: IsFFTField> {
     pub height: usize,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct TableView<'t, F: IsFFTField> {
     pub data: &'t [FieldElement<F>],
     pub table_row_offset: usize,
     pub width: usize,
     pub height: usize,
+}
+
+impl<'t, F: IsFFTField> TableView<'t, F> {
+    pub fn get(&self, row: usize, col: usize) -> &FieldElement<F> {
+        let idx = row * self.width + col;
+        &self.data[idx]
+    }
 }
 
 impl<'t, F: IsFFTField> Table<F> {
