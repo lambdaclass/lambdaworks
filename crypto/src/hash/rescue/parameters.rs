@@ -1,9 +1,7 @@
 use lambdaworks_math::field::{
-        element::FieldElement, 
-        traits::IsField,
-        fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
-    };
-
+    element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+    traits::IsField,
+};
 
 type RescuePrimeConstants<F> = (Vec<FieldElement<F>>, Vec<Vec<FieldElement<F>>>);
 
@@ -24,7 +22,7 @@ impl Parameters<Stark252PrimeField> {
         let mds_constants_csv = include_str!("stark252/mds_matrix.csv");
         let (round_constants, mds_matrix) = Self::parse(round_constants_csv, mds_constants_csv)?;
         let alpha_inv = FieldElement::<Stark252PrimeField>::from(3).inv().unwrap();
-        Ok(Parameters{
+        Ok(Parameters {
             m: 12,
             rate: 8,
             capacity: 4,

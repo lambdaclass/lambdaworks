@@ -1,13 +1,15 @@
 use self::parameters::Parameters;
-use lambdaworks_math::field::{traits::IsField, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField};
+use lambdaworks_math::field::{
+    fields::fft_friendly::stark_252_prime_field::Stark252PrimeField, traits::IsField,
+};
 
 mod parameters;
-#[allow(dead_code)]  //TODO: Remove when finalized
+#[allow(dead_code)] //TODO: Remove when finalized
 pub struct Rescue<F: IsField> {
     params: Parameters<F>,
 }
 
-pub trait Permutation<T: Clone> : Clone {
+pub trait Permutation<T: Clone>: Clone {
     fn permute(&self, mut input: T) -> T {
         self.permute_mut(&mut input);
         input
@@ -22,6 +24,8 @@ pub trait SBoxLayer {
 
 impl Default for Rescue<Stark252PrimeField> {
     fn default() -> Self {
-        Self { params: Parameters::<Stark252PrimeField>::new().expect("Error loading parameters") }
+        Self {
+            params: Parameters::<Stark252PrimeField>::new().expect("Error loading parameters"),
+        }
     }
 }
