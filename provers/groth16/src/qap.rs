@@ -1,5 +1,6 @@
-use crate::common::*;
 use lambdaworks_math::{fft::polynomial::FFTPoly, polynomial::Polynomial};
+
+use crate::common::*;
 
 #[derive(Debug)]
 pub struct QuadraticArithmeticProgram {

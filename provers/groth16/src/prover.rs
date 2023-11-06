@@ -138,8 +138,9 @@ impl Prover {
 
 #[cfg(test)]
 mod tests {
-    use crate::common::*;
     use lambdaworks_math::elliptic_curve::traits::IsEllipticCurve;
+
+    use crate::common::*;
 
     use super::*;
 
