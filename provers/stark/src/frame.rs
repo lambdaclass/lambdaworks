@@ -1,5 +1,5 @@
 use super::trace::TraceTable;
-use crate::{table::Table, trace::StepView};
+use crate::trace::StepView;
 use lambdaworks_math::field::traits::IsFFTField;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -53,11 +53,11 @@ impl<'t, F: IsFFTField> Frame<'t, F> {
     }
 }
 
-impl<'t, F: IsFFTField> From<&'t Table<F>> for Frame<'t, F> {
-    fn from(value: &Table<F>) -> Self {
-        // let data = value.data;
-        todo!()
+// impl<'t, F: IsFFTField> From<&'t Table<F>> for Frame<'t, F> {
+//     fn from(value: &Table<F>) -> Self {
+//         let data = &value.data;
 
-        // Self::new(value.data.clone(), value.width)
-    }
-}
+//         // Self::new(value.data.clone(), value.width)
+//         todo!()
+//     }
+// }

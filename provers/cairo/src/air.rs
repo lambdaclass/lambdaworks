@@ -623,6 +623,8 @@ impl AIR for CairoAIR {
     type RAPChallenges = CairoRAPChallenges;
     type PublicInputs = PublicInputs;
 
+    const STEP_SIZE: usize = 1;
+
     /// Creates a new CairoAIR from proof_options
     ///
     /// # Arguments

@@ -1,5 +1,7 @@
 use lambdaworks_math::field::{element::FieldElement, traits::IsFFTField};
 
+use crate::{frame::Frame, trace::StepView};
+
 /// A two-dimensional Table holding field elements, arranged in a row-major order.
 /// This is the basic underlying data structure used for any two-dimensional component in the
 /// the STARK protocol implementation, such as the `TraceTable` and the `EvaluationFrame`.
@@ -146,6 +148,20 @@ impl<'t, F: IsFFTField> Table<F> {
     pub fn get(&self, row: usize, col: usize) -> &FieldElement<F> {
         let idx = row * self.width + col;
         &self.data[idx]
+    }
+
+    ///
+    pub fn into_frame(&'t self, step_size: usize) -> Frame<'t, F> {
+        let steps = (0..self.height)
+            .step_by(step_size)
+            .enumerate()
+            .map(|(step_idx, row_idx)| {
+                let table_view = self.get_table_view(row_idx, step_size);
+                StepView::new(table_view, step_idx)
+            })
+            .collect();
+
+        Frame::new(steps)
     }
 }
 

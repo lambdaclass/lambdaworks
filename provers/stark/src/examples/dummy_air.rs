@@ -24,6 +24,8 @@ impl AIR for DummyAIR {
     type RAPChallenges = ();
     type PublicInputs = ();
 
+    const STEP_SIZE: usize = 1;
+
     fn new(
         trace_length: usize,
         _pub_inputs: &Self::PublicInputs,

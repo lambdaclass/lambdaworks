@@ -26,7 +26,14 @@ pub struct StepView<'t, F: IsFFTField> {
     pub step_offset: usize,
 }
 
-impl<'a, F: IsFFTField> StepView<'a, F> {
+impl<'t, F: IsFFTField> StepView<'t, F> {
+    pub fn new(table_view: TableView<'t, F>, step_offset: usize) -> Self {
+        StepView {
+            table_view,
+            step_offset,
+        }
+    }
+
     pub fn get_evaluation_element(&self, row_idx: usize, col_idx: usize) -> &FieldElement<F> {
         self.table_view.get(row_idx, col_idx)
     }

@@ -32,6 +32,8 @@ where
     type RAPChallenges = ();
     type PublicInputs = FibonacciPublicInputs<Self::Field>;
 
+    const STEP_SIZE: usize = 1;
+
     fn new(
         trace_length: usize,
         pub_inputs: &Self::PublicInputs,

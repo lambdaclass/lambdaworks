@@ -250,7 +250,7 @@ pub trait IsStarkVerifier {
                 .fold(FieldElement::<Self::Field>::zero(), |acc, x| acc + x);
 
         let transition_ood_frame_evaluations = air.compute_transition(
-            &(&proof.trace_ood_evaluations).into(),
+            &(&proof.trace_ood_evaluations).into_frame(A::STEP_SIZE),
             &challenges.rap_challenges,
         );
 
