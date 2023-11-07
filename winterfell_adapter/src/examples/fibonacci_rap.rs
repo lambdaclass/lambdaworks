@@ -1,6 +1,4 @@
-use lambdaworks_math::field::{
-    element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
-};
+use lambdaworks_math::field::element::FieldElement;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 use winter_utils::{collections::Vec, uninit_vector};
@@ -10,7 +8,6 @@ use winterfell::{
     Air, AirContext, Assertion, EvaluationFrame, ProofOptions, TraceInfo, TraceTable,
     TransitionConstraintDegree,
 };
-
 use crate::adapter::FromColumns;
 use crate::field_element::{AdapterFieldElement, vec_field2adapter};
 
