@@ -17,11 +17,6 @@ ibig = "0.3.6"
 p3-goldilocks = { git = "https://github.com/Plonky3/Plonky3", rev = "41cd843" }
 p3-mersenne-31 = { git = "https://github.com/Plonky3/Plonky3", rev = "41cd843" }
 p3-field = { git = "https://github.com/Plonky3/Plonky3", rev = "41cd843" }
-ark-ec = "0.4.0"
-ark-ff = "0.4.0"
-ark-bn254 = "0.4.0"
-ark-std = "0.4.0"
-
 
 [[bin]]
 name = "curve_bn254"
