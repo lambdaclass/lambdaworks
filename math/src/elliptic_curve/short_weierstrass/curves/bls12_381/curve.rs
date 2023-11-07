@@ -42,16 +42,21 @@ impl IsShortWeierstrass for BLS12381Curve {
     }
 }
 
+/// 𝛽 : primitive cube root of unity of 𝐹ₚ that §satisfies the minimal equation 
+/// 𝛽² + 𝛽 + 1 = 0 mod 𝑝
 pub const CUBE_ROOT_OF_UNITY_G1: BLS12381FieldElement = FieldElement::from_hex_unchecked(
     "5f19672fdf76ce51ba69c6076a0f77eaddb3a93be6f89688de17d813620a00022e01fffffffefffe",
 );
 
+
+/// x-coordinate of 𝜁 ∘ 𝜋_q ∘ 𝜁⁻¹, where 𝜁 is the isomorphism u:E'(𝔽ₚ₆) −> E(𝔽ₚ₁₂) from the twist to E
 pub const ENDO_U: BLS12381TwistCurveFieldElement =
 BLS12381TwistCurveFieldElement::const_from_raw([
     FieldElement::from_hex_unchecked("0"),
     FieldElement::from_hex_unchecked("1a0111ea397fe699ec02408663d4de85aa0d857d89759ad4897d29650fb85f9b409427eb4f49fffd8bfd00000000aaad")
 ]);
 
+/// y-coordinate of 𝜁 ∘ 𝜋_q ∘ 𝜁⁻¹, where 𝜁 is the isomorphism u:E'(𝔽ₚ₆) −> E(𝔽ₚ₁₂) from the twist to E
 pub const ENDO_V: BLS12381TwistCurveFieldElement =
 BLS12381TwistCurveFieldElement::const_from_raw([
     FieldElement::from_hex_unchecked("135203e60180a68ee2e9c448d77a2cd91c3dedd930b1cf60ef396489f61eb45e304466cf3e67fa0af1ee7b04121bdea2"),
@@ -59,13 +64,17 @@ BLS12381TwistCurveFieldElement::const_from_raw([
 ]);
 
 impl ShortWeierstrassProjectivePoint<BLS12381Curve> {
-    /// Returns phi(p) where `phi: (x,y)->(ux,y)` and `u` is the Cube Root of Unity in the base prime field
+    /// Returns 𝜙(P) = (𝑥, 𝑦) ⇒ (𝛽𝑥, 𝑦), where 𝛽 is the Cube Root of Unity in the base prime field
+    /// https://eprint.iacr.org/2022/352.pdf 2 Preliminaries
     fn phi(&self) -> Self {
+        // This clone is unsightly
         let mut a = self.clone();
         a.0.value[0] = a.x() * CUBE_ROOT_OF_UNITY_G1;
         a
     }
 
+    /// 𝜙(P) = −𝑢²P
+    /// https://eprint.iacr.org/2022/352.pdf 4.3 Prop. 4
     pub fn is_in_subgroup(&self) -> bool {
         self.operate_with_self(MILLER_LOOP_CONSTANT)
             .operate_with_self(MILLER_LOOP_CONSTANT)
@@ -75,8 +84,9 @@ impl ShortWeierstrassProjectivePoint<BLS12381Curve> {
 }
 
 impl ShortWeierstrassProjectivePoint<BLS12381TwistCurve> {
-    // https://eprint.iacr.org/2022/352.pdf 4.2 (7)
-    // psi(p) = u o frob o u**-1, where u is the isomorphism u:E'(𝔽ₚ₆) −> E(𝔽ₚ₁₂) from the twist to E
+    /// 𝜓(P) = 𝜁 ∘ 𝜋ₚ ∘ 𝜁⁻¹, where 𝜁 is the isomorphism u:E'(𝔽ₚ₆) −> E(𝔽ₚ₁₂) from the twist to E,, 𝜋ₚ is the p-power frobenius endomorphism
+    /// and 𝜙 satisifies minmal equation 𝜙² + 𝑡𝑋 + 𝑞 = 𝑂
+    /// https://eprint.iacr.org/2022/352.pdf 4.2 (7)
     fn psi(&self) -> Self {
         let [x, y, z] = self.coordinates();
         Self::new([
@@ -86,8 +96,8 @@ impl ShortWeierstrassProjectivePoint<BLS12381TwistCurve> {
         ])
     }
 
-    // https://eprint.iacr.org/2022/352.pdf 4.2 ()
-    /// check psi(P) = uP, where u = SEED.
+    /// 𝜓(P) = 𝑢P, where 𝑢 = SEED of the curve
+    /// https://eprint.iacr.org/2022/352.pdf 4.2
     pub fn is_in_subgroup(&self) -> bool {
         self.psi() == self.operate_with_self(MILLER_LOOP_CONSTANT).neg()
     }
