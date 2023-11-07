@@ -1,28 +1,24 @@
-use std::marker::PhantomData;
+use crate::field_element::field_element::AdapterFieldElement;
+use crate::utils::{matrix_adapter2field, matrix_field2adapter, vec_field2adapter};
+use lambdaworks_math::field::{
+    element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+};
 use stark_platinum_prover::{
     constraints::boundary::{BoundaryConstraint, BoundaryConstraints},
     traits::AIR,
 };
-use lambdaworks_math::field::{
-    element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
-};
+use std::marker::PhantomData;
 use winterfell::{
-    Air, AuxTraceRandElements, EvaluationFrame, FieldExtension, ProofOptions, Trace,
-    TraceTable,
+    Air, AuxTraceRandElements, EvaluationFrame, FieldExtension, ProofOptions, Trace, TraceTable,
 };
-use crate::field_element::field_element::AdapterFieldElement;
-use crate::utils::{vec_field2adapter, matrix_adapter2field, matrix_field2adapter};
 
 use super::public_inputs::AirAdapterPublicInputs;
-
 
 pub trait FromColumns<A> {
     fn from_cols(columns: Vec<Vec<A>>) -> Self;
 }
 
-impl FromColumns<AdapterFieldElement>
-    for TraceTable<AdapterFieldElement>
-{
+impl FromColumns<AdapterFieldElement> for TraceTable<AdapterFieldElement> {
     fn from_cols(columns: Vec<Vec<AdapterFieldElement>>) -> Self {
         TraceTable::init(columns)
     }
@@ -33,9 +29,7 @@ pub struct AirAdapter<A, T>
 where
     A: Air<BaseField = AdapterFieldElement>,
     A::PublicInputs: Clone,
-    T: Trace<BaseField = AdapterFieldElement>
-        + Clone
-        + FromColumns<AdapterFieldElement>,
+    T: Trace<BaseField = AdapterFieldElement> + Clone + FromColumns<AdapterFieldElement>,
 {
     winterfell_air: A,
     public_inputs: AirAdapterPublicInputs<A>,
@@ -47,9 +41,7 @@ impl<A, T> AirAdapter<A, T>
 where
     A: Air<BaseField = AdapterFieldElement> + Clone,
     A::PublicInputs: Clone,
-    T: Trace<BaseField = AdapterFieldElement>
-        + Clone
-        + FromColumns<AdapterFieldElement>,
+    T: Trace<BaseField = AdapterFieldElement> + Clone + FromColumns<AdapterFieldElement>,
 {
     pub fn convert_winterfell_trace_table(
         trace: TraceTable<AdapterFieldElement>,
@@ -67,9 +59,7 @@ impl<A, T> AIR for AirAdapter<A, T>
 where
     A: Air<BaseField = AdapterFieldElement> + Clone,
     A::PublicInputs: Clone,
-    T: Trace<BaseField = AdapterFieldElement>
-        + Clone
-        + FromColumns<AdapterFieldElement>,
+    T: Trace<BaseField = AdapterFieldElement> + Clone + FromColumns<AdapterFieldElement>,
 {
     type Field = Stark252PrimeField;
     type RAPChallenges = Vec<AdapterFieldElement>;
@@ -120,8 +110,8 @@ where
         rap_challenges: &Self::RAPChallenges,
     ) -> stark_platinum_prover::trace::TraceTable<Self::Field> {
         // We support at most a one-stage RAP. This covers most use cases.
-        if let Some(winter_trace) =
-            T::from_cols(matrix_field2adapter(&main_trace.columns())).build_aux_segment(&[], rap_challenges)
+        if let Some(winter_trace) = T::from_cols(matrix_field2adapter(&main_trace.columns()))
+            .build_aux_segment(&[], rap_challenges)
         {
             let mut columns = Vec::new();
             for i in 0..winter_trace.num_cols() {
@@ -260,15 +250,15 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use winterfell::{TraceLayout, TraceInfo};
+    use crate::examples::fibonacci_2_terms::{self, FibAir2Terms};
+    use crate::examples::fibonacci_rap::{self, FibonacciRAP, RapTraceTable};
     use stark_platinum_prover::{
         proof::options::ProofOptions,
         prover::{IsStarkProver, Prover},
         transcript::StoneProverTranscript,
-        verifier::{IsStarkVerifier, Verifier}
+        verifier::{IsStarkVerifier, Verifier},
     };
-    use crate::examples::fibonacci_2_terms::{FibAir2Terms, self};
-    use crate::examples::fibonacci_rap::{FibonacciRAP, RapTraceTable, self};
+    use winterfell::{TraceInfo, TraceLayout};
 
     #[test]
     fn prove_and_verify_a_winterfell_fibonacci_2_terms_air() {

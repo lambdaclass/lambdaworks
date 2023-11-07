@@ -1,6 +1,4 @@
-use lambdaworks_math::field::{
-    element::FieldElement,
-};
+use lambdaworks_math::field::element::FieldElement;
 use winterfell::math::FieldElement as IsWinterfellFieldElement;
 use winterfell::{
     Air, AirContext, Assertion, EvaluationFrame, ProofOptions, TraceInfo, TraceTable,
@@ -8,7 +6,6 @@ use winterfell::{
 };
 
 use crate::field_element::field_element::AdapterFieldElement;
-
 
 /// A fibonacci winterfell AIR example. Two terms are computed
 /// at each step. This was taken from the original winterfell

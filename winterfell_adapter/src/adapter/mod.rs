@@ -1,2 +1,2 @@
-pub mod public_inputs;
 pub mod air;
+pub mod public_inputs;

@@ -1,10 +1,11 @@
-use std::{ops::{ShrAssign, Shr, Shl, BitAnd}, cmp::Ordering};
-use lambdaworks_math::{unsigned_integer::element::U256, traits::ByteConversion};
-
+use lambdaworks_math::{traits::ByteConversion, unsigned_integer::element::U256};
+use std::{
+    cmp::Ordering,
+    ops::{BitAnd, Shl, Shr, ShrAssign},
+};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct AdapterPositiveInteger(pub U256);
-
 
 impl AdapterPositiveInteger {
     pub const fn from_hex_unchecked(hex: &str) -> AdapterPositiveInteger {
@@ -14,7 +15,7 @@ impl AdapterPositiveInteger {
 
 impl BitAnd for AdapterPositiveInteger {
     type Output = Self;
-    
+
     #[inline(always)]
     fn bitand(self, rhs: Self) -> Self::Output {
         AdapterPositiveInteger(self.0.bitand(rhs.0))
@@ -75,15 +76,17 @@ impl ByteConversion for AdapterPositiveInteger {
 
     fn from_bytes_be(bytes: &[u8]) -> Result<Self, lambdaworks_math::errors::ByteConversionError>
     where
-        Self: Sized {
-            let u = U256::from_bytes_be(bytes)?;
-            Ok(AdapterPositiveInteger(u))
-        }
+        Self: Sized,
+    {
+        let u = U256::from_bytes_be(bytes)?;
+        Ok(AdapterPositiveInteger(u))
+    }
 
     fn from_bytes_le(bytes: &[u8]) -> Result<Self, lambdaworks_math::errors::ByteConversionError>
     where
-        Self: Sized {
-            let u = U256::from_bytes_le(bytes)?;
-            Ok(AdapterPositiveInteger(u))
-        }
+        Self: Sized,
+    {
+        let u = U256::from_bytes_le(bytes)?;
+        Ok(AdapterPositiveInteger(u))
+    }
 }

@@ -1,30 +1,32 @@
-use lambdaworks_math::{
-    field::{
-        element::FieldElement, fields::{fft_friendly::stark_252_prime_field::{Stark252PrimeField}, montgomery_backed_prime_fields::IsModulus}, traits::IsField,
-    },
-    traits::ByteConversion,
-};
+use core::fmt;
 use core::{
     mem,
     ops::{DivAssign, MulAssign, SubAssign},
     slice,
 };
-use std::{ops::{Neg, AddAssign, Div, Mul, Sub, Add}};
+use lambdaworks_math::{
+    field::{
+        element::FieldElement,
+        fields::{
+            fft_friendly::stark_252_prime_field::Stark252PrimeField,
+            montgomery_backed_prime_fields::IsModulus,
+        },
+        traits::IsField,
+    },
+    traits::ByteConversion,
+};
+use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
 use winter_utils::{AsBytes, DeserializationError, Randomizable};
 use winterfell::math::ExtensibleField;
 use winterfell::{
     math::{FieldElement as IsWinterfellFieldElement, StarkField},
     Deserializable, Serializable,
 };
-use core::fmt;
 
 use crate::field_element::positive_integer::AdapterPositiveInteger;
 
-
-#[derive(Debug, Copy, Clone)]
-#[derive(Default)]
+#[derive(Debug, Copy, Clone, Default)]
 pub struct AdapterFieldElement(pub FieldElement<Stark252PrimeField>);
-
 
 impl AdapterFieldElement {
     pub const fn from_hex_unchecked(hex: &str) -> AdapterFieldElement {
@@ -92,7 +94,9 @@ impl IsWinterfellFieldElement for AdapterFieldElement {
 }
 
 impl StarkField for AdapterFieldElement {
-    const MODULUS: Self::PositiveInteger = AdapterPositiveInteger::from_hex_unchecked("800000000000011000000000000000000000000000000000000000000000001");
+    const MODULUS: Self::PositiveInteger = AdapterPositiveInteger::from_hex_unchecked(
+        "800000000000011000000000000000000000000000000000000000000000001",
+    );
 
     const MODULUS_BITS: u32 = 252;
 
@@ -112,8 +116,7 @@ impl StarkField for AdapterFieldElement {
     }
 }
 
-impl Div<&AdapterFieldElement> for &AdapterFieldElement
-{
+impl Div<&AdapterFieldElement> for &AdapterFieldElement {
     type Output = AdapterFieldElement;
 
     fn div(self, rhs: &AdapterFieldElement) -> Self::Output {
@@ -121,8 +124,7 @@ impl Div<&AdapterFieldElement> for &AdapterFieldElement
     }
 }
 
-impl Div<AdapterFieldElement> for AdapterFieldElement
-{
+impl Div<AdapterFieldElement> for AdapterFieldElement {
     type Output = AdapterFieldElement;
 
     fn div(self, rhs: AdapterFieldElement) -> Self::Output {
@@ -130,8 +132,7 @@ impl Div<AdapterFieldElement> for AdapterFieldElement
     }
 }
 
-impl Div<&AdapterFieldElement> for AdapterFieldElement
-{
+impl Div<&AdapterFieldElement> for AdapterFieldElement {
     type Output = AdapterFieldElement;
 
     fn div(self, rhs: &AdapterFieldElement) -> Self::Output {
@@ -139,8 +140,7 @@ impl Div<&AdapterFieldElement> for AdapterFieldElement
     }
 }
 
-impl Div<AdapterFieldElement> for &AdapterFieldElement
-{
+impl Div<AdapterFieldElement> for &AdapterFieldElement {
     type Output = AdapterFieldElement;
 
     fn div(self, rhs: AdapterFieldElement) -> Self::Output {
@@ -148,8 +148,7 @@ impl Div<AdapterFieldElement> for &AdapterFieldElement
     }
 }
 
-impl Mul<&AdapterFieldElement> for &AdapterFieldElement
-{
+impl Mul<&AdapterFieldElement> for &AdapterFieldElement {
     type Output = AdapterFieldElement;
 
     fn mul(self, rhs: &AdapterFieldElement) -> Self::Output {
@@ -157,8 +156,7 @@ impl Mul<&AdapterFieldElement> for &AdapterFieldElement
     }
 }
 
-impl Mul<AdapterFieldElement> for AdapterFieldElement
-{
+impl Mul<AdapterFieldElement> for AdapterFieldElement {
     type Output = AdapterFieldElement;
 
     fn mul(self, rhs: AdapterFieldElement) -> Self::Output {
@@ -166,8 +164,7 @@ impl Mul<AdapterFieldElement> for AdapterFieldElement
     }
 }
 
-impl Mul<&AdapterFieldElement> for AdapterFieldElement
-{
+impl Mul<&AdapterFieldElement> for AdapterFieldElement {
     type Output = AdapterFieldElement;
 
     fn mul(self, rhs: &AdapterFieldElement) -> Self::Output {
@@ -175,8 +172,7 @@ impl Mul<&AdapterFieldElement> for AdapterFieldElement
     }
 }
 
-impl Mul<AdapterFieldElement> for &AdapterFieldElement
-{
+impl Mul<AdapterFieldElement> for &AdapterFieldElement {
     type Output = AdapterFieldElement;
 
     fn mul(self, rhs: AdapterFieldElement) -> Self::Output {
@@ -184,8 +180,7 @@ impl Mul<AdapterFieldElement> for &AdapterFieldElement
     }
 }
 
-impl Sub<&AdapterFieldElement> for &AdapterFieldElement
-{
+impl Sub<&AdapterFieldElement> for &AdapterFieldElement {
     type Output = AdapterFieldElement;
 
     fn sub(self, rhs: &AdapterFieldElement) -> Self::Output {
@@ -193,8 +188,7 @@ impl Sub<&AdapterFieldElement> for &AdapterFieldElement
     }
 }
 
-impl Sub<AdapterFieldElement> for AdapterFieldElement
-{
+impl Sub<AdapterFieldElement> for AdapterFieldElement {
     type Output = AdapterFieldElement;
 
     fn sub(self, rhs: AdapterFieldElement) -> Self::Output {
@@ -202,8 +196,7 @@ impl Sub<AdapterFieldElement> for AdapterFieldElement
     }
 }
 
-impl Sub<&AdapterFieldElement> for AdapterFieldElement
-{
+impl Sub<&AdapterFieldElement> for AdapterFieldElement {
     type Output = AdapterFieldElement;
 
     fn sub(self, rhs: &AdapterFieldElement) -> Self::Output {
@@ -211,8 +204,7 @@ impl Sub<&AdapterFieldElement> for AdapterFieldElement
     }
 }
 
-impl Sub<AdapterFieldElement> for &AdapterFieldElement
-{
+impl Sub<AdapterFieldElement> for &AdapterFieldElement {
     type Output = AdapterFieldElement;
 
     fn sub(self, rhs: AdapterFieldElement) -> Self::Output {
@@ -220,8 +212,7 @@ impl Sub<AdapterFieldElement> for &AdapterFieldElement
     }
 }
 
-impl Add<&AdapterFieldElement> for &AdapterFieldElement
-{
+impl Add<&AdapterFieldElement> for &AdapterFieldElement {
     type Output = AdapterFieldElement;
 
     fn add(self, rhs: &AdapterFieldElement) -> Self::Output {
@@ -229,8 +220,7 @@ impl Add<&AdapterFieldElement> for &AdapterFieldElement
     }
 }
 
-impl Add<AdapterFieldElement> for AdapterFieldElement
-{
+impl Add<AdapterFieldElement> for AdapterFieldElement {
     type Output = AdapterFieldElement;
 
     fn add(self, rhs: AdapterFieldElement) -> Self::Output {
@@ -238,8 +228,7 @@ impl Add<AdapterFieldElement> for AdapterFieldElement
     }
 }
 
-impl Add<&AdapterFieldElement> for AdapterFieldElement
-{
+impl Add<&AdapterFieldElement> for AdapterFieldElement {
     type Output = AdapterFieldElement;
 
     fn add(self, rhs: &AdapterFieldElement) -> Self::Output {
@@ -247,8 +236,7 @@ impl Add<&AdapterFieldElement> for AdapterFieldElement
     }
 }
 
-impl Add<AdapterFieldElement> for &AdapterFieldElement
-{
+impl Add<AdapterFieldElement> for &AdapterFieldElement {
     type Output = AdapterFieldElement;
 
     fn add(self, rhs: AdapterFieldElement) -> Self::Output {
@@ -264,8 +252,7 @@ impl Neg for AdapterFieldElement {
     }
 }
 
-impl PartialEq<AdapterFieldElement> for AdapterFieldElement
-{
+impl PartialEq<AdapterFieldElement> for AdapterFieldElement {
     fn eq(&self, other: &AdapterFieldElement) -> bool {
         self.0.eq(&other.0)
     }
@@ -273,10 +260,7 @@ impl PartialEq<AdapterFieldElement> for AdapterFieldElement
 
 impl Eq for AdapterFieldElement {}
 
-
-
-impl fmt::Display for AdapterFieldElement
-{
+impl fmt::Display for AdapterFieldElement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0.fmt(f)
     }
@@ -329,10 +313,9 @@ impl SubAssign<AdapterFieldElement> for AdapterFieldElement {
     }
 }
 
-impl AddAssign<AdapterFieldElement> for AdapterFieldElement
-{
+impl AddAssign<AdapterFieldElement> for AdapterFieldElement {
     fn add_assign(&mut self, rhs: AdapterFieldElement) {
-        *self = *self + rhs; 
+        *self = *self + rhs;
     }
 }
 

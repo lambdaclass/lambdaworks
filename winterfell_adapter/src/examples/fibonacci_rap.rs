@@ -1,3 +1,6 @@
+use crate::adapter::air::FromColumns;
+use crate::field_element::field_element::AdapterFieldElement;
+use crate::utils::vec_field2adapter;
 use lambdaworks_math::field::element::FieldElement;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
@@ -8,10 +11,6 @@ use winterfell::{
     Air, AirContext, Assertion, EvaluationFrame, ProofOptions, TraceInfo, TraceTable,
     TransitionConstraintDegree,
 };
-use crate::adapter::air::FromColumns;
-use crate::field_element::field_element::AdapterFieldElement;
-use crate::utils::vec_field2adapter;
-
 
 #[derive(Clone)]
 pub struct RapTraceTable<B: StarkField> {
@@ -133,9 +132,7 @@ impl<B: StarkField> Trace for RapTraceTable<B> {
     }
 }
 
-impl FromColumns<AdapterFieldElement>
-    for RapTraceTable<AdapterFieldElement>
-{
+impl FromColumns<AdapterFieldElement> for RapTraceTable<AdapterFieldElement> {
     fn from_cols(columns: Vec<Vec<AdapterFieldElement>>) -> Self {
         RapTraceTable::init(columns)
     }

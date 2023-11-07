@@ -1,6 +1,5 @@
-use winterfell::{Air, TraceInfo};
 use crate::field_element::field_element::AdapterFieldElement;
-
+use winterfell::{Air, TraceInfo};
 
 #[derive(Clone)]
 pub struct AirAdapterPublicInputs<A>
