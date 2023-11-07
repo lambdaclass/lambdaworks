@@ -24,6 +24,72 @@ use crate::field_element::positive_integer::AdapterPositiveInteger;
 #[derive(Debug, Copy, Clone)]
 pub struct AdapterFieldElement(pub FieldElement<Stark252PrimeField>);
 
+
+impl AdapterFieldElement {
+    pub const fn from_hex_unchecked(hex: &str) -> AdapterFieldElement {
+        AdapterFieldElement(FieldElement::from_hex_unchecked(hex))
+    }
+}
+
+impl IsWinterfellFieldElement for AdapterFieldElement {
+    type PositiveInteger = AdapterPositiveInteger;
+    type BaseField = Self;
+    const EXTENSION_DEGREE: usize = 1;
+    const ELEMENT_BYTES: usize = 32;
+    const IS_CANONICAL: bool = false; // Check if related to montgomery
+    const ZERO: Self = Self::from_hex_unchecked("0");
+    const ONE: Self = Self::from_hex_unchecked("1");
+
+    fn inv(self) -> Self {
+        AdapterFieldElement(FieldElement::<Stark252PrimeField>::inv(&self.0).unwrap())
+    }
+
+    fn conjugate(&self) -> Self {
+        *self
+    }
+
+    fn base_element(&self, i: usize) -> Self::BaseField {
+        match i {
+            0 => *self,
+            _ => panic!("element index must be 0, but was {i}"),
+        }
+    }
+
+    fn slice_as_base_elements(elements: &[Self]) -> &[Self::BaseField] {
+        elements
+    }
+
+    fn slice_from_base_elements(elements: &[Self::BaseField]) -> &[Self] {
+        elements
+    }
+
+    fn elements_as_bytes(elements: &[Self]) -> &[u8] {
+        let p = elements.as_ptr();
+        let len = elements.len() * Self::ELEMENT_BYTES;
+        unsafe { slice::from_raw_parts(p as *const u8, len) }
+    }
+
+    unsafe fn bytes_as_elements(bytes: &[u8]) -> Result<&[Self], winterfell::DeserializationError> {
+        if bytes.len() % Self::ELEMENT_BYTES != 0 {
+            return Err(DeserializationError::InvalidValue(format!(
+                "number of bytes ({}) does not divide into whole number of field elements",
+                bytes.len(),
+            )));
+        }
+
+        let p = bytes.as_ptr();
+        let len = bytes.len() / Self::ELEMENT_BYTES;
+
+        if (p as usize) % mem::align_of::<u64>() != 0 {
+            return Err(DeserializationError::InvalidValue(
+                "slice memory alignment is not valid for this field element type".to_string(),
+            ));
+        }
+
+        Ok(slice::from_raw_parts(p as *const Self, len))
+    }
+}
+
 impl AddAssign<AdapterFieldElement> for AdapterFieldElement
 {
     fn add_assign(&mut self, rhs: AdapterFieldElement) {
@@ -31,7 +97,6 @@ impl AddAssign<AdapterFieldElement> for AdapterFieldElement
     }
 }
 
-/// Division operator overloading for field elements
 impl Div<&AdapterFieldElement> for &AdapterFieldElement
 {
     type Output = AdapterFieldElement;
@@ -199,81 +264,8 @@ impl fmt::Display for AdapterFieldElement
     }
 }
 
-impl AdapterFieldElement {
-    pub const fn from_hex_unchecked(hex: &str) -> AdapterFieldElement {
-        AdapterFieldElement(FieldElement::from_hex_unchecked(hex))
-    }
-}
-
-impl IsWinterfellFieldElement for AdapterFieldElement {
-    type PositiveInteger = AdapterPositiveInteger;
-    type BaseField = Self;
-    const EXTENSION_DEGREE: usize = 1;
-    const ELEMENT_BYTES: usize = 32;
-    const IS_CANONICAL: bool = false; // Check if related to montgomery
-    const ZERO: Self = Self::from_hex_unchecked("0");
-    const ONE: Self = Self::from_hex_unchecked("1");
-
-    fn inv(self) -> Self {
-        AdapterFieldElement(FieldElement::<Stark252PrimeField>::inv(&self.0).unwrap())
-    }
-
-    fn conjugate(&self) -> Self {
-        *self
-    }
-
-    fn base_element(&self, i: usize) -> Self::BaseField {
-        match i {
-            0 => *self,
-            _ => panic!("element index must be 0, but was {i}"),
-        }
-    }
-
-    fn slice_as_base_elements(elements: &[Self]) -> &[Self::BaseField] {
-        elements
-    }
-
-    fn slice_from_base_elements(elements: &[Self::BaseField]) -> &[Self] {
-        elements
-    }
-
-    fn elements_as_bytes(elements: &[Self]) -> &[u8] {
-        let p = elements.as_ptr();
-        let len = elements.len() * Self::ELEMENT_BYTES;
-        unsafe { slice::from_raw_parts(p as *const u8, len) }
-    }
-
-    unsafe fn bytes_as_elements(bytes: &[u8]) -> Result<&[Self], winterfell::DeserializationError> {
-        if bytes.len() % Self::ELEMENT_BYTES != 0 {
-            return Err(DeserializationError::InvalidValue(format!(
-                "number of bytes ({}) does not divide into whole number of field elements",
-                bytes.len(),
-            )));
-        }
-
-        let p = bytes.as_ptr();
-        let len = bytes.len() / Self::ELEMENT_BYTES;
-
-        if (p as usize) % mem::align_of::<u64>() != 0 {
-            return Err(DeserializationError::InvalidValue(
-                "slice memory alignment is not valid for this field element type".to_string(),
-            ));
-        }
-
-        Ok(slice::from_raw_parts(p as *const Self, len))
-    }
-}
-
-#[derive(Clone, Debug, Hash, Copy)]
-pub struct AdapterPrimeField;
-impl IsModulus<AdapterPositiveInteger> for AdapterPrimeField {
-    const MODULUS: AdapterPositiveInteger =
-    AdapterPositiveInteger::from_hex_unchecked("800000000000011000000000000000000000000000000000000000000000001");
-}
-
 impl StarkField for AdapterFieldElement {
-    const MODULUS: Self::PositiveInteger =
-        <AdapterPrimeField as IsModulus<AdapterPositiveInteger>>::MODULUS;
+    const MODULUS: Self::PositiveInteger = AdapterPositiveInteger::from_hex_unchecked("800000000000011000000000000000000000000000000000000000000000001");
 
     const MODULUS_BITS: u32 = 252;
 
