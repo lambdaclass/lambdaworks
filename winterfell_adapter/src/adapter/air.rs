@@ -1,4 +1,4 @@
-use crate::field_element::field_element::AdapterFieldElement;
+use crate::field_element::element::AdapterFieldElement;
 use crate::utils::{matrix_adapter2field, matrix_field2adapter, vec_field2adapter};
 use lambdaworks_math::field::{
     element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,

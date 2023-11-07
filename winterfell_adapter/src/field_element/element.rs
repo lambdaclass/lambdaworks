@@ -6,11 +6,7 @@ use core::{
 };
 use lambdaworks_math::{
     field::{
-        element::FieldElement,
-        fields::{
-            fft_friendly::stark_252_prime_field::Stark252PrimeField,
-            montgomery_backed_prime_fields::IsModulus,
-        },
+        element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
         traits::IsField,
     },
     traits::ByteConversion,
@@ -297,6 +293,7 @@ impl From<u128> for AdapterFieldElement {
 }
 
 impl DivAssign<AdapterFieldElement> for AdapterFieldElement {
+    #[allow(clippy::suspicious_op_assign_impl)]
     fn div_assign(&mut self, rhs: AdapterFieldElement) {
         *self *= rhs.inv();
     }

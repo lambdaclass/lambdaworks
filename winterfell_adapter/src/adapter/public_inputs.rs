@@ -1,4 +1,4 @@
-use crate::field_element::field_element::AdapterFieldElement;
+use crate::field_element::element::AdapterFieldElement;
 use winterfell::{Air, TraceInfo};
 
 #[derive(Clone)]

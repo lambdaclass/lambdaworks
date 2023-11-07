@@ -1,4 +1,4 @@
-use crate::field_element::field_element::AdapterFieldElement;
+use crate::field_element::element::AdapterFieldElement;
 use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
 use stark_platinum_prover::fri::FieldElement;
 

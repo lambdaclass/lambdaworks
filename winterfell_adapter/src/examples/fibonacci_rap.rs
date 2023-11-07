@@ -1,5 +1,5 @@
 use crate::adapter::air::FromColumns;
-use crate::field_element::field_element::AdapterFieldElement;
+use crate::field_element::element::AdapterFieldElement;
 use crate::utils::vec_field2adapter;
 use lambdaworks_math::field::element::FieldElement;
 use rand::seq::SliceRandom;
