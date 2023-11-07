@@ -66,19 +66,29 @@ For example:
 cargo run --release --features=cli,instruments,parallel compile cairo_programs/cairo0/fibonacci_5.cairo
 ```
 
-**To prove a compiled program:**
+**To execute and prove a compiled program:**
 
 ```bash
-cargo run --release --features=cli,instruments,parallel prove <compiled_program_path> <output_proof_path>
+cargo run --release --features=cli,instruments,parallel run-and-prove <compiled_program_path> <output_proof_path>
 ```
 
 For example:
 
 ```bash
-cargo run --release --features=cli,instruments,parallel prove cairo_programs/cairo0/fibonacci_5.json program_proof.proof
+cargo run --release --features=cli,instruments,parallel run-and-prove cairo_programs/cairo0/fibonacci_5.json program_proof.proof
 ```
 
+**To prove a trace of a cairo program:**
 
+```bash
+cargo run --release --features=cli,instruments,parallel prove <trace_bin_path> <memory_bin_path> <output_proof_path>
+```
+
+For example:
+
+```bash
+cargo run --release --features=cli,instruments,parallel prove cairo_programs/cairo0/fibonacci_5_trace.bin cairo_programs/cairo0/fibonacci_5_memory.bin program_proof.proof
+```
 
 **To prove and verify with a single command you can use:**
 

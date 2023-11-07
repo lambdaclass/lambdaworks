@@ -235,7 +235,7 @@ fn main() {
                 println!("Compiled cairo program");
             }
         }
-        commands::ProverEntity::Prove(args) => {
+        commands::ProverEntity::RunAndProve(args) => {
             // verify input file is .cairo
             if args.program_path.contains(".cairo") {
                 eprintln!("\nYou are trying to prove a non compiled Cairo program. Please compile it before sending it to the prover.\n");
@@ -249,12 +249,7 @@ fn main() {
 
             write_proof(proof, pub_inputs, args.proof_path);
         }
-        commands::ProverEntity::ProveTrace(args) => {
-            // verify input files
-            if !args.trace_bin_path.contains(".bin") && !args.memory_bin_path.contains(".bin") {
-                eprintln!("\n Please provide *.bin files for the memory and trace output files.\n");
-                return;
-            }
+        commands::ProverEntity::Prove(args) => {
             let Some((proof, pub_inputs)) = generate_proof_from_trace(
                 &args.trace_bin_path,
                 &args.memory_bin_path,
