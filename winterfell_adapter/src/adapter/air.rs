@@ -51,7 +51,7 @@ where
             columns.push(trace.get_column(i).to_owned());
         }
 
-        stark_platinum_prover::trace::TraceTable::from_columns(&matrix_adapter2field(&columns))
+        stark_platinum_prover::trace::TraceTable::from_columns(matrix_adapter2field(&columns))
     }
 }
 
@@ -117,7 +117,7 @@ where
             for i in 0..winter_trace.num_cols() {
                 columns.push(winter_trace.get_column(i).to_owned());
             }
-            stark_platinum_prover::trace::TraceTable::from_columns(&matrix_adapter2field(&columns))
+            stark_platinum_prover::trace::TraceTable::from_columns(matrix_adapter2field(&columns))
         } else {
             stark_platinum_prover::trace::TraceTable::empty()
         }
