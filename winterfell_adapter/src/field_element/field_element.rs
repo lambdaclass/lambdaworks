@@ -1,6 +1,6 @@
 use lambdaworks_math::{
     field::{
-        element::FieldElement, fields::{fft_friendly::stark_252_prime_field::{Stark252PrimeField, MontgomeryConfigStark252PrimeField}, montgomery_backed_prime_fields::IsModulus}, traits::IsField,
+        element::FieldElement, fields::{fft_friendly::stark_252_prime_field::{Stark252PrimeField}, montgomery_backed_prime_fields::IsModulus}, traits::IsField,
     },
     traits::ByteConversion,
 };
@@ -22,6 +22,7 @@ use crate::field_element::positive_integer::AdapterPositiveInteger;
 
 
 #[derive(Debug, Copy, Clone)]
+#[derive(Default)]
 pub struct AdapterFieldElement(pub FieldElement<Stark252PrimeField>);
 
 
@@ -224,7 +225,7 @@ impl Add<&AdapterFieldElement> for &AdapterFieldElement
     type Output = AdapterFieldElement;
 
     fn add(self, rhs: &AdapterFieldElement) -> Self::Output {
-        AdapterFieldElement(self.0.add(&self.0))
+        AdapterFieldElement(self.0.add(&rhs.0))
     }
 }
 
@@ -272,12 +273,7 @@ impl PartialEq<AdapterFieldElement> for AdapterFieldElement
 
 impl Eq for AdapterFieldElement {}
 
-impl Default for AdapterFieldElement
-{
-    fn default() -> Self {
-        AdapterFieldElement(FieldElement::<Stark252PrimeField>::default())
-    }
-}
+
 
 impl fmt::Display for AdapterFieldElement
 {
@@ -345,34 +341,34 @@ impl AddAssign<AdapterFieldElement> for AdapterFieldElement
 
 impl ExtensibleField<2> for AdapterFieldElement {
     #[inline(always)]
-    fn mul(a: [Self; 2], b: [Self; 2]) -> [Self; 2] {
+    fn mul(_a: [Self; 2], _b: [Self; 2]) -> [Self; 2] {
         todo!()
     }
 
     #[inline(always)]
-    fn mul_base(a: [Self; 2], b: Self) -> [Self; 2] {
+    fn mul_base(_a: [Self; 2], _b: Self) -> [Self; 2] {
         todo!()
     }
 
     #[inline(always)]
-    fn frobenius(x: [Self; 2]) -> [Self; 2] {
+    fn frobenius(_x: [Self; 2]) -> [Self; 2] {
         todo!()
     }
 }
 
 impl ExtensibleField<3> for AdapterFieldElement {
     #[inline(always)]
-    fn mul(a: [Self; 3], b: [Self; 3]) -> [Self; 3] {
+    fn mul(_a: [Self; 3], _b: [Self; 3]) -> [Self; 3] {
         todo!()
     }
 
     #[inline(always)]
-    fn mul_base(a: [Self; 3], b: Self) -> [Self; 3] {
+    fn mul_base(_a: [Self; 3], _b: Self) -> [Self; 3] {
         todo!()
     }
 
     #[inline(always)]
-    fn frobenius(x: [Self; 3]) -> [Self; 3] {
+    fn frobenius(_x: [Self; 3]) -> [Self; 3] {
         todo!()
     }
 }

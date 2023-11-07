@@ -12,9 +12,9 @@ pub fn vec_adapter2field(input: &[AdapterFieldElement]) -> Vec<FieldElement<Star
 }
 
 pub fn matrix_field2adapter(input: &[Vec<FieldElement<Stark252PrimeField>>]) -> Vec<Vec<AdapterFieldElement>> {
-    input.iter().map(|v| vec_field2adapter(&v)).collect()
+    input.iter().map(|v| vec_field2adapter(v)).collect()
 }
 
 pub fn matrix_adapter2field(input: &[Vec<AdapterFieldElement>]) -> Vec<Vec<FieldElement<Stark252PrimeField>>> {
-    input.iter().map(|v| vec_adapter2field(&v)).collect()
+    input.iter().map(|v| vec_adapter2field(v)).collect()
 }

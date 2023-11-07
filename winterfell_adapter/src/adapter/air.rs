@@ -7,7 +7,7 @@ use lambdaworks_math::field::{
     element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
 };
 use winterfell::{
-    Air, AuxTraceRandElements, EvaluationFrame, FieldExtension, ProofOptions, Trace, TraceInfo,
+    Air, AuxTraceRandElements, EvaluationFrame, FieldExtension, ProofOptions, Trace,
     TraceTable,
 };
 use crate::field_element::field_element::AdapterFieldElement;
@@ -196,7 +196,7 @@ where
                 vec_field2adapter(&frame.get_row(1)[num_main_columns..]),
             );
 
-            let mut aux_result = vec![
+            let aux_result = vec![
                 FieldElement::zero();
                 self.winterfell_air
                     .context()
@@ -260,7 +260,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use winterfell::TraceLayout;
+    use winterfell::{TraceLayout, TraceInfo};
     use stark_platinum_prover::{
         proof::options::ProofOptions,
         prover::{IsStarkProver, Prover},
