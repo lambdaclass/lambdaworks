@@ -285,35 +285,6 @@ impl StarkField for AdapterFieldElement {
     }
 }
 
-
-impl Deserializable for AdapterFieldElement {
-    fn read_from<R: winter_utils::ByteReader>(
-        _source: &mut R,
-    ) -> Result<Self, winter_utils::DeserializationError> {
-        todo!()
-    }
-}
-
-impl Serializable for AdapterFieldElement {
-    fn write_into<W: winter_utils::ByteWriter>(&self, _target: &mut W) {
-        todo!()
-    }
-}
-
-impl Randomizable for AdapterFieldElement {
-    const VALUE_SIZE: usize = 8;
-
-    fn from_random_bytes(_source: &[u8]) -> Option<Self> {
-        todo!()
-    }
-}
-
-impl AsBytes for AdapterFieldElement {
-    fn as_bytes(&self) -> &[u8] {
-        todo!()
-    }
-}
-
 impl From<u8> for AdapterFieldElement {
     fn from(value: u8) -> Self {
         Self::from(value as u64)
@@ -369,10 +340,10 @@ impl Neg for AdapterFieldElement {
     }
 }
 
-impl<'a> TryFrom<&'a [u8]> for AdapterFieldElement {
-    type Error = DeserializationError;
-
-    fn try_from(_value: &'a [u8]) -> Result<Self, Self::Error> {
+impl Deserializable for AdapterFieldElement {
+    fn read_from<R: winter_utils::ByteReader>(
+        _source: &mut R,
+    ) -> Result<Self, winter_utils::DeserializationError> {
         todo!()
     }
 }
@@ -445,5 +416,40 @@ impl ExtensibleField<3> for AdapterFieldElement {
             AdapterFieldElement::from(2699230790596717670u64) * x[1]
                 + AdapterFieldElement::from(1743033688129053336u64) * x[2],
         ]
+    }
+}
+
+/*
+    Many of the following traits are required by Winterfell, but these
+    are not needed for the adapter to work. E.g.: the AIR adapter only needs
+    to compute the main and auxiliary transitions, and be able to construct
+    the auxiliary RAP trace. Serializing or sampling random elements is not
+    needed, because these are already covered by the lambdaworks field element.
+*/
+impl Serializable for AdapterFieldElement {
+    fn write_into<W: winter_utils::ByteWriter>(&self, _target: &mut W) {
+        todo!()
+    }
+}
+
+impl Randomizable for AdapterFieldElement {
+    const VALUE_SIZE: usize = 8;
+
+    fn from_random_bytes(_source: &[u8]) -> Option<Self> {
+        todo!()
+    }
+}
+
+impl AsBytes for AdapterFieldElement {
+    fn as_bytes(&self) -> &[u8] {
+        todo!()
+    }
+}
+
+impl<'a> TryFrom<&'a [u8]> for AdapterFieldElement {
+    type Error = DeserializationError;
+
+    fn try_from(_value: &'a [u8]) -> Result<Self, Self::Error> {
+        todo!()
     }
 }
