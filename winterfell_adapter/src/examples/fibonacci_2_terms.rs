@@ -7,7 +7,7 @@ use winterfell::{
     TransitionConstraintDegree,
 };
 
-use crate::field_element::AdapterFieldElement;
+use crate::field_element::field_element::AdapterFieldElement;
 
 
 /// A fibonacci winterfell AIR example. Two terms are computed

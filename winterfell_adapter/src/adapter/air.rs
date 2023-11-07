@@ -10,22 +10,11 @@ use winterfell::{
     Air, AuxTraceRandElements, EvaluationFrame, FieldExtension, ProofOptions, Trace, TraceInfo,
     TraceTable,
 };
+use crate::field_element::field_element::AdapterFieldElement;
+use crate::utils::{vec_field2adapter, matrix_adapter2field, matrix_field2adapter};
 
-use crate::field_element::{AdapterFieldElement, vec_adapter2field, vec_field2adapter, matrix_adapter2field, matrix_field2adapter};
+use super::public_inputs::AirAdapterPublicInputs;
 
-#[derive(Clone)]
-pub struct AirAdapterPublicInputs<A>
-where
-    A: Air<BaseField = AdapterFieldElement>,
-    A::PublicInputs: Clone,
-{
-    winterfell_public_inputs: A::PublicInputs,
-    transition_degrees: Vec<usize>,
-    transition_exemptions: Vec<usize>,
-    transition_offsets: Vec<usize>,
-    trace_info: TraceInfo,
-    composition_poly_degree_bound: usize,
-}
 
 pub trait FromColumns<A> {
     fn from_cols(columns: Vec<Vec<A>>) -> Self;

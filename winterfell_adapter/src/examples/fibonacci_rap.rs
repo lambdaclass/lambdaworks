@@ -8,10 +8,10 @@ use winterfell::{
     Air, AirContext, Assertion, EvaluationFrame, ProofOptions, TraceInfo, TraceTable,
     TransitionConstraintDegree,
 };
-use crate::adapter::FromColumns;
-use crate::field_element::{AdapterFieldElement, vec_field2adapter};
+use crate::adapter::air::FromColumns;
+use crate::field_element::field_element::AdapterFieldElement;
+use crate::utils::vec_field2adapter;
 
-pub const TRACE_WIDTH: usize = 3;
 
 #[derive(Clone)]
 pub struct RapTraceTable<B: StarkField> {
@@ -151,8 +151,6 @@ impl Air for FibonacciRAP {
     type BaseField = AdapterFieldElement;
     type PublicInputs = AdapterFieldElement;
 
-    // CONSTRUCTOR
-    // --------------------------------------------------------------------------------------------
     fn new(trace_info: TraceInfo, pub_inputs: Self::BaseField, options: ProofOptions) -> Self {
         let degrees = vec![
             TransitionConstraintDegree::new(1),

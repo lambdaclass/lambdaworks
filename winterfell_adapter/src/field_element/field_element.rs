@@ -3,14 +3,13 @@ use lambdaworks_math::{
         element::FieldElement, fields::{fft_friendly::stark_252_prime_field::{Stark252PrimeField, MontgomeryConfigStark252PrimeField}, montgomery_backed_prime_fields::IsModulus}, traits::IsField,
     },
     traits::ByteConversion,
-    unsigned_integer::element::U256,
 };
 use core::{
     mem,
-    ops::{DivAssign, MulAssign, Shl, Shr, ShrAssign, SubAssign},
+    ops::{DivAssign, MulAssign, SubAssign},
     slice,
 };
-use std::{ops::{Neg, AddAssign, Div, Mul, Sub, Add, BitAnd}, cmp::Ordering};
+use std::{ops::{Neg, AddAssign, Div, Mul, Sub, Add}};
 use winter_utils::{AsBytes, DeserializationError, Randomizable};
 use winterfell::math::ExtensibleField;
 use winterfell::{
@@ -19,12 +18,11 @@ use winterfell::{
 };
 use core::fmt;
 
+use crate::field_element::positive_integer::AdapterPositiveInteger;
+
 
 #[derive(Debug, Copy, Clone)]
 pub struct AdapterFieldElement(pub FieldElement<Stark252PrimeField>);
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct AdapterPositiveInteger(pub U256);
 
 impl AddAssign<AdapterFieldElement> for AdapterFieldElement
 {
@@ -33,7 +31,7 @@ impl AddAssign<AdapterFieldElement> for AdapterFieldElement
     }
 }
 
-/// Division operator overloading for field elements*/
+/// Division operator overloading for field elements
 impl Div<&AdapterFieldElement> for &AdapterFieldElement
 {
     type Output = AdapterFieldElement;
@@ -42,7 +40,6 @@ impl Div<&AdapterFieldElement> for &AdapterFieldElement
         AdapterFieldElement(self.0.div(&rhs.0))
     }
 }
-
 
 impl Div<AdapterFieldElement> for AdapterFieldElement
 {
@@ -208,43 +205,6 @@ impl AdapterFieldElement {
     }
 }
 
-impl AdapterPositiveInteger {
-    pub const fn from_hex_unchecked(hex: &str) -> AdapterPositiveInteger {
-        AdapterPositiveInteger(U256::from_hex_unchecked(hex))
-    }
-}
-
-impl BitAnd for AdapterPositiveInteger {
-    type Output = Self;
-    
-    #[inline(always)]
-    fn bitand(self, rhs: Self) -> Self::Output {
-        AdapterPositiveInteger(self.0.bitand(rhs.0))
-    }
-}
-
-impl PartialOrd for AdapterPositiveInteger {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.0.partial_cmp(&other.0)
-    }
-}
-
-pub fn vec_field2adapter(input: &[FieldElement<Stark252PrimeField>]) -> Vec<AdapterFieldElement> {
-    input.iter().map(|&e| AdapterFieldElement(e)).collect()
-}
-
-pub fn vec_adapter2field(input: &[AdapterFieldElement]) -> Vec<FieldElement<Stark252PrimeField>> {
-    input.iter().map(|&e| e.0).collect()
-}
-
-pub fn matrix_field2adapter(input: &[Vec<FieldElement<Stark252PrimeField>>]) -> Vec<Vec<AdapterFieldElement>> {
-    input.iter().map(|v| vec_field2adapter(&v)).collect()
-}
-
-pub fn matrix_adapter2field(input: &[Vec<AdapterFieldElement>]) -> Vec<Vec<FieldElement<Stark252PrimeField>>> {
-    input.iter().map(|v| vec_adapter2field(&v)).collect()
-}
-
 impl IsWinterfellFieldElement for AdapterFieldElement {
     type PositiveInteger = AdapterPositiveInteger;
     type BaseField = Self;
@@ -304,43 +264,6 @@ impl IsWinterfellFieldElement for AdapterFieldElement {
     }
 }
 
-impl From<u64> for AdapterPositiveInteger {
-    fn from(value: u64) -> Self {
-        Self(U256::from(value))
-    }
-}
-impl From<u32> for AdapterPositiveInteger {
-    fn from(value: u32) -> Self {
-        Self::from(value as u64)
-    }
-}
-
-impl Shr<u32> for AdapterPositiveInteger {
-    type Output = AdapterPositiveInteger;
-
-    fn shr(self, rhs: u32) -> Self::Output {
-        AdapterPositiveInteger(self.0 >> rhs as usize)
-    }
-}
-
-impl Shl<u32> for AdapterPositiveInteger {
-    type Output = AdapterPositiveInteger;
-
-    fn shl(self, rhs: u32) -> Self::Output {
-        AdapterPositiveInteger(self.0 << rhs as usize)
-    }
-}
-
-impl ShrAssign for AdapterPositiveInteger {
-    fn shr_assign(&mut self, rhs: Self) {
-        if rhs >= AdapterPositiveInteger::from(256u64) {
-            *self = Self::from(0u64);
-        } else {
-            *self = *self >> rhs.0.limbs[3] as u32;
-        }
-    }
-}
-
 #[derive(Clone, Debug, Hash, Copy)]
 pub struct AdapterPrimeField;
 impl IsModulus<AdapterPositiveInteger> for AdapterPrimeField {
@@ -348,8 +271,6 @@ impl IsModulus<AdapterPositiveInteger> for AdapterPrimeField {
     AdapterPositiveInteger::from_hex_unchecked("800000000000011000000000000000000000000000000000000000000000001");
 }
 
-
-//#[cfg(feature = "std")]
 impl StarkField for AdapterFieldElement {
     const MODULUS: Self::PositiveInteger =
         <AdapterPrimeField as IsModulus<AdapterPositiveInteger>>::MODULUS;
@@ -372,29 +293,6 @@ impl StarkField for AdapterFieldElement {
     }
 }
 
-impl ByteConversion for AdapterPositiveInteger {
-    fn to_bytes_be(&self) -> Vec<u8> {
-        U256::to_bytes_be(&self.0)
-    }
-
-    fn to_bytes_le(&self) -> Vec<u8> {
-        U256::to_bytes_le(&self.0)
-    }
-
-    fn from_bytes_be(bytes: &[u8]) -> Result<Self, lambdaworks_math::errors::ByteConversionError>
-    where
-        Self: Sized {
-            let u = U256::from_bytes_be(bytes)?;
-            Ok(AdapterPositiveInteger(u))
-        }
-
-    fn from_bytes_le(bytes: &[u8]) -> Result<Self, lambdaworks_math::errors::ByteConversionError>
-    where
-        Self: Sized {
-            let u = U256::from_bytes_le(bytes)?;
-            Ok(AdapterPositiveInteger(u))
-        }
-}
 
 impl Deserializable for AdapterFieldElement {
     fn read_from<R: winter_utils::ByteReader>(
