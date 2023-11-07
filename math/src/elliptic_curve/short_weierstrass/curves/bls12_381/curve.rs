@@ -42,12 +42,11 @@ impl IsShortWeierstrass for BLS12381Curve {
     }
 }
 
-/// 𝛽 : primitive cube root of unity of 𝐹ₚ that §satisfies the minimal equation 
+/// 𝛽 : primitive cube root of unity of 𝐹ₚ that §satisfies the minimal equation
 /// 𝛽² + 𝛽 + 1 = 0 mod 𝑝
 pub const CUBE_ROOT_OF_UNITY_G1: BLS12381FieldElement = FieldElement::from_hex_unchecked(
     "5f19672fdf76ce51ba69c6076a0f77eaddb3a93be6f89688de17d813620a00022e01fffffffefffe",
 );
-
 
 /// x-coordinate of 𝜁 ∘ 𝜋_q ∘ 𝜁⁻¹, where 𝜁 is the isomorphism u:E'(𝔽ₚ₆) −> E(𝔽ₚ₁₂) from the twist to E
 pub const ENDO_U: BLS12381TwistCurveFieldElement =
