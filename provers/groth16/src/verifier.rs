@@ -15,8 +15,8 @@ pub fn verify(vk: &VerifyingKey, proof: &Proof, pub_inputs: &[FrElement]) -> boo
     )
     .unwrap();
 
-    Pairing::compute(&proof.pi3, &vk.delta_g2)
+    Pairing::compute(&proof.pi3, &vk.delta_g2).unwrap()
         * vk.alpha_g1_times_beta_g2.clone()
-        * Pairing::compute(&k_tau_assigned_verifier_g1, &vk.gamma_g2)
-        == Pairing::compute(&proof.pi1, &proof.pi2)
+        * Pairing::compute(&k_tau_assigned_verifier_g1, &vk.gamma_g2).unwrap()
+        == Pairing::compute(&proof.pi1, &proof.pi2).unwrap()
 }

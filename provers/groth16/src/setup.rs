@@ -88,7 +88,7 @@ pub fn setup(qap: &QuadraticArithmeticProgram) -> (ProvingKey, VerifyingKey) {
     let alpha_g1 = g1.operate_with_self(tw.alpha.representative());
     let beta_g2 = g2.operate_with_self(tw.beta.representative());
 
-    let alpha_g1_times_beta_g2 = Pairing::compute(&alpha_g1, &beta_g2);
+    let alpha_g1_times_beta_g2 = Pairing::compute(&alpha_g1, &beta_g2).unwrap();
 
     let delta_g2 = g2.operate_with_self(tw.delta.representative());
 
