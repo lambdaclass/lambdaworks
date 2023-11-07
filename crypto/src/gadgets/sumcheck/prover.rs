@@ -4,6 +4,15 @@ use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::{IsField, IsPrimeField};
 use lambdaworks_math::polynomial::multilinear_poly::MultilinearPolynomial;
 
+/// Sumcheck Fiat-Shamir proof
+pub struct Proof<F: IsPrimeField>
+    where
+        <F as IsField>::BaseType: Send + Sync,
+    {
+        polys: Vec<MultilinearPolynomial<F>>,
+        r: Vec<FieldElement<F>>,
+    }
+
 /// prover struct for sumcheck protocol
 pub struct Prover<F: IsPrimeField>
 where
@@ -52,9 +61,9 @@ where
     }
 
     /// Executes the i-th round of the sumcheck protocol
-    /// The variable round records the current round and the variable that is currently fixed
+    /// The variable `round` records the current round and the variable that is currently fixed
     /// This function always fixes the first variable
-    /// We assume that the variables in 0..round have already been assigned
+    /// We assume that the variables in 0..`round` have already been assigned
     pub fn send_poly(&mut self) -> MultilinearPolynomial<F> {
         // new_poly is the polynomial to be returned
         let mut new_poly = MultilinearPolynomial::<F>::new(vec![]);
