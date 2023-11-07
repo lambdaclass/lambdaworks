@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1699303571193,
+  "lastUpdate": 1699365851714,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -437,6 +437,150 @@ window.BENCHMARK_DATA = {
             "name": "Polynomial/div by 'x - b' with Ruffini",
             "value": 11,
             "range": "± 25",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fior.gbm@gmail.com",
+            "name": "Gabriel Fior",
+            "username": "gabrielfior"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "37f426c97f62c31f44d53ae7ba2392b48a0e63a6",
+          "message": "Skeleton for Groth16 as part of Sparkling water bootcamp efforts (#612)\n\n* Skeleton for Groth16 as part of Sparkling water bootcamp efforts\n\n* Solving linting\n\n* Making clippy happy\n\n* lr-o / t = h with no remainder\n\n* having a problem with operate_with_self\n\n* diego is a genius\n\n* a\n\n* alpha shift\n\n* delta-shift\n\n* introduce pairings\n\n* minor renamings\n\n* getting serious\n\n* rearrangement\n\n* toxic waste struct\n\n* rearrange\n\n* broke-down everything\n\n* rearrange\n\n* one step forward\n\n* passes without shifts\n\n* K(s) constructed!!!!!!!!\n\n* pairings need to be multiplied\n\n* a lot of tests. turn back here if you have trouble\n\n* 10 times cleaner\n\n* 100x cleaner\n\n* 500x cleaner\n\n* minor\n\n* with and without zk\n\n* functional zk-snark\n\n* Added MSM to verify part\n\n* Moved logic to setup | added simple tests\n\n* major rearrangement\n\n* another major refactor\n\n* organize imports\n\n* prover + verifier pippenger\n\n* code organization\n\n* generate_domain\n\n* FFT integration\n\n* rng -> chacha\n\n* fold -> successors\n\n* get rid of is_zk\n\n* batch inverse\n\n* more functional style code in groth16 setup\n\n* powers of tau -> successors\n\n* small tweak to qap & prover\n\n* serde\n\n* serde rearrangement\n\n* clippy\n\n* offset fft for h polynomial\n\n* final\n\n* clippy\n\n* structurify groth16 prover\n\n* padding for the prover\n\n* missing newline\n\n* Implemented review comments\n\n* Fixing clippy\n\n* minor renaming\n\n* clippy\n\n* padding corrected + one more test\n\n* clippy\n\n* perks\n\n---------\n\nCo-authored-by: Irfan Bozkurt <irfanbozkurt123@gmail.com>\nCo-authored-by: irfan <irbozk@gmail.com>",
+          "timestamp": "2023-11-07T13:46:18Z",
+          "tree_id": "772c287dfa8db2e733bfbc5b3830c652b075e28f",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/37f426c97f62c31f44d53ae7ba2392b48a0e63a6"
+        },
+        "date": 1699365847696,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "Ordered FFT/Parallel (Metal)",
+            "value": 78121593,
+            "range": "± 6291385",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #2",
+            "value": 153337796,
+            "range": "± 6758062",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #3",
+            "value": 311276812,
+            "range": "± 6755756",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #4",
+            "value": 645449645,
+            "range": "± 16386230",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal)",
+            "value": 34443650,
+            "range": "± 202320",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #2",
+            "value": 69248978,
+            "range": "± 973571",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #3",
+            "value": 136457747,
+            "range": "± 974465",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #4",
+            "value": 282761093,
+            "range": "± 1363227",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal)",
+            "value": 27279753,
+            "range": "± 850849",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #2",
+            "value": 49559994,
+            "range": "± 2278025",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #3",
+            "value": 110968687,
+            "range": "± 8035611",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #4",
+            "value": 239176166,
+            "range": "± 17012016",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal",
+            "value": 118232829,
+            "range": "± 978565",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #2",
+            "value": 238298736,
+            "range": "± 1119106",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #3",
+            "value": 498052604,
+            "range": "± 8667564",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #4",
+            "value": 982261041,
+            "range": "± 6821256",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal",
+            "value": 405782218,
+            "range": "± 3553150",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #2",
+            "value": 802384166,
+            "range": "± 4354994",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #3",
+            "value": 1581819438,
+            "range": "± 13006964",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #4",
+            "value": 3089432354,
+            "range": "± 30179716",
             "unit": "ns/iter"
           }
         ]
