@@ -92,7 +92,7 @@ where
                 aux_col.push(z_i * n_p_term.div(p_term));
             }
         }
-        TraceTable::from_columns(&[aux_col])
+        TraceTable::from_columns(vec![aux_col])
     }
 
     fn build_rap_challenges(
@@ -186,7 +186,7 @@ pub fn fibonacci_rap_trace<F: IsFFTField>(
     let mut trace_cols = vec![fib_seq, fib_permuted];
     resize_to_next_power_of_two(&mut trace_cols);
 
-    TraceTable::from_columns(&trace_cols)
+    TraceTable::from_columns(trace_cols)
 }
 
 #[cfg(test)]
