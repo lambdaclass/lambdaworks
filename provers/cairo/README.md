@@ -51,7 +51,7 @@ cargo run --release --features=cli,instruments,parallel verify <proof_path>
 For example:
 
 ```bash
-cargo run --release --features=cli,instruments,parallel verify fibonacci_5.proof
+cargo run --release --features=cli,instruments,parallel verify cairo_programs/cairo0/fibonacci_5.proof
 ```
 
 **To compile Cairo:**
