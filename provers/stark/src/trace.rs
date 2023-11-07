@@ -20,18 +20,18 @@ pub struct TraceTable<F: IsFFTField> {
 }
 
 impl<F: IsFFTField> TraceTable<F> {
-    pub fn new(data: &[FieldElement<F>], n_columns: usize) -> Self {
+    pub fn new(data: Vec<FieldElement<F>>, n_columns: usize) -> Self {
         let table = Table::new(data, n_columns);
         Self { table }
     }
 
-    pub fn from_columns(columns: &[Vec<FieldElement<F>>]) -> Self {
+    pub fn from_columns(columns: Vec<Vec<FieldElement<F>>>) -> Self {
         let table = Table::from_columns(columns);
         Self { table }
     }
 
     pub fn empty() -> Self {
-        Self::new(&Vec::new(), 0)
+        Self::new(Vec::new(), 0)
     }
 
     pub fn is_empty(&self) -> bool {
@@ -111,7 +111,7 @@ impl<F: IsFFTField> TraceTable<F> {
             i += n_cols;
         }
 
-        let table = Table::new(&data, self.n_cols() + n_cols);
+        let table = Table::new(data, self.n_cols() + n_cols);
         Self { table }
     }
 
@@ -150,6 +150,30 @@ impl<F: IsFFTField> TraceTable<F> {
     }
 }
 
+/// Given a slice of trace polynomials, an evaluation point `x`, the frame offsets
+/// corresponding to the computation of the transitions, and a primitive root,
+/// outputs the trace evaluations of each trace polynomial over the values used to
+/// compute a transition.
+/// Example: For a simple Fibonacci computation, if t(x) is the trace polynomial of
+/// the computation, this will output evaluations t(x), t(g * x), t(g^2 * z).
+pub fn get_trace_evaluations<F: IsFFTField>(
+    trace_polys: &[Polynomial<FieldElement<F>>],
+    x: &FieldElement<F>,
+    frame_offsets: &[usize],
+    primitive_root: &FieldElement<F>,
+) -> Vec<Vec<FieldElement<F>>> {
+    frame_offsets
+        .iter()
+        .map(|offset| x * primitive_root.pow(*offset))
+        .map(|eval_point| {
+            trace_polys
+                .iter()
+                .map(|poly| poly.evaluate(&eval_point))
+                .collect::<Vec<FieldElement<F>>>()
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod test {
     use super::TraceTable;
@@ -161,7 +185,7 @@ mod test {
         let col_1 = vec![FE::from(1), FE::from(2), FE::from(5), FE::from(13)];
         let col_2 = vec![FE::from(1), FE::from(3), FE::from(8), FE::from(21)];
 
-        let trace_table = TraceTable::from_columns(&[col_1.clone(), col_2.clone()]);
+        let trace_table = TraceTable::from_columns(vec![col_1.clone(), col_2.clone()]);
         let res_cols = trace_table.columns();
 
         assert_eq!(res_cols, vec![col_1, col_2]);
@@ -178,12 +202,12 @@ mod test {
             FE::new(5),
             FE::new(6),
         ];
-        let expected_table = TraceTable::from_columns(&[
+        let expected_table = TraceTable::from_columns(vec![
             vec![FE::new(7), FE::new(8), FE::new(9)],
             vec![FE::new(1), FE::new(3), FE::new(5)],
             vec![FE::new(2), FE::new(4), FE::new(6)],
         ]);
-        let table1 = TraceTable::from_columns(&table1_columns);
+        let table1 = TraceTable::from_columns(table1_columns);
         assert_eq!(table1.concatenate(new_columns, 2), expected_table)
     }
 }
