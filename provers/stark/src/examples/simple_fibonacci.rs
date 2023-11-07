@@ -129,5 +129,5 @@ pub fn fibonacci_trace<F: IsFFTField>(
         ret.push(ret[i - 1].clone() + ret[i - 2].clone());
     }
 
-    TraceTable::from_columns(&[ret])
+    TraceTable::from_columns(vec![ret])
 }
