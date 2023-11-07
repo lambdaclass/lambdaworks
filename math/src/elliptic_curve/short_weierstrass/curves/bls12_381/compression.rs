@@ -1,16 +1,21 @@
 use super::field_extension::BLS12381PrimeField;
 use crate::{
-    cyclic_group::IsGroup,
     elliptic_curve::short_weierstrass::{
-        curves::bls12_381::curve::BLS12381Curve, point::ShortWeierstrassProjectivePoint,
+        curves::bls12_381::curve::BLS12381Curve, 
+        point::ShortWeierstrassProjectivePoint,
     },
-    elliptic_curve::traits::FromAffine,
-    errors::ByteConversionError,
     field::element::FieldElement,
-    traits::ByteConversion,
 };
 #[cfg(feature = "std")]
 use std::{cmp::Ordering, ops::Neg};
+
+#[cfg(feature = "std")]
+use crate::{
+    cyclic_group::IsGroup,
+    traits::ByteConversion,
+    errors::ByteConversionError,
+    elliptic_curve::traits::FromAffine,
+};
 
 pub type G1Point = ShortWeierstrassProjectivePoint<BLS12381Curve>;
 pub type BLS12381FieldElement = FieldElement<BLS12381PrimeField>;

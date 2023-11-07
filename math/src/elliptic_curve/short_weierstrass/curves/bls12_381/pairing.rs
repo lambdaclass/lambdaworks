@@ -1,5 +1,5 @@
 use super::{
-    curve::BLS12381Curve,
+    curve::{BLS12381Curve, MILLER_LOOP_CONSTANT},
     field_extension::{Degree12ExtensionField, Degree2ExtensionField},
     twist::BLS12381TwistCurve,
 };
@@ -47,8 +47,6 @@ impl IsPairing for BLS12381AtePairing {
     }
 }
 
-/// This is equal to the frobenius trace of the BLS12 381 curve minus one or seed value z.
-pub const MILLER_LOOP_CONSTANT: u64 = 0xd201000000010000;
 fn double_accumulate_line(
     t: &mut ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
     p: &ShortWeierstrassProjectivePoint<BLS12381Curve>,

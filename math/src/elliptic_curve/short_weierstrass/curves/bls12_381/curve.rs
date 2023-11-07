@@ -1,6 +1,7 @@
-use super::field_extension::{BLS12381PrimeField, Degree2ExtensionField};
-use super::pairing::MILLER_LOOP_CONSTANT;
-use super::twist::BLS12381TwistCurve;
+use super::{
+    field_extension::{BLS12381PrimeField, Degree2ExtensionField},
+    twist::BLS12381TwistCurve,
+};
 use crate::cyclic_group::IsGroup;
 use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
 use crate::elliptic_curve::traits::IsEllipticCurve;
@@ -41,6 +42,9 @@ impl IsShortWeierstrass for BLS12381Curve {
         FieldElement::from(4)
     }
 }
+
+/// This is equal to the frobenius trace of the BLS12 381 curve minus one or seed value z.
+pub const MILLER_LOOP_CONSTANT: u64 = 0xd201000000010000;
 
 /// 𝛽 : primitive cube root of unity of 𝐹ₚ that §satisfies the minimal equation
 /// 𝛽² + 𝛽 + 1 = 0 mod 𝑝
