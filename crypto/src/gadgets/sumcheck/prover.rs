@@ -3,15 +3,31 @@ use std::ops::AddAssign;
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::{IsField, IsPrimeField};
 use lambdaworks_math::polynomial::multilinear_poly::MultilinearPolynomial;
+use lambdaworks_math::traits::ByteConversion;
+
+use crate::fiat_shamir::default_transcript::DefaultTranscript;
+use crate::fiat_shamir::transcript::Transcript;
 
 /// Sumcheck Fiat-Shamir proof
 pub struct Proof<F: IsPrimeField>
-    where
-        <F as IsField>::BaseType: Send + Sync,
-    {
-        polys: Vec<MultilinearPolynomial<F>>,
-        r: Vec<FieldElement<F>>,
+where
+    <F as IsField>::BaseType: Send + Sync,
+{
+    polys: Vec<MultilinearPolynomial<F>>,
+    r: Vec<FieldElement<F>>,
+}
+
+impl<F: IsPrimeField> Proof<F>
+where
+    <F as IsField>::BaseType: Send + Sync,
+{
+    pub fn new() -> Proof<F> {
+        Proof {
+            polys: Vec::<MultilinearPolynomial<F>>::new(),
+            r: Vec::<FieldElement<F>>::new(),
+        }
     }
+}
 
 /// prover struct for sumcheck protocol
 pub struct Prover<F: IsPrimeField>
@@ -26,6 +42,7 @@ where
 impl<F: IsPrimeField> Prover<F>
 where
     <F as IsField>::BaseType: Send + Sync,
+    FieldElement<F>: ByteConversion,
 {
     /// Constructor for prover takes a multilinear polynomial
     pub fn new(poly: MultilinearPolynomial<F>) -> Prover<F> {
@@ -128,6 +145,18 @@ where
         let var_assignments: Vec<(usize, FieldElement<F>)> = vars.into_iter().zip(values).collect();
 
         self.poly.partial_evaluate(&var_assignments)
+    }
+
+    /// Generates a single proof using Fiat-Shamir in
+    /// the sumcheck protocol
+    pub fn prove(&self) {
+        let mut transcript = DefaultTranscript::new();
+
+        // add the claimed sum to the transcript
+        let sum = self.generate_valid_sum().to_bytes_be();
+        transcript.append(&sum);
+        let challenge = transcript.challenge();
+        let r = FieldElement::<F>::from_bytes_be(&challenge);
     }
 }
 
