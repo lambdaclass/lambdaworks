@@ -130,7 +130,7 @@ where
         main_trace: &stark_platinum_prover::trace::TraceTable<Self::Field>,
         rap_challenges: &Self::RAPChallenges,
     ) -> stark_platinum_prover::trace::TraceTable<Self::Field> {
-        // We only support one-stage RAP.
+        // We support at most a one-stage RAP. This covers most use cases.
         if let Some(winter_trace) =
             T::from_cols(matrix_field2adapter(&main_trace.columns())).build_aux_segment(&[], rap_challenges)
         {

@@ -1,5 +1,5 @@
 use lambdaworks_math::field::{
-    element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+    element::FieldElement,
 };
 use winterfell::math::FieldElement as IsWinterfellFieldElement;
 use winterfell::{
@@ -9,8 +9,10 @@ use winterfell::{
 
 use crate::field_element::AdapterFieldElement;
 
-pub const TRACE_WIDTH: usize = 2;
 
+/// A fibonacci winterfell AIR example. Two terms are computed
+/// at each step. This was taken from the original winterfell
+/// repository and adapted to work with lambdaworks.
 #[derive(Clone)]
 pub struct FibAir2Terms {
     context: AirContext<AdapterFieldElement>,
@@ -21,14 +23,11 @@ impl Air for FibAir2Terms {
     type BaseField = AdapterFieldElement;
     type PublicInputs = AdapterFieldElement;
 
-    // CONSTRUCTOR
-    // --------------------------------------------------------------------------------------------
     fn new(trace_info: TraceInfo, pub_inputs: Self::BaseField, options: ProofOptions) -> Self {
         let degrees = vec![
             TransitionConstraintDegree::new(1),
             TransitionConstraintDegree::new(1),
         ];
-        assert_eq!(TRACE_WIDTH, trace_info.width());
         FibAir2Terms {
             context: AirContext::new(trace_info, degrees, 3, options),
             result: pub_inputs,
@@ -47,11 +46,8 @@ impl Air for FibAir2Terms {
     ) {
         let current = frame.current();
         let next = frame.next();
-        // expected state width is 2 field elements
-        debug_assert_eq!(TRACE_WIDTH, current.len());
-        debug_assert_eq!(TRACE_WIDTH, next.len());
 
-        // constraints of Fibonacci sequence (2 terms per step):
+        // Constraints of Fibonacci sequence (2 terms per step):
         // s_{0, i+1} = s_{0, i} + s_{1, i}
         // s_{1, i+1} = s_{1, i} + s_{0, i+1}
         result[0] = next[0] - (current[0] + current[1]);
@@ -59,7 +55,7 @@ impl Air for FibAir2Terms {
     }
 
     fn get_assertions(&self) -> Vec<Assertion<Self::BaseField>> {
-        // a valid Fibonacci sequence should start with two ones and terminate with
+        // A valid Fibonacci sequence should start with two ones and terminate with
         // the expected result
         let last_step = self.trace_length() - 1;
         vec![
@@ -76,7 +72,7 @@ pub fn build_trace(sequence_length: usize) -> TraceTable<AdapterFieldElement> {
         "sequence length must be a power of 2"
     );
 
-    let mut trace = TraceTable::new(TRACE_WIDTH, sequence_length / 2);
+    let mut trace = TraceTable::new(2, sequence_length / 2);
     trace.fill(
         |state| {
             state[0] = AdapterFieldElement(FieldElement::one());
