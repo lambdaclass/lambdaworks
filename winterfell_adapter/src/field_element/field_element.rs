@@ -90,10 +90,24 @@ impl IsWinterfellFieldElement for AdapterFieldElement {
     }
 }
 
-impl AddAssign<AdapterFieldElement> for AdapterFieldElement
-{
-    fn add_assign(&mut self, rhs: AdapterFieldElement) {
-        *self = *self + rhs; 
+impl StarkField for AdapterFieldElement {
+    const MODULUS: Self::PositiveInteger = AdapterPositiveInteger::from_hex_unchecked("800000000000011000000000000000000000000000000000000000000000001");
+
+    const MODULUS_BITS: u32 = 252;
+
+    const GENERATOR: Self = Self::from_hex_unchecked("3");
+
+    const TWO_ADICITY: u32 = 192;
+
+    const TWO_ADIC_ROOT_OF_UNITY: Self =
+        Self::from_hex_unchecked("5282db87529cfa3f0464519c8b0fa5ad187148e11a61616070024f42f8ef94");
+
+    fn get_modulus_le_bytes() -> Vec<u8> {
+        Self::MODULUS.to_bytes_le()
+    }
+
+    fn as_int(&self) -> Self::PositiveInteger {
+        AdapterPositiveInteger(FieldElement::representative(&self.0))
     }
 }
 
@@ -241,6 +255,14 @@ impl Add<AdapterFieldElement> for &AdapterFieldElement
     }
 }
 
+impl Neg for AdapterFieldElement {
+    type Output = AdapterFieldElement;
+
+    fn neg(self) -> Self::Output {
+        AdapterFieldElement(self.0.neg())
+    }
+}
+
 impl PartialEq<AdapterFieldElement> for AdapterFieldElement
 {
     fn eq(&self, other: &AdapterFieldElement) -> bool {
@@ -261,27 +283,6 @@ impl fmt::Display for AdapterFieldElement
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0.fmt(f)
-    }
-}
-
-impl StarkField for AdapterFieldElement {
-    const MODULUS: Self::PositiveInteger = AdapterPositiveInteger::from_hex_unchecked("800000000000011000000000000000000000000000000000000000000000001");
-
-    const MODULUS_BITS: u32 = 252;
-
-    const GENERATOR: Self = Self::from_hex_unchecked("3");
-
-    const TWO_ADICITY: u32 = 192;
-
-    const TWO_ADIC_ROOT_OF_UNITY: Self =
-        Self::from_hex_unchecked("5282db87529cfa3f0464519c8b0fa5ad187148e11a61616070024f42f8ef94");
-
-    fn get_modulus_le_bytes() -> Vec<u8> {
-        Self::MODULUS.to_bytes_le()
-    }
-
-    fn as_int(&self) -> Self::PositiveInteger {
-        AdapterPositiveInteger(FieldElement::representative(&self.0))
     }
 }
 
@@ -332,90 +333,47 @@ impl SubAssign<AdapterFieldElement> for AdapterFieldElement {
     }
 }
 
-impl Neg for AdapterFieldElement {
-    type Output = AdapterFieldElement;
-
-    fn neg(self) -> Self::Output {
-        AdapterFieldElement(self.0.neg())
+impl AddAssign<AdapterFieldElement> for AdapterFieldElement
+{
+    fn add_assign(&mut self, rhs: AdapterFieldElement) {
+        *self = *self + rhs; 
     }
 }
 
-impl Deserializable for AdapterFieldElement {
-    fn read_from<R: winter_utils::ByteReader>(
-        _source: &mut R,
-    ) -> Result<Self, winter_utils::DeserializationError> {
-        todo!()
-    }
-}
+// Extension fields are still not needed. Examples on how to implement these can be found in
+// https://github.com/facebook/winterfell/blob/08f9d9da3ee33b596d8c34ef8a549fdca1cda3ff/math/src/field/f62/mod.rs#L388
 
 impl ExtensibleField<2> for AdapterFieldElement {
     #[inline(always)]
     fn mul(a: [Self; 2], b: [Self; 2]) -> [Self; 2] {
-        let z = a[0] * b[0];
-        [z + a[1] * b[1], (a[0] + a[1]) * (b[0] + b[1]) - z]
+        todo!()
     }
 
     #[inline(always)]
     fn mul_base(a: [Self; 2], b: Self) -> [Self; 2] {
-        [a[0] * b, a[1] * b]
+        todo!()
     }
 
     #[inline(always)]
     fn frobenius(x: [Self; 2]) -> [Self; 2] {
-        [x[0] + x[1], -x[1]]
+        todo!()
     }
 }
 
-// CUBIC EXTENSION
-// ================================================================================================
-
-/// Defines a cubic extension of the base field over an irreducible polynomial x<sup>3</sup> +
-/// 2x + 2. Thus, an extension element is defined as α + β * φ + γ * φ^2, where φ is a root of this
-/// polynomial, and α, β and γ are base field elements.
 impl ExtensibleField<3> for AdapterFieldElement {
     #[inline(always)]
     fn mul(a: [Self; 3], b: [Self; 3]) -> [Self; 3] {
-        // performs multiplication in the extension field using 6 multiplications, 8 additions,
-        // and 9 subtractions in the base field. overall, a single multiplication in the extension
-        // field is roughly equal to 12 multiplications in the base field.
-        let a0b0 = a[0] * b[0];
-        let a1b1 = a[1] * b[1];
-        let a2b2 = a[2] * b[2];
-
-        let a0b0_a0b1_a1b0_a1b1 = (a[0] + a[1]) * (b[0] + b[1]);
-        let minus_a0b0_a0b2_a2b0_minus_a2b2 = (a[0] - a[2]) * (b[2] - b[0]);
-        let a1b1_minus_a1b2_minus_a2b1_a2b2 = (a[1] - a[2]) * (b[1] - b[2]);
-        let a0b0_a1b1 = a0b0 + a1b1;
-
-        let minus_2a1b2_minus_2a2b1 = (a1b1_minus_a1b2_minus_a2b1_a2b2 - a1b1 - a2b2).double();
-
-        let a0b0_minus_2a1b2_minus_2a2b1 = a0b0 + minus_2a1b2_minus_2a2b1;
-        let a0b1_a1b0_minus_2a1b2_minus_2a2b1_minus_2a2b2 =
-            a0b0_a0b1_a1b0_a1b1 + minus_2a1b2_minus_2a2b1 - a2b2.double() - a0b0_a1b1;
-        let a0b2_a1b1_a2b0_minus_2a2b2 = minus_a0b0_a0b2_a2b0_minus_a2b2 + a0b0_a1b1 - a2b2;
-        [
-            a0b0_minus_2a1b2_minus_2a2b1,
-            a0b1_a1b0_minus_2a1b2_minus_2a2b1_minus_2a2b2,
-            a0b2_a1b1_a2b0_minus_2a2b2,
-        ]
+        todo!()
     }
 
     #[inline(always)]
     fn mul_base(a: [Self; 3], b: Self) -> [Self; 3] {
-        [a[0] * b, a[1] * b, a[2] * b]
+        todo!()
     }
 
     #[inline(always)]
     fn frobenius(x: [Self; 3]) -> [Self; 3] {
-        // coefficients were computed using SageMath
-        [
-            x[0] + AdapterFieldElement::from(2061766055618274781u64) * x[1]
-                + AdapterFieldElement::from(786836585661389001u64) * x[2],
-            AdapterFieldElement::from(2868591307402993000u64) * x[1]
-                + AdapterFieldElement::from(3336695525575160559u64) * x[2],
-            AdapterFieldElement::from(2699230790596717670u64) * x[1]
-                + AdapterFieldElement::from(1743033688129053336u64) * x[2],
-        ]
+        todo!()
     }
 }
 
@@ -426,6 +384,14 @@ impl ExtensibleField<3> for AdapterFieldElement {
     the auxiliary RAP trace. Serializing or sampling random elements is not
     needed, because these are already covered by the lambdaworks field element.
 */
+impl Deserializable for AdapterFieldElement {
+    fn read_from<R: winter_utils::ByteReader>(
+        _source: &mut R,
+    ) -> Result<Self, winter_utils::DeserializationError> {
+        todo!()
+    }
+}
+
 impl Serializable for AdapterFieldElement {
     fn write_into<W: winter_utils::ByteWriter>(&self, _target: &mut W) {
         todo!()
