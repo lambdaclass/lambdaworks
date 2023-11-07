@@ -940,10 +940,14 @@ impl AIR for CairoAIR {
 /// From the Cairo whitepaper, section 9.10
 fn compute_instr_constraints(constraints: &mut [Felt252], frame: &Frame<Stark252PrimeField>) {
     // These constraints are only applied over elements of the same row.
-    let curr = frame.get_row(0);
+    let curr = frame.get_evaluation_step(0);
+
+    let flags: Vec<&Felt252> = (0..16)
+        .map(|col_idx| curr.get_evaluation_element(0, col_idx))
+        .collect();
 
     // Bit constraints
-    for (i, flag) in curr[0..16].iter().enumerate() {
+    for (i, flag) in flags.into_iter().enumerate() {
         constraints[i] = match i {
             0..=14 => flag * (flag - Felt252::one()),
             15 => *flag,
@@ -958,41 +962,56 @@ fn compute_instr_constraints(constraints: &mut [Felt252], frame: &Frame<Stark252
     let b48 = two.pow(48u32);
 
     // Named like this to match the Cairo whitepaper's notation.
-    let f0_squiggle = &curr[0..15]
-        .iter()
+    let f0_squiggle = flags
+        .into_iter()
         .rev()
         .fold(Felt252::zero(), |acc, flag| flag + two * acc);
 
-    constraints[INST] =
-        (curr[OFF_DST]) + b16 * (curr[OFF_OP0]) + b32 * (curr[OFF_OP1]) + b48 * f0_squiggle
-            - curr[FRAME_INST];
+    let off_dst = curr.get_evaluation_element(0, OFF_DST);
+    let off_op0 = curr.get_evaluation_element(0, OFF_OP0);
+    let off_op1 = curr.get_evaluation_element(0, OFF_OP1);
+    let instruction = curr.get_evaluation_element(0, FRAME_INST);
+
+    constraints[INST] = off_dst + b16 * off_op0 + b32 * off_op1 + b48 * f0_squiggle - instruction;
 }
 
 fn compute_operand_constraints(constraints: &mut [Felt252], frame: &Frame<Stark252PrimeField>) {
     // These constraints are only applied over elements of the same row.
-    let curr = frame.get_row(0);
+    let curr = frame.get_evaluation_step(0);
 
-    let ap = &curr[FRAME_AP];
-    let fp = &curr[FRAME_FP];
-    let pc = &curr[FRAME_PC];
+    let ap = curr.get_evaluation_element(0, FRAME_AP);
+    let fp = curr.get_evaluation_element(0, FRAME_FP);
+    let pc = curr.get_evaluation_element(0, FRAME_PC);
+
+    let dst_fp = curr.get_evaluation_element(0, F_DST_FP);
+    let off_dst = curr.get_evaluation_element(0, F_DST_FP);
+    let dst_fp = curr.get_evaluation_element(0, OFF_DST);
+    let dst_addr = curr.get_evaluation_element(0, FRAME_DST_ADDR);
+
+    let op0_fp = curr.get_evaluation_element(0, F_OP_0_FP);
+    let off_op0 = curr.get_evaluation_element(0, OFF_OP0);
+    let op0_addr = curr.get_evaluation_element(0, FRAME_OP0_ADDR);
+
+    let op1_val = curr.get_evaluation_element(0, F_OP_1_VAL);
+    let op1_ap = curr.get_evaluation_element(0, F_OP_1_AP);
+    let op1_fp = curr.get_evaluation_element(0, F_OP_1_FP);
+    let op0 = curr.get_evaluation_element(0, FRAME_OP0);
+    let off_op1 = curr.get_evaluation_element(0, OFF_OP1);
+    let op1_addr = curr.get_evaluation_element(0, FRAME_OP1_ADDR);
 
     let one = Felt252::one();
     let b15 = Felt252::from(2).pow(15u32);
 
-    constraints[DST_ADDR] =
-        curr[F_DST_FP] * fp + (one - curr[F_DST_FP]) * ap + (curr[OFF_DST] - b15)
-            - curr[FRAME_DST_ADDR];
+    constraints[DST_ADDR] = dst_fp * fp + (one - dst_fp) * ap + (off_dst - b15) - dst_addr;
 
-    constraints[OP0_ADDR] =
-        curr[F_OP_0_FP] * fp + (one - curr[F_OP_0_FP]) * ap + (curr[OFF_OP0] - b15)
-            - curr[FRAME_OP0_ADDR];
+    constraints[OP0_ADDR] = op0_fp * fp + (one - op0_fp) * ap + (off_op0 - b15) - op0_addr;
 
-    constraints[OP1_ADDR] = curr[F_OP_1_VAL] * pc
-        + curr[F_OP_1_AP] * ap
-        + curr[F_OP_1_FP] * fp
-        + (one - curr[F_OP_1_VAL] - curr[F_OP_1_AP] - curr[F_OP_1_FP]) * curr[FRAME_OP0]
-        + (curr[OFF_OP1] - b15)
-        - curr[FRAME_OP1_ADDR];
+    constraints[OP1_ADDR] = op1_val * pc
+        + op1_ap * ap
+        + op1_fp * fp
+        + (one - op1_val - op1_ap - op1_fp) * op0
+        + (off_op1 - b15)
+        - op1_addr;
 }
 
 fn compute_register_constraints(constraints: &mut [Felt252], frame: &Frame<Stark252PrimeField>) {

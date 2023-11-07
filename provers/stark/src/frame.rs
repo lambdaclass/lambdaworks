@@ -12,8 +12,8 @@ impl<'t, F: IsFFTField> Frame<'t, F> {
         Self { steps }
     }
 
-    pub fn get_evaluation_step(&self, step: usize) -> StepView<'t, F> {
-        self.steps[step]
+    pub fn get_evaluation_step(&self, step: usize) -> &StepView<'t, F> {
+        &self.steps[step]
     }
 
     // pub fn n_rows(&self) -> usize {
@@ -33,7 +33,7 @@ impl<'t, F: IsFFTField> Frame<'t, F> {
     // }
 
     pub fn read_from_trace(
-        trace: &TraceTable<F>,
+        trace: &'t TraceTable<F>,
         step: usize,
         blowup: u8,
         offsets: &[usize],
@@ -55,8 +55,9 @@ impl<'t, F: IsFFTField> Frame<'t, F> {
 
 impl<'t, F: IsFFTField> From<&'t Table<F>> for Frame<'t, F> {
     fn from(value: &Table<F>) -> Self {
-        let data = value.data;
+        // let data = value.data;
+        todo!()
 
-        Self::new(value.data.clone(), value.width)
+        // Self::new(value.data.clone(), value.width)
     }
 }

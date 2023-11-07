@@ -70,7 +70,7 @@ impl AIR for DummyAIR {
         let flag = first_step.get_evaluation_element(0, 0);
         let a0 = first_step.get_evaluation_element(0, 1);
         let a1 = second_step.get_evaluation_element(0, 1);
-        let a2 = second_step.get_evaluation_element(0, 1);
+        let a2 = third_step.get_evaluation_element(0, 1);
 
         let f_constraint = flag * (flag - FieldElement::one());
 
