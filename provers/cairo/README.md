@@ -1,126 +1,130 @@
 <div align="center">
 
-# 🌟 Lambdaworks Cairo Platinum Prover 🌟
-
-<img src="https://github.com/lambdaclass/lambdaworks_stark_platinum/assets/569014/ad8d7943-f011-49b5-a0c5-f07e5ef4133e" alt="drawing" width="300"/>
-
-## An open-source Cairo prover
+# Lambdaworks Cairo Platinum Prover CLI
 
 </div>
 
-[![Telegram Chat][tg-badge]][tg-url]
-
-[tg-badge]: https://img.shields.io/static/v1?color=green&logo=telegram&label=chat&style=flat&message=join
-[tg-url]: https://t.me/+98Whlzql7Hs0MDZh
-
-
 ## ⚠️ Disclaimer
 
-This prover is still in development and may contain bugs. It is not intended to be used in production yet. 
+This prover is still in development and may contain bugs. It is not intended to be used in production yet.
 
-Please check issues under security label, and wait for them to be resolved if they are relevant your project.
+Please check issues under security label, and wait for them to be resolved if they are relevant to your project.
 
-Output builtin is finished, and range check is supported but it's not sound yet. 
-
-We expect to have something working in a good state by mid August 2023.
+Output builtin is finished, and range check is supported but it's not sound yet.
 
 CLI currently runs with 100 bits of conjecturable security
 
-## [Documentation]([lambdaclass.github.io/lambdaworks/](https://lambdaclass.github.io/lambdaworks/starks/cairo.html))
+## [Cairo Platinum Prover Docs](<[lambdaclass.github.io/lambdaworks/](https://github.com/lambdaclass/lambdaworks/blob/main/provers/cairo/README.md)>)
 
-## Table of Contents
+### Usage:
 
-- [🌟 Lambdaworks Cairo Platinum Prover 🌟](#-lambdaworks-cairo-platinum-prover-)
-  - [An open-source Cairo prover](#an-open-source-cairo-prover)
-  - [⚠️ Disclaimer](#️-disclaimer)
-  - [Documentation](#documentation)
-  - [Table of Contents](#table-of-contents)
-  - [To be added](#to-be-added)
-  - [Requirements](#requirements)
-  - [How to try it](#how-to-try-it)
-    - [🚀 Prove and verify](#-prove-and-verify)
-    - [Using WASM verifier](#using-wasm-verifier)
-  - [Running tests](#running-tests)
-  - [Running fuzzers](#running-fuzzers)
-  - [📚 References](#-references)
-  - [🌞 Related Projects](#-related-projects)
+To prove Cairo programs, they first need to be compiled. For compilation you need to have `cairo-lang` or `docker` installed.
 
-## To be added
+When using Docker, start by creating the container image with:
 
-To be added:
-- CLI Improvements
--  Add parameters for proving and verifying in the CLI / (Public inputs should be serialized and deserialized)
--  Add Cairo compilation inside Rust, to prove and verify Cairo1/Cairo2 from the .cairo file, instead of the .casm file
--  Add last constraint of Range Check Built In
--  Add more parallelization
--  Benchmarks and optimizations for Graviton
--  Bitwise Builtin
--  Cairo Verifier
-   - Batch verifier / For trees and N proofs
--  Chiplet support
--  Different layouts
--  Pedersen Builtin
--  Pick hash configuration with ProofOptions
--  Poseidon Builtin
+```**bash**
+  make docker_build_cairo_compiler
+```
 
-## Requirements
+Examples of Cairo 0 programs can be found [here](https://github.com/lambdaclass/lambdaworks/tree/main/provers/cairo/cairo-prover-lib/cairo_programs/cairo0)
 
-- Cargo 1.69+
-  
-## How to try it
 
-### 🚀 Prove and verify
-
-To compile and prove Cairo 0 programs without arguments you can use:
+**To compile and generate a proof you can use:**
 
 ```bash
-  make compile_and_prove PROGRAM=<program_path> PROOF_PATH=<output_proof_path>
+cargo run --release --features=cli,instruments,parallel compile-and-prove <program_path> <output_proof_path>
 ```
 
 For example:
 
 ```bash
-  make prove PROGRAM_PATH=cairo_programs/cairo0/fibonacci_5.json PROOF_PATH=fibonacci_5.proof
+cargo run --release --features=cli,instruments,parallel compile-and-prove cairo_programs/cairo0/fibonacci_5.cairo cairo_programs/cairo0/fibonacci_5.proof
 ```
 
-Notice for compilation either `cairo-lang` or `docker` is required
 
-If the program is already compiled you can use:
+**To verify a proof you can use:**
 
 ```bash
-make prove PROGRAM_PATH=<compiled_program_path> PROOF_PATH=<output_proof_path>
+cargo run --release --features=cli,instruments,parallel verify <proof_path>
 ```
 
 For example:
 
 ```bash
-make prove PROGRAM_PATH=cairo_programs/cairo0/fibonacci_5.json PROOF_PATH=program_proof.proof
+cargo run --release --features=cli,instruments,parallel verify fibonacci_5.proof
 ```
 
-To verify a proof you can use:
-  
+**To compile Cairo:**
+
 ```bash
-make verify PROOF_PATH=<proof_path>
+cargo run --release --features=cli,instruments,parallel compile <uncompiled_program_path> 
 ```
 
 For example:
 
 ```bash
-make verify PROOF_PATH=fibonacci_5.proof
+cargo run --release --features=cli,instruments,parallel compile cairo_programs/cairo0/fibonacci_5.cairo
 ```
 
-To prove and verify with a single command you can use:
+**To prove a compiled program:**
 
 ```bash
-make run_all PROGRAM_PATH=<proof_path>
+cargo run --release --features=cli,instruments,parallel prove <compiled_program_path> <output_proof_path>
 ```
 
-### Using WASM verifier
+For example:
 
-To use the verifier in WASM, generate a npm package using `wasm-pack`
+```bash
+cargo run --release --features=cli,instruments,parallel prove cairo_programs/cairo0/fibonacci_5.json program_proof.proof
+```
 
-As a shortcut, you can call
-`make build_wasm`
+
+
+**To prove and verify with a single command you can use:**
+
+```bash
+cargo run --release --features=cli,instruments,parallel prove-and-verify <compiled_program_path>
+```
+
+For example:
+
+```bash
+cargo run --release --features=cli,instruments,parallel prove-and-verify cairo_programs/cairo0/fibonacci_5.json
+```
+
+
+
+**To compile, proof, prove and verify at the same time you can use:**
+
+```bash
+cargo run --release --features=cli,instruments,parallel compile-prove-and-verify <program_path>
+```
+
+For example:
+
+```bash
+cargo run --release --features=cli,instruments,parallel compile-prove-and-verify cairo_programs/cairo0/fibonacci_5.cairo
+```
+
+### Run CLI as a binary
+
+**To install as a binary run the command on the root directory of the CLI:**
+```bash
+cargo install --features=cli,instruments,parallel --path .
+```
+
+To run the CLI as a binary instead of using cargo replace `cargo run --release --features=cli,instruments,parallel` with `platinum-prover`.
+
+for example, the command to generate a proof becomes:
+```bash
+platinum-prover prove cairo_programs/cairo0/fibonacci_5.json cairo_programs/cairo0/fibonacci_5.proof
+```
+
+**You can uninstall the binary with:**
+```bash
+cargo uninstall
+```
+
 ## Running tests
 To run tests, simply use
 ```
@@ -135,18 +139,16 @@ Be sure to build the docker image if you don't want to install the `cairo-lang` 
 make docker_build_cairo_compiler
 ```
 
-## Running fuzzers
-To run a fuzzer, simply use 
-
-```
-make fuzzer <name of the fuzzer>
-```
-
-if you don´t have the tools for fuzzing installed use
-
-```
-make fuzzer_tools
-```
+## To be added
+- Stone compatibility
+- Add program as a public input
+-  Add Cairo compilation inside Rust, to prove and verify Cairo1/Cairo2 from the .cairo file, instead of the .casm file
+- Add more Layouts / Builtins
+- Improve parallelization
+- Benchmarks and optimizations for Graviton
+-  Cairo Verifier
+   - Batch verifier / For trees and N proofs
+-  Pick hash configuration with ProofOptions
 
 ## 📚 References
 
@@ -183,7 +185,6 @@ The following links, repos and projects have been important in the development o
 
 - [CAIRO VM - Rust](https://github.com/lambdaclass/cairo-vm)
 - [CAIRO VM - Go](https://github.com/lambdaclass/cairo_vm.go)
-- [Lambdaworks](https://github.com/lambdaclass/lambdaworks)
 - [CAIRO native](https://github.com/lambdaclass/cairo_native/)
 - [StarkNet in Rust](https://github.com/lambdaclass/starknet_in_rust)
 - [StarkNet Stack](https://github.com/lambdaclass/starknet_stack)

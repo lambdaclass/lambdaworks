@@ -1,685 +1,766 @@
 #[cfg(feature = "instruments")]
 use std::time::Instant;
 
+use lambdaworks_crypto::merkle_tree::proof::Proof;
 //use itertools::multizip;
 #[cfg(not(feature = "test_fiat_shamir"))]
 use log::error;
 
 use lambdaworks_math::{
+    fft::cpu::bit_reversing::reverse_index,
     field::{
-        element::FieldElement,
-        traits::{IsFFTField, IsField},
+        element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+        traits::IsFFTField,
     },
     traits::Serializable,
 };
 
-use crate::{prover::get_stone_prover_domain_permutation, transcript::IsStarkTranscript};
+use crate::{
+    config::Commitment, proof::stark::DeepPolynomialOpening, transcript::IsStarkTranscript,
+};
 
 use super::{
-    config::{BatchedMerkleTreeBackend, FriMerkleTreeBackend},
+    config::BatchedMerkleTreeBackend,
     domain::Domain,
     fri::fri_decommit::FriDecommitment,
-    grinding::hash_transcript_with_int_and_get_leading_zeros,
+    grinding,
     proof::{options::ProofOptions, stark::StarkProof},
     traits::AIR,
 };
 
-struct Challenges<F, A>
-where
-    F: IsFFTField,
-    A: AIR<Field = F>,
-{
-    z: FieldElement<F>,
-    boundary_coeffs: Vec<FieldElement<F>>,
-    transition_coeffs: Vec<FieldElement<F>>,
-    trace_term_coeffs: Vec<Vec<FieldElement<F>>>,
-    gamma_even: FieldElement<F>,
-    gamma_odd: FieldElement<F>,
-    zetas: Vec<FieldElement<F>>,
-    iotas: Vec<usize>,
-    rap_challenges: A::RAPChallenges,
-    leading_zeros_count: u8, // number of leading zeros in the grinding
+pub struct Verifier {}
+
+impl IsStarkVerifier for Verifier {
+    type Field = Stark252PrimeField;
 }
 
-fn step_1_replay_rounds_and_recover_challenges<F, A>(
-    air: &A,
-    proof: &StarkProof<F>,
-    domain: &Domain<F>,
-    transcript: &mut impl IsStarkTranscript<F>,
-) -> Challenges<F, A>
+pub struct Challenges<F, A>
 where
     F: IsFFTField,
-    FieldElement<F>: Serializable,
     A: AIR<Field = F>,
 {
-    // ===================================
-    // ==========|   Round 1   |==========
-    // ===================================
+    pub z: FieldElement<F>,
+    pub boundary_coeffs: Vec<FieldElement<F>>,
+    pub transition_coeffs: Vec<FieldElement<F>>,
+    pub trace_term_coeffs: Vec<Vec<FieldElement<F>>>,
+    pub gammas: Vec<FieldElement<F>>,
+    pub zetas: Vec<FieldElement<F>>,
+    pub iotas: Vec<usize>,
+    pub rap_challenges: A::RAPChallenges,
+    pub grinding_seed: [u8; 32],
+}
 
-    // <<<< Receive commitments:[tⱼ]
-    let total_columns = air.context().trace_columns;
+pub type DeepPolynomialEvaluations<F> = (Vec<FieldElement<F>>, Vec<FieldElement<F>>);
 
-    transcript.append_bytes(&proof.lde_trace_merkle_roots[0]);
+pub trait IsStarkVerifier {
+    type Field: IsFFTField;
 
-    let rap_challenges = air.build_rap_challenges(transcript);
-
-    if let Some(root) = proof.lde_trace_merkle_roots.get(1) {
-        transcript.append_bytes(root);
+    fn sample_query_indexes(
+        number_of_queries: usize,
+        domain: &Domain<Self::Field>,
+        transcript: &mut impl IsStarkTranscript<Self::Field>,
+    ) -> Vec<usize> {
+        let domain_size = domain.lde_roots_of_unity_coset.len() as u64;
+        (0..number_of_queries)
+            .map(|_| (transcript.sample_u64(domain_size >> 1)) as usize)
+            .collect::<Vec<usize>>()
     }
 
-    // ===================================
-    // ==========|   Round 2   |==========
-    // ===================================
+    fn step_1_replay_rounds_and_recover_challenges<A>(
+        air: &A,
+        proof: &StarkProof<Self::Field>,
+        domain: &Domain<Self::Field>,
+        transcript: &mut impl IsStarkTranscript<Self::Field>,
+    ) -> Challenges<Self::Field, A>
+    where
+        FieldElement<Self::Field>: Serializable,
+        A: AIR<Field = Self::Field>,
+    {
+        // ===================================
+        // ==========|   Round 1   |==========
+        // ===================================
 
-    // <<<< Receive challenge: 𝛽
-    let beta = transcript.sample_field_element();
-    let num_boundary_constraints = air.boundary_constraints(&rap_challenges).constraints.len();
+        // <<<< Receive commitments:[tⱼ]
+        transcript.append_bytes(&proof.lde_trace_merkle_roots[0]);
 
-    let num_transition_constraints = air.context().num_transition_constraints;
+        let rap_challenges = air.build_rap_challenges(transcript);
 
-    let mut coefficients: Vec<_> = (1..num_boundary_constraints + num_transition_constraints + 1)
-        .map(|i| beta.pow(i))
-        .collect();
+        if let Some(root) = proof.lde_trace_merkle_roots.get(1) {
+            transcript.append_bytes(root);
+        }
 
-    let transition_coeffs: Vec<_> = coefficients.drain(..num_transition_constraints).collect();
-    let boundary_coeffs = coefficients;
+        // ===================================
+        // ==========|   Round 2   |==========
+        // ===================================
 
-    // <<<< Receive commitments: [H₁], [H₂]
-    transcript.append_bytes(&proof.composition_poly_root);
+        // <<<< Receive challenge: 𝛽
+        let beta = transcript.sample_field_element();
+        let num_boundary_constraints = air.boundary_constraints(&rap_challenges).constraints.len();
 
-    // ===================================
-    // ==========|   Round 3   |==========
-    // ===================================
+        let num_transition_constraints = air.context().num_transition_constraints;
 
-    // >>>> Send challenge: z
-    let z = transcript.sample_z_ood(
-        &domain.lde_roots_of_unity_coset,
-        &domain.trace_roots_of_unity,
-    );
+        let mut coefficients: Vec<_> = (0..num_boundary_constraints + num_transition_constraints)
+            .map(|i| beta.pow(i))
+            .collect();
 
-    // <<<< Receive value: H₁(z²)
-    transcript.append_field_element(&proof.composition_poly_even_ood_evaluation);
-    // <<<< Receive value: H₂(z²)
-    transcript.append_field_element(&proof.composition_poly_odd_ood_evaluation);
-    // <<<< Receive values: tⱼ(zgᵏ)
-    for i in 0..proof.trace_ood_frame_evaluations.num_rows() {
-        for element in proof.trace_ood_frame_evaluations.get_row(i).iter() {
+        let transition_coeffs: Vec<_> = coefficients.drain(..num_transition_constraints).collect();
+        let boundary_coeffs = coefficients;
+
+        // <<<< Receive commitments: [H₁], [H₂]
+        transcript.append_bytes(&proof.composition_poly_root);
+
+        // ===================================
+        // ==========|   Round 3   |==========
+        // ===================================
+
+        // >>>> Send challenge: z
+        let z = transcript.sample_z_ood(
+            &domain.lde_roots_of_unity_coset,
+            &domain.trace_roots_of_unity,
+        );
+
+        // <<<< Receive values: tⱼ(zgᵏ)
+        for i in 0..proof.trace_ood_frame_evaluations.n_cols() {
+            for j in 0..proof.trace_ood_frame_evaluations.n_rows() {
+                transcript.append_field_element(&proof.trace_ood_frame_evaluations.get_row(j)[i]);
+            }
+        }
+        // <<<< Receive value: Hᵢ(z^N)
+        for element in proof.composition_poly_parts_ood_evaluation.iter() {
             transcript.append_field_element(element);
+        }
+
+        // ===================================
+        // ==========|   Round 4   |==========
+        // ===================================
+
+        let n_terms_composition_poly = proof.composition_poly_parts_ood_evaluation.len();
+        let n_terms_trace = air.context().transition_offsets.len() * air.context().trace_columns;
+        let gamma = transcript.sample_field_element();
+
+        // <<<< Receive challenges: 𝛾, 𝛾'
+        let mut deep_composition_coefficients: Vec<_> =
+            core::iter::successors(Some(FieldElement::one()), |x| Some(x * &gamma))
+                .take(n_terms_composition_poly + n_terms_trace)
+                .collect();
+
+        let trace_term_coeffs: Vec<_> = deep_composition_coefficients
+            .drain(..n_terms_trace)
+            .collect::<Vec<_>>()
+            .chunks(air.context().transition_offsets.len())
+            .map(|chunk| chunk.to_vec())
+            .collect();
+
+        // <<<< Receive challenges: 𝛾ⱼ, 𝛾ⱼ'
+        let gammas = deep_composition_coefficients;
+
+        // FRI commit phase
+        let merkle_roots = &proof.fri_layers_merkle_roots;
+        let mut zetas = merkle_roots
+            .iter()
+            .map(|root| {
+                // >>>> Send challenge 𝜁ₖ
+                let element = transcript.sample_field_element();
+                // <<<< Receive commitment: [pₖ] (the first one is [p₀])
+                transcript.append_bytes(root);
+                element
+            })
+            .collect::<Vec<FieldElement<Self::Field>>>();
+
+        // >>>> Send challenge 𝜁ₙ₋₁
+        zetas.push(transcript.sample_field_element());
+
+        // <<<< Receive value: pₙ
+        transcript.append_field_element(&proof.fri_last_value);
+
+        // Receive grinding value
+        let security_bits = air.context().proof_options.grinding_factor;
+        let mut grinding_seed = [0u8; 32];
+        if security_bits > 0 {
+            if let Some(nonce_value) = proof.nonce {
+                grinding_seed = transcript.state();
+                transcript.append_bytes(&nonce_value.to_be_bytes());
+            }
+        }
+
+        // FRI query phase
+        // <<<< Send challenges 𝜄ₛ (iota_s)
+        let number_of_queries = air.options().fri_number_of_queries;
+        let iotas = Self::sample_query_indexes(number_of_queries, domain, transcript);
+
+        Challenges {
+            z,
+            boundary_coeffs,
+            transition_coeffs,
+            trace_term_coeffs,
+            gammas,
+            zetas,
+            iotas,
+            rap_challenges,
+            grinding_seed,
         }
     }
 
-    // ===================================
-    // ==========|   Round 4   |==========
-    // ===================================
+    fn step_2_verify_claimed_composition_polynomial<A>(
+        air: &A,
+        proof: &StarkProof<Self::Field>,
+        domain: &Domain<Self::Field>,
+        challenges: &Challenges<Self::Field, A>,
+    ) -> bool
+    where
+        A: AIR<Field = Self::Field>,
+    {
+        let boundary_constraints = air.boundary_constraints(&challenges.rap_challenges);
 
-    // >>>> Send challenges: 𝛾, 𝛾'
-    let gamma_even = transcript.sample_field_element();
-    let gamma_odd = transcript.sample_field_element();
+        let trace_length = air.trace_length();
+        let number_of_b_constraints = boundary_constraints.constraints.len();
 
-    // >>>> Send challenges: 𝛾ⱼ, 𝛾ⱼ'
-    // Get the number of trace terms the DEEP composition poly will have.
-    // One coefficient will be sampled for each of them.
-    // TODO: try remove this, call transcript inside for and move gamma declarations
-    let trace_term_coeffs = (0..total_columns)
-        .map(|_| {
-            (0..air.context().transition_offsets.len())
-                .map(|_| transcript.sample_field_element())
-                .collect()
-        })
-        .collect::<Vec<Vec<FieldElement<F>>>>();
+        #[allow(clippy::type_complexity)]
+        let (boundary_c_i_evaluations_num, mut boundary_c_i_evaluations_den): (
+            Vec<FieldElement<Self::Field>>,
+            Vec<FieldElement<Self::Field>>,
+        ) = (0..number_of_b_constraints)
+            .map(|index| {
+                let step = boundary_constraints.constraints[index].step;
+                let point = &domain.trace_primitive_root.pow(step as u64);
+                let trace_idx = boundary_constraints.constraints[index].col;
+                let trace_evaluation = &proof.trace_ood_frame_evaluations.get_row(0)[trace_idx];
+                let boundary_zerofier_challenges_z_den = &challenges.z - point;
 
-    // FRI commit phase
+                let boundary_quotient_ood_evaluation_num =
+                    trace_evaluation - &boundary_constraints.constraints[index].value;
 
-    let merkle_roots = &proof.fri_layers_merkle_roots;
-    let zetas = merkle_roots
-        .iter()
-        .map(|root| {
-            // <<<< Receive commitment: [pₖ] (the first one is [p₀])
-            transcript.append_bytes(root);
+                (
+                    boundary_quotient_ood_evaluation_num,
+                    boundary_zerofier_challenges_z_den,
+                )
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
+            .unzip();
 
-            // >>>> Send challenge 𝜁ₖ
-            transcript.sample_field_element()
-        })
-        .collect::<Vec<FieldElement<F>>>();
+        FieldElement::inplace_batch_inverse(&mut boundary_c_i_evaluations_den).unwrap();
 
-    // <<<< Receive value: pₙ
-    transcript.append_field_element(&proof.fri_last_value);
+        let boundary_quotient_ood_evaluation: FieldElement<Self::Field> =
+            boundary_c_i_evaluations_num
+                .iter()
+                .zip(&boundary_c_i_evaluations_den)
+                .zip(&challenges.boundary_coeffs)
+                .map(|((num, den), beta)| num * den * beta)
+                .fold(FieldElement::<Self::Field>::zero(), |acc, x| acc + x);
 
-    // Receive grinding value
-    // 1) Receive challenge from the transcript
-    let transcript_challenge = transcript.state();
-    let nonce = proof.nonce;
-    let leading_zeros_count =
-        hash_transcript_with_int_and_get_leading_zeros(&transcript_challenge, nonce);
-    transcript.append_bytes(&nonce.to_be_bytes());
+        let transition_ood_frame_evaluations = air.compute_transition(
+            &proof.trace_ood_frame_evaluations,
+            &challenges.rap_challenges,
+        );
 
-    // FRI query phase
-    // <<<< Send challenges 𝜄ₛ (iota_s)
-    let iota_max: usize = 2_usize.pow(domain.lde_root_order);
-    let iotas: Vec<usize> = (0..air.options().fri_number_of_queries)
-        .map(|_| (transcript.sample_u64(iota_max as u64) as usize) % iota_max)
-        .collect();
+        let denominator = (&challenges.z.pow(trace_length) - FieldElement::<Self::Field>::one())
+            .inv()
+            .unwrap();
 
-    Challenges {
-        z,
-        boundary_coeffs,
-        transition_coeffs,
-        trace_term_coeffs,
-        gamma_even,
-        gamma_odd,
-        zetas,
-        iotas,
-        rap_challenges,
-        leading_zeros_count,
-    }
-}
-
-fn step_2_verify_claimed_composition_polynomial<F: IsFFTField, A: AIR<Field = F>>(
-    air: &A,
-    proof: &StarkProof<F>,
-    domain: &Domain<F>,
-    challenges: &Challenges<F, A>,
-) -> bool {
-    // BEGIN TRACE <-> Composition poly consistency evaluation check
-    // These are H_1(z^2) and H_2(z^2)
-    let composition_poly_even_ood_evaluation = &proof.composition_poly_even_ood_evaluation;
-    let composition_poly_odd_ood_evaluation = &proof.composition_poly_odd_ood_evaluation;
-
-    let boundary_constraints = air.boundary_constraints(&challenges.rap_challenges);
-
-    //let n_trace_cols = air.context().trace_columns;
-    // special cases.
-    let trace_length = air.trace_length();
-    let number_of_b_constraints = boundary_constraints.constraints.len();
-
-    // Following naming conventions from https://www.notamonadtutorial.com/diving-deep-fri/
-    let (boundary_c_i_evaluations_num, mut boundary_c_i_evaluations_den): (
-        Vec<FieldElement<F>>,
-        Vec<FieldElement<F>>,
-    ) = (0..number_of_b_constraints)
-        .map(|index| {
-            let step = boundary_constraints.constraints[index].step;
-            let point = &domain.trace_primitive_root.pow(step as u64);
-            let trace_idx = boundary_constraints.constraints[index].col;
-            let trace_evaluation = &proof.trace_ood_frame_evaluations.get_row(0)[trace_idx];
-            let boundary_zerofier_challenges_z_den = &challenges.z - point;
-
-            let boundary_quotient_ood_evaluation_num =
-                trace_evaluation - &boundary_constraints.constraints[index].value;
-
-            (
-                boundary_quotient_ood_evaluation_num,
-                boundary_zerofier_challenges_z_den,
+        let exemption = air
+            .transition_exemptions_verifier(
+                domain.trace_roots_of_unity.iter().last().expect("has last"),
             )
-        })
-        .collect::<Vec<_>>()
-        .into_iter()
-        .unzip();
+            .iter()
+            .map(|poly| poly.evaluate(&challenges.z))
+            .collect::<Vec<FieldElement<Self::Field>>>();
 
-    FieldElement::inplace_batch_inverse(&mut boundary_c_i_evaluations_den).unwrap();
+        let unity = &FieldElement::one();
+        let transition_c_i_evaluations_sum = transition_ood_frame_evaluations
+            .iter()
+            .zip(&air.context().transition_degrees)
+            .zip(&air.context().transition_exemptions)
+            .zip(&challenges.transition_coeffs)
+            .fold(FieldElement::zero(), |acc, (((eval, _), except), beta)| {
+                let except = except
+                    .checked_sub(1)
+                    .map(|i| &exemption[i])
+                    .unwrap_or(unity);
+                acc + &denominator * eval * beta * except
+            });
 
-    let boundary_quotient_ood_evaluation: FieldElement<F> = boundary_c_i_evaluations_num
-        .iter()
-        .zip(&boundary_c_i_evaluations_den)
-        .zip(&challenges.boundary_coeffs)
-        .map(|((num, den), beta)| num * den * beta)
-        .fold(FieldElement::<F>::zero(), |acc, x| acc + x);
+        let composition_poly_ood_evaluation =
+            &boundary_quotient_ood_evaluation + transition_c_i_evaluations_sum;
 
-    let transition_ood_frame_evaluations = air.compute_transition(
-        &proof.trace_ood_frame_evaluations,
-        &challenges.rap_challenges,
-    );
+        let composition_poly_claimed_ood_evaluation = proof
+            .composition_poly_parts_ood_evaluation
+            .iter()
+            .rev()
+            .fold(FieldElement::zero(), |acc, coeff| {
+                acc * &challenges.z + coeff
+            });
 
-    let denominator = (&challenges.z.pow(trace_length) - FieldElement::<F>::one())
-        .inv()
-        .unwrap();
+        composition_poly_claimed_ood_evaluation == composition_poly_ood_evaluation
+    }
 
-    let exemption = air
-        .transition_exemptions_verifier(
-            domain.trace_roots_of_unity.iter().last().expect("has last"),
-        )
-        .iter()
-        .map(|poly| poly.evaluate(&challenges.z))
-        .collect::<Vec<FieldElement<F>>>();
-
-    let unity = &FieldElement::one();
-    let transition_c_i_evaluations_sum = transition_ood_frame_evaluations
-        .iter()
-        .zip(&air.context().transition_degrees)
-        .zip(&air.context().transition_exemptions)
-        .zip(&challenges.transition_coeffs)
-        .fold(FieldElement::zero(), |acc, (((eval, _), except), beta)| {
-            let except = except
-                .checked_sub(1)
-                .map(|i| &exemption[i])
-                .unwrap_or(unity);
-            acc + &denominator * eval * beta * except
-        });
-
-    let composition_poly_ood_evaluation =
-        &boundary_quotient_ood_evaluation + transition_c_i_evaluations_sum;
-
-    let composition_poly_claimed_ood_evaluation =
-        composition_poly_even_ood_evaluation + &challenges.z * composition_poly_odd_ood_evaluation;
-
-    composition_poly_claimed_ood_evaluation == composition_poly_ood_evaluation
-}
-
-fn step_3_verify_fri<F, A>(
-    proof: &StarkProof<F>,
-    domain: &Domain<F>,
-    challenges: &Challenges<F, A>,
-) -> bool
-where
-    F: IsFFTField,
-    FieldElement<F>: Serializable,
-    A: AIR<Field = F>,
-{
-    // verify FRI
-    let two_inv = &FieldElement::from(2).inv().unwrap();
-    let mut evaluation_point_inverse = challenges
-        .iotas
-        .iter()
-        .map(|iota| &domain.lde_roots_of_unity_coset[*iota])
-        .cloned()
-        .collect::<Vec<FieldElement<F>>>();
-    FieldElement::inplace_batch_inverse(&mut evaluation_point_inverse).unwrap();
-    proof
-        .query_list
-        .iter()
-        .zip(&challenges.iotas)
-        .zip(evaluation_point_inverse)
-        .fold(true, |mut result, ((proof_s, iota_s), eval)| {
-            // this is done in constant time
-            result &= verify_query_and_sym_openings(
-                proof,
-                &challenges.zetas,
-                *iota_s,
-                proof_s,
-                domain,
-                eval,
-                two_inv,
+    fn step_3_verify_fri<A>(
+        proof: &StarkProof<Self::Field>,
+        domain: &Domain<Self::Field>,
+        challenges: &Challenges<Self::Field, A>,
+    ) -> bool
+    where
+        FieldElement<Self::Field>: Serializable,
+        A: AIR<Field = Self::Field>,
+    {
+        let (deep_poly_evaluations, deep_poly_evaluations_sym) =
+            Self::reconstruct_deep_composition_poly_evaluations_for_all_queries(
+                challenges, domain, proof,
             );
-            result
-        })
-}
 
-fn step_4_verify_deep_composition_polynomial<F: IsFFTField, A: AIR<Field = F>>(
-    air: &A,
-    proof: &StarkProof<F>,
-    domain: &Domain<F>,
-    challenges: &Challenges<F, A>,
-) -> bool
-where
-    FieldElement<F>: Serializable,
-{
-    let permutation =
-        get_stone_prover_domain_permutation(domain.interpolation_domain_size, domain.blowup_factor);
-    let primitive_root = &F::get_primitive_root_of_unity(domain.root_order as u64).unwrap();
-    let z_squared = &challenges.z.square();
-    let mut denom_inv = challenges
-        .iotas
-        .iter()
-        .map(|iota_n| &domain.lde_roots_of_unity_coset[*iota_n] - z_squared)
-        .collect::<Vec<FieldElement<F>>>();
-    FieldElement::inplace_batch_inverse(&mut denom_inv).unwrap();
+        // verify FRI
+        let mut evaluation_point_inverse = challenges
+            .iotas
+            .iter()
+            .map(|iota| Self::query_challenge_to_evaluation_point(*iota, domain))
+            .collect::<Vec<FieldElement<Self::Field>>>();
+        FieldElement::inplace_batch_inverse(&mut evaluation_point_inverse).unwrap();
+        proof
+            .query_list
+            .iter()
+            .zip(&challenges.iotas)
+            .zip(evaluation_point_inverse)
+            .enumerate()
+            .fold(true, |mut result, (i, ((proof_s, iota_s), eval))| {
+                // this is done in constant time
+                result &= Self::verify_query_and_sym_openings(
+                    proof,
+                    &challenges.zetas,
+                    *iota_s,
+                    proof_s,
+                    eval,
+                    &deep_poly_evaluations[i],
+                    &deep_poly_evaluations_sym[i],
+                );
+                result
+            })
+    }
 
-    challenges
-        .iotas
-        .iter()
-        .zip(&proof.deep_poly_openings)
-        .zip(&denom_inv)
-        .enumerate()
-        .fold(
-            true,
-            |mut result, (i, ((iota_n, deep_poly_opening), denom_inv))| {
-                let evaluations = vec![
-                    deep_poly_opening
-                        .lde_composition_poly_even_evaluation
-                        .clone(),
-                    deep_poly_opening
-                        .lde_composition_poly_odd_evaluation
-                        .clone(),
-                ];
+    fn query_challenge_to_evaluation_point(
+        iota: usize,
+        domain: &Domain<Self::Field>,
+    ) -> FieldElement<Self::Field> {
+        domain.lde_roots_of_unity_coset
+            [reverse_index(iota * 2, domain.lde_roots_of_unity_coset.len() as u64)]
+        .clone()
+    }
 
-                // Verify opening Open(H₁(D_LDE, 𝜐₀) and Open(H₂(D_LDE, 𝜐₀),
-                result &= deep_poly_opening
-                    .lde_composition_poly_proof
-                    .verify::<BatchedMerkleTreeBackend<F>>(
+    fn query_challenge_to_evaluation_point_sym(
+        iota: usize,
+        domain: &Domain<Self::Field>,
+    ) -> FieldElement<Self::Field> {
+        domain.lde_roots_of_unity_coset
+            [reverse_index(iota * 2 + 1, domain.lde_roots_of_unity_coset.len() as u64)]
+        .clone()
+    }
+
+    fn verify_opening(
+        proof: &Proof<Commitment>,
+        root: &Commitment,
+        index: usize,
+        value: &[FieldElement<Self::Field>],
+    ) -> bool
+    where
+        FieldElement<Self::Field>: Serializable,
+    {
+        proof.verify::<BatchedMerkleTreeBackend<Self::Field>>(root, index, &value.to_owned())
+    }
+
+    /// Verify opening Open(tⱼ(D_LDE), 𝜐) and Open(tⱼ(D_LDE), -𝜐) for all trace polynomials tⱼ,
+    /// where 𝜐 and -𝜐 are the elements corresponding to the index challenge `iota`.
+    fn verify_trace_openings(
+        num_main_columns: usize,
+        proof: &StarkProof<Self::Field>,
+        deep_poly_openings: &DeepPolynomialOpening<Self::Field>,
+        deep_poly_openings_sym: &DeepPolynomialOpening<Self::Field>,
+        iota: usize,
+    ) -> bool
+    where
+        FieldElement<Self::Field>: Serializable,
+    {
+        let lde_trace_evaluations = vec![
+            deep_poly_openings.lde_trace_evaluations[..num_main_columns].to_vec(),
+            deep_poly_openings.lde_trace_evaluations[num_main_columns..].to_vec(),
+        ];
+
+        let index = iota * 2;
+        let openings_are_valid = proof
+            .lde_trace_merkle_roots
+            .iter()
+            .zip(&deep_poly_openings.lde_trace_merkle_proofs)
+            .zip(lde_trace_evaluations)
+            .fold(true, |acc, ((merkle_root, merkle_proof), evaluation)| {
+                acc & Self::verify_opening(merkle_proof, merkle_root, index, &evaluation)
+            });
+
+        let lde_trace_evaluations_sym = vec![
+            deep_poly_openings_sym.lde_trace_evaluations[..num_main_columns].to_vec(),
+            deep_poly_openings_sym.lde_trace_evaluations[num_main_columns..].to_vec(),
+        ];
+
+        let index_sym = iota * 2 + 1;
+        let openings_sym_are_valid = proof
+            .lde_trace_merkle_roots
+            .iter()
+            .zip(&deep_poly_openings_sym.lde_trace_merkle_proofs)
+            .zip(lde_trace_evaluations_sym)
+            .fold(true, |acc, ((merkle_root, merkle_proof), evaluation)| {
+                acc & Self::verify_opening(merkle_proof, merkle_root, index_sym, &evaluation)
+            });
+        openings_are_valid & openings_sym_are_valid
+    }
+
+    /// Verify opening Open(Hᵢ(D_LDE), 𝜐) and Open(Hᵢ(D_LDE), -𝜐) for all parts Hᵢof the composition
+    /// polynomial, where 𝜐 and -𝜐 are the elements corresponding to the index challenge `iota`.
+    fn verify_composition_poly_opening(
+        deep_poly_openings: &DeepPolynomialOpening<Self::Field>,
+        deep_poly_openings_sym: &DeepPolynomialOpening<Self::Field>,
+        composition_poly_merkle_root: &Commitment,
+        iota: &usize,
+    ) -> bool
+    where
+        FieldElement<Self::Field>: Serializable,
+    {
+        let mut value = deep_poly_openings
+            .lde_composition_poly_parts_evaluation
+            .clone();
+        value.extend_from_slice(&deep_poly_openings_sym.lde_composition_poly_parts_evaluation);
+
+        deep_poly_openings
+            .lde_composition_poly_proof
+            .verify::<BatchedMerkleTreeBackend<Self::Field>>(
+                composition_poly_merkle_root,
+                *iota,
+                &value,
+            )
+    }
+
+    fn step_4_verify_trace_and_composition_openings<F: IsFFTField, A: AIR<Field = F>>(
+        air: &A,
+        proof: &StarkProof<Self::Field>,
+        challenges: &Challenges<F, A>,
+    ) -> bool
+    where
+        FieldElement<Self::Field>: Serializable,
+    {
+        challenges
+            .iotas
+            .iter()
+            .zip(&proof.deep_poly_openings)
+            .zip(&proof.deep_poly_openings_sym)
+            .fold(
+                true,
+                |mut result, ((iota_n, deep_poly_opening), deep_poly_openings_sym)| {
+                    result &= Self::verify_composition_poly_opening(
+                        deep_poly_opening,
+                        deep_poly_openings_sym,
                         &proof.composition_poly_root,
-                        *iota_n,
-                        &evaluations,
+                        iota_n,
                     );
 
-                let num_main_columns =
-                    air.context().trace_columns - air.number_auxiliary_rap_columns();
-                let lde_trace_evaluations = vec![
-                    deep_poly_opening.lde_trace_evaluations[..num_main_columns].to_vec(),
-                    deep_poly_opening.lde_trace_evaluations[num_main_columns..].to_vec(),
-                ];
-
-                // Verify openings Open(tⱼ(D_LDE), 𝜐₀)
-                result &= proof
-                    .lde_trace_merkle_roots
-                    .iter()
-                    .zip(&deep_poly_opening.lde_trace_merkle_proofs)
-                    .zip(lde_trace_evaluations)
-                    .fold(result, |acc, ((merkle_root, merkle_proof), evaluation)| {
-                        acc & merkle_proof.verify::<BatchedMerkleTreeBackend<F>>(
-                            merkle_root,
-                            permutation[*iota_n],
-                            &evaluation,
-                        )
-                    });
-
-                // DEEP consistency check
-                // Verify that Deep(x) is constructed correctly
-                let mut divisors = (0..proof.trace_ood_frame_evaluations.num_rows())
-                    .map(|row_idx| {
-                        &domain.lde_roots_of_unity_coset[*iota_n]
-                            - &challenges.z * primitive_root.pow(row_idx as u64)
-                    })
-                    .collect::<Vec<FieldElement<F>>>();
-                FieldElement::inplace_batch_inverse(&mut divisors).unwrap();
-                let deep_poly_evaluation = reconstruct_deep_composition_poly_evaluation(
-                    proof, challenges, denom_inv, &divisors, i,
-                );
-
-                let deep_poly_claimed_evaluation = &proof.query_list[i].layers_evaluations[0];
-                result & (deep_poly_claimed_evaluation == &deep_poly_evaluation)
-            },
-        )
-}
-
-fn verify_query_and_sym_openings<F: IsField + IsFFTField>(
-    proof: &StarkProof<F>,
-    zetas: &[FieldElement<F>],
-    iota: usize,
-    fri_decommitment: &FriDecommitment<F>,
-    domain: &Domain<F>,
-    evaluation_point: FieldElement<F>,
-    two_inv: &FieldElement<F>,
-) -> bool
-where
-    FieldElement<F>: Serializable,
-{
-    let fri_layers_merkle_roots = &proof.fri_layers_merkle_roots;
-    let evaluation_point_vec: Vec<FieldElement<F>> =
-        core::iter::successors(Some(evaluation_point), |evaluation_point| {
-            Some(evaluation_point.square())
-        })
-        .take(fri_layers_merkle_roots.len())
-        .collect();
-
-    let mut v = fri_decommitment.layers_evaluations[0].clone();
-    // For each fri layer merkle proof check:
-    // That each merkle path verifies
-
-    // Sample beta with fiat shamir
-    // Compute v = [P_i(z_i) + P_i(-z_i)] / 2 + beta * [P_i(z_i) - P_i(-z_i)] / (2 * z_i)
-    // Where P_i is the folded polynomial of the i-th fiat shamir round
-    // z_i is obtained from the first z (that was derived through Fiat-Shamir) through a known calculation
-    // The calculation is, given the index, index % length_of_evaluation_domain
-
-    // Check that v = P_{i+1}(z_i)
-
-    // For each (merkle_root, merkle_auth_path) / fold
-    // With the auth path containining the element that the path proves it's existence
-    fri_layers_merkle_roots
-        .iter()
-        .enumerate()
-        .zip(&fri_decommitment.layers_auth_paths)
-        .zip(&fri_decommitment.layers_evaluations)
-        .zip(&fri_decommitment.layers_auth_paths_sym)
-        .zip(&fri_decommitment.layers_evaluations_sym)
-        .zip(evaluation_point_vec)
-        .fold(
-            true,
-            |result,
-             (
-                (((((k, merkle_root), auth_path), evaluation), auth_path_sym), evaluation_sym),
-                evaluation_point_inv,
-            )| {
-                let domain_length = 1 << (domain.lde_root_order - k as u32);
-                let layer_evaluation_index_sym = (iota + domain_length / 2) % domain_length;
-                // Since we always derive the current layer from the previous layer
-                // We start with the second one, skipping the first, so previous is layer is the first one
-                // This is the current layer's evaluation domain length.
-                // We need it to know what the decommitment index for the current
-                // layer is, so we can check the merkle paths at the right index.
-
-                // Verify opening Open(pₖ(Dₖ), −𝜐ₛ^(2ᵏ))
-                let auth_sym = &auth_path_sym.verify::<FriMerkleTreeBackend<F>>(
-                    merkle_root,
-                    layer_evaluation_index_sym,
-                    evaluation_sym,
-                );
-                // Verify opening Open(pₖ(Dₖ), 𝜐ₛ)
-                let auth_point =
-                    auth_path.verify::<FriMerkleTreeBackend<F>>(merkle_root, iota, evaluation);
-                let beta = &zetas[k];
-                // v is the calculated element for the co linearity check
-                v = (&v + evaluation_sym) * two_inv
-                    + beta * (&v - evaluation_sym) * two_inv * evaluation_point_inv;
-
-                // Check that next value is the given by the prover
-                if k < fri_decommitment.layers_evaluations.len() - 1 {
-                    let next_layer_evaluation = &fri_decommitment.layers_evaluations[k + 1];
-                    result & (v == *next_layer_evaluation) & auth_point & auth_sym
-                } else {
-                    result & (v == proof.fri_last_value) & auth_point & auth_sym
-                }
-            },
-        )
-}
-
-// Reconstruct Deep(\upsilon_0) off the values in the proof
-fn reconstruct_deep_composition_poly_evaluation<F: IsFFTField, A: AIR<Field = F>>(
-    proof: &StarkProof<F>,
-    challenges: &Challenges<F, A>,
-    denom_inv: &FieldElement<F>,
-    divisors: &[FieldElement<F>],
-    i: usize,
-) -> FieldElement<F> {
-    let trace_term = (0..proof.trace_ood_frame_evaluations.num_columns())
-        .zip(&challenges.trace_term_coeffs)
-        .fold(FieldElement::zero(), |trace_terms, (col_idx, coeff_row)| {
-            let trace_i = (0..proof.trace_ood_frame_evaluations.num_rows())
-                .zip(coeff_row)
-                .fold(FieldElement::zero(), |trace_t, (row_idx, coeff)| {
-                    let poly_evaluation =
-                        (proof.deep_poly_openings[i].lde_trace_evaluations[col_idx].clone()
-                            - proof.trace_ood_frame_evaluations.get_row(row_idx)[col_idx].clone())
-                            * &divisors[row_idx];
-                    trace_t + &poly_evaluation * coeff
-                });
-            trace_terms + trace_i
-        });
-
-    let h_1_upsilon_0 = &proof.deep_poly_openings[i].lde_composition_poly_even_evaluation;
-    let h_1_zsquared = &proof.composition_poly_even_ood_evaluation;
-    let h_2_upsilon_0 = &proof.deep_poly_openings[i].lde_composition_poly_odd_evaluation;
-    let h_2_zsquared = &proof.composition_poly_odd_ood_evaluation;
-
-    let h_1_term = (h_1_upsilon_0 - h_1_zsquared) * denom_inv;
-    let h_2_term = (h_2_upsilon_0 - h_2_zsquared) * denom_inv;
-
-    trace_term + h_1_term * &challenges.gamma_even + h_2_term * &challenges.gamma_odd
-}
-
-pub fn verify<F, A>(
-    proof: &StarkProof<F>,
-    pub_input: &A::PublicInputs,
-    proof_options: &ProofOptions,
-    mut transcript: impl IsStarkTranscript<F>,
-) -> bool
-where
-    F: IsFFTField,
-    A: AIR<Field = F>,
-    FieldElement<F>: Serializable,
-{
-    // Verify there are enough queries
-    if proof.query_list.len() < proof_options.fri_number_of_queries {
-        return false;
+                    let num_main_columns =
+                        air.context().trace_columns - air.number_auxiliary_rap_columns();
+                    result &= Self::verify_trace_openings(
+                        num_main_columns,
+                        proof,
+                        deep_poly_opening,
+                        deep_poly_openings_sym,
+                        *iota_n,
+                    );
+                    result
+                },
+            )
     }
 
-    #[cfg(feature = "instruments")]
-    println!("- Started step 1: Recover challenges");
-    #[cfg(feature = "instruments")]
-    let timer1 = Instant::now();
-
-    let air = A::new(proof.trace_length, pub_input, proof_options);
-    let domain = Domain::new(&air);
-
-    let challenges =
-        step_1_replay_rounds_and_recover_challenges(&air, proof, &domain, &mut transcript);
-
-    // verify grinding
-    let grinding_factor = air.context().proof_options.grinding_factor;
-    if challenges.leading_zeros_count < grinding_factor {
-        error!("Grinding factor not satisfied");
-        return false;
-    }
-
-    #[cfg(feature = "instruments")]
-    let elapsed1 = timer1.elapsed();
-    #[cfg(feature = "instruments")]
-    println!("  Time spent: {:?}", elapsed1);
-
-    #[cfg(feature = "instruments")]
-    println!("- Started step 2: Verify claimed polynomial");
-    #[cfg(feature = "instruments")]
-    let timer2 = Instant::now();
-
-    if !step_2_verify_claimed_composition_polynomial(&air, proof, &domain, &challenges) {
-        error!("Composition Polynomial verification failed");
-        return false;
-    }
-
-    #[cfg(feature = "instruments")]
-    let elapsed2 = timer2.elapsed();
-    #[cfg(feature = "instruments")]
-    println!("  Time spent: {:?}", elapsed2);
-    #[cfg(feature = "instruments")]
-
-    println!("- Started step 3: Verify FRI");
-    #[cfg(feature = "instruments")]
-    let timer3 = Instant::now();
-
-    if !step_3_verify_fri(proof, &domain, &challenges) {
-        error!("FRI verification failed");
-        return false;
-    }
-
-    #[cfg(feature = "instruments")]
-    let elapsed3 = timer3.elapsed();
-    #[cfg(feature = "instruments")]
-    println!("  Time spent: {:?}", elapsed3);
-
-    #[cfg(feature = "instruments")]
-    println!("- Started step 4: Verify deep composition polynomial");
-    #[cfg(feature = "instruments")]
-    let timer4 = Instant::now();
-
-    #[allow(clippy::let_and_return)]
-    if !step_4_verify_deep_composition_polynomial(&air, proof, &domain, &challenges) {
-        error!("DEEP Composition Polynomial verification failed");
-        return false;
-    }
-
-    #[cfg(feature = "instruments")]
-    let elapsed4 = timer4.elapsed();
-    #[cfg(feature = "instruments")]
-    println!("  Time spent: {:?}", elapsed4);
-
-    #[cfg(feature = "instruments")]
+    fn verify_fri_layer_openings(
+        merkle_root: &Commitment,
+        auth_path_sym: &Proof<Commitment>,
+        evaluation: &FieldElement<Self::Field>,
+        evaluation_sym: &FieldElement<Self::Field>,
+        iota: usize,
+    ) -> bool
+    where
+        FieldElement<Self::Field>: Serializable,
     {
-        let total_time = elapsed1 + elapsed2 + elapsed3 + elapsed4;
-        println!(
-            " Fraction of verifying time per step: {:.4} {:.4} {:.4} {:.4}",
-            elapsed1.as_nanos() as f64 / total_time.as_nanos() as f64,
-            elapsed2.as_nanos() as f64 / total_time.as_nanos() as f64,
-            elapsed3.as_nanos() as f64 / total_time.as_nanos() as f64,
-            elapsed4.as_nanos() as f64 / total_time.as_nanos() as f64
-        );
-    }
-
-    true
-}
-
-#[cfg(test)]
-pub mod tests {
-    use std::num::ParseIntError;
-
-    use lambdaworks_math::field::{
-        element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
-    };
-
-    use crate::{
-        domain::Domain,
-        examples::fibonacci_2_cols_shifted::{self, Fibonacci2ColsShifted},
-        proof::options::ProofOptions,
-        prover::prove,
-        traits::AIR,
-        transcript::StoneProverTranscript,
-        verifier::step_1_replay_rounds_and_recover_challenges,
-    };
-
-    pub fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
-        (0..s.len())
-            .step_by(2)
-            .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
-            .collect()
-    }
-
-    #[test]
-    fn test_sharp_compatibility() {
-        let trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::one(), 4);
-
-        let claimed_index = 3;
-        let claimed_value = trace.get_row(claimed_index)[0];
-        let mut proof_options = ProofOptions::default_test_options();
-        proof_options.blowup_factor = 4;
-        proof_options.coset_offset = 3;
-
-        let pub_inputs = fibonacci_2_cols_shifted::PublicInputs {
-            claimed_value,
-            claimed_index,
+        let evaluations = if iota % 2 == 1 {
+            vec![evaluation_sym.clone(), evaluation.clone()]
+        } else {
+            vec![evaluation.clone(), evaluation_sym.clone()]
         };
 
-        let transcript_init_seed = [0xca, 0xfe, 0xca, 0xfe];
-
-        let proof = prove::<Stark252PrimeField, Fibonacci2ColsShifted<_>>(
-            &trace,
-            &pub_inputs,
-            &proof_options,
-            StoneProverTranscript::new(&transcript_init_seed),
+        auth_path_sym.verify::<BatchedMerkleTreeBackend<Self::Field>>(
+            merkle_root,
+            iota >> 1,
+            &evaluations,
         )
-        .unwrap();
+    }
 
-        let air = Fibonacci2ColsShifted::new(proof.trace_length, &pub_inputs, &proof_options);
+    /// Verify a single FRI query
+    /// `zetas`: the vector of all challenges sent by the verifier to the prover at the commit
+    /// phase to fold polynomials.
+    /// `iota`: the index challenge of this FRI query. This index uniquely determines two elements 𝜐 and -𝜐
+    /// of the evaluation domain of FRI layer 0.
+    /// `evaluation_point_inv`: precomputed value of 𝜐⁻¹.
+    /// `deep_composition_evaluation`: precomputed value of p₀(𝜐), where p₀ is the deep composition polynomial.
+    /// `deep_composition_evaluation_sym`: precomputed value of p₀(-𝜐), where p₀ is the deep composition polynomial.
+    fn verify_query_and_sym_openings(
+        proof: &StarkProof<Self::Field>,
+        zetas: &[FieldElement<Self::Field>],
+        iota: usize,
+        fri_decommitment: &FriDecommitment<Self::Field>,
+        evaluation_point_inv: FieldElement<Self::Field>,
+        deep_composition_evaluation: &FieldElement<Self::Field>,
+        deep_composition_evaluation_sym: &FieldElement<Self::Field>,
+    ) -> bool
+    where
+        FieldElement<Self::Field>: Serializable,
+    {
+        let fri_layers_merkle_roots = &proof.fri_layers_merkle_roots;
+        let evaluation_point_vec: Vec<FieldElement<Self::Field>> =
+            core::iter::successors(Some(evaluation_point_inv.square()), |evaluation_point| {
+                Some(evaluation_point.square())
+            })
+            .take(fri_layers_merkle_roots.len())
+            .collect();
+
+        let p0_eval = deep_composition_evaluation;
+        let p0_eval_sym = deep_composition_evaluation_sym;
+
+        // Reconstruct p₁(𝜐²)
+        let mut v =
+            (p0_eval + p0_eval_sym) + &zetas[0] * (p0_eval - p0_eval_sym) * evaluation_point_inv;
+        let mut index = iota;
+
+        // For each FRI layer, starting from the layer 1: use the proof to verify the validity of values pᵢ(−𝜐^(2ⁱ)) (given by the prover) and
+        // pᵢ(𝜐^(2ⁱ)) (computed on the previous iteration by the verifier). Then use them to obtain pᵢ₊₁(𝜐^(2ⁱ⁺¹)).
+        // Finally, check that the final value coincides with the given by the prover.
+        fri_layers_merkle_roots
+            .iter()
+            .enumerate()
+            .zip(&fri_decommitment.layers_auth_paths)
+            .zip(&fri_decommitment.layers_evaluations_sym)
+            .zip(evaluation_point_vec)
+            .fold(
+                true,
+                |result,
+                 (
+                    (((i, merkle_root), auth_path_sym), evaluation_sym),
+                    evaluation_point_inv,
+                )| {
+                    // Verify opening Open(pᵢ(Dₖ), −𝜐^(2ⁱ)) and Open(pᵢ(Dₖ), 𝜐^(2ⁱ)).
+                    // `v` is pᵢ(𝜐^(2ⁱ)).
+                    // `evaluation_sym` is pᵢ(−𝜐^(2ⁱ)).
+                    let openings_ok = Self::verify_fri_layer_openings(
+                        merkle_root,
+                        auth_path_sym,
+                        &v,
+                        evaluation_sym,
+                        index,
+                    );
+
+                    // Update `v` with next value pᵢ₊₁(𝜐^(2ⁱ⁺¹)).
+                    v = (&v + evaluation_sym) + &zetas[i + 1] * (&v - evaluation_sym) * evaluation_point_inv;
+
+                    // Update index for next iteration. The index of the squares in the next layer
+                    // is obtained by halving the current index. This is due to the bit-reverse
+                    // ordering of the elements in the Merkle tree.
+                    index >>= 1;
+
+                    if i < fri_decommitment.layers_evaluations_sym.len() - 1 {
+                        result & openings_ok
+                    } else {
+                        // Check that final value is the given by the prover
+                        result & (v == proof.fri_last_value) & openings_ok
+                    }
+                },
+            )
+    }
+
+    fn reconstruct_deep_composition_poly_evaluations_for_all_queries<A>(
+        challenges: &Challenges<Self::Field, A>,
+        domain: &Domain<Self::Field>,
+        proof: &StarkProof<Self::Field>,
+    ) -> DeepPolynomialEvaluations<Self::Field>
+    where
+        A: AIR<Field = Self::Field>,
+    {
+        let mut deep_poly_evaluations = Vec::new();
+        let mut deep_poly_evaluations_sym = Vec::new();
+        for (i, iota) in challenges.iotas.iter().enumerate() {
+            let primitive_root =
+                &Self::Field::get_primitive_root_of_unity(domain.root_order as u64).unwrap();
+
+            let evaluation_point = Self::query_challenge_to_evaluation_point(*iota, domain);
+            deep_poly_evaluations.push(Self::reconstruct_deep_composition_poly_evaluation(
+                proof,
+                &evaluation_point,
+                primitive_root,
+                challenges,
+                &proof.deep_poly_openings[i].lde_trace_evaluations,
+                &proof.deep_poly_openings[i].lde_composition_poly_parts_evaluation,
+            ));
+
+            let evaluation_point = Self::query_challenge_to_evaluation_point_sym(*iota, domain);
+            deep_poly_evaluations_sym.push(Self::reconstruct_deep_composition_poly_evaluation(
+                proof,
+                &evaluation_point,
+                primitive_root,
+                challenges,
+                &proof.deep_poly_openings_sym[i].lde_trace_evaluations,
+                &proof.deep_poly_openings_sym[i].lde_composition_poly_parts_evaluation,
+            ));
+        }
+        (deep_poly_evaluations, deep_poly_evaluations_sym)
+    }
+
+    fn reconstruct_deep_composition_poly_evaluation<A: AIR<Field = Self::Field>>(
+        proof: &StarkProof<Self::Field>,
+        evaluation_point: &FieldElement<Self::Field>,
+        primitive_root: &FieldElement<Self::Field>,
+        challenges: &Challenges<Self::Field, A>,
+        lde_trace_evaluations: &[FieldElement<Self::Field>],
+        lde_composition_poly_parts_evaluation: &[FieldElement<Self::Field>],
+    ) -> FieldElement<Self::Field> {
+        let mut denoms_trace = (0..proof.trace_ood_frame_evaluations.n_rows())
+            .map(|row_idx| evaluation_point - &challenges.z * primitive_root.pow(row_idx as u64))
+            .collect::<Vec<FieldElement<Self::Field>>>();
+        FieldElement::inplace_batch_inverse(&mut denoms_trace).unwrap();
+
+        let trace_term = (0..proof.trace_ood_frame_evaluations.n_cols())
+            .zip(&challenges.trace_term_coeffs)
+            .fold(FieldElement::zero(), |trace_terms, (col_idx, coeff_row)| {
+                let trace_i = (0..proof.trace_ood_frame_evaluations.n_rows())
+                    .zip(coeff_row)
+                    .fold(FieldElement::zero(), |trace_t, (row_idx, coeff)| {
+                        let poly_evaluation = (lde_trace_evaluations[col_idx].clone()
+                            - proof.trace_ood_frame_evaluations.get_row(row_idx)[col_idx].clone())
+                            * &denoms_trace[row_idx];
+                        trace_t + &poly_evaluation * coeff
+                    });
+                trace_terms + trace_i
+            });
+
+        let number_of_parts = lde_composition_poly_parts_evaluation.len();
+        let z_pow = &challenges.z.pow(number_of_parts);
+
+        let denom_composition = (evaluation_point - z_pow).inv().unwrap();
+        let mut h_terms = FieldElement::zero();
+        for (j, h_i_upsilon) in lde_composition_poly_parts_evaluation.iter().enumerate() {
+            let h_i_zpower = &proof.composition_poly_parts_ood_evaluation[j];
+            let h_i_term = (h_i_upsilon - h_i_zpower) * &challenges.gammas[j];
+            h_terms += h_i_term;
+        }
+        h_terms = h_terms * denom_composition;
+
+        trace_term + h_terms
+    }
+
+    fn verify<A>(
+        proof: &StarkProof<Self::Field>,
+        pub_input: &A::PublicInputs,
+        proof_options: &ProofOptions,
+        mut transcript: impl IsStarkTranscript<Self::Field>,
+    ) -> bool
+    where
+        A: AIR<Field = Self::Field>,
+        FieldElement<Self::Field>: Serializable,
+    {
+        // Verify there are enough queries
+        if proof.query_list.len() < proof_options.fri_number_of_queries {
+            return false;
+        }
+
+        #[cfg(feature = "instruments")]
+        println!("- Started step 1: Recover challenges");
+        #[cfg(feature = "instruments")]
+        let timer1 = Instant::now();
+
+        let air = A::new(proof.trace_length, pub_input, proof_options);
         let domain = Domain::new(&air);
-        let challenges = step_1_replay_rounds_and_recover_challenges(
+
+        let challenges = Self::step_1_replay_rounds_and_recover_challenges(
             &air,
-            &proof,
+            proof,
             &domain,
-            &mut StoneProverTranscript::new(&transcript_init_seed),
+            &mut transcript,
         );
 
-        assert_eq!(
-            proof.lde_trace_merkle_roots[0].to_vec(),
-            decode_hex("0eb9dcc0fb1854572a01236753ce05139d392aa3aeafe72abff150fe21175594").unwrap()
-        );
+        // verify grinding
+        let security_bits = air.context().proof_options.grinding_factor;
+        if security_bits > 0 {
+            let nonce_is_valid = proof.nonce.map_or(false, |nonce_value| {
+                grinding::is_valid_nonce(&challenges.grinding_seed, nonce_value, security_bits)
+            });
 
-        let beta = challenges.transition_coeffs[0];
-        assert_eq!(
-            beta,
-            FieldElement::from_hex_unchecked(
-                "86105fff7b04ed4068ecccb8dbf1ed223bd45cd26c3532d6c80a818dbd4fa7"
-            ),
-        );
-        assert_eq!(challenges.transition_coeffs[1], beta.pow(2u64));
-        assert_eq!(challenges.boundary_coeffs[0], beta.pow(3u64));
-        assert_eq!(challenges.boundary_coeffs[1], beta.pow(4u64));
+            if !nonce_is_valid {
+                error!("Grinding factor not satisfied");
+                return false;
+            }
+        }
+
+        #[cfg(feature = "instruments")]
+        let elapsed1 = timer1.elapsed();
+        #[cfg(feature = "instruments")]
+        println!("  Time spent: {:?}", elapsed1);
+
+        #[cfg(feature = "instruments")]
+        println!("- Started step 2: Verify claimed polynomial");
+        #[cfg(feature = "instruments")]
+        let timer2 = Instant::now();
+
+        if !Self::step_2_verify_claimed_composition_polynomial(&air, proof, &domain, &challenges) {
+            error!("Composition Polynomial verification failed");
+            return false;
+        }
+
+        #[cfg(feature = "instruments")]
+        let elapsed2 = timer2.elapsed();
+        #[cfg(feature = "instruments")]
+        println!("  Time spent: {:?}", elapsed2);
+        #[cfg(feature = "instruments")]
+
+        println!("- Started step 3: Verify FRI");
+        #[cfg(feature = "instruments")]
+        let timer3 = Instant::now();
+
+        if !Self::step_3_verify_fri(proof, &domain, &challenges) {
+            error!("FRI verification failed");
+            return false;
+        }
+
+        #[cfg(feature = "instruments")]
+        let elapsed3 = timer3.elapsed();
+        #[cfg(feature = "instruments")]
+        println!("  Time spent: {:?}", elapsed3);
+
+        #[cfg(feature = "instruments")]
+        println!("- Started step 4: Verify deep composition polynomial");
+        #[cfg(feature = "instruments")]
+        let timer4 = Instant::now();
+
+        #[allow(clippy::let_and_return)]
+        if !Self::step_4_verify_trace_and_composition_openings(&air, proof, &challenges) {
+            error!("DEEP Composition Polynomial verification failed");
+            return false;
+        }
+
+        #[cfg(feature = "instruments")]
+        let elapsed4 = timer4.elapsed();
+        #[cfg(feature = "instruments")]
+        println!("  Time spent: {:?}", elapsed4);
+
+        #[cfg(feature = "instruments")]
+        {
+            let total_time = elapsed1 + elapsed2 + elapsed3 + elapsed4;
+            println!(
+                " Fraction of verifying time per step: {:.4} {:.4} {:.4} {:.4}",
+                elapsed1.as_nanos() as f64 / total_time.as_nanos() as f64,
+                elapsed2.as_nanos() as f64 / total_time.as_nanos() as f64,
+                elapsed3.as_nanos() as f64 / total_time.as_nanos() as f64,
+                elapsed4.as_nanos() as f64 / total_time.as_nanos() as f64
+            );
+        }
+
+        true
     }
 }

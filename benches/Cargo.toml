@@ -9,12 +9,15 @@ ark-test-curves = { git = "https://github.com/arkworks-rs/algebra", rev = "ef8f7
 ark-std = "0.4.0"
 rand = "0.8.5"
 rand_chacha = "0.3.1"
+starknet-curve = { git = "https://github.com/xJonathanLEI/starknet-rs" }
+starknet-ff = { git = "https://github.com/xJonathanLEI/starknet-rs" }
 
 [dependencies.lambdaworks-math]
 path = "../math"
 
 [dev-dependencies]
 criterion = { version = "0.5.1", default-features = false }
+rand_chacha = "0.3.1"
 
 [[bench]]
 name = "add"
@@ -38,4 +41,8 @@ harness = false
 
 [[bench]]
 name = "pow"
+harness = false
+
+[[bench]]
+name = "point"
 harness = false

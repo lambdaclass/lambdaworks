@@ -1,4 +1,7 @@
-use lambdaworks_math::field::{element::FieldElement, traits::IsFFTField};
+use lambdaworks_math::{
+    field::{element::FieldElement, traits::IsFFTField},
+    traits::Serializable,
+};
 
 use crate::{
     constraints::boundary::{BoundaryConstraint, BoundaryConstraints},
@@ -17,6 +20,18 @@ where
 {
     pub claimed_value: FieldElement<F>,
     pub claimed_index: usize,
+}
+
+impl<F> Serializable for PublicInputs<F>
+where
+    F: IsFFTField,
+    FieldElement<F>: Serializable,
+{
+    fn serialize(&self) -> Vec<u8> {
+        let mut transcript_init_seed = self.claimed_index.to_be_bytes().to_vec();
+        transcript_init_seed.extend_from_slice(&self.claimed_value.serialize());
+        transcript_init_seed
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -141,7 +156,7 @@ pub fn compute_trace<F: IsFFTField>(
         col1.push(y.clone());
     }
 
-    TraceTable::new_from_cols(&[col0, col1])
+    TraceTable::from_columns(&[col0, col1])
 }
 
 #[cfg(test)]
