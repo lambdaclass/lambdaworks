@@ -74,8 +74,8 @@ where
     fn build_rap_challenges<T: Transcript>(&self, _transcript: &mut T) -> Self::RAPChallenges {}
 
     fn compute_transition(
-        frame: &Frame<Self::Field>,
         &self,
+        frame: &Frame<Self::Field>,
         _rap_challenges: &Self::RAPChallenges,
     ) -> Vec<FieldElement<Self::Field>> {
         let first_row = frame.get_row(0);
