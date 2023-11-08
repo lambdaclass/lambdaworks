@@ -790,7 +790,7 @@ impl AIR for CairoAIR {
 
         TraceTable {
             table: aux_table,
-            step_size: 1,
+            step_size: Self::STEP_SIZE,
         }
     }
 
