@@ -205,8 +205,7 @@ pub trait IsStarkProver {
             lde_trace_merkle_roots.push(aux_merkle_root);
         }
 
-        // FIXME: The 1 in the second argument should not be hardcoded.
-        let lde_trace = TraceTable::from_columns(evaluations, 1);
+        let lde_trace = TraceTable::from_columns(evaluations, A::STEP_SIZE);
 
         Ok(Round1 {
             trace_polys,
