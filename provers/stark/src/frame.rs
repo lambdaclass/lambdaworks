@@ -2,6 +2,9 @@ use super::trace::TraceTable;
 use crate::trace::StepView;
 use lambdaworks_math::field::traits::IsFFTField;
 
+/// A frame represents a collection of trace steps.
+/// The collected steps are all the necessary steps for
+/// all transition costraints over a trace to be evaluated.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Frame<'t, F: IsFFTField> {
     steps: Vec<StepView<'t, F>>,
@@ -12,7 +15,7 @@ impl<'t, F: IsFFTField> Frame<'t, F> {
         Self { steps }
     }
 
-    pub fn get_evaluation_step(&self, step: usize) -> &StepView<'t, F> {
+    pub fn get_evaluation_step(&self, step: usize) -> &StepView<F> {
         &self.steps[step]
     }
 

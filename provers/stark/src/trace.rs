@@ -49,13 +49,16 @@ impl<'t, F: IsFFTField> TraceTable<F> {
         self.table.height / self.step_size
     }
 
+    /// Given a particular step of the computation represented on the trace,
+    /// returns the row of the underlying table.
     pub fn step_to_row(&self, step: usize) -> usize {
         self.step_size * step
     }
 
+    /// Given a step index, return the step view of the trace for that index
     pub fn step_view(&'t self, step_idx: usize) -> StepView<'t, F> {
         let row_idx = self.step_to_row(step_idx);
-        let table_view = self.table.get_table_view(row_idx, self.step_size);
+        let table_view = self.table.table_view(row_idx, self.step_size);
 
         StepView {
             table_view,
@@ -158,7 +161,8 @@ impl<'t, F: IsFFTField> TraceTable<F> {
     }
 }
 
-/// A view into a step of the trace.
+/// A view into a step of the trace. In general, a step over the trace
+/// can be thought as a fixed size subset of trace rows
 ///
 /// The main purpose of this data structure is to have a way to
 /// access the steps in a trace, in order to grab elements to calculate

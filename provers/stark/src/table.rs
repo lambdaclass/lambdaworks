@@ -14,35 +14,6 @@ pub struct Table<F: IsFFTField> {
     pub height: usize,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct TableView<'t, F: IsFFTField> {
-    pub data: &'t [FieldElement<F>],
-    pub table_row_offset: usize,
-    pub width: usize,
-    pub height: usize,
-}
-
-impl<'t, F: IsFFTField> TableView<'t, F> {
-    pub fn new(
-        data: &'t [FieldElement<F>],
-        table_row_offset: usize,
-        width: usize,
-        height: usize,
-    ) -> Self {
-        Self {
-            data,
-            width,
-            table_row_offset,
-            height,
-        }
-    }
-
-    pub fn get(&self, row: usize, col: usize) -> &FieldElement<F> {
-        let idx = row * self.width + col;
-        &self.data[idx]
-    }
-}
-
 impl<'t, F: IsFFTField> Table<F> {
     /// Crates a new Table instance from a one-dimensional array in row major order
     /// and the intended width of the table.
@@ -107,13 +78,15 @@ impl<'t, F: IsFFTField> Table<F> {
         &mut self.data[row_offset..row_offset + n_cols]
     }
 
-    pub fn get_table_view(&'t self, from_idx: usize, num_rows: usize) -> TableView<'t, F> {
+    /// Given a row index and a number of rows, returns a view of a subset of contiguous rows
+    /// of the table, starting from that index.
+    pub fn table_view(&'t self, from_idx: usize, num_rows: usize) -> TableView<'t, F> {
         let from_offset = from_idx * self.width;
         let data = &self.data[from_offset..from_offset + self.width * num_rows];
 
         TableView {
             data,
-            table_row_offset: from_idx,
+            table_row_idx: from_idx,
             width: self.width,
             height: num_rows,
         }
@@ -150,18 +123,49 @@ impl<'t, F: IsFFTField> Table<F> {
         &self.data[idx]
     }
 
-    ///
+    /// Given a step size, converts the given table into a `Frame`.
     pub fn into_frame(&'t self, step_size: usize) -> Frame<'t, F> {
+        debug_assert!(self.height % step_size == 0);
         let steps = (0..self.height)
             .step_by(step_size)
             .enumerate()
             .map(|(step_idx, row_idx)| {
-                let table_view = self.get_table_view(row_idx, step_size);
+                let table_view = self.table_view(row_idx, step_size);
                 StepView::new(table_view, step_idx)
             })
             .collect();
 
         Frame::new(steps)
+    }
+}
+
+/// A view of a contiguos subset of rows of a table.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TableView<'t, F: IsFFTField> {
+    pub data: &'t [FieldElement<F>],
+    pub table_row_idx: usize,
+    pub width: usize,
+    pub height: usize,
+}
+
+impl<'t, F: IsFFTField> TableView<'t, F> {
+    pub fn new(
+        data: &'t [FieldElement<F>],
+        table_row_idx: usize,
+        width: usize,
+        height: usize,
+    ) -> Self {
+        Self {
+            data,
+            width,
+            table_row_idx,
+            height,
+        }
+    }
+
+    pub fn get(&self, row: usize, col: usize) -> &FieldElement<F> {
+        let idx = row * self.width + col;
+        &self.data[idx]
     }
 }
 
@@ -175,7 +179,7 @@ mod test {
         let data: Vec<Felt252> = (0..=11).map(Felt252::from).collect();
         let table = Table::new(data, 3);
 
-        let slice = table.get_table_view(1, 2);
+        let slice = table.table_view(1, 2);
         let expected_data: Vec<Felt252> = (3..=8).map(Felt252::from).collect();
 
         assert_eq!(slice.data, expected_data);
