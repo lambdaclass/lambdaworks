@@ -54,8 +54,8 @@ impl<'t, F: IsFFTField> TraceTable<F> {
         Self { table, step_size }
     }
 
-    pub fn empty(step_size: usize) -> Self {
-        Self::new(Vec::new(), 0, step_size)
+    pub fn empty() -> Self {
+        Self::new(Vec::new(), 0, 0)
     }
 
     pub fn is_empty(&self) -> bool {

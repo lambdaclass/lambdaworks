@@ -52,7 +52,7 @@ impl AIR for DummyAIR {
         _main_trace: &TraceTable<Self::Field>,
         _rap_challenges: &Self::RAPChallenges,
     ) -> TraceTable<Self::Field> {
-        TraceTable::empty(1)
+        TraceTable::empty()
     }
 
     fn build_rap_challenges(
