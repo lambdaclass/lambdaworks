@@ -1078,7 +1078,7 @@ fn compute_opcode_constraints(constraints: &mut [Felt252], frame: &Frame<Stark25
     let opc_call = curr.get_evaluation_element(0, F_OPC_CALL);
     let dst = curr.get_evaluation_element(0, FRAME_DST);
     let fp = curr.get_evaluation_element(0, FRAME_FP);
-    let pc = curr.get_evaluation_element(0, FRAME_FP);
+    let pc = curr.get_evaluation_element(0, FRAME_PC);
 
     let opc_aeq = curr.get_evaluation_element(0, F_OPC_AEQ);
 

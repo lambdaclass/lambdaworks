@@ -83,7 +83,7 @@ where
         let second_step = frame.get_evaluation_step(1);
 
         let x = first_step.get_evaluation_element(0, 0);
-        let x_squared = second_step.get_evaluation_element(1, 0);
+        let x_squared = second_step.get_evaluation_element(0, 0);
 
         vec![x_squared - x * x]
     }
