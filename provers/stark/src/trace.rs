@@ -13,30 +13,12 @@ use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 ///
 /// For the moment it is mostly a wrapper around the `Table` struct. It is a
 /// layer above the raw two-dimensional table, with functionality relevant to the
-/// STARK protocol.
+/// STARK protocol, such as the step size (number of consecutive rows of the table)
+/// of the computation being proven.
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
 pub struct TraceTable<F: IsFFTField> {
     pub table: Table<F>,
     pub step_size: usize,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct StepView<'t, F: IsFFTField> {
-    pub table_view: TableView<'t, F>,
-    pub step_offset: usize,
-}
-
-impl<'t, F: IsFFTField> StepView<'t, F> {
-    pub fn new(table_view: TableView<'t, F>, step_offset: usize) -> Self {
-        StepView {
-            table_view,
-            step_offset,
-        }
-    }
-
-    pub fn get_evaluation_element(&self, row_idx: usize, col_idx: usize) -> &FieldElement<F> {
-        self.table_view.get(row_idx, col_idx)
-    }
 }
 
 impl<'t, F: IsFFTField> TraceTable<F> {
@@ -77,7 +59,7 @@ impl<'t, F: IsFFTField> TraceTable<F> {
 
         StepView {
             table_view,
-            step_offset: step_idx,
+            step_idx,
         }
     }
 
@@ -173,6 +155,31 @@ impl<'t, F: IsFFTField> TraceTable<F> {
             let row = self.get_row_mut(row_idx);
             row[col_idx] = value.clone();
         }
+    }
+}
+
+/// A view into a step of the trace.
+///
+/// The main purpose of this data structure is to have a way to
+/// access the steps in a trace, in order to grab elements to calculate
+/// constraint evaluations.
+#[derive(Debug, Clone, PartialEq)]
+pub struct StepView<'t, F: IsFFTField> {
+    pub table_view: TableView<'t, F>,
+    pub step_idx: usize,
+}
+
+impl<'t, F: IsFFTField> StepView<'t, F> {
+    pub fn new(table_view: TableView<'t, F>, step_idx: usize) -> Self {
+        StepView {
+            table_view,
+            step_idx,
+        }
+    }
+
+    /// Gets the evaluation element specified by `row_idx` and `col_idx` of this step
+    pub fn get_evaluation_element(&self, row_idx: usize, col_idx: usize) -> &FieldElement<F> {
+        self.table_view.get(row_idx, col_idx)
     }
 }
 
