@@ -145,19 +145,6 @@ impl<'t, F: IsFFTField> TraceTable<F> {
             .unwrap()
     }
 
-    // pub fn concatenate(&self, new_cols: Vec<FieldElement<F>>, n_cols: usize) -> Self {
-    //     let mut data = Vec::new();
-    //     let mut i = 0;
-    //     for row_index in (0..self.table.data.len()).step_by(self.table.width) {
-    //         data.append(&mut self.table.data[row_index..row_index + self.table.width].to_vec());
-    //         data.append(&mut new_cols[i..(i + n_cols)].to_vec());
-    //         i += n_cols;
-    //     }
-
-    //     let table = Table::new(&data, self.n_cols() + n_cols);
-    //     Self { table }
-    // }
-
     /// Given the padding length, appends the last row of the trace table
     /// that many times.
     /// This is useful for example when the desired trace length should be power
@@ -233,27 +220,4 @@ mod test {
 
         assert_eq!(res_cols, vec![col_1, col_2]);
     }
-
-    // #[test]
-    // fn test_concatenate_works() {
-    //     let table1_columns = vec![vec![FE::new(7), FE::new(8), FE::new(9)]];
-    //     let new_columns = vec![
-    //         FE::new(1),
-    //         FE::new(2),
-    //         FE::new(3),
-    //         FE::new(4),
-    //         FE::new(5),
-    //         FE::new(6),
-    //     ];
-    //     let expected_table = TraceTable::from_columns(
-    //         &[
-    //             vec![FE::new(7), FE::new(8), FE::new(9)],
-    //             vec![FE::new(1), FE::new(3), FE::new(5)],
-    //             vec![FE::new(2), FE::new(4), FE::new(6)],
-    //         ],
-    //         1,
-    //     );
-    //     let table1 = TraceTable::from_columns(&table1_columns, 1);
-    //     assert_eq!(table1.concatenate(new_columns, 2), expected_table)
-    // }
 }

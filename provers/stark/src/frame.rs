@@ -16,22 +16,6 @@ impl<'t, F: IsFFTField> Frame<'t, F> {
         &self.steps[step]
     }
 
-    // pub fn n_rows(&self) -> usize {
-    //     self.table.height
-    // }
-
-    // pub fn n_cols(&self) -> usize {
-    //     self.table.width
-    // }
-
-    // pub fn get_row(&self, row_idx: usize) -> &[FieldElement<F>] {
-    //     self.table.get_row(row_idx)
-    // }
-
-    // pub fn get_row_mut(&mut self, row_idx: usize) -> &mut [FieldElement<F>] {
-    //     self.table.get_row_mut(row_idx)
-    // }
-
     pub fn read_from_trace(
         trace: &'t TraceTable<F>,
         step: usize,
@@ -52,12 +36,3 @@ impl<'t, F: IsFFTField> Frame<'t, F> {
         Self::new(steps)
     }
 }
-
-// impl<'t, F: IsFFTField> From<&'t Table<F>> for Frame<'t, F> {
-//     fn from(value: &Table<F>) -> Self {
-//         let data = &value.data;
-
-//         // Self::new(value.data.clone(), value.width)
-//         todo!()
-//     }
-// }
