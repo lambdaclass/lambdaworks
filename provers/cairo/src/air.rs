@@ -193,7 +193,6 @@ impl From<Segment> for Range<u64> {
     }
 }
 
-// pub type MemorySegmentMap = HashMap<SegmentName, Range<u64>>;
 pub type MemorySegmentMap = HashMap<SegmentName, Segment>;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
