@@ -12,7 +12,7 @@ use super::{
 use crate::air::{EXTRA_ADDR, RC_HOLES};
 use crate::{
     air::{
-        MemorySegment, PublicInputs, FRAME_DST_ADDR, FRAME_OP0_ADDR, FRAME_OP1_ADDR, FRAME_PC,
+        PublicInputs, SegmentName, FRAME_DST_ADDR, FRAME_OP0_ADDR, FRAME_OP1_ADDR, FRAME_PC,
         OFF_DST, OFF_OP0, OFF_OP1,
     },
     Felt252,
@@ -285,9 +285,8 @@ pub fn build_cairo_execution_trace(
     trace_cols.push(extra_vals);
     trace_cols.push(rc_holes);
 
-    if let Some(range_check_builtin_range) = public_inputs
-        .memory_segments
-        .get(&MemorySegment::RangeCheck)
+    if let Some(range_check_builtin_range) =
+        public_inputs.memory_segments.get(&SegmentName::RangeCheck)
     {
         add_rc_builtin_columns(&mut trace_cols, range_check_builtin_range.clone(), memory);
     }

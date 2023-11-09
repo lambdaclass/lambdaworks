@@ -1,4 +1,4 @@
-use crate::air::{MemorySegment, MemorySegmentMap, PublicInputs};
+use crate::air::{MemorySegmentMap, PublicInputs, SegmentName};
 use crate::cairo_layout::CairoLayout;
 use crate::cairo_mem::CairoMemory;
 use crate::execution_trace::build_main_trace;
@@ -208,10 +208,10 @@ fn create_memory_segment_map(
     let mut memory_segments = MemorySegmentMap::new();
 
     if let Some(range_check_builtin_range) = range_check_builtin_range {
-        memory_segments.insert(MemorySegment::RangeCheck, range_check_builtin_range);
+        memory_segments.insert(SegmentName::RangeCheck, range_check_builtin_range);
     }
     if let Some(output_range) = output_range {
-        memory_segments.insert(MemorySegment::Output, output_range.clone());
+        memory_segments.insert(SegmentName::Output, output_range.clone());
     }
 
     memory_segments

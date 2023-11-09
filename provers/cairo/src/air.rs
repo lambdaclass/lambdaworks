@@ -165,12 +165,12 @@ pub const MEM_A_TRACE_OFFSET: usize = 19;
 const BUILTIN_OFFSET: usize = 9;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
-pub enum MemorySegment {
+pub enum SegmentName {
     RangeCheck,
     Output,
 }
 
-pub type MemorySegmentMap = HashMap<MemorySegment, Range<u64>>;
+pub type MemorySegmentMap = HashMap<SegmentName, Range<u64>>;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct PublicInputs {
@@ -204,7 +204,7 @@ impl PublicInputs {
         codelen: usize,
         memory_segments: &MemorySegmentMap,
     ) -> Self {
-        let output_range = memory_segments.get(&MemorySegment::Output);
+        let output_range = memory_segments.get(&SegmentName::Output);
 
         let mut public_memory = (1..=codelen as u64)
             .map(|i| (Felt252::from(i), *memory.get(&i).unwrap()))
@@ -262,8 +262,8 @@ impl Serializable for PublicInputs {
         let mut memory_segment_bytes = vec![];
         for (segment, range) in self.memory_segments.iter() {
             let segment_type = match segment {
-                MemorySegment::RangeCheck => 0u8,
-                MemorySegment::Output => 1u8,
+                SegmentName::RangeCheck => 0u8,
+                SegmentName::Output => 1u8,
             };
             memory_segment_bytes.extend(segment_type.to_be_bytes());
             memory_segment_bytes.extend(range.start.to_be_bytes());
@@ -390,8 +390,8 @@ impl Deserializable for PublicInputs {
                 return Err(DeserializationError::InvalidAmountOfBytes);
             }
             let segment_type = match bytes[0] {
-                0 => MemorySegment::RangeCheck,
-                1 => MemorySegment::Output,
+                0 => SegmentName::RangeCheck,
+                1 => SegmentName::Output,
                 _ => return Err(DeserializationError::FieldFromBytesError),
             };
             bytes = &bytes[1..];
@@ -511,7 +511,7 @@ fn add_pub_memory_in_public_input_section(
     let mut a_aux = addresses.to_owned();
     let mut v_aux = values.to_owned();
 
-    let output_range = public_input.memory_segments.get(&MemorySegment::Output);
+    let output_range = public_input.memory_segments.get(&SegmentName::Output);
 
     let pub_addrs = get_pub_memory_addrs(output_range, public_input);
     let mut pub_addrs_iter = pub_addrs.iter();
@@ -667,7 +667,7 @@ impl AIR for CairoAIR {
         // layouts functionality. The `has_rc_builtin` boolean should not exist, we will know the
         // layout from the Cairo public inputs directly, and the number of constraints and columns
         // will be enforced through that.
-        let has_rc_builtin = pub_inputs.memory_segments.get(&MemorySegment::RangeCheck).is_some();
+        let has_rc_builtin = pub_inputs.memory_segments.get(&SegmentName::RangeCheck).is_some();
         if has_rc_builtin {
             trace_columns += 8 + 1; // 8 columns for each rc of the range-check builtin values decomposition, 1 for the values
             transition_degrees.push(1); // Range check builtin constraint
@@ -1400,7 +1400,7 @@ mod test {
             range_check_max: None,
             range_check_min: None,
             num_steps: 1,
-            memory_segments: MemorySegmentMap::from([(MemorySegment::Output, 20..21)]),
+            memory_segments: MemorySegmentMap::from([(SegmentName::Output, 20..21)]),
             codelen: 3,
         };
 
@@ -1581,7 +1581,7 @@ mod prop_test {
         Felt252,
     };
 
-    use super::{MemorySegment, MemorySegmentMap, PublicInputs};
+    use super::{MemorySegmentMap, PublicInputs, SegmentName};
 
     prop_compose! {
         fn some_felt()(base in any::<u64>(), exponent in any::<u128>()) -> Felt252 {
@@ -1603,7 +1603,7 @@ mod prop_test {
             codelen in any::<usize>(),
         ) -> PublicInputs {
             let public_memory = public_memory.iter().map(|(k, v)| (Felt252::from(*k), Felt252::from(*v))).collect();
-            let memory_segments = MemorySegmentMap::from([(MemorySegment::Output, 10u64..16u64), (MemorySegment::RangeCheck, 20u64..71u64)]);
+            let memory_segments = MemorySegmentMap::from([(SegmentName::Output, 10u64..16u64), (SegmentName::RangeCheck, 20u64..71u64)]);
             PublicInputs {
                 pc_init,
                 ap_init,
