@@ -9,7 +9,7 @@ use super::{
     },
     register_states::RegisterStates,
 };
-use crate::air::{EXTRA_ADDR, RC_HOLES};
+use crate::air::{Segment, EXTRA_ADDR, RC_HOLES};
 use crate::{
     air::{
         PublicInputs, SegmentName, FRAME_DST_ADDR, FRAME_OP0_ADDR, FRAME_OP1_ADDR, FRAME_PC,
@@ -285,10 +285,10 @@ pub fn build_cairo_execution_trace(
     trace_cols.push(extra_vals);
     trace_cols.push(rc_holes);
 
-    if let Some(range_check_builtin_range) =
+    if let Some(range_check_builtin_segment) =
         public_inputs.memory_segments.get(&SegmentName::RangeCheck)
     {
-        add_rc_builtin_columns(&mut trace_cols, range_check_builtin_range.clone(), memory);
+        add_rc_builtin_columns(&mut trace_cols, range_check_builtin_segment.clone(), memory);
     }
 
     TraceTable::from_columns(trace_cols)
@@ -297,12 +297,13 @@ pub fn build_cairo_execution_trace(
 // Build range-check builtin columns: rc_0, rc_1, ... , rc_7, rc_value
 fn add_rc_builtin_columns(
     trace_cols: &mut Vec<Vec<Felt252>>,
-    range_check_builtin_range: Range<u64>,
+    range_check_builtin_segment: Segment,
     memory: &CairoMemory,
 ) {
-    let range_checked_values: Vec<&Felt252> = range_check_builtin_range
-        .map(|addr| memory.get(&addr).unwrap())
-        .collect();
+    let range: Range<u64> = range_check_builtin_segment.into();
+    let range_checked_values: Vec<&Felt252> =
+        range.map(|addr| memory.get(&addr).unwrap()).collect();
+
     let mut rc_trace_columns = decompose_rc_values_into_trace_columns(&range_checked_values);
 
     // rc decomposition columns are appended with zeros and then pushed to the trace table

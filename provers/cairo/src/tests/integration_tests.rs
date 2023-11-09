@@ -1,7 +1,7 @@
 use crate::{
     air::{
         generate_cairo_proof, verify_cairo_proof, CairoAIR, MemorySegmentMap, PublicInputs,
-        SegmentName, FRAME_DST_ADDR, FRAME_OP0_ADDR, FRAME_OP1_ADDR, FRAME_PC,
+        Segment, SegmentName, FRAME_DST_ADDR, FRAME_OP0_ADDR, FRAME_OP1_ADDR, FRAME_PC,
     },
     cairo_layout::CairoLayout,
     execution_trace::build_main_trace,
@@ -196,7 +196,8 @@ fn test_verifier_rejects_proof_with_overflowing_range_check_value() {
     // These is the regular setup for generating the trace and the Cairo AIR, but now
     // we do it with the malicious memory
     let proof_options = ProofOptions::default_test_options();
-    let memory_segments = MemorySegmentMap::from([(SegmentName::RangeCheck, 27..29)]);
+    let memory_segments =
+        MemorySegmentMap::from([(SegmentName::RangeCheck, Segment::from(27..29))]);
 
     let mut pub_inputs = PublicInputs::from_regs_and_mem(
         &register_states,
