@@ -168,6 +168,8 @@ const BUILTIN_OFFSET: usize = 9;
 pub enum SegmentName {
     RangeCheck,
     Output,
+    Program,
+    Execution,
 }
 
 pub type MemorySegmentMap = HashMap<SegmentName, Range<u64>>;
@@ -264,6 +266,8 @@ impl Serializable for PublicInputs {
             let segment_type = match segment {
                 SegmentName::RangeCheck => 0u8,
                 SegmentName::Output => 1u8,
+                SegmentName::Program => 2u8,
+                SegmentName::Execution => 3u8,
             };
             memory_segment_bytes.extend(segment_type.to_be_bytes());
             memory_segment_bytes.extend(range.start.to_be_bytes());
@@ -390,8 +394,10 @@ impl Deserializable for PublicInputs {
                 return Err(DeserializationError::InvalidAmountOfBytes);
             }
             let segment_type = match bytes[0] {
-                0 => SegmentName::RangeCheck,
-                1 => SegmentName::Output,
+                0u8 => SegmentName::RangeCheck,
+                1u8 => SegmentName::Output,
+                2u8 => SegmentName::Program,
+                3u8 => SegmentName::Execution,
                 _ => return Err(DeserializationError::FieldFromBytesError),
             };
             bytes = &bytes[1..];
