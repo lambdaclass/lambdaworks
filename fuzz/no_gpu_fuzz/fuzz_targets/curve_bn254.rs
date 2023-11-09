@@ -4,15 +4,19 @@ use libfuzzer_sys::fuzz_target;
 use lambdaworks_math::{
     cyclic_group::IsGroup,
     elliptic_curve::{
-        traits::IsEllipticCurve,
+        traits::{IsEllipticCurve, IsPairing},
         short_weierstrass::{
             curves::bn_254::{
                 curve::BN254Curve,
                 twist::BN254TwistCurve,
+                field_extension::Degree12ExtensionField,
+                pairing::BN254AtePairing,
             },
             point::ShortWeierstrassProjectivePoint,
         }
     },
+    field::element::FieldElement,
+    unsigned_integer::element::U256,
 };
 
 type LambdaG1 = ShortWeierstrassProjectivePoint<BN254Curve>;
@@ -71,4 +75,26 @@ fuzz_target!(|values: (u64, u64)| {
     // P * -P = O
     assert_eq!(a_g2.operate_with(&a_g2.neg()), g2_zero, "Inverse add a failed");
     assert_eq!(b_g2.operate_with(&b_g2.neg()), g2_zero, "Inverse add b failed");
+
+    // Pairing Bilinearity
+    let a = U256::from_u64(a_val);
+    let b = U256::from_u64(b_val);
+    let result = BN254AtePairing::compute_batch(&[
+        (
+            &a_g1.operate_with_self(a).to_affine(),
+            &a_g2.operate_with_self(b).to_affine(),
+        ),
+        (
+            &a_g1.operate_with_self(a * b).to_affine(),
+            &a_g2.neg().to_affine(),
+        ),
+    ]);
+    assert_eq!(result, FieldElement::<Degree12ExtensionField>::one());
+
+    // Ate Pairing returns one with one element is neutral element
+    let result = BN254AtePairing::compute_batch(&[(&a_g1.to_affine(), &LambdaG2::neutral_element())]);
+    assert_eq!(result, FieldElement::<Degree12ExtensionField>::one());
+
+    let result = BN254AtePairing::compute_batch(&[(&LambdaG1::neutral_element(), &a_g2.to_affine())]);
+    assert_eq!(result, FieldElement::<Degree12ExtensionField>::one());
 });
