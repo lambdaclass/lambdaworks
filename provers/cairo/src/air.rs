@@ -164,6 +164,11 @@ pub const MEM_A_TRACE_OFFSET: usize = 19;
 // index.
 const BUILTIN_OFFSET: usize = 9;
 
+pub struct Segment {
+    pub begin_addr: Range<u64>,
+    pub stop_ptr: Range<u64>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum SegmentName {
     RangeCheck,
