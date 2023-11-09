@@ -285,39 +285,32 @@ pub fn build_cairo_execution_trace(
     trace_cols.push(extra_vals);
     trace_cols.push(rc_holes);
 
-    if let Some(range_check_builtin_range) = public_inputs
-        .memory_segments
-        .get(&MemorySegment::RangeCheck)
-    {
-        add_rc_builtin_columns(&mut trace_cols, range_check_builtin_range.clone(), memory);
-    }
-
     TraceTable::from_columns(trace_cols)
 }
 
 // Build range-check builtin columns: rc_0, rc_1, ... , rc_7, rc_value
-fn add_rc_builtin_columns(
-    trace_cols: &mut Vec<Vec<Felt252>>,
-    range_check_builtin_range: Range<u64>,
-    memory: &CairoMemory,
-) {
-    let range_checked_values: Vec<&Felt252> = range_check_builtin_range
-        .map(|addr| memory.get(&addr).unwrap())
-        .collect();
-    let mut rc_trace_columns = decompose_rc_values_into_trace_columns(&range_checked_values);
+// fn add_rc_builtin_columns(
+//     trace_cols: &mut Vec<Vec<Felt252>>,
+//     range_check_builtin_range: Range<u64>,
+//     memory: &CairoMemory,
+// ) {
+//     let range_checked_values: Vec<&Felt252> = range_check_builtin_range
+//         .map(|addr| memory.get(&addr).unwrap())
+//         .collect();
+//     let mut rc_trace_columns = decompose_rc_values_into_trace_columns(&range_checked_values);
 
-    // rc decomposition columns are appended with zeros and then pushed to the trace table
-    rc_trace_columns.iter_mut().for_each(|column| {
-        column.resize(trace_cols[0].len(), Felt252::zero());
-        trace_cols.push(column.to_vec())
-    });
+//     // rc decomposition columns are appended with zeros and then pushed to the trace table
+//     rc_trace_columns.iter_mut().for_each(|column| {
+//         column.resize(trace_cols[0].len(), Felt252::zero());
+//         trace_cols.push(column.to_vec())
+//     });
 
-    let mut rc_values_dereferenced: Vec<Felt252> =
-        range_checked_values.iter().map(|&x| *x).collect();
-    rc_values_dereferenced.resize(trace_cols[0].len(), Felt252::zero());
+//     let mut rc_values_dereferenced: Vec<Felt252> =
+//         range_checked_values.iter().map(|&x| *x).collect();
+//     rc_values_dereferenced.resize(trace_cols[0].len(), Felt252::zero());
 
-    trace_cols.push(rc_values_dereferenced);
-}
+//     trace_cols.push(rc_values_dereferenced);
+// }
 
 /// Returns the vector of res values.
 fn compute_res(

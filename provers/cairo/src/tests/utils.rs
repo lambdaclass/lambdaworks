@@ -25,18 +25,13 @@ pub fn cairo1_program_path(program_name: &str) -> String {
 }
 
 /// Loads the program in path, runs it with the Cairo VM, and makes a proof of it
-pub fn test_prove_cairo_program(
-    file_path: &str,
-    output_range: &Option<Range<u64>>,
-    layout: CairoLayout,
-) {
+pub fn test_prove_cairo_program(file_path: &str, layout: CairoLayout) {
     let proof_options = ProofOptions::default_test_options();
     let timer = Instant::now();
     println!("Making proof ...");
 
     let program_content = std::fs::read(file_path).unwrap();
-    let (main_trace, pub_inputs) =
-        generate_prover_args(&program_content, output_range, layout).unwrap();
+    let (main_trace, pub_inputs) = generate_prover_args(&program_content, layout).unwrap();
     let proof = generate_cairo_proof(&main_trace, &pub_inputs, &proof_options).unwrap();
     println!("  Time spent in proving: {:?} \n", timer.elapsed());
 

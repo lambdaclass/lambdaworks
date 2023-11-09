@@ -115,54 +115,50 @@ pub const EXTRA_ADDR: usize = 33;
 pub const EXTRA_VAL: usize = 34;
 pub const RC_HOLES: usize = 35;
 
-// Range-check frame identifiers
-pub const RC_0: usize = 36;
-pub const RC_1: usize = 37;
-pub const RC_2: usize = 38;
-pub const RC_3: usize = 39;
-pub const RC_4: usize = 40;
-pub const RC_5: usize = 41;
-pub const RC_6: usize = 42;
-pub const RC_7: usize = 43;
-pub const RC_VALUE: usize = 44;
+// // Range-check frame identifiers
+// pub const RC_0: usize = 36;
+// pub const RC_1: usize = 37;
+// pub const RC_2: usize = 38;
+// pub const RC_3: usize = 39;
+// pub const RC_4: usize = 40;
+// pub const RC_5: usize = 41;
+// pub const RC_6: usize = 42;
+// pub const RC_7: usize = 43;
+// pub const RC_VALUE: usize = 44;
 
 // Auxiliary range check columns
-pub const RANGE_CHECK_COL_1: usize = 45;
-pub const RANGE_CHECK_COL_2: usize = 46;
-pub const RANGE_CHECK_COL_3: usize = 47;
-pub const RANGE_CHECK_COL_4: usize = 48;
+pub const RANGE_CHECK_COL_1: usize = 36;
+pub const RANGE_CHECK_COL_2: usize = 37;
+pub const RANGE_CHECK_COL_3: usize = 38;
+pub const RANGE_CHECK_COL_4: usize = 39;
 
 // Auxiliary memory columns
-pub const MEMORY_ADDR_SORTED_0: usize = 49;
-pub const MEMORY_ADDR_SORTED_1: usize = 50;
-pub const MEMORY_ADDR_SORTED_2: usize = 51;
-pub const MEMORY_ADDR_SORTED_3: usize = 52;
-pub const MEMORY_ADDR_SORTED_4: usize = 53;
+pub const MEMORY_ADDR_SORTED_0: usize = 40;
+pub const MEMORY_ADDR_SORTED_1: usize = 41;
+pub const MEMORY_ADDR_SORTED_2: usize = 42;
+pub const MEMORY_ADDR_SORTED_3: usize = 43;
+pub const MEMORY_ADDR_SORTED_4: usize = 44;
 
-pub const MEMORY_VALUES_SORTED_0: usize = 54;
-pub const MEMORY_VALUES_SORTED_1: usize = 55;
-pub const MEMORY_VALUES_SORTED_2: usize = 56;
-pub const MEMORY_VALUES_SORTED_3: usize = 57;
-pub const MEMORY_VALUES_SORTED_4: usize = 58;
+pub const MEMORY_VALUES_SORTED_0: usize = 45;
+pub const MEMORY_VALUES_SORTED_1: usize = 46;
+pub const MEMORY_VALUES_SORTED_2: usize = 47;
+pub const MEMORY_VALUES_SORTED_3: usize = 48;
+pub const MEMORY_VALUES_SORTED_4: usize = 49;
 
-pub const PERMUTATION_ARGUMENT_COL_0: usize = 59;
-pub const PERMUTATION_ARGUMENT_COL_1: usize = 60;
-pub const PERMUTATION_ARGUMENT_COL_2: usize = 61;
-pub const PERMUTATION_ARGUMENT_COL_3: usize = 62;
-pub const PERMUTATION_ARGUMENT_COL_4: usize = 63;
+pub const PERMUTATION_ARGUMENT_COL_0: usize = 50;
+pub const PERMUTATION_ARGUMENT_COL_1: usize = 51;
+pub const PERMUTATION_ARGUMENT_COL_2: usize = 52;
+pub const PERMUTATION_ARGUMENT_COL_3: usize = 53;
+pub const PERMUTATION_ARGUMENT_COL_4: usize = 54;
 
-pub const PERMUTATION_ARGUMENT_RANGE_CHECK_COL_1: usize = 64;
-pub const PERMUTATION_ARGUMENT_RANGE_CHECK_COL_2: usize = 65;
-pub const PERMUTATION_ARGUMENT_RANGE_CHECK_COL_3: usize = 66;
-pub const PERMUTATION_ARGUMENT_RANGE_CHECK_COL_4: usize = 67;
+pub const PERMUTATION_ARGUMENT_RANGE_CHECK_COL_1: usize = 55;
+pub const PERMUTATION_ARGUMENT_RANGE_CHECK_COL_2: usize = 56;
+pub const PERMUTATION_ARGUMENT_RANGE_CHECK_COL_3: usize = 57;
+pub const PERMUTATION_ARGUMENT_RANGE_CHECK_COL_4: usize = 58;
 
 // Trace layout
 pub const MEM_P_TRACE_OFFSET: usize = 17;
 pub const MEM_A_TRACE_OFFSET: usize = 19;
-
-// If Cairo AIR doesn't implement builtins, the auxiliary columns should have a smaller
-// index.
-const BUILTIN_OFFSET: usize = 9;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum MemorySegment {
@@ -202,19 +198,11 @@ impl PublicInputs {
         register_states: &RegisterStates,
         memory: &CairoMemory,
         codelen: usize,
-        memory_segments: &MemorySegmentMap,
     ) -> Self {
-        let output_range = memory_segments.get(&MemorySegment::Output);
-
         let mut public_memory = (1..=codelen as u64)
             .map(|i| (Felt252::from(i), *memory.get(&i).unwrap()))
             .collect::<HashMap<Felt252, Felt252>>();
 
-        if let Some(output_range) = output_range {
-            for addr in output_range.clone() {
-                public_memory.insert(Felt252::from(addr), *memory.get(&addr).unwrap());
-            }
-        };
         let last_step = &register_states.rows[register_states.steps() - 1];
 
         PublicInputs {
@@ -225,7 +213,7 @@ impl PublicInputs {
             ap_final: FieldElement::from(last_step.ap),
             range_check_min: None,
             range_check_max: None,
-            memory_segments: memory_segments.clone(),
+            memory_segments: MemorySegmentMap::new(),
             public_memory,
             num_steps: register_states.steps(),
             codelen,
@@ -476,17 +464,6 @@ pub struct CairoAIR {
     pub context: AirContext,
     pub trace_length: usize,
     pub pub_inputs: PublicInputs,
-    has_rc_builtin: bool,
-}
-
-impl CairoAIR {
-    fn get_builtin_offset(&self) -> usize {
-        if self.has_rc_builtin {
-            0
-        } else {
-            BUILTIN_OFFSET
-        }
-    }
 }
 
 pub struct CairoRAPChallenges {
@@ -663,17 +640,6 @@ impl AIR for CairoAIR {
         ];
         let mut num_transition_constraints = 54;
 
-        // This is a hacky solution for the moment and must be changed once we start implementing 
-        // layouts functionality. The `has_rc_builtin` boolean should not exist, we will know the
-        // layout from the Cairo public inputs directly, and the number of constraints and columns
-        // will be enforced through that.
-        let has_rc_builtin = pub_inputs.memory_segments.get(&MemorySegment::RangeCheck).is_some();
-        if has_rc_builtin {
-            trace_columns += 8 + 1; // 8 columns for each rc of the range-check builtin values decomposition, 1 for the values
-            transition_degrees.push(1); // Range check builtin constraint
-            transition_exemptions.push(0); // range-check builtin exemption
-            num_transition_constraints += 1; // range-check builtin value decomposition constraint
-        }
         let num_transition_exemptions = 1_usize;
 
         let context = AirContext {
@@ -701,7 +667,6 @@ impl AIR for CairoAIR {
             context,
             pub_inputs: pub_inputs.clone(),
             trace_length,
-            has_rc_builtin,
         }
     }
 
@@ -811,8 +776,6 @@ impl AIR for CairoAIR {
         frame: &Frame<Self::Field>,
         rap_challenges: &Self::RAPChallenges,
     ) -> Vec<FieldElement<Self::Field>> {
-        let builtin_offset = self.get_builtin_offset();
-
         let mut constraints: Vec<FieldElement<Self::Field>> =
             vec![Felt252::zero(); self.num_transition_constraints()];
 
@@ -820,13 +783,9 @@ impl AIR for CairoAIR {
         compute_operand_constraints(&mut constraints, frame);
         compute_register_constraints(&mut constraints, frame);
         compute_opcode_constraints(&mut constraints, frame);
-        memory_is_increasing(&mut constraints, frame, builtin_offset);
-        permutation_argument(&mut constraints, frame, rap_challenges, builtin_offset);
-        permutation_argument_range_check(&mut constraints, frame, rap_challenges, builtin_offset);
-
-        if self.has_rc_builtin {
-            range_check_builtin(&mut constraints, frame);
-        }
+        memory_is_increasing(&mut constraints, frame);
+        permutation_argument(&mut constraints, frame, rap_challenges);
+        permutation_argument_range_check(&mut constraints, frame, rap_challenges);
 
         constraints
     }
@@ -860,8 +819,6 @@ impl AIR for CairoAIR {
         // Auxiliary constraint: permutation argument final value
         let final_index = self.trace_length - 1;
 
-        let builtin_offset = self.get_builtin_offset();
-
         let cumulative_product = self
             .pub_inputs
             .public_memory
@@ -878,27 +835,21 @@ impl AIR for CairoAIR {
             .pow(self.pub_inputs.public_memory.len())
             * cumulative_product;
 
-        let permutation_final_constraint = BoundaryConstraint::new(
-            PERMUTATION_ARGUMENT_COL_4 - builtin_offset,
-            final_index,
-            permutation_final,
-        );
+        let permutation_final_constraint =
+            BoundaryConstraint::new(PERMUTATION_ARGUMENT_COL_4, final_index, permutation_final);
 
         let one: FieldElement<Self::Field> = FieldElement::one();
-        let range_check_final_constraint = BoundaryConstraint::new(
-            PERMUTATION_ARGUMENT_RANGE_CHECK_COL_4 - builtin_offset,
-            final_index,
-            one,
-        );
+        let range_check_final_constraint =
+            BoundaryConstraint::new(PERMUTATION_ARGUMENT_RANGE_CHECK_COL_4, final_index, one);
 
         let range_check_min = BoundaryConstraint::new(
-            RANGE_CHECK_COL_1 - builtin_offset,
+            RANGE_CHECK_COL_1,
             0,
             FieldElement::from(self.pub_inputs.range_check_min.unwrap() as u64),
         );
 
         let range_check_max = BoundaryConstraint::new(
-            RANGE_CHECK_COL_4 - builtin_offset,
+            RANGE_CHECK_COL_4,
             final_index,
             FieldElement::from(self.pub_inputs.range_check_max.unwrap() as u64),
         );
@@ -1043,105 +994,75 @@ fn compute_opcode_constraints(constraints: &mut [Felt252], frame: &Frame<Stark25
     constraints[ASSERT_EQ] = curr[F_OPC_AEQ] * (curr[FRAME_DST] - curr[FRAME_RES]);
 }
 
-fn memory_is_increasing(
-    constraints: &mut [Felt252],
-    frame: &Frame<Stark252PrimeField>,
-    builtin_offset: usize,
-) {
+fn memory_is_increasing(constraints: &mut [Felt252], frame: &Frame<Stark252PrimeField>) {
     let curr = frame.get_row(0);
     let next = frame.get_row(1);
     let one = FieldElement::one();
 
-    constraints[MEMORY_INCREASING_0] = (curr[MEMORY_ADDR_SORTED_0 - builtin_offset]
-        - curr[MEMORY_ADDR_SORTED_1 - builtin_offset])
-        * (curr[MEMORY_ADDR_SORTED_1 - builtin_offset]
-            - curr[MEMORY_ADDR_SORTED_0 - builtin_offset]
-            - one);
+    constraints[MEMORY_INCREASING_0] = (curr[MEMORY_ADDR_SORTED_0] - curr[MEMORY_ADDR_SORTED_1])
+        * (curr[MEMORY_ADDR_SORTED_1] - curr[MEMORY_ADDR_SORTED_0] - one);
 
-    constraints[MEMORY_INCREASING_1] = (curr[MEMORY_ADDR_SORTED_1 - builtin_offset]
-        - curr[MEMORY_ADDR_SORTED_2 - builtin_offset])
-        * (curr[MEMORY_ADDR_SORTED_2 - builtin_offset]
-            - curr[MEMORY_ADDR_SORTED_1 - builtin_offset]
-            - one);
+    constraints[MEMORY_INCREASING_1] = (curr[MEMORY_ADDR_SORTED_1] - curr[MEMORY_ADDR_SORTED_2])
+        * (curr[MEMORY_ADDR_SORTED_2] - curr[MEMORY_ADDR_SORTED_1] - one);
 
-    constraints[MEMORY_INCREASING_2] = (curr[MEMORY_ADDR_SORTED_2 - builtin_offset]
-        - curr[MEMORY_ADDR_SORTED_3 - builtin_offset])
-        * (curr[MEMORY_ADDR_SORTED_3 - builtin_offset]
-            - curr[MEMORY_ADDR_SORTED_2 - builtin_offset]
-            - one);
+    constraints[MEMORY_INCREASING_2] = (curr[MEMORY_ADDR_SORTED_2] - curr[MEMORY_ADDR_SORTED_3])
+        * (curr[MEMORY_ADDR_SORTED_3] - curr[MEMORY_ADDR_SORTED_2] - one);
 
-    constraints[MEMORY_INCREASING_3] = (curr[MEMORY_ADDR_SORTED_3 - builtin_offset]
-        - curr[MEMORY_ADDR_SORTED_4 - builtin_offset])
-        * (curr[MEMORY_ADDR_SORTED_4 - builtin_offset]
-            - curr[MEMORY_ADDR_SORTED_3 - builtin_offset]
-            - one);
+    constraints[MEMORY_INCREASING_3] = (curr[MEMORY_ADDR_SORTED_3] - curr[MEMORY_ADDR_SORTED_4])
+        * (curr[MEMORY_ADDR_SORTED_4] - curr[MEMORY_ADDR_SORTED_3] - one);
 
-    constraints[MEMORY_INCREASING_4] = (curr[MEMORY_ADDR_SORTED_4 - builtin_offset]
-        - next[MEMORY_ADDR_SORTED_0 - builtin_offset])
-        * (next[MEMORY_ADDR_SORTED_0 - builtin_offset]
-            - curr[MEMORY_ADDR_SORTED_4 - builtin_offset]
-            - one);
+    constraints[MEMORY_INCREASING_4] = (curr[MEMORY_ADDR_SORTED_4] - next[MEMORY_ADDR_SORTED_0])
+        * (next[MEMORY_ADDR_SORTED_0] - curr[MEMORY_ADDR_SORTED_4] - one);
 
-    constraints[MEMORY_CONSISTENCY_0] = (curr[MEMORY_VALUES_SORTED_0 - builtin_offset]
-        - curr[MEMORY_VALUES_SORTED_1 - builtin_offset])
-        * (curr[MEMORY_ADDR_SORTED_1 - builtin_offset]
-            - curr[MEMORY_ADDR_SORTED_0 - builtin_offset]
-            - one);
+    constraints[MEMORY_CONSISTENCY_0] = (curr[MEMORY_VALUES_SORTED_0]
+        - curr[MEMORY_VALUES_SORTED_1])
+        * (curr[MEMORY_ADDR_SORTED_1] - curr[MEMORY_ADDR_SORTED_0] - one);
 
-    constraints[MEMORY_CONSISTENCY_1] = (curr[MEMORY_VALUES_SORTED_1 - builtin_offset]
-        - curr[MEMORY_VALUES_SORTED_2 - builtin_offset])
-        * (curr[MEMORY_ADDR_SORTED_2 - builtin_offset]
-            - curr[MEMORY_ADDR_SORTED_1 - builtin_offset]
-            - one);
+    constraints[MEMORY_CONSISTENCY_1] = (curr[MEMORY_VALUES_SORTED_1]
+        - curr[MEMORY_VALUES_SORTED_2])
+        * (curr[MEMORY_ADDR_SORTED_2] - curr[MEMORY_ADDR_SORTED_1] - one);
 
-    constraints[MEMORY_CONSISTENCY_2] = (curr[MEMORY_VALUES_SORTED_2 - builtin_offset]
-        - curr[MEMORY_VALUES_SORTED_3 - builtin_offset])
-        * (curr[MEMORY_ADDR_SORTED_3 - builtin_offset]
-            - curr[MEMORY_ADDR_SORTED_2 - builtin_offset]
-            - one);
+    constraints[MEMORY_CONSISTENCY_2] = (curr[MEMORY_VALUES_SORTED_2]
+        - curr[MEMORY_VALUES_SORTED_3])
+        * (curr[MEMORY_ADDR_SORTED_3] - curr[MEMORY_ADDR_SORTED_2] - one);
 
-    constraints[MEMORY_CONSISTENCY_3] = (curr[MEMORY_VALUES_SORTED_3 - builtin_offset]
-        - curr[MEMORY_VALUES_SORTED_4 - builtin_offset])
-        * (curr[MEMORY_ADDR_SORTED_4 - builtin_offset]
-            - curr[MEMORY_ADDR_SORTED_3 - builtin_offset]
-            - one);
+    constraints[MEMORY_CONSISTENCY_3] = (curr[MEMORY_VALUES_SORTED_3]
+        - curr[MEMORY_VALUES_SORTED_4])
+        * (curr[MEMORY_ADDR_SORTED_4] - curr[MEMORY_ADDR_SORTED_3] - one);
 
-    constraints[MEMORY_CONSISTENCY_4] = (curr[MEMORY_VALUES_SORTED_4 - builtin_offset]
-        - next[MEMORY_VALUES_SORTED_0 - builtin_offset])
-        * (next[MEMORY_ADDR_SORTED_0 - builtin_offset]
-            - curr[MEMORY_ADDR_SORTED_4 - builtin_offset]
-            - one);
+    constraints[MEMORY_CONSISTENCY_4] = (curr[MEMORY_VALUES_SORTED_4]
+        - next[MEMORY_VALUES_SORTED_0])
+        * (next[MEMORY_ADDR_SORTED_0] - curr[MEMORY_ADDR_SORTED_4] - one);
 }
 
 fn permutation_argument(
     constraints: &mut [Felt252],
     frame: &Frame<Stark252PrimeField>,
     rap_challenges: &CairoRAPChallenges,
-    builtin_offset: usize,
 ) {
     let curr = frame.get_row(0);
     let next = frame.get_row(1);
     let z = &rap_challenges.z_memory;
     let alpha = &rap_challenges.alpha_memory;
 
-    let p0 = &curr[PERMUTATION_ARGUMENT_COL_0 - builtin_offset];
-    let p0_next = &next[PERMUTATION_ARGUMENT_COL_0 - builtin_offset];
-    let p1 = &curr[PERMUTATION_ARGUMENT_COL_1 - builtin_offset];
-    let p2 = &curr[PERMUTATION_ARGUMENT_COL_2 - builtin_offset];
-    let p3 = &curr[PERMUTATION_ARGUMENT_COL_3 - builtin_offset];
-    let p4 = &curr[PERMUTATION_ARGUMENT_COL_4 - builtin_offset];
+    let p0 = &curr[PERMUTATION_ARGUMENT_COL_0];
+    let p0_next = &next[PERMUTATION_ARGUMENT_COL_0];
+    let p1 = &curr[PERMUTATION_ARGUMENT_COL_1];
+    let p2 = &curr[PERMUTATION_ARGUMENT_COL_2];
+    let p3 = &curr[PERMUTATION_ARGUMENT_COL_3];
+    let p4 = &curr[PERMUTATION_ARGUMENT_COL_4];
 
-    let ap0_next = &next[MEMORY_ADDR_SORTED_0 - builtin_offset];
-    let ap1 = &curr[MEMORY_ADDR_SORTED_1 - builtin_offset];
-    let ap2 = &curr[MEMORY_ADDR_SORTED_2 - builtin_offset];
-    let ap3 = &curr[MEMORY_ADDR_SORTED_3 - builtin_offset];
-    let ap4 = &curr[MEMORY_ADDR_SORTED_4 - builtin_offset];
+    let ap0_next = &next[MEMORY_ADDR_SORTED_0];
+    let ap1 = &curr[MEMORY_ADDR_SORTED_1];
+    let ap2 = &curr[MEMORY_ADDR_SORTED_2];
+    let ap3 = &curr[MEMORY_ADDR_SORTED_3];
+    let ap4 = &curr[MEMORY_ADDR_SORTED_4];
 
-    let vp0_next = &next[MEMORY_VALUES_SORTED_0 - builtin_offset];
-    let vp1 = &curr[MEMORY_VALUES_SORTED_1 - builtin_offset];
-    let vp2 = &curr[MEMORY_VALUES_SORTED_2 - builtin_offset];
-    let vp3 = &curr[MEMORY_VALUES_SORTED_3 - builtin_offset];
-    let vp4 = &curr[MEMORY_VALUES_SORTED_4 - builtin_offset];
+    let vp0_next = &next[MEMORY_VALUES_SORTED_0];
+    let vp1 = &curr[MEMORY_VALUES_SORTED_1];
+    let vp2 = &curr[MEMORY_VALUES_SORTED_2];
+    let vp3 = &curr[MEMORY_VALUES_SORTED_3];
+    let vp4 = &curr[MEMORY_VALUES_SORTED_4];
 
     let a0_next = &next[FRAME_PC];
     let a1 = &curr[FRAME_DST_ADDR];
@@ -1171,44 +1092,31 @@ fn permutation_argument_range_check(
     constraints: &mut [Felt252],
     frame: &Frame<Stark252PrimeField>,
     rap_challenges: &CairoRAPChallenges,
-    builtin_offset: usize,
 ) {
     let curr = frame.get_row(0);
     let next = frame.get_row(1);
     let one = FieldElement::one();
     let z = &rap_challenges.z_range_check;
 
-    constraints[RANGE_CHECK_INCREASING_0] = (curr[RANGE_CHECK_COL_1 - builtin_offset]
-        - curr[RANGE_CHECK_COL_2 - builtin_offset])
-        * (curr[RANGE_CHECK_COL_2 - builtin_offset]
-            - curr[RANGE_CHECK_COL_1 - builtin_offset]
-            - one);
-    constraints[RANGE_CHECK_INCREASING_1] = (curr[RANGE_CHECK_COL_2 - builtin_offset]
-        - curr[RANGE_CHECK_COL_3 - builtin_offset])
-        * (curr[RANGE_CHECK_COL_3 - builtin_offset]
-            - curr[RANGE_CHECK_COL_2 - builtin_offset]
-            - one);
-    constraints[RANGE_CHECK_INCREASING_2] = (curr[RANGE_CHECK_COL_3 - builtin_offset]
-        - curr[RANGE_CHECK_COL_4 - builtin_offset])
-        * (curr[RANGE_CHECK_COL_4 - builtin_offset]
-            - curr[RANGE_CHECK_COL_3 - builtin_offset]
-            - one);
-    constraints[RANGE_CHECK_INCREASING_3] = (curr[RANGE_CHECK_COL_4 - builtin_offset]
-        - next[RANGE_CHECK_COL_1 - builtin_offset])
-        * (next[RANGE_CHECK_COL_1 - builtin_offset]
-            - curr[RANGE_CHECK_COL_4 - builtin_offset]
-            - one);
+    constraints[RANGE_CHECK_INCREASING_0] = (curr[RANGE_CHECK_COL_1] - curr[RANGE_CHECK_COL_2])
+        * (curr[RANGE_CHECK_COL_2] - curr[RANGE_CHECK_COL_1] - one);
+    constraints[RANGE_CHECK_INCREASING_1] = (curr[RANGE_CHECK_COL_2] - curr[RANGE_CHECK_COL_3])
+        * (curr[RANGE_CHECK_COL_3] - curr[RANGE_CHECK_COL_2] - one);
+    constraints[RANGE_CHECK_INCREASING_2] = (curr[RANGE_CHECK_COL_3] - curr[RANGE_CHECK_COL_4])
+        * (curr[RANGE_CHECK_COL_4] - curr[RANGE_CHECK_COL_3] - one);
+    constraints[RANGE_CHECK_INCREASING_3] = (curr[RANGE_CHECK_COL_4] - next[RANGE_CHECK_COL_1])
+        * (next[RANGE_CHECK_COL_1] - curr[RANGE_CHECK_COL_4] - one);
 
-    let p0 = curr[PERMUTATION_ARGUMENT_RANGE_CHECK_COL_1 - builtin_offset];
-    let p0_next = next[PERMUTATION_ARGUMENT_RANGE_CHECK_COL_1 - builtin_offset];
-    let p1 = curr[PERMUTATION_ARGUMENT_RANGE_CHECK_COL_2 - builtin_offset];
-    let p2 = curr[PERMUTATION_ARGUMENT_RANGE_CHECK_COL_3 - builtin_offset];
-    let p3 = curr[PERMUTATION_ARGUMENT_RANGE_CHECK_COL_4 - builtin_offset];
+    let p0 = curr[PERMUTATION_ARGUMENT_RANGE_CHECK_COL_1];
+    let p0_next = next[PERMUTATION_ARGUMENT_RANGE_CHECK_COL_1];
+    let p1 = curr[PERMUTATION_ARGUMENT_RANGE_CHECK_COL_2];
+    let p2 = curr[PERMUTATION_ARGUMENT_RANGE_CHECK_COL_3];
+    let p3 = curr[PERMUTATION_ARGUMENT_RANGE_CHECK_COL_4];
 
-    let ap0_next = next[RANGE_CHECK_COL_1 - builtin_offset];
-    let ap1 = curr[RANGE_CHECK_COL_2 - builtin_offset];
-    let ap2 = curr[RANGE_CHECK_COL_3 - builtin_offset];
-    let ap3 = curr[RANGE_CHECK_COL_4 - builtin_offset];
+    let ap0_next = next[RANGE_CHECK_COL_1];
+    let ap1 = curr[RANGE_CHECK_COL_2];
+    let ap2 = curr[RANGE_CHECK_COL_3];
+    let ap3 = curr[RANGE_CHECK_COL_4];
 
     let a0_next = next[OFF_DST];
     let a1 = curr[OFF_OP0];
@@ -1225,26 +1133,26 @@ fn frame_inst_size(frame_row: &[Felt252]) -> Felt252 {
     frame_row[F_OP_1_VAL] + Felt252::one()
 }
 
-fn range_check_builtin(
-    constraints: &mut [FieldElement<Stark252PrimeField>],
-    frame: &Frame<Stark252PrimeField>,
-) {
-    let curr = frame.get_row(0);
+// fn range_check_builtin(
+//     constraints: &mut [FieldElement<Stark252PrimeField>],
+//     frame: &Frame<Stark252PrimeField>,
+// ) {
+//     let curr = frame.get_row(0);
 
-    constraints[RANGE_CHECK_BUILTIN] = evaluate_range_check_builtin_constraint(curr)
-}
+//     constraints[RANGE_CHECK_BUILTIN] = evaluate_range_check_builtin_constraint(curr)
+// }
 
-fn evaluate_range_check_builtin_constraint(curr: &[Felt252]) -> Felt252 {
-    curr[RC_0]
-        + curr[RC_1] * Felt252::from_hex("10000").unwrap()
-        + curr[RC_2] * Felt252::from_hex("100000000").unwrap()
-        + curr[RC_3] * Felt252::from_hex("1000000000000").unwrap()
-        + curr[RC_4] * Felt252::from_hex("10000000000000000").unwrap()
-        + curr[RC_5] * Felt252::from_hex("100000000000000000000").unwrap()
-        + curr[RC_6] * Felt252::from_hex("1000000000000000000000000").unwrap()
-        + curr[RC_7] * Felt252::from_hex("10000000000000000000000000000").unwrap()
-        - curr[RC_VALUE]
-}
+// fn evaluate_range_check_builtin_constraint(curr: &[Felt252]) -> Felt252 {
+//     curr[RC_0]
+//         + curr[RC_1] * Felt252::from_hex("10000").unwrap()
+//         + curr[RC_2] * Felt252::from_hex("100000000").unwrap()
+//         + curr[RC_3] * Felt252::from_hex("1000000000000").unwrap()
+//         + curr[RC_4] * Felt252::from_hex("10000000000000000").unwrap()
+//         + curr[RC_5] * Felt252::from_hex("100000000000000000000").unwrap()
+//         + curr[RC_6] * Felt252::from_hex("1000000000000000000000000").unwrap()
+//         + curr[RC_7] * Felt252::from_hex("10000000000000000000000000000").unwrap()
+//         - curr[RC_VALUE]
+// }
 
 /// Wrapper function for generating Cairo proofs without the need to specify
 /// concrete types.
@@ -1284,29 +1192,29 @@ mod test {
     use super::*;
     use lambdaworks_math::field::element::FieldElement;
 
-    #[test]
-    fn range_check_eval_works() {
-        let mut row: Vec<Felt252> = Vec::new();
+    // #[test]
+    // fn range_check_eval_works() {
+    //     let mut row: Vec<Felt252> = Vec::new();
 
-        for _ in 0..61 {
-            row.push(Felt252::zero());
-        }
+    //     for _ in 0..61 {
+    //         row.push(Felt252::zero());
+    //     }
 
-        row[super::RC_0] = Felt252::one();
-        row[super::RC_1] = Felt252::one();
-        row[super::RC_2] = Felt252::one();
-        row[super::RC_3] = Felt252::one();
-        row[super::RC_4] = Felt252::one();
-        row[super::RC_5] = Felt252::one();
-        row[super::RC_6] = Felt252::one();
-        row[super::RC_7] = Felt252::one();
+    //     row[super::RC_0] = Felt252::one();
+    //     row[super::RC_1] = Felt252::one();
+    //     row[super::RC_2] = Felt252::one();
+    //     row[super::RC_3] = Felt252::one();
+    //     row[super::RC_4] = Felt252::one();
+    //     row[super::RC_5] = Felt252::one();
+    //     row[super::RC_6] = Felt252::one();
+    //     row[super::RC_7] = Felt252::one();
 
-        row[super::RC_VALUE] = Felt252::from_hex("00010001000100010001000100010001").unwrap();
-        assert_eq!(
-            evaluate_range_check_builtin_constraint(&row),
-            Felt252::zero()
-        );
-    }
+    //     row[super::RC_VALUE] = Felt252::from_hex("00010001000100010001000100010001").unwrap();
+    //     assert_eq!(
+    //         evaluate_range_check_builtin_constraint(&row),
+    //         Felt252::zero()
+    //     );
+    // }
 
     #[test]
     fn test_build_auxiliary_trace_add_program_in_public_input_section_works() {
@@ -1645,7 +1553,7 @@ mod prop_test {
     fn deserialize_and_verify() {
         let program_content = std::fs::read(cairo0_program_path("fibonacci_10.json")).unwrap();
         let (main_trace, pub_inputs) =
-            generate_prover_args(&program_content, &None, CairoLayout::Plain).unwrap();
+            generate_prover_args(&program_content, CairoLayout::Plain).unwrap();
 
         let proof_options = ProofOptions::default_test_options();
 

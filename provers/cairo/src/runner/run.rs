@@ -80,7 +80,7 @@ pub fn run_program(
     entrypoint_function: Option<&str>,
     layout: CairoLayout,
     program_content: &[u8],
-) -> Result<(RegisterStates, CairoMemory, usize, Option<Range<u64>>), Error> {
+) -> Result<(RegisterStates, CairoMemory, usize), Error> {
     // default value for entrypoint is "main"
     let entrypoint = entrypoint_function.unwrap_or("main");
 
@@ -104,6 +104,8 @@ pub fn run_program(
             }
         };
 
+    let pub_inputs = runner.get_air_public_input(&vm);
+
     let relocated_trace = vm.get_relocated_trace().unwrap();
 
     let mut trace_vec = Vec::<u8>::new();
@@ -125,53 +127,16 @@ pub fn run_program(
 
     let data_len = runner.get_program().data_len();
 
-    let range_check_builtin_included = runner
-        .get_program()
-        .iter_builtins()
-        .any(|builtin| builtin.name() == "range_check_builtin");
-
-    // get range start and end
-    let range_check = if range_check_builtin_included {
-        vm.get_range_check_builtin()
-            .map(|builtin| {
-                let (idx, stop_offset) = builtin.get_memory_segment_addresses();
-                let stop_offset = stop_offset.unwrap_or_default();
-                let range_check_base =
-                    (0..idx).fold(1, |acc, i| acc + vm.get_segment_size(i).unwrap_or_default());
-                let range_check_end = range_check_base + stop_offset;
-
-                (range_check_base, range_check_end)
-            })
-            .ok()
-    } else {
-        None
-    };
-
-    let range_check_builtin_range = range_check.map(|(start, end)| Range {
-        start: start as u64,
-        end: end as u64,
-    });
-
-    Ok((
-        register_states,
-        cairo_mem,
-        data_len,
-        range_check_builtin_range,
-    ))
+    Ok((register_states, cairo_mem, data_len))
 }
 
 pub fn generate_prover_args(
     program_content: &[u8],
-    output_range: &Option<Range<u64>>,
     layout: CairoLayout,
 ) -> Result<(TraceTable<Stark252PrimeField>, PublicInputs), Error> {
-    let (register_states, memory, program_size, range_check_builtin_range) =
-        run_program(None, layout, program_content)?;
+    let (register_states, memory, program_size) = run_program(None, layout, program_content)?;
 
-    let memory_segments = create_memory_segment_map(range_check_builtin_range, output_range);
-
-    let mut pub_inputs =
-        PublicInputs::from_regs_and_mem(&register_states, &memory, program_size, &memory_segments);
+    let mut pub_inputs = PublicInputs::from_regs_and_mem(&register_states, &memory, program_size);
 
     let main_trace = build_main_trace(&register_states, &memory, &mut pub_inputs);
 
@@ -190,11 +155,7 @@ pub fn generate_prover_args_from_trace(
 
     // data length
     let data_len = 0_usize;
-    let range_check_builtin_range: Option<Range<u64>> = None;
-    let memory_segments = create_memory_segment_map(range_check_builtin_range, &None);
-
-    let mut pub_inputs =
-        PublicInputs::from_regs_and_mem(&register_states, &memory, data_len, &memory_segments);
+    let mut pub_inputs = PublicInputs::from_regs_and_mem(&register_states, &memory, data_len);
 
     let main_trace = build_main_trace(&register_states, &memory, &mut pub_inputs);
 
