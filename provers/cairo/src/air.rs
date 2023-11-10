@@ -1329,30 +1329,6 @@ mod test {
     use super::*;
     use lambdaworks_math::field::element::FieldElement;
 
-    // #[test]
-    // fn range_check_eval_works() {
-    //     let mut row: Vec<Felt252> = Vec::new();
-
-    //     for _ in 0..61 {
-    //         row.push(Felt252::zero());
-    //     }
-
-    //     row[super::RC_0] = Felt252::one();
-    //     row[super::RC_1] = Felt252::one();
-    //     row[super::RC_2] = Felt252::one();
-    //     row[super::RC_3] = Felt252::one();
-    //     row[super::RC_4] = Felt252::one();
-    //     row[super::RC_5] = Felt252::one();
-    //     row[super::RC_6] = Felt252::one();
-    //     row[super::RC_7] = Felt252::one();
-
-    //     row[super::RC_VALUE] = Felt252::from_hex("00010001000100010001000100010001").unwrap();
-    //     assert_eq!(
-    //         evaluate_range_check_builtin_constraint(&row),
-    //         Felt252::zero()
-    //     );
-    // }
-
     #[test]
     fn test_build_auxiliary_trace_add_program_in_public_input_section_works() {
         let dummy_public_input = PublicInputs {
