@@ -1185,36 +1185,6 @@ fn frame_inst_size(step: &StepView<Stark252PrimeField>) -> Felt252 {
     op1_val + Felt252::one()
 }
 
-// fn range_check_builtin(
-//     constraints: &mut [FieldElement<Stark252PrimeField>],
-//     frame: &Frame<Stark252PrimeField>,
-// ) {
-//     let curr = frame.get_evaluation_step(0);
-
-//     constraints[RANGE_CHECK_BUILTIN] = evaluate_range_check_builtin_constraint(curr)
-// }
-
-// fn evaluate_range_check_builtin_constraint(step: &StepView<Stark252PrimeField>) -> Felt252 {
-//     let rc_0 = step.get_evaluation_element(0, RC_0);
-//     let rc_1 = step.get_evaluation_element(0, RC_1);
-//     let rc_2 = step.get_evaluation_element(0, RC_2);
-//     let rc_3 = step.get_evaluation_element(0, RC_3);
-//     let rc_4 = step.get_evaluation_element(0, RC_4);
-//     let rc_5 = step.get_evaluation_element(0, RC_5);
-//     let rc_6 = step.get_evaluation_element(0, RC_6);
-//     let rc_7 = step.get_evaluation_element(0, RC_7);
-//     let rc_value = step.get_evaluation_element(0, RC_VALUE);
-
-//     rc_0 + rc_1 * Felt252::from_hex_unchecked("10000")
-//         + rc_2 * Felt252::from_hex_unchecked("100000000")
-//         + rc_3 * Felt252::from_hex_unchecked("1000000000000")
-//         + rc_4 * Felt252::from_hex_unchecked("10000000000000000")
-//         + rc_5 * Felt252::from_hex_unchecked("100000000000000000000")
-//         + rc_6 * Felt252::from_hex_unchecked("1000000000000000000000000")
-//         + rc_7 * Felt252::from_hex_unchecked("10000000000000000000000000000")
-//         - rc_value
-// }
-
 /// Wrapper function for generating Cairo proofs without the need to specify
 /// concrete types.
 /// The field is set to Stark252PrimeField and the AIR to CairoAIR.
