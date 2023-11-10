@@ -1,8 +1,5 @@
-use std::usize;
-
 use lambdaworks_math::field::{
-    element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
-    traits::IsField,
+    element::FieldElement, traits::IsField,
 };
 
 type RescuePrimeConstants<F> = (Vec<FieldElement<F>>, Vec<Vec<FieldElement<F>>>);
@@ -13,23 +10,28 @@ type RescuePrimeConstants<F> = (Vec<FieldElement<F>>, Vec<Vec<FieldElement<F>>>)
 // c_p - capacity 
 // s - security level (80 <= s <= 512)
 
+#[derive(Clone)]
 pub struct Parameters<F: IsField, const WIDTH: usize, const CAPACITY: usize, const SECURITY_LEVEL: usize> {
-    pub m: usize,
-    pub rate: usize,
-    pub capacity: usize,
-    pub n: usize,
+    pub m: usize, // WIDTH
+    pub capacity: usize, //Cp
+    pub rate: usize, // r = m - Cp
+    pub n: usize, // no of rounds
     pub alpha: u32,
-    pub alpha_inv: FieldElement<F>,
+    pub alpha_inv: usize,
     pub round_constants: Vec<FieldElement<F>>,
     pub mds_matrix: Vec<Vec<FieldElement<F>>>,
 }
 
-impl Parameters<Stark252PrimeField> {
+impl<F: IsField, const WIDTH: usize, const CAPACITY: usize, const SECURITY_LEVEL: usize> Parameters<F, WIDTH, CAPACITY, SECURITY_LEVEL> 
+// where <F as lambdaworks_math::field::traits::IsField>::BaseType: std::convert::From<&str>
+where 
+    <F as IsField>::BaseType: for<'a>std::convert::From<& 'a str>,
+{
     pub fn new() -> Result<Self, String> {
         let round_constants_csv = include_str!("stark252/round_constants.csv");
         let mds_constants_csv = include_str!("stark252/mds_matrix.csv");
         let (round_constants, mds_matrix) = Self::parse(round_constants_csv, mds_constants_csv)?;
-        let alpha_inv = FieldElement::<Stark252PrimeField>::from(3).inv().unwrap();
+        let alpha_inv: usize = 1717986917;
         Ok(Parameters {
             m: 12,
             rate: 8,
@@ -45,10 +47,10 @@ impl Parameters<Stark252PrimeField> {
     fn parse(
         round_constants_csv: &str,
         mds_constants_csv: &str,
-    ) -> Result<RescuePrimeConstants<Stark252PrimeField>, String> {
+    ) -> Result<RescuePrimeConstants<F>, String> {
         let round_constants = round_constants_csv
             .split(',')
-            .map(|c| FieldElement::<Stark252PrimeField>::new(c.trim().into()))
+            .map(|c| FieldElement::<F>::new(c.trim().into()))
             .collect();
 
         let mut mds_matrix = vec![];
@@ -56,7 +58,7 @@ impl Parameters<Stark252PrimeField> {
         for line in mds_constants_csv.lines() {
             let matrix_line = line
                 .split(',')
-                .map(|c| FieldElement::<Stark252PrimeField>::new(c.trim().into()))
+                .map(|c| FieldElement::<F>::new(c.trim().into()))
                 .collect();
             mds_matrix.push(matrix_line);
         }
