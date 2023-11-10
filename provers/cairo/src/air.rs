@@ -112,17 +112,6 @@ pub const EXTRA_ADDR: usize = 33;
 pub const EXTRA_VAL: usize = 34;
 pub const RC_HOLES: usize = 35;
 
-// // Range-check frame identifiers
-// pub const RC_0: usize = 36;
-// pub const RC_1: usize = 37;
-// pub const RC_2: usize = 38;
-// pub const RC_3: usize = 39;
-// pub const RC_4: usize = 40;
-// pub const RC_5: usize = 41;
-// pub const RC_6: usize = 42;
-// pub const RC_7: usize = 43;
-// pub const RC_VALUE: usize = 44;
-
 // Auxiliary range check columns
 pub const RANGE_CHECK_COL_1: usize = 36;
 pub const RANGE_CHECK_COL_2: usize = 37;
