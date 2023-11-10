@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1699373316167,
+  "lastUpdate": 1699632067250,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -2189,6 +2189,150 @@ window.BENCHMARK_DATA = {
             "name": "Polynomial/div by 'x - b' with Ruffini",
             "value": 16,
             "range": "± 0",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mariano.nicolini.91@gmail.com",
+            "name": "Mariano A. Nicolini",
+            "username": "entropidelic"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "c5b09354672b7d7b414ed9fae6321dea3d688b5f",
+          "message": "refactor: add step abstraction to trace (#662)\n\n* Start with multi row steps on trace\n\n* Add table and step view functionality\n\n* Save work in progress\n\n* Remove unused feature from cairo-vm\n\n* Add comment in Cargo.toml\n\n* Fix some AIRs with the refactor\n\n* Change Frame to Table struct in stark proof for OODS\n\n* Further refactor in Table APIs\n\n* Apply clippy suggestion\n\n* Fix trace oods evaluations name in proof struct\n\n* Save work in progress\n\n* Fix unhandled merge conflict\n\n* Fix some Cairo constraints\n\n* Fix permutation argument Cairo constraints\n\n* Fix all Cairo constraints\n\n* Fix all compilation\n\n* Fix all tests\n\n* Apply clippy suggestion\n\n* Remove argument in empty() function\n\n* revert a mistaken change\n\n* Remove unused code\n\n* Use step size constant in validate_trace function\n\n* Remove unused method and remove hardcoded 1 in prover\n\n* Remove hardcoded value in trace construction\n\n* Add documentation to code\n\n* Add more documentation\n\n* Change hardcoded step size\n\n* Remove useless test",
+          "timestamp": "2023-11-10T15:49:34Z",
+          "tree_id": "58ac3b704e6b2a65c24aec23a173b01b547bae22",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/c5b09354672b7d7b414ed9fae6321dea3d688b5f"
+        },
+        "date": 1699632051526,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "Ordered FFT/Parallel (Metal)",
+            "value": 77848108,
+            "range": "± 5696598",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #2",
+            "value": 154022660,
+            "range": "± 6070754",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #3",
+            "value": 307810437,
+            "range": "± 4595129",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #4",
+            "value": 628576729,
+            "range": "± 14945877",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal)",
+            "value": 33876045,
+            "range": "± 205073",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #2",
+            "value": 68086742,
+            "range": "± 654544",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #3",
+            "value": 132804053,
+            "range": "± 1079043",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #4",
+            "value": 279620583,
+            "range": "± 4034578",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal)",
+            "value": 29623394,
+            "range": "± 247368",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #2",
+            "value": 56161437,
+            "range": "± 842812",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #3",
+            "value": 112732015,
+            "range": "± 4316771",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #4",
+            "value": 236337534,
+            "range": "± 10327508",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal",
+            "value": 117520989,
+            "range": "± 928154",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #2",
+            "value": 237330041,
+            "range": "± 1015005",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #3",
+            "value": 491609281,
+            "range": "± 6255877",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #4",
+            "value": 976148958,
+            "range": "± 14012654",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal",
+            "value": 405757916,
+            "range": "± 3495891",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #2",
+            "value": 793945271,
+            "range": "± 4110340",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #3",
+            "value": 1567855979,
+            "range": "± 13459125",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #4",
+            "value": 3116700333,
+            "range": "± 22104247",
             "unit": "ns/iter"
           }
         ]
