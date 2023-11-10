@@ -1,12 +1,12 @@
 use crate::fft::errors::FFTError;
 
 use crate::field::traits::IsField;
+use crate::field::{
+    element::FieldElement,
+    traits::{IsFFTField, RootsConfig},
+};
 use crate::polynomial::traits::polynomial::IsPolynomial;
 use crate::polynomial::univariate::UnivariatePolynomial;
-use crate::field::{
-        element::FieldElement,
-        traits::{IsFFTField, RootsConfig},
-    };
 
 #[cfg(feature = "cuda")]
 use crate::fft::gpu::cuda::polynomial::{evaluate_fft_cuda, interpolate_fft_cuda};
@@ -27,9 +27,7 @@ pub trait FFTPoly<F: IsFFTField + IsField> {
         domain_size: Option<usize>,
         offset: &FieldElement<F>,
     ) -> Result<Vec<FieldElement<F>>, FFTError>;
-    fn interpolate_fft(
-        fft_evals: &[FieldElement<F>],
-    ) -> Result<UnivariatePolynomial<F>, FFTError>;
+    fn interpolate_fft(fft_evals: &[FieldElement<F>]) -> Result<UnivariatePolynomial<F>, FFTError>;
     fn interpolate_offset_fft(
         fft_evals: &[FieldElement<F>],
         offset: &FieldElement<F>,
@@ -39,7 +37,7 @@ pub trait FFTPoly<F: IsFFTField + IsField> {
 impl<F: IsFFTField + IsField> FFTPoly<F> for UnivariatePolynomial<F>
 where
     <F as IsField>::BaseType: Send + Sync,
- {
+{
     /// Returns `N` evaluations of this polynomial using FFT (so the results
     /// are P(w^i), with w being a primitive root of unity).
     /// `N = max(self.coeff_len(), domain_size).next_power_of_two() * blowup_factor`.
@@ -203,13 +201,12 @@ mod tests {
 
     use super::*;
 
-    fn gen_fft_and_naive_evaluation<F: IsFFTField + IsField>
-    (
+    fn gen_fft_and_naive_evaluation<F: IsFFTField + IsField>(
         poly: UnivariatePolynomial<F>,
-    )
-    -> (Vec<FieldElement<F>>, Vec<FieldElement<F>>)
+    ) -> (Vec<FieldElement<F>>, Vec<FieldElement<F>>)
     where
-        <F as IsField>::BaseType: Send + Sync, {
+        <F as IsField>::BaseType: Send + Sync,
+    {
         let len = poly.len().next_power_of_two();
         let order = len.trailing_zeros();
         let twiddles =
@@ -227,7 +224,8 @@ mod tests {
         blowup_factor: usize,
     ) -> (Vec<FieldElement<F>>, Vec<FieldElement<F>>)
     where
-        <F as IsField>::BaseType: Send + Sync, {
+        <F as IsField>::BaseType: Send + Sync,
+    {
         let len = poly.len().next_power_of_two();
         let order = (len * blowup_factor).trailing_zeros();
         let twiddles =
@@ -245,7 +243,8 @@ mod tests {
         fft_evals: &[FieldElement<F>],
     ) -> (UnivariatePolynomial<F>, UnivariatePolynomial<F>)
     where
-        <F as IsField>::BaseType: Send + Sync, {
+        <F as IsField>::BaseType: Send + Sync,
+    {
         let order = fft_evals.len().trailing_zeros() as u64;
         let twiddles =
             get_powers_of_primitive_root(order, 1 << order, RootsConfig::Natural).unwrap();
@@ -261,7 +260,8 @@ mod tests {
         offset: &FieldElement<F>,
     ) -> (UnivariatePolynomial<F>, UnivariatePolynomial<F>)
     where
-        <F as IsField>::BaseType: Send + Sync, {
+        <F as IsField>::BaseType: Send + Sync,
+    {
         let order = fft_evals.len().trailing_zeros() as u64;
         let twiddles = get_powers_of_primitive_root_coset(order, 1 << order, offset).unwrap();
 
@@ -275,7 +275,8 @@ mod tests {
         poly: UnivariatePolynomial<F>,
     ) -> (UnivariatePolynomial<F>, UnivariatePolynomial<F>)
     where
-        <F as IsField>::BaseType: Send + Sync, {
+        <F as IsField>::BaseType: Send + Sync,
+    {
         let eval = poly.evaluate_fft(1, None).unwrap();
         let new_poly = UnivariatePolynomial::interpolate_fft(&eval).unwrap();
 

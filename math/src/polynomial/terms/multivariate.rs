@@ -141,7 +141,6 @@ where
     type Output = MultivariateMonomial<F>;
 
     fn mul(self, rhs: MultivariateMonomial<F>) -> Self::Output {
-        
         // check variables ids if match add power, else append a new variable, sort variables
         // TODO: what if they are different???
         let mut new_vars = self.vars.clone();
@@ -165,8 +164,8 @@ where
         new_vars.sort();
         Self {
             coeff: self.coeff * rhs.coeff,
-            vars: new_vars
-        } 
+            vars: new_vars,
+        }
     }
 }
 
@@ -204,7 +203,10 @@ where
     type Output = MultivariateMonomial<F>;
 
     fn mul(self, rhs: MultivariateMonomial<F>) -> Self::Output {
-        MultivariateMonomial { coeff: rhs.coeff * self, vars: rhs.vars}
+        MultivariateMonomial {
+            coeff: rhs.coeff * self,
+            vars: rhs.vars,
+        }
     }
 }
 
@@ -216,7 +218,10 @@ where
     type Output = MultivariateMonomial<F>;
 
     fn mul(self, rhs: &MultivariateMonomial<F>) -> Self::Output {
-        MultivariateMonomial { coeff: &rhs.coeff * self, vars: rhs.vars.clone()}
+        MultivariateMonomial {
+            coeff: &rhs.coeff * self,
+            vars: rhs.vars.clone(),
+        }
     }
 }
 
@@ -228,7 +233,10 @@ where
     type Output = MultivariateMonomial<F>;
 
     fn mul(self, rhs: MultivariateMonomial<F>) -> Self::Output {
-        MultivariateMonomial { coeff: rhs.coeff * self, vars: rhs.vars}
+        MultivariateMonomial {
+            coeff: rhs.coeff * self,
+            vars: rhs.vars,
+        }
     }
 }
 
@@ -240,7 +248,10 @@ where
     type Output = MultivariateMonomial<F>;
 
     fn mul(self, rhs: &MultivariateMonomial<F>) -> Self::Output {
-        MultivariateMonomial { coeff: &rhs.coeff * self, vars: rhs.vars.clone()}
+        MultivariateMonomial {
+            coeff: &rhs.coeff * self,
+            vars: rhs.vars.clone(),
+        }
     }
 }
 
@@ -253,7 +264,10 @@ where
     type Output = MultivariateMonomial<F>;
 
     fn mul(self, rhs: FieldElement<F>) -> Self::Output {
-        MultivariateMonomial { coeff: self.coeff * rhs, vars: self.vars}
+        MultivariateMonomial {
+            coeff: self.coeff * rhs,
+            vars: self.vars,
+        }
     }
 }
 
@@ -265,7 +279,10 @@ where
     type Output = MultivariateMonomial<F>;
 
     fn mul(self, rhs: &FieldElement<F>) -> Self::Output {
-        MultivariateMonomial { coeff: self.coeff * rhs, vars: self.vars}
+        MultivariateMonomial {
+            coeff: self.coeff * rhs,
+            vars: self.vars,
+        }
     }
 }
 
@@ -277,7 +294,10 @@ where
     type Output = MultivariateMonomial<F>;
 
     fn mul(self, rhs: FieldElement<F>) -> Self::Output {
-        MultivariateMonomial { coeff: &self.coeff * rhs, vars: self.vars.clone()}
+        MultivariateMonomial {
+            coeff: &self.coeff * rhs,
+            vars: self.vars.clone(),
+        }
     }
 }
 
@@ -289,7 +309,10 @@ where
     type Output = MultivariateMonomial<F>;
 
     fn mul(self, rhs: &FieldElement<F>) -> Self::Output {
-        MultivariateMonomial { coeff: &self.coeff * rhs, vars: self.vars.clone()}
+        MultivariateMonomial {
+            coeff: &self.coeff * rhs,
+            vars: self.vars.clone(),
+        }
     }
 }
 

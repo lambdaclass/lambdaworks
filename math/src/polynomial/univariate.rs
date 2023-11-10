@@ -187,7 +187,9 @@ where
             .coefficients
             .iter()
             .rev()
-            .fold(FieldElement::zero(), |acc, coeff| acc * x[0].to_owned() + coeff))
+            .fold(FieldElement::zero(), |acc, coeff| {
+                acc * x[0].to_owned() + coeff
+            }))
     }
 
     fn degree(&self) -> usize {
@@ -292,7 +294,10 @@ where
         Ok(terms
             .par_iter()
             .rev()
-            .fold(|| FieldElement::zero(), |acc, coeff| acc * p[0].to_owned() + coeff)
+            .fold(
+                || FieldElement::zero(),
+                |acc, coeff| acc * p[0].to_owned() + coeff,
+            )
             .reduce(|| FieldElement::zero(), |a, b| a + b))
     }
 

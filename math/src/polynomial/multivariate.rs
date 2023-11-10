@@ -102,7 +102,12 @@ where
 
     fn coeffs(&self) -> &[FieldElement<F>] {
         //TODO: eliminate grabbing owned reference via implementing deref/caching
-        let coeff = self.terms.clone().iter().map(|t| t.coeff.clone()).collect::<Vec<_>>();
+        let coeff = self
+            .terms
+            .clone()
+            .iter()
+            .map(|t| t.coeff.clone())
+            .collect::<Vec<_>>();
         &coeff
     }
 
@@ -225,7 +230,7 @@ where
         Self {
             terms: scaled_terms,
             num_vars: self.num_vars,
-            len
+            len,
         }
     }
 
@@ -243,7 +248,7 @@ where
         Self {
             terms: scaled_terms,
             num_vars: self.num_vars,
-            len
+            len,
         }
     }
 
@@ -1197,5 +1202,4 @@ mod tests {
         assert_eq!(p0, &p0_expected);
         assert_eq!(p1, &p1_expected);
     }
-
 }
