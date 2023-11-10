@@ -169,7 +169,7 @@ fn test_verifier_rejects_proof_with_different_range_bounds() {
 //     last_column[0] = malicious_rc_value;
 //     malicious_trace_columns[n_cols - 1] = last_column;
 
-//     let malicious_trace = TraceTable::from_columns(malicious_trace_columns);
+//     let malicious_trace = TraceTable::from_columns(malicious_trace_columns, 1);
 //     let proof = generate_cairo_proof(&malicious_trace, &pub_inputs, &proof_options).unwrap();
 //     assert!(!verify_cairo_proof(&proof, &pub_inputs, &proof_options));
 // }
@@ -237,7 +237,7 @@ fn test_verifier_rejects_proof_with_different_range_bounds() {
 //     output_value_column[output_row_idx] = malicious_output_value;
 //     malicious_trace_columns[output_col_idx + 4] = output_value_column;
 
-//     let malicious_trace = TraceTable::from_columns(malicious_trace_columns);
+//     let malicious_trace = TraceTable::from_columns(malicious_trace_columns, 1);
 //     let proof = generate_cairo_proof(&malicious_trace, &pub_inputs, &proof_options).unwrap();
 //     assert!(!verify_cairo_proof(&proof, &pub_inputs, &proof_options));
 // }
