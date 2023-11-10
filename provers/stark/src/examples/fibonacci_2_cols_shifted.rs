@@ -56,6 +56,8 @@ where
     type RAPChallenges = ();
     type PublicInputs = PublicInputs<Self::Field>;
 
+    const STEP_SIZE: usize = 1;
+
     fn new(
         trace_length: usize,
         pub_inputs: &Self::PublicInputs,
@@ -97,11 +99,17 @@ where
         frame: &Frame<Self::Field>,
         _rap_challenges: &Self::RAPChallenges,
     ) -> Vec<FieldElement<Self::Field>> {
-        let first_row = frame.get_row(0);
-        let second_row = frame.get_row(1);
+        let first_row = frame.get_evaluation_step(0);
+        let second_row = frame.get_evaluation_step(1);
 
-        let first_transition = &second_row[0] - &first_row[1];
-        let second_transition = &second_row[1] - &first_row[0] - &first_row[1];
+        let a0_0 = first_row.get_evaluation_element(0, 0);
+        let a0_1 = first_row.get_evaluation_element(0, 1);
+
+        let a1_0 = second_row.get_evaluation_element(0, 0);
+        let a1_1 = second_row.get_evaluation_element(0, 1);
+
+        let first_transition = a1_0 - a0_1;
+        let second_transition = a1_1 - a0_0 - a0_1;
 
         vec![first_transition, second_transition]
     }
@@ -156,7 +164,7 @@ pub fn compute_trace<F: IsFFTField>(
         col1.push(y.clone());
     }
 
-    TraceTable::from_columns(vec![col0, col1])
+    TraceTable::from_columns(vec![col0, col1], 1)
 }
 
 #[cfg(test)]

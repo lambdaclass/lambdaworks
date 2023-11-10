@@ -18,6 +18,8 @@ pub trait AIR: Clone {
     type RAPChallenges;
     type PublicInputs;
 
+    const STEP_SIZE: usize;
+
     fn new(
         trace_length: usize,
         pub_inputs: &Self::PublicInputs,
