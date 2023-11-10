@@ -51,7 +51,7 @@ where
             columns.push(trace.get_column(i).to_owned());
         }
 
-        stark_platinum_prover::trace::TraceTable::from_columns(matrix_adapter2field(&columns))
+        stark_platinum_prover::trace::TraceTable::from_columns(matrix_adapter2field(&columns), 1)
     }
 }
 
@@ -64,6 +64,7 @@ where
     type Field = Stark252PrimeField;
     type RAPChallenges = Vec<AdapterFieldElement>;
     type PublicInputs = AirAdapterPublicInputs<A>;
+    const STEP_SIZE: usize = 1;
 
     fn new(
         _trace_length: usize,
@@ -117,7 +118,10 @@ where
             for i in 0..winter_trace.num_cols() {
                 columns.push(winter_trace.get_column(i).to_owned());
             }
-            stark_platinum_prover::trace::TraceTable::from_columns(matrix_adapter2field(&columns))
+            stark_platinum_prover::trace::TraceTable::from_columns(
+                matrix_adapter2field(&columns),
+                1,
+            )
         } else {
             stark_platinum_prover::trace::TraceTable::empty()
         }
@@ -159,9 +163,12 @@ where
         let num_aux_columns = self.number_auxiliary_rap_columns();
         let num_main_columns = self.context().trace_columns - num_aux_columns;
 
+        let first_step = frame.get_evaluation_step(0);
+        let second_step = frame.get_evaluation_step(1);
+
         let main_frame = EvaluationFrame::from_rows(
-            vec_field2adapter(&frame.get_row(0)[..num_main_columns]),
-            vec_field2adapter(&frame.get_row(1)[..num_main_columns]),
+            vec_field2adapter(&first_step.get_row(0)[..num_main_columns]),
+            vec_field2adapter(&second_step.get_row(0)[..num_main_columns]),
         );
 
         let mut main_result = vec![
@@ -181,9 +188,12 @@ where
             let mut rand_elements = AuxTraceRandElements::new();
             rand_elements.add_segment_elements(rap_challenges.clone());
 
+            let first_step = frame.get_evaluation_step(0);
+            let second_step = frame.get_evaluation_step(1);
+
             let aux_frame = EvaluationFrame::from_rows(
-                vec_field2adapter(&frame.get_row(0)[num_main_columns..]),
-                vec_field2adapter(&frame.get_row(1)[num_main_columns..]),
+                vec_field2adapter(&first_step.get_row(0)[num_main_columns..]),
+                vec_field2adapter(&second_step.get_row(0)[num_main_columns..]),
             );
 
             let aux_result = vec![
