@@ -1,4 +1,4 @@
-use crate::air::{MemorySegment, MemorySegmentMap, PublicInputs};
+use crate::air::PublicInputs;
 use crate::cairo_layout::CairoLayout;
 use crate::cairo_mem::CairoMemory;
 use crate::execution_trace::build_main_trace;
@@ -15,7 +15,6 @@ use cairo_vm::vm::errors::{
 
 use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
 use stark_platinum_prover::trace::TraceTable;
-use std::ops::Range;
 
 #[derive(Debug)]
 pub enum Error {
@@ -104,8 +103,6 @@ pub fn run_program(
             }
         };
 
-    let pub_inputs = runner.get_air_public_input(&vm);
-
     let relocated_trace = vm.get_relocated_trace().unwrap();
 
     let mut trace_vec = Vec::<u8>::new();
@@ -160,20 +157,4 @@ pub fn generate_prover_args_from_trace(
     let main_trace = build_main_trace(&register_states, &memory, &mut pub_inputs);
 
     Ok((main_trace, pub_inputs))
-}
-
-fn create_memory_segment_map(
-    range_check_builtin_range: Option<Range<u64>>,
-    output_range: &Option<Range<u64>>,
-) -> MemorySegmentMap {
-    let mut memory_segments = MemorySegmentMap::new();
-
-    if let Some(range_check_builtin_range) = range_check_builtin_range {
-        memory_segments.insert(MemorySegment::RangeCheck, range_check_builtin_range);
-    }
-    if let Some(output_range) = output_range {
-        memory_segments.insert(MemorySegment::Output, output_range.clone());
-    }
-
-    memory_segments
 }

@@ -1,14 +1,11 @@
-use std::ops::Range;
-
-use stark_platinum_prover::proof::options::ProofOptions;
-use std::time::Instant;
-
 use crate::{
     air::{generate_cairo_proof, verify_cairo_proof},
     cairo_layout::CairoLayout,
     runner::run::generate_prover_args,
     runner::run::generate_prover_args_from_trace,
 };
+use stark_platinum_prover::proof::options::ProofOptions;
+use std::time::Instant;
 
 pub fn cairo0_program_path(program_name: &str) -> String {
     const CARGO_DIR: &str = env!("CARGO_MANIFEST_DIR");

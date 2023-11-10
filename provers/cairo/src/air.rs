@@ -71,9 +71,6 @@ const RANGE_CHECK_1: usize = 51;
 const RANGE_CHECK_2: usize = 52;
 const RANGE_CHECK_3: usize = 53;
 
-// Range-check builtin value decomposition constraint
-const RANGE_CHECK_BUILTIN: usize = 54;
-
 // Frame row identifiers
 //  - Flags
 const F_DST_FP: usize = 0;
@@ -199,7 +196,7 @@ impl PublicInputs {
         memory: &CairoMemory,
         codelen: usize,
     ) -> Self {
-        let mut public_memory = (1..=codelen as u64)
+        let public_memory = (1..=codelen as u64)
             .map(|i| (Felt252::from(i), *memory.get(&i).unwrap()))
             .collect::<HashMap<Felt252, Felt252>>();
 
@@ -617,8 +614,8 @@ impl AIR for CairoAIR {
     ) -> Self {
         debug_assert!(trace_length.is_power_of_two());
 
-        let mut trace_columns = 59;
-        let mut transition_degrees = vec![
+        let trace_columns = 59;
+        let transition_degrees = vec![
             2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, // Flags 0-14.
             1, // Flag 15
             2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, // Other constraints.
@@ -628,7 +625,7 @@ impl AIR for CairoAIR {
             2, 2, 2, 2, // range-check increasing constraints.
             2, 2, 2, 2, // range-check permutation argument constraints.
         ];
-        let mut transition_exemptions = vec![
+        let transition_exemptions = vec![
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // flags (16)
             0, // inst (1)
             0, 0, 0, // operand consraints (3)
@@ -640,7 +637,7 @@ impl AIR for CairoAIR {
             0, 0, 0, 1, // range check continuous (3)
             0, 0, 0, 0, // range check permutation argument (3)
         ];
-        let mut num_transition_constraints = 54;
+        let num_transition_constraints = 54;
 
         let num_transition_exemptions = 1_usize;
 
