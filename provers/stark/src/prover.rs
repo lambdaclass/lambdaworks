@@ -113,7 +113,7 @@ pub trait IsStarkProver {
     }
 
     #[allow(clippy::type_complexity)]
-    fn interpolate_and_commit(
+    fn interpolate_and_commit<A>(
         trace: &TraceTable<Self::Field>,
         domain: &Domain<Self::Field>,
         transcript: &mut impl IsStarkTranscript<Self::Field>,
@@ -124,6 +124,7 @@ pub trait IsStarkProver {
         Commitment,
     )
     where
+        A: AIR<Field = Self::Field>,
         FieldElement<Self::Field>: Serializable + Send + Sync,
     {
         let trace_polys = trace.compute_trace_polys();
@@ -138,7 +139,7 @@ pub trait IsStarkProver {
         }
 
         // Compute commitments [t_j].
-        let lde_trace = TraceTable::from_columns(lde_trace_permuted);
+        let lde_trace = TraceTable::from_columns(lde_trace_permuted, A::STEP_SIZE);
         let (lde_trace_merkle_tree, lde_trace_merkle_root) = Self::batch_commit(&lde_trace.rows());
 
         // >>>> Send commitments: [tⱼ]
@@ -177,17 +178,18 @@ pub trait IsStarkProver {
             .unwrap()
     }
 
-    fn round_1_randomized_air_with_preprocessing<A: AIR<Field = Self::Field>>(
+    fn round_1_randomized_air_with_preprocessing<A>(
         air: &A,
         main_trace: &TraceTable<Self::Field>,
         domain: &Domain<Self::Field>,
         transcript: &mut impl IsStarkTranscript<Self::Field>,
     ) -> Result<Round1<Self::Field, A>, ProvingError>
     where
+        A: AIR<Field = Self::Field>,
         FieldElement<Self::Field>: Serializable + Send + Sync,
     {
         let (mut trace_polys, mut evaluations, main_merkle_tree, main_merkle_root) =
-            Self::interpolate_and_commit(main_trace, domain, transcript);
+            Self::interpolate_and_commit::<A>(main_trace, domain, transcript);
 
         let rap_challenges = air.build_rap_challenges(transcript);
 
@@ -198,14 +200,14 @@ pub trait IsStarkProver {
         if !aux_trace.is_empty() {
             // Check that this is valid for interpolation
             let (aux_trace_polys, aux_trace_polys_evaluations, aux_merkle_tree, aux_merkle_root) =
-                Self::interpolate_and_commit(&aux_trace, domain, transcript);
+                Self::interpolate_and_commit::<A>(&aux_trace, domain, transcript);
             trace_polys.extend_from_slice(&aux_trace_polys);
             evaluations.extend_from_slice(&aux_trace_polys_evaluations);
             lde_trace_merkle_trees.push(aux_merkle_tree);
             lde_trace_merkle_roots.push(aux_merkle_root);
         }
 
-        let lde_trace = TraceTable::from_columns(evaluations);
+        let lde_trace = TraceTable::from_columns(evaluations, A::STEP_SIZE);
 
         Ok(Round1 {
             trace_polys,
