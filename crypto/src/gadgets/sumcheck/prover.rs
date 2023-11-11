@@ -1,3 +1,4 @@
+use core::slice::SlicePattern;
 use std::ops::AddAssign;
 
 use lambdaworks_math::field::element::FieldElement;
@@ -149,14 +150,30 @@ where
 
     /// Generates a single proof using Fiat-Shamir in
     /// the sumcheck protocol
-    pub fn prove(&self) {
+    pub fn prove(&mut self) -> Proof<F> {
         let mut transcript = DefaultTranscript::new();
 
         // add the claimed sum to the transcript
         let sum = self.generate_valid_sum().to_bytes_be();
         transcript.append(&sum);
-        let challenge = transcript.challenge();
-        let r = FieldElement::<F>::from_bytes_be(&challenge);
+
+        let mut proof = Proof::<F>::new();
+        for round in 1..=self.poly.n_vars {
+            //create challenge from the transcript
+            let challenge = transcript.challenge();
+            let r = FieldElement::<F>::from_bytes_be(&challenge).unwrap();
+            //add challenge to the proof
+            proof.r.push(r.clone());
+            //create polynomial from challenge
+            let _ = self.receive_challenge(r.clone(), round as u32);
+            let round_poly = self.send_poly();
+            //evaluate polynomial and add it to transcript
+            let value = round_poly.evaluate(vec![r; round_poly.n_vars].as_slice());
+            transcript.append(&value.to_bytes_be());
+            //add polynomial to proof
+            proof.polys.push(round_poly);
+        }
+        proof
     }
 }
 

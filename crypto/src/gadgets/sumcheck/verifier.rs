@@ -34,7 +34,7 @@ where
             round_sum: claimed_sum,
         }
     }
-/* 
+    /*
     /// Verify the current round of the protocol, advance round if successful
     pub fn verify_round(&mut self, prover_message: ProverMessage<F>) -> Result<bool, String> {
         // extract the polynomial from prover message
