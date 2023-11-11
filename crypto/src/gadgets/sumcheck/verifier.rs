@@ -1,4 +1,4 @@
-use crate::gadgets::sumcheck::prover::ProverMessage;
+//use crate::gadgets::sumcheck::prover::ProverMessage;
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::{IsField, IsPrimeField};
 use lambdaworks_math::polynomial::multilinear_poly::MultilinearPolynomial;
@@ -34,7 +34,7 @@ where
             round_sum: claimed_sum,
         }
     }
-
+/* 
     /// Verify the current round of the protocol, advance round if successful
     pub fn verify_round(&mut self, prover_message: ProverMessage<F>) -> Result<bool, String> {
         // extract the polynomial from prover message
@@ -72,6 +72,7 @@ where
             Ok(true)
         };
     }
+    */
 
     /// Generate challenge for current round
     pub fn generate_and_store_challenge(&mut self) -> FieldElement<F> {
