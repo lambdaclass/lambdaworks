@@ -230,6 +230,13 @@ mod tests {
         ]);
         let result = poly.evaluate(&[FE::one(), FE::new(2), FE::new(3)]);
         assert_eq!(result, FE::new(42));
+
+        // 4a + 3
+        let poly = MultilinearPolynomial::new(vec![
+            MultiLinearMonomial::new((FE::new(4), vec![1])),
+            MultiLinearMonomial::new((FE::from(3), vec![]))
+        ]);
+        let result = poly.evaluate(&[FE::from(2)]);
     }
 
     #[test]
