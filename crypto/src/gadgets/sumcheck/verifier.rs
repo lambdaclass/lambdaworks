@@ -36,7 +36,7 @@ where
     }
 
     /// Verify the current round of the protocol, advance round if successful
-    pub fn verify_round(&mut self, round_poly: MultilinearPolynomial<F>) -> Result<bool, String> {
+    pub fn verify_round(&mut self, round_poly: &MultilinearPolynomial<F>) -> Result<bool, String> {
         // verify that the polynomial is univariate
         // TODO: can't check this now, need to update the polynomial logic
         //  need to assume this is the case for now
@@ -78,7 +78,7 @@ where
             // TODO: maybe pass rng during instantiation?
             let mut rng = ChaCha20Rng::from_entropy();
             let random_challenge = FieldElement::new(F::from_u64(rng.next_u64()));
-            self.challenges[self.round as usize] = random_challenge.clone();
+            self.challenges.push(random_challenge.clone());
             random_challenge
         };
     }
@@ -92,11 +92,11 @@ where
 
 #[cfg(test)]
 mod tests {
+    use crate::gadgets::sumcheck::verifier::Verifier;
     use lambdaworks_math::field::element::FieldElement;
     use lambdaworks_math::field::fields::fft_friendly::babybear::Babybear31PrimeField;
     use lambdaworks_math::polynomial::multilinear_poly::MultilinearPolynomial;
     use lambdaworks_math::polynomial::multilinear_term::MultiLinearMonomial;
-    use crate::gadgets::sumcheck::verifier::Verifier;
 
     type F = Babybear31PrimeField;
     type FE = FieldElement<F>;
@@ -104,25 +104,69 @@ mod tests {
     #[test]
     fn test_sumcheck_verifier_protocol() {
         // p(a, b, c) = 2ab + 3bc
-        // [a, b, c] = [1, 2, 3]
+        // [a, b, c] = [0, 1, 2]
         let poly = MultilinearPolynomial::<F>::new(vec![
-            MultiLinearMonomial::new((FE::from(2), vec![1, 2])),
-            MultiLinearMonomial::new((FE::from(3), vec![2, 3]))
+            MultiLinearMonomial::new((FE::from(2), vec![0, 1])),
+            MultiLinearMonomial::new((FE::from(3), vec![1, 2])),
         ]);
 
         // Poly evaluation sum over the boolean hyper cube = 10
         // Init the verifier
         let mut verifier = Verifier::new(poly, FE::from(10));
         assert_eq!(verifier.round, 1);
-        assert_eq!(verifier.is_last_round(), false);
 
-        // round 1 poly = 4a + 3
+        // round 1
+        // poly = 4a + 3
+        assert_eq!(verifier.is_last_round(), false);
         let round_one_poly = MultilinearPolynomial::<F>::new(vec![
-            MultiLinearMonomial::new((FE::from(4), vec![1])),
-            MultiLinearMonomial::new((FE::from(3), vec![]))
+            MultiLinearMonomial::new((FE::from(4), vec![0])),
+            MultiLinearMonomial::new((FE::from(3), vec![])),
         ]);
-        round_one_poly.evaluate(&[FE::from(2)]);
-        // let round_one_result = verifier.verify_round(round_one_poly);
-        // dbg!(round_one_result);
+        let round_one_accept = verifier.verify_round(&round_one_poly).unwrap();
+        assert_eq!(round_one_accept, true);
+        assert_eq!(verifier.round, 2);
+        assert_eq!(verifier.challenges.len(), 1);
+
+        // to make test deterministic we fix the challenge
+        // use the fixed challenge to determine the round sum
+        // TODO: use fiat shamir for this
+        verifier.challenges[0] = FE::from(5);
+        verifier.round_sum = round_one_poly.evaluate(&[FE::from(5)]);
+        assert_eq!(verifier.round_sum, FE::from(23));
+
+        // invalid round 2
+        // for this round, we start attempt verification with an invalid polynomial
+        let invalid_round_two_poly = round_one_poly;
+        let invalid_round_two_accept = verifier.verify_round(&invalid_round_two_poly).unwrap();
+        assert_eq!(invalid_round_two_accept, false);
+
+        // round 2
+        // poly = 23b
+        assert_eq!(verifier.is_last_round(), false);
+        let round_two_poly = MultilinearPolynomial::<F>::new(vec![MultiLinearMonomial::new((
+            FE::from(23),
+            vec![0],
+        ))]);
+        let round_two_accept = verifier.verify_round(&round_two_poly).unwrap();
+        assert_eq!(round_two_accept, true);
+        assert_eq!(verifier.round, 3);
+        assert_eq!(verifier.challenges.len(), 2);
+
+        // fix challenge and round sum
+        verifier.challenges[1] = FE::from(9);
+        verifier.round_sum = round_two_poly.evaluate(&[FE::from(9)]);
+        assert_eq!(verifier.round_sum, FE::from(207));
+
+        // round 3
+        assert_eq!(verifier.is_last_round(), true);
+        let round_three_poly = MultilinearPolynomial::<F>::new(vec![
+            MultiLinearMonomial::new((FE::from(27), vec![0])),
+            MultiLinearMonomial::new((FE::from(90), vec![])),
+        ]);
+        let round_three_accept = verifier.verify_round(&round_three_poly).unwrap();
+        assert_eq!(round_three_accept, true);
+        // should not advance round anymore
+        assert_eq!(verifier.round, 3);
+        assert_eq!(verifier.challenges.len(), 3);
     }
 }
