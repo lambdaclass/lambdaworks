@@ -1,4 +1,3 @@
-use core::slice::SlicePattern;
 use std::ops::AddAssign;
 
 use lambdaworks_math::field::element::FieldElement;
@@ -54,7 +53,7 @@ where
         }
     }
 
-    /// Generates a valid sum of the polynomial
+    /// Sums the evaluations of the polynomial over the boolean hypercube
     pub fn generate_valid_sum(&self) -> FieldElement<F> {
         let mut acc = FieldElement::<F>::zero();
 

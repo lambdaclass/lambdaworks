@@ -34,23 +34,17 @@ where
             round_sum: claimed_sum,
         }
     }
-    /*
-    /// Verify the current round of the protocol, advance round if successful
-    pub fn verify_round(&mut self, prover_message: ProverMessage<F>) -> Result<bool, String> {
-        // extract the polynomial from prover message
-        // TODO: always polynomial, so we should enforce that at the method level (new type!)
-        let ProverMessage::Polynomial(univariate_poly) = prover_message else {
-            return Err("expected prover message to be a polynomial".to_string());
-        };
 
+    /// Verify the current round of the protocol, advance round if successful
+    pub fn verify_round(&mut self, round_poly: MultilinearPolynomial<F>) -> Result<bool, String> {
         // verify that the polynomial is univariate
         // TODO: can't check this now, need to update the polynomial logic
         //  need to assume this is the case for now
 
         // evaluate prover polynomial at 0 and 1, ensure the sum is equal to the claimed sum
         // this proves that the current polynomial is related to the last round of the protocol
-        let p_0 = univariate_poly.evaluate(&[FieldElement::zero()]);
-        let p_1 = univariate_poly.evaluate(&[FieldElement::one()]);
+        let p_0 = round_poly.evaluate(&[FieldElement::zero()]);
+        let p_1 = round_poly.evaluate(&[FieldElement::one()]);
         if self.round_sum != p_0 + p_1 {
             return Ok(false);
         }
@@ -59,7 +53,7 @@ where
         // we do this by sampling a random challenge from the field and evaluating both
         // polynomials at that point
         let challenge = self.generate_and_store_challenge();
-        let prover_poly_eval = univariate_poly.evaluate(&[challenge]);
+        let prover_poly_eval = round_poly.evaluate(&[challenge]);
 
         // we can only generate the true eval if we are on the last round
         return if self.is_last_round() {
@@ -72,7 +66,6 @@ where
             Ok(true)
         };
     }
-    */
 
     /// Generate challenge for current round
     pub fn generate_and_store_challenge(&mut self) -> FieldElement<F> {
@@ -94,5 +87,42 @@ where
     fn is_last_round(&self) -> bool {
         // in sumcheck, we have number of variable rounds
         self.round == self.poly.n_vars as u64
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use lambdaworks_math::field::element::FieldElement;
+    use lambdaworks_math::field::fields::fft_friendly::babybear::Babybear31PrimeField;
+    use lambdaworks_math::polynomial::multilinear_poly::MultilinearPolynomial;
+    use lambdaworks_math::polynomial::multilinear_term::MultiLinearMonomial;
+    use crate::gadgets::sumcheck::verifier::Verifier;
+
+    type F = Babybear31PrimeField;
+    type FE = FieldElement<F>;
+
+    #[test]
+    fn test_sumcheck_verifier_protocol() {
+        // p(a, b, c) = 2ab + 3bc
+        // [a, b, c] = [1, 2, 3]
+        let poly = MultilinearPolynomial::<F>::new(vec![
+            MultiLinearMonomial::new((FE::from(2), vec![1, 2])),
+            MultiLinearMonomial::new((FE::from(3), vec![2, 3]))
+        ]);
+
+        // Poly evaluation sum over the boolean hyper cube = 10
+        // Init the verifier
+        let mut verifier = Verifier::new(poly, FE::from(10));
+        assert_eq!(verifier.round, 1);
+        assert_eq!(verifier.is_last_round(), false);
+
+        // round 1 poly = 4a + 3
+        let round_one_poly = MultilinearPolynomial::<F>::new(vec![
+            MultiLinearMonomial::new((FE::from(4), vec![1])),
+            MultiLinearMonomial::new((FE::from(3), vec![]))
+        ]);
+        round_one_poly.evaluate(&[FE::from(2)]);
+        // let round_one_result = verifier.verify_round(round_one_poly);
+        // dbg!(round_one_result);
     }
 }
