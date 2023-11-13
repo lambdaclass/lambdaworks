@@ -150,17 +150,13 @@ impl MonolithMersenne31 {
 mod tests {
     use super::*;
 
-    fn get_test_input<const N: usize>() -> Vec<u32> {
-        let mut input: [u32; N] = [F::zero(); N];
-        for (i, inp) in input.iter_mut().enumerate() {
-            *inp = F::from_base_type(i as u32);
-        }
-        input.to_vec()
+    fn get_test_input(width: usize) -> Vec<u32> {
+        (0..width).map(|i| F::from_base_type(i as u32)).collect()
     }
 
     #[test]
     fn from_plonky3_concrete_width_16() {
-        let mut input = get_test_input::<16>();
+        let mut input = get_test_input(16);
         MonolithMersenne31::new(16).concrete(&mut input);
         assert_eq!(
             input,
@@ -173,7 +169,7 @@ mod tests {
 
     #[test]
     fn from_plonky3_concrete_width_12() {
-        let mut input = get_test_input::<12>();
+        let mut input = get_test_input(12);
         MonolithMersenne31::new(12).concrete(&mut input);
         assert_eq!(
             input,
@@ -186,7 +182,7 @@ mod tests {
 
     #[test]
     fn from_plonky3_width_16() {
-        let mut input = get_test_input::<16>();
+        let mut input = get_test_input(16);
         MonolithMersenne31::new(16).permutation(&mut input);
         assert_eq!(
             input,
