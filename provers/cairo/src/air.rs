@@ -981,6 +981,7 @@ fn compute_operand_constraints(constraints: &mut [Felt252], frame: &Frame<Stark2
         - op1_addr;
 }
 
+#[inline(always)]
 fn into_bit_flag(step: &StepView<Stark252PrimeField>, element_idx: usize) -> Felt252 {
     step.get_evaluation_element(0, element_idx)
         - Felt252::from(2) * step.get_evaluation_element(0, element_idx + 1)
