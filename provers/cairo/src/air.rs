@@ -560,6 +560,7 @@ fn generate_memory_permutation_argument_column(
         })
         .collect::<Vec<Felt252>>()
 }
+
 fn generate_range_check_permutation_argument_column(
     offset_column_original: &[Felt252],
     offset_column_sorted: &[Felt252],
@@ -886,32 +887,60 @@ fn compute_instr_constraints(constraints: &mut [Felt252], frame: &Frame<Stark252
         .collect();
 
     // Bit constraints
-    for (i, flag) in flags.clone().into_iter().enumerate() {
-        constraints[i] = match i {
-            0..=14 => flag * (flag - Felt252::one()),
-            15 => *flag,
+    // for (i, flag) in flags.clone().into_iter().enumerate() {
+    //     constraints[i] = match i {
+    //         0..=14 => flag * (flag - Felt252::one()),
+    //         15 => *flag,
+    //         _ => panic!("Unknown flag offset"),
+    //     };
+    // }
+
+    // flags
+    //     .iter()
+    //     .enumerate()
+    //     .for_each(|(i, f)| println!("FLAG {i}: {f}"));
+
+    // assert_eq!(1, 2);
+
+    let two = Felt252::from(2);
+    (0..15).for_each(|idx| {
+        constraints[idx] = match idx {
+            0..=14 => {
+                (flags[idx] - two * flags[idx + 1])
+                    * (flags[idx] - two * flags[idx + 1] - Felt252::one())
+            }
+            15 => *flags[idx],
             _ => panic!("Unknown flag offset"),
-        };
-    }
+        }
+    });
 
     // Instruction unpacking
-    let two = Felt252::from(2);
     let b16 = two.pow(16u32);
     let b32 = two.pow(32u32);
     let b48 = two.pow(48u32);
 
     // Named like this to match the Cairo whitepaper's notation.
-    let f0_squiggle = flags
-        .into_iter()
-        .rev()
-        .fold(Felt252::zero(), |acc, flag| flag + two * acc);
+    // let f0_squiggle = flags
+    //     .into_iter()
+    //     .rev()
+    //     .fold(Felt252::zero(), |acc, flag| flag + two * acc);
+
+    // constraints[0..15]
+    //     .iter()
+    //     .enumerate()
+    //     .for_each(|(i, f)| println!("FLAG {i}: {f}"));
 
     let off_dst = curr.get_evaluation_element(0, OFF_DST);
     let off_op0 = curr.get_evaluation_element(0, OFF_OP0);
     let off_op1 = curr.get_evaluation_element(0, OFF_OP1);
     let instruction = curr.get_evaluation_element(0, FRAME_INST);
 
-    constraints[INST] = off_dst + b16 * off_op0 + b32 * off_op1 + b48 * f0_squiggle - instruction;
+    // println!("F0: {}", flags[0]);
+
+    // assert_eq!(1, 2);
+
+    // constraints[INST] = off_dst + b16 * off_op0 + b32 * off_op1 + b48 * f0_squiggle - instruction;
+    constraints[INST] = off_dst + b16 * off_op0 + b32 * off_op1 + b48 * flags[0] - instruction;
 }
 
 fn compute_operand_constraints(constraints: &mut [Felt252], frame: &Frame<Stark252PrimeField>) {
