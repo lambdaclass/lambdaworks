@@ -93,6 +93,7 @@ pub fn run_program(
         layout: layout.as_str(),
         proof_mode: true,
         secure_run: None,
+        disable_trace_padding: false,
     };
 
     let (runner, vm) =
