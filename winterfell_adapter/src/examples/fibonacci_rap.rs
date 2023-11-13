@@ -1,16 +1,13 @@
 use crate::adapter::air::FromColumns;
-use crate::field_element::element::AdapterFieldElement;
-use crate::utils::vec_field2adapter;
 use lambdaworks_math::field::element::FieldElement;
+use miden_core::Felt;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
+use winter_air::{TraceLayout, EvaluationFrame, AirContext, Air, TraceInfo, TransitionConstraintDegree, ProofOptions, AuxTraceRandElements, Assertion};
+use winter_math::{FieldElement as IsWinterfellFieldElement, StarkField, ExtensionOf};
+use winter_prover::{ColMatrix, Trace, TraceTable};
 use winter_utils::{collections::Vec, uninit_vector};
-use winterfell::math::FieldElement as IsWinterfellFieldElement;
-use winterfell::{math::StarkField, matrix::ColMatrix, Trace, TraceLayout};
-use winterfell::{
-    Air, AirContext, Assertion, EvaluationFrame, ProofOptions, TraceInfo, TraceTable,
-    TransitionConstraintDegree,
-};
+
 
 #[derive(Clone)]
 pub struct RapTraceTable<B: StarkField> {
@@ -132,21 +129,21 @@ impl<B: StarkField> Trace for RapTraceTable<B> {
     }
 }
 
-impl FromColumns<AdapterFieldElement> for RapTraceTable<AdapterFieldElement> {
-    fn from_cols(columns: Vec<Vec<AdapterFieldElement>>) -> Self {
+impl FromColumns<Felt> for RapTraceTable<Felt> {
+    fn from_cols(columns: Vec<Vec<Felt>>) -> Self {
         RapTraceTable::init(columns)
     }
 }
 
 #[derive(Clone)]
 pub struct FibonacciRAP {
-    context: AirContext<AdapterFieldElement>,
-    result: AdapterFieldElement,
+    context: AirContext<Felt>,
+    result: Felt,
 }
 
 impl Air for FibonacciRAP {
-    type BaseField = AdapterFieldElement;
-    type PublicInputs = AdapterFieldElement;
+    type BaseField = Felt;
+    type PublicInputs = Felt;
 
     fn new(trace_info: TraceInfo, pub_inputs: Self::BaseField, options: ProofOptions) -> Self {
         let degrees = vec![
@@ -183,11 +180,11 @@ impl Air for FibonacciRAP {
         main_frame: &EvaluationFrame<F>,
         aux_frame: &EvaluationFrame<E>,
         _periodic_values: &[F],
-        aux_rand_elements: &winterfell::AuxTraceRandElements<E>,
+        aux_rand_elements: &AuxTraceRandElements<E>,
         result: &mut [E],
     ) where
         F: IsWinterfellFieldElement<BaseField = Self::BaseField>,
-        E: IsWinterfellFieldElement<BaseField = Self::BaseField> + winterfell::math::ExtensionOf<F>,
+        E: IsWinterfellFieldElement<BaseField = Self::BaseField> + ExtensionOf<F>,
     {
         let gamma = aux_rand_elements.get_segment_elements(0)[0];
         let curr_aux = aux_frame.current();
@@ -211,20 +208,20 @@ impl Air for FibonacciRAP {
 
     fn get_aux_assertions<E: IsWinterfellFieldElement<BaseField = Self::BaseField>>(
         &self,
-        _aux_rand_elements: &winterfell::AuxTraceRandElements<E>,
+        _aux_rand_elements: &AuxTraceRandElements<E>,
     ) -> Vec<Assertion<E>> {
         let last_step = self.trace_length() - 1;
         vec![Assertion::single(3, last_step, Self::BaseField::ONE.into())]
     }
 }
 
-pub fn build_trace(sequence_length: usize) -> TraceTable<AdapterFieldElement> {
+pub fn build_trace(sequence_length: usize) -> TraceTable<Felt> {
     assert!(
         sequence_length.is_power_of_two(),
         "sequence length must be a power of 2"
     );
 
-    let mut fibonacci = vec![FieldElement::one(), FieldElement::one()];
+    let mut fibonacci = vec![Felt::ONE, Felt::ONE];
     for i in 2..(sequence_length + 1) {
         fibonacci.push(fibonacci[i - 2] + fibonacci[i - 1])
     }
@@ -234,8 +231,8 @@ pub fn build_trace(sequence_length: usize) -> TraceTable<AdapterFieldElement> {
     permuted.shuffle(&mut rng);
 
     TraceTable::init(vec![
-        vec_field2adapter(&fibonacci[..fibonacci.len() - 1]),
-        vec_field2adapter(&fibonacci[1..]),
-        vec_field2adapter(&permuted),
+        fibonacci[..fibonacci.len() - 1].to_vec(),
+        fibonacci[1..].to_vec(),
+        permuted,
     ])
 }

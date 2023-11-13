@@ -1,10 +1,8 @@
 use lambdaworks_math::field::element::FieldElement;
-use winterfell::math::FieldElement as IsWinterfellFieldElement;
-use winterfell::{
-    Air, AirContext, Assertion, EvaluationFrame, ProofOptions, TraceInfo, TraceTable,
-    TransitionConstraintDegree,
-};
-
+use miden_core::Felt;
+use winter_air::{AirContext, Air, TraceInfo, TransitionConstraintDegree, ProofOptions, EvaluationFrame, Assertion};
+use winter_math::{FieldElement as IsWinterfellFieldElement};
+use winter_prover::TraceTable;
 use crate::field_element::element::AdapterFieldElement;
 
 /// A fibonacci winterfell AIR example. Two terms are computed
@@ -12,13 +10,13 @@ use crate::field_element::element::AdapterFieldElement;
 /// repository and adapted to work with lambdaworks.
 #[derive(Clone)]
 pub struct FibAir2Terms {
-    context: AirContext<AdapterFieldElement>,
-    result: AdapterFieldElement,
+    context: AirContext<Felt>,
+    result: Felt,
 }
 
 impl Air for FibAir2Terms {
-    type BaseField = AdapterFieldElement;
-    type PublicInputs = AdapterFieldElement;
+    type BaseField = Felt;
+    type PublicInputs = Felt;
 
     fn new(trace_info: TraceInfo, pub_inputs: Self::BaseField, options: ProofOptions) -> Self {
         let degrees = vec![
@@ -63,7 +61,7 @@ impl Air for FibAir2Terms {
     }
 }
 
-pub fn build_trace(sequence_length: usize) -> TraceTable<AdapterFieldElement> {
+pub fn build_trace(sequence_length: usize) -> TraceTable<Felt> {
     assert!(
         sequence_length.is_power_of_two(),
         "sequence length must be a power of 2"
@@ -72,8 +70,8 @@ pub fn build_trace(sequence_length: usize) -> TraceTable<AdapterFieldElement> {
     let mut trace = TraceTable::new(2, sequence_length / 2);
     trace.fill(
         |state| {
-            state[0] = AdapterFieldElement(FieldElement::one());
-            state[1] = AdapterFieldElement(FieldElement::one());
+            state[0] = Felt::ONE;
+            state[1] = Felt::ONE;
         },
         |_, state| {
             state[0] += state[1];

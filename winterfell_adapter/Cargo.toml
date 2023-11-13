@@ -7,6 +7,12 @@ license.workspace = true
 [dependencies]
 lambdaworks-math = { path = "../math" }
 stark-platinum-prover = { path = "../provers/stark" }
-winterfell = { git = "https://github.com/facebook/winterfell" }
-winter-utils = { git = "https://github.com/facebook/winterfell" }
 rand = "0.8.5"
+winter-air = { package = "winter-air", version = "0.6", default-features = false }
+winter-prover = { package = "winter-prover", version = "0.6", default-features = false }
+winter-math = { package = "winter-math", version = "0.6", default-features = false }
+winter-utils = { package = "winter-utils", version = "0.6", default-features = false }
+miden-air = { path = "../../miden-vm/air"}
+miden-core = { path = "../../miden-vm/core"}
+miden-assembly = { path = "../../miden-vm/assembly" }
+miden-processor = { path = "../../miden-vm/processor" }

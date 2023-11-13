@@ -12,14 +12,9 @@ use lambdaworks_math::{
     traits::ByteConversion,
 };
 use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
-use winter_utils::{AsBytes, DeserializationError, Randomizable};
-use winterfell::math::ExtensibleField;
-use winterfell::{
-    math::{FieldElement as IsWinterfellFieldElement, StarkField},
-    Deserializable, Serializable,
-};
-
+use winter_utils::{AsBytes, DeserializationError, Randomizable, Deserializable, Serializable};
 use crate::field_element::positive_integer::AdapterPositiveInteger;
+use winter_math::{FieldElement as IsWinterfellFieldElement, StarkField, ExtensibleField};
 
 #[derive(Debug, Copy, Clone, Default)]
 pub struct AdapterFieldElement(pub FieldElement<Stark252PrimeField>);
@@ -68,7 +63,7 @@ impl IsWinterfellFieldElement for AdapterFieldElement {
         unsafe { slice::from_raw_parts(p as *const u8, len) }
     }
 
-    unsafe fn bytes_as_elements(bytes: &[u8]) -> Result<&[Self], winterfell::DeserializationError> {
+    unsafe fn bytes_as_elements(bytes: &[u8]) -> Result<&[Self], DeserializationError> {
         if bytes.len() % Self::ELEMENT_BYTES != 0 {
             return Err(DeserializationError::InvalidValue(format!(
                 "number of bytes ({}) does not divide into whole number of field elements",

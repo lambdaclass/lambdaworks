@@ -14,6 +14,7 @@ use lambdaworks_math::{
     },
     traits::Serializable,
 };
+use miden_core::Felt;
 
 use crate::{
     config::Commitment, proof::stark::DeepPolynomialOpening, transcript::IsStarkTranscript,
@@ -32,6 +33,12 @@ pub struct Verifier {}
 
 impl IsStarkVerifier for Verifier {
     type Field = Stark252PrimeField;
+}
+
+pub struct MidenVerifier {}
+
+impl IsStarkVerifier for MidenVerifier {
+    type Field = Felt;
 }
 
 pub struct Challenges<F, A>

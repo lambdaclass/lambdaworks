@@ -1,3 +1,6 @@
+
+use miden_core::Felt;
+
 use crate::{
     errors::DeserializationError,
     field::{element::FieldElement, traits::IsField},
@@ -25,6 +28,28 @@ pub trait ByteConversion {
     fn from_bytes_le(bytes: &[u8]) -> Result<Self, ByteConversionError>
     where
         Self: Sized;
+}
+
+impl ByteConversion for Felt {
+    fn to_bytes_be(&self) -> Vec<u8> {
+        todo!()
+    }
+
+    fn to_bytes_le(&self) -> Vec<u8> {
+        todo!()
+    }
+
+    fn from_bytes_be(bytes: &[u8]) -> Result<Self, ByteConversionError>
+    where
+        Self: Sized {
+        todo!()
+    }
+
+    fn from_bytes_le(bytes: &[u8]) -> Result<Self, ByteConversionError>
+    where
+        Self: Sized {
+        todo!()
+    }
 }
 
 /// Serialize function without args

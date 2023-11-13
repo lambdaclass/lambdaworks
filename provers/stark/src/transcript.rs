@@ -2,11 +2,12 @@ use lambdaworks_math::{
     field::{
         element::FieldElement,
         fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
-        traits::{IsFFTField, IsField},
+        traits::{IsFFTField, IsField}, winterfell::BaseElement,
     },
     traits::{ByteConversion, Serializable},
     unsigned_integer::element::U256,
 };
+use miden_core::Felt;
 use sha3::{Digest, Keccak256};
 
 pub trait IsStarkTranscript<F: IsField> {
@@ -40,6 +41,7 @@ pub struct StoneProverTranscript {
     counter: u32,
     spare_bytes: Vec<u8>,
 }
+
 
 impl StoneProverTranscript {
     const MODULUS_MAX_MULTIPLE: U256 = U256::from_hex_unchecked(
@@ -100,6 +102,36 @@ impl StoneProverTranscript {
 
     pub fn sample_big_int(&mut self) -> U256 {
         U256::from_bytes_be(&self.sample(32)).unwrap()
+    }
+}
+
+pub struct MidenProverTranscript;
+
+impl MidenProverTranscript {
+    pub fn new(data: &[u8]) -> Self {
+        Self
+    }
+}
+
+impl IsStarkTranscript<Felt> for MidenProverTranscript {
+    fn append_field_element(&mut self, element: &FieldElement<Felt>) {
+        
+    }
+
+    fn append_bytes(&mut self, new_bytes: &[u8]) {
+        
+    }
+
+    fn state(&self) -> [u8; 32] {
+        [0; 32]
+    }
+
+    fn sample_field_element(&mut self) -> FieldElement<Felt> {
+        FieldElement::from(4)
+    }
+
+    fn sample_u64(&mut self, upper_bound: u64) -> u64 {
+        0
     }
 }
 
