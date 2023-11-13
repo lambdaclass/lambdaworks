@@ -254,10 +254,12 @@ pub fn build_cairo_execution_trace(
 
     // t0, t1 and mul derived values are constructed. For details reFelt252r to
     // section 9.1 of the Cairo whitepaper
+    let two = Felt252::from(2);
     let t0: Vec<Felt252> = trace_repr_flags
         .iter()
         .zip(&dsts)
-        .map(|(repr_flags, dst)| repr_flags[9] * dst)
+        // .map(|(repr_flags, dst)| repr_flags[9] * dst)
+        .map(|(repr_flags, dst)| (repr_flags[9] - two * repr_flags[10]) * dst)
         .collect();
     let t1: Vec<Felt252> = t0.iter().zip(&res).map(|(t, r)| t * r).collect();
     let mul: Vec<Felt252> = op0s.iter().zip(&op1s).map(|(op0, op1)| op0 * op1).collect();

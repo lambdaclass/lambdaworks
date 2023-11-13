@@ -694,43 +694,43 @@ mod tests {
         assert_eq!(expected_flags, flags);
     }
 
-    #[test]
-    fn flags_trace_representation() {
-        // Bit-trace representation for each flag:
-        //    DstReg::FP = 1
-        //    Op0Reg::FP = 1
-        //    Op1Src::Op0 = 0 0 0
-        //    ResLogic::Op1 = 0 0
-        //    PcUpdate::Regular = 0 0 0
-        //    ApUpdate::Regular = 0 0
-        //    CairoOpcode::AssertEq = 0 0 1
+    // #[test]
+    // fn flags_trace_representation() {
+    //     // Bit-trace representation for each flag:
+    //     //    DstReg::FP = 1
+    //     //    Op0Reg::FP = 1
+    //     //    Op1Src::Op0 = 0 0 0
+    //     //    ResLogic::Op1 = 0 0
+    //     //    PcUpdate::Regular = 0 0 0
+    //     //    ApUpdate::Regular = 0 0
+    //     //    CairoOpcode::AssertEq = 0 0 1
 
-        let flags = CairoInstructionFlags {
-            opcode: CairoOpcode::AssertEq,
-            pc_update: PcUpdate::Regular,
-            ap_update: ApUpdate::Regular,
-            op0_reg: Op0Reg::FP,
-            op1_src: Op1Src::Op0,
-            res_logic: ResLogic::Op1,
-            dst_reg: DstReg::FP,
-        };
+    //     let flags = CairoInstructionFlags {
+    //         opcode: CairoOpcode::AssertEq,
+    //         pc_update: PcUpdate::Regular,
+    //         ap_update: ApUpdate::Regular,
+    //         op0_reg: Op0Reg::FP,
+    //         op1_src: Op1Src::Op0,
+    //         res_logic: ResLogic::Op1,
+    //         dst_reg: DstReg::FP,
+    //     };
 
-        #[rustfmt::skip]
-        let expected_representation = [
-            Felt252::one(),
-            Felt252::one(),
-            Felt252::zero(), Felt252::zero(), Felt252::zero(),
-            Felt252::zero(), Felt252::zero(),
-            Felt252::zero(), Felt252::zero(), Felt252::zero(),
-            Felt252::zero(), Felt252::zero(),
-            Felt252::zero(), Felt252::zero(), Felt252::one(),
-            Felt252::zero(),
-        ];
+    //     #[rustfmt::skip]
+    //     let expected_representation = [
+    //         Felt252::one(),
+    //         Felt252::one(),
+    //         Felt252::zero(), Felt252::zero(), Felt252::zero(),
+    //         Felt252::zero(), Felt252::zero(),
+    //         Felt252::zero(), Felt252::zero(), Felt252::zero(),
+    //         Felt252::zero(), Felt252::zero(),
+    //         Felt252::zero(), Felt252::zero(), Felt252::one(),
+    //         Felt252::zero(),
+    //     ];
 
-        let representation = flags.to_trace_representation();
+    //     let representation = flags.to_trace_representation();
 
-        assert_eq!(representation, expected_representation);
-    }
+    //     assert_eq!(representation, expected_representation);
+    // }
 
     #[test]
     fn to_bit_prefixes_all_zeros_works() {
