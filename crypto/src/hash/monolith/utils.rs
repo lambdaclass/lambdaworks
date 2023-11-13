@@ -15,18 +15,18 @@ pub fn random_matrix(shake: &mut Shake128Reader, n: usize, m: usize) -> Vec<Vec<
 }
 
 // O(n²)
-pub fn apply_circulant(circ_matrix: &mut Vec<u32>, input: &Vec<u32>) -> Vec<u32> {
+pub fn apply_circulant(circ_matrix: &mut [u32], input: &[u32]) -> Vec<u32> {
     let width = input.len();
     let mut output = vec![F::zero(); width];
     for out_i in output.iter_mut().take(width - 1) {
-        *out_i = dot_product(&circ_matrix, &input);
+        *out_i = dot_product(circ_matrix, input);
         circ_matrix.rotate_right(1);
     }
-    output[width - 1] = dot_product(&circ_matrix, &input);
+    output[width - 1] = dot_product(circ_matrix, input);
     output
 }
 
-pub fn apply_cauchy_mds_matrix(shake: &mut Shake128Reader, to_multiply: &Vec<u32>) -> Vec<u32> {
+pub fn apply_cauchy_mds_matrix(shake: &mut Shake128Reader, to_multiply: &[u32]) -> Vec<u32> {
     let width = to_multiply.len();
     let mut output = vec![F::zero(); width];
 
@@ -44,7 +44,7 @@ pub fn apply_cauchy_mds_matrix(shake: &mut Shake128Reader, to_multiply: &Vec<u32
 
     for (i, x_i) in x.iter().enumerate() {
         for (j, yj) in y.iter().enumerate() {
-            output[i] = F::add(&output[i], &F::div(&to_multiply[j], &F::add(&x_i, &yj)));
+            output[i] = F::add(&output[i], &F::div(&to_multiply[j], &F::add(x_i, yj)));
         }
     }
 
@@ -59,7 +59,7 @@ fn random_field_element(shake: &mut Shake128Reader) -> u32 {
     F::from_base_type(val)
 }
 
-fn dot_product(u: &Vec<u32>, v: &Vec<u32>) -> u32 {
+fn dot_product(u: &[u32], v: &[u32]) -> u32 {
     u.iter()
         .zip(v)
         .map(|(x, y)| F::mul(x, y))
