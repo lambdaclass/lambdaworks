@@ -48,6 +48,10 @@ pub struct CairoInstructionFlags {
 }
 
 impl CairoInstructionFlags {
+    /// Gives a bit trace representation of all flags.
+    /// Altough the flags can be interpreted as bits, they are
+    /// represented by field elements: Felt252::zero() for bit 0 and
+    /// Felt252::one() for bit 1.
     #[rustfmt::skip]
     pub fn to_bit_representation(&self) -> [Felt252; 16] {
         let b0 = self.dst_reg.to_bit_representation();
@@ -73,15 +77,7 @@ impl CairoInstructionFlags {
         ]
     }
 
-    /// Gives a bit trace representation of all flags.
-    /// Altough the flags can be interpreted as bits, they are
-    /// represented by field elements: Felt252::zero() for bit 0 and
-    /// Felt252::one() for bit 1.
-    #[rustfmt::skip]
     pub fn to_trace_representation(&self) -> [Felt252; 16] {
-        // In the paper, a little-endian format for the bit flags is
-        // mentioned. That is why they are arranged in this way (section 4.4
-        // of the Cairo whitepaper - https://eprint.iacr.org/2021/1063.pdf)
         let bit_flags = self.to_bit_representation();
         to_bit_prefixes(bit_flags)
     }
