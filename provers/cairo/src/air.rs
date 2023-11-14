@@ -882,7 +882,8 @@ fn compute_instr_constraints(constraints: &mut [Felt252], frame: &Frame<Stark252
     // These constraints are only applied over elements of the same row.
     let curr = frame.get_evaluation_step(0);
 
-    // Bit-prefixes constraints
+    // Bit-prefixes constraints.
+    // See section 9.4 of Cairo whitepaper https://eprint.iacr.org/2021/1063.pdf.
     let flags: Vec<&Felt252> = (0..16)
         .map(|col_idx| curr.get_evaluation_element(0, col_idx))
         .collect();
