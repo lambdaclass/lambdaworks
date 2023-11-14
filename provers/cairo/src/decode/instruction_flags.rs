@@ -48,12 +48,8 @@ pub struct CairoInstructionFlags {
 }
 
 impl CairoInstructionFlags {
-    /// Gives a bit trace representation of all flags.
-    /// Altough the flags can be interpreted as bits, they are
-    /// represented by field elements: Felt252::zero() for bit 0 and
-    /// Felt252::one() for bit 1.
     #[rustfmt::skip]
-    pub fn to_trace_representation(&self) -> [Felt252; 16] {
+    pub fn to_bit_representation(&self) -> [Felt252; 16] {
         let b0 = self.dst_reg.to_bit_representation();
         let b1 = self.op0_reg.to_bit_representation();
         let [b2, b3, b4] = self.op1_src.to_bit_representation();
@@ -65,7 +61,7 @@ impl CairoInstructionFlags {
         // In the paper, a little-endian format for the bit flags is
         // mentioned. That is why they are arranged in this way (section 4.4
         // of the Cairo whitepaper - https://eprint.iacr.org/2021/1063.pdf)
-        let bit_flags = [
+        [
             b0,             // dst_reg bits
             b1,             // op0_reg bits
             b4, b3, b2,     // op1_src bits
@@ -74,8 +70,19 @@ impl CairoInstructionFlags {
             b11, b10,       // ap_update bits
             b14, b13, b12,  // opcode bits
             Felt252::zero(),
-        ];
+        ]
+    }
 
+    /// Gives a bit trace representation of all flags.
+    /// Altough the flags can be interpreted as bits, they are
+    /// represented by field elements: Felt252::zero() for bit 0 and
+    /// Felt252::one() for bit 1.
+    #[rustfmt::skip]
+    pub fn to_trace_representation(&self) -> [Felt252; 16] {
+        // In the paper, a little-endian format for the bit flags is
+        // mentioned. That is why they are arranged in this way (section 4.4
+        // of the Cairo whitepaper - https://eprint.iacr.org/2021/1063.pdf)
+        let bit_flags = self.to_bit_representation();
         to_bit_prefixes(bit_flags)
     }
 }
@@ -694,43 +701,43 @@ mod tests {
         assert_eq!(expected_flags, flags);
     }
 
-    // #[test]
-    // fn flags_trace_representation() {
-    //     // Bit-trace representation for each flag:
-    //     //    DstReg::FP = 1
-    //     //    Op0Reg::FP = 1
-    //     //    Op1Src::Op0 = 0 0 0
-    //     //    ResLogic::Op1 = 0 0
-    //     //    PcUpdate::Regular = 0 0 0
-    //     //    ApUpdate::Regular = 0 0
-    //     //    CairoOpcode::AssertEq = 0 0 1
+    #[test]
+    fn flags_bit_representation() {
+        // Bit-trace representation for each flag:
+        //    DstReg::FP = 1
+        //    Op0Reg::FP = 1
+        //    Op1Src::Op0 = 0 0 0
+        //    ResLogic::Op1 = 0 0
+        //    PcUpdate::Regular = 0 0 0
+        //    ApUpdate::Regular = 0 0
+        //    CairoOpcode::AssertEq = 0 0 1
 
-    //     let flags = CairoInstructionFlags {
-    //         opcode: CairoOpcode::AssertEq,
-    //         pc_update: PcUpdate::Regular,
-    //         ap_update: ApUpdate::Regular,
-    //         op0_reg: Op0Reg::FP,
-    //         op1_src: Op1Src::Op0,
-    //         res_logic: ResLogic::Op1,
-    //         dst_reg: DstReg::FP,
-    //     };
+        let flags = CairoInstructionFlags {
+            opcode: CairoOpcode::AssertEq,
+            pc_update: PcUpdate::Regular,
+            ap_update: ApUpdate::Regular,
+            op0_reg: Op0Reg::FP,
+            op1_src: Op1Src::Op0,
+            res_logic: ResLogic::Op1,
+            dst_reg: DstReg::FP,
+        };
 
-    //     #[rustfmt::skip]
-    //     let expected_representation = [
-    //         Felt252::one(),
-    //         Felt252::one(),
-    //         Felt252::zero(), Felt252::zero(), Felt252::zero(),
-    //         Felt252::zero(), Felt252::zero(),
-    //         Felt252::zero(), Felt252::zero(), Felt252::zero(),
-    //         Felt252::zero(), Felt252::zero(),
-    //         Felt252::zero(), Felt252::zero(), Felt252::one(),
-    //         Felt252::zero(),
-    //     ];
+        #[rustfmt::skip]
+        let expected_representation = [
+            Felt252::one(),
+            Felt252::one(),
+            Felt252::zero(), Felt252::zero(), Felt252::zero(),
+            Felt252::zero(), Felt252::zero(),
+            Felt252::zero(), Felt252::zero(), Felt252::zero(),
+            Felt252::zero(), Felt252::zero(),
+            Felt252::zero(), Felt252::zero(), Felt252::one(),
+            Felt252::zero(),
+        ];
 
-    //     let representation = flags.to_trace_representation();
+        let representation = flags.to_bit_representation();
 
-    //     assert_eq!(representation, expected_representation);
-    // }
+        assert_eq!(representation, expected_representation);
+    }
 
     #[test]
     fn to_bit_prefixes_all_zeros_works() {
