@@ -953,6 +953,8 @@ fn compute_operand_constraints(constraints: &mut [Felt252], frame: &Frame<Stark2
         - op1_addr;
 }
 
+/// Given a step and the index of the bit-prefix format flag, gives the bit representation
+/// of that flag, needed for the evaluation of some constraints.
 #[inline(always)]
 fn into_bit_flag(step: &StepView<Stark252PrimeField>, element_idx: usize) -> Felt252 {
     step.get_evaluation_element(0, element_idx)
