@@ -882,25 +882,10 @@ fn compute_instr_constraints(constraints: &mut [Felt252], frame: &Frame<Stark252
     // These constraints are only applied over elements of the same row.
     let curr = frame.get_evaluation_step(0);
 
+    // Bit-prefixes constraints
     let flags: Vec<&Felt252> = (0..16)
         .map(|col_idx| curr.get_evaluation_element(0, col_idx))
         .collect();
-
-    // Bit constraints
-    // for (i, flag) in flags.clone().into_iter().enumerate() {
-    //     constraints[i] = match i {
-    //         0..=14 => flag * (flag - Felt252::one()),
-    //         15 => *flag,
-    //         _ => panic!("Unknown flag offset"),
-    //     };
-    // }
-
-    // flags
-    //     .iter()
-    //     .enumerate()
-    //     .for_each(|(i, f)| println!("FLAG {i}: {f}"));
-
-    // assert_eq!(1, 2);
 
     let two = Felt252::from(2);
     (0..15).for_each(|idx| {
