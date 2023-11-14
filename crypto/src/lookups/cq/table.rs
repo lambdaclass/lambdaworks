@@ -1,9 +1,12 @@
-use std::collections::BTreeMap;
 use lambdaworks_math::{
-    polynomial::Polynomial,
-    field::{traits::{IsField, IsFFTField}, element::{self, FieldElement}},
     elliptic_curve::traits::IsPairing,
+    field::{
+        element::{self, FieldElement},
+        traits::{IsFFTField, IsField},
+    },
+    polynomial::Polynomial,
 };
+use std::collections::BTreeMap;
 
 #[derive(Debug)]
 pub struct Table<F: IsField> {
@@ -37,11 +40,10 @@ impl<F: IsField> Table<F> {
 
 #[cfg(test)]
 pub mod table_tests {
-    use lambdaworks_math::elliptic_curve::short_weierstrass::{
-        point::ShortWeierstrassProjectivePoint,
-        curves::bls12_381::curve::BLS12381FieldElement,
-    }
     use super::*;
+    use lambdaworks_math::elliptic_curve::short_weierstrass::{
+        curves::bls12_381::curve::BLS12381FieldElement, point::ShortWeierstrassProjectivePoint,
+    };
     use rand::random;
 
     use crate::lookups::cq::table::Table;
@@ -58,7 +60,7 @@ pub mod table_tests {
     #[test]
     fn test_not_pow_2() {
         let n = 31;
-        
+
         let table_values: Vec<_> = (0..n).map(|_| F::from(random())).collect();
         let res = Table::new(&table_values);
 
@@ -74,6 +76,9 @@ pub mod table_tests {
 
         let res = Table::new(&table_values);
 
-        assert_eq!(res.unwrap_err(), Error::DuplicateValueInTable(format!("{}", table_values[5])));
+        assert_eq!(
+            res.unwrap_err(),
+            Error::DuplicateValueInTable(format!("{}", table_values[5]))
+        );
     }
 }
