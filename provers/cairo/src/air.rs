@@ -905,27 +905,14 @@ fn compute_instr_constraints(constraints: &mut [Felt252], frame: &Frame<Stark252
     let b48 = two.pow(48u32);
 
     // Named like this to match the Cairo whitepaper's notation.
-    // let f0_squiggle = flags
-    //     .into_iter()
-    //     .rev()
-    //     .fold(Felt252::zero(), |acc, flag| flag + two * acc);
-
-    // constraints[0..15]
-    //     .iter()
-    //     .enumerate()
-    //     .for_each(|(i, f)| println!("FLAG {i}: {f}"));
+    let f0_squiggle = flags[0];
 
     let off_dst = curr.get_evaluation_element(0, OFF_DST);
     let off_op0 = curr.get_evaluation_element(0, OFF_OP0);
     let off_op1 = curr.get_evaluation_element(0, OFF_OP1);
     let instruction = curr.get_evaluation_element(0, FRAME_INST);
 
-    // println!("F0: {}", flags[0]);
-
-    // assert_eq!(1, 2);
-
-    // constraints[INST] = off_dst + b16 * off_op0 + b32 * off_op1 + b48 * f0_squiggle - instruction;
-    constraints[INST] = off_dst + b16 * off_op0 + b32 * off_op1 + b48 * flags[0] - instruction;
+    constraints[INST] = off_dst + b16 * off_op0 + b32 * off_op1 + b48 * f0_squiggle - instruction;
 }
 
 fn compute_operand_constraints(constraints: &mut [Felt252], frame: &Frame<Stark252PrimeField>) {
@@ -992,7 +979,6 @@ fn compute_register_constraints(constraints: &mut [Felt252], frame: &Frame<Stark
     let next_fp = next.get_evaluation_element(0, FRAME_FP);
 
     let t1 = curr.get_evaluation_element(0, FRAME_T1);
-    // let pc_jnz = curr.get_evaluation_element(0, F_PC_JNZ);
     let pc_jnz = into_bit_flag(curr, F_PC_JNZ);
     let pc = curr.get_evaluation_element(0, FRAME_PC);
     let next_pc = next.get_evaluation_element(0, FRAME_PC);
