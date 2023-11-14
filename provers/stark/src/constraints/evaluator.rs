@@ -1,6 +1,6 @@
 use itertools::Itertools;
 use lambdaworks_math::{
-    fft::cpu::roots_of_unity::get_powers_of_primitive_root_coset,
+    fft::{cpu::roots_of_unity::get_powers_of_primitive_root_coset, errors::FFTError},
     field::{element::FieldElement, traits::IsFFTField},
     polynomial::Polynomial,
     traits::Serializable,
@@ -68,6 +68,19 @@ impl<F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
 
         #[cfg(all(debug_assertions, not(feature = "parallel")))]
         let boundary_polys: Vec<Polynomial<FieldElement<F>>> = Vec::new();
+
+        let lde_periodic_columns = self.air.get_periodic_column_polynomials()
+            .iter()
+            .map(|poly| {
+                evaluate_polynomial_on_lde_domain(
+                    poly,
+                    domain.blowup_factor,
+                    domain.interpolation_domain_size,
+                    &domain.coset_offset,
+                )
+            })
+            .collect::<Result<Vec<Vec<FieldElement<A::Field>>>, FFTError>>()
+            .unwrap();
 
         let n_col = lde_trace.n_cols();
         let n_elem = domain.lde_roots_of_unity_coset.len();
@@ -165,8 +178,15 @@ impl<F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
                     blowup_factor,
                     &self.air.context().transition_offsets,
                 );
-
-                let evaluations_transition = self.air.compute_transition(&frame, rap_challenges);
+            
+                let evaluations_transition = {
+                    if lde_periodic_columns.is_empty() {
+                        self.air.compute_transition(&frame, &[], rap_challenges)
+                    } else {
+                        let periodic_values: Vec<_> = lde_periodic_columns.iter().map(|col| col[i].clone()).collect();
+                        self.air.compute_transition(&frame, &periodic_values, rap_challenges)
+                    }
+                };
 
                 #[cfg(all(debug_assertions, not(feature = "parallel")))]
                 transition_evaluations.push(evaluations_transition.clone());

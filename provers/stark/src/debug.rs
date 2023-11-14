@@ -30,6 +30,14 @@ pub fn validate_trace<F: IsFFTField, A: AIR<Field = F>>(
 
     let trace = TraceTable::from_columns(trace_columns, A::STEP_SIZE);
 
+    let periodic_columns: Vec<_> = air.get_periodic_column_polynomials()
+        .iter()
+        .map(|poly| {
+            poly.evaluate_fft(1, Some(domain.interpolation_domain_size))
+                .unwrap()
+        })
+        .collect();
+
     // --------- VALIDATE BOUNDARY CONSTRAINTS ------------
     air.boundary_constraints(rap_challenges)
         .constraints
@@ -60,7 +68,15 @@ pub fn validate_trace<F: IsFFTField, A: AIR<Field = F>>(
     for step in 0..trace.num_steps() {
         let frame = Frame::read_from_trace(&trace, step, 1, &air.context().transition_offsets);
 
-        let evaluations = air.compute_transition(&frame, rap_challenges);
+        let evaluations = {
+            if periodic_columns.is_empty() {
+                air.compute_transition(&frame, &[], rap_challenges)
+            } else {
+                let periodic_values: Vec<_> = periodic_columns.iter().map(|col| col[step].clone()).collect();
+                air.compute_transition(&frame, &periodic_values, rap_challenges)
+            }
+        };
+        
         // Iterate over each transition evaluation. When the evaluated step is not from
         // the exemption steps corresponding to the transition, it should have zero as a
         // result

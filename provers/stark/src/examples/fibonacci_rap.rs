@@ -111,6 +111,7 @@ where
     fn compute_transition(
         &self,
         frame: &Frame<Self::Field>,
+        _periodic_values: &[FieldElement<Self::Field>],
         gamma: &Self::RAPChallenges,
     ) -> Vec<FieldElement<Self::Field>> {
         // Main constraints

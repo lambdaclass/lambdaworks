@@ -765,6 +765,7 @@ impl AIR for CairoAIR {
     fn compute_transition(
         &self,
         frame: &Frame<Self::Field>,
+        _periodic_values: &[FieldElement<Self::Field>],
         rap_challenges: &Self::RAPChallenges,
     ) -> Vec<FieldElement<Self::Field>> {
         let mut constraints: Vec<FieldElement<Self::Field>> =
