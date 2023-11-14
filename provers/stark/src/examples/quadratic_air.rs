@@ -36,6 +36,8 @@ where
     type RAPChallenges = ();
     type PublicInputs = QuadraticPublicInputs<Self::Field>;
 
+    const STEP_SIZE: usize = 1;
+
     fn new(
         trace_length: usize,
         pub_inputs: &Self::PublicInputs,
@@ -77,10 +79,13 @@ where
         frame: &Frame<Self::Field>,
         _rap_challenges: &Self::RAPChallenges,
     ) -> Vec<FieldElement<Self::Field>> {
-        let first_row = frame.get_row(0);
-        let second_row = frame.get_row(1);
+        let first_step = frame.get_evaluation_step(0);
+        let second_step = frame.get_evaluation_step(1);
 
-        vec![&second_row[0] - &first_row[0] * &first_row[0]]
+        let x = first_step.get_evaluation_element(0, 0);
+        let x_squared = second_step.get_evaluation_element(0, 0);
+
+        vec![x_squared - x * x]
     }
 
     fn number_auxiliary_rap_columns(&self) -> usize {
@@ -125,5 +130,5 @@ pub fn quadratic_trace<F: IsFFTField>(
         ret.push(ret[i - 1].clone() * ret[i - 1].clone());
     }
 
-    TraceTable::from_columns(vec![ret])
+    TraceTable::from_columns(vec![ret], 1)
 }

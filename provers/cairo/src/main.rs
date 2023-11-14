@@ -2,6 +2,7 @@ use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark2
 use platinum_prover::air::{generate_cairo_proof, verify_cairo_proof, PublicInputs};
 use platinum_prover::cairo_layout::CairoLayout;
 use platinum_prover::runner::run::generate_prover_args;
+use platinum_prover::runner::run::generate_prover_args_from_trace;
 use stark_platinum_prover::proof::options::{ProofOptions, SecurityLevel};
 use stark_platinum_prover::proof::stark::StarkProof;
 mod commands;
@@ -140,6 +141,36 @@ fn generate_proof(
     Some((proof, pub_inputs))
 }
 
+fn generate_proof_from_trace(
+    trace_bin_path: &str,
+    memory_bin_path: &str,
+    proof_options: &ProofOptions,
+) -> Option<(StarkProof<Stark252PrimeField>, PublicInputs)> {
+    // ## Generating the prover args
+    let timer = Instant::now();
+    let Ok((main_trace, pub_inputs)) =
+        generate_prover_args_from_trace(trace_bin_path, memory_bin_path)
+    else {
+        eprintln!("Error generating prover args");
+        return None;
+    };
+    println!("  Time spent: {:?} \n", timer.elapsed());
+
+    // ## Prove
+    let timer = Instant::now();
+    println!("Making proof ...");
+    let proof = match generate_cairo_proof(&main_trace, &pub_inputs, proof_options) {
+        Ok(p) => p,
+        Err(err) => {
+            eprintln!("Error generating proof: {:?}", err);
+            return None;
+        }
+    };
+    println!("  Time spent in proving: {:?} \n", timer.elapsed());
+
+    Some((proof, pub_inputs))
+}
+
 fn verify_proof(
     proof: StarkProof<Stark252PrimeField>,
     pub_inputs: PublicInputs,
@@ -204,7 +235,7 @@ fn main() {
                 println!("Compiled cairo program");
             }
         }
-        commands::ProverEntity::Prove(args) => {
+        commands::ProverEntity::RunAndProve(args) => {
             // verify input file is .cairo
             if args.program_path.contains(".cairo") {
                 eprintln!("\nYou are trying to prove a non compiled Cairo program. Please compile it before sending it to the prover.\n");
@@ -213,6 +244,17 @@ fn main() {
 
             let Some((proof, pub_inputs)) = generate_proof(&args.program_path, &proof_options)
             else {
+                return;
+            };
+
+            write_proof(proof, pub_inputs, args.proof_path);
+        }
+        commands::ProverEntity::Prove(args) => {
+            let Some((proof, pub_inputs)) = generate_proof_from_trace(
+                &args.trace_bin_path,
+                &args.memory_bin_path,
+                &proof_options,
+            ) else {
                 return;
             };
 

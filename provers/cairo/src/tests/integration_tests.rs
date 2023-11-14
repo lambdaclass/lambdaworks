@@ -6,7 +6,9 @@ use crate::{
     cairo_layout::CairoLayout,
     execution_trace::build_main_trace,
     runner::run::{generate_prover_args, run_program},
-    tests::utils::{cairo0_program_path, test_prove_cairo_program},
+    tests::utils::{
+        cairo0_program_path, test_prove_cairo_program, test_prove_cairo_program_from_trace,
+    },
     Felt252,
 };
 use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
@@ -32,6 +34,14 @@ fn test_prove_cairo_simple_program() {
 fn test_prove_cairo_fibonacci_5() {
     let layout = CairoLayout::Plain;
     test_prove_cairo_program(&cairo0_program_path("fibonacci_5.json"), &None, layout);
+}
+
+#[test_log::test]
+fn test_prove_cairo_fibonacci_5_from_trace() {
+    test_prove_cairo_program_from_trace(
+        &cairo0_program_path("fibonacci_5_trace.bin"),
+        &cairo0_program_path("fibonacci_5_memory.bin"),
+    );
 }
 
 #[test_log::test]
@@ -165,7 +175,7 @@ fn test_verifier_rejects_proof_with_changed_range_check_value() {
     last_column[0] = malicious_rc_value;
     malicious_trace_columns[n_cols - 1] = last_column;
 
-    let malicious_trace = TraceTable::from_columns(malicious_trace_columns);
+    let malicious_trace = TraceTable::from_columns(malicious_trace_columns, 1);
     let proof = generate_cairo_proof(&malicious_trace, &pub_inputs, &proof_options).unwrap();
     assert!(!verify_cairo_proof(&proof, &pub_inputs, &proof_options));
 }
@@ -233,7 +243,7 @@ fn test_verifier_rejects_proof_with_changed_output() {
     output_value_column[output_row_idx] = malicious_output_value;
     malicious_trace_columns[output_col_idx + 4] = output_value_column;
 
-    let malicious_trace = TraceTable::from_columns(malicious_trace_columns);
+    let malicious_trace = TraceTable::from_columns(malicious_trace_columns, 1);
     let proof = generate_cairo_proof(&malicious_trace, &pub_inputs, &proof_options).unwrap();
     assert!(!verify_cairo_proof(&proof, &pub_inputs, &proof_options));
 }
