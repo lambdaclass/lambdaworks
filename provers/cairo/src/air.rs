@@ -1,6 +1,6 @@
 use std::ops::Range;
 
-use cairo_vm::without_std::collections::HashMap;
+use cairo_vm::{air_public_input::MemorySegmentAddresses, without_std::collections::HashMap};
 use lambdaworks_math::{
     errors::DeserializationError,
     field::{
@@ -170,6 +170,22 @@ pub enum SegmentName {
     Output,
     Program,
     Execution,
+    Ecdsa,
+    Pedersen,
+}
+
+impl From<&str> for SegmentName {
+    fn from(value: &str) -> Self {
+        match value {
+            "range_check" => SegmentName::RangeCheck,
+            "output" => SegmentName::Output,
+            "program" => SegmentName::Program,
+            "execution" => SegmentName::Execution,
+            "ecdsa" => SegmentName::Ecdsa,
+            "pedersen" => SegmentName::Pedersen,
+            n => panic!("Invalid segment name {n}"),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -190,6 +206,15 @@ impl From<Range<u64>> for Segment {
 impl From<Segment> for Range<u64> {
     fn from(val: Segment) -> Self {
         val.begin_addr..val.stop_ptr
+    }
+}
+
+impl From<&MemorySegmentAddresses> for Segment {
+    fn from(value: &MemorySegmentAddresses) -> Self {
+        Self {
+            begin_addr: value.begin_addr as u64,
+            stop_ptr: value.stop_ptr as u64,
+        }
     }
 }
 
@@ -290,6 +315,8 @@ impl Serializable for PublicInputs {
                 SegmentName::Output => 1u8,
                 SegmentName::Program => 2u8,
                 SegmentName::Execution => 3u8,
+                SegmentName::Ecdsa => 4u8,
+                SegmentName::Pedersen => 5u8,
             };
             memory_segment_bytes.extend(segment_type.to_be_bytes());
             memory_segment_bytes.extend(range.begin_addr.to_be_bytes());
@@ -420,6 +447,8 @@ impl Deserializable for PublicInputs {
                 1u8 => SegmentName::Output,
                 2u8 => SegmentName::Program,
                 3u8 => SegmentName::Execution,
+                4u8 => SegmentName::Ecdsa,
+                5u8 => SegmentName::Pedersen,
                 _ => return Err(DeserializationError::FieldFromBytesError),
             };
             bytes = &bytes[1..];
