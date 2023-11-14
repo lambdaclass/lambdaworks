@@ -258,7 +258,6 @@ pub fn build_cairo_execution_trace(
     let t0: Vec<Felt252> = trace_repr_flags
         .iter()
         .zip(&dsts)
-        // .map(|(repr_flags, dst)| repr_flags[9] * dst)
         .map(|(repr_flags, dst)| (repr_flags[9] - two * repr_flags[10]) * dst)
         .collect();
     let t1: Vec<Felt252> = t0.iter().zip(&res).map(|(t, r)| t * r).collect();
