@@ -78,8 +78,8 @@ fn test_prove_fib17() {
 }
 
 #[test_log::test]
-fn test_prove_fib_periodic_8() {
-    let trace = simple_periodic_cols::fibonacci_trace::<Stark252PrimeField>(8);
+fn test_prove_simple_periodic_8() {
+    let trace = simple_periodic_cols::simple_periodic_trace::<Stark252PrimeField>(8);
 
     let proof_options = ProofOptions::default_test_options();
 
@@ -104,8 +104,8 @@ fn test_prove_fib_periodic_8() {
 }
 
 #[test_log::test]
-fn test_prove_fib_periodic_32() {
-    let trace = simple_periodic_cols::fibonacci_trace::<Stark252PrimeField>(32);
+fn test_prove_simple_periodic_32() {
+    let trace = simple_periodic_cols::simple_periodic_trace::<Stark252PrimeField>(32);
 
     let proof_options = ProofOptions::default_test_options();
 

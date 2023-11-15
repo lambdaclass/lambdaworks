@@ -144,7 +144,7 @@ where
     }
 }
 
-pub fn fibonacci_trace<F: IsFFTField>(trace_length: usize) -> TraceTable<F> {
+pub fn simple_periodic_trace<F: IsFFTField>(trace_length: usize) -> TraceTable<F> {
     let mut ret: Vec<FieldElement<F>> = vec![];
 
     ret.push(FieldElement::one());
