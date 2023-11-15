@@ -1,6 +1,6 @@
 use crate::elliptic_curve::traits::IsEllipticCurve;
 use crate::field::element::FieldElement;
-use std::fmt::Debug;
+use core::fmt::Debug;
 
 /// Trait to add elliptic curves behaviour to a struct.
 /// We use the short Weierstrass form equation: `y^2 = x^3 + a * x  + b`.

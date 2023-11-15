@@ -1,8 +1,8 @@
-use cairo_platinum_prover::{
-    air::generate_cairo_proof, cairo_layout::CairoLayout, runner::run::generate_prover_args,
-};
 use criterion::{
     black_box, criterion_group, criterion_main, measurement::WallTime, BenchmarkGroup, Criterion,
+};
+use platinum_prover::{
+    air::generate_cairo_proof, cairo_layout::CairoLayout, runner::run::generate_prover_args,
 };
 use stark_platinum_prover::proof::options::{ProofOptions, SecurityLevel};
 
@@ -53,7 +53,7 @@ fn run_cairo_bench(
 ) {
     let program_content = std::fs::read(program_path).unwrap();
     let proof_options = ProofOptions::new_secure(SecurityLevel::Provable80Bits, 3);
-    let (main_trace, pub_inputs) = generate_prover_args(&program_content, &None, layout).unwrap();
+    let (main_trace, pub_inputs) = generate_prover_args(&program_content, layout).unwrap();
     println!("Generated main trace with {} rows", main_trace.n_rows());
 
     group.bench_function(benchname, |bench| {

@@ -1,23 +1,3 @@
-use lambdaworks_math::{
-    field::{
-        element::FieldElement,
-        fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
-        traits::{IsFFTField, IsPrimeField},
-    },
-    unsigned_integer::element::UnsignedInteger,
-};
-use stark_platinum_prover::trace::TraceTable;
-use std::ops::Range;
-
-use crate::air::{EXTRA_ADDR, RC_HOLES};
-use crate::{
-    air::{
-        MemorySegment, PublicInputs, FRAME_DST_ADDR, FRAME_OP0_ADDR, FRAME_OP1_ADDR, FRAME_PC,
-        OFF_DST, OFF_OP0, OFF_OP1,
-    },
-    Felt252,
-};
-
 use super::{
     cairo_mem::CairoMemory,
     decode::{
@@ -29,6 +9,20 @@ use super::{
     },
     register_states::RegisterStates,
 };
+use crate::{
+    air::{
+        PublicInputs, EXTRA_ADDR, FRAME_DST_ADDR, FRAME_OP0_ADDR, FRAME_OP1_ADDR, FRAME_PC,
+        OFF_DST, OFF_OP0, OFF_OP1, RC_HOLES,
+    },
+    Felt252,
+};
+use lambdaworks_math::{
+    field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+    unsigned_integer::element::UnsignedInteger,
+};
+use stark_platinum_prover::trace::TraceTable;
+
+type CairoTraceTable = TraceTable<Stark252PrimeField>;
 
 // MAIN TRACE LAYOUT
 // -----------------------------------------------------------------------------------------
@@ -52,12 +46,12 @@ pub fn build_main_trace(
     register_states: &RegisterStates,
     memory: &CairoMemory,
     public_input: &mut PublicInputs,
-) -> TraceTable<Stark252PrimeField> {
-    let mut main_trace = build_cairo_execution_trace(register_states, memory, public_input);
+) -> CairoTraceTable {
+    let mut main_trace = build_cairo_execution_trace(register_states, memory);
 
-    let mut address_cols = main_trace
-        .get_cols(&[FRAME_PC, FRAME_DST_ADDR, FRAME_OP0_ADDR, FRAME_OP1_ADDR])
-        .table;
+    let mut address_cols =
+        main_trace.merge_columns(&[FRAME_PC, FRAME_DST_ADDR, FRAME_OP0_ADDR, FRAME_OP1_ADDR]);
+
     address_cols.sort_by_key(|x| x.representative());
 
     let (rc_holes, rc_min, rc_max) = get_rc_holes(&main_trace, &[OFF_DST, OFF_OP0, OFF_OP1]);
@@ -66,7 +60,6 @@ pub fn build_main_trace(
     fill_rc_holes(&mut main_trace, &rc_holes);
 
     let memory_holes = get_memory_holes(&address_cols, public_input.codelen);
-    // let memory_holes = get_memory_holes(&address_cols, public_input.public_memory.len());
 
     if !memory_holes.is_empty() {
         fill_memory_holes(&mut main_trace, &memory_holes);
@@ -79,8 +72,8 @@ pub fn build_main_trace(
     );
 
     let trace_len_next_power_of_two = main_trace.n_rows().next_power_of_two();
-    let padding = trace_len_next_power_of_two - main_trace.n_rows();
-    pad_with_last_row(&mut main_trace, padding);
+    let padding_len = trace_len_next_power_of_two - main_trace.n_rows();
+    main_trace.pad_with_last_row(padding_len);
 
     main_trace
 }
@@ -88,28 +81,13 @@ pub fn build_main_trace(
 /// Artificial `(0, 0)` dummy memory accesses must be added for the public memory.
 /// See section 9.8 of the Cairo whitepaper.
 fn add_pub_memory_dummy_accesses(
-    main_trace: &mut TraceTable<Stark252PrimeField>,
+    main_trace: &mut CairoTraceTable,
     pub_memory_len: usize,
     last_memory_hole_idx: usize,
 ) {
     for i in 0..pub_memory_len {
-        add_to_column(
-            last_memory_hole_idx + i,
-            main_trace,
-            &Felt252::zero(),
-            EXTRA_ADDR,
-        );
+        main_trace.set_or_extend(last_memory_hole_idx + i, EXTRA_ADDR, &Felt252::zero());
     }
-}
-
-fn pad_with_last_row<F: IsFFTField>(trace: &mut TraceTable<F>, number_rows: usize) {
-    let last_row = trace.last_row().to_vec();
-    let mut pad: Vec<_> = std::iter::repeat(&last_row)
-        .take(number_rows)
-        .flatten()
-        .cloned()
-        .collect();
-    trace.table.append(&mut pad);
 }
 
 /// Gets holes from the range-checked columns. These holes must be filled for the
@@ -119,15 +97,8 @@ fn pad_with_last_row<F: IsFFTField>(trace: &mut TraceTable<F>, number_rows: usiz
 /// values rc_min and rc_max, corresponding to the minimum and maximum values of the range.
 /// NOTE: These extreme values should be received as public inputs in the future and not
 /// calculated here.
-fn get_rc_holes<F>(
-    trace: &TraceTable<F>,
-    columns_indices: &[usize],
-) -> (Vec<FieldElement<F>>, u16, u16)
-where
-    F: IsFFTField + IsPrimeField,
-    u16: From<F::RepresentativeType>,
-{
-    let offset_columns = trace.get_cols(columns_indices).table;
+fn get_rc_holes(trace: &CairoTraceTable, columns_indices: &[usize]) -> (Vec<Felt252>, u16, u16) {
+    let offset_columns = trace.merge_columns(columns_indices);
 
     let mut sorted_offset_representatives: Vec<u16> = offset_columns
         .iter()
@@ -135,12 +106,12 @@ where
         .collect();
     sorted_offset_representatives.sort();
 
-    let mut all_missing_values: Vec<FieldElement<F>> = Vec::new();
+    let mut all_missing_values: Vec<Felt252> = Vec::new();
 
     for window in sorted_offset_representatives.windows(2) {
         if window[1] != window[0] {
             let mut missing_range: Vec<_> = ((window[0] + 1)..window[1])
-                .map(|x| FieldElement::from(x as u64))
+                .map(|x| Felt252::from(x as u64))
                 .collect();
             all_missing_values.append(&mut missing_range);
         }
@@ -148,7 +119,7 @@ where
 
     let multiple_of_three_padding =
         ((all_missing_values.len() + 2) / 3) * 3 - all_missing_values.len();
-    let padding_element = FieldElement::from(*sorted_offset_representatives.last().unwrap() as u64);
+    let padding_element = Felt252::from(*sorted_offset_representatives.last().unwrap() as u64);
     all_missing_values.append(&mut vec![padding_element; multiple_of_three_padding]);
 
     (
@@ -159,17 +130,18 @@ where
 }
 
 /// Fills holes found in the range-checked columns.
-fn fill_rc_holes(trace: &mut TraceTable<Stark252PrimeField>, holes: &[Felt252]) {
+fn fill_rc_holes(trace: &mut CairoTraceTable, holes: &[Felt252]) {
     holes.iter().enumerate().for_each(|(i, hole)| {
-        add_to_column(i, trace, hole, RC_HOLES);
+        trace.set_or_extend(i, RC_HOLES, hole);
     });
 
     // Fill the rest of the RC_HOLES column to avoid inexistent zeros
-    let mut offsets = trace.get_cols(&[OFF_DST, OFF_OP0, OFF_OP1, RC_HOLES]).table;
+    let mut offsets = trace.merge_columns(&[OFF_DST, OFF_OP0, OFF_OP1, RC_HOLES]);
+
     offsets.sort_by_key(|x| x.representative());
     let greatest_offset = offsets.last().unwrap();
     (holes.len()..trace.n_rows()).for_each(|i| {
-        add_to_column(i, trace, greatest_offset, RC_HOLES);
+        trace.set_or_extend(i, RC_HOLES, greatest_offset);
     });
 }
 
@@ -211,26 +183,10 @@ fn get_memory_holes(sorted_addrs: &[Felt252], codelen: usize) -> Vec<Felt252> {
 }
 
 /// Fill memory holes in the extra address column of the trace with the missing addresses.
-fn fill_memory_holes(trace: &mut TraceTable<Stark252PrimeField>, memory_holes: &[Felt252]) {
+fn fill_memory_holes(trace: &mut CairoTraceTable, memory_holes: &[Felt252]) {
     memory_holes.iter().enumerate().for_each(|(i, hole)| {
-        add_to_column(i, trace, hole, EXTRA_ADDR);
+        trace.set_or_extend(i, EXTRA_ADDR, hole);
     });
-}
-
-fn add_to_column(
-    i: usize,
-    trace: &mut TraceTable<Stark252PrimeField>,
-    value: &Felt252,
-    col: usize,
-) {
-    let trace_idx = i * trace.n_cols + col;
-    if trace_idx >= trace.table.len() {
-        let mut last_row = trace.last_row().to_vec();
-        last_row[col] = *value;
-        trace.table.append(&mut last_row);
-    } else {
-        trace.table[trace_idx] = *value;
-    }
 }
 
 /// Receives the raw Cairo trace and memory as outputted from the Cairo VM and returns
@@ -240,8 +196,7 @@ fn add_to_column(
 pub fn build_cairo_execution_trace(
     raw_trace: &RegisterStates,
     memory: &CairoMemory,
-    public_inputs: &PublicInputs,
-) -> TraceTable<Stark252PrimeField> {
+) -> CairoTraceTable {
     let n_steps = raw_trace.steps();
 
     // Instruction flags and offsets are decoded from the raw instructions and represented
@@ -327,38 +282,7 @@ pub fn build_cairo_execution_trace(
     trace_cols.push(extra_vals);
     trace_cols.push(rc_holes);
 
-    if let Some(range_check_builtin_range) = public_inputs
-        .memory_segments
-        .get(&MemorySegment::RangeCheck)
-    {
-        add_rc_builtin_columns(&mut trace_cols, range_check_builtin_range.clone(), memory);
-    }
-
-    TraceTable::new_from_cols(&trace_cols)
-}
-
-// Build range-check builtin columns: rc_0, rc_1, ... , rc_7, rc_value
-fn add_rc_builtin_columns(
-    trace_cols: &mut Vec<Vec<Felt252>>,
-    range_check_builtin_range: Range<u64>,
-    memory: &CairoMemory,
-) {
-    let range_checked_values: Vec<&Felt252> = range_check_builtin_range
-        .map(|addr| memory.get(&addr).unwrap())
-        .collect();
-    let mut rc_trace_columns = decompose_rc_values_into_trace_columns(&range_checked_values);
-
-    // rc decomposition columns are appended with zeros and then pushed to the trace table
-    rc_trace_columns.iter_mut().for_each(|column| {
-        column.resize(trace_cols[0].len(), Felt252::zero());
-        trace_cols.push(column.to_vec())
-    });
-
-    let mut rc_values_dereferenced: Vec<Felt252> =
-        range_checked_values.iter().map(|&x| *x).collect();
-    rc_values_dereferenced.resize(trace_cols[0].len(), Felt252::zero());
-
-    trace_cols.push(rc_values_dereferenced);
+    TraceTable::from_columns(trace_cols, 1)
 }
 
 /// Returns the vector of res values.
@@ -593,6 +517,9 @@ fn rows_to_cols<const N: usize>(rows: &[[Felt252; N]]) -> Vec<Vec<Felt252>> {
         .collect::<Vec<Vec<Felt252>>>()
 }
 
+// NOTE: Leaving this function despite not being used anywhere. It could be useful once
+// we implement layouts with the range-check builtin.
+#[allow(dead_code)]
 fn decompose_rc_values_into_trace_columns(rc_values: &[&Felt252]) -> [Vec<Felt252>; 8] {
     let mask = UnsignedInteger::from_hex("FFFF").unwrap();
     let mut rc_base_types: Vec<UnsignedInteger<4>> =
@@ -621,6 +548,7 @@ mod test {
 
     use super::*;
     use lambdaworks_math::field::element::FieldElement;
+    use stark_platinum_prover::table::Table;
 
     #[test]
     fn test_rc_decompose() {
@@ -661,7 +589,7 @@ mod test {
             FieldElement::from(7),
             FieldElement::from(7),
         ];
-        let table = TraceTable::<Stark252PrimeField>::new_from_cols(&columns);
+        let table = TraceTable::<Stark252PrimeField>::from_columns(columns, 1);
 
         let (col, rc_min, rc_max) = get_rc_holes(&table, &[0, 1, 2]);
         assert_eq!(col, expected_col);
@@ -673,9 +601,13 @@ mod test {
     fn test_add_missing_values_to_rc_holes_column() {
         let mut row = vec![Felt252::from(5); 36];
         row[35] = Felt252::zero();
-        let table = row.repeat(8);
+        let data = row.repeat(8);
+        let table = Table::new(data, 36);
 
-        let mut main_trace = TraceTable::<Stark252PrimeField> { table, n_cols: 36 };
+        let mut main_trace = TraceTable::<Stark252PrimeField> {
+            table,
+            step_size: 1,
+        };
 
         let rc_holes = vec![
             Felt252::from(1),
@@ -699,7 +631,7 @@ mod test {
             Felt252::from(6),
         ];
 
-        let rc_holes_column = main_trace.cols()[35].clone();
+        let rc_holes_column = main_trace.columns()[35].clone();
 
         assert_eq!(expected_rc_holes_column, rc_holes_column);
     }
@@ -776,12 +708,12 @@ mod test {
         trace_cols[FRAME_DST_ADDR][1] = Felt252::from(9);
         trace_cols[FRAME_OP0_ADDR][1] = Felt252::from(10);
         trace_cols[FRAME_OP1_ADDR][1] = Felt252::from(11);
-        let mut trace = TraceTable::new_from_cols(&trace_cols);
+        let mut trace = TraceTable::from_columns(trace_cols, 1);
 
         let memory_holes = vec![Felt252::from(4), Felt252::from(7), Felt252::from(8)];
         fill_memory_holes(&mut trace, &memory_holes);
 
-        let extra_addr = &trace.cols()[EXTRA_ADDR];
+        let extra_addr = &trace.columns()[EXTRA_ADDR];
         assert_eq!(extra_addr, &memory_holes)
     }
 }

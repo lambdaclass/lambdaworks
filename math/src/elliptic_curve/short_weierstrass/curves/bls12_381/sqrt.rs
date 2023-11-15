@@ -1,7 +1,7 @@
 use crate::field::traits::LegendreSymbol;
 
 use super::{curve::BLS12381FieldElement, curve::BLS12381TwistCurveFieldElement};
-use std::cmp::Ordering;
+use core::cmp::Ordering;
 
 #[must_use]
 pub fn select_sqrt_value_from_third_bit(

@@ -14,85 +14,64 @@ From the heights of these towers of fields, forty centuries of mathematics look 
 ## [Documentation](https://lambdaclass.github.io/lambdaworks)
 
 ## List of features
-
 Disclaimer: This list contains cryptographic primitives and mathematical structures that we want to support in Lambdaworks. It can be expanded later to include new primitives. If you find there is a mistake or there has been an update in another library, please let us know.
 
 List of symbols:
 - :heavy_check_mark: means the feature is currently supported.
-- :hammer: means that the feature is partially implemented or is under active construction.
+- 🏗️ means that the feature is partially implemented or is under active construction.
 - :x: means that the feature is not currently supported.
 
-| Finite Fields  | Lambdaworks        | Arkworks           | Constantine | GNARK |
-| -------------- | ------------------ | ------------------ | ----------- | ----- |
-| StarkField 252 | :heavy_check_mark: | :heavy_check_mark: |             |       |
-| Mersenne 31    | :hammer:           |                    |             |       |
-| Baby Bear      | :hammer:           |                    |             |       |
-| MiniGoldilocks | :hammer:           |                    |             |       |
+| Finite Fields  | Lambdaworks        | Arkworks           | Halo2    | gnark | Constantine |
+| -------------- | ------------------ | ------------------ | --- | ----- | ----------- |
+| StarkField 252 | :heavy_check_mark: | :heavy_check_mark: |     |       |             |
+| Mersenne 31    | 🏗️                 |                    |     |       |             |
+| Baby Bear      | 🏗️                 |                    |     |       |             |
+| MiniGoldilocks | 🏗️                 |                    |     |       |             |
+| **ZK friendly Hash function** | **Lambdaworks** | **Arkworks** | **Halo2** | **gnark** | **Constantine** |
+| Poseidon                  | 🏗️    | :heavy_check_mark: |     |       |             |
+| Pedersen                  | 🏗️    | :heavy_check_mark: |     |       |             |
+| Rescue Prime XLIX         | :x:         |                    |     |       |             |
+| **Elliptic Curves** | **Lambdaworks** | **Arkworks** | **Halo2** | **gnark** | **Constantine** |
+| BLS12-381       | :heavy_check_mark: | :heavy_check_mark: |     |                    |             |
+| BLS12-377       | 🏗️           | :heavy_check_mark: |     | :heavy_check_mark: |             |
+| BN-254          | :x:                | :heavy_check_mark: |     |                    |             |
+| Pallas          | :x:                | :heavy_check_mark: |     |                    |             |
+| Vesta           | :x:                | :heavy_check_mark: |     |                    |             |
+| Bandersnatch    | 🏗️           | :heavy_check_mark: |     |                    |             |
+| **STARKs**       | **Lambdaworks** | **Arkworks** | **Halo2** | **gnark** | **Constantine** |
+| STARK Prover | :heavy_check_mark: | :x:      |     | :x:   |             |
+| CAIRO Prover | 🏗️           | :x:      |     | :x:   |             |
+| **SNARKs**  |**Lambdaworks** | **Arkworks** | **Halo2** | **gnark** | **Constantine** |
+| Groth16 | :x:         | :heavy_check_mark: |     | :heavy_check_mark: |             |
+| Plonk   | 🏗️          | :x:                | ✔️    | :heavy_check_mark: |             |
+| Spartan | :x:         | :heavy_check_mark: |     |                    |             |
+| Marlin  | :x:         | :heavy_check_mark: |     |                    |             |
+| GKR     | :x:         | :heavy_check_mark: |     | :heavy_check_mark: |             |
+| **Polynomial Commitment Schemes** | **Lambdaworks** | **Arkworks** | **Halo2** | **gnark** | **Constantine** |
+| FRI                           | 🏗️                  |   :x:        | :x:       | :heavy_check_mark: |             |
+| IPA                           | :x:                |   ✔️           | :heavy_check_mark: |           |             |
+| Hyrax                         | :x:                |               | :x:       |                    |             |
+| KZG10                         | :heavy_check_mark: |   ✔️  | :heavy_check_mark: | :heavy_check_mark: |             |
+| **Folding Schemes** | **Lambdaworks** | **Arkworks** | **Halo2** | **gnark** | **Constantine** |
+| Nova            | :x:         |          |       |       |             |
+| Supernova       | :x:         |          |       |       |             |
+| Protostar       | :x:         |          |       |       |             |
+| Protogalaxy     | :x:         |          |       |       |             |
 
-| ZK friendly Hash function | Lambdaworks | Arkworks           | Constantine | GNARK |
-| ------------------------- | ----------- | ------------------ | ----------- | ----- |
-| Poseidon                  | :hammer:    | :heavy_check_mark: |             |       |
-| Pedersen                  | :hammer:    | :heavy_check_mark: |             |       |
-| Rescue Prime XLIX         | :x:         |                    |             |       |
-
-| Elliptic Curves | Lambdaworks        | Arkworks           | Constantine | GNARK              |
-| --------------- | ------------------ | ------------------ | ----------- | ------------------ |
-| BLS12-381       | :heavy_check_mark: | :heavy_check_mark: |             |                    |
-| BLS12-377       | :hammer:           | :heavy_check_mark: |             | :heavy_check_mark: |
-| BN-254          | :x:                | :heavy_check_mark: |             |                    |
-| Pallas          | :x:                | :heavy_check_mark: |             |                    |
-| Vesta           | :x:                | :heavy_check_mark: |             |                    |
-| Bandersnatch    | :hammer:           | :heavy_check_mark: |             |                    |
-
-| STARKs         | Lambdaworks        | Arkworks | Constantine | GNARK |
-| -------------- | ------------------ | -------- | ----------- | ----- |
-| STARK Prover   | :heavy_check_mark: | :x:      |             | :x:   |
-| CAIRO Prover   | :hammer:           | :x:      |             | :x:   |
-
-We are currently working to make the CAIRO prover compatible with the Stone Prover
-
-| SNARKs  | Lambdaworks | Arkworks           | Constantine | GNARK              |
-| ------- | ----------- | ------------------ | ----------- | ------------------ |
-| Groth16 | :x:         | :heavy_check_mark: |             | :heavy_check_mark: |
-| Plonk   | :hammer:    | :x:                |             | :heavy_check_mark: |
-| Spartan | :x:         | :heavy_check_mark: |             |                    |
-| Marlin  | :x:         | :heavy_check_mark: |             |                    |
-| GKR     | :x:         | :heavy_check_mark: |             | :heavy_check_mark: |
-
-
-| Polynomial Commitment Schemes | Lambdaworks        | Arkworks           | Constantine | GNARK              |
-| ----------------------------- | ------------------ | ------------------ | ----------- | ------------------ |
-| FRI                           | :hammer:           | :x:                |             | :heavy_check_mark: |
-| IPA                           | :x:                | :heavy_check_mark: |             |                    |
-| Hyrax                         | :x:                | :x:                |             |                    |
-| KZG10                         | :heavy_check_mark: | :heavy_check_mark: |             | :heavy_check_mark: |
-
-| Folding Schemes | Lambdaworks | Arkworks | Constantine | GNARK |
-| --------------- | ----------- | -------- | ----------- | ----- |
-| Nova            | :x:         |          |             |       |
-| Supernova       | :x:         |          |             |       |
-| Protostar       | :x:         |          |             |       |
-| Protogalaxy     | :x:         |          |             |       |
 
 Zero-Knowledge and Validity Proofs have gained a lot of attention over the last few years. We strongly believe in this potential and that is why we decided to start working in this challenging ecosystem, where math, cryptography and distributed systems meet. The main barrier in the beginning was not the cryptography or math but the lack of good libraries which are performant and developer friendly. There are some exceptions, though, like gnark or halo2. Some have nice APIs and are easy to work with, but they are not written in Rust, and some are written in Rust but have poor programming and engineering practices. Most of them don't have support for CUDA, Metal and WebGPU or distributed FFT calculation using schedulers like Dask.
 
 So, we decided to build our library, focusing on performance, with clear documentation and developer-focused. Our core team is a group of passionate people from different backgrounds and different strengths; we think that the whole is greater than just the addition of the parts. We don't want to be a compilation of every research result in the ZK space. We want this to be a library that can be used in production, not just in academic research. We want to offer developers the main building blocks and proof systems so that they can build their applications on top of this library.
 
-## Provers and Polynomial Commitment Schemes using LambdaWorks
-
-All provers are being migrated to Lambdaworks library
-
-Right now Plonk prover is in this repo, you can find the others here:
-
-- [Cairo STARK LambdaWorks prover](https://github.com/lambdaclass/lambdaworks_cairo_prover/tree/main)
-- [CairoVM Trace Generation using LambdaWorks](https://github.com/lambdaclass/cairo-rs/pull/1184)
-- [ABI compatible KZG commitment scheme - EIP-4844](https://github.com/lambdaclass/lambdaworks_kzg)
 
 ## Main crates
 
 - [Math](https://github.com/lambdaclass/lambdaworks/tree/main/math)
 - [Crypto primitives](https://github.com/lambdaclass/lambdaworks/tree/main/crypto)
 - [Plonk Prover](https://github.com/lambdaclass/lambdaworks/tree/main/provers/plonk)
+- [Cairo Prover](https://github.com/lambdaclass/lambdaworks/tree/main/provers/cairo)
+
+If you are interested in proving Cairo programs, use the Cairo Prover CLI. 
 
 ### Crypto
 - [Elliptic curves](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/elliptic_curve)
@@ -101,6 +80,10 @@ Right now Plonk prover is in this repo, you can find the others here:
 Finite Field crate fully supports no-std with `no-default-features`
 
 Both Math and Crypto support wasm with target `wasm32-unknown-unknown` by default, with `std` feature.
+
+## Examples - mini apps
+- [Merkle Tree CLI](https://github.com/lambdaclass/lambdaworks/tree/main/examples/merkle-tree-cli)
+
 ## Exercises and Challenges
 - [Lambdaworks exercises and challenges](https://github.com/lambdaclass/lambdaworks_exercises/tree/main)
 
@@ -209,6 +192,7 @@ The following links, repos and projects have been important in the development o
 - [Ministark](https://github.com/andrewmilson/ministark)
 - [Sandstorm](https://github.com/andrewmilson/sandstorm)
 - [STARK-101](https://starkware.co/stark-101/)
+- [starknet-rs](https://github.com/xJonathanLEI/starknet-rs/)
 - [Risc0](https://github.com/risc0/risc0)
 - [Neptune](https://github.com/Neptune-Crypto)
 - [Summary on FRI low degree test](https://eprint.iacr.org/2022/1216)

@@ -45,6 +45,8 @@ where
     type RAPChallenges = FieldElement<Self::Field>;
     type PublicInputs = FibonacciRAPPublicInputs<Self::Field>;
 
+    const STEP_SIZE: usize = 1;
+
     fn new(
         trace_length: usize,
         pub_inputs: &Self::PublicInputs,
@@ -74,7 +76,7 @@ where
         main_trace: &TraceTable<Self::Field>,
         gamma: &Self::RAPChallenges,
     ) -> TraceTable<Self::Field> {
-        let main_segment_cols = main_trace.cols();
+        let main_segment_cols = main_trace.columns();
         let not_perm = &main_segment_cols[0];
         let perm = &main_segment_cols[1];
 
@@ -92,7 +94,7 @@ where
                 aux_col.push(z_i * n_p_term.div(p_term));
             }
         }
-        TraceTable::new_from_cols(&[aux_col])
+        TraceTable::from_columns(vec![aux_col], 1)
     }
 
     fn build_rap_challenges(
@@ -112,19 +114,22 @@ where
         gamma: &Self::RAPChallenges,
     ) -> Vec<FieldElement<Self::Field>> {
         // Main constraints
-        let first_row = frame.get_row(0);
-        let second_row = frame.get_row(1);
-        let third_row = frame.get_row(2);
+        let first_step = frame.get_evaluation_step(0);
+        let second_step = frame.get_evaluation_step(1);
+        let third_step = frame.get_evaluation_step(2);
 
-        let mut constraints =
-            vec![third_row[0].clone() - second_row[0].clone() - first_row[0].clone()];
+        let a0 = first_step.get_evaluation_element(0, 0);
+        let a1 = second_step.get_evaluation_element(0, 0);
+        let a2 = third_step.get_evaluation_element(0, 0);
+
+        let mut constraints = vec![a2 - a1 - a0];
 
         // Auxiliary constraints
-        let z_i = &frame.get_row(0)[2];
-        let z_i_plus_one = &frame.get_row(1)[2];
+        let z_i = first_step.get_evaluation_element(0, 2);
+        let z_i_plus_one = second_step.get_evaluation_element(0, 2);
 
-        let a_i = &frame.get_row(0)[0];
-        let b_i = &frame.get_row(0)[1];
+        let a_i = first_step.get_evaluation_element(0, 0);
+        let b_i = first_step.get_evaluation_element(0, 1);
 
         let eval = z_i_plus_one * (b_i + gamma) - z_i * (a_i + gamma);
 
@@ -186,7 +191,7 @@ pub fn fibonacci_rap_trace<F: IsFFTField>(
     let mut trace_cols = vec![fib_seq, fib_permuted];
     resize_to_next_power_of_two(&mut trace_cols);
 
-    TraceTable::new_from_cols(&trace_cols)
+    TraceTable::from_columns(trace_cols, 1)
 }
 
 #[cfg(test)]
@@ -229,13 +234,13 @@ mod test {
         ];
         resize_to_next_power_of_two(&mut expected_trace);
 
-        assert_eq!(trace.cols(), expected_trace);
+        assert_eq!(trace.columns(), expected_trace);
     }
 
     #[test]
     fn aux_col() {
         let trace = fibonacci_rap_trace([FE17::from(1), FE17::from(1)], 64);
-        let trace_cols = trace.cols();
+        let trace_cols = trace.columns();
 
         let not_perm = trace_cols[0].clone();
         let perm = trace_cols[1].clone();
