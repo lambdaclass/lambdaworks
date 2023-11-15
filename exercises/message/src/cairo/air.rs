@@ -470,16 +470,6 @@ pub struct CairoAIR {
     has_rc_builtin: bool,
 }
 
-impl CairoAIR {
-    fn get_builtin_offset(&self) -> usize {
-        if self.has_rc_builtin {
-            0
-        } else {
-            BUILTIN_OFFSET
-        }
-    }
-}
-
 pub struct CairoRAPChallenges {
     pub alpha_memory: FieldElement<Stark252PrimeField>,
     pub z_memory: FieldElement<Stark252PrimeField>,
@@ -809,8 +799,6 @@ impl AIR for CairoAIR {
         // Auxiliary constraint: permutation argument final value
         let final_index = self.trace_length - 1;
 
-        let builtin_offset = self.get_builtin_offset();
-
         let cumulative_product = self
             .pub_inputs
             .public_memory
@@ -824,26 +812,20 @@ impl AIR for CairoAIR {
             .z_memory
             .pow(self.pub_inputs.public_memory.len())
             * cumulative_product;
-        let permutation_final_constraint = BoundaryConstraint::new(
-            PERMUTATION_ARGUMENT_COL_3 - builtin_offset,
-            final_index,
-            permutation_final,
-        );
+        let permutation_final_constraint =
+            BoundaryConstraint::new(PERMUTATION_ARGUMENT_COL_3, final_index, permutation_final);
 
         let one: FieldElement<Self::Field> = FieldElement::one();
-        let range_check_final_constraint = BoundaryConstraint::new(
-            PERMUTATION_ARGUMENT_RANGE_CHECK_COL_3 - builtin_offset,
-            final_index,
-            one,
-        );
+        let range_check_final_constraint =
+            BoundaryConstraint::new(PERMUTATION_ARGUMENT_RANGE_CHECK_COL_3, final_index, one);
 
         let range_check_min = BoundaryConstraint::new(
-            RANGE_CHECK_COL_1 - builtin_offset,
+            RANGE_CHECK_COL_1,
             0,
             FieldElement::from(self.pub_inputs.range_check_min.unwrap() as u64),
         );
         let range_check_max = BoundaryConstraint::new(
-            RANGE_CHECK_COL_3 - builtin_offset,
+            RANGE_CHECK_COL_3,
             final_index,
             FieldElement::from(self.pub_inputs.range_check_max.unwrap() as u64),
         );
