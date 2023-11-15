@@ -3,6 +3,7 @@ use crate::cairo_layout::CairoLayout;
 use crate::cairo_mem::CairoMemory;
 use crate::execution_trace::build_main_trace;
 use crate::register_states::RegisterStates;
+use crate::Felt252;
 
 use super::vec_writer::VecWriter;
 use cairo_vm::cairo_run::{self, EncodeTraceError};
@@ -13,6 +14,7 @@ use cairo_vm::vm::errors::{
     cairo_run_errors::CairoRunError, trace_errors::TraceError, vm_errors::VirtualMachineError,
 };
 
+use cairo_vm::without_std::collections::HashMap;
 use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
 use stark_platinum_prover::trace::TraceTable;
 use std::ops::Range;
@@ -56,6 +58,11 @@ impl From<TraceError> for Error {
     }
 }
 
+fn from_vm_felt(f: cairo_vm::felt::Felt252) -> Felt252 {
+    let val = f.to_biguint().to_str_radix(16);
+    Felt252::from_hex(&val).unwrap()
+}
+
 /// Runs a cairo program in JSON format and returns trace, memory and program length.
 /// Uses [cairo-rs](https://github.com/lambdaclass/cairo-rs/) project to run the program.
 ///
@@ -80,7 +87,17 @@ pub fn run_program(
     entrypoint_function: Option<&str>,
     layout: CairoLayout,
     program_content: &[u8],
-) -> Result<(RegisterStates, CairoMemory, usize, Option<Range<u64>>), Error> {
+    output_range: &Option<Range<u64>>,
+) -> Result<
+    (
+        RegisterStates,
+        CairoMemory,
+        usize,
+        Option<Range<u64>>,
+        PublicInputs,
+    ),
+    Error,
+> {
     // default value for entrypoint is "main"
     let entrypoint = entrypoint_function.unwrap_or("main");
 
@@ -153,11 +170,47 @@ pub fn run_program(
         end: end as u64,
     });
 
+    let vm_public_inputs = runner.get_air_public_input(&vm).unwrap();
+    let memory_segments =
+        create_memory_segment_map(range_check_builtin_range.clone(), output_range);
+
+    let public_memory = vm_public_inputs.public_memory.iter().fold(
+        HashMap::<Felt252, Felt252>::new(),
+        |mut acc, public_memory_entry| {
+            if let Some(v) = &public_memory_entry.value {
+                // ! public_memory_entry.page is not used
+                acc.insert(
+                    Felt252::from(public_memory_entry.address as u64),
+                    Felt252::from(from_vm_felt(v.clone())),
+                );
+            } else {
+                panic!();
+            }
+            acc
+        },
+    );
+
+    let num_steps = register_states.steps();
+    let public_inputs = PublicInputs {
+        pc_init: Felt252::from(register_states.rows[0].pc),
+        ap_init: Felt252::from(register_states.rows[0].ap),
+        fp_init: Felt252::from(register_states.rows[0].fp),
+        pc_final: Felt252::from(register_states.rows[num_steps - 1].pc),
+        ap_final: Felt252::from(register_states.rows[num_steps - 1].ap),
+        range_check_min: Some(vm_public_inputs.rc_min as u16),
+        range_check_max: Some(vm_public_inputs.rc_max as u16),
+        memory_segments,
+        public_memory,
+        num_steps,
+        codelen: data_len,
+    };
+
     Ok((
         register_states,
         cairo_mem,
         data_len,
         range_check_builtin_range,
+        public_inputs,
     ))
 }
 
@@ -166,8 +219,8 @@ pub fn generate_prover_args(
     output_range: &Option<Range<u64>>,
     layout: CairoLayout,
 ) -> Result<(TraceTable<Stark252PrimeField>, PublicInputs), Error> {
-    let (register_states, memory, program_size, range_check_builtin_range) =
-        run_program(None, layout, program_content)?;
+    let (register_states, memory, program_size, range_check_builtin_range, public_inputs) =
+        run_program(None, layout, program_content, output_range)?;
 
     let memory_segments = create_memory_segment_map(range_check_builtin_range, output_range);
 
@@ -175,6 +228,25 @@ pub fn generate_prover_args(
         PublicInputs::from_regs_and_mem(&register_states, &memory, program_size, &memory_segments);
 
     let main_trace = build_main_trace(&register_states, &memory, &mut pub_inputs);
+
+    println!(
+        "min\nGot {}, Expected {}",
+        public_inputs.range_check_min.unwrap(),
+        pub_inputs.range_check_min.unwrap()
+    );
+
+    // testing
+    pub_inputs.pc_init = public_inputs.pc_init;
+    pub_inputs.ap_init = public_inputs.ap_init;
+    pub_inputs.fp_init = public_inputs.fp_init;
+    pub_inputs.pc_final = public_inputs.pc_final;
+    pub_inputs.ap_final = public_inputs.ap_final;
+    // pub_inputs.range_check_min = public_inputs.range_check_min; // breaks
+    pub_inputs.range_check_max = public_inputs.range_check_max;
+    pub_inputs.memory_segments = public_inputs.memory_segments;
+    // pub_inputs.public_memory = public_inputs.public_memory; // breaks
+    pub_inputs.num_steps = public_inputs.num_steps;
+    pub_inputs.codelen = public_inputs.codelen;
 
     Ok((main_trace, pub_inputs))
 }
@@ -219,4 +291,19 @@ fn create_memory_segment_map(
     }
 
     memory_segments
+}
+
+#[cfg(test)]
+mod tests {
+    use super::from_vm_felt;
+    use crate::Felt252;
+
+    #[test]
+    fn test_from_vm_felt() {
+        let felt = cairo_vm::felt::Felt252::from(0x14f5a);
+        let actual = from_vm_felt(felt);
+
+        let expected = Felt252::from_hex_unchecked("0x14f5a");
+        assert_eq!(actual, expected);
+    }
 }

@@ -187,8 +187,8 @@ fn test_verifier_rejects_proof_with_overflowing_range_check_value() {
     // This value is greater than 2^128, and the verifier should reject the proof built with it.
     let overflowing_rc_value = Felt252::from_hex("0x100000000000000000000000000000001").unwrap();
     let program_content = std::fs::read(cairo0_program_path("rc_program.json")).unwrap();
-    let (register_states, mut malicious_memory, program_size, _) =
-        run_program(None, CairoLayout::Small, &program_content).unwrap();
+    let (register_states, mut malicious_memory, program_size, _, _) =
+        run_program(None, CairoLayout::Small, &program_content, &None).unwrap();
 
     // The malicious value is inserted in memory here.
     malicious_memory.data.insert(27, overflowing_rc_value);
