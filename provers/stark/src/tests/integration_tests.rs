@@ -7,10 +7,10 @@ use crate::{
         dummy_air::{self, DummyAIR},
         fibonacci_2_cols_shifted::{self, Fibonacci2ColsShifted},
         fibonacci_2_columns::{self, Fibonacci2ColsAIR},
+        fibonacci_periodic_cols::{self, FibonacciPeriodicAIR, FibonacciPeriodicPublicInputs},
         fibonacci_rap::{fibonacci_rap_trace, FibonacciRAP, FibonacciRAPPublicInputs},
         quadratic_air::{self, QuadraticAIR, QuadraticPublicInputs},
         simple_fibonacci::{self, FibonacciAIR, FibonacciPublicInputs},
-        fibonacci_periodic_cols::{self, FibonacciPeriodicAIR, FibonacciPeriodicPublicInputs}
     },
     proof::options::ProofOptions,
     prover::{IsStarkProver, Prover},
@@ -95,12 +95,14 @@ fn test_prove_fib_periodic_8() {
         StoneProverTranscript::new(&[]),
     )
     .unwrap();
-    assert!(Verifier::verify::<FibonacciPeriodicAIR<Stark252PrimeField>>(
-        &proof,
-        &pub_inputs,
-        &proof_options,
-        StoneProverTranscript::new(&[]),
-    ));
+    assert!(
+        Verifier::verify::<FibonacciPeriodicAIR<Stark252PrimeField>>(
+            &proof,
+            &pub_inputs,
+            &proof_options,
+            StoneProverTranscript::new(&[]),
+        )
+    );
 }
 
 #[test_log::test]
@@ -121,12 +123,14 @@ fn test_prove_fib_periodic_32() {
         StoneProverTranscript::new(&[]),
     )
     .unwrap();
-    assert!(Verifier::verify::<FibonacciPeriodicAIR<Stark252PrimeField>>(
-        &proof,
-        &pub_inputs,
-        &proof_options,
-        StoneProverTranscript::new(&[]),
-    ));
+    assert!(
+        Verifier::verify::<FibonacciPeriodicAIR<Stark252PrimeField>>(
+            &proof,
+            &pub_inputs,
+            &proof_options,
+            StoneProverTranscript::new(&[]),
+        )
+    );
 }
 
 #[test_log::test]

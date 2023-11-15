@@ -69,7 +69,9 @@ impl<F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
         #[cfg(all(debug_assertions, not(feature = "parallel")))]
         let boundary_polys: Vec<Polynomial<FieldElement<F>>> = Vec::new();
 
-        let lde_periodic_columns = self.air.get_periodic_column_polynomials()
+        let lde_periodic_columns = self
+            .air
+            .get_periodic_column_polynomials()
             .iter()
             .map(|poly| {
                 evaluate_polynomial_on_lde_domain(
@@ -178,15 +180,14 @@ impl<F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
                     blowup_factor,
                     &self.air.context().transition_offsets,
                 );
-            
-                let evaluations_transition = {
-                    if lde_periodic_columns.is_empty() {
-                        self.air.compute_transition(&frame, &[], rap_challenges)
-                    } else {
-                        let periodic_values: Vec<_> = lde_periodic_columns.iter().map(|col| col[i].clone()).collect();
-                        self.air.compute_transition(&frame, &periodic_values, rap_challenges)
-                    }
-                };
+
+                let periodic_values: Vec<_> = lde_periodic_columns
+                    .iter()
+                    .map(|col| col[i].clone())
+                    .collect();
+                let evaluations_transition =
+                    self.air
+                        .compute_transition(&frame, &periodic_values, rap_challenges);
 
                 #[cfg(all(debug_assertions, not(feature = "parallel")))]
                 transition_evaluations.push(evaluations_transition.clone());

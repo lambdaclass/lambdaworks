@@ -16,7 +16,7 @@ use crate::{
 /// - C1: at each step adds the last two values or does
 ///       nothing depending on C2.
 /// - C2: it is a binary column that cycles around [0, 1]
-/// 
+///
 ///   C1   |   C2
 ///   1    |   0     Boundary col1 = 1
 ///   1    |   1     Boundary col1 = 1
@@ -119,7 +119,8 @@ where
         _rap_challenges: &Self::RAPChallenges,
     ) -> BoundaryConstraints<Self::Field> {
         let a0 = BoundaryConstraint::new_simple(0, self.pub_inputs.a0.clone());
-        let a1 = BoundaryConstraint::new_simple(self.trace_length() - 1, self.pub_inputs.a1.clone());
+        let a1 =
+            BoundaryConstraint::new_simple(self.trace_length() - 1, self.pub_inputs.a1.clone());
 
         BoundaryConstraints::from_constraints(vec![a0, a1])
     }
@@ -145,10 +146,7 @@ where
     }
 }
 
-pub fn fibonacci_trace<F: IsFFTField>(
-    trace_length: usize,
-) -> TraceTable<F>
-{
+pub fn fibonacci_trace<F: IsFFTField>(trace_length: usize) -> TraceTable<F> {
     let mut ret: Vec<FieldElement<F>> = vec![];
 
     ret.push(FieldElement::one());

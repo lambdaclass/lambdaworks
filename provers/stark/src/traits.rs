@@ -1,6 +1,9 @@
 use itertools::Itertools;
 use lambdaworks_math::{
-    fft::{cpu::roots_of_unity::get_powers_of_primitive_root_coset, errors::FFTError, polynomial::FFTPoly},
+    fft::{
+        cpu::roots_of_unity::get_powers_of_primitive_root_coset, errors::FFTError,
+        polynomial::FFTPoly,
+    },
     field::{element::FieldElement, traits::IsFFTField},
     polynomial::Polynomial,
 };
@@ -131,7 +134,12 @@ pub trait AIR: Clone {
     fn get_periodic_column_polynomials(&self) -> Vec<Polynomial<FieldElement<Self::Field>>> {
         let mut result = Vec::new();
         for periodic_column in self.get_periodic_column_values() {
-            let values: Vec<_> = periodic_column.iter().cycle().take(self.trace_length()).cloned().collect();
+            let values: Vec<_> = periodic_column
+                .iter()
+                .cycle()
+                .take(self.trace_length())
+                .cloned()
+                .collect();
             let poly = Polynomial::interpolate_fft(&values).unwrap();
             result.push(poly);
         }
