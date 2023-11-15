@@ -1,6 +1,6 @@
 use crate::cyclic_group::IsGroup;
 use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
-use crate::elliptic_curve::traits::IsEllipticCurve;
+use crate::elliptic_curve::traits::{IsEllipticCurve, IsProjectivePoint};
 use crate::unsigned_integer::element::U384;
 use crate::{
     elliptic_curve::short_weierstrass::traits::IsShortWeierstrass, field::element::FieldElement,
@@ -87,7 +87,7 @@ mod tests {
                 curves::bls12_381::field_extension::{BLS12381PrimeField, Degree2ExtensionField},
                 traits::IsShortWeierstrass,
             },
-            traits::IsEllipticCurve,
+            traits::{IsEllipticCurve, IsProjectivePoint},
         },
         field::element::FieldElement,
         unsigned_integer::element::U384,

@@ -49,3 +49,24 @@ pub trait IsPairing {
         Self::compute_batch(&[(p, q)])
     }
 }
+
+pub trait IsProjectivePoint<E: IsEllipticCurve>:
+    PartialEq + Eq + FromAffine<E::BaseField> + IsGroup
+{
+    /// Returns the `x` coordinate of the point
+    fn x(&self) -> &FieldElement<E::BaseField>;
+
+    /// Returns the `y` coordinate of the point
+    fn y(&self) -> &FieldElement<E::BaseField>;
+
+    /// Returns the `z` coordinate of the point
+    fn z(&self) -> &FieldElement<E::BaseField>;
+
+    /// Returns a tuple [x, y, z] with the coordinates of the point.
+    fn coordinates(&self) -> &[FieldElement<E::BaseField>; 3];
+
+    /// Creates the same point in affine coordinates. That is,
+    /// returns [x / z: y / z: 1] where `self` is [x: y: z].
+    /// Panics if `self` is the point at infinity.
+    fn to_affine(&self) -> Self;
+}

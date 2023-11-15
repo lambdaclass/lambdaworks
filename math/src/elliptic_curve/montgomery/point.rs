@@ -2,7 +2,7 @@ use crate::{
     cyclic_group::IsGroup,
     elliptic_curve::{
         point::ProjectivePoint,
-        traits::{EllipticCurveError, FromAffine, IsEllipticCurve},
+        traits::{EllipticCurveError, FromAffine, IsEllipticCurve, IsProjectivePoint},
     },
     field::element::FieldElement,
 };
@@ -16,33 +16,6 @@ impl<E: IsEllipticCurve> MontgomeryProjectivePoint<E> {
     /// Creates an elliptic curve point giving the projective [x: y: z] coordinates.
     pub fn new(value: [FieldElement<E::BaseField>; 3]) -> Self {
         Self(ProjectivePoint::new(value))
-    }
-
-    /// Returns the `x` coordinate of the point.
-    pub fn x(&self) -> &FieldElement<E::BaseField> {
-        self.0.x()
-    }
-
-    /// Returns the `y` coordinate of the point.
-    pub fn y(&self) -> &FieldElement<E::BaseField> {
-        self.0.y()
-    }
-
-    /// Returns the `z` coordinate of the point.
-    pub fn z(&self) -> &FieldElement<E::BaseField> {
-        self.0.z()
-    }
-
-    /// Returns a tuple [x, y, z] with the coordinates of the point.
-    pub fn coordinates(&self) -> &[FieldElement<E::BaseField>; 3] {
-        self.0.coordinates()
-    }
-
-    /// Creates the same point in affine coordinates. That is,
-    /// returns [x / z: y / z: 1] where `self` is [x: y: z].
-    /// Panics if `self` is the point at infinity.
-    pub fn to_affine(&self) -> Self {
-        Self(self.0.to_affine())
     }
 }
 
@@ -137,6 +110,35 @@ impl<E: IsMontgomery> IsGroup for MontgomeryProjectivePoint<E> {
     }
 }
 
+impl<E: IsMontgomery> IsProjectivePoint<E> for MontgomeryProjectivePoint<E> {
+    /// Returns the `x` coordinate of the point.
+    fn x(&self) -> &FieldElement<E::BaseField> {
+        self.0.x()
+    }
+
+    /// Returns the `y` coordinate of the point.
+    fn y(&self) -> &FieldElement<E::BaseField> {
+        self.0.y()
+    }
+
+    /// Returns the `z` coordinate of the point.
+    fn z(&self) -> &FieldElement<E::BaseField> {
+        self.0.z()
+    }
+
+    /// Returns a tuple [x, y, z] with the coordinates of the point.
+    fn coordinates(&self) -> &[FieldElement<E::BaseField>; 3] {
+        self.0.coordinates()
+    }
+
+    /// Creates the same point in affine coordinates. That is,
+    /// returns [x / z: y / z: 1] where `self` is [x: y: z].
+    /// Panics if `self` is the point at infinity.
+    fn to_affine(&self) -> Self {
+        Self(self.0.to_affine())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{
@@ -145,7 +147,7 @@ mod tests {
             montgomery::{
                 curves::tiny_jub_jub::TinyJubJubMontgomery, point::MontgomeryProjectivePoint,
             },
-            traits::{EllipticCurveError, IsEllipticCurve},
+            traits::{EllipticCurveError, IsEllipticCurve, IsProjectivePoint},
         },
         field::element::FieldElement,
     };

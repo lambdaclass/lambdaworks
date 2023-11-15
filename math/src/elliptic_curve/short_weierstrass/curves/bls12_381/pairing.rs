@@ -1,7 +1,11 @@
 use super::field_extension::{Degree12ExtensionField, Degree2ExtensionField};
 use crate::{
-    elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::Degree6ExtensionField,
-    field::element::FieldElement, unsigned_integer::element::UnsignedInteger,
+    elliptic_curve::{
+        short_weierstrass::curves::bls12_381::field_extension::Degree6ExtensionField,
+        traits::IsProjectivePoint,
+    },
+    field::element::FieldElement,
+    unsigned_integer::element::UnsignedInteger,
 };
 
 use super::{curve::BLS12381Curve, twist::BLS12381TwistCurve};

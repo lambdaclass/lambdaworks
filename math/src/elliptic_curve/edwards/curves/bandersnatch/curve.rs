@@ -46,8 +46,10 @@ mod tests {
 
     use super::*;
     use crate::{
-        cyclic_group::IsGroup, elliptic_curve::traits::EllipticCurveError,
-        field::element::FieldElement, unsigned_integer::element::U256,
+        cyclic_group::IsGroup,
+        elliptic_curve::traits::{EllipticCurveError, IsProjectivePoint},
+        field::element::FieldElement,
+        unsigned_integer::element::U256,
     };
 
     #[allow(clippy::upper_case_acronyms)]

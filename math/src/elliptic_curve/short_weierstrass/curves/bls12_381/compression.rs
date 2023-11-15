@@ -7,7 +7,9 @@ use crate::unsigned_integer::element::U256;
 
 #[cfg(feature = "std")]
 use crate::{
-    elliptic_curve::traits::FromAffine, errors::ByteConversionError, traits::ByteConversion,
+    elliptic_curve::traits::{FromAffine, IsProjectivePoint},
+    errors::ByteConversionError,
+    traits::ByteConversion,
 };
 #[cfg(feature = "std")]
 use std::{cmp::Ordering, ops::Neg};
@@ -104,7 +106,7 @@ pub fn compress_g1_point(point: &G1Point) -> Vec<u8> {
 mod tests {
     use super::{BLS12381FieldElement, G1Point};
     use crate::elliptic_curve::short_weierstrass::curves::bls12_381::curve::BLS12381Curve;
-    use crate::elliptic_curve::traits::{FromAffine, IsEllipticCurve};
+    use crate::elliptic_curve::traits::{FromAffine, IsEllipticCurve, IsProjectivePoint};
 
     #[cfg(feature = "std")]
     use super::{compress_g1_point, decompress_g1_point};

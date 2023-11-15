@@ -36,7 +36,8 @@ impl IsShortWeierstrass for BLS12377Curve {
 mod tests {
     use super::*;
     use crate::{
-        cyclic_group::IsGroup, elliptic_curve::traits::EllipticCurveError,
+        cyclic_group::IsGroup,
+        elliptic_curve::traits::{EllipticCurveError, IsProjectivePoint},
         field::element::FieldElement,
     };
 

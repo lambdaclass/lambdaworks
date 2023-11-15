@@ -74,7 +74,7 @@ mod tests {
     use crate::field::element::FieldElement;
     use crate::unsigned_integer::element::U384;
     //use crate::elliptic_curve::curves::test_curve_2::TestCurve2;
-    use crate::elliptic_curve::traits::{EllipticCurveError, IsEllipticCurve};
+    use crate::elliptic_curve::traits::{EllipticCurveError, IsEllipticCurve, IsProjectivePoint};
     use crate::field::extensions::quadratic::QuadraticExtensionFieldElement;
 
     #[allow(clippy::upper_case_acronyms)]
