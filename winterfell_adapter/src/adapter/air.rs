@@ -161,12 +161,13 @@ where
     }
 
     fn composition_poly_degree_bound(&self) -> usize {
-        self.public_inputs.composition_poly_degree_bound
+        self.winterfell_air.context().num_constraint_composition_columns() * self.trace_length()
     }
 
     fn compute_transition(
         &self,
         frame: &stark_platinum_prover::frame::Frame<Self::Field>,
+        periodic_values: &[FieldElement<Self::Field>],
         rap_challenges: &Self::RAPChallenges,
     ) -> Vec<FieldElement<Self::Field>> {
         let num_aux_columns = self.number_auxiliary_rap_columns();
@@ -180,6 +181,8 @@ where
             vec_lambda2winter(&second_step.get_row(0)[..num_main_columns]),
         );
 
+        let periodic_values = vec_lambda2winter(periodic_values);
+
         let mut main_result = vec![
             FieldElement::zero();
             self.winterfell_air
@@ -189,7 +192,7 @@ where
         self.winterfell_air
             .evaluate_transition::<FE>(
                 &main_frame,
-                &[],
+                &periodic_values,
                 &mut vec_lambda2winter(&main_result),
             ); // Periodic values not supported
 
@@ -214,7 +217,7 @@ where
             self.winterfell_air.evaluate_aux_transition(
                 &main_frame,
                 &aux_frame,
-                &[],
+                &periodic_values,
                 &rand_elements,
                 &mut vec_lambda2winter(&aux_result),
             );
@@ -265,6 +268,10 @@ where
     fn pub_inputs(&self) -> &Self::PublicInputs {
         &self.public_inputs
     }
+
+    fn get_periodic_column_values(&self) -> Vec<Vec<FieldElement<Self::Field>>> {
+        matrix_winter2lambda(&self.winterfell_air.get_periodic_column_values())
+    }
 }
 
 #[cfg(test)]
@@ -296,7 +303,6 @@ mod tests {
         lambda_proof_options.blowup_factor = 8;
         let assembler = Assembler::default();
 
-        // this is our program, we compile it from assembly code
         let program = assembler.compile("begin push.3 push.5 add end").unwrap();
 
         let winter_trace = processor::execute(&program, StackInputs::default(), DefaultHost::default(), *ProvingOptions::default().execution_options()).unwrap();
@@ -311,15 +317,14 @@ mod tests {
 
         let pub_inputs = AirAdapterPublicInputs {
             winterfell_public_inputs: pub_inputs,
-            transition_degrees: vec![1, 1],
-            transition_exemptions: vec![1, 1],
+            transition_degrees: vec![0; 182], // Not used, but still has to have 182 things because of zip's.
+            transition_exemptions: vec![2; 182],
             transition_offsets: vec![0, 1],
-            composition_poly_degree_bound: 8,
             trace: winter_trace.clone(),
             trace_info: winter_trace.get_info(),
         };
 
-        let trace = AirAdapter::<FibAir2Terms, TraceTable<_>, Felt>::convert_winterfell_trace_table(
+        let trace = AirAdapter::<FibAir2Terms, ExecutionTrace, Felt>::convert_winterfell_trace_table(
             winter_trace.main_segment().clone(),
         );
 
@@ -330,6 +335,13 @@ mod tests {
             MidenProverTranscript::new(&[]),
         )
         .unwrap();
+
+        assert!(MidenVerifier::verify::<AirAdapter<ProcessorAir, ExecutionTrace, Felt>>(
+            &proof,
+            &pub_inputs,
+            &lambda_proof_options,
+            MidenProverTranscript::new(&[]),
+        ));
     }
 
     #[test]
@@ -344,7 +356,6 @@ mod tests {
             transition_degrees: vec![1, 1],
             transition_exemptions: vec![1, 1],
             transition_offsets: vec![0, 1],
-            composition_poly_degree_bound: 8,
             trace: winter_trace,
             trace_info: TraceInfo::new(2, 8),
         };
@@ -380,7 +391,6 @@ mod tests {
             transition_degrees: vec![1, 1, 2],
             transition_exemptions: vec![1, 1, 1],
             transition_offsets: vec![0, 1],
-            composition_poly_degree_bound: 32,
             trace: RapTraceTable::from_cols(matrix_lambda2winter(&trace.columns())),
             trace_info,
         };

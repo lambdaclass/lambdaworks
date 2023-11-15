@@ -18,5 +18,4 @@ where
     pub(crate) transition_offsets: Vec<usize>,
     pub(crate) trace: T,
     pub(crate) trace_info: TraceInfo,
-    pub(crate) composition_poly_degree_bound: usize,
 }
