@@ -1,5 +1,3 @@
-use std::fmt::Display;
-
 use lambdaworks_math::field::{element::FieldElement, traits::IsFFTField};
 
 use crate::{

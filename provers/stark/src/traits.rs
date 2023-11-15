@@ -1,7 +1,7 @@
 use itertools::Itertools;
 use lambdaworks_math::{
     fft::{
-        cpu::roots_of_unity::get_powers_of_primitive_root_coset, errors::FFTError,
+        cpu::roots_of_unity::get_powers_of_primitive_root_coset,
         polynomial::FFTPoly,
     },
     field::{element::FieldElement, traits::IsFFTField},
