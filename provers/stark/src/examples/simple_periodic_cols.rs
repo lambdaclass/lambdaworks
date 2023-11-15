@@ -10,7 +10,7 @@ use crate::{
     transcript::IsStarkTranscript,
 };
 
-/// A fibonacci sequence with a twist. It has two columns
+/// A sequence that uses periodic columns. It has two columns
 /// - C1: at each step adds the last two values or does
 ///       nothing depending on C2.
 /// - C2: it is a binary column that cycles around [0, 1]
@@ -25,17 +25,17 @@ use crate::{
 ///   4    |   0     ...
 ///   8    |   1
 #[derive(Clone)]
-pub struct FibonacciPeriodicAIR<F>
+pub struct SimplePeriodicAIR<F>
 where
     F: IsFFTField,
 {
     context: AirContext,
     trace_length: usize,
-    pub_inputs: FibonacciPeriodicPublicInputs<F>,
+    pub_inputs: SimplePeriodicPublicInputs<F>,
 }
 
 #[derive(Clone, Debug)]
-pub struct FibonacciPeriodicPublicInputs<F>
+pub struct SimplePeriodicPublicInputs<F>
 where
     F: IsFFTField,
 {
@@ -43,13 +43,13 @@ where
     pub a1: FieldElement<F>,
 }
 
-impl<F> AIR for FibonacciPeriodicAIR<F>
+impl<F> AIR for SimplePeriodicAIR<F>
 where
     F: IsFFTField,
 {
     type Field = F;
     type RAPChallenges = ();
-    type PublicInputs = FibonacciPeriodicPublicInputs<Self::Field>;
+    type PublicInputs = SimplePeriodicPublicInputs<Self::Field>;
 
     const STEP_SIZE: usize = 1;
 
