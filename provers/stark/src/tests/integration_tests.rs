@@ -7,6 +7,7 @@ use crate::{
         dummy_air::{self, DummyAIR},
         fibonacci_2_cols_shifted::{self, Fibonacci2ColsShifted},
         fibonacci_2_columns::{self, Fibonacci2ColsAIR},
+        fibonacci_periodic_cols::{self, FibonacciPeriodicAIR, FibonacciPeriodicPublicInputs},
         fibonacci_rap::{fibonacci_rap_trace, FibonacciRAP, FibonacciRAPPublicInputs},
         quadratic_air::{self, QuadraticAIR, QuadraticPublicInputs},
         simple_fibonacci::{self, FibonacciAIR, FibonacciPublicInputs},
@@ -74,6 +75,62 @@ fn test_prove_fib17() {
         &proof_options,
         StoneProverTranscript::new(&[]),
     ));
+}
+
+#[test_log::test]
+fn test_prove_fib_periodic_8() {
+    let trace = fibonacci_periodic_cols::fibonacci_trace::<Stark252PrimeField>(8);
+
+    let proof_options = ProofOptions::default_test_options();
+
+    let pub_inputs = FibonacciPeriodicPublicInputs {
+        a0: Felt252::one(),
+        a1: Felt252::from(8),
+    };
+
+    let proof = Prover::prove::<FibonacciPeriodicAIR<Stark252PrimeField>>(
+        &trace,
+        &pub_inputs,
+        &proof_options,
+        StoneProverTranscript::new(&[]),
+    )
+    .unwrap();
+    assert!(
+        Verifier::verify::<FibonacciPeriodicAIR<Stark252PrimeField>>(
+            &proof,
+            &pub_inputs,
+            &proof_options,
+            StoneProverTranscript::new(&[]),
+        )
+    );
+}
+
+#[test_log::test]
+fn test_prove_fib_periodic_32() {
+    let trace = fibonacci_periodic_cols::fibonacci_trace::<Stark252PrimeField>(32);
+
+    let proof_options = ProofOptions::default_test_options();
+
+    let pub_inputs = FibonacciPeriodicPublicInputs {
+        a0: Felt252::one(),
+        a1: Felt252::from(32768),
+    };
+
+    let proof = Prover::prove::<FibonacciPeriodicAIR<Stark252PrimeField>>(
+        &trace,
+        &pub_inputs,
+        &proof_options,
+        StoneProverTranscript::new(&[]),
+    )
+    .unwrap();
+    assert!(
+        Verifier::verify::<FibonacciPeriodicAIR<Stark252PrimeField>>(
+            &proof,
+            &pub_inputs,
+            &proof_options,
+            StoneProverTranscript::new(&[]),
+        )
+    );
 }
 
 #[test_log::test]

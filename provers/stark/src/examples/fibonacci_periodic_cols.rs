@@ -10,18 +10,32 @@ use crate::{
     transcript::IsStarkTranscript,
 };
 
+/// A fibonacci sequence with a twist. It has two columns
+/// - C1: at each step adds the last two values or does
+///       nothing depending on C2.
+/// - C2: it is a binary column that cycles around [0, 1]
+///
+///   C1   |   C2
+///   1    |   0     Boundary col1 = 1
+///   1    |   1     Boundary col1 = 1
+///   1    |   0     Does nothing
+///   2    |   1     Adds 1 + 1
+///   2    |   0     Does nothing
+///   4    |   1     Adds 2 + 2
+///   4    |   0     ...
+///   8    |   1
 #[derive(Clone)]
-pub struct FibonacciAIR<F>
+pub struct FibonacciPeriodicAIR<F>
 where
     F: IsFFTField,
 {
     context: AirContext,
     trace_length: usize,
-    pub_inputs: FibonacciPublicInputs<F>,
+    pub_inputs: FibonacciPeriodicPublicInputs<F>,
 }
 
 #[derive(Clone, Debug)]
-pub struct FibonacciPublicInputs<F>
+pub struct FibonacciPeriodicPublicInputs<F>
 where
     F: IsFFTField,
 {
@@ -29,13 +43,13 @@ where
     pub a1: FieldElement<F>,
 }
 
-impl<F> AIR for FibonacciAIR<F>
+impl<F> AIR for FibonacciPeriodicAIR<F>
 where
     F: IsFFTField,
 {
     type Field = F;
     type RAPChallenges = ();
-    type PublicInputs = FibonacciPublicInputs<Self::Field>;
+    type PublicInputs = FibonacciPeriodicPublicInputs<Self::Field>;
 
     const STEP_SIZE: usize = 1;
 
@@ -82,7 +96,7 @@ where
     fn compute_transition(
         &self,
         frame: &Frame<Self::Field>,
-        _periodic_values: &[FieldElement<Self::Field>],
+        periodic_values: &[FieldElement<Self::Field>],
         _rap_challenges: &Self::RAPChallenges,
     ) -> Vec<FieldElement<Self::Field>> {
         let first_step = frame.get_evaluation_step(0);
@@ -93,7 +107,9 @@ where
         let a1 = second_step.get_evaluation_element(0, 0);
         let a2 = third_step.get_evaluation_element(0, 0);
 
-        vec![a2 - a1 - a0]
+        let s = &periodic_values[0];
+
+        vec![s * (a2 - a1 - a0)]
     }
 
     fn boundary_constraints(
@@ -101,13 +117,18 @@ where
         _rap_challenges: &Self::RAPChallenges,
     ) -> BoundaryConstraints<Self::Field> {
         let a0 = BoundaryConstraint::new_simple(0, self.pub_inputs.a0.clone());
-        let a1 = BoundaryConstraint::new_simple(1, self.pub_inputs.a1.clone());
+        let a1 =
+            BoundaryConstraint::new_simple(self.trace_length() - 1, self.pub_inputs.a1.clone());
 
         BoundaryConstraints::from_constraints(vec![a0, a1])
     }
 
     fn number_auxiliary_rap_columns(&self) -> usize {
         0
+    }
+
+    fn get_periodic_column_values(&self) -> Vec<Vec<FieldElement<Self::Field>>> {
+        vec![vec![FieldElement::zero(), FieldElement::one()]]
     }
 
     fn context(&self) -> &AirContext {
@@ -123,18 +144,20 @@ where
     }
 }
 
-pub fn fibonacci_trace<F: IsFFTField>(
-    initial_values: [FieldElement<F>; 2],
-    trace_length: usize,
-) -> TraceTable<F> {
+pub fn fibonacci_trace<F: IsFFTField>(trace_length: usize) -> TraceTable<F> {
     let mut ret: Vec<FieldElement<F>> = vec![];
 
-    ret.push(initial_values[0].clone());
-    ret.push(initial_values[1].clone());
+    ret.push(FieldElement::one());
+    ret.push(FieldElement::one());
+    ret.push(FieldElement::one());
 
-    for i in 2..(trace_length) {
-        ret.push(ret[i - 1].clone() + ret[i - 2].clone());
+    let mut accum = FieldElement::from(2);
+    while ret.len() < trace_length - 1 {
+        ret.push(accum.clone());
+        ret.push(accum.clone());
+        accum = &accum + &accum;
     }
+    ret.push(accum);
 
     TraceTable::from_columns(vec![ret], 1)
 }
