@@ -1,9 +1,6 @@
 use itertools::Itertools;
 use lambdaworks_math::{
-    fft::{
-        cpu::roots_of_unity::get_powers_of_primitive_root_coset,
-        polynomial::FFTPoly,
-    },
+    fft::{cpu::roots_of_unity::get_powers_of_primitive_root_coset, polynomial::FFTPoly},
     field::{element::FieldElement, traits::IsFFTField},
     polynomial::Polynomial,
 };
