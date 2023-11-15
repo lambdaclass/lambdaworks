@@ -102,7 +102,7 @@ where
             transition_offsets: pub_inputs.transition_offsets.to_owned(),
             num_transition_constraints: winterfell_context.num_transition_constraints(),
             trace_columns: pub_inputs.trace_info.width(),
-            num_transition_exemptions: winterfell_context.num_transition_exemptions(),
+            num_transition_exemptions: pub_inputs.num_transition_exemptions,
         };
 
         Self {
@@ -300,7 +300,7 @@ mod tests {
     #[test]
     fn prove_miden() {
         let mut lambda_proof_options = ProofOptions::default_test_options();
-        lambda_proof_options.blowup_factor = 8;
+        lambda_proof_options.blowup_factor = 32;
         let assembler = Assembler::default();
 
         let program = assembler.compile("begin push.3 push.5 add end").unwrap();
@@ -318,10 +318,11 @@ mod tests {
         let pub_inputs = AirAdapterPublicInputs {
             winterfell_public_inputs: pub_inputs,
             transition_degrees: vec![0; 182], // Not used, but still has to have 182 things because of zip's.
-            transition_exemptions: vec![2; 182],
+            transition_exemptions: vec![1; 182], // TODO: Check
             transition_offsets: vec![0, 1],
             trace: winter_trace.clone(),
             trace_info: winter_trace.get_info(),
+            num_transition_exemptions: 1 // TODO: Check
         };
 
         let trace = AirAdapter::<FibAir2Terms, ExecutionTrace, Felt>::convert_winterfell_trace_table(
@@ -358,6 +359,7 @@ mod tests {
             transition_offsets: vec![0, 1],
             trace: winter_trace,
             trace_info: TraceInfo::new(2, 8),
+            num_transition_exemptions: 1
         };
 
         let proof = MidenProver::prove::<AirAdapter<FibAir2Terms, TraceTable<_>, Felt>>(
@@ -393,6 +395,7 @@ mod tests {
             transition_offsets: vec![0, 1],
             trace: RapTraceTable::from_cols(matrix_lambda2winter(&trace.columns())),
             trace_info,
+            num_transition_exemptions: 1
         };
 
         let proof = MidenProver::prove::<AirAdapter<FibonacciRAP, RapTraceTable<_>, Felt>>(
