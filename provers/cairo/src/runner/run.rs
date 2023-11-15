@@ -88,7 +88,7 @@ pub fn run_program(
     entrypoint_function: Option<&str>,
     layout: CairoLayout,
     program_content: &[u8],
-) -> Result<(RegisterStates, CairoMemory, usize), Error> {
+) -> Result<(RegisterStates, CairoMemory, usize, PublicInputs), Error> {
     // default value for entrypoint is "main"
     let entrypoint = entrypoint_function.unwrap_or("main");
 
@@ -156,82 +156,56 @@ pub fn run_program(
         None
     };
 
-    let range_check_builtin_range = range_check.map(|(start, end)| Range {
-        start: start as u64,
-        end: end as u64,
-    });
+    let vm_public_inputs = runner.get_air_public_input(&vm).unwrap();
+    let num_steps = register_states.steps();
+    let public_inputs = PublicInputs {
+        pc_init: Felt252::from(register_states.rows[0].pc),
+        ap_init: Felt252::from(register_states.rows[0].ap),
+        fp_init: Felt252::from(register_states.rows[0].fp),
+        pc_final: Felt252::from(register_states.rows[num_steps - 1].pc),
+        ap_final: Felt252::from(register_states.rows[num_steps - 1].ap),
+        range_check_min: Some(vm_public_inputs.rc_min as u16),
+        range_check_max: Some(vm_public_inputs.rc_max as u16),
+        // memory_segments,
+        memory_segments: HashMap::new(),
+        // public_memory,
+        public_memory: HashMap::new(),
+        num_steps,
+        codelen: data_len,
+    };
 
-    // let vm_public_inputs = runner.get_air_public_input(&vm).unwrap();
-    // let memory_segments =
-    //     create_memory_segment_map(range_check_builtin_range.clone(), output_range);
-
-    // let public_memory = vm_public_inputs.public_memory.iter().fold(
-    //     HashMap::<Felt252, Felt252>::new(),
-    //     |mut acc, public_memory_entry| {
-    //         if let Some(v) = &public_memory_entry.value {
-    //             // ! public_memory_entry.page is not used
-    //             acc.insert(
-    //                 Felt252::from(public_memory_entry.address as u64),
-    //                 Felt252::from(from_vm_felt(v.clone())),
-    //             );
-    //         } else {
-    //             panic!();
-    //         }
-    //         acc
-    //     },
-    // );
-
-    // let num_steps = register_states.steps();
-    // let public_inputs = PublicInputs {
-    //     pc_init: Felt252::from(register_states.rows[0].pc),
-    //     ap_init: Felt252::from(register_states.rows[0].ap),
-    //     fp_init: Felt252::from(register_states.rows[0].fp),
-    //     pc_final: Felt252::from(register_states.rows[num_steps - 1].pc),
-    //     ap_final: Felt252::from(register_states.rows[num_steps - 1].ap),
-    //     range_check_min: Some(vm_public_inputs.rc_min as u16),
-    //     range_check_max: Some(vm_public_inputs.rc_max as u16),
-    //     memory_segments,
-    //     public_memory,
-    //     num_steps,
-    //     codelen: data_len,
-    // };
-
-    Ok((
-        register_states,
-        cairo_mem,
-        data_len,
-        // public_inputs,
-    ))
+    Ok((register_states, cairo_mem, data_len, public_inputs))
 }
 
 pub fn generate_prover_args(
     program_content: &[u8],
     layout: CairoLayout,
 ) -> Result<(TraceTable<Stark252PrimeField>, PublicInputs), Error> {
-    let (register_states, memory, program_size) = run_program(None, layout, program_content)?;
+    let (register_states, memory, program_size, public_inputs) =
+        run_program(None, layout, program_content)?;
 
     let mut pub_inputs = PublicInputs::from_regs_and_mem(&register_states, &memory, program_size);
 
     let main_trace = build_main_trace(&register_states, &memory, &mut pub_inputs);
 
-    // println!(
-    //     "min\nGot {}, Expected {}",
-    //     public_inputs.range_check_min.unwrap(),
-    //     pub_inputs.range_check_min.unwrap()
-    // );
+    println!(
+        "min\nGot {}, Expected {}",
+        public_inputs.range_check_min.unwrap(),
+        pub_inputs.range_check_min.unwrap()
+    );
 
     // // testing
-    // pub_inputs.pc_init = public_inputs.pc_init;
-    // pub_inputs.ap_init = public_inputs.ap_init;
-    // pub_inputs.fp_init = public_inputs.fp_init;
-    // pub_inputs.pc_final = public_inputs.pc_final;
-    // pub_inputs.ap_final = public_inputs.ap_final;
-    // // pub_inputs.range_check_min = public_inputs.range_check_min; // breaks
-    // pub_inputs.range_check_max = public_inputs.range_check_max;
-    // pub_inputs.memory_segments = public_inputs.memory_segments;
+    pub_inputs.pc_init = public_inputs.pc_init;
+    pub_inputs.ap_init = public_inputs.ap_init;
+    pub_inputs.fp_init = public_inputs.fp_init;
+    pub_inputs.pc_final = public_inputs.pc_final;
+    pub_inputs.ap_final = public_inputs.ap_final;
+    pub_inputs.range_check_min = public_inputs.range_check_min;
+    pub_inputs.range_check_max = public_inputs.range_check_max;
+    // pub_inputs.memory_segments = public_inputs.memory_segments; // empty
     // // pub_inputs.public_memory = public_inputs.public_memory; // breaks
-    // pub_inputs.num_steps = public_inputs.num_steps;
-    // pub_inputs.codelen = public_inputs.codelen;
+    pub_inputs.num_steps = public_inputs.num_steps;
+    pub_inputs.codelen = public_inputs.codelen;
 
     Ok((main_trace, pub_inputs))
 }
