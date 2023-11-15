@@ -9,11 +9,10 @@ use super::{
     },
     register_states::RegisterStates,
 };
-use crate::air::{EXTRA_ADDR, RC_HOLES};
 use crate::{
     air::{
-        MemorySegment, PublicInputs, FRAME_DST_ADDR, FRAME_OP0_ADDR, FRAME_OP1_ADDR, FRAME_PC,
-        OFF_DST, OFF_OP0, OFF_OP1,
+        PublicInputs, EXTRA_ADDR, FRAME_DST_ADDR, FRAME_OP0_ADDR, FRAME_OP1_ADDR, FRAME_PC,
+        OFF_DST, OFF_OP0, OFF_OP1, RC_HOLES,
     },
     Felt252,
 };
@@ -22,7 +21,6 @@ use lambdaworks_math::{
     unsigned_integer::element::UnsignedInteger,
 };
 use stark_platinum_prover::trace::TraceTable;
-use std::ops::Range;
 
 type CairoTraceTable = TraceTable<Stark252PrimeField>;
 
@@ -49,7 +47,7 @@ pub fn build_main_trace(
     memory: &CairoMemory,
     public_input: &mut PublicInputs,
 ) -> CairoTraceTable {
-    let mut main_trace = build_cairo_execution_trace(register_states, memory, public_input);
+    let mut main_trace = build_cairo_execution_trace(register_states, memory);
 
     let mut address_cols =
         main_trace.merge_columns(&[FRAME_PC, FRAME_DST_ADDR, FRAME_OP0_ADDR, FRAME_OP1_ADDR]);
@@ -198,7 +196,6 @@ fn fill_memory_holes(trace: &mut CairoTraceTable, memory_holes: &[Felt252]) {
 pub fn build_cairo_execution_trace(
     raw_trace: &RegisterStates,
     memory: &CairoMemory,
-    public_inputs: &PublicInputs,
 ) -> CairoTraceTable {
     let n_steps = raw_trace.steps();
 
@@ -285,38 +282,7 @@ pub fn build_cairo_execution_trace(
     trace_cols.push(extra_vals);
     trace_cols.push(rc_holes);
 
-    if let Some(range_check_builtin_range) = public_inputs
-        .memory_segments
-        .get(&MemorySegment::RangeCheck)
-    {
-        add_rc_builtin_columns(&mut trace_cols, range_check_builtin_range.clone(), memory);
-    }
-
     TraceTable::from_columns(trace_cols, 1)
-}
-
-// Build range-check builtin columns: rc_0, rc_1, ... , rc_7, rc_value
-fn add_rc_builtin_columns(
-    trace_cols: &mut Vec<Vec<Felt252>>,
-    range_check_builtin_range: Range<u64>,
-    memory: &CairoMemory,
-) {
-    let range_checked_values: Vec<&Felt252> = range_check_builtin_range
-        .map(|addr| memory.get(&addr).unwrap())
-        .collect();
-    let mut rc_trace_columns = decompose_rc_values_into_trace_columns(&range_checked_values);
-
-    // rc decomposition columns are appended with zeros and then pushed to the trace table
-    rc_trace_columns.iter_mut().for_each(|column| {
-        column.resize(trace_cols[0].len(), Felt252::zero());
-        trace_cols.push(column.to_vec())
-    });
-
-    let mut rc_values_dereferenced: Vec<Felt252> =
-        range_checked_values.iter().map(|&x| *x).collect();
-    rc_values_dereferenced.resize(trace_cols[0].len(), Felt252::zero());
-
-    trace_cols.push(rc_values_dereferenced);
 }
 
 /// Returns the vector of res values.
@@ -551,6 +517,9 @@ fn rows_to_cols<const N: usize>(rows: &[[Felt252; N]]) -> Vec<Vec<Felt252>> {
         .collect::<Vec<Vec<Felt252>>>()
 }
 
+// NOTE: Leaving this function despite not being used anywhere. It could be useful once
+// we implement layouts with the range-check builtin.
+#[allow(dead_code)]
 fn decompose_rc_values_into_trace_columns(rc_values: &[&Felt252]) -> [Vec<Felt252>; 8] {
     let mask = UnsignedInteger::from_hex("FFFF").unwrap();
     let mut rc_base_types: Vec<UnsignedInteger<4>> =
