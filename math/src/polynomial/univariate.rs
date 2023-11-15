@@ -84,16 +84,8 @@ where
         Ok(result)
     }
 
-    //URGENT_TODO: address the clone
-    pub fn evaluate_slice(&self, input: &[FieldElement<F>]) -> Vec<FieldElement<F>> {
-        input
-            .into_par_iter()
-            .map(|x| self.evaluate(&[x.clone()]).unwrap())
-            .collect()
-    }
-
     /// Computes quotient with `x - b` in place.
-    fn ruffini_division_inplace(&mut self, b: &FieldElement<F>) {
+    pub fn ruffini_division_inplace(&mut self, b: &FieldElement<F>) {
         let mut c = FieldElement::zero();
         // TODO: can we add rayon to this without a race condition since we are swapping mem??
         self.coefficients.iter_mut().rev().map(|coeff| {
@@ -212,8 +204,8 @@ where
     /// \[c_0, c_1, c_2, ..., c_n\]
     /// that represents the polynomial
     /// c_0 + c_1 * X + c_2 * X^2 + ... + c_n * X^n
-    fn coeffs(&self) -> &[FieldElement<F>] {
-        &self.coefficients
+    fn coeffs(&self) -> Vec<FieldElement<F>> {
+        self.coefficients.clone()
     }
 
     fn len(&self) -> usize {
@@ -1052,7 +1044,7 @@ mod tests {
     fn evaluate_slice() {
         let three = FE::new(3);
         let p = UnivariatePolynomial::new(1, &[three]);
-        let ret = p.evaluate_slice(&[FE::new(10), FE::new(15)]);
+        let ret = p.evaluate_slice(&[FE::new(10), FE::new(15)]).unwrap();
         assert_eq!(ret, [three, three]);
     }
 

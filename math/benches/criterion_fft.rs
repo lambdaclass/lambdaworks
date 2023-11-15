@@ -1,6 +1,7 @@
 #![allow(dead_code)] // clippy has false positive in benchmarks
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use lambdaworks_math::field::traits::RootsConfig;
+use lambdaworks_math::polynomial::traits::polynomial::IsPolynomial;
 use utils::fft_functions;
 use utils::stark252_utils;
 
@@ -97,9 +98,7 @@ fn poly_evaluation_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("Polynomial evaluation");
 
     for poly in SIZE_ORDERS.map(stark252_utils::rand_poly) {
-        group.throughput(criterion::Throughput::Elements(
-            poly.coefficients().len() as u64
-        ));
+        group.throughput(criterion::Throughput::Elements(poly.coeffs().len() as u64));
         group.bench_with_input("Sequential FFT", &poly, |bench, poly| {
             bench.iter_with_large_drop(|| {
                 fft_functions::poly_evaluate_fft(poly);

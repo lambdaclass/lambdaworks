@@ -8,7 +8,7 @@ use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::fft::polynomial::FFTPoly;
 use lambdaworks_math::field::traits::IsFFTField;
 use lambdaworks_math::field::{element::FieldElement, traits::IsField};
-use lambdaworks_math::polynomial::Polynomial;
+use lambdaworks_math::polynomial::univariate::UnivariatePolynomial;
 use lambdaworks_math::traits::{ByteConversion, Serializable};
 
 // TODO: implement getters
@@ -34,29 +34,35 @@ impl<F: IsField> Witness<F> {
 
 // TODO: implement getters
 #[derive(Clone)]
-pub struct CommonPreprocessedInput<F: IsField> {
+pub struct CommonPreprocessedInput<F: IsField>
+where
+    <F as IsField>::BaseType: Send + Sync,
+{
     pub n: usize,
     /// Number of constraints
     pub domain: Vec<FieldElement<F>>,
     pub omega: FieldElement<F>,
     pub k1: FieldElement<F>,
 
-    pub ql: Polynomial<FieldElement<F>>,
-    pub qr: Polynomial<FieldElement<F>>,
-    pub qo: Polynomial<FieldElement<F>>,
-    pub qm: Polynomial<FieldElement<F>>,
-    pub qc: Polynomial<FieldElement<F>>,
+    pub ql: UnivariatePolynomial<F>,
+    pub qr: UnivariatePolynomial<F>,
+    pub qo: UnivariatePolynomial<F>,
+    pub qm: UnivariatePolynomial<F>,
+    pub qc: UnivariatePolynomial<F>,
 
-    pub s1: Polynomial<FieldElement<F>>,
-    pub s2: Polynomial<FieldElement<F>>,
-    pub s3: Polynomial<FieldElement<F>>,
+    pub s1: UnivariatePolynomial<F>,
+    pub s2: UnivariatePolynomial<F>,
+    pub s3: UnivariatePolynomial<F>,
 
     pub s1_lagrange: Vec<FieldElement<F>>,
     pub s2_lagrange: Vec<FieldElement<F>>,
     pub s3_lagrange: Vec<FieldElement<F>>,
 }
 
-impl<F: IsFFTField> CommonPreprocessedInput<F> {
+impl<F: IsFFTField> CommonPreprocessedInput<F>
+where
+    <F as IsField>::BaseType: Send + Sync,
+{
     pub fn from_constraint_system(
         system: &ConstraintSystem<F>,
         order_r_minus_1_root_unity: &FieldElement<F>,
@@ -86,14 +92,14 @@ impl<F: IsFFTField> CommonPreprocessedInput<F> {
             n,
             omega,
             k1: order_r_minus_1_root_unity.clone(),
-            ql: Polynomial::interpolate_fft(&ql).unwrap(), // TODO: Remove unwraps
-            qr: Polynomial::interpolate_fft(&qr).unwrap(),
-            qo: Polynomial::interpolate_fft(&qo).unwrap(),
-            qm: Polynomial::interpolate_fft(&qm).unwrap(),
-            qc: Polynomial::interpolate_fft(&qc).unwrap(),
-            s1: Polynomial::interpolate_fft(&s1_lagrange).unwrap(),
-            s2: Polynomial::interpolate_fft(&s2_lagrange).unwrap(),
-            s3: Polynomial::interpolate_fft(&s3_lagrange).unwrap(),
+            ql: UnivariatePolynomial::interpolate_fft(&ql).unwrap(), // TODO: Remove unwraps
+            qr: UnivariatePolynomial::interpolate_fft(&qr).unwrap(),
+            qo: UnivariatePolynomial::interpolate_fft(&qo).unwrap(),
+            qm: UnivariatePolynomial::interpolate_fft(&qm).unwrap(),
+            qc: UnivariatePolynomial::interpolate_fft(&qc).unwrap(),
+            s1: UnivariatePolynomial::interpolate_fft(&s1_lagrange).unwrap(),
+            s2: UnivariatePolynomial::interpolate_fft(&s2_lagrange).unwrap(),
+            s3: UnivariatePolynomial::interpolate_fft(&s3_lagrange).unwrap(),
             s1_lagrange,
             s2_lagrange,
             s3_lagrange,
@@ -116,7 +122,10 @@ pub struct VerificationKey<G1Point> {
 pub fn setup<F: IsField, CS: IsCommitmentScheme<F>>(
     common_input: &CommonPreprocessedInput<F>,
     commitment_scheme: &CS,
-) -> VerificationKey<CS::Commitment> {
+) -> VerificationKey<CS::Commitment>
+where
+    <F as IsField>::BaseType: Send + Sync,
+{
     VerificationKey {
         qm_1: commitment_scheme.commit(&common_input.qm),
         ql_1: commitment_scheme.commit(&common_input.ql),

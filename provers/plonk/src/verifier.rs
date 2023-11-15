@@ -73,6 +73,7 @@ impl<F: IsField + IsFFTField, CS: IsCommitmentScheme<F>> Verifier<F, CS> {
         CS: IsCommitmentScheme<F>,
         CS::Commitment: Serializable + IsGroup,
         FieldElement<F>: ByteConversion,
+        <F as IsField>::BaseType: Send + Sync,
     {
         // TODO: First three steps are validations: belonging to main subgroup, belonging to prime field.
         let [beta, gamma, alpha, zeta, upsilon] = self.compute_challenges(p, vk, public_input);

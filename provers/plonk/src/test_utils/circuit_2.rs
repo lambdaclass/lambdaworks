@@ -5,7 +5,7 @@ use crate::setup::{CommonPreprocessedInput, Witness};
 use lambdaworks_math::{
     elliptic_curve::short_weierstrass::curves::bls12_381::default_types::{FrElement, FrField},
     field::{element::FieldElement, traits::IsFFTField},
-    polynomial::Polynomial,
+    polynomial::univariate::UnivariatePolynomial,
 };
 
 pub const ORDER_8_ROOT_UNITY: FrElement = FrElement::from_hex_unchecked(
@@ -40,7 +40,7 @@ pub fn test_common_preprocessed_input_2() -> CommonPreprocessedInput<FrField> {
         k1: ORDER_R_MINUS_1_ROOT_UNITY,
         domain: domain.clone(),
 
-        ql: Polynomial::interpolate(
+        ql: UnivariatePolynomial::interpolate(
             &domain,
             &[
                 -FieldElement::one(),
@@ -54,7 +54,7 @@ pub fn test_common_preprocessed_input_2() -> CommonPreprocessedInput<FrField> {
             ],
         )
         .unwrap(),
-        qr: Polynomial::interpolate(
+        qr: UnivariatePolynomial::interpolate(
             &domain,
             &[
                 FieldElement::zero(),
@@ -68,7 +68,7 @@ pub fn test_common_preprocessed_input_2() -> CommonPreprocessedInput<FrField> {
             ],
         )
         .unwrap(),
-        qo: Polynomial::interpolate(
+        qo: UnivariatePolynomial::interpolate(
             &domain,
             &[
                 FieldElement::zero(),
@@ -82,7 +82,7 @@ pub fn test_common_preprocessed_input_2() -> CommonPreprocessedInput<FrField> {
             ],
         )
         .unwrap(),
-        qm: Polynomial::interpolate(
+        qm: UnivariatePolynomial::interpolate(
             &domain,
             &[
                 FieldElement::zero(),
@@ -96,7 +96,7 @@ pub fn test_common_preprocessed_input_2() -> CommonPreprocessedInput<FrField> {
             ],
         )
         .unwrap(),
-        qc: Polynomial::interpolate(
+        qc: UnivariatePolynomial::interpolate(
             &domain,
             &[
                 FieldElement::zero(),
@@ -111,9 +111,9 @@ pub fn test_common_preprocessed_input_2() -> CommonPreprocessedInput<FrField> {
         )
         .unwrap(),
 
-        s1: Polynomial::interpolate(&domain, &s1_lagrange).unwrap(),
-        s2: Polynomial::interpolate(&domain, &s2_lagrange).unwrap(),
-        s3: Polynomial::interpolate(&domain, &s3_lagrange).unwrap(),
+        s1: UnivariatePolynomial::interpolate(&domain, &s1_lagrange).unwrap(),
+        s2: UnivariatePolynomial::interpolate(&domain, &s2_lagrange).unwrap(),
+        s3: UnivariatePolynomial::interpolate(&domain, &s3_lagrange).unwrap(),
 
         s1_lagrange,
         s2_lagrange,

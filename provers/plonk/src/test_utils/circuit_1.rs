@@ -6,7 +6,7 @@ use lambdaworks_math::fft::polynomial::FFTPoly;
 use lambdaworks_math::{
     elliptic_curve::short_weierstrass::curves::bls12_381::default_types::{FrElement, FrField},
     field::{element::FieldElement, traits::IsFFTField},
-    polynomial::Polynomial,
+    polynomial::univariate::UnivariatePolynomial,
 };
 
 pub const ORDER_4_ROOT_UNITY: FrElement =
@@ -40,7 +40,7 @@ pub fn test_common_preprocessed_input_1() -> CommonPreprocessedInput<FrField> {
         domain,
         k1: ORDER_R_MINUS_1_ROOT_UNITY,
         // domain: domain.clone(),
-        ql: Polynomial::interpolate_fft(&[
+        ql: UnivariatePolynomial::interpolate_fft(&[
             -FieldElement::one(),
             -FieldElement::one(),
             FieldElement::zero(),
@@ -48,7 +48,7 @@ pub fn test_common_preprocessed_input_1() -> CommonPreprocessedInput<FrField> {
         ])
         .unwrap(),
 
-        qr: Polynomial::interpolate_fft(&[
+        qr: UnivariatePolynomial::interpolate_fft(&[
             FieldElement::zero(),
             FieldElement::zero(),
             FieldElement::zero(),
@@ -56,7 +56,7 @@ pub fn test_common_preprocessed_input_1() -> CommonPreprocessedInput<FrField> {
         ])
         .unwrap(),
 
-        qo: Polynomial::interpolate_fft(&[
+        qo: UnivariatePolynomial::interpolate_fft(&[
             FieldElement::zero(),
             FieldElement::zero(),
             -FieldElement::one(),
@@ -64,7 +64,7 @@ pub fn test_common_preprocessed_input_1() -> CommonPreprocessedInput<FrField> {
         ])
         .unwrap(),
 
-        qm: Polynomial::interpolate_fft(&[
+        qm: UnivariatePolynomial::interpolate_fft(&[
             FieldElement::zero(),
             FieldElement::zero(),
             FieldElement::one(),
@@ -72,7 +72,7 @@ pub fn test_common_preprocessed_input_1() -> CommonPreprocessedInput<FrField> {
         ])
         .unwrap(),
 
-        qc: Polynomial::interpolate_fft(&[
+        qc: UnivariatePolynomial::interpolate_fft(&[
             FieldElement::from(0_u64),
             FieldElement::from(0_u64),
             FieldElement::zero(),
@@ -80,9 +80,9 @@ pub fn test_common_preprocessed_input_1() -> CommonPreprocessedInput<FrField> {
         ])
         .unwrap(),
 
-        s1: Polynomial::interpolate_fft(&s1_lagrange).unwrap(),
-        s2: Polynomial::interpolate_fft(&s2_lagrange).unwrap(),
-        s3: Polynomial::interpolate_fft(&s3_lagrange).unwrap(),
+        s1: UnivariatePolynomial::interpolate_fft(&s1_lagrange).unwrap(),
+        s2: UnivariatePolynomial::interpolate_fft(&s2_lagrange).unwrap(),
+        s3: UnivariatePolynomial::interpolate_fft(&s3_lagrange).unwrap(),
 
         s1_lagrange,
         s2_lagrange,

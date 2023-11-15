@@ -4,19 +4,24 @@ use crate::trace::TraceTable;
 use super::domain::Domain;
 use super::traits::AIR;
 use lambdaworks_math::fft::polynomial::FFTPoly;
+use lambdaworks_math::field::traits::IsField;
+use lambdaworks_math::polynomial::traits::polynomial::IsPolynomial;
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsFFTField},
-    polynomial::Polynomial,
+    polynomial::univariate::UnivariatePolynomial,
 };
 use log::{error, info};
 
 /// Validates that the trace is valid with respect to the supplied AIR constraints
 pub fn validate_trace<F: IsFFTField, A: AIR<Field = F>>(
     air: &A,
-    trace_polys: &[Polynomial<FieldElement<A::Field>>],
+    trace_polys: &[UnivariatePolynomial<A::Field>],
     domain: &Domain<A::Field>,
     rap_challenges: &A::RAPChallenges,
-) -> bool {
+) -> bool
+where
+    <F as IsField>::BaseType: Send + Sync,
+{
     info!("Starting constraints validation over trace...");
     let mut ret = true;
 
@@ -83,16 +88,19 @@ pub fn validate_trace<F: IsFFTField, A: AIR<Field = F>>(
 }
 
 pub fn check_boundary_polys_divisibility<F: IsFFTField>(
-    boundary_polys: Vec<Polynomial<FieldElement<F>>>,
-    boundary_zerofiers: Vec<Polynomial<FieldElement<F>>>,
-) {
+    boundary_polys: Vec<UnivariatePolynomial<F>>,
+    boundary_zerofiers: Vec<UnivariatePolynomial<F>>,
+) where
+    <F as lambdaworks_math::field::traits::IsField>::BaseType: Sync + Send,
+{
     for (i, (poly, z)) in boundary_polys
         .iter()
         .zip(boundary_zerofiers.iter())
         .enumerate()
     {
         let (_, b) = poly.clone().long_division_with_remainder(z);
-        if b != Polynomial::zero() {
+        //TODO: implement PartialEq
+        if b.coeffs() != UnivariatePolynomial::zero().coefficients {
             error!("Boundary poly {} is not divisible by its zerofier", i);
         }
     }

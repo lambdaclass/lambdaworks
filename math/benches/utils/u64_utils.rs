@@ -2,9 +2,10 @@ use const_random::const_random;
 use lambdaworks_math::{
     field::element::FieldElement,
     field::fields::{
-        fft_friendly::stark_252_prime_field::Stark252PrimeField, u64_prime_field::U64FieldElement,
+        fft_friendly::stark_252_prime_field::Stark252PrimeField,
+        u64_prime_field::{U64FieldElement, U64PrimeField},
     },
-    polynomial::Polynomial,
+    polynomial::{traits::polynomial::IsPolynomial, univariate::UnivariatePolynomial},
 };
 use rand::random;
 
@@ -64,6 +65,6 @@ pub fn rand_field_elements_pair() -> (FE, FE) {
 #[allow(dead_code)]
 #[inline(never)]
 #[export_name = "u64_utils::rand_poly"]
-pub fn rand_poly(order: u64) -> Polynomial<FE> {
-    Polynomial::new(&rand_field_elements(order))
+pub fn rand_poly(order: u64) -> UnivariatePolynomial<U64PrimeField<MODULUS>> {
+    UnivariatePolynomial::new(1, &rand_field_elements(order))
 }

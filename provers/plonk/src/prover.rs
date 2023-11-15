@@ -2,6 +2,7 @@ use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::errors::DeserializationError;
 use lambdaworks_math::fft::polynomial::FFTPoly;
 use lambdaworks_math::field::traits::IsFFTField;
+use lambdaworks_math::polynomial::traits::polynomial::IsPolynomial;
 use lambdaworks_math::traits::{Deserializable, IsRandomFieldElementGenerator, Serializable};
 use std::marker::PhantomData;
 use std::mem::size_of;
@@ -10,7 +11,9 @@ use crate::setup::{
     new_strong_fiat_shamir_transcript, CommonPreprocessedInput, VerificationKey, Witness,
 };
 use lambdaworks_crypto::commitments::traits::IsCommitmentScheme;
-use lambdaworks_math::{field::element::FieldElement, polynomial::Polynomial};
+use lambdaworks_math::{
+    field::element::FieldElement, polynomial::univariate::UnivariatePolynomial,
+};
 use lambdaworks_math::{field::traits::IsField, traits::ByteConversion};
 
 /// Plonk proof.
@@ -226,7 +229,10 @@ where
     }
 }
 
-pub struct Prover<F: IsField, CS: IsCommitmentScheme<F>, R: IsRandomFieldElementGenerator<F>> {
+pub struct Prover<F: IsField, CS: IsCommitmentScheme<F>, R: IsRandomFieldElementGenerator<F>>
+where
+    <F as IsField>::BaseType: Send + Sync,
+{
     commitment_scheme: CS,
     random_generator: R,
     phantom: PhantomData<F>,
@@ -236,14 +242,14 @@ struct Round1Result<F: IsField, Hiding> {
     a_1: Hiding,
     b_1: Hiding,
     c_1: Hiding,
-    p_a: Polynomial<FieldElement<F>>,
-    p_b: Polynomial<FieldElement<F>>,
-    p_c: Polynomial<FieldElement<F>>,
+    p_a: UnivariatePolynomial<F>,
+    p_b: UnivariatePolynomial<F>,
+    p_c: UnivariatePolynomial<F>,
 }
 
 struct Round2Result<F: IsField, Hiding> {
     z_1: Hiding,
-    p_z: Polynomial<FieldElement<F>>,
+    p_z: UnivariatePolynomial<F>,
     beta: FieldElement<F>,
     gamma: FieldElement<F>,
 }
@@ -252,9 +258,9 @@ struct Round3Result<F: IsField, Hiding> {
     t_lo_1: Hiding,
     t_mid_1: Hiding,
     t_hi_1: Hiding,
-    p_t_lo: Polynomial<FieldElement<F>>,
-    p_t_mid: Polynomial<FieldElement<F>>,
-    p_t_hi: Polynomial<FieldElement<F>>,
+    p_t_lo: UnivariatePolynomial<F>,
+    p_t_mid: UnivariatePolynomial<F>,
+    p_t_hi: UnivariatePolynomial<F>,
     alpha: FieldElement<F>,
 }
 
@@ -282,6 +288,7 @@ where
     FieldElement<F>: ByteConversion,
     CS::Commitment: Serializable,
     R: IsRandomFieldElementGenerator<F>,
+    <F as IsField>::BaseType: Send + Sync,
 {
     pub fn new(commitment_scheme: CS, random_generator: R) -> Self {
         Self {
@@ -293,16 +300,16 @@ where
 
     fn blind_polynomial(
         &self,
-        target: &Polynomial<FieldElement<F>>,
-        blinder: &Polynomial<FieldElement<F>>,
+        target: &UnivariatePolynomial<F>,
+        blinder: &UnivariatePolynomial<F>,
         n: u64,
-    ) -> Polynomial<FieldElement<F>>
+    ) -> UnivariatePolynomial<F>
     where
         F: IsField,
         R: IsRandomFieldElementGenerator<F>,
     {
         let bs: Vec<FieldElement<F>> = (0..n).map(|_| self.random_generator.generate()).collect();
-        let random_part = Polynomial::new(&bs);
+        let random_part = UnivariatePolynomial::new(1, &bs);
         target + blinder * random_part
     }
 
@@ -311,15 +318,16 @@ where
         witness: &Witness<F>,
         common_preprocessed_input: &CommonPreprocessedInput<F>,
     ) -> Round1Result<F, CS::Commitment> {
-        let p_a = Polynomial::interpolate_fft(&witness.a)
+        let p_a = UnivariatePolynomial::interpolate_fft(&witness.a)
             .expect("xs and ys have equal length and xs are unique");
-        let p_b = Polynomial::interpolate_fft(&witness.b)
+        let p_b = UnivariatePolynomial::interpolate_fft(&witness.b)
             .expect("xs and ys have equal length and xs are unique");
-        let p_c = Polynomial::interpolate_fft(&witness.c)
+        let p_c = UnivariatePolynomial::interpolate_fft(&witness.c)
             .expect("xs and ys have equal length and xs are unique");
 
-        let z_h = Polynomial::new_monomial(FieldElement::one(), common_preprocessed_input.n)
-            - FieldElement::one();
+        let z_h =
+            UnivariatePolynomial::new_monomial(FieldElement::one(), common_preprocessed_input.n)
+                - FieldElement::one();
         let p_a = self.blind_polynomial(&p_a, &z_h, 2);
         let p_b = self.blind_polynomial(&p_b, &z_h, 2);
         let p_c = self.blind_polynomial(&p_c, &z_h, 2);
@@ -364,10 +372,11 @@ where
             coefficients.push(new_term);
         }
 
-        let p_z = Polynomial::interpolate_fft(&coefficients)
+        let p_z = UnivariatePolynomial::interpolate_fft(&coefficients)
             .expect("xs and ys have equal length and xs are unique");
-        let z_h = Polynomial::new_monomial(FieldElement::one(), common_preprocessed_input.n)
-            - FieldElement::one();
+        let z_h =
+            UnivariatePolynomial::new_monomial(FieldElement::one(), common_preprocessed_input.n)
+                - FieldElement::one();
         let p_z = self.blind_polynomial(&p_z, &z_h, 3);
         let z_1 = self.commitment_scheme.commit(&p_z);
         Round2Result {
@@ -391,24 +400,24 @@ where
         let cpi = common_preprocessed_input;
         let k2 = &cpi.k1 * &cpi.k1;
 
-        let one = Polynomial::new_monomial(FieldElement::one(), 0);
-        let p_x = &Polynomial::new_monomial(FieldElement::one(), 1);
-        let zh = Polynomial::new_monomial(FieldElement::one(), cpi.n) - &one;
+        let one = UnivariatePolynomial::new_monomial(FieldElement::one(), 0);
+        let p_x = &UnivariatePolynomial::new_monomial(FieldElement::one(), 1);
+        let zh = UnivariatePolynomial::new_monomial(FieldElement::one(), cpi.n) - &one;
 
         let z_x_omega_coefficients: Vec<FieldElement<F>> = p_z
-            .coefficients()
+            .coeffs()
             .iter()
             .enumerate()
             .map(|(i, x)| x * &cpi.domain[i % cpi.n])
             .collect();
-        let z_x_omega = Polynomial::new(&z_x_omega_coefficients);
+        let z_x_omega = UnivariatePolynomial::new(1, &z_x_omega_coefficients);
         let mut e1 = vec![FieldElement::zero(); cpi.domain.len()];
         e1[0] = FieldElement::one();
-        let l1 = Polynomial::interpolate_fft(&e1)
+        let l1 = UnivariatePolynomial::interpolate_fft(&e1)
             .expect("xs and ys have equal length and xs are unique");
         let mut p_pi_y = public_input.to_vec();
         p_pi_y.append(&mut vec![FieldElement::zero(); cpi.n - public_input.len()]);
-        let p_pi = Polynomial::interpolate_fft(&p_pi_y)
+        let p_pi = UnivariatePolynomial::interpolate_fft(&p_pi_y)
             .expect("xs and ys have equal length and xs are unique");
 
         // Compute p
@@ -503,19 +512,21 @@ where
             .zip(zh_eval.iter())
             .map(|(a, b)| a * b)
             .collect();
-        let mut t = Polynomial::interpolate_offset_fft(&c, offset).unwrap();
+        let mut t = UnivariatePolynomial::interpolate_offset_fft(&c, offset).unwrap();
 
-        Polynomial::pad_with_zero_coefficients_to_length(&mut t, 3 * (&cpi.n + 2));
-        let p_t_lo = Polynomial::new(&t.coefficients[..&cpi.n + 2]);
-        let p_t_mid = Polynomial::new(&t.coefficients[&cpi.n + 2..2 * (&cpi.n + 2)]);
-        let p_t_hi = Polynomial::new(&t.coefficients[2 * (&cpi.n + 2)..3 * (&cpi.n + 2)]);
+        UnivariatePolynomial::pad_with_zero_coefficients_to_length(&mut t, 3 * (&cpi.n + 2));
+        let p_t_lo = UnivariatePolynomial::new(1, &t.coefficients[..&cpi.n + 2]);
+        let p_t_mid = UnivariatePolynomial::new(1, &t.coefficients[&cpi.n + 2..2 * (&cpi.n + 2)]);
+        let p_t_hi =
+            UnivariatePolynomial::new(1, &t.coefficients[2 * (&cpi.n + 2)..3 * (&cpi.n + 2)]);
 
         let b_0 = self.random_generator.generate();
         let b_1 = self.random_generator.generate();
 
-        let p_t_lo = &p_t_lo + &b_0 * Polynomial::new_monomial(FieldElement::one(), cpi.n + 2);
-        let p_t_mid =
-            &p_t_mid - b_0 + &b_1 * Polynomial::new_monomial(FieldElement::one(), cpi.n + 2);
+        let p_t_lo =
+            &p_t_lo + &b_0 * UnivariatePolynomial::new_monomial(FieldElement::one(), cpi.n + 2);
+        let p_t_mid = &p_t_mid - b_0
+            + &b_1 * UnivariatePolynomial::new_monomial(FieldElement::one(), cpi.n + 2);
         let p_t_hi = &p_t_hi - b_1;
 
         let t_lo_1 = self.commitment_scheme.commit(&p_t_lo);
@@ -540,12 +551,12 @@ where
         Round2Result { p_z, .. }: &Round2Result<F, CS::Commitment>,
         zeta: FieldElement<F>,
     ) -> Round4Result<F> {
-        let a_zeta = p_a.evaluate(&zeta);
-        let b_zeta = p_b.evaluate(&zeta);
-        let c_zeta = p_c.evaluate(&zeta);
-        let s1_zeta = s1.evaluate(&zeta);
-        let s2_zeta = s2.evaluate(&zeta);
-        let z_zeta_omega = p_z.evaluate(&(&zeta * omega));
+        let a_zeta = p_a.evaluate(&[zeta.clone()]).unwrap();
+        let b_zeta = p_b.evaluate(&[zeta.clone()]).unwrap();
+        let c_zeta = p_c.evaluate(&[zeta.clone()]).unwrap();
+        let s1_zeta = s1.evaluate(&[zeta.clone()]).unwrap();
+        let s2_zeta = s2.evaluate(&[zeta.clone()]).unwrap();
+        let z_zeta_omega = p_z.evaluate(&[(&zeta * omega)]).unwrap();
         Round4Result {
             a_zeta,
             b_zeta,
@@ -570,8 +581,8 @@ where
         let (r1, r2, r3, r4) = (round_1, round_2, round_3, round_4);
         // Precompute variables
         let k2 = &cpi.k1 * &cpi.k1;
-        let zeta_raised_n = Polynomial::new_monomial(r4.zeta.pow(cpi.n + 2), 0); // TODO: Paper says n and 2n, but Gnark uses n+2 and 2n+4
-        let zeta_raised_2n = Polynomial::new_monomial(r4.zeta.pow(2 * cpi.n + 4), 0);
+        let zeta_raised_n = UnivariatePolynomial::new_monomial(r4.zeta.pow(cpi.n + 2), 0); // TODO: Paper says n and 2n, but Gnark uses n+2 and 2n+4
+        let zeta_raised_2n = UnivariatePolynomial::new_monomial(r4.zeta.pow(2 * cpi.n + 4), 0);
 
         let l1_zeta = (&r4.zeta.pow(cpi.n as u64) - FieldElement::one())
             / (&r4.zeta - FieldElement::one())
@@ -609,7 +620,10 @@ where
             cpi.s1.clone(),
             cpi.s2.clone(),
         ];
-        let ys: Vec<FieldElement<F>> = polynomials.iter().map(|p| p.evaluate(&r4.zeta)).collect();
+        let ys: Vec<FieldElement<F>> = polynomials
+            .iter()
+            .map(|p| p.evaluate(&[r4.zeta.clone()]).unwrap())
+            .collect();
         let w_zeta_1 = self
             .commitment_scheme
             .open_batch(&r4.zeta, &ys, &polynomials, &upsilon);

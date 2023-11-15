@@ -4,7 +4,7 @@ use lambdaworks_math::{
         element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
         traits::RootsConfig,
     },
-    polynomial::Polynomial,
+    polynomial::{traits::polynomial::IsPolynomial, univariate::UnivariatePolynomial},
     unsigned_integer::element::UnsignedInteger,
 };
 use rand::random;
@@ -35,8 +35,8 @@ pub fn rand_field_elements(order: u64) -> Vec<FE> {
 #[inline(never)]
 #[no_mangle]
 #[export_name = "util::rand_poly"]
-pub fn rand_poly(order: u64) -> Polynomial<FE> {
-    Polynomial::new(&rand_field_elements(order))
+pub fn rand_poly(order: u64) -> UnivariatePolynomial<Stark252PrimeField> {
+    UnivariatePolynomial::new(1, &rand_field_elements(order))
 }
 
 #[inline(never)]

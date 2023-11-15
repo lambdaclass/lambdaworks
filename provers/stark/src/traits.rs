@@ -1,8 +1,11 @@
 use itertools::Itertools;
 use lambdaworks_math::{
     fft::cpu::roots_of_unity::get_powers_of_primitive_root_coset,
-    field::{element::FieldElement, traits::IsFFTField},
-    polynomial::Polynomial,
+    field::{
+        element::FieldElement,
+        traits::{IsFFTField, IsField},
+    },
+    polynomial::univariate::UnivariatePolynomial,
 };
 
 use crate::transcript::IsStarkTranscript;
@@ -50,9 +53,14 @@ pub trait AIR: Clone {
     fn boundary_constraints(
         &self,
         rap_challenges: &Self::RAPChallenges,
-    ) -> BoundaryConstraints<Self::Field>;
+    ) -> BoundaryConstraints<Self::Field>
+    where
+        <<Self as AIR>::Field as IsField>::BaseType: Send + Sync;
 
-    fn transition_exemptions(&self) -> Vec<Polynomial<FieldElement<Self::Field>>> {
+    fn transition_exemptions(&self) -> Vec<UnivariatePolynomial<Self::Field>>
+    where
+        <<Self as AIR>::Field as IsField>::BaseType: Send + Sync,
+    {
         let trace_length = self.trace_length();
         let roots_of_unity_order = trace_length.trailing_zeros();
         let roots_of_unity = get_powers_of_primitive_root_coset(
@@ -63,7 +71,7 @@ pub trait AIR: Clone {
         .unwrap();
         let root_of_unity_len = roots_of_unity.len();
 
-        let x = Polynomial::new_monomial(FieldElement::one(), 1);
+        let x = UnivariatePolynomial::new_monomial(FieldElement::one(), 1);
 
         self.context()
             .transition_exemptions
@@ -77,7 +85,7 @@ pub trait AIR: Clone {
                     .rev()
                     .take(*cant_take)
                     .fold(
-                        Polynomial::new_monomial(FieldElement::one(), 0),
+                        UnivariatePolynomial::new_monomial(FieldElement::one(), 0),
                         |acc, root| acc * (&x - root),
                     )
             })
@@ -104,8 +112,11 @@ pub trait AIR: Clone {
     fn transition_exemptions_verifier(
         &self,
         root: &FieldElement<Self::Field>,
-    ) -> Vec<Polynomial<FieldElement<Self::Field>>> {
-        let x = Polynomial::new_monomial(FieldElement::one(), 1);
+    ) -> Vec<UnivariatePolynomial<Self::Field>>
+    where
+        <<Self as AIR>::Field as IsField>::BaseType: Send + Sync,
+    {
+        let x = UnivariatePolynomial::new_monomial(FieldElement::one(), 1);
 
         let max = self
             .context()
@@ -116,7 +127,7 @@ pub trait AIR: Clone {
         (1..=*max)
             .map(|index| {
                 (1..=index).fold(
-                    Polynomial::new_monomial(FieldElement::one(), 0),
+                    UnivariatePolynomial::new_monomial(FieldElement::one(), 0),
                     |acc, k| acc * (&x - root.pow(k)),
                 )
             })

@@ -5,9 +5,12 @@ use lambdaworks_math::{
     cyclic_group::IsGroup,
     elliptic_curve::traits::IsPairing,
     errors::DeserializationError,
-    field::{element::FieldElement, traits::IsPrimeField},
+    field::{
+        element::FieldElement,
+        traits::{IsField, IsPrimeField},
+    },
     msm::pippenger::msm,
-    polynomial::Polynomial,
+    polynomial::{traits::polynomial::IsPolynomial, univariate::UnivariatePolynomial},
     traits::{Deserializable, Serializable},
     unsigned_integer::element::UnsignedInteger,
 };
@@ -136,12 +139,18 @@ where
 }
 
 #[derive(Clone)]
-pub struct KateZaveruchaGoldberg<F: IsPrimeField, P: IsPairing> {
+pub struct KateZaveruchaGoldberg<F: IsPrimeField, P: IsPairing>
+where
+    <F as IsField>::BaseType: Send + Sync,
+{
     srs: StructuredReferenceString<P::G1Point, P::G2Point>,
     phantom: PhantomData<F>,
 }
 
-impl<F: IsPrimeField, P: IsPairing> KateZaveruchaGoldberg<F, P> {
+impl<F: IsPrimeField, P: IsPairing> KateZaveruchaGoldberg<F, P>
+where
+    <F as IsField>::BaseType: Send + Sync,
+{
     pub fn new(srs: StructuredReferenceString<P::G1Point, P::G2Point>) -> Self {
         Self {
             srs,
@@ -152,10 +161,12 @@ impl<F: IsPrimeField, P: IsPairing> KateZaveruchaGoldberg<F, P> {
 
 impl<const N: usize, F: IsPrimeField<RepresentativeType = UnsignedInteger<N>>, P: IsPairing>
     IsCommitmentScheme<F> for KateZaveruchaGoldberg<F, P>
+where
+    <F as IsField>::BaseType: Send + Sync,
 {
     type Commitment = P::G1Point;
 
-    fn commit(&self, p: &Polynomial<FieldElement<F>>) -> Self::Commitment {
+    fn commit(&self, p: &UnivariatePolynomial<F>) -> Self::Commitment {
         let coefficients: Vec<_> = p
             .coefficients
             .iter()
@@ -172,7 +183,7 @@ impl<const N: usize, F: IsPrimeField<RepresentativeType = UnsignedInteger<N>>, P
         &self,
         x: &FieldElement<F>,
         y: &FieldElement<F>,
-        p: &Polynomial<FieldElement<F>>,
+        p: &UnivariatePolynomial<F>,
     ) -> Self::Commitment {
         let mut poly_to_commit = p - y;
         poly_to_commit.ruffini_division_inplace(x);
@@ -207,13 +218,13 @@ impl<const N: usize, F: IsPrimeField<RepresentativeType = UnsignedInteger<N>>, P
         &self,
         x: &FieldElement<F>,
         ys: &[FieldElement<F>],
-        polynomials: &[Polynomial<FieldElement<F>>],
+        polynomials: &[UnivariatePolynomial<F>],
         upsilon: &FieldElement<F>,
     ) -> Self::Commitment {
         let acc_polynomial = polynomials
             .iter()
             .rev()
-            .fold(Polynomial::zero(), |acc, polynomial| {
+            .fold(UnivariatePolynomial::zero(), |acc, polynomial| {
                 acc * upsilon.to_owned() + polynomial
             });
 
@@ -267,7 +278,7 @@ mod tests {
             traits::{IsEllipticCurve, IsPairing},
         },
         field::element::FieldElement,
-        polynomial::Polynomial,
+        polynomial::{traits::polynomial::IsPolynomial, univariate::UnivariatePolynomial},
         traits::{Deserializable, Serializable},
         unsigned_integer::element::U256,
     };
@@ -312,10 +323,11 @@ mod tests {
     #[test]
     fn kzg_1() {
         let kzg = KZG::new(create_srs());
-        let p = Polynomial::<FrElement>::new(&[FieldElement::one(), FieldElement::one()]);
+        let p =
+            UnivariatePolynomial::<FrField>::new(1, &[FieldElement::one(), FieldElement::one()]);
         let p_commitment: <BLS12381AtePairing as IsPairing>::G1Point = kzg.commit(&p);
         let x = -FieldElement::one();
-        let y = p.evaluate(&x);
+        let y = p.evaluate(&[x.clone()]).unwrap();
         let proof = kzg.open(&x, &y, &p);
         assert_eq!(y, FieldElement::zero());
         assert_eq!(proof, BLS12381Curve::generator());
@@ -325,7 +337,7 @@ mod tests {
     #[test]
     fn poly_9000_constant_should_verify_proof() {
         let kzg = KZG::new(create_srs());
-        let p = Polynomial::new(&[FieldElement::from(9000)]);
+        let p = UnivariatePolynomial::new(1, &[FieldElement::from(9000)]);
         let p_commitment: <BLS12381AtePairing as IsPairing>::G1Point = kzg.commit(&p);
         let x = FieldElement::one();
         let y = FieldElement::from(9000);
@@ -336,7 +348,7 @@ mod tests {
     #[test]
     fn poly_9000_batched_should_verify() {
         let kzg = KZG::new(create_srs());
-        let p0 = Polynomial::<FrElement>::new(&[FieldElement::from(9000)]);
+        let p0 = UnivariatePolynomial::<FrField>::new(1, &[FieldElement::from(9000)]);
         let p0_commitment: <BLS12381AtePairing as IsPairing>::G1Point = kzg.commit(&p0);
 
         let x = FieldElement::one();
@@ -351,7 +363,7 @@ mod tests {
     #[test]
     fn two_poly_9000_batched_should_verify() {
         let kzg = KZG::new(create_srs());
-        let p0 = Polynomial::<FrElement>::new(&[FieldElement::from(9000)]);
+        let p0 = UnivariatePolynomial::<FrField>::new(1, &[FieldElement::from(9000)]);
         let p0_commitment: <BLS12381AtePairing as IsPairing>::G1Point = kzg.commit(&p0);
 
         let x = FieldElement::one();
@@ -375,17 +387,20 @@ mod tests {
 
         let x = FieldElement::from(3);
 
-        let p0 = Polynomial::<FrElement>::new(&[FieldElement::from(9000)]);
+        let p0 = UnivariatePolynomial::<FrField>::new(1, &[FieldElement::from(9000)]);
         let p0_commitment: <BLS12381AtePairing as IsPairing>::G1Point = kzg.commit(&p0);
         let y0 = FieldElement::from(9000);
 
-        let p1 = Polynomial::<FrElement>::new(&[
-            FieldElement::from(1),
-            FieldElement::from(2),
-            -FieldElement::from(1),
-        ]);
+        let p1 = UnivariatePolynomial::<FrField>::new(
+            1,
+            &[
+                FieldElement::from(1),
+                FieldElement::from(2),
+                -FieldElement::from(1),
+            ],
+        );
         let p1_commitment: <BLS12381AtePairing as IsPairing>::G1Point = kzg.commit(&p1);
-        let y1 = p1.evaluate(&x);
+        let y1 = p1.evaluate(&[x.clone()]).unwrap();
 
         let upsilon = &FieldElement::from(1);
 

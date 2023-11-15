@@ -1,8 +1,11 @@
 use itertools::Itertools;
 use lambdaworks_math::{
     fft::cpu::roots_of_unity::get_powers_of_primitive_root_coset,
-    field::{element::FieldElement, traits::IsFFTField},
-    polynomial::Polynomial,
+    field::{
+        element::FieldElement,
+        traits::{IsFFTField, IsField},
+    },
+    polynomial::univariate::UnivariatePolynomial,
     traits::Serializable,
 };
 
@@ -19,11 +22,17 @@ use crate::trace::TraceTable;
 use crate::traits::AIR;
 use crate::{frame::Frame, prover::evaluate_polynomial_on_lde_domain};
 
-pub struct ConstraintEvaluator<F: IsFFTField, A: AIR> {
+pub struct ConstraintEvaluator<F: IsFFTField, A: AIR>
+where
+    <F as IsField>::BaseType: Send + Sync,
+{
     air: A,
     boundary_constraints: BoundaryConstraints<F>,
 }
-impl<F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
+impl<F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A>
+where
+    <F as IsField>::BaseType: Send + Sync,
+{
     pub fn new(air: &A, rap_challenges: &A::RAPChallenges) -> Self {
         let boundary_constraints = air.boundary_constraints(rap_challenges);
 
@@ -67,7 +76,7 @@ impl<F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
         let trace_length = self.air.trace_length();
 
         #[cfg(all(debug_assertions, not(feature = "parallel")))]
-        let boundary_polys: Vec<Polynomial<FieldElement<F>>> = Vec::new();
+        let boundary_polys: Vec<UnivariatePolynomial<F>> = Vec::new();
 
         let n_col = lde_trace.n_cols();
         let n_elem = domain.lde_roots_of_unity_coset.len();
@@ -260,12 +269,13 @@ impl<F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
 }
 
 fn evaluate_transition_exemptions<F: IsFFTField>(
-    transition_exemptions: Vec<Polynomial<FieldElement<F>>>,
+    transition_exemptions: Vec<UnivariatePolynomial<F>>,
     domain: &Domain<F>,
 ) -> Vec<Vec<FieldElement<F>>>
 where
     FieldElement<F>: Send + Sync + Serializable,
-    Polynomial<FieldElement<F>>: Send + Sync,
+    UnivariatePolynomial<F>: Send + Sync,
+    <F as IsField>::BaseType: Send + Sync,
 {
     #[cfg(feature = "parallel")]
     let exemptions_iter = transition_exemptions.par_iter();

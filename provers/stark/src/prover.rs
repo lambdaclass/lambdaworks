@@ -5,10 +5,12 @@ use lambdaworks_crypto::merkle_tree::proof::Proof;
 use lambdaworks_math::fft::cpu::bit_reversing::{in_place_bit_reverse_permute, reverse_index};
 use lambdaworks_math::fft::{errors::FFTError, polynomial::FFTPoly};
 use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
+use lambdaworks_math::field::traits::IsField;
+use lambdaworks_math::polynomial::traits::polynomial::IsPolynomial;
 use lambdaworks_math::traits::Serializable;
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsFFTField},
-    polynomial::Polynomial,
+    polynomial::univariate::UnivariatePolynomial,
 };
 use log::info;
 
@@ -49,7 +51,7 @@ where
     A: AIR<Field = F>,
     FieldElement<F>: Serializable,
 {
-    pub(crate) trace_polys: Vec<Polynomial<FieldElement<F>>>,
+    pub(crate) trace_polys: Vec<UnivariatePolynomial<F>>,
     pub(crate) lde_trace: TraceTable<F>,
     pub(crate) lde_trace_merkle_trees: Vec<BatchedMerkleTree<F>>,
     pub(crate) lde_trace_merkle_roots: Vec<Commitment>,
@@ -61,7 +63,7 @@ where
     F: IsFFTField,
     FieldElement<F>: Serializable,
 {
-    pub(crate) composition_poly_parts: Vec<Polynomial<FieldElement<F>>>,
+    pub(crate) composition_poly_parts: Vec<UnivariatePolynomial<F>>,
     pub(crate) lde_composition_poly_evaluations: Vec<Vec<FieldElement<F>>>,
     pub(crate) composition_poly_merkle_tree: BatchedMerkleTree<F>,
     pub(crate) composition_poly_root: Commitment,
@@ -81,14 +83,14 @@ pub struct Round4<F: IsFFTField> {
     nonce: Option<u64>,
 }
 pub fn evaluate_polynomial_on_lde_domain<F>(
-    p: &Polynomial<FieldElement<F>>,
+    p: &UnivariatePolynomial<F>,
     blowup_factor: usize,
     domain_size: usize,
     offset: &FieldElement<F>,
 ) -> Result<Vec<FieldElement<F>>, FFTError>
 where
     F: IsFFTField,
-    Polynomial<FieldElement<F>>: FFTPoly<F>,
+    UnivariatePolynomial<F>: FFTPoly<F>,
 {
     let evaluations = p.evaluate_offset_fft(blowup_factor, Some(domain_size), offset)?;
     let step = evaluations.len() / (domain_size * blowup_factor);
@@ -118,7 +120,7 @@ pub trait IsStarkProver {
         domain: &Domain<Self::Field>,
         transcript: &mut impl IsStarkTranscript<Self::Field>,
     ) -> (
-        Vec<Polynomial<FieldElement<Self::Field>>>,
+        Vec<UnivariatePolynomial<Self::Field>>,
         Vec<Vec<FieldElement<Self::Field>>>,
         BatchedMerkleTree<Self::Field>,
         Commitment,
@@ -126,6 +128,7 @@ pub trait IsStarkProver {
     where
         A: AIR<Field = Self::Field>,
         FieldElement<Self::Field>: Serializable + Send + Sync,
+        <<Self as IsStarkProver>::Field as IsField>::BaseType: Send + Sync,
     {
         let trace_polys = trace.compute_trace_polys();
 
@@ -154,11 +157,12 @@ pub trait IsStarkProver {
     }
 
     fn compute_lde_trace_evaluations(
-        trace_polys: &[Polynomial<FieldElement<Self::Field>>],
+        trace_polys: &[UnivariatePolynomial<Self::Field>],
         domain: &Domain<Self::Field>,
     ) -> Vec<Vec<FieldElement<Self::Field>>>
     where
         FieldElement<Self::Field>: Send + Sync,
+        <<Self as IsStarkProver>::Field as IsField>::BaseType: Send + Sync,
     {
         #[cfg(not(feature = "parallel"))]
         let trace_polys_iter = trace_polys.iter();
@@ -187,6 +191,7 @@ pub trait IsStarkProver {
     where
         A: AIR<Field = Self::Field>,
         FieldElement<Self::Field>: Serializable + Send + Sync,
+        <<Self as IsStarkProver>::Field as IsField>::BaseType: Send + Sync,
     {
         let (mut trace_polys, mut evaluations, main_merkle_tree, main_merkle_root) =
             Self::interpolate_and_commit::<A>(main_trace, domain, transcript);
@@ -257,6 +262,7 @@ pub trait IsStarkProver {
         A: AIR<Field = Self::Field> + Send + Sync,
         A::RAPChallenges: Send + Sync,
         FieldElement<Self::Field>: Serializable + Send + Sync,
+        <<Self as IsStarkProver>::Field as IsField>::BaseType: Send + Sync,
     {
         // Create evaluation table
         let evaluator = ConstraintEvaluator::new(air, &round_1_result.rap_challenges);
@@ -270,12 +276,14 @@ pub trait IsStarkProver {
         );
 
         // Get the composition poly H
-        let composition_poly =
-            Polynomial::interpolate_offset_fft(&constraint_evaluations, &domain.coset_offset)
-                .unwrap();
+        let composition_poly = UnivariatePolynomial::interpolate_offset_fft(
+            &constraint_evaluations,
+            &domain.coset_offset,
+        )
+        .unwrap();
 
         let number_of_parts = air.composition_poly_degree_bound() / air.trace_length();
-        let composition_poly_parts = composition_poly.break_in_parts(number_of_parts);
+        let composition_poly_parts = composition_poly.split_n_ways(number_of_parts);
 
         let lde_composition_poly_parts_evaluations: Vec<_> = composition_poly_parts
             .iter()
@@ -310,6 +318,7 @@ pub trait IsStarkProver {
     ) -> Round3<Self::Field>
     where
         FieldElement<Self::Field>: Serializable,
+        <<Self as IsStarkProver>::Field as IsField>::BaseType: Send + Sync,
     {
         let z_power = z.pow(round_2_result.composition_poly_parts.len());
 
@@ -318,7 +327,7 @@ pub trait IsStarkProver {
         let composition_poly_parts_ood_evaluation: Vec<_> = round_2_result
             .composition_poly_parts
             .iter()
-            .map(|part| part.evaluate(&z_power))
+            .map(|part| part.evaluate(&[z_power.clone()]).unwrap())
             .collect();
 
         // Returns the Out of Domain Frame for the given trace polynomials, out of domain evaluation point (called `z` in the literature),
@@ -352,6 +361,7 @@ pub trait IsStarkProver {
     ) -> Round4<Self::Field>
     where
         FieldElement<Self::Field>: Serializable + Send + Sync,
+        <<Self as IsStarkProver>::Field as IsField>::BaseType: Send + Sync,
     {
         let coset_offset_u64 = air.context().proof_options.coset_offset;
         let coset_offset = FieldElement::<Self::Field>::from(coset_offset_u64);
@@ -445,22 +455,23 @@ pub trait IsStarkProver {
     #[allow(clippy::too_many_arguments)]
     fn compute_deep_composition_poly<A>(
         air: &A,
-        trace_polys: &[Polynomial<FieldElement<Self::Field>>],
+        trace_polys: &[UnivariatePolynomial<Self::Field>],
         round_2_result: &Round2<Self::Field>,
         round_3_result: &Round3<Self::Field>,
         z: &FieldElement<Self::Field>,
         primitive_root: &FieldElement<Self::Field>,
         composition_poly_gammas: &[FieldElement<Self::Field>],
         trace_terms_gammas: &[FieldElement<Self::Field>],
-    ) -> Polynomial<FieldElement<Self::Field>>
+    ) -> UnivariatePolynomial<Self::Field>
     where
         A: AIR<Field = Self::Field>,
         FieldElement<Self::Field>: Serializable + Send + Sync,
+        <<Self as IsStarkProver>::Field as IsField>::BaseType: Send + Sync,
     {
         let z_power = z.pow(round_2_result.composition_poly_parts.len());
 
         // ∑ᵢ 𝛾ᵢ ( Hᵢ − Hᵢ(z^N) ) / ( X − z^N )
-        let mut h_terms = Polynomial::zero();
+        let mut h_terms = UnivariatePolynomial::zero();
         for (i, part) in round_2_result.composition_poly_parts.iter().enumerate() {
             // h_i_eval is the evaluation of the i-th part of the composition polynomial at z^N,
             // where N is the number of parts of the composition polynomial.
@@ -468,7 +479,10 @@ pub trait IsStarkProver {
             let h_i_term = &composition_poly_gammas[i] * (part - h_i_eval);
             h_terms = h_terms + h_i_term;
         }
-        assert_eq!(h_terms.evaluate(&z_power), FieldElement::zero());
+        assert_eq!(
+            h_terms.evaluate(&[z_power.clone()]).unwrap(),
+            FieldElement::zero()
+        );
         h_terms.ruffini_division_inplace(&z_power);
 
         // Get trace evaluations needed for the trace terms of the deep composition polynomial
@@ -503,36 +517,36 @@ pub trait IsStarkProver {
             .reduce(|| Polynomial::zero(), |a, b| a + b);
 
         #[cfg(not(feature = "parallel"))]
-        let trace_terms =
-            trace_polys
-                .iter()
-                .enumerate()
-                .fold(Polynomial::zero(), |trace_terms, (i, t_j)| {
-                    Self::compute_trace_term(
-                        &trace_terms,
-                        (i, t_j),
-                        trace_frame_length,
-                        trace_terms_gammas,
-                        trace_frame_evaluations,
-                        transition_offsets,
-                        (z, primitive_root),
-                    )
-                });
+        let trace_terms = trace_polys.iter().enumerate().fold(
+            UnivariatePolynomial::zero(),
+            |trace_terms, (i, t_j)| {
+                Self::compute_trace_term(
+                    &trace_terms,
+                    (i, t_j),
+                    trace_frame_length,
+                    trace_terms_gammas,
+                    trace_frame_evaluations,
+                    transition_offsets,
+                    (z, primitive_root),
+                )
+            },
+        );
 
         h_terms + trace_terms
     }
 
     fn compute_trace_term(
-        trace_terms: &Polynomial<FieldElement<Self::Field>>,
-        (i, t_j): (usize, &Polynomial<FieldElement<Self::Field>>),
+        trace_terms: &UnivariatePolynomial<Self::Field>,
+        (i, t_j): (usize, &UnivariatePolynomial<Self::Field>),
         trace_frame_length: usize,
         trace_terms_gammas: &[FieldElement<Self::Field>],
         trace_frame_evaluations: &[Vec<FieldElement<Self::Field>>],
         transition_offsets: &[usize],
         (z, primitive_root): (&FieldElement<Self::Field>, &FieldElement<Self::Field>),
-    ) -> Polynomial<FieldElement<Self::Field>>
+    ) -> UnivariatePolynomial<Self::Field>
     where
         FieldElement<Self::Field>: Serializable + Send + Sync,
+        <<Self as IsStarkProver>::Field as IsField>::BaseType: Send + Sync,
     {
         let i_times_trace_frame_evaluation = i * trace_frame_length;
         let iter_trace_gammas = trace_terms_gammas
@@ -543,7 +557,7 @@ pub trait IsStarkProver {
             .zip(transition_offsets)
             .zip(iter_trace_gammas)
             .fold(
-                Polynomial::zero(),
+                UnivariatePolynomial::zero(),
                 |trace_agg, ((eval, offset), trace_gamma)| {
                     // @@@ we can avoid this clone
                     let t_j_z = &eval[i];
@@ -686,6 +700,7 @@ pub trait IsStarkProver {
         A: AIR<Field = Self::Field> + Send + Sync,
         A::RAPChallenges: Send + Sync,
         FieldElement<Self::Field>: Serializable + Send + Sync,
+        <<Self as IsStarkProver>::Field as IsField>::BaseType: Send + Sync,
     {
         info!("Started proof generation...");
         #[cfg(feature = "instruments")]
@@ -919,7 +934,7 @@ mod tests {
             element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
             traits::IsFFTField,
         },
-        polynomial::Polynomial,
+        polynomial::univariate::UnivariatePolynomial,
     };
 
     #[test]
@@ -990,7 +1005,8 @@ mod tests {
             for (i, evaluation) in lde_evaluation.iter().enumerate() {
                 assert_eq!(
                     *evaluation,
-                    poly.evaluate(&(coset_offset * primitive_root.pow(i)))
+                    poly.evaluate(&[(coset_offset * primitive_root.pow(i))])
+                        .unwrap()
                 );
             }
         }
@@ -998,7 +1014,7 @@ mod tests {
 
     #[test]
     fn test_evaluate_polynomial_on_lde_domain_edge_case() {
-        let poly = Polynomial::new_monomial(Felt252::one(), 8);
+        let poly = UnivariatePolynomial::new_monomial(Felt252::one(), 8);
         let blowup_factor: usize = 4;
         let domain_size: usize = 8;
         let offset = Felt252::from(3);
@@ -1011,7 +1027,10 @@ mod tests {
         )
         .unwrap();
         for (i, eval) in evaluations.iter().enumerate() {
-            assert_eq!(*eval, poly.evaluate(&(offset * primitive_root.pow(i))));
+            assert_eq!(
+                *eval,
+                poly.evaluate(&[(offset * primitive_root.pow(i))]).unwrap()
+            );
         }
     }
 

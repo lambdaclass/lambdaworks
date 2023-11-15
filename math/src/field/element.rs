@@ -15,11 +15,10 @@ use core::iter::Sum;
 ))]
 use core::marker::PhantomData;
 use core::ops::{Add, AddAssign, Div, Mul, Neg, Sub, SubAssign};
-use serde::de::{Visitor, MapAccess, self, SeqAccess};
-use serde::ser::SerializeStruct;
-use serde::{Serialize, Deserializer, Serializer};
 #[cfg(feature = "lambdaworks-serde")]
 use serde::de::{self, Deserializer, MapAccess, Visitor};
+use serde::de::{self, MapAccess, SeqAccess, Visitor};
+use serde::ser::SerializeStruct;
 #[cfg(feature = "lambdaworks-serde")]
 use serde::ser::{Serialize, SerializeStruct, Serializer};
 #[cfg(any(
@@ -27,6 +26,7 @@ use serde::ser::{Serialize, SerializeStruct, Serializer};
     feature = "lambdaworks-serde-string"
 ))]
 use serde::Deserialize;
+use serde::{Deserializer, Serialize, Serializer};
 
 use super::fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField};
 use super::traits::{IsPrimeField, LegendreSymbol};

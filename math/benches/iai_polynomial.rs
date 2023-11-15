@@ -1,5 +1,6 @@
 use const_random::const_random;
 use iai_callgrind::black_box;
+use lambdaworks_math::polynomial::traits::polynomial::IsPolynomial;
 use u64_utils::{rand_field_elements, rand_poly, FE};
 
 mod utils;
@@ -11,7 +12,7 @@ const ORDER: u64 = const_random!(u64) % 8;
 fn poly_evaluate_benchmarks() {
     let poly = rand_poly(ORDER);
     let x = FE::new(rand::random::<u64>());
-    black_box(poly.evaluate(black_box(&x)));
+    black_box(poly.evaluate(black_box(&[x])));
 }
 
 #[inline(never)]

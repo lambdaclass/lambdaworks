@@ -1,7 +1,10 @@
 use std::ops::Div;
 
 use lambdaworks_math::{
-    field::{element::FieldElement, traits::IsFFTField},
+    field::{
+        element::FieldElement,
+        traits::{IsFFTField, IsField},
+    },
     helpers::resize_to_next_power_of_two,
     traits::ByteConversion,
 };
@@ -20,6 +23,7 @@ use crate::{
 pub struct FibonacciRAP<F>
 where
     F: IsFFTField,
+    <F as IsField>::BaseType: Send + Sync,
 {
     context: AirContext,
     trace_length: usize,
@@ -30,6 +34,7 @@ where
 pub struct FibonacciRAPPublicInputs<F>
 where
     F: IsFFTField,
+    <F as IsField>::BaseType: Send + Sync,
 {
     pub steps: usize,
     pub a0: FieldElement<F>,
@@ -40,6 +45,7 @@ impl<F> AIR for FibonacciRAP<F>
 where
     F: IsFFTField,
     FieldElement<F>: ByteConversion,
+    <F as IsField>::BaseType: Send + Sync,
 {
     type Field = F;
     type RAPChallenges = FieldElement<Self::Field>;

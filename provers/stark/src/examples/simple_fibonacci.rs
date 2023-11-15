@@ -1,4 +1,7 @@
-use lambdaworks_math::field::{element::FieldElement, traits::IsFFTField};
+use lambdaworks_math::field::{
+    element::FieldElement,
+    traits::{IsFFTField, IsField},
+};
 
 use crate::{
     constraints::boundary::{BoundaryConstraint, BoundaryConstraints},
@@ -14,6 +17,7 @@ use crate::{
 pub struct FibonacciAIR<F>
 where
     F: IsFFTField,
+    <F as IsField>::BaseType: Send + Sync,
 {
     context: AirContext,
     trace_length: usize,
@@ -24,6 +28,7 @@ where
 pub struct FibonacciPublicInputs<F>
 where
     F: IsFFTField,
+    <F as IsField>::BaseType: Send + Sync,
 {
     pub a0: FieldElement<F>,
     pub a1: FieldElement<F>,
@@ -32,6 +37,7 @@ where
 impl<F> AIR for FibonacciAIR<F>
 where
     F: IsFFTField,
+    <F as IsField>::BaseType: Send + Sync,
 {
     type Field = F;
     type RAPChallenges = ();

@@ -1,7 +1,9 @@
 use const_random::const_random;
 use core::hint::black_box;
 use criterion::{criterion_group, criterion_main, Criterion};
-use lambdaworks_math::polynomial::Polynomial;
+use lambdaworks_math::polynomial::{
+    traits::polynomial::IsPolynomial, univariate::UnivariatePolynomial,
+};
 use utils::u64_utils::{rand_field_elements, rand_poly, FE};
 
 mod utils;
@@ -13,7 +15,7 @@ pub fn polynomial_benchmarks(c: &mut Criterion) {
     group.bench_function("evaluate", |bench| {
         let poly = rand_poly(order);
         let x = FE::new(rand::random::<u64>());
-        bench.iter(|| poly.evaluate(black_box(&x)));
+        bench.iter(|| poly.evaluate(black_box(&[x])));
     });
 
     group.bench_function("evaluate_slice", |bench| {
@@ -57,7 +59,7 @@ pub fn polynomial_benchmarks(c: &mut Criterion) {
 
     group.bench_function("div by 'x - b' with generic div", |bench| {
         let poly = rand_poly(order);
-        let m = Polynomial::new_monomial(FE::one(), 1) - rand_field_elements(1)[0];
+        let m = UnivariatePolynomial::new_monomial(FE::one(), 1) - rand_field_elements(1)[0];
         bench.iter_batched(
             || (poly.clone(), m.clone()),
             |(poly, m)| poly / m,

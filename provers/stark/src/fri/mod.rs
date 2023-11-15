@@ -2,13 +2,16 @@ pub mod fri_commitment;
 pub mod fri_decommit;
 mod fri_functions;
 
-use lambdaworks_math::fft::cpu::bit_reversing::in_place_bit_reverse_permute;
 use lambdaworks_math::fft::polynomial::FFTPoly;
 use lambdaworks_math::field::traits::IsFFTField;
+use lambdaworks_math::polynomial::traits::polynomial::IsPolynomial;
 use lambdaworks_math::traits::Serializable;
+use lambdaworks_math::{
+    fft::cpu::bit_reversing::in_place_bit_reverse_permute, field::traits::IsField,
+};
 pub use lambdaworks_math::{
     field::{element::FieldElement, fields::u64_prime_field::U64PrimeField},
-    polynomial::Polynomial,
+    polynomial::univariate::UnivariatePolynomial,
 };
 
 use crate::config::{BatchedMerkleTree, BatchedMerkleTreeBackend};
@@ -20,7 +23,7 @@ use self::fri_functions::fold_polynomial;
 
 pub fn commit_phase<F: IsFFTField>(
     number_layers: usize,
-    p_0: Polynomial<FieldElement<F>>,
+    p_0: UnivariatePolynomial<F>,
     transcript: &mut impl IsStarkTranscript<F>,
     coset_offset: &FieldElement<F>,
     domain_size: usize,
@@ -30,6 +33,7 @@ pub fn commit_phase<F: IsFFTField>(
 )
 where
     FieldElement<F>: Serializable,
+    <F as IsField>::BaseType: Send + Sync,
 {
     let mut domain_size = domain_size;
 
@@ -61,7 +65,7 @@ where
     let last_poly = fold_polynomial(&current_poly, &zeta) * FieldElement::from(2);
 
     let last_value = last_poly
-        .coefficients()
+        .coeffs()
         .get(0)
         .unwrap_or(&FieldElement::zero())
         .clone();
@@ -111,13 +115,14 @@ where
 }
 
 pub fn new_fri_layer<F: IsFFTField>(
-    poly: &Polynomial<FieldElement<F>>,
+    poly: &UnivariatePolynomial<F>,
     coset_offset: &FieldElement<F>,
     domain_size: usize,
 ) -> crate::fri::fri_commitment::FriLayer<F, BatchedMerkleTreeBackend<F>>
 where
     F: IsFFTField,
     FieldElement<F>: Serializable,
+    <F as IsField>::BaseType: Send + Sync,
 {
     let mut evaluation = poly
         .evaluate_offset_fft(1, Some(domain_size), coset_offset)

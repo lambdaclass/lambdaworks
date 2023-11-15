@@ -1,13 +1,16 @@
-use lambdaworks_math::{fft::polynomial::FFTPoly, polynomial::Polynomial};
+use lambdaworks_math::{
+    fft::polynomial::FFTPoly,
+    polynomial::{traits::polynomial::IsPolynomial, univariate::UnivariatePolynomial},
+};
 
 use crate::common::*;
 
 #[derive(Debug)]
 pub struct QuadraticArithmeticProgram {
     pub num_of_public_inputs: usize,
-    pub l: Vec<Polynomial<FrElement>>,
-    pub r: Vec<Polynomial<FrElement>>,
-    pub o: Vec<Polynomial<FrElement>>,
+    pub l: Vec<UnivariatePolynomial<FrField>>,
+    pub r: Vec<UnivariatePolynomial<FrField>>,
+    pub o: Vec<UnivariatePolynomial<FrField>>,
 }
 
 impl QuadraticArithmeticProgram {
@@ -56,7 +59,7 @@ impl QuadraticArithmeticProgram {
         let [l, r, o] = self.scale_and_accumulate_variable_polynomials(w, degree, offset);
 
         // TODO: Change to a vector of offsetted evaluations of x^N-1
-        let mut t = (Polynomial::new_monomial(FrElement::one(), self.num_of_gates())
+        let mut t = (UnivariatePolynomial::new_monomial(FrElement::one(), self.num_of_gates())
             - FrElement::one())
         .evaluate_offset_fft(1, Some(degree), offset)
         .unwrap();
@@ -70,9 +73,9 @@ impl QuadraticArithmeticProgram {
             .map(|(((l, r), o), t)| (l * r - o) * t)
             .collect::<Vec<_>>();
 
-        Polynomial::interpolate_offset_fft(&h_evaluated, offset)
+        UnivariatePolynomial::interpolate_offset_fft(&h_evaluated, offset)
             .unwrap()
-            .coefficients()
+            .coeffs()
             .to_vec()
     }
 
@@ -88,10 +91,12 @@ impl QuadraticArithmeticProgram {
             .collect::<Vec<_>>()
     }
 
-    fn build_variable_polynomials(from_matrix: &[Vec<FrElement>]) -> Vec<Polynomial<FrElement>> {
+    fn build_variable_polynomials(
+        from_matrix: &[Vec<FrElement>],
+    ) -> Vec<UnivariatePolynomial<FrField>> {
         from_matrix
             .iter()
-            .map(|row| Polynomial::interpolate_fft(row).unwrap())
+            .map(|row| UnivariatePolynomial::interpolate_fft(row).unwrap())
             .collect()
     }
 
@@ -108,7 +113,9 @@ impl QuadraticArithmeticProgram {
             var_polynomials
                 .iter()
                 .zip(w)
-                .map(|(poly, coeff)| poly.mul_with_ref(&Polynomial::new_monomial(coeff.clone(), 0)))
+                .map(|(poly, coeff)| {
+                    poly.mul_with_ref(&UnivariatePolynomial::new_monomial(coeff.clone(), 0))
+                })
                 .reduce(|poly1, poly2| poly1 + poly2)
                 .unwrap()
                 .evaluate_offset_fft(1, Some(degree), offset)

@@ -1,7 +1,7 @@
 use itertools::Itertools;
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsField},
-    polynomial::Polynomial,
+    polynomial::{traits::polynomial::IsPolynomial, univariate::UnivariatePolynomial},
 };
 
 #[derive(Debug)]
@@ -34,11 +34,17 @@ impl<F: IsField> BoundaryConstraint<F> {
 /// Data structure that stores all the boundary constraints that must
 /// hold for the execution trace
 #[derive(Default, Debug)]
-pub struct BoundaryConstraints<F: IsField> {
+pub struct BoundaryConstraints<F: IsField>
+where
+    <F as IsField>::BaseType: Send + Sync,
+{
     pub constraints: Vec<BoundaryConstraint<F>>,
 }
 
-impl<F: IsField> BoundaryConstraints<F> {
+impl<F: IsField> BoundaryConstraints<F>
+where
+    <F as IsField>::BaseType: Send + Sync,
+{
     #[allow(dead_code)]
     pub fn new() -> Self {
         Self {
@@ -120,12 +126,14 @@ impl<F: IsField> BoundaryConstraints<F> {
         &self,
         primitive_root: &FieldElement<F>,
         col: usize,
-    ) -> Polynomial<FieldElement<F>> {
+    ) -> UnivariatePolynomial<F> {
         self.steps(col).into_iter().fold(
-            Polynomial::new_monomial(FieldElement::<F>::one(), 0),
+            UnivariatePolynomial::new_monomial(FieldElement::<F>::one(), 0),
             |zerofier, step| {
-                let binomial =
-                    Polynomial::new(&[-primitive_root.pow(step), FieldElement::<F>::one()]);
+                let binomial = UnivariatePolynomial::new(
+                    1,
+                    &[-primitive_root.pow(step), FieldElement::<F>::one()],
+                );
                 // TODO: Implement the MulAssign trait for Polynomials?
                 zerofier * binomial
             },
@@ -159,11 +167,11 @@ mod test {
         let primitive_root = PrimeField::get_primitive_root_of_unity(3).unwrap();
 
         // P_0(x) = (x - 1)
-        let a0_zerofier = Polynomial::new(&[-one, one]);
+        let a0_zerofier = UnivariatePolynomial::new(1, &[-one, one]);
         // P_1(x) = (x - w^1)
-        let a1_zerofier = Polynomial::new(&[-primitive_root.pow(1u32), one]);
+        let a1_zerofier = UnivariatePolynomial::new(1, &[-primitive_root.pow(1u32), one]);
         // P_res(x) = (x - w^7)
-        let res_zerofier = Polynomial::new(&[-primitive_root.pow(7u32), one]);
+        let res_zerofier = UnivariatePolynomial::new(1, &[-primitive_root.pow(7u32), one]);
 
         let expected_zerofier = a0_zerofier * a1_zerofier * res_zerofier;
 

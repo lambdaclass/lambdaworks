@@ -5,6 +5,7 @@ use lambdaworks_math::{
         short_weierstrass::{point::ShortWeierstrassProjectivePoint, traits::IsShortWeierstrass},
         traits::{IsEllipticCurve, IsPairing},
     },
+    polynomial::traits::polynomial::IsPolynomial,
 };
 
 pub struct VerifyingKey {
@@ -64,8 +65,16 @@ pub fn setup(qap: &QuadraticArithmeticProgram) -> (ProvingKey, VerifyingKey) {
 
     let tw = ToxicWaste::new();
 
-    let l_tau: Vec<_> = qap.l.iter().map(|p| p.evaluate(&tw.tau)).collect();
-    let r_tau: Vec<_> = qap.r.iter().map(|p| p.evaluate(&tw.tau)).collect();
+    let l_tau: Vec<_> = qap
+        .l
+        .iter()
+        .map(|p| p.evaluate(&[tw.tau.clone()]).unwrap())
+        .collect();
+    let r_tau: Vec<_> = qap
+        .r
+        .iter()
+        .map(|p| p.evaluate(&[tw.tau.clone()]).unwrap())
+        .collect();
 
     let mut to_be_inversed = [tw.delta.clone(), tw.gamma.clone()];
     FrElement::inplace_batch_inverse(&mut to_be_inversed).unwrap();
@@ -76,7 +85,8 @@ pub fn setup(qap: &QuadraticArithmeticProgram) -> (ProvingKey, VerifyingKey) {
         .zip(&r_tau)
         .enumerate()
         .map(|(i, (l, r))| {
-            let unshifted = &tw.beta * l + &tw.alpha * r + &qap.o[i].evaluate(&tw.tau);
+            let unshifted =
+                &tw.beta * l + &tw.alpha * r + &qap.o[i].evaluate(&[tw.tau.clone()]).unwrap();
             if i < qap.num_of_public_inputs {
                 &gamma_inv * &unshifted
             } else {

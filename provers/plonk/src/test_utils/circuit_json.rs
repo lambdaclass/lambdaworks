@@ -6,7 +6,7 @@ use lambdaworks_math::fft::polynomial::FFTPoly;
 use lambdaworks_math::field::traits::IsFFTField;
 use lambdaworks_math::{
     elliptic_curve::short_weierstrass::curves::bls12_381::default_types::{FrElement, FrField},
-    polynomial::Polynomial,
+    polynomial::univariate::UnivariatePolynomial,
 };
 use serde::{Deserialize, Serialize};
 
@@ -62,19 +62,39 @@ pub fn common_preprocessed_input_from_json(
             domain,
             omega,
             k1: ORDER_R_MINUS_1_ROOT_UNITY,
-            ql: Polynomial::interpolate_fft(&process_vector(json_input.Ql, &FrElement::zero(), n))
-                .unwrap(),
-            qr: Polynomial::interpolate_fft(&process_vector(json_input.Qr, &FrElement::zero(), n))
-                .unwrap(),
-            qo: Polynomial::interpolate_fft(&process_vector(json_input.Qo, &FrElement::zero(), n))
-                .unwrap(),
-            qm: Polynomial::interpolate_fft(&process_vector(json_input.Qm, &FrElement::zero(), n))
-                .unwrap(),
-            qc: Polynomial::interpolate_fft(&process_vector(json_input.Qc, &FrElement::zero(), n))
-                .unwrap(),
-            s1: Polynomial::interpolate_fft(&s1_lagrange).unwrap(),
-            s2: Polynomial::interpolate_fft(&s2_lagrange).unwrap(),
-            s3: Polynomial::interpolate_fft(&s3_lagrange).unwrap(),
+            ql: UnivariatePolynomial::interpolate_fft(&process_vector(
+                json_input.Ql,
+                &FrElement::zero(),
+                n,
+            ))
+            .unwrap(),
+            qr: UnivariatePolynomial::interpolate_fft(&process_vector(
+                json_input.Qr,
+                &FrElement::zero(),
+                n,
+            ))
+            .unwrap(),
+            qo: UnivariatePolynomial::interpolate_fft(&process_vector(
+                json_input.Qo,
+                &FrElement::zero(),
+                n,
+            ))
+            .unwrap(),
+            qm: UnivariatePolynomial::interpolate_fft(&process_vector(
+                json_input.Qm,
+                &FrElement::zero(),
+                n,
+            ))
+            .unwrap(),
+            qc: UnivariatePolynomial::interpolate_fft(&process_vector(
+                json_input.Qc,
+                &FrElement::zero(),
+                n,
+            ))
+            .unwrap(),
+            s1: UnivariatePolynomial::interpolate_fft(&s1_lagrange).unwrap(),
+            s2: UnivariatePolynomial::interpolate_fft(&s2_lagrange).unwrap(),
+            s3: UnivariatePolynomial::interpolate_fft(&s3_lagrange).unwrap(),
             s1_lagrange,
             s2_lagrange,
             s3_lagrange,

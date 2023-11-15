@@ -213,7 +213,7 @@ mod tests {
             get_powers_of_primitive_root(order.into(), len, RootsConfig::Natural).unwrap();
 
         let fft_eval = poly.evaluate_fft(1, None).unwrap();
-        let naive_eval = poly.evaluate_slice(&twiddles);
+        let naive_eval = poly.evaluate_slice(&twiddles).unwrap();
 
         (fft_eval, naive_eval)
     }
@@ -234,7 +234,7 @@ mod tests {
         let fft_eval = poly
             .evaluate_offset_fft(blowup_factor, None, &offset)
             .unwrap();
-        let naive_eval = poly.evaluate_slice(&twiddles);
+        let naive_eval = poly.evaluate_slice(&twiddles).unwrap();
 
         (fft_eval, naive_eval)
     }

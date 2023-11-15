@@ -64,14 +64,14 @@ where
     // NOTE: In Univariate case p will be raised to the power^index therefore to evaluate we multiply
     // TODO: make result add check
     fn evaluate(&self, p: &[FieldElement<F>]) -> FieldElement<F> {
-        self * p[0]
+        self * &p[0]
     }
 
     // TODO: add documentation
     // TODO: Decide if this should be abstracted better?
     // TODO: make result add check
     fn partial_evaluate(&self, assignments: &[(usize, FieldElement<F>)]) -> Self {
-        self * assignments[0].1
+        self * &assignments[0].1
     }
 
     fn zero() -> Self {

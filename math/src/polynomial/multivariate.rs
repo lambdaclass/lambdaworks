@@ -100,7 +100,7 @@ where
         }
     }
 
-    fn coeffs(&self) -> &[FieldElement<F>] {
+    fn coeffs(&self) -> Vec<FieldElement<F>> {
         //TODO: eliminate grabbing owned reference via implementing deref/caching
         let coeff = self
             .terms
@@ -108,7 +108,7 @@ where
             .iter()
             .map(|t| t.coeff.clone())
             .collect::<Vec<_>>();
-        &coeff
+        coeff
     }
 
     fn len(&self) -> usize {
@@ -841,6 +841,7 @@ where
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
     use crate::field::element::FieldElement;
     use crate::field::fields::u64_prime_field::U64PrimeField;
@@ -1001,26 +1002,58 @@ mod tests {
 
     // Some of these tests work when the finite field has order greater than 2.
     fn polynomial_a() -> MultivariatePolynomial<F> {
-        MultivariatePolynomial::new(1, &[FE::new(1), FE::new(2), FE::new(3)])
+        MultivariatePolynomial::new(
+            1,
+            &[
+                MultivariateMonomial::new((FE::new(1), vec![(0, 1)])),
+                MultivariateMonomial::new((FE::new(2), vec![(0, 2)])),
+                MultivariateMonomial::new((FE::new(3), vec![(0, 3)])),
+            ],
+        )
     }
 
     fn polynomial_minus_a() -> MultivariatePolynomial<F> {
         MultivariatePolynomial::new(
             1,
-            &[FE::new(ORDER - 1), FE::new(ORDER - 2), FE::new(ORDER - 3)],
+            &[
+                MultivariateMonomial::new((FE::new(ORDER - 1), vec![(0, 1)])),
+                MultivariateMonomial::new((FE::new(ORDER - 2), vec![(0, 2)])),
+                MultivariateMonomial::new((FE::new(ORDER - 3), vec![(0, 3)])),
+            ],
         )
     }
 
     fn polynomial_b() -> MultivariatePolynomial<F> {
-        MultivariatePolynomial::new(1, &[FE::new(3), FE::new(4), FE::new(5)])
+        MultivariatePolynomial::new(
+            1,
+            &[
+                MultivariateMonomial::new((FE::new(3), vec![(0, 1)])),
+                MultivariateMonomial::new((FE::new(4), vec![(0, 2)])),
+                MultivariateMonomial::new((FE::new(5), vec![(0, 3)])),
+            ],
+        )
     }
 
     fn polynomial_a_plus_b() -> MultivariatePolynomial<F> {
-        MultivariatePolynomial::new(1, &[FE::new(4), FE::new(6), FE::new(8)])
+        MultivariatePolynomial::new(
+            1,
+            &[
+                MultivariateMonomial::new((FE::new(4), vec![(0, 1)])),
+                MultivariateMonomial::new((FE::new(6), vec![(0, 2)])),
+                MultivariateMonomial::new((FE::new(8), vec![(0, 3)])),
+            ],
+        )
     }
 
     fn polynomial_b_minus_a() -> MultivariatePolynomial<F> {
-        MultivariatePolynomial::new(1, &[FE::new(2), FE::new(2), FE::new(2)])
+        MultivariatePolynomial::new(
+            1,
+            &[
+                MultivariateMonomial::new((FE::new(2), vec![(0, 1)])),
+                MultivariateMonomial::new((FE::new(2), vec![(0, 2)])),
+                MultivariateMonomial::new((FE::new(2), vec![(0, 3)])),
+            ],
+        )
     }
 
     #[test]
@@ -1035,22 +1068,55 @@ mod tests {
 
     #[test]
     fn add_5_to_0_is_5() {
-        let p1 = MultivariatePolynomial::new(1, &[FE::new(5)]);
-        let p2 = MultivariatePolynomial::new(1, &[FE::new(0)]);
-        assert_eq!(p1 + p2, MultivariatePolynomial::new(1, &[FE::new(5)]));
+        let p1 = MultivariatePolynomial::new(
+            1,
+            &[MultivariateMonomial::new((FE::new(5), vec![(0, 1)]))],
+        );
+        let p2 = MultivariatePolynomial::new(
+            1,
+            &[MultivariateMonomial::new((FE::new(0), vec![(0, 1)]))],
+        );
+        assert_eq!(
+            p1 + p2,
+            MultivariatePolynomial::new(
+                1,
+                &[MultivariateMonomial::new((FE::new(5), vec![(0, 1)]))]
+            )
+        );
     }
 
     #[test]
     fn add_0_to_5_is_5() {
-        let p1 = MultivariatePolynomial::new(1, &[FE::new(5)]);
-        let p2 = MultivariatePolynomial::new(1, &[FE::new(0)]);
-        assert_eq!(p2 + p1, MultivariatePolynomial::new(1, &[FE::new(5)]));
+        let p1 = MultivariatePolynomial::new(
+            1,
+            &[MultivariateMonomial::new((FE::new(5), vec![(0, 1)]))],
+        );
+        let p2 = MultivariatePolynomial::new(
+            1,
+            &[MultivariateMonomial::new((FE::new(0), vec![(0, 1)]))],
+        );
+        assert_eq!(
+            p2 + p1,
+            MultivariatePolynomial::new(
+                1,
+                &[MultivariateMonomial::new((FE::new(5), vec![(0, 1)]))]
+            )
+        );
     }
 
     #[test]
     fn negating_0_returns_0() {
-        let p1 = MultivariatePolynomial::new(1, &[FE::new(0)]);
-        assert_eq!(-p1, MultivariatePolynomial::new(1, &[FE::new(0)]));
+        let p1 = MultivariatePolynomial::new(
+            1,
+            &[MultivariateMonomial::new((FE::new(0), vec![(0, 1)]))],
+        );
+        assert_eq!(
+            -p1,
+            MultivariatePolynomial::new(
+                1,
+                &[MultivariateMonomial::new((FE::new(0), vec![(0, 1)]))]
+            )
+        );
     }
 
     #[test]
@@ -1065,9 +1131,18 @@ mod tests {
 
     #[test]
     fn substracting_5_5_gives_0() {
-        let p1 = MultivariatePolynomial::new(1, &[FE::new(5)]);
-        let p2 = MultivariatePolynomial::new(1, &[FE::new(5)]);
-        let p3 = MultivariatePolynomial::new(1, &[FE::new(0)]);
+        let p1 = MultivariatePolynomial::new(
+            1,
+            &[MultivariateMonomial::new((FE::new(5), vec![(0, 1)]))],
+        );
+        let p2 = MultivariatePolynomial::new(
+            1,
+            &[MultivariateMonomial::new((FE::new(5), vec![(0, 1)]))],
+        );
+        let p3 = MultivariatePolynomial::new(
+            1,
+            &[MultivariateMonomial::new((FE::new(0), vec![(0, 1)]))],
+        );
         assert_eq!(p1 - p2, p3);
     }
 
@@ -1078,91 +1153,191 @@ mod tests {
 
     #[test]
     fn constructor_removes_zeros_at_the_end_of_polynomial() {
-        let p1 = MultivariatePolynomial::new(1, &[FE::new(3), FE::new(4), FE::new(0)]);
-        assert_eq!(p1.coefficients, &[FE::new(3), FE::new(4)]);
+        let p1 = MultivariatePolynomial::new(
+            1,
+            &[
+                MultivariateMonomial::new((FE::new(3), vec![(0, 1)])),
+                MultivariateMonomial::new((FE::new(4), vec![(0, 2)])),
+                MultivariateMonomial::new((FE::new(0), vec![(0, 3)])),
+            ],
+        );
+        assert_eq!(p1.coeffs(), &[FE::new(3), FE::new(4)]);
     }
 
     #[test]
     fn pad_with_zero_coefficients_returns_polynomials_with_zeros_until_matching_size() {
-        let p1 = MultivariatePolynomial::new(1, &[FE::new(3), FE::new(4)]);
-        let p2 = MultivariatePolynomial::new(1, &[FE::new(3)]);
+        let p1 = MultivariatePolynomial::new(
+            1,
+            &[
+                MultivariateMonomial::new((FE::new(3), vec![(0, 1)])),
+                MultivariateMonomial::new((FE::new(4), vec![(0, 2)])),
+            ],
+        );
+        let p2 = MultivariatePolynomial::new(
+            1,
+            &[MultivariateMonomial::new((FE::new(3), vec![(0, 1)]))],
+        );
 
-        assert_eq!(p2.coefficients, &[FE::new(3)]);
+        assert_eq!(p2.coeffs(), &[FE::new(3)]);
         let (pp1, pp2) = MultivariatePolynomial::pad_with_zero_coefficients(&p1, &p2);
         assert_eq!(pp1, p1);
-        assert_eq!(pp2.coefficients, &[FE::new(3), FE::new(0)]);
+        assert_eq!(pp2.coeffs(), &[FE::new(3), FE::new(0)]);
     }
 
     #[test]
     fn multiply_5_and_0_is_0() {
-        let p1 = MultivariatePolynomial::new(1, &[FE::new(5)]);
-        let p2 = MultivariatePolynomial::new(1, &[FE::new(0)]);
-        assert_eq!(p1 * p2, MultivariatePolynomial::new(1, &[FE::new(0)]));
+        let p1 = MultivariatePolynomial::new(
+            1,
+            &[MultivariateMonomial::new((FE::new(5), vec![(0, 1)]))],
+        );
+        let p2 = MultivariatePolynomial::new(
+            1,
+            &[MultivariateMonomial::new((FE::new(0), vec![(0, 1)]))],
+        );
+        assert_eq!(
+            p1 * p2,
+            MultivariatePolynomial::new(
+                1,
+                &[MultivariateMonomial::new((FE::new(0), vec![(0, 1)]))]
+            )
+        );
     }
 
     #[test]
     fn multiply_0_and_x_is_0() {
-        let p1 = MultivariatePolynomial::new(1, &[FE::new(0)]);
-        let p2 = MultivariatePolynomial::new(1, &[FE::new(0), FE::new(1)]);
-        assert_eq!(p1 * p2, MultivariatePolynomial::new(1, &[FE::new(0)]));
+        let p1 = MultivariatePolynomial::new(
+            1,
+            &[MultivariateMonomial::new((FE::new(0), vec![(0, 1)]))],
+        );
+        let p2 = MultivariatePolynomial::new(
+            1,
+            &[
+                MultivariateMonomial::new((FE::new(0), vec![(0, 1)])),
+                MultivariateMonomial::new((FE::new(1), vec![(0, 2)])),
+            ],
+        );
+        assert_eq!(
+            p1 * p2,
+            MultivariatePolynomial::new(
+                1,
+                &[MultivariateMonomial::new((FE::new(0), vec![(0, 1)]))]
+            )
+        );
     }
 
     #[test]
     fn multiply_2_by_3_is_6() {
-        let p1 = MultivariatePolynomial::new(1, &[FE::new(2)]);
-        let p2 = MultivariatePolynomial::new(1, &[FE::new(3)]);
-        assert_eq!(p1 * p2, MultivariatePolynomial::new(1, &[FE::new(6)]));
+        let p1 = MultivariatePolynomial::new(
+            1,
+            &[MultivariateMonomial::new((FE::new(2), vec![(0, 1)]))],
+        );
+        let p2 = MultivariatePolynomial::new(
+            1,
+            &[MultivariateMonomial::new((FE::new(3), vec![(0, 1)]))],
+        );
+        assert_eq!(
+            p1 * p2,
+            MultivariatePolynomial::new(
+                1,
+                &[MultivariateMonomial::new((FE::new(6), vec![(0, 1)]))]
+            )
+        );
     }
 
     #[test]
     fn multiply_2xx_3x_3_times_x_4() {
-        let p1 = MultivariatePolynomial::new(1, &[FE::new(3), FE::new(3), FE::new(2)]);
-        let p2 = MultivariatePolynomial::new(1, &[FE::new(4), FE::new(1)]);
+        let p1 = MultivariatePolynomial::new(
+            1,
+            &[
+                MultivariateMonomial::new((FE::new(3), vec![(0, 1)])),
+                MultivariateMonomial::new((FE::new(3), vec![(0, 2)])),
+                MultivariateMonomial::new((FE::new(2), vec![(0, 3)])),
+            ],
+        );
+        let p2 = MultivariatePolynomial::new(
+            1,
+            &[
+                MultivariateMonomial::new((FE::new(4), vec![(0, 1)])),
+                MultivariateMonomial::new((FE::new(1), vec![(0, 2)])),
+            ],
+        );
         assert_eq!(
             p1 * p2,
-            MultivariatePolynomial::new(1, &[FE::new(12), FE::new(15), FE::new(11), FE::new(2)])
+            MultivariatePolynomial::new(
+                1,
+                &[
+                    MultivariateMonomial::new((FE::new(12), vec![(0, 1)])),
+                    MultivariateMonomial::new((FE::new(15), vec![(0, 2)])),
+                    MultivariateMonomial::new((FE::new(11), vec![(0, 3)])),
+                    MultivariateMonomial::new((FE::new(2), vec![(0, 4)]))
+                ]
+            )
         );
     }
 
     #[test]
     fn multiply_x_4_times_2xx_3x_3() {
-        let p1 = MultivariatePolynomial::new(1, &[FE::new(3), FE::new(3), FE::new(2)]);
-        let p2 = MultivariatePolynomial::new(1, &[FE::new(4), FE::new(1)]);
+        let p1 = MultivariatePolynomial::new(
+            1,
+            &[
+                MultivariateMonomial::new((FE::new(3), vec![(0, 1)])),
+                MultivariateMonomial::new((FE::new(3), vec![(0, 2)])),
+                MultivariateMonomial::new((FE::new(2), vec![(0, 3)])),
+            ],
+        );
+        let p2 = MultivariatePolynomial::new(
+            1,
+            &[
+                MultivariateMonomial::new((FE::new(4), vec![(0, 1)])),
+                MultivariateMonomial::new((FE::new(1), vec![(0, 2)])),
+            ],
+        );
         assert_eq!(
             p2 * p1,
-            MultivariatePolynomial::new(1, &[FE::new(12), FE::new(15), FE::new(11), FE::new(2)])
+            MultivariatePolynomial::new(
+                1,
+                &[
+                    MultivariateMonomial::new((FE::new(12), vec![(0, 1)])),
+                    MultivariateMonomial::new((FE::new(15), vec![(0, 2)])),
+                    MultivariateMonomial::new((FE::new(11), vec![(0, 3)])),
+                    MultivariateMonomial::new((FE::new(2), vec![(0, 4)]))
+                ]
+            )
         );
     }
 
     #[test]
     fn evaluate_constant_polynomial_returns_constant() {
         let three = FE::new(3);
-        let p = MultivariatePolynomial::new(1, &[three]);
+        let p = MultivariatePolynomial::new(1, &[MultivariateMonomial::new((three, vec![(0, 1)]))]);
         assert_eq!(p.evaluate(&[FE::new(10)]).unwrap(), three);
     }
 
     #[test]
     fn evaluate_slice() {
         let three = FE::new(3);
-        let p = MultivariatePolynomial::new(1, &[three]);
-        let ret = p.evaluate_slice(&[FE::new(10), FE::new(15)]);
+        let p = MultivariatePolynomial::new(1, &[MultivariateMonomial::new((three, vec![(0, 0)]))]);
+        let ret = p.evaluate_slice(&[FE::new(10), FE::new(15)]).unwrap();
         assert_eq!(ret, [three, three]);
     }
 
     #[test]
     fn create_degree_0_new_monomial() {
         assert_eq!(
-            MultivariatePolynomial::new_monomial(FE::new(3), 0),
-            MultivariatePolynomial::new(1, &[FE::new(3)])
+            MultivariateMonomial::new((FE::new(3), vec![(0, 0)])).evaluate(&[FE::one()]),
+            MultivariatePolynomial::new(
+                1,
+                &[MultivariateMonomial::new((FE::new(3), vec![(0, 0)]))]
+            )
+            .evaluate(&[FE::one()])
+            .unwrap()
         );
     }
 
     #[test]
     fn zero_poly_evals_0_in_3() {
         assert_eq!(
-            MultivariatePolynomial::new_monomial(FE::new(0), 0)
-                .evaluate(&[FE::new(3)])
-                .unwrap(),
+            MultivariateMonomial::new((FE::new(0), vec![(0, 0)])).evaluate(&[FE::new(3)]),
             FE::new(0)
         );
     }
@@ -1171,30 +1346,57 @@ mod tests {
     fn evaluate_degree_1_new_monomial() {
         let two = FE::new(2);
         let four = FE::new(4);
-        let p = MultivariatePolynomial::new_monomial(two, 1);
-        assert_eq!(p.evaluate(&[two]).unwrap(), four);
+        let p = MultivariateMonomial::new((two, vec![(0, 1)]));
+        assert_eq!(p.evaluate(&[two]), four);
     }
 
     #[test]
     fn evaluate_degree_2_monomyal() {
         let two = FE::new(2);
         let eight = FE::new(8);
-        let p = MultivariatePolynomial::new_monomial(two, 2);
-        assert_eq!(p.evaluate(&[two]).unwrap(), eight);
+        let p = MultivariateMonomial::new((two, vec![(0, 2)]));
+        assert_eq!(p.evaluate(&[two]), eight);
     }
 
     #[test]
     fn evaluate_3_term_polynomial() {
-        let p = MultivariatePolynomial::new(1, &[FE::new(3), -FE::new(2), FE::new(4)]);
+        let p = MultivariatePolynomial::new(
+            1,
+            &[
+                MultivariateMonomial::new((FE::new(3), vec![(0, 0)])),
+                MultivariateMonomial::new((-FE::new(2), vec![(0, 1)])),
+                MultivariateMonomial::new((FE::new(4), vec![(0, 2)])),
+            ],
+        );
         assert_eq!(p.evaluate(&[FE::new(2)]).unwrap(), FE::new(15));
     }
 
     #[test]
     fn break_in_parts() {
         // p = 3 X^3 + X^2 + 2X + 1
-        let p = MultivariatePolynomial::new(1, &[FE::new(1), FE::new(2), FE::new(1), FE::new(3)]);
-        let p0_expected = MultivariatePolynomial::new(1, &[FE::new(1), FE::new(1)]);
-        let p1_expected = MultivariatePolynomial::new(1, &[FE::new(2), FE::new(3)]);
+        let p = MultivariatePolynomial::new(
+            1,
+            &[
+                MultivariateMonomial::new((FE::new(1), vec![(0, 0)])),
+                MultivariateMonomial::new((FE::new(2), vec![(0, 1)])),
+                MultivariateMonomial::new((FE::new(1), vec![(0, 2)])),
+                MultivariateMonomial::new((FE::new(3), vec![(0, 3)])),
+            ],
+        );
+        let p0_expected = MultivariatePolynomial::new(
+            1,
+            &[
+                MultivariateMonomial::new((FE::new(1), vec![(0, 0)])),
+                MultivariateMonomial::new((FE::new(1), vec![(0, 1)])),
+            ],
+        );
+        let p1_expected = MultivariatePolynomial::new(
+            1,
+            &[
+                MultivariateMonomial::new((FE::new(2), vec![(0, 0)])),
+                MultivariateMonomial::new((FE::new(3), vec![(0, 1)])),
+            ],
+        );
         let parts = p.split_n_ways(2);
         assert_eq!(parts.len(), 2);
         let p0 = &parts[0];

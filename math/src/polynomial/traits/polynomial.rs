@@ -1,3 +1,5 @@
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
+
 use crate::errors::TermError;
 use crate::field::element::FieldElement;
 use crate::field::traits::IsField;
@@ -18,7 +20,7 @@ where
 
     fn leading_coefficient(&self) -> FieldElement<F>;
 
-    fn coeffs(&self) -> &[FieldElement<F>];
+    fn coeffs(&self) -> Vec<FieldElement<F>>;
 
     fn len(&self) -> usize;
 
@@ -30,6 +32,16 @@ where
     fn evaluate(&self, p: &[FieldElement<F>]) -> Result<FieldElement<F>, TermError>;
 
     fn evaluate_with(terms: &[T], p: &[FieldElement<F>]) -> Result<FieldElement<F>, TermError>;
+
+    fn evaluate_slice(&self, input: &[FieldElement<F>]) -> Result<Vec<FieldElement<F>>, TermError>
+    where
+        Self: Sync,
+    {
+        Ok(input
+            .into_par_iter()
+            .map(|x| self.evaluate(&[x.clone()]).unwrap())
+            .collect())
+    }
 
     /// Selectively assign values to variables in the polynomial, returns a reduced
     /// polynomial after assignment evaluation

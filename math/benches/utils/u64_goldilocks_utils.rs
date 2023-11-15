@@ -1,6 +1,9 @@
 use lambdaworks_math::{
     field::element::FieldElement,
-    field::fields::fft_friendly::u64_goldilocks::U64GoldilocksPrimeField, polynomial::Polynomial,
+    field::fields::fft_friendly::{
+        stark_252_prime_field::Stark252PrimeField, u64_goldilocks::U64GoldilocksPrimeField,
+    },
+    polynomial::{traits::polynomial::IsPolynomial, univariate::UnivariatePolynomial},
 };
 use rand::random;
 
@@ -51,6 +54,6 @@ pub fn rand_field_elements_pair() -> (FE, FE) {
 #[allow(dead_code)]
 #[inline(never)]
 #[export_name = "u64_utils::rand_goldilocks_poly"]
-pub fn rand_poly(order: u64) -> Polynomial<FE> {
-    Polynomial::new(&rand_field_elements(order))
+pub fn rand_poly(order: u64) -> UnivariatePolynomial<U64GoldilocksPrimeField> {
+    UnivariatePolynomial::new(1, &rand_field_elements(order))
 }

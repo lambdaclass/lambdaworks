@@ -1,9 +1,10 @@
 use crate::table::{Table, TableView};
 use lambdaworks_math::fft::errors::FFTError;
 use lambdaworks_math::fft::polynomial::FFTPoly;
+use lambdaworks_math::field::traits::IsField;
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsFFTField},
-    polynomial::Polynomial,
+    polynomial::{traits::polynomial::IsPolynomial, univariate::UnivariatePolynomial},
 };
 #[cfg(feature = "parallel")]
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
@@ -111,9 +112,10 @@ impl<'t, F: IsFFTField> TraceTable<F> {
         self.table.get(row, col)
     }
 
-    pub fn compute_trace_polys(&self) -> Vec<Polynomial<FieldElement<F>>>
+    pub fn compute_trace_polys(&self) -> Vec<UnivariatePolynomial<F>>
     where
         FieldElement<F>: Send + Sync,
+        <F as IsField>::BaseType: Send + Sync,
     {
         let columns = self.columns();
         #[cfg(feature = "parallel")]
@@ -121,8 +123,8 @@ impl<'t, F: IsFFTField> TraceTable<F> {
         #[cfg(not(feature = "parallel"))]
         let iter = columns.iter();
 
-        iter.map(|col| Polynomial::interpolate_fft(col))
-            .collect::<Result<Vec<Polynomial<FieldElement<F>>>, FFTError>>()
+        iter.map(|col| UnivariatePolynomial::interpolate_fft(col))
+            .collect::<Result<Vec<UnivariatePolynomial<F>>, FFTError>>()
             .unwrap()
     }
 
@@ -194,18 +196,21 @@ impl<'t, F: IsFFTField> StepView<'t, F> {
 /// Example: For a simple Fibonacci computation, if t(x) is the trace polynomial of
 /// the computation, this will output evaluations t(x), t(g * x), t(g^2 * z).
 pub fn get_trace_evaluations<F: IsFFTField>(
-    trace_polys: &[Polynomial<FieldElement<F>>],
+    trace_polys: &[UnivariatePolynomial<F>],
     x: &FieldElement<F>,
     frame_offsets: &[usize],
     primitive_root: &FieldElement<F>,
-) -> Vec<Vec<FieldElement<F>>> {
+) -> Vec<Vec<FieldElement<F>>>
+where
+    <F as IsField>::BaseType: Send + Sync,
+{
     frame_offsets
         .iter()
         .map(|offset| x * primitive_root.pow(*offset))
         .map(|eval_point| {
             trace_polys
                 .iter()
-                .map(|poly| poly.evaluate(&eval_point))
+                .map(|poly| poly.evaluate(&[eval_point.clone()]).unwrap())
                 .collect::<Vec<FieldElement<F>>>()
         })
         .collect()

@@ -9,9 +9,11 @@ use log::error;
 use lambdaworks_math::{
     fft::cpu::bit_reversing::reverse_index,
     field::{
-        element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
-        traits::IsFFTField,
+        element::FieldElement,
+        fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+        traits::{IsFFTField, IsField},
     },
+    polynomial::traits::polynomial::IsPolynomial,
     traits::Serializable,
 };
 
@@ -75,6 +77,7 @@ pub trait IsStarkVerifier {
     where
         FieldElement<Self::Field>: Serializable,
         A: AIR<Field = Self::Field>,
+        <<Self as IsStarkVerifier>::Field as IsField>::BaseType: Send + Sync,
     {
         // ===================================
         // ==========|   Round 1   |==========
@@ -209,6 +212,7 @@ pub trait IsStarkVerifier {
     ) -> bool
     where
         A: AIR<Field = Self::Field>,
+        <<Self as IsStarkVerifier>::Field as IsField>::BaseType: Send + Sync,
     {
         let boundary_constraints = air.boundary_constraints(&challenges.rap_challenges);
 
@@ -263,7 +267,7 @@ pub trait IsStarkVerifier {
                 domain.trace_roots_of_unity.iter().last().expect("has last"),
             )
             .iter()
-            .map(|poly| poly.evaluate(&challenges.z))
+            .map(|poly| poly.evaluate(&[challenges.z.clone()]).unwrap())
             .collect::<Vec<FieldElement<Self::Field>>>();
 
         let unity = &FieldElement::one();
@@ -665,6 +669,7 @@ pub trait IsStarkVerifier {
     where
         A: AIR<Field = Self::Field>,
         FieldElement<Self::Field>: Serializable,
+        <<Self as IsStarkVerifier>::Field as IsField>::BaseType: Send + Sync,
     {
         // Verify there are enough queries
         if proof.query_list.len() < proof_options.fri_number_of_queries {

@@ -1,5 +1,8 @@
 use lambdaworks_math::{
-    field::{element::FieldElement, traits::IsFFTField},
+    field::{
+        element::FieldElement,
+        traits::{IsFFTField, IsField},
+    },
     traits::Serializable,
 };
 
@@ -38,6 +41,7 @@ where
 pub struct Fibonacci2ColsShifted<F>
 where
     F: IsFFTField,
+    <F as IsField>::BaseType: Send + Sync,
 {
     context: AirContext,
     trace_length: usize,
@@ -51,6 +55,7 @@ where
 impl<F> AIR for Fibonacci2ColsShifted<F>
 where
     F: IsFFTField,
+    <F as IsField>::BaseType: Send + Sync,
 {
     type Field = F;
     type RAPChallenges = ();
