@@ -1,6 +1,4 @@
-use std::ops::Range;
-
-use crate::air::{MemorySegmentMap, PublicInputs, Segment, SegmentName};
+use crate::air::PublicInputs;
 use crate::cairo_layout::CairoLayout;
 use crate::cairo_mem::CairoMemory;
 use crate::execution_trace::build_main_trace;
@@ -57,11 +55,6 @@ impl From<TraceError> for Error {
     fn from(err: TraceError) -> Error {
         Error::Trace(err)
     }
-}
-
-fn from_vm_felt(f: cairo_vm::felt::Felt252) -> Felt252 {
-    let val = f.to_biguint().to_str_radix(16);
-    Felt252::from_hex(&val).unwrap()
 }
 
 /// Runs a cairo program in JSON format and returns trace, memory and program length.
@@ -134,27 +127,9 @@ pub fn run_program(
 
     let data_len = runner.get_program().data_len();
 
-    let range_check_builtin_included = runner
-        .get_program()
-        .iter_builtins()
-        .any(|builtin| builtin.name() == "range_check_builtin");
-
-    // get range start and end
-    let range_check = if range_check_builtin_included {
-        vm.get_range_check_builtin()
-            .map(|builtin| {
-                let (idx, stop_offset) = builtin.get_memory_segment_addresses();
-                let stop_offset = stop_offset.unwrap_or_default();
-                let range_check_base =
-                    (0..idx).fold(1, |acc, i| acc + vm.get_segment_size(i).unwrap_or_default());
-                let range_check_end = range_check_base + stop_offset;
-
-                (range_check_base, range_check_end)
-            })
-            .ok()
-    } else {
-        None
-    };
+    let public_memory = (1..=data_len as u64)
+        .map(|i| (Felt252::from(i), *cairo_mem.get(&i).unwrap()))
+        .collect::<HashMap<Felt252, Felt252>>();
 
     let vm_public_inputs = runner.get_air_public_input(&vm).unwrap();
     let num_steps = register_states.steps();
@@ -166,10 +141,8 @@ pub fn run_program(
         ap_final: Felt252::from(register_states.rows[num_steps - 1].ap),
         range_check_min: Some(vm_public_inputs.rc_min as u16),
         range_check_max: Some(vm_public_inputs.rc_max as u16),
-        // memory_segments,
         memory_segments: HashMap::new(),
-        // public_memory,
-        public_memory: HashMap::new(),
+        public_memory,
         num_steps,
         codelen: data_len,
     };
@@ -185,29 +158,9 @@ pub fn generate_prover_args(
         run_program(None, layout, program_content)?;
 
     let mut pub_inputs = PublicInputs::from_regs_and_mem(&register_states, &memory, program_size);
-
     let main_trace = build_main_trace(&register_states, &memory, &mut pub_inputs);
 
-    println!(
-        "min\nGot {}, Expected {}",
-        public_inputs.range_check_min.unwrap(),
-        pub_inputs.range_check_min.unwrap()
-    );
-
-    // // testing
-    pub_inputs.pc_init = public_inputs.pc_init;
-    pub_inputs.ap_init = public_inputs.ap_init;
-    pub_inputs.fp_init = public_inputs.fp_init;
-    pub_inputs.pc_final = public_inputs.pc_final;
-    pub_inputs.ap_final = public_inputs.ap_final;
-    pub_inputs.range_check_min = public_inputs.range_check_min;
-    pub_inputs.range_check_max = public_inputs.range_check_max;
-    // pub_inputs.memory_segments = public_inputs.memory_segments; // empty
-    // // pub_inputs.public_memory = public_inputs.public_memory; // breaks
-    pub_inputs.num_steps = public_inputs.num_steps;
-    pub_inputs.codelen = public_inputs.codelen;
-
-    Ok((main_trace, pub_inputs))
+    Ok((main_trace, public_inputs))
 }
 
 pub fn generate_prover_args_from_trace(

@@ -9,11 +9,11 @@ use super::{
     },
     register_states::RegisterStates,
 };
-use crate::air::{Segment, EXTRA_ADDR, RC_HOLES};
+use crate::air::{EXTRA_ADDR, RC_HOLES};
 use crate::{
     air::{
-        PublicInputs, SegmentName, FRAME_DST_ADDR, FRAME_OP0_ADDR, FRAME_OP1_ADDR, FRAME_PC,
-        OFF_DST, OFF_OP0, OFF_OP1,
+        PublicInputs, FRAME_DST_ADDR, FRAME_OP0_ADDR, FRAME_OP1_ADDR, FRAME_PC, OFF_DST, OFF_OP0,
+        OFF_OP1,
     },
     Felt252,
 };

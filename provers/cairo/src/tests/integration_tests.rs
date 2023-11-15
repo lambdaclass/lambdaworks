@@ -1,8 +1,5 @@
 use crate::{
-    air::{
-        generate_cairo_proof, verify_cairo_proof, CairoAIR, MemorySegmentMap, PublicInputs,
-        Segment, SegmentName, FRAME_DST_ADDR, FRAME_OP0_ADDR, FRAME_OP1_ADDR, FRAME_PC,
-    },
+    air::{generate_cairo_proof, verify_cairo_proof, CairoAIR},
     cairo_layout::CairoLayout,
     runner::run::generate_prover_args,
     tests::utils::{
