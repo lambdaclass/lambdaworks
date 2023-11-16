@@ -32,6 +32,8 @@ where
     type RAPChallenges = ();
     type PublicInputs = FibonacciPublicInputs<Self::Field>;
 
+    const STEP_SIZE: usize = 1;
+
     fn new(
         trace_length: usize,
         pub_inputs: &Self::PublicInputs,
@@ -73,14 +75,19 @@ where
         frame: &Frame<Self::Field>,
         _rap_challenges: &Self::RAPChallenges,
     ) -> Vec<FieldElement<Self::Field>> {
-        let first_row = frame.get_row(0);
-        let second_row = frame.get_row(1);
+        let first_step = frame.get_evaluation_step(0);
+        let second_step = frame.get_evaluation_step(1);
 
         // constraints of Fibonacci sequence (2 terms per step):
         // s_{0, i+1} = s_{0, i} + s_{1, i}
         // s_{1, i+1} = s_{1, i} + s_{0, i+1}
-        let first_transition = &second_row[0] - &first_row[0] - &first_row[1];
-        let second_transition = &second_row[1] - &first_row[1] - &second_row[0];
+        let s0_0 = first_step.get_evaluation_element(0, 0);
+        let s0_1 = first_step.get_evaluation_element(0, 1);
+        let s1_0 = second_step.get_evaluation_element(0, 0);
+        let s1_1 = second_step.get_evaluation_element(0, 1);
+
+        let first_transition = s1_0 - s0_0 - s0_1;
+        let second_transition = s1_1 - s0_1 - s1_0;
 
         vec![first_transition, second_transition]
     }
@@ -132,5 +139,5 @@ pub fn compute_trace<F: IsFFTField>(
         ret2.push(new_val + ret2[i - 1].clone());
     }
 
-    TraceTable::from_columns(&[ret1, ret2])
+    TraceTable::from_columns(vec![ret1, ret2], 1)
 }

@@ -24,3 +24,5 @@ ensure-no_std/target
 # Files from fuzzers are inside a corpus folder
 **/corpus/**
 **/artifacts/**
+/.idea/
+

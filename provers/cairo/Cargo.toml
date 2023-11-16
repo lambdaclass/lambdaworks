@@ -16,15 +16,14 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 rand = "0.8.5"
-lambdaworks-math = { workspace = true , features = ["lambdaworks-serde"] }
+lambdaworks-math = { workspace = true , features = ["lambdaworks-serde-binary"] }
 lambdaworks-crypto = { workspace = true }
 stark-platinum-prover = { workspace = true, features = ["wasm"] }
 thiserror = "1.0.38"
 log = "0.4.17"
-bincode = { version = "2.0.0-rc.2", tag = "v2.0.0-rc.2", git = "https://github.com/bincode-org/bincode.git" }
-cairo-vm = { git = "https://github.com/lambdaclass/cairo-vm", rev = "e763cef", default-features = false, features = [
-    "cairo-1-hints",
-]}
+bincode = { version = "2.0.0-rc.2", tag = "v2.0.0-rc.2", git = "https://github.com/bincode-org/bincode.git", features= ['serde'] }
+# NOTE: For cairo 1 compatibility, add the `cairo-1-hints` feature.
+cairo-vm = { git = "https://github.com/lambdaclass/cairo-vm", rev = "e763cef", default-features = false }
 sha3 = "0.10.6"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -34,7 +33,7 @@ serde_cbor = { version = "0.11.1" }
 # For cli
 clap = { version = "4.4.6", features = ["derive"], optional = true }
 # Parallelization crates
-rayon = { version = "1.7.0", optional = true }
+rayon = { version = "1.8.0", optional = true }
 
 # wasm
 wasm-bindgen = { version = "0.2", optional = true }
@@ -53,9 +52,9 @@ wasm-bindgen-test = "0.3.0"
 
 [features]
 test_fiat_shamir = []
-instruments = []                   # This enables timing prints in prover and verifier
+instruments = ["stark-platinum-prover/instruments"]# This enables timing prints in prover and verifier
 metal = ["lambdaworks-math/metal"]
-parallel = ["dep:rayon"]
+parallel = ["dep:rayon", "stark-platinum-prover/parallel"]
 wasm = ["dep:wasm-bindgen", "dep:serde-wasm-bindgen", "dep:web-sys"]
 cli = ["dep:clap"]
 [target.'cfg(not(all(target_arch = "wasm32", target_os = "unknown")))'.dev-dependencies]

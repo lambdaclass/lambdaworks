@@ -1,8 +1,8 @@
 use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
-use lambdaworks_math::traits::{Deserializable, Serializable};
 use platinum_prover::air::{generate_cairo_proof, verify_cairo_proof, PublicInputs};
 use platinum_prover::cairo_layout::CairoLayout;
 use platinum_prover::runner::run::generate_prover_args;
+use platinum_prover::runner::run::generate_prover_args_from_trace;
 use stark_platinum_prover::proof::options::{ProofOptions, SecurityLevel};
 use stark_platinum_prover::proof::stark::StarkProof;
 mod commands;
@@ -119,7 +119,7 @@ fn generate_proof(
     // FIXME: We should set this through the CLI in the future
     let layout = CairoLayout::Plain;
 
-    let Ok((main_trace, pub_inputs)) = generate_prover_args(&program_content, &None, layout) else {
+    let Ok((main_trace, pub_inputs)) = generate_prover_args(&program_content, layout) else {
         eprintln!("Error generating prover args");
         return None;
     };
@@ -136,6 +136,36 @@ fn generate_proof(
         }
     };
 
+    println!("  Time spent in proving: {:?} \n", timer.elapsed());
+
+    Some((proof, pub_inputs))
+}
+
+fn generate_proof_from_trace(
+    trace_bin_path: &str,
+    memory_bin_path: &str,
+    proof_options: &ProofOptions,
+) -> Option<(StarkProof<Stark252PrimeField>, PublicInputs)> {
+    // ## Generating the prover args
+    let timer = Instant::now();
+    let Ok((main_trace, pub_inputs)) =
+        generate_prover_args_from_trace(trace_bin_path, memory_bin_path)
+    else {
+        eprintln!("Error generating prover args");
+        return None;
+    };
+    println!("  Time spent: {:?} \n", timer.elapsed());
+
+    // ## Prove
+    let timer = Instant::now();
+    println!("Making proof ...");
+    let proof = match generate_cairo_proof(&main_trace, &pub_inputs, proof_options) {
+        Ok(p) => p,
+        Err(err) => {
+            eprintln!("Error generating proof: {:?}", err);
+            return None;
+        }
+    };
     println!("  Time spent in proving: {:?} \n", timer.elapsed());
 
     Some((proof, pub_inputs))
@@ -167,15 +197,28 @@ fn write_proof(
     proof_path: String,
 ) {
     let mut bytes = vec![];
-    let proof_bytes: Vec<u8> = serde_cbor::to_vec(&proof).unwrap();
-    bytes.extend(proof_bytes.len().to_be_bytes());
+    let proof_bytes: Vec<u8> =
+        bincode::serde::encode_to_vec(proof, bincode::config::standard()).unwrap();
+
+    let pub_inputs_bytes: Vec<u8> =
+        bincode::serde::encode_to_vec(&pub_inputs, bincode::config::standard()).unwrap();
+
+    // This should be reworked
+    // Public inputs shouldn't be stored in the proof if the verifier wants to check them
+
+    // An u32 is enough for storing proofs up to 32 GiB
+    // They shouldn't exceed the order of kbs
+    // Reading an usize leads to problem in WASM (32 bit vs 64 bit architecture)
+
+    bytes.extend((proof_bytes.len() as u32).to_le_bytes());
     bytes.extend(proof_bytes);
-    bytes.extend(pub_inputs.serialize());
+    bytes.extend(pub_inputs_bytes);
 
     let Ok(()) = std::fs::write(&proof_path, bytes) else {
         eprintln!("Error writing proof to file: {}", &proof_path);
         return;
     };
+
     println!("Proof written to {}", &proof_path);
 }
 
@@ -192,7 +235,7 @@ fn main() {
                 println!("Compiled cairo program");
             }
         }
-        commands::ProverEntity::Prove(args) => {
+        commands::ProverEntity::RunAndProve(args) => {
             // verify input file is .cairo
             if args.program_path.contains(".cairo") {
                 eprintln!("\nYou are trying to prove a non compiled Cairo program. Please compile it before sending it to the prover.\n");
@@ -201,6 +244,17 @@ fn main() {
 
             let Some((proof, pub_inputs)) = generate_proof(&args.program_path, &proof_options)
             else {
+                return;
+            };
+
+            write_proof(proof, pub_inputs, args.proof_path);
+        }
+        commands::ProverEntity::Prove(args) => {
+            let Some((proof, pub_inputs)) = generate_proof_from_trace(
+                &args.trace_bin_path,
+                &args.memory_bin_path,
+                &proof_options,
+            ) else {
                 return;
             };
 
@@ -217,19 +271,27 @@ fn main() {
                 return;
             }
 
-            let proof_len = usize::from_be_bytes(bytes[0..8].try_into().unwrap());
-            bytes = &bytes[8..];
+            // Proof len was stored as an u32, 4u8 needs to be read
+            let proof_len = u32::from_le_bytes(bytes[0..4].try_into().unwrap()) as usize;
+
+            bytes = &bytes[4..];
             if bytes.len() < proof_len {
                 eprintln!("Error reading proof from file: {}", args.proof_path);
                 return;
             }
-            let Ok(proof) = serde_cbor::from_slice(&bytes[0..proof_len]) else {
+
+            let Ok((proof, _)) = bincode::serde::decode_from_slice(
+                &bytes[0..proof_len],
+                bincode::config::standard(),
+            ) else {
                 println!("Error reading proof from file: {}", args.proof_path);
                 return;
             };
             bytes = &bytes[proof_len..];
 
-            let Ok(pub_inputs) = PublicInputs::deserialize(bytes) else {
+            let Ok((pub_inputs, _)) =
+                bincode::serde::decode_from_slice(bytes, bincode::config::standard())
+            else {
                 println!("Error reading proof from file: {}", args.proof_path);
                 return;
             };

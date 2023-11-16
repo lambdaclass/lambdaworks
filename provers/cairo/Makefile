@@ -54,3 +54,9 @@ clean:
 	rm -f $(CAIRO0_PROGRAMS_DIR)/*.json
 	rm -f $(CAIRO0_PROGRAMS_DIR)/*.trace
 	rm -f $(CAIRO0_PROGRAMS_DIR)/*.memory
+
+build_wasm:
+	wasm-pack build --target=web -- --features wasm
+
+test_wasm:
+	wasm-pack test --node --release -- --features wasm 

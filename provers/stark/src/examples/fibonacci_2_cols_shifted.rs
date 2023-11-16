@@ -1,4 +1,7 @@
-use lambdaworks_math::field::{element::FieldElement, traits::IsFFTField};
+use lambdaworks_math::{
+    field::{element::FieldElement, traits::IsFFTField},
+    traits::Serializable,
+};
 
 use crate::{
     constraints::boundary::{BoundaryConstraint, BoundaryConstraints},
@@ -17,6 +20,18 @@ where
 {
     pub claimed_value: FieldElement<F>,
     pub claimed_index: usize,
+}
+
+impl<F> Serializable for PublicInputs<F>
+where
+    F: IsFFTField,
+    FieldElement<F>: Serializable,
+{
+    fn serialize(&self) -> Vec<u8> {
+        let mut transcript_init_seed = self.claimed_index.to_be_bytes().to_vec();
+        transcript_init_seed.extend_from_slice(&self.claimed_value.serialize());
+        transcript_init_seed
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -40,6 +55,8 @@ where
     type Field = F;
     type RAPChallenges = ();
     type PublicInputs = PublicInputs<Self::Field>;
+
+    const STEP_SIZE: usize = 1;
 
     fn new(
         trace_length: usize,
@@ -82,11 +99,17 @@ where
         frame: &Frame<Self::Field>,
         _rap_challenges: &Self::RAPChallenges,
     ) -> Vec<FieldElement<Self::Field>> {
-        let first_row = frame.get_row(0);
-        let second_row = frame.get_row(1);
+        let first_row = frame.get_evaluation_step(0);
+        let second_row = frame.get_evaluation_step(1);
 
-        let first_transition = &second_row[0] - &first_row[1];
-        let second_transition = &second_row[1] - &first_row[0] - &first_row[1];
+        let a0_0 = first_row.get_evaluation_element(0, 0);
+        let a0_1 = first_row.get_evaluation_element(0, 1);
+
+        let a1_0 = second_row.get_evaluation_element(0, 0);
+        let a1_1 = second_row.get_evaluation_element(0, 1);
+
+        let first_transition = a1_0 - a0_1;
+        let second_transition = a1_1 - a0_0 - a0_1;
 
         vec![first_transition, second_transition]
     }
@@ -141,7 +164,7 @@ pub fn compute_trace<F: IsFFTField>(
         col1.push(y.clone());
     }
 
-    TraceTable::from_columns(&[col0, col1])
+    TraceTable::from_columns(vec![col0, col1], 1)
 }
 
 #[cfg(test)]
