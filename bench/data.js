@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1700079423732,
+  "lastUpdate": 1700167424129,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -3485,6 +3485,150 @@ window.BENCHMARK_DATA = {
             "name": "Polynomial/div by 'x - b' with Ruffini",
             "value": 531,
             "range": "± 11",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "33334338+PatStiles@users.noreply.github.com",
+            "name": "PatStiles",
+            "username": "PatStiles"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7cde35f7b35a57e984d46deaaad2fe0f62d43da6",
+          "message": "feat(Field): Add mersenne31 (#669)\n\n* add mersenne31 prime field\n\n* fix representative field all tests passing\n\n* delete cmt\n\n* add bench for U64 mont and mersenne31\n\n* Stark: make transcript compatible with Stone Prover (#570)\n\n* add StarkTranscript trait and implementation\n\n* make append field element compatible with stone prover\n\n* add test\n\n* add tests\n\n* uncomment test\n\n* remove code added by mistake to exercises\n\n* make counter of type u32\n\n* add field extension and fuzz\n\n* clean up and add improved add and sub\n\n* update inv() fuzz working\n\n* plonky3 fuzz target\n\n* fix ci\n\n* fix lint attempt 2\n\n* fix comment\n\n* add no std features for Mersenne31 ByteConversion\n\n* fix ci\n\n* fix comment\n\n* add bench\n\n* add mersenne montgomery bench\n\n* fmt\n\n* fix old merge conflcit\n\n* fix bench method\n\n* docs: stone prover trace docs - layout plain (#658)\n\n* Add docs for stone prover trace with plain layout\n\n* Add csv traces of fibonacci program\n\n* Add stone prover docs to mdbook\n\n* fix ci\n\n* Fix name in clippy lints\n\n---------\n\nCo-authored-by: Sergio Chouhy <41742639+schouhy@users.noreply.github.com>\nCo-authored-by: Mariano A. Nicolini <mariano.nicolini.91@gmail.com>\nCo-authored-by: Mauro Toscano <12560266+MauroToscano@users.noreply.github.com>",
+          "timestamp": "2023-11-16T20:33:45Z",
+          "tree_id": "9d03eec754915046bd7a7375bb97cbd08e0375c0",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/7cde35f7b35a57e984d46deaaad2fe0f62d43da6"
+        },
+        "date": 1700167419457,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "Ordered FFT/Parallel (Metal)",
+            "value": 76392393,
+            "range": "± 1550728",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #2",
+            "value": 157907408,
+            "range": "± 7902459",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #3",
+            "value": 307925270,
+            "range": "± 2778330",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #4",
+            "value": 650463687,
+            "range": "± 13881880",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal)",
+            "value": 33984390,
+            "range": "± 195694",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #2",
+            "value": 68459464,
+            "range": "± 925847",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #3",
+            "value": 133771546,
+            "range": "± 1124213",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #4",
+            "value": 282303249,
+            "range": "± 3930317",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal)",
+            "value": 27849064,
+            "range": "± 1327111",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #2",
+            "value": 53612877,
+            "range": "± 3067854",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #3",
+            "value": 114145004,
+            "range": "± 5293127",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #4",
+            "value": 236477361,
+            "range": "± 13545935",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal",
+            "value": 120514966,
+            "range": "± 1226114",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #2",
+            "value": 243314013,
+            "range": "± 1066847",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #3",
+            "value": 492284780,
+            "range": "± 10623975",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #4",
+            "value": 979677166,
+            "range": "± 15221617",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal",
+            "value": 409895718,
+            "range": "± 4349909",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #2",
+            "value": 790634187,
+            "range": "± 6819069",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #3",
+            "value": 1561127437,
+            "range": "± 8568072",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #4",
+            "value": 3131162645,
+            "range": "± 22468286",
             "unit": "ns/iter"
           }
         ]
