@@ -56,8 +56,12 @@ pub fn build_main_trace(
     address_cols.sort_by_key(|x| x.representative());
 
     let (rc_holes, rc_min, rc_max) = get_rc_holes(&main_trace, &[OFF_DST, OFF_OP0, OFF_OP1]);
-    public_input.range_check_min = Some(rc_min);
-    public_input.range_check_max = Some(rc_max);
+
+    // this will avaluate to true if the public inputs weren't obtained from the run_program() function
+    if public_input.range_check_min.is_none() && public_input.range_check_max.is_none() {
+        public_input.range_check_min = Some(rc_min);
+        public_input.range_check_max = Some(rc_max);
+    }
     fill_rc_holes(&mut main_trace, &rc_holes);
 
     let memory_holes = get_memory_holes(&address_cols, public_input.codelen);

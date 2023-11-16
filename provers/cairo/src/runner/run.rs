@@ -1,4 +1,4 @@
-use crate::air::PublicInputs;
+use crate::air::{PublicInputs, Segment, SegmentName};
 use crate::cairo_layout::CairoLayout;
 use crate::cairo_mem::CairoMemory;
 use crate::execution_trace::build_main_trace;
@@ -81,7 +81,7 @@ pub fn run_program(
     entrypoint_function: Option<&str>,
     layout: CairoLayout,
     program_content: &[u8],
-) -> Result<(RegisterStates, CairoMemory, usize, PublicInputs), Error> {
+) -> Result<(RegisterStates, CairoMemory, PublicInputs), Error> {
     // default value for entrypoint is "main"
     let entrypoint = entrypoint_function.unwrap_or("main");
 
@@ -132,6 +132,12 @@ pub fn run_program(
         .collect::<HashMap<Felt252, Felt252>>();
 
     let vm_public_inputs = runner.get_air_public_input(&vm).unwrap();
+
+    let mut memory_segments: HashMap<SegmentName, Segment> = HashMap::new();
+    vm_public_inputs.memory_segments.iter().for_each(|(k, v)| {
+        memory_segments.insert(SegmentName::from(*k), Segment::from(v));
+    });
+
     let num_steps = register_states.steps();
     let public_inputs = PublicInputs {
         pc_init: Felt252::from(register_states.rows[0].pc),
@@ -141,24 +147,22 @@ pub fn run_program(
         ap_final: Felt252::from(register_states.rows[num_steps - 1].ap),
         range_check_min: Some(vm_public_inputs.rc_min as u16),
         range_check_max: Some(vm_public_inputs.rc_max as u16),
-        memory_segments: HashMap::new(),
+        memory_segments,
         public_memory,
         num_steps,
         codelen: data_len,
     };
 
-    Ok((register_states, cairo_mem, data_len, public_inputs))
+    Ok((register_states, cairo_mem, public_inputs))
 }
 
 pub fn generate_prover_args(
     program_content: &[u8],
     layout: CairoLayout,
 ) -> Result<(TraceTable<Stark252PrimeField>, PublicInputs), Error> {
-    let (register_states, memory, program_size, public_inputs) =
-        run_program(None, layout, program_content)?;
+    let (register_states, memory, mut public_inputs) = run_program(None, layout, program_content)?;
 
-    let mut pub_inputs = PublicInputs::from_regs_and_mem(&register_states, &memory, program_size);
-    let main_trace = build_main_trace(&register_states, &memory, &mut pub_inputs);
+    let main_trace = build_main_trace(&register_states, &memory, &mut public_inputs);
 
     Ok((main_trace, public_inputs))
 }
