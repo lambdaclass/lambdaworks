@@ -259,7 +259,7 @@ where
             }
             PointFormat::Uncompressed => {
                 let affine_representation = self.to_affine();
-                let [x,y, _z] = affine_representation.coordinates();
+                let [x, y, _z] = affine_representation.coordinates();
                 if endianness == Endianness::BigEndian {
                     x_bytes = x.to_bytes_be();
                     y_bytes = y.to_bytes_be();
@@ -284,12 +284,12 @@ where
                 if bytes.len() % 3 != 0 {
                     return Err(DeserializationError::InvalidAmountOfBytes);
                 }
-        
+
                 let len = bytes.len() / 3;
                 let x: FieldElement<E::BaseField>;
                 let y: FieldElement<E::BaseField>;
                 let z: FieldElement<E::BaseField>;
-        
+
                 if endianness == Endianness::BigEndian {
                     x = ByteConversion::from_bytes_be(&bytes[..len])?;
                     y = ByteConversion::from_bytes_be(&bytes[len..len * 2])?;
@@ -299,7 +299,7 @@ where
                     y = ByteConversion::from_bytes_le(&bytes[len..len * 2])?;
                     z = ByteConversion::from_bytes_le(&bytes[len * 2..])?;
                 }
-        
+
                 if z == FieldElement::zero() {
                     let point = Self::new([x, y, z]);
                     if point.is_neutral_element() {
@@ -317,7 +317,7 @@ where
                 if bytes.len() % 2 != 0 {
                     return Err(DeserializationError::InvalidAmountOfBytes);
                 }
-                
+
                 let len = bytes.len() / 2;
                 let x: FieldElement<E::BaseField>;
                 let y: FieldElement<E::BaseField>;
@@ -331,14 +331,12 @@ where
                 }
 
                 if E::defining_equation(&x, &y) == FieldElement::zero() {
-                    Ok(Self::new([x,y, FieldElement::one()]))
+                    Ok(Self::new([x, y, FieldElement::one()]))
                 } else {
                     Err(DeserializationError::FieldFromBytesError)
-                }                              
+                }
             }
         }
-
-
     }
 }
 
@@ -433,7 +431,8 @@ mod tests {
     #[test]
     fn byte_conversion_from_and_to_le_uncompressed() {
         let expected_point = point();
-        let bytes_be = expected_point.serialize(PointFormat::Uncompressed, Endianness::LittleEndian);
+        let bytes_be =
+            expected_point.serialize(PointFormat::Uncompressed, Endianness::LittleEndian);
 
         let result = ShortWeierstrassProjectivePoint::deserialize(
             &bytes_be,
