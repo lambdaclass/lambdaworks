@@ -125,9 +125,9 @@ pub fn run_program(
     let cairo_mem = CairoMemory::from_bytes_le(&memory_vec).unwrap();
     let register_states = RegisterStates::from_bytes_le(&trace_vec).unwrap();
 
-    let data_len = runner.get_program().data_len();
+    let codelen = runner.get_program().data_len();
 
-    let public_memory = (1..=data_len as u64)
+    let public_memory = (1..=codelen as u64)
         .map(|i| (Felt252::from(i), *cairo_mem.get(&i).unwrap()))
         .collect::<HashMap<Felt252, Felt252>>();
 
@@ -150,7 +150,7 @@ pub fn run_program(
         memory_segments,
         public_memory,
         num_steps,
-        codelen: data_len,
+        codelen,
     };
 
     Ok((register_states, cairo_mem, public_inputs))
