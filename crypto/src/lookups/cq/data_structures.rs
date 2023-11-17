@@ -1,6 +1,6 @@
 use lambdaworks_math::{
     polynomial::Polynomial,
-    field::{traits::{IsField, IsFFTField}, element::{self, FieldElement}},
+    field::{traits::{IsField, IsFFTField}, element::FieldElement},
     elliptic_curve::traits::IsPairing,
 };
 
