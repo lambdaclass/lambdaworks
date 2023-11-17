@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1700168174391,
+  "lastUpdate": 1700223557761,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -3923,6 +3923,150 @@ window.BENCHMARK_DATA = {
             "name": "Polynomial/div by 'x - b' with Ruffini",
             "value": 899,
             "range": "± 2",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "62400508+juan518munoz@users.noreply.github.com",
+            "name": "juan518munoz",
+            "username": "juan518munoz"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a821fae0c26870a01180630a28ceb3b4f2283eb7",
+          "message": "Serialization options - followup (#667)\n\n* initial commit\n\n* change serde_cbor for serde_bare\n\n* bincode de/ser\n\n* remove comparison\n\n* fmt\n\n* restore flag\n\n* fix failing test\n\n* add std feature flag\n\n* conditional  use\n\n* rmv conditional use\n\n* replace std for core\n\n* add cond import\n\n* rmv debug print\n\n* initial commit\n\n* rmv unused import\n\n* rplc todo w unimplemented\n\n* rename features\n\n* fmt\n\n* clippy\n\n* change feature flags\n\n* features fixes\n\n* keep only string on merkle cli\n\n* rmv test files\n\n* fix wrong path\n\n* fix lint\n\n* rmv unused dep\n\n* initial commit\n\n* add proof to clean & git ignore\n\n* add generated tree & proof to git ignore\n\n* Update provers/cairo/cairo_programs/cairo0/.gitignore\n\n* Update examples/merkle-tree-cli/.gitignore\n\n* rmv duplicate line\n\n---------\n\nCo-authored-by: Mariano A. Nicolini <mariano.nicolini.91@gmail.com>",
+          "timestamp": "2023-11-17T12:09:23Z",
+          "tree_id": "88dda8e8317923955c66d371c43d43b084452cb1",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/a821fae0c26870a01180630a28ceb3b4f2283eb7"
+        },
+        "date": 1700223553461,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "Ordered FFT/Parallel (Metal)",
+            "value": 77318520,
+            "range": "± 411266",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #2",
+            "value": 155359060,
+            "range": "± 6182470",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #3",
+            "value": 315280468,
+            "range": "± 4858148",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #4",
+            "value": 640078374,
+            "range": "± 19748330",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal)",
+            "value": 34097387,
+            "range": "± 207684",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #2",
+            "value": 68155489,
+            "range": "± 524016",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #3",
+            "value": 134252900,
+            "range": "± 687339",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #4",
+            "value": 284020187,
+            "range": "± 3490250",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal)",
+            "value": 30256297,
+            "range": "± 235450",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #2",
+            "value": 56505077,
+            "range": "± 640093",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #3",
+            "value": 113910555,
+            "range": "± 1918953",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #4",
+            "value": 242600298,
+            "range": "± 6781584",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal",
+            "value": 118235652,
+            "range": "± 714072",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #2",
+            "value": 238872534,
+            "range": "± 1547756",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #3",
+            "value": 491197656,
+            "range": "± 6030721",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #4",
+            "value": 977152958,
+            "range": "± 17532915",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal",
+            "value": 406007687,
+            "range": "± 2667920",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #2",
+            "value": 799328062,
+            "range": "± 5065629",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #3",
+            "value": 1582764729,
+            "range": "± 9021729",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #4",
+            "value": 3112956146,
+            "range": "± 17258649",
             "unit": "ns/iter"
           }
         ]
