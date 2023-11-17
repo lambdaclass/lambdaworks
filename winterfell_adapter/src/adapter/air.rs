@@ -189,12 +189,16 @@ where
                 .context()
                 .num_main_transition_constraints()
         ];
+
+        let mut main_result_winter = vec_lambda2winter(&main_result);
         self.winterfell_air
             .evaluate_transition::<FE>(
                 &main_frame,
                 &periodic_values,
-                &mut vec_lambda2winter(&main_result),
+                &mut main_result_winter,
             ); // Periodic values not supported
+
+        main_result = vec_winter2lambda(&main_result_winter);
 
         if self.winterfell_air.trace_layout().num_aux_segments() == 1 {
             let mut rand_elements = AuxTraceRandElements::new();
@@ -208,21 +212,21 @@ where
                 vec_lambda2winter(&second_step.get_row(0)[num_main_columns..]),
             );
 
-            let aux_result = vec![
+            let mut aux_result = vec![
                 FieldElement::zero();
                 self.winterfell_air
                     .context()
                     .num_aux_transition_constraints()
             ];
+            let mut winter_aux_result = vec_lambda2winter(&aux_result);
             self.winterfell_air.evaluate_aux_transition(
                 &main_frame,
                 &aux_frame,
                 &periodic_values,
                 &rand_elements,
-                &mut vec_lambda2winter(&aux_result),
+                &mut winter_aux_result,
             );
-
-            // TODO: Check, maybe not computing something
+            aux_result = vec_winter2lambda(&winter_aux_result);
             main_result.extend_from_slice(&aux_result);
         }
         main_result
@@ -279,6 +283,7 @@ mod tests {
     use super::*;
     use crate::examples::fibonacci_2_terms::{self, FibAir2Terms};
     use crate::examples::fibonacci_rap::{self, FibonacciRAP, RapTraceTable};
+    use crate::examples::cubic::{self, Cubic};
     use miden_air::{ProcessorAir, PublicInputs, ProvingOptions};
     use miden_assembly::Assembler;
     use miden_core::{Felt, StackInputs, StackOutputs};
@@ -326,6 +331,80 @@ mod tests {
         };
 
         let trace = AirAdapter::<FibAir2Terms, ExecutionTrace, Felt>::convert_winterfell_trace_table(
+            winter_trace.main_segment().clone(),
+        );
+
+        let proof = MidenProver::prove::<AirAdapter<ProcessorAir, ExecutionTrace, Felt>>(
+            &trace,
+            &pub_inputs,
+            &lambda_proof_options,
+            MidenProverTranscript::new(&[]),
+        )
+        .unwrap();
+
+        assert!(MidenVerifier::verify::<AirAdapter<ProcessorAir, ExecutionTrace, Felt>>(
+            &proof,
+            &pub_inputs,
+            &lambda_proof_options,
+            MidenProverTranscript::new(&[]),
+        ));
+    }
+
+    fn compute_fibonacci(n: usize) -> Felt {
+        let mut t0 = Felt::ZERO;
+        let mut t1 = Felt::ONE;
+    
+        for _ in 0..n {
+            t1 = t0 + t1;
+            core::mem::swap(&mut t0, &mut t1);
+        }
+        t0
+    }
+
+    #[test]
+    fn prove_miden_2() {
+        let program = format!(
+            "begin
+                repeat.{}
+                    swap dup.1 add
+                end
+            end",
+            16 - 1
+        );
+        let program = Assembler::default().compile(&program).unwrap();
+        let expected_result = vec![compute_fibonacci(16).as_int()];
+        let stack_inputs = StackInputs::try_from_values([0, 1]).unwrap();
+
+        let mut lambda_proof_options = ProofOptions::default_test_options();
+        lambda_proof_options.blowup_factor = 32;
+
+        let winter_trace = processor::execute(&program, stack_inputs.clone(), DefaultHost::default(), *ProvingOptions::default().execution_options()).unwrap();
+        let program_info = winter_trace.program_info().clone();
+        let stack_outputs = winter_trace.stack_outputs().clone();
+
+        let pub_inputs = PublicInputs::new(
+            program_info,
+            stack_inputs,
+            stack_outputs.clone(),
+        );
+
+        assert_eq!(
+            expected_result,
+            stack_outputs.clone().stack_truncated(1),
+            "Program result was computed incorrectly"
+        );
+
+        let pub_inputs = AirAdapterPublicInputs {
+            winterfell_public_inputs: pub_inputs,
+            transition_degrees: vec![0; 182], // Not used, but still has to have 182 things because of zip's.
+            transition_exemptions: vec![1; 182], // TODO: Check
+            transition_offsets: vec![0, 1],
+            trace: winter_trace.clone(),
+            trace_info: winter_trace.get_info(),
+            num_transition_exemptions: 1 // TODO: Check
+        };
+
+        let trace = AirAdapter::<ProcessorAir, ExecutionTrace, Felt>::convert_winterfell_trace_table(
             winter_trace.main_segment().clone(),
         );
 
@@ -407,6 +486,40 @@ mod tests {
         .unwrap();
         assert!(
             MidenVerifier::verify::<AirAdapter<FibonacciRAP, RapTraceTable<_>, Felt>>(
+                &proof,
+                &pub_inputs,
+                &lambda_proof_options,
+                MidenProverTranscript::new(&[]),
+            )
+        );
+    }
+
+    #[test]
+    fn prove_and_verify_a_winterfell_cubic_air() {
+        let lambda_proof_options = ProofOptions::default_test_options();
+        let winter_trace = cubic::build_trace(16);
+        let trace = AirAdapter::<Cubic, TraceTable<_>, Felt>::convert_winterfell_trace_table(
+            winter_trace.main_segment().clone()
+        );
+        let pub_inputs = AirAdapterPublicInputs {
+            winterfell_public_inputs: trace.columns()[0][15].value().clone(),
+            transition_degrees: vec![3],
+            transition_exemptions: vec![1],
+            transition_offsets: vec![0, 1],
+            trace: winter_trace,
+            trace_info: TraceInfo::new(1, 16),
+            num_transition_exemptions: 1
+        };
+
+        let proof = MidenProver::prove::<AirAdapter<Cubic, TraceTable<_>, Felt>>(
+            &trace,
+            &pub_inputs,
+            &lambda_proof_options,
+            MidenProverTranscript::new(&[]),
+        )
+        .unwrap();
+        assert!(
+            MidenVerifier::verify::<AirAdapter<Cubic, TraceTable<_>, Felt>>(
                 &proof,
                 &pub_inputs,
                 &lambda_proof_options,
