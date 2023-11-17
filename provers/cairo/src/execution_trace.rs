@@ -199,14 +199,14 @@ fn fill_memory_holes(trace: &mut CairoTraceTable, memory_holes: &[Felt252]) {
 /// The constraints of the Cairo AIR are defined over this trace rather than the raw trace
 /// obtained from the Cairo VM, this is why this function is needed.
 pub fn build_cairo_execution_trace(
-    raw_trace: &RegisterStates,
+    register_states: &RegisterStates,
     memory: &CairoMemory,
 ) -> CairoTraceTable {
-    let n_steps = raw_trace.steps();
+    let n_steps = register_states.steps();
 
     // Instruction flags and offsets are decoded from the raw instructions and represented
     // by the CairoInstructionFlags and InstructionOffsets as an intermediate representation
-    let (flags, offsets): (Vec<CairoInstructionFlags>, Vec<InstructionOffsets>) = raw_trace
+    let (flags, offsets): (Vec<CairoInstructionFlags>, Vec<InstructionOffsets>) = register_states
         .flags_and_offsets(memory)
         .unwrap()
         .into_iter()
@@ -214,15 +214,15 @@ pub fn build_cairo_execution_trace(
 
     // dst, op0, op1 and res are computed from flags and offsets
     let (dst_addrs, mut dsts): (Vec<Felt252>, Vec<Felt252>) =
-        compute_dst(&flags, &offsets, raw_trace, memory);
+        compute_dst(&flags, &offsets, register_states, memory);
     let (op0_addrs, mut op0s): (Vec<Felt252>, Vec<Felt252>) =
-        compute_op0(&flags, &offsets, raw_trace, memory);
+        compute_op0(&flags, &offsets, register_states, memory);
     let (op1_addrs, op1s): (Vec<Felt252>, Vec<Felt252>) =
-        compute_op1(&flags, &offsets, raw_trace, memory, &op0s);
+        compute_op1(&flags, &offsets, register_states, memory, &op0s);
     let mut res = compute_res(&flags, &op0s, &op1s, &dsts);
 
     // In some cases op0, dst or res may need to be updated from the already calculated values
-    update_values(&flags, raw_trace, &mut op0s, &mut dsts, &mut res);
+    update_values(&flags, register_states, &mut op0s, &mut dsts, &mut res);
 
     // Flags and offsets are transformed to a bit representation. This is needed since
     // the flag constraints of the Cairo AIR are defined over bit representations of these
@@ -236,10 +236,22 @@ pub fn build_cairo_execution_trace(
         .collect();
 
     // ap, fp, pc and instruction columns are computed
-    let aps: Vec<Felt252> = raw_trace.rows.iter().map(|t| Felt252::from(t.ap)).collect();
-    let fps: Vec<Felt252> = raw_trace.rows.iter().map(|t| Felt252::from(t.fp)).collect();
-    let pcs: Vec<Felt252> = raw_trace.rows.iter().map(|t| Felt252::from(t.pc)).collect();
-    let instructions: Vec<Felt252> = raw_trace
+    let aps: Vec<Felt252> = register_states
+        .rows
+        .iter()
+        .map(|t| Felt252::from(t.ap))
+        .collect();
+    let fps: Vec<Felt252> = register_states
+        .rows
+        .iter()
+        .map(|t| Felt252::from(t.fp))
+        .collect();
+    let pcs: Vec<Felt252> = register_states
+        .rows
+        .iter()
+        .map(|t| Felt252::from(t.pc))
+        .collect();
+    let instructions: Vec<Felt252> = register_states
         .rows
         .iter()
         .map(|t| *memory.get(&t.pc).unwrap())
@@ -247,10 +259,11 @@ pub fn build_cairo_execution_trace(
 
     // t0, t1 and mul derived values are constructed. For details reFelt252r to
     // section 9.1 of the Cairo whitepaper
+    let two = Felt252::from(2);
     let t0: Vec<Felt252> = trace_repr_flags
         .iter()
         .zip(&dsts)
-        .map(|(repr_flags, dst)| repr_flags[9] * dst)
+        .map(|(repr_flags, dst)| (repr_flags[9] - two * repr_flags[10]) * dst)
         .collect();
     let t1: Vec<Felt252> = t0.iter().zip(&res).map(|(t, r)| t * r).collect();
     let mul: Vec<Felt252> = op0s.iter().zip(&op1s).map(|(op0, op1)| op0 * op1).collect();
