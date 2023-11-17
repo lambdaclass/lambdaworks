@@ -24,9 +24,9 @@ impl<F: IsField> Default for TestBackend<F> {
 }
 
 impl<F: IsField> IsMerkleTreeBackend for TestBackend<F>
-where 
-    FieldElement<F>: Sync + Send {
-
+where
+    FieldElement<F>: Sync + Send,
+{
     type Node = FieldElement<F>;
     type Data = FieldElement<F>;
 

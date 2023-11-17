@@ -14,15 +14,12 @@ pub trait IsMerkleTreeBackend: Default {
     /// This function takes the list of data from which the Merkle
     /// tree will be built from and converts it to a list of leaf nodes.
     fn hash_leaves(&self, unhashed_leaves: &[Self::Data]) -> Vec<Self::Node> {
-
         #[cfg(feature = "parallel")]
         let iter = unhashed_leaves.par_iter();
         #[cfg(not(feature = "parallel"))]
         let iter = unhashed_leaves.iter();
 
-        iter
-            .map(|leaf| Self::hash_data(leaf))
-            .collect()
+        iter.map(|leaf| Self::hash_data(leaf)).collect()
     }
 
     /// This function takes to children nodes and builds a new parent node.

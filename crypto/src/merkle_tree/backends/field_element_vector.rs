@@ -36,7 +36,7 @@ where
     F: IsField,
     FieldElement<F>: Serializable,
     [u8; NUM_BYTES]: From<GenericArray<u8, <D as OutputSizeUser>::OutputSize>>,
-    Vec<FieldElement<F>>: Sync + Send
+    Vec<FieldElement<F>>: Sync + Send,
 {
     type Node = [u8; NUM_BYTES];
     type Data = Vec<FieldElement<F>>;
