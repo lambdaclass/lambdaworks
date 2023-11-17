@@ -1,18 +1,13 @@
-use core::ops::{BitAnd, Shr};
-
-use winter_math::{FieldElement as IsWinterfellFieldElement, StarkField};
-pub use winter_math::fields::f128::BaseElement;
 use crate::{
-    field::{
-        element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
-        traits::IsField,
-    },
-    traits::{ByteConversion, Serializable}, unsigned_integer::{traits::IsUnsignedInteger, element::U256},
+    field::{element::FieldElement, traits::IsField},
+    traits::Serializable,
+    unsigned_integer::element::U256,
 };
 pub use miden_core::Felt;
+pub use winter_math::fields::f128::BaseElement;
+use winter_math::{FieldElement as IsWinterfellFieldElement, StarkField};
 
 use super::traits::{IsFFTField, IsPrimeField};
-
 
 impl IsFFTField for Felt {
     const TWO_ADICITY: u64 = <Felt as StarkField>::TWO_ADICITY as u64;
@@ -22,11 +17,11 @@ impl IsFFTField for Felt {
 impl IsPrimeField for Felt {
     type RepresentativeType = U256;
 
-    fn representative(a: &Self::BaseType) -> Self::RepresentativeType {
+    fn representative(_a: &Self::BaseType) -> Self::RepresentativeType {
         todo!()
     }
 
-    fn from_hex(hex_string: &str) -> Result<Self::BaseType, crate::errors::CreationError> {
+    fn from_hex(_hex_string: &str) -> Result<Self::BaseType, crate::errors::CreationError> {
         todo!()
     }
 
@@ -39,31 +34,31 @@ impl IsField for Felt {
     type BaseType = Felt;
 
     fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
-        a.clone() + b.clone()
+        *a + *b
     }
 
     fn mul(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
-        a.clone() * b.clone()
+        *a * *b
     }
 
     fn sub(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
-        a.clone() - b.clone()
+        *a - *b
     }
 
     fn neg(a: &Self::BaseType) -> Self::BaseType {
-        -a.clone()
+        -*a
     }
 
     fn inv(a: &Self::BaseType) -> Result<Self::BaseType, super::errors::FieldError> {
-        Ok(a.clone().inv())
+        Ok((*a).inv())
     }
 
     fn div(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
-        a.clone() / b.clone()
+        *a / *b
     }
 
     fn eq(a: &Self::BaseType, b: &Self::BaseType) -> bool {
-        a.clone() == b.clone()
+        *a == *b
     }
 
     fn zero() -> Self::BaseType {
@@ -85,6 +80,6 @@ impl IsField for Felt {
 
 impl Serializable for FieldElement<Felt> {
     fn serialize(&self) -> Vec<u8> {
-        Felt::elements_as_bytes(&[self.value().clone()]).to_vec()
+        Felt::elements_as_bytes(&[*self.value()]).to_vec()
     }
 }

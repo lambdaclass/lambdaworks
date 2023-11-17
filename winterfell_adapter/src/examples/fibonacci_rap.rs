@@ -1,13 +1,14 @@
 use crate::adapter::air::FromColumns;
-use lambdaworks_math::field::element::FieldElement;
 use miden_core::Felt;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
-use winter_air::{TraceLayout, EvaluationFrame, AirContext, Air, TraceInfo, TransitionConstraintDegree, ProofOptions, AuxTraceRandElements, Assertion};
-use winter_math::{FieldElement as IsWinterfellFieldElement, StarkField, ExtensionOf};
+use winter_air::{
+    Air, AirContext, Assertion, AuxTraceRandElements, EvaluationFrame, ProofOptions, TraceInfo,
+    TraceLayout, TransitionConstraintDegree,
+};
+use winter_math::{ExtensionOf, FieldElement as IsWinterfellFieldElement, StarkField};
 use winter_prover::{ColMatrix, Trace, TraceTable};
 use winter_utils::{collections::Vec, uninit_vector};
-
 
 #[derive(Clone)]
 pub struct RapTraceTable<B: StarkField> {
@@ -211,7 +212,7 @@ impl Air for FibonacciRAP {
         _aux_rand_elements: &AuxTraceRandElements<E>,
     ) -> Vec<Assertion<E>> {
         let last_step = self.trace_length() - 1;
-        vec![Assertion::single(3, last_step, Self::BaseField::ONE.into())]
+        vec![Assertion::single(0, last_step, Self::BaseField::ONE.into())]
     }
 }
 

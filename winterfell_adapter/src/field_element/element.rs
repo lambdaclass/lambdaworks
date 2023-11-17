@@ -1,3 +1,4 @@
+use crate::field_element::positive_integer::AdapterPositiveInteger;
 use core::fmt;
 use core::{
     mem,
@@ -12,9 +13,8 @@ use lambdaworks_math::{
     traits::ByteConversion,
 };
 use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
-use winter_utils::{AsBytes, DeserializationError, Randomizable, Deserializable, Serializable};
-use crate::field_element::positive_integer::AdapterPositiveInteger;
-use winter_math::{FieldElement as IsWinterfellFieldElement, StarkField, ExtensibleField};
+use winter_math::{ExtensibleField, FieldElement as IsWinterfellFieldElement, StarkField};
+use winter_utils::{AsBytes, Deserializable, DeserializationError, Randomizable, Serializable};
 
 #[derive(Debug, Copy, Clone, Default)]
 pub struct AdapterFieldElement(pub FieldElement<Stark252PrimeField>);

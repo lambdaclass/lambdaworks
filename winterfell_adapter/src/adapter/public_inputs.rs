@@ -1,8 +1,4 @@
-use crate::field_element::element::AdapterFieldElement;
-use winter_air::{
-    Air, AirContext, Assertion, AuxTraceRandElements, EvaluationFrame,
-    ProofOptions as WinterProofOptions, TraceInfo, TransitionConstraintDegree,
-};
+use winter_air::{Air, TraceInfo};
 use winter_prover::Trace;
 
 #[derive(Clone)]
@@ -18,5 +14,5 @@ where
     pub(crate) transition_offsets: Vec<usize>,
     pub(crate) trace: T,
     pub(crate) trace_info: TraceInfo,
-    pub(crate) num_transition_exemptions: usize
+    pub(crate) num_transition_exemptions: usize,
 }

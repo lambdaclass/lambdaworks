@@ -1,9 +1,10 @@
-use lambdaworks_math::field::element::FieldElement;
 use miden_core::Felt;
-use winter_air::{AirContext, Air, TraceInfo, TransitionConstraintDegree, ProofOptions, EvaluationFrame, Assertion};
-use winter_math::{FieldElement as IsWinterfellFieldElement};
+use winter_air::{
+    Air, AirContext, Assertion, EvaluationFrame, ProofOptions, TraceInfo,
+    TransitionConstraintDegree,
+};
+use winter_math::FieldElement as IsWinterfellFieldElement;
 use winter_prover::TraceTable;
-use crate::field_element::element::AdapterFieldElement;
 
 /// A fibonacci winterfell AIR example. Two terms are computed
 /// at each step. This was taken from the original winterfell

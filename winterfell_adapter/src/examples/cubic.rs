@@ -1,6 +1,9 @@
 use miden_core::Felt;
-use winter_air::{AirContext, Air, TraceInfo, TransitionConstraintDegree, ProofOptions, EvaluationFrame, Assertion};
-use winter_math::{FieldElement as IsWinterfellFieldElement};
+use winter_air::{
+    Air, AirContext, Assertion, EvaluationFrame, ProofOptions, TraceInfo,
+    TransitionConstraintDegree,
+};
+use winter_math::FieldElement as IsWinterfellFieldElement;
 use winter_prover::TraceTable;
 
 /// A fibonacci winterfell AIR example. Two terms are computed
@@ -17,9 +20,7 @@ impl Air for Cubic {
     type PublicInputs = Felt;
 
     fn new(trace_info: TraceInfo, pub_inputs: Self::BaseField, options: ProofOptions) -> Self {
-        let degrees = vec![
-            TransitionConstraintDegree::new(3),
-        ];
+        let degrees = vec![TransitionConstraintDegree::new(3)];
         Cubic {
             context: AirContext::new(trace_info, degrees, 2, options),
             result: pub_inputs,
@@ -61,11 +62,10 @@ pub fn build_trace(sequence_length: usize) -> TraceTable<Felt> {
     );
 
     let mut accum = Felt::from(2u16);
-    let mut column = vec![accum.clone()];
+    let mut column = vec![accum];
     while column.len() < sequence_length {
-        accum = accum.clone() * accum.clone() * accum.clone();
+        accum = accum * accum * accum;
         column.push(accum);
-        
     }
     TraceTable::init(vec![column])
 }

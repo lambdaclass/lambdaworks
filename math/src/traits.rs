@@ -1,4 +1,3 @@
-
 use miden_core::Felt;
 
 use crate::{
@@ -39,15 +38,17 @@ impl ByteConversion for Felt {
         todo!()
     }
 
-    fn from_bytes_be(bytes: &[u8]) -> Result<Self, ByteConversionError>
+    fn from_bytes_be(_bytes: &[u8]) -> Result<Self, ByteConversionError>
     where
-        Self: Sized {
+        Self: Sized,
+    {
         todo!()
     }
 
-    fn from_bytes_le(bytes: &[u8]) -> Result<Self, ByteConversionError>
+    fn from_bytes_le(_bytes: &[u8]) -> Result<Self, ByteConversionError>
     where
-        Self: Sized {
+        Self: Sized,
+    {
         todo!()
     }
 }
