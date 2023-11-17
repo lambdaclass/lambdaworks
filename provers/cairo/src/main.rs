@@ -127,8 +127,9 @@ fn generate_proof(
     println!("  Time spent: {:?} \n", timer.elapsed());
 
     let timer = Instant::now();
+    let proof_options = ProofOptions::default_test_options();
     println!("Making proof ...");
-    let proof = match generate_cairo_proof(&main_trace, &pub_inputs, proof_options) {
+    let proof = match generate_cairo_proof(&main_trace, &pub_inputs, &proof_options) {
         Ok(p) => p,
         Err(err) => {
             eprintln!("Error generating proof: {:?}", err);
@@ -213,6 +214,8 @@ fn write_proof(
     bytes.extend((proof_bytes.len() as u32).to_le_bytes());
     bytes.extend(proof_bytes);
     bytes.extend(pub_inputs_bytes);
+
+    println!("PROOF: {:?}", bytes);
 
     let Ok(()) = std::fs::write(&proof_path, bytes) else {
         eprintln!("Error writing proof to file: {}", &proof_path);
