@@ -1,10 +1,9 @@
 use lambdaworks_math::{
-    cyclic_group::IsGroup,
     elliptic_curve::{
         short_weierstrass::{
             curves::stark_curve::StarkCurve, point::ShortWeierstrassProjectivePoint,
         },
-        traits::IsProjectivePoint,
+        traits::{IsEllipticCurve, IsProjectivePoint},
     },
     field::{
         element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
@@ -15,19 +14,33 @@ mod constants;
 mod parameters;
 use self::parameters::PedersenParameters;
 
-pub struct Pedersen {
-    params: PedersenParameters,
+pub struct Pedersen<EC, P, I>
+where
+    EC: IsEllipticCurve,
+    P: IsProjectivePoint<EC>,
+{
+    params: PedersenParameters<EC, P, I>,
 }
 
-impl Default for Pedersen {
+impl Default
+    for Pedersen<
+        StarkCurve,
+        ShortWeierstrassProjectivePoint<StarkCurve>,
+        FieldElement<Stark252PrimeField>,
+    >
+{
     fn default() -> Self {
-        let pedersen_stark_default_params = PedersenParameters::default();
+        let pedersen_stark_default_params = PedersenParameters::starknet_params();
         Self::new_with_params(pedersen_stark_default_params)
     }
 }
 
-impl Pedersen {
-    pub fn new_with_params(params: PedersenParameters) -> Self {
+impl<EC, P, I> Pedersen<EC, P, I>
+where
+    EC: IsEllipticCurve,
+    P: IsProjectivePoint<EC>,
+{
+    pub fn new_with_params(params: PedersenParameters<EC, P, I>) -> Self {
         Self { params }
     }
 
@@ -41,32 +54,39 @@ impl Pedersen {
     /// Pre-calculated points are multiples by powers of 2 of the "shift_point".
     ///
     /// Find specification at https://docs.starkware.co/starkex/crypto/pedersen-hash-function.html
-    pub fn hash(
-        &self,
-        x: &FieldElement<Stark252PrimeField>,
-        y: &FieldElement<Stark252PrimeField>,
-    ) -> FieldElement<Stark252PrimeField> {
-        let x = x.to_bits_le();
-        let y = y.to_bits_le();
+    pub fn hash(&self, x: &I, y: &I) -> FieldElement<<EC as IsEllipticCurve>::BaseField> {
+        let x = (self.params.input_to_bits_le)(x);
+        let y = (self.params.input_to_bits_le)(y);
         let mut acc = self.params.shift_point.clone();
 
-        self.lookup_and_accumulate(&mut acc, &x[..248], &self.params.points_p1); // Add a_low * P1
-        self.lookup_and_accumulate(&mut acc, &x[248..252], &self.params.points_p2); // Add a_high * P2
-        self.lookup_and_accumulate(&mut acc, &y[..248], &self.params.points_p3); // Add b_low * P3
-        self.lookup_and_accumulate(&mut acc, &y[248..252], &self.params.points_p4); // Add b_high * P4
+        self.lookup_and_accumulate(
+            &mut acc,
+            &x[..self.params.num_low_bits],
+            &self.params.points_p1,
+        ); // Add a_low * P1
+        self.lookup_and_accumulate(
+            &mut acc,
+            &x[self.params.num_low_bits..(self.params.num_low_bits + self.params.num_high_bits)],
+            &self.params.points_p2,
+        ); // Add a_high * P2
+        self.lookup_and_accumulate(
+            &mut acc,
+            &y[..self.params.num_low_bits],
+            &self.params.points_p3,
+        ); // Add b_low * P3
+        self.lookup_and_accumulate(
+            &mut acc,
+            &y[self.params.num_low_bits..(self.params.num_low_bits + self.params.num_high_bits)],
+            &self.params.points_p4,
+        ); // Add b_high * P4
 
-        *acc.to_affine().x()
+        acc.to_affine().x().clone()
     }
 
     /// Performs lookup to find the constant point corresponding to 4-bit chunks of given input.
     /// Keeps adding up those points to the given accumulation point.
-    fn lookup_and_accumulate(
-        &self,
-        acc: &mut ShortWeierstrassProjectivePoint<StarkCurve>,
-        bits: &[bool],
-        prep: &[ShortWeierstrassProjectivePoint<StarkCurve>],
-    ) {
-        bits.chunks(self.params.curve_const_bits)
+    fn lookup_and_accumulate(&self, acc: &mut P, bits: &[bool], prep: &[P]) {
+        bits.chunks(self.params.chunk_size_bits)
             .enumerate()
             .for_each(|(i, v)| {
                 let offset = bools_to_usize_le(v);
