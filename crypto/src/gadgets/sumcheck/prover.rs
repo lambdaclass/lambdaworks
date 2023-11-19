@@ -156,24 +156,12 @@ where
     /// Generates a single proof using Fiat-Shamir in
     /// the sumcheck protocol
     pub fn prove(&mut self) -> Result<SumcheckProof<F>, String> {
-        // Fiat shamir process
-        // your current state should deterministically lead to the randomness
-        // at the start the prover has the polynomial and the sum
-        // if only the sum is added to the transcript then the polynomial can be changed
-        //  potentially until one is found that gives the desired result with the challenge
-        // so both the sum and the polynomial must be committed, what about the round???
-        // at the start we do the sum then the polynomial, subsequentely we just do the poly
-        // how do we add the poly tho?
-        // we need to convert it into bytes somehow
-
         let mut transcript = DefaultTranscript::new();
 
         // add the claimed sum to the transcript
         let sum = self.generate_valid_sum();
         transcript.append(&sum.to_bytes_be());
-        // TODO: handle unwrap
-        // TODO: append the polynomial to the transcript
-        //  could represent it with evaluations
+        add_poly_to_transcript(&self.poly, &mut transcript);
 
         let mut proof = SumcheckProof::<F>::new(self.poly.clone(), sum);
 
@@ -186,10 +174,11 @@ where
             self.receive_challenge(r.clone(), round as u32)?;
 
             let round_poly = self.send_poly();
+            add_poly_to_transcript(&round_poly, &mut transcript);
 
-            // evaluate polynomial and add it to transcript
-            let value = round_poly.evaluate(vec![r; round_poly.n_vars].as_slice());
-            transcript.append(&value.to_bytes_be());
+            // // evaluate polynomial and add it to transcript
+            // let value = round_poly.evaluate(vec![r; round_poly.n_vars].as_slice());
+            // transcript.append(&value.to_bytes_be());
 
             // add polynomial to proof
             proof.uni_polys.push(round_poly);
