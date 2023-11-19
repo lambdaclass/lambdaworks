@@ -166,23 +166,16 @@ where
         let mut proof = SumcheckProof::<F>::new(self.poly.clone(), sum);
 
         for round in 1..=self.poly.n_vars {
+            let round_poly = self.send_poly();
+            add_poly_to_transcript(&round_poly, &mut transcript);
+            proof.uni_polys.push(round_poly);
+
             // sample challenge from transcript
             let challenge = transcript.challenge();
             let r = FieldElement::<F>::from_bytes_be(&challenge).unwrap();
 
             // add challenge to prover and advance round
-            self.receive_challenge(r.clone(), round as u32)?;
-
-            // TODO: should you receive the challenge before you send the poly??
-            let round_poly = self.send_poly();
-            add_poly_to_transcript(&round_poly, &mut transcript);
-
-            // // evaluate polynomial and add it to transcript
-            // let value = round_poly.evaluate(vec![r; round_poly.n_vars].as_slice());
-            // transcript.append(&value.to_bytes_be());
-
-            // add polynomial to proof
-            proof.uni_polys.push(round_poly);
+            self.receive_challenge(r, round as u32)?;
         }
 
         Ok(proof)
