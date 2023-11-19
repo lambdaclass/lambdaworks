@@ -173,6 +173,7 @@ where
             // add challenge to prover and advance round
             self.receive_challenge(r.clone(), round as u32)?;
 
+            // TODO: should you receive the challenge before you send the poly??
             let round_poly = self.send_poly();
             add_poly_to_transcript(&round_poly, &mut transcript);
 
@@ -189,7 +190,7 @@ where
 }
 
 /// Add a multilinear polynomial to the transcript
-fn add_poly_to_transcript<F: IsPrimeField>(
+pub fn add_poly_to_transcript<F: IsPrimeField>(
     poly: &MultilinearPolynomial<F>,
     transcript: &mut DefaultTranscript,
 ) where
