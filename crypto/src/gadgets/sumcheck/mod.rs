@@ -40,7 +40,7 @@ impl Sumcheck {
         let mut challenges = vec![];
         let mut claimed_sum = proof.sum;
 
-        // ensure we have enough prover polynomials for all round
+        // ensure we have enough prover polynomials for all rounds
         if proof.uni_polys.len() != proof.poly.n_vars {
             return false;
         }
