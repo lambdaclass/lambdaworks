@@ -13,15 +13,19 @@ struct Sumcheck {}
 impl Sumcheck {
     fn prove<F: IsPrimeField>(
         poly: MultilinearPolynomial<F>,
-        sum: FieldElement<F>,
+        _sum: FieldElement<F>,
     ) -> Result<SumcheckProof<F>, String>
     where
         <F as IsField>::BaseType: Send + Sync,
         FieldElement<F>: ByteConversion,
     {
         // TODO: refactor prover so we don't need to instantiate everytime
-        // TODO: currently sum field is not used, we should fix this
-        // TODO: no need for prover to return a result has it controls the entire proving process
+
+        // TODO: currently sum argument is not used, we should fix this
+        //  in some instances of sumcheck, the prover will not need to compute the sum over
+        //  the boolean hypercube (so sum should be an input to the prove function)
+
+        // TODO: no need for prover to return a result as it controls the entire proving process
         //  end to end
         let mut prover = Prover::new(poly);
         prover.prove()
