@@ -155,7 +155,7 @@ where
 
     /// Generates a single proof using Fiat-Shamir in
     /// the sumcheck protocol
-    pub fn prove(&mut self) -> Result<SumcheckProof<F>, String> {
+    pub fn prove(&mut self) -> SumcheckProof<F> {
         let mut transcript = DefaultTranscript::new();
 
         // add the claimed sum to the transcript
@@ -175,10 +175,10 @@ where
             let r = FieldElement::<F>::from_bytes_be(&challenge).unwrap();
 
             // add challenge to prover and advance round
-            self.receive_challenge(r, round as u32)?;
+            self.receive_challenge(r, round as u32).unwrap();
         }
 
-        Ok(proof)
+        proof
     }
 }
 

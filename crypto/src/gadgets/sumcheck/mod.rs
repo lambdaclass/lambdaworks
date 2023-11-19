@@ -14,16 +14,16 @@ impl Sumcheck {
     fn prove<F: IsPrimeField>(
         poly: MultilinearPolynomial<F>,
         _sum: FieldElement<F>,
-    ) -> Result<SumcheckProof<F>, String>
+    ) -> SumcheckProof<F>
     where
         <F as IsField>::BaseType: Send + Sync,
         FieldElement<F>: ByteConversion,
     {
         // TODO: refactor prover so we don't need to instantiate everytime
 
-        // TODO: currently sum argument is not used, we should fix this
-        //  in some instances of sumcheck, the prover will not need to compute the sum over
-        //  the boolean hypercube (so sum should be an input to the prove function)
+        // TODO: prove function should take the sum as an argument rather than prover
+        //  computing it internally, based on the protocol, the sum could be determined
+        //  without computing.
 
         // TODO: no need for prover to return a result as it controls the entire proving process
         //  end to end
@@ -104,7 +104,7 @@ mod test {
             MultiLinearMonomial::new((FE::from(2), vec![0, 1])),
             MultiLinearMonomial::new((FE::from(3), vec![1, 2])),
         ]);
-        let proof = Sumcheck::prove(p, FE::from(10)).unwrap();
+        let proof = Sumcheck::prove(p, FE::from(10));
         assert_eq!(proof.uni_polys.len(), 3);
         assert!(Sumcheck::verify(proof));
     }
