@@ -1,9 +1,11 @@
-use std::ops::{AddAssign, Mul};
 use serde::Serialize;
+use std::ops::{AddAssign, Mul};
 
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::{IsField, IsPrimeField};
 use lambdaworks_math::polynomial::multilinear_poly::MultilinearPolynomial;
+use lambdaworks_math::polynomial::multilinear_term::MultiLinearMonomial;
+use lambdaworks_math::traits::ByteConversion;
 // use lambdaworks_math::traits::ByteConversion;
 
 use crate::fiat_shamir::default_transcript::DefaultTranscript;
@@ -17,7 +19,7 @@ where
     pub poly: MultilinearPolynomial<F>,
     pub sum: FieldElement<F>,
     // TODO: this should be a univariate polynomial
-    pub uni_polys: Vec<MultilinearPolynomial<F>>
+    pub uni_polys: Vec<MultilinearPolynomial<F>>,
 }
 
 impl<F: IsPrimeField> SumcheckProof<F>
@@ -28,7 +30,7 @@ where
         SumcheckProof {
             poly,
             sum,
-            uni_polys: Vec::new()
+            uni_polys: Vec::new(),
         }
     }
 }
@@ -194,6 +196,23 @@ where
         }
 
         Ok(proof)
+    }
+}
+
+/// Add a multilinear polynomial to the transcript
+fn add_poly_to_transcript<F: IsPrimeField>(
+    poly: &MultilinearPolynomial<F>,
+    transcript: &mut DefaultTranscript,
+) where
+    <F as IsField>::BaseType: Send + Sync,
+    FieldElement<F>: ByteConversion
+{
+    transcript.append(&poly.n_vars.to_be_bytes());
+    for term in &poly.terms {
+        transcript.append(&term.coeff.to_bytes_be());
+        for var in &term.vars {
+            transcript.append(&var.to_be_bytes());
+        }
     }
 }
 

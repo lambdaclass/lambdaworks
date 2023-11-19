@@ -1,9 +1,9 @@
 use crate::field::element::FieldElement;
 use crate::field::traits::{IsField, IsPrimeField};
 use crate::polynomial::term::Term;
+use serde::Serialize;
 use std::cmp::Eq;
 use std::fmt::Display;
-use serde::Serialize;
 
 /// Struct for (coeff: FieldElement<F>, terms: Vec<usize>) representing a multilinear
 /// monomial in a sparse format.

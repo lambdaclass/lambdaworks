@@ -3,8 +3,8 @@ use crate::field::traits::{IsField, IsPrimeField};
 use crate::polynomial::multilinear_term::MultiLinearMonomial;
 use crate::polynomial::term::Term;
 use core::ops::AddAssign;
-use std::fmt::Display;
 use serde::Serialize;
+use std::fmt::Display;
 
 /// Represents a multilinear polynomials as a collection of multilinear monomials
 // TODO: add checks to track the max degree and number of variables.
