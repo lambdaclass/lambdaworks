@@ -1,6 +1,6 @@
 use crate::fiat_shamir::default_transcript::DefaultTranscript;
 use crate::fiat_shamir::transcript::Transcript;
-use crate::gadgets::sumcheck::prover::{add_poly_to_transcript, SumcheckProof};
+use crate::gadgets::sumcheck::prover::{add_poly_to_transcript, Prover, SumcheckProof};
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::{IsField, IsPrimeField};
 use lambdaworks_math::polynomial::multilinear_poly::MultilinearPolynomial;
@@ -13,13 +13,18 @@ struct Sumcheck {}
 impl Sumcheck {
     fn prove<F: IsPrimeField>(
         poly: MultilinearPolynomial<F>,
-        sum: FieldElement<F>,
+        _sum: FieldElement<F>,
     ) -> Result<SumcheckProof<F>, String>
     where
         <F as IsField>::BaseType: Send + Sync,
         FieldElement<F>: ByteConversion,
     {
-        todo!()
+        // TODO: refactor prover so we don't need to instantiate everytime
+        // TODO: currently sum field is not used, we should fix this
+        // TODO: no need for prover to return a result has it controls the entire proving process
+        //  end to end
+        let mut prover = Prover::new(poly);
+        prover.prove()
     }
 
     fn verify<F: IsPrimeField>(proof: SumcheckProof<F>) -> bool
@@ -57,5 +62,32 @@ impl Sumcheck {
 
         let poly_at_challenge_eval = proof.poly.evaluate(challenges.as_slice());
         poly_at_challenge_eval == claimed_sum
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::gadgets::sumcheck::Sumcheck;
+    use lambdaworks_math::field::element::FieldElement;
+    use lambdaworks_math::field::fields::fft_friendly::babybear::Babybear31PrimeField;
+    use lambdaworks_math::polynomial::multilinear_poly::MultilinearPolynomial;
+    use lambdaworks_math::polynomial::multilinear_term::MultiLinearMonomial;
+
+    type F = Babybear31PrimeField;
+    type FE = FieldElement<F>;
+
+    #[test]
+    fn test_sumcheck_prover_verifier() {
+        // p = 2ab + 3bc
+        // [a, b, c] = [0, 1, 2]
+        // sum over boolean hypercube = 10
+        let p = MultilinearPolynomial::<F>::new(vec![
+            MultiLinearMonomial::new((FE::from(2), vec![0, 1])),
+            MultiLinearMonomial::new((FE::from(3), vec![1, 2])),
+        ]);
+        let proof = Sumcheck::prove(p, FE::from(10)).unwrap();
+        assert_eq!(proof.uni_polys.len(), 3);
+
+        assert!(Sumcheck::verify(proof));
     }
 }
