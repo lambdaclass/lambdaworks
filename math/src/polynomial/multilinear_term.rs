@@ -3,11 +3,12 @@ use crate::field::traits::{IsField, IsPrimeField};
 use crate::polynomial::term::Term;
 use std::cmp::Eq;
 use std::fmt::Display;
+use serde::Serialize;
 
 /// Struct for (coeff: FieldElement<F>, terms: Vec<usize>) representing a multilinear
 /// monomial in a sparse format.
 // TODO: add check that var labels are 0 indexed
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct MultiLinearMonomial<F: IsPrimeField>
 where
     <F as IsField>::BaseType: Send + Sync,

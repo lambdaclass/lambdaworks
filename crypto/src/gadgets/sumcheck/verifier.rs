@@ -4,6 +4,9 @@ use lambdaworks_math::field::traits::{IsField, IsPrimeField};
 use lambdaworks_math::polynomial::multilinear_poly::MultilinearPolynomial;
 use rand_chacha::rand_core::{RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;
+use crate::fiat_shamir::default_transcript::DefaultTranscript;
+use crate::fiat_shamir::transcript::Transcript;
+use crate::gadgets::sumcheck::prover::SumcheckProof;
 
 /// Sumcheck Verifier
 pub struct Verifier<F: IsPrimeField>
@@ -33,6 +36,17 @@ where
             challenges: vec![],
             round_sum: claimed_sum,
         }
+    }
+
+    // TODO: use verifier state instead
+    fn verify(proof: SumcheckProof<F>) -> bool {
+        let mut transcript = DefaultTranscript::new();
+        let mut challenges = vec![];
+        let mut claimed_sum = proof.sum;
+
+        // transcript.append(proof.sum);
+
+        todo!()
     }
 
     /// Verify the current round of the protocol, advance round if successful

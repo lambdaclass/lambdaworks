@@ -4,10 +4,11 @@ use crate::polynomial::multilinear_term::MultiLinearMonomial;
 use crate::polynomial::term::Term;
 use core::ops::AddAssign;
 use std::fmt::Display;
+use serde::Serialize;
 
 /// Represents a multilinear polynomials as a collection of multilinear monomials
 // TODO: add checks to track the max degree and number of variables.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct MultilinearPolynomial<F: IsPrimeField>
 where
     <F as IsField>::BaseType: Send + Sync,

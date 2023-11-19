@@ -1,30 +1,34 @@
-use std::ops::AddAssign;
+use std::ops::{AddAssign, Mul};
+use serde::Serialize;
 
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::{IsField, IsPrimeField};
 use lambdaworks_math::polynomial::multilinear_poly::MultilinearPolynomial;
-use lambdaworks_math::traits::ByteConversion;
+// use lambdaworks_math::traits::ByteConversion;
 
 use crate::fiat_shamir::default_transcript::DefaultTranscript;
 use crate::fiat_shamir::transcript::Transcript;
 
 /// Sumcheck Fiat-Shamir proof
-pub struct Proof<F: IsPrimeField>
+pub struct SumcheckProof<F: IsPrimeField>
 where
     <F as IsField>::BaseType: Send + Sync,
 {
-    polys: Vec<MultilinearPolynomial<F>>,
-    r: Vec<FieldElement<F>>,
+    pub poly: MultilinearPolynomial<F>,
+    pub sum: FieldElement<F>,
+    // TODO: this should be a univariate polynomial
+    pub uni_polys: Vec<MultilinearPolynomial<F>>
 }
 
-impl<F: IsPrimeField> Proof<F>
+impl<F: IsPrimeField> SumcheckProof<F>
 where
     <F as IsField>::BaseType: Send + Sync,
 {
-    pub fn new() -> Proof<F> {
-        Proof {
-            polys: Vec::<MultilinearPolynomial<F>>::new(),
-            r: Vec::<FieldElement<F>>::new(),
+    pub fn new(poly: MultilinearPolynomial<F>, sum: FieldElement<F>) -> SumcheckProof<F> {
+        SumcheckProof {
+            poly,
+            sum,
+            uni_polys: Vec::new()
         }
     }
 }
@@ -47,7 +51,7 @@ where
     /// Constructor for prover takes a multilinear polynomial
     pub fn new(poly: MultilinearPolynomial<F>) -> Prover<F> {
         Prover {
-            poly: poly,
+            poly,
             round: 0,      // current round of the protocol
             r: Vec::new(), // random challenges
         }
@@ -149,30 +153,47 @@ where
 
     /// Generates a single proof using Fiat-Shamir in
     /// the sumcheck protocol
-    pub fn prove(&mut self) -> Proof<F> {
+    pub fn prove(&mut self) -> Result<SumcheckProof<F>, String> {
+        // Fiat shamir process
+        // your current state should deterministically lead to the randomness
+        // at the start the prover has the polynomial and the sum
+        // if only the sum is added to the transcript then the polynomial can be changed
+        //  potentially until one is found that gives the desired result with the challenge
+        // so both the sum and the polynomial must be committed, what about the round???
+        // at the start we do the sum then the polynomial, subsequentely we just do the poly
+        // how do we add the poly tho?
+        // we need to convert it into bytes somehow
+
         let mut transcript = DefaultTranscript::new();
 
         // add the claimed sum to the transcript
-        let sum = self.generate_valid_sum().to_bytes_be();
-        transcript.append(&sum);
+        let sum = self.generate_valid_sum();
+        transcript.append(&sum.to_bytes_be());
+        // TODO: handle unwrap
+        // TODO: append the polynomial to the transcript
+        //  could represent it with evaluations
 
-        let mut proof = Proof::<F>::new();
+        let mut proof = SumcheckProof::<F>::new(self.poly.clone(), sum);
+
         for round in 1..=self.poly.n_vars {
-            //create challenge from the transcript
+            // sample challenge from transcript
             let challenge = transcript.challenge();
             let r = FieldElement::<F>::from_bytes_be(&challenge).unwrap();
-            //add challenge to the proof
-            proof.r.push(r.clone());
-            //create polynomial from challenge
-            let _ = self.receive_challenge(r.clone(), round as u32);
+
+            // add challenge to prover and advance round
+            self.receive_challenge(r.clone(), round as u32)?;
+
             let round_poly = self.send_poly();
-            //evaluate polynomial and add it to transcript
+
+            // evaluate polynomial and add it to transcript
             let value = round_poly.evaluate(vec![r; round_poly.n_vars].as_slice());
             transcript.append(&value.to_bytes_be());
-            //add polynomial to proof
-            proof.polys.push(round_poly);
+
+            // add polynomial to proof
+            proof.uni_polys.push(round_poly);
         }
-        proof
+
+        Ok(proof)
     }
 }
 
