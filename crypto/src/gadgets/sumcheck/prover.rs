@@ -188,7 +188,7 @@ pub fn add_poly_to_transcript<F: IsPrimeField>(
     transcript: &mut DefaultTranscript,
 ) where
     <F as IsField>::BaseType: Send + Sync,
-    FieldElement<F>: ByteConversion
+    FieldElement<F>: ByteConversion,
 {
     transcript.append(&poly.n_vars.to_be_bytes());
     for term in &poly.terms {
