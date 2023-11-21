@@ -70,6 +70,7 @@ const RANGE_CHECK_0: usize = 50;
 const RANGE_CHECK_1: usize = 51;
 const RANGE_CHECK_2: usize = 52;
 const RANGE_CHECK_3: usize = 53;
+const FLAG_OP1_BASE_OP0_BIT: usize = 54;
 
 // Frame row identifiers
 //  - Flags
@@ -614,6 +615,7 @@ impl AIR for CairoAIR {
             2, 2, 2, 2, 2, // Permutation auxiliary constraints.
             2, 2, 2, 2, // range-check increasing constraints.
             2, 2, 2, 2, // range-check permutation argument constraints.
+            1, // f_op1_imm_bit constraintt
         ];
         let transition_exemptions = vec![
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // flags (16)
@@ -626,8 +628,9 @@ impl AIR for CairoAIR {
             0, 0, 0, 0, 1, // memory permutation argument (4)
             0, 0, 0, 1, // range check continuous (3)
             0, 0, 0, 0, // range check permutation argument (3)
+            0, // f_op1_imm_bit constraintt
         ];
-        let num_transition_constraints = 54;
+        let num_transition_constraints = 55;
 
         let num_transition_exemptions = 1_usize;
 
@@ -888,17 +891,27 @@ fn compute_instr_constraints(constraints: &mut [Felt252], frame: &Frame<Stark252
         .map(|col_idx| curr.get_evaluation_element(0, col_idx))
         .collect();
 
+    let one = Felt252::one();
     let two = Felt252::from(2);
+
+    let bit_flags: Vec<Felt252> = (0..15)
+        .map(|idx| flags[idx] - two * flags[idx + 1])
+        .collect();
+
     (0..15).for_each(|idx| {
         constraints[idx] = match idx {
-            0..=14 => {
-                (flags[idx] - two * flags[idx + 1])
-                    * (flags[idx] - two * flags[idx + 1] - Felt252::one())
-            }
+            0..=14 => bit_flags[idx] * (bit_flags[idx] - one),
             15 => *flags[idx],
             _ => panic!("Unknown flag offset"),
         }
     });
+
+    // flag_op1_base_op0_bit constraint
+    let f_op1_imm = bit_flags[2];
+    let f_op1_fp = bit_flags[3];
+    let f_op1_ap = bit_flags[4];
+
+    constraints[FLAG_OP1_BASE_OP0_BIT] = one - f_op1_imm - f_op1_fp - f_op1_ap;
 
     // Instruction unpacking
     let b16 = two.pow(16u32);
