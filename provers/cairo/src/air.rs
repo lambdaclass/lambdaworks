@@ -75,9 +75,12 @@ const FLAG_OP1_BASE_OP0_BIT: usize = 54;
 const FLAG_RES_OP1_BIT: usize = 55;
 const FLAG_PC_UPDATE_REGULAR_BIT: usize = 56;
 const FLAG_FP_UPDATE_REGULAR_BIT: usize = 57;
+
 const OPCODES_CALL_OFF0: usize = 58;
 const OPCODES_CALL_OFF1: usize = 59;
 const OPCODES_CALL_FLAGS: usize = 60;
+
+const OPCODES_RET_OFF0: usize = 61;
 
 // Frame row identifiers
 //  - Flags
@@ -629,6 +632,7 @@ impl AIR for CairoAIR {
             2, // opcodes/call/off0 constraint
             2, // opcodes/call/off1 constraint
             2, // cpu/opcodes/call/flags
+            2, // cpu/opcodes/ret/off0
         ];
         let transition_exemptions = vec![
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // flags (16)
@@ -648,8 +652,9 @@ impl AIR for CairoAIR {
             0, // opcodes/call/off0 constraint
             0, // opcodes/call/off1 constraint
             0, // cpu/opcodes/call/flags
+            0, // cpu/opcodes/ret/off0
         ];
-        let num_transition_constraints = 61;
+        let num_transition_constraints = 62;
 
         let num_transition_exemptions = 1_usize;
 
@@ -973,10 +978,12 @@ fn compute_instr_constraints(constraints: &mut [Felt252], frame: &Frame<Stark252
     constraints[OPCODES_CALL_OFF0] = f_opcode_call * (off_dst - b15);
     // cpu/opcodes/call/off0 constraint
     constraints[OPCODES_CALL_OFF1] = f_opcode_call * (off_op0 - b15 - one);
-
     // cpu/opcodes/call/flags constraint
     constraints[OPCODES_CALL_FLAGS] =
         f_opcode_call * (two * f_opcode_call + one + one - bit_flags[0] - bit_flags[1] - two - two);
+
+    // cpu/opcodes/ret/off0 constraint
+    constraints[OPCODES_RET_OFF0] = f_opcode_ret * (off_dst + two - b15);
 }
 
 fn compute_operand_constraints(constraints: &mut [Felt252], frame: &Frame<Stark252PrimeField>) {
