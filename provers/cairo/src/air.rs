@@ -70,9 +70,11 @@ const RANGE_CHECK_0: usize = 50;
 const RANGE_CHECK_1: usize = 51;
 const RANGE_CHECK_2: usize = 52;
 const RANGE_CHECK_3: usize = 53;
+
 const FLAG_OP1_BASE_OP0_BIT: usize = 54;
 const FLAG_RES_OP1_BIT: usize = 55;
 const FLAG_PC_UPDATE_REGULAR_BIT: usize = 56;
+const FLAG_FP_UPDATE_REGULAR_BIT: usize = 57;
 
 // Frame row identifiers
 //  - Flags
@@ -620,6 +622,7 @@ impl AIR for CairoAIR {
             2, // f_op1_imm_bit constraint
             2, // flag_res_op1_bit constraint
             2, // flag_pc_update_regular_bit constraint
+            2, // flag_fp_update_regular_bit constraint
         ];
         let transition_exemptions = vec![
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // flags (16)
@@ -635,8 +638,9 @@ impl AIR for CairoAIR {
             0, // f_op1_imm_bit constraint
             0, // flag_res_op1_bit constraint
             0, // flag_pc_update_regular_bit constraint
+            0, // flag_fp_update_regular_bit constraint
         ];
-        let num_transition_constraints = 57;
+        let num_transition_constraints = 58;
 
         let num_transition_exemptions = 1_usize;
 
@@ -932,6 +936,13 @@ fn compute_instr_constraints(constraints: &mut [Felt252], frame: &Frame<Stark252
     let flag_pc_update_regular_bit = one - f_jump_abs - f_jump_rel - f_pc_jnz;
     constraints[FLAG_PC_UPDATE_REGULAR_BIT] =
         flag_pc_update_regular_bit * (flag_pc_update_regular_bit - one);
+
+    // flag_fp_update_regular_bit constraint
+    let f_opcode_call = bit_flags[12];
+    let f_opcode_ret = bit_flags[13];
+    let flag_fp_update_regular_bit = one - f_opcode_call - f_opcode_ret;
+    constraints[FLAG_FP_UPDATE_REGULAR_BIT] =
+        flag_fp_update_regular_bit * (flag_fp_update_regular_bit - one);
 
     // Instruction unpacking
     let b16 = two.pow(16u32);
