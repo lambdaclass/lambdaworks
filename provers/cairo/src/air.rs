@@ -71,6 +71,7 @@ const RANGE_CHECK_1: usize = 51;
 const RANGE_CHECK_2: usize = 52;
 const RANGE_CHECK_3: usize = 53;
 const FLAG_OP1_BASE_OP0_BIT: usize = 54;
+const FLAG_RES_OP1_BIT: usize = 55;
 
 // Frame row identifiers
 //  - Flags
@@ -615,7 +616,8 @@ impl AIR for CairoAIR {
             2, 2, 2, 2, 2, // Permutation auxiliary constraints.
             2, 2, 2, 2, // range-check increasing constraints.
             2, 2, 2, 2, // range-check permutation argument constraints.
-            1, // f_op1_imm_bit constraintt
+            1, // f_op1_imm_bit constraint
+            1, // flag_res_op1_bit constraintt
         ];
         let transition_exemptions = vec![
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // flags (16)
@@ -629,8 +631,9 @@ impl AIR for CairoAIR {
             0, 0, 0, 1, // range check continuous (3)
             0, 0, 0, 0, // range check permutation argument (3)
             0, // f_op1_imm_bit constraintt
+            0, // flag_res_op1_bit constraintt
         ];
-        let num_transition_constraints = 55;
+        let num_transition_constraints = 56;
 
         let num_transition_exemptions = 1_usize;
 
@@ -910,8 +913,15 @@ fn compute_instr_constraints(constraints: &mut [Felt252], frame: &Frame<Stark252
     let f_op1_imm = bit_flags[2];
     let f_op1_fp = bit_flags[3];
     let f_op1_ap = bit_flags[4];
+    let f_op1_base_op0_bit = one - f_op1_imm - f_op1_fp - f_op1_ap;
+    constraints[FLAG_OP1_BASE_OP0_BIT] = f_op1_base_op0_bit * (f_op1_base_op0_bit - one);
 
-    constraints[FLAG_OP1_BASE_OP0_BIT] = one - f_op1_imm - f_op1_fp - f_op1_ap;
+    // flag_res_op1_bit constraint
+    let f_res_add = bit_flags[5];
+    let f_res_mul = bit_flags[6];
+    let f_pc_jnz = bit_flags[9];
+    let f_res_op1_bit = one - f_res_add - f_res_mul - f_pc_jnz;
+    constraints[FLAG_RES_OP1_BIT] = f_res_op1_bit * (f_res_op1_bit - one);
 
     // Instruction unpacking
     let b16 = two.pow(16u32);
