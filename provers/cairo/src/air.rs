@@ -72,6 +72,7 @@ const RANGE_CHECK_2: usize = 52;
 const RANGE_CHECK_3: usize = 53;
 const FLAG_OP1_BASE_OP0_BIT: usize = 54;
 const FLAG_RES_OP1_BIT: usize = 55;
+const FLAG_PC_UPDATE_REGULAR_BIT: usize = 56;
 
 // Frame row identifiers
 //  - Flags
@@ -616,8 +617,9 @@ impl AIR for CairoAIR {
             2, 2, 2, 2, 2, // Permutation auxiliary constraints.
             2, 2, 2, 2, // range-check increasing constraints.
             2, 2, 2, 2, // range-check permutation argument constraints.
-            1, // f_op1_imm_bit constraint
-            1, // flag_res_op1_bit constraintt
+            2, // f_op1_imm_bit constraint
+            2, // flag_res_op1_bit constraint
+            2, // flag_pc_update_regular_bit constraint
         ];
         let transition_exemptions = vec![
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // flags (16)
@@ -630,10 +632,11 @@ impl AIR for CairoAIR {
             0, 0, 0, 0, 1, // memory permutation argument (4)
             0, 0, 0, 1, // range check continuous (3)
             0, 0, 0, 0, // range check permutation argument (3)
-            0, // f_op1_imm_bit constraintt
-            0, // flag_res_op1_bit constraintt
+            0, // f_op1_imm_bit constraint
+            0, // flag_res_op1_bit constraint
+            0, // flag_pc_update_regular_bit constraint
         ];
-        let num_transition_constraints = 56;
+        let num_transition_constraints = 57;
 
         let num_transition_exemptions = 1_usize;
 
@@ -922,6 +925,13 @@ fn compute_instr_constraints(constraints: &mut [Felt252], frame: &Frame<Stark252
     let f_pc_jnz = bit_flags[9];
     let f_res_op1_bit = one - f_res_add - f_res_mul - f_pc_jnz;
     constraints[FLAG_RES_OP1_BIT] = f_res_op1_bit * (f_res_op1_bit - one);
+
+    // flag_pc_update_regular_bit constraint
+    let f_jump_abs = bit_flags[7];
+    let f_jump_rel = bit_flags[8];
+    let flag_pc_update_regular_bit = one - f_jump_abs - f_jump_rel - f_pc_jnz;
+    constraints[FLAG_PC_UPDATE_REGULAR_BIT] =
+        flag_pc_update_regular_bit * (flag_pc_update_regular_bit - one);
 
     // Instruction unpacking
     let b16 = two.pow(16u32);
