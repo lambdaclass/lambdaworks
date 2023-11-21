@@ -9,3 +9,5 @@ pub mod p448_goldilocks_prime_field;
 pub mod u64_goldilocks_field;
 /// Implementation of prime fields over 64 bit unsigned integers.
 pub mod u64_prime_field;
+/// Implemenation of Pallas field
+pub mod pallas_field;
