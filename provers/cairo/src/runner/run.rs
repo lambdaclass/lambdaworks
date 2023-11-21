@@ -1,4 +1,4 @@
-use crate::air::{MemorySegment, MemorySegmentMap, PublicInputs};
+use crate::air::PublicInputs;
 use crate::cairo_layout::CairoLayout;
 use crate::cairo_mem::CairoMemory;
 use crate::execution_trace::build_main_trace;
@@ -15,7 +15,6 @@ use cairo_vm::vm::errors::{
 
 use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
 use stark_platinum_prover::trace::TraceTable;
-use std::ops::Range;
 
 #[derive(Debug)]
 pub enum Error {
@@ -80,7 +79,7 @@ pub fn run_program(
     entrypoint_function: Option<&str>,
     layout: CairoLayout,
     program_content: &[u8],
-) -> Result<(RegisterStates, CairoMemory, usize, Option<Range<u64>>), Error> {
+) -> Result<(RegisterStates, CairoMemory, usize), Error> {
     // default value for entrypoint is "main"
     let entrypoint = entrypoint_function.unwrap_or("main");
 
@@ -125,71 +124,37 @@ pub fn run_program(
 
     let data_len = runner.get_program().data_len();
 
-    let range_check_builtin_included = runner
-        .get_program()
-        .iter_builtins()
-        .any(|builtin| builtin.name() == "range_check_builtin");
-
-    // get range start and end
-    let range_check = if range_check_builtin_included {
-        vm.get_range_check_builtin()
-            .map(|builtin| {
-                let (idx, stop_offset) = builtin.get_memory_segment_addresses();
-                let stop_offset = stop_offset.unwrap_or_default();
-                let range_check_base =
-                    (0..idx).fold(1, |acc, i| acc + vm.get_segment_size(i).unwrap_or_default());
-                let range_check_end = range_check_base + stop_offset;
-
-                (range_check_base, range_check_end)
-            })
-            .ok()
-    } else {
-        None
-    };
-
-    let range_check_builtin_range = range_check.map(|(start, end)| Range {
-        start: start as u64,
-        end: end as u64,
-    });
-
-    Ok((
-        register_states,
-        cairo_mem,
-        data_len,
-        range_check_builtin_range,
-    ))
+    Ok((register_states, cairo_mem, data_len))
 }
 
 pub fn generate_prover_args(
     program_content: &[u8],
-    output_range: &Option<Range<u64>>,
     layout: CairoLayout,
 ) -> Result<(TraceTable<Stark252PrimeField>, PublicInputs), Error> {
-    let (register_states, memory, program_size, range_check_builtin_range) =
-        run_program(None, layout, program_content)?;
+    let (register_states, memory, program_size) = run_program(None, layout, program_content)?;
 
-    let memory_segments = create_memory_segment_map(range_check_builtin_range, output_range);
-
-    let mut pub_inputs =
-        PublicInputs::from_regs_and_mem(&register_states, &memory, program_size, &memory_segments);
+    let mut pub_inputs = PublicInputs::from_regs_and_mem(&register_states, &memory, program_size);
 
     let main_trace = build_main_trace(&register_states, &memory, &mut pub_inputs);
 
     Ok((main_trace, pub_inputs))
 }
 
-fn create_memory_segment_map(
-    range_check_builtin_range: Option<Range<u64>>,
-    output_range: &Option<Range<u64>>,
-) -> MemorySegmentMap {
-    let mut memory_segments = MemorySegmentMap::new();
+pub fn generate_prover_args_from_trace(
+    trace_bin_path: &str,
+    memory_bin_path: &str,
+) -> Result<(TraceTable<Stark252PrimeField>, PublicInputs), Error> {
+    // ## Generating the prover args
+    let register_states =
+        RegisterStates::from_file(trace_bin_path).expect("Cairo trace bin file not found");
+    let memory =
+        CairoMemory::from_file(memory_bin_path).expect("Cairo memory binary file not found");
 
-    if let Some(range_check_builtin_range) = range_check_builtin_range {
-        memory_segments.insert(MemorySegment::RangeCheck, range_check_builtin_range);
-    }
-    if let Some(output_range) = output_range {
-        memory_segments.insert(MemorySegment::Output, output_range.clone());
-    }
+    // data length
+    let data_len = 0_usize;
+    let mut pub_inputs = PublicInputs::from_regs_and_mem(&register_states, &memory, data_len);
 
-    memory_segments
+    let main_trace = build_main_trace(&register_states, &memory, &mut pub_inputs);
+
+    Ok((main_trace, pub_inputs))
 }

@@ -19,12 +19,12 @@ use rayon::prelude::{IndexedParallelIterator, IntoParallelRefIterator, ParallelI
 use crate::debug::validate_trace;
 use crate::fri;
 use crate::proof::stark::DeepPolynomialOpenings;
+use crate::table::Table;
 use crate::transcript::IsStarkTranscript;
 
 use super::config::{BatchedMerkleTree, Commitment};
 use super::constraints::evaluator::ConstraintEvaluator;
 use super::domain::Domain;
-use super::frame::Frame;
 use super::fri::fri_decommit::FriDecommitment;
 use super::grinding;
 use super::proof::options::ProofOptions;
@@ -78,7 +78,7 @@ pub struct Round4<F: IsFFTField> {
     deep_poly_openings: DeepPolynomialOpenings<F>,
     deep_poly_openings_sym: DeepPolynomialOpenings<F>,
     query_list: Vec<FriDecommitment<F>>,
-    nonce: u64,
+    nonce: Option<u64>,
 }
 pub fn evaluate_polynomial_on_lde_domain<F>(
     p: &Polynomial<FieldElement<F>>,
@@ -113,7 +113,7 @@ pub trait IsStarkProver {
     }
 
     #[allow(clippy::type_complexity)]
-    fn interpolate_and_commit(
+    fn interpolate_and_commit<A>(
         trace: &TraceTable<Self::Field>,
         domain: &Domain<Self::Field>,
         transcript: &mut impl IsStarkTranscript<Self::Field>,
@@ -124,6 +124,7 @@ pub trait IsStarkProver {
         Commitment,
     )
     where
+        A: AIR<Field = Self::Field>,
         FieldElement<Self::Field>: Serializable + Send + Sync,
     {
         let trace_polys = trace.compute_trace_polys();
@@ -138,7 +139,7 @@ pub trait IsStarkProver {
         }
 
         // Compute commitments [t_j].
-        let lde_trace = TraceTable::from_columns(&lde_trace_permuted);
+        let lde_trace = TraceTable::from_columns(lde_trace_permuted, A::STEP_SIZE);
         let (lde_trace_merkle_tree, lde_trace_merkle_root) = Self::batch_commit(&lde_trace.rows());
 
         // >>>> Send commitments: [tⱼ]
@@ -177,17 +178,18 @@ pub trait IsStarkProver {
             .unwrap()
     }
 
-    fn round_1_randomized_air_with_preprocessing<A: AIR<Field = Self::Field>>(
+    fn round_1_randomized_air_with_preprocessing<A>(
         air: &A,
         main_trace: &TraceTable<Self::Field>,
         domain: &Domain<Self::Field>,
         transcript: &mut impl IsStarkTranscript<Self::Field>,
     ) -> Result<Round1<Self::Field, A>, ProvingError>
     where
+        A: AIR<Field = Self::Field>,
         FieldElement<Self::Field>: Serializable + Send + Sync,
     {
         let (mut trace_polys, mut evaluations, main_merkle_tree, main_merkle_root) =
-            Self::interpolate_and_commit(main_trace, domain, transcript);
+            Self::interpolate_and_commit::<A>(main_trace, domain, transcript);
 
         let rap_challenges = air.build_rap_challenges(transcript);
 
@@ -198,14 +200,14 @@ pub trait IsStarkProver {
         if !aux_trace.is_empty() {
             // Check that this is valid for interpolation
             let (aux_trace_polys, aux_trace_polys_evaluations, aux_merkle_tree, aux_merkle_root) =
-                Self::interpolate_and_commit(&aux_trace, domain, transcript);
+                Self::interpolate_and_commit::<A>(&aux_trace, domain, transcript);
             trace_polys.extend_from_slice(&aux_trace_polys);
             evaluations.extend_from_slice(&aux_trace_polys_evaluations);
             lde_trace_merkle_trees.push(aux_merkle_tree);
             lde_trace_merkle_roots.push(aux_merkle_root);
         }
 
-        let lde_trace = TraceTable::from_columns(&evaluations);
+        let lde_trace = TraceTable::from_columns(evaluations, A::STEP_SIZE);
 
         Ok(Round1 {
             trace_polys,
@@ -326,7 +328,7 @@ pub trait IsStarkProver {
         //
         // In the fibonacci example, the ood frame is simply the evaluations `[t(z), t(z * g), t(z * g^2)]`, where `t` is the trace
         // polynomial and `g` is the primitive root of unity used when interpolating `t`.
-        let trace_ood_evaluations = Frame::get_trace_evaluations(
+        let trace_ood_evaluations = crate::trace::get_trace_evaluations(
             &round_1_result.trace_polys,
             z,
             &air.context().transition_offsets,
@@ -396,11 +398,12 @@ pub trait IsStarkProver {
 
         // grinding: generate nonce and append it to the transcript
         let security_bits = air.context().proof_options.grinding_factor;
-        let mut nonce = 0;
+        let mut nonce = None;
         if security_bits > 0 {
-            nonce = grinding::generate_nonce(&transcript.state(), security_bits)
+            let nonce_value = grinding::generate_nonce(&transcript.state(), security_bits)
                 .expect("nonce not found");
-            transcript.append_bytes(&nonce.to_be_bytes());
+            transcript.append_bytes(&nonce_value.to_be_bytes());
+            nonce = Some(nonce_value);
         }
 
         let number_of_queries = air.options().fri_number_of_queries;
@@ -486,7 +489,7 @@ pub trait IsStarkProver {
             .fold(
                 || Polynomial::zero(),
                 |trace_terms, (i, t_j)| {
-                    compute_trace_term(
+                    Self::compute_trace_term(
                         &trace_terms,
                         (i, t_j),
                         trace_frame_length,
@@ -852,7 +855,7 @@ pub trait IsStarkProver {
 
         info!("End proof generation");
 
-        let trace_ood_frame_evaluations = Frame::new(
+        let trace_ood_evaluations = Table::new(
             round_3_result
                 .trace_ood_evaluations
                 .into_iter()
@@ -865,7 +868,7 @@ pub trait IsStarkProver {
             // [tⱼ]
             lde_trace_merkle_roots: round_1_result.lde_trace_merkle_roots,
             // tⱼ(zgᵏ)
-            trace_ood_frame_evaluations,
+            trace_ood_evaluations,
             // [H₁] and [H₂]
             composition_poly_root: round_2_result.composition_poly_root,
             // Hᵢ(z^N)
@@ -1128,25 +1131,25 @@ mod tests {
         let proof = stone_compatibility_case_1_proof();
 
         assert_eq!(
-            proof.trace_ood_frame_evaluations.get_row(0)[0],
+            proof.trace_ood_evaluations.get_row(0)[0],
             FieldElement::from_hex_unchecked(
                 "70d8181785336cc7e0a0a1078a79ee6541ca0803ed3ff716de5a13c41684037",
             )
         );
         assert_eq!(
-            proof.trace_ood_frame_evaluations.get_row(1)[0],
+            proof.trace_ood_evaluations.get_row(1)[0],
             FieldElement::from_hex_unchecked(
                 "29808fc8b7480a69295e4b61600480ae574ca55f8d118100940501b789c1630",
             )
         );
         assert_eq!(
-            proof.trace_ood_frame_evaluations.get_row(0)[1],
+            proof.trace_ood_evaluations.get_row(0)[1],
             FieldElement::from_hex_unchecked(
                 "7d8110f21d1543324cc5e472ab82037eaad785707f8cae3d64c5b9034f0abd2",
             )
         );
         assert_eq!(
-            proof.trace_ood_frame_evaluations.get_row(1)[1],
+            proof.trace_ood_evaluations.get_row(1)[1],
             FieldElement::from_hex_unchecked(
                 "1b58470130218c122f71399bf1e04cf75a6e8556c4751629d5ce8c02cc4e62d",
             )
@@ -1359,9 +1362,7 @@ mod tests {
         assert_eq!(proof.query_list[0].layers_evaluations_sym.len(), 1);
 
         assert_eq!(
-            proof.query_list[0].layers_auth_paths_sym[0]
-                .merkle_path
-                .len(),
+            proof.query_list[0].layers_auth_paths[0].merkle_path.len(),
             2
         );
     }
@@ -1384,13 +1385,13 @@ mod tests {
 
         // FRI layer 1 auth path level 0
         assert_eq!(
-            proof.query_list[0].layers_auth_paths_sym[0].merkle_path[0].to_vec(),
+            proof.query_list[0].layers_auth_paths[0].merkle_path[0].to_vec(),
             decode_hex("0683622478e9e93cc2d18754872f043619f030b494d7ec8e003b1cbafe83b67b").unwrap()
         );
 
         // FRI layer 1 auth path level 1
         assert_eq!(
-            proof.query_list[0].layers_auth_paths_sym[0].merkle_path[1].to_vec(),
+            proof.query_list[0].layers_auth_paths[0].merkle_path[1].to_vec(),
             decode_hex("7985d945abe659a7502698051ec739508ed6bab594984c7f25e095a0a57a2e55").unwrap()
         );
     }
@@ -1481,7 +1482,7 @@ mod tests {
 
         // FRI layer 7 auth path level 5
         assert_eq!(
-            proof.query_list[0].layers_auth_paths_sym[7].merkle_path[5].to_vec(),
+            proof.query_list[0].layers_auth_paths[7].merkle_path[5].to_vec(),
             decode_hex("f12f159b548ca2c571a270870d43e7ec2ead78b3e93b635738c31eb9bcda3dda").unwrap()
         );
     }

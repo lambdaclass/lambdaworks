@@ -9,11 +9,10 @@ use super::{
     },
     register_states::RegisterStates,
 };
-use crate::air::{EXTRA_ADDR, RC_HOLES};
 use crate::{
     air::{
-        MemorySegment, PublicInputs, FRAME_DST_ADDR, FRAME_OP0_ADDR, FRAME_OP1_ADDR, FRAME_PC,
-        OFF_DST, OFF_OP0, OFF_OP1,
+        PublicInputs, EXTRA_ADDR, FRAME_DST_ADDR, FRAME_OP0_ADDR, FRAME_OP1_ADDR, FRAME_PC,
+        OFF_DST, OFF_OP0, OFF_OP1, RC_HOLES,
     },
     Felt252,
 };
@@ -22,7 +21,6 @@ use lambdaworks_math::{
     unsigned_integer::element::UnsignedInteger,
 };
 use stark_platinum_prover::trace::TraceTable;
-use std::ops::Range;
 
 type CairoTraceTable = TraceTable<Stark252PrimeField>;
 
@@ -49,7 +47,7 @@ pub fn build_main_trace(
     memory: &CairoMemory,
     public_input: &mut PublicInputs,
 ) -> CairoTraceTable {
-    let mut main_trace = build_cairo_execution_trace(register_states, memory, public_input);
+    let mut main_trace = build_cairo_execution_trace(register_states, memory);
 
     let mut address_cols =
         main_trace.merge_columns(&[FRAME_PC, FRAME_DST_ADDR, FRAME_OP0_ADDR, FRAME_OP1_ADDR]);
@@ -196,15 +194,14 @@ fn fill_memory_holes(trace: &mut CairoTraceTable, memory_holes: &[Felt252]) {
 /// The constraints of the Cairo AIR are defined over this trace rather than the raw trace
 /// obtained from the Cairo VM, this is why this function is needed.
 pub fn build_cairo_execution_trace(
-    raw_trace: &RegisterStates,
+    register_states: &RegisterStates,
     memory: &CairoMemory,
-    public_inputs: &PublicInputs,
 ) -> CairoTraceTable {
-    let n_steps = raw_trace.steps();
+    let n_steps = register_states.steps();
 
     // Instruction flags and offsets are decoded from the raw instructions and represented
     // by the CairoInstructionFlags and InstructionOffsets as an intermediate representation
-    let (flags, offsets): (Vec<CairoInstructionFlags>, Vec<InstructionOffsets>) = raw_trace
+    let (flags, offsets): (Vec<CairoInstructionFlags>, Vec<InstructionOffsets>) = register_states
         .flags_and_offsets(memory)
         .unwrap()
         .into_iter()
@@ -212,15 +209,15 @@ pub fn build_cairo_execution_trace(
 
     // dst, op0, op1 and res are computed from flags and offsets
     let (dst_addrs, mut dsts): (Vec<Felt252>, Vec<Felt252>) =
-        compute_dst(&flags, &offsets, raw_trace, memory);
+        compute_dst(&flags, &offsets, register_states, memory);
     let (op0_addrs, mut op0s): (Vec<Felt252>, Vec<Felt252>) =
-        compute_op0(&flags, &offsets, raw_trace, memory);
+        compute_op0(&flags, &offsets, register_states, memory);
     let (op1_addrs, op1s): (Vec<Felt252>, Vec<Felt252>) =
-        compute_op1(&flags, &offsets, raw_trace, memory, &op0s);
+        compute_op1(&flags, &offsets, register_states, memory, &op0s);
     let mut res = compute_res(&flags, &op0s, &op1s, &dsts);
 
     // In some cases op0, dst or res may need to be updated from the already calculated values
-    update_values(&flags, raw_trace, &mut op0s, &mut dsts, &mut res);
+    update_values(&flags, register_states, &mut op0s, &mut dsts, &mut res);
 
     // Flags and offsets are transformed to a bit representation. This is needed since
     // the flag constraints of the Cairo AIR are defined over bit representations of these
@@ -234,10 +231,22 @@ pub fn build_cairo_execution_trace(
         .collect();
 
     // ap, fp, pc and instruction columns are computed
-    let aps: Vec<Felt252> = raw_trace.rows.iter().map(|t| Felt252::from(t.ap)).collect();
-    let fps: Vec<Felt252> = raw_trace.rows.iter().map(|t| Felt252::from(t.fp)).collect();
-    let pcs: Vec<Felt252> = raw_trace.rows.iter().map(|t| Felt252::from(t.pc)).collect();
-    let instructions: Vec<Felt252> = raw_trace
+    let aps: Vec<Felt252> = register_states
+        .rows
+        .iter()
+        .map(|t| Felt252::from(t.ap))
+        .collect();
+    let fps: Vec<Felt252> = register_states
+        .rows
+        .iter()
+        .map(|t| Felt252::from(t.fp))
+        .collect();
+    let pcs: Vec<Felt252> = register_states
+        .rows
+        .iter()
+        .map(|t| Felt252::from(t.pc))
+        .collect();
+    let instructions: Vec<Felt252> = register_states
         .rows
         .iter()
         .map(|t| *memory.get(&t.pc).unwrap())
@@ -245,10 +254,11 @@ pub fn build_cairo_execution_trace(
 
     // t0, t1 and mul derived values are constructed. For details reFelt252r to
     // section 9.1 of the Cairo whitepaper
+    let two = Felt252::from(2);
     let t0: Vec<Felt252> = trace_repr_flags
         .iter()
         .zip(&dsts)
-        .map(|(repr_flags, dst)| repr_flags[9] * dst)
+        .map(|(repr_flags, dst)| (repr_flags[9] - two * repr_flags[10]) * dst)
         .collect();
     let t1: Vec<Felt252> = t0.iter().zip(&res).map(|(t, r)| t * r).collect();
     let mul: Vec<Felt252> = op0s.iter().zip(&op1s).map(|(op0, op1)| op0 * op1).collect();
@@ -285,38 +295,7 @@ pub fn build_cairo_execution_trace(
     trace_cols.push(extra_vals);
     trace_cols.push(rc_holes);
 
-    if let Some(range_check_builtin_range) = public_inputs
-        .memory_segments
-        .get(&MemorySegment::RangeCheck)
-    {
-        add_rc_builtin_columns(&mut trace_cols, range_check_builtin_range.clone(), memory);
-    }
-
-    TraceTable::from_columns(&trace_cols)
-}
-
-// Build range-check builtin columns: rc_0, rc_1, ... , rc_7, rc_value
-fn add_rc_builtin_columns(
-    trace_cols: &mut Vec<Vec<Felt252>>,
-    range_check_builtin_range: Range<u64>,
-    memory: &CairoMemory,
-) {
-    let range_checked_values: Vec<&Felt252> = range_check_builtin_range
-        .map(|addr| memory.get(&addr).unwrap())
-        .collect();
-    let mut rc_trace_columns = decompose_rc_values_into_trace_columns(&range_checked_values);
-
-    // rc decomposition columns are appended with zeros and then pushed to the trace table
-    rc_trace_columns.iter_mut().for_each(|column| {
-        column.resize(trace_cols[0].len(), Felt252::zero());
-        trace_cols.push(column.to_vec())
-    });
-
-    let mut rc_values_dereferenced: Vec<Felt252> =
-        range_checked_values.iter().map(|&x| *x).collect();
-    rc_values_dereferenced.resize(trace_cols[0].len(), Felt252::zero());
-
-    trace_cols.push(rc_values_dereferenced);
+    TraceTable::from_columns(trace_cols, 1)
 }
 
 /// Returns the vector of res values.
@@ -551,6 +530,9 @@ fn rows_to_cols<const N: usize>(rows: &[[Felt252; N]]) -> Vec<Vec<Felt252>> {
         .collect::<Vec<Vec<Felt252>>>()
 }
 
+// NOTE: Leaving this function despite not being used anywhere. It could be useful once
+// we implement layouts with the range-check builtin.
+#[allow(dead_code)]
 fn decompose_rc_values_into_trace_columns(rc_values: &[&Felt252]) -> [Vec<Felt252>; 8] {
     let mask = UnsignedInteger::from_hex("FFFF").unwrap();
     let mut rc_base_types: Vec<UnsignedInteger<4>> =
@@ -620,7 +602,7 @@ mod test {
             FieldElement::from(7),
             FieldElement::from(7),
         ];
-        let table = TraceTable::<Stark252PrimeField>::from_columns(&columns);
+        let table = TraceTable::<Stark252PrimeField>::from_columns(columns, 1);
 
         let (col, rc_min, rc_max) = get_rc_holes(&table, &[0, 1, 2]);
         assert_eq!(col, expected_col);
@@ -633,9 +615,12 @@ mod test {
         let mut row = vec![Felt252::from(5); 36];
         row[35] = Felt252::zero();
         let data = row.repeat(8);
-        let table = Table::new(&data, 36);
+        let table = Table::new(data, 36);
 
-        let mut main_trace = TraceTable::<Stark252PrimeField> { table };
+        let mut main_trace = TraceTable::<Stark252PrimeField> {
+            table,
+            step_size: 1,
+        };
 
         let rc_holes = vec![
             Felt252::from(1),
@@ -736,7 +721,7 @@ mod test {
         trace_cols[FRAME_DST_ADDR][1] = Felt252::from(9);
         trace_cols[FRAME_OP0_ADDR][1] = Felt252::from(10);
         trace_cols[FRAME_OP1_ADDR][1] = Felt252::from(11);
-        let mut trace = TraceTable::from_columns(&trace_cols);
+        let mut trace = TraceTable::from_columns(trace_cols, 1);
 
         let memory_holes = vec![Felt252::from(4), Felt252::from(7), Felt252::from(8)];
         fill_memory_holes(&mut trace, &memory_holes);

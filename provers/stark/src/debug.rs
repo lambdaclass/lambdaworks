@@ -28,7 +28,7 @@ pub fn validate_trace<F: IsFFTField, A: AIR<Field = F>>(
         })
         .collect();
 
-    let trace = TraceTable::from_columns(&trace_columns);
+    let trace = TraceTable::from_columns(trace_columns, A::STEP_SIZE);
 
     // --------- VALIDATE BOUNDARY CONSTRAINTS ------------
     air.boundary_constraints(rap_challenges)
@@ -40,7 +40,7 @@ pub fn validate_trace<F: IsFFTField, A: AIR<Field = F>>(
             let boundary_value = constraint.value.clone();
             let trace_value = trace.get(step, col);
 
-            if boundary_value != trace_value {
+            if &boundary_value != trace_value {
                 ret = false;
                 error!("Boundary constraint inconsistency - Expected value {} in step {} and column {}, found: {}", boundary_value.representative(), step, col, trace_value.representative());
             }
@@ -57,7 +57,7 @@ pub fn validate_trace<F: IsFFTField, A: AIR<Field = F>>(
         .collect();
 
     // Iterate over trace and compute transitions
-    for step in 0..trace.n_rows() {
+    for step in 0..trace.num_steps() {
         let frame = Frame::read_from_trace(&trace, step, 1, &air.context().transition_offsets);
 
         let evaluations = air.compute_transition(&frame, rap_challenges);

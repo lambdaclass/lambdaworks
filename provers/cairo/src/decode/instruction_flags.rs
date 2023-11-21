@@ -53,14 +53,14 @@ impl CairoInstructionFlags {
     /// represented by field elements: Felt252::zero() for bit 0 and
     /// Felt252::one() for bit 1.
     #[rustfmt::skip]
-    pub fn to_trace_representation(&self) -> [Felt252; 16] {
-        let b0 = self.dst_reg.to_trace_representation();
-        let b1 = self.op0_reg.to_trace_representation();
-        let [b2, b3, b4] = self.op1_src.to_trace_representation();
-        let [b5, b6] = self.res_logic.to_trace_representation();
-        let [b7, b8, b9] = self.pc_update.to_trace_representation();
-        let [b10, b11] = self.ap_update.to_trace_representation();
-        let [b12, b13, b14] = self.opcode.to_trace_representation();
+    pub fn to_bit_representation(&self) -> [Felt252; 16] {
+        let b0 = self.dst_reg.to_bit_representation();
+        let b1 = self.op0_reg.to_bit_representation();
+        let [b2, b3, b4] = self.op1_src.to_bit_representation();
+        let [b5, b6] = self.res_logic.to_bit_representation();
+        let [b7, b8, b9] = self.pc_update.to_bit_representation();
+        let [b10, b11] = self.ap_update.to_bit_representation();
+        let [b12, b13, b14] = self.opcode.to_bit_representation();
 
         // In the paper, a little-endian format for the bit flags is
         // mentioned. That is why they are arranged in this way (section 4.4
@@ -76,6 +76,11 @@ impl CairoInstructionFlags {
             Felt252::zero(),
         ]
     }
+
+    pub fn to_trace_representation(&self) -> [Felt252; 16] {
+        let bit_flags = self.to_bit_representation();
+        to_bit_prefixes(bit_flags)
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -85,7 +90,7 @@ pub enum Op0Reg {
 }
 
 impl Op0Reg {
-    pub fn to_trace_representation(&self) -> Felt252 {
+    pub fn to_bit_representation(&self) -> Felt252 {
         match self {
             Op0Reg::AP => Felt252::zero(),
             Op0Reg::FP => Felt252::one(),
@@ -117,7 +122,7 @@ pub enum DstReg {
     FP = 1,
 }
 impl DstReg {
-    pub fn to_trace_representation(&self) -> Felt252 {
+    pub fn to_bit_representation(&self) -> Felt252 {
         match self {
             DstReg::AP => Felt252::zero(),
             DstReg::FP => Felt252::one(),
@@ -151,7 +156,7 @@ pub enum Op1Src {
 }
 
 impl Op1Src {
-    pub fn to_trace_representation(&self) -> [Felt252; 3] {
+    pub fn to_bit_representation(&self) -> [Felt252; 3] {
         match self {
             Op1Src::Op0 => [Felt252::zero(), Felt252::zero(), Felt252::zero()],
             Op1Src::Imm => [Felt252::zero(), Felt252::zero(), Felt252::one()],
@@ -188,7 +193,7 @@ pub enum ResLogic {
 }
 
 impl ResLogic {
-    pub fn to_trace_representation(&self) -> [Felt252; 2] {
+    pub fn to_bit_representation(&self) -> [Felt252; 2] {
         match self {
             ResLogic::Op1 => [Felt252::zero(), Felt252::zero()],
             ResLogic::Add => [Felt252::zero(), Felt252::one()],
@@ -225,7 +230,7 @@ pub enum PcUpdate {
 }
 
 impl PcUpdate {
-    pub fn to_trace_representation(&self) -> [Felt252; 3] {
+    pub fn to_bit_representation(&self) -> [Felt252; 3] {
         match self {
             PcUpdate::Regular => [Felt252::zero(), Felt252::zero(), Felt252::zero()],
             PcUpdate::Jump => [Felt252::zero(), Felt252::zero(), Felt252::one()],
@@ -262,7 +267,7 @@ pub enum ApUpdate {
 }
 
 impl ApUpdate {
-    pub fn to_trace_representation(&self) -> [Felt252; 2] {
+    pub fn to_bit_representation(&self) -> [Felt252; 2] {
         match self {
             ApUpdate::Regular => [Felt252::zero(), Felt252::zero()],
             ApUpdate::Add => [Felt252::zero(), Felt252::one()],
@@ -314,7 +319,7 @@ pub enum CairoOpcode {
 }
 
 impl CairoOpcode {
-    pub fn to_trace_representation(&self) -> [Felt252; 3] {
+    pub fn to_bit_representation(&self) -> [Felt252; 3] {
         match self {
             CairoOpcode::NOp => [Felt252::zero(), Felt252::zero(), Felt252::zero()],
             CairoOpcode::Call => [Felt252::zero(), Felt252::zero(), Felt252::one()],
@@ -339,6 +344,28 @@ impl TryFrom<&Felt252> for CairoOpcode {
             _ => Err(InstructionDecodingError::InvalidOpcode),
         }
     }
+}
+
+fn to_bit_prefixes(bit_array: [Felt252; 16]) -> [Felt252; 16] {
+    let two = Felt252::from(2);
+    (0..bit_array.len())
+        .map(|i| {
+            bit_array
+                .iter()
+                .enumerate()
+                .fold(Felt252::zero(), |acc, (j, flag_j)| {
+                    let sum_term = if j < i {
+                        Felt252::zero()
+                    } else {
+                        let exponent = j - i;
+                        two.pow(exponent) * flag_j
+                    };
+                    acc + sum_term
+                })
+        })
+        .collect::<Vec<_>>()
+        .try_into()
+        .unwrap()
 }
 
 #[cfg(test)]
@@ -671,7 +698,7 @@ mod tests {
     }
 
     #[test]
-    fn flags_trace_representation() {
+    fn flags_bit_representation() {
         // Bit-trace representation for each flag:
         //    DstReg::FP = 1
         //    Op0Reg::FP = 1
@@ -703,8 +730,42 @@ mod tests {
             Felt252::zero(),
         ];
 
-        let representation = flags.to_trace_representation();
+        let representation = flags.to_bit_representation();
 
         assert_eq!(representation, expected_representation);
+    }
+
+    #[test]
+    fn to_bit_prefixes_all_zeros_works() {
+        let bit_array = [Felt252::zero(); 16];
+
+        let result = to_bit_prefixes(bit_array);
+        let expected = [Felt252::zero(); 16];
+
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn to_bit_prefixes_flag14_on_works() {
+        let mut bit_array = [Felt252::zero(); 16];
+        // We turn on only the 14th bit, which is the most significant.
+
+        bit_array[14] = Felt252::one();
+
+        let result = to_bit_prefixes(bit_array);
+        // The bit prefix value of f0 should be 16384, and the rest
+        // should be the bit prefixes of that number.
+        let expected: [Felt252; 16] = (0..16u32)
+            .map(|idx| {
+                if idx == 15 {
+                    return Felt252::zero();
+                }
+                Felt252::from(16384) / Felt252::from(2).pow(idx)
+            })
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap();
+
+        assert_eq!(result, expected);
     }
 }
