@@ -119,7 +119,7 @@ fn generate_proof(
     // FIXME: We should set this through the CLI in the future
     let layout = CairoLayout::Plain;
 
-    let Ok((main_trace, pub_inputs)) = generate_prover_args(&program_content, &None, layout) else {
+    let Ok((main_trace, pub_inputs)) = generate_prover_args(&program_content, layout) else {
         eprintln!("Error generating prover args");
         return None;
     };
@@ -213,6 +213,8 @@ fn write_proof(
     bytes.extend((proof_bytes.len() as u32).to_le_bytes());
     bytes.extend(proof_bytes);
     bytes.extend(pub_inputs_bytes);
+
+    println!("PROOF: {:?}", bytes);
 
     let Ok(()) = std::fs::write(&proof_path, bytes) else {
         eprintln!("Error writing proof to file: {}", &proof_path);

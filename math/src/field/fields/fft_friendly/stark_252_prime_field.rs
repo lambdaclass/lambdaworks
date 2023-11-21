@@ -83,7 +83,7 @@ impl FieldElement<Stark252PrimeField> {
     }
 }
 
-#[allow(clippy::incorrect_partial_ord_impl_on_ord_type)]
+#[allow(clippy::non_canonical_partial_ord_impl)]
 impl PartialOrd for FieldElement<Stark252PrimeField> {
     fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
         self.representative().partial_cmp(&other.representative())
