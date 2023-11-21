@@ -6,3 +6,5 @@ pub mod quadratic_babybear;
 pub mod stark_252_prime_field;
 /// Implemenation of the Goldilocks Prime Field p = 2^64 - 2^32 + 1
 pub mod u64_goldilocks;
+/// Implemenation of the Mersenne Prime field p = 2^31 - 1
+pub mod u64_mersenne_montgomery_field;

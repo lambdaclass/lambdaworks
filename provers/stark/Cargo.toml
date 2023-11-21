@@ -9,7 +9,7 @@ license.workspace = true
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-lambdaworks-math = { workspace = true , features = ["lambdaworks-serde"] }
+lambdaworks-math = { workspace = true , features = ["lambdaworks-serde-binary"] }
 lambdaworks-crypto.workspace = true
 
 rand = "0.8.5"

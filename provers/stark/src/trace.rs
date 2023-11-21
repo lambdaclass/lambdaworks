@@ -1,4 +1,4 @@
-use crate::table::Table;
+use crate::table::{Table, TableView};
 use lambdaworks_math::fft::errors::FFTError;
 use lambdaworks_math::fft::polynomial::FFTPoly;
 use lambdaworks_math::{
@@ -13,25 +13,27 @@ use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 ///
 /// For the moment it is mostly a wrapper around the `Table` struct. It is a
 /// layer above the raw two-dimensional table, with functionality relevant to the
-/// STARK protocol.
+/// STARK protocol, such as the step size (number of consecutive rows of the table)
+/// of the computation being proven.
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
 pub struct TraceTable<F: IsFFTField> {
     pub table: Table<F>,
+    pub step_size: usize,
 }
 
-impl<F: IsFFTField> TraceTable<F> {
-    pub fn new(data: &[FieldElement<F>], n_columns: usize) -> Self {
+impl<'t, F: IsFFTField> TraceTable<F> {
+    pub fn new(data: Vec<FieldElement<F>>, n_columns: usize, step_size: usize) -> Self {
         let table = Table::new(data, n_columns);
-        Self { table }
+        Self { table, step_size }
     }
 
-    pub fn from_columns(columns: &[Vec<FieldElement<F>>]) -> Self {
+    pub fn from_columns(columns: Vec<Vec<FieldElement<F>>>, step_size: usize) -> Self {
         let table = Table::from_columns(columns);
-        Self { table }
+        Self { table, step_size }
     }
 
     pub fn empty() -> Self {
-        Self::new(&Vec::new(), 0)
+        Self::new(Vec::new(), 0, 0)
     }
 
     pub fn is_empty(&self) -> bool {
@@ -40,6 +42,28 @@ impl<F: IsFFTField> TraceTable<F> {
 
     pub fn n_rows(&self) -> usize {
         self.table.height
+    }
+
+    pub fn num_steps(&self) -> usize {
+        debug_assert!((self.table.height % self.step_size) == 0);
+        self.table.height / self.step_size
+    }
+
+    /// Given a particular step of the computation represented on the trace,
+    /// returns the row of the underlying table.
+    pub fn step_to_row(&self, step: usize) -> usize {
+        self.step_size * step
+    }
+
+    /// Given a step index, return the step view of the trace for that index
+    pub fn step_view(&'t self, step_idx: usize) -> StepView<'t, F> {
+        let row_idx = self.step_to_row(step_idx);
+        let table_view = self.table.table_view(row_idx, self.step_size);
+
+        StepView {
+            table_view,
+            step_idx,
+        }
     }
 
     pub fn n_cols(&self) -> usize {
@@ -83,7 +107,7 @@ impl<F: IsFFTField> TraceTable<F> {
     }
 
     /// Given a row and a column index, gives stored value in that position
-    pub fn get(&self, row: usize, col: usize) -> FieldElement<F> {
+    pub fn get(&self, row: usize, col: usize) -> &FieldElement<F> {
         self.table.get(row, col)
     }
 
@@ -100,19 +124,6 @@ impl<F: IsFFTField> TraceTable<F> {
         iter.map(|col| Polynomial::interpolate_fft(col))
             .collect::<Result<Vec<Polynomial<FieldElement<F>>>, FFTError>>()
             .unwrap()
-    }
-
-    pub fn concatenate(&self, new_cols: Vec<FieldElement<F>>, n_cols: usize) -> Self {
-        let mut data = Vec::new();
-        let mut i = 0;
-        for row_index in (0..self.table.data.len()).step_by(self.table.width) {
-            data.append(&mut self.table.data[row_index..row_index + self.table.width].to_vec());
-            data.append(&mut new_cols[i..(i + n_cols)].to_vec());
-            i += n_cols;
-        }
-
-        let table = Table::new(&data, self.n_cols() + n_cols);
-        Self { table }
     }
 
     /// Given the padding length, appends the last row of the trace table
@@ -150,6 +161,56 @@ impl<F: IsFFTField> TraceTable<F> {
     }
 }
 
+/// A view into a step of the trace. In general, a step over the trace
+/// can be thought as a fixed size subset of trace rows
+///
+/// The main purpose of this data structure is to have a way to
+/// access the steps in a trace, in order to grab elements to calculate
+/// constraint evaluations.
+#[derive(Debug, Clone, PartialEq)]
+pub struct StepView<'t, F: IsFFTField> {
+    pub table_view: TableView<'t, F>,
+    pub step_idx: usize,
+}
+
+impl<'t, F: IsFFTField> StepView<'t, F> {
+    pub fn new(table_view: TableView<'t, F>, step_idx: usize) -> Self {
+        StepView {
+            table_view,
+            step_idx,
+        }
+    }
+
+    /// Gets the evaluation element specified by `row_idx` and `col_idx` of this step
+    pub fn get_evaluation_element(&self, row_idx: usize, col_idx: usize) -> &FieldElement<F> {
+        self.table_view.get(row_idx, col_idx)
+    }
+}
+
+/// Given a slice of trace polynomials, an evaluation point `x`, the frame offsets
+/// corresponding to the computation of the transitions, and a primitive root,
+/// outputs the trace evaluations of each trace polynomial over the values used to
+/// compute a transition.
+/// Example: For a simple Fibonacci computation, if t(x) is the trace polynomial of
+/// the computation, this will output evaluations t(x), t(g * x), t(g^2 * z).
+pub fn get_trace_evaluations<F: IsFFTField>(
+    trace_polys: &[Polynomial<FieldElement<F>>],
+    x: &FieldElement<F>,
+    frame_offsets: &[usize],
+    primitive_root: &FieldElement<F>,
+) -> Vec<Vec<FieldElement<F>>> {
+    frame_offsets
+        .iter()
+        .map(|offset| x * primitive_root.pow(*offset))
+        .map(|eval_point| {
+            trace_polys
+                .iter()
+                .map(|poly| poly.evaluate(&eval_point))
+                .collect::<Vec<FieldElement<F>>>()
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod test {
     use super::TraceTable;
@@ -161,29 +222,9 @@ mod test {
         let col_1 = vec![FE::from(1), FE::from(2), FE::from(5), FE::from(13)];
         let col_2 = vec![FE::from(1), FE::from(3), FE::from(8), FE::from(21)];
 
-        let trace_table = TraceTable::from_columns(&[col_1.clone(), col_2.clone()]);
+        let trace_table = TraceTable::from_columns(vec![col_1.clone(), col_2.clone()], 1);
         let res_cols = trace_table.columns();
 
         assert_eq!(res_cols, vec![col_1, col_2]);
-    }
-
-    #[test]
-    fn test_concatenate_works() {
-        let table1_columns = vec![vec![FE::new(7), FE::new(8), FE::new(9)]];
-        let new_columns = vec![
-            FE::new(1),
-            FE::new(2),
-            FE::new(3),
-            FE::new(4),
-            FE::new(5),
-            FE::new(6),
-        ];
-        let expected_table = TraceTable::from_columns(&[
-            vec![FE::new(7), FE::new(8), FE::new(9)],
-            vec![FE::new(1), FE::new(3), FE::new(5)],
-            vec![FE::new(2), FE::new(4), FE::new(6)],
-        ]);
-        let table1 = TraceTable::from_columns(&table1_columns);
-        assert_eq!(table1.concatenate(new_columns, 2), expected_table)
     }
 }

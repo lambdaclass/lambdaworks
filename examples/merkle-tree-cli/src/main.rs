@@ -9,9 +9,10 @@ use lambdaworks_math::{
     elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::BLS12381PrimeField,
     field::element::FieldElement,
 };
+use std::io::BufWriter;
 use std::{
     fs::{self, File},
-    io::{self, BufWriter, Write},
+    io::{self, Write},
 };
 
 type FE = FieldElement<BLS12381PrimeField>;
@@ -66,10 +67,10 @@ fn verify_merkle_proof(
 ) -> Result<(), io::Error> {
     let root_hash: FE = load_fe_from_file(&root_path)?;
 
+    let leaf: FE = load_fe_from_file(&leaf_path)?;
+
     let file_str = fs::read_to_string(proof_path)?;
     let proof: Proof<FE> = serde_json::from_str(&file_str)?;
-
-    let leaf: FE = load_fe_from_file(&leaf_path)?;
 
     match proof.verify::<Poseidon<BLS12381PrimeField>>(&root_hash, index, &leaf) {
         true => println!("\x1b[32mMerkle proof verified succesfully\x1b[0m"),
