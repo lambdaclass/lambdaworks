@@ -28,7 +28,7 @@ impl<'t, F: IsFFTField> Table<F> {
         }
 
         // Check that the one-dimensional data makes sense to be interpreted as a 2D one.
-        assert!(crate::debug::validate_2d_structure(&data, width));
+        debug_assert!(crate::debug::validate_2d_structure(&data, width));
         let height = data.len() / width;
 
         Self {
