@@ -94,13 +94,14 @@ impl<F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
         let boundary_eval_iter = 0..domain.lde_roots_of_unity_coset.len();
 
         let boundary_evaluation = boundary_eval_iter
-            .map(|i| {
+            .map(|domain_index| {
                 (0..number_of_b_constraints)
                     .zip(boundary_coefficients)
-                    .fold(FieldElement::zero(), |acc, (index, beta)| {
-                        acc + &boundary_zerofiers_inverse_evaluations[index][i]
+                    .fold(FieldElement::zero(), |acc, (constraint_index, beta)| {
+                        acc + &boundary_zerofiers_inverse_evaluations[constraint_index]
+                            [domain_index]
                             * beta
-                            * &boundary_polys_evaluations[index][i]
+                            * &boundary_polys_evaluations[constraint_index][domain_index]
                     })
             })
             .collect::<Vec<FieldElement<F>>>();
@@ -116,11 +117,11 @@ impl<F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
         #[cfg(all(debug_assertions, not(feature = "parallel")))]
         let mut transition_evaluations = Vec::new();
 
-        let transition_exemptions = self.air.transition_exemptions();
+        let transition_exemptions_polys = self.air.transition_exemptions();
 
         let transition_exemptions_evaluations =
-            evaluate_transition_exemptions(transition_exemptions, domain);
-        let num_exemptions = self.air.context().num_transition_exemptions;
+            evaluate_transition_exemptions(transition_exemptions_polys, domain);
+        let num_exemptions = self.air.context().num_transition_exemptions();
 
         let blowup_factor_order = u64::from(blowup_factor.trailing_zeros());
 
@@ -155,6 +156,11 @@ impl<F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
             zerofier_iter = zerofier_evaluations.iter().cycle();
         }
 
+        // Iterate over all LDE domain and compute
+        // the part of the composition polynomial
+        // related to the transition constraints and
+        // add it to the already computed part of the
+        // boundary constraints.
         let evaluations_t = evaluations_t_iter
             .zip(&boundary_evaluation)
             .zip(zerofier_iter)
@@ -166,55 +172,58 @@ impl<F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
                     &self.air.context().transition_offsets,
                 );
 
+                // Compute all the transition constraints at this
+                // point of the LDE domain.
                 let evaluations_transition = self.air.compute_transition(&frame, rap_challenges);
 
                 #[cfg(all(debug_assertions, not(feature = "parallel")))]
                 transition_evaluations.push(evaluations_transition.clone());
 
+                // Add each term of the transition constraints to the
+                // composition polynomial, including the zerofier, the
+                // challenge and the exemption polynomial if it is necessary.
                 let acc_transition = evaluations_transition
                     .iter()
                     .zip(&self.air.context().transition_exemptions)
-                    .zip(&self.air.context().transition_degrees)
                     .zip(transition_coefficients)
-                    .fold(
-                        FieldElement::zero(),
-                        |acc, (((eval, exemption), _), beta)| {
-                            #[cfg(feature = "parallel")]
-                            let zerofier = zerofier.clone();
+                    .fold(FieldElement::zero(), |acc, ((eval, exemption), beta)| {
+                        #[cfg(feature = "parallel")]
+                        let zerofier = zerofier.clone();
 
-                            if *exemption == 0 {
-                                acc + zerofier * beta * eval
+                        // If there's no exemption, then
+                        // the zerofier remains as it was.
+                        if *exemption == 0 {
+                            acc + zerofier * beta * eval
+                        } else {
+                            //TODO: change how exemptions are indexed!
+                            if num_exemptions == 1 {
+                                acc + zerofier
+                                    * beta
+                                    * eval
+                                    * &transition_exemptions_evaluations[0][i]
                             } else {
-                                //TODO: change how exemptions are indexed!
-                                if num_exemptions == 1 {
-                                    acc + zerofier
-                                        * beta
-                                        * eval
-                                        * &transition_exemptions_evaluations[0][i]
-                                } else {
-                                    // This case is not used for Cairo Programs, it can be improved in the future
-                                    let vector = &self
-                                        .air
-                                        .context()
-                                        .transition_exemptions
-                                        .iter()
-                                        .cloned()
-                                        .filter(|elem| elem > &0)
-                                        .unique_by(|elem| *elem)
-                                        .collect::<Vec<usize>>();
-                                    let index = vector
-                                        .iter()
-                                        .position(|elem_2| elem_2 == exemption)
-                                        .expect("is there");
+                                // This case is not used for Cairo Programs, it can be improved in the future
+                                let vector = &self
+                                    .air
+                                    .context()
+                                    .transition_exemptions
+                                    .iter()
+                                    .cloned()
+                                    .filter(|elem| elem > &0)
+                                    .unique_by(|elem| *elem)
+                                    .collect::<Vec<usize>>();
+                                let index = vector
+                                    .iter()
+                                    .position(|elem_2| elem_2 == exemption)
+                                    .expect("is there");
 
-                                    acc + zerofier
-                                        * beta
-                                        * eval
-                                        * &transition_exemptions_evaluations[index][i]
-                                }
+                                acc + zerofier
+                                    * beta
+                                    * eval
+                                    * &transition_exemptions_evaluations[index][i]
                             }
-                        },
-                    );
+                        }
+                    });
                 // TODO: Remove clones
 
                 acc_transition + boundary
@@ -222,40 +231,6 @@ impl<F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
             .collect::<Vec<FieldElement<F>>>();
 
         evaluations_t
-    }
-
-    /// Given `evaluations` T_i(x) of the trace polynomial composed with the constraint
-    /// polynomial at a certain point `x`, computes the following evaluations and returns them:
-    ///
-    /// T_i(x) (alpha_i * x^(D - D_i) + beta_i) / (Z_i(x))
-    ///
-    /// where Z is the zerofier of the `i`-th transition constraint polynomial. In the fibonacci
-    /// example, T_i(x) is t(x * g^2) - t(x * g) - t(x).
-    ///
-    /// This method is called in two different scenarios. The first is when the prover
-    /// is building these evaluations to compute the composition and DEEP composition polynomials.
-    /// The second one is when the verifier needs to check the consistency between the trace and
-    /// the composition polynomial. In that case the `evaluations` are over an *out of domain* frame
-    /// (in the fibonacci example they are evaluations on the points `z`, `zg`, `zg^2`).
-    ///
-    /// # Returns
-    ///
-    /// Returns the sum of the evaluations computed.
-    pub fn compute_constraint_composition_poly_evaluations_sum(
-        evaluations: &[FieldElement<F>],
-        inverse_denominators: &[FieldElement<F>],
-        degree_adjustments: &[FieldElement<F>],
-        constraint_coeffs: &[(FieldElement<F>, FieldElement<F>)],
-    ) -> FieldElement<F> {
-        evaluations
-            .iter()
-            .zip(degree_adjustments)
-            .zip(inverse_denominators)
-            .zip(constraint_coeffs)
-            .fold(
-                FieldElement::<F>::zero(),
-                |acc, (((ev, _), inv), (_, beta))| acc + ev * beta * inv,
-            )
     }
 }
 
