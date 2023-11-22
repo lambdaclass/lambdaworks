@@ -1,10 +1,11 @@
+use std::collections::HashSet;
+
 use super::proof::options::ProofOptions;
 
 #[derive(Clone, Debug)]
 pub struct AirContext {
     pub proof_options: ProofOptions,
     pub trace_columns: usize,
-    pub transition_degrees: Vec<usize>,
 
     /// This is a vector with the indices of all the rows that constitute
     /// an evaluation frame. Note that, because of how we write all constraints
@@ -14,7 +15,6 @@ pub struct AirContext {
     pub transition_offsets: Vec<usize>,
     pub transition_exemptions: Vec<usize>,
     pub num_transition_constraints: usize,
-    pub num_transition_exemptions: usize,
 }
 
 impl AirContext {
@@ -22,11 +22,13 @@ impl AirContext {
         self.num_transition_constraints
     }
 
-    pub fn transition_degrees(&self) -> &[usize] {
-        &self.transition_degrees
-    }
-
-    pub fn transition_degrees_len(&self) -> usize {
-        self.transition_degrees.len()
+    /// Returns the number of non-trivial different
+    /// transition exemptions.
+    pub fn num_transition_exemptions(&self) -> usize {
+        self.transition_exemptions
+            .iter()
+            .filter(|&x| *x != 0)
+            .collect::<HashSet<_>>()
+            .len()
     }
 }

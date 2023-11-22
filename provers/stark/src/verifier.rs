@@ -269,10 +269,9 @@ pub trait IsStarkVerifier {
         let unity = &FieldElement::one();
         let transition_c_i_evaluations_sum = transition_ood_frame_evaluations
             .iter()
-            .zip(&air.context().transition_degrees)
             .zip(&air.context().transition_exemptions)
             .zip(&challenges.transition_coeffs)
-            .fold(FieldElement::zero(), |acc, (((eval, _), except), beta)| {
+            .fold(FieldElement::zero(), |acc, ((eval, except), beta)| {
                 let except = except
                     .checked_sub(1)
                     .map(|i| &exemption[i])
