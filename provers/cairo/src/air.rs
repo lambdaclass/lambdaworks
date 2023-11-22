@@ -605,16 +605,6 @@ impl AIR for CairoAIR {
         debug_assert!(trace_length.is_power_of_two());
 
         let trace_columns = 59;
-        let transition_degrees = vec![
-            2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, // Flags 0-14.
-            1, // Flag 15
-            2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, // Other constraints.
-            2, 2, 2, 2, 2, // Increasing memory auxiliary constraints.
-            2, 2, 2, 2, 2, // Consistent memory auxiliary constraints.
-            2, 2, 2, 2, 2, // Permutation auxiliary constraints.
-            2, 2, 2, 2, // range-check increasing constraints.
-            2, 2, 2, 2, // range-check permutation argument constraints.
-        ];
         let transition_exemptions = vec![
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // flags (16)
             0, // inst (1)
@@ -629,24 +619,16 @@ impl AIR for CairoAIR {
         ];
         let num_transition_constraints = 54;
 
-        let num_transition_exemptions = 1_usize;
-
         let context = AirContext {
             proof_options: proof_options.clone(),
             trace_columns,
-            transition_degrees,
             transition_exemptions,
             transition_offsets: vec![0, 1],
             num_transition_constraints,
-            num_transition_exemptions,
         };
 
-        // The number of the transition constraints and the lengths of transition degrees
+        // The number of the transition constraints
         // and transition exemptions should be the same always.
-        debug_assert_eq!(
-            context.transition_degrees.len(),
-            context.num_transition_constraints
-        );
         debug_assert_eq!(
             context.transition_exemptions.len(),
             context.num_transition_constraints
