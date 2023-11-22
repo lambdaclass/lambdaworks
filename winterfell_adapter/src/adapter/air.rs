@@ -156,6 +156,7 @@ where
     fn compute_transition(
         &self,
         frame: &stark_platinum_prover::frame::Frame<Self::Field>,
+        _periodic_values: &[FieldElement<Self::Field>],
         rap_challenges: &Self::RAPChallenges,
     ) -> Vec<FieldElement<Self::Field>> {
         let num_aux_columns = self.number_auxiliary_rap_columns();
