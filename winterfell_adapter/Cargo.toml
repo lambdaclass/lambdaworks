@@ -16,3 +16,11 @@ miden-air = { path = "../../miden-vm/air"}
 miden-core = { path = "../../miden-vm/core"}
 miden-assembly = { path = "../../miden-vm/assembly" }
 miden-processor = { path = "../../miden-vm/processor" }
+
+[dev-dependencies]
+criterion = { version = "0.4", default-features = false }
+miden-prover = { path = "../../miden-vm/prover" }
+
+[[bench]]
+name = "proving"
+harness = false
