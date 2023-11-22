@@ -167,6 +167,11 @@ impl<'t, F: IsFFTField> TableView<'t, F> {
         let idx = row * self.width + col;
         &self.data[idx]
     }
+
+    pub fn get_row(&self, row: usize) -> &[FieldElement<F>] {
+        let first = row * self.width;
+        &self.data[first..first + self.width]
+    }
 }
 
 #[cfg(test)]
