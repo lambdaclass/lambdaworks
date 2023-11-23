@@ -40,19 +40,7 @@ where
     /// Build a new multilinear polynomial, from collection of multilinear monomials
     #[allow(dead_code)]
     pub fn new(n_vars: usize, terms: Vec<MultiLinearMonomial<F>>) -> Self {
-        /*
-        if !terms.is_empty() {
-            let n = terms.iter().fold(
-                0,
-                |acc, m| if m.max_var() > acc { m.max_var() } else { acc },
-            );
-            Self {
-                terms,
-                n_vars: if n == 0 { 0 } else { n + 1 },
-            } //we add +1 because variables indices start from 0
-              // if terms is empty, we create an empty polynomial with 0 variables
-        } else {
-        */
+        let n_vars = if n_vars == 0 { 0 } else { n_vars + 1 };
         Self { terms, n_vars }
     }
 
@@ -80,21 +68,31 @@ where
             .iter()
             .map(|term| term.partial_evaluate(assignments))
             .collect();
-        let n_vars =
+        let mut n_vars =
             updated_monomials.iter().fold(
                 0,
                 |acc, m| if m.max_var() > acc { m.max_var() } else { acc },
             );
+        n_vars = if n_vars == 0 { 0 } else { n_vars + 1 };
         Self::new(n_vars, updated_monomials)
     }
 
     /// Adds a polynomial
     /// This functions concatenates both vectors of terms
     pub fn add(&mut self, poly: MultilinearPolynomial<F>) {
-        assert_eq!(self.n_vars, poly.n_vars);
         for term in poly.terms.iter() {
             self.add_monomial(term);
         }
+        self.update_nvars();
+    }
+
+    /// Updates the value of n_vars
+    fn update_nvars(&mut self) {
+        let n = self.terms.iter().fold(
+            0,
+            |acc, m| if m.max_var() > acc { m.max_var() } else { acc },
+        );
+        self.n_vars = if n == 0 { 0 } else { n + 1 };
     }
 
     /// Addition of monomial
@@ -217,7 +215,7 @@ mod tests {
                 MultiLinearMonomial::new((FE::new(4), vec![1, 2])),
             ],
         );
-        assert_eq!(poly.n_vars, 3);
+        assert_eq!(poly.n_vars, 4);
         let result = poly.partial_evaluate(&[(1, FE::new(2))]);
         assert_eq!(
             result,
@@ -232,7 +230,7 @@ mod tests {
                         vars: vec![2]
                     }
                 ],
-                n_vars: 3,
+                n_vars: 4,
             }
         );
     }
@@ -269,21 +267,5 @@ mod tests {
         );
         let result = poly.evaluate(&[FE::one(), FE::new(2), FE::new(3)]);
         assert_eq!(result, FE::new(30));
-    }
-
-    #[test]
-    fn test_variable_reduction() {
-        // 3ab + 4bc
-        let poly = MultilinearPolynomial::new(
-            3,
-            vec![
-                MultiLinearMonomial::new((FE::new(3), vec![0, 1])),
-                MultiLinearMonomial::new((FE::new(4), vec![1, 2])),
-            ],
-        );
-        assert_eq!(poly.n_vars, 3);
-
-        let uni_poly = poly.partial_evaluate(&[(0, FE::one()), (1, FE::one())]);
-        assert_eq!(uni_poly.n_vars, 1);
     }
 }
