@@ -1,12 +1,9 @@
 use crate::{
-    field::{
-        element::FieldElement,
-        fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
-    },
+    field::fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
     unsigned_integer::element::U256,
 };
 
-pub type PallasMontgomeryBackendPrimeField<T> = MontgomeryBackendPrimeField<T, 4>;
+type PallasMontgomeryBackendPrimeField<T> = MontgomeryBackendPrimeField<T, 4>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MontgomeryConfigPallas255PrimeField;
@@ -16,61 +13,13 @@ impl IsModulus<U256> for MontgomeryConfigPallas255PrimeField {
     );
 }
 
-pub type Pallas255PrimeField =
-    PallasMontgomeryBackendPrimeField<MontgomeryConfigPallas255PrimeField>;
-
-impl FieldElement<Pallas255PrimeField> {
-    pub fn to_bytes_le(&self) -> [u8; 32] {
-        let limbs = self.representative().limbs;
-        let mut bytes: [u8; 32] = [0; 32];
-
-        for i in (0..4).rev() {
-            let limb_bytes = limbs[i].to_le_bytes();
-            for j in 0..8 {
-                // i = 3 ->
-                bytes[(3 - i) * 8 + j] = limb_bytes[j]
-            }
-        }
-        bytes
-    }
-
-    pub fn to_bits_le(&self) -> [bool; 256] {
-        let limbs = self.representative().limbs;
-        let mut bits = [false; 256];
-
-        for i in (0..4).rev() {
-            let limb_bytes = limbs[i].to_le_bytes();
-            let limb_bytes_starting_index = (3 - i) * 8;
-            for (j, byte) in limb_bytes.iter().enumerate() {
-                let byte_index = (limb_bytes_starting_index + j) * 8;
-                for k in 0..8 {
-                    let bit_index = byte_index + k;
-                    let bit_value = (byte >> k) & 1 == 1;
-                    bits[bit_index] = bit_value;
-                }
-            }
-        }
-        bits
-    }
-
-    pub fn to_bytes_be(&self) -> [u8; 32] {
-        let limbs = self.representative().limbs;
-        let mut bytes: [u8; 32] = [0; 32];
-
-        for i in 0..4 {
-            let limb_bytes = limbs[i].to_be_bytes();
-            for j in 0..8 {
-                bytes[i * 8 + j] = limb_bytes[j]
-            }
-        }
-        bytes
-    }
-}
+type Pallas255PrimeField = PallasMontgomeryBackendPrimeField<MontgomeryConfigPallas255PrimeField>;
 
 #[cfg(test)]
 mod test_pallas_255_bytes_ops {
-    use super::Pallas255PrimeField;
     use crate::{field::element::FieldElement, traits::ByteConversion};
+
+    use super::Pallas255PrimeField;
 
     #[test]
     #[cfg(feature = "std")]
