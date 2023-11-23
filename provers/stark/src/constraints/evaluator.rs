@@ -19,22 +19,21 @@ use crate::trace::TraceTable;
 use crate::traits::AIR;
 use crate::{frame::Frame, prover::evaluate_polynomial_on_lde_domain};
 
-pub struct ConstraintEvaluator<F: IsFFTField, A: AIR> {
-    air: A,
+pub struct ConstraintEvaluator<F: IsFFTField> {
     boundary_constraints: BoundaryConstraints<F>,
 }
-impl<F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
-    pub fn new(air: &A, rap_challenges: &A::RAPChallenges) -> Self {
+impl<F: IsFFTField> ConstraintEvaluator<F> {
+    pub fn new<A: AIR<Field = F>>(air: &A, rap_challenges: &A::RAPChallenges) -> Self {
         let boundary_constraints = air.boundary_constraints(rap_challenges);
 
         Self {
-            air: air.clone(),
             boundary_constraints,
         }
     }
 
-    pub fn evaluate(
+    pub fn evaluate<A: AIR<Field = F>>(
         &self,
+        air: &A,
         lde_trace: &TraceTable<F>,
         domain: &Domain<F>,
         transition_coefficients: &[FieldElement<F>],
@@ -64,13 +63,12 @@ impl<F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
                 })
                 .collect::<Vec<Vec<FieldElement<F>>>>();
 
-        let trace_length = self.air.trace_length();
+        let trace_length = air.trace_length();
 
         #[cfg(all(debug_assertions, not(feature = "parallel")))]
         let boundary_polys: Vec<Polynomial<FieldElement<F>>> = Vec::new();
 
-        let lde_periodic_columns = self
-            .air
+        let lde_periodic_columns = air
             .get_periodic_column_polynomials()
             .iter()
             .map(|poly| {
@@ -127,20 +125,20 @@ impl<F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
         #[cfg(all(debug_assertions, not(feature = "parallel")))]
         check_boundary_polys_divisibility(boundary_polys, boundary_zerofiers);
 
-        let blowup_factor = self.air.blowup_factor();
+        let blowup_factor = air.blowup_factor();
 
         #[cfg(all(debug_assertions, not(feature = "parallel")))]
         let mut transition_evaluations = Vec::new();
 
-        let transition_exemptions_polys = self.air.transition_exemptions();
+        let transition_exemptions_polys = air.transition_exemptions();
 
         let transition_exemptions_evaluations =
             evaluate_transition_exemptions(transition_exemptions_polys, domain);
-        let num_exemptions = self.air.context().num_transition_exemptions();
+        let num_exemptions = air.context().num_transition_exemptions();
 
         let blowup_factor_order = u64::from(blowup_factor.trailing_zeros());
 
-        let offset = FieldElement::<F>::from(self.air.context().proof_options.coset_offset);
+        let offset = FieldElement::<F>::from(air.context().proof_options.coset_offset);
         let offset_pow = offset.pow(trace_length);
         let one = FieldElement::<F>::one();
         let mut zerofier_evaluations = get_powers_of_primitive_root_coset(
@@ -184,7 +182,7 @@ impl<F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
                     lde_trace,
                     i,
                     blowup_factor,
-                    &self.air.context().transition_offsets,
+                    &air.context().transition_offsets,
                 );
 
                 let periodic_values: Vec<_> = lde_periodic_columns
@@ -195,8 +193,7 @@ impl<F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
                 // Compute all the transition constraints at this
                 // point of the LDE domain.
                 let evaluations_transition =
-                    self.air
-                        .compute_transition(&frame, &periodic_values, rap_challenges);
+                    air.compute_transition(&frame, &periodic_values, rap_challenges);
 
                 #[cfg(all(debug_assertions, not(feature = "parallel")))]
                 transition_evaluations.push(evaluations_transition.clone());
@@ -206,7 +203,7 @@ impl<F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
                 // challenge and the exemption polynomial if it is necessary.
                 let acc_transition = evaluations_transition
                     .iter()
-                    .zip(&self.air.context().transition_exemptions)
+                    .zip(&air.context().transition_exemptions)
                     .zip(transition_coefficients)
                     .fold(FieldElement::zero(), |acc, ((eval, exemption), beta)| {
                         #[cfg(feature = "parallel")]
@@ -225,8 +222,7 @@ impl<F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
                                     * &transition_exemptions_evaluations[0][i]
                             } else {
                                 // This case is not used for Cairo Programs, it can be improved in the future
-                                let vector = &self
-                                    .air
+                                let vector = air
                                     .context()
                                     .transition_exemptions
                                     .iter()
