@@ -18,6 +18,8 @@
     - [Implementation](./starks/implementation.md)
         - [High Level API](./starks/api.md)
         - [Under the hood](./starks/under_the_hood.md)
+    - [Stone prover](./starks/stone_prover/introduction.md)
+        - [Plain layout trace description](./starks/stone_prover/trace_plain_layout.md)
 
 - [Cairo](./starks/cairo.md)
     - [Trace Formal Description](./starks/cairo_trace_succinct.md)

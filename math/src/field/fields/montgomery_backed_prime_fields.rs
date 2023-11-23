@@ -22,7 +22,10 @@ pub trait IsModulus<U>: Debug {
 }
 
 #[cfg_attr(
-    feature = "lambdaworks-serde",
+    any(
+        feature = "lambdaworks-serde-binary",
+        feature = "lambdaworks-serde-string"
+    ),
     derive(serde::Serialize, serde::Deserialize)
 )]
 #[derive(Clone, Debug, Hash, Copy)]
@@ -465,12 +468,12 @@ mod tests_u384_prime_fields {
     }
 
     #[test]
-    #[cfg(feature = "lambdaworks-serde")]
+    #[cfg(feature = "lambdaworks-serde-string")]
     fn montgomery_backend_serialization_deserialization() {
         let x = U384F23Element::from(11_u64);
         let x_serialized = serde_json::to_string(&x).unwrap();
         let x_deserialized: U384F23Element = serde_json::from_str(&x_serialized).unwrap();
-        assert_eq!(x_serialized, "{\"value\":\"0xb\"}");
+        // assert_eq!(x_serialized, "{\"value\":\"0xb\"}"); // serialization is no longer as hex string
         assert_eq!(x_deserialized, x);
     }
 

@@ -1,5 +1,7 @@
 use core::fmt::{self, Display};
 
+#[cfg(feature = "lambdaworks-serde-binary")]
+use crate::traits::ByteConversion;
 use crate::{
     errors::CreationError,
     field::{
@@ -18,6 +20,33 @@ impl Goldilocks64Field {
     pub const ORDER: u64 = 0xFFFF_FFFF_0000_0001;
     // Two's complement of `ORDER` i.e. `2^64 - ORDER = 2^32 - 1`
     pub const NEG_ORDER: u64 = Self::ORDER.wrapping_neg();
+}
+
+#[cfg(feature = "lambdaworks-serde-binary")]
+impl ByteConversion for u64 {
+    #[cfg(feature = "std")]
+    fn to_bytes_be(&self) -> Vec<u8> {
+        unimplemented!()
+    }
+
+    #[cfg(feature = "std")]
+    fn to_bytes_le(&self) -> Vec<u8> {
+        unimplemented!()
+    }
+
+    fn from_bytes_be(_bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
+    where
+        Self: Sized,
+    {
+        unimplemented!()
+    }
+
+    fn from_bytes_le(_bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
+    where
+        Self: Sized,
+    {
+        unimplemented!()
+    }
 }
 
 //NOTE: This implementation was inspired by and borrows from the work done by the Plonky3 team

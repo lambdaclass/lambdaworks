@@ -123,7 +123,31 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: lcov.info
           fail_ci_if_error: true
-          
+
+  test_wasm_pack:
+    name: Test wasm-pack
+    runs-on: ubuntu-latest
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          components: clippy
+
+      - name: Set up cargo cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install wasm-pack tools for testing
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - name: Run wasm-pack tests in firefox
+        run: 	cd provers/cairo && wasm-pack test --release --firefox --headless -- --features wasm
+        
+      - name: Run wasm-pack tests in chrome
+        run: cd provers/cairo && wasm-pack test --release --chrome --headless -- --features wasm
+
   test_macos:
     name: Test (macOS, Apple sillicon)
     runs-on: [self-hosted, macOS]

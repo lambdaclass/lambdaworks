@@ -1,13 +1,12 @@
-use super::air::{CairoAIR, PublicInputs};
-use crate::air::MemorySegment;
+use super::air::CairoAIR;
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
 use serde::{Deserialize, Serialize};
 use stark_platinum_prover::proof::options::ProofOptions;
 use stark_platinum_prover::proof::stark::StarkProof;
-use stark_platinum_prover::verifier::verify;
+use stark_platinum_prover::transcript::StoneProverTranscript;
+use stark_platinum_prover::verifier::{IsStarkVerifier, Verifier};
 use std::collections::HashMap;
-use std::ops::Range;
 use wasm_bindgen::prelude::wasm_bindgen;
 
 #[wasm_bindgen]
@@ -17,27 +16,41 @@ pub struct Stark252PrimeFieldProof(StarkProof<Stark252PrimeField>);
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Eq, PartialEq, Hash)]
 pub struct FE(FieldElement<Stark252PrimeField>);
 
-#[wasm_bindgen]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MemorySegmentMap(HashMap<MemorySegment, Range<u64>>);
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MemoryMap(HashMap<FE, FE>);
 
 #[wasm_bindgen]
-pub fn verify_cairo_proof_wasm(
-    proof: &Stark252PrimeFieldProof,
-    pub_input_serialized: &[u8],
-    proof_options: &ProofOptions,
-) -> bool {
-    let pub_input: PublicInputs = serde_cbor::from_slice(pub_input_serialized).unwrap();
-    verify::<Stark252PrimeField, CairoAIR>(&proof.0, &pub_input, proof_options)
-}
+pub fn verify_cairo_proof_wasm(proof_bytes: &[u8], proof_options: &ProofOptions) -> bool {
+    let bytes = proof_bytes;
 
-#[wasm_bindgen]
-pub fn deserialize_proof_wasm(proof: &[u8]) -> Stark252PrimeFieldProof {
-    let proof_inner: StarkProof<Stark252PrimeField> = serde_cbor::from_slice(proof).unwrap();
-    Stark252PrimeFieldProof(proof_inner)
+    // This logic is the same as main verify, with only error handling changing. In wasm, we simply return a false if the proof is invalid, instead of rising an error.
+
+    // Proof len was stored as an u32, 4u8 needs to be read
+    let proof_len = u32::from_le_bytes(bytes[0..4].try_into().unwrap()) as usize;
+
+    let bytes = &bytes[4..];
+    if bytes.len() < proof_len {
+        return false;
+    }
+
+    let Ok((proof, _)) =
+        bincode::serde::decode_from_slice(&bytes[0..proof_len], bincode::config::standard())
+    else {
+        return false;
+    };
+    let bytes = &bytes[proof_len..];
+
+    let Ok((pub_inputs, _)) = bincode::serde::decode_from_slice(bytes, bincode::config::standard())
+    else {
+        return false;
+    };
+
+    Verifier::verify::<CairoAIR>(
+        &proof,
+        &pub_inputs,
+        proof_options,
+        StoneProverTranscript::new(&[]),
+    )
 }
 
 #[wasm_bindgen]
