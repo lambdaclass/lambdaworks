@@ -20,7 +20,7 @@ use crate::traits::AIR;
 use crate::{frame::Frame, prover::evaluate_polynomial_on_lde_domain};
 
 pub struct ConstraintEvaluator<F: IsFFTField, A: AIR> {
-    air: A,
+    air: &A,
     boundary_constraints: BoundaryConstraints<F>,
 }
 impl<F: IsFFTField, A: AIR + AIR<Field = F>> ConstraintEvaluator<F, A> {
