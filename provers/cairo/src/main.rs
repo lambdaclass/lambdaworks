@@ -214,8 +214,6 @@ fn write_proof(
     bytes.extend(proof_bytes);
     bytes.extend(pub_inputs_bytes);
 
-    println!("PROOF: {:?}", bytes);
-
     let Ok(()) = std::fs::write(&proof_path, bytes) else {
         eprintln!("Error writing proof to file: {}", &proof_path);
         return;

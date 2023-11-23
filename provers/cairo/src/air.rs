@@ -71,6 +71,19 @@ const RANGE_CHECK_1: usize = 51;
 const RANGE_CHECK_2: usize = 52;
 const RANGE_CHECK_3: usize = 53;
 
+const FLAG_OP1_BASE_OP0_BIT: usize = 54;
+const FLAG_RES_OP1_BIT: usize = 55;
+const FLAG_PC_UPDATE_REGULAR_BIT: usize = 56;
+const FLAG_FP_UPDATE_REGULAR_BIT: usize = 57;
+
+const OPCODES_CALL_OFF0: usize = 58;
+const OPCODES_CALL_OFF1: usize = 59;
+const OPCODES_CALL_FLAGS: usize = 60;
+
+const OPCODES_RET_OFF0: usize = 61;
+const OPCODES_RET_OFF2: usize = 62;
+const OPCODES_RET_FLAGS: usize = 63;
+
 // Frame row identifiers
 //  - Flags
 const F_DST_FP: usize = 0;
@@ -605,16 +618,6 @@ impl AIR for CairoAIR {
         debug_assert!(trace_length.is_power_of_two());
 
         let trace_columns = 59;
-        let transition_degrees = vec![
-            2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, // Flags 0-14.
-            1, // Flag 15
-            2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, // Other constraints.
-            2, 2, 2, 2, 2, // Increasing memory auxiliary constraints.
-            2, 2, 2, 2, 2, // Consistent memory auxiliary constraints.
-            2, 2, 2, 2, 2, // Permutation auxiliary constraints.
-            2, 2, 2, 2, // range-check increasing constraints.
-            2, 2, 2, 2, // range-check permutation argument constraints.
-        ];
         let transition_exemptions = vec![
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // flags (16)
             0, // inst (1)
@@ -626,27 +629,29 @@ impl AIR for CairoAIR {
             0, 0, 0, 0, 1, // memory permutation argument (4)
             0, 0, 0, 1, // range check continuous (3)
             0, 0, 0, 0, // range check permutation argument (3)
+            0, // f_op1_imm_bit constraint
+            0, // flag_res_op1_bit constraint
+            0, // flag_pc_update_regular_bit constraint
+            0, // flag_fp_update_regular_bit constraint
+            0, // opcodes/call/off0 constraint
+            0, // opcodes/call/off1 constraint
+            0, // cpu/opcodes/call/flags
+            0, // cpu/opcodes/ret/off0
+            0, // cpu/opcodes/ret/off2 
+            0, // cpu/opcodes/ret/flags 
         ];
-        let num_transition_constraints = 54;
-
-        let num_transition_exemptions = 1_usize;
+        let num_transition_constraints = 64;
 
         let context = AirContext {
             proof_options: proof_options.clone(),
             trace_columns,
-            transition_degrees,
             transition_exemptions,
             transition_offsets: vec![0, 1],
             num_transition_constraints,
-            num_transition_exemptions,
         };
 
-        // The number of the transition constraints and the lengths of transition degrees
+        // The number of the transition constraints
         // and transition exemptions should be the same always.
-        debug_assert_eq!(
-            context.transition_degrees.len(),
-            context.num_transition_constraints
-        );
         debug_assert_eq!(
             context.transition_exemptions.len(),
             context.num_transition_constraints
@@ -766,6 +771,7 @@ impl AIR for CairoAIR {
     fn compute_transition(
         &self,
         frame: &Frame<Self::Field>,
+        _periodic_values: &[FieldElement<Self::Field>],
         rap_challenges: &Self::RAPChallenges,
     ) -> Vec<FieldElement<Self::Field>> {
         let mut constraints: Vec<FieldElement<Self::Field>> =
@@ -888,19 +894,51 @@ fn compute_instr_constraints(constraints: &mut [Felt252], frame: &Frame<Stark252
         .map(|col_idx| curr.get_evaluation_element(0, col_idx))
         .collect();
 
+    let one = Felt252::one();
     let two = Felt252::from(2);
+
+    let bit_flags: Vec<Felt252> = (0..15)
+        .map(|idx| flags[idx] - two * flags[idx + 1])
+        .collect();
+
     (0..15).for_each(|idx| {
         constraints[idx] = match idx {
-            0..=14 => {
-                (flags[idx] - two * flags[idx + 1])
-                    * (flags[idx] - two * flags[idx + 1] - Felt252::one())
-            }
+            0..=14 => bit_flags[idx] * (bit_flags[idx] - one),
             15 => *flags[idx],
             _ => panic!("Unknown flag offset"),
         }
     });
 
+    // flag_op1_base_op0_bit constraint
+    let f_op1_imm = bit_flags[2];
+    let f_op1_fp = bit_flags[3];
+    let f_op1_ap = bit_flags[4];
+    let f_op1_base_op0_bit = one - f_op1_imm - f_op1_fp - f_op1_ap;
+    constraints[FLAG_OP1_BASE_OP0_BIT] = f_op1_base_op0_bit * (f_op1_base_op0_bit - one);
+
+    // flag_res_op1_bit constraint
+    let f_res_add = bit_flags[5];
+    let f_res_mul = bit_flags[6];
+    let f_pc_jnz = bit_flags[9];
+    let f_res_op1_bit = one - f_res_add - f_res_mul - f_pc_jnz;
+    constraints[FLAG_RES_OP1_BIT] = f_res_op1_bit * (f_res_op1_bit - one);
+
+    // flag_pc_update_regular_bit constraint
+    let f_jump_abs = bit_flags[7];
+    let f_jump_rel = bit_flags[8];
+    let flag_pc_update_regular_bit = one - f_jump_abs - f_jump_rel - f_pc_jnz;
+    constraints[FLAG_PC_UPDATE_REGULAR_BIT] =
+        flag_pc_update_regular_bit * (flag_pc_update_regular_bit - one);
+
+    // flag_fp_update_regular_bit constraint
+    let f_opcode_call = bit_flags[12];
+    let f_opcode_ret = bit_flags[13];
+    let flag_fp_update_regular_bit = one - f_opcode_call - f_opcode_ret;
+    constraints[FLAG_FP_UPDATE_REGULAR_BIT] =
+        flag_fp_update_regular_bit * (flag_fp_update_regular_bit - one);
+
     // Instruction unpacking
+    let b15 = two.pow(15u32);
     let b16 = two.pow(16u32);
     let b32 = two.pow(32u32);
     let b48 = two.pow(48u32);
@@ -914,6 +952,22 @@ fn compute_instr_constraints(constraints: &mut [Felt252], frame: &Frame<Stark252
     let instruction = curr.get_evaluation_element(0, FRAME_INST);
 
     constraints[INST] = off_dst + b16 * off_op0 + b32 * off_op1 + b48 * f0_squiggle - instruction;
+
+    // cpu/opcodes/call/off0 constraint
+    constraints[OPCODES_CALL_OFF0] = f_opcode_call * (off_dst - b15);
+    // cpu/opcodes/call/off0 constraint
+    constraints[OPCODES_CALL_OFF1] = f_opcode_call * (off_op0 - b15 - one);
+    // cpu/opcodes/call/flags constraint
+    constraints[OPCODES_CALL_FLAGS] =
+        f_opcode_call * (two * f_opcode_call + one + one - bit_flags[0] - bit_flags[1] - two - two);
+
+    // cpu/opcodes/ret/off0 constraint
+    constraints[OPCODES_RET_OFF0] = f_opcode_ret * (off_dst + two - b15);
+    // cpu/opcodes/ret/off2 constraint
+    constraints[OPCODES_RET_OFF2] = f_opcode_ret * (off_op1 + one - b15);
+    // cpu/opcodes/ret/flags constraint
+    constraints[OPCODES_RET_FLAGS] =
+        f_opcode_ret * (bit_flags[7] + bit_flags[0] + bit_flags[3] + f_res_op1_bit - two - two);
 }
 
 fn compute_operand_constraints(constraints: &mut [Felt252], frame: &Frame<Stark252PrimeField>) {
