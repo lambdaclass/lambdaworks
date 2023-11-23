@@ -1,3 +1,4 @@
+#[cfg(feature = "winter_compatibility")]
 use miden_core::Felt;
 
 use crate::{
@@ -29,6 +30,7 @@ pub trait ByteConversion {
         Self: Sized;
 }
 
+#[cfg(feature = "winter_compatibility")]
 impl ByteConversion for Felt {
     fn to_bytes_be(&self) -> Vec<u8> {
         todo!()

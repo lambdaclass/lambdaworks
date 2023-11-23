@@ -7,8 +7,10 @@ use lambdaworks_math::{
     traits::{ByteConversion, Serializable},
     unsigned_integer::element::U256,
 };
-use miden_core::Felt;
 use sha3::{Digest, Keccak256};
+
+#[cfg(feature = "winter_compatibility")]
+use miden_core::Felt;
 
 pub trait IsStarkTranscript<F: IsField> {
     fn append_field_element(&mut self, element: &FieldElement<F>);
@@ -112,6 +114,7 @@ impl MidenProverTranscript {
     }
 }
 
+#[cfg(feature = "winter_compatibility")]
 impl IsStarkTranscript<Felt> for MidenProverTranscript {
     fn append_field_element(&mut self, _element: &FieldElement<Felt>) {}
 

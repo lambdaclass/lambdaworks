@@ -1,11 +1,13 @@
 #[cfg(feature = "instruments")]
 use std::time::Instant;
 
+#[cfg(feature = "winter_compatibility")]
+use lambdaworks_math::field::winterfell::Felt;
+
 use lambdaworks_crypto::merkle_tree::proof::Proof;
 use lambdaworks_math::fft::cpu::bit_reversing::{in_place_bit_reverse_permute, reverse_index};
 use lambdaworks_math::fft::{errors::FFTError, polynomial::FFTPoly};
 use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
-use lambdaworks_math::field::winterfell::Felt;
 use lambdaworks_math::traits::Serializable;
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsFFTField},
@@ -40,6 +42,7 @@ impl IsStarkProver for Prover {
     type Field = Stark252PrimeField;
 }
 
+#[cfg(feature = "winter_compatibility")]
 impl IsStarkProver for MidenProver {
     type Field = Felt;
 }

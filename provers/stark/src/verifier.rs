@@ -14,11 +14,12 @@ use lambdaworks_math::{
     },
     traits::Serializable,
 };
-use miden_core::Felt;
-
 use crate::{
     config::Commitment, proof::stark::DeepPolynomialOpening, transcript::IsStarkTranscript,
 };
+
+#[cfg(feature = "winter_compatibility")]
+use miden_core::Felt;
 
 use super::{
     config::BatchedMerkleTreeBackend,
@@ -37,6 +38,7 @@ impl IsStarkVerifier for Verifier {
 
 pub struct MidenVerifier {}
 
+#[cfg(feature = "winter_compatibility")]
 impl IsStarkVerifier for MidenVerifier {
     type Field = Felt;
 }
