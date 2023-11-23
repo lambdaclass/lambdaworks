@@ -1,3 +1,8 @@
+use crate::layouts::plain::air::{
+    PublicInputs, EXTRA_ADDR, FRAME_DST_ADDR, FRAME_OP0_ADDR, FRAME_OP1_ADDR, FRAME_PC, OFF_DST,
+    OFF_OP0, OFF_OP1, RC_HOLES,
+};
+
 use super::{
     cairo_mem::CairoMemory,
     decode::{
@@ -9,18 +14,12 @@ use super::{
     },
     register_states::RegisterStates,
 };
-use crate::{
-    air::{
-        PublicInputs, EXTRA_ADDR, FRAME_DST_ADDR, FRAME_OP0_ADDR, FRAME_OP1_ADDR, FRAME_PC,
-        OFF_DST, OFF_OP0, OFF_OP1, RC_HOLES,
-    },
-    Felt252,
-};
+
 use lambdaworks_math::{
     field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
     unsigned_integer::element::UnsignedInteger,
 };
-use stark_platinum_prover::trace::TraceTable;
+use stark_platinum_prover::{trace::TraceTable, Felt252};
 
 type CairoTraceTable = TraceTable<Stark252PrimeField>;
 
@@ -557,7 +556,7 @@ fn decompose_rc_values_into_trace_columns(rc_values: &[&Felt252]) -> [Vec<Felt25
 
 #[cfg(test)]
 mod test {
-    use crate::air::EXTRA_VAL;
+    use crate::layouts::plain::air::EXTRA_VAL;
 
     use super::*;
     use lambdaworks_math::field::element::FieldElement;

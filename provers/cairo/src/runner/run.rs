@@ -1,7 +1,7 @@
-use crate::air::PublicInputs;
 use crate::cairo_layout::CairoLayout;
 use crate::cairo_mem::CairoMemory;
 use crate::execution_trace::build_main_trace;
+use crate::layouts::plain::air::PublicInputs;
 use crate::register_states::RegisterStates;
 
 use super::vec_writer::VecWriter;

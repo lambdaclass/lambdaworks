@@ -20,10 +20,8 @@ use stark_platinum_prover::{
     verifier::{IsStarkVerifier, Verifier},
 };
 
-use crate::Felt252;
+use crate::{cairo_mem::CairoMemory, register_states::RegisterStates, Felt252};
 use stark_platinum_prover::table::Table;
-
-use super::{cairo_mem::CairoMemory, register_states::RegisterStates};
 
 /// Main constraint identifiers
 const INST: usize = 16;
@@ -1553,8 +1551,8 @@ mod prop_test {
     use stark_platinum_prover::proof::{options::ProofOptions, stark::StarkProof};
 
     use crate::{
-        air::{generate_cairo_proof, verify_cairo_proof},
         cairo_layout::CairoLayout,
+        layouts::plain::air::{generate_cairo_proof, verify_cairo_proof},
         runner::run::generate_prover_args,
         tests::utils::cairo0_program_path,
         Felt252,

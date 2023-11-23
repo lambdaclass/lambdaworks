@@ -1,6 +1,6 @@
 use crate::{
-    air::{generate_cairo_proof, verify_cairo_proof, CairoAIR},
     cairo_layout::CairoLayout,
+    layouts::plain::air::{generate_cairo_proof, verify_cairo_proof, CairoAIR},
     runner::run::generate_prover_args,
     tests::utils::{
         cairo0_program_path, test_prove_cairo_program, test_prove_cairo_program_from_trace,
