@@ -43,7 +43,7 @@ fn create_bench_instance(fibonacci_number: usize) -> BenchInstance {
 }
 
 pub fn bench_prove_miden_fibonacci(c: &mut Criterion) {
-    let instance = create_bench_instance(16);
+    let instance = create_bench_instance(100);
 
     c.bench_function("winterfell_prover", |b| {
         b.iter(|| {
@@ -83,6 +83,7 @@ pub fn bench_prove_miden_fibonacci(c: &mut Criterion) {
                 *ProvingOptions::default().execution_options(),
             )
             .unwrap();
+
             let program_info = winter_trace.program_info().clone();
             let stack_outputs = winter_trace.stack_outputs().clone();
             let pub_inputs = AirAdapterPublicInputs::<ProcessorAir, ExecutionTrace, Felt>::new(
