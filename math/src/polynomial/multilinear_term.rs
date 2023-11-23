@@ -106,15 +106,12 @@ where
         let mut new_coefficient = self.coeff.clone();
         let mut unassigned_variables = self.vars.to_vec();
 
-        dbg!(&unassigned_variables);
         for (var_id, assignment) in assignments {
             if unassigned_variables.contains(var_id) {
                 new_coefficient = new_coefficient * assignment;
                 unassigned_variables.retain(|&id| id != *var_id);
             }
-            dbg!(&unassigned_variables);
         }
-        dbg!(&unassigned_variables);
 
         Self::new((new_coefficient, unassigned_variables))
     }

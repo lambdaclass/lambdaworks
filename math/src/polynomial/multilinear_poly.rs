@@ -80,31 +80,21 @@ where
             .iter()
             .map(|term| term.partial_evaluate(assignments))
             .collect();
-        let mut n_vars =
+        let n_vars =
             updated_monomials.iter().fold(
                 0,
                 |acc, m| if m.max_var() > acc { m.max_var() } else { acc },
             );
-        n_vars = if n_vars == 0 { 0 } else { n_vars + 1 };
         Self::new(n_vars, updated_monomials)
     }
 
     /// Adds a polynomial
     /// This functions concatenates both vectors of terms
     pub fn add(&mut self, poly: MultilinearPolynomial<F>) {
+        assert_eq!(self.n_vars, poly.n_vars);
         for term in poly.terms.iter() {
             self.add_monomial(term);
         }
-        self.update_nvars();
-    }
-
-    /// Updates the value of n_vars
-    fn update_nvars(&mut self) {
-        let n = self.terms.iter().fold(
-            0,
-            |acc, m| if m.max_var() > acc { m.max_var() } else { acc },
-        );
-        self.n_vars = if n == 0 { 0 } else { n + 1 };
     }
 
     /// Addition of monomial
