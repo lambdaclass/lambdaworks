@@ -229,9 +229,7 @@ mod tests {
         }
 
         // FFT related tests
-        #[cfg(not(any(feature = "metal", feature = "cuda")))]
         type F = Babybear31PrimeField;
-        #[cfg(not(any(feature = "metal", feature = "cuda")))]
         type FE = FieldElement<F>;
 
         proptest! {
