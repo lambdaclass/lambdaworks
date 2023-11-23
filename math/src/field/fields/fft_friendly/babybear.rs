@@ -106,7 +106,6 @@ mod tests {
         }
     }
 
-    #[cfg(all(feature = "std", not(feature = "instruments")))]
     mod test_babybear_31_fft {
         use super::*;
         use crate::fft::cpu::roots_of_unity::{
@@ -120,6 +119,7 @@ mod tests {
         use crate::polynomial::Polynomial;
         use proptest::{collection, prelude::*, std_facade::Vec};
 
+        #[cfg(not(any(feature = "metal", feature = "cuda")))]
         fn gen_fft_and_naive_evaluation<F: IsFFTField>(
             poly: Polynomial<FieldElement<F>>,
         ) -> (Vec<FieldElement<F>>, Vec<FieldElement<F>>) {
@@ -134,6 +134,7 @@ mod tests {
             (fft_eval, naive_eval)
         }
 
+        #[cfg(not(any(feature = "metal", feature = "cuda")))]
         fn gen_fft_coset_and_naive_evaluation<F: IsFFTField>(
             poly: Polynomial<FieldElement<F>>,
             offset: FieldElement<F>,
@@ -153,6 +154,7 @@ mod tests {
             (fft_eval, naive_eval)
         }
 
+        #[cfg(not(any(feature = "metal", feature = "cuda")))]
         fn gen_fft_and_naive_interpolate<F: IsFFTField>(
             fft_evals: &[FieldElement<F>],
         ) -> (Polynomial<FieldElement<F>>, Polynomial<FieldElement<F>>) {
@@ -166,6 +168,7 @@ mod tests {
             (fft_poly, naive_poly)
         }
 
+        #[cfg(not(any(feature = "metal", feature = "cuda")))]
         fn gen_fft_and_naive_coset_interpolate<F: IsFFTField>(
             fft_evals: &[FieldElement<F>],
             offset: &FieldElement<F>,
@@ -179,6 +182,7 @@ mod tests {
             (fft_poly, naive_poly)
         }
 
+        #[cfg(not(any(feature = "metal", feature = "cuda")))]
         fn gen_fft_interpolate_and_evaluate<F: IsFFTField>(
             poly: Polynomial<FieldElement<F>>,
         ) -> (Polynomial<FieldElement<F>>, Polynomial<FieldElement<F>>) {
