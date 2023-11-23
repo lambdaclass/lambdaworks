@@ -111,6 +111,21 @@ impl<'t, F: IsFFTField> TraceTable<F> {
         self.table.get(row, col)
     }
 
+    pub fn set(&mut self, row: usize, col: usize, value: FieldElement<F>) {
+        self.table.set(row, col, value)
+    }
+
+    pub fn allocate_with_zeros(
+        num_steps: usize,
+        num_cols: usize,
+        step_size: usize,
+    ) -> TraceTable<F> {
+        let data = vec![FieldElement::<F>::zero(); step_size * num_steps * num_cols];
+        let table = Table::new(data, num_cols);
+
+        Self { table, step_size }
+    }
+
     pub fn compute_trace_polys(&self) -> Vec<Polynomial<FieldElement<F>>>
     where
         FieldElement<F>: Send + Sync,

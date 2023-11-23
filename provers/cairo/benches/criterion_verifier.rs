@@ -9,7 +9,6 @@ use stark_platinum_prover::proof::{
     options::{ProofOptions, SecurityLevel},
     stark::StarkProof,
 };
-
 pub mod functions;
 
 fn load_proof_and_pub_inputs(input_path: &str) -> (StarkProof<Stark252PrimeField>, PublicInputs) {

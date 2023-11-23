@@ -123,6 +123,11 @@ impl<'t, F: IsFFTField> Table<F> {
         &self.data[idx]
     }
 
+    pub fn set(&mut self, row: usize, col: usize, value: FieldElement<F>) {
+        let idx = row * self.width + col;
+        self.data[idx] = value;
+    }
+
     /// Given a step size, converts the given table into a `Frame`.
     pub fn into_frame(&'t self, step_size: usize) -> Frame<'t, F> {
         debug_assert!(self.height % step_size == 0);

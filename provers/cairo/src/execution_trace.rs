@@ -1,8 +1,3 @@
-use crate::layouts::plain::air::{
-    PublicInputs, EXTRA_ADDR, FRAME_DST_ADDR, FRAME_OP0_ADDR, FRAME_OP1_ADDR, FRAME_PC, OFF_DST,
-    OFF_OP0, OFF_OP1, RC_HOLES,
-};
-
 use super::{
     cairo_mem::CairoMemory,
     decode::{
@@ -14,12 +9,15 @@ use super::{
     },
     register_states::RegisterStates,
 };
-
+use crate::layouts::plain::air::{
+    CairoAIR, PublicInputs, EXTRA_ADDR, FRAME_DST_ADDR, FRAME_OP0_ADDR, FRAME_OP1_ADDR, FRAME_PC,
+    OFF_DST, OFF_OP0, OFF_OP1, RC_HOLES,
+};
 use lambdaworks_math::{
     field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
     unsigned_integer::element::UnsignedInteger,
 };
-use stark_platinum_prover::{trace::TraceTable, Felt252};
+use stark_platinum_prover::{trace::TraceTable, traits::AIR, Felt252};
 
 type CairoTraceTable = TraceTable<Stark252PrimeField>;
 
@@ -200,19 +198,20 @@ pub fn build_cairo_execution_trace(
 
     // Instruction flags and offsets are decoded from the raw instructions and represented
     // by the CairoInstructionFlags and InstructionOffsets as an intermediate representation
-    let (flags, offsets): (Vec<CairoInstructionFlags>, Vec<InstructionOffsets>) = register_states
-        .flags_and_offsets(memory)
-        .unwrap()
-        .into_iter()
-        .unzip();
+    let (flags, biased_offsets): (Vec<CairoInstructionFlags>, Vec<InstructionOffsets>) =
+        register_states
+            .flags_and_offsets(memory)
+            .unwrap()
+            .into_iter()
+            .unzip();
 
     // dst, op0, op1 and res are computed from flags and offsets
     let (dst_addrs, mut dsts): (Vec<Felt252>, Vec<Felt252>) =
-        compute_dst(&flags, &offsets, register_states, memory);
+        compute_dst(&flags, &biased_offsets, register_states, memory);
     let (op0_addrs, mut op0s): (Vec<Felt252>, Vec<Felt252>) =
-        compute_op0(&flags, &offsets, register_states, memory);
+        compute_op0(&flags, &biased_offsets, register_states, memory);
     let (op1_addrs, op1s): (Vec<Felt252>, Vec<Felt252>) =
-        compute_op1(&flags, &offsets, register_states, memory, &op0s);
+        compute_op1(&flags, &biased_offsets, register_states, memory, &op0s);
     let mut res = compute_res(&flags, &op0s, &op1s, &dsts);
 
     // In some cases op0, dst or res may need to be updated from the already calculated values
@@ -224,7 +223,7 @@ pub fn build_cairo_execution_trace(
         .iter()
         .map(CairoInstructionFlags::to_trace_representation)
         .collect();
-    let trace_repr_offsets: Vec<[Felt252; 3]> = offsets
+    let unbiased_offsets: Vec<(Felt252, Felt252, Felt252)> = biased_offsets
         .iter()
         .map(InstructionOffsets::to_trace_representation)
         .collect();
@@ -274,6 +273,10 @@ pub fn build_cairo_execution_trace(
 
     // Build Cairo trace columns to instantiate TraceTable struct as defined in the trace layout
     let mut trace_cols: Vec<Vec<Felt252>> = Vec::new();
+
+    // Memory allocation for the whole trace
+    let trace_data = vec![0; CairoAIR::STEP_SIZE * n_steps * 8];
+
     (0..trace_repr_flags.len()).for_each(|n| trace_cols.push(trace_repr_flags[n].clone()));
     trace_cols.push(res);
     trace_cols.push(aps);
@@ -554,6 +557,23 @@ fn decompose_rc_values_into_trace_columns(rc_values: &[&Felt252]) -> [Vec<Felt25
     decomposition_columns.try_into().unwrap()
 }
 
+fn set_offsets(
+    trace: &mut CairoTraceTable,
+    offsets: Vec<(Felt252, Felt252, Felt252)>,
+    num_steps: usize,
+) {
+    // NOTE: We should check that these offsets correspond to the off0, off1 and off2.
+    const OFF_DST_OFFSET: usize = 0;
+    const OFF_OP0_OFFSET: usize = 4;
+    const OFF_OP1_OFFSET: usize = 8;
+
+    for (step_idx, (off_dst, off_op0, off_op1)) in offsets.into_iter().enumerate() {
+        trace.set(OFF_DST_OFFSET + CairoAIR::STEP_SIZE * step_idx, 1, off_dst);
+        trace.set(OFF_OP0_OFFSET + CairoAIR::STEP_SIZE * step_idx, 1, off_op0);
+        trace.set(OFF_OP1_OFFSET + CairoAIR::STEP_SIZE * step_idx, 1, off_op1);
+    }
+}
+
 #[cfg(test)]
 mod test {
     use crate::layouts::plain::air::EXTRA_VAL;
@@ -728,4 +748,9 @@ mod test {
         let extra_addr = &trace.columns()[EXTRA_ADDR];
         assert_eq!(extra_addr, &memory_holes)
     }
+
+    // #[test]
+    // fn set_offsets_works() {
+    //     let trace = TraceTable::allocate_with_zeros(, num_cols, step_size)
+    // }
 }
