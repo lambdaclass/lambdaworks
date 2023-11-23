@@ -200,37 +200,33 @@ mod tests {
             // also it can't exceed the test field's two-adicity.
         }
         prop_compose! {
-            fn field_element()(num in any::<u64>().prop_filter("Avoid null coefficients", |x| x != &0)) -> FE {
-                FE::from(num)
+            fn field_element()(num in any::<u64>().prop_filter("Avoid null coefficients", |x| x != &0)) -> FieldElement<Babybear31PrimeField> {
+                FieldElement::<Babybear31PrimeField>::from(num)
             }
         }
         prop_compose! {
-            fn offset()(num in any::<u64>(), factor in any::<u64>()) -> FE { FE::from(num).pow(factor) }
+            fn offset()(num in any::<u64>(), factor in any::<u64>()) -> FieldElement<Babybear31PrimeField> { FieldElement::<Babybear31PrimeField>::from(num).pow(factor) }
         }
         prop_compose! {
-            fn field_vec(max_exp: u8)(vec in collection::vec(field_element(), 0..1 << max_exp)) -> Vec<FE> {
+            fn field_vec(max_exp: u8)(vec in collection::vec(field_element(), 0..1 << max_exp)) -> Vec<FieldElement<Babybear31PrimeField>> {
                 vec
             }
         }
         prop_compose! {
-            fn non_power_of_two_sized_field_vec(max_exp: u8)(vec in collection::vec(field_element(), 2..1<<max_exp).prop_filter("Avoid polynomials of size power of two", |vec| !vec.len().is_power_of_two())) -> Vec<FE> {
+            fn non_power_of_two_sized_field_vec(max_exp: u8)(vec in collection::vec(field_element(), 2..1<<max_exp).prop_filter("Avoid polynomials of size power of two", |vec| !vec.len().is_power_of_two())) -> Vec<FieldElement<Babybear31PrimeField>> {
                 vec
             }
         }
         prop_compose! {
-            fn poly(max_exp: u8)(coeffs in field_vec(max_exp)) -> Polynomial<FE> {
+            fn poly(max_exp: u8)(coeffs in field_vec(max_exp)) -> Polynomial<FieldElement<Babybear31PrimeField>> {
                 Polynomial::new(&coeffs)
             }
         }
         prop_compose! {
-            fn poly_with_non_power_of_two_coeffs(max_exp: u8)(coeffs in non_power_of_two_sized_field_vec(max_exp)) -> Polynomial<FE> {
+            fn poly_with_non_power_of_two_coeffs(max_exp: u8)(coeffs in non_power_of_two_sized_field_vec(max_exp)) -> Polynomial<FieldElement<Babybear31PrimeField>> {
                 Polynomial::new(&coeffs)
             }
         }
-
-        // FFT related tests
-        type F = Babybear31PrimeField;
-        type FE = FieldElement<F>;
 
         proptest! {
             // Property-based test that ensures FFT eval. gives same result as a naive polynomial evaluation.
