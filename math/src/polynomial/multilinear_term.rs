@@ -24,11 +24,11 @@ where
         let mut output = String::new();
 
         output.push_str(&self.coeff.representative().to_string()[0..]);
-        if self.vars.len() > 0 {
-            output.push_str(".");
+        if !self.vars.is_empty() {
+            output.push('.');
             for var in &self.vars[0..self.vars.len() - 1] {
                 output.push_str(&format!("t_{var}")[0..]);
-                output.push_str(".");
+                output.push('.');
             }
             output.push_str(&format!("t_{}", self.vars[self.vars.len() - 1]));
         }

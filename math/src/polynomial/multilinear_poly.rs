@@ -89,7 +89,7 @@ where
     /// This functions concatenates both vectors of terms
     pub fn add(&mut self, poly: MultilinearPolynomial<F>) {
         for term in poly.terms.iter() {
-            self.add_monomial(&term);
+            self.add_monomial(term);
         }
         self.update_nvars();
     }
