@@ -88,7 +88,7 @@ where
 
         //Round 0
         transcript.append(&sum.to_bytes_be());
-        add_poly_to_transcript(poly, &mut transcript);
+        add_poly_to_transcript(&poly, &mut transcript);
 
         let round_poly = Self::fix_and_evaluate_hypercube(&poly, 0, vec![]);
         add_poly_to_transcript(&round_poly, &mut transcript);
