@@ -1,6 +1,8 @@
 use crate::errors::CreationError;
 use crate::field::errors::FieldError;
 use crate::field::traits::{IsField, IsPrimeField};
+#[cfg(feature = "lambdaworks-serde-binary")]
+use crate::traits::ByteConversion;
 use crate::unsigned_integer::element::UnsignedInteger;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -17,6 +19,33 @@ pub const P448_GOLDILOCKS_PRIME_FIELD_ORDER: U448 =
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct U56x8 {
     limbs: [u64; 8],
+}
+
+#[cfg(feature = "lambdaworks-serde-binary")]
+impl ByteConversion for U56x8 {
+    #[cfg(feature = "std")]
+    fn to_bytes_be(&self) -> Vec<u8> {
+        unimplemented!()
+    }
+
+    #[cfg(feature = "std")]
+    fn to_bytes_le(&self) -> Vec<u8> {
+        unimplemented!()
+    }
+
+    fn from_bytes_be(_bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
+    where
+        Self: Sized,
+    {
+        unimplemented!()
+    }
+
+    fn from_bytes_le(_bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
+    where
+        Self: Sized,
+    {
+        unimplemented!()
+    }
 }
 
 impl IsField for P448GoldilocksPrimeField {

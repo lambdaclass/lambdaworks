@@ -23,7 +23,7 @@ use super::{
     config::BatchedMerkleTreeBackend,
     domain::Domain,
     fri::fri_decommit::FriDecommitment,
-    grinding::hash_transcript_with_int_and_get_leading_zeros,
+    grinding,
     proof::{options::ProofOptions, stark::StarkProof},
     traits::AIR,
 };
@@ -47,7 +47,7 @@ where
     pub zetas: Vec<FieldElement<F>>,
     pub iotas: Vec<usize>,
     pub rap_challenges: A::RAPChallenges,
-    pub leading_zeros_count: u8, // number of leading zeros in the grinding
+    pub grinding_seed: [u8; 32],
 }
 
 pub type DeepPolynomialEvaluations<F> = (Vec<FieldElement<F>>, Vec<FieldElement<F>>);
@@ -120,9 +120,9 @@ pub trait IsStarkVerifier {
         );
 
         // <<<< Receive values: tⱼ(zgᵏ)
-        for i in 0..proof.trace_ood_frame_evaluations.n_cols() {
-            for j in 0..proof.trace_ood_frame_evaluations.n_rows() {
-                transcript.append_field_element(&proof.trace_ood_frame_evaluations.get_row(j)[i]);
+        for i in 0..proof.trace_ood_evaluations.width {
+            for j in 0..proof.trace_ood_evaluations.height {
+                transcript.append_field_element(&proof.trace_ood_evaluations.get_row(j)[i]);
             }
         }
         // <<<< Receive value: Hᵢ(z^N)
@@ -174,15 +174,13 @@ pub trait IsStarkVerifier {
         transcript.append_field_element(&proof.fri_last_value);
 
         // Receive grinding value
-        // 1) Receive challenge from the transcript
         let security_bits = air.context().proof_options.grinding_factor;
-        let mut leading_zeros_count = 0;
+        let mut grinding_seed = [0u8; 32];
         if security_bits > 0 {
-            let transcript_challenge = transcript.state();
-            let nonce = proof.nonce;
-            leading_zeros_count =
-                hash_transcript_with_int_and_get_leading_zeros(&transcript_challenge, nonce);
-            transcript.append_bytes(&nonce.to_be_bytes());
+            if let Some(nonce_value) = proof.nonce {
+                grinding_seed = transcript.state();
+                transcript.append_bytes(&nonce_value.to_be_bytes());
+            }
         }
 
         // FRI query phase
@@ -199,7 +197,7 @@ pub trait IsStarkVerifier {
             zetas,
             iotas,
             rap_challenges,
-            leading_zeros_count,
+            grinding_seed,
         }
     }
 
@@ -226,7 +224,7 @@ pub trait IsStarkVerifier {
                 let step = boundary_constraints.constraints[index].step;
                 let point = &domain.trace_primitive_root.pow(step as u64);
                 let trace_idx = boundary_constraints.constraints[index].col;
-                let trace_evaluation = &proof.trace_ood_frame_evaluations.get_row(0)[trace_idx];
+                let trace_evaluation = &proof.trace_ood_evaluations.get_row(0)[trace_idx];
                 let boundary_zerofier_challenges_z_den = &challenges.z - point;
 
                 let boundary_quotient_ood_evaluation_num =
@@ -251,8 +249,15 @@ pub trait IsStarkVerifier {
                 .map(|((num, den), beta)| num * den * beta)
                 .fold(FieldElement::<Self::Field>::zero(), |acc, x| acc + x);
 
+        let periodic_values = air
+            .get_periodic_column_polynomials()
+            .iter()
+            .map(|poly| poly.evaluate(&challenges.z))
+            .collect::<Vec<FieldElement<Self::Field>>>();
+
         let transition_ood_frame_evaluations = air.compute_transition(
-            &proof.trace_ood_frame_evaluations,
+            &(proof.trace_ood_evaluations).into_frame(A::STEP_SIZE),
+            &periodic_values,
             &challenges.rap_challenges,
         );
 
@@ -271,10 +276,9 @@ pub trait IsStarkVerifier {
         let unity = &FieldElement::one();
         let transition_c_i_evaluations_sum = transition_ood_frame_evaluations
             .iter()
-            .zip(&air.context().transition_degrees)
             .zip(&air.context().transition_exemptions)
             .zip(&challenges.transition_coeffs)
-            .fold(FieldElement::zero(), |acc, (((eval, _), except), beta)| {
+            .fold(FieldElement::zero(), |acc, ((eval, except), beta)| {
                 let except = except
                     .checked_sub(1)
                     .map(|i| &exemption[i])
@@ -539,7 +543,7 @@ pub trait IsStarkVerifier {
         fri_layers_merkle_roots
             .iter()
             .enumerate()
-            .zip(&fri_decommitment.layers_auth_paths_sym)
+            .zip(&fri_decommitment.layers_auth_paths)
             .zip(&fri_decommitment.layers_evaluations_sym)
             .zip(evaluation_point_vec)
             .fold(
@@ -623,22 +627,23 @@ pub trait IsStarkVerifier {
         lde_trace_evaluations: &[FieldElement<Self::Field>],
         lde_composition_poly_parts_evaluation: &[FieldElement<Self::Field>],
     ) -> FieldElement<Self::Field> {
-        let mut denoms_trace = (0..proof.trace_ood_frame_evaluations.n_rows())
+        let mut denoms_trace = (0..proof.trace_ood_evaluations.height)
             .map(|row_idx| evaluation_point - &challenges.z * primitive_root.pow(row_idx as u64))
             .collect::<Vec<FieldElement<Self::Field>>>();
         FieldElement::inplace_batch_inverse(&mut denoms_trace).unwrap();
 
-        let trace_term = (0..proof.trace_ood_frame_evaluations.n_cols())
+        let trace_term = (0..proof.trace_ood_evaluations.width)
             .zip(&challenges.trace_term_coeffs)
             .fold(FieldElement::zero(), |trace_terms, (col_idx, coeff_row)| {
-                let trace_i = (0..proof.trace_ood_frame_evaluations.n_rows())
-                    .zip(coeff_row)
-                    .fold(FieldElement::zero(), |trace_t, (row_idx, coeff)| {
+                let trace_i = (0..proof.trace_ood_evaluations.height).zip(coeff_row).fold(
+                    FieldElement::zero(),
+                    |trace_t, (row_idx, coeff)| {
                         let poly_evaluation = (lde_trace_evaluations[col_idx].clone()
-                            - proof.trace_ood_frame_evaluations.get_row(row_idx)[col_idx].clone())
+                            - proof.trace_ood_evaluations.get_row(row_idx)[col_idx].clone())
                             * &denoms_trace[row_idx];
                         trace_t + &poly_evaluation * coeff
-                    });
+                    },
+                );
                 trace_terms + trace_i
             });
 
@@ -688,10 +693,16 @@ pub trait IsStarkVerifier {
         );
 
         // verify grinding
-        let grinding_factor = air.context().proof_options.grinding_factor;
-        if challenges.leading_zeros_count < grinding_factor {
-            error!("Grinding factor not satisfied");
-            return false;
+        let security_bits = air.context().proof_options.grinding_factor;
+        if security_bits > 0 {
+            let nonce_is_valid = proof.nonce.map_or(false, |nonce_value| {
+                grinding::is_valid_nonce(&challenges.grinding_seed, nonce_value, security_bits)
+            });
+
+            if !nonce_is_valid {
+                error!("Grinding factor not satisfied");
+                return false;
+            }
         }
 
         #[cfg(feature = "instruments")]

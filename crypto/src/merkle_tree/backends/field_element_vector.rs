@@ -1,8 +1,13 @@
 use std::marker::PhantomData;
 
+use crate::hash::poseidon::starknet::parameters::{DefaultPoseidonParams, PermutationParameters};
+use crate::hash::poseidon::starknet::Poseidon;
 use crate::merkle_tree::traits::IsMerkleTreeBackend;
 use lambdaworks_math::{
-    field::{element::FieldElement, traits::IsField},
+    field::{
+        element::FieldElement,
+        traits::{IsField, IsPrimeField},
+    },
     traits::Serializable,
 };
 use sha3::{
@@ -52,6 +57,39 @@ where
         let mut result_hash = [0_u8; NUM_BYTES];
         result_hash.copy_from_slice(&hasher.finalize());
         result_hash
+    }
+}
+
+#[derive(Clone)]
+pub struct BatchPoseidonTree<F: IsPrimeField> {
+    poseidon: Poseidon<F>,
+}
+
+impl<F> Default for BatchPoseidonTree<F>
+where
+    F: IsPrimeField,
+{
+    fn default() -> Self {
+        let params = PermutationParameters::new_with(DefaultPoseidonParams::CairoStark252);
+        let poseidon = Poseidon::new_with_params(params);
+
+        Self { poseidon }
+    }
+}
+
+impl<F> IsMerkleTreeBackend for BatchPoseidonTree<F>
+where
+    F: IsPrimeField,
+{
+    type Node = FieldElement<F>;
+    type Data = Vec<FieldElement<F>>;
+
+    fn hash_data(&self, input: &Vec<FieldElement<F>>) -> FieldElement<F> {
+        self.poseidon.hash_many(input)
+    }
+
+    fn hash_new_parent(&self, left: &FieldElement<F>, right: &FieldElement<F>) -> FieldElement<F> {
+        self.poseidon.hash(left, right)
     }
 }
 

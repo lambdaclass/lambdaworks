@@ -8,8 +8,8 @@ use lambdaworks_math::{
     field::{element::FieldElement, traits::IsField},
 };
 use std::ops::{Add, Mul};
-
 mod parameters;
+pub mod starknet;
 
 pub struct Poseidon<F: IsField> {
     params: Parameters<F>,

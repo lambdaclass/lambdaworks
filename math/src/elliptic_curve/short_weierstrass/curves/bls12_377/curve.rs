@@ -65,6 +65,54 @@ mod tests {
     }
 
     #[test]
+    fn add_point1_2point1_with_both_algorithms_matches() {
+        let point_1 = point_1();
+        let point_2 = &point_1.operate_with(&point_1).to_affine();
+
+        let first_algorithm_result = point_1.operate_with(point_2).to_affine();
+        let second_algorithm_result = point_1.operate_with_affine(point_2).to_affine();
+
+        assert_eq!(first_algorithm_result, second_algorithm_result);
+    }
+
+    #[test]
+    fn add_point1_and_42424242point1_with_both_algorithms_matches() {
+        let point_1 = point_1();
+        let point_2 = &point_1.operate_with_self(42424242u128).to_affine();
+
+        let first_algorithm_result = point_1.operate_with(point_2).to_affine();
+        let second_algorithm_result = point_1.operate_with_affine(point_2).to_affine();
+
+        assert_eq!(first_algorithm_result, second_algorithm_result);
+    }
+
+    #[test]
+    fn add_point1_with_point1_both_algorithms_matches() {
+        let point_1 = point_1().to_affine();
+
+        let first_algorithm_result = point_1.operate_with(&point_1).to_affine();
+        let second_algorithm_result = point_1.operate_with_affine(&point_1).to_affine();
+
+        assert_eq!(first_algorithm_result, second_algorithm_result);
+    }
+
+    #[test]
+    fn add_point2_with_point1_both_algorithms_matches() {
+        let point_1 = point_1().to_affine();
+
+        // Create point 2
+        let x = FEE::new_base("134e4cc122cb62a06767fb98e86f2d5f77e2a12fefe23bb0c4c31d1bd5348b88d6f5e5dee2b54db4a2146cc9f249eea") * FEE::from(2);
+        let y = FEE::new_base("17949c29effee7a9f13f69b1c28eccd78c1ed12b47068836473481ff818856594fd9c1935e3d9e621901a2d500257a2") * FEE::from(2);
+        let z = FEE::from(2);
+        let point_2 = ShortWeierstrassProjectivePoint::<BLS12377Curve>::new([x, y, z]);
+
+        let first_algorithm_result = point_2.operate_with(&point_1).to_affine();
+        let second_algorithm_result = point_2.operate_with_affine(&point_1).to_affine();
+
+        assert_eq!(first_algorithm_result, second_algorithm_result);
+    }
+
+    #[test]
     fn create_valid_point_works() {
         let p = point_1();
         assert_eq!(*p.x(), FEE::new_base("134e4cc122cb62a06767fb98e86f2d5f77e2a12fefe23bb0c4c31d1bd5348b88d6f5e5dee2b54db4a2146cc9f249eea"));
