@@ -1,9 +1,10 @@
 use crate::{
     field::fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
+    field::fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
     unsigned_integer::element::U256,
 };
 
-pub type PallasMontgomeryBackendPrimeField<T> = MontgomeryBackendPrimeField<T, 4>;
+type PallasMontgomeryBackendPrimeField<T> = MontgomeryBackendPrimeField<T, 4>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MontgomeryConfigPallas255PrimeField;
