@@ -102,12 +102,10 @@ where
 
         let lambda_context = stark_platinum_prover::context::AirContext {
             proof_options: lambda_proof_options.clone(),
-            transition_degrees: pub_inputs.transition_degrees.to_owned(),
             transition_exemptions: pub_inputs.transition_exemptions.to_owned(),
             transition_offsets: pub_inputs.transition_offsets.to_owned(),
             num_transition_constraints: winterfell_context.num_transition_constraints(),
             trace_columns: pub_inputs.trace_info.width(),
-            num_transition_exemptions: pub_inputs.num_transition_exemptions,
         };
 
         Self {
@@ -335,12 +333,10 @@ mod tests {
 
         let pub_inputs = AirAdapterPublicInputs {
             winterfell_public_inputs: pub_inputs,
-            transition_degrees: vec![0; 182], // Not used, but still has to have 182 things because of zip's.
             transition_exemptions: vec![2; 182],
             transition_offsets: vec![0, 1],
             trace: winter_trace.clone(),
             trace_info: winter_trace.get_info(),
-            num_transition_exemptions: 1,
         };
 
         let trace =
@@ -415,12 +411,10 @@ mod tests {
 
         let pub_inputs = AirAdapterPublicInputs {
             winterfell_public_inputs: pub_inputs,
-            transition_degrees: vec![0; 182], // Not used, but still has to have 182 things because of zip's.
             transition_exemptions: vec![2; 182],
             transition_offsets: vec![0, 1],
             trace: winter_trace.clone(),
             trace_info: winter_trace.get_info(),
-            num_transition_exemptions: 1,
         };
 
         let trace =
@@ -455,12 +449,10 @@ mod tests {
         );
         let pub_inputs = AirAdapterPublicInputs {
             winterfell_public_inputs: trace.columns()[1][7].value().clone(),
-            transition_degrees: vec![1, 1],
             transition_exemptions: vec![1, 1],
             transition_offsets: vec![0, 1],
             trace: winter_trace,
             trace_info: TraceInfo::new(2, 8),
-            num_transition_exemptions: 1,
         };
 
         let proof = MidenProver::prove::<AirAdapter<FibAir2Terms, TraceTable<_>, Felt>>(
@@ -494,12 +486,10 @@ mod tests {
         let fibonacci_result = trace.columns()[1][15];
         let pub_inputs = AirAdapterPublicInputs::<FibonacciRAP, RapTraceTable<_>, Felt> {
             winterfell_public_inputs: fibonacci_result.value().clone(),
-            transition_degrees: vec![1, 1, 2],
             transition_exemptions: vec![1, 1, 1],
             transition_offsets: vec![0, 1],
             trace: RapTraceTable::from_cols(matrix_lambda2winter(&trace.columns())),
             trace_info,
-            num_transition_exemptions: 1,
         };
 
         let proof = MidenProver::prove::<AirAdapter<FibonacciRAP, RapTraceTable<_>, Felt>>(
@@ -528,12 +518,10 @@ mod tests {
         );
         let pub_inputs = AirAdapterPublicInputs {
             winterfell_public_inputs: trace.columns()[0][15].value().clone(),
-            transition_degrees: vec![3],
             transition_exemptions: vec![1],
             transition_offsets: vec![0, 1],
             trace: winter_trace,
             trace_info: TraceInfo::new(1, 16),
-            num_transition_exemptions: 1,
         };
 
         let proof = MidenProver::prove::<AirAdapter<Cubic, TraceTable<_>, Felt>>(

@@ -91,12 +91,10 @@ pub fn bench_prove_miden_fibonacci(c: &mut Criterion) {
                     instance.stack_inputs.clone(),
                     stack_outputs.clone(),
                 ),
-                vec![0; 182], // Not used, but still has to have 182 things because of zip's.
                 vec![2; 182],
                 vec![0, 1],
                 winter_trace.clone(),
                 winter_trace.get_info(),
-                1,
             );
 
             let trace =

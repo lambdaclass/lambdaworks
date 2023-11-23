@@ -5,3 +5,4 @@ pub mod fibonacci_periodic_cols;
 pub mod fibonacci_rap;
 pub mod quadratic_air;
 pub mod simple_fibonacci;
+pub mod simple_periodic_cols;
