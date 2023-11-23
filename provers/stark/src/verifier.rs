@@ -249,8 +249,15 @@ pub trait IsStarkVerifier {
                 .map(|((num, den), beta)| num * den * beta)
                 .fold(FieldElement::<Self::Field>::zero(), |acc, x| acc + x);
 
+        let periodic_values = air
+            .get_periodic_column_polynomials()
+            .iter()
+            .map(|poly| poly.evaluate(&challenges.z))
+            .collect::<Vec<FieldElement<Self::Field>>>();
+
         let transition_ood_frame_evaluations = air.compute_transition(
             &(proof.trace_ood_evaluations).into_frame(A::STEP_SIZE),
+            &periodic_values,
             &challenges.rap_challenges,
         );
 
@@ -269,10 +276,9 @@ pub trait IsStarkVerifier {
         let unity = &FieldElement::one();
         let transition_c_i_evaluations_sum = transition_ood_frame_evaluations
             .iter()
-            .zip(&air.context().transition_degrees)
             .zip(&air.context().transition_exemptions)
             .zip(&challenges.transition_coeffs)
-            .fold(FieldElement::zero(), |acc, (((eval, _), except), beta)| {
+            .fold(FieldElement::zero(), |acc, ((eval, except), beta)| {
                 let except = except
                     .checked_sub(1)
                     .map(|i| &exemption[i])

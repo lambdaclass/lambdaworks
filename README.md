@@ -42,7 +42,7 @@ List of symbols:
 | STARK Prover | :heavy_check_mark: | :x:      |     | :x:   |             |
 | CAIRO Prover | 🏗️           | :x:      |     | :x:   |             |
 | **SNARKs**  |**Lambdaworks** | **Arkworks** | **Halo2** | **gnark** | **Constantine** |
-| Groth16 | :x:         | :heavy_check_mark: |     | :heavy_check_mark: |             |
+| Groth16 | 🏗️          | :heavy_check_mark: |     | :heavy_check_mark: |             |
 | Plonk   | 🏗️          | :x:                | ✔️    | :heavy_check_mark: |             |
 | Spartan | :x:         | :heavy_check_mark: |     |                    |             |
 | Marlin  | :x:         | :heavy_check_mark: |     |                    |             |
@@ -70,6 +70,7 @@ So, we decided to build our library, focusing on performance, with clear documen
 - [Crypto primitives](https://github.com/lambdaclass/lambdaworks/tree/main/crypto)
 - [Plonk Prover](https://github.com/lambdaclass/lambdaworks/tree/main/provers/plonk)
 - [Cairo Prover](https://github.com/lambdaclass/lambdaworks/tree/main/provers/cairo)
+- [Groth 16](https://github.com/lambdaclass/lambdaworks/tree/main/provers/groth16)
 
 If you are interested in proving Cairo programs, use the Cairo Prover CLI. 
 
