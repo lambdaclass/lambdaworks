@@ -53,9 +53,9 @@ where
         r: Vec<FieldElement<F>>,
     ) -> MultilinearPolynomial<F> {
         let current_poly = poly.partial_evaluate(&(0..round).zip(r).collect::<Vec<_>>());
-        (0..2u64.pow((poly.n_vars - round - 1) as u32))
-            .into_iter()
-            .fold(MultilinearPolynomial::new(vec![]), |mut acc, value| {
+        (0..2u64.pow((poly.n_vars - round - 1) as u32)).fold(
+            MultilinearPolynomial::new(vec![]),
+            |mut acc, value| {
                 let assign = (0..current_poly.n_vars - round - 1)
                     .fold(
                         (Vec::new(), value),
@@ -73,7 +73,8 @@ where
                 // creates a new polynomial from the assignments
                 acc.add(current_poly.partial_evaluate(&var_assignments));
                 acc
-            })
+            },
+        )
     }
 
     #[allow(dead_code)]
@@ -143,7 +144,7 @@ where
                 return false;
             }
 
-            add_poly_to_transcript(&poly, &mut transcript);
+            add_poly_to_transcript(poly, &mut transcript);
 
             // update the claimed sum, by evaluating at sampled challenge
             let challenge_bytes = transcript.challenge();
