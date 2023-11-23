@@ -89,12 +89,10 @@ where
 
         let lambda_context = stark_platinum_prover::context::AirContext {
             proof_options: lambda_proof_options.clone(),
-            transition_degrees: pub_inputs.transition_degrees.to_owned(),
             transition_exemptions: pub_inputs.transition_exemptions.to_owned(),
             transition_offsets: pub_inputs.transition_offsets.to_owned(),
             num_transition_constraints: winterfell_context.num_transition_constraints(),
             trace_columns: pub_inputs.trace_info.width(),
-            num_transition_exemptions: winterfell_context.num_transition_exemptions(),
         };
 
         Self {
@@ -158,6 +156,7 @@ where
     fn compute_transition(
         &self,
         frame: &stark_platinum_prover::frame::Frame<Self::Field>,
+        _periodic_values: &[FieldElement<Self::Field>],
         rap_challenges: &Self::RAPChallenges,
     ) -> Vec<FieldElement<Self::Field>> {
         let num_aux_columns = self.number_auxiliary_rap_columns();
@@ -278,7 +277,6 @@ mod tests {
         );
         let pub_inputs = AirAdapterPublicInputs {
             winterfell_public_inputs: AdapterFieldElement(trace.columns()[1][7]),
-            transition_degrees: vec![1, 1],
             transition_exemptions: vec![1, 1],
             transition_offsets: vec![0, 1],
             composition_poly_degree_bound: 8,
@@ -311,7 +309,6 @@ mod tests {
         let fibonacci_result = trace.columns()[1][15];
         let pub_inputs = AirAdapterPublicInputs {
             winterfell_public_inputs: AdapterFieldElement(fibonacci_result),
-            transition_degrees: vec![1, 1, 2],
             transition_exemptions: vec![1, 1, 1],
             transition_offsets: vec![0, 1],
             composition_poly_degree_bound: 32,
