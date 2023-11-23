@@ -109,14 +109,15 @@ mod tests {
     #[cfg(all(feature = "std", not(feature = "instruments")))]
     mod test_babybear_31_fft {
         use super::*;
+        #[cfg(not(any(feature = "metal",feature = "cuda")))]
         use crate::fft::cpu::roots_of_unity::{
             get_powers_of_primitive_root, get_powers_of_primitive_root_coset,
         };
+        #[cfg(not(any(feature = "metal",feature = "cuda")))]
         use crate::fft::polynomial::FFTPoly;
-        use crate::field::{
-            element::FieldElement,
-            traits::{IsFFTField, RootsConfig},
-        };
+        use crate::field::element::FieldElement;
+        #[cfg(not(any(feature = "metal",feature = "cuda")))]
+        use crate::field::traits::{IsFFTField, RootsConfig};
         use crate::polynomial::Polynomial;
         use proptest::{collection, prelude::*, std_facade::Vec};
 
