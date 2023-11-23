@@ -130,8 +130,8 @@ impl<B: StarkField> Trace for RapTraceTable<B> {
     }
 }
 
-impl FromColumns<Felt> for RapTraceTable<Felt> {
-    fn from_cols(columns: Vec<Vec<Felt>>) -> Self {
+impl FromColumns<Felt, ()> for RapTraceTable<Felt> {
+    fn from_cols(columns: Vec<Vec<Felt>>, _: &()) -> Self {
         RapTraceTable::init(columns)
     }
 }

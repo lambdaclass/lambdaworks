@@ -14,12 +14,12 @@ use winter_prover::{ColMatrix, Trace, TraceTable};
 
 use super::public_inputs::AirAdapterPublicInputs;
 
-pub trait FromColumns<A> {
-    fn from_cols(columns: Vec<Vec<A>>) -> Self;
+pub trait FromColumns<A, M> {
+    fn from_cols(columns: Vec<Vec<A>>, metadata: &M) -> Self;
 }
 
-impl FromColumns<Felt> for TraceTable<Felt> {
-    fn from_cols(columns: Vec<Vec<Felt>>) -> Self {
+impl FromColumns<Felt, ()> for TraceTable<Felt> {
+    fn from_cols(columns: Vec<Vec<Felt>>, _: &()) -> Self {
         TraceTable::init(columns)
     }
 }
@@ -488,7 +488,7 @@ mod tests {
             winterfell_public_inputs: fibonacci_result.value().clone(),
             transition_exemptions: vec![1, 1, 1],
             transition_offsets: vec![0, 1],
-            trace: RapTraceTable::from_cols(matrix_lambda2winter(&trace.columns())),
+            trace: RapTraceTable::from_cols(matrix_lambda2winter(&trace.columns()), &()),
             trace_info,
         };
 
