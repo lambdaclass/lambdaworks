@@ -1,12 +1,11 @@
-use std::ops::Range;
-
-use stark_platinum_prover::proof::options::ProofOptions;
-
 use crate::{
     air::{generate_cairo_proof, verify_cairo_proof},
     cairo_layout::CairoLayout,
     runner::run::generate_prover_args,
+    runner::run::generate_prover_args_from_trace,
 };
+use stark_platinum_prover::proof::options::ProofOptions;
+use std::time::Instant;
 
 pub fn cairo0_program_path(program_name: &str) -> String {
     const CARGO_DIR: &str = env!("CARGO_MANIFEST_DIR");
@@ -23,17 +22,28 @@ pub fn cairo1_program_path(program_name: &str) -> String {
 }
 
 /// Loads the program in path, runs it with the Cairo VM, and makes a proof of it
-pub fn test_prove_cairo_program(
-    file_path: &str,
-    output_range: &Option<Range<u64>>,
-    layout: CairoLayout,
-) {
+pub fn test_prove_cairo_program(file_path: &str, layout: CairoLayout) {
     let proof_options = ProofOptions::default_test_options();
+    let timer = Instant::now();
+    println!("Making proof ...");
 
     let program_content = std::fs::read(file_path).unwrap();
-    let (main_trace, pub_inputs) =
-        generate_prover_args(&program_content, output_range, layout).unwrap();
+    let (main_trace, pub_inputs) = generate_prover_args(&program_content, layout).unwrap();
     let proof = generate_cairo_proof(&main_trace, &pub_inputs, &proof_options).unwrap();
+    println!("  Time spent in proving: {:?} \n", timer.elapsed());
 
+    assert!(verify_cairo_proof(&proof, &pub_inputs, &proof_options));
+}
+
+pub fn test_prove_cairo_program_from_trace(trace_bin_path: &str, memory_bin_path: &str) {
+    let proof_options = ProofOptions::default_test_options();
+    let (main_trace, pub_inputs) =
+        generate_prover_args_from_trace(trace_bin_path, memory_bin_path).unwrap();
+
+    // println
+    let timer = Instant::now();
+    println!("Making proof ...");
+    let proof = generate_cairo_proof(&main_trace, &pub_inputs, &proof_options).unwrap();
+    println!("  Time spent in proving: {:?} \n", timer.elapsed());
     assert!(verify_cairo_proof(&proof, &pub_inputs, &proof_options));
 }

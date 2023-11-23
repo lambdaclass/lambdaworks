@@ -8,6 +8,6 @@ use crate::config::Commitment;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct FriDecommitment<F: IsPrimeField> {
-    pub layers_auth_paths_sym: Vec<Proof<Commitment>>,
+    pub layers_auth_paths: Vec<Proof<Commitment>>,
     pub layers_evaluations_sym: Vec<FieldElement<F>>,
 }
