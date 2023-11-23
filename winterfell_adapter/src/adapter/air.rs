@@ -1,14 +1,19 @@
-use crate::utils::{matrix_winter2lambda, vec_lambda2winter, vec_winter2lambda};
+use crate::utils::{
+    matrix_lambda2winter, matrix_winter2lambda, vec_lambda2winter, vec_winter2lambda,
+};
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::{IsFFTField, IsField};
 use lambdaworks_math::traits::ByteConversion;
-use miden_core::Felt;
+use miden_core::{Felt, ProgramInfo, StackOutputs};
+use miden_processor::{AuxTraceHints, ExecutionTrace, TraceLenSummary};
 use stark_platinum_prover::{
     constraints::boundary::{BoundaryConstraint, BoundaryConstraints},
     traits::AIR,
 };
 use std::marker::PhantomData;
-use winter_air::{Air, AuxTraceRandElements, EvaluationFrame, FieldExtension, ProofOptions};
+use winter_air::{
+    Air, AuxTraceRandElements, EvaluationFrame, FieldExtension, ProofOptions, TraceLayout,
+};
 use winter_math::{FieldElement as IsWinterfellFieldElement, StarkField};
 use winter_prover::{ColMatrix, Trace, TraceTable};
 
@@ -25,20 +30,58 @@ impl FromColumns<Felt, ()> for TraceTable<Felt> {
 }
 
 #[derive(Clone)]
-pub struct AirAdapter<A, T, FE>
+pub struct ExecutionTraceMetadata {
+    meta: Vec<u8>,
+    layout: TraceLayout,
+    aux_trace_hints: AuxTraceHints,
+    program_info: ProgramInfo,
+    stack_outputs: StackOutputs,
+    trace_len_summary: TraceLenSummary,
+}
+
+impl From<ExecutionTrace> for ExecutionTraceMetadata {
+    fn from(value: ExecutionTrace) -> Self {
+        Self {
+            meta: value.meta,
+            layout: value.layout,
+            aux_trace_hints: value.aux_trace_hints,
+            program_info: value.program_info,
+            stack_outputs: value.stack_outputs,
+            trace_len_summary: value.trace_len_summary,
+        }
+    }
+}
+
+impl FromColumns<Felt, ExecutionTraceMetadata> for ExecutionTrace {
+    fn from_cols(columns: Vec<Vec<Felt>>, metadata: &ExecutionTraceMetadata) -> Self {
+        ExecutionTrace {
+            meta: metadata.meta.clone(),
+            layout: metadata.layout.clone(),
+            main_trace: ColMatrix::new(columns),
+            aux_trace_hints: metadata.aux_trace_hints.clone(),
+            program_info: metadata.program_info.clone(),
+            stack_outputs: metadata.stack_outputs.clone(),
+            trace_len_summary: metadata.trace_len_summary.clone(),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct AirAdapter<A, T, FE, M>
 where
     FE: IsWinterfellFieldElement + StarkField + ByteConversion + Unpin + IsFFTField,
     A: Air<BaseField = FE>,
     A::PublicInputs: Clone,
-    T: Trace<BaseField = FE> + Clone, //+ FromColumns<FE>,
+    T: Trace<BaseField = FE> + Clone + FromColumns<FE, M>,
+    M: Clone,
 {
     winterfell_air: A,
-    public_inputs: AirAdapterPublicInputs<A, T, FE>,
+    public_inputs: AirAdapterPublicInputs<A, M>,
     air_context: stark_platinum_prover::context::AirContext,
     phantom: PhantomData<T>,
 }
 
-impl<A, T, FE> AirAdapter<A, T, FE>
+impl<A, T, FE, M> AirAdapter<A, T, FE, M>
 where
     FE: IsWinterfellFieldElement
         + StarkField
@@ -48,7 +91,8 @@ where
         + IsField<BaseType = FE>,
     A: Air<BaseField = FE> + Clone,
     A::PublicInputs: Clone,
-    T: Trace<BaseField = FE> + Clone, //+ FromColumns<FE>,
+    T: Trace<BaseField = FE> + Clone + FromColumns<FE, M>,
+    M: Clone,
 {
     pub fn convert_winterfell_trace_table(
         trace: ColMatrix<FE>,
@@ -62,7 +106,7 @@ where
     }
 }
 
-impl<A, T, FE> AIR for AirAdapter<A, T, FE>
+impl<A, T, FE, M> AIR for AirAdapter<A, T, FE, M>
 where
     FE: IsWinterfellFieldElement
         + StarkField
@@ -72,11 +116,12 @@ where
         + IsField<BaseType = FE>,
     A: Air<BaseField = FE> + Clone,
     A::PublicInputs: Clone,
-    T: Trace<BaseField = FE> + Clone, //+ FromColumns<FE>,
+    T: Trace<BaseField = FE> + Clone + FromColumns<FE, M>,
+    M: Clone,
 {
     type Field = FE;
     type RAPChallenges = Vec<FE>;
-    type PublicInputs = AirAdapterPublicInputs<A, T, FE>;
+    type PublicInputs = AirAdapterPublicInputs<A, M>;
     const STEP_SIZE: usize = 1;
 
     fn new(
@@ -118,17 +163,20 @@ where
 
     fn build_auxiliary_trace(
         &self,
-        _main_trace: &stark_platinum_prover::trace::TraceTable<Self::Field>,
+        main_trace: &stark_platinum_prover::trace::TraceTable<Self::Field>,
         rap_challenges: &Self::RAPChallenges,
     ) -> stark_platinum_prover::trace::TraceTable<Self::Field> {
         // We support at most a one-stage RAP. This covers most use cases.
-        //if let Some(winter_trace) = T::from_cols(matrix_lambda2winter(&main_trace.columns()))
-        //    .build_aux_segment(&[], rap_challenges)
-        if let Some(winter_trace) = self
-            .pub_inputs()
-            .clone()
-            .trace
-            .build_aux_segment(&[], rap_challenges)
+        if let Some(winter_trace) = T::from_cols(
+            matrix_lambda2winter(&main_trace.columns()),
+            &self.pub_inputs().metadata,
+        )
+        .build_aux_segment(&[], rap_challenges)
+        // if let Some(winter_trace) = self
+        //     .pub_inputs()
+        //     .clone()
+        //     .trace
+        //     .build_aux_segment(&[], rap_challenges)
         {
             let mut columns = Vec::new();
             for i in 0..winter_trace.num_cols() {
@@ -335,16 +383,16 @@ mod tests {
             winterfell_public_inputs: pub_inputs,
             transition_exemptions: vec![2; 182],
             transition_offsets: vec![0, 1],
-            trace: winter_trace.clone(),
             trace_info: winter_trace.get_info(),
+            metadata: winter_trace.clone().into(),
         };
 
         let trace =
-            AirAdapter::<FibAir2Terms, ExecutionTrace, Felt>::convert_winterfell_trace_table(
+            AirAdapter::<FibAir2Terms, ExecutionTrace, Felt, _>::convert_winterfell_trace_table(
                 winter_trace.main_segment().clone(),
             );
 
-        let proof = MidenProver::prove::<AirAdapter<ProcessorAir, ExecutionTrace, Felt>>(
+        let proof = MidenProver::prove::<AirAdapter<ProcessorAir, ExecutionTrace, Felt, _>>(
             &trace,
             &pub_inputs,
             &lambda_proof_options,
@@ -353,7 +401,7 @@ mod tests {
         .unwrap();
 
         assert!(MidenVerifier::verify::<
-            AirAdapter<ProcessorAir, ExecutionTrace, Felt>,
+            AirAdapter<ProcessorAir, ExecutionTrace, Felt, _>,
         >(
             &proof,
             &pub_inputs,
@@ -413,16 +461,16 @@ mod tests {
             winterfell_public_inputs: pub_inputs,
             transition_exemptions: vec![2; 182],
             transition_offsets: vec![0, 1],
-            trace: winter_trace.clone(),
             trace_info: winter_trace.get_info(),
+            metadata: winter_trace.clone().into(),
         };
 
         let trace =
-            AirAdapter::<ProcessorAir, ExecutionTrace, Felt>::convert_winterfell_trace_table(
+            AirAdapter::<ProcessorAir, ExecutionTrace, Felt, _>::convert_winterfell_trace_table(
                 winter_trace.main_segment().clone(),
             );
 
-        let proof = MidenProver::prove::<AirAdapter<ProcessorAir, ExecutionTrace, Felt>>(
+        let proof = MidenProver::prove::<AirAdapter<ProcessorAir, ExecutionTrace, Felt, _>>(
             &trace,
             &pub_inputs,
             &lambda_proof_options,
@@ -431,7 +479,7 @@ mod tests {
         .unwrap();
 
         assert!(MidenVerifier::verify::<
-            AirAdapter<ProcessorAir, ExecutionTrace, Felt>,
+            AirAdapter<ProcessorAir, ExecutionTrace, Felt, _>,
         >(
             &proof,
             &pub_inputs,
@@ -444,18 +492,19 @@ mod tests {
     fn prove_and_verify_a_winterfell_fibonacci_2_terms_air() {
         let lambda_proof_options = ProofOptions::default_test_options();
         let winter_trace = fibonacci_2_terms::build_trace(16);
-        let trace = AirAdapter::<FibAir2Terms, TraceTable<_>, Felt>::convert_winterfell_trace_table(
-            winter_trace.main_segment().clone(),
-        );
+        let trace =
+            AirAdapter::<FibAir2Terms, TraceTable<_>, Felt, ()>::convert_winterfell_trace_table(
+                winter_trace.main_segment().clone(),
+            );
         let pub_inputs = AirAdapterPublicInputs {
             winterfell_public_inputs: trace.columns()[1][7].value().clone(),
             transition_exemptions: vec![1, 1],
             transition_offsets: vec![0, 1],
-            trace: winter_trace,
             trace_info: TraceInfo::new(2, 8),
+            metadata: (),
         };
 
-        let proof = MidenProver::prove::<AirAdapter<FibAir2Terms, TraceTable<_>, Felt>>(
+        let proof = MidenProver::prove::<AirAdapter<FibAir2Terms, TraceTable<_>, Felt, _>>(
             &trace,
             &pub_inputs,
             &lambda_proof_options,
@@ -464,7 +513,7 @@ mod tests {
         .unwrap();
 
         assert!(MidenVerifier::verify::<
-            AirAdapter<FibAir2Terms, TraceTable<_>, Felt>,
+            AirAdapter<FibAir2Terms, TraceTable<_>, Felt, _>,
         >(
             &proof,
             &pub_inputs,
@@ -478,21 +527,21 @@ mod tests {
         let lambda_proof_options = ProofOptions::default_test_options();
         let winter_trace = fibonacci_rap::build_trace(16);
         let trace =
-            AirAdapter::<FibonacciRAP, RapTraceTable<_>, Felt>::convert_winterfell_trace_table(
+            AirAdapter::<FibonacciRAP, RapTraceTable<_>, Felt, ()>::convert_winterfell_trace_table(
                 winter_trace.main_segment().clone(),
             );
         let trace_layout = TraceLayout::new(3, [1], [1]);
         let trace_info = TraceInfo::new_multi_segment(trace_layout, 16, vec![]);
         let fibonacci_result = trace.columns()[1][15];
-        let pub_inputs = AirAdapterPublicInputs::<FibonacciRAP, RapTraceTable<_>, Felt> {
+        let pub_inputs = AirAdapterPublicInputs::<FibonacciRAP, _> {
             winterfell_public_inputs: fibonacci_result.value().clone(),
             transition_exemptions: vec![1, 1, 1],
             transition_offsets: vec![0, 1],
-            trace: RapTraceTable::from_cols(matrix_lambda2winter(&trace.columns()), &()),
             trace_info,
+            metadata: (),
         };
 
-        let proof = MidenProver::prove::<AirAdapter<FibonacciRAP, RapTraceTable<_>, Felt>>(
+        let proof = MidenProver::prove::<AirAdapter<FibonacciRAP, RapTraceTable<_>, Felt, _>>(
             &trace,
             &pub_inputs,
             &lambda_proof_options,
@@ -500,7 +549,7 @@ mod tests {
         )
         .unwrap();
         assert!(MidenVerifier::verify::<
-            AirAdapter<FibonacciRAP, RapTraceTable<_>, Felt>,
+            AirAdapter<FibonacciRAP, RapTraceTable<_>, Felt, _>,
         >(
             &proof,
             &pub_inputs,
@@ -513,18 +562,18 @@ mod tests {
     fn prove_and_verify_a_winterfell_cubic_air() {
         let lambda_proof_options = ProofOptions::default_test_options();
         let winter_trace = cubic::build_trace(16);
-        let trace = AirAdapter::<Cubic, TraceTable<_>, Felt>::convert_winterfell_trace_table(
+        let trace = AirAdapter::<Cubic, TraceTable<_>, Felt, ()>::convert_winterfell_trace_table(
             winter_trace.main_segment().clone(),
         );
         let pub_inputs = AirAdapterPublicInputs {
             winterfell_public_inputs: trace.columns()[0][15].value().clone(),
             transition_exemptions: vec![1],
             transition_offsets: vec![0, 1],
-            trace: winter_trace,
             trace_info: TraceInfo::new(1, 16),
+            metadata: (),
         };
 
-        let proof = MidenProver::prove::<AirAdapter<Cubic, TraceTable<_>, Felt>>(
+        let proof = MidenProver::prove::<AirAdapter<Cubic, TraceTable<_>, Felt, _>>(
             &trace,
             &pub_inputs,
             &lambda_proof_options,
@@ -532,7 +581,7 @@ mod tests {
         )
         .unwrap();
         assert!(MidenVerifier::verify::<
-            AirAdapter<Cubic, TraceTable<_>, Felt>,
+            AirAdapter<Cubic, TraceTable<_>, Felt, _>,
         >(
             &proof,
             &pub_inputs,

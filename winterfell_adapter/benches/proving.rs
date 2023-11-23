@@ -12,7 +12,7 @@ use stark_platinum_prover::{proof::options::ProofOptions, prover::IsStarkProver}
 use winter_air::FieldExtension;
 use winter_math::{FieldElement, StarkField};
 use winter_prover::Trace;
-use winterfell_adapter::adapter::air::AirAdapter;
+use winterfell_adapter::adapter::air::{AirAdapter, ExecutionTraceMetadata};
 use winterfell_adapter::adapter::public_inputs::AirAdapterPublicInputs;
 
 struct BenchInstance {
@@ -86,7 +86,7 @@ pub fn bench_prove_miden_fibonacci(c: &mut Criterion) {
 
             let program_info = winter_trace.program_info().clone();
             let stack_outputs = winter_trace.stack_outputs().clone();
-            let pub_inputs = AirAdapterPublicInputs::<ProcessorAir, ExecutionTrace, Felt>::new(
+            let pub_inputs = AirAdapterPublicInputs::<ProcessorAir, ExecutionTraceMetadata>::new(
                 PublicInputs::new(
                     program_info,
                     instance.stack_inputs.clone(),
@@ -94,17 +94,17 @@ pub fn bench_prove_miden_fibonacci(c: &mut Criterion) {
                 ),
                 vec![2; 182],
                 vec![0, 1],
-                winter_trace.clone(),
                 winter_trace.get_info(),
+                winter_trace.clone().into(),
             );
 
             let trace =
-                AirAdapter::<ProcessorAir, ExecutionTrace, Felt>::convert_winterfell_trace_table(
+                AirAdapter::<ProcessorAir, ExecutionTrace, Felt, _>::convert_winterfell_trace_table(
                     winter_trace.main_segment().clone(),
                 );
 
             let proof = black_box(
-                MidenProver::prove::<AirAdapter<ProcessorAir, ExecutionTrace, Felt>>(
+                MidenProver::prove::<AirAdapter<ProcessorAir, ExecutionTrace, Felt, _>>(
                     &trace,
                     &pub_inputs,
                     &instance.lambda_proof_options,
