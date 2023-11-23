@@ -54,7 +54,7 @@ where
     ) -> MultilinearPolynomial<F> {
         let current_poly = poly.partial_evaluate(&(0..round).zip(r).collect::<Vec<_>>());
         (0..2u64.pow((poly.n_vars - round - 1) as u32)).fold(
-            MultilinearPolynomial::new(vec![]),
+            MultilinearPolynomial::new(poly.n_vars, vec![]),
             |mut acc, value| {
                 let assign = (0..current_poly.n_vars - round - 1)
                     .fold(
@@ -205,13 +205,14 @@ mod test {
         // p = 2ab + 3bc
         // [a, b, c] = [0, 1, 2]
         // sum over boolean hypercube = 10
-        let p = MultilinearPolynomial::<F>::new(vec![
-            MultiLinearMonomial::new((FE::from(2), vec![0, 1])),
-            MultiLinearMonomial::new((FE::from(3), vec![1, 2])),
-        ]);
+        let p = MultilinearPolynomial::<F>::new(
+            3,
+            vec![
+                MultiLinearMonomial::new((FE::from(2), vec![0, 1])),
+                MultiLinearMonomial::new((FE::from(3), vec![1, 2])),
+            ],
+        );
         let proof = Sumcheck::<F>::prove(p, FE::from(10));
-        dbg!(&proof);
-        println!();
         assert_eq!(proof.uni_polys.len(), 3);
         assert!(Sumcheck::verify(proof));
     }

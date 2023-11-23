@@ -7,7 +7,7 @@ use std::fmt::Display;
 
 /// Represents a multilinear polynomials as a collection of multilinear monomials
 // TODO: add checks to track the max degree and number of variables.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Default)]
 pub struct MultilinearPolynomial<F: IsPrimeField>
 where
     <F as IsField>::BaseType: Send + Sync,
@@ -39,7 +39,8 @@ where
 {
     /// Build a new multilinear polynomial, from collection of multilinear monomials
     #[allow(dead_code)]
-    pub fn new(terms: Vec<MultiLinearMonomial<F>>) -> Self {
+    pub fn new(n_vars: usize, terms: Vec<MultiLinearMonomial<F>>) -> Self {
+        /*
         if !terms.is_empty() {
             let n = terms.iter().fold(
                 0,
@@ -51,11 +52,8 @@ where
             } //we add +1 because variables indices start from 0
               // if terms is empty, we create an empty polynomial with 0 variables
         } else {
-            Self {
-                terms: Vec::<MultiLinearMonomial<F>>::new(),
-                n_vars: 0,
-            }
-        }
+        */
+        Self { terms, n_vars }
     }
 
     /// Evaluates `self` at the point `p`.
@@ -82,7 +80,13 @@ where
             .iter()
             .map(|term| term.partial_evaluate(assignments))
             .collect();
-        Self::new(updated_monomials)
+        let mut n_vars =
+            updated_monomials.iter().fold(
+                0,
+                |acc, m| if m.max_var() > acc { m.max_var() } else { acc },
+            );
+        n_vars = if n_vars == 0 { 0 } else { n_vars + 1 };
+        Self::new(n_vars, updated_monomials)
     }
 
     /// Adds a polynomial
@@ -133,57 +137,78 @@ mod tests {
     #[test]
     fn test_add() {
         // polynomial 3t_1t_2 + 4t_2t_3
-        let mut poly1 = MultilinearPolynomial::new(vec![
-            MultiLinearMonomial::new((FE::new(3), vec![1, 2])),
-            MultiLinearMonomial::new((FE::new(4), vec![2, 3])),
-        ]);
+        let mut poly1 = MultilinearPolynomial::new(
+            3,
+            vec![
+                MultiLinearMonomial::new((FE::new(3), vec![1, 2])),
+                MultiLinearMonomial::new((FE::new(4), vec![2, 3])),
+            ],
+        );
 
         // polynomial 2t_1t_2 - 4t_2t_3
-        let poly2 = MultilinearPolynomial::new(vec![
-            MultiLinearMonomial::new((FE::new(2), vec![1, 2])),
-            MultiLinearMonomial::new((-FE::new(4), vec![2, 3])),
-        ]);
+        let poly2 = MultilinearPolynomial::new(
+            3,
+            vec![
+                MultiLinearMonomial::new((FE::new(2), vec![1, 2])),
+                MultiLinearMonomial::new((-FE::new(4), vec![2, 3])),
+            ],
+        );
 
         // polynomial 5t_1t_2 + 6t_2t_3
-        let expected = MultilinearPolynomial::new(vec![
-            MultiLinearMonomial::new((FE::new(5), vec![1, 2])),
-            MultiLinearMonomial::new((FE::new(0), vec![2, 3])),
-        ]);
+        let expected = MultilinearPolynomial::new(
+            3,
+            vec![
+                MultiLinearMonomial::new((FE::new(5), vec![1, 2])),
+                MultiLinearMonomial::new((FE::new(0), vec![2, 3])),
+            ],
+        );
 
         poly1.add(poly2);
         assert_eq!(poly1, expected);
 
         // polynomial 2t_1t_2 - 4t_2t_3
-        let poly2 = MultilinearPolynomial::new(vec![
-            MultiLinearMonomial::new((FE::new(2), vec![1, 2])),
-            MultiLinearMonomial::new((-FE::new(4), vec![2, 3])),
-        ]);
-        let mut poly_empty = MultilinearPolynomial::<F>::new(vec![]);
+        let poly2 = MultilinearPolynomial::new(
+            3,
+            vec![
+                MultiLinearMonomial::new((FE::new(2), vec![1, 2])),
+                MultiLinearMonomial::new((-FE::new(4), vec![2, 3])),
+            ],
+        );
+        let mut poly_empty = MultilinearPolynomial::<F>::new(3, vec![]);
         poly_empty.add(poly2);
         // polynomial 2t_1t_2 - 4t_2t_3
-        let poly2 = MultilinearPolynomial::new(vec![
-            MultiLinearMonomial::new((FE::new(2), vec![1, 2])),
-            MultiLinearMonomial::new((-FE::new(4), vec![2, 3])),
-        ]);
+        let poly2 = MultilinearPolynomial::new(
+            3,
+            vec![
+                MultiLinearMonomial::new((FE::new(2), vec![1, 2])),
+                MultiLinearMonomial::new((-FE::new(4), vec![2, 3])),
+            ],
+        );
         assert_eq!(poly_empty, poly2);
     }
 
     #[test]
     fn test_add_monomial() {
         // polynomial 3t_1t_2 + 4t_2t_3
-        let mut poly = MultilinearPolynomial::new(vec![
-            MultiLinearMonomial::new((FE::new(3), vec![1, 2])),
-            MultiLinearMonomial::new((FE::new(4), vec![2, 3])),
-        ]);
+        let mut poly = MultilinearPolynomial::new(
+            3,
+            vec![
+                MultiLinearMonomial::new((FE::new(3), vec![1, 2])),
+                MultiLinearMonomial::new((FE::new(4), vec![2, 3])),
+            ],
+        );
 
         // monomial 3t_1t_2
         let mono = MultiLinearMonomial::new((FE::new(3), vec![1, 2]));
 
         // expected result 6t_1t_2 + 4t_2t_3
-        let expected = MultilinearPolynomial::new(vec![
-            MultiLinearMonomial::new((FE::new(6), vec![1, 2])),
-            MultiLinearMonomial::new((FE::new(4), vec![2, 3])),
-        ]);
+        let expected = MultilinearPolynomial::new(
+            3,
+            vec![
+                MultiLinearMonomial::new((FE::new(6), vec![1, 2])),
+                MultiLinearMonomial::new((FE::new(4), vec![2, 3])),
+            ],
+        );
 
         poly.add_monomial(&mono);
         assert_eq!(poly, expected);
@@ -195,10 +220,13 @@ mod tests {
         // partially evaluate b = 2
         // expected result = 6a + 8c
         // a = 0, b = 1, c = 2
-        let poly = MultilinearPolynomial::new(vec![
-            MultiLinearMonomial::new((FE::new(3), vec![0, 1])),
-            MultiLinearMonomial::new((FE::new(4), vec![1, 2])),
-        ]);
+        let poly = MultilinearPolynomial::new(
+            3,
+            vec![
+                MultiLinearMonomial::new((FE::new(3), vec![0, 1])),
+                MultiLinearMonomial::new((FE::new(4), vec![1, 2])),
+            ],
+        );
         assert_eq!(poly.n_vars, 3);
         let result = poly.partial_evaluate(&[(1, FE::new(2))]);
         assert_eq!(
@@ -225,10 +253,13 @@ mod tests {
         // evaluate: a = 1, b = 2, c = 3
         // expected result = 42
         // a = 0, b = 1, c = 2
-        let poly = MultilinearPolynomial::new(vec![
-            MultiLinearMonomial::new((FE::new(3), vec![0, 1, 2])),
-            MultiLinearMonomial::new((FE::new(4), vec![0, 1, 2])),
-        ]);
+        let poly = MultilinearPolynomial::new(
+            3,
+            vec![
+                MultiLinearMonomial::new((FE::new(3), vec![0, 1, 2])),
+                MultiLinearMonomial::new((FE::new(4), vec![0, 1, 2])),
+            ],
+        );
         let result = poly.evaluate(&[FE::one(), FE::new(2), FE::new(3)]);
         assert_eq!(result, FE::new(42));
     }
@@ -239,10 +270,13 @@ mod tests {
         // evaluate: a = 1, b = 2, c = 3
         // expected result = 30
         // a = 0, b = 1, c = 2
-        let poly = MultilinearPolynomial::new(vec![
-            MultiLinearMonomial::new((FE::new(3), vec![0, 1])),
-            MultiLinearMonomial::new((FE::new(4), vec![1, 2])),
-        ]);
+        let poly = MultilinearPolynomial::new(
+            3,
+            vec![
+                MultiLinearMonomial::new((FE::new(3), vec![0, 1])),
+                MultiLinearMonomial::new((FE::new(4), vec![1, 2])),
+            ],
+        );
         let result = poly.evaluate(&[FE::one(), FE::new(2), FE::new(3)]);
         assert_eq!(result, FE::new(30));
     }
@@ -250,14 +284,16 @@ mod tests {
     #[test]
     fn test_variable_reduction() {
         // 3ab + 4bc
-        let poly = MultilinearPolynomial::new(vec![
-            MultiLinearMonomial::new((FE::new(3), vec![0, 1])),
-            MultiLinearMonomial::new((FE::new(4), vec![1, 2])),
-        ]);
+        let poly = MultilinearPolynomial::new(
+            3,
+            vec![
+                MultiLinearMonomial::new((FE::new(3), vec![0, 1])),
+                MultiLinearMonomial::new((FE::new(4), vec![1, 2])),
+            ],
+        );
         assert_eq!(poly.n_vars, 3);
 
         let uni_poly = poly.partial_evaluate(&[(0, FE::one()), (1, FE::one())]);
-        // this fails, says number of variables is 3
         assert_eq!(uni_poly.n_vars, 1);
     }
 }
