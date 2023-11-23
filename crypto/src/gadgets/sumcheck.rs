@@ -46,23 +46,17 @@ where
     /// The variable `round` records the current round and the variable that is currently fixed
     /// This function always fixes the first variable
     /// We assume that the variables in 0..`round` have already been assigned
-    #[warn(dead_code)]
+    #[allow(dead_code)]
     fn fix_and_evaluate_hypercube(
         poly: &MultilinearPolynomial<F>,
         round: usize,
         r: Vec<FieldElement<F>>,
     ) -> MultilinearPolynomial<F> {
-        let current_poly = poly.partial_evaluate(
-            &(0..round)
-                .into_iter()
-                .zip(r.into_iter())
-                .collect::<Vec<_>>(),
-        );
+        let current_poly = poly.partial_evaluate(&(0..round).zip(r).collect::<Vec<_>>());
         (0..2u64.pow((poly.n_vars - round - 1) as u32))
             .into_iter()
             .fold(MultilinearPolynomial::new(vec![]), |mut acc, value| {
                 let assign = (0..current_poly.n_vars - round - 1)
-                    .into_iter()
                     .fold(
                         (Vec::new(), value),
                         |(mut assign_numbers, assign_value), _| {
@@ -73,11 +67,8 @@ where
                     .0;
 
                 // zips the variables to assign and their values
-                let var_assignments: Vec<(usize, FieldElement<F>)> = (round + 1
-                    ..current_poly.n_vars)
-                    .into_iter()
-                    .zip(assign)
-                    .collect();
+                let var_assignments: Vec<(usize, FieldElement<F>)> =
+                    (round + 1..current_poly.n_vars).zip(assign).collect();
 
                 // creates a new polynomial from the assignments
                 acc.add(current_poly.partial_evaluate(&var_assignments));
@@ -85,7 +76,7 @@ where
             })
     }
 
-    #[warn(dead_code)]
+    #[allow(dead_code)]
     fn prove(poly: MultilinearPolynomial<F>, sum: FieldElement<F>) -> SumcheckProof<F>
     where
         <F as IsField>::BaseType: Send + Sync,
@@ -97,7 +88,7 @@ where
 
         //Round 0
         transcript.append(&sum.to_bytes_be());
-        add_poly_to_transcript(&poly, &mut transcript);
+        add_poly_to_transcript(poly, &mut transcript);
 
         let round_poly = Self::fix_and_evaluate_hypercube(&poly, 0, vec![]);
         add_poly_to_transcript(&round_poly, &mut transcript);
@@ -116,15 +107,14 @@ where
             challenges.push(r);
         }
 
-        let proof = SumcheckProof {
+        SumcheckProof {
             poly,
             sum,
             uni_polys,
-        };
-        proof
+        }
     }
 
-    #[warn(dead_code)]
+    #[allow(dead_code)]
     fn verify(proof: SumcheckProof<F>) -> bool
     where
         <F as IsField>::BaseType: Send + Sync,
@@ -170,6 +160,7 @@ where
     }
 }
 
+#[allow(dead_code)]
 fn pad_evaluation_point<F: IsPrimeField>(
     pad_num: usize,
     point: FieldElement<F>,
@@ -180,6 +171,7 @@ fn pad_evaluation_point<F: IsPrimeField>(
 }
 
 /// Add a multilinear polynomial to the transcript
+#[allow(dead_code)]
 pub fn add_poly_to_transcript<F: IsPrimeField>(
     poly: &MultilinearPolynomial<F>,
     transcript: &mut DefaultTranscript,
