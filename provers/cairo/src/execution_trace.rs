@@ -20,6 +20,7 @@ use lambdaworks_math::{
 use stark_platinum_prover::{trace::TraceTable, traits::AIR, Felt252};
 
 type CairoTraceTable = TraceTable<Stark252PrimeField>;
+const CAIRO_STEP: usize = 16;
 
 // MAIN TRACE LAYOUT
 // -----------------------------------------------------------------------------------------
@@ -564,12 +565,51 @@ fn set_offsets(trace: &mut CairoTraceTable, offsets: Vec<(Felt252, Felt252, Felt
     const OFF_OP1_OFFSET: usize = 4;
 
     // NOTE: This should be deleted and use CairoAIR::STEP_SIZE once it is set to 16
-    const CAIRO_STEP: usize = 16;
 
     for (step_idx, (off_dst, off_op0, off_op1)) in offsets.into_iter().enumerate() {
         trace.set(OFF_DST_OFFSET + CAIRO_STEP * step_idx, 0, off_dst);
         trace.set(OFF_OP0_OFFSET + CAIRO_STEP * step_idx, 0, off_op0);
         trace.set(OFF_OP1_OFFSET + CAIRO_STEP * step_idx, 0, off_op1);
+    }
+}
+
+fn set_update_pc(
+    trace: &mut CairoTraceTable,
+    aps: Vec<Felt252>,
+    t0s: Vec<Felt252>,
+    t1s: Vec<Felt252>,
+    mul: Vec<Felt252>,
+    fps: Vec<Felt252>,
+    res: Vec<Felt252>,
+) {
+    const AP_OFFSET: usize = 0;
+    const TMP0_OFFSET: usize = 2;
+    const OPS_MUL_OFFSET: usize = 4;
+    const FP_OFFSET: usize = 8;
+    const TMP1_OFFSET: usize = 10;
+    const RES_OFFSET: usize = 12;
+
+    let lengths = [
+        aps.len(),
+        t0s.len(),
+        t1s.len(),
+        mul.len(),
+        fps.len(),
+        res.len(),
+    ];
+
+    let n = lengths[0];
+    assert!(lengths.iter().all(|l| *l == n));
+
+    for (step_idx, (ap, tmp0, m, fp, tmp1, res)) in
+        itertools::izip!(aps, t0s, mul, fps, t1s, res).enumerate()
+    {
+        trace.set(AP_OFFSET + CAIRO_STEP * step_idx, 5, ap);
+        trace.set(TMP0_OFFSET + CAIRO_STEP * step_idx, 5, tmp0);
+        trace.set(OPS_MUL_OFFSET + CAIRO_STEP * step_idx, 5, m);
+        trace.set(FP_OFFSET + CAIRO_STEP * step_idx, 5, fp);
+        trace.set(TMP1_OFFSET + CAIRO_STEP * step_idx, 5, tmp1);
+        trace.set(RES_OFFSET + CAIRO_STEP * step_idx, 5, res);
     }
 }
 
@@ -772,8 +812,66 @@ mod test {
 
         set_offsets(&mut trace, unbiased_offsets);
 
-        trace.table.columns()[0]
+        trace.table.columns()[0][0..50]
             .iter()
             .for_each(|v| println!("VAL: {}", v));
+    }
+
+    #[test]
+    fn set_update_pc_works() {
+        let program_content = std::fs::read(cairo0_program_path("fibonacci_stone.json")).unwrap();
+        let mut trace: CairoTraceTable = TraceTable::allocate_with_zeros(128, 8, 16);
+        let (register_states, memory, _) =
+            run_program(None, CairoLayout::Plain, &program_content).unwrap();
+
+        let (flags, biased_offsets): (Vec<CairoInstructionFlags>, Vec<InstructionOffsets>) =
+            register_states
+                .flags_and_offsets(&memory)
+                .unwrap()
+                .into_iter()
+                .unzip();
+
+        // dst, op0, op1 and res are computed from flags and offsets
+        let (_dst_addrs, mut dsts): (Vec<Felt252>, Vec<Felt252>) =
+            compute_dst(&flags, &biased_offsets, &register_states, &memory);
+        let (_op0_addrs, mut op0s): (Vec<Felt252>, Vec<Felt252>) =
+            compute_op0(&flags, &biased_offsets, &register_states, &memory);
+        let (_op1_addrs, op1s): (Vec<Felt252>, Vec<Felt252>) =
+            compute_op1(&flags, &biased_offsets, &register_states, &memory, &op0s);
+        let mut res = compute_res(&flags, &op0s, &op1s, &dsts);
+
+        update_values(&flags, &register_states, &mut op0s, &mut dsts, &mut res);
+
+        let aps: Vec<Felt252> = register_states
+            .rows
+            .iter()
+            .map(|t| Felt252::from(t.ap))
+            .collect();
+        let fps: Vec<Felt252> = register_states
+            .rows
+            .iter()
+            .map(|t| Felt252::from(t.fp))
+            .collect();
+
+        let trace_repr_flags: Vec<[Felt252; 16]> = flags
+            .iter()
+            .map(CairoInstructionFlags::to_trace_representation)
+            .collect();
+
+        let two = Felt252::from(2);
+        let t0: Vec<Felt252> = trace_repr_flags
+            .iter()
+            .zip(&dsts)
+            .map(|(repr_flags, dst)| (repr_flags[9] - two * repr_flags[10]) * dst)
+            .collect();
+        let t1: Vec<Felt252> = t0.iter().zip(&res).map(|(t, r)| t * r).collect();
+        let mul: Vec<Felt252> = op0s.iter().zip(&op1s).map(|(op0, op1)| op0 * op1).collect();
+
+        set_update_pc(&mut trace, aps, t0, t1, mul, fps, res);
+
+        trace.table.columns()[5][0..50]
+            .iter()
+            .enumerate()
+            .for_each(|(i, v)| println!("ROW {} - VALUE: {}", i, v));
     }
 }
