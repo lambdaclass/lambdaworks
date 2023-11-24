@@ -573,6 +573,51 @@ fn set_offsets(trace: &mut CairoTraceTable, offsets: Vec<(Felt252, Felt252, Felt
     }
 }
 
+// Column 3
+fn set_mem_pool(
+    trace: &mut CairoTraceTable,
+    pcs: Vec<Felt252>,
+    instructions: Vec<Felt252>,
+    op0_addrs: Vec<Felt252>,
+    op0_vals: Vec<Felt252>,
+    dst_addrs: Vec<Felt252>,
+    dst_vals: Vec<Felt252>,
+    op1_addrs: Vec<Felt252>,
+    op1_vals: Vec<Felt252>,
+) {
+    const PC_OFFSET: usize = 0;
+    const INST_OFFSET: usize = 1;
+    const OP0_ADDR_OFFSET: usize = 4;
+    const OP0_VAL_OFFSET: usize = 5;
+    const DST_ADDR_OFFSET: usize = 8;
+    const DST_VAL_OFFSET: usize = 9;
+    const OP1_ADDR_OFFSET: usize = 12;
+    const OP1_VAL_OFFSET: usize = 13;
+
+    for (step_idx, (pc, inst, op0_addr, op0_val, dst_addr, dst_val, op1_addr, op1_val)) in
+        itertools::izip!(
+            pcs,
+            instructions,
+            op0_addrs,
+            op0_vals,
+            dst_addrs,
+            dst_vals,
+            op1_addrs,
+            op1_vals
+        )
+        .enumerate()
+    {
+        trace.set(PC_OFFSET + CAIRO_STEP * step_idx, 3, pc);
+        trace.set(INST_OFFSET + CAIRO_STEP * step_idx, 3, inst);
+        trace.set(OP0_ADDR_OFFSET + CAIRO_STEP * step_idx, 3, op0_addr);
+        trace.set(OP0_VAL_OFFSET + CAIRO_STEP * step_idx, 3, op0_val);
+        trace.set(DST_ADDR_OFFSET + CAIRO_STEP * step_idx, 3, dst_addr);
+        trace.set(DST_VAL_OFFSET + CAIRO_STEP * step_idx, 3, dst_val);
+        trace.set(OP1_ADDR_OFFSET + CAIRO_STEP * step_idx, 3, op1_addr);
+        trace.set(OP1_VAL_OFFSET + CAIRO_STEP * step_idx, 3, op1_val);
+    }
+}
+
 fn set_update_pc(
     trace: &mut CairoTraceTable,
     aps: Vec<Felt252>,
@@ -588,18 +633,6 @@ fn set_update_pc(
     const FP_OFFSET: usize = 8;
     const TMP1_OFFSET: usize = 10;
     const RES_OFFSET: usize = 12;
-
-    let lengths = [
-        aps.len(),
-        t0s.len(),
-        t1s.len(),
-        mul.len(),
-        fps.len(),
-        res.len(),
-    ];
-
-    let n = lengths[0];
-    assert!(lengths.iter().all(|l| *l == n));
 
     for (step_idx, (ap, tmp0, m, fp, tmp1, res)) in
         itertools::izip!(aps, t0s, mul, fps, t1s, res).enumerate()
@@ -870,6 +903,60 @@ mod test {
         set_update_pc(&mut trace, aps, t0, t1, mul, fps, res);
 
         trace.table.columns()[5][0..50]
+            .iter()
+            .enumerate()
+            .for_each(|(i, v)| println!("ROW {} - VALUE: {}", i, v));
+    }
+
+    #[test]
+    fn set_mem_pool_works() {
+        let program_content = std::fs::read(cairo0_program_path("fibonacci_stone.json")).unwrap();
+        let mut trace: CairoTraceTable = TraceTable::allocate_with_zeros(128, 8, 16);
+        let (register_states, memory, _) =
+            run_program(None, CairoLayout::Plain, &program_content).unwrap();
+
+        let (flags, biased_offsets): (Vec<CairoInstructionFlags>, Vec<InstructionOffsets>) =
+            register_states
+                .flags_and_offsets(&memory)
+                .unwrap()
+                .into_iter()
+                .unzip();
+
+        // dst, op0, op1 and res are computed from flags and offsets
+        let (dst_addrs, mut dsts): (Vec<Felt252>, Vec<Felt252>) =
+            compute_dst(&flags, &biased_offsets, &register_states, &memory);
+        let (op0_addrs, mut op0s): (Vec<Felt252>, Vec<Felt252>) =
+            compute_op0(&flags, &biased_offsets, &register_states, &memory);
+        let (op1_addrs, op1s): (Vec<Felt252>, Vec<Felt252>) =
+            compute_op1(&flags, &biased_offsets, &register_states, &memory, &op0s);
+        let mut res = compute_res(&flags, &op0s, &op1s, &dsts);
+
+        update_values(&flags, &register_states, &mut op0s, &mut dsts, &mut res);
+
+        let pcs: Vec<Felt252> = register_states
+            .rows
+            .iter()
+            .map(|t| Felt252::from(t.pc))
+            .collect();
+        let instructions: Vec<Felt252> = register_states
+            .rows
+            .iter()
+            .map(|t| *memory.get(&t.pc).unwrap())
+            .collect();
+
+        set_mem_pool(
+            &mut trace,
+            pcs,
+            instructions,
+            op0_addrs,
+            op0s,
+            dst_addrs,
+            dsts,
+            op1_addrs,
+            op1s,
+        );
+
+        trace.table.columns()[3][0..50]
             .iter()
             .enumerate()
             .for_each(|(i, v)| println!("ROW {} - VALUE: {}", i, v));
