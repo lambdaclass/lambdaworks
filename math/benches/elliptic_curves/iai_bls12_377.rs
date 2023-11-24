@@ -3,13 +3,12 @@ use lambdaworks_math::{
     cyclic_group::IsGroup,
     elliptic_curve::{
         short_weierstrass::{
-            curves::bls12_377::curve::BLS12377Curve, 
-            point::ShortWeierstrassProjectivePoint
+            curves::bls12_377::curve::BLS12377Curve, point::ShortWeierstrassProjectivePoint,
         },
         traits::IsEllipticCurve,
     },
 };
-use rand::{rngs::StdRng, SeedableRng, Rng};
+use rand::{rngs::StdRng, Rng, SeedableRng};
 type G1 = ShortWeierstrassProjectivePoint<BLS12377Curve>;
 
 pub fn rand_points_g1() -> (G1, G1, u128, u128) {

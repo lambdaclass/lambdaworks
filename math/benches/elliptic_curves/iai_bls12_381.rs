@@ -2,16 +2,19 @@ use criterion::black_box;
 use lambdaworks_math::{
     cyclic_group::IsGroup,
     elliptic_curve::{
-        short_weierstrass::{curves::bls12_381::{
-            compression::{check_point_is_in_subgroup, compress_g1_point, decompress_g1_point},
-            curve::BLS12381Curve,
-            pairing::BLS12381AtePairing,
-            twist::BLS12381TwistCurve,
-        }, point::ShortWeierstrassProjectivePoint},
+        short_weierstrass::{
+            curves::bls12_381::{
+                compression::{check_point_is_in_subgroup, compress_g1_point, decompress_g1_point},
+                curve::BLS12381Curve,
+                pairing::BLS12381AtePairing,
+                twist::BLS12381TwistCurve,
+            },
+            point::ShortWeierstrassProjectivePoint,
+        },
         traits::{IsEllipticCurve, IsPairing},
     },
 };
-use rand::{rngs::StdRng, SeedableRng, Rng};
+use rand::{rngs::StdRng, Rng, SeedableRng};
 type G1 = ShortWeierstrassProjectivePoint<BLS12381Curve>;
 type G2 = ShortWeierstrassProjectivePoint<BLS12381TwistCurve>;
 
@@ -90,7 +93,7 @@ pub fn bls12_381_compress_g1() {
 #[inline(never)]
 pub fn bls12_381_decompress_g1() {
     let (a, _, _, _) = rand_points_g1();
-        let a: [u8; 48] = compress_g1_point(&a).try_into().unwrap();
+    let a: [u8; 48] = compress_g1_point(&a).try_into().unwrap();
     let _ = black_box(decompress_g1_point(&mut black_box(a))).unwrap();
 }
 
@@ -104,8 +107,5 @@ pub fn bls12_381_subgroup_check_g1() {
 pub fn bls12_381_ate_pairing() {
     let (a, _, _, _) = rand_points_g1();
     let (_, b, _, _) = rand_points_g2();
-    black_box(BLS12381AtePairing::compute(
-        black_box(&a),
-        black_box(&b),
-    ));
+    black_box(BLS12381AtePairing::compute(black_box(&a), black_box(&b)));
 }

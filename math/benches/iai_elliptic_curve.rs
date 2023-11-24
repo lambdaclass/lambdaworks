@@ -1,9 +1,6 @@
 mod elliptic_curves;
 
-use elliptic_curves::{
-    iai_bls12_381::*,
-    iai_bls12_377::*,
-};
+use elliptic_curves::{iai_bls12_377::*, iai_bls12_381::*};
 
 iai_callgrind::main!(
     callgrind_args = "toggle-collect=util::*";
