@@ -112,7 +112,7 @@ impl<'t, F: IsFFTField> TraceTable<F> {
     }
 
     pub fn set(&mut self, row: usize, col: usize, value: FieldElement<F>) {
-        self.table.set(row, col, value)
+        self.table.set(row, col, value);
     }
 
     pub fn allocate_with_zeros(

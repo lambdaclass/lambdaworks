@@ -265,7 +265,7 @@ pub fn build_cairo_execution_trace(
     // expected by the TraceTable constructor. A vector of columns of the representations
     // is obtained from the rows representation.
     let trace_repr_flags = rows_to_cols(&trace_repr_flags);
-    let trace_repr_offsets = rows_to_cols(&trace_repr_offsets);
+    // let trace_repr_offsets = rows_to_cols(&unbiased_offsets);
 
     let extra_addrs = vec![Felt252::zero(); n_steps];
     let extra_vals = extra_addrs.clone();
@@ -289,7 +289,7 @@ pub fn build_cairo_execution_trace(
     trace_cols.push(dsts);
     trace_cols.push(op0s);
     trace_cols.push(op1s);
-    (0..trace_repr_offsets.len()).for_each(|n| trace_cols.push(trace_repr_offsets[n].clone()));
+    // (0..trace_repr_offsets.len()).for_each(|n| trace_cols.push(trace_repr_offsets[n].clone()));
     trace_cols.push(t0);
     trace_cols.push(t1);
     trace_cols.push(mul);
@@ -557,26 +557,28 @@ fn decompose_rc_values_into_trace_columns(rc_values: &[&Felt252]) -> [Vec<Felt25
     decomposition_columns.try_into().unwrap()
 }
 
-fn set_offsets(
-    trace: &mut CairoTraceTable,
-    offsets: Vec<(Felt252, Felt252, Felt252)>,
-    num_steps: usize,
-) {
+fn set_offsets(trace: &mut CairoTraceTable, offsets: Vec<(Felt252, Felt252, Felt252)>) {
     // NOTE: We should check that these offsets correspond to the off0, off1 and off2.
     const OFF_DST_OFFSET: usize = 0;
-    const OFF_OP0_OFFSET: usize = 4;
-    const OFF_OP1_OFFSET: usize = 8;
+    const OFF_OP0_OFFSET: usize = 8;
+    const OFF_OP1_OFFSET: usize = 4;
+
+    // NOTE: This should be deleted and use CairoAIR::STEP_SIZE once it is set to 16
+    const CAIRO_STEP: usize = 16;
 
     for (step_idx, (off_dst, off_op0, off_op1)) in offsets.into_iter().enumerate() {
-        trace.set(OFF_DST_OFFSET + CairoAIR::STEP_SIZE * step_idx, 1, off_dst);
-        trace.set(OFF_OP0_OFFSET + CairoAIR::STEP_SIZE * step_idx, 1, off_op0);
-        trace.set(OFF_OP1_OFFSET + CairoAIR::STEP_SIZE * step_idx, 1, off_op1);
+        trace.set(OFF_DST_OFFSET + CAIRO_STEP * step_idx, 0, off_dst);
+        trace.set(OFF_OP0_OFFSET + CAIRO_STEP * step_idx, 0, off_op0);
+        trace.set(OFF_OP1_OFFSET + CAIRO_STEP * step_idx, 0, off_op1);
     }
 }
 
 #[cfg(test)]
 mod test {
-    use crate::layouts::plain::air::EXTRA_VAL;
+    use crate::{
+        cairo_layout::CairoLayout, layouts::plain::air::EXTRA_VAL, runner::run::run_program,
+        tests::utils::cairo0_program_path,
+    };
 
     use super::*;
     use lambdaworks_math::field::element::FieldElement;
@@ -749,8 +751,29 @@ mod test {
         assert_eq!(extra_addr, &memory_holes)
     }
 
-    // #[test]
-    // fn set_offsets_works() {
-    //     let trace = TraceTable::allocate_with_zeros(, num_cols, step_size)
-    // }
+    #[test]
+    fn set_offsets_works() {
+        let program_content = std::fs::read(cairo0_program_path("fibonacci_stone.json")).unwrap();
+        let mut trace: CairoTraceTable = TraceTable::allocate_with_zeros(128, 8, 16);
+        let (register_states, memory, _) =
+            run_program(None, CairoLayout::Plain, &program_content).unwrap();
+
+        let (_, biased_offsets): (Vec<CairoInstructionFlags>, Vec<InstructionOffsets>) =
+            register_states
+                .flags_and_offsets(&memory)
+                .unwrap()
+                .into_iter()
+                .unzip();
+
+        let unbiased_offsets: Vec<(Felt252, Felt252, Felt252)> = biased_offsets
+            .iter()
+            .map(InstructionOffsets::to_trace_representation)
+            .collect();
+
+        set_offsets(&mut trace, unbiased_offsets);
+
+        trace.table.columns()[0]
+            .iter()
+            .for_each(|v| println!("VAL: {}", v));
+    }
 }
