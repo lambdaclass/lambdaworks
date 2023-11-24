@@ -12,7 +12,7 @@ thiserror = { version = "1.0", optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
 serde_json = { version = "1.0", optional = true }
 proptest = { version = "1.1.0", optional = true }
-winter-math = { package = "winter-math", version = "0.6", default-features = false, optional=true }
+winter-math = { git = "https://github.com/lambdaclass/winterfell-for-lambdaworks", revision="c1bdc2d", default-features = false, optional=true }
 miden-core = { git = "https://github.com/lambdaclass/miden-vm", optional=true }
 
 # rayon

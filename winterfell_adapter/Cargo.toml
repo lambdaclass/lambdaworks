@@ -8,10 +8,11 @@ license.workspace = true
 lambdaworks-math = { path = "../math", features=["winter_compatibility"] }
 stark-platinum-prover = { path = "../provers/stark" , features=["winter_compatibility"]}
 rand = "0.8.5"
-winter-air = { package = "winter-air", version = "0.6", default-features = false }
-winter-prover = { package = "winter-prover", version = "0.6", default-features = false }
-winter-math = { package = "winter-math", version = "0.6", default-features = false }
-winter-utils = { package = "winter-utils", version = "0.6", default-features = false }
+
+winter-air = { git = "https://github.com/lambdaclass/winterfell-for-lambdaworks", revision="c1bdc2d", default-features = false }
+winter-prover ={ git = "https://github.com/lambdaclass/winterfell-for-lambdaworks", revision="c1bdc2d", default-features = false } 
+winter-math ={ git = "https://github.com/lambdaclass/winterfell-for-lambdaworks", revision="c1bdc2d", default-features = false } 
+winter-utils ={ git = "https://github.com/lambdaclass/winterfell-for-lambdaworks", revision="c1bdc2d", default-features = false } 
 miden-air = { git="https://github.com/lambdaclass/miden-vm/" }
 miden-core = { git="https://github.com/lambdaclass/miden-vm/" }
 miden-assembly = { git="https://github.com/lambdaclass/miden-vm/" }
