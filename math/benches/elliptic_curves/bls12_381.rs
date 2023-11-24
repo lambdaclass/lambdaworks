@@ -13,6 +13,7 @@ use lambdaworks_math::{
 };
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
+#[allow(dead_code)]
 pub fn bls12_381_elliptic_curve_benchmarks(c: &mut Criterion) {
     let mut rng = StdRng::seed_from_u64(42);
     let a_val: u128 = rng.gen();

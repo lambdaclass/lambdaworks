@@ -14,6 +14,7 @@ iai_callgrind::main!(
     bls12_381_neg_g2,
     bls12_381_compress_g1,
     bls12_381_decompress_g1,
+    bls12_381_subgroup_check_g1,
     bls12_381_ate_pairing,
     bls12_377_operate_with_g1,
     bls12_377_operate_with_self_g1,
