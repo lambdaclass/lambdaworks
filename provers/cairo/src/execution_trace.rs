@@ -20,6 +20,7 @@ use lambdaworks_math::{
 use stark_platinum_prover::{trace::TraceTable, traits::AIR, Felt252};
 
 type CairoTraceTable = TraceTable<Stark252PrimeField>;
+// NOTE: This should be deleted and use CairoAIR::STEP_SIZE once it is set to 16
 const CAIRO_STEP: usize = 16;
 
 // MAIN TRACE LAYOUT
@@ -220,7 +221,7 @@ pub fn build_cairo_execution_trace(
 
     // Flags and offsets are transformed to a bit representation. This is needed since
     // the flag constraints of the Cairo AIR are defined over bit representations of these
-    let trace_repr_flags: Vec<[Felt252; 16]> = flags
+    let bit_prefix_flags: Vec<[Felt252; 16]> = flags
         .iter()
         .map(CairoInstructionFlags::to_trace_representation)
         .collect();
@@ -235,16 +236,19 @@ pub fn build_cairo_execution_trace(
         .iter()
         .map(|t| Felt252::from(t.ap))
         .collect();
+
     let fps: Vec<Felt252> = register_states
         .rows
         .iter()
         .map(|t| Felt252::from(t.fp))
         .collect();
+
     let pcs: Vec<Felt252> = register_states
         .rows
         .iter()
         .map(|t| Felt252::from(t.pc))
         .collect();
+
     let instructions: Vec<Felt252> = register_states
         .rows
         .iter()
@@ -254,7 +258,7 @@ pub fn build_cairo_execution_trace(
     // t0, t1 and mul derived values are constructed. For details reFelt252r to
     // section 9.1 of the Cairo whitepaper
     let two = Felt252::from(2);
-    let t0: Vec<Felt252> = trace_repr_flags
+    let t0: Vec<Felt252> = bit_prefix_flags
         .iter()
         .zip(&dsts)
         .map(|(repr_flags, dst)| (repr_flags[9] - two * repr_flags[10]) * dst)
@@ -265,7 +269,7 @@ pub fn build_cairo_execution_trace(
     // A structure change of the flags and offsets representations to fit into the arguments
     // expected by the TraceTable constructor. A vector of columns of the representations
     // is obtained from the rows representation.
-    let trace_repr_flags = rows_to_cols(&trace_repr_flags);
+    let trace_repr_flags = rows_to_cols(&bit_prefix_flags);
     // let trace_repr_offsets = rows_to_cols(&unbiased_offsets);
 
     let extra_addrs = vec![Felt252::zero(); n_steps];
@@ -558,13 +562,19 @@ fn decompose_rc_values_into_trace_columns(rc_values: &[&Felt252]) -> [Vec<Felt25
     decomposition_columns.try_into().unwrap()
 }
 
+fn set_bit_prefix_flags(trace: &mut CairoTraceTable, bit_prefix_flags: Vec<[Felt252; 16]>) {
+    for (step_idx, flags) in bit_prefix_flags.into_iter().enumerate() {
+        for (flag_idx, flag) in flags.into_iter().enumerate() {
+            trace.set(flag_idx + CAIRO_STEP * step_idx, 1, flag);
+        }
+    }
+}
+
 fn set_offsets(trace: &mut CairoTraceTable, offsets: Vec<(Felt252, Felt252, Felt252)>) {
     // NOTE: We should check that these offsets correspond to the off0, off1 and off2.
     const OFF_DST_OFFSET: usize = 0;
     const OFF_OP0_OFFSET: usize = 8;
     const OFF_OP1_OFFSET: usize = 4;
-
-    // NOTE: This should be deleted and use CairoAIR::STEP_SIZE once it is set to 16
 
     for (step_idx, (off_dst, off_op0, off_op1)) in offsets.into_iter().enumerate() {
         trace.set(OFF_DST_OFFSET + CAIRO_STEP * step_idx, 0, off_dst);
@@ -957,6 +967,33 @@ mod test {
         );
 
         trace.table.columns()[3][0..50]
+            .iter()
+            .enumerate()
+            .for_each(|(i, v)| println!("ROW {} - VALUE: {}", i, v));
+    }
+
+    #[test]
+    fn set_bit_prefix_flags_works() {
+        let program_content = std::fs::read(cairo0_program_path("fibonacci_stone.json")).unwrap();
+        let mut trace: CairoTraceTable = TraceTable::allocate_with_zeros(128, 8, 16);
+        let (register_states, memory, _) =
+            run_program(None, CairoLayout::Plain, &program_content).unwrap();
+
+        let (flags, _biased_offsets): (Vec<CairoInstructionFlags>, Vec<InstructionOffsets>) =
+            register_states
+                .flags_and_offsets(&memory)
+                .unwrap()
+                .into_iter()
+                .unzip();
+
+        let bit_prefix_flags: Vec<[Felt252; 16]> = flags
+            .iter()
+            .map(CairoInstructionFlags::to_trace_representation)
+            .collect();
+
+        set_bit_prefix_flags(&mut trace, bit_prefix_flags);
+
+        trace.table.columns()[1][0..50]
             .iter()
             .enumerate()
             .for_each(|(i, v)| println!("ROW {} - VALUE: {}", i, v));
