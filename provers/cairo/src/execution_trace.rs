@@ -17,25 +17,13 @@ use lambdaworks_math::{
     field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
     unsigned_integer::element::UnsignedInteger,
 };
-use stark_platinum_prover::{trace::TraceTable, traits::AIR, Felt252};
+use stark_platinum_prover::{trace::TraceTable, Felt252};
 
 type CairoTraceTable = TraceTable<Stark252PrimeField>;
 // NOTE: This should be deleted and use CairoAIR::STEP_SIZE once it is set to 16
 const CAIRO_STEP: usize = 16;
 
-// MAIN TRACE LAYOUT
-// -----------------------------------------------------------------------------------------
-//  A.  flags   (16) : Decoded instruction flags
-//  B.  res     (1)  : Res value
-//  C.  mem_p   (2)  : Temporary memory pointers (ap and fp)
-//  D.  mem_a   (4)  : Memory addresses (pc, dst_addr, op0_addr, op1_addr)
-//  E.  mem_v   (4)  : Memory values (inst, dst, op0, op1)
-//  F.  offsets (3)  : (off_dst, off_op0, off_op1)
-//  G.  derived (3)  : (t0, t1, mul)
-//
-//  A                B C  D    E    F   G
-// ├xxxxxxxxxxxxxxxx|x|xx|xxxx|xxxx|xxx|xxx┤
-//
+const PLAIN_LAYOUT_NUM_COLUMNS: usize = 8;
 
 /// Builds the Cairo main trace (i.e. the trace without the auxiliary columns).
 /// Builds the execution trace, fills the offset range-check holes and memory holes, adds
@@ -196,7 +184,7 @@ pub fn build_cairo_execution_trace(
     register_states: &RegisterStates,
     memory: &CairoMemory,
 ) -> CairoTraceTable {
-    let n_steps = register_states.steps();
+    let num_steps = register_states.steps();
 
     // Instruction flags and offsets are decoded from the raw instructions and represented
     // by the CairoInstructionFlags and InstructionOffsets as an intermediate representation
@@ -266,43 +254,25 @@ pub fn build_cairo_execution_trace(
     let t1: Vec<Felt252> = t0.iter().zip(&res).map(|(t, r)| t * r).collect();
     let mul: Vec<Felt252> = op0s.iter().zip(&op1s).map(|(op0, op1)| op0 * op1).collect();
 
-    // A structure change of the flags and offsets representations to fit into the arguments
-    // expected by the TraceTable constructor. A vector of columns of the representations
-    // is obtained from the rows representation.
-    let trace_repr_flags = rows_to_cols(&bit_prefix_flags);
-    // let trace_repr_offsets = rows_to_cols(&unbiased_offsets);
+    let mut trace: CairoTraceTable =
+        TraceTable::allocate_with_zeros(num_steps, PLAIN_LAYOUT_NUM_COLUMNS, CAIRO_STEP);
 
-    let extra_addrs = vec![Felt252::zero(); n_steps];
-    let extra_vals = extra_addrs.clone();
-    let rc_holes = extra_addrs.clone();
+    set_offsets(&mut trace, unbiased_offsets);
+    set_bit_prefix_flags(&mut trace, bit_prefix_flags);
+    set_mem_pool(
+        &mut trace,
+        pcs,
+        instructions,
+        op0_addrs,
+        op0s,
+        dst_addrs,
+        dsts,
+        op1_addrs,
+        op1s,
+    );
+    set_update_pc(&mut trace, aps, t0, t1, mul, fps, res);
 
-    // Build Cairo trace columns to instantiate TraceTable struct as defined in the trace layout
-    let mut trace_cols: Vec<Vec<Felt252>> = Vec::new();
-
-    // Memory allocation for the whole trace
-    let trace_data = vec![0; CairoAIR::STEP_SIZE * n_steps * 8];
-
-    (0..trace_repr_flags.len()).for_each(|n| trace_cols.push(trace_repr_flags[n].clone()));
-    trace_cols.push(res);
-    trace_cols.push(aps);
-    trace_cols.push(fps);
-    trace_cols.push(pcs);
-    trace_cols.push(dst_addrs);
-    trace_cols.push(op0_addrs);
-    trace_cols.push(op1_addrs);
-    trace_cols.push(instructions);
-    trace_cols.push(dsts);
-    trace_cols.push(op0s);
-    trace_cols.push(op1s);
-    // (0..trace_repr_offsets.len()).for_each(|n| trace_cols.push(trace_repr_offsets[n].clone()));
-    trace_cols.push(t0);
-    trace_cols.push(t1);
-    trace_cols.push(mul);
-    trace_cols.push(extra_addrs);
-    trace_cols.push(extra_vals);
-    trace_cols.push(rc_holes);
-
-    TraceTable::from_columns(trace_cols, 1)
+    trace
 }
 
 /// Returns the vector of res values.
@@ -521,20 +491,6 @@ fn update_values(
             res[i] = dst[i];
         }
     }
-}
-
-/// Utility function to change from a rows representation to a columns
-/// representation of a slice of arrays.   
-fn rows_to_cols<const N: usize>(rows: &[[Felt252; N]]) -> Vec<Vec<Felt252>> {
-    let n_cols = rows[0].len();
-
-    (0..n_cols)
-        .map(|col_idx| {
-            rows.iter()
-                .map(|elem| elem[col_idx])
-                .collect::<Vec<Felt252>>()
-        })
-        .collect::<Vec<Vec<Felt252>>>()
 }
 
 // NOTE: Leaving this function despite not being used anywhere. It could be useful once
