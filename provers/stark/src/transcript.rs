@@ -7,6 +7,7 @@ use lambdaworks_math::{
     traits::{ByteConversion, Serializable},
     unsigned_integer::element::U256,
 };
+use miden_core::StarkField;
 use sha3::{Digest, Keccak256};
 
 #[cfg(feature = "winter_compatibility")]
@@ -106,33 +107,6 @@ impl StoneProverTranscript {
     }
 }
 
-pub struct MidenProverTranscript;
-
-impl MidenProverTranscript {
-    pub fn new(_data: &[u8]) -> Self {
-        Self
-    }
-}
-
-#[cfg(feature = "winter_compatibility")]
-impl IsStarkTranscript<Felt> for MidenProverTranscript {
-    fn append_field_element(&mut self, _element: &FieldElement<Felt>) {}
-
-    fn append_bytes(&mut self, _new_bytes: &[u8]) {}
-
-    fn state(&self) -> [u8; 32] {
-        [0; 32]
-    }
-
-    fn sample_field_element(&mut self) -> FieldElement<Felt> {
-        FieldElement::from(4)
-    }
-
-    fn sample_u64(&mut self, _upper_bound: u64) -> u64 {
-        0
-    }
-}
-
 impl IsStarkTranscript<Stark252PrimeField> for StoneProverTranscript {
     fn append_field_element(&mut self, element: &FieldElement<Stark252PrimeField>) {
         let limbs = element.value().limbs;
@@ -177,6 +151,50 @@ impl IsStarkTranscript<Stark252PrimeField> for StoneProverTranscript {
         bytes.copy_from_slice(&self.sample(8));
         let u64_val: u64 = u64::from_be_bytes(bytes);
         u64_val % upper_bound
+    }
+}
+
+pub struct MidenProverTranscript {
+    hasher: Keccak256,
+}
+
+impl MidenProverTranscript {
+    pub fn new(data: &[u8]) -> Self {
+        let mut res = Self {
+            hasher: Keccak256::new(),
+        };
+        res.append_bytes(data);
+        res
+    }
+}
+
+#[cfg(feature = "winter_compatibility")]
+impl IsStarkTranscript<Felt> for MidenProverTranscript {
+    fn append_field_element(&mut self, element: &FieldElement<Felt>) {
+        self.append_bytes(&element.value().to_bytes_be());
+    }
+
+    fn append_bytes(&mut self, new_bytes: &[u8]) {
+        self.hasher.update(&mut new_bytes.clone());
+    }
+
+    fn state(&self) -> [u8; 32] {
+        self.hasher.clone().finalize().into()
+    }
+
+    fn sample_field_element(&mut self) -> FieldElement<Felt> {
+        let mut bytes = self.state()[..8].try_into().unwrap();
+        let mut x = u64::from_be_bytes(bytes);
+        while x >= Felt::MODULUS {
+            self.append_bytes(&bytes);
+            bytes = self.state()[..8].try_into().unwrap();
+            x = u64::from_be_bytes(bytes);
+        }
+        FieldElement::const_from_raw(Felt::new(x))
+    }
+
+    fn sample_u64(&mut self, upper_bound: u64) -> u64 {
+        u64::from_be_bytes(self.state()[..8].try_into().unwrap()) % upper_bound
     }
 }
 
