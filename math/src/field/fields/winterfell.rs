@@ -1,13 +1,11 @@
 use crate::{
-    field::{element::FieldElement, traits::IsField},
-    traits::Serializable,
-    unsigned_integer::element::U256,
+    field::{element::FieldElement, traits::{IsField, IsPrimeField, IsFFTField}, errors::FieldError},
+    traits::{Serializable, ByteConversion},
+    unsigned_integer::element::U256, errors::ByteConversionError,
 };
 pub use miden_core::Felt;
 pub use winter_math::fields::f128::BaseElement;
 use winter_math::{FieldElement as IsWinterfellFieldElement, StarkField};
-
-use super::traits::{IsFFTField, IsPrimeField};
 
 impl IsFFTField for Felt {
     const TWO_ADICITY: u64 = <Felt as StarkField>::TWO_ADICITY as u64;
@@ -49,7 +47,7 @@ impl IsField for Felt {
         -*a
     }
 
-    fn inv(a: &Self::BaseType) -> Result<Self::BaseType, super::errors::FieldError> {
+    fn inv(a: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
         Ok((*a).inv())
     }
 
@@ -81,5 +79,37 @@ impl IsField for Felt {
 impl Serializable for FieldElement<Felt> {
     fn serialize(&self) -> Vec<u8> {
         Felt::elements_as_bytes(&[*self.value()]).to_vec()
+    }
+}
+
+impl ByteConversion for Felt {
+    fn to_bytes_be(&self) -> Vec<u8> {
+        Felt::elements_as_bytes(&[self.clone()]).to_vec()
+    }
+
+    fn to_bytes_le(&self) -> Vec<u8> {
+        Felt::elements_as_bytes(&[self.clone()]).to_vec()
+    }
+
+    fn from_bytes_be(bytes: &[u8]) -> Result<Self, ByteConversionError>
+    where
+        Self: Sized,
+    {
+        unsafe {
+            let res = Felt::bytes_as_elements(bytes)
+                .map_err(|_| ByteConversionError::FromBEBytesError)?;
+            Ok(res[0])
+        }
+    }
+
+    fn from_bytes_le(bytes: &[u8]) -> Result<Self, ByteConversionError>
+    where
+        Self: Sized,
+    {
+        unsafe {
+            let res = Felt::bytes_as_elements(bytes)
+                .map_err(|_| ByteConversionError::FromBEBytesError)?;
+            Ok(res[0])
+        }
     }
 }
