@@ -6,13 +6,12 @@ use miden_processor::DefaultHost;
 use miden_processor::{self as processor};
 use miden_prover::prove;
 use processor::ExecutionTrace;
-use stark_platinum_prover::prover::MidenProver;
-use stark_platinum_prover::transcript::MidenProverTranscript;
 use stark_platinum_prover::{proof::options::ProofOptions, prover::IsStarkProver};
 use winter_air::FieldExtension;
 use winter_prover::Trace;
-use winterfell_adapter::adapter::air::{AirAdapter, ExecutionTraceMetadata};
+use winterfell_adapter::adapter::air::AirAdapter;
 use winterfell_adapter::adapter::public_inputs::AirAdapterPublicInputs;
+use winterfell_adapter::examples::miden_vm::{MidenProver, ExecutionTraceMetadata, MidenProverTranscript};
 
 struct BenchInstance {
     program: Program,

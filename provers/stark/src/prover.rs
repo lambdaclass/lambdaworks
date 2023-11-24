@@ -1,9 +1,6 @@
 #[cfg(feature = "instruments")]
 use std::time::Instant;
 
-#[cfg(feature = "winter_compatibility")]
-use lambdaworks_math::field::winterfell::Felt;
-
 use lambdaworks_crypto::merkle_tree::proof::Proof;
 use lambdaworks_math::fft::cpu::bit_reversing::{in_place_bit_reverse_permute, reverse_index};
 use lambdaworks_math::fft::{errors::FFTError, polynomial::FFTPoly};
@@ -36,15 +33,9 @@ use super::trace::TraceTable;
 use super::traits::AIR;
 
 pub struct Prover;
-pub struct MidenProver;
 
 impl IsStarkProver for Prover {
     type Field = Stark252PrimeField;
-}
-
-#[cfg(feature = "winter_compatibility")]
-impl IsStarkProver for MidenProver {
-    type Field = Felt;
 }
 
 #[derive(Debug)]

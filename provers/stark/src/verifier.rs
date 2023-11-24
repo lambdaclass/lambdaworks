@@ -18,9 +18,6 @@ use lambdaworks_math::{
     traits::Serializable,
 };
 
-#[cfg(feature = "winter_compatibility")]
-use miden_core::Felt;
-
 use super::{
     config::BatchedMerkleTreeBackend,
     domain::Domain,
@@ -34,13 +31,6 @@ pub struct Verifier {}
 
 impl IsStarkVerifier for Verifier {
     type Field = Stark252PrimeField;
-}
-
-pub struct MidenVerifier {}
-
-#[cfg(feature = "winter_compatibility")]
-impl IsStarkVerifier for MidenVerifier {
-    type Field = Felt;
 }
 
 pub struct Challenges<F, A>

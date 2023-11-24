@@ -1,5 +1,7 @@
 #[cfg(feature = "winter_compatibility")]
 use miden_core::Felt;
+
+#[cfg(feature = "winter_compatibility")]
 use winter_math::FieldElement as WinterFieldElement;
 
 use crate::{

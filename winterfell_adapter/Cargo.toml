@@ -16,6 +16,7 @@ miden-air = { git="https://github.com/lambdaclass/miden-vm/" }
 miden-core = { git="https://github.com/lambdaclass/miden-vm/" }
 miden-assembly = { git="https://github.com/lambdaclass/miden-vm/" }
 miden-processor = { git="https://github.com/lambdaclass/miden-vm/" }
+sha3 = "0.10"
  
 [dev-dependencies]
 criterion = { version = "0.4", default-features = false }
