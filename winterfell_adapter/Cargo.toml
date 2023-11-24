@@ -12,14 +12,14 @@ winter-air = { package = "winter-air", version = "0.6", default-features = false
 winter-prover = { package = "winter-prover", version = "0.6", default-features = false }
 winter-math = { package = "winter-math", version = "0.6", default-features = false }
 winter-utils = { package = "winter-utils", version = "0.6", default-features = false }
-miden-air = { path = "../../miden-vm/air"}
-miden-core = { path = "../../miden-vm/core"}
-miden-assembly = { path = "../../miden-vm/assembly" }
-miden-processor = { path = "../../miden-vm/processor" }
-
+miden-air = { git="https://github.com/lambdaclass/miden-vm/" }
+miden-core = { git="https://github.com/lambdaclass/miden-vm/" }
+miden-assembly = { git="https://github.com/lambdaclass/miden-vm/" }
+miden-processor = { git="https://github.com/lambdaclass/miden-vm/" }
+ 
 [dev-dependencies]
 criterion = { version = "0.4", default-features = false }
-miden-prover = { path = "../../miden-vm/prover" }
+miden-prover = { git="https://github.com/lambdaclass/miden-vm/" }
 
 [[bench]]
 name = "proving"

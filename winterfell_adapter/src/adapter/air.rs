@@ -61,7 +61,7 @@ impl FromColumns<Felt, ExecutionTraceMetadata> for ExecutionTrace {
             aux_trace_hints: metadata.aux_trace_hints.clone(),
             program_info: metadata.program_info.clone(),
             stack_outputs: metadata.stack_outputs.clone(),
-            trace_len_summary: metadata.trace_len_summary.clone(),
+            trace_len_summary: metadata.trace_len_summary,
         }
     }
 }
@@ -344,7 +344,6 @@ mod tests {
     use crate::examples::cubic::{self, Cubic};
     use crate::examples::fibonacci_2_terms::{self, FibAir2Terms};
     use crate::examples::fibonacci_rap::{self, FibonacciRAP, RapTraceTable};
-    use crate::utils::matrix_lambda2winter;
     use miden_air::{ProcessorAir, ProvingOptions, PublicInputs};
     use miden_assembly::Assembler;
     use miden_core::{Felt, StackInputs};
@@ -432,7 +431,7 @@ mod tests {
             end",
             fibonacci_number - 1
         );
-        let program = Assembler::default().compile(&program).unwrap();
+        let program = Assembler::default().compile(program).unwrap();
         let expected_result = vec![compute_fibonacci(fibonacci_number).as_int()];
         let stack_inputs = StackInputs::try_from_values([0, 1]).unwrap();
 
@@ -497,7 +496,7 @@ mod tests {
                 winter_trace.main_segment().clone(),
             );
         let pub_inputs = AirAdapterPublicInputs {
-            winterfell_public_inputs: trace.columns()[1][7].value().clone(),
+            winterfell_public_inputs: *trace.columns()[1][7].value(),
             transition_exemptions: vec![1, 1],
             transition_offsets: vec![0, 1],
             trace_info: TraceInfo::new(2, 8),
@@ -534,7 +533,7 @@ mod tests {
         let trace_info = TraceInfo::new_multi_segment(trace_layout, 16, vec![]);
         let fibonacci_result = trace.columns()[1][15];
         let pub_inputs = AirAdapterPublicInputs::<FibonacciRAP, _> {
-            winterfell_public_inputs: fibonacci_result.value().clone(),
+            winterfell_public_inputs: *fibonacci_result.value(),
             transition_exemptions: vec![1, 1, 1],
             transition_offsets: vec![0, 1],
             trace_info,
@@ -566,7 +565,7 @@ mod tests {
             winter_trace.main_segment().clone(),
         );
         let pub_inputs = AirAdapterPublicInputs {
-            winterfell_public_inputs: trace.columns()[0][15].value().clone(),
+            winterfell_public_inputs: *trace.columns()[0][15].value(),
             transition_exemptions: vec![1],
             transition_offsets: vec![0, 1],
             trace_info: TraceInfo::new(1, 16),

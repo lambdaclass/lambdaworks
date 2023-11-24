@@ -10,7 +10,6 @@ use stark_platinum_prover::prover::MidenProver;
 use stark_platinum_prover::transcript::MidenProverTranscript;
 use stark_platinum_prover::{proof::options::ProofOptions, prover::IsStarkProver};
 use winter_air::FieldExtension;
-use winter_math::{FieldElement, StarkField};
 use winter_prover::Trace;
 use winterfell_adapter::adapter::air::{AirAdapter, ExecutionTraceMetadata};
 use winterfell_adapter::adapter::public_inputs::AirAdapterPublicInputs;
@@ -30,7 +29,7 @@ fn create_bench_instance(fibonacci_number: usize) -> BenchInstance {
         end",
         fibonacci_number - 1
     );
-    let program = Assembler::default().compile(&program).unwrap();
+    let program = Assembler::default().compile(program).unwrap();
     let stack_inputs = StackInputs::try_from_values([0, 1]).unwrap();
     let mut lambda_proof_options = ProofOptions::default_test_options();
     lambda_proof_options.blowup_factor = 8;
@@ -57,7 +56,7 @@ pub fn bench_prove_miden_fibonacci(c: &mut Criterion) {
                 HashFunction::Blake3_192,
             );
 
-            let (mut outputs, proof) = black_box(
+            let (_outputs, _proof) = black_box(
                 prove(
                     &instance.program,
                     instance.stack_inputs.clone(),
@@ -103,7 +102,7 @@ pub fn bench_prove_miden_fibonacci(c: &mut Criterion) {
                     winter_trace.main_segment().clone(),
                 );
 
-            let proof = black_box(
+            let _proof = black_box(
                 MidenProver::prove::<AirAdapter<ProcessorAir, ExecutionTrace, Felt, _>>(
                     &trace,
                     &pub_inputs,
