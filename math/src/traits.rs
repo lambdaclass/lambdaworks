@@ -1,5 +1,6 @@
 #[cfg(feature = "winter_compatibility")]
 use miden_core::Felt;
+use winter_math::FieldElement as WinterFieldElement;
 
 use crate::{
     errors::DeserializationError,
@@ -33,25 +34,33 @@ pub trait ByteConversion {
 #[cfg(feature = "winter_compatibility")]
 impl ByteConversion for Felt {
     fn to_bytes_be(&self) -> Vec<u8> {
-        todo!()
+        Felt::elements_as_bytes(&[self.clone()]).to_vec()
     }
 
     fn to_bytes_le(&self) -> Vec<u8> {
-        todo!()
+        Felt::elements_as_bytes(&[self.clone()]).to_vec()
     }
 
-    fn from_bytes_be(_bytes: &[u8]) -> Result<Self, ByteConversionError>
+    fn from_bytes_be(bytes: &[u8]) -> Result<Self, ByteConversionError>
     where
         Self: Sized,
     {
-        todo!()
+        unsafe {
+            let res = Felt::bytes_as_elements(bytes)
+                .map_err(|_| ByteConversionError::FromBEBytesError)?;
+            Ok(res[0])
+        }
     }
 
-    fn from_bytes_le(_bytes: &[u8]) -> Result<Self, ByteConversionError>
+    fn from_bytes_le(bytes: &[u8]) -> Result<Self, ByteConversionError>
     where
         Self: Sized,
     {
-        todo!()
+        unsafe {
+            let res = Felt::bytes_as_elements(bytes)
+                .map_err(|_| ByteConversionError::FromBEBytesError)?;
+            Ok(res[0])
+        }
     }
 }
 
