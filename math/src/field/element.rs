@@ -1,9 +1,9 @@
 use crate::errors::CreationError;
 use crate::field::errors::FieldError;
 use crate::field::traits::IsField;
+use crate::unsigned_integer::traits::IsUnsignedInteger;
 use crate::unsigned_integer::u32_word::element::UnsignedInteger as Uint32;
 use crate::unsigned_integer::u32_word::montgomery::MontgomeryAlgorithms as MontgomeryAlgorithms32;
-use crate::unsigned_integer::u32_word::traits::IsUnsignedInteger;
 use crate::unsigned_integer::u64_word::element::UnsignedInteger as Uint64;
 use crate::unsigned_integer::u64_word::montgomery::MontgomeryAlgorithms as MontgomeryAlgorithms64;
 use core::fmt;

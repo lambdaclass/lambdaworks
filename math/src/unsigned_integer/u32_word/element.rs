@@ -17,7 +17,7 @@ use proptest::{
 use crate::errors::ByteConversionError;
 use crate::errors::CreationError;
 use crate::traits::ByteConversion;
-use crate::unsigned_integer::u32_word::traits::IsUnsignedInteger;
+use crate::unsigned_integer::traits::IsUnsignedInteger;
 
 use core::fmt::{self, Debug, Display};
 

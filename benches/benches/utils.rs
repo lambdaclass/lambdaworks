@@ -5,7 +5,7 @@ use lambdaworks_math::{
     field::{
         element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
     },
-    unsigned_integer::element::UnsignedInteger,
+    unsigned_integer::u64_word::element::UnsignedInteger,
 };
 use rand::SeedableRng;
 
