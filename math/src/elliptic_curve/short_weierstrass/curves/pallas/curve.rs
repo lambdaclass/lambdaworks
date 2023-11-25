@@ -48,14 +48,22 @@ mod tests {
     type FE = FieldElement<Pallas255PrimeField>;
 
     fn point_1() -> ShortWeierstrassProjectivePoint<PallasCurve> {
-        let x = FE::from_hex_unchecked("bd1e740e6b1615ae4c508148ca0c53dbd43f7b2e206195ab638d7f45d51d6b5");
-        let y = FE::from_hex_unchecked("13aacd107ca10b7f8aab570da1183b91d7d86dd723eaa2306b0ef9c5355b91d8");
+        let x = FE::from_hex_unchecked(
+            "bd1e740e6b1615ae4c508148ca0c53dbd43f7b2e206195ab638d7f45d51d6b5",
+        );
+        let y = FE::from_hex_unchecked(
+            "13aacd107ca10b7f8aab570da1183b91d7d86dd723eaa2306b0ef9c5355b91d8",
+        );
         PallasCurve::create_point_from_affine(x, y).unwrap()
     }
 
     fn point_1_times_5() -> ShortWeierstrassProjectivePoint<PallasCurve> {
-        let x = FE::from_hex_unchecked("17a21304fffd6749d6173d4e0acd9724d98a97453b3491c0e5a53b06cf039b13");
-        let y = FE::from_hex_unchecked("2f9bde429091a1089e52a6cc5dc789e1a58eeded0cf72dccc33b7af685a982d");
+        let x = FE::from_hex_unchecked(
+            "17a21304fffd6749d6173d4e0acd9724d98a97453b3491c0e5a53b06cf039b13",
+        );
+        let y = FE::from_hex_unchecked(
+            "2f9bde429091a1089e52a6cc5dc789e1a58eeded0cf72dccc33b7af685a982d",
+        );
         PallasCurve::create_point_from_affine(x, y).unwrap()
     }
 
@@ -69,8 +77,18 @@ mod tests {
     #[test]
     fn create_valid_point_works() {
         let p = point_1();
-        assert_eq!(*p.x(), FE::from_hex_unchecked("bd1e740e6b1615ae4c508148ca0c53dbd43f7b2e206195ab638d7f45d51d6b5"));
-        assert_eq!(*p.y(), FE::from_hex_unchecked("13aacd107ca10b7f8aab570da1183b91d7d86dd723eaa2306b0ef9c5355b91d8"));
+        assert_eq!(
+            *p.x(),
+            FE::from_hex_unchecked(
+                "bd1e740e6b1615ae4c508148ca0c53dbd43f7b2e206195ab638d7f45d51d6b5"
+            )
+        );
+        assert_eq!(
+            *p.y(),
+            FE::from_hex_unchecked(
+                "13aacd107ca10b7f8aab570da1183b91d7d86dd723eaa2306b0ef9c5355b91d8"
+            )
+        );
         assert_eq!(*p.z(), FE::from_hex_unchecked("1"));
     }
 
@@ -85,23 +103,25 @@ mod tests {
     #[test]
     fn equality_works() {
         let g = PallasCurve::generator();
-        let g2 = g.operate_with(&g);
+        let g2 = g.operate_with_self(2_u16);
+        let g2_other = g.operate_with(&g);
         assert_ne!(&g2, &g);
         assert_eq!(&g, &g);
+        assert_eq!(&g2, &g2_other);
     }
 
     #[test]
     fn g_operated_with_g_satifies_ec_equation() {
         let g = PallasCurve::generator();
-        let g2 = g.operate_with_self(2_u64);
+        let g2 = g.operate_with_self(2_u16);
 
         // get x and y from affine coordinates
         let g2_affine = g2.to_affine();
         let x = g2_affine.x();
         let y = g2_affine.y();
 
-        // calculate both sides of BLS12-381 equation
-        let five = FieldElement::from(5);
+        // calculate both sides of Pallas curve equation
+        let five = PallasCurve::b();
         let y_sq_0 = x.pow(3_u16) + five;
         let y_sq_1 = y.pow(2_u16);
 
