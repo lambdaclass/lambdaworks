@@ -65,4 +65,55 @@ mod tests {
         let point_1_times_5 = point_1_times_5();
         assert_eq!(point_1.operate_with_self(5_u16), point_1_times_5);
     }
+
+    #[test]
+    fn create_valid_point_works() {
+        let p = point_1();
+        assert_eq!(*p.x(), FE::from_hex_unchecked("bd1e740e6b1615ae4c508148ca0c53dbd43f7b2e206195ab638d7f45d51d6b5"));
+        assert_eq!(*p.y(), FE::from_hex_unchecked("13aacd107ca10b7f8aab570da1183b91d7d86dd723eaa2306b0ef9c5355b91d8"));
+        assert_eq!(*p.z(), FE::from_hex_unchecked("1"));
+    }
+
+    #[test]
+    fn create_invalid_points_returns_an_error() {
+        assert_eq!(
+            PallasCurve::create_point_from_affine(FE::from(0), FE::from(1)),
+            Err(EllipticCurveError::InvalidPoint)
+        );
+    }
+
+    #[test]
+    fn equality_works() {
+        let g = PallasCurve::generator();
+        let g2 = g.operate_with(&g);
+        assert_ne!(&g2, &g);
+        assert_eq!(&g, &g);
+    }
+
+    #[test]
+    fn g_operated_with_g_satifies_ec_equation() {
+        let g = PallasCurve::generator();
+        let g2 = g.operate_with_self(2_u64);
+
+        // get x and y from affine coordinates
+        let g2_affine = g2.to_affine();
+        let x = g2_affine.x();
+        let y = g2_affine.y();
+
+        // calculate both sides of BLS12-381 equation
+        let five = FieldElement::from(5);
+        let y_sq_0 = x.pow(3_u16) + five;
+        let y_sq_1 = y.pow(2_u16);
+
+        assert_eq!(y_sq_0, y_sq_1);
+    }
+
+    #[test]
+    fn operate_with_self_works_1() {
+        let g = PallasCurve::generator();
+        assert_eq!(
+            g.operate_with(&g).operate_with(&g),
+            g.operate_with_self(3_u16)
+        );
+    }
 }
