@@ -175,7 +175,7 @@ where
             // Cryptography
             // Algorithm 16 (BEA for Inversion in Fp)
 
-            //These can be done with const  functions
+            //These can be done with const functions
             let one: UnsignedInteger<NUM_LIMBS> = UnsignedInteger::from_u64(1);
             let modulus: UnsignedInteger<NUM_LIMBS> = M::MODULUS;
             let modulus_has_spare_bits = M::MODULUS.limbs[0] >> 63 == 0;
@@ -259,7 +259,7 @@ where
     }
 
     #[inline(always)]
-    fn from_u64(x: u64) -> Self::BaseType {
+    fn from_u64(x: u64) -> <Self as IsField>::BaseType {
         MontgomeryAlgorithms::cios(
             &UnsignedInteger::from_u64(x),
             &Self::R2,

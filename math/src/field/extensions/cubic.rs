@@ -120,7 +120,7 @@ where
     }
 
     /// Returns the element `x * 1` where 1 is the multiplicative neutral element.
-    fn from_u64(x: u64) -> Self::BaseType {
+    fn from_u64(x: u64) -> <Self as IsField>::BaseType {
         [
             FieldElement::from(x),
             FieldElement::zero(),

@@ -147,6 +147,7 @@ impl IsField for P448GoldilocksPrimeField {
         U56x8 { limbs }
     }
 
+    #[inline(always)]
     fn from_u64(x: u64) -> U56x8 {
         let mut limbs = [0u64; 8];
         limbs[0] = x & ((1u64 << 56) - 1);

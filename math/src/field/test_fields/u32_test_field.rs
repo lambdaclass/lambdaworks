@@ -50,6 +50,7 @@ impl<const MODULUS: u32> IsField for U32Field<MODULUS> {
         1
     }
 
+    #[inline(always)]
     fn from_u64(x: u64) -> u32 {
         (x % MODULUS as u64) as u32
     }

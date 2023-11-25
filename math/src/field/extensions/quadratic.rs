@@ -32,6 +32,17 @@ where
     }
 }
 
+impl<Q> QuadraticExtensionField<Q>
+where
+    Q: Clone + Debug + HasQuadraticNonResidue,
+{
+    /// Returns the element `x * 1` where 1 is the multiplicative neutral element.
+    #[inline(always)]
+    pub fn from_u64(x: u64) -> <Self as IsField>::BaseType {
+        [FieldElement::from(x), FieldElement::zero()]
+    }
+}
+
 impl<Q> IsField for QuadraticExtensionField<Q>
 where
     Q: Clone + Debug + HasQuadraticNonResidue,
@@ -115,7 +126,7 @@ where
     }
 
     /// Returns the element `x * 1` where 1 is the multiplicative neutral element.
-    fn from_u64(x: u64) -> Self::BaseType {
+    fn from_u64(x: u64) -> <Self as IsField>::BaseType {
         [FieldElement::from(x), FieldElement::zero()]
     }
 

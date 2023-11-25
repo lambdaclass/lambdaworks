@@ -79,7 +79,7 @@ where
         let mut c = UnsignedInteger::from_u32(1).const_shl(l);
 
         // Double `c` and reduce modulo `modulus` until getting
-        // `2^{2 * number_limbs * word_size}` mod `modulus`
+        // `2^{2 * number_limbs * 32}` mod `modulus`
         let mut i: usize = 1;
         while i <= 2 * NUM_LIMBS * word_size - l {
             let (double_c, overflow) = UnsignedInteger::add(&c, &c);
@@ -94,11 +94,26 @@ where
     }
 
     /// Checks whether the most significant limb of the modulus is at
-    /// most `0x7FFFFFFFFFFFFFFE`. This check is useful since special
+    /// most `0x3FFFFFFFFFFFFFFF`. This check is useful since special
     /// optimizations exist for this kind of moduli.
     #[inline(always)]
     const fn modulus_has_one_spare_bit() -> bool {
-        M::MODULUS.limbs[0] < (1u32 << 31) - 1
+        M::MODULUS.limbs[0] < ((1u32 << 31) - 1)
+    }
+}
+
+impl<M, const NUM_LIMBS: usize> MontgomeryBackendPrimeField32<M, NUM_LIMBS>
+where
+    M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug,
+{
+    #[inline(always)]
+    fn from_u32(x: u32) -> <Self as IsField>::BaseType {
+        MontgomeryAlgorithms::cios(
+            &UnsignedInteger::from_u32(x),
+            &Self::R2,
+            &M::MODULUS,
+            &Self::MU,
+        )
     }
 }
 
@@ -165,14 +180,14 @@ where
     #[inline(always)]
     fn inv(a: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
         if a == &Self::ZERO {
-            Err(FieldError::DivisionByZero)
+            Err(FieldError::InvZeroError)
         } else {
             // Guajardo Kumar Paar Pelzl
             // Efficient Software-Implementation of Finite Fields with Applications to
             // Cryptography
             // Algorithm 16 (BEA for Inversion in Fp)
 
-            //These can be done with const  functions
+            //These can be done with const functions
             let one: UnsignedInteger<NUM_LIMBS> = UnsignedInteger::from_u32(1);
             let modulus = M::MODULUS;
             let modulus_has_spare_bits = M::MODULUS.limbs[0] >> 31 == 0;
@@ -237,7 +252,6 @@ where
 
     #[inline(always)]
     fn div(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
-
         Self::mul(a, &Self::inv(b).unwrap())
     }
 
@@ -285,7 +299,7 @@ where
     fn field_bit_size() -> usize {
         let mut evaluated_bit = NUM_LIMBS * 32 - 1;
         let max_element = M::MODULUS - UnsignedInteger::<NUM_LIMBS>::from_u32(1);
-        let one = UnsignedInteger::from_u64(1);
+        let one = UnsignedInteger::from_u32(1);
 
         while ((max_element >> evaluated_bit) & one) != one {
             evaluated_bit -= 1;
@@ -351,17 +365,16 @@ where
 #[cfg(test)]
 mod tests_u384_prime_fields_u32_limb {
     use crate::field::element::FieldElement;
-    use crate::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
-    use crate::field::traits::IsField;
+    use crate::field::errors::FieldError;
     use crate::field::traits::IsPrimeField;
     #[cfg(feature = "std")]
     use crate::traits::ByteConversion;
     use crate::unsigned_integer::u32_word::element::U384;
     use crate::unsigned_integer::u32_word::element::{UnsignedInteger, U256};
-    
+
+    use super::IsModulus;
     use super::U256PrimeField32;
     use super::U384PrimeField32;
-    use super::IsModulus;
 
     #[derive(Clone, Debug)]
     struct U384Modulus23;
@@ -378,7 +391,7 @@ mod tests_u384_prime_fields_u32_limb {
     }
 
     #[test]
-    fn u256_mod_2_uses_1_bit() {
+    fn u256_mod_2_uses_1_bit_u32() {
         #[derive(Clone, Debug)]
         struct U256Modulus1;
         impl IsModulus<U256> for U256Modulus1 {
@@ -402,7 +415,673 @@ mod tests_u384_prime_fields_u32_limb {
     }
 
     #[test]
+    fn montgomery_backend_primefield_compute_zero_parameter() {
+        let zero = U384::from_limbs([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+
+        assert_eq!(U384F23::ZERO, zero)
+    }
+
+    #[test]
+    fn montgomery_backend_primefield_from_u32() {
+        let p = U384::from_limbs([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 17]);
+
+        //assert_eq!(U384F23::representative(&U384F23::from_u32(770_u32)), p);
+        assert_eq!(U384F23::from_u32(770_u32), p);
+    }
+
+    #[test]
+    fn montgomery_backend_primefield_representative() {
+        let a = U384::from_limbs([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11]);
+        assert_eq!(U384F23::representative(&U384F23::from_u32(770_u32)), a);
+    }
+
+    #[test]
     fn montgomery_backend_primefield_compute_mu_parameter() {
         assert_eq!(U384F23::MU, 373475417);
+    }
+
+    #[test]
+    #[cfg(feature = "lambdaworks-serde")]
+    fn montgomery_backend_serialization_deserialization() {
+        let x = U384F23Element::from(11_u64);
+        let x_serialized = serde_json::to_string(&x).unwrap();
+        let x_deserialized: U384F23Element = serde_json::from_str(&x_serialized).unwrap();
+        assert_eq!(x_serialized, "{\"value\":\"0xb\"}");
+        assert_eq!(x_deserialized, x);
+    }
+
+    const ORDER: usize = 23;
+    #[test]
+    fn two_plus_one_is_three() {
+        assert_eq!(
+            U384F23Element::from(2) + U384F23Element::from(1),
+            U384F23Element::from(3)
+        );
+    }
+
+    #[test]
+    fn max_order_plus_1_is_0() {
+        assert_eq!(
+            U384F23Element::from((ORDER - 1) as u64) + U384F23Element::from(1),
+            U384F23Element::from(0)
+        );
+    }
+
+    #[test]
+    fn when_comparing_13_and_13_they_are_equal() {
+        let a: U384F23Element = U384F23Element::from(13);
+        let b: U384F23Element = U384F23Element::from(13);
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn when_comparing_13_and_8_they_are_different() {
+        let a: U384F23Element = U384F23Element::from(13);
+        let b: U384F23Element = U384F23Element::from(8);
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn mul_neutral_element() {
+        let a: U384F23Element = U384F23Element::from(1);
+        let b: U384F23Element = U384F23Element::from(2);
+        assert_eq!(a * b, U384F23Element::from(2));
+    }
+
+    #[test]
+    fn mul_2_3_is_6() {
+        let a: U384F23Element = U384F23Element::from(2);
+        let b: U384F23Element = U384F23Element::from(3);
+        assert_eq!(a * b, U384F23Element::from(6));
+    }
+
+    #[test]
+    fn mul_order_minus_1() {
+        let a: U384F23Element = U384F23Element::from((ORDER - 1) as u64);
+        let b: U384F23Element = U384F23Element::from((ORDER - 1) as u64);
+        assert_eq!(a * b, U384F23Element::from(1));
+    }
+
+    #[test]
+    fn inv_0_error() {
+        let result = U384F23Element::from(0).inv();
+        assert!(matches!(result, Err(FieldError::InvZeroError)))
+    }
+
+    #[test]
+    fn inv_2() {
+        let a: U384F23Element = U384F23Element::from(2);
+        assert_eq!(&a * a.inv().unwrap(), U384F23Element::from(1));
+    }
+
+    #[test]
+    fn pow_2_3() {
+        assert_eq!(U384F23Element::from(2).pow(3_u64), U384F23Element::from(8))
+    }
+
+    #[test]
+    fn pow_p_minus_1() {
+        assert_eq!(
+            U384F23Element::from(2).pow(ORDER - 1),
+            U384F23Element::from(1)
+        )
+    }
+
+    #[test]
+    fn div_1() {
+        assert_eq!(
+            U384F23Element::from(2) / U384F23Element::from(1),
+            U384F23Element::from(2)
+        )
+    }
+
+    #[test]
+    fn div_4_2() {
+        assert_eq!(
+            U384F23Element::from(4) / U384F23Element::from(2),
+            U384F23Element::from(2)
+        )
+    }
+
+    #[test]
+    fn three_inverse() {
+        let a = U384F23Element::from(3);
+        let expected = U384F23Element::from(8);
+        assert_eq!(a.inv().unwrap(), expected)
+    }
+
+    #[test]
+    fn div_4_3() {
+        assert_eq!(
+            U384F23Element::from(4) / U384F23Element::from(3) * U384F23Element::from(3),
+            U384F23Element::from(4)
+        )
+    }
+
+    #[test]
+    fn two_plus_its_additive_inv_is_0() {
+        let two = U384F23Element::from(2);
+
+        assert_eq!(&two + (-&two), U384F23Element::from(0))
+    }
+
+    #[test]
+    fn four_minus_three_is_1() {
+        let four = U384F23Element::from(4);
+        let three = U384F23Element::from(3);
+
+        assert_eq!(four - three, U384F23Element::from(1))
+    }
+
+    #[test]
+    fn zero_minus_1_is_order_minus_1() {
+        let zero = U384F23Element::from(0);
+        let one = U384F23Element::from(1);
+
+        assert_eq!(zero - one, U384F23Element::from((ORDER - 1) as u64))
+    }
+
+    #[test]
+    fn neg_zero_is_zero() {
+        let zero = U384F23Element::from(0);
+
+        assert_eq!(-&zero, zero);
+    }
+
+    // FP1
+    #[derive(Clone, Debug)]
+    struct U384ModulusP1;
+    impl IsModulus<U384> for U384ModulusP1 {
+        const MODULUS: U384 = UnsignedInteger {
+            limbs: [
+                0, 0, 0, 0, 0, 0, 0, 3450888597, 1339897573, 393171163, 3707581589, 1889705185,
+            ],
+        };
+    }
+
+    type U384FP1 = U384PrimeField32<U384ModulusP1>;
+    type U384FP1Element = FieldElement<U384FP1>;
+
+    #[test]
+    fn montgomery_prime_field_from_bad_hex_errs() {
+        assert!(U384FP1Element::from_hex("0xTEST").is_err());
+    }
+
+    #[test]
+    fn montgomery_prime_field_addition_works_0() {
+        let x = U384FP1Element::new(UnsignedInteger::from_hex_unchecked(
+            "05ed176deb0e80b4deb7718cdaa075165f149c",
+        ));
+        let y = U384FP1Element::new(UnsignedInteger::from_hex_unchecked(
+            "5f103b0bd4397d4df560eb559f38353f80eeb6",
+        ));
+        let c = U384FP1Element::new(UnsignedInteger::from_hex_unchecked(
+            "64fd5279bf47fe02d4185ce279d8aa55e00352",
+        ));
+        assert_eq!(x + y, c);
+    }
+
+    #[test]
+    fn montgomery_prime_field_multiplication_works_0() {
+        let x = U384FP1Element::new(UnsignedInteger::from_hex_unchecked(
+            "05ed176deb0e80b4deb7718cdaa075165f149c",
+        ));
+        let y = U384FP1Element::new(UnsignedInteger::from_hex_unchecked(
+            "5f103b0bd4397d4df560eb559f38353f80eeb6",
+        ));
+        let c = U384FP1Element::new(UnsignedInteger::from_hex_unchecked(
+            "73d23e8d462060dc23d5c15c00fc432d95621a3c",
+        ));
+        assert_eq!(x * y, c);
+    }
+
+    // FP2
+    #[derive(Clone, Debug)]
+    struct U384ModulusP2;
+    impl IsModulus<U384> for U384ModulusP2 {
+        const MODULUS: U384 = UnsignedInteger {
+            limbs: [
+                4294967295, 4294967295, 4294967295, 4294967295, 4294967295, 4294967295, 4294967295,
+                4294967295, 4294967295, 4294967295, 4294967295, 4294967295,
+            ],
+        };
+    }
+
+    type U384FP2 = U384PrimeField32<U384ModulusP2>;
+    type U384FP2Element = FieldElement<U384FP2>;
+
+    #[test]
+    fn montgomery_prime_field_addition_works_1() {
+        let x = U384FP2Element::new(UnsignedInteger::from_hex_unchecked(
+            "05ed176deb0e80b4deb7718cdaa075165f149c",
+        ));
+        let y = U384FP2Element::new(UnsignedInteger::from_hex_unchecked(
+            "5f103b0bd4397d4df560eb559f38353f80eeb6",
+        ));
+        let c = U384FP2Element::new(UnsignedInteger::from_hex_unchecked(
+            "64fd5279bf47fe02d4185ce279d8aa55e00352",
+        ));
+        assert_eq!(x + y, c);
+    }
+
+    #[test]
+    fn montgomery_prime_field_multiplication_works_1() {
+        let x = U384FP2Element::one();
+        let y = U384FP2Element::new(UnsignedInteger::from_hex_unchecked(
+            "5f103b0bd4397d4df560eb559f38353f80eeb6",
+        ));
+        assert_eq!(&y * x, y);
+    }
+
+    #[test]
+    #[cfg(feature = "std")]
+    fn to_bytes_from_bytes_be_is_the_identity() {
+        let x = U384FP2Element::new(UnsignedInteger::from_hex_unchecked(
+            "5f103b0bd4397d4df560eb559f38353f80eeb6",
+        ));
+        assert_eq!(U384FP2Element::from_bytes_be(&x.to_bytes_be()).unwrap(), x);
+    }
+
+    #[test]
+    #[cfg(feature = "std")]
+    fn from_bytes_to_bytes_be_is_the_identity_for_one() {
+        let bytes = [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        ];
+        assert_eq!(
+            U384FP2Element::from_bytes_be(&bytes).unwrap().to_bytes_be(),
+            bytes
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "std")]
+    fn to_bytes_from_bytes_le_is_the_identity() {
+        let x = U384FP2Element::new(UnsignedInteger::from_hex_unchecked(
+            "5f103b0bd4397d4df560eb559f38353f80eeb6",
+        ));
+        assert_eq!(U384FP2Element::from_bytes_le(&x.to_bytes_le()).unwrap(), x);
+    }
+
+    #[test]
+    #[cfg(feature = "std")]
+    fn from_bytes_to_bytes_le_is_the_identity_for_one() {
+        let bytes = [
+            1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ];
+        assert_eq!(
+            U384FP2Element::from_bytes_le(&bytes).unwrap().to_bytes_le(),
+            bytes
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests_u256_prime_fields {
+    use crate::field::element::FieldElement;
+    use crate::field::errors::FieldError;
+    use crate::field::fields::montgomery_backed_u32_prime_fields::{IsModulus, U256PrimeField32};
+    use crate::field::traits::IsPrimeField;
+    #[cfg(feature = "std")]
+    use crate::traits::ByteConversion;
+    use crate::unsigned_integer::u32_word::element::UnsignedInteger;
+    use crate::unsigned_integer::u32_word::element::U256;
+
+    #[derive(Clone, Debug)]
+    struct U256Modulus29;
+    impl IsModulus<U256> for U256Modulus29 {
+        const MODULUS: U256 = UnsignedInteger::from_u32(29);
+    }
+
+    type U256F29 = U256PrimeField32<U256Modulus29>;
+    type U256F29Element = FieldElement<U256F29>;
+
+    #[test]
+    fn montgomery_backend_primefield_compute_r2_parameter() {
+        let r2: U256 = UnsignedInteger {
+            limbs: [0, 0, 0, 0, 0, 0, 0, 24],
+        };
+        assert_eq!(U256F29::R2, r2);
+    }
+
+    #[test]
+    fn montgomery_backend_primefield_compute_mu_parameter() {
+        // modular multiplicative inverse
+        assert_eq!(U256F29::MU, 2962046411);
+    }
+
+    #[test]
+    fn montgomery_backend_primefield_compute_zero_parameter() {
+        let zero: U256 = UnsignedInteger {
+            limbs: [0, 0, 0, 0, 0, 0, 0, 0],
+        };
+        assert_eq!(U256F29::ZERO, zero);
+    }
+
+    #[test]
+    fn montgomery_backend_primefield_from_u32() {
+        // (770*2**(256))%29
+        let a: U256 = UnsignedInteger {
+            limbs: [0, 0, 0, 0, 0, 0, 0, 24],
+        };
+        assert_eq!(U256F29::from_u32(770_u32), a);
+    }
+
+    #[test]
+    fn montgomery_backend_primefield_representative() {
+        // 770%29
+        let a: U256 = UnsignedInteger {
+            limbs: [0, 0, 0, 0, 0, 0, 0, 16],
+        };
+        assert_eq!(U256F29::representative(&U256F29::from_u32(770_u32)), a);
+    }
+
+    #[test]
+    fn montgomery_backend_multiplication_works_0() {
+        let x = U256F29Element::from(11);
+        let y = U256F29Element::from(10);
+        let c = U256F29Element::from(110);
+        assert_eq!(x * y, c);
+    }
+
+    const ORDER: usize = 29;
+    #[test]
+    fn two_plus_one_is_three() {
+        assert_eq!(
+            U256F29Element::from(2) + U256F29Element::from(1),
+            U256F29Element::from(3)
+        );
+    }
+
+    #[test]
+    fn max_order_plus_1_is_0() {
+        assert_eq!(
+            U256F29Element::from((ORDER - 1) as u64) + U256F29Element::from(1),
+            U256F29Element::from(0)
+        );
+    }
+
+    #[test]
+    fn when_comparing_13_and_13_they_are_equal() {
+        let a: U256F29Element = U256F29Element::from(13);
+        let b: U256F29Element = U256F29Element::from(13);
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn when_comparing_13_and_8_they_are_different() {
+        let a: U256F29Element = U256F29Element::from(13);
+        let b: U256F29Element = U256F29Element::from(8);
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn mul_neutral_element() {
+        let a: U256F29Element = U256F29Element::from(1);
+        let b: U256F29Element = U256F29Element::from(2);
+        assert_eq!(a * b, U256F29Element::from(2));
+    }
+
+    #[test]
+    fn mul_2_3_is_6() {
+        let a: U256F29Element = U256F29Element::from(2);
+        let b: U256F29Element = U256F29Element::from(3);
+        assert_eq!(a * b, U256F29Element::from(6));
+    }
+
+    #[test]
+    fn mul_order_minus_1() {
+        let a: U256F29Element = U256F29Element::from((ORDER - 1) as u64);
+        let b: U256F29Element = U256F29Element::from((ORDER - 1) as u64);
+        assert_eq!(a * b, U256F29Element::from(1));
+    }
+
+    #[test]
+    fn inv_0_error() {
+        let result = U256F29Element::from(0).inv();
+        assert!(matches!(result, Err(FieldError::InvZeroError)));
+    }
+
+    #[test]
+    fn inv_2() {
+        let a: U256F29Element = U256F29Element::from(2);
+        assert_eq!(&a * a.inv().unwrap(), U256F29Element::from(1));
+    }
+
+    #[test]
+    fn pow_2_3() {
+        assert_eq!(U256F29Element::from(2).pow(3_u64), U256F29Element::from(8))
+    }
+
+    #[test]
+    fn pow_p_minus_1() {
+        assert_eq!(
+            U256F29Element::from(2).pow(ORDER - 1),
+            U256F29Element::from(1)
+        )
+    }
+
+    #[test]
+    fn div_1() {
+        assert_eq!(
+            U256F29Element::from(2) / U256F29Element::from(1),
+            U256F29Element::from(2)
+        )
+    }
+
+    #[test]
+    fn div_4_2() {
+        let a = U256F29Element::from(4);
+        let b = U256F29Element::from(2);
+        assert_eq!(a / &b, b)
+    }
+
+    #[test]
+    fn div_4_3() {
+        assert_eq!(
+            U256F29Element::from(4) / U256F29Element::from(3) * U256F29Element::from(3),
+            U256F29Element::from(4)
+        )
+    }
+
+    #[test]
+    fn two_plus_its_additive_inv_is_0() {
+        let two = U256F29Element::from(2);
+
+        assert_eq!(&two + (-&two), U256F29Element::from(0))
+    }
+
+    #[test]
+    fn four_minus_three_is_1() {
+        let four = U256F29Element::from(4);
+        let three = U256F29Element::from(3);
+
+        assert_eq!(four - three, U256F29Element::from(1))
+    }
+
+    #[test]
+    fn zero_minus_1_is_order_minus_1() {
+        let zero = U256F29Element::from(0);
+        let one = U256F29Element::from(1);
+
+        assert_eq!(zero - one, U256F29Element::from((ORDER - 1) as u64))
+    }
+
+    #[test]
+    fn neg_zero_is_zero() {
+        let zero = U256F29Element::from(0);
+
+        assert_eq!(-&zero, zero);
+    }
+
+    // FP1
+    #[derive(Clone, Debug)]
+    struct U256ModulusP1;
+    impl IsModulus<U256> for U256ModulusP1 {
+        const MODULUS: U256 = UnsignedInteger {
+            limbs: [
+                0, 8366, 1898765885, 3836479914, 53012886, 3135106150, 3660822239, 3005416869,
+            ],
+        };
+    }
+
+    type U256FP1 = U256PrimeField32<U256ModulusP1>;
+    type U256FP1Element = FieldElement<U256FP1>;
+
+    #[test]
+    fn montgomery_prime_field_addition_works_0() {
+        let x = U256FP1Element::new(UnsignedInteger::from_hex_unchecked(
+            "93e712950bf3fe589aa030562a44b1cec66b09192c4bcf705a5",
+        ));
+        let y = U256FP1Element::new(UnsignedInteger::from_hex_unchecked(
+            "10a712235c1f6b4172a1e35da6aef1a7ec6b09192c4bb88cfa5",
+        ));
+        let c = U256FP1Element::new(UnsignedInteger::from_hex_unchecked(
+            "a48e24b86813699a0d4213b3d0f3a376b2d61232589787fd54a",
+        ));
+        assert_eq!(x + y, c);
+    }
+
+    #[test]
+    fn montgomery_prime_field_multiplication_works_0() {
+        let x = U256FP1Element::new(UnsignedInteger::from_hex_unchecked(
+            "93e712950bf3fe589aa030562a44b1cec66b09192c4bcf705a5",
+        ));
+        let y = U256FP1Element::new(UnsignedInteger::from_hex_unchecked(
+            "10a712235c1f6b4172a1e35da6aef1a7ec6b09192c4bb88cfa5",
+        ));
+        let c = U256FP1Element::new(UnsignedInteger::from_hex_unchecked(
+            "7808e74c3208d9a66791ef9cc15a46acc9951ee312102684021",
+        ));
+        assert_eq!(x * y, c);
+    }
+
+    // FP2
+    #[derive(Clone, Debug)]
+    struct ModulusP2;
+    impl IsModulus<U256> for ModulusP2 {
+        const MODULUS: U256 = UnsignedInteger {
+            limbs: [
+                4294967295, 4294967295, 4294967295, 4294967295, 4294967295, 4294967295, 4294967295,
+                4294967107,
+            ],
+        };
+    }
+
+    type FP2 = U256PrimeField32<ModulusP2>;
+    type FP2Element = FieldElement<FP2>;
+
+    #[test]
+    fn montgomery_prime_field_addition_works_1() {
+        let x = FP2Element::new(UnsignedInteger::from_hex_unchecked(
+            "acbbb7ca01c65cfffffc72815b397fff9ab130ad53a5ffffffb8f21b207dfedf",
+        ));
+        let y = FP2Element::new(UnsignedInteger::from_hex_unchecked(
+            "d65ddbe509d3fffff21f494c588cbdbfe43e929b0543e3ffffffffffffffff43",
+        ));
+        let c = FP2Element::new(UnsignedInteger::from_hex_unchecked(
+            "831993af0b9a5cfff21bbbcdb3c63dbf7eefc34858e9e3ffffb8f21b207dfedf",
+        ));
+        assert_eq!(x + y, c);
+    }
+
+    #[test]
+    fn montgomery_prime_field_multiplication_works_1() {
+        let x = FP2Element::new(UnsignedInteger::from_hex_unchecked(
+            "acbbb7ca01c65cfffffc72815b397fff9ab130ad53a5ffffffb8f21b207dfedf",
+        ));
+        let y = FP2Element::new(UnsignedInteger::from_hex_unchecked(
+            "d65ddbe509d3fffff21f494c588cbdbfe43e929b0543e3ffffffffffffffff43",
+        ));
+        let c = FP2Element::new(UnsignedInteger::from_hex_unchecked(
+            "2b1e80d553ecab2e4d41eb53c4c8ad89ebacac6cf6b91dcf2213f311093aa05d",
+        ));
+        assert_eq!(&y * x, c);
+    }
+
+    #[test]
+    #[cfg(feature = "std")]
+    fn to_bytes_from_bytes_be_is_the_identity() {
+        let x = FP2Element::new(UnsignedInteger::from_hex_unchecked(
+            "5f103b0bd4397d4df560eb559f38353f80eeb6",
+        ));
+        assert_eq!(FP2Element::from_bytes_be(&x.to_bytes_be()).unwrap(), x);
+    }
+
+    #[test]
+    #[cfg(feature = "std")]
+    fn from_bytes_to_bytes_be_is_the_identity_for_one() {
+        let bytes = [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 1,
+        ];
+        assert_eq!(
+            FP2Element::from_bytes_be(&bytes).unwrap().to_bytes_be(),
+            bytes
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "std")]
+    fn to_bytes_from_bytes_le_is_the_identity() {
+        let x = FP2Element::new(UnsignedInteger::from_hex_unchecked(
+            "5f103b0bd4397d4df560eb559f38353f80eeb6",
+        ));
+        assert_eq!(FP2Element::from_bytes_le(&x.to_bytes_le()).unwrap(), x);
+    }
+
+    #[test]
+    #[cfg(feature = "std")]
+    fn from_bytes_to_bytes_le_is_the_identity_for_one() {
+        let bytes = [
+            1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0,
+        ];
+        assert_eq!(
+            FP2Element::from_bytes_le(&bytes).unwrap().to_bytes_le(),
+            bytes
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "std")]
+    fn creating_a_field_element_from_its_representative_returns_the_same_element_1() {
+        let change = U256::from_u32(1);
+        let f1 = U256FP1Element::new(U256ModulusP1::MODULUS + change);
+        let f2 = U256FP1Element::new(f1.representative());
+        assert_eq!(f1, f2);
+    }
+
+    #[test]
+    fn creating_a_field_element_from_its_representative_returns_the_same_element_2() {
+        let change = U256::from_u32(27);
+        let f1 = U256F29Element::new(U256Modulus29::MODULUS + change);
+        let f2 = U256F29Element::new(f1.representative());
+        assert_eq!(f1, f2);
+    }
+
+    #[test]
+    fn creating_a_field_element_from_hex_works_1() {
+        let a = U256FP1Element::from_hex_unchecked("eb235f6144d9e91f4b14");
+        let b = U256FP1Element::new(U256 {
+            limbs: [0, 0, 0, 0, 0, 60195, 1600210137, 3911142164],
+        });
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn creating_a_field_element_from_hex_works_2() {
+        let a = U256F29Element::from_hex_unchecked("aa");
+        let b = U256F29Element::from(25);
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn creating_a_field_element_from_hex_works_3() {
+        let a = U256F29Element::from_hex_unchecked("1d");
+        let b = U256F29Element::zero();
+        assert_eq!(a, b);
     }
 }

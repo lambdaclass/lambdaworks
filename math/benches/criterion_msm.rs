@@ -6,7 +6,7 @@ use lambdaworks_math::{
     },
     field::traits::IsField,
     msm::{naive, pippenger},
-    unsigned_integer::element::UnsignedInteger,
+    unsigned_integer::u64_word::element::UnsignedInteger,
 };
 use rand::{rngs::StdRng, Rng, SeedableRng};
 

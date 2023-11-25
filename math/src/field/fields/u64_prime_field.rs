@@ -65,6 +65,7 @@ impl<const MODULUS: u64> IsField for U64PrimeField<MODULUS> {
         1
     }
 
+    #[inline(always)]
     fn from_u64(x: u64) -> u64 {
         x % MODULUS
     }

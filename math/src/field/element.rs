@@ -1,9 +1,11 @@
 use crate::errors::CreationError;
 use crate::field::errors::FieldError;
 use crate::field::traits::IsField;
+use crate::unsigned_integer::u32_word::element::UnsignedInteger as Uint32;
+use crate::unsigned_integer::u32_word::montgomery::MontgomeryAlgorithms as MontgomeryAlgorithms32;
 use crate::unsigned_integer::u32_word::traits::IsUnsignedInteger;
-use crate::unsigned_integer::u64_word::element::UnsignedInteger;
-use crate::unsigned_integer::u64_word::montgomery::MontgomeryAlgorithms;
+use crate::unsigned_integer::u64_word::element::UnsignedInteger as Uint64;
+use crate::unsigned_integer::u64_word::montgomery::MontgomeryAlgorithms as MontgomeryAlgorithms64;
 use core::fmt;
 use core::fmt::Debug;
 use core::iter::Sum;
@@ -18,6 +20,9 @@ use serde::ser::{Serialize, SerializeStruct, Serializer};
 use serde::Deserialize;
 
 use super::fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField};
+use super::fields::montgomery_backed_u32_prime_fields::{
+    IsModulus as IsModulus32, MontgomeryBackendPrimeField32,
+};
 use super::traits::{IsPrimeField, LegendreSymbol};
 
 /// A field element with operations algorithms defined in `F`
@@ -51,6 +56,18 @@ impl<F: IsField> FieldElement<F> {
     }
 }
 
+/// From overloading for U64
+impl<F> From<u64> for FieldElement<F>
+where
+    F: IsField,
+{
+    fn from(value: u64) -> Self {
+        Self {
+            value: F::from_u64(value),
+        }
+    }
+}
+
 /// From overloading for field elements
 impl<F> From<&F::BaseType> for FieldElement<F>
 where
@@ -60,18 +77,6 @@ where
     fn from(value: &F::BaseType) -> Self {
         Self {
             value: F::from_base_type(value.clone()),
-        }
-    }
-}
-
-/// From overloading for U64
-impl<F> From<u64> for FieldElement<F>
-where
-    F: IsField,
-{
-    fn from(value: u64) -> Self {
-        Self {
-            value: F::from_u64(value),
         }
     }
 }
@@ -496,29 +501,62 @@ impl<'de, F: IsPrimeField> Deserialize<'de> for FieldElement<F> {
 impl<M, const NUM_LIMBS: usize> fmt::Display
     for FieldElement<MontgomeryBackendPrimeField<M, NUM_LIMBS>>
 where
-    M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug,
+    M: IsModulus<Uint64<NUM_LIMBS>> + Clone + Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let value: UnsignedInteger<NUM_LIMBS> = self.representative();
+        let value: Uint64<NUM_LIMBS> = self.representative();
         write!(f, "{}", value)
     }
 }
 
+// 64 bit word size backend
 impl<M, const NUM_LIMBS: usize> FieldElement<MontgomeryBackendPrimeField<M, NUM_LIMBS>>
 where
-    M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug,
+    M: IsModulus<Uint64<NUM_LIMBS>> + Clone + Debug,
 {
     /// Creates a `FieldElement` from a hexstring. It can contain `0x` or not.
     /// # Panics
     /// Panics if value is not a hexstring
     pub const fn from_hex_unchecked(hex: &str) -> Self {
-        let integer = UnsignedInteger::<NUM_LIMBS>::from_hex_unchecked(hex);
+        let integer = Uint64::<NUM_LIMBS>::from_hex_unchecked(hex);
         Self {
-            value: MontgomeryAlgorithms::cios(
+            value: MontgomeryAlgorithms64::cios(
                 &integer,
                 &MontgomeryBackendPrimeField::<M, NUM_LIMBS>::R2,
                 &M::MODULUS,
                 &MontgomeryBackendPrimeField::<M, NUM_LIMBS>::MU,
+            ),
+        }
+    }
+}
+
+impl<M, const NUM_LIMBS: usize> fmt::Display
+    for FieldElement<MontgomeryBackendPrimeField32<M, NUM_LIMBS>>
+where
+    M: IsModulus32<Uint32<NUM_LIMBS>> + Clone + Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let value: Uint32<NUM_LIMBS> = self.representative();
+        write!(f, "{}", value)
+    }
+}
+
+// 32 bit word size backend
+impl<M, const NUM_LIMBS: usize> FieldElement<MontgomeryBackendPrimeField32<M, NUM_LIMBS>>
+where
+    M: IsModulus32<Uint32<NUM_LIMBS>> + Clone + Debug,
+{
+    /// Creates a `FieldElement` from a hexstring. It can contain `0x` or not.
+    /// # Panics
+    /// Panics if value is not a hexstring
+    pub const fn from_hex_unchecked(hex: &str) -> Self {
+        let integer = Uint32::<NUM_LIMBS>::from_hex_unchecked(hex);
+        Self {
+            value: MontgomeryAlgorithms32::cios(
+                &integer,
+                &MontgomeryBackendPrimeField32::<M, NUM_LIMBS>::R2,
+                &M::MODULUS,
+                &MontgomeryBackendPrimeField32::<M, NUM_LIMBS>::MU,
             ),
         }
     }

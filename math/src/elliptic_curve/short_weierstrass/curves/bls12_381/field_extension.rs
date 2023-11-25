@@ -92,10 +92,9 @@ impl IsField for Degree2ExtensionField {
     }
 
     /// Returns the element `x * 1` where 1 is the multiplicative neutral element.
-    fn from_u64(x: u64) -> Self::BaseType {
+    fn from_u64(x: u64) -> <Self as IsField>::BaseType {
         [FieldElement::from(x), FieldElement::zero()]
     }
-
     /// Takes as input an element of BaseType and returns the internal representation
     /// of that element in the field.
     /// Note: for this case this is simply the identity, because the components

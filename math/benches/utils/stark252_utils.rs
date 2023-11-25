@@ -5,7 +5,7 @@ use lambdaworks_math::{
         traits::RootsConfig,
     },
     polynomial::Polynomial,
-    unsigned_integer::element::UnsignedInteger,
+    unsigned_integer::u64_word::element::UnsignedInteger,
 };
 use rand::random;
 
