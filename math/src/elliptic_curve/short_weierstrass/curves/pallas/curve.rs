@@ -1,10 +1,12 @@
 use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
 use crate::elliptic_curve::traits::IsEllipticCurve;
 use crate::field::fields::pallas_field::Pallas255PrimeField;
+use crate::unsigned_integer::element::UnsignedInteger;
 use crate::{
     elliptic_curve::short_weierstrass::traits::IsShortWeierstrass, field::element::FieldElement,
 };
 
+#[derive(Clone, Debug)]
 pub struct PallasCurve;
 
 impl IsEllipticCurve for PallasCurve {
@@ -14,13 +16,15 @@ impl IsEllipticCurve for PallasCurve {
     fn generator() -> Self::PointRepresentation {
         Self::PointRepresentation::new([
             -FieldElement::<Self::BaseField>::one(),
-            FieldElement::<Self::BaseField>::from_raw([2, 0, 0, 0]),
+            FieldElement::<Self::BaseField>::from_raw(&UnsignedInteger {
+                limbs: [2, 0, 0, 0],
+            }),
             FieldElement::one(),
         ])
     }
 }
 
-impl IsShortWeierstrass for BLS12381Curve {
+impl IsShortWeierstrass for PallasCurve {
     fn a() -> FieldElement<Self::BaseField> {
         FieldElement::from(0)
     }
@@ -41,18 +45,18 @@ mod tests {
     use super::PallasCurve;
 
     #[allow(clippy::upper_case_acronyms)]
-    type FEE = FieldElement<BLS12381PrimeField>;
+    type FE = FieldElement<Pallas255PrimeField>;
 
     fn point_1() -> ShortWeierstrassProjectivePoint<PallasCurve> {
-        let x = FEE::new_base("36bb494facde72d0da5c770c4b16d9b2d45cfdc27604a25a1a80b020798e5b0dbd4c6d939a8f8820f042a29ce552ee5");
-        let y = FEE::new_base("7acf6e49cc000ff53b06ee1d27056734019c0a1edfa16684da41ebb0c56750f73bc1b0eae4c6c241808a5e485af0ba0");
-        BLS12381Curve::create_point_from_affine(x, y).unwrap()
+        let x = FE::from_hex_unchecked("bd1e740e6b1615ae4c508148ca0c53dbd43f7b2e206195ab638d7f45d51d6b5");
+        let y = FE::from_hex_unchecked("13aacd107ca10b7f8aab570da1183b91d7d86dd723eaa2306b0ef9c5355b91d8");
+        PallasCurve::create_point_from_affine(x, y).unwrap()
     }
 
     fn point_1_times_5() -> ShortWeierstrassProjectivePoint<PallasCurve> {
-        let x = FEE::new_base("32bcce7e71eb50384918e0c9809f73bde357027c6bf15092dd849aa0eac274d43af4c68a65fb2cda381734af5eecd5c");
-        let y = FEE::new_base("11e48467b19458aabe7c8a42dc4b67d7390fdf1e150534caadddc7e6f729d8890b68a5ea6885a21b555186452b954d88");
-        BLS12381Curve::create_point_from_affine(x, y).unwrap()
+        let x = FE::from_hex_unchecked("17a21304fffd6749d6173d4e0acd9724d98a97453b3491c0e5a53b06cf039b13");
+        let y = FE::from_hex_unchecked("2f9bde429091a1089e52a6cc5dc789e1a58eeded0cf72dccc33b7af685a982d");
+        PallasCurve::create_point_from_affine(x, y).unwrap()
     }
 
     #[test]
