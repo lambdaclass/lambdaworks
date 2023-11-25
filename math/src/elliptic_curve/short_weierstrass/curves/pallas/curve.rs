@@ -1,7 +1,6 @@
 use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
 use crate::elliptic_curve::traits::IsEllipticCurve;
 use crate::field::fields::pallas_field::Pallas255PrimeField;
-use crate::unsigned_integer::element::UnsignedInteger;
 use crate::{
     elliptic_curve::short_weierstrass::traits::IsShortWeierstrass, field::element::FieldElement,
 };
@@ -16,9 +15,7 @@ impl IsEllipticCurve for PallasCurve {
     fn generator() -> Self::PointRepresentation {
         Self::PointRepresentation::new([
             -FieldElement::<Self::BaseField>::one(),
-            FieldElement::<Self::BaseField>::from_raw(&UnsignedInteger {
-                limbs: [2, 0, 0, 0],
-            }),
+            FieldElement::<Self::BaseField>::from(2),
             FieldElement::one(),
         ])
     }
