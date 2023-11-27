@@ -729,16 +729,19 @@ fn finalize_mem_pool(trace: &mut CairoTraceTable, memory_holes: &mut VecDeque<Fe
 
 fn finalize_rc_pool(trace: &mut CairoTraceTable, rc_holes: VecDeque<Felt252>, rc_max: Felt252) {
     let mut rc_holes = rc_holes;
+
+    rc_holes.iter().for_each(|h| println!("RC HOLE: {}", h));
+
     let reserved_cell_idxs = [4, 8];
-    for step_idx in 1..trace.num_steps() {
-        for step_cell_idx in 0..CAIRO_STEP {
+    for step_idx in 0..trace.num_steps() {
+        for step_cell_idx in 1..CAIRO_STEP {
             if reserved_cell_idxs.contains(&step_cell_idx) {
                 continue;
             };
             if let Some(rc_hole) = rc_holes.pop_front() {
-                trace.set(step_idx * step_cell_idx, 0, rc_hole);
+                trace.set(step_idx * CAIRO_STEP + step_cell_idx, 0, rc_hole);
             } else {
-                trace.set(step_idx * step_cell_idx, 0, rc_max);
+                trace.set(step_idx * CAIRO_STEP + step_cell_idx, 0, rc_max);
             }
         }
     }
@@ -947,7 +950,7 @@ mod test {
             .map(|x| x.representative().into())
             .collect();
         sorted_rc_values.sort();
-        let mut rc_holes = get_rc_holes(&sorted_rc_values);
+        let rc_holes = get_rc_holes(&sorted_rc_values);
         let rc_max = Felt252::from(*(sorted_rc_values.last().unwrap()) as u64);
         finalize_rc_pool(&mut trace, rc_holes, rc_max);
 
