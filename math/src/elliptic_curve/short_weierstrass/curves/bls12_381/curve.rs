@@ -88,7 +88,7 @@ impl ShortWeierstrassProjectivePoint<BLS12381Curve> {
 
 impl ShortWeierstrassProjectivePoint<BLS12381TwistCurve> {
     /// 𝜓(P) = 𝜁 ∘ 𝜋ₚ ∘ 𝜁⁻¹, where 𝜁 is the isomorphism u:E'(𝔽ₚ₆) −> E(𝔽ₚ₁₂) from the twist to E,, 𝜋ₚ is the p-power frobenius endomorphism
-    /// and 𝜙 satisifies minmal equation 𝜙² + 𝑡𝑋 + 𝑞 = 𝑂
+    /// and 𝜓 satisifies minmal equation 𝑋² + 𝑡𝑋 + 𝑞 = 𝑂
     /// https://eprint.iacr.org/2022/352.pdf 4.2 (7)
     fn psi(&self) -> Self {
         let [x, y, z] = self.coordinates();
@@ -136,7 +136,7 @@ mod tests {
     ]);
 
     // Cmoputes the psi^2() 'Untwist Frobenius Endomorphism'
-    fn psi_2(
+    fn psi_square(
         p: &ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
     ) -> ShortWeierstrassProjectivePoint<BLS12381TwistCurve> {
         let [x, y, z] = p.coordinates();
