@@ -1,7 +1,9 @@
 use lambdaworks_math::{
     field::{
         element::FieldElement,
-        fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
+        fields::montgomery_backend_prime_fields_64bit_word::{
+            IsModulus, MontgomeryBackendPrimeField,
+        },
     },
     unsigned_integer::u64_word::element::UnsignedInteger,
 };
@@ -45,7 +47,9 @@ fn os2ip<M: IsModulus<UnsignedInteger<N>> + Clone, const N: usize>(
     for item_u8 in aux_x.iter() {
         item_hex += &format!("{:x}", item_u8);
         if item_hex.len() == item_hex.capacity() {
-            result += FieldElement::from_hex_unchecked(&item_hex) * two_to_the_nth.pow(j);
+            result +=
+                <FieldElement<MontgomeryBackendPrimeField<M, N>>>::from_hex_unchecked(&item_hex)
+                    * two_to_the_nth.pow(j);
             item_hex.clear();
             j += 1;
         }
@@ -62,7 +66,8 @@ fn build_two_to_the_nth<M: IsModulus<UnsignedInteger<N>> + Clone, const N: usize
     for _ in 0..two_to_the_nth.capacity() - 1 {
         two_to_the_nth.push('1');
     }
-    FieldElement::from_hex_unchecked(&two_to_the_nth) + FieldElement::one()
+    <FieldElement<MontgomeryBackendPrimeField<M, N>>>::from_hex_unchecked(&two_to_the_nth)
+        + FieldElement::one()
 }
 
 #[cfg(test)]
@@ -70,7 +75,9 @@ mod tests {
     use lambdaworks_math::{
         field::{
             element::FieldElement,
-            fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
+            fields::montgomery_backend_prime_fields_64bit_word::{
+                IsModulus, MontgomeryBackendPrimeField,
+            },
         },
         unsigned_integer::u64_word::element::UnsignedInteger,
     };

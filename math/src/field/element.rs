@@ -19,9 +19,11 @@ use serde::ser::{Serialize, SerializeStruct, Serializer};
 #[cfg(feature = "lambdaworks-serde")]
 use serde::Deserialize;
 
-use super::fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField};
-use super::fields::montgomery_backed_u32_prime_fields::{
+use super::fields::montgomery_backend_prime_fields_32bit_word::{
     IsModulus as IsModulus32, MontgomeryBackendPrimeField32,
+};
+use super::fields::montgomery_backend_prime_fields_64bit_word::{
+    IsModulus, MontgomeryBackendPrimeField,
 };
 use super::traits::{IsPrimeField, LegendreSymbol};
 

@@ -167,7 +167,7 @@ where
 #[cfg(test)]
 mod tests {
     use lambdaworks_math::{
-        field::fields::montgomery_backed_prime_fields::{IsModulus, U384PrimeField},
+        field::fields::montgomery_backend_prime_fields_64bit_word::{IsModulus, U384PrimeField},
         unsigned_integer::u64_word::element::U384,
     };
 

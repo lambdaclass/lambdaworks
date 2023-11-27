@@ -3,7 +3,9 @@
 use crate::{
     field::{
         element::FieldElement,
-        fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
+        fields::montgomery_backend_prime_fields_64bit_word::{
+            IsModulus, MontgomeryBackendPrimeField,
+        },
     },
     unsigned_integer::u64_word::element::U256,
 };

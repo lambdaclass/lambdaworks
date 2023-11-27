@@ -6,9 +6,9 @@ use lambdaworks_math::{
         fft_friendly::stark_252_prime_field::{
             MontgomeryConfigStark252PrimeField, Stark252PrimeField,
         },
-        montgomery_backed_prime_fields::IsModulus,
+        montgomery_backend_prime_fields_64bit_word::IsModulus,
     },
-    unsigned_integer::{element::U256, montgomery::MontgomeryAlgorithms},
+    unsigned_integer::u64_word::{element::U256, montgomery::MontgomeryAlgorithms},
 };
 
 mod utils;

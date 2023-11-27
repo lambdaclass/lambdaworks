@@ -971,12 +971,12 @@ impl<const NUM_LIMBS: usize> From<UnsignedInteger<NUM_LIMBS>> for u16 {
 }
 
 #[cfg(feature = "proptest")]
-fn any_uint<const NUM_LIMBS: usize>() -> impl Strategy<Value = UnsignedInteger<NUM_LIMBS>> {
+fn any_uint<const NUM_LIMBS: u32>() -> impl Strategy<Value = UnsignedInteger<NUM_LIMBS>> {
     any::<[u32; NUM_LIMBS]>().prop_map(|limbs| UnsignedInteger::from_limbs(limbs))
 }
 
 #[cfg(feature = "proptest")]
-impl<const NUM_LIMBS: usize> Arbitrary for UnsignedInteger<NUM_LIMBS> {
+impl<const NUM_LIMBS: u32> Arbitrary for UnsignedInteger<NUM_LIMBS> {
     type Parameters = ();
 
     fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
@@ -989,10 +989,9 @@ impl<const NUM_LIMBS: usize> Arbitrary for UnsignedInteger<NUM_LIMBS> {
 #[cfg(test)]
 mod tests_u384_32_bit_word {
 
-    use rand::Rng;
-
     use crate::traits::ByteConversion;
     use crate::unsigned_integer::u32_word::element::{UnsignedInteger, U384};
+    use rand::Rng;
 
     #[cfg(feature = "proptest")]
     proptest! {
@@ -1818,7 +1817,7 @@ mod tests_u384_32_bit_word {
 }
 
 #[cfg(test)]
-mod tests_u256_32_word_size {
+mod tests_u256_32bit_word {
 
     use crate::unsigned_integer::u32_word::element::{UnsignedInteger, U256};
 

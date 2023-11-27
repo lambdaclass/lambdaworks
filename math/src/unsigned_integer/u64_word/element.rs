@@ -1054,7 +1054,7 @@ mod tests_u384 {
     }
 
     #[test]
-    fn construct_new_integer_from_u54_2() {
+    fn construct_new_integer_from_u64_2() {
         let a = U384::from_u64(u64::MAX);
         assert_eq!(a.limbs, [0, 0, 0, 0, 0, u64::MAX]);
     }
@@ -2018,7 +2018,7 @@ mod tests_u384 {
 }
 
 #[cfg(test)]
-mod tests_u256 {
+mod tests_u256_64bit_word {
 
     use crate::unsigned_integer::u64_word::element::{UnsignedInteger, U256};
 

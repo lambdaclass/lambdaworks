@@ -7,7 +7,9 @@ use crate::{
             cubic::{CubicExtensionField, HasCubicNonResidue},
             quadratic::{HasQuadraticNonResidue, QuadraticExtensionField},
         },
-        fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
+        fields::montgomery_backend_prime_fields_64bit_word::{
+            IsModulus, MontgomeryBackendPrimeField,
+        },
         traits::IsField,
     },
     traits::ByteConversion,

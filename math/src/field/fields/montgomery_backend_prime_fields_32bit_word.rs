@@ -424,8 +424,6 @@ mod tests_u384_prime_fields_u32_limb {
     #[test]
     fn montgomery_backend_primefield_from_u32() {
         let p = U384::from_limbs([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 17]);
-
-        //assert_eq!(U384F23::representative(&U384F23::from_u32(770_u32)), p);
         assert_eq!(U384F23::from_u32(770_u32), p);
     }
 
@@ -722,7 +720,9 @@ mod tests_u384_prime_fields_u32_limb {
 mod tests_u256_prime_fields {
     use crate::field::element::FieldElement;
     use crate::field::errors::FieldError;
-    use crate::field::fields::montgomery_backed_u32_prime_fields::{IsModulus, U256PrimeField32};
+    use crate::field::fields::montgomery_backend_prime_fields_32bit_word::{
+        IsModulus, U256PrimeField32,
+    };
     use crate::field::traits::IsPrimeField;
     #[cfg(feature = "std")]
     use crate::traits::ByteConversion;
