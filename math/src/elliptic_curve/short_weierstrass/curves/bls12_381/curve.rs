@@ -281,11 +281,11 @@ mod tests {
     fn untwist_morphism_has_minimal_poly() {
         // generator
         let p = BLS12381TwistCurve::generator();
-        let psi_2 = psi_2(&p);
+        let psi_square = psi_square(&p);
         let tx = p.psi().operate_with_self(TRACE_OF_FROBENIUS).neg();
         let q = p.operate_with_self(BLS12381_PRIME_FIELD_ORDER);
         // Minimal Polynomial of Untwist Frobenius Endomorphism: X^2 + tX + q, where X = psh(P) -> psi(p)^2 - t * psi(p) + q * p = 0
-        let min_poly = psi_2.operate_with(&tx.neg()).operate_with(&q);
+        let min_poly = psi_square.operate_with(&tx.neg()).operate_with(&q);
         assert!(min_poly.is_neutral_element())
     }
 }
