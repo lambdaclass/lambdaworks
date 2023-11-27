@@ -16,13 +16,18 @@ num-traits = "0.2"
 ibig = "0.3.6"
 p3-goldilocks = { git = "https://github.com/Plonky3/Plonky3", rev = "41cd843" }
 p3-field = { git = "https://github.com/Plonky3/Plonky3", rev = "41cd843" }
-
 p3-mersenne-31 = { git = "https://github.com/Plonky3/Plonky3", rev = "41cd843" }
 p3-field = { git = "https://github.com/Plonky3/Plonky3", rev = "41cd843" }
 
 [[bin]]
 name = "field_fuzzer"
 path = "fuzz_targets/field_fuzzer.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "curve_bls12_381"
+path = "fuzz_targets/curve_bls12_381.rs"
 test = false
 doc = false
 
