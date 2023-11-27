@@ -79,7 +79,7 @@ impl IsStarkTranscript<Felt> for MidenProverTranscript {
     }
 
     fn append_bytes(&mut self, new_bytes: &[u8]) {
-        self.hasher.update(&mut new_bytes.clone());
+        self.hasher.update(&mut new_bytes.to_owned());
     }
 
     fn state(&self) -> [u8; 32] {

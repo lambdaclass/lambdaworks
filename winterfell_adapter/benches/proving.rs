@@ -11,7 +11,9 @@ use winter_air::FieldExtension;
 use winter_prover::Trace;
 use winterfell_adapter::adapter::air::AirAdapter;
 use winterfell_adapter::adapter::public_inputs::AirAdapterPublicInputs;
-use winterfell_adapter::examples::miden_vm::{MidenProver, ExecutionTraceMetadata, MidenProverTranscript};
+use winterfell_adapter::examples::miden_vm::{
+    ExecutionTraceMetadata, MidenProver, MidenProverTranscript,
+};
 
 struct BenchInstance {
     program: Program,

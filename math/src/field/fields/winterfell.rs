@@ -1,7 +1,12 @@
 use crate::{
-    field::{element::FieldElement, traits::{IsField, IsPrimeField, IsFFTField}, errors::FieldError},
-    traits::{Serializable, ByteConversion},
-    unsigned_integer::element::U256, errors::ByteConversionError,
+    errors::ByteConversionError,
+    field::{
+        element::FieldElement,
+        errors::FieldError,
+        traits::{IsFFTField, IsField, IsPrimeField},
+    },
+    traits::{ByteConversion, Serializable},
+    unsigned_integer::element::U256,
 };
 pub use miden_core::Felt;
 pub use winter_math::fields::f128::BaseElement;
@@ -84,11 +89,11 @@ impl Serializable for FieldElement<Felt> {
 
 impl ByteConversion for Felt {
     fn to_bytes_be(&self) -> Vec<u8> {
-        Felt::elements_as_bytes(&[self.clone()]).to_vec()
+        Felt::elements_as_bytes(&[*self]).to_vec()
     }
 
     fn to_bytes_le(&self) -> Vec<u8> {
-        Felt::elements_as_bytes(&[self.clone()]).to_vec()
+        Felt::elements_as_bytes(&[*self]).to_vec()
     }
 
     fn from_bytes_be(bytes: &[u8]) -> Result<Self, ByteConversionError>

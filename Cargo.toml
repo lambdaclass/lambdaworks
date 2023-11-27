@@ -17,6 +17,17 @@ lambdaworks-math = { path = "./math", version = "0.2.0" }
 stark-platinum-prover = { path = "./provers/stark", version = "0.2.0" }
 cairo-platinum-prover = { path = "./provers/cairo", version = "0.2.0" }
 
+[patch.crates-io]
+winter-air = { git = "https://github.com/lambdaclass/winterfell-for-lambdaworks.git", branch = "derive-clone-v6.4"}
+winter-prover = { git = "https://github.com/lambdaclass/winterfell-for-lambdaworks.git", branch = "derive-clone-v6.4"}
+winter-math = { git = "https://github.com/lambdaclass/winterfell-for-lambdaworks.git", branch = "derive-clone-v6.4"}
+winter-utils = { git = "https://github.com/lambdaclass/winterfell-for-lambdaworks.git", branch = "derive-clone-v6.4"}
+winter-crypto = { git = "https://github.com/lambdaclass/winterfell-for-lambdaworks.git", branch = "derive-clone-v6.4"}
+miden-air = { git = "https://github.com/lambdaclass/miden-vm" }
+miden-core = { git = "https://github.com/lambdaclass/miden-vm" }
+miden-assembly = { git = "https://github.com/lambdaclass/miden-vm" }
+miden-processor = { git = "https://github.com/lambdaclass/miden-vm" }
+
 [profile.bench]
 lto = true
 codegen-units = 1
