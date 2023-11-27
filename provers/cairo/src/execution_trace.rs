@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use super::{
     cairo_mem::CairoMemory,
     decode::{
@@ -34,7 +36,7 @@ pub fn build_main_trace(
     memory: &CairoMemory,
     public_input: &mut PublicInputs,
 ) -> CairoTraceTable {
-    let mut main_trace = build_cairo_execution_trace(register_states, memory);
+    let mut main_trace = build_cairo_execution_trace(register_states, memory, public_input);
 
     let mut address_cols =
         main_trace.merge_columns(&[FRAME_PC, FRAME_DST_ADDR, FRAME_OP0_ADDR, FRAME_OP1_ADDR]);
@@ -48,9 +50,9 @@ pub fn build_main_trace(
 
     let memory_holes = get_memory_holes(&address_cols, public_input.codelen);
 
-    if !memory_holes.is_empty() {
-        fill_memory_holes(&mut main_trace, &memory_holes);
-    }
+    // if !memory_holes.is_empty() {
+    //     fill_memory_holes(&mut main_trace, &memory_holes);
+    // }
 
     add_pub_memory_dummy_accesses(
         &mut main_trace,
@@ -140,9 +142,12 @@ fn fill_rc_holes(trace: &mut CairoTraceTable, holes: &[Felt252]) {
 ///
 /// * `sorted_addrs` - Vector of sorted memory addresses.
 /// * `codelen` - the length of the Cairo program instructions.
-fn get_memory_holes(sorted_addrs: &[Felt252], codelen: usize) -> Vec<Felt252> {
-    let mut memory_holes = Vec::new();
+fn get_memory_holes(sorted_addrs: &[Felt252], codelen: usize) -> VecDeque<Felt252> {
+    let mut memory_holes = VecDeque::new();
     let mut prev_addr = &sorted_addrs[0];
+
+    let one = Felt252::one();
+    let zero = Felt252::zero();
 
     for addr in sorted_addrs.iter() {
         let addr_diff = addr - prev_addr;
@@ -150,21 +155,22 @@ fn get_memory_holes(sorted_addrs: &[Felt252], codelen: usize) -> Vec<Felt252> {
         // If the candidate memory hole has an address belonging to the program segment (public
         // memory), that is not accounted here since public memory is added in a posterior step of
         // the protocol.
-        if addr_diff != Felt252::one()
-            && addr_diff != Felt252::zero()
-            && addr.representative() > (codelen as u64).into()
+        if addr_diff != one && addr_diff != zero && addr.representative() > (codelen as u64).into()
         {
-            let mut hole_addr = prev_addr + Felt252::one();
+            let mut hole_addr = prev_addr + one;
 
             while hole_addr.representative() < addr.representative() {
-                if hole_addr.representative() > (codelen as u64).into() {
-                    memory_holes.push(hole_addr);
+                if hole_addr.representative() > (codelen as u64 + 1).into() {
+                    memory_holes.push_back(hole_addr);
                 }
-                hole_addr += Felt252::one();
+                hole_addr += one;
             }
         }
         prev_addr = addr;
     }
+
+    let max_addr_plus_one = sorted_addrs.last().unwrap() + one;
+    memory_holes.push_back(max_addr_plus_one);
 
     memory_holes
 }
@@ -183,6 +189,7 @@ fn fill_memory_holes(trace: &mut CairoTraceTable, memory_holes: &[Felt252]) {
 pub fn build_cairo_execution_trace(
     register_states: &RegisterStates,
     memory: &CairoMemory,
+    public_input: &mut PublicInputs,
 ) -> CairoTraceTable {
     let num_steps = register_states.steps();
 
@@ -259,7 +266,7 @@ pub fn build_cairo_execution_trace(
 
     let mut rc_values = set_rc_column(&mut trace, unbiased_offsets);
     set_bit_prefix_flags(&mut trace, bit_prefix_flags);
-    let (mut accessed_addrs, accessed_values) = set_mem_pool(
+    let (mut sorted_addrs, sorted_values) = set_mem_pool(
         &mut trace,
         pcs,
         instructions,
@@ -272,7 +279,9 @@ pub fn build_cairo_execution_trace(
     );
     set_update_pc(&mut trace, aps, t0, t1, mul, fps, res);
 
-    accessed_addrs.sort_by_key(|x| x.representative());
+    sorted_addrs.sort_by_key(|x| x.representative());
+    let mut memory_holes = get_memory_holes(&sorted_addrs, public_input.codelen);
+    finalize_mem_pool(&mut trace, &mut memory_holes);
 
     trace
 }
@@ -640,6 +649,66 @@ fn set_update_pc(
     }
 }
 
+fn finalize_mem_pool(trace: &mut CairoTraceTable, memory_holes: &mut VecDeque<Felt252>) {
+    const MEM_POOL_UNUSED_ADDR_OFFSET: usize = 6;
+    const MEM_POOL_UNUSED_VALUE_OFFSET: usize = 7;
+    const MEM_POOL_UNUSED_CELL_STEP: usize = 8;
+
+    let last_hole_addr = memory_holes.pop_back().unwrap();
+
+    for step_idx in 0..trace.num_steps() {
+        if let Some(hole_addr) = memory_holes.pop_front() {
+            trace.set(
+                MEM_POOL_UNUSED_ADDR_OFFSET + CAIRO_STEP * step_idx,
+                3,
+                hole_addr,
+            );
+            trace.set(
+                MEM_POOL_UNUSED_VALUE_OFFSET + CAIRO_STEP * step_idx,
+                3,
+                Felt252::zero(),
+            );
+        } else {
+            trace.set(
+                MEM_POOL_UNUSED_ADDR_OFFSET + CAIRO_STEP * step_idx,
+                3,
+                last_hole_addr,
+            );
+            trace.set(
+                MEM_POOL_UNUSED_VALUE_OFFSET + CAIRO_STEP * step_idx,
+                3,
+                Felt252::zero(),
+            );
+        }
+
+        if let Some(hole_addr) = memory_holes.pop_front() {
+            trace.set(
+                MEM_POOL_UNUSED_ADDR_OFFSET + MEM_POOL_UNUSED_CELL_STEP + CAIRO_STEP * step_idx,
+                3,
+                hole_addr,
+            );
+            trace.set(
+                MEM_POOL_UNUSED_VALUE_OFFSET + MEM_POOL_UNUSED_CELL_STEP + CAIRO_STEP * step_idx,
+                3,
+                Felt252::zero(),
+            );
+        } else {
+            trace.set(
+                MEM_POOL_UNUSED_ADDR_OFFSET + MEM_POOL_UNUSED_CELL_STEP + CAIRO_STEP * step_idx,
+                3,
+                last_hole_addr,
+            );
+            trace.set(
+                MEM_POOL_UNUSED_VALUE_OFFSET + MEM_POOL_UNUSED_CELL_STEP + CAIRO_STEP * step_idx,
+                3,
+                Felt252::zero(),
+            );
+        }
+
+        assert!(memory_holes.is_empty());
+    }
+}
+
 #[cfg(test)]
 mod test {
     use crate::{
@@ -749,13 +818,13 @@ mod test {
         addrs.extend_from_slice(&addrs_extension);
         let codelen = 0;
 
-        let expected_memory_holes = vec![
+        let expected_memory_holes = VecDeque::from([
             Felt252::from(4),
             Felt252::from(5),
             Felt252::from(10),
             Felt252::from(11),
             Felt252::from(12),
-        ];
+        ]);
         let calculated_memory_holes = get_memory_holes(&addrs, codelen);
 
         assert_eq!(expected_memory_holes, calculated_memory_holes);
@@ -773,7 +842,7 @@ mod test {
         let codelen = 9;
 
         let calculated_memory_holes = get_memory_holes(&addrs, codelen);
-        let expected_memory_holes: Vec<Felt252> = Vec::new();
+        let expected_memory_holes = VecDeque::new();
 
         assert_eq!(expected_memory_holes, calculated_memory_holes);
     }
@@ -790,7 +859,7 @@ mod test {
         let codelen = 6;
 
         let calculated_memory_holes = get_memory_holes(&addrs, codelen);
-        let expected_memory_holes = vec![Felt252::from(7)];
+        let expected_memory_holes = VecDeque::from([Felt252::from(7)]);
 
         assert_eq!(expected_memory_holes, calculated_memory_holes);
     }
@@ -837,7 +906,7 @@ mod test {
             .map(InstructionOffsets::to_trace_representation)
             .collect();
 
-        set_offsets(&mut trace, unbiased_offsets);
+        set_rc_column(&mut trace, unbiased_offsets);
 
         trace.table.columns()[0][0..50]
             .iter()
@@ -906,7 +975,7 @@ mod test {
     fn set_mem_pool_works() {
         let program_content = std::fs::read(cairo0_program_path("fibonacci_stone.json")).unwrap();
         let mut trace: CairoTraceTable = TraceTable::allocate_with_zeros(128, 8, 16);
-        let (register_states, memory, _) =
+        let (register_states, memory, codelen) =
             run_program(None, CairoLayout::Plain, &program_content).unwrap();
 
         let (flags, biased_offsets): (Vec<CairoInstructionFlags>, Vec<InstructionOffsets>) =
@@ -938,7 +1007,7 @@ mod test {
             .map(|t| *memory.get(&t.pc).unwrap())
             .collect();
 
-        set_mem_pool(
+        let (mut sorted_addrs, _sorted_values) = set_mem_pool(
             &mut trace,
             pcs,
             instructions,
@@ -949,6 +1018,15 @@ mod test {
             op1_addrs,
             op1s,
         );
+
+        sorted_addrs.sort_by_key(|x| x.representative());
+
+        let mut memory_holes = get_memory_holes(&sorted_addrs, codelen);
+        println!("MEMORY HOLES:");
+        memory_holes
+            .iter()
+            .for_each(|h| println!("HOLE ADDR: {}", h));
+        finalize_mem_pool(&mut trace, &mut memory_holes);
 
         trace.table.columns()[3][0..50]
             .iter()
