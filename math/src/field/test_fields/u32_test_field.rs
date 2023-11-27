@@ -2,13 +2,16 @@ use crate::{
     errors::CreationError,
     field::errors::FieldError,
     field::traits::{IsFFTField, IsField, IsPrimeField},
-    traits::ByteConversion,
 };
+
+#[cfg(feature = "lambdaworks-serde-binary")]
+use crate::traits::ByteConversion;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 
 pub struct U32Field<const MODULUS: u32>;
 
+#[cfg(feature = "lambdaworks-serde-binary")]
 impl ByteConversion for u32 {
     #[cfg(feature = "std")]
     fn to_bytes_be(&self) -> Vec<u8> {

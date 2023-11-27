@@ -28,7 +28,7 @@ impl<'t, F: IsFFTField> Table<F> {
         }
 
         // Check that the one-dimensional data makes sense to be interpreted as a 2D one.
-        assert!(crate::debug::validate_2d_structure(&data, width));
+        debug_assert!(crate::debug::validate_2d_structure(&data, width));
         let height = data.len() / width;
 
         Self {
@@ -166,6 +166,11 @@ impl<'t, F: IsFFTField> TableView<'t, F> {
     pub fn get(&self, row: usize, col: usize) -> &FieldElement<F> {
         let idx = row * self.width + col;
         &self.data[idx]
+    }
+
+    pub fn get_row(&self, row: usize) -> &[FieldElement<F>] {
+        let first = row * self.width;
+        &self.data[first..first + self.width]
     }
 }
 

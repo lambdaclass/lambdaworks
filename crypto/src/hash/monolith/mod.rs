@@ -87,7 +87,7 @@ impl MonolithMersenne31 {
     }
 }
 
-// Layers
+// Computation
 impl MonolithMersenne31 {
     pub fn permutation(&self, state: &mut Vec<u32>) {
         self.concrete(state);
