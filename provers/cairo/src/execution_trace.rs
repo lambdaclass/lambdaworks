@@ -43,10 +43,13 @@ pub fn build_main_trace(
 
     address_cols.sort_by_key(|x| x.representative());
 
-    let (rc_holes, rc_min, rc_max) = get_rc_holes(&main_trace, &[OFF_DST, OFF_OP0, OFF_OP1]);
-    public_input.range_check_min = Some(rc_min);
-    public_input.range_check_max = Some(rc_max);
-    fill_rc_holes(&mut main_trace, &rc_holes);
+    todo!();
+    // let rc_holes = get_rc_holes(&main_trace);
+    let rc_min = Felt252::zero();
+    let rc_max = Felt252::one();
+    // public_input.range_check_min = Some(rc_min);
+    // public_input.range_check_max = Some(rc_max);
+    // fill_rc_holes(&mut main_trace, &rc_holes);
 
     let memory_holes = get_memory_holes(&address_cols, public_input.codelen);
 
@@ -86,36 +89,39 @@ fn add_pub_memory_dummy_accesses(
 /// values rc_min and rc_max, corresponding to the minimum and maximum values of the range.
 /// NOTE: These extreme values should be received as public inputs in the future and not
 /// calculated here.
-fn get_rc_holes(trace: &CairoTraceTable, columns_indices: &[usize]) -> (Vec<Felt252>, u16, u16) {
-    let offset_columns = trace.merge_columns(columns_indices);
+fn get_rc_holes(sorted_rc_values: &[u16]) -> VecDeque<Felt252> {
+    let mut rc_holes = VecDeque::new();
 
-    let mut sorted_offset_representatives: Vec<u16> = offset_columns
-        .iter()
-        .map(|x| x.representative().into())
-        .collect();
-    sorted_offset_representatives.sort();
+    let mut prev_rc_value = sorted_rc_values[0];
 
-    let mut all_missing_values: Vec<Felt252> = Vec::new();
+    for rc_value in sorted_rc_values.iter() {
+        let rc_diff = rc_value - prev_rc_value;
+        if rc_diff != 1 && rc_diff != 0 {
+            let mut rc_hole = prev_rc_value + 1;
 
-    for window in sorted_offset_representatives.windows(2) {
-        if window[1] != window[0] {
-            let mut missing_range: Vec<_> = ((window[0] + 1)..window[1])
-                .map(|x| Felt252::from(x as u64))
-                .collect();
-            all_missing_values.append(&mut missing_range);
+            while rc_hole < *rc_value {
+                rc_holes.push_back(Felt252::from(rc_hole as u64));
+                rc_hole += 1;
+            }
         }
     }
 
-    let multiple_of_three_padding =
-        ((all_missing_values.len() + 2) / 3) * 3 - all_missing_values.len();
-    let padding_element = Felt252::from(*sorted_offset_representatives.last().unwrap() as u64);
-    all_missing_values.append(&mut vec![padding_element; multiple_of_three_padding]);
+    // for window in sorted_rc_values.windows(2) {
+    //     if window[1] != window[0] {
+    //         let mut missing_range: Vec<_> = ((window[0] + 1)..window[1])
+    //             .map(|x| Felt252::from(x as u64))
+    //             .collect();
+    //         all_missing_values.append(&mut missing_range);
+    //     }
+    // }
 
-    (
-        all_missing_values,
-        sorted_offset_representatives[0],
-        sorted_offset_representatives.last().cloned().unwrap(),
-    )
+    // let multiple_of_three_padding =
+    //     ((all_missing_values.len() + 2) / 3) * 3 - all_missing_values.len();
+    // let padding_element = Felt252::from(*sorted_rc_values.last().unwrap() as u64);
+    // all_missing_values.append(&mut vec![padding_element; multiple_of_three_padding]);
+
+    // all_missing_values,
+    rc_holes
 }
 
 /// Fills holes found in the range-checked columns.
@@ -264,7 +270,7 @@ pub fn build_cairo_execution_trace(
     let mut trace: CairoTraceTable =
         TraceTable::allocate_with_zeros(num_steps, PLAIN_LAYOUT_NUM_COLUMNS, CAIRO_STEP);
 
-    let mut rc_values = set_rc_column(&mut trace, unbiased_offsets);
+    let mut rc_values = set_rc_pool(&mut trace, unbiased_offsets);
     set_bit_prefix_flags(&mut trace, bit_prefix_flags);
     let (mut sorted_addrs, sorted_values) = set_mem_pool(
         &mut trace,
@@ -279,6 +285,18 @@ pub fn build_cairo_execution_trace(
     );
     set_update_pc(&mut trace, aps, t0, t1, mul, fps, res);
 
+    // Sort values in rc pool
+    let mut sorted_rc_value_representatives: Vec<u16> = rc_values
+        .iter()
+        .map(|x| x.representative().into())
+        .collect();
+    sorted_rc_value_representatives.sort();
+    let rc_holes = get_rc_holes(&sorted_rc_value_representatives);
+    let rc_max = Felt252::from(*(sorted_rc_value_representatives.last().unwrap()) as u64);
+    let rc_min = Felt252::from(sorted_rc_value_representatives[0] as u64);
+    finalize_rc_pool(&mut trace, rc_holes, rc_max);
+
+    // Sort memory
     sorted_addrs.sort_by_key(|x| x.representative());
     let mut memory_holes = get_memory_holes(&sorted_addrs, public_input.codelen);
     finalize_mem_pool(&mut trace, &mut memory_holes);
@@ -539,7 +557,7 @@ fn set_bit_prefix_flags(trace: &mut CairoTraceTable, bit_prefix_flags: Vec<[Felt
 }
 
 // Column 0
-fn set_rc_column(
+fn set_rc_pool(
     trace: &mut CairoTraceTable,
     offsets: Vec<(Felt252, Felt252, Felt252)>,
 ) -> Vec<Felt252> {
@@ -709,6 +727,23 @@ fn finalize_mem_pool(trace: &mut CairoTraceTable, memory_holes: &mut VecDeque<Fe
     }
 }
 
+fn finalize_rc_pool(trace: &mut CairoTraceTable, rc_holes: VecDeque<Felt252>, rc_max: Felt252) {
+    let mut rc_holes = rc_holes;
+    let reserved_cell_idxs = [4, 8];
+    for step_idx in 1..trace.num_steps() {
+        for step_cell_idx in 0..CAIRO_STEP {
+            if reserved_cell_idxs.contains(&step_cell_idx) {
+                continue;
+            };
+            if let Some(rc_hole) = rc_holes.pop_front() {
+                trace.set(step_idx * step_cell_idx, 0, rc_hole);
+            } else {
+                trace.set(step_idx * step_cell_idx, 0, rc_max);
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use crate::{
@@ -744,28 +779,28 @@ mod test {
         assert_eq!(decomposition_columns[7][2], Felt252::from_hex("1").unwrap());
     }
 
-    #[test]
-    fn test_fill_range_check_values() {
-        let columns = vec![
-            vec![FieldElement::from(1); 3],
-            vec![FieldElement::from(4); 3],
-            vec![FieldElement::from(7); 3],
-        ];
-        let expected_col = vec![
-            FieldElement::from(2),
-            FieldElement::from(3),
-            FieldElement::from(5),
-            FieldElement::from(6),
-            FieldElement::from(7),
-            FieldElement::from(7),
-        ];
-        let table = TraceTable::<Stark252PrimeField>::from_columns(columns, 1);
+    // #[test]
+    // fn test_fill_range_check_values() {
+    //     let columns = vec![
+    //         vec![FieldElement::from(1); 3],
+    //         vec![FieldElement::from(4); 3],
+    //         vec![FieldElement::from(7); 3],
+    //     ];
+    //     let expected_col = vec![
+    //         FieldElement::from(2),
+    //         FieldElement::from(3),
+    //         FieldElement::from(5),
+    //         FieldElement::from(6),
+    //         FieldElement::from(7),
+    //         FieldElement::from(7),
+    //     ];
+    //     let table = TraceTable::<Stark252PrimeField>::from_columns(columns, 1);
 
-        let (col, rc_min, rc_max) = get_rc_holes(&table, &[0, 1, 2]);
-        assert_eq!(col, expected_col);
-        assert_eq!(rc_min, 1);
-        assert_eq!(rc_max, 7);
-    }
+    //     let (col, rc_min, rc_max) = get_rc_holes(&table, &[0, 1, 2]);
+    //     assert_eq!(col, expected_col);
+    //     assert_eq!(rc_min, 1);
+    //     assert_eq!(rc_max, 7);
+    // }
 
     #[test]
     fn test_add_missing_values_to_rc_holes_column() {
@@ -888,7 +923,7 @@ mod test {
     }
 
     #[test]
-    fn set_offsets_works() {
+    fn set_rc_pool_works() {
         let program_content = std::fs::read(cairo0_program_path("fibonacci_stone.json")).unwrap();
         let mut trace: CairoTraceTable = TraceTable::allocate_with_zeros(128, 8, 16);
         let (register_states, memory, _) =
@@ -906,11 +941,19 @@ mod test {
             .map(InstructionOffsets::to_trace_representation)
             .collect();
 
-        set_rc_column(&mut trace, unbiased_offsets);
+        let rc_values = set_rc_pool(&mut trace, unbiased_offsets);
+        let mut sorted_rc_values: Vec<u16> = rc_values
+            .iter()
+            .map(|x| x.representative().into())
+            .collect();
+        sorted_rc_values.sort();
+        let mut rc_holes = get_rc_holes(&sorted_rc_values);
+        let rc_max = Felt252::from(*(sorted_rc_values.last().unwrap()) as u64);
+        finalize_rc_pool(&mut trace, rc_holes, rc_max);
 
         trace.table.columns()[0][0..50]
             .iter()
-            .for_each(|v| println!("VAL: {}", v));
+            .for_each(|v| println!("RC VAL: {}", v));
     }
 
     #[test]
