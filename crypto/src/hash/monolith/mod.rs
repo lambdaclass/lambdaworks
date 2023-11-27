@@ -3,7 +3,7 @@ use lambdaworks_math::field::{
 };
 use sha3::{
     digest::{ExtendableOutput, Update},
-    Shake128,
+    Shake128, Shake128Reader,
 };
 
 mod utils;
@@ -102,7 +102,7 @@ impl MonolithMersenne31 {
     // MDS matrix
     fn concrete(&self, state: &mut Vec<u32>) {
         *state = if self.width == 16 {
-            apply_circulant(
+            Self::apply_circulant(
                 &mut [
                     61402, 17845, 26798, 59689, 12021, 40901, 41351, 27521, 56951, 12034, 53865,
                     43244, 7454, 33823, 28750, 1108,
@@ -117,12 +117,33 @@ impl MonolithMersenne31 {
             shake.update(&[16, 15]);
             shake.update("MDS".as_bytes());
             let mut shake_finalized = shake.finalize_xof();
-            apply_cauchy_mds_matrix(&mut shake_finalized, state)
+            Self::apply_cauchy_mds_matrix(&mut shake_finalized, state)
         };
     }
 
+    // S-box lookups
+    fn bars(&self, state: &mut [u32]) {
+        for state in state.iter_mut().take(self.num_bars) {
+            *state = (self.lookup2[(*state >> 16) as u16 as usize] as u32) << 16
+                | self.lookup1[*state as u16 as usize] as u32;
+        }
+    }
+
+    // (x_{n+1})² = (x_n)² + x_{n+1}
+    fn bricks(state: &mut [u32]) {
+        for i in (0..state.len() - 1).rev() {
+            state[i + 1] = F::add(&state[i + 1], &F::square(&state[i]));
+        }
+    }
+
+    fn add_round_constants(state: &mut [u32], round_constants: &[u32]) {
+        for (x, rc) in state.iter_mut().zip(round_constants) {
+            *x = F::add(x, rc);
+        }
+    }
+
     // O(n²)
-    pub fn apply_circulant(circ_matrix: &mut [u32], input: &[u32]) -> Vec<u32> {
+    fn apply_circulant(circ_matrix: &mut [u32], input: &[u32]) -> Vec<u32> {
         let width = input.len();
         let mut output = vec![F::zero(); width];
         for out_i in output.iter_mut().take(width - 1) {
@@ -133,7 +154,7 @@ impl MonolithMersenne31 {
         output
     }
 
-    pub fn apply_cauchy_mds_matrix(shake: &mut Shake128Reader, to_multiply: &[u32]) -> Vec<u32> {
+    fn apply_cauchy_mds_matrix(shake: &mut Shake128Reader, to_multiply: &[u32]) -> Vec<u32> {
         let width = to_multiply.len();
         let mut output = vec![F::zero(); width];
 
@@ -156,27 +177,6 @@ impl MonolithMersenne31 {
         }
 
         output
-    }
-
-    // S-box lookups
-    fn bars(&self, state: &mut [u32]) {
-        for state in state.iter_mut().take(self.num_bars) {
-            *state = (self.lookup2[(*state >> 16) as u16 as usize] as u32) << 16
-                | self.lookup1[*state as u16 as usize] as u32;
-        }
-    }
-
-    // (x_{n+1})² = (x_n)² + x_{n+1}
-    fn bricks(state: &mut [u32]) {
-        for i in (0..state.len() - 1).rev() {
-            state[i + 1] = F::add(&state[i + 1], &F::square(&state[i]));
-        }
-    }
-
-    fn add_round_constants(state: &mut [u32], round_constants: &[u32]) {
-        for (x, rc) in state.iter_mut().zip(round_constants) {
-            *x = F::add(x, rc);
-        }
     }
 }
 

@@ -22,7 +22,7 @@ fn random_field_element(shake: &mut Shake128Reader) -> u32 {
     F::from_base_type(val)
 }
 
-fn dot_product(u: &[u32], v: &[u32]) -> u32 {
+pub fn dot_product(u: &[u32], v: &[u32]) -> u32 {
     u.iter()
         .zip(v)
         .map(|(x, y)| F::mul(x, y))
@@ -30,7 +30,12 @@ fn dot_product(u: &[u32], v: &[u32]) -> u32 {
         .unwrap()
 }
 
-fn get_random_y_i(shake: &mut Shake128Reader, width: usize, x_mask: u32, y_mask: u32) -> Vec<u32> {
+pub fn get_random_y_i(
+    shake: &mut Shake128Reader,
+    width: usize,
+    x_mask: u32,
+    y_mask: u32,
+) -> Vec<u32> {
     let mut res = vec![0; width];
 
     for i in 0..width {
