@@ -14,43 +14,6 @@ pub fn random_matrix(shake: &mut Shake128Reader, n: usize, m: usize) -> Vec<Vec<
         .collect()
 }
 
-// O(n²)
-pub fn apply_circulant(circ_matrix: &mut [u32], input: &[u32]) -> Vec<u32> {
-    let width = input.len();
-    let mut output = vec![F::zero(); width];
-    for out_i in output.iter_mut().take(width - 1) {
-        *out_i = dot_product(circ_matrix, input);
-        circ_matrix.rotate_right(1);
-    }
-    output[width - 1] = dot_product(circ_matrix, input);
-    output
-}
-
-pub fn apply_cauchy_mds_matrix(shake: &mut Shake128Reader, to_multiply: &[u32]) -> Vec<u32> {
-    let width = to_multiply.len();
-    let mut output = vec![F::zero(); width];
-
-    let bits: u32 = u64::BITS
-        - (MERSENNE_31_PRIME_FIELD_ORDER as u64)
-            .saturating_sub(1)
-            .leading_zeros();
-
-    let x_mask = (1 << (bits - 9)) - 1;
-    let y_mask = ((1 << bits) - 1) >> 2;
-
-    let y = get_random_y_i(shake, width, x_mask, y_mask);
-    let mut x = y.clone();
-    x.iter_mut().for_each(|x_i| *x_i &= x_mask);
-
-    for (i, x_i) in x.iter().enumerate() {
-        for (j, yj) in y.iter().enumerate() {
-            output[i] = F::add(&output[i], &F::div(&to_multiply[j], &F::add(x_i, yj)));
-        }
-    }
-
-    output
-}
-
 fn random_field_element(shake: &mut Shake128Reader) -> u32 {
     let mut val = shake_random_u32(shake);
     while val >= MERSENNE_31_PRIME_FIELD_ORDER {

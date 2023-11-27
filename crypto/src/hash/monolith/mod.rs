@@ -77,7 +77,7 @@ impl MonolithMersenne31 {
     }
 
     fn final_s_box(y: u8) -> u8 {
-        debug_assert_eq!(y >> 7, 0); // must be a 7-bit value
+        debug_assert_eq!(y >> 7, 0);
 
         let y_rot_1 = (y >> 6) | (y << 1);
         let y_rot_2 = (y >> 5) | (y << 2);
@@ -85,10 +85,7 @@ impl MonolithMersenne31 {
         let tmp = (y ^ !y_rot_1 & y_rot_2) & 0x7F;
         ((tmp >> 6) | (tmp << 1)) & 0x7F
     }
-}
 
-// Computation
-impl MonolithMersenne31 {
     pub fn permutation(&self, state: &mut Vec<u32>) {
         self.concrete(state);
         for round in 0..NUM_FULL_ROUNDS {
@@ -122,6 +119,43 @@ impl MonolithMersenne31 {
             let mut shake_finalized = shake.finalize_xof();
             apply_cauchy_mds_matrix(&mut shake_finalized, state)
         };
+    }
+
+    // O(n²)
+    pub fn apply_circulant(circ_matrix: &mut [u32], input: &[u32]) -> Vec<u32> {
+        let width = input.len();
+        let mut output = vec![F::zero(); width];
+        for out_i in output.iter_mut().take(width - 1) {
+            *out_i = dot_product(circ_matrix, input);
+            circ_matrix.rotate_right(1);
+        }
+        output[width - 1] = dot_product(circ_matrix, input);
+        output
+    }
+
+    pub fn apply_cauchy_mds_matrix(shake: &mut Shake128Reader, to_multiply: &[u32]) -> Vec<u32> {
+        let width = to_multiply.len();
+        let mut output = vec![F::zero(); width];
+
+        let bits: u32 = u64::BITS
+            - (MERSENNE_31_PRIME_FIELD_ORDER as u64)
+                .saturating_sub(1)
+                .leading_zeros();
+
+        let x_mask = (1 << (bits - 9)) - 1;
+        let y_mask = ((1 << bits) - 1) >> 2;
+
+        let y = get_random_y_i(shake, width, x_mask, y_mask);
+        let mut x = y.clone();
+        x.iter_mut().for_each(|x_i| *x_i &= x_mask);
+
+        for (i, x_i) in x.iter().enumerate() {
+            for (j, yj) in y.iter().enumerate() {
+                output[i] = F::add(&output[i], &F::div(&to_multiply[j], &F::add(x_i, yj)));
+            }
+        }
+
+        output
     }
 
     // S-box lookups
