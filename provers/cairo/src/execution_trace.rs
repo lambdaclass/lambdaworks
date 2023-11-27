@@ -257,9 +257,9 @@ pub fn build_cairo_execution_trace(
     let mut trace: CairoTraceTable =
         TraceTable::allocate_with_zeros(num_steps, PLAIN_LAYOUT_NUM_COLUMNS, CAIRO_STEP);
 
-    set_offsets(&mut trace, unbiased_offsets);
+    let mut rc_values = set_rc_column(&mut trace, unbiased_offsets);
     set_bit_prefix_flags(&mut trace, bit_prefix_flags);
-    set_mem_pool(
+    let (mut accessed_addrs, accessed_values) = set_mem_pool(
         &mut trace,
         pcs,
         instructions,
@@ -271,6 +271,8 @@ pub fn build_cairo_execution_trace(
         op1s,
     );
     set_update_pc(&mut trace, aps, t0, t1, mul, fps, res);
+
+    accessed_addrs.sort_by_key(|x| x.representative());
 
     trace
 }
@@ -518,6 +520,7 @@ fn decompose_rc_values_into_trace_columns(rc_values: &[&Felt252]) -> [Vec<Felt25
     decomposition_columns.try_into().unwrap()
 }
 
+// Column 1
 fn set_bit_prefix_flags(trace: &mut CairoTraceTable, bit_prefix_flags: Vec<[Felt252; 16]>) {
     for (step_idx, flags) in bit_prefix_flags.into_iter().enumerate() {
         for (flag_idx, flag) in flags.into_iter().enumerate() {
@@ -526,17 +529,28 @@ fn set_bit_prefix_flags(trace: &mut CairoTraceTable, bit_prefix_flags: Vec<[Felt
     }
 }
 
-fn set_offsets(trace: &mut CairoTraceTable, offsets: Vec<(Felt252, Felt252, Felt252)>) {
+// Column 0
+fn set_rc_column(
+    trace: &mut CairoTraceTable,
+    offsets: Vec<(Felt252, Felt252, Felt252)>,
+) -> Vec<Felt252> {
     // NOTE: We should check that these offsets correspond to the off0, off1 and off2.
     const OFF_DST_OFFSET: usize = 0;
     const OFF_OP0_OFFSET: usize = 8;
     const OFF_OP1_OFFSET: usize = 4;
 
+    let mut rc_values = Vec::new();
     for (step_idx, (off_dst, off_op0, off_op1)) in offsets.into_iter().enumerate() {
         trace.set(OFF_DST_OFFSET + CAIRO_STEP * step_idx, 0, off_dst);
         trace.set(OFF_OP0_OFFSET + CAIRO_STEP * step_idx, 0, off_op0);
         trace.set(OFF_OP1_OFFSET + CAIRO_STEP * step_idx, 0, off_op1);
+
+        rc_values.push(off_dst);
+        rc_values.push(off_op0);
+        rc_values.push(off_op1);
     }
+
+    rc_values
 }
 
 // Column 3
@@ -550,7 +564,7 @@ fn set_mem_pool(
     dst_vals: Vec<Felt252>,
     op1_addrs: Vec<Felt252>,
     op1_vals: Vec<Felt252>,
-) {
+) -> (Vec<Felt252>, Vec<Felt252>) {
     const PC_OFFSET: usize = 0;
     const INST_OFFSET: usize = 1;
     const OP0_ADDR_OFFSET: usize = 4;
@@ -560,6 +574,8 @@ fn set_mem_pool(
     const OP1_ADDR_OFFSET: usize = 12;
     const OP1_VAL_OFFSET: usize = 13;
 
+    let mut addrs: Vec<Felt252> = Vec::new();
+    let mut values: Vec<Felt252> = Vec::new();
     for (step_idx, (pc, inst, op0_addr, op0_val, dst_addr, dst_val, op1_addr, op1_val)) in
         itertools::izip!(
             pcs,
@@ -581,9 +597,21 @@ fn set_mem_pool(
         trace.set(DST_VAL_OFFSET + CAIRO_STEP * step_idx, 3, dst_val);
         trace.set(OP1_ADDR_OFFSET + CAIRO_STEP * step_idx, 3, op1_addr);
         trace.set(OP1_VAL_OFFSET + CAIRO_STEP * step_idx, 3, op1_val);
+
+        addrs.push(pc);
+        values.push(inst);
+        addrs.push(op0_addr);
+        values.push(op0_val);
+        addrs.push(dst_addr);
+        values.push(dst_val);
+        addrs.push(op1_addr);
+        values.push(op1_val);
     }
+
+    (addrs, values)
 }
 
+// Column 5
 fn set_update_pc(
     trace: &mut CairoTraceTable,
     aps: Vec<Felt252>,
