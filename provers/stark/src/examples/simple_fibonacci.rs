@@ -37,6 +37,8 @@ where
     type RAPChallenges = ();
     type PublicInputs = FibonacciPublicInputs<Self::Field>;
 
+    const STEP_SIZE: usize = 1;
+
     fn new(
         trace_length: usize,
         pub_inputs: &Self::PublicInputs,
@@ -45,11 +47,9 @@ where
         let context = AirContext {
             proof_options: proof_options.clone(),
             trace_columns: 1,
-            transition_degrees: vec![1],
             transition_exemptions: vec![2],
             transition_offsets: vec![0, 1, 2],
             num_transition_constraints: 1,
-            num_transition_exemptions: 1,
         };
 
         Self {
@@ -80,13 +80,18 @@ where
     fn compute_transition(
         &self,
         frame: &Frame<Self::Field>,
+        _periodic_values: &[FieldElement<Self::Field>],
         _rap_challenges: &Self::RAPChallenges,
     ) -> Vec<FieldElement<Self::Field>> {
-        let first_row = frame.get_row(0);
-        let second_row = frame.get_row(1);
-        let third_row = frame.get_row(2);
+        let first_step = frame.get_evaluation_step(0);
+        let second_step = frame.get_evaluation_step(1);
+        let third_step = frame.get_evaluation_step(2);
 
-        vec![third_row[0].clone() - second_row[0].clone() - first_row[0].clone()]
+        let a0 = first_step.get_evaluation_element(0, 0);
+        let a1 = second_step.get_evaluation_element(0, 0);
+        let a2 = third_step.get_evaluation_element(0, 0);
+
+        vec![a2 - a1 - a0]
     }
 
     fn boundary_constraints(
@@ -129,5 +134,5 @@ pub fn fibonacci_trace<F: IsFFTField>(
         ret.push(ret[i - 1].clone() + ret[i - 2].clone());
     }
 
-    TraceTable::from_columns(vec![ret])
+    TraceTable::from_columns(vec![ret], 1)
 }

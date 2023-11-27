@@ -1,58 +1,41 @@
 use super::trace::TraceTable;
-use crate::table::Table;
-use lambdaworks_math::field::{element::FieldElement, traits::IsFFTField};
+use crate::trace::StepView;
+use lambdaworks_math::field::traits::IsFFTField;
 
+/// A frame represents a collection of trace steps.
+/// The collected steps are all the necessary steps for
+/// all transition costraints over a trace to be evaluated.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Frame<F: IsFFTField> {
-    table: Table<F>,
+pub struct Frame<'t, F: IsFFTField> {
+    steps: Vec<StepView<'t, F>>,
 }
 
-impl<F: IsFFTField> Frame<F> {
-    pub fn new(data: Vec<FieldElement<F>>, row_width: usize) -> Self {
-        let table = Table::new(data, row_width);
-        Self { table }
+impl<'t, F: IsFFTField> Frame<'t, F> {
+    pub fn new(steps: Vec<StepView<'t, F>>) -> Self {
+        Self { steps }
     }
 
-    pub fn n_rows(&self) -> usize {
-        self.table.height
-    }
-
-    pub fn n_cols(&self) -> usize {
-        self.table.width
-    }
-
-    pub fn get_row(&self, row_idx: usize) -> &[FieldElement<F>] {
-        self.table.get_row(row_idx)
-    }
-
-    pub fn get_row_mut(&mut self, row_idx: usize) -> &mut [FieldElement<F>] {
-        self.table.get_row_mut(row_idx)
+    pub fn get_evaluation_step(&self, step: usize) -> &StepView<F> {
+        &self.steps[step]
     }
 
     pub fn read_from_trace(
-        trace: &TraceTable<F>,
+        trace: &'t TraceTable<F>,
         step: usize,
         blowup: u8,
         offsets: &[usize],
     ) -> Self {
         // Get trace length to apply module with it when getting elements of
         // the frame from the trace.
-        let trace_steps = trace.n_rows();
-        let data = offsets
+        let trace_steps = trace.num_steps();
+
+        let steps = offsets
             .iter()
-            .flat_map(|frame_row_idx| {
-                trace
-                    .get_row((step + (frame_row_idx * blowup as usize)) % trace_steps)
-                    .to_vec()
+            .map(|eval_offset| {
+                trace.step_view((step + (eval_offset * blowup as usize)) % trace_steps)
             })
             .collect();
 
-        Self::new(data, trace.table.width)
-    }
-}
-
-impl<F: IsFFTField> From<&Table<F>> for Frame<F> {
-    fn from(value: &Table<F>) -> Self {
-        Self::new(value.data.clone(), value.width)
+        Self::new(steps)
     }
 }
