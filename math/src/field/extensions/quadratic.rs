@@ -1,6 +1,7 @@
 use crate::field::element::FieldElement;
 use crate::field::errors::FieldError;
 use crate::field::traits::IsField;
+#[cfg(feature = "lambdaworks-serde-binary")]
 use crate::traits::ByteConversion;
 use core::fmt::Debug;
 use core::marker::PhantomData;
@@ -33,6 +34,7 @@ where
     }
 }
 
+#[cfg(feature = "lambdaworks-serde-binary")]
 impl<F> ByteConversion for [FieldElement<F>; 2]
 where
     F: IsField,
