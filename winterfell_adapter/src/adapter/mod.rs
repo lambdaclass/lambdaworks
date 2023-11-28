@@ -1,7 +1,10 @@
 use lambdaworks_math::traits::ByteConversion;
 use miden_core::Felt;
 use sha3::{Digest, Keccak256};
-use stark_platinum_prover::{prover::IsStarkProver, verifier::IsStarkVerifier, transcript::IsStarkTranscript, fri::FieldElement};
+use stark_platinum_prover::{
+    fri::FieldElement, prover::IsStarkProver, transcript::IsStarkTranscript,
+    verifier::IsStarkVerifier,
+};
 use winter_math::StarkField;
 
 pub mod air;
@@ -59,4 +62,3 @@ impl IsStarkTranscript<Felt> for Transcript {
         u64::from_be_bytes(self.state()[..8].try_into().unwrap()) % upper_bound
     }
 }
-
