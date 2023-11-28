@@ -117,6 +117,12 @@ impl<'t, F: IsFFTField> Table<F> {
             .collect()
     }
 
+    pub fn get_column(&self, col_idx: usize) -> Vec<FieldElement<F>> {
+        (0..self.height)
+            .map(|row_idx| self.data[row_idx * self.width + col_idx].clone())
+            .collect()
+    }
+
     /// Given row and column indexes, returns the stored field element in that position of the table.
     pub fn get(&self, row: usize, col: usize) -> &FieldElement<F> {
         let idx = row * self.width + col;

@@ -174,6 +174,10 @@ impl<'t, F: IsFFTField> TraceTable<F> {
             row[col_idx] = value.clone();
         }
     }
+
+    pub fn get_column(&self, col_idx: usize) -> Vec<FieldElement<F>> {
+        self.table.get_column(col_idx)
+    }
 }
 
 /// A view into a step of the trace. In general, a step over the trace

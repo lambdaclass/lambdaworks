@@ -43,7 +43,6 @@ pub fn build_main_trace(
 
     address_cols.sort_by_key(|x| x.representative());
 
-    todo!();
     // let rc_holes = get_rc_holes(&main_trace);
     let rc_min = Felt252::zero();
     let rc_max = Felt252::one();
@@ -281,6 +280,13 @@ pub fn build_cairo_execution_trace(
     let rc_max = Felt252::from(*(sorted_rc_value_representatives.last().unwrap()) as u64);
     let rc_min = Felt252::from(sorted_rc_value_representatives[0] as u64);
     finalize_rc_pool(&mut trace, rc_holes, rc_max);
+
+    // Get all rc values.
+    // NOTE: We are sorting these values again, once for finding rc holes and one for the sorted column construction.
+    // This could be rethinked for better performance
+    let mut sorted_rc_column = trace.get_column(0);
+    sorted_rc_column.sort_by_key(|x| x.representative());
+    set_sorted_rc_pool(&mut trace, sorted_rc_column);
 
     // Sort memory
     sorted_addrs.sort_by_key(|x| x.representative());
@@ -713,10 +719,14 @@ fn finalize_mem_pool(trace: &mut CairoTraceTable, memory_holes: &mut VecDeque<Fe
     }
 }
 
+fn set_sorted_rc_pool(trace: &mut CairoTraceTable, sorted_rc_column: Vec<Felt252>) {
+    for (row_idx, rc_value) in sorted_rc_column.into_iter().enumerate() {
+        trace.set(row_idx, 2, rc_value);
+    }
+}
+
 fn finalize_rc_pool(trace: &mut CairoTraceTable, rc_holes: VecDeque<Felt252>, rc_max: Felt252) {
     let mut rc_holes = rc_holes;
-
-    rc_holes.iter().for_each(|h| println!("RC HOLE: {}", h));
 
     let reserved_cell_idxs = [4, 8];
     for step_idx in 0..trace.num_steps() {
@@ -940,10 +950,19 @@ mod test {
         let rc_max = Felt252::from(*(sorted_rc_values.last().unwrap()) as u64);
         finalize_rc_pool(&mut trace, rc_holes, rc_max);
 
-        trace.table.columns()[0][0..50]
+        // trace.table.columns()[0][0..50]
+        //     .iter()
+        //     .enumerate()
+        //     .for_each(|(i, v)| println!("RC VAL {} - {}", i, v));
+
+        let mut sorted_rc_column = trace.get_column(0);
+        sorted_rc_column.sort_by_key(|x| x.representative());
+        set_sorted_rc_pool(&mut trace, sorted_rc_column);
+
+        trace.table.columns()[2]
             .iter()
             .enumerate()
-            .for_each(|(i, v)| println!("RC VAL {} - {}", i, v));
+            .for_each(|(i, v)| println!("SORTED RC VAL {} - {}", i, v));
     }
 
     #[test]
