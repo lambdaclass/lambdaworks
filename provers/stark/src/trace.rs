@@ -40,7 +40,7 @@ impl<'t, F: IsFFTField> TraceTable<F> {
         self.table.width == 0
     }
 
-    pub fn n_rows(&self) -> usize {
+    pub fn num_rows(&self) -> usize {
         self.table.height
     }
 

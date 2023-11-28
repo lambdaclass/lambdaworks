@@ -752,9 +752,35 @@ fn set_sorted_mem_pool(trace: &mut CairoTraceTable, pub_memory: HashMap<Felt252,
 
     assert!(2 * trace.num_steps() >= pub_memory.len());
 
+    let mut addrs = Vec::with_capacity(trace.num_rows() / 2);
+    let mut values = Vec::with_capacity(trace.num_rows() / 2);
+    let mut sorted_addrs = Vec::with_capacity(trace.num_rows() / 2);
+    let mut sorted_values = Vec::with_capacity(trace.num_rows() / 2);
+    for row_idx in 0..trace.num_rows() {
+        if row_idx % 2 == 0 {
+            let addr = trace.get(row_idx, 3);
+            addrs.push(addr);
+        } else {
+            let value = trace.get(row_idx, 3);
+            values.push(value);
+        }
+    }
+
+    let mut sorted_addr_idxs: Vec<usize> = (0..addrs.len()).collect();
+    sorted_addr_idxs.sort_by_key(|&idx| addrs[idx]);
+    for idx in sorted_addr_idxs.iter() {
+        sorted_addrs.push(addr[idx]);
+        sorted_values.push(values[idx]);
+    }
+
     let first_pub_memory_addr = Felt252::one();
     let first_pub_memory_value = *pub_memory.get(&first_pub_memory_addr).unwrap();
     let first_pub_memory_entry_padding_len = 2 * trace.num_steps() - pub_memory.len();
+
+    for idx in 0..first_pub_memory_entry_padding_len {
+        sorted_addrs[idx] = first_pub_memory_addr;
+        sorted_values[idx] = first_pub_memory_value;
+    }
 }
 
 #[cfg(test)]
