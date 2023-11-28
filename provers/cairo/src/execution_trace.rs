@@ -741,6 +741,8 @@ fn finalize_rc_pool(trace: &mut CairoTraceTable, rc_holes: VecDeque<Felt252>, rc
             }
         }
     }
+
+    assert!(rc_holes.is_empty());
 }
 
 #[cfg(test)]
