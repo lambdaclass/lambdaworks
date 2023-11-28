@@ -237,3 +237,56 @@ pub fn build_trace(sequence_length: usize) -> TraceTable<Felt> {
         permuted,
     ])
 }
+
+#[cfg(test)]
+mod tests {
+    use miden_core::Felt;
+    use stark_platinum_prover::{
+        proof::options::ProofOptions, prover::IsStarkProver, verifier::IsStarkVerifier,
+    };
+    use winter_air::{TraceInfo, TraceLayout};
+    use winter_prover::Trace;
+
+    use crate::{
+        adapter::{
+            air::AirAdapter, public_inputs::AirAdapterPublicInputs, Prover, Transcript, Verifier,
+        },
+        examples::fibonacci_rap::{self, FibonacciRAP, RapTraceTable},
+    };
+
+    #[test]
+    fn prove_and_verify_a_winterfell_fibonacci_rap_air() {
+        let lambda_proof_options = ProofOptions::default_test_options();
+        let winter_trace = fibonacci_rap::build_trace(16);
+        let trace =
+            AirAdapter::<FibonacciRAP, RapTraceTable<_>, Felt, ()>::convert_winterfell_trace_table(
+                winter_trace.main_segment().clone(),
+            );
+        let trace_layout = TraceLayout::new(3, [1], [1]);
+        let trace_info = TraceInfo::new_multi_segment(trace_layout, 16, vec![]);
+        let fibonacci_result = trace.columns()[1][15];
+        let pub_inputs = AirAdapterPublicInputs::<FibonacciRAP, _> {
+            winterfell_public_inputs: *fibonacci_result.value(),
+            transition_exemptions: vec![1, 1, 1],
+            transition_offsets: vec![0, 1],
+            trace_info,
+            metadata: (),
+        };
+
+        let proof = Prover::prove::<AirAdapter<FibonacciRAP, RapTraceTable<_>, Felt, _>>(
+            &trace,
+            &pub_inputs,
+            &lambda_proof_options,
+            Transcript::new(&[]),
+        )
+        .unwrap();
+        assert!(Verifier::verify::<
+            AirAdapter<FibonacciRAP, RapTraceTable<_>, Felt, _>,
+        >(
+            &proof,
+            &pub_inputs,
+            &lambda_proof_options,
+            Transcript::new(&[]),
+        ));
+    }
+}

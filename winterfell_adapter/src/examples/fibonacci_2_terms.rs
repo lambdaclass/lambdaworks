@@ -82,3 +82,54 @@ pub fn build_trace(sequence_length: usize) -> TraceTable<Felt> {
 
     trace
 }
+
+#[cfg(test)]
+mod tests {
+    use miden_core::Felt;
+    use stark_platinum_prover::{
+        proof::options::ProofOptions, prover::IsStarkProver, verifier::IsStarkVerifier,
+    };
+    use winter_air::TraceInfo;
+    use winter_prover::{Trace, TraceTable};
+
+    use crate::{
+        adapter::{
+            air::AirAdapter, public_inputs::AirAdapterPublicInputs, Prover, Transcript, Verifier,
+        },
+        examples::fibonacci_2_terms::{self, FibAir2Terms},
+    };
+
+    #[test]
+    fn prove_and_verify_a_winterfell_fibonacci_2_terms_air() {
+        let lambda_proof_options = ProofOptions::default_test_options();
+        let winter_trace = fibonacci_2_terms::build_trace(16);
+        let trace =
+            AirAdapter::<FibAir2Terms, TraceTable<_>, Felt, ()>::convert_winterfell_trace_table(
+                winter_trace.main_segment().clone(),
+            );
+        let pub_inputs = AirAdapterPublicInputs {
+            winterfell_public_inputs: *trace.columns()[1][7].value(),
+            transition_exemptions: vec![1, 1],
+            transition_offsets: vec![0, 1],
+            trace_info: TraceInfo::new(2, 8),
+            metadata: (),
+        };
+
+        let proof = Prover::prove::<AirAdapter<FibAir2Terms, TraceTable<_>, Felt, _>>(
+            &trace,
+            &pub_inputs,
+            &lambda_proof_options,
+            Transcript::new(&[]),
+        )
+        .unwrap();
+
+        assert!(Verifier::verify::<
+            AirAdapter<FibAir2Terms, TraceTable<_>, Felt, _>,
+        >(
+            &proof,
+            &pub_inputs,
+            &lambda_proof_options,
+            Transcript::new(&[]),
+        ));
+    }
+}
