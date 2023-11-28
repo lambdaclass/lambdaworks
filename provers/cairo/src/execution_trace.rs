@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 
 use super::{
     cairo_mem::CairoMemory,
@@ -743,6 +743,18 @@ fn finalize_rc_pool(trace: &mut CairoTraceTable, rc_holes: VecDeque<Felt252>, rc
     }
 
     assert!(rc_holes.is_empty());
+}
+
+fn set_sorted_mem_pool(trace: &mut CairoTraceTable, pub_memory: HashMap<Felt252, Felt252>) {
+    const PUB_MEMORY_ADDR_OFFSET: usize = 2;
+    const PUB_MEMORY_VALUE_OFFSET: usize = 3;
+    const PUB_MEMORY_STEP: usize = 8;
+
+    assert!(2 * trace.num_steps() >= pub_memory.len());
+
+    let first_pub_memory_addr = Felt252::one();
+    let first_pub_memory_value = *pub_memory.get(&first_pub_memory_addr).unwrap();
+    let first_pub_memory_entry_padding_len = 2 * trace.num_steps() - pub_memory.len();
 }
 
 #[cfg(test)]
