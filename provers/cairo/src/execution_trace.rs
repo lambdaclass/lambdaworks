@@ -104,23 +104,9 @@ fn get_rc_holes(sorted_rc_values: &[u16]) -> VecDeque<Felt252> {
                 rc_hole += 1;
             }
         }
+        prev_rc_value = *rc_value;
     }
 
-    // for window in sorted_rc_values.windows(2) {
-    //     if window[1] != window[0] {
-    //         let mut missing_range: Vec<_> = ((window[0] + 1)..window[1])
-    //             .map(|x| Felt252::from(x as u64))
-    //             .collect();
-    //         all_missing_values.append(&mut missing_range);
-    //     }
-    // }
-
-    // let multiple_of_three_padding =
-    //     ((all_missing_values.len() + 2) / 3) * 3 - all_missing_values.len();
-    // let padding_element = Felt252::from(*sorted_rc_values.last().unwrap() as u64);
-    // all_missing_values.append(&mut vec![padding_element; multiple_of_three_padding]);
-
-    // all_missing_values,
     rc_holes
 }
 
@@ -956,7 +942,8 @@ mod test {
 
         trace.table.columns()[0][0..50]
             .iter()
-            .for_each(|v| println!("RC VAL: {}", v));
+            .enumerate()
+            .for_each(|(i, v)| println!("RC VAL {} - {}", i, v));
     }
 
     #[test]
