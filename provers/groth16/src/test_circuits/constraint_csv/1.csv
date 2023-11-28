@@ -1,0 +1,4 @@
+x,x,sym_1
+sym_1,x,y
+y + x,1,sym_2
+sym_2 + 5, 1,~out
