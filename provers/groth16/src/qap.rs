@@ -1,3 +1,5 @@
+use std::collections::{HashMap, HashSet};
+
 use lambdaworks_math::{fft::polynomial::FFTPoly, polynomial::Polynomial};
 
 use crate::common::*;
@@ -11,6 +13,146 @@ pub struct QuadraticArithmeticProgram {
 }
 
 impl QuadraticArithmeticProgram {
+    /// Converts given l,r,o csv into a QAP
+    ///
+    /// Must be combined with a witness that follows the following order:
+    ///   ...public inputs in the order of public_inputs, including "1"...
+    ///   ...private witnesses in the order of appearance in csv, up-down & left-to-right...
+    ///
+    /// Function does not automatically place "1" as public input.
+    pub fn from_csv(csv: &str, public_inputs: &[&str]) -> Self {
+        let pub_inp_set: HashSet<&str> = HashSet::from_iter(public_inputs.to_vec());
+        assert!(
+            public_inputs.len() == pub_inp_set.len(),
+            "Public inputs must be unique"
+        );
+
+        let constraints = csv
+            .split([',', '\n'])
+            .filter(|elem| elem.len() > 0)
+            .map(|term| {
+                term.split(['+', ' '])
+                    .filter(|elem| elem.len() > 0)
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+        let constraints = constraints.chunks(3).collect::<Vec<_>>();
+
+        let mut l_vars: HashMap<&str, Vec<&str>> = HashMap::new(); // var -> QAP row
+        let mut r_vars: HashMap<&str, Vec<&str>> = HashMap::new();
+        let mut o_vars: HashMap<&str, Vec<&str>> = HashMap::new();
+
+        let mut all_witnesses_set = HashSet::<&str>::new();
+        let mut all_witnesses: Vec<&str> = vec![];
+
+        for (gate_idx, row) in constraints.iter().enumerate() {
+            for (i, col) in [&mut l_vars, &mut r_vars, &mut o_vars]
+                .iter_mut()
+                .enumerate()
+            {
+                for var in row[i].iter() {
+                    let is_constant = var.parse::<i128>().is_ok();
+                    let key = if is_constant { "1" } else { var };
+
+                    if !pub_inp_set.contains(key) && !all_witnesses_set.contains(key) {
+                        all_witnesses.push(key);
+                        all_witnesses_set.insert(key);
+                    }
+
+                    col.entry(key)
+                        .or_insert_with(|| vec!["0"; constraints.len()])[gate_idx] =
+                        if is_constant { var } else { "1" };
+                }
+            }
+        }
+
+        let mut l_matrix: Vec<Vec<&str>> = Vec::with_capacity(all_witnesses.len());
+        let mut r_matrix: Vec<Vec<&str>> = Vec::with_capacity(all_witnesses.len());
+        let mut o_matrix: Vec<Vec<&str>> = Vec::with_capacity(all_witnesses.len());
+
+        for var in public_inputs {
+            println!("------ {} --------", var);
+            l_matrix.push(match l_vars.get(var) {
+                Some(vec) => vec.clone(),
+                None => vec!["0"; constraints.len()],
+            });
+            r_matrix.push(match r_vars.get(var) {
+                Some(vec) => vec.clone(),
+                None => vec!["0"; constraints.len()],
+            });
+            o_matrix.push(match o_vars.get(var) {
+                Some(vec) => vec.clone(),
+                None => vec!["0"; constraints.len()],
+            });
+        }
+        for var in all_witnesses.iter() {
+            println!("------ {} --------", var);
+            l_matrix.push(match l_vars.get(var) {
+                Some(vec) => vec.clone(),
+                None => vec!["0"; constraints.len()],
+            });
+            r_matrix.push(match r_vars.get(var) {
+                Some(vec) => vec.clone(),
+                None => vec!["0"; constraints.len()],
+            });
+            o_matrix.push(match o_vars.get(var) {
+                Some(vec) => vec.clone(),
+                None => vec!["0"; constraints.len()],
+            });
+        }
+
+        let l_matrix = l_matrix
+            .iter()
+            .map(|row| {
+                row.iter()
+                    .map(|cell| {
+                        if cell.starts_with('-') {
+                            -FrElement::from_hex_unchecked(
+                                &cell.chars().skip(1).collect::<String>(),
+                            )
+                        } else {
+                            FrElement::from_hex_unchecked(cell)
+                        }
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+        let r_matrix = r_matrix
+            .iter()
+            .map(|row| {
+                row.iter()
+                    .map(|cell| {
+                        if cell.starts_with('-') {
+                            -FrElement::from_hex_unchecked(
+                                &cell.chars().skip(1).collect::<String>(),
+                            )
+                        } else {
+                            FrElement::from_hex_unchecked(cell)
+                        }
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+        let o_matrix = o_matrix
+            .iter()
+            .map(|row| {
+                row.iter()
+                    .map(|cell| {
+                        if cell.starts_with('-') {
+                            -FrElement::from_hex_unchecked(
+                                &cell.chars().skip(1).collect::<String>(),
+                            )
+                        } else {
+                            FrElement::from_hex_unchecked(cell)
+                        }
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+
+        Self::from_variable_matrices(public_inputs.len(), &l_matrix, &r_matrix, &o_matrix)
+    }
+
     pub fn from_variable_matrices(
         num_of_public_inputs: usize,
         l: &[Vec<FrElement>],
