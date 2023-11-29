@@ -145,7 +145,7 @@ fn check_simple_cairo_trace_evaluates_to_zero() {
     let mut transcript = StoneProverTranscript::new(&[]);
 
     let proof_options = ProofOptions::default_test_options();
-    let cairo_air = CairoAIR::new(main_trace.n_rows(), &public_input, &proof_options);
+    let cairo_air = CairoAIR::new(main_trace.num_rows(), &public_input, &proof_options);
     let rap_challenges = cairo_air.build_rap_challenges(&mut transcript);
 
     let aux_trace = cairo_air.build_auxiliary_trace(&main_trace, &rap_challenges);

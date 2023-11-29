@@ -715,7 +715,7 @@ impl AIR for CairoAIR {
 
         // Convert from long-format to wide-format again
         let mut aux_data = Vec::new();
-        for i in 0..main_trace.n_rows() {
+        for i in 0..main_trace.num_rows() {
             aux_data.push(offsets_sorted[4 * i]);
             aux_data.push(offsets_sorted[4 * i + 1]);
             aux_data.push(offsets_sorted[4 * i + 2]);

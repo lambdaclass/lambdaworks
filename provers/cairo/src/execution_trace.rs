@@ -1,4 +1,4 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::VecDeque;
 
 use super::{
     cairo_mem::CairoMemory,
@@ -15,6 +15,7 @@ use crate::layouts::plain::air::{
     CairoAIR, PublicInputs, EXTRA_ADDR, FRAME_DST_ADDR, FRAME_OP0_ADDR, FRAME_OP1_ADDR, FRAME_PC,
     OFF_DST, OFF_OP0, OFF_OP1, RC_HOLES,
 };
+use cairo_vm::without_std::collections::HashMap;
 use lambdaworks_math::{
     field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
     unsigned_integer::element::UnsignedInteger,
@@ -62,8 +63,8 @@ pub fn build_main_trace(
         memory_holes.len(),
     );
 
-    let trace_len_next_power_of_two = main_trace.n_rows().next_power_of_two();
-    let padding_len = trace_len_next_power_of_two - main_trace.n_rows();
+    let trace_len_next_power_of_two = main_trace.num_rows().next_power_of_two();
+    let padding_len = trace_len_next_power_of_two - main_trace.num_rows();
     main_trace.pad_with_last_row(padding_len);
 
     main_trace
@@ -120,7 +121,7 @@ fn fill_rc_holes(trace: &mut CairoTraceTable, holes: &[Felt252]) {
 
     offsets.sort_by_key(|x| x.representative());
     let greatest_offset = offsets.last().unwrap();
-    (holes.len()..trace.n_rows()).for_each(|i| {
+    (holes.len()..trace.num_rows()).for_each(|i| {
         trace.set_or_extend(i, RC_HOLES, greatest_offset);
     });
 }
@@ -769,8 +770,8 @@ fn set_sorted_mem_pool(trace: &mut CairoTraceTable, pub_memory: HashMap<Felt252,
     let mut sorted_addr_idxs: Vec<usize> = (0..addrs.len()).collect();
     sorted_addr_idxs.sort_by_key(|&idx| addrs[idx]);
     for idx in sorted_addr_idxs.iter() {
-        sorted_addrs.push(addr[idx]);
-        sorted_values.push(values[idx]);
+        sorted_addrs.push(*addrs[*idx]);
+        sorted_values.push(*values[*idx]);
     }
 
     let first_pub_memory_addr = Felt252::one();
@@ -780,6 +781,27 @@ fn set_sorted_mem_pool(trace: &mut CairoTraceTable, pub_memory: HashMap<Felt252,
     for idx in 0..first_pub_memory_entry_padding_len {
         sorted_addrs[idx] = first_pub_memory_addr;
         sorted_values[idx] = first_pub_memory_value;
+    }
+
+    let pub_mem_addrs: Vec<Felt252> = (2..pub_memory.len() as u64).map(Felt252::from).collect();
+    for (idx, addr) in (first_pub_memory_entry_padding_len
+        ..(first_pub_memory_entry_padding_len + pub_memory.len() - 1))
+        .zip(pub_mem_addrs)
+    {
+        sorted_addrs[idx] = addr;
+        sorted_values[idx] = *pub_memory.get(&addr).unwrap();
+    }
+
+    let mut sorted_addrs_iter = sorted_addrs.into_iter();
+    let mut sorted_values_iter = sorted_values.into_iter();
+    for row_idx in 0..trace.num_rows() {
+        if row_idx % 2 == 0 {
+            let addr = sorted_addrs_iter.next().unwrap();
+            trace.set(row_idx, 4, addr);
+        } else {
+            let value = sorted_values_iter.next().unwrap();
+            trace.set(row_idx, 4, value);
+        }
     }
 }
 
@@ -1070,6 +1092,8 @@ mod test {
         let (register_states, memory, codelen) =
             run_program(None, CairoLayout::Plain, &program_content).unwrap();
 
+        let mut pub_inputs = PublicInputs::from_regs_and_mem(&register_states, &memory, codelen);
+
         let (flags, biased_offsets): (Vec<CairoInstructionFlags>, Vec<InstructionOffsets>) =
             register_states
                 .flags_and_offsets(&memory)
@@ -1114,13 +1138,19 @@ mod test {
         sorted_addrs.sort_by_key(|x| x.representative());
 
         let mut memory_holes = get_memory_holes(&sorted_addrs, codelen);
-        println!("MEMORY HOLES:");
-        memory_holes
-            .iter()
-            .for_each(|h| println!("HOLE ADDR: {}", h));
+        // println!("MEMORY HOLES:");
+        // memory_holes
+        //     .iter()
+        //     .for_each(|h| println!("HOLE ADDR: {}", h));
         finalize_mem_pool(&mut trace, &mut memory_holes);
 
-        trace.table.columns()[3][0..50]
+        // trace.table.columns()[3][0..50]
+        //     .iter()
+        //     .enumerate()
+        //     .for_each(|(i, v)| println!("ROW {} - VALUE: {}", i, v));
+
+        set_sorted_mem_pool(&mut trace, pub_inputs.public_memory);
+        trace.table.columns()[4][0..700]
             .iter()
             .enumerate()
             .for_each(|(i, v)| println!("ROW {} - VALUE: {}", i, v));

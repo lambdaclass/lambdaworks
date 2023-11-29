@@ -83,7 +83,7 @@ impl<'t, F: IsFFTField> TraceTable<F> {
     }
 
     pub fn last_row(&self) -> &[FieldElement<F>] {
-        self.get_row(self.n_rows() - 1)
+        self.get_row(self.num_rows() - 1)
     }
 
     pub fn columns(&self) -> Vec<Vec<FieldElement<F>>> {
@@ -97,8 +97,8 @@ impl<'t, F: IsFFTField> TraceTable<F> {
     /// aggreagate values distributed across various columns with no importance on their ordering,
     /// such as to sort them.
     pub fn merge_columns(&self, column_indexes: &[usize]) -> Vec<FieldElement<F>> {
-        let mut data = Vec::with_capacity(self.n_rows() * column_indexes.len());
-        for row_index in 0..self.n_rows() {
+        let mut data = Vec::with_capacity(self.num_rows() * column_indexes.len());
+        for row_index in 0..self.num_rows() {
             for column in column_indexes {
                 data.push(self.table.data[row_index * self.n_cols() + column].clone());
             }
@@ -164,8 +164,8 @@ impl<'t, F: IsFFTField> TraceTable<F> {
         // the passed `row_idx` should never be greater than `self.n_rows() + 1`. This is just
         // an integrity check for ease in the developing process, we should think a better alternative
         // in the future.
-        debug_assert!(row_idx <= self.n_rows() + 1);
-        if row_idx >= self.n_rows() {
+        debug_assert!(row_idx <= self.num_rows() + 1);
+        if row_idx >= self.num_rows() {
             let mut last_row = self.last_row().to_vec();
             last_row[col_idx] = value.clone();
             self.table.append_row(&last_row)

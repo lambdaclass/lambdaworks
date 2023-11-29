@@ -78,7 +78,7 @@ where
         let not_perm = &main_segment_cols[0];
         let perm = &main_segment_cols[1];
 
-        let trace_len = main_trace.n_rows();
+        let trace_len = main_trace.num_rows();
 
         let mut aux_col = Vec::new();
         for i in 0..trace_len {

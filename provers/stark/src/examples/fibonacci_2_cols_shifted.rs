@@ -177,10 +177,10 @@ mod tests {
     #[test]
     fn trace_has_expected_rows() {
         let trace = compute_trace(FieldElement::<Stark252PrimeField>::one(), 8);
-        assert_eq!(trace.n_rows(), 8);
+        assert_eq!(trace.num_rows(), 8);
 
         let trace = compute_trace(FieldElement::<Stark252PrimeField>::one(), 64);
-        assert_eq!(trace.n_rows(), 64);
+        assert_eq!(trace.num_rows(), 64);
     }
 
     #[test]

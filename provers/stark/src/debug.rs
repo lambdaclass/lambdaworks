@@ -59,7 +59,7 @@ pub fn validate_trace<F: IsFFTField, A: AIR<Field = F>>(
     let n_transition_constraints = air.context().num_transition_constraints();
     let transition_exemptions = &air.context().transition_exemptions;
 
-    let exemption_steps: Vec<usize> = vec![trace.n_rows(); n_transition_constraints]
+    let exemption_steps: Vec<usize> = vec![trace.num_rows(); n_transition_constraints]
         .iter()
         .zip(transition_exemptions)
         .map(|(trace_steps, exemptions)| trace_steps - exemptions)
