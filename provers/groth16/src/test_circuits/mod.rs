@@ -39,11 +39,6 @@ pub fn vitalik_qap() -> QuadraticArithmeticProgram {
     QuadraticArithmeticProgram::from_variable_matrices(num_of_public_inputs, &l, &r, &o)
 }
 
-pub fn vitalik_qap_from_csv() -> QuadraticArithmeticProgram {
-    let csv = include_str!("csv/1.csv");
-    QuadraticArithmeticProgram::from_csv(csv, &["1", "x", "~out"])
-}
-
 /*
 Represents x^2 = 25 or y^2 = 9
     input signal x, y
