@@ -1,9 +1,7 @@
 use lambdaworks_math::{
     elliptic_curve::{
         short_weierstrass::curves::bls12_381::{
-            curve::BLS12381Curve,
-            default_types::{FrElement as FE, FrField as FrF},
-            pairing::BLS12381AtePairing,
+            curve::BLS12381Curve, default_types::FrElement as FE, pairing::BLS12381AtePairing,
             twist::BLS12381TwistCurve,
         },
         traits::{IsEllipticCurve, IsPairing},
@@ -17,7 +15,6 @@ pub type Curve = BLS12381Curve;
 pub type TwistedCurve = BLS12381TwistCurve;
 
 pub type FrElement = FE;
-pub type FrField = FrF;
 
 pub type Pairing = BLS12381AtePairing;
 

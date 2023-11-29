@@ -1,6 +1,6 @@
 use lambdaworks_math::{fft::polynomial::FFTPoly, polynomial::Polynomial};
 
-use crate::common::*;
+use crate::{common::*, r1cs::R1CS};
 
 #[derive(Debug)]
 pub struct QuadraticArithmeticProgram {
@@ -11,6 +11,74 @@ pub struct QuadraticArithmeticProgram {
 }
 
 impl QuadraticArithmeticProgram {
+    pub fn from_r1cs(r1cs: R1CS) -> Self {
+        let mut l: Vec<Polynomial<FrElement>> = vec![];
+        let mut r: Vec<Polynomial<FrElement>> = vec![];
+        let mut o: Vec<Polynomial<FrElement>> = vec![];
+
+        let pad_zeroes =
+            r1cs.number_of_constraints().next_power_of_two() - r1cs.number_of_constraints();
+        let from_slice = vec![FrElement::zero(); pad_zeroes];
+
+        let mut barsumi_1: Vec<Vec<FrElement>> = vec![];
+        let mut barsumi_2: Vec<Vec<FrElement>> = vec![];
+        let mut barsumi_3: Vec<Vec<FrElement>> = vec![];
+
+        for i in 0..r1cs.witness_size() {
+            let mut l_padded = r1cs
+                .constraints
+                .iter()
+                .map(|c| c.a[i].clone())
+                .collect::<Vec<_>>();
+            l_padded.extend(from_slice.clone());
+            let mut r_padded = r1cs
+                .constraints
+                .iter()
+                .map(|c| c.b[i].clone())
+                .collect::<Vec<_>>();
+            r_padded.extend(from_slice.clone());
+            let mut o_padded = r1cs
+                .constraints
+                .iter()
+                .map(|c| c.c[i].clone())
+                .collect::<Vec<_>>();
+            o_padded.extend(from_slice.clone());
+
+            barsumi_1.push(l_padded.clone());
+            barsumi_2.push(r_padded.clone());
+            barsumi_3.push(o_padded.clone());
+
+            l.push(Polynomial::interpolate_fft(&l_padded).unwrap());
+            r.push(Polynomial::interpolate_fft(&r_padded).unwrap());
+            o.push(Polynomial::interpolate_fft(&o_padded).unwrap());
+        }
+
+        println!("--------- L matrix");
+        barsumi_1.iter().for_each(|row| {
+            row.iter().for_each(|e| print!("{} ", e.to_string()));
+            println!();
+        });
+
+        println!("--------- R matrix");
+        barsumi_2.iter().for_each(|row| {
+            row.iter().for_each(|e| print!("{} ", e.to_string()));
+            println!();
+        });
+
+        println!("--------- O matrix");
+        barsumi_3.iter().for_each(|row| {
+            row.iter().for_each(|e| print!("{} ", e.to_string()));
+            println!();
+        });
+
+        QuadraticArithmeticProgram {
+            l,
+            r,
+            o,
+            num_of_public_inputs: r1cs.number_of_inputs,
+        }
+    }
+
     pub fn from_variable_matrices(
         num_of_public_inputs: usize,
         l: &[Vec<FrElement>],
