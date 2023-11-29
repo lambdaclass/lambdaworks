@@ -18,6 +18,8 @@ impl QuadraticArithmeticProgram {
     /// Must be combined with a witness that follows the following order:
     ///   ...public inputs in the order of public_inputs, including "1"...
     ///   ...private witnesses in the order of appearance in csv, up-down & left-to-right...
+    ///
+    /// Function does not automatically place "1" as public input.
     pub fn from_csv(csv: &str, public_inputs: &[&str]) -> Self {
         let pub_inp_set: HashSet<&str> = HashSet::from_iter(public_inputs.to_vec());
         assert!(
@@ -49,7 +51,7 @@ impl QuadraticArithmeticProgram {
                 .enumerate()
             {
                 for var in row[i].iter() {
-                    let is_constant = var.parse::<u8>().is_ok();
+                    let is_constant = var.parse::<i128>().is_ok();
                     let key = if is_constant { "1" } else { var };
 
                     if !pub_inp_set.contains(key) && !all_witnesses_set.contains(key) {
@@ -69,6 +71,7 @@ impl QuadraticArithmeticProgram {
         let mut o_matrix: Vec<Vec<&str>> = Vec::with_capacity(all_witnesses.len());
 
         for var in public_inputs {
+            println!("------ {} --------", var);
             l_matrix.push(match l_vars.get(var) {
                 Some(vec) => vec.clone(),
                 None => vec!["0"; constraints.len()],
@@ -83,6 +86,7 @@ impl QuadraticArithmeticProgram {
             });
         }
         for var in all_witnesses.iter() {
+            println!("------ {} --------", var);
             l_matrix.push(match l_vars.get(var) {
                 Some(vec) => vec.clone(),
                 None => vec!["0"; constraints.len()],
@@ -101,7 +105,15 @@ impl QuadraticArithmeticProgram {
             .iter()
             .map(|row| {
                 row.iter()
-                    .map(|cell| FrElement::from_hex_unchecked(cell))
+                    .map(|cell| {
+                        if cell.starts_with('-') {
+                            -FrElement::from_hex_unchecked(
+                                &cell.chars().skip(1).collect::<String>(),
+                            )
+                        } else {
+                            FrElement::from_hex_unchecked(cell)
+                        }
+                    })
                     .collect::<Vec<_>>()
             })
             .collect::<Vec<_>>();
@@ -109,7 +121,15 @@ impl QuadraticArithmeticProgram {
             .iter()
             .map(|row| {
                 row.iter()
-                    .map(|cell| FrElement::from_hex_unchecked(cell))
+                    .map(|cell| {
+                        if cell.starts_with('-') {
+                            -FrElement::from_hex_unchecked(
+                                &cell.chars().skip(1).collect::<String>(),
+                            )
+                        } else {
+                            FrElement::from_hex_unchecked(cell)
+                        }
+                    })
                     .collect::<Vec<_>>()
             })
             .collect::<Vec<_>>();
@@ -117,7 +137,15 @@ impl QuadraticArithmeticProgram {
             .iter()
             .map(|row| {
                 row.iter()
-                    .map(|cell| FrElement::from_hex_unchecked(cell))
+                    .map(|cell| {
+                        if cell.starts_with('-') {
+                            -FrElement::from_hex_unchecked(
+                                &cell.chars().skip(1).collect::<String>(),
+                            )
+                        } else {
+                            FrElement::from_hex_unchecked(cell)
+                        }
+                    })
                     .collect::<Vec<_>>()
             })
             .collect::<Vec<_>>();
