@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::{collections::VecDeque, iter};
 
 use super::{
     cairo_mem::CairoMemory,
@@ -753,16 +753,69 @@ fn set_sorted_mem_pool(trace: &mut CairoTraceTable, pub_memory: HashMap<Felt252,
 
     assert!(2 * trace.num_steps() >= pub_memory.len());
 
+    println!("PUB MEMORY LEN: {}", pub_memory.len());
+
+    let mut mem_pool = trace.get_column(3);
+    let first_pub_memory_addr = Felt252::one();
+    let first_pub_memory_value = *pub_memory.get(&first_pub_memory_addr).unwrap();
+    let first_pub_memory_entry_padding_len = 2 * trace.num_steps() - pub_memory.len();
+    // let first_pub_memory_entry_padding_len = 2 * trace.num_steps() - 32;
+    let padding_num_steps = first_pub_memory_entry_padding_len.div_ceil(2);
+    let mut first_addr_padding =
+        iter::repeat(first_pub_memory_addr).take(first_pub_memory_entry_padding_len);
+    let mut padding_step_flag = 0;
+
+    // this loop is for padding with (first_pub_addr, first_pub_value)
+    for step_idx in 0..padding_num_steps {
+        if let Some(first_addr) = first_addr_padding.next() {
+            mem_pool[PUB_MEMORY_ADDR_OFFSET + CAIRO_STEP * step_idx] = first_addr;
+            mem_pool[PUB_MEMORY_VALUE_OFFSET + CAIRO_STEP * step_idx] = first_pub_memory_value;
+        } else {
+            padding_step_flag = 0;
+            break;
+        }
+        if let Some(first_addr) = first_addr_padding.next() {
+            mem_pool[PUB_MEMORY_STEP + PUB_MEMORY_ADDR_OFFSET + CAIRO_STEP * step_idx] = first_addr;
+            mem_pool[PUB_MEMORY_STEP + PUB_MEMORY_VALUE_OFFSET + CAIRO_STEP * step_idx] =
+                first_pub_memory_value;
+        } else {
+            padding_step_flag = 1;
+            break;
+        }
+    }
+
+    let mut pub_memory_iter = pub_memory.iter();
+    if padding_step_flag == 1 {
+        let (pub_memory_addr, pub_memory_value) = pub_memory_iter.next().unwrap();
+        mem_pool[PUB_MEMORY_STEP + PUB_MEMORY_ADDR_OFFSET + CAIRO_STEP * (padding_num_steps - 1)] =
+            *pub_memory_addr;
+        mem_pool
+            [PUB_MEMORY_STEP + PUB_MEMORY_VALUE_OFFSET + CAIRO_STEP * (padding_num_steps - 1)] =
+            *pub_memory_value;
+    }
+
+    for step_idx in padding_num_steps..trace.num_steps() {
+        let (pub_memory_addr, pub_memory_value) = pub_memory_iter.next().unwrap();
+        mem_pool[PUB_MEMORY_ADDR_OFFSET + CAIRO_STEP * step_idx] = *pub_memory_addr;
+        mem_pool[PUB_MEMORY_VALUE_OFFSET + CAIRO_STEP * step_idx] = *pub_memory_value;
+
+        let (pub_memory_addr, pub_memory_value) = pub_memory_iter.next().unwrap();
+        mem_pool[PUB_MEMORY_STEP + PUB_MEMORY_ADDR_OFFSET + CAIRO_STEP * step_idx] =
+            *pub_memory_addr;
+        mem_pool[PUB_MEMORY_STEP + PUB_MEMORY_VALUE_OFFSET + CAIRO_STEP * step_idx] =
+            *pub_memory_value;
+    }
+
     let mut addrs = Vec::with_capacity(trace.num_rows() / 2);
     let mut values = Vec::with_capacity(trace.num_rows() / 2);
     let mut sorted_addrs = Vec::with_capacity(trace.num_rows() / 2);
     let mut sorted_values = Vec::with_capacity(trace.num_rows() / 2);
-    for row_idx in 0..trace.num_rows() {
-        if row_idx % 2 == 0 {
-            let addr = trace.get(row_idx, 3);
+    for idx in 0..mem_pool.len() {
+        if idx % 2 == 0 {
+            let addr = mem_pool[idx];
             addrs.push(addr);
         } else {
-            let value = trace.get(row_idx, 3);
+            let value = mem_pool[idx];
             values.push(value);
         }
     }
@@ -770,26 +823,8 @@ fn set_sorted_mem_pool(trace: &mut CairoTraceTable, pub_memory: HashMap<Felt252,
     let mut sorted_addr_idxs: Vec<usize> = (0..addrs.len()).collect();
     sorted_addr_idxs.sort_by_key(|&idx| addrs[idx]);
     for idx in sorted_addr_idxs.iter() {
-        sorted_addrs.push(*addrs[*idx]);
-        sorted_values.push(*values[*idx]);
-    }
-
-    let first_pub_memory_addr = Felt252::one();
-    let first_pub_memory_value = *pub_memory.get(&first_pub_memory_addr).unwrap();
-    let first_pub_memory_entry_padding_len = 2 * trace.num_steps() - pub_memory.len();
-
-    for idx in 0..first_pub_memory_entry_padding_len {
-        sorted_addrs[idx] = first_pub_memory_addr;
-        sorted_values[idx] = first_pub_memory_value;
-    }
-
-    let pub_mem_addrs: Vec<Felt252> = (2..pub_memory.len() as u64).map(Felt252::from).collect();
-    for (idx, addr) in (first_pub_memory_entry_padding_len
-        ..(first_pub_memory_entry_padding_len + pub_memory.len() - 1))
-        .zip(pub_mem_addrs)
-    {
-        sorted_addrs[idx] = addr;
-        sorted_values[idx] = *pub_memory.get(&addr).unwrap();
+        sorted_addrs.push(addrs[*idx]);
+        sorted_values.push(values[*idx]);
     }
 
     let mut sorted_addrs_iter = sorted_addrs.into_iter();
@@ -1092,7 +1127,7 @@ mod test {
         let (register_states, memory, codelen) =
             run_program(None, CairoLayout::Plain, &program_content).unwrap();
 
-        let mut pub_inputs = PublicInputs::from_regs_and_mem(&register_states, &memory, codelen);
+        let pub_inputs = PublicInputs::from_regs_and_mem(&register_states, &memory, codelen);
 
         let (flags, biased_offsets): (Vec<CairoInstructionFlags>, Vec<InstructionOffsets>) =
             register_states
@@ -1150,7 +1185,8 @@ mod test {
         //     .for_each(|(i, v)| println!("ROW {} - VALUE: {}", i, v));
 
         set_sorted_mem_pool(&mut trace, pub_inputs.public_memory);
-        trace.table.columns()[4][0..700]
+        trace.table.columns()[4][4..700]
+            // trace.table.columns()[4]
             .iter()
             .enumerate()
             .for_each(|(i, v)| println!("ROW {} - VALUE: {}", i, v));
