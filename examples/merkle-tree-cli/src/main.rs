@@ -5,8 +5,7 @@ use lambdaworks_crypto::merkle_tree::{
     backends::field_element::TreePoseidon, merkle::MerkleTree, proof::Proof,
 };
 use lambdaworks_math::field::{
-    fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
-    element::FieldElement,
+    element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
 };
 use std::io::BufWriter;
 use std::{
