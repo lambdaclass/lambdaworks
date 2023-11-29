@@ -40,13 +40,8 @@ pub fn vitalik_qap() -> QuadraticArithmeticProgram {
 }
 
 pub fn vitalik_qap_from_csv() -> QuadraticArithmeticProgram {
-    let csv = include_str!("csv/vitalik.csv");
+    let csv = include_str!("csv/1.csv");
     QuadraticArithmeticProgram::from_csv(csv, &["1", "x", "~out"])
-}
-
-pub fn rsa_qap_from_csv() -> QuadraticArithmeticProgram {
-    let csv = include_str!("csv/rsa.csv");
-    QuadraticArithmeticProgram::from_csv(csv, &["1", "P", "RSA"])
 }
 
 /*
