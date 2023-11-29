@@ -1,5 +1,3 @@
-use std::collections::{HashMap, HashSet};
-
 use lambdaworks_math::{fft::polynomial::FFTPoly, polynomial::Polynomial};
 
 use crate::common::*;
@@ -13,122 +11,6 @@ pub struct QuadraticArithmeticProgram {
 }
 
 impl QuadraticArithmeticProgram {
-    pub fn from_constraints(csv: &str, public_inputs: &HashSet<&str>) -> Self {
-        let constraints = csv
-            .split([',', '\n'])
-            .filter(|elem| elem.len() > 0)
-            .map(|term| {
-                term.split(['+', ' '])
-                    .filter(|elem| elem.len() > 0)
-                    .collect::<Vec<_>>()
-            })
-            .collect::<Vec<_>>();
-        let constraints = constraints.chunks(3).collect::<Vec<_>>();
-
-        let mut l_vars: HashMap<&str, Vec<&str>> = HashMap::new(); // var -> QAP row
-        let mut r_vars: HashMap<&str, Vec<&str>> = HashMap::new();
-        let mut o_vars: HashMap<&str, Vec<&str>> = HashMap::new();
-
-        for (gate_idx, row) in constraints.iter().enumerate() {
-            println!("{:?}", row);
-            for var in row[0].iter() {
-                let is_constant = var.parse::<u8>().is_ok();
-                let key = if is_constant { "1" } else { var };
-                l_vars
-                    .entry(key)
-                    .or_insert_with(|| vec!["0"; constraints.len()])[gate_idx] =
-                    if is_constant { var } else { "1" };
-            }
-            for var in row[1].iter() {
-                let is_constant = var.parse::<u8>().is_ok();
-                let key = if is_constant { "1" } else { var };
-                r_vars
-                    .entry(key)
-                    .or_insert_with(|| vec!["0"; constraints.len()])[gate_idx] =
-                    if is_constant { var } else { "1" };
-            }
-            for var in row[2].iter() {
-                let is_constant = var.parse::<u8>().is_ok();
-                let key = if is_constant { "1" } else { var };
-                o_vars
-                    .entry(key)
-                    .or_insert_with(|| vec!["0"; constraints.len()])[gate_idx] =
-                    if is_constant { var } else { "1" };
-            }
-        }
-
-        let mut all_vars = HashSet::<&str>::new();
-        all_vars.extend(l_vars.keys());
-        all_vars.extend(r_vars.keys());
-        all_vars.extend(o_vars.keys());
-
-        let mut l_matrix: Vec<Vec<&str>> = Vec::with_capacity(all_vars.len());
-        let mut r_matrix: Vec<Vec<&str>> = Vec::with_capacity(all_vars.len());
-        let mut o_matrix: Vec<Vec<&str>> = Vec::with_capacity(all_vars.len());
-
-        println!("Constructing matrices - public inputs");
-        for var in public_inputs {
-            println!("------ {} ------", var);
-
-            l_matrix.push(match l_vars.get(var) {
-                Some(vec) => vec.clone(),
-                None => vec!["0"; constraints.len()],
-            });
-            r_matrix.push(match r_vars.get(var) {
-                Some(vec) => vec.clone(),
-                None => vec!["0"; constraints.len()],
-            });
-            o_matrix.push(match o_vars.get(var) {
-                Some(vec) => vec.clone(),
-                None => vec!["0"; constraints.len()],
-            });
-        }
-        println!("Constructing matrices - private inputs");
-        for var in all_vars.iter().filter(|var| !public_inputs.contains(*var)) {
-            println!("------ {} ------", var);
-
-            l_matrix.push(match l_vars.get(var) {
-                Some(vec) => vec.clone(),
-                None => vec!["0"; constraints.len()],
-            });
-            r_matrix.push(match r_vars.get(var) {
-                Some(vec) => vec.clone(),
-                None => vec!["0"; constraints.len()],
-            });
-            o_matrix.push(match o_vars.get(var) {
-                Some(vec) => vec.clone(),
-                None => vec!["0"; constraints.len()],
-            });
-        }
-
-        let l_matrix = l_matrix
-            .iter()
-            .map(|row| {
-                row.iter()
-                    .map(|cell| FrElement::from_hex_unchecked(cell))
-                    .collect::<Vec<_>>()
-            })
-            .collect::<Vec<_>>();
-        let r_matrix = r_matrix
-            .iter()
-            .map(|row| {
-                row.iter()
-                    .map(|cell| FrElement::from_hex_unchecked(cell))
-                    .collect::<Vec<_>>()
-            })
-            .collect::<Vec<_>>();
-        let o_matrix = o_matrix
-            .iter()
-            .map(|row| {
-                row.iter()
-                    .map(|cell| FrElement::from_hex_unchecked(cell))
-                    .collect::<Vec<_>>()
-            })
-            .collect::<Vec<_>>();
-
-        Self::from_variable_matrices(public_inputs.len(), &l_matrix, &r_matrix, &o_matrix)
-    }
-
     pub fn from_variable_matrices(
         num_of_public_inputs: usize,
         l: &[Vec<FrElement>],
@@ -232,18 +114,5 @@ impl QuadraticArithmeticProgram {
                 .evaluate_offset_fft(1, Some(degree), offset)
                 .unwrap()
         })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn import_1() {
-        let csv = include_str!("test_circuits/constraint_csv/1.csv");
-        let mut inputs = HashSet::new();
-        inputs.extend(["1", "x", "~out"]);
-        QuadraticArithmeticProgram::from_constraints(csv, &inputs);
     }
 }
