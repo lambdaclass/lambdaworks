@@ -1,7 +1,7 @@
 pub mod parameters;
 pub mod round_constants;
 // mod starknet_poseidon;
-use self::parameters::{DefaultPoseidonParams, PermutationParameters};
+use self::parameters::PermutationParameters;
 
 use lambdaworks_math::field::{element::FieldElement, traits::IsPrimeField};
 use std::ops::{Add, Mul};
