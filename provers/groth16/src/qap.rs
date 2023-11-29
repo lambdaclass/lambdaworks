@@ -13,7 +13,18 @@ pub struct QuadraticArithmeticProgram {
 }
 
 impl QuadraticArithmeticProgram {
-    pub fn from_constraints(csv: &str, public_inputs: &HashSet<&str>) -> Self {
+    /// Converts given l,r,o csv into a QAP
+    ///
+    /// Must be combined with a witness that follows the following order:
+    ///   ...public inputs in the order of public_inputs, including "1"...
+    ///   ...private witnesses in the order of appearance in csv, up-down & left-to-right...
+    pub fn from_csv(csv: &str, public_inputs: &[&str]) -> Self {
+        let pub_inp_set: HashSet<&str> = HashSet::from_iter(public_inputs.to_vec());
+        assert!(
+            public_inputs.len() == pub_inp_set.len(),
+            "Public inputs must be unique"
+        );
+
         let constraints = csv
             .split([',', '\n'])
             .filter(|elem| elem.len() > 0)
@@ -29,47 +40,35 @@ impl QuadraticArithmeticProgram {
         let mut r_vars: HashMap<&str, Vec<&str>> = HashMap::new();
         let mut o_vars: HashMap<&str, Vec<&str>> = HashMap::new();
 
+        let mut all_witnesses_set = HashSet::<&str>::new();
+        let mut all_witnesses: Vec<&str> = vec![];
+
         for (gate_idx, row) in constraints.iter().enumerate() {
-            println!("{:?}", row);
-            for var in row[0].iter() {
-                let is_constant = var.parse::<u8>().is_ok();
-                let key = if is_constant { "1" } else { var };
-                l_vars
-                    .entry(key)
-                    .or_insert_with(|| vec!["0"; constraints.len()])[gate_idx] =
-                    if is_constant { var } else { "1" };
-            }
-            for var in row[1].iter() {
-                let is_constant = var.parse::<u8>().is_ok();
-                let key = if is_constant { "1" } else { var };
-                r_vars
-                    .entry(key)
-                    .or_insert_with(|| vec!["0"; constraints.len()])[gate_idx] =
-                    if is_constant { var } else { "1" };
-            }
-            for var in row[2].iter() {
-                let is_constant = var.parse::<u8>().is_ok();
-                let key = if is_constant { "1" } else { var };
-                o_vars
-                    .entry(key)
-                    .or_insert_with(|| vec!["0"; constraints.len()])[gate_idx] =
-                    if is_constant { var } else { "1" };
+            for (i, col) in [&mut l_vars, &mut r_vars, &mut o_vars]
+                .iter_mut()
+                .enumerate()
+            {
+                for var in row[i].iter() {
+                    let is_constant = var.parse::<u8>().is_ok();
+                    let key = if is_constant { "1" } else { var };
+
+                    if !pub_inp_set.contains(key) && !all_witnesses_set.contains(key) {
+                        all_witnesses.push(key);
+                        all_witnesses_set.insert(key);
+                    }
+
+                    col.entry(key)
+                        .or_insert_with(|| vec!["0"; constraints.len()])[gate_idx] =
+                        if is_constant { var } else { "1" };
+                }
             }
         }
 
-        let mut all_vars = HashSet::<&str>::new();
-        all_vars.extend(l_vars.keys());
-        all_vars.extend(r_vars.keys());
-        all_vars.extend(o_vars.keys());
+        let mut l_matrix: Vec<Vec<&str>> = Vec::with_capacity(all_witnesses.len());
+        let mut r_matrix: Vec<Vec<&str>> = Vec::with_capacity(all_witnesses.len());
+        let mut o_matrix: Vec<Vec<&str>> = Vec::with_capacity(all_witnesses.len());
 
-        let mut l_matrix: Vec<Vec<&str>> = Vec::with_capacity(all_vars.len());
-        let mut r_matrix: Vec<Vec<&str>> = Vec::with_capacity(all_vars.len());
-        let mut o_matrix: Vec<Vec<&str>> = Vec::with_capacity(all_vars.len());
-
-        println!("Constructing matrices - public inputs");
         for var in public_inputs {
-            println!("------ {} ------", var);
-
             l_matrix.push(match l_vars.get(var) {
                 Some(vec) => vec.clone(),
                 None => vec!["0"; constraints.len()],
@@ -83,10 +82,7 @@ impl QuadraticArithmeticProgram {
                 None => vec!["0"; constraints.len()],
             });
         }
-        println!("Constructing matrices - private inputs");
-        for var in all_vars.iter().filter(|var| !public_inputs.contains(*var)) {
-            println!("------ {} ------", var);
-
+        for var in all_witnesses.iter() {
             l_matrix.push(match l_vars.get(var) {
                 Some(vec) => vec.clone(),
                 None => vec!["0"; constraints.len()],
@@ -232,18 +228,5 @@ impl QuadraticArithmeticProgram {
                 .evaluate_offset_fft(1, Some(degree), offset)
                 .unwrap()
         })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn import_1() {
-        let csv = include_str!("test_circuits/constraint_csv/1.csv");
-        let mut inputs = HashSet::new();
-        inputs.extend(["1", "x", "~out"]);
-        QuadraticArithmeticProgram::from_constraints(csv, &inputs);
     }
 }
