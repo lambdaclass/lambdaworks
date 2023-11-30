@@ -11,76 +11,19 @@ use super::{
     },
     register_states::RegisterStates,
 };
-use crate::layouts::plain::air::{
-    CairoAIR, PublicInputs, EXTRA_ADDR, FRAME_DST_ADDR, FRAME_OP0_ADDR, FRAME_OP1_ADDR, FRAME_PC,
-    OFF_DST, OFF_OP0, OFF_OP1, RC_HOLES,
-};
+use crate::layouts::plain::air::{CairoAIR, PublicInputs};
 use cairo_vm::without_std::collections::HashMap;
 use lambdaworks_math::{
     field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
     unsigned_integer::element::UnsignedInteger,
 };
 use stark_platinum_prover::{trace::TraceTable, Felt252};
-
 type CairoTraceTable = TraceTable<Stark252PrimeField>;
+
 // NOTE: This should be deleted and use CairoAIR::STEP_SIZE once it is set to 16
 const CAIRO_STEP: usize = 16;
 
 const PLAIN_LAYOUT_NUM_COLUMNS: usize = 8;
-
-/// Builds the Cairo main trace (i.e. the trace without the auxiliary columns).
-/// Builds the execution trace, fills the offset range-check holes and memory holes, adds
-/// public memory dummy accesses (See section 9.8 of the Cairo whitepaper) and pads the result
-/// so that it has a trace length equal to the closest power of two.
-// pub fn build_main_trace(
-//     register_states: &RegisterStates,
-//     memory: &CairoMemory,
-//     public_input: &mut PublicInputs,
-// ) -> CairoTraceTable {
-//     let mut main_trace = build_cairo_execution_trace(register_states, memory, public_input);
-
-//     let mut address_cols =
-//         main_trace.merge_columns(&[FRAME_PC, FRAME_DST_ADDR, FRAME_OP0_ADDR, FRAME_OP1_ADDR]);
-
-//     address_cols.sort_by_key(|x| x.representative());
-
-//     // let rc_holes = get_rc_holes(&main_trace);
-//     let rc_min = Felt252::zero();
-//     let rc_max = Felt252::one();
-//     // public_input.range_check_min = Some(rc_min);
-//     // public_input.range_check_max = Some(rc_max);
-//     // fill_rc_holes(&mut main_trace, &rc_holes);
-
-//     let memory_holes = get_memory_holes(&address_cols, public_input.codelen);
-
-//     // if !memory_holes.is_empty() {
-//     //     fill_memory_holes(&mut main_trace, &memory_holes);
-//     // }
-
-//     add_pub_memory_dummy_accesses(
-//         &mut main_trace,
-//         public_input.public_memory.len(),
-//         memory_holes.len(),
-//     );
-
-//     let trace_len_next_power_of_two = main_trace.num_rows().next_power_of_two();
-//     let padding_len = trace_len_next_power_of_two - main_trace.num_rows();
-//     main_trace.pad_with_last_row(padding_len);
-
-//     main_trace
-// }
-
-/// Artificial `(0, 0)` dummy memory accesses must be added for the public memory.
-/// See section 9.8 of the Cairo whitepaper.
-fn add_pub_memory_dummy_accesses(
-    main_trace: &mut CairoTraceTable,
-    pub_memory_len: usize,
-    last_memory_hole_idx: usize,
-) {
-    for i in 0..pub_memory_len {
-        main_trace.set_or_extend(last_memory_hole_idx + i, EXTRA_ADDR, &Felt252::zero());
-    }
-}
 
 /// Gets holes from the range-checked columns. These holes must be filled for the
 /// permutation range-checks, as can be read in section 9.9 of the Cairo whitepaper.
@@ -108,22 +51,6 @@ fn get_rc_holes(sorted_rc_values: &[u16]) -> VecDeque<Felt252> {
     }
 
     rc_holes
-}
-
-/// Fills holes found in the range-checked columns.
-fn fill_rc_holes(trace: &mut CairoTraceTable, holes: &[Felt252]) {
-    holes.iter().enumerate().for_each(|(i, hole)| {
-        trace.set_or_extend(i, RC_HOLES, hole);
-    });
-
-    // Fill the rest of the RC_HOLES column to avoid inexistent zeros
-    let mut offsets = trace.merge_columns(&[OFF_DST, OFF_OP0, OFF_OP1, RC_HOLES]);
-
-    offsets.sort_by_key(|x| x.representative());
-    let greatest_offset = offsets.last().unwrap();
-    (holes.len()..trace.num_rows()).for_each(|i| {
-        trace.set_or_extend(i, RC_HOLES, greatest_offset);
-    });
 }
 
 /// Get memory holes from accessed addresses. These memory holes appear
@@ -165,13 +92,6 @@ fn get_memory_holes(sorted_addrs: &[Felt252], codelen: usize) -> VecDeque<Felt25
     memory_holes.push_back(max_addr_plus_one);
 
     memory_holes
-}
-
-/// Fill memory holes in the extra address column of the trace with the missing addresses.
-fn fill_memory_holes(trace: &mut CairoTraceTable, memory_holes: &[Felt252]) {
-    memory_holes.iter().enumerate().for_each(|(i, hole)| {
-        trace.set_or_extend(i, EXTRA_ADDR, hole);
-    });
 }
 
 /// Receives the raw Cairo trace and memory as outputted from the Cairo VM and returns
@@ -256,7 +176,7 @@ pub fn build_cairo_execution_trace(
     let mut trace: CairoTraceTable =
         TraceTable::allocate_with_zeros(num_steps, PLAIN_LAYOUT_NUM_COLUMNS, CAIRO_STEP);
 
-    let mut rc_values = set_rc_pool(&mut trace, unbiased_offsets);
+    let rc_values = set_rc_pool(&mut trace, unbiased_offsets);
     set_bit_prefix_flags(&mut trace, bit_prefix_flags);
     let mut sorted_addrs = set_mem_pool(
         &mut trace,
