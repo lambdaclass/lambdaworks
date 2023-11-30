@@ -12,10 +12,6 @@ mod tests {
 
     #[test]
     fn test_hades_permutation() {
-        let params = PermutationParameters::new_with(DefaultPoseidonParams::CairoStark252);
-
-        let poseidon = Poseidon::new_with_params(params);
-
         // Initialize a state to test. The exact contents will depend on your specific use case.
         let mut state: Vec<FieldElement<Stark252PrimeField>> = vec![
             FieldElement::<Stark252PrimeField>::from_hex("0x9").unwrap(),
@@ -23,7 +19,7 @@ mod tests {
             FieldElement::<Stark252PrimeField>::from_hex("0x2").unwrap(),
         ];
 
-        poseidon.hades_permutation(&mut state);
+        Poseidon::<PoseidonCairoStark252>::hades_permutation(&mut state);
 
         // Compare the result to the expected output. You will need to know the expected output for your specific test case.
         let expected_state0 = FieldElement::<Stark252PrimeField>::from_hex(
@@ -45,14 +41,10 @@ mod tests {
     }
     #[test]
     fn test_hash() {
-        let params = PermutationParameters::new_with(DefaultPoseidonParams::CairoStark252);
-
-        let poseidon = Poseidon::new_with_params(params);
-
         let x = FieldElement::<Stark252PrimeField>::from_hex("0x123456").unwrap();
         let y = FieldElement::<Stark252PrimeField>::from_hex("0x789101").unwrap();
 
-        let z = poseidon.hash(&x, &y);
+        let z = Poseidon::<PoseidonCairoStark252>::hash(&x, &y);
 
         // Compare the result to the expected output. You will need to know the expected output for your specific test case.
         let expected_state0 = FieldElement::<Stark252PrimeField>::from_hex(
@@ -65,13 +57,9 @@ mod tests {
 
     #[test]
     fn test_hash_single() {
-        let params = PermutationParameters::new_with(DefaultPoseidonParams::CairoStark252);
-
-        let poseidon = Poseidon::new_with_params(params);
-
         let x = FieldElement::<Stark252PrimeField>::from_hex("0x9").unwrap();
 
-        let z = poseidon.hash_single(&x);
+        let z = Poseidon::<PoseidonCairoStark252>::hash_single(&x);
 
         // Compare the result to the expected output. You will need to know the expected output for your specific test case.
         let expected_state0 = FieldElement::<Stark252PrimeField>::from_hex(
@@ -84,10 +72,6 @@ mod tests {
 
     #[test]
     fn test_hash_many() {
-        let params = PermutationParameters::new_with(DefaultPoseidonParams::CairoStark252);
-
-        let poseidon = Poseidon::new_with_params(params);
-
         let a = FieldElement::<Stark252PrimeField>::from_hex("0x1").unwrap();
         let b = FieldElement::<Stark252PrimeField>::from_hex("0x2").unwrap();
         let c = FieldElement::<Stark252PrimeField>::from_hex("0x3").unwrap();
@@ -96,7 +80,7 @@ mod tests {
         let f = FieldElement::<Stark252PrimeField>::from_hex("0x6").unwrap();
 
         let ins = vec![a, b, c, d, e, f];
-        let z = poseidon.hash_many(&ins);
+        let z = Poseidon::<PoseidonCairoStark252>::hash_many(&ins);
 
         // Compare the result to the expected output. You will need to know the expected output for your specific test case.
         let expected_state0 = FieldElement::<Stark252PrimeField>::from_hex(
@@ -106,7 +90,7 @@ mod tests {
         assert_eq!(z, expected_state0);
 
         let ins = vec![a];
-        let z = poseidon.hash_many(&ins);
+        let z = Poseidon::<PoseidonCairoStark252>::hash_many(&ins);
         let expected_state0 = FieldElement::<Stark252PrimeField>::from_hex(
             "0x579e8877c7755365d5ec1ec7d3a94a457eff5d1f40482bbe9729c064cdead2",
         )
@@ -114,7 +98,7 @@ mod tests {
         assert_eq!(z, expected_state0);
 
         let ins = vec![a, b];
-        let z = poseidon.hash_many(&ins);
+        let z = Poseidon::<PoseidonCairoStark252>::hash_many(&ins);
         let expected_state0 = FieldElement::<Stark252PrimeField>::from_hex(
             "0x371cb6995ea5e7effcd2e174de264b5b407027a75a231a70c2c8d196107f0e7",
         )
@@ -122,7 +106,7 @@ mod tests {
         assert_eq!(z, expected_state0);
 
         let ins = vec![a, b, c];
-        let z = poseidon.hash_many(&ins);
+        let z = Poseidon::<PoseidonCairoStark252>::hash_many(&ins);
         let expected_state0 = FieldElement::<Stark252PrimeField>::from_hex(
             "0x2f0d8840bcf3bc629598d8a6cc80cb7c0d9e52d93dab244bbf9cd0dca0ad082",
         )
@@ -130,7 +114,7 @@ mod tests {
         assert_eq!(z, expected_state0);
 
         let ins = vec![a, b, c, d];
-        let z = poseidon.hash_many(&ins);
+        let z = Poseidon::<PoseidonCairoStark252>::hash_many(&ins);
         let expected_state0 = FieldElement::<Stark252PrimeField>::from_hex(
             "0x26e3ad8b876e02bc8a4fc43dad40a8f81a6384083cabffa190bcf40d512ae1d",
         )

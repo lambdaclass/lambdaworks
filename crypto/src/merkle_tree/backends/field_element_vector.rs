@@ -1,12 +1,12 @@
 use std::marker::PhantomData;
 
-use crate::hash::poseidon::starknet::parameters::{DefaultPoseidonParams, PermutationParameters};
+use crate::hash::poseidon::starknet::parameters::PermutationParameters;
 use crate::hash::poseidon::starknet::Poseidon;
 use crate::merkle_tree::traits::IsMerkleTreeBackend;
 use lambdaworks_math::{
     field::{
         element::FieldElement,
-        traits::{IsField, IsPrimeField},
+        traits::IsField,
     },
     traits::Serializable,
 };
@@ -61,38 +61,26 @@ where
     }
 }
 
-#[derive(Clone)]
-pub struct BatchPoseidonTree<F: IsPrimeField> {
-    poseidon: Poseidon<F>,
+#[derive(Clone, Default)]
+pub struct BatchPoseidonTree<P: PermutationParameters + Default> {
+    _poseidon: PhantomData<Poseidon<P>>,
 }
 
-impl<F> Default for BatchPoseidonTree<F>
+impl<P> IsMerkleTreeBackend for BatchPoseidonTree<P>
 where
-    F: IsPrimeField,
+    P: PermutationParameters + Default,
+    Vec<FieldElement<P::F>>: Sync + Send,
+    FieldElement<P::F>: Sync + Send
 {
-    fn default() -> Self {
-        let params = PermutationParameters::new_with(DefaultPoseidonParams::CairoStark252);
-        let poseidon = Poseidon::new_with_params(params);
+    type Node = FieldElement<P::F>;
+    type Data = Vec<FieldElement<P::F>>;
 
-        Self { poseidon }
-    }
-}
-
-impl<F> IsMerkleTreeBackend for BatchPoseidonTree<F>
-where
-    F: IsPrimeField,
-    Vec<FieldElement<F>>: Sync + Send,
-    FieldElement<F>: Sync + Send
-{
-    type Node = FieldElement<F>;
-    type Data = Vec<FieldElement<F>>;
-
-    fn hash_data(input: &Vec<FieldElement<F>>) -> FieldElement<F> {
-        self.poseidon.hash_many(input)
+    fn hash_data(input: &Vec<FieldElement<P::F>>) -> FieldElement<P::F> {
+        Poseidon::<P>::hash_many(input)
     }
 
-    fn hash_new_parent(&self, left: &FieldElement<F>, right: &FieldElement<F>) -> FieldElement<F> {
-        self.poseidon.hash(left, right)
+    fn hash_new_parent(&self, left: &FieldElement<P::F>, right: &FieldElement<P::F>) -> FieldElement<P::F> {
+        Poseidon::<P>::hash(left, right)
     }
 }
 
