@@ -32,43 +32,43 @@ const PLAIN_LAYOUT_NUM_COLUMNS: usize = 8;
 /// Builds the execution trace, fills the offset range-check holes and memory holes, adds
 /// public memory dummy accesses (See section 9.8 of the Cairo whitepaper) and pads the result
 /// so that it has a trace length equal to the closest power of two.
-pub fn build_main_trace(
-    register_states: &RegisterStates,
-    memory: &CairoMemory,
-    public_input: &mut PublicInputs,
-) -> CairoTraceTable {
-    let mut main_trace = build_cairo_execution_trace(register_states, memory, public_input);
+// pub fn build_main_trace(
+//     register_states: &RegisterStates,
+//     memory: &CairoMemory,
+//     public_input: &mut PublicInputs,
+// ) -> CairoTraceTable {
+//     let mut main_trace = build_cairo_execution_trace(register_states, memory, public_input);
 
-    let mut address_cols =
-        main_trace.merge_columns(&[FRAME_PC, FRAME_DST_ADDR, FRAME_OP0_ADDR, FRAME_OP1_ADDR]);
+//     let mut address_cols =
+//         main_trace.merge_columns(&[FRAME_PC, FRAME_DST_ADDR, FRAME_OP0_ADDR, FRAME_OP1_ADDR]);
 
-    address_cols.sort_by_key(|x| x.representative());
+//     address_cols.sort_by_key(|x| x.representative());
 
-    // let rc_holes = get_rc_holes(&main_trace);
-    let rc_min = Felt252::zero();
-    let rc_max = Felt252::one();
-    // public_input.range_check_min = Some(rc_min);
-    // public_input.range_check_max = Some(rc_max);
-    // fill_rc_holes(&mut main_trace, &rc_holes);
+//     // let rc_holes = get_rc_holes(&main_trace);
+//     let rc_min = Felt252::zero();
+//     let rc_max = Felt252::one();
+//     // public_input.range_check_min = Some(rc_min);
+//     // public_input.range_check_max = Some(rc_max);
+//     // fill_rc_holes(&mut main_trace, &rc_holes);
 
-    let memory_holes = get_memory_holes(&address_cols, public_input.codelen);
+//     let memory_holes = get_memory_holes(&address_cols, public_input.codelen);
 
-    // if !memory_holes.is_empty() {
-    //     fill_memory_holes(&mut main_trace, &memory_holes);
-    // }
+//     // if !memory_holes.is_empty() {
+//     //     fill_memory_holes(&mut main_trace, &memory_holes);
+//     // }
 
-    add_pub_memory_dummy_accesses(
-        &mut main_trace,
-        public_input.public_memory.len(),
-        memory_holes.len(),
-    );
+//     add_pub_memory_dummy_accesses(
+//         &mut main_trace,
+//         public_input.public_memory.len(),
+//         memory_holes.len(),
+//     );
 
-    let trace_len_next_power_of_two = main_trace.num_rows().next_power_of_two();
-    let padding_len = trace_len_next_power_of_two - main_trace.num_rows();
-    main_trace.pad_with_last_row(padding_len);
+//     let trace_len_next_power_of_two = main_trace.num_rows().next_power_of_two();
+//     let padding_len = trace_len_next_power_of_two - main_trace.num_rows();
+//     main_trace.pad_with_last_row(padding_len);
 
-    main_trace
-}
+//     main_trace
+// }
 
 /// Artificial `(0, 0)` dummy memory accesses must be added for the public memory.
 /// See section 9.8 of the Cairo whitepaper.
@@ -258,7 +258,7 @@ pub fn build_cairo_execution_trace(
 
     let mut rc_values = set_rc_pool(&mut trace, unbiased_offsets);
     set_bit_prefix_flags(&mut trace, bit_prefix_flags);
-    let (mut sorted_addrs, sorted_values) = set_mem_pool(
+    let mut sorted_addrs = set_mem_pool(
         &mut trace,
         pcs,
         instructions,
@@ -289,10 +289,12 @@ pub fn build_cairo_execution_trace(
     sorted_rc_column.sort_by_key(|x| x.representative());
     set_sorted_rc_pool(&mut trace, sorted_rc_column);
 
-    // Sort memory
+    // Add memory holes
     sorted_addrs.sort_by_key(|x| x.representative());
-    let mut memory_holes = get_memory_holes(&sorted_addrs, public_input.codelen);
-    finalize_mem_pool(&mut trace, &mut memory_holes);
+    let memory_holes = get_memory_holes(&sorted_addrs, public_input.codelen);
+    finalize_mem_pool(&mut trace, memory_holes);
+    // Sort memory and insert to trace
+    set_sorted_mem_pool(&mut trace, public_input.public_memory.clone());
 
     trace
 }
@@ -584,7 +586,7 @@ fn set_mem_pool(
     dst_vals: Vec<Felt252>,
     op1_addrs: Vec<Felt252>,
     op1_vals: Vec<Felt252>,
-) -> (Vec<Felt252>, Vec<Felt252>) {
+) -> Vec<Felt252> {
     const PC_OFFSET: usize = 0;
     const INST_OFFSET: usize = 1;
     const OP0_ADDR_OFFSET: usize = 4;
@@ -619,16 +621,12 @@ fn set_mem_pool(
         trace.set(OP1_VAL_OFFSET + CAIRO_STEP * step_idx, 3, op1_val);
 
         addrs.push(pc);
-        values.push(inst);
         addrs.push(op0_addr);
-        values.push(op0_val);
         addrs.push(dst_addr);
-        values.push(dst_val);
         addrs.push(op1_addr);
-        values.push(op1_val);
     }
 
-    (addrs, values)
+    addrs
 }
 
 // Column 5
@@ -660,10 +658,12 @@ fn set_update_pc(
     }
 }
 
-fn finalize_mem_pool(trace: &mut CairoTraceTable, memory_holes: &mut VecDeque<Felt252>) {
+fn finalize_mem_pool(trace: &mut CairoTraceTable, memory_holes: VecDeque<Felt252>) {
     const MEM_POOL_UNUSED_ADDR_OFFSET: usize = 6;
     const MEM_POOL_UNUSED_VALUE_OFFSET: usize = 7;
     const MEM_POOL_UNUSED_CELL_STEP: usize = 8;
+
+    let mut memory_holes = memory_holes;
 
     let last_hole_addr = memory_holes.pop_back().unwrap();
 
@@ -753,13 +753,10 @@ fn set_sorted_mem_pool(trace: &mut CairoTraceTable, pub_memory: HashMap<Felt252,
 
     assert!(2 * trace.num_steps() >= pub_memory.len());
 
-    println!("PUB MEMORY LEN: {}", pub_memory.len());
-
     let mut mem_pool = trace.get_column(3);
     let first_pub_memory_addr = Felt252::one();
     let first_pub_memory_value = *pub_memory.get(&first_pub_memory_addr).unwrap();
     let first_pub_memory_entry_padding_len = 2 * trace.num_steps() - pub_memory.len();
-    // let first_pub_memory_entry_padding_len = 2 * trace.num_steps() - 32;
     let padding_num_steps = first_pub_memory_entry_padding_len.div_ceil(2);
     let mut first_addr_padding =
         iter::repeat(first_pub_memory_addr).take(first_pub_memory_entry_padding_len);
@@ -1127,7 +1124,13 @@ mod test {
         let (register_states, memory, codelen) =
             run_program(None, CairoLayout::Plain, &program_content).unwrap();
 
-        let pub_inputs = PublicInputs::from_regs_and_mem(&register_states, &memory, codelen);
+        let mut pub_inputs = PublicInputs::from_regs_and_mem(&register_states, &memory, codelen);
+        pub_inputs
+            .public_memory
+            .insert(Felt252::from(31), Felt252::from(33));
+        pub_inputs
+            .public_memory
+            .insert(Felt252::from(32), Felt252::zero());
 
         let (flags, biased_offsets): (Vec<CairoInstructionFlags>, Vec<InstructionOffsets>) =
             register_states
@@ -1158,7 +1161,7 @@ mod test {
             .map(|t| *memory.get(&t.pc).unwrap())
             .collect();
 
-        let (mut sorted_addrs, _sorted_values) = set_mem_pool(
+        let mut sorted_addrs = set_mem_pool(
             &mut trace,
             pcs,
             instructions,
@@ -1171,13 +1174,12 @@ mod test {
         );
 
         sorted_addrs.sort_by_key(|x| x.representative());
-
-        let mut memory_holes = get_memory_holes(&sorted_addrs, codelen);
+        let memory_holes = get_memory_holes(&sorted_addrs, codelen);
         // println!("MEMORY HOLES:");
         // memory_holes
         //     .iter()
         //     .for_each(|h| println!("HOLE ADDR: {}", h));
-        finalize_mem_pool(&mut trace, &mut memory_holes);
+        finalize_mem_pool(&mut trace, memory_holes);
 
         // trace.table.columns()[3][0..50]
         //     .iter()

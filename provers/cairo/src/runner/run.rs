@@ -1,6 +1,6 @@
 use crate::cairo_layout::CairoLayout;
 use crate::cairo_mem::CairoMemory;
-use crate::execution_trace::build_main_trace;
+use crate::execution_trace::build_cairo_execution_trace;
 use crate::layouts::plain::air::PublicInputs;
 use crate::register_states::RegisterStates;
 
@@ -135,7 +135,7 @@ pub fn generate_prover_args(
 
     let mut pub_inputs = PublicInputs::from_regs_and_mem(&register_states, &memory, program_size);
 
-    let main_trace = build_main_trace(&register_states, &memory, &mut pub_inputs);
+    let main_trace = build_cairo_execution_trace(&register_states, &memory, &mut pub_inputs);
 
     Ok((main_trace, pub_inputs))
 }
@@ -154,7 +154,7 @@ pub fn generate_prover_args_from_trace(
     let data_len = 0_usize;
     let mut pub_inputs = PublicInputs::from_regs_and_mem(&register_states, &memory, data_len);
 
-    let main_trace = build_main_trace(&register_states, &memory, &mut pub_inputs);
+    let main_trace = build_cairo_execution_trace(&register_states, &memory, &mut pub_inputs);
 
     Ok((main_trace, pub_inputs))
 }
