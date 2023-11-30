@@ -1,115 +1,11 @@
 pub mod parameters;
 pub mod round_constants;
-// mod starknet_poseidon;
-use self::parameters::PermutationParameters;
-
-use lambdaworks_math::field::{element::FieldElement, traits::IsPrimeField};
-use std::ops::{Add, Mul};
-
-#[derive(Clone)]
-pub struct Poseidon<F: IsPrimeField> {
-    params: PermutationParameters<F>,
-    // Suggestion: Add the state here
-}
-
-impl<F: IsPrimeField> Poseidon<F> {
-    pub fn new_with_params(params: PermutationParameters<F>) -> Self {
-        Poseidon { params }
-    }
-
-    pub fn hades_permutation(&self, state: &mut [FieldElement<F>]) {
-        let mut round_number = 0;
-        for _ in 0..self.params.n_full_rounds / 2 {
-            self.full_round(state, round_number);
-            round_number += 1;
-        }
-        for _ in 0..self.params.n_partial_rounds {
-            self.partial_round(state, round_number);
-            round_number += 1;
-        }
-        for _ in 0..self.params.n_full_rounds / 2 {
-            self.full_round(state, round_number);
-            round_number += 1;
-        }
-    }
-
-    pub fn full_round(&self, state: &mut [FieldElement<F>], round_number: usize) {
-        for (i, value) in state.iter_mut().enumerate() {
-            *value = &(*value) + &self.params.round_constants[round_number][i];
-            *value = value.pow(self.params.alpha);
-        }
-        self.mix(state);
-    }
-    pub fn partial_round(&self, state: &mut [FieldElement<F>], round_number: usize) {
-        for (i, value) in state.iter_mut().enumerate() {
-            *value = &(*value) + &self.params.round_constants[round_number][i];
-        }
-
-        state[self.params.state_size - 1] =
-            state[self.params.state_size - 1].pow(self.params.alpha);
-
-        self.mix(state);
-    }
-
-    pub fn mix(&self, state: &mut [FieldElement<F>]) {
-        let mut new_state: Vec<FieldElement<F>> = Vec::with_capacity(self.params.state_size);
-        for i in 0..self.params.state_size {
-            new_state.push(FieldElement::zero());
-            for (j, current_state) in state.iter().enumerate() {
-                let mut mij = self.params.mds_matrix[i][j].clone();
-                mij = mij.mul(current_state);
-                new_state[i] = new_state[i].clone().add(&mij);
-            }
-        }
-        state.clone_from_slice(&new_state[0..self.params.state_size]);
-    }
-
-    pub fn hash(&self, x: &FieldElement<F>, y: &FieldElement<F>) -> FieldElement<F> {
-        let mut state: Vec<FieldElement<F>> = vec![x.clone(), y.clone(), FieldElement::from(2)];
-        self.hades_permutation(&mut state);
-        let x = &state[0];
-        x.clone()
-    }
-
-    pub fn hash_single(&self, x: &FieldElement<F>) -> FieldElement<F> {
-        let mut state: Vec<FieldElement<F>> =
-            vec![x.clone(), FieldElement::zero(), FieldElement::from(1)];
-        self.hades_permutation(&mut state);
-        let x = &state[0];
-        x.clone()
-    }
-    pub fn hash_many(&self, inputs: &[FieldElement<F>]) -> FieldElement<F> {
-        let r = self.params.rate; // chunk size
-        let m = self.params.state_size; // state size
-
-        // Pad input with 1 followed by 0's (if necessary).
-        let mut values = inputs.to_owned();
-        values.push(FieldElement::from(1));
-        values.resize(((values.len() + r - 1) / r) * r, FieldElement::zero());
-
-        assert!(values.len() % r == 0);
-        let mut state: Vec<FieldElement<F>> = vec![FieldElement::zero(); m];
-
-        // Process each block
-        for block in values.chunks(r) {
-            let mut block_state: Vec<FieldElement<F>> =
-                state[0..r].iter().zip(block).map(|(s, b)| s + b).collect();
-            block_state.extend_from_slice(&state[r..]);
-
-            self.hades_permutation(&mut block_state);
-            state = block_state;
-        }
-
-        state[0].clone()
-    }
-}
+pub use parameters::Poseidon;
+pub use parameters::PoseidonCairoStark252;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::hash::poseidon::starknet::parameters::{
-        DefaultPoseidonParams, PermutationParameters,
-    };
     use lambdaworks_math::field::{
         element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
     };
