@@ -2,21 +2,21 @@ use crate::{common::*, QuadraticArithmeticProgram};
 
 /*
 Represents x^3 + x + 5 = 35, based on https://vitalik.ca/general/2016/12/10/qap.html
-    sym_1 = x * x
-    y = sym_1 * x
-    sym_2 = y + x
-    ~out = sym_2 + 5
+    x * x = sym_1;
+    sym_1 * x = y;
+    (y + x) * 1 = sym_2
+    (sym_2 + 5) * 1 = ~out
 */
 pub fn vitalik_qap() -> QuadraticArithmeticProgram {
     let num_of_public_inputs = 1;
     let [l, r, o] = [
         [
-            ["0", "0", "0", "5"],
-            ["1", "0", "1", "0"],
-            ["0", "0", "0", "0"],
-            ["0", "1", "0", "0"],
-            ["0", "0", "1", "0"],
-            ["0", "0", "0", "1"],
+            ["0", "0", "0", "5"], // 1
+            ["1", "0", "1", "0"], // x
+            ["0", "0", "0", "0"], // ~out
+            ["0", "1", "0", "0"], // sym_1
+            ["0", "0", "1", "0"], // y
+            ["0", "0", "0", "1"], // sym_2
         ],
         [
             ["0", "0", "1", "1"],

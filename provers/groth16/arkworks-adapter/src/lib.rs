@@ -8,8 +8,7 @@ use lambdaworks_math::traits::ByteConversion;
 
 use std::ops::Deref;
 
-// Generates an `R1CS` compatible with Lambda Pinocchio from an Arkworks `ConstraintSystemRef`
-pub fn pinocchio_r1cs_from_arkworks_cs<F: Field>(cs: &ConstraintSystemRef<F>) -> R1CS {
+pub fn r1cs_from_arkworks_cs<F: Field>(cs: &ConstraintSystemRef<F>) -> R1CS {
     cs.inline_all_lcs();
 
     let r1cs_matrices = cs.to_matrices().unwrap();
@@ -85,7 +84,6 @@ fn arkworks_matrix_fps_to_fr_elements<F: Field>(
         .collect()
 }
 
-/// Converts an Arkworks fq to a pinocchio FE
 fn ark_fr_to_fr_element<F: Field>(ark_fq: &F) -> FrElement {
     let mut buff = Vec::<u8>::new();
     ark_fq.serialize_compressed(&mut buff).unwrap();

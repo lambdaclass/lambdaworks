@@ -1,18 +1,18 @@
-use crate::{io_and_witness_from_arkworks_cs, pinocchio_r1cs_from_arkworks_cs};
+use crate::{io_and_witness_from_arkworks_cs, r1cs_from_arkworks_cs};
 use ark_bls12_381::Fr;
-
-use ark_relations::{lc, r1cs::ConstraintSystem};
+use ark_relations::{lc, r1cs::ConstraintSystem, r1cs::Variable};
 use lambdaworks_groth16::{setup, verify, Proof, Prover, QuadraticArithmeticProgram};
 
 #[test]
-fn create_proof_from_arkworks_and_verify_it() {
+fn pinocchio_paper_example() {
     /*
+        pub inp a, b, c, d
+        pub out result
+        sig e
+
         c * d = e
         (a + b) + e = result
-
-        e is witness
     */
-
     let cs = ConstraintSystem::<Fr>::new_ref();
 
     let _a = Fr::from(1555);
@@ -34,7 +34,81 @@ fn create_proof_from_arkworks_and_verify_it() {
     cs.enforce_constraint(lc!() + a + b, lc!() + e, lc!() + result)
         .unwrap();
 
-    let r1cs = pinocchio_r1cs_from_arkworks_cs(&cs);
+    let r1cs = r1cs_from_arkworks_cs(&cs);
+    let w = io_and_witness_from_arkworks_cs(&cs);
+
+    let qap = QuadraticArithmeticProgram::from_r1cs(r1cs);
+
+    println!("---------------------------- witness");
+    println!("----------------------------");
+    w.iter().for_each(|e| {
+        println!("{}", e.to_string());
+    });
+
+    println!("---------------------------- num_pub_ins");
+    println!("----------------------------");
+    println!("{:?}", qap.num_of_public_inputs);
+    qap.l.iter().for_each(|row| {
+        println!("{:?}", row);
+    });
+    qap.r.iter().for_each(|row| {
+        println!("{:?}", row);
+    });
+    qap.o.iter().for_each(|row| {
+        println!("{:?}", row);
+    });
+
+    let (pk, vk) = setup(&qap);
+
+    let serialized_proof = Prover::prove(&w, &qap, &pk).serialize();
+    let deserialized_proof = Proof::deserialize(&serialized_proof).unwrap();
+
+    let accept = verify(&vk, &deserialized_proof, &w[..qap.num_of_public_inputs]);
+    assert!(accept);
+}
+
+#[test]
+fn vitalik_paper_example() {
+    /*
+        pub out ~out
+        sig x, sym_1, y, sym_2
+
+        x * x = sym_1;
+        sym_1 * x = y;
+        (y + x) * 1 = sym_2
+        (sym_2 + 5) * 1 = ~out
+    */
+    let cs = ConstraintSystem::<Fr>::new_ref();
+
+    //["0x1", "0x3", "0x23", "0x9", "0x1b", "0x1e"]
+    let _x = Fr::from(3);
+    let _sym_1 = Fr::from(9);
+    let _y = Fr::from(27);
+    let _sym_2 = Fr::from(30);
+
+    let _out = Fr::from(35);
+
+    let x = cs.new_witness_variable(|| Ok(_x)).unwrap();
+    let sym_1 = cs.new_witness_variable(|| Ok(_sym_1)).unwrap();
+    let y = cs.new_witness_variable(|| Ok(_y)).unwrap();
+    let sym_2 = cs.new_witness_variable(|| Ok(_sym_2)).unwrap();
+
+    let out = cs.new_input_variable(|| Ok(_out)).unwrap();
+
+    cs.enforce_constraint(lc!() + x, lc!() + x, lc!() + sym_1)
+        .unwrap();
+    cs.enforce_constraint(lc!() + sym_1, lc!() + x, lc!() + y)
+        .unwrap();
+    cs.enforce_constraint(lc!() + y + x, lc!() + Variable::One, lc!() + sym_2)
+        .unwrap();
+    cs.enforce_constraint(
+        lc!() + sym_2 + (Fr::from(5), Variable::One),
+        lc!() + Variable::One,
+        lc!() + out,
+    )
+    .unwrap();
+
+    let r1cs = r1cs_from_arkworks_cs(&cs);
     let w = io_and_witness_from_arkworks_cs(&cs);
 
     let qap = QuadraticArithmeticProgram::from_r1cs(r1cs);
