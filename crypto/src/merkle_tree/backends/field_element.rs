@@ -62,7 +62,7 @@ impl<P> IsMerkleTreeBackend for TreePoseidon<P>
 where
     P: PermutationParameters + Default,
     P::F: IsPrimeField,
-    FieldElement<P::F>: Sync + Send
+    FieldElement<P::F>: Sync + Send,
 {
     type Node = FieldElement<P::F>;
     type Data = FieldElement<P::F>;
@@ -71,7 +71,11 @@ where
         Poseidon::<P>::hash_single(input)
     }
 
-    fn hash_new_parent(&self, left: &FieldElement<P::F>, right: &FieldElement<P::F>) -> FieldElement<P::F> {
+    fn hash_new_parent(
+        &self,
+        left: &FieldElement<P::F>,
+        right: &FieldElement<P::F>,
+    ) -> FieldElement<P::F> {
         Poseidon::<P>::hash(left, right)
     }
 }

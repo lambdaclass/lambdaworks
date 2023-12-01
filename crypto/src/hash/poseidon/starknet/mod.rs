@@ -1,5 +1,4 @@
 pub mod parameters;
-pub mod round_constants;
 pub use parameters::Poseidon;
 pub use parameters::PoseidonCairoStark252;
 

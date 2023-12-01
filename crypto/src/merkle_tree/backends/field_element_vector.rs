@@ -4,10 +4,7 @@ use crate::hash::poseidon::starknet::parameters::PermutationParameters;
 use crate::hash::poseidon::starknet::Poseidon;
 use crate::merkle_tree::traits::IsMerkleTreeBackend;
 use lambdaworks_math::{
-    field::{
-        element::FieldElement,
-        traits::IsField,
-    },
+    field::{element::FieldElement, traits::IsField},
     traits::Serializable,
 };
 use sha3::{
@@ -70,7 +67,7 @@ impl<P> IsMerkleTreeBackend for BatchPoseidonTree<P>
 where
     P: PermutationParameters + Default,
     Vec<FieldElement<P::F>>: Sync + Send,
-    FieldElement<P::F>: Sync + Send
+    FieldElement<P::F>: Sync + Send,
 {
     type Node = FieldElement<P::F>;
     type Data = Vec<FieldElement<P::F>>;
@@ -79,7 +76,11 @@ where
         Poseidon::<P>::hash_many(input)
     }
 
-    fn hash_new_parent(&self, left: &FieldElement<P::F>, right: &FieldElement<P::F>) -> FieldElement<P::F> {
+    fn hash_new_parent(
+        &self,
+        left: &FieldElement<P::F>,
+        right: &FieldElement<P::F>,
+    ) -> FieldElement<P::F> {
         Poseidon::<P>::hash(left, right)
     }
 }
