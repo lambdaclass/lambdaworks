@@ -5,7 +5,7 @@ use lambdaworks_math::field::{
     traits::IsPrimeField,
 };
 
-pub trait PermutationParameters: Default {
+pub trait PermutationParameters {
     type F: IsPrimeField + 'static;
 
     const RATE: usize;
