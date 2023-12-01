@@ -1,7 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::hash::poseidon::starknet::parameters::PermutationParameters;
-use crate::hash::poseidon::starknet::Poseidon;
+use crate::hash::poseidon::Poseidon;
 use crate::merkle_tree::traits::IsMerkleTreeBackend;
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsField},
@@ -59,13 +58,13 @@ where
 }
 
 #[derive(Clone, Default)]
-pub struct BatchPoseidonTree<P: PermutationParameters + Default> {
-    _poseidon: PhantomData<Poseidon<P>>,
+pub struct BatchPoseidonTree<P: Poseidon + Default> {
+    _poseidon: PhantomData<P>,
 }
 
 impl<P> IsMerkleTreeBackend for BatchPoseidonTree<P>
 where
-    P: PermutationParameters + Default,
+    P: Poseidon + Default,
     Vec<FieldElement<P::F>>: Sync + Send,
     FieldElement<P::F>: Sync + Send,
 {
@@ -73,7 +72,7 @@ where
     type Data = Vec<FieldElement<P::F>>;
 
     fn hash_data(input: &Vec<FieldElement<P::F>>) -> FieldElement<P::F> {
-        Poseidon::<P>::hash_many(input)
+        <P>::hash_many(input)
     }
 
     fn hash_new_parent(
@@ -81,7 +80,7 @@ where
         left: &FieldElement<P::F>,
         right: &FieldElement<P::F>,
     ) -> FieldElement<P::F> {
-        Poseidon::<P>::hash(left, right)
+        <P>::hash(left, right)
     }
 }
 
