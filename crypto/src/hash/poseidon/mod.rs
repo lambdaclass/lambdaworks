@@ -1,7 +1,9 @@
 use lambdaworks_math::field::element::FieldElement as FE;
 
 pub mod starknet;
-use self::starknet::parameters::*;
+pub mod parameters;
+
+use parameters::PermutationParameters;
 
 mod private {
     use super::*;
@@ -116,6 +118,7 @@ mod tests {
     use lambdaworks_math::field::{
         element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
     };
+    use crate::hash::poseidon::starknet::PoseidonCairoStark252;
 
     #[test]
     fn test_hades_permutation() {
