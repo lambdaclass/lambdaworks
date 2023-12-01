@@ -1,7 +1,7 @@
 use lambdaworks_math::field::element::FieldElement as FE;
 
-pub mod starknet;
 pub mod parameters;
+pub mod starknet;
 
 use parameters::PermutationParameters;
 
@@ -115,10 +115,10 @@ impl<P: PermutationParameters> Poseidon for P {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::hash::poseidon::starknet::PoseidonCairoStark252;
     use lambdaworks_math::field::{
         element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
     };
-    use crate::hash::poseidon::starknet::PoseidonCairoStark252;
 
     #[test]
     fn test_hades_permutation() {

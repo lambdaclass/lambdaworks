@@ -1,9 +1,6 @@
 /// Parameters for Poseidon
 /// Mds constants and rounds constants should be used for the shared field, even if it technically can work for any field with the same configuration
-use lambdaworks_math::field::{
-    element::FieldElement as FE,
-    traits::IsPrimeField,
-};
+use lambdaworks_math::field::{element::FieldElement as FE, traits::IsPrimeField};
 
 pub trait PermutationParameters {
     type F: IsPrimeField + 'static;

@@ -3,10 +3,7 @@ use crate::hash::poseidon::Poseidon;
 
 use crate::merkle_tree::traits::IsMerkleTreeBackend;
 use lambdaworks_math::{
-    field::{
-        element::FieldElement,
-        traits::IsField,
-    },
+    field::{element::FieldElement, traits::IsField},
     traits::Serializable,
 };
 use sha3::{
