@@ -61,16 +61,18 @@ This is the process that takes the circuit of a particular program and produces 
 See the program as a sequence of gates that have left operand, a right operand and an output. The two most basic gates are multiplication and addition gates. In our example, one way of seeing our toy program is as a composition of three gates.
 
 Gate 1: left: e, right: x, output: u = e \* x
+
 Gate 2: left: u, right: x, output: v = e + x
+
 Gate 3: left: v, right: 1, output: w = v - 1
 
 On executing the circuit, all these variables will take a concrete value. All that information can be put in table form. It will be a matrix with all left, right and output values of all the gates. One row per gate. We call the columns of this matrix $L, R, O$. Let's build them for $x=3$ and $e=2$. We get $u=6$, $v=9$ and $w=8$. So the first matrix is:
 
-| A   | B   | C   |
-| --- | --- | --- |
-| 2   | 3   | 6   |
-| 6   | 3   | 9   |
-| 9   | -   | 8   |
+|  Gate  | L   | R   | O   |
+|  ---   | --- | --- | --- |
+|   1    | 2   | 3   | 6   |
+|   2    | 6   | 3   | 9   |
+|   3    | 9   | -   | 8   |
 
 The last gate subtracts a constant value that is part of the program and is not a variable. So it actually has only one input instead of two. And the output is the result of subtracting $1$ to it. That's why it is handled a bit different from the second gate. The symbol "-" in the $R$ column is a consequence of that. With that we mean "any value" because it won't change the result. In the next section we'll see how we implement that. Here we'll use this notation when any value can be put there. In case we have to choose some, we'll default to $0$.
 
