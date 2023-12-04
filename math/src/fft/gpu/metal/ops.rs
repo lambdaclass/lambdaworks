@@ -55,7 +55,7 @@ pub fn fft<F: IsFFTField>(
 
     let result = MetalState::retrieve_contents(&input_buffer);
     let result = bitrev_permutation::<F, _>(&result, state)?;
-    Ok(result.iter().map(FieldElement::<F>::from_raw).collect())
+    Ok(result.into_iter().map(FieldElement::<F>::from_raw).collect())
 }
 
 /// Generates 2^{`order-1`} twiddle factors in parallel, with a certain `config`, in Metal.
