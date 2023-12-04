@@ -1,7 +1,7 @@
 use crate::{io_and_witness_from_arkworks_cs, r1cs_from_arkworks_cs};
 use ark_bls12_381::Fr;
 use ark_relations::{lc, r1cs::ConstraintSystem, r1cs::Variable};
-use lambdaworks_groth16::{setup, verify, Proof, Prover, QuadraticArithmeticProgram};
+use lambdaworks_groth16::{setup, verify, Prover, QuadraticArithmeticProgram};
 
 #[test]
 fn pinocchio_paper_example() {
@@ -37,13 +37,14 @@ fn pinocchio_paper_example() {
     let r1cs = r1cs_from_arkworks_cs(&cs);
     let w = io_and_witness_from_arkworks_cs(&cs);
 
-    let qap = QuadraticArithmeticProgram::from_r1cs(r1cs);
+    let qap = QuadraticArithmeticProgram::from_ark_r1cs(r1cs);
     let (pk, vk) = setup(&qap);
 
-    let serialized_proof = Prover::prove(&w, &qap, &pk).serialize();
-    let deserialized_proof = Proof::deserialize(&serialized_proof).unwrap();
-
-    let accept = verify(&vk, &deserialized_proof, &w[..qap.num_of_public_inputs]);
+    let accept = verify(
+        &vk,
+        &Prover::prove(&w, &qap, &pk),
+        &w[..qap.num_of_public_inputs],
+    );
     assert!(accept);
 }
 
@@ -91,14 +92,15 @@ fn vitalik_example() {
     let r1cs = r1cs_from_arkworks_cs(&cs);
     let w = io_and_witness_from_arkworks_cs(&cs);
 
-    let qap = QuadraticArithmeticProgram::from_r1cs(r1cs);
+    let qap = QuadraticArithmeticProgram::from_ark_r1cs(r1cs);
 
     let (pk, vk) = setup(&qap);
 
-    let serialized_proof = Prover::prove(&w, &qap, &pk).serialize();
-    let deserialized_proof = Proof::deserialize(&serialized_proof).unwrap();
-
-    let accept = verify(&vk, &deserialized_proof, &w[..qap.num_of_public_inputs]);
+    let accept = verify(
+        &vk,
+        &Prover::prove(&w, &qap, &pk),
+        &w[..qap.num_of_public_inputs],
+    );
     assert!(accept);
 }
 
@@ -114,7 +116,7 @@ fn exponentiation_example() {
 
     let mut rng = rand::thread_rng();
     let x = rng.gen::<u64>();
-    let exp = rng.gen::<u8>(); // Others take too much time
+    let exp = rng.gen::<u8>(); // Bigger data types take too much time for a test
 
     let x = Fr::from(x);
     let mut _x = cs.new_witness_variable(|| Ok(x)).unwrap();
@@ -122,9 +124,9 @@ fn exponentiation_example() {
     let mut acc = Fr::from(x);
     let mut _acc = cs.new_witness_variable(|| Ok(x)).unwrap();
 
-    for i in 0..exp - 1 {
+    for _ in 0..exp - 1 {
         acc *= x;
-        let mut _new_acc = cs.new_witness_variable(|| Ok(acc)).unwrap();
+        let _new_acc = cs.new_witness_variable(|| Ok(acc)).unwrap();
         cs.enforce_constraint(lc!() + _acc, lc!() + _x, lc!() + _new_acc)
             .unwrap();
         _acc = _new_acc;
@@ -137,13 +139,14 @@ fn exponentiation_example() {
     let r1cs = r1cs_from_arkworks_cs(&cs);
     let w = io_and_witness_from_arkworks_cs(&cs);
 
-    let qap = QuadraticArithmeticProgram::from_r1cs(r1cs);
+    let qap = QuadraticArithmeticProgram::from_ark_r1cs(r1cs);
 
     let (pk, vk) = setup(&qap);
 
-    let serialized_proof = Prover::prove(&w, &qap, &pk).serialize();
-    let deserialized_proof = Proof::deserialize(&serialized_proof).unwrap();
-
-    let accept = verify(&vk, &deserialized_proof, &w[..qap.num_of_public_inputs]);
+    let accept = verify(
+        &vk,
+        &Prover::prove(&w, &qap, &pk),
+        &w[..qap.num_of_public_inputs],
+    );
     assert!(accept);
 }

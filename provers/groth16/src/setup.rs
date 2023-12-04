@@ -107,10 +107,10 @@ pub fn setup(qap: &QuadraticArithmeticProgram) -> (ProvingKey, VerifyingKey) {
                 &core::iter::successors(
                     // Start from delta^{-1} * t(τ)
                     // Note that t(τ) = (τ^N - 1) because our domain is roots of unity
-                    Some(&delta_inv * (&tw.tau.pow(qap.num_of_gates()) - FrElement::one())),
+                    Some(&delta_inv * (&tw.tau.pow(qap.num_of_gates) - FrElement::one())),
                     |prev| Some(prev * &tw.tau),
                 )
-                .take(qap.num_of_gates() * 2)
+                .take(qap.num_of_gates * 2)
                 .collect::<Vec<_>>(),
                 &g1,
             ),

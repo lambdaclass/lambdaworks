@@ -12,7 +12,36 @@ pub struct QuadraticArithmeticProgram {
 }
 
 impl QuadraticArithmeticProgram {
-    pub fn from_r1cs(r1cs: R1CS) -> Self {
+    fn get_var_polys_from_r1cs(
+        r1cs: &R1CS,
+        var_idx: usize,
+        pad_zeroes: usize,
+    ) -> [Polynomial<FrElement>; 3] {
+        let mut l_padded = r1cs
+            .constraints
+            .iter()
+            .map(|c| c.a[var_idx].clone())
+            .collect::<Vec<_>>();
+        l_padded.extend(vec![FrElement::zero(); pad_zeroes]);
+
+        let mut r_padded = r1cs
+            .constraints
+            .iter()
+            .map(|c| c.b[var_idx].clone())
+            .collect::<Vec<_>>();
+        r_padded.extend(vec![FrElement::zero(); pad_zeroes]);
+
+        let mut o_padded = r1cs
+            .constraints
+            .iter()
+            .map(|c| c.c[var_idx].clone())
+            .collect::<Vec<_>>();
+        o_padded.extend(vec![FrElement::zero(); pad_zeroes]);
+
+        [l_padded, r_padded, o_padded].map(|e| Polynomial::interpolate_fft(&e).unwrap())
+    }
+
+    pub fn from_ark_r1cs(r1cs: R1CS) -> Self {
         let mut l: Vec<Polynomial<FrElement>> = vec![];
         let mut r: Vec<Polynomial<FrElement>> = vec![];
         let mut o: Vec<Polynomial<FrElement>> = vec![];
@@ -20,31 +49,12 @@ impl QuadraticArithmeticProgram {
         let num_gates = r1cs.number_of_constraints();
         let next_power_of_two = num_gates.next_power_of_two();
         let pad_zeroes = next_power_of_two - num_gates;
-        let from_slice = vec![FrElement::zero(); pad_zeroes];
 
         for i in 0..r1cs.witness_size() {
-            let mut l_padded = r1cs
-                .constraints
-                .iter()
-                .map(|c| c.a[i].clone())
-                .collect::<Vec<_>>();
-            l_padded.extend(from_slice.clone());
-            let mut r_padded = r1cs
-                .constraints
-                .iter()
-                .map(|c| c.b[i].clone())
-                .collect::<Vec<_>>();
-            r_padded.extend(from_slice.clone());
-            let mut o_padded = r1cs
-                .constraints
-                .iter()
-                .map(|c| c.c[i].clone())
-                .collect::<Vec<_>>();
-            o_padded.extend(from_slice.clone());
-
-            l.push(Polynomial::interpolate_fft(&l_padded).unwrap());
-            r.push(Polynomial::interpolate_fft(&r_padded).unwrap());
-            o.push(Polynomial::interpolate_fft(&o_padded).unwrap());
+            let [l_poly, r_poly, o_poly] = Self::get_var_polys_from_r1cs(&r1cs, i, pad_zeroes);
+            l.push(l_poly);
+            r.push(r_poly);
+            o.push(o_poly);
         }
 
         QuadraticArithmeticProgram {
@@ -84,10 +94,6 @@ impl QuadraticArithmeticProgram {
         }
     }
 
-    pub fn num_of_gates(&self) -> usize {
-        self.num_of_gates
-    }
-
     pub fn num_of_private_inputs(&self) -> usize {
         self.l.len() - self.num_of_public_inputs
     }
@@ -98,12 +104,12 @@ impl QuadraticArithmeticProgram {
 
     pub fn calculate_h_coefficients(&self, w: &[FrElement]) -> Vec<FrElement> {
         let offset = &ORDER_R_MINUS_1_ROOT_UNITY;
-        let degree = self.num_of_gates() * 2;
+        let degree = self.num_of_gates * 2;
 
         let [l, r, o] = self.scale_and_accumulate_variable_polynomials(w, degree, offset);
 
         // TODO: Change to a vector of offsetted evaluations of x^N-1
-        let mut t = (Polynomial::new_monomial(FrElement::one(), self.num_of_gates())
+        let mut t = (Polynomial::new_monomial(FrElement::one(), self.num_of_gates)
             - FrElement::one())
         .evaluate_offset_fft(1, Some(degree), offset)
         .unwrap();
