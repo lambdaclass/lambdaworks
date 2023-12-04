@@ -74,7 +74,7 @@ fn sparse_matrix_to_dense(
         .collect()
 }
 
-fn sparse_row_to_dense(row: &Vec<(FrElement, usize)>, total_variables: usize) -> Vec<FrElement> {
+fn sparse_row_to_dense(row: &[(FrElement, usize)], total_variables: usize) -> Vec<FrElement> {
     let mut dense_row = vec![FrElement::from(0); total_variables + 1];
     row.iter().for_each(|e| {
         dense_row[e.1] = e.0.clone();
