@@ -6,7 +6,7 @@ use crate::field::{
         quadratic::{HasQuadraticNonResidue, QuadraticExtensionField},
     },
     fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
-    traits::IsField,
+    traits::{IsField, IsSubFieldOf},
 };
 use crate::traits::ByteConversion;
 use crate::unsigned_integer::element::U384;
@@ -71,7 +71,7 @@ impl IsField for Degree2ExtensionField {
 
     /// Returns the division of `a` and `b`
     fn div(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
-        Self::mul(a, &Self::inv(b).unwrap())
+        <Self as IsField>::mul(a, &Self::inv(b).unwrap())
     }
 
     /// Returns a boolean indicating whether `a` and `b` are equal component wise.
@@ -100,6 +100,37 @@ impl IsField for Degree2ExtensionField {
     /// already have correct representations.
     fn from_base_type(x: Self::BaseType) -> Self::BaseType {
         x
+    }
+}
+
+impl IsSubFieldOf<Degree2ExtensionField> for BLS12381PrimeField {
+    fn mul(a: &Self::BaseType, b: &<Degree2ExtensionField as IsField>::BaseType) -> <Degree2ExtensionField as IsField>::BaseType {
+        let a = FieldElement::<Self>::from(a);
+        [&a * &b[0], a * &b[1]]
+    }
+
+    fn add(a: &Self::BaseType, b: &<Degree2ExtensionField as IsField>::BaseType) -> <Degree2ExtensionField as IsField>::BaseType {
+        let a = FieldElement::<Self>::from(a);
+        [a + &b[0], b[1].clone()]
+    }
+
+    fn div(a: &Self::BaseType, b: &<Degree2ExtensionField as IsField>::BaseType) -> <Degree2ExtensionField as IsField>::BaseType {
+        let a = FieldElement::<Self>::from(a);
+        let b_inv = Degree2ExtensionField::inv(b).unwrap();
+        [&a * &b_inv[0], a * &b_inv[1]]
+    }
+
+    fn sub(a: &Self::BaseType, b: &<Degree2ExtensionField as IsField>::BaseType) -> <Degree2ExtensionField as IsField>::BaseType {
+        let a = FieldElement::<Self>::from(a);
+        [a - &b[0], -&b[1]]
+    }
+
+    fn eq(a: &Self::BaseType, b: &<Degree2ExtensionField as IsField>::BaseType) -> bool {
+        b[1] == FieldElement::zero() && a == b[0].value()
+    }
+
+    fn embed(a: Self::BaseType) -> <Degree2ExtensionField as IsField>::BaseType {
+        [FieldElement::from(&a), FieldElement::zero()]
     }
 }
 
