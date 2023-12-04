@@ -3,10 +3,7 @@ use std::marker::PhantomData;
 use crate::hash::poseidon::Poseidon;
 use crate::merkle_tree::traits::IsMerkleTreeBackend;
 use lambdaworks_math::{
-    field::{
-        element::FieldElement,
-        traits::IsField,
-    },
+    field::{element::FieldElement, traits::IsField},
     traits::Serializable,
 };
 use sha3::{
@@ -75,7 +72,11 @@ where
         P::hash_many(input)
     }
 
-    fn hash_new_parent(&self, left: &FieldElement<P::F>, right: &FieldElement<P::F>) -> FieldElement<P::F> {
+    fn hash_new_parent(
+        &self,
+        left: &FieldElement<P::F>,
+        right: &FieldElement<P::F>,
+    ) -> FieldElement<P::F> {
         P::hash(left, right)
     }
 }
