@@ -125,16 +125,17 @@ pub fn run_program(
     let cairo_mem = CairoMemory::from_bytes_le(&memory_vec).unwrap();
     let register_states = RegisterStates::from_bytes_le(&trace_vec).unwrap();
 
-    let codelen = runner.get_program().data_len();
+    let vm_pub_inputs = runner.get_air_public_input(&vm).unwrap();
 
-    let public_memory = (1..=codelen as u64)
-        .map(|i| (Felt252::from(i), *cairo_mem.get(&i).unwrap()))
-        .collect::<HashMap<Felt252, Felt252>>();
-
-    let vm_public_inputs = runner.get_air_public_input(&vm).unwrap();
+    let mut pub_memory: HashMap<Felt252, Felt252> = HashMap::new();
+    vm_pub_inputs.public_memory.iter().for_each(|mem_cell| {
+        let addr = Felt252::from(mem_cell.address as u64);
+        let value = Felt252::from_hex_unchecked(&mem_cell.value.as_ref().unwrap().to_str_radix(16));
+        pub_memory.insert(addr, value);
+    });
 
     let mut memory_segments: HashMap<SegmentName, Segment> = HashMap::new();
-    vm_public_inputs.memory_segments.iter().for_each(|(k, v)| {
+    vm_pub_inputs.memory_segments.iter().for_each(|(k, v)| {
         memory_segments.insert(SegmentName::from(*k), Segment::from(v));
     });
 
@@ -145,12 +146,11 @@ pub fn run_program(
         fp_init: Felt252::from(register_states.rows[0].fp),
         pc_final: Felt252::from(register_states.rows[num_steps - 1].pc),
         ap_final: Felt252::from(register_states.rows[num_steps - 1].ap),
-        range_check_min: Some(vm_public_inputs.rc_min as u16),
-        range_check_max: Some(vm_public_inputs.rc_max as u16),
+        range_check_min: Some(vm_pub_inputs.rc_min as u16),
+        range_check_max: Some(vm_pub_inputs.rc_max as u16),
         memory_segments,
-        public_memory,
+        public_memory: pub_memory,
         num_steps,
-        codelen,
     };
 
     Ok((register_states, cairo_mem, public_inputs))

@@ -64,7 +64,7 @@ pub fn build_main_trace(
     }
     fill_rc_holes(&mut main_trace, &rc_holes);
 
-    let memory_holes = get_memory_holes(&address_cols, public_input.codelen);
+    let memory_holes = get_memory_holes(&address_cols, public_input.public_memory.len());
 
     if !memory_holes.is_empty() {
         fill_memory_holes(&mut main_trace, &memory_holes);
