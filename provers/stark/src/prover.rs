@@ -262,6 +262,7 @@ pub trait IsStarkProver {
         let evaluator = ConstraintEvaluator::new(air, &round_1_result.rap_challenges);
 
         let constraint_evaluations = evaluator.evaluate(
+            air,
             &round_1_result.lde_trace,
             domain,
             transition_coefficients,
