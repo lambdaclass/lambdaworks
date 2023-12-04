@@ -19,7 +19,6 @@ pub trait IsSubFieldOf<F: IsField>: IsField {
     fn add(a: &Self::BaseType, b: &F::BaseType) -> F::BaseType;
     fn div(a: &Self::BaseType, b: &F::BaseType) -> F::BaseType;
     fn sub(a: &Self::BaseType, b: &F::BaseType) -> F::BaseType;
-    fn eq(a: &Self::BaseType, b: &F::BaseType) -> bool;
     fn embed(a: Self::BaseType) -> F::BaseType;
 }
 
@@ -45,11 +44,6 @@ where
     #[inline(always)]
     fn div(a: &Self::BaseType, b: &F::BaseType) -> F::BaseType {
         F::div(a, b)
-    }
-
-    #[inline(always)]
-    fn eq(a: &Self::BaseType, b: &F::BaseType) -> bool {
-        F::eq(a, b)
     }
 
     #[inline(always)]
