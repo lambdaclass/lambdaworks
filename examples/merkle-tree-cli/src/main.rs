@@ -1,6 +1,7 @@
 mod commands;
 use clap::Parser;
 use commands::{MerkleArgs, MerkleEntity};
+use lambdaworks_crypto::hash::poseidon::starknet::PoseidonCairoStark252;
 use lambdaworks_crypto::merkle_tree::{
     backends::field_element::TreePoseidon, merkle::MerkleTree, proof::Proof,
 };
@@ -30,7 +31,7 @@ fn load_tree_values(tree_path: &String) -> Result<Vec<FE>, io::Error> {
 fn generate_merkle_tree(tree_path: String) -> Result<(), io::Error> {
     let values: Vec<FE> = load_tree_values(&tree_path)?;
 
-    let merkle_tree = MerkleTree::<TreePoseidon<Stark252PrimeField>>::build(&values);
+    let merkle_tree = MerkleTree::<TreePoseidon<PoseidonCairoStark252>>::build(&values);
     let root = merkle_tree.root.representative().to_string();
     println!("Generated merkle tree with root: {:?}", root);
 
@@ -44,7 +45,7 @@ fn generate_merkle_tree(tree_path: String) -> Result<(), io::Error> {
 
 fn generate_merkle_proof(tree_path: String, pos: usize) -> Result<(), io::Error> {
     let values: Vec<FE> = load_tree_values(&tree_path)?;
-    let merkle_tree = MerkleTree::<TreePoseidon<Stark252PrimeField>>::build(&values);
+    let merkle_tree = MerkleTree::<TreePoseidon<PoseidonCairoStark252>>::build(&values);
 
     let Some(proof) = merkle_tree.get_proof_by_pos(pos) else {
         return Err(io::Error::new(io::ErrorKind::Other, "Index out of bounds"));
@@ -70,7 +71,7 @@ fn verify_merkle_proof(
     let file_str = fs::read_to_string(proof_path)?;
     let proof: Proof<FE> = serde_json::from_str(&file_str)?;
 
-    match proof.verify::<TreePoseidon<Stark252PrimeField>>(&root_hash, index, &leaf) {
+    match proof.verify::<TreePoseidon<PoseidonCairoStark252>>(&root_hash, index, &leaf) {
         true => println!("\x1b[32mMerkle proof verified succesfully\x1b[0m"),
         false => println!("\x1b[31mMerkle proof failed verifying\x1b[0m"),
     }
