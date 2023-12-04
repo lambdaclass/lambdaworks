@@ -119,7 +119,7 @@ impl<F> Eq for FieldElement<F> where F: IsField {}
 /// Addition operator overloading for field elements
 impl<F, L> Add<&FieldElement<L>> for &FieldElement<F>
 where
-    F: IsField + IsSubFieldOf<L>,
+    F: IsSubFieldOf<L>,
     L: IsField,
 {
     type Output = FieldElement<L>;
@@ -133,7 +133,7 @@ where
 
 impl<F, L> Add<FieldElement<L>> for FieldElement<F>
 where
-    F: IsField + IsSubFieldOf<L>,
+    F: IsSubFieldOf<L>,
     L: IsField,
 {
     type Output = FieldElement<L>;
@@ -145,7 +145,7 @@ where
 
 impl<F, L> Add<&FieldElement<L>> for FieldElement<F>
 where
-    F: IsField + IsSubFieldOf<L>,
+    F: IsSubFieldOf<L>,
     L: IsField,
 {
     type Output = FieldElement<L>;
@@ -157,7 +157,7 @@ where
 
 impl<F, L> Add<FieldElement<L>> for &FieldElement<F>
 where
-    F: IsField + IsSubFieldOf<L>,
+    F: IsSubFieldOf<L>,
     L: IsField,
 {
     type Output = FieldElement<L>;
@@ -170,7 +170,7 @@ where
 /// AddAssign operator overloading for field elements
 impl<F, L> AddAssign<FieldElement<F>> for FieldElement<L>
 where
-    F: IsField + IsSubFieldOf<L>,
+    F: IsSubFieldOf<L>,
     L: IsField,
 {
     fn add_assign(&mut self, rhs: FieldElement<F>) {
@@ -191,7 +191,7 @@ where
 /// Subtraction operator overloading for field elements*/
 impl<F, L> Sub<&FieldElement<L>> for &FieldElement<F>
 where
-    F: IsField + IsSubFieldOf<L>,
+    F: IsSubFieldOf<L>,
     L: IsField,
 {
     type Output = FieldElement<L>;
@@ -205,7 +205,7 @@ where
 
 impl<F, L> Sub<FieldElement<L>> for FieldElement<F>
 where
-    F: IsField + IsSubFieldOf<L>,
+    F: IsSubFieldOf<L>,
     L: IsField,
 {
     type Output = FieldElement<L>;
@@ -217,7 +217,7 @@ where
 
 impl<F, L> Sub<&FieldElement<L>> for FieldElement<F>
 where
-    F: IsField + IsSubFieldOf<L>,
+    F: IsSubFieldOf<L>,
     L: IsField,
 {
     type Output = FieldElement<L>;
@@ -229,7 +229,7 @@ where
 
 impl<F, L> Sub<FieldElement<L>> for &FieldElement<F>
 where
-    F: IsField + IsSubFieldOf<L>,
+    F: IsSubFieldOf<L>,
     L: IsField,
 {
     type Output = FieldElement<L>;
@@ -242,7 +242,7 @@ where
 /// Multiplication operator overloading for field elements*/
 impl<F, L> Mul<&FieldElement<L>> for &FieldElement<F>
 where
-    F: IsField + IsSubFieldOf<L>,
+    F: IsSubFieldOf<L>,
     L: IsField,
 {
     type Output = FieldElement<L>;
@@ -256,7 +256,7 @@ where
 
 impl<F, L> Mul<FieldElement<L>> for FieldElement<F>
 where
-    F: IsField + IsSubFieldOf<L>,
+    F: IsSubFieldOf<L>,
     L: IsField,
 {
     type Output = FieldElement<L>;
@@ -268,7 +268,7 @@ where
 
 impl<F, L> Mul<&FieldElement<L>> for FieldElement<F>
 where
-    F: IsField + IsSubFieldOf<L>,
+    F: IsSubFieldOf<L>,
     L: IsField,
 {
     type Output = FieldElement<L>;
@@ -280,7 +280,7 @@ where
 
 impl<F, L> Mul<FieldElement<L>> for &FieldElement<F>
 where
-    F: IsField + IsSubFieldOf<L>,
+    F: IsSubFieldOf<L>,
     L: IsField,
 {
     type Output = FieldElement<L>;
@@ -293,7 +293,7 @@ where
 /// Division operator overloading for field elements*/
 impl<F, L> Div<&FieldElement<L>> for &FieldElement<F>
 where
-    F: IsField + IsSubFieldOf<L>,
+    F: IsSubFieldOf<L>,
     L: IsField,
 {
     type Output = FieldElement<L>;
@@ -307,7 +307,7 @@ where
 
 impl<F, L> Div<FieldElement<L>> for FieldElement<F>
 where
-    F: IsField + IsSubFieldOf<L>,
+    F: IsSubFieldOf<L>,
     L: IsField,
 {
     type Output = FieldElement<L>;
@@ -319,7 +319,7 @@ where
 
 impl<F, L> Div<&FieldElement<L>> for FieldElement<F>
 where
-    F: IsField + IsSubFieldOf<L>,
+    F: IsSubFieldOf<L>,
     L: IsField,
 {
     type Output = FieldElement<L>;
@@ -331,7 +331,7 @@ where
 
 impl<F, L> Div<FieldElement<L>> for &FieldElement<F>
 where
-    F: IsField + IsSubFieldOf<L>,
+    F: IsSubFieldOf<L>,
     L: IsField,
 {
     type Output = FieldElement<L>;
