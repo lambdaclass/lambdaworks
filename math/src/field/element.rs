@@ -95,9 +95,9 @@ where
     F::BaseType: Clone,
     F: IsField,
 {
-    pub fn from_raw(value: &F::BaseType) -> Self {
+    pub fn from_raw(value: F::BaseType) -> Self {
         Self {
-            value: value.clone(),
+            value,
         }
     }
 
@@ -550,7 +550,7 @@ where
                 }
                 let value = value.ok_or_else(|| de::Error::missing_field("value"))?;
                 let val = F::BaseType::from_bytes_be(&value).unwrap();
-                Ok(FieldElement::from_raw(&val))
+                Ok(FieldElement::from_raw(val))
             }
 
             fn visit_seq<S>(self, mut seq: S) -> Result<FieldElement<F>, S::Error>
@@ -566,7 +566,7 @@ where
                 }
                 let value = value.ok_or_else(|| de::Error::missing_field("value"))?;
                 let val = F::BaseType::from_bytes_be(&value).unwrap();
-                Ok(FieldElement::from_raw(&val))
+                Ok(FieldElement::from_raw(val))
             }
         }
 

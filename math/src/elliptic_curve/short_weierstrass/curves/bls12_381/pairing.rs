@@ -1,6 +1,6 @@
 use super::{
     curve::{BLS12381Curve, MILLER_LOOP_CONSTANT},
-    field_extension::{Degree12ExtensionField, Degree2ExtensionField},
+    field_extension::{Degree12ExtensionField, Degree2ExtensionField, BLS12381PrimeField},
     twist::BLS12381TwistCurve,
 };
 use crate::{
@@ -56,22 +56,23 @@ fn double_accumulate_line(
     let [px, py, _] = p.coordinates();
     let residue = LevelTwoResidue::residue();
     let two_inv = FieldElement::<Degree2ExtensionField>::new_base("d0088f51cbff34d258dd3db21a5d66bb23ba5c279c2895fb39869507b587b120f55ffff58a9ffffdcff7fffffffd556");
+    let three = FieldElement::<BLS12381PrimeField>::from(3);
 
     let a = &two_inv * x1 * y1;
     let b = y1.square();
     let c = z1.square();
-    let d = FieldElement::from(3) * &c;
+    let d = &three * &c;
     let e = BLS12381TwistCurve::b() * d;
-    let f = FieldElement::from(3) * &e;
+    let f = &three * &e;
     let g = two_inv * (&b + &f);
     let h = (y1 + z1).square() - (&b + &c);
 
     let x3 = &a * (&b - &f);
-    let y3 = g.square() - (FieldElement::from(3) * e.square());
+    let y3 = g.square() - (&three * e.square());
     let z3 = &b * &h;
 
     let [h0, h1] = h.value();
-    let x1_sq_3 = FieldElement::from(3) * x1.square();
+    let x1_sq_3 = three * x1.square();
     let [x1_sq_30, x1_sq_31] = x1_sq_3.value();
 
     t.0.value = [x3, y3, z3];
@@ -120,7 +121,7 @@ fn add_accumulate_line(
     let e = &lambda * &d;
     let f = z1 * c;
     let g = x1 * d;
-    let h = &e + f - FieldElement::from(2) * &g;
+    let h = &e + f -  FieldElement::<BLS12381PrimeField>::from(2) * &g;
     let i = y1 * &e;
 
     let x3 = &lambda * &h;
@@ -195,7 +196,7 @@ fn frobenius_square(
     let f0 = FieldElement::new([a0.clone(), a1 * &omega_3, a2 * &omega_3_squared]);
     let f1 = FieldElement::new([b0.clone(), b1 * omega_3, b2 * omega_3_squared]);
 
-    FieldElement::new([f0, f1 * w_raised_to_p_squared_minus_one])
+    FieldElement::new([f0, w_raised_to_p_squared_minus_one * f1 ])
 }
 
 // To understand more about how to reduce the final exponentiation

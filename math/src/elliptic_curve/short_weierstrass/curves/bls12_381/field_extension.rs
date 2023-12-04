@@ -105,8 +105,9 @@ impl IsField for Degree2ExtensionField {
 
 impl IsSubFieldOf<Degree2ExtensionField> for BLS12381PrimeField {
     fn mul(a: &Self::BaseType, b: &<Degree2ExtensionField as IsField>::BaseType) -> <Degree2ExtensionField as IsField>::BaseType {
-        let a = FieldElement::<Self>::from(a);
-        [&a * &b[0], a * &b[1]]
+        let c0 = FieldElement::from_raw(<Self as IsField>::mul(a, b[0].value()));
+        let c1 = FieldElement::from_raw(<Self as IsField>::mul(a, b[1].value()));
+        [c0, c1]
     }
 
     fn add(a: &Self::BaseType, b: &<Degree2ExtensionField as IsField>::BaseType) -> <Degree2ExtensionField as IsField>::BaseType {
