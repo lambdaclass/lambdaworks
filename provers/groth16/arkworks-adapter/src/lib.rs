@@ -12,16 +12,19 @@ pub fn r1cs_from_arkworks_cs<F: Field>(cs: &ConstraintSystemRef<F>) -> R1CS {
     cs.inline_all_lcs();
 
     let r1cs_matrices = cs.to_matrices().unwrap();
-    let total_variables = cs.num_witness_variables() + cs.num_instance_variables() - 1;
+    let num_pub_vars = cs.num_instance_variables();
+    let total_variables = cs.num_witness_variables() + num_pub_vars - 1;
 
-    let a = arkworks_r1cs_matrix_to_qap(&r1cs_matrices.a, total_variables);
-    let b = arkworks_r1cs_matrix_to_qap(&r1cs_matrices.b, total_variables);
-    let c = arkworks_r1cs_matrix_to_qap(&r1cs_matrices.c, total_variables);
-
-    R1CS::new_with_matrixes(a, b, c, cs.num_instance_variables() - 1, 0)
+    R1CS::from_matrices(
+        ark_to_lambda_matrix(&r1cs_matrices.a, total_variables),
+        ark_to_lambda_matrix(&r1cs_matrices.b, total_variables),
+        ark_to_lambda_matrix(&r1cs_matrices.c, total_variables),
+        num_pub_vars - 1,
+        0,
+    )
 }
 
-pub fn io_and_witness_from_arkworks_cs<F: PrimeField>(
+pub fn extract_witness_from_arkworks_cs<F: PrimeField>(
     cs: &ConstraintSystemRef<F>,
 ) -> Vec<FrElement> {
     let binding = cs.borrow().unwrap();
@@ -37,7 +40,7 @@ pub fn io_and_witness_from_arkworks_cs<F: PrimeField>(
     witness
 }
 
-fn arkworks_r1cs_matrix_to_qap<F: Field>(
+fn ark_to_lambda_matrix<F: Field>(
     m: &[Vec<(F, usize)>],
     total_variables: usize,
 ) -> Vec<Vec<FrElement>> {
@@ -72,12 +75,9 @@ fn sparse_matrix_to_dense(
 }
 
 fn sparse_row_to_dense(row: &Vec<(FrElement, usize)>, total_variables: usize) -> Vec<FrElement> {
-    //The first column of the r1cs is used for constants
-
     let mut dense_row = vec![FrElement::from(0); total_variables + 1];
-
-    for element in row {
-        dense_row[element.1] = element.0.clone();
-    }
+    row.iter().for_each(|e| {
+        dense_row[e.1] = e.0.clone();
+    });
     dense_row
 }

@@ -12,96 +12,6 @@ pub struct QuadraticArithmeticProgram {
 }
 
 impl QuadraticArithmeticProgram {
-    fn get_var_polys_from_r1cs(
-        r1cs: &R1CS,
-        var_idx: usize,
-        pad_zeroes: usize,
-    ) -> [Polynomial<FrElement>; 3] {
-        let mut l_padded = r1cs
-            .constraints
-            .iter()
-            .map(|c| c.a[var_idx].clone())
-            .collect::<Vec<_>>();
-        l_padded.extend(vec![FrElement::zero(); pad_zeroes]);
-
-        let mut r_padded = r1cs
-            .constraints
-            .iter()
-            .map(|c| c.b[var_idx].clone())
-            .collect::<Vec<_>>();
-        r_padded.extend(vec![FrElement::zero(); pad_zeroes]);
-
-        let mut o_padded = r1cs
-            .constraints
-            .iter()
-            .map(|c| c.c[var_idx].clone())
-            .collect::<Vec<_>>();
-        o_padded.extend(vec![FrElement::zero(); pad_zeroes]);
-
-        [l_padded, r_padded, o_padded].map(|e| Polynomial::interpolate_fft(&e).unwrap())
-    }
-
-    pub fn from_ark_r1cs(r1cs: R1CS) -> Self {
-        let mut l: Vec<Polynomial<FrElement>> = vec![];
-        let mut r: Vec<Polynomial<FrElement>> = vec![];
-        let mut o: Vec<Polynomial<FrElement>> = vec![];
-
-        let num_gates = r1cs.number_of_constraints();
-        let next_power_of_two = num_gates.next_power_of_two();
-        let pad_zeroes = next_power_of_two - num_gates;
-
-        for i in 0..r1cs.witness_size() {
-            let [l_poly, r_poly, o_poly] = Self::get_var_polys_from_r1cs(&r1cs, i, pad_zeroes);
-            l.push(l_poly);
-            r.push(r_poly);
-            o.push(o_poly);
-        }
-
-        QuadraticArithmeticProgram {
-            l,
-            r,
-            o,
-            num_of_gates: next_power_of_two,
-            num_of_public_inputs: r1cs.number_of_inputs + 1,
-        }
-    }
-
-    pub fn from_variable_matrices(
-        num_of_public_inputs: usize,
-        l: &[Vec<FrElement>],
-        r: &[Vec<FrElement>],
-        o: &[Vec<FrElement>],
-    ) -> Self {
-        let num_of_total_inputs = l.len();
-        assert_eq!(num_of_total_inputs, r.len());
-        assert_eq!(num_of_total_inputs, o.len());
-        assert!(num_of_total_inputs > 0);
-        assert!(num_of_public_inputs <= num_of_total_inputs);
-
-        let num_of_gates = l[0].len();
-        let next_power_of_two = num_of_gates.next_power_of_two();
-        let pad_zeroes = next_power_of_two - num_of_gates;
-        let l = Self::apply_padding(l, pad_zeroes);
-        let r = Self::apply_padding(r, pad_zeroes);
-        let o = Self::apply_padding(o, pad_zeroes);
-
-        Self {
-            num_of_public_inputs,
-            num_of_gates: next_power_of_two,
-            l: Self::build_variable_polynomials(&l),
-            r: Self::build_variable_polynomials(&r),
-            o: Self::build_variable_polynomials(&o),
-        }
-    }
-
-    pub fn num_of_private_inputs(&self) -> usize {
-        self.l.len() - self.num_of_public_inputs
-    }
-
-    pub fn num_of_total_inputs(&self) -> usize {
-        self.l.len()
-    }
-
     pub fn calculate_h_coefficients(&self, w: &[FrElement]) -> Vec<FrElement> {
         let offset = &ORDER_R_MINUS_1_ROOT_UNITY;
         let degree = self.num_of_gates * 2;
@@ -129,25 +39,6 @@ impl QuadraticArithmeticProgram {
             .to_vec()
     }
 
-    fn apply_padding(columns: &[Vec<FrElement>], pad_zeroes: usize) -> Vec<Vec<FrElement>> {
-        let from_slice = vec![FrElement::zero(); pad_zeroes];
-        columns
-            .iter()
-            .map(|column| {
-                let mut new_column = column.clone();
-                new_column.extend_from_slice(&from_slice);
-                new_column
-            })
-            .collect::<Vec<_>>()
-    }
-
-    fn build_variable_polynomials(from_matrix: &[Vec<FrElement>]) -> Vec<Polynomial<FrElement>> {
-        from_matrix
-            .iter()
-            .map(|row| Polynomial::interpolate_fft(row).unwrap())
-            .collect()
-    }
-
     // Compute A.s by summing up polynomials A[0].s, A[1].s, ..., A[n].s
     // In other words, assign the witness coefficients / execution values
     // Similarly for B.s and C.s
@@ -168,4 +59,100 @@ impl QuadraticArithmeticProgram {
                 .unwrap()
         })
     }
+}
+
+impl QuadraticArithmeticProgram {
+    pub fn from_r1cs(r1cs: R1CS) -> QuadraticArithmeticProgram {
+        let num_gates = r1cs.number_of_constraints();
+        let next_power_of_two = num_gates.next_power_of_two();
+        let pad_zeroes = next_power_of_two - num_gates;
+
+        let mut l: Vec<Polynomial<FrElement>> = vec![];
+        let mut r: Vec<Polynomial<FrElement>> = vec![];
+        let mut o: Vec<Polynomial<FrElement>> = vec![];
+        for i in 0..r1cs.witness_size() {
+            let [l_poly, r_poly, o_poly] =
+                get_variable_lro_polynomials_from_r1cs(&r1cs, i, pad_zeroes);
+            l.push(l_poly);
+            r.push(r_poly);
+            o.push(o_poly);
+        }
+
+        QuadraticArithmeticProgram {
+            l,
+            r,
+            o,
+            num_of_gates: next_power_of_two,
+            num_of_public_inputs: r1cs.number_of_inputs + 1, // Compansate for "1"
+        }
+    }
+
+    pub fn from_variable_matrices(
+        num_of_public_inputs: usize,
+        l: &[Vec<FrElement>],
+        r: &[Vec<FrElement>],
+        o: &[Vec<FrElement>],
+    ) -> Self {
+        let num_of_total_inputs = l.len();
+        assert_eq!(num_of_total_inputs, r.len());
+        assert_eq!(num_of_total_inputs, o.len());
+        assert!(num_of_total_inputs > 0);
+        assert!(num_of_public_inputs <= num_of_total_inputs);
+
+        let num_of_gates = l[0].len();
+        let next_power_of_two = num_of_gates.next_power_of_two();
+        let pad_zeroes = next_power_of_two - num_of_gates;
+
+        Self {
+            num_of_public_inputs,
+            num_of_gates: next_power_of_two,
+            l: build_variable_polynomials(&apply_padding(l, pad_zeroes)),
+            r: build_variable_polynomials(&apply_padding(r, pad_zeroes)),
+            o: build_variable_polynomials(&apply_padding(o, pad_zeroes)),
+        }
+    }
+
+    pub fn num_of_private_inputs(&self) -> usize {
+        self.l.len() - self.num_of_public_inputs
+    }
+}
+
+#[inline]
+fn apply_padding(columns: &[Vec<FrElement>], pad_zeroes: usize) -> Vec<Vec<FrElement>> {
+    columns
+        .iter()
+        .map(|column| {
+            let mut new_column = column.clone();
+            new_column.extend(vec![FrElement::zero(); pad_zeroes]);
+            new_column
+        })
+        .collect()
+}
+
+#[inline]
+fn build_variable_polynomials(from_matrix: &[Vec<FrElement>]) -> Vec<Polynomial<FrElement>> {
+    from_matrix
+        .iter()
+        .map(|row| Polynomial::interpolate_fft(row).unwrap())
+        .collect()
+}
+
+#[inline]
+fn get_variable_lro_polynomials_from_r1cs(
+    r1cs: &R1CS,
+    var_idx: usize,
+    pad_zeroes: usize,
+) -> [Polynomial<FrElement>; 3] {
+    let cap = r1cs.number_of_constraints() + pad_zeroes;
+    let mut current_var_l = vec![FrElement::zero(); cap];
+    let mut current_var_r = vec![FrElement::zero(); cap];
+    let mut current_var_o = vec![FrElement::zero(); cap];
+
+    for (i, c) in r1cs.constraints.iter().enumerate() {
+        current_var_l[i] = c.a[var_idx].clone();
+        current_var_r[i] = c.b[var_idx].clone();
+        current_var_o[i] = c.c[var_idx].clone();
+    }
+
+    [current_var_l, current_var_r, current_var_o].map(|e| Polynomial::interpolate_fft(&e).unwrap())
 }
