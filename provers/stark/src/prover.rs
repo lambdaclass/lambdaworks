@@ -90,7 +90,7 @@ where
     F: IsFFTField,
     Polynomial<FieldElement<F>>: FFTPoly<F>,
 {
-    let evaluations = p.evaluate_offset_fft(blowup_factor, Some(domain_size), offset)?;
+    let evaluations = Polynomial::evaluate_offset_fft(&p, blowup_factor, Some(domain_size), offset)?;
     let step = evaluations.len() / (domain_size * blowup_factor);
     match step {
         1 => Ok(evaluations),

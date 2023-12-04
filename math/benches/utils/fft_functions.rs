@@ -29,9 +29,9 @@ pub fn bitrev_permute(input: &mut [FE]) {
 }
 
 pub fn poly_evaluate_fft(poly: &Polynomial<FE>) -> Vec<FE> {
-    poly.evaluate_fft(black_box(1), black_box(None)).unwrap()
+    Polynomial::evaluate_fft::<F>(poly, black_box(1), black_box(None)).unwrap()
 }
 
 pub fn poly_interpolate_fft(evals: &[FE]) {
-    Polynomial::interpolate_fft(evals).unwrap();
+    Polynomial::interpolate_fft::<F>(evals).unwrap();
 }

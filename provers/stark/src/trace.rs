@@ -121,7 +121,7 @@ impl<'t, F: IsFFTField> TraceTable<F> {
         #[cfg(not(feature = "parallel"))]
         let iter = columns.iter();
 
-        iter.map(|col| Polynomial::interpolate_fft(col))
+        iter.map(|col| Polynomial::interpolate_fft::<F>(col))
             .collect::<Result<Vec<Polynomial<FieldElement<F>>>, FFTError>>()
             .unwrap()
     }
