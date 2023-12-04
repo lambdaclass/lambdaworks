@@ -96,9 +96,7 @@ where
     F: IsField,
 {
     pub fn from_raw(value: F::BaseType) -> Self {
-        Self {
-            value,
-        }
+        Self { value }
     }
 
     pub const fn const_from_raw(value: F::BaseType) -> Self {

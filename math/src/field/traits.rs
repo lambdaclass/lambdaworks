@@ -71,9 +71,7 @@ pub trait IsFFTField: IsField {
     }
 
     /// Returns a primitive root of unity of order $2^{order}$.
-    fn get_primitive_root_of_unity(
-        order: u64,
-    ) -> Result<FieldElement<Self>, FieldError> {
+    fn get_primitive_root_of_unity(order: u64) -> Result<FieldElement<Self>, FieldError> {
         let two_adic_primitive_root_of_unity =
             FieldElement::new(Self::TWO_ADIC_PRIMITVE_ROOT_OF_UNITY);
         if order == 0 {

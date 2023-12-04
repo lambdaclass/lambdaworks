@@ -118,7 +118,7 @@ impl IsSubFieldOf<Degree2ExtensionField> for BLS12381PrimeField {
         b: &<Degree2ExtensionField as IsField>::BaseType,
     ) -> <Degree2ExtensionField as IsField>::BaseType {
         let c0 = FieldElement::from_raw(<Self as IsField>::add(a, b[0].value()));
-        let c1 = FieldElement::from_raw(b[1].value().clone());
+        let c1 = FieldElement::from_raw(*b[1].value());
         [c0, c1]
     }
 
@@ -371,7 +371,7 @@ mod tests {
     }
 
     #[test]
-    fn add_base_field_with_degree_2_extension(){
+    fn add_base_field_with_degree_2_extension() {
         let a = FieldElement::<BLS12381PrimeField>::from(3);
         let a_extension = FieldElement::<Degree2ExtensionField>::from(3);
         let b = FieldElement::<Degree2ExtensionField>::from(2);
@@ -379,7 +379,7 @@ mod tests {
     }
 
     #[test]
-    fn mul_base_field_with_degree_2_extension(){
+    fn mul_base_field_with_degree_2_extension() {
         let a = FieldElement::<BLS12381PrimeField>::from(3);
         let a_extension = FieldElement::<Degree2ExtensionField>::from(3);
         let b = FieldElement::<Degree2ExtensionField>::from(2);
@@ -387,7 +387,7 @@ mod tests {
     }
 
     #[test]
-    fn sub_base_field_with_degree_2_extension(){
+    fn sub_base_field_with_degree_2_extension() {
         let a = FieldElement::<BLS12381PrimeField>::from(3);
         let a_extension = FieldElement::<Degree2ExtensionField>::from(3);
         let b = FieldElement::<Degree2ExtensionField>::from(2);
@@ -395,7 +395,7 @@ mod tests {
     }
 
     #[test]
-    fn div_base_field_with_degree_2_extension(){
+    fn div_base_field_with_degree_2_extension() {
         let a = FieldElement::<BLS12381PrimeField>::from(3);
         let a_extension = FieldElement::<Degree2ExtensionField>::from(3);
         let b = FieldElement::<Degree2ExtensionField>::from(2);
@@ -403,7 +403,7 @@ mod tests {
     }
 
     #[test]
-    fn embed_base_field_with_degree_2_extension(){
+    fn embed_base_field_with_degree_2_extension() {
         let a = FieldElement::<BLS12381PrimeField>::from(3);
         let a_extension = FieldElement::<Degree2ExtensionField>::from(3);
         assert_eq!(a.to_extension::<Degree2ExtensionField>(), a_extension);

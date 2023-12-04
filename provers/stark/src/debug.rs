@@ -85,9 +85,7 @@ pub fn validate_trace<F: IsFFTField, A: AIR<Field = F>>(
                 ret = false;
                 error!(
                     "Inconsistent evaluation of transition {} in step {} - expected 0, got {:?}",
-                    i,
-                    step,
-                    eval
+                    i, step, eval
                 );
             }
         })

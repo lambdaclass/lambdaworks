@@ -1,6 +1,6 @@
 use super::{
     curve::{BLS12381Curve, MILLER_LOOP_CONSTANT},
-    field_extension::{Degree12ExtensionField, Degree2ExtensionField, BLS12381PrimeField},
+    field_extension::{BLS12381PrimeField, Degree12ExtensionField, Degree2ExtensionField},
     twist::BLS12381TwistCurve,
 };
 use crate::{
@@ -121,7 +121,7 @@ fn add_accumulate_line(
     let e = &lambda * &d;
     let f = z1 * c;
     let g = x1 * d;
-    let h = &e + f -  FieldElement::<BLS12381PrimeField>::from(2) * &g;
+    let h = &e + f - FieldElement::<BLS12381PrimeField>::from(2) * &g;
     let i = y1 * &e;
 
     let x3 = &lambda * &h;
@@ -196,7 +196,7 @@ fn frobenius_square(
     let f0 = FieldElement::new([a0.clone(), a1 * &omega_3, a2 * &omega_3_squared]);
     let f1 = FieldElement::new([b0.clone(), b1 * omega_3, b2 * omega_3_squared]);
 
-    FieldElement::new([f0, w_raised_to_p_squared_minus_one * f1 ])
+    FieldElement::new([f0, w_raised_to_p_squared_minus_one * f1])
 }
 
 // To understand more about how to reduce the final exponentiation
