@@ -14,40 +14,24 @@ pub struct R1CS {
 }
 
 impl R1CS {
-    pub fn new(
-        constraints: Vec<Constraint>,
-        number_of_inputs: usize,
-        number_of_outputs: usize,
-    ) -> Self {
-        assert!(constraints
-            .iter()
-            .all(|v| v.a.len() == constraints[0].a.len()));
-
-        Self {
-            constraints,
-            number_of_inputs,
-            number_of_outputs,
-        }
-    }
-
     pub fn from_matrices(
         a: Vec<Vec<FrElement>>,
         b: Vec<Vec<FrElement>>,
         c: Vec<Vec<FrElement>>,
-        num_inputs: usize,
-        num_outputs: usize,
+        number_of_inputs: usize,
+        number_of_outputs: usize,
     ) -> Self {
-        Self::new(
-            (0..a.len())
+        Self {
+            constraints: (0..a.len())
                 .map(|i| Constraint {
                     a: a[i].clone(),
                     b: b[i].clone(),
                     c: c[i].clone(),
                 })
                 .collect(),
-            num_inputs,
-            num_outputs,
-        )
+            number_of_inputs,
+            number_of_outputs,
+        }
     }
 
     pub fn number_of_constraints(&self) -> usize {
