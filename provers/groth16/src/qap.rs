@@ -5,6 +5,7 @@ use crate::{common::*, r1cs::R1CS};
 #[derive(Debug)]
 pub struct QuadraticArithmeticProgram {
     pub num_of_public_inputs: usize,
+    pub num_of_gates: usize,
     pub l: Vec<Polynomial<FrElement>>,
     pub r: Vec<Polynomial<FrElement>>,
     pub o: Vec<Polynomial<FrElement>>,
@@ -16,13 +17,10 @@ impl QuadraticArithmeticProgram {
         let mut r: Vec<Polynomial<FrElement>> = vec![];
         let mut o: Vec<Polynomial<FrElement>> = vec![];
 
-        let pad_zeroes =
-            r1cs.number_of_constraints().next_power_of_two() - r1cs.number_of_constraints();
+        let num_gates = r1cs.number_of_constraints();
+        let next_power_of_two = num_gates.next_power_of_two();
+        let pad_zeroes = next_power_of_two - num_gates;
         let from_slice = vec![FrElement::zero(); pad_zeroes];
-
-        let mut barsumi_1: Vec<Vec<FrElement>> = vec![];
-        let mut barsumi_2: Vec<Vec<FrElement>> = vec![];
-        let mut barsumi_3: Vec<Vec<FrElement>> = vec![];
 
         for i in 0..r1cs.witness_size() {
             let mut l_padded = r1cs
@@ -44,38 +42,17 @@ impl QuadraticArithmeticProgram {
                 .collect::<Vec<_>>();
             o_padded.extend(from_slice.clone());
 
-            barsumi_1.push(l_padded.clone());
-            barsumi_2.push(r_padded.clone());
-            barsumi_3.push(o_padded.clone());
-
             l.push(Polynomial::interpolate_fft(&l_padded).unwrap());
             r.push(Polynomial::interpolate_fft(&r_padded).unwrap());
             o.push(Polynomial::interpolate_fft(&o_padded).unwrap());
         }
 
-        println!("--------- L matrix");
-        barsumi_1.iter().for_each(|row| {
-            row.iter().for_each(|e| print!("{} ", e.to_string()));
-            println!();
-        });
-
-        println!("--------- R matrix");
-        barsumi_2.iter().for_each(|row| {
-            row.iter().for_each(|e| print!("{} ", e.to_string()));
-            println!();
-        });
-
-        println!("--------- O matrix");
-        barsumi_3.iter().for_each(|row| {
-            row.iter().for_each(|e| print!("{} ", e.to_string()));
-            println!();
-        });
-
         QuadraticArithmeticProgram {
             l,
             r,
             o,
-            num_of_public_inputs: r1cs.number_of_inputs,
+            num_of_gates: next_power_of_two,
+            num_of_public_inputs: r1cs.number_of_inputs + 1,
         }
     }
 
@@ -92,13 +69,15 @@ impl QuadraticArithmeticProgram {
         assert!(num_of_public_inputs <= num_of_total_inputs);
 
         let num_of_gates = l[0].len();
-        let pad_zeroes = num_of_gates.next_power_of_two() - num_of_gates;
+        let next_power_of_two = num_of_gates.next_power_of_two();
+        let pad_zeroes = next_power_of_two - num_of_gates;
         let l = Self::apply_padding(l, pad_zeroes);
         let r = Self::apply_padding(r, pad_zeroes);
         let o = Self::apply_padding(o, pad_zeroes);
 
         Self {
             num_of_public_inputs,
+            num_of_gates: next_power_of_two,
             l: Self::build_variable_polynomials(&l),
             r: Self::build_variable_polynomials(&r),
             o: Self::build_variable_polynomials(&o),
@@ -106,7 +85,7 @@ impl QuadraticArithmeticProgram {
     }
 
     pub fn num_of_gates(&self) -> usize {
-        self.l[0].degree() + 1
+        self.num_of_gates
     }
 
     pub fn num_of_private_inputs(&self) -> usize {

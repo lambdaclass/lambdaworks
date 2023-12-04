@@ -18,31 +18,6 @@ pub fn r1cs_from_arkworks_cs<F: Field>(cs: &ConstraintSystemRef<F>) -> R1CS {
     let b = arkworks_r1cs_matrix_to_qap(&r1cs_matrices.b, total_variables);
     let c = arkworks_r1cs_matrix_to_qap(&r1cs_matrices.c, total_variables);
 
-    a.iter().for_each(|row| {
-        row.iter().for_each(|e| {
-            print!("{}\t", e.to_string());
-        });
-        println!();
-    });
-    println!("================================");
-    b.iter().for_each(|row| {
-        row.iter().for_each(|e| {
-            print!("{}\t", e.to_string());
-        });
-        println!();
-    });
-    println!("================================");
-    c.iter().for_each(|row| {
-        row.iter().for_each(|e| {
-            print!("{}\t", e.to_string());
-        });
-        println!();
-    });
-
-    /*
-        Notice we can't differentiate outputs and inputs from Arkworks CS, but for the proving system everything that matters is that it's public data (IO),
-        or private data (witness/c_mid)
-    */
     R1CS::new_with_matrixes(a, b, c, cs.num_instance_variables() - 1, 0)
 }
 
@@ -66,9 +41,6 @@ fn arkworks_r1cs_matrix_to_qap<F: Field>(
     m: &[Vec<(F, usize)>],
     total_variables: usize,
 ) -> Vec<Vec<FrElement>> {
-    println!("======== total variables: {}", total_variables);
-    m.iter().for_each(|row| println!("[{:?}]", row));
-
     sparse_matrix_to_dense(&arkworks_matrix_fps_to_fr_elements(m), total_variables)
 }
 

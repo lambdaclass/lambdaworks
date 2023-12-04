@@ -38,26 +38,6 @@ fn pinocchio_paper_example() {
     let w = io_and_witness_from_arkworks_cs(&cs);
 
     let qap = QuadraticArithmeticProgram::from_r1cs(r1cs);
-
-    println!("---------------------------- witness");
-    println!("----------------------------");
-    w.iter().for_each(|e| {
-        println!("{}", e.to_string());
-    });
-
-    println!("---------------------------- num_pub_ins");
-    println!("----------------------------");
-    println!("{:?}", qap.num_of_public_inputs);
-    qap.l.iter().for_each(|row| {
-        println!("{:?}", row);
-    });
-    qap.r.iter().for_each(|row| {
-        println!("{:?}", row);
-    });
-    qap.o.iter().for_each(|row| {
-        println!("{:?}", row);
-    });
-
     let (pk, vk) = setup(&qap);
 
     let serialized_proof = Prover::prove(&w, &qap, &pk).serialize();
@@ -68,7 +48,7 @@ fn pinocchio_paper_example() {
 }
 
 #[test]
-fn vitalik_paper_example() {
+fn vitalik_example() {
     /*
         pub out ~out
         sig x, sym_1, y, sym_2
@@ -113,24 +93,51 @@ fn vitalik_paper_example() {
 
     let qap = QuadraticArithmeticProgram::from_r1cs(r1cs);
 
-    println!("---------------------------- witness");
-    println!("----------------------------");
-    w.iter().for_each(|e| {
-        println!("{}", e.to_string());
-    });
+    let (pk, vk) = setup(&qap);
 
-    println!("---------------------------- num_pub_ins");
-    println!("----------------------------");
-    println!("{:?}", qap.num_of_public_inputs);
-    qap.l.iter().for_each(|row| {
-        println!("{:?}", row);
-    });
-    qap.r.iter().for_each(|row| {
-        println!("{:?}", row);
-    });
-    qap.o.iter().for_each(|row| {
-        println!("{:?}", row);
-    });
+    let serialized_proof = Prover::prove(&w, &qap, &pk).serialize();
+    let deserialized_proof = Proof::deserialize(&serialized_proof).unwrap();
+
+    let accept = verify(&vk, &deserialized_proof, &w[..qap.num_of_public_inputs]);
+    assert!(accept);
+}
+
+use rand::Rng;
+
+#[test]
+fn exponentiation_example() {
+    /*
+        Generates a "linear exponentiation" circuit with a random base and a random exponent.
+        Only the output ~out is public input.
+    */
+    let cs = ConstraintSystem::<Fr>::new_ref();
+
+    let mut rng = rand::thread_rng();
+    let x = rng.gen::<u64>();
+    let exp = rng.gen::<u8>(); // Others take too much time
+
+    let x = Fr::from(x);
+    let mut _x = cs.new_witness_variable(|| Ok(x)).unwrap();
+
+    let mut acc = Fr::from(x);
+    let mut _acc = cs.new_witness_variable(|| Ok(x)).unwrap();
+
+    for i in 0..exp - 1 {
+        acc *= x;
+        let mut _new_acc = cs.new_witness_variable(|| Ok(acc)).unwrap();
+        cs.enforce_constraint(lc!() + _acc, lc!() + _x, lc!() + _new_acc)
+            .unwrap();
+        _acc = _new_acc;
+    }
+
+    let _out = cs.new_input_variable(|| Ok(acc)).unwrap();
+    cs.enforce_constraint(lc!() + _out, lc!() + Variable::One, lc!() + _acc)
+        .unwrap();
+
+    let r1cs = r1cs_from_arkworks_cs(&cs);
+    let w = io_and_witness_from_arkworks_cs(&cs);
+
+    let qap = QuadraticArithmeticProgram::from_r1cs(r1cs);
 
     let (pk, vk) = setup(&qap);
 
