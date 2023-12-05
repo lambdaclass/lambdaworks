@@ -28,7 +28,7 @@ pub fn commit_phase<F: IsFFTField>(
     Vec<FriLayer<F, BatchedMerkleTreeBackend<F>>>,
 )
 where
-    FieldElement<F>: Serializable,
+    FieldElement<F>: Serializable + Sync + Send,
 {
     let mut domain_size = domain_size;
 
@@ -76,7 +76,7 @@ pub fn query_phase<F: IsFFTField>(
     iotas: &[usize],
 ) -> Vec<FriDecommitment<F>>
 where
-    FieldElement<F>: Serializable,
+    FieldElement<F>: Serializable + Sync + Send,
 {
     if !fri_layers.is_empty() {
         let query_list = iotas
@@ -116,7 +116,7 @@ pub fn new_fri_layer<F: IsFFTField>(
 ) -> crate::fri::fri_commitment::FriLayer<F, BatchedMerkleTreeBackend<F>>
 where
     F: IsFFTField,
-    FieldElement<F>: Serializable,
+    FieldElement<F>: Serializable + Sync + Send,
 {
     let mut evaluation =
         Polynomial::evaluate_offset_fft(poly, 1, Some(domain_size), coset_offset).unwrap(); // TODO: return error
