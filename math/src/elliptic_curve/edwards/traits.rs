@@ -12,7 +12,7 @@ pub trait IsEdwards: IsEllipticCurve + Clone + Debug {
         y: &FieldElement<Self::BaseField>,
     ) -> FieldElement<Self::BaseField> {
         (Self::a() * x.pow(2_u16) + y.pow(2_u16))
-            - FieldElement::one()
+            - FieldElement::<Self::BaseField>::one()
             - Self::d() * x.pow(2_u16) * y.pow(2_u16)
     }
 }
