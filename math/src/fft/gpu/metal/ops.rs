@@ -177,7 +177,7 @@ mod tests {
         fn test_metal_fft_matches_sequential(input in field_vec(6)) {
             let metal_state = MetalState::new(None).unwrap();
             let order = input.len().trailing_zeros();
-            let twiddles = get_twiddles(order.into(), RootsConfig::BitReverse).unwrap();
+            let twiddles = get_twiddles::<F>(order.into(), RootsConfig::BitReverse).unwrap();
 
             let metal_result = super::fft(&input, &twiddles, &metal_state).unwrap();
             let sequential_result = crate::fft::cpu::ops::fft(&input, &twiddles).unwrap();
@@ -194,7 +194,7 @@ mod tests {
 
         let metal_state = MetalState::new(None).unwrap();
         let order = input.len().trailing_zeros();
-        let twiddles = get_twiddles(order.into(), RootsConfig::BitReverse).unwrap();
+        let twiddles = get_twiddles::<F>(order.into(), RootsConfig::BitReverse).unwrap();
 
         let metal_result = super::fft(&input, &twiddles, &metal_state).unwrap();
         let sequential_result = crate::fft::cpu::ops::fft(&input, &twiddles).unwrap();
