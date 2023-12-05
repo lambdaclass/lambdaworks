@@ -89,8 +89,7 @@ pub fn evaluate_polynomial_on_lde_domain<F>(
 where
     F: IsFFTField,
 {
-    let evaluations =
-        Polynomial::evaluate_offset_fft(&p, blowup_factor, Some(domain_size), offset)?;
+    let evaluations = Polynomial::evaluate_offset_fft(p, blowup_factor, Some(domain_size), offset)?;
     let step = evaluations.len() / (domain_size * blowup_factor);
     match step {
         1 => Ok(evaluations),

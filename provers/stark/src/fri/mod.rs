@@ -119,7 +119,7 @@ where
     FieldElement<F>: Serializable,
 {
     let mut evaluation =
-        Polynomial::evaluate_offset_fft(&poly, 1, Some(domain_size), coset_offset).unwrap(); // TODO: return error
+        Polynomial::evaluate_offset_fft(poly, 1, Some(domain_size), coset_offset).unwrap(); // TODO: return error
 
     in_place_bit_reverse_permute(&mut evaluation);
 

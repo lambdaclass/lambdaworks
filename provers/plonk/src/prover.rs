@@ -416,17 +416,17 @@ where
         // TODO: check a factor of 4 is a sensible upper bound
         let degree = 4 * cpi.n;
         let offset = &cpi.k1;
-        let p_a_eval = Polynomial::evaluate_offset_fft(&p_a, 1, Some(degree), offset).unwrap();
-        let p_b_eval = Polynomial::evaluate_offset_fft(&p_b, 1, Some(degree), offset).unwrap();
-        let p_c_eval = Polynomial::evaluate_offset_fft(&p_c, 1, Some(degree), offset).unwrap();
+        let p_a_eval = Polynomial::evaluate_offset_fft(p_a, 1, Some(degree), offset).unwrap();
+        let p_b_eval = Polynomial::evaluate_offset_fft(p_b, 1, Some(degree), offset).unwrap();
+        let p_c_eval = Polynomial::evaluate_offset_fft(p_c, 1, Some(degree), offset).unwrap();
         let ql_eval = Polynomial::evaluate_offset_fft(&cpi.ql, 1, Some(degree), offset).unwrap();
         let qr_eval = Polynomial::evaluate_offset_fft(&cpi.qr, 1, Some(degree), offset).unwrap();
         let qm_eval = Polynomial::evaluate_offset_fft(&cpi.qm, 1, Some(degree), offset).unwrap();
         let qo_eval = Polynomial::evaluate_offset_fft(&cpi.qo, 1, Some(degree), offset).unwrap();
         let qc_eval = Polynomial::evaluate_offset_fft(&cpi.qc, 1, Some(degree), offset).unwrap();
         let p_pi_eval = Polynomial::evaluate_offset_fft(&p_pi, 1, Some(degree), offset).unwrap();
-        let p_x_eval = Polynomial::evaluate_offset_fft(&p_x, 1, Some(degree), offset).unwrap();
-        let p_z_eval = Polynomial::evaluate_offset_fft(&p_z, 1, Some(degree), offset).unwrap();
+        let p_x_eval = Polynomial::evaluate_offset_fft(p_x, 1, Some(degree), offset).unwrap();
+        let p_z_eval = Polynomial::evaluate_offset_fft(p_z, 1, Some(degree), offset).unwrap();
         let p_z_x_omega_eval =
             Polynomial::evaluate_offset_fft(&z_x_omega, 1, Some(degree), offset).unwrap();
         let p_s1_eval = Polynomial::evaluate_offset_fft(&cpi.s1, 1, Some(degree), offset).unwrap();

@@ -134,7 +134,7 @@ where
     F: IsFFTField + IsSubFieldOf<E>,
     E: IsField,
 {
-    let poly_2_evaluations = Polynomial::evaluate_fft::<F>(&poly_2, 1, None).unwrap();
+    let poly_2_evaluations = Polynomial::evaluate_fft::<F>(poly_2, 1, None).unwrap();
 
     let values: Vec<_> = poly_2_evaluations
         .iter()
