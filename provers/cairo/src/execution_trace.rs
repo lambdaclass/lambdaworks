@@ -9,7 +9,7 @@ use super::{
     },
     register_states::RegisterStates,
 };
-use crate::air::{SegmentName, EXTRA_ADDR, RC_HOLES};
+use crate::air::{EXTRA_ADDR, RC_HOLES};
 use crate::{
     air::{
         PublicInputs, FRAME_DST_ADDR, FRAME_OP0_ADDR, FRAME_OP1_ADDR, FRAME_PC, OFF_DST, OFF_OP0,
@@ -17,7 +17,7 @@ use crate::{
     },
     Felt252,
 };
-use cairo_vm::{types::program, without_std::collections::HashMap};
+use cairo_vm::without_std::collections::HashMap;
 use lambdaworks_math::{
     field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
     unsigned_integer::element::UnsignedInteger,
@@ -176,7 +176,6 @@ fn get_memory_holes(
             let mut hole_addr = prev_addr + Felt252::one();
 
             while hole_addr.representative() < addr.representative() {
-                // if hole_addr.representative() > (codelen as u64).into() {
                 if !pub_memory.contains_key(&hole_addr) {
                     memory_holes.push(hole_addr);
                 }

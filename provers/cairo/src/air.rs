@@ -1,5 +1,3 @@
-use std::ops::Range;
-
 use cairo_vm::{air_public_input::MemorySegmentAddresses, without_std::collections::HashMap};
 use lambdaworks_math::{
     errors::DeserializationError,
