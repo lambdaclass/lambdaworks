@@ -486,7 +486,7 @@ where
         let p_permutation_2_eval: Vec<_> = p_z_eval
             .iter()
             .zip(l1_eval.iter())
-            .map(|(z, l)| (z - FieldElement::one()) * l)
+            .map(|(z, l)| (z - FieldElement::<F>::one()) * l)
             .collect();
 
         let p_eval: Vec<_> = p_permutation_2_eval
@@ -573,8 +573,8 @@ where
         let zeta_raised_n = Polynomial::new_monomial(r4.zeta.pow(cpi.n + 2), 0); // TODO: Paper says n and 2n, but Gnark uses n+2 and 2n+4
         let zeta_raised_2n = Polynomial::new_monomial(r4.zeta.pow(2 * cpi.n + 4), 0);
 
-        let l1_zeta = (&r4.zeta.pow(cpi.n as u64) - FieldElement::one())
-            / (&r4.zeta - FieldElement::one())
+        let l1_zeta = (&r4.zeta.pow(cpi.n as u64) - FieldElement::<F>::one())
+            / (&r4.zeta - FieldElement::<F>::one())
             / FieldElement::from(cpi.n as u64);
 
         let mut p_non_constant = &cpi.qm * &r4.a_zeta * &r4.b_zeta

@@ -1,6 +1,6 @@
 use crate::field::element::FieldElement;
 use crate::field::errors::FieldError;
-use crate::field::traits::IsField;
+use crate::field::traits::{IsField, IsSubFieldOf};
 #[cfg(feature = "lambdaworks-serde-binary")]
 use crate::traits::ByteConversion;
 use core::fmt::Debug;
@@ -9,24 +9,28 @@ use core::marker::PhantomData;
 /// A general quadratic extension field over `F`
 /// with quadratic non residue `Q::residue()`
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct QuadraticExtensionField<T> {
-    phantom: PhantomData<T>,
+pub struct QuadraticExtensionField<F, T>
+where
+    F: IsField,
+    T: HasQuadraticNonResidue<F>,
+{
+    field: PhantomData<F>,
+    non_residue: PhantomData<T>,
 }
 
-pub type QuadraticExtensionFieldElement<T> = FieldElement<QuadraticExtensionField<T>>;
+pub type QuadraticExtensionFieldElement<F, T> = FieldElement<QuadraticExtensionField<F, T>>;
 
 /// Trait to fix a quadratic non residue.
 /// Used to construct a quadratic extension field by adding
 /// a square root of `residue()`.
-pub trait HasQuadraticNonResidue {
-    type BaseField: IsField;
-
-    fn residue() -> FieldElement<Self::BaseField>;
+pub trait HasQuadraticNonResidue<F: IsField> {
+    fn residue() -> FieldElement<F>;
 }
 
-impl<Q> FieldElement<QuadraticExtensionField<Q>>
+impl<F, Q> FieldElement<QuadraticExtensionField<F, Q>>
 where
-    Q: Clone + Debug + HasQuadraticNonResidue,
+    F: IsField,
+    Q: Clone + Debug + HasQuadraticNonResidue<F>,
 {
     pub fn conjugate(&self) -> Self {
         let [a, b] = self.value();
@@ -64,17 +68,15 @@ where
     }
 }
 
-impl<Q> IsField for QuadraticExtensionField<Q>
+impl<F, Q> IsField for QuadraticExtensionField<F, Q>
 where
-    Q: Clone + Debug + HasQuadraticNonResidue,
+    F: IsField,
+    Q: Clone + Debug + HasQuadraticNonResidue<F>,
 {
-    type BaseType = [FieldElement<Q::BaseField>; 2];
+    type BaseType = [FieldElement<F>; 2];
 
     /// Returns the component wise addition of `a` and `b`
-    fn add(
-        a: &[FieldElement<Q::BaseField>; 2],
-        b: &[FieldElement<Q::BaseField>; 2],
-    ) -> [FieldElement<Q::BaseField>; 2] {
+    fn add(a: &[FieldElement<F>; 2], b: &[FieldElement<F>; 2]) -> [FieldElement<F>; 2] {
         [&a[0] + &b[0], &a[1] + &b[1]]
     }
 
@@ -82,10 +84,7 @@ where
     /// equation:
     /// (a0 + a1 * t) * (b0 + b1 * t) = a0 * b0 + a1 * b1 * Q::residue() + (a0 * b1 + a1 * b0) * t
     /// where `t.pow(2)` equals `Q::residue()`.
-    fn mul(
-        a: &[FieldElement<Q::BaseField>; 2],
-        b: &[FieldElement<Q::BaseField>; 2],
-    ) -> [FieldElement<Q::BaseField>; 2] {
+    fn mul(a: &[FieldElement<F>; 2], b: &[FieldElement<F>; 2]) -> [FieldElement<F>; 2] {
         let q = Q::residue();
         let a0b0 = &a[0] * &b[0];
         let a1b1 = &a[1] * &b[1];
@@ -93,7 +92,7 @@ where
         [&a0b0 + &a1b1 * q, z - a0b0 - a1b1]
     }
 
-    fn square(a: &[FieldElement<Q::BaseField>; 2]) -> [FieldElement<Q::BaseField>; 2] {
+    fn square(a: &[FieldElement<F>; 2]) -> [FieldElement<F>; 2] {
         let [a0, a1] = a;
         let v0 = a0 * a1;
         let c0 = (a0 + a1) * (a0 + Q::residue() * a1) - &v0 - Q::residue() * &v0;
@@ -102,47 +101,39 @@ where
     }
 
     /// Returns the component wise subtraction of `a` and `b`
-    fn sub(
-        a: &[FieldElement<Q::BaseField>; 2],
-        b: &[FieldElement<Q::BaseField>; 2],
-    ) -> [FieldElement<Q::BaseField>; 2] {
+    fn sub(a: &[FieldElement<F>; 2], b: &[FieldElement<F>; 2]) -> [FieldElement<F>; 2] {
         [&a[0] - &b[0], &a[1] - &b[1]]
     }
 
     /// Returns the component wise negation of `a`
-    fn neg(a: &[FieldElement<Q::BaseField>; 2]) -> [FieldElement<Q::BaseField>; 2] {
+    fn neg(a: &[FieldElement<F>; 2]) -> [FieldElement<F>; 2] {
         [-&a[0], -&a[1]]
     }
 
     /// Returns the multiplicative inverse of `a`
     /// This uses the equality `(a0 + a1 * t) * (a0 - a1 * t) = a0.pow(2) - a1.pow(2) * Q::residue()`
-    fn inv(
-        a: &[FieldElement<Q::BaseField>; 2],
-    ) -> Result<[FieldElement<Q::BaseField>; 2], FieldError> {
+    fn inv(a: &[FieldElement<F>; 2]) -> Result<[FieldElement<F>; 2], FieldError> {
         let inv_norm = (a[0].pow(2_u64) - Q::residue() * a[1].pow(2_u64)).inv()?;
         Ok([&a[0] * &inv_norm, -&a[1] * inv_norm])
     }
 
     /// Returns the division of `a` and `b`
-    fn div(
-        a: &[FieldElement<Q::BaseField>; 2],
-        b: &[FieldElement<Q::BaseField>; 2],
-    ) -> [FieldElement<Q::BaseField>; 2] {
-        Self::mul(a, &Self::inv(b).unwrap())
+    fn div(a: &[FieldElement<F>; 2], b: &[FieldElement<F>; 2]) -> [FieldElement<F>; 2] {
+        <Self as IsField>::mul(a, &Self::inv(b).unwrap())
     }
 
     /// Returns a boolean indicating whether `a` and `b` are equal component wise.
-    fn eq(a: &[FieldElement<Q::BaseField>; 2], b: &[FieldElement<Q::BaseField>; 2]) -> bool {
+    fn eq(a: &[FieldElement<F>; 2], b: &[FieldElement<F>; 2]) -> bool {
         a[0] == b[0] && a[1] == b[1]
     }
 
     /// Returns the additive neutral element of the field extension.
-    fn zero() -> [FieldElement<Q::BaseField>; 2] {
+    fn zero() -> [FieldElement<F>; 2] {
         [FieldElement::zero(), FieldElement::zero()]
     }
 
     /// Returns the multiplicative neutral element of the field extension.
-    fn one() -> [FieldElement<Q::BaseField>; 2] {
+    fn one() -> [FieldElement<F>; 2] {
         [FieldElement::one(), FieldElement::zero()]
     }
 
@@ -155,12 +146,59 @@ where
     /// of that element in the field.
     /// Note: for this case this is simply the identity, because the components
     /// already have correct representations.
-    fn from_base_type(x: [FieldElement<Q::BaseField>; 2]) -> [FieldElement<Q::BaseField>; 2] {
+    fn from_base_type(x: [FieldElement<F>; 2]) -> [FieldElement<F>; 2] {
         x
     }
 }
 
-impl<Q: Clone + Debug + HasQuadraticNonResidue> FieldElement<QuadraticExtensionField<Q>> {}
+impl<F, Q> IsSubFieldOf<QuadraticExtensionField<F, Q>> for F
+where
+    F: IsField,
+    Q: Clone + Debug + HasQuadraticNonResidue<F>,
+{
+    fn mul(
+        a: &Self::BaseType,
+        b: &<QuadraticExtensionField<F, Q> as IsField>::BaseType,
+    ) -> <QuadraticExtensionField<F, Q> as IsField>::BaseType {
+        let c0 = FieldElement::from_raw(F::mul(a, &b[0].value()));
+        let c1 = FieldElement::from_raw(F::mul(a, &b[1].value()));
+        [c0, c1]
+    }
+
+    fn add(
+        a: &Self::BaseType,
+        b: &<QuadraticExtensionField<F, Q> as IsField>::BaseType,
+    ) -> <QuadraticExtensionField<F, Q> as IsField>::BaseType {
+        let c0 = FieldElement::from_raw(F::add(a, &b[0].value()));
+        [c0, b[1].clone()]
+    }
+
+    fn div(
+        a: &Self::BaseType,
+        b: &<QuadraticExtensionField<F, Q> as IsField>::BaseType,
+    ) -> <QuadraticExtensionField<F, Q> as IsField>::BaseType {
+        let b_inv = <QuadraticExtensionField<F, Q> as IsField>::inv(&b).unwrap();
+        <Self as IsSubFieldOf<QuadraticExtensionField<F, Q>>>::mul(a, &b_inv)
+    }
+
+    fn sub(
+        a: &Self::BaseType,
+        b: &<QuadraticExtensionField<F, Q> as IsField>::BaseType,
+    ) -> <QuadraticExtensionField<F, Q> as IsField>::BaseType {
+        let c0 = FieldElement::from_raw(F::sub(a, &b[0].value()));
+        let c1 = FieldElement::from_raw(F::neg(&b[1].value()));
+        [c0, c1]
+    }
+
+    fn embed(a: Self::BaseType) -> <QuadraticExtensionField<F, Q> as IsField>::BaseType {
+        [FieldElement::from_raw(a), FieldElement::zero()]
+    }
+}
+
+impl<F: IsField, Q: Clone + Debug + HasQuadraticNonResidue<F>>
+    FieldElement<QuadraticExtensionField<F, Q>>
+{
+}
 
 #[cfg(test)]
 mod tests {
@@ -172,16 +210,15 @@ mod tests {
 
     #[derive(Debug, Clone)]
     struct MyQuadraticNonResidue;
-    impl HasQuadraticNonResidue for MyQuadraticNonResidue {
-        type BaseField = U64PrimeField<ORDER_P>;
-
+    impl HasQuadraticNonResidue<U64PrimeField<ORDER_P>> for MyQuadraticNonResidue {
         fn residue() -> FieldElement<U64PrimeField<ORDER_P>> {
             -FieldElement::one()
         }
     }
 
     type FE = U64FieldElement<ORDER_P>;
-    type MyFieldExtensionBackend = QuadraticExtensionField<MyQuadraticNonResidue>;
+    type MyFieldExtensionBackend =
+        QuadraticExtensionField<U64PrimeField<ORDER_P>, MyQuadraticNonResidue>;
     #[allow(clippy::upper_case_acronyms)]
     type FEE = FieldElement<MyFieldExtensionBackend>;
 
@@ -284,5 +321,69 @@ mod tests {
         let a = FEE::new([FE::new(12), FE::new(5)]);
         let expected_result = FEE::new([FE::new(12), -FE::new(5)]);
         assert_eq!(a.conjugate(), expected_result);
+    }
+
+    #[test]
+    fn test_add_as_subfield_1() {
+        let a = -FE::new(2);
+        let b = FEE::new([FE::new(0), FE::new(3)]);
+        let expected_result = FEE::new([FE::new(57), FE::new(3)]);
+        assert_eq!(a + b, expected_result);
+    }
+
+    #[test]
+    fn test_add_as_subfield_2() {
+        let a = -FE::new(4);
+        let b = FEE::new([FE::new(12), FE::new(5)]);
+        let expected_result = FEE::new([FE::new(8), FE::new(5)]);
+        assert_eq!(a + b, expected_result);
+    }
+
+    #[test]
+    fn test_sub_as_subfield_1() {
+        let a = FE::new(0);
+        let b = FEE::new([-FE::new(2), FE::new(8)]);
+        let expected_result = FEE::new([FE::new(2), FE::new(51)]);
+        assert_eq!(a - b, expected_result);
+    }
+
+    #[test]
+    fn test_sub_a_subfield_2() {
+        let a = FE::new(12);
+        let b = FEE::new([-FE::new(4), -FE::new(2)]);
+        let expected_result = FEE::new([FE::new(16), FE::new(2)]);
+        assert_eq!(a - b, expected_result);
+    }
+
+    #[test]
+    fn test_mul_as_subfield_1() {
+        let a = FE::new(2);
+        let b = FEE::new([-FE::new(2), FE::new(8)]);
+        let expected_result = FEE::new([FE::new(55), FE::new(16)]);
+        assert_eq!(a * b, expected_result);
+    }
+
+    #[test]
+    fn test_mul_as_subfield_2() {
+        let a = FE::new(12);
+        let b = FEE::new([-FE::new(4), FE::new(2)]);
+        let expected_result = FEE::new([FE::new(11), FE::new(24)]);
+        assert_eq!(a * b, expected_result);
+    }
+
+    #[test]
+    fn test_div_as_subfield_1() {
+        let a = FE::new(3);
+        let b = FEE::new([-FE::new(2), FE::new(8)]);
+        let expected_result = FEE::new([FE::new(19), FE::new(17)]);
+        assert_eq!(a / b, expected_result);
+    }
+
+    #[test]
+    fn test_div_as_subfield_2() {
+        let a = FE::new(22);
+        let b = FEE::new([FE::new(4), FE::new(2)]);
+        let expected_result = FEE::new([FE::new(28), FE::new(45)]);
+        assert_eq!(a / b, expected_result);
     }
 }

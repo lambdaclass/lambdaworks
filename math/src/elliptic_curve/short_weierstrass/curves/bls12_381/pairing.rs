@@ -87,7 +87,7 @@ fn double_accumulate_line(
     let [a1, a3, a5] = y.value();
     let b0 = e - b;
     let b2 = FieldElement::new([x1_sq_30 * px, x1_sq_31 * px]);
-    let b3 = FieldElement::new([-h0 * py, -h1 * py]);
+    let b3 = FieldElement::<Degree2ExtensionField>::new([-h0 * py, -h1 * py]);
     *accumulator = FieldElement::new([
         FieldElement::new([
             a0 * &b0 + &residue * (a3 * &b3 + a4 * &b2), // w0
@@ -138,7 +138,7 @@ fn add_accumulate_line(
     let [a1, a3, a5] = y.value();
     let b0 = -lambda.clone() * y2 + theta.clone() * x2;
     let b2 = FieldElement::new([-theta0 * px, -theta1 * px]);
-    let b3 = FieldElement::new([lambda0 * py, lambda1 * py]);
+    let b3 = FieldElement::<Degree2ExtensionField>::new([lambda0 * py, lambda1 * py]);
     *accumulator = FieldElement::new([
         FieldElement::new([
             a0 * &b0 + &residue * (a3 * &b3 + a4 * &b2), // w0

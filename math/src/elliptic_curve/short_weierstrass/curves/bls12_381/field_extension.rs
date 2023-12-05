@@ -198,9 +198,7 @@ pub type Degree6ExtensionField = CubicExtensionField<LevelTwoResidue>;
 
 #[derive(Debug, Clone)]
 pub struct LevelThreeResidue;
-impl HasQuadraticNonResidue for LevelThreeResidue {
-    type BaseField = Degree6ExtensionField;
-
+impl HasQuadraticNonResidue<Degree6ExtensionField> for LevelThreeResidue {
     fn residue() -> FieldElement<Degree6ExtensionField> {
         FieldElement::new([
             FieldElement::zero(),
@@ -210,7 +208,7 @@ impl HasQuadraticNonResidue for LevelThreeResidue {
     }
 }
 
-pub type Degree12ExtensionField = QuadraticExtensionField<LevelThreeResidue>;
+pub type Degree12ExtensionField = QuadraticExtensionField<Degree6ExtensionField, LevelThreeResidue>;
 
 impl FieldElement<BLS12381PrimeField> {
     pub fn new_base(a_hex: &str) -> Self {

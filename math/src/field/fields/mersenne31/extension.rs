@@ -93,12 +93,11 @@ impl IsField for Mersenne31Complex {
     }
 }
 
-pub type Mersenne31ComplexQuadraticExtensionField = QuadraticExtensionField<Mersenne31Complex>;
+pub type Mersenne31ComplexQuadraticExtensionField =
+    QuadraticExtensionField<Mersenne31Field, Mersenne31Complex>;
 
 //TODO: Check this should be for complex and not base field
-impl HasQuadraticNonResidue for Mersenne31Complex {
-    type BaseField = Mersenne31Complex;
-
+impl HasQuadraticNonResidue<Mersenne31Complex> for Mersenne31Complex {
     // Verifiable in Sage with
     // ```sage
     // p = 2**31 - 1  # Mersenne31
