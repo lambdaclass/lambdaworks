@@ -32,11 +32,12 @@ where
     F: IsField,
     FieldElement<F>: Serializable,
     [u8; NUM_BYTES]: From<GenericArray<u8, <D as OutputSizeUser>::OutputSize>>,
+    Vec<FieldElement<F>>: Sync + Send,
 {
     type Node = [u8; NUM_BYTES];
     type Data = Vec<FieldElement<F>>;
 
-    fn hash_data(&self, input: &Vec<FieldElement<F>>) -> [u8; NUM_BYTES] {
+    fn hash_data(input: &Vec<FieldElement<F>>) -> [u8; NUM_BYTES] {
         let mut hasher = D::new();
         for element in input.iter() {
             hasher.update(element.serialize());
@@ -46,7 +47,7 @@ where
         result_hash
     }
 
-    fn hash_new_parent(&self, left: &[u8; NUM_BYTES], right: &[u8; NUM_BYTES]) -> [u8; NUM_BYTES] {
+    fn hash_new_parent(left: &[u8; NUM_BYTES], right: &[u8; NUM_BYTES]) -> [u8; NUM_BYTES] {
         let mut hasher = D::new();
         hasher.update(left);
         hasher.update(right);
@@ -64,16 +65,17 @@ pub struct BatchPoseidonTree<P: Poseidon + Default> {
 impl<P> IsMerkleTreeBackend for BatchPoseidonTree<P>
 where
     P: Poseidon + Default,
+    Vec<FieldElement<P::F>>: Sync + Send,
+    FieldElement<P::F>: Sync + Send,
 {
     type Node = FieldElement<P::F>;
     type Data = Vec<FieldElement<P::F>>;
 
-    fn hash_data(&self, input: &Vec<FieldElement<P::F>>) -> FieldElement<P::F> {
+    fn hash_data(input: &Vec<FieldElement<P::F>>) -> FieldElement<P::F> {
         P::hash_many(input)
     }
 
     fn hash_new_parent(
-        &self,
         left: &FieldElement<P::F>,
         right: &FieldElement<P::F>,
     ) -> FieldElement<P::F> {
