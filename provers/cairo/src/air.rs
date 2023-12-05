@@ -204,21 +204,6 @@ impl Segment {
     }
 }
 
-// impl From<Range<u64>> for Segment {
-//     fn from(range: Range<usize>) -> Self {
-//         Segment {
-//             begin_addr: range.start,
-//             stop_ptr: range.end,
-//         }
-//     }
-// }
-
-// impl From<Segment> for Range<usize> {
-//     fn from(val: Segment) -> Self {
-//         val.begin_addr..val.stop_ptr
-//     }
-// }
-
 impl From<&MemorySegmentAddresses> for Segment {
     fn from(value: &MemorySegmentAddresses) -> Self {
         Self {
@@ -546,7 +531,7 @@ fn add_pub_memory_in_public_input_section(
     let mut a_aux = addresses.to_owned();
     let mut v_aux = values.to_owned();
 
-    let pub_addrs = get_pub_memory_addrs(public_input);
+    let pub_addrs: Vec<Felt252> = public_input.public_memory.clone().into_keys().collect();
     let mut pub_addrs_iter = pub_addrs.iter();
 
     // Iterate over addresses
@@ -568,29 +553,6 @@ fn add_pub_memory_in_public_input_section(
     }
 
     (a_aux, v_aux)
-}
-
-/// Gets public memory addresses of a program. First, this function builds a `Vec` of `FieldElement`s, filling it
-/// incrementally with addresses from `1` to `program_len - 1`, where `program_len` is the length of the program.
-/// If the output builtin is used, `output_range` is `Some(...)` and this function adds incrementally to the resulting
-/// `Vec` addresses from the start to the end of the unwrapped `output_range`.
-fn get_pub_memory_addrs(public_input: &PublicInputs) -> Vec<Felt252> {
-    // let public_memory_len = public_input.public_memory.len() as u64;
-
-    public_input.public_memory.clone().into_keys().collect()
-
-    // if let Some(output_segment) = output_segment {
-    //     let output_range: Range<u64> = output_segment.clone().into();
-    //     let output_section = output_range.end - output_range.start;
-    //     let program_section = public_memory_len - output_section;
-
-    //     (1..=program_section)
-    //         .map(FieldElement::from)
-    //         .chain(output_range.clone().map(FieldElement::from))
-    //         .collect()
-    // } else {
-    //     (1..=public_memory_len).map(FieldElement::from).collect()
-    // }
 }
 
 fn sort_columns_by_memory_address(
@@ -1415,104 +1377,6 @@ mod test {
                 FieldElement::zero(),
                 FieldElement::zero(),
                 FieldElement::from(20),
-            ]
-        );
-    }
-
-    #[test]
-    fn test_build_auxiliary_trace_add_program_with_output_in_public_input_section_works() {
-        let dummy_public_input = PublicInputs {
-            pc_init: FieldElement::zero(),
-            ap_init: FieldElement::zero(),
-            fp_init: FieldElement::zero(),
-            pc_final: FieldElement::zero(),
-            ap_final: FieldElement::zero(),
-            public_memory: HashMap::from([
-                (FieldElement::one(), FieldElement::from(10)),
-                (FieldElement::from(2), FieldElement::from(20)),
-                (FieldElement::from(20), FieldElement::from(40)),
-            ]),
-            range_check_max: None,
-            range_check_min: None,
-            num_steps: 1,
-            memory_segments: MemorySegmentMap::from([(SegmentName::Output, Segment::new(20, 21))]),
-        };
-
-        let a = vec![
-            FieldElement::one(),
-            FieldElement::one(),
-            FieldElement::one(),
-            FieldElement::one(),
-            FieldElement::zero(),
-            FieldElement::one(),
-            FieldElement::one(),
-            FieldElement::one(),
-            FieldElement::one(),
-            FieldElement::zero(),
-            FieldElement::one(),
-            FieldElement::one(),
-            FieldElement::one(),
-            FieldElement::one(),
-            FieldElement::zero(),
-        ];
-
-        let v = vec![
-            FieldElement::one(),
-            FieldElement::one(),
-            FieldElement::zero(),
-            FieldElement::zero(),
-            FieldElement::zero(),
-            FieldElement::zero(),
-            FieldElement::zero(),
-            FieldElement::zero(),
-            FieldElement::zero(),
-            FieldElement::zero(),
-            FieldElement::zero(),
-            FieldElement::zero(),
-            FieldElement::zero(),
-            FieldElement::zero(),
-            FieldElement::zero(),
-        ];
-
-        let (ap, vp) = add_pub_memory_in_public_input_section(&a, &v, &dummy_public_input);
-        assert_eq!(
-            ap,
-            vec![
-                FieldElement::one(),
-                FieldElement::one(),
-                FieldElement::one(),
-                FieldElement::one(),
-                FieldElement::one(),
-                FieldElement::one(),
-                FieldElement::one(),
-                FieldElement::one(),
-                FieldElement::one(),
-                FieldElement::from(2),
-                FieldElement::one(),
-                FieldElement::one(),
-                FieldElement::one(),
-                FieldElement::one(),
-                FieldElement::from(20),
-            ]
-        );
-        assert_eq!(
-            vp,
-            vec![
-                FieldElement::one(),
-                FieldElement::one(),
-                FieldElement::zero(),
-                FieldElement::zero(),
-                FieldElement::from(10),
-                FieldElement::zero(),
-                FieldElement::zero(),
-                FieldElement::zero(),
-                FieldElement::zero(),
-                FieldElement::from(20),
-                FieldElement::zero(),
-                FieldElement::zero(),
-                FieldElement::zero(),
-                FieldElement::zero(),
-                FieldElement::from(40),
             ]
         );
     }
