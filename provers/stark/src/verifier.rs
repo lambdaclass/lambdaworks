@@ -306,7 +306,7 @@ pub trait IsStarkVerifier {
         challenges: &Challenges<Self::Field, A>,
     ) -> bool
     where
-        FieldElement<Self::Field>: Serializable,
+        FieldElement<Self::Field>: Serializable + Sync + Send,
         A: AIR<Field = Self::Field>,
     {
         let (deep_poly_evaluations, deep_poly_evaluations_sym) =
@@ -367,7 +367,7 @@ pub trait IsStarkVerifier {
         value: &[FieldElement<Self::Field>],
     ) -> bool
     where
-        FieldElement<Self::Field>: Serializable,
+        FieldElement<Self::Field>: Serializable + Sync + Send,
     {
         proof.verify::<BatchedMerkleTreeBackend<Self::Field>>(root, index, &value.to_owned())
     }
@@ -382,7 +382,7 @@ pub trait IsStarkVerifier {
         iota: usize,
     ) -> bool
     where
-        FieldElement<Self::Field>: Serializable,
+        FieldElement<Self::Field>: Serializable + Sync + Send,
     {
         let lde_trace_evaluations = vec![
             deep_poly_openings.lde_trace_evaluations[..num_main_columns].to_vec(),
@@ -425,7 +425,7 @@ pub trait IsStarkVerifier {
         iota: &usize,
     ) -> bool
     where
-        FieldElement<Self::Field>: Serializable,
+        FieldElement<Self::Field>: Serializable + Sync + Send,
     {
         let mut value = deep_poly_openings
             .lde_composition_poly_parts_evaluation
@@ -447,7 +447,7 @@ pub trait IsStarkVerifier {
         challenges: &Challenges<F, A>,
     ) -> bool
     where
-        FieldElement<Self::Field>: Serializable,
+        FieldElement<Self::Field>: Serializable + Sync + Send,
     {
         challenges
             .iotas
@@ -486,7 +486,7 @@ pub trait IsStarkVerifier {
         iota: usize,
     ) -> bool
     where
-        FieldElement<Self::Field>: Serializable,
+        FieldElement<Self::Field>: Serializable + Sync + Send,
     {
         let evaluations = if iota % 2 == 1 {
             vec![evaluation_sym.clone(), evaluation.clone()]
@@ -519,7 +519,7 @@ pub trait IsStarkVerifier {
         deep_composition_evaluation_sym: &FieldElement<Self::Field>,
     ) -> bool
     where
-        FieldElement<Self::Field>: Serializable,
+        FieldElement<Self::Field>: Serializable + Sync + Send,
     {
         let fri_layers_merkle_roots = &proof.fri_layers_merkle_roots;
         let evaluation_point_vec: Vec<FieldElement<Self::Field>> =
@@ -670,7 +670,7 @@ pub trait IsStarkVerifier {
     ) -> bool
     where
         A: AIR<Field = Self::Field>,
-        FieldElement<Self::Field>: Serializable,
+        FieldElement<Self::Field>: Serializable + Sync + Send,
     {
         // Verify there are enough queries
         if proof.query_list.len() < proof_options.fri_number_of_queries {

@@ -20,14 +20,13 @@ impl<T: PartialEq + Eq> Proof<T> {
     where
         B: IsMerkleTreeBackend<Node = T>,
     {
-        let hasher = B::default();
-        let mut hashed_value = hasher.hash_data(value);
+        let mut hashed_value = B::hash_data(value);
 
         for sibling_node in self.merkle_path.iter() {
             if index % 2 == 0 {
-                hashed_value = hasher.hash_new_parent(&hashed_value, sibling_node);
+                hashed_value = B::hash_new_parent(&hashed_value, sibling_node);
             } else {
-                hashed_value = hasher.hash_new_parent(sibling_node, &hashed_value);
+                hashed_value = B::hash_new_parent(sibling_node, &hashed_value);
             }
 
             index >>= 1;
