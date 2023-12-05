@@ -658,7 +658,7 @@ mod test {
     #[test]
     fn test_get_memory_holes_empty_pub_memory() {
         // We construct a sorted addresses list [1, 2, 3, 6, 7, 8, 9, 13, 14, 15], and
-        // set codelen = 0. With this value of codelen, any holes present between
+        // an empty public memory. This way, any holes present between
         // the min and max addresses should be returned by the function.
         let mut addrs: Vec<Felt252> = (1..4).map(Felt252::from).collect();
         let addrs_extension: Vec<Felt252> = (6..10).map(Felt252::from).collect();
@@ -682,7 +682,7 @@ mod test {
     #[test]
     fn test_get_memory_holes_inside_program_section() {
         // We construct a sorted addresses list [1, 2, 3, 8, 9] and we
-        // set a codelen of 9. Since all the holes will be inside the
+        // set public memory from address 1 to 9. Since all the holes will be inside the
         // program segment (meaning from addresses 1 to 9), the function
         // should not return any of them.
         let mut addrs: Vec<Felt252> = (1..4).map(Felt252::from).collect();
@@ -704,7 +704,7 @@ mod test {
     #[test]
     fn test_get_memory_holes_outside_program_section() {
         // We construct a sorted addresses list [1, 2, 3, 8, 9] and we
-        // set a codelen of 6. The holes found inside the program section,
+        // set public memory from addresses 1 to 6. The holes found inside the program section,
         // i.e. in the address range between 1 to 6, should not be returned.
         // So addresses 4, 5 and 6 will no be returned, only address 7.
         let mut addrs: Vec<Felt252> = (1..4).map(Felt252::from).collect();
